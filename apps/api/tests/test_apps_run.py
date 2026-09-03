@@ -538,3 +538,65 @@ def test_run_nsfw_app_with_header_ok(ctx):
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.prompt_id == "prompt-app-1")).first()
         assert job.nsfw is True  # NSFW 应用产物打 R18 标
+
+def test_run_h3_graph_uses_dedicated_client_not_pool(ctx, monkeypatch):
+    """海螺图含 MiniMaxH3* 时走 pick_h3_client,不进通用 WorkerPool。"""
+    from unittest.mock import AsyncMock
+
+    c, tokens, _, engine, _, pool = ctx
+    graph = {
+        "6": {"class_type": "UNETLoader", "inputs": {"unet_name": "minimax_h3.safetensors"}},
+        "104": {"class_type": "MiniMaxH3ImageToVideo", "inputs": {"prompt": "hi"}},
+        "9": {"class_type": "SaveVideo", "inputs": {}},
+    }
+    with Session(engine) as s:
+        _seed_app(
+            s, id="h3-i2v-app",
+            workflow_json=graph,
+            params_schema=[{"key": "prompt", "label": "提示词", "type": "textarea", "default": "", "required": True}],
+            bindings={"prompt": {"node": "104", "field": "inputs.prompt"}},
+        )
+
+    fake = pool.client if hasattr(pool, "client") else None
+    # 复用 pool 里那台假 client 的 queue_prompt,但 pick 不应被调用
+    h3_client = pool._client if hasattr(pool, "_client") else None
+
+    class _H3:
+        def __init__(self, inner):
+            self.inner = inner
+            self.base_url = "http://192.168.71.127:8195"
+        async def queue_prompt(self, graph, client_id):  # noqa: ANN001
+            return await self.inner.queue_prompt(graph, client_id)
+
+    inner = pool
+    # ctx pool 是 _RecordingPool,本身 queue_prompt 在其 client 上
+    rec = pool
+
+    async def _pick_h3():
+        # 借用 recording pool 的 queue: 直接返回一个带 queue_prompt 的对象
+        class C:
+            base_url = "http://192.168.71.127:8195"
+            async def queue_prompt(self, graph, client_id):  # noqa: ANN001
+                return "h3-prompt-id"
+        return C()
+
+    monkeypatch.setattr("app.services.h3.pick_h3_client", _pick_h3)
+    monkeypatch.setattr("app.services.h3.ensure_h3_enabled", lambda: None)
+
+    async def _ready(client, node="MiniMaxH3ImageToVideo"):  # noqa: ANN001
+        return None
+    monkeypatch.setattr("app.services.h3.ensure_h3_ready", _ready)
+
+    async def _vram(client):  # noqa: ANN001
+        return None
+    monkeypatch.setattr("app.services.h3.ensure_h3_vram", _vram)
+
+    r = c.post(
+        "/api/apps/h3-i2v-app/run",
+        headers=_h(tokens),
+        json={"values": {"prompt": "一只猫"}},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["prompt_id"] == "h3-prompt-id"
+    assert pool.calls == []
+

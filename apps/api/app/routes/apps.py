@@ -780,6 +780,57 @@ def fork_app(
     return _to_out(a, user, with_workflow=True)
 
 
+
+# 专用实例节点(不在 WorkerPool / ComfyUI-LB)。市场应用图若含这些 class_type,
+# 必须走对应 client,否则 pool.pick 会在通用池里找不到模型/节点 → 503
+# 「没有具备所需模型且可用的 worker」。
+_H3_NODES = {
+    "MiniMaxH3ImageToVideo",
+    "MiniMaxH3ReferenceToVideo",
+    "MiniMaxH3AddGuide",
+    "MiniMaxH3TurboSampler",
+    "MiniMaxH3TurboLoRA",
+}
+_QWEN_EDIT_NODES = {
+    "TextEncodeQwenImageEdit",
+    "TextEncodeQwenImageEditPlus",
+    "TextEncodeQwenImageEditPlus_lrzjason",
+}
+_LONGCAT_NODES = {
+    "LongCatVideoSampler",
+    "LongCatImageToVideo",
+    "LongCatTextToVideo",
+}
+
+
+async def _pick_app_client(pool, nodes: set[str], required: set[str]):
+    """按图上的 class_type 把应用派到专用实例,其余仍走 WorkerPool。"""
+    if nodes & _H3_NODES:
+        from app.services.h3 import ensure_h3_enabled, ensure_h3_ready, ensure_h3_vram, pick_h3_client
+        ensure_h3_enabled()
+        client = await pick_h3_client()
+        probe = "MiniMaxH3ReferenceToVideo" if "MiniMaxH3ReferenceToVideo" in nodes else "MiniMaxH3ImageToVideo"
+        if probe in nodes:
+            await ensure_h3_ready(client, node=probe)
+        else:
+            await ensure_h3_ready(client)
+        await ensure_h3_vram(client)
+        return client
+    if nodes & _QWEN_EDIT_NODES:
+        from app.services.qwen_edit import get_qwen_edit_client
+        return get_qwen_edit_client()
+    if nodes & _LONGCAT_NODES:
+        from app.services import longcat as longcat_svc
+        getter = getattr(longcat_svc, "get_longcat_client", None) or getattr(longcat_svc, "pick_longcat_client", None)
+        if getter is None:
+            raise ComfyUIError("LongCat 专用实例未配置")
+        client = getter()
+        if hasattr(client, "__await__"):
+            client = await client
+        return client
+    return await pool.pick(required=required, required_nodes=nodes)
+
+
 # ---------------------------------------------------------------------------
 # 路由:M2 运行器
 # ---------------------------------------------------------------------------
@@ -813,9 +864,11 @@ async def run_app(
         n["class_type"] for n in graph.values() if isinstance(n, dict) and n.get("class_type")
     }
     try:
-        client = await pool.pick(required=required, required_nodes=nodes)
+        client = await _pick_app_client(pool, nodes, required)
     except ComfyUIError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
+    except HTTPException:
+        raise
     client_id = uuid.uuid4().hex
     try:
         prompt_id = await client.queue_prompt(graph, client_id)
