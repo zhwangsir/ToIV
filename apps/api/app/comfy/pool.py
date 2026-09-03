@@ -108,11 +108,18 @@ class WorkerPool:
             resp = await c.get(self._registry_url)
             resp.raise_for_status()
             data = resp.json()
+        # 注册表里的回环地址是「相对注册表所在机」的(如 LB 本机后端 127.0.0.1:8196),
+        # 跨机消费方(core)要改写到注册表主机,否则成员不可达白白熔断。
+        registry_host = httpx.URL(self._registry_url).host
         urls: list[str] = []
         for b in data.get("backends") or []:
             u = str(b.get("url") or "").strip().rstrip("/")
-            if u:
-                urls.append(u)
+            if not u:
+                continue
+            parsed = httpx.URL(u)
+            if parsed.host in ("127.0.0.1", "localhost") and registry_host:
+                u = str(parsed.copy_with(host=registry_host)).rstrip("/")
+            urls.append(u)
         return urls
 
     def _apply_registry(self, urls: list[str]) -> None:

@@ -178,3 +178,44 @@ def test_config_infinitetalk_base_property():
 
     s = Settings(infinitetalk_base_url=" http://192.168.71.127:8201/ ")
     assert s.infinitetalk_base == "http://192.168.71.127:8201"
+
+
+async def test_registry_loopback_urls_rewritten_to_registry_host(monkeypatch):
+    """注册表里的 127.0.0.1/localhost 是 LB 本机视角;跨机消费方(core)必须改写到
+    注册表主机,否则成员不可达白白熔断(2026-09-03 生产实证)。"""
+    payload = {"backends": [
+        {"url": "http://127.0.0.1:8196"},
+        {"url": "http://localhost:8197/"},
+        {"url": "http://192.168.71.116:8188"},
+    ]}
+
+    class FakeResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return payload
+
+    class FakeHTTP:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def get(self, url):
+            return FakeResp()
+
+    monkeypatch.setattr("app.comfy.pool.httpx.AsyncClient", FakeHTTP)
+    pool = WorkerPool(
+        [FakeClient(A)], registry_url="http://192.168.71.127:8188/admin/backends"
+    )
+    urls = await pool._fetch_registry_urls()
+    assert urls == [
+        "http://192.168.71.127:8196",
+        "http://192.168.71.127:8197",
+        "http://192.168.71.116:8188",
+    ]
