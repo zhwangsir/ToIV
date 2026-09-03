@@ -18,7 +18,12 @@ from app.security import decode_token
 @lru_cache
 def get_pool() -> WorkerPool:
     settings = get_settings()
-    return WorkerPool.from_urls(settings.worker_urls, timeout=settings.request_timeout)
+    return WorkerPool.from_urls(
+        settings.worker_urls,
+        timeout=settings.request_timeout,
+        # 注册表动态跟随(ComfyUI-LB /admin/backends);空串 = 不启用,原行为
+        registry_url=settings.comfy_workers_registry_url.strip() or None,
+    )
 
 
 def _host(url: str) -> str:
@@ -57,6 +62,11 @@ def resolve_worker(worker: str) -> ComfyUIClient:
     # hostname 回退会错配到同机 pool worker(其 output 目录没有 Animate-2 产物)
     wan_animate2_base = getattr(settings, "wan_animate2_base", "")
     if wan_animate2_base and normalized == wan_animate2_base:
+        return ComfyUIClient(normalized, timeout=settings.request_timeout)
+    # InfiniteTalk 专用实例(workstation :8201,不在 pool 白名单):同上,
+    # hostname 回退会错配到同机 pool worker(其 output 目录没有 InfiniteTalk 产物)
+    infinitetalk_base = getattr(settings, "infinitetalk_base", "")
+    if infinitetalk_base and normalized == infinitetalk_base:
         return ComfyUIClient(normalized, timeout=settings.request_timeout)
     # hostname 级回退:兼容旧产物 URL(worker 端口已退役但同机仍存活)
     target_host = _host(normalized)

@@ -12,19 +12,27 @@ P2 把 4 张 GPU 各自的 ComfyUI 进程地址填进 TOIV_COMFY_WORKERS,即可�
 3. 故障转移:pick() 在所有候选都熔断时,返回熔断时间最早的一个(最可能已恢复)。
 4. 显存感知:可选的 vram_free 探测,优先派到显存最充裕的 worker(避免 OOM)。
 5. 指标暴露:stats() 返回各 worker 的健康/负载/熔断状态,供 /health 端点展示。
+6. 注册表动态跟随(2026-09-03):可选 registry_url 指向 ComfyUI-LB 的
+   /admin/backends,pick() 路径按 TTL(60s)惰性刷新池成员——拉取成功以注册表
+   为准(成员增删记 info 日志),失败/为空沿用现有成员(LB 挂不炸池);
+   不配置则成员进程内固定(原行为)。
 """
 from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+import httpx
 import redis as redis_lib
 
 from app.comfy.client import ComfyUIClient, ComfyUIError
 from app.services import redis_client
+
+logger = logging.getLogger(__name__)
 
 _UNREACHABLE = 10**9
 # 熔断器参数
@@ -32,6 +40,9 @@ _BREAKER_FAIL_THRESHOLD = 3  # 连续失败次数阈值
 _BREAKER_COOLDOWN = 30.0  # 熔断冷却期(秒)
 # 健康探测缓存 TTL
 _PROBE_TTL = 5.0
+# 注册表(LB /admin/backends)惰性刷新 TTL 与拉取超时
+_REGISTRY_TTL = 60.0
+_REGISTRY_TIMEOUT = 3.0
 
 
 @dataclass
@@ -62,17 +73,91 @@ class _WorkerState:
 
 
 class WorkerPool:
-    def __init__(self, clients: list[ComfyUIClient]):
+    def __init__(self, clients: list[ComfyUIClient], *,
+                 registry_url: str | None = None,
+                 timeout: float = 30.0,
+                 registry_ttl: float = _REGISTRY_TTL):
         if not clients:
             raise ValueError("WorkerPool 至少需要一个 ComfyUI worker")
         self._states: list[_WorkerState] = [_WorkerState(client=c) for c in clients]
         self._rr = 0  # 轮询计数,用于在负载相同的 worker 间均匀分配
         self._busy: set[str] = set()  # 训练中的 worker URL(摘流出图池,ComfyUI 进程不停)
         self._lock = asyncio.Lock()  # 保护 pick() 并发探测(避免雪崩)
+        # 注册表动态跟随(ComfyUI-LB /admin/backends):非空时 pick() 路径按 TTL
+        # 惰性刷新池成员;空 = 不启用,成员进程内固定(原行为)。
+        self._registry_url = (registry_url or "").strip().rstrip("/") or None
+        self._registry_ttl = registry_ttl
+        self._registry_last_fetch = 0.0  # monotonic 时间戳;0 = 从未拉取
+        self._timeout = timeout  # 注册表新增成员的 ComfyUIClient 超时
 
     @property
     def clients(self) -> list[ComfyUIClient]:
         return [s.client for s in self._states]
+
+    @property
+    def registry_url(self) -> str | None:
+        return self._registry_url
+
+    # ────────────────────────────────
+    # 注册表动态跟随:LB 后端增删 → 池成员跟随(TTL 惰性刷新,失败不炸池)
+    # ────────────────────────────────
+
+    async def _fetch_registry_urls(self) -> list[str]:
+        """拉取注册表,返回归一化后的 backend url 列表。失败抛异常由调用方处理。"""
+        async with httpx.AsyncClient(timeout=_REGISTRY_TIMEOUT) as c:
+            resp = await c.get(self._registry_url)
+            resp.raise_for_status()
+            data = resp.json()
+        urls: list[str] = []
+        for b in data.get("backends") or []:
+            u = str(b.get("url") or "").strip().rstrip("/")
+            if u:
+                urls.append(u)
+        return urls
+
+    def _apply_registry(self, urls: list[str]) -> None:
+        """以注册表为准更新池成员:新增成员建独立状态(探测/熔断正常管理),
+        被移除的成员连同内部状态一起清理。整体替换 self._states 引用,
+        正在进行的 pick() 迭代旧列表不受影响。"""
+        new_set = set(urls)
+        old_urls = [s.client.base_url for s in self._states]
+        old_set = set(old_urls)
+        added = [u for u in urls if u not in old_set]
+        removed = [u for u in old_urls if u not in new_set]
+        if not added and not removed:
+            return
+        kept = [s for s in self._states if s.client.base_url in new_set]
+        kept.extend(
+            _WorkerState(client=ComfyUIClient(u, timeout=self._timeout)) for u in added
+        )
+        self._states = kept
+        logger.info(
+            "ComfyUI worker 池注册表刷新:新增 %s,移除 %s,当前成员 %s",
+            added, removed, [s.client.base_url for s in self._states],
+        )
+
+    async def _maybe_refresh_registry(self) -> None:
+        """TTL 惰性刷新:距上次拉取 < TTL 直接跳过。
+
+        拉取成功且 backends 非空 → 以注册表为准;失败/为空 → 记 warning 沿用
+        现有成员(LB 挂不炸池)。失败也记账时间戳,退避到下个 TTL 再试,避免雪崩。
+        """
+        if not self._registry_url:
+            return
+        now = time.monotonic()
+        if now - self._registry_last_fetch < self._registry_ttl:
+            return
+        self._registry_last_fetch = now
+        try:
+            urls = await self._fetch_registry_urls()
+        except Exception as exc:
+            logger.warning("ComfyUI worker 注册表拉取失败,沿用现有成员:%s", exc)
+            return
+        if not urls:
+            logger.warning("ComfyUI worker 注册表返回空 backends,沿用现有成员")
+            return
+        self._apply_registry(urls)
+
 
     def mark_busy(self, url: str) -> None:
         """标记 worker 训练中 → pick() 跳过它(ComfyUI 进程不停,只不派新出图任务)。"""
@@ -261,6 +346,8 @@ class WorkerPool:
         """
         required = set(required)
         required_nodes = set(required_nodes)
+        # 注册表动态跟随(配置了才生效):TTL 惰性刷新,新成员本轮即可参与挑选
+        await self._maybe_refresh_registry()
         # 快速路径:单 worker 且无特殊要求,直接返回(不探测)
         if not required and not required_nodes and len(self._states) == 1:
             state = self._states[0]
@@ -317,5 +404,7 @@ class WorkerPool:
         return result
 
     @classmethod
-    def from_urls(cls, urls: list[str], timeout: float = 30.0) -> "WorkerPool":
-        return cls([ComfyUIClient(u, timeout=timeout) for u in urls])
+    def from_urls(cls, urls: list[str], timeout: float = 30.0,
+                  *, registry_url: str | None = None) -> "WorkerPool":
+        return cls([ComfyUIClient(u, timeout=timeout) for u in urls],
+                   registry_url=registry_url, timeout=timeout)

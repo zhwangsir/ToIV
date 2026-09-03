@@ -113,3 +113,27 @@ def test_resolve_worker_longcat_exact_match(monkeypatch):
     monkeypatch.setattr("app.deps.get_settings", lambda: fake)
     client = resolve_worker("http://192.168.71.127:8197")
     assert client.base_url == "http://192.168.71.127:8197"
+
+
+def test_resolve_worker_infinitetalk_exact_match(monkeypatch):
+    """InfiniteTalk 专用实例(不在 pool 白名单)必须精确匹配,不能落到 hostname 回退。
+
+    场景:InfiniteTalk 实例 8201 与 pool worker 同机(192.168.71.127),但输出
+    目录不同。若走 hostname 回退会被错配到池 worker,其 output 目录没有
+    InfiniteTalk 产物,经 core 代理下载报 502(E-1 遗留,同 LongCat 坑)。
+    """
+    fake = type(
+        "S",
+        (),
+        {
+            "worker_urls": [
+                "http://192.168.71.127:8189",
+                "http://192.168.71.127:8190",
+            ],
+            "request_timeout": 30.0,
+            "infinitetalk_base": "http://192.168.71.127:8201",
+        },
+    )()
+    monkeypatch.setattr("app.deps.get_settings", lambda: fake)
+    client = resolve_worker("http://192.168.71.127:8201")
+    assert client.base_url == "http://192.168.71.127:8201"

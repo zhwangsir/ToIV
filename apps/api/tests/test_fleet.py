@@ -56,7 +56,7 @@ def test_registry_service_specs_legal():
 def test_registry_workstation_services_match_fleet():
     """workstation 关键服务端口齐全(AGENTS.md 第三节分配,OpenTalking 实测 :4403)。"""
     ports = {s["port"] for s in DEVICES_BY_ID["workstation"]["services"]}
-    assert {8189, 8195, 8197, 8199, 8261, 8262, 8263, 8300, 9004,
+    assert {8196, 8195, 8197, 8199, 8261, 8262, 8263, 8300, 9004,
             9200, 9201, 9202, 9203, 9210, 9211, 9220, 9302, 9304,
             9400, 9401, 9402, 9403, 4403} <= ports
     assert DEVICES_BY_ID["workstation"]["sysmetrics"] is True

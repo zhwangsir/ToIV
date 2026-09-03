@@ -51,7 +51,7 @@ DEVICE_REGISTRY: list[dict] = [
         "probe_host": _WS,
         "sysmetrics": True,
         "services": [
-            _comfy("ComfyUI 通用", 8189, note="GPU0"),
+            _comfy("ComfyUI 通用", 8196, note="GPU0 · gpu0-alt 顶班(原 :8189 被占卡死)"),
             _comfy("H3 主力视频", 8195, note="GPU2 · MiniMax H3"),
             _comfy("LongCat", 8197, note="GPU0 · cache-lru 3"),
             _comfy("Wan-Animate-2", 8199, note="GPU3"),

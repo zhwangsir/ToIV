@@ -13,6 +13,11 @@ class Settings(BaseSettings):
 
     # 逗号分隔的 ComfyUI worker 列表（P0 单实例，P2 起对应多 GPU 多进程）
     comfy_workers: str = "http://192.168.71.127:8189"
+    # ComfyUI-LB 后端注册表地址（GET 返回 {"backends":[{"id","url","gpu","weight",
+    # "remote","healthy"}...]}，如 http://192.168.71.127:8188/admin/backends）。
+    # 非空 = WorkerPool 每 60s 惰性拉取、动态跟随 LB 后端增删（拉取成功以注册表为准，
+    # 失败/为空沿用现有成员，LB 挂不炸池）；空 = 不启用，池成员进程内固定（原行为）。
+    comfy_workers_registry_url: str = ""
     # 默认出图底模(A 期收官):FLUX.2 dev(FLUX.2 家族画质天花板,33GB fp8mixed,已下 NAS +
     # 真机出图验证)。首次载模型 ~2.5min、更吃显存,但开箱即最强画质。Klein(快)/ Z-Image(极速)/
     # Qwen-Image / SD1.5 均保留作可显式选用的其它档。dev 编码器 = mistral_3_small_flux2_fp8(见 model_profiles)。
@@ -406,6 +411,12 @@ class Settings(BaseSettings):
     # 宿主机 RAM 预检阈值(GiB,语义同 h3_min_free_ram_gb;offload 权重驻留 RAM)。
     wan_animate2_min_free_ram_gb: float = 25.0
 
+    # —— InfiniteTalk 音频驱动数字人(专用 ComfyUI 实例,workstation GPU2 :8201) ——
+    # 独立于 WorkerPool(InfiniteTalk 节点仅该实例装有);systemd comfyui-infinitetalk.service
+    # 托管。resolve_worker 需精确匹配(同机 hostname 回退会错配到池 worker,
+    # 其 output 目录没有 InfiniteTalk 产物,见 E-1)。
+    infinitetalk_base_url: str = "http://192.168.71.127:8201"
+
     # —— LTX-2.5 Multishot 一键多镜头(2026-08-28 重新引入,与退役 :8198 旧链无关) ——
     # 落点 pc01(RTX 5090 32G,ComfyUI 0.33.0 原生 LTX-2.5 节点,NVFP4 FP4 加速):
     # 复用 LB 池 worker :8188——同进程显存统一调度,22B 加载时自动驱逐池模型缓存,
@@ -511,6 +522,11 @@ class Settings(BaseSettings):
     def wan_animate2_base(self) -> str:
         """Wan-Animate-2 专用实例基址(已去尾斜杠)。"""
         return self.wan_animate2_base_url.strip().rstrip("/")
+
+    @property
+    def infinitetalk_base(self) -> str:
+        """InfiniteTalk 专用实例基址(已去尾斜杠)。"""
+        return self.infinitetalk_base_url.strip().rstrip("/")
 
     @property
     def ltx25_worker(self) -> str:

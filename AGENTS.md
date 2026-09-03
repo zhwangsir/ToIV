@@ -144,7 +144,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ### E. 引擎/工作流类
 
-- **E-1 新专用 ComfyUI 实例必须补 `deps.resolve_worker()` 精确匹配**：否则同机实例被 hostname 回退错配,作业成功但产物 502。⚠️ InfiniteTalk :8201 尚未补(09-03)。
+- **E-1 新专用 ComfyUI 实例必须补 `deps.resolve_worker()` 精确匹配**：否则同机实例被 hostname 回退错配,作业成功但产物 502。InfiniteTalk :8201 已补(09-03,`infinitetalk_base_url` 配置 + 精确匹配段,待提交)。
 - **E-2 LongCat 链路坑**：TI2V i2v 用 WanVideoEncode→extra_latents;Avatar v1.5 音频必须 whisper-large-v3;WanVideoWrapper 必须 `rope_function="comfy"`。
 - **E-3 引擎探测通过≠链路可跑**：新引擎必须真机 e2e 后交付(LTX 音画链实证)。
 - **E-4 vLLM 坑**：NVML mismatch 炸平台探测(补丁 /home/merlin/patch_vllm_nvml.py);跑不了 LLaVA 架构 JoyCaption(用 transformers);vllm-node 镜像缺 vllm[audio];**served-model-name 别名机制——换模型保别名=core 零改动**。
@@ -204,6 +204,6 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - [ ] 项目负责人推送 DRT 到 core（备份在 workstation /var/tmp）
 - [ ] Cloud SSH banner 超时排查（HTTPS 正常）
 - [ ] comfyui-gpu0 :8189 占用者清理与回切评估（:8196 alt 顶班中;AIGCPannel 处置方收口,见 H-7）
-- [ ] InfiniteTalk :8201 补 `deps.resolve_worker()` 精确匹配（E-1,09-03 遗留）
+- [x] InfiniteTalk :8201 补 `deps.resolve_worker()` 精确匹配（E-1,09-03 遗留；代码已改待提交部署）
 - [ ] GPU0 reset（独立未修事项,勿写成已修）
 - [x] 已核销：ltx25 处置 / trackJob abort / test_duration flaky / ToIV 迁移 core / 域名双入口 / spark02 无审查替换 / `TOIV_CIVITAI_API_KEY`
