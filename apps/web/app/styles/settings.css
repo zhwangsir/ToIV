@@ -7,7 +7,10 @@
 .settings-view {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  /* 2026-09-04 美化 W4:间距收编 --section-gap 令牌;版型档对齐 UI_STANDARD §13
+     设置/观测/管理 = 标准档 --layout-content(基座壳默认 wide 档) */
+  gap: var(--section-gap);
+  max-width: var(--layout-content);
 }
 
 /* ── 分区栅格:桌面双列,宽卡通栏;区间距由 hairline + 内边距承担 ── */
@@ -35,7 +38,8 @@
   align-items: center;
   gap: var(--space-2);
   margin: 0;
-  font-size: var(--text-body);
+  /* 2026-09-04 美化 W4:分区标题升到 section 档(15px),与全站区块标题同节奏 */
+  font-size: var(--text-section);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
@@ -176,18 +180,7 @@
   }
 }
 
-/* 空态(2026-09-02 W3):虚线框面板 → 单行 muted 提示(at-empty--inline 语言(empty-console-hint 已于 W2A 退役)) */
-.settings-engines-empty {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) 0;
-  color: var(--text-muted);
-}
-.settings-engines-empty p {
-  margin: 0;
-  font-size: var(--text-aux);
-}
+/* 空态(2026-09-04 美化 W4):私造单行容器删除,收编 ui/Empty 共享三档 inline 档 */
 
 .settings-engines-error {
   display: flex;

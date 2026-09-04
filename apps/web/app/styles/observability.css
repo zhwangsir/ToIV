@@ -114,7 +114,7 @@
 .obs-orch-name {
   margin: 0;
   font-size: var(--text-body);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
 

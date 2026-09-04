@@ -94,7 +94,9 @@ export function AuditLogView() {
         )}
 
         {!error && !loading && isEmpty && (
+          /* 空态升级(2026-09-04 美化 W4):inline 单行 → section 档(图标+标题+引导) */
           <Empty
+            size="section"
             icon="history"
             title="暂无操作记录"
             desc="用户的关键操作(删除/撤销/管理动作)会记录在这里"
@@ -128,10 +130,11 @@ export function AuditLogView() {
                     </td>
                     <td className="audit-summary">{l.summary || "—"}</td>
                     <td>
+                      {/* 状态徽章语义化(2026-09-04 美化 W4):生效=ok 语义,撤销=中性 hairline */}
                       {l.undone ? (
-                        <span className="badge">已撤销</span>
+                        <span className="at-badge">已撤销</span>
                       ) : (
-                        <span className="badge badge-accent">生效</span>
+                        <span className="at-badge at-badge--ok">生效</span>
                       )}
                     </td>
                     <td className="audit-time">{formatTime(l.created_at)}</td>

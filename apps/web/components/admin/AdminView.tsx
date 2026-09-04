@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createUser, deleteUser, listUsers } from "@/lib/api";
 import type { AdminUser } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
+import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Modal } from "@/components/ui/Modal";
@@ -262,13 +263,13 @@ export function AdminView() {
         )}
 
         {!error && !loading && isEmpty && (
-          <div className="empty-state admin-empty">
-            <div className="empty-state-icon">
-              <Icon name="admin" size={48} strokeWidth={1.2} />
-            </div>
-            <div className="empty-state-title">还没有用户</div>
-            <div className="empty-state-desc">点击右上角「新建用户」创建第一个账户</div>
-          </div>
+          /* 空态升级(2026-09-04 美化 W4):私造 .empty-state 圆盘收编共享三档 section 档 */
+          <Empty
+            size="section"
+            icon="admin"
+            title="还没有用户"
+            desc="点击右上角「新建用户」创建第一个账户"
+          />
         )}
 
         {!error && !loading && !isEmpty && (
@@ -460,6 +461,9 @@ export function AdminView() {
           display: flex;
           flex-direction: column;
           gap: var(--section-gap);
+          /* 版型档对齐 UI_STANDARD §13(2026-09-04 美化 W4):管理 = 标准档
+             --layout-content(基座 .single-view 默认 wide 档) */
+          max-width: var(--layout-content);
         }
 
         .admin-tabs {
@@ -508,6 +512,8 @@ export function AdminView() {
         .admin-stat-value {
           font-size: var(--text-display-md);
           font-weight: var(--font-bold);
+          /* 统计大数字 mono(2026-09-04 美化 W4,规范 §3 数字一律 mono+tnum) */
+          font-family: var(--font-mono);
           letter-spacing: -0.02em;
           line-height: 1.2;
           color: var(--text-primary);
@@ -539,19 +545,7 @@ export function AdminView() {
           min-width: 0;
         }
 
-        .admin-empty {
-          padding: var(--space-10) var(--space-4);
-        }
-        .admin-empty .empty-state-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 72px;
-          height: 72px;
-          margin: 0 auto var(--space-3);
-          background: var(--accent-soft);
-          border-radius: 50%;
-        }
+        /* .admin-empty 私造空态样式已于 2026-09-04 美化 W4 删除(收编 ui/Empty) */
 
         .admin-table-wrap {
           overflow-x: auto;

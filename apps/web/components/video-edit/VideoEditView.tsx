@@ -505,6 +505,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
             )
           ) : (
             <Empty
+              size="stage"
               icon="film"
               title="暂无预览"
               desc="导入素材后,点击素材或时间线片段即可预览"
@@ -1316,7 +1317,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: var(--space-1);
         }
         .ve-media-name {
           font-size: var(--text-body);
@@ -1333,10 +1334,14 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
         }
         .ve-preview {
           min-height: 320px;
+          display: flex;
+          flex-direction: column;
         }
-        .ve-preview :global(.empty-state) {
+        /* 预览空态升 stage 档(2026-09-04 美化 W3):舞台大卡撑满预览区 */
+        .ve-preview :global(.at-empty--stage) {
+          flex: 1;
           min-height: 280px;
-          padding: var(--space-10) var(--space-4);
+          justify-content: center;
         }
         .ve-preview-name {
           font-size: var(--text-aux);
@@ -1370,16 +1375,21 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
         .ve-timeline {
           display: flex;
           flex-direction: column;
-          gap: var(--space-4);
+          /* 轨道 hairline 分层(2026-09-04 美化 W3):行间距归零,行间用细分隔线 + 内边距分段 */
+          gap: 0;
         }
-        /* 时间线卡用 flex gap 控制节奏,面板标题不再叠加 margin(分隔线由 padding-bottom 承载) */
+        /* 时间线卡用 flex 分段控制节奏,面板标题不再叠加 margin(分隔线由 padding-bottom 承载) */
         .ve-timeline .ve-panel-title {
-          margin-bottom: 0;
+          margin-bottom: var(--space-4);
         }
         .ve-tl-row {
           display: flex;
           gap: var(--space-3);
           align-items: stretch;
+          padding: var(--space-3) 0;
+        }
+        .ve-tl-row + .ve-tl-row {
+          border-top: 1px solid var(--border-subtle);
         }
         .ve-tl-label {
           width: 96px;
@@ -1482,7 +1492,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
         .ve-field {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: var(--space-1);
           font-size: var(--text-aux);
           font-weight: var(--font-medium);
           color: var(--text-muted);

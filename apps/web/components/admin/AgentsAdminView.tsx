@@ -362,7 +362,9 @@ export function AgentsAdminView() {
       )}
 
       {isEmpty && (
+        /* 空态升级(2026-09-04 美化 W4):inline 单行 → section 档(图标+标题+引导) */
         <Empty
+          size="section"
           icon="sparkles"
           title="还没有智能体"
           desc="内置智能体由后端播种 · 也可点击右上角「新建智能体」创建自定义"
@@ -797,17 +799,17 @@ export function AgentsAdminView() {
         .agents-admin {
           display: flex;
           flex-direction: column;
-          gap: var(--space-4);
+          gap: var(--section-gap);
         }
 
         /* ── Header:全局 .page-header 体系(避让/排版由 globals.css 统一);
                本作用域仅补图标对齐与强调色 ── */
-        .page-header-title {
+        .agents-admin :global(.page-header-title) {
           display: inline-flex;
           align-items: center;
           gap: var(--space-2);
         }
-        .page-header-title :global(svg) {
+        .agents-admin :global(.page-header-title svg) {
           color: var(--accent);
           flex-shrink: 0;
         }
@@ -1017,7 +1019,7 @@ export function AgentsAdminView() {
           border-color: var(--border-strong);
         }
         .aa-test-close:focus-visible {
-          outline: 1px solid var(--accent);
+          outline: var(--focus-ring);
           outline-offset: 2px;
         }
         .aa-test-grid {
@@ -1211,7 +1213,7 @@ export function AgentsAdminView() {
           color: var(--text-primary);
         }
         .aa-modal-close:focus-visible {
-          outline: 1px solid var(--accent);
+          outline: var(--focus-ring);
           outline-offset: 2px;
         }
 

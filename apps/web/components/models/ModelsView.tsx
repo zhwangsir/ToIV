@@ -630,19 +630,17 @@ export function ModelsView() {
               </button>
             </div>
           ) : marketItems.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">
-                <Icon name="search" size={44} strokeWidth={1.2} />
-              </div>
-              <div className="empty-state-title">
-                {hasSearched ? "未找到匹配的模型" : "搜索 Civitai 在线市场"}
-              </div>
-              <div className="empty-state-desc">
-                {hasSearched
+            /* 空态升级(2026-09-04 美化 W4):私造 .empty-state 收编共享三档 section 档 */
+            <Empty
+              size="section"
+              icon="search"
+              title={hasSearched ? "未找到匹配的模型" : "搜索 Civitai 在线市场"}
+              desc={
+                hasSearched
                   ? "换个关键词或调整类型筛选再试试"
-                  : "输入模型名称、风格或关键词，发现社区精选模型"}
-              </div>
-            </div>
+                  : "输入模型名称、风格或关键词，发现社区精选模型"
+              }
+            />
           ) : (
             <>
               <div className="mv-result-meta">
@@ -856,10 +854,11 @@ export function ModelsView() {
           padding-top: var(--space-4);
         }
 
-        /* 段控窄行(2026-09-02 W3 页头移除) */
+        /* 段控窄行(2026-09-02 W3 页头移除);
+           与内容区间距走 --layout-toolbar-gap 版型档(2026-09-04 美化 W4) */
         .mv-mode-row {
           display: flex;
-          padding: 0 0 var(--space-3);
+          padding: 0 0 var(--layout-toolbar-gap);
         }
 
         /* ── 问 AI 区(WIKI-2026-08-18) ─────────────────────────── */
@@ -1236,7 +1235,8 @@ export function ModelsView() {
         .mv-market-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: var(--section-gap);
+          /* 宽松陈列 gutter 档(2026-09-04 美化 W4 版型对齐) */
+          gap: var(--grid-gutter-lg);
         }
 
         .mv-card {
@@ -1249,11 +1249,20 @@ export function ModelsView() {
                       box-shadow var(--duration-fast) var(--ease-standard),
                       transform var(--duration-fast) var(--ease-standard);
         }
-        /* hover 升浮反馈:边框加深 + 上移 + 投影 */
+        /* hover 反馈对齐共享可交互卡配方 .at-card--interactive(2026-09-04 美化 W4:
+           边框转 strong + translateY(-1px) + 细影;原 -3px/shadow-lift 幅度过大,越红线) */
         .mv-card:hover {
           border-color: var(--border-strong);
-          box-shadow: var(--shadow-lift);
-          transform: translateY(-3px);
+          box-shadow: var(--shadow-md);
+          transform: translateY(-1px);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .mv-card:hover {
+            transform: none;
+          }
+          .mv-card:hover .mv-card-thumb img {
+            transform: none;
+          }
         }
 
         .mv-card-thumb {

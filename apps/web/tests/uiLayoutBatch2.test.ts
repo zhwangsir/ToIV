@@ -121,12 +121,12 @@ test("agent-runs:进度计数降档副标位,右侧大数字栏已撤", () => {
   assert.ok(!css.includes(".agent-run-side"), "agent-run-side 死样式应清除");
 });
 
-test("agent-runs:容器宽度收编 --content-wide token(fallback 兜底)", () => {
+test("agent-runs:容器宽度收编版型令牌(2026-09-04 美化 W4:直连 --layout-wide)", () => {
   const css = readSrc("app/styles/agent-runs.css");
   const shell = cssBlock(css, ".agent-shell {");
   assert.ok(
-    shell.includes("max-width: var(--content-wide, 1240px);"),
-    `容器宽须走 var(--x, fallback) 写法: ${shell}`,
+    shell.includes("max-width: var(--layout-wide);"),
+    `容器宽须走 --layout-wide 版型档: ${shell}`,
   );
 });
 
@@ -154,12 +154,15 @@ test("studio:列表项副标行(#短id + 更新时间 + 进度)区分同名项�
   assert.ok(iSub > iTitle, "副标行须在标题之下");
 });
 
-test("studio:行边框亮色下加深 --border-strong,hover 转 accent", () => {
+test("studio:行边框亮色下加深 --border-strong,hover 统一 .at-card--interactive", () => {
   const css = readSrc("app/styles/studio.css");
   const card = cssBlock(css, ".studio-project-card {");
   assert.ok(card.includes("border-color: var(--border-strong);"), `静止态边框须 strong: ${card}`);
-  const hover = cssBlock(css, ".studio-project-card:hover {");
-  assert.ok(hover.includes("border-color: var(--accent);"), `hover 须 accent 强反馈: ${hover}`);
+  // 2026-09-04 美化 W3:hover 反馈收编为共享 .at-card--interactive(border-strong+细影+轻抬),
+  // 项目卡不再自写 accent 描边 hover 变体(删除钮 reveal 的 :hover 后代选择器不在此列)
+  assert.ok(!css.includes(".studio-project-card:hover {"), "hover 须由 .at-card--interactive 供给,不再自写");
+  const src = readSrc("components/studio/StudioView.tsx");
+  assert.ok(src.includes("at-card at-card--interactive"), "项目卡须接 .at-card--interactive");
 });
 
 /* ── ⑤ avatartalk:空态三步式 + 状态移位 + 缩略图比例 ── */

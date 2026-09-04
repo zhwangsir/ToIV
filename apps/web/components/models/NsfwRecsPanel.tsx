@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { Empty } from "@/components/ui/Empty";
 import { Icon } from "@/components/ui/Icon";
 import { usePoll } from "@/hooks/usePoll";
 import {
@@ -161,15 +162,13 @@ export function NsfwRecsPanel() {
       {recsOpen && (
         <div className="nsfw-recs-grid">
           {recs.length === 0 && !recsLoading && (
-            <div className="empty-state nsfw-recs-empty">
-              <div className="empty-state-icon">
-                <Icon name="models" size={48} strokeWidth={1.1} />
-              </div>
-              <div className="empty-state-title">暂无推荐</div>
-              <div className="empty-state-desc">
-                后端未返回推荐清单,请自行搭配本地模型
-              </div>
-            </div>
+            /* 空态收编(2026-09-04 美化 W4):私造 .empty-state → 共享三档 section 档 */
+            <Empty
+              size="section"
+              icon="models"
+              title="暂无推荐"
+              desc="后端未返回推荐清单,请自行搭配本地模型"
+            />
           )}
           {recs.map((r) => {
             const job = downloadJobs[r.name];

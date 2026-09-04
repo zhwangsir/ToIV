@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { runStatusMeta, stripMarkdown } from "@/components/agent-run/agentRunMeta";
 import { useAgentRunList } from "@/components/agent-run/useAgentRunList";
 import { useAuthGuard } from "@/components/agent-run/useAuthGuard";
+import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
@@ -124,9 +125,13 @@ export default function AgentRunsPage() {
         {list.loading && list.runs.length === 0 ? (
           <LoadingBlock variant="line" count={3} />
         ) : list.runs.length === 0 ? (
-          <div className="at-empty">
-            <h3 className="at-empty-title">还没有 Agent 任务</h3>
-          </div>
+          /* 空态升级(2026-09-04 美化 W4):裸 at-empty 标题 → 共享三档 section 档 + 引导 */
+          <Empty
+            size="section"
+            icon="bot"
+            title="还没有 Agent 任务"
+            desc="在上方输入一句话需求,创建第一个 Agent 任务"
+          />
         ) : (
           <ul className="agent-run-list">
             {list.runs.map((r) => {

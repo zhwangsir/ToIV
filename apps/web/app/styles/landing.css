@@ -111,8 +111,15 @@
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
-  padding: var(--space-2) 0;
+  padding: var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
   border-top: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  /* 列表行 hover 细化(2026-09-04 美化 W4):行底色 soft 淡入,≤200ms */
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.landing-keyword:hover {
+  background: var(--accent-glow-soft);
 }
 .landing-keyword-index {
   font-family: var(--font-mono);
@@ -121,9 +128,13 @@
   font-variant-numeric: tabular-nums;
 }
 .landing-keyword-label {
+  /* 关键词 italic 琥珀点睛(2026-09-04 美化 W4):Fraunces 斜体 + --accent-glow,
+     仅三个短词的最小触点,不扩到大面积正文 */
+  font-family: var(--font-display);
+  font-style: italic;
   font-size: var(--text-section);
   font-weight: var(--font-semibold);
-  color: var(--text-primary);
+  color: var(--accent-glow);
   letter-spacing: -0.01em;
 }
 /* 关键词描述(2026-08-14 UI-A 死类补齐):右对齐 muted 辅助说明,与序号/标签构成 baseline 三栏 */
@@ -152,7 +163,8 @@
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-panel);
-  box-shadow: var(--glass-highlight), var(--shadow-float);
+  /* 2026-09-04 美化 W4:浮层阴影统一 --shadow-pop(原 shadow-float 与玻璃高光叠加偏重) */
+  box-shadow: var(--glass-highlight), var(--shadow-pop);
   /* 矮屏(横屏手机等)卡内容超出视口时内部滚动,不顶破首屏 */
   max-height: calc(100dvh - var(--space-8));
   overflow-y: auto;

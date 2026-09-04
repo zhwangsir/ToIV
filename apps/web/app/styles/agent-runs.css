@@ -12,8 +12,8 @@
   /* 2026-08-24 排版统一:区块间距消费 --section-gap,顶距对齐 .view-shell(space-3) */
   gap: var(--section-gap);
   width: 100%;
-  /* 容器宽度收编(2026-08-16 批 2):与其他宽列表对齐;token 由 Team A 供给,fallback 兜底 */
-  max-width: var(--content-wide, 1240px);
+  /* 容器宽度收编(2026-09-04 美化 W4):直连 --layout-wide 版型档(历史别名/fallback 清退) */
+  max-width: var(--layout-wide);
   padding-top: var(--space-3);
 }
 
@@ -292,7 +292,8 @@
   flex: 1;
   min-width: 0;
   margin: 0;
-  font-size: var(--text-aux);
+  /* 2026-09-04 美化 W4:标题升 section 档,与元信息(label/mono)拉开层级 */
+  font-size: var(--text-section);
   font-weight: var(--font-semibold);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -312,10 +313,12 @@
   padding: 0 var(--space-3);
   font-size: var(--text-label);
   color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 .agent-task-media {
   position: relative;
-  aspect-ratio: 16 / 9;
+  /* 宽高比走 --media-ar-video 版型令牌(2026-09-04 美化 W4,原裸 16 / 9) */
+  aspect-ratio: var(--media-ar-video);
   margin: 0 var(--space-3);
   background: var(--bg-surface-2);
   border-radius: var(--radius-control);
@@ -370,6 +373,7 @@
   margin: 0 var(--space-3);
   font-size: var(--text-label);
   color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 .agent-task-actions {
   display: flex;
@@ -541,6 +545,7 @@
   font-size: var(--text-label);
   color: var(--text-muted);
   flex-shrink: 0;
+  font-family: var(--font-mono);
 }
 .agent-gate-total {
   margin: 0;
@@ -700,6 +705,7 @@
 .agent-ticker-time {
   flex-shrink: 0;
   color: var(--text-muted);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -863,12 +869,14 @@
 .agent-run-progress {
   font-size: var(--text-aux);
   color: var(--text-secondary);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .agent-run-date {
   font-size: var(--text-label);
   color: var(--text-muted);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

@@ -712,9 +712,10 @@ export function DubView({ onBack }: { onBack?: () => void }) {
               <ErrorBar message={subError} onClose={() => setSubError(null)} />
             )}
 
-            {/* 空态:暂无字幕分段 */}
+            {/* 空态:暂无字幕分段(2026-09-04 美化 W3 升 section 档) */}
             {segments.length === 0 && !subBusy && (
               <Empty
+                size="section"
                 icon="audio"
                 title="暂无字幕分段"
                 desc="请先使用 Whisper 听写,或导入 SRT / VTT 字幕"
@@ -869,9 +870,10 @@ export function DubView({ onBack }: { onBack?: () => void }) {
 
               <div className="dub-col-side">
                 <div className="dub-group-title">配音结果</div>
-                {/* 空态:暂无音色 */}
+                {/* 空态:暂无音色(2026-09-04 美化 W3 升 section 档) */}
                 {!voice && !voiceBusy && (
                   <Empty
+                    size="section"
                     icon="audio"
                     title="暂无音色"
                     desc="请先上传参考音频,或点击左侧「生成配音轨」克隆音色"
@@ -1381,7 +1383,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
         .dub-titles {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: var(--space-1);
         }
         .dub-title {
           margin: 0;
@@ -1577,6 +1579,16 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           padding-bottom: var(--space-3);
           border-bottom: 1px solid var(--border-subtle);
         }
+        /* 步骤铭牌(2026-09-04 美化 W3 补样式):label 档大写弱字,与生成页 params 头同语言 */
+        .dub-panel-kicker {
+          display: block;
+          margin-bottom: var(--space-1);
+          font-size: var(--text-label);
+          font-weight: var(--font-medium);
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: var(--text-muted);
+        }
         .dub-panel-head h2 {
           margin: 0 0 var(--space-1) 0;
           font-size: var(--text-section);
@@ -1588,6 +1600,13 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           margin: 0;
           font-size: var(--text-aux);
           color: var(--text-muted);
+        }
+        /* 双栏组题(2026-09-04 美化 W3 补样式):栏内小节弱标 */
+        .dub-group-title {
+          font-size: var(--text-aux);
+          font-weight: var(--font-semibold);
+          letter-spacing: 0.02em;
+          color: var(--text-secondary);
         }
 
         /* ── 拖拽区(收敛版):1px 虚线 + 大圆角,hover/拖入时 accent 描边 + 淡墨晕 ── */
@@ -1729,7 +1748,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-panel);
           overflow: hidden;
-          aspect-ratio: 16 / 9;
+          aspect-ratio: var(--media-ar-video);
         }
         .dub-video-frame video,
         .dub-video-frame :global(video) {
@@ -1819,7 +1838,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
         .dub-seg-time {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: var(--space-1);
           font-size: var(--text-aux);
           font-variant-numeric: tabular-nums;
         }
@@ -1872,11 +1891,17 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           }
         }
 
-        /* ── 表单 ── */
+        /* ── 表单(2026-09-04 美化 W3:>1024px 宽屏两列化,窄屏回 auto-fit 弹性) ── */
         .dub-form-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
           gap: var(--space-3);
+        }
+        @media (min-width: 1024px) {
+          .dub-form-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: var(--space-3) var(--grid-gutter);
+          }
         }
         .dub-field {
           display: flex;
@@ -1907,8 +1932,8 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           display: inline-flex;
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-control);
-          padding: 3px;
+          border-radius: var(--radius-full);
+          padding: 2px;
           gap: 2px;
           align-self: flex-start;
         }
@@ -1920,7 +1945,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           color: var(--text-secondary);
           font-size: var(--text-body);
           font-weight: var(--font-medium);
-          border-radius: var(--radius-badge);
+          border-radius: var(--radius-full);
           cursor: pointer;
           white-space: nowrap;
           transition: background-color var(--duration-fast) var(--ease-standard),
@@ -1930,7 +1955,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           color: var(--text-primary);
         }
         .dub-segmented button:focus-visible {
-          outline: 1px solid var(--accent);
+          outline: var(--focus-ring);
           outline-offset: 1px;
         }
         .dub-segmented button.is-on {

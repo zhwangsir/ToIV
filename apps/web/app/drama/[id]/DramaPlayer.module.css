@@ -32,7 +32,8 @@
   /* margin auto 垂直居中:内容超高时可正常滚动,不会像 justify-content:center 那样裁掉顶部 */
   margin-block: auto;
   width: 100%;
-  max-width: 1280px;
+  /* 2026-09-04 美化 W4:1280 裸值收编 --layout-wide 版型档(1240,宽档唯一来源) */
+  max-width: var(--layout-wide);
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
@@ -60,7 +61,8 @@
 .videoStage {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  /* 宽高比走 --media-ar-video 版型令牌(2026-09-04 美化 W4,原裸 16 / 9) */
+  aspect-ratio: var(--media-ar-video);
   background: var(--overlay-stage);
   /* 视频 scrim 上的前景 token:文字/图标恒浅色、轨道半透明白,不随五套主题变化 */
   --media-text: var(--text-on-accent);
@@ -126,7 +128,8 @@
   justify-content: flex-end;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent);
+  /* 2026-09-04 美化 W4:scrim 去硬编码 rgba,走 --overlay-strong 令牌 */
+  background: linear-gradient(to bottom, var(--overlay-strong), transparent);
   color: var(--media-text);
   pointer-events: none;
 }
@@ -142,7 +145,9 @@
   right: 0;
   padding: var(--space-4);
   padding-top: var(--space-7);
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+  /* 控制条浮层(2026-09-04 美化 W4):scrim 走 --overlay-stage 令牌 + --shadow-pop 浮起 */
+  background: linear-gradient(to top, var(--overlay-stage), transparent);
+  box-shadow: var(--shadow-pop);
   color: var(--media-text);
   opacity: 0;
   transition: opacity var(--duration-fast) var(--ease-standard);
@@ -346,7 +351,7 @@
 }
 
 .interactionButton:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: 1px;
 }
 
@@ -401,7 +406,7 @@
 }
 
 .shareButton:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: 1px;
 }
 
@@ -423,7 +428,7 @@
 }
 
 .panel:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
 
@@ -486,7 +491,7 @@
 }
 
 .chapterItem:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: 1px;
 }
 
@@ -710,5 +715,32 @@
 
   .shareButton {
     min-height: 44px;
+  }
+}
+
+/* 减弱动效(2026-09-04 美化 W4):hover 位移/缩放全部降级,控制条淡入保留瞬时切换 */
+@media (prefers-reduced-motion: reduce) {
+  .centerPlayButton:hover,
+  .panel:hover,
+  .interactionButton:hover,
+  .shareButton:hover,
+  .chapterItem:hover {
+    transform: none;
+  }
+
+  .chapterMarker:hover {
+    transform: translate(-50%, -50%);
+  }
+
+  .centerPlay,
+  .controlsLayer,
+  .progressThumb,
+  .chapterTooltip,
+  .iconButton,
+  .interactionButton,
+  .shareButton,
+  .chapterItem,
+  .panel {
+    transition: none;
   }
 }

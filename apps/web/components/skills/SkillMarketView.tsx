@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input, Textarea } from "@/components/ui/Input";
@@ -312,9 +313,8 @@ export function SkillMarketView() {
           </div>
 
           {(filtering && mine.length + builtin.length + pub.length === 0) && (
-            <p className="skill-filter-empty">
-              没有匹配的技能——换个关键词,或清除筛选条件
-            </p>
+            /* 空态升级(2026-09-04 美化 W4):单行 muted → 共享三档空态 inline 档 */
+            <Empty size="inline" title="没有匹配的技能——换个关键词,或清除筛选条件" />
           )}
 
           <section className="skill-section">
@@ -336,9 +336,7 @@ export function SkillMarketView() {
             </div>
             <div className="skill-grid">
               {mine.length === 0 ? (
-                <p className="skill-empty">
-                  还没有个人技能——点右上「导入技能」,或粘贴他人分享的 JSON
-                </p>
+                <Empty size="inline" title="还没有个人技能——点右上「导入技能」,或粘贴他人分享的 JSON" />
               ) : (
                 mine.map((a) => (
                   <article key={a.id} className="skill-card">
@@ -562,210 +560,6 @@ export function SkillMarketView() {
       >
         <pre className="skill-prompt-view">{viewing?.system_prompt}</pre>
       </Modal>
-      <style jsx>{`
-        .skill-market {
-          display: flex;
-          flex-direction: column;
-          gap: var(--section-gap);
-          min-height: 0;
-        }
-        .skill-section {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-2);
-        }
-        .skill-section-head {
-          display: flex;
-          align-items: baseline;
-          gap: var(--space-2);
-        }
-        .skill-section-title {
-          margin: 0;
-          font-size: var(--text-label);
-          font-weight: var(--font-medium);
-          letter-spacing: 0.04em;
-          color: var(--text-muted);
-          text-transform: uppercase;
-        }
-        .skill-section-count {
-          font-size: var(--text-label);
-          color: var(--text-muted);
-          font-variant-numeric: tabular-nums;
-        }
-        .skill-grid {
-          display: grid;
-          /* min() 根治超窄容器(分屏/折叠屏)轨道溢出 */
-          grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
-          gap: var(--space-3);
-        }
-        .skill-empty {
-          margin: 0;
-          color: var(--text-muted);
-          font-size: var(--text-aux);
-          padding: var(--space-2) 0 var(--space-1);
-        }
-        .skill-card {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-2);
-          padding: var(--space-3) var(--space-3) var(--space-2);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-card);
-          background: var(--bg-surface-2);
-          transition: border-color var(--duration-fast) var(--ease-standard),
-            transform var(--duration-fast) var(--ease-standard),
-            box-shadow var(--duration-fast) var(--ease-standard);
-        }
-        .skill-card:hover {
-          border-color: var(--accent-halo);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-lift);
-        }
-        .skill-card-head {
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
-        }
-        .skill-card-name {
-          flex: 1;
-          min-width: 0;
-          font-size: var(--text-body);
-          color: var(--text-primary);
-          text-align: left;
-          border: none;
-          background: transparent;
-          padding: 0;
-          cursor: pointer;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .skill-card-name:hover {
-          color: var(--accent);
-        }
-        .skill-card-act {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
-          border: none;
-          border-radius: var(--radius-badge);
-          background: transparent;
-          color: var(--text-muted);
-          cursor: pointer;
-          flex-shrink: 0;
-        }
-        .skill-card-act:hover {
-          background: var(--bg-surface-3);
-          color: var(--text-primary);
-        }
-        .skill-card-act.is-danger:hover {
-          color: var(--err);
-        }
-        .skill-card-desc {
-          margin: 0;
-          font-size: var(--text-aux);
-          color: var(--text-muted);
-          line-height: 1.5;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        .skill-card-tags {
-          /* 压底:同行网格卡片(有无 desc/R18)底边对齐 */
-          margin-top: auto;
-          display: flex;
-          gap: var(--space-1);
-          flex-wrap: wrap;
-        }
-        .skill-tag {
-          font-size: var(--text-caption);
-          padding: 1px 8px;
-          border-radius: var(--radius-full);
-          border: 1px solid var(--border-subtle);
-          color: var(--text-muted);
-        }
-        .skill-tag.is-nsfw {
-          color: var(--err);
-          border-color: var(--err);
-        }
-        .skill-import-mode {
-          display: flex;
-          gap: var(--space-2);
-          margin-bottom: var(--space-3);
-        }
-        .skill-mode-btn {
-          flex: 1;
-          min-height: 40px;
-          font-size: var(--text-body);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-control);
-          background: transparent;
-          color: var(--text-muted);
-          cursor: pointer;
-        }
-        .skill-mode-btn.is-on {
-          color: var(--text-primary);
-          border-color: var(--accent);
-        }
-        .skill-form-row {
-          display: flex;
-          gap: var(--space-2);
-        }
-        .skill-form-row > :global(*) {
-          flex: 1;
-          min-width: 0;
-        }
-        .skill-form-switch {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: var(--space-3);
-          padding: var(--space-2) 0;
-          color: var(--text-secondary);
-          font-size: var(--text-body);
-        }
-        .skill-form-error {
-          margin: 0;
-          font-size: var(--text-aux);
-          color: var(--err);
-        }
-        .skill-form-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: var(--space-2);
-          margin-top: var(--space-3);
-        }
-        .skill-delete-text {
-          margin: 0;
-          color: var(--text-secondary);
-        }
-        .skill-prompt-view {
-          margin: 0;
-          white-space: pre-wrap;
-          word-break: break-word;
-          font-size: var(--text-aux);
-          line-height: 1.6;
-          max-height: 50vh;
-          overflow: auto;
-        }
-        @media (max-width: 575px) {
-          .skill-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: var(--space-2);
-          }
-          .skill-card {
-            padding: var(--space-2);
-          }
-          /* 移动端触达 ≥44px(与 app/styles/skills.css 同款覆盖保持一致) */
-          .skill-card-act {
-            width: var(--touch-target);
-            height: var(--touch-target);
-          }
-        }
-      `}</style>
     </div>
   );
 }
@@ -796,9 +590,10 @@ function Section({
       </div>
       <div className="skill-grid">
         {agents.length === 0 ? (
-          /* empty 文案为空(如内置技能区)时不渲染空 <p> 占位 */
+          /* empty 文案为空(如内置技能区)时不渲染空态占位;
+             空态升级(2026-09-04 美化 W4):共享三档空态 inline 档,grid 内占满整行 */
           empty ? (
-            <p className="skill-empty">{empty}</p>
+            <Empty size="inline" title={empty} />
           ) : null
         ) : (
           agents.map((a) => (

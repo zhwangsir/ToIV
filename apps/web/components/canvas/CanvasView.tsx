@@ -334,11 +334,11 @@ const styles = `
     display: flex;
     flex-direction: column;
   }
-  /* ── 顶栏(无标题版):与 .view-shell 同节奏(1200 版心 + 两侧留白),只承载连接状态/操作 ── */
+  /* ── 顶栏(无标题版):wide 版型档 + 两侧留白,只承载连接状态/操作 ── */
   .canvas-view .canvas-header {
     flex: none;
     width: 100%;
-    max-width: 1200px;
+    max-width: var(--layout-wide);
     margin-left: auto;
     margin-right: auto;
     /* 2026-08-24 排版统一:水平槽消费 --page-gutter */
@@ -356,7 +356,7 @@ const styles = `
   .canvas-header-error {
     flex: none;
     width: 100%;
-    max-width: 1200px;
+    max-width: var(--layout-wide);
     margin: calc(-1 * var(--space-2)) auto var(--space-4);
     padding-left: var(--page-gutter);
     padding-right: var(--page-gutter);
@@ -371,7 +371,7 @@ const styles = `
     display: none;
   }
 
-  /* ── 画布舞台:四周留白,iframe 收进圆角面板(卡片化);水平槽消费 --page-gutter ── */
+  /* ── 画布舞台:四周留白,iframe 收进圆角面板(hairline 分层 + panel 圆角,平卡不堆阴影) ── */
   .canvas-stage {
     flex: 1;
     min-height: 0;
@@ -391,7 +391,6 @@ const styles = `
     background: var(--bg-surface-1);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-panel);
-    box-shadow: var(--shadow-md);
   }
   .canvas-iframe {
     width: 100%;
@@ -401,7 +400,8 @@ const styles = `
     background: var(--bg-canvas);
   }
 
-  /* ── 页头右侧:连接状态徽章 + 新窗口打开 ── */
+  /* ── 页头右侧:连接状态徽章(ok/err 语义点)+ 新窗口打开 ──
+     2026-09-04 美化 W3:徽章补 hairline 描边;探测中圆点脉冲(功能反馈) */
   .canvas-status {
     display: inline-flex;
     align-items: center;
@@ -409,6 +409,7 @@ const styles = `
     max-width: 280px;
     padding: var(--space-1) var(--space-3);
     border-radius: var(--radius-full);
+    border: 1px solid var(--border-subtle);
     background: var(--bg-surface-2);
     color: var(--text-secondary);
     font-size: var(--text-aux);
@@ -422,20 +423,29 @@ const styles = `
     height: 8px;
     border-radius: var(--radius-full);
     background: var(--text-muted);
+    animation: canvas-dot-pulse var(--duration-pulse) ease-in-out infinite;
   }
   .canvas-status--ok {
     background: var(--ok-soft);
+    border-color: color-mix(in oklab, var(--ok) 35%, transparent);
     color: var(--ok);
   }
   .canvas-status--ok .canvas-status-dot {
     background: var(--ok);
+    animation: none; /* 已连接:常亮,不再脉冲 */
   }
   .canvas-status--err {
     background: var(--err-soft);
+    border-color: color-mix(in oklab, var(--err) 35%, transparent);
     color: var(--err);
   }
   .canvas-status--err .canvas-status-dot {
     background: var(--err);
+    animation: none;
+  }
+  @keyframes canvas-dot-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
   }
   .canvas-open-external {
     display: inline-flex;
@@ -460,7 +470,7 @@ const styles = `
     background: var(--accent-soft);
   }
   .canvas-open-external:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: var(--focus-ring);
     outline-offset: 2px;
   }
 
@@ -502,7 +512,7 @@ const styles = `
     font-size: var(--text-aux);
   }
 
-  /* ── 错误/失败卡片:大留白 + 图标徽章 + hover 升浮 ── */
+  /* ── 错误/失败卡片:大留白 + 图标徽章;浮层感统一 --shadow-pop,hover 微升 ── */
   .canvas-error-card {
     max-width: 440px;
     margin: 0 var(--space-4);
@@ -520,7 +530,7 @@ const styles = `
       box-shadow var(--duration-base) var(--ease-standard);
   }
   .canvas-error-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     box-shadow: var(--shadow-lift);
   }
   .canvas-error-badge {
@@ -566,7 +576,7 @@ const styles = `
     background: var(--accent-hover);
   }
   .canvas-error-retry:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: var(--focus-ring);
     outline-offset: 2px;
   }
 
@@ -581,13 +591,13 @@ const styles = `
     background: var(--bg-surface-1);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-panel);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-pop);
     transition:
       transform var(--duration-base) var(--ease-standard),
       box-shadow var(--duration-base) var(--ease-standard);
   }
   .canvas-fallback:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     box-shadow: var(--shadow-lift);
   }
   .canvas-fallback--plain {
@@ -707,7 +717,7 @@ const styles = `
     border-color: var(--accent);
   }
   .canvas-fallback-actions button:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: var(--focus-ring);
     outline-offset: 2px;
   }
   .canvas-fallback-actions .canvas-fallback-primary {
@@ -770,6 +780,15 @@ const styles = `
     }
     .canvas-fallback-actions button {
       width: 100%;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .canvas-status-dot {
+      animation: none;
+    }
+    .canvas-error-card:hover,
+    .canvas-fallback:hover {
+      transform: none;
     }
   }
   @keyframes canvas-spin {

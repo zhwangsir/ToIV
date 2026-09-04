@@ -11,6 +11,7 @@
  */
 import { useRef, useState } from "react";
 import { imageUrl, type AgentRunTask } from "@/lib/api";
+import { Empty } from "@/components/ui/Empty";
 import { Icon } from "@/components/ui/Icon";
 import { LazyVideo } from "@/components/ui/LazyVideo";
 import { Ripple } from "@/components/ui/Ripple";
@@ -356,11 +357,8 @@ export function TaskCardList({
 }) {
   const orderOf = (id: string): number => tasks.findIndex((t) => t.id === id) + 1;
   if (tasks.length === 0) {
-    return (
-      <div className="empty-state">
-        <p className="empty-state-desc">计划任务会出现在这里</p>
-      </div>
-    );
+    /* 空态收编(2026-09-04 美化 W4):私造 .empty-state → 共享三档 section 档 */
+    return <Empty size="section" icon="bot" title="计划任务会出现在这里" />;
   }
   return (
     <div className="agent-task-grid">

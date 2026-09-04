@@ -70,9 +70,11 @@ test("AppMarketView RunningHub 社区区:核心内置不含 rh- + 分页/截断(
 
 test("AppMarketView 三态接线:空态单行化/ErrorBar/LoadingBlock + NSFW 客户端过滤(源码)", () => {
   const src = readSrc("components/apps/AppMarketView.tsx");
-  // 2026-09-02 W3:整库大图标 Empty 退役,改单行 muted 提示 + 行内重试
-  assert.ok(!src.includes('import { Empty }'), "Empty 大图标空态应已退役");
-  assert.ok(src.includes("apps-empty-all"), "缺整库单行空态");
+  // 2026-09-02 W3:整库大图标 Empty 退役,改单行 muted 提示 + 行内重试;
+  // 2026-09-04 美化 W4:单行提示收编 ui/Empty 共享三档 inline 档(同一语言,单一来源)
+  assert.ok(src.includes('import { Empty }'), "空态应收编 ui/Empty 共享三档");
+  assert.ok(src.includes('size="inline"'), "空态须走 inline 档(单行 muted 语言)");
+  assert.ok(!src.includes("apps-empty-all"), "私造 apps-empty-all 空态类应退役");
   assert.ok(src.includes('import { ErrorBar }'), "未导入 ErrorBar(错误态)");
   assert.ok(src.includes('import { LoadingBlock }'), "未导入 LoadingBlock(加载态)");
   assert.ok(src.includes("useR18Mode"), "NSFW 过滤应读 R18 模式");

@@ -65,14 +65,15 @@
   cursor: not-allowed;
 }
 
-/* ── 上传区(收敛版):1px 虚线 + 大圆角,hover 时 accent 描边 + 淡墨晕(不再位移) ── */
+/* ── 上传区(收敛版):1px 虚线 + 大圆角,hover 时 accent 描边 + 淡墨晕(不再位移);
+   2026-09-04 美化 W3:节奏统一消费 --section-gap ── */
 .anim-drop {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  margin-top: var(--space-5);
+  margin-top: var(--section-gap);
   padding: var(--space-10) var(--space-6);
   background: var(--bg-surface-1);
   border: 1px dashed var(--border-strong);
@@ -124,11 +125,12 @@
   color: var(--text-muted);
 }
 
-/* ── 分镜图网格与卡片(2026-08-24 排版统一:间距消费 --section-gap) ── */
+/* ── 分镜图网格与卡片(2026-09-04 美化 W3:gutter 走 --grid-gutter 版型令牌;
+   卡片 hover 与 .at-card--interactive 同语言:border-strong + translateY(-1px) + 细影) ── */
 .anim-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--section-gap);
+  gap: var(--grid-gutter);
   margin-top: var(--section-gap);
   list-style: none;
   padding: 0;
@@ -146,8 +148,8 @@
 
 .anim-card:hover {
   border-color: var(--border-strong);
-  box-shadow: var(--shadow-lift);
-  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .anim-thumb-wrap {
@@ -156,13 +158,14 @@
 
 .anim-thumb {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: var(--media-ar-video);
   object-fit: cover;
   border-radius: var(--radius-control);
   background: var(--bg-canvas);
   display: block;
 }
 
+/* 序号徽章(2026-09-04 美化 W3):Fraunces 斜体衬线数字,编辑感镜号 */
 .anim-idx {
   position: absolute;
   top: var(--space-2);
@@ -176,6 +179,8 @@
   border-radius: var(--radius-full);
   background: var(--overlay-strong);
   color: var(--text-on-accent); /* scrim 恒深色,其上文字恒浅色 */
+  font-family: var(--font-display);
+  font-style: italic;
   font-size: var(--text-aux);
   font-weight: var(--font-semibold);
 }
@@ -321,7 +326,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-6);
+  margin-top: var(--section-gap);
   padding: var(--space-3) var(--space-4);
   background: var(--err-soft);
   border: 1px solid var(--err);

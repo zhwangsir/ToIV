@@ -10,6 +10,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { imageUrl } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
+import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LazyVideo } from "@/components/ui/LazyVideo";
 import { Modal } from "@/components/ui/Modal";
@@ -119,17 +120,11 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
         )}
 
         {run.loading && !d ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <Icon name="loading" size={32} />
-            </div>
-            <p className="empty-state-desc">任务加载中…</p>
-          </div>
+          /* 空态收编(2026-09-04 美化 W4):私造 .empty-state → 共享三档 section 档 */
+          <Empty size="section" icon="loading" title="任务加载中…" />
         ) : !d ? (
           /* 加载失败:错误条已在上方透出,此处不再渲染内容 */
-          <div className="empty-state">
-            <p className="empty-state-desc">任务详情加载失败,可返回列表重试</p>
-          </div>
+          <Empty size="section" icon="error" title="任务详情加载失败" desc="可返回列表重试" />
         ) : (
           <>
             {/* ── 秒回横幅 ── */}

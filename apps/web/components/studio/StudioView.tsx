@@ -9,6 +9,7 @@ import {
 } from "@/lib/api";
 import { useStudioProject } from "@/hooks/useStudioProject";
 import { Icon } from "@/components/ui/Icon";
+import { Empty } from "@/components/ui/Empty";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -162,15 +163,29 @@ export function StudioView({
           </div>
         ) : projects.length === 0 ? (
           /* empty-state 类保留:e2e(authed-studio)空态计数锚点;
-             Studio Console v1(2026-08-31):kicker/长描述退役,只留一行引导 */
-          <div className="at-empty empty-state">
-            <h3 className="at-empty-title">从一段剧情开始</h3>
+             2026-09-04 美化 W3:内容升 section 档共享空态(图标 + 标题 + 引导 + 主行动) */
+          <div className="empty-state">
+            <Empty
+              size="section"
+              icon="clapperboard"
+              title="从一段剧情开始"
+              desc="新建项目,按「剧本 → 角色 → 分镜 → 合成」四步完成一部短剧"
+              action={
+                <button
+                  type="button"
+                  className="at-btn at-btn--primary"
+                  onClick={() => void createProject()}
+                >
+                  <Icon name="plus" size={14} /> 新建项目
+                </button>
+              }
+            />
           </div>
         ) : (
           <ul className="studio-project-list">
             {projects.map((p) => (
               <li key={p.id} className="studio-project-item at-card-in">
-                <div className="studio-project-card at-card at-card--lift">
+                <div className="studio-project-card at-card at-card--interactive">
                   <button
                     type="button"
                     className="studio-project-open"
@@ -259,6 +274,7 @@ export function StudioView({
 
   // ── 工作台(四阶段) ──
   const d = project.detail;
+  const stageIdx = STAGES.findIndex((x) => x.key === stage);
   return (
     <div className="studio-view">
       <nav className="studio-stages" aria-label="创作阶段">
@@ -269,21 +285,25 @@ export function StudioView({
           {d && <span className="studio-view-title">{d.title || "未命名"}</span>}
         </div>
         <div className="studio-stage-tabs" role="tablist">
-          {STAGES.map((s, i) => (
+          {/* 进度感(2026-09-04 美化 W3):序号徽章三态——已完成段琥珀填充 / 当前段墨丸强调 / 未到段 hairline */}
+          {STAGES.map((s, i) => {
+            const done = i < stageIdx;
+            return (
             <button
               key={s.key}
               type="button"
               role="tab"
               aria-selected={stage === s.key}
-              className={`studio-stage-btn${stage === s.key ? " is-active" : ""}`}
+              className={`studio-stage-btn${stage === s.key ? " is-active" : ""}${done ? " is-done" : ""}`}
               onClick={() => setStage(s.key)}
             >
               <span className="studio-stage-num" aria-hidden="true">
-                {i + 1}
+                {done ? <Icon name="check" size={11} /> : i + 1}
               </span>
               <Icon name={s.icon} size={14} /> {s.label}
             </button>
-          ))}
+            );
+          })}
         </div>
       </nav>
 

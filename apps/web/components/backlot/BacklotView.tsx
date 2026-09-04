@@ -332,8 +332,9 @@ export function BacklotView({
         )}
 
         {!error && !loading && isEmpty && (
-          /* 批 D:私造空态收编 ui/Empty + 补「前往工作室创建」CTA(原空态死胡同) */
+          /* 空态升级(2026-09-04 美化 W4):inline 档 → stage 大卡(主内容区空态+CTA) */
           <Empty
+            size="stage"
             icon="backlot"
             title="还没有项目"
             desc="项目仪表盘为空 · 创建第一个项目开始创作"
@@ -509,10 +510,8 @@ export function BacklotView({
 
                 {detail &&
                   (!detail.shots || detail.shots.length === 0) && (
-                    <div className="bl-panel-empty-shots">
-                      <Icon name="backlot" size={28} strokeWidth={1.3} />
-                      <span>暂无分镜</span>
-                    </div>
+                    /* 空态升级(2026-09-04 美化 W4):私造虚线盒收编共享三档 section 档 */
+                    <Empty size="section" icon="backlot" title="暂无分镜" />
                   )}
 
                 {detail && detail.shots && detail.shots.length > 0 && (
@@ -536,13 +535,14 @@ export function BacklotView({
           gap: var(--section-gap);
         }
 
-        /* ── 工具行(2026-09-02 W3 页头移除):项目计数在左,刷新在右 ── */
+        /* ── 工具行(2026-09-02 W3 页头移除):项目计数在左,刷新在右;
+           与内容区间距走 --layout-toolbar-gap 版型档(2026-09-04 美化 W4) ── */
         .bl-mode-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: var(--space-2);
-          padding: 0 0 var(--space-3);
+          padding: 0 0 var(--layout-toolbar-gap);
         }
         .bl-count {
           font-family: var(--font-mono);
@@ -558,24 +558,14 @@ export function BacklotView({
         .bl-body {
           min-height: 200px;
         }
-        .bl-error {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: var(--space-4);
-          padding: var(--space-10) var(--space-6);
-          color: var(--text-muted);
-        }
-        .bl-error-msg {
-          font-size: var(--text-body);
-          color: var(--text-secondary);
-        }
+        /* .bl-error/.bl-error-msg 与 .bl-panel-empty-shots 已无 TSX 引用(2026-09-04 W4 清理:
+           错误态走 ui/ErrorBar,空态走 ui/Empty 共享三档),死样式删除 */
 
-        /* ── 卡片网格(2026-08-24 排版统一:间距消费 --section-gap) ── */
+        /* ── 卡片网格(2026-08-24 排版统一;gutter 走宽松陈列档 --grid-gutter-lg,2026-09-04 W4) ── */
         .bl-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-          gap: var(--section-gap);
+          gap: var(--grid-gutter-lg);
         }
 
         .bl-card {
@@ -602,21 +592,32 @@ export function BacklotView({
           background: var(--stage-color, var(--border-subtle));
           z-index: 1;
         }
+        /* hover 反馈对齐共享可交互卡配方 .at-card--interactive(2026-09-04 美化 W4:
+           -3px/shadow-lg → -1px/shadow-md;卡有整卡点击语义,配方一致) */
         .bl-card:hover {
           border-color: var(--border-strong);
-          box-shadow: var(--shadow-lg);
-          transform: translateY(-3px);
+          box-shadow: var(--shadow-md);
+          transform: translateY(-1px);
         }
         .bl-card:focus-visible {
           border-color: var(--border-strong);
-          outline: 2px solid var(--accent);
+          /* 聚焦环统一走 --focus-ring(1px 琥珀),原 2px accent 野值 */
+          outline: var(--focus-ring);
           outline-offset: 2px;
         }
+        @media (prefers-reduced-motion: reduce) {
+          .bl-card:hover {
+            transform: none;
+          }
+          .bl-card:hover .bl-thumb img {
+            transform: none;
+          }
+        }
 
-        /* 缩略图 16:9 */
+        /* 缩略图:宽高比走 --media-ar-video 版型令牌(2026-09-04 W4,原裸 16 / 9) */
         .bl-thumb {
           position: relative;
-          aspect-ratio: 16 / 9;
+          aspect-ratio: var(--media-ar-video);
           background: var(--bg-surface-2);
           overflow: hidden;
         }
@@ -966,19 +967,7 @@ export function BacklotView({
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
         }
-        .bl-panel-empty-shots {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: var(--space-2);
-          padding: var(--space-5) var(--space-3);
-          color: var(--text-muted);
-          font-size: var(--text-aux);
-          text-align: center;
-          background: var(--bg-surface-2);
-          border: 1px dashed var(--border-strong);
-          border-radius: var(--radius-control);
-        }
+        /* .bl-panel-empty-shots 已无 TSX 引用(2026-09-04 W4 空态收编 ui/Empty),死样式删除 */
 
         /* ── 分镜列表 ── */
         .bl-shots {

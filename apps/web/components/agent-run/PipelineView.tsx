@@ -6,6 +6,7 @@
  * CSS grid 实现(不引 React Flow),节点 = 缩略卡片(序号 + 状态图标 + 标题 + 依赖序号)。
  */
 import type { AgentRunTask } from "@/lib/api";
+import { Empty } from "@/components/ui/Empty";
 import { Icon } from "@/components/ui/Icon";
 import { SWIMLANES, swimlaneIndex, taskStatusMeta } from "./agentRunMeta";
 
@@ -28,11 +29,8 @@ export function PipelineView({ tasks }: { tasks: AgentRunTask[] }) {
   if (other.length > 0) visible.push({ key: "other", label: "其他", nodes: other });
 
   if (visible.length === 0) {
-    return (
-      <div className="empty-state">
-        <p className="empty-state-desc">计划任务会出现在这里</p>
-      </div>
-    );
+    /* 空态升级(2026-09-04 美化 W4):私造 .empty-state 收编共享三档 section 档 */
+    return <Empty size="section" icon="bot" title="计划任务会出现在这里" />;
   }
 
   return (

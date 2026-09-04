@@ -79,14 +79,6 @@
   border-color: var(--accent-halo);
   color: var(--accent);
 }
-.apps-filter-empty {
-  margin: 0;
-  padding: var(--space-4) 0;
-  color: var(--text-muted);
-  font-size: var(--text-aux);
-  text-align: center;
-}
-
 /* ── 分区(内置/公共/我的) ── */
 .apps-section {
   display: flex;
@@ -139,11 +131,9 @@
   grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
   gap: var(--grid-gutter-lg);
 }
-.apps-empty {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-aux);
-  padding: var(--space-2) 0 var(--space-1);
+/* 共享空态 inline 档落在网格内时占满整行(2026-09-04 美化 W4) */
+.apps-grid .at-empty--inline {
+  grid-column: 1 / -1;
 }
 
 /* ── 应用卡:同行等高(foot 压底);hover/选中走共享可交互卡配方(.at-card--interactive,
@@ -167,12 +157,6 @@
   border-color: var(--accent-glow);
   box-shadow: 0 0 0 0.5px var(--accent-glow);
   background: color-mix(in oklab, var(--accent-glow-soft) 55%, var(--bg-surface-1));
-}
-/* 整库空态(单行 muted + 行内重试钮) */
-.apps-empty-all {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 .apps-card-head {
   display: flex;
@@ -227,7 +211,7 @@
 }
 .apps-tag {
   font-size: var(--text-label);
-  padding: 1px 8px;
+  padding: 1px var(--space-2);
   border-radius: var(--radius-full);
   border: 1px solid var(--border-subtle);
   color: var(--text-muted);
@@ -236,9 +220,10 @@
   color: var(--err);
   border-color: var(--err);
 }
-/* 用量计数:数字走 mono(规范 §3:数字/参数一律 mono) */
+/* 用量计数:数字走 mono(规范 §3:数字/参数一律 mono);
+   修正:--text-caption 为已退役旧令牌(无效),收编 --text-label(2026-09-04 美化 W4) */
 .apps-usage {
-  font-size: var(--text-caption);
+  font-size: var(--text-label);
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -708,7 +693,7 @@
 /* 已选文件名:mono(规范 §3:文件/参数/ID 一律 mono) */
 .apps-import-file {
   font-family: var(--font-mono);
-  font-size: var(--text-caption);
+  font-size: var(--text-label);
   color: var(--text-secondary);
 }
 /* JSON 粘贴域:mono + 禁自动增高(rows 固定,内容长走内滚) */

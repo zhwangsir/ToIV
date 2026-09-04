@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { StudioRenderMode, StudioShot, StudioShotInput } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
+import { Empty } from "@/components/ui/Empty";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import type { useStudioProject } from "@/hooks/useStudioProject";
@@ -105,13 +106,13 @@ export function StoryboardStage({
       </div>
 
       {shots.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">
-            <Icon name="film" size={40} />
-          </div>
-          <h3 className="empty-state-title">还没有分镜</h3>
-          <p className="empty-state-desc">回「剧本」阶段 AI 拆解,或点「新增分镜」手动创建。</p>
-        </div>
+        /* 空态升 section 档(2026-09-04 美化 W3):共享 at-empty 语言替代自写 empty-state 块 */
+        <Empty
+          size="section"
+          icon="film"
+          title="还没有分镜"
+          desc="回「剧本」阶段 AI 拆解,或点「新增分镜」手动创建。"
+        />
       ) : (
         <div className="studio-shot-grid">
           {shots.map((s) => (

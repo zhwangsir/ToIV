@@ -204,7 +204,7 @@ export function OrbitViewer({ frames, frame, onFrame }: OrbitViewerProps) {
           cursor: grabbing;
         }
         .ie-orbit-stage:focus-visible {
-          outline: 1px solid var(--accent);
+          outline: var(--focus-ring);
           outline-offset: 2px;
         }
         .ie-orbit-img {
@@ -253,28 +253,30 @@ export function OrbitViewer({ frames, frame, onFrame }: OrbitViewerProps) {
             height: 44px;
           }
         }
+        /* 帧指示刻度(2026-09-04 美化 W3):圆点改刻度条——当前帧拉高+accent,读出「8 机位环」节律 */
         .ie-orbit-dots {
           display: flex;
           justify-content: center;
-          gap: var(--space-2);
+          align-items: center;
+          gap: var(--space-1);
         }
         .ie-orbit-dot {
-          width: 8px;
-          height: 8px;
+          width: 3px;
+          height: 10px;
           padding: 0;
           border: none;
-          border-radius: 50%;
+          border-radius: var(--radius-full);
           background: var(--bg-surface-3);
           cursor: pointer;
-          transition: background var(--duration-fast) var(--ease-standard),
-            transform var(--duration-fast) var(--ease-standard);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            height var(--duration-fast) var(--ease-standard);
         }
         .ie-orbit-dot:hover {
           background: var(--text-muted);
         }
         .ie-orbit-dot.is-active {
           background: var(--accent);
-          transform: scale(1.25);
+          height: 16px;
         }
         @media (prefers-reduced-motion: reduce) {
           .ie-orbit-dot,

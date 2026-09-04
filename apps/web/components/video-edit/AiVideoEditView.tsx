@@ -667,8 +667,8 @@ export function AiVideoEditView() {
         .veai-editor {
           display: flex;
           flex-direction: column;
-          gap: var(--space-3);
-          padding: var(--space-3) var(--space-4);
+          gap: var(--space-4);
+          padding: var(--space-4);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-panel);
           background: var(--bg-surface-2);
@@ -677,7 +677,7 @@ export function AiVideoEditView() {
           width: 100%;
           max-height: 420px;
           border-radius: var(--radius-control);
-          background: #000;
+          background: var(--bg-canvas);
         }
         .veai-source {
           display: flex;
@@ -694,8 +694,8 @@ export function AiVideoEditView() {
           display: inline-flex;
           align-items: center;
           gap: var(--space-1);
-          font-size: 12px;
-          font-weight: 500;
+          font-size: var(--text-body);
+          font-weight: var(--font-medium);
           color: var(--text-primary);
           max-width: 45%;
           overflow: hidden;
@@ -703,7 +703,7 @@ export function AiVideoEditView() {
           white-space: nowrap;
         }
         .veai-source-dims {
-          font-size: 11px;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           font-variant-numeric: tabular-nums;
         }
@@ -721,7 +721,7 @@ export function AiVideoEditView() {
           background: var(--bg-surface-3);
         }
         .veai-empty-hint {
-          font-size: 11px;
+          font-size: var(--text-aux);
           color: var(--text-muted);
         }
         .veai-keyframes {
@@ -740,13 +740,13 @@ export function AiVideoEditView() {
           gap: var(--space-2);
         }
         .veai-kf-title {
-          font-size: 12px;
-          font-weight: 500;
+          font-size: var(--text-aux);
+          font-weight: var(--font-medium);
           color: var(--text-secondary);
         }
         .veai-kf-hint {
           margin: 0;
-          font-size: 11px;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           line-height: 1.5;
         }
@@ -758,12 +758,12 @@ export function AiVideoEditView() {
         .veai-kf-chip {
           display: inline-flex;
           align-items: center;
-          gap: 4px;
-          padding: 2px 4px 2px 8px;
+          gap: var(--space-1);
+          padding: 1px var(--space-1) 1px var(--space-2);
           border: 1px solid var(--accent);
-          border-radius: 999px;
-          background: var(--accent-soft, var(--bg-surface-2));
-          font-size: 11px;
+          border-radius: var(--radius-full);
+          background: var(--accent-soft);
+          font-size: var(--text-aux);
           color: var(--text-primary);
           font-variant-numeric: tabular-nums;
         }
@@ -788,7 +788,8 @@ export function AiVideoEditView() {
           align-items: center;
           justify-content: space-between;
           cursor: pointer;
-          font-size: 12px;
+          font-size: var(--text-body);
+          font-weight: var(--font-medium);
           color: var(--text-secondary);
           list-style: none;
         }
@@ -809,7 +810,7 @@ export function AiVideoEditView() {
         }
         .veai-mask-hint {
           margin: 0 0 var(--space-2);
-          font-size: 11px;
+          font-size: var(--text-aux);
           color: var(--text-muted);
         }
         .veai-mask-actions {
@@ -832,7 +833,7 @@ export function AiVideoEditView() {
         .veai-mask-name {
           flex: 1;
           min-width: 0;
-          font-size: 11px;
+          font-size: var(--text-aux);
           color: var(--text-secondary);
           overflow: hidden;
           text-overflow: ellipsis;
@@ -845,13 +846,13 @@ export function AiVideoEditView() {
         }
         .veai-error-text {
           margin: 0;
-          font-size: 12px;
+          font-size: var(--text-aux);
           color: var(--err);
         }
         .veai-compare {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-          gap: var(--space-3);
+          gap: var(--grid-gutter);
         }
         .veai-compare-cell {
           display: flex;
@@ -859,9 +860,10 @@ export function AiVideoEditView() {
           gap: var(--space-1);
         }
         .veai-compare-label {
-          font-size: 11px;
-          font-weight: 500;
+          font-size: var(--text-aux);
+          font-weight: var(--font-medium);
           color: var(--text-muted);
+          text-align: center;
         }
       `}</style>
     </div>

@@ -247,10 +247,11 @@ test("⑨ skills.css:移动端卡片操作钮 ≥44px(--touch-target),24px 档�
   const block = css.slice(iMedia);
   assert.ok(block.includes("var(--touch-target)"), "移动端操作钮未走 --touch-target(44px)");
   assert.ok(!block.includes("width: 24px"), "24px 触达档残留");
-  // SkillMarketView 内联 jsx 块同步(主组件直渲的「我的技能」卡走该作用域)
+  // 2026-09-04 美化 W4:SkillMarketView 内联 styled-jsx 块已整体删除(与 skills.css
+  // 重复且作用域不一致),44px 约束单一来源即本文件级样式;此处只钉「不再复活内联块」
   const view = readSrc("components/skills/SkillMarketView.tsx");
-  assert.ok(!view.includes("width: 24px"), "jsx 内联块 24px 档残留");
-  assert.ok(view.includes("var(--touch-target)"), "jsx 内联块未同步 --touch-target");
+  assert.ok(!view.includes("<style jsx>"), "内联 styled-jsx 块不得复活(与 skills.css 双源漂移)");
+  assert.ok(!view.includes("width: 24px"), "24px 档残留");
 });
 
 /* ── ⑩ BottomNav 抽屉 a11y ── */

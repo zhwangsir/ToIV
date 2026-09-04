@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
@@ -368,9 +369,14 @@ export function LiveAssistantPanel() {
         {/* 事件流(新→旧) */}
         <section className="at-live-events" aria-label="互动事件流">
           {events.length === 0 ? (
+            /* 空态升 section 档(2026-09-04 美化 W3):共享 at-empty 语言 */
             <div className="at-live-events-empty">
-              <Icon name="chat" size={22} strokeWidth={1.5} />
-              <p>暂无互动事件;摄入一条弹幕试试</p>
+              <Empty
+                size="section"
+                icon="chat"
+                title="暂无互动事件"
+                desc="摄入一条弹幕试试"
+              />
             </div>
           ) : (
             events.map((ev) => {

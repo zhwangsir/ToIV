@@ -154,7 +154,9 @@ test("SkillMarketView:搜索+范围+R18 三条件客户端过滤", () => {
   // 过滤逻辑:名称/描述包含 + 范围包含 + R18
   assert.ok(src.includes("a.applies_to.includes(scope)"), "范围匹配逻辑缺");
   assert.ok(src.includes("if (nsfwOnly && !a.is_nsfw) return false"), "R18 过滤逻辑缺");
-  assert.ok(src.includes("skill-filter-empty"), "空结果提示缺失");
+  // 2026-09-04 美化 W4:私造 skill-filter-empty 收编 ui/Empty 共享三档 inline 档
+  assert.ok(src.includes("没有匹配的技能"), "空结果提示缺失");
+  assert.ok(src.includes('size="inline"'), "空结果提示须走共享空态 inline 档");
 });
 
 test("skills.css:检索工具栏样式存在", () => {

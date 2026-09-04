@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
@@ -274,24 +275,26 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
           </div>
 
           {!filtering && visibleCount === 0 ? (
-            /* 整库空态(2026-09-02 W3):大图标 Empty → 单行 muted 提示 + 行内重试 */
-            <p className="apps-filter-empty apps-empty-all">
-              应用市场暂无应用——内置应用由后端注册表提供
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={<Icon name="refresh" size={13} />}
-                onClick={() => void refresh()}
-              >
-                重试
-              </Button>
-            </p>
+            /* 整库空态(2026-09-04 美化 W4):单行 muted 提示 → 共享三档空态 inline 档 + 行内重试 */
+            <Empty
+              size="inline"
+              title="应用市场暂无应用"
+              desc="内置应用由后端注册表提供"
+              action={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<Icon name="refresh" size={13} />}
+                  onClick={() => void refresh()}
+                >
+                  重试
+                </Button>
+              }
+            />
           ) : (
             <>
               {filtering && visibleCount === 0 && (
-                <p className="apps-filter-empty">
-                  没有匹配的应用——换个关键词,或清除筛选条件
-                </p>
+                <Empty size="inline" title="没有匹配的应用——换个关键词,或清除筛选条件" />
               )}
 
               <Section title="内置应用" count={builtin.length} empty="">
@@ -322,7 +325,7 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
                     </div>
                   )}
                   {communitySlice.items.length === 0 ? (
-                    <p className="apps-empty">没有匹配的社区应用</p>
+                    <Empty size="inline" title="没有匹配的社区应用" />
                   ) : (
                     <div className="apps-grid">
                       {communitySlice.items.map((a) => renderCard(a, !a.is_builtin && !a.is_mine))}
@@ -392,8 +395,9 @@ function Section({
         </span>
       </div>
       {count === 0 ? (
+        /* 空态升级(2026-09-04 美化 W4):共享三档空态 inline 档,grid 内占满整行 */
         empty ? (
-          <p className="apps-empty">{empty}</p>
+          <Empty size="inline" title={empty} />
         ) : null
       ) : (
         <div className="apps-grid">{children}</div>

@@ -14,7 +14,7 @@
   flex-direction: column;
   gap: var(--section-gap);
   width: 100%;
-  max-width: 1200px;
+  max-width: var(--layout-wide);
   margin: 0 auto;
   height: 100%;
   overflow-y: auto;
@@ -95,10 +95,8 @@
   /* 行边框加深(2026-08-16 批 2):亮色下 --border-subtle 与背景融合,静止态即 strong */
   border-color: var(--border-strong);
 }
-/* hover 态:描边转 accent 作强反馈(浮起/投影由 .at-card--lift 供给) */
-.studio-project-card:hover {
-  border-color: var(--accent);
-}
+/* 2026-09-04 美化 W3:hover 反馈统一由 .at-card--interactive 供给(border-strong+细影+轻抬),
+   不再自写 accent 描边变体 */
 /* 打开区:卡壳由 .at-card 供给,此处只排内 layout */
 .studio-project-open {
   flex: 1;
@@ -126,7 +124,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 .studio-project-title {
   font-family: var(--font-display);
@@ -269,6 +267,38 @@
   background: var(--bg-surface-1);
   box-shadow: var(--shadow-sm);
 }
+/* 阶段序号徽章(2026-09-04 美化 W3 进度感):默认 hairline 圆;当前段墨丸强调;已完成段琥珀填充 */
+.studio-stage-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  font-size: var(--text-label);
+  font-weight: var(--font-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+.studio-stage-btn.is-active .studio-stage-num {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+}
+.studio-stage-btn.is-done:not(.is-active) .studio-stage-num {
+  background: var(--accent-glow-soft);
+  border-color: var(--accent-glow);
+  color: var(--accent-glow-deep);
+}
+.studio-stage-btn.is-done:not(.is-active) {
+  color: var(--text-secondary);
+}
 .studio-view-title {
   margin-left: auto;
   font-size: var(--text-aux);
@@ -286,7 +316,7 @@
   flex-direction: column;
   gap: var(--space-4);
   width: 100%;
-  max-width: 960px;
+  max-width: var(--layout-content);
 }
 /* 卡片网格类阶段用满内容宽(1200) */
 .studio-stage-cast,
@@ -408,7 +438,7 @@
 }
 .studio-shot-media {
   position: relative;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: var(--media-ar-video);
   background: var(--bg-surface-2);
 }
 .studio-shot-media video,
@@ -615,7 +645,7 @@
   text-align: center;
 }
 .studio-timeline-media {
-  aspect-ratio: 16 / 9;
+  aspect-ratio: var(--media-ar-video);
   background: var(--bg-surface-2);
   border-radius: var(--radius-control);
   overflow: hidden;

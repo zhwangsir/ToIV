@@ -429,9 +429,9 @@ export function ShotCard({
         .shot-save-state {
           display: inline-flex;
           align-items: center;
-          gap: 3px;
+          gap: var(--space-1);
           margin-left: auto;
-          font-size: var(--text-caption, 11px);
+          font-size: var(--text-aux);
           color: var(--text-muted);
           white-space: nowrap;
         }
@@ -444,15 +444,15 @@ export function ShotCard({
         .studio-shot-ai {
           display: flex;
           flex-direction: column;
-          gap: var(--space-1, 4px);
-          padding: var(--space-2, 8px);
-          background: var(--bg-surface-3, rgba(0, 0, 0, 0.04));
+          gap: var(--space-1);
+          padding: var(--space-2);
+          background: var(--bg-surface-3);
           border: 1px dashed var(--border-subtle);
-          border-radius: var(--radius-control, 8px);
+          border-radius: var(--radius-control);
         }
         .studio-shot-ai-row {
           display: flex;
-          gap: var(--space-1, 4px);
+          gap: var(--space-1);
         }
         .studio-shot-ai-row .input {
           flex: 1;
@@ -464,22 +464,22 @@ export function ShotCard({
         }
         .studio-shot-ai-error {
           margin: 0;
-          font-size: var(--text-caption, 11px);
+          font-size: var(--text-aux);
           color: var(--err);
         }
         .studio-shot-chars {
           display: flex;
           flex-wrap: wrap;
-          gap: 4px;
+          gap: var(--space-1);
         }
         .studio-shot-char {
           display: inline-flex;
           align-items: center;
-          gap: 3px;
-          padding: 2px 8px;
-          font-size: var(--text-caption, 11px);
+          gap: var(--space-1);
+          padding: 1px var(--space-2);
+          font-size: var(--text-aux);
           border: 1px solid var(--border-subtle);
-          border-radius: 999px;
+          border-radius: var(--radius-full);
           background: transparent;
           color: var(--text-muted);
           cursor: pointer;
@@ -487,7 +487,7 @@ export function ShotCard({
         .studio-shot-char.is-on {
           border-color: var(--accent);
           color: var(--text-primary);
-          background: var(--bg-surface-3, rgba(0, 0, 0, 0.06));
+          background: var(--bg-surface-3);
         }
       `}</style>
     </article>

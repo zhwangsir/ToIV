@@ -88,13 +88,8 @@
   color: var(--err);
   background: color-mix(in oklab, var(--err) 10%, transparent);
 }
-.skill-filter-empty {
-  margin: 0;
-  padding: var(--space-4) 0;
-  color: var(--text-muted);
-  font-size: var(--text-aux);
-  text-align: center;
-}
+/* 私造空态类(.skill-filter-empty/.skill-empty)已于 2026-09-04 美化 W4 删除,
+   收编 ui/Empty 共享三档 at-empty--inline */
 
 /* ── 分区 ── */
 .skill-section {
@@ -127,32 +122,50 @@
   gap: var(--space-2);
 }
 
-/* ── 卡片网格:min() 根治超窄容器(分屏/折叠屏)轨道溢出 ── */
+/* ── 卡片网格:min() 根治超窄容器(分屏/折叠屏)轨道溢出;
+   gutter 走宽松陈列档 --grid-gutter-lg(2026-09-04 美化 W4,与 apps.css 对齐) ── */
 .skill-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
-  gap: var(--space-3);
+  gap: var(--grid-gutter-lg);
 }
-.skill-empty {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-aux);
-  padding: var(--space-2) 0 var(--space-1);
+/* 共享空态 inline 档落在网格内时占满整行(2026-09-04 美化 W4) */
+.skill-grid .at-empty--inline {
+  grid-column: 1 / -1;
+}
+/* 列表加载失败:ErrorBar + 条外重试(2026-09-04 W4 补回——迁文件样式时丢失,此前无定义) */
+.skill-load-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
 }
 
-/* ── 技能卡:同行等高(tags 压底对齐),hover 升浮 ── */
+/* ── 技能卡:同行等高(tags 压底对齐);hover 配方镜像共享可交互卡 .at-card--interactive
+   (2026-09-04 美化 W4:边框转 strong + translateY(-1px) + 细影;整卡无点击语义,
+   不设 cursor:pointer,点击入口仍是卡内名称/操作钮)。
+   修正:--radius-card 为已退役旧令牌(无效,unset 成 0),收编 --radius-panel。 ── */
 .skill-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-3) var(--space-2);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-panel);
   background: var(--bg-surface-1);
-  transition: border-color var(--duration-fast) var(--ease-standard);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
 }
 .skill-card:hover {
   border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .skill-card:hover {
+    transform: none;
+  }
 }
 .skill-card-head {
   display: flex;
@@ -214,8 +227,8 @@
   flex-wrap: wrap;
 }
 .skill-tag {
-  font-size: var(--text-caption);
-  padding: 1px 8px;
+  font-size: var(--text-label);
+  padding: 1px var(--space-2);
   border-radius: var(--radius-full);
   border: 1px solid var(--border-subtle);
   color: var(--text-muted);

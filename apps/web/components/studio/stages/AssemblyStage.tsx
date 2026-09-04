@@ -42,9 +42,11 @@ export function AssemblyStage({
         </button>
       </div>
 
-      {/* 分镜片段时间轴;无分镜时给引导空态(2026-08-30 UX 批 C),不再渲染空列表 */}
+      {/* 分镜片段时间轴;无分镜时给引导空态(2026-08-30 UX 批 C),不再渲染空列表;
+          2026-09-04 美化 W3 升 section 档 */}
       {d.shots.length === 0 ? (
         <Empty
+          size="section"
           icon="film"
           title="还没有分镜可合成"
           desc="先到「剧本」阶段 AI 拆解剧情生成分镜,或在「分镜」阶段点「新增分镜」手动创建;生成完毕后再回来合成成片"

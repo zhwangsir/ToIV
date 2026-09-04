@@ -750,7 +750,7 @@ function ObsStyles() {
         .obs-live {
           display: inline-flex;
           align-items: center;
-          gap: 8px;
+          gap: var(--space-2);
         }
         .obs-live-dot {
           width: 8px;
@@ -798,14 +798,17 @@ function ObsStyles() {
         .obs-kpi:hover {
           border-color: var(--border-strong);
         }
+        /* KPI 数字 mono 大号(2026-09-04 美化 W4):24px 裸值收编 display-sm 档,
+           mono 字族 + tabular-nums;字重 700 → --font-bold 令牌 */
         .obs-kpi-num {
           display: block;
-          font-size: 24px;
-          font-weight: 700;
+          font-family: var(--font-mono);
+          font-size: var(--text-display-sm);
+          font-weight: var(--font-bold);
           font-variant-numeric: tabular-nums;
         }
         .obs-kpi-rate .obs-kpi-num {
-          font-size: 30px;
+          font-size: var(--text-display-md);
           color: var(--text-primary);
         }
         .obs-kpi-held .obs-kpi-num {
@@ -815,7 +818,7 @@ function ObsStyles() {
           color: var(--run);
         }
         .obs-kpi-label {
-          margin-top: 2px;
+          margin-top: var(--space-1);
           font-size: var(--text-aux);
           color: var(--text-muted);
         }
@@ -833,7 +836,7 @@ function ObsStyles() {
         .obs-card-title {
           margin: 0 0 var(--space-2, 8px);
           font-size: var(--text-body);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-muted);
           letter-spacing: 0.04em;
         }
@@ -861,18 +864,18 @@ function ObsStyles() {
           background: var(--bg-surface-1);
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: var(--space-2);
           font-size: var(--text-aux);
         }
         .obs-held-reasons li {
           display: flex;
-          gap: 8px;
+          gap: var(--space-2);
           align-items: baseline;
         }
         .obs-held-count {
           flex-shrink: 0;
           color: var(--warn);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
         }
         .obs-held-reason {
           color: var(--text-muted);
@@ -902,7 +905,7 @@ function ObsStyles() {
         .obs-gpu-head {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: var(--space-2);
           font-size: var(--text-body);
         }
         .obs-dot {
@@ -934,7 +937,7 @@ function ObsStyles() {
           background: var(--bg-surface-1);
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: var(--space-1);
           text-align: left;
           font: inherit;
           color: inherit;
@@ -950,11 +953,11 @@ function ObsStyles() {
         .obs-fleet-head {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: var(--space-2);
         }
         .obs-fleet-name {
           font-size: var(--text-body);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
         }
         .obs-fleet-xy {
           margin-left: auto;
@@ -972,20 +975,22 @@ function ObsStyles() {
         .obs-fleet-headline {
           font-size: var(--text-aux);
           color: var(--accent);
+          /* fleet 卡数值 mono(2026-09-04 美化 W4) */
+          font-family: var(--font-mono);
           font-variant-numeric: tabular-nums;
         }
         /* ── 二级详情页 ── */
         .obs-detail-head {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: var(--space-3);
           flex-wrap: wrap;
         }
         .obs-back {
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
           background: var(--bg-surface-1);
-          padding: 6px 12px;
+          padding: var(--space-1) var(--space-3);
           /* §10 触达 ≥44px(移动端点按) */
           min-height: 44px;
           display: inline-flex;
@@ -1003,7 +1008,7 @@ function ObsStyles() {
         .obs-detail-title {
           margin: 0;
           font-size: var(--text-body);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
         }
         .obs-detail-headline {
           font-size: var(--text-aux);
@@ -1012,7 +1017,7 @@ function ObsStyles() {
         .obs-detail-meta {
           display: flex;
           flex-wrap: wrap;
-          gap: 6px 18px;
+          gap: var(--space-2) var(--space-4);
           font-size: var(--text-aux);
           color: var(--text-muted);
           font-variant-numeric: tabular-nums;
@@ -1029,13 +1034,13 @@ function ObsStyles() {
         }
         .obs-svc-table th {
           text-align: left;
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-muted);
-          padding: 4px 8px;
+          padding: var(--space-1) var(--space-2);
           border-bottom: 1px solid var(--border-subtle);
         }
         .obs-svc-table td {
-          padding: 5px 8px;
+          padding: var(--space-1) var(--space-2);
           border-bottom: 1px dashed var(--border-subtle);
           font-variant-numeric: tabular-nums;
         }
@@ -1043,7 +1048,7 @@ function ObsStyles() {
           color: var(--text-muted);
         }
         .obs-svc-name {
-          font-weight: 600;
+          font-weight: var(--font-semibold);
         }
         .obs-svc-note {
           color: var(--text-muted);
@@ -1058,18 +1063,18 @@ function ObsStyles() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 4px;
+          gap: var(--space-1);
         }
         .obs-usage-title {
           font-size: var(--text-aux);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-muted);
         }
         .obs-nas-down {
           justify-content: center;
           color: var(--err);
           font-size: var(--text-body);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           min-width: 140px;
         }
         .obs-sys-cpu {
@@ -1090,10 +1095,10 @@ function ObsStyles() {
           padding: var(--space-3, 12px);
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: var(--space-2);
         }
         .obs-gpu-id {
-          font-weight: 600;
+          font-weight: var(--font-semibold);
         }
         .obs-gpu-host {
           color: var(--text-muted);
@@ -1112,7 +1117,7 @@ function ObsStyles() {
         .obs-vram-row {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: var(--space-3);
         }
         .obs-vram-bar {
           flex: 1;
@@ -1141,7 +1146,7 @@ function ObsStyles() {
           background: var(--text-muted);
         }
         .obs-vram-text {
-          margin-top: 4px;
+          margin-top: var(--space-1);
           font-size: var(--text-aux);
           color: var(--text-muted);
           font-variant-numeric: tabular-nums;
@@ -1153,19 +1158,19 @@ function ObsStyles() {
           border-top: 1px dashed var(--border-subtle);
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: var(--space-1);
           font-size: var(--text-aux);
         }
         .obs-instances li {
           display: flex;
-          gap: 8px;
+          gap: var(--space-2);
           align-items: baseline;
         }
         .obs-instances li.is-offline {
           color: var(--text-muted);
         }
         .obs-inst-name {
-          font-weight: 600;
+          font-weight: var(--font-semibold);
         }
         .obs-inst-vram {
           color: var(--text-muted);

@@ -86,11 +86,12 @@ export function ResourcesView({ onCreateProject }: { onCreateProject?: () => voi
           flex-direction: column;
           height: 100%;
         }
-        /* 段控窄行(页头已移除):首屏全给内容 */
+        /* 段控窄行(页头已移除):首屏全给内容;
+           与内容区间距走 --layout-toolbar-gap 版型档(2026-09-04 美化 W4) */
         .resources-mode-row {
           flex-shrink: 0;
           display: flex;
-          padding: 0 0 var(--space-3);
+          padding: 0 0 var(--layout-toolbar-gap);
         }
         .resources-body {
           flex: 1;

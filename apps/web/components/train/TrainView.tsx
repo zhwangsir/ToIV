@@ -594,7 +594,9 @@ export function TrainView() {
         )}
 
         {isEmpty && (
+          /* 空态升级(2026-09-04 美化 W4):inline 单行 → section 档(图标+标题+引导) */
           <Empty
+            size="section"
             icon="train"
             title="还没有训练任务"
             desc="点击「新建训练」上传数据集开始第一次 LoRA 训练"
@@ -637,12 +639,13 @@ export function TrainView() {
           padding-bottom: var(--space-2);
         }
 
-        /* ── 工具行(2026-09-02 W3 页头移除:刷新/新建训练右对齐窄行) ── */
+        /* ── 工具行(2026-09-02 W3 页头移除:刷新/新建训练右对齐窄行);
+           与内容区间距走 --layout-toolbar-gap 版型档(2026-09-04 美化 W4) ── */
         .tv-mode-row {
           display: flex;
           justify-content: flex-end;
           gap: var(--space-2);
-          padding: 0 0 var(--space-3);
+          padding: 0 0 var(--layout-toolbar-gap);
         }
 
         /* ── Form ── */
@@ -766,20 +769,8 @@ export function TrainView() {
           padding: var(--space-4) 0;
         }
 
-        /* 空态重设计:图标改为浅底圆盘,拉开与标题的层级 */
-        .train-view .empty-state-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 72px;
-          height: 72px;
-          border-radius: var(--radius-full);
-          background: var(--bg-surface-2);
-          border: 1px solid var(--border-subtle);
-          opacity: 1;
-          color: var(--text-muted);
-          margin-bottom: var(--space-5);
-        }
+        /* 旧私造空态 .empty-state-icon 圆盘样式已于 2026-09-04 美化 W4 删除:
+           空态收编 ui/Empty 共享三档(at-empty--section),此处样式不再命中 */
 
         /* ── Job List ── */
         .tv-list {
@@ -970,7 +961,13 @@ function TrainCard({
         .tv-card:hover {
           border-color: var(--border-strong);
           box-shadow: var(--shadow-md);
-          transform: translateY(-2px);
+          /* hover 幅度对齐共享可交互卡配方(2026-09-04 美化 W4:-2px → -1px) */
+          transform: translateY(-1px);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .tv-card:hover {
+            transform: none;
+          }
         }
         @media (max-width: 767px) {
           .tv-card {
@@ -1053,15 +1050,17 @@ function TrainCard({
           flex-direction: column;
           gap: var(--space-2);
         }
+        /* 进度条(2026-09-04 美化 W4):8px 粗轨 → 2px 细轨,填充琥珀点睛
+           (最小触点原则:单条 2px 状态线,非大面积着色) */
         .tv-progress-track {
-          height: 8px;
+          height: 2px;
           background: var(--bg-surface-2);
           border-radius: var(--radius-full);
           overflow: hidden;
         }
         .tv-progress-fill {
           height: 100%;
-          background: var(--run);
+          background: var(--accent-glow);
           border-radius: var(--radius-full);
           transition: width var(--duration-base) var(--ease-standard);
         }

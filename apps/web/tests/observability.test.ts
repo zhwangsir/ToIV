@@ -145,8 +145,8 @@ test("ObservabilityView:W3 单色套版(新类名在 + 旧装饰清零)", () => 
   // 二级详情大标题收敛为 13px/600 细顶条
   assert.match(
     src,
-    /\.obs-detail-title \{\s*margin: 0;\s*font-size: var\(--text-body\);\s*font-weight: 600;/,
-    "详情标题收敛为 body/600",
+    /\.obs-detail-title \{\s*margin: 0;\s*font-size: var\(--text-body\);\s*font-weight: var\(--font-semibold\);/,
+    "详情标题收敛为 body 档 + semibold 令牌(2026-09-04 美化 W4:600 裸值收编)",
   );
   // 硬编码字阶清零(13/12/11 → token)
   assert.doesNotMatch(src, /font-size: 1[123]px/, "硬编码 13/12/11px 应清零");

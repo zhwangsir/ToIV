@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type DragEvent } from "react"
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input, Select } from "@/components/ui/Input";
@@ -431,6 +432,13 @@ function ResultPanel({ source, resultUrl, resultPaths }: ResultPanelProps) {
                 decoding="async"
               />
             </div>
+          </div>
+          {/* 分隔柄(2026-09-04 美化 W3):两列间垂直 hairline + 居中圆形手柄,明示「对比」关系 */}
+          <div className="ie-compare-divider" aria-hidden="true">
+            <span className="ie-compare-handle">
+              <Icon name="chevron-left" size={10} />
+              <Icon name="chevron-right" size={10} />
+            </span>
           </div>
           <div className="ie-compare-col">
             <span className="ie-compare-tag is-result">结果</span>
@@ -1272,6 +1280,15 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
                 <ResultPanel source={source} resultUrl={proc.resultUrl} resultPaths={proc.resultPaths} />
               )
             )}
+            {/* 结果区空态(2026-09-04 美化 W3):未出结果时给段落级引导,占住画布列节奏 */}
+            {!proc.resultUrl && !isRunning && (
+              <Empty
+                size="section"
+                icon="wand"
+                title="处理结果将显示在这里"
+                desc="选择左侧工具并运行,完成后可对比原图并下载"
+              />
+            )}
           </div>
           </div>
         </>
@@ -1323,7 +1340,7 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
           min-height: 320px;
           padding: var(--space-12) var(--space-8);
           background: var(--bg-surface-1);
-          border: 2px dashed var(--border-subtle);
+          border: 1px dashed var(--border-strong);
           border-radius: var(--radius-panel);
           color: var(--text-primary);
           cursor: pointer;
@@ -1462,15 +1479,14 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
         .ie-tools {
           display: flex;
           flex-direction: column;
-          gap: var(--space-4);
+          gap: var(--space-2);
         }
         .ie-tool-card {
           overflow: hidden;
         }
+        /* 工具列表行规范(2026-09-04 美化 W3):列表卡不升空,hover 只转强描边 */
         .ie-tool-card:hover {
           border-color: var(--border-strong);
-          box-shadow: var(--shadow-lift);
-          transform: translateY(-2px);
         }
         .ie-tool-card.is-active {
           border-color: var(--accent);
@@ -1482,7 +1498,7 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
           gap: var(--space-3);
           width: 100%;
           min-height: 68px;
-          padding: var(--space-4) var(--space-5);
+          padding: var(--space-4);
           background: transparent;
           border: none;
           color: var(--text-primary);
@@ -1535,7 +1551,7 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
           display: flex;
           flex-direction: column;
           gap: var(--space-4);
-          padding: var(--space-4) var(--space-5) var(--space-5);
+          padding: var(--space-4);
           border-top: 1px solid var(--border-subtle);
         }
         .ie-field-group {
@@ -1605,8 +1621,8 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
           cursor: not-allowed;
         }
         .ie-slider:focus-visible {
-          outline: 1px solid var(--accent);
-          outline-offset: 4px;
+          outline: var(--focus-ring);
+          outline-offset: var(--space-1);
         }
 
         /* ── 进度条 ── */
@@ -1695,12 +1711,46 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
         }
         .ie-compare-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1fr auto 1fr;
           gap: var(--space-4);
+          align-items: start;
         }
         @media (max-width: 767px) {
           .ie-compare-grid {
             grid-template-columns: 1fr;
+          }
+        }
+        /* 对比分隔柄(2026-09-04 美化 W3):垂直 hairline + 居中圆形手柄;移动端堆叠时转横线 */
+        .ie-compare-divider {
+          align-self: stretch;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 1px;
+          background: var(--border-subtle);
+          position: relative;
+        }
+        .ie-compare-handle {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0;
+          width: 24px;
+          height: 24px;
+          border-radius: var(--radius-full);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          box-shadow: var(--shadow-xs);
+          color: var(--text-muted);
+        }
+        @media (max-width: 767px) {
+          .ie-compare-divider {
+            width: auto;
+            height: 1px;
           }
         }
         .ie-compare-col {
@@ -1774,17 +1824,17 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
           gap: var(--space-2);
         }
         .ie-model3d-preset {
-          padding: 5px 6px;
+          padding: var(--space-1) var(--space-2);
           font-size: var(--text-aux);
           color: var(--text-primary);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
-          border-radius: 8px;
+          border-radius: var(--radius-control);
         }
         .ie-model3d-bake-btn {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
+          gap: var(--space-2);
         }
         .ie-model3d-bake-btn:disabled {
           opacity: 0.6;
@@ -1805,7 +1855,9 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
           background: var(--bg-surface-2);
           color: var(--text-secondary);
           cursor: pointer;
-          transition: border-color 0.15s, color 0.15s, background 0.15s;
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .ie-cam3d-btn:hover:not(:disabled) {
           border-color: var(--accent);
@@ -1815,7 +1867,7 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
           border-color: var(--accent);
           background: var(--accent-soft);
           color: var(--accent);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
         }
         .ie-cam3d-btn:disabled {
           opacity: 0.5;

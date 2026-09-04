@@ -184,7 +184,8 @@
 
 /* ── 舞台浮层 pill(Badge 承载,玻璃材质) ──
    注:实时对话的连接状态 pill 已移入页头(.at-conn-badge,2026-08-16 批 2);
-   本浮层样式现仅视频生成工作台(AvatarGenPanel)引擎状态使用 */
+   本浮层样式现仅视频生成工作台(AvatarGenPanel)引擎状态使用。
+   2026-09-04 美化 W3:浮层统一 --shadow-pop 双层柔影 + --ease-spring 弹簧入场。 */
 .at-view .at-status-badge {
   position: absolute;
   top: var(--space-4);
@@ -195,7 +196,8 @@
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
-  box-shadow: var(--glass-highlight), var(--shadow-lg);
+  box-shadow: var(--glass-highlight), var(--shadow-pop);
+  animation: at-pill-in var(--duration-base) var(--ease-spring);
 }
 .at-view .at-speaking-badge {
   position: absolute;
@@ -209,8 +211,8 @@
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
-  box-shadow: var(--glass-highlight), var(--shadow-lg);
-  animation: at-fade-in var(--duration-base) var(--ease-standard);
+  box-shadow: var(--glass-highlight), var(--shadow-pop);
+  animation: at-pill-in var(--duration-base) var(--ease-spring);
 }
 .at-speaking-wave {
   display: inline-flex;
@@ -232,7 +234,7 @@
   50% { transform: scaleY(1); }
 }
 
-/* 字幕条(底部,玻璃浮层) */
+/* 字幕条(底部,玻璃浮层;2026-09-04 美化 W3:--shadow-pop + 弹簧滑入) */
 .at-subtitle-bar {
   position: absolute;
   left: var(--space-4);
@@ -244,9 +246,9 @@
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-panel);
-  box-shadow: var(--glass-highlight), var(--shadow-xl);
+  box-shadow: var(--glass-highlight), var(--shadow-pop);
   z-index: var(--z-at-overlay);
-  animation: at-slide-up var(--duration-base) var(--ease-standard);
+  animation: at-slide-up var(--duration-base) var(--ease-spring);
 }
 .at-subtitle-text {
   margin: 0;
@@ -274,13 +276,21 @@
   box-shadow: var(--shadow-xl);
 }
 
-@keyframes at-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+/* pill 浮层弹簧入场(2026-09-04 美化 W3):上位 4px + 轻微缩放,--ease-spring 克制回弹 */
+@keyframes at-pill-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes at-slide-up {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .at-view .at-status-badge,
+  .at-view .at-speaking-badge,
+  .at-subtitle-bar {
+    animation: none;
+  }
 }
 
 /* ── 右侧控制面板 ── */
@@ -409,8 +419,10 @@
   outline-offset: 1px;
 }
 .at-avatar-card.is-selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  /* 选中态(2026-09-04 美化 W3):琥珀细环(1px 描边 + 外环)+ soft 底,最小触点级点睛 */
+  border-color: var(--accent-glow);
+  background: var(--accent-glow-soft);
+  box-shadow: 0 0 0 1px var(--accent-glow);
 }
 .at-avatar-preview {
   /* 形象缩略图统一 3:4 竖版(2026-08-16 批 2):数字人形象为竖向人像,
@@ -467,7 +479,7 @@
   flex: 1;
 }
 .at-avatar-card.is-selected .at-avatar-name {
-  color: var(--accent);
+  color: var(--accent-glow-deep);
 }
 /* 「自定义」标记:去填充,accent hairline 徽章(同 .at-badge 语言) */
 .at-avatar-tag {
@@ -658,11 +670,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-.at-conv-empty-text {
-  margin: 0;
-  font-size: var(--text-body);
-  color: var(--text-muted);
 }
 
 .at-msg {
@@ -1005,19 +1012,16 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
   color: var(--text-muted);
 }
-.at-live-events-empty p {
-  margin: 0;
-  font-size: var(--text-aux);
-}
+/* 事件流行(2026-09-04 美化 W3):列表行收 control 圆角(与面板容器 panel 圆角分层);
+   回复段用虚线 hairline 与弹幕正文分段,消息行节奏对齐 --space-* 令牌 */
 .at-live-event {
   padding: var(--space-2) var(--space-3);
   background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-xs);
   animation: at-msg-in var(--duration-base) var(--ease-standard);
 }
 .at-live-event-head {
@@ -1043,6 +1047,8 @@
 }
 .at-live-event-reply {
   margin: var(--space-1) 0 0;
+  padding-top: var(--space-1);
+  border-top: 1px dashed var(--border-subtle);
   font-size: var(--text-aux);
   color: var(--accent);
   line-height: 1.6;
@@ -1168,7 +1174,7 @@
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-panel);
-  box-shadow: var(--glass-highlight), var(--shadow-lg);
+  box-shadow: var(--glass-highlight), var(--shadow-pop);
   overflow: hidden;
 }
 .at-ck-head {
@@ -1222,7 +1228,7 @@
   width: 100%;
   max-height: 240px;
   border-radius: var(--radius-control);
-  background: #000;
+  background: var(--bg-canvas);
 }
 
 /* ════════════════════════════════════════════════════════════════

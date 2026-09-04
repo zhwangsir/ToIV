@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -1044,11 +1045,13 @@ function ConversationPanel({
       <div className="at-messages">
         {messages.length === 0 && (
           <div className="at-conv-empty">
-            <div className="at-conv-empty-icon" aria-hidden="true">
-              <Icon name="sparkles" size={22} strokeWidth={1.5} />
-            </div>
-            <p className="at-conv-empty-text">开始和数字人对话吧</p>
-            <p className="at-conv-empty-hint">输入文字,或点麦克风直接说话</p>
+            {/* 空态升 section 档(2026-09-04 美化 W3):共享 at-empty 语言替代自写文案行 */}
+            <Empty
+              size="section"
+              icon="sparkles"
+              title="开始和数字人对话吧"
+              desc="输入文字,或点麦克风直接说话"
+            />
           </div>
         )}
 

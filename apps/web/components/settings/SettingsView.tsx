@@ -6,6 +6,7 @@ import { fetchEngines, type EngineInfo, type EngineKind } from "@/lib/engines";
 import { confirmAge, isAgeConfirmed, useR18Mode } from "@/lib/r18";
 import { Icon } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Button";
+import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Switch } from "@/components/ui/Switch";
@@ -209,10 +210,8 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
               <LoadingBlock variant="line" count={3} />
             </div>
           ) : engines.length === 0 ? (
-            <div className="settings-engines-empty">
-              <Icon name="cpu" size={18} strokeWidth={1.6} />
-              <p>暂无已注册引擎</p>
-            </div>
+            /* 空态升级(2026-09-04 美化 W4):私造单行容器 → 共享三档 inline 档 */
+            <Empty size="inline" icon="cpu" title="暂无已注册引擎" />
           ) : (
             <div className="settings-engine-groups">
               {KIND_ORDER.map((kind) => {
