@@ -4,14 +4,16 @@
   "updated_at": "2026-09-03T20:30:00+08:00",
   "endpoint_unification_2026_09_03": {
     "date": "2026-09-03",
-    "commits": ["3446b75", "7edabc5"],
+    "commits": ["3446b75", "7edabc5", "0f15ef7"],
+    "pushed": "Gitee+GitHub 双推完成（含早前 6c204bb/2be1cd5，ToIV 远程已同步至 0f15ef7）",
+    "aigcpannel_commit": "d100e44（LB 热更新+漂移收口，Gitee+GitHub 双推完成）",
     "deployed": "core toiv-api（deploy.sh --skip-web ×2）+ workstation comfyui-lb（scp + restart）",
     "mechanism": "改 ComfyUI 池后端只编辑 workstation /opt/comfyui-lb/backends.json；LB 5s mtime 热重载（零重启不丢 prompt_map）；GET :8188/admin/backends 供下游拉取；ToIV api 池 TOIV_COMFY_WORKERS_REGISTRY_URL 60s TTL 跟随（失败沿用现状）；TOIV_COMFY_WORKERS env 仅兜底",
     "loopback_rewrite": "注册表 127.0.0.1/localhost 后端自动改写到注册表主机（生产实证抓获：LB 报 127.0.0.1:8196 对 core 不可达）",
     "infinitetalk_8201": "deps.resolve_worker 精确匹配已补（E-1 核销）",
     "e2e": "改 JSON 加假后端 5s 内 /admin/backends 出现且 UNHEALTHY、删除即消失、零重启；txt2img 冒烟落 192.168.71.127:8196 正常执行",
     "tests": "test_pool_registry 11 例 + deps 1 例；后端全量 3007 passed / 6 failed（预存失败：test_agent_gen_tools 1 + test_app_seed 5，干净树复现与本次无关，疑 09-03 应用市场批次引入，待查）",
-    "aigcpannel": "仓内 LB + local_gateway/model_library/start 脚本三处漂移收口（未提交，其规则未要求不 commit）；⚠️ 其 platform/backend/.env 含旧 COMFYUI_LB_BACKEND_URLS 需其会话手动改 :8196，否则 env 显式值压过动态拉取；其 TEST_LOG/STATE/设备说明 文档残留 :8189/.115 未动",
+    "aigcpannel": "仓内 LB + local_gateway/model_library/start 脚本三处漂移收口（`d100e44` 已双推）；⚠️ 其 platform/backend/.env 含旧 COMFYUI_LB_BACKEND_URLS 需其会话手动改 :8196，否则 env 显式值压过动态拉取；其 TEST_LOG/STATE/设备说明 文档残留 :8189/.115 未动",
     "static_fallback": "TOIV_COMFY_WORKERS env 与 LB 源码内置列表均保留为兜底"
   },
   "lb_gpu0_alt_2026_09_03": {
