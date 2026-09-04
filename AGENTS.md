@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-03（精简重构：全史归档 `.archive/AGENTS-full-20260903.md`；LB :8189→:8196；操作方查明=AIGCPannel）
+> **最后更新**：2026-09-04（全站美化方向A五波收官；版型令牌系统+琥珀点睛+UI_STANDARD v2.0）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -168,6 +168,10 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-04
+
+- **全站美化方向A「精修控制台」五波收官（`33c045c`/`2393957`/`79bd123`/`2988b9c`,均已部署 core,生产截图验证）**：版型令牌系统（`--layout-measure/content/wide`、节奏/栅格/媒体 AR 档）+字阶圆角旧档删除+琥珀点睛（`--accent-glow`,聚焦环/激活指示/链接 hover 三触点）+浮层 `--shadow-pop` 弹簧入场+空态三档（stage/section/inline,Fraunces 斜体+琥珀图标）+19 视图全量版型对齐;UI_STANDARD v2.0 成文。方向C（Film Atelier 复兴）demo 被否,留档 `.regen_tmp/film-atelier-demo.html`。细节见 TEST_LOG。
 
 ### 2026-09-03（本周）
 

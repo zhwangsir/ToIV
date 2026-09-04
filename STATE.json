@@ -1,7 +1,16 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T20:30:00+08:00",
+  "updated_at": "2026-09-04T18:00:00+08:00",
+  "beautify_direction_a_2026_09_04": {
+    "date": "2026-09-04",
+    "direction": "A 精修控制台（C Film Atelier 复兴 demo 被用户否，留档 .regen_tmp/film-atelier-demo.html）",
+    "commits": ["33c045c", "2393957", "79bd123", "2988b9c"],
+    "deployed": "core，BUILD_ID 20260904-101401-2988b9c-dirty 真机核对一致",
+    "scope": "Wave0 版型令牌（--layout-*/--media-ar-*/节奏栅格档）+字阶圆角旧档删除+accent-glow 琥珀点睛+装饰层裁决+UI_STANDARD v2.0；Wave1 浮层 shadow-pop+空态三档+charts 单色；Wave2 门户首页/作品库/融合/生成三视图；Wave3 七创作工具视图；Wave4 市场/资源/设置/观测/admin/落地/agent-runs/drama",
+    "regression": "每波 npm test 915/915 + tsc 0 + 干净构建；生产截图亮暗双模式",
+    "deviations": "观测台保持 wide 档未收窄；drama 播放器无真实截图（仅 CSS 令牌替换）；训练进度条/落地页关键词两处琥珀触点待 UI_STANDARD 追认"
+  },
   "endpoint_unification_2026_09_03": {
     "date": "2026-09-03",
     "commits": ["3446b75", "7edabc5", "0f15ef7"],
