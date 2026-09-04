@@ -1645,19 +1645,19 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         .entity-ref-chip {
           display: inline-flex;
           align-items: center;
-          gap: 5px;
-          padding: 3px 6px;
+          gap: var(--space-1);
+          padding: var(--space-1) var(--space-2);
           border: 1px solid var(--border-subtle);
-          border-radius: 999px;
+          border-radius: var(--radius-full);
           background: var(--bg-surface-3);
           color: var(--text-secondary);
-          font-size: 11px;
+          font-size: var(--text-label);
           max-width: 160px;
         }
         .entity-ref-chip-img {
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
+          width: var(--space-4);
+          height: var(--space-4);
+          border-radius: var(--radius-full);
           object-fit: cover;
           flex-shrink: 0;
         }
@@ -1673,7 +1673,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           width: 14px;
           height: 14px;
           border: none;
-          border-radius: 50%;
+          border-radius: var(--radius-full);
           background: transparent;
           color: var(--text-muted);
           cursor: pointer;
@@ -1682,11 +1682,6 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         }
         .entity-ref-chip-remove:hover:not(:disabled) {
           color: var(--text-primary);
-        }
-        .entity-ref-hint {
-          margin: 6px 0 0;
-          font-size: 11px;
-          color: var(--text-muted);
         }
         .motion-brush-row {
           display: flex;
@@ -1698,13 +1693,13 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         .motion-brush-chip {
           display: inline-flex;
           align-items: center;
-          gap: 5px;
-          padding: 3px 6px;
+          gap: var(--space-1);
+          padding: var(--space-1) var(--space-2);
           border: 1px solid var(--border-subtle);
-          border-radius: 999px;
+          border-radius: var(--radius-full);
           background: var(--bg-surface-3);
           color: var(--text-secondary);
-          font-size: 11px;
+          font-size: var(--text-label);
         }
         .motion-brush-chip-name {
           white-space: nowrap;
@@ -1716,7 +1711,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           width: 14px;
           height: 14px;
           border: none;
-          border-radius: 50%;
+          border-radius: var(--radius-full);
           background: transparent;
           color: var(--text-muted);
           cursor: pointer;
@@ -1725,12 +1720,6 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         }
         .motion-brush-chip-remove:hover:not(:disabled) {
           color: var(--text-primary);
-        }
-        .motion-brush-hint {
-          flex-basis: 100%;
-          margin: 0;
-          font-size: 11px;
-          color: var(--text-muted);
         }
       `}</style>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Empty } from "@/components/ui/Empty";
 import "@/app/styles/fusion.css";
 
 interface FusionApp {
@@ -61,6 +62,10 @@ const FUSION_APPS: FusionApp[] = [
 export function FusionView({ onNavigate }: { onNavigate: (target: string) => void }) {
   return (
     <div className="fusion-view">
+      {FUSION_APPS.length === 0 ? (
+        /* 空态(2026-09-04 W2B):接 at-empty--section;当前列表为静态数据,此分支是兜底 */
+        <Empty size="section" icon="package" title="暂无融合应用" desc="融合应用上架后会出现在这里" />
+      ) : (
       <ul className="fusion-list">
         {FUSION_APPS.map((app) => (
           <li key={app.name}>
@@ -86,6 +91,7 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
           </li>
         ))}
       </ul>
+      )}
     </div>
   );
 }

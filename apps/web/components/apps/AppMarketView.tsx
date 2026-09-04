@@ -157,7 +157,28 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
   }
 
   const renderCard = (a: AppItem, showFork: boolean) => (
-    <article key={a.id} className="apps-card">
+    /* 可交互卡(2026-09-04 美化 W2A):整卡点击 = 打开应用(内嵌按钮/链接点击与
+       文本划选除外),共享类 .at-card--interactive 承载 hover 配方,
+       键盘聚焦态为琥珀描边 1.5px + soft 底(apps.css .apps-card:focus-visible) */
+    <article
+      key={a.id}
+      className="apps-card at-card--interactive"
+      role="button"
+      tabIndex={0}
+      aria-label={`打开应用 ${a.name}`}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("button, a")) return;
+        if (window.getSelection()?.toString()) return; /* 划选描述文本不触发打开 */
+        setOpenId(a.id);
+      }}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setOpenId(a.id);
+        }
+      }}
+    >
       <div className="apps-card-head">
         <Icon name={iconOf(a)} size={15} />
         <span className="apps-card-name" title={a.name}>

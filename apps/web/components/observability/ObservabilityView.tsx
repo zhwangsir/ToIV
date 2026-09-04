@@ -768,7 +768,7 @@ function ObsStyles() {
           color: var(--text-muted);
           font-variant-numeric: tabular-nums;
         }
-        /* 空态单行 muted 提示(empty-console-hint 语言;共享 Empty 组件在本视图退役) */
+        /* 空态单行 muted 提示(at-empty--inline 语言(empty-console-hint 已于 W2A 退役);共享 Empty 组件在本视图退役) */
         .obs-empty-line {
           margin: 0;
           padding: var(--space-4) 0;

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Textarea } from "@/components/ui/Input";
@@ -80,6 +81,18 @@ function StageBusy({ label }: { label: string }) {
     <div className="audio-stage-busy">
       <span className="loading-spinner" aria-hidden="true" />
       <span className="audio-stage-busy-text">{label}</span>
+    </div>
+  );
+}
+
+/** 舞台空态(2026-09-04 美化 W2A):共享三档空态的舞台档(at-empty--stage——
+ *  琥珀线稿图标 + Fraunces 斜体一句 + 引导),.stage-empty 适配层(居中/聚光/去重框)
+ *  在 stage.css,与 generate 结果区同一舞台语言;文案取自 EDIT_TOOLS.stageEmpty。 */
+function StageEmpty({ tool, desc }: { tool: EditTool; desc: string }) {
+  const meta = EDIT_TOOLS.find((t) => t.key === tool) ?? EDIT_TOOLS[0];
+  return (
+    <div className="stage-empty">
+      <Empty size="stage" icon={meta.icon} title={meta.stageEmpty} desc={desc} />
     </div>
   );
 }
@@ -268,7 +281,7 @@ function TtsStage({ t }: { t: TtsTool }) {
       ) : t.synthing ? (
         <StageBusy label="IndexTTS 合成中…" />
       ) : (
-        <span className="empty-console-hint">配音产物将在这里呈现</span>
+        <StageEmpty tool="tts" desc="在左侧输入台词,可上传参考音色,点击「合成配音」。" />
       )}
     </>
   );
@@ -424,7 +437,7 @@ function AsrStage({ t }: { t: AsrTool }) {
           <ToolProgress pct={t.pct} label={t.stage} />
         </div>
       ) : (
-        <span className="empty-console-hint">转写结果将在这里呈现</span>
+        <StageEmpty tool="asr" desc="在左侧选择音视频文件,点击「开始听写」。" />
       )}
     </>
   );
@@ -563,7 +576,7 @@ function SeparateStage({ t }: { t: SeparateTool }) {
       ) : t.busy ? (
         <StageBusy label="Demucs 分离中…" />
       ) : (
-        <span className="empty-console-hint">分离产物将在这里呈现</span>
+        <StageEmpty tool="separate" desc="在左侧选择音频文件,点击「开始分离」。" />
       )}
     </>
   );
@@ -646,7 +659,7 @@ export function AudioView() {
             </div>
           </aside>
 
-          {/* 中央舞台:空态一行提示 / 进行中进度 / 结果;错误条置顶 */}
+          {/* 中央舞台:空态(at-empty--stage)/ 进行中进度 / 结果;错误条置顶 */}
           <div className="audio-edit-stage">
             {tool === "tts" && <TtsStage t={tts} />}
             {tool === "asr" && <AsrStage t={asr} />}
@@ -665,11 +678,12 @@ export function AudioView() {
           padding-top: var(--space-4);
           padding-bottom: var(--space-4);
         }
-        /* 段控窄行(页头已移除):仅高度 ~32px,首屏还给工作台 */
+        /* 段控窄行(页头已移除):仅高度 ~32px,首屏还给工作台;
+           与内容区间距走 --layout-toolbar-gap 版型档(W2A) */
         .audio-mode-row {
           flex-shrink: 0;
           display: flex;
-          padding: 0 0 var(--space-3);
+          padding: 0 0 var(--layout-toolbar-gap);
         }
         .audio-tab-gen {
           flex: 1;
@@ -717,7 +731,7 @@ export function AudioView() {
           flex-shrink: 0;
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: var(--space-1);
           padding: var(--space-2);
           border-bottom: 1px solid var(--border-subtle);
         }
@@ -726,7 +740,7 @@ export function AudioView() {
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          height: 34px;
+          height: 36px; /* 工具条行高统一 36px(UI_STANDARD §4.4) */
           padding: 0 var(--space-3);
           border: none;
           border-radius: var(--radius-control);
@@ -750,11 +764,11 @@ export function AudioView() {
         .audio-edit-tool.is-active::before {
           content: "";
           position: absolute;
-          left: -4px;
-          top: 8px;
-          bottom: 8px;
+          left: calc(-1 * var(--space-1));
+          top: var(--space-2);
+          bottom: var(--space-2);
           width: 2px;
-          border-radius: 1px;
+          border-radius: var(--radius-full);
           background: var(--accent);
         }
         .audio-edit-form {
@@ -784,8 +798,10 @@ export function AudioView() {
           width: 100%;
         }
 
-        /* 中央舞台:与 generate-results 同款面板岛 */
+        /* 中央舞台:与 generate-results 同款面板岛;
+           position:relative 为 .stage-empty 空态适配层(stage.css)提供定位锚 */
         .audio-edit-stage {
+          position: relative;
           flex: 1;
           min-width: 0;
           min-height: 0;
@@ -809,7 +825,7 @@ export function AudioView() {
         }
         .audio-stage-content {
           width: 100%;
-          max-width: 640px;
+          max-width: var(--layout-measure); /* W2A:阅读档版心令牌 */
           margin: 0 auto;
           display: flex;
           flex-direction: column;
@@ -881,7 +897,7 @@ export function AudioView() {
           gap: var(--space-1);
           min-width: 0;
           max-width: 100%; /* 长文件名不顶破面板 */
-          padding: 2px var(--space-2);
+          padding: var(--space-1) var(--space-2);
           background: var(--bg-surface-2);
           border-radius: var(--radius-badge);
           font-size: var(--text-aux);
@@ -1032,13 +1048,13 @@ export function AudioView() {
         /* 移动端:触控目标 ≥44px,主操作撑满整行 */
         @media (max-width: 767px) {
           .audio-view {
-            padding: var(--space-3) var(--space-3) var(--space-3);
+            padding: var(--space-3);
           }
           .audio-edit-actions :global(.btn) {
-            min-height: 44px;
+            min-height: var(--touch-target);
           }
           .audio-view :global(.audio-ref-row .btn) {
-            min-height: 44px;
+            min-height: var(--touch-target);
           }
           .audio-view :global(.audio-ref-clear) {
             width: 32px;

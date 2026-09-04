@@ -676,7 +676,7 @@ export function EntitiesView() {
           gap: var(--space-3, 12px);
           flex-wrap: wrap;
         }
-        /* 空态/错误态:单行 muted 提示 + 行内 ghost 操作(empty-console-hint 语言) */
+        /* 空态/错误态:单行 muted 提示 + 行内 ghost 操作(at-empty--inline 语言(empty-console-hint 已于 W2A 退役)) */
         .ent-empty-row {
           display: flex;
           align-items: center;

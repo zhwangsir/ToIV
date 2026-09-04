@@ -43,9 +43,11 @@ test("音频编辑舞台化:旧三卡堆叠范式清除", () => {
 
 test("音频编辑舞台化:舞台空态/进行中/结果三态齐全", () => {
   const src = readSrc("components/audio/AudioView.tsx");
-  // 空态:复用全局 empty-console-hint 单行提示(与 ResultPanel 空态同语言)
-  const empties = src.match(/empty-console-hint/g) ?? [];
+  // 空态(2026-09-04 美化 W2A):共享三档空态的舞台档(Empty size="stage" +
+  // .stage-empty 适配层,与 ResultPanel 空态同一舞台语言),三工具各一
+  const empties = src.match(/<StageEmpty tool=/g) ?? [];
   assert.ok(empties.length >= 3, "三工具舞台空态提示不齐");
+  assert.ok(src.includes('size="stage"'), "空态未接 Empty size=stage");
   // 进行中:TTS/分离走 StageBusy(spinner),ASR 走 ToolProgress(百分比)
   assert.ok(src.includes("StageBusy"), "缺无百分比进行中态");
   assert.ok(src.includes("ToolProgress"), "缺百分比进行中态");

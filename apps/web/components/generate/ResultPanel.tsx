@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Empty } from "@/components/ui/Empty";
 import { Icon } from "@/components/ui/Icon";
 import { LazyVideo } from "@/components/ui/LazyVideo";
 import { Select } from "@/components/ui/Input";
@@ -260,12 +261,21 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
     doneEntries.find((e) => e.id === compareB) ?? doneEntries.find((e) => e.id !== entryA?.id) ?? null;
 
   if (entries.length === 0) {
-    // Studio Console v1(2026-08-31):空态只有一行 muted 提示——
-    // 旧「PROMPT ATELIER 铭牌 + 大标题 + 步骤卡 + 快速开始卡」整套退役(用户:文字太多)
-    // tabIndex=0:空态容器 overflow-y:auto 可滚动,axe scrollable-region-focusable 要求键盘可达
+    // 空态(2026-09-04 美化 W2A):接入共享三档空态的舞台档(at-empty--stage——
+    // 琥珀线稿图标 + Fraunces 斜体一句 + 引导),.stage-empty 适配层负责
+    // 居中/聚光/去重框(样式在 stage.css);旧「PROMPT ATELIER 铭牌 + 步骤卡 +
+    // 快速开始卡」与 v1 单行 muted 提示均已退役
+    // tabIndex=0:容器 overflow-y:auto 可滚动,axe scrollable-region-focusable 要求键盘可达
     return (
       <div className="result-panel result-panel-empty" tabIndex={0}>
-        <span className="empty-console-hint">产物将在这里呈现</span>
+        <div className="stage-empty">
+          <Empty
+            size="stage"
+            icon="clapperboard"
+            title="产物将在这里呈现"
+            desc="在下方提示词条描述想要的画面,选择引擎后开始生成。"
+          />
+        </div>
       </div>
     );
   }
@@ -328,19 +338,8 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
                     停止
                   </Button>
                 )}
-                {/* 下载(2026-08-30):完成且有产物时显示;多产物逐一下载 */}
-                {current.status === "done" && !current.postProcessing && current.paths.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={<Icon name="download" size={13} />}
-                    onClick={() => downloadEntry(current)}
-                    title={current.paths.length > 1 ? `下载全部 ${current.paths.length} 个产物` : "下载产物"}
-                    aria-label="下载当前产物"
-                  >
-                    下载
-                  </Button>
-                )}
+                {/* 下载已迁入舞台右下 hover 操作浮层(.stage-media-actions,W2A),
+                    状态胶囊只保留状态/引擎/中止/A/B,UI 进一步后退 */}
                 {compareSwitch}
               </div>
 
@@ -469,6 +468,22 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
               {current.status === "done" && !current.postProcessing && current.paths.length > 0 && (
                 <div className={`stage-media-wrap${current.paths.length > 1 ? " is-multi" : ""}`}>
                   <MediaView entry={current} className="media-main" />
+                </div>
+              )}
+              {/* 媒体 hover 操作浮层(W2A):右下玻璃胶囊,悬停/聚焦舞台淡入(触屏常显);
+                  下载(2026-08-30):完成且有产物时显示;多产物逐一下载 */}
+              {current.status === "done" && !current.postProcessing && current.paths.length > 0 && (
+                <div className="stage-media-actions">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<Icon name="download" size={13} />}
+                    onClick={() => downloadEntry(current)}
+                    title={current.paths.length > 1 ? `下载全部 ${current.paths.length} 个产物` : "下载产物"}
+                    aria-label="下载当前产物"
+                  >
+                    下载
+                  </Button>
                 </div>
               )}
               {/* done 但零产物(配后端 Wave-1「完成无产物标 error」的历史/边界兜底):

@@ -1013,7 +1013,7 @@ export function LibraryView(props?: LibraryViewProps) {
                 return (
                   <article
                     key={job.id}
-                    className={`lib-card${deletingId === job.id ? " is-deleting" : ""}`}
+                    className={`lib-card${isVideo ? " is-video" : ""}${deletingId === job.id ? " is-deleting" : ""}`}
                   >
                     <div className="lib-thumb">
                       <button
@@ -1177,7 +1177,7 @@ export function LibraryView(props?: LibraryViewProps) {
               return (
                 <article
                   key={job.id}
-                  className={`lib-card${deletingId === job.id ? " is-deleting" : ""}${isSelected ? " is-selected" : ""}`}
+                  className={`lib-card${isVideo ? " is-video" : ""}${deletingId === job.id ? " is-deleting" : ""}${isSelected ? " is-selected" : ""}`}
                 >
                   <div className={`lib-thumb${job.status === "running" && !hasResult ? " is-running" : ""}`}>
                     {/* 预览/勾选触发区用真实 <button>,避免嵌套交互控件(WCAG nested-interactive) */}
@@ -2313,9 +2313,9 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
   const skeletonCount = 8;
 
   return (
-    <div className="single-view library-view">
+    <div className="single-view library-view is-trash">
       {/* 回收站细顶条(2026-09-02 W3 PageHeader 退役):返回 + 标题 + 说明 + 清空;
-          操作槽类名 lib-trash-* 保留(e2e 锚点) */}
+          操作槽类名 lib-trash-* 保留(e2e 锚点);is-trash 根类(2026-09-04 W2B):条目灰化降级 */}
       <header className="lib-trash-head">
         <Button
           size="sm"
@@ -2387,7 +2387,7 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
               const isBlurred = isNsfw && !revealedIds.has(job.id);
               const cardText = splitCardTitle(job);
               return (
-                <article key={job.id} className="lib-card">
+                <article key={job.id} className={`lib-card${isVideo ? " is-video" : ""}`}>
                   <div className="lib-thumb">
                     <button
                       type="button"

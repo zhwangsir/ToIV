@@ -1,7 +1,9 @@
 /* ════════════════════════════════════════════════════════════════════
-   融合应用聚合页(Studio Console W3,2026-09-02 套版)
+   融合应用聚合页(Studio Console W3,2026-09-02 套版;2026-09-04 美化 W2B 精修)
    bento 卡网格(渐变洗光/水印大图标/旗舰徽标/墨丸 CTA/错峰入场/卡片阴影)全退役,
-   改 hairline 分行紧凑列表:图标 + 名称/描述 + 标签 + 箭头,hover 底色 + 描边态,
+   改 hairline 分行紧凑列表:图标 + 名称/描述 + 标签 + 箭头。
+   W2B:行 hover soft 底 + 左侧 2px 琥珀指示条(--ease-spring 滑入,scaleY 0→1);
+   版心走 --layout-content;空态接 at-empty--section。
    动效只有 opacity/transform 快档,字重/色值全走 token。
    ════════════════════════════════════════════════════════════════════ */
 
@@ -12,17 +14,18 @@
   overflow-y: auto;
 }
 
-/* 列表:版心限宽,顶/底 hairline 由行承担(首行补顶线锚定内容) */
+/* 列表:版心限宽 --layout-content,顶/底 hairline 由行承担(首行补顶线锚定内容) */
 .fusion-list {
   margin: 0;
   padding: 0;
   list-style: none;
   width: 100%;
-  max-width: var(--content-max, 760px);
+  max-width: var(--layout-content);
 }
 
-/* 行:全宽 button,hairline 底分隔,hover/focus 底色提档(无阴影无位移) */
+/* 行:全宽 button,hairline 底分隔,hover/focus soft 底 + 左侧琥珀指示条 */
 .fusion-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -38,13 +41,31 @@
 .fusion-list li:first-child .fusion-row {
   border-top: 1px solid var(--border-subtle);
 }
+/* 左侧 2px 琥珀指示条:spring 滑入(scaleY 0→1),hover/focus 同态;
+   克制单点,与 .at-seg 激活指示同语言 */
+.fusion-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: var(--space-2);
+  bottom: var(--space-2);
+  width: 2px;
+  border-radius: var(--radius-full);
+  background: var(--accent-glow);
+  transform: scaleY(0);
+  transition: transform var(--duration-base) var(--ease-spring);
+  pointer-events: none;
+}
 .fusion-row:hover {
-  background: var(--bg-surface-1);
+  background: var(--accent-soft);
+}
+.fusion-row:hover::before,
+.fusion-row:focus-visible::before {
+  transform: scaleY(1);
 }
 .fusion-row:focus-visible {
   outline: none;
-  background: var(--bg-surface-1);
-  box-shadow: inset 2px 0 0 var(--accent);
+  background: var(--accent-soft);
 }
 
 /* 左:工具图标(muted,无底托) */
@@ -114,5 +135,11 @@
   }
   .fusion-row-desc {
     white-space: normal; /* 窄屏描述放行两截,不截断 */
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fusion-row::before {
+    transition: none;
   }
 }

@@ -176,7 +176,7 @@
   }
 }
 
-/* 空态(2026-09-02 W3):虚线框面板 → 单行 muted 提示(empty-console-hint 语言) */
+/* 空态(2026-09-02 W3):虚线框面板 → 单行 muted 提示(at-empty--inline 语言(empty-console-hint 已于 W2A 退役)) */
 .settings-engines-empty {
   display: flex;
   align-items: center;

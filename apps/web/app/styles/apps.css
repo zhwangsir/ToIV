@@ -132,11 +132,12 @@
   text-align: center;
 }
 
-/* ── 卡片网格:min() 根治超窄容器轨道溢出(skills.css 同范式) ── */
+/* ── 卡片网格:min() 根治超窄容器轨道溢出(skills.css 同范式);
+   gutter 走宽松陈列档 --grid-gutter-lg(2026-09-04 美化 W2A 版型对齐) ── */
 .apps-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
-  gap: var(--space-3);
+  gap: var(--grid-gutter-lg);
 }
 .apps-empty {
   margin: 0;
@@ -145,7 +146,9 @@
   padding: var(--space-2) 0 var(--space-1);
 }
 
-/* ── 应用卡:同行等高(foot 压底);hover 仅描边提强(2026-09-02 W3 去阴影/位移) ── */
+/* ── 应用卡:同行等高(foot 压底);hover/选中走共享可交互卡配方(.at-card--interactive,
+   TSX 侧挂类:边框转 strong + translateY(-1px) + 细影,2026-09-04 美化 W2A 接入;
+   此前 W3 去阴影/位移的「仅描边提强」由共享类统一收口) ── */
 .apps-card {
   display: flex;
   flex-direction: column;
@@ -154,10 +157,16 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
   background: var(--bg-surface-1);
-  transition: border-color var(--duration-fast) var(--ease-standard);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
 }
-.apps-card:hover {
-  border-color: var(--border-strong);
+/* 键盘选中/聚焦态:琥珀描边 1.5px(1px border + 0.5px 环)+ soft 底(点睛最小触点) */
+.apps-card:focus-visible {
+  outline: none;
+  border-color: var(--accent-glow);
+  box-shadow: 0 0 0 0.5px var(--accent-glow);
+  background: color-mix(in oklab, var(--accent-glow-soft) 55%, var(--bg-surface-1));
 }
 /* 整库空态(单行 muted + 行内重试钮) */
 .apps-empty-all {
@@ -582,11 +591,12 @@
   color: var(--text-muted);
 }
 
-/* 结果区:产物按 output_kind 渲染(图/视频/音频),下载锚按钮 */
+/* 结果区:产物按 output_kind 渲染(图/视频/音频),下载锚按钮;
+   gutter 走栅格基准档(W2A) */
 .apps-results {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
-  gap: var(--space-3);
+  gap: var(--grid-gutter);
 }
 .apps-result-card {
   display: flex;
@@ -597,15 +607,52 @@
   border-radius: var(--radius-panel);
   background: var(--bg-surface-2);
 }
-.apps-result-media {
+/* 媒体框:统一宽高比(2026-09-04 美化 W2A,视频 16/9、图像 1/1 版型令牌),
+   contain 保完整内容(生成结果保真优先,空缺处以 surface-1 信箱底衬) */
+.apps-result-frame {
+  position: relative;
   width: 100%;
   border-radius: var(--radius-control);
   background: var(--bg-surface-1);
-  display: block;
+  overflow: hidden;
 }
+.apps-result-frame--video {
+  aspect-ratio: var(--media-ar-video);
+}
+.apps-result-frame--image {
+  aspect-ratio: var(--media-ar-image);
+}
+.apps-result-media {
+  width: 100%;
+  display: block;
+  border-radius: var(--radius-control);
+  background: var(--bg-surface-1);
+}
+.apps-result-frame .apps-result-media {
+  height: 100%;
+  border-radius: 0;
+  object-fit: contain;
+}
+/* hover 操作浮层(W2A):媒体框右下,默认隐去,悬停/聚焦淡入;触屏常显兜底 */
 .apps-result-actions {
   display: flex;
   justify-content: flex-end;
+}
+.apps-result-frame .apps-result-actions {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-standard);
+}
+.apps-result-card:hover .apps-result-frame .apps-result-actions,
+.apps-result-card:focus-within .apps-result-frame .apps-result-actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  .apps-result-frame .apps-result-actions {
+    opacity: 1;
+  }
 }
 
 /* ── 窄屏:双列紧凑网格 + 触达 ≥44px(与 skills.css 同约定) ── */
@@ -799,7 +846,8 @@
 .apps-kind-mode-row {
   flex-shrink: 0;
   display: flex;
-  padding: var(--space-3) var(--page-gutter) var(--space-3);
+  /* 段控与内容区间距走 --layout-toolbar-gap 版型档(W2A) */
+  padding: var(--space-3) var(--page-gutter) var(--layout-toolbar-gap);
 }
 .apps-kind-body {
   flex: 1;

@@ -21,6 +21,7 @@ import {
   imageUrl,
   JOBS_PAGE_LIMIT,
   listAgentSessions,
+  listJobs,
 } from "@/lib/api";
 import {
   filterEntities,
@@ -31,7 +32,8 @@ import {
   type EntityInfo,
 } from "@/lib/entities";
 import { EntityRefsPreview } from "@/components/ui/PromptWithEntities";
-import { isVideoKind, kindLabel, kindToFilter } from "@/lib/libraryQuery";
+import { Empty } from "@/components/ui/Empty";
+import { formatTime as formatJobTime, isVideoKind, kindLabel, kindToFilter } from "@/lib/libraryQuery";
 import { mediaKindOf } from "@/lib/mediaKind";
 import { ModelViewer } from "@/components/ui/ModelViewer";
 import {
@@ -847,8 +849,8 @@ export function AvJobCards({
   );
 }
 
-// ───── @ 技能面板 / 离线降级入口(Studio Console v1:首页空态只剩输入框,
-//        旧「引擎胶囊/场景 chip/快捷 chip/最近作品」门户区块已全部退役) ─────
+// ───── @ 技能面板 / 门户入口(2026-09-04 美化 W2B:门户空态重设计——
+//        问候展示字 + 场景卡栅格 + 快捷提示 chips + 最近作品带回归) ─────
 
 interface PortalEntry {
   view: string;
@@ -893,6 +895,23 @@ export function filterPortalEntries(
   r18: boolean,
 ): PortalEntry[] {
   return entries.filter((e) => (e.r18 ? r18 : true) && (e.sfwOnly ? !r18 : true));
+}
+
+/** 门户快捷提示 chips(2026-09-04 美化 W2B):点击把提示模板填入输入框并聚焦,
+ *  由用户补完后发送——不是一键动作,不产生任何请求。 */
+const QUICK_PROMPTS: { label: string; prompt: string }[] = [
+  { label: "构思短视频创意", prompt: "帮我构思一个 15 秒短视频创意:" },
+  { label: "写文生图提示词", prompt: "帮我写一段文生图提示词,主题是" },
+  { label: "短剧剧本大纲", prompt: "帮我搭一个短剧剧本大纲,题材是" },
+  { label: "优化提示词", prompt: "请帮我优化这段提示词:" },
+];
+
+/** 门户问候语按时段切换(纯展示,无业务含义)。 */
+function portalGreeting(hour: number): string {
+  if (hour < 6) return "夜深了";
+  if (hour < 12) return "早上好";
+  if (hour < 18) return "下午好";
+  return "晚上好";
 }
 
 export interface AssistantViewProps {
@@ -956,10 +975,14 @@ export function AssistantView(props?: AssistantViewProps) {
 
   const isEmpty = messages.length === 0;
 
-  // ───── @ 面板 / R18 模式(Studio Console v1:引擎胶囊与最近作品门户区块已退役) ─────
+  // ───── @ 面板 / R18 模式(门户空态场景卡复用 SKILL_ENTRIES,经 filterPortalEntries 门控) ─────
   const [r18] = useR18Mode();
   // @ 技能面板:Esc/选定后关闭;输入再变化时重新允许弹出
   const [skillDismissed, setSkillDismissed] = useState(false);
+  // 门户问候语:挂载时按时段取一次(纯展示)
+  const [greeting] = useState(() => portalGreeting(new Date().getHours()));
+  // 门户「最近作品」带(2026-09-04 美化 W2B):listJobs 走 SWR 缓存,与作品库同源零额外请求
+  const [recentJobs, setRecentJobs] = useState<JobItem[]>([]);
 
   /** 视图跳转:优先 page.tsx SPA 切换(带 View Transitions),缺省整页跳转。 */
   const goView = useCallback(
@@ -1022,6 +1045,37 @@ export function AssistantView(props?: AssistantViewProps) {
     });
     return () => ac.abort();
   }, []);
+
+  // 门户最近作品:仅页形态拉取(popup 无门户);失败静默,空态兜底不阻塞对话
+  useEffect(() => {
+    if (popup) return;
+    let live = true;
+    listJobs()
+      .then((jobs) => {
+        if (live) setRecentJobs(jobs);
+      })
+      .catch(() => {
+        /* 列表加载失败:最近作品带落 at-empty--section,不阻塞对话 */
+      });
+    return () => {
+      live = false;
+    };
+  }, [popup]);
+
+  // 最近作品带:仅可预览的图像/视频产物;R18 门控与作品库一致(SFW 模式不出 nsfw 卡)
+  const recentWorks = useMemo(
+    () =>
+      recentJobs
+        .filter(
+          (j) =>
+            j.status === "done" &&
+            j.results?.length > 0 &&
+            (r18 || !j.nsfw) &&
+            (isVideoKind(j.kind) || mediaKindOf(j.results[0], j.kind) === "image"),
+        )
+        .slice(0, 6),
+    [recentJobs, r18],
+  );
 
   // 文档列表:进页加载一次;上传/删除后局部更新,无需重复拉取
   useEffect(() => {
@@ -1888,8 +1942,9 @@ export function AssistantView(props?: AssistantViewProps) {
               <div className="av-popup-empty-hint">Shift+Enter 随时唤起/关闭</div>
             </div>
           ) : (
-          /* Studio Console v1(2026-08-31)极简空态:品牌铭牌 + 无边框输入框 + 模型行,
-             仅此而已——没有胶囊/chip/推荐卡/最近作品/粒子;功能由对话、⌘K、左栏驱动 */
+          /* 门户空态(2026-09-04 美化 W2B 重设计):铭牌 + Fraunces 问候 + 输入框/模型行
+             + 快捷提示 chips + 场景卡栅格 + 最近作品带;版心 --layout-content,
+             区块节奏 --section-gap-lg(样式在 assistant.css 门户区块) */
           <div className="av-empty av-portal av-portal--console">
             <div className="av-console-wordmark" aria-hidden="true">TOIV</div>
             {llmOffline ? (
@@ -1917,8 +1972,94 @@ export function AssistantView(props?: AssistantViewProps) {
               </>
             ) : (
               <>
+                <div className="av-portal-hero">
+                  <h2 className="av-portal-greeting">
+                    {greeting},想<em>创作</em>点什么?
+                  </h2>
+                  <p className="av-portal-sub">直接描述想法开始,或从下方场景进入工作台</p>
+                </div>
                 <div className="av-portal-composer">{renderComposer(true)}</div>
                 <div className="av-console-model">{modelName}</div>
+                <div className="av-quick-row">
+                  {QUICK_PROMPTS.map((q) => (
+                    <button
+                      key={q.label}
+                      type="button"
+                      className="at-chip av-quick-chip"
+                      onClick={() => {
+                        setInput(q.prompt);
+                        textareaRef.current?.focus();
+                      }}
+                    >
+                      {q.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="av-scene-grid">
+                  {filterPortalEntries(SKILL_ENTRIES, r18).map((e) => (
+                    <button
+                      key={e.view}
+                      type="button"
+                      className="at-card at-card--interactive av-scene-card"
+                      onClick={() => goView(e.view)}
+                    >
+                      <span className="av-scene-card-icon" aria-hidden="true">
+                        <Icon name={e.icon} size={18} strokeWidth={1.7} />
+                      </span>
+                      <span className="av-scene-card-title">{e.label}</span>
+                      <span className="av-scene-card-desc">{e.desc}</span>
+                    </button>
+                  ))}
+                </div>
+                <section className="av-recent">
+                  <div className="av-recent-head">
+                    <h2 className="av-recent-title">最近作品</h2>
+                    <button
+                      type="button"
+                      className="av-recent-more"
+                      onClick={() => goView("library")}
+                    >
+                      全部作品
+                      <Icon name="chevron-right" size={12} />
+                    </button>
+                  </div>
+                  {recentWorks.length > 0 ? (
+                    <div className="av-recent-grid">
+                      {recentWorks.map((j) => (
+                        <button
+                          key={j.id}
+                          type="button"
+                          className="av-recent-card"
+                          title={j.prompt || "无提示词"}
+                          onClick={() => goView("library")}
+                        >
+                          <span className="av-recent-thumb">
+                            {isVideoKind(j.kind) ? (
+                              <video
+                                src={imageUrl(j.results[0])}
+                                muted
+                                playsInline
+                                preload="metadata"
+                              />
+                            ) : (
+                              <img src={imageUrl(j.results[0])} alt="" loading="lazy" />
+                            )}
+                          </span>
+                          <span className="av-recent-meta">
+                            {kindLabel(j.kind)} · {formatJobTime(j.created_at)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <Empty
+                      size="section"
+                      icon="image"
+                      title="还没有作品"
+                      desc="生成的图像与视频会收进作品库"
+                    />
+                  )}
+                </section>
               </>
             )}
           </div>
@@ -2378,10 +2519,10 @@ export function AssistantView(props?: AssistantViewProps) {
           max-width: 440px;
           margin-bottom: var(--space-5);
         }
-        /* Studio Console v1(2026-08-31)极简空态:铭牌 + 输入框 + 模型行 */
+        /* 门户 console 形态(2026-09-04 W2B):主区块间距走宽松区块档 --section-gap-lg */
         .av-portal--console {
           justify-content: center;
-          gap: var(--space-6);
+          gap: var(--section-gap-lg);
         }
         .av-console-wordmark {
           font-family: var(--font-mono);

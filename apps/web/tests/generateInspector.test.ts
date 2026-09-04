@@ -7,9 +7,9 @@
  * T2 引擎说明卡:
  *   ④ EngineInfoCard 静态渲染:description/出处(name/url/author/note)/参数个数,url 新窗口 noopener
  *   ⑤ 缺 description/source 时对应块不渲染(兜底)
- * 空态(2026-08-31 Studio Console v1):
- *   ⑥ T3 快速开始卡/步骤卡/英雄区整套退役(QuickStartGrid 组件删除),空态只余单行
- *     muted 提示(.empty-console-hint);PromptBar inputRef 外部聚焦句柄保留
+ * 空态(2026-09-04 美化 W2A):
+ *   ⑥ T3 快速开始卡/步骤卡/英雄区/单行提示整套退役,空态接共享三档空态的舞台档
+ *     (Empty size="stage" + .stage-empty 适配层);PromptBar inputRef 外部聚焦句柄保留
  * ⑦ stage.css 样式存在性:新类名齐全;全文件零 font-weight 数字 / 零 hex 硬编码
  */
 import assert from "node:assert/strict";
@@ -191,11 +191,13 @@ test("EngineInfoCard:无 description/source 兜底不渲染对应块;source 无 
   assert.ok(html2.includes("内部模型"), "出处名纯文本兜底缺失");
 });
 
-/* ── 空态(2026-08-31 Studio Console v1:T3 快速开始卡/步骤卡/英雄区整套退役) ── */
+/* ── 空态(2026-09-04 美化 W2A:at-empty--stage 舞台档;v1 单行提示/英雄区均退役) ── */
 
-test("ResultPanel 空态:单行 muted 提示,快速开始卡/英雄区已退役(源码断言)", () => {
+test("ResultPanel 空态:共享空态组件舞台档,快速开始卡/英雄区/单行提示已退役(源码断言)", () => {
   const panel = readSrc("components/generate/ResultPanel.tsx");
-  assert.ok(panel.includes("empty-console-hint"), "空态缺单行 muted 提示");
+  assert.ok(panel.includes('size="stage"'), "空态未接 Empty size=stage");
+  assert.ok(panel.includes("stage-empty"), "空态缺 .stage-empty 适配层");
+  assert.ok(!panel.includes("empty-console-hint"), "单行 muted 提示应已退役");
   assert.ok(!panel.includes("QuickStartGrid"), "ResultPanel 不应再接快速开始卡");
   assert.ok(!panel.includes("empty-editorial"), "空态英雄区应已退役");
 
@@ -220,7 +222,8 @@ test("stage.css:Inspector/说明卡/空态提示全部新类名已定义", () =>
     ".engine-info-pop",
     ".engine-info-card",
     ".engine-info-count",
-    ".empty-console-hint",
+    ".stage-empty",
+    ".stage-media-actions",
   ]) {
     assert.ok(css.includes(cls), `stage.css 缺 ${cls} 定义`);
   }

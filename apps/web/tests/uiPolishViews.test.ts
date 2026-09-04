@@ -1,7 +1,7 @@
 /**
  * 视图批 1 UI 排版优化单测(2026-08-16,Team B:工作台+首页+融合+作品库):
- * ① stage.css 空态(2026-08-31 Studio Console v1):编排式英雄区(大标题/步骤卡/
- *    快速开始卡)退役,只余一行 muted 提示(.empty-console-hint)
+ * ① stage.css 空态(2026-09-04 美化 W2A):单行 muted 提示(.empty-console-hint)退役,
+ *    接入共享三档空态的舞台档(.stage-empty 适配层 + at-empty--stage + 琥珀聚光)
  * ② GenerateView 引擎说明(2026-08-17 T2 重构):描述/出处收进 ⓘ 说明卡(Popover+EngineInfoCard),
  *    面板首屏不再平铺;卡内渲染断言见 generateInspector.test.ts
  * ③ AudioView 页头一致:页头已移除,生成/编辑段控独立窄行并带图标
@@ -32,16 +32,22 @@ function cssBlock(css: string, selector: string): string {
   return m[0];
 }
 
-/* ── ① 工作台空态(2026-08-31 Studio Console v1:编排式英雄区退役) ── */
-test("stage.css 空态:英雄区(大标题/步骤卡/快速开始卡)退役,只余单行 muted 提示", () => {
+/* ── ① 工作台空态(2026-09-04 美化 W2A:接入 at-empty--stage 舞台档空态) ── */
+test("stage.css 空态:英雄区/单行提示退役,接 .stage-empty 适配层 + 琥珀聚光", () => {
   const css = readSrc("app/styles/stage.css");
   assert.ok(!css.includes(".empty-editorial"), "空态英雄区容器应已退役");
   assert.ok(!css.includes(".empty-display"), "空态大标题应已退役");
   assert.ok(!css.includes(".empty-tip"), "步骤卡样式应已退役");
   assert.ok(!css.includes(".quick-start"), "快速开始卡样式应已退役");
-  const hint = cssBlock(css, ".empty-console-hint");
-  assert.ok(hint.includes("color: var(--text-muted)"), "空态提示须 muted 降权");
-  assert.ok(hint.includes("font-size: var(--text-aux)"), "空态提示须辅助档小字");
+  // W2A:单行 muted 提示(.empty-console-hint)退役,共享空态组件舞台档接手
+  assert.ok(!css.includes(".empty-console-hint"), "单行空态提示应已退役(接 at-empty--stage)");
+  const host = cssBlock(css, ".stage-empty");
+  assert.ok(host.includes("position: absolute"), "空态适配层须铺满舞台(聚光覆盖整个背景)");
+  const spotlight = cssBlock(css, ".stage-empty::before");
+  assert.ok(spotlight.includes("radial-gradient"), "缺舞台聚光径向渐变");
+  assert.ok(spotlight.includes("var(--accent-glow)"), "聚光须走琥珀点睛 token(亮暗双模式自适应)");
+  const adapt = cssBlock(css, ".stage-empty .at-empty--stage");
+  assert.ok(adapt.includes("background: transparent"), "舞台内空态卡须去重底(舞台本体已是面板岛)");
 });
 
 test("stage.css 参数浮板段控:轨道下沉一档(canvas 底 + 强描边,未选中项层级拉开)", () => {

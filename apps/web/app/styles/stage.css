@@ -211,6 +211,36 @@
   white-space: nowrap;
 }
 
+/* 媒体 hover 操作浮层(2026-09-04 美化 W2A):右下角玻璃胶囊,默认隐去(UI 后退),
+   悬停/键盘聚焦舞台时淡入;触屏(hover:none)常显兜底。下载钮自左上状态胶囊迁入。 */
+.stage-media-actions {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  z-index: var(--z-stage-caption);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--glass-highlight), var(--shadow-pop);
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-standard);
+}
+.stage-main:hover .stage-media-actions,
+.stage-main:focus-within .stage-media-actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  .stage-media-actions {
+    opacity: 1;
+  }
+}
+
 /* 生成中:骨架微光(skeleton-shimmer 由 WS5 motion.css 定义)+ 进度条 */
 .stage-loading {
   position: relative;
@@ -223,7 +253,9 @@
 }
 .stage-skeleton {
   width: 100%;
-  aspect-ratio: 16 / 10;
+  /* 2026-09-04 W2A:骨架默认宽高比走媒体卡令牌(视频 16/9);
+     有目标尺寸快照时由 ResultPanel 内联 style 覆盖为真实宽高比 */
+  aspect-ratio: var(--media-ar-video);
   border-radius: var(--radius-panel);
   background: var(--bg-surface-1);
 }
@@ -514,11 +546,11 @@
   justify-content: center;
   color: var(--text-muted);
 }
-/* 状态点:缩略图左上角 */
+/* 状态点:缩略图左上角(角标规范化 W2A:偏移走 4px 基数档) */
 .filmstrip-dot {
   position: absolute;
-  top: 5px;
-  left: 5px;
+  top: var(--space-1);
+  left: var(--space-1);
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -584,21 +616,48 @@
   display: block;
 }
 
-/* ========== 空态(Studio Console v1,2026-08-31:编排式英雄区退役,只余一行提示) ========== */
+/* ========== 空态(2026-09-04 美化 W2A:接入 at-empty--stage 范式) ==========
+   历史:Studio Console v1(2026-08-31)退役了编排式英雄区(铭牌/大标题/步骤卡/快速开始卡);
+   本波以共享空态组件(ui/Empty size="stage",globals.css .at-empty--stage:琥珀线稿图标 +
+   Fraunces 斜体一句 + 引导语)替代 v1 的单行 muted 提示,舞台语境由 .stage-empty 适配层承担。 */
 
 .result-panel-empty {
+  position: relative; /* .stage-empty 绝对定位锚 */
   height: 100%;
   align-items: center;
   justify-content: center;
   overflow-y: auto;
 }
-/* 单行居中提示:muted 小字,无铭牌/大标题/步骤卡/快速开始卡 */
-.empty-console-hint {
-  margin: auto;
-  font-size: var(--text-aux);
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-  user-select: none;
+/* 舞台语境适配层(generate 结果区 / audio 编辑舞台共用):
+   绝对定位铺满舞台 → 聚光径向渐变可覆盖整个舞台背景;内容恒居中;
+   琥珀点睛极淡(5%/3% 亮暗随 --accent-glow 双模式自适应),只作视线引导,不盖内容 */
+.stage-empty {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-stage-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* 空态无交互,不挡舞台键盘/鼠标事件(内有 action 槽时由子层恢复) */
+}
+.stage-empty::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 58% 48% at 50% 44%,
+    color-mix(in oklab, var(--accent-glow) 5%, transparent) 0%,
+    transparent 72%
+  );
+}
+/* 舞台本体(.generate-results / .audio-edit-stage)已是面板岛,空态卡去重框/底防双层描边 */
+.stage-empty .at-empty--stage {
+  position: relative;
+  pointer-events: auto;
+  padding: var(--space-6) var(--space-4);
+  background: transparent;
+  border: none;
 }
 
 /* ========== 参数列(2026-08-17 停靠化:原浮板改为真实网格列) ========== */
@@ -650,14 +709,14 @@
   to { opacity: 1; transform: none; }
 }
 /* 浮板头部(2026-08-17 Inspector 化):固定在滚动区外 + 底部 hairline,
-   「参数台」标题 + 引擎名副标题一行 */
+   「参数台」标题 + 引擎名副标题一行;标题区下间距走 --layout-header-gap 版型档(W2A) */
 .generate-params-head {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding-bottom: var(--space-3);
+  padding-bottom: var(--layout-header-gap);
   border-bottom: 1px solid var(--border-subtle);
 }
 .generate-params-heading {
@@ -681,7 +740,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 浮板滚动区:全部分组卡/折叠区在此滚动,头部恒可见 */
+/* 浮板滚动区:全部分组卡/折叠区在此滚动,头部恒可见;
+   段间距走 --section-gap 区块基准档(W2A 版型对齐) */
 .generate-params-body {
   flex: 1;
   min-height: 0;
@@ -690,8 +750,8 @@
   scrollbar-color: var(--border-strong) transparent;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding-top: var(--space-3);
+  gap: var(--section-gap);
+  padding-top: var(--section-gap);
 }
 .generate-params-close {
   display: flex;
@@ -750,7 +810,8 @@
 }
 
 /* 参数浮板分节(2026-08-16 审计:params-section/params-section-title 在 TSX 使用但无 CSS 定义,
-   多个 Field 无间距挤在一起,section 之间无分隔——「内容全挤在一起」的根因) */
+   多个 Field 无间距挤在一起,section 之间无分隔——「内容全挤在一起」的根因);
+   段间 hairline 间距统一走 --section-gap(W2A) */
 .params-section {
   display: flex;
   flex-direction: column;
@@ -758,7 +819,7 @@
 }
 .params-section + .params-section {
   border-top: 1px solid var(--border-subtle);
-  padding-top: var(--space-4);
+  padding-top: var(--section-gap);
 }
 .params-section-title {
   margin: 0;
@@ -786,7 +847,7 @@
   flex-direction: column;
   gap: var(--space-2);
   border-top: 1px solid var(--border-subtle);
-  padding-top: var(--space-3);
+  padding-top: var(--section-gap);
 }
 /* recipes-hint/motion-brush-hint/entity-ref-hint 说明段已于 2026-09-02 退役(收进 title) */
 .recipes-list {
@@ -1091,15 +1152,16 @@
   transition: transform var(--duration-base) var(--ease-standard),
               border-color var(--duration-base) var(--ease-standard);
 }
-/* 聚焦:条体微微上浮 + accent 描边呼吸 */
+/* 聚焦:条体微浮起(-1px)+ 浮层影(--shadow-pop)+ 琥珀细环(点睛红线允许的最小触点:
+   focus 环);呼吸在细环基础上叠加 soft 光晕,reduced-motion 由 globals 全局收敛 */
 .promptbar:focus-within {
-  transform: translateY(-2px);
-  border-color: var(--accent-halo);
+  transform: translateY(-1px);
+  border-color: var(--accent-glow);
   animation: promptbar-breathe var(--duration-breathe) var(--ease-standard) infinite;
 }
 @keyframes promptbar-breathe {
-  0%, 100% { box-shadow: var(--glass-highlight), var(--shadow-float); }
-  50% { box-shadow: var(--glass-highlight), var(--shadow-float), var(--accent-glow-shadow); }
+  0%, 100% { box-shadow: var(--glass-highlight), var(--shadow-pop); }
+  50% { box-shadow: var(--glass-highlight), var(--shadow-pop), 0 0 0 3px var(--accent-glow-soft); }
 }
 
 .promptbar-input-row {
@@ -1151,12 +1213,13 @@
   color: var(--text-on-accent);
 }
 
-/* 可拆卸 chips:只读展示当前值,点击展开原有选择控件 */
+/* 可拆卸 chips:只读展示当前值,点击展开原有选择控件;
+   行间距走栅格 gutter(2026-09-04 W2A 版型对齐),换行纵向仍收紧 */
 .promptbar-chips {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--grid-gutter);
 }
 .promptbar-chip {
   display: inline-flex;
@@ -1296,7 +1359,7 @@
     flex-shrink: 0;
     border-radius: var(--radius-panel) var(--radius-panel) 0 0;
   }
-  /* 空态例外已随 Studio Console v1 退役:空态只余一行 muted 提示(.empty-console-hint),
+  /* 空态例外已随 Studio Console v1 退役:空态为 .stage-empty 居中卡(W2A 起接 at-empty--stage),
      不再溢出 72vh 剧场,无需内容自适应例外 */
   .promptbar-dock {
     position: sticky;

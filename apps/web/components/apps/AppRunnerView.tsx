@@ -301,28 +301,42 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
           {results.map((p) => {
             const url = imageUrl(p);
             const kind = mediaKindOf(p, app.output_kind);
+            const download = (
+              <div className="apps-result-actions">
+                <a className="btn btn-sm" href={url} download>
+                  <Icon name="download" size={14} />
+                  下载
+                </a>
+              </div>
+            );
             return (
               <div key={p} className="apps-result-card">
-                {kind === "video" ? (
-                  <video
-                    className="apps-result-media"
-                    src={url}
-                    controls
-                    playsInline
-                    preload="metadata"
-                  />
-                ) : kind === "audio" ? (
-                  <audio className="apps-result-media" src={url} controls />
+                {kind === "audio" ? (
+                  <>
+                    <audio className="apps-result-media" src={url} controls />
+                    {download}
+                  </>
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="apps-result-media" src={url} alt={`${app.name} 产物`} loading="lazy" />
+                  /* 媒体框(W2A):统一宽高比 + hover 操作浮层(下载淡入);
+                     音频无画面,保持播放器 + 流内操作行 */
+                  <div
+                    className={`apps-result-frame${kind === "video" ? " apps-result-frame--video" : " apps-result-frame--image"}`}
+                  >
+                    {kind === "video" ? (
+                      <video
+                        className="apps-result-media"
+                        src={url}
+                        controls
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img className="apps-result-media" src={url} alt={`${app.name} 产物`} loading="lazy" />
+                    )}
+                    {download}
+                  </div>
                 )}
-                <div className="apps-result-actions">
-                  <a className="btn btn-sm" href={url} download>
-                    <Icon name="download" size={14} />
-                    下载
-                  </a>
-                </div>
               </div>
             );
           })}
