@@ -108,13 +108,14 @@ export function Modal({
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-panel);
-          box-shadow: var(--shadow-float);
-          animation: slideUp var(--duration-base) var(--ease-standard);
+          /* 2026-09-04 美化 W1:浮层统一 --shadow-pop + 弹簧入场(scale .98→1 + y 4px,≤320ms) */
+          box-shadow: var(--shadow-pop);
+          animation: slideUp var(--duration-slow) var(--ease-spring);
         }
         @keyframes slideUp {
           from {
             opacity: 0;
-            transform: translateY(12px) scale(0.98);
+            transform: translateY(4px) scale(0.98);
           }
           to {
             opacity: 1;

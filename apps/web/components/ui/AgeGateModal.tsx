@@ -35,7 +35,7 @@ export function AgeGateModal({ open, onConfirm, onCancel }: AgeGateModalProps) {
         </>
       }
     >
-      <p style={{ margin: 0, lineHeight: 1.7, color: "var(--text-secondary)" }}>
+      <p style={{ margin: 0, lineHeight: "var(--leading-loose)", color: "var(--text-secondary)" }}>
         R18 模式将展示成人向(18+)创作功能与内容,包括成人向生成引擎、
         作品库中的 R18 作品及推荐模型。继续即表示你确认已年满 18 岁,
         并承诺遵守所在地法律法规。可随时在设置中关闭。

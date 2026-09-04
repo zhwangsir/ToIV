@@ -16,6 +16,7 @@ import { useEffect, useRef } from "react";
 
 export function LazyVideo({
   onMouseEnter,
+  style,
   ...rest
 }: React.VideoHTMLAttributes<HTMLVideoElement>) {
   const ref = useRef<HTMLVideoElement | null>(null);
@@ -51,6 +52,11 @@ export function LazyVideo({
       {...rest}
       ref={ref}
       preload="none"
+      /* 2026-09-04 美化 W1:首帧未拉取前的占位渐变底(token 双色,加载后被画面覆盖) */
+      style={{
+        background: "linear-gradient(135deg, var(--bg-surface-1), var(--bg-surface-2))",
+        ...style,
+      }}
       onMouseEnter={(e) => {
         const el = e.currentTarget;
         if (el.preload === "none") {

@@ -11,7 +11,8 @@
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-highlight), var(--shadow-float);
+  /* 2026-09-04 美化 W1:浮层阴影统一 --shadow-pop(双层柔影,规范 §5) */
+  box-shadow: var(--glass-highlight), var(--shadow-pop);
   border-radius: var(--radius-panel);
 }
 
@@ -23,16 +24,16 @@
   }
 }
 
-/* Popover 基座入场:scale(0.96 → 1) + fade,弹簧缓动。
+/* Popover 基座入场:scale(0.98 → 1) + y 4px + fade,弹簧缓动(2026-09-04 W1 统一浮层入场配方)。
    reduced-motion 由 globals.css 全局规则统一压平,此处不重复声明。 */
 @keyframes popoverIn {
   from {
     opacity: 0;
-    transform: scale(0.96);
+    transform: scale(0.98) translateY(4px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
 }
 

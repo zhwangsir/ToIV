@@ -177,9 +177,10 @@
   font-weight: var(--font-medium);
 }
 
-/* 进度条:确定 pct 填充 / 不确定滑动(与 global-progress 同语义) */
+/* 进度条:确定 pct 填充 / 不确定滑动(与 global-progress 同语义);
+   2026-09-04 美化 W1:2px 细条 + 琥珀点睛 --accent-glow 填充 */
 .taskcenter-bar {
-  height: 4px;
+  height: 2px;
   border-radius: var(--radius-full);
   background: var(--bg-surface-3, var(--border-soft));
   overflow: hidden;
@@ -187,7 +188,7 @@
 .taskcenter-bar-fill {
   height: 100%;
   border-radius: var(--radius-full);
-  background: var(--accent);
+  background: var(--accent-glow);
   transition: width var(--duration-slow) var(--ease-standard);
 }
 .taskcenter-bar.is-indeterminate .taskcenter-bar-fill {

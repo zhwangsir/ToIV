@@ -39,12 +39,13 @@
   will-change: transform, opacity;
 }
 @keyframes ui-ripple-spread {
+  /* 2026-09-04 美化 W1:波纹透明度降 30%(0.32→0.22 / 0.18→0.13),更克制 */
   0% {
     transform: scale(0);
-    opacity: 0.32;
+    opacity: 0.22;
   }
   60% {
-    opacity: 0.18;
+    opacity: 0.13;
   }
   100% {
     transform: scale(1);
@@ -71,7 +72,8 @@
   z-index: 2;
 }
 
-/* ── 错误条(StudioView studio-error-bar 范式原样提炼) ────────────── */
+/* ── 错误条(StudioView studio-error-bar 范式原样提炼;
+   2026-09-04 美化 W1:语义色 2px 左边条,与 Toast 边条同规范) ── */
 .ui-error-bar {
   display: flex;
   align-items: center;
@@ -82,6 +84,7 @@
   color: var(--err);
   background: var(--err-soft);
   border: 1px solid var(--border-subtle);
+  border-left: 2px solid var(--err);
   border-radius: var(--radius-control);
   animation: ui-error-bar-in var(--duration-base) var(--ease-standard);
 }
@@ -139,6 +142,13 @@
   aspect-ratio: 16 / 9;
   border-radius: var(--radius-control);
 }
+/* 步骤文案槽(2026-09-04 美化 W1):mono 小字,骨架下方一行 */
+.ui-loading-step {
+  font-family: var(--font-mono);
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
 
 /* ── 3D 模型查看器(ModelViewer.tsx,@google/model-viewer 封装) ──
    100% 充满父容器,高度一律由调用方容器定;is-loading/is-error 占位同尺寸不抖动 */
@@ -149,6 +159,10 @@
   border-radius: var(--radius-control);
   overflow: hidden;
   background: var(--bg-canvas);
+}
+/* 2026-09-04 美化 W1:加载占位加渐变底(媒体占位统一配方,token 双色) */
+.ui-model-viewer.is-loading {
+  background: linear-gradient(135deg, var(--bg-surface-1), var(--bg-surface-2));
 }
 .ui-model-viewer.is-loading .ui-loading {
   height: 100%;

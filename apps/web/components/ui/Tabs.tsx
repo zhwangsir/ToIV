@@ -58,6 +58,7 @@ export function Tabs({ items, current, onChange, fill = false, ariaLabel }: Tabs
           justify-content: center;
         }
         .ui-tab {
+          position: relative;
           display: inline-flex;
           align-items: center;
           gap: var(--space-2);
@@ -79,6 +80,22 @@ export function Tabs({ items, current, onChange, fill = false, ariaLabel }: Tabs
           background: var(--bg-surface-3);
           color: var(--text-primary);
           box-shadow: inset 0 0 0 1px var(--border-subtle);
+        }
+        /* 2026-09-04 美化 W1:激活指示条 2px 琥珀(与 at-seg 点睛同族),弹簧入场滑出 */
+        .ui-tab.is-active::after {
+          content: "";
+          position: absolute;
+          left: var(--space-2);
+          right: var(--space-2);
+          bottom: 2px;
+          height: 2px;
+          border-radius: 1px;
+          background: var(--accent-glow);
+          animation: ui-tab-ind-in var(--duration-base) var(--ease-spring);
+        }
+        @keyframes ui-tab-ind-in {
+          from { transform: scaleX(0.3); opacity: 0; }
+          to { transform: scaleX(1); opacity: 1; }
         }
         .ui-tab:disabled {
           opacity: 0.4;

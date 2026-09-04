@@ -165,14 +165,14 @@
 
 ## 10. 组件使用规范（at 系为唯一范式）
 
-**at 系共享类（globals.css 尾部）是新代码的唯一组件范式**：`.at-btn`（墨丸主钮/发夹线次钮）/ `.at-chip` / `.at-seg` / `.at-card` / `.at-badge` / `.at-empty` / `.at-card-in`（错落入场）。
+**at 系共享类（globals.css 尾部）是新代码的唯一组件范式**：`.at-btn`（墨丸主钮/发夹线次钮）/ `.at-chip` / `.at-seg` / `.at-card`（可交互卡叠加 `.at-card--interactive`：hover 边框转 `--border-strong` + translateY(-1px) + 细影）/ `.at-badge` / `.at-empty`（三档：`.at-empty--stage` 舞台大卡 / `--section` 段落 / `--inline` 列表单行）/ `.at-card-in`（错落入场）。
 
 | 场景 | 必用 |
 |---|---|
 | 按钮 | `.at-btn--primary` / `.at-btn--ghost` / `.at-btn--danger`（旧 `.btn` 系为**兼容别名，新代码禁用**） |
 | 卡片 | `.at-card`（旧 `.card` 同上，兼容别名） |
 | chip/段控/徽章 | `.at-chip` / `.at-seg` / `.at-badge` |
-| 空态 | `.at-empty` / `ui/Empty` |
+| 空态 | `ui/Empty`（size 三档：stage/section/inline，默认 inline 兼容旧调用）/ `.at-empty` |
 | 输入 | `ui/Input` / `ui/PromptWithEntities`（带 @主体） |
 | 开关/页签 | `ui/Switch` / `ui/Tabs` |
 | 反馈 | `ui/Toast` / `ui/ErrorBar` / `ui/Skeleton` / `ui/LoadingBlock` / `ui/GlobalProgress` |

@@ -350,6 +350,10 @@ body {
   line-height: var(--leading-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* 2026-09-04 美化 W1:明暗切换 200ms 过渡(仅背景/文字两色,避免全局 transition 性能坑);
+     reduced-motion 由全局规则压平 */
+  transition: background-color var(--duration-base) var(--ease-standard),
+              color var(--duration-base) var(--ease-standard);
 }
 
 /* 全局胶片噪点:约 2% 不透明度 SVG feTurbulence,纯装饰(2026-09-04 W0 再压半:
@@ -528,6 +532,8 @@ img, video {
   width: 100vw;
   overflow: hidden;
   background: var(--bg-canvas);
+  /* 明暗切换过渡与 body 同步(壳底色覆盖画布,不跟随会闪两层节奏) */
+  transition: background-color var(--duration-base) var(--ease-standard);
 }
 
 /* 导航样式:左栏 app/styles/siderail.css(2026-08-31 Studio Console v1);
@@ -588,7 +594,8 @@ img, video {
   gap: var(--space-2);
   font-size: var(--text-title);
   font-weight: var(--font-semibold);
-  letter-spacing: -0.01em;
+  /* 2026-09-04 美化 W1:标题字距收紧到 -0.02em(精修控制台排版) */
+  letter-spacing: -0.02em;
   line-height: var(--leading-xl);
   margin: 0;
 }
@@ -719,10 +726,12 @@ img, video {
   color: var(--text-on-accent);
   box-shadow: var(--shadow-md);
 }
+/* 2026-09-04 美化 W1:主按钮 hover 微浮(translateY -1px + 细影),active 下沉回弹见下方 .btn:active */
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
   box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
 }
 
 .btn-ghost {
@@ -792,8 +801,9 @@ img, video {
 }
 .input:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: var(--shadow-xs), 0 0 0 3px var(--accent-halo);
+  /* 2026-09-04 美化 W1:focus 描边对齐琥珀点睛环(--focus-ring 同族) */
+  border-color: var(--accent-glow);
+  box-shadow: var(--shadow-xs), 0 0 0 3px var(--accent-glow-soft);
 }
 .input:disabled {
   opacity: 0.5;
@@ -841,10 +851,11 @@ select.input {
               box-shadow var(--duration-fast) var(--ease-standard),
               transform var(--duration-fast) var(--ease-standard);
 }
+/* 2026-09-04 美化 W1:可交互卡 hover 统一 边框转 --border-strong + translateY(-1px) + 细影 */
 .card-hover:hover {
   border-color: var(--border-strong);
   box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 /* 徽章(状态点语义由 Badge 组件/各视图圆点承载) */
@@ -1528,6 +1539,17 @@ select.input {
   transform: translateY(-2px);
 }
 
+/* ── 可交互卡统一 hover(2026-09-04 美化 W1):场景卡/应用卡等有点击语义的卡复用;
+   边框转 --border-strong + translateY(-1px) + 细影;需叠在 .at-card/.card 基座上使用 ── */
+.at-card--interactive {
+  cursor: pointer;
+}
+.at-card--interactive:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
 /* ── 编辑徽章(小型大写 hairline 标签,替代彩色填充徽章) ────────────── */
 .at-badge {
   display: inline-flex;
@@ -1585,6 +1607,8 @@ select.input {
 .at-btn--primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
+  /* 2026-09-04 美化 W1:与 .btn-primary 同款的 hover 微浮 */
+  transform: translateY(-1px);
 }
 .at-btn--ghost {
   background: transparent;
@@ -1645,6 +1669,90 @@ select.input {
   }
 }
 
+/* ── 空态三档(2026-09-04 美化 W1;ui/Empty size prop 消费,取代全站单行文字空态) ──
+   stage  = 舞台/主内容区大卡:线稿感 lucide 图标(28px 琥珀描边)+ Fraunces 斜体一句 + 主行动槽;
+   section= 段落/面板内:图标 + 一行标题(+可选描述),无面板边框;
+   inline = 列表内(默认):纯一行 muted 文案,兼容旧调用不破坏现有视图。 */
+.at-empty--stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-10) var(--space-6);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+}
+.at-empty--stage .at-empty-icon {
+  color: var(--accent-glow);
+  margin-bottom: var(--space-1);
+}
+.at-empty--stage .at-empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--text-display-sm);
+  font-weight: var(--font-medium);
+  letter-spacing: 0.01em;
+  line-height: var(--leading-display);
+  color: var(--text-primary);
+}
+.at-empty--stage .at-empty-desc {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--text-muted);
+  max-width: 460px;
+  line-height: var(--leading-loose);
+}
+.at-empty--stage .at-empty-action {
+  margin-top: var(--space-2);
+}
+
+.at-empty--section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+}
+.at-empty--section .at-empty-icon {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+.at-empty--section .at-empty-title {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+}
+.at-empty--section .at-empty-desc {
+  margin: 0;
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  max-width: 420px;
+  line-height: 1.6;
+}
+.at-empty--section .at-empty-action {
+  margin-top: var(--space-2);
+}
+
+.at-empty--inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-2);
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  text-align: center;
+}
+.at-empty--inline .at-empty-action {
+  margin-left: var(--space-2);
+}
+
 /* ── 错落入场(通用;前 15 张 30ms 逐级,其后同拍) ───────────────────── */
 .at-card-in {
   animation: at-card-in var(--duration-slow) var(--ease-emphasized) both;
@@ -1676,6 +1784,9 @@ select.input {
     display: none;
   }
   .at-card--lift:hover {
+    transform: none;
+  }
+  .at-card--interactive:hover {
     transform: none;
   }
   .at-card-in,

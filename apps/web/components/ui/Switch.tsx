@@ -81,7 +81,8 @@ export function Switch({ checked, onChange, disabled, label, ariaLabel }: Switch
           height: 14px;
           border-radius: 50%;
           background: var(--text-secondary);
-          transition: transform var(--duration-fast) var(--ease-standard),
+          /* 2026-09-04 美化 W1:滑块弹簧缓动 */
+          transition: transform var(--duration-base) var(--ease-spring),
                       background-color var(--duration-fast) var(--ease-standard);
         }
         .ui-switch.is-on .ui-switch-thumb {

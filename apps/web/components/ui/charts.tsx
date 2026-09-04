@@ -8,7 +8,7 @@
  * 几何计算全部导出为纯函数(smoothPath/scaleLinear/niceCeil/donutSlicePath/
  * barLayout/sparkPoints),node:test 直接单测。
  */
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 /** 图表系列色(设计规范):引用 globals.css --chart-1..5(cyan → violet → amber → green → rose),
  * 亮/暗双模式由 token 承载;SVG fill/stroke 属性与 style 内联均可消费 var()
@@ -173,6 +173,12 @@ export function LineChart({
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [hover, setHover] = useState<number | null>(null);
 
+  /* 2026-09-04 美化 W1:单系列图表走琥珀点睛单色系(--accent-glow 渐变面积);
+     多系列才消费 --chart-1..5 多色序列 */
+  const mono = series.length === 1;
+  const gradId = `uichart-mono-${useId().replace(/:/g, "")}`;
+  const effColor = (s: LineSeries) => (mono ? "var(--accent-glow)" : s.color);
+
   const n = labels.length;
   const visible = series.filter((s) => !hidden.has(s.name));
   const innerW = LW - PAD.l - PAD.r;
@@ -244,19 +250,39 @@ export function LineChart({
               </text>
             </>
           )}
+          {mono && (
+            <defs>
+              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--accent-glow)" stopOpacity={0.16} />
+                <stop offset="100%" stopColor="var(--accent-glow)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+          )}
           {visible.map((s) => {
             const segs = sparkPoints(s.values, x, y);
+            const color = effColor(s);
             return (
               <g key={s.name}>
+                {mono &&
+                  segs.map((seg, si) =>
+                    seg.length < 2 ? null : (
+                      <path
+                        key={`area-${si}`}
+                        d={`${smoothPath(seg)} L ${r2(seg[seg.length - 1].x)} ${r2(PAD.t + innerH)} L ${r2(seg[0].x)} ${r2(PAD.t + innerH)} Z`}
+                        fill={`url(#${gradId})`}
+                        stroke="none"
+                      />
+                    ),
+                  )}
                 {segs.map((seg, si) =>
                   seg.length === 1 ? (
-                    <circle key={si} cx={seg[0].x} cy={seg[0].y} r={2.5} fill={s.color} />
+                    <circle key={si} cx={seg[0].x} cy={seg[0].y} r={2.5} fill={color} />
                   ) : (
                     <path
                       key={si}
                       d={smoothPath(seg)}
                       fill="none"
-                      stroke={s.color}
+                      stroke={color}
                       strokeWidth={2}
                       strokeLinecap="round"
                     />
@@ -278,7 +304,7 @@ export function LineChart({
               {visible.map((s) => {
                 const v = s.values[hover];
                 return v === null || v === undefined ? null : (
-                  <circle key={s.name} cx={x(hover)} cy={y(v)} r={3.5} fill={s.color} />
+                  <circle key={s.name} cx={x(hover)} cy={y(v)} r={3.5} fill={effColor(s)} />
                 );
               })}
             </g>
@@ -292,7 +318,7 @@ export function LineChart({
             <div className="uichart-tooltip-time">{formatClock(labels[hover])}</div>
             {visible.map((s) => (
               <div key={s.name} className="uichart-tooltip-row">
-                <span className="uichart-tooltip-dot" style={{ background: s.color }} />
+                <span className="uichart-tooltip-dot" style={{ background: effColor(s) }} />
                 <span>{s.name}</span>
                 <span className="uichart-tooltip-val">{s.values[hover] ?? "—"}</span>
               </div>
@@ -308,7 +334,7 @@ export function LineChart({
             className={`uichart-legend-item${hidden.has(s.name) ? " is-off" : ""}`}
             onClick={() => toggle(s.name)}
           >
-            <span className="uichart-tooltip-dot" style={{ background: s.color }} />
+            <span className="uichart-tooltip-dot" style={{ background: effColor(s) }} />
             {s.name}
           </button>
         ))}
@@ -538,7 +564,8 @@ interface SparklineProps {
 
 export function Sparkline({
   values,
-  color = CHART_COLORS[0],
+  /* 2026-09-04 美化 W1:火花线恒单系列,默认改琥珀点睛单色(显式语义色调用不变) */
+  color = "var(--accent-glow)",
   width = 96,
   height = 28,
   yMax,

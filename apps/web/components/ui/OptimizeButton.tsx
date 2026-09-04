@@ -313,7 +313,8 @@ export function OptimizeButton({
           display: inline-flex;
           align-items: center;
           gap: var(--space-1);
-          height: 26px;
+          /* 2026-09-04 美化 W1:控件尺寸对齐 36px 工具条行高(规范 §4.4) */
+          height: 36px;
           padding: 0 var(--space-3);
           background: transparent;
           border: 1px solid transparent;
@@ -341,6 +342,12 @@ export function OptimizeButton({
         .ob-btn.is-loading {
           color: var(--text-muted);
           cursor: progress;
+        }
+        /* 移动端触控目标 ≥44px(与 .btn 同规范) */
+        @media (max-width: 767px) {
+          .ob-btn {
+            min-height: var(--touch-target);
+          }
         }
 
         /* 智能体选择 Popover(定位/portal/关闭由 ui/Popover 基座承载,

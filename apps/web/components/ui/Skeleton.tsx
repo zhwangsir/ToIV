@@ -26,7 +26,8 @@ export function Skeleton({ width = "100%", height = 14, circle = false, classNam
       <style jsx global>{`
         @keyframes ui-skeleton-pulse {
           0%, 100% { opacity: 1; }
-          50% { opacity: 0.45; }
+          /* 2026-09-04 美化 W1:脉冲谷底 0.45→0.6,呼吸对比更细腻 */
+          50% { opacity: 0.6; }
         }
       `}</style>
     </span>

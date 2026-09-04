@@ -51,7 +51,7 @@ export function Badge({ tone = "neutral", dot = true, dotPulse = false, dotColor
         color: TONE_COLOR[tone],
         borderRadius: "var(--radius-badge)",
         fontSize: "var(--text-label)",
-        fontWeight: 500,
+        fontWeight: "var(--font-medium)",
         letterSpacing: "0.02em",
         whiteSpace: "nowrap",
         ...style,

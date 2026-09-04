@@ -23,7 +23,9 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
   overflow: hidden;
-  animation: cmdk-in var(--duration-base) var(--ease-standard);
+  /* 2026-09-04 美化 W1:浮层统一 --shadow-pop + 弹簧入场(≤320ms) */
+  box-shadow: var(--shadow-pop);
+  animation: cmdk-in var(--duration-slow) var(--ease-spring);
 }
 
 @keyframes cmdk-fade {
@@ -31,8 +33,8 @@
   to { opacity: 1; }
 }
 @keyframes cmdk-in {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .cmdk-input-row {

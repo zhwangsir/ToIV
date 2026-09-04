@@ -133,33 +133,35 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           border-radius: var(--radius-control);
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
-          box-shadow: var(--shadow-float);
+          /* 2026-09-04 美化 W1:浮层统一 --shadow-pop;入场改弹簧(≤320ms) */
+          box-shadow: var(--shadow-pop);
           color: var(--text-primary);
           font-size: var(--text-body);
           min-width: 280px;
           max-width: 400px;
           pointer-events: auto;
           cursor: pointer;
-          animation: slideIn var(--duration-base) var(--ease-standard);
+          animation: slideIn var(--duration-slow) var(--ease-spring);
         }
         @keyframes slideIn {
           from {
             opacity: 0;
-            transform: translateX(20px);
+            transform: translateX(12px);
           }
           to {
             opacity: 1;
             transform: translateX(0);
           }
         }
+        /* 语义色 2px 左边条(W1:3px→2px 收细,与 ui-error-bar 同规范) */
         .toast-success {
-          border-left: 3px solid var(--ok);
+          border-left: 2px solid var(--ok);
         }
         .toast-error {
-          border-left: 3px solid var(--err);
+          border-left: 2px solid var(--err);
         }
         .toast-info {
-          border-left: 3px solid var(--accent);
+          border-left: 2px solid var(--accent);
         }
         .toast-msg {
           flex: 1;

@@ -91,7 +91,8 @@ export function ReverseButton({
           display: inline-flex;
           align-items: center;
           gap: var(--space-1);
-          height: 26px;
+          /* 2026-09-04 美化 W1:控件尺寸对齐 36px 工具条行高(与 ob-btn 同款) */
+          height: 36px;
           padding: 0 var(--space-3);
           background: transparent;
           border: 1px solid transparent;
@@ -115,6 +116,12 @@ export function ReverseButton({
         .rb-btn.is-loading {
           color: var(--text-muted);
           cursor: progress;
+        }
+        /* 移动端触控目标 ≥44px(与 .btn 同规范) */
+        @media (max-width: 767px) {
+          .rb-btn {
+            min-height: var(--touch-target);
+          }
         }
       `}</style>
     </div>

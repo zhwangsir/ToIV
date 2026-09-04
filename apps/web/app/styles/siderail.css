@@ -54,7 +54,8 @@
 .siderail-item.is-active {
   color: var(--accent);
 }
-/* 当前项:左侧 2px 指示条(栏内 2px 呼吸,不贴死屏幕缘) */
+/* 当前项:左侧 2px 指示条(栏内 2px 呼吸,不贴死屏幕缘);
+   2026-09-04 美化 W1:指示条改琥珀点睛 --accent-glow(替换近黑 accent) */
 .siderail-item.is-active::before {
   content: "";
   position: absolute;
@@ -63,7 +64,7 @@
   bottom: 8px;
   width: 2px;
   border-radius: 1px;
-  background: var(--accent);
+  background: var(--accent-glow);
 }
 
 /* 搜索钮与主导航间距略大,视觉分组 */

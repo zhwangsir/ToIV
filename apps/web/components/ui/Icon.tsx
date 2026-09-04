@@ -268,7 +268,7 @@ interface IconProps {
 /** 统一图标组件:全项目通过 <Icon name="chat" /> 调用。
  * 底层 lucide-react,完美 tree-shaking,单一线性风格。
  * 全项目唯一图标源,禁止使用 emoji / 其他图标库 / 自定义 SVG。 */
-export function Icon({ name, size = 18, className, strokeWidth = 1.75 }: IconProps) {
+export function Icon({ name, size = 18, className, strokeWidth = 1.5 }: IconProps) {
   const Cmp: LucideIcon | undefined = ICON_MAP[name];
   if (!Cmp) {
     console.warn(`[Icon] unknown icon name: ${name}`);
