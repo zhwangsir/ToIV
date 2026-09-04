@@ -28,11 +28,11 @@
   border-radius: 50%;
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   font-weight: var(--font-semibold);
 }
 .accountbtn-pop-email {
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -65,7 +65,7 @@
   height: 32px;
   padding: 0 var(--space-2);
   border-radius: var(--radius-control);
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   color: var(--text-secondary);
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-standard),
@@ -132,7 +132,7 @@
 }
 .taskcenter-empty {
   padding: var(--space-3) var(--space-1);
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   color: var(--text-muted);
   text-align: center;
 }
@@ -154,7 +154,7 @@
   gap: var(--space-2);
 }
 .taskcenter-item-kind {
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
@@ -294,7 +294,7 @@
 /* 中止确认门正文(Modal body) */
 .taskcenter-confirm-text {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   color: var(--text-secondary);
   line-height: 1.6;
 }

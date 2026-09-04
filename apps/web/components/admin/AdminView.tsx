@@ -506,7 +506,7 @@ export function AdminView() {
           color: var(--text-muted);
         }
         .admin-stat-value {
-          font-size: var(--text-2xl);
+          font-size: var(--text-display-md);
           font-weight: var(--font-bold);
           letter-spacing: -0.02em;
           line-height: 1.2;
@@ -634,7 +634,7 @@ export function AdminView() {
           height: 36px;
           border-radius: 50%;
           background: var(--accent-soft);
-          border: 1px solid var(--accent-glow);
+          border: 1px solid var(--accent-halo);
           color: var(--accent);
           display: flex;
           align-items: center;
@@ -736,7 +736,7 @@ export function AdminView() {
           padding: var(--space-2) var(--space-3);
           background: var(--err-soft);
           border: 1px solid var(--err);
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           color: var(--err);
           font-size: var(--text-aux);
           line-height: 1.45;

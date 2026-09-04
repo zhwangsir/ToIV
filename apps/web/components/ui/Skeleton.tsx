@@ -18,7 +18,7 @@ export function Skeleton({ width = "100%", height = 14, circle = false, classNam
         display: "block",
         width,
         height: circle ? width : height,
-        borderRadius: circle ? "50%" : "var(--radius-sm)",
+        borderRadius: circle ? "50%" : "var(--radius-badge)",
         background: "var(--bg-surface-2)",
         animation: "ui-skeleton-pulse 1.6s ease-in-out infinite",
       }}

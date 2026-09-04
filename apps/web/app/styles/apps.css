@@ -34,7 +34,7 @@
     box-shadow var(--duration-fast) var(--ease-standard);
 }
 .apps-toolbar-search:focus-within {
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .apps-search-input {
@@ -71,12 +71,12 @@
     background-color var(--duration-fast) var(--ease-standard);
 }
 .apps-chip:hover {
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
   color: var(--text-primary);
 }
 .apps-chip.is-on {
   background: var(--accent-soft);
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
   color: var(--accent);
 }
 .apps-filter-empty {
@@ -187,7 +187,7 @@
   width: 28px;
   height: 28px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-badge);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
@@ -538,8 +538,8 @@
 /* 聚焦脉冲(双击/可调导航):光环呼吸两拍后消失 */
 @keyframes wf-pulse {
   0%, 100% { box-shadow: var(--shadow-sm); }
-  30% { box-shadow: var(--shadow-sm), 0 0 0 5px var(--accent-glow); }
-  60% { box-shadow: var(--shadow-sm), 0 0 0 2px var(--accent-glow); }
+  30% { box-shadow: var(--shadow-sm), 0 0 0 5px var(--accent-halo); }
+  60% { box-shadow: var(--shadow-sm), 0 0 0 2px var(--accent-halo); }
 }
 .wf-node.is-pulse {
   animation: wf-pulse 1.6s var(--ease-standard);
@@ -649,13 +649,13 @@
 }
 .apps-import-drop:hover,
 .apps-import-drop.is-over {
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
   background: var(--accent-soft);
   color: var(--text-primary);
 }
 .apps-import-drop:focus-visible {
   outline: none;
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 /* 已选文件名:mono(规范 §3:文件/参数/ID 一律 mono) */

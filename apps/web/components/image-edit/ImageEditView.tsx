@@ -1351,7 +1351,7 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
           color: var(--accent);
         }
         .ie-dropzone-title {
-          font-size: var(--text-lg);
+          font-size: var(--text-title);
           font-weight: var(--font-semibold);
         }
         .ie-dropzone-desc {
@@ -1520,7 +1520,7 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
           gap: var(--space-1);
         }
         .ie-tool-title {
-          font-size: var(--text-md);
+          font-size: var(--text-section);
           font-weight: var(--font-semibold);
         }
         .ie-tool-desc {
@@ -1709,7 +1709,7 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
           gap: var(--space-2);
         }
         .ie-compare-tag {
-          font-size: var(--text-xs);
+          font-size: var(--text-aux);
           font-weight: var(--font-medium);
           color: var(--text-muted);
           text-align: center;
@@ -1755,7 +1755,7 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
           color: var(--text-muted);
         }
         .ie-model3d-name {
-          font-size: var(--text-md);
+          font-size: var(--text-section);
           font-weight: var(--font-medium);
           color: var(--text-primary);
           max-width: 100%;

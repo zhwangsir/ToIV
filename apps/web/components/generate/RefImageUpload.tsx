@@ -170,7 +170,7 @@ export function RefImageUpload({ param, value, onChange, uploadKind, pinWorker, 
           width: 40px;
           height: 40px;
           object-fit: cover;
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           flex-shrink: 0;
         }
         .ref-image-name {

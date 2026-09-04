@@ -39,7 +39,7 @@
     box-shadow var(--duration-fast) var(--ease-standard);
 }
 .skill-toolbar-search:focus-within {
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .skill-search-input {
@@ -75,12 +75,12 @@
     background-color var(--duration-fast) var(--ease-standard);
 }
 .skill-chip:hover {
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
   color: var(--text-primary);
 }
 .skill-chip.is-on {
   background: var(--accent-soft);
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
   color: var(--accent);
 }
 .skill-chip--nsfw.is-on {
@@ -183,7 +183,7 @@
   width: 28px;
   height: 28px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-badge);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;

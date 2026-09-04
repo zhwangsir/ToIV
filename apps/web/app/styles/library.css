@@ -490,7 +490,7 @@
   justify-content: center;
   background: var(--overlay-strong);
   color: var(--text-on-accent);
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   font-weight: var(--font-medium);
   letter-spacing: 0.05em;
   pointer-events: none;
@@ -850,7 +850,7 @@
 }
 .skel-line {
   height: 12px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-badge);
   background: var(--bg-surface-2);
 }
 .skel-w-1 { width: 60%; }
@@ -1055,7 +1055,7 @@
   gap: var(--space-3);
 }
 .lib-confirm-warn {
-  font-size: var(--text-base);
+  font-size: var(--text-body);
   color: var(--text-secondary);
   line-height: 1.55;
 }
@@ -1136,7 +1136,7 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-badge);
   box-shadow: var(--shadow-float);
 }
 /* 3D 模型:交互式查看器(model-viewer),全舞台填充 */

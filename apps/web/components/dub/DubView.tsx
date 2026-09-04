@@ -1497,7 +1497,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           min-width: 0;
         }
         .dub-step-label {
-          font-size: var(--text-base);
+          font-size: var(--text-body);
           font-weight: var(--font-medium);
           letter-spacing: -0.01em;
           line-height: 1.25;
@@ -1596,7 +1596,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           cursor: pointer;
           padding: var(--space-8) var(--space-4);
           border: 1px dashed var(--border-strong);
-          border-radius: var(--radius-lg);
+          border-radius: var(--radius-panel);
           background: var(--bg-surface-1);
           transition: border-color var(--duration-fast) var(--ease-standard),
                       background-color var(--duration-fast) var(--ease-standard),
@@ -1620,7 +1620,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           color: var(--accent);
         }
         .dub-dropzone-title {
-          font-size: var(--text-lg);
+          font-size: var(--text-title);
           color: var(--text-secondary);
           font-weight: var(--font-medium);
         }
@@ -1660,7 +1660,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           min-width: 180px;
         }
         .dub-file-name {
-          font-size: var(--text-base);
+          font-size: var(--text-body);
           color: var(--text-primary);
           font-weight: var(--font-medium);
           word-break: break-all;
@@ -1715,7 +1715,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           border: 1px solid var(--err);
           border-radius: var(--radius-control);
           color: var(--err);
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
         }
 
         /* ── 视频结果(播放器区近黑) ── */
@@ -1748,7 +1748,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
           color: var(--text-primary);
           word-break: break-all;
         }
@@ -1837,7 +1837,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           min-width: 0;
         }
         .dub-seg-text {
-          font-size: var(--text-base);
+          font-size: var(--text-body);
           color: var(--text-primary);
           line-height: 1.6;
         }
@@ -1845,7 +1845,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           display: flex;
           gap: var(--space-2);
           align-items: flex-start;
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
           color: var(--text-secondary);
           line-height: 1.6;
         }
@@ -1857,7 +1857,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           text-align: center;
           padding: var(--space-3);
           color: var(--text-muted);
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
           font-variant-numeric: tabular-nums;
         }
         @media (max-width: 767px) {
@@ -1918,9 +1918,9 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           background: transparent;
           border: none;
           color: var(--text-secondary);
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
           font-weight: var(--font-medium);
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           cursor: pointer;
           white-space: nowrap;
           transition: background-color var(--duration-fast) var(--ease-standard),
@@ -1958,7 +1958,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          font-size: var(--text-base);
+          font-size: var(--text-body);
           color: var(--text-secondary);
           cursor: pointer;
         }
@@ -2031,7 +2031,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
           color: var(--text-primary);
           word-break: break-all;
         }
@@ -2066,7 +2066,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           flex-wrap: wrap;
         }
         .dub-status-stage {
-          font-size: var(--text-base);
+          font-size: var(--text-body);
           color: var(--text-primary);
           font-weight: var(--font-medium);
           flex: 1;
@@ -2111,7 +2111,7 @@ export function DubView({ onBack }: { onBack?: () => void }) {
         .dub-highlights-text {
           flex: 1;
           min-width: 0;
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
           color: var(--text-primary);
           line-height: 1.6;
           word-break: break-word;

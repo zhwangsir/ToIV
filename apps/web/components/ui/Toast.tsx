@@ -195,7 +195,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           border: none;
           color: var(--text-muted);
           cursor: pointer;
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           transition: background-color var(--duration-fast) var(--ease-standard),
             color var(--duration-fast) var(--ease-standard);
         }

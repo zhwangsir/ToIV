@@ -1,4 +1,4 @@
-/* ── AI 助手启动序列·动画参数总表(2026-08-24 重做:极光双色 #22d3ee→#a78bfa) ──
+/* ── AI 助手启动序列·动画参数总表(2026-09-04 W0 单色化:琥珀单色系 --accent-glow→--accent-glow-deep,时序不变) ──
    扫边:1000ms easeInOutQuart 430deg(JS rAF 驱动,page.tsx NEON_MS/NEON_SWEEP_DEG)
    核点:350ms ease-out(中心核脉冲成环 + 雷达弧一圈,page.tsx NEON_CORE_MS)
    弹窗:400ms cubic-bezier(.22,1,.36,1)(scale .92→1 + 淡入 + backdrop blur 0→12px)
@@ -274,7 +274,7 @@
     transform: scale(1);
   }
 }
-/* 开场辉光(灯带联动):弹窗降临瞬间,面板四缘浮起一层 cyan→violet 同源柔光,
+/* 开场辉光(灯带联动):弹窗降临瞬间,面板四缘浮起一层琥珀单色同源柔光,
    600ms 内衰减到稳态微光(forwards 停在 0.38,不归零)——「边缘点亮 → 汇聚成窗」
    的收束拍。is-open 每次重新挂载类名即重播,关闭态不残留。 */
 .av-overlay.is-open .av-overlay-panel::after {
@@ -284,9 +284,9 @@
   border-radius: inherit;
   pointer-events: none;
   box-shadow:
-    inset 0 0 0 1px color-mix(in oklab, #a78bfa 32%, transparent),
-    inset 0 0 36px color-mix(in oklab, #22d3ee 14%, transparent),
-    inset 0 0 72px color-mix(in oklab, #a78bfa 10%, transparent);
+    inset 0 0 0 1px color-mix(in oklab, var(--accent-glow-deep) 32%, transparent),
+    inset 0 0 36px color-mix(in oklab, var(--accent-glow) 14%, transparent),
+    inset 0 0 72px color-mix(in oklab, var(--accent-glow-deep) 10%, transparent);
   animation: av-panel-aura 600ms var(--ease-standard) forwards;
 }
 @keyframes av-panel-aura {
@@ -302,7 +302,7 @@
   position: relative;
 }
 /* ── 加载态「核心启动」(2026-08-24):AssistantView chunk 的 Suspense fallback ──
-   极光双色小核呼吸(1↔1.15,1.6s 循环)+ 状态文字淡入;全部 transform/opacity */
+   琥珀单色小核呼吸(1↔1.15,1.6s 循环)+ 状态文字淡入;全部 transform/opacity */
 .av-boot {
   display: flex;
   flex-direction: column;
@@ -316,10 +316,10 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #22d3ee, #a78bfa);
+  background: radial-gradient(circle at 35% 35%, var(--accent-glow), var(--accent-glow-deep));
   filter:
-    drop-shadow(0 0 8px color-mix(in oklab, #22d3ee 65%, transparent))
-    drop-shadow(0 0 20px color-mix(in oklab, #a78bfa 40%, transparent));
+    drop-shadow(0 0 8px color-mix(in oklab, var(--accent-glow) 65%, transparent))
+    drop-shadow(0 0 20px color-mix(in oklab, var(--accent-glow-deep) 40%, transparent));
   animation: av-boot-breathe 1.6s ease-in-out infinite;
 }
 @keyframes av-boot-breathe {
@@ -376,19 +376,20 @@
   }
 }
 
-/* ── 霓虹边缘动画(2026-08-24 重做:品牌极光双色)──
-   设计:「核心点亮,流光一周,聚而后散」。一颗 cyan→violet 的极光彗核沿视口
-   边缘顺时针流动一周(1000ms),拖一条长而软的渐隐尾;彗核之下整条边缘
-   还有一圈静态的双色微光底环,任意时刻四边都有色彩;首尾淡入淡出,
-   余光尽头由同步降临的弹窗磨砂遮罩自然吞没,绝不戛然而止。
-   · 配色:品牌极光双色 cyan #22d3ee(彗头最亮)→ violet #a78bfa,色标之间
-     大角度交叠过渡,无硬切;全部 color-mix 降透明,无纯白硬头;
+/* ── 霓虹边缘动画(2026-09-04 W0 单色化:品牌 cyan/violet 双色退役,改琥珀单色系)──
+   设计:「核心点亮,流光一周,聚而后散」。一颗琥珀(--accent-glow,彗头最亮)
+   向压深调(--accent-glow-deep)沉入的极光彗核沿视口边缘顺时针流动一周(1000ms),
+   拖一条长而软的渐隐尾;彗核之下整条边缘还有一圈静态的微光底环,任意时刻
+   四边都有色彩;首尾淡入淡出,余光尽头由同步降临的弹窗磨砂遮罩自然吞没,
+   绝不戛然而止。
+   · 配色:中性单色——琥珀 --accent-glow(彗头最亮)→ 压深 --accent-glow-deep,
+     色标之间大角度交叠过渡,无硬切;全部 color-mix 降透明,无纯白硬头;
    · 驱动:JS rAF 逐帧写 --neon-angle/opacity 内联值(page.tsx,含
      easeInOutQuart 与首尾淡出)。⚠️ 不要用 CSS 自定义属性动画替代——
      2026-08-23 逐变量二分实证:keyframes 驱动 --neon-angle 的逐帧重绘
      在本页层叠树下被 Chromium 整体丢弃(灯带全程隐形,dev/prod/headed
      同现);内联 style 更新走常规 style recalc,每帧必重绘;
-   · 光晕:三层 drop-shadow(贴核青光 6px / 中层紫光 18px / 远景青色 44px),
+   · 光晕:三层 drop-shadow(贴核 6px / 中层 18px / 远景 44px 大范围弥散),
      柔而无边;will-change 提升独立合成层,与页面其余合成内容隔离;
    · 跨浏览器:@property 角度插值经 JS CSS.registerProperty 注册
      (page.tsx 已探测,不支持/减弱动效时根本不渲染本节点);
@@ -402,35 +403,35 @@
   padding: 4px; /* 环宽:content-box 与外框之间即光带 */
   border-radius: 4px;
   /* 双层极光:上层彗核(from 角度由 rAF 驱动的 --neon-angle 插值)——
-     0deg 即彗头(cyan 最亮),向后沉入 violet,再没入 240deg 长透明软尾;
-     下层静态双色整环,彗核未到处也有柔和色彩 */
+     0deg 即彗头(琥珀最亮),向后沉入压深调,再没入 240deg 长透明软尾;
+     下层静态单色整环,彗核未到处也有柔和色彩 */
   background:
     conic-gradient(
       from var(--neon-angle, 0deg),
       transparent 0deg,
-      color-mix(in oklab, #22d3ee 72%, transparent) 5deg,
-      color-mix(in oklab, #22d3ee 46%, transparent) 26deg,
-      color-mix(in oklab, #a78bfa 52%, transparent) 76deg,
-      color-mix(in oklab, #a78bfa 30%, transparent) 140deg,
-      color-mix(in oklab, #22d3ee 12%, transparent) 195deg,
+      color-mix(in oklab, var(--accent-glow) 72%, transparent) 5deg,
+      color-mix(in oklab, var(--accent-glow) 46%, transparent) 26deg,
+      color-mix(in oklab, var(--accent-glow-deep) 52%, transparent) 76deg,
+      color-mix(in oklab, var(--accent-glow-deep) 30%, transparent) 140deg,
+      color-mix(in oklab, var(--accent-glow) 12%, transparent) 195deg,
       transparent 245deg,
       transparent 360deg
     ),
     conic-gradient(
       from 0deg,
-      color-mix(in oklab, #22d3ee 30%, transparent),
-      color-mix(in oklab, #a78bfa 30%, transparent) 180deg,
-      color-mix(in oklab, #22d3ee 30%, transparent) 360deg
+      color-mix(in oklab, var(--accent-glow) 30%, transparent),
+      color-mix(in oklab, var(--accent-glow-deep) 30%, transparent) 180deg,
+      color-mix(in oklab, var(--accent-glow) 30%, transparent) 360deg
     );
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
-  /* 三层柔辉光:贴核青光 / 中层紫光 / 远景青色大范围弥散 —— 柔而无硬边 */
+  /* 三层柔辉光:贴核 / 中层 / 远景大范围弥散 —— 柔而无硬边 */
   filter:
-    drop-shadow(0 0 6px color-mix(in oklab, #22d3ee 55%, transparent))
-    drop-shadow(0 0 18px color-mix(in oklab, #a78bfa 38%, transparent))
-    drop-shadow(0 0 44px color-mix(in oklab, #22d3ee 22%, transparent));
+    drop-shadow(0 0 6px color-mix(in oklab, var(--accent-glow) 55%, transparent))
+    drop-shadow(0 0 18px color-mix(in oklab, var(--accent-glow-deep) 38%, transparent))
+    drop-shadow(0 0 44px color-mix(in oklab, var(--accent-glow) 22%, transparent));
 }
 /* ── 阶段一「核心点亮」(0–350ms,2026-08-24):视口中心核点脉冲成环 + 雷达弧 ──
    与灯带同一场景、同一 rAF 驱动(page.tsx 写 transform/opacity/--core-sweep
@@ -447,24 +448,24 @@
   pointer-events: none;
   will-change: transform, opacity;
 }
-/* 雷达弧:cyan→violet 渐变弧带,conic(from --core-sweep)+ 径向 mask 裁成环 */
+/* 雷达弧:琥珀单色渐变弧带,conic(from --core-sweep)+ 径向 mask 裁成环 */
 .neon-core-arc {
   position: absolute;
   inset: 0;
   border-radius: 50%;
   background: conic-gradient(
     from var(--core-sweep, 0deg),
-    color-mix(in oklab, #22d3ee 85%, transparent) 0deg,
-    color-mix(in oklab, #a78bfa 55%, transparent) 70deg,
+    color-mix(in oklab, var(--accent-glow) 85%, transparent) 0deg,
+    color-mix(in oklab, var(--accent-glow-deep) 55%, transparent) 70deg,
     transparent 130deg
   );
   -webkit-mask: radial-gradient(closest-side, transparent 62%, #fff 68%, #fff 78%, transparent 84%);
   mask: radial-gradient(closest-side, transparent 62%, #fff 68%, #fff 78%, transparent 84%);
   filter:
-    drop-shadow(0 0 6px color-mix(in oklab, #22d3ee 55%, transparent))
-    drop-shadow(0 0 16px color-mix(in oklab, #a78bfa 35%, transparent));
+    drop-shadow(0 0 6px color-mix(in oklab, var(--accent-glow) 55%, transparent))
+    drop-shadow(0 0 16px color-mix(in oklab, var(--accent-glow-deep) 35%, transparent));
 }
-/* 核点:中心 cyan 亮点,脉冲放大成环的「芯」 */
+/* 核点:中心琥珀亮点,脉冲放大成环的「芯」 */
 .neon-core-dot {
   position: absolute;
   left: 50%;
@@ -473,17 +474,17 @@
   height: 10px;
   margin: -5px 0 0 -5px;
   border-radius: 50%;
-  background: #22d3ee;
+  background: var(--accent-glow);
   filter:
-    drop-shadow(0 0 8px color-mix(in oklab, #22d3ee 80%, transparent))
-    drop-shadow(0 0 22px color-mix(in oklab, #a78bfa 45%, transparent));
+    drop-shadow(0 0 8px color-mix(in oklab, var(--accent-glow) 80%, transparent))
+    drop-shadow(0 0 22px color-mix(in oklab, var(--accent-glow-deep) 45%, transparent));
 }
 /* 静态回退:@property 未注册(极旧内核,JS 探测已拦截,双保险)时光带不转,
    仅以整体呼吸辉光示意,绝不静止显示刺眼高亮 */
 @supports not (background: conic-gradient(from var(--neon-angle, 0deg), red, blue)) {
   .neon-edge {
     background: none;
-    border: 1px solid var(--accent-glow);
+    border: 1px solid var(--accent-halo);
     box-shadow: inset 0 0 24px var(--accent-soft);
   }
 }

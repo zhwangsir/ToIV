@@ -161,9 +161,17 @@ for (const t of [
 }
 
 /* ── ④ 基座 token 存在性/消费断言 ── */
-test("基座新 token 存在:--content-max / --content-wide / --leading-loose", () => {
-  assert.match(globals, /--content-max:\s*1000px/);
-  assert.match(globals, /--content-wide:\s*1240px/);
+test("基座新 token 存在:--layout-* 版型档 / --content-* 别名 / --leading-loose", () => {
+  // 2026-09-04 美化 W0:版型令牌成文,--content-max/--content-wide 改别名指向新档
+  assert.match(globals, /--layout-measure:\s*680px/);
+  assert.match(globals, /--layout-content:\s*1000px/);
+  assert.match(globals, /--layout-wide:\s*1240px/);
+  assert.match(globals, /--content-max:\s*var\(--layout-content\)/);
+  assert.match(globals, /--content-wide:\s*var\(--layout-wide\)/);
+  assert.match(globals, /--section-gap-lg:\s*24px/);
+  assert.match(globals, /--grid-gutter:\s*16px/);
+  assert.match(globals, /--grid-gutter-lg:\s*20px/);
+  assert.match(globals, /--media-ar-video:\s*16 \/ 9/);
   assert.match(globals, /--leading-loose:\s*1\.7/);
 });
 

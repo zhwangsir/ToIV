@@ -1157,7 +1157,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           display: flex;
           flex-direction: column;
           gap: var(--space-1);
-          font-size: var(--text-xs);
+          font-size: var(--text-aux);
           font-weight: var(--font-medium);
           color: var(--text-secondary);
         }
@@ -1232,7 +1232,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
         .ve-export-btn {
           min-height: var(--space-10);
           padding: 0 var(--space-6);
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
         }
         .ve-import {
           display: flex;
@@ -1264,12 +1264,12 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           cursor: not-allowed;
         }
         .ve-import-title {
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
           font-weight: var(--font-medium);
           color: var(--text-primary);
         }
         .ve-import-hint {
-          font-size: var(--text-xs);
+          font-size: var(--text-aux);
           color: var(--text-muted);
           text-align: center;
         }
@@ -1319,7 +1319,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           gap: 2px;
         }
         .ve-media-name {
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
           font-weight: var(--font-medium);
           line-height: 1.4;
           color: var(--text-primary);
@@ -1328,7 +1328,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           text-overflow: ellipsis;
         }
         .ve-media-meta {
-          font-size: var(--text-xs);
+          font-size: var(--text-aux);
           color: var(--text-muted);
         }
         .ve-preview {
@@ -1339,7 +1339,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           padding: var(--space-10) var(--space-4);
         }
         .ve-preview-name {
-          font-size: var(--text-xs);
+          font-size: var(--text-aux);
           color: var(--text-muted);
           max-width: 50%;
           white-space: nowrap;
@@ -1364,7 +1364,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           width: 100%;
         }
         .ve-preview-audio-hint {
-          font-size: var(--text-xs);
+          font-size: var(--text-aux);
           color: var(--text-muted);
         }
         .ve-timeline {
@@ -1389,7 +1389,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           align-items: flex-start;
           justify-content: center;
           gap: var(--space-1);
-          font-size: var(--text-xs);
+          font-size: var(--text-aux);
           color: var(--text-secondary);
         }
         .ve-tl-label-name {
@@ -1417,7 +1417,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
         .ve-tl-empty {
           align-self: center;
           padding: 0 var(--space-2);
-          font-size: var(--text-xs);
+          font-size: var(--text-aux);
           color: var(--text-muted);
         }
         .ve-clip {
@@ -1457,7 +1457,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           gap: var(--space-2);
         }
         .ve-clip-name {
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
           font-weight: var(--font-medium);
           line-height: 1.4;
           color: var(--text-primary);
@@ -1467,7 +1467,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
         }
         .ve-clip-dur {
           flex-shrink: 0;
-          font-size: var(--text-xs);
+          font-size: var(--text-aux);
           color: var(--text-muted);
         }
         .ve-clip-edit {
@@ -1483,7 +1483,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           display: flex;
           flex-direction: column;
           gap: 2px;
-          font-size: var(--text-xs);
+          font-size: var(--text-aux);
           font-weight: var(--font-medium);
           color: var(--text-muted);
           width: 86px;
@@ -1494,7 +1494,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
         .ve-field input,
         .ve-field select {
           padding: var(--space-1) var(--space-2);
-          font-size: var(--text-xs);
+          font-size: var(--text-aux);
           font-weight: var(--font-regular);
         }
         .ve-color {
@@ -1502,7 +1502,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           height: 28px;
           padding: 0;
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           background: var(--bg-surface-3);
           cursor: pointer;
         }
@@ -1519,7 +1519,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           width: 26px;
           height: 26px;
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           background: var(--bg-surface-2);
           color: var(--text-secondary);
           cursor: pointer;
@@ -1555,7 +1555,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           border-top: 1px solid var(--border-subtle);
         }
         .ve-footer-info {
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
           color: var(--text-muted);
         }
         .ve-footer-hint {
@@ -1574,7 +1574,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
           font-weight: var(--font-medium);
           color: var(--ok);
         }

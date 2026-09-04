@@ -52,9 +52,9 @@ if (typeof window !== "undefined" && "registerProperty" in CSS) {
   }
 }
 
-// ── AI 助手启动序列·设计参数表(2026-08-24 重做:极光双色 #22d3ee→#a78bfa) ──
-// 阶段一「核心点亮」  0–350ms :视口中心核点(cyan)脉冲成环 + 雷达弧扫描一圈
-// 阶段二「灯带扫边」  0–1000ms:neon-edge 双色极光 conic 扫 430deg,easeInOutQuart,
+// ── AI 助手启动序列·设计参数表(2026-09-04 W0 单色化:琥珀单色系 --accent-glow→--accent-glow-deep) ──
+// 阶段一「核心点亮」  0–350ms :视口中心核点(琥珀)脉冲成环 + 雷达弧扫描一圈
+// 阶段二「灯带扫边」  0–1000ms:neon-edge 单色极光 conic 扫 430deg,easeInOutQuart,
 //                               扫边同时中心核淡出(与阶段一同场融合)
 // 阶段三「弹窗降临」 700–1100ms:灯带收尾前 300ms 起播,面板 scale .92→1 + 淡入
 //                               (400ms cubic-bezier(.22,1,.36,1),assistant.css)
@@ -744,8 +744,8 @@ function HomeContent() {
         isAdmin={isAdmin}
       />
 
-      {/* 启动序列(2026-08-24 重做):Shift+Enter 开启后——阶段一核点点亮(中心,
-          350ms)+ 阶段二极光灯带扫边(1000ms,cyan→violet),随后弹窗降临
+      {/* 启动序列(2026-09-04 W0 单色化):Shift+Enter 开启后——阶段一核点点亮(中心,
+          350ms)+ 阶段二极光灯带扫边(1000ms,琥珀单色),随后弹窗降临
           (样式见 assistant.css;伪元素在本页层叠树下不重绘,核点用真实子节点) */}
       {neonPlaying && (
         <>

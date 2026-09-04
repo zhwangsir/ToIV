@@ -571,7 +571,7 @@ export function KeyframeChainEditor() {
           gap: var(--space-3);
           padding: var(--space-3) var(--space-4);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-lg);
+          border-radius: var(--radius-panel);
           background: var(--bg-surface-2);
         }
         .kf-slots {
@@ -590,7 +590,7 @@ export function KeyframeChainEditor() {
           width: 72px;
           height: 72px;
           border: 1px dashed var(--border-subtle);
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-control);
           background: var(--bg-surface-3);
           overflow: visible;
           cursor: grab;
@@ -606,7 +606,7 @@ export function KeyframeChainEditor() {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-control);
           display: block;
         }
         .kf-slot-idx {
@@ -679,7 +679,7 @@ export function KeyframeChainEditor() {
           gap: 6px;
           padding: var(--space-2) var(--space-3);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-control);
           background: var(--bg-surface-3);
         }
         .kf-seg-head {
@@ -765,7 +765,7 @@ export function KeyframeChainEditor() {
         .kf-result-video {
           width: 100%;
           max-height: 420px;
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-control);
           background: #000;
         }
       `}</style>

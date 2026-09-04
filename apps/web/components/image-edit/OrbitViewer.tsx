@@ -176,7 +176,7 @@ export function OrbitViewer({ frames, frame, onFrame }: OrbitViewerProps) {
           gap: var(--space-3);
         }
         .ie-orbit-angle {
-          font-size: var(--text-md);
+          font-size: var(--text-section);
           font-weight: var(--font-semibold);
           color: var(--text-primary);
           font-variant-numeric: tabular-nums;

@@ -154,7 +154,7 @@
 }
 .settings-engine-skeleton-bar {
   height: 14px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-badge);
   background: linear-gradient(
     90deg,
     var(--bg-surface-2),

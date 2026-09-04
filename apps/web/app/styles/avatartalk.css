@@ -68,6 +68,20 @@
   overflow: hidden;
   min-width: 0;
 }
+/* 舞台暗角(2026-09-04 W0 装饰层裁决:全局 body::after 暗角删除,暗角只属舞台语义;
+   与 stage.css .stage-main::after 同一配方,canvas 混色四角轻压,视线聚向作品) */
+.at-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 72% 62% at 50% 46%,
+    transparent 55%,
+    color-mix(in oklab, var(--bg-canvas) 70%, transparent) 100%
+  );
+}
 .at-video {
   width: 100%;
   height: 100%;
@@ -460,7 +474,7 @@
   flex-shrink: 0;
   padding: 0 var(--space-1);
   background: transparent;
-  border: 1px solid var(--accent-glow);
+  border: 1px solid var(--accent-halo);
   border-radius: var(--radius-full);
   font-size: var(--text-label);
   font-weight: var(--font-medium);
@@ -690,12 +704,12 @@
 .at-msg-user .at-msg-bubble {
   background: var(--accent);
   color: var(--text-on-accent);
-  border-bottom-right-radius: var(--radius-xs);
+  border-bottom-right-radius: var(--radius-badge);
 }
 .at-msg-assistant .at-msg-bubble {
   background: var(--bg-surface-2);
   color: var(--text-primary);
-  border-bottom-left-radius: var(--radius-xs);
+  border-bottom-left-radius: var(--radius-badge);
 }
 .at-msg.is-streaming .at-msg-bubble {
   opacity: 0.75;
@@ -810,7 +824,7 @@
   width: 40px;
   height: 40px;
   object-fit: cover;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-badge);
   flex-shrink: 0;
 }
 .at-gen-file-name {
@@ -833,7 +847,7 @@
   justify-content: center;
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-badge);
   background: var(--bg-surface-2);
   color: var(--text-muted);
   flex-shrink: 0;
@@ -940,7 +954,7 @@
 .at-live-avatar-thumb {
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-badge);
   overflow: hidden;
   background: var(--bg-surface-3);
   flex-shrink: 0;

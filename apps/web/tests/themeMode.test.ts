@@ -190,14 +190,19 @@ test("globals.css v8:[data-mode=dark] 块完整;五色板与暗色 accent 变体
   assert.match(css, /--abs-white: #FFFFFF;/);
 });
 
-test("globals.css:pure-black 块压纯黑画布 + 噪点/压角暗色装饰变体", () => {
+test("globals.css:pure-black 块压纯黑画布 + 噪点暗色变体;全局暗角已裁决删除", () => {
   const css = readSrc("app/globals.css");
   const i = css.indexOf('[data-mode="dark"][data-pure-black="1"] {');
   assert.ok(i > 0, "缺 pure-black 块");
   const block = css.slice(i, css.indexOf("\n}", i));
   assert.match(block, /--bg-canvas: #000000;/);
   assert.ok(css.includes('[data-mode="dark"] body::before'), "缺噪点暗色变体");
-  assert.ok(css.includes('[data-mode="dark"] body::after'), "缺压角暗色变体");
+  // 2026-09-04 美化 W0 装饰层裁决:全局 body::after 暗角删除,暗角只属舞台容器
+  assert.ok(!/body::after\s*\{/.test(css), "全局 body::after 暗角规则应已删除");
+  const stage = readSrc("app/styles/stage.css");
+  assert.ok(stage.includes(".stage-main::after"), "舞台暗角 .stage-main::after 缺失");
+  const avatartalk = readSrc("app/styles/avatartalk.css");
+  assert.ok(avatartalk.includes(".at-stage::after"), "舞台暗角 .at-stage::after 缺失");
 });
 
 /* (⑥ drama-workbench.css 暗色断言已随 2026-09-03 W4 drama 死链删除退役) */

@@ -917,7 +917,7 @@ export function ModelsView() {
           cursor: pointer;
         }
         .mv-ask-chip:hover {
-          border-color: var(--accent-glow);
+          border-color: var(--accent-halo);
           color: var(--accent);
         }
         .mv-ask-note {

@@ -59,7 +59,7 @@
 .cmdk-kbd {
   padding: 1px 6px;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-badge);
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-muted);
@@ -82,7 +82,7 @@
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-badge);
   background: transparent;
   font-family: var(--font-sans);
   font-size: var(--text-body);
@@ -105,7 +105,7 @@
 .cmdk-thumb {
   width: 22px;
   height: 22px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-badge);
   object-fit: cover;
   flex-shrink: 0;
   background: var(--bg-surface-3);

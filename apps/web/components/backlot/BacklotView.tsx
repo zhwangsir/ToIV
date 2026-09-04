@@ -777,7 +777,7 @@ export function BacklotView({
           position: relative;
           height: 6px;
           background: var(--bg-surface-3);
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           overflow: hidden;
         }
         .bl-progress-fill {
@@ -786,7 +786,7 @@ export function BacklotView({
           left: 0;
           bottom: 0;
           background: var(--accent);
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           transition: width var(--duration-base) var(--ease-standard);
         }
 
@@ -882,7 +882,7 @@ export function BacklotView({
           padding: 0;
           background: transparent;
           border: 1px solid transparent;
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           color: var(--text-secondary);
           cursor: pointer;
           flex-shrink: 0;
@@ -996,7 +996,7 @@ export function BacklotView({
           padding: var(--space-2);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           transition: border-color var(--duration-fast) var(--ease-standard),
             background-color var(--duration-fast) var(--ease-standard);
         }
@@ -1011,7 +1011,7 @@ export function BacklotView({
           height: 56px;
           flex-shrink: 0;
           background: var(--bg-surface-3);
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           overflow: hidden;
         }
         .bl-shot-thumb img {
@@ -1036,7 +1036,7 @@ export function BacklotView({
           background: var(--overlay-strong);
           backdrop-filter: blur(4px);
           -webkit-backdrop-filter: blur(4px);
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           font-size: var(--text-label);
           color: var(--text-secondary);
           font-family: var(--font-mono);
@@ -1084,7 +1084,7 @@ export function BacklotView({
           gap: var(--space-1);
           padding: 1px var(--space-2);
           background: var(--bg-surface-3);
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           font-size: var(--text-label);
           font-weight: var(--font-medium);
           color: var(--text-secondary);

@@ -869,8 +869,8 @@ export function AgentsAdminView() {
           width: 36px;
           height: 36px;
           background: var(--accent-soft);
-          border: 1px solid var(--accent-glow);
-          border-radius: var(--radius-sm);
+          border: 1px solid var(--accent-halo);
+          border-radius: var(--radius-badge);
           color: var(--accent);
           flex-shrink: 0;
         }
@@ -950,7 +950,7 @@ export function AgentsAdminView() {
         }
         .aa-tag-kind {
           background: var(--accent-soft);
-          border: 1px solid var(--accent-glow);
+          border: 1px solid var(--accent-halo);
           color: var(--accent);
         }
         .aa-tag-llm {
@@ -1006,7 +1006,7 @@ export function AgentsAdminView() {
           height: 32px;
           background: transparent;
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           color: var(--text-muted);
           cursor: pointer;
           transition: color var(--duration-fast) var(--ease-standard),
@@ -1084,7 +1084,7 @@ export function AgentsAdminView() {
           padding: var(--space-3);
           background: var(--ok-soft);
           border: 1px solid var(--ok);
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
         }
         .aa-test-result-label {
           display: inline-flex;
@@ -1099,7 +1099,7 @@ export function AgentsAdminView() {
           padding: var(--space-2) var(--space-3);
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           font-family: var(--font-mono);
           font-size: var(--text-aux);
           color: var(--text-primary);
@@ -1150,7 +1150,7 @@ export function AgentsAdminView() {
           overflow-y: auto;
           background: var(--bg-surface-1);
           border: 1px solid var(--border-strong);
-          border-radius: var(--radius-lg);
+          border-radius: var(--radius-panel);
           box-shadow: var(--shadow-lg);
           animation: aa-pop var(--duration-base) var(--ease-standard);
         }
@@ -1200,7 +1200,7 @@ export function AgentsAdminView() {
           padding: 0;
           background: transparent;
           border: 1px solid transparent;
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           color: var(--text-muted);
           cursor: pointer;
           transition: background-color var(--duration-fast) var(--ease-standard),
@@ -1244,7 +1244,7 @@ export function AgentsAdminView() {
           padding: var(--space-1) var(--space-3);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           font-size: var(--text-aux);
           color: var(--text-secondary);
           cursor: pointer;
@@ -1258,7 +1258,7 @@ export function AgentsAdminView() {
         }
         .aa-checkbox.is-on {
           background: var(--accent-soft);
-          border-color: var(--accent-glow);
+          border-color: var(--accent-halo);
           color: var(--accent);
         }
         .aa-nsfw-row {
@@ -1269,7 +1269,7 @@ export function AgentsAdminView() {
           padding: var(--space-2) var(--space-3);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
         }
         .aa-nsfw-label {
           font-size: var(--text-aux);

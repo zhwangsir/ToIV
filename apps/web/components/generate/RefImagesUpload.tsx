@@ -174,7 +174,7 @@ export function RefImagesUpload({ param, values, onChange, uploadKind, pinWorker
           width: 48px;
           height: 48px;
           object-fit: cover;
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           border: 1px solid var(--border-subtle);
           display: block;
         }

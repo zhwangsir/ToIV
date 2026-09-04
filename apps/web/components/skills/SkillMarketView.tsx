@@ -617,7 +617,7 @@ export function SkillMarketView() {
             box-shadow var(--duration-fast) var(--ease-standard);
         }
         .skill-card:hover {
-          border-color: var(--accent-glow);
+          border-color: var(--accent-halo);
           transform: translateY(-1px);
           box-shadow: var(--shadow-lift);
         }
@@ -650,7 +650,7 @@ export function SkillMarketView() {
           width: 28px;
           height: 28px;
           border: none;
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           background: transparent;
           color: var(--text-muted);
           cursor: pointer;

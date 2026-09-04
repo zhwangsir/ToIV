@@ -461,7 +461,7 @@ export function MultiShotEditor({ loras }: { loras?: unknown } = {}) {
           gap: var(--space-3);
           padding: var(--space-3) var(--space-4);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-lg);
+          border-radius: var(--radius-panel);
           background: var(--bg-surface-2);
         }
         .ms-shots {
@@ -475,7 +475,7 @@ export function MultiShotEditor({ loras }: { loras?: unknown } = {}) {
           gap: 6px;
           padding: var(--space-2) var(--space-3);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-control);
           background: var(--bg-surface-3);
           cursor: grab;
           transition: border-color var(--duration-fast) var(--ease-standard);
@@ -636,7 +636,7 @@ export function MultiShotEditor({ loras }: { loras?: unknown } = {}) {
         .ms-result-video {
           width: 100%;
           max-height: 420px;
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-control);
           background: #000;
         }
       `}</style>

@@ -327,11 +327,11 @@ export function OptimizeButton({
         }
         .ob-btn:hover:not(:disabled) {
           background: var(--accent-soft);
-          border-color: var(--accent-glow);
+          border-color: var(--accent-halo);
         }
         .ob-btn.is-open {
           background: var(--accent-soft);
-          border-color: var(--accent-glow);
+          border-color: var(--accent-halo);
         }
         .ob-btn:disabled {
           opacity: 0.4;
@@ -394,7 +394,7 @@ export function OptimizeButton({
           color: var(--text-muted);
         }
         .ob-style-input:focus {
-          border-color: var(--accent-glow);
+          border-color: var(--accent-halo);
           box-shadow: 0 0 0 3px var(--accent-soft);
         }
         .ob-style-go {
@@ -402,7 +402,7 @@ export function OptimizeButton({
           height: 26px;
           padding: 0 var(--space-3);
           background: var(--accent-soft);
-          border: 1px solid var(--accent-glow);
+          border: 1px solid var(--accent-halo);
           border-radius: var(--radius-control);
           color: var(--accent);
           font-size: var(--text-aux);
@@ -411,7 +411,7 @@ export function OptimizeButton({
           transition: background-color var(--duration-fast) var(--ease-standard);
         }
         .ob-style-go:hover:not(:disabled) {
-          background: var(--accent-glow);
+          background: var(--accent-halo);
         }
         .ob-style-go:disabled {
           opacity: 0.4;
@@ -474,7 +474,7 @@ export function OptimizeButton({
           display: inline-block;
           margin-left: var(--space-1);
           padding: 0 var(--space-1);
-          border: 1px solid var(--accent-glow);
+          border: 1px solid var(--accent-halo);
           border-radius: var(--radius-control);
           color: var(--accent);
           font-size: var(--text-micro, 10px);

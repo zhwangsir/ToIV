@@ -112,16 +112,18 @@ test("assistant.css:霓虹环带 + 环形 mask + 双回退", () => {
   assert.ok(css.includes(".av-overlay-close"), "关闭按钮样式缺失");
 });
 
-test("assistant.css:极光配色(2026-08-24 品牌双色 cyan→violet)——无品红残留、无纯白硬头、三层柔辉光", () => {
+test("assistant.css:极光配色(2026-09-04 W0 单色化:琥珀单色系)——无 cyan/violet 残留、无纯白硬头、三层柔辉光", () => {
   const css = readSrc("app/styles/assistant.css");
   const neonStart = css.indexOf(".neon-edge {");
   const neon = css.slice(neonStart, css.indexOf("@supports not", neonStart));
-  // 品牌极光双色板:cyan #22d3ee → violet #a78bfa
-  assert.ok(neon.includes("#22d3ee"), "品牌 cyan #22d3ee 缺失");
-  assert.ok(neon.includes("#a78bfa"), "品牌 violet #a78bfa 缺失");
-  // 双色升级:旧三色板的品红/浅青不得残留
-  assert.ok(!neon.includes("#f0abfc"), "品红 #f0abfc 残留(已收敛为双色)");
-  assert.ok(!neon.includes("#67e8f9"), "浅青 #67e8f9 残留(已升级为品牌 cyan)");
+  // 中性单色板:琥珀 --accent-glow(彗头最亮)→ 压深 --accent-glow-deep
+  assert.ok(neon.includes("var(--accent-glow)"), "琥珀 --accent-glow 缺失");
+  assert.ok(neon.includes("var(--accent-glow-deep)"), "压深调 --accent-glow-deep 缺失");
+  // 单色化:旧品牌双色的 cyan/violet 不得残留
+  assert.ok(!neon.includes("#22d3ee"), "cyan #22d3ee 残留(已收敛为琥珀单色)");
+  assert.ok(!neon.includes("#a78bfa"), "violet #a78bfa 残留(已收敛为琥珀单色)");
+  assert.ok(!neon.includes("#f0abfc"), "品红 #f0abfc 残留");
+  assert.ok(!neon.includes("#67e8f9"), "浅青 #67e8f9 残留");
   // 柔和:禁止纯白硬头(单色时代的 #fff 亮头)
   assert.ok(!/#fff\s+\d+deg/.test(neon), "出现纯白硬头色标(应全彩柔和)");
   // 三层柔辉光(贴核/中层/远景弥散),最大 ≥40px 宽幅外扩
@@ -130,11 +132,11 @@ test("assistant.css:极光配色(2026-08-24 品牌双色 cyan→violet)——无
   assert.ok(Math.max(...glows) >= 40, `主辉光幅度不足(最大 ${Math.max(...glows)}px < 40px)`);
 });
 
-test("assistant.css:静态双色底环 + 弹窗玻璃拟态 + 开场辉光", () => {
+test("assistant.css:静态单色底环 + 弹窗玻璃拟态 + 开场辉光", () => {
   const css = readSrc("app/styles/assistant.css");
   const neonStart = css.indexOf(".neon-edge {");
   const neon = css.slice(neonStart, css.indexOf("@supports not", neonStart));
-  // 双层背景:彗核(随 --neon-angle 旋转)+ 静态双色整环(任意时刻四边有色彩)
+  // 双层背景:彗核(随 --neon-angle 旋转)+ 静态单色整环(任意时刻四边有色彩)
   assert.ok((neon.match(/conic-gradient/g) ?? []).length >= 2, "静态双色底环缺失");
   // 弹窗玻璃拟态 + 开场光晕(灯带联动收束拍)
   assert.ok(css.includes("backdrop-filter: var(--glass-blur)"), "面板玻璃模糊缺失");

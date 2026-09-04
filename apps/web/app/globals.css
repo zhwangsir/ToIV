@@ -46,8 +46,17 @@
   --accent: #17181A;
   --accent-hover: #2C2E33;
   --accent-soft: rgba(23, 24, 26, 0.07);
-  --accent-glow: rgba(23, 24, 26, 0.18);
+  /* 中性光晕(2026-09-04 更名,原 --accent-glow):近黑 accent 的柔光环/淡描边,
+     供输入聚焦光晕、浮层淡边等中性场景;--accent-glow 之名让位给琥珀点睛色 */
+  --accent-halo: rgba(23, 24, 26, 0.18);
   --text-on-accent: #FFFFFF;
+  /* ── 品格色点睛(2026-09-04 美化 W0,克制):暖琥珀单点,只用于聚焦环/
+     文本链接 hover/at-seg 激活指示等最小触点;主按钮 accent 近黑不变 ── */
+  --accent-glow: #b07d2a;
+  --accent-glow-soft: rgba(176, 125, 42, 0.10);
+  /* 琥珀压深调(assistant 启动序列极光拖尾专用;55% 琥珀 + 45% accent,
+     经 var 引用随亮暗模式解析,暗色块无需重复定义) */
+  --accent-glow-deep: color-mix(in oklab, var(--accent-glow) 55%, var(--accent));
 
   /* ── 状态色(五套共用;仅状态用语;深色取值保证文本在自身 soft 底上 ≥4.5:1;运行态收敛进 accent。
      2026-08-16 基座复核:warn/err 原值在 surface-3 的 soft 合成底上仅 4.25/4.14,压深至
@@ -113,14 +122,8 @@
   --font-semibold: 600;
   --font-bold: 700;
 
-  /* 旧字号阶(批 2a 已收敛部分视图;ui 组件与少数视图仍在用,继续向上面五档收敛) */
-  --text-xs: 11px;
-  --text-sm: 12px;
-  --text-base: 14px;
-  --text-md: 14px;
-  --text-lg: 16px;
-  --text-xl: 20px;
-  --text-2xl: 24px;
+  /* 旧数字字号阶(--text-xs~2xl)已于 2026-09-04 美化 W0 删除,全站引用机械映射:
+     xs→aux · sm→body · base→body · md→section · lg→title · xl→display-sm · 2xl→display-md */
 
   --leading-base: 22px;
   /* 2026-08-14 UI-A:去冗余,--leading-md 改别名指向 base(既有引用不断裂,后续向 base 收敛) */
@@ -145,15 +148,11 @@
   --space-10: 40px;
   --space-12: 48px;
 
-  /* ── 圆角:面板 12 · 控件 8 · 徽章 6 ── */
+  /* ── 圆角:面板 12 · 控件 8 · 徽章 6(语义三档;数字档 --radius-xs~xl 已于
+     2026-09-04 美化 W0 删除,映射:xs/sm→badge · md→control · lg/xl→panel) ── */
   --radius-badge: 6px;
   --radius-control: 8px;
   --radius-panel: 12px;
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
   --radius-full: 9999px;
 
   /* ── 阴影:不用彩色阴影,浮层统一中性灰(浅色主题全面调软) ── */
@@ -163,6 +162,8 @@
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.07);
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.09);
   --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.10);
+  /* 浮层专用双层柔影(2026-09-04 W0 成文):柔和大半径投影 + 近距描边影两层,
+     Modal/Popover/Toast/CommandPalette 等浮层统一消费;平卡(at-card/.card)不用阴影 */
   --shadow-pop: 0 4px 20px rgba(0, 0, 0, 0.10), 0 0 0 1px var(--border-subtle);
   --shadow-lift: 0 8px 30px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--border-subtle);
   --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.14), 0 0 0 1px var(--border-subtle);
@@ -181,11 +182,33 @@
 
   /* ── 布局 ── */
   --bottomnav-h: 0px;
-  /* 内容版心双档(2026-08-16 基座):常规视图(表单/详情/设置)走 max,
-     宽列表(项目库/作品网格/agent-runs)走 wide;基座壳 .single-view/.view-shell
-     统一消费 wide,各视图需要窄版心时在自有容器覆盖为 max(禁止再写裸 px) */
-  --content-max: 1000px;
-  --content-wide: 1240px;
+
+  /* ── 版型(Layout)令牌(2026-09-04 美化第 0 波;亮暗通用,规范见 docs/UI_STANDARD.md §版型) ──
+     容器宽度语义档(视图按内容性质选档,禁止再写裸 px max-width):
+       measure 阅读档 —— 表单/文档流/长文设置页,行长收敛保可读;
+       content 标准档 —— 常规视图(详情/设置/列表)默认版心;
+       wide   宽档   —— 宽列表(项目库/作品网格/agent-runs),基座壳默认消费;
+       满档工作台(generate/canvas/studio 等)不吃 max-width,视口内自排版。
+     --content-max/--content-wide 为历史别名,指向新档,既有引用不断裂。 */
+  --layout-measure: 680px;
+  --layout-content: 1000px;
+  --layout-wide: 1240px;
+  --content-max: var(--layout-content);
+  --content-wide: var(--layout-wide);
+  /* 节奏档:页头下间距 / 工具条与内容区间距;区块间距在 --section-gap(16)
+     基础上增补宽松档 24(大区块/首屏英雄区与正文之间) */
+  --layout-header-gap: var(--space-4);
+  --layout-toolbar-gap: var(--space-3);
+  /* 栅格 gutter 档:默认 16,宽松陈列(作品网格/市场卡)20;最小呼吸仍 ≥8(--space-2) */
+  --grid-gutter: 16px;
+  --grid-gutter-lg: 20px;
+  /* 媒体卡宽高比(aspect-ratio 值):视频 16/9,图片 1/1,缩略图 4/3 */
+  --media-ar-video: 16 / 9;
+  --media-ar-image: 1 / 1;
+  --media-ar-thumb: 4 / 3;
+  /* 基线对齐规则(成文于 UI_STANDARD.md):页头标题按 --leading-xl 基线与右侧
+     操作区底对齐(.page-header align-items:flex-end);工具条行高统一 36px;
+     卡内 padding 统一 --space-4,不随卡片用途增减 */
 
   /* ── 页面槽与区块节奏(2026-08-24 排版密度优化):全站页面左右内边距与区块间距的
      唯一来源;.single-view/.view-shell/工作台视图壳(generate/fusion 等)统一消费
@@ -193,6 +216,8 @@
      间距基准档,网格最小呼吸 ≥8px(--space-2) ── */
   --page-gutter: clamp(12px, 2vw, 24px);
   --section-gap: 16px;
+  /* 宽松区块档(2026-09-04 美化 W0):首屏英雄区/大区块之间的展开节奏 */
+  --section-gap-lg: 24px;
 
   /* ── z-index(2026-08-14 UI-A:stage.css 裸值 0-30 映射建议注释档 ──
      0  舞台内容基线(stage-media-wrap / stage-loading);
@@ -210,8 +235,8 @@
   --z-toast: 400;
 
   /* ── 焦点环与触控(2026-08-14 UI-A 新增) ── */
-  --focus-ring: 1px solid var(--accent);   /* outline 统一 1px accent */
-  --touch-target: 44px;                    /* WCAG 2.5.5 触控最小目标 */
+  --focus-ring: 1px solid var(--accent-glow);  /* outline 统一 1px;2026-09-04 W0 起琥珀点睛 */
+  --touch-target: 44px;                        /* WCAG 2.5.5 触控最小目标 */
 
   /* ── 断点令牌(JS 侧经 lib/useBreakpoint.ts 读取;CSS 媒体查询 max 形式统一为令牌值 -1:575/767/1023) ── */
   --bp-sm: 576px;
@@ -250,9 +275,12 @@
   --accent: #F5F5F4;
   --accent-hover: #FFFFFF;
   --accent-soft: rgba(245, 245, 244, 0.10);
-  --accent-glow: rgba(245, 245, 244, 0.22);
+  --accent-halo: rgba(245, 245, 244, 0.22);
   --text-on-accent: #17181A;
   --accent-glow-shadow: 0 2px 12px rgba(245, 245, 244, 0.22);
+  /* 琥珀点睛暗色档:向亮提,深底上保非文本对比度 ≥3:1 */
+  --accent-glow: #d4a94e;
+  --accent-glow-soft: rgba(212, 169, 78, 0.12);
 
   /* 状态色:向亮提,文本在深面板及自身 soft 底上均 ≥4.5:1;运行态仍收敛进 accent。
      2026-08-16 基座复核:err 原值 #F06A6A 在 surface-3 的 soft 合成底上仅 4.12,
@@ -318,13 +346,14 @@ body {
   background: var(--bg-canvas);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: var(--text-base);
+  font-size: var(--text-body);
   line-height: var(--leading-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 全局胶片噪点:约 2% 不透明度 SVG feTurbulence,纯装饰;
+/* 全局胶片噪点:约 2% 不透明度 SVG feTurbulence,纯装饰(2026-09-04 W0 再压半:
+   暗色 0.03→0.02,亮色已为 0.02);
    pointer-events: none 不影响交互;z-index 取近顶值(略低于浏览器 top-layer 上限),
    作为全局颗粒覆层压在本地 --z-* 档位(≤400)之上,对弹层仅 2% 叠加、不影响可读性 */
 body::before {
@@ -337,34 +366,14 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* 全局弱暗角(2026-08-14 UI-A,Film Atelier 暗房隐喻):
-   径向渐变仅四角轻微压暗(峰值 4%),视线自然聚向中央内容;
-   红线克制——不显脏、不压可读性,层级同噪点覆层(略低一级,噪点在上)。 */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2147482999;
-  background: radial-gradient(
-    ellipse 120% 105% at 50% 46%,
-    transparent 62%,
-    rgba(23, 20, 18, 0.04) 100%
-  );
-}
+/* 全局暗角已于 2026-09-04 美化 W0 裁决删除(原 body::after,峰值 4%/22%):
+   暗角只属舞台语义,现仅舞台类容器内生效——.stage-main::after(stage.css)
+   与 .at-stage::after(avatartalk.css),全局页面不再整体压角。 */
 
-/* 暗色装饰层变体(2026-08-16 v7):噪点反相为亮颗粒并微提 alpha(暗颗粒在深底不可见);
-   压角改向纯黑加深(峰值 22%),深底上取代浅色暗角,视线仍聚向中央 */
+/* 暗色装饰层变体:噪点反相为亮颗粒(暗颗粒在深底不可见),alpha 与亮色同档 0.02 */
 [data-mode="dark"] body::before {
-  opacity: 0.03;
+  opacity: 0.02;
   filter: invert(1);
-}
-[data-mode="dark"] body::after {
-  background: radial-gradient(
-    ellipse 120% 105% at 50% 46%,
-    transparent 58%,
-    rgba(0, 0, 0, 0.22) 100%
-  );
 }
 
 #__next {
@@ -374,6 +383,11 @@ body::after {
 a {
   color: inherit;
   text-decoration: none;
+}
+/* 文本链接 hover:琥珀点睛(2026-09-04 W0;仅无类名的纯文本链接,
+   带类控件如 .at-btn/.btn 由自身 hover 规则接管,不被此规则染色) */
+a:hover:not([class]) {
+  color: var(--accent-glow);
 }
 
 button {
@@ -427,7 +441,7 @@ img, video {
   background: var(--accent);
   color: var(--text-on-accent);
   border-radius: var(--radius-control);
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   font-weight: var(--font-medium);
   transition: top var(--duration-fast) var(--ease-standard);
 }
@@ -547,16 +561,9 @@ img, video {
   margin: 0 auto;
 }
 
-/* ========== 统一页头(批 4 新增;各视图页头一律改用这套类) ========== */
+/* ========== 统一页头(批 4 新增;各视图页头一律改用这套类;
+   2026-09-04 美化 W0:双定义合并为下方唯一块,盒模型/ flex 布局同一来源) ========== */
 
-.page-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
-  flex-wrap: wrap;
-}
 /* 返回上一级(2026-08-29 融合二级页):标题上方的低调文字钮 */
 .page-header-back {
   display: inline-flex;
@@ -656,7 +663,7 @@ img, video {
   border-radius: 50%;
   background: var(--accent);
   color: var(--text-on-accent);
-  box-shadow: 0 4px 16px var(--accent-glow);
+  box-shadow: 0 4px 16px var(--accent-halo);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background-color var(--duration-fast) var(--ease-standard),
@@ -685,7 +692,7 @@ img, video {
   border-radius: var(--radius-control);
   box-shadow: var(--shadow-xs);
   color: var(--text-primary);
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   font-weight: var(--font-medium);
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-standard),
@@ -739,13 +746,13 @@ img, video {
 
 .btn-sm {
   padding: var(--space-1) var(--space-3);
-  font-size: var(--text-xs);
+  font-size: var(--text-aux);
   height: 26px;
 }
 
 .btn-lg {
   padding: var(--space-3) var(--space-5);
-  font-size: var(--text-md);
+  font-size: var(--text-section);
   height: 40px;
 }
 
@@ -774,7 +781,7 @@ img, video {
   border-radius: var(--radius-control);
   box-shadow: var(--shadow-xs);
   color: var(--text-primary);
-  font-size: var(--text-base);
+  font-size: var(--text-body);
   caret-color: var(--accent);
   transition: border-color var(--duration-fast) var(--ease-standard),
               background-color var(--duration-fast) var(--ease-standard),
@@ -786,7 +793,7 @@ img, video {
 .input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: var(--shadow-xs), 0 0 0 3px var(--accent-glow);
+  box-shadow: var(--shadow-xs), 0 0 0 3px var(--accent-halo);
 }
 .input:disabled {
   opacity: 0.5;
@@ -848,7 +855,7 @@ select.input {
   padding: 2px var(--space-2);
   background: var(--bg-surface-2);
   border-radius: var(--radius-badge);
-  font-size: var(--text-xs);
+  font-size: var(--text-aux);
   color: var(--text-secondary);
   font-weight: var(--font-medium);
 }
@@ -918,7 +925,7 @@ select.input {
   font-weight: var(--font-semibold);
 }
 .empty-state-desc {
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   color: var(--text-muted);
   max-width: 320px;
   line-height: var(--leading-md);
@@ -1123,7 +1130,7 @@ select.input {
 .sheet-header {
   padding: 0 var(--space-4) var(--space-3);
   border-bottom: 1px solid var(--border-subtle);
-  font-size: var(--text-md);
+  font-size: var(--text-section);
   font-weight: var(--font-medium);
   flex-shrink: 0;
 }
@@ -1143,7 +1150,7 @@ select.input {
   padding: var(--space-3);
   border-radius: var(--radius-control);
   color: var(--text-secondary);
-  font-size: var(--text-base);
+  font-size: var(--text-body);
   cursor: pointer;
   text-align: left;
   transition: background-color var(--duration-fast) var(--ease-standard),
@@ -1204,8 +1211,8 @@ select.input {
 /* ── 移动 <768px ── */
 @media (max-width: 767px) {
   :root {
-    --text-xs: 12px;
-    --text-sm: 13px;
+    /* 移动端辅助档提 1px 保可读(旧 --text-xs 移动档 12px 的映射延续) */
+    --text-aux: 12px;
   }
   .single-view {
     padding: var(--space-3) var(--page-gutter) var(--space-5);
@@ -1215,9 +1222,10 @@ select.input {
   .btn-sm {
     min-height: var(--touch-target);
   }
-  /* iOS 输入框字号 <16px 时聚焦会触发自动缩放,移动端提到 16px(桌面端不变) */
+  /* iOS 输入框字号 <16px 时聚焦会触发自动缩放,移动端钉 16px(桌面端不变);
+     硬约束不参与字阶收敛(旧 --text-lg:16px 的例外保留) */
   .input {
-    font-size: var(--text-lg);
+    font-size: 16px;
   }
 }
 
@@ -1276,12 +1284,18 @@ select.input {
 
 /* 页头(Studio Console v1,2026-08-31):Film Atelier masthead 退役——
    拉丁 kicker 铭牌(.page-header-kicker)、Fraunces 展示大标题、编辑双线细规全部移除
-   (用户:文字太多,要简洁专业工作台)。只余:无衬线标题 + muted 辅助描述 + 细分隔线。 */
+   (用户:文字太多,要简洁专业工作台)。只余:无衬线标题 + muted 辅助描述 + 细分隔线。
+   2026-09-04 美化 W0:与批 4 布局块合并为唯一定义(flex 底对齐 + 分隔线同块),
+   页头下间距走 --layout-header-gap 版型令牌。 */
 .page-header {
   position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
   padding-bottom: var(--space-2);
-  /* 2026-08-24 密度优化:页头下距 24→16 */
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--layout-header-gap);
   border-bottom: 1px solid var(--border-subtle);
 }
 .page-header-text {
@@ -1319,7 +1333,7 @@ select.input {
 .generate-prompt-bar {
   box-shadow: var(--shadow-lift);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-panel);
 }
 
 /* 舞台区域：增强作品聚焦 */
@@ -1328,7 +1342,7 @@ select.input {
 }
 
 .stage-media-wrap {
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-panel);
   /* 2026-08-18 移除 overflow:hidden:多图批次 wrap 溢出被整块裁掉(图片显示不全);
      圆角裁切已由 .media-main 自身 border-radius 承担 */
   box-shadow: var(--shadow-lg);
@@ -1490,6 +1504,8 @@ select.input {
 .at-seg-btn.is-active {
   background: var(--accent);
   color: var(--text-on-accent);
+  /* 2026-09-04 W0 点睛:激活段内底缘 2px 琥珀指示线(克制单点,不改墨丸主体) */
+  box-shadow: inset 0 -2px 0 var(--accent-glow);
 }
 .at-seg-btn:focus-visible {
   outline: var(--focus-ring);
@@ -1618,7 +1634,7 @@ select.input {
 }
 .at-empty-desc {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   color: var(--text-muted);
   max-width: 460px;
   line-height: 1.6;

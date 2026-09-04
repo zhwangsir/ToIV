@@ -725,7 +725,7 @@ export function TrainView() {
           gap: var(--space-2);
           margin-top: var(--space-4);
           padding: var(--space-2) var(--space-3);
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           font-size: var(--text-aux);
           line-height: 1.5;
         }

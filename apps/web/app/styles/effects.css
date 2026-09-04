@@ -120,7 +120,7 @@
 }
 .ui-loading-block {
   display: block;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-badge);
   background: var(--bg-surface-2);
 }
 /* line 变体:多行文本骨架,末行缩短模拟段落收尾 */

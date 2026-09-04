@@ -2323,7 +2323,7 @@ export function AssistantView(props?: AssistantViewProps) {
         }
         .av-tb-btn.is-active {
           background: var(--accent-soft);
-          border-color: var(--accent-glow);
+          border-color: var(--accent-halo);
           color: var(--accent);
         }
         .av-tb-btn-ghost {
@@ -2583,7 +2583,7 @@ export function AssistantView(props?: AssistantViewProps) {
         }
         .av-msg-retry:hover:not(:disabled) {
           color: var(--accent);
-          border-color: var(--accent-glow);
+          border-color: var(--accent-halo);
           background: var(--bg-surface-3);
         }
         .av-msg-retry:disabled {
@@ -2852,7 +2852,7 @@ export function AssistantView(props?: AssistantViewProps) {
           margin-top: var(--space-2);
           padding: var(--space-3) var(--space-4);
           background: linear-gradient(145deg, var(--bg-surface-2), var(--bg-surface-3));
-          border: 1px solid var(--accent-glow);
+          border: 1px solid var(--accent-halo);
           border-radius: var(--radius-panel);
           box-shadow: 0 0 0 1px var(--accent-soft);
           white-space: normal;
@@ -2909,7 +2909,7 @@ export function AssistantView(props?: AssistantViewProps) {
         }
         .av-proposal-btn:hover:not(:disabled) {
           color: var(--accent);
-          border-color: var(--accent-glow);
+          border-color: var(--accent-halo);
           background: var(--bg-surface-3);
         }
         .av-proposal-btn:disabled {
@@ -2949,7 +2949,7 @@ export function AssistantView(props?: AssistantViewProps) {
           outline: none;
         }
         .av-proposal-note:focus {
-          border-color: var(--accent-glow);
+          border-color: var(--accent-halo);
         }
         .av-proposal-note::placeholder {
           color: var(--text-muted);
@@ -3029,7 +3029,7 @@ export function AssistantView(props?: AssistantViewProps) {
         }
         .av-composer-box:focus-within {
           border-color: var(--accent);
-          box-shadow: var(--shadow-xs), 0 0 0 3px var(--accent-glow);
+          box-shadow: var(--shadow-xs), 0 0 0 3px var(--accent-halo);
         }
         .av-composer-actions {
           position: relative;
@@ -3199,7 +3199,7 @@ export function AssistantView(props?: AssistantViewProps) {
           justify-content: center;
           width: 24px;
           height: 24px;
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           color: var(--text-muted);
           cursor: pointer;
           transition: background-color var(--duration-fast) var(--ease-standard),
@@ -3261,7 +3261,7 @@ export function AssistantView(props?: AssistantViewProps) {
         }
         .av-conv-item.is-active {
           background: var(--accent-soft);
-          border-color: var(--accent-glow);
+          border-color: var(--accent-halo);
         }
         .av-conv-info {
           flex: 1;
@@ -3293,7 +3293,7 @@ export function AssistantView(props?: AssistantViewProps) {
           justify-content: center;
           width: 24px;
           height: 24px;
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           color: var(--text-muted);
           opacity: 0;
           transition: opacity var(--duration-fast) var(--ease-standard),

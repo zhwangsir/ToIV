@@ -291,7 +291,7 @@
   z-index: var(--z-stage-base);
   margin: 0;
   max-width: min(480px, 80%);
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   color: var(--text-muted);
   text-align: center;
   line-height: 1.6;
@@ -324,13 +324,13 @@
   color: var(--err);
 }
 .stage-error-title {
-  font-size: var(--text-md);
+  font-size: var(--text-section);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
 .stage-error-desc {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   color: var(--text-muted);
   line-height: 1.6;
 }
@@ -826,7 +826,7 @@
 }
 .recipe-nsfw-badge {
   padding: 0 var(--space-1);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-badge);
   background: var(--warn-soft, var(--accent-soft));
   color: var(--warn);
   font-size: calc(var(--text-aux) - 1px);
@@ -891,7 +891,7 @@
 }
 .engine-info-btn.is-open {
   color: var(--accent);
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
   background: var(--accent-soft);
 }
 /* 说明卡浮层:Film Atelier 实底语言(surface-1 + 发夹线 + shadow-lg),
@@ -1014,7 +1014,7 @@
   min-height: 28px;
   padding: 0 var(--space-3);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-badge);
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--text-label);
@@ -1086,7 +1086,7 @@
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-panel);
   box-shadow: var(--glass-highlight), var(--shadow-md);
   transition: transform var(--duration-base) var(--ease-standard),
               border-color var(--duration-base) var(--ease-standard);
@@ -1094,7 +1094,7 @@
 /* 聚焦:条体微微上浮 + accent 描边呼吸 */
 .promptbar:focus-within {
   transform: translateY(-2px);
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
   animation: promptbar-breathe var(--duration-breathe) var(--ease-standard) infinite;
 }
 @keyframes promptbar-breathe {
@@ -1132,7 +1132,7 @@
 .promptbar-textarea:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: 1px;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-badge);
 }
 .promptbar-textarea:disabled {
   opacity: 0.6;
@@ -1181,7 +1181,7 @@
 }
 .promptbar-chip.is-open {
   color: var(--accent);
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
   background: var(--accent-soft);
 }
 /* chip 展开区:承载原有引擎选择器 / 尺寸参数控件;向上展开(bottom:100%),避免顶出视口底边 */
@@ -1304,7 +1304,7 @@
     padding: 0;
   }
   .promptbar {
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
   }
   /* 浮板展开 = 底部抽屉(默认收起为 FAB,见 GenerateView paramsOpen 初始化);
      底部让开底导航(52px,z-sticky 100 压抽屉档):fixed 元素不受 view-root 安全区
@@ -1443,7 +1443,7 @@
   width: 24px;
   height: 24px;
   flex-shrink: 0;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-badge);
   object-fit: cover;
   background: var(--bg-surface-2);
 }
@@ -1487,7 +1487,7 @@
   transition: border-color var(--duration-fast) var(--ease-standard);
 }
 .pwe-chip.is-open {
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
   background: var(--accent-soft);
 }
 .pwe-chip-main {

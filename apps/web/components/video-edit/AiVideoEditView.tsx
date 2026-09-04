@@ -670,13 +670,13 @@ export function AiVideoEditView() {
           gap: var(--space-3);
           padding: var(--space-3) var(--space-4);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-lg);
+          border-radius: var(--radius-panel);
           background: var(--bg-surface-2);
         }
         .veai-video {
           width: 100%;
           max-height: 420px;
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-control);
           background: #000;
         }
         .veai-source {
@@ -717,7 +717,7 @@ export function AiVideoEditView() {
           flex-wrap: wrap;
           padding: var(--space-4);
           border: 1px dashed var(--border-subtle);
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-control);
           background: var(--bg-surface-3);
         }
         .veai-empty-hint {
@@ -730,7 +730,7 @@ export function AiVideoEditView() {
           gap: var(--space-2);
           padding: var(--space-2) var(--space-3);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-control);
           background: var(--bg-surface-3);
         }
         .veai-kf-head {
@@ -826,7 +826,7 @@ export function AiVideoEditView() {
           width: 56px;
           height: 56px;
           object-fit: cover;
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           border: 1px solid var(--border-subtle);
         }
         .veai-mask-name {

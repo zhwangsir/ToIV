@@ -1117,13 +1117,13 @@ function ObsStyles() {
         .obs-vram-bar {
           flex: 1;
           height: 8px;
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           background: var(--bg-surface-2);
           overflow: hidden;
         }
         .obs-vram-fill {
           height: 100%;
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           transition: width var(--duration-base) var(--ease-standard),
             background var(--duration-base) var(--ease-standard);
         }

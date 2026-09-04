@@ -218,8 +218,8 @@ test.describe("ToIV UI Redesign - 响应式测试", () => {
       };
     });
 
-    // 桌面端基础字号 14px(v4 Studio Slate token:--text-base: 14px)
-    expect(bodyStyle.fontSize).toBe("14px");
+    // 桌面端基础字号 13px(v8 Studio Console 字阶 token:--text-body: 13px)
+    expect(bodyStyle.fontSize).toBe("13px");
     // 字体族应包含 Geist(Next.js 注入字体或 fallback)
     // Next.js font loader 可能生成 __geist_<hash> 形式,所以宽松匹配
     expect(bodyStyle.fontFamily.toLowerCase()).toMatch(/geist|system-ui|-apple-system/);

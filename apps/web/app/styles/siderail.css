@@ -78,7 +78,7 @@
   top: 50%;
   transform: translateY(-50%);
   padding: 3px 8px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-badge);
   background: var(--text-primary);
   color: var(--bg-canvas);
   font-size: var(--text-label);

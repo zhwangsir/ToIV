@@ -101,7 +101,7 @@
   justify-content: center;
   cursor: pointer;
   backdrop-filter: blur(8px);
-  box-shadow: var(--shadow-xl), 0 0 32px var(--accent-glow);
+  box-shadow: var(--shadow-xl), 0 0 32px var(--accent-halo);
   transition: transform var(--duration-fast) var(--ease-standard), background-color var(--duration-fast) var(--ease-standard);
 }
 
@@ -167,7 +167,7 @@
   width: 100%;
   height: 4px;
   background: var(--media-rail);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-badge);
   overflow: visible;
   position: relative;
 }
@@ -176,7 +176,7 @@
 .progressFill {
   height: 100%;
   background: var(--media-text);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-badge);
   position: relative;
 }
 
@@ -358,7 +358,7 @@
 .interactionButton.active {
   background: var(--accent-soft);
   color: var(--accent);
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
 }
 
 .interactionButton.good.active {
@@ -492,7 +492,7 @@
 
 .chapterItem.active {
   background: var(--accent-soft);
-  border-color: var(--accent-glow);
+  border-color: var(--accent-halo);
   color: var(--accent);
 }
 
@@ -586,7 +586,7 @@
 .volumeSlider::-webkit-slider-runnable-track {
   height: 4px;
   background: var(--media-rail);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-badge);
 }
 
 .volumeSlider::-webkit-slider-thumb {
@@ -601,7 +601,7 @@
 .volumeSlider::-moz-range-track {
   height: 4px;
   background: var(--media-rail);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-badge);
 }
 
 .volumeSlider::-moz-range-thumb {

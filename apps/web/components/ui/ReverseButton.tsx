@@ -106,7 +106,7 @@ export function ReverseButton({
         }
         .rb-btn:hover:not(:disabled) {
           background: var(--accent-soft);
-          border-color: var(--accent-glow);
+          border-color: var(--accent-halo);
         }
         .rb-btn:disabled {
           opacity: 0.4;

@@ -903,7 +903,7 @@ export function AudioView() {
           flex-shrink: 0;
           color: var(--text-muted);
           cursor: pointer;
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           transition: color var(--duration-fast) var(--ease-standard),
                       background-color var(--duration-fast) var(--ease-standard);
         }

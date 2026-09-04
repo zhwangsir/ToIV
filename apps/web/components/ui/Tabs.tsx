@@ -63,9 +63,9 @@ export function Tabs({ items, current, onChange, fill = false, ariaLabel }: Tabs
           gap: var(--space-2);
           padding: var(--space-1) var(--space-3);
           height: 28px;
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-badge);
           color: var(--text-secondary);
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
           font-weight: var(--font-medium);
           cursor: pointer;
           white-space: nowrap;

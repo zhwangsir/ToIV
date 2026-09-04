@@ -746,7 +746,7 @@
 }
 .agent-goal-input {
   min-height: 104px;
-  font-size: var(--text-base);
+  font-size: var(--text-body);
 }
 .agent-goal-actions {
   display: flex;
@@ -821,7 +821,7 @@
   gap: var(--space-2);
 }
 .agent-run-goal {
-  font-size: var(--text-base);
+  font-size: var(--text-body);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
   /* 标题截断(2026-08-16 批 2):最多 2 行 ellipsis——整段剧本当标题时不再撑爆;
