@@ -72,12 +72,12 @@
 
 | GPU | 服务 | 端口 | systemd |
 |-----|------|------|---------|
-| GPU0 | ComfyUI #1(cache-lru 8) / IndexTTS2 / CosyVoice2 / hy3dtex 纹理 / JoyCaption(~17G) / LongCat(cache-lru 3,作业完自动驱逐) | :8196(09-03 起;原 :8189 端口被占卡死,alt 顶班,见 H-7) / :9200 / :9201 / :9404 / :9304 / :8197 | comfyui-gpu0-alt / toiv-tts / (cosyvoice) / toiv-hy3dtex / toiv-joycaption / comfyui-longcat |
+| GPU0 | ComfyUI #1(cache-lru 8) / IndexTTS2 / CosyVoice2 / hy3dtex 纹理 / JoyCaption(~17G) / LongCat(cache-lru 3,作业完自动驱逐) | :8196(gpu0-alt 已转正;:8189 已退役,见 H-7) / :9200 / :9201 / :9404 / :9304 / :8197 | comfyui-gpu0-alt / toiv-tts / (cosyvoice) / toiv-hy3dtex / toiv-joycaption / comfyui-longcat |
 | GPU1 | Qwen3-Embedding-4B / LiveAct / 超分 / Hunyuan3D Kijai | :9302 / :9400 / :8261 / :8200 | qwen3-embedding / toiv-liveact / comfyui-upscale-gpu1 / comfyui-hunyuan3d |
 | GPU2 | **MiniMax H3(主力视频引擎,~41G;gpu-pin.conf UUID 钉物理 GPU2,非数字 CVD=2)** / ASR / FireRedASR / CosyVoice3 / Qwen3-TTS / demucs / SenseVoice / 超分 / InfiniteTalk / Fish S2(常驻~20G) | :8195 / :9210 / :8300 / :9202 / :9203 / :9220 / :9211 / :8262 / :8201 / :9212 | toiv-comfyui-h3(UUID 钉卡,见 H-6) / comfyui-infinitetalk / toiv-fishs2 等;H3 峰值~78G 安全,新增常驻服务前必查 |
 | GPU3 | FlashTalk(~51G) / OpenTalking / 超分 / Wan-Animate-2 / i2L | :9004 / :4403 / :8263 / :8199 / :9101 | ~~LTX-2.5 :8198~~ **已彻底退役**(08-23 `disable --now`,模型留盘可回滚) |
 
-**ComfyUI-LB 后端**（3 后端）：本地 **:8196**(GPU0,`comfyui-gpu0-alt`——:8189 端口被占卡死后顶班,见 H-7) + pc01 :8188 + pc02 :8193。GPU1/2/3 不入 LB 池（专用实例 :8197/:8195/:8199/:8201/:8261-8263 均专用;每新增同机专用实例必须补 `deps.resolve_worker()` 精确匹配,见 E-1）。
+**ComfyUI-LB 后端**（3 后端）：本地 **:8196**(GPU0,`comfyui-gpu0-alt` 已转正;:8189 退役,见 H-7) + pc01 :8188 + pc02 :8193。GPU1/2/3 不入 LB 池（专用实例 :8197/:8195/:8199/:8201/:8261-8263 均专用;每新增同机专用实例必须补 `deps.resolve_worker()` 精确匹配,见 E-1）。
 
 **🔒 池后端变更操作口径(2026-09-03 起,动态化已上线)**：改 ComfyUI 池后端**只编辑 workstation `/opt/comfyui-lb/backends.json`**——LB 每 5s 查 mtime 热重载(零重启、不丢 prompt_map),`GET :8188/admin/backends` 返回清单+健康;ToIV api 池按 `TOIV_COMFY_WORKERS_REGISTRY_URL`(core env 已配)60s TTL 自动跟随(回环地址自动改写到注册表主机);`TOIV_COMFY_WORKERS` env 静态列表仅作 LB 挂掉时的兜底。**禁止再直接改 core env 切池成员、禁止改 LB 源码切后端**(源码内置列表仅为文件缺失时的兜底)。AIGCPannel local_gateway 上传扇出同样惰性拉取 /admin/backends。
 
@@ -125,7 +125,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **H-4 「DB 标 error」≠「生成失败」**：批量失败先查 ComfyUI `/history/{pid}`,产物在就回写,禁止盲目重提浪费 GPU(排队≠丢失,tracker 已修)。
 - **H-5 温度政策**：无软件熔断(见第三节);风扇曲线懒惰时锁扇 100% 是提速手段。
 - **H-6 CUDA_VISIBLE_DEVICES 数字索引≠nvidia-smi 索引(09-03 实证)**：GPU0("requires reset")不进 CUDA 数字枚举,数字序号偏移(CVD=1→物理 GPU2,CVD=2→物理 GPU3)。🔒 新服务锁卡一律用 **GPU UUID**(`Environment=CUDA_VISIBLE_DEVICES=GPU-xxxx`),起服后 `nvidia-smi --query-compute-apps=pid,gpu_uuid` 复核。toiv-comfyui-h3 已用 drop-in gpu-pin.conf 钉 GPU-0e6e9149…(物理 GPU2)。**GPU0 reset 仍未修(独立事项)**。
-- **H-7 comfyui-gpu0 :8189 端口被占卡死**：unit 反复 `Port 8189 is already in use`（8189 LISTEN 残留,归属进程对 merlin 不可见,无免密 sudo 未查实）。**2026-08-31 03:21 由 AIGCPannel 会话建 `comfyui-gpu0-alt.service`(:8196,同 GPU0/cache-lru 8,active+enabled)顶班**,core `TOIV_COMFY_WORKERS` 已切 :8196。⚠️ 占用者清理与回切 :8189 由 AIGCPannel 处置方收口(P-5),第三方勿擅动;⚠️ AIGCPannel 侧 `start-aigcpannel.py` 仍硬连 :8189(其文档自称「禁止直连单卡 8189」却如此,属其内部漂移)。
+- **H-7 comfyui-gpu0 :8189 已退役（2026-09-06 收口）**：占用者查明=unit 内僵尸进程 3233 的失控线程（R 态,SIGKILL 无效,与 GPU0 requires reset 同源,只能重启清）;unit 已 `disable`（防重启复活/双开）。**:8196 gpu0-alt 转正为正式本地池后端**（enabled,backends.json/core env 均是 8196）。8189 端口与 GPU0 枚举恢复都挂 workstation 重启窗口（见待办）。AIGCPannel 侧 `start-aigcpannel.py` 与文档漂移已在 09-03~06 修正（:8196）,其 `.env` 旧 COMFYUI_LB_BACKEND_URLS 已注释停用。
 
 ### D. 退役/迁移记录类
 
@@ -208,9 +208,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 八、待办事项
 
-- [ ] 项目负责人推送 DRT 到 core（备份在 workstation /var/tmp）
-- [ ] Cloud SSH banner 超时排查（HTTPS 正常）
-- [ ] comfyui-gpu0 :8189 占用者清理与回切评估（:8196 alt 顶班中;AIGCPannel 处置方收口,见 H-7）
+- [ ] **workstation 重启窗口（用户拍板时间）**：GPU0 "requires reset" 只能靠重启恢复枚举（RTX PRO 6000 不支持 nvidia-smi --gpu-reset,09-06 实测 Not Supported）;8189 卡死的失控线程（3233 僵尸进程内 thread 13717,SIGKILL 无效）也只能重启清。⚠️ **重启后 CUDA 序号会重新包含 GPU0,数字 CVD 全部偏移**：gpu0-alt(CVD=0)/joycaption(0)/longcat(0)/四音频(2) 等数字锁卡服务重启后落卡会变,UUID 钉卡服务(H3/infinitetalk/fishs2)不受影响——重启后必须逐个复核落卡并考虑改 UUID 钉卡
+- [ ] DRT 部署到 core（包已备妥 `/home/merlin/drt-bundle/` 六件:source-v2/images/config/pg dump/redis dump/minio data,2026-09-06 由 ToIV 会话中转;执行归 DRT 负责人,compose.prod+Caddyfile,注意 core 的 PG/Redis 是 ToIV 生产共用勿冲突）
+- [ ] Cloud 公网 :22 跨境疑似 QoS（握手挂 2min 被 sshd LoginGraceTime 切断）;已修 GSSAPIAuthentication=no（TS 路径 21s→5.4s）;**SSH 一律走 Tailscale 100.83.78.114**
+- [x] comfyui-gpu0 :8189（09-06 收拢:占用者=unit 内僵尸进程 3233 的失控线程,杀不掉;unit 已 **disable**（防重启复活/防重启后双开）,8189 退役,**:8196 gpu0-alt 转正为正式本地池后端**,backends.json 已是 8196 无需动;随 workstation 重启窗口一并清算）
+- [x] GPU0 reset 尝试（09-06:--gpu-reset Not Supported,只能重启,并入上条重启窗口）
+- [x] 6 个预存测试失败（09-06 `55c3902`:133f15a H3 走专用实例后旧打桩 miss,测试曾真实触达生产 :8195;补四处 H3 接缝 stub,全量 3035 绿）
 - [x] InfiniteTalk :8201 补 `deps.resolve_worker()` 精确匹配（E-1,09-03 `3446b75` 已部署 core）
-- [ ] GPU0 reset（独立未修事项,勿写成已修）
 - [x] 已核销：ltx25 处置 / trackJob abort / test_duration flaky / ToIV 迁移 core / 域名双入口 / spark02 无审查替换 / `TOIV_CIVITAI_API_KEY`

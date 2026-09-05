@@ -1,11 +1,16 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-04T18:00:00+08:00",
+  "updated_at": "2026-09-06T01:00:00+08:00",
   "beautify_direction_a_2026_09_04": {
     "date": "2026-09-04",
     "direction": "A 精修控制台（C Film Atelier 复兴 demo 被用户否，留档 .regen_tmp/film-atelier-demo.html）",
-    "commits": ["33c045c", "2393957", "79bd123", "2988b9c"],
+    "commits": [
+      "33c045c",
+      "2393957",
+      "79bd123",
+      "2988b9c"
+    ],
     "deployed": "core，BUILD_ID 20260904-101401-2988b9c-dirty 真机核对一致",
     "scope": "Wave0 版型令牌（--layout-*/--media-ar-*/节奏栅格档）+字阶圆角旧档删除+accent-glow 琥珀点睛+装饰层裁决+UI_STANDARD v2.0；Wave1 浮层 shadow-pop+空态三档+charts 单色；Wave2 门户首页/作品库/融合/生成三视图；Wave3 七创作工具视图；Wave4 市场/资源/设置/观测/admin/落地/agent-runs/drama",
     "regression": "每波 npm test 915/915 + tsc 0 + 干净构建；生产截图亮暗双模式",
@@ -13,7 +18,11 @@
   },
   "endpoint_unification_2026_09_03": {
     "date": "2026-09-03",
-    "commits": ["3446b75", "7edabc5", "0f15ef7"],
+    "commits": [
+      "3446b75",
+      "7edabc5",
+      "0f15ef7"
+    ],
     "pushed": "Gitee+GitHub 双推完成（含早前 6c204bb/2be1cd5，ToIV 远程已同步至 0f15ef7）",
     "aigcpannel_commit": "d100e44（LB 热更新+漂移收口，Gitee+GitHub 双推完成）",
     "deployed": "core toiv-api（deploy.sh --skip-web ×2）+ workstation comfyui-lb（scp + restart）",
@@ -44,7 +53,12 @@
     "core_health": "/api/health 200, workers 三后端在线",
     "core_web_build_id": "20260903-020621-262bb5a-dirty（与 product_262bb5a 记录一致）",
     "git": "HEAD 113e73b, Gitee+GitHub 均 0 未推",
-    "gpu_snapshot_mib_used_of_97887": {"GPU0": 27275, "GPU1": 94125, "GPU2": 38159, "GPU3": 84997},
+    "gpu_snapshot_mib_used_of_97887": {
+      "GPU0": 27275,
+      "GPU1": 94125,
+      "GPU2": 38159,
+      "GPU3": 84997
+    },
     "gpu0_reset": "still open（独立未修事项）",
     "operator_identified": "AIGCPannel 项目会话（证据：start-aigcpannel.py:112 硬连 :8189 池、gpu0-alt unit 建于 2026-08-31 03:21、AIGCPannel/AGENTS.md 自述 09-03 :8195 升级与 P0–P6 同期）；LoRelay 无集群操作证据。⚠️ AIGCPannel 侧 start-aigcpannel.py 仍硬连 :8189（其文档自称禁止直连 8189，属其内部漂移）",
     "agents_md": "已修正 GPU0 行/LB 段 + 新增 H-7 + 近期关键变更条目；2026-09-03 晚精简重构 469→209 行，全史归档 .archive/AGENTS-full-20260903.md"
@@ -2557,5 +2571,16 @@
     "prod_verify": "生产实测 6/6(Playwright 1440×900 桌面会话):侧栏底槽任务中心+账户钮 36px 同形态无玻璃;账户/任务弹层上翻正常;资源中心三 tab 无大标题;控制台零真实错误;drama 入口零残留",
     "deploy": "gitee+github 双推;deploy.sh → core 健康",
     "notes": "至此 Studio Console W1-W4 全部收官;后续可选:六个 PageHeader 活消费视图(studio/avatartalk/animatic/dub/admin)的范式统一"
+  },
+  "cleanup_2026_09_06": {
+    "date": "2026-09-06",
+    "tests_fixed": "55c3902：6 例预存失败根因=133f15a H3 走专用实例后旧打桩 miss，测试曾真实触达生产 :8195；补 H3 接缝 stub，全量 3035 passed 0 failed",
+    "gpu0_8189": "占用者=僵尸进程 3233 内失控线程（SIGKILL 无效，与 GPU0 requires reset 同源）；comfyui-gpu0 已 disable；:8196 gpu0-alt 转正；8189 退役",
+    "gpu0_reset": "nvidia-smi --gpu-reset Not Supported（RTX PRO 6000），只能重启；⚠️ 重启后 CUDA 序号重新包含 GPU0，数字 CVD 服务落卡全偏移，需逐个复核（UUID 钉卡服务不受影响）",
+    "cloud_ssh": "公网 :22 跨境疑似 QoS（挂 2min 被 LoginGraceTime 切断）；GSSAPIAuthentication 改 no，Tailscale 路径 21s→5.4s；SSH 一律走 100.83.78.114",
+    "drt_staged": "/home/merlin/drt-bundle/ 六件齐（source-v2/images/config/pg/redis/minio），执行归 DRT 负责人，注意 core PG/Redis 与 ToIV 共用勿冲突",
+    "aigcpannel": "platform/backend/.env 旧 COMFYUI_LB_BACKEND_URLS 已注释停用（走动态拉取）；设备说明×2/nsfw README/STATE 文档 :8189→:8196、.115→.116 已修",
+    "drama_player": "生产截图验证通过（剧集 2a294cad，草稿无视频但页面结构/控制条/信息面板正常）",
+    "ui_standard": "两处琥珀触点（进度条细线/落地页关键词/选中与完成语义）已追认进 UI_STANDARD §2"
   }
 }
