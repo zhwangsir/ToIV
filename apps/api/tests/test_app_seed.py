@@ -255,6 +255,22 @@ class _FakePool:
         return self._client
 
 
+def _stub_h3_dedicated(monkeypatch, client) -> None:  # noqa: ANN001
+    """133f15a 起含 MiniMaxH3* 节点的图走 H3 专用实例(pick_h3_client)而非
+    WorkerPool;测试把 h3 服务四个接缝 stub 到同一 fake client,避免触真机。"""
+
+    async def _pick_h3():
+        return client
+
+    async def _noop(*args, **kwargs):  # noqa: ANN002, ANN003
+        return None
+
+    monkeypatch.setattr("app.services.h3.ensure_h3_enabled", lambda: None)
+    monkeypatch.setattr("app.services.h3.pick_h3_client", _pick_h3)
+    monkeypatch.setattr("app.services.h3.ensure_h3_ready", _noop)
+    monkeypatch.setattr("app.services.h3.ensure_h3_vram", _noop)
+
+
 @pytest.fixture
 def ctx(monkeypatch):
     engine = _engine()
@@ -267,6 +283,7 @@ def ctx(monkeypatch):
     fake = _FakeClient()
     app.dependency_overrides[get_pool] = lambda: _FakePool(fake)
     monkeypatch.setattr(apps_route, "spawn_tracker", lambda client, prompt_id: None)
+    _stub_h3_dedicated(monkeypatch, fake)
     with Session(engine) as s:
         user_id = _make_user(s, "bob@toiv.ai")
         seed_builtin_apps(s)

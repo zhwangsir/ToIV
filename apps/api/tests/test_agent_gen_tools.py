@@ -706,6 +706,17 @@ async def test_run_app_h3_t2v_mocked_submit_returns_job(db_env, monkeypatch):
     _seed_market_apps(s, user)
     monkeypatch.setattr(apps_route, "spawn_tracker", lambda client, prompt_id: None)
     client = _FakeClient()
+    # 133f15a 起 MiniMaxH3* 图走 H3 专用实例而非 pool.pick,stub 到 fake client
+    async def _pick_h3():
+        return client
+
+    async def _noop(*args, **kwargs):  # noqa: ANN002, ANN003
+        return None
+
+    monkeypatch.setattr("app.services.h3.ensure_h3_enabled", lambda: None)
+    monkeypatch.setattr("app.services.h3.pick_h3_client", _pick_h3)
+    monkeypatch.setattr("app.services.h3.ensure_h3_ready", _noop)
+    monkeypatch.setattr("app.services.h3.ensure_h3_vram", _noop)
     reg = get_ctx().service("tools")
     text, events = await reg.execute(
         "run_app",
