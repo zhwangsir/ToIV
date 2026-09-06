@@ -145,7 +145,7 @@ test("AppMarketView 「智能导入」按钮:仅登录态可见 + Modal 接线 +
   assert.ok(src.includes('import { AppImportModal } from "./AppImportModal"'), "未挂载 AppImportModal");
   assert.ok(src.includes("智能导入"), "缺「智能导入」按钮");
   assert.ok(src.includes("{loggedIn && ("), "按钮应仅登录态渲染");
-  assert.ok(src.includes('import { getToken, TOKEN_KEY } from "@/lib/api"'), "登录态应读 token");
+  assert.match(src, /import \{[^}]*getToken[^}]*TOKEN_KEY[^}]*\} from "@\/lib\/api"/, "登录态应读 token");
   assert.ok(src.includes("useCrossTabSync(TOKEN_KEY"), "跨页退出登录应同步隐藏按钮");
   assert.ok(src.includes("<AppImportModal"), "缺 Modal 渲染");
   assert.ok(src.includes("onImported={() => void refresh()}"), "导入成功应刷新市场列表(我的区)");
@@ -169,7 +169,9 @@ test("apps.css:apps-import-* 类齐全 + token 纪律(零 hex + warn 黄条 toke
   ]) {
     assert.ok(css.includes(cls), `apps.css 缺 ${cls} 定义`);
   }
-  assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(css), "apps.css 存在硬编码 hex 色值");
+  // 2026-09-06 RH 化:hex 只许在 RH-ACCENT 标记块内(与 appsViews.test.ts 同口径)
+  const cssOutsideRh = css.replace(/\/\* RH-ACCENT-BEGIN[\s\S]*?\/\* RH-ACCENT-END \*\//, "");
+  assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(cssOutsideRh), "apps.css 标记块外存在硬编码 hex 色值");
   assert.ok(css.includes("var(--warn-soft)"), "warnings 黄条应走 warn-soft token");
   assert.ok(css.includes("var(--warn)"), "warnings 文字应走 warn token");
   assert.doesNotMatch(css, /@media\s*\(max-width:\s*(1024|1280)px\)/, "断点须 -1 约定");

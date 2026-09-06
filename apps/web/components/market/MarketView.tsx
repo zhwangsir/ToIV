@@ -4,6 +4,9 @@ import { lazy, Suspense, useState } from "react";
 
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
+/* rh-seg(荧光 pill 段控)样式在 apps.css 文件级;skills tab 下 AppMarketView 未加载,
+   壳层需自行引入(apps- 前缀文件级范式,非 styled-jsx) */
+import "@/app/styles/apps.css";
 
 const AppMarketView = lazy(() =>
   import("@/components/apps/AppMarketView").then((m) => ({ default: m.AppMarketView })),
@@ -34,9 +37,10 @@ export function MarketView() {
 
   return (
     <div className="market-view view-shell">
-      {/* 页头移除(2026-09-02 W3):段控独立窄行,与音频页 audio-mode-row 同款 */}
+      {/* 页头移除(2026-09-02 W3):段控独立窄行,与音频页 audio-mode-row 同款;
+          2026-09-06 RH 化:段控叠 rh-seg(暗轨 + 激活荧光黄绿 pill,样式在 apps.css 文件级) */}
       <div className="market-mode-row">
-        <div className="at-seg" role="tablist" aria-label="市场">
+        <div className="at-seg rh-seg" role="tablist" aria-label="市场">
           {items.map((i) => (
             <button
               key={i.key}

@@ -86,6 +86,10 @@ export interface AppItem {
   is_mine: boolean;
   usage_count: number;
   sort: number;
+  /** 封面图(2026-09-06 RunningHub 化,后端并行开发):可空,空则前端按 category 渐变占位。 */
+  cover_url: string | null;
+  /** 作者名(可空,空显示「ToIV」)。 */
+  author: string | null;
 }
 
 /** 运行提交回执:契约保证 job_id/prompt_id;client_id/worker 后端给则透传(SSE 用)。 */
@@ -170,6 +174,8 @@ export function normalizeApp(raw: unknown): AppItem {
     is_mine: boolOf(a.is_mine),
     usage_count: numOf(a.usage_count, 0),
     sort: numOf(a.sort, 100),
+    cover_url: typeof a.cover_url === "string" && a.cover_url.trim() ? a.cover_url.trim() : null,
+    author: typeof a.author === "string" && a.author.trim() ? a.author.trim() : null,
   };
 }
 
@@ -742,4 +748,54 @@ export function sortFeaturedApps(apps: AppItem[], featuredIds?: readonly string[
     if (rb !== undefined) return 1;
     return 0;
   });
+}
+
+// ---------- RunningHub 化(2026-09-06):封面/作者兜底 + 参数分组 ----------
+
+/** 作者显示名:后端 author 可空,空兜底「ToIV」。 */
+export function appAuthorOf(a: Pick<AppItem, "author">): string {
+  return a.author ?? "ToIV";
+}
+
+/** 作者头像首字符(圆形首字母头像):取首个非空字符,中文/字母通用。 */
+export function appAuthorInitial(a: Pick<AppItem, "author">): string {
+  return (appAuthorOf(a).trim()[0] ?? "T").toUpperCase();
+}
+
+export interface AppParamGroup {
+  key: "media" | "prompt" | "gen";
+  label: string;
+  params: AppParam[];
+}
+
+/**
+ * 详情页左列参数分组(schema 无 group 字段,按类型启发式归三档,固定顺序):
+ * 素材上传(images/audio/video)→ 提示词(text/textarea)→ 生成参数(number/select/switch);
+ * 空组不返回(视图据此不渲染空分区)。
+ */
+export function groupAppParams(schema: AppParam[]): AppParamGroup[] {
+  const media: AppParam[] = [];
+  const prompt: AppParam[] = [];
+  const gen: AppParam[] = [];
+  for (const p of schema) {
+    if (MEDIA_PARAM_TYPES.has(p.type)) media.push(p);
+    else if (p.type === "text" || p.type === "textarea") prompt.push(p);
+    else gen.push(p);
+  }
+  const groups: AppParamGroup[] = [];
+  if (media.length) groups.push({ key: "media", label: "素材上传", params: media });
+  if (prompt.length) groups.push({ key: "prompt", label: "提示词", params: prompt });
+  if (gen.length) groups.push({ key: "gen", label: "生成参数", params: gen });
+  return groups;
+}
+
+/**
+ * 占位封面的瀑布流高度档(无 cover_url 时):按 id 散列取 4 档宽高比,
+ * 让纯占位市场也呈现错落瀑布流,而非一刀切等高。返回 CSS aspect-ratio 值。
+ */
+export function placeholderAspect(id: string): string {
+  const ARS = ["1 / 1", "4 / 5", "3 / 4", "5 / 4"] as const;
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return ARS[h % ARS.length];
 }

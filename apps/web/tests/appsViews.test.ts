@@ -473,7 +473,11 @@ test("apps.css:类名齐全 + token 纪律(零 hex / 无违规断点 / 触达 44
   ]) {
     assert.ok(css.includes(cls), `apps.css 缺 ${cls} 定义`);
   }
-  assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(css), "apps.css 存在硬编码 hex 色值");
+  // 2026-09-06 RunningHub 化:荧光黄绿/暗底梯度 hex 只许出现在 RH-ACCENT 标记块内,
+  // 块外保持零硬编码色值纪律
+  const cssOutsideRh = css.replace(/\/\* RH-ACCENT-BEGIN[\s\S]*?\/\* RH-ACCENT-END \*\//, "");
+  assert.ok(cssOutsideRh.length < css.length, "RH-ACCENT 标记块应存在(荧光绿唯一事实源)");
+  assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(cssOutsideRh), "apps.css 标记块外存在硬编码 hex 色值");
   assert.doesNotMatch(css, /@media\s*\(max-width:\s*(1024|1280)px\)/, "断点须 -1 约定");
   assert.ok(css.includes("var(--touch-target)"), "移动端卡片操作钮须 ≥44px");
   assert.ok(css.includes("var(--duration-fast)"), "动效应走 token(≤320ms)");

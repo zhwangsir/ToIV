@@ -10,11 +10,13 @@ import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { useToast } from "@/components/ui/Toast";
 import {
   APP_CATEGORY_LABEL,
-  appCategoryLabel,
+  appAuthorInitial,
+  appAuthorOf,
   COMMUNITY_PAGE_SIZE,
   filterApps,
   forkApp,
   listApps,
+  placeholderAspect,
   rhFamilyChips,
   sliceCommunityApps,
   sortFeaturedApps,
@@ -23,7 +25,7 @@ import {
   type AppItem,
   type AppOutputKind,
 } from "@/lib/apps";
-import { getToken, TOKEN_KEY } from "@/lib/api";
+import { getToken, imageUrl, TOKEN_KEY } from "@/lib/api";
 import { useCrossTabSync } from "@/lib/crossTab";
 import { useR18Mode } from "@/lib/r18";
 import { AppImportModal } from "./AppImportModal";
@@ -33,13 +35,16 @@ import { AppRunnerView } from "./AppRunnerView";
 import "@/app/styles/apps.css";
 
 /**
- * 应用市场(M3,2026-08-30):核心内置 / RunningHub 社区 / 公共 / 我的 四区卡片网格
- * + 分类 chips + 搜索 + NSFW 客户端过滤(r18 off 时 is_nsfw 整卡隐藏)。
- * 内置区 = id 不以 rh- 开头的 is_builtin(featuredIds 仍置顶 H3 四件套/15s/voice);
- * 社区区 = rh-* ,空查询先 24 张+「显示更多」,搜索/family 匹配上限 120。
- * 卡片 = 图标 + 名称 + 描述 + 类别徽标 + 用量计数 +「打开」;
- * fork 按钮仅非内置且非本人应用显示。
- * 「打开」进入运行页(AppRunnerView,视图内切换,不占路由;运行页 GET /api/apps/{id} 拉完整 schema)。
+ * 应用市场(M3,2026-09-06 RunningHub 化重做):深黑底(.rh-dark 作用域,只在市场/详情
+ * 覆盖暗色令牌,不影响全站亮/暗主题)+ 瀑布流封面大卡(CSS columns,5/4/3/2 响应式)。
+ * 卡片 = 封面充满整卡(cover_url,空则按 category 暗色渐变+大图标占位,占位高度按 id
+ * 散列 4 档以成瀑布流)+ 底部渐变压黑 scrim 上白字标题 + 作者行(首字母头像+名字,
+ * author 空兜底「ToIV」)+ mono 运行数据(▶ usage_count,唯一真实数据,不造点赞/收藏);
+ * fork/R18/我的 徽标收进角落小标,hover 封面微放大 + 荧光绿描边 +「运行」荧光 pill。
+ *
+ * 分区保留四区(内置 / RunningHub 社区 / 公共 / 我的)与检索工具栏(搜索+分类 chips);
+ * 社区区空查询先 24 张+「显示更多」,搜索/family 匹配上限 120。
+ * 卡片点击 = 打开详情(AppRunnerView,视图内切换,不占路由;详情 GET /api/apps/{id} 拉完整 schema)。
  *
  * 页头省略(同 SkillMarketView):灵动岛/BottomNav 已明确指示当前板块,
  * 检索工具栏即首行,符合 UI_STANDARD §5 例外条款。
@@ -158,65 +163,18 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
   }
 
   const renderCard = (a: AppItem, showFork: boolean) => (
-    /* 可交互卡(2026-09-04 美化 W2A):整卡点击 = 打开应用(内嵌按钮/链接点击与
-       文本划选除外),共享类 .at-card--interactive 承载 hover 配方,
-       键盘聚焦态为琥珀描边 1.5px + soft 底(apps.css .apps-card:focus-visible) */
-    <article
+    <AppCard
       key={a.id}
-      className="apps-card at-card--interactive"
-      role="button"
-      tabIndex={0}
-      aria-label={`打开应用 ${a.name}`}
-      onClick={(e) => {
-        if ((e.target as HTMLElement).closest("button, a")) return;
-        if (window.getSelection()?.toString()) return; /* 划选描述文本不触发打开 */
-        setOpenId(a.id);
-      }}
-      onKeyDown={(e) => {
-        if (e.target !== e.currentTarget) return;
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          setOpenId(a.id);
-        }
-      }}
-    >
-      <div className="apps-card-head">
-        <Icon name={iconOf(a)} size={15} />
-        <span className="apps-card-name" title={a.name}>
-          {a.name}
-        </span>
-        {showFork && (
-          <button
-            type="button"
-            className="apps-card-act"
-            title="Fork 为我的副本"
-            aria-label={`Fork ${a.name} 为我的副本`}
-            disabled={forkingId === a.id}
-            onClick={() => void fork(a)}
-          >
-            <Icon name={forkingId === a.id ? "loading" : "plus"} size={13} />
-          </button>
-        )}
-      </div>
-      <p className="apps-card-desc">{a.description}</p>
-      <div className="apps-card-foot">
-        <span className="apps-tag">{appCategoryLabel(a.category)}</span>
-        {a.is_mine && <span className="apps-tag">我的</span>}
-        {a.is_nsfw && <span className="apps-tag is-nsfw">R18</span>}
-        <span className="apps-usage" title="使用次数">
-          {a.usage_count} 次
-        </span>
-        <span className="apps-card-open">
-          <Button variant="primary" size="sm" onClick={() => setOpenId(a.id)}>
-            打开
-          </Button>
-        </span>
-      </div>
-    </article>
+      app={a}
+      showFork={showFork}
+      forking={forkingId === a.id}
+      onOpen={() => setOpenId(a.id)}
+      onFork={() => void fork(a)}
+    />
   );
 
   return (
-    <div className="single-view apps-market">
+    <div className="single-view apps-market rh-dark">
       {loading ? (
         <LoadingBlock variant="grid" count={6} />
       ) : loadError ? (
@@ -327,7 +285,7 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
                   {communitySlice.items.length === 0 ? (
                     <Empty size="inline" title="没有匹配的社区应用" />
                   ) : (
-                    <div className="apps-grid">
+                    <div className="apps-grid rh-grid">
                       {communitySlice.items.map((a) => renderCard(a, !a.is_builtin && !a.is_mine))}
                     </div>
                   )}
@@ -400,8 +358,115 @@ function Section({
           <Empty size="inline" title={empty} />
         ) : null
       ) : (
-        <div className="apps-grid">{children}</div>
+        /* 瀑布流(2026-09-06 RH 化):CSS columns;卡片 break-inside:avoid 防跨列截断 */
+        <div className="apps-grid rh-grid">{children}</div>
       )}
     </section>
+  );
+}
+
+/**
+ * 瀑布流封面大卡(2026-09-06 RunningHub 化):封面充满整卡(cover_url 经 imageUrl 带 token;
+ * 空/加载失败降级为按 category 色相的暗色渐变 + 居中大图标占位,占位高度按 id 散列 4 档),
+ * 底部 scrim 渐变压黑上白字标题(600)+ 作者行(首字母圆头像 + 名字,空兜底 ToIV)
+ * + mono ▶ usage_count;fork/R18/我的 为角落小标,hover 出「运行」荧光 pill。
+ * 整卡点击 = 打开详情(内嵌按钮点击/文本划选除外),键盘 Enter/Space 同效。
+ */
+function AppCard({
+  app: a,
+  showFork,
+  forking,
+  onOpen,
+  onFork,
+}: {
+  app: AppItem;
+  showFork: boolean;
+  forking: boolean;
+  onOpen: () => void;
+  onFork: () => void;
+}) {
+  /** 封面加载失败(404/鉴权过期等)降级占位渐变,不挂破图 */
+  const [imgFailed, setImgFailed] = useState(false);
+  const showImg = !!a.cover_url && !imgFailed;
+  return (
+    <article
+      className="apps-card rh-card"
+      role="button"
+      tabIndex={0}
+      aria-label={`打开应用 ${a.name}`}
+      title={a.description || a.name}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("button, a")) return;
+        if (window.getSelection()?.toString()) return; /* 划选文本不触发打开 */
+        onOpen();
+      }}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+    >
+      <div
+        className="rh-card-cover"
+        data-category={a.category}
+        style={showImg ? undefined : { aspectRatio: placeholderAspect(a.id) }}
+      >
+        {showImg ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            className="rh-card-img"
+            src={imageUrl(a.cover_url ?? "")}
+            alt={a.name}
+            loading="lazy"
+            onError={() => setImgFailed(true)}
+          />
+        ) : (
+          <span className="rh-card-placeholder-icon" aria-hidden="true">
+            <Icon name={iconOf(a)} size={32} strokeWidth={1.4} />
+          </span>
+        )}
+        {/* 角落小标:R18 / 我的(不挤标题区) */}
+        {(a.is_nsfw || a.is_mine) && (
+          <span className="rh-card-badges">
+            {a.is_nsfw && <span className="apps-tag is-nsfw">R18</span>}
+            {a.is_mine && <span className="apps-tag">我的</span>}
+          </span>
+        )}
+        {showFork && (
+          <button
+            type="button"
+            className="apps-card-act rh-card-fork"
+            title="Fork 为我的副本"
+            aria-label={`Fork ${a.name} 为我的副本`}
+            disabled={forking}
+            onClick={onFork}
+          >
+            <Icon name={forking ? "loading" : "plus"} size={13} />
+          </button>
+        )}
+        {/* hover 荧光 pill:点击 = 直接进详情(运行页) */}
+        <span className="rh-card-run" aria-hidden="true">
+          <Icon name="play" size={13} /> 运行
+        </span>
+        {/* 底部 scrim:渐变压黑 + 标题/作者/用量 */}
+        <div className="rh-card-scrim">
+          <span className="rh-card-name">{a.name}</span>
+          <span className="rh-card-meta">
+            <span className="rh-card-author">
+              <span className="rh-card-avatar" aria-hidden="true">
+                {appAuthorInitial(a)}
+              </span>
+              {appAuthorOf(a)}
+            </span>
+            <span className="apps-usage rh-card-usage" title="运行次数">
+              <Icon name="play" size={10} />
+              {a.usage_count}
+            </span>
+          </span>
+        </div>
+      </div>
+    </article>
   );
 }
