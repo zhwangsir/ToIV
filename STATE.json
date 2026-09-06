@@ -1,7 +1,28 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T06:45:00+08:00",
+  "updated_at": "2026-09-07T06:50:00+08:00",
+  "embed_spark01_2026_09_07": {
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T06:50:00+08:00",
+    "status": "on_core_and_device_live",
+    "url": "http://192.168.71.82:9302/v1",
+    "host": "spark01",
+    "lan": "192.168.71.82",
+    "port": 9302,
+    "model": "Qwen3-Embedding-4B",
+    "device": "GPU/cuda",
+    "core_env": "TOIV_EMBED_BASE_URL=http://192.168.71.82:9302/v1",
+    "systemd": "user-level",
+    "linger": "no",
+    "core_env_backup": ".env.bak-embed-20260907",
+    "api_restarted": true,
+    "product_sha": null,
+    "not_workstation": true,
+    "ws_embedding_9302": "stopped_2026_09_07",
+    "device_side": "LIVE (设备管家 confirmed cuda)",
+    "note": "现网 Embedding 已迁 spark01 :9302（非 WS）; 此前 intent DONE"
+  },
   "rh_family_preset_pilot_2026_09_07": {
     "date": "2026-09-07",
     "updated_at": "2026-09-07T06:45:00+08:00",
@@ -38,7 +59,7 @@
   },
   "spark_qwen27b_intent_2026_09_07": {
     "date": "2026-09-07",
-    "updated_at": "2026-09-07T06:30:00+08:00",
+    "updated_at": "2026-09-07T06:50:00+08:00",
     "status": "on_core_and_device_live",
     "from": "Qwen3.8-Flash-Next",
     "to": "Qwen3.8-27B-NVFP4",
@@ -60,11 +81,11 @@
     "core_env_backup": ".env.bak-qwen27b-20260907",
     "core_health": "LAN 200 after toiv-api restart",
     "vlm": "same .84 + qwen3.8-27b",
-    "embedding_intent": "下一步放空闲 spark01（非吃满的 spark02）；intent not done",
+    "embedding_intent": "DONE → embed_spark01_2026_09_07 LIVE @ spark01 :9302",
     "device_side": "LIVE (设备管家 SSH-verified)",
     "daily_prod": "WS+5090",
     "supersedes_arch": "arch_flash_next_2026_09_07; intent_only_awaiting_cutover_plan; core_routing_in_progress",
-    "note": "设备侧+core 均已切 27B@spark02；Embedding 下一步 spark01"
+    "note": "设备侧+core 均已切 27B@spark02；Embedding 已 LIVE @ spark01 :9302（见 embed_spark01_2026_09_07）"
   },
   "ws_stop_non_i2v_2026_09_07": {
     "date": "2026-09-07",
@@ -98,11 +119,11 @@
       "live_cutover": false,
       "ws_flash_next_migrate": "cancelled",
       "status": "ws_migrate_cancelled; spark_llm_vlm_cutover_on_core_and_device_live",
-      "spark": "SUPERSEDED: 现网 LLM/VLM=Qwen3.8-27B@spark02（非保留 Flash-Next）；下一步 Embedding 放 spark01",
+      "spark": "SUPERSEDED: 现网 LLM/VLM=Qwen3.8-27B@spark02（非保留 Flash-Next）；Embedding LIVE @ spark01 :9302",
       "daily_prod": "ToIV 日产只用 WS+5090（H3/生图/视频；5090=生图轻视频主池；WS GPU2=H3；现网保留 H3:8195 / gpu0-alt:8196 / LB:8188 / longcat:8197 / animate2:8199 不变）",
       "cancelled": "取消「Flash-Next 迁 WS GPU0+3」；旧「WS GPU0+3 拟迁 Flash-Next / 切 core 后拆 spark Qwen / Spark 仅 LiveKit+空内存」SUPERSEDED",
       "spark02_livekit": "仍保留（现网事实，非 Flash-Next 拆走后的唯一用途）",
-      "note_vram": "spark02 MemAvailable ~2.7Gi after 27B; spark01 ~117Gi free; Embedding → spark01",
+      "note_vram": "spark02 MemAvailable ~2.7Gi after 27B; Embedding LIVE on spark01 :9302 (not spark02)",
       "forbidden_wording": "禁止写成双脑并行 / WS 仍拟迁 Flash-Next / 切 core 后拆 spark Qwen 为现行意图",
       "5090": "生图轻视频主池",
       "WS_GPU2": "H3"

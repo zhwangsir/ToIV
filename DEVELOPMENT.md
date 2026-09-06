@@ -4,13 +4,15 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 Embedding 迁 spark01 :9302 LIVE（设备管家确认；ToIV 开发；无产品 SHA；远程未推）**：Qwen3-Embedding-4B（GPU/cuda）@ `http://192.168.71.82:9302`；core `TOIV_EMBED_BASE_URL=http://192.168.71.82:9302/v1`；toiv-api 已重启；备份 `.env.bak-embed-20260907`；用户级 systemd Linger=no。WS embedding :9302 已停；**现网 Embedding 已迁 spark01 :9302（非 WS）**。此前「下一步 Embedding→spark01 intent」**DONE**。集群 SoT [AGENTS.md](AGENTS.md)。
+
 **2026-09-07 core RH 家族预设累计 730（+batch3 500；含 VACE 120；无产品 SHA；非 builtin；AGENTS 未动）**：pilot30 + batch2 200 + batch3 500（含 VACE 120）；X-NSFW 可见。`rh_family_presets.json` 已更到 730 但仍未提交；代码侧未提交 `rh_family_preset_seed.py` + `data/rh_family_presets.json` + env `TOIV_SEED_RH_FAMILY`（默认关）。等产品 SHA 后再加厚上线口径。
 
 **2026-09-07 core RH 家族预设累计 230（历史；计数已 SUPERSEDED→730；无产品 SHA；非 builtin；AGENTS 未动）**：pilot30 + batch2 200（Wan/LTX）；X-NSFW 可见。代码侧未提交 `rh_family_preset_seed.py` + `data/rh_family_presets.json` + env `TOIV_SEED_RH_FAMILY`（默认关）。等产品 SHA 后再加厚上线口径。计数见上条累计 730。
 
 **2026-09-07 core 试点 RH 家族预设 30（历史；计数已 SUPERSEDED→230；无产品 SHA；非 builtin 全量；AGENTS 未动）**：Wan2.2→`wan-nsfw-i2v` 20 + LTX→`ltx-*` 10 已入库 core；LAN admin API，X-NSFW 可见。脚本 `apps/api/app/services/rh_family_preset_seed.py` + `.regen_tmp/seed_rh_wan_ltx_pilot.py`（工作区未提交 seed 文件）。等产品 SHA 或全量挂接后再加厚。计数见上条累计 230。
 
-**2026-09-07 Spark LLM/VLM 真机+core 双切 Qwen3.8-27B（LIVE）**：设备管家 SSH 核实 — spark02 `vllm_node` @ `http://192.168.71.84:8000`，Qwen3.8-27B-NVFP4，served `qwen3.8-27b`（别名 `qwen3.6-uncensored`），max_model_len 32768；设备冒烟 ~15.4 tok/s；MemAvailable ~2.7Gi。双机 qwen38sg Flash-Next **Exited**；spark01 :8000 不再提供 LLM API（~117Gi free）；LiveKit 仍在 spark02。ToIV 开发：**core 已切** — `TOIV_LLM_*` / VLM 等 → `.84:8000` + `qwen3.8-27b`；toiv-api 已重启，LAN health 200；备份 `.env.bak-qwen27b-20260907`；core 路径冒烟 ~27 tok/s。下一步：Embedding 放空闲 spark01（intent，未做）。此前「意图未切 / Spark 保留 Flash-Next / core 路由改中」**SUPERSEDED**。集群 SoT [AGENTS.md](AGENTS.md)。
+**2026-09-07 Spark LLM/VLM 真机+core 双切 Qwen3.8-27B（LIVE）**：设备管家 SSH 核实 — spark02 `vllm_node` @ `http://192.168.71.84:8000`，Qwen3.8-27B-NVFP4，served `qwen3.8-27b`（别名 `qwen3.6-uncensored`），max_model_len 32768；设备冒烟 ~15.4 tok/s；MemAvailable ~2.7Gi。双机 qwen38sg Flash-Next **Exited**；spark01 :8000 不再提供 LLM API（~117Gi free）；LiveKit 仍在 spark02。ToIV 开发：**core 已切** — `TOIV_LLM_*` / VLM 等 → `.84:8000` + `qwen3.8-27b`；toiv-api 已重启，LAN health 200；备份 `.env.bak-qwen27b-20260907`；core 路径冒烟 ~27 tok/s。Embedding→spark01 **DONE**（见上条 LIVE）。此前「意图未切 / Spark 保留 Flash-Next / core 路由改中」**SUPERSEDED**。集群 SoT [AGENTS.md](AGENTS.md)。
 
 **2026-09-07 workstation 停非生图非视频常驻（设备管家快照；ToIV 开发执行；无产品 SHA；远程未推）**：已停并 disable FlashTalk / OpenTalking / LiveAct / FishS2 / JoyCaption 等数字人/口播及非生图非视频常驻（inactive）。现网保留 H3:8195、生图 gpu0-alt:8196、LongCat:8197、Animate2:8199、LB:8188。核对空闲约 G0 94G / G1 97G / G2 57G / G3 95G（GPU0/1/3 ≈ empty 94–97G；G2 仍 H3 ~57G free）。**口径更正**：ToIV 开发已停 WS 迁脑；**取消**「Flash-Next 迁 WS GPU0+3」（旧「WS GPU0+3 拟迁 Flash-Next / 切 core 后拆 spark Qwen」SUPERSEDED）。现架构意图：Spark **保留** Flash-Next（对话/LLM；Qwen3.8-Flash-Next）；Spark 承接可迁服务（Embedding/知识库/批标注等），算力单独用；ToIV 日产=WS+5090（5090=生图轻视频主池；WS GPU2=H3；现网 H3/8196/LB/longcat/animate2 不变）。spark02 LiveKit 仍保留（现网事实）。**NOTE**：Flash-Next TP2 已近吃满双 Spark 内存，迁服务前先量 free。集群 SoT [AGENTS.md](AGENTS.md)。
 
