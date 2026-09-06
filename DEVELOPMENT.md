@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 workstation 停非生图非视频常驻（设备管家快照；ToIV 开发执行；无产品 SHA；远程未推）**：已停并 disable FlashTalk / OpenTalking / LiveAct / FishS2 / JoyCaption 等数字人/口播及非生图非视频常驻（inactive）。现网保留 H3:8195、生图 gpu0-alt:8196、LongCat:8197、Animate2:8199、LB:8188。核对空闲约 G0 94G / G1 97G / G2 57G / G3 95G（GPU0/1/3 ≈ empty 94–97G；G2 仍 H3 ~57G free）。架构意图（未落地；禁止双脑并行）：5090=生图轻视频主池；WS GPU2=H3；WS GPU0+3 拟迁 Flash-Next（冒烟中，未切 core）。Flash-Next 只保留一处——WS GPU0+3 冒烟通过并切 core 后拆 spark Qwen，不做「Spark=同款慢脑备份」。Spark 去重后唯一用途：spark02 LiveKit 保留；空出内存给未来 GLM 满血 1M 或 Embedding/知识库批处理（与对话 API 不重复）。集群 SoT [AGENTS.md](AGENTS.md)。
+
 **2026-09-07 core 应用封面换 RunningHub 原卡面（无产品 SHA；数据侧已上 core；远程未推文档）**：rh-* 可靠对齐 499/499 已上传本地 appcover；内置非 rh 30/34 已换（跳过 `h3-multishot`、`ltx25-multishot`、`longcat-t2v`、`controlnet`，无可靠匹配）。映射落 MateBook `.regen_tmp/mapped_safe.json` 与 `.regen_tmp/builtin_cover_map.json`（未入库）。AGENTS.md 未动。大脑换 GLM 仍调研中、未切。
 
 **2026-09-07 core VLM 改走 qwen3.8-flash-next（无产品 SHA；env 已上 core）**：deploy/.env 把 `TOIV_VLM_MODEL_ID` 与 `TOIV_EVAL_VLM_MODEL` 从 `qwen3-vl-32b` 改为现网 `qwen3.8-flash-next`；toiv-api 已重启，LAN health 200。LLM URL / Spark Qwen 未动。备份 `.env.bak-vlm-20260907`。AGENTS.md 未动。

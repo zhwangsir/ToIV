@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-06（设备管家：beijing SSH 公钥已通）
+> **最后更新**：2026-09-07（设备管家：workstation 停非生图非视频常驻快照；ToIV 开发执行）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -12,7 +12,7 @@
 
 ### 规则一：所有后端服务都来源于 Workstation
 
-> 所有 AI/算力后端服务（ComfyUI/LB、IndexTTS2.5、ASR、Embedding、LiveAct、H3、LongCat、FlashTalk、OpenTalking、JoyCaption 等）全部运行在 Workstation(192.168.71.127 / 100.68.100.90)上。
+> 所有 AI/算力后端服务（ComfyUI/LB、H3、LongCat、Animate2 等生图/视频主路，以及历史上的 IndexTTS2.5、ASR、Embedding、LiveAct、FlashTalk、OpenTalking、JoyCaption 等）来源均在 Workstation(192.168.71.127 / 100.68.100.90)上（**2026-09-07 起数字人/口播等非生图非视频常驻已停 disable，现网保留见第三节**）。
 >
 > - core(192.168.71.47)只跑 ToIV web/api + PostgreSQL/Redis，是业务网关，不是算力来源
 > - 本机 Mac 只是操作终端；配置里的 `127.0.0.1`/`localhost` 地址只是本地 dev 兜底，**真机排查一律先查 Workstation**
@@ -72,12 +72,14 @@
 
 | GPU | 服务 | 端口 | systemd |
 |-----|------|------|---------|
-| GPU0 | ComfyUI #1(cache-lru 8) / IndexTTS2 / CosyVoice2 / hy3dtex 纹理 / JoyCaption(~17G) / LongCat(cache-lru 3,作业完自动驱逐) | :8196(gpu0-alt 已转正;:8189 已退役,见 H-7) / :9200 / :9201 / :9404 / :9304 / :8197 | comfyui-gpu0-alt / toiv-tts / (cosyvoice) / toiv-hy3dtex / toiv-joycaption / comfyui-longcat |
-| GPU1 | Qwen3-Embedding-4B / LiveAct / 超分 / Hunyuan3D Kijai | :9302 / :9400 / :8261 / :8200 | qwen3-embedding / toiv-liveact / comfyui-upscale-gpu1 / comfyui-hunyuan3d |
-| GPU2 | **MiniMax H3(主力视频引擎,~41G;gpu-pin.conf UUID 钉物理 GPU2,非数字 CVD=2)** / ASR / FireRedASR / CosyVoice3 / Qwen3-TTS / demucs / SenseVoice / 超分 / InfiniteTalk / Fish S2(常驻~20G) | :8195 / :9210 / :8300 / :9202 / :9203 / :9220 / :9211 / :8262 / :8201 / :9212 | toiv-comfyui-h3(UUID 钉卡,见 H-6) / comfyui-infinitetalk / toiv-fishs2 等;H3 峰值~78G 安全,新增常驻服务前必查 |
-| GPU3 | FlashTalk(~51G) / OpenTalking / 超分 / Wan-Animate-2 / i2L | :9004 / :4403 / :8263 / :8199 / :9101 | ~~LTX-2.5 :8198~~ **已彻底退役**(08-23 `disable --now`,模型留盘可回滚) |
+| GPU0 | **现网常驻** ComfyUI gpu0-alt(cache-lru 8) / LongCat(cache-lru 3) ；~~JoyCaption / IndexTTS2 / CosyVoice2 / hy3dtex~~ 等非生图非视频常驻已停 disable（2026-09-07） | :8196 / :8197 （停用端口见近期变更） | comfyui-gpu0-alt / comfyui-longcat（joycaption/tts/hy3dtex 等已停） |
+| GPU1 | ~~LiveAct / embedding / 超分 / Hunyuan3D~~ 等非生图非视频常驻已停 disable（2026-09-07）；现网无生图视频常驻 | — | units disabled |
+| GPU2 | **现网常驻 MiniMax H3**（UUID 钉卡）；~~ASR/音频/InfiniteTalk/Fish S2~~ 等已停 disable（2026-09-07） | :8195 | toiv-comfyui-h3 |
+| GPU3 | **现网常驻 Wan-Animate-2**；~~FlashTalk / OpenTalking / 超分 / i2L~~ 等已停 disable（2026-09-07）；LTX-2.5 仍退役 | :8199 | comfyui-wan-animate-2（Wan-Animate-2 :8199） |
 
 **ComfyUI-LB 后端**（3 后端）：本地 **:8196**(GPU0,`comfyui-gpu0-alt` 已转正;:8189 退役,见 H-7) + pc01 :8188 + pc02 :8193。GPU1/2/3 不入 LB 池（专用实例 :8197/:8195/:8199/:8201/:8261-8263 均专用;每新增同机专用实例必须补 `deps.resolve_worker()` 精确匹配,见 E-1）。
+
+**2026-09-07 现网保留集合**：H3:8195 / gpu0-alt:8196 / LB:8188 / longcat:8197 / animate2:8199。空闲约 G0 94G / G1 97G / G2 57G / G3 95G（设备管家核对；停服后 GPU0/1/3 ≈ empty 94–97G，G2 仍挂 H3 故 ~57G free）。
 
 **🔒 池后端变更操作口径(2026-09-03 起,动态化已上线)**：改 ComfyUI 池后端**只编辑 workstation `/opt/comfyui-lb/backends.json`**——LB 每 5s 查 mtime 热重载(零重启、不丢 prompt_map),`GET :8188/admin/backends` 返回清单+健康;ToIV api 池按 `TOIV_COMFY_WORKERS_REGISTRY_URL`(core env 已配)60s TTL 自动跟随(回环地址自动改写到注册表主机);`TOIV_COMFY_WORKERS` env 静态列表仅作 LB 挂掉时的兜底。**禁止再直接改 core env 切池成员、禁止改 LB 源码切后端**(源码内置列表仅为文件缺失时的兜底)。AIGCPannel local_gateway 上传扇出同样惰性拉取 /admin/backends。
 
@@ -108,7 +110,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **LLM/VLM（09-03 core env 实况）**：L1/L2/L3/NSFW 全部 `TOIV_LLM_*`=spark01 `http://192.168.71.82:8000/v1` 模型 `qwen3.8-flash-next`（SGLang 双机集群，API 入口 spark01；spark02 为计算节点本机无监听，旧 spark02 qwen3.8-27b 口径已作废）；VLM `TOIV_VLM_SERVER_URL=http://192.168.71.82:8000` model_id `qwen3-vl-32b`（⚠️ 该 model_id 是否仍被 spark01 新栈接受,使用前真机 curl 一次）；反推 VLM `TOIV_REVERSE_VLM_BASE_URL=http://192.168.71.82:8000/v1`。
 - **视频评分器灰度**：`TOIV_VIDEO_SCORER_ENABLED=true`(阈值 0.65,timeout 120s);⚠️ 迁移 DDL BOOLEAN 默认值必须 TRUE/FALSE,PG 不认 DEFAULT 0。
 - **web_search 代理**：`TOIV_WEB_SEARCH_PROXY=http://192.168.71.9:7897`(MateBook Clash;依赖 Mac 在线,离线自动降级)。
-- **workstation 常驻 ToIV 服务**：trainer :9100 / i2l :9101 / lipsync :9103 / 3dops :9402 / scope :9401 / sysmetrics :9403 / hy3dtex :9404 / joycaption :9304 / embedding :9302 / liveact :9400。core 对应 env 均已配。
+- **workstation 常驻 ToIV 服务**：trainer :9100 / lipsync :9103 / 3dops :9402 / scope :9401 / sysmetrics :9403 等仍在清单；**2026-09-07 数字人/口播及一批非生图非视频常驻已停 disable**（FlashTalk / OpenTalking / LiveAct / FishS2 / JoyCaption 等 inactive，含 joycaption :9304 / liveact :9400 / embedding :9302 / hy3dtex :9404 / i2l :9101 等）。现网生图/视频保留见第三节（H3/gpu0-alt/LB/longcat/animate2）。勿再声称 joycaption/liveact 仍常驻。
 - **数字人 M1–M6 已上线**（形象库/TTS 直通/ASR→SRT/LatentSync 对口型/直播助手/绿幕抠像）;**音频编排** tts/separate/concat/mix/variant 可用,sfx 仍 501(选型 MOSS-SoundEffect v2.0)。
 - **内容限制管控已下线零残留**(08-23 用户拍板自行重做;未成年硬阻断+X-NSFW 头语义保留)。
 - **trainer 五坑**(08-27 四连败实证,细节见归档):①YAML device 恒 cuda:0 ②GPU2 训练前先 `POST :8195/free` ③training_folder 每作业独立 ④产物双嵌套目录 ⑤可选参数全量默认值。
@@ -168,6 +170,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（设备管家：workstation 停服快照；ToIV 开发执行）
+- 已停并 disable：数字人/口播及一批非生图非视频常驻（FlashTalk / OpenTalking / LiveAct / FishS2 / JoyCaption 等 inactive）
+- 现网保留：H3:8195、生图 gpu0-alt:8196、LongCat:8197、Animate2:8199、LB:8188（pc workers 仍在池）
+- 核对时空闲约：G0 94G / G1 97G / G2 57G / G3 95G（停服后 GPU0/1/3 ≈ empty 94–97G；G2 仍 H3 故 ~57G free）
+- 架构意图（未落地 / 非现网切流；**禁止写成双脑并行**）：5090=生图轻视频主池；WS GPU2=H3；WS GPU0+3 拟迁 Flash-Next（冒烟中，未切 core）。**Flash-Next 只保留一处**：WS GPU0+3 冒烟通过并切 core 后，拆 spark Qwen；**不做「Spark=同款慢脑备份」**。
+- Spark 去重后唯一用途（intent）：spark02 LiveKit 保留；空出内存给未来 GLM 满血 1M 或 Embedding/知识库批处理（与对话 API 不重复）。
 
 ### 2026-09-06（ToIV 会话：workstation 重启窗口 + spark 集群重建）
 
