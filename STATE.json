@@ -1,7 +1,21 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T06:00:00+08:00",
+  "updated_at": "2026-09-07T06:19:06+08:00",
+  "spark_qwen27b_intent_2026_09_07": {
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T06:19:06+08:00",
+    "status": "intent_only_awaiting_cutover_plan",
+    "from": "Qwen3.8-Flash-Next",
+    "to": "Qwen3.8-27B",
+    "weights": "looking_up_old",
+    "daily_prod": "WS+5090",
+    "awaiting": "cutover_plan_then_smoke_or_sha",
+    "live_model_lines": "still_Flash-Next_do_not_rewrite_yet",
+    "agents_md": "untouched_awaiting_device_管家_cutover_plan",
+    "supersedes_arch": "arch_flash_next_2026_09_07 spark_keeps_flash_next",
+    "note": "意图未切；设备管家只读查 27B 路径，方案定稿前不停服务、不改 AGENTS"
+  },
   "ws_stop_non_i2v_2026_09_07": {
     "date": "2026-09-07",
     "source": "设备管家 device-verified snapshot; ToIV 开发 executed stop/disable",
@@ -61,7 +75,10 @@
     "spark_compute": "算力用户单独用",
     "daily_prod": "WS+5090 only（H3/生图/视频）",
     "note": "Flash-Next TP2 已近吃满双 Spark 内存，迁服务前先量 free",
-    "superseded_old_intent": "WS GPU0+3 拟迁 Flash-Next；冒烟后切 core 拆 spark Qwen；Spark 仅 LiveKit+空内存"
+    "superseded_old_intent": "WS GPU0+3 拟迁 Flash-Next；冒烟后切 core 拆 spark Qwen；Spark 仅 LiveKit+空内存",
+    "status_note": "superseded_by_27b_intent",
+    "superseded_by": "spark_qwen27b_intent_2026_09_07",
+    "pending": "intent_only_awaiting_cutover_plan; live still Flash-Next"
   },
   "app_covers_rh_original_2026_09_07": {
     "date": "2026-09-07",

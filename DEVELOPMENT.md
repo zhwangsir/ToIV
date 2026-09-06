@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 意图（未切；等真机切换方案定稿）Spark 卸 Flash-Next → Qwen3.8-27B**：用户新口径 Spark 卸下 Qwen3.8-Flash-Next，改上 Qwen3.8-27B（旧权重查找中；设备管家只读查路径，服务未停、方案未定稿前不改 AGENTS）。ToIV 日产仍 WS+5090。⚠️ 现网模型行仍以 Flash-Next 为准；**意图未切 / cutover NOT done**；等 ToIV 开发报切完冒烟/SHA 且 设备管家定稿真机方案后再改 AGENTS/五件套模型行。此前「Spark 保留 Flash-Next」架构锁定（b9a4948）对此条作废待切。AGENTS.md 本轮未动。
+
 **2026-09-07 workstation 停非生图非视频常驻（设备管家快照；ToIV 开发执行；无产品 SHA；远程未推）**：已停并 disable FlashTalk / OpenTalking / LiveAct / FishS2 / JoyCaption 等数字人/口播及非生图非视频常驻（inactive）。现网保留 H3:8195、生图 gpu0-alt:8196、LongCat:8197、Animate2:8199、LB:8188。核对空闲约 G0 94G / G1 97G / G2 57G / G3 95G（GPU0/1/3 ≈ empty 94–97G；G2 仍 H3 ~57G free）。**口径更正**：ToIV 开发已停 WS 迁脑；**取消**「Flash-Next 迁 WS GPU0+3」（旧「WS GPU0+3 拟迁 Flash-Next / 切 core 后拆 spark Qwen」SUPERSEDED）。现架构意图：Spark **保留** Flash-Next（对话/LLM；Qwen3.8-Flash-Next）；Spark 承接可迁服务（Embedding/知识库/批标注等），算力单独用；ToIV 日产=WS+5090（5090=生图轻视频主池；WS GPU2=H3；现网 H3/8196/LB/longcat/animate2 不变）。spark02 LiveKit 仍保留（现网事实）。**NOTE**：Flash-Next TP2 已近吃满双 Spark 内存，迁服务前先量 free。集群 SoT [AGENTS.md](AGENTS.md)。
 
 **2026-09-07 core 应用封面换 RunningHub 原卡面（无产品 SHA；数据侧已上 core；远程未推文档）**：rh-* 可靠对齐 499/499 已上传本地 appcover；内置非 rh 30/34 已换（跳过 `h3-multishot`、`ltx25-multishot`、`longcat-t2v`、`controlnet`，无可靠匹配）。映射落 MateBook `.regen_tmp/mapped_safe.json` 与 `.regen_tmp/builtin_cover_map.json`（未入库）。AGENTS.md 未动。大脑换 GLM 仍调研中、未切。
