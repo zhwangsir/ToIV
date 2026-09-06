@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T06:50:00+08:00",
+  "updated_at": "2026-09-07T06:55:00+08:00",
   "embed_spark01_2026_09_07": {
     "date": "2026-09-07",
     "updated_at": "2026-09-07T06:50:00+08:00",
@@ -25,17 +25,19 @@
   },
   "rh_family_preset_pilot_2026_09_07": {
     "date": "2026-09-07",
-    "updated_at": "2026-09-07T06:45:00+08:00",
+    "updated_at": "2026-09-07T06:55:00+08:00",
     "status": "on_core_no_product_sha",
     "on_core": true,
     "product_sha": null,
-    "count": 730,
+    "count": 1230,
     "breakdown": {
       "pilot30": 30,
       "batch2_200": 200,
       "batch3_500": 500,
       "vace_120": 120,
-      "note": "pilot Wan/LTX 30 + batch2 200 + batch3 500 (incl. VACE 120); cumulative 730"
+      "batch4_500": 500,
+      "wan_animate_109": 109,
+      "note": "pilot Wan/LTX 30 + batch2 200 + batch3 500 (incl. VACE 120) + batch4 500 (incl. wan-animate 109); cumulative 1230; ~996 remaining"
     },
     "visibility": "LAN admin API; X-NSFW visible",
     "files": [
@@ -54,8 +56,10 @@
     "builtin_full_hook": false,
     "workspace_uncommitted_seed": true,
     "agents_md": "untouched",
-    "supersedes_count": 230,
-    "json_uncommitted": true
+    "supersedes_count": 730,
+    "json_uncommitted": true,
+    "remaining_approx": 996,
+    "note": "累计 1230；+batch4 500（含 wan-animate 109）；约剩 996；非 builtin；无产品 SHA；json 未提交；AGENTS 未动；730 SUPERSEDED→1230"
   },
   "spark_qwen27b_intent_2026_09_07": {
     "date": "2026-09-07",
