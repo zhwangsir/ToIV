@@ -4,7 +4,9 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
-**2026-09-07 core 试点 RH 家族预设 30（无产品 SHA；非 builtin 全量；AGENTS 未动）**：Wan2.2→`wan-nsfw-i2v` 20 + LTX→`ltx-*` 10 已入库 core；LAN admin API，X-NSFW 可见。脚本 `apps/api/app/services/rh_family_preset_seed.py` + `.regen_tmp/seed_rh_wan_ltx_pilot.py`（工作区未提交 seed 文件）。等产品 SHA 或全量挂接后再加厚。
+**2026-09-07 core RH 家族预设累计 230（无产品 SHA；非 builtin；AGENTS 未动）**：pilot30 + batch2 200（Wan/LTX）；X-NSFW 可见。代码侧未提交 `rh_family_preset_seed.py` + `data/rh_family_presets.json` + env `TOIV_SEED_RH_FAMILY`（默认关）。等产品 SHA 后再加厚上线口径。
+
+**2026-09-07 core 试点 RH 家族预设 30（历史；计数已 SUPERSEDED→230；无产品 SHA；非 builtin 全量；AGENTS 未动）**：Wan2.2→`wan-nsfw-i2v` 20 + LTX→`ltx-*` 10 已入库 core；LAN admin API，X-NSFW 可见。脚本 `apps/api/app/services/rh_family_preset_seed.py` + `.regen_tmp/seed_rh_wan_ltx_pilot.py`（工作区未提交 seed 文件）。等产品 SHA 或全量挂接后再加厚。计数见上条累计 230。
 
 **2026-09-07 Spark LLM/VLM 真机+core 双切 Qwen3.8-27B（LIVE）**：设备管家 SSH 核实 — spark02 `vllm_node` @ `http://192.168.71.84:8000`，Qwen3.8-27B-NVFP4，served `qwen3.8-27b`（别名 `qwen3.6-uncensored`），max_model_len 32768；设备冒烟 ~15.4 tok/s；MemAvailable ~2.7Gi。双机 qwen38sg Flash-Next **Exited**；spark01 :8000 不再提供 LLM API（~117Gi free）；LiveKit 仍在 spark02。ToIV 开发：**core 已切** — `TOIV_LLM_*` / VLM 等 → `.84:8000` + `qwen3.8-27b`；toiv-api 已重启，LAN health 200；备份 `.env.bak-qwen27b-20260907`；core 路径冒烟 ~27 tok/s。下一步：Embedding 放空闲 spark01（intent，未做）。此前「意图未切 / Spark 保留 Flash-Next / core 路由改中」**SUPERSEDED**。集群 SoT [AGENTS.md](AGENTS.md)。
 

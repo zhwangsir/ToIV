@@ -4,22 +4,34 @@
   "updated_at": "2026-09-07T06:35:00+08:00",
   "rh_family_preset_pilot_2026_09_07": {
     "date": "2026-09-07",
-    "status": "on_core_pilot_no_product_sha",
+    "updated_at": "2026-09-07T06:40:00+08:00",
+    "status": "on_core_no_product_sha",
     "on_core": true,
     "product_sha": null,
-    "count": 30,
+    "count": 230,
     "breakdown": {
-      "wan22_to_wan_nsfw_i2v": 20,
-      "ltx_to_ltx_star": 10
+      "pilot30": 30,
+      "batch2_200": 200,
+      "note": "pilot Wan/LTX 30 + batch2 200; cumulative 230"
     },
     "visibility": "LAN admin API; X-NSFW visible",
+    "files": [
+      "apps/api/app/services/rh_family_preset_seed.py",
+      "apps/api/app/data/rh_family_presets.json"
+    ],
     "scripts": [
       "apps/api/app/services/rh_family_preset_seed.py",
       ".regen_tmp/seed_rh_wan_ltx_pilot.py"
     ],
+    "env": {
+      "TOIV_SEED_RH_FAMILY": "default_off"
+    },
+    "seed_switch": "TOIV_SEED_RH_FAMILY",
+    "seed_switch_default": "off",
     "builtin_full_hook": false,
     "workspace_uncommitted_seed": true,
-    "agents_md": "untouched"
+    "agents_md": "untouched",
+    "supersedes_count": 30
   },
   "spark_qwen27b_intent_2026_09_07": {
     "date": "2026-09-07",
