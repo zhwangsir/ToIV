@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-07 UI P1 主题对比度已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260906-225049-7588708-dirty`；cinema/graphite 暗色轨对比度修复；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+
 - 2026-09-07 provenance 剥离 + Admin knowledge-graph 已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260906-224852-921256b-dirty`；admin GET /api/admin/knowledge-graph 200（~1295 nodes / 608 edges；可选 ?entity=）；普通用户去 RH:{id}/civitai_url，管理员保留；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
 - 2026-09-07 provenance 剥离 + Admin knowledge-graph（历史；SUPERSEDED→on core LAN uncommitted；本地未 commit；当时部署中；无产品 SHA；非现网；docs only）：本地已加 provenance 剥离 + Admin knowledge-graph API；普通用户去 RH:{id}/civitai_url，管理员保留；AGENTS 当时未动。现已上 core LAN，见上条。

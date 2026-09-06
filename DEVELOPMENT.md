@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 UI P1 主题对比度 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260906-225049-7588708-dirty`；cinema/graphite 暗色轨对比度修复。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
+
 **2026-09-07 provenance 剥离 + Admin knowledge-graph LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260906-224852-921256b-dirty`；admin `GET /api/admin/knowledge-graph` 200（~1295 nodes / 608 edges；可选 `?entity=` neighborhood）；普通用户去 RH:{id}/civitai_url，管理员保留 provenance。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
 
 **2026-09-07 provenance 剥离 + Admin knowledge-graph（历史；SUPERSEDED→on core LAN uncommitted；本地未 commit；当时部署中；无产品 SHA；非现网；AGENTS 当时未动）**：本地已加 provenance 剥离 + Admin knowledge-graph API；普通用户去 RH:{id}/civitai_url，管理员保留；未 commit、部署中；勿写已上 core / LIVE。现已上 core LAN（未 commit），见上条 LIVE on core LAN。
