@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-07 Spark LLM/VLM 真机+core 双切验证（设备管家 SSH + ToIV 开发；docs only 未推）：spark02 `vllm_node` @ `192.168.71.84:8000` LIVE — Qwen3.8-27B-NVFP4 served `qwen3.8-27b`（别名 `qwen3.6-uncensored`），max_model_len 32768；设备冒烟 ~15.4 tok/s；core 路径冒烟 ~27 tok/s；MemAvailable ~2.7Gi。双机 qwen38sg Flash-Next **Exited**；spark01 :8000 API down（~117Gi free）；LiveKit 仍在 spark02。**core 已切**：`TOIV_LLM_*` / VLM → `.84:8000` + `qwen3.8-27b`；toiv-api 重启 LAN health 200；备份 `.env.bak-qwen27b-20260907`。下一步 Embedding → spark01（intent）。此前 intent_only /「保留 Flash-Next」/「路由改中」**SUPERSEDED**。AGENTS 设备表+§五 LLM/VLM 已改 LIVE。
+
 - 2026-09-07 意图（未切；等真机切换方案定稿）：Spark 卸 Qwen3.8-Flash-Next → Qwen3.8-27B（旧权重查找中）。日产仍 WS+5090。现网模型行仍 Flash-Next；**intent_only_awaiting_cutover_plan**；不声称已切。AGENTS 本轮未动（设备管家：方案定稿前勿改）。
 
 - 2026-09-07 口径更正（设备管家锁定同架构；ToIV 开发已停 WS 迁脑；docs only 未推）：**取消** WS Flash-Next bring-up /「GPU0+3 拟迁 Flash-Next」/「切 core 后拆 spark Qwen」（SUPERSEDED）。现意图：Spark **保留** Qwen3.8-Flash-Next（对话/LLM）；可迁 Embedding/知识库/批标注等到 Spark，算力用户单独用；ToIV 日产只用 WS+5090（H3/生图/视频；5090=生图轻视频主池；WS GPU2=H3）。spark02 LiveKit 仍保留（现网事实）。**NOTE**：Flash-Next TP2 已近吃满双 Spark 内存，迁服务前先量 free。停服快照事实仍真：stopped FlashTalk 等；retained H3:8195 / gpu0-alt:8196 / LB:8188 / longcat:8197 / animate2:8199；VRAM ≈ G0 94G / G1 97G / G2 57G / G3 95G。AGENTS.md SoT updated。

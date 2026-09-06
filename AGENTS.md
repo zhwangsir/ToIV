@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（设备管家：workstation 停非生图非视频常驻快照；ToIV 开发执行）
+> **最后更新**：2026-09-07（设备管家+ToIV 开发：Spark LLM/VLM 真机切 Qwen3.8-27B @ spark02 :8000，core 已切）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -35,8 +35,8 @@
 |---|---|---|---|---|---|
 | ~~studio01-04~~ | **2026-08-29 全线下线退役**（EXO :52415 全超时，fleet_registry 已移除；L2/L3 LLM 收拢 spark02） | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | Mac Studio M3 Ultra 512GB | dgmt-studio01-04 |
 | openclaw01-04 | OpenClaw 网关 :18789 均 200（2026-08-28） | .86/.75/.81/.85 | **100.115.23.67** / 100.76.35.7 / 100.76.140.121 / **100.125.217.11**（01/04 以 TS 2026-08-27 为准，旧 100.69.0.4 / 100.91.128.30 作废） | Mac mini M4 16GB (hw.model=Mac16,10) | dgmt-openclaw01-04 |
-| spark01 | **SGLang 双机集群入口**：qwen3.8-flash-next（NVFP4，:8000 OpenAI 兼容，max_model_len 262144，支持视觉，无审查；2026-09-06 重建后实测通过,挂载源已改家目录+FA4 b29+QSA 补丁见七。旧 Qwen3-VL-32B/molmo2 已下线） | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
-| spark02 | 同集群 node-rank 1 计算节点（`--tp 2 --nnodes 2`；**API 入口在 spark01，本机 :8000 无监听**）。另跑 LiveKit 栈（drt-livekit/egress/redis:6380）。旧 Qwen3.8-27B-Uncensored 已下线 | .84 | 100.86.42.89 | Linux GB10 | dgmt-spark |
+| spark01 | Flash-Next/qwen38sg TP2 集群 **已停 Exited**；**:8000 不再提供 LLM API**（2026-09-07）。勿再写双机入口。旧 Qwen3-VL-32B/molmo2/Flash-Next 栈已下线。~117Gi free；**下一步 Embedding 放 spark01**（intent）。 | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
+| spark02 | **现网 LLM/VLM API** `vllm_node` @ :8000 — Qwen3.8-27B-NVFP4，served `qwen3.8-27b`（别名 `qwen3.6-uncensored`），max_model_len 32768；设备冒烟 ~15.4 tok/s、core 路径冒烟 ~27 tok/s；MemAvailable ~2.7Gi（迁 Embedding 前必量 free）。LiveKit 栈仍在（drt-livekit/egress/redis:6380）。双机 qwen38sg Flash-Next **已停 Exited**。 | .84 | 100.86.42.89 | Linux GB10 | dgmt-spark |
 | workstation | 算力+全部后端服务 | 192.168.71.127 | **100.68.100.90** | Linux 4×RTX PRO 6000 | merlin |
 | pc01 | ComfyUI worker :8188 | **192.168.71.116**(08-25 DHCP 漂移,MAC 指纹实证) | 100.69.134.27 | Windows RTX 5090 | home |
 | pc02 | ComfyUI worker :8193 + 编辑实例 :8194；**TS≠LAN**：LAN 均 200（08-28），⚠️ Tailscale 08-27 离线 21d | 192.168.71.114 | 100.107.94.26 | Windows RTX 5090 | w |
@@ -106,8 +106,8 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 - **服务**：toiv-api :8090 / toiv-web :3100 systemd 常驻,`deploy/deploy.sh` 部署;PostgreSQL 18 / Redis 真机运行（仅 bind 127.0.0.1，探测用回环地址）。
 - **域名双入口**：toiv.dgmt.top(香港 cloud,frp-kcp) + toiv.wineryz.top(**beijing CN 入口** OpenResty+ACME；Docker `1Panel-openresty` + `1Panel-frps` 0.68.1 听 7000/7500/13100/18090，另有 `1panel-core` :1722);openresty → frp 本地 127.0.0.1:18090/13100。
-- **引擎矩阵(08-28 对照仓拍板)**：SFW 视频主路 **H3=海螺 3.0**（不是 Hailuo 2.3）;R18=Wan2.2+LTX-2.3+10Eros;Wan2.1-VACE 仅编辑/转场;LTX-2.5 已退役;图像默认 FLUX.2+Qwen-Image/Z-Image;混元视频/SkyReels 未挂。⚠️ spark01 09-03 已换 qwen3.8-flash-next（旧 Qwen3-VL-32B 下线）。
-- **LLM/VLM（09-03 core env 实况）**：L1/L2/L3/NSFW 全部 `TOIV_LLM_*`=spark01 `http://192.168.71.82:8000/v1` 模型 `qwen3.8-flash-next`（SGLang 双机集群，API 入口 spark01；spark02 为计算节点本机无监听，旧 spark02 qwen3.8-27b 口径已作废）；VLM `TOIV_VLM_SERVER_URL=http://192.168.71.82:8000` model_id `qwen3-vl-32b`（⚠️ 该 model_id 是否仍被 spark01 新栈接受,使用前真机 curl 一次）；反推 VLM `TOIV_REVERSE_VLM_BASE_URL=http://192.168.71.82:8000/v1`。
+- **引擎矩阵(08-28 对照仓拍板)**：SFW 视频主路 **H3=海螺 3.0**（不是 Hailuo 2.3）;R18=Wan2.2+LTX-2.3+10Eros;Wan2.1-VACE 仅编辑/转场;LTX-2.5 已退役;图像默认 FLUX.2+Qwen-Image/Z-Image;混元视频/SkyReels 未挂。⚠️ 2026-09-07 现网 LLM/VLM 已切 spark02 Qwen3.8-27B（旧 spark01 Flash-Next/qwen38sg TP2 **已停 Exited**；勿再写双机入口）。
+- **LLM/VLM（2026-09-07 LIVE：设备侧+core 均已切 spark02）**：`TOIV_LLM_*` / VLM 等均指向 spark02 `http://192.168.71.84:8000`（`/v1`），model `qwen3.8-27b`（别名 `qwen3.6-uncensored`）；容器 `vllm_node`，权重 Qwen3.8-27B-NVFP4，max_model_len 32768。设备冒烟 ~15.4 tok/s；core 路径冒烟 ~27 tok/s；toiv-api 已重启，LAN health 200；备份 `.env.bak-qwen27b-20260907`。MemAvailable ~2.7Gi（迁 Embedding 前必量 free）。双机 qwen38sg Flash-Next 已停 Exited；spark01 :8000 不再提供该 API（~117Gi free）。历史：此前 VLM model_id 曾写 `qwen3-vl-32b` / 后 core env 改 `qwen3.8-flash-next`；旧 spark01 :8000 / flash-next 栈已不可用。**下一步**：Embedding 放空闲 spark01（intent，未做；非吃满的 spark02）。
 - **视频评分器灰度**：`TOIV_VIDEO_SCORER_ENABLED=true`(阈值 0.65,timeout 120s);⚠️ 迁移 DDL BOOLEAN 默认值必须 TRUE/FALSE,PG 不认 DEFAULT 0。
 - **web_search 代理**：`TOIV_WEB_SEARCH_PROXY=http://192.168.71.9:7897`(MateBook Clash;依赖 Mac 在线,离线自动降级)。
 - **workstation 常驻 ToIV 服务**：trainer :9100 / lipsync :9103 / 3dops :9402 / scope :9401 / sysmetrics :9403 等仍在清单；**2026-09-07 数字人/口播及一批非生图非视频常驻已停 disable**（FlashTalk / OpenTalking / LiveAct / FishS2 / JoyCaption 等 inactive，含 joycaption :9304 / liveact :9400 / embedding :9302 / hy3dtex :9404 / i2l :9101 等）。现网生图/视频保留见第三节（H3/gpu0-alt/LB/longcat/animate2）。勿再声称 joycaption/liveact 仍常驻。
@@ -171,12 +171,20 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-07（设备管家+ToIV 开发：Spark LLM/VLM 真机切 27B @ spark02；core 已切 LIVE）
+- **设备侧 LIVE（SSH 核实）**：spark02 `vllm_node` @ `192.168.71.84:8000` — Qwen3.8-27B-NVFP4，served `qwen3.8-27b`（别名 `qwen3.6-uncensored`），max_model_len 32768；设备冒烟 ~15.4 tok/s；加载后 MemAvailable ~2.7Gi。
+- **core LIVE**：`TOIV_LLM_*` / VLM 等 → `http://192.168.71.84:8000` + model `qwen3.8-27b`；toiv-api 已重启，LAN health 200；备份 `.env.bak-qwen27b-20260907`；core 路径冒烟 ~27 tok/s。
+- **双机 qwen38sg Flash-Next 已停 Exited**（spark01/02）；spark01 :8000 **不再提供 LLM API**（~117Gi free）。勿再写双机入口。
+- LiveKit 栈仍在 spark02（drt-livekit/egress/redis:6380）。
+- **下一步**：Embedding 放空闲 **spark01**（intent，未做；非吃满的 spark02）。
+- **SUPERSEDED**：此前「Spark 保留 Flash-Next」架构锁定、`intent_only_awaiting_cutover_plan`（0ce5aed）、以及「core 路由改中」中间态，均被本条真机+core 双切替代。
+
 ### 2026-09-07（设备管家：workstation 停服快照；ToIV 开发执行）
 - 已停并 disable：数字人/口播及一批非生图非视频常驻（FlashTalk / OpenTalking / LiveAct / FishS2 / JoyCaption 等 inactive）
 - 现网保留：H3:8195、生图 gpu0-alt:8196、LongCat:8197、Animate2:8199、LB:8188（pc workers 仍在池）
 - 核对时空闲约：G0 94G / G1 97G / G2 57G / G3 95G（停服后 GPU0/1/3 ≈ empty 94–97G；G2 仍 H3 故 ~57G free）
 - **口径更正（2026-09-07）**：ToIV 开发已停 WS 迁脑；**取消**「Flash-Next 迁 WS GPU0+3」全部计划。旧「WS GPU0+3 拟迁 Flash-Next / 切 core 后拆 spark Qwen / Spark 仅 LiveKit+空内存」作废（SUPERSEDED）。
-- 架构意图（2026-09-07 更正；ToIV 开发已停 WS 迁脑）：**取消**「Flash-Next 迁 WS GPU0+3」。Spark **保留** Flash-Next（对话/LLM 仍在 Spark；Qwen3.8-Flash-Next）；Spark 承接可迁服务（Embedding / 知识库 / 批标注等），算力单独用。ToIV 日产=WS+5090（5090=生图轻视频主池；WS GPU2=H3；现网保留 H3:8195 / gpu0-alt:8196 / LB:8188 / longcat:8197 / animate2:8199 不变）。旧「WS 冒烟后拆 spark Qwen / Spark 仅 LiveKit+空内存」口径作废。**NOTE**：Flash-Next TP2 已近吃满双 Spark 内存，迁服务前先量 free。
+- ~~架构意图（2026-09-07 更正）：Spark **保留** Flash-Next……~~ **SUPERSEDED by 2026-09-07 Spark LLM/VLM 真机+core 双切 27B@spark02**。日产=WS+5090 仍成立；下一步 Embedding 放空闲 spark01（intent）。
 - spark02 LiveKit 仍保留（现网事实，非「Flash-Next 拆走后的唯一用途」）。
 
 ### 2026-09-06（ToIV 会话：workstation 重启窗口 + spark 集群重建）
