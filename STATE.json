@@ -1,12 +1,12 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T07:00:00+08:00",
+  "updated_at": "2026-09-07T07:05:00+08:00",
   "market_merge_slice1_2026_09_07": {
     "date": "2026-09-07",
-    "updated_at": "2026-09-07T07:00:00+08:00",
-    "status": "local_uncommitted_preparing_core_lan",
-    "on_core": false,
+    "updated_at": "2026-09-07T07:05:00+08:00",
+    "status": "on_core_lan_uncommitted_no_product_sha",
+    "on_core": true,
     "live": false,
     "product_sha": null,
     "committed": false,
@@ -27,9 +27,13 @@
       "apps/web/lib/api.ts",
       "apps/web/tests/uiBViews.test.ts"
     ],
-    "preparing": "core LAN deploy",
-    "agents_md": "untouched",
-    "note": "市场合并首片本地已改；未 commit；准备部署 core LAN；勿写成已上 core / LIVE；AGENTS 未动"
+    "agents_md": "updated_from_device",
+    "note": "市场合并首片已上 core LAN（真机）；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260906-224447-8e33d9e-dirty；nsfw-recommendations 无 X-NSFW→403 verified；AGENTS 按真机更新",
+    "dirty": true,
+    "build_id": "20260906-224447-8e33d9e-dirty",
+    "health": "api :8090 / web :3100 200",
+    "nsfw_gate": "verified",
+    "prior_status": "local_uncommitted_preparing_core_lan SUPERSEDED→on_core_lan_uncommitted_no_product_sha"
   },
   "embed_spark01_2026_09_07": {
     "date": "2026-09-07",
@@ -245,7 +249,7 @@
     "verify": "core LAN only http://192.168.71.47:3100; ThemePicker + 4 presets home/market + purple accent + minimal dark; shots /tmp/theme-prod/ and .regen_tmp/theme-prod/",
     "verify_discipline": "local or core LAN only; forbid toiv.wineryz.top",
     "agents_md": "untouched",
-    "market_merge": "slice1 local_uncommitted_preparing_core_lan (see market_merge_slice1_2026_09_07); not live on core"
+    "market_merge": "slice1 on_core_lan_uncommitted_no_product_sha (see market_merge_slice1_2026_09_07); on core LAN; no product SHA; dirty"
   },
   "beautify_direction_a_2026_09_04": {
     "date": "2026-09-04",

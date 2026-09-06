@@ -4,7 +4,9 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
-**2026-09-07 市场合并首片本地已改（无产品 SHA；未 commit；准备部署 core LAN；非现网；AGENTS 未动）**：资源区 R18 推荐仅 admin+R18；`GET /api/models/nsfw-recommendations` 无 `X-NSFW` → 403；ModelsView 模型市场 Civitai|HuggingFace 切换。工作区产品改动仍未提交；勿写成已上 core / LIVE。AGENTS.md 未动。
+**2026-09-07 市场合并首片 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260906-224447-8e33d9e-dirty`；api :8090 / web :3100 200；`GET /api/models/nsfw-recommendations` 无 `X-NSFW` → 403（verified）；资源区 R18 推荐仅 admin+R18；ModelsView 模型市场 Civitai|HuggingFace 切换。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
+
+**2026-09-07 市场合并首片本地已改（历史；SUPERSEDED→on core LAN uncommitted；无产品 SHA；未 commit；当时准备部署 core LAN；非现网；AGENTS 当时未动）**：资源区 R18 推荐仅 admin+R18；`GET /api/models/nsfw-recommendations` 无 `X-NSFW` → 403；ModelsView 模型市场 Civitai|HuggingFace 切换。工作区产品改动仍未提交。现已上 core LAN（未 commit），见上条 LIVE on core LAN。
 
 **2026-09-07 core RH 家族预设累计 2226（目录可分类已清；剩 12 不可分类未种；无产品 SHA；非 builtin；AGENTS 未动）**：可分类目录已清；累计 2226；剩 12 不可分类未种。X-NSFW 可见。`rh_family_presets.json` 已更到 2226 但仍未提交；代码侧未提交 `rh_family_preset_seed.py` + `data/rh_family_presets.json` + env `TOIV_SEED_RH_FAMILY`（默认关）。等产品 SHA 后再加厚上线口径。
 

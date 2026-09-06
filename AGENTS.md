@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（设备管家+ToIV 开发：Embedding LIVE @ spark01 :9302 Qwen3-Embedding-4B；此前 Spark LLM/VLM 已切 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：市场合并首片已上 core LAN；此前 Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -171,6 +171,9 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（ToIV 开发：市场合并首片已上 core LAN）
+- 市场合并首片已上 core LAN（真机）；BUILD_ID `20260906-224447-8e33d9e-dirty`；api :8090 / web :3100 200；nsfw-recommendations 无 X-NSFW→403；资源区 R18 推荐仅 admin+R18；ModelsView Civitai|HF；产品树 dirty 无独立 SHA。
 
 ### 2026-09-07（设备管家+ToIV 开发：Embedding → spark01 :9302 LIVE）
 - **设备侧 LIVE**：spark01 Qwen3-Embedding-4B @ `192.168.71.82:9302`（GPU / cuda）；用户级 systemd Linger=no。
