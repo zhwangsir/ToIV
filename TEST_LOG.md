@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-07 core 试点 RH 家族预设 30（无产品 SHA；docs only 未推）：Wan2.2→wan-nsfw-i2v 20 + LTX→ltx-* 10 已入库 core；LAN admin API，X-NSFW 可见；非 builtin 全量；脚本 rh_family_preset_seed.py + .regen_tmp/seed_rh_wan_ltx_pilot.py（工作区未提交）；AGENTS 未动。
+
 - 2026-09-07 Spark LLM/VLM 真机+core 双切验证（设备管家 SSH + ToIV 开发；docs only 未推）：spark02 `vllm_node` @ `192.168.71.84:8000` LIVE — Qwen3.8-27B-NVFP4 served `qwen3.8-27b`（别名 `qwen3.6-uncensored`），max_model_len 32768；设备冒烟 ~15.4 tok/s；core 路径冒烟 ~27 tok/s；MemAvailable ~2.7Gi。双机 qwen38sg Flash-Next **Exited**；spark01 :8000 API down（~117Gi free）；LiveKit 仍在 spark02。**core 已切**：`TOIV_LLM_*` / VLM → `.84:8000` + `qwen3.8-27b`；toiv-api 重启 LAN health 200；备份 `.env.bak-qwen27b-20260907`。下一步 Embedding → spark01（intent）。此前 intent_only /「保留 Flash-Next」/「路由改中」**SUPERSEDED**。AGENTS 设备表+§五 LLM/VLM 已改 LIVE。
 
 - 2026-09-07 意图（未切；等真机切换方案定稿）：Spark 卸 Qwen3.8-Flash-Next → Qwen3.8-27B（旧权重查找中）。日产仍 WS+5090。现网模型行仍 Flash-Next；**intent_only_awaiting_cutover_plan**；不声称已切。AGENTS 本轮未动（设备管家：方案定稿前勿改）。

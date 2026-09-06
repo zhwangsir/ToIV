@@ -1,7 +1,26 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T06:30:00+08:00",
+  "updated_at": "2026-09-07T06:35:00+08:00",
+  "rh_family_preset_pilot_2026_09_07": {
+    "date": "2026-09-07",
+    "status": "on_core_pilot_no_product_sha",
+    "on_core": true,
+    "product_sha": null,
+    "count": 30,
+    "breakdown": {
+      "wan22_to_wan_nsfw_i2v": 20,
+      "ltx_to_ltx_star": 10
+    },
+    "visibility": "LAN admin API; X-NSFW visible",
+    "scripts": [
+      "apps/api/app/services/rh_family_preset_seed.py",
+      ".regen_tmp/seed_rh_wan_ltx_pilot.py"
+    ],
+    "builtin_full_hook": false,
+    "workspace_uncommitted_seed": true,
+    "agents_md": "untouched"
+  },
   "spark_qwen27b_intent_2026_09_07": {
     "date": "2026-09-07",
     "updated_at": "2026-09-07T06:30:00+08:00",
