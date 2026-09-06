@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-06T19:49:00+08:00",
+  "updated_at": "2026-09-06T21:00:00+08:00",
   "beautify_direction_a_2026_09_04": {
     "date": "2026-09-04",
     "direction": "A 精修控制台（C Film Atelier 复兴 demo 被用户否，留档 .regen_tmp/film-atelier-demo.html）",
@@ -2597,5 +2597,22 @@
     "read_only": true,
     "password_not_documented": true,
     "updated_at": "2026-09-06T19:58:00+08:00"
+  },
+  "reboot_and_spark_recovery_2026_09_06": {
+    "workstation_reboot": "GPU0 恢复枚举（index 0, UUID GPU-c2193dfe）；8189 卡死清除；CVD 落卡全复核符合设计；NAS/LB/core 全链验证；txt2img 冒烟 success",
+    "spark_recovery": {
+      "cause": "spark01 死机（物理重启恢复）；容器 qwen38sg 两个 /tmp bind-mount 随 reboot 丢失，docker 误建 root 空目录",
+      "fixes": [
+        "容器重建，挂载源改家目录 /home/dgmt-spark/",
+        "FA4 整包升级 4.0.0b29（目录级挂载 fa4pkg/flash_attn）",
+        "qwen_sparse_attn_backend 补丁：SM12x 且 hdim>128 decode 走 SDPA 块对角 mask（GB10 99KB smem FA4 cute 不支持 hdim256；禁 host 同步防 capture invalidated）"
+      ],
+      "verified": "LLM 出文冒烟通过；core→spark /api/optimize 链路通过",
+      "patch_files": "spark01/02 /home/dgmt-spark/qwen_sparse_attn_backend.py + fa4pkg/；ToIV Mac /tmp/qsa_patched.py 留底"
+    },
+    "pending": [
+      "DRT 部署执行（包在 core /home/merlin/drt-bundle/，归 DRT 负责人）",
+      "cloud 公网 :22 跨境 QoS（SSH 走 TS）"
+    ]
   }
 }

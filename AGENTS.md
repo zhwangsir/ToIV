@@ -35,7 +35,7 @@
 |---|---|---|---|---|---|
 | ~~studio01-04~~ | **2026-08-29 全线下线退役**（EXO :52415 全超时，fleet_registry 已移除；L2/L3 LLM 收拢 spark02） | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | Mac Studio M3 Ultra 512GB | dgmt-studio01-04 |
 | openclaw01-04 | OpenClaw 网关 :18789 均 200（2026-08-28） | .86/.75/.81/.85 | **100.115.23.67** / 100.76.35.7 / 100.76.140.121 / **100.125.217.11**（01/04 以 TS 2026-08-27 为准，旧 100.69.0.4 / 100.91.128.30 作废） | Mac mini M4 16GB (hw.model=Mac16,10) | dgmt-openclaw01-04 |
-| spark01 | **SGLang 双机集群入口**：qwen3.8-flash-next（NVFP4，:8000 OpenAI 兼容，max_model_len 262144，支持视觉，无审查；2026-09-03 实测通过。旧 Qwen3-VL-32B/molmo2 已下线） | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
+| spark01 | **SGLang 双机集群入口**：qwen3.8-flash-next（NVFP4，:8000 OpenAI 兼容，max_model_len 262144，支持视觉，无审查；2026-09-06 重建后实测通过,挂载源已改家目录+FA4 b29+QSA 补丁见七。旧 Qwen3-VL-32B/molmo2 已下线） | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
 | spark02 | 同集群 node-rank 1 计算节点（`--tp 2 --nnodes 2`；**API 入口在 spark01，本机 :8000 无监听**）。另跑 LiveKit 栈（drt-livekit/egress/redis:6380）。旧 Qwen3.8-27B-Uncensored 已下线 | .84 | 100.86.42.89 | Linux GB10 | dgmt-spark |
 | workstation | 算力+全部后端服务 | 192.168.71.127 | **100.68.100.90** | Linux 4×RTX PRO 6000 | merlin |
 | pc01 | ComfyUI worker :8188 | **192.168.71.116**(08-25 DHCP 漂移,MAC 指纹实证) | 100.69.134.27 | Windows RTX 5090 | home |
@@ -169,6 +169,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-06（ToIV 会话：workstation 重启窗口 + spark 集群重建）
+
+- **workstation 重启窗口完成**：GPU0 恢复 CUDA 枚举（index 0,UUID GPU-c2193dfe）,8189 卡死进程随重启清除;数字 CVD 服务落卡全部符合设计（gpu0-alt/joycaption/longcat→GPU0,四音频→GPU2,UUID 钉卡服务不动）;NAS 挂载/LB 三后端/core 全链验证,txt2img 冒烟 success。
+- **spark 双机集群重建（spark01 死机物理重启后）**：①容器 `qwen38sg` 两个 /tmp bind-mount 随 reboot 丢失（tmpfs,docker 误建 root 空目录致启动失败）→ 容器重建,**挂载源改到家目录**（`/home/dgmt-spark/`）根治;②decode 崩溃链：镜像 stock `flash_fwd_sm120.py` 在 SM120 误开 TMA（上游 flash-attn #2671）+ pack_gqa 半成品（#2656/#2671）+ **head_dim=256 在 GB10 99KB smem 上 FA4 cute 不可用**（#2750 同类,tile 常数不感知 hdim）→ 处置：整包升级 **flash-attn-4 4.0.0b29**（目录级挂载 `/home/dgmt-spark/fa4pkg/flash_attn`）+ qwen_sparse_attn_backend 补丁（SM12x 且 hdim>128 的 decode 走 **SDPA 块对角 mask 路径,GPU 构图禁 host 同步**;文件在 spark01/02 家目录,无免密 sudo）。LLM 出文冒烟通过,core→spark 提示词优化链路验证通过。
+- **同批收口**：6 例预存测试修复（`55c3902`,全量 3035 绿）;8189 退役/8196 转正;cloud sshd GSSAPI=no（SSH 走 TS 100.83.78.114）;DRT 包 staging 到 core。
+
 ### 2026-09-06（设备管家：beijing SSH 公钥已通）
 - MateBook 已装 id_ed25519 公钥；~/.ssh/config 有 `Host beijing` → 8.140.222.24 User root IdentityFile ~/.ssh/id_ed25519；BatchMode 免密已通。密码勿写。
 
@@ -218,7 +224,8 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 八、待办事项
 
-- [ ] **workstation 重启窗口（用户拍板时间）**：GPU0 "requires reset" 只能靠重启恢复枚举（RTX PRO 6000 不支持 nvidia-smi --gpu-reset,09-06 实测 Not Supported）;8189 卡死的失控线程（3233 僵尸进程内 thread 13717,SIGKILL 无效）也只能重启清。⚠️ **重启后 CUDA 序号会重新包含 GPU0,数字 CVD 全部偏移**：gpu0-alt(CVD=0)/joycaption(0)/longcat(0)/四音频(2) 等数字锁卡服务重启后落卡会变,UUID 钉卡服务(H3/infinitetalk/fishs2)不受影响——重启后必须逐个复核落卡并考虑改 UUID 钉卡
+- [x] workstation 重启窗口（09-06 完成:GPU0 枚举恢复、8189 清除、落卡全复核、全链冒烟）
+- [x] spark 集群修复（09-06:spark01 死机物理重启+容器家目录挂载重建+FA4 b29+QSA hdim256 SDPA 补丁,LLM 冒烟通过）
 - [ ] DRT 部署到 core（包已备妥 `/home/merlin/drt-bundle/` 六件:source-v2/images/config/pg dump/redis dump/minio data,2026-09-06 由 ToIV 会话中转;执行归 DRT 负责人,compose.prod+Caddyfile,注意 core 的 PG/Redis 是 ToIV 生产共用勿冲突）
 - [ ] Cloud 公网 :22 跨境疑似 QoS（握手挂 2min 被 sshd LoginGraceTime 切断）;已修 GSSAPIAuthentication=no（TS 路径 21s→5.4s）;**SSH 一律走 Tailscale 100.83.78.114**
 - [x] comfyui-gpu0 :8189（09-06 收拢:占用者=unit 内僵尸进程 3233 的失控线程,杀不掉;unit 已 **disable**（防重启复活/防重启后双开）,8189 退役,**:8196 gpu0-alt 转正为正式本地池后端**,backends.json 已是 8196 无需动;随 workstation 重启窗口一并清算）
