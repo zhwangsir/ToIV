@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-04（全站美化方向A五波收官；版型令牌系统+琥珀点睛+UI_STANDARD v2.0）
+> **最后更新**：2026-09-06（设备管家：beijing 真机只读登入回写设备表）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -45,7 +45,7 @@
 | 光猫 | 主网关/拨号(MAC 7c:c9:26:ef:01:93) | 192.168.71.1 | — | — | — |
 | cloud | 香港网关/frps/OpenResty | 43.119.32.180 | 100.83.78.114 | Linux | root |
 | core | **ToIV 生产服务器**(web :3100 + api :8090 + PG + Redis)；:8100/:3501 未监听（AIGCPannel 在 MateBook Colima :8080/:8100） | 192.168.71.47 | **100.77.80.100** | Ubuntu | merlin |
-| beijing | 北京国内入口/frps(toiv.wineryz.top) | 8.140.222.24 | — | Linux (阿里云) | root |
+| beijing | **CN 入口** toiv.wineryz.top（OpenResty+ACME）；hostname `iZ2ze325an97cwlbt1wxfdZ`；Docker `1Panel-openresty` + `1Panel-frps`（frps 0.68.1）听 7000/7500/13100/18090，另有 `1panel-core` :1722；1.6Gi RAM 无 swap；40G 盘约用 15% | 8.140.222.24 | — | Ubuntu 24.04.4 LTS（阿里云） | root |
 | MateBook | 操作终端 | **192.168.71.9**（2026-08-28；~/NAS 已挂） | 100.74.15.34 | macOS | 本机 |
 
 > 🔒 跨地区访问原则(2026-08-23):**浏览器侧直连一律 Tailscale 优先**(画布 iframe 100.68.100.90:8188、工作流 :8189,LAN 地址仅回退候选);core→workstation 服务间调用保留 LAN(共址直连快)。
@@ -103,7 +103,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ## 五、Core 生产状态（活口径）
 
 - **服务**：toiv-api :8090 / toiv-web :3100 systemd 常驻,`deploy/deploy.sh` 部署;PostgreSQL 18 / Redis 真机运行（仅 bind 127.0.0.1，探测用回环地址）。
-- **域名双入口**：toiv.dgmt.top(香港 cloud,frp-kcp) + toiv.wineryz.top(北京,frpc-bj);openresty → frp 本地 127.0.0.1:18090/13100。
+- **域名双入口**：toiv.dgmt.top(香港 cloud,frp-kcp) + toiv.wineryz.top(**beijing CN 入口** OpenResty+ACME；Docker `1Panel-openresty` + `1Panel-frps` 0.68.1 听 7000/7500/13100/18090，另有 `1panel-core` :1722);openresty → frp 本地 127.0.0.1:18090/13100。
 - **引擎矩阵(08-28 对照仓拍板)**：SFW 视频主路 **H3=海螺 3.0**（不是 Hailuo 2.3）;R18=Wan2.2+LTX-2.3+10Eros;Wan2.1-VACE 仅编辑/转场;LTX-2.5 已退役;图像默认 FLUX.2+Qwen-Image/Z-Image;混元视频/SkyReels 未挂。⚠️ spark01 09-03 已换 qwen3.8-flash-next（旧 Qwen3-VL-32B 下线）。
 - **LLM/VLM（09-03 core env 实况）**：L1/L2/L3/NSFW 全部 `TOIV_LLM_*`=spark01 `http://192.168.71.82:8000/v1` 模型 `qwen3.8-flash-next`（SGLang 双机集群，API 入口 spark01；spark02 为计算节点本机无监听，旧 spark02 qwen3.8-27b 口径已作废）；VLM `TOIV_VLM_SERVER_URL=http://192.168.71.82:8000` model_id `qwen3-vl-32b`（⚠️ 该 model_id 是否仍被 spark01 新栈接受,使用前真机 curl 一次）；反推 VLM `TOIV_REVERSE_VLM_BASE_URL=http://192.168.71.82:8000/v1`。
 - **视频评分器灰度**：`TOIV_VIDEO_SCORER_ENABLED=true`(阈值 0.65,timeout 120s);⚠️ 迁移 DDL BOOLEAN 默认值必须 TRUE/FALSE,PG 不认 DEFAULT 0。
@@ -168,6 +168,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-06（设备管家：beijing 真机只读登入）
+- hostname iZ2ze325an97cwlbt1wxfdZ；Ubuntu 24.04.4 LTS；1.6Gi RAM 无 swap；40G 盘约用 15%
+- 角色确认：CN 入口 toiv.wineryz.top（OpenResty + ACME）
+- Docker：1Panel-openresty + 1Panel-frps（frps 0.68.1）听 7000/7500/13100/18090；另有 1panel-core :1722
+- SSH：root 密码可登；MateBook 默认 id_ed25519 公钥不行；~/.ssh/config 尚无 beijing Host
+- 未改服务；密码不入文档
 
 ### 2026-09-04
 

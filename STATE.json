@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-06T01:00:00+08:00",
+  "updated_at": "2026-09-06T19:49:00+08:00",
   "beautify_direction_a_2026_09_04": {
     "date": "2026-09-04",
     "direction": "A 精修控制台（C Film Atelier 复兴 demo 被用户否，留档 .regen_tmp/film-atelier-demo.html）",
@@ -2582,5 +2582,17 @@
     "aigcpannel": "platform/backend/.env 旧 COMFYUI_LB_BACKEND_URLS 已注释停用（走动态拉取）；设备说明×2/nsfw README/STATE 文档 :8189→:8196、.115→.116 已修",
     "drama_player": "生产截图验证通过（剧集 2a294cad，草稿无视频但页面结构/控制条/信息面板正常）",
     "ui_standard": "两处琥珀触点（进度条细线/落地页关键词/选中与完成语义）已追认进 UI_STANDARD §2"
+  },
+  "beijing_probe_2026_09_06": {
+    "ip": "8.140.222.24",
+    "hostname": "iZ2ze325an97cwlbt1wxfdZ",
+    "os": "Ubuntu 24.04.4 LTS",
+    "ram": "1.6Gi no_swap",
+    "disk": "40G ~15%",
+    "role": "CN entry toiv.wineryz.top OpenResty+ACME",
+    "docker": "1Panel-openresty + 1Panel-frps 0.68.1 ports 7000/7500/13100/18090 + 1panel-core :1722",
+    "ssh": "root password_ok pubkey_id_ed25519_fail no Host in MateBook ~/.ssh/config",
+    "read_only": true,
+    "password_not_documented": true
   }
 }
