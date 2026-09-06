@@ -1,7 +1,30 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-06T18:30:00+08:00",
+  "updated_at": "2026-09-07T04:30:00+08:00",
+  "theme_system_v9_2026_09_07": {
+    "date": "2026-09-07",
+    "product": "19d65db",
+    "deploy_tip": "4d9e583",
+    "status": "on_core_dual_pushed",
+    "on_core": true,
+    "pushed": true,
+    "remotes": "Gitee+GitHub HEAD 4d9e583",
+    "build_id": "20260906-202535-4d9e583-dirty",
+    "html_marker": "<!--20260906_202535_4d9e583_-->",
+    "health": "api :8090 / web :3100 200",
+    "presets": [
+      "minimal",
+      "cinema",
+      "paper",
+      "graphite"
+    ],
+    "custom_accent": true,
+    "verify": "core LAN only http://192.168.71.47:3100; ThemePicker + 4 presets home/market + purple accent + minimal dark; shots /tmp/theme-prod/ and .regen_tmp/theme-prod/",
+    "verify_discipline": "local or core LAN only; forbid toiv.wineryz.top",
+    "agents_md": "untouched",
+    "market_merge": "not_started (HF/RH/Civitai, de-R18 recommend, model source)"
+  },
   "beautify_direction_a_2026_09_04": {
     "date": "2026-09-04",
     "direction": "A 精修控制台（C Film Atelier 复兴 demo 被用户否，留档 .regen_tmp/film-atelier-demo.html）",

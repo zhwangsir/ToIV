@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 P0 主题系统 v9（`19d65db`/`4d9e583`，已上线 core，产品 tip 已双推）**：产品 `19d65db`（四预设 minimal/cinema/paper/graphite + 自定义 accent；rh-dark 改消费主题令牌）；部署 tip `4d9e583`（含 UI 整改方案交接文档）。干净构建后 `bash deploy/deploy.sh`；core BUILD_ID `20260906-202535-4d9e583-dirty`（HTML `<!--20260906_202535_4d9e583_-->`）；api :8090 / web :3100 均 200。验证仅 core LAN `http://192.168.71.47:3100` 截图（禁公网穿透）；ThemePicker + 四预设 home/market + 自定义紫 accent + minimal dark 已拍，落 `/tmp/theme-prod/` 与 `.regen_tmp/theme-prod/`。纪律：后续验证只走本地或 core LAN，禁止打 toiv.wineryz.top。AGENTS.md 未动。市场合并（HF/RH/Civitai、去 R18 推荐、模型来源）尚未开工。本地核：origin/main 与 github/main 已是 `4d9e583`。
+
 **2026-09-06 beijing SSH 公钥已通（设备管家）**：MateBook 已装 id_ed25519 公钥；~/.ssh/config 有 Host beijing → 8.140.222.24 User root IdentityFile ~/.ssh/id_ed25519；BatchMode 免密已通。密码不入文档。集群 SoT AGENTS.md。
 
 **2026-09-06 beijing 设备表回写（设备管家只读 SSH；项目管家文档）**：真机只读登入 8.140.222.24（hostname `iZ2ze325an97cwlbt1wxfdZ`）后回写 AGENTS.md 设备表与 §五域名双入口。Ubuntu 24.04.4 LTS；1.6Gi RAM 无 swap；40G 盘约用 15%；角色确认 CN 入口 toiv.wineryz.top（OpenResty+ACME）；Docker `1Panel-openresty` + `1Panel-frps`（frps 0.68.1）听 7000/7500/13100/18090，另有 `1panel-core` :1722；SSH（当时公钥未通，现已通）root 密码可登、MateBook 默认 id_ed25519 公钥不行、~/.ssh/config 尚无 beijing Host。未改服务；**密码不入文档**；Tailscale 仍为 —（未发明）。集群 SoT `AGENTS.md`。
