@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-06T21:00:00+08:00",
+  "updated_at": "2026-09-06T18:30:00+08:00",
   "beautify_direction_a_2026_09_04": {
     "date": "2026-09-04",
     "direction": "A 精修控制台（C Film Atelier 复兴 demo 被用户否，留档 .regen_tmp/film-atelier-demo.html）",
@@ -2614,5 +2614,13 @@
       "DRT 部署执行（包在 core /home/merlin/drt-bundle/，归 DRT 负责人）",
       "cloud 公网 :22 跨境 QoS（SSH 走 TS）"
     ]
+  },
+  "monochrome_minimal_2026_09_06": {
+    "commit": "38145e7",
+    "deployed": "core，BUILD_ID 20260906-182102-38145e7-dirty 真机核对一致",
+    "user_directive": "最近作品删掉/主体只黑白/多余文字全删/只留最简功能",
+    "changes": "--accent-glow 全系改中性（聚焦环/指示条/进度条等自动黑白化）；首页删最近作品区块+快捷 chips+模型行+TOIV 铭牌+副文案；场景卡改无边框文字行；ResultPanel 空态只留一句；ParamField 长 hint 段全删；融合行尾 tags 删；合规行保留",
+    "regression": "npm test 915/915, tsc 0, 干净构建, 生产截图核对",
+    "kept": "select 选中项底模一句话简介（功能性）、合规行、语义状态色"
   }
 }
