@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-06（设备管家：beijing 真机只读登入回写设备表）
+> **最后更新**：2026-09-06（设备管家：beijing SSH 公钥已通）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -169,11 +169,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-06（设备管家：beijing SSH 公钥已通）
+- MateBook 已装 id_ed25519 公钥；~/.ssh/config 有 `Host beijing` → 8.140.222.24 User root IdentityFile ~/.ssh/id_ed25519；BatchMode 免密已通。密码勿写。
+
 ### 2026-09-06（设备管家：beijing 真机只读登入）
 - hostname iZ2ze325an97cwlbt1wxfdZ；Ubuntu 24.04.4 LTS；1.6Gi RAM 无 swap；40G 盘约用 15%
 - 角色确认：CN 入口 toiv.wineryz.top（OpenResty + ACME）
 - Docker：1Panel-openresty + 1Panel-frps（frps 0.68.1）听 7000/7500/13100/18090；另有 1panel-core :1722
-- SSH：root 密码可登；MateBook 默认 id_ed25519 公钥不行；~/.ssh/config 尚无 beijing Host
+- SSH：当时公钥未通；现 MateBook 已装 id_ed25519 公钥，~/.ssh/config 有 `Host beijing` → 8.140.222.24 User root IdentityFile ~/.ssh/id_ed25519，BatchMode 免密已通。密码勿写。
 - 未改服务；密码不入文档
 
 ### 2026-09-04

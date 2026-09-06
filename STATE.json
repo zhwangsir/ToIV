@@ -2591,8 +2591,11 @@
     "disk": "40G ~15%",
     "role": "CN entry toiv.wineryz.top OpenResty+ACME",
     "docker": "1Panel-openresty + 1Panel-frps 0.68.1 ports 7000/7500/13100/18090 + 1panel-core :1722",
-    "ssh": "root password_ok pubkey_id_ed25519_fail no Host in MateBook ~/.ssh/config",
+    "ssh": "pubkey_id_ed25519_ok Host_beijing BatchMode_ok",
+    "ssh_host_alias": "beijing",
+    "IdentityFile": "~/.ssh/id_ed25519",
     "read_only": true,
-    "password_not_documented": true
+    "password_not_documented": true,
+    "updated_at": "2026-09-06T19:58:00+08:00"
   }
 }

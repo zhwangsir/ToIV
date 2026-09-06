@@ -4,7 +4,9 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
-**2026-09-06 beijing 设备表回写（设备管家只读 SSH；项目管家文档）**：真机只读登入 8.140.222.24（hostname `iZ2ze325an97cwlbt1wxfdZ`）后回写 AGENTS.md 设备表与 §五域名双入口。Ubuntu 24.04.4 LTS；1.6Gi RAM 无 swap；40G 盘约用 15%；角色确认 CN 入口 toiv.wineryz.top（OpenResty+ACME）；Docker `1Panel-openresty` + `1Panel-frps`（frps 0.68.1）听 7000/7500/13100/18090，另有 `1panel-core` :1722；SSH root 密码可登、MateBook 默认 id_ed25519 公钥不行、~/.ssh/config 尚无 beijing Host。未改服务；**密码不入文档**；Tailscale 仍为 —（未发明）。集群 SoT `AGENTS.md`。
+**2026-09-06 beijing SSH 公钥已通（设备管家）**：MateBook 已装 id_ed25519 公钥；~/.ssh/config 有 Host beijing → 8.140.222.24 User root IdentityFile ~/.ssh/id_ed25519；BatchMode 免密已通。密码不入文档。集群 SoT AGENTS.md。
+
+**2026-09-06 beijing 设备表回写（设备管家只读 SSH；项目管家文档）**：真机只读登入 8.140.222.24（hostname `iZ2ze325an97cwlbt1wxfdZ`）后回写 AGENTS.md 设备表与 §五域名双入口。Ubuntu 24.04.4 LTS；1.6Gi RAM 无 swap；40G 盘约用 15%；角色确认 CN 入口 toiv.wineryz.top（OpenResty+ACME）；Docker `1Panel-openresty` + `1Panel-frps`（frps 0.68.1）听 7000/7500/13100/18090，另有 `1panel-core` :1722；SSH（当时公钥未通，现已通）root 密码可登、MateBook 默认 id_ed25519 公钥不行、~/.ssh/config 尚无 beijing Host。未改服务；**密码不入文档**；Tailscale 仍为 —（未发明）。集群 SoT `AGENTS.md`。
 
 **2026-09-03 H3 GPU 钉卡（设备管家 SSH 核实；ToIV 开发做钉卡，设备管家未改文档）**：toiv-comfyui-h3 drop-in `/etc/systemd/system/toiv-comfyui-h3.service.d/gpu-pin.conf`，`CUDA_DEVICE_ORDER=PCI_BUS_ID` + `CUDA_VISIBLE_DEVICES=GPU-0e6e9149-a5af-1474-c18b-2d6d2cf7a401`（PCI C1:00.0，物理 GPU2，非数字 CVD=2）。现 PID 在 GPU2，Comfy vram_free ≈58GiB（门槛 36GiB 可通过）。根因：GPU0 “requires reset” 打乱 CUDA 序号，原先 CVD=2 落到 GPU3。未动 GPU0 reset，未杀 FlashTalk/fish-speech。⚠️ **GPU0 复位仍是独立未修事项，不要写成已修**。集群 SoT `AGENTS.md`。
 
