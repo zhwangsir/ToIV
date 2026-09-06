@@ -185,14 +185,15 @@
 
   /* ── 版型(Layout)令牌(2026-09-04 美化第 0 波;亮暗通用,规范见 docs/UI_STANDARD.md §版型) ──
      容器宽度语义档(视图按内容性质选档,禁止再写裸 px max-width):
-       measure 阅读档 —— 表单/文档流/长文设置页,行长收敛保可读;
-       content 标准档 —— 常规视图(详情/设置/列表)默认版心;
-       wide   宽档   —— 宽列表(项目库/作品网格/agent-runs),基座壳默认消费;
+       measure 阅读档 680 —— 表单/文档流/长文设置页,行长收敛保可读;
+       content 标准档 1180 —— 常规视图(详情/设置/列表)默认版心;
+       wide   宽档 1520 —— 宽列表(项目库/作品网格/agent-runs),基座壳默认消费;
+       (2026-09-07 用户裁决:左右留白过多,content 1000→1180、wide 1240→1520)
        满档工作台(generate/canvas/studio 等)不吃 max-width,视口内自排版。
      --content-max/--content-wide 为历史别名,指向新档,既有引用不断裂。 */
   --layout-measure: 680px;
-  --layout-content: 1000px;
-  --layout-wide: 1240px;
+  --layout-content: 1180px;
+  --layout-wide: 1520px;
   --content-max: var(--layout-content);
   --content-wide: var(--layout-wide);
   /* 节奏档:页头下间距 / 工具条与内容区间距;区块间距在 --section-gap(16)
