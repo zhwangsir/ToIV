@@ -4,7 +4,9 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
-**2026-09-07 core RH 家族预设累计 1230（+batch4 500，含 wan-animate 109；无产品 SHA；非 builtin；AGENTS 未动）**：pilot30 + batch2 200 + batch3 500（含 VACE 120）+ batch4 500（含 wan-animate 109）；累计 1230；约剩 996。X-NSFW 可见。`rh_family_presets.json` 已更到 1230 但仍未提交；代码侧未提交 `rh_family_preset_seed.py` + `data/rh_family_presets.json` + env `TOIV_SEED_RH_FAMILY`（默认关）。等产品 SHA 后再加厚上线口径。
+**2026-09-07 core RH 家族预设累计 2226（目录可分类已清；剩 12 不可分类未种；无产品 SHA；非 builtin；AGENTS 未动）**：可分类目录已清；累计 2226；剩 12 不可分类未种。X-NSFW 可见。`rh_family_presets.json` 已更到 2226 但仍未提交；代码侧未提交 `rh_family_preset_seed.py` + `data/rh_family_presets.json` + env `TOIV_SEED_RH_FAMILY`（默认关）。等产品 SHA 后再加厚上线口径。
+
+**2026-09-07 core RH 家族预设累计 1230（历史；计数已 SUPERSEDED→2226；+batch4 500，含 wan-animate 109；无产品 SHA；非 builtin；AGENTS 未动）**：pilot30 + batch2 200 + batch3 500（含 VACE 120）+ batch4 500（含 wan-animate 109）；累计 1230；约剩 996。X-NSFW 可见。`rh_family_presets.json` 已更到 1230 但仍未提交；代码侧未提交 `rh_family_preset_seed.py` + `data/rh_family_presets.json` + env `TOIV_SEED_RH_FAMILY`（默认关）。等产品 SHA 后再加厚上线口径。计数见上条累计 2226。
 
 **2026-09-07 Embedding 迁 spark01 :9302 LIVE（设备管家确认；ToIV 开发；无产品 SHA；远程未推）**：Qwen3-Embedding-4B（GPU/cuda）@ `http://192.168.71.82:9302`；core `TOIV_EMBED_BASE_URL=http://192.168.71.82:9302/v1`；toiv-api 已重启；备份 `.env.bak-embed-20260907`；用户级 systemd Linger=no。WS embedding :9302 已停；**现网 Embedding 已迁 spark01 :9302（非 WS）**。此前「下一步 Embedding→spark01 intent」**DONE**。集群 SoT [AGENTS.md](AGENTS.md)。
 

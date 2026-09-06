@@ -1,6 +1,8 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-07 core RH 家族预设累计 1230（+batch4 500，含 wan-animate 109；无产品 SHA；docs only 未推）：pilot30 + batch2 200 + batch3 500（含 VACE 120）+ batch4 500（含 wan-animate 109）；累计 1230；约剩 996；X-NSFW 可见；非 builtin；rh_family_presets.json 已更到 1230 仍未提交；代码侧未提交 rh_family_preset_seed.py + data/rh_family_presets.json + env TOIV_SEED_RH_FAMILY（默认关）；AGENTS 未动。
+- 2026-09-07 core RH 家族预设累计 2226（目录可分类已清；剩 12 不可分类未种；无产品 SHA；docs only 未推）：可分类目录已清；累计 2226；剩 12 不可分类未种；X-NSFW 可见；非 builtin；rh_family_presets.json 已更到 2226 仍未提交；代码侧未提交 rh_family_preset_seed.py + data/rh_family_presets.json + env TOIV_SEED_RH_FAMILY（默认关）；AGENTS 未动。
+
+- 2026-09-07 core RH 家族预设累计 1230（历史；计数已 SUPERSEDED→2226；+batch4 500，含 wan-animate 109；无产品 SHA；docs only 未推）：pilot30 + batch2 200 + batch3 500（含 VACE 120）+ batch4 500（含 wan-animate 109）；累计 1230；约剩 996；X-NSFW 可见；非 builtin；rh_family_presets.json 已更到 1230 仍未提交；代码侧未提交 rh_family_preset_seed.py + data/rh_family_presets.json + env TOIV_SEED_RH_FAMILY（默认关）；AGENTS 未动。
 
 - 2026-09-07 Embedding → spark01 :9302 LIVE（设备管家确认 cuda；ToIV 开发；docs only 未推）：Qwen3-Embedding-4B @ `192.168.71.82:9302`（GPU）；core `TOIV_EMBED_BASE_URL=http://192.168.71.82:9302/v1`；toiv-api 已重启；备份 `.env.bak-embed-20260907`；用户级 systemd Linger=no；无产品 SHA。WS embedding :9302 已停；**现网非 WS**。此前 Embedding→spark01 intent **DONE**。AGENTS 设备表 spark01/§五 Embedding/§七 已改 LIVE。
 
