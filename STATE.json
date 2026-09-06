@@ -2,6 +2,24 @@
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
   "updated_at": "2026-09-07T07:20:00+08:00",
+  "ui_p2_library_placeholder_2026_09_07": {
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T07:20:00+08:00",
+    "status": "on_core_lan_uncommitted_no_product_sha",
+    "on_core": true,
+    "live": true,
+    "product_sha": null,
+    "committed": false,
+    "pushed": false,
+    "dirty": true,
+    "build_id": "20260906-225725-b22d0af-dirty",
+    "source": "ToIV 开发",
+    "changes": [
+      "ThumbPlaceholder 按类型"
+    ],
+    "agents_md": "updated",
+    "note": "UI P2 库占位已上 core LAN（真机）；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260906-225725-b22d0af-dirty；ThumbPlaceholder 按类型；AGENTS 按真机更新"
+  },
   "ui_p1_theme_contrast_2026_09_07": {
     "date": "2026-09-07",
     "updated_at": "2026-09-07T07:20:00+08:00",
