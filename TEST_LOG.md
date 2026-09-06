@@ -1,6 +1,8 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-07 core RH 家族预设累计 230（无产品 SHA；docs only 未推）：pilot30 + batch2 200（Wan/LTX）；X-NSFW 可见；非 builtin；代码侧未提交 rh_family_preset_seed.py + data/rh_family_presets.json + env TOIV_SEED_RH_FAMILY（默认关）；AGENTS 未动。
+- 2026-09-07 core RH 家族预设累计 730（+batch3 500；含 VACE 120；无产品 SHA；docs only 未推）：pilot30 + batch2 200 + batch3 500（含 VACE 120）；X-NSFW 可见；非 builtin；rh_family_presets.json 已更到 730 仍未提交；代码侧未提交 rh_family_preset_seed.py + data/rh_family_presets.json + env TOIV_SEED_RH_FAMILY（默认关）；AGENTS 未动。
+
+- 2026-09-07 core RH 家族预设累计 230（历史；计数已 SUPERSEDED→730；无产品 SHA；docs only 未推）：pilot30 + batch2 200（Wan/LTX）；X-NSFW 可见；非 builtin；代码侧未提交 rh_family_preset_seed.py + data/rh_family_presets.json + env TOIV_SEED_RH_FAMILY（默认关）；AGENTS 未动。
 
 - 2026-09-07 core 试点 RH 家族预设 30（历史；计数已 SUPERSEDED→230；无产品 SHA；docs only 未推）：Wan2.2→wan-nsfw-i2v 20 + LTX→ltx-* 10 已入库 core；LAN admin API，X-NSFW 可见；非 builtin 全量；脚本 rh_family_preset_seed.py + .regen_tmp/seed_rh_wan_ltx_pilot.py（工作区未提交）；AGENTS 未动。
 

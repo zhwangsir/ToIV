@@ -1,18 +1,20 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T06:35:00+08:00",
+  "updated_at": "2026-09-07T06:45:00+08:00",
   "rh_family_preset_pilot_2026_09_07": {
     "date": "2026-09-07",
-    "updated_at": "2026-09-07T06:40:00+08:00",
+    "updated_at": "2026-09-07T06:45:00+08:00",
     "status": "on_core_no_product_sha",
     "on_core": true,
     "product_sha": null,
-    "count": 230,
+    "count": 730,
     "breakdown": {
       "pilot30": 30,
       "batch2_200": 200,
-      "note": "pilot Wan/LTX 30 + batch2 200; cumulative 230"
+      "batch3_500": 500,
+      "vace_120": 120,
+      "note": "pilot Wan/LTX 30 + batch2 200 + batch3 500 (incl. VACE 120); cumulative 730"
     },
     "visibility": "LAN admin API; X-NSFW visible",
     "files": [
@@ -31,7 +33,8 @@
     "builtin_full_hook": false,
     "workspace_uncommitted_seed": true,
     "agents_md": "untouched",
-    "supersedes_count": 30
+    "supersedes_count": 230,
+    "json_uncommitted": true
   },
   "spark_qwen27b_intent_2026_09_07": {
     "date": "2026-09-07",

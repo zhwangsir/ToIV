@@ -4,7 +4,9 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
-**2026-09-07 core RH 家族预设累计 230（无产品 SHA；非 builtin；AGENTS 未动）**：pilot30 + batch2 200（Wan/LTX）；X-NSFW 可见。代码侧未提交 `rh_family_preset_seed.py` + `data/rh_family_presets.json` + env `TOIV_SEED_RH_FAMILY`（默认关）。等产品 SHA 后再加厚上线口径。
+**2026-09-07 core RH 家族预设累计 730（+batch3 500；含 VACE 120；无产品 SHA；非 builtin；AGENTS 未动）**：pilot30 + batch2 200 + batch3 500（含 VACE 120）；X-NSFW 可见。`rh_family_presets.json` 已更到 730 但仍未提交；代码侧未提交 `rh_family_preset_seed.py` + `data/rh_family_presets.json` + env `TOIV_SEED_RH_FAMILY`（默认关）。等产品 SHA 后再加厚上线口径。
+
+**2026-09-07 core RH 家族预设累计 230（历史；计数已 SUPERSEDED→730；无产品 SHA；非 builtin；AGENTS 未动）**：pilot30 + batch2 200（Wan/LTX）；X-NSFW 可见。代码侧未提交 `rh_family_preset_seed.py` + `data/rh_family_presets.json` + env `TOIV_SEED_RH_FAMILY`（默认关）。等产品 SHA 后再加厚上线口径。计数见上条累计 730。
 
 **2026-09-07 core 试点 RH 家族预设 30（历史；计数已 SUPERSEDED→230；无产品 SHA；非 builtin 全量；AGENTS 未动）**：Wan2.2→`wan-nsfw-i2v` 20 + LTX→`ltx-*` 10 已入库 core；LAN admin API，X-NSFW 可见。脚本 `apps/api/app/services/rh_family_preset_seed.py` + `.regen_tmp/seed_rh_wan_ltx_pilot.py`（工作区未提交 seed 文件）。等产品 SHA 或全量挂接后再加厚。计数见上条累计 230。
 
