@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 UI P3 封面 expand_top LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260906-225725-b22d0af-dirty`；封面 expand_top；主改 api。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
+
 **2026-09-07 UI P2 库占位 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260906-225725-b22d0af-dirty`；ThumbPlaceholder 按类型。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
 
 **2026-09-07 UI P1 主题对比度 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260906-225049-7588708-dirty`；cinema/graphite 暗色轨对比度修复。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
