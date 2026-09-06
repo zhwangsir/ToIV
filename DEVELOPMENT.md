@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 provenance 剥离 + Admin knowledge-graph（本地未 commit；部署中；无产品 SHA；非现网；AGENTS 未动）**：本地已加 provenance 剥离 + Admin knowledge-graph API；普通用户去 RH:{id}/civitai_url，管理员保留；未 commit、部署中；勿写已上 core / LIVE。上线后再改 AGENTS 口径。
+
 **2026-09-07 市场合并首片 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260906-224447-8e33d9e-dirty`；api :8090 / web :3100 200；`GET /api/models/nsfw-recommendations` 无 `X-NSFW` → 403（verified）；资源区 R18 推荐仅 admin+R18；ModelsView 模型市场 Civitai|HuggingFace 切换。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
 
 **2026-09-07 市场合并首片本地已改（历史；SUPERSEDED→on core LAN uncommitted；无产品 SHA；未 commit；当时准备部署 core LAN；非现网；AGENTS 当时未动）**：资源区 R18 推荐仅 admin+R18；`GET /api/models/nsfw-recommendations` 无 `X-NSFW` → 403；ModelsView 模型市场 Civitai|HuggingFace 切换。工作区产品改动仍未提交。现已上 core LAN（未 commit），见上条 LIVE on core LAN。

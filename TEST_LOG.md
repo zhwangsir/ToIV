@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-07 provenance 剥离 + Admin knowledge-graph（本地未 commit；部署中；无产品 SHA；非现网；docs only）：本地已加 provenance 剥离 + Admin knowledge-graph API；普通用户去 RH:{id}/civitai_url，管理员保留；AGENTS 未动，上线后再改口径。勿写 LIVE on core。
+
 - 2026-09-07 市场合并首片已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260906-224447-8e33d9e-dirty`；api :8090 / web :3100 200；GET /api/models/nsfw-recommendations 无 X-NSFW → 403；资源区 R18 推荐仅 admin+R18；ModelsView Civitai|HF；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
 - 2026-09-07 市场合并首片本地已改（历史；SUPERSEDED→on core LAN uncommitted；无产品 SHA；未 commit；当时准备部署 core LAN；非现网；docs only）：资源区 R18 推荐仅 admin+R18；GET /api/models/nsfw-recommendations 无 X-NSFW → 403；ModelsView 模型市场 Civitai|HuggingFace 切换；产品代码工作区未提交；AGENTS 当时未动。现已上 core LAN，见上条。

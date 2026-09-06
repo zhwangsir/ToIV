@@ -1,7 +1,34 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T07:05:00+08:00",
+  "updated_at": "2026-09-07T07:10:00+08:00",
+  "provenance_kg_2026_09_07": {
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T07:10:00+08:00",
+    "status": "local_uncommitted_deploying",
+    "on_core": false,
+    "live": false,
+    "product_sha": null,
+    "committed": false,
+    "pushed": false,
+    "deploying": true,
+    "source": "ToIV 开发",
+    "changes": [
+      "provenance 剥离：普通用户去 RH:{id}/civitai_url",
+      "管理员保留 provenance / civitai_url",
+      "Admin knowledge-graph API"
+    ],
+    "files_touched_workspace": [
+      "apps/api/app/services/provenance.py",
+      "apps/api/app/services/knowledge_graph.py",
+      "apps/api/app/routes/admin.py",
+      "apps/api/app/routes/apps.py",
+      "apps/api/tests/test_provenance_kg.py"
+    ],
+    "agents_md": "untouched_until_live",
+    "note": "本地已加 provenance 剥离 + Admin knowledge-graph API；未 commit、部署中；无产品 SHA；非现网；勿写 LIVE on core；AGENTS 上线后再改口径",
+    "dirty": true
+  },
   "market_merge_slice1_2026_09_07": {
     "date": "2026-09-07",
     "updated_at": "2026-09-07T07:05:00+08:00",
