@@ -168,7 +168,8 @@ test("基座新 token 存在:--layout-* 版型档 / --content-* 别名 / --leadi
   assert.match(globals, /--layout-wide:\s*1240px/);
   assert.match(globals, /--content-max:\s*var\(--layout-content\)/);
   assert.match(globals, /--content-wide:\s*var\(--layout-wide\)/);
-  assert.match(globals, /--section-gap-lg:\s*24px/);
+  assert.match(globals, /--section-gap-lg:\s*20px/);
+  assert.match(globals, /--grid-gutter-sm:\s*12px/);
   assert.match(globals, /--grid-gutter:\s*16px/);
   assert.match(globals, /--grid-gutter-lg:\s*20px/);
   assert.match(globals, /--media-ar-video:\s*16 \/ 9/);

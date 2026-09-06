@@ -11,24 +11,27 @@
 /* ── 首页门户空态(2026-09-06 单色极简改造):Fraunces 问候展示字 + 输入框
    + 极简场景入口行(无边框纯文字行,hover 极淡底);
    铭牌/模型行/快捷提示 chips/最近作品带全部退役;
-   版心吃 --layout-content,主区块节奏 --section-gap-lg,栅格 gutter 走 --grid-gutter ── */
+   版心吃 --layout-content;2026-09-06 紧凑化:问候字档 display-md→display-sm、
+   主区块节奏 --section-gap-lg→--space-3、内容整体上移(flex-start + clamp 顶距) ── */
 
-/* 门户容器:内容极简后回归垂直居中(基座 .av-empty 即居中,此处只给列宽);
-   min-height:100% 撑满对话区,否则居中失效内容贴顶(生产实测抓获);
-   内容超出时容器自然长高,居中退化为顶对齐,无裁切 */
+/* 门户容器(2026-09-06 紧凑化:内容整体上移到视口上段,不再垂直居中——
+   居中态首屏下 60% 全空,用户反馈留白过多;顶距 clamp 随视口高度弹性,下限 space-8);
+   min-height:100% 保留撑满对话区,内容超出时自然滚动 */
 .av-empty.av-portal {
   width: 100%;
   max-width: var(--layout-content);
   margin: 0 auto;
   min-height: 100%;
+  justify-content: flex-start;
+  padding-top: clamp(var(--space-8), 14vh, 132px);
 }
 
 .av-portal-composer {
   width: 100%;
 }
 
-/* 问候区:Fraunces 展示字(--text-display-md 档,letter-spacing -0.01em);
-   2026-09-06 单色极简:副文案与 italic 着色退役,纯单色标题 */
+/* 问候区:Fraunces 展示字(2026-09-06 紧凑化:--text-display-md→--text-display-sm 档,
+   letter-spacing -0.01em);2026-09-06 单色极简:副文案与 italic 着色退役,纯单色标题 */
 .av-portal-hero {
   display: flex;
   flex-direction: column;
@@ -38,7 +41,7 @@
 .av-portal-greeting {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--text-display-md);
+  font-size: var(--text-display-sm);
   font-weight: var(--font-medium);
   letter-spacing: -0.01em;
   line-height: 1.25;
@@ -50,7 +53,8 @@
 .av-scene-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-2) var(--grid-gutter);
+  /* 2026-09-06 紧凑化:行距 space-2→space-1,列距 --grid-gutter→space-3 */
+  gap: var(--space-1) var(--space-3);
   width: 100%;
 }
 .av-scene-card {

@@ -23,14 +23,15 @@
   max-width: var(--layout-content);
 }
 
-/* 行:全宽 button,hairline 底分隔,hover/focus soft 底 + 左侧琥珀指示条 */
+/* 行:全宽 button,hairline 底分隔,hover/focus soft 底 + 左侧琥珀指示条;
+   2026-09-06 紧凑化:纵向 padding space-4(16)→space-3(12) */
 .fusion-row {
   position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  padding: var(--space-4) var(--space-2);
+  padding: var(--space-3) var(--space-2);
   border: none;
   border-bottom: 1px solid var(--border-subtle);
   background: transparent;
@@ -119,7 +120,7 @@
 
 @media (max-width: 767px) {
   .fusion-row {
-    padding: var(--space-4) var(--space-1);
+    padding: var(--space-3) var(--space-1);
     min-height: 56px; /* 触控目标 */
   }
   .fusion-row-desc {

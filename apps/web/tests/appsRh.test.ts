@@ -31,15 +31,17 @@ function readSrc(rel: string): string {
 
 /* ── ① 市场瀑布流 ── */
 
-test("RH 市场:根节点挂 rh-dark 暗底作用域 + 瀑布流 rh-grid(CSS columns 5/4/3/2)", () => {
+test("RH 市场:根节点挂 rh-dark 暗底作用域 + 瀑布流 rh-grid(CSS columns 6/5/4/2)", () => {
   const src = readSrc("components/apps/AppMarketView.tsx");
   const css = readSrc("app/styles/apps.css");
   assert.ok(src.includes('className="single-view apps-market rh-dark"'), "市场根节点缺 rh-dark 作用域");
   assert.ok(src.includes("apps-grid rh-grid"), "分区网格应挂 rh-grid 瀑布流");
-  assert.match(css, /\.rh-grid \{[\s\S]*?column-count: 5/, "宽档应为 5 列");
-  assert.match(css, /max-width: 1599px[\s\S]*?column-count: 4/, "次宽档应为 4 列");
-  assert.match(css, /max-width: 1199px[\s\S]*?column-count: 3/, "中档应为 3 列");
+  // 2026-09-06 紧凑化:5/4/3/2→6/5/4/2(列宽 ~214→~188px 级)
+  assert.match(css, /\.rh-grid \{[\s\S]*?column-count: 6/, "宽档应为 6 列");
+  assert.match(css, /max-width: 1599px[\s\S]*?column-count: 5/, "次宽档应为 5 列");
+  assert.match(css, /max-width: 1199px[\s\S]*?column-count: 4/, "中档应为 4 列");
   assert.match(css, /max-width: 767px[\s\S]*?column-count: 2/, "窄档应为 2 列");
+  assert.match(css, /\.rh-grid \{[\s\S]*?column-gap: var\(--grid-gutter-sm\)/, "gutter 应走紧凑档 --grid-gutter-sm");
   assert.match(css, /\.rh-grid \.apps-card \{[\s\S]*?break-inside: avoid/, "卡片须 break-inside:avoid 防跨列截断");
 });
 
@@ -91,14 +93,15 @@ test("数据诚实:卡片只展示真实 usage_count,不造点赞/收藏", () =>
 
 /* ── ② 详情页两栏 ── */
 
-test("RH 详情:rh-dark + 两栏(左 rh-params 380px / 右 rh-preview)+ 顶条 rh-seg 保留简洁/工作流", () => {
+test("RH 详情:rh-dark + 两栏(左 rh-params 340px / 右 rh-preview)+ 顶条 rh-seg 保留简洁/工作流", () => {
   const src = readSrc("components/apps/AppRunnerView.tsx");
   const css = readSrc("app/styles/apps.css");
   assert.ok(src.includes('className="single-view apps-runner rh-dark"'), "详情根节点缺 rh-dark");
   assert.ok(src.includes("rh-runner-body"), "缺两栏容器");
   assert.ok(src.includes("rh-params"), "缺左参数列");
   assert.ok(src.includes("rh-preview"), "缺右预览列");
-  assert.match(css, /grid-template-columns: 380px minmax\(0, 1fr\)/, "宽屏应为 380px + 弹性两栏");
+  // 2026-09-06 紧凑化:380→340
+  assert.match(css, /grid-template-columns: 340px minmax\(0, 1fr\)/, "宽屏应为 340px + 弹性两栏");
   assert.match(css, /max-width: 1023px[\s\S]*?\.rh-runner-body[\s\S]*?minmax\(0, 1fr\)/, "窄屏应纵向堆叠");
   // 「简洁/工作流」段控保留在顶条,工作流 = AppWorkflowGraph 画布
   assert.ok(src.includes('"simple", "简洁"'), "缺简洁段");

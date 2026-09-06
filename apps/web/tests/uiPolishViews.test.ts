@@ -98,10 +98,11 @@ test("首页空态:极简 console 形态(问候+输入框+场景入口行),门�
   assert.ok(!src.includes("av-works"), "最近作品区应退役");
 
   const css = readSrc("app/styles/assistant.css");
-  // 门户容器回归垂直居中(基座 .av-empty 承载,override 不再压 flex-start)
+  // 2026-09-06 紧凑化:门户内容整体上移(flex-start + clamp 顶距),不再垂直居中
   const portal = cssBlock(css, ".av-empty.av-portal");
-  assert.ok(!portal.includes("flex-start"), "空态应居中而非顶对齐");
-  assert.ok(portal.includes("min-height: 100%"), "空态须撑满对话区才能垂直居中(生产实测贴顶回归)");
+  assert.ok(portal.includes("justify-content: flex-start"), "门户内容上移:应 flex-start 顶对齐 + clamp 顶距");
+  assert.ok(portal.includes("padding-top: clamp("), "门户顶距应走 clamp 弹性档");
+  assert.ok(portal.includes("min-height: 100%"), "空态须撑满对话区");
   for (const deadCss of [".av-quick-row", ".av-recent", ".av-console-wordmark", ".av-portal-sub", ".av-scene-card-desc"]) {
     assert.ok(!css.includes(deadCss), `已退役门户样式残留:${deadCss}`);
   }

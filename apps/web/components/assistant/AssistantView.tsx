@@ -1896,7 +1896,7 @@ export function AssistantView(props?: AssistantViewProps) {
           ) : (
           /* 门户空态(2026-09-06 单色极简改造):Fraunces 问候 + 输入框 + 极简场景入口行;
              铭牌/模型行/快捷提示 chips/最近作品带全部退役;
-             版心 --layout-content,区块节奏 --section-gap-lg(样式在 assistant.css 门户区块) */
+             版心 --layout-content,区块节奏 --space-3(2026-09-06 紧凑化;样式在 assistant.css 门户区块) */
           <div className="av-empty av-portal av-portal--console">
             {llmOffline ? (
               /* W5 助手离线降级:对话框让位「离线提示 + 全量工作台导航」 */
@@ -2404,10 +2404,10 @@ export function AssistantView(props?: AssistantViewProps) {
           max-width: 440px;
           margin-bottom: var(--space-5);
         }
-        /* 门户 console 形态(2026-09-04 W2B):主区块间距走宽松区块档 --section-gap-lg */
+        /* 门户 console 形态(2026-09-06 紧凑化):主区块间距 24→12(--space-3),
+           垂直定位交 assistant.css .av-empty.av-portal(上移 flex-start + clamp 顶距) */
         .av-portal--console {
-          justify-content: center;
-          gap: var(--section-gap-lg);
+          gap: var(--space-3);
         }
 
         /* ───── 消息列表(720px 居中列;Studio Console v1 文档式,无气泡/头像) ───── */

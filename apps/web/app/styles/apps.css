@@ -7,7 +7,8 @@
 .apps-market {
   display: flex;
   flex-direction: column;
-  gap: var(--section-gap);
+  /* 2026-09-06 紧凑化:分区间距 --section-gap(16)→space-3(12) */
+  gap: var(--space-3);
   min-height: 0;
 }
 
@@ -24,7 +25,8 @@
   gap: var(--space-2);
   flex: 1 1 260px;
   min-width: 0;
-  height: 34px;
+  /* 2026-09-06 紧凑化:34→32 */
+  height: 32px;
   padding: 0 var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
@@ -852,11 +854,12 @@
 }
 /* RH-ACCENT-END */
 
-/* 市场/详情根:暗底铺满滚动区(壳层 gutter 内嵌,dark panel 即舞台语义) */
+/* 市场/详情根:暗底铺满滚动区(壳层 gutter 内嵌,dark panel 即舞台语义);
+   2026-09-06 紧凑化:顶 padding --section-gap(16)→space-3(12) */
 .apps-market.rh-dark,
 .apps-runner.rh-dark {
   min-height: 100%;
-  padding: var(--section-gap) var(--page-gutter) var(--section-gap-lg);
+  padding: var(--space-3) var(--page-gutter) var(--section-gap-lg);
 }
 
 /* ── 荧光段控(壳层 MarketView + 详情顶条共用):暗轨 + 激活荧光 pill 黑字 ── */
@@ -876,36 +879,31 @@
   font-weight: var(--font-semibold);
 }
 
-/* ── 瀑布流:CSS columns 5/4/3/2 响应式(断点 -1 约定);卡片 break-inside 防跨列截断 ── */
+/* ── 瀑布流:CSS columns 6/5/4/2 响应式(断点 -1 约定);卡片 break-inside 防跨列截断;
+   2026-09-06 紧凑化:5/4/3/2→6/5/4/2(列宽 ~214→~188px 级),gutter 20/16→紧凑档 --grid-gutter-sm(12) ── */
 .rh-grid {
   display: block;
-  column-count: 5;
-  column-gap: var(--grid-gutter-lg);
+  column-count: 6;
+  column-gap: var(--grid-gutter-sm);
 }
 @media (max-width: 1599px) {
   .rh-grid {
-    column-count: 4;
+    column-count: 5;
   }
 }
 @media (max-width: 1199px) {
   .rh-grid {
-    column-count: 3;
+    column-count: 4;
   }
 }
 @media (max-width: 767px) {
   .rh-grid {
     column-count: 2;
-    column-gap: var(--grid-gutter);
   }
 }
 .rh-grid .apps-card {
   break-inside: avoid;
-  margin-bottom: var(--grid-gutter-lg);
-}
-@media (max-width: 767px) {
-  .rh-grid .apps-card {
-    margin-bottom: var(--grid-gutter);
-  }
+  margin-bottom: var(--grid-gutter-sm);
 }
 /* columns 布局下共享空态占满整行 */
 .rh-grid .at-empty--inline {
@@ -1024,7 +1022,8 @@
 .rh-card:focus-visible .rh-card-run {
   opacity: 1;
 }
-/* 底部 scrim:渐变压黑 + 白字标题(600)+ 作者行 + mono 用量 */
+/* 底部 scrim:渐变压黑 + 白字标题(600)+ 作者行 + mono 用量;
+   2026-09-06 紧凑化:渐变高度 32→24,底 padding 12→8 */
 .rh-card-scrim {
   position: absolute;
   left: 0;
@@ -1033,7 +1032,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-8) var(--space-3) var(--space-3);
+  padding: var(--space-6) var(--space-3) var(--space-2);
   background: linear-gradient(to top, rgba(5, 6, 8, 0.86) 0%, rgba(5, 6, 8, 0.4) 55%, rgba(5, 6, 8, 0) 100%);
 }
 .rh-card-name {
@@ -1083,10 +1082,10 @@
   flex-shrink: 0;
 }
 
-/* ── 详情页两栏:>1023px 左 380px 参数列 / 右预览;窄屏纵向堆叠 ── */
+/* ── 详情页两栏:>1023px 左 340px 参数列 / 右预览(2026-09-06 紧凑化 380→340);窄屏纵向堆叠 ── */
 .rh-runner-body {
   display: grid;
-  grid-template-columns: 380px minmax(0, 1fr);
+  grid-template-columns: 340px minmax(0, 1fr);
   gap: var(--section-gap-lg);
   align-items: start;
 }
@@ -1098,7 +1097,8 @@
 .rh-params {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  /* 2026-09-06 紧凑化:space-3→space-2 */
+  gap: var(--space-2);
   min-width: 0;
 }
 @media (min-width: 1024px) {
@@ -1137,7 +1137,8 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 40px;
+  /* 2026-09-06 紧凑化:40→36 */
+  min-height: 36px;
   padding: 0 var(--space-3);
   border: none;
   background: transparent;
@@ -1161,8 +1162,9 @@
 .rh-section-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: 0 var(--space-3) var(--space-3);
+  /* 2026-09-06 紧凑化:字段间距 space-3→space-2,底 padding space-3→space-2 */
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-2);
 }
 
 /* 数值 stepper:− / input / + 一组 */
@@ -1272,7 +1274,8 @@
 .rh-preview-cover[data-category="edit"] { background: var(--rh-ph-edit); }
 .rh-preview-cover[data-category="3d"] { background: var(--rh-ph-3d); }
 .rh-preview-cover .rh-card-img {
-  max-height: 480px;
+  /* 2026-09-06 紧凑化:480→400 */
+  max-height: 400px;
   object-fit: cover;
 }
 .rh-history {
@@ -1286,9 +1289,11 @@
   font-weight: var(--font-semibold);
   color: var(--rh-text-1);
 }
-/* 结果网格在暗底收窄基准(详情右列密度高于作品库) */
+/* 结果网格在暗底收窄基准(详情右列密度高于作品库);
+   2026-09-06 紧凑化:180→160,gutter --grid-gutter(16)→紧凑档 12 */
 .rh-dark .rh-history-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
+  gap: var(--grid-gutter-sm);
 }
 
 /* 顶条内作者行与 ▶ 用量徽标 */

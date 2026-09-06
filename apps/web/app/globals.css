@@ -196,10 +196,12 @@
   --content-max: var(--layout-content);
   --content-wide: var(--layout-wide);
   /* 节奏档:页头下间距 / 工具条与内容区间距;区块间距在 --section-gap(16)
-     基础上增补宽松档 24(大区块/首屏英雄区与正文之间) */
-  --layout-header-gap: var(--space-4);
+     基础上增补宽松档 20(大区块/首屏英雄区与正文之间;2026-09-06 紧凑化 24→20) */
+  --layout-header-gap: var(--space-3); /* 2026-09-06 紧凑化:space-4→space-3 */
   --layout-toolbar-gap: var(--space-3);
-  /* 栅格 gutter 档:默认 16,宽松陈列(作品网格/市场卡)20;最小呼吸仍 ≥8(--space-2) */
+  /* 栅格 gutter 档:紧凑陈列(市场瀑布流/详情历史)12,默认 16,宽松陈列(作品网格)20;
+     最小呼吸仍 ≥8(--space-2) */
+  --grid-gutter-sm: 12px;
   --grid-gutter: 16px;
   --grid-gutter-lg: 20px;
   /* 媒体卡宽高比(aspect-ratio 值):视频 16/9,图片 1/1,缩略图 4/3 */
@@ -216,8 +218,8 @@
      间距基准档,网格最小呼吸 ≥8px(--space-2) ── */
   --page-gutter: clamp(12px, 2vw, 24px);
   --section-gap: 16px;
-  /* 宽松区块档(2026-09-04 美化 W0):首屏英雄区/大区块之间的展开节奏 */
-  --section-gap-lg: 24px;
+  /* 宽松区块档(2026-09-04 美化 W0;2026-09-06 紧凑化 24→20):首屏英雄区/大区块之间的展开节奏 */
+  --section-gap-lg: 20px;
 
   /* ── z-index(2026-08-14 UI-A:stage.css 裸值 0-30 映射建议注释档 ──
      0  舞台内容基线(stage-media-wrap / stage-loading);
