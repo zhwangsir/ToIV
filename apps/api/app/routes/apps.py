@@ -12,6 +12,13 @@ M1 CRUD(可见性三区同 routes/agents 范式):
 - DELETE /api/apps/{id}:同上(内置 403;个人属主可删;公共需 admin)。
 - POST /api/apps/{id}/fork:复制为个人应用(user_id=本人,is_public=False)。
 
+M6 封面(RunningHub 化,2026-09-06):
+- POST /api/apps/{id}/cover:上传封面图(multipart file,仅 admin;png/jpg/webp/gif
+  ≤8MB,魔数校验),落 content_subdir("app-covers"),cover_url 写库;替换时删旧文件。
+- GET /api/apps/covers/file/{name}:封面回读(登录用户;<img> 走 ?token= 回退)。
+- POST /api/apps/covers/generate:admin 触发批量生成(services/app_covers;
+  execute=false 干跑只回待生成清单;单飞,运行中重复触发 409)。
+
 M2 运行器:
 - POST /api/apps/{id}/run:按 params_schema 校验表单值(类型/min/max/枚举/required)
   → 按 bindings 写进 workflow_json 深拷贝的指定节点 inputs/widgets_values 叶子
@@ -33,7 +40,8 @@ import re
 import time
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
@@ -49,9 +57,13 @@ from app.models import App, Job, User, _now
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.agents import _slugify
+from app.routes.images import _ranged_response
+from app.routes.upload import _sniff_media
 from app.routes.video import _raise_from_comfy_error
+from app.services import app_covers as covers_svc
 from app.services.app_packager import ICON_WHITELIST, package_with_llm
 from app.services.workflow_analyzer import analyze_workflow
+from app.storage import content_subdir
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +178,8 @@ class AppCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=500)
     icon: str = Field(default="app-window", max_length=64)
+    cover_url: str = Field(default="", max_length=500)  # 封面 URL(可用 /api/apps/{id}/cover 上传)
+    author: str = Field(default="", max_length=120)
     category: str = "other"
     workflow_json: dict
     params_schema: list[dict] = Field(default_factory=list)
@@ -227,6 +241,8 @@ class AppPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=500)
     icon: str | None = Field(default=None, max_length=64)
+    cover_url: str | None = Field(default=None, max_length=500)
+    author: str | None = Field(default=None, max_length=120)
     category: str | None = None
     workflow_json: dict | None = None
     params_schema: list[dict] | None = None
@@ -291,6 +307,8 @@ class AppOut(BaseModel):
     name: str
     description: str
     icon: str
+    cover_url: str = ""  # 封面图 URL(空 = 前端回退图标);slim 列表也下发
+    author: str = ""  # 作者(内置="ToIV 官方";rh-* 社区卡=原作者)
     category: str
     params_schema: list[dict]
     bindings: dict
@@ -333,6 +351,8 @@ def _to_out(a: App, viewer: User, *, with_workflow: bool = False, slim: bool = F
         name=a.name,
         description=a.description,
         icon=a.icon,
+        cover_url=a.cover_url or "",
+        author=a.author or "",
         category=a.category,
         params_schema=[] if slim else (a.params_schema or []),
         bindings={} if slim else (a.bindings or {}),
@@ -675,6 +695,8 @@ def create_app(
         name=body.name,
         description=body.description,
         icon=body.icon,
+        cover_url=body.cover_url,
+        author=body.author,
         category=body.category,
         workflow_json=body.workflow_json,
         params_schema=body.params_schema,
@@ -715,7 +737,8 @@ def update_app(
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
     for f in (
-        "name", "description", "icon", "category", "workflow_json", "params_schema",
+        "name", "description", "icon", "cover_url", "author", "category",
+        "workflow_json", "params_schema",
         "bindings", "required_nodes", "output_kind", "submit_kind",
         "is_nsfw", "is_public", "sort",
     ):
@@ -739,6 +762,7 @@ def delete_app(
     """删应用;内置 403;个人应用属主可删;公共应用需 admin。"""
     a = _get_visible(session, aid, user)
     _check_editable(a, user, "删除")
+    _remove_cover_file(a.cover_url)  # 本服务托管的封面随应用删除(外链不动)
     session.delete(a)
     session.commit()
     return {"ok": True, "id": aid}
@@ -760,6 +784,8 @@ def fork_app(
         name=src.name,
         description=src.description,
         icon=src.icon,
+        cover_url=src.cover_url or "",
+        author=src.author or "",
         category=src.category,
         workflow_json=copy.deepcopy(src.workflow_json or {}),
         params_schema=copy.deepcopy(src.params_schema or []),
@@ -1087,3 +1113,134 @@ def confirm_import_app(
     session.commit()
     session.refresh(a)
     return _to_out(a, user, with_workflow=True)
+
+
+
+# ---------------------------------------------------------------------------
+# 路由:M6 封面(RunningHub 化,2026-09-06)
+# ---------------------------------------------------------------------------
+_COVER_NAME_RE = re.compile(r"^appcover-[0-9a-f]{32}\.(png|jpg|webp|gif)$")
+_COVER_URL_PREFIX = "/api/apps/covers/file/"
+_COVER_MAX_BYTES = 8 * 1024 * 1024  # 8MB(卡片封面足够;防内存撑爆同 upload 纪律)
+_COVER_IMAGE_KINDS = {"png", "jpg", "webp", "gif"}  # _sniff_media 魔数口径
+_COVER_MIME = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "webp": "image/webp",
+    "gif": "image/gif",
+}
+
+
+def _remove_cover_file(url: str) -> None:
+    """删除本服务托管的封面文件(替换/删应用时);外链与非法名一律不动,失败只告警。"""
+    if not url or not url.startswith(_COVER_URL_PREFIX):
+        return
+    name = url[len(_COVER_URL_PREFIX):]
+    if not _COVER_NAME_RE.fullmatch(name):
+        return
+    try:
+        (content_subdir("app-covers") / name).unlink(missing_ok=True)
+    except OSError as e:
+        logger.warning("封面文件删除失败 %s: %s", name, e)
+
+
+@router.post("/{aid}/cover", response_model=AppOut)
+async def upload_app_cover(
+    aid: str,
+    file: UploadFile,
+    admin: User = Depends(get_current_admin),
+    session: Session = Depends(get_session),
+) -> AppOut:
+    """上传应用封面(仅 admin;内置/公共/个人应用均可,运营维护操作)。
+
+    三重校验:Content-Type 须 image/* + 魔数白名单(png/jpg/webp/gif)+ ≤8MB;
+    落 content_subdir("app-covers") 并把 /api/apps/covers/file/{name} 写进
+    App.cover_url;替换时旧文件(本服务托管的)一并删除。
+    """
+    a = session.get(App, aid)
+    if not a:
+        raise HTTPException(status_code=404, detail="应用不存在")
+    if file.content_type and not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=415, detail="仅接受图片文件(png/jpg/webp/gif)")
+    content = await file.read(_COVER_MAX_BYTES + 1)
+    if len(content) > _COVER_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="封面图过大(上限 8MB)")
+    kind = _sniff_media(content)
+    if kind not in _COVER_IMAGE_KINDS:
+        raise HTTPException(status_code=415, detail="不是有效图片文件(魔数校验失败)")
+    name = f"appcover-{uuid.uuid4().hex}.{kind}"
+    try:
+        (content_subdir("app-covers") / name).write_bytes(content)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"封面目录不可写:{e}") from e
+    old_url = a.cover_url or ""
+    a.cover_url = f"{_COVER_URL_PREFIX}{name}"
+    a.updated_at = _now()
+    session.add(a)
+    session.commit()
+    session.refresh(a)
+    _remove_cover_file(old_url)
+    return _to_out(a, admin, with_workflow=True)
+
+
+@router.get("/covers/file/{name}")
+async def app_cover_file(
+    name: str,
+    request: Request,
+    user: User = Depends(get_current_user),  # <img> 走 ?token= 查询参数(deps 内置回退)
+) -> Response:
+    """封面回读(手动 Range,同 chromakey 产物服务口径)。"""
+    if not _COVER_NAME_RE.fullmatch(name):
+        raise HTTPException(status_code=400, detail="非法文件名")
+    path = content_subdir("app-covers") / name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="封面不存在")
+    ext = name.rsplit(".", 1)[1]
+    return _ranged_response(path.read_bytes(), _COVER_MIME[ext], request.headers.get("range"))
+
+
+class CoversGenerateRequest(BaseModel):
+    limit: int = Field(default=20, ge=1, le=200)  # 本批最多生成多少个目标
+    batch_size: int = Field(default=2, ge=1, le=8)  # 批内并发(限速)
+    execute: bool = True  # false = 干跑,只回待生成清单不烧 GPU
+
+
+@router.post("/covers/generate")
+async def generate_app_covers(
+    body: CoversGenerateRequest,
+    admin: User = Depends(get_current_admin),
+    pool: WorkerPool = Depends(get_pool),
+    session: Session = Depends(get_session),
+) -> dict:
+    """触发应用封面批量生成(仅 admin,异步任务式,单飞)。
+
+    目标 = cover_url 为空的内置应用 + rh-* 家族(按 base_id 去重,同族共享封面),
+    见 services/app_covers.plan_cover_targets;执行链 txt2img 提交 → 轮询 →
+    下载落本地 → 回写 cover_url,分批限速。execute=false 干跑只回清单。
+    """
+    targets = covers_svc.plan_cover_targets(session)
+    planned = targets[: body.limit]
+    payload = {
+        "total_pending": len(targets),
+        "planned": len(planned),
+        "items": [t.to_dict() for t in planned],
+    }
+    if not body.execute or not planned:
+        return {"started": False, **payload}
+    if covers_svc.spawn_generation(pool, planned, batch_size=body.batch_size) is None:
+        raise HTTPException(status_code=409, detail="封面生成任务已在运行中")
+    audit.record(
+        session, user=admin, action="app.covers_generate", target_type="app",
+        target_id="", summary=f"触发应用封面批量生成:{len(planned)} 个目标",
+        detail={"limit": body.limit, "batch_size": body.batch_size},
+    )
+    session.commit()
+    return {"started": True, **payload}
+
+
+@router.get("/covers/generate/status")
+def app_covers_generate_status(
+    admin: User = Depends(get_current_admin),
+) -> dict:
+    """最近一次封面生成批次状态(运行中/汇总);从未运行返回 never_run。"""
+    return covers_svc.last_generation_summary() or {"running": False, "never_run": True}

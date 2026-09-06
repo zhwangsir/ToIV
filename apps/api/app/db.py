@@ -87,6 +87,9 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("entity", "nsfw", "nsfw BOOLEAN NOT NULL DEFAULT FALSE"),
     ("entity", "reference_status", "reference_status VARCHAR NOT NULL DEFAULT ''"),
     ("entity", "reference_error", "reference_error VARCHAR NOT NULL DEFAULT ''"),
+    # 应用市场 RunningHub 化(2026-09-06):App 封面/作者列(纯展示元数据)
+    ("app", "cover_url", "cover_url VARCHAR NOT NULL DEFAULT ''"),
+    ("app", "author", "author VARCHAR NOT NULL DEFAULT ''"),
 )
 
 # 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。

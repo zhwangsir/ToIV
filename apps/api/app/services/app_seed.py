@@ -180,12 +180,13 @@ def _b(node: str, field: str) -> dict:
 
 def _spec(id: str, name: str, description: str, *, icon: str, category: str,
           output_kind: str, workflow_json: dict, params_schema: list[dict],
-          bindings: dict, is_nsfw: bool, sort: int) -> dict:
+          bindings: dict, is_nsfw: bool, sort: int, author: str = "ToIV 官方") -> dict:
     return {
         "id": id, "name": name, "description": description,
         "icon": icon, "category": category, "output_kind": output_kind,
         "workflow_json": workflow_json, "params_schema": params_schema,
         "bindings": bindings, "is_nsfw": is_nsfw, "sort": sort,
+        "author": author,
     }
 
 
@@ -1236,6 +1237,9 @@ def seed_builtin_apps(session: Session) -> int:
                 row.output_kind = spec["output_kind"]
                 row.is_nsfw = spec["is_nsfw"]
                 row.sort = spec["sort"]
+                # 作者随规格(代码即正典)覆盖;cover_url 不碰——封面由上传/生成写入,
+                # seed 无权清掉(规格里本来就没有封面信息)
+                row.author = spec.get("author") or ""
                 row.updated_at = now
                 session.add(row)
             continue
@@ -1257,6 +1261,7 @@ def seed_builtin_apps(session: Session) -> int:
                 is_public=True,
                 user_id="",
                 usage_count=0,
+                author=spec.get("author") or "",
                 sort=spec["sort"],
                 created_at=now,
                 updated_at=now,

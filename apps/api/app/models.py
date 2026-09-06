@@ -301,6 +301,10 @@ class App(SQLModel, table=True):
     name: str
     description: str = ""  # 一句话简介
     icon: str = "app-window"  # lucide-react 图标名
+    # RunningHub 化(2026-09-06):封面图 URL(本服务 /api/apps/covers/file/{name}
+    # 或外链;空 = 前端回退图标展示)与作者(内置="ToIV 官方";rh-* 社区卡=原作者)。
+    cover_url: str = ""
+    author: str = ""
     category: str = "other"  # image | video | audio | edit | 3d | other
     # ComfyUI API 格式 prompt 图({节点id: {class_type, inputs}});运行期深拷贝后按
     # bindings 写叶子值,库内原件永不被改写。JSON 列(同 ReferenceAsset.images 模式)。

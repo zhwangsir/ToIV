@@ -145,6 +145,8 @@ def expand_rh_h3_presets(base_by_id: dict[str, dict[str, Any]]) -> list[dict[str
             "bindings": base["bindings"],
             "is_nsfw": bool(row.get("is_nsfw")),
             "sort": int(row.get("sort") or 4000),
+            # RunningHub 化(2026-09-06):社区作者入库(App.author)
+            "author": str(row.get("author") or ""),
             # 下列键不入库;seed_builtin_apps 只读 App 字段。测试/统计用。
             "rh_base_id": base_id,
             "rh_family": str(row.get("family") or ""),

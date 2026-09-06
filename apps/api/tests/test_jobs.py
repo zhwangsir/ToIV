@@ -441,3 +441,22 @@ def test_rate_limit_blocks_after_max():
     with pytest.raises(HTTPException) as exc:
         enforce_generation_rate_limit(user)
     assert exc.value.status_code == 429
+
+
+def test_job_dict_exposes_app_id():
+    """_job_dict 透出 app_id(2026-09-06 详情页「我的生成」按 app 过滤):
+    从 params 快照解析;非应用作业/快照缺失/损坏回落空串。"""
+    import json as _json
+
+    from app.routes.jobs import _job_dict
+
+    job = Job(tenant_id="t", user_id="u", prompt_id="p1", worker="w", kind="app_run",
+              status="done", result='["/x"]',
+              params=_json.dumps({"app_id": "h3-t2v", "values": {}}, ensure_ascii=False))
+    assert _job_dict(job)["app_id"] == "h3-t2v"
+    plain = Job(tenant_id="t", user_id="u", prompt_id="p2", worker="w", kind="txt2img",
+                status="done", result='["/x"]')
+    assert _job_dict(plain)["app_id"] == ""
+    broken = Job(tenant_id="t", user_id="u", prompt_id="p3", worker="w", kind="app_run",
+                 status="done", result='["/x"]', params="{bad json")
+    assert _job_dict(broken)["app_id"] == ""

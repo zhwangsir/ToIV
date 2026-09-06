@@ -65,6 +65,20 @@ def _batch_id_of(j: Job) -> str:
     return v if isinstance(v, str) else ""
 
 
+def _app_id_of(j: Job) -> str:
+    """来源应用 id(2026-09-06 应用详情页「我的生成」按 app 过滤):从 params 快照解析。
+
+    与 _batch_id_of 同范式:纯增量键,旧前端忽略;非应用作业/快照缺失回落空串。
+    """
+    if not j.params:
+        return ""
+    try:
+        v = json.loads(j.params).get("app_id")
+    except (ValueError, AttributeError):
+        return ""
+    return v if isinstance(v, str) else ""
+
+
 def _job_dict(j: Job) -> dict:
     """作业 → 前端条目(作品库列表与版本链共用同一形状)。"""
     return {
@@ -93,6 +107,8 @@ def _job_dict(j: Job) -> dict:
         "error": j.error or "",
         # 内容分组 id(360° 环绕序列同批归组):无分组为空串;从 params 快照解析
         "batch_id": _batch_id_of(j),
+        # 来源应用 id(2026-09-06 详情页「我的生成」过滤):非应用作业为空串
+        "app_id": _app_id_of(j),
     }
 
 
