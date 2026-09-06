@@ -1,11 +1,31 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T07:30:00+08:00",
+  "updated_at": "2026-09-07T07:35:00+08:00",
+  "ui_p4_market_waterfall_2026_09_07": {
+    "status": "on_core_lan_uncommitted_no_product_sha",
+    "live": true,
+    "on_core": true,
+    "committed": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "build_id": "20260906-231138-69957d0-dirty",
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T07:35:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "changes": [
+      "市场瀑布流",
+      "详情页"
+    ],
+    "note": "UI P4 市场瀑布流/详情已上 core LAN（真机）；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260906-231138-69957d0-dirty；AGENTS 按真机更新",
+    "supersedes": "ui_p4_miniprogram_theme_2026_09_07 prior next=市场瀑布流/详情 intent"
+  },
   "ui_p4_miniprogram_theme_2026_09_07": {
     "date": "2026-09-07",
-    "updated_at": "2026-09-07T07:30:00+08:00",
-    "status": "local_uncommitted_core_build_unchanged",
+    "updated_at": "2026-09-07T07:35:00+08:00",
+    "status": "SUPERSEDED_by_ui_p4_market_waterfall_on_core",
     "on_core": false,
     "live": false,
     "committed": false,
@@ -13,8 +33,10 @@
     "dirty": true,
     "pushed": false,
     "source": "ToIV 开发",
-    "note": "align MiniProgram theme to web v9; next=市场瀑布流/详情",
-    "agents_md": "updated_local_intent_only"
+    "note": "SUPERSEDED→市场瀑布流/详情已上 core（见 ui_p4_market_waterfall_2026_09_07）。小程序主题对齐 web v9 仍可能在本地 dirty 树中单独未 commit；非本次 LIVE 主体。此前 status=local_uncommitted_core_build_unchanged。",
+    "agents_md": "updated_local_intent_superseded",
+    "prior_status": "local_uncommitted_core_build_unchanged",
+    "superseded_by": "ui_p4_market_waterfall_2026_09_07"
   },
   "ui_p3_cover_expand_top_2026_09_07": {
     "date": "2026-09-07",

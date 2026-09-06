@@ -1,6 +1,8 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-07 UI P4 小程序主题对齐 web v9（INTENT；本地未 commit；core BUILD 未变；未上 core；非现网验证；docs）：align MiniProgram theme to web v9；下一步市场瀑布流/详情；勿写已上 core / LIVE。
+- 2026-09-07 UI P4 市场瀑布流/详情已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260906-231138-69957d0-dirty`；市场瀑布流/详情；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+
+- 2026-09-07 UI P4 小程序主题对齐 web v9（历史；SUPERSEDED→市场瀑布流/详情已上 core；INTENT；本地未 commit；core BUILD 当时未变；未上 core；非现网验证；docs）：align MiniProgram theme to web v9；下一步曾为市场瀑布流/详情。现见上条 LIVE。小程序主题对齐仍可能在本地 dirty 树中单独未 commit。
 
 - 2026-09-07 UI P3 封面 expand_top 已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260906-225725-b22d0af-dirty`；封面 expand_top；主改 api；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
