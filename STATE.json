@@ -1,7 +1,36 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T06:55:00+08:00",
+  "updated_at": "2026-09-07T07:00:00+08:00",
+  "market_merge_slice1_2026_09_07": {
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T07:00:00+08:00",
+    "status": "local_uncommitted_preparing_core_lan",
+    "on_core": false,
+    "live": false,
+    "product_sha": null,
+    "committed": false,
+    "pushed": false,
+    "source": "ToIV 开发",
+    "slice": "market_merge_slice1",
+    "changes": [
+      "资源区 R18 推荐仅 admin+R18",
+      "GET /api/models/nsfw-recommendations 无 X-NSFW → 403",
+      "ModelsView 模型市场 Civitai|HuggingFace 切换"
+    ],
+    "files_touched_workspace": [
+      "apps/api/app/routes/models.py",
+      "apps/api/tests/test_r18.py",
+      "apps/web/components/models/ModelsView.tsx",
+      "apps/web/components/models/NsfwRecsPanel.tsx",
+      "apps/web/e2e/r18-mode.spec.ts",
+      "apps/web/lib/api.ts",
+      "apps/web/tests/uiBViews.test.ts"
+    ],
+    "preparing": "core LAN deploy",
+    "agents_md": "untouched",
+    "note": "市场合并首片本地已改；未 commit；准备部署 core LAN；勿写成已上 core / LIVE；AGENTS 未动"
+  },
   "embed_spark01_2026_09_07": {
     "date": "2026-09-07",
     "updated_at": "2026-09-07T06:50:00+08:00",
@@ -216,7 +245,7 @@
     "verify": "core LAN only http://192.168.71.47:3100; ThemePicker + 4 presets home/market + purple accent + minimal dark; shots /tmp/theme-prod/ and .regen_tmp/theme-prod/",
     "verify_discipline": "local or core LAN only; forbid toiv.wineryz.top",
     "agents_md": "untouched",
-    "market_merge": "not_started (HF/RH/Civitai, de-R18 recommend, model source)"
+    "market_merge": "slice1 local_uncommitted_preparing_core_lan (see market_merge_slice1_2026_09_07); not live on core"
   },
   "beautify_direction_a_2026_09_04": {
     "date": "2026-09-04",
