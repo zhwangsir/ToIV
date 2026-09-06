@@ -18,25 +18,34 @@
 
 ## 2. 色彩
 
-### 2.1 主题机制（v8 现实）
-- 五色板（wood/mono/mint/apricot）与自定义色板已全部退役，只剩 `:root`（亮）与 `[data-mode="dark"]`（暗）双模式。
-- `[data-pure-black="1"]`：暗色子档，画布压纯黑。
-- 持久化只剩 `toiv_mode` / `toiv_theme_custom`（pureBlack）；`layout.tsx` 内联脚本首帧前写 `data-mode` 防 FOUC。
-- **禁止**在组件内写死颜色值（hex/rgb），一律引用 token。
+### 2.1 主题机制(v9,2026-09-07 主题系统)
+- 三维度：**预设主题** `html[data-theme]` + **明暗模式** `data-mode` + **自定义强调色** `data-accent-custom`。
+- 预设四套（`lib/theme.ts THEME_PRESETS`，持久化 `localStorage["toiv_theme"]`）：
+  | 预设 | 基底 | 说明 |
+  |---|---|---|
+  | `minimal` 极简白（缺省，不写 data-theme） | 亮 | :root 现状单色亮/暗不变 |
+  | `cinema` 影院 | 暗 | 深黑底 #0B0D10 系 + 荧光黄绿 accent #C9F24F（RunningHub 视觉提升为全站主题，色值唯一事实源 = globals.css cinema 块） |
+  | `paper` 纸墨 | 亮 | 暖纸底 #F5EFE3 系 + 墨色文本/近黑 accent（朱色退役，单色纪律） |
+  | `graphite` 石墨 | 暗 | 暗色中性档深化版：画布再压一档 + 纯白 accent |
+- 明暗 `data-mode` 与纯黑子档 `data-pure-black` **仅对亮基底主题（minimal/paper）生效**；cinema/graphite 主题块排在 dark 块之后恒压过 mode，纯黑选择器经 `:not` 排除暗基底主题。
+- 自定义强调色：`localStorage["toiv_accent_custom"]`（hex6）→ FOUC 脚本/lib/theme 写内联 `--accent-user` + `--accent-user-on`（按亮度取近黑/白），`:root[data-accent-custom]` 块用 **color-mix** 派生 hover/soft/halo/glow 覆盖任意主题；「清除自定义」回主题默认。
+- 持久化四 key：`toiv_theme` / `toiv_mode` / `toiv_theme_custom`（pureBlack）/ `toiv_accent_custom`；v7 旧色板名与旧 accent 字段读取时自动迁移/清除；`layout.tsx` 内联脚本首帧前写 dataset 防 FOUC。
+- **禁止**在组件内写死颜色值（hex/rgb），一律引用 token；主题色值唯一事实源是 globals.css 各主题块，新增主题 = 新增一个主题块 + `THEME_PRESETS` 一行。
+- 市场/详情 `.rh-dark` 作用域（2026-09-07 起）零硬编码 UI 色：`--rh-*` 全部映射全站主题令牌，cinema 下呈 RunningHub 观感，亮基底主题下落亮底卡片（封面 scrim 恒深压白字，走 overlay 语义）。
 
 ### 2.2 色彩 Token（必须用这些，禁止新增色系）
 | 用途 | Token |
 |---|---|
 | 背景 | `--bg-canvas` / `--bg-surface-1~3` |
 | 文字 | `--text-primary`（主）/ `--text-secondary`（次）/ `--text-muted`（弱）/ `--text-3`（第三级弱化，secondary 别名） |
-| 强调（中性） | `--accent`（近黑 CTA）/ `--accent-hover` / `--accent-soft` / `--accent-halo`（中性光晕，聚焦环光晕/浮层淡边） |
-| 点睛触点（中性） | `--accent-glow`（2026-09-06 单色极简：琥珀退役，重定义为 `--text-primary` 近黑/近白）/ `--accent-glow-soft`（黑/白 6-8% 底）/ `--accent-glow-deep`（= `--accent`） |
+| 强调 | `--accent`（CTA，随主题：minimal/paper 近黑墨、cinema 荧光绿、graphite 纯白；可被自定义强调色覆盖）/ `--accent-hover` / `--accent-soft` / `--accent-halo`（光晕，聚焦环光晕/浮层淡边） |
+| 点睛触点 | `--accent-glow`（cinema = 荧光绿；其余主题 = `--text-primary` 中性近黑/近白；自定义强调色下 = 自定义色）/ `--accent-glow-soft` / `--accent-glow-deep`（= `--accent`） |
 | 状态 | `--ok` / `--warn` / `--err` / `--run`（及各自 `-soft` 底） |
 | 图表系列 | `--chart-1~5`（数据可视化专用，与状态色分轨） |
 | 玻璃材质 | `--glass-*` |
-| 焦点 | `--focus-ring`（1px `--accent-glow` 中性近黑/近白） |
+| 焦点 | `--focus-ring`（1px `--accent-glow`，随主题/自定义强调色） |
 
-**点睛触点口径（2026-09-06 单色极简）**：琥珀色系退役，`--accent-glow` 重定义为中性色（亮 = `--text-primary` 近黑 / 暗 = 近白），`--accent-glow-soft` 为黑/白 6-8% 透明底，`--accent-glow-deep` = `--accent`。聚焦环、无类名文本链接 hover、`.at-seg` 激活指示、assistant 启动序列、进度条细线填充、形象卡选中态细环/阶段条完成段等既有触点自动黑白化，全站装饰色只剩中性黑白；语义状态色（ok/warn/err/run）保留——它们表达状态不是装饰。
+**点睛触点口径（2026-09-07 主题系统）**：`--accent-glow` 随主题——minimal/paper/graphite 为中性色（= `--text-primary`，单色纪律），cinema 为荧光绿（与 accent 同色），自定义强调色设置后为自定义色；`--accent-glow-soft` 为 accent 系 6-10% 透明底，`--accent-glow-deep` = `--accent`。聚焦环、无类名文本链接 hover、`.at-seg` 激活指示、assistant 启动序列、进度条细线填充等触点全部经令牌自动跟随，**禁止逐处写死**；语义状态色（ok/warn/err/run）保留——它们表达状态不是装饰。
 
 - **单页内容配色 ≤ 5 种**；状态色仅表达状态，不做装饰。
 - ❌ 禁止高饱和彩虹色、大面积闪烁、粒子爆炸、快速闪烁、粒子覆盖文字、纯白色背景无层次。
@@ -124,7 +133,7 @@
 
 - **噪点**：全局 `body::before` 胶片颗粒保留，透明度 0.02（亮/暗同档，暗色反相为亮颗粒）。这是全局唯一允许的常驻装饰。
 - **暗角**：全局 `body::after` 暗角已删除。暗角只属舞台语义，仅在舞台类容器内生效：`.stage-main::after`（stage.css）/ `.at-stage::after`（avatartalk.css），配方统一（canvas 混色径向轻压四角）。
-- **assistant 启动序列**：单色系（`--accent-glow` → `--accent-glow-deep`，2026-09-06 起为中性黑白），cyan/violet 品牌双色已退役；动画时序逻辑不改。
+- **assistant 启动序列**：单色系（`--accent-glow` → `--accent-glow-deep`，随主题/自定义强调色），cyan/violet 品牌双色已退役；动画时序逻辑不改。
 - 其余装饰一律先问「它帮助看清内容了吗」，答不上就删。
 
 ---
@@ -179,7 +188,7 @@
 | 浮层 | `ui/Modal` / `ui/Popover`（fixed 定位防截断；阴影走 `--shadow-pop`） |
 | 页头 | `ui/PageHeader` |
 | 图标 | `ui/Icon` |
-| 主题 | `ui/ThemePicker`（只剩模式段控 + 暗色纯黑开关） |
+| 主题 | `ui/ThemePicker`（四预设色卡网格 + 明暗段控/纯黑开关（仅亮基底主题）+ 自定义强调色） |
 | 图表 | `ui/charts`（`--chart-1~5`） |
 | 3D | `ui/ModelViewer` |
 

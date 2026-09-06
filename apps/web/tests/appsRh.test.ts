@@ -5,7 +5,8 @@
  * ③ 壳层段控:MarketView/详情顶条 rh-seg 荧光 pill
  * ④ 纯函数:normalizeApp cover_url/author 归一 / appAuthorOf 兜底 ToIV / groupAppParams 分组 / placeholderAspect
  * ⑤ 数据诚实:卡片只展示真实 usage_count,不造点赞/收藏
- * ⑥ 暗底作用域:.rh-dark 只挂市场/详情根节点,令牌覆盖仅在作用域内
+ * ⑥ 主题化作用域(2026-09-07):.rh-dark 只挂市场/详情根节点,rh-* 令牌全映射
+ *    全站主题令牌(cinema 主题 = RunningHub 观感),荧光绿色值唯一事实源在 globals.css
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -219,13 +220,22 @@ test("placeholderAspect:4 档宽高比 + 按 id 确定性", () => {
 
 /* ── ⑤ 暗底作用域纪律 ── */
 
-test("rh-dark 令牌覆盖只在作用域内:不影响全站亮/暗主题", () => {
+test("rh-dark 令牌全部映射全站主题令牌(2026-09-07 主题化,不再硬编码深黑)", () => {
   const css = readSrc("app/styles/apps.css");
   const block = css.slice(css.indexOf("/* RH-ACCENT-BEGIN"), css.indexOf("/* RH-ACCENT-END */"));
-  assert.ok(block.includes("--rh-lime: #c9f24f"), "荧光绿唯一事实源应在标记块");
-  assert.ok(block.includes("--rh-bg: #0b0d10"), "深黑底应在标记块");
-  // 全站 token 覆盖必须写在 .rh-dark 作用域块内(不在 :root / 裸选择器)
-  assert.ok(block.includes("--bg-canvas: var(--rh-bg)"), "暗底应经 token 覆盖让子组件继承");
+  // rh-* 作用域令牌 = 全站主题令牌映射(不断言具体 hex,断言引用令牌)
+  assert.ok(block.includes("--rh-lime: var(--accent)"), "荧光绿位应映射 --accent(cinema 主题下即荧光绿)");
+  assert.ok(block.includes("--rh-bg: var(--bg-canvas)"), "底应映射 --bg-canvas(随主题亮/暗)");
+  assert.ok(block.includes("--rh-on-lime: var(--text-on-accent)"), "on-accent 应映射令牌");
+  assert.ok(block.includes("--rh-text-1: var(--text-primary)"), "文本应映射令牌");
+  assert.ok(block.includes("--rh-border: var(--border-subtle)"), "边线应映射令牌");
+  // 作用域内不再覆盖全站 token(主题化后由 globals.css 主题块统一供给)
+  assert.ok(!block.includes("--bg-canvas: var(--rh-bg)"), "作用域 token 覆盖应退役");
+  // 荧光绿色值唯一事实源上移到 globals.css cinema 主题块
   const globals = readSrc("app/globals.css");
+  const iCinema = globals.indexOf('[data-theme="cinema"] {');
+  assert.ok(iCinema > 0, "globals.css 缺 cinema 主题块");
+  const cinema = globals.slice(iCinema, globals.indexOf("\n}", iCinema));
+  assert.ok(cinema.includes("--accent: #C9F24F"), "荧光绿应在 cinema 主题块");
   assert.ok(!globals.includes("--rh-lime"), "rh 令牌不得进 globals.css(作用域纪律)");
 });

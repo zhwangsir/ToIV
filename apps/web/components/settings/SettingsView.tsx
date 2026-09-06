@@ -139,7 +139,7 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
             界面
           </h2>
           <p className="settings-ui-desc">
-            模式与色板即时生效,并同步到所有已打开的标签页;自定义强调色优先级最高。
+            预设主题、明暗与自定义强调色即时生效,并同步到所有已打开的标签页;自定义强调色优先级最高,清除后回到主题默认。
           </p>
           <ThemePicker />
         </section>

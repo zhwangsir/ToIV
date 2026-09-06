@@ -799,30 +799,33 @@
 
 /* ===========================================================================
    RunningHub 化(2026-09-06):市场瀑布流 + 详情两栏,类名 rh- 前缀。
-   配色为用户指定的 RunningHub 视觉(荧光黄绿 + 深黑底,色值见下方标记块),
-   仅在 .rh-dark / .rh-seg 作用域内生效,不污染全站单中性系(UI_STANDARD §2)。
+   2026-09-07 主题系统化:.rh-dark/.rh-seg 作用域不再硬编码深黑+荧光绿,
+   rh-* 令牌全部映射全站主题令牌——cinema 主题下呈现 RunningHub 观感(色值
+   唯一事实源 = globals.css [data-theme="cinema"] 块),minimal/paper 下自动
+   落亮底卡片(封面 scrim 恒深压 + 白字仍成立,走 overlay 语义)。
    =========================================================================== */
 
-/* RH-ACCENT-BEGIN(荧光黄绿 accent 与暗底梯度,用户指定视觉;本块内 hex 为唯一事实源,
-   块外一律引用 var(--rh-*),测试对 hex 的豁免仅限本标记块) */
+/* RH-ACCENT-BEGIN(2026-09-07 主题化:rh-* 令牌 = 全站主题令牌映射,零硬编码 UI 色;
+   本块内仅存占位封面渐变 hex——媒体占位底(等价图片内容),非 UI 色,
+   测试对 hex 的豁免仅限本标记块) */
 .rh-dark,
 .rh-seg {
-  --rh-lime: #c9f24f;
-  --rh-lime-hover: #dcff66;
-  --rh-lime-deep: #9dbf2e;
-  --rh-on-lime: #161905;
-  --rh-bg: #0b0d10;
-  --rh-surface-1: #14171c;
-  --rh-surface-2: #1a1e24;
-  --rh-surface-3: #23282f;
-  --rh-text-1: #f2f4f6;
-  --rh-text-2: #b9c0c9;
-  --rh-text-3: #7d858f;
-  --rh-border: #262b33;
-  --rh-border-strong: #3a414b;
+  --rh-lime: var(--accent);
+  --rh-lime-hover: var(--accent-hover);
+  --rh-lime-deep: var(--accent-glow-deep);
+  --rh-on-lime: var(--text-on-accent);
+  --rh-bg: var(--bg-canvas);
+  --rh-surface-1: var(--bg-surface-1);
+  --rh-surface-2: var(--bg-surface-2);
+  --rh-surface-3: var(--bg-surface-3);
+  --rh-text-1: var(--text-primary);
+  --rh-text-2: var(--text-secondary);
+  --rh-text-3: var(--text-muted);
+  --rh-border: var(--border-subtle);
+  --rh-border-strong: var(--border-strong);
 }
 .rh-dark {
-  /* 占位封面:按 category 给不同色相的暗色渐变 */
+  /* 占位封面:按 category 给不同色相的暗色渐变(媒体占位,不随主题变化) */
   --rh-ph-image: linear-gradient(155deg, #1d2b3a 0%, #0f151d 100%);
   --rh-ph-video: linear-gradient(155deg, #2a2440 0%, #141019 100%);
   --rh-ph-audio: linear-gradient(155deg, #17322b 0%, #0e1713 100%);
@@ -830,31 +833,13 @@
   --rh-ph-3d: linear-gradient(155deg, #20303d 0%, #10171d 100%);
   --rh-ph-other: linear-gradient(155deg, #262a31 0%, #121418 100%);
 
-  /* 作用域内覆盖全站 token(仅市场/详情页):子组件(工具栏/chips/ParamField/
-     Empty/LoadingBlock/at-btn)无需改写即落暗底;CTA accent 换荧光绿 */
-  --bg-canvas: var(--rh-bg);
-  --bg-surface-1: var(--rh-surface-1);
-  --bg-surface-2: var(--rh-surface-2);
-  --bg-surface-3: var(--rh-surface-3);
-  --text-primary: var(--rh-text-1);
-  --text-secondary: var(--rh-text-2);
-  --text-muted: var(--rh-text-3);
-  --text-3: var(--rh-text-3);
-  --border-subtle: var(--rh-border);
-  --border-strong: var(--rh-border-strong);
-  --accent: var(--rh-lime);
-  --accent-hover: var(--rh-lime-hover);
-  --accent-soft: rgba(201, 242, 79, 0.12);
-  --accent-halo: rgba(201, 242, 79, 0.35);
-  --text-on-accent: var(--rh-on-lime);
-  --glass-bg: rgba(20, 23, 28, 0.82);
-
   background: var(--rh-bg);
   color: var(--rh-text-1);
 }
 /* RH-ACCENT-END */
 
-/* 市场/详情根:暗底铺满滚动区(壳层 gutter 内嵌,dark panel 即舞台语义);
+/* 市场/详情根:主题底铺满滚动区(壳层 gutter 内嵌;底色随全站主题——
+   cinema 下为深黑,亮基底主题下为亮底卡片);
    2026-09-06 紧凑化:顶 padding --section-gap(16)→space-3(12) */
 .apps-market.rh-dark,
 .apps-runner.rh-dark {

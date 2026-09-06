@@ -1,8 +1,9 @@
 /* ──────────────────────────────────────────────────────────
-   ToIV 设计系统 v8 — Studio Console(2026-08-31)
-   单色中性系:默认亮色 :root + [data-mode="dark"] 暗色;五色板与自定义色板
-   (toiv_theme / toiv_theme_custom)全部退役,持久化只剩 toiv_mode(明暗)与
-   toiv_pure_black(暗色子档);layout.tsx 内联脚本首帧前写 data-mode 防 FOUC。
+   ToIV 设计系统 v9 — Studio Console + 主题系统(2026-09-07)
+   预设主题 html[data-theme]:minimal(缺省,极简白)/paper(纸墨,亮基底)/
+   cinema(影院,荧光绿暗基底)/graphite(石墨,深化暗基底);明暗 data-mode 仅对
+   亮基底主题生效,pureBlack 为暗色子档;自定义强调色 toiv_accent_custom 经
+   [data-accent-custom] 块 color-mix 派生覆盖任意主题。layout.tsx 内联脚本防 FOUC。
    token 驱动 · 4px 间距基数 · 动效 ease-out + spring
    ────────────────────────────────────────────────────────── */
 
@@ -248,9 +249,46 @@
   --bp-xl: 1440px;
 }
 
-/* ========== 主题覆盖块 —— 已全部退役(2026-08-31 Studio Console v1) ==========
-   用户决策:五色板(wood/mono/mint/apricot)收敛为单一中性系,只留 :root(亮)
-   与 [data-mode="dark"](暗)双模式;pureBlack 为暗色子档。 */
+/* ========== 预设主题(2026-09-07 主题系统 v9) ==========
+   html[data-theme] 承载预设主题,minimal(极简白)为缺省(无 data-theme 属性 = :root 现状)。
+   持久化 localStorage["toiv_theme"];明暗 data-mode 仅对亮基底主题(minimal/paper)生效——
+   故 paper 块排在 [data-mode="dark"] 之前(dark 压过 paper),cinema/graphite 为暗基底主题,
+   块排在 dark 之后恒压过 mode。自定义强调色见文末 [data-accent-custom] 块。
+   色值纪律:主题色值唯一事实源即本文件各主题块;组件/视图一律消费 token,禁新硬编码色。 */
+
+/* 纸墨(paper):暖纸底 + 墨色文字 + 近黑墨色 accent(参考 film-atelier 色系,
+   朱色弱化退役,accent 用墨色保单色纪律);状态色在暖纸底上压深半档保 AA */
+[data-theme="paper"] {
+  --bg-canvas: #F5EFE3;
+  --bg-surface-1: #FBF7ED;
+  --bg-surface-2: #EFE7D6;
+  --bg-surface-3: #E7DCC6;
+
+  --border-subtle: rgba(43, 35, 24, 0.10);
+  --border-strong: rgba(43, 35, 24, 0.20);
+
+  --text-primary: #2B2318;
+  --text-secondary: #5C5142;
+  --text-muted: #69604F; /* 在最深 surface-3 #E7DCC6 上 4.56:1,过 AA */
+
+  --accent: #2B2318;
+  --accent-hover: #40372A;
+  --accent-soft: rgba(43, 35, 24, 0.08);
+  --accent-halo: rgba(43, 35, 24, 0.20);
+  --text-on-accent: #F5EFE3;
+  --accent-glow-soft: rgba(43, 35, 24, 0.08);
+  --accent-glow-shadow: 0 2px 12px rgba(43, 35, 24, 0.20);
+
+  /* 状态色压深半档(暖纸底明度低于素白,原值合成底仅 ~4.4 贴边) */
+  --ok: #0A5C2D;
+  --warn: #7A3F05;
+  --err: #A31515;
+
+  /* 玻璃材质:暖纸玻璃 */
+  --glass-bg: rgba(251, 247, 237, 0.82);
+  --glass-border: rgba(43, 35, 24, 0.10);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
 
 /* ========== 暗色模式(2026-08-16 v7,模式单维度) ==========
    data-mode="dark" 覆盖块:localStorage["toiv_mode"] 持久化。
@@ -324,12 +362,148 @@
   --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.60), 0 0 0 1px var(--border-subtle);
 }
 
-/* 纯黑背景(自定义,仅暗色生效):画布压到纯黑,面板阶梯整体下压一档保层级 */
-[data-mode="dark"][data-pure-black="1"] {
+/* 纯黑背景(自定义,仅亮基底主题的暗档生效;cinema/graphite 自带深底,经 :not 排除):
+   画布压到纯黑,面板阶梯整体下压一档保层级 */
+[data-mode="dark"]:not([data-theme="cinema"]):not([data-theme="graphite"])[data-pure-black="1"] {
   --bg-canvas: #000000;
   --bg-surface-1: #101114;
   --bg-surface-2: #16181C;
   --bg-surface-3: #1C1F24;
+}
+
+/* 影院(cinema):深黑底 + 荧光黄绿 accent —— RunningHub 市场视觉提升为全站主题
+   (色值自 apps.css RH-ACCENT 块迁此,RH 作用域改为消费本块令牌)。
+   暗基底:块排在 [data-mode="dark"] 之后,恒压过 mode;状态/图表/玻璃/阴影/叠加与暗档同轨。 */
+[data-theme="cinema"] {
+  color-scheme: dark;
+
+  --bg-canvas: #0B0D10;
+  --bg-surface-1: #14171C;
+  --bg-surface-2: #1A1E24;
+  --bg-surface-3: #23282F;
+
+  --border-subtle: #262B33;
+  --border-strong: #3A414B;
+
+  /* muted #929AA4 在最深 surface-3 #23282F 上 5.21:1(RH 原值 #7d858f 仅 ~4.1,提亮保 AA) */
+  --text-primary: #F2F4F6;
+  --text-secondary: #B9C0C9;
+  --text-muted: #929AA4;
+
+  /* 荧光黄绿 accent 全套(原 RunningHub 荧光绿系,自 apps.css 标记块迁此) */
+  --accent: #C9F24F;
+  --accent-hover: #DCFF66;
+  --accent-soft: rgba(201, 242, 79, 0.12);
+  --accent-halo: rgba(201, 242, 79, 0.35);
+  --text-on-accent: #161905;
+  /* cinema 点睛触点 = 荧光绿(全站聚焦环/链接 hover/at-seg 激活等自动荧光化) */
+  --accent-glow: #C9F24F;
+  --accent-glow-soft: rgba(201, 242, 79, 0.10);
+  --accent-glow-deep: #9DBF2E;
+  --accent-glow-shadow: 0 2px 12px rgba(201, 242, 79, 0.28);
+
+  --ok: #46BE7E;
+  --warn: #E5A34B;
+  --err: #F58484;
+  --ok-soft: rgba(70, 190, 126, 0.14);
+  --warn-soft: rgba(229, 163, 75, 0.14);
+  --err-soft: rgba(245, 132, 132, 0.14);
+
+  --chart-1: #22D3EE;
+  --chart-2: #A78BFA;
+  --chart-3: #FBBF24;
+  --chart-4: #34D399;
+  --chart-5: #F87171;
+
+  --overlay-strong: rgba(0, 0, 0, 0.50);
+  --overlay-light: rgba(0, 0, 0, 0.60);
+  --overlay-stage: rgba(0, 0, 0, 0.88);
+
+  --glass-bg: rgba(20, 23, 28, 0.84);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-blur: blur(28px) saturate(1.2);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.50);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 4px 20px rgba(0, 0, 0, 0.50), 0 0 0 1px var(--border-subtle);
+  --shadow-lift: 0 8px 30px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border-subtle);
+  --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.60), 0 0 0 1px var(--border-subtle);
+}
+
+/* 石墨(graphite):现有暗色中性档的深化版 —— 画布再压一档 + 纯白 accent。
+   暗基底:同 cinema 恒压过 mode。 */
+[data-theme="graphite"] {
+  color-scheme: dark;
+
+  --bg-canvas: #0A0B0D;
+  --bg-surface-1: #101214;
+  --bg-surface-2: #16181C;
+  --bg-surface-3: #1D2025;
+
+  --border-subtle: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.18);
+
+  --text-primary: #F4F4F3;
+  --text-secondary: #A9ACB2;
+  --text-muted: #9A9EA6;
+
+  --accent: #FFFFFF;
+  --accent-hover: #ECECEA;
+  --accent-soft: rgba(255, 255, 255, 0.10);
+  --accent-halo: rgba(255, 255, 255, 0.22);
+  --text-on-accent: #17181A;
+  /* 点睛触点保持中性近白(= 主文字色),单色纪律同 minimal 暗档 */
+  --accent-glow: var(--text-primary);
+  --accent-glow-soft: rgba(245, 245, 244, 0.08);
+  --accent-glow-shadow: 0 2px 12px rgba(255, 255, 255, 0.22);
+
+  --ok: #46BE7E;
+  --warn: #E5A34B;
+  --err: #F58484;
+  --ok-soft: rgba(70, 190, 126, 0.14);
+  --warn-soft: rgba(229, 163, 75, 0.14);
+  --err-soft: rgba(245, 132, 132, 0.14);
+
+  --chart-1: #22D3EE;
+  --chart-2: #A78BFA;
+  --chart-3: #FBBF24;
+  --chart-4: #34D399;
+  --chart-5: #F87171;
+
+  --overlay-strong: rgba(0, 0, 0, 0.50);
+  --overlay-light: rgba(0, 0, 0, 0.60);
+  --overlay-stage: rgba(0, 0, 0, 0.88);
+
+  --glass-bg: rgba(16, 18, 20, 0.86);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-blur: blur(28px) saturate(1.2);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.50);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 4px 20px rgba(0, 0, 0, 0.50), 0 0 0 1px var(--border-subtle);
+  --shadow-lift: 0 8px 30px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border-subtle);
+  --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.60), 0 0 0 1px var(--border-subtle);
+}
+
+/* 自定义强调色(localStorage["toiv_accent_custom"],hex6):FOUC 脚本与 lib/theme
+   写内联 --accent-user + --accent-user-on(按亮度取近黑/白)并置 data-accent-custom;
+   hover/soft/halo/glow 全部由 color-mix 派生,覆盖任意预设主题,清除即回主题默认 */
+:root[data-accent-custom] {
+  --accent: var(--accent-user);
+  --accent-hover: color-mix(in srgb, var(--accent-user) 82%, var(--abs-white));
+  --accent-soft: color-mix(in srgb, var(--accent-user) 10%, transparent);
+  --accent-halo: color-mix(in srgb, var(--accent-user) 28%, transparent);
+  --text-on-accent: var(--accent-user-on);
+  --accent-glow: var(--accent-user);
+  --accent-glow-soft: color-mix(in srgb, var(--accent-user) 10%, transparent);
+  --accent-glow-deep: var(--accent-user);
+  --accent-glow-shadow: 0 2px 12px color-mix(in srgb, var(--accent-user) 30%, transparent);
 }
 
 /* ========== Reset & Base ========== */
@@ -377,8 +551,11 @@ body::before {
    暗角只属舞台语义,现仅舞台类容器内生效——.stage-main::after(stage.css)
    与 .at-stage::after(avatartalk.css),全局页面不再整体压角。 */
 
-/* 暗色装饰层变体:噪点反相为亮颗粒(暗颗粒在深底不可见),alpha 与亮色同档 0.02 */
-[data-mode="dark"] body::before {
+/* 暗色装饰层变体:噪点反相为亮颗粒(暗颗粒在深底不可见),alpha 与亮色同档 0.02;
+   cinema/graphite 暗基底主题同规则(2026-09-07 主题系统 v9) */
+[data-mode="dark"] body::before,
+[data-theme="cinema"] body::before,
+[data-theme="graphite"] body::before {
   opacity: 0.02;
   filter: invert(1);
 }

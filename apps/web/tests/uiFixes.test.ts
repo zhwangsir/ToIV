@@ -208,15 +208,17 @@ test("同页总线:ThemePicker 订阅 THEME_CHANGED_EVENT;跨页 storage 通道�
   );
   assert.equal(
     (picker.match(/useCrossTabSync\(/g) ?? []).length,
-    2, // v8:色板通道退役,只剩 mode + custom 两通道
-    "跨标签页 storage 同步两通道不得删",
+    4, // v9:theme/mode/custom(pureBlack)/accent 四通道
+    "跨标签页 storage 同步四通道不得删",
   );
 
   const theme = readSrc("lib/theme.ts");
   assert.ok(theme.includes('THEME_CHANGED_EVENT = "toiv:theme-changed"'));
-  // v8:applyTheme/applyCustom accent 退役,只剩 applyMode + applyCustom(pureBlack) 两条广播
+  // v9:四条广播——模式/纯黑/预设主题/自定义 accent
   assert.ok(theme.includes("broadcastThemeChanged({ mode })"), "applyMode 缺广播");
   assert.ok(theme.includes("broadcastThemeChanged({ custom: c })"), "applyCustom 缺广播");
+  assert.ok(theme.includes("broadcastThemeChanged({ theme })"), "applyTheme 缺广播");
+  assert.ok(theme.includes("broadcastThemeChanged({ accent: valid })"), "applyAccent 缺广播");
 });
 
 /* ── ⑤ BottomNav 桌面退场 ── */

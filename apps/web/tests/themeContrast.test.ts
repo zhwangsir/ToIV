@@ -94,16 +94,19 @@ const SURFACES = ["bg-canvas", "bg-surface-1", "bg-surface-2", "bg-surface-3"] a
 
 /* ── ① muted/secondary × 四底全配对 ── */
 const textThemes: { name: string; selectors: string[] }[] = [
-  { name: "paper", selectors: [":root"] },
-  { name: "wood", selectors: [":root", '[data-theme="wood"]'] },
-  { name: "mono", selectors: [":root", '[data-theme="mono"]'] },
-  { name: "mint", selectors: [":root", '[data-theme="mint"]'] },
-  { name: "apricot", selectors: [":root", '[data-theme="apricot"]'] },
+  { name: "minimal", selectors: [":root"] },
+  { name: "paper", selectors: [":root", '[data-theme="paper"]'] },
   { name: "dark", selectors: [":root", '[data-mode="dark"]'] },
   {
     name: "dark-pure-black",
-    selectors: [":root", '[data-mode="dark"]', '[data-mode="dark"][data-pure-black="1"]'],
+    selectors: [
+      ":root",
+      '[data-mode="dark"]',
+      '[data-mode="dark"]:not([data-theme="cinema"]):not([data-theme="graphite"])[data-pure-black="1"]',
+    ],
   },
+  { name: "cinema", selectors: [":root", '[data-theme="cinema"]'] },
+  { name: "graphite", selectors: [":root", '[data-theme="graphite"]'] },
 ];
 
 for (const t of textThemes) {
@@ -124,13 +127,7 @@ for (const t of textThemes) {
 }
 
 /* ── ② text-on-accent × accent ── */
-const accentThemes: { name: string; selectors: string[] }[] = [
-  ...textThemes.slice(0, 6),
-  { name: "dark-mono", selectors: [":root", '[data-mode="dark"]', '[data-mode="dark"][data-theme="mono"]'] },
-  { name: "dark-wood", selectors: [":root", '[data-mode="dark"]', '[data-mode="dark"][data-theme="wood"]'] },
-  { name: "dark-mint", selectors: [":root", '[data-mode="dark"]', '[data-mode="dark"][data-theme="mint"]'] },
-  { name: "dark-apricot", selectors: [":root", '[data-mode="dark"]', '[data-mode="dark"][data-theme="apricot"]'] },
-];
+const accentThemes: { name: string; selectors: string[] }[] = textThemes;
 
 for (const t of accentThemes) {
   test(`${t.name} --text-on-accent 在 --accent 上 ≥4.5`, () => {
@@ -144,6 +141,8 @@ for (const t of accentThemes) {
 for (const t of [
   { name: "light", selectors: [":root"] },
   { name: "dark", selectors: [":root", '[data-mode="dark"]'] },
+  // paper 主题状态色压深半档(暖纸底合成底贴边),纳入卡控
+  { name: "paper", selectors: [":root", '[data-theme="paper"]'] },
 ]) {
   const vars = mergedVars(...t.selectors);
   for (const k of ["ok", "warn", "err"] as const) {

@@ -44,20 +44,23 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // 模式 × 色板主题系统(2026-08-16 v7;默认「素白」亮色,三 key localStorage 持久化)
-  // themeColor 静态默认保持浅色画布色 --bg-canvas;首帧后由内联脚本按当前模式/色板计算值跟随更新
+  // 预设主题 × 明暗 × 自定义强调色(2026-09-07 v9;默认 minimal 亮色,四 key localStorage 持久化)
+  // themeColor 静态默认保持浅色画布色 --bg-canvas;首帧后由内联脚本按当前主题/模式计算值跟随更新
   themeColor: "#FAFAF9",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
 };
 
-/* 防 FOUC(Studio Console v8,2026-08-31):首帧前从 localStorage 读两 key 写入 <html>——
-   toiv_mode(仅 "dark" 有效,缺省/其他值回落亮色)、toiv_theme_custom(仅 pureBlack 子档;
-   v7 五色板 toiv_theme 与自定义 accent 已退役,此处顺带清除旧 key)。
+/* 防 FOUC(主题系统 v9,2026-09-07):首帧前从 localStorage 读四 key 写 <html>——
+   toiv_theme(预设主题:minimal 缺省不写属性;非法值含 v7 旧色板名读取时清除)、
+   toiv_mode(仅 "dark" 有效,缺省/其他值回落亮色)、toiv_theme_custom(仅 pureBlack
+   子档;旧 accent 字段迁移到 toiv_accent_custom 后剥离)、toiv_accent_custom(hex6
+   自定义强调色:写 dataset.accentCustom + 内联 --accent-user/--accent-user-on,
+   派生由 globals.css [data-accent-custom] 块 color-mix 完成)。
    主题应用后把 <meta name="theme-color"> 同步为 --bg-canvas 计算值(内联脚本可能早于
    样式表解析,故在 DOMContentLoaded/load 再各补一次,确保取到真实计算值)。 */
-const themeInitScript = `(function(){try{var d=document.documentElement;localStorage.removeItem("toiv_theme");var m=localStorage.getItem("toiv_mode");if(m==="dark"){d.dataset.mode="dark";}var raw=localStorage.getItem("toiv_theme_custom");if(raw){try{var o=JSON.parse(raw);if(o&&o.pureBlack===true){d.dataset.pureBlack="1";localStorage.setItem("toiv_theme_custom",JSON.stringify({pureBlack:true}));}else{localStorage.removeItem("toiv_theme_custom");}}catch(e2){}}var s=function(){var v=getComputedStyle(document.documentElement).getPropertyValue("--bg-canvas").trim();if(!v)return;var mt=document.querySelector('meta[name="theme-color"]');if(!mt){mt=document.createElement("meta");mt.name="theme-color";document.head.appendChild(mt);}if(mt.content!==v){mt.content=v;}};s();document.addEventListener("DOMContentLoaded",s);window.addEventListener("load",s);}catch(e){}})();`;
+const themeInitScript = `(function(){try{var d=document.documentElement;var t=localStorage.getItem("toiv_theme");if(t==="cinema"||t==="paper"||t==="graphite"){d.dataset.theme=t;}else if(t&&t!=="minimal"){localStorage.removeItem("toiv_theme");}var m=localStorage.getItem("toiv_mode");if(m==="dark"){d.dataset.mode="dark";}var raw=localStorage.getItem("toiv_theme_custom");if(raw){try{var o=JSON.parse(raw);if(o){if(typeof o.accent==="string"&&/^#[0-9a-fA-F]{6}$/.test(o.accent)&&!localStorage.getItem("toiv_accent_custom")){localStorage.setItem("toiv_accent_custom",o.accent);}if(o.pureBlack===true){d.dataset.pureBlack="1";localStorage.setItem("toiv_theme_custom",JSON.stringify({pureBlack:true}));}else{localStorage.removeItem("toiv_theme_custom");}}}catch(e2){}}var a=localStorage.getItem("toiv_accent_custom");if(a){if(/^#[0-9a-fA-F]{6}$/.test(a)){d.dataset.accentCustom="1";d.style.setProperty("--accent-user",a);var r=parseInt(a.substr(1,2),16),g=parseInt(a.substr(3,2),16),b=parseInt(a.substr(5,2),16);var l=(0.2126*r+0.7152*g+0.0722*b)/255;d.style.setProperty("--accent-user-on",l>0.55?"#17181A":"#FFFFFF");}else{localStorage.removeItem("toiv_accent_custom");}}var s=function(){var v=getComputedStyle(document.documentElement).getPropertyValue("--bg-canvas").trim();if(!v)return;var mt=document.querySelector('meta[name="theme-color"]');if(!mt){mt=document.createElement("meta");mt.name="theme-color";document.head.appendChild(mt);}if(mt.content!==v){mt.content=v;}};s();document.addEventListener("DOMContentLoaded",s);window.addEventListener("load",s);}catch(e){}})();`;
 
 export default function RootLayout({
   children,

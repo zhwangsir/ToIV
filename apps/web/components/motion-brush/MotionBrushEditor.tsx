@@ -359,7 +359,8 @@ export function MotionBrushEditor({
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
           overflow: hidden;
-          background: #101014;
+          /* 画布媒体底:恒深(overlay 语义,笔刷轨迹白线可读),随主题无须变化 */
+          background: var(--overlay-stage);
           line-height: 0;
         }
         .mb-canvas {
