@@ -175,8 +175,9 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - 已停并 disable：数字人/口播及一批非生图非视频常驻（FlashTalk / OpenTalking / LiveAct / FishS2 / JoyCaption 等 inactive）
 - 现网保留：H3:8195、生图 gpu0-alt:8196、LongCat:8197、Animate2:8199、LB:8188（pc workers 仍在池）
 - 核对时空闲约：G0 94G / G1 97G / G2 57G / G3 95G（停服后 GPU0/1/3 ≈ empty 94–97G；G2 仍 H3 故 ~57G free）
-- 架构意图（未落地 / 非现网切流；**禁止写成双脑并行**）：5090=生图轻视频主池；WS GPU2=H3；WS GPU0+3 拟迁 Flash-Next（冒烟中，未切 core）。**Flash-Next 只保留一处**：WS GPU0+3 冒烟通过并切 core 后，拆 spark Qwen；**不做「Spark=同款慢脑备份」**。
-- Spark 去重后唯一用途（intent）：spark02 LiveKit 保留；空出内存给未来 GLM 满血 1M 或 Embedding/知识库批处理（与对话 API 不重复）。
+- **口径更正（2026-09-07）**：ToIV 开发已停 WS 迁脑；**取消**「Flash-Next 迁 WS GPU0+3」全部计划。旧「WS GPU0+3 拟迁 Flash-Next / 切 core 后拆 spark Qwen / Spark 仅 LiveKit+空内存」作废（SUPERSEDED）。
+- 架构意图（2026-09-07 更正；ToIV 开发已停 WS 迁脑）：**取消**「Flash-Next 迁 WS GPU0+3」。Spark **保留** Flash-Next（对话/LLM 仍在 Spark；Qwen3.8-Flash-Next）；Spark 承接可迁服务（Embedding / 知识库 / 批标注等），算力单独用。ToIV 日产=WS+5090（5090=生图轻视频主池；WS GPU2=H3；现网保留 H3:8195 / gpu0-alt:8196 / LB:8188 / longcat:8197 / animate2:8199 不变）。旧「WS 冒烟后拆 spark Qwen / Spark 仅 LiveKit+空内存」口径作废。**NOTE**：Flash-Next TP2 已近吃满双 Spark 内存，迁服务前先量 free。
+- spark02 LiveKit 仍保留（现网事实，非「Flash-Next 拆走后的唯一用途」）。
 
 ### 2026-09-06（ToIV 会话：workstation 重启窗口 + spark 集群重建）
 

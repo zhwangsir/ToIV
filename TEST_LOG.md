@@ -1,6 +1,6 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-07 workstation 停非生图非视频常驻（设备管家快照；ToIV 开发执行；docs only 未推）：stopped/inactive FlashTalk/OpenTalking/LiveAct/FishS2/JoyCaption 等；retained H3:8195 / gpu0-alt:8196 / LB:8188 / longcat:8197 / animate2:8199；VRAM free ≈ G0 94G / G1 97G / G2 57G / G3 95G；intent 5090=生图轻视频主池、WS GPU2=H3、WS GPU0+3 拟 Flash-Next（冒烟未切 core）；Flash-Next 只保留一处（WS GPU0+3 冒烟通过并切 core 后拆 spark Qwen，不做 Spark=同款慢脑备份）；Spark 去重后唯一用途=spark02 LiveKit 保留 + 空内存给未来 GLM 满血 1M 或 Embedding/知识库批处理（与对话 API 不重复）。AGENTS.md SoT updated；VLM model_id 行未动。
+- 2026-09-07 口径更正（设备管家锁定同架构；ToIV 开发已停 WS 迁脑；docs only 未推）：**取消** WS Flash-Next bring-up /「GPU0+3 拟迁 Flash-Next」/「切 core 后拆 spark Qwen」（SUPERSEDED）。现意图：Spark **保留** Qwen3.8-Flash-Next（对话/LLM）；可迁 Embedding/知识库/批标注等到 Spark，算力用户单独用；ToIV 日产只用 WS+5090（H3/生图/视频；5090=生图轻视频主池；WS GPU2=H3）。spark02 LiveKit 仍保留（现网事实）。**NOTE**：Flash-Next TP2 已近吃满双 Spark 内存，迁服务前先量 free。停服快照事实仍真：stopped FlashTalk 等；retained H3:8195 / gpu0-alt:8196 / LB:8188 / longcat:8197 / animate2:8199；VRAM ≈ G0 94G / G1 97G / G2 57G / G3 95G。AGENTS.md SoT updated。
 
 - 2026-09-07 core app covers → RunningHub originals (no product SHA): rh-* 499/499 uploaded appcover; builtin non-rh 30/34 replaced; skipped h3-multishot / ltx25-multishot / longcat-t2v / controlnet (no reliable match); maps in .regen_tmp/mapped_safe.json + builtin_cover_map.json (untracked); AGENTS.md untouched; brain→GLM still researching not switched.
 
