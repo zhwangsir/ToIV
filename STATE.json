@@ -1,7 +1,21 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T07:25:00+08:00",
+  "updated_at": "2026-09-07T07:30:00+08:00",
+  "ui_p4_miniprogram_theme_2026_09_07": {
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T07:30:00+08:00",
+    "status": "local_uncommitted_core_build_unchanged",
+    "on_core": false,
+    "live": false,
+    "committed": false,
+    "product_sha": null,
+    "dirty": true,
+    "pushed": false,
+    "source": "ToIV 开发",
+    "note": "align MiniProgram theme to web v9; next=市场瀑布流/详情",
+    "agents_md": "updated_local_intent_only"
+  },
   "ui_p3_cover_expand_top_2026_09_07": {
     "date": "2026-09-07",
     "updated_at": "2026-09-07T07:25:00+08:00",
