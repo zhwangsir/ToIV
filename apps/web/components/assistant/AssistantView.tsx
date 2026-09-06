@@ -21,7 +21,6 @@ import {
   imageUrl,
   JOBS_PAGE_LIMIT,
   listAgentSessions,
-  listJobs,
 } from "@/lib/api";
 import {
   filterEntities,
@@ -32,8 +31,7 @@ import {
   type EntityInfo,
 } from "@/lib/entities";
 import { EntityRefsPreview } from "@/components/ui/PromptWithEntities";
-import { Empty } from "@/components/ui/Empty";
-import { formatTime as formatJobTime, isVideoKind, kindLabel, kindToFilter } from "@/lib/libraryQuery";
+import { isVideoKind, kindLabel, kindToFilter } from "@/lib/libraryQuery";
 import { mediaKindOf } from "@/lib/mediaKind";
 import { ModelViewer } from "@/components/ui/ModelViewer";
 import {
@@ -849,8 +847,7 @@ export function AvJobCards({
   );
 }
 
-// ───── @ 技能面板 / 门户入口(2026-09-04 美化 W2B:门户空态重设计——
-//        问候展示字 + 场景卡栅格 + 快捷提示 chips + 最近作品带回归) ─────
+// ───── @ 技能面板 / 门户入口(2026-09-06 单色极简:门户空态只剩问候 + 输入框 + 场景入口行) ─────
 
 interface PortalEntry {
   view: string;
@@ -897,15 +894,6 @@ export function filterPortalEntries(
   return entries.filter((e) => (e.r18 ? r18 : true) && (e.sfwOnly ? !r18 : true));
 }
 
-/** 门户快捷提示 chips(2026-09-04 美化 W2B):点击把提示模板填入输入框并聚焦,
- *  由用户补完后发送——不是一键动作,不产生任何请求。 */
-const QUICK_PROMPTS: { label: string; prompt: string }[] = [
-  { label: "构思短视频创意", prompt: "帮我构思一个 15 秒短视频创意:" },
-  { label: "写文生图提示词", prompt: "帮我写一段文生图提示词,主题是" },
-  { label: "短剧剧本大纲", prompt: "帮我搭一个短剧剧本大纲,题材是" },
-  { label: "优化提示词", prompt: "请帮我优化这段提示词:" },
-];
-
 /** 门户问候语按时段切换(纯展示,无业务含义)。 */
 function portalGreeting(hour: number): string {
   if (hour < 6) return "夜深了";
@@ -946,7 +934,6 @@ export function AssistantView(props?: AssistantViewProps) {
   const conversations = convStore.conversations;
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [modelName, setModelName] = useState("探测中");
   // W5:助手离线降级(门户空态探活失败 → 隐藏对话框,展开全量工作台导航)
   const [llmOffline, setLlmOffline] = useState(false);
   // 移动端断点:placeholder 文案按端适配(移动端无 Enter 键)
@@ -981,8 +968,6 @@ export function AssistantView(props?: AssistantViewProps) {
   const [skillDismissed, setSkillDismissed] = useState(false);
   // 门户问候语:挂载时按时段取一次(纯展示)
   const [greeting] = useState(() => portalGreeting(new Date().getHours()));
-  // 门户「最近作品」带(2026-09-04 美化 W2B):listJobs 走 SWR 缓存,与作品库同源零额外请求
-  const [recentJobs, setRecentJobs] = useState<JobItem[]>([]);
 
   /** 视图跳转:优先 page.tsx SPA 切换(带 View Transitions),缺省整页跳转。 */
   const goView = useCallback(
@@ -1035,47 +1020,14 @@ export function AssistantView(props?: AssistantViewProps) {
     textareaRef.current?.focus();
   }, []);
 
-  // 顶栏/设置面板的模型名跟随后端真实配置,避免显示与实际调用不一致;
-  // W5(2026-08-31):同一探测兼任助手可用性哨兵——null/失败即离线,门户降级为纯工作台导航
+  // W5(2026-08-31):探活兼任助手可用性哨兵——null/失败即离线,门户降级为纯工作台导航
   useEffect(() => {
     const ac = new AbortController();
     getLlmModel(ac.signal).then((info) => {
-      if (info?.display_model) setModelName(info.display_model);
       setLlmOffline(!info);
     });
     return () => ac.abort();
   }, []);
-
-  // 门户最近作品:仅页形态拉取(popup 无门户);失败静默,空态兜底不阻塞对话
-  useEffect(() => {
-    if (popup) return;
-    let live = true;
-    listJobs()
-      .then((jobs) => {
-        if (live) setRecentJobs(jobs);
-      })
-      .catch(() => {
-        /* 列表加载失败:最近作品带落 at-empty--section,不阻塞对话 */
-      });
-    return () => {
-      live = false;
-    };
-  }, [popup]);
-
-  // 最近作品带:仅可预览的图像/视频产物;R18 门控与作品库一致(SFW 模式不出 nsfw 卡)
-  const recentWorks = useMemo(
-    () =>
-      recentJobs
-        .filter(
-          (j) =>
-            j.status === "done" &&
-            j.results?.length > 0 &&
-            (r18 || !j.nsfw) &&
-            (isVideoKind(j.kind) || mediaKindOf(j.results[0], j.kind) === "image"),
-        )
-        .slice(0, 6),
-    [recentJobs, r18],
-  );
 
   // 文档列表:进页加载一次;上传/删除后局部更新,无需重复拉取
   useEffect(() => {
@@ -1924,7 +1876,7 @@ export function AssistantView(props?: AssistantViewProps) {
     <div className={`av-view${popup ? " av-view--popup" : ""}`}>
       <h1 className="sr-only">对话流</h1>
       {/* Studio Console v1(2026-08-31):页头整体移除——顶部无 chrome;
-          历史/新收进输入框工具行,模型名在空态输入框下方,模型设置面板退役 */}
+          历史/新收进输入框工具行;2026-09-06 单色极简:模型行亦退役 */}
 
       {convStore.listError && (
         <ErrorBar message={convStore.listError} onClose={convStore.clearListError} />
@@ -1942,11 +1894,10 @@ export function AssistantView(props?: AssistantViewProps) {
               <div className="av-popup-empty-hint">Shift+Enter 随时唤起/关闭</div>
             </div>
           ) : (
-          /* 门户空态(2026-09-04 美化 W2B 重设计):铭牌 + Fraunces 问候 + 输入框/模型行
-             + 快捷提示 chips + 场景卡栅格 + 最近作品带;版心 --layout-content,
-             区块节奏 --section-gap-lg(样式在 assistant.css 门户区块) */
+          /* 门户空态(2026-09-06 单色极简改造):Fraunces 问候 + 输入框 + 极简场景入口行;
+             铭牌/模型行/快捷提示 chips/最近作品带全部退役;
+             版心 --layout-content,区块节奏 --section-gap-lg(样式在 assistant.css 门户区块) */
           <div className="av-empty av-portal av-portal--console">
-            <div className="av-console-wordmark" aria-hidden="true">TOIV</div>
             {llmOffline ? (
               /* W5 助手离线降级:对话框让位「离线提示 + 全量工作台导航」 */
               <>
@@ -1974,92 +1925,26 @@ export function AssistantView(props?: AssistantViewProps) {
               <>
                 <div className="av-portal-hero">
                   <h2 className="av-portal-greeting">
-                    {greeting},想<em>创作</em>点什么?
+                    {greeting},想创作点什么?
                   </h2>
-                  <p className="av-portal-sub">直接描述想法开始,或从下方场景进入工作台</p>
                 </div>
                 <div className="av-portal-composer">{renderComposer(true)}</div>
-                <div className="av-console-model">{modelName}</div>
-                <div className="av-quick-row">
-                  {QUICK_PROMPTS.map((q) => (
-                    <button
-                      key={q.label}
-                      type="button"
-                      className="at-chip av-quick-chip"
-                      onClick={() => {
-                        setInput(q.prompt);
-                        textareaRef.current?.focus();
-                      }}
-                    >
-                      {q.label}
-                    </button>
-                  ))}
-                </div>
                 <div className="av-scene-grid">
                   {filterPortalEntries(SKILL_ENTRIES, r18).map((e) => (
                     <button
                       key={e.view}
                       type="button"
-                      className="at-card at-card--interactive av-scene-card"
+                      className="av-scene-card"
+                      title={e.desc}
                       onClick={() => goView(e.view)}
                     >
                       <span className="av-scene-card-icon" aria-hidden="true">
-                        <Icon name={e.icon} size={18} strokeWidth={1.7} />
+                        <Icon name={e.icon} size={16} strokeWidth={1.7} />
                       </span>
                       <span className="av-scene-card-title">{e.label}</span>
-                      <span className="av-scene-card-desc">{e.desc}</span>
                     </button>
                   ))}
                 </div>
-                <section className="av-recent">
-                  <div className="av-recent-head">
-                    <h2 className="av-recent-title">最近作品</h2>
-                    <button
-                      type="button"
-                      className="av-recent-more"
-                      onClick={() => goView("library")}
-                    >
-                      全部作品
-                      <Icon name="chevron-right" size={12} />
-                    </button>
-                  </div>
-                  {recentWorks.length > 0 ? (
-                    <div className="av-recent-grid">
-                      {recentWorks.map((j) => (
-                        <button
-                          key={j.id}
-                          type="button"
-                          className="av-recent-card"
-                          title={j.prompt || "无提示词"}
-                          onClick={() => goView("library")}
-                        >
-                          <span className="av-recent-thumb">
-                            {isVideoKind(j.kind) ? (
-                              <video
-                                src={imageUrl(j.results[0])}
-                                muted
-                                playsInline
-                                preload="metadata"
-                              />
-                            ) : (
-                              <img src={imageUrl(j.results[0])} alt="" loading="lazy" />
-                            )}
-                          </span>
-                          <span className="av-recent-meta">
-                            {kindLabel(j.kind)} · {formatJobTime(j.created_at)}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <Empty
-                      size="section"
-                      icon="image"
-                      title="还没有作品"
-                      desc="生成的图像与视频会收进作品库"
-                    />
-                  )}
-                </section>
               </>
             )}
           </div>
@@ -2523,21 +2408,6 @@ export function AssistantView(props?: AssistantViewProps) {
         .av-portal--console {
           justify-content: center;
           gap: var(--section-gap-lg);
-        }
-        .av-console-wordmark {
-          font-family: var(--font-mono);
-          font-size: var(--text-label);
-          font-weight: var(--font-medium);
-          letter-spacing: 0.42em;
-          text-indent: 0.42em; /* 补偿末字符 letter-spacing,视觉真正居中 */
-          color: var(--text-muted);
-          user-select: none;
-        }
-        .av-console-model {
-          font-family: var(--font-mono);
-          font-size: var(--text-label);
-          color: var(--text-muted);
-          letter-spacing: 0.02em;
         }
 
         /* ───── 消息列表(720px 居中列;Studio Console v1 文档式,无气泡/头像) ───── */

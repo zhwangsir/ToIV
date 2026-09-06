@@ -84,11 +84,16 @@ test("AudioView 无页头:生成/编辑段控独立窄行且带图标(2026-08-18
   assert.ok(!src.includes("hideHeader"), "hideHeader prop 已退役,不应再传");
 });
 
-/* ── ④ 首页门户(Studio Console v1,2026-08-31)── */
-test("首页空态:极简 console 形态(铭牌+输入框+模型行),门户区块全退役", () => {
+/* ── ④ 首页门户(2026-09-06 单色极简)── */
+test("首页空态:极简 console 形态(问候+输入框+场景入口行),门户区块全退役", () => {
   const src = readSrc("components/assistant/AssistantView.tsx");
-  assert.ok(src.includes("av-console-wordmark"), "缺 TOIV 铭牌");
-  assert.ok(src.includes("av-console-model"), "缺模型行");
+  assert.ok(src.includes("av-portal--console"), "缺 console 空态变体");
+  assert.ok(src.includes("av-portal-greeting"), "缺问候语");
+  assert.ok(src.includes("av-scene-card"), "缺场景入口行");
+  // 2026-09-06 单色极简:铭牌/模型行/快捷提示 chips/最近作品带全部退役
+  for (const dead of ["av-console-wordmark", "av-console-model", "av-quick-row", "av-recent", "QUICK_PROMPTS", "av-portal-sub"]) {
+    assert.ok(!src.includes(dead), `已退役门户元素残留:${dead}`);
+  }
   assert.ok(!src.includes("av-eng-block"), "引擎胶囊条应退役");
   assert.ok(!src.includes("av-works"), "最近作品区应退役");
 
@@ -97,11 +102,14 @@ test("首页空态:极简 console 形态(铭牌+输入框+模型行),门户区�
   const portal = cssBlock(css, ".av-empty.av-portal");
   assert.ok(!portal.includes("flex-start"), "空态应居中而非顶对齐");
   assert.ok(portal.includes("min-height: 100%"), "空态须撑满对话区才能垂直居中(生产实测贴顶回归)");
+  for (const deadCss of [".av-quick-row", ".av-recent", ".av-console-wordmark", ".av-portal-sub", ".av-scene-card-desc"]) {
+    assert.ok(!css.includes(deadCss), `已退役门户样式残留:${deadCss}`);
+  }
   assert.ok(!css.includes(".av-eng-label"), "引擎状态小标题样式应退役");
 });
 
 /* ── ⑤ 融合(FusionView + fusion.css,2026-09-02 W3 hairline 列表) ── */
-test("融合:五行数据齐全,行结构为 图标+名称/描述+标签+箭头", () => {
+test("融合:五行数据齐全,行结构为 图标+名称/描述+箭头(2026-09-06 单色极简:能力 tags 退役)", () => {
   const src = readSrc("components/fusion/FusionView.tsx");
   // 五个融合应用入口保留
   for (const name of ["创作工作室", "数字人", "译制", "图片编辑", "视频剪辑"]) {
@@ -109,8 +117,10 @@ test("融合:五行数据齐全,行结构为 图标+名称/描述+标签+箭头"
   }
   assert.ok(src.includes("fusion-row-icon"), "缺行图标槽");
   assert.ok(src.includes("fusion-row-main"), "缺名称/描述主列");
-  assert.ok(src.includes("fusion-row-tags"), "缺标签行尾");
-  assert.ok(src.includes('tags.join(" · ")'), "标签应以 · 分隔弱展示");
+  assert.ok(src.includes("fusion-row-arrow"), "缺进入箭头");
+  // 行尾能力 tags 已退役(单色极简:只留名称+一行描述+箭头)
+  assert.ok(!src.includes("fusion-row-tags"), "能力标签行尾应退役");
+  assert.ok(!src.includes("tags.join"), "能力标签数据应退役");
 });
 
 test("融合:行 hairline 分隔 + 无卡片装饰(渐变/水印/徽标/CTA 全退役)", () => {

@@ -152,9 +152,9 @@ test("wan-vace payload:缺省 duration 回落默认 5s,多参考图透传", asyn
   assert.equal("num_frames" in body, false);
 });
 
-/* ── ② ParamField:number 小数步进 + hint ── */
+/* ── ② ParamField:number 小数步进(hint 说明段已于 2026-09-06 单色极简退役) ── */
 
-test("ParamField number:step=0.5 与 hint 渲染(秒数输入允许小数)", () => {
+test("ParamField number:step=0.5(秒数输入允许小数);hint 不再渲染为说明段", () => {
   const html = renderToStaticMarkup(
     h(ParamField, {
       param: {
@@ -170,7 +170,8 @@ test("ParamField number:step=0.5 与 hint 渲染(秒数输入允许小数)", () 
   assert.match(html, /step="0.5"/);
   assert.match(html, /min="0.5"/);
   assert.match(html, /max="60"/);
-  assert.match(html, /支持任意时长/);
+  // 2026-09-06 单色极简:字段下长 hint 说明段退役,只留标签 + 控件
+  assert.ok(!html.includes("支持任意时长"), "number 字段 hint 说明段应退役");
 });
 
 /* ── ③ ResultPanel notice 显示 ── */

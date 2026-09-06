@@ -104,14 +104,6 @@
   white-space: nowrap;
 }
 
-/* 右:能力标签(· 分隔弱文本,窄屏隐藏) */
-.fusion-row-tags {
-  flex-shrink: 0;
-  font-size: var(--text-aux);
-  color: var(--text-muted);
-  letter-spacing: 0.02em;
-}
-
 /* 箭头:hover 时转向 accent,无位移 */
 .fusion-row-arrow {
   flex-shrink: 0;
@@ -129,9 +121,6 @@
   .fusion-row {
     padding: var(--space-4) var(--space-1);
     min-height: 56px; /* 触控目标 */
-  }
-  .fusion-row-tags {
-    display: none;
   }
   .fusion-row-desc {
     white-space: normal; /* 窄屏描述放行两截,不截断 */

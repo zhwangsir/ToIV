@@ -142,8 +142,8 @@ test("assistant:Studio Console v1 后 assistant.css 无徽章/页头规则(随�
   assert.ok(!assistant.includes("av-model-pill"), "模型徽章规则应退役");
   assert.ok(!assistant.includes("av-model-name"), "模型名截断规则应退役");
   assert.ok(!assistant.includes(".av-header"), "页头规则应退役");
-  // 空态模型行:等宽小字,无截断需求(后端 display_model 短名)
-  assert.ok(assistantView.includes("av-console-model"), "空态缺模型行");
+  // 空态模型行已于 2026-09-06 单色极简退役(连同铭牌/快捷提示/最近作品带)
+  assert.ok(!assistantView.includes("av-console-model"), "空态模型行应退役");
 });
 
 test("AssistantView:文档式消息流(无头像节点,用户右对齐灰字)", () => {

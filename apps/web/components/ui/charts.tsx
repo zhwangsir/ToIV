@@ -173,8 +173,8 @@ export function LineChart({
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [hover, setHover] = useState<number | null>(null);
 
-  /* 2026-09-04 美化 W1:单系列图表走琥珀点睛单色系(--accent-glow 渐变面积);
-     多系列才消费 --chart-1..5 多色序列 */
+  /* 2026-09-04 美化 W1:单系列图表走点睛单色系(--accent-glow 渐变面积);
+     多系列才消费 --chart-1..5 多色序列;2026-09-06 单色极简:--accent-glow 已中性化 */
   const mono = series.length === 1;
   const gradId = `uichart-mono-${useId().replace(/:/g, "")}`;
   const effColor = (s: LineSeries) => (mono ? "var(--accent-glow)" : s.color);
@@ -564,7 +564,8 @@ interface SparklineProps {
 
 export function Sparkline({
   values,
-  /* 2026-09-04 美化 W1:火花线恒单系列,默认改琥珀点睛单色(显式语义色调用不变) */
+  /* 2026-09-04 美化 W1:火花线恒单系列,默认改点睛单色(显式语义色调用不变;
+     2026-09-06 单色极简:--accent-glow 已中性化为黑白) */
   color = "var(--accent-glow)",
   width = 96,
   height = 28,

@@ -165,13 +165,11 @@ test("W5 降级:探活失败置离线,门户隐藏对话框、展开全量工作
 
 /* ── ⑤ Studio Console v1:空态极简 + 文档式消息流 ── */
 
-test("Studio Console:空态只剩铭牌+输入框+模型行,门户区块全退役", () => {
+test("Studio Console:空态只剩问候+输入框+场景入口行,门户区块全退役", () => {
   const src = readSrc("components/assistant/AssistantView.tsx");
-  assert.ok(src.includes("av-console-wordmark"), "缺 TOIV 铭牌");
-  assert.ok(src.includes("av-console-model"), "缺模型行");
   assert.ok(src.includes("av-portal--console"), "缺 console 空态变体");
-  // 旧门户区块全退役(av-scene-chip 仍服务离线降级导航,不在此列)
-  for (const dead of ["ParticleField", "QUICK_ACTIONS", "SCENE_CAPSULES", "av-eng-block", "av-works", "buildEngineCapsules", "pickRecentWorks"]) {
+  // 2026-09-06 单色极简:铭牌/模型行/快捷提示/最近作品带亦退役
+  for (const dead of ["ParticleField", "QUICK_ACTIONS", "SCENE_CAPSULES", "av-eng-block", "av-works", "buildEngineCapsules", "pickRecentWorks", "av-console-wordmark", "av-console-model", "QUICK_PROMPTS", "av-recent"]) {
     assert.ok(!src.includes(dead), `旧门户元素残留: ${dead}`);
   }
   // 文档式消息流:无头像节点

@@ -30,13 +30,13 @@
 | 背景 | `--bg-canvas` / `--bg-surface-1~3` |
 | 文字 | `--text-primary`（主）/ `--text-secondary`（次）/ `--text-muted`（弱）/ `--text-3`（第三级弱化，secondary 别名） |
 | 强调（中性） | `--accent`（近黑 CTA）/ `--accent-hover` / `--accent-soft` / `--accent-halo`（中性光晕，聚焦环光晕/浮层淡边） |
-| 点睛（琥珀，克制） | `--accent-glow`（亮 `#b07d2a` / 暗 `#d4a94e`）/ `--accent-glow-soft` / `--accent-glow-deep` |
+| 点睛触点（中性） | `--accent-glow`（2026-09-06 单色极简：琥珀退役，重定义为 `--text-primary` 近黑/近白）/ `--accent-glow-soft`（黑/白 6-8% 底）/ `--accent-glow-deep`（= `--accent`） |
 | 状态 | `--ok` / `--warn` / `--err` / `--run`（及各自 `-soft` 底） |
 | 图表系列 | `--chart-1~5`（数据可视化专用，与状态色分轨） |
 | 玻璃材质 | `--glass-*` |
-| 焦点 | `--focus-ring`（1px `--accent-glow` 琥珀） |
+| 焦点 | `--focus-ring`（1px `--accent-glow` 中性近黑/近白） |
 
-**琥珀点睛红线**：`--accent-glow` 只允许出现在最小触点——`:focus-visible` 聚焦环、无类名文本链接 hover、`.at-seg` 激活指示、assistant 启动序列，以及 2026-09-04 追认的三处：进度条细线填充（2px 档，如训练/任务中心）、落地页关键词 italic 着色、形象卡选中态细环/工作室阶段条完成段（选中/完成语义）。禁止用于按钮填充、大面积背景、正文着色。主按钮保持近黑 accent 不变。
+**点睛触点口径（2026-09-06 单色极简）**：琥珀色系退役，`--accent-glow` 重定义为中性色（亮 = `--text-primary` 近黑 / 暗 = 近白），`--accent-glow-soft` 为黑/白 6-8% 透明底，`--accent-glow-deep` = `--accent`。聚焦环、无类名文本链接 hover、`.at-seg` 激活指示、assistant 启动序列、进度条细线填充、形象卡选中态细环/阶段条完成段等既有触点自动黑白化，全站装饰色只剩中性黑白；语义状态色（ok/warn/err/run）保留——它们表达状态不是装饰。
 
 - **单页内容配色 ≤ 5 种**；状态色仅表达状态，不做装饰。
 - ❌ 禁止高饱和彩虹色、大面积闪烁、粒子爆炸、快速闪烁、粒子覆盖文字、纯白色背景无层次。
@@ -124,7 +124,7 @@
 
 - **噪点**：全局 `body::before` 胶片颗粒保留，透明度 0.02（亮/暗同档，暗色反相为亮颗粒）。这是全局唯一允许的常驻装饰。
 - **暗角**：全局 `body::after` 暗角已删除。暗角只属舞台语义，仅在舞台类容器内生效：`.stage-main::after`（stage.css）/ `.at-stage::after`（avatartalk.css），配方统一（canvas 混色径向轻压四角）。
-- **assistant 启动序列**：琥珀单色系（`--accent-glow` → `--accent-glow-deep`），cyan/violet 品牌双色已退役；动画时序逻辑不改。
+- **assistant 启动序列**：单色系（`--accent-glow` → `--accent-glow-deep`，2026-09-06 起为中性黑白），cyan/violet 品牌双色已退役；动画时序逻辑不改。
 - 其余装饰一律先问「它帮助看清内容了吗」，答不上就删。
 
 ---
@@ -203,7 +203,7 @@
 - [ ] 零硬编码颜色/间距/字号/圆角，全部走 token
 - [ ] 版型：容器宽度选对语义档（§4.1），区块节奏走 §4.2 令牌，媒体卡走 §4.3 宽高比
 - [ ] 图标全 lucide，零 emoji
-- [ ] 配色 ≤ 5 种；琥珀点睛不越红线（§2.2）；对比度过 `themeContrast.test.ts`
+- [ ] 配色 ≤ 5 种；点睛触点全中性（§2.2）；对比度过 `themeContrast.test.ts`
 - [ ] 动效 ≤ 320ms 且有功能目的，reduced-motion 降级
 - [ ] 组件走 at 系（§10），未新增 `.btn`/`.card` 兼容别名调用
 - [ ] 空态/加载/错误三态齐全（Empty/Skeleton/ErrorBar）
@@ -224,7 +224,7 @@
 | 工作室（studio） | 满档工作台 | 阶段流一致性 |
 | 数字人（avatartalk） | 满档工作台 | 三模式段控 + `.at-stage` 舞台 |
 | 画布（canvas） | 满档 | 工具栏 + 节点视觉 |
-| 助手浮层（assistant） | 浮层 640px 列 | 对话流；启动序列琥珀单色 |
+| 助手浮层（assistant） | 浮层 640px 列 | 对话流；启动序列中性单色 |
 | 图像/视频编辑 | 满档工作台 | 编辑器布局 |
 | 配音（dub） | 满档工作台 | 段落列表 + 播放器 |
 | 训练（train） | 标准档表单 | 表单流（候选 measure 档） |

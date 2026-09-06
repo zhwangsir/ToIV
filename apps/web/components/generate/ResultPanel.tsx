@@ -261,10 +261,8 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
     doneEntries.find((e) => e.id === compareB) ?? doneEntries.find((e) => e.id !== entryA?.id) ?? null;
 
   if (entries.length === 0) {
-    // 空态(2026-09-04 美化 W2A):接入共享三档空态的舞台档(at-empty--stage——
-    // 琥珀线稿图标 + Fraunces 斜体一句 + 引导),.stage-empty 适配层负责
-    // 居中/聚光/去重框(样式在 stage.css);旧「PROMPT ATELIER 铭牌 + 步骤卡 +
-    // 快速开始卡」与 v1 单行 muted 提示均已退役
+    // 空态(2026-09-06 单色极简):只留一句「产物将在这里呈现」,引导语退役;
+    // .stage-empty 适配层负责居中/聚光/去重框(样式在 stage.css)
     // tabIndex=0:容器 overflow-y:auto 可滚动,axe scrollable-region-focusable 要求键盘可达
     return (
       <div className="result-panel result-panel-empty" tabIndex={0}>
@@ -273,7 +271,6 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
             size="stage"
             icon="clapperboard"
             title="产物将在这里呈现"
-            desc="在下方提示词条描述想要的画面,选择引擎后开始生成。"
           />
         </div>
       </div>

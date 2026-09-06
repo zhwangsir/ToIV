@@ -51,6 +51,8 @@ function asImageRefs(value: unknown): UploadedRef[] {
  * 生成页仍把 images 从分组里剔除、由 GenerateView 独立承载;应用运行页走此组件上传。
  * 数值参数以原始字符串保存,提交时才 parse(允许输入中间态,如 "10.");
  * 失焦按 min/max/step 钳位 + 红字提示(2026-08-30,此前非法输入静默回落)。
+ * 2026-09-06 单色极简:字段下长 hint 说明段退役,只留字段标签 + 控件本身
+ * (text/textarea 的 hint 仍作控件内 placeholder 保留,不占额外行)。
  */
 export function ParamField({ param, value, onChange, disabled, uploadKind = "img2img", pinWorker }: ParamFieldProps) {
   const set = (v: unknown) => onChange(param.key, v);
@@ -136,7 +138,7 @@ export function ParamField({ param, value, onChange, disabled, uploadKind = "img
       const step = param.step ?? 0.05;
       const atCap = selected.length >= LORA_CAP;
       return (
-        <Field label={param.label} hint={param.hint}>
+        <Field label={param.label}>
           <div className="lora-picker">
             <div className="lora-picker-mode" role="group" aria-label="LoRA 模式">
               <button
@@ -210,7 +212,7 @@ export function ParamField({ param, value, onChange, disabled, uploadKind = "img
     }
     case "textarea":
       return (
-        <Field label={param.label} hint={param.hint}>
+        <Field label={param.label}>
           <Textarea
             ref={taRef}
             rows={2}
@@ -223,7 +225,7 @@ export function ParamField({ param, value, onChange, disabled, uploadKind = "img
       );
     case "text":
       return (
-        <Field label={param.label} hint={param.hint}>
+        <Field label={param.label}>
           <Input
             type="text"
             value={String(value ?? "")}
@@ -235,7 +237,7 @@ export function ParamField({ param, value, onChange, disabled, uploadKind = "img
       );
     case "number":
       return (
-        <Field label={param.label} hint={param.hint} error={numError ?? undefined}>
+        <Field label={param.label} error={numError ?? undefined}>
           <Input
             type="number"
             min={param.min}
@@ -258,7 +260,7 @@ export function ParamField({ param, value, onChange, disabled, uploadKind = "img
         (o) => o.value === String(value ?? ""),
       );
       return (
-        <Field label={param.label} hint={param.hint}>
+        <Field label={param.label}>
           <Select
             value={String(value ?? "")}
             disabled={disabled}
@@ -280,7 +282,7 @@ export function ParamField({ param, value, onChange, disabled, uploadKind = "img
     }
     case "switch":
       return (
-        <Field label={param.label} hint={param.hint}>
+        <Field label={param.label}>
           <span>
             <Switch
               checked={Boolean(value)}

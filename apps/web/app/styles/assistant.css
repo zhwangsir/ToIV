@@ -1,4 +1,4 @@
-/* ── AI 助手启动序列·动画参数总表(2026-09-04 W0 单色化:琥珀单色系 --accent-glow→--accent-glow-deep,时序不变) ──
+/* ── AI 助手启动序列·动画参数总表(2026-09-04 W0 单色化:--accent-glow→--accent-glow-deep 单色系,时序不变;2026-09-06 单色极简:点睛色已中性化为黑白) ──
    扫边:1000ms easeInOutQuart 430deg(JS rAF 驱动,page.tsx NEON_MS/NEON_SWEEP_DEG)
    核点:350ms ease-out(中心核脉冲成环 + 雷达弧一圈,page.tsx NEON_CORE_MS)
    弹窗:400ms cubic-bezier(.22,1,.36,1)(scale .92→1 + 淡入 + backdrop blur 0→12px)
@@ -8,8 +8,9 @@
    性能红线:只动 transform/opacity/filter;--neon-angle/--core-sweep 走 rAF 内联;
    prefers-reduced-motion 一切直开(JS 侧不渲染 neon 节点,CSS 侧动画全停) */
 
-/* ── 首页门户空态(2026-09-04 美化 W2B 重设计):铭牌 + Fraunces 问候展示字 + 输入框
-   + 快捷提示 chips + 场景卡栅格(at-card--interactive)+ 最近作品带;
+/* ── 首页门户空态(2026-09-06 单色极简改造):Fraunces 问候展示字 + 输入框
+   + 极简场景入口行(无边框纯文字行,hover 极淡底);
+   铭牌/模型行/快捷提示 chips/最近作品带全部退役;
    版心吃 --layout-content,主区块节奏 --section-gap-lg,栅格 gutter 走 --grid-gutter ── */
 
 /* 门户容器:内容极简后回归垂直居中(基座 .av-empty 即居中,此处只给列宽);
@@ -26,8 +27,8 @@
   width: 100%;
 }
 
-/* 问候区:Fraunces 展示字(--text-display-md 档,letter-spacing -0.01em),
-   关键词 italic + 琥珀点睛(单点,不越 §2.2 红线);副文案 aux 档 */
+/* 问候区:Fraunces 展示字(--text-display-md 档,letter-spacing -0.01em);
+   2026-09-06 单色极简:副文案与 italic 着色退役,纯单色标题 */
 .av-portal-hero {
   display: flex;
   flex-direction: column;
@@ -43,157 +44,44 @@
   line-height: 1.25;
   color: var(--text-primary);
 }
-.av-portal-greeting em {
-  font-style: italic;
-  color: var(--accent-glow);
-}
-.av-portal-sub {
-  margin: 0;
-  font-size: var(--text-aux);
-  color: var(--text-muted);
-}
 
-/* 快捷提示 chips:统一 .at-chip 规范,hover 琥珀 soft 底(门户唯一 chip 场景) */
-.av-quick-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-2);
-}
-.at-chip.av-quick-chip:hover:not(.is-active):not(:disabled) {
-  background: var(--accent-glow-soft);
-}
-
-/* 场景卡栅格:at-card + at-card--interactive 基座,卡内「图标凹槽 + 标题 + 一句描述」 */
+/* 场景入口(2026-09-06 单色极简):无边框纯文字行「图标 + 名称」,hover 极淡底;
+   描述行退役(desc 改挂 title tooltip) */
 .av-scene-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--grid-gutter);
+  gap: var(--space-2) var(--grid-gutter);
   width: 100%;
 }
 .av-scene-card {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: var(--space-2);
   width: 100%;
-  padding: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
   font: inherit;
-  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.av-scene-card:hover {
+  background: var(--accent-glow-soft);
 }
 .av-scene-card-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-control);
-  border: 1px solid color-mix(in oklab, var(--accent-glow) 38%, transparent);
-  background: var(--accent-glow-soft);
-  color: var(--accent-glow);
+  color: var(--text-secondary);
 }
 .av-scene-card-title {
-  font-size: var(--text-section);
-  font-weight: var(--font-semibold);
+  font-size: var(--text-body);
+  font-weight: var(--font-medium);
   color: var(--text-primary);
 }
-.av-scene-card-desc {
-  font-size: var(--text-aux);
-  color: var(--text-muted);
-  line-height: 1.5;
-}
 
-/* 最近作品带:媒体卡统一 --media-ar-thumb,元信息 mono aux;空态接 at-empty--section */
-.av-recent {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  width: 100%;
-  text-align: left;
-}
-.av-recent-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-.av-recent-title {
-  margin: 0;
-  font-size: var(--text-section);
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
-}
-.av-recent-more {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) 0;
-  background: none;
-  border: 0;
-  font: inherit;
-  font-size: var(--text-aux);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-standard);
-}
-.av-recent-more:hover {
-  color: var(--accent-glow);
-}
-.av-recent-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: var(--grid-gutter);
-}
-.av-recent-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: 0;
-  background: none;
-  border: 0;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.av-recent-thumb {
-  display: block;
-  aspect-ratio: var(--media-ar-thumb);
-  background: var(--bg-surface-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  overflow: hidden;
-  transition: border-color var(--duration-fast) var(--ease-standard);
-}
-.av-recent-card:hover .av-recent-thumb {
-  border-color: var(--border-strong);
-}
-.av-recent-thumb img,
-.av-recent-thumb video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.av-recent-meta {
-  font-family: var(--font-mono);
-  font-size: var(--text-label);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.av-recent-card:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: 2px;
-  border-radius: var(--radius-control);
-}
-
-@media (max-width: 1023px) {
-  .av-recent-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
 @media (max-width: 767px) {
   .av-portal-greeting {
     font-size: var(--text-display-sm);
@@ -205,9 +93,6 @@
 @media (max-width: 575px) {
   .av-scene-grid {
     grid-template-columns: 1fr;
-  }
-  .av-recent-grid {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
 

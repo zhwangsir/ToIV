@@ -50,13 +50,13 @@
      供输入聚焦光晕、浮层淡边等中性场景;--accent-glow 之名让位给琥珀点睛色 */
   --accent-halo: rgba(23, 24, 26, 0.18);
   --text-on-accent: #FFFFFF;
-  /* ── 品格色点睛(2026-09-04 美化 W0,克制):暖琥珀单点,只用于聚焦环/
-     文本链接 hover/at-seg 激活指示等最小触点;主按钮 accent 近黑不变 ── */
-  --accent-glow: #b07d2a;
-  --accent-glow-soft: rgba(176, 125, 42, 0.10);
-  /* 琥珀压深调(assistant 启动序列极光拖尾专用;55% 琥珀 + 45% accent,
-     经 var 引用随亮暗模式解析,暗色块无需重复定义) */
-  --accent-glow-deep: color-mix(in oklab, var(--accent-glow) 55%, var(--accent));
+  /* ── 点睛触点(2026-09-06 单色极简改造):琥珀色系退役,重定义为中性
+     近黑(= 主文字色)。聚焦环/链接 hover/at-seg 激活指示/启动序列等最小触点
+     全部自动黑白化,无需逐处改;主按钮 accent 近黑不变 ── */
+  --accent-glow: var(--text-primary);
+  --accent-glow-soft: rgba(23, 24, 26, 0.07);
+  /* 压深调(assistant 启动序列拖尾专用;单色化后与 accent 同值) */
+  --accent-glow-deep: var(--accent);
 
   /* ── 状态色(五套共用;仅状态用语;深色取值保证文本在自身 soft 底上 ≥4.5:1;运行态收敛进 accent。
      2026-08-16 基座复核:warn/err 原值在 surface-3 的 soft 合成底上仅 4.25/4.14,压深至
@@ -235,7 +235,7 @@
   --z-toast: 400;
 
   /* ── 焦点环与触控(2026-08-14 UI-A 新增) ── */
-  --focus-ring: 1px solid var(--accent-glow);  /* outline 统一 1px;2026-09-04 W0 起琥珀点睛 */
+  --focus-ring: 1px solid var(--accent-glow);  /* outline 统一 1px;2026-09-06 单色极简后为中性近黑/近白 */
   --touch-target: 44px;                        /* WCAG 2.5.5 触控最小目标 */
 
   /* ── 断点令牌(JS 侧经 lib/useBreakpoint.ts 读取;CSS 媒体查询 max 形式统一为令牌值 -1:575/767/1023) ── */
@@ -278,9 +278,9 @@
   --accent-halo: rgba(245, 245, 244, 0.22);
   --text-on-accent: #17181A;
   --accent-glow-shadow: 0 2px 12px rgba(245, 245, 244, 0.22);
-  /* 琥珀点睛暗色档:向亮提,深底上保非文本对比度 ≥3:1 */
-  --accent-glow: #d4a94e;
-  --accent-glow-soft: rgba(212, 169, 78, 0.12);
+  /* 点睛暗色档(2026-09-06 单色极简):中性近白(= 主文字色) */
+  --accent-glow: var(--text-primary);
+  --accent-glow-soft: rgba(245, 245, 244, 0.08);
 
   /* 状态色:向亮提,文本在深面板及自身 soft 底上均 ≥4.5:1;运行态仍收敛进 accent。
      2026-08-16 基座复核:err 原值 #F06A6A 在 surface-3 的 soft 合成底上仅 4.12,
@@ -388,8 +388,8 @@ a {
   color: inherit;
   text-decoration: none;
 }
-/* 文本链接 hover:琥珀点睛(2026-09-04 W0;仅无类名的纯文本链接,
-   带类控件如 .at-btn/.btn 由自身 hover 规则接管,不被此规则染色) */
+/* 文本链接 hover(2026-09-04 W0;2026-09-06 单色极简后走中性近黑/近白,
+   仅无类名的纯文本链接,带类控件如 .at-btn/.btn 由自身 hover 规则接管) */
 a:hover:not([class]) {
   color: var(--accent-glow);
 }
