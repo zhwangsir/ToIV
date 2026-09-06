@@ -4,6 +4,10 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 core 应用封面换 RunningHub 原卡面（无产品 SHA；数据侧已上 core；远程未推文档）**：rh-* 可靠对齐 499/499 已上传本地 appcover；内置非 rh 30/34 已换（跳过 `h3-multishot`、`ltx25-multishot`、`longcat-t2v`、`controlnet`，无可靠匹配）。映射落 MateBook `.regen_tmp/mapped_safe.json` 与 `.regen_tmp/builtin_cover_map.json`（未入库）。AGENTS.md 未动。大脑换 GLM 仍调研中、未切。
+
+**2026-09-07 core VLM 改走 qwen3.8-flash-next（无产品 SHA；env 已上 core）**：deploy/.env 把 `TOIV_VLM_MODEL_ID` 与 `TOIV_EVAL_VLM_MODEL` 从 `qwen3-vl-32b` 改为现网 `qwen3.8-flash-next`；toiv-api 已重启，LAN health 200。LLM URL / Spark Qwen 未动。备份 `.env.bak-vlm-20260907`。AGENTS.md 未动。
+
 **2026-09-07 P0 主题系统 v9（`19d65db`/`4d9e583`，已上线 core，产品 tip 已双推）**：产品 `19d65db`（四预设 minimal/cinema/paper/graphite + 自定义 accent；rh-dark 改消费主题令牌）；部署 tip `4d9e583`（含 UI 整改方案交接文档）。干净构建后 `bash deploy/deploy.sh`；core BUILD_ID `20260906-202535-4d9e583-dirty`（HTML `<!--20260906_202535_4d9e583_-->`）；api :8090 / web :3100 均 200。验证仅 core LAN `http://192.168.71.47:3100` 截图（禁公网穿透）；ThemePicker + 四预设 home/market + 自定义紫 accent + minimal dark 已拍，落 `/tmp/theme-prod/` 与 `.regen_tmp/theme-prod/`。纪律：后续验证只走本地或 core LAN，禁止打 toiv.wineryz.top。AGENTS.md 未动。市场合并（HF/RH/Civitai、去 R18 推荐、模型来源）尚未开工。本地核：origin/main 与 github/main 已是 `4d9e583`。
 
 **2026-09-06 beijing SSH 公钥已通（设备管家）**：MateBook 已装 id_ed25519 公钥；~/.ssh/config 有 Host beijing → 8.140.222.24 User root IdentityFile ~/.ssh/id_ed25519；BatchMode 免密已通。密码不入文档。集群 SoT AGENTS.md。

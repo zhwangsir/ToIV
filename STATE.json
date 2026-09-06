@@ -1,7 +1,46 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T04:30:00+08:00",
+  "updated_at": "2026-09-07T05:40:00+08:00",
+  "app_covers_rh_original_2026_09_07": {
+    "date": "2026-09-07",
+    "status": "on_core_no_product_sha",
+    "on_core": true,
+    "product_sha": null,
+    "rh_aligned_uploaded": "499/499",
+    "builtin_non_rh_replaced": "30/34",
+    "skipped": [
+      "h3-multishot",
+      "ltx25-multishot",
+      "longcat-t2v",
+      "controlnet"
+    ],
+    "skip_reason": "no_reliable_match",
+    "maps": [
+      ".regen_tmp/mapped_safe.json",
+      ".regen_tmp/builtin_cover_map.json"
+    ],
+    "maps_committed": false,
+    "agents_md": "untouched",
+    "brain_glm": "researching_not_switched"
+  },
+  "vlm_flash_next_2026_09_07": {
+    "date": "2026-09-07",
+    "status": "on_core_no_product_sha",
+    "on_core": true,
+    "product_sha": null,
+    "env_keys": [
+      "TOIV_VLM_MODEL_ID",
+      "TOIV_EVAL_VLM_MODEL"
+    ],
+    "from": "qwen3-vl-32b",
+    "to": "qwen3.8-flash-next",
+    "api_restarted": true,
+    "lan_health": 200,
+    "unchanged": "LLM URL / Spark Qwen",
+    "backup": ".env.bak-vlm-20260907",
+    "agents_md": "untouched"
+  },
   "theme_system_v9_2026_09_07": {
     "date": "2026-09-07",
     "product": "19d65db",
