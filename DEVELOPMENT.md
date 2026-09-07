@@ -5,7 +5,9 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
-**2026-09-08 LIVE：MODEL_SOURCES batch13 后计数更新**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；**ok 292 / blocked 159 / total 451**（前 262/130/392）；updated `2026-09-08T05:46:49+08:00`；根目录无 `MODEL_SOURCES*`；后续每批追加。status=`inventory_updated_batch13`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T05:47:00+08:00。由 ToIV 模型下载追加；本 commit 含清单正文 + 五件套进度。
+**2026-09-08 LIVE：MODEL_SOURCES batch14 后计数更新**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；**ok 321 / blocked 264 / total 585**（前 292/159/451）；updated `2026-09-08T06:17:23+08:00`；根目录无 `MODEL_SOURCES*`；后续每批追加。status=`inventory_updated_batch14`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T06:18:00+08:00。由 ToIV 模型下载追加；本 commit 含清单正文 + 五件套进度。
+
+**2026-09-08 LIVE：MODEL_SOURCES batch13 后计数更新（历史；进一步片→batch14）**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；**ok 292 / blocked 159 / total 451**（前 262/130/392）；updated `2026-09-08T05:46:49+08:00`；根目录无 `MODEL_SOURCES*`；后续每批追加。status=~~`inventory_updated_batch13`~~ → 见上条 `inventory_updated_batch14`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T05:47:00+08:00。由 ToIV 模型下载追加；本 commit 含清单正文 + 五件套进度。
 
 **2026-09-08 LIVE：MODEL_SOURCES batch12 后计数更新（历史；进一步片→batch13）**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；**ok 262 / blocked 130 / total 392**（前 239/120/359）；updated `2026-09-08T05:20:38+08:00`；根目录无 `MODEL_SOURCES*`；后续每批追加。status=~~`inventory_updated_batch12`~~ → 见上条 `inventory_updated_batch13`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T05:21:00+08:00。由 ToIV 模型下载追加；本 commit 含清单正文 + 五件套进度。
 
