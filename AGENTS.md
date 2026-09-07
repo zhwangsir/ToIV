@@ -113,7 +113,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - 用途：每次模型/内容下载维护带来源的条目（HF / Civitai / RH / 本地），供更新核对与查文档。
 - 维护：ToIV 模型下载；项目管家五件套只引用本路径。WIP 草稿放 `.regen_tmp/`，就绪再落入 `docs/`。
 - **不**替代 `engine_registry` / `model_wiki` / admin knowledge-graph / `model_profiles`；清单指向 NAS 落盘路径 + 出处 URL。
-- STATE `model_sources_inventory_convention_2026_09_08` → `model_sources_inventory_2026_09_08`：**ok 262 / blocked 130 / total 392**（updated `2026-09-08T05:20:38+08:00`；batch12）；清单在 docs，持续追加。
+- STATE `model_sources_inventory_convention_2026_09_08` → `model_sources_inventory_2026_09_08`：**ok 292 / blocked 159 / total 451**（updated `2026-09-08T05:46:49+08:00`；batch13）；清单在 docs，持续追加。
 
 ## 五、Core 生产状态（活口径）
 
@@ -185,11 +185,17 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（ToIV 模型下载：LIVE — MODEL_SOURCES batch13 计数更新）
+- **路径**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`（根目录无 `MODEL_SOURCES*`）。
+- **计数**：ok **292** / blocked **159** / total **451**（前 262/130/392）；updated `2026-09-08T05:46:49+08:00`。
+- **维护**：后续每批下载追加这两份。
+- Status：`inventory_updated_batch13`；STATE `model_sources_inventory_2026_09_08`；`updated_at` 2026-09-08T05:47:00+08:00。
+
 ### 2026-09-08（ToIV 模型下载：LIVE — MODEL_SOURCES batch12 计数更新）
 - **路径**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`（根目录无 `MODEL_SOURCES*`）。
 - **计数**：ok **262** / blocked **130** / total **392**（前 239/120/359）；updated `2026-09-08T05:20:38+08:00`。
 - **维护**：后续每批下载追加这两份。
-- Status：`inventory_updated_batch12`；STATE `model_sources_inventory_2026_09_08`；`updated_at` 2026-09-08T05:21:00+08:00。
+- Status：~~`inventory_updated_batch12`~~ → 见上条 batch13；STATE `model_sources_inventory_2026_09_08`；原 `updated_at` 2026-09-08T05:21:00+08:00。
 
 ### 2026-09-08（ToIV 模型下载：LIVE — MODEL_SOURCES 清单已落入 docs）
 - **路径**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`（根目录无 `MODEL_SOURCES*`）。
