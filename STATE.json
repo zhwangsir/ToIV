@@ -1,7 +1,45 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T17:30:00+08:00",
+  "updated_at": "2026-09-07T17:45:00+08:00",
+  "cover_backfill_image_rh_2026_09_07": {
+    "status": "done_on_core",
+    "on_core": true,
+    "live": true,
+    "committed_product": false,
+    "pushed": false,
+    "product_sha": null,
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T17:45:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "scope": {
+      "new_image_rh_apps": 6400,
+      "total_market_apps": 8646
+    },
+    "empty_cover_url": {
+      "before": 13,
+      "after": 0
+    },
+    "effective_missing_covers": {
+      "before": 13,
+      "after": 0
+    },
+    "rh_cdn_kept": 6387,
+    "family_cdn_admin_uploaded": 13,
+    "remaining": "none for empty/broken covers; 6387 still RH CDN by design; localize later only if offline CDN required",
+    "report": ".regen_tmp/cover-backfill-image-rh-20260907.md",
+    "report_committed": false,
+    "changes": [
+      "RH 图生新入库封面回填完成",
+      "空 cover_url 13→0",
+      "6387 保持 RH CDN",
+      "13 无 coverUrl 用同族 CDN+admin 上传补齐",
+      "有效缺封面 0",
+      "scope 6400 new image RH / market 8646"
+    ],
+    "note": "RH 图生新入库封面回填完成（数据侧已上 core）；空 cover_url 13→0；6387 保持 RH CDN；13 无 coverUrl 同族 CDN+admin 上传补齐；有效缺封面 0；scope 6400 new image RH / market 8646；报告 .regen_tmp/cover-backfill-image-rh-20260907.md 勿提交；AGENTS 已回写"
+  },
   "rh_ux_tab_cover_admin_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
     "live": true,
