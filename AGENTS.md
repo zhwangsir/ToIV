@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-08（ToIV 开发：打开工作流 Comfy1.45 `?workflow=` 扩展 partial（WS 主 Comfy 已装 `toiv_workflow_query`；web Canvas 加固未进 served BUILD）；worker `_pick_app_client` 扩 H3/LongCat/Wan* + 503 缺模型/节点 API live_on_core；市场 prune 付费云端专用 −263（2426→2163）；封面 coverless 1166→705；前：市场瀑布流无感追加 BUILD `20260907-164531-9ec0144-dirty`；RH SCALE2 rh-acc-*=1212；Embedding spark01 :9302；Spark LLM/VLM 27B @ spark02）
+> **最后更新**：2026-09-08（ToIV 开发：Comfy 打开工作流加固 LIVE — WS `toiv_workflow_query` LIVE + web dirty BUILD `20260907-174430-c309d02-dirty`（chunk 含 toiv-load-workflow）；pc01/pc02 文件已落盘待 Comfy 重启注册 /extensions；封面 coverless/gap_pending→0（清 68 坏本地封面后 regenerate；local 1214；CDN 949 保留）；前：worker `_pick_app_client` 扩 H3/LongCat/Wan*；市场 prune −263（2426→2163）；市场瀑布流无感追加；RH SCALE2 rh-acc-*=1212；Embedding spark01 :9302；Spark LLM/VLM 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -178,10 +178,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
-### 2026-09-08（ToIV 开发：LIVE — 打开工作流 Comfy1.45 query 扩展 partial）
-- 根因：Comfy 1.45 丢 `?workflow=`；WS 主 Comfy 已装 `toiv_workflow_query`；repo 路径 `deploy/comfy-extensions/toiv_workflow_query/`。
-- web Canvas 加固**未进**当前 served BUILD；status=`partial`。
-- STATE `open_workflow_comfy145_query_2026_09_08`；`updated_at` 2026-09-08T01:20:00+08:00。
+### 2026-09-08（ToIV 开发：LIVE — Comfy 打开工作流加固；WS LIVE；pc 待重启）
+- 加固：`toiv_workflow_query` 等 canvas/graph ready、backoff `getCanvas:null`、禁误 `app.clean()`（改 `graph.clear`）、postMessage `toiv-load-workflow`、afterConfigureGraph retry；CanvasView parent→iframe postMessage after load（+800ms/+2500ms）；保留 userdata `?workflow=`。
+- WS `/opt/ComfyUI/custom_nodes/toiv_workflow_query/` LIVE（8196 + LB :8188）；web BUILD `20260907-174430-c309d02-dirty`（chunk 含 toiv-load-workflow）；probe open-in-comfy `h3-nsfw-t2v` OK。
+- pc01/pc02 文件已在盘但 `/extensions` 未列出 → **待重启 Comfy 注册扩展**。status=`hardened_deployed_ws_live_pc_pending_restart`。
+- STATE `open_workflow_comfy145_query_2026_09_08` + `comfy_load_harden_covers_2026_09_08`；报告 `.regen_tmp/fix-comfy-load-covers-20260908.md`（勿提交）；`updated_at` 2026-09-08T01:49:16+08:00。
 
 ### 2026-09-08（ToIV 开发：LIVE — worker `_pick_app_client` 扩 H3/LongCat/Wan*）
 - `_pick_app_client` 扩 H3/LongCat/Wan*；503 列缺模型/节点；API 已上 core（`live_on_core`）。
@@ -191,9 +192,9 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - 付费云端专用删 **263**；保留可本地化；市场 **2426→2163**。
 - STATE `market_prune_paid_cloud_2026_09_08`；`updated_at` 2026-09-08T01:20:00+08:00。
 
-### 2026-09-08（ToIV 开发：LIVE — 封面生成 coverless 1166→705）
-- coverless **1166→705**。
-- STATE `cover_gen_coverless_2026_09_08`；`updated_at` 2026-09-08T01:20:00+08:00。
+### 2026-09-08（ToIV 开发：LIVE — 封面 coverless/gap_pending→0）
+- coverless/gap_pending → **0**（清 68 坏本地封面文件后 regenerate）；local apps **1214**；CDN **949** 故意保留；bad_files **0**。
+- STATE `cover_gen_coverless_2026_09_08` + `comfy_load_harden_covers_2026_09_08`；报告 `.regen_tmp/fix-comfy-load-covers-20260908.md`（勿提交）；`updated_at` 2026-09-08T01:49:16+08:00。
 
 ### 2026-09-07（ToIV 开发：LIVE — 市场瀑布流无感追加已上 core）
 - 市场瀑布流无感追加已上 core LAN（真机）；BUILD_ID `20260907-164531-9ec0144-dirty`；产品树 dirty 无独立 SHA。

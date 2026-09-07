@@ -1,12 +1,12 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-08 LIVE：打开工作流 Comfy1.45 query 扩展（partial；真机/WS；docs）：根因 Comfy 1.45 丢 `?workflow=`；WS 主 Comfy 已装 `toiv_workflow_query`；repo 路径 `deploy/comfy-extensions/toiv_workflow_query/`；web Canvas 加固**未进**当前 served BUILD；status=`partial`；STATE `open_workflow_comfy145_query_2026_09_08` updated_at 2026-09-08T01:20:00+08:00；无产品 SHA；AGENTS §七 已短注。
+- 2026-09-08 LIVE：Comfy 打开工作流加固（真机/WS+core；docs）：`toiv_workflow_query` harden（canvas ready / backoff getCanvas:null / 禁 app.clean→graph.clear / postMessage toiv-load-workflow / afterConfigureGraph retry）；CanvasView +800/+2500ms；保留 userdata `?workflow=`；WS LIVE 8196+LB:8188；web BUILD `20260907-174430-c309d02-dirty`（chunk 含 toiv-load-workflow）；pc01/pc02 文件已落盘 `/extensions` 未列出→待 Comfy 重启；probe h3-nsfw-t2v OK；status=`hardened_deployed_ws_live_pc_pending_restart`；STATE `open_workflow_comfy145_query_2026_09_08` + `comfy_load_harden_covers_2026_09_08`；报告 `.regen_tmp/fix-comfy-load-covers-20260908.md`（勿提交）；updated_at 2026-09-08T01:49:16+08:00；无产品 SHA；AGENTS §七 已短注。
 
 - 2026-09-08 LIVE：worker `_pick_app_client` 扩 H3/LongCat/Wan*（真机/core；docs）：`_pick_app_client` 扩 H3/LongCat/Wan*；503 列缺模型/节点；API `live_on_core`；STATE `worker_pick_app_client_expand_2026_09_08` updated_at 2026-09-08T01:20:00+08:00；无产品 SHA；AGENTS §七 已短注。
 
 - 2026-09-08 LIVE：市场 prune 付费云端专用 −263（真机/core；docs）：付费云端专用删 **263**；保留可本地化；市场 **2426→2163**；STATE `market_prune_paid_cloud_2026_09_08` updated_at 2026-09-08T01:20:00+08:00；无产品 SHA；AGENTS §七 已短注。
 
-- 2026-09-08 LIVE：封面生成 coverless 1166→705（真机/core；docs）：coverless **1166→705**；STATE `cover_gen_coverless_2026_09_08` updated_at 2026-09-08T01:20:00+08:00；无产品 SHA；AGENTS §七 已短注。
+- 2026-09-08 LIVE：封面 coverless/gap_pending→0（真机/core；docs）：coverless/gap_pending → **0**（清 68 坏本地封面后 regenerate）；local apps **1214**；CDN **949** 保留；bad_files **0**；STATE `cover_gen_coverless_2026_09_08` + `comfy_load_harden_covers_2026_09_08`；报告 `.regen_tmp/fix-comfy-load-covers-20260908.md`（勿提交）；updated_at 2026-09-08T01:49:16+08:00；无产品 SHA；AGENTS §七 已短注。
 
 - 2026-09-07 LIVE：市场瀑布流无感追加已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-164531-9ec0144-dirty`；去掉 CSS `column-count`；`.rh-grid` → N 列 `.rh-col`；placement Map 保列位；续载只往最短列底追加；resize 才整表重分；叠市场小步续载 / 无限滚动 / 市场 UX / UI P4 瀑布流；STATE `market_waterfall_seamless_append_2026_09_07` status=`live_on_core_dirty` updated_at 2026-09-07T16:45:31+08:00；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 

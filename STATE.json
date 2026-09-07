@@ -1,32 +1,53 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T01:20:00+08:00",
-  "open_workflow_comfy145_query_2026_09_08": {
+  "updated_at": "2026-09-08T01:49:16+08:00",
+  "comfy_load_harden_covers_2026_09_08": {
     "date": "2026-09-08",
-    "updated_at": "2026-09-08T01:20:00+08:00",
+    "updated_at": "2026-09-08T01:49:16+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "committed_product": false,
     "pushed": false,
     "product_sha": null,
     "dirty": true,
-    "status": "partial",
+    "status": "live_docs",
     "live": true,
-    "on_core": false,
-    "root_cause": "Comfy 1.45 drops ?workflow=",
+    "on_core": true,
+    "open_workflow": "open_workflow_comfy145_query_2026_09_08",
+    "covers": "cover_gen_coverless_2026_09_08",
+    "build_id": "20260907-174430-c309d02-dirty",
+    "report": ".regen_tmp/fix-comfy-load-covers-20260908.md",
+    "note": "Comfy 打开工作流加固 + 封面清零（coverless/gap=0）；WS LIVE；pc01/02 待重启；web BUILD dirty c309d02。"
+  },
+  "open_workflow_comfy145_query_2026_09_08": {
+    "date": "2026-09-08",
+    "updated_at": "2026-09-08T01:49:16+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "product_sha": null,
+    "dirty": true,
+    "status": "hardened_deployed_ws_live_pc_pending_restart",
+    "live": true,
+    "on_core": true,
+    "method": "waitForCanvasReady+backoff getCanvas:null+no app.clean→graph.clear+postMessage toiv-load-workflow+afterConfigureGraph retry+CanvasView +800/+2500ms+?workflow= userdata",
     "extension": "toiv_workflow_query",
-    "extension_installed_on": "WS main Comfy",
-    "repo_path": "deploy/comfy-extensions/toiv_workflow_query/",
-    "web_canvas_harden_in_served_build": false,
-    "note": "打开工作流：根因 Comfy 1.45 丢 ?workflow=；WS 主 Comfy 已装 toiv_workflow_query；repo 路径 deploy/comfy-extensions/toiv_workflow_query/；web Canvas 加固未进当前 served BUILD；status=partial。",
-    "changes": [
-      "Comfy 1.45 drops ?workflow=",
-      "WS main Comfy installed toiv_workflow_query",
-      "path deploy/comfy-extensions/toiv_workflow_query/",
-      "web Canvas harden NOT in current served BUILD",
-      "status partial"
-    ]
+    "extension_bytes": 7548,
+    "deployed_to": [
+      "WS /opt/ComfyUI (8196+LB :8188)",
+      "pc01 files",
+      "pc02 files"
+    ],
+    "pc_extensions_listed": false,
+    "pc_needs_comfy_restart": true,
+    "web_canvas_harden_in_served_build": true,
+    "build_id": "20260907-174430-c309d02-dirty",
+    "note": "打开工作流加固：toiv_workflow_query WS LIVE（8196+LB:8188）；web dirty BUILD 含 toiv-load-workflow；pc01/pc02 文件已落盘但 /extensions 未列出→待 Comfy 重启注册；保留 userdata ?workflow=；probe h3-nsfw-t2v OK。",
+    "ws_live": true,
+    "probe": "POST /api/apps/h3-nsfw-t2v/open-in-comfy OK",
+    "report": ".regen_tmp/fix-comfy-load-covers-20260908.md"
   },
   "worker_pick_app_client_expand_2026_09_08": {
     "date": "2026-09-08",
@@ -81,24 +102,29 @@
   },
   "cover_gen_coverless_2026_09_08": {
     "date": "2026-09-08",
-    "updated_at": "2026-09-08T01:20:00+08:00",
+    "updated_at": "2026-09-08T01:49:16+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "committed_product": false,
     "pushed": false,
     "product_sha": null,
     "dirty": true,
-    "status": "done_on_core",
+    "status": "done_on_core_coverless_0",
     "live": true,
     "on_core": true,
     "coverless": {
-      "before": 1166,
-      "after": 705
+      "before_prior": 1166,
+      "before_this_turn": 705,
+      "after_empty": 0,
+      "gap_pending": 0,
+      "broken_file_apps_fixed": 68
     },
-    "note": "封面生成：coverless 1166→705。",
-    "changes": [
-      "coverless 1166→705"
-    ]
+    "cdn_remaining": 949,
+    "local_apps": 1214,
+    "bad_files": 0,
+    "note": "封面：coverless/gap_pending=0；清 68 坏本地封面文件后 regenerate；local apps 1214；CDN 949 故意保留；bad_files=0。",
+    "unique_local_files": 65,
+    "report": ".regen_tmp/fix-comfy-load-covers-20260908.md"
   },
   "market_waterfall_seamless_append_2026_09_07": {
     "status": "live_on_core_dirty",
