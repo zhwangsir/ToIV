@@ -178,8 +178,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
-### 2026-09-07（ToIV 开发：INTENT / IN PROGRESS — RH 错挂克隆清库 + 准确重入库）
-- 用户下令：删掉所有错挂 RH 克隆卡并重新准确入库；封面/名称/工作流必须一致，不许再模板克隆；内置应用保留。
+### 2026-09-07（ToIV 开发：SCOPE UPGRADE / IN PROGRESS — RH 清库重入库口径升级：含内置 + 全量严格出处）
+- 用户 ADDENDUM：内置应用也要动（~~内置保留~~ → **SUPERSEDED**）；所有内容与所有模型来源必须可核对（HF / Civitai / RH / 本地）；口径升级为全量严格出处。
+- 仍 `in_progress` / not done；完成后报告：删除数、重入库数、内置变更、模型出处覆盖、BUILD_ID。
+- STATE `rh_clone_purge_reimport_2026_09_07`：`builtin_also=true`，`strict_provenance_all_sources=[HF,Civitai,RH,local]`，`status=in_progress_on_core`。
+- **勿写已完成**；**勿发明已删/重入库数量**；未发明集群/GPU 变更。
+
+### 2026-09-07（ToIV 开发：INTENT / IN PROGRESS — RH 错挂克隆清库 + 准确重入库；历史口径 ~~内置保留~~ SUPERSEDED）
+- 用户下令：删掉所有错挂 RH 克隆卡并重新准确入库；封面/名称/工作流必须一致，不许再模板克隆；~~内置应用保留~~（已作废，见上条 SCOPE UPGRADE）。
 - 先前 `rh-*` 家族模板种子正在清库，以便按 RH 真工作流准确导入；ToIV 已在 core 开始清 `rh-*` 并研究导入。
 - Status：`in_progress` / not done；**勿写已完成**；**勿发明已删数量**；未发明集群/GPU 变更。
 

@@ -1,6 +1,8 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-07 INTENT / IN PROGRESS：RH 错挂克隆清库 + 准确重入库（真机/core；未完成；docs）：用户下令删掉所有错挂 RH 克隆卡并重新准确入库；封面/名称/工作流必须一致，不许再模板克隆；内置应用保留；ToIV 已开始在 core 清 rh-* 并研究 RH 真工作流导入；status in_progress / not done；勿发明已删数量；无产品 SHA；未发明集群/GPU；AGENTS §七 已短注。
+- 2026-09-07 SCOPE UPGRADE / IN PROGRESS：RH 清库重入库口径升级（含内置+全量严格出处；真机/core；未完成；docs）：用户 ADDENDUM——内置应用也要动（不再「内置保留」）；所有内容与所有模型来源必须可核对（HF/Civitai/RH/本地）；口径升级为全量严格出处；仍 in_progress；完成后报告删除数/重入库数/内置变更/模型出处覆盖/BUILD_ID；STATE `rh_clone_purge_reimport_2026_09_07` scope_upgrade builtin_also=true strict_provenance_all_sources=[HF,Civitai,RH,local] status=in_progress_on_core；~~内置保留~~ SUPERSEDED；勿发明计数；无产品 SHA；未发明集群/GPU；AGENTS §七 已短注。
+
+- 2026-09-07 INTENT / IN PROGRESS：RH 错挂克隆清库 + 准确重入库（历史口径；~~内置保留~~ SUPERSEDED by 上条 SCOPE UPGRADE；真机/core；未完成；docs）：用户下令删掉所有错挂 RH 克隆卡并重新准确入库；封面/名称/工作流必须一致，不许再模板克隆；~~内置应用保留~~（已作废）；ToIV 已开始在 core 清 rh-* 并研究 RH 真工作流导入；status in_progress / not done；勿发明已删数量；无产品 SHA；未发明集群/GPU；AGENTS §七 已短注。
 
 - 2026-09-07 打开工作流导航已修已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-103808-6e94327-dirty`；根因 `#canvas` 无效 → `/?view=canvas`；打开应用去掉简洁/工作流，仅 RH 运行台 +「在画布中编辑」；API open-in-comfy fine，SPA hash ignored；node --import ./tests/register.mjs --test tests/appsWorkflow.test.ts tests/appsRh.test.ts → **37** pass / 0 fail；报告 `.regen_tmp/fix-open-workflow-nav-20260907.md`（勿提交）；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 

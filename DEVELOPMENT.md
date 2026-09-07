@@ -4,7 +4,9 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
-**2026-09-07 INTENT / IN PROGRESS：RH 错挂克隆清库 + 准确重入库（未完成；勿写 complete）**：用户下令删掉所有错挂 RH 克隆卡并重新准确入库；封面/名称/工作流必须一致，不许再模板克隆；内置应用保留。ToIV 已开始在 core 清 `rh-*` 并研究 RH 真工作流导入。Status：`in_progress` / not done；STATE `rh_clone_purge_reimport_2026_09_07`=`in_progress_on_core`。勿发明已删数量/集群/GPU；产品树 dirty 未 commit 产品码；远程未推。
+**2026-09-07 SCOPE UPGRADE / IN PROGRESS：RH 清库重入库口径升级（含内置 + 全量严格出处；未完成；勿写 complete）**：用户 ADDENDUM（via ToIV 开发）——**内置应用也要动**（不再「内置保留」）；所有内容与所有模型来源必须可核对（HF / Civitai / RH / 本地）；口径升级为全量严格出处。仍 `in_progress`；完成后报告：删除数、重入库数、内置变更、模型出处覆盖、BUILD_ID。STATE `rh_clone_purge_reimport_2026_09_07` scope_upgrade：`builtin_also=true`，`strict_provenance_all_sources=[HF,Civitai,RH,local]`，`status=in_progress_on_core`。~~先前「内置应用保留」~~ → **SUPERSEDED**。勿发明已删/重入库数量/集群/GPU；产品树 dirty 未 commit 产品码；远程未推。
+
+**2026-09-07 INTENT / IN PROGRESS：RH 错挂克隆清库 + 准确重入库（历史口径；~~内置保留~~ → SUPERSEDED by 上条 SCOPE UPGRADE；未完成；勿写 complete）**：用户下令删掉所有错挂 RH 克隆卡并重新准确入库；封面/名称/工作流必须一致，不许再模板克隆；~~内置应用保留~~（已作废）。ToIV 已开始在 core 清 `rh-*` 并研究 RH 真工作流导入。Status：`in_progress` / not done；STATE `rh_clone_purge_reimport_2026_09_07`=`in_progress_on_core`。勿发明已删数量/集群/GPU；产品树 dirty 未 commit 产品码；远程未推。
 
 **2026-09-07 打开工作流导航已修 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-103808-6e94327-dirty`；根因 `#canvas` 无效，改为 `/?view=canvas`；打开应用去掉简洁/工作流，仅 RH 运行台 +「在画布中编辑」；API open-in-comfy itself was fine，SPA hash ignored；tests appsWorkflow+appsRh **37** pass；报告 `.regen_tmp/fix-open-workflow-nav-20260907.md`（勿提交）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
 
