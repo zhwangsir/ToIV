@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：打开工作流导航已修已上 core — BUILD `20260907-103808-6e94327-dirty`；根因 `#canvas`→`/?view=canvas`；打开应用仅 RH 运行台+「在画布中编辑」；API open-in-comfy fine；37 pass；此前 RH 参考图/提示词默认值 / RH 图生新入库封面回填 13→0 / RH UX Tab+封面 contain+管理员出处 / RH 图生入库 6400 / 封面回填 547→0 / 作品库选封面叠层/市场小步续载/无限滚动 / H3 Ref2VA bf16 NAS；应用详情 RH/Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：INTENT/IN PROGRESS RH 错挂克隆清库+准确重入库 — core 已开始清 rh-*、研究真工作流导入，未完成；此前打开工作流导航已修已上 core — BUILD `20260907-103808-6e94327-dirty`；根因 `#canvas`→`/?view=canvas`；打开应用仅 RH 运行台+「在画布中编辑」；API open-in-comfy fine；37 pass；此前 RH 参考图/提示词默认值 / RH 图生新入库封面回填 13→0 / RH UX Tab+封面 contain+管理员出处 / RH 图生入库 6400 / 封面回填 547→0 / 作品库选封面叠层/市场小步续载/无限滚动 / H3 Ref2VA bf16 NAS；应用详情 RH/Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -177,6 +177,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（ToIV 开发：INTENT / IN PROGRESS — RH 错挂克隆清库 + 准确重入库）
+- 用户下令：删掉所有错挂 RH 克隆卡并重新准确入库；封面/名称/工作流必须一致，不许再模板克隆；内置应用保留。
+- 先前 `rh-*` 家族模板种子正在清库，以便按 RH 真工作流准确导入；ToIV 已在 core 开始清 `rh-*` 并研究导入。
+- Status：`in_progress` / not done；**勿写已完成**；**勿发明已删数量**；未发明集群/GPU 变更。
 
 ### 2026-09-07（ToIV 开发：打开工作流导航已修已上 core）
 - 打开工作流导航已修并上 core LAN（真机）；BUILD_ID `20260907-103808-6e94327-dirty`；产品树 dirty 无独立 SHA。

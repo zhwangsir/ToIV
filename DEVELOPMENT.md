@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 INTENT / IN PROGRESS：RH 错挂克隆清库 + 准确重入库（未完成；勿写 complete）**：用户下令删掉所有错挂 RH 克隆卡并重新准确入库；封面/名称/工作流必须一致，不许再模板克隆；内置应用保留。ToIV 已开始在 core 清 `rh-*` 并研究 RH 真工作流导入。Status：`in_progress` / not done；STATE `rh_clone_purge_reimport_2026_09_07`=`in_progress_on_core`。勿发明已删数量/集群/GPU；产品树 dirty 未 commit 产品码；远程未推。
+
 **2026-09-07 打开工作流导航已修 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-103808-6e94327-dirty`；根因 `#canvas` 无效，改为 `/?view=canvas`；打开应用去掉简洁/工作流，仅 RH 运行台 +「在画布中编辑」；API open-in-comfy itself was fine，SPA hash ignored；tests appsWorkflow+appsRh **37** pass；报告 `.regen_tmp/fix-open-workflow-nav-20260907.md`（勿提交）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
 
 **2026-09-07 RH 参考图/提示词默认值 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-095758-c383011-dirty`；UI media default + 远程封面预览（提交仍要真上传）；seed `inject_rh_ref_defaults`；回填 **8626**（top300 RH detail 提示词 **287/300**，其余家族默认+封面 CDN）；Errors **0**；关闭此前 RH UX Tab gap「参考图/提示词默认值仍缺」；报告 `.regen_tmp/rh-ref-defaults-20260907.md`（勿提交）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。

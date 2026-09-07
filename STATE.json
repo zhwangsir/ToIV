@@ -1,7 +1,32 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T18:45:00+08:00",
+  "updated_at": "2026-09-07T18:55:00+08:00",
+  "rh_clone_purge_reimport_2026_09_07": {
+    "status": "in_progress_on_core",
+    "live": false,
+    "on_core": true,
+    "done": false,
+    "committed_product": false,
+    "pushed": false,
+    "product_sha": null,
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T18:55:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "user_order": "删掉所有错挂 RH 克隆卡并重新准确入库",
+    "constraints": [
+      "封面/名称/工作流必须一致",
+      "不许再模板克隆",
+      "内置应用保留"
+    ],
+    "progress": [
+      "已开始在 core 清 rh-*",
+      "研究 RH 真工作流导入"
+    ],
+    "deleted_count": null,
+    "note": "INTENT / IN PROGRESS：用户下令删掉所有错挂 RH 克隆卡并重新准确入库；封面/名称/工作流必须一致，不许再模板克隆；内置应用保留；ToIV 已开始在 core 清 rh-* 并研究 RH 真工作流导入；status in_progress_on_core / not done；勿发明已删数量；未发明集群/GPU"
+  },
   "fix_open_workflow_nav_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
     "live": true,

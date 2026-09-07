@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-07 INTENT / IN PROGRESS：RH 错挂克隆清库 + 准确重入库（真机/core；未完成；docs）：用户下令删掉所有错挂 RH 克隆卡并重新准确入库；封面/名称/工作流必须一致，不许再模板克隆；内置应用保留；ToIV 已开始在 core 清 rh-* 并研究 RH 真工作流导入；status in_progress / not done；勿发明已删数量；无产品 SHA；未发明集群/GPU；AGENTS §七 已短注。
+
 - 2026-09-07 打开工作流导航已修已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-103808-6e94327-dirty`；根因 `#canvas` 无效 → `/?view=canvas`；打开应用去掉简洁/工作流，仅 RH 运行台 +「在画布中编辑」；API open-in-comfy fine，SPA hash ignored；node --import ./tests/register.mjs --test tests/appsWorkflow.test.ts tests/appsRh.test.ts → **37** pass / 0 fail；报告 `.regen_tmp/fix-open-workflow-nav-20260907.md`（勿提交）；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
 - 2026-09-07 RH 参考图/提示词默认值已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-095758-c383011-dirty`；UI media default + 远程封面预览（提交仍要真上传）；seed inject_rh_ref_defaults；回填 8626（top300 RH detail 提示词 287/300，其余家族默认+封面 CDN）；Errors 0；关闭此前 RH UX Tab gap「参考图/提示词默认值仍缺」；报告 `.regen_tmp/rh-ref-defaults-20260907.md`（勿提交）；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
