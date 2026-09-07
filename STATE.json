@@ -1,17 +1,17 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T19:15:00+08:00",
+  "updated_at": "2026-09-07T19:30:00+08:00",
   "rh_clone_purge_reimport_2026_09_07": {
-    "status": "in_progress_on_core",
-    "live": false,
+    "status": "wipe_done_reseed_blocked",
+    "live": true,
     "on_core": true,
     "done": false,
     "committed_product": false,
     "pushed": false,
     "product_sha": null,
     "date": "2026-09-07",
-    "updated_at": "2026-09-07T19:15:00+08:00",
+    "updated_at": "2026-09-07T19:30:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "user_order": "删掉所有错挂 RH 克隆卡并重新准确入库",
@@ -23,16 +23,18 @@
       "口径：全量严格出处"
     ],
     "progress": [
-      "已开始在 core 清 rh-*",
-      "研究 RH 真工作流导入",
-      "rh_star_remaining≈3392（原先近万已删大半）",
-      "interrupted_unauthenticated then resumed",
-      "已重启续删 + 内置/模型出处审计",
-      "no_template_reseed=true（禁止模板重种）",
-      "admin token 仍可用"
+      "rh-* wiped to 0",
+      "deleted_this_run=3392 (API 1149 + SQL 2243)",
+      "cumulative≈8611 from wipe_before",
+      "retained_apps=48 (47 builtins + Flux-文生图-96c82d)",
+      "model_provenance=62/64 (96.9%)",
+      "reseed=0 blocked by RH_workflow_export_TOKEN_MISSION",
+      "no_template_reseed=true",
+      "not deployed; build_id=null",
+      "SQL used because admin API 403 on is_builtin rh-*"
     ],
-    "deleted_count": null,
-    "note": "PROGRESS / IN PROGRESS：清库中途 executor 基础设施 unauthenticated 中断；当前 core 约剩 rh-* ≈3392（原先近万已删大半）；admin token 仍可用；已重启续删 + 内置/模型出处审计；禁止模板重种 no_template_reseed=true；status in_progress_on_core / not done；完成后报告删除数/重入库数/内置变更/模型出处覆盖/BUILD_ID；scope_upgrade builtin_also=true strict_provenance_all_sources=[HF,Civitai,RH,local] 仍有效；勿发明精确已删/重入库数量；未发明集群/GPU",
+    "deleted_count": 3392,
+    "note": "LIVE wipe done / reseed BLOCKED：rh-*=0；本轮删 3392（API 1149+SQL 2243）累计≈8611；保留 48；出处 62/64；重入库 0；BLOCKER RH export 403 TOKEN_MISSION（detail 仅元数据）；未部署无 BUILD_ID；no_template_reseed=true；勿声称重入库完成；scope_upgrade builtin_also + strict_provenance 仍有效",
     "scope_upgrade": true,
     "builtin_also": true,
     "strict_provenance_all_sources": [
@@ -53,14 +55,43 @@
       "note": "prior constraint「内置应用保留」SUPERSEDED by scope_upgrade builtin_also=true"
     },
     "addendum_source": "ToIV 开发",
-    "reimport_count": null,
+    "reimport_count": 0,
     "builtin_change_count": null,
-    "provenance_coverage": null,
-    "rh_star_remaining": 3392,
+    "provenance_coverage": "62/64",
+    "rh_star_remaining": 0,
     "interrupted_unauthenticated": true,
     "resumed_after_interrupt": true,
     "no_template_reseed": true,
-    "admin_token_usable": true
+    "admin_token_usable": true,
+    "wipe_done": true,
+    "reseed_done": false,
+    "deployed": false,
+    "build_id": null,
+    "rh_remaining": 0,
+    "deleted_this_run": 3392,
+    "deleted_api": 1149,
+    "deleted_sql": 2243,
+    "cumulative_deleted_approx": 8611,
+    "retained_apps": 48,
+    "retained_builtins": 47,
+    "retained_extra": [
+      "Flux-文生图-96c82d"
+    ],
+    "model_provenance": "62/64",
+    "model_provenance_pct": 96.9,
+    "reseed": 0,
+    "blocker": "RH_workflow_export_TOKEN_MISSION",
+    "sql_used_for_builtin_rh": true,
+    "sql_reason": "admin API 403 内置应用不可删除 for is_builtin rh-*",
+    "unproven_models_primary": [
+      "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors",
+      "10eros_v14.safetensors"
+    ],
+    "unproven_note": "约 10 个 H3/LTX NSFW 应用；hunyuan_video I2V + flux1-dev-fp8(pulid) 经 family HF 后纳入覆盖",
+    "reports": [
+      ".regen_tmp/rh-wipe-resume-20260907.md",
+      ".regen_tmp/builtin-provenance-20260907.md"
+    ]
   },
   "fix_open_workflow_nav_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",

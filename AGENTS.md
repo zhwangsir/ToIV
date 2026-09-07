@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：PROGRESS/IN PROGRESS RH 清库 — core rh-* 约剩 ≈3392，中途 unauthenticated 中断后已续删+内置/模型出处审计，禁止模板重种，未完成；此前 SCOPE UPGRADE 含内置+全量严格出处；此前打开工作流导航已修已上 core — BUILD `20260907-103808-6e94327-dirty`；根因 `#canvas`→`/?view=canvas`；打开应用仅 RH 运行台+「在画布中编辑」；API open-in-comfy fine；37 pass；此前 RH 参考图/提示词默认值 / RH 图生新入库封面回填 13→0 / RH UX Tab+封面 contain+管理员出处 / RH 图生入库 6400 / 封面回填 547→0 / 作品库选封面叠层/市场小步续载/无限滚动 / H3 Ref2VA bf16 NAS；应用详情 RH/Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：LIVE RH 清库完成 rh-*=0 / 重入库 BLOCKER — 本轮删 3392（API 1149+SQL 2243）累计≈8611；保留 48（47 builtins+Flux-文生图-96c82d）；出处 62/64=96.9%；重入库 0；BLOCKER RH export 403 TOKEN_MISSION；无 BUILD_ID/未部署；此前 PROGRESS≈3392 续删；SCOPE UPGRADE 含内置+全量严格出处；打开工作流导航已修 BUILD `20260907-103808-6e94327-dirty`；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -177,6 +177,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（ToIV 开发：LIVE — RH 清库完成 rh-*=0；重入库被 RH 导出挡住）
+- **LIVE wipe**：`rh-*` 已清 **0**；本轮删除 **3392**（API 1149 + SQL 2243）；相对 wipe_before 累计约 **8611**。admin API 对 is_builtin `rh-*` 403，故用 core Postgres SQL 清剩余。
+- **保留应用 48**（47 builtins + `Flux-文生图-96c82d`）；未删产品内置。
+- **模型出处**覆盖 **96.9%（62/64）**；未证主因：`10Eros_Max_h3_*` / `10eros_v14`（约 10 个 H3/LTX NSFW 应用）；另曾标 hunyuan_video I2V + flux1-dev-fp8（pulid，family HF 后纳入覆盖）。
+- **准确 RH 重入库 0**；**BLOCKER**：RH 无可用工作流图导出（detail 仅元数据；export 403 `TOKEN_MISSION`）。未部署，**无 BUILD_ID**。`no_template_reseed=true` 仍有效——**勿声称重入库已完成**。
+- STATE `rh_clone_purge_reimport_2026_09_07`：`status=wipe_done_reseed_blocked`，`rh_remaining=0`，`deleted_this_run=3392`，`cumulative≈8611`，`retained_apps=48`，`model_provenance=62/64`，`reseed=0`，`blocker=RH_workflow_export_TOKEN_MISSION`，`build_id=null`，`deployed=false`；报告 `.regen_tmp/rh-wipe-resume-20260907.md` / `builtin-provenance-20260907.md`（勿提交）。
 
 ### 2026-09-07（ToIV 开发：PROGRESS / IN PROGRESS — RH 清库进度：rh-* 约剩 3392，已续删）
 - 清库中途 executor 基础设施 unauthenticated 中断；当前 core 约剩 `rh-*` **≈3392**（原先近万已删大半）；admin token 仍可用。
