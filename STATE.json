@@ -1,7 +1,38 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T15:55:00+08:00",
+  "updated_at": "2026-09-07T16:15:00+08:00",
+  "market_small_step_load_2026_09_07": {
+    "status": "on_core_lan_uncommitted_no_product_sha",
+    "live": true,
+    "on_core": true,
+    "committed": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "build_id": "20260907-080948-7b6f9e7-dirty",
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T16:15:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "page_size": 10,
+    "loading": "细条 loading",
+    "rootMargin": 150,
+    "new_card": "fade-in",
+    "changes": [
+      "市场小步续载已上 core",
+      "每页 10",
+      "细条 loading",
+      "rootMargin 150",
+      "新卡 fade-in"
+    ],
+    "note": "市场小步续载已上 core LAN（真机）；BUILD_ID 20260907-080948-7b6f9e7-dirty；每页 10；细条 loading；rootMargin 150；新卡 fade-in；未 commit；产品树 dirty 无独立产品 SHA；叠在市场无限滚动 / 市场 UX 之上；AGENTS 按真机更新",
+    "relates_to": "market_infinite_scroll_2026_09_07",
+    "further_slice_of": [
+      "market_infinite_scroll_2026_09_07",
+      "market_ux_2026_09_07"
+    ]
+  },
   "market_infinite_scroll_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
     "live": true,
@@ -12,7 +43,7 @@
     "product_sha": null,
     "build_id": "20260907-075325-693aa19-dirty",
     "date": "2026-09-07",
-    "updated_at": "2026-09-07T15:55:00+08:00",
+    "updated_at": "2026-09-07T16:15:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "changes": [
@@ -20,12 +51,13 @@
       "去掉显示更多",
       "IO sentinel 续载"
     ],
-    "note": "市场无限滚动已上 core LAN（真机）；BUILD_ID 20260907-075325-693aa19-dirty；去掉「显示更多」；IO sentinel 续载；未 commit；产品树 dirty 无独立产品 SHA；叠在市场 UX / UI P4 瀑布流之上；AGENTS 按真机更新",
+    "note": "市场无限滚动已上 core LAN（真机）；BUILD_ID 20260907-075325-693aa19-dirty；去掉「显示更多」；IO sentinel 续载；未 commit；产品树 dirty 无独立产品 SHA；叠在市场 UX / UI P4 瀑布流之上；AGENTS 按真机更新。进一步片见 market_small_step_load_2026_09_07（每页10/细条loading/rootMargin150/fade-in；BUILD 20260907-080948-7b6f9e7-dirty）。",
     "relates_to": "market_ux_2026_09_07",
     "further_slice_of": [
       "market_ux_2026_09_07",
       "ui_p4_market_waterfall_2026_09_07"
-    ]
+    ],
+    "further_slice": "market_small_step_load_2026_09_07"
   },
   "h3_ref2va_bf16_2026_09_07": {
     "status": "on_nas_verified_matebook_no_product_sha",
@@ -128,11 +160,14 @@
       "封面 expand_top=40 生成中",
       "Comfy 导出/打开已落地（完整二次编辑仍推进）"
     ],
-    "note": "市场 UX 已上 core LAN（真机）；进一步片叠在 UI P4 市场瀑布流/详情之上；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260907-064811-db3fa3e-dirty；AGENTS 按真机更新。进一步片见 comfy_open_edit_2026_09_07（Comfy 二次编辑 open-in-comfy；新 BUILD）。 进一步片亦见 market_infinite_scroll_2026_09_07（去掉显示更多 + IO sentinel；BUILD 20260907-075325-693aa19-dirty）。",
+    "note": "市场 UX 已上 core LAN（真机）；进一步片叠在 UI P4 市场瀑布流/详情之上；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260907-064811-db3fa3e-dirty；AGENTS 按真机更新。进一步片见 comfy_open_edit_2026_09_07（Comfy 二次编辑 open-in-comfy；新 BUILD）。 进一步片亦见 market_infinite_scroll_2026_09_07（去掉显示更多 + IO sentinel；BUILD 20260907-075325-693aa19-dirty） 进一步片亦见 market_small_step_load_2026_09_07（每页10/fade-in；BUILD 20260907-080948-7b6f9e7-dirty）。",
     "relates_to": "ui_p4_market_waterfall_2026_09_07",
     "further_slice_of": "ui_p4_market_waterfall_2026_09_07",
     "further_slice": "comfy_open_edit_2026_09_07",
-    "further_slice_also": "market_infinite_scroll_2026_09_07"
+    "further_slice_also": [
+      "market_infinite_scroll_2026_09_07",
+      "market_small_step_load_2026_09_07"
+    ]
   },
   "ui_p4_market_waterfall_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
@@ -154,7 +189,10 @@
     "note": "UI P4 市场瀑布流/详情已上 core LAN（真机）；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260906-231138-69957d0-dirty；AGENTS 按真机更新。进一步市场 UX 片见 market_ux_2026_09_07（新 BUILD）。",
     "supersedes": "ui_p4_miniprogram_theme_2026_09_07 prior next=市场瀑布流/详情 intent",
     "further_slice": "market_ux_2026_09_07",
-    "further_slice_also": "market_infinite_scroll_2026_09_07"
+    "further_slice_also": [
+      "market_infinite_scroll_2026_09_07",
+      "market_small_step_load_2026_09_07"
+    ]
   },
   "ui_p4_miniprogram_theme_2026_09_07": {
     "date": "2026-09-07",

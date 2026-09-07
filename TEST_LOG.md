@@ -1,6 +1,8 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-07 市场无限滚动已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-075325-693aa19-dirty`；去掉「显示更多」；IO sentinel 续载；叠市场 UX / UI P4 瀑布流；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+- 2026-09-07 市场小步续载已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-080948-7b6f9e7-dirty`；每页 10；细条 loading；rootMargin 150；新卡 fade-in；叠市场无限滚动 / 市场 UX；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+
+- 2026-09-07 市场无限滚动已上 core LAN 验证（历史；进一步片→市场小步续载；真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-075325-693aa19-dirty`；去掉「显示更多」；IO sentinel 续载；叠市场 UX / UI P4 瀑布流；现见上条市场小步续载 LIVE；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
 - 2026-09-07 H3 Ref2VA bf16 NAS 入库核实（MateBook ls；无产品 SHA；docs）：`NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors` 存在，66280487368 bytes ≈62GiB；同目录 INT8 `minimax_h3_ref2va_pruned_int8_convrot.safetensors` 已有；**仍缺** `minimax_h3_ref2va_pruned_bf16`；未列 NAS/#recycle 未完成 aria2 副本；H3 无需为下载重启；AGENTS §四/§七 已回写。
 
