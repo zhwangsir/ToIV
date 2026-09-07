@@ -1,7 +1,60 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T03:59:00+08:00",
+  "updated_at": "2026-09-08T04:04:00+08:00",
+  "rh_form_media_hf_covers_2026_09_08": {
+    "status": "done",
+    "date": "2026-09-08",
+    "source": "ToIV 开发",
+    "live": true,
+    "metrics": {
+      "animate_v8_params": "15→16",
+      "animate_v8_media": [
+        "video",
+        "images"
+      ],
+      "rh_acc_both_iv_gap": 0,
+      "both_iv_apps": 127,
+      "media_repair_updated": 2,
+      "media_repair_unchanged": 125,
+      "demo_media_local_files": 182,
+      "demo_schema_wired": "127/127",
+      "function_covers_uploaded": 15,
+      "function_covers_nsfw_generate": false,
+      "hf_apps_cleared": true,
+      "hf_hidden_orphan": "Flux-文生图-96c82d",
+      "hf_models_catalog_untouched": true,
+      "presets_json": [],
+      "presets_anti_resurrect": "cleared_empty_array",
+      "soft_hide_mistaken_reseed": 959,
+      "market_listed": 1083,
+      "rh_acc": 837,
+      "rh_h3_minimax_listed": 0,
+      "listed_builtins_public": 245,
+      "dual_mode_sfw_parents": 9,
+      "presets_bak_rows": 1166
+    },
+    "facts": [
+      "Animate V8 15→16（视频+图）；127 双输入 rh-acc gap0；demo 本地 182，defaults 127/127",
+      "功能封面 +15（非 NSFW generate）",
+      "HF 应用侧清完（藏 Flux-文生图-96c82d）；模型库未动",
+      "rh_h3_presets MateBook+core 已 []；误种 959 soft-hide；市场可见≈1083，rh-acc 837，rh-h3/minimax listed 0",
+      "SFW/R18 merge 细节：9 dual-mode parents；twin soft-hide"
+    ],
+    "report": ".regen_tmp/rh-form-media-hf-covers-20260908.md",
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "updated_at": "2026-09-08T04:04:00+08:00",
+    "note": "表单媒体HF封面presets收口 LIVE done：Animate V8 15→16；127 双输入 gap0；demo 182 本地 / defaults 127/127；功能封面+15（非 NSFW generate）；HF 应用侧清完（藏 Flux-文生图-96c82d；模型库未动）；presets MateBook+core=[]（anti_resurrect=cleared_empty_array）；误种 soft-hide 959；市场≈1083 / rh-acc 837 / rh-h3·minimax listed 0 / dual-mode parents 9。报告 path only 勿提交。勿 stage product/.regen_tmp/rh_h3_presets.json。",
+    "related": [
+      "r18_merge_into_sfw_2026_09_08",
+      "rh_form_cover_fidelity_2026_09_08",
+      "rh_family_wipe_accurate_reseed_2026_09_08"
+    ]
+  },
   "r18_merge_into_sfw_2026_09_08": {
     "status": "live_on_core_dirty_partial",
     "date": "2026-09-08",
@@ -17,15 +70,16 @@
       "BUILD_ID 20260907-195752-2a1c833-dirty",
       "9 对合并；封面双标；应用内切换；twin soft-hide",
       "残留：LTX / wan-nsfw 等未并",
-      "rh_h3_presets.json 被 restore；正处理防复活（docs 记 blocker/watch；勿 stage 产品文件）"
+      "rh_h3_presets MateBook+core 已 []；presets_anti_resurrect=cleared_empty_array；误种后 soft-hide 959；rh-h3/minimax listed 0",
+      "SFW/R18 merge 细节：9 dual-mode parents；twin soft-hide"
     ],
-    "note": "SFW/NSFW 合并 LIVE on core dirty partial：9对；双标+应用内切换+twin soft-hide；残 LTX/wan-nsfw；watch rh_h3_presets restore 防复活进行中。产品树 dirty 未 commit 产品码；远程未推。勿 stage product/.regen_tmp/rh_h3_presets.json。",
+    "note": "SFW/NSFW 合并 LIVE on core dirty：9 dual-mode parents；双标+应用内切换+twin soft-hide；残 LTX/wan-nsfw；presets_anti_resurrect=cleared_empty_array（MateBook+core rh_h3_presets.json=[]）；soft_hide_mistaken_reseed=959；市场可见≈1083，rh-acc 837，rh-h3/minimax listed 0。产品树 dirty 未 commit 产品码；远程未推。勿 stage product/.regen_tmp/rh_h3_presets.json。",
     "agents_md": "updated",
     "committed_product": false,
     "pushed": false,
     "dirty": true,
     "product_sha": null,
-    "updated_at": "2026-09-08T03:59:00+08:00",
+    "updated_at": "2026-09-08T04:04:00+08:00",
     "build_id": "20260907-195752-2a1c833-dirty",
     "merged_pairs": 9,
     "features": [
@@ -37,7 +91,13 @@
       "ltx_nsfw",
       "wan_nsfw"
     ],
-    "watch": "rh_h3_presets_restored_anti_resurrect_in_progress"
+    "watch": "presets_anti_resurrect_cleared_empty_array",
+    "presets_anti_resurrect": "cleared_empty_array",
+    "soft_hide_mistaken_reseed": 959,
+    "dual_mode_parents": 9,
+    "market_listed": 1083,
+    "rh_acc": 837,
+    "rh_h3_minimax_listed": 0
   },
   "cover_effect_align_2026_09_08": {
     "status": "done_18_pending_real_art",

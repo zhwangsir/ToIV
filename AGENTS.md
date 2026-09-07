@@ -178,11 +178,19 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（ToIV 开发：LIVE — 表单媒体/HF/封面/presets 收口；市场≈1083）
+- **表单媒体**：Animate V8 **15→16**（视频+图）；127 双输入 rh-acc gap **0**；demo 本地 **182**，defaults **127/127**。
+- **功能封面**：+**15**（非 NSFW `/covers/generate`）。
+- **HF**：应用侧清完（藏 `Flux-文生图-96c82d`）；模型库未动。
+- **presets**：MateBook+core `rh_h3_presets.json`=`[]`；`presets_anti_resurrect=cleared_empty_array`；误种 soft-hide **959**；市场可见≈**1083**，rh-acc **837**，rh-h3/minimax listed **0**。
+- **SFW/R18**：9 dual-mode parents；twin soft-hide（见 `r18_merge`）。
+- Status：`done`；STATE `rh_form_media_hf_covers_2026_09_08`；报告 `.regen_tmp/rh-form-media-hf-covers-20260908.md`（勿提交）；`updated_at` 2026-09-08T04:04:00+08:00。产品树 dirty 未 commit 产品码；远程未推。勿 stage product/`.regen_tmp`/`rh_h3_presets.json`。
+
 ### 2026-09-08（ToIV 开发：LIVE — SFW/NSFW 合并已上 core dirty partial）
 - **LIVE**：SFW/NSFW 合并已上 core dirty（partial）；BUILD_ID `20260907-195752-2a1c833-dirty`；**9** 对合并；封面双标（SFW+NSFW）；应用内切换；twin soft-hide。
 - **残留**：LTX / wan-nsfw 等未并。
-- **watch / blocker**：`rh_h3_presets.json` 被 restore；正处理防复活（docs 记；**勿 stage** 产品文件 / `.regen_tmp` / `rh_h3_presets.json`）。
-- Status：`live_on_core_dirty_partial`；STATE `r18_merge_into_sfw_2026_09_08`；features={dual_tags, in_app_toggle, twin_soft_hide}；merged_pairs=9；residual=[ltx_nsfw, wan_nsfw,…]；watch=`rh_h3_presets_restored_anti_resurrect_in_progress`；`updated_at` 2026-09-08T03:59:00+08:00。产品树 dirty 未 commit 产品码；远程未推。
+- **watch / presets**：MateBook+core 已 `[]`；`presets_anti_resurrect=cleared_empty_array`；误种 soft-hide **959**（**勿 stage** 产品文件 / `.regen_tmp` / `rh_h3_presets.json`）。
+- Status：`live_on_core_dirty_partial`；STATE `r18_merge_into_sfw_2026_09_08`；features={dual_tags, in_app_toggle, twin_soft_hide}；merged_pairs=9；residual=[ltx_nsfw, wan_nsfw,…]；watch=`presets_anti_resurrect_cleared_empty_array`；presets_anti_resurrect=`cleared_empty_array`；soft_hide_mistaken_reseed=959；`updated_at` 2026-09-08T04:04:00+08:00。产品树 dirty 未 commit 产品码；远程未推。
 
 ### 2026-09-08（ToIV 开发：LIVE — 家族模板 wipe1166 + 准确重入131 COMPLETE；rh-acc≈837）
 - **Wipe**：删 **1166** 家族模板克隆（`rh-h3` / `rh-minimax*`）；Postgres DELETE（admin API 对 builtin 403）；**防复活**已清空 `apps/api/app/data/rh_h3_presets.json`（bak 保留；路径仅记文档，**勿提交**）。
