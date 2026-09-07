@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：市场 UX 已上 core LAN；BUILD `20260907-064811-db3fa3e-dirty`；去分类/瀑布流 Skeleton 懒加载/更多引擎/Comfy 导出；叠 UI P4 瀑布流；此前 UI P4/P3/P2/P1 已上 core LAN；小程序主题对齐仍可能本地 dirty；provenance+KG 已上 core LAN；市场合并首片已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：Comfy 二次编辑通路已上 core；BUILD `20260907-070508-718d466-dirty`；open-in-comfy 画布自动加载；save-back 未做；封面 expand 已重踢；详情页 RH 布局仍推进中；此前市场 UX/Comfy 导出/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -172,7 +172,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
-### 2026-09-07（ToIV 开发：市场 UX 已上 core LAN）
+### 2026-09-07（ToIV 开发：Comfy 二次编辑通路已上 core）
+- Comfy 二次编辑通路已上 core LAN（真机）；BUILD_ID `20260907-070508-718d466-dirty`；产品树 dirty 无独立 SHA。
+- `POST /api/apps/{id}/open-in-comfy` → 画布自动加载；save-back 未做。
+- 封面 expand 已重踢；详情页 RH 布局仍推进中。
+- 叠在市场 UX Comfy 导出/打开之上（further of market_ux）。
+
+### 2026-09-07（ToIV 开发：市场 UX 已上 core LAN；进一步片→Comfy 二次编辑）
 - 市场 UX 已上 core LAN（真机）；BUILD_ID `20260907-064811-db3fa3e-dirty`；产品树 dirty 无独立 SHA。
 - 去分类；瀑布流 + Skeleton + 懒加载；高级引擎 → 更多引擎；封面 expand_top=40 生成中；Comfy 导出/打开已落地（完整二次编辑仍推进）。
 - 进一步市场 UX 片（叠在 UI P4 市场瀑布流/详情之上）。

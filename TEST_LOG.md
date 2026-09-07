@@ -1,6 +1,8 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-07 市场 UX 已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-064811-db3fa3e-dirty`；去分类；瀑布流 + Skeleton + 懒加载；高级引擎 → 更多引擎；封面 expand_top=40 生成中；Comfy 导出/打开已落地（完整二次编辑仍推进）；进一步市场 UX 片（叠 UI P4 瀑布流）；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+- 2026-09-07 Comfy 二次编辑通路已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-070508-718d466-dirty`；`POST /api/apps/{id}/open-in-comfy` → 画布自动加载；save-back 未做；封面 expand 已重踢；详情页 RH 布局仍推进中；叠市场 UX Comfy 导出/打开；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+
+- 2026-09-07 市场 UX 已上 core LAN 验证（历史；进一步片→Comfy 二次编辑；真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-064811-db3fa3e-dirty`；去分类；瀑布流 + Skeleton + 懒加载；高级引擎 → 更多引擎；封面 expand_top=40 生成中；Comfy 导出/打开已落地（完整二次编辑仍推进）；进一步市场 UX 片（叠 UI P4 瀑布流）；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
 - 2026-09-07 UI P4 市场瀑布流/详情已上 core LAN 验证（历史；进一步片→市场 UX；真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260906-231138-69957d0-dirty`；市场瀑布流/详情；现见上条市场 UX LIVE。产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 

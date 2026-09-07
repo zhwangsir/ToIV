@@ -1,7 +1,34 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T14:55:00+08:00",
+  "updated_at": "2026-09-07T15:15:00+08:00",
+  "comfy_open_edit_2026_09_07": {
+    "status": "on_core_lan_uncommitted_no_product_sha",
+    "live": true,
+    "on_core": true,
+    "committed": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "build_id": "20260907-070508-718d466-dirty",
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T15:15:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "endpoint": "POST /api/apps/{id}/open-in-comfy",
+    "changes": [
+      "Comfy 二次编辑通路已上 core",
+      "POST /api/apps/{id}/open-in-comfy → 画布自动加载",
+      "封面 expand 已重踢"
+    ],
+    "pending": [
+      "save-back 未做",
+      "详情页 RH 布局仍推进中"
+    ],
+    "note": "Comfy 二次编辑通路已上 core LAN（真机）；open-in-comfy 画布自动加载；save-back 未做；封面 expand 已重踢；详情页 RH 布局仍推进中；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260907-070508-718d466-dirty；叠在 market_ux Comfy 导出/打开之上；AGENTS 按真机更新",
+    "relates_to": "market_ux_2026_09_07",
+    "further_slice_of": "market_ux_2026_09_07"
+  },
   "market_ux_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
     "live": true,
@@ -22,9 +49,10 @@
       "封面 expand_top=40 生成中",
       "Comfy 导出/打开已落地（完整二次编辑仍推进）"
     ],
-    "note": "市场 UX 已上 core LAN（真机）；进一步片叠在 UI P4 市场瀑布流/详情之上；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260907-064811-db3fa3e-dirty；AGENTS 按真机更新",
+    "note": "市场 UX 已上 core LAN（真机）；进一步片叠在 UI P4 市场瀑布流/详情之上；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260907-064811-db3fa3e-dirty；AGENTS 按真机更新。进一步片见 comfy_open_edit_2026_09_07（Comfy 二次编辑 open-in-comfy；新 BUILD）。",
     "relates_to": "ui_p4_market_waterfall_2026_09_07",
-    "further_slice_of": "ui_p4_market_waterfall_2026_09_07"
+    "further_slice_of": "ui_p4_market_waterfall_2026_09_07",
+    "further_slice": "comfy_open_edit_2026_09_07"
   },
   "ui_p4_market_waterfall_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
@@ -304,6 +332,7 @@
       "note": "after stop GPU0/1/3 ≈ empty 94–97G; G2 still H3 so ~57G free"
     },
     "intent": {
+      "5090": "生图轻视频主池",
       "live_cutover": false,
       "ws_flash_next_migrate": "cancelled",
       "status": "ws_migrate_cancelled; spark_llm_vlm_cutover_on_core_and_device_live",
@@ -313,7 +342,6 @@
       "spark02_livekit": "仍保留（现网事实，非 Flash-Next 拆走后的唯一用途）",
       "note_vram": "spark02 MemAvailable ~2.7Gi after 27B; Embedding LIVE on spark01 :9302 (not spark02)",
       "forbidden_wording": "禁止写成双脑并行 / WS 仍拟迁 Flash-Next / 切 core 后拆 spark Qwen 为现行意图",
-      "5090": "生图轻视频主池",
       "WS_GPU2": "H3"
     },
     "agents_md": "updated (VLM model_id line left untouched)",
