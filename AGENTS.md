@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：RH 准确重入库扩种完成 本轮+500 累计 rh-acc-*=700 skipped=752 errors=2 create_422；族 other224/flux135/ltx118/qwen115/wan110/h3 6；抽检 12/12；无模板/无新 BUILD；status=reseed_scale_done_scanning_more 仍在扫；10Eros 出处 64/64；打开工作流导航 BUILD `20260907-103808-6e94327-dirty`；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：RH 准确重入库第二轮扩种 SCALE2 本轮+500 累计 rh-acc-*=1212 skipped=1048 errors=0；族 other375/flux231/ltx210/qwen205/wan197/h3 7；抽检 12/12；processed=2260 pool remaining≈6487；binding_harden drop_non_ascii；无模板/无新 BUILD；status=reseed_scale2_done_pool_remaining；10Eros 出处 64/64；打开工作流导航 BUILD `20260907-103808-6e94327-dirty`；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -177,6 +177,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（ToIV 开发：LIVE — RH 准确重入库第二轮扩种 SCALE2 累计1212）
+- **准确 RH 第二轮扩种完成（Phase C）**：本轮新种 **500**；累计 `rh-acc-*` = **1212**（RH id 去重；scale2 前约 700，中途 aborted partial ~12 → baseline 712 before this +500）。
+- **累计跳过 1048**（`null_workflowId` 1047 + `export_code_810` 1）；**累计 create 错误 0**（先前 2 个 `create_422` 已重试成功：webapps 1976578710449033218、2042457691490099202）。
+- **抽检 12/12**：节点 + 封面 + RH id 一致。已处理 webappId **2260**；池未耗尽（catalog 8747，约 6487 未处理，多数会跳过）。
+- **脚本加固**：POST 前丢掉非 ASCII binding leaf（对齐 Core `_BINDING_FIELD_RE`）。无新 BUILD（HTTP 种库）。无模板克隆。
+- **族累计**：other **375** / flux **231** / ltx **210** / qwen **205** / wan **197** / h3 **7**。
+- STATE `rh_accurate_reseed_scale2_2026_09_07` + `rh_clone_purge_reimport_2026_09_07`：`new_seeded=500`，`cumulative_seeded=1212`，`cumulative_skipped=1048`，`cumulative_errors=0`，`prior_create_422_recovered=true`，`spot_check=12/12`，`processed=2260`，`remaining_unprocessed≈6487`，`pool_exhausted=false`，`binding_harden=drop_non_ascii_leaves`，`build_id=null`，`no_template=true`，`status=reseed_scale2_done_pool_remaining`；`updated_at` 2026-09-07T20:55:00+08:00；报告 `.regen_tmp/rh-accurate-reseed-scale2-20260907.md`（勿提交）。
 
 ### 2026-09-07（ToIV 开发：LIVE — RH 准确重入库扩种完成 累计700）
 - **准确 RH 扩种完成（Phase C）**：本轮新种 **500**；累计 `rh-acc-*` = **700**（RH id 去重 700）。
