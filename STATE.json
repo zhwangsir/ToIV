@@ -1,7 +1,86 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T19:45:00+08:00",
+  "updated_at": "2026-09-07T19:50:00+08:00",
+  "model_provenance_10eros_2026_09_07": {
+    "status": "live_on_core_docs_only",
+    "live": true,
+    "on_core": true,
+    "done": true,
+    "provenance_closed": true,
+    "committed_product": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T19:50:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "coverage_before": "62/64",
+    "coverage_after": "64/64",
+    "coverage_pct": 100.0,
+    "flagged_apps_before": 10,
+    "flagged_apps_after": 0,
+    "source_kind_counts": {
+      "civitai": 5,
+      "huggingface": 57,
+      "local": 2
+    },
+    "curated_wiki_cards": 43,
+    "filled_models": [
+      {
+        "id": "10Eros_Max_h3",
+        "file": "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors",
+        "huggingface_url": "https://huggingface.co/cicalooo/10Eros-Max-h3-int8-convrot",
+        "civitai_url": "https://civitai.com/models/2851079/h3-eros-max",
+        "engines": [
+          "h3-nsfw-t2v",
+          "h3-nsfw-i2v",
+          "h3-nsfw-fl2v",
+          "h3-nsfw-r2v"
+        ]
+      },
+      {
+        "id": "10eros_v14",
+        "file": "10eros_v14.safetensors",
+        "civitai_url": "https://civitai.red/models/2447875/ltx23-10eros",
+        "huggingface_url": "https://huggingface.co/TenStrip/LTX2.3-10Eros",
+        "engines": [
+          "ltx-nsfw-*"
+        ]
+      },
+      {
+        "id": "hunyuan_video",
+        "note": "wiki family HF restored"
+      },
+      {
+        "id": "flux1-dev",
+        "note": "huggingface_url filled → FLUX.1-dev"
+      }
+    ],
+    "files_touched_workspace": [
+      "apps/api/app/workflows/model_wiki.py",
+      "apps/api/app/services/engine_registry.py"
+    ],
+    "build_id": "20260907-103808-6e94327-dirty",
+    "build_id_note": "既有脏构建；本轮主要改 api（deploy/deploy.sh API restarted）；web BUILD_ID 未换",
+    "deploy": "deploy/deploy.sh (API restarted; health OK)",
+    "core": "http://192.168.71.47:8090",
+    "report": ".regen_tmp/10eros-provenance-20260907.md",
+    "report_committed": false,
+    "relates_to": "rh_clone_purge_reimport_2026_09_07",
+    "reseed_note": "准确重入库试点仍在进行；勿标 reseed done",
+    "changes": [
+      "10Eros 模型出处补全 LIVE on core：62/64 → 64/64（100%）",
+      "wiki + engine_registry 写 civitai/HF（H3 10Eros_Max… + LTX 10eros_v14）",
+      "顺带填 hunyuan_video / flux1-dev",
+      "flagged apps 10 → 0",
+      "BUILD_ID 仍 20260907-103808-6e94327-dirty（本轮主要改 api）",
+      "准确重入库 PILOT 仍进行中（勿标 reseed done）",
+      "报告 .regen_tmp/10eros-provenance-20260907.md 勿提交"
+    ],
+    "note": "LIVE on core：10Eros 模型出处补全；覆盖 62/64→64/64；wiki+engine_registry civitai/HF（H3 10Eros_Max… + LTX 10eros_v14；顺带 hunyuan_video / flux1-dev）；BUILD_ID 仍 20260907-103808-6e94327-dirty（本轮主要改 api）；准确重入库试点仍在进行勿标 reseed done；报告 .regen_tmp/10eros-provenance-20260907.md 勿提交；产品树 dirty 未 commit 产品码；远程未推"
+  },
   "rh_clone_purge_reimport_2026_09_07": {
     "status": "reseed_in_progress_export_ok",
     "live": true,
@@ -11,7 +90,7 @@
     "pushed": false,
     "product_sha": null,
     "date": "2026-09-07",
-    "updated_at": "2026-09-07T19:45:00+08:00",
+    "updated_at": "2026-09-07T19:50:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "user_order": "删掉所有错挂 RH 克隆卡并重新准确入库",
@@ -27,7 +106,7 @@
       "deleted_this_run=3392 (API 1149 + SQL 2243)",
       "cumulative≈8611 from wipe_before",
       "retained_apps=48 (47 builtins + Flux-文生图-96c82d)",
-      "model_provenance=62/64 (96.9%)",
+      "model_provenance=64/64 (100.0%) — 10Eros gaps closed LIVE on core",
       "RH true workflow export METHOD FOUND (webapp/detail → getJsonApiFormat)",
       "prior TOKEN_MISSION / wrong path SUPERSEDED for workflowId+workflowState=1 apps",
       "accurate reseed PILOT started (not full batch); reseed_count TBD",
@@ -60,7 +139,7 @@
     "addendum_source": "ToIV 开发",
     "reimport_count": 0,
     "builtin_change_count": null,
-    "provenance_coverage": "62/64",
+    "provenance_coverage": "64/64",
     "rh_star_remaining": 0,
     "interrupted_unauthenticated": true,
     "resumed_after_interrupt": true,
@@ -80,21 +159,19 @@
     "retained_extra": [
       "Flux-文生图-96c82d"
     ],
-    "model_provenance": "62/64",
-    "model_provenance_pct": 96.9,
+    "model_provenance": "64/64",
+    "model_provenance_pct": 100.0,
     "reseed": 0,
     "blocker": null,
     "sql_used_for_builtin_rh": true,
     "sql_reason": "admin API 403 内置应用不可删除 for is_builtin rh-*",
-    "unproven_models_primary": [
-      "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors",
-      "10eros_v14.safetensors"
-    ],
-    "unproven_note": "约 10 个 H3/LTX NSFW 应用；hunyuan_video I2V + flux1-dev-fp8(pulid) 经 family HF 后纳入覆盖",
+    "unproven_models_primary": [],
+    "unproven_note": "prior 10Eros_Max_h3_* / 10eros_v14 gaps closed LIVE on core 2026-09-07; wiki+engine_registry civitai/HF filled; also hunyuan_video / flux1-dev; see model_provenance_10eros_2026_09_07",
     "reports": [
       ".regen_tmp/rh-wipe-resume-20260907.md",
       ".regen_tmp/builtin-provenance-20260907.md",
-      ".regen_tmp/rh-graph-export-path-20260907.md"
+      ".regen_tmp/rh-graph-export-path-20260907.md",
+      ".regen_tmp/10eros-provenance-20260907.md"
     ],
     "reseed_started": true,
     "reseed_pilot": true,

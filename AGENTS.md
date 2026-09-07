@@ -178,6 +178,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-07（ToIV 开发：LIVE — 10Eros 模型出处补全 64/64）
+- **模型出处**覆盖 **62/64 → 64/64（100%）**；flagged apps **10 → 0**。
+- wiki + `engine_registry` 已写 civitai/HF：H3 `10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot`（HF cicalooo/10Eros-Max-h3-int8-convrot + Civitai 2851079）；LTX `10eros_v14`（civitai.red 2447875 + HF TenStrip/LTX2.3-10Eros）。
+- 顺带：`hunyuan_video` wiki family HF；`flux1-dev` `huggingface_url` → FLUX.1-dev。Curated wiki cards **43**（was 40）。
+- BUILD_ID 仍 `20260907-103808-6e94327-dirty`（本轮主要改 api；API restarted；health OK）。
+- 准确重入库 **PILOT 仍进行中**——**勿标 reseed done**；`no_template_reseed=true`。
+- STATE `model_provenance_10eros_2026_09_07`；`rh_clone_purge_reimport_2026_09_07` provenance→**64/64**；`updated_at` 2026-09-07T19:50:00+08:00；报告 `.regen_tmp/10eros-provenance-20260907.md`（勿提交）。
+
 ### 2026-09-07（ToIV 开发：LIVE — RH 真工作流导出已打通；准确重入库 PILOT 进行中）
 - **Export METHOD FOUND**：`POST /api/webapp/detail` → `workflowId`；`POST /api/openapi/getJsonApiFormat`（apiKey+Bearer）→ `data.prompt` = Comfy API JSON。
 - **Verified samples**：Flux2-klein **17** nodes、H3 Lip Sync **22**、H3 T2AV **33** 等（3+）。
