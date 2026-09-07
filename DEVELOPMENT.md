@@ -5,7 +5,9 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
-**2026-09-08 CONV：模型/内容下载来源清单稳定路径**：用户要求下载须维护带来源的清单（供更新与查文档）。稳定路径（仓内，就绪后提交）：`docs/MODEL_SOURCES.md`（人读）+ `docs/MODEL_SOURCES.json`（机读）。**根目录仍只留五件套**，勿把 `MODEL_SOURCES*` 放仓库根。维护：ToIV 模型下载；项目管家五件套只引用此路径。口径：覆盖已下载到 NAS 的模型/内容 + HF/Civitai/RH/本地出处；**不**替代 `engine_registry` / `model_wiki` / admin knowledge-graph / `model_profiles`。WIP 草稿仅 `.regen_tmp/`，勿当正式清单。status=`convention_set_awaiting_inventory`；STATE `model_sources_inventory_convention_2026_09_08`；updated_at 2026-09-08T04:56:00+08:00。文件由 ToIV 模型下载撰写中；本 commit 只定路径约定。
+**2026-09-08 LIVE：MODEL_SOURCES 清单已落入 docs**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；**ok 239 / blocked 120 / total 359**；updated `2026-09-08T04:59:25+08:00`；根目录无 `MODEL_SOURCES*`；后续每批下载追加这两份。NAS 短索引：`toiv/comfyui-models/SOURCES.md`（非仓内正式清单）。status=`inventory_landed`；STATE `model_sources_inventory_2026_09_08`（+ `model_sources_inventory_convention_2026_09_08` → ready）；updated_at 2026-09-08T05:00:00+08:00。由 ToIV 模型下载落入；本 commit 含清单正文 + 五件套进度。
+
+**2026-09-08 CONV：模型/内容下载来源清单稳定路径（~~awaiting~~ → inventory_landed）**：用户要求下载须维护带来源的清单（供更新与查文档）。稳定路径（仓内，就绪后提交）：`docs/MODEL_SOURCES.md`（人读）+ `docs/MODEL_SOURCES.json`（机读）。**根目录仍只留五件套**，勿把 `MODEL_SOURCES*` 放仓库根。维护：ToIV 模型下载；项目管家五件套只引用此路径。口径：覆盖已下载到 NAS 的模型/内容 + HF/Civitai/RH/本地出处；**不**替代 `engine_registry` / `model_wiki` / admin knowledge-graph / `model_profiles`。WIP 草稿仅 `.regen_tmp/`，勿当正式清单。status=~~`convention_set_awaiting_inventory`~~ → **`inventory_landed`**（见上条）；STATE `model_sources_inventory_convention_2026_09_08`；updated_at 2026-09-08T04:56:00+08:00。清单正文已落入 docs（见上条 LIVE）。
 
 **2026-09-08 LIVE：市场左侧空白已修上 core dirty**：BUILD_ID `20260907-203017-6417f2a-dirty`；根因空 `.rh-col` 仍 flex 占宽；改容器 `ResizeObserver` + 跳过空列 + 重置 placement；**非** IO/刷新问题。叠在市场瀑布流无感追加之上（further of `market_waterfall_seamless_append`）。status=`live_on_core_dirty`；STATE `market_left_blank_fix_2026_09_08`；updated_at 2026-09-08T04:32:00+08:00。产品树 dirty 未 commit 产品码；远程未推。勿 stage product/`.regen_tmp`。
 

@@ -1,13 +1,52 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T04:56:00+08:00",
+  "updated_at": "2026-09-08T05:00:00+08:00",
+  "model_sources_inventory_2026_09_08": {
+    "status": "inventory_landed",
+    "date": "2026-09-08",
+    "source": "ToIV 模型下载",
+    "live": true,
+    "inventory_ready": true,
+    "paths": {
+      "md": "docs/MODEL_SOURCES.md",
+      "json": "docs/MODEL_SOURCES.json"
+    },
+    "counts": {
+      "ok": 239,
+      "blocked": 120,
+      "total": 359
+    },
+    "inventory_updated_at": "2026-09-08T04:59:25+08:00",
+    "nas_short_index": "toiv/comfyui-models/SOURCES.md",
+    "rules": [
+      "root keeps five-doc set only",
+      "append on each download batch",
+      "URLs never invented — copied from download logs only",
+      "WIP mirror may stay in .regen_tmp/"
+    ],
+    "facts": [
+      "MODEL_SOURCES 清单已落入 docs/MODEL_SOURCES.md + docs/MODEL_SOURCES.json",
+      "ok 239 / blocked 120 / total 359",
+      "updated 2026-09-08T04:59:25+08:00",
+      "根目录无 MODEL_SOURCES*",
+      "后续每批下载追加这两份"
+    ],
+    "agents_md": "updated",
+    "committed_inventory": true,
+    "pushed": false,
+    "related": [
+      "model_sources_inventory_convention_2026_09_08"
+    ],
+    "updated_at": "2026-09-08T05:00:00+08:00",
+    "note": "MODEL_SOURCES 清单 LIVE：ok 239/blocked 120/total 359；updated 2026-09-08T04:59:25+08:00；路径 docs/MODEL_SOURCES.md+docs/MODEL_SOURCES.json；根目录无 MODEL_SOURCES*；后续每批追加；本 commit 含清单正文"
+  },
   "model_sources_inventory_convention_2026_09_08": {
-    "status": "convention_set_awaiting_inventory",
+    "status": "inventory_landed",
     "date": "2026-09-08",
     "source": "user via ToIV 开发; path set by 项目管家",
-    "live": false,
-    "inventory_ready": false,
+    "live": true,
+    "inventory_ready": true,
     "paths": {
       "md": "docs/MODEL_SOURCES.md",
       "json": "docs/MODEL_SOURCES.json"
@@ -33,8 +72,15 @@
     "agents_md": "updated",
     "committed_product": false,
     "pushed": false,
-    "updated_at": "2026-09-08T04:56:00+08:00",
-    "note": "模型/内容下载来源清单稳定路径约定：docs/MODEL_SOURCES.md + docs/MODEL_SOURCES.json；根目录仍只留五件套；维护=ToIV 模型下载；WIP=.regen_tmp；不替代 engine_registry/model_wiki/admin KG/model_profiles；清单正文撰写中，本 STATE 只记路径约定"
+    "updated_at": "2026-09-08T05:00:00+08:00",
+    "note": "模型/内容下载来源清单稳定路径约定：docs/MODEL_SOURCES.md + docs/MODEL_SOURCES.json；根目录仍只留五件套；维护=ToIV 模型下载；WIP=.regen_tmp；不替代 engine_registry/model_wiki/admin KG/model_profiles；清单正文撰写中，本 STATE 只记路径约定；清单正文已落入 docs：ok 239/blocked 120/total 359 @ 2026-09-08T04:59:25+08:00",
+    "counts": {
+      "ok": 239,
+      "blocked": 120,
+      "total": 359
+    },
+    "inventory_updated_at": "2026-09-08T04:59:25+08:00",
+    "superseded_awaiting_by": "model_sources_inventory_2026_09_08"
   },
   "market_left_blank_fix_2026_09_08": {
     "status": "live_on_core_dirty",

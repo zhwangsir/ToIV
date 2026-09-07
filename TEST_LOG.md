@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 LIVE：MODEL_SOURCES 清单已落入 docs（真机/docs）：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；ok **239** / blocked **120** / total **359**；updated `2026-09-08T04:59:25+08:00`；根目录无 MODEL_SOURCES*；后续每批追加；status=`inventory_landed`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T05:00:00+08:00；AGENTS §四/§七 已短注。
+
 - 2026-09-08 CONV：模型/内容下载来源清单稳定路径（docs）：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；根目录仍只留五件套；维护=ToIV 模型下载；WIP→`.regen_tmp/`；不替代 engine_registry/model_wiki/admin KG/model_profiles；status=`convention_set_awaiting_inventory`；STATE `model_sources_inventory_convention_2026_09_08`；updated_at 2026-09-08T04:56:00+08:00；AGENTS §四/§七 已短注；本 commit 只定路径，清单正文另落。
 
 - 2026-09-08 LIVE：市场左侧空白已修上 core dirty（真机/core；docs）：BUILD_ID `20260907-203017-6417f2a-dirty`；根因空 `.rh-col` 仍 flex 占宽；改容器 `ResizeObserver` + 跳过空列 + 重置 placement；**非** IO/刷新问题；叠市场瀑布流无感追加；status=`live_on_core_dirty`；STATE `market_left_blank_fix_2026_09_08`；updated_at 2026-09-08T04:32:00+08:00；无产品 SHA；AGENTS §七 已短注；未推。勿 stage product/`.regen_tmp`。

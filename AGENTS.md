@@ -113,7 +113,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - 用途：每次模型/内容下载维护带来源的条目（HF / Civitai / RH / 本地），供更新核对与查文档。
 - 维护：ToIV 模型下载；项目管家五件套只引用本路径。WIP 草稿放 `.regen_tmp/`，就绪再落入 `docs/`。
 - **不**替代 `engine_registry` / `model_wiki` / admin knowledge-graph / `model_profiles`；清单指向 NAS 落盘路径 + 出处 URL。
-- STATE `model_sources_inventory_convention_2026_09_08`。
+- STATE `model_sources_inventory_convention_2026_09_08` → `model_sources_inventory_2026_09_08`：**ok 239 / blocked 120 / total 359**（updated `2026-09-08T04:59:25+08:00`）；清单已落入 docs。
 
 ## 五、Core 生产状态（活口径）
 
@@ -185,12 +185,19 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（ToIV 模型下载：LIVE — MODEL_SOURCES 清单已落入 docs）
+- **路径**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`（根目录无 `MODEL_SOURCES*`）。
+- **计数**：ok **239** / blocked **120** / total **359**；updated `2026-09-08T04:59:25+08:00`。
+- **维护**：后续每批下载追加这两份；WIP 仍可镜像 `.regen_tmp/`；NAS 短索引 `toiv/comfyui-models/SOURCES.md`。
+- **口径**：URL 不发明，仅从下载日志复制；覆盖 NAS 落盘路径 + HF/Civitai/RH/本地出处。
+- Status：`inventory_landed`；STATE `model_sources_inventory_2026_09_08`；`updated_at` 2026-09-08T05:00:00+08:00。
+
 ### 2026-09-08（项目管家：CONV — 模型/内容下载来源清单稳定路径）
 - **用户要求**：模型/内容下载须维护带来源的清单（供更新与查文档）。ToIV 模型下载正在撰写。
 - **稳定路径**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`（仓内；就绪后提交）。**根目录仍只留五件套**。
 - **维护**：ToIV 模型下载；项目管家五件套只引用此路径。WIP → `.regen_tmp/`。
 - **边界**：不替代 `engine_registry` / `model_wiki` / admin KG / `model_profiles`。
-- Status：`convention_set_awaiting_inventory`；STATE `model_sources_inventory_convention_2026_09_08`；`updated_at` 2026-09-08T04:56:00+08:00。本 commit 只定路径，清单正文另由下载 bot 落入 `docs/`。
+- Status：~~`convention_set_awaiting_inventory`~~ → **`inventory_landed`**（见上条）；原 STATE `model_sources_inventory_convention_2026_09_08`；`updated_at` 2026-09-08T04:56:00+08:00。本 commit 只定路径，清单正文另由下载 bot 落入 `docs/`。
 
 ### 2026-09-08（ToIV 开发：LIVE — 市场左侧空白已修上 core）
 - **LIVE**：市场左侧空白已修上 core；BUILD_ID `20260907-203017-6417f2a-dirty`；产品树 dirty 无独立 SHA。
