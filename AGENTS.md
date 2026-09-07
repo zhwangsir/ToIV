@@ -185,11 +185,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
-### 2026-09-08（ToIV 模型下载：LIVE — MODEL_SOURCES batch16 计数更新）
+### 2026-09-08（ToIV 模型下载+设备管家：LIVE — MODEL_SOURCES batch16 清尾；可本地化缺权重清零）
 - **路径**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`（根目录无 `MODEL_SOURCES*`）。
 - **计数**：ok **368** / blocked **383** / total **751**（前 339/352/691）；updated `2026-09-08T07:10:35+08:00`。
+- **清尾**：市场可本地化缺口已清零（原扫缺 missing **737** → **0**）；blocked 为 gated/无溯源/近名（Klein 社区 SKU、BFL Kontext/krea gated、GGUF/无溯源、精度近名等）。
+- **细节路径**：`ALLProject/ToIV/.regen_tmp/` 与 `NAS/toiv/comfyui-models`（含 `SOURCES.md` 短索引）。
 - **维护**：后续每批下载追加这两份。
-- Status：`inventory_updated_batch16`；STATE `model_sources_inventory_2026_09_08`；`updated_at` 2026-09-08T07:11:00+08:00。
+- Status：`inventory_updated_batch16_gap_cleared`；STATE `model_sources_inventory_2026_09_08`；`updated_at` 2026-09-08T07:13:00+08:00。via 设备管家+ToIV 模型下载。
 
 ### 2026-09-08（ToIV 模型下载：LIVE — MODEL_SOURCES batch15 计数更新）
 - **路径**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`（根目录无 `MODEL_SOURCES*`）。

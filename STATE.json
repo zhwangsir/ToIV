@@ -1,9 +1,9 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T07:11:00+08:00",
+  "updated_at": "2026-09-08T07:13:00+08:00",
   "model_sources_inventory_2026_09_08": {
-    "status": "inventory_updated_batch16",
+    "status": "inventory_updated_batch16_gap_cleared",
     "date": "2026-09-08",
     "source": "ToIV 模型下载",
     "live": true,
@@ -31,7 +31,10 @@
       "updated 2026-09-08T07:10:35+08:00",
       "路径 docs/MODEL_SOURCES.md + docs/MODEL_SOURCES.json",
       "市场可本地化缺口已清零",
-      "blocked 为 gated/无溯源/近名"
+      "blocked 为 gated/无溯源/近名",
+      "可本地化缺权重清零：原扫缺 missing 737 → 0",
+      "细节以 .regen_tmp/ 与 NAS/toiv/comfyui-models 为准",
+      "via 设备管家 2026-09-08"
     ],
     "agents_md": "updated",
     "committed_inventory": true,
@@ -39,8 +42,8 @@
     "related": [
       "model_sources_inventory_convention_2026_09_08"
     ],
-    "updated_at": "2026-09-08T07:11:00+08:00",
-    "note": "MODEL_SOURCES batch16 更新：ok 368/blocked 383/total 751 (前 339/352/691)；updated 2026-09-08T07:10:35+08:00；市场可本地化缺口已清零；blocked=gated/无溯源/近名；持续追加",
+    "updated_at": "2026-09-08T07:13:00+08:00",
+    "note": "MODEL_SOURCES batch16 更新：ok 368/blocked 383/total 751 (前 339/352/691)；updated 2026-09-08T07:10:35+08:00；市场可本地化缺口已清零；blocked=gated/无溯源/近名；持续追加；设备管家确认：原扫缺 missing 737→0；细节 .regen_tmp/ + NAS/toiv/comfyui-models",
     "previous_counts": {
       "ok": 339,
       "blocked": 352,
@@ -53,7 +56,17 @@
       "no_provenance",
       "near_name"
     ],
-    "batch_note": "清尾"
+    "batch_note": "清尾",
+    "missing_scan_before": 737,
+    "missing_scan_after": 0,
+    "detail_paths": [
+      "ALLProject/ToIV/.regen_tmp/",
+      "NAS/toiv/comfyui-models"
+    ],
+    "sources": [
+      "ToIV 模型下载",
+      "设备管家"
+    ]
   },
   "model_sources_inventory_convention_2026_09_08": {
     "status": "inventory_updated_batch16",

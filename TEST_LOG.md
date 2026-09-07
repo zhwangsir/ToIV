@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 LIVE：可本地化缺权重清零（设备管家；docs）：原扫缺 missing **737** → **0**；MODEL_SOURCES batch16 ok **368** / blocked **383** / total **751**；blocked=gated/无溯源/近名；细节 `.regen_tmp/` + `NAS/toiv/comfyui-models`；status=`inventory_updated_batch16_gap_cleared`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T07:13:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-08 LIVE：MODEL_SOURCES batch16 计数更新（真机/docs）：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；ok **368** / blocked **383** / total **751**（前 339/352/691）；updated `2026-09-08T07:10:35+08:00`；status=`inventory_updated_batch16`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T07:11:00+08:00；AGENTS §四/§七 已短注。
 
 - 2026-09-08 LIVE：MODEL_SOURCES batch15 计数更新（真机/docs）：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；ok **339** / blocked **352** / total **691**（前 321/264/585）；updated `2026-09-08T06:43:56+08:00`；status=`inventory_updated_batch15`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T06:44:00+08:00；AGENTS §四/§七 已短注。
