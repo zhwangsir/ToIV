@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-08（ToIV 开发：RH Comfy/封面/重复调研 LIVE — Comfy LB FE 分裂 WS1.45.20/pc02 1.45.21/pc01 1.49.6；开工作流失败主因=版本分裂+残留旧图（userdata 正确；rh-acc Subgraph 0%/949）；主路径 app_runner；封面 DB empty=0、UX 渐变=抽象 cover（~68 R18 rh-h3）；H3 R18 SFW inherit×7；重复 stem60/236 hash85/328；`toiv_workflow_query` 已在 WS/pc01/pc02 /extensions 列出；等用户拍板去重/FE 统一/R18 封面 regen；前：打开工作流加固 + coverless→0 + prune −263）
+> **最后更新**：2026-09-08（ToIV 开发：生图池 FE≥1.49.6 — WS/pc02=**1.52.7**，pc01=**1.49.6**→1.52.7 进行中；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE；前：拍板三项 + 打开工作流加固 + coverless→0）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -178,12 +178,18 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
-### 2026-09-08（ToIV 开发：用户已拍板三项；执行中）
+### 2026-09-08（ToIV 开发：FE≥1.49.6 部分完成 + 去重/封面执行结果）
+- **生图池 Comfy FE**：WS/pc02 → **1.52.7**；pc01 = **1.49.6**（gate **≥1.49.6 已达成**）；已请再升 pc01 → **1.52.7** 彻底同版（进行中）。**H3 未动**。~~WS 1.45.20 / pc02 1.45.21 / pc01 1.49.6~~ **SUPERSEDED**（gen-pool FE versions）。
+- **同图哈希去重（执行完）**：85 组；kept **85**；soft-hide **243**；deleted **0**；市场可见 **2163→1920**；rh-acc **949→706**。日志 `.regen_tmp/dedupe-hash-20260908.json`（勿提交）。
+- **渐变假封面（执行完）**：用户可见 **114→0**。日志 `.regen_tmp/gradient-cover-fix-20260908.json`（勿提交）。
+- Status：`fe_partial_dedupe_covers_done`；STATE `rh_comfy_covers_dupes_audit_2026_09_08`；`updated_at` 2026-09-08T02:16:00+08:00。
+
+### 2026-09-08（ToIV 开发：用户已拍板三项；~~执行中~~ → 见上条结果）
 - 用户已拍板（via ToIV 开发）：① Comfy LB FE **≥1.49.6** 统一；② 同图哈希去重（type-hash / same-image hash）；③ 渐变假封面全量重生。
-- Status：**执行中**；完再报。STATE `rh_comfy_covers_dupes_audit_2026_09_08` → `decided_executing`；`updated_at` 2026-09-08T02:15:00+08:00。
+- ~~Status：执行中~~ **SUPERSEDED by** 上条 `fe_partial_dedupe_covers_done`（去重/封面已执行；pc01 FE 同版仍进行中）。原 `updated_at` 2026-09-08T02:15:00+08:00。
 
 ### 2026-09-08（ToIV 开发：LIVE — RH Comfy版本分裂+封面UX+重复调研；等用户拍板）
-- **打开失败主因**：Comfy LB FE 版本分裂 — WS **1.45.20** / pc02 **1.45.21** / pc01 **1.49.6**；userdata 正确；load abort 后残留旧图；rh-acc Subgraph **0%**（0/949）。FireRed：banner 新名、canvas 留 Z-Image。
+- **打开失败主因（调研时）**：Comfy LB FE 版本分裂 — ~~WS **1.45.20** / pc02 **1.45.21** / pc01 **1.49.6**~~ **SUPERSEDED for gen-pool FE**（现 WS/pc02=1.52.7、pc01=1.49.6，gate met）；userdata 正确；load abort 后残留旧图；rh-acc Subgraph **0%**（当时 0/949）。FireRed：banner 新名、canvas 留 Z-Image。
 - **RH 效果主路径**：打开应用 runner（`app_run`）；开工作流需 FE≥1.49.6 或钉 canvas 到 pc01。`toiv_workflow_query` **现已在** WS/pc01/pc02 `/extensions` 列出（先前「待重启」可能已过时）。
 - **封面**：DB empty=**0**；UX 渐变=抽象 cover 文件（~68 R18 rh-h3 `appcover-7ae2fc…`）；已给 **7** 个 H3 R18 builtin 盖 SFW 海报；CDN rh-acc **949** OK。
 - **重复**：name-stem **60组/236**；type-hash **85组/328**。等用户拍板：去重规则 / FE 统一或钉 pc01 / R18 家族封面 regen。
@@ -446,9 +452,9 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 八、待办事项
 
-- [ ] RH 同图哈希去重执行中（用户已拍板 same_image_hash；stem60/236 hash85/328）— STATE `rh_comfy_covers_dupes_audit_2026_09_08`
-- [ ] Comfy LB FE 统一 ≥1.49.6 执行中（用户已拍板 unify，非钉 pc01）
-- [ ] 渐变假封面全量重生执行中（用户已拍板 regen_all_gradient_fake）
+- [x] RH 同图哈希去重完成（same_image_hash；85组 kept85 soft-hide243 del0；市场2163→1920；rh-acc949→706）— STATE `rh_comfy_covers_dupes_audit_2026_09_08`
+- [ ] Comfy LB FE 同版：gate≥1.49.6 **已达成**（WS/pc02=1.52.7）；**pc01→1.52.7 进行中**（用户已拍板 unify）
+- [x] 渐变假封面全量重生完成（用户可见 114→0）
 
 - [x] workstation 重启窗口（09-06 完成:GPU0 枚举恢复、8189 清除、落卡全复核、全链冒烟）
 - [x] spark 集群修复（09-06:spark01 死机物理重启+容器家目录挂载重建+FA4 b29+QSA hdim256 SDPA 补丁,LLM 冒烟通过）
