@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发+设备管家：H3 Ref2VA bf16 已入库 NAS `NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors`（66280487368 bytes ≈62GiB，MateBook 核实）；仍缺 pruned_bf16；此前应用详情 RH 布局已上 core；Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：市场无限滚动已上 core；BUILD_ID `20260907-075325-693aa19-dirty`；去掉显示更多 + IO sentinel 续载；产品 dirty 未 commit；此前 H3 Ref2VA bf16 NAS；应用详情 RH/Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -177,6 +177,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（ToIV 开发：市场无限滚动已上 core）
+- 市场无限滚动已上 core LAN（真机）；BUILD_ID `20260907-075325-693aa19-dirty`；产品树 dirty 无独立 SHA。
+- 去掉「显示更多」；IO sentinel 续载。
+- 叠在市场 UX / UI P4 瀑布流之上（further of market_ux / ui_p4_market_waterfall）。
 
 ### 2026-09-07（ToIV 开发+设备管家：H3 Ref2VA bf16 已入库 NAS）
 - bf16 LIVE：`NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors`（66280487368 bytes ≈62GiB；MateBook ls 核实）。
