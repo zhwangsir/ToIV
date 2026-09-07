@@ -1,6 +1,8 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-07 UI P4 市场瀑布流/详情已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260906-231138-69957d0-dirty`；市场瀑布流/详情；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+- 2026-09-07 市场 UX 已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-064811-db3fa3e-dirty`；去分类；瀑布流 + Skeleton + 懒加载；高级引擎 → 更多引擎；封面 expand_top=40 生成中；Comfy 导出/打开已落地（完整二次编辑仍推进）；进一步市场 UX 片（叠 UI P4 瀑布流）；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+
+- 2026-09-07 UI P4 市场瀑布流/详情已上 core LAN 验证（历史；进一步片→市场 UX；真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260906-231138-69957d0-dirty`；市场瀑布流/详情；现见上条市场 UX LIVE。产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
 - 2026-09-07 UI P4 小程序主题对齐 web v9（历史；SUPERSEDED→市场瀑布流/详情已上 core；INTENT；本地未 commit；core BUILD 当时未变；未上 core；非现网验证；docs）：align MiniProgram theme to web v9；下一步曾为市场瀑布流/详情。现见上条 LIVE。小程序主题对齐仍可能在本地 dirty 树中单独未 commit。
 

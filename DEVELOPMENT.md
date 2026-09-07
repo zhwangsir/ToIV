@@ -4,7 +4,9 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
-**2026-09-07 UI P4 市场瀑布流/详情 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260906-231138-69957d0-dirty`；市场瀑布流/详情。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
+**2026-09-07 市场 UX LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-064811-db3fa3e-dirty`；去分类；瀑布流 + Skeleton + 懒加载；高级引擎 → 更多引擎；封面 expand_top=40 生成中；Comfy 导出/打开已落地（完整二次编辑仍推进）。进一步市场 UX 片（叠在 UI P4 市场瀑布流/详情之上）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
+
+**2026-09-07 UI P4 市场瀑布流/详情 LIVE on core LAN（历史；进一步片→市场 UX LIVE；未 commit；无产品 SHA；产品树 dirty）**：已部署 core LAN；BUILD_ID `20260906-231138-69957d0-dirty`；市场瀑布流/详情。现见上条市场 UX LIVE（同族进一步片；新 BUILD）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
 
 **2026-09-07 UI P4 小程序主题对齐 web v9（历史；SUPERSEDED→市场瀑布流/详情已上 core；local_uncommitted_core_build_unchanged；未上 core；core BUILD 当时未变；未 commit；无产品 SHA）**：小程序主题对齐 web v9；本地未 commit；下一步曾为市场瀑布流/详情。现市场瀑布流/详情已上 core LAN（见上条 LIVE）。小程序主题对齐仍可能在本地 dirty 树中单独未 commit。
 

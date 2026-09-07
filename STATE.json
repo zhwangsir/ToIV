@@ -1,7 +1,31 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T07:35:00+08:00",
+  "updated_at": "2026-09-07T14:55:00+08:00",
+  "market_ux_2026_09_07": {
+    "status": "on_core_lan_uncommitted_no_product_sha",
+    "live": true,
+    "on_core": true,
+    "committed": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "build_id": "20260907-064811-db3fa3e-dirty",
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T14:55:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "changes": [
+      "去分类",
+      "瀑布流 + Skeleton + 懒加载",
+      "高级引擎 → 更多引擎",
+      "封面 expand_top=40 生成中",
+      "Comfy 导出/打开已落地（完整二次编辑仍推进）"
+    ],
+    "note": "市场 UX 已上 core LAN（真机）；进一步片叠在 UI P4 市场瀑布流/详情之上；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260907-064811-db3fa3e-dirty；AGENTS 按真机更新",
+    "relates_to": "ui_p4_market_waterfall_2026_09_07",
+    "further_slice_of": "ui_p4_market_waterfall_2026_09_07"
+  },
   "ui_p4_market_waterfall_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
     "live": true,
@@ -12,15 +36,16 @@
     "product_sha": null,
     "build_id": "20260906-231138-69957d0-dirty",
     "date": "2026-09-07",
-    "updated_at": "2026-09-07T07:35:00+08:00",
+    "updated_at": "2026-09-07T14:55:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "changes": [
       "市场瀑布流",
       "详情页"
     ],
-    "note": "UI P4 市场瀑布流/详情已上 core LAN（真机）；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260906-231138-69957d0-dirty；AGENTS 按真机更新",
-    "supersedes": "ui_p4_miniprogram_theme_2026_09_07 prior next=市场瀑布流/详情 intent"
+    "note": "UI P4 市场瀑布流/详情已上 core LAN（真机）；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260906-231138-69957d0-dirty；AGENTS 按真机更新。进一步市场 UX 片见 market_ux_2026_09_07（新 BUILD）。",
+    "supersedes": "ui_p4_miniprogram_theme_2026_09_07 prior next=市场瀑布流/详情 intent",
+    "further_slice": "market_ux_2026_09_07"
   },
   "ui_p4_miniprogram_theme_2026_09_07": {
     "date": "2026-09-07",
