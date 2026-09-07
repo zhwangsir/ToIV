@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-07 RH 图生全量入库完成（真机/core 数据侧；无产品 SHA；docs）：认证 search 字段分页（search 非 searchValue）；去重 6511 → 分类 6408 → 种入 core 6400（错误 0）；base qwen-image-edit 2040 / img2img-basic 2419 / txt2img-basic 1941；leftover 69 + video_skipped 34；already on core skipped 8；core apps ≈9846；LAN core http://192.168.71.47:8090；报告 `.regen_tmp/rh-image-ingest-20260907.md`（勿提交）；AGENTS §七 已短注。
+
 - 2026-09-07 应用封面回填完成（真机/core 数据侧；无产品 SHA；docs）：有效缺封面 547→0（空 cover_url 4→0；本地 404 的 543 靠恢复 `/data/app-covers/` 下 10 个共享家族 PNG；另上传 4 张空应用封面）；根因共享家族封面文件缺失（疑似 admin `_remove_cover_file`）；未跑 GPU generate；报告 `.regen_tmp/cover-backfill-20260907.md`（勿提交）；AGENTS §七 已短注。
 
 - 2026-09-07 作品库选封面叠层已修已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-082025-be7d5c7-dirty`；sticky `.rh-params` 困住 fixed Modal → portal 到 `document.body`；产品树 dirty 无独立 SHA；AGENTS 按真机更新。

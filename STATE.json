@@ -1,7 +1,45 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T17:10:00+08:00",
+  "updated_at": "2026-09-07T17:20:00+08:00",
+  "rh_image_ingest_2026_09_07": {
+    "status": "done_on_core",
+    "on_core": true,
+    "live": true,
+    "committed_product": false,
+    "pushed": false,
+    "product_sha": null,
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T17:20:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "auth_search_field": "search",
+    "auth_search_field_note": "pagination uses search not searchValue",
+    "deduped": 6511,
+    "classified": 6408,
+    "seeded_on_core": 6400,
+    "errors": 0,
+    "base_distribution": {
+      "qwen-image-edit": 2040,
+      "img2img-basic": 2419,
+      "txt2img-basic": 1941
+    },
+    "leftover_unclassifiable": 69,
+    "video_skipped": 34,
+    "already_on_core_skipped": 8,
+    "core_apps_approx": 9846,
+    "lan_core": "http://192.168.71.47:8090",
+    "report": ".regen_tmp/rh-image-ingest-20260907.md",
+    "report_committed": false,
+    "changes": [
+      "RH 图生全量入库完成",
+      "去重 6511 → 分类 6408 → 种入 core 6400（错误 0）",
+      "base qwen-image-edit 2040 / img2img-basic 2419 / txt2img-basic 1941",
+      "leftover 69 + video_skipped 34；already on core skipped 8",
+      "core apps ≈9846"
+    ],
+    "note": "RH 图生全量入库完成（数据侧已上 core）；认证 search 字段分页（search 非 searchValue）；去重 6511→分类 6408→种入 6400（错误 0）；base qwen-image-edit 2040 / img2img-basic 2419 / txt2img-basic 1941；leftover 69 + video_skipped 34；already on core skipped 8；core apps ≈9846；报告 .regen_tmp/rh-image-ingest-20260907.md 勿提交；AGENTS 已回写"
+  },
   "cover_backfill_2026_09_07": {
     "status": "done_on_core",
     "on_core": true,
