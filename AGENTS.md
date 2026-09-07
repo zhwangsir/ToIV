@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：RH 参考图/提示词默认值已上 core — BUILD `20260907-095758-c383011-dirty`；回填 8626；top300 RH detail 提示词 287/300；UI media default+远程封面预览（提交仍真上传）；seed inject_rh_ref_defaults；此前 RH 图生新入库封面回填 13→0 / RH UX Tab+封面 contain+管理员出处 / RH 图生入库 6400 / 封面回填 547→0 / 作品库选封面叠层/市场小步续载/无限滚动 / H3 Ref2VA bf16 NAS；应用详情 RH/Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：打开工作流导航已修已上 core — BUILD `20260907-103808-6e94327-dirty`；根因 `#canvas`→`/?view=canvas`；打开应用仅 RH 运行台+「在画布中编辑」；API open-in-comfy fine；37 pass；此前 RH 参考图/提示词默认值 / RH 图生新入库封面回填 13→0 / RH UX Tab+封面 contain+管理员出处 / RH 图生入库 6400 / 封面回填 547→0 / 作品库选封面叠层/市场小步续载/无限滚动 / H3 Ref2VA bf16 NAS；应用详情 RH/Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -177,6 +177,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（ToIV 开发：打开工作流导航已修已上 core）
+- 打开工作流导航已修并上 core LAN（真机）；BUILD_ID `20260907-103808-6e94327-dirty`；产品树 dirty 无独立 SHA。
+- 根因：`#canvas` 无效（SPA 只认 `/?view=canvas`）；API `POST /api/apps/{id}/open-in-comfy` itself was fine。
+- 打开应用去掉简洁/工作流，仅 RH 运行台 +「在画布中编辑」。
+- tests appsWorkflow+appsRh **37** pass；报告 `.regen_tmp/fix-open-workflow-nav-20260907.md`（勿提交）。
 
 ### 2026-09-07（ToIV 开发：RH 参考图/提示词默认值已上 core）
 - 打开应用参考图/提示词默认值已上 core LAN（真机）；BUILD_ID `20260907-095758-c383011-dirty`；产品树 dirty 无独立 SHA。

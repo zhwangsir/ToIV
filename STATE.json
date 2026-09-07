@@ -1,7 +1,40 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T18:00:00+08:00",
+  "updated_at": "2026-09-07T18:45:00+08:00",
+  "fix_open_workflow_nav_2026_09_07": {
+    "status": "on_core_lan_uncommitted_no_product_sha",
+    "live": true,
+    "on_core": true,
+    "committed": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "build_id": "20260907-103808-6e94327-dirty",
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T18:45:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "root_cause": "#canvas hash ignored by SPA; routing is /?view=canvas",
+    "fix": "navigate via pathname=/ + searchParams view=canvas; clear hash",
+    "ux": "打开应用: RH runner only + 在画布中编辑; removed 简洁/工作流 segment",
+    "api_open_in_comfy": "fine",
+    "tests": {
+      "appsWorkflow_appsRh": "37 pass / 0 fail"
+    },
+    "report": ".regen_tmp/fix-open-workflow-nav-20260907.md",
+    "report_committed": false,
+    "relates_to": "comfy_open_edit_2026_09_07",
+    "changes": [
+      "打开工作流导航已修并上 core",
+      "BUILD_ID 20260907-103808-6e94327-dirty",
+      "根因 #canvas 无效 → /?view=canvas",
+      "打开应用去掉简洁/工作流，仅 RH 运行台 +「在画布中编辑」",
+      "API open-in-comfy itself was fine; SPA hash ignored",
+      "tests 37 pass"
+    ],
+    "note": "打开工作流导航已修并上 core LAN（真机）；BUILD_ID 20260907-103808-6e94327-dirty；根因 #canvas 无效改为 /?view=canvas；打开应用去掉简洁/工作流，仅 RH 运行台 +「在画布中编辑」；API open-in-comfy itself was fine，SPA hash ignored；tests 37 pass；报告 .regen_tmp/fix-open-workflow-nav-20260907.md 勿提交；未 commit；产品树 dirty 无独立产品 SHA；AGENTS 按真机更新"
+  },
   "rh_ref_defaults_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
     "live": true,

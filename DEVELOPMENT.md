@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 打开工作流导航已修 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-103808-6e94327-dirty`；根因 `#canvas` 无效，改为 `/?view=canvas`；打开应用去掉简洁/工作流，仅 RH 运行台 +「在画布中编辑」；API open-in-comfy itself was fine，SPA hash ignored；tests appsWorkflow+appsRh **37** pass；报告 `.regen_tmp/fix-open-workflow-nav-20260907.md`（勿提交）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
+
 **2026-09-07 RH 参考图/提示词默认值 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-095758-c383011-dirty`；UI media default + 远程封面预览（提交仍要真上传）；seed `inject_rh_ref_defaults`；回填 **8626**（top300 RH detail 提示词 **287/300**，其余家族默认+封面 CDN）；Errors **0**；关闭此前 RH UX Tab gap「参考图/提示词默认值仍缺」；报告 `.regen_tmp/rh-ref-defaults-20260907.md`（勿提交）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
 
 **2026-09-07 RH 图生新入库封面回填完成（数据侧已上 core；空封面 13→0；有效缺封面 0；无产品 SHA；远程未推文档）**：空 `cover_url` **13→0**；**6387** 保持 RH CDN；**13** 无 coverUrl 用同族 CDN+admin 上传补齐；有效缺封面 **0**；scope **6400** new image RH apps；total market **8646**；LAN core `http://192.168.71.47:8090`；报告 `.regen_tmp/cover-backfill-image-rh-20260907.md`（勿提交）。AGENTS.md 已回写短注。

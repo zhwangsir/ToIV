@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-07 打开工作流导航已修已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-103808-6e94327-dirty`；根因 `#canvas` 无效 → `/?view=canvas`；打开应用去掉简洁/工作流，仅 RH 运行台 +「在画布中编辑」；API open-in-comfy fine，SPA hash ignored；node --import ./tests/register.mjs --test tests/appsWorkflow.test.ts tests/appsRh.test.ts → **37** pass / 0 fail；报告 `.regen_tmp/fix-open-workflow-nav-20260907.md`（勿提交）；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+
 - 2026-09-07 RH 参考图/提示词默认值已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-095758-c383011-dirty`；UI media default + 远程封面预览（提交仍要真上传）；seed inject_rh_ref_defaults；回填 8626（top300 RH detail 提示词 287/300，其余家族默认+封面 CDN）；Errors 0；关闭此前 RH UX Tab gap「参考图/提示词默认值仍缺」；报告 `.regen_tmp/rh-ref-defaults-20260907.md`（勿提交）；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
 - 2026-09-07 RH 图生新入库封面回填完成（真机/core 数据侧；无产品 SHA；docs）：空 cover_url 13→0；6387 保持 RH CDN；13 无 coverUrl 同族 CDN+admin 上传补齐；有效缺封面 0；scope 6400 new image RH / market 8646；LAN core http://192.168.71.47:8090；报告 `.regen_tmp/cover-backfill-image-rh-20260907.md`（勿提交）；AGENTS §七 已短注。
