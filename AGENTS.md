@@ -178,6 +178,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（ToIV 开发：LIVE — RH 表单封面保真调研完成；拍板 wipe 家族模板克隆并准确重入库；执行中）
+- **rh-acc 保真修复**：扫描 **706**；修 **168** / 已齐 **529** / skip `code_901` **9** / errors **0**；封面多为 RH CDN（**706/706**）；封面改写仅 **2**。LIST→select 修复；去 graph fallback 多余字段。
+- **真正错位主因**：约 **1166** 家族模板克隆（`rh-h3` / `rh-minimax*`，无 `webappId`，本地海报封面）——非 rh-acc 丢 UI 元数据。
+- **用户拍板（执行中）**：wipe 家族 `rh-h3` / `rh-minimax*` 模板克隆 → 按 RH 准确图+原表单重入库；**保留** `rh-acc` 与产品 builtin。完再报。
+- 仍待后续：非 ASCII binding / 缺导出节点 / 图槽 demo / `code_901`。
+- Status：`decided_executing`；decision=`wipe_family_clones_accurate_reseed`；keep=`rh-acc + product builtins`；STATE `rh_form_cover_fidelity_2026_09_08`；报告 `.regen_tmp/rh-form-cover-fidelity-20260908.md`（勿提交）；`updated_at` 2026-09-08T02:43:00+08:00。
+
+
 ### 2026-09-08（ToIV 开发：生图池 Comfy FE 齐套 1.52.7 + 去重/封面三项完成）
 - **生图池 Comfy FE 齐套**：WS / pc01 / pc02 / LB:8188 均为 frontend **1.52.7**；`fe_gate=met`；`fe_homogenized=true`；`homogenize_pending=false`。**H3 未动**。~~pc01=1.49.6→1.52.7 进行中~~ **SUPERSEDED**。~~WS 1.45.20 / pc02 1.45.21 / pc01 1.49.6~~ **SUPERSEDED**（gen-pool FE versions）。
 - **同图哈希去重（执行完）**：85 组；kept **85**；soft-hide **243**；deleted **0**；市场可见 **2163→1920**；rh-acc **949→706**。日志 `.regen_tmp/dedupe-hash-20260908.json`（勿提交）。

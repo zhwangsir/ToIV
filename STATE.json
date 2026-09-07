@@ -1,7 +1,58 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T02:21:00+08:00",
+  "updated_at": "2026-09-08T02:43:00+08:00",
+  "rh_form_cover_fidelity_2026_09_08": {
+    "status": "decided_executing",
+    "date": "2026-09-08",
+    "source": "ToIV 开发",
+    "live": true,
+    "research_done": true,
+    "rh_acc": {
+      "total": 706,
+      "updated": 168,
+      "unchanged": 529,
+      "skipped_901": 9,
+      "errors": 0,
+      "covers_cdn": 706,
+      "covers_rewritten": 2,
+      "list_to_select_fixed": true,
+      "graph_fallback_extras_removed": true
+    },
+    "family_clones": {
+      "count": 1166,
+      "cohorts": [
+        "rh-h3",
+        "rh-minimax*"
+      ],
+      "no_webappId": true,
+      "covers": "local_poster"
+    },
+    "pending_user": [],
+    "decided": [
+      "wipe_reseed_or_hide_or_keep_label_family_1166"
+    ],
+    "decisions": {
+      "family_1166": "wipe_family_clones_accurate_reseed",
+      "decision": "wipe_family_clones_accurate_reseed",
+      "keep": "rh-acc + product builtins",
+      "note": "wipe 家族 rh-h3 / rh-minimax* 模板克隆 → 按 RH 准确图+原表单重入库；rh-acc 与产品 builtin 保留；ToIV 执行中"
+    },
+    "still_open": [
+      "non_ascii_binding",
+      "missing_export_nodes",
+      "image_slot_demos",
+      "code_901"
+    ],
+    "report": ".regen_tmp/rh-form-cover-fidelity-20260908.md",
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "updated_at": "2026-09-08T02:43:00+08:00",
+    "note": "Research LIVE: rh-acc 706 修168/齐529/skip901=9/err0；封面 RH CDN 706/706；LIST→select 修复；去 graph fallback 多余字段；封面改写仅2。真正错位主因≈1166 家族模板克隆（rh-h3/rh-minimax*，无 webappId，本地海报封面）。用户拍板：wipe 家族模板克隆 → RH 准确图+原表单重入库；keep=rh-acc+product builtins；status=decided_executing。报告 .regen_tmp/rh-form-cover-fidelity-20260908.md 勿提交。"
+  },
   "rh_comfy_covers_dupes_audit_2026_09_08": {
     "status": "fe_homogenized_dedupe_covers_done",
     "date": "2026-09-08",

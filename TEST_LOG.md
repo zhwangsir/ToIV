@@ -1,5 +1,8 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 LIVE：RH 表单封面保真调研+拍板执行中（真机/core；docs）：rh-acc **706** 修**168**/齐**529**/skip901=**9**/err**0**；封面 RH CDN **706/706**；LIST→select 修复；去 graph fallback；封面改写仅**2**；错位主因≈**1166** 家族模板克隆（rh-h3/rh-minimax* 无 webappId 本地海报）；**用户拍板** wipe 家族模板克隆→RH 准确图+原表单重入库；keep=rh-acc+product builtins；status=`decided_executing` decision=`wipe_family_clones_accurate_reseed`；STATE `rh_form_cover_fidelity_2026_09_08`；报告 `.regen_tmp/rh-form-cover-fidelity-20260908.md`（勿提交）；updated_at 2026-09-08T02:43:00+08:00；无产品 SHA；AGENTS §七 已短注；未推；执行中完再报。
+
+
 - 2026-09-08 LIVE：生图池 Comfy FE 齐套 1.52.7 + 去重/封面三项完成（真机/docs）：FE 齐套 WS/pc01/pc02/LB:8188=**1.52.7**；fe_gate=met；fe_homogenized=true；homogenize_pending=false；H3 未动；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x~~ SUPERSEDED for gen-pool FE；去重 85组 kept85 soft-hide**243** del0 市场2163→**1920** rh-acc949→**706** 日志 `.regen_tmp/dedupe-hash-20260908.json`；渐变假封面 UX **114→0** 日志 `.regen_tmp/gradient-cover-fix-20260908.json`；status=`fe_homogenized_dedupe_covers_done`；STATE `rh_comfy_covers_dupes_audit_2026_09_08`；updated_at 2026-09-08T02:21:00+08:00；无产品 SHA；AGENTS §七 已短注；未推。
 
 - 2026-09-08 LIVE：用户已拍板三项（真机/docs；~~执行中 / fe_partial~~ → 齐套完成）：① Comfy LB FE>=1.49.6 统一；② 同图哈希去重 same_image_hash；③ 渐变假封面全量重生；~~status=`decided_executing` / `fe_partial_dedupe_covers_done`~~ SUPERSEDED by `fe_homogenized_dedupe_covers_done`；STATE `rh_comfy_covers_dupes_audit_2026_09_08`；原 updated_at 2026-09-08T02:15:00+08:00；无产品 SHA；AGENTS §七 已短注。
