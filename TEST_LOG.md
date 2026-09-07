@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-07 H3 Ref2VA bf16 NAS 入库核实（MateBook ls；无产品 SHA；docs）：`NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors` 存在，66280487368 bytes ≈62GiB；同目录 INT8 `minimax_h3_ref2va_pruned_int8_convrot.safetensors` 已有；**仍缺** `minimax_h3_ref2va_pruned_bf16`；未列 NAS/#recycle 未完成 aria2 副本；H3 无需为下载重启；AGENTS §四/§七 已回写。
+
 - 2026-09-07 应用详情 RH 布局已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-072931-ea942fc-dirty`；左封面 / 右打开应用 + 打开工作流 / 节点信息；admin 出处；封面 expand×40 已重踢；supersedes comfy_open_edit「详情页 RH 布局仍推进中」；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
 - 2026-09-07 Comfy 二次编辑通路已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-070508-718d466-dirty`；`POST /api/apps/{id}/open-in-comfy` → 画布自动加载；save-back 未做；封面 expand 已重踢；详情页 RH 布局仍推进中→SUPERSEDED（见上条应用详情 RH LIVE）；叠市场 UX Comfy 导出/打开；产品树 dirty 无独立 SHA；AGENTS 按真机更新。

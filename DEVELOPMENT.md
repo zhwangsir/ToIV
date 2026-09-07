@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 H3 Ref2VA bf16 已入库 NAS（MateBook 核实；仍缺 pruned_bf16；无产品 SHA；远程未推；AGENTS 已回写）**：完整落盘 `NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors`（66280487368 bytes ≈62GiB；MateBook abs `/Users/wangzhenyu/NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors`）；同目录已有 INT8 `NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors`；**仍缺** `minimax_h3_ref2va_pruned_bf16`；workstation 通常 `/home/merlin/nas_mount/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors`；设备管家：已完整落盘，H3 无需为下载重启；勿把 NAS/#recycle 未完成 aria2 副本当 live。
+
 **2026-09-07 应用详情 RH 布局 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-072931-ea942fc-dirty`；左封面 / 右打开应用 + 打开工作流 / 节点信息；admin 出处；封面 expand×40 已重踢。supersedes comfy_open_edit 中「详情页 RH 布局仍推进中」。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
 
 **2026-09-07 Comfy 二次编辑通路 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-070508-718d466-dirty`；`POST /api/apps/{id}/open-in-comfy` → 画布自动加载；save-back 未做；封面 expand 已重踢；详情页 RH 布局仍推进中→SUPERSEDED（见上条应用详情 RH 布局 LIVE）。叠在市场 UX Comfy 导出/打开之上（further of market_ux）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。

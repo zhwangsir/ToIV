@@ -1,7 +1,33 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T15:35:00+08:00",
+  "updated_at": "2026-09-07T15:40:00+08:00",
+  "h3_ref2va_bf16_2026_09_07": {
+    "status": "on_nas_verified_matebook_no_product_sha",
+    "live": true,
+    "on_core": false,
+    "committed": false,
+    "pushed": false,
+    "dirty": false,
+    "product_sha": null,
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T15:40:00+08:00",
+    "source": "ToIV 开发 + 设备管家；MateBook NAS ls 核实",
+    "agents_md": "updated",
+    "model": "minimax_h3_ref2va_bf16.safetensors",
+    "bytes": 66280487368,
+    "size_approx": "~62GiB",
+    "path_relative": "NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors",
+    "path_matebook_abs": "/Users/wangzhenyu/NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors",
+    "path_workstation": "/home/merlin/nas_mount/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors",
+    "same_dir_int8": "NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+    "missing": [
+      "minimax_h3_ref2va_pruned_bf16"
+    ],
+    "h3_restart_needed": false,
+    "note": "H3 Ref2VA bf16 已完整落盘 NAS（MateBook ls 核实 66280487368 bytes ≈62GiB）；相对路径 NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors；同目录已有 INT8 pruned_int8_convrot；仍缺 pruned_bf16；勿列 NAS/#recycle 未完成 aria2 副本为 live；H3 无需为下载重启；无产品 SHA；远程未推",
+    "verified": "MateBook ls -lh under ~/NAS/toiv/comfyui-models/h3/diffusion_models/"
+  },
   "app_detail_rh_layout_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
     "live": true,

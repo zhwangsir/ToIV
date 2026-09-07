@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：应用详情 RH 布局已上 core；BUILD `20260907-072931-ea942fc-dirty`；左封面/右打开应用+打开工作流/节点信息；admin 出处；封面 expand×40 已重踢；此前 Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发+设备管家：H3 Ref2VA bf16 已入库 NAS `NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors`（66280487368 bytes ≈62GiB，MateBook 核实）；仍缺 pruned_bf16；此前应用详情 RH 布局已上 core；Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -100,6 +100,12 @@
 
 PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（**不得含 custom_nodes 键**,会启动报错）。
 
+**H3 Ref2VA 权重（2026-09-07 MateBook NAS 核实）**：
+- bf16 LIVE：`NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors`（66280487368 bytes ≈62GiB；MateBook `/Users/wangzhenyu/NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors`；workstation 通常 `/home/merlin/nas_mount/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors`）
+- 同目录 INT8 已有：`NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors`
+- **仍缺**：`minimax_h3_ref2va_pruned_bf16`（勿把 NAS/#recycle 未完成 aria2 副本当 live）
+- 设备管家：已完整落盘；H3 无需为下载重启
+
 ---
 
 ## 五、Core 生产状态（活口径）
@@ -171,6 +177,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（ToIV 开发+设备管家：H3 Ref2VA bf16 已入库 NAS）
+- bf16 LIVE：`NAS/toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors`（66280487368 bytes ≈62GiB；MateBook ls 核实）。
+- 同目录 INT8 已有：`minimax_h3_ref2va_pruned_int8_convrot.safetensors`；**仍缺** `minimax_h3_ref2va_pruned_bf16`。
+- workstation 通常同相对路径于 `/home/merlin/nas_mount/toiv/comfyui-models/...`；H3 无需为下载重启。
+- 勿列 NAS/#recycle 未完成 aria2 副本为 live。
 
 ### 2026-09-07（ToIV 开发：应用详情 RH 布局已上 core）
 - 应用详情 RH 布局已上 core LAN（真机）；BUILD_ID `20260907-072931-ea942fc-dirty`；产品树 dirty 无独立 SHA。
