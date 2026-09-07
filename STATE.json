@@ -1,7 +1,36 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T17:20:00+08:00",
+  "updated_at": "2026-09-07T17:30:00+08:00",
+  "rh_ux_tab_cover_admin_2026_09_07": {
+    "status": "on_core_lan_uncommitted_no_product_sha",
+    "live": true,
+    "on_core": true,
+    "committed": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "build_id": "20260907-092308-9db9030-dirty",
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T17:30:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "features": [
+      "应用详情 | 我的生成 Tab",
+      "封面 object-fit contain",
+      "admin rh_webapp_url + source_links（引擎 HF/Civitai）",
+      "模型页 admin Civitai+HF"
+    ],
+    "remaining_gap": "参考图/提示词默认值仍缺",
+    "changes": [
+      "RH UX Tab+封面 contain+管理员出处链接已上 core",
+      "应用详情 | 我的生成 Tab",
+      "封面 object-fit contain",
+      "admin rh_webapp_url + source_links（引擎 HF/Civitai）",
+      "模型页 admin Civitai+HF"
+    ],
+    "note": "RH UX Tab+封面 contain+管理员出处链接已上 core LAN（真机）；BUILD_ID 20260907-092308-9db9030-dirty；应用详情 | 我的生成 Tab；封面 object-fit contain；admin rh_webapp_url + source_links（引擎 HF/Civitai）；模型页 admin Civitai+HF；仍缺参考图/提示词默认值；未 commit；产品树 dirty 无独立产品 SHA；AGENTS 按真机更新"
+  },
   "rh_image_ingest_2026_09_07": {
     "status": "done_on_core",
     "on_core": true,

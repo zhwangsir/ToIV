@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 RH UX Tab+封面 contain+管理员出处链接 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-092308-9db9030-dirty`；应用详情 | 我的生成 Tab；封面 object-fit contain；admin `rh_webapp_url` + `source_links`（引擎 HF/Civitai）；模型页 admin Civitai+HF；**仍缺**参考图/提示词默认值。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
+
 **2026-09-07 RH 图生全量入库完成（数据侧已上 core；种入 6400；错误 0；无产品 SHA；远程未推文档）**：认证 search 字段分页（`search` 非 `searchValue`）；去重 **6511** → 分类 **6408** → 种入 core **6400**（错误 0）；base：`qwen-image-edit` 2040 / `img2img-basic` 2419 / `txt2img-basic` 1941；leftover 69 + video_skipped 34；already on core skipped 8；core apps ≈**9846**；LAN core `http://192.168.71.47:8090`；报告 `.regen_tmp/rh-image-ingest-20260907.md`（勿提交）。AGENTS.md 已回写短注。
 
 **2026-09-07 应用封面回填完成（数据侧已上 core；有效缺封面 547→0；无产品 SHA；远程未推文档）**：core 有效缺封面 **547→0**（空 `cover_url` 4→0；本地 cover 文件 404 的 543 张靠恢复 `/data/app-covers/` 下 **10** 个共享家族 PNG 修好；另上传 4 张空应用封面）。根因：10 个共享家族封面文件从 `/data/app-covers/` 缺失，而 543 个 `rh-*` 仍指向它们（疑似 admin 上传 `_remove_cover_file` 删掉了共享 URL）。未跑 GPU generate；家族仍按设计共享封面；`expand_top` 可选后续。报告 `.regen_tmp/cover-backfill-20260907.md`（勿提交）。AGENTS.md 已回写短注。

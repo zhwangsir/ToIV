@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：RH 图生全量入库完成 — 去重 6511→分类 6408→种入 core 6400（错误 0）；base qwen-image-edit 2040 / img2img-basic 2419 / txt2img-basic 1941；leftover 69 + video_skipped 34；already on core skipped 8；core apps ≈9846；此前应用封面回填 547→0；作品库选封面叠层/市场小步续载/无限滚动 / H3 Ref2VA bf16 NAS；应用详情 RH/Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：RH UX Tab+封面 contain+管理员出处链接已上 core LAN — BUILD `20260907-092308-9db9030-dirty`；应用详情|我的生成 Tab；封面 contain；admin rh_webapp_url+source_links（引擎 HF/Civitai）；模型页 admin Civitai+HF；仍缺参考图/提示词默认值；此前 RH 图生入库 6400 / 封面回填 547→0 / 作品库选封面叠层/市场小步续载/无限滚动 / H3 Ref2VA bf16 NAS；应用详情 RH/Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -177,6 +177,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（ToIV 开发：RH UX Tab+封面 contain+管理员出处已上 core）
+- RH UX Tab+封面 contain+管理员出处链接已上 core LAN（真机）；BUILD_ID `20260907-092308-9db9030-dirty`；产品树 dirty 无独立 SHA。
+- 应用详情 | 我的生成 Tab；封面 object-fit contain。
+- admin `rh_webapp_url` + `source_links`（引擎 HF/Civitai）；模型页 admin Civitai+HF。
+- **仍缺**参考图/提示词默认值。
 
 ### 2026-09-07（ToIV 开发：RH 图生全量入库完成）
 - RH 图生全量入库已完成（数据侧已上 core LAN `http://192.168.71.47:8090`）；认证 search 字段分页（`search` 非 `searchValue`）。
