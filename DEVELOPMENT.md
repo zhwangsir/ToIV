@@ -4,6 +4,14 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-08 LIVE：打开工作流 Comfy1.45 query 扩展（partial；WS 已装；web Canvas 加固未进 served BUILD）**：根因 Comfy 1.45 丢 `?workflow=`；WS 主 Comfy 已装 `toiv_workflow_query`；repo 路径 `deploy/comfy-extensions/toiv_workflow_query/`；web Canvas 加固**未进**当前 served BUILD；status=`partial`。STATE `open_workflow_comfy145_query_2026_09_08` updated_at 2026-09-08T01:20:00+08:00。产品树 dirty 未 commit 产品码；远程未推。
+
+**2026-09-08 LIVE：worker `_pick_app_client` 扩 H3/LongCat/Wan*（API live_on_core）**：`_pick_app_client` 扩 H3/LongCat/Wan*；503 列缺模型/节点；API 已上 core（`live_on_core`）。STATE `worker_pick_app_client_expand_2026_09_08` updated_at 2026-09-08T01:20:00+08:00。产品树 dirty 未 commit 产品码；远程未推。
+
+**2026-09-08 LIVE：市场 prune 付费云端专用 −263（2426→2163）**：付费云端专用删 **263**；保留可本地化；市场 **2426→2163**。STATE `market_prune_paid_cloud_2026_09_08` updated_at 2026-09-08T01:20:00+08:00。产品树 dirty 未 commit 产品码；远程未推。
+
+**2026-09-08 LIVE：封面生成 coverless 1166→705**：coverless **1166→705**。STATE `cover_gen_coverless_2026_09_08` updated_at 2026-09-08T01:20:00+08:00。产品树 dirty 未 commit 产品码；远程未推。
+
 **2026-09-07 市场瀑布流无感追加 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-164531-9ec0144-dirty`；去掉 CSS `column-count`；`.rh-grid` → N 列 `.rh-col`；placement Map 保列位；续载只往最短列底追加；resize 才整表重分；叠在市场小步续载 / 无限滚动 / 市场 UX / UI P4 瀑布流之上（further of market_small_step_load）。STATE `market_waterfall_seamless_append_2026_09_07` status=`live_on_core_dirty` updated_at 2026-09-07T16:45:31+08:00。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
 
 **2026-09-07 LIVE：RH 准确重入库第二轮扩种 SCALE2（累计1212；池未耗尽）**：Phase C 准确 RH 第二轮扩种完成。本轮新种 **500**；累计 `rh-acc-*` = **1212**（RH id 去重；scale2 前约 700，中途 aborted partial ~12 → baseline 712 before this +500）。累计跳过 **1048**（`null_workflowId` 1047 + `export_code_810` 1）；累计 create 错误 **0**（先前 2 个 `create_422` 已重试成功：webapps 1976578710449033218、2042457691490099202）。抽检 **12/12**：节点+封面+RH id 一致。已处理 webappId **2260**；池未耗尽（catalog 8747，约 6487 未处理，多数会跳过）。脚本加固：POST 前丢掉非 ASCII binding leaf（对齐 Core `_BINDING_FIELD_RE`）。无新 BUILD（HTTP 种库）。无模板克隆。族累计 other375 / flux231 / ltx210 / qwen205 / wan197 / h3 7。STATE `rh_accurate_reseed_scale2_2026_09_07` + `rh_clone_purge_reimport_2026_09_07`：new_seeded=500，cumulative_seeded=1212，cumulative_skipped=1048，cumulative_errors=0，prior_create_422_recovered=true，spot_check=12/12，processed=2260，remaining_unprocessed≈6487，pool_exhausted=false，families={other:375,flux:231,ltx:210,qwen:205,wan:197,h3:7}，binding_harden=drop_non_ascii_leaves，build_id=null，no_template=true，status=`reseed_scale2_done_pool_remaining`；`updated_at` 2026-09-07T20:55:00+08:00。报告 `.regen_tmp/rh-accurate-reseed-scale2-20260907.md`（勿提交）。产品树 dirty 未 commit 产品码；远程未推。

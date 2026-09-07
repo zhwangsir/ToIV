@@ -1,7 +1,105 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T00:50:00+08:00",
+  "updated_at": "2026-09-08T01:20:00+08:00",
+  "open_workflow_comfy145_query_2026_09_08": {
+    "date": "2026-09-08",
+    "updated_at": "2026-09-08T01:20:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "product_sha": null,
+    "dirty": true,
+    "status": "partial",
+    "live": true,
+    "on_core": false,
+    "root_cause": "Comfy 1.45 drops ?workflow=",
+    "extension": "toiv_workflow_query",
+    "extension_installed_on": "WS main Comfy",
+    "repo_path": "deploy/comfy-extensions/toiv_workflow_query/",
+    "web_canvas_harden_in_served_build": false,
+    "note": "打开工作流：根因 Comfy 1.45 丢 ?workflow=；WS 主 Comfy 已装 toiv_workflow_query；repo 路径 deploy/comfy-extensions/toiv_workflow_query/；web Canvas 加固未进当前 served BUILD；status=partial。",
+    "changes": [
+      "Comfy 1.45 drops ?workflow=",
+      "WS main Comfy installed toiv_workflow_query",
+      "path deploy/comfy-extensions/toiv_workflow_query/",
+      "web Canvas harden NOT in current served BUILD",
+      "status partial"
+    ]
+  },
+  "worker_pick_app_client_expand_2026_09_08": {
+    "date": "2026-09-08",
+    "updated_at": "2026-09-08T01:20:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "product_sha": null,
+    "dirty": true,
+    "status": "live_on_core",
+    "live": true,
+    "on_core": true,
+    "api_live_on_core": true,
+    "pick_app_client_expand": [
+      "H3",
+      "LongCat",
+      "Wan*"
+    ],
+    "error_503": "lists missing models/nodes",
+    "note": "worker：_pick_app_client 扩 H3/LongCat/Wan*；503 列缺模型/节点；API 已上 core（live_on_core）。",
+    "changes": [
+      "_pick_app_client expand H3/LongCat/Wan*",
+      "503 lists missing models/nodes",
+      "API live_on_core"
+    ]
+  },
+  "market_prune_paid_cloud_2026_09_08": {
+    "date": "2026-09-08",
+    "updated_at": "2026-09-08T01:20:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "product_sha": null,
+    "dirty": true,
+    "status": "done_on_core",
+    "live": true,
+    "on_core": true,
+    "deleted_paid_cloud_only": 263,
+    "keep": "localizable",
+    "market_count": {
+      "before": 2426,
+      "after": 2163
+    },
+    "note": "市场 prune：付费云端专用删 263；保留可本地化；2426→2163。",
+    "changes": [
+      "deleted 263 paid-cloud-only",
+      "keep localizable",
+      "2426→2163"
+    ]
+  },
+  "cover_gen_coverless_2026_09_08": {
+    "date": "2026-09-08",
+    "updated_at": "2026-09-08T01:20:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "product_sha": null,
+    "dirty": true,
+    "status": "done_on_core",
+    "live": true,
+    "on_core": true,
+    "coverless": {
+      "before": 1166,
+      "after": 705
+    },
+    "note": "封面生成：coverless 1166→705。",
+    "changes": [
+      "coverless 1166→705"
+    ]
+  },
   "market_waterfall_seamless_append_2026_09_07": {
     "status": "live_on_core_dirty",
     "live": true,
