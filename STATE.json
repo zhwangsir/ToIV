@@ -1,7 +1,30 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T03:21:00+08:00",
+  "updated_at": "2026-09-08T03:44:00+08:00",
+  "r18_merge_into_sfw_2026_09_08": {
+    "status": "decided_executing",
+    "date": "2026-09-08",
+    "source": "ToIV 开发",
+    "live": true,
+    "decisions": {
+      "merge_r18_into_sfw_same_capability": true,
+      "cover_dual_tags": "SFW+NSFW top-right",
+      "in_app_content_toggle": "SFW|NSFW"
+    },
+    "facts": [
+      "R18 合并进同能力 SFW 应用（不再独立 R18 卡片）",
+      "封面右上角同时显示 SFW + NSFW 标签",
+      "应用内可选 SFW / NSFW 内容"
+    ],
+    "note": "用户拍板执行中：R18 merge into same-capability SFW；双标封面；应用内 SFW|NSFW 可选。完再报。",
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "updated_at": "2026-09-08T03:44:00+08:00"
+  },
   "cover_effect_align_2026_09_08": {
     "status": "done_18_pending_real_art",
     "date": "2026-09-08",

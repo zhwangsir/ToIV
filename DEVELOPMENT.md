@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-08 LIVE：用户拍板 R18 合并进同能力 SFW（执行中）**：① R18 合并进同能力 SFW（不再独立 R18 卡片）；② 封面右上角同时 **SFW + NSFW**；③ 应用内可选 **SFW / NSFW**。status=`decided_executing`；STATE `r18_merge_into_sfw_2026_09_08`；decisions={merge_r18_into_sfw_same_capability:true, cover_dual_tags:"SFW+NSFW top-right", in_app_content_toggle:"SFW|NSFW"}；updated_at 2026-09-08T03:44:00+08:00。产品树 dirty 未 commit 产品码；远程未推。完再报。
+
 **2026-09-08 LIVE：家族模板 wipe1166 + 准确重入131 COMPLETE（rh-acc≈837）**：删 **1166**（`rh-h3`/`rh-minimax*`）；准确重入 **+131**；跳过 **360**（detail_code_901×289 + null_workflowId×71）；错误 **0**；直播 rh-acc ≈ **837**；抽检 **12/12**；KEEP 原 rh-acc + 产品 h3-* builtins；家族克隆 **0**；新 131 表单 repair updated**91**/unchanged**40**/with_select**83**；防复活已清空 `apps/api/app/data/rh_h3_presets.json`（bak 保留；路径仅记文档，勿提交）。status=`wipe_reseed_done`；STATE `rh_form_cover_fidelity_2026_09_08` + `rh_family_wipe_accurate_reseed_2026_09_08`；报告 `.regen_tmp/rh-family-wipe-accurate-reseed-20260908.md`（勿提交）；updated_at 2026-09-08T03:21:00+08:00。产品树 dirty 未 commit 产品码；远程未推。
 
 **2026-09-08 LIVE：封面效果对齐完成（修35；剩18待真出图）**：rh-acc **全 RH CDN**；修 **35**（5 rh-acc mp4→still CDN + 30 builtin 上传 RH 图）；剩约 **18** 无 RH 映射 builtin 待真出图（禁 NSFW `/covers/generate` 渐变）；可见 apps≈**811**；rh-acc 期间 sibling reseed **706→763**；市场家族 `rh-h3` 克隆当前 **0**；家族 wipe/reseed **已完成**（见上条 wipe1166+重入131；rh-acc≈837）。status=`done_18_pending_real_art`；STATE `cover_effect_align_2026_09_08`；报告 `.regen_tmp/cover-effect-align-20260908.md`（勿提交）；updated_at 2026-09-08T03:21:00+08:00。产品树 dirty 未 commit 产品码；远程未推。
