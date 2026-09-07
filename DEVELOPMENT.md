@@ -5,7 +5,9 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
-**2026-09-08 LIVE：MODEL_SOURCES 清单已落入 docs**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；**ok 239 / blocked 120 / total 359**；updated `2026-09-08T04:59:25+08:00`；根目录无 `MODEL_SOURCES*`；后续每批下载追加这两份。NAS 短索引：`toiv/comfyui-models/SOURCES.md`（非仓内正式清单）。status=`inventory_landed`；STATE `model_sources_inventory_2026_09_08`（+ `model_sources_inventory_convention_2026_09_08` → ready）；updated_at 2026-09-08T05:00:00+08:00。由 ToIV 模型下载落入；本 commit 含清单正文 + 五件套进度。
+**2026-09-08 LIVE：MODEL_SOURCES batch12 后计数更新**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；**ok 262 / blocked 130 / total 392**（前 239/120/359）；updated `2026-09-08T05:20:38+08:00`；根目录无 `MODEL_SOURCES*`；后续每批追加。status=`inventory_updated_batch12`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T05:21:00+08:00。由 ToIV 模型下载追加；本 commit 含清单正文 + 五件套进度。
+
+**2026-09-08 LIVE：MODEL_SOURCES 清单已落入 docs（历史；进一步片→batch12 计数更新）**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；**ok 239 / blocked 120 / total 359**；updated `2026-09-08T04:59:25+08:00`；根目录无 `MODEL_SOURCES*`；后续每批下载追加这两份。NAS 短索引：`toiv/comfyui-models/SOURCES.md`（非仓内正式清单）。status=~~`inventory_landed`~~ → 见上条 `inventory_updated_batch12`；STATE `model_sources_inventory_2026_09_08`（+ `model_sources_inventory_convention_2026_09_08` → ready）；updated_at 2026-09-08T05:00:00+08:00。由 ToIV 模型下载落入；本 commit 含清单正文 + 五件套进度。
 
 **2026-09-08 CONV：模型/内容下载来源清单稳定路径（~~awaiting~~ → inventory_landed）**：用户要求下载须维护带来源的清单（供更新与查文档）。稳定路径（仓内，就绪后提交）：`docs/MODEL_SOURCES.md`（人读）+ `docs/MODEL_SOURCES.json`（机读）。**根目录仍只留五件套**，勿把 `MODEL_SOURCES*` 放仓库根。维护：ToIV 模型下载；项目管家五件套只引用此路径。口径：覆盖已下载到 NAS 的模型/内容 + HF/Civitai/RH/本地出处；**不**替代 `engine_registry` / `model_wiki` / admin knowledge-graph / `model_profiles`。WIP 草稿仅 `.regen_tmp/`，勿当正式清单。status=~~`convention_set_awaiting_inventory`~~ → **`inventory_landed`**（见上条）；STATE `model_sources_inventory_convention_2026_09_08`；updated_at 2026-09-08T04:56:00+08:00。清单正文已落入 docs（见上条 LIVE）。
 
