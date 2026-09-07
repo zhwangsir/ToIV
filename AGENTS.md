@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：RH 真工作流导出已打通；准确重入库 PILOT — export METHOD FOUND detail→getJsonApiFormat；samples Flux2-klein17/H3 Lip Sync22/H3 T2AV33；prior TOKEN_MISSION SUPERSEDED for workflowId+state=1；wipe rh-*=0 累计≈8611；reseed_pilot in progress counts TBD；无 BUILD_ID/未部署；SCOPE UPGRADE 含内置+全量严格出处；打开工作流导航已修 BUILD `20260907-103808-6e94327-dirty`；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：RH 准确重入库第一批完成 seeded=200 skipped=294 errors=0；族 flux50/qwen42/ltx36/wan32/h3 6/other39；抽检 8/8；ids rh-acc-*；无模板/无新 BUILD；status=reseed_batch1_done_more_pending；更多批次 pending；10Eros 出处 64/64；打开工作流导航 BUILD `20260907-103808-6e94327-dirty`；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -177,6 +177,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（ToIV 开发：LIVE — RH 准确重入库第一批完成 200）
+- **准确 RH 重入库第一批完成**：种入 **200**（无模板克隆；exported Comfy API graph）；跳过 **294**（null_workflowId/未开放）；错误 **0**。
+- **族分布**：flux **50** / qwen **42** / ltx **36** / wan **32** / h3 **6** / other **39**。
+- **抽检 8/8**：节点 + 封面 + RH id 一致；ids prefix `rh-acc-*`。
+- **无新 BUILD**（HTTP 种库；API 码未改）。`no_template_reseed=true`。更多批次仍 **pending**——勿标全量 reseed done。
+- STATE `rh_clone_purge_reimport_2026_09_07` + `rh_accurate_reseed_batch1_2026_09_07`：`reseed_pilot_batch1=done`，`seeded=200`，`skipped=294`，`errors=0`，`spot_check=8/8`，`build_id=null`，`no_template=true`，`status=reseed_batch1_done_more_pending`；`updated_at` 2026-09-07T20:00:00+08:00；报告 `.regen_tmp/rh-accurate-reseed-20260907.md`（勿提交）。
 
 ### 2026-09-07（ToIV 开发：LIVE — 10Eros 模型出处补全 64/64）
 - **模型出处**覆盖 **62/64 → 64/64（100%）**；flagged apps **10 → 0**。

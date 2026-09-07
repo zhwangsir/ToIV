@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T19:50:00+08:00",
+  "updated_at": "2026-09-07T20:00:00+08:00",
   "model_provenance_10eros_2026_09_07": {
     "status": "live_on_core_docs_only",
     "live": true,
@@ -69,7 +69,7 @@
     "report": ".regen_tmp/10eros-provenance-20260907.md",
     "report_committed": false,
     "relates_to": "rh_clone_purge_reimport_2026_09_07",
-    "reseed_note": "准确重入库试点仍在进行；勿标 reseed done",
+    "reseed_note": "准确重入库第一批已完成（200）；更多批次仍 pending；勿标全量 reseed done",
     "changes": [
       "10Eros 模型出处补全 LIVE on core：62/64 → 64/64（100%）",
       "wiki + engine_registry 写 civitai/HF（H3 10Eros_Max… + LTX 10eros_v14）",
@@ -82,7 +82,7 @@
     "note": "LIVE on core：10Eros 模型出处补全；覆盖 62/64→64/64；wiki+engine_registry civitai/HF（H3 10Eros_Max… + LTX 10eros_v14；顺带 hunyuan_video / flux1-dev）；BUILD_ID 仍 20260907-103808-6e94327-dirty（本轮主要改 api）；准确重入库试点仍在进行勿标 reseed done；报告 .regen_tmp/10eros-provenance-20260907.md 勿提交；产品树 dirty 未 commit 产品码；远程未推"
   },
   "rh_clone_purge_reimport_2026_09_07": {
-    "status": "reseed_in_progress_export_ok",
+    "status": "reseed_batch1_done_more_pending",
     "live": true,
     "on_core": true,
     "done": false,
@@ -90,7 +90,7 @@
     "pushed": false,
     "product_sha": null,
     "date": "2026-09-07",
-    "updated_at": "2026-09-07T19:50:00+08:00",
+    "updated_at": "2026-09-07T20:00:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "user_order": "删掉所有错挂 RH 克隆卡并重新准确入库",
@@ -111,10 +111,15 @@
       "prior TOKEN_MISSION / wrong path SUPERSEDED for workflowId+workflowState=1 apps",
       "accurate reseed PILOT started (not full batch); reseed_count TBD",
       "no_template_reseed=true",
-      "not deployed; build_id=null"
+      "not deployed; build_id=null",
+      "reseed_pilot_batch1 done: seeded=200 skipped=294 errors=0",
+      "families: flux50/qwen42/ltx36/wan32/h3 6/other39",
+      "spot_check=8/8 (nodes+cover+RH id)",
+      "ids prefix rh-acc-*; no_template=true; build_id=null (HTTP seed only)",
+      "status=reseed_batch1_done_more_pending (more batches pending)"
     ],
     "deleted_count": 3392,
-    "note": "LIVE wipe done / export OK / reseed PILOT in progress：rh-*=0；累计≈8611；RH 真工作流导出已打通（detail→getJsonApiFormat→data.prompt）；prior TOKEN_MISSION SUPERSEDED for workflowId+workflowState=1；准确重入库 PILOT 已开始（非全量）；reseed_count 仍 null/TBD；完成后报告：reseed count、skip-reason stats、spot-check、BUILD_ID if deployed；未部署无 BUILD_ID；no_template_reseed=true；勿声称重入库完成",
+    "note": "LIVE wipe done / export OK / reseed BATCH1 done more pending：rh-*=0；累计≈8611；准确重入库第一批 seeded=200 skipped=294 errors=0；族 flux50/qwen42/ltx36/wan32/h3 6/other39；抽检 8/8 节点+封面+RH id；ids prefix rh-acc-*；无模板克隆（exported Comfy API graph）；无新 BUILD（HTTP 种库）；status=reseed_batch1_done_more_pending；报告 .regen_tmp/rh-accurate-reseed-20260907.md 勿提交；产品树 dirty 未 commit 产品码；远程未推",
     "scope_upgrade": true,
     "builtin_also": true,
     "strict_provenance_all_sources": [
@@ -125,19 +130,19 @@
     ],
     "completion_report_fields": [
       "删除数（已报：rh-*=0 / cumulative≈8611）",
-      "重入库数（pilot TBD）",
-      "skip-reason stats",
-      "spot-check results",
+      "重入库数（batch1 seeded=200；more pending）",
+      "skip-reason stats（skipped=294 null_workflowId/未开放；errors=0）",
+      "spot-check results（8/8）",
       "内置变更",
-      "模型出处覆盖",
-      "BUILD_ID if deployed"
+      "模型出处覆盖（64/64）",
+      "BUILD_ID if deployed（null；HTTP seed only）"
     ],
     "superseded": {
       "builtin_retained": true,
       "note": "prior constraint「内置应用保留」SUPERSEDED by scope_upgrade builtin_also=true"
     },
     "addendum_source": "ToIV 开发",
-    "reimport_count": 0,
+    "reimport_count": 200,
     "builtin_change_count": null,
     "provenance_coverage": "64/64",
     "rh_star_remaining": 0,
@@ -161,7 +166,7 @@
     ],
     "model_provenance": "64/64",
     "model_provenance_pct": 100.0,
-    "reseed": 0,
+    "reseed": 200,
     "blocker": null,
     "sql_used_for_builtin_rh": true,
     "sql_reason": "admin API 403 内置应用不可删除 for is_builtin rh-*",
@@ -171,12 +176,13 @@
       ".regen_tmp/rh-wipe-resume-20260907.md",
       ".regen_tmp/builtin-provenance-20260907.md",
       ".regen_tmp/rh-graph-export-path-20260907.md",
-      ".regen_tmp/10eros-provenance-20260907.md"
+      ".regen_tmp/10eros-provenance-20260907.md",
+      ".regen_tmp/rh-accurate-reseed-20260907.md"
     ],
     "reseed_started": true,
     "reseed_pilot": true,
     "reseed_full_batch": false,
-    "reseed_count": null,
+    "reseed_count": 200,
     "export_method": {
       "status": "METHOD_FOUND",
       "recipe": [
@@ -206,7 +212,70 @@
       "superseded": true,
       "note": "Prior BLOCKER TOKEN_MISSION / wrong path SUPERSEDED for apps with workflowId+workflowState=1; OpenAPI getJsonApiFormat works"
     },
-    "blocker_remaining": "workflowState=0 or author ACL (1913 / WORKFLOW_NOT_EXISTS) — do not fabricate templates"
+    "blocker_remaining": "workflowState=0 or author ACL (1913 / WORKFLOW_NOT_EXISTS) — do not fabricate templates",
+    "reseed_pilot_batch1": "done",
+    "ids_prefix": "rh-acc-*",
+    "reseed_skipped": 294,
+    "reseed_errors": 0,
+    "reseed_spot_check": "8/8",
+    "reseed_families": {
+      "flux": 50,
+      "qwen": 42,
+      "ltx": 36,
+      "wan": 32,
+      "h3": 6,
+      "other": 39
+    },
+    "reseed_skip_reason": "null_workflowId/未开放",
+    "report_batch1": ".regen_tmp/rh-accurate-reseed-20260907.md"
+  },
+  "rh_accurate_reseed_batch1_2026_09_07": {
+    "status": "reseed_batch1_done_more_pending",
+    "live": true,
+    "on_core": true,
+    "done": false,
+    "reseed_pilot_batch1": "done",
+    "seeded": 200,
+    "skipped": 294,
+    "errors": 0,
+    "skip_reason": "null_workflowId/未开放",
+    "families": {
+      "flux": 50,
+      "qwen": 42,
+      "ltx": 36,
+      "wan": 32,
+      "h3": 6,
+      "other": 39
+    },
+    "spot_check": "8/8",
+    "spot_check_note": "节点+封面+RH id 一致",
+    "build_id": null,
+    "deployed": false,
+    "no_template": true,
+    "no_template_reseed": true,
+    "ids_prefix": "rh-acc-*",
+    "method": "HTTP seed only — exported Comfy API graph via detail→getJsonApiFormat→data.prompt; POST /api/apps",
+    "report": ".regen_tmp/rh-accurate-reseed-20260907.md",
+    "report_committed": false,
+    "relates_to": "rh_clone_purge_reimport_2026_09_07",
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T20:00:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "product_sha": null,
+    "core": "http://192.168.71.47:8090",
+    "changes": [
+      "准确 RH 重入库第一批完成：seeded=200 skipped=294 errors=0",
+      "无模板克隆；exported Comfy API graph",
+      "族分布 flux50/qwen42/ltx36/wan32/h3 6/other39",
+      "抽检 8/8：节点+封面+RH id 一致",
+      "无新 BUILD（HTTP 种库）",
+      "ids prefix rh-acc-*",
+      "status=reseed_batch1_done_more_pending"
+    ],
+    "note": "LIVE：准确 RH 重入库 BATCH1；seeded=200 skipped=294 errors=0；families flux50/qwen42/ltx36/wan32/h3 6/other39；spot_check=8/8；build_id=null；no_template=true；ids rh-acc-*；报告 .regen_tmp/rh-accurate-reseed-20260907.md 勿提交；更多批次 pending；远程未推"
   },
   "fix_open_workflow_nav_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
