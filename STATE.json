@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T03:12:00+08:00",
+  "updated_at": "2026-09-08T03:21:00+08:00",
   "cover_effect_align_2026_09_08": {
     "status": "done_18_pending_real_art",
     "date": "2026-09-08",
@@ -27,11 +27,12 @@
     "pushed": false,
     "dirty": true,
     "product_sha": null,
-    "updated_at": "2026-09-08T03:12:00+08:00",
-    "note": "封面效果对齐完成：rh-acc 全 RH CDN；修35（5 rh-acc mp4→still CDN + 30 builtin 上传 RH 图）；剩约18无 RH 映射 builtin 待真出图（禁 NSFW /covers/generate 渐变）；可见 apps≈811；rh-acc 期间 sibling reseed 706→763；市场家族 rh-h3 克隆当前0；家族 wipe/reseed 仍在 sibling（另报）。报告 path only 勿提交。"
+    "updated_at": "2026-09-08T03:21:00+08:00",
+    "note": "封面效果对齐完成：rh-acc 全 RH CDN；修35（5 rh-acc mp4→still CDN + 30 builtin 上传 RH 图）；剩约18无 RH 映射 builtin 待真出图（禁 NSFW /covers/generate 渐变）；可见 apps≈811；rh-acc 期间 sibling reseed 706→763；市场家族 rh-h3 克隆当前0；家族 wipe/reseed 仍在 sibling（另报）。报告 path only 勿提交。",
+    "family_wipe_reseed": "done_see_rh_family_wipe_accurate_reseed_2026_09_08"
   },
   "rh_form_cover_fidelity_2026_09_08": {
-    "status": "decided_executing",
+    "status": "wipe_reseed_done",
     "date": "2026-09-08",
     "source": "ToIV 开发",
     "live": true,
@@ -64,7 +65,7 @@
       "family_1166": "wipe_family_clones_accurate_reseed",
       "decision": "wipe_family_clones_accurate_reseed",
       "keep": "rh-acc + product builtins",
-      "note": "wipe 家族 rh-h3 / rh-minimax* 模板克隆 → 按 RH 准确图+原表单重入库；rh-acc 与产品 builtin 保留；ToIV 执行中"
+      "note": "wipe 家族 rh-h3 / rh-minimax* 模板克隆 1166 → 按 RH 准确图+原表单重入库 +131；rh-acc 与产品 builtin 保留；家族克隆 0；LIVE 完成"
     },
     "still_open": [
       "non_ascii_binding",
@@ -78,10 +79,15 @@
     "pushed": false,
     "dirty": true,
     "product_sha": null,
-    "updated_at": "2026-09-08T03:12:00+08:00",
-    "note": "Research LIVE: rh-acc 706 修168/齐529/skip901=9/err0；封面 RH CDN 706/706；LIST→select 修复；去 graph fallback 多余字段；封面改写仅2。真正错位主因≈1166 家族模板克隆（rh-h3/rh-minimax*，无 webappId，本地海报封面）。用户拍板：wipe 家族模板克隆 → RH 准确图+原表单重入库；keep=rh-acc+product builtins；status=decided_executing。报告 .regen_tmp/rh-form-cover-fidelity-20260908.md 勿提交。 【滚动】市场家族 rh-h3 克隆当前 0；wipe 后准确 reseed 仍在 sibling 执行中（另报）。封面效果对齐见 cover_effect_align_2026_09_08。",
+    "updated_at": "2026-09-08T03:21:00+08:00",
+    "note": "Research→wipe+accurate reseed COMPLETE LIVE：删家族模板克隆 1166（rh-h3/rh-minimax*）；准确重入 +131；跳过 360（detail_code_901×289 + null_workflowId×71）；错误 0；直播 rh-acc≈837；抽检 12/12；KEEP 原 rh-acc + 产品 h3-* builtins；家族克隆 0；新 131 表单 repair updated91/unchanged40/with_select83。防复活：已清空 apps/api/app/data/rh_h3_presets.json（bak 保留；路径仅记文档，勿提交）。报告 .regen_tmp/rh-family-wipe-accurate-reseed-20260908.md（勿提交）。详见 STATE rh_family_wipe_accurate_reseed_2026_09_08。",
     "family_clones_market_now": 0,
-    "family_reseed": "in_flight_via_sibling"
+    "family_reseed": "done",
+    "deleted": 1166,
+    "reseeded": 131,
+    "skipped": 360,
+    "rh_acc_live": 837,
+    "spot_check": "12/12"
   },
   "rh_comfy_covers_dupes_audit_2026_09_08": {
     "status": "fe_homogenized_dedupe_covers_done",
@@ -4181,5 +4187,58 @@
     "changes": "--accent-glow 全系改中性（聚焦环/指示条/进度条等自动黑白化）；首页删最近作品区块+快捷 chips+模型行+TOIV 铭牌+副文案；场景卡改无边框文字行；ResultPanel 空态只留一句；ParamField 长 hint 段全删；融合行尾 tags 删；合规行保留",
     "regression": "npm test 915/915, tsc 0, 干净构建, 生产截图核对",
     "kept": "select 选中项底模一句话简介（功能性）、合规行、语义状态色"
+  },
+  "rh_family_wipe_accurate_reseed_2026_09_08": {
+    "status": "wipe_reseed_done",
+    "date": "2026-09-08",
+    "source": "ToIV 开发",
+    "live": true,
+    "on_core": true,
+    "done": true,
+    "deleted": 1166,
+    "cohorts": [
+      "rh-h3",
+      "rh-minimax*"
+    ],
+    "reseeded": 131,
+    "skipped": 360,
+    "skip_reasons": {
+      "detail_code_901": 289,
+      "null_workflowId": 71
+    },
+    "errors": 0,
+    "rh_acc_live": 837,
+    "spot_check": "12/12",
+    "keep": "原 rh-acc + 产品 h3-* builtins",
+    "family_clones_after": 0,
+    "form_repair_new_131": {
+      "updated": 91,
+      "unchanged": 40,
+      "with_select": 83,
+      "cover_changed": 1,
+      "skip": 0,
+      "error": 0
+    },
+    "prevent_reseed": {
+      "emptied": "apps/api/app/data/rh_h3_presets.json",
+      "bak_kept": true,
+      "note": "path only in docs; do not commit emptied json / .regen_tmp"
+    },
+    "api_after_reseed": {
+      "rh_acc": 837,
+      "h3_builtin": 15,
+      "rh_h3": 0,
+      "rh_minimax": 0,
+      "total": 885
+    },
+    "report": ".regen_tmp/rh-family-wipe-accurate-reseed-20260908.md",
+    "related": "rh_form_cover_fidelity_2026_09_08",
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "updated_at": "2026-09-08T03:21:00+08:00",
+    "note": "家族 wipe1166 + 准确重入131 COMPLETE LIVE；rh-acc≈837；抽检12/12；跳过360（901×289+null_workflowId×71）；错误0；家族克隆0；rh_h3_presets.json 已清空防复活（bak 保留，勿提交）。"
   }
 }
