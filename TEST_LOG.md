@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-07 LIVE：市场瀑布流无感追加已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-164531-9ec0144-dirty`；去掉 CSS `column-count`；`.rh-grid` → N 列 `.rh-col`；placement Map 保列位；续载只往最短列底追加；resize 才整表重分；叠市场小步续载 / 无限滚动 / 市场 UX / UI P4 瀑布流；STATE `market_waterfall_seamless_append_2026_09_07` status=`live_on_core_dirty` updated_at 2026-09-07T16:45:31+08:00；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+
 - 2026-09-07 LIVE：RH 准确重入库第二轮扩种 SCALE2（真机/core；docs）：本轮新种 **500**；累计 `rh-acc-*`=**1212**（RH id 去重；baseline≈712 before +500）；累计跳过 **1048**（null_workflowId 1047 + export_code_810 1）；累计 create 错误 **0**（prior create_422 recovered）；抽检 **12/12** 节点+封面+RH id；processed=**2260** remaining≈**6487** pool_exhausted=false；binding_harden=drop_non_ascii_leaves；无新 BUILD（HTTP 种库）；无模板克隆；族 other375/flux231/ltx210/qwen205/wan197/h3 7；status=`reseed_scale2_done_pool_remaining`；STATE `rh_accurate_reseed_scale2_2026_09_07` + `rh_clone_purge_reimport_2026_09_07` new_seeded=500 cumulative_seeded=1212 cumulative_skipped=1048 cumulative_errors=0 prior_create_422_recovered=true spot_check=12/12 processed=2260 remaining_unprocessed≈6487 pool_exhausted=false binding_harden=drop_non_ascii_leaves build_id=null no_template=true updated_at 2026-09-07T20:55:00+08:00；报告 `.regen_tmp/rh-accurate-reseed-scale2-20260907.md`（勿提交）；无产品 SHA；未发明集群/GPU；AGENTS §七 已短注。
 
 - 2026-09-07 LIVE：RH 准确重入库扩种完成（真机/core；docs）：本轮新种 **500**；累计 `rh-acc-*`=**700**（RH id 去重 700）；累计跳过 **752**（皆 null_workflowId）；累计 create 错误 **2**（create_422；bindings 非 inputs.*/widgets_values.*）；抽检 **12/12** 节点+封面+RH id；无新 BUILD（HTTP 种库）；无模板克隆；族 other224/flux135/ltx118/qwen115/wan110/h3 6；processed ids 1454；status=`reseed_scale_done_scanning_more`（仍在扫可导出库存；勿标全量 reseed done）；STATE `rh_accurate_reseed_scale_2026_09_07` + `rh_clone_purge_reimport_2026_09_07` new_seeded=500 cumulative_seeded=700 cumulative_skipped=752 cumulative_errors=2 spot_check=12/12 build_id=null no_template=true updated_at 2026-09-07T20:20:00+08:00；报告 `.regen_tmp/rh-accurate-reseed-scale-20260907.md`（勿提交）；无产品 SHA；未发明集群/GPU；AGENTS §七 已短注。
@@ -32,7 +34,7 @@
 
 - 2026-09-07 作品库选封面叠层已修已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-082025-be7d5c7-dirty`；sticky `.rh-params` 困住 fixed Modal → portal 到 `document.body`；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
-- 2026-09-07 市场小步续载已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-080948-7b6f9e7-dirty`；每页 10；细条 loading；rootMargin 150；新卡 fade-in；叠市场无限滚动 / 市场 UX；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+- 2026-09-07 市场小步续载已上 core LAN 验证（历史；进一步片→市场瀑布流无感追加；真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-080948-7b6f9e7-dirty`；每页 10；细条 loading；rootMargin 150；新卡 fade-in；叠市场无限滚动 / 市场 UX；现见上条市场瀑布流无感追加 LIVE；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
 - 2026-09-07 市场无限滚动已上 core LAN 验证（历史；进一步片→市场小步续载；真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-075325-693aa19-dirty`；去掉「显示更多」；IO sentinel 续载；叠市场 UX / UI P4 瀑布流；现见上条市场小步续载 LIVE；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 

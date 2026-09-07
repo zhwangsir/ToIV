@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：RH 准确重入库第二轮扩种 SCALE2 本轮+500 累计 rh-acc-*=1212 skipped=1048 errors=0；族 other375/flux231/ltx210/qwen205/wan197/h3 7；抽检 12/12；processed=2260 pool remaining≈6487；binding_harden drop_non_ascii；无模板/无新 BUILD；status=reseed_scale2_done_pool_remaining；10Eros 出处 64/64；打开工作流导航 BUILD `20260907-103808-6e94327-dirty`；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：市场瀑布流无感追加 LIVE on core BUILD `20260907-164531-9ec0144-dirty`；RH 准确重入库第二轮扩种 SCALE2 本轮+500 累计 rh-acc-*=1212 skipped=1048 errors=0；族 other375/flux231/ltx210/qwen205/wan197/h3 7；抽检 12/12；processed=2260 pool remaining≈6487；binding_harden drop_non_ascii；无模板/无新 BUILD；status=reseed_scale2_done_pool_remaining；10Eros 出处 64/64；打开工作流导航 BUILD `20260907-103808-6e94327-dirty`；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -178,6 +178,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-07（ToIV 开发：LIVE — 市场瀑布流无感追加已上 core）
+- 市场瀑布流无感追加已上 core LAN（真机）；BUILD_ID `20260907-164531-9ec0144-dirty`；产品树 dirty 无独立 SHA。
+- 去掉 CSS `column-count`；`.rh-grid` → N 列 `.rh-col`；placement Map 保列位；续载只往最短列底追加；resize 才整表重分。
+- 叠在市场小步续载 / 无限滚动 / 市场 UX / UI P4 瀑布流之上（further of market_small_step_load）。
+- STATE `market_waterfall_seamless_append_2026_09_07`：`status=live_on_core_dirty`，`updated_at` 2026-09-07T16:45:31+08:00。
+
 ### 2026-09-07（ToIV 开发：LIVE — RH 准确重入库第二轮扩种 SCALE2 累计1212）
 - **准确 RH 第二轮扩种完成（Phase C）**：本轮新种 **500**；累计 `rh-acc-*` = **1212**（RH id 去重；scale2 前约 700，中途 aborted partial ~12 → baseline 712 before this +500）。
 - **累计跳过 1048**（`null_workflowId` 1047 + `export_code_810` 1）；**累计 create 错误 0**（先前 2 个 `create_422` 已重试成功：webapps 1976578710449033218、2042457691490099202）。
@@ -282,10 +288,10 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - 作品库选封面叠层已修并上 core LAN（真机）；BUILD_ID `20260907-082025-be7d5c7-dirty`；产品树 dirty 无独立 SHA。
 - 原因：sticky `.rh-params` 困住 fixed Modal；改为 portal 到 `document.body`。
 
-### 2026-09-07（ToIV 开发：市场小步续载已上 core）
+### 2026-09-07（ToIV 开发：市场小步续载已上 core；进一步片→市场瀑布流无感追加）
 - 市场小步续载已上 core LAN（真机）；BUILD_ID `20260907-080948-7b6f9e7-dirty`；产品树 dirty 无独立 SHA。
 - 每页 10；细条 loading；rootMargin 150；新卡 fade-in。
-- 叠在市场无限滚动 / 市场 UX 之上（further of market_infinite_scroll / market_ux）。
+- 叠在市场无限滚动 / 市场 UX 之上（further of market_infinite_scroll / market_ux）。进一步片见上条市场瀑布流无感追加 LIVE。
 
 ### 2026-09-07（ToIV 开发：市场无限滚动已上 core；进一步片→市场小步续载）
 - 市场无限滚动已上 core LAN（真机）；BUILD_ID `20260907-075325-693aa19-dirty`；产品树 dirty 无独立 SHA。
