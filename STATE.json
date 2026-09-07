@@ -1,7 +1,35 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T02:43:00+08:00",
+  "updated_at": "2026-09-08T03:12:00+08:00",
+  "cover_effect_align_2026_09_08": {
+    "status": "done_18_pending_real_art",
+    "date": "2026-09-08",
+    "source": "ToIV 开发",
+    "live": true,
+    "fixed": {
+      "rh_acc_still": 5,
+      "builtin_rh_upload": 30,
+      "total": 35
+    },
+    "remaining_non_rh": 18,
+    "rh_acc_cdn": "all",
+    "visible_apps": 811,
+    "rh_acc_during": {
+      "before": 706,
+      "after": 763,
+      "note": "sibling accurate reseed grew rh-acc while this job ran"
+    },
+    "market_family_rh_h3_clones": 0,
+    "report": ".regen_tmp/cover-effect-align-20260908.md",
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "updated_at": "2026-09-08T03:12:00+08:00",
+    "note": "封面效果对齐完成：rh-acc 全 RH CDN；修35（5 rh-acc mp4→still CDN + 30 builtin 上传 RH 图）；剩约18无 RH 映射 builtin 待真出图（禁 NSFW /covers/generate 渐变）；可见 apps≈811；rh-acc 期间 sibling reseed 706→763；市场家族 rh-h3 克隆当前0；家族 wipe/reseed 仍在 sibling（另报）。报告 path only 勿提交。"
+  },
   "rh_form_cover_fidelity_2026_09_08": {
     "status": "decided_executing",
     "date": "2026-09-08",
@@ -50,8 +78,10 @@
     "pushed": false,
     "dirty": true,
     "product_sha": null,
-    "updated_at": "2026-09-08T02:43:00+08:00",
-    "note": "Research LIVE: rh-acc 706 修168/齐529/skip901=9/err0；封面 RH CDN 706/706；LIST→select 修复；去 graph fallback 多余字段；封面改写仅2。真正错位主因≈1166 家族模板克隆（rh-h3/rh-minimax*，无 webappId，本地海报封面）。用户拍板：wipe 家族模板克隆 → RH 准确图+原表单重入库；keep=rh-acc+product builtins；status=decided_executing。报告 .regen_tmp/rh-form-cover-fidelity-20260908.md 勿提交。"
+    "updated_at": "2026-09-08T03:12:00+08:00",
+    "note": "Research LIVE: rh-acc 706 修168/齐529/skip901=9/err0；封面 RH CDN 706/706；LIST→select 修复；去 graph fallback 多余字段；封面改写仅2。真正错位主因≈1166 家族模板克隆（rh-h3/rh-minimax*，无 webappId，本地海报封面）。用户拍板：wipe 家族模板克隆 → RH 准确图+原表单重入库；keep=rh-acc+product builtins；status=decided_executing。报告 .regen_tmp/rh-form-cover-fidelity-20260908.md 勿提交。 【滚动】市场家族 rh-h3 克隆当前 0；wipe 后准确 reseed 仍在 sibling 执行中（另报）。封面效果对齐见 cover_effect_align_2026_09_08。",
+    "family_clones_market_now": 0,
+    "family_reseed": "in_flight_via_sibling"
   },
   "rh_comfy_covers_dupes_audit_2026_09_08": {
     "status": "fe_homogenized_dedupe_covers_done",

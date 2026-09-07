@@ -178,12 +178,17 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（ToIV 开发：LIVE — 封面效果对齐完成；修35；剩18待真出图）
+- **封面效果对齐**：rh-acc **全 RH CDN**；修 **35**（5 rh-acc mp4→still CDN + 30 builtin 上传 RH 图）；剩约 **18** 无 RH 映射 builtin 待真出图（**禁** NSFW `/covers/generate` 渐变）。
+- 可见 apps ≈ **811**；rh-acc 期间 sibling reseed **706→763**；市场家族 `rh-h3` 克隆当前 **0**；家族 wipe/reseed 仍在 sibling（另报）。
+- Status：`done_18_pending_real_art`；STATE `cover_effect_align_2026_09_08`；报告 `.regen_tmp/cover-effect-align-20260908.md`（勿提交）；`updated_at` 2026-09-08T03:12:00+08:00。
+
 ### 2026-09-08（ToIV 开发：LIVE — RH 表单封面保真调研完成；拍板 wipe 家族模板克隆并准确重入库；执行中）
 - **rh-acc 保真修复**：扫描 **706**；修 **168** / 已齐 **529** / skip `code_901` **9** / errors **0**；封面多为 RH CDN（**706/706**）；封面改写仅 **2**。LIST→select 修复；去 graph fallback 多余字段。
 - **真正错位主因**：约 **1166** 家族模板克隆（`rh-h3` / `rh-minimax*`，无 `webappId`，本地海报封面）——非 rh-acc 丢 UI 元数据。
-- **用户拍板（执行中）**：wipe 家族 `rh-h3` / `rh-minimax*` 模板克隆 → 按 RH 准确图+原表单重入库；**保留** `rh-acc` 与产品 builtin。完再报。
+- **用户拍板（执行中）**：wipe 家族 `rh-h3` / `rh-minimax*` 模板克隆 → 按 RH 准确图+原表单重入库；**保留** `rh-acc` 与产品 builtin。**滚动**：市场家族 `rh-h3` 克隆当前 **0**；准确 reseed 仍在 sibling（另报）。
 - 仍待后续：非 ASCII binding / 缺导出节点 / 图槽 demo / `code_901`。
-- Status：`decided_executing`；decision=`wipe_family_clones_accurate_reseed`；keep=`rh-acc + product builtins`；STATE `rh_form_cover_fidelity_2026_09_08`；报告 `.regen_tmp/rh-form-cover-fidelity-20260908.md`（勿提交）；`updated_at` 2026-09-08T02:43:00+08:00。
+- Status：`decided_executing`；decision=`wipe_family_clones_accurate_reseed`；keep=`rh-acc + product builtins`；STATE `rh_form_cover_fidelity_2026_09_08`；报告 `.regen_tmp/rh-form-cover-fidelity-20260908.md`（勿提交）；`updated_at` 2026-09-08T03:12:00+08:00（家族市场克隆0 / sibling reseed 中）。
 
 
 ### 2026-09-08（ToIV 开发：生图池 Comfy FE 齐套 1.52.7 + 去重/封面三项完成）
