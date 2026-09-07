@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 LIVE：用户已拍板三项（真机/docs；执行中）：① Comfy LB FE>=1.49.6 统一；② 同图哈希去重 same_image_hash；③ 渐变假封面全量重生；status=`decided_executing`；STATE `rh_comfy_covers_dupes_audit_2026_09_08` pending_user→decided；updated_at 2026-09-08T02:15:00+08:00；无产品 SHA；AGENTS §七 已短注；完再报。
+
 - 2026-09-08 LIVE：RH Comfy版本分裂+封面UX+重复调研（真机/WS+core；docs）：打开失败主因=Comfy LB FE 分裂 WS1.45.20/pc02 1.45.21/pc01 1.49.6；userdata 正确；残留旧图；rh-acc Subgraph **0%**(0/949)；主路径 app_runner；`toiv_workflow_query` 已在 WS/pc01/pc02 /extensions 列出；封面 DB empty=0、UX 渐变=抽象 cover（~68 R18）；H3 R18 SFW inherit×7；CDN 949 OK；重复 stem60/236 hash85/328；pending_user=[dedupe_rules, comfy_lb_unify_or_pin_pc01, r18_gradient_cover_regen]；status=`research_done_awaiting_user`；STATE `rh_comfy_covers_dupes_audit_2026_09_08`（滚动 open_workflow/cover）；报告 `.regen_tmp/rh-comfy-covers-dupes-audit-20260908.md`（勿提交）；updated_at 2026-09-08T02:10:00+08:00；无产品 SHA；AGENTS §七 已短注。
 
 - 2026-09-08 LIVE：Comfy 打开工作流加固（真机/WS+core；docs）：harden 同上；WS LIVE；web BUILD dirty c309d02；probe OK；**更新** `toiv_workflow_query` 已在 WS/pc01/pc02 `/extensions` 列出；打开失败主因=Comfy LB FE 版本分裂（见上条调研）；status=`hardened_live_version_skew_blocker`；STATE `open_workflow_comfy145_query_2026_09_08` + `rh_comfy_covers_dupes_audit_2026_09_08`；报告 `.regen_tmp/fix-comfy-load-covers-20260908.md` / `.regen_tmp/rh-comfy-covers-dupes-audit-20260908.md`（勿提交）；updated_at 2026-09-08T02:10:00+08:00；无产品 SHA；AGENTS §七 已短注。

@@ -1,9 +1,9 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T02:10:00+08:00",
+  "updated_at": "2026-09-08T02:15:00+08:00",
   "rh_comfy_covers_dupes_audit_2026_09_08": {
-    "status": "research_done_awaiting_user",
+    "status": "decided_executing",
     "date": "2026-09-08",
     "source": "ToIV 开发",
     "live": true,
@@ -24,11 +24,6 @@
       "hash_groups": 85,
       "hash_apps": 328
     },
-    "pending_user": [
-      "dedupe_rules",
-      "comfy_lb_unify_or_pin_pc01",
-      "r18_gradient_cover_regen"
-    ],
     "open_workflow_root_cause": "Comfy LB FE 版本分裂；userdata 正确；失败后残留旧图；FireRed banner 新名 / canvas 留 Z-Image",
     "toiv_workflow_query_extensions_listed": true,
     "toiv_workflow_query_note": "现已在 WS/pc01/pc02 /extensions 列出（先前「待重启」可能已过时）",
@@ -38,11 +33,22 @@
     "pushed": false,
     "dirty": true,
     "product_sha": null,
-    "updated_at": "2026-09-08T02:10:00+08:00"
+    "updated_at": "2026-09-08T02:15:00+08:00",
+    "decided": [
+      "dedupe_rules",
+      "comfy_lb_unify_or_pin_pc01",
+      "r18_gradient_cover_regen"
+    ],
+    "decisions": {
+      "comfy_lb_fe": ">=1.49.6 unify",
+      "dedupe": "same_image_hash",
+      "covers": "regen_all_gradient_fake"
+    },
+    "note": "用户已拍板三项（via ToIV 开发）：Comfy LB FE≥1.49.6 统一；同图哈希去重；渐变假封面全量重生。status=decided_executing；执行中完再报。"
   },
   "comfy_load_harden_covers_2026_09_08": {
     "date": "2026-09-08",
-    "updated_at": "2026-09-08T02:10:00+08:00",
+    "updated_at": "2026-09-08T02:15:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "committed_product": false,
@@ -56,12 +62,12 @@
     "covers": "cover_gen_coverless_2026_09_08",
     "build_id": "20260907-174430-c309d02-dirty",
     "report": ".regen_tmp/fix-comfy-load-covers-20260908.md",
-    "note": "叠加调研：Comfy LB FE 版本分裂为打开失败主因；封面 UX 真理（空库0 vs 抽象渐变图）；重复 stem60/236 hash85/328；H3 R18 SFW inherit×7。STATE rh_comfy_covers_dupes_audit_2026_09_08；等用户拍板。",
+    "note": "叠加调研后用户已拍板：FE≥1.49.6 统一 + same_image_hash 去重 + 渐变假封面全量重生；STATE rh_comfy_covers_dupes_audit_2026_09_08 status=decided_executing；ToIV 执行中。",
     "audit": "rh_comfy_covers_dupes_audit_2026_09_08"
   },
   "open_workflow_comfy145_query_2026_09_08": {
     "date": "2026-09-08",
-    "updated_at": "2026-09-08T02:10:00+08:00",
+    "updated_at": "2026-09-08T02:15:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "committed_product": false,
@@ -83,7 +89,7 @@
     "pc_needs_comfy_restart": false,
     "web_canvas_harden_in_served_build": true,
     "build_id": "20260907-174430-c309d02-dirty",
-    "note": "打开工作流：toiv_workflow_query 已在 WS/pc01/pc02 /extensions 列出（先前待重启口径可能已过时）。失败主因=Comfy LB FE 版本分裂 WS1.45.20/pc02 1.45.21/pc01 1.49.6；rh-acc Subgraph 0%(0/949)；RH 效果主路径=app_runner；开工作流需 FE≥1.49.6 或钉 canvas 到 pc01。FireRed：banner 新名、canvas 留 Z-Image。详见 rh_comfy_covers_dupes_audit_2026_09_08。",
+    "note": "打开工作流：toiv_workflow_query 已在 WS/pc01/pc02 /extensions 列出。失败主因=Comfy LB FE 版本分裂；用户已拍板 FE≥1.49.6 统一（执行中）。详见 rh_comfy_covers_dupes_audit_2026_09_08。",
     "ws_live": true,
     "probe": "POST /api/apps/h3-nsfw-t2v/open-in-comfy OK",
     "report": ".regen_tmp/fix-comfy-load-covers-20260908.md",
@@ -97,7 +103,8 @@
     "primary_path_for_rh": "app_runner",
     "open_fail_root_cause": "Comfy LB FE 版本分裂（WS 1.45.20 / pc02 1.45.21 / pc01 1.49.6）；userdata 正确；load abort 后残留旧图",
     "audit": "rh_comfy_covers_dupes_audit_2026_09_08",
-    "report_audit": ".regen_tmp/rh-comfy-covers-dupes-audit-20260908.md"
+    "report_audit": ".regen_tmp/rh-comfy-covers-dupes-audit-20260908.md",
+    "user_decision_comfy_lb_fe": ">=1.49.6 unify"
   },
   "worker_pick_app_client_expand_2026_09_08": {
     "date": "2026-09-08",
@@ -152,7 +159,7 @@
   },
   "cover_gen_coverless_2026_09_08": {
     "date": "2026-09-08",
-    "updated_at": "2026-09-08T02:10:00+08:00",
+    "updated_at": "2026-09-08T02:15:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "committed_product": false,
@@ -172,16 +179,17 @@
     "cdn_remaining": 949,
     "local_apps": 1214,
     "bad_files": 0,
-    "note": "封面：DB empty=0；UX 渐变≠空库——多为抽象 cover 文件（~68 R18 rh-h3 appcover-7ae2fc…）；已 inherit SFW→7 H3 R18 builtin；CDN 949 OK；local 1214。等用户拍板 R18 家族封面 regen。详见 rh_comfy_covers_dupes_audit_2026_09_08。",
+    "note": "封面：DB empty=0；UX 渐变=抽象 cover；用户已拍板渐变假封面全量重生（执行中）。详见 rh_comfy_covers_dupes_audit_2026_09_08。",
     "unique_local_files": 65,
     "report": ".regen_tmp/fix-comfy-load-covers-20260908.md",
     "cover_db_empty": 0,
     "h3_r18_sfw_inherit": 7,
     "ux_truth": "DB empty=0 正确；用户可见「无封面」= CSS 分类渐变 或 抽象紫/红渐变图当 cover_url（尤 ~68 R18 rh-h3 appcover-7ae2fc…）；已给 7 个 H3 R18 builtin 盖 SFW 海报；CDN rh-acc 949 OK",
     "audit": "rh_comfy_covers_dupes_audit_2026_09_08",
-    "pending_user": [
+    "decided": [
       "r18_gradient_cover_regen"
-    ]
+    ],
+    "user_decision_covers": "regen_all_gradient_fake"
   },
   "market_waterfall_seamless_append_2026_09_07": {
     "status": "live_on_core_dirty",
