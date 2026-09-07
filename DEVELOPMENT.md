@@ -4,7 +4,9 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
-**2026-09-07 Comfy 二次编辑通路 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-070508-718d466-dirty`；`POST /api/apps/{id}/open-in-comfy` → 画布自动加载；save-back 未做；封面 expand 已重踢；详情页 RH 布局仍推进中。叠在市场 UX Comfy 导出/打开之上（further of market_ux）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
+**2026-09-07 应用详情 RH 布局 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-072931-ea942fc-dirty`；左封面 / 右打开应用 + 打开工作流 / 节点信息；admin 出处；封面 expand×40 已重踢。supersedes comfy_open_edit 中「详情页 RH 布局仍推进中」。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
+
+**2026-09-07 Comfy 二次编辑通路 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-070508-718d466-dirty`；`POST /api/apps/{id}/open-in-comfy` → 画布自动加载；save-back 未做；封面 expand 已重踢；详情页 RH 布局仍推进中→SUPERSEDED（见上条应用详情 RH 布局 LIVE）。叠在市场 UX Comfy 导出/打开之上（further of market_ux）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
 
 **2026-09-07 市场 UX LIVE on core LAN（历史；进一步片→Comfy 二次编辑 LIVE；未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-064811-db3fa3e-dirty`；去分类；瀑布流 + Skeleton + 懒加载；高级引擎 → 更多引擎；封面 expand_top=40 生成中；Comfy 导出/打开已落地（完整二次编辑仍推进）。进一步市场 UX 片（叠在 UI P4 市场瀑布流/详情之上）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
 

@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：Comfy 二次编辑通路已上 core；BUILD `20260907-070508-718d466-dirty`；open-in-comfy 画布自动加载；save-back 未做；封面 expand 已重踢；详情页 RH 布局仍推进中；此前市场 UX/Comfy 导出/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：应用详情 RH 布局已上 core；BUILD `20260907-072931-ea942fc-dirty`；左封面/右打开应用+打开工作流/节点信息；admin 出处；封面 expand×40 已重踢；此前 Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -172,10 +172,15 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-07（ToIV 开发：应用详情 RH 布局已上 core）
+- 应用详情 RH 布局已上 core LAN（真机）；BUILD_ID `20260907-072931-ea942fc-dirty`；产品树 dirty 无独立 SHA。
+- 左封面 / 右打开应用 + 打开工作流 / 节点信息；admin 出处；封面 expand×40 已重踢。
+- supersedes comfy_open_edit 中「详情页 RH 布局仍推进中」。
+
 ### 2026-09-07（ToIV 开发：Comfy 二次编辑通路已上 core）
 - Comfy 二次编辑通路已上 core LAN（真机）；BUILD_ID `20260907-070508-718d466-dirty`；产品树 dirty 无独立 SHA。
 - `POST /api/apps/{id}/open-in-comfy` → 画布自动加载；save-back 未做。
-- 封面 expand 已重踢；详情页 RH 布局仍推进中。
+- 封面 expand 已重踢；详情页 RH 布局仍推进中→SUPERSEDED（见上条应用详情 RH 布局 LIVE）。
 - 叠在市场 UX Comfy 导出/打开之上（further of market_ux）。
 
 ### 2026-09-07（ToIV 开发：市场 UX 已上 core LAN；进一步片→Comfy 二次编辑）

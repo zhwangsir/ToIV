@@ -1,7 +1,32 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T15:15:00+08:00",
+  "updated_at": "2026-09-07T15:35:00+08:00",
+  "app_detail_rh_layout_2026_09_07": {
+    "status": "on_core_lan_uncommitted_no_product_sha",
+    "live": true,
+    "on_core": true,
+    "committed": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "build_id": "20260907-072931-ea942fc-dirty",
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T15:35:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "layout": "左封面 / 右打开应用 + 打开工作流 / 节点信息",
+    "provenance": "admin 出处",
+    "changes": [
+      "应用详情 RH 布局已上 core",
+      "左封面 / 右打开应用 + 打开工作流 / 节点信息",
+      "admin 出处",
+      "封面 expand×40 已重踢"
+    ],
+    "note": "应用详情 RH 布局已上 core LAN（真机）；BUILD_ID 20260907-072931-ea942fc-dirty；左封面/右打开应用+打开工作流/节点信息；admin 出处；封面 expand×40 已重踢；未 commit；产品树 dirty 无独立产品 SHA；supersedes comfy_open_edit 中「详情页 RH 布局仍推进中」；AGENTS 按真机更新",
+    "relates_to": "comfy_open_edit_2026_09_07",
+    "supersedes": "comfy_open_edit_2026_09_07.pending 详情页 RH 布局仍推进中"
+  },
   "comfy_open_edit_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
     "live": true,
@@ -22,12 +47,15 @@
       "封面 expand 已重踢"
     ],
     "pending": [
-      "save-back 未做",
-      "详情页 RH 布局仍推进中"
+      "save-back 未做"
     ],
-    "note": "Comfy 二次编辑通路已上 core LAN（真机）；open-in-comfy 画布自动加载；save-back 未做；封面 expand 已重踢；详情页 RH 布局仍推进中；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260907-070508-718d466-dirty；叠在 market_ux Comfy 导出/打开之上；AGENTS 按真机更新",
+    "note": "Comfy 二次编辑通路已上 core LAN（真机）；open-in-comfy 画布自动加载；save-back 未做；封面 expand 已重踢；详情页 RH 布局仍推进中→SUPERSEDED（见 app_detail_rh_layout_2026_09_07 已上 core）；未 commit；产品树 dirty 无独立产品 SHA；BUILD_ID 20260907-070508-718d466-dirty；叠在 market_ux Comfy 导出/打开之上；AGENTS 按真机更新",
     "relates_to": "market_ux_2026_09_07",
-    "further_slice_of": "market_ux_2026_09_07"
+    "further_slice_of": "market_ux_2026_09_07",
+    "superseded_pending": [
+      "详情页 RH 布局仍推进中 → SUPERSEDED_by_app_detail_rh_layout_2026_09_07"
+    ],
+    "further_slice": "app_detail_rh_layout_2026_09_07"
   },
   "market_ux_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
