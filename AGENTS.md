@@ -178,6 +178,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（ToIV 开发：LIVE — 市场左侧空白已修上 core）
+- **LIVE**：市场左侧空白已修上 core；BUILD_ID `20260907-203017-6417f2a-dirty`；产品树 dirty 无独立 SHA。
+- **根因**：空 `.rh-col` 仍 flex 占宽（**非** IO/刷新问题）。
+- **修复**：容器 `ResizeObserver` + 跳过空列 + 重置 placement。
+- 叠在市场瀑布流无感追加之上（further of `market_waterfall_seamless_append`）。
+- Status：`live_on_core_dirty`；STATE `market_left_blank_fix_2026_09_08`；`updated_at` 2026-09-08T04:32:00+08:00。产品树 dirty 未 commit 产品码；远程未推。
+
 ### 2026-09-08（ToIV 开发：LIVE — 表单媒体/HF/封面/presets 收口；市场≈1083）
 - **表单媒体**：Animate V8 **15→16**（视频+图）；127 双输入 rh-acc gap **0**；demo 本地 **182**，defaults **127/127**。
 - **功能封面**：+**15**（非 NSFW `/covers/generate`）。
@@ -248,11 +255,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **UX 真理**：DB empty=0 正确；用户可见「无封面」= CSS 分类渐变 **或** 抽象紫/红渐变图当 `cover_url`（~68 R18 rh-h3 `appcover-7ae2fc…`）；已给 **7** H3 R18 builtin 盖 SFW 海报。
 - STATE `cover_gen_coverless_2026_09_08` + `comfy_load_harden_covers_2026_09_08` + `rh_comfy_covers_dupes_audit_2026_09_08`；报告 `.regen_tmp/fix-comfy-load-covers-20260908.md` / `.regen_tmp/rh-comfy-covers-dupes-audit-20260908.md`（勿提交）；`updated_at` 2026-09-08T02:10:00+08:00。
 
-### 2026-09-07（ToIV 开发：LIVE — 市场瀑布流无感追加已上 core）
+### 2026-09-07（ToIV 开发：LIVE — 市场瀑布流无感追加已上 core；进一步片→左侧空白已修）
 - 市场瀑布流无感追加已上 core LAN（真机）；BUILD_ID `20260907-164531-9ec0144-dirty`；产品树 dirty 无独立 SHA。
 - 去掉 CSS `column-count`；`.rh-grid` → N 列 `.rh-col`；placement Map 保列位；续载只往最短列底追加；resize 才整表重分。
 - 叠在市场小步续载 / 无限滚动 / 市场 UX / UI P4 瀑布流之上（further of market_small_step_load）。
-- STATE `market_waterfall_seamless_append_2026_09_07`：`status=live_on_core_dirty`，`updated_at` 2026-09-07T16:45:31+08:00。
+- STATE `market_waterfall_seamless_append_2026_09_07`：`status=live_on_core_dirty`，`updated_at` 2026-09-07T16:45:31+08:00；further → `market_left_blank_fix_2026_09_08`。
+- **进一步片**：市场左侧空白已修（见上条 2026-09-08；BUILD `20260907-203017-6417f2a-dirty`；空 `.rh-col` flex 占宽 → ResizeObserver + 跳过空列 + 重置 placement）。
 
 ### 2026-09-07（ToIV 开发：LIVE — RH 准确重入库第二轮扩种 SCALE2 累计1212）
 - **准确 RH 第二轮扩种完成（Phase C）**：本轮新种 **500**；累计 `rh-acc-*` = **1212**（RH id 去重；scale2 前约 700，中途 aborted partial ~12 → baseline 712 before this +500）。

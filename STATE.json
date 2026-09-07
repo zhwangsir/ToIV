@@ -1,7 +1,43 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T04:04:00+08:00",
+  "updated_at": "2026-09-08T04:32:00+08:00",
+  "market_left_blank_fix_2026_09_08": {
+    "status": "live_on_core_dirty",
+    "date": "2026-09-08",
+    "source": "ToIV 开发",
+    "live": true,
+    "on_core": true,
+    "committed": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "build_id": "20260907-203017-6417f2a-dirty",
+    "root_cause": "empty .rh-col still flex-occupies width",
+    "not_cause": [
+      "IO",
+      "refresh"
+    ],
+    "fix": [
+      "container ResizeObserver",
+      "skip empty columns",
+      "reset placement"
+    ],
+    "facts": [
+      "市场左侧空白已修上 core dirty",
+      "BUILD_ID 20260907-203017-6417f2a-dirty",
+      "根因空 .rh-col 仍 flex 占宽",
+      "改容器 ResizeObserver + 跳过空列 + 重置 placement",
+      "非 IO/刷新问题"
+    ],
+    "agents_md": "updated",
+    "further_slice_of": "market_waterfall_seamless_append_2026_09_07",
+    "related": [
+      "market_waterfall_seamless_append_2026_09_07"
+    ],
+    "updated_at": "2026-09-08T04:32:00+08:00",
+    "note": "市场左侧空白已修上 core LAN（真机）；BUILD_ID 20260907-203017-6417f2a-dirty；根因空 .rh-col 仍 flex 占宽；改容器 ResizeObserver + 跳过空列 + 重置 placement；非 IO/刷新问题；未 commit；产品树 dirty 无独立产品 SHA；叠在市场瀑布流无感追加之上；AGENTS 按真机更新"
+  },
   "rh_form_media_hf_covers_2026_09_08": {
     "status": "done",
     "date": "2026-09-08",
@@ -436,14 +472,15 @@
       "续载只往最短列底追加",
       "resize 才整表重分"
     ],
-    "note": "市场瀑布流无感追加已上 core LAN（真机）；BUILD_ID 20260907-164531-9ec0144-dirty；去掉 CSS column-count；.rh-grid → N 列 .rh-col；placement Map 保列位；续载只往最短列底追加；resize 才整表重分；未 commit；产品树 dirty 无独立产品 SHA；叠在市场小步续载 / 无限滚动 / 市场 UX / UI P4 瀑布流之上；AGENTS 按真机更新",
+    "note": "市场瀑布流无感追加已上 core LAN（真机）；BUILD_ID 20260907-164531-9ec0144-dirty；去掉 CSS column-count；.rh-grid → N 列 .rh-col；placement Map 保列位；续载只往最短列底追加；resize 才整表重分；未 commit；产品树 dirty 无独立产品 SHA；叠在市场小步续载 / 无限滚动 / 市场 UX / UI P4 瀑布流之上；AGENTS 按真机更新；进一步片见 market_left_blank_fix_2026_09_08（左侧空白：BUILD 20260907-203017-6417f2a-dirty；空 .rh-col flex 占宽 → ResizeObserver+跳过空列+重置 placement）",
     "relates_to": "market_small_step_load_2026_09_07",
     "further_slice_of": [
       "market_small_step_load_2026_09_07",
       "market_infinite_scroll_2026_09_07",
       "market_ux_2026_09_07",
       "ui_p4_market_waterfall_2026_09_07"
-    ]
+    ],
+    "further_slice": "market_left_blank_fix_2026_09_08"
   },
   "model_provenance_10eros_2026_09_07": {
     "status": "live_on_core_docs_only",

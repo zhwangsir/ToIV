@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 LIVE：市场左侧空白已修上 core dirty（真机/core；docs）：BUILD_ID `20260907-203017-6417f2a-dirty`；根因空 `.rh-col` 仍 flex 占宽；改容器 `ResizeObserver` + 跳过空列 + 重置 placement；**非** IO/刷新问题；叠市场瀑布流无感追加；status=`live_on_core_dirty`；STATE `market_left_blank_fix_2026_09_08`；updated_at 2026-09-08T04:32:00+08:00；无产品 SHA；AGENTS §七 已短注；未推。勿 stage product/`.regen_tmp`。
+
 - 2026-09-08 LIVE：表单媒体/HF/封面/presets 收口（真机/core；docs）：Animate V8 **15→16**（视频+图）；127 双输入 rh-acc gap **0**；demo 本地 **182**，defaults **127/127**；功能封面 +**15**（非 NSFW generate）；HF 应用侧清完（藏 Flux-文生图-96c82d；模型库未动）；presets MateBook+core=`[]`；presets_anti_resurrect=`cleared_empty_array`；soft_hide_mistaken_reseed=**959**；市场≈**1083** / rh-acc **837** / rh-h3·minimax listed **0**；SFW/R18 9 dual-mode parents + twin soft-hide；status=`done`；STATE `rh_form_media_hf_covers_2026_09_08`（+ `r18_merge` watch 已清）；报告 `.regen_tmp/rh-form-media-hf-covers-20260908.md`（勿提交）；updated_at 2026-09-08T04:04:00+08:00；无产品 SHA；AGENTS §七 已短注；未推。勿 stage product/`.regen_tmp`/`rh_h3_presets.json`。
 
 - 2026-09-08 LIVE：SFW/NSFW 合并已上 core dirty partial（真机/docs）：BUILD_ID `20260907-195752-2a1c833-dirty`；**9** 对合并；双标+应用内切换+twin soft-hide；残 LTX/wan-nsfw 等未并；watch=`presets_anti_resurrect_cleared_empty_array`；presets_anti_resurrect=`cleared_empty_array`；soft_hide_mistaken_reseed=959（勿 stage 产品/`rh_h3_presets.json`/`.regen_tmp`）；status=`live_on_core_dirty_partial`；STATE `r18_merge_into_sfw_2026_09_08`；features={dual_tags,in_app_toggle,twin_soft_hide}；merged_pairs=9；updated_at 2026-09-08T04:04:00+08:00；无产品 SHA；AGENTS §七 已短注；未推。
