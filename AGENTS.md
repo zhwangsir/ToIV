@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：作品库选封面叠层已修已上 core；BUILD_ID `20260907-082025-be7d5c7-dirty`；sticky `.rh-params` 困住 fixed Modal → portal `document.body`；产品 dirty 未 commit；此前市场小步续载/无限滚动/H3 Ref2VA bf16 NAS；应用详情 RH/Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：应用封面回填完成 — 有效缺封面 547→0；恢复 `/data/app-covers/` 10 共享家族 PNG + 上传 4 空封面；未跑 GPU generate；此前作品库选封面叠层已修 / 市场小步续载/无限滚动 / H3 Ref2VA bf16 NAS；应用详情 RH/Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -177,6 +177,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（ToIV 开发：应用封面回填完成）
+- core 有效缺封面 **547→0**（空 `cover_url` 4→0；本地 cover 404×543 靠恢复 `/data/app-covers/` 下 **10** 个共享家族 PNG；另上传 4 张空应用封面）。
+- 根因：10 共享家族封面文件缺失，543 `rh-*` 仍指向它们（疑似 admin 上传 `_remove_cover_file` 删共享 URL）。
+- 未跑 GPU generate；家族仍共享封面（by design）；`expand_top` 可选后续。报告 `.regen_tmp/cover-backfill-20260907.md`（勿提交）。
 
 ### 2026-09-07（ToIV 开发：作品库选封面叠层已修已上 core）
 - 作品库选封面叠层已修并上 core LAN（真机）；BUILD_ID `20260907-082025-be7d5c7-dirty`；产品树 dirty 无独立 SHA。

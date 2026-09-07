@@ -1,7 +1,46 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T16:25:00+08:00",
+  "updated_at": "2026-09-07T17:10:00+08:00",
+  "cover_backfill_2026_09_07": {
+    "status": "done_on_core",
+    "on_core": true,
+    "live": true,
+    "committed_product": false,
+    "pushed": false,
+    "product_sha": null,
+    "date": "2026-09-07",
+    "updated_at": "2026-09-07T17:10:00+08:00",
+    "source": "ToIV 开发",
+    "agents_md": "updated",
+    "effective_missing_covers": {
+      "before": 547,
+      "after": 0
+    },
+    "empty_cover_url": {
+      "before": 4,
+      "after": 0
+    },
+    "local_cover_404_apps": {
+      "before": 543,
+      "after": 0
+    },
+    "missing_shared_family_pngs_restored": 10,
+    "empty_apps_uploaded": 4,
+    "root_cause": "10 shared family cover files missing under /data/app-covers/ while 543 rh-* still pointed at them (likely admin upload _remove_cover_file on shared URL)",
+    "gpu_generate": false,
+    "remaining": "none for empty/broken covers; family still share covers by design; expand_top optional later",
+    "report": ".regen_tmp/cover-backfill-20260907.md",
+    "report_committed": false,
+    "changes": [
+      "应用封面回填完成",
+      "有效缺封面 547→0",
+      "恢复 /data/app-covers/ 下 10 个共享家族 PNG",
+      "上传 4 张空应用封面",
+      "未跑 GPU generate"
+    ],
+    "note": "应用封面回填完成（数据侧已上 core）；有效缺封面 547→0（空 cover_url 4→0；本地 404×543 靠恢复 10 共享家族 PNG；另上传 4 空封面）；根因共享家族文件缺失（疑似 admin _remove_cover_file）；未跑 GPU generate；报告 .regen_tmp/cover-backfill-20260907.md 勿提交；AGENTS 已回写"
+  },
   "library_cover_modal_portal_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
     "live": true,

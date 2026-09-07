@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 应用封面回填完成（数据侧已上 core；有效缺封面 547→0；无产品 SHA；远程未推文档）**：core 有效缺封面 **547→0**（空 `cover_url` 4→0；本地 cover 文件 404 的 543 张靠恢复 `/data/app-covers/` 下 **10** 个共享家族 PNG 修好；另上传 4 张空应用封面）。根因：10 个共享家族封面文件从 `/data/app-covers/` 缺失，而 543 个 `rh-*` 仍指向它们（疑似 admin 上传 `_remove_cover_file` 删掉了共享 URL）。未跑 GPU generate；家族仍按设计共享封面；`expand_top` 可选后续。报告 `.regen_tmp/cover-backfill-20260907.md`（勿提交）。AGENTS.md 已回写短注。
+
 **2026-09-07 作品库选封面叠层已修 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-082025-be7d5c7-dirty`；原因：sticky `.rh-params` 困住 fixed Modal；改为 portal 到 `document.body`。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
 
 **2026-09-07 市场小步续载 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-080948-7b6f9e7-dirty`；每页 10；细条 loading；rootMargin 150；新卡 fade-in；叠在市场无限滚动 / 市场 UX 之上（further of market_infinite_scroll / market_ux）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。

@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-07 应用封面回填完成（真机/core 数据侧；无产品 SHA；docs）：有效缺封面 547→0（空 cover_url 4→0；本地 404 的 543 靠恢复 `/data/app-covers/` 下 10 个共享家族 PNG；另上传 4 张空应用封面）；根因共享家族封面文件缺失（疑似 admin `_remove_cover_file`）；未跑 GPU generate；报告 `.regen_tmp/cover-backfill-20260907.md`（勿提交）；AGENTS §七 已短注。
+
 - 2026-09-07 作品库选封面叠层已修已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-082025-be7d5c7-dirty`；sticky `.rh-params` 困住 fixed Modal → portal 到 `document.body`；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
 - 2026-09-07 市场小步续载已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-080948-7b6f9e7-dirty`；每页 10；细条 loading；rootMargin 150；新卡 fade-in；叠市场无限滚动 / 市场 UX；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
