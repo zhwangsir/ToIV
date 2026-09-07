@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：RH 准确重入库第一批完成 seeded=200 skipped=294 errors=0；族 flux50/qwen42/ltx36/wan32/h3 6/other39；抽检 8/8；ids rh-acc-*；无模板/无新 BUILD；status=reseed_batch1_done_more_pending；更多批次 pending；10Eros 出处 64/64；打开工作流导航 BUILD `20260907-103808-6e94327-dirty`；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：RH 准确重入库扩种完成 本轮+500 累计 rh-acc-*=700 skipped=752 errors=2 create_422；族 other224/flux135/ltx118/qwen115/wan110/h3 6；抽检 12/12；无模板/无新 BUILD；status=reseed_scale_done_scanning_more 仍在扫；10Eros 出处 64/64；打开工作流导航 BUILD `20260907-103808-6e94327-dirty`；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -177,6 +177,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（ToIV 开发：LIVE — RH 准确重入库扩种完成 累计700）
+- **准确 RH 扩种完成（Phase C）**：本轮新种 **500**；累计 `rh-acc-*` = **700**（RH id 去重 700）。
+- **累计跳过 752**（皆 `null_workflowId`）；**累计 create 错误 2**（`create_422`；bindings 非 `inputs.*`/`widgets_values.*`）。
+- **抽检 12/12**：节点 + 封面 + RH id 一致。无新 BUILD（HTTP 种库）。无模板克隆。
+- **族累计**：other **224** / flux **135** / ltx **118** / qwen **115** / wan **110** / h3 **6**；processed ids **1454**。
+- ToIV **仍在扫可导出库存**——勿标全量 reseed done。`no_template_reseed=true`。
+- STATE `rh_accurate_reseed_scale_2026_09_07` + `rh_clone_purge_reimport_2026_09_07`：`new_seeded=500`，`cumulative_seeded=700`，`cumulative_skipped=752`，`cumulative_errors=2`，`spot_check=12/12`，`build_id=null`，`no_template=true`，`status=reseed_scale_done_scanning_more`；`updated_at` 2026-09-07T20:20:00+08:00；报告 `.regen_tmp/rh-accurate-reseed-scale-20260907.md`（勿提交）。
 
 ### 2026-09-07（ToIV 开发：LIVE — RH 准确重入库第一批完成 200）
 - **准确 RH 重入库第一批完成**：种入 **200**（无模板克隆；exported Comfy API graph）；跳过 **294**（null_workflowId/未开放）；错误 **0**。
