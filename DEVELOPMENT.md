@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-08 CONV：模型/内容下载来源清单稳定路径**：用户要求下载须维护带来源的清单（供更新与查文档）。稳定路径（仓内，就绪后提交）：`docs/MODEL_SOURCES.md`（人读）+ `docs/MODEL_SOURCES.json`（机读）。**根目录仍只留五件套**，勿把 `MODEL_SOURCES*` 放仓库根。维护：ToIV 模型下载；项目管家五件套只引用此路径。口径：覆盖已下载到 NAS 的模型/内容 + HF/Civitai/RH/本地出处；**不**替代 `engine_registry` / `model_wiki` / admin knowledge-graph / `model_profiles`。WIP 草稿仅 `.regen_tmp/`，勿当正式清单。status=`convention_set_awaiting_inventory`；STATE `model_sources_inventory_convention_2026_09_08`；updated_at 2026-09-08T04:56:00+08:00。文件由 ToIV 模型下载撰写中；本 commit 只定路径约定。
+
 **2026-09-08 LIVE：市场左侧空白已修上 core dirty**：BUILD_ID `20260907-203017-6417f2a-dirty`；根因空 `.rh-col` 仍 flex 占宽；改容器 `ResizeObserver` + 跳过空列 + 重置 placement；**非** IO/刷新问题。叠在市场瀑布流无感追加之上（further of `market_waterfall_seamless_append`）。status=`live_on_core_dirty`；STATE `market_left_blank_fix_2026_09_08`；updated_at 2026-09-08T04:32:00+08:00。产品树 dirty 未 commit 产品码；远程未推。勿 stage product/`.regen_tmp`。
 
 **2026-09-08 LIVE：表单媒体/HF/封面/presets 收口（市场≈1083）**：Animate V8 **15→16**（视频+图）；127 双输入 rh-acc gap **0**；demo 本地 **182**，defaults **127/127**；功能封面 +**15**（非 NSFW generate）；HF 应用侧清完（藏 `Flux-文生图-96c82d`；模型库未动）；presets MateBook+core=`[]`；`presets_anti_resurrect=cleared_empty_array`；误种 soft-hide **959**；市场≈**1083** / rh-acc **837** / rh-h3·minimax listed **0**；SFW/R18 9 dual-mode parents + twin soft-hide。status=`done`；STATE `rh_form_media_hf_covers_2026_09_08`（+ `r18_merge` watch 已清）；报告 `.regen_tmp/rh-form-media-hf-covers-20260908.md`（勿提交）；updated_at 2026-09-08T04:04:00+08:00。产品树 dirty 未 commit 产品码；远程未推。勿 stage product/`.regen_tmp`/`rh_h3_presets.json`。
