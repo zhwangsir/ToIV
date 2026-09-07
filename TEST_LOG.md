@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-07 PROGRESS / IN PROGRESS：RH 清库进度（rh-* 约剩 3392；已续删；真机/core；未完成；docs）：清库中途 executor 基础设施 unauthenticated 中断；当前 core 约剩 rh-* ≈3392（原先近万已删大半）；admin token 仍可用；已重启续删 + 内置/模型出处审计；禁止模板重种 no_template_reseed=true；仍 in_progress / not done；完成后报告删除数/重入库数/内置变更/模型出处覆盖/BUILD_ID；STATE `rh_clone_purge_reimport_2026_09_07` status=in_progress_on_core rh_star_remaining≈3392 interrupted_unauthenticated then resumed；勿发明精确已删数量；无产品 SHA；未发明集群/GPU；AGENTS §七 已短注。
+
 - 2026-09-07 SCOPE UPGRADE / IN PROGRESS：RH 清库重入库口径升级（含内置+全量严格出处；真机/core；未完成；docs）：用户 ADDENDUM——内置应用也要动（不再「内置保留」）；所有内容与所有模型来源必须可核对（HF/Civitai/RH/本地）；口径升级为全量严格出处；仍 in_progress；完成后报告删除数/重入库数/内置变更/模型出处覆盖/BUILD_ID；STATE `rh_clone_purge_reimport_2026_09_07` scope_upgrade builtin_also=true strict_provenance_all_sources=[HF,Civitai,RH,local] status=in_progress_on_core；~~内置保留~~ SUPERSEDED；勿发明计数；无产品 SHA；未发明集群/GPU；AGENTS §七 已短注。
 
 - 2026-09-07 INTENT / IN PROGRESS：RH 错挂克隆清库 + 准确重入库（历史口径；~~内置保留~~ SUPERSEDED by 上条 SCOPE UPGRADE；真机/core；未完成；docs）：用户下令删掉所有错挂 RH 克隆卡并重新准确入库；封面/名称/工作流必须一致，不许再模板克隆；~~内置应用保留~~（已作废）；ToIV 已开始在 core 清 rh-* 并研究 RH 真工作流导入；status in_progress / not done；勿发明已删数量；无产品 SHA；未发明集群/GPU；AGENTS §七 已短注。

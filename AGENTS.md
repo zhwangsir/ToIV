@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：INTENT/IN PROGRESS RH 错挂克隆清库+准确重入库 — core 已开始清 rh-*、研究真工作流导入，未完成；此前打开工作流导航已修已上 core — BUILD `20260907-103808-6e94327-dirty`；根因 `#canvas`→`/?view=canvas`；打开应用仅 RH 运行台+「在画布中编辑」；API open-in-comfy fine；37 pass；此前 RH 参考图/提示词默认值 / RH 图生新入库封面回填 13→0 / RH UX Tab+封面 contain+管理员出处 / RH 图生入库 6400 / 封面回填 547→0 / 作品库选封面叠层/市场小步续载/无限滚动 / H3 Ref2VA bf16 NAS；应用详情 RH/Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：PROGRESS/IN PROGRESS RH 清库 — core rh-* 约剩 ≈3392，中途 unauthenticated 中断后已续删+内置/模型出处审计，禁止模板重种，未完成；此前 SCOPE UPGRADE 含内置+全量严格出处；此前打开工作流导航已修已上 core — BUILD `20260907-103808-6e94327-dirty`；根因 `#canvas`→`/?view=canvas`；打开应用仅 RH 运行台+「在画布中编辑」；API open-in-comfy fine；37 pass；此前 RH 参考图/提示词默认值 / RH 图生新入库封面回填 13→0 / RH UX Tab+封面 contain+管理员出处 / RH 图生入库 6400 / 封面回填 547→0 / 作品库选封面叠层/市场小步续载/无限滚动 / H3 Ref2VA bf16 NAS；应用详情 RH/Comfy 二次编辑/市场 UX/UI P4–P1/provenance+KG/市场合并已上 core LAN；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 已切 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -177,6 +177,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（ToIV 开发：PROGRESS / IN PROGRESS — RH 清库进度：rh-* 约剩 3392，已续删）
+- 清库中途 executor 基础设施 unauthenticated 中断；当前 core 约剩 `rh-*` **≈3392**（原先近万已删大半）；admin token 仍可用。
+- 已重启续删 + 内置/模型出处审计；**禁止模板重种**（`no_template_reseed=true`）。
+- 仍 `in_progress_on_core` / not done；完成后报告：删除数、重入库数、内置变更、模型出处覆盖、BUILD_ID。
+- STATE `rh_clone_purge_reimport_2026_09_07`：`rh_star_remaining≈3392`，`interrupted_unauthenticated` then resumed。
+- **勿写已完成**；**勿发明精确已删数量**；未发明集群/GPU 变更。
 
 ### 2026-09-07（ToIV 开发：SCOPE UPGRADE / IN PROGRESS — RH 清库重入库口径升级：含内置 + 全量严格出处）
 - 用户 ADDENDUM：内置应用也要动（~~内置保留~~ → **SUPERSEDED**）；所有内容与所有模型来源必须可核对（HF / Civitai / RH / 本地）；口径升级为全量严格出处。

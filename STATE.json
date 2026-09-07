@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T19:00:00+08:00",
+  "updated_at": "2026-09-07T19:15:00+08:00",
   "rh_clone_purge_reimport_2026_09_07": {
     "status": "in_progress_on_core",
     "live": false,
@@ -11,7 +11,7 @@
     "pushed": false,
     "product_sha": null,
     "date": "2026-09-07",
-    "updated_at": "2026-09-07T19:00:00+08:00",
+    "updated_at": "2026-09-07T19:15:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "user_order": "删掉所有错挂 RH 克隆卡并重新准确入库",
@@ -24,10 +24,15 @@
     ],
     "progress": [
       "已开始在 core 清 rh-*",
-      "研究 RH 真工作流导入"
+      "研究 RH 真工作流导入",
+      "rh_star_remaining≈3392（原先近万已删大半）",
+      "interrupted_unauthenticated then resumed",
+      "已重启续删 + 内置/模型出处审计",
+      "no_template_reseed=true（禁止模板重种）",
+      "admin token 仍可用"
     ],
     "deleted_count": null,
-    "note": "SCOPE UPGRADE / IN PROGRESS：用户 ADDENDUM——内置应用也要动（不再「内置保留」）；所有内容与所有模型来源必须可核对（HF/Civitai/RH/本地）；口径升级为全量严格出处；builtin_also=true；strict_provenance_all_sources=[HF,Civitai,RH,local]；status in_progress_on_core / not done；完成后报告删除数/重入库数/内置变更/模型出处覆盖/BUILD_ID；~~内置应用保留~~ SUPERSEDED；勿发明已删/重入库数量；未发明集群/GPU",
+    "note": "PROGRESS / IN PROGRESS：清库中途 executor 基础设施 unauthenticated 中断；当前 core 约剩 rh-* ≈3392（原先近万已删大半）；admin token 仍可用；已重启续删 + 内置/模型出处审计；禁止模板重种 no_template_reseed=true；status in_progress_on_core / not done；完成后报告删除数/重入库数/内置变更/模型出处覆盖/BUILD_ID；scope_upgrade builtin_also=true strict_provenance_all_sources=[HF,Civitai,RH,local] 仍有效；勿发明精确已删/重入库数量；未发明集群/GPU",
     "scope_upgrade": true,
     "builtin_also": true,
     "strict_provenance_all_sources": [
@@ -50,7 +55,12 @@
     "addendum_source": "ToIV 开发",
     "reimport_count": null,
     "builtin_change_count": null,
-    "provenance_coverage": null
+    "provenance_coverage": null,
+    "rh_star_remaining": 3392,
+    "interrupted_unauthenticated": true,
+    "resumed_after_interrupt": true,
+    "no_template_reseed": true,
+    "admin_token_usable": true
   },
   "fix_open_workflow_nav_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
