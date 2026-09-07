@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-07（ToIV 开发：LIVE RH 清库完成 rh-*=0 / 重入库 BLOCKER — 本轮删 3392（API 1149+SQL 2243）累计≈8611；保留 48（47 builtins+Flux-文生图-96c82d）；出处 62/64=96.9%；重入库 0；BLOCKER RH export 403 TOKEN_MISSION；无 BUILD_ID/未部署；此前 PROGRESS≈3392 续删；SCOPE UPGRADE 含内置+全量严格出处；打开工作流导航已修 BUILD `20260907-103808-6e94327-dirty`；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 27B @ spark02）
+> **最后更新**：2026-09-07（ToIV 开发：RH 真工作流导出已打通；准确重入库 PILOT — export METHOD FOUND detail→getJsonApiFormat；samples Flux2-klein17/H3 Lip Sync22/H3 T2AV33；prior TOKEN_MISSION SUPERSEDED for workflowId+state=1；wipe rh-*=0 累计≈8611；reseed_pilot in progress counts TBD；无 BUILD_ID/未部署；SCOPE UPGRADE 含内置+全量严格出处；打开工作流导航已修 BUILD `20260907-103808-6e94327-dirty`；Embedding LIVE @ spark01 :9302；Spark LLM/VLM 27B @ spark02）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -177,6 +177,15 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-07（ToIV 开发：LIVE — RH 真工作流导出已打通；准确重入库 PILOT 进行中）
+- **Export METHOD FOUND**：`POST /api/webapp/detail` → `workflowId`；`POST /api/openapi/getJsonApiFormat`（apiKey+Bearer）→ `data.prompt` = Comfy API JSON。
+- **Verified samples**：Flux2-klein **17** nodes、H3 Lip Sync **22**、H3 T2AV **33** 等（3+）。
+- **Limits**：`workflowState=0` 或 author ACL → fail（1913 / WORKFLOW_NOT_EXISTS）；勿模板伪造。
+- Prior BLOCKER `TOKEN_MISSION` / wrong path → **SUPERSEDED** for apps with `workflowId`+`workflowState=1`。
+- **Wipe 已完成**（rh-*=0；累计≈8611；删数已报）。准确重入库为 **PILOT in progress**（非全量）；`reseed_started=true`；**reseed_count TBD 勿发明**。
+- 完成后报告：reseed count、skip-reason stats、spot-check results、BUILD_ID if deployed。未部署，**无 BUILD_ID**。`no_template_reseed=true`。
+- STATE `rh_clone_purge_reimport_2026_09_07`：`status=reseed_in_progress_export_ok`，export_method as above，prior_blocker superseded，`reseed_started=true`，`reseed_pilot=true`，`reseed_count=null`，`build_id=null`，`deployed=false`；报告 `.regen_tmp/rh-graph-export-path-20260907.md`（勿提交）。
 
 ### 2026-09-07（ToIV 开发：LIVE — RH 清库完成 rh-*=0；重入库被 RH 导出挡住）
 - **LIVE wipe**：`rh-*` 已清 **0**；本轮删除 **3392**（API 1149 + SQL 2243）；相对 wipe_before 累计约 **8611**。admin API 对 is_builtin `rh-*` 403，故用 core Postgres SQL 清剩余。

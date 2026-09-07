@@ -1,9 +1,9 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-07T19:30:00+08:00",
+  "updated_at": "2026-09-07T19:45:00+08:00",
   "rh_clone_purge_reimport_2026_09_07": {
-    "status": "wipe_done_reseed_blocked",
+    "status": "reseed_in_progress_export_ok",
     "live": true,
     "on_core": true,
     "done": false,
@@ -11,7 +11,7 @@
     "pushed": false,
     "product_sha": null,
     "date": "2026-09-07",
-    "updated_at": "2026-09-07T19:30:00+08:00",
+    "updated_at": "2026-09-07T19:45:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "user_order": "删掉所有错挂 RH 克隆卡并重新准确入库",
@@ -28,13 +28,14 @@
       "cumulative≈8611 from wipe_before",
       "retained_apps=48 (47 builtins + Flux-文生图-96c82d)",
       "model_provenance=62/64 (96.9%)",
-      "reseed=0 blocked by RH_workflow_export_TOKEN_MISSION",
+      "RH true workflow export METHOD FOUND (webapp/detail → getJsonApiFormat)",
+      "prior TOKEN_MISSION / wrong path SUPERSEDED for workflowId+workflowState=1 apps",
+      "accurate reseed PILOT started (not full batch); reseed_count TBD",
       "no_template_reseed=true",
-      "not deployed; build_id=null",
-      "SQL used because admin API 403 on is_builtin rh-*"
+      "not deployed; build_id=null"
     ],
     "deleted_count": 3392,
-    "note": "LIVE wipe done / reseed BLOCKED：rh-*=0；本轮删 3392（API 1149+SQL 2243）累计≈8611；保留 48；出处 62/64；重入库 0；BLOCKER RH export 403 TOKEN_MISSION（detail 仅元数据）；未部署无 BUILD_ID；no_template_reseed=true；勿声称重入库完成；scope_upgrade builtin_also + strict_provenance 仍有效",
+    "note": "LIVE wipe done / export OK / reseed PILOT in progress：rh-*=0；累计≈8611；RH 真工作流导出已打通（detail→getJsonApiFormat→data.prompt）；prior TOKEN_MISSION SUPERSEDED for workflowId+workflowState=1；准确重入库 PILOT 已开始（非全量）；reseed_count 仍 null/TBD；完成后报告：reseed count、skip-reason stats、spot-check、BUILD_ID if deployed；未部署无 BUILD_ID；no_template_reseed=true；勿声称重入库完成",
     "scope_upgrade": true,
     "builtin_also": true,
     "strict_provenance_all_sources": [
@@ -44,11 +45,13 @@
       "local"
     ],
     "completion_report_fields": [
-      "删除数",
-      "重入库数",
+      "删除数（已报：rh-*=0 / cumulative≈8611）",
+      "重入库数（pilot TBD）",
+      "skip-reason stats",
+      "spot-check results",
       "内置变更",
       "模型出处覆盖",
-      "BUILD_ID"
+      "BUILD_ID if deployed"
     ],
     "superseded": {
       "builtin_retained": true,
@@ -80,7 +83,7 @@
     "model_provenance": "62/64",
     "model_provenance_pct": 96.9,
     "reseed": 0,
-    "blocker": "RH_workflow_export_TOKEN_MISSION",
+    "blocker": null,
     "sql_used_for_builtin_rh": true,
     "sql_reason": "admin API 403 内置应用不可删除 for is_builtin rh-*",
     "unproven_models_primary": [
@@ -90,8 +93,43 @@
     "unproven_note": "约 10 个 H3/LTX NSFW 应用；hunyuan_video I2V + flux1-dev-fp8(pulid) 经 family HF 后纳入覆盖",
     "reports": [
       ".regen_tmp/rh-wipe-resume-20260907.md",
-      ".regen_tmp/builtin-provenance-20260907.md"
-    ]
+      ".regen_tmp/builtin-provenance-20260907.md",
+      ".regen_tmp/rh-graph-export-path-20260907.md"
+    ],
+    "reseed_started": true,
+    "reseed_pilot": true,
+    "reseed_full_batch": false,
+    "reseed_count": null,
+    "export_method": {
+      "status": "METHOD_FOUND",
+      "recipe": [
+        "POST /api/webapp/detail → workflowId",
+        "POST /api/openapi/getJsonApiFormat (apiKey+Bearer) → data.prompt = Comfy API JSON"
+      ],
+      "verified_samples": [
+        {
+          "name": "Flux2-klein",
+          "nodes": 17
+        },
+        {
+          "name": "H3 Lip Sync",
+          "nodes": 22
+        },
+        {
+          "name": "H3 T2AV",
+          "nodes": 33
+        }
+      ],
+      "limits": "workflowState=0 or author ACL → fail (1913 / WORKFLOW_NOT_EXISTS)",
+      "applies_when": "workflowId present + workflowState=1",
+      "report": ".regen_tmp/rh-graph-export-path-20260907.md"
+    },
+    "prior_blocker": {
+      "blocker": "RH_workflow_export_TOKEN_MISSION",
+      "superseded": true,
+      "note": "Prior BLOCKER TOKEN_MISSION / wrong path SUPERSEDED for apps with workflowId+workflowState=1; OpenAPI getJsonApiFormat works"
+    },
+    "blocker_remaining": "workflowState=0 or author ACL (1913 / WORKFLOW_NOT_EXISTS) — do not fabricate templates"
   },
   "fix_open_workflow_nav_2026_09_07": {
     "status": "on_core_lan_uncommitted_no_product_sha",
