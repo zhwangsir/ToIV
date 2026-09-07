@@ -1,10 +1,48 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T01:49:16+08:00",
+  "updated_at": "2026-09-08T02:10:00+08:00",
+  "rh_comfy_covers_dupes_audit_2026_09_08": {
+    "status": "research_done_awaiting_user",
+    "date": "2026-09-08",
+    "source": "ToIV 开发",
+    "live": true,
+    "comfy_lb_versions": {
+      "ws": "1.45.20",
+      "pc02": "1.45.21",
+      "pc01": "1.49.6"
+    },
+    "rh_acc_subgraph_pct": 0,
+    "rh_acc_subgraph": "0/949",
+    "primary_path": "app_runner",
+    "cover_db_empty": 0,
+    "h3_r18_sfw_inherit": 7,
+    "cover_ux_note": "DB empty=0; UX 渐变=抽象 cover 文件（~68 R18 rh-h3 appcover-7ae2fc…）；CDN rh-acc 949 OK",
+    "dupes": {
+      "stem_groups": 60,
+      "stem_apps": 236,
+      "hash_groups": 85,
+      "hash_apps": 328
+    },
+    "pending_user": [
+      "dedupe_rules",
+      "comfy_lb_unify_or_pin_pc01",
+      "r18_gradient_cover_regen"
+    ],
+    "open_workflow_root_cause": "Comfy LB FE 版本分裂；userdata 正确；失败后残留旧图；FireRed banner 新名 / canvas 留 Z-Image",
+    "toiv_workflow_query_extensions_listed": true,
+    "toiv_workflow_query_note": "现已在 WS/pc01/pc02 /extensions 列出（先前「待重启」可能已过时）",
+    "report": ".regen_tmp/rh-comfy-covers-dupes-audit-20260908.md",
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "dirty": true,
+    "product_sha": null,
+    "updated_at": "2026-09-08T02:10:00+08:00"
+  },
   "comfy_load_harden_covers_2026_09_08": {
     "date": "2026-09-08",
-    "updated_at": "2026-09-08T01:49:16+08:00",
+    "updated_at": "2026-09-08T02:10:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "committed_product": false,
@@ -18,18 +56,19 @@
     "covers": "cover_gen_coverless_2026_09_08",
     "build_id": "20260907-174430-c309d02-dirty",
     "report": ".regen_tmp/fix-comfy-load-covers-20260908.md",
-    "note": "Comfy 打开工作流加固 + 封面清零（coverless/gap=0）；WS LIVE；pc01/02 待重启；web BUILD dirty c309d02。"
+    "note": "叠加调研：Comfy LB FE 版本分裂为打开失败主因；封面 UX 真理（空库0 vs 抽象渐变图）；重复 stem60/236 hash85/328；H3 R18 SFW inherit×7。STATE rh_comfy_covers_dupes_audit_2026_09_08；等用户拍板。",
+    "audit": "rh_comfy_covers_dupes_audit_2026_09_08"
   },
   "open_workflow_comfy145_query_2026_09_08": {
     "date": "2026-09-08",
-    "updated_at": "2026-09-08T01:49:16+08:00",
+    "updated_at": "2026-09-08T02:10:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "committed_product": false,
     "pushed": false,
     "product_sha": null,
     "dirty": true,
-    "status": "hardened_deployed_ws_live_pc_pending_restart",
+    "status": "hardened_live_version_skew_blocker",
     "live": true,
     "on_core": true,
     "method": "waitForCanvasReady+backoff getCanvas:null+no app.clean→graph.clear+postMessage toiv-load-workflow+afterConfigureGraph retry+CanvasView +800/+2500ms+?workflow= userdata",
@@ -40,14 +79,25 @@
       "pc01 files",
       "pc02 files"
     ],
-    "pc_extensions_listed": false,
-    "pc_needs_comfy_restart": true,
+    "pc_extensions_listed": true,
+    "pc_needs_comfy_restart": false,
     "web_canvas_harden_in_served_build": true,
     "build_id": "20260907-174430-c309d02-dirty",
-    "note": "打开工作流加固：toiv_workflow_query WS LIVE（8196+LB:8188）；web dirty BUILD 含 toiv-load-workflow；pc01/pc02 文件已落盘但 /extensions 未列出→待 Comfy 重启注册；保留 userdata ?workflow=；probe h3-nsfw-t2v OK。",
+    "note": "打开工作流：toiv_workflow_query 已在 WS/pc01/pc02 /extensions 列出（先前待重启口径可能已过时）。失败主因=Comfy LB FE 版本分裂 WS1.45.20/pc02 1.45.21/pc01 1.49.6；rh-acc Subgraph 0%(0/949)；RH 效果主路径=app_runner；开工作流需 FE≥1.49.6 或钉 canvas 到 pc01。FireRed：banner 新名、canvas 留 Z-Image。详见 rh_comfy_covers_dupes_audit_2026_09_08。",
     "ws_live": true,
     "probe": "POST /api/apps/h3-nsfw-t2v/open-in-comfy OK",
-    "report": ".regen_tmp/fix-comfy-load-covers-20260908.md"
+    "report": ".regen_tmp/fix-comfy-load-covers-20260908.md",
+    "toiv_workflow_query_extensions": "listed_on_ws_pc01_pc02",
+    "comfy_lb_versions": {
+      "ws": "1.45.20",
+      "pc02": "1.45.21",
+      "pc01": "1.49.6"
+    },
+    "rh_acc_subgraph_pct": 0,
+    "primary_path_for_rh": "app_runner",
+    "open_fail_root_cause": "Comfy LB FE 版本分裂（WS 1.45.20 / pc02 1.45.21 / pc01 1.49.6）；userdata 正确；load abort 后残留旧图",
+    "audit": "rh_comfy_covers_dupes_audit_2026_09_08",
+    "report_audit": ".regen_tmp/rh-comfy-covers-dupes-audit-20260908.md"
   },
   "worker_pick_app_client_expand_2026_09_08": {
     "date": "2026-09-08",
@@ -102,7 +152,7 @@
   },
   "cover_gen_coverless_2026_09_08": {
     "date": "2026-09-08",
-    "updated_at": "2026-09-08T01:49:16+08:00",
+    "updated_at": "2026-09-08T02:10:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "committed_product": false,
@@ -122,9 +172,16 @@
     "cdn_remaining": 949,
     "local_apps": 1214,
     "bad_files": 0,
-    "note": "封面：coverless/gap_pending=0；清 68 坏本地封面文件后 regenerate；local apps 1214；CDN 949 故意保留；bad_files=0。",
+    "note": "封面：DB empty=0；UX 渐变≠空库——多为抽象 cover 文件（~68 R18 rh-h3 appcover-7ae2fc…）；已 inherit SFW→7 H3 R18 builtin；CDN 949 OK；local 1214。等用户拍板 R18 家族封面 regen。详见 rh_comfy_covers_dupes_audit_2026_09_08。",
     "unique_local_files": 65,
-    "report": ".regen_tmp/fix-comfy-load-covers-20260908.md"
+    "report": ".regen_tmp/fix-comfy-load-covers-20260908.md",
+    "cover_db_empty": 0,
+    "h3_r18_sfw_inherit": 7,
+    "ux_truth": "DB empty=0 正确；用户可见「无封面」= CSS 分类渐变 或 抽象紫/红渐变图当 cover_url（尤 ~68 R18 rh-h3 appcover-7ae2fc…）；已给 7 个 H3 R18 builtin 盖 SFW 海报；CDN rh-acc 949 OK",
+    "audit": "rh_comfy_covers_dupes_audit_2026_09_08",
+    "pending_user": [
+      "r18_gradient_cover_regen"
+    ]
   },
   "market_waterfall_seamless_append_2026_09_07": {
     "status": "live_on_core_dirty",
