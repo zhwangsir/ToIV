@@ -1,16 +1,17 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T02:16:00+08:00",
+  "updated_at": "2026-09-08T02:21:00+08:00",
   "rh_comfy_covers_dupes_audit_2026_09_08": {
-    "status": "fe_partial_dedupe_covers_done",
+    "status": "fe_homogenized_dedupe_covers_done",
     "date": "2026-09-08",
     "source": "ToIV 开发",
     "live": true,
     "comfy_lb_versions": {
       "ws": "1.52.7",
+      "pc01": "1.52.7",
       "pc02": "1.52.7",
-      "pc01": "1.49.6"
+      "lb_8188": "1.52.7"
     },
     "rh_acc_subgraph_pct": 0,
     "rh_acc_subgraph": "0/949",
@@ -33,7 +34,7 @@
     "pushed": false,
     "dirty": true,
     "product_sha": null,
-    "updated_at": "2026-09-08T02:16:00+08:00",
+    "updated_at": "2026-09-08T02:21:00+08:00",
     "decided": [
       "dedupe_rules",
       "comfy_lb_unify_or_pin_pc01",
@@ -44,14 +45,14 @@
       "dedupe": "same_image_hash",
       "covers": "regen_all_gradient_fake"
     },
-    "note": "FE: WS/pc02=1.52.7 pc01=1.49.6 (gate>=1.49.6 met; pc01->1.52.7 in progress). H3 untouched. Dedupe: 85 groups kept85 soft-hide243 deleted0; market 2163->1920 rh-acc 949->706. Covers: gradient fake UX 114->0. prior 1.45.x SUPERSEDED for gen-pool FE. status=fe_partial_dedupe_covers_done.",
+    "note": "FE齐套: WS/pc01/pc02/LB:8188 all frontend 1.52.7; fe_homogenized=true; homogenize_pending=false. H3 untouched. Dedupe: 85 groups kept85 soft-hide243 deleted0; market 2163->1920 rh-acc 949->706. Covers: gradient fake UX 114->0. prior 1.45.x SUPERSEDED for gen-pool FE; ~~pc01=1.49.6 pending 1.52.7~~ SUPERSEDED (now 1.52.7). status=fe_homogenized_dedupe_covers_done (all three user decisions completed).",
     "comfy_lb_versions_prior_skew": {
       "ws": "1.45.20",
       "pc02": "1.45.21",
       "pc01": "1.49.6"
     },
-    "fe_gate": "met (>=1.49.6)",
-    "homogenize_pending": "pc01->1.52.7",
+    "fe_gate": "met",
+    "homogenize_pending": false,
     "h3_untouched": true,
     "dedupe": {
       "method": "same_image_hash",
@@ -70,11 +71,17 @@
       "gradient_fake_user_visible_after": 0,
       "log": ".regen_tmp/gradient-cover-fix-20260908.json"
     },
-    "dedupe_covers_exec": "done"
+    "dedupe_covers_exec": "done",
+    "fe_homogenized": true,
+    "comfy_lb_versions_prior_partial": {
+      "ws": "1.52.7",
+      "pc02": "1.52.7",
+      "pc01": "1.49.6"
+    }
   },
   "comfy_load_harden_covers_2026_09_08": {
     "date": "2026-09-08",
-    "updated_at": "2026-09-08T02:16:00+08:00",
+    "updated_at": "2026-09-08T02:21:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "committed_product": false,
@@ -88,19 +95,19 @@
     "covers": "cover_gen_coverless_2026_09_08",
     "build_id": "20260907-174430-c309d02-dirty",
     "report": ".regen_tmp/fix-comfy-load-covers-20260908.md",
-    "note": "FE partial + dedupe soft-hide243 + gradient covers 114->0 done; pc01 homogenize pending. See rh_comfy_covers_dupes_audit_2026_09_08.",
+    "note": "FE homogenized 1.52.7 (WS/pc01/pc02/LB:8188) + dedupe soft-hide243 + gradient covers 114->0 done. ~~pc01 homogenize pending~~ SUPERSEDED. See rh_comfy_covers_dupes_audit_2026_09_08.",
     "audit": "rh_comfy_covers_dupes_audit_2026_09_08"
   },
   "open_workflow_comfy145_query_2026_09_08": {
     "date": "2026-09-08",
-    "updated_at": "2026-09-08T02:16:00+08:00",
+    "updated_at": "2026-09-08T02:21:00+08:00",
     "source": "ToIV 开发",
     "agents_md": "updated",
     "committed_product": false,
     "pushed": false,
     "product_sha": null,
     "dirty": true,
-    "status": "hardened_live_fe_partial_homogenize_pending",
+    "status": "hardened_live_fe_homogenized",
     "live": true,
     "on_core": true,
     "method": "waitForCanvasReady+backoff getCanvas:null+no app.clean→graph.clear+postMessage toiv-load-workflow+afterConfigureGraph retry+CanvasView +800/+2500ms+?workflow= userdata",
@@ -115,24 +122,26 @@
     "pc_needs_comfy_restart": false,
     "web_canvas_harden_in_served_build": true,
     "build_id": "20260907-174430-c309d02-dirty",
-    "note": "toiv_workflow_query listed. Gen-pool FE>=1.49.6 met (WS/pc02=1.52.7; pc01=1.49.6 upgrading). See rh_comfy_covers_dupes_audit_2026_09_08.",
+    "note": "toiv_workflow_query listed. Gen-pool FE fully homogenized 1.52.7 (WS/pc01/pc02/LB:8188). ~~pc01=1.49.6 upgrading~~ SUPERSEDED. See rh_comfy_covers_dupes_audit_2026_09_08.",
     "ws_live": true,
     "probe": "POST /api/apps/h3-nsfw-t2v/open-in-comfy OK",
     "report": ".regen_tmp/fix-comfy-load-covers-20260908.md",
     "toiv_workflow_query_extensions": "listed_on_ws_pc01_pc02",
     "comfy_lb_versions": {
       "ws": "1.52.7",
+      "pc01": "1.52.7",
       "pc02": "1.52.7",
-      "pc01": "1.49.6"
+      "lb_8188": "1.52.7"
     },
     "rh_acc_subgraph_pct": 0,
     "primary_path_for_rh": "app_runner",
-    "open_fail_root_cause": "~~WS 1.45.20 / pc02 1.45.21 / pc01 1.49.6~~ SUPERSEDED for gen-pool FE: now WS/pc02=1.52.7 pc01=1.49.6 (gate met; pc01->1.52.7 in progress)",
+    "open_fail_root_cause": "~~WS 1.45.20 / pc02 1.45.21 / pc01 1.49.6~~ SUPERSEDED for gen-pool FE: now WS/pc01/pc02/LB:8188 all 1.52.7 (fe_homogenized=true)",
     "audit": "rh_comfy_covers_dupes_audit_2026_09_08",
     "report_audit": ".regen_tmp/rh-comfy-covers-dupes-audit-20260908.md",
-    "user_decision_comfy_lb_fe": ">=1.49.6 unify (partial: pc01 homogenize in progress)",
-    "fe_gate": "met (>=1.49.6)",
-    "homogenize_pending": "pc01->1.52.7"
+    "user_decision_comfy_lb_fe": ">=1.49.6 unify (done; all gen-pool FE 1.52.7)",
+    "fe_gate": "met",
+    "homogenize_pending": false,
+    "fe_homogenized": true
   },
   "worker_pick_app_client_expand_2026_09_08": {
     "date": "2026-09-08",
