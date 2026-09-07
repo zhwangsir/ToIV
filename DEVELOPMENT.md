@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-07 作品库选封面叠层已修 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-082025-be7d5c7-dirty`；原因：sticky `.rh-params` 困住 fixed Modal；改为 portal 到 `document.body`。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
+
 **2026-09-07 市场小步续载 LIVE on core LAN（未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-080948-7b6f9e7-dirty`；每页 10；细条 loading；rootMargin 150；新卡 fade-in；叠在市场无限滚动 / 市场 UX 之上（further of market_infinite_scroll / market_ux）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。
 
 **2026-09-07 市场无限滚动 LIVE on core LAN（历史；进一步片→市场小步续载 LIVE；未 commit；无产品 SHA；产品树 dirty；AGENTS 已按真机更新）**：已部署 core LAN；BUILD_ID `20260907-075325-693aa19-dirty`；去掉「显示更多」；IO sentinel 续载；叠在市场 UX / UI P4 瀑布流之上（further of market_ux / ui_p4_market_waterfall）。现见上条市场小步续载 LIVE（同族进一步片；新 BUILD）。产品树仍 dirty，无独立产品 SHA。勿写已 commit / 已推。

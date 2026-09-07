@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-07 作品库选封面叠层已修已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-082025-be7d5c7-dirty`；sticky `.rh-params` 困住 fixed Modal → portal 到 `document.body`；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+
 - 2026-09-07 市场小步续载已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-080948-7b6f9e7-dirty`；每页 10；细条 loading；rootMargin 150；新卡 fade-in；叠市场无限滚动 / 市场 UX；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
 - 2026-09-07 市场无限滚动已上 core LAN 验证（历史；进一步片→市场小步续载；真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-075325-693aa19-dirty`；去掉「显示更多」；IO sentinel 续载；叠市场 UX / UI P4 瀑布流；现见上条市场小步续载 LIVE；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
