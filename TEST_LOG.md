@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 LIVE：MODEL_SOURCES batch16 计数更新（真机/docs）：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；ok **368** / blocked **383** / total **751**（前 339/352/691）；updated `2026-09-08T07:10:35+08:00`；status=`inventory_updated_batch16`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T07:11:00+08:00；AGENTS §四/§七 已短注。
+
 - 2026-09-08 LIVE：MODEL_SOURCES batch15 计数更新（真机/docs）：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；ok **339** / blocked **352** / total **691**（前 321/264/585）；updated `2026-09-08T06:43:56+08:00`；status=`inventory_updated_batch15`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T06:44:00+08:00；AGENTS §四/§七 已短注。
 
 - 2026-09-08 LIVE：MODEL_SOURCES batch14 计数更新（真机/docs）：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；ok **321** / blocked **264** / total **585**（前 292/159/451）；updated `2026-09-08T06:17:23+08:00`；status=`inventory_updated_batch14`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T06:18:00+08:00；AGENTS §四/§七 已短注。
