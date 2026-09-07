@@ -1,8 +1,10 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-07 RH 参考图/提示词默认值已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-095758-c383011-dirty`；UI media default + 远程封面预览（提交仍要真上传）；seed inject_rh_ref_defaults；回填 8626（top300 RH detail 提示词 287/300，其余家族默认+封面 CDN）；Errors 0；关闭此前 RH UX Tab gap「参考图/提示词默认值仍缺」；报告 `.regen_tmp/rh-ref-defaults-20260907.md`（勿提交）；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+
 - 2026-09-07 RH 图生新入库封面回填完成（真机/core 数据侧；无产品 SHA；docs）：空 cover_url 13→0；6387 保持 RH CDN；13 无 coverUrl 同族 CDN+admin 上传补齐；有效缺封面 0；scope 6400 new image RH / market 8646；LAN core http://192.168.71.47:8090；报告 `.regen_tmp/cover-backfill-image-rh-20260907.md`（勿提交）；AGENTS §七 已短注。
 
-- 2026-09-07 RH UX Tab+封面 contain+管理员出处链接已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-092308-9db9030-dirty`；应用详情 | 我的生成 Tab；封面 object-fit contain；admin `rh_webapp_url` + `source_links`（引擎 HF/Civitai）；模型页 admin Civitai+HF；**仍缺**参考图/提示词默认值；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
+- 2026-09-07 RH UX Tab+封面 contain+管理员出处链接已上 core LAN 验证（真机/core；未 commit；无产品 SHA；docs）：BUILD_ID `20260907-092308-9db9030-dirty`；应用详情 | 我的生成 Tab；封面 object-fit contain；admin `rh_webapp_url` + `source_links`（引擎 HF/Civitai）；模型页 admin Civitai+HF；~~仍缺参考图/提示词默认值~~ → **已关闭**（见上条 RH 参考图/提示词默认值）；产品树 dirty 无独立 SHA；AGENTS 按真机更新。
 
 - 2026-09-07 RH 图生全量入库完成（真机/core 数据侧；无产品 SHA；docs）：认证 search 字段分页（search 非 searchValue）；去重 6511 → 分类 6408 → 种入 core 6400（错误 0）；base qwen-image-edit 2040 / img2img-basic 2419 / txt2img-basic 1941；leftover 69 + video_skipped 34；already on core skipped 8；core apps ≈9846；LAN core http://192.168.71.47:8090；报告 `.regen_tmp/rh-image-ingest-20260907.md`（勿提交）；AGENTS §七 已短注。
 
