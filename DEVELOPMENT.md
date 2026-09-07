@@ -5,7 +5,7 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
-**2026-09-08 LIVE：用户拍板 R18 合并进同能力 SFW（执行中）**：① R18 合并进同能力 SFW（不再独立 R18 卡片）；② 封面右上角同时 **SFW + NSFW**；③ 应用内可选 **SFW / NSFW**。status=`decided_executing`；STATE `r18_merge_into_sfw_2026_09_08`；decisions={merge_r18_into_sfw_same_capability:true, cover_dual_tags:"SFW+NSFW top-right", in_app_content_toggle:"SFW|NSFW"}；updated_at 2026-09-08T03:44:00+08:00。产品树 dirty 未 commit 产品码；远程未推。完再报。
+**2026-09-08 LIVE：SFW/NSFW 合并已上 core dirty partial**：BUILD_ID `20260907-195752-2a1c833-dirty`；**9** 对合并；封面双标 + 应用内切换 + twin soft-hide；残 LTX/wan-nsfw 等未并；watch=`rh_h3_presets_restored_anti_resurrect_in_progress`（勿 stage 产品/`rh_h3_presets.json`/`.regen_tmp`）。status=`live_on_core_dirty_partial`；STATE `r18_merge_into_sfw_2026_09_08`；features={dual_tags,in_app_toggle,twin_soft_hide}；merged_pairs=9；updated_at 2026-09-08T03:59:00+08:00。产品树 dirty 未 commit 产品码；远程未推。
 
 **2026-09-08 LIVE：家族模板 wipe1166 + 准确重入131 COMPLETE（rh-acc≈837）**：删 **1166**（`rh-h3`/`rh-minimax*`）；准确重入 **+131**；跳过 **360**（detail_code_901×289 + null_workflowId×71）；错误 **0**；直播 rh-acc ≈ **837**；抽检 **12/12**；KEEP 原 rh-acc + 产品 h3-* builtins；家族克隆 **0**；新 131 表单 repair updated**91**/unchanged**40**/with_select**83**；防复活已清空 `apps/api/app/data/rh_h3_presets.json`（bak 保留；路径仅记文档，勿提交）。status=`wipe_reseed_done`；STATE `rh_form_cover_fidelity_2026_09_08` + `rh_family_wipe_accurate_reseed_2026_09_08`；报告 `.regen_tmp/rh-family-wipe-accurate-reseed-20260908.md`（勿提交）；updated_at 2026-09-08T03:21:00+08:00。产品树 dirty 未 commit 产品码；远程未推。
 
