@@ -185,6 +185,15 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（ToIV 开发：capability_gap_scan_v9 完成）
+- **口径**：通用三机 `8196`/`8188`/`8193`；**未并** `8194`/`8195`。
+- **结果**：apps **1050→934**；OK **163→185（+22）**；blocked **749**（models_only 370 / nodes_only 114 / both 265）；fetch_errors **0**。
+- **unlocalizable**：**61→0**（RHHidden 已出公开扫描集）。
+- **worker nodes** ≈**3453**/**3331**/**3287**（较 v8 +~70）。
+- **P0 五包**已退出全局缺节点；Top 缺节点仍以 **H3 专用**为主（预期）；杂项见 `.regen_tmp/capability_gap_scan_v9/actionable/next_wave_after_v9.md`。
+- **后续**：已令设备管家装 **P1**；**P2** 核同名；产品 dirty **未 commit**；真源 `.regen_tmp/capability_gap_scan_v9/`（**勿 stage**）。
+- Status：`scan_complete_docs`（无产品 SHA）；STATE `capability_gap_scan_v9_2026_09_08`；`updated_at` 2026-09-08T22:12:00+08:00。via ToIV 开发。
+
 ### 2026-09-08（设备管家：LIVE — 通用池 P0 装 ComfyMath/MelBandRoFormer/SDPose-OOD/Licon-MSR/Florence2）
 - **已装**：ComfyMath/MelBandRoFormer/SDPose-OOD/Licon-MSR/Florence2。
 - **验收**：四端相关 `class_type` 齐。

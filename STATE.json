@@ -1,26 +1,70 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T22:07:00+08:00",
-  "general_pool_p0_misc_comfymath_2026_09_08": {
-    "status": "live_device_fyi",
+  "updated_at": "2026-09-08T22:12:00+08:00",
+  "capability_gap_scan_v9_2026_09_08": {
+    "status": "scan_complete_docs",
     "date": "2026-09-08",
-    "source": "设备管家",
-    "live": true,
-    "packages": [
-      "ComfyMath",
-      "MelBandRoFormer",
-      "SDPose-OOD",
-      "Licon-MSR",
-      "Florence2"
+    "source": "ToIV 开发",
+    "committed_product": false,
+    "product_sha": null,
+    "scope": {
+      "workers": [
+        "8196",
+        "8188",
+        "8193"
+      ],
+      "excluded": [
+        "8194",
+        "8195"
+      ],
+      "note": "通用三机；未并 H3/QwenEdit 专池"
+    },
+    "counts": {
+      "apps_before": 1050,
+      "apps_after": 934,
+      "ok_v8": 163,
+      "ok_v9": 185,
+      "ok_delta": 22,
+      "blocked": 749,
+      "blocked_models_only": 370,
+      "blocked_nodes_only": 114,
+      "blocked_both": 265,
+      "fetch_errors": 0,
+      "unlocalizable_before": 61,
+      "unlocalizable_after": 0,
+      "worker_nodes_approx": [
+        3453,
+        3331,
+        3287
+      ],
+      "worker_nodes_delta_vs_v8_approx": 70
+    },
+    "p0_five_packages": "exited global missing nodes",
+    "top_missing_nodes": "mostly H3 dedicated (expected)",
+    "next_wave": ".regen_tmp/capability_gap_scan_v9/actionable/next_wave_after_v9.md",
+    "followups": {
+      "device": "装 P1",
+      "p2": "核同名",
+      "product": "dirty 未 commit"
+    },
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v9/",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
     ],
-    "verify": "四端 class_type 齐",
-    "pool": "general",
-    "priority": "P0",
-    "note": "capability_gap next_wave_misc；装齐后可扫 v9；与 capability_gap_soft_hide_dedicated_pool_2026_09_08 联动",
+    "facts": [
+      "v9 口径：通用三机 8196/8188/8193；未并 8194/8195",
+      "OK 163→185（+22）；blocked 749；fetch_errors 0",
+      "unlocalizable 61→0",
+      "worker nodes ≈3453/3331/3287（较 v8 +~70）",
+      "P0 五包已退出全局缺节点",
+      "已令设备管家装 P1；P2 核同名"
+    ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T22:07:00+08:00"
+    "updated_at": "2026-09-08T22:12:00+08:00",
+    "note": "capability_gap_scan_v9 完成；OK +22；无产品 SHA；勿 stage .regen_tmp"
   },
   "capability_gap_soft_hide_dedicated_pool_2026_09_08": {
     "status": "live_on_core_dirty",
@@ -88,7 +132,10 @@
       "ok_v8": 163,
       "delta": 105,
       "next_wave_list": ".regen_tmp/capability_gap_scan_v8/actionable/next_wave_misc_packages.md",
-      "next_scan": "v9 ready to run"
+      "next_scan": "after P1 / next_wave_after_v9",
+      "ok_v9": 185,
+      "delta_v8_v9": 22,
+      "v9_report": "capability_gap_scan_v9_2026_09_08"
     },
     "general_pool_workers": [
       "192.168.71.127:8196",
@@ -115,12 +162,13 @@
       "ComfyUI_RH_MinMaxH3 @ d6c5f7b0 → RHMiniMaxH3* 33 class Y；通用池未装",
       "RH_MinimaxHailuoH3* 无同名 → 16 app soft-hide（市场公开 982→966）",
       "通用池 P0 装 ComfyMath/MelBandRoFormer/SDPose-OOD/Licon-MSR/Florence2；四端 class_type 齐",
-      "v9 可扫（通用 P0 杂项已齐；尚未宣称已扫）"
+      "capability_gap_scan_v9 完成：OK 163→185（+22）",
+      "v9 口径未并 8194/8195；真源 .regen_tmp/capability_gap_scan_v9/"
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T22:07:00+08:00",
-    "note": "capability gap 收口：H3 RH@d6c5f7b0；Hailuo soft-hide 16；Advance 已 Y；通用 P0 杂项已齐，v9 可扫；live_on_core_dirty 无产品 SHA",
+    "updated_at": "2026-09-08T22:12:00+08:00",
+    "note": "capability gap：v9 已扫完 OK 185；H3 RH@d6c5f7b0；Hailuo soft-hide 16；Advance 已 Y；P0 杂项齐；live_on_core_dirty 无产品 SHA",
     "h3_route_v2": {
       "date": "2026-09-08",
       "redeploy": "skip-web",
@@ -191,8 +239,12 @@
         "H3 ComfyUI_RH_MinMaxH3 exclusive @ :8195 (RHMiniMaxH3* Y)",
         "general P0 misc @ four ends: ComfyMath/MelBandRoFormer/SDPose-OOD/Licon-MSR/Florence2"
       ],
-      "ready_for_scan": true,
-      "note": "通用 P0 杂项已齐；v9 可扫（尚未宣称已扫）"
+      "ready_for_scan": false,
+      "note": "通用 P0 杂项已齐；v9 可扫（尚未宣称已扫）",
+      "scanned": true,
+      "scan_key": "capability_gap_scan_v9_2026_09_08",
+      "ok_v9": 185,
+      "ok_delta": 22
     },
     "h3_rh_exclusive": {
       "date": "2026-09-08",
@@ -217,6 +269,26 @@
       "market_public_after": 966,
       "note": "无同名包 → soft-hide 16 app；市场公开 982→966"
     }
+  },
+  "general_pool_p0_misc_comfymath_2026_09_08": {
+    "status": "live_device_fyi",
+    "date": "2026-09-08",
+    "source": "设备管家",
+    "live": true,
+    "packages": [
+      "ComfyMath",
+      "MelBandRoFormer",
+      "SDPose-OOD",
+      "Licon-MSR",
+      "Florence2"
+    ],
+    "verify": "四端 class_type 齐",
+    "pool": "general",
+    "priority": "P0",
+    "note": "capability_gap next_wave_misc；装齐后可扫 v9；与 capability_gap_soft_hide_dedicated_pool_2026_09_08 联动",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-08T22:07:00+08:00"
   },
   "general_pool_soundflow_lg_artventure_2026_09_08": {
     "status": "live_device_fyi",
