@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 LIVE：生图/视频 worker 节点装齐 + pc01 NAS 临时恢复（设备管家；docs）：已装 WanVideoWrapper / LayerStyle / ComfyLiterals(Int) / Easy-Use；RHHiddenNodes 无法本地装；pc01 NAS UNC 临时 `net use` 恢复；status=`live_device_fyi`；STATE `worker_custom_nodes_pc01_nas_2026_09_08`；updated_at 2026-09-08T13:51:00+08:00；AGENTS §七 已短注；细节矩阵在设备侧。
+
 - 2026-09-08 LIVE：可本地化缺权重清零（设备管家；docs）：原扫缺 missing **737** → **0**；MODEL_SOURCES batch16 ok **368** / blocked **383** / total **751**；blocked=gated/无溯源/近名；细节 `.regen_tmp/` + `NAS/toiv/comfyui-models`；status=`inventory_updated_batch16_gap_cleared`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T07:13:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-08 LIVE：MODEL_SOURCES batch16 计数更新（真机/docs）：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；ok **368** / blocked **383** / total **751**（前 339/352/691）；updated `2026-09-08T07:10:35+08:00`；status=`inventory_updated_batch16`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T07:11:00+08:00；AGENTS §四/§七 已短注。

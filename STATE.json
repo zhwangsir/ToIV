@@ -1,7 +1,39 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T07:13:00+08:00",
+  "updated_at": "2026-09-08T13:51:00+08:00",
+  "worker_custom_nodes_pc01_nas_2026_09_08": {
+    "status": "live_device_fyi",
+    "date": "2026-09-08",
+    "source": "设备管家",
+    "live": true,
+    "scope": "image_video_workers",
+    "custom_nodes_installed": [
+      "WanVideoWrapper",
+      "LayerStyle",
+      "ComfyLiterals(Int)",
+      "Easy-Use"
+    ],
+    "custom_nodes_cannot_local": [
+      "RHHiddenNodes"
+    ],
+    "pc01_nas_unc": {
+      "status": "temporarily_restored",
+      "method": "net use",
+      "note": "临时恢复；细节矩阵在设备管家侧"
+    },
+    "facts": [
+      "生图/视频 worker 已装 WanVideoWrapper+LayerStyle+ComfyLiterals(Int)+Easy-Use",
+      "RHHiddenNodes 无法本地装",
+      "pc01 NAS UNC 已临时 net use 恢复",
+      "细节矩阵在设备管家侧"
+    ],
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "updated_at": "2026-09-08T13:51:00+08:00",
+    "note": "设备侧 FYI：生图/视频 worker custom nodes 装齐 WanVideoWrapper/LayerStyle/ComfyLiterals(Int)/Easy-Use；RHHiddenNodes 不可本地装；pc01 NAS UNC 临时 net use 恢复；细节见设备管家矩阵"
+  },
   "model_sources_inventory_2026_09_08": {
     "status": "inventory_updated_batch16_gap_cleared",
     "date": "2026-09-08",

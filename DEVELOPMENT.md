@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-08 LIVE：生图/视频 worker 节点装齐 + pc01 NAS 临时恢复（设备管家）**：已装 WanVideoWrapper + LayerStyle + ComfyLiterals(Int) + Easy-Use；**无法本地装** RHHiddenNodes；pc01 NAS UNC 已临时 `net use` 恢复。status=`live_device_fyi`；STATE `worker_custom_nodes_pc01_nas_2026_09_08`；updated_at 2026-09-08T13:51:00+08:00。细节矩阵在设备管家侧；本 tip 只记活口径。
+
 **2026-09-08 LIVE：可本地化缺权重清零（设备管家确认）**：原扫缺 missing **737** → **0**；MODEL_SOURCES batch16 清尾 ok **368** / blocked **383** / total **751**；blocked=gated/无溯源/近名。细节以 `.regen_tmp/` 与 `NAS/toiv/comfyui-models` 为准。status=`inventory_updated_batch16_gap_cleared`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T07:13:00+08:00。via 设备管家；清单正文已在 `baf514f`。
 
 **2026-09-08 LIVE：MODEL_SOURCES batch16 后计数更新**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；**ok 368 / blocked 383 / total 751**（前 339/352/691）；updated `2026-09-08T07:10:35+08:00`；根目录无 `MODEL_SOURCES*`；后续每批追加。status=~~`inventory_updated_batch16`~~ → `inventory_updated_batch16_gap_cleared`（见上条；原 missing 737→0）；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T07:11:00+08:00。市场可本地化缺口已清零；blocked 为 gated/无溯源/近名。由 ToIV 模型下载追加；本 commit 含清单正文 + 五件套进度。
