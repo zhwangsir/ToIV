@@ -185,6 +185,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（设备管家：LIVE — 通用池装 cg-use-everywhere/Qwen3-VL-Instruct/Crystools）
+- **已装**：cg-use-everywhere + Qwen3-VL-Instruct + Crystools。
+- **验收**：四端相关 `class_type` 齐。
+- **无同名**：`Qwen3_VQA_Plus`。
+- Status：`live_device_fyi`；STATE `general_pool_cg_qwen3vl_crystools_2026_09_08`；`updated_at` 2026-09-08T19:51:00+08:00。via 设备管家。
+
 ### 2026-09-08（设备管家：LIVE — 通用池 P0 装 mixlab/Derfuu/QwenVL/PainterFlux/MemoryCleaner）
 - **已装 P0**：mixlab/Derfuu/QwenVL/PainterFlux/MemoryCleaner。
 - **未解**：Text 同名未解（KayTool 未批）。

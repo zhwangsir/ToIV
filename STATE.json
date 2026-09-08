@@ -1,7 +1,33 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T19:17:00+08:00",
+  "updated_at": "2026-09-08T19:51:00+08:00",
+  "general_pool_cg_qwen3vl_crystools_2026_09_08": {
+    "status": "live_device_fyi",
+    "date": "2026-09-08",
+    "source": "设备管家",
+    "live": true,
+    "scope": "general_pool",
+    "packages_installed": [
+      "cg-use-everywhere",
+      "Qwen3-VL-Instruct",
+      "Crystools"
+    ],
+    "class_type_aligned_four_ends": true,
+    "no_same_name": [
+      "Qwen3_VQA_Plus"
+    ],
+    "facts": [
+      "通用池装 cg-use-everywhere + Qwen3-VL-Instruct + Crystools",
+      "四端相关 class_type 齐",
+      "Qwen3_VQA_Plus 无同名"
+    ],
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "updated_at": "2026-09-08T19:51:00+08:00",
+    "note": "通用池装 cg-use-everywhere + Qwen3-VL-Instruct + Crystools；四端 class_type 齐；Qwen3_VQA_Plus 无同名"
+  },
   "general_pool_p0_custom_nodes_2026_09_08": {
     "status": "live_device_fyi",
     "date": "2026-09-08",

@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-08 LIVE：通用池装 cg-use-everywhere/Qwen3-VL-Instruct/Crystools（设备管家）**：已装 cg-use-everywhere + Qwen3-VL-Instruct + Crystools；四端相关 `class_type` 齐；`Qwen3_VQA_Plus` 无同名。status=`live_device_fyi`；STATE `general_pool_cg_qwen3vl_crystools_2026_09_08`；updated_at 2026-09-08T19:51:00+08:00。
+
 **2026-09-08 LIVE：通用池 P0 装 mixlab/Derfuu/QwenVL/PainterFlux/MemoryCleaner（设备管家）**：已装 mixlab/Derfuu/QwenVL/PainterFlux/MemoryCleaner；Text 同名未解（KayTool 未批）。status=`live_device_fyi`；STATE `general_pool_p0_custom_nodes_2026_09_08`；updated_at 2026-09-08T19:17:00+08:00。
 
 **2026-09-08 LIVE：生图池装 WanAnimatePreprocess/TTP_Toolset/llama-cpp（设备管家）**：已装 WanAnimatePreprocess + TTP_Toolset + llama-cpp；四端相关 `class_type` 齐；`YOLOModelLoader` 无同名开源。status=`live_device_fyi`；STATE `genpool_wananimate_ttp_llamacpp_2026_09_08`；updated_at 2026-09-08T18:27:00+08:00。
