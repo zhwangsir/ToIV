@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-08 LIVE：WS extra_model_paths toiv 补 SEEDVR2/pose（设备管家）**：`/opt/ComfyUI/extra_model_paths.yaml` `toiv` 段需 `SEEDVR2: SEEDVR2` 与 `pose: pose` （对应 `nas_mount/toiv/comfyui-models/{SEEDVR2,pose}`）；2026-09-08 已加并重启 `gpu0-alt:8196`。status=`live_device_fyi`；STATE `ws_extra_model_paths_seedvr2_pose_2026_09_08`；updated_at 2026-09-08T17:11:00+08:00。
+
 **2026-09-08 LIVE：MODEL_SOURCES capability_gap_batch1 后计数更新**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；**ok 381 / blocked 384 / total 765**（前 370/383/753）；updated `2026-09-08T16:55:00+08:00`；根目录无 `MODEL_SOURCES*`；后续每批追加。status=`inventory_updated_capability_gap_batch1`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T17:00:00+08:00。能力缺口 batch1；true gaps 仍 0；可本地化缺口清零口径仍有效。由 ToIV 模型下载追加；本 commit 含清单正文 + 五件套进度。
 
 **2026-09-08 LIVE：pc01 Comfy 启动前须挂 NAS 正确 share（设备管家）**：`net use \\192.168.71.7\NAS`（**share=`NAS`，不是 `dgmt-nas`**）；已改 `start_comfyui.ps1` + `MountNAS`；修复后模型计数对齐 WS≈**581**。status=`live_ops_required`；STATE `pc01_nas_netuse_share_nas_2026_09_08`；updated_at 2026-09-08T16:52:00+08:00。此前「临时 net use 恢复」升级为本活口径。

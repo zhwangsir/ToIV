@@ -1,7 +1,34 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T17:00:00+08:00",
+  "updated_at": "2026-09-08T17:11:00+08:00",
+  "ws_extra_model_paths_seedvr2_pose_2026_09_08": {
+    "status": "live_device_fyi",
+    "date": "2026-09-08",
+    "source": "设备管家",
+    "live": true,
+    "host": "workstation",
+    "file": "/opt/ComfyUI/extra_model_paths.yaml",
+    "section": "toiv",
+    "keys_added": [
+      "SEEDVR2: SEEDVR2",
+      "pose: pose"
+    ],
+    "nas_dirs": "nas_mount/toiv/comfyui-models/{SEEDVR2,pose}",
+    "restarted": [
+      "gpu0-alt:8196"
+    ],
+    "facts": [
+      "WS /opt/ComfyUI/extra_model_paths.yaml toiv 段需 SEEDVR2: SEEDVR2 与 pose: pose",
+      "对应 nas_mount/toiv/comfyui-models/{SEEDVR2,pose}",
+      "2026-09-08 已加并重启 gpu0-alt:8196"
+    ],
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "updated_at": "2026-09-08T17:11:00+08:00",
+    "note": "WS /opt/ComfyUI/extra_model_paths.yaml toiv 段补 SEEDVR2/pose；对应 nas_mount/toiv/comfyui-models；已重启 gpu0-alt:8196"
+  },
   "model_sources_inventory_2026_09_08": {
     "status": "inventory_updated_capability_gap_batch1",
     "date": "2026-09-08",

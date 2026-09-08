@@ -185,6 +185,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（设备管家：LIVE — WS extra_model_paths toiv 补 SEEDVR2/pose）
+- **文件**：WS `/opt/ComfyUI/extra_model_paths.yaml` 的 `toiv` 段。
+- **已加键**：`SEEDVR2: SEEDVR2`、`pose: pose`（对应 `nas_mount/toiv/comfyui-models/{SEEDVR2,pose}`）。
+- **生效**：2026-09-08 已加并重启 `gpu0-alt:8196`。
+- Status：`live_device_fyi`；STATE `ws_extra_model_paths_seedvr2_pose_2026_09_08`；`updated_at` 2026-09-08T17:11:00+08:00。via 设备管家。
+
 ### 2026-09-08（ToIV 模型下载：LIVE — MODEL_SOURCES capability_gap_batch1）
 - **路径**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`（根目录无 `MODEL_SOURCES*`）。
 - **计数**：ok **381** / blocked **384** / total **765**（前 370/383/753）；updated `2026-09-08T16:55:00+08:00`。
