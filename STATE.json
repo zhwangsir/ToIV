@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T21:34:00+08:00",
+  "updated_at": "2026-09-08T21:43:00+08:00",
   "capability_gap_soft_hide_dedicated_pool_2026_09_08": {
     "status": "live_on_core_dirty",
     "date": "2026-09-08",
@@ -66,7 +66,7 @@
       "ok_v8": 163,
       "delta": 105,
       "next_wave_list": ".regen_tmp/capability_gap_scan_v8/actionable/next_wave_misc_packages.md",
-      "next_scan": "v9 after QwenEditUtils + misc packages"
+      "next_scan": "v9 waiting (H3 RH pkg + general P0)"
     },
     "general_pool_workers": [
       "192.168.71.127:8196",
@@ -87,14 +87,14 @@
       "通用池 workers 仍 127:8196 / 116:8188 / 114:8193",
       "无产品 commit SHA；产品树 dirty 未推",
       "H3 路由二次扩：RH_MinimaxHailuoH3* + class_type⊃MiniMaxH3|MinimaxH3|HailuoH3 → :8195（已 redeploy）",
-      "设备验收：H3 minimax_h3_*+MiniMaxH3* OK；QwenEdit EditUtils OK、Advance 补装中",
       "RHMiniMaxH3* 有公开包（HM-RunningHub/ComfyUI_RH_MinMaxH3 或 RH-RunningHub/ComfyUI-RH-MiniMax-H3），非 unlocalizable",
-      "设备管家仅装 H3 :8195；QwenEdit Advance 缺→装 QwenEditUtils 于 :8194；装齐后扫 v9"
+      "QwenEdit :8194 Advance 已 Y（Comfyui-QwenEditUtils）",
+      "H3 RH 包 + 通用 P0 未齐，v9 仍等"
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T21:34:00+08:00",
-    "note": "capability gap 收口：软隐藏≈100（RHHiddenNodes+裸 Text）；RHMiniMaxH3* 可本地化（公开包）；H3/QwenEdit 专池 LIVE；Advance→QwenEditUtils@8194；装齐扫 v9；live_on_core_dirty 无产品 SHA",
+    "updated_at": "2026-09-08T21:43:00+08:00",
+    "note": "capability gap 收口：软隐藏≈100；RHMiniMaxH3* 可本地化；H3/QwenEdit 专池 LIVE；QwenEdit Advance 已 Y（Comfyui-QwenEditUtils@8194）；H3 RH 包+通用 P0 未齐，v9 仍等；live_on_core_dirty 无产品 SHA",
     "h3_route_v2": {
       "date": "2026-09-08",
       "redeploy": "skip-web",
@@ -123,11 +123,12 @@
       "qwen_edit": {
         "url": "http://192.168.71.114:8194",
         "ok": [
-          "EditUtils"
+          "EditUtils",
+          "Advance",
+          "Comfyui-QwenEditUtils"
         ],
-        "installing": [
-          "Advance"
-        ]
+        "installing": [],
+        "advance": "Y"
       }
     },
     "rhminmaxh3_localizable": {
@@ -145,7 +146,22 @@
       "date": "2026-09-08",
       "gap": "QwenEdit Advance 缺",
       "action": "装 QwenEditUtils 于 :8194",
-      "after": "扫 v9"
+      "after": "v9 still waiting (H3 RH pkg + general P0 incomplete)",
+      "status": "done",
+      "package": "Comfyui-QwenEditUtils",
+      "endpoint": "http://192.168.71.114:8194",
+      "advance": "Y",
+      "date_done": "2026-09-08"
+    },
+    "v9_gate": {
+      "waiting": true,
+      "blockers": [
+        "H3 RH package",
+        "general P0 incomplete"
+      ],
+      "ready": [
+        "QwenEdit Advance / Comfyui-QwenEditUtils @ :8194"
+      ]
     }
   },
   "general_pool_soundflow_lg_artventure_2026_09_08": {
