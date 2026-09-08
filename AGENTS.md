@@ -185,6 +185,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（设备管家：LIVE — 通用池 P0 装 ComfyMath/MelBandRoFormer/SDPose-OOD/Licon-MSR/Florence2）
+- **已装**：ComfyMath/MelBandRoFormer/SDPose-OOD/Licon-MSR/Florence2。
+- **验收**：四端相关 `class_type` 齐。
+- Status：`live_device_fyi`；STATE `general_pool_p0_misc_comfymath_2026_09_08`；`updated_at` 2026-09-08T22:07:00+08:00。via 设备管家。（capability gap 下一波杂项；v9 可扫，见 STATE `capability_gap_soft_hide_dedicated_pool_2026_09_08`。）
+
 ### 2026-09-08（ToIV 开发：LIVE on core dirty — capability gap 收口；软隐藏+专池路由）
 - **软隐藏**：不可本地化应用 RHHiddenNodes + 裸 Text，union≈**100** → `is_public=false`；core DB `app` 公开≈**982** / 非公开≈**1313** / 总≈**2295**（相对此前列表页约 1050→950 量级；以 DB 为准）。
 - **`_pick_app_client` 扩路由 LIVE on core**（`deploy --skip-web` 成功，api health OK）：

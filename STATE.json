@@ -1,7 +1,27 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T21:50:00+08:00",
+  "updated_at": "2026-09-08T22:07:00+08:00",
+  "general_pool_p0_misc_comfymath_2026_09_08": {
+    "status": "live_device_fyi",
+    "date": "2026-09-08",
+    "source": "设备管家",
+    "live": true,
+    "packages": [
+      "ComfyMath",
+      "MelBandRoFormer",
+      "SDPose-OOD",
+      "Licon-MSR",
+      "Florence2"
+    ],
+    "verify": "四端 class_type 齐",
+    "pool": "general",
+    "priority": "P0",
+    "note": "capability_gap next_wave_misc；装齐后可扫 v9；与 capability_gap_soft_hide_dedicated_pool_2026_09_08 联动",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-08T22:07:00+08:00"
+  },
   "capability_gap_soft_hide_dedicated_pool_2026_09_08": {
     "status": "live_on_core_dirty",
     "date": "2026-09-08",
@@ -68,7 +88,7 @@
       "ok_v8": 163,
       "delta": 105,
       "next_wave_list": ".regen_tmp/capability_gap_scan_v8/actionable/next_wave_misc_packages.md",
-      "next_scan": "v9 waiting (general P0)"
+      "next_scan": "v9 ready to run"
     },
     "general_pool_workers": [
       "192.168.71.127:8196",
@@ -92,15 +112,15 @@
       "QwenEdit :8194 Advance 已 Y（Comfyui-QwenEditUtils）",
       "H3 :8195 独占 ComfyUI_RH_MinMaxH3；RHMiniMaxH3* Y；通用池无",
       "QwenEdit :8194 Advance 已齐（设备确认）",
-      "通用 P0 未齐，v9 仍等",
       "ComfyUI_RH_MinMaxH3 @ d6c5f7b0 → RHMiniMaxH3* 33 class Y；通用池未装",
       "RH_MinimaxHailuoH3* 无同名 → 16 app soft-hide（市场公开 982→966）",
-      "P0 未齐，v9 仍等"
+      "通用池 P0 装 ComfyMath/MelBandRoFormer/SDPose-OOD/Licon-MSR/Florence2；四端 class_type 齐",
+      "v9 可扫（通用 P0 杂项已齐；尚未宣称已扫）"
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T21:50:00+08:00",
-    "note": "capability gap 收口：H3 :8195 独占 ComfyUI_RH_MinMaxH3@d6c5f7b0（33 class Y）；HailuoH3 无同名 soft-hide 16（公开 982→966）；Advance 已 Y；P0 未齐 v9 仍等；live_on_core_dirty 无产品 SHA",
+    "updated_at": "2026-09-08T22:07:00+08:00",
+    "note": "capability gap 收口：H3 RH@d6c5f7b0；Hailuo soft-hide 16；Advance 已 Y；通用 P0 杂项已齐，v9 可扫；live_on_core_dirty 无产品 SHA",
     "h3_route_v2": {
       "date": "2026-09-08",
       "redeploy": "skip-web",
@@ -164,14 +184,15 @@
       "date_done": "2026-09-08"
     },
     "v9_gate": {
-      "waiting": true,
-      "blockers": [
-        "general P0 incomplete"
-      ],
+      "waiting": false,
+      "blockers": [],
       "ready": [
         "QwenEdit Advance / Comfyui-QwenEditUtils @ :8194",
-        "H3 ComfyUI_RH_MinMaxH3 exclusive @ :8195 (RHMiniMaxH3* Y)"
-      ]
+        "H3 ComfyUI_RH_MinMaxH3 exclusive @ :8195 (RHMiniMaxH3* Y)",
+        "general P0 misc @ four ends: ComfyMath/MelBandRoFormer/SDPose-OOD/Licon-MSR/Florence2"
+      ],
+      "ready_for_scan": true,
+      "note": "通用 P0 杂项已齐；v9 可扫（尚未宣称已扫）"
     },
     "h3_rh_exclusive": {
       "date": "2026-09-08",

@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 LIVE：通用池 P0 装 ComfyMath/MelBandRoFormer/SDPose-OOD/Licon-MSR/Florence2（设备管家；docs）：四端 `class_type` 齐；status=`live_device_fyi`；STATE `general_pool_p0_misc_comfymath_2026_09_08`；updated_at 2026-09-08T22:07:00+08:00；AGENTS §七 已短注；v9 可扫。
+
 - 2026-09-08 LIVE：H3 RH 包细化（ToIV 开发；docs）：`ComfyUI_RH_MinMaxH3`@`d6c5f7b0`→`RHMiniMaxH3*` 33 class Y；通用池未装；`RH_MinimaxHailuoH3*` 无同名→16 app soft-hide（公开 982→966）；P0 未齐 v9 仍等；STATE `capability_gap_soft_hide_dedicated_pool_2026_09_08`；updated_at 2026-09-08T21:50:00+08:00。
 
 - 2026-09-08 LIVE：H3:8195 独占 ComfyUI_RH_MinMaxH3（设备管家；docs）：`RHMiniMaxH3*` Y；通用池无；QwenEdit `:8194` Advance 已齐；并入 STATE `capability_gap_soft_hide_dedicated_pool_2026_09_08`；updated_at 2026-09-08T21:48:00+08:00。
