@@ -1,7 +1,30 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T19:51:00+08:00",
+  "updated_at": "2026-09-08T20:17:00+08:00",
+  "general_pool_soundflow_lg_artventure_2026_09_08": {
+    "status": "live_device_fyi",
+    "date": "2026-09-08",
+    "source": "设备管家",
+    "live": true,
+    "scope": "general_pool",
+    "packages_installed": [
+      "SoundFlow",
+      "LG_Tools",
+      "art-venture"
+    ],
+    "class_type_aligned_four_ends": true,
+    "class_type_count": 3,
+    "facts": [
+      "通用池装 SoundFlow + LG_Tools + art-venture",
+      "三 class_type 四端齐"
+    ],
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "updated_at": "2026-09-08T20:17:00+08:00",
+    "note": "通用池装 SoundFlow + LG_Tools + art-venture；三 class_type 四端齐"
+  },
   "general_pool_cg_qwen3vl_crystools_2026_09_08": {
     "status": "live_device_fyi",
     "date": "2026-09-08",

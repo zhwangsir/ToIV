@@ -185,6 +185,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（设备管家：LIVE — 通用池装 SoundFlow/LG_Tools/art-venture）
+- **已装**：SoundFlow + LG_Tools + art-venture。
+- **验收**：三 `class_type` 四端齐。
+- Status：`live_device_fyi`；STATE `general_pool_soundflow_lg_artventure_2026_09_08`；`updated_at` 2026-09-08T20:17:00+08:00。via 设备管家。
+
 ### 2026-09-08（设备管家：LIVE — 通用池装 cg-use-everywhere/Qwen3-VL-Instruct/Crystools）
 - **已装**：cg-use-everywhere + Qwen3-VL-Instruct + Crystools。
 - **验收**：四端相关 `class_type` 齐。
