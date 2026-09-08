@@ -185,6 +185,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（设备管家：LIVE — pc01/pc02 extra_model_paths toiv 补 SEEDVR2/pose）
+- **文件**：pc01/pc02 `C:\ComfyUI\extra_model_paths.yaml` 的 `toiv` 段（同 WS）。
+- **已加键**：`SEEDVR2: SEEDVR2`、`pose: pose`。
+- **生效**：2026-09-08 已加并 `schtasks` 重启。
+- Status：`live_device_fyi`；STATE `pc_extra_model_paths_seedvr2_pose_2026_09_08`；`updated_at` 2026-09-08T17:28:00+08:00。via 设备管家；对齐 WS tip `ws_extra_model_paths_seedvr2_pose_2026_09_08`。
+
 ### 2026-09-08（设备管家：LIVE — WS extra_model_paths toiv 补 SEEDVR2/pose）
 - **文件**：WS `/opt/ComfyUI/extra_model_paths.yaml` 的 `toiv` 段。
 - **已加键**：`SEEDVR2: SEEDVR2`、`pose: pose`（对应 `nas_mount/toiv/comfyui-models/{SEEDVR2,pose}`）。

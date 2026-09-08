@@ -1,7 +1,37 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T17:11:00+08:00",
+  "updated_at": "2026-09-08T17:28:00+08:00",
+  "pc_extra_model_paths_seedvr2_pose_2026_09_08": {
+    "status": "live_device_fyi",
+    "date": "2026-09-08",
+    "source": "设备管家",
+    "live": true,
+    "hosts": [
+      "pc01",
+      "pc02"
+    ],
+    "file": "C:\\ComfyUI\\extra_model_paths.yaml",
+    "section": "toiv",
+    "keys_added": [
+      "SEEDVR2: SEEDVR2",
+      "pose: pose"
+    ],
+    "restart_method": "schtasks",
+    "related": [
+      "ws_extra_model_paths_seedvr2_pose_2026_09_08"
+    ],
+    "same_as_ws": true,
+    "facts": [
+      "pc01/pc02 C:\\ComfyUI\\extra_model_paths.yaml toiv 段亦需 SEEDVR2: SEEDVR2 与 pose: pose（同 WS）",
+      "2026-09-08 已加并 schtasks 重启"
+    ],
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "updated_at": "2026-09-08T17:28:00+08:00",
+    "note": "pc01/pc02 C:\\ComfyUI\\extra_model_paths.yaml toiv 段补 SEEDVR2/pose（同 WS）；已 schtasks 重启"
+  },
   "ws_extra_model_paths_seedvr2_pose_2026_09_08": {
     "status": "live_device_fyi",
     "date": "2026-09-08",
