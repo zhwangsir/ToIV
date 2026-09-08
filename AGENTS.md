@@ -188,12 +188,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ### 2026-09-08（ToIV 开发：LIVE on core dirty — capability gap 收口；软隐藏+专池路由）
 - **软隐藏**：不可本地化应用 RHHiddenNodes + 裸 Text，union≈**100** → `is_public=false`；core DB `app` 公开≈**982** / 非公开≈**1313** / 总≈**2295**（相对此前列表页约 1050→950 量级；以 DB 为准）。
 - **`_pick_app_client` 扩路由 LIVE on core**（`deploy --skip-web` 成功，api health OK）：
-  - H3：`MiniMaxH3*`/`MinimaxH3*` + `RHMiniMaxH3*`/`RHMinimaxH3*` → `TOIV_H3_BASE_URL`=`http://192.168.71.127:8195`（system_stats 200）。
+  - H3（二次扩，已 redeploy `--skip-web`）：`RHMiniMaxH3*` + `RH_MinimaxHailuoH3*`；任意 `class_type` 含 `MiniMaxH3|MinimaxH3|HailuoH3` → `TOIV_H3_BASE_URL`=`http://192.168.71.127:8195`（system_stats 200）。
   - QwenEdit：扩 Advance/Custom/EditUtils + 启发式，排除 AILab_QwenVL/Qwen3_VQA 等 → 默认 `http://192.168.71.114:8194`（system_stats 200；core `.env` 未显式写 `TOIV_QWEN_EDIT_BASE_URL`，走 config 默认）。
 - **能力扫描累计 OK**：v1 **58** → v8 **163**（+105）。下一波杂项清单：`.regen_tmp/capability_gap_scan_v8/actionable/next_wave_misc_packages.md`（装齐后扫 v9）。
 - **通用池 workers 仍**：`127:8196` / `116:8188` / `114:8193`。
 - **勿 stage**：`.regen_tmp` / 产品 dirty / `rh_h3_presets.json`。
-- Status：`live_on_core_dirty`（**无产品 commit SHA**；产品树仍 dirty 未推）；STATE `capability_gap_soft_hide_dedicated_pool_2026_09_08`；`updated_at` 2026-09-08T21:29:00+08:00。via ToIV 开发。
+- **设备验收（设备管家）**：H3 专用 `http://192.168.71.127:8195`（`minimax_h3_*`+`MiniMaxH3*` OK）；QwenEdit 专用 `http://192.168.71.114:8194`（EditUtils OK，Advance 补装中）。
+- Status：`live_on_core_dirty`（**无产品 commit SHA**；产品树仍 dirty 未推）；STATE `capability_gap_soft_hide_dedicated_pool_2026_09_08`；`updated_at` 2026-09-08T21:32:00+08:00。via ToIV 开发。
 
 ### 2026-09-08（设备管家：LIVE — 通用池装 SoundFlow/LG_Tools/art-venture）
 - **已装**：SoundFlow + LG_Tools + art-venture。

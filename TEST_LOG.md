@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 LIVE on core dirty：H3 路由二次扩 + 设备专池验收（ToIV 开发/设备管家；docs；无产品 SHA）：H3 含 `RH_MinimaxHailuoH3*` + class_type⊃MiniMaxH3|MinimaxH3|HailuoH3 → `:8195`（已 redeploy）；设备：H3 `minimax_h3_*`+MiniMaxH3* OK；QwenEdit EditUtils OK、Advance 补装中；并入 STATE `capability_gap_soft_hide_dedicated_pool_2026_09_08`=`live_on_core_dirty`；updated_at 2026-09-08T21:32:00+08:00；AGENTS §七 已补。
+
 - 2026-09-08 LIVE on core dirty：capability gap 收口（ToIV 开发；docs；无产品 SHA）：软隐藏≈100；`_pick_app_client` H3→:8195 / QwenEdit→:8194；扫描 OK 58→163；通用池 `127:8196`/`116:8188`/`114:8193`；status=`live_on_core_dirty`；STATE `capability_gap_soft_hide_dedicated_pool_2026_09_08`；updated_at 2026-09-08T21:29:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-08 LIVE：通用池装 SoundFlow/LG_Tools/art-venture（设备管家；docs）：已装三包；三 `class_type` 四端齐；status=`live_device_fyi`；STATE `general_pool_soundflow_lg_artventure_2026_09_08`；updated_at 2026-09-08T20:17:00+08:00；AGENTS §七 已短注。

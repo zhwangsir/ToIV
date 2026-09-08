@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T21:29:00+08:00",
+  "updated_at": "2026-09-08T21:32:00+08:00",
   "capability_gap_soft_hide_dedicated_pool_2026_09_08": {
     "status": "live_on_core_dirty",
     "date": "2026-09-08",
@@ -31,11 +31,19 @@
           "MiniMaxH3*",
           "MinimaxH3*",
           "RHMiniMaxH3*",
-          "RHMinimaxH3*"
+          "RHMinimaxH3*",
+          "RH_MinimaxHailuoH3*"
         ],
         "base_url_env": "TOIV_H3_BASE_URL",
         "base_url": "http://192.168.71.127:8195",
-        "system_stats": 200
+        "system_stats": 200,
+        "class_type_contains_any": [
+          "MiniMaxH3",
+          "MinimaxH3",
+          "HailuoH3"
+        ],
+        "route_v2": true,
+        "redeploy": "skip-web"
       },
       "qwen_edit": {
         "expanded": [
@@ -77,12 +85,49 @@
       "H3→192.168.71.127:8195；QwenEdit→192.168.71.114:8194",
       "能力扫描 OK v1 58→v8 163（+105）",
       "通用池 workers 仍 127:8196 / 116:8188 / 114:8193",
-      "无产品 commit SHA；产品树 dirty 未推"
+      "无产品 commit SHA；产品树 dirty 未推",
+      "H3 路由二次扩：RH_MinimaxHailuoH3* + class_type⊃MiniMaxH3|MinimaxH3|HailuoH3 → :8195（已 redeploy）",
+      "设备验收：H3 minimax_h3_*+MiniMaxH3* OK；QwenEdit EditUtils OK、Advance 补装中"
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T21:29:00+08:00",
-    "note": "capability gap 收口：软隐藏≈100；_pick_app_client H3/QwenEdit 专池 LIVE；扫描 OK 58→163；live_on_core_dirty 无产品 SHA"
+    "updated_at": "2026-09-08T21:32:00+08:00",
+    "note": "capability gap 收口：软隐藏≈100；_pick_app_client H3/QwenEdit 专池 LIVE；H3 二次扩（HailuoH3）；设备 EditUtils OK / Advance 补装中；扫描 OK 58→163；live_on_core_dirty 无产品 SHA",
+    "h3_route_v2": {
+      "date": "2026-09-08",
+      "redeploy": "skip-web",
+      "class_prefixes_extra": [
+        "RH_MinimaxHailuoH3*"
+      ],
+      "class_type_contains_any": [
+        "MiniMaxH3",
+        "MinimaxH3",
+        "HailuoH3"
+      ],
+      "base_url": "http://192.168.71.127:8195",
+      "base_url_env": "TOIV_H3_BASE_URL",
+      "note": "二次扩：除 RHMiniMaxH3* 外含 RH_MinimaxHailuoH3* / 任意 class_type 含 MiniMaxH3|MinimaxH3|HailuoH3"
+    },
+    "device_verify": {
+      "source": "设备管家",
+      "date": "2026-09-08",
+      "h3": {
+        "url": "http://192.168.71.127:8195",
+        "ok": [
+          "minimax_h3_*",
+          "MiniMaxH3*"
+        ]
+      },
+      "qwen_edit": {
+        "url": "http://192.168.71.114:8194",
+        "ok": [
+          "EditUtils"
+        ],
+        "installing": [
+          "Advance"
+        ]
+      }
+    }
   },
   "general_pool_soundflow_lg_artventure_2026_09_08": {
     "status": "live_device_fyi",
