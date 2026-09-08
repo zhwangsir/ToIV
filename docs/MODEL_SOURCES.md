@@ -1,14 +1,47 @@
 # ToIV ComfyUI Model Sources (Provenance Inventory)
 
-- **Updated (Asia/Shanghai):** `2026-09-08T16:55:00+08:00`
-- **OK:** 381
-- **Blocked:** 384
-- **Total:** 765
-- **OK missing HTTP URL and repo:** 5 (local-alias without HTTP: 17; true gaps: 0)
+- **Updated (Asia/Shanghai):** `2026-09-08T18:17:37+08:00`
+- **OK:** 411
+- **Blocked:** 376
+- **Total:** 787
+- **OK missing HTTP URL and repo:** 9 (local-alias without HTTP: 17; true gaps: 0)
 
-Built from `.regen_tmp` download logs (manifest, batch summaries/plans, blocked list, flux klein, h3, capability_gap_batch1). **URLs are never invented** — only copied from logs.
+Built from `.regen_tmp` download logs (manifest, batch summaries/plans, blocked list, flux klein, h3, capability_gap_batch1, capability_gap_v3/v4). **URLs are never invented** — only copied from logs.
 
 Canonical copies: `ToIV/docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json`. WIP mirror: `.regen_tmp/`. NAS short index: `toiv/comfyui-models/SOURCES.md`.
+
+## capability_gap_v3_batch1 (2026-09-08T18:17:37+08:00)
+
+- Primary list: v4 actionable `models_for_download.json` (**427**); v3 was 432 (v3-only cleared: SeC-4B-fp32.safetensors, face_yolov8s.pt, person_yolov8m-seg.pt, real_person_detection_v0_l_yv11.pt, sam2.1_hiera_base_plus.safetensors).
+- Newly downloaded this run: **13** (+ companion `vitpose_h_wholebody_data.bin`).
+- Documented already-on-NAS: **4**.
+- False positives never re-downloaded: dw-ll_ucoco_384_bs5.torchscript.pt, nlf_l_multi_0.3.2.torchscript, sdpose_wholebody_fp16.safetensors, seedvr2_ema_3b_fp8_e4m3fn.safetensors, vitpose-l-wholebody.onnx, yolov10m.onnx, yolox_l.torchscript.pt.
+- H3 skip (not general pool): `qwen3-vl-32b-int8_convrot.safetensors`.
+- MODEL_SOURCES totals now: ok **411** / blocked **376** / total **787**.
+
+| basename | rel_path | bytes | repo |
+|---|---|---:|---|
+| `seedvr2_ema_3b-Q8_0.gguf` | `SEEDVR2/seedvr2_ema_3b-Q8_0.gguf` | 3660613984 | `cmeka/SeedVR2-GGUF` |
+| `seedvr2_ema_7b-Q8_0.gguf` | `SEEDVR2/seedvr2_ema_7b-Q8_0.gguf` | 8835170080 | `cmeka/SeedVR2-GGUF` |
+| `vitpose_h_wholebody_model.onnx` | `detection/vitpose_h_wholebody_model.onnx` | 420252 | `Kijai/vitpose_comfy` |
+| `Qwen-Image-Edit-2509-Lightning-8steps-V1.0-fp32.safetensors` | `loras/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-fp32.safetensors` | 1698951104 | `lightx2v/Qwen-Image-Lightning` |
+| `Huihui-Qwen3-VL-8B-Instruct-abliterated.mmproj-Q8_0.gguf` | `LLM/Huihui-Qwen3-VL-8B-Instruct-abliterated.mmproj-Q8_0.gguf` | 752290176 | `mradermacher/Huihui-Qwen3-VL-8B-Instruct-abliterated-GGUF` |
+| `consistence_edit_v2.safetensors` | `loras/consistence_edit_v2.safetensors` | 613580160 | `lrzjason/Consistance_Edit_Lora` |
+| `consistence_edit_v1.safetensors` | `loras/consistence_edit_v1.safetensors` | 306871240 | `lrzjason/Consistance_Edit_Lora` |
+| `f2k_9B_lcs_consist_20260415.safetensors` | `loras/f2k_9B_lcs_consist_20260415.safetensors` | 348167344 | `lrzjason/Consistance_Edit_Lora` |
+| `f2k_consis.safetensors` | `loras/f2k_consis.safetensors` | 285246040 | `lrzjason/Consistance_Edit_Lora` |
+| `qe2511_consis_alpha_patched.safetensors` | `loras/qe2511_consis_alpha_patched.safetensors` | 613578928 | `lrzjason/Consistance_Edit_Lora` |
+| `yolo11x_640.onnx` | `detection/yolo11x_640.onnx` | 228016347 | `giangndm/yolo11-onnx` |
+| `open-clip-xlm-roberta-large-vit-huge-14_visual_fp32.safetensors` | `clip_vision/open-clip-xlm-roberta-large-vit-huge-14_visual_fp32.safetensors` | 2528349548 | `gaga2210/open-clip-xlm-roberta-large-vit-huge-14_visual_fp32.safetensors` |
+| `Wan2_1-T2V-14B-Lynx_lite_ip_layers_fp16.safetensors` | `diffusion_models/Wan2_1-T2V-14B-Lynx_lite_ip_layers_fp16.safetensors` | 838865696 | `Kijai/WanVideo_comfy` |
+| `vitpose_h_wholebody_data.bin` | `detection/vitpose_h_wholebody_data.bin` | 2548958740 | `Kijai/vitpose_comfy` |
+
+### Already on NAS (documented)
+
+- `ltx-2.3-temporal-upscaler-x2-1.0.safetensors` → `latent_upscale_models/ltx-2.3-temporal-upscaler-x2-1.0.safetensors`
+- `ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors` → `latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors`
+- `whisper-large-v3.safetensors` → `audio_encoders/whisper-large-v3.safetensors`
+- `wan_animate_2_distill_int8_convrot.safetensors` → `wan2.2-animate-2-14b/wan_animate_2/comfyui/wan_animate_2_distill_int8_convrot.safetensors`
 
 ## OK downloads
 
