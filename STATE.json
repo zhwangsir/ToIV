@@ -1,25 +1,55 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T22:45:00+08:00",
-  "general_pool_p1_whatdreamscost_2026_09_08": {
-    "status": "live_device_fyi",
+  "updated_at": "2026-09-08T22:51:00+08:00",
+  "capability_gap_scan_v10_2026_09_08": {
+    "status": "scan_complete_docs",
     "date": "2026-09-08",
-    "source": "设备管家",
-    "live": true,
-    "packages": [
-      "WhatDreamsCost",
-      "Frame-Interpolation",
-      "Stand-In",
-      "LayerStyle+Advance"
+    "source": "ToIV 开发",
+    "committed_product": false,
+    "product_sha": null,
+    "counts": {
+      "apps": 934,
+      "ok_v9": 185,
+      "ok_v10": 191,
+      "ok_delta": 6,
+      "ok_v8": 163,
+      "ok_v8_to_v10_delta": 28,
+      "ok_v1": 58,
+      "ok_v1_to_v10": 191,
+      "blocked": 743,
+      "blocked_models_only": 382,
+      "blocked_nodes_only": 108,
+      "blocked_both": 253,
+      "unlocalizable": 0,
+      "fetch_errors": 0,
+      "worker_nodes_approx": [
+        3561,
+        3441,
+        3391
+      ]
+    },
+    "p1_eight_classes": "exited global missing nodes",
+    "top_missing_nodes": "mostly H3 dedicated (general scan; :8195 RHMiniMax not counted)",
+    "next_wave": ".regen_tmp/capability_gap_scan_v10/actionable/next_wave_after_v10.md",
+    "followups": {
+      "p2": "核同名；已令设备管家"
+    },
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v10/",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
     ],
-    "verify": "相关 class_type 四端齐",
-    "pool": "general",
-    "priority": "P1",
-    "note": "v9 后 P1；capability_gap followup",
+    "facts": [
+      "v10 OK 185→191（+6）；累计 v8:163→191（+28），v1:58→191",
+      "blocked 743；unlocalizable 0；fetch_errors 0",
+      "worker nodes ≈3561/3441/3391；P1 八类退出全局缺节点",
+      "下一波 P2 须核同名：next_wave_after_v10.md"
+    ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T22:45:00+08:00"
+    "updated_at": "2026-09-08T22:51:00+08:00",
+    "note": "capability_gap_scan_v10 完成；OK +6→191；无产品 SHA；勿 stage .regen_tmp"
   },
   "capability_gap_scan_v9_2026_09_08": {
     "status": "scan_complete_docs",
@@ -67,7 +97,8 @@
       "p2": "核同名",
       "product": "dirty 未 commit",
       "p1_device": "done via 设备管家 tip",
-      "p1_packages": "WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance"
+      "p1_packages": "WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance",
+      "v10": "capability_gap_scan_v10_2026_09_08"
     },
     "source_of_truth": ".regen_tmp/capability_gap_scan_v9/",
     "do_not_stage": [
@@ -84,7 +115,7 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T22:45:00+08:00",
+    "updated_at": "2026-09-08T22:51:00+08:00",
     "note": "capability_gap_scan_v9 完成；OK +22；无产品 SHA；勿 stage .regen_tmp"
   },
   "capability_gap_soft_hide_dedicated_pool_2026_09_08": {
@@ -153,10 +184,13 @@
       "ok_v8": 163,
       "delta": 105,
       "next_wave_list": ".regen_tmp/capability_gap_scan_v8/actionable/next_wave_misc_packages.md",
-      "next_scan": "after P1 / next_wave_after_v9",
+      "next_scan": "after P2 / next_wave_after_v10",
       "ok_v9": 185,
       "delta_v8_v9": 22,
-      "v9_report": "capability_gap_scan_v9_2026_09_08"
+      "v9_report": "capability_gap_scan_v9_2026_09_08",
+      "ok_v10": 191,
+      "delta_v9_v10": 6,
+      "v10_report": "capability_gap_scan_v10_2026_09_08"
     },
     "general_pool_workers": [
       "192.168.71.127:8196",
@@ -184,12 +218,14 @@
       "RH_MinimaxHailuoH3* 无同名 → 16 app soft-hide（市场公开 982→966）",
       "通用池 P0 装 ComfyMath/MelBandRoFormer/SDPose-OOD/Licon-MSR/Florence2；四端 class_type 齐",
       "capability_gap_scan_v9 完成：OK 163→185（+22）",
-      "v9 口径未并 8194/8195；真源 .regen_tmp/capability_gap_scan_v9/"
+      "v9 口径未并 8194/8195；真源 .regen_tmp/capability_gap_scan_v9/",
+      "capability_gap_scan_v10 完成：OK 185→191（+6）",
+      "P1 八类退出全局缺节点；P2 核同名进行中"
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T22:12:00+08:00",
-    "note": "capability gap：v9 已扫完 OK 185；H3 RH@d6c5f7b0；Hailuo soft-hide 16；Advance 已 Y；P0 杂项齐；live_on_core_dirty 无产品 SHA",
+    "updated_at": "2026-09-08T22:51:00+08:00",
+    "note": "capability gap：v10 已扫完 OK 191；v9 OK 185；H3 RH@d6c5f7b0；Advance 已 Y；P0/P1 齐；live_on_core_dirty 无产品 SHA",
     "h3_route_v2": {
       "date": "2026-09-08",
       "redeploy": "skip-web",
@@ -290,6 +326,25 @@
       "market_public_after": 966,
       "note": "无同名包 → soft-hide 16 app；市场公开 982→966"
     }
+  },
+  "general_pool_p1_whatdreamscost_2026_09_08": {
+    "status": "live_device_fyi",
+    "date": "2026-09-08",
+    "source": "设备管家",
+    "live": true,
+    "packages": [
+      "WhatDreamsCost",
+      "Frame-Interpolation",
+      "Stand-In",
+      "LayerStyle+Advance"
+    ],
+    "verify": "相关 class_type 四端齐",
+    "pool": "general",
+    "priority": "P1",
+    "note": "v9 后 P1；capability_gap followup",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-08T22:45:00+08:00"
   },
   "general_pool_p0_misc_comfymath_2026_09_08": {
     "status": "live_device_fyi",

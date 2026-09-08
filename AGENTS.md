@@ -185,6 +185,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（ToIV 开发：capability_gap_scan_v10 完成）
+- **结果**：apps **934**；OK **185→191（+6）**；累计 v8:163→191（+28），v1:58→191。
+- **blocked**：**743**（models_only 382 / nodes_only 108 / both 253）；unlocalizable **0**；fetch_errors **0**。
+- **worker nodes** ≈**3561**/**3441**/**3391**；**P1 八类**退出全局缺节点。
+- **Top 缺节点**仍以 **H3 专用**为主（通用扫描口径；`:8195` 已有 RHMiniMax 不计入）。
+- **后续**：下一波 P2 须核同名 → `.regen_tmp/capability_gap_scan_v10/actionable/next_wave_after_v10.md`；已令设备管家；真源 `.regen_tmp/capability_gap_scan_v10/`（**勿 stage**）。
+- Status：`scan_complete_docs`（无产品 SHA）；STATE `capability_gap_scan_v10_2026_09_08`；`updated_at` 2026-09-08T22:51:00+08:00。via ToIV 开发。
+
 ### 2026-09-08（设备管家：LIVE — 通用池 P1 装 WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance）
 - **已装**：WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance。
 - **验收**：相关 `class_type` 四端齐。

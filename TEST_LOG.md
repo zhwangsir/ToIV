@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 capability_gap_scan_v10 完成（ToIV 开发；docs；无产品 SHA）：OK 185→191（+6）；blocked 743；unlocalizable 0；worker ≈3561/3441/3391；P1 八类退出全局缺节点；真源 `.regen_tmp/capability_gap_scan_v10/` 勿 stage；status=`scan_complete_docs`；STATE `capability_gap_scan_v10_2026_09_08`；updated_at 2026-09-08T22:51:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-08 LIVE：通用池 P1 装 WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance（设备管家；docs）：相关 `class_type` 四端齐；status=`live_device_fyi`；STATE `general_pool_p1_whatdreamscost_2026_09_08`；updated_at 2026-09-08T22:45:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-08 capability_gap_scan_v9 完成（ToIV 开发；docs；无产品 SHA）：通用三机口径；OK 163→185（+22）；blocked 749；unlocalizable 61→0；worker ≈3453/3331/3287；P0 五包退出全局缺节点；真源 `.regen_tmp/capability_gap_scan_v9/` 勿 stage；status=`scan_complete_docs`；STATE `capability_gap_scan_v9_2026_09_08`；updated_at 2026-09-08T22:12:00+08:00；AGENTS §七 已短注。
