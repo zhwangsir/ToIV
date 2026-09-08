@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T21:43:00+08:00",
+  "updated_at": "2026-09-08T21:48:00+08:00",
   "capability_gap_soft_hide_dedicated_pool_2026_09_08": {
     "status": "live_on_core_dirty",
     "date": "2026-09-08",
@@ -66,7 +66,7 @@
       "ok_v8": 163,
       "delta": 105,
       "next_wave_list": ".regen_tmp/capability_gap_scan_v8/actionable/next_wave_misc_packages.md",
-      "next_scan": "v9 waiting (H3 RH pkg + general P0)"
+      "next_scan": "v9 waiting (general P0)"
     },
     "general_pool_workers": [
       "192.168.71.127:8196",
@@ -89,12 +89,14 @@
       "H3 路由二次扩：RH_MinimaxHailuoH3* + class_type⊃MiniMaxH3|MinimaxH3|HailuoH3 → :8195（已 redeploy）",
       "RHMiniMaxH3* 有公开包（HM-RunningHub/ComfyUI_RH_MinMaxH3 或 RH-RunningHub/ComfyUI-RH-MiniMax-H3），非 unlocalizable",
       "QwenEdit :8194 Advance 已 Y（Comfyui-QwenEditUtils）",
-      "H3 RH 包 + 通用 P0 未齐，v9 仍等"
+      "H3 :8195 独占 ComfyUI_RH_MinMaxH3；RHMiniMaxH3* Y；通用池无",
+      "QwenEdit :8194 Advance 已齐（设备确认）",
+      "通用 P0 未齐，v9 仍等"
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T21:43:00+08:00",
-    "note": "capability gap 收口：软隐藏≈100；RHMiniMaxH3* 可本地化；H3/QwenEdit 专池 LIVE；QwenEdit Advance 已 Y（Comfyui-QwenEditUtils@8194）；H3 RH 包+通用 P0 未齐，v9 仍等；live_on_core_dirty 无产品 SHA",
+    "updated_at": "2026-09-08T21:48:00+08:00",
+    "note": "capability gap 收口：软隐藏≈100；H3 :8195 独占 ComfyUI_RH_MinMaxH3（RHMiniMaxH3* Y）；QwenEdit Advance 已 Y；通用 P0 未齐，v9 仍等；live_on_core_dirty 无产品 SHA",
     "h3_route_v2": {
       "date": "2026-09-08",
       "redeploy": "skip-web",
@@ -117,8 +119,12 @@
         "url": "http://192.168.71.127:8195",
         "ok": [
           "minimax_h3_*",
-          "MiniMaxH3*"
-        ]
+          "MiniMaxH3*",
+          "RHMiniMaxH3*",
+          "ComfyUI_RH_MinMaxH3"
+        ],
+        "exclusive_package": "ComfyUI_RH_MinMaxH3",
+        "on_general_pool": false
       },
       "qwen_edit": {
         "url": "http://192.168.71.114:8194",
@@ -156,12 +162,23 @@
     "v9_gate": {
       "waiting": true,
       "blockers": [
-        "H3 RH package",
         "general P0 incomplete"
       ],
       "ready": [
-        "QwenEdit Advance / Comfyui-QwenEditUtils @ :8194"
+        "QwenEdit Advance / Comfyui-QwenEditUtils @ :8194",
+        "H3 ComfyUI_RH_MinMaxH3 exclusive @ :8195 (RHMiniMaxH3* Y)"
       ]
+    },
+    "h3_rh_exclusive": {
+      "date": "2026-09-08",
+      "source": "设备管家",
+      "endpoint": "http://192.168.71.127:8195",
+      "package": "ComfyUI_RH_MinMaxH3",
+      "class_ok": [
+        "RHMiniMaxH3*"
+      ],
+      "on_general_pool": false,
+      "exclusive": true
     }
   },
   "general_pool_soundflow_lg_artventure_2026_09_08": {

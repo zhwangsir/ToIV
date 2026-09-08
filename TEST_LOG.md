@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 LIVE：H3:8195 独占 ComfyUI_RH_MinMaxH3（设备管家；docs）：`RHMiniMaxH3*` Y；通用池无；QwenEdit `:8194` Advance 已齐；并入 STATE `capability_gap_soft_hide_dedicated_pool_2026_09_08`；updated_at 2026-09-08T21:48:00+08:00。
+
 - 2026-09-08 LIVE on core dirty：QwenEdit Advance 已 Y（ToIV 开发；docs）：`:8194` 已装 `Comfyui-QwenEditUtils`；H3 RH 包+通用 P0 未齐，v9 仍等；并入 STATE `capability_gap_soft_hide_dedicated_pool_2026_09_08`；updated_at 2026-09-08T21:43:00+08:00。
 
 - 2026-09-08 LIVE on core dirty：RHMiniMaxH3* 可本地化补注 + QwenEditUtils（ToIV 开发；docs）：`RHMiniMaxH3*` 公开包 `HM-RunningHub/ComfyUI_RH_MinMaxH3`（或 `RH-RunningHub/ComfyUI-RH-MiniMax-H3`），非 unlocalizable；仅装 H3 `:8195`；Advance 缺→装 QwenEditUtils 于 `:8194`；装齐后扫 v9；并入 STATE `capability_gap_soft_hide_dedicated_pool_2026_09_08`；updated_at 2026-09-08T21:34:00+08:00。
