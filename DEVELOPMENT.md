@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-08 LIVE：生图池装 WanAnimatePreprocess/TTP_Toolset/llama-cpp（设备管家）**：已装 WanAnimatePreprocess + TTP_Toolset + llama-cpp；四端相关 `class_type` 齐；`YOLOModelLoader` 无同名开源。status=`live_device_fyi`；STATE `genpool_wananimate_ttp_llamacpp_2026_09_08`；updated_at 2026-09-08T18:27:00+08:00。
+
 **2026-09-08 LIVE：MODEL_SOURCES capability_gap_v3_v4 后计数更新**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；**ok 411 / blocked 376 / total 787**（前 381/384/765）；updated `2026-09-08T18:17:37+08:00`；根目录无 `MODEL_SOURCES*`；后续每批追加。status=`inventory_updated_capability_gap_v3_v4`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T18:18:00+08:00。能力缺口 v3/v4；true gaps 仍 0。由 ToIV 模型下载追加；本 commit 含清单正文 + 五件套进度。
 
 **2026-09-08 LIVE：生图池 extra_model_paths toiv 补 onnx/detection（设备管家）**：toiv 段需 `onnx: onnx` 与 `detection: detection`；PC nas 另有 `onnx: models/onnx`；2026-09-08 四端 `/models/onnx` 已列 `yolov10m`。status=`live_device_fyi`；STATE `genpool_extra_model_paths_onnx_detection_2026_09_08`；updated_at 2026-09-08T18:00:00+08:00。

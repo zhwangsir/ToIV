@@ -185,6 +185,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（设备管家：LIVE — 生图池装 WanAnimatePreprocess/TTP_Toolset/llama-cpp）
+- **已装**：WanAnimatePreprocess + TTP_Toolset + llama-cpp。
+- **验收**：四端相关 `class_type` 齐。
+- **无同名开源**：`YOLOModelLoader`。
+- Status：`live_device_fyi`；STATE `genpool_wananimate_ttp_llamacpp_2026_09_08`；`updated_at` 2026-09-08T18:27:00+08:00。via 设备管家。
+
 ### 2026-09-08（ToIV 模型下载：LIVE — MODEL_SOURCES capability_gap_v3_v4）
 - **路径**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`（根目录无 `MODEL_SOURCES*`）。
 - **计数**：ok **411** / blocked **376** / total **787**（前 381/384/765）；updated `2026-09-08T18:17:37+08:00`。
