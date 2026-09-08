@@ -1,7 +1,35 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T18:27:00+08:00",
+  "updated_at": "2026-09-08T19:17:00+08:00",
+  "general_pool_p0_custom_nodes_2026_09_08": {
+    "status": "live_device_fyi",
+    "date": "2026-09-08",
+    "source": "设备管家",
+    "live": true,
+    "scope": "general_pool",
+    "priority": "P0",
+    "packages_installed": [
+      "mixlab",
+      "Derfuu",
+      "QwenVL",
+      "PainterFlux",
+      "MemoryCleaner"
+    ],
+    "open_issues": [
+      "Text 同名未解",
+      "KayTool 未批"
+    ],
+    "facts": [
+      "通用池 P0 装 mixlab/Derfuu/QwenVL/PainterFlux/MemoryCleaner",
+      "Text 同名未解（KayTool 未批）"
+    ],
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "updated_at": "2026-09-08T19:17:00+08:00",
+    "note": "通用池 P0 mixlab/Derfuu/QwenVL/PainterFlux/MemoryCleaner；Text 同名未解（KayTool 未批）"
+  },
   "genpool_wananimate_ttp_llamacpp_2026_09_08": {
     "status": "live_device_fyi",
     "date": "2026-09-08",
