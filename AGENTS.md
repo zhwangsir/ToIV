@@ -185,6 +185,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（设备管家：LIVE — 通用池 P1 装 WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance）
+- **已装**：WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance。
+- **验收**：相关 `class_type` 四端齐。
+- Status：`live_device_fyi`；STATE `general_pool_p1_whatdreamscost_2026_09_08`；`updated_at` 2026-09-08T22:45:00+08:00。via 设备管家。
+
 ### 2026-09-08（ToIV 开发：capability_gap_scan_v9 完成）
 - **口径**：通用三机 `8196`/`8188`/`8193`；**未并** `8194`/`8195`。
 - **结果**：apps **1050→934**；OK **163→185（+22）**；blocked **749**（models_only 370 / nodes_only 114 / both 265）；fetch_errors **0**。

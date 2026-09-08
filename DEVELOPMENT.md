@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-08 LIVE：通用池 P1 装 WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance（设备管家）**：已装 WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance；相关 `class_type` 四端齐。status=`live_device_fyi`；STATE `general_pool_p1_whatdreamscost_2026_09_08`；updated_at 2026-09-08T22:45:00+08:00。
+
 **2026-09-08 capability_gap_scan_v9 完成（ToIV 开发；无产品 SHA）**：口径通用三机 `8196`/`8188`/`8193`（未并 `8194`/`8195`）；apps 1050→934；OK **163→185（+22）**；blocked 749（370/114/265）；fetch_errors 0；unlocalizable 61→0；worker nodes ≈3453/3331/3287（较 v8 +~70）；P0 五包已退出全局缺节点；Top 缺仍以 H3 专用为主；下一波 `.regen_tmp/capability_gap_scan_v9/actionable/next_wave_after_v9.md`；已令设备管家装 P1、P2 核同名；真源勿 stage。status=`scan_complete_docs`；STATE `capability_gap_scan_v9_2026_09_08`；updated_at 2026-09-08T22:12:00+08:00。
 
 **2026-09-08 LIVE：通用池 P0 装 ComfyMath/MelBandRoFormer/SDPose-OOD/Licon-MSR/Florence2（设备管家）**：已装 ComfyMath/MelBandRoFormer/SDPose-OOD/Licon-MSR/Florence2；四端相关 `class_type` 齐。status=`live_device_fyi`；STATE `general_pool_p0_misc_comfymath_2026_09_08`；updated_at 2026-09-08T22:07:00+08:00。（v9 已扫完，见新 tip。）

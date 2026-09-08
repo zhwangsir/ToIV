@@ -1,7 +1,26 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T22:12:00+08:00",
+  "updated_at": "2026-09-08T22:45:00+08:00",
+  "general_pool_p1_whatdreamscost_2026_09_08": {
+    "status": "live_device_fyi",
+    "date": "2026-09-08",
+    "source": "设备管家",
+    "live": true,
+    "packages": [
+      "WhatDreamsCost",
+      "Frame-Interpolation",
+      "Stand-In",
+      "LayerStyle+Advance"
+    ],
+    "verify": "相关 class_type 四端齐",
+    "pool": "general",
+    "priority": "P1",
+    "note": "v9 后 P1；capability_gap followup",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-08T22:45:00+08:00"
+  },
   "capability_gap_scan_v9_2026_09_08": {
     "status": "scan_complete_docs",
     "date": "2026-09-08",
@@ -46,7 +65,9 @@
     "followups": {
       "device": "装 P1",
       "p2": "核同名",
-      "product": "dirty 未 commit"
+      "product": "dirty 未 commit",
+      "p1_device": "done via 设备管家 tip",
+      "p1_packages": "WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance"
     },
     "source_of_truth": ".regen_tmp/capability_gap_scan_v9/",
     "do_not_stage": [
@@ -63,7 +84,7 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T22:12:00+08:00",
+    "updated_at": "2026-09-08T22:45:00+08:00",
     "note": "capability_gap_scan_v9 完成；OK +22；无产品 SHA；勿 stage .regen_tmp"
   },
   "capability_gap_soft_hide_dedicated_pool_2026_09_08": {
