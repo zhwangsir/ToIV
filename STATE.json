@@ -1,7 +1,34 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T17:39:00+08:00",
+  "updated_at": "2026-09-08T18:00:00+08:00",
+  "genpool_extra_model_paths_onnx_detection_2026_09_08": {
+    "status": "live_device_fyi",
+    "date": "2026-09-08",
+    "source": "设备管家",
+    "live": true,
+    "scope": "gen_pool",
+    "section": "toiv",
+    "keys_needed": [
+      "onnx: onnx",
+      "detection: detection"
+    ],
+    "pc_nas_extra_key": "onnx: models/onnx",
+    "models_onnx_listed": [
+      "yolov10m"
+    ],
+    "four_ends_verified": true,
+    "facts": [
+      "生图池 extra_model_paths toiv 需 onnx: onnx 与 detection: detection",
+      "PC nas 另有 onnx: models/onnx",
+      "2026-09-08 四端 /models/onnx 已列 yolov10m"
+    ],
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "updated_at": "2026-09-08T18:00:00+08:00",
+    "note": "生图池 toiv 段需 onnx/detection；PC nas 另有 onnx: models/onnx；四端 /models/onnx 已列 yolov10m"
+  },
   "genpool_priority_custom_nodes_2026_09_08": {
     "status": "live_device_fyi",
     "date": "2026-09-08",

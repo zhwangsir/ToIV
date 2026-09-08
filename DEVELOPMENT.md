@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-08 LIVE：生图池 extra_model_paths toiv 补 onnx/detection（设备管家）**：toiv 段需 `onnx: onnx` 与 `detection: detection`；PC nas 另有 `onnx: models/onnx`；2026-09-08 四端 `/models/onnx` 已列 `yolov10m`。status=`live_device_fyi`；STATE `genpool_extra_model_paths_onnx_detection_2026_09_08`；updated_at 2026-09-08T18:00:00+08:00。
+
 **2026-09-08 LIVE：生图池批量装优先包（设备管家）**：SDVN/Comfyroll/rgthree/SeedVR2/Custom-Scripts/controlnet_aux/various/GGUF/WAS；四端 Top `class_type` 齐；`Text Multiline`=WAS Suite。status=`live_device_fyi`；STATE `genpool_priority_custom_nodes_2026_09_08`；updated_at 2026-09-08T17:39:00+08:00。
 
 **2026-09-08 LIVE：pc01/pc02 extra_model_paths toiv 补 SEEDVR2/pose（设备管家）**：`C:\ComfyUI\extra_model_paths.yaml` `toiv` 段亦需 `SEEDVR2: SEEDVR2` 与 `pose: pose`（同 WS）；2026-09-08 已加并 `schtasks` 重启。status=`live_device_fyi`；STATE `pc_extra_model_paths_seedvr2_pose_2026_09_08`；updated_at 2026-09-08T17:28:00+08:00；对齐 WS tip。
