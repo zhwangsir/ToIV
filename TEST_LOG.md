@@ -1,6 +1,6 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-08 LIVE：P2 未装原因补注（ToIV 开发；docs）：TT 上游已删；Bjornulf 巨型硬依赖跳过；VRAMReserver 无精确注册；9 app soft-hide；已装四端 Y；RMBG-2.0 权重在模型下载；v11 进行中；STATE `general_pool_p2_audio_rmbg_2026_09_08`；updated_at 2026-09-08T23:36:00+08:00。
+- 2026-09-08 LIVE：P2 未装原因补注（ToIV 开发；docs）：TT 上游已删；Bjornulf 巨型硬依赖跳过；VRAMReserver 无精确注册；9 app soft-hide（公开约 966→957）；已装四端 Y；RMBG-2.0 权重在模型下载；v11 进行中；STATE `general_pool_p2_audio_rmbg_2026_09_08`；updated_at 2026-09-08T23:36:00+08:00。
 
 - 2026-09-08 LIVE：通用池 P2 装 audio-separation/RMBG/comfy-image-saver(+InpaintCropAndStitch/GIMM-VFI/SAM2)（设备管家；docs）：挂起 TT_img_enc/Bjornulf/VRAMReserver；status=`live_device_fyi`；STATE `general_pool_p2_audio_rmbg_2026_09_08`；updated_at 2026-09-08T23:33:00+08:00；AGENTS §七 已短注。
 

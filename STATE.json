@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T23:36:00+08:00",
+  "updated_at": "2026-09-08T23:37:00+08:00",
   "general_pool_p2_audio_rmbg_2026_09_08": {
     "status": "live_device_fyi",
     "date": "2026-09-08",
@@ -22,10 +22,10 @@
     ],
     "pool": "general",
     "priority": "P2",
-    "note": "P2 部分装齐四端 Y；三项跳过有因；9 app soft-hide；RMBG-2.0 在模型下载；v11 进行中",
+    "note": "P2 部分装齐四端 Y；三项跳过有因；9 app soft-hide（公开约 966→957）；RMBG-2.0 在模型下载；v11 进行中",
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T23:36:00+08:00",
+    "updated_at": "2026-09-08T23:37:00+08:00",
     "verify_class_types_y": [
       "AudioCrop",
       "RMBG",
@@ -46,7 +46,9 @@
       "已装 AudioCrop/RMBG/String Literal(+InpaintCropImproved/GIMM/SAM2) 四端 Y",
       "TT_img_enc*：上游已删；Bjornulf_ShowInt：巨型硬依赖跳过；VRAMReserver：无精确注册",
       "仅卡未装节点的 9 app soft-hide"
-    ]
+    ],
+    "market_public_before": 966,
+    "market_public_after": 957
   },
   "capability_gap_scan_v10_2026_09_08": {
     "status": "scan_complete_docs",
@@ -190,11 +192,12 @@
       "union_approx": 100,
       "is_public": false,
       "db_app_counts_approx": {
-        "public": 966,
+        "public": 957,
         "non_public": 1313,
         "total": 2295,
         "public_before_hailuo_hide": 982,
-        "note_hailuo": "HailuoH3 无同名 soft-hide 16 → public 982→966"
+        "note_hailuo": "HailuoH3 无同名 soft-hide 16 → public 982→966",
+        "public_before_p2_skip_hide": 966
       },
       "note": "相对此前列表页约 1050→950 量级；以 DB 为准"
     },
@@ -280,7 +283,7 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T22:51:00+08:00",
+    "updated_at": "2026-09-08T23:37:00+08:00",
     "note": "capability gap：v10 已扫完 OK 191；v9 OK 185；H3 RH@d6c5f7b0；Advance 已 Y；P0/P1 齐；live_on_core_dirty 无产品 SHA",
     "h3_route_v2": {
       "date": "2026-09-08",
