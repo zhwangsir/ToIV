@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T21:48:00+08:00",
+  "updated_at": "2026-09-08T21:50:00+08:00",
   "capability_gap_soft_hide_dedicated_pool_2026_09_08": {
     "status": "live_on_core_dirty",
     "date": "2026-09-08",
@@ -18,9 +18,11 @@
       "union_approx": 100,
       "is_public": false,
       "db_app_counts_approx": {
-        "public": 982,
+        "public": 966,
         "non_public": 1313,
-        "total": 2295
+        "total": 2295,
+        "public_before_hailuo_hide": 982,
+        "note_hailuo": "HailuoH3 无同名 soft-hide 16 → public 982→966"
       },
       "note": "相对此前列表页约 1050→950 量级；以 DB 为准"
     },
@@ -80,7 +82,6 @@
     ],
     "facts": [
       "软隐藏 RHHiddenNodes+裸 Text union≈100 → is_public=false",
-      "DB app 公开≈982 / 非公开≈1313 / 总≈2295",
       "_pick_app_client 扩路由 LIVE on core",
       "H3→192.168.71.127:8195；QwenEdit→192.168.71.114:8194",
       "能力扫描 OK v1 58→v8 163（+105）",
@@ -91,12 +92,15 @@
       "QwenEdit :8194 Advance 已 Y（Comfyui-QwenEditUtils）",
       "H3 :8195 独占 ComfyUI_RH_MinMaxH3；RHMiniMaxH3* Y；通用池无",
       "QwenEdit :8194 Advance 已齐（设备确认）",
-      "通用 P0 未齐，v9 仍等"
+      "通用 P0 未齐，v9 仍等",
+      "ComfyUI_RH_MinMaxH3 @ d6c5f7b0 → RHMiniMaxH3* 33 class Y；通用池未装",
+      "RH_MinimaxHailuoH3* 无同名 → 16 app soft-hide（市场公开 982→966）",
+      "P0 未齐，v9 仍等"
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T21:48:00+08:00",
-    "note": "capability gap 收口：软隐藏≈100；H3 :8195 独占 ComfyUI_RH_MinMaxH3（RHMiniMaxH3* Y）；QwenEdit Advance 已 Y；通用 P0 未齐，v9 仍等；live_on_core_dirty 无产品 SHA",
+    "updated_at": "2026-09-08T21:50:00+08:00",
+    "note": "capability gap 收口：H3 :8195 独占 ComfyUI_RH_MinMaxH3@d6c5f7b0（33 class Y）；HailuoH3 无同名 soft-hide 16（公开 982→966）；Advance 已 Y；P0 未齐 v9 仍等；live_on_core_dirty 无产品 SHA",
     "h3_route_v2": {
       "date": "2026-09-08",
       "redeploy": "skip-web",
@@ -178,7 +182,19 @@
         "RHMiniMaxH3*"
       ],
       "on_general_pool": false,
-      "exclusive": true
+      "exclusive": true,
+      "package_sha": "d6c5f7b0",
+      "class_ok_count": 33
+    },
+    "hailuo_h3_soft_hide": {
+      "date": "2026-09-08",
+      "source": "ToIV 开发",
+      "class_prefix": "RH_MinimaxHailuoH3*",
+      "same_name_package": false,
+      "apps_soft_hidden": 16,
+      "market_public_before": 982,
+      "market_public_after": 966,
+      "note": "无同名包 → soft-hide 16 app；市场公开 982→966"
     }
   },
   "general_pool_soundflow_lg_artventure_2026_09_08": {

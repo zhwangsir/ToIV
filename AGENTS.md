@@ -197,7 +197,8 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **补注（ToIV 开发）**：`RHMiniMaxH3*` **有公开包、非 unlocalizable**：`HM-RunningHub/ComfyUI_RH_MinMaxH3`（或 `RH-RunningHub/ComfyUI-RH-MiniMax-H3`）；设备管家仅装 H3 `:8195`。QwenEdit Advance 缺 → 装 **QwenEditUtils** 于 `:8194`；装齐后扫 **v9**。
 - **进度（ToIV 开发）**：QwenEdit `:8194` **Advance 已 Y**（`Comfyui-QwenEditUtils`）；H3 RH 包已在 `:8195` 独占装齐；通用 P0 **未齐**，**v9 仍等**。
 - **设备确认（设备管家）**：H3 `:8195` **独占** `ComfyUI_RH_MinMaxH3`；`RHMiniMaxH3*` **Y**；**通用池无**。QwenEdit `:8194` Advance 已齐（与进度一致）。
-- Status：`live_on_core_dirty`（**无产品 commit SHA**；产品树仍 dirty 未推）；STATE `capability_gap_soft_hide_dedicated_pool_2026_09_08`；`updated_at` 2026-09-08T21:48:00+08:00。via ToIV 开发。
+- **细化（ToIV 开发）**：H3 `:8195` 独占 `ComfyUI_RH_MinMaxH3` @ **`d6c5f7b0`** → `RHMiniMaxH3*` **33 class Y**；通用池未装。`RH_MinimaxHailuoH3*` **无同名** → **16** app soft-hide（市场公开 **982→966**）。QwenEdit Advance 已 Y；P0 未齐，v9 仍等。
+- Status：`live_on_core_dirty`（**无产品 commit SHA**；产品树仍 dirty 未推）；STATE `capability_gap_soft_hide_dedicated_pool_2026_09_08`；`updated_at` 2026-09-08T21:50:00+08:00。via ToIV 开发。
 
 ### 2026-09-08（设备管家：LIVE — 通用池装 SoundFlow/LG_Tools/art-venture）
 - **已装**：SoundFlow + LG_Tools + art-venture。
