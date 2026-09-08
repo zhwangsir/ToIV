@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 LIVE on core dirty：capability gap 收口（ToIV 开发；docs；无产品 SHA）：软隐藏≈100；`_pick_app_client` H3→:8195 / QwenEdit→:8194；扫描 OK 58→163；通用池 `127:8196`/`116:8188`/`114:8193`；status=`live_on_core_dirty`；STATE `capability_gap_soft_hide_dedicated_pool_2026_09_08`；updated_at 2026-09-08T21:29:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-08 LIVE：通用池装 SoundFlow/LG_Tools/art-venture（设备管家；docs）：已装三包；三 `class_type` 四端齐；status=`live_device_fyi`；STATE `general_pool_soundflow_lg_artventure_2026_09_08`；updated_at 2026-09-08T20:17:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-08 LIVE：通用池装 cg-use-everywhere/Qwen3-VL-Instruct/Crystools（设备管家；docs）：已装三包；四端相关 `class_type` 齐；`Qwen3_VQA_Plus` 无同名；status=`live_device_fyi`；STATE `general_pool_cg_qwen3vl_crystools_2026_09_08`；updated_at 2026-09-08T19:51:00+08:00；AGENTS §七 已短注。

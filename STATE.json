@@ -1,7 +1,89 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T20:17:00+08:00",
+  "updated_at": "2026-09-08T21:29:00+08:00",
+  "capability_gap_soft_hide_dedicated_pool_2026_09_08": {
+    "status": "live_on_core_dirty",
+    "date": "2026-09-08",
+    "source": "ToIV 开发",
+    "live": true,
+    "committed_product": false,
+    "product_sha": null,
+    "product_tree": "dirty_unpushed",
+    "soft_hide": {
+      "targets": [
+        "RHHiddenNodes",
+        "bare Text"
+      ],
+      "union_approx": 100,
+      "is_public": false,
+      "db_app_counts_approx": {
+        "public": 982,
+        "non_public": 1313,
+        "total": 2295
+      },
+      "note": "相对此前列表页约 1050→950 量级；以 DB 为准"
+    },
+    "pick_app_client": {
+      "deploy": "skip-web success; api health OK",
+      "h3": {
+        "class_prefixes": [
+          "MiniMaxH3*",
+          "MinimaxH3*",
+          "RHMiniMaxH3*",
+          "RHMinimaxH3*"
+        ],
+        "base_url_env": "TOIV_H3_BASE_URL",
+        "base_url": "http://192.168.71.127:8195",
+        "system_stats": 200
+      },
+      "qwen_edit": {
+        "expanded": [
+          "Advance",
+          "Custom",
+          "EditUtils",
+          "heuristics"
+        ],
+        "excluded": [
+          "AILab_QwenVL",
+          "Qwen3_VQA"
+        ],
+        "base_url_default": "http://192.168.71.114:8194",
+        "env_explicit": false,
+        "system_stats": 200
+      }
+    },
+    "capability_scan": {
+      "ok_v1": 58,
+      "ok_v8": 163,
+      "delta": 105,
+      "next_wave_list": ".regen_tmp/capability_gap_scan_v8/actionable/next_wave_misc_packages.md",
+      "next_scan": "v9 after install"
+    },
+    "general_pool_workers": [
+      "192.168.71.127:8196",
+      "192.168.71.116:8188",
+      "192.168.71.114:8193"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "rh_h3_presets.json"
+    ],
+    "facts": [
+      "软隐藏 RHHiddenNodes+裸 Text union≈100 → is_public=false",
+      "DB app 公开≈982 / 非公开≈1313 / 总≈2295",
+      "_pick_app_client 扩路由 LIVE on core",
+      "H3→192.168.71.127:8195；QwenEdit→192.168.71.114:8194",
+      "能力扫描 OK v1 58→v8 163（+105）",
+      "通用池 workers 仍 127:8196 / 116:8188 / 114:8193",
+      "无产品 commit SHA；产品树 dirty 未推"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-08T21:29:00+08:00",
+    "note": "capability gap 收口：软隐藏≈100；_pick_app_client H3/QwenEdit 专池 LIVE；扫描 OK 58→163；live_on_core_dirty 无产品 SHA"
+  },
   "general_pool_soundflow_lg_artventure_2026_09_08": {
     "status": "live_device_fyi",
     "date": "2026-09-08",
