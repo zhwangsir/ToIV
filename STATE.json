@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T23:33:00+08:00",
+  "updated_at": "2026-09-08T23:36:00+08:00",
   "general_pool_p2_audio_rmbg_2026_09_08": {
     "status": "live_device_fyi",
     "date": "2026-09-08",
@@ -16,16 +16,37 @@
       "SAM2"
     ],
     "packages_pending": [
-      "TT_img_enc",
-      "Bjornulf",
+      "TT_img_enc*",
+      "Bjornulf_ShowInt",
       "VRAMReserver"
     ],
     "pool": "general",
     "priority": "P2",
-    "note": "v10 后 P2 部分装齐；三项挂起",
+    "note": "P2 部分装齐四端 Y；三项跳过有因；9 app soft-hide；RMBG-2.0 在模型下载；v11 进行中",
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T23:33:00+08:00"
+    "updated_at": "2026-09-08T23:36:00+08:00",
+    "verify_class_types_y": [
+      "AudioCrop",
+      "RMBG",
+      "String Literal",
+      "InpaintCropImproved",
+      "GIMM",
+      "SAM2"
+    ],
+    "skip_reasons": {
+      "TT_img_enc*": "上游 liangtongt/TT-tools 已删，无唯一同名映射",
+      "Bjornulf_ShowInt": "justUmen/Bjornulf_custom_nodes 有同名但巨型包硬依赖，风险高跳过",
+      "VRAMReserver": "无精确 class_type 注册（ReservedVRAMSetter 不算）"
+    },
+    "soft_hide_apps_only_blocked_by_skipped": 9,
+    "rmbg_2_0_weights": "转模型下载",
+    "v11": "in_progress",
+    "facts": [
+      "已装 AudioCrop/RMBG/String Literal(+InpaintCropImproved/GIMM/SAM2) 四端 Y",
+      "TT_img_enc*：上游已删；Bjornulf_ShowInt：巨型硬依赖跳过；VRAMReserver：无精确注册",
+      "仅卡未装节点的 9 app soft-hide"
+    ]
   },
   "capability_gap_scan_v10_2026_09_08": {
     "status": "scan_complete_docs",
@@ -61,7 +82,14 @@
       "p2": "核同名；已令设备管家",
       "p2_device": "partial",
       "p2_installed": "audio-separation/RMBG/comfy-image-saver(+InpaintCropAndStitch/GIMM-VFI/SAM2)",
-      "p2_pending": "TT_img_enc/Bjornulf/VRAMReserver"
+      "p2_pending": "TT_img_enc/Bjornulf/VRAMReserver",
+      "p2_skip_reasons": {
+        "TT_img_enc*": "上游 liangtongt/TT-tools 已删，无唯一同名映射",
+        "Bjornulf_ShowInt": "justUmen/Bjornulf_custom_nodes 有同名但巨型包硬依赖，风险高跳过",
+        "VRAMReserver": "无精确 class_type 注册（ReservedVRAMSetter 不算）"
+      },
+      "p2_soft_hide_apps": 9,
+      "v11": "in_progress"
     },
     "source_of_truth": ".regen_tmp/capability_gap_scan_v10/",
     "do_not_stage": [
@@ -76,7 +104,7 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T23:33:00+08:00",
+    "updated_at": "2026-09-08T23:36:00+08:00",
     "note": "capability_gap_scan_v10 完成；OK +6→191；无产品 SHA；勿 stage .regen_tmp"
   },
   "capability_gap_scan_v9_2026_09_08": {

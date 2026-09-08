@@ -187,8 +187,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ### 2026-09-08（设备管家：LIVE — 通用池 P2 装 audio-separation/RMBG/comfy-image-saver(+InpaintCropAndStitch/GIMM-VFI/SAM2)）
 - **已装**：audio-separation/RMBG/comfy-image-saver(+InpaintCropAndStitch/GIMM-VFI/SAM2)。
-- **挂起**：TT_img_enc/Bjornulf/VRAMReserver。
-- Status：`live_device_fyi`；STATE `general_pool_p2_audio_rmbg_2026_09_08`；`updated_at` 2026-09-08T23:33:00+08:00。via 设备管家。
+- **挂起/跳过**：TT_img_enc/Bjornulf/VRAMReserver（原因见补注）。
+- **补注（ToIV 开发）**：已装验收 **AudioCrop/RMBG/String Literal(+InpaintCropImproved/GIMM/SAM2)** 四端 Y。
+  - **未装原因**：`TT_img_enc*` — 上游 `liangtongt/TT-tools` 已删，无唯一同名映射；`Bjornulf_ShowInt` — `justUmen/Bjornulf_custom_nodes` 有同名但巨型包硬依赖，风险高跳过；`VRAMReserver` — 无精确 `class_type` 注册（`ReservedVRAMSetter` 不算）。
+  - **soft-hide**：仅卡上述未装节点的 **9** app 已 soft-hide；RMBG-2.0 权重在模型下载；v11 进行中。
+- Status：`live_device_fyi`；STATE `general_pool_p2_audio_rmbg_2026_09_08`；`updated_at` 2026-09-08T23:36:00+08:00。via 设备管家。
 
 ### 2026-09-08（ToIV 开发：capability_gap_scan_v10 完成）
 - **结果**：apps **934**；OK **185→191（+6）**；累计 v8:163→191（+28），v1:58→191。
