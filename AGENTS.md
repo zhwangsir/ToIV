@@ -185,6 +185,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（设备管家：LIVE — pc01 Comfy 启动前须挂 NAS 正确 share）
+- **必做**：启动前 `net use \\192.168.71.7\NAS`（**share 名 `NAS`，不是 `dgmt-nas`**）。
+- **脚本已改**：`start_comfyui.ps1` + `MountNAS`（按正确 share 挂载）。
+- **验收**：修复后模型计数对齐 WS≈**581**。
+- Status：`live_ops_required`；STATE `pc01_nas_netuse_share_nas_2026_09_08`；`updated_at` 2026-09-08T16:52:00+08:00。via 设备管家；此前「临时 net use 恢复」升级为本活口径。
+
 ### 2026-09-08（ToIV 模型下载：LIVE — MODEL_SOURCES qwen_edit_pc01_sync）
 - **路径**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`（根目录无 `MODEL_SOURCES*`）。
 - **计数**：ok **370** / blocked **383** / total **753**（前 368/383/751）；updated `2026-09-08T16:25:00+08:00`。
@@ -195,7 +201,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ### 2026-09-08（设备管家：LIVE — 生图/视频 worker 节点装齐；pc01 NAS 临时恢复）
 - **已装 custom nodes（生图/视频 worker）**：WanVideoWrapper + LayerStyle + ComfyLiterals(Int) + Easy-Use。
 - **无法本地装**：RHHiddenNodes（不可本地化）。
-- **pc01 NAS UNC**：已临时 `net use` 恢复（细节矩阵在设备管家侧）。
+- **pc01 NAS UNC**：~~已临时 `net use` 恢复~~ → 见上条：启动前须 `net use \\192.168.71.7\NAS` （share=`NAS` 非 `dgmt-nas`）；`start_comfyui.ps1`+`MountNAS` 已改；WS≈581。
 - Status：`live_device_fyi`；STATE `worker_custom_nodes_pc01_nas_2026_09_08`；`updated_at` 2026-09-08T13:51:00+08:00。via 设备管家；细节以设备侧矩阵为准。
 
 ### 2026-09-08（ToIV 模型下载+设备管家：LIVE — MODEL_SOURCES batch16 清尾；可本地化缺权重清零）

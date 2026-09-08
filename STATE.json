@@ -1,7 +1,35 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T16:27:00+08:00",
+  "updated_at": "2026-09-08T16:52:00+08:00",
+  "pc01_nas_netuse_share_nas_2026_09_08": {
+    "status": "live_ops_required",
+    "date": "2026-09-08",
+    "source": "设备管家",
+    "live": true,
+    "host": "pc01",
+    "required_before_comfy_start": "net use \\\\192.168.71.7\\NAS",
+    "share_name": "NAS",
+    "share_name_not": "dgmt-nas",
+    "unc": "\\\\192.168.71.7\\NAS",
+    "scripts_updated": [
+      "start_comfyui.ps1",
+      "MountNAS"
+    ],
+    "model_count_aligned_ws_approx": 581,
+    "supersedes": "worker_custom_nodes_pc01_nas_2026_09_08.pc01_nas_unc_temporary",
+    "facts": [
+      "pc01 Comfy 启动前须 net use \\\\192.168.71.7\\NAS",
+      "share 名 NAS（不是 dgmt-nas）",
+      "已改 start_comfyui.ps1 + MountNAS",
+      "修复后模型计数对齐 WS≈581"
+    ],
+    "agents_md": "updated",
+    "committed_product": false,
+    "pushed": false,
+    "updated_at": "2026-09-08T16:52:00+08:00",
+    "note": "pc01 Comfy 启动前须 net use \\\\192.168.71.7\\NAS（share=NAS 非 dgmt-nas）；start_comfyui.ps1+MountNAS 已改；模型计数对齐 WS≈581"
+  },
   "model_sources_inventory_2026_09_08": {
     "status": "inventory_updated_qwen_edit_pc01",
     "date": "2026-09-08",
@@ -82,9 +110,9 @@
       "RHHiddenNodes"
     ],
     "pc01_nas_unc": {
-      "status": "temporarily_restored",
-      "method": "net use",
-      "note": "临时恢复；细节矩阵在设备管家侧"
+      "status": "superseded_by_ops_required",
+      "see": "pc01_nas_netuse_share_nas_2026_09_08",
+      "note": "升级为启动前须 net use \\\\192.168.71.7\\NAS（share=NAS）"
     },
     "facts": [
       "生图/视频 worker 已装 WanVideoWrapper+LayerStyle+ComfyLiterals(Int)+Easy-Use",
@@ -95,7 +123,7 @@
     "agents_md": "updated",
     "committed_product": false,
     "pushed": false,
-    "updated_at": "2026-09-08T13:51:00+08:00",
+    "updated_at": "2026-09-08T16:52:00+08:00",
     "note": "设备侧 FYI：生图/视频 worker custom nodes 装齐 WanVideoWrapper/LayerStyle/ComfyLiterals(Int)/Easy-Use；RHHiddenNodes 不可本地装；pc01 NAS UNC 临时 net use 恢复；细节见设备管家矩阵"
   },
   "model_sources_inventory_convention_2026_09_08": {

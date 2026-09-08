@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 LIVE：pc01 Comfy 启动前须挂 NAS 正确 share（设备管家；docs）：`net use \\192.168.71.7\NAS`（share=`NAS` 非 `dgmt-nas`）；`start_comfyui.ps1`+`MountNAS` 已改；修复后模型计数对齐 WS≈**581**；status=`live_ops_required`；STATE `pc01_nas_netuse_share_nas_2026_09_08`；updated_at 2026-09-08T16:52:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-08 LIVE：MODEL_SOURCES qwen_edit_pc01_sync 计数更新（真机/docs）：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`；ok **370** / blocked **383** / total **753**（前 368/383/751）；updated `2026-09-08T16:25:00+08:00`；增量 Qwen Edit pc01 同步两权重；status=`inventory_updated_qwen_edit_pc01`；STATE `model_sources_inventory_2026_09_08`；updated_at 2026-09-08T16:27:00+08:00；AGENTS §四/§七 已短注。
 
 - 2026-09-08 LIVE：生图/视频 worker 节点装齐 + pc01 NAS 临时恢复（设备管家；docs）：已装 WanVideoWrapper / LayerStyle / ComfyLiterals(Int) / Easy-Use；RHHiddenNodes 无法本地装；pc01 NAS UNC 临时 `net use` 恢复；status=`live_device_fyi`；STATE `worker_custom_nodes_pc01_nas_2026_09_08`；updated_at 2026-09-08T13:51:00+08:00；AGENTS §七 已短注；细节矩阵在设备侧。
