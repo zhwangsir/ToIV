@@ -1,7 +1,70 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T16:52:00+08:00",
+  "updated_at": "2026-09-08T17:00:00+08:00",
+  "model_sources_inventory_2026_09_08": {
+    "status": "inventory_updated_capability_gap_batch1",
+    "date": "2026-09-08",
+    "source": "ToIV 模型下载",
+    "live": true,
+    "inventory_ready": true,
+    "paths": {
+      "md": "docs/MODEL_SOURCES.md",
+      "json": "docs/MODEL_SOURCES.json"
+    },
+    "counts": {
+      "ok": 381,
+      "blocked": 384,
+      "total": 765
+    },
+    "previous_counts": {
+      "ok": 370,
+      "blocked": 383,
+      "total": 753
+    },
+    "inventory_updated_at": "2026-09-08T16:55:00+08:00",
+    "batch": "capability_gap_batch1",
+    "batch_note": "能力缺口 batch1",
+    "ok_missing_source_url": 5,
+    "ok_local_alias_without_http_url": 17,
+    "ok_true_gaps_no_url_no_repo_not_alias": 0,
+    "nas_short_index": "toiv/comfyui-models/SOURCES.md",
+    "rules": [
+      "root keeps five-doc set only",
+      "append on each download batch",
+      "URLs never invented — copied from download logs only",
+      "WIP mirror may stay in .regen_tmp/"
+    ],
+    "facts": [
+      "MODEL_SOURCES capability_gap_batch1 后 ok 381 / blocked 384 / total 765",
+      "前 370/383/753",
+      "updated 2026-09-08T16:55:00+08:00",
+      "路径 docs/MODEL_SOURCES.md + docs/MODEL_SOURCES.json",
+      "能力缺口 batch1",
+      "true gaps 仍为 0",
+      "可本地化缺口清零口径仍有效（missing 737→0）"
+    ],
+    "market_localizable_gap": "cleared",
+    "blocked_reasons": [
+      "gated",
+      "no_provenance",
+      "near_name"
+    ],
+    "missing_scan_before": 737,
+    "missing_scan_after": 0,
+    "detail_paths": [
+      "ALLProject/ToIV/.regen_tmp/",
+      "NAS/toiv/comfyui-models"
+    ],
+    "agents_md": "updated",
+    "committed_inventory": true,
+    "pushed": false,
+    "related": [
+      "model_sources_inventory_convention_2026_09_08"
+    ],
+    "updated_at": "2026-09-08T17:00:00+08:00",
+    "note": "MODEL_SOURCES capability_gap_batch1：ok 381/blocked 384/total 765 (前 370/383/753)；updated 2026-09-08T16:55:00+08:00；能力缺口 batch1；持续追加"
+  },
   "pc01_nas_netuse_share_nas_2026_09_08": {
     "status": "live_ops_required",
     "date": "2026-09-08",
@@ -29,70 +92,6 @@
     "pushed": false,
     "updated_at": "2026-09-08T16:52:00+08:00",
     "note": "pc01 Comfy 启动前须 net use \\\\192.168.71.7\\NAS（share=NAS 非 dgmt-nas）；start_comfyui.ps1+MountNAS 已改；模型计数对齐 WS≈581"
-  },
-  "model_sources_inventory_2026_09_08": {
-    "status": "inventory_updated_qwen_edit_pc01",
-    "date": "2026-09-08",
-    "source": "ToIV 模型下载",
-    "live": true,
-    "inventory_ready": true,
-    "paths": {
-      "md": "docs/MODEL_SOURCES.md",
-      "json": "docs/MODEL_SOURCES.json"
-    },
-    "counts": {
-      "ok": 370,
-      "blocked": 383,
-      "total": 753
-    },
-    "previous_counts": {
-      "ok": 368,
-      "blocked": 383,
-      "total": 751
-    },
-    "inventory_updated_at": "2026-09-08T16:25:00+08:00",
-    "batch": "qwen_edit_pc01_sync",
-    "batch_note": "Qwen Edit pc01 同步后",
-    "added_basenames": [
-      "qwen_2.5_vl_7b_fp8_scaled.safetensors",
-      "qwen_image_vae.safetensors"
-    ],
-    "nas_short_index": "toiv/comfyui-models/SOURCES.md",
-    "rules": [
-      "root keeps five-doc set only",
-      "append on each download batch",
-      "URLs never invented — copied from download logs only",
-      "WIP mirror may stay in .regen_tmp/"
-    ],
-    "facts": [
-      "MODEL_SOURCES qwen_edit_pc01_sync 后 ok 370 / blocked 383 / total 753",
-      "前 368/383/751",
-      "updated 2026-09-08T16:25:00+08:00",
-      "路径 docs/MODEL_SOURCES.md + docs/MODEL_SOURCES.json",
-      "增量：qwen_2.5_vl_7b_fp8_scaled.safetensors + qwen_image_vae.safetensors",
-      "可本地化缺口清零口径仍有效（missing 737→0）",
-      "blocked 为 gated/无溯源/近名"
-    ],
-    "market_localizable_gap": "cleared",
-    "blocked_reasons": [
-      "gated",
-      "no_provenance",
-      "near_name"
-    ],
-    "missing_scan_before": 737,
-    "missing_scan_after": 0,
-    "detail_paths": [
-      "ALLProject/ToIV/.regen_tmp/",
-      "NAS/toiv/comfyui-models"
-    ],
-    "agents_md": "updated",
-    "committed_inventory": true,
-    "pushed": false,
-    "related": [
-      "model_sources_inventory_convention_2026_09_08"
-    ],
-    "updated_at": "2026-09-08T16:27:00+08:00",
-    "note": "MODEL_SOURCES qwen_edit_pc01_sync：ok 370/blocked 383/total 753 (前 368/383/751)；updated 2026-09-08T16:25:00+08:00；Qwen Edit pc01 同步两权重；持续追加"
   },
   "worker_custom_nodes_pc01_nas_2026_09_08": {
     "status": "live_device_fyi",
