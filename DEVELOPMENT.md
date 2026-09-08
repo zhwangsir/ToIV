@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-08 LIVE：通用池 P2 装 audio-separation/RMBG/comfy-image-saver(+InpaintCropAndStitch/GIMM-VFI/SAM2)（设备管家）**：已装 audio-separation/RMBG/comfy-image-saver(+InpaintCropAndStitch/GIMM-VFI/SAM2)；挂起 TT_img_enc/Bjornulf/VRAMReserver。status=`live_device_fyi`；STATE `general_pool_p2_audio_rmbg_2026_09_08`；updated_at 2026-09-08T23:33:00+08:00。
+
 **2026-09-08 capability_gap_scan_v10 完成（ToIV 开发；无产品 SHA）**：apps 934；OK **185→191（+6）**（累计 v8→191 +28，v1:58→191）；blocked 743（382/108/253）；unlocalizable 0；fetch_errors 0；worker nodes ≈3561/3441/3391；P1 八类退出全局缺节点；Top 缺仍以 H3 专用为主（`:8195` RHMiniMax 不计入）；P2 核同名见 `.regen_tmp/capability_gap_scan_v10/actionable/next_wave_after_v10.md`；真源勿 stage。status=`scan_complete_docs`；STATE `capability_gap_scan_v10_2026_09_08`；updated_at 2026-09-08T22:51:00+08:00。
 
 **2026-09-08 LIVE：通用池 P1 装 WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance（设备管家）**：已装 WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance；相关 `class_type` 四端齐。status=`live_device_fyi`；STATE `general_pool_p1_whatdreamscost_2026_09_08`；updated_at 2026-09-08T22:45:00+08:00。

@@ -1,7 +1,32 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T22:51:00+08:00",
+  "updated_at": "2026-09-08T23:33:00+08:00",
+  "general_pool_p2_audio_rmbg_2026_09_08": {
+    "status": "live_device_fyi",
+    "date": "2026-09-08",
+    "source": "设备管家",
+    "live": true,
+    "packages_installed": [
+      "audio-separation",
+      "RMBG",
+      "comfy-image-saver",
+      "InpaintCropAndStitch",
+      "GIMM-VFI",
+      "SAM2"
+    ],
+    "packages_pending": [
+      "TT_img_enc",
+      "Bjornulf",
+      "VRAMReserver"
+    ],
+    "pool": "general",
+    "priority": "P2",
+    "note": "v10 后 P2 部分装齐；三项挂起",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-08T23:33:00+08:00"
+  },
   "capability_gap_scan_v10_2026_09_08": {
     "status": "scan_complete_docs",
     "date": "2026-09-08",
@@ -33,7 +58,10 @@
     "top_missing_nodes": "mostly H3 dedicated (general scan; :8195 RHMiniMax not counted)",
     "next_wave": ".regen_tmp/capability_gap_scan_v10/actionable/next_wave_after_v10.md",
     "followups": {
-      "p2": "核同名；已令设备管家"
+      "p2": "核同名；已令设备管家",
+      "p2_device": "partial",
+      "p2_installed": "audio-separation/RMBG/comfy-image-saver(+InpaintCropAndStitch/GIMM-VFI/SAM2)",
+      "p2_pending": "TT_img_enc/Bjornulf/VRAMReserver"
     },
     "source_of_truth": ".regen_tmp/capability_gap_scan_v10/",
     "do_not_stage": [
@@ -48,7 +76,7 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T22:51:00+08:00",
+    "updated_at": "2026-09-08T23:33:00+08:00",
     "note": "capability_gap_scan_v10 完成；OK +6→191；无产品 SHA；勿 stage .regen_tmp"
   },
   "capability_gap_scan_v9_2026_09_08": {

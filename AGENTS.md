@@ -185,6 +185,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（设备管家：LIVE — 通用池 P2 装 audio-separation/RMBG/comfy-image-saver(+InpaintCropAndStitch/GIMM-VFI/SAM2)）
+- **已装**：audio-separation/RMBG/comfy-image-saver(+InpaintCropAndStitch/GIMM-VFI/SAM2)。
+- **挂起**：TT_img_enc/Bjornulf/VRAMReserver。
+- Status：`live_device_fyi`；STATE `general_pool_p2_audio_rmbg_2026_09_08`；`updated_at` 2026-09-08T23:33:00+08:00。via 设备管家。
+
 ### 2026-09-08（ToIV 开发：capability_gap_scan_v10 完成）
 - **结果**：apps **934**；OK **185→191（+6）**；累计 v8:163→191（+28），v1:58→191。
 - **blocked**：**743**（models_only 382 / nodes_only 108 / both 253）；unlocalizable **0**；fetch_errors **0**。
