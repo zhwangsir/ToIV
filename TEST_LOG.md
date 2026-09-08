@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-08 LIVE：生图池批量装优先包（设备管家；docs）：SDVN/Comfyroll/rgthree/SeedVR2/Custom-Scripts/controlnet_aux/various/GGUF/WAS；四端 Top `class_type` 齐；`Text Multiline`=WAS Suite；status=`live_device_fyi`；STATE `genpool_priority_custom_nodes_2026_09_08`；updated_at 2026-09-08T17:39:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-08 LIVE：pc01/pc02 extra_model_paths toiv 补 SEEDVR2/pose（设备管家；docs）：`C:\ComfyUI\extra_model_paths.yaml` `toiv` 段加 `SEEDVR2: SEEDVR2` / `pose: pose`（同 WS）；已 `schtasks` 重启；status=`live_device_fyi`；STATE `pc_extra_model_paths_seedvr2_pose_2026_09_08`；updated_at 2026-09-08T17:28:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-08 LIVE：WS extra_model_paths toiv 补 SEEDVR2/pose（设备管家；docs）：`/opt/ComfyUI/extra_model_paths.yaml` `toiv` 段加 `SEEDVR2: SEEDVR2` / `pose: pose`；对应 `nas_mount/toiv/comfyui-models/{SEEDVR2,pose}`；已重启 `gpu0-alt:8196`；status=`live_device_fyi`；STATE `ws_extra_model_paths_seedvr2_pose_2026_09_08`；updated_at 2026-09-08T17:11:00+08:00；AGENTS §七 已短注。

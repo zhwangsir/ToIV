@@ -185,6 +185,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-08（设备管家：LIVE — 生图池批量装优先包；四端 Top class_type 齐）
+- **优先包**：SDVN/Comfyroll/rgthree/SeedVR2/Custom-Scripts/controlnet_aux/various/GGUF/WAS。
+- **验收**：四端 Top `class_type` 齐；`Text Multiline` = WAS Suite。
+- Status：`live_device_fyi`；STATE `genpool_priority_custom_nodes_2026_09_08`；`updated_at` 2026-09-08T17:39:00+08:00。via 设备管家。
+
 ### 2026-09-08（设备管家：LIVE — pc01/pc02 extra_model_paths toiv 补 SEEDVR2/pose）
 - **文件**：pc01/pc02 `C:\ComfyUI\extra_model_paths.yaml` 的 `toiv` 段（同 WS）。
 - **已加键**：`SEEDVR2: SEEDVR2`、`pose: pose`。
