@@ -1,10 +1,10 @@
 {
-  "updated_at": "2026-09-08T07:10:35+08:00",
+  "updated_at": "2026-09-08T16:25:00+08:00",
   "updated_at_timezone": "Asia/Shanghai",
   "totals": {
-    "ok": 368,
+    "ok": 370,
     "blocked": 383,
-    "total": 751,
+    "total": 753,
     "ok_missing_source_url": 0,
     "ok_true_gaps_no_url_no_repo_not_alias": 0,
     "ok_local_alias_without_http_url": 5
@@ -11286,6 +11286,36 @@
       "bytes": null,
       "notes": "reason=transformers_pack_not_single_file | google/siglip2-so400m-patch16-512 is multi-file transformers weights; NAS has flex1_redux_siglip2_512 near-miss only. | action=blocked_untraceable | suggested_next=Manual provenance if a trusted URL appears; do not invent mirrors. | app_refs=1 | from=_batch16_blocked_new.json",
       "batch": "batch16"
+    },
+    {
+      "basename": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "rel_path": "text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "source_kind": "mirror",
+      "source_url": "https://hf-mirror.com/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "repo": "Comfy-Org/Qwen-Image_ComfyUI",
+      "revision": "main",
+      "filename": "split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "license_or_gated": null,
+      "downloaded_at": "2026-09-08T16:25:00+08:00",
+      "status": "ok",
+      "bytes": 9384670680,
+      "notes": "pre-existing on NAS Windows tree; hardlink into toiv/comfyui-models/text_encoders + robocopy to pc01 C:\\ComfyUI\\models\\text_encoders for UNC-broken fallback | HF Content-Length match 9384670680 | app_refs=Qwen-Edit pc01",
+      "batch": "qwen_edit_pc01_sync"
+    },
+    {
+      "basename": "qwen_image_vae.safetensors",
+      "rel_path": "vae/qwen_image_vae.safetensors",
+      "source_kind": "mirror",
+      "source_url": "https://hf-mirror.com/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors",
+      "repo": "Comfy-Org/Qwen-Image_ComfyUI",
+      "revision": "main",
+      "filename": "split_files/vae/qwen_image_vae.safetensors",
+      "license_or_gated": null,
+      "downloaded_at": "2026-09-08T16:25:00+08:00",
+      "status": "ok",
+      "bytes": 253806246,
+      "notes": "pre-existing on NAS Windows tree; hardlink into toiv/comfyui-models/vae + robocopy to pc01 C:\\ComfyUI\\models\\vae for UNC-broken fallback | HF Content-Length match 253806246 | near-miss NOT ae.safetensors (flux/z-image AE) nor qwen_image_layered_vae | app_refs=Qwen-Edit pc01",
+      "batch": "qwen_edit_pc01_sync"
     }
   ]
 }

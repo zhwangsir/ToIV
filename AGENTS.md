@@ -113,7 +113,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - 用途：每次模型/内容下载维护带来源的条目（HF / Civitai / RH / 本地），供更新核对与查文档。
 - 维护：ToIV 模型下载；项目管家五件套只引用本路径。WIP 草稿放 `.regen_tmp/`，就绪再落入 `docs/`。
 - **不**替代 `engine_registry` / `model_wiki` / admin knowledge-graph / `model_profiles`；清单指向 NAS 落盘路径 + 出处 URL。
-- STATE `model_sources_inventory_convention_2026_09_08` → `model_sources_inventory_2026_09_08`：**ok 368 / blocked 383 / total 751**（updated `2026-09-08T07:10:35+08:00`；batch16）；清单在 docs，持续追加。
+- STATE `model_sources_inventory_convention_2026_09_08` → `model_sources_inventory_2026_09_08`：**ok 370 / blocked 383 / total 753**（updated `2026-09-08T16:25:00+08:00`；qwen_edit_pc01_sync；前 368/383/751）；清单在 docs，持续追加。
 
 ## 五、Core 生产状态（活口径）
 
@@ -184,6 +184,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-08（ToIV 模型下载：LIVE — MODEL_SOURCES qwen_edit_pc01_sync）
+- **路径**：`docs/MODEL_SOURCES.md` + `docs/MODEL_SOURCES.json`（根目录无 `MODEL_SOURCES*`）。
+- **计数**：ok **370** / blocked **383** / total **753**（前 368/383/751）；updated `2026-09-08T16:25:00+08:00`。
+- **增量**：Qwen Edit pc01 同步后追加 `qwen_2.5_vl_7b_fp8_scaled.safetensors` + `qwen_image_vae.safetensors`（NAS hardlink + robocopy → pc01）。
+- **维护**：后续每批下载追加这两份；可本地化缺口清零口径仍有效（missing 737→0）。
+- Status：`inventory_updated_qwen_edit_pc01`；STATE `model_sources_inventory_2026_09_08`；`updated_at` 2026-09-08T16:27:00+08:00。via ToIV 模型下载。
 
 ### 2026-09-08（设备管家：LIVE — 生图/视频 worker 节点装齐；pc01 NAS 临时恢复）
 - **已装 custom nodes（生图/视频 worker）**：WanVideoWrapper + LayerStyle + ComfyLiterals(Int) + Easy-Use。

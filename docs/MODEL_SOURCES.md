@@ -1,9 +1,9 @@
 # ToIV ComfyUI Model Sources (Provenance Inventory)
 
-- **Updated (Asia/Shanghai):** `2026-09-08T07:10:35+08:00`
-- **OK:** 368
+- **Updated (Asia/Shanghai):** `2026-09-08T16:25:00+08:00`
+- **OK:** 370
 - **Blocked:** 383
-- **Total:** 751
+- **Total:** 753
 - **OK missing HTTP URL and repo:** 0 (local-alias without HTTP: 5; true gaps: 0)
 
 Built from `.regen_tmp` download logs (manifest, batch summaries/plans, blocked list, flux klein, h3). **URLs are never invented** — only copied from logs.
@@ -382,6 +382,9 @@ Canonical copies: `ToIV/docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json`. WIP mirro
 | `z_image_turbo_distill_patch_lora_bf16.safetensors` | loras/z_image_turbo_distill_patch_lora_bf16.safetensors | mirror | https://hf-mirror.com/Comfy-Org/z_image_turbo/resolve/main/split_files/loras/z_image_turbo_distill_patch_lora_bf16.safetensors | 151.5 MiB | batch13 | 2026-09-08T05:46:49+08:00 | app_refs=1 |
 | `z_image_turbo_fp8_e4m3fn_unscaled.safetensors` | diffusion_models/z_image_turbo_fp8_e4m3fn_unscaled.safetensors | mirror | https://hf-mirror.com/SarahPeterson2/z_image_turbo_fp8_e4m3fn_unscaled/resolve/main/z_image_turbo_fp8_e4m3fn_unscaled.safetensors | 5.7 GiB | batch16 | 2026-09-08T07:10:35+08:00 | app_refs=1 |
 | `z_image_turbo_nvfp4.safetensors` | diffusion_models/z_image_turbo_nvfp4.safetensors | mirror | https://hf-mirror.com/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_nvfp4.safetensors | 4.2 GiB | batch13 | 2026-09-08T05:46:49+08:00 | app_refs=1 |
+
+| `qwen_2.5_vl_7b_fp8_scaled.safetensors` | text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors | mirror | https://hf-mirror.com/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors | 8.7 GiB | qwen_edit_pc01_sync | 2026-09-08T16:25:00+08:00 | pre-existing on NAS Windows tree; hardlink into toiv/comfyui-models/text_encoders + robocopy to pc01 C:\ComfyUI\models\text_encoders for UNC-broken fallback | HF Content-Length match 9384670680 | app_refs=Qwen-Edit pc01 |
+| `qwen_image_vae.safetensors` | vae/qwen_image_vae.safetensors | mirror | https://hf-mirror.com/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors | 242.0 MiB | qwen_edit_pc01_sync | 2026-09-08T16:25:00+08:00 | pre-existing on NAS Windows tree; hardlink into toiv/comfyui-models/vae + robocopy to pc01 C:\ComfyUI\models\vae for UNC-broken fallback | HF Content-Length match 253806246 | near-miss NOT ae.safetensors (flux/z-image AE) nor qwen_image_layered_vae | app_refs=Qwen-Edit pc01 |
 
 ## Blocked
 
