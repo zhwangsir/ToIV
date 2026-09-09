@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-10 MODEL_SOURCES：ok457/blocked347/total804（项目管家；ToIV 模型下载；v15 非 H3 续下）**：v15 非 H3 续下后计数对齐；header 已同步 JSON `updated_at` 2026-09-10T05:16:39+08:00（前 tip 2f104c9 454/350/804；Δ ok+3 / blocked−3）；newly_ok **3** ≈0.28 GiB（紫灵/韩立/宋玉 Civitai）/ already_on_nas **12** / blocked 含：银月/燕如嫣 opaque/梅凝/韩立南宫婉/peiling3/nvfp4 gated/Kook亚洲人像/model.pt/h-anime4 登录墙 + 已知 trio；**未**写 `h3/`；此后可扫 v16（未做）；真源 `.regen_tmp/capability_gap_v15_download_summary.json` 勿 stage。status=`inventory_updated`；STATE `model_sources_v15_non_h3_2026_09_10`；updated_at 2026-09-10T05:18:30+08:00。
+
 **2026-09-10 LIVE：三机 extrapaths toiv 补 style_models（设备管家）**：toiv 段加 `style_models: style_models`；`/models/style_models` 于 WS:8196 / pc01 `.116`:8188 / pc02:8193 均为 **2**（`flux1-redux-dev` + `flex1_redux_siglip2_512`）。解 v15 假缺；**未**扫 v16——等模型下载 v15 批次后复扫 **v16**。status=`live_device_fyi`；STATE `genpool_extrapaths_style_models_2026_09_10`；updated_at 2026-09-10T04:56:00+08:00。
 
 **2026-09-10 gimmvfi 三端已清口径修正（项目管家；设备管家 SSH 核；无产品 SHA）**：WS:8196 / pc01 **.116**:8188 / pc02:8193 均含 `gimmvfi_r_arb_lpips_fp32.safetensors`；**作废**「8193 仍空不挡」；口径=**三端已清**（8196/8188/8193）。不跑 v15b。status=`scan_complete_docs`；STATE `capability_gap_scan_v15_2026_09_10`；updated_at 2026-09-10T04:55:00+08:00。

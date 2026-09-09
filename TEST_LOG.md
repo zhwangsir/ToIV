@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-10 MODEL_SOURCES：ok457/blocked347/total804（项目管家；ToIV 模型下载；docs；v15 非 H3 续下）：header 已同步 JSON；前 tip 2f104c9 454/350/804（Δ +3/−3）；newly_ok 3 ≈0.28 GiB（紫灵/韩立/宋玉 Civitai）/ already_on_nas 12；blocked 含：银月/燕如嫣 opaque/梅凝/韩立南宫婉/peiling3/nvfp4 gated/Kook亚洲人像/model.pt/h-anime4 登录墙 + 已知 trio；未写 h3/；此后可扫 v16（未做）；真源勿 stage；status=`inventory_updated`；STATE `model_sources_v15_non_h3_2026_09_10`；updated_at 2026-09-10T05:18:30+08:00；AGENTS §七 已短注。
+
 - 2026-09-10 LIVE：三机 extrapaths toiv 补 style_models（设备管家；docs）：`style_models: style_models`；8196/8188/8193 `/models/style_models` 均 **2**（flux1-redux-dev + flex1_redux_siglip2_512）；解 v15 假缺；**未**扫 v16（等 v15 下载批次后复扫）；status=`live_device_fyi`；STATE `genpool_extrapaths_style_models_2026_09_10`；updated_at 2026-09-10T04:56:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-10 gimmvfi 三端已清口径修正（项目管家；设备管家 SSH 核；docs；无产品 SHA）：WS:8196 / pc01 .116:8188 / pc02:8193 均含 gimmvfi_r_arb_lpips_fp32.safetensors；作废「8193 仍空不挡」；口径=三端已清（8196/8188/8193）；不跑 v15b；真源勿 stage；status=`scan_complete_docs`；STATE `capability_gap_scan_v15_2026_09_10`；updated_at 2026-09-10T04:55:00+08:00；AGENTS §七 已短注。

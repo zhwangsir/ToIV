@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T04:56:00+08:00",
+  "updated_at": "2026-09-10T05:18:30+08:00",
   "genpool_extrapaths_style_models_2026_09_10": {
     "status": "live_device_fyi",
     "date": "2026-09-10",
@@ -6254,5 +6254,87 @@
     "pushed": false,
     "updated_at": "2026-09-10T04:42:30+08:00",
     "note": "MODEL_SOURCES ok454/blocked350/total804 after v14 non-H3 download batch (续下)"
+  },
+  "model_sources_v15_non_h3_2026_09_10": {
+    "status": "inventory_updated",
+    "date": "2026-09-10",
+    "source": "ToIV 模型下载",
+    "steward": "项目管家",
+    "ok": 457,
+    "blocked": 347,
+    "total": 804,
+    "prev": {
+      "ok": 454,
+      "blocked": 350,
+      "total": 804
+    },
+    "delta": {
+      "ok": 3,
+      "blocked": -3,
+      "total": 0
+    },
+    "prev_tip_sha": "2f104c9",
+    "trigger": "capability_gap_v15_non_h3 download batch (续下)",
+    "inventory_updated_at": "2026-09-10T05:16:39+08:00",
+    "files": [
+      "docs/MODEL_SOURCES.md",
+      "docs/MODEL_SOURCES.json"
+    ],
+    "header_synced_from_json": true,
+    "download": {
+      "batch": "capability_gap_v15_non_h3",
+      "list_count": 295,
+      "newly_ok": 3,
+      "already_on_nas": 12,
+      "blocked_priority_documented": 16,
+      "remaining_open_estimate": 280,
+      "bytes_newly_downloaded": 302308824,
+      "bytes_gib_approx": 0.2815,
+      "already_on_nas_gib_approx": 63.0383,
+      "target": "general NAS (not h3/)",
+      "method": "MateBook system proxy :7897 → merlin NAS (Civitai)"
+    },
+    "p0_highlights_newly_ok": [
+      "ltx2.3紫灵触发词ziling.safetensors",
+      "ltx2.3韩立触发词hanli.safetensors",
+      "ltx2.3宋玉触发词songyu.safetensors"
+    ],
+    "blocked_named_highlights": [
+      "LTX2.3银月.safetensors",
+      "LTX23-燕如嫣-E78795E5A682E5ABA3E8A7-98UH.safetensors",
+      "ltx2.3梅凝触发词meining.safetensors",
+      "ltx2.3韩立南宫婉双人lora.safetensors",
+      "peiling3-lora.comfy.safetensors",
+      "flux-2-klein-9b-nvfp4.safetensors",
+      "Kook_Flux_klein_亚洲人像.safetensors",
+      "model.pt",
+      "h-anime4.comfy.safetensors",
+      "LTX-2.3-Licon-MSR-V1_B.safetensors",
+      "new_flux-2-klein-9b.safetensors",
+      "bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors"
+    ],
+    "do_not_rechase_kept_blocked": [
+      "LTX-2.3-Licon-MSR-V1_B.safetensors",
+      "new_flux-2-klein-9b.safetensors",
+      "bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "source_of_truth": ".regen_tmp/capability_gap_v15_download_summary.json",
+    "next": "capability_gap_scan_v16 can proceed (not claimed done)",
+    "facts": [
+      "MODEL_SOURCES ok457/blocked347/total804 after v15 non-H3 续下",
+      "prev tip 2f104c9 454/350/804; Δ ok+3 blocked−3",
+      "newly_ok 3 ≈0.28 GiB (紫灵/韩立/宋玉 Civitai); already_on_nas 12",
+      "blocked highlights: 银月/燕如嫣 opaque/梅凝/韩立南宫婉/peiling3/nvfp4 gated/Kook亚洲人像/model.pt/h-anime4 login + known trio",
+      "did not write into h3/",
+      "v16 capability gap rescan can proceed; v16 not done"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T05:18:30+08:00",
+    "note": "MODEL_SOURCES ok457/blocked347/total804 after v15 non-H3 download batch (续下)"
   }
 }

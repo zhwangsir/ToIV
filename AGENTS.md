@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-10（设备管家：三机 extrapaths 补 style_models；8196/8188/8193 均 **2**=flux1-redux-dev+flex1_redux_siglip2_512；解 v15 假缺；等 v15 下载批次后扫 v16；此前项目管家：capability_gap_scan_v15 OK**242**（+7 vs v14）；dedicated-aware **507**（+7）；apps **922**；blocked **680**；gimmvfi **三端已清**（含:8193）；此前 MODEL_SOURCES v14 非 H3 ok**454**/blocked**350**/total**804**（Δ+7/−7 vs d2816ac）；此前 capability_gap_scan_v14 OK**235**（+11 vs v13b）；dedicated-aware **500**（+9）；apps **922**；此前 ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
+> **最后更新**：2026-09-10（项目管家：MODEL_SOURCES v15 非 H3 ok**457**/blocked**347**/total**804**（Δ+3/−3 vs 2f104c9）；此后可扫 v16（未做）；此前设备管家：三机 extrapaths 补 style_models；8196/8188/8193 均 **2**=flux1-redux-dev+flex1_redux_siglip2_512；解 v15 假缺；等 v15 下载批次后扫 v16；此前项目管家：capability_gap_scan_v15 OK**242**（+7 vs v14）；dedicated-aware **507**（+7）；apps **922**；blocked **680**；gimmvfi **三端已清**（含:8193）；此前 MODEL_SOURCES v14 非 H3 ok**454**/blocked**350**/total**804**（Δ+7/−7 vs d2816ac）；此前 capability_gap_scan_v14 OK**235**（+11 vs v13b）；dedicated-aware **500**（+9）；apps **922**；此前 ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,15 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-10（项目管家：MODEL_SOURCES v15 非 H3 — ok457/blocked347/total804）
+- **计数**：ok **457** / blocked **347** / total **804**（v15 非 H3 续下；前 tip 2f104c9 454/350/804；Δ ok+3 / blocked−3）。
+- **清单**：`docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json` 已对齐；JSON `updated_at` 2026-09-10T05:16:39+08:00。
+- **下载摘要**：newly_ok **3** ≈0.28 GiB（紫灵/韩立/宋玉 Civitai → `loras/`）；already_on_nas **12**；blocked 含：银月/燕如嫣 opaque/梅凝/韩立南宫婉/peiling3/nvfp4 gated/Kook亚洲人像/model.pt/h-anime4 登录墙 + 已知 trio（Licon-MSR-V1_B / new_flux-2-klein-9b / bfs…rank128B）；**未**写 `h3/`。
+- **下一步**：此后可扫 capability_gap **v16**（**未**声称 v16 已做）。
+- **真源**：`.regen_tmp/capability_gap_v15_download_summary.json`（**勿 stage**）。
+- Status：`inventory_updated`；STATE `model_sources_v15_non_h3_2026_09_10`；`updated_at` 2026-09-10T05:18:30+08:00。via 项目管家（ToIV 模型下载）。
+
 
 ### 2026-09-10（设备管家：LIVE — 三机 extrapaths toiv 补 style_models）
 - **变更**：三机 `extra_model_paths` toiv 段加 `style_models: style_models`。

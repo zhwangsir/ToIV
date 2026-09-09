@@ -1,10 +1,10 @@
 # MODEL_SOURCES
 
-Updated: 2026-09-10T04:40:53+08:00 (Asia/Shanghai)
+Updated: 2026-09-10T05:16:39+08:00 (Asia/Shanghai)
 
-Totals: ok=454 blocked=350 total=804
+Totals: ok=457 blocked=347 total=804
 
-Batch: capability_gap_v14_non_h3
+Batch: capability_gap_v15_non_h3
 
 ## Items
 
@@ -21,7 +21,7 @@ Batch: capability_gap_v14_non_h3
 | ok | 4xPurePhoto-RealPLSKR.pth | 29663426 | upscale_models/4xPurePhoto-RealPLSKR.pth | titomatus0203/4xPurePhoto-RealPLSKR | app_refs=1 |
 | ok | AnythingtoRealCharacters2511_20.safetensors | 354082336 | loras/AnythingtoRealCharacters2511_20.safetensors | WarmBloodAban/Anything_to_Real_Characters_2511 | app_refs=26 |
 | ok | BAGEL-7B-MoT | 29561610186 | LLM/BAGEL-7B-MoT | ByteDance-Seed/BAGEL-7B-MoT | HF snapshot via merlin huggingface_hub HF_ENDPOINT=hf-mirror.com; hardlinked Windows tree when possible \| status=ski... |
-| ok | BEN_Base.pth | 1134588350 | ben/BEN_Base.pth | PramaLLC/BEN | app_refs=1 \| v14 already_on_nas confirmed \| app_refs=1 |
+| ok | BEN_Base.pth | 1134588350 | ben/BEN_Base.pth | PramaLLC/BEN | app_refs=1 \| v14 already_on_nas confirmed \| app_refs=1 \| v15 confirmed already_on_nas ben/BEN_Base.pth bytes=11345... |
 | ok | Bernini_HIGH_fp8_e4m3fn_scaled.safetensors | 15574833216 | diffusion_models/Bernini_HIGH_fp8_e4m3fn_scaled.safetensors | GDGDFDFG/Wan22_Bernini_HIGH_fp8_e4m3fn_scaled.safetensors | rename from Wan22_Bernini_HIGH_fp8_e4m3fn_scaled.safetensors \| app_refs=2 |
 | ok | Bernini_LOW_fp8_e4m3fn_scaled.safetensors | 15574833216 | diffusion_models/Bernini_LOW_fp8_e4m3fn_scaled.safetensors | GDGDFDFG/Wan22_Bernini_LOW_fp8_e4m3fn_scaled.safetensors | rename from Wan22_Bernini_LOW_fp8_e4m3fn_scaled.safetensors \| app_refs=2 |
 | ok | Consistance_Lora_QwenEdit_2511.safetensors | 613578928 | loras/Consistance_Lora_QwenEdit_2511.safetensors | lrzjason/Consistance_Edit_Lora | rename from lrzjason qe2511_consis_alpha_patched.safetensors \| app_refs=2 |
@@ -83,7 +83,7 @@ Batch: capability_gap_v14_non_h3
 | ok | Ltx2.3-Licon-VBVR-I2V-96000-R32.safetensors | 554006432 | loras/Ltx2.3-Licon-VBVR-I2V-96000-R32.safetensors | LiconStudio/Ltx2.3-VBVR-lora-I2V | v13b P2 downloaded via merlin |
 | ok | Ltx2.3-Licon-VBVR-I2V-LoRA-96000-R32.safetensors | 554006432 | loras/Ltx2.3-Licon-VBVR-I2V-LoRA-96000-R32.safetensors | LiconStudio/Ltx2.3-VBVR-lora-I2V | RH inserts LoRA in basename; from Ltx2.3-Licon-VBVR-I2V-96000-R32 \| app_refs=1 |
 | ok | MelBandRoformer_fp16.safetensors | 456479072 | vocal_separator/MelBandRoformer_fp16.safetensors | Kijai/MelBandRoFormer_comfy | app_refs=12 \| v12_confirmed_on_nas |
-| ok | MelBandRoformer_fp32.safetensors | 912885656 | audio/MelBandRoformer_fp32.safetensors | denisbalon/melbandroformer-fp32.safetensors | app_refs=2 |
+| ok | MelBandRoformer_fp32.safetensors | 912885656 | audio/MelBandRoformer_fp32.safetensors | denisbalon/melbandroformer-fp32.safetensors | app_refs=2 \| v15 confirmed already_on_nas audio/MelBandRoformer_fp32.safetensors bytes=912885656 |
 | ok | OmniSR_X2_DIV2K.safetensors | 1655992 | upscale_models/OmniSR_X2_DIV2K.safetensors | Acly/Omni-SR | app_refs=1 |
 | ok | Phantom-Wan-1_3B_fp32.safetensors | 5676070424 | diffusion_models/Phantom-Wan-1_3B_fp32.safetensors | Kijai/WanVideo_comfy | app_refs=1 |
 | ok | QIE-2511-Extract-Outfit-4200.safetensors | 236117056 | loras/QIE-2511-Extract-Outfit-4200.safetensors | prithivMLmods/QIE-2511-Extract-Outfit | app_refs=1 |
@@ -145,7 +145,7 @@ Batch: capability_gap_v14_non_h3
 | ok | SVI_v2_PRO_Wan2.2-I2V-A14B_HIGH_lora_rank_(128)_fp16.safetensors | 1226934120 | loras/SVI_v2_PRO_Wan2.2-I2V-A14B_HIGH_lora_rank_(128)_fp16.safetensors | Stottsteven/SVI_v2_PRO_Wan2.2-I2V-A14B_HIGH_lora_rank_128_fp16.safetensors | RH paren (128); from rank_128 upstream \| app_refs=1 |
 | ok | SVI_v2_PRO_Wan2.2-I2V-A14B_LOW_lora_rank_(128)_fp16.safetensors | 1226934120 | loras/SVI_v2_PRO_Wan2.2-I2V-A14B_LOW_lora_rank_(128)_fp16.safetensors | alphaghost13/SVI_v2_PRO_Wan2.2-I2V-A14B_LOW_lora_rank_128_fp16 | RH paren (128); from rank_128 upstream \| app_refs=1 |
 | ok | Sa2VA-Qwen3-VL-4B | 20244773542 | LLM/Sa2VA-Qwen3-VL-4B | ByteDance/Sa2VA-Qwen3-VL-4B | HF snapshot via merlin huggingface_hub HF_ENDPOINT=hf-mirror.com; hardlinked Windows tree when possible \| status=dow... |
-| ok | SeC-4B-bf16.safetensors | 7895701052 | sams/SeC-4B-bf16.safetensors | VeryAladeen/Sec-4B | app_refs=1 |
+| ok | SeC-4B-bf16.safetensors | 7895701052 | sams/SeC-4B-bf16.safetensors | VeryAladeen/Sec-4B | app_refs=1 \| v15 confirmed already_on_nas sams/SeC-4B-bf16.safetensors bytes=7895701052 |
 | ok | SeC-4B-fp16.safetensors | 7895698676 | sams/SeC-4B-fp16.safetensors | VeryAladeen/Sec-4B | app_refs=1 |
 | ok | SeC-4B-fp32.safetensors | 15164519628 | detection/SeC-4B-fp32.safetensors | VeryAladeen/Sec-4B | app_refs=2 |
 | ok | Singularity LTX-2.3  OmniCine Preview v0.1.safetensors | 2695584648 | loras/Singularity LTX-2.3  OmniCine Preview v0.1.safetensors | Muapi/singularity-ltx-2.3-omnicine-preview-v0.1 | hardlink alias of Singularity_LTX-2.3_OmniCine_Preview0.1.safetensors (same inode/bytes); app basename has double space |
@@ -169,8 +169,8 @@ Batch: capability_gap_v14_non_h3
 | ok | Wan2.1-Fun-14B-InP-HPS2.1_reward_lora_comfy.safetensors | 1458497816 | loras/Wan2.1-Fun-14B-InP-HPS2.1_reward_lora_comfy.safetensors | alibaba-pai/Wan2.1-Fun-Reward-LoRAs | rename from alibaba-pai Wan2.1-Fun-14B-InP-HPS2.1.safetensors \| app_refs=4 |
 | ok | Wan2.1_T2V_14B_FusionX_VACE-FP8.safetensors | 20387834744 | diffusion_models/Wan2.1_T2V_14B_FusionX_VACE-FP8.safetensors | QuantStack/Wan2.1_T2V_14B_FusionX_VACE | app_refs=1 |
 | ok | Wan2.1_T2V_14B_FusionX_VACE-FP8_e4m3fn.safetensors | 17344651256 | diffusion_models/Wan2.1_T2V_14B_FusionX_VACE-FP8_e4m3fn.safetensors | QuantStack/Wan2.1_T2V_14B_FusionX_VACE | app_refs=8 |
-| ok | Wan2.2-Animate-14B-Q4_K_M.gguf | 11496331072 | unet/Wan2.2-Animate-14B-Q4_K_M.gguf | QuantStack/Wan2.2-Animate-14B-GGUF | replaced klF8Anime2VAE after Bingsu 403/hang on mirror+HF \| app_refs=1 |
-| ok | Wan2.2-Animate-14B-Q4_K_S.gguf | 10592753472 | unet/Wan2.2-Animate-14B-Q4_K_S.gguf | QuantStack/Wan2.2-Animate-14B-GGUF | app_refs=1 |
+| ok | Wan2.2-Animate-14B-Q4_K_M.gguf | 11496331072 | unet/Wan2.2-Animate-14B-Q4_K_M.gguf | QuantStack/Wan2.2-Animate-14B-GGUF | replaced klF8Anime2VAE after Bingsu 403/hang on mirror+HF \| app_refs=1 \| v15 confirmed already_on_nas unet/Wan2.2-A... |
+| ok | Wan2.2-Animate-14B-Q4_K_S.gguf | 10592753472 | unet/Wan2.2-Animate-14B-Q4_K_S.gguf | QuantStack/Wan2.2-Animate-14B-GGUF | app_refs=1 \| v15 confirmed already_on_nas unet/Wan2.2-Animate-14B-Q4_K_S.gguf bytes=10592753472 |
 | ok | Wan2.2-Fun-A14B-InP-Fusion-Elite.safetensors | 858457612 | loras/Wan2.2-Fun-A14B-InP-Fusion-Elite.safetensors | eddy1111111/Wan_toolkit | v13b downloaded via merlin aria2c hf-mirror |
 | ok | Wan2.2-Fun-A14B-InP-LOW-HPS2.1_resized_dynamic_avg_rank_15_bf16.safetensors | 101752852 | loras/Wan2.2-Fun-A14B-InP-LOW-HPS2.1_resized_dynamic_avg_rank_15_bf16.safetensors | Kijai/WanVideo_comfy | app_refs=31 |
 | ok | Wan2.2-Fun-A14B-InP-high-noise-MPS.safetensors | 858457300 | loras/Wan2.2-Fun-A14B-InP-high-noise-MPS.safetensors | alibaba-pai/Wan2.2-Fun-Reward-LoRAs | app_refs=20 |
@@ -225,7 +225,7 @@ Batch: capability_gap_v14_non_h3
 | ok | Wan_2_2_I2V_A14B_HIGH_lightx2v_4step_lora_v1030_rank_64_bf16(1).safetensors | 630697104 | loras/Wan_2_2_I2V_A14B_HIGH_lightx2v_4step_lora_v1030_rank_64_bf16(1).safetensors | Kijai/WanVideo_comfy | RH (1) suffix; from Wan_2_2_I2V_A14B_HIGH_lightx2v_4step_lora_v1030_rank_64_bf16.safetensors \| app_refs=1 |
 | ok | Wuli-Qwen-Image-2512-Turbo-LoRA-2steps-V1.0-bf16.safetensors | 2359534464 | loras/Wuli-Qwen-Image-2512-Turbo-LoRA-2steps-V1.0-bf16.safetensors | Wuli-art/Qwen-Image-2512-Turbo-LoRA-2-Steps | app_refs=1 |
 | ok | Wuli-Qwen-Image-2512-Turbo-LoRA-4steps-V2.0-bf16(1).safetensors | 1179883224 | loras/Wuli-Qwen-Image-2512-Turbo-LoRA-4steps-V2.0-bf16(1).safetensors | Wuli-art/Qwen-Image-2512-Turbo-LoRA | RH (1) twin of V2.0 \| app_refs=1 |
-| ok | Z-Image-Engineer-V6-F16.gguf | 8051284960 | unet/Z-Image-Engineer-V6-F16.gguf | BennyDaBall/Z-Image-Engineer-V6-GGUF | app_refs=1 |
+| ok | Z-Image-Engineer-V6-F16.gguf | 8051284960 | unet/Z-Image-Engineer-V6-F16.gguf | BennyDaBall/Z-Image-Engineer-V6-GGUF | app_refs=1 \| v15 confirmed already_on_nas unet/Z-Image-Engineer-V6-F16.gguf bytes=8051284960 |
 | ok | Z-Image-Engineer-V6-Q8_0.gguf | 4280404960 | LLM/Z-Image-Engineer-V6-Q8_0.gguf | BennyDaBall/Z-Image-Engineer-V6-GGUF | app_refs=4 |
 | ok | Z-Image-Fun-Lora-Distill-4-Steps-2602-ComfyUI.safetensors | 568275120 | loras/Z-Image-Fun-Lora-Distill-4-Steps-2602-ComfyUI.safetensors | alibaba-pai/Z-Image-Fun-Lora-Distill | app_refs=1 |
 | ok | Z-Image-Fun-Lora-Distill-4-Steps-2603-ComfyUI.safetensors | 568275120 | loras/Z-Image-Fun-Lora-Distill-4-Steps-2603-ComfyUI.safetensors | alibaba-pai/Z-Image-Fun-Lora-Distill | app_refs=2 |
@@ -263,7 +263,7 @@ Batch: capability_gap_v14_non_h3
 | ok | f2k_consis.safetensors | 285246040 | loras/f2k_consis.safetensors | lrzjason/Consistance_Edit_Lora | hardlinked to Windows models when useful \| app_refs=4 |
 | ok | face_yolov8m.pt | 52026019 | detection/face_yolov8m.pt | Bingsu/adetailer | app_refs=4 |
 | ok | face_yolov8s.pt | 22507707 | detection/face_yolov8s.pt | Bingsu/adetailer | app_refs=3 |
-| ok | flex1_redux_siglip2_512.safetensors | 129008400 | style_models/flex1_redux_siglip2_512.safetensors | ostris/Flex.1-alpha-Redux | app_refs=1 |
+| ok | flex1_redux_siglip2_512.safetensors | 129008400 | style_models/flex1_redux_siglip2_512.safetensors | ostris/Flex.1-alpha-Redux | app_refs=1 \| v15 confirmed already_on_nas style_models/flex1_redux_siglip2_512.safetensors bytes=129008400 |
 | ok | flux-2-klein-9b-fp8.safetensors | 9433061528 | diffusion_models/flux-2-klein-9b-fp8.safetensors | black-forest-labs/FLUX.2-klein-9b-fp8 | Both gated weights downloaded and landed on NAS with exact expected byte sizes after BFL license accept. \| BFL licen... |
 | ok | flux-2-klein-9b.safetensors | 18157185168 | diffusion_models/flux-2-klein-9b.safetensors | black-forest-labs/FLUX.2-klein-9B | Both gated weights downloaded and landed on NAS with exact expected byte sizes after BFL license accept. \| BFL licen... |
 | ok | flux-depth-controlnet-v3-xlabs-dev.safetensors | 1487623552 | controlnet/flux-depth-controlnet-v3-xlabs-dev.safetensors | XLabs-AI/flux-controlnet-collections | RH xlabs-dev suffix; from XLabs flux-depth-controlnet-v3 \| app_refs=1 |
@@ -329,6 +329,9 @@ Batch: capability_gap_v14_non_h3
 | ok | ltx2.3-ic-watermark-remove-general-lora.safetensors | 327287384 | loras/ltx2.3-ic-watermark-remove-general-lora.safetensors | joyfox/LTX2.3-ICEdit-Insight | rename from joyfox ltx2.3-ic-watermark-remove-general.safetensors (+-lora RH suffix) \| app_refs=3 |
 | ok | ltx2.3-transition.safetensors | 390229424 | loras/ltx2.3-transition.safetensors | joyfox/LTX-2.3-Transition-LORA | app_refs=7 |
 | ok | ltx2.3-video-restoration-general-lora.safetensors | 100767488 | loras/ltx2.3-video-restoration-general-lora.safetensors | joyfox/LTX2.3-ICEdit-Insight | v14 joyfox upstream without -lora suffix; RH/apps use -lora basename; merlin aria2c \| app_refs=2 |
+| ok | ltx2.3宋玉触发词songyu.safetensors | 100769608 | loras/ltx2.3宋玉触发词songyu.safetensors | civitai:2490548@2799878 | v15 exact Civitai match (liao942287300dog LTX2.3宋玉); downloaded via MateBook proxy→merlin NAS loras/; verified 100769... |
+| ok | ltx2.3紫灵触发词ziling.safetensors | 100769608 | loras/ltx2.3紫灵触发词ziling.safetensors | civitai:2482513@2791075 | v15 exact Civitai match (liao942287300dog LTX2.3紫灵); downloaded via MateBook proxy→merlin NAS loras/; verified 100769... |
+| ok | ltx2.3韩立触发词hanli.safetensors | 100769608 | loras/ltx2.3韩立触发词hanli.safetensors | civitai:2529116@2842462 | v15 exact Civitai match (liao942287300dog LTX2.3韩立); downloaded via MateBook proxy→merlin NAS loras/; verified 100769... |
 | ok | ltxv-2b-0.9.6-dev-04-25-v1.safetensors | 6340743924 | checkpoints/ltxv-2b-0.9.6-dev-04-25-v1.safetensors | Lightricks/LTX-Video | app -v1 suffix packaging; same bytes as canonical \| app_refs=1 |
 | ok | ltxv-2b-0.9.6-dev-04-25.safetensors | 6340743924 | checkpoints/ltxv-2b-0.9.6-dev-04-25.safetensors | Lightricks/LTX-Video | canonical HF name \| app_refs=1 |
 | ok | lynx_full_resampler_fp32.safetensors | 343684688 | model_patches/lynx_full_resampler_fp32.safetensors | Kijai/WanVideo_comfy | app_refs=1 |
@@ -443,7 +446,7 @@ Batch: capability_gap_v14_non_h3
 | ok | wan21NSFWClipVisionH_v10.safetensors | 3944517804 | clip_vision/wan21NSFWClipVisionH_v10.safetensors | ricecake/wan21NSFWClipVisionH_v10 | app_refs=2 |
 | ok | wan_2.1_vae_Comfy-Org.safetensors | 253815318 | vae/wan_2.1_vae_Comfy-Org.safetensors | Comfy-Org/Wan_2.1_ComfyUI_repackaged | rename from wan_2.1_vae.safetensors \| app_refs=5 |
 | ok | wan_animate_2_distill_int8_convrot.safetensors | 16653175528 | wan2.2-animate-2-14b/wan_animate_2/comfyui/wan_animate_2_distill_int8_convrot.safetensors |  | already on NAS under wan2.2-animate-2-14b tree; documented this batch \| app_refs=2 \| v14 already_on_nas confirmed \... |
-| ok | whisper-large-v3.safetensors | 3087130976 | audio_encoders/whisper-large-v3.safetensors |  | already on NAS; documented this batch \| app_refs=1 |
+| ok | whisper-large-v3.safetensors | 3087130976 | audio_encoders/whisper-large-v3.safetensors |  | already on NAS; documented this batch \| app_refs=1 \| v15 confirmed already_on_nas audio_encoders/whisper-large-v3.s... |
 | ok | xlab_flux_Realism2_lora.safetensors | 22431400 | loras/xlab_flux_Realism2_lora.safetensors | XLabs-AI/flux-RealismLora | RH Realism2; from XLabs lora.safetensors \| app_refs=1 |
 | ok | yolo11x-pose.pt | 118481010 | detection/yolo11x-pose.pt | Ultralytics/YOLO11 | app_refs=14 |
 | ok | yolo11x_640.onnx | 228016347 | detection/yolo11x_640.onnx | giangndm/yolo11-onnx | hardlinked to Windows models when useful \| app_refs=4 |
@@ -454,7 +457,7 @@ Batch: capability_gap_v14_non_h3
 | ok | z-image-turbo-bf16-aio.safetensors | 20522566986 | checkpoints/z-image-turbo-bf16-aio.safetensors | SeeSee21/Z-Image-Turbo-AIO | ~20GB AIO \| app_refs=3 |
 | ok | z-image-turbo-fp8-e4m3fn.safetensors | 6154958752 | diffusion_models/z-image-turbo-fp8-e4m3fn.safetensors | SarahPeterson2/z_image_turbo_fp8_e4m3fn_unscaled | app short name for unscaled fp8 pack \| app_refs=1 |
 | ok | z-image-turbo_fp8_scaled_KJ.safetensors | 6158115074 | diffusion_models/z-image-turbo_fp8_scaled_KJ.safetensors | Elena2810/z-image-turbo_fp8_scaled_e5m2_KJ_safetensors | RH drops e5m2; from Elena2810 z-image-turbo_fp8_scaled_e5m2_KJ (1) \| app_refs=2 |
-| ok | z_image-Q8_0.gguf | 7224707136 | unet/z_image-Q8_0.gguf | unsloth/Z-Image-Turbo-GGUF | RH short name; from unsloth z-image-turbo-Q8_0.gguf \| app_refs=2 \| v14 already_on_nas confirmed \| app_refs=2 |
+| ok | z_image-Q8_0.gguf | 7224707136 | unet/z_image-Q8_0.gguf | unsloth/Z-Image-Turbo-GGUF | RH short name; from unsloth z-image-turbo-Q8_0.gguf \| app_refs=2 \| v14 already_on_nas confirmed \| app_refs=2 \| v1... |
 | ok | z_image_base-bf16.safetensors | 12309866400 | diffusion_models/z_image_base-bf16.safetensors | benjiaiplayground/z-image-base-repacked | app_refs=1 |
 | ok | z_image_base_bf16_official.safetensors | 12309866400 | diffusion_models/z_image_base_bf16_official.safetensors | benjiaiplayground/z-image-base-repacked | app _official packaging alias \| app_refs=1 |
 | ok | z_image_bf16_ttcosta.safetensors | 12309866400 | diffusion_models/z_image_bf16_ttcosta.safetensors | ttcosta/z_image_bf16 | cp/hardlink from existing diffusion_models/z_image_bf16.safetensors (ttcosta) \| source_ref: alias_of_local:diffusion... |
@@ -471,7 +474,7 @@ Batch: capability_gap_v14_non_h3
 | blocked | 23High_noise-Cumshot_Aesthetics.safetensors |  |  |  | reason=untraceable_nsfw_community \| NSFW aesthetics LoRA; no public HF. \| action=block \| suggested_next=manual \| ... |
 | blocked | 360HDR-Flux & Kontext.safetensors |  |  |  | reason=untraceable_spaced_community_name \| Spaced Flux/Kontext 360HDR LoRA; no reliable HF match. \| action=blocked_... |
 | blocked | 3D服装_000004250.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search... |
-| blocked | 3kman-reface-v0.1-klein_8.safetensors |  |  |  | reason=untraceable_no_public_exact_basename \| action=blocked \| batch=capability_gap_v14_non_h3 |
+| blocked | 3kman-reface-v0.1-klein_8.safetensors |  |  |  | v15: no public exact basename (Civitai/HF) — blocked |
 | blocked | 56low20noiseCumshot.xb7F.safetensors |  |  |  | reason=untraceable_nsfw_community \| NSFW community LoRA; no public HF exact basename. \| action=blocked_untraceable ... |
 | blocked | A1119.safetensors |  |  |  | reason=untraceable_opaque_name \| Opaque short basename; no reliable HF mapping. \| action=blocked_untraceable \| sug... |
 | blocked | ACE++ comfyui_local_lora16_comfyui_local.safetensors |  |  |  | reason=untraceable_local_comfy_export \| Local ComfyUI export rename; not a public weight name. \| action=blocked_unt... |
@@ -480,7 +483,7 @@ Batch: capability_gap_v14_non_h3
 | blocked | BJD娃娃V2.0_04.safetensors |  |  |  | reason=untraceable_community_basename \| Chinese BJD doll style LoRA; no trusted HF exact-basename mirror found this ... |
 | blocked | Best_FaceID_v1.0_ArcFace_Projector.safetensors |  |  |  | reason=untraceable_faceid \| No HF match for ArcFace projector companion. \| action=block \| suggested_next=manual \|... |
 | blocked | Best_FaceID_v1.0_LoRA.safetensors |  |  |  | reason=untraceable_faceid \| No HF match for Best_FaceID_v1.0_LoRA. \| action=block \| suggested_next=manual \| app_r... |
-| blocked | ComfyUI_00002_.safetensors |  |  |  | reason=untraceable_rh_export \| action=blocked \| batch=capability_gap_v14_non_h3 |
+| blocked | ComfyUI_00002_.safetensors |  |  |  | v15: generic Comfy export name — ambiguous — blocked |
 | blocked | DR34ML4Y_LTXXX_PREVIEW_RC1.safetensors |  |  |  | reason=nsfw_or_trainer_dump_untraceable \| NSFW/community trainer dump basename not found on HF with exact name. \| a... |
 | blocked | DR34ML4Y_LTXXX_V2.safetensors |  |  |  | reason=nsfw_or_trainer_dump_untraceable \| NSFW/community trainer dump basename not found on HF with exact name. \| a... |
 | blocked | DarkKlein9b_v2BFS_extracted_lora_r256.safetensors |  |  |  | reason=civitai_only_no_hf_mirror \| action=blocked \| batch=capability_gap_v14_non_h3 |
@@ -516,20 +519,20 @@ Batch: capability_gap_v14_non_h3
 | blocked | Klein_亚秒级无缝扩图_V1.safetensors |  |  |  | reason=untraceable_chinese_community_lora \| No HF/ModelScope/Civitai weight with this basename; Civitai hits are unr... |
 | blocked | Klein_动漫高清放大.safetensors |  |  |  | reason=chinese_opaque_filename \| Chinese/opaque community filename with no exact HF mirror match. \| action=blocked_... |
 | blocked | Klein最新.safetensors |  |  |  | reason=chinese_opaque_filename \| Chinese/opaque community filename with no exact HF mirror match. \| action=blocked_... |
-| blocked | Kook_Flux_klein_亚洲人像.safetensors |  |  |  | reason=untraceable_community_basename; no ModelScope/HF exact \| action=blocked \| batch=capability_gap_v14_non_h3 |
+| blocked | Kook_Flux_klein_亚洲人像.safetensors |  |  |  | v15: forum/Quark-only distribution (APK.TW mentions); no ModelScope/HF/Civitai exact — blocked |
 | blocked | Kook_Qwen_2512_真实幻想.safetensors |  |  |  | reason=untraceable_exact_variant \| action=blocked \| batch=capability_gap_v14_non_h3 |
 | blocked | Kook_Qwen_V3极致真实.safetensors |  |  |  | reason=untraceable_chinese_community_lora \| action=blocked \| batch=capability_gap_v14_non_h3 |
 | blocked | Kook_Zimage_如梦似幻.safetensors |  |  |  | reason=untraceable_chinese_community_lora \| action=blocked \| batch=capability_gap_v14_non_h3 |
 | blocked | Kook_千问写实_Kook_Qwen_V2美人版.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search... |
 | blocked | LTX 2.3 - Twerking.safetensors |  |  |  | reason=untraceable_nsfw_community \| NSFW/community basename; no public HF exact hit in batch14 search. \| action=blo... |
 | blocked | LTX-2.3-22b-AV-LoRA-talking-head-v1.safetensors |  |  |  | reason=gated_or_missing_repo \| Lightricks talking-head AV LoRA repo returns 401 Unauthorized without token. \| actio... |
-| blocked | LTX-2.3-Licon-MSR-V1_B.safetensors |  |  |  | reason=near_name_not_exact: no _B on HF; V1/V2 only; V1 already on NAS \| action=blocked \| priority_dev \| batch=cap... |
+| blocked | LTX-2.3-Licon-MSR-V1_B.safetensors |  |  |  | v15 DO-NOT-RECHASE: keep blocked; near-name V1/V2 only — do not substitute |
 | blocked | LTX-2.3_Cinematic hardcut.safetensors |  |  |  | reason=civitai_only_no_clean_hf_exact \| Exists on CivitAI/CivArchive (model 2508281 / version 2819456) and mirrored ... |
 | blocked | LTX2-3-Realistic-Asian-Portrait-LoRA.safetensors |  |  |  | reason=untraceable_community \| No exact public HF basename match after batch15 search/trees; likely CivitAI/communit... |
 | blocked | LTX2.3-22B_IC-LoRA-Cameraman_v1_10500.safetensors |  |  |  | reason=gated_or_missing_repo \| Cameraman IC-LoRA repo 401; community Civitai names diverge. \| action=blocked_untrac... |
 | blocked | LTX2.3-Multiple-Subject-Reference-v1.safetensors |  |  |  | reason=untraceable_community \| No exact public HF basename match after batch15 search/trees; likely CivitAI/communit... |
-| blocked | LTX2.3银月.safetensors |  |  |  | reason=character_lora_skip_no_trusted_url_in_2min \| action=blocked \| batch=capability_gap_v14_non_h3 |
-| blocked | LTX23-燕如嫣-E78795E5A682E5ABA3E8A7-98UH.safetensors |  |  |  | reason=character_lora_skip_no_trusted_url_in_2min \| action=blocked \| batch=capability_gap_v14_non_h3 |
+| blocked | LTX2.3银月.safetensors |  |  |  | v15: no exact public basename on Civitai/Liblib/HF/ModelScope; Yin Yue IL names are Illustrious not LTX — keep blocke... |
+| blocked | LTX23-燕如嫣-E78795E5A682E5ABA3E8A7-98UH.safetensors |  |  |  | v15: near-name only on Civitai ltx2.3燕如嫣触发词ruyan.safetensors (2810650) — DO NOT substitute; opaque E78795… basename u... |
 | blocked | LTXWP壁纸comfy.safetensors |  |  |  | reason=untraceable_chinese_community_lora \| No HF/Civitai/ModelScope hit for LTXWP wallpaper LoRA. \| app_refs=2 \| ... |
 | blocked | LahHongchenSDXLSD15_sd15V10.safetensors |  |  |  | reason=civitai_style_untraceable \| CivitAI-style character/checkpoint/LoRA basename; no exact HF file. \| action=blo... |
 | blocked | MEIME54_10.safetensors |  |  |  | reason=untraceable_opaque_name \| Opaque short basename; no reliable HF mapping. \| action=blocked_untraceable \| sug... |
@@ -566,7 +569,7 @@ Batch: capability_gap_v14_non_h3
 | blocked | RTDGV3_000003750.safetensors |  |  |  | reason=untraceable_trainer_step_dump \| Trainer/step checkpoint basename; no public HF exact file. \| action=blocked_... |
 | blocked | RaidenShogun_raw3000.safetensors |  |  |  | reason=nsfw_or_trainer_dump_untraceable \| NSFW/community trainer dump basename not found on HF with exact name. \| a... |
 | blocked | SDXL 1.0_fp32_亚洲_nsfw.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search... |
-| blocked | SESELAORUYAO.safetensors |  |  |  | reason=character_lora_no_trusted_source \| action=blocked \| batch=capability_gap_v14_non_h3 |
+| blocked | SESELAORUYAO.safetensors |  |  |  | v15: no public exact basename — blocked |
 | blocked | Saber illustxl.safetensors |  |  |  | reason=untraceable_opaque_basename \| Opaque/community basename; no HF exact hit in batch14 search. \| action=blocked... |
 | blocked | Shouniang14.safetensors |  |  |  | reason=untraceable_opaque_basename \| Opaque/community basename; no HF exact hit in batch14 search. \| action=blocked... |
 | blocked | SinoXVisionFlux2Klein9BV1_FP8.safetensors |  |  |  | reason=klein_community_opaque_or_nsfw \| flux-2-klein official family already done; this community/NSFW/Chinese Klein... |
@@ -607,7 +610,7 @@ Batch: capability_gap_v14_non_h3
 | blocked | ZIT-fp16小红书极致真实.safetensors |  |  |  | reason=untraceable_chinese_community_lora \| No HF/Civitai/ModelScope hit for 小红书极致真实 ZIT LoRA. \| app_refs=2 \| from... |
 | blocked | __Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16__Edit8步bf16 r2.0.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search... |
 | blocked | abf.safetensors |  |  |  | reason=untraceable_opaque_basename \| Opaque/community basename; no HF exact hit in batch14 search. \| action=blocked... |
-| blocked | add_real_details.safetensors |  |  |  | reason=untraceable_no_public_hf \| action=blocked \| batch=capability_gap_v14_non_h3 |
+| blocked | add_real_details.safetensors |  |  |  | v15: no exact HF/Civitai basename (similar Add_Details variants only) — blocked |
 | blocked | aniWan2114BFp8E4m3fn_i2v480pNew.safetensors |  |  |  | reason=untraceable_or_wrong_basename \| HF search found near-misses/wrong basenames only; refusing unsafe rename. \| ... |
 | blocked | aniWan2114BFp8E4m3fn_t2v.safetensors |  |  |  | reason=untraceable_or_wrong_basename \| HF search found near-misses/wrong basenames only; refusing unsafe rename. \| ... |
 | blocked | anicorexl_illustriouss_v7.safetensors |  |  |  | reason=civitai_style_untraceable \| CivitAI-style character/checkpoint/LoRA basename; no exact HF file. \| action=blo... |
@@ -615,7 +618,7 @@ Batch: capability_gap_v14_non_h3
 | blocked | bellydance_abg_animation_10Eros_i2v_v1.0.safetensors |  |  |  | reason=untraceable_nsfw_community \| NSFW/community basename; no public HF exact hit in batch14 search. \| action=blo... |
 | blocked | beyondREALITY_beyondREALITYZIMAGE.safetensors |  |  |  | reason=untraceable_rh_double_prefix_name \| HF Nurburgring BEYOND_REALITY files use Chinese titles; Civitai hits are ... |
 | blocked | bfs_head_swap_v4.safetensors |  |  |  | reason=untraceable_or_wrong_basename \| HF search found near-misses/wrong basenames only; refusing unsafe rename. \| ... |
-| blocked | bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors |  |  |  | reason=near_name_not_exact: only rank128 published/on NAS; trailing B required by apps — near-name does NOT count \| ... |
+| blocked | bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors |  |  |  | v15 DO-NOT-RECHASE: keep blocked; rank128 without trailing B does not count |
 | blocked | bfs_head_v4_qwen_image_edit_2509.safetensors |  |  |  | reason=untraceable_civitai_workflow_only \| Civitai BFS+QwenEdit face-swap entries are workflows (~4KB zip), not down... |
 | blocked | bounceV2_5_LTX23_I2V.comfy.safetensors |  |  |  | reason=untraceable_or_wrong_basename \| HF search found near-misses/wrong basenames only; refusing unsafe rename. \| ... |
 | blocked | bounceV_01bouncing.safetensors |  |  |  | reason=untraceable \| No HF/Civitai hit. \| app_refs=2 \| from=_batch9_blocked_candidates.json |
@@ -630,7 +633,7 @@ Batch: capability_gap_v14_non_h3
 | blocked | darkBeastMar2126Latest_dbzit9DIMRclaw.safetensors |  |  |  | reason=untraceable_or_wrong_basename \| HF search found near-misses/wrong basenames only; refusing unsafe rename. \| ... |
 | blocked | darkBeastZDBZUpdatedDEC21_dbzAIOV10.safetensors |  |  |  | reason=untraceable_civitai_likely \| Skipped quick; no HF hit for darkBeast ZDBZ AIO. \| app_refs=2 \| from=_batch9_b... |
 | blocked | depth_anything_vitl14.pth |  |  |  | reason=ambiguous_v1_weights_format \| LiheYoung HF hosts pytorch_model.bin not .pth; skip guess rename this batch. \|... |
-| blocked | detail-new_000014500.safetensors |  |  |  | reason=untraceable_training_step_artifact \| action=blocked \| batch=capability_gap_v14_non_h3 |
+| blocked | detail-new_000014500.safetensors |  |  |  | v15: untraceable training-step artifact — blocked |
 | blocked | dopsd_white_zimage_turbo_comfy.safetensors |  |  |  | reason=untraceable_or_wrong_basename \| HF search found near-misses/wrong basenames only; refusing unsafe rename. \| ... |
 | blocked | eigen-banana-qwen-image-edit-fp16-lora.safetensors |  |  |  | reason=gated_hf_no_token; eigen-ai-labs CC BY-NC-ND returns 401 without HF token \| action=blocked \| batch=capabilit... |
 | blocked | emw_Wan21_T2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors |  |  |  | reason=community_prefix_near_miss \| emw_ prefixed re-export; official lightx2v T2V rank64 exists on NAS under differ... |
@@ -644,7 +647,7 @@ Batch: capability_gap_v14_non_h3
 | blocked | flux-2-klein-9b-Q8_0.gguf |  |  |  | reason=klein_community_opaque_or_gated_leftover \| flux-2-klein official family already handled; leftover community/N... |
 | blocked | flux-2-klein-9b-fp8-8.8G.safetensors |  |  |  | reason=klein_community_opaque_or_gated_leftover \| flux-2-klein official family already handled; leftover community/N... |
 | blocked | flux-2-klein-9b-kv.safetensors |  |  |  | reason=klein_community_opaque_or_gated_leftover \| flux-2-klein official family already handled; leftover community/N... |
-| blocked | flux-2-klein-9b-nvfp4.safetensors |  |  |  | reason=hf_gated_bfl_license; HF_TOKEN unavailable in box-secrets \| action=blocked \| batch=capability_gap_v14_non_h3 |
+| blocked | flux-2-klein-9b-nvfp4.safetensors |  |  | black-forest-labs/FLUX.2-klein-9b-nvfp4 | v15: BFL gated HF black-forest-labs/FLUX.2-klein-9b-nvfp4 (401); hf-mirror redirects; no HF token; ModelScope ungated... |
 | blocked | flux-2-klein-9b_0630.safetensors |  |  |  | reason=klein_community_opaque_or_gated_leftover \| flux-2-klein official family already handled; leftover community/N... |
 | blocked | flux-2-klein-9b动漫转写实A2RChar.safetensors |  |  |  | reason=chinese_opaque_filename \| Chinese/opaque community filename with no exact HF mirror match. \| action=blocked_... |
 | blocked | flux-2-klein-base-4b.safetensors |  |  |  | reason=klein_community_opaque_or_gated_leftover \| flux-2-klein official family already handled; leftover community/N... |
@@ -671,12 +674,12 @@ Batch: capability_gap_v14_non_h3
 | blocked | gmic20function20Kontext.AqaE.safetensors |  |  |  | reason=untraceable_or_wrong_basename \| HF search found near-misses/wrong basenames only; refusing unsafe rename. \| ... |
 | blocked | gpt-5.6-luna |  |  |  | reason=stub_repo_no_weights detail=crosbylegal/gpt-5.6-luna README-only stub |
 | blocked | guangying11_c1-st5000.safetensors |  |  |  | reason=untraceable_private_lora \| No HF/ModelScope hit for exact basename. \| app_refs=2 |
-| blocked | h-anime4.comfy.safetensors |  |  |  | reason=untraceable_community_basename \| action=blocked \| batch=capability_gap_v14_non_h3 |
+| blocked | h-anime4.comfy.safetensors |  |  | civitai:2725065@3062850 | v15: exact Civitai 3062850/fileId=2941744 (~836MB) found but download requires Civitai login (HTML login page); quark... |
 | blocked | hassaku线稿v1.20_触发mjiuxg.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search... |
 | blocked | head_swap_v3_rank_adaptive_fro_098.safetensors |  |  |  | reason=untraceable_or_wrong_basename \| HF search found near-misses/wrong basenames only; refusing unsafe rename. \| ... |
 | blocked | illustAsianCoser_v3.safetensors |  |  |  | reason=civitai_style_untraceable \| CivitAI-style character/checkpoint/LoRA basename; no exact HF file. \| action=blo... |
 | blocked | illustriousv1.safetensors |  |  |  | reason=civitai_style_untraceable \| CivitAI-style character/checkpoint/LoRA basename; no exact HF file. \| action=blo... |
-| blocked | ip-adapter.bin |  |  |  | reason=untraceable_generic_basename; many incompatible IP-Adapter weights \| action=blocked \| batch=capability_gap_v... |
+| blocked | ip-adapter.bin |  |  |  | v15: generic basename multi-family — ambiguous without sample_app_ids — blocked |
 | blocked | jiaren_zimage.safetensors |  |  |  | reason=untraceable_chinese_private_lora \| No public exact match. \| app_refs=2 |
 | blocked | jun-zimagebase02.safetensors |  |  |  | reason=civitai_style_untraceable \| CivitAI-style character/checkpoint/LoRA basename; no exact HF file. \| action=blo... |
 | blocked | kinghere-Zimage造像v2.0.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search... |
@@ -695,11 +698,8 @@ Batch: capability_gap_v14_non_h3
 | blocked | ltx-2.3-22b-ic-lora-ingredients-0.9.safetensors |  |  |  | reason=gated_hf_401 \| Lightricks IC-LoRA Ingredients exists but HF 401 unauthorized without token/license. \| action... |
 | blocked | ltx-2.3-22b-ic-lora-outpaint.safetensors |  |  |  | reason=untraceable_ambiguous_name \| No upstream file named ic-lora-outpaint; closest is gated In-Outpainting 0.9. Ca... |
 | blocked | ltx-2.3-23b-distilled-1.1.safetensors |  |  |  | reason=nonexistent_model_id_typo \| Official LTX-2.3 is 22b not 23b; no 23b distilled on Lightricks. \| app_refs=2 |
-| blocked | ltx2.3宋玉触发词songyu.safetensors |  |  |  | reason=character_lora_skip_no_trusted_url_in_2min \| action=blocked \| batch=capability_gap_v14_non_h3 |
-| blocked | ltx2.3梅凝触发词meining.safetensors |  |  |  | reason=character_lora_skip_no_trusted_url_in_2min \| action=blocked \| batch=capability_gap_v14_non_h3 |
-| blocked | ltx2.3紫灵触发词ziling.safetensors |  |  |  | reason=character_lora_skip_no_trusted_url_in_2min \| action=blocked \| batch=capability_gap_v14_non_h3 |
-| blocked | ltx2.3韩立南宫婉双人lora.safetensors |  |  |  | reason=character_lora_skip_no_trusted_url_in_2min \| action=blocked \| batch=capability_gap_v14_non_h3 |
-| blocked | ltx2.3韩立触发词hanli.safetensors |  |  |  | reason=character_lora_skip_no_trusted_url_in_2min \| action=blocked \| batch=capability_gap_v14_non_h3 |
+| blocked | ltx2.3梅凝触发词meining.safetensors |  |  |  | v15: only Z-Image versions found (梅凝Z-base_V2 etc.); no exact LTX basename — keep blocked |
+| blocked | ltx2.3韩立南宫婉双人lora.safetensors |  |  |  | v15: no exact public basename; Dual-Character IC-LoRA has different name — keep blocked |
 | blocked | ltx2310Eros_v1_bf16.safetensors |  |  |  | reason=untraceable_nsfw_community \| NSFW/community basename; no public HF exact hit in batch14 search. \| action=blo... |
 | blocked | ltx2310eros_v1.safetensors |  |  |  | reason=untraceable_nsfw_community \| NSFW/community basename; no public HF exact hit in batch14 search. \| action=blo... |
 | blocked | ltx23_inpaint_rank128_v1_10000steps.safetensors |  |  |  | reason=untraceable_or_wrong_basename \| HF search found near-misses/wrong basenames only; refusing unsafe rename. \| ... |
@@ -716,7 +716,7 @@ Batch: capability_gap_v14_non_h3
 | blocked | minimax_h3_turbo_4步加速_comfyui.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search... |
 | blocked | minimax_h3_turbo_4步加速_comfyui_T8.safetensors |  | h3/loras/minimax_h3_turbo_4步加速_comfyui_T8.safetensors |  | h3_dedicated; exact filename 404 on t8star and other searched HF repos; non-T8 twin downloaded as minimax_h3_turbo_4步... |
 | blocked | ministral-3-3b.safetensors |  |  |  | reason=multi_file_gated_or_sharded \| mistralai Ministral-3-3B is sharded/gated; no single-file ministral-3-3b.safete... |
-| blocked | model.pt |  |  |  | reason=ambiguous_generic_basename; skip \| action=blocked \| batch=capability_gap_v14_non_h3 |
+| blocked | model.pt |  |  |  | v15: JSON has count_apps only, no sample_app_ids — ambiguous generic basename — blocked |
 | blocked | moodyDesireMix_v20LITE_去重.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search... |
 | blocked | moodyPornMix_v10DPO.safetensors |  |  |  | reason=nsfw_or_trainer_dump_untraceable \| NSFW/community trainer dump basename not found on HF with exact name. \| a... |
 | blocked | moodyRealMix_zitV5DPO.safetensors |  |  |  | reason=untraceable_civitai_style_name \| Likely Civitai private; no HF exact file. \| app_refs=2 |
@@ -725,12 +725,12 @@ Batch: capability_gap_v14_non_h3
 | blocked | nan_fluxklein_V1_000002500.safetensors |  |  |  | reason=untraceable_trainer_step_dump \| Local trainer step checkpoint basename; no public HF exact file. \| action=bl... |
 | blocked | new_Z-Image_Turbo-diffusion.safetensors |  |  |  | reason=ambiguous_rh_rename; do not guess \| action=blocked \| batch=capability_gap_v14_non_h3 |
 | blocked | new_flux-2-klein-4b.safetensors |  |  |  | reason=klein_community_opaque_or_gated_leftover \| flux-2-klein official family already handled; leftover community/N... |
-| blocked | new_flux-2-klein-9b.safetensors |  |  |  | reason=untraceable_community_rename; official flux-2-klein-9b.safetensors already on NAS diffusion_models/ \| action=... |
+| blocked | new_flux-2-klein-9b.safetensors |  |  |  | v15 DO-NOT-RECHASE: keep blocked; official flux-2-klein-9b already on NAS |
 | blocked | newshot-klein-9b-edit_10.safetensors |  |  |  | reason=klein_community_opaque_or_nsfw \| flux-2-klein official family already done; this community/NSFW/Chinese Klein... |
 | blocked | nvmo01.safetensors |  |  |  | reason=untraceable_or_wrong_basename \| HF search found near-misses/wrong basenames only; refusing unsafe rename. \| ... |
 | blocked | oneObsession_17RED.safetensors |  |  |  | reason=civitai_style_untraceable \| CivitAI-style character/checkpoint/LoRA basename; no exact HF file. \| action=blo... |
 | blocked | open-clip-xlm-roberta-large-vit-huge-14_fp16.safetensors |  |  |  | reason=format_precision_near_miss \| NAS has .pth; HF has visual_fp32.safetensors; no exact fp16 safetensors basename... |
-| blocked | peiling3-lora.comfy.safetensors |  |  |  | reason=character_lora_skip_no_trusted_url_in_2min \| action=blocked \| batch=capability_gap_v14_non_h3 |
+| blocked | peiling3-lora.comfy.safetensors |  |  |  | v15: near-name 慕沛灵Zbase.safetensors only — DO NOT substitute — keep blocked |
 | blocked | pipiRealMixV1.safetensors |  |  |  | reason=civitai_style_untraceable \| CivitAI-style character/checkpoint/LoRA basename; no exact HF file. \| action=blo... |
 | blocked | pornmasterZImage_turboV01.safetensors |  |  |  | reason=nsfw_or_trainer_dump_untraceable \| NSFW/community trainer dump basename not found on HF with exact name. \| a... |
 | blocked | put it here_QwenEdit_V0.1.safetensors |  |  |  | reason=untraceable_placeholder_filename \| RH placeholder-style name; cannot map to canonical weight. \| app_refs=2 |
@@ -814,3 +814,4 @@ Batch: capability_gap_v14_non_h3
 | blocked | 转身-high.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search... |
 | blocked | 造光.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search... |
 | blocked | 造相美人base8.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search... |
+
