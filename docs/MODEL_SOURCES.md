@@ -1,14 +1,41 @@
 # ToIV ComfyUI Model Sources (Provenance Inventory)
 
-- **Updated (Asia/Shanghai):** `2026-09-10T03:46:42+08:00`
-- **OK:** 422
-- **Blocked:** 365
-- **Total:** 787
+- **Updated (Asia/Shanghai):** `2026-09-10T03:52:47+08:00`
+- **OK:** 436
+- **Blocked:** 368
+- **Total:** 804
 - **OK missing HTTP URL and repo:** 5 (local-alias without HTTP: 5; true gaps: 0)
 
-Built from `.regen_tmp` download logs (manifest, batch summaries/plans, blocked list, flux klein, h3, capability_gap_batch1, capability_gap_v3/v4, RMBG-2.0, v12 non-H3). **URLs are never invented** — only copied from logs.
+Built from `.regen_tmp` download logs (manifest, batch summaries/plans, blocked list, flux klein, h3, capability_gap_batch1, capability_gap_v3/v4, RMBG-2.0, v12 non-H3, h3_8195_download_summary). **URLs are never invented** — only copied from logs.
 
 Canonical copies: `ToIV/docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json`. WIP mirror: `.regen_tmp/`. NAS short index: `toiv/comfyui-models/SOURCES.md`.
+
+## h3_8195_dedicated (2026-09-10T03:52:47+08:00)
+
+- Target: `toiv/comfyui-models/h3/` only（H3-dedicated；不写通用池）.
+- Newly OK this run: **13** (~121GiB).
+- Already present skipped: **1** (`minimax_h3_latent_upscaler_3d_bf16.safetensors`).
+- No-source blocked (结案): **3** — `minimax_h3_fl2v_turbo_8step_v1_comfyui_bf16.safetensors` / `minimax_h3_turbo_4step-convertedByAIEverything.safetensors` / `minimax_h3_turbo_4步加速_comfyui_T8.safetensors`.
+- Summary counts.blocked=4 includes the already-present skip; true no-source = **3**.
+- Device `:8195` re-verify: Y**34**/N**3**（+14 vs 初验）；latent bf16+fp16 both Y；剩 3 = 上列 blocked 结案.
+- MODEL_SOURCES totals now: ok **436** / blocked **368** / total **804**（前 v12 non-H3: 422/365/787）.
+- Gen-pool folder mount still pending（ltx spatial / MelBandRoformer / Qwen3.5-9B*）→ expect v13b；两轨勿混.
+
+| basename | rel_path | bytes | repo |
+|---|---|---:|---|
+| `minimax_h3_latent_upscaler_3d_fp16.safetensors` | `h3/latent_upscale_models/minimax_h3_latent_upscaler_3d_fp16.safetensors` | 690592672 | `LBH-123-AI/Minimax_h3_latent_Upscaler` |
+| `minimax_h3_video_vae_int8_convrot.safetensors` | `h3/vae/minimax_h3_video_vae_int8_convrot.safetensors` | 3171670912 | `Kijai/MiniMax-H3-experimental` |
+| `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` | `h3/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors` | 27141342152 | `Comfy-Org/MiniMax-H3` |
+| `minimax_h3_fl2va_pruned_fp8_scaled.safetensors` | `h3/diffusion_models/minimax_h3_fl2va_pruned_fp8_scaled.safetensors` | 20958205608 | `Comfy-Org/MiniMax-H3` |
+| `minimax_h3_ref2va_pruned_fp8_scaled.safetensors` | `h3/diffusion_models/minimax_h3_ref2va_pruned_fp8_scaled.safetensors` | 20958205608 | `Comfy-Org/MiniMax-H3` |
+| `minimax_h3_fl2va_fp8_e4m3fn.safetensors` | `h3/diffusion_models/minimax_h3_fl2va_fp8_e4m3fn.safetensors` | 47012963608 | `rzgar/minimax_h3_fl2va_fp8_e4m3fn` |
+| `minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors` | `h3/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors` | 1956193000 | `Comfy-Org/MiniMax-H3` |
+| `minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors` | `h3/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors` | 1956193000 | `Comfy-Org/MiniMax-H3` |
+| `minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors` | `h3/loras/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors` | 1956192992 | `Comfy-Org/MiniMax-H3` |
+| `minimax_h3_turbo_4步加速_comfyui.safetensors` | `h3/loras/minimax_h3_turbo_4步加速_comfyui.safetensors` | 779858752 | `t8star/minimax-h3-4step-turbo-loras-comfyui-exp` |
+| `minimax_h3_turbo_4step_ckpt500.safetensors` | `h3/loras/minimax_h3_turbo_4step_ckpt500.safetensors` | 779849872 | `larryvrh/MiniMax-H3-Turbo-Lora` |
+| `minimax_h3_turbo_4step_10ErosMax_test4_pruned_curveproj1025_exp_v001-T8.safetensors` | `h3/loras/minimax_h3_turbo_4step_10ErosMax_test4_pruned_curveproj1025_exp_v001-T8.safetensors` | 794888696 | `t8star/minimax_h3_turbo_4step_10ErosMax_test4_pruned_curveproj1025_T8` |
+| `minimax_h3_fl2v_turbo_8step_v1.0_10ErosMax_beta1_pruned_compat_v001_T8.safetensors` | `h3/loras/minimax_h3_fl2v_turbo_8step_v1.0_10ErosMax_beta1_pruned_compat_v001_T8.safetensors` | 1956194364 | `t8star/minimax_h3_turbo_4step_10ErosMax_test4_pruned_curveproj1025_T8` |
 
 ## capability_gap_v12_non_h3 (2026-09-10T03:46:42+08:00)
 

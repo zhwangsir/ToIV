@@ -1,5 +1,12 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-10 LIVE：H3 `:8195` 复验结案（ToIV 开发；docs）：Y**34**/N**3**（+14 vs 初验）；latent bf16+fp16 皆 Y；剩 3=无源 blocked 结案；新下 13 OK ~121GiB→`h3/`；H3补齐关闭（通用池 folder mount 仍待→v13b）；真源勿 stage；status=`h3_buqi_reverify_closed`；STATE `h3_8195_reverify_2026_09_10`；updated_at 2026-09-10T03:56:00+08:00。
+
+- 2026-09-10 MODEL_SOURCES：ok436/blocked368/total804（ToIV 模型下载；docs；H3 dedicated）：header 已同步 JSON；前 422/365/787；status=`inventory_updated`；STATE `model_sources_h3_8195_2026_09_10`；updated_at 2026-09-10T03:56:00+08:00；AGENTS §七 已短注。
+
+- 2026-09-10 capability_gap_scan_v13 完成（ToIV 开发；docs；无产品 SHA）：OK 206→210（+4）；apps 924；blocked 714；dedicated-aware 457→477（+20）；only_h3 251→267；worker 8196=760 / 8188·8193=711（各+10）；已清 `qwen3-vl-32b-int8_convrot`、`Kook_Zimage_真实幻想_Turbo`；仍缺 P0/P1 多为 folder mount（ltx spatial 1.1/1.0、MelBandRoformer_fp16、Qwen3.5-9B*）→待 v13b；真源勿 stage；status=`scan_complete_docs`；STATE `capability_gap_scan_v13_2026_09_10`；updated_at 2026-09-10T03:56:00+08:00；AGENTS §七 已短注。
+
+
 - 2026-09-10 LIVE：v12 非 H3 下载摘要（ToIV 开发；docs）：newly_ok 11；already_on_nas 38；blocked/refresh 23；vague skip 4；remaining_open 305；设备核可见性后 v13；真源勿 stage；STATE `model_sources_v12_non_h3_2026_09_10` / `capability_gap_v12_download_summary_2026_09_10`；updated_at 2026-09-10T03:50:00+08:00。
 
 - 2026-09-10 MODEL_SOURCES：ok422/blocked365/total787（ToIV 模型下载；docs；v12 非 H3）：header 已同步 JSON；status=`inventory_updated`；STATE `model_sources_v12_non_h3_2026_09_10`；updated_at 2026-09-10T03:48:00+08:00；AGENTS §七 已短注。

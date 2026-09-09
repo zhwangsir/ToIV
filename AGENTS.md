@@ -185,6 +185,29 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-10（ToIV 开发：H3 `:8195` 复验结案 + H3补齐关闭）
+- **复验**：Y=**34** / N=**3**（共 **37**；+14 vs 初验 Y20/N17）。
+- **latent**：bf16 + fp16 **皆 Y**。
+- **下载**：新下 **13** OK ~121GiB → `h3/`；无源 blocked **3** 结案（与复验 N=3 一致）。
+- **未关**：通用池 folder mount 仍待（ltx spatial / MelBandRoformer / Qwen3.5-9B*）→ v13b；两轨勿混。
+- **真源**：`.regen_tmp/.../h3_8195_audit_live_reverify.json`（**勿 stage**）。
+- Status：`h3_buqi_reverify_closed`；STATE `h3_8195_reverify_2026_09_10`；`updated_at` 2026-09-10T03:56:00+08:00。via ToIV 开发。
+
+### 2026-09-10（ToIV 模型下载：MODEL_SOURCES H3 dedicated — ok436/blocked368/total804）
+- **计数**：ok **436** / blocked **368** / total **804**（H3 dedicated 批次；前 422/365/787）。
+- **清单**：`docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json` 已对齐。
+- **路径**：写入仅 `h3/`；真源 `.regen_tmp/h3_8195_download_summary.json`（**勿 stage**）。
+- Status：`inventory_updated`；STATE `model_sources_h3_8195_2026_09_10`；`updated_at` 2026-09-10T03:56:00+08:00。via ToIV 模型下载。
+
+### 2026-09-10（ToIV 开发：capability_gap_scan_v13 完成）
+- **主口径**：apps **924**；OK **206→210（+4）**；blocked **714**；unlocalizable **0**。
+- **dedicated-aware**：**457→477（+20）**；only_h3 **251→267**。
+- **worker models**：8196=**760**；8188·8193=**711**（各+10）。
+- **已清**：`qwen3-vl-32b-int8_convrot`、`Kook_Zimage_真实幻想_Turbo`。
+- **仍缺 P0/P1**：多为 folder mount（ltx spatial 1.1/1.0、MelBandRoformer_fp16、Qwen3.5-9B*）→ 待设备核 / **v13b**（v13 非终局）。
+- **真源**：`.regen_tmp/capability_gap_scan_v13/`（**勿 stage**）。
+- Status：`scan_complete_docs`（无产品 SHA）；STATE `capability_gap_scan_v13_2026_09_10`；`updated_at` 2026-09-10T03:56:00+08:00。via ToIV 开发。
+
 ### 2026-09-10（ToIV 模型下载：MODEL_SOURCES v12 非 H3 — ok422/blocked365/total787）
 - **计数**：ok **422** / blocked **365** / total **787**（v12 非 H3 批次；前 412/375/787）。
 - **清单**：`docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json` 已对齐。

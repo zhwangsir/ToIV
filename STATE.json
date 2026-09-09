@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T03:50:00+08:00",
+  "updated_at": "2026-09-10T03:56:00+08:00",
   "capability_gap_v12_download_summary_2026_09_10": {
     "status": "summary_docs",
     "date": "2026-09-10",
@@ -71,11 +71,11 @@
     "closes": "h3_8195_weight_audit latent_upscaler yaml gap",
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-10T03:40:00+08:00",
+    "updated_at": "2026-09-10T03:56:00+08:00",
     "visibility": {
       "bf16_on_8195": true,
-      "fp16": false,
-      "note": "bf16 可见（yaml+硬链）；fp16 仍缺"
+      "fp16": true,
+      "note": "复验后 bf16+fp16 皆 Y（见 h3_8195_reverify_2026_09_10）"
     }
   },
   "h3_8195_weight_audit_2026_09_10": {
@@ -5471,5 +5471,138 @@
     "product_sha": null,
     "updated_at": "2026-09-08T03:21:00+08:00",
     "note": "家族 wipe1166 + 准确重入131 COMPLETE LIVE；rh-acc≈837；抽检12/12；跳过360（901×289+null_workflowId×71）；错误0；家族克隆0；rh_h3_presets.json 已清空防复活（bak 保留，勿提交）。"
+  },
+  "capability_gap_scan_v13_2026_09_10": {
+    "status": "scan_complete_docs",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发"
+    ],
+    "committed_product": false,
+    "product_sha": null,
+    "counts_main": {
+      "apps": 924,
+      "ok_v12": 206,
+      "ok_v13": 210,
+      "ok_delta": 4,
+      "blocked": 714,
+      "unlocalizable": 0
+    },
+    "dedicated_aware": {
+      "before": 457,
+      "after": 477,
+      "delta": 20,
+      "only_h3_before": 251,
+      "only_h3_after": 267
+    },
+    "worker_models": {
+      "8196": 760,
+      "8188": 711,
+      "8193": 711,
+      "delta_each": 10
+    },
+    "cleared": [
+      "qwen3-vl-32b-int8_convrot",
+      "Kook_Zimage_真实幻想_Turbo"
+    ],
+    "still_missing_p0_p1_likely_folder_mount": [
+      "ltx-2.3-spatial-upscaler-x2-1.1",
+      "ltx-2.3-spatial-upscaler-x2-1.0",
+      "MelBandRoformer_fp16",
+      "Qwen3.5-9B*"
+    ],
+    "next": "设备核 folder mount 后 capability_gap_scan_v13b；勿将 v13 当作 folder 终局",
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v13/",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "facts": [
+      "v13 OK 206→210（+4）；apps 924；blocked 714",
+      "dedicated-aware 457→477（+20）；only_h3 251→267",
+      "worker 8196=760 / 8188·8193=711（各+10）",
+      "已清 qwen3-vl-32b-int8_convrot、Kook_Zimage_真实幻想_Turbo",
+      "仍缺多为 folder mount → v13b"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T03:56:00+08:00",
+    "note": "capability_gap_scan_v13 完成；OK +4→210；folder mount 仍待 v13b；无产品 SHA"
+  },
+  "model_sources_h3_8195_2026_09_10": {
+    "status": "inventory_updated",
+    "date": "2026-09-10",
+    "source": "ToIV 模型下载",
+    "ok": 436,
+    "blocked": 368,
+    "total": 804,
+    "prev": {
+      "ok": 422,
+      "blocked": 365,
+      "total": 787
+    },
+    "trigger": "H3 dedicated :8195 批次",
+    "inventory_updated_at": "2026-09-10T03:52:47+08:00",
+    "files": [
+      "docs/MODEL_SOURCES.md",
+      "docs/MODEL_SOURCES.json"
+    ],
+    "header_synced_from_json": true,
+    "h3_download": {
+      "newly_ok": 13,
+      "bytes_gib": 121.18,
+      "already_present_skipped": 1,
+      "no_source_blocked": 3,
+      "target": "h3/"
+    },
+    "parallel_track": "H3补齐与通用池 folder mount 两轨勿混",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T03:56:00+08:00",
+    "note": "MODEL_SOURCES ok436/blocked368/total804 after H3 dedicated batch"
+  },
+  "h3_8195_reverify_2026_09_10": {
+    "status": "h3_buqi_reverify_closed",
+    "date": "2026-09-10",
+    "source": "ToIV 开发",
+    "endpoint": "http://192.168.71.127:8195",
+    "prior": {
+      "y": 20,
+      "n": 17,
+      "total": 37
+    },
+    "updated": {
+      "y": 34,
+      "n": 3,
+      "total": 37
+    },
+    "delta": {
+      "y_delta": 14,
+      "n_delta": -14
+    },
+    "latent_upscale_models": {
+      "bf16": true,
+      "fp16": true,
+      "both_Y": true
+    },
+    "remaining_n3_blocked_closed": [
+      "minimax_h3_fl2v_turbo_8step_v1_comfyui_bf16.safetensors",
+      "minimax_h3_turbo_4step-convertedByAIEverything.safetensors",
+      "minimax_h3_turbo_4步加速_comfyui_T8.safetensors"
+    ],
+    "newly_downloaded_ok": 13,
+    "bytes_gib_approx": 121,
+    "h3_buqi_closed": true,
+    "genpool_folder_mount_pending": true,
+    "note_do_not_claim_genpool_mount_done": true,
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v12/actionable/h3_8195_audit_live_reverify.json",
+    "related_download_summary": ".regen_tmp/h3_8195_download_summary.json",
+    "do_not_stage": [
+      ".regen_tmp"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T03:56:00+08:00",
+    "note": "H3 :8195 复验 Y34/N3；H3补齐结案；通用池 mount 仍待 v13b"
   }
 }

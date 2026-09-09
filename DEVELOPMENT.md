@@ -4,6 +4,11 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-10 LIVE：H3 `:8195` 复验结案 + H3补齐关闭（ToIV 开发）**：Y**34**/N**3**（+14 vs 初验 Y20/N17）；latent bf16+fp16 皆 Y；剩 3 无源 blocked 结案；新下 **13** OK ~121GiB → `h3/`；counts.blocked 摘要含 1 skip-already-present，真无源=3。**未**关闭通用池 folder mount（ltx spatial / MelBandRoformer / Qwen3.5-9B*）→ 等 v13b。真源 `.regen_tmp/.../h3_8195_audit_live_reverify.json` + `h3_8195_download_summary.json` 勿 stage。status=`h3_buqi_reverify_closed`；STATE `h3_8195_reverify_2026_09_10`；updated_at 2026-09-10T03:56:00+08:00。
+
+**2026-09-10 MODEL_SOURCES：ok436/blocked368/total804（ToIV 模型下载；H3 dedicated）**：H3 批次落入 `h3/` 后计数对齐；header 已同步 JSON `updated_at` 2026-09-10T03:52:47+08:00（前 v12 non-H3 422/365/787）。status=`inventory_updated`；STATE `model_sources_h3_8195_2026_09_10`；updated_at 2026-09-10T03:56:00+08:00。
+
+**2026-09-10 capability_gap_scan_v13 完成（ToIV 开发；无产品 SHA）**：apps 924；OK **206→210（+4）**；blocked 714；dedicated-aware **457→477（+20）**；only_h3 **251→267**；worker models：8196=**760** / 8188·8193=**711**（各+10）；已清 `qwen3-vl-32b-int8_convrot`、`Kook_Zimage_真实幻想_Turbo`；仍缺 P0/P1 多为 folder mount → 待设备核/v13b；真源 `.regen_tmp/capability_gap_scan_v13/` 勿 stage。status=`scan_complete_docs`；STATE `capability_gap_scan_v13_2026_09_10`；updated_at 2026-09-10T03:56:00+08:00。
 
 **2026-09-10 MODEL_SOURCES：ok422/blocked365/total787（ToIV 模型下载；v12 非 H3）**：v12 非 H3 批次落入后计数对齐；header 已同步 JSON `updated_at` 2026-09-10T03:46:42+08:00。下载摘要：newly_ok 11 / already_on_nas 38 / blocked·refresh 23 / vague skip 4 / remaining_open 305；设备核可见性后 v13；真源 `.regen_tmp/capability_gap_v12_download_summary.json` 勿 stage。status=`inventory_updated`；STATE `model_sources_v12_non_h3_2026_09_10`；updated_at 2026-09-10T03:50:00+08:00。
 
