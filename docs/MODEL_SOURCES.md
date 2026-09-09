@@ -1,14 +1,59 @@
 # ToIV ComfyUI Model Sources (Provenance Inventory)
 
-- **Updated (Asia/Shanghai):** `2026-09-10T03:13:45+08:00`
-- **OK:** 412
-- **Blocked:** 375
+- **Updated (Asia/Shanghai):** `2026-09-10T03:46:42+08:00`
+- **OK:** 422
+- **Blocked:** 365
 - **Total:** 787
-- **OK missing HTTP URL and repo:** 9 (local-alias without HTTP: 17; true gaps: 0)
+- **OK missing HTTP URL and repo:** 5 (local-alias without HTTP: 5; true gaps: 0)
 
-Built from `.regen_tmp` download logs (manifest, batch summaries/plans, blocked list, flux klein, h3, capability_gap_batch1, capability_gap_v3/v4, RMBG-2.0). **URLs are never invented** — only copied from logs.
+Built from `.regen_tmp` download logs (manifest, batch summaries/plans, blocked list, flux klein, h3, capability_gap_batch1, capability_gap_v3/v4, RMBG-2.0, v12 non-H3). **URLs are never invented** — only copied from logs.
 
 Canonical copies: `ToIV/docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json`. WIP mirror: `.regen_tmp/`. NAS short index: `toiv/comfyui-models/SOURCES.md`.
+
+## capability_gap_v12_non_h3 (2026-09-10T03:46:42+08:00)
+
+- Formal list: `non_h3_missing_models_formal.json` (**357**); exclude minimax_h3*/MiniMax-H3*/qwen3vl_32b_minimax_h3_*.
+- **qwen3-vl-32b-int8_convrot.safetensors** → 通用 `text_encoders/`（纠正先前 h3_dedicated_skip）。
+- Newly OK this run: **11** (incl. hardlink aliases).
+- Already on NAS (exact among formal): **38**.
+- Skipped vague: **4** (`model.pt` etc).
+- Newly/refresh blocked documented: **23** (character LoRAs + untraceable/gated).
+- Remaining open (sample in summary JSON): **305**.
+- MODEL_SOURCES totals now: ok **422** / blocked **365** / total **787**.
+
+| basename | rel_path | bytes | repo |
+|---|---|---:|---|
+| `qwen3-vl-32b-int8_convrot.safetensors` | `text_encoders/qwen3-vl-32b-int8_convrot.safetensors` | 27141373256 | `Gluttony10/MiniMax-H3-INT8-CONVROT` |
+| `Kook_Zimage_真实幻想_Turbo.safetensors` | `loras/Kook_Zimage_真实幻想_Turbo.safetensors` | 170128264 | `KZZrin/kook_zturbo` |
+| `bfs_head_v1_flux-klein_9b_step3500_rank128.safetensors` | `loras/bfs_head_v1_flux-klein_9b_step3500_rank128.safetensors` | 662729912 | `Alissonerdx/BFS-Best-Face-Swap` |
+| `ltx-2.3-22b-distilled-lora-fro90_ceil72.safetensors` | `loras/ltx-2.3-22b-distilled-lora-fro90_ceil72.safetensors` | 1396664432 | `TenStrip/LTX2.3_Distilled_Lora_1.1_Experiments` |
+| `LTX-2.3-OmniNFT-RL-Lora_bf16.safetensors` | `loras/LTX-2.3-OmniNFT-RL-Lora_bf16.safetensors` | 616948520 | `Kijai/LTX2.3_comfy` |
+| `Dramatic Lighting Slider_.safetensors` | `loras/Dramatic Lighting Slider_.safetensors` | 8119072 | `LyliaEngine/Dramatic_Lighting_Slider` |
+| `Qwen_Image_Edit_2511_Lightning_4步加速Lora_fp32.safetensors` | `loras/Qwen_Image_Edit_2511_Lightning_4步加速Lora_fp32.safetensors` | 1698951104 | `lightx2v/Qwen-Image-Edit-2511-Lightning` |
+| `Qwen-edit-2511-multiple-angles.safetensors` | `loras/Qwen-edit-2511-multiple-angles.safetensors` | 295140688 | `fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA` |
+| `Qwen-Image-Edit-2511-Lightning-4steps-V1.0-fp32.safetensors` | `loras/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-fp32.safetensors` | 1698951104 | `lightx2v/Qwen-Image-Edit-2511-Lightning` |
+| `Singularity LTX-2.3  OmniCine Preview v0.1.safetensors` | `loras/Singularity LTX-2.3  OmniCine Preview v0.1.safetensors` | 2695584648 | `Muapi/singularity-ltx-2.3-omnicine-preview-v0.1` |
+| `LTX-2.3-OmniNFT-RL-Lora_bf16_KJ.safetensors` | `loras/LTX-2.3-OmniNFT-RL-Lora_bf16_KJ.safetensors` | 616948520 | `Kijai/LTX2.3_comfy` |
+
+### Top priority status
+
+| P | apps | basename | status |
+|---|---:|---|---|
+| P0 | 32 | `ltx-2.3-spatial-upscaler-x2-1.1.safetensors` | already_on_nas |
+| P1 | 17 | `qwen3-vl-32b-int8_convrot.safetensors` | newly_ok |
+| P1 | 10 | `Kook_Zimage_真实幻想_Turbo.safetensors` | newly_ok |
+| P1 | 9 | `Qwen3.5-9B-mmproj-BF16.gguf` | already_on_nas |
+| P1 | 9 | `bfs_head_v1_flux-klein_9b_step3500_rank128.safetensors` | newly_ok |
+| P1 | 8 | `MelBandRoformer_fp16.safetensors` | already_on_nas |
+| P1 | 8 | `Qwen3.5-9B-Q8_0.gguf` | already_on_nas |
+| P1 | 8 | `Singularity LTX-2.3  OmniCine Preview v0.1.safetensors` | newly_ok |
+| P1 | 8 | `ltx-2.3-22b-distilled-lora-fro90_ceil72.safetensors` | newly_ok |
+| P1 | 8 | `ltx-2.3-spatial-upscaler-x2-1.0.safetensors` | already_on_nas |
+| P2 | 7 | `FullDynamic_Ultimate_Fusion_Elite.safetensors` | blocked |
+| P2 | 7 | `Kook_Zimage_瑶光.safetensors` | blocked |
+| P2 | 7 | `LTX-2.3-Licon-MSR-V1_B.safetensors` | blocked |
+| P2 | 7 | `gimmvfi_r_arb_lpips_fp32.safetensors` | already_on_nas |
+| P2 | 7 | `lightx2v_elite_it2v_animate_face.safetensors` | blocked |
 
 ## capability_gap_v3_batch1 (2026-09-08T18:17:37+08:00)
 

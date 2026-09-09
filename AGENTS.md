@@ -185,6 +185,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-10（ToIV 模型下载：MODEL_SOURCES v12 非 H3 — ok422/blocked365/total787）
+- **计数**：ok **422** / blocked **365** / total **787**（v12 非 H3 批次；前 412/375/787）。
+- **清单**：`docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json` 已对齐。
+- Status：`inventory_updated`；STATE `model_sources_v12_non_h3_2026_09_10`；`updated_at` 2026-09-10T03:48:00+08:00。via ToIV 模型下载。
+
 ### 2026-09-10（ToIV 开发：H3 `:8195` 权重验收）
 - **结果**：Y=**20** / N=**17**（共 **37**）。
 - **齐**：核心日用（vae / fl2va·ref2va pruned / nvfp4 te）。

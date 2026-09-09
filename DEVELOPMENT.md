@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-10 MODEL_SOURCES：ok422/blocked365/total787（ToIV 模型下载；v12 非 H3）**：v12 非 H3 批次落入后计数对齐；header 已同步 JSON `updated_at` 2026-09-10T03:46:42+08:00。status=`inventory_updated`；STATE `model_sources_v12_non_h3_2026_09_10`；updated_at 2026-09-10T03:48:00+08:00。
+
 **2026-09-10 LIVE：H3 extrapaths 补 latent_upscale_models（设备管家）**：`ComfyUI-h3-eval` 已加 `latent_upscale_models`；bf16 upscaler 硬链到 `toiv/.../h3/`。可见性：bf16 在 `:8195` 已可见（yaml+硬链）；fp16 仍缺。status=`live_device_fyi`；STATE `h3_latent_upscale_models_2026_09_10`；updated_at 2026-09-10T03:40:00+08:00。
 
 **2026-09-10 H3 `:8195` 权重验收（ToIV 开发；无产品 SHA）**：Y=20/N=17（37）；核心日用（vae/fl2va·ref2va pruned/nvfp4 te）齐；缺 17 多为 turbo/fp8/T8/10Eros 变体 + latent_upscaler（通用 NAS 有 bf16，H3 yaml 曾未挂 latent_upscale_models——已补（见新 tip））；缺清单已转模型下载仅 `h3/`；真源 `.regen_tmp/.../h3_8195_audit_live.md` 勿 stage。status=`audit_done_docs`；STATE `h3_8195_weight_audit_2026_09_10`；updated_at 2026-09-10T03:39:00+08:00。

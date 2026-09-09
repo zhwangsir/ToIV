@@ -1,7 +1,32 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T03:40:00+08:00",
+  "updated_at": "2026-09-10T03:48:00+08:00",
+  "model_sources_v12_non_h3_2026_09_10": {
+    "status": "inventory_updated",
+    "date": "2026-09-10",
+    "source": "ToIV 模型下载",
+    "ok": 422,
+    "blocked": 365,
+    "total": 787,
+    "prev": {
+      "ok": 412,
+      "blocked": 375,
+      "total": 787
+    },
+    "trigger": "v12 非 H3 批次",
+    "inventory_updated_at": "2026-09-10T03:46:42+08:00",
+    "files": [
+      "docs/MODEL_SOURCES.md",
+      "docs/MODEL_SOURCES.json"
+    ],
+    "header_synced_from_json": true,
+    "parallel_track": "用户拍板① v12 非 H3 杂缺模 Top→模型下载",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T03:48:00+08:00",
+    "note": "MODEL_SOURCES ok422/blocked365/total787 after v12 non-H3 batch"
+  },
   "h3_latent_upscale_models_2026_09_10": {
     "status": "live_device_fyi",
     "date": "2026-09-10",
