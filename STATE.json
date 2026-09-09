@@ -1,7 +1,22 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T03:38:00+08:00",
+  "updated_at": "2026-09-10T03:39:00+08:00",
+  "h3_latent_upscale_models_2026_09_10": {
+    "status": "live_device_fyi",
+    "date": "2026-09-10",
+    "source": "设备管家",
+    "live": true,
+    "comfy": "ComfyUI-h3-eval",
+    "extra_model_paths": {
+      "latent_upscale_models": true
+    },
+    "bf16_upscaler": "hardlink to toiv/.../h3/",
+    "closes": "h3_8195_weight_audit latent_upscaler yaml gap",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T03:39:00+08:00"
+  },
   "h3_8195_weight_audit_2026_09_10": {
     "status": "audit_done_docs",
     "date": "2026-09-10",
@@ -28,7 +43,7 @@
     },
     "followups": {
       "model_download": "缺清单仅 h3/ 路径",
-      "device": "H3 yaml 补挂 latent_upscale_models"
+      "device": "done — latent_upscale_models added + bf16 hardlink"
     },
     "source_of_truth": ".regen_tmp/.../h3_8195_audit_live.md",
     "do_not_stage": [
@@ -37,8 +52,9 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-10T03:38:00+08:00",
-    "note": "H3 :8195 权重验收 Y20/N17；核心日用齐；缺清单转模型下载 h3/"
+    "updated_at": "2026-09-10T03:39:00+08:00",
+    "note": "H3 :8195 权重验收 Y20/N17；核心日用齐；缺清单转模型下载 h3/",
+    "latent_upscale_models_fixed": true
   },
   "capability_gap_scan_v12_2026_09_10": {
     "status": "scan_complete_docs",
