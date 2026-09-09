@@ -1,52 +1,61 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T03:20:00+08:00",
-  "genpool_extrapaths_rmbg_2026_09_10": {
-    "status": "live_device_fyi",
+  "updated_at": "2026-09-10T03:25:00+08:00",
+  "capability_gap_scan_v12_2026_09_10": {
+    "status": "scan_complete_docs",
     "date": "2026-09-10",
-    "source": "设备管家",
-    "live": true,
-    "pool": "image_gen",
-    "extra_model_paths": {
-      "toiv": {
-        "RMBG": "RMBG"
-      }
-    },
-    "verify": "四端 /models/RMBG 列 RMBG-2.0",
-    "next": "capability_gap_scan_v12",
-    "agents_md": "updated",
-    "pushed": false,
-    "updated_at": "2026-09-10T03:20:00+08:00",
-    "note": "生图池 extrapaths RMBG；folder 齐可扫 v12"
-  },
-  "model_sources_rmbg20_2026_09_10": {
-    "status": "inventory_updated",
-    "date": "2026-09-10",
-    "source": "ToIV 模型下载",
-    "ok": 412,
-    "blocked": 375,
-    "total": 787,
-    "prev": {
-      "ok": 411,
-      "blocked": 376,
-      "total": 787
-    },
-    "trigger": "RMBG-2.0 落入",
-    "inventory_updated_at": "2026-09-10T03:13:45+08:00",
-    "files": [
-      "docs/MODEL_SOURCES.md",
-      "docs/MODEL_SOURCES.json"
+    "source": [
+      "ToIV 开发",
+      "设备管家"
     ],
-    "header_synced_from_json": true,
+    "committed_product": false,
+    "product_sha": null,
+    "counts_main": {
+      "apps_before": 925,
+      "apps_after": 924,
+      "ok_v11": 200,
+      "ok_v12": 206,
+      "ok_delta": 6,
+      "blocked": 718,
+      "unlocalizable": 0
+    },
+    "dedicated_aware": {
+      "before": 451,
+      "after": 457,
+      "only_h3": 251
+    },
+    "rmbg": {
+      "missing_board_cleared": true,
+      "extrapaths_effective": true,
+      "prior_10_stuck": {
+        "ok": 3,
+        "still_blocked_other_gaps": 7
+      },
+      "scan_solidified": "MODEL_FOLDERS+=RMBG + directory name match"
+    },
+    "top_missing_models": "almost all H3 dedicated",
+    "pending_nodes": [
+      "TT",
+      "Bjornulf",
+      "VRAM"
+    ],
+    "general_pool_true_missing_model_delta": 0,
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v12/",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "facts": [
+      "v12 OK 200→206（+6）；apps 925→924；blocked 718",
+      "dedicated-aware 451→457；only_h3 251",
+      "RMBG 缺模榜已清；原 10 卡 3 OK / 7 仍他缺",
+      "固化 MODEL_FOLDERS+=RMBG；无新通用池真缺模增量"
+    ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-10T03:20:00+08:00",
-    "note": "MODEL_SOURCES ok412/blocked375/total787 after RMBG-2.0",
-    "nas_path": "NAS/toiv/comfyui-models/RMBG/RMBG-2.0/model.safetensors",
-    "size_bytes": 884878856,
-    "next": "capability_gap_scan_v12 ready",
-    "device_folder_verified": true
+    "updated_at": "2026-09-10T03:25:00+08:00",
+    "note": "capability_gap_scan_v12 完成；OK +6→206；RMBG 缺模清；无产品 SHA"
   },
   "capability_gap_scan_v11_2026_09_10": {
     "status": "scan_complete_docs",
@@ -102,8 +111,58 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-10T03:14:00+08:00",
-    "note": "capability_gap_scan_v11 完成；OK +9→200；dedicated-aware 旁路；无产品 SHA"
+    "updated_at": "2026-09-10T03:25:00+08:00",
+    "note": "capability_gap_scan_v11 完成；OK +9→200；dedicated-aware 旁路；无产品 SHA",
+    "followups": {
+      "v12": "capability_gap_scan_v12_2026_09_10"
+    }
+  },
+  "genpool_extrapaths_rmbg_2026_09_10": {
+    "status": "live_device_fyi",
+    "date": "2026-09-10",
+    "source": "设备管家",
+    "live": true,
+    "pool": "image_gen",
+    "extra_model_paths": {
+      "toiv": {
+        "RMBG": "RMBG"
+      }
+    },
+    "verify": "四端 /models/RMBG 列 RMBG-2.0",
+    "next": "done — see capability_gap_scan_v12_2026_09_10",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T03:25:00+08:00",
+    "note": "生图池 extrapaths RMBG；folder 齐可扫 v12",
+    "v12_done": true
+  },
+  "model_sources_rmbg20_2026_09_10": {
+    "status": "inventory_updated",
+    "date": "2026-09-10",
+    "source": "ToIV 模型下载",
+    "ok": 412,
+    "blocked": 375,
+    "total": 787,
+    "prev": {
+      "ok": 411,
+      "blocked": 376,
+      "total": 787
+    },
+    "trigger": "RMBG-2.0 落入",
+    "inventory_updated_at": "2026-09-10T03:13:45+08:00",
+    "files": [
+      "docs/MODEL_SOURCES.md",
+      "docs/MODEL_SOURCES.json"
+    ],
+    "header_synced_from_json": true,
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T03:20:00+08:00",
+    "note": "MODEL_SOURCES ok412/blocked375/total787 after RMBG-2.0",
+    "nas_path": "NAS/toiv/comfyui-models/RMBG/RMBG-2.0/model.safetensors",
+    "size_bytes": 884878856,
+    "next": "capability_gap_scan_v12 ready",
+    "device_folder_verified": true
   },
   "capability_gap_scan_v10_2026_09_08": {
     "status": "scan_complete_docs",
@@ -282,7 +341,7 @@
       "ok_v8": 163,
       "delta": 105,
       "next_wave_list": ".regen_tmp/capability_gap_scan_v8/actionable/next_wave_misc_packages.md",
-      "next_scan": "after P2 residual / RMBG-2.0",
+      "next_scan": "as needed",
       "ok_v9": 185,
       "delta_v8_v9": 22,
       "v9_report": "capability_gap_scan_v9_2026_09_08",
@@ -291,7 +350,10 @@
       "v10_report": "capability_gap_scan_v10_2026_09_08",
       "ok_v11": 200,
       "delta_v10_v11": 9,
-      "v11_report": "capability_gap_scan_v11_2026_09_10"
+      "v11_report": "capability_gap_scan_v11_2026_09_10",
+      "ok_v12": 206,
+      "delta_v11_v12": 6,
+      "v12_report": "capability_gap_scan_v12_2026_09_10"
     },
     "general_pool_workers": [
       "192.168.71.127:8196",
@@ -323,12 +385,14 @@
       "capability_gap_scan_v10 完成：OK 185→191（+6）",
       "P1 八类退出全局缺节点；P2 核同名进行中",
       "capability_gap_scan_v11 完成：OK 191→200（+9）",
-      "dedicated-aware 旁路 ok 451（不改主 ok）"
+      "dedicated-aware 旁路 ok 451（不改主 ok）",
+      "capability_gap_scan_v12 完成：OK 200→206（+6）",
+      "RMBG 缺模榜已清（extrapaths 生效）"
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-10T03:01:00+08:00",
-    "note": "capability gap：v11 OK 200；dedicated-aware 451；P2 部分齐；公开约 956；live_on_core_dirty 无产品 SHA",
+    "updated_at": "2026-09-10T03:25:00+08:00",
+    "note": "capability gap：v12 OK 206；RMBG 清；dedicated-aware 457；live_on_core_dirty 无产品 SHA",
     "h3_route_v2": {
       "date": "2026-09-08",
       "redeploy": "skip-web",

@@ -185,6 +185,15 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-10（ToIV 开发 / 设备管家：capability_gap_scan_v12 完成）
+- **主口径**：apps **925→924**；OK **200→206（+6）**；blocked **718**；unlocalizable **0**。
+- **dedicated-aware**：**451→457**（only_h3 仍 **251**）。
+- **RMBG**：缺模榜已清（`extra_model_paths` RMBG 生效）；原 10 卡中 **3 OK / 7** 仍因其他缺口 blocked。
+- **扫描**：固化 `MODEL_FOLDERS+=RMBG` + 目录名匹配。
+- **Top 缺模**仍几乎全 **H3 专用**；挂起 TT/Bjornulf/VRAM 维持；无新通用池真缺模增量。
+- **真源**：`.regen_tmp/capability_gap_scan_v12/`（**勿 stage**）。
+- Status：`scan_complete_docs`（无产品 SHA）；STATE `capability_gap_scan_v12_2026_09_10`；`updated_at` 2026-09-10T03:25:00+08:00。via ToIV 开发 / 设备管家。
+
 ### 2026-09-10（设备管家：LIVE — 生图池 extrapaths toiv 补 RMBG）
 - **变更**：生图池 `extra_model_paths` toiv 段加 `RMBG: RMBG`。
 - **验收**：四端 `/models/RMBG` 已列 **RMBG-2.0**。
