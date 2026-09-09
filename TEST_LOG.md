@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-10 LIVE：生图池 extrapaths toiv 补 RMBG（设备管家；docs）：`RMBG: RMBG`；四端 `/models/RMBG` 列 RMBG-2.0；可扫 v12；status=`live_device_fyi`；STATE `genpool_extrapaths_rmbg_2026_09_10`；updated_at 2026-09-10T03:20:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-10 LIVE：RMBG-2.0 落盘路径补注（ToIV 开发；docs）：`NAS/toiv/comfyui-models/RMBG/RMBG-2.0/model.safetensors` 884878856B；设备核 folder 后 v12；STATE `model_sources_rmbg20_2026_09_10`；updated_at 2026-09-10T03:16:00+08:00。
 
 - 2026-09-10 MODEL_SOURCES：ok412/blocked375/total787（ToIV 模型下载；docs；RMBG-2.0）：header 已同步 JSON；status=`inventory_updated`；STATE `model_sources_rmbg20_2026_09_10`；updated_at 2026-09-10T03:14:00+08:00；AGENTS §七 已短注。

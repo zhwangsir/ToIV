@@ -5,7 +5,9 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
-**2026-09-10 MODEL_SOURCES：ok412/blocked375/total787（ToIV 模型下载；RMBG-2.0）**：RMBG-2.0 落入后计数对齐；header 已同步 JSON `updated_at` 2026-09-10T03:13:45+08:00。落盘 `NAS/toiv/comfyui-models/RMBG/RMBG-2.0/model.safetensors` 884878856B；设备核 folder 后 v12。status=`inventory_updated`；STATE `model_sources_rmbg20_2026_09_10`；updated_at 2026-09-10T03:16:00+08:00。
+**2026-09-10 LIVE：生图池 extrapaths toiv 补 RMBG（设备管家）**：toiv 段加 `RMBG: RMBG`；四端 `/models/RMBG` 已列 RMBG-2.0；可扫 v12。status=`live_device_fyi`；STATE `genpool_extrapaths_rmbg_2026_09_10`；updated_at 2026-09-10T03:20:00+08:00。
+
+**2026-09-10 MODEL_SOURCES：ok412/blocked375/total787（ToIV 模型下载；RMBG-2.0）**：RMBG-2.0 落入后计数对齐；header 已同步 JSON `updated_at` 2026-09-10T03:13:45+08:00。落盘 `NAS/toiv/comfyui-models/RMBG/RMBG-2.0/model.safetensors` 884878856B；设备核 folder 已齐（见新 tip），可扫 v12。status=`inventory_updated`；STATE `model_sources_rmbg20_2026_09_10`；updated_at 2026-09-10T03:16:00+08:00。
 
 **2026-09-10 capability_gap_scan_v11 完成（ToIV 开发；无产品 SHA）**：apps 934→925；OK **191→200（+9）**；blocked 725；unlocalizable 0；dedicated-aware 旁路 only_h3 251→ok 451（仍 blocked 474；only_qe 0；不改主 ok）；P2 已清见 REPORT，挂起 TT/Bjornulf/VRAM，RMBG-2.0 权重已入 MODEL_SOURCES（app 引用仍可能待核）；hang-only 残 1 张 soft-hide（公开约 957→956）；真源 `.regen_tmp/capability_gap_scan_v11/` 勿 stage。status=`scan_complete_docs`；STATE `capability_gap_scan_v11_2026_09_10`；updated_at 2026-09-10T03:01:00+08:00。
 

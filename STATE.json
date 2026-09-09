@@ -1,7 +1,25 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T03:16:00+08:00",
+  "updated_at": "2026-09-10T03:20:00+08:00",
+  "genpool_extrapaths_rmbg_2026_09_10": {
+    "status": "live_device_fyi",
+    "date": "2026-09-10",
+    "source": "设备管家",
+    "live": true,
+    "pool": "image_gen",
+    "extra_model_paths": {
+      "toiv": {
+        "RMBG": "RMBG"
+      }
+    },
+    "verify": "四端 /models/RMBG 列 RMBG-2.0",
+    "next": "capability_gap_scan_v12",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T03:20:00+08:00",
+    "note": "生图池 extrapaths RMBG；folder 齐可扫 v12"
+  },
   "model_sources_rmbg20_2026_09_10": {
     "status": "inventory_updated",
     "date": "2026-09-10",
@@ -23,11 +41,12 @@
     "header_synced_from_json": true,
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-10T03:16:00+08:00",
+    "updated_at": "2026-09-10T03:20:00+08:00",
     "note": "MODEL_SOURCES ok412/blocked375/total787 after RMBG-2.0",
     "nas_path": "NAS/toiv/comfyui-models/RMBG/RMBG-2.0/model.safetensors",
     "size_bytes": 884878856,
-    "next": "设备核 folder 后 capability_gap_scan_v12"
+    "next": "capability_gap_scan_v12 ready",
+    "device_folder_verified": true
   },
   "capability_gap_scan_v11_2026_09_10": {
     "status": "scan_complete_docs",

@@ -185,6 +185,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-10（设备管家：LIVE — 生图池 extrapaths toiv 补 RMBG）
+- **变更**：生图池 `extra_model_paths` toiv 段加 `RMBG: RMBG`。
+- **验收**：四端 `/models/RMBG` 已列 **RMBG-2.0**。
+- Status：`live_device_fyi`；STATE `genpool_extrapaths_rmbg_2026_09_10`；`updated_at` 2026-09-10T03:20:00+08:00。via 设备管家。（设备核 folder 齐；可扫 v12。）
+
 ### 2026-09-10（ToIV 模型下载：MODEL_SOURCES RMBG-2.0 — ok412/blocked375/total787）
 - **计数**：ok **412** / blocked **375** / total **787**（RMBG-2.0 落入后；前 411/376/787）。
 - **清单**：`docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json` 已对齐（header 同步 JSON）。
