@@ -49,12 +49,17 @@
       "cleared_from_missing_models": true,
       "present_workers": [
         "127:8196",
-        "116:8188"
-      ],
-      "missing_workers": [
+        "116:8188",
         "114:8193"
       ],
-      "note": "8193 still empty but does not block all-missing; no v15b"
+      "missing_workers": [],
+      "verified_by": "设备管家 SSH 2026-09-10",
+      "paths": {
+        "8196": "WS /models/frame_interpolation/gimmvfi_r_arb_lpips_fp32.safetensors",
+        "8188": "pc01 192.168.71.116:8188 same basename (do not use .115)",
+        "8193": "pc02 114:8193 same basename + rife*"
+      },
+      "note": "三端已清（8196/8188/8193）；作废「8193 仍空不挡」；no v15b"
     },
     "still_missing_named": {},
     "top_non_h3_missing_models": [
@@ -114,7 +119,7 @@
     "top_missing_nodes": "still H3/RH + TT/Comfly",
     "no_v15b": true,
     "do_not_claim": [],
-    "next": "仍缺 Top 非 H3：Licon-MSR-V1_B / model.pt / new_flux-2-klein-9b(7) + 角色 LTX LoRA(6) + bfs rank128B / nvfp4(5)；不跑 v15b；8193 gimmvfi 可选 parity",
+    "next": "仍缺 Top 非 H3：Licon-MSR-V1_B / model.pt / new_flux-2-klein-9b(7) + 角色 LTX LoRA(6) + bfs rank128B / nvfp4(5)；不跑 v15b；gimmvfi 三端已清",
     "source_of_truth": ".regen_tmp/capability_gap_scan_v15/",
     "tip_json": ".regen_tmp/capability_gap_scan_v15/actionable/tip_for_project_steward.json",
     "do_not_stage": [
@@ -125,15 +130,16 @@
       "v15 OK 235→242（+7）；apps 922；blocked 687→680（−7）",
       "dedicated-aware 500→507（+7）；only_h3 265",
       "worker 8196=825 / 8188=806 / 8193=805",
-      "gimmvfi 已清（8196+8188；8193 仍空不挡）；不跑 v15b",
+      "gimmvfi 三端已清（8196/8188/8193）；不跑 v15b",
       "newly_ok 7 项全清：DarkBeast-Klein9b-V2-BFS-BF16 / flux1-dev.sft / Flux2 Klein动漫转写实… / Klein 一致性增强 / Flux2-Klein-9B-一致性V2 / ltx2.3-video-restoration-general-lora / 4x-ClearRealityV1",
       "仍缺 Top 非 H3：Licon-MSR-V1_B / model.pt / new_flux-2-klein-9b(7) + 角色 LTX LoRA(6) + bfs rank128B / nvfp4(5)",
       "Top 缺节点仍 H3/RH + TT/Comfly"
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-10T04:46:00+08:00",
-    "note": "capability_gap_scan_v15 完成；OK +7→242；dedicated-aware +7→507；gimmvfi 已清；无产品 SHA；不跑 v15b；tip from ToIV 开发"
+    "updated_at": "2026-09-10T04:55:00+08:00",
+    "note": "capability_gap_scan_v15 完成；OK +7→242；dedicated-aware +7→507；gimmvfi 三端已清（含:8193，设备管家 SSH 核）；无产品 SHA；不跑 v15b；tip from ToIV 开发 + 项目管家口径修正",
+    "gimmvfi_parity_corrected_at": "2026-09-10T04:55:00+08:00"
   },
   "capability_gap_scan_v14_2026_09_10": {
     "status": "scan_complete_docs",
