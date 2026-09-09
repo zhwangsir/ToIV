@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-10 soft-hide blocked-only 12（ToIV 开发；v16 后续；docs；无产品 SHA）：仅缺 hard-blocked 精确名且无其他节点缺的 **12** 张 → `is_public=false`；市场列表约 **922→910**；真源 `.regen_tmp/.../soft_hide_blocked_only_v16.json` 勿 stage；status=`soft_hide_docs`；STATE `soft_hide_blocked_only_v16_2026_09_10`；updated_at 2026-09-10T05:24:54+08:00；AGENTS §七 已短注。
+
 - 2026-09-10 capability_gap_scan_v16 完成（项目管家；ToIV 开发 tip；docs；无产品 SHA）：OK 242（持平 vs v15，+0）；apps 922；blocked 680；dedicated-aware 507（0）；only_h3 265；worker 830/814/814；style_models=2；loras=333；已清 missing 5：flux1-redux-dev / flex1_redux_siglip2_512 / 紫灵·韩立·宋玉三 LoRA；主 OK 不涨因卡上仍有他缺；Top 仍缺多为已文档 blocked；仍缺 Top 非 H3：Licon-MSR-V1_B / model.pt / new_flux-2-klein-9b(7) + 角色 LTX LoRA(6) + bfs rank128B / nvfp4(5)；Top 缺节点仍 H3/RH + TT/Comfly；真源勿 stage；status=`scan_complete_docs`；STATE `capability_gap_scan_v16_2026_09_10`；updated_at 2026-09-10T05:20:30+08:00；AGENTS §七 已短注。
 
 - 2026-09-10 MODEL_SOURCES：ok457/blocked347/total804（项目管家；ToIV 模型下载；docs；v15 非 H3 续下）：header 已同步 JSON；前 tip 2f104c9 454/350/804（Δ +3/−3）；newly_ok 3 ≈0.28 GiB（紫灵/韩立/宋玉 Civitai）/ already_on_nas 12；blocked 含：银月/燕如嫣 opaque/梅凝/韩立南宫婉/peiling3/nvfp4 gated/Kook亚洲人像/model.pt/h-anime4 登录墙 + 已知 trio；未写 h3/；此后可扫 v16（未做）；真源勿 stage；status=`inventory_updated`；STATE `model_sources_v15_non_h3_2026_09_10`；updated_at 2026-09-10T05:18:30+08:00；AGENTS §七 已短注。
