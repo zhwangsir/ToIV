@@ -1,54 +1,61 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-08T23:37:00+08:00",
-  "general_pool_p2_audio_rmbg_2026_09_08": {
-    "status": "live_device_fyi",
-    "date": "2026-09-08",
-    "source": "设备管家",
-    "live": true,
-    "packages_installed": [
-      "audio-separation",
-      "RMBG",
-      "comfy-image-saver",
-      "InpaintCropAndStitch",
-      "GIMM-VFI",
-      "SAM2"
+  "updated_at": "2026-09-10T03:01:00+08:00",
+  "capability_gap_scan_v11_2026_09_10": {
+    "status": "scan_complete_docs",
+    "date": "2026-09-10",
+    "source": "ToIV 开发",
+    "committed_product": false,
+    "product_sha": null,
+    "counts_main": {
+      "apps_before": 934,
+      "apps_after": 925,
+      "ok_v10": 191,
+      "ok_v11": 200,
+      "ok_delta": 9,
+      "blocked": 725,
+      "unlocalizable": 0
+    },
+    "dedicated_aware_bypass": {
+      "note": "不改主 ok",
+      "only_h3": 251,
+      "dedicated_aware_ok": 451,
+      "still_blocked": 474,
+      "only_qe": 0
+    },
+    "p2": {
+      "cleared_nodes": "see REPORT",
+      "pending": [
+        "TT",
+        "Bjornulf",
+        "VRAM"
+      ],
+      "rmbg_2_0_still_missing_apps": 10
+    },
+    "soft_hide_extra": {
+      "id": "rh-acc-0600098818-f3e460",
+      "kind": "hang-only residual 1",
+      "market_public_before": 957,
+      "market_public_after": 956
+    },
+    "d7aae62_pushed_by": "ToIV 开发",
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v11/",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
     ],
-    "packages_pending": [
-      "TT_img_enc*",
-      "Bjornulf_ShowInt",
-      "VRAMReserver"
+    "facts": [
+      "v11 主口径 OK 191→200（+9）；apps 934→925；blocked 725",
+      "dedicated-aware：only_h3 251→ok 451；仍 blocked 474；only_qe 0",
+      "P2 挂起 TT/Bjornulf/VRAM；RMBG-2.0 仍缺 10 apps",
+      "hang-only soft-hide rh-acc-0600098818-f3e460；公开约 957→956",
+      "d7aae62 已由 ToIV 开发双推"
     ],
-    "pool": "general",
-    "priority": "P2",
-    "note": "P2 部分装齐四端 Y；三项跳过有因；9 app soft-hide（公开约 966→957）；RMBG-2.0 在模型下载；v11 进行中",
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T23:37:00+08:00",
-    "verify_class_types_y": [
-      "AudioCrop",
-      "RMBG",
-      "String Literal",
-      "InpaintCropImproved",
-      "GIMM",
-      "SAM2"
-    ],
-    "skip_reasons": {
-      "TT_img_enc*": "上游 liangtongt/TT-tools 已删，无唯一同名映射",
-      "Bjornulf_ShowInt": "justUmen/Bjornulf_custom_nodes 有同名但巨型包硬依赖，风险高跳过",
-      "VRAMReserver": "无精确 class_type 注册（ReservedVRAMSetter 不算）"
-    },
-    "soft_hide_apps_only_blocked_by_skipped": 9,
-    "rmbg_2_0_weights": "转模型下载",
-    "v11": "in_progress",
-    "facts": [
-      "已装 AudioCrop/RMBG/String Literal(+InpaintCropImproved/GIMM/SAM2) 四端 Y",
-      "TT_img_enc*：上游已删；Bjornulf_ShowInt：巨型硬依赖跳过；VRAMReserver：无精确注册",
-      "仅卡未装节点的 9 app soft-hide"
-    ],
-    "market_public_before": 966,
-    "market_public_after": 957
+    "updated_at": "2026-09-10T03:01:00+08:00",
+    "note": "capability_gap_scan_v11 完成；OK +9→200；dedicated-aware 旁路；无产品 SHA"
   },
   "capability_gap_scan_v10_2026_09_08": {
     "status": "scan_complete_docs",
@@ -91,7 +98,7 @@
         "VRAMReserver": "无精确 class_type 注册（ReservedVRAMSetter 不算）"
       },
       "p2_soft_hide_apps": 9,
-      "v11": "in_progress"
+      "v11": "capability_gap_scan_v11_2026_09_10"
     },
     "source_of_truth": ".regen_tmp/capability_gap_scan_v10/",
     "do_not_stage": [
@@ -106,75 +113,58 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T23:36:00+08:00",
+    "updated_at": "2026-09-10T03:01:00+08:00",
     "note": "capability_gap_scan_v10 完成；OK +6→191；无产品 SHA；勿 stage .regen_tmp"
   },
-  "capability_gap_scan_v9_2026_09_08": {
-    "status": "scan_complete_docs",
+  "general_pool_p2_audio_rmbg_2026_09_08": {
+    "status": "live_device_fyi",
     "date": "2026-09-08",
-    "source": "ToIV 开发",
-    "committed_product": false,
-    "product_sha": null,
-    "scope": {
-      "workers": [
-        "8196",
-        "8188",
-        "8193"
-      ],
-      "excluded": [
-        "8194",
-        "8195"
-      ],
-      "note": "通用三机；未并 H3/QwenEdit 专池"
-    },
-    "counts": {
-      "apps_before": 1050,
-      "apps_after": 934,
-      "ok_v8": 163,
-      "ok_v9": 185,
-      "ok_delta": 22,
-      "blocked": 749,
-      "blocked_models_only": 370,
-      "blocked_nodes_only": 114,
-      "blocked_both": 265,
-      "fetch_errors": 0,
-      "unlocalizable_before": 61,
-      "unlocalizable_after": 0,
-      "worker_nodes_approx": [
-        3453,
-        3331,
-        3287
-      ],
-      "worker_nodes_delta_vs_v8_approx": 70
-    },
-    "p0_five_packages": "exited global missing nodes",
-    "top_missing_nodes": "mostly H3 dedicated (expected)",
-    "next_wave": ".regen_tmp/capability_gap_scan_v9/actionable/next_wave_after_v9.md",
-    "followups": {
-      "device": "装 P1",
-      "p2": "核同名",
-      "product": "dirty 未 commit",
-      "p1_device": "done via 设备管家 tip",
-      "p1_packages": "WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance",
-      "v10": "capability_gap_scan_v10_2026_09_08"
-    },
-    "source_of_truth": ".regen_tmp/capability_gap_scan_v9/",
-    "do_not_stage": [
-      ".regen_tmp",
-      "product dirty"
+    "source": "设备管家",
+    "live": true,
+    "packages_installed": [
+      "audio-separation",
+      "RMBG",
+      "comfy-image-saver",
+      "InpaintCropAndStitch",
+      "GIMM-VFI",
+      "SAM2"
     ],
-    "facts": [
-      "v9 口径：通用三机 8196/8188/8193；未并 8194/8195",
-      "OK 163→185（+22）；blocked 749；fetch_errors 0",
-      "unlocalizable 61→0",
-      "worker nodes ≈3453/3331/3287（较 v8 +~70）",
-      "P0 五包已退出全局缺节点",
-      "已令设备管家装 P1；P2 核同名"
+    "packages_pending": [
+      "TT_img_enc*",
+      "Bjornulf_ShowInt",
+      "VRAMReserver"
     ],
+    "pool": "general",
+    "priority": "P2",
+    "note": "P2 部分装齐四端 Y；三项跳过有因；9 app soft-hide（公开约 966→957）；RMBG-2.0 在模型下载；v11 进行中",
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T22:51:00+08:00",
-    "note": "capability_gap_scan_v9 完成；OK +22；无产品 SHA；勿 stage .regen_tmp"
+    "updated_at": "2026-09-10T03:01:00+08:00",
+    "verify_class_types_y": [
+      "AudioCrop",
+      "RMBG",
+      "String Literal",
+      "InpaintCropImproved",
+      "GIMM",
+      "SAM2"
+    ],
+    "skip_reasons": {
+      "TT_img_enc*": "上游 liangtongt/TT-tools 已删，无唯一同名映射",
+      "Bjornulf_ShowInt": "justUmen/Bjornulf_custom_nodes 有同名但巨型包硬依赖，风险高跳过",
+      "VRAMReserver": "无精确 class_type 注册（ReservedVRAMSetter 不算）"
+    },
+    "soft_hide_apps_only_blocked_by_skipped": 9,
+    "rmbg_2_0_weights": "转模型下载",
+    "v11": "in_progress",
+    "facts": [
+      "已装 AudioCrop/RMBG/String Literal(+InpaintCropImproved/GIMM/SAM2) 四端 Y",
+      "TT_img_enc*：上游已删；Bjornulf_ShowInt：巨型硬依赖跳过；VRAMReserver：无精确注册",
+      "仅卡未装节点的 9 app soft-hide"
+    ],
+    "market_public_before": 966,
+    "market_public_after": 956,
+    "market_public_after_hang_only": 956,
+    "hang_only_soft_hide": "rh-acc-0600098818-f3e460"
   },
   "capability_gap_soft_hide_dedicated_pool_2026_09_08": {
     "status": "live_on_core_dirty",
@@ -192,12 +182,13 @@
       "union_approx": 100,
       "is_public": false,
       "db_app_counts_approx": {
-        "public": 957,
+        "public": 956,
         "non_public": 1313,
         "total": 2295,
         "public_before_hailuo_hide": 982,
         "note_hailuo": "HailuoH3 无同名 soft-hide 16 → public 982→966",
-        "public_before_p2_skip_hide": 966
+        "public_before_p2_skip_hide": 966,
+        "public_before_hang_only": 957
       },
       "note": "相对此前列表页约 1050→950 量级；以 DB 为准"
     },
@@ -243,13 +234,16 @@
       "ok_v8": 163,
       "delta": 105,
       "next_wave_list": ".regen_tmp/capability_gap_scan_v8/actionable/next_wave_misc_packages.md",
-      "next_scan": "after P2 / next_wave_after_v10",
+      "next_scan": "after P2 residual / RMBG-2.0",
       "ok_v9": 185,
       "delta_v8_v9": 22,
       "v9_report": "capability_gap_scan_v9_2026_09_08",
       "ok_v10": 191,
       "delta_v9_v10": 6,
-      "v10_report": "capability_gap_scan_v10_2026_09_08"
+      "v10_report": "capability_gap_scan_v10_2026_09_08",
+      "ok_v11": 200,
+      "delta_v10_v11": 9,
+      "v11_report": "capability_gap_scan_v11_2026_09_10"
     },
     "general_pool_workers": [
       "192.168.71.127:8196",
@@ -279,12 +273,14 @@
       "capability_gap_scan_v9 完成：OK 163→185（+22）",
       "v9 口径未并 8194/8195；真源 .regen_tmp/capability_gap_scan_v9/",
       "capability_gap_scan_v10 完成：OK 185→191（+6）",
-      "P1 八类退出全局缺节点；P2 核同名进行中"
+      "P1 八类退出全局缺节点；P2 核同名进行中",
+      "capability_gap_scan_v11 完成：OK 191→200（+9）",
+      "dedicated-aware 旁路 ok 451（不改主 ok）"
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-08T23:37:00+08:00",
-    "note": "capability gap：v10 已扫完 OK 191；v9 OK 185；H3 RH@d6c5f7b0；Advance 已 Y；P0/P1 齐；live_on_core_dirty 无产品 SHA",
+    "updated_at": "2026-09-10T03:01:00+08:00",
+    "note": "capability gap：v11 OK 200；dedicated-aware 451；P2 部分齐；公开约 956；live_on_core_dirty 无产品 SHA",
     "h3_route_v2": {
       "date": "2026-09-08",
       "redeploy": "skip-web",
@@ -385,6 +381,73 @@
       "market_public_after": 966,
       "note": "无同名包 → soft-hide 16 app；市场公开 982→966"
     }
+  },
+  "capability_gap_scan_v9_2026_09_08": {
+    "status": "scan_complete_docs",
+    "date": "2026-09-08",
+    "source": "ToIV 开发",
+    "committed_product": false,
+    "product_sha": null,
+    "scope": {
+      "workers": [
+        "8196",
+        "8188",
+        "8193"
+      ],
+      "excluded": [
+        "8194",
+        "8195"
+      ],
+      "note": "通用三机；未并 H3/QwenEdit 专池"
+    },
+    "counts": {
+      "apps_before": 1050,
+      "apps_after": 934,
+      "ok_v8": 163,
+      "ok_v9": 185,
+      "ok_delta": 22,
+      "blocked": 749,
+      "blocked_models_only": 370,
+      "blocked_nodes_only": 114,
+      "blocked_both": 265,
+      "fetch_errors": 0,
+      "unlocalizable_before": 61,
+      "unlocalizable_after": 0,
+      "worker_nodes_approx": [
+        3453,
+        3331,
+        3287
+      ],
+      "worker_nodes_delta_vs_v8_approx": 70
+    },
+    "p0_five_packages": "exited global missing nodes",
+    "top_missing_nodes": "mostly H3 dedicated (expected)",
+    "next_wave": ".regen_tmp/capability_gap_scan_v9/actionable/next_wave_after_v9.md",
+    "followups": {
+      "device": "装 P1",
+      "p2": "核同名",
+      "product": "dirty 未 commit",
+      "p1_device": "done via 设备管家 tip",
+      "p1_packages": "WhatDreamsCost/Frame-Interpolation/Stand-In/LayerStyle+Advance",
+      "v10": "capability_gap_scan_v10_2026_09_08"
+    },
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v9/",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "facts": [
+      "v9 口径：通用三机 8196/8188/8193；未并 8194/8195",
+      "OK 163→185（+22）；blocked 749；fetch_errors 0",
+      "unlocalizable 61→0",
+      "worker nodes ≈3453/3331/3287（较 v8 +~70）",
+      "P0 五包已退出全局缺节点",
+      "已令设备管家装 P1；P2 核同名"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-08T22:51:00+08:00",
+    "note": "capability_gap_scan_v9 完成；OK +22；无产品 SHA；勿 stage .regen_tmp"
   },
   "general_pool_p1_whatdreamscost_2026_09_08": {
     "status": "live_device_fyi",

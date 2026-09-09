@@ -185,6 +185,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-10（ToIV 开发：capability_gap_scan_v11 完成）
+- **主口径**：apps **934→925**；OK **191→200（+9 vs v10）**；blocked **725**；unlocalizable **0**。
+- **旁路 dedicated-aware**（不改主 ok）：only_h3 **251** → dedicated_aware_ok **451**；仍 blocked **474**；only_qe **0**。
+- **P2**：已清节点见 REPORT；挂起 TT/Bjornulf/VRAM；RMBG-2.0 仍缺 **10** apps。
+- **另**：未推 tip `d7aae62` 已双推；又 soft-hide hang-only 残 1 张 `rh-acc-0600098818-f3e460`（公开约 **957→956**）。
+- **真源**：`.regen_tmp/capability_gap_scan_v11/`（**勿 stage**）。
+- Status：`scan_complete_docs`（无产品 SHA）；STATE `capability_gap_scan_v11_2026_09_10`；`updated_at` 2026-09-10T03:01:00+08:00。via ToIV 开发。
+
 ### 2026-09-08（设备管家：LIVE — 通用池 P2 装 audio-separation/RMBG/comfy-image-saver(+InpaintCropAndStitch/GIMM-VFI/SAM2)）
 - **已装**：audio-separation/RMBG/comfy-image-saver(+InpaintCropAndStitch/GIMM-VFI/SAM2)。
 - **挂起/跳过**：TT_img_enc/Bjornulf/VRAMReserver（原因见补注）。
