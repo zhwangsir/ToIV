@@ -1,8 +1,8 @@
 # MODEL_SOURCES
 
-Updated: 2026-09-10T05:44:41+08:00 (Asia/Shanghai)
+Updated: 2026-09-10T06:37:18+08:00 (Asia/Shanghai)
 
-Totals: ok=461 blocked=343 total=804
+Totals: ok=462 blocked=342 total=804
 
 Batch: capability_gap_v16_non_h3
 
@@ -482,7 +482,7 @@ Batch: capability_gap_v16_non_h3
 | blocked | 56low20noiseCumshot.xb7F.safetensors |  |  |  | reason=untraceable_nsfw_community \| NSFW community LoRA; no public HF exact basename. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch13_blocked_new.json |
 | blocked | A1119.safetensors |  |  |  | reason=untraceable_opaque_name \| Opaque short basename; no reliable HF mapping. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch13_blocked_new.json |
 | blocked | ACE++ comfyui_local_lora16_comfyui_local.safetensors |  |  |  | reason=untraceable_local_comfy_export \| Local ComfyUI export rename; not a public weight name. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch13_blocked_new.json |
-| blocked | BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch14_blocked_new.json |
+| ok | BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors | 12309881296 | diffusion_models/BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors | Nurburgring/BEYOND_REALITY_Z_IMAGE | P3 exact HF basename; resumed aria2c -c via MateBook proxy:7897 (local SSD then rsync→NAS); verified 12309881296 bytes |
 | blocked | BJD娃娃V1.0.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch14_blocked_new.json |
 | blocked | BJD娃娃V2.0_04.safetensors |  |  |  | reason=untraceable_community_basename \| Chinese BJD doll style LoRA; no trusted HF exact-basename mirror found this batch. \| action=blocked_pending_trusted_source \| suggested_next=Locate on Civitai/Liblib/ModelScope. \| app_refs=2 |
 | blocked | Best_FaceID_v1.0_ArcFace_Projector.safetensors |  |  |  | reason=untraceable_faceid \| No HF match for ArcFace projector companion. \| action=block \| suggested_next=manual \| app_refs=1 \| from=_batch11_blocked_candidates.json |

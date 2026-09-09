@@ -1,9 +1,9 @@
 {
-  "updated_at": "2026-09-10T05:44:41+08:00",
+  "updated_at": "2026-09-10T06:37:18+08:00",
   "updated_at_timezone": "Asia/Shanghai",
   "totals": {
-    "ok": 461,
-    "blocked": 343,
+    "ok": 462,
+    "blocked": 342,
     "total": 804,
     "ok_missing_source_url": 9,
     "ok_true_gaps_no_url_no_repo_not_alias": 0,
@@ -7002,18 +7002,18 @@
     },
     {
       "basename": "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
-      "rel_path": null,
-      "source_kind": "unknown",
-      "source_url": null,
-      "repo": null,
-      "revision": null,
-      "filename": null,
-      "license_or_gated": null,
-      "downloaded_at": "2026-09-08T06:17:23+08:00",
-      "status": "blocked",
-      "bytes": null,
-      "notes": "reason=untraceable_chinese_community_name | Chinese community/commercial basename; no HF exact hit in batch14 search. | action=blocked_untraceable | suggested_next=Civitai/Liblib/workflow hash or per-app provenance. | app_refs=1 | from=_batch14_blocked_new.json",
-      "batch": "batch14"
+      "rel_path": "diffusion_models/BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
+      "source_kind": "huggingface",
+      "source_url": "https://hf-mirror.com/Nurburgring/BEYOND_REALITY_Z_IMAGE/resolve/main/BEYOND%20REALITY%20SUPER%20Z%20IMAGE%203.0%20%E6%B7%A1%E5%A6%86%E6%B5%93%E6%8A%B9%20BF16.safetensors",
+      "repo": "Nurburgring/BEYOND_REALITY_Z_IMAGE",
+      "revision": "main",
+      "filename": "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
+      "license_or_gated": "ungated",
+      "downloaded_at": "2026-09-10T06:37:18+08:00",
+      "status": "ok",
+      "bytes": 12309881296,
+      "notes": "P3 exact HF basename; resumed aria2c -c via MateBook proxy:7897 (local SSD then rsync→NAS); verified 12309881296 bytes",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "BJD娃娃V1.0.safetensors",

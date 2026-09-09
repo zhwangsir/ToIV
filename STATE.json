@@ -1,7 +1,70 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T06:10:00+08:00",
+  "updated_at": "2026-09-10T06:40:00+08:00",
+  "model_sources_br_bf16_2026_09_10": {
+    "status": "inventory_updated",
+    "date": "2026-09-10",
+    "source": "ToIV 模型下载",
+    "steward": "项目管家",
+    "ok": 462,
+    "blocked": 342,
+    "total": 804,
+    "prev": {
+      "ok": 461,
+      "blocked": 343,
+      "total": 804
+    },
+    "delta": {
+      "ok": 1,
+      "blocked": -1,
+      "total": 0
+    },
+    "prev_tip_sha": "0f6a0a4",
+    "trigger": "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16 landed (v16 longtail resume)",
+    "inventory_updated_at": "2026-09-10T06:37:18+08:00",
+    "files": [
+      "docs/MODEL_SOURCES.md",
+      "docs/MODEL_SOURCES.json"
+    ],
+    "header_synced_from_json": true,
+    "download": {
+      "batch": "capability_gap_v16_non_h3",
+      "basename": "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
+      "rel_path": "diffusion_models/BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
+      "bytes": 12309881296,
+      "GiB_approx": 11.46,
+      "repo": "Nurburgring/BEYOND_REALITY_Z_IMAGE",
+      "target": "general NAS (not h3/)",
+      "method": "MateBook aria2c -c + proxy :7897 (local SSD then rsync→NAS)",
+      "did_not_write_h3": true
+    },
+    "beyond_reality_landed": {
+      "basename": "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
+      "bytes": 12309881296,
+      "GiB_approx": 11.46,
+      "pct": 100.0,
+      "status": "ok",
+      "rel_path": "diffusion_models/BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
+      "note": "自 v16 长尾续下已落地；此前「续下中未计入」现已计入",
+      "completed_at": "2026-09-10T06:37:18+08:00"
+    },
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "source_of_truth": ".regen_tmp/capability_gap_v16_download_summary.json",
+    "facts": [
+      "MODEL_SOURCES ok462/blocked342/total804 after BR BF16 landed",
+      "prev tip 0f6a0a4 461/343/804; Δ ok+1 blocked−1",
+      "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors → diffusion_models/BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors; 12309881296 B (≈11.46 GiB)",
+      "自 v16 长尾续下；未写 h3/"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T06:40:00+08:00",
+    "note": "MODEL_SOURCES ok462/blocked342/total804 after BEYOND REALITY BF16 landed"
+  },
   "capability_gap_scan_v17_2026_09_10": {
     "status": "scan_complete_docs",
     "date": "2026-09-10",

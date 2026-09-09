@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-10（项目管家：capability_gap_scan_v17 OK**244**（+2 vs v16）；dedicated-aware **509**（+2）；apps **910**（post soft-hide）；blocked **666**；已清四枚长尾 LoRA：SESELAORUYAO / DarkKlein9b_v2BFS_extracted_lora_r256 / Kook_Qwen_V3极致真实 / Kook_Zimage_如梦似幻；worker ≈**835**/819/819；此前 MODEL_SOURCES v16 非 H3 ok**461**/blocked**343**/total**804**（Δ+4/−4 vs 7617fd4）；newly_ok **4** ≈1.94 GiB；already_on_nas **10**；BEYOND REALITY 续下中未计入；未写 h3/；此前 项目管家：soft-hide blocked-only **12** → `is_public=false`；市场约 **922→910**；此前 capability_gap_scan_v16 OK**242**（持平 vs v15）；dedicated-aware **507**（0）；apps **922**；blocked **680**；已清 flux1-redux + 紫灵/韩立/宋玉；worker ≈**830**/814/814；此前 MODEL_SOURCES v15 非 H3 ok**457**/blocked**347**/total**804**（Δ+3/−3 vs 2f104c9）；此前设备管家：三机 extrapaths 补 style_models；8196/8188/8193 均 **2**=flux1-redux-dev+flex1_redux_siglip2_512；解 v15 假缺；等 v15 下载批次后扫 v16；此前项目管家：capability_gap_scan_v15 OK**242**（+7 vs v14）；dedicated-aware **507**（+7）；apps **922**；blocked **680**；gimmvfi **三端已清**（含:8193）；此前 MODEL_SOURCES v14 非 H3 ok**454**/blocked**350**/total**804**（Δ+7/−7 vs d2816ac）；此前 capability_gap_scan_v14 OK**235**（+11 vs v13b）；dedicated-aware **500**（+9）；apps **922**；此前 ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
+> **最后更新**：2026-09-10（项目管家：MODEL_SOURCES BR BF16 ok**462**/blocked**342**/total**804**（Δ+1/−1 vs 0f6a0a4）；`BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors` → `diffusion_models/` ≈**11.46** GiB；自 v16 长尾续下已落地；未写 h3/；此前 项目管家：capability_gap_scan_v17 OK**244**（+2 vs v16）；dedicated-aware **509**（+2）；apps **910**（post soft-hide）；blocked **666**；已清四枚长尾 LoRA：SESELAORUYAO / DarkKlein9b_v2BFS_extracted_lora_r256 / Kook_Qwen_V3极致真实 / Kook_Zimage_如梦似幻；worker ≈**835**/819/819；此前 MODEL_SOURCES v16 非 H3 ok**461**/blocked**343**/total**804**（Δ+4/−4 vs 7617fd4）；newly_ok **4** ≈1.94 GiB；already_on_nas **10**；BEYOND REALITY 续下中未计入；未写 h3/；此前 项目管家：soft-hide blocked-only **12** → `is_public=false`；市场约 **922→910**；此前 capability_gap_scan_v16 OK**242**（持平 vs v15）；dedicated-aware **507**（0）；apps **922**；blocked **680**；已清 flux1-redux + 紫灵/韩立/宋玉；worker ≈**830**/814/814；此前 MODEL_SOURCES v15 非 H3 ok**457**/blocked**347**/total**804**（Δ+3/−3 vs 2f104c9）；此前设备管家：三机 extrapaths 补 style_models；8196/8188/8193 均 **2**=flux1-redux-dev+flex1_redux_siglip2_512；解 v15 假缺；等 v15 下载批次后扫 v16；此前项目管家：capability_gap_scan_v15 OK**242**（+7 vs v14）；dedicated-aware **507**（+7）；apps **922**；blocked **680**；gimmvfi **三端已清**（含:8193）；此前 MODEL_SOURCES v14 非 H3 ok**454**/blocked**350**/total**804**（Δ+7/−7 vs d2816ac）；此前 capability_gap_scan_v14 OK**235**（+11 vs v13b）；dedicated-aware **500**（+9）；apps **922**；此前 ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-10（项目管家：MODEL_SOURCES BR BF16 — ok462/blocked342/total804）
+- **计数**：ok **462** / blocked **342** / total **804**（BR BF16 落地；前 tip 0f6a0a4 461/343/804；Δ ok+1 / blocked−1）。
+- **清单**：`docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json` 已对齐；JSON `updated_at` 2026-09-10T06:37:18+08:00。
+- **下载摘要**：`BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors` → `diffusion_models/`；**12309881296** B（≈11.46 GiB；ok）；自 v16 长尾续下已落地（此前「续下中未计入」）；**未**写 `h3/`。
+- **真源**：`.regen_tmp/capability_gap_v16_download_summary.json`（**勿 stage**）。
+- Status：`inventory_updated`；STATE `model_sources_br_bf16_2026_09_10`；`updated_at` 2026-09-10T06:40:00+08:00。via 项目管家（ToIV 模型下载）。
+
 
 ### 2026-09-10（项目管家：capability_gap_scan_v17 完成）
 - **主口径**：apps **910**（post soft-hide；vs v16 扫时 922）；OK **244（+2 vs v16）**；blocked **666**（−14）；unlocalizable **0**。
