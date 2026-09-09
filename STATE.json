@@ -1,7 +1,118 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T05:18:30+08:00",
+  "updated_at": "2026-09-10T05:20:30+08:00",
+  "capability_gap_scan_v16_2026_09_10": {
+    "status": "scan_complete_docs",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "committed_product": false,
+    "product_sha": null,
+    "counts_main": {
+      "apps": 922,
+      "apps_v15": 922,
+      "ok_v15": 242,
+      "ok_v16": 242,
+      "ok_delta": 0,
+      "blocked": 680,
+      "blocked_v15": 680,
+      "blocked_delta": 0,
+      "unlocalizable": 0,
+      "blocked_models_only": 356,
+      "blocked_nodes_only": 141,
+      "blocked_both": 183
+    },
+    "dedicated_aware": {
+      "before": 507,
+      "after": 507,
+      "delta": 0,
+      "only_h3": 265
+    },
+    "worker_models": {
+      "8196": 830,
+      "8188": 814,
+      "8193": 814,
+      "style_models": 2,
+      "loras": 333
+    },
+    "newly_ok_cleared": [
+      "flux1-redux-dev.safetensors",
+      "flex1_redux_siglip2_512.safetensors",
+      "ltx2.3紫灵触发词ziling.safetensors",
+      "ltx2.3韩立触发词hanli.safetensors",
+      "ltx2.3宋玉触发词songyu.safetensors"
+    ],
+    "cleared_via": "style_models extrapaths mount + v15 download batch (紫灵/韩立/宋玉)",
+    "main_ok_flat_reason": "apps still have other gaps; Top remaining mostly documented blocked",
+    "still_missing_named": {},
+    "top_non_h3_missing_models": [
+      {
+        "basename": "LTX-2.3-Licon-MSR-V1_B.safetensors",
+        "count_apps": 7
+      },
+      {
+        "basename": "model.pt",
+        "count_apps": 7
+      },
+      {
+        "basename": "new_flux-2-klein-9b.safetensors",
+        "count_apps": 7
+      },
+      {
+        "basename": "LTX2.3银月.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "LTX23-燕如嫣-E78795E5A682E5ABA3E8A7-98UH.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "ltx2.3梅凝触发词meining.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "ltx2.3韩立南宫婉双人lora.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "peiling3-lora.comfy.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors",
+        "count_apps": 5
+      },
+      {
+        "basename": "flux-2-klein-9b-nvfp4.safetensors",
+        "count_apps": 5
+      }
+    ],
+    "top_missing_nodes": "still H3/RH + TT/Comfly",
+    "do_not_claim": [],
+    "next": "仍缺 Top 非 H3 多为已文档 blocked（Licon-MSR / model.pt / new_flux-2-klein-9b / 角色 LTX LoRA / bfs / nvfp4）；主 OK 不涨因卡上仍有他缺",
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v16/",
+    "tip_json": ".regen_tmp/capability_gap_scan_v16/actionable/tip_for_project_steward.json",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "facts": [
+      "v16 OK 242（持平 vs v15，+0）；apps 922；blocked 680",
+      "dedicated-aware 507（0）；only_h3 265",
+      "worker 8196=830 / 8188=814 / 8193=814；style_models=2；loras=333",
+      "已清 missing 5：flux1-redux-dev / flex1_redux_siglip2_512 / 紫灵·韩立·宋玉三 LoRA",
+      "主 OK 不涨因卡上仍有他缺；Top 仍缺多为已文档 blocked",
+      "仍缺 Top 非 H3：Licon-MSR-V1_B / model.pt / new_flux-2-klein-9b(7) + 角色 LTX LoRA(6) + bfs rank128B / nvfp4(5)",
+      "Top 缺节点仍 H3/RH + TT/Comfly"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T05:20:30+08:00",
+    "note": "capability_gap_scan_v16 完成；OK 持平 242；dedicated-aware 507；已清 flux1-redux + 紫灵/韩立/宋玉；worker ≈830/814/814；无产品 SHA；tip from ToIV 开发"
+  },
   "genpool_extrapaths_style_models_2026_09_10": {
     "status": "live_device_fyi",
     "date": "2026-09-10",
