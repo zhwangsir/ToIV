@@ -1,7 +1,154 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T07:18:00+08:00",
+  "updated_at": "2026-09-10T07:21:00+08:00",
+  "capability_gap_scan_v19_2026_09_10": {
+    "status": "scan_complete_docs",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 能力缺口",
+      "项目管家"
+    ],
+    "committed_product": false,
+    "product_sha": null,
+    "counts_main": {
+      "apps": 909,
+      "apps_v18": 910,
+      "apps_note": "post soft-hide rh-acc-8851286018-43497c (910→909)",
+      "ok_v18": 244,
+      "ok_v19": 245,
+      "ok_delta": 1,
+      "blocked": 664,
+      "blocked_v18": 666,
+      "blocked_delta": -2,
+      "unlocalizable": 0,
+      "blocked_models_only": 343,
+      "blocked_nodes_only": 142,
+      "blocked_both": 179
+    },
+    "dedicated_aware": {
+      "before": 509,
+      "after": 510,
+      "delta": 1,
+      "only_h3": 265,
+      "only_qe": 0,
+      "blocked_remaining_after_dedicated": 399
+    },
+    "worker_models": {
+      "8196": 838,
+      "8188": 822,
+      "8193": 822,
+      "style_models": 2,
+      "loras": 337,
+      "diffusion_models": 170,
+      "checkpoints": 55
+    },
+    "newly_ok_cleared": [
+      "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "moodyRealMix_zitV5DPO.safetensors",
+      "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors"
+    ],
+    "cleared_via": "v17 longtail newly_ok=4 on workers + soft-hide 8851286018 apps 910→909",
+    "still_missing_named": {},
+    "ultimate_sd_upscale": {
+      "still_in_missing_nodes": [],
+      "related_ultimate_upscale": [],
+      "in_top15_nodes": [],
+      "note": "Device管家 reported install on all 3 gen workers; node gap cleared in v19"
+    },
+    "precheck_summary": {
+      "all_workers_present": true,
+      "present_workers": [
+        "127:8196",
+        "116:8188",
+        "114:8193"
+      ],
+      "missing_workers": [],
+      "nas_complete": true,
+      "cleared_count": 4,
+      "still_missing_count": 0,
+      "folder_counts": {
+        "checkpoints": {
+          "127:8196": 55,
+          "116:8188": 55,
+          "114:8193": 55
+        },
+        "diffusion_models": {
+          "127:8196": 170,
+          "116:8188": 170,
+          "114:8193": 170
+        }
+      }
+    },
+    "top_non_h3_missing_models": [
+      {
+        "basename": "LTX2.3银月.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "LTX23-燕如嫣-E78795E5A682E5ABA3E8A7-98UH.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "ltx2.3梅凝触发词meining.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "ltx2.3韩立南宫婉双人lora.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "peiling3-lora.comfy.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "model.pt",
+        "count_apps": 5
+      },
+      {
+        "basename": "Kook_Flux_klein_亚洲人像.safetensors",
+        "count_apps": 4
+      },
+      {
+        "basename": "LTX-2.3-Licon-MSR-V1_B.safetensors",
+        "count_apps": 4
+      },
+      {
+        "basename": "bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors",
+        "count_apps": 4
+      },
+      {
+        "basename": "new_flux-2-klein-9b.safetensors",
+        "count_apps": 4
+      }
+    ],
+    "top_missing_nodes": "still H3/RH + TT/Comfly",
+    "do_not_claim": [],
+    "next": "仍缺 Top 非 H3 多为已文档 blocked；H3 dedicated 仍占主缺口",
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v19/",
+    "tip_json": ".regen_tmp/capability_gap_scan_v19/actionable/tip_for_project_steward.json",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "facts": [
+      "v19 OK 245（+1 vs v18）；apps 909；blocked 664",
+      "dedicated-aware 510（+1）；only_h3 265",
+      "worker 8196=838 / 8188=822 / 8193=822；style_models=2；loras=337；diffusion_models=170；checkpoints=55",
+      "已清 Remix high/low + moodyRealMix + BEYOND（v17 longtail newly_ok=4）",
+      "UltimateSDUpscale 清（node gap；still_in_missing_nodes=[]）",
+      "apps 910→909 via soft-hide rh-acc-8851286018-43497c",
+      "仍缺 Top 非 H3：银月/燕如嫣/梅凝/韩立南宫婉/peiling3(6) + model.pt(5) + Kook亚洲人像/Licon-MSR/bfs/new_flux-2-klein-9b(4)",
+      "Top 缺节点仍 H3/RH + TT/Comfly"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T07:21:00+08:00",
+    "note": "capability_gap_scan_v19 完成；OK 245（+1）；dedicated-aware 510；apps 909（post soft-hide 8851286018）；Remix/moodyRealMix/BEYOND 已清；UltimateSDUpscale node gap 清；worker ≈838/822/822；无产品 SHA；tip from ToIV 能力缺口",
+    "follow_up_of": "model_sources_v17_beyondreality_soft_hide_2026_09_10",
+    "soft_hide_context": "model_sources_v17_beyondreality_soft_hide_2026_09_10"
+  },
   "model_sources_v17_beyondreality_soft_hide_2026_09_10": {
     "status": "inventory_and_soft_hide_docs",
     "date": "2026-09-10",
