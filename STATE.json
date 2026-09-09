@@ -1,7 +1,134 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T06:06:30+08:00",
+  "updated_at": "2026-09-10T06:10:00+08:00",
+  "capability_gap_scan_v17_2026_09_10": {
+    "status": "scan_complete_docs",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "committed_product": false,
+    "product_sha": null,
+    "counts_main": {
+      "apps": 910,
+      "apps_v16_scan": 922,
+      "apps_note": "post soft-hide blocked-only 12 (922→910)",
+      "ok_v16": 242,
+      "ok_v17": 244,
+      "ok_delta": 2,
+      "blocked": 666,
+      "blocked_v16": 680,
+      "blocked_delta": -14,
+      "unlocalizable": 0,
+      "blocked_models_only": 342,
+      "blocked_nodes_only": 143,
+      "blocked_both": 181
+    },
+    "dedicated_aware": {
+      "before": 507,
+      "after": 509,
+      "delta": 2,
+      "only_h3": 265,
+      "only_qe": 0,
+      "blocked_remaining_after_dedicated": 401
+    },
+    "worker_models": {
+      "8196": 835,
+      "8188": 819,
+      "8193": 819,
+      "style_models": 2,
+      "loras": 337
+    },
+    "newly_ok_cleared": [
+      "SESELAORUYAO.safetensors",
+      "DarkKlein9b_v2BFS_extracted_lora_r256.safetensors",
+      "Kook_Qwen_V3极致真实.safetensors",
+      "Kook_Zimage_如梦似幻.safetensors"
+    ],
+    "cleared_via": "v16 download batch (MODEL_SOURCES v16 newly_ok 4 LoRAs)",
+    "still_missing_named": {},
+    "precheck_summary": {
+      "cleared_count": 4,
+      "still_count": 0,
+      "loras_all_cleared": true
+    },
+    "beyond_reality": {
+      "basename": "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
+      "exists": true,
+      "bytes": 11717836800,
+      "expected": 12309881296,
+      "complete": false,
+      "still_in_missing_models": false
+    },
+    "top_non_h3_missing_models": [
+      {
+        "basename": "LTX2.3银月.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "LTX23-燕如嫣-E78795E5A682E5ABA3E8A7-98UH.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "ltx2.3梅凝触发词meining.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "ltx2.3韩立南宫婉双人lora.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "peiling3-lora.comfy.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "model.pt",
+        "count_apps": 5
+      },
+      {
+        "basename": "Kook_Flux_klein_亚洲人像.safetensors",
+        "count_apps": 4
+      },
+      {
+        "basename": "LTX-2.3-Licon-MSR-V1_B.safetensors",
+        "count_apps": 4
+      },
+      {
+        "basename": "bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors",
+        "count_apps": 4
+      },
+      {
+        "basename": "new_flux-2-klein-9b.safetensors",
+        "count_apps": 4
+      }
+    ],
+    "top_missing_nodes": "still H3/RH + TT/Comfly",
+    "do_not_claim": [],
+    "next": "仍缺 Top 非 H3 多为已文档 blocked（银月/燕如嫣/梅凝/韩立南宫婉/peiling3/model.pt/Kook亚洲人像/Licon-MSR/bfs/new_flux）；BEYOND REALITY 续下中",
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v17/",
+    "tip_json": ".regen_tmp/capability_gap_scan_v17/actionable/tip_for_project_steward.json",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "facts": [
+      "v17 OK 244（+2 vs v16）；apps 910（post soft-hide）；blocked 666",
+      "dedicated-aware 509（+2）；only_h3 265",
+      "worker 8196=835 / 8188=819 / 8193=819；style_models=2；loras=337",
+      "已清 missing 4：SESELAORUYAO / DarkKlein9b_v2BFS_extracted_lora_r256 / Kook_Qwen_V3极致真实 / Kook_Zimage_如梦似幻",
+      "仍缺 Top 非 H3：银月/燕如嫣/梅凝/韩立南宫婉/peiling3(6) + model.pt(5) + Kook亚洲人像/Licon-MSR/bfs/new_flux-2-klein-9b(4)",
+      "Top 缺节点仍 H3/RH + TT/Comfly",
+      "BEYOND REALITY 续下中 incomplete；仍不在 missing_models"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T06:10:00+08:00",
+    "note": "capability_gap_scan_v17 完成；OK 244（+2）；dedicated-aware 509；apps 910 post soft-hide；已清四枚长尾 LoRA；worker ≈835/819/819；无产品 SHA；tip from ToIV 开发",
+    "follow_up_of": "model_sources_v16_non_h3_2026_09_10",
+    "soft_hide_context": "soft_hide_blocked_only_v16_2026_09_10"
+  },
   "soft_hide_blocked_only_v16_2026_09_10": {
     "status": "soft_hide_docs",
     "date": "2026-09-10",

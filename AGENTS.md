@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-10（项目管家：MODEL_SOURCES v16 非 H3 ok**461**/blocked**343**/total**804**（Δ+4/−4 vs 7617fd4）；newly_ok **4** ≈1.94 GiB；already_on_nas **10**；BEYOND REALITY 续下中未计入；未写 h3/；此前 项目管家：soft-hide blocked-only **12** → `is_public=false`；市场约 **922→910**；此前 capability_gap_scan_v16 OK**242**（持平 vs v15）；dedicated-aware **507**（0）；apps **922**；blocked **680**；已清 flux1-redux + 紫灵/韩立/宋玉；worker ≈**830**/814/814；此前 MODEL_SOURCES v15 非 H3 ok**457**/blocked**347**/total**804**（Δ+3/−3 vs 2f104c9）；此前设备管家：三机 extrapaths 补 style_models；8196/8188/8193 均 **2**=flux1-redux-dev+flex1_redux_siglip2_512；解 v15 假缺；等 v15 下载批次后扫 v16；此前项目管家：capability_gap_scan_v15 OK**242**（+7 vs v14）；dedicated-aware **507**（+7）；apps **922**；blocked **680**；gimmvfi **三端已清**（含:8193）；此前 MODEL_SOURCES v14 非 H3 ok**454**/blocked**350**/total**804**（Δ+7/−7 vs d2816ac）；此前 capability_gap_scan_v14 OK**235**（+11 vs v13b）；dedicated-aware **500**（+9）；apps **922**；此前 ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
+> **最后更新**：2026-09-10（项目管家：capability_gap_scan_v17 OK**244**（+2 vs v16）；dedicated-aware **509**（+2）；apps **910**（post soft-hide）；blocked **666**；已清四枚长尾 LoRA：SESELAORUYAO / DarkKlein9b_v2BFS_extracted_lora_r256 / Kook_Qwen_V3极致真实 / Kook_Zimage_如梦似幻；worker ≈**835**/819/819；此前 MODEL_SOURCES v16 非 H3 ok**461**/blocked**343**/total**804**（Δ+4/−4 vs 7617fd4）；newly_ok **4** ≈1.94 GiB；already_on_nas **10**；BEYOND REALITY 续下中未计入；未写 h3/；此前 项目管家：soft-hide blocked-only **12** → `is_public=false`；市场约 **922→910**；此前 capability_gap_scan_v16 OK**242**（持平 vs v15）；dedicated-aware **507**（0）；apps **922**；blocked **680**；已清 flux1-redux + 紫灵/韩立/宋玉；worker ≈**830**/814/814；此前 MODEL_SOURCES v15 非 H3 ok**457**/blocked**347**/total**804**（Δ+3/−3 vs 2f104c9）；此前设备管家：三机 extrapaths 补 style_models；8196/8188/8193 均 **2**=flux1-redux-dev+flex1_redux_siglip2_512；解 v15 假缺；等 v15 下载批次后扫 v16；此前项目管家：capability_gap_scan_v15 OK**242**（+7 vs v14）；dedicated-aware **507**（+7）；apps **922**；blocked **680**；gimmvfi **三端已清**（含:8193）；此前 MODEL_SOURCES v14 非 H3 ok**454**/blocked**350**/total**804**（Δ+7/−7 vs d2816ac）；此前 capability_gap_scan_v14 OK**235**（+11 vs v13b）；dedicated-aware **500**（+9）；apps **922**；此前 ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,18 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-10（项目管家：capability_gap_scan_v17 完成）
+- **主口径**：apps **910**（post soft-hide；vs v16 扫时 922）；OK **244（+2 vs v16）**；blocked **666**（−14）；unlocalizable **0**。
+- **dedicated-aware**：**509（+2）**；only_h3 **265**。
+- **worker models**：8196=**835**；8188=**819**；8193=**819**；style_models=**2**；loras=**337**。
+- **已清 missing 4**（v16 下载长尾 LoRA）：SESELAORUYAO / DarkKlein9b_v2BFS_extracted_lora_r256 / Kook_Qwen_V3极致真实 / Kook_Zimage_如梦似幻；`still_missing_named`={}；`loras_all_cleared`。
+- **主 OK +2**：与四枚 LoRA 清缺对齐；apps 口径已含 soft-hide 12。
+- **仍缺 Top 非 H3**：银月/燕如嫣/梅凝/韩立南宫婉/peiling3(**6**) + model.pt(**5**) + Kook亚洲人像/Licon-MSR/bfs rank128B/new_flux-2-klein-9b(**4**)。
+- **Top 缺节点**仍 **H3/RH + TT/Comfly**。
+- **旁注**：BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16 续下中（incomplete；仍不在 missing_models）。
+- **真源**：`.regen_tmp/capability_gap_scan_v17/`（**勿 stage**）；tip `.regen_tmp/capability_gap_scan_v17/actionable/tip_for_project_steward.json`。
+- Status：`scan_complete_docs`（无产品 SHA）；STATE `capability_gap_scan_v17_2026_09_10`；`updated_at` 2026-09-10T06:10:00+08:00。via 项目管家（ToIV 开发 tip）。
 
 ### 2026-09-10（项目管家：MODEL_SOURCES v16 非 H3 — ok461/blocked343/total804）
 - **计数**：ok **461** / blocked **343** / total **804**（v16 长尾一批；前 tip 7617fd4 457/347/804；Δ ok+4 / blocked−4）。
