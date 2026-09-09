@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T03:39:00+08:00",
+  "updated_at": "2026-09-10T03:40:00+08:00",
   "h3_latent_upscale_models_2026_09_10": {
     "status": "live_device_fyi",
     "date": "2026-09-10",
@@ -15,7 +15,12 @@
     "closes": "h3_8195_weight_audit latent_upscaler yaml gap",
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-10T03:39:00+08:00"
+    "updated_at": "2026-09-10T03:40:00+08:00",
+    "visibility": {
+      "bf16_on_8195": true,
+      "fp16": false,
+      "note": "bf16 可见（yaml+硬链）；fp16 仍缺"
+    }
   },
   "h3_8195_weight_audit_2026_09_10": {
     "status": "audit_done_docs",
@@ -52,9 +57,11 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-10T03:39:00+08:00",
+    "updated_at": "2026-09-10T03:40:00+08:00",
     "note": "H3 :8195 权重验收 Y20/N17；核心日用齐；缺清单转模型下载 h3/",
-    "latent_upscale_models_fixed": true
+    "latent_upscale_models_fixed": true,
+    "latent_upscaler_bf16_visible": true,
+    "latent_upscaler_fp16_missing": true
   },
   "capability_gap_scan_v12_2026_09_10": {
     "status": "scan_complete_docs",

@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-10 LIVE：H3 latent_upscaler bf16 可见（ToIV 开发；docs）：`:8195` bf16 已可见（yaml+硬链）；fp16 仍缺；STATE `h3_latent_upscale_models_2026_09_10`；updated_at 2026-09-10T03:40:00+08:00。
+
 - 2026-09-10 LIVE：H3 extrapaths 补 latent_upscale_models（设备管家；docs）：`ComfyUI-h3-eval` 已加；bf16 upscaler 硬链 `toiv/.../h3/`；status=`live_device_fyi`；STATE `h3_latent_upscale_models_2026_09_10`；updated_at 2026-09-10T03:39:00+08:00；并入验收 tip。
 
 - 2026-09-10 H3 `:8195` 权重验收（ToIV 开发；docs；无产品 SHA）：Y=20/N=17（37）；核心日用齐；缺 17 多为变体+latent_upscaler（yaml 未挂）；缺清单转模型下载 `h3/`；真源勿 stage；status=`audit_done_docs`；STATE `h3_8195_weight_audit_2026_09_10`；updated_at 2026-09-10T03:38:00+08:00；AGENTS §七 已短注。

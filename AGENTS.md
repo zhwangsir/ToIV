@@ -191,7 +191,8 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **缺 17**：多为 turbo/fp8/T8/10Eros 变体 + `latent_upscaler`（通用 NAS 有 bf16；H3 yaml 曾未挂 `latent_upscale_models`——**已补**（见设备补齐））。
 - **后续**：缺清单已转模型下载仅 `h3/` 路径；真源 `.regen_tmp/.../h3_8195_audit_live.md`（**勿 stage**）。
 - **设备补齐（设备管家）**：H3 `ComfyUI-h3-eval` `extra_model_paths` 已加 `latent_upscale_models`；bf16 upscaler **硬链**到 `toiv/.../h3/`。
-- Status：`audit_done_docs`（无产品 SHA）；STATE `h3_8195_weight_audit_2026_09_10`；`updated_at` 2026-09-10T03:39:00+08:00。via ToIV 开发。
+- **可见性（ToIV 开发）**：`latent_upscaler` **bf16** 在 `:8195` 已可见（yaml+硬链）；**fp16 仍缺**。
+- Status：`audit_done_docs`（无产品 SHA）；STATE `h3_8195_weight_audit_2026_09_10`；`updated_at` 2026-09-10T03:40:00+08:00。via ToIV 开发。
 
 ### 2026-09-10（ToIV 开发 / 设备管家：capability_gap_scan_v12 完成）
 - **主口径**：apps **925→924**；OK **200→206（+6）**；blocked **718**；unlocalizable **0**。
