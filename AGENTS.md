@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-10（项目管家：MODEL_SOURCES v14 非 H3 ok**454**/blocked**350**/total**804**（Δ+7/−7 vs d2816ac）；此前 capability_gap_scan_v14 OK**235**（+11 vs v13b）；dedicated-aware **500**（+9）；apps **922**；此前 ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
+> **最后更新**：2026-09-10（项目管家：capability_gap_scan_v15 OK**242**（+7 vs v14）；dedicated-aware **507**（+7）；apps **922**；blocked **680**；gimmvfi 已清；此前 MODEL_SOURCES v14 非 H3 ok**454**/blocked**350**/total**804**（Δ+7/−7 vs d2816ac）；此前 capability_gap_scan_v14 OK**235**（+11 vs v13b）；dedicated-aware **500**（+9）；apps **922**；此前 ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,17 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-10（项目管家：capability_gap_scan_v15 完成）
+- **主口径**：apps **922**；OK **235→242（+7）**；blocked **687→680（−7）**；unlocalizable **0**。
+- **dedicated-aware**：**500→507（+7）**；only_h3 **265**。
+- **worker models**：8196=**825**；8188=**806**；8193=**805**。
+- **已清 newly_ok 7**：DarkBeast-Klein9b-V2-BFS-BF16 / flux1-dev.sft / Flux2 Klein动漫转写实… / Klein 一致性增强 / Flux2-Klein-9B-一致性V2 / ltx2.3-video-restoration-general-lora / 4x-ClearRealityV1。
+- **gimmvfi**：已清（8196+8188；8193 仍空不挡）；**不跑 v15b**。
+- **仍缺 Top 非 H3**：Licon-MSR-V1_B / model.pt / new_flux-2-klein-9b(**7**) + 角色 LTX LoRA(**6**) + bfs rank128B / nvfp4(**5**)。
+- **新 Top**：非 H3 缺模 ≤**7** apps；Top 缺节点仍 **H3/RH + TT/Comfly**。
+- **真源**：`.regen_tmp/capability_gap_scan_v15/`（**勿 stage**）；tip `.regen_tmp/capability_gap_scan_v15/actionable/tip_for_project_steward.json`。
+- Status：`scan_complete_docs`（无产品 SHA）；STATE `capability_gap_scan_v15_2026_09_10`；`updated_at` 2026-09-10T04:46:00+08:00。via 项目管家（ToIV 开发 tip）。
 
 ### 2026-09-10（项目管家：MODEL_SOURCES v14 非 H3 — ok454/blocked350/total804）
 - **计数**：ok **454** / blocked **350** / total **804**（v14 非 H3 续下；前 tip d2816ac 447/357/804；Δ ok+7 / blocked−7）。

@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-10 capability_gap_scan_v15 完成（项目管家；ToIV 开发 tip；docs；无产品 SHA）：OK 235→242（+7）；apps 922；blocked 687→680（−7）；dedicated-aware 500→507（+7）；only_h3 265；worker 825/806/805；newly_ok 7 项全清；gimmvfi 已清（8196+8188；8193 仍空不挡）；不跑 v15b；仍缺 Top 非 H3：Licon-MSR-V1_B / model.pt / new_flux-2-klein-9b(7) + 角色 LTX LoRA(6) + bfs rank128B / nvfp4(5)；Top 缺节点仍 H3/RH + TT/Comfly；真源勿 stage；status=`scan_complete_docs`；STATE `capability_gap_scan_v15_2026_09_10`；updated_at 2026-09-10T04:46:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-10 MODEL_SOURCES：ok454/blocked350/total804（项目管家；ToIV 模型下载；docs；v14 非 H3 续下）：header 已同步 JSON；前 tip d2816ac 447/357/804（Δ +7/−7）；newly_ok 7 / already_on_nas 13 / blocked_documented≈20（含 Licon-MSR-V1_B / new_flux-2-klein-9b / bfs…rank128B）；≈39.95GiB；未写 h3/；真源勿 stage；status=`inventory_updated`；STATE `model_sources_v14_non_h3_2026_09_10`；updated_at 2026-09-10T04:42:30+08:00；AGENTS §七 已短注。
 
 - 2026-09-10 capability_gap_scan_v14 完成（项目管家；ToIV 开发 tip；docs；无产品 SHA）：OK 224→235（+11）；apps 924→922（软隐藏 −2）；blocked 687；dedicated-aware 491→500（+9）；only_h3 265；worker 817/798/798；已清 P0/P1 六项；仍缺命名 LTX-2.3-Licon-MSR(7)/new_flux-2-klein-9b(7)/bfs_head…rank128B(5)/gimmvfi(7，疑 folder)；Top 非 H3 ≤7；Top 缺节点仍 H3/RH + TT/Comfly；真源勿 stage；status=`scan_complete_docs`；STATE `capability_gap_scan_v14_2026_09_10`；updated_at 2026-09-10T04:32:00+08:00；AGENTS §七 已短注。

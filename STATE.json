@@ -1,7 +1,140 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T04:42:30+08:00",
+  "updated_at": "2026-09-10T04:46:00+08:00",
+  "capability_gap_scan_v15_2026_09_10": {
+    "status": "scan_complete_docs",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "committed_product": false,
+    "product_sha": null,
+    "counts_main": {
+      "apps": 922,
+      "apps_v14": 922,
+      "ok_v14": 235,
+      "ok_v15": 242,
+      "ok_delta": 7,
+      "blocked": 680,
+      "blocked_v14": 687,
+      "blocked_delta": -7,
+      "unlocalizable": 0,
+      "blocked_models_only": 356,
+      "blocked_nodes_only": 141,
+      "blocked_both": 183
+    },
+    "dedicated_aware": {
+      "before": 500,
+      "after": 507,
+      "delta": 7,
+      "only_h3": 265
+    },
+    "worker_models": {
+      "8196": 825,
+      "8188": 806,
+      "8193": 805
+    },
+    "newly_ok_cleared": [
+      "DarkBeast-Klein9b-V2-BFS-BF16-ComfyUI.safetensors",
+      "flux1-dev.sft",
+      "Flux2 Klein动漫转写实真人 AnythingtoRealCharacters.safetensors",
+      "Klein 一致性增强.safetensors",
+      "Flux2-Klein-9B-一致性V2.safetensors",
+      "ltx2.3-video-restoration-general-lora.safetensors",
+      "4x-ClearRealityV1.pth"
+    ],
+    "gimmvfi": {
+      "cleared_from_missing_models": true,
+      "present_workers": [
+        "127:8196",
+        "116:8188"
+      ],
+      "missing_workers": [
+        "114:8193"
+      ],
+      "note": "8193 still empty but does not block all-missing; no v15b"
+    },
+    "still_missing_named": {},
+    "top_non_h3_missing_models": [
+      {
+        "basename": "LTX-2.3-Licon-MSR-V1_B.safetensors",
+        "count_apps": 7
+      },
+      {
+        "basename": "model.pt",
+        "count_apps": 7
+      },
+      {
+        "basename": "new_flux-2-klein-9b.safetensors",
+        "count_apps": 7
+      },
+      {
+        "basename": "LTX2.3银月.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "LTX23-燕如嫣-E78795E5A682E5ABA3E8A7-98UH.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "ltx2.3宋玉触发词songyu.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "ltx2.3梅凝触发词meining.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "ltx2.3紫灵触发词ziling.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "ltx2.3韩立南宫婉双人lora.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "ltx2.3韩立触发词hanli.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "peiling3-lora.comfy.safetensors",
+        "count_apps": 6
+      },
+      {
+        "basename": "bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors",
+        "count_apps": 5
+      },
+      {
+        "basename": "flux-2-klein-9b-nvfp4.safetensors",
+        "count_apps": 5
+      }
+    ],
+    "top_missing_nodes": "still H3/RH + TT/Comfly",
+    "no_v15b": true,
+    "do_not_claim": [],
+    "next": "仍缺 Top 非 H3：Licon-MSR-V1_B / model.pt / new_flux-2-klein-9b(7) + 角色 LTX LoRA(6) + bfs rank128B / nvfp4(5)；不跑 v15b；8193 gimmvfi 可选 parity",
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v15/",
+    "tip_json": ".regen_tmp/capability_gap_scan_v15/actionable/tip_for_project_steward.json",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "facts": [
+      "v15 OK 235→242（+7）；apps 922；blocked 687→680（−7）",
+      "dedicated-aware 500→507（+7）；only_h3 265",
+      "worker 8196=825 / 8188=806 / 8193=805",
+      "gimmvfi 已清（8196+8188；8193 仍空不挡）；不跑 v15b",
+      "newly_ok 7 项全清：DarkBeast-Klein9b-V2-BFS-BF16 / flux1-dev.sft / Flux2 Klein动漫转写实… / Klein 一致性增强 / Flux2-Klein-9B-一致性V2 / ltx2.3-video-restoration-general-lora / 4x-ClearRealityV1",
+      "仍缺 Top 非 H3：Licon-MSR-V1_B / model.pt / new_flux-2-klein-9b(7) + 角色 LTX LoRA(6) + bfs rank128B / nvfp4(5)",
+      "Top 缺节点仍 H3/RH + TT/Comfly"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T04:46:00+08:00",
+    "note": "capability_gap_scan_v15 完成；OK +7→242；dedicated-aware +7→507；gimmvfi 已清；无产品 SHA；不跑 v15b；tip from ToIV 开发"
+  },
   "capability_gap_scan_v14_2026_09_10": {
     "status": "scan_complete_docs",
     "date": "2026-09-10",
