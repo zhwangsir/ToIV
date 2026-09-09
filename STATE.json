@@ -1,7 +1,30 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T03:48:00+08:00",
+  "updated_at": "2026-09-10T03:50:00+08:00",
+  "capability_gap_v12_download_summary_2026_09_10": {
+    "status": "summary_docs",
+    "date": "2026-09-10",
+    "source": "ToIV 开发",
+    "newly_ok": 11,
+    "already_on_nas": 38,
+    "blocked_or_refresh": 23,
+    "vague_skip": 4,
+    "remaining_open": 305,
+    "model_sources": {
+      "ok": 422,
+      "blocked": 365,
+      "total": 787
+    },
+    "next": "设备核可见性后 capability_gap_scan_v13",
+    "source_of_truth": ".regen_tmp/capability_gap_v12_download_summary.json",
+    "do_not_stage": [
+      ".regen_tmp"
+    ],
+    "linked_inventory_key": "model_sources_v12_non_h3_2026_09_10",
+    "pushed": false,
+    "updated_at": "2026-09-10T03:50:00+08:00"
+  },
   "model_sources_v12_non_h3_2026_09_10": {
     "status": "inventory_updated",
     "date": "2026-09-10",
@@ -24,8 +47,16 @@
     "parallel_track": "用户拍板① v12 非 H3 杂缺模 Top→模型下载",
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-10T03:48:00+08:00",
-    "note": "MODEL_SOURCES ok422/blocked365/total787 after v12 non-H3 batch"
+    "updated_at": "2026-09-10T03:50:00+08:00",
+    "note": "MODEL_SOURCES ok422/blocked365/total787 after v12 non-H3 batch",
+    "download_summary": {
+      "newly_ok": 11,
+      "already_on_nas": 38,
+      "blocked_or_refresh": 23,
+      "vague_skip": 4,
+      "remaining_open": 305
+    },
+    "next": "设备核可见性后 v13"
   },
   "h3_latent_upscale_models_2026_09_10": {
     "status": "live_device_fyi",

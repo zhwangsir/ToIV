@@ -188,7 +188,9 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ### 2026-09-10（ToIV 模型下载：MODEL_SOURCES v12 非 H3 — ok422/blocked365/total787）
 - **计数**：ok **422** / blocked **365** / total **787**（v12 非 H3 批次；前 412/375/787）。
 - **清单**：`docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json` 已对齐。
-- Status：`inventory_updated`；STATE `model_sources_v12_non_h3_2026_09_10`；`updated_at` 2026-09-10T03:48:00+08:00。via ToIV 模型下载。
+- **下载摘要（ToIV 开发）**：newly_ok **11**；already_on_nas **38**；blocked/refresh **23**；vague skip **4**；remaining_open **305**。
+- **后续**：设备核可见性后 **v13**；真源 `.regen_tmp/capability_gap_v12_download_summary.json`（**勿 stage**）。
+- Status：`inventory_updated`；STATE `model_sources_v12_non_h3_2026_09_10`；`updated_at` 2026-09-10T03:50:00+08:00。via ToIV 模型下载 / ToIV 开发。
 
 ### 2026-09-10（ToIV 开发：H3 `:8195` 权重验收）
 - **结果**：Y=**20** / N=**17**（共 **37**）。

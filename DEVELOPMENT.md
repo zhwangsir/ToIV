@@ -5,7 +5,7 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
-**2026-09-10 MODEL_SOURCES：ok422/blocked365/total787（ToIV 模型下载；v12 非 H3）**：v12 非 H3 批次落入后计数对齐；header 已同步 JSON `updated_at` 2026-09-10T03:46:42+08:00。status=`inventory_updated`；STATE `model_sources_v12_non_h3_2026_09_10`；updated_at 2026-09-10T03:48:00+08:00。
+**2026-09-10 MODEL_SOURCES：ok422/blocked365/total787（ToIV 模型下载；v12 非 H3）**：v12 非 H3 批次落入后计数对齐；header 已同步 JSON `updated_at` 2026-09-10T03:46:42+08:00。下载摘要：newly_ok 11 / already_on_nas 38 / blocked·refresh 23 / vague skip 4 / remaining_open 305；设备核可见性后 v13；真源 `.regen_tmp/capability_gap_v12_download_summary.json` 勿 stage。status=`inventory_updated`；STATE `model_sources_v12_non_h3_2026_09_10`；updated_at 2026-09-10T03:50:00+08:00。
 
 **2026-09-10 LIVE：H3 extrapaths 补 latent_upscale_models（设备管家）**：`ComfyUI-h3-eval` 已加 `latent_upscale_models`；bf16 upscaler 硬链到 `toiv/.../h3/`。可见性：bf16 在 `:8195` 已可见（yaml+硬链）；fp16 仍缺。status=`live_device_fyi`；STATE `h3_latent_upscale_models_2026_09_10`；updated_at 2026-09-10T03:40:00+08:00。
 

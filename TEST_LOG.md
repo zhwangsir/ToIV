@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-10 LIVE：v12 非 H3 下载摘要（ToIV 开发；docs）：newly_ok 11；already_on_nas 38；blocked/refresh 23；vague skip 4；remaining_open 305；设备核可见性后 v13；真源勿 stage；STATE `model_sources_v12_non_h3_2026_09_10` / `capability_gap_v12_download_summary_2026_09_10`；updated_at 2026-09-10T03:50:00+08:00。
+
 - 2026-09-10 MODEL_SOURCES：ok422/blocked365/total787（ToIV 模型下载；docs；v12 非 H3）：header 已同步 JSON；status=`inventory_updated`；STATE `model_sources_v12_non_h3_2026_09_10`；updated_at 2026-09-10T03:48:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-10 LIVE：H3 latent_upscaler bf16 可见（ToIV 开发；docs）：`:8195` bf16 已可见（yaml+硬链）；fp16 仍缺；STATE `h3_latent_upscale_models_2026_09_10`；updated_at 2026-09-10T03:40:00+08:00。
