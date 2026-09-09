@@ -1,7 +1,54 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T04:15:00+08:00",
+  "updated_at": "2026-09-10T04:16:30+08:00",
+  "h3_8195_t8_nodes_2026_09_10": {
+    "status": "live_device_fyi",
+    "date": "2026-09-10",
+    "source": "设备管家",
+    "live": true,
+    "scope": "h3-eval only",
+    "endpoint": ":8195",
+    "comfy": "ComfyUI-h3-eval",
+    "not_in_general_pool": true,
+    "packages": {
+      "comfyui-minimax-h3-audio-T8": {
+        "repo": "T8mars/comfyui-minimax-h3-audio-T8",
+        "sha": "e4ff860",
+        "nodes_ok": [
+          "DualClock",
+          "AVDecode",
+          "AudioConditioning"
+        ],
+        "verify": "T8 = Y"
+      },
+      "blockcache-T8": {
+        "sha": "36336dce"
+      },
+      "KJNodes": {
+        "sha": "57105374"
+      },
+      "vrgamedevgirl": {
+        "sha": "c85fda6d"
+      }
+    },
+    "class_type_targets": "全 Y",
+    "nodes_ready": [
+      "T8",
+      "Sage",
+      "VRGDG"
+    ],
+    "t8_installed": true,
+    "do_not_claim": [
+      "side-scan / capability_gap rescan done",
+      "entered 通用池"
+    ],
+    "next": "侧扫旁证由能力缺口再跑（勿在本 tip 宣称 rescan）",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T04:16:30+08:00",
+    "note": "H3:8195 T8 补包齐（blockcache-T8/KJNodes/vrgamedevgirl + earlier minimax-h3-audio-T8）；仅 h3-eval；目标 class_type 全 Y；T8/Sage/VRGDG 齐；侧扫未重跑"
+  },
   "capability_gap_scan_v13b_2026_09_10": {
     "status": "scan_complete_docs",
     "date": "2026-09-10",
@@ -44,9 +91,9 @@
     "top_non_h3_missing_models": "≤7 apps",
     "top_missing_nodes": "still H3/RH + TT/Comfly",
     "do_not_claim": [
-      "H3 T8续装 done（blockcache-T8 / KJNodes / vrgamedevgirl still pending）"
+      "side-scan / capability_gap rescan after T8 install（T8 续装齐见 h3_8195_t8_nodes_2026_09_10；侧扫未重跑）"
     ],
-    "next": "非 H3 缺模 Top（≤7 apps）下一刀；T8 续装 tip 等 install+同名 verify",
+    "next": "非 H3 缺模 Top（≤7 apps）下一刀；H3 T8 续装齐（见 h3_8195_t8_nodes_2026_09_10）；侧扫旁证由能力缺口再跑",
     "source_of_truth": ".regen_tmp/capability_gap_scan_v13b/",
     "do_not_stage": [
       ".regen_tmp",
@@ -63,7 +110,7 @@
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-10T04:15:00+08:00",
-    "note": "capability_gap_scan_v13b 完成；OK +14→224；folder 目标全清；无产品 SHA；累计自 v12 的 206→224"
+    "note": "capability_gap_scan_v13b 完成；OK +14→224；folder 目标全清；无产品 SHA；累计自 v12 的 206→224；T8 续装齐见 h3_8195_t8_nodes_2026_09_10（侧扫未重跑）"
   },
   "genpool_extrapaths_llm_vocal_melband_2026_09_10": {
     "status": "live_device_fyi",
@@ -91,18 +138,19 @@
       "primary_cause": "T8 节点+别名权重扫描口径",
       "t8_package": "T8mars/comfyui-minimax-h3-audio-T8",
       "t8_authorized_for": "h3-eval only",
-      "t8_installed": false,
+      "t8_installed": true,
       "n3_breakdown": "原 N3 中 2 不挡、T8 turbo 挡 1",
       "conclusion_unchanged": "Y34/N3",
       "source_of_truth": ".regen_tmp/capability_gap_scan_v13/actionable/h3_8195_side_scan/",
-      "do_not_stage": true
+      "do_not_stage": true,
+      "t8_install_note": "h3-eval T8 续装齐 2026-09-10；侧扫未重跑；still59 旁证口径仍 deferred"
     },
     "verify": "extrapaths + llama-cpp patch recorded; v13b scanned — folder targets cleared",
-    "next": "T8 tip waits install+同名 verify（blockcache-T8 / KJNodes / vrgamedevgirl still pending；勿宣称 H3 T8续装 done）",
+    "next": "H3 T8 续装齐（见 h3_8195_t8_nodes_2026_09_10）；侧扫旁证由能力缺口再跑",
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-10T04:08:00+08:00",
-    "note": "通用池 extrapaths LLM/vocal_separator/MelBandRoFormer + llama-cpp 勿覆 LLM；v13b 已确认 folder 目标全清；H3旁证 side-scan still59/T8口径；T8 未装",
+    "note": "通用池 extrapaths LLM/vocal_separator/MelBandRoFormer + llama-cpp 勿覆 LLM；v13b 已确认 folder 目标全清；H3旁证 side-scan still59/T8口径 deferred；~~T8 未装~~ → T8 续装齐（仅 h3-eval；见 h3_8195_t8_nodes_2026_09_10；侧扫未重跑）",
     "v13b_confirmed": {
       "ok": 224,
       "dedicated_aware_ok": 491,
@@ -5719,7 +5767,7 @@
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-10T03:56:00+08:00",
-    "note": "H3 :8195 复验 Y34/N3；H3补齐结案；通用池 extrapaths 已补 MelBand/LLM/vocal（ltx 或仍另轨）；旁证 still59/T8口径 deferred；T8 未装",
+    "note": "H3 :8195 复验 Y34/N3；H3补齐结案；通用池 extrapaths 已补 MelBand/LLM/vocal（ltx 或仍另轨）；旁证 still59/T8口径 deferred；~~T8 未装~~ → T8 续装齐见 h3_8195_t8_nodes_2026_09_10（侧扫未重跑）",
     "genpool_extrapaths_patched_partial": true,
     "ltx_spatial_may_still_separate": true,
     "h3_side_scan_旁证": {
@@ -5728,8 +5776,9 @@
       "h3_ok": 208,
       "still": 59,
       "conclusion_unchanged": "Y34/N3",
-      "t8_installed": false,
-      "source": ".regen_tmp/capability_gap_scan_v13/actionable/h3_8195_side_scan/"
+      "t8_installed": true,
+      "source": ".regen_tmp/capability_gap_scan_v13/actionable/h3_8195_side_scan/",
+      "t8_install_note": "h3-eval T8 续装齐 2026-09-10；侧扫未重跑"
     }
   }
 }
