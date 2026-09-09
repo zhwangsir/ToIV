@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T03:14:00+08:00",
+  "updated_at": "2026-09-10T03:16:00+08:00",
   "model_sources_rmbg20_2026_09_10": {
     "status": "inventory_updated",
     "date": "2026-09-10",
@@ -23,8 +23,11 @@
     "header_synced_from_json": true,
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-10T03:14:00+08:00",
-    "note": "MODEL_SOURCES ok412/blocked375/total787 after RMBG-2.0"
+    "updated_at": "2026-09-10T03:16:00+08:00",
+    "note": "MODEL_SOURCES ok412/blocked375/total787 after RMBG-2.0",
+    "nas_path": "NAS/toiv/comfyui-models/RMBG/RMBG-2.0/model.safetensors",
+    "size_bytes": 884878856,
+    "next": "设备核 folder 后 capability_gap_scan_v12"
   },
   "capability_gap_scan_v11_2026_09_10": {
     "status": "scan_complete_docs",

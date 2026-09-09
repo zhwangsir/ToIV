@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-10 LIVE：RMBG-2.0 落盘路径补注（ToIV 开发；docs）：`NAS/toiv/comfyui-models/RMBG/RMBG-2.0/model.safetensors` 884878856B；设备核 folder 后 v12；STATE `model_sources_rmbg20_2026_09_10`；updated_at 2026-09-10T03:16:00+08:00。
+
 - 2026-09-10 MODEL_SOURCES：ok412/blocked375/total787（ToIV 模型下载；docs；RMBG-2.0）：header 已同步 JSON；status=`inventory_updated`；STATE `model_sources_rmbg20_2026_09_10`；updated_at 2026-09-10T03:14:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-10 capability_gap_scan_v11 完成（ToIV 开发；docs；无产品 SHA）：OK 191→200（+9）；blocked 725；dedicated-aware ok 451（主口径不变）；hang-only soft-hide 公开约 957→956；真源勿 stage；status=`scan_complete_docs`；STATE `capability_gap_scan_v11_2026_09_10`；updated_at 2026-09-10T03:01:00+08:00；AGENTS §七 已短注。

@@ -188,7 +188,8 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ### 2026-09-10（ToIV 模型下载：MODEL_SOURCES RMBG-2.0 — ok412/blocked375/total787）
 - **计数**：ok **412** / blocked **375** / total **787**（RMBG-2.0 落入后；前 411/376/787）。
 - **清单**：`docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json` 已对齐（header 同步 JSON）。
-- Status：`inventory_updated`；STATE `model_sources_rmbg20_2026_09_10`；`updated_at` 2026-09-10T03:14:00+08:00。via ToIV 模型下载。
+- **落盘（ToIV 开发）**：`NAS/toiv/comfyui-models/RMBG/RMBG-2.0/model.safetensors` **884878856B**；设备核 folder 后能力缺口 **v12**。
+- Status：`inventory_updated`；STATE `model_sources_rmbg20_2026_09_10`；`updated_at` 2026-09-10T03:16:00+08:00。via ToIV 模型下载。
 
 ### 2026-09-10（ToIV 开发：capability_gap_scan_v11 完成）
 - **主口径**：apps **934→925**；OK **191→200（+9 vs v10）**；blocked **725**；unlocalizable **0**。
