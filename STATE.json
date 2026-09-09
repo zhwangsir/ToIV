@@ -1,7 +1,31 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T03:01:00+08:00",
+  "updated_at": "2026-09-10T03:14:00+08:00",
+  "model_sources_rmbg20_2026_09_10": {
+    "status": "inventory_updated",
+    "date": "2026-09-10",
+    "source": "ToIV 模型下载",
+    "ok": 412,
+    "blocked": 375,
+    "total": 787,
+    "prev": {
+      "ok": 411,
+      "blocked": 376,
+      "total": 787
+    },
+    "trigger": "RMBG-2.0 落入",
+    "inventory_updated_at": "2026-09-10T03:13:45+08:00",
+    "files": [
+      "docs/MODEL_SOURCES.md",
+      "docs/MODEL_SOURCES.json"
+    ],
+    "header_synced_from_json": true,
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T03:14:00+08:00",
+    "note": "MODEL_SOURCES ok412/blocked375/total787 after RMBG-2.0"
+  },
   "capability_gap_scan_v11_2026_09_10": {
     "status": "scan_complete_docs",
     "date": "2026-09-10",
@@ -31,7 +55,9 @@
         "Bjornulf",
         "VRAM"
       ],
-      "rmbg_2_0_still_missing_apps": 10
+      "rmbg_2_0_still_missing_apps": 10,
+      "rmbg_2_0_in_model_sources": true,
+      "rmbg_2_0_note": "权重已入 MODEL_SOURCES；app 引用仍可能待核"
     },
     "soft_hide_extra": {
       "id": "rh-acc-0600098818-f3e460",
@@ -54,7 +80,7 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-10T03:01:00+08:00",
+    "updated_at": "2026-09-10T03:14:00+08:00",
     "note": "capability_gap_scan_v11 完成；OK +9→200；dedicated-aware 旁路；无产品 SHA"
   },
   "capability_gap_scan_v10_2026_09_08": {

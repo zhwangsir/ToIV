@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-10 MODEL_SOURCES：ok412/blocked375/total787（ToIV 模型下载；docs；RMBG-2.0）：header 已同步 JSON；status=`inventory_updated`；STATE `model_sources_rmbg20_2026_09_10`；updated_at 2026-09-10T03:14:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-10 capability_gap_scan_v11 完成（ToIV 开发；docs；无产品 SHA）：OK 191→200（+9）；blocked 725；dedicated-aware ok 451（主口径不变）；hang-only soft-hide 公开约 957→956；真源勿 stage；status=`scan_complete_docs`；STATE `capability_gap_scan_v11_2026_09_10`；updated_at 2026-09-10T03:01:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-08 LIVE：P2 未装原因补注（ToIV 开发；docs）：TT 上游已删；Bjornulf 巨型硬依赖跳过；VRAMReserver 无精确注册；9 app soft-hide（公开约 966→957）；已装四端 Y；RMBG-2.0 权重在模型下载；v11 进行中；STATE `general_pool_p2_audio_rmbg_2026_09_08`；updated_at 2026-09-08T23:36:00+08:00。

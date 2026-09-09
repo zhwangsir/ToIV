@@ -1,12 +1,12 @@
 # ToIV ComfyUI Model Sources (Provenance Inventory)
 
-- **Updated (Asia/Shanghai):** `2026-09-08T18:17:37+08:00`
-- **OK:** 411
-- **Blocked:** 376
+- **Updated (Asia/Shanghai):** `2026-09-10T03:13:45+08:00`
+- **OK:** 412
+- **Blocked:** 375
 - **Total:** 787
 - **OK missing HTTP URL and repo:** 9 (local-alias without HTTP: 17; true gaps: 0)
 
-Built from `.regen_tmp` download logs (manifest, batch summaries/plans, blocked list, flux klein, h3, capability_gap_batch1, capability_gap_v3/v4). **URLs are never invented** — only copied from logs.
+Built from `.regen_tmp` download logs (manifest, batch summaries/plans, blocked list, flux klein, h3, capability_gap_batch1, capability_gap_v3/v4, RMBG-2.0). **URLs are never invented** — only copied from logs.
 
 Canonical copies: `ToIV/docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json`. WIP mirror: `.regen_tmp/`. NAS short index: `toiv/comfyui-models/SOURCES.md`.
 
@@ -702,7 +702,7 @@ Canonical copies: `ToIV/docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json`. WIP mirro
 | `red-zimage15AIO.safetensors` |  | unknown |  |  | batch15 | 2026-09-08T06:43:56+08:00 | reason=civitai_style_untraceable \| CivitAI-style character/checkpoint/LoRA basename; no exact HF file. \| action=blocked_untraceable \| suggested_next=Manual provenance if a trusted URL appears; do not invent mirrors. \| app_refs=1 \| from=_batch15_blocked_new.json |
 | `redcraftRedzimageUpdatedDEC03_redzimage15AIO-purn.safetensors` |  | unknown |  |  | batch15 | 2026-09-08T06:43:56+08:00 | reason=civitai_style_untraceable \| CivitAI-style character/checkpoint/LoRA basename; no exact HF file. \| action=blocked_untraceable \| suggested_next=Manual provenance if a trusted URL appears; do not invent mirrors. \| app_refs=1 \| from=_batch15_blocked_new.json |
 | `redcraftRedzimageUpdatedDEC03_redzimage15AIO.safetensors` |  | unknown |  |  |  | 2026-09-08T04:50:03+08:00 | reason=untraceable_civitai_aio \| Civitai-style AIO name; no HF exact. \| app_refs=2 |
-| `RMBG-2.0` |  | unknown |  |  | capability_gap_batch1 | 2026-09-08T16:55:00+08:00 | reason=gated_403 \| briaai/RMBG-2.0 returns 403 on hf-mirror without license accept \| app_refs=10 |
+| `RMBG-2.0` |  | unknown |  |  | capability_gap_batch1 | 2026-09-08T16:55:00+08:00 | reason=ok (ModelScope) \| briaai/RMBG-2.0 returns 403 on hf-mirror without license accept \| app_refs=10 |
 | `RTDGV3_000003750.safetensors` |  | unknown |  |  | batch14 | 2026-09-08T06:17:23+08:00 | reason=untraceable_trainer_step_dump \| Trainer/step checkpoint basename; no public HF exact file. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch14_blocked_new.json |
 | `ru弹跳bounceV_01.safetensors` |  | unknown |  |  | batch14 | 2026-09-08T06:17:23+08:00 | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch14_blocked_new.json |
 | `Saber illustxl.safetensors` |  | unknown |  |  | batch14 | 2026-09-08T06:17:23+08:00 | reason=untraceable_opaque_basename \| Opaque/community basename; no HF exact hit in batch14 search. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch14_blocked_new.json |
@@ -817,3 +817,8 @@ Canonical copies: `ToIV/docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json`. WIP mirro
 | `转身-high.safetensors` |  | unknown |  |  | batch14 | 2026-09-08T06:17:23+08:00 | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch14_blocked_new.json |
 | `造光.safetensors` |  | unknown |  |  | batch14 | 2026-09-08T06:17:23+08:00 | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch14_blocked_new.json |
 | `造相美人base8.safetensors` |  | unknown |  |  | batch14 | 2026-09-08T06:17:23+08:00 | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch14_blocked_new.json |
+
+### 2026-09-10（RMBG-2.0 补齐）
+- **status**: ok
+- **path**: `comfyui-models/RMBG/RMBG-2.0/model.safetensors`（884878856 bytes）
+- **source**: ModelScope `AI-ModelScope/RMBG-2.0`（HF `briaai/RMBG-2.0` 仍 gated；box `HF_TOKEN` 空）

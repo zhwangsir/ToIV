@@ -185,6 +185,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-10（ToIV 模型下载：MODEL_SOURCES RMBG-2.0 — ok412/blocked375/total787）
+- **计数**：ok **412** / blocked **375** / total **787**（RMBG-2.0 落入后；前 411/376/787）。
+- **清单**：`docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json` 已对齐（header 同步 JSON）。
+- Status：`inventory_updated`；STATE `model_sources_rmbg20_2026_09_10`；`updated_at` 2026-09-10T03:14:00+08:00。via ToIV 模型下载。
+
 ### 2026-09-10（ToIV 开发：capability_gap_scan_v11 完成）
 - **主口径**：apps **934→925**；OK **191→200（+9 vs v10）**；blocked **725**；unlocalizable **0**。
 - **旁路 dedicated-aware**（不改主 ok）：only_h3 **251** → dedicated_aware_ok **451**；仍 blocked **474**；only_qe **0**。
