@@ -1,7 +1,39 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T04:46:00+08:00",
+  "updated_at": "2026-09-10T04:56:00+08:00",
+  "genpool_extrapaths_style_models_2026_09_10": {
+    "status": "live_device_fyi",
+    "date": "2026-09-10",
+    "source": "设备管家",
+    "live": true,
+    "pool": "image_gen",
+    "extra_model_paths": {
+      "toiv": {
+        "style_models": "style_models"
+      }
+    },
+    "verify": {
+      "endpoints": {
+        "8196": "WS /models/style_models count=2",
+        "8188": "pc01 192.168.71.116:8188 /models/style_models count=2",
+        "8193": "pc02 /models/style_models count=2"
+      },
+      "basenames": [
+        "flux1-redux-dev",
+        "flex1_redux_siglip2_512"
+      ],
+      "count_each": 2
+    },
+    "unblocks": "v15 假缺（style_models folder mount）",
+    "v16_scan_done": false,
+    "note_do_not_claim_v16": true,
+    "next": "等模型下载 v15 批次后复扫 v16（勿宣称 v16 已做）",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T04:56:00+08:00",
+    "note": "三机 toiv extrapaths 补 style_models；8196/8188/8193 均 2（flux1-redux-dev + flex1_redux_siglip2_512）；解 v15 假缺；等 v15 下载批次后扫 v16"
+  },
   "capability_gap_scan_v15_2026_09_10": {
     "status": "scan_complete_docs",
     "date": "2026-09-10",

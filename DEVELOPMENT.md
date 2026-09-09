@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-10 LIVE：三机 extrapaths toiv 补 style_models（设备管家）**：toiv 段加 `style_models: style_models`；`/models/style_models` 于 WS:8196 / pc01 `.116`:8188 / pc02:8193 均为 **2**（`flux1-redux-dev` + `flex1_redux_siglip2_512`）。解 v15 假缺；**未**扫 v16——等模型下载 v15 批次后复扫 **v16**。status=`live_device_fyi`；STATE `genpool_extrapaths_style_models_2026_09_10`；updated_at 2026-09-10T04:56:00+08:00。
+
 **2026-09-10 gimmvfi 三端已清口径修正（项目管家；设备管家 SSH 核；无产品 SHA）**：WS:8196 / pc01 **.116**:8188 / pc02:8193 均含 `gimmvfi_r_arb_lpips_fp32.safetensors`；**作废**「8193 仍空不挡」；口径=**三端已清**（8196/8188/8193）。不跑 v15b。status=`scan_complete_docs`；STATE `capability_gap_scan_v15_2026_09_10`；updated_at 2026-09-10T04:55:00+08:00。
 
 **2026-09-10 capability_gap_scan_v15 完成（项目管家；ToIV 开发 tip；无产品 SHA）**：apps **922**；OK **235→242（+7）**；blocked **687→680（−7）**；dedicated-aware **500→507（+7）**；only_h3 **265**；worker models：8196=**825** / 8188=**806** / 8193=**805**；newly_ok 7 项全清：DarkBeast-Klein9b-V2-BFS-BF16 / flux1-dev.sft / Flux2 Klein动漫转写实… / Klein 一致性增强 / Flux2-Klein-9B-一致性V2 / ltx2.3-video-restoration-general-lora / 4x-ClearRealityV1；gimmvfi **三端已清**（8196/8188/8193）；**不跑 v15b**；仍缺 Top 非 H3：Licon-MSR-V1_B / model.pt / new_flux-2-klein-9b(7) + 角色 LTX LoRA(6) + bfs rank128B / nvfp4(5)；Top 缺节点仍 H3/RH + TT/Comfly；真源 `.regen_tmp/capability_gap_scan_v15/` 勿 stage。status=`scan_complete_docs`；STATE `capability_gap_scan_v15_2026_09_10`；updated_at 2026-09-10T04:46:00+08:00。

@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-10（项目管家：capability_gap_scan_v15 OK**242**（+7 vs v14）；dedicated-aware **507**（+7）；apps **922**；blocked **680**；gimmvfi **三端已清**（含:8193）；此前 MODEL_SOURCES v14 非 H3 ok**454**/blocked**350**/total**804**（Δ+7/−7 vs d2816ac）；此前 capability_gap_scan_v14 OK**235**（+11 vs v13b）；dedicated-aware **500**（+9）；apps **922**；此前 ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
+> **最后更新**：2026-09-10（设备管家：三机 extrapaths 补 style_models；8196/8188/8193 均 **2**=flux1-redux-dev+flex1_redux_siglip2_512；解 v15 假缺；等 v15 下载批次后扫 v16；此前项目管家：capability_gap_scan_v15 OK**242**（+7 vs v14）；dedicated-aware **507**（+7）；apps **922**；blocked **680**；gimmvfi **三端已清**（含:8193）；此前 MODEL_SOURCES v14 非 H3 ok**454**/blocked**350**/total**804**（Δ+7/−7 vs d2816ac）；此前 capability_gap_scan_v14 OK**235**（+11 vs v13b）；dedicated-aware **500**（+9）；apps **922**；此前 ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-10（设备管家：LIVE — 三机 extrapaths toiv 补 style_models）
+- **变更**：三机 `extra_model_paths` toiv 段加 `style_models: style_models`。
+- **验收**：`/models/style_models` 计数均为 **2** — WS:8196 / pc01 `192.168.71.116`:8188 / pc02:8193；含 `flux1-redux-dev` + `flex1_redux_siglip2_512`。
+- **影响**：解 v15 **假缺**（folder mount）；**未**扫 v16——等模型下载 v15 批次后再复扫 **v16**。
+- Status：`live_device_fyi`；STATE `genpool_extrapaths_style_models_2026_09_10`；`updated_at` 2026-09-10T04:56:00+08:00。via 设备管家 / 项目管家。
 
 ### 2026-09-10（项目管家：gimmvfi 三端已清口径修正）
 - **真机核（设备管家 SSH）**：WS `127:8196` `/models/frame_interpolation`、pc01 **`192.168.71.116:8188`**（勿用 .115）、pc02 `114:8193` 均含 `gimmvfi_r_arb_lpips_fp32.safetensors`（pc02 另含 rife*）。
