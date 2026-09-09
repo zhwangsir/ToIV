@@ -185,6 +185,17 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-10（ToIV 开发：capability_gap_scan_v13b 完成）
+- **主口径**：apps **924**；OK **210→224（+14）**；blocked **700**；unlocalizable **0**。
+- **dedicated-aware**：**477→491（+14）**；only_h3 **267**。
+- **worker models**：8196=**806**；8188·8193=**787**。
+- **folder 目标全清**：ltx spatial 1.1/1.0、MelBandRoformer_fp16、Qwen3.5-9B*（extrapaths 生效）。
+- **MODEL_FOLDERS**：含 `latent_upscale_models` / `vocal_separator` / `MelBandRoFormer` / `LLM`（扫描已对齐）。
+- **新 Top**：非 H3 缺模 ≤**7** apps；Top 缺节点仍 **H3/RH + TT/Comfly**。
+- **真源**：`.regen_tmp/capability_gap_scan_v13b/`（**勿 stage**）。
+- Status：`scan_complete_docs`（无产品 SHA）；STATE `capability_gap_scan_v13b_2026_09_10`；`updated_at` 2026-09-10T04:15:00+08:00。via ToIV 开发。
+
+
 ### 2026-09-10（设备管家：LIVE — 通用池 extrapaths 补 LLM/vocal_separator/MelBandRoFormer）
 - **变更**：通用池 `extra_model_paths` 加 `LLM` / `vocal_separator` / `MelBandRoFormer`；并 patch llama-cpp **勿覆盖** LLM 路径。
 - **影响**：解开 v13 still_missing 中似 folder-mount 项（MelBandRoformer_fp16 / Qwen3.5-9B* 相关；ltx spatial 或仍另轨）。**未**扫 v13b——仅 mount/路径修复。

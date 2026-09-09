@@ -1,7 +1,70 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T04:08:00+08:00",
+  "updated_at": "2026-09-10T04:15:00+08:00",
+  "capability_gap_scan_v13b_2026_09_10": {
+    "status": "scan_complete_docs",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发"
+    ],
+    "committed_product": false,
+    "product_sha": null,
+    "counts_main": {
+      "apps": 924,
+      "ok_v13": 210,
+      "ok_v13b": 224,
+      "ok_delta": 14,
+      "blocked": 700,
+      "unlocalizable": 0
+    },
+    "dedicated_aware": {
+      "before": 477,
+      "after": 491,
+      "delta": 14,
+      "only_h3": 267
+    },
+    "worker_models": {
+      "8196": 806,
+      "8188": 787,
+      "8193": 787
+    },
+    "folder_targets_cleared": [
+      "ltx-2.3-spatial-upscaler-x2-1.1",
+      "ltx-2.3-spatial-upscaler-x2-1.0",
+      "MelBandRoformer_fp16",
+      "Qwen3.5-9B*"
+    ],
+    "MODEL_FOLDERS": [
+      "latent_upscale_models",
+      "vocal_separator",
+      "MelBandRoFormer",
+      "LLM"
+    ],
+    "top_non_h3_missing_models": "≤7 apps",
+    "top_missing_nodes": "still H3/RH + TT/Comfly",
+    "do_not_claim": [
+      "H3 T8续装 done（blockcache-T8 / KJNodes / vrgamedevgirl still pending）"
+    ],
+    "next": "非 H3 缺模 Top（≤7 apps）下一刀；T8 续装 tip 等 install+同名 verify",
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v13b/",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "facts": [
+      "v13b OK 210→224（+14）；apps 924；blocked 700",
+      "dedicated-aware 477→491（+14）；only_h3 267",
+      "worker 8196=806 / 8188·8193=787",
+      "folder 目标全清：ltx spatial 1.1/1.0、MelBandRoformer_fp16、Qwen3.5-9B*",
+      "MODEL_FOLDERS 含 latent_upscale_models/vocal_separator/MelBandRoFormer/LLM",
+      "新 Top 非 H3 缺模 ≤7 apps；Top 缺节点仍 H3/RH + TT/Comfly"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T04:15:00+08:00",
+    "note": "capability_gap_scan_v13b 完成；OK +14→224；folder 目标全清；无产品 SHA；累计自 v12 的 206→224"
+  },
   "genpool_extrapaths_llm_vocal_melband_2026_09_10": {
     "status": "live_device_fyi",
     "date": "2026-09-10",
@@ -18,9 +81,9 @@
       "MelBandRoformer_fp16",
       "Qwen3.5-9B*"
     ],
-    "ltx_spatial_may_still_separate": true,
-    "v13b_scan_done": false,
-    "note_do_not_claim_v13b": true,
+    "ltx_spatial_may_still_separate": false,
+    "v13b_scan_done": true,
+    "note_do_not_claim_v13b": false,
     "h3_side_scan_旁证_deferred": {
       "only_h3": 267,
       "h3_ok": 208,
@@ -34,12 +97,23 @@
       "source_of_truth": ".regen_tmp/capability_gap_scan_v13/actionable/h3_8195_side_scan/",
       "do_not_stage": true
     },
-    "verify": "extrapaths + llama-cpp patch recorded; v13b not scanned",
-    "next": "capability_gap_scan_v13b after visibility confirm; T8 tip waits install+同名 verify",
+    "verify": "extrapaths + llama-cpp patch recorded; v13b scanned — folder targets cleared",
+    "next": "T8 tip waits install+同名 verify（blockcache-T8 / KJNodes / vrgamedevgirl still pending；勿宣称 H3 T8续装 done）",
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-10T04:08:00+08:00",
-    "note": "通用池 extrapaths LLM/vocal_separator/MelBandRoFormer + llama-cpp 勿覆 LLM；H3旁证 side-scan still59/T8口径；未扫 v13b；T8 未装"
+    "note": "通用池 extrapaths LLM/vocal_separator/MelBandRoFormer + llama-cpp 勿覆 LLM；v13b 已确认 folder 目标全清；H3旁证 side-scan still59/T8口径；T8 未装",
+    "v13b_confirmed": {
+      "ok": 224,
+      "dedicated_aware_ok": 491,
+      "cleared": [
+        "ltx-2.3-spatial-upscaler-x2-1.1",
+        "ltx-2.3-spatial-upscaler-x2-1.0",
+        "MelBandRoformer_fp16",
+        "Qwen3.5-9B*"
+      ],
+      "linked": "capability_gap_scan_v13b_2026_09_10"
+    }
   },
   "capability_gap_v12_download_summary_2026_09_10": {
     "status": "summary_docs",
@@ -5550,7 +5624,7 @@
       "MelBandRoformer_fp16",
       "Qwen3.5-9B*"
     ],
-    "next": "通用池 extrapaths 已补（见 genpool_extrapaths_llm_vocal_melband_2026_09_10）；确认可见性后 capability_gap_scan_v13b；勿将 v13 当作 folder 终局；未扫 v13b",
+    "next": "done — see capability_gap_scan_v13b_2026_09_10",
     "source_of_truth": ".regen_tmp/capability_gap_scan_v13/",
     "do_not_stage": [
       ".regen_tmp",
@@ -5569,7 +5643,7 @@
     "updated_at": "2026-09-10T03:56:00+08:00",
     "note": "capability_gap_scan_v13 完成；OK +4→210；folder mount 仍待 v13b；无产品 SHA",
     "folder_mount_extrapaths_patched": true,
-    "v13b_scan_done": false
+    "v13b_scan_done": true
   },
   "model_sources_h3_8195_2026_09_10": {
     "status": "inventory_updated",

@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-10 capability_gap_scan_v13b 完成（ToIV 开发；无产品 SHA）**：apps 924；OK **210→224（+14）**；blocked 700；dedicated-aware **477→491（+14）**；only_h3 **267**；worker models：8196=**806** / 8188·8193=**787**；folder 目标全清：ltx spatial 1.1/1.0、MelBandRoformer_fp16、Qwen3.5-9B*；MODEL_FOLDERS 含 latent_upscale_models/vocal_separator/MelBandRoFormer/LLM；新 Top 非 H3 缺模 ≤7 apps；Top 缺节点仍 H3/RH + TT/Comfly；真源 `.regen_tmp/capability_gap_scan_v13b/` 勿 stage。status=`scan_complete_docs`；STATE `capability_gap_scan_v13b_2026_09_10`；updated_at 2026-09-10T04:15:00+08:00。
+
 **2026-09-10 LIVE：通用池 extrapaths 补 LLM/vocal_separator/MelBandRoFormer + llama-cpp 勿覆 LLM（设备管家）**：通用池 `extra_model_paths` 已加 `LLM` / `vocal_separator` / `MelBandRoFormer`；并 patch llama-cpp 勿覆盖 LLM 路径。解开 v13 still_missing 中似 folder-mount 项（MelBandRoformer_fp16 / Qwen3.5-9B* 相关；ltx spatial 或仍另轨）。**未**扫 v13b——仅记 mount/路径修复。旁证（deferred）：H3 side-scan only_h3 267→h3_ok 208 / still 59（主因 T8 节点+别名权重扫描口径；T8 包授权 h3-eval 未装）；原 N3 中 2 不挡、T8 turbo 挡 1；结案仍 Y34/N3；真源 `.regen_tmp/.../h3_8195_side_scan/` 勿 stage。status=`live_device_fyi`；STATE `genpool_extrapaths_llm_vocal_melband_2026_09_10`；updated_at 2026-09-10T04:08:00+08:00。
 
 
