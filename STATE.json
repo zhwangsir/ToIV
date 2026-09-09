@@ -1,7 +1,84 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T04:16:30+08:00",
+  "updated_at": "2026-09-10T04:21:10+08:00",
+  "h3_8195_side_scan_t8_2026_09_10": {
+    "status": "side_scan_post_t8_docs",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发"
+    ],
+    "live": false,
+    "committed_product": false,
+    "product_sha": null,
+    "endpoint": "http://192.168.71.127:8195",
+    "note_side_scan_only": true,
+    "does_not_touch_genpool_scan口径": true,
+    "control": {
+      "v13b_only_h3": 267,
+      "prior_t8_pre": {
+        "h3_ok": 208,
+        "still": 59,
+        "nodes": 967
+      }
+    },
+    "primary_match": {
+      "h3_ok": 212,
+      "still": 55,
+      "delta_ok": 4,
+      "delta_still": -4
+    },
+    "alias_match_旁证": {
+      "h3_ok": 265,
+      "still": 2,
+      "still_breakdown": [
+        "turbo_T8 无源 1",
+        "MinimaxH3LatentUpscaler3D 1"
+      ],
+      "runnable_口径": "only_h3 265 可跑口径成立"
+    },
+    "t8_nodes_class_type": "全 Y",
+    "t8_nodes": [
+      "MiniMaxH3DualClockSamplerT8",
+      "MiniMaxH3AVDecodeT8",
+      "MiniMaxH3AudioConditioningT8",
+      "MiniMaxH3BlockCacheT8",
+      "MiniMaxH3MemoryEfficientSageAttentionPatch",
+      "VRGDG_MiniMaxH3AudioDrive"
+    ],
+    "worker_8195": {
+      "nodes_before": 967,
+      "nodes_after": 1753,
+      "models": 65
+    },
+    "weight_conclusion_unchanged": "Y34/N3",
+    "soft_hide": {
+      "apps": [
+        "rh-acc-1201993730-d1b241",
+        "rh-acc-8038814721-b7052e"
+      ],
+      "public_approx": {
+        "before": 956,
+        "after": 954
+      }
+    },
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v13b/actionable/h3_8195_side_scan_t8/",
+    "do_not_stage": [
+      ".regen_tmp"
+    ],
+    "scanned_at": "2026-09-10T04:18:53+08:00",
+    "facts": [
+      "对照 only_h3 267 → 主 h3_ok 212（+4）/still 55",
+      "别名口径 265/still 2（turbo_T8 无源 1 + MinimaxH3LatentUpscaler3D 1）",
+      "T8 六节点全 Y；:8195 nodes 967→1753",
+      "权重结案仍 Y34/N3",
+      "残 2 soft-hide；公开约 956→954；别名 265 可跑口径成立"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T04:21:10+08:00",
+    "note": "H3 T8后侧扫旁证完成；主212/55 别名265/2；残2 soft-hide→公开954；权重仍Y34/N3；真源勿 stage"
+  },
   "h3_8195_t8_nodes_2026_09_10": {
     "status": "live_device_fyi",
     "date": "2026-09-10",
@@ -40,14 +117,15 @@
     ],
     "t8_installed": true,
     "do_not_claim": [
-      "side-scan / capability_gap rescan done",
       "entered 通用池"
     ],
-    "next": "侧扫旁证由能力缺口再跑（勿在本 tip 宣称 rescan）",
+    "next": "T8后侧扫已完成（见 h3_8195_side_scan_t8_2026_09_10）",
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-10T04:16:30+08:00",
-    "note": "H3:8195 T8 补包齐（blockcache-T8/KJNodes/vrgamedevgirl + earlier minimax-h3-audio-T8）；仅 h3-eval；目标 class_type 全 Y；T8/Sage/VRGDG 齐；侧扫未重跑"
+    "note": "H3:8195 T8 补包齐；仅 h3-eval；目标 class_type 全 Y；T8/Sage/VRGDG 齐；~~侧扫未重跑~~ → T8后侧扫见 h3_8195_side_scan_t8_2026_09_10",
+    "side_scan_done": true,
+    "side_scan_link": "h3_8195_side_scan_t8_2026_09_10"
   },
   "capability_gap_scan_v13b_2026_09_10": {
     "status": "scan_complete_docs",
@@ -90,10 +168,8 @@
     ],
     "top_non_h3_missing_models": "≤7 apps",
     "top_missing_nodes": "still H3/RH + TT/Comfly",
-    "do_not_claim": [
-      "side-scan / capability_gap rescan after T8 install（T8 续装齐见 h3_8195_t8_nodes_2026_09_10；侧扫未重跑）"
-    ],
-    "next": "非 H3 缺模 Top（≤7 apps）下一刀；H3 T8 续装齐（见 h3_8195_t8_nodes_2026_09_10）；侧扫旁证由能力缺口再跑",
+    "do_not_claim": [],
+    "next": "非 H3 缺模 Top（≤7 apps）下一刀；H3 T8后侧扫见 h3_8195_side_scan_t8_2026_09_10",
     "source_of_truth": ".regen_tmp/capability_gap_scan_v13b/",
     "do_not_stage": [
       ".regen_tmp",
@@ -110,7 +186,8 @@
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-10T04:15:00+08:00",
-    "note": "capability_gap_scan_v13b 完成；OK +14→224；folder 目标全清；无产品 SHA；累计自 v12 的 206→224；T8 续装齐见 h3_8195_t8_nodes_2026_09_10（侧扫未重跑）"
+    "note": "capability_gap_scan_v13b 完成；OK +14→224；folder 目标全清；无产品 SHA；累计自 v12 的 206→224；T8续装齐+T8后侧扫见 h3_8195_side_scan_t8_2026_09_10",
+    "h3_side_scan_post_t8": "h3_8195_side_scan_t8_2026_09_10"
   },
   "genpool_extrapaths_llm_vocal_melband_2026_09_10": {
     "status": "live_device_fyi",
@@ -143,14 +220,27 @@
       "conclusion_unchanged": "Y34/N3",
       "source_of_truth": ".regen_tmp/capability_gap_scan_v13/actionable/h3_8195_side_scan/",
       "do_not_stage": true,
-      "t8_install_note": "h3-eval T8 续装齐 2026-09-10；侧扫未重跑；still59 旁证口径仍 deferred"
+      "t8_install_note": "h3-eval T8 续装齐；T8后侧扫见 h3_8195_side_scan_t8_2026_09_10",
+      "deferred": false,
+      "superseded_by": "h3_8195_side_scan_t8_2026_09_10",
+      "prior_t8_pre": {
+        "h3_ok": 208,
+        "still": 59
+      },
+      "post_t8": {
+        "h3_ok": 212,
+        "still": 55,
+        "alias_ok": 265,
+        "alias_still": 2
+      },
+      "source_of_truth_post": ".regen_tmp/capability_gap_scan_v13b/actionable/h3_8195_side_scan_t8/"
     },
     "verify": "extrapaths + llama-cpp patch recorded; v13b scanned — folder targets cleared",
-    "next": "H3 T8 续装齐（见 h3_8195_t8_nodes_2026_09_10）；侧扫旁证由能力缺口再跑",
+    "next": "H3 T8后侧扫已完成（见 h3_8195_side_scan_t8_2026_09_10）",
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-10T04:08:00+08:00",
-    "note": "通用池 extrapaths LLM/vocal_separator/MelBandRoFormer + llama-cpp 勿覆 LLM；v13b 已确认 folder 目标全清；H3旁证 side-scan still59/T8口径 deferred；~~T8 未装~~ → T8 续装齐（仅 h3-eval；见 h3_8195_t8_nodes_2026_09_10；侧扫未重跑）",
+    "note": "通用池 extrapaths LLM/vocal/MelBand + llama-cpp 勿覆 LLM；v13b folder 全清；~~旁证 still59 deferred~~ → T8后侧扫主212/55 别名265/2（见 h3_8195_side_scan_t8_2026_09_10）",
     "v13b_confirmed": {
       "ok": 224,
       "dedicated_aware_ok": 491,
@@ -5767,18 +5857,27 @@
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-10T03:56:00+08:00",
-    "note": "H3 :8195 复验 Y34/N3；H3补齐结案；通用池 extrapaths 已补 MelBand/LLM/vocal（ltx 或仍另轨）；旁证 still59/T8口径 deferred；~~T8 未装~~ → T8 续装齐见 h3_8195_t8_nodes_2026_09_10（侧扫未重跑）",
+    "note": "H3 :8195 复验 Y34/N3；H3补齐结案；~~旁证 still59 deferred~~ → T8后侧扫主212/55 别名265/2（见 h3_8195_side_scan_t8_2026_09_10）",
     "genpool_extrapaths_patched_partial": true,
     "ltx_spatial_may_still_separate": true,
     "h3_side_scan_旁证": {
-      "deferred": true,
-      "only_h3": 267,
-      "h3_ok": 208,
-      "still": 59,
+      "deferred": false,
+      "superseded_by": "h3_8195_side_scan_t8_2026_09_10",
+      "prior_t8_pre": {
+        "only_h3": 267,
+        "h3_ok": 208,
+        "still": 59
+      },
+      "post_t8": {
+        "h3_ok": 212,
+        "still": 55,
+        "alias_ok": 265,
+        "alias_still": 2
+      },
       "conclusion_unchanged": "Y34/N3",
       "t8_installed": true,
-      "source": ".regen_tmp/capability_gap_scan_v13/actionable/h3_8195_side_scan/",
-      "t8_install_note": "h3-eval T8 续装齐 2026-09-10；侧扫未重跑"
+      "source": ".regen_tmp/capability_gap_scan_v13b/actionable/h3_8195_side_scan_t8/",
+      "t8_install_note": "T8后侧扫见 h3_8195_side_scan_t8_2026_09_10"
     }
   }
 }

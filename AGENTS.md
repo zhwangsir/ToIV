@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-10（设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；侧扫未重跑；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
+> **最后更新**：2026-09-10（ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -185,12 +185,23 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-10（ToIV 开发：H3 `:8195` T8后侧扫旁证）
+- **对照**：v13b only_h3 **267** → :8195。
+- **主匹配**：h3_ok **212** / still **55**（较 T8前 208/59，**+4/−4**）。
+- **别名旁证**：h3_ok **265** / still **2**（turbo_T8 无源 1 + `MinimaxH3LatentUpscaler3D` 1）。
+- **T8**：六节点 class_type **全 Y**（BlockCache/Sage/VRGDG + DualClock/AVDecode/AudioConditioning）。
+- **:8195 nodes**：**967→1753**；权重结案仍 **Y34/N3**。
+- **soft-hide**：别名残 2 已 hide（`rh-acc-1201993730-d1b241`、`rh-acc-8038814721-b7052e`）；公开约 **956→954**；别名旁证 only_h3 **265** 可跑口径成立。
+- **真源**：`.regen_tmp/capability_gap_scan_v13b/actionable/h3_8195_side_scan_t8/`（**勿 stage**）。
+- Status：`side_scan_post_t8_docs`；STATE `h3_8195_side_scan_t8_2026_09_10`；`updated_at` 2026-09-10T04:21:10+08:00。via ToIV 开发。
+
+
 ### 2026-09-10（设备管家：LIVE — H3:8195 T8/blockcache/KJNodes/vrgamedevgirl 装齐）
 - **范围**：仅 **h3-eval**（`:8195`）；**未**进通用池。
 - **Earlier**：`T8mars/comfyui-minimax-h3-audio-T8` @ `e4ff860`；DualClock / AVDecode / AudioConditioning T8 = **Y**。
 - **Now**：blockcache-T8 @ `36336dce`；KJNodes @ `57105374`；vrgamedevgirl @ `c85fda6d`。
 - **验收**：目标 `class_type` **全 Y**；T8 / Sage / VRGDG 节点**齐**。
-- **旁证**：侧扫由能力缺口再跑——**勿**宣称 side-scan / capability_gap rescan done。
+- **旁证**：~~侧扫由能力缺口再跑~~ → **T8后侧扫已完成**（见新 tip：主 212/55；别名 265/2 + soft-hide）。
 - Status：`live_device_fyi`；STATE `h3_8195_t8_nodes_2026_09_10`；`updated_at` 2026-09-10T04:16:30+08:00。via 设备管家。
 
 
@@ -208,7 +219,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ### 2026-09-10（设备管家：LIVE — 通用池 extrapaths 补 LLM/vocal_separator/MelBandRoFormer）
 - **变更**：通用池 `extra_model_paths` 加 `LLM` / `vocal_separator` / `MelBandRoFormer`；并 patch llama-cpp **勿覆盖** LLM 路径。
 - **影响**：解开 v13 still_missing 中似 folder-mount 项（MelBandRoformer_fp16 / Qwen3.5-9B* 相关；ltx spatial 或仍另轨）。**未**扫 v13b——仅 mount/路径修复。
-- **旁证（deferred）**：H3 side-scan only_h3 **267→h3_ok 208 / still 59**（主因 T8 节点+别名权重扫描口径；~~T8 包授权 h3-eval **未装**~~ → T8 续装齐见新 tip（仍仅 h3-eval；侧扫未重跑））；原 N3 中 **2 不挡**、T8 turbo **挡 1**；结案仍 **Y34/N3**；真源 `.regen_tmp/capability_gap_scan_v13/actionable/h3_8195_side_scan/`（**勿 stage**）。
+- **旁证**：~~T8前 only_h3 **267→h3_ok 208 / still 59**（deferred）~~ → **T8后侧扫** 主 **212/55**、别名 **265/2**（见新 tip）；原 N3 中 **2 不挡**、T8 turbo **挡 1**；结案仍 **Y34/N3**；真源旧 `.../h3_8195_side_scan/` + 新 `.../h3_8195_side_scan_t8/`（**勿 stage**）。
 - Status：`live_device_fyi`；STATE `genpool_extrapaths_llm_vocal_melband_2026_09_10`；`updated_at` 2026-09-10T04:08:00+08:00。via 设备管家。
 
 
