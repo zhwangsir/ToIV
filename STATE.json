@@ -1,7 +1,85 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T04:26:00+08:00",
+  "updated_at": "2026-09-10T04:32:00+08:00",
+  "capability_gap_scan_v14_2026_09_10": {
+    "status": "scan_complete_docs",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "committed_product": false,
+    "product_sha": null,
+    "counts_main": {
+      "apps_v13b": 924,
+      "apps_v14": 922,
+      "apps_delta": -2,
+      "apps_note": "软隐藏 −2",
+      "ok_v13b": 224,
+      "ok_v14": 235,
+      "ok_delta": 11,
+      "blocked": 687,
+      "blocked_v13b": 700,
+      "unlocalizable": 0
+    },
+    "dedicated_aware": {
+      "before": 491,
+      "after": 500,
+      "delta": 9,
+      "only_h3": 265
+    },
+    "worker_models": {
+      "8196": 817,
+      "8188": 798,
+      "8193": 798
+    },
+    "newly_ok_p0_p1": [
+      "FullDynamic_Ultimate_Fusion_Elite.safetensors",
+      "Kook_Zimage_瑶光.safetensors",
+      "lightx2v_elite_it2v_animate_face.safetensors",
+      "Flux2-Klein-9B-True-v2-bf16.safetensors",
+      "WAN22_MoCap_fullbodyCOPY_ED.safetensors",
+      "Wan2.2-Fun-A14B-InP-Fusion-Elite.safetensors"
+    ],
+    "still_missing_named": {
+      "LTX-2.3-Licon-MSR-V1_B.safetensors": {
+        "count_apps": 7
+      },
+      "new_flux-2-klein-9b.safetensors": {
+        "count_apps": 7
+      },
+      "bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors": {
+        "count_apps": 5
+      },
+      "gimmvfi_r_arb_lpips_fp32.safetensors": {
+        "count_apps": 7,
+        "note": "疑 folder，已催设备"
+      }
+    },
+    "top_non_h3_missing_models": "≤7 apps（仍缺命名 4）",
+    "top_missing_nodes": "still H3/RH + TT/Comfly",
+    "do_not_claim": [],
+    "next": "仍缺命名：LTX-2.3-Licon-MSR / new_flux-2-klein-9b / bfs_head…rank128B / gimmvfi（folder?）；非 H3 Top≤7",
+    "source_of_truth": ".regen_tmp/capability_gap_scan_v14/",
+    "tip_json": ".regen_tmp/capability_gap_scan_v14/actionable/tip_for_project_steward.json",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "facts": [
+      "v14 OK 224→235（+11）；apps 924→922（软隐藏 −2）；blocked 687",
+      "dedicated-aware 491→500（+9）；only_h3 265",
+      "worker 8196=817 / 8188·8193=798",
+      "已清 P0/P1：FullDynamic_Ultimate_Fusion_Elite / Kook_Zimage_瑶光 / lightx2v_elite_it2v_animate_face / Flux2-Klein-9B-True-v2-bf16 / WAN22_MoCap_fullbodyCOPY_ED / Wan2.2-Fun-A14B-InP-Fusion-Elite",
+      "仍缺命名：LTX-2.3-Licon-MSR-V1_B(7)、new_flux-2-klein-9b(7)、bfs_head…rank128B(5)、gimmvfi_r_arb_lpips_fp32(7，疑 folder，已催设备)",
+      "Top 缺节点仍 H3/RH + TT/Comfly"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T04:32:00+08:00",
+    "note": "capability_gap_scan_v14 完成；OK +11→235；dedicated-aware +9→500；apps 922；无产品 SHA；tip from ToIV 开发"
+  },
   "h3_8195_side_scan_t8_2026_09_10": {
     "status": "side_scan_post_t8_docs",
     "date": "2026-09-10",

@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-10 capability_gap_scan_v14 完成（项目管家；ToIV 开发 tip；docs；无产品 SHA）：OK 224→235（+11）；apps 924→922（软隐藏 −2）；blocked 687；dedicated-aware 491→500（+9）；only_h3 265；worker 817/798/798；已清 P0/P1 六项；仍缺命名 LTX-2.3-Licon-MSR(7)/new_flux-2-klein-9b(7)/bfs_head…rank128B(5)/gimmvfi(7，疑 folder)；Top 非 H3 ≤7；Top 缺节点仍 H3/RH + TT/Comfly；真源勿 stage；status=`scan_complete_docs`；STATE `capability_gap_scan_v14_2026_09_10`；updated_at 2026-09-10T04:32:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-10 MODEL_SOURCES：ok447/blocked357/total804（ToIV 模型下载；docs；v13b 非 H3）：header 已同步 JSON；前 436/368/804（Δ +11/−11）；newly_ok 11 / already_on_nas 2 / blocked_documented 5；未写 h3/；真源勿 stage；status=`inventory_updated`；STATE `model_sources_v13b_non_h3_2026_09_10`；updated_at 2026-09-10T04:26:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-10 H3 `:8195` T8后侧扫（ToIV 开发；docs；旁证）：only_h3 267→主 h3_ok **212**/still **55**（+4/−4 vs T8前 208/59）；别名 **265**/still 2（turbo_T8 无源 1 + MinimaxH3LatentUpscaler3D 1）；T8 六节点全 Y；nodes **967→1753**；权重仍 Y34/N3；残 2 soft-hide（`rh-acc-1201993730-d1b241`、`rh-acc-8038814721-b7052e`）；公开约 956→954；别名 265 可跑口径成立；真源 `.regen_tmp/.../h3_8195_side_scan_t8/` 勿 stage；status=`side_scan_post_t8_docs`；STATE `h3_8195_side_scan_t8_2026_09_10`；updated_at 2026-09-10T04:21:10+08:00；AGENTS §七 已短注。

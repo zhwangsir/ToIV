@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-10（ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
+> **最后更新**：2026-09-10（项目管家：capability_gap_scan_v14 OK**235**（+11 vs v13b）；dedicated-aware **500**（+9）；apps **922**；此前 ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,16 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-10（项目管家：capability_gap_scan_v14 完成）
+- **主口径**：apps **924→922**（软隐藏 −2）；OK **224→235（+11）**；blocked **687**；unlocalizable **0**。
+- **dedicated-aware**：**491→500（+9）**；only_h3 **265**。
+- **worker models**：8196=**817**；8188·8193=**798**。
+- **已清 P0/P1**：FullDynamic_Ultimate_Fusion_Elite / Kook_Zimage_瑶光 / lightx2v_elite_it2v_animate_face / Flux2-Klein-9B-True-v2-bf16 / WAN22_MoCap_fullbodyCOPY_ED / Wan2.2-Fun-A14B-InP-Fusion-Elite。
+- **仍缺命名**：LTX-2.3-Licon-MSR-V1_B(7)、new_flux-2-klein-9b(7)、bfs_head…rank128B(5)、gimmvfi_r_arb_lpips_fp32(7，疑 folder，已催设备)。
+- **新 Top**：非 H3 缺模 ≤**7** apps；Top 缺节点仍 **H3/RH + TT/Comfly**。
+- **真源**：`.regen_tmp/capability_gap_scan_v14/`（**勿 stage**）；tip `.regen_tmp/capability_gap_scan_v14/actionable/tip_for_project_steward.json`。
+- Status：`scan_complete_docs`（无产品 SHA）；STATE `capability_gap_scan_v14_2026_09_10`；`updated_at` 2026-09-10T04:32:00+08:00。via 项目管家（ToIV 开发 tip）。
 
 ### 2026-09-10（ToIV 模型下载：MODEL_SOURCES v13b 非 H3 — ok447/blocked357/total804）
 - **计数**：ok **447** / blocked **357** / total **804**（v13b 非 H3 批次；前 436/368/804；Δ ok+11 / blocked−11）。
