@@ -1,9 +1,9 @@
 {
-  "updated_at": "2026-09-10T05:16:39+08:00",
+  "updated_at": "2026-09-10T05:44:41+08:00",
   "updated_at_timezone": "Asia/Shanghai",
   "totals": {
-    "ok": 457,
-    "blocked": 347,
+    "ok": 461,
+    "blocked": 343,
     "total": 804,
     "ok_missing_source_url": 9,
     "ok_true_gaps_no_url_no_repo_not_alias": 0,
@@ -202,7 +202,7 @@
       "downloaded_at": "2026-09-08T05:02:51+08:00",
       "status": "ok",
       "bytes": 1134588350,
-      "notes": "app_refs=1 | v14 already_on_nas confirmed | app_refs=1 | v15 confirmed already_on_nas ben/BEN_Base.pth bytes=1134588350",
+      "notes": "app_refs=1 | v14 already_on_nas confirmed | app_refs=1 | v15 confirmed already_on_nas ben/BEN_Base.pth bytes=1134588350 | v16 confirmed already_on_nas ben/BEN_Base.pth bytes=1134588350",
       "batch": "capability_gap_v14_non_h3"
     },
     {
@@ -1132,7 +1132,7 @@
       "downloaded_at": "2026-09-08T04:09:06+08:00",
       "status": "ok",
       "bytes": 912885656,
-      "notes": "app_refs=2 | v15 confirmed already_on_nas audio/MelBandRoformer_fp32.safetensors bytes=912885656",
+      "notes": "app_refs=2 | v15 confirmed already_on_nas audio/MelBandRoformer_fp32.safetensors bytes=912885656 | v16 confirmed already_on_nas audio/MelBandRoformer_fp32.safetensors bytes=912885656",
       "batch": "batch9"
     },
     {
@@ -2062,7 +2062,7 @@
       "downloaded_at": "2026-09-08T05:46:49+08:00",
       "status": "ok",
       "bytes": 7895701052,
-      "notes": "app_refs=1 | v15 confirmed already_on_nas sams/SeC-4B-bf16.safetensors bytes=7895701052",
+      "notes": "app_refs=1 | v15 confirmed already_on_nas sams/SeC-4B-bf16.safetensors bytes=7895701052 | v16 confirmed already_on_nas sams/SeC-4B-bf16.safetensors bytes=7895701052",
       "batch": "batch13"
     },
     {
@@ -2422,7 +2422,7 @@
       "downloaded_at": "2026-09-08T05:46:49+08:00",
       "status": "ok",
       "bytes": 11496331072,
-      "notes": "replaced klF8Anime2VAE after Bingsu 403/hang on mirror+HF | app_refs=1 | v15 confirmed already_on_nas unet/Wan2.2-Animate-14B-Q4_K_M.gguf bytes=11496331072",
+      "notes": "replaced klF8Anime2VAE after Bingsu 403/hang on mirror+HF | app_refs=1 | v15 confirmed already_on_nas unet/Wan2.2-Animate-14B-Q4_K_M.gguf bytes=11496331072 | v16 confirmed already_on_nas unet/Wan2.2-Animate-14B-Q4_K_M.gguf bytes=11496331072",
       "batch": "batch13"
     },
     {
@@ -2437,7 +2437,7 @@
       "downloaded_at": "2026-09-08T05:46:49+08:00",
       "status": "ok",
       "bytes": 10592753472,
-      "notes": "app_refs=1 | v15 confirmed already_on_nas unet/Wan2.2-Animate-14B-Q4_K_S.gguf bytes=10592753472",
+      "notes": "app_refs=1 | v15 confirmed already_on_nas unet/Wan2.2-Animate-14B-Q4_K_S.gguf bytes=10592753472 | v16 confirmed already_on_nas unet/Wan2.2-Animate-14B-Q4_K_S.gguf bytes=10592753472",
       "batch": "batch13"
     },
     {
@@ -3262,7 +3262,7 @@
       "downloaded_at": "2026-09-08T05:46:49+08:00",
       "status": "ok",
       "bytes": 8051284960,
-      "notes": "app_refs=1 | v15 confirmed already_on_nas unet/Z-Image-Engineer-V6-F16.gguf bytes=8051284960",
+      "notes": "app_refs=1 | v15 confirmed already_on_nas unet/Z-Image-Engineer-V6-F16.gguf bytes=8051284960 | v16 confirmed already_on_nas unet/Z-Image-Engineer-V6-F16.gguf bytes=8051284960",
       "batch": "batch13"
     },
     {
@@ -3457,7 +3457,7 @@
       "downloaded_at": "2026-09-10T04:40:53+08:00",
       "status": "ok",
       "bytes": 380263948,
-      "notes": "v14 confirmed already_on_nas dir audio/chinese-wav2vec2-base (pytorch_model.bin 380261837 + configs); do not re-download | app_refs=2 | v15 confirmed already_on_nas audio/chinese-wav2vec2-base bytes=380263948",
+      "notes": "v14 confirmed already_on_nas dir audio/chinese-wav2vec2-base (pytorch_model.bin 380261837 + configs); do not re-download | app_refs=2 | v15 confirmed already_on_nas audio/chinese-wav2vec2-base bytes=380263948 | v16 confirmed already_on_nas audio/chinese-wav2vec2-base/ bytes=380263948",
       "batch": "capability_gap_v14_non_h3"
     },
     {
@@ -6517,7 +6517,7 @@
       "downloaded_at": "2026-09-08T18:17:37+08:00",
       "status": "ok",
       "bytes": 16653175528,
-      "notes": "already on NAS under wan2.2-animate-2-14b tree; documented this batch | app_refs=2 | v14 already_on_nas confirmed | app_refs=2 | v15 confirmed already_on_nas wan2.2-animate-2-14b/wan_animate_2_distill_int8_convrot.safetensors bytes=16653175528",
+      "notes": "already on NAS under wan2.2-animate-2-14b tree; documented this batch | app_refs=2 | v14 already_on_nas confirmed | app_refs=2 | v15 confirmed already_on_nas wan2.2-animate-2-14b/wan_animate_2_distill_int8_convrot.safetensors bytes=16653175528 | v16 confirmed already_on_nas wan2.2-animate-2-14b/wan_animate_2/comfyui/wan_animate_2_distill_int8_convrot.safetensors bytes=16653175528",
       "batch": "capability_gap_v14_non_h3"
     },
     {
@@ -6532,7 +6532,7 @@
       "downloaded_at": "2026-09-08T18:17:37+08:00",
       "status": "ok",
       "bytes": 3087130976,
-      "notes": "already on NAS; documented this batch | app_refs=1 | v15 confirmed already_on_nas audio_encoders/whisper-large-v3.safetensors bytes=3087130976",
+      "notes": "already on NAS; documented this batch | app_refs=1 | v15 confirmed already_on_nas audio_encoders/whisper-large-v3.safetensors bytes=3087130976 | v16 confirmed already_on_nas audio_encoders/whisper-large-v3.safetensors bytes=3087130976",
       "batch": "capability_gap_v3_batch1"
     },
     {
@@ -6697,7 +6697,7 @@
       "downloaded_at": "2026-09-08T05:02:51+08:00",
       "status": "ok",
       "bytes": 7224707136,
-      "notes": "RH short name; from unsloth z-image-turbo-Q8_0.gguf | app_refs=2 | v14 already_on_nas confirmed | app_refs=2 | v15 confirmed already_on_nas unet/z_image-Q8_0.gguf bytes=7224707136",
+      "notes": "RH short name; from unsloth z-image-turbo-Q8_0.gguf | app_refs=2 | v14 already_on_nas confirmed | app_refs=2 | v15 confirmed already_on_nas unet/z_image-Q8_0.gguf bytes=7224707136 | v16 confirmed already_on_nas unet/z_image-Q8_0.gguf bytes=7224707136",
       "batch": "capability_gap_v14_non_h3"
     },
     {
@@ -6947,13 +6947,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "3kman-reface-v0.1-klein_8.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: no public exact basename (Civitai/HF) — blocked",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16: no public exact basename on HF/Civitai/ModelScope — blocked",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "56low20noiseCumshot.xb7F.safetensors",
@@ -7082,13 +7082,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "ComfyUI_00002_.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: generic Comfy export name — ambiguous — blocked",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16 confirm: generic Comfy export name — RH-untraceable — blocked",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "DR34ML4Y_LTXXX_PREVIEW_RC1.safetensors",
@@ -7122,18 +7122,18 @@
     },
     {
       "basename": "DarkKlein9b_v2BFS_extracted_lora_r256.safetensors",
-      "rel_path": null,
-      "source_kind": "unknown",
-      "source_url": null,
-      "repo": null,
-      "revision": null,
-      "filename": null,
+      "rel_path": "loras/DarkKlein9b_v2BFS_extracted_lora_r256.safetensors",
+      "source_kind": "huggingface",
+      "source_url": "https://hf-mirror.com/1unacy/darkbeastmaterials/resolve/main/DarkKlein9b_v2BFS_extracted_lora_r256.safetensors",
+      "repo": "1unacy/darkbeastmaterials",
+      "revision": "main",
+      "filename": "DarkKlein9b_v2BFS_extracted_lora_r256.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
-      "status": "blocked",
-      "bytes": null,
-      "notes": "reason=civitai_only_no_hf_mirror | action=blocked | batch=capability_gap_v14_non_h3",
-      "batch": "capability_gap_v14_non_h3"
+      "downloaded_at": "2026-09-10T05:44:41+08:00",
+      "status": "ok",
+      "bytes": 1325429016,
+      "notes": "exact basename; CivArchive mirrors Civitai 2742432",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "Dasiwa-v3-ltx2.3-人脸一致性.safetensors",
@@ -7442,13 +7442,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "Flux2-Klein-9B-HD-Upscale.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_no_exact_hf | action=blocked | batch=capability_gap_v14_non_h3",
-      "batch": "capability_gap_v14_non_h3"
+      "notes": "v16: no exact HF; Ultimate Upscaler near-name is Flux2-Klein-Image-RestoreV1 — do not substitute",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "Flux2-Klein4B-Anything2Real_v1.0.safetensors",
@@ -7457,13 +7457,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "Flux2-Klein4B-Anything2Real_v1.0.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=near_name_not_exact; no exact HF basename | action=blocked | batch=capability_gap_v14_non_h3",
-      "batch": "capability_gap_v14_non_h3"
+      "notes": "v16: HF lrzjason/Anything2Real has f2k_anything2real*.safetensors only — near-name not exact",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "Flux2-Klein9B-Anything2Real_V1.0.safetensors",
@@ -7472,13 +7472,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "Flux2-Klein9B-Anything2Real_V1.0.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=near_name_not_exact; HF lrzjason has f2k_anything2real*.safetensors not this basename | action=blocked | batch=capability_gap_v14_non_h3",
-      "batch": "capability_gap_v14_non_h3"
+      "notes": "v16: HF lrzjason has f2k_anything2real*.safetensors not this basename — near-name not exact",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "Flux2-Klein9b超级皮肤质感v1.0.safetensors",
@@ -7622,13 +7622,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "Kook_Flux_klein_亚洲人像.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: forum/Quark-only distribution (APK.TW mentions); no ModelScope/HF/Civitai exact — blocked",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16 confirm: no ModelScope/HF/Civitai exact; forum/Quark-only — keep blocked, do not fake",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "Kook_Qwen_2512_真实幻想.safetensors",
@@ -7637,43 +7637,43 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "Kook_Qwen_2512_真实幻想.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_exact_variant | action=blocked | batch=capability_gap_v14_non_h3",
-      "batch": "capability_gap_v14_non_h3"
+      "notes": "v16: ModelScope KookYan exact repo not found for 2512 variant — blocked",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "Kook_Qwen_V3极致真实.safetensors",
-      "rel_path": null,
-      "source_kind": "unknown",
-      "source_url": null,
-      "repo": null,
-      "revision": null,
-      "filename": null,
+      "rel_path": "loras/Kook_Qwen_V3极致真实.safetensors",
+      "source_kind": "modelscope",
+      "source_url": "https://www.modelscope.cn/models/KookYan/Kook_Qwen_JIZHIZHENSHI/resolve/master/Kook_Qwen_V3极致真实.safetensors",
+      "repo": "KookYan/Kook_Qwen_JIZHIZHENSHI",
+      "revision": "master",
+      "filename": "Kook_Qwen_V3极致真实.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
-      "status": "blocked",
-      "bytes": null,
-      "notes": "reason=untraceable_chinese_community_lora | action=blocked | batch=capability_gap_v14_non_h3",
-      "batch": "capability_gap_v14_non_h3"
+      "downloaded_at": "2026-09-10T05:44:41+08:00",
+      "status": "ok",
+      "bytes": 236117032,
+      "notes": "app_refs=2 | priority=P2 | batch=capability_gap_v16_non_h3",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "Kook_Zimage_如梦似幻.safetensors",
-      "rel_path": null,
-      "source_kind": "unknown",
-      "source_url": null,
-      "repo": null,
-      "revision": null,
-      "filename": null,
+      "rel_path": "loras/Kook_Zimage_如梦似幻.safetensors",
+      "source_kind": "modelscope",
+      "source_url": "https://www.modelscope.cn/models/KookYan/Kook_Zimage_RMSH/resolve/master/Kook_Zimage_如梦似幻.safetensors",
+      "repo": "KookYan/Kook_Zimage_RMSH",
+      "revision": "master",
+      "filename": "Kook_Zimage_如梦似幻.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
-      "status": "blocked",
-      "bytes": null,
-      "notes": "reason=untraceable_chinese_community_lora | action=blocked | batch=capability_gap_v14_non_h3",
-      "batch": "capability_gap_v14_non_h3"
+      "downloaded_at": "2026-09-10T05:44:41+08:00",
+      "status": "ok",
+      "bytes": 158818896,
+      "notes": "app_refs=2 | priority=P2 | batch=capability_gap_v16_non_h3",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "Kook_千问写实_Kook_Qwen_V2美人版.safetensors",
@@ -7727,13 +7727,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "LTX-2.3-Licon-MSR-V1_B.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15 DO-NOT-RECHASE: keep blocked; near-name V1/V2 only — do not substitute",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16 DO-NOT-RECHASE: keep blocked; HF V1/V2 only",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "LTX-2.3_Cinematic hardcut.safetensors",
@@ -7802,13 +7802,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "LTX2.3银月.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: no exact public basename on Civitai/Liblib/HF/ModelScope; Yin Yue IL names are Illustrious not LTX — keep blocked exact-only",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16 DO-NOT-RECHASE: keep blocked",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "LTX23-燕如嫣-E78795E5A682E5ABA3E8A7-98UH.safetensors",
@@ -7817,13 +7817,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "LTX23-燕如嫣-E78795E5A682E5ABA3E8A7-98UH.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: near-name only on Civitai ltx2.3燕如嫣触发词ruyan.safetensors (2810650) — DO NOT substitute; opaque E78795… basename untraceable | near_url=https://civitai.com/api/download/models/2810650 (ruyan — not exact)",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16 DO-NOT-RECHASE: opaque basename",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "LTXWP壁纸comfy.safetensors",
@@ -7832,13 +7832,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "LTXWP壁纸comfy.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T04:50:03+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_chinese_community_lora | No HF/Civitai/ModelScope hit for LTXWP wallpaper LoRA. | app_refs=2 | from=_batch9_blocked_candidates.json",
-      "batch": "batch9"
+      "notes": "v16: untraceable Chinese community LoRA",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "LahHongchenSDXLSD15_sd15V10.safetensors",
@@ -8102,13 +8102,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "Qwen-Image-Edit-2509-Lightning-4steps-V1.5-fp32_Edit4步fp32 r2.0.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T04:50:03+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_rh_custom_rename | No V1.5 / Edit4步 r2.0 variant on lightx2v; official is V1.0 bf16/fp32 only. | app_refs=2 | from=_batch9_blocked_candidates.json",
-      "batch": "batch9"
+      "notes": "v16: untraceable RH custom rename; official lightx2v is V1.0 only",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "Qwen-Image-Edit-2511-8steps-fp32.safetensors",
@@ -8282,13 +8282,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "Qwen中文字体LoRA.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T04:50:03+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_chinese_font_lora_name | Civitai Chinese-annotation LoRA is Qwen-cn-3.safetensors, not this RH basename; cannot confidently alias. | app_refs=2 | from=_batch9_blocked_candidates.json",
-      "batch": "batch9"
+      "notes": "v16: untraceable; Civitai Qwen-cn-3 near-name only",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "Qwen千问_中文海报直出 电商美学_v1.0.safetensors",
@@ -8367,18 +8367,18 @@
     },
     {
       "basename": "SESELAORUYAO.safetensors",
-      "rel_path": null,
-      "source_kind": "unknown",
-      "source_url": null,
-      "repo": null,
-      "revision": null,
-      "filename": null,
+      "rel_path": "loras/SESELAORUYAO.safetensors",
+      "source_kind": "huggingface",
+      "source_url": "https://hf-mirror.com/fwwrsd/iossd-seselaoruyao/resolve/main/SESELAORUYAO.safetensors",
+      "repo": "fwwrsd/iossd-seselaoruyao",
+      "revision": "main",
+      "filename": "SESELAORUYAO.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
-      "status": "blocked",
-      "bytes": null,
-      "notes": "v15: no public exact basename — blocked",
-      "batch": "capability_gap_v15_non_h3"
+      "downloaded_at": "2026-09-10T05:44:41+08:00",
+      "status": "ok",
+      "bytes": 359259656,
+      "notes": "app_refs=3 | priority=P1 | batch=capability_gap_v16_non_h3",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "Saber illustxl.safetensors",
@@ -8612,13 +8612,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_version; HF has v3.0 only not v2.1 | action=blocked | batch=capability_gap_v14_non_h3",
-      "batch": "capability_gap_v14_non_h3"
+      "notes": "v16: HF has v3.0 not v2.1 — near-name not exact",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
@@ -8627,13 +8627,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_version; no v2.1 low on HF | action=blocked | batch=capability_gap_v14_non_h3",
-      "batch": "capability_gap_v14_non_h3"
+      "notes": "v16: no v2.1 low on HF — blocked",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "Wan2.2_T2V_Low_Noise_14B_VACE-Q8_0.gguf",
@@ -8987,13 +8987,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "add_real_details.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: no exact HF/Civitai basename (similar Add_Details variants only) — blocked",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16: no exact HF/Civitai basename (Add_Details/add_detail near-names only) — blocked",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "aniWan2114BFp8E4m3fn_i2v480pNew.safetensors",
@@ -9077,13 +9077,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "beyondREALITY_beyondREALITYZIMAGE.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T04:50:03+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_rh_double_prefix_name | HF Nurburgring BEYOND_REALITY files use Chinese titles; Civitai hits are workflows. No exact beyondREALITY_beyondREALITYZIMAGE. | app_refs=2 | from=_batch9_blocked_candidates.json",
-      "batch": "batch9"
+      "notes": "v16: no exact RH double-prefix; Nurburgring has Chinese titles only — do not substitute for RH basename",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "bfs_head_swap_v4.safetensors",
@@ -9107,13 +9107,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15 DO-NOT-RECHASE: keep blocked; rank128 without trailing B does not count",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16 DO-NOT-RECHASE: keep blocked; rank128B unpublished",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "bfs_head_v4_qwen_image_edit_2509.safetensors",
@@ -9332,13 +9332,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "detail-new_000014500.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: untraceable training-step artifact — blocked",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16: untraceable training-step artifact — blocked",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "dopsd_white_zimage_turbo_comfy.safetensors",
@@ -9362,13 +9362,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "eigen-banana-qwen-image-edit-fp16-lora.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=gated_hf_no_token; eigen-ai-labs CC BY-NC-ND returns 401 without HF token | action=blocked | batch=capability_gap_v14_non_h3",
-      "batch": "capability_gap_v14_non_h3"
+      "notes": "v16: gated HF 401 without token — blocked",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "emw_Wan21_T2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
@@ -9538,17 +9538,17 @@
     {
       "basename": "flux-2-klein-9b-nvfp4.safetensors",
       "rel_path": null,
-      "source_kind": "huggingface",
-      "source_url": "https://huggingface.co/black-forest-labs/FLUX.2-klein-9b-nvfp4",
-      "repo": "black-forest-labs/FLUX.2-klein-9b-nvfp4",
+      "source_kind": "unknown",
+      "source_url": null,
+      "repo": null,
       "revision": null,
-      "filename": null,
-      "license_or_gated": "gated_bfl",
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "filename": "flux-2-klein-9b-nvfp4.safetensors",
+      "license_or_gated": null,
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: BFL gated HF black-forest-labs/FLUX.2-klein-9b-nvfp4 (401); hf-mirror redirects; no HF token; ModelScope ungated mirror not found — blocked",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16 DO-NOT-RECHASE: gated BFL 401 / no mirror",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "flux-2-klein-9b_0630.safetensors",
@@ -9647,13 +9647,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
-      "license_or_gated": "BFL gated/license accept required",
-      "downloaded_at": "2026-09-08T04:50:03+08:00",
+      "filename": "flux.2-9b-16.9Gb.safetensors",
+      "license_or_gated": null,
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_rh_size_label_klein_adjacent | RH size-tagged basename; HF search resolves only to FLUX.2-klein 9B family. flux-2-klein handled in separate task — do not alias without exact sha. | app_refs=2",
-      "batch": null
+      "notes": "v16: untraceable RH size-label; do not substitute klein-9b",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "flux.2高清放大-细节增强.safetensors",
@@ -9827,13 +9827,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "full_encoder_small_decoder.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T04:50:03+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_generic_name | Generic LatentSync-ish name; no exact public safetensors match confirmed. | app_refs=2",
-      "batch": null
+      "notes": "v16: untraceable generic name",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "gemini-3.1-flash-image-preview",
@@ -9943,17 +9943,17 @@
     {
       "basename": "h-anime4.comfy.safetensors",
       "rel_path": null,
-      "source_kind": "civitai",
-      "source_url": "https://civitai.com/api/download/models/3062850",
-      "repo": "civitai:2725065@3062850",
+      "source_kind": "unknown",
+      "source_url": null,
+      "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "h-anime4.comfy.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: exact Civitai 3062850/fileId=2941744 (~836MB) found but download requires Civitai login (HTML login page); quark pan link in model desc — blocked pending auth",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16: Civitai 3062850/fileId=2941744 exact but login wall — keep blocked",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "hassaku线稿v1.20_触发mjiuxg.safetensors",
@@ -10022,13 +10022,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "ip-adapter.bin",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: generic basename multi-family — ambiguous without sample_app_ids — blocked",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16 DO-NOT-RECHASE: ambiguous many variants",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "jiaren_zimage.safetensors",
@@ -10322,13 +10322,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "ltx2.3梅凝触发词meining.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: only Z-Image versions found (梅凝Z-base_V2 etc.); no exact LTX basename — keep blocked",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16 DO-NOT-RECHASE: keep blocked",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "ltx2.3紫灵触发词ziling.safetensors",
@@ -10352,13 +10352,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "ltx2.3韩立南宫婉双人lora.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: no exact public basename; Dual-Character IC-LoRA has different name — keep blocked",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16 DO-NOT-RECHASE: keep blocked",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "ltx2.3韩立触发词hanli.safetensors",
@@ -10622,13 +10622,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "model.pt",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: JSON has count_apps only, no sample_app_ids — ambiguous generic basename — blocked",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16 DO-NOT-RECHASE: ambiguous generic",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "moodyDesireMix_v20LITE_去重.safetensors",
@@ -10667,13 +10667,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "moodyRealMix_zitV5DPO.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T04:50:03+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_civitai_style_name | Likely Civitai private; no HF exact file. | app_refs=2",
-      "batch": null
+      "notes": "v16: untraceable civitai-style name",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "moodyRealMix_zitV5DPOFP8.safetensors",
@@ -10727,13 +10727,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "new_Z-Image_Turbo-diffusion.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=ambiguous_rh_rename; do not guess | action=blocked | batch=capability_gap_v14_non_h3",
-      "batch": "capability_gap_v14_non_h3"
+      "notes": "v16: ambiguous RH rename — do not guess",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "new_flux-2-klein-4b.safetensors",
@@ -10757,13 +10757,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "new_flux-2-klein-9b.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15 DO-NOT-RECHASE: keep blocked; official flux-2-klein-9b already on NAS",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16 DO-NOT-RECHASE: keep blocked; untraceable rename",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "newshot-klein-9b-edit_10.safetensors",
@@ -10832,13 +10832,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "peiling3-lora.comfy.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-10T04:40:53+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v15: near-name 慕沛灵Zbase.safetensors only — DO NOT substitute — keep blocked",
-      "batch": "capability_gap_v15_non_h3"
+      "notes": "v16 DO-NOT-RECHASE: keep blocked",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "pipiRealMixV1.safetensors",
@@ -10877,13 +10877,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "put it here_QwenEdit_V0.1.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T04:50:03+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_placeholder_filename | RH placeholder-style name; cannot map to canonical weight. | app_refs=2",
-      "batch": null
+      "notes": "v16: UnifiedHorusRA repo exists but no weight files (README only) — blocked",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "pytorch_lora.safetensors",
@@ -10907,13 +10907,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "qwen edit 2509 变大.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T04:50:03+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_chinese_commercial_lora | Spaced Chinese RH name; no public exact file. | app_refs=2",
-      "batch": null
+      "notes": "v16: untraceable Chinese commercial LoRA",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "qwen-boreal-portraits-portraits-high-rank-modified.safetensors",
@@ -11012,13 +11012,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "qwen_image_edit2511满血版.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T04:50:03+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_chinese_repack_name | 满血版 community rename; ambiguous vs bf16/fp8/official packs. | app_refs=2",
-      "batch": null
+      "notes": "v16: untraceable Chinese repack name",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "qwen_image_edit_20mannequin-clipper_v1.0.safetensors",
@@ -11312,13 +11312,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "white-dopsd-27W.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T04:50:03+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_no_public_hf_or_github | No Hugging Face / GitHub / known mirror hit for basename white-dopsd-27W. Likely Civitai/private Chinese LoRA without canonical repo mapping from RH apps alone. | app_refs=5",
-      "batch": "batch6"
+      "notes": "v16: no public HF/GitHub exact",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "xueluo-klein-ConversionV1.0_000006000.safetensors",
@@ -11342,13 +11342,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "z-image人物模特.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T05:02:51+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_chinese_community_name | Chinese RH community LoRA; no public HF filename. | action=block | suggested_next=manual_liblib_or_civitai | app_refs=2 | from=_batch11_blocked_candidates.json",
-      "batch": "batch11"
+      "notes": "v16: untraceable Chinese community name",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "z-image真实光影质感.safetensors",
@@ -11477,13 +11477,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "zit_fdpo_v1.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T05:02:51+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_short_name | No HF hit for zit_fdpo_v1. | action=block | suggested_next=manual | app_refs=2 | from=_batch11_blocked_candidates.json",
-      "batch": "batch11"
+      "notes": "v16: no HF hit",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "【光影画质优化】绪儿 氛围感滤镜_V2.safetensors",
@@ -11792,13 +11792,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "无滤真实_V2.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T05:02:51+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_chinese_community_name | Chinese community checkpoint/LoRA; untraceable. | action=block | suggested_next=manual | app_refs=2 | from=_batch11_blocked_candidates.json",
-      "batch": "batch11"
+      "notes": "v16: untraceable Chinese community name",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "昭华.safetensors",
@@ -12002,13 +12002,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "胸部走路抖动low.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T05:02:51+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_nsfw_community | NSFW motion LoRA; no public source. | action=block | suggested_next=manual | app_refs=2 | from=_batch11_blocked_candidates.json",
-      "batch": "batch11"
+      "notes": "v16: untraceable NSFW community",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "角色置景_RoleScene Blend.safetensors",
@@ -12017,13 +12017,13 @@
       "source_url": null,
       "repo": null,
       "revision": null,
-      "filename": null,
+      "filename": "角色置景_RoleScene Blend.safetensors",
       "license_or_gated": null,
-      "downloaded_at": "2026-09-08T05:02:51+08:00",
+      "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "reason=untraceable_chinese_community_name | Chinese RoleScene blend; untraceable. | action=block | suggested_next=manual | app_refs=2 | from=_batch11_blocked_candidates.json",
-      "batch": "batch11"
+      "notes": "v16: untraceable Chinese community name",
+      "batch": "capability_gap_v16_non_h3"
     },
     {
       "basename": "赛璐璐-klien.safetensors",

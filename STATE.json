@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T05:24:54+08:00",
+  "updated_at": "2026-09-10T06:06:30+08:00",
   "soft_hide_blocked_only_v16_2026_09_10": {
     "status": "soft_hide_docs",
     "date": "2026-09-10",
@@ -6512,5 +6512,96 @@
     "pushed": false,
     "updated_at": "2026-09-10T05:18:30+08:00",
     "note": "MODEL_SOURCES ok457/blocked347/total804 after v15 non-H3 download batch (续下)"
+  },
+  "model_sources_v16_non_h3_2026_09_10": {
+    "status": "inventory_updated",
+    "date": "2026-09-10",
+    "source": "ToIV 模型下载",
+    "steward": "项目管家",
+    "ok": 461,
+    "blocked": 343,
+    "total": 804,
+    "prev": {
+      "ok": 457,
+      "blocked": 347,
+      "total": 804
+    },
+    "delta": {
+      "ok": 4,
+      "blocked": -4,
+      "total": 0
+    },
+    "prev_tip_sha": "7617fd4",
+    "trigger": "capability_gap_v16_non_h3 download batch (长尾一批)",
+    "inventory_updated_at": "2026-09-10T05:44:41+08:00",
+    "files": [
+      "docs/MODEL_SOURCES.md",
+      "docs/MODEL_SOURCES.json"
+    ],
+    "header_synced_from_json": true,
+    "download": {
+      "batch": "capability_gap_v16_non_h3",
+      "list_count": 286,
+      "newly_ok": 4,
+      "already_on_nas": 10,
+      "blocked_priority_documented": 6,
+      "blocked_p2_refreshed_count": 24,
+      "remaining_open_estimate": 242,
+      "bytes_gib_approx": 1.9368,
+      "already_on_nas_gib_approx": 62.798,
+      "GiB_total_accounted": 64.7348,
+      "target": "general NAS (not h3/)",
+      "method": "MateBook aria2c + proxy :7897 → SMB NAS"
+    },
+    "p0_highlights_newly_ok": [
+      "SESELAORUYAO.safetensors",
+      "DarkKlein9b_v2BFS_extracted_lora_r256.safetensors",
+      "Kook_Qwen_V3极致真实.safetensors",
+      "Kook_Zimage_如梦似幻.safetensors"
+    ],
+    "blocked_named_highlights": [
+      "Kook_Flux_klein_亚洲人像.safetensors",
+      "3kman-reface-v0.1-klein_8.safetensors",
+      "ComfyUI_00002_.safetensors",
+      "add_real_details.safetensors",
+      "detail-new_000014500.safetensors",
+      "h-anime4.comfy.safetensors"
+    ],
+    "beyond_reality_in_progress": {
+      "basename": "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
+      "pct": 94.92,
+      "counted_in_newly_ok": false,
+      "note": "续下中未计入"
+    },
+    "do_not_rechase_kept_blocked": [
+      "LTX-2.3-Licon-MSR-V1_B.safetensors",
+      "LTX2.3银月.safetensors",
+      "LTX23-燕如嫣-E78795E5A682E5ABA3E8A7-98UH.safetensors",
+      "bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors",
+      "flux-2-klein-9b-nvfp4.safetensors",
+      "ip-adapter.bin",
+      "ltx2.3梅凝触发词meining.safetensors",
+      "ltx2.3韩立南宫婉双人lora.safetensors",
+      "model.pt",
+      "new_flux-2-klein-9b.safetensors",
+      "peiling3-lora.comfy.safetensors"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "source_of_truth": ".regen_tmp/capability_gap_v16_download_summary.json",
+    "facts": [
+      "MODEL_SOURCES ok461/blocked343/total804 after v16 non-H3 长尾一批",
+      "prev tip 7617fd4 457/347/804; Δ ok+4 blocked−4",
+      "newly_ok 4 ≈1.94 GiB (SESELAORUYAO / DarkKlein9b_v2BFS_extracted_lora_r256 / Kook_Qwen_V3极致真实 / Kook_Zimage_如梦似幻); already_on_nas 10",
+      "P0/P1 blocked: 亚洲人像/3kman-reface/ComfyUI_00002_/add_real_details/detail-new/h-anime4",
+      "BEYOND REALITY 续下中未计入",
+      "did not write into h3/"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T06:06:30+08:00",
+    "note": "MODEL_SOURCES ok461/blocked343/total804 after v16 non-H3 download batch (长尾一批)"
   }
 }
