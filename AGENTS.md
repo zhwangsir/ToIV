@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-10（项目管家：capability_gap_scan_v14 OK**235**（+11 vs v13b）；dedicated-aware **500**（+9）；apps **922**；此前 ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
+> **最后更新**：2026-09-10（项目管家：MODEL_SOURCES v14 非 H3 ok**454**/blocked**350**/total**804**（Δ+7/−7 vs d2816ac）；此前 capability_gap_scan_v14 OK**235**（+11 vs v13b）；dedicated-aware **500**（+9）；apps **922**；此前 ToIV 开发：H3 T8后侧扫旁证 h3_ok**212**/still**55**；别名**265**/2 + soft-hide→公开954；此前设备管家：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl **装齐** — 仅 h3-eval，未进通用池；此前：生图池 Comfy FE 齐套 **1.52.7** — WS/pc01/pc02/LB:8188；哈希去重 soft-hide**243**/kept85/del0，市场 2163→**1920**，rh-acc 949→**706**；渐变假封面 UX **114→0**；H3 未动；三项用户决策均完成；~~pc01 待升 1.52.7~~ SUPERSEDED；~~1.45.x 分裂~~ SUPERSEDED for gen-pool FE）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-10（项目管家：MODEL_SOURCES v14 非 H3 — ok454/blocked350/total804）
+- **计数**：ok **454** / blocked **350** / total **804**（v14 非 H3 续下；前 tip d2816ac 447/357/804；Δ ok+7 / blocked−7）。
+- **清单**：`docs/MODEL_SOURCES.md` + `MODEL_SOURCES.json` 已对齐；JSON `updated_at` 2026-09-10T04:40:53+08:00。
+- **下载摘要**：newly_ok **7**；already_on_nas **13**；blocked_documented≈**20**（含 Licon-MSR-V1_B / new_flux-2-klein-9b / bfs…rank128B）；≈39.95GiB；**未**写 `h3/`。
+- **真源**：`.regen_tmp/capability_gap_v14_download_summary.json`（**勿 stage**）。
+- Status：`inventory_updated`；STATE `model_sources_v14_non_h3_2026_09_10`；`updated_at` 2026-09-10T04:42:30+08:00。via 项目管家（ToIV 模型下载）。
+
 
 ### 2026-09-10（项目管家：capability_gap_scan_v14 完成）
 - **主口径**：apps **924→922**（软隐藏 −2）；OK **224→235（+11）**；blocked **687**；unlocalizable **0**。

@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T04:32:00+08:00",
+  "updated_at": "2026-09-10T04:42:30+08:00",
   "capability_gap_scan_v14_2026_09_10": {
     "status": "scan_complete_docs",
     "date": "2026-09-10",
@@ -6014,5 +6014,74 @@
     "pushed": false,
     "updated_at": "2026-09-10T04:26:00+08:00",
     "note": "MODEL_SOURCES ok447/blocked357/total804 after v13b non-H3 download batch"
+  },
+  "model_sources_v14_non_h3_2026_09_10": {
+    "status": "inventory_updated",
+    "date": "2026-09-10",
+    "source": "ToIV 模型下载",
+    "steward": "项目管家",
+    "ok": 454,
+    "blocked": 350,
+    "total": 804,
+    "prev": {
+      "ok": 447,
+      "blocked": 357,
+      "total": 804
+    },
+    "delta": {
+      "ok": 7,
+      "blocked": -7,
+      "total": 0
+    },
+    "prev_tip_sha": "d2816ac",
+    "trigger": "capability_gap_v14_non_h3 download batch (续下)",
+    "inventory_updated_at": "2026-09-10T04:40:53+08:00",
+    "files": [
+      "docs/MODEL_SOURCES.md",
+      "docs/MODEL_SOURCES.json"
+    ],
+    "header_synced_from_json": true,
+    "download": {
+      "batch": "capability_gap_v14_non_h3",
+      "list_count": 303,
+      "newly_ok": 7,
+      "already_on_nas": 13,
+      "blocked_documented": 20,
+      "remaining_open_estimate": 270,
+      "bytes_newly_downloaded": 42898371402,
+      "bytes_gib_approx": 39.95,
+      "target": "general NAS (not h3/)",
+      "method": "merlin@192.168.71.127 aria2c + hf-mirror"
+    },
+    "p0_highlights_newly_ok": [
+      "DarkBeast-Klein9b-V2-BFS-BF16-ComfyUI.safetensors",
+      "flux1-dev.sft",
+      "Flux2 Klein动漫转写实真人 AnythingtoRealCharacters.safetensors",
+      "Klein 一致性增强.safetensors",
+      "Flux2-Klein-9B-一致性V2.safetensors",
+      "ltx2.3-video-restoration-general-lora.safetensors",
+      "4x-ClearRealityV1.pth"
+    ],
+    "blocked_named_highlights": [
+      "LTX-2.3-Licon-MSR-V1_B.safetensors",
+      "new_flux-2-klein-9b.safetensors",
+      "bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "source_of_truth": ".regen_tmp/capability_gap_v14_download_summary.json",
+    "facts": [
+      "MODEL_SOURCES ok454/blocked350/total804 after v14 non-H3 续下",
+      "prev tip d2816ac 447/357/804; Δ ok+7 blocked−7",
+      "newly_ok 7 / already_on_nas 13 / blocked_documented≈20 / ≈39.95GiB",
+      "blocked highlights include Licon-MSR-V1_B / new_flux-2-klein-9b / bfs…rank128B",
+      "did not write into h3/"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T04:42:30+08:00",
+    "note": "MODEL_SOURCES ok454/blocked350/total804 after v14 non-H3 download batch (续下)"
   }
 }
