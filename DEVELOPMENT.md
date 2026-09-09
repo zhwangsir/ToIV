@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-10 capability_gap_scan_v18 完成（项目管家；ToIV 能力缺口 tip；无产品 SHA）**：apps **910**；OK **244（持平 vs v17，+0）**；blocked **666**；dedicated-aware **509（0）**；only_h3 **265**；worker models：8196=**838** / 8188=**822** / 8193=**822**；style_models=**2**；loras=**337**；已清：BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16（complete 12309881296 B；MODEL_SOURCES BR BF16 + worker 可见）；主 OK 持平（v17 已不在 missing；卡上他缺）；仍缺 Top 非 H3：银月/燕如嫣/梅凝/韩立南宫婉/peiling3(6) + model.pt(5) + Kook亚洲人像/Licon-MSR/bfs/new_flux-2-klein-9b(4)；Top 缺节点仍 H3/RH + TT/Comfly；真源 `.regen_tmp/capability_gap_scan_v18/` 勿 stage。status=`scan_complete_docs`；STATE `capability_gap_scan_v18_2026_09_10`；updated_at 2026-09-10T06:43:00+08:00。
+
 **2026-09-10 MODEL_SOURCES：ok462/blocked342/total804（项目管家；ToIV 模型下载；BR BF16 落地）**：BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16 → `diffusion_models/`；**12309881296** B（≈11.46 GiB；ok）；自 v16 长尾续下已落地（此前「续下中未计入」）；header 已同步 JSON `updated_at` 2026-09-10T06:37:18+08:00（前 tip 0f6a0a4 461/343/804；Δ ok+1 / blocked−1）；**未**写 `h3/`；真源 `.regen_tmp/capability_gap_v16_download_summary.json` 勿 stage。status=`inventory_updated`；STATE `model_sources_br_bf16_2026_09_10`；updated_at 2026-09-10T06:40:00+08:00。
 
 
