@@ -1,7 +1,45 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T03:25:00+08:00",
+  "updated_at": "2026-09-10T03:38:00+08:00",
+  "h3_8195_weight_audit_2026_09_10": {
+    "status": "audit_done_docs",
+    "date": "2026-09-10",
+    "source": "ToIV 开发",
+    "endpoint": "http://192.168.71.127:8195",
+    "committed_product": false,
+    "y": 20,
+    "n": 17,
+    "total": 37,
+    "core_daily_ok": [
+      "vae",
+      "fl2va/ref2va pruned",
+      "nvfp4 te"
+    ],
+    "missing_n17": {
+      "mostly": [
+        "turbo",
+        "fp8",
+        "T8",
+        "10Eros variants",
+        "latent_upscaler"
+      ],
+      "latent_upscaler_note": "通用 NAS 有 bf16；H3 yaml 未挂 latent_upscale_models——设备补"
+    },
+    "followups": {
+      "model_download": "缺清单仅 h3/ 路径",
+      "device": "H3 yaml 补挂 latent_upscale_models"
+    },
+    "source_of_truth": ".regen_tmp/.../h3_8195_audit_live.md",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T03:38:00+08:00",
+    "note": "H3 :8195 权重验收 Y20/N17；核心日用齐；缺清单转模型下载 h3/"
+  },
   "capability_gap_scan_v12_2026_09_10": {
     "status": "scan_complete_docs",
     "date": "2026-09-10",

@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-10 H3 `:8195` 权重验收（ToIV 开发；无产品 SHA）**：Y=20/N=17（37）；核心日用（vae/fl2va·ref2va pruned/nvfp4 te）齐；缺 17 多为 turbo/fp8/T8/10Eros 变体 + latent_upscaler（通用 NAS 有 bf16，H3 yaml 未挂 latent_upscale_models——设备补）；缺清单已转模型下载仅 `h3/`；真源 `.regen_tmp/.../h3_8195_audit_live.md` 勿 stage。status=`audit_done_docs`；STATE `h3_8195_weight_audit_2026_09_10`；updated_at 2026-09-10T03:38:00+08:00。
+
 **2026-09-10 capability_gap_scan_v12 完成（ToIV 开发/设备管家；无产品 SHA）**：apps 925→924；OK **200→206（+6）**；blocked 718；unlocalizable 0；dedicated-aware 451→457（only_h3 251）；RMBG 缺模榜已清（extrapaths 生效；原 10 卡 3 OK/7 仍他缺）；固化 MODEL_FOLDERS+=RMBG；Top 缺模仍几乎全 H3 专用；真源 `.regen_tmp/capability_gap_scan_v12/` 勿 stage。status=`scan_complete_docs`；STATE `capability_gap_scan_v12_2026_09_10`；updated_at 2026-09-10T03:25:00+08:00。
 
 **2026-09-10 LIVE：生图池 extrapaths toiv 补 RMBG（设备管家）**：toiv 段加 `RMBG: RMBG`；四端 `/models/RMBG` 已列 RMBG-2.0；v12 已扫完（见新 tip）。status=`live_device_fyi`；STATE `genpool_extrapaths_rmbg_2026_09_10`；updated_at 2026-09-10T03:20:00+08:00。
