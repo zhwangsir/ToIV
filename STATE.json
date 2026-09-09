@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T04:21:10+08:00",
+  "updated_at": "2026-09-10T04:26:00+08:00",
   "h3_8195_side_scan_t8_2026_09_10": {
     "status": "side_scan_post_t8_docs",
     "date": "2026-09-10",
@@ -5879,5 +5879,62 @@
       "source": ".regen_tmp/capability_gap_scan_v13b/actionable/h3_8195_side_scan_t8/",
       "t8_install_note": "T8后侧扫见 h3_8195_side_scan_t8_2026_09_10"
     }
+  },
+  "model_sources_v13b_non_h3_2026_09_10": {
+    "status": "inventory_updated",
+    "date": "2026-09-10",
+    "source": "ToIV 模型下载",
+    "ok": 447,
+    "blocked": 357,
+    "total": 804,
+    "prev": {
+      "ok": 436,
+      "blocked": 368,
+      "total": 804
+    },
+    "delta": {
+      "ok": 11,
+      "blocked": -11,
+      "total": 0
+    },
+    "trigger": "capability_gap_v13b_non_h3 download batch",
+    "inventory_updated_at": "2026-09-10T04:25:36+08:00",
+    "files": [
+      "docs/MODEL_SOURCES.md",
+      "docs/MODEL_SOURCES.json"
+    ],
+    "header_synced_from_json": true,
+    "download": {
+      "batch": "capability_gap_v13b_non_h3",
+      "list_count": 321,
+      "newly_ok": 11,
+      "already_on_nas": 2,
+      "blocked_documented": 5,
+      "remaining_open_estimate": 308,
+      "bytes_newly_downloaded": 64917737176,
+      "bytes_gib_approx": 60.5,
+      "target": "general NAS (not h3/)",
+      "method": "merlin@192.168.71.127 aria2c -x16 via hf-mirror / modelscope"
+    },
+    "p0_highlights_newly_ok": [
+      "FullDynamic_Ultimate_Fusion_Elite.safetensors",
+      "Kook_Zimage_瑶光.safetensors",
+      "lightx2v_elite_it2v_animate_face.safetensors"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "source_of_truth": ".regen_tmp/capability_gap_v13b_download_summary.json",
+    "facts": [
+      "MODEL_SOURCES ok447/blocked357/total804 after v13b non-H3 batch",
+      "prev H3 dedicated 436/368/804; Δ ok+11 blocked−11",
+      "newly_ok 11 / already_on_nas 2 / blocked_documented 5 / ~60.5GiB",
+      "did not write into h3/"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T04:26:00+08:00",
+    "note": "MODEL_SOURCES ok447/blocked357/total804 after v13b non-H3 download batch"
   }
 }

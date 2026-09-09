@@ -4,6 +4,9 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+
+**2026-09-10 MODEL_SOURCES：ok447/blocked357/total804（ToIV 模型下载；v13b 非 H3）**：v13b 非 H3 批次落入后计数对齐；header 已同步 JSON `updated_at` 2026-09-10T04:25:36+08:00（前 H3 dedicated 436/368/804；Δ ok+11 / blocked−11）；newly_ok **11** / already_on_nas **2** / blocked_documented **5** / ~60.5GiB；**未**写 `h3/`；真源 `.regen_tmp/capability_gap_v13b_download_summary.json` 勿 stage。status=`inventory_updated`；STATE `model_sources_v13b_non_h3_2026_09_10`；updated_at 2026-09-10T04:26:00+08:00。
+
 **2026-09-10 H3 `:8195` T8后侧扫（ToIV 开发；旁证）**：对照 v13b only_h3 **267**→:8195；主匹配 h3_ok **212**/still **55**（较 T8前 208/59，**+4/−4**）；别名旁证 h3_ok **265**/still **2**（turbo_T8 无源 1 + `MinimaxH3LatentUpscaler3D` 1）；T8 六节点 class_type **全 Y**（BlockCache/Sage/VRGDG + DualClock/AVDecode/AudioConditioning）；:8195 nodes **967→1753**；权重结案仍 **Y34/N3**；别名残 2 已 soft-hide（`rh-acc-1201993730-d1b241`、`rh-acc-8038814721-b7052e`）；公开约 **956→954**；别名旁证 only_h3 **265** 可跑口径成立；真源 `.regen_tmp/capability_gap_scan_v13b/actionable/h3_8195_side_scan_t8/` 勿 stage。status=`side_scan_post_t8_docs`；STATE `h3_8195_side_scan_t8_2026_09_10`；updated_at 2026-09-10T04:21:10+08:00。
 
 **2026-09-10 LIVE：H3:8195 T8/blockcache/KJNodes/vrgamedevgirl 装齐（设备管家）**：仅 **h3-eval**，**未**进通用池。Earlier：`T8mars/comfyui-minimax-h3-audio-T8` @ `e4ff860`；DualClock / AVDecode / AudioConditioning T8 = **Y**。Now：blockcache-T8 @ `36336dce` + KJNodes @ `57105374` + vrgamedevgirl @ `c85fda6d`；目标 `class_type` **全 Y**；T8 / Sage / VRGDG 节点**齐**。~~侧扫旁证由能力缺口再跑~~ → **T8后侧扫已完成**（见新 tip：主 212/55；别名 265/2 + soft-hide）。status=`live_device_fyi`；STATE `h3_8195_t8_nodes_2026_09_10`；updated_at 2026-09-10T04:16:30+08:00。
