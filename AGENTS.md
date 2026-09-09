@@ -185,11 +185,18 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-10（设备管家：LIVE — 通用池 extrapaths 补 LLM/vocal_separator/MelBandRoFormer）
+- **变更**：通用池 `extra_model_paths` 加 `LLM` / `vocal_separator` / `MelBandRoFormer`；并 patch llama-cpp **勿覆盖** LLM 路径。
+- **影响**：解开 v13 still_missing 中似 folder-mount 项（MelBandRoformer_fp16 / Qwen3.5-9B* 相关；ltx spatial 或仍另轨）。**未**扫 v13b——仅 mount/路径修复。
+- **旁证（deferred）**：H3 side-scan only_h3 **267→h3_ok 208 / still 59**（主因 T8 节点+别名权重扫描口径；T8 包授权 h3-eval **未装**）；原 N3 中 **2 不挡**、T8 turbo **挡 1**；结案仍 **Y34/N3**；真源 `.regen_tmp/capability_gap_scan_v13/actionable/h3_8195_side_scan/`（**勿 stage**）。
+- Status：`live_device_fyi`；STATE `genpool_extrapaths_llm_vocal_melband_2026_09_10`；`updated_at` 2026-09-10T04:08:00+08:00。via 设备管家。
+
+
 ### 2026-09-10（ToIV 开发：H3 `:8195` 复验结案 + H3补齐关闭）
 - **复验**：Y=**34** / N=**3**（共 **37**；+14 vs 初验 Y20/N17）。
 - **latent**：bf16 + fp16 **皆 Y**。
 - **下载**：新下 **13** OK ~121GiB → `h3/`；无源 blocked **3** 结案（与复验 N=3 一致）。
-- **未关**：通用池 folder mount 仍待（ltx spatial / MelBandRoformer / Qwen3.5-9B*）→ v13b；两轨勿混。
+- **通用池 mount**：已补 LLM/vocal_separator/MelBandRoFormer（见新 tip）；ltx spatial 或仍另轨；**未**扫 v13b；两轨勿混。
 - **真源**：`.regen_tmp/.../h3_8195_audit_live_reverify.json`（**勿 stage**）。
 - Status：`h3_buqi_reverify_closed`；STATE `h3_8195_reverify_2026_09_10`；`updated_at` 2026-09-10T03:56:00+08:00。via ToIV 开发。
 
@@ -204,7 +211,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **dedicated-aware**：**457→477（+20）**；only_h3 **251→267**。
 - **worker models**：8196=**760**；8188·8193=**711**（各+10）。
 - **已清**：`qwen3-vl-32b-int8_convrot`、`Kook_Zimage_真实幻想_Turbo`。
-- **仍缺 P0/P1**：多为 folder mount（ltx spatial 1.1/1.0、MelBandRoformer_fp16、Qwen3.5-9B*）→ 待设备核 / **v13b**（v13 非终局）。
+- **仍缺 P0/P1**：多为 folder mount（ltx spatial 1.1/1.0、MelBandRoformer_fp16、Qwen3.5-9B*）→ 通用池 extrapaths 已补（见新 tip）；**未**扫 **v13b**（v13 非终局）。
 - **真源**：`.regen_tmp/capability_gap_scan_v13/`（**勿 stage**）。
 - Status：`scan_complete_docs`（无产品 SHA）；STATE `capability_gap_scan_v13_2026_09_10`；`updated_at` 2026-09-10T03:56:00+08:00。via ToIV 开发。
 

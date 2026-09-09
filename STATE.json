@@ -1,7 +1,46 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T03:56:00+08:00",
+  "updated_at": "2026-09-10T04:08:00+08:00",
+  "genpool_extrapaths_llm_vocal_melband_2026_09_10": {
+    "status": "live_device_fyi",
+    "date": "2026-09-10",
+    "source": "设备管家",
+    "live": true,
+    "pool": "general",
+    "extra_model_paths": {
+      "LLM": "LLM",
+      "vocal_separator": "vocal_separator",
+      "MelBandRoFormer": "MelBandRoFormer"
+    },
+    "llama_cpp_patch": "勿覆盖 LLM 路径",
+    "unblocks_v13_still_missing_likely": [
+      "MelBandRoformer_fp16",
+      "Qwen3.5-9B*"
+    ],
+    "ltx_spatial_may_still_separate": true,
+    "v13b_scan_done": false,
+    "note_do_not_claim_v13b": true,
+    "h3_side_scan_旁证_deferred": {
+      "only_h3": 267,
+      "h3_ok": 208,
+      "still": 59,
+      "primary_cause": "T8 节点+别名权重扫描口径",
+      "t8_package": "T8mars/comfyui-minimax-h3-audio-T8",
+      "t8_authorized_for": "h3-eval only",
+      "t8_installed": false,
+      "n3_breakdown": "原 N3 中 2 不挡、T8 turbo 挡 1",
+      "conclusion_unchanged": "Y34/N3",
+      "source_of_truth": ".regen_tmp/capability_gap_scan_v13/actionable/h3_8195_side_scan/",
+      "do_not_stage": true
+    },
+    "verify": "extrapaths + llama-cpp patch recorded; v13b not scanned",
+    "next": "capability_gap_scan_v13b after visibility confirm; T8 tip waits install+同名 verify",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T04:08:00+08:00",
+    "note": "通用池 extrapaths LLM/vocal_separator/MelBandRoFormer + llama-cpp 勿覆 LLM；H3旁证 side-scan still59/T8口径；未扫 v13b；T8 未装"
+  },
   "capability_gap_v12_download_summary_2026_09_10": {
     "status": "summary_docs",
     "date": "2026-09-10",
@@ -5511,7 +5550,7 @@
       "MelBandRoformer_fp16",
       "Qwen3.5-9B*"
     ],
-    "next": "设备核 folder mount 后 capability_gap_scan_v13b；勿将 v13 当作 folder 终局",
+    "next": "通用池 extrapaths 已补（见 genpool_extrapaths_llm_vocal_melband_2026_09_10）；确认可见性后 capability_gap_scan_v13b；勿将 v13 当作 folder 终局；未扫 v13b",
     "source_of_truth": ".regen_tmp/capability_gap_scan_v13/",
     "do_not_stage": [
       ".regen_tmp",
@@ -5522,12 +5561,15 @@
       "dedicated-aware 457→477（+20）；only_h3 251→267",
       "worker 8196=760 / 8188·8193=711（各+10）",
       "已清 qwen3-vl-32b-int8_convrot、Kook_Zimage_真实幻想_Turbo",
-      "仍缺多为 folder mount → v13b"
+      "仍缺多为 folder mount → v13b",
+      "通用池 extrapaths LLM/vocal_separator/MelBandRoFormer 已补（2026-09-10）；未扫 v13b"
     ],
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-10T03:56:00+08:00",
-    "note": "capability_gap_scan_v13 完成；OK +4→210；folder mount 仍待 v13b；无产品 SHA"
+    "note": "capability_gap_scan_v13 完成；OK +4→210；folder mount 仍待 v13b；无产品 SHA",
+    "folder_mount_extrapaths_patched": true,
+    "v13b_scan_done": false
   },
   "model_sources_h3_8195_2026_09_10": {
     "status": "inventory_updated",
@@ -5603,6 +5645,17 @@
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-10T03:56:00+08:00",
-    "note": "H3 :8195 复验 Y34/N3；H3补齐结案；通用池 mount 仍待 v13b"
+    "note": "H3 :8195 复验 Y34/N3；H3补齐结案；通用池 extrapaths 已补 MelBand/LLM/vocal（ltx 或仍另轨）；旁证 still59/T8口径 deferred；T8 未装",
+    "genpool_extrapaths_patched_partial": true,
+    "ltx_spatial_may_still_separate": true,
+    "h3_side_scan_旁证": {
+      "deferred": true,
+      "only_h3": 267,
+      "h3_ok": 208,
+      "still": 59,
+      "conclusion_unchanged": "Y34/N3",
+      "t8_installed": false,
+      "source": ".regen_tmp/capability_gap_scan_v13/actionable/h3_8195_side_scan/"
+    }
   }
 }

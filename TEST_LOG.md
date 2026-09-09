@@ -1,6 +1,9 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-10 LIVE：H3 `:8195` 复验结案（ToIV 开发；docs）：Y**34**/N**3**（+14 vs 初验）；latent bf16+fp16 皆 Y；剩 3=无源 blocked 结案；新下 13 OK ~121GiB→`h3/`；H3补齐关闭（通用池 folder mount 仍待→v13b）；真源勿 stage；status=`h3_buqi_reverify_closed`；STATE `h3_8195_reverify_2026_09_10`；updated_at 2026-09-10T03:56:00+08:00。
+- 2026-09-10 LIVE：通用池 extrapaths 补 LLM/vocal_separator/MelBandRoFormer + llama-cpp 勿覆 LLM（设备管家；docs）：解开 v13 似 folder-mount still_missing（MelBand/Qwen3.5 相关；ltx 或仍另轨）；**未**扫 v13b。旁证：H3 side-scan only_h3 267→h3_ok 208 / still 59（T8 节点+别名口径；T8 未装）；原 N3 2 不挡/T8 turbo 挡 1；结案仍 Y34/N3；真源 `.regen_tmp/.../h3_8195_side_scan/` 勿 stage；status=`live_device_fyi`；STATE `genpool_extrapaths_llm_vocal_melband_2026_09_10`；updated_at 2026-09-10T04:08:00+08:00；AGENTS §七 已短注。
+
+
+- 2026-09-10 LIVE：H3 `:8195` 复验结案（ToIV 开发；docs）：Y**34**/N**3**（+14 vs 初验）；latent bf16+fp16 皆 Y；剩 3=无源 blocked 结案；新下 13 OK ~121GiB→`h3/`；H3补齐关闭（通用池 extrapaths 已补见新 tip；ltx 或仍另轨；未扫 v13b）；真源勿 stage；status=`h3_buqi_reverify_closed`；STATE `h3_8195_reverify_2026_09_10`；updated_at 2026-09-10T03:56:00+08:00。
 
 - 2026-09-10 MODEL_SOURCES：ok436/blocked368/total804（ToIV 模型下载；docs；H3 dedicated）：header 已同步 JSON；前 422/365/787；status=`inventory_updated`；STATE `model_sources_h3_8195_2026_09_10`；updated_at 2026-09-10T03:56:00+08:00；AGENTS §七 已短注。
 
