@@ -1,9 +1,9 @@
 {
-  "updated_at": "2026-09-10T06:37:18+08:00",
+  "updated_at": "2026-09-10T07:14:32+08:00",
   "updated_at_timezone": "Asia/Shanghai",
   "totals": {
-    "ok": 462,
-    "blocked": 342,
+    "ok": 465,
+    "blocked": 339,
     "total": 804,
     "ok_missing_source_url": 9,
     "ok_true_gaps_no_url_no_repo_not_alias": 0,
@@ -6952,8 +6952,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: no public exact basename on HF/Civitai/ModelScope — blocked",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "prior: no public exact basename — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "56low20noiseCumshot.xb7F.safetensors",
@@ -7008,12 +7008,12 @@
       "repo": "Nurburgring/BEYOND_REALITY_Z_IMAGE",
       "revision": "main",
       "filename": "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
-      "license_or_gated": "ungated",
-      "downloaded_at": "2026-09-10T06:37:18+08:00",
+      "license_or_gated": null,
+      "downloaded_at": "2026-09-10T07:14:32+08:00",
       "status": "ok",
       "bytes": 12309881296,
-      "notes": "P3 exact HF basename; resumed aria2c -c via MateBook proxy:7897 (local SSD then rsync→NAS); verified 12309881296 bytes",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: finished parallel download; local complete then rsync→NAS; counted newly_ok",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "BJD娃娃V1.0.safetensors",
@@ -7087,8 +7087,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16 confirm: generic Comfy export name — RH-untraceable — blocked",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "prior: generic Comfy export — RH-untraceable — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "DR34ML4Y_LTXXX_PREVIEW_RC1.safetensors",
@@ -7447,8 +7447,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: no exact HF; Ultimate Upscaler near-name is Flux2-Klein-Image-RestoreV1 — do not substitute",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: still no exact HF/Civitai; Ultimate Upscaler near-name only — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "Flux2-Klein4B-Anything2Real_v1.0.safetensors",
@@ -7462,8 +7462,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: HF lrzjason/Anything2Real has f2k_anything2real*.safetensors only — near-name not exact",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: HF/Civitai only f2k_anything2real*.safetensors — near-name not exact",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "Flux2-Klein9B-Anything2Real_V1.0.safetensors",
@@ -7477,8 +7477,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: HF lrzjason has f2k_anything2real*.safetensors not this basename — near-name not exact",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: Civitai 2121900 has f2k_anything2real*.safetensors not this basename",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "Flux2-Klein9b超级皮肤质感v1.0.safetensors",
@@ -7627,8 +7627,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16 confirm: no ModelScope/HF/Civitai exact; forum/Quark-only — keep blocked, do not fake",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "prior: no ModelScope/HF/Civitai exact; forum/Quark-only — keep blocked, do not fake",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "Kook_Qwen_2512_真实幻想.safetensors",
@@ -7642,8 +7642,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: ModelScope KookYan exact repo not found for 2512 variant — blocked",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: ModelScope exact 2512 variant not found — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "Kook_Qwen_V3极致真实.safetensors",
@@ -7732,8 +7732,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16 DO-NOT-RECHASE: keep blocked; HF V1/V2 only",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "DO-NOT-RECHASE: keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "LTX-2.3_Cinematic hardcut.safetensors",
@@ -7807,8 +7807,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16 DO-NOT-RECHASE: keep blocked",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "DO-NOT-RECHASE: keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "LTX23-燕如嫣-E78795E5A682E5ABA3E8A7-98UH.safetensors",
@@ -7822,8 +7822,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16 DO-NOT-RECHASE: opaque basename",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "DO-NOT-RECHASE: opaque basename",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "LTXWP壁纸comfy.safetensors",
@@ -7837,8 +7837,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: untraceable Chinese community LoRA",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: untraceable — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "LahHongchenSDXLSD15_sd15V10.safetensors",
@@ -8107,8 +8107,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: untraceable RH custom rename; official lightx2v is V1.0 only",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: RH rename; official lightx2v V1.0 only — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "Qwen-Image-Edit-2511-8steps-fp32.safetensors",
@@ -8287,8 +8287,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: untraceable; Civitai Qwen-cn-3 near-name only",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: untraceable — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "Qwen千问_中文海报直出 电商美学_v1.0.safetensors",
@@ -8607,33 +8607,33 @@
     },
     {
       "basename": "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
-      "rel_path": null,
-      "source_kind": "unknown",
-      "source_url": null,
-      "repo": null,
-      "revision": null,
-      "filename": "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "rel_path": "diffusion_models/Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "source_kind": "huggingface",
+      "source_url": "https://hf-mirror.com/FX-FeiHou/wan2.2-Remix/resolve/main/NSFW/Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "repo": "FX-FeiHou/wan2.2-Remix",
+      "revision": "main",
+      "filename": "NSFW/Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
       "license_or_gated": null,
-      "downloaded_at": null,
-      "status": "blocked",
-      "bytes": null,
-      "notes": "v16: HF has v3.0 not v2.1 — near-name not exact",
-      "batch": "capability_gap_v16_non_h3"
+      "downloaded_at": "2026-09-10T07:14:32+08:00",
+      "status": "ok",
+      "bytes": 14291297968,
+      "notes": "v17 exact: FX-FeiHou/wan2.2-Remix NSFW/…v2.1 (v16 missed; had thought only v3.0)",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
-      "rel_path": null,
-      "source_kind": "unknown",
-      "source_url": null,
-      "repo": null,
-      "revision": null,
-      "filename": "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "rel_path": "diffusion_models/Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "source_kind": "huggingface",
+      "source_url": "https://hf-mirror.com/FX-FeiHou/wan2.2-Remix/resolve/main/NSFW/Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "repo": "FX-FeiHou/wan2.2-Remix",
+      "revision": "main",
+      "filename": "NSFW/Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
       "license_or_gated": null,
-      "downloaded_at": null,
-      "status": "blocked",
-      "bytes": null,
-      "notes": "v16: no v2.1 low on HF — blocked",
-      "batch": "capability_gap_v16_non_h3"
+      "downloaded_at": "2026-09-10T07:14:32+08:00",
+      "status": "ok",
+      "bytes": 14291297968,
+      "notes": "v17 exact: FX-FeiHou/wan2.2-Remix NSFW/…low…v2.1",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "Wan2.2_T2V_Low_Noise_14B_VACE-Q8_0.gguf",
@@ -8992,8 +8992,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: no exact HF/Civitai basename (Add_Details/add_detail near-names only) — blocked",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "prior: no exact HF/Civitai basename — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "aniWan2114BFp8E4m3fn_i2v480pNew.safetensors",
@@ -9082,8 +9082,11 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: no exact RH double-prefix; Nurburgring has Chinese titles only — do not substitute for RH basename",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17 blocked: untraceable RH double-prefix basename; no exact on HF/ModelScope/Civitai/NAS. Do NOT confuse/alias/substitute with already-ok `BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors` (different file; Chinese-titled Nurburgring publish).",
+      "batch": "capability_gap_v17_non_h3",
+      "reason": "untraceable_rh_double_prefix_name: exact basename not on HF/ModelScope/Civitai/NAS. HF+ModelScope Nurburgring/BEYOND_REALITY_Z_IMAGE only publish Chinese titles (e.g. BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors). Civitai model 1090420 Z-Image files are beyondREALITY_V30.safetensors / beyondREALITY_30FP8.safetensors / beyondREALITY_V20BF16.safetensors etc. — never beyondREALITY_beyondREALITYZIMAGE.safetensors. HF resolve of exact name returns 404. Do NOT alias/substitute 淡妆浓抹 BF16 for this RH basename.",
+      "updated_at": "2026-09-10T07:16:00+08:00",
+      "checked_at": "2026-09-10T07:10:26+08:00"
     },
     {
       "basename": "bfs_head_swap_v4.safetensors",
@@ -9112,8 +9115,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16 DO-NOT-RECHASE: keep blocked; rank128B unpublished",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "DO-NOT-RECHASE: keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "bfs_head_v4_qwen_image_edit_2509.safetensors",
@@ -9337,8 +9340,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: untraceable training-step artifact — blocked",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "prior: untraceable training-step artifact — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "dopsd_white_zimage_turbo_comfy.safetensors",
@@ -9367,8 +9370,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: gated HF 401 without token — blocked",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: HF 401 gated still — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "emw_Wan21_T2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
@@ -9547,8 +9550,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16 DO-NOT-RECHASE: gated BFL 401 / no mirror",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "DO-NOT-RECHASE: gated / no mirror",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "flux-2-klein-9b_0630.safetensors",
@@ -9652,8 +9655,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: untraceable RH size-label; do not substitute klein-9b",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: untraceable RH size-label — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "flux.2高清放大-细节增强.safetensors",
@@ -9832,8 +9835,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: untraceable generic name",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: untraceable — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "gemini-3.1-flash-image-preview",
@@ -9952,8 +9955,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: Civitai 3062850/fileId=2941744 exact but login wall — keep blocked",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "prior: Civitai login wall — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "hassaku线稿v1.20_触发mjiuxg.safetensors",
@@ -10027,8 +10030,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16 DO-NOT-RECHASE: ambiguous many variants",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "DO-NOT-RECHASE: ambiguous many variants",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "jiaren_zimage.safetensors",
@@ -10327,8 +10330,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16 DO-NOT-RECHASE: keep blocked",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "DO-NOT-RECHASE: keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "ltx2.3紫灵触发词ziling.safetensors",
@@ -10357,8 +10360,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16 DO-NOT-RECHASE: keep blocked",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "DO-NOT-RECHASE: keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "ltx2.3韩立触发词hanli.safetensors",
@@ -10627,8 +10630,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16 DO-NOT-RECHASE: ambiguous generic",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "DO-NOT-RECHASE: ambiguous generic",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "moodyDesireMix_v20LITE_去重.safetensors",
@@ -10662,18 +10665,18 @@
     },
     {
       "basename": "moodyRealMix_zitV5DPO.safetensors",
-      "rel_path": null,
-      "source_kind": "unknown",
-      "source_url": null,
-      "repo": null,
-      "revision": null,
+      "rel_path": "checkpoints/moodyRealMix_zitV5DPO.safetensors",
+      "source_kind": "huggingface",
+      "source_url": "https://hf-mirror.com/LoneWolfVPS/TIZ_TESTING/resolve/main/moodyRealMix_zitV5DPO.safetensors",
+      "repo": "LoneWolfVPS/TIZ_TESTING",
+      "revision": "main",
       "filename": "moodyRealMix_zitV5DPO.safetensors",
       "license_or_gated": null,
-      "downloaded_at": null,
-      "status": "blocked",
-      "bytes": null,
-      "notes": "v16: untraceable civitai-style name",
-      "batch": "capability_gap_v16_non_h3"
+      "downloaded_at": "2026-09-10T07:14:32+08:00",
+      "status": "ok",
+      "bytes": 12309879656,
+      "notes": "v17 exact basename on LoneWolfVPS/TIZ_TESTING",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "moodyRealMix_zitV5DPOFP8.safetensors",
@@ -10732,8 +10735,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: ambiguous RH rename — do not guess",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: ambiguous RH rename — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "new_flux-2-klein-4b.safetensors",
@@ -10762,8 +10765,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16 DO-NOT-RECHASE: keep blocked; untraceable rename",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "DO-NOT-RECHASE: keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "newshot-klein-9b-edit_10.safetensors",
@@ -10837,8 +10840,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16 DO-NOT-RECHASE: keep blocked",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "DO-NOT-RECHASE: keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "pipiRealMixV1.safetensors",
@@ -10882,8 +10885,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: UnifiedHorusRA repo exists but no weight files (README only) — blocked",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: UnifiedHorusRA repo README-only, no weights — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "pytorch_lora.safetensors",
@@ -10912,8 +10915,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: untraceable Chinese commercial LoRA",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: untraceable — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "qwen-boreal-portraits-portraits-high-rank-modified.safetensors",
@@ -11017,8 +11020,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: untraceable Chinese repack name",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: untraceable — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "qwen_image_edit_20mannequin-clipper_v1.0.safetensors",
@@ -11317,8 +11320,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: no public HF/GitHub exact",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: no public exact — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "xueluo-klein-ConversionV1.0_000006000.safetensors",
@@ -11347,8 +11350,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: untraceable Chinese community name",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: untraceable — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "z-image真实光影质感.safetensors",
@@ -11482,8 +11485,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: no HF hit",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: no HF/Civitai hit — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "【光影画质优化】绪儿 氛围感滤镜_V2.safetensors",
@@ -11797,8 +11800,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: untraceable Chinese community name",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: untraceable — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "昭华.safetensors",
@@ -12007,8 +12010,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: untraceable NSFW community",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: untraceable — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "角色置景_RoleScene Blend.safetensors",
@@ -12022,8 +12025,8 @@
       "downloaded_at": null,
       "status": "blocked",
       "bytes": null,
-      "notes": "v16: untraceable Chinese community name",
-      "batch": "capability_gap_v16_non_h3"
+      "notes": "v17: untraceable — keep blocked",
+      "batch": "capability_gap_v17_non_h3"
     },
     {
       "basename": "赛璐璐-klien.safetensors",

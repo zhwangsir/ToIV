@@ -1,7 +1,131 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T06:43:00+08:00",
+  "updated_at": "2026-09-10T07:18:00+08:00",
+  "model_sources_v17_beyondreality_soft_hide_2026_09_10": {
+    "status": "inventory_and_soft_hide_docs",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发",
+      "ToIV 模型下载",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "ok": 465,
+    "blocked": 339,
+    "total": 804,
+    "prev": {
+      "ok": 462,
+      "blocked": 342,
+      "total": 804,
+      "tip_sha": "0616f0c"
+    },
+    "prev_v16_tip_sha": "0f6a0a4",
+    "delta_vs_0616f0c": {
+      "ok": 3,
+      "blocked": -3,
+      "total": 0
+    },
+    "delta_vs_0f6a0a4_incl_beyond_counted": {
+      "ok": 4,
+      "blocked": -4,
+      "note": "若 BEYOND 淡妆浓抹已计则相对 0f6a0a4 量级 +4/−4"
+    },
+    "inventory_updated_at": "2026-09-10T07:14:32+08:00",
+    "files": [
+      "docs/MODEL_SOURCES.md",
+      "docs/MODEL_SOURCES.json"
+    ],
+    "header_synced_from_json": true,
+    "batch": "capability_gap_v17_non_h3",
+    "newly_ok": [
+      "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "moodyRealMix_zitV5DPO.safetensors",
+      "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors"
+    ],
+    "newly_ok_GiB_approx": 49.55,
+    "beyond_reality_ok": {
+      "basename": "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
+      "status": "ok",
+      "bytes": 12309881296,
+      "rel_path": "diffusion_models/BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
+      "note": "distinct from blocked beyondREALITY_beyondREALITYZIMAGE.safetensors"
+    },
+    "beyondreality_zimage_blocked": {
+      "basename": "beyondREALITY_beyondREALITYZIMAGE.safetensors",
+      "status": "blocked",
+      "reason": "无精确公开源（HF/ModelScope/Civitai/NAS 无 exact basename）",
+      "do_not_alias_as": "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
+      "trace": ".regen_tmp/beyondreality_zimage_trace.json"
+    },
+    "soft_hide": {
+      "count": 1,
+      "apps": [
+        "rh-acc-8851286018-43497c"
+      ],
+      "name": "Z-image文生图Beyond Reality 人像写真",
+      "reason": "仅缺 hard-blocked beyondREALITY_beyondREALITYZIMAGE.safetensors；无缺节点",
+      "is_public": false,
+      "market_approx": {
+        "before": 910,
+        "after": 909
+      },
+      "do_not_hide": [
+        {
+          "id": "rh-acc-1004064770-ef8fd7",
+          "reason": "同缺该权重但还缺 UltimateSDUpscale"
+        }
+      ],
+      "applied": true,
+      "source_of_truth": ".regen_tmp/capability_gap_scan_v18/actionable/soft_hide_beyondreality_zimage_only.json"
+    },
+    "did_not_write_h3": true,
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "source_of_truth": [
+      ".regen_tmp/capability_gap_v17_download_summary.json",
+      ".regen_tmp/beyondreality_zimage_trace.json",
+      ".regen_tmp/capability_gap_scan_v18/actionable/soft_hide_beyondreality_zimage_only.json"
+    ],
+    "facts": [
+      "MODEL_SOURCES v17 长尾齐 ok465/blocked339/total804",
+      "前 0616f0c 462/342；Δ 含 BEYOND 已计则相对 0f6a0a4 +4/−4 量级",
+      "newly_ok≈49.55 GiB：Wan2.2_Remix_NSFW high+low / moodyRealMix_zitV5DPO / BEYOND 淡妆浓抹",
+      "beyondREALITY_beyondREALITYZIMAGE blocked（无精确公开源；勿冒充淡妆浓抹 BF16）",
+      "soft-hide rh-acc-8851286018-43497c；市场约 910→909；勿藏 rh-acc-1004064770-ef8fd7（还缺 UltimateSDUpscale）",
+      "未写 h3/",
+      "主池三机已装 ComfyUI_UltimateSDUpscale（ssitu @ a5547db9；submodule Coyote-A @ 2322caa；无 pip）；object_info 有 UltimateSDUpscale/CustomSample/NoUpscale/Guider；未 soft-hide rh-acc-1004064770-ef8fd7"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T07:18:00+08:00",
+    "note": "MODEL_SOURCES v17 ok465/blocked339/total804 + beyondREALITYZIMAGE blocked + soft-hide 910→909；主池 UltimateSDUpscale ssitu@a5547db9（Coyote-A@2322caa；无 pip）",
+    "ultimate_sd_upscale_genpool": {
+      "package": "ComfyUI_UltimateSDUpscale",
+      "repo": "ssitu/ComfyUI_UltimateSDUpscale",
+      "commit": "a5547db9",
+      "submodule": {
+        "name": "Coyote-A",
+        "commit": "2322caa"
+      },
+      "pip": false,
+      "scope": "主池三机（WS:8196 / pc01:8188 / pc02:8193）",
+      "object_info_classes": [
+        "UltimateSDUpscale",
+        "UltimateSDUpscaleCustomSample",
+        "UltimateSDUpscaleNoUpscale",
+        "UltimateSDUpscaleGuider"
+      ],
+      "source": "设备管家",
+      "note": "已装；object_info 可见 UltimateSDUpscale / CustomSample / NoUpscale / Guider。可能日后 unblock soft-hide rh-acc-1004064770-ef8fd7（此前因还缺该节点保持公开）——本次**未** soft-hide 该 app。",
+      "do_not_claim_soft_hide": "rh-acc-1004064770-ef8fd7"
+    }
+  },
   "capability_gap_scan_v18_2026_09_10": {
     "status": "scan_complete_docs",
     "date": "2026-09-10",

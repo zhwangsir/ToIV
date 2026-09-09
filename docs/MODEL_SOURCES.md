@@ -1,10 +1,11 @@
+<!-- v17 download update 2026-09-10T07:14:32+08:00: newly_ok=4 ok=465 blocked=339; beyondREALITYZIMAGE blocked distinct from 淡妆浓抹 BF16 -->
 # MODEL_SOURCES
 
-Updated: 2026-09-10T06:37:18+08:00 (Asia/Shanghai)
+Updated: 2026-09-10T07:14:32+08:00 (Asia/Shanghai)
 
-Totals: ok=462 blocked=342 total=804
+Totals: ok=465 blocked=339 total=804
 
-Batch: capability_gap_v16_non_h3
+Batch: capability_gap_v17_non_h3
 
 ## Items
 
@@ -616,7 +617,7 @@ Batch: capability_gap_v16_non_h3
 | blocked | anicorexl_illustriouss_v7.safetensors |  |  |  | reason=civitai_style_untraceable \| CivitAI-style character/checkpoint/LoRA basename; no exact HF file. \| action=blocked_untraceable \| suggested_next=Manual provenance if a trusted URL appears; do not invent mirrors. \| app_refs=1 \| from=_batch15_blocked_new.json |
 | blocked | artoria_caster_(caster)_ilxl_v1.safetensors |  |  |  | reason=civitai_style_untraceable \| CivitAI-style character/checkpoint/LoRA basename; no exact HF file. \| action=blocked_untraceable \| suggested_next=Manual provenance if a trusted URL appears; do not invent mirrors. \| app_refs=1 \| from=_batch15_blocked_new.json |
 | blocked | bellydance_abg_animation_10Eros_i2v_v1.0.safetensors |  |  |  | reason=untraceable_nsfw_community \| NSFW/community basename; no public HF exact hit in batch14 search. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch14_blocked_new.json |
-| blocked | beyondREALITY_beyondREALITYZIMAGE.safetensors |  |  |  | v16: no exact RH double-prefix; Nurburgring has Chinese titles only — do not substitute for RH basename |
+| blocked | beyondREALITY_beyondREALITYZIMAGE.safetensors |  |  |  | v17 blocked: no exact public source; Do NOT alias as 淡妆浓抹 BF16 (different file) | untraceable_rh_double_prefix_name |
 | blocked | bfs_head_swap_v4.safetensors |  |  |  | reason=untraceable_or_wrong_basename \| HF search found near-misses/wrong basenames only; refusing unsafe rename. \| action=blocked_untraceable \| suggested_next=Manual provenance if a trusted URL appears; do not invent mirrors. \| app_refs=1 \| from=_batch15_blocked_new.json |
 | blocked | bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors |  |  |  | v16 DO-NOT-RECHASE: keep blocked; rank128B unpublished |
 | blocked | bfs_head_v4_qwen_image_edit_2509.safetensors |  |  |  | reason=untraceable_civitai_workflow_only \| Civitai BFS+QwenEdit face-swap entries are workflows (~4KB zip), not downloadable LoRA weights with this name. \| app_refs=2 \| from=_batch9_blocked_candidates.json |
