@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T15:40:00+08:00",
+  "updated_at": "2026-09-10T15:55:00+08:00",
   "admin_soft_hide_relist_wan_animate2_2026_09_10": {
     "status": "pending_product_commit",
     "date": "2026-09-10",
@@ -15,12 +15,14 @@
     "product_sha": null,
     "product_dirty_do_not_stage": [
       "apps/api/app/routes/apps.py",
+      "apps/api/app/services/app_seed.py",
       "apps/api/tests/test_apps.py"
     ],
     "product_change": {
-      "summary": "admin 可见目录 soft-hide 卡并可 PUT 再上架；seed 不覆盖 is_public",
+      "summary": "admin 可见目录 soft-hide 卡并可 PUT 再上架；seed 不覆盖已有 is_public",
       "files": [
         "apps/api/app/routes/apps.py",
+        "apps/api/app/services/app_seed.py",
         "apps/api/tests/test_apps.py"
       ],
       "test": "test_admin_can_unhide_soft_hidden_catalog_and_builtin",
@@ -31,52 +33,93 @@
         "seed_does_not_overwrite_is_public": true,
         "user_still_404_when_hidden": true,
         "no_peek_others_private": true
+      },
+      "deployed_core": {
+        "landed": true,
+        "method": "deploy.sh --skip-web x2",
+        "note": "admin soft-hide 可再上架 + seed 不覆盖已有 is_public 已上 core；产品码仍 dirty 未 commit"
       }
+    },
+    "production_animate2_unhide": {
+      "status": "landed",
+      "ids": [
+        "wan-animate-2",
+        "rh-character-replacement-minimax-h3-7582cc8e"
+      ],
+      "note": "图含 WanAnimate2ToVideo；dedicated :8199；已从候选变为已 unhide",
+      "market": {
+        "before": 508,
+        "after": 510,
+        "delta": 2
+      },
+      "restart_misopen_re_soft_hidden": [
+        "avatar-talk",
+        "facedetailer",
+        "hunyuan-i2v",
+        "latentsync"
+      ],
+      "restart_note": "重启曾误开上述 4 张，已重新 soft-hide；公开口径仍 508→510"
     },
     "capability_gap_unhide_candidates": {
       "source_of_truth": ".regen_tmp/capability_gap_scan_v20/actionable/unhide_after_fill_p0.json",
       "do_not_stage": true,
       "handed_to_dev": true,
       "general_p0": 80,
+      "general_p0_status": "still_waiting_fill",
       "ok_if_dedicated_animate2": 2,
-      "animate2_unhide_first": [
+      "animate2_status": "unhidden_landed",
+      "animate2_unhidden": [
         "wan-animate-2",
         "rh-character-replacement-minimax-h3-7582cc8e"
       ],
-      "animate2_note": "图含 WanAnimate2ToVideo；应走 :8199；NOT general-pool P0",
-      "market_if_animate2_unhide": {
+      "animate2_note": "图含 WanAnimate2ToVideo；:8199；已从 P0 候选移出为已 unhide",
+      "market_public": {
         "before": 508,
         "after": 510,
         "delta": 2
       },
-      "product_unhide_status": "pending_dev_or_user",
-      "note": "产品 unhide 仍等开发落地或用户拍板；可先 unhide animate2×2 → 公开 508→510"
+      "note": "通用 P0×80 仍在清单等 fill；animate2×2 已 unhide（生产 508→510）"
+    },
+    "dedicated_aware_v20_with_animate2": {
+      "status": "bypass_complete",
+      "dedicated_aware_ok_h3": 510,
+      "ok_if_dedicated_animate2": 2,
+      "with_animate2": 512,
+      "animate2_both_unhidden": true,
+      "sources_do_not_stage": [
+        ".regen_tmp/capability_gap_scan_v20/dedicated_aware.json",
+        ".regen_tmp/capability_gap_scan_v20/actionable/dedicated_aware_animate2_v20.json"
+      ],
+      "v21_plus_must_run_animate2_postprocess": true,
+      "note": "v20 旁路已齐；dedicated_aware 已并 animate2→512；产品公开约 510"
     },
     "follow_up_of": [
       "soft_hide_all_unusable_v20_2026_09_10",
-      "307879d"
+      "307879d",
+      "a97be71"
     ],
     "do_not_stage": [
       ".regen_tmp",
       "product dirty",
       "apps/api/app/routes/apps.py",
+      "apps/api/app/services/app_seed.py",
       "apps/api/tests/test_apps.py"
     ],
     "facts": [
-      "产品改动未提交：apps.py admin _visible 可见 soft-hide 目录卡并可 PUT 再上架；seed 不覆盖 is_public",
-      "测试 test_admin_can_unhide_soft_hidden_catalog_and_builtin 已写、未提交",
-      "原因：mass soft-hide 后 admin GET/PUT 隐藏卡 404",
-      "待用户产品 commit；本 tip 只 docs",
-      "能力缺口 v20 P0 unhide 候选已交开发：通用 P0 80 + ok_if_dedicated_animate2 2",
-      "animate2×2：wan-animate-2 + rh-character-replacement-minimax-h3-7582cc8e → :8199；可先 unhide → 公开 508→510",
-      "真源 unhide_after_fill_p0.json 勿 stage",
-      "产品 unhide 仍等开发落地或用户拍板",
-      "勿 stage .regen_tmp / 产品 dirty；无产品 SHA"
+      "产品改动仍 dirty 未 commit：apps.py admin _visible + seed 不覆盖已有 is_public；tests 同；status 仍 pending_product_commit",
+      "core 两轮 deploy.sh --skip-web：admin soft-hide 可再上架；seed 不再覆盖已有 is_public（生产已落地）",
+      "animate2 dedicated unhide 已落地：wan-animate-2 + rh-character-replacement-minimax-h3-7582cc8e → 公开；市场 508→510（不是待 unhide）",
+      "重启曾误开 avatar-talk / facedetailer / hunyuan-i2v / latentsync，已重新 soft-hide",
+      "通用 P0 unhide 候选 80 仍在 unhide_after_fill_p0.json；animate2×2 已从候选变为已 unhide",
+      "v20 dedicated_aware 已并 animate2 → 512；dedicated_aware_ok(H3)=510；ok_if_dedicated_animate2=2（均已 unhide）；with_animate2=512",
+      "真源 dedicated_aware.json + actionable/dedicated_aware_animate2_v20.json + unhide_after_fill_p0.json 勿 stage",
+      "v21+ 必跑 animate2 postprocess",
+      "产品公开约 510；无产品 SHA；勿 stage .regen_tmp / 产品 dirty"
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-10T15:40:00+08:00",
-    "note": "admin soft-hide 可再上架（产品 dirty 待用户提交）；v20 P0 80 + animate2×2 可先 unhide → 公开 508→510；产品 unhide 仍等开发/拍板；无产品 SHA"
+    "updated_at": "2026-09-10T15:55:00+08:00",
+    "note": "animate2 unhide 已落地（508→510）；admin soft-hide 可再上架（产品 dirty 待 commit）；dedicated_aware with_animate2=512；通用 P0×80 仍等 fill；无产品 SHA"
   },
   "soft_hide_all_unusable_v20_2026_09_10": {
     "status": "soft_hide_docs",
