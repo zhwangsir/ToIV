@@ -1,5 +1,77 @@
 {
-  "updated_at": "2026-09-11T05:26:00+08:00",
+  "updated_at": "2026-09-11T05:28:00+08:00",
+  "model_sources_wave2_public_e2e_2026_09_11": {
+    "status": "inventory_updated",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 模型下载",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "ok": 468,
+    "blocked": 335,
+    "total": 803,
+    "inventory": {
+      "wave": "wave2",
+      "ok": 468,
+      "blocked": 335,
+      "total": 803,
+      "note": "MODEL_SOURCES wave2 public E2E formal inventory count from ToIV 模型下载"
+    },
+    "compare_v16": {
+      "ok": 461,
+      "blocked": 343,
+      "total": 804,
+      "delta": {
+        "ok": 7,
+        "blocked": -8,
+        "total": -1
+      },
+      "note": "Optional delta vs model_sources_v16_non_h3 — stated numbers only; not invented"
+    },
+    "wave1_memory_approx": {
+      "ok_approx": 465,
+      "total_approx": 800,
+      "note": "Earlier memory had wave1 download ok≈465/total≈800 — this tip is wave2 formal count"
+    },
+    "inventory_cite_filename_only": "public_e2e_wave2_download.json",
+    "true_sources_do_not_stage": [
+      "public_e2e_wave2_download.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_wave2_download.json — cite filename only; do not stage",
+    "prior_tip": "0451863",
+    "prior_tip_note": "MelBand 039434 PASS；normalize+sampler dirty — local parent",
+    "related": [
+      "public_e2e_wave2_2026_09_11",
+      "9bda626"
+    ],
+    "related_state": [
+      "public_e2e_wave2_2026_09_11",
+      "model_sources_v16_non_h3_2026_09_10"
+    ],
+    "facts": [
+      "MODEL_SOURCES wave2 inventory: ok 468 / blocked 335 / total 803",
+      "Summary filename (cite only, never stage): public_e2e_wave2_download.json under .regen_tmp/",
+      "Source agent: ToIV 模型下载; steward: 项目管家",
+      "Prior tip 0451863 (MelBand 039434 PASS) is local parent",
+      "Related: public E2E wave2 tip 9bda626 / state public_e2e_wave2_2026_09_11",
+      "Earlier memory wave1 download ok≈465/total≈800 — this is wave2 formal count",
+      "Optional delta vs model_sources_v16 (ok 461 / blocked 343 / total 804): Δ ok+7 / blocked−8 / total−1",
+      "Not shipped/online; do not stage product dirty / .regen_tmp; no product SHA; local tip no push"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_wave2_download.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T05:28:00+08:00"
+  },
   "public_e2e_retest_melband_pass_2026_09_11": {
     "status": "live_on_core_dirty_melband_039434_pass",
     "date": "2026-09-11",
