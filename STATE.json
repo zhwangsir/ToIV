@@ -1,7 +1,68 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T17:02:00+08:00",
+  "updated_at": "2026-09-10T18:00:00+08:00",
+  "model_sources_v21_p0_dedup_2026_09_10": {
+    "status": "docs_model_sources",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 模型下载",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "model_sources_v21_p0": {
+      "ok": 464,
+      "blocked": 335,
+      "total": 799,
+      "prev": {
+        "ok": 467,
+        "blocked": 343,
+        "total": 810
+      },
+      "delta": {
+        "ok": -3,
+        "blocked": -8,
+        "total": -11
+      },
+      "note": "drop vs previous tip is from dedup after v21 P0 batch",
+      "newly_ok_count": 4,
+      "newly_ok_GiB": 32.004,
+      "newly_ok": [
+        "Wan2.2-Fun-A14B-InP-low-noise-MPS.safetensors",
+        "flux-2-klein-base-4b.safetensors",
+        "QwenRebalanceV10_v10LoraR64.safetensors",
+        "wan2.2-i2v-rapid-aio-nsfw-v7.safetensors"
+      ],
+      "already_on_nas_count": 1,
+      "already_on_nas": [
+        "Wan2.2-Animate-14B-Q4_K_S.gguf"
+      ],
+      "batch_blocked_count": 40,
+      "updated_at": "2026-09-10T17:58:18+08:00",
+      "source_of_truth": ".regen_tmp/capability_gap_v21_p0_models_download_summary.json",
+      "do_not_stage": true,
+      "h3_writes": false
+    },
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      ".regen_tmp/capability_gap_v21_p0_models_download_summary.json"
+    ],
+    "facts": [
+      "MODEL_SOURCES v21 P0 后 ok464/blocked335/total799（去重）；前 tip 467/343/810",
+      "newly_ok 4 ≈32.00 GiB；already_on_nas 1；本批 blocked 40",
+      "真源 capability_gap_v21_p0_models_download_summary.json 勿 stage",
+      "未写 h3/；产品码仍 dirty 勿 stage；无产品 SHA；本地 docs tip 无 push"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "follow_up_of": [
+      "v20_fill_nodes_model_sources_v21_unhide_2026_09_10",
+      "7191a49"
+    ]
+  },
   "v20_fill_nodes_model_sources_v21_unhide_2026_09_10": {
     "status": "docs_consolidated",
     "date": "2026-09-10",
