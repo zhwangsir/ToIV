@@ -1,7 +1,83 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T14:22:00+08:00",
+  "updated_at": "2026-09-10T15:40:00+08:00",
+  "admin_soft_hide_relist_wan_animate2_2026_09_10": {
+    "status": "pending_product_commit",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发",
+      "能力缺口",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "product_dirty_do_not_stage": [
+      "apps/api/app/routes/apps.py",
+      "apps/api/tests/test_apps.py"
+    ],
+    "product_change": {
+      "summary": "admin 可见目录 soft-hide 卡并可 PUT 再上架；seed 不覆盖 is_public",
+      "files": [
+        "apps/api/app/routes/apps.py",
+        "apps/api/tests/test_apps.py"
+      ],
+      "test": "test_admin_can_unhide_soft_hidden_catalog_and_builtin",
+      "reason": "mass soft-hide 后 admin 也无法 GET/PUT 隐藏卡（404）",
+      "behavior": {
+        "admin_sees_soft_hidden_catalog": true,
+        "admin_can_put_is_public_true": true,
+        "seed_does_not_overwrite_is_public": true,
+        "user_still_404_when_hidden": true,
+        "no_peek_others_private": true
+      }
+    },
+    "capability_gap_unhide_candidates": {
+      "source_of_truth": ".regen_tmp/capability_gap_scan_v20/actionable/unhide_after_fill_p0.json",
+      "do_not_stage": true,
+      "handed_to_dev": true,
+      "general_p0": 80,
+      "ok_if_dedicated_animate2": 2,
+      "animate2_unhide_first": [
+        "wan-animate-2",
+        "rh-character-replacement-minimax-h3-7582cc8e"
+      ],
+      "animate2_note": "图含 WanAnimate2ToVideo；应走 :8199；NOT general-pool P0",
+      "market_if_animate2_unhide": {
+        "before": 508,
+        "after": 510,
+        "delta": 2
+      },
+      "product_unhide_status": "pending_dev_or_user",
+      "note": "产品 unhide 仍等开发落地或用户拍板；可先 unhide animate2×2 → 公开 508→510"
+    },
+    "follow_up_of": [
+      "soft_hide_all_unusable_v20_2026_09_10",
+      "307879d"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "apps/api/app/routes/apps.py",
+      "apps/api/tests/test_apps.py"
+    ],
+    "facts": [
+      "产品改动未提交：apps.py admin _visible 可见 soft-hide 目录卡并可 PUT 再上架；seed 不覆盖 is_public",
+      "测试 test_admin_can_unhide_soft_hidden_catalog_and_builtin 已写、未提交",
+      "原因：mass soft-hide 后 admin GET/PUT 隐藏卡 404",
+      "待用户产品 commit；本 tip 只 docs",
+      "能力缺口 v20 P0 unhide 候选已交开发：通用 P0 80 + ok_if_dedicated_animate2 2",
+      "animate2×2：wan-animate-2 + rh-character-replacement-minimax-h3-7582cc8e → :8199；可先 unhide → 公开 508→510",
+      "真源 unhide_after_fill_p0.json 勿 stage",
+      "产品 unhide 仍等开发落地或用户拍板",
+      "勿 stage .regen_tmp / 产品 dirty；无产品 SHA"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T15:40:00+08:00",
+    "note": "admin soft-hide 可再上架（产品 dirty 待用户提交）；v20 P0 80 + animate2×2 可先 unhide → 公开 508→510；产品 unhide 仍等开发/拍板；无产品 SHA"
+  },
   "soft_hide_all_unusable_v20_2026_09_10": {
     "status": "soft_hide_docs",
     "date": "2026-09-10",
