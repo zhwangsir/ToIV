@@ -1,5 +1,65 @@
 {
-  "updated_at": "2026-09-11T07:38:00+08:00",
+  "updated_at": "2026-09-11T07:58:00+08:00",
+  "public_e2e_retest_022665_8196_sdpa_2026_09_11": {
+    "status": "live_on_core_public_e2e_022665_8196_sdpa_pass",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "retest": {
+      "022665": {
+        "app": "rh-acc-0226654210",
+        "result": "PASS",
+        "port": ":8196",
+        "forced_port": true,
+        "job_prefix": "f7fbd951",
+        "fix_note": "device QwenVL sm120 sageattn→SDPA; log Auto mode: Using SDPA + FP16 override",
+        "prior_pass_port": ":8193"
+      }
+    },
+    "pass_apps": [
+      "022665"
+    ],
+    "pass_ports": {
+      ":8196": [
+        "022665"
+      ]
+    },
+    "device_change": "QwenVL sm120 sageattn→SDPA",
+    "log_notes": [
+      "Auto mode: Using SDPA",
+      "FP16 override"
+    ],
+    "job_prefix": "f7fbd951",
+    "note": "Follow-up re-verify forced :8196 PASS after device SDPA change; previous PASS was @ :8193",
+    "prior_tip": "19ce070",
+    "prior_tip_note": "059347/022665 PASS @8193; 107403 queued — local parent",
+    "related_state": [
+      "public_e2e_retest_059347_022665_pass_2026_09_11",
+      "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11"
+    ],
+    "facts": [
+      "rh-acc-0226654210 forced :8196 PASS again after device QwenVL sm120 sageattn→SDPA",
+      "job=f7fbd951…; log Auto mode: Using SDPA + FP16 override",
+      "Previous PASS was @ :8193 (tip 19ce070); this is :8196 re-verify after device SDPA change",
+      "Product dirty — never stage; never stage .regen_tmp",
+      "Prior tip 19ce070 is local parent",
+      "Not shipped/online; committed_product false; product_sha null"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T07:58:00+08:00"
+  },
   "public_e2e_retest_059347_022665_pass_2026_09_11": {
     "status": "live_on_core_dirty_059347_022665_pass_107403_queued",
     "date": "2026-09-11",
