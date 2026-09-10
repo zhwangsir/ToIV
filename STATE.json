@@ -1,7 +1,73 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T01:43:00+08:00",
+  "updated_at": "2026-09-11T02:19:00+08:00",
+  "l2_retest_after_10class_2026_09_11": {
+    "status": "live_on_core_l2_retest_after_10class",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "retest": {
+      "context": "after 10-class install on LongCat :8197",
+      "results": {
+        "002481": {
+          "short_id": "002481",
+          "full_id_known_in_agents": "rh-acc-0024814594-adc75c",
+          "result": "PASS"
+        },
+        "140266": {
+          "short_id": "140266",
+          "full_id": "rh-acc-1402669058-f27871",
+          "result": "job_succeeded_no_artifact",
+          "note": "job succeeded but no artifact/output"
+        },
+        "116926": {
+          "short_id": "116926",
+          "full_id": "rh-acc-1169267714-43e935",
+          "result": "still_fail",
+          "missing": [
+            "Int Number validation",
+            "Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors"
+          ]
+        }
+      },
+      "source_file": ".regen_tmp/app_test_matrix_p0/l2_retest_after_10class.json"
+    },
+    "handed_to": [
+      "模型下载",
+      "设备管家"
+    ],
+    "handed_to_task": "model weight + Int Number validation residual after 10-class retest",
+    "prior_tip": "e81f8f3",
+    "related_state": [
+      "l2_retest_after_easy_sdvn_2026_09_11",
+      "longcat_8197_easy_use_sdvn_2026_09_11",
+      "l2_retest_after_longcat_nodes_2026_09_11"
+    ],
+    "facts": [
+      "After 10-class install retest: 002481 PASS; 140266 job succeeded but no artifact/output; 116926 still missing Int Number validation + weight Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
+      "Short ids as given; full RH ids already in AGENTS (rh-acc-0024814594-adc75c / rh-acc-1402669058-f27871 / rh-acc-1169267714-43e935)",
+      "Source: .regen_tmp/app_test_matrix_p0/l2_retest_after_10class.json (do NOT stage)",
+      "Handed to 模型下载 / 设备管家",
+      "Not shipped/online; product still dirty uncommitted",
+      "Prior tip e81f8f3: Easy/SDVN retest; 3 RH still fail; 10 new classes; handed to device"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T02:19:00+08:00",
+    "note": "10-class 后复测；002481 PASS；140266 无产物；116926 仍缺"
+  },
   "l2_retest_after_easy_sdvn_2026_09_11": {
     "status": "live_on_core_l2_retest_after_easy_sdvn",
     "date": "2026-09-11",
