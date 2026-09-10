@@ -1,5 +1,55 @@
 {
-  "updated_at": "2026-09-11T05:44:00+08:00",
+  "updated_at": "2026-09-11T05:47:00+08:00",
+  "public_e2e_retest_ltx23_2026_09_11": {
+    "status": "live_on_core_public_e2e_ltx23_retest_fixing",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "app_id": "2053122050",
+    "retest": {
+      "app_id": "2053122050",
+      "missing_model_cleared": true,
+      "residual": "LTXVImgToVideoInplaceKJ unexpected image_1",
+      "fixing_by": "ToIV 开发"
+    },
+    "missing_model_cleared": true,
+    "residual": {
+      "LTXVImgToVideoInplaceKJ": "unexpected image_1"
+    },
+    "true_sources_do_not_stage": [
+      "public_e2e_retest_ltx23.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_retest_ltx23.json — cite filename only; do not stage",
+    "prior_tip": "5e2fe3d",
+    "prior_tip_note": "Qwen3-VL 复测；缺模清；022665/Preview-only — local parent",
+    "related_state": [
+      "public_e2e_retest_qwen3vl_2026_09_11",
+      "public_e2e_wave2_2026_09_11"
+    ],
+    "facts": [
+      "LTX23 app 2053122050 retest: missing-model cleared",
+      "New residual: LTXVImgToVideoInplaceKJ unexpected image_1",
+      "ToIV 开发 正修",
+      "True source (do not stage): public_e2e_retest_ltx23.json",
+      "Prior tip 5e2fe3d (Qwen3-VL retest) is local parent",
+      "Not shipped/online; committed_product false; product_sha null; do not stage product dirty / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_retest_ltx23.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T05:47:00+08:00"
+  },
   "public_e2e_retest_qwen3vl_2026_09_11": {
     "status": "live_on_core_public_e2e_qwen3vl_retest_fixing",
     "date": "2026-09-11",
