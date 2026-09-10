@@ -1,7 +1,72 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T01:27:00+08:00",
+  "updated_at": "2026-09-11T01:30:00+08:00",
+  "l2_routing_dirty_deploy_retest_2026_09_11": {
+    "status": "live_on_core_dirty_routing_improved_pass0",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "deploy": {
+      "method": "deploy/deploy.sh --skip-web",
+      "target": "live_core",
+      "approx_time": "2026-09-11T01:27:00+08:00",
+      "dirty_tree": true,
+      "note": "No product git commit; dirty deploy only; branch tip旁证 0da7f30；路由修复 uncommitted"
+    },
+    "retest": {
+      "spot": "4/4",
+      "routing_improved": true,
+      "routing_improved_count": "4/4",
+      "pass": 0,
+      "fail_product": 4,
+      "fail_timeout": 0,
+      "source_file": ".regen_tmp/app_test_matrix_p0/l2_retest_after_routing.json"
+    },
+    "residuals": {
+      "missing_nodes_3_class_type": [
+        "Bjornulf_ShowFloat",
+        "PoseAndFaceDetection",
+        "PixelPerfectResolution"
+      ],
+      "apps_missing_nodes": [
+        "rh-acc-0024814594-adc75c",
+        "rh-acc-1402669058-f27871",
+        "rh-acc-1169267714-43e935"
+      ],
+      "wan_animate_ffmpeg_fixture": "VHS failed to extract audio from drive_2s.mp4 (worker :8197)"
+    },
+    "handed_to": "设备管家",
+    "handed_to_task": "install missing custom nodes (3 class_type)",
+    "related_state": [
+      "l2_routing_fix_uncommitted_2026_09_11",
+      "p0_l2_hot24_2026_09_11"
+    ],
+    "facts": [
+      "live_core deployed L2 routing fix via deploy.sh --skip-web (~01:27 CST)",
+      "Product still NOT git committed (dirty deploy only)",
+      "Spot retest: 4/4 routing_improved=true, pass=0",
+      "Residuals: 缺节点 3 class_type + wan-animate ffmpeg/fixture",
+      "Source: .regen_tmp/app_test_matrix_p0/l2_retest_after_routing.json (do NOT stage)",
+      "Handed to 设备管家 to install missing nodes",
+      "Not shipped via git; dirty-deployed only; 非 shipped/online"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T01:30:00+08:00",
+    "note": "L2 路由 dirty 部署；抽测4/4 improved、pass0；非 git shipped"
+  },
   "l2_routing_fix_uncommitted_2026_09_11": {
     "status": "routing_fix_uncommitted_spotcheck",
     "date": "2026-09-11",
@@ -51,7 +116,8 @@
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-11T01:27:00+08:00",
-    "note": "L2 路由修复未 commit；pytest52；抽测原503中；非 shipped"
+    "note": "L2 路由修复未 commit；pytest52；抽测原503中；非 shipped；SUPERSEDED→dirty deploy + retest 4/4 improved pass0",
+    "superseded_by": "l2_routing_dirty_deploy_retest_2026_09_11"
   },
   "p0_l2_hot24_2026_09_11": {
     "status": "fail_product_majority",
