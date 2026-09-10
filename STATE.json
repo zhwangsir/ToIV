@@ -1,7 +1,57 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T02:19:00+08:00",
+  "updated_at": "2026-09-11T02:29:00+08:00",
+  "l2_rh_residual_rootcause_2026_09_11": {
+    "status": "live_on_core_l2_rh_residual_rootcause_pending_dirty_deploy",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "will_dirty_deploy": true,
+    "residual_root_causes": [
+      "ComfyLiterals Int must be Number (validation)",
+      "Preview-only incorrectly mark_done"
+    ],
+    "still_missing_140266": {
+      "short_id": "140266",
+      "full_id": "rh-acc-1402669058-f27871",
+      "missing": [
+        "yolov10m",
+        "vitpose",
+        "weights under Wan22Animate/ prefix"
+      ]
+    },
+    "source_file": ".regen_tmp/app_test_matrix_p0/l2_rh_residual_notes.md",
+    "prior_tip": "1eaa34e",
+    "prior_tip_summary": "002481 PASS; 140266 no artifact; 116926 Int Number + Wan2_2-Animate-14B_fp8…KJ missing",
+    "related_state": [
+      "l2_retest_after_10class_2026_09_11"
+    ],
+    "facts": [
+      "Residual root causes: (1) ComfyLiterals Int must be Number (validation); (2) Preview-only incorrectly mark_done",
+      "Product changes already made but not git committed; will dirty deploy",
+      "140266 still missing: yolov10m / vitpose + weights under Wan22Animate/ prefix",
+      "True source: .regen_tmp/app_test_matrix_p0/l2_rh_residual_notes.md (do NOT stage)",
+      "Prior tip 1eaa34e: 002481 PASS; 140266 no artifact; 116926 Int Number + Wan2_2-Animate-14B_fp8…KJ missing",
+      "Not shipped/online; product still dirty — do not stage product code; no product SHA"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "l2_rh_residual_notes.md"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T02:29:00+08:00",
+    "note": "L2 RH 残差根因；Int→Number；Preview 误 mark_done；将 dirty deploy"
+  },
   "l2_retest_after_10class_2026_09_11": {
     "status": "live_on_core_l2_retest_after_10class",
     "date": "2026-09-11",
