@@ -1,7 +1,81 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T18:06:00+08:00",
+  "updated_at": "2026-09-10T18:20:00+08:00",
+  "v22_unhide_x4_v22b_animate_q4_2026_09_10": {
+    "status": "docs_unhide",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "v22_unhide": {
+      "count": 4,
+      "is_public": true,
+      "ids": [
+        "rh-acc-1099076609-5b577d",
+        "rh-acc-9943753729-f90502",
+        "rh-acc-3915150338-73e61b",
+        "rh-acc-4551318530-b94c9f"
+      ],
+      "public": {
+        "before": 546,
+        "after": 550,
+        "delta": 4
+      },
+      "applied": true,
+      "where": "core"
+    },
+    "v22b_unhide": {
+      "count": 1,
+      "is_public": true,
+      "ids": [
+        "rh-acc-7233807361-883e22"
+      ],
+      "title": "Animate Q4 GGUF（换装+换脸+换背景- Animate Wan2.2）",
+      "public": {
+        "before": 550,
+        "after": 551,
+        "delta": 1
+      },
+      "applied": true,
+      "where": "core"
+    },
+    "public_catalog": {
+      "before": 546,
+      "after_v22": 550,
+      "after_v22b": 551,
+      "path": "546→550→551"
+    },
+    "scan": {
+      "main_ok": 457,
+      "note": ":8196 已恢复（此前拒连致主 OK 偏低可归档）"
+    },
+    "facts": [
+      "v22 unhide ×4 已落地 core is_public=true；公开 546→550",
+      "v22 ids: rh-acc-1099076609-5b577d, rh-acc-9943753729-f90502, rh-acc-3915150338-73e61b, rh-acc-4551318530-b94c9f",
+      "v22b unhide ×1 已落地 rh-acc-7233807361-883e22 Animate Q4 GGUF；公开 550→551",
+      "叠加公开 546→550→551",
+      "主 OK 扫侧 457；:8196 已恢复",
+      "产品码仍 dirty 勿 stage；无产品 SHA；本地 docs tip 无 push"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T18:20:00+08:00",
+    "follow_up_of": [
+      "genpool_extrapaths_unet_animate_gguf_2026_09_10",
+      "v20_fill_nodes_model_sources_v21_unhide_2026_09_10",
+      "3b60c4b"
+    ],
+    "note": "v22 unhide ×4 + v22b Animate Q4 已落地；公开 546→550→551；主 OK 457；:8196 已恢复"
+  },
   "genpool_extrapaths_unet_animate_gguf_2026_09_10": {
     "status": "live_device_fyi",
     "date": "2026-09-10",

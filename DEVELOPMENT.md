@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-10 v22 unhide ×4 + v22b Animate Q4（546→550→551）（项目管家；ToIV 开发 tip；无产品 SHA）**：生产已落地 — v22 unhide **4**（`is_public=true`）：`rh-acc-1099076609-5b577d` / `rh-acc-9943753729-f90502` / `rh-acc-3915150338-73e61b` / `rh-acc-4551318530-b94c9f` → 公开约 **546→550**；v22b unhide **1** `rh-acc-7233807361-883e22` Animate Q4 GGUF（换装+换脸+换背景- Animate Wan2.2）→ **550→551**（叠加 **546→551**）。主 OK 扫侧 **457**（:8196 已恢复）。产品 dirty 勿 stage。status=`docs_unhide`；STATE `v22_unhide_x4_v22b_animate_q4_2026_09_10`；updated_at 2026-09-10T18:20:00+08:00。
+
 **2026-09-10 LIVE：通用池 extrapaths 补 unet；Animate GGUF 走 UnetLoaderGGUF（项目管家；设备管家 tip；无产品 SHA）**：通用池 toiv extrapaths 已补 `unet: unet`；Animate GGUF 以 **UnetLoaderGGUF** 为准可见；旁注**未落地**：能力缺口已交 v22 unhide **4** 给开发；扫时 :8196 拒连致主 OK 偏低；Animate Q4 `mount_pending`；完整 unhide 数字等 ToIV 开发生产回报再定；产品 dirty 勿 stage。status=`live_device_fyi`；STATE `genpool_extrapaths_unet_animate_gguf_2026_09_10`；updated_at 2026-09-10T18:06:00+08:00。
 
 **2026-09-10 MODEL_SOURCES v21 P0 后 464/335/799（去重）（项目管家；ToIV 模型下载 tip；无产品 SHA）**：MODEL_SOURCES ok**464**/blocked**335**/total**799**（前 tip 467/343/810；Δ −3/−8/−11，**去重**后净变）；newly_ok **4** ≈32.00 GiB（Wan2.2-Fun-A14B-InP-low-noise-MPS / flux-2-klein-base-4b / QwenRebalanceV10_v10LoraR64 / wan2.2-i2v-rapid-aio-nsfw-v7）；already_on_nas **1**（Wan2.2-Animate-14B-Q4_K_S.gguf）；本批 blocked **40**；摘要 `.regen_tmp/capability_gap_v21_p0_models_download_summary.json` **勿 stage**；未写 h3/；产品 dirty 勿 stage；无产品 SHA。status=`docs_model_sources`；STATE `model_sources_v21_p0_dedup_2026_09_10`；updated_at 2026-09-10T18:00:00+08:00。

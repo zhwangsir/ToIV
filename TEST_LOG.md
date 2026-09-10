@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-10 v22 unhide ×4 + v22b Animate Q4（546→550→551）（项目管家；ToIV 开发 tip；docs；无产品 SHA）：生产落地 v22 unhide **4** → is_public=true：`rh-acc-1099076609-5b577d` / `rh-acc-9943753729-f90502` / `rh-acc-3915150338-73e61b` / `rh-acc-4551318530-b94c9f` → **546→550**；v22b unhide **1** `rh-acc-7233807361-883e22` Animate Q4 GGUF（换装+换脸+换背景- Animate Wan2.2）→ **550→551**；主 OK 扫侧 **457**（:8196 已恢复）；产品 dirty 勿 stage；status=`docs_unhide`；STATE `v22_unhide_x4_v22b_animate_q4_2026_09_10`；updated_at 2026-09-10T18:20:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-10 LIVE：通用池 extrapaths 补 unet；Animate GGUF 走 UnetLoaderGGUF（项目管家；设备管家 tip；docs；无产品 SHA）：toiv extrapaths 补 `unet: unet`；Animate GGUF 以 **UnetLoaderGGUF** 为准可见；旁注未落地：v22 unhide **4** 已交开发；扫时 :8196 拒连致主 OK 偏低；Animate Q4 `mount_pending`；完整 unhide 数字等开发生产回报；产品 dirty 勿 stage；status=`live_device_fyi`；STATE `genpool_extrapaths_unet_animate_gguf_2026_09_10`；updated_at 2026-09-10T18:06:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-10 MODEL_SOURCES v21 P0 后 464/335/799（去重）（项目管家；ToIV 模型下载 tip；docs；无产品 SHA）：ok**464**/blocked**335**/total**799**（前 467/343/810；去重净变 Δ −3/−8/−11）；newly_ok 4 ≈32.00GiB；already_on_nas 1；本批 blocked 40；摘要勿 stage；未写 h3/；产品 dirty 勿 stage；status=`docs_model_sources`；STATE `model_sources_v21_p0_dedup_2026_09_10`；updated_at 2026-09-10T18:00:00+08:00；AGENTS §七 已短注。
