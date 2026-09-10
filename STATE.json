@@ -1,7 +1,72 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T07:21:00+08:00",
+  "updated_at": "2026-09-10T13:46:00+08:00",
+  "soft_hide_ef8fd7_beyondreality_followup_2026_09_10": {
+    "status": "soft_hide_docs",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "follow_up_of": [
+      "model_sources_v17_beyondreality_soft_hide_2026_09_10",
+      "capability_gap_scan_v19_2026_09_10",
+      "24ae742"
+    ],
+    "rule": "soft-hide: only missing beyondREALITY_beyondREALITYZIMAGE; UltimateSD cleared",
+    "soft_hide": {
+      "count": 1,
+      "apps": [
+        "rh-acc-1004064770-ef8fd7"
+      ],
+      "name": "Z-image真实感-电商高清文生图",
+      "reason": "仅因 beyondREALITY_beyondREALITYZIMAGE.safetensors 无精确源（UltimateSDUpscale 已清）",
+      "missing_models": [
+        "beyondREALITY_beyondREALITYZIMAGE.safetensors"
+      ],
+      "missing_nodes": [],
+      "is_public": false,
+      "market_approx": {
+        "before": 909,
+        "after": 908
+      },
+      "applied": true,
+      "applied_at": "2026-09-10T07:27:00+08:00",
+      "updates_prior_do_not_hide": {
+        "tip_sha": "24ae742",
+        "prior": "勿藏 rh-acc-1004064770-ef8fd7（还缺 UltimateSDUpscale）",
+        "now": "UltimateSDUpscale node gap 已清（v19）；现仅缺 hard-blocked beyondREALITYZIMAGE → soft-hide"
+      },
+      "source_of_truth": ".regen_tmp/capability_gap_scan_v19/actionable/soft_hide_beyondreality_zimage_followup.json"
+    },
+    "prior_soft_hide_same_weight": {
+      "id": "rh-acc-8851286018-43497c",
+      "market": "910→909",
+      "tip_sha": "24ae742"
+    },
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "source_of_truth": [
+      ".regen_tmp/capability_gap_scan_v19/actionable/soft_hide_beyondreality_zimage_followup.json"
+    ],
+    "facts": [
+      "soft-hide rh-acc-1004064770-ef8fd7（Z-image真实感-电商高清文生图）→ is_public=false",
+      "公开应用约 909→908",
+      "原因：仅缺 hard-blocked beyondREALITY_beyondREALITYZIMAGE.safetensors；UltimateSDUpscale 已清",
+      "更新 24ae742「勿藏 ef8fd7」口径（当时还缺 UltimateSD）",
+      "未写 h3/；无 MODEL_SOURCES 变更；无产品 SHA"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T13:46:00+08:00",
+    "note": "soft-hide rh-acc-1004064770-ef8fd7；公开约 909→908；UltimateSD 已清后仅缺 beyondREALITYZIMAGE；更新 24ae742 勿藏口径；无产品 SHA；tip from ToIV 开发"
+  },
   "capability_gap_scan_v19_2026_09_10": {
     "status": "scan_complete_docs",
     "date": "2026-09-10",
