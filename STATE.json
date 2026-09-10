@@ -1,7 +1,52 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T04:37:00+08:00",
+  "updated_at": "2026-09-11T04:42:00+08:00",
+  "h3_autogrow_dynamic_prompts_dirty_deploy_2026_09_11": {
+    "status": "live_on_core_dirty_h3_autogrow_dynamic_prompts_retesting",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "dirty_deployed_to_core": true,
+    "dirty_items": [
+      "H3 AUTOGROW ref mapping",
+      "Text Multiline dynamic_prompts backfill"
+    ],
+    "retesting": [
+      "h3-r2v",
+      "h3-r2v-voice",
+      "rh-2k-h3",
+      "109907"
+    ],
+    "prior_tip": "6856f2c",
+    "prior_tip_note": "MelBand retest FAIL; model_names missing MelBandRoFormerModelLoader; fixing client.py — local parent",
+    "prior_state": "public_e2e_retest_melband_2026_09_11",
+    "related_state": [
+      "public_e2e_retest_melband_2026_09_11",
+      "public_e2e_wave1_retest_nodes_2026_09_11",
+      "public_e2e_wave1_2026_09_11"
+    ],
+    "facts": [
+      "Product dirty deployed to core (not git committed): H3 AUTOGROW ref mapping + Text Multiline dynamic_prompts backfill",
+      "Retesting: h3-r2v / h3-r2v-voice / rh-2k-h3 + 109907",
+      "Prior tip 6856f2c (MelBand model_names fix in progress) is local parent",
+      "Not shipped/online; product dirty; never stage product / .regen_tmp; no product SHA"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T04:42:00+08:00"
+  },
   "public_e2e_retest_melband_2026_09_11": {
     "status": "live_on_core_public_e2e_melband_model_names_fix",
     "date": "2026-09-11",
