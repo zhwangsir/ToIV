@@ -1,7 +1,69 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T03:22:00+08:00",
+  "updated_at": "2026-09-11T03:38:00+08:00",
+  "public_e2e_pass_closeout_def_2026_09_11": {
+    "status": "roadmap_public_e2e_matrix_kickoff",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家",
+      "用户锁定"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "closeout_definition": {
+      "locked_by": "用户锁定",
+      "scope": "every public market app",
+      "usable_criterion": "submit → output video/image PASS",
+      "usable_zh": "都能用",
+      "note": "每个公开市场 app 必须 submit → 产出视频/图片 PASS 才计入可用（「都能用」）"
+    },
+    "planning_baseline": {
+      "exclude": "soft-hidden hard-blocked apps",
+      "note": "软隐藏的 hard-blocked apps 不纳入下一步规划基线"
+    },
+    "public_full_live_run_matrix": {
+      "phase": "kickoff",
+      "pipeline": [
+        "inventory",
+        "batched E2E",
+        "failure triage"
+      ],
+      "triage_owners": [
+        "产品",
+        "设备",
+        "下载"
+      ],
+      "note": "公开全量真跑矩阵开工：inventory → batched E2E → 失败分流至 产品 / 设备 / 下载"
+    },
+    "prior_tip": "2ac5a3b",
+    "prior_tip_note": "dual-pushed: 116926/140266 PASS; CUDA residual cleared; LongCat WanAnimate hot path two cards closed",
+    "prior_state": "l2_retest_after_sageattn_sdpa_2026_09_11",
+    "related_state": [
+      "l2_retest_after_sageattn_sdpa_2026_09_11",
+      "capability_gap_closeout_2026_09_10",
+      "roadmap_p0_p1_p3_p2_2026_09_11"
+    ],
+    "facts": [
+      "Closeout definition (user-locked): every public market app must submit → output video/image PASS to count as usable (「都能用」)",
+      "Soft-hidden hard-blocked apps are not in next-step planning baseline",
+      "Building public full live-run matrix: inventory → batched E2E → failure triage to 产品 / 设备 / 下载",
+      "Prior tip 2ac5a3b (dual-pushed): 116926/140266 PASS; CUDA residual cleared; LongCat WanAnimate hot path two cards closed",
+      "Not shipped/online for this planning/matrix work itself; product still dirty uncommitted; never stage product / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T03:38:00+08:00",
+    "note": "收口定义锁定；公开全量真跑矩阵开工"
+  },
   "l2_retest_after_sageattn_sdpa_2026_09_11": {
     "status": "live_on_core_l2_sageattn_sdpa_pass_closeout",
     "date": "2026-09-11",
