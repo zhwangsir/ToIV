@@ -1,7 +1,57 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T04:35:00+08:00",
+  "updated_at": "2026-09-11T04:37:00+08:00",
+  "public_e2e_retest_melband_2026_09_11": {
+    "status": "live_on_core_public_e2e_melband_model_names_fix",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "melband_retest": "FAIL",
+    "root_cause": {
+      "fs_has_weights": true,
+      "core_model_names_missing": "MelBandRoFormerModelLoader",
+      "effect": "pool wrongly judges missing model"
+    },
+    "currently_fixing": "client.py model_names",
+    "product_dirty_uncommitted": true,
+    "true_sources_do_not_stage": [
+      "public_e2e_retest_melband.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_retest_melband.json — cite filename only; do not stage",
+    "prior_tip": "39a536d",
+    "prior_tip_note": "dual-pushed: wave1 node retest; MelBandRoformer was in download triage from wave1",
+    "prior_state": "public_e2e_wave1_retest_nodes_2026_09_11",
+    "related_state": [
+      "public_e2e_wave1_retest_nodes_2026_09_11",
+      "public_e2e_wave1_2026_09_11",
+      "public_e2e_inventory_2026_09_11"
+    ],
+    "facts": [
+      "MelBand retest still FAIL",
+      "Root cause: FS has weights, but core model_names does not include MelBandRoFormerModelLoader → pool wrongly judges missing model",
+      "True source (do not stage): public_e2e_retest_melband.json",
+      "Currently fixing client.py model_names (product dirty, not committed)",
+      "Prior tip 39a536d (dual-pushed): wave1 node retest; MelBandRoformer was in download triage from wave1",
+      "Not shipped/online; product dirty; never stage product / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "client.py",
+      "public_e2e_retest_melband.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T04:37:00+08:00"
+  },
   "public_e2e_wave1_retest_nodes_2026_09_11": {
     "status": "live_on_core_public_e2e_wave1_retest_nodes",
     "date": "2026-09-11",
