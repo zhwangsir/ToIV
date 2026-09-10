@@ -1,5 +1,70 @@
 {
-  "updated_at": "2026-09-11T05:58:00+08:00",
+  "updated_at": "2026-09-11T06:12:00+08:00",
+  "public_e2e_retest_wave2_nodes2_2026_09_11": {
+    "status": "live_on_core_public_e2e_wave2_nodes2_handed_device",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "retest": {
+      "cleared_old_nodes": [
+        "MimicMotionGetPoses",
+        "DF_Int_to_Float",
+        "Florence2Run"
+      ],
+      "214347": "missing RMBG",
+      "213776": "HF ConnectTimeout",
+      "417975": "HF ConnectTimeout"
+    },
+    "cleared_old_nodes": [
+      "MimicMotionGetPoses",
+      "DF_Int_to_Float",
+      "Florence2Run"
+    ],
+    "missing": {
+      "214347": "RMBG"
+    },
+    "hf_connect_timeout": [
+      "213776",
+      "417975"
+    ],
+    "handed_to": "设备",
+    "handed_note": "已转设备",
+    "true_sources_do_not_stage": [
+      "public_e2e_retest_wave2_nodes2.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_retest_wave2_nodes2.json — cite filename only; do not stage",
+    "prior_tip": "8b2eb2e",
+    "prior_tip_note": "wave2 节点复测；038828 PASS；新缺三节点 — local parent",
+    "related_state": [
+      "public_e2e_retest_wave2_nodes_2026_09_11",
+      "public_e2e_wave2_2026_09_11"
+    ],
+    "facts": [
+      "wave2 nodes2 retest: three old missing nodes cleared (MimicMotionGetPoses / DF_Int_to_Float / Florence2Run)",
+      "214347 missing RMBG",
+      "213776 / 417975 HF ConnectTimeout",
+      "Handed to 设备 (已转设备)",
+      "True source (do not stage): public_e2e_retest_wave2_nodes2.json",
+      "Prior tip 8b2eb2e (wave2 nodes retest) is local parent",
+      "Related STATE public_e2e_retest_wave2_nodes_2026_09_11 / public_e2e_wave2_2026_09_11",
+      "Not shipped/online; committed_product false; product_sha null; do not stage product dirty / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_retest_wave2_nodes2.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T06:12:00+08:00"
+  },
   "public_e2e_retest_wave2_nodes_2026_09_11": {
     "status": "live_on_core_public_e2e_wave2_nodes_retest",
     "date": "2026-09-11",
