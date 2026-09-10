@@ -1,7 +1,69 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T02:31:00+08:00",
+  "updated_at": "2026-09-11T02:53:00+08:00",
+  "l2_retest_after_onnx_wan22path_2026_09_11": {
+    "status": "live_on_core_l2_retest_after_onnx_wan22path",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "retest": {
+      "context": "after ONNX / Wan22path",
+      "cleared": [
+        "Int",
+        "ONNX",
+        "Wan"
+      ],
+      "residuals": {
+        "116926": {
+          "short_id": "116926",
+          "issue": "DWPose",
+          "detail": "HF, no local"
+        },
+        "140266": {
+          "short_id": "140266",
+          "issue": "SAM2",
+          "detail": "HF timeout"
+        }
+      },
+      "source_file": ".regen_tmp/app_test_matrix_p0/l2_retest_after_onnx_wan22path.json"
+    },
+    "handed_to": [
+      "设备管家"
+    ],
+    "handed_to_task": "pre-cache DWPose / SAM2 residuals after ONNX/Wan retest",
+    "prior_tip": "e0706fc",
+    "prior_state": "l2_int_preview_dirty_deploy_2026_09_11",
+    "related_state": [
+      "l2_int_preview_dirty_deploy_2026_09_11",
+      "l2_rh_residual_rootcause_2026_09_11",
+      "l2_retest_after_10class_2026_09_11"
+    ],
+    "facts": [
+      "Post-ONNX/Wan22path L2 retest residuals: 116926 DWPose (HF, no local); 140266 SAM2 (HF timeout)",
+      "Cleared: Int / ONNX / Wan",
+      "Source: .regen_tmp/app_test_matrix_p0/l2_retest_after_onnx_wan22path.json (do NOT stage)",
+      "Handed to 设备管家 for pre-cache",
+      "Prior tip e0706fc (dual-pushed): Int/Preview dirty deploy on core; retest 140266/116926 in progress",
+      "Not shipped/online; product still dirty uncommitted; no product SHA; do not stage product / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "l2_retest_after_onnx_wan22path.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T02:53:00+08:00",
+    "note": "ONNX/Wan 后复测；DWPose/SAM2 残差；Int/ONNX/Wan 已清"
+  },
   "l2_int_preview_dirty_deploy_2026_09_11": {
     "status": "live_on_core_dirty_int_preview_fix_retesting",
     "date": "2026-09-11",
