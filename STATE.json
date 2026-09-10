@@ -1,7 +1,64 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T01:33:00+08:00",
+  "updated_at": "2026-09-11T01:38:00+08:00",
+  "l2_retest_after_longcat_nodes_2026_09_11": {
+    "status": "live_on_core_l2_retest_after_longcat_nodes",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "retest": {
+      "context": "after LongCat :8197 nodes linked (Bjornulf/WanAnimatePreprocess/controlnet_aux)",
+      "wan_animate": "PASS",
+      "prior_3_rh_node_gaps": "cleared",
+      "new_missing": [
+        "SDVN Any Show",
+        "easy seed",
+        "easy positive"
+      ],
+      "source_file": ".regen_tmp/app_test_matrix_p0/l2_retest_after_longcat_nodes.json"
+    },
+    "closes": {
+      "wan_animate_ffmpeg_fixture": "PASS — fixture residual closed for wan-animate app",
+      "prior_missing_nodes_3_class_type": "cleared on RH cards that previously failed"
+    },
+    "new_missing_nodes": [
+      "SDVN Any Show",
+      "easy seed",
+      "easy positive"
+    ],
+    "handed_to": "设备管家",
+    "handed_to_task": "install again (SDVN Any Show / easy seed / easy positive)",
+    "related_state": [
+      "longcat_8197_nodes_bjornulf_wananim_ctrlaux_2026_09_11",
+      "l2_routing_dirty_deploy_retest_2026_09_11",
+      "l2_routing_fix_uncommitted_2026_09_11"
+    ],
+    "facts": [
+      "After LongCat :8197 nodes linked: wan-animate PASS",
+      "3 RH cards that previously failed on missing nodes: those node gaps cleared",
+      "New missing: SDVN Any Show / easy seed / easy positive",
+      "Source: .regen_tmp/app_test_matrix_p0/l2_retest_after_longcat_nodes.json (do NOT stage)",
+      "Already handed to 设备管家 to install again",
+      "Not shipped/online; product still dirty uncommitted",
+      "Prior tip 0116ea8 wan-animate ffmpeg/fixture open → now PASS for that app"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T01:38:00+08:00",
+    "note": "LongCat 节点后 L2 复测；wan-animate PASS；新缺 SDVN Any Show / easy seed / easy positive"
+  },
   "longcat_8197_nodes_bjornulf_wananim_ctrlaux_2026_09_11": {
     "status": "live_device_fyi",
     "date": "2026-09-11",
@@ -48,7 +105,11 @@
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-11T01:33:00+08:00",
-    "note": "LongCat :8197 链入 Bjornulf/WanAnimatePreprocess/controlnet_aux；三目标 class Y；关 L2 节点缺口；ffmpeg/fixture 仍开"
+    "note": "LongCat :8197 链入 Bjornulf/WanAnimatePreprocess/controlnet_aux；三目标 class Y；关 L2 节点缺口；ffmpeg/fixture 仍开",
+    "residual_followup_2026_09_11": {
+      "note": "wan-animate PASS on post-LongCat-nodes L2 retest; see l2_retest_after_longcat_nodes_2026_09_11",
+      "wan_animate_ffmpeg_fixture": "closed for wan-animate app (PASS)"
+    }
   },
   "l2_routing_dirty_deploy_retest_2026_09_11": {
     "status": "live_on_core_dirty_routing_improved_pass0",
