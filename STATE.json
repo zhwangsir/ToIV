@@ -1,7 +1,92 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T14:05:00+08:00",
+  "updated_at": "2026-09-10T14:20:00+08:00",
+  "soft_hide_all_unusable_v20_2026_09_10": {
+    "status": "soft_hide_docs",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "user_decision": "只保留当前能用的应用，其余隐藏",
+    "follow_up_of": [
+      "soft_hide_hard_block_only_v20_2026_09_10",
+      "capability_gap_scan_v20_2026_09_10",
+      "dee2a1f"
+    ],
+    "rule": "KEEP = main_ok ∪ ok_if_dedicated_h3 (dedicated_aware_ok / H3·QwenEdit dedicated path); soft-hide everything else in v20 scanned public set",
+    "keep": {
+      "rule": "main_ok ∪ ok_if_dedicated_h3",
+      "keep_count": 510,
+      "main_ok": 245,
+      "dedicated_aware_only": 265,
+      "keep_union": 510
+    },
+    "soft_hide": {
+      "inventory_hide_count": 398,
+      "new_hide_approx": 388,
+      "production_hid_ok": 388,
+      "production_fail": 0,
+      "already_soft_hidden_overlap_hard_block_only_v20": 10,
+      "is_public": false,
+      "market_approx": {
+        "before": 896,
+        "after": 508,
+        "expected_public": 510,
+        "api_list_len": 510,
+        "api_list_includes_non_public_keep": 2,
+        "note": "生产实测公开约 508；API list_len 510 含 2 张非公开 keep"
+      },
+      "sample_hide_ids": [
+        "wan-animate-2",
+        "avatar-talk",
+        "rh-acc-4965293058-8fce6c",
+        "rh-acc-6810798081-57ef21",
+        "rh-acc-5370958850-f079be"
+      ],
+      "ids_listed_in_agents": false,
+      "applied": true,
+      "applied_at": "2026-09-10T14:13:27+08:00",
+      "source_of_truth": [
+        ".regen_tmp/capability_gap_scan_v20/actionable/soft_hide_all_non_usable_v20.json",
+        ".regen_tmp/capability_gap_scan_v20/actionable/soft_hide_all_unusable_v20.json",
+        ".regen_tmp/capability_gap_scan_v20/actionable/soft_hide_all_unusable_v20_applied.json"
+      ]
+    },
+    "scan_baseline": {
+      "source": "capability_gap_scan_v20",
+      "total_scanned": 908,
+      "public_after_prior_hard_block_only_10": 898
+    },
+    "do_not_rescan": "不扫 v21",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "source_of_truth": [
+      ".regen_tmp/capability_gap_scan_v20/actionable/soft_hide_all_non_usable_v20.json",
+      ".regen_tmp/capability_gap_scan_v20/actionable/soft_hide_all_unusable_v20.json",
+      ".regen_tmp/capability_gap_scan_v20/actionable/soft_hide_all_unusable_v20_applied.json"
+    ],
+    "facts": [
+      "用户拍板：只保留当前能用的应用，其余隐藏",
+      "清单 soft_hide_all_non_usable_v20.json：hide 398 / keep_union 510 / already_soft_hidden_overlap 10",
+      "生产 soft-hide 388（hid_ok=388）；公开约 896→508",
+      "keep=main_ok∪ok_if_dedicated_h3=510（245+265）",
+      "期望公开 510；API list_len 510，含 2 张非公开 keep → 实测公开约 508",
+      "AGENTS 不列 388 ids；见 JSON 真源",
+      "产品 dirty 勿提交；.regen_tmp 勿 stage",
+      "无产品 SHA；未写 h3/；无 MODEL_SOURCES 变更；不扫 v21"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T14:20:00+08:00",
+    "note": "mass soft-hide unusable v20 ×388；清单 hide398/新藏~388；生产 388；公开 896→508；keep=510；用户拍板只留能用；无产品 SHA；tip from ToIV 开发"
+  },
   "soft_hide_hard_block_only_v20_2026_09_10": {
     "status": "soft_hide_docs",
     "date": "2026-09-10",
