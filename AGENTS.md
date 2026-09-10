@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：QwenVL/LTXV/Wan dirty；三卡 PASS；三残差）：产品 dirty（已部署、**未** git commit）— `AILab_QwenVL` `video_frame_size`；`LTXV` DYNAMICCOMBO `image_*`；Wan `teacache` / `experimental` / VAE names；复测 **PASS** `052027` / `293570` / `205312`；残差仍开 `022665` shape、`059347` cublasLt、`107403` 排队；真源 `public_e2e_retest_qwen3vl.json` / `ltx_dynamiccombo` / `public_e2e_retest_107403.json`（`.regen_tmp/` — **仅引文件名，勿 stage**）；前置 tip `fbd9ac3`（011723 JoyCaption）— 本地 parent；相关 tip Qwen3-VL `5e2fe3d` / LTX23 `2dfb295` / wave2 Preview-only 107403；产品 dirty **勿 stage** / `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_dirty_qwenvl_ltx_wan_partial_pass`；STATE `public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11`；`updated_at` 2026-09-11T07:09:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-11（项目管家：059347/022665 PASS；107403 仍排队）：公开 E2E 两残差现 **PASS**（产品 dirty、**未** git commit）— `rh-acc-0593472514` **PASS** @ `:8193`（设备 `AILab_QwenVL` sm120+ Q8→FP16）；`rh-acc-0226654210` **PASS** @ `:8193`（`_normalize_ltxv_dynamiccombo` bare `image_1`→`num_guides.*` + LatentUpscale `x2-1.0`→`1.1`）；仍排队 `rh-acc-1074032641` @ `:8197` after WanAnimate；前置 tip `7b32907`（QwenVL/LTXV/Wan dirty；三卡 PASS；三残差）— 本地 parent；产品 dirty **勿 stage** / `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_dirty_059347_022665_pass_107403_queued`；STATE `public_e2e_retest_059347_022665_pass_2026_09_11`；`updated_at` 2026-09-11T07:38:00+08:00；via 项目管家（ToIV 开发）；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,17 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：059347/022665 PASS；107403 仍排队）
+- **公开 E2E 残差复测 PASS（ToIV 开发；via 项目管家）**：
+  - `rh-acc-0593472514` **PASS** @ `:8193` — 设备 `AILab_QwenVL` sm120+ Q8→FP16 后
+  - `rh-acc-0226654210` **PASS** @ `:8193` — `_normalize_ltxv_dynamiccombo` bare `image_1` → `num_guides.*` + LatentUpscale `x2-1.0` → `1.1`
+  - 仍排队：`rh-acc-1074032641` @ `:8197` after WanAnimate
+- **产品**：仍 dirty（已部署、**未** git commit）— **勿 stage**；勿 stage `.regen_tmp`。
+- **前置 tip**：`7b32907`（QwenVL/LTXV/Wan dirty；三卡 PASS；三残差）— 已为本地 parent。
+- **相关**：前置 STATE `public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11`（059347/022665 残差已清；107403 仍排队）。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_dirty_059347_022665_pass_107403_queued`（非 shipped）；STATE `public_e2e_retest_059347_022665_pass_2026_09_11`；`updated_at` 2026-09-11T07:38:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：QwenVL/LTXV/Wan dirty；三卡 PASS；三残差）
 - **QwenVL / LTXV / Wan dirty 复测（ToIV 开发；via 项目管家）**：

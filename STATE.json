@@ -1,5 +1,77 @@
 {
-  "updated_at": "2026-09-11T07:09:00+08:00",
+  "updated_at": "2026-09-11T07:38:00+08:00",
+  "public_e2e_retest_059347_022665_pass_2026_09_11": {
+    "status": "live_on_core_dirty_059347_022665_pass_107403_queued",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "retest": {
+      "059347": {
+        "app": "rh-acc-0593472514",
+        "result": "PASS",
+        "port": ":8193",
+        "fix_note": "after device AILab_QwenVL sm120+ Q8→FP16"
+      },
+      "022665": {
+        "app": "rh-acc-0226654210",
+        "result": "PASS",
+        "port": ":8193",
+        "fix_note": "_normalize_ltxv_dynamiccombo bare image_1 → num_guides.* + LatentUpscale x2-1.0 → 1.1"
+      },
+      "107403": {
+        "app": "rh-acc-1074032641",
+        "result": "QUEUED",
+        "port": ":8197",
+        "note": "still queued @ :8197 after WanAnimate"
+      }
+    },
+    "pass_apps": [
+      "059347",
+      "022665"
+    ],
+    "pass_ports": {
+      ":8193": [
+        "059347",
+        "022665"
+      ]
+    },
+    "residual_apps": {
+      "107403": "queued @ :8197 after WanAnimate"
+    },
+    "clears_residuals_of": "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11",
+    "clears_residuals_note": "Clears 059347 cublasLt and 022665 shape residuals from prior dirty retest tip 7b32907",
+    "prior_tip": "7b32907",
+    "prior_tip_note": "QwenVL/LTXV/Wan dirty；三卡 PASS；三残差 — local parent",
+    "related_state": [
+      "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11",
+      "public_e2e_retest_qwen3vl_2026_09_11",
+      "public_e2e_retest_ltx23_2026_09_11",
+      "public_e2e_retest_wave2_nodes_2026_09_11"
+    ],
+    "related_note": "Prior residual STATE updated: 059347/022665 now PASS; 107403 still queued",
+    "facts": [
+      "rh-acc-0593472514 PASS @ :8193 after device AILab_QwenVL sm120+ Q8→FP16",
+      "rh-acc-0226654210 PASS @ :8193 — _normalize_ltxv_dynamiccombo bare image_1 → num_guides.* + LatentUpscale x2-1.0 → 1.1",
+      "Still queued: rh-acc-1074032641 @ :8197 after WanAnimate",
+      "Product dirty — never stage; never stage .regen_tmp",
+      "Prior tip 7b32907 is local parent",
+      "Not shipped/online; committed_product false; product_sha null"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T07:38:00+08:00"
+  },
   "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11": {
     "status": "live_on_core_dirty_qwenvl_ltx_wan_partial_pass",
     "date": "2026-09-11",
@@ -23,16 +95,22 @@
       "293570": "PASS",
       "205312": "PASS",
       "022665": {
-        "result": "FAIL",
-        "reason": "shape"
+        "result": "PASS",
+        "superseded_by": "public_e2e_retest_059347_022665_pass_2026_09_11",
+        "was": "FAIL shape",
+        "note": "PASS @ :8193 — _normalize_ltxv_dynamiccombo + LatentUpscale"
       },
       "059347": {
-        "result": "FAIL",
-        "reason": "cublasLt"
+        "result": "PASS",
+        "superseded_by": "public_e2e_retest_059347_022665_pass_2026_09_11",
+        "was": "FAIL cublasLt",
+        "note": "PASS @ :8193 after device AILab_QwenVL sm120+ Q8→FP16"
       },
       "107403": {
-        "result": "FAIL",
-        "reason": "排队 (queue)"
+        "result": "QUEUED",
+        "port": ":8197",
+        "note": "still queued @ :8197 after WanAnimate",
+        "followup": "public_e2e_retest_059347_022665_pass_2026_09_11"
       }
     },
     "pass_apps": [
@@ -41,9 +119,7 @@
       "205312"
     ],
     "residual_apps": {
-      "022665": "shape",
-      "059347": "cublasLt",
-      "107403": "排队 (queue)"
+      "107403": "排队 (queue) @ :8197 after WanAnimate — still open"
     },
     "true_sources_do_not_stage": [
       "public_e2e_retest_qwen3vl.json",
@@ -82,7 +158,21 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T07:09:00+08:00"
+    "updated_at": "2026-09-11T07:09:00+08:00",
+    "residual_followup": {
+      "by": "public_e2e_retest_059347_022665_pass_2026_09_11",
+      "at": "2026-09-11T07:38:00+08:00",
+      "059347": "PASS @ :8193 (AILab_QwenVL sm120+ Q8→FP16)",
+      "022665": "PASS @ :8193 (_normalize_ltxv_dynamiccombo + LatentUpscale)",
+      "107403": "still queued @ :8197 after WanAnimate",
+      "note": "059347/022665 residuals cleared by follow-up tip; 107403 still queued"
+    },
+    "residual_cleared": {
+      "059347": "PASS via public_e2e_retest_059347_022665_pass_2026_09_11",
+      "022665": "PASS via public_e2e_retest_059347_022665_pass_2026_09_11"
+    },
+    "related_followup_state": "public_e2e_retest_059347_022665_pass_2026_09_11",
+    "updated_at_followup": "2026-09-11T07:38:00+08:00"
   },
   "public_e2e_retest_011723_joycaption_2026_09_11": {
     "status": "live_on_core_public_e2e_011723_joycaption_pass",
@@ -320,13 +410,12 @@
     "pushed": false,
     "updated_at": "2026-09-11T07:09:00+08:00",
     "residual_followup_107403": {
-      "by": "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11",
-      "was": "Preview-only",
-      "now": "排队 (queue)",
-      "note": "107403 residual evolved: Preview-only → 排队 after dirty retest",
-      "updated_at": "2026-09-11T07:09:00+08:00"
+      "by": "public_e2e_retest_059347_022665_pass_2026_09_11",
+      "at": "2026-09-11T07:38:00+08:00",
+      "107403": "still queued @ :8197 after WanAnimate",
+      "note": "107403 residual evolved: Preview-only → 排队; still open after 059347/022665 PASS tip"
     },
-    "related_followup_state": "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11"
+    "related_followup_state": "public_e2e_retest_059347_022665_pass_2026_09_11"
   },
   "public_e2e_retest_ltx23_2026_09_11": {
     "status": "live_on_core_public_e2e_ltx23_retest_fixing",
@@ -385,7 +474,13 @@
       "note": "After LTXV DYNAMICCOMBO image_* dirty: 205312 PASS (was image_1 residual / missing-model cleared path)",
       "updated_at": "2026-09-11T07:09:00+08:00"
     },
-    "related_followup_state": "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11"
+    "related_followup_state": "public_e2e_retest_059347_022665_pass_2026_09_11",
+    "residual_followup_022665": {
+      "by": "public_e2e_retest_059347_022665_pass_2026_09_11",
+      "at": "2026-09-11T07:38:00+08:00",
+      "022665": "PASS @ :8193 — _normalize_ltxv_dynamiccombo bare image_1 → num_guides.* + LatentUpscale x2-1.0 → 1.1",
+      "note": "LTXV image_1 / dynamiccombo residual cleared for 022665"
+    }
   },
   "public_e2e_retest_qwen3vl_2026_09_11": {
     "status": "live_on_core_public_e2e_qwen3vl_retest_fixing",
@@ -465,7 +560,14 @@
       "052027",
       "293570"
     ],
-    "related_followup_state": "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11"
+    "related_followup_state": "public_e2e_retest_059347_022665_pass_2026_09_11",
+    "residual_followup_059347_022665": {
+      "by": "public_e2e_retest_059347_022665_pass_2026_09_11",
+      "at": "2026-09-11T07:38:00+08:00",
+      "059347": "PASS @ :8193 (AILab_QwenVL sm120+ Q8→FP16)",
+      "022665": "PASS @ :8193 (_normalize_ltxv_dynamiccombo + LatentUpscale)",
+      "note": "Prior residuals from this / dirty retest cleared for 059347/022665"
+    }
   },
   "public_e2e_wave1_product_leftovers_2026_09_11": {
     "status": "live_on_core_dirty_wave1_product_leftovers",
