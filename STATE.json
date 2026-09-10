@@ -1,7 +1,51 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T04:45:00+08:00",
+  "updated_at": "2026-09-11T04:51:00+08:00",
+  "public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11": {
+    "status": "live_on_core_dirty_melband_wan_quant_retesting",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "dirty_deployed_to_core": true,
+    "dirty_items": [
+      "MelBandRoFormerModelLoader added into model_names + scan vocal_separator / MelBandRoFormer directories",
+      "WanVideo: for non-scaled weights, strip _scaled quantization"
+    ],
+    "retesting": [
+      "039434",
+      "109907"
+    ],
+    "prior_tip": "93d74fa",
+    "prior_tip_note": "H3 r2v three cards PASS; 109907 quantization _scaled residual — local parent",
+    "prior_state": "public_e2e_retest_h3_109907_2026_09_11",
+    "related_state": [
+      "public_e2e_retest_melband_2026_09_11",
+      "public_e2e_retest_h3_109907_2026_09_11",
+      "h3_autogrow_dynamic_prompts_dirty_deploy_2026_09_11"
+    ],
+    "facts": [
+      "Product dirty re-deployed to core (still NOT git committed): MelBandRoFormerModelLoader in model_names + scan vocal_separator/MelBandRoFormer; WanVideo strip _scaled quantization for non-scaled weights",
+      "Currently retesting: 039434 / 109907",
+      "Prior tip 93d74fa (H3 r2v PASS; 109907 quant residual) is local parent",
+      "Do NOT stage product dirty / .regen_tmp",
+      "Not shipped/online; committed_product false; product_sha null"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T04:51:00+08:00"
+  },
   "public_e2e_retest_h3_109907_2026_09_11": {
     "status": "live_on_core_public_e2e_h3_pass_109907_quant_fix",
     "date": "2026-09-11",
@@ -26,8 +70,10 @@
     "residual_109907": {
       "app": "109907",
       "issue": "WanVideoModelLoader quantization _scaled vs non-scaled weight conflict",
-      "currently_fixing": true,
-      "fixer": "ToIV 开发"
+      "currently_fixing": false,
+      "fixer": "ToIV 开发",
+      "dirty_fix_redeployed": true,
+      "retesting": true
     },
     "true_sources_do_not_stage": [
       "public_e2e_retest_h3_109907.json"
@@ -56,7 +102,10 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T04:45:00+08:00"
+    "updated_at": "2026-09-11T04:45:00+08:00",
+    "successor_note": "WanVideo _scaled quantization strip now dirty-deployed to core; retesting 039434/109907 — see public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11",
+    "successor_state": "public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11",
+    "fix_now": "dirty_deployed_retesting"
   },
   "h3_autogrow_dynamic_prompts_dirty_deploy_2026_09_11": {
     "status": "live_on_core_dirty_h3_autogrow_cleared_h3_three_pass_109907_to_residual",
@@ -160,7 +209,10 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T04:37:00+08:00"
+    "updated_at": "2026-09-11T04:37:00+08:00",
+    "successor_note": "MelBand model_names fix now dirty-deployed to core; retesting 039434/109907 — see public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11",
+    "successor_state": "public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11",
+    "fix_now": "dirty_deployed_retesting"
   },
   "public_e2e_wave1_retest_nodes_2026_09_11": {
     "status": "live_on_core_public_e2e_wave1_retest_nodes",
