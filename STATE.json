@@ -1,7 +1,75 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T01:40:00+08:00",
+  "updated_at": "2026-09-11T01:43:00+08:00",
+  "l2_retest_after_easy_sdvn_2026_09_11": {
+    "status": "live_on_core_l2_retest_after_easy_sdvn",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "retest": {
+      "context": "after Easy-Use + SDVN linked on LongCat :8197",
+      "rh_cards_still_fail": 3,
+      "new_missing_count": 10,
+      "new_missing": [
+        "JWInteger",
+        "rgthree Any Switch",
+        "GoogleTranslate",
+        "LayerMask SAM Ultra V2",
+        "Int",
+        "SAM2×2",
+        "GetImageSize+",
+        "MathExpression|pysssss",
+        "PlaySound|pysssss"
+      ],
+      "sam2_note": "SAM2×2 = two SAM2-related classes as given; do not invent exact class names",
+      "source_file": ".regen_tmp/app_test_matrix_p0/l2_retest_after_easy_sdvn.json"
+    },
+    "new_missing_nodes": [
+      "JWInteger",
+      "rgthree Any Switch",
+      "GoogleTranslate",
+      "LayerMask SAM Ultra V2",
+      "Int",
+      "SAM2×2",
+      "GetImageSize+",
+      "MathExpression|pysssss",
+      "PlaySound|pysssss"
+    ],
+    "handed_to": "设备管家",
+    "handed_to_task": "one-shot install (10 missing class_types after Easy/SDVN)",
+    "prior_tip": "7bad3a4",
+    "related_state": [
+      "longcat_8197_easy_use_sdvn_2026_09_11",
+      "l2_retest_after_longcat_nodes_2026_09_11",
+      "longcat_8197_nodes_bjornulf_wananim_ctrlaux_2026_09_11",
+      "l2_routing_dirty_deploy_retest_2026_09_11"
+    ],
+    "facts": [
+      "After Easy-Use + SDVN on LongCat: 3 RH cards still fail",
+      "New missing 10 class_types: JWInteger / rgthree Any Switch / GoogleTranslate / LayerMask SAM Ultra V2 / Int / SAM2×2 / GetImageSize+ / MathExpression|pysssss / PlaySound|pysssss",
+      "SAM2×2 written as given (two SAM2-related classes); do not invent exact class names",
+      "Source: .regen_tmp/app_test_matrix_p0/l2_retest_after_easy_sdvn.json (do NOT stage)",
+      "Already handed to 设备管家 for one-shot install",
+      "Not shipped/online; product still dirty uncommitted",
+      "Prior tip 7bad3a4: Easy-Use+SDVN; SDVN Any Show / easy seed / easy positive Y"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T01:43:00+08:00",
+    "note": "Easy/SDVN 后 L2 复测；3 RH 仍 fail；新缺 10 class"
+  },
   "longcat_8197_easy_use_sdvn_2026_09_11": {
     "status": "live_device_fyi",
     "date": "2026-09-11",

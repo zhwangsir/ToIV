@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-11 Easy/SDVN 后复测；3 RH 仍 fail；新缺 10 class（项目管家；ToIV 开发 tip；docs；无产品 SHA）：LongCat Easy-Use+SDVN 后 L2 复测 — **3** 张 RH 卡仍 fail；新缺 **10** class_type：`JWInteger` / `rgthree Any Switch` / `GoogleTranslate` / `LayerMask SAM Ultra V2` / `Int` / `SAM2×2` / `GetImageSize+` / `MathExpression|pysssss` / `PlaySound|pysssss`；真源 `.regen_tmp/app_test_matrix_p0/l2_retest_after_easy_sdvn.json` **勿 stage**；已交设备管家一次性安装；非 shipped/online；产品 dirty 勿 stage；无产品 SHA；本地 tip 无 push；status=`live_on_core_l2_retest_after_easy_sdvn`；STATE `l2_retest_after_easy_sdvn_2026_09_11`；updated_at 2026-09-11T01:43:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-11 LongCat :8197 链入 Easy-Use+SDVN；SDVN/easy 三 class Y（项目管家；docs；via 设备管家）：LongCat `:8197` 又链入 `ComfyUI-Easy-Use` + `SDVN_Comfy_node`；三目标 class **Y**（`SDVN Any Show` / `easy seed` / `easy positive`）；关闭 tip `defae10` 残差节点缺口；产品 dirty 勿 stage；无产品 SHA；本地 tip 无 push；status=`live_device_fyi`；STATE `longcat_8197_easy_use_sdvn_2026_09_11`；updated_at 2026-09-11T01:40:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-11 LongCat 节点后 L2 复测；wan-animate PASS；新缺 SDVN/easy（项目管家；ToIV 开发 tip；docs；无产品 SHA）：LongCat `:8197` 节点链入后复测 — **wan-animate PASS**；此前 3 张 RH 卡节点缺口已清；新缺 **`SDVN Any Show`** / **`easy seed`** / **`easy positive`**；真源 `.regen_tmp/app_test_matrix_p0/l2_retest_after_longcat_nodes.json` **勿 stage**；已交设备管家再装；非 shipped/online；产品 dirty 勿 stage；无产品 SHA；本地 tip 无 push；status=`live_on_core_l2_retest_after_longcat_nodes`；STATE `l2_retest_after_longcat_nodes_2026_09_11`；updated_at 2026-09-11T01:38:00+08:00；AGENTS §七 已短注。
