@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：109907 PASS；MelBand 039434 Preview-only 残差）：复测 `109907` **PASS**；MelBand `039434` 清 model_names 后残差 = **Preview-only / 主保存未产出**（仅 preview 路径；主保存未产出）；真源 `public_e2e_retest_melband_quant.json`（**勿 stage**）；ToIV 开发 **正查产品**；产品仍 dirty **勿 stage** / `.regen_tmp`；前置 tip `8451b54` MelBand+WanVideo dirty 再部署；复测 039434/109907（本地 parent）；**禁止**标 shipped/online；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_109907_pass_melband_preview_residual`；STATE `public_e2e_retest_melband_quant_2026_09_11`；`updated_at` 2026-09-11T05:02:00+08:00；via ToIV 开发；
+> **最后更新**：2026-09-11（项目管家：公开 E2E wave2；36 卡 PASS11/FAIL22/TIMEOUT3）：公开 E2E **wave2** **36** 卡 — **PASS 11** / **FAIL 22** / **TIMEOUT 3**；累计约 **46/550**（wave1 PASS23 + wave2 PASS11）；真源 `public_e2e_wave2.json`（**勿 stage**）；失败分流已分流 — **设备节点** ×6；**权重**：Qwen3-VL / LTX23；**产品侧**：上传 502 / worker 丢作业 / Preview-only；前置 tip `b1a8cc7`（109907 PASS；MelBand 039434 Preview-only 残差）— 本地 parent；**禁止**标 shipped/online；产品仍 dirty **勿 stage** / `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_wave2_done_triaged`；STATE `public_e2e_wave2_2026_09_11`；`updated_at` 2026-09-11T05:20:00+08:00；via ToIV 开发；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,18 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：公开 E2E wave2；36 卡 PASS11/FAIL22/TIMEOUT3）
+- **公开 E2E wave2（ToIV 开发；via 项目管家）**：**36** 卡 — **PASS 11** / **FAIL 22** / **TIMEOUT 3**。
+- **累计进度**：约 **46/550**（wave1 36 卡中 PASS23；累计约 46 pass / ~550 公开 apps）。
+- **真源（勿 stage）**：`public_e2e_wave2.json`（路径可能在 `.regen_tmp/...` — **仅引文件名，勿 stage**）。
+- **失败分流（已分流）**：
+  - **设备节点** ×6
+  - **权重**：Qwen3-VL / LTX23
+  - **产品侧**：上传 502 / worker 丢作业 / Preview-only
+- **前置 tip**：`b1a8cc7`（109907 PASS；MelBand 039434 Preview-only 残差）— 已为本地 parent。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_public_e2e_wave2_done_triaged`（非 shipped）；STATE `public_e2e_wave2_2026_09_11`；`updated_at` 2026-09-11T05:20:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：109907 PASS；MelBand 039434 Preview-only 残差）
 - **复测结果（ToIV 开发；via 项目管家）**：`109907` **PASS**。

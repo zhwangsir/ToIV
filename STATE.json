@@ -1,7 +1,74 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T05:02:00+08:00",
+  "updated_at": "2026-09-11T05:20:00+08:00",
+  "public_e2e_wave2_2026_09_11": {
+    "status": "live_on_core_public_e2e_wave2_done_triaged",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "wave2": {
+      "cards": 36,
+      "pass": 11,
+      "fail": 22,
+      "timeout": 3,
+      "note": "Public E2E wave2: 36 cards — PASS 11 / FAIL 22 / TIMEOUT 3"
+    },
+    "cumulative_pass_approx": 46,
+    "total_public": 550,
+    "cumulative_note": "wave1 had PASS23 among 36; cumulative ~46 pass across ~550 public apps",
+    "failure_triage": {
+      "设备节点": [
+        "×6"
+      ],
+      "权重": [
+        "Qwen3-VL",
+        "LTX23"
+      ],
+      "产品侧": [
+        "上传 502",
+        "worker 丢作业",
+        "Preview-only"
+      ]
+    },
+    "true_sources_do_not_stage": [
+      "public_e2e_wave2.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_wave2.json — cite filename only; may or may not exist on disk yet; do not stage",
+    "prior_tip": "b1a8cc7",
+    "prior_tip_note": "109907 PASS；MelBand 039434 Preview-only 残差 — local parent",
+    "prior_state": "public_e2e_retest_melband_quant_2026_09_11",
+    "related_state": [
+      "public_e2e_retest_melband_quant_2026_09_11",
+      "public_e2e_wave1_2026_09_11",
+      "public_e2e_wave1_retest_nodes_2026_09_11",
+      "public_e2e_inventory_2026_09_11"
+    ],
+    "facts": [
+      "Public E2E wave2: 36 cards — PASS 11 / FAIL 22 / TIMEOUT 3",
+      "Cumulative progress ≈ 46/550 (wave1 PASS23 among 36; cumulative ~46 pass across ~550 public apps)",
+      "True source (do not stage): public_e2e_wave2.json",
+      "Failure triage (已分流) — 设备节点 ×6; 权重: Qwen3-VL / LTX23; 产品侧: 上传 502 / worker 丢作业 / Preview-only",
+      "Prior tip b1a8cc7 (109907 PASS；MelBand 039434 Preview-only 残差) is local parent",
+      "Related prior: public_e2e_wave1_2026_09_11 / public_e2e_retest_melband_quant_2026_09_11",
+      "Not shipped/online; product dirty; never stage product / .regen_tmp; no product SHA"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_wave2.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T05:20:00+08:00"
+  },
   "public_e2e_retest_melband_quant_2026_09_11": {
     "status": "live_on_core_public_e2e_109907_pass_melband_preview_residual",
     "date": "2026-09-11",
