@@ -1,7 +1,63 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T03:09:00+08:00",
+  "updated_at": "2026-09-11T03:13:00+08:00",
+  "l2_sageattn_sdpa_fallback_2026_09_11": {
+    "status": "live_on_core_l2_sageattn_sdpa_fallback_retesting",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "root_cause": {
+      "false_report": "WanVideoSampler Tensor must be on CUDA",
+      "actual": "sageattention @ sm120",
+      "host": "LongCat",
+      "port": 8197
+    },
+    "fix": {
+      "patch": "SDPA fallback",
+      "restarted": "LongCat :8197"
+    },
+    "retest": {
+      "apps": [
+        "116926",
+        "140266"
+      ],
+      "status": "in_progress",
+      "source_file": ".regen_tmp/app_test_matrix_p0/l2_retest_after_sageattn_sdpa.json",
+      "source_file_status": "pending_expected_path_may_not_exist_yet"
+    },
+    "prior_tip": "89cd349",
+    "prior_state": "l2_retest_after_hf_dwpose_sam2_2026_09_11",
+    "related_state": [
+      "l2_retest_after_hf_dwpose_sam2_2026_09_11",
+      "l2_retest_after_onnx_wan22path_2026_09_11",
+      "l2_int_preview_dirty_deploy_2026_09_11"
+    ],
+    "facts": [
+      "Root cause of WanVideoSampler Tensor must be on CUDA false report: sageattention @ sm120",
+      "SDPA fallback patch applied; LongCat :8197 restarted",
+      "Retest of 116926 / 140266 in progress",
+      "True source pending: .regen_tmp/app_test_matrix_p0/l2_retest_after_sageattn_sdpa.json (may not exist yet; do NOT stage)",
+      "Prior tip 89cd349 (dual-pushed): HF DWPose/SAM2 cleared; residual WanVideoSampler CUDA @ LongCat",
+      "Not shipped/online; product still dirty uncommitted; no product SHA; do not stage product / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "l2_retest_after_sageattn_sdpa.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T03:13:00+08:00",
+    "note": "LongCat CUDA 假报=sageattention@sm120；SDPA 回退并重启 :8197；复测中"
+  },
   "l2_retest_after_hf_dwpose_sam2_2026_09_11": {
     "status": "live_on_core_l2_retest_after_hf_dwpose_sam2",
     "date": "2026-09-11",
