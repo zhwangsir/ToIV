@@ -1,7 +1,51 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T18:00:00+08:00",
+  "updated_at": "2026-09-10T18:06:00+08:00",
+  "genpool_extrapaths_unet_animate_gguf_2026_09_10": {
+    "status": "live_device_fyi",
+    "date": "2026-09-10",
+    "source": [
+      "设备管家",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "live": true,
+    "pool": "image_gen",
+    "committed_product": false,
+    "product_sha": null,
+    "extra_model_paths": {
+      "toiv": {
+        "unet": "unet"
+      }
+    },
+    "animate_gguf": {
+      "visibility_rule": "UnetLoaderGGUF",
+      "note": "Animate GGUF 以 UnetLoaderGGUF 为准可见"
+    },
+    "pending_not_landed": {
+      "v22_unhide_handed_to_dev": 4,
+      "scan_note": "扫时 :8196 拒连致主 OK 偏低",
+      "animate_q4": "mount_pending",
+      "full_unhide_counts": "等 ToIV 开发生产回报再定"
+    },
+    "facts": [
+      "通用池 toiv extrapaths 已补 unet: unet",
+      "Animate GGUF 以 UnetLoaderGGUF 为准可见",
+      "能力缺口已交 v22 unhide 4 给开发（未落地）",
+      "扫时 :8196 拒连致主 OK 偏低",
+      "Animate Q4 mount_pending",
+      "完整 unhide 数字等 ToIV 开发生产回报再定"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T18:06:00+08:00",
+    "note": "通用池 toiv extrapaths 补 unet: unet；Animate GGUF 以 UnetLoaderGGUF 为准可见；旁注未落地：v22 unhide×4 已交开发；扫时 :8196 拒连致主 OK 偏低；Animate Q4 mount_pending；完整 unhide 数字等开发生产回报"
+  },
   "model_sources_v21_p0_dedup_2026_09_10": {
     "status": "docs_model_sources",
     "date": "2026-09-10",

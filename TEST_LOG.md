@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-10 LIVE：通用池 extrapaths 补 unet；Animate GGUF 走 UnetLoaderGGUF（项目管家；设备管家 tip；docs；无产品 SHA）：toiv extrapaths 补 `unet: unet`；Animate GGUF 以 **UnetLoaderGGUF** 为准可见；旁注未落地：v22 unhide **4** 已交开发；扫时 :8196 拒连致主 OK 偏低；Animate Q4 `mount_pending`；完整 unhide 数字等开发生产回报；产品 dirty 勿 stage；status=`live_device_fyi`；STATE `genpool_extrapaths_unet_animate_gguf_2026_09_10`；updated_at 2026-09-10T18:06:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-10 MODEL_SOURCES v21 P0 后 464/335/799（去重）（项目管家；ToIV 模型下载 tip；docs；无产品 SHA）：ok**464**/blocked**335**/total**799**（前 467/343/810；去重净变 Δ −3/−8/−11）；newly_ok 4 ≈32.00GiB；already_on_nas 1；本批 blocked 40；摘要勿 stage；未写 h3/；产品 dirty 勿 stage；status=`docs_model_sources`；STATE `model_sources_v21_p0_dedup_2026_09_10`；updated_at 2026-09-10T18:00:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-10 v20 fill节点≈27/30class + MODEL_SOURCES 467/343/810 + v21 unhide×36 →546（项目管家；设备管家+模型下载+开发/能力缺口 tip；docs；无产品 SHA）：①设备管家通用池 v20 fill 节点包约 **27**；三机齐 **30** class_type（明细以设备→开发为准，勿编造包名）。②MODEL_SOURCES ok**467**/blocked**343**/total**810**（v20 unhide；newly_ok 2 ≈51.23GiB H3-only；摘要勿 stage）。③v21 批量 unhide **36**（P0 nodes→OK 6 + 另 30）公开约 **510→546**；仍等下载 **47** / 仍缺节点 **27**；真源 unhide_ready_after_v21 勿 stage；产品 dirty 勿 stage；status=`docs_consolidated`；STATE `v20_fill_nodes_model_sources_v21_unhide_2026_09_10`；updated_at 2026-09-10T17:02:00+08:00；AGENTS §七 已短注。
