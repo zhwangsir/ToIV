@@ -1,7 +1,75 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T03:13:00+08:00",
+  "updated_at": "2026-09-11T03:22:00+08:00",
+  "l2_retest_after_sageattn_sdpa_2026_09_11": {
+    "status": "live_on_core_l2_sageattn_sdpa_pass_closeout",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "pass": {
+      "apps": [
+        "116926",
+        "140266"
+      ],
+      "result": "PASS"
+    },
+    "cleared": {
+      "residual": "WanVideoSampler CUDA",
+      "root_cause_was": "sageattention @ sm120",
+      "fix": "SDPA fallback",
+      "host": "LongCat",
+      "port": 8197
+    },
+    "closeout": {
+      "path": "LongCat WanAnimate hot path",
+      "cards": [
+        "116926",
+        "140266"
+      ],
+      "status": "closed_out"
+    },
+    "retest": {
+      "apps": [
+        "116926",
+        "140266"
+      ],
+      "status": "pass",
+      "source_file": ".regen_tmp/app_test_matrix_p0/l2_retest_after_sageattn_sdpa.json",
+      "source_file_status": "exists_do_not_stage"
+    },
+    "prior_tip": "5349000",
+    "prior_state": "l2_sageattn_sdpa_fallback_2026_09_11",
+    "related_state": [
+      "l2_sageattn_sdpa_fallback_2026_09_11",
+      "l2_retest_after_hf_dwpose_sam2_2026_09_11",
+      "l2_retest_after_onnx_wan22path_2026_09_11"
+    ],
+    "facts": [
+      "After sageattn@sm120 SDPA fallback: 116926 / 140266 both PASS",
+      "WanVideoSampler CUDA residual cleared",
+      "LongCat WanAnimate hot path: these two cards closed out",
+      "True source: .regen_tmp/app_test_matrix_p0/l2_retest_after_sageattn_sdpa.json (do NOT stage)",
+      "Prior tip 5349000 (dual-pushed): CUDA false=sageattn@sm120; SDPA fallback; restart :8197; retest in progress → now PASS",
+      "Not shipped/online; product still dirty uncommitted; no product SHA; do not stage product / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "l2_retest_after_sageattn_sdpa.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T03:22:00+08:00",
+    "note": "sageattn SDPA 后复测；116926/140266 PASS；CUDA 残差清"
+  },
   "l2_sageattn_sdpa_fallback_2026_09_11": {
     "status": "live_on_core_l2_sageattn_sdpa_fallback_retesting",
     "date": "2026-09-11",
@@ -56,7 +124,13 @@
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-11T03:13:00+08:00",
-    "note": "LongCat CUDA 假报=sageattention@sm120；SDPA 回退并重启 :8197；复测中"
+    "note": "LongCat CUDA 假报=sageattention@sm120；SDPA 回退并重启 :8197；复测中",
+    "follow_up": {
+      "tip_state": "l2_retest_after_sageattn_sdpa_2026_09_11",
+      "retest_status": "pass",
+      "note": "116926/140266 PASS；CUDA residual cleared",
+      "updated_at": "2026-09-11T03:22:00+08:00"
+    }
   },
   "l2_retest_after_hf_dwpose_sam2_2026_09_11": {
     "status": "live_on_core_l2_retest_after_hf_dwpose_sam2",

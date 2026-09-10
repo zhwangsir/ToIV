@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：LongCat CUDA 假报=sageattention@sm120；SDPA 回退并重启 :8197；复测中）：**LongCat WanVideoSampler CUDA 假报根因** — **sageattention @ sm120**；已应用 **SDPA fallback patch** 并 **重启 LongCat `:8197`**；`116926` / `140266` 复测 **进行中**；真源 `.regen_tmp/app_test_matrix_p0/l2_retest_after_sageattn_sdpa.json` **待**（expected path，可能尚不存在；**勿 stage**）；前置 tip `89cd349`：HF DWPose/SAM2 已清；残差 WanVideoSampler CUDA @ LongCat；**禁止**标 shipped/online；产品码仍 dirty 勿 stage；无产品 SHA；本地 tip 无 push；status=`live_on_core_l2_sageattn_sdpa_fallback_retesting`；STATE `l2_sageattn_sdpa_fallback_2026_09_11`；`updated_at` 2026-09-11T03:13:00+08:00；via ToIV 开发 tip；
+> **最后更新**：2026-09-11（项目管家：sageattn SDPA 后复测；116926/140266 PASS；CUDA 残差清）：sageattn@sm120 **SDPA fallback** 后复测 — `116926` / `140266` 均 **PASS**；**WanVideoSampler CUDA 残差已清**；LongCat WanAnimate 热路径两卡 **收口**；真源 `.regen_tmp/app_test_matrix_p0/l2_retest_after_sageattn_sdpa.json`（**勿 stage**）；前置 tip `5349000`：CUDA 假报=sageattn@sm120；SDPA 回退；重启 :8197；复测中 → **现已 PASS**；**禁止**标 shipped/online；产品码仍 dirty 勿 stage；无产品 SHA；本地 tip 无 push；status=`live_on_core_l2_sageattn_sdpa_pass_closeout`；STATE `l2_retest_after_sageattn_sdpa_2026_09_11`；`updated_at` 2026-09-11T03:22:00+08:00；via ToIV 开发 tip；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -185,7 +185,19 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
 
+### 2026-09-11（项目管家：sageattn SDPA 后复测；116926/140266 PASS；CUDA 残差清）
+- **结果（ToIV 开发；via 项目管家）**：sageattn@sm120 **SDPA fallback** 后 L2 复测完成。
+- **PASS**：`116926` / `140266` 均 **PASS**
+- **已清**：**WanVideoSampler CUDA 残差**（假报根因 sageattn@sm120；SDPA 回退后清）
+- **收口**：LongCat WanAnimate 热路径两卡 **closed out**
+- **真源**：`.regen_tmp/app_test_matrix_p0/l2_retest_after_sageattn_sdpa.json`（**勿 stage**）
+- **前置 tip**：`5349000`（CUDA 假报=sageattn@sm120；SDPA 回退重启 :8197；复测中 → **现已 PASS**；dual-pushed）
+- **硬口径**：**非** shipped/online；产品码仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_l2_sageattn_sdpa_pass_closeout`（非 shipped）；STATE `l2_retest_after_sageattn_sdpa_2026_09_11`；`updated_at` 2026-09-11T03:22:00+08:00。via 项目管家（ToIV 开发 tip）。
+
+
 ### 2026-09-11（项目管家：LongCat CUDA 假报=sageattention@sm120；SDPA 回退并重启 :8197；复测中）
+- **后续**：复测已完成 — `116926` / `140266` **PASS**；CUDA 残差清（见上方新 tip；STATE `l2_retest_after_sageattn_sdpa_2026_09_11`）。
 - **结果（ToIV 开发；via 项目管家）**：WanVideoSampler `Tensor must be on CUDA` **假报**根因已定位。
 - **根因**：**sageattention @ sm120**
 - **修复**：已应用 **SDPA fallback patch**；已 **重启 LongCat `:8197`**
