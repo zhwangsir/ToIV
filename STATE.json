@@ -1,5 +1,56 @@
 {
-  "updated_at": "2026-09-11T06:16:00+08:00",
+  "updated_at": "2026-09-11T06:43:00+08:00",
+  "public_e2e_retest_011723_joycaption_2026_09_11": {
+    "status": "live_on_core_public_e2e_011723_joycaption_pass",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "retest": {
+      "011723": {
+        "result": "PASS",
+        "note": "JoyCaption PASS after three-machine mirror @ :8196"
+      }
+    },
+    "pass_items": [
+      "011723"
+    ],
+    "pass_port": ":8196",
+    "clears_residual_of": "b3456e2",
+    "clears_residual_note": "Clears tip b3456e2 residual: JoyCaption HF only on :8193, pool dispatched :8196; handed to device mirror",
+    "true_sources_do_not_stage": [
+      "public_e2e_retest_011723_joycaption.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_retest_011723_joycaption.json — cite filename only; do not stage",
+    "prior_tip": "b3456e2",
+    "prior_tip_note": "wave1 设备复测；pulid/removebg PASS；JoyCaption 8193 — local parent",
+    "related_state": [
+      "public_e2e_retest_wave1_device_2026_09_11"
+    ],
+    "related_note": "wave1 device retest tip — 011723 JoyCaption residual cleared by this PASS",
+    "facts": [
+      "011723 JoyCaption: PASS after three-machine mirror @ :8196",
+      "Clears tip b3456e2 residual (JoyCaption HF only on :8193; pool dispatched :8196; handed to device mirror)",
+      "True source (do not stage): public_e2e_retest_011723_joycaption.json",
+      "Prior tip b3456e2 (wave1 device retest) is local parent",
+      "Related STATE public_e2e_retest_wave1_device_2026_09_11 residual cleared",
+      "Not shipped/online; committed_product false; product_sha null; do not stage product dirty / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_retest_011723_joycaption.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T06:43:00+08:00"
+  },
   "public_e2e_retest_wave1_device_2026_09_11": {
     "status": "live_on_core_public_e2e_wave1_device_handed_mirror",
     "date": "2026-09-11",
@@ -17,7 +68,10 @@
       "removebg": "PASS",
       "011723": {
         "result": "JoyCaption HF mismatch",
-        "note": "JoyCaption HF only on :8193 but pool dispatched :8196"
+        "note": "JoyCaption HF only on :8193 but pool dispatched :8196",
+        "cleared": true,
+        "cleared_by": "public_e2e_retest_011723_joycaption_2026_09_11",
+        "cleared_result": "PASS @ :8196 after three-machine mirror"
       }
     },
     "pass_items": [
@@ -25,7 +79,7 @@
       "removebg"
     ],
     "residual": {
-      "011723": "JoyCaption HF only on :8193; pool dispatched :8196"
+      "011723": "CLEARED — three-machine mirror PASS @ :8196 (see public_e2e_retest_011723_joycaption_2026_09_11)"
     },
     "handed_to": "设备镜像",
     "handed_note": "已转设备镜像",
@@ -55,7 +109,10 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T06:16:00+08:00"
+    "updated_at": "2026-09-11T06:16:00+08:00",
+    "residual_cleared": true,
+    "residual_cleared_by": "public_e2e_retest_011723_joycaption_2026_09_11",
+    "residual_cleared_note": "011723 JoyCaption residual cleared: three-machine mirror PASS @ :8196 (2026-09-11T06:43:00+08:00)"
   },
   "public_e2e_retest_wave2_nodes2_2026_09_11": {
     "status": "live_on_core_public_e2e_wave2_nodes2_handed_device",

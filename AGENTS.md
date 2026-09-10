@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：wave1 设备复测；pulid/removebg PASS；JoyCaption 8193）：wave1 设备复测 — `pulid` / `removebg` **PASS**；`011723` JoyCaption HF 仅在 `:8193`，池子却派到 `:8196`；**已转设备镜像**；真源 `public_e2e_retest_wave1_device.json`（`.regen_tmp/` — **仅引文件名，勿 stage**）；前置 tip `6c72c16`（wave2 nodes2）— 本地 parent；相关 wave1 产品残差（JoyCaption/pulid 曾为残差）；产品 dirty **勿 stage** / `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_wave1_device_handed_mirror`；STATE `public_e2e_retest_wave1_device_2026_09_11`；`updated_at` 2026-09-11T06:16:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-11（项目管家：011723 JoyCaption 三机镜像 PASS@8196）：`011723` JoyCaption 三机镜像后 **PASS** @ `:8196`；清 tip `b3456e2` 残差（JoyCaption HF 仅在 8193、池子派 8196；已转设备镜像）；真源 `public_e2e_retest_011723_joycaption.json`（`.regen_tmp/` — **仅引文件名，勿 stage**）；前置 tip `b3456e2`（wave1 设备复测）— 本地 parent；产品 dirty **勿 stage** / `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_011723_joycaption_pass`；STATE `public_e2e_retest_011723_joycaption_2026_09_11`；`updated_at` 2026-09-11T06:43:00+08:00；via 项目管家（ToIV 开发）；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,16 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：011723 JoyCaption 三机镜像 PASS@8196）
+- **011723 JoyCaption 三机镜像复测（ToIV 开发；via 项目管家）**：
+  - `011723` JoyCaption：三机镜像后 **PASS** @ `:8196`
+  - 清 tip `b3456e2` 残差（JoyCaption HF 仅在 `:8193`，池子却派到 `:8196`；已转设备镜像）
+- **真源（勿 stage）**：`public_e2e_retest_011723_joycaption.json`（路径可能在 `.regen_tmp/...` — **仅引文件名，勿 stage**）。
+- **前置 tip**：`b3456e2`（wave1 设备复测；pulid/removebg PASS；JoyCaption 8193）— 已为本地 parent。
+- **相关**：wave1 设备复测 STATE `public_e2e_retest_wave1_device_2026_09_11`（011723 JoyCaption 残差 **已清**）。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_public_e2e_011723_joycaption_pass`（非 shipped）；STATE `public_e2e_retest_011723_joycaption_2026_09_11`；`updated_at` 2026-09-11T06:43:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：wave1 设备复测；pulid/removebg PASS；JoyCaption 8193）
 - **wave1 设备复测（ToIV 开发；via 项目管家）**：
