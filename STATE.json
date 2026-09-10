@@ -1,7 +1,50 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T01:38:00+08:00",
+  "updated_at": "2026-09-11T01:40:00+08:00",
+  "longcat_8197_easy_use_sdvn_2026_09_11": {
+    "status": "live_device_fyi",
+    "date": "2026-09-11",
+    "source": [
+      "设备管家",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "live": true,
+    "instance": "LongCat :8197",
+    "packages_linked": [
+      "ComfyUI-Easy-Use",
+      "SDVN_Comfy_node"
+    ],
+    "target_classes_y": [
+      "SDVN Any Show",
+      "easy seed",
+      "easy positive"
+    ],
+    "closes": "defae10 / l2_retest_after_longcat_nodes_2026_09_11 residual node gaps (SDVN Any Show / easy seed / easy positive) on :8197",
+    "related_state": [
+      "l2_retest_after_longcat_nodes_2026_09_11",
+      "longcat_8197_nodes_bjornulf_wananim_ctrlaux_2026_09_11"
+    ],
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "facts": [
+      "LongCat :8197 linked ComfyUI-Easy-Use + SDVN_Comfy_node",
+      "Three target classes report Y: SDVN Any Show / easy seed / easy positive",
+      "Closes tip defae10 residual node gaps handed to 设备管家",
+      "FYI from 设备管家; tip via 项目管家"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T01:40:00+08:00",
+    "note": "LongCat :8197 链入 Easy-Use+SDVN；SDVN Any Show / easy seed / easy positive 均 Y；关 defae10 残差节点缺口"
+  },
   "l2_retest_after_longcat_nodes_2026_09_11": {
     "status": "live_on_core_l2_retest_after_longcat_nodes",
     "date": "2026-09-11",
@@ -37,6 +80,7 @@
     "handed_to": "设备管家",
     "handed_to_task": "install again (SDVN Any Show / easy seed / easy positive)",
     "related_state": [
+      "longcat_8197_easy_use_sdvn_2026_09_11",
       "longcat_8197_nodes_bjornulf_wananim_ctrlaux_2026_09_11",
       "l2_routing_dirty_deploy_retest_2026_09_11",
       "l2_routing_fix_uncommitted_2026_09_11"
@@ -57,7 +101,20 @@
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-11T01:38:00+08:00",
-    "note": "LongCat 节点后 L2 复测；wan-animate PASS；新缺 SDVN Any Show / easy seed / easy positive"
+    "note": "LongCat 节点后 L2 复测；wan-animate PASS；新缺 SDVN Any Show / easy seed / easy positive",
+    "nodes_followup_2026_09_11": {
+      "note": "Gaps filled: LongCat :8197 linked Easy-Use + SDVN; three classes Y; see longcat_8197_easy_use_sdvn_2026_09_11",
+      "packages_linked": [
+        "ComfyUI-Easy-Use",
+        "SDVN_Comfy_node"
+      ],
+      "target_classes_y": [
+        "SDVN Any Show",
+        "easy seed",
+        "easy positive"
+      ],
+      "status": "filled"
+    }
   },
   "longcat_8197_nodes_bjornulf_wananim_ctrlaux_2026_09_11": {
     "status": "live_device_fyi",
