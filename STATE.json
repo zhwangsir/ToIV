@@ -1,9 +1,44 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T00:37:00+08:00",
+  "updated_at": "2026-09-11T00:44:00+08:00",
+  "p0_l0_pass_2026_09_11": {
+    "status": "pass",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "level": "L0",
+    "result": "pass",
+    "passed": 550,
+    "total": 550,
+    "scope": "all public apps",
+    "corrects_tip": "ae2b868",
+    "prior_tip_said": "in_progress",
+    "facts": [
+      "P0 L0 实测完成：550/550 pass（全部公开 apps）",
+      "tip ae2b868 曾标 P0 L0=in_progress — 已纠正为 pass/done",
+      "产品实现仍未 commit；路线图更广项未标 shipped/online；仅 L0 结果完成",
+      "产品码仍 dirty 勿 stage；勿 stage .regen_tmp；无产品 SHA；本地 docs tip 无 push"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "related_state": "roadmap_p0_p1_p3_p2_2026_09_11",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T00:44:00+08:00",
+    "note": "P0 L0 550/550 pass；纠正 ae2b868 in_progress；非 shipped"
+  },
   "roadmap_p0_p1_p3_p2_2026_09_11": {
-    "status": "roadmap_confirmed",
+    "status": "p0_l0_pass",
     "date": "2026-09-11",
     "source": [
       "ToIV 开发",
@@ -19,9 +54,19 @@
       {
         "priority": "P0",
         "name": "分级实测",
-        "status": "in_progress",
-        "detail": "开发已开工 P0 L0",
-        "note": "非 shipped/online"
+        "status": "pass",
+        "detail": "P0 L0 实测 550/550 pass（全部公开 apps）",
+        "note": "仅 L0 结果完成；产品实现仍未 commit；非 shipped/online",
+        "l0": {
+          "level": "L0",
+          "result": "pass",
+          "passed": 550,
+          "total": 550,
+          "scope": "all public apps",
+          "prior_tip_claimed": "in_progress",
+          "prior_tip": "ae2b868",
+          "corrected": true
+        }
       },
       {
         "priority": "P1",
@@ -61,8 +106,8 @@
     },
     "facts": [
       "用户确认全序：P0 分级实测 → P1 应用说明卡 → P3 万能管理台（扩展现有 Admin）→ P2 说明书知识图谱",
-      "P0 L0 开发已开工；status=in_progress；其余 planned",
-      "产品实现未 commit — 禁止标 shipped/online",
+      "P0 L0 实测完成：550/550 pass（全部公开 apps）；status=pass；此前 tip ae2b868 写 in_progress 已纠正",
+      "其余 P1/P3/P2 仍 planned；产品实现未 commit — 禁止标 shipped/online（仅 L0 结果 done）",
       "AdminView 今日仅 users/agents/audit",
       "最小 KG GET /api/admin/knowledge-graph ≈1295 nodes / 608 edges，无 howto",
       "公开 apps ≈550（video359/image189）；描述有但短 p50≈40 chars",
@@ -74,8 +119,19 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T00:37:00+08:00",
-    "note": "拍板路线图；P0 L0 in_progress；非 shipped"
+    "updated_at": "2026-09-11T00:44:00+08:00",
+    "note": "拍板路线图；P0 L0 550/550 pass（纠正 ae2b868 in_progress）；产品仍非 shipped",
+    "p0_l0": {
+      "status": "pass",
+      "passed": 550,
+      "total": 550,
+      "scope": "all public apps",
+      "product_shipped": false,
+      "product_online": false,
+      "prior_tip": "ae2b868",
+      "prior_tip_said": "in_progress",
+      "corrected_at": "2026-09-11T00:44:00+08:00"
+    }
   },
   "capability_gap_closeout_2026_09_10": {
     "status": "docs_closeout",

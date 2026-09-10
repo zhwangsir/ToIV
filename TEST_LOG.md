@@ -1,6 +1,8 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-11 拍板 P0实测→P1说明卡→P3扩展Admin→P2说明书KG（项目管家；ToIV 开发 tip；docs；无产品 SHA）：用户确认全序 P0 分级实测（已开工 P0 L0=`in_progress`）→ P1 应用说明卡 → P3 扩展现有 Admin 万能管理台 → P2 说明书知识图谱；**非 shipped/online**；旁证 AdminView=users/agents/audit；KG≈1295 nodes/608 edges 无 howto；公开≈550（video359/image189）描述 p50≈40；产品 dirty 勿 stage；status=`roadmap_confirmed`；STATE `roadmap_p0_p1_p3_p2_2026_09_11`；updated_at 2026-09-11T00:37:00+08:00；AGENTS §七 已短注。
+- 2026-09-11 P0 L0 实测 550/550 pass（项目管家；ToIV 开发 tip；docs；无产品 SHA）：P0 L0 完成 **550/550 pass**（全部公开 apps）；纠正 tip `ae2b868` 所写 P0 L0=`in_progress` → `pass`/`done`；产品实现仍未 commit；更广路线图非 shipped/online（仅 L0 结果完成）；P1/P3/P2 仍 planned；产品 dirty 勿 stage；勿 stage `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`pass`；STATE `p0_l0_pass_2026_09_11` + `roadmap_p0_p1_p3_p2_2026_09_11` P0=`pass`；updated_at 2026-09-11T00:44:00+08:00；AGENTS §七 已短注。
+
+- 2026-09-11 拍板 P0实测→P1说明卡→P3扩展Admin→P2说明书KG（项目管家；ToIV 开发 tip；docs；无产品 SHA）：用户确认全序 P0 分级实测 → P1 应用说明卡 → P3 扩展现有 Admin 万能管理台 → P2 说明书知识图谱；~~tip `ae2b868` 曾写 P0 L0=`in_progress`~~ → **已纠正** P0 L0 **550/550 pass**（见新 tip）；**非 shipped/online**（仅 L0 结果完成）；旁证 AdminView=users/agents/audit；KG≈1295 nodes/608 edges 无 howto；公开≈550（video359/image189）描述 p50≈40；产品 dirty 勿 stage；status=`roadmap_confirmed`→P0 L0 现 `pass`；STATE `roadmap_p0_p1_p3_p2_2026_09_11`；原 updated_at 2026-09-11T00:37:00+08:00（L0 纠正见 2026-09-11T00:44:00+08:00）；AGENTS §七 已短注。
 
 - 2026-09-10 capability_gap closeout（公开550；误藏×2已放回）（项目管家；ToIV 开发+能力缺口 tip；docs；无产品 SHA）：目标「能做全做、做不到隐藏、核验公开可用」完成；soft-hide×3（2×fetch_error 误藏 + blocked `17c38d`）551→548；v23 NO_DELTA soft-hide；恢复误藏×2（`rh-acc-3038288898-fe20f8`、`rh-acc-8206083073-eb11b5`）→ 公开 **550**；public_not_ok=0；still_waiting 42 全 hard_blocked 保持隐藏；公开侧通用池缺节点 0；dedicated_h3 optional×8 skip；硬阻隐藏 42+`17c38d`；真源 closeout_20260910 + v23/CLOSEOUT.md 勿 stage；扫描待命结束；产品 dirty 勿 stage；status=`docs_closeout`；STATE `capability_gap_closeout_2026_09_10`；updated_at 2026-09-10T19:22:00+08:00；AGENTS §七 已短注。
 
