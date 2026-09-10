@@ -1,9 +1,65 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T04:42:00+08:00",
+  "updated_at": "2026-09-11T04:45:00+08:00",
+  "public_e2e_retest_h3_109907_2026_09_11": {
+    "status": "live_on_core_public_e2e_h3_pass_109907_quant_fix",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "h3_three_cards": {
+      "cards": [
+        "h3-r2v",
+        "h3-r2v-voice",
+        "rh-2k-h3"
+      ],
+      "result": "PASS",
+      "autogrow": "cleared"
+    },
+    "residual_109907": {
+      "app": "109907",
+      "issue": "WanVideoModelLoader quantization _scaled vs non-scaled weight conflict",
+      "currently_fixing": true,
+      "fixer": "ToIV 开发"
+    },
+    "true_sources_do_not_stage": [
+      "public_e2e_retest_h3_109907.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_retest_h3_109907.json — cite filename only; may or may not exist on disk yet; do not stage",
+    "prior_tip": "2a864ee",
+    "prior_tip_note": "H3 AUTOGROW + Text Multiline dirty deploy; retesting — local parent",
+    "prior_state": "h3_autogrow_dynamic_prompts_dirty_deploy_2026_09_11",
+    "related_state": [
+      "h3_autogrow_dynamic_prompts_dirty_deploy_2026_09_11",
+      "public_e2e_retest_melband_2026_09_11",
+      "public_e2e_wave1_retest_nodes_2026_09_11"
+    ],
+    "facts": [
+      "H3 r2v three cards PASS: h3-r2v / h3-r2v-voice / rh-2k-h3; AUTOGROW cleared",
+      "109907 new residual: WanVideoModelLoader quantization _scaled vs non-scaled weight conflict",
+      "True source (do not stage): public_e2e_retest_h3_109907.json",
+      "ToIV 开发 currently fixing (正改); product still dirty, not git committed",
+      "Prior tip 2a864ee (H3 AUTOGROW + Text Multiline dirty deploy; retesting) is local parent",
+      "Not shipped/online; product dirty; never stage product / .regen_tmp; no product SHA"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_retest_h3_109907.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T04:45:00+08:00"
+  },
   "h3_autogrow_dynamic_prompts_dirty_deploy_2026_09_11": {
-    "status": "live_on_core_dirty_h3_autogrow_dynamic_prompts_retesting",
+    "status": "live_on_core_dirty_h3_autogrow_cleared_h3_three_pass_109907_to_residual",
     "date": "2026-09-11",
     "source": [
       "ToIV 开发",
@@ -19,12 +75,7 @@
       "H3 AUTOGROW ref mapping",
       "Text Multiline dynamic_prompts backfill"
     ],
-    "retesting": [
-      "h3-r2v",
-      "h3-r2v-voice",
-      "rh-2k-h3",
-      "109907"
-    ],
+    "retesting": [],
     "prior_tip": "6856f2c",
     "prior_tip_note": "MelBand retest FAIL; model_names missing MelBandRoFormerModelLoader; fixing client.py — local parent",
     "prior_state": "public_e2e_retest_melband_2026_09_11",
@@ -45,7 +96,21 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T04:42:00+08:00"
+    "updated_at": "2026-09-11T04:45:00+08:00",
+    "retest_outcome": {
+      "h3_three_cards": {
+        "cards": [
+          "h3-r2v",
+          "h3-r2v-voice",
+          "rh-2k-h3"
+        ],
+        "result": "PASS"
+      },
+      "autogrow": "cleared",
+      "109907": "moved_to_new_residual_quant_scaled"
+    },
+    "outcome_note": "H3 three cards PASS; AUTOGROW cleared; 109907 residual moved to public_e2e_retest_h3_109907_2026_09_11",
+    "successor_state": "public_e2e_retest_h3_109907_2026_09_11"
   },
   "public_e2e_retest_melband_2026_09_11": {
     "status": "live_on_core_public_e2e_melband_model_names_fix",
