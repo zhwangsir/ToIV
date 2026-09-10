@@ -1,9 +1,63 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T04:51:00+08:00",
+  "updated_at": "2026-09-11T05:02:00+08:00",
+  "public_e2e_retest_melband_quant_2026_09_11": {
+    "status": "live_on_core_public_e2e_109907_pass_melband_preview_residual",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "retest_109907": {
+      "app": "109907",
+      "result": "PASS"
+    },
+    "residual_039434": {
+      "app": "039434",
+      "issue": "Preview-only / 主保存未产出",
+      "detail": "After clearing model_names issue; preview path only; main save did not produce output",
+      "investigating": true,
+      "fixer": "ToIV 开发"
+    },
+    "true_sources_do_not_stage": [
+      "public_e2e_retest_melband_quant.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_retest_melband_quant.json — cite filename only; may or may not exist on disk yet; do not stage",
+    "investigating_product": true,
+    "prior_tip": "8451b54",
+    "prior_tip_note": "MelBand+WanVideo dirty redeploy; retesting 039434/109907 — local parent",
+    "prior_state": "public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11",
+    "related_state": [
+      "public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11",
+      "public_e2e_retest_h3_109907_2026_09_11",
+      "public_e2e_retest_melband_2026_09_11"
+    ],
+    "facts": [
+      "Retest: 109907 PASS",
+      "MelBand 039434: after clearing model_names issue, residual = Preview-only / 主保存未产出 (preview path only; main save did not produce output)",
+      "True source (do not stage): public_e2e_retest_melband_quant.json",
+      "ToIV 开发 investigating product (正查产品); product still dirty, not git committed",
+      "Prior tip 8451b54 (MelBand+WanVideo dirty redeploy; retesting 039434/109907) is local parent",
+      "Related prior state: public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11",
+      "Not shipped/online; product dirty; never stage product / .regen_tmp; no product SHA"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_retest_melband_quant.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T05:02:00+08:00"
+  },
   "public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11": {
-    "status": "live_on_core_dirty_melband_wan_quant_retesting",
+    "status": "live_on_core_dirty_melband_wan_quant_retest_done_109907_pass_melband_preview_residual",
     "date": "2026-09-11",
     "source": [
       "ToIV 开发",
@@ -19,10 +73,7 @@
       "MelBandRoFormerModelLoader added into model_names + scan vocal_separator / MelBandRoFormer directories",
       "WanVideo: for non-scaled weights, strip _scaled quantization"
     ],
-    "retesting": [
-      "039434",
-      "109907"
-    ],
+    "retesting": [],
     "prior_tip": "93d74fa",
     "prior_tip_note": "H3 r2v three cards PASS; 109907 quantization _scaled residual — local parent",
     "prior_state": "public_e2e_retest_h3_109907_2026_09_11",
@@ -36,7 +87,9 @@
       "Currently retesting: 039434 / 109907",
       "Prior tip 93d74fa (H3 r2v PASS; 109907 quant residual) is local parent",
       "Do NOT stage product dirty / .regen_tmp",
-      "Not shipped/online; committed_product false; product_sha null"
+      "Not shipped/online; committed_product false; product_sha null",
+      "Retest outcome: 109907 PASS; MelBand 039434 residual = Preview-only / 主保存未产出",
+      "Successor tip/state: public_e2e_retest_melband_quant_2026_09_11"
     ],
     "do_not_stage": [
       ".regen_tmp",
@@ -44,7 +97,14 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T04:51:00+08:00"
+    "updated_at": "2026-09-11T05:02:00+08:00",
+    "retest_outcome": {
+      "109907": "PASS",
+      "039434": "Preview-only / 主保存未产出 (preview path only; main save did not produce output)",
+      "note": "After clearing model_names issue for MelBand; 109907 cleared PASS; MelBand moved to preview residual"
+    },
+    "successor_state": "public_e2e_retest_melband_quant_2026_09_11",
+    "successor_note": "109907 PASS; MelBand 039434 Preview-only residual — see public_e2e_retest_melband_quant_2026_09_11"
   },
   "public_e2e_retest_h3_109907_2026_09_11": {
     "status": "live_on_core_public_e2e_h3_pass_109907_quant_fix",

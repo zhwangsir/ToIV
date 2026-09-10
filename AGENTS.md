@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：MelBand+WanVideo dirty 再部署；复测 039434/109907）：产品 dirty 再部署到 core（仍未 git commit）— `MelBandRoFormerModelLoader` 入 `model_names` + scan `vocal_separator`/`MelBandRoFormer`；WanVideo 非 scaled 权重 strip `_scaled` quantization；复测中 `039434` / `109907`；**勿 stage** 产品 dirty / `.regen_tmp`；前置 tip `93d74fa` H3 r2v 三卡 PASS；109907 quantization `_scaled` 残差（本地 parent）；**禁止**标 shipped/online；无产品 SHA；本地 tip 无 push；status=`live_on_core_dirty_melband_wan_quant_retesting`；STATE `public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11`；`updated_at` 2026-09-11T04:51:00+08:00；via ToIV 开发；
+> **最后更新**：2026-09-11（项目管家：109907 PASS；MelBand 039434 Preview-only 残差）：复测 `109907` **PASS**；MelBand `039434` 清 model_names 后残差 = **Preview-only / 主保存未产出**（仅 preview 路径；主保存未产出）；真源 `public_e2e_retest_melband_quant.json`（**勿 stage**）；ToIV 开发 **正查产品**；产品仍 dirty **勿 stage** / `.regen_tmp`；前置 tip `8451b54` MelBand+WanVideo dirty 再部署；复测 039434/109907（本地 parent）；**禁止**标 shipped/online；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_109907_pass_melband_preview_residual`；STATE `public_e2e_retest_melband_quant_2026_09_11`；`updated_at` 2026-09-11T05:02:00+08:00；via ToIV 开发；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,15 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：109907 PASS；MelBand 039434 Preview-only 残差）
+- **复测结果（ToIV 开发；via 项目管家）**：`109907` **PASS**。
+- **MelBand `039434` 残差**：清 model_names 问题后，残差 = **Preview-only / 主保存未产出**（仅 preview 路径；主保存未产出）。
+- **真源（勿 stage）**：`public_e2e_retest_melband_quant.json`（路径 `.regen_tmp/...` — **仅引文件名，勿 stage**）。
+- **当前**：ToIV 开发 **正查产品**（产品仍 dirty，**未** git commit）。
+- **前置 tip**：`8451b54`（MelBand+WanVideo dirty 再部署；复测 039434/109907）— 已为本地 parent。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_public_e2e_109907_pass_melband_preview_residual`（非 shipped）；STATE `public_e2e_retest_melband_quant_2026_09_11`；`updated_at` 2026-09-11T05:02:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：MelBand+WanVideo dirty 再部署；复测 039434/109907）
 - **Dirty 再部署上 core（ToIV 开发；via 项目管家）**：产品 **dirty re-deployed** 到 core（**仍未** git commit）：
