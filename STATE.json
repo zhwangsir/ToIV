@@ -1,7 +1,82 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T19:22:00+08:00",
+  "updated_at": "2026-09-11T00:37:00+08:00",
+  "roadmap_p0_p1_p3_p2_2026_09_11": {
+    "status": "roadmap_confirmed",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "user_confirmed": true,
+    "order": [
+      {
+        "priority": "P0",
+        "name": "分级实测",
+        "status": "in_progress",
+        "detail": "开发已开工 P0 L0",
+        "note": "非 shipped/online"
+      },
+      {
+        "priority": "P1",
+        "name": "应用说明卡",
+        "status": "planned",
+        "detail": "用法/作用"
+      },
+      {
+        "priority": "P3",
+        "name": "万能管理台",
+        "status": "planned",
+        "detail": "扩展现有 Admin，非另起后台"
+      },
+      {
+        "priority": "P2",
+        "name": "说明书知识图谱",
+        "status": "planned",
+        "detail": "howto 向说明书 KG"
+      }
+    ],
+    "context_from_prior_research": {
+      "admin_view_today": "users / agents / audit only",
+      "knowledge_graph": {
+        "endpoint": "GET /api/admin/knowledge-graph",
+        "nodes_approx": 1295,
+        "edges_approx": 608,
+        "howto": false,
+        "note": "minimal KG exists; no howto"
+      },
+      "public_apps": {
+        "approx": 550,
+        "video": 359,
+        "image": 189,
+        "descriptions": "present but short",
+        "description_p50_chars_approx": 40
+      }
+    },
+    "facts": [
+      "用户确认全序：P0 分级实测 → P1 应用说明卡 → P3 万能管理台（扩展现有 Admin）→ P2 说明书知识图谱",
+      "P0 L0 开发已开工；status=in_progress；其余 planned",
+      "产品实现未 commit — 禁止标 shipped/online",
+      "AdminView 今日仅 users/agents/audit",
+      "最小 KG GET /api/admin/knowledge-graph ≈1295 nodes / 608 edges，无 howto",
+      "公开 apps ≈550（video359/image189）；描述有但短 p50≈40 chars",
+      "产品码仍 dirty 勿 stage；勿 stage .regen_tmp；无产品 SHA；本地 docs tip 无 push"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T00:37:00+08:00",
+    "note": "拍板路线图；P0 L0 in_progress；非 shipped"
+  },
   "capability_gap_closeout_2026_09_10": {
     "status": "docs_closeout",
     "date": "2026-09-10",
