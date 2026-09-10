@@ -1,5 +1,70 @@
 {
-  "updated_at": "2026-09-11T05:42:00+08:00",
+  "updated_at": "2026-09-11T05:44:00+08:00",
+  "public_e2e_retest_qwen3vl_2026_09_11": {
+    "status": "live_on_core_public_e2e_qwen3vl_retest_fixing",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "retest": {
+      "model_names_clear": [
+        "Florence2ModelLoader",
+        "LLM"
+      ],
+      "residual_022665": "missing video_frame_size",
+      "preview_only": [
+        "059347",
+        "052027",
+        "293570"
+      ],
+      "fixing_by": "ToIV 开发"
+    },
+    "model_names_cleared": [
+      "Florence2ModelLoader",
+      "LLM"
+    ],
+    "residual": {
+      "022665": "missing video_frame_size"
+    },
+    "preview_only": [
+      "059347",
+      "052027",
+      "293570"
+    ],
+    "true_sources_do_not_stage": [
+      "public_e2e_retest_qwen3vl.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_retest_qwen3vl.json — cite filename only; do not stage",
+    "prior_tip": "4aade9b",
+    "prior_tip_note": "wave1 产品残差；775482/nunchaku PASS；JoyCaption/pulid — local parent",
+    "related_state": [
+      "public_e2e_wave1_product_leftovers_2026_09_11",
+      "public_e2e_wave1_2026_09_11"
+    ],
+    "facts": [
+      "Qwen3-VL retest: model_names clear — Florence2ModelLoader + LLM",
+      "022665 residual: missing video_frame_size",
+      "059347 / 052027 / 293570 Preview-only",
+      "ToIV 开发 正修",
+      "True source (do not stage): public_e2e_retest_qwen3vl.json",
+      "Prior tip 4aade9b (wave1 product leftovers) is local parent",
+      "Not shipped/online; committed_product false; product_sha null; do not stage product dirty / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_retest_qwen3vl.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T05:44:00+08:00"
+  },
   "public_e2e_wave1_product_leftovers_2026_09_11": {
     "status": "live_on_core_dirty_wave1_product_leftovers",
     "date": "2026-09-11",
