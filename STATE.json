@@ -1,7 +1,55 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T01:30:00+08:00",
+  "updated_at": "2026-09-11T01:33:00+08:00",
+  "longcat_8197_nodes_bjornulf_wananim_ctrlaux_2026_09_11": {
+    "status": "live_device_fyi",
+    "date": "2026-09-11",
+    "source": [
+      "设备管家",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "live": true,
+    "instance": "LongCat :8197",
+    "packages_linked": [
+      "Bjornulf_custom_nodes",
+      "WanAnimatePreprocess",
+      "controlnet_aux"
+    ],
+    "target_classes_y": [
+      "Bjornulf_ShowFloat",
+      "PoseAndFaceDetection",
+      "PixelPerfectResolution"
+    ],
+    "closes": "L2 residual node gaps for those three class_types on :8197",
+    "residual_still_open": {
+      "wan_animate_ffmpeg_fixture": "still open (VHS/ffmpeg extract audio / fixture)"
+    },
+    "related_state": [
+      "l2_routing_dirty_deploy_retest_2026_09_11",
+      "l2_routing_fix_uncommitted_2026_09_11"
+    ],
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "facts": [
+      "LongCat :8197 linked Bjornulf_custom_nodes / WanAnimatePreprocess / controlnet_aux",
+      "Three target classes report Y: Bjornulf_ShowFloat / PoseAndFaceDetection / PixelPerfectResolution",
+      "Closes L2 residual node gaps for those three class_types on :8197",
+      "wan-animate ffmpeg/fixture residual still open",
+      "FYI from 设备管家; tip via 项目管家"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T01:33:00+08:00",
+    "note": "LongCat :8197 链入 Bjornulf/WanAnimatePreprocess/controlnet_aux；三目标 class Y；关 L2 节点缺口；ffmpeg/fixture 仍开"
+  },
   "l2_routing_dirty_deploy_retest_2026_09_11": {
     "status": "live_on_core_dirty_routing_improved_pass0",
     "date": "2026-09-11",
@@ -65,7 +113,17 @@
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-11T01:30:00+08:00",
-    "note": "L2 路由 dirty 部署；抽测4/4 improved、pass0；非 git shipped"
+    "note": "L2 路由 dirty 部署；抽测4/4 improved、pass0；非 git shipped",
+    "nodes_followup_2026_09_11": {
+      "note": "LongCat :8197 three target classes now Y; packages linked; see longcat_8197_nodes_bjornulf_wananim_ctrlaux_2026_09_11",
+      "packages_linked": [
+        "Bjornulf_custom_nodes",
+        "WanAnimatePreprocess",
+        "controlnet_aux"
+      ],
+      "target_classes_y": true,
+      "ffmpeg_fixture_still_open": true
+    }
   },
   "l2_routing_fix_uncommitted_2026_09_11": {
     "status": "routing_fix_uncommitted_spotcheck",
