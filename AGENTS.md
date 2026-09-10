@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：LTX23 复测；缺模清；image_1 残差）：LTX23 app `2053122050` 复测 — **缺模清**；新残差：`LTXVImgToVideoInplaceKJ` unexpected `image_1`；ToIV 开发 **正修**；真源 `public_e2e_retest_ltx23.json`（`.regen_tmp/` — **仅引文件名，勿 stage**）；前置 tip `5e2fe3d`（Qwen3-VL 复测）— 本地 parent；产品 dirty **勿 stage** / `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_ltx23_retest_fixing`；STATE `public_e2e_retest_ltx23_2026_09_11`；`updated_at` 2026-09-11T05:47:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-11（项目管家：wave2 节点复测；038828 PASS；新缺三节点）：wave2 节点复测 — `038828` **PASS**；`213776`/`214347`/`417975` 新缺 `MimicMotionGetPoses`、`DF_Int_to_Float`、`Florence2Run`；`107403` **Preview-only**；真源 `public_e2e_retest_wave2_nodes.json`（`.regen_tmp/` — **仅引文件名，勿 stage**）；前置 tip `2dfb295`（LTX23 复测）— 本地 parent；产品 dirty **勿 stage** / `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_wave2_nodes_retest`；STATE `public_e2e_retest_wave2_nodes_2026_09_11`；`updated_at` 2026-09-11T05:58:00+08:00；via 项目管家（ToIV 开发）；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,17 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：wave2 节点复测；038828 PASS；新缺三节点）
+- **wave2 节点复测（ToIV 开发；via 项目管家）**：
+  - `038828` **PASS**
+  - `213776` / `214347` / `417975` 新缺：`MimicMotionGetPoses`、`DF_Int_to_Float`、`Florence2Run`
+  - `107403` **Preview-only**
+- **真源（勿 stage）**：`public_e2e_retest_wave2_nodes.json`（路径可能在 `.regen_tmp/...` — **仅引文件名，勿 stage**）。
+- **前置 tip**：`2dfb295`（LTX23 复测；缺模清；image_1 残差）— 已为本地 parent。
+- **相关**：wave2 STATE `public_e2e_wave2_2026_09_11`。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_public_e2e_wave2_nodes_retest`（非 shipped）；STATE `public_e2e_retest_wave2_nodes_2026_09_11`；`updated_at` 2026-09-11T05:58:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：LTX23 复测；缺模清；image_1 残差）
 - **LTX23 复测（ToIV 开发；via 项目管家）**：

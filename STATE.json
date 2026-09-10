@@ -1,5 +1,62 @@
 {
-  "updated_at": "2026-09-11T05:47:00+08:00",
+  "updated_at": "2026-09-11T05:58:00+08:00",
+  "public_e2e_retest_wave2_nodes_2026_09_11": {
+    "status": "live_on_core_public_e2e_wave2_nodes_retest",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "retest": {
+      "038828": "PASS",
+      "213776": "missing MimicMotionGetPoses",
+      "214347": "missing DF_Int_to_Float",
+      "417975": "missing Florence2Run",
+      "107403": "Preview-only"
+    },
+    "pass": [
+      "038828"
+    ],
+    "missing_classes": {
+      "213776": "MimicMotionGetPoses",
+      "214347": "DF_Int_to_Float",
+      "417975": "Florence2Run"
+    },
+    "preview_only": [
+      "107403"
+    ],
+    "true_sources_do_not_stage": [
+      "public_e2e_retest_wave2_nodes.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_retest_wave2_nodes.json — cite filename only; do not stage",
+    "prior_tip": "2dfb295",
+    "prior_tip_note": "LTX23 复测；缺模清；image_1 残差 — local parent",
+    "related_state": [
+      "public_e2e_wave2_2026_09_11"
+    ],
+    "facts": [
+      "wave2 nodes retest: 038828 PASS",
+      "213776 / 214347 / 417975 new missing: MimicMotionGetPoses, DF_Int_to_Float, Florence2Run",
+      "107403 Preview-only",
+      "True source (do not stage): public_e2e_retest_wave2_nodes.json",
+      "Prior tip 2dfb295 (LTX23 retest) is local parent",
+      "Related STATE public_e2e_wave2_2026_09_11",
+      "Not shipped/online; committed_product false; product_sha null; do not stage product dirty / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_retest_wave2_nodes.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T05:58:00+08:00"
+  },
   "public_e2e_retest_ltx23_2026_09_11": {
     "status": "live_on_core_public_e2e_ltx23_retest_fixing",
     "date": "2026-09-11",
