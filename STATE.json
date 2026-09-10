@@ -1,7 +1,63 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T00:44:00+08:00",
+  "updated_at": "2026-09-11T01:17:00+08:00",
+  "p0_l2_hot24_2026_09_11": {
+    "status": "fail_product_majority",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "level": "L2",
+    "scope": "热门24",
+    "total": 24,
+    "counts": {
+      "pass": 8,
+      "fail_product": 15,
+      "fail_timeout": 1
+    },
+    "pass_list_short": "h3-i2v / t2v / fl2v / i2v-15s-fast / txt2img-basic / img2img-basic / wan-animate-2 / qwen-image-edit",
+    "pass_ids": [
+      "h3-t2v",
+      "h3-i2v",
+      "txt2img-basic",
+      "wan-animate-2",
+      "h3-fl2v",
+      "h3-i2v-15s-fast",
+      "qwen-image-edit",
+      "img2img-basic"
+    ],
+    "main_causes": [
+      "市场卡未钉专池 → 通用池 503",
+      "H3 upload 默认不上 :8195"
+    ],
+    "evidence": ".regen_tmp/app_test_matrix_p0/l2_summary.json",
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "next": "开发修路由/上传对齐",
+    "facts": [
+      "P0 L2 热门24：pass 8 / fail_product 15 / fail_timeout 1",
+      "pass：h3-i2v / t2v / fl2v / i2v-15s-fast / txt2img-basic / img2img-basic / wan-animate-2 / qwen-image-edit",
+      "主因：市场卡未钉专池 → 通用池 503；H3 upload 默认不上 :8195",
+      "真源 .regen_tmp/app_test_matrix_p0/l2_summary.json 勿 stage",
+      "产品实现仍未 commit；非 shipped/online；下一步：开发修路由/上传对齐",
+      "产品码仍 dirty 勿 stage；无产品 SHA；本地 docs tip 无 push"
+    ],
+    "related_state": "roadmap_p0_p1_p3_p2_2026_09_11",
+    "prior_l0": "p0_l0_pass_2026_09_11",
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T01:17:00+08:00",
+    "note": "P0 L2 热门24 pass8/fail_product15/timeout1；产品未 shipped；next 修路由/上传"
+  },
   "p0_l0_pass_2026_09_11": {
     "status": "pass",
     "date": "2026-09-11",
@@ -55,8 +111,8 @@
         "priority": "P0",
         "name": "分级实测",
         "status": "pass",
-        "detail": "P0 L0 实测 550/550 pass（全部公开 apps）",
-        "note": "仅 L0 结果完成；产品实现仍未 commit；非 shipped/online",
+        "detail": "P0 L0 550/550 pass；P0 L2 热门24 pass8/fail_product15/timeout1",
+        "note": "L0 done；L2 热门多数 fail_product（未钉专池/H3 upload）；产品实现仍未 commit；非 shipped/online",
         "l0": {
           "level": "L0",
           "result": "pass",
@@ -66,6 +122,17 @@
           "prior_tip_claimed": "in_progress",
           "prior_tip": "ae2b868",
           "corrected": true
+        },
+        "l2": {
+          "level": "L2",
+          "scope": "热门24",
+          "pass": 8,
+          "fail_product": 15,
+          "fail_timeout": 1,
+          "main_causes": [
+            "市场卡未钉专池 → 通用池 503",
+            "H3 upload 默认不上 :8195"
+          ]
         }
       },
       {
@@ -105,6 +172,7 @@
       }
     },
     "facts": [
+      "P0 L2 热门24：pass 8 / fail_product 15 / fail_timeout 1；主因市场卡未钉专池→通用池503、H3 upload默认不上:8195；下一步开发修路由/上传对齐",
       "用户确认全序：P0 分级实测 → P1 应用说明卡 → P3 万能管理台（扩展现有 Admin）→ P2 说明书知识图谱",
       "P0 L0 实测完成：550/550 pass（全部公开 apps）；status=pass；此前 tip ae2b868 写 in_progress 已纠正",
       "其余 P1/P3/P2 仍 planned；产品实现未 commit — 禁止标 shipped/online（仅 L0 结果 done）",
@@ -119,8 +187,8 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T00:44:00+08:00",
-    "note": "拍板路线图；P0 L0 550/550 pass（纠正 ae2b868 in_progress）；产品仍非 shipped",
+    "updated_at": "2026-09-11T01:17:00+08:00",
+    "note": "拍板路线图；P0 L0 550/550 pass；P0 L2 热门24 pass8/fail_product15/timeout1；产品仍非 shipped",
     "p0_l0": {
       "status": "pass",
       "passed": 550,
@@ -131,6 +199,18 @@
       "prior_tip": "ae2b868",
       "prior_tip_said": "in_progress",
       "corrected_at": "2026-09-11T00:44:00+08:00"
+    },
+    "p0_l2": {
+      "status": "fail_product_majority",
+      "total": 24,
+      "pass": 8,
+      "fail_product": 15,
+      "fail_timeout": 1,
+      "product_shipped": false,
+      "product_online": false,
+      "next": "开发修路由/上传对齐",
+      "evidence": ".regen_tmp/app_test_matrix_p0/l2_summary.json",
+      "updated_at": "2026-09-11T01:17:00+08:00"
     }
   },
   "capability_gap_closeout_2026_09_10": {
