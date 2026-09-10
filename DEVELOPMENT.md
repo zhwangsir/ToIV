@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-10 capability_gap closeout（公开550；误藏×2已放回）（项目管家；ToIV 开发+能力缺口 tip；无产品 SHA）**：用户目标「能做全做、做不到隐藏、核验公开可用」已完成。closeout soft-hide×**3**（2×fetch_error 误藏 + blocked `rh-acc-6076858369-17c38d`）→ **551→548**；v23 NO_DELTA soft-hide；恢复误藏×**2**（`rh-acc-3038288898-fe20f8`、`rh-acc-8206083073-eb11b5`）→ 公开 **550**；`public_not_ok=0`；still_waiting **42** 全 hard_blocked 保持隐藏；公开侧通用池缺节点 **0**；dedicated_h3 optional×8 skip；硬阻隐藏 42+`17c38d`。真源 `.regen_tmp/capability_gap_closeout_20260910/` + `capability_gap_scan_v23/CLOSEOUT.md` **勿 stage**；本轮扫描待命结束；产品 dirty 勿 stage。status=`docs_closeout`；STATE `capability_gap_closeout_2026_09_10`；updated_at 2026-09-10T19:22:00+08:00。
+
 **2026-09-10 v22 unhide ×4 + v22b Animate Q4（546→550→551）（项目管家；ToIV 开发 tip；无产品 SHA）**：生产已落地 — v22 unhide **4**（`is_public=true`）：`rh-acc-1099076609-5b577d` / `rh-acc-9943753729-f90502` / `rh-acc-3915150338-73e61b` / `rh-acc-4551318530-b94c9f` → 公开约 **546→550**；v22b unhide **1** `rh-acc-7233807361-883e22` Animate Q4 GGUF（换装+换脸+换背景- Animate Wan2.2）→ **550→551**（叠加 **546→551**）。主 OK 扫侧 **457**（:8196 已恢复）。产品 dirty 勿 stage。status=`docs_unhide`；STATE `v22_unhide_x4_v22b_animate_q4_2026_09_10`；updated_at 2026-09-10T18:20:00+08:00。
 
 **2026-09-10 LIVE：通用池 extrapaths 补 unet；Animate GGUF 走 UnetLoaderGGUF（项目管家；设备管家 tip；无产品 SHA）**：通用池 toiv extrapaths 已补 `unet: unet`；Animate GGUF 以 **UnetLoaderGGUF** 为准可见；旁注**未落地**：能力缺口已交 v22 unhide **4** 给开发；扫时 :8196 拒连致主 OK 偏低；Animate Q4 `mount_pending`；完整 unhide 数字等 ToIV 开发生产回报再定；产品 dirty 勿 stage。status=`live_device_fyi`；STATE `genpool_extrapaths_unet_animate_gguf_2026_09_10`；updated_at 2026-09-10T18:06:00+08:00。

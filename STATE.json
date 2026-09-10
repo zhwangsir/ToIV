@@ -1,7 +1,115 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T18:20:00+08:00",
+  "updated_at": "2026-09-10T19:22:00+08:00",
+  "capability_gap_closeout_2026_09_10": {
+    "status": "docs_closeout",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发",
+      "能力缺口",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "goal": "能做全做、做不到隐藏、核验公开可用",
+    "goal_completed": true,
+    "sequence": [
+      {
+        "step": 1,
+        "action": "closeout_soft_hide",
+        "count": 3,
+        "ids": [
+          "rh-acc-3038288898-fe20f8",
+          "rh-acc-6076858369-17c38d",
+          "rh-acc-8206083073-eb11b5"
+        ],
+        "note": "含 2×fetch_error 误藏 + 1×blocked 17c38d",
+        "public": {
+          "before": 551,
+          "after": 548
+        }
+      },
+      {
+        "step": 2,
+        "action": "v23_restore_false_hides",
+        "v23_soft_hide_delta": "NO_DELTA",
+        "restore_count": 2,
+        "restore_ids": [
+          "rh-acc-3038288898-fe20f8",
+          "rh-acc-8206083073-eb11b5"
+        ],
+        "public": {
+          "before": 548,
+          "after": 550
+        }
+      },
+      {
+        "step": 3,
+        "action": "verify_public",
+        "public_not_ok": 0,
+        "coverage": "main_ok / dedicated_aware"
+      },
+      {
+        "step": 4,
+        "action": "still_waiting_keep_hidden",
+        "still_waiting": 42,
+        "all_hard_blocked": true,
+        "public_general_pool_missing_nodes": 0
+      },
+      {
+        "step": 5,
+        "action": "dedicated_h3_optional_skip",
+        "count": 8,
+        "policy": "dedicated_h3_unhide=skip"
+      },
+      {
+        "step": 6,
+        "action": "hard_blocked_remain_hidden",
+        "still_waiting_hard_blocked": 42,
+        "blocked_soft_hidden": [
+          "rh-acc-6076858369-17c38d"
+        ]
+      }
+    ],
+    "public_catalog": {
+      "path": "551→548→550",
+      "final": 550,
+      "public_not_ok": 0
+    },
+    "hard_blocked_hidden": {
+      "still_waiting": 42,
+      "plus_blocked_id": "rh-acc-6076858369-17c38d"
+    },
+    "scan_standby_ended": true,
+    "facts": [
+      "用户目标「能做全做、做不到隐藏、核验公开可用」已完成",
+      "closeout soft-hide×3（2×fetch_error 误藏 + blocked 17c38d）→ 公开 551→548",
+      "v23 对照 NO_DELTA soft-hide；恢复误藏×2 fe20f8/eb11b5 → 公开 550",
+      "公开集 public_not_ok=0（main OK / dedicated_aware）",
+      "still_waiting 42 全 hard_blocked 保持隐藏；公开侧通用池缺节点 0",
+      "dedicated_h3 optional×8 按既往 skip",
+      "硬阻保持隐藏：42 + 17c38d",
+      "本轮能力缺口扫描待命结束；产品码仍 dirty 勿 stage；无产品 SHA；本地 docs tip 无 push"
+    ],
+    "source_of_truth": [
+      ".regen_tmp/capability_gap_closeout_20260910/",
+      ".regen_tmp/capability_gap_scan_v23/CLOSEOUT.md"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T19:22:00+08:00",
+    "follow_up_of": [
+      "v22_unhide_x4_v22b_animate_q4_2026_09_10",
+      "3c39204"
+    ],
+    "note": "capability_gap closeout 完成；公开 550；误藏×2 已放回；扫描待命结束"
+  },
   "v22_unhide_x4_v22b_animate_q4_2026_09_10": {
     "status": "docs_unhide",
     "date": "2026-09-10",
