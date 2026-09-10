@@ -1,7 +1,60 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T02:29:00+08:00",
+  "updated_at": "2026-09-11T02:31:00+08:00",
+  "l2_int_preview_dirty_deploy_2026_09_11": {
+    "status": "live_on_core_dirty_int_preview_fix_retesting",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "dirty_deploy": true,
+    "deploy_command": "deploy.sh --skip-web",
+    "deploy_target": "core",
+    "fix": {
+      "int_number_normalization": true,
+      "preview_only_does_not_mark_done": true
+    },
+    "sha_verified": {
+      "note": "sha 已核",
+      "source_file": ".regen_tmp/app_test_matrix_p0/deploy_int_tracker.md",
+      "apps_py_sha256": "21f1acf786f678622b8031788f630ba44f6cb58df227ee8f2516bfd57ef06f1b",
+      "tracker_py_sha256": "ae3fc155b7c79fcfc38bfbc0e42adf77d26474981dcd00aa94bab7fbdfc27ef8"
+    },
+    "retest_in_progress": [
+      "140266",
+      "116926"
+    ],
+    "prior_tip": "1e94140",
+    "prior_state": "l2_rh_residual_rootcause_2026_09_11",
+    "related_state": [
+      "l2_rh_residual_rootcause_2026_09_11",
+      "l2_retest_after_10class_2026_09_11"
+    ],
+    "facts": [
+      "Int Number normalization + Preview-only does not mark_done already on core via deploy.sh --skip-web",
+      "Not git committed (dirty deploy only)",
+      "apps.py / tracker.py sha verified (from .regen_tmp deploy_int_tracker.md; do not stage)",
+      "Retest of 140266 / 116926 in progress",
+      "Prior tip 1e94140 residual rootcause; dirty deploy now landed",
+      "Not shipped/online; no product SHA; do not stage product / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "deploy_int_tracker.md"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T02:31:00+08:00",
+    "note": "Int/Preview 修复 dirty 部署上 core；复测 140266/116926 中"
+  },
   "l2_rh_residual_rootcause_2026_09_11": {
     "status": "live_on_core_l2_rh_residual_rootcause_pending_dirty_deploy",
     "date": "2026-09-11",
