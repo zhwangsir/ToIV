@@ -1,7 +1,61 @@
 {
+  "updated_at": "2026-09-11T05:26:00+08:00",
+  "public_e2e_retest_melband_pass_2026_09_11": {
+    "status": "live_on_core_dirty_melband_039434_pass",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "melband_039434": {
+      "app": "039434",
+      "result": "PASS",
+      "clears_residual": "Preview-only / 主保存未产出 from tip b1a8cc7 / state public_e2e_retest_melband_quant_2026_09_11"
+    },
+    "dirty_deployed_to_core": true,
+    "dirty_fix_items": [
+      "_normalize_melband_roformer maps FS path → registry display name",
+      "sampler 默认值回填 (sampler default value backfill)"
+    ],
+    "true_sources_do_not_stage": [
+      "public_e2e_retest_melband_save_preview.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_retest_melband_save_preview.json — cite filename only; may or may not exist on disk yet; do not stage",
+    "prior_tip": "9bda626",
+    "prior_tip_note": "公开 E2E wave2；36 卡 PASS11/FAIL22/TIMEOUT3 — local parent",
+    "prior_state": "public_e2e_wave2_2026_09_11",
+    "clears_state": "public_e2e_retest_melband_quant_2026_09_11",
+    "clears_tip": "b1a8cc7",
+    "related_state": [
+      "public_e2e_retest_melband_quant_2026_09_11",
+      "public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11",
+      "public_e2e_retest_melband_2026_09_11",
+      "public_e2e_wave2_2026_09_11"
+    ],
+    "facts": [
+      "MelBand 039434 PASS",
+      "Dirty fix deployed to core (NOT git committed): _normalize_melband_roformer maps FS path → registry display name; sampler default value backfill",
+      "True source (do not stage): public_e2e_retest_melband_save_preview.json",
+      "Clears prior MelBand Preview-only residual from tip b1a8cc7 / state public_e2e_retest_melband_quant_2026_09_11",
+      "Prior tip 9bda626 (公开 E2E wave2) is local parent",
+      "Not shipped/online; committed_product false; product_sha null; do not stage product dirty / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_retest_melband_save_preview.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T05:26:00+08:00"
+  },
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T05:20:00+08:00",
   "public_e2e_wave2_2026_09_11": {
     "status": "live_on_core_public_e2e_wave2_done_triaged",
     "date": "2026-09-11",
@@ -58,7 +112,8 @@
       "Failure triage (已分流) — 设备节点 ×6; 权重: Qwen3-VL / LTX23; 产品侧: 上传 502 / worker 丢作业 / Preview-only",
       "Prior tip b1a8cc7 (109907 PASS；MelBand 039434 Preview-only 残差) is local parent",
       "Related prior: public_e2e_wave1_2026_09_11 / public_e2e_retest_melband_quant_2026_09_11",
-      "Not shipped/online; product dirty; never stage product / .regen_tmp; no product SHA"
+      "Not shipped/online; product dirty; never stage product / .regen_tmp; no product SHA",
+      "UPDATE 2026-09-11T05:26:00+08:00: MelBand 039434 Preview-only residual (from prior tip b1a8cc7) now PASS — see public_e2e_retest_melband_pass_2026_09_11"
     ],
     "do_not_stage": [
       ".regen_tmp",
@@ -67,10 +122,10 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T05:20:00+08:00"
+    "updated_at": "2026-09-11T05:26:00+08:00"
   },
   "public_e2e_retest_melband_quant_2026_09_11": {
-    "status": "live_on_core_public_e2e_109907_pass_melband_preview_residual",
+    "status": "live_on_core_public_e2e_109907_pass_melband_039434_now_pass",
     "date": "2026-09-11",
     "source": [
       "ToIV 开发",
@@ -88,15 +143,17 @@
     "residual_039434": {
       "app": "039434",
       "issue": "Preview-only / 主保存未产出",
-      "detail": "After clearing model_names issue; preview path only; main save did not produce output",
-      "investigating": true,
-      "fixer": "ToIV 开发"
+      "detail": "Cleared: MelBand 039434 now PASS after normalize+sampler dirty deploy",
+      "investigating": false,
+      "result": "PASS",
+      "cleared_by_state": "public_e2e_retest_melband_pass_2026_09_11",
+      "cleared_by_tip_parent": "9bda626"
     },
     "true_sources_do_not_stage": [
       "public_e2e_retest_melband_quant.json"
     ],
     "true_sources_note": "Under .regen_tmp/.../public_e2e_retest_melband_quant.json — cite filename only; may or may not exist on disk yet; do not stage",
-    "investigating_product": true,
+    "investigating_product": false,
     "prior_tip": "8451b54",
     "prior_tip_note": "MelBand+WanVideo dirty redeploy; retesting 039434/109907 — local parent",
     "prior_state": "public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11",
@@ -112,7 +169,8 @@
       "ToIV 开发 investigating product (正查产品); product still dirty, not git committed",
       "Prior tip 8451b54 (MelBand+WanVideo dirty redeploy; retesting 039434/109907) is local parent",
       "Related prior state: public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11",
-      "Not shipped/online; product dirty; never stage product / .regen_tmp; no product SHA"
+      "Not shipped/online; product dirty; never stage product / .regen_tmp; no product SHA",
+      "UPDATE 2026-09-11T05:26:00+08:00: MelBand 039434 now PASS (cleared Preview-only residual); successor public_e2e_retest_melband_pass_2026_09_11"
     ],
     "do_not_stage": [
       ".regen_tmp",
@@ -121,10 +179,12 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T05:02:00+08:00"
+    "updated_at": "2026-09-11T05:26:00+08:00",
+    "successor_state": "public_e2e_retest_melband_pass_2026_09_11",
+    "successor_note": "MelBand 039434 PASS after normalize+sampler dirty; see public_e2e_retest_melband_pass_2026_09_11"
   },
   "public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11": {
-    "status": "live_on_core_dirty_melband_wan_quant_retest_done_109907_pass_melband_preview_residual",
+    "status": "live_on_core_dirty_melband_wan_quant_retest_done_109907_pass_melband_039434_pass",
     "date": "2026-09-11",
     "source": [
       "ToIV 开发",
@@ -156,7 +216,8 @@
       "Do NOT stage product dirty / .regen_tmp",
       "Not shipped/online; committed_product false; product_sha null",
       "Retest outcome: 109907 PASS; MelBand 039434 residual = Preview-only / 主保存未产出",
-      "Successor tip/state: public_e2e_retest_melband_quant_2026_09_11"
+      "Successor tip/state: public_e2e_retest_melband_quant_2026_09_11",
+      "UPDATE 2026-09-11T05:26:00+08:00: MelBand 039434 now PASS; see public_e2e_retest_melband_pass_2026_09_11"
     ],
     "do_not_stage": [
       ".regen_tmp",
@@ -164,14 +225,14 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T05:02:00+08:00",
+    "updated_at": "2026-09-11T05:26:00+08:00",
     "retest_outcome": {
       "109907": "PASS",
-      "039434": "Preview-only / 主保存未产出 (preview path only; main save did not produce output)",
-      "note": "After clearing model_names issue for MelBand; 109907 cleared PASS; MelBand moved to preview residual"
+      "039434": "PASS",
+      "note": "039434 Preview-only residual cleared; now PASS after normalize+sampler dirty deploy"
     },
-    "successor_state": "public_e2e_retest_melband_quant_2026_09_11",
-    "successor_note": "109907 PASS; MelBand 039434 Preview-only residual — see public_e2e_retest_melband_quant_2026_09_11"
+    "successor_state": "public_e2e_retest_melband_pass_2026_09_11",
+    "successor_note": "MelBand 039434 PASS — see public_e2e_retest_melband_pass_2026_09_11 (prior residual tip b1a8cc7 / quant state cleared)"
   },
   "public_e2e_retest_h3_109907_2026_09_11": {
     "status": "live_on_core_public_e2e_h3_pass_109907_quant_fix",
@@ -326,7 +387,8 @@
       "True source (do not stage): public_e2e_retest_melband.json",
       "Currently fixing client.py model_names (product dirty, not committed)",
       "Prior tip 39a536d (dual-pushed): wave1 node retest; MelBandRoformer was in download triage from wave1",
-      "Not shipped/online; product dirty; never stage product / .regen_tmp"
+      "Not shipped/online; product dirty; never stage product / .regen_tmp",
+      "UPDATE 2026-09-11T05:26:00+08:00: MelBand 039434 now PASS after later normalize+sampler dirty; see public_e2e_retest_melband_pass_2026_09_11"
     ],
     "do_not_stage": [
       ".regen_tmp",
@@ -336,10 +398,11 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T04:37:00+08:00",
+    "updated_at": "2026-09-11T05:26:00+08:00",
     "successor_note": "MelBand model_names fix now dirty-deployed to core; retesting 039434/109907 — see public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11",
     "successor_state": "public_e2e_melband_wan_quant_dirty_redeploy_2026_09_11",
-    "fix_now": "dirty_deployed_retesting"
+    "fix_now": "dirty_deployed_retesting",
+    "melband_039434_later": "PASS"
   },
   "public_e2e_wave1_retest_nodes_2026_09_11": {
     "status": "live_on_core_public_e2e_wave1_retest_nodes",
