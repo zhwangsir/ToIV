@@ -1,7 +1,70 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T03:43:00+08:00",
+  "updated_at": "2026-09-11T04:26:00+08:00",
+  "public_e2e_wave1_2026_09_11": {
+    "status": "live_on_core_public_e2e_wave1_done_fixing_h3",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "wave1": {
+      "cards": 36,
+      "pass": 23,
+      "fail": 13,
+      "timeout": 0,
+      "note": "Public E2E wave1: 36 cards — PASS 23 / FAIL 13 / TIMEOUT 0"
+    },
+    "failure_triage": {
+      "产品": [
+        "H3 ref_image_1 ×3",
+        "and similar product issues"
+      ],
+      "设备": [
+        "CR Prompt Text",
+        "Load Multiline"
+      ],
+      "下载": [
+        "Qwen3-VL",
+        "MelBandRoformer"
+      ]
+    },
+    "currently_fixing": "H3",
+    "true_sources_do_not_stage": [
+      "public_e2e_wave1.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_wave1.json — cite filename only; do not stage",
+    "prior_tip": "092a7f8",
+    "prior_tip_note": "dual-pushed: inventory 550; L2 12/12/526; wave1 ~20 started (now expanded to 36)",
+    "prior_state": "public_e2e_inventory_2026_09_11",
+    "related_state": [
+      "public_e2e_inventory_2026_09_11",
+      "public_e2e_pass_closeout_def_2026_09_11",
+      "l2_retest_after_sageattn_sdpa_2026_09_11"
+    ],
+    "facts": [
+      "Public E2E wave1: 36 cards — PASS 23 / FAIL 13 / TIMEOUT 0",
+      "True source (do not stage): public_e2e_wave1.json",
+      "Failure triage — 产品: H3 ref_image_1 ×3 (and similar); 设备: CR Prompt Text, Load Multiline; 下载: Qwen3-VL, MelBandRoformer",
+      "Currently fixing H3",
+      "Prior tip 092a7f8 (dual-pushed): inventory 550; L2 12/12/526; wave1 ~20 started (now 36)",
+      "Not shipped/online; product dirty; never stage product / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_wave1.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T04:26:00+08:00"
+  },
   "public_e2e_inventory_2026_09_11": {
     "status": "live_on_core_public_e2e_inventory_wave1",
     "date": "2026-09-11",

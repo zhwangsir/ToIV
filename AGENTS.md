@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：公开 E2E inventory；550；L2 12/12/526；第一波~20 已开）：公开 E2E inventory **550** 公开 apps；L2 迄今 **PASS 12** / **FAIL 12** / **untested 526**；真源 `public_e2e_inventory.json` / `PUBLIC_E2E_PROGRAM.md`（**勿 stage**）；第一波 ~**20** live runs **已开**；前置 tip `bdead05`（dual-pushed）：收口定义锁定；公开全量真跑矩阵开工；**禁止**标 shipped/online；产品仍 dirty 勿 stage；勿 stage `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_inventory_wave1`；STATE `public_e2e_inventory_2026_09_11`；`updated_at` 2026-09-11T03:43:00+08:00；via ToIV 开发；
+> **最后更新**：2026-09-11（项目管家：公开 E2E wave1；36 卡 PASS23/FAIL13；正修 H3）：公开 E2E **wave1** **36** 卡 — **PASS 23** / **FAIL 13** / **TIMEOUT 0**；真源 `public_e2e_wave1.json`（**勿 stage**）；失败分流 — **产品**：H3 `ref_image_1` ×3（及同类产品问题）；**设备**：CR Prompt Text、Load Multiline；**下载**：Qwen3-VL、MelBandRoformer；当前正修 **H3**；前置 tip `092a7f8`（dual-pushed）：inventory 550；L2 12/12/526；wave1 ~20 started（现已扩至 36）；**禁止**标 shipped/online；产品仍 dirty 勿 stage；勿 stage `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_wave1_done_fixing_h3`；STATE `public_e2e_wave1_2026_09_11`；`updated_at` 2026-09-11T04:26:00+08:00；via ToIV 开发；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,18 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：公开 E2E wave1；36 卡 PASS23/FAIL13；正修 H3）
+- **公开 E2E wave1（ToIV 开发；via 项目管家）**：**36** 卡 — **PASS 23** / **FAIL 13** / **TIMEOUT 0**。
+- **真源（勿 stage）**：`public_e2e_wave1.json`（路径可能在 `.regen_tmp/...` — **仅引文件名，勿 stage**）。
+- **失败分流**：
+  - **产品**：H3 `ref_image_1` ×3（及同类产品问题）
+  - **设备**：CR Prompt Text、Load Multiline
+  - **下载**：Qwen3-VL、MelBandRoformer
+- **当前**：正修 **H3**。
+- **前置 tip**：`092a7f8`（dual-pushed）：inventory 550；L2 12/12/526；wave1 ~20 started（现已扩至 36）。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_public_e2e_wave1_done_fixing_h3`（非 shipped）；STATE `public_e2e_wave1_2026_09_11`；`updated_at` 2026-09-11T04:26:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：公开 E2E inventory；550；L2 12/12/526；第一波~20 已开）
 - **公开 E2E inventory（ToIV 开发；via 项目管家）**：**550** 公开 apps。
