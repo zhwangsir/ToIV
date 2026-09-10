@@ -1,7 +1,99 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T15:55:00+08:00",
+  "updated_at": "2026-09-10T17:02:00+08:00",
+  "v20_fill_nodes_model_sources_v21_unhide_2026_09_10": {
+    "status": "docs_consolidated",
+    "date": "2026-09-10",
+    "source": [
+      "设备管家",
+      "ToIV 模型下载",
+      "ToIV 开发",
+      "能力缺口",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "device_fill_nodes_v20": {
+      "packages_approx": 27,
+      "class_type_aligned_three_workers": 30,
+      "note": "明细以设备→开发为准；勿编造包名",
+      "pool": "general"
+    },
+    "model_sources_v20_unhide": {
+      "ok": 467,
+      "blocked": 343,
+      "total": 810,
+      "prev": {
+        "ok": 465,
+        "blocked": 339,
+        "total": 804
+      },
+      "delta": {
+        "ok": 2,
+        "blocked": 4,
+        "total": 6
+      },
+      "newly_ok_count": 2,
+      "newly_ok_GiB": 51.234,
+      "newly_ok": [
+        "10Eros_Max_h3_TURBO-hybrid_beta3_int8_convrot.safetensors",
+        "minimax_h3_ref2va_int8_convrot.safetensors"
+      ],
+      "updated_at": "2026-09-10T16:46:45+08:00",
+      "source_of_truth": ".regen_tmp/capability_gap_v20_unhide_download_summary.json",
+      "do_not_stage": true
+    },
+    "capability_gap_scan_v21_unhide": {
+      "scan": "capability_gap_scan_v21",
+      "scanned_at": "2026-09-10T16:49:13+0800",
+      "main_ok": 454,
+      "v20_main_ok": 245,
+      "main_ok_delta": 209,
+      "dedicated_aware_ok": 1600,
+      "ok_if_dedicated_animate2": 14,
+      "dedicated_aware_ok_with_animate2": 1614,
+      "apps_list_incl_private": 2172,
+      "unhide_now": 36,
+      "unhide_breakdown": {
+        "P0_nodes_ok": 6,
+        "other": 30
+      },
+      "public": {
+        "before": 510,
+        "after": 546,
+        "delta": 36
+      },
+      "still_waiting_download": 47,
+      "still_blocked_nodes": 27,
+      "P0_nodes_total": 33,
+      "applied": true,
+      "applied_at": "2026-09-10T16:52:41+08:00",
+      "source_of_truth": ".regen_tmp/capability_gap_scan_v21/actionable/unhide_ready_after_v21.json",
+      "do_not_stage": true
+    },
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      ".regen_tmp/capability_gap_v20_unhide_download_summary.json",
+      ".regen_tmp/capability_gap_scan_v21/actionable/unhide_ready_after_v21.json"
+    ],
+    "facts": [
+      "设备管家：通用池 v20 fill 节点包约 27；三机齐 30 class_type（明细以设备→开发为准，勿编造包名）",
+      "MODEL_SOURCES v20 unhide 后 ok467/blocked343/total810；newly_ok 2 ≈51.23GiB（H3-only under h3/diffusion_models/）",
+      "capability_gap_scan_v21 批量 unhide 36（P0 nodes→OK 6 + 另 30）；公开 510→546",
+      "仍等下载 47 / 仍缺节点 27",
+      "真源 capability_gap_v20_unhide_download_summary.json + unhide_ready_after_v21.json 勿 stage",
+      "产品码仍 dirty 勿 stage；无产品 SHA；本地 docs tip 无 push"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "follow_up_of": [
+      "admin_soft_hide_relist_wan_animate2_2026_09_10",
+      "c6c3ff9"
+    ]
+  },
   "admin_soft_hide_relist_wan_animate2_2026_09_10": {
     "status": "pending_product_commit",
     "date": "2026-09-10",
