@@ -1,7 +1,179 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-10T13:50:00+08:00",
+  "updated_at": "2026-09-10T14:05:00+08:00",
+  "soft_hide_hard_block_only_v20_2026_09_10": {
+    "status": "soft_hide_docs",
+    "date": "2026-09-10",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "follow_up_of": [
+      "capability_gap_scan_v20_2026_09_10",
+      "dae4ee8"
+    ],
+    "rule": "soft-hide: missing_nodes_on_all_workers empty AND every missing_models_on_no_worker is in hard-blocked/no-source set; exclude already soft-hidden; exclude H3-node residuals",
+    "soft_hide": {
+      "count": 10,
+      "apps": [
+        "rh-acc-0951611393-511ac0",
+        "rh-acc-1075350528-dc3518",
+        "rh-acc-1796676609-bd7f4d",
+        "rh-acc-2769283074-6244b3",
+        "rh-acc-3253770242-2babaa",
+        "rh-acc-5038745602-15deeb",
+        "rh-acc-5875539969-0b9198",
+        "rh-acc-6473673730-f7ba44",
+        "rh-acc-8106374145-615ed6",
+        "rh-acc-9431956482-7fa928"
+      ],
+      "apps_detail": [
+        {
+          "id": "rh-acc-0951611393-511ac0",
+          "name": "klein 添加真实细节",
+          "missing_models": [
+            "add_real_details.safetensors"
+          ]
+        },
+        {
+          "id": "rh-acc-1075350528-dc3518",
+          "name": "Z-image超真实动漫转真人，去AI感Zip格式",
+          "missing_models": [
+            "ComfyUI_00002_.safetensors"
+          ]
+        },
+        {
+          "id": "rh-acc-1796676609-bd7f4d",
+          "name": "换脸klein9b",
+          "missing_models": [
+            "Kook_Flux_klein_亚洲人像.safetensors",
+            "new_flux-2-klein-9b.safetensors"
+          ]
+        },
+        {
+          "id": "rh-acc-2769283074-6244b3",
+          "name": "角色换头-单人版-图生图-FLUX.2-klein-换脸",
+          "missing_models": [
+            "add_real_details.safetensors"
+          ]
+        },
+        {
+          "id": "rh-acc-3253770242-2babaa",
+          "name": "Flux.2 Klein",
+          "missing_models": [
+            "Kook_Flux_klein_亚洲人像.safetensors",
+            "new_flux-2-klein-9b.safetensors"
+          ]
+        },
+        {
+          "id": "rh-acc-5038745602-15deeb",
+          "name": "Flux2-klein动漫角色转真人",
+          "missing_models": [
+            "Kook_Flux_klein_亚洲人像.safetensors"
+          ]
+        },
+        {
+          "id": "rh-acc-5875539969-0b9198",
+          "name": "LTX2.3 AI动漫文图生视频",
+          "missing_models": [
+            "h-anime4.comfy.safetensors"
+          ]
+        },
+        {
+          "id": "rh-acc-6473673730-f7ba44",
+          "name": "Klein细节增强【脱离AI味 增加真实感】",
+          "missing_models": [
+            "detail-new_000014500.safetensors"
+          ]
+        },
+        {
+          "id": "rh-acc-8106374145-615ed6",
+          "name": "Klein细节增强【脱离AI味 增加真实感】 · 374145",
+          "missing_models": [
+            "detail-new_000014500.safetensors"
+          ]
+        },
+        {
+          "id": "rh-acc-9431956482-7fa928",
+          "name": "LTX2.3 动漫数字人特制版",
+          "missing_models": [
+            "h-anime4.comfy.safetensors"
+          ]
+        }
+      ],
+      "short_ids": [
+        "511ac0",
+        "dc3518",
+        "bd7f4d",
+        "6244b3",
+        "2babaa",
+        "15deeb",
+        "0b9198",
+        "f7ba44",
+        "615ed6",
+        "7fa928"
+      ],
+      "hard_blocked_basenames": [
+        "3kman-reface-v0.1-klein_8.safetensors",
+        "ComfyUI_00002_.safetensors",
+        "Kook_Flux_klein_亚洲人像.safetensors",
+        "LTX-2.3-Licon-MSR-V1_B.safetensors",
+        "LTX2.3银月.safetensors",
+        "LTX23-燕如嫣-E78795E5A682E5ABA3E8A7-98UH.safetensors",
+        "add_real_details.safetensors",
+        "beyondREALITY_beyondREALITYZIMAGE.safetensors",
+        "bfs_head_v1_flux-klein_9b_step3500_rank128B.safetensors",
+        "detail-new_000014500.safetensors",
+        "flux-2-klein-9b-nvfp4.safetensors",
+        "h-anime4.comfy.safetensors",
+        "ip-adapter.bin",
+        "ltx2.3梅凝触发词meining.safetensors",
+        "ltx2.3韩立南宫婉双人lora.safetensors",
+        "model.pt",
+        "new_flux-2-klein-9b.safetensors",
+        "peiling3-lora.comfy.safetensors"
+      ],
+      "is_public": false,
+      "market_approx": {
+        "before": 908,
+        "after": 898
+      },
+      "missing_nodes": [],
+      "applied": true,
+      "applied_at": "2026-09-10T14:00:00+08:00",
+      "source_of_truth": ".regen_tmp/capability_gap_scan_v20/actionable/soft_hide_hard_block_only_v20.json"
+    },
+    "do_not_rescan": "不扫 v21；放宽版不需要",
+    "remotes": {
+      "gitee_main": "dae4ee8",
+      "github": "unreachable"
+    },
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "source_of_truth": [
+      ".regen_tmp/capability_gap_scan_v20/actionable/soft_hide_hard_block_only_v20.json"
+    ],
+    "facts": [
+      "soft-hide hard-block-only v20 ×10（仅硬阻、无缺节点）→ is_public=false",
+      "公开应用约 908→898",
+      "full ids: rh-acc-0951611393-511ac0 rh-acc-1075350528-dc3518 rh-acc-1796676609-bd7f4d rh-acc-2769283074-6244b3 rh-acc-3253770242-2babaa rh-acc-5038745602-15deeb rh-acc-5875539969-0b9198 rh-acc-6473673730-f7ba44 rh-acc-8106374145-615ed6 rh-acc-9431956482-7fa928",
+      "short ids: 511ac0 dc3518 bd7f4d 6244b3 2babaa 15deeb 0b9198 f7ba44 615ed6 7fa928",
+      "真源已 applied；勿 stage .regen_tmp",
+      "不扫 v21；放宽版不需要",
+      "Gitee main 已在 dae4ee8（v20 tip）；GitHub 仍不可达",
+      "无产品 SHA；未写 h3/；无 MODEL_SOURCES 变更"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-10T14:05:00+08:00",
+    "note": "soft-hide hard-block-only v20 ×10；公开约 908→898；仅硬阻无缺节点；不扫 v21；Gitee dae4ee8；GitHub unreachable；无产品 SHA；tip from ToIV 开发"
+  },
   "capability_gap_scan_v20_2026_09_10": {
     "status": "scan_complete_docs",
     "date": "2026-09-10",
