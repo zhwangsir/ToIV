@@ -1,7 +1,57 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T04:26:00+08:00",
+  "updated_at": "2026-09-11T04:35:00+08:00",
+  "public_e2e_wave1_retest_nodes_2026_09_11": {
+    "status": "live_on_core_public_e2e_wave1_retest_nodes",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "node_retest": {
+      "237247": "PASS",
+      "109907": {
+        "after_clearing_nodes": "residual",
+        "residuals": [
+          "Wan2.1_VAE.pth name/format",
+          "Text Multiline dynamic_prompts"
+        ]
+      }
+    },
+    "true_sources_do_not_stage": [
+      "public_e2e_wave1_retest_nodes.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_wave1_retest_nodes.json — cite filename only; do not stage",
+    "prior_tip": "266b988",
+    "prior_tip_note": "dual-pushed: wave1 36 PASS23/FAIL13; fixing H3; device triage included Text Multiline",
+    "prior_state": "public_e2e_wave1_2026_09_11",
+    "related_state": [
+      "public_e2e_wave1_2026_09_11",
+      "public_e2e_inventory_2026_09_11",
+      "public_e2e_pass_closeout_def_2026_09_11"
+    ],
+    "facts": [
+      "Node retest: 237247 PASS",
+      "109907: after clearing nodes, residual — Wan2.1_VAE.pth name/format + Text Multiline dynamic_prompts",
+      "True source (do not stage): public_e2e_wave1_retest_nodes.json",
+      "Prior tip 266b988 (dual-pushed): wave1 36 PASS23/FAIL13; fixing H3; device triage included Text Multiline",
+      "Not shipped/online; product dirty; never stage product / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_wave1_retest_nodes.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T04:35:00+08:00"
+  },
   "public_e2e_wave1_2026_09_11": {
     "status": "live_on_core_public_e2e_wave1_done_fixing_h3",
     "date": "2026-09-11",
