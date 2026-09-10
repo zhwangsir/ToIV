@@ -5,6 +5,8 @@
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
 
+**2026-09-11 L2 路由修复（分支未commit；pytest52；抽测中）（项目管家；ToIV 开发 tip；无产品 SHA）**：**L2 路由修复**已在工作树落地，**尚未 git commit**（分支 `feat/app-guides-admin-cms` uncommitted）。`_pick_app_client` 识别 **WanVideo*** → 专池；`/run` + upload media 与 graph **同机**。pytest routing/upload/apps：**52 passed**。正部署抽测原 **503** 卡。残差：LongCat 缺权重；nunchaku 溢出；pulid EOF；无 LTX 专池。下一步：**抽测原 503 卡**。产品实现仍**未 commit**；**非 shipped/online**。产品 dirty 勿 stage；勿 stage `.regen_tmp`；无产品 SHA；本地 tip 无 push。status=`routing_fix_uncommitted_spotcheck`；STATE `l2_routing_fix_uncommitted_2026_09_11`；updated_at 2026-09-11T01:27:00+08:00。
+
 **2026-09-11 P0 L2 热门24 pass8/fail_product15/timeout1（项目管家；ToIV 开发 tip；无产品 SHA）**：P0 L2 热门 **24** — pass **8** / fail_product **15** / fail_timeout **1**。pass：h3-i2v / t2v / fl2v / i2v-15s-fast / txt2img-basic / img2img-basic / wan-animate-2 / qwen-image-edit。主因：市场卡未钉专池 → 通用池 **503**；H3 upload 默认不上 **:8195**。真源 `.regen_tmp/app_test_matrix_p0/l2_summary.json` **勿 stage**。产品实现仍**未 commit**；**非 shipped/online**；下一步：开发修路由/上传对齐。产品 dirty 勿 stage；勿 stage `.regen_tmp`；无产品 SHA；本地 tip 无 push。status=`fail_product_majority`；STATE `p0_l2_hot24_2026_09_11`；updated_at 2026-09-11T01:17:00+08:00。
 
 **2026-09-11 P0 L0 实测 550/550 pass（项目管家；ToIV 开发 tip；无产品 SHA）**：P0 L0 完成 — **550/550 pass**（全部公开 apps）。纠正 tip `ae2b868` 所写 P0 L0=`in_progress` → **`pass`/`done`**。产品实现仍**未 commit**；更广路线图**非 shipped/online**（仅 L0 结果完成）。P1/P3/P2 仍 `planned`。产品 dirty 勿 stage；勿 stage `.regen_tmp`；无产品 SHA；本地 tip 无 push。status=`pass`；STATE `p0_l0_pass_2026_09_11`（并更新 `roadmap_p0_p1_p3_p2_2026_09_11` P0=`pass`）；updated_at 2026-09-11T00:44:00+08:00。
@@ -506,6 +508,26 @@ npm run dev                   # http://localhost:3100
 ```
 
 **Mask 编码格式**: RGBA PNG，R=G=B=运动强度（0=静止，255=全强度）,A=方向角量化
+
+
+### 3.5 应用说明书(AppGuide)与 Admin 运营页(P1/P3)
+
+**功能**: 每张应用一条用法说明(用途/场景/步骤/输入输出/提示/关联应用);状态 `draft|published`。Admin 扩展三个 Tab,不另起后台。
+
+**数据**: `AppGuide` 表(`appguide`),`app_id` 主键 1:1 对应 `App.id`;JSON 列存 steps/inputs/outputs/tips/related_app_ids。新库 `create_all`,既有库走 `db.py` 幂等 `CREATE TABLE IF NOT EXISTS`。
+
+**端点**:
+- `GET /api/apps/{id}/guide` — 仅已发布(鉴权同其他 app 读;草稿/缺失 404)
+- `GET/PUT /api/admin/apps/{id}/guide` — 管理员读写(无记录 GET 回空壳;PUT upsert)
+- `GET /api/admin/app-guides` — 管理员列表
+
+**Admin UI**(`AdminView` Tabs): 用户管理 / 智能体 / 操作日志 / **应用运营** / **说明书** / **实测矩阵**。
+- 应用运营: `GET /api/apps?limit=5000` + `PUT /api/apps/{id}` 切换 `is_public`
+- 说明书: 选应用编辑字段后 admin PUT
+- 实测矩阵: 占位(L0 本地 550/550;L2 待接入),暂不读远程
+
+**实现入口**: `apps/api/app/routes/app_guides.py`、`apps/web/components/admin/App*AdminView.tsx`。
+
 
 ---
 

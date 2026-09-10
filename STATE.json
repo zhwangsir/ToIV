@@ -1,7 +1,58 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T01:17:00+08:00",
+  "updated_at": "2026-09-11T01:27:00+08:00",
+  "l2_routing_fix_uncommitted_2026_09_11": {
+    "status": "routing_fix_uncommitted_spotcheck",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "branch": "feat/app-guides-admin-cms",
+    "branch_committed": false,
+    "fix": {
+      "pick_app_client": "WanVideo* → dedicated pool",
+      "run_and_upload": "same machine as graph"
+    },
+    "pytest": {
+      "scope": "routing/upload/apps",
+      "passed": 52,
+      "result": "52 passed"
+    },
+    "deploy": "deploying for spot-check of former 503 cards",
+    "residuals": [
+      "LongCat 缺权重",
+      "nunchaku 溢出",
+      "pulid EOF",
+      "无 LTX 专池"
+    ],
+    "next": "抽测原 503 卡",
+    "related_state": "p0_l2_hot24_2026_09_11",
+    "facts": [
+      "L2 路由修复已在工作树落地，尚未 git commit（分支 feat/app-guides-admin-cms uncommitted）",
+      "_pick_app_client 识别 WanVideo* → 专池",
+      "/run + upload media 与 graph 同机",
+      "pytest routing/upload/apps：52 passed",
+      "正部署抽测原 503 卡",
+      "残差：LongCat 缺权重；nunchaku 溢出；pulid EOF；无 LTX 专池",
+      "产品实现仍未 commit；非 shipped/online；下一步：抽测原 503 卡",
+      "产品码仍 dirty 勿 stage；勿 stage .regen_tmp；无产品 SHA；本地 docs tip 无 push"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T01:27:00+08:00",
+    "note": "L2 路由修复未 commit；pytest52；抽测原503中；非 shipped"
+  },
   "p0_l2_hot24_2026_09_11": {
     "status": "fail_product_majority",
     "date": "2026-09-11",
@@ -42,7 +93,7 @@
       ".regen_tmp",
       "product dirty"
     ],
-    "next": "开发修路由/上传对齐",
+    "next": "L2 路由修复工作树已落地（未 commit）；抽测原 503 卡 — 见 l2_routing_fix_uncommitted_2026_09_11",
     "facts": [
       "P0 L2 热门24：pass 8 / fail_product 15 / fail_timeout 1",
       "pass：h3-i2v / t2v / fl2v / i2v-15s-fast / txt2img-basic / img2img-basic / wan-animate-2 / qwen-image-edit",
@@ -56,7 +107,8 @@
     "agents_md": "updated",
     "pushed": false,
     "updated_at": "2026-09-11T01:17:00+08:00",
-    "note": "P0 L2 热门24 pass8/fail_product15/timeout1；产品未 shipped；next 修路由/上传"
+    "note": "P0 L2 热门24 pass8/fail_product15/timeout1；产品未 shipped；next 修路由/上传",
+    "followup_state": "l2_routing_fix_uncommitted_2026_09_11"
   },
   "p0_l0_pass_2026_09_11": {
     "status": "pass",
@@ -112,7 +164,7 @@
         "name": "分级实测",
         "status": "pass",
         "detail": "P0 L0 550/550 pass；P0 L2 热门24 pass8/fail_product15/timeout1",
-        "note": "L0 done；L2 热门多数 fail_product（未钉专池/H3 upload）；产品实现仍未 commit；非 shipped/online",
+        "note": "L0 done；L2 热门多数 fail_product；路由修复工作树已落地未 commit（见 l2_routing_fix_uncommitted_2026_09_11）；抽测原 503 中；产品实现仍未 commit；非 shipped/online",
         "l0": {
           "level": "L0",
           "result": "pass",
@@ -172,6 +224,7 @@
       }
     },
     "facts": [
+      "L2 路由修复：工作树已落地未 commit；WanVideo*→专池；/run+upload 同机；pytest52；抽测原503中；残差 LongCat/nunchaku/pulid/无LTX专池",
       "P0 L2 热门24：pass 8 / fail_product 15 / fail_timeout 1；主因市场卡未钉专池→通用池503、H3 upload默认不上:8195；下一步开发修路由/上传对齐",
       "用户确认全序：P0 分级实测 → P1 应用说明卡 → P3 万能管理台（扩展现有 Admin）→ P2 说明书知识图谱",
       "P0 L0 实测完成：550/550 pass（全部公开 apps）；status=pass；此前 tip ae2b868 写 in_progress 已纠正",
@@ -187,8 +240,8 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T01:17:00+08:00",
-    "note": "拍板路线图；P0 L0 550/550 pass；P0 L2 热门24 pass8/fail_product15/timeout1；产品仍非 shipped",
+    "updated_at": "2026-09-11T01:27:00+08:00",
+    "note": "拍板路线图；P0 L0 550/550；L2 热门24；路由修复未commit抽测中；产品仍非 shipped",
     "p0_l0": {
       "status": "pass",
       "passed": 550,
@@ -208,9 +261,10 @@
       "fail_timeout": 1,
       "product_shipped": false,
       "product_online": false,
-      "next": "开发修路由/上传对齐",
+      "next": "抽测原 503 卡（路由修复未 commit；见 l2_routing_fix_uncommitted_2026_09_11）",
       "evidence": ".regen_tmp/app_test_matrix_p0/l2_summary.json",
-      "updated_at": "2026-09-11T01:17:00+08:00"
+      "updated_at": "2026-09-11T01:27:00+08:00",
+      "routing_fix_state": "l2_routing_fix_uncommitted_2026_09_11"
     }
   },
   "capability_gap_closeout_2026_09_10": {
