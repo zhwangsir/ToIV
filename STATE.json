@@ -1,7 +1,65 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-11T03:38:00+08:00",
+  "updated_at": "2026-09-11T03:43:00+08:00",
+  "public_e2e_inventory_2026_09_11": {
+    "status": "live_on_core_public_e2e_inventory_wave1",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "inventory": {
+      "public_apps": 550,
+      "note": "Public E2E inventory: 550 public apps"
+    },
+    "l2_so_far": {
+      "pass": 12,
+      "fail": 12,
+      "untested": 526,
+      "note": "L2 so far: PASS 12 / FAIL 12 / untested 526"
+    },
+    "wave1": {
+      "live_runs_started_approx": 20,
+      "phase": "started",
+      "note": "Wave 1 ~20 live runs started"
+    },
+    "true_sources_do_not_stage": [
+      "public_e2e_inventory.json",
+      "PUBLIC_E2E_PROGRAM.md"
+    ],
+    "true_sources_note": "Likely under .regen_tmp/.../app_test_matrix_p0 or docs staging — cite filenames only; do not stage",
+    "prior_tip": "bdead05",
+    "prior_tip_note": "dual-pushed: closeout def locked; public full matrix kickoff",
+    "prior_state": "public_e2e_pass_closeout_def_2026_09_11",
+    "related_state": [
+      "public_e2e_pass_closeout_def_2026_09_11",
+      "l2_retest_after_sageattn_sdpa_2026_09_11",
+      "roadmap_p0_p1_p3_p2_2026_09_11"
+    ],
+    "facts": [
+      "Public E2E inventory: 550 public apps",
+      "L2 so far: PASS 12 / FAIL 12 / untested 526",
+      "True sources (do not stage): public_e2e_inventory.json; PUBLIC_E2E_PROGRAM.md",
+      "Wave 1 ~20 live runs started",
+      "Prior tip bdead05 (dual-pushed): closeout def locked; public full matrix kickoff",
+      "Not shipped/online; product dirty; never stage product / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_inventory.json",
+      "PUBLIC_E2E_PROGRAM.md"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T03:43:00+08:00"
+  },
   "public_e2e_pass_closeout_def_2026_09_11": {
     "status": "roadmap_public_e2e_matrix_kickoff",
     "date": "2026-09-11",
