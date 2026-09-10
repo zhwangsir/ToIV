@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：011723 JoyCaption 三机镜像 PASS@8196）：`011723` JoyCaption 三机镜像后 **PASS** @ `:8196`；清 tip `b3456e2` 残差（JoyCaption HF 仅在 8193、池子派 8196；已转设备镜像）；真源 `public_e2e_retest_011723_joycaption.json`（`.regen_tmp/` — **仅引文件名，勿 stage**）；前置 tip `b3456e2`（wave1 设备复测）— 本地 parent；产品 dirty **勿 stage** / `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_011723_joycaption_pass`；STATE `public_e2e_retest_011723_joycaption_2026_09_11`；`updated_at` 2026-09-11T06:43:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-11（项目管家：QwenVL/LTXV/Wan dirty；三卡 PASS；三残差）：产品 dirty（已部署、**未** git commit）— `AILab_QwenVL` `video_frame_size`；`LTXV` DYNAMICCOMBO `image_*`；Wan `teacache` / `experimental` / VAE names；复测 **PASS** `052027` / `293570` / `205312`；残差仍开 `022665` shape、`059347` cublasLt、`107403` 排队；真源 `public_e2e_retest_qwen3vl.json` / `ltx_dynamiccombo` / `public_e2e_retest_107403.json`（`.regen_tmp/` — **仅引文件名，勿 stage**）；前置 tip `fbd9ac3`（011723 JoyCaption）— 本地 parent；相关 tip Qwen3-VL `5e2fe3d` / LTX23 `2dfb295` / wave2 Preview-only 107403；产品 dirty **勿 stage** / `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_dirty_qwenvl_ltx_wan_partial_pass`；STATE `public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11`；`updated_at` 2026-09-11T07:09:00+08:00；via 项目管家（ToIV 开发）；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,20 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：QwenVL/LTXV/Wan dirty；三卡 PASS；三残差）
+- **QwenVL / LTXV / Wan dirty 复测（ToIV 开发；via 项目管家）**：
+  - 产品 dirty（已部署、**未** git commit）：
+    - `AILab_QwenVL` `video_frame_size`
+    - `LTXV` DYNAMICCOMBO `image_*`
+    - Wan `teacache` / `experimental` / VAE names
+  - 复测 **PASS**：`052027` / `293570` / `205312`
+  - 残差仍开：`022665` shape；`059347` cublasLt；`107403` 排队
+- **真源（勿 stage）**：`public_e2e_retest_qwen3vl.json`；`ltx_dynamiccombo`；`public_e2e_retest_107403.json`（路径可能在 `.regen_tmp/...` — **仅引文件名，勿 stage**）。
+- **前置 tip**：`fbd9ac3`（011723 JoyCaption 三机镜像 PASS@8196）— 已为本地 parent。
+- **相关**：Qwen3-VL retest tip `5e2fe3d`；LTX23 tip `2dfb295`；wave2 Preview-only `107403`（`8b2eb2e` / STATE `public_e2e_retest_wave2_nodes_2026_09_11`）。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_dirty_qwenvl_ltx_wan_partial_pass`（非 shipped）；STATE `public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11`；`updated_at` 2026-09-11T07:09:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：011723 JoyCaption 三机镜像 PASS@8196）
 - **011723 JoyCaption 三机镜像复测（ToIV 开发；via 项目管家）**：

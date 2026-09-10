@@ -1,5 +1,89 @@
 {
-  "updated_at": "2026-09-11T06:43:00+08:00",
+  "updated_at": "2026-09-11T07:09:00+08:00",
+  "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11": {
+    "status": "live_on_core_dirty_qwenvl_ltx_wan_partial_pass",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "dirty_items": [
+      "AILab_QwenVL video_frame_size",
+      "LTXV DYNAMICCOMBO image_*",
+      "Wan teacache / experimental / VAE names"
+    ],
+    "dirty_note": "Product dirty deployed to core; NOT git committed",
+    "retest": {
+      "052027": "PASS",
+      "293570": "PASS",
+      "205312": "PASS",
+      "022665": {
+        "result": "FAIL",
+        "reason": "shape"
+      },
+      "059347": {
+        "result": "FAIL",
+        "reason": "cublasLt"
+      },
+      "107403": {
+        "result": "FAIL",
+        "reason": "排队 (queue)"
+      }
+    },
+    "pass_apps": [
+      "052027",
+      "293570",
+      "205312"
+    ],
+    "residual_apps": {
+      "022665": "shape",
+      "059347": "cublasLt",
+      "107403": "排队 (queue)"
+    },
+    "true_sources_do_not_stage": [
+      "public_e2e_retest_qwen3vl.json",
+      "ltx_dynamiccombo",
+      "public_e2e_retest_107403.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/... — cite filename only; do not stage (ltx_dynamiccombo as stated)",
+    "prior_tip": "fbd9ac3",
+    "prior_tip_note": "011723 JoyCaption 三机镜像 PASS@8196 — local parent",
+    "related_prior_tips": {
+      "qwen3vl_retest": "5e2fe3d",
+      "ltx23": "2dfb295",
+      "wave2_preview_only_107403": "8b2eb2e"
+    },
+    "related_state": [
+      "public_e2e_retest_qwen3vl_2026_09_11",
+      "public_e2e_retest_ltx23_2026_09_11",
+      "public_e2e_retest_wave2_nodes_2026_09_11"
+    ],
+    "related_note": "Prior Qwen3VL / LTX23 / wave2 states updated for PASS items from this dirty retest",
+    "facts": [
+      "Product dirty (deployed, NOT git committed): AILab_QwenVL video_frame_size; LTXV DYNAMICCOMBO image_*; Wan teacache / experimental / VAE names",
+      "Retest PASS: 052027 / 293570 / 205312",
+      "Residuals still open: 022665 shape; 059347 cublasLt; 107403 排队 (queue)",
+      "True sources (do not stage): public_e2e_retest_qwen3vl.json; ltx_dynamiccombo; public_e2e_retest_107403.json",
+      "Prior tip fbd9ac3 (011723 JoyCaption) is local parent",
+      "Related prior tips: Qwen3-VL 5e2fe3d; LTX23 2dfb295; wave2 Preview-only 107403",
+      "Not shipped/online; committed_product false; product_sha null; do not stage product dirty / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_retest_qwen3vl.json",
+      "ltx_dynamiccombo",
+      "public_e2e_retest_107403.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T07:09:00+08:00"
+  },
   "public_e2e_retest_011723_joycaption_2026_09_11": {
     "status": "live_on_core_public_e2e_011723_joycaption_pass",
     "date": "2026-09-11",
@@ -234,7 +318,15 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T05:58:00+08:00"
+    "updated_at": "2026-09-11T07:09:00+08:00",
+    "residual_followup_107403": {
+      "by": "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11",
+      "was": "Preview-only",
+      "now": "排队 (queue)",
+      "note": "107403 residual evolved: Preview-only → 排队 after dirty retest",
+      "updated_at": "2026-09-11T07:09:00+08:00"
+    },
+    "related_followup_state": "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11"
   },
   "public_e2e_retest_ltx23_2026_09_11": {
     "status": "live_on_core_public_e2e_ltx23_retest_fixing",
@@ -284,7 +376,16 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T05:47:00+08:00"
+    "updated_at": "2026-09-11T07:09:00+08:00",
+    "pass_followup": {
+      "by": "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11",
+      "pass_apps": [
+        "205312"
+      ],
+      "note": "After LTXV DYNAMICCOMBO image_* dirty: 205312 PASS (was image_1 residual / missing-model cleared path)",
+      "updated_at": "2026-09-11T07:09:00+08:00"
+    },
+    "related_followup_state": "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11"
   },
   "public_e2e_retest_qwen3vl_2026_09_11": {
     "status": "live_on_core_public_e2e_qwen3vl_retest_fixing",
@@ -316,7 +417,8 @@
       "LLM"
     ],
     "residual": {
-      "022665": "missing video_frame_size"
+      "022665": "shape (was missing video_frame_size; still open after dirty)",
+      "059347": "cublasLt (was Preview-only)"
     },
     "preview_only": [
       "059347",
@@ -349,7 +451,21 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T05:44:00+08:00"
+    "updated_at": "2026-09-11T07:09:00+08:00",
+    "pass_followup": {
+      "by": "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11",
+      "pass_apps": [
+        "052027",
+        "293570"
+      ],
+      "note": "After QwenVL/LTXV/Wan dirty deploy: 052027/293570 PASS; 022665 still residual (shape); 059347 residual now cublasLt",
+      "updated_at": "2026-09-11T07:09:00+08:00"
+    },
+    "preview_only_cleared": [
+      "052027",
+      "293570"
+    ],
+    "related_followup_state": "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11"
   },
   "public_e2e_wave1_product_leftovers_2026_09_11": {
     "status": "live_on_core_dirty_wave1_product_leftovers",
