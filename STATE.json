@@ -1,5 +1,62 @@
 {
-  "updated_at": "2026-09-11T06:12:00+08:00",
+  "updated_at": "2026-09-11T06:16:00+08:00",
+  "public_e2e_retest_wave1_device_2026_09_11": {
+    "status": "live_on_core_public_e2e_wave1_device_handed_mirror",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "retest": {
+      "pulid": "PASS",
+      "removebg": "PASS",
+      "011723": {
+        "result": "JoyCaption HF mismatch",
+        "note": "JoyCaption HF only on :8193 but pool dispatched :8196"
+      }
+    },
+    "pass_items": [
+      "pulid",
+      "removebg"
+    ],
+    "residual": {
+      "011723": "JoyCaption HF only on :8193; pool dispatched :8196"
+    },
+    "handed_to": "设备镜像",
+    "handed_note": "已转设备镜像",
+    "true_sources_do_not_stage": [
+      "public_e2e_retest_wave1_device.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_retest_wave1_device.json — cite filename only; do not stage",
+    "prior_tip": "6c72c16",
+    "prior_tip_note": "wave2 nodes2；三旧清；RMBG/HF timeout — local parent",
+    "related_state": [
+      "public_e2e_wave1_product_leftovers_2026_09_11"
+    ],
+    "related_note": "wave1 product leftovers tip — JoyCaption/pulid were residuals there",
+    "facts": [
+      "wave1 device retest: pulid / removebg PASS",
+      "011723 JoyCaption HF: only on :8193 but pool dispatched :8196",
+      "Handed to 设备镜像 (已转设备镜像)",
+      "True source (do not stage): public_e2e_retest_wave1_device.json",
+      "Prior tip 6c72c16 (wave2 nodes2) is local parent",
+      "Related STATE public_e2e_wave1_product_leftovers_2026_09_11 (JoyCaption/pulid were residuals)",
+      "Not shipped/online; committed_product false; product_sha null; do not stage product dirty / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_retest_wave1_device.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T06:16:00+08:00"
+  },
   "public_e2e_retest_wave2_nodes2_2026_09_11": {
     "status": "live_on_core_public_e2e_wave2_nodes2_handed_device",
     "date": "2026-09-11",
