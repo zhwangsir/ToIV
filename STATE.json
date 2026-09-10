@@ -1,5 +1,80 @@
 {
-  "updated_at": "2026-09-11T05:28:00+08:00",
+  "updated_at": "2026-09-11T05:42:00+08:00",
+  "public_e2e_wave1_product_leftovers_2026_09_11": {
+    "status": "live_on_core_dirty_wave1_product_leftovers",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "progress": {
+      "775482": {
+        "result": "PASS",
+        "note": "Float→Number"
+      },
+      "flux1-nunchaku": {
+        "result": "PASS",
+        "port": ":8188"
+      },
+      "011723": {
+        "result": "residual",
+        "note": "cleared resolution_steps; stuck on JoyCaption HF"
+      },
+      "pulid": {
+        "result": "handed_to_device",
+        "steward": "设备管家"
+      },
+      "removebg": {
+        "result": "handed_to_device",
+        "steward": "设备管家"
+      }
+    },
+    "pass_items": [
+      "775482",
+      "flux1-nunchaku"
+    ],
+    "residual": {
+      "011723": "JoyCaption HF after clearing resolution_steps"
+    },
+    "handed_to_device": [
+      "pulid",
+      "removebg"
+    ],
+    "true_sources_do_not_stage": [
+      "WAVE1_PRODUCT_LEFTOVERS.md"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../WAVE1_PRODUCT_LEFTOVERS.md — cite filename only; do not stage",
+    "prior_tip": "a78a8d3",
+    "prior_tip_note": "MODEL_SOURCES wave2；ok468/blocked335/total803 — local parent",
+    "related_state": [
+      "public_e2e_wave1_2026_09_11",
+      "public_e2e_wave1_retest_nodes_2026_09_11",
+      "model_sources_wave2_public_e2e_2026_09_11"
+    ],
+    "facts": [
+      "775482 PASS (Float→Number)",
+      "flux1-nunchaku PASS @ :8188",
+      "011723: cleared resolution_steps then stuck on JoyCaption HF",
+      "pulid / removebg → handed to 设备管家",
+      "True source (do not stage): WAVE1_PRODUCT_LEFTOVERS.md",
+      "Prior tip a78a8d3 (MODEL_SOURCES wave2) is local parent",
+      "Related wave1 states: public_e2e_wave1_2026_09_11 / public_e2e_wave1_retest_nodes_2026_09_11",
+      "Not shipped/online; committed_product false; product_sha null; do not stage product dirty / .regen_tmp"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "WAVE1_PRODUCT_LEFTOVERS.md"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T05:42:00+08:00"
+  },
   "model_sources_wave2_public_e2e_2026_09_11": {
     "status": "inventory_updated",
     "date": "2026-09-11",
