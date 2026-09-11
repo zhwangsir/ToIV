@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：产品 dirty 回填；144483 PASS）：产品 dirty（**未** commit）— easy promptLine `remove_empty_lines`、INPAINT `blur_type`/`device_mode`、Wan VACE `num_frames`、丢弃无 images 孤儿 VHS；**PASS** `rh-acc-1444836353` @ `:8197`；`294829` 字段已清，queued_timeout @ `:8194` → 重测；`142022` 字段已清 → 缺 darkBeastMar0326 / flux2-vae / qwen_3_8b + Flux2 节点（转下载/设备）；前置 tip `db38be3`（451079 PASS；387721 SeC）— 本地 parent；无产品 SHA；本地 tip 无 push；status=`live_on_core_dirty_product_backfill_144483_pass`；STATE `public_e2e_retest_product_dirty_backfill_2026_09_11`；`updated_at` 2026-09-11T10:26:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-11（项目管家：产品 dirty 续；221805/315353 PASS）：产品 dirty（**未** commit）续 — KSampler `beta57`→`beta`、VHS `skip_first_frames` 等；**PASS** `rh-acc-2218056705`、`rh-acc-3153534978`；仍跟 `426919` running；LayerMask 需 worker `models/segformer_b3_clothes` / `segformer_b2_clothes`；Qwen3_VQA 需 `LLM/Qwen3-VL-4B-Instruct`→`models/prompt_generator/`；前置 tip `a1db34c`（产品 dirty 回填；144483 PASS）— 本地 parent；无产品 SHA；本地 tip 无 push；status=`live_on_core_dirty_product_beta57_vhs_pass2`；STATE `public_e2e_retest_product_dirty_beta57_vhs_2026_09_11`；`updated_at` 2026-09-11T10:28:00+08:00；via 项目管家（ToIV 开发）；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,20 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：产品 dirty 续；221805/315353 PASS）
+- **产品 dirty 续（ToIV 开发；via 项目管家）**：dirty（**未** git commit）— **勿 stage**。
+  - KSampler `beta57`→`beta`
+  - VHS `skip_first_frames` 等
+- **复测**：
+  - **PASS**：`rh-acc-2218056705`；`rh-acc-3153534978`
+  - **仍跟**：`426919` running
+  - **LayerMask**：需 worker 上 `models/segformer_b3_clothes` / `segformer_b2_clothes`
+  - **Qwen3_VQA**：需 `LLM/Qwen3-VL-4B-Instruct`→`models/prompt_generator/`
+- **前置 tip**：`a1db34c`（产品 dirty 回填；144483 PASS）— 已为本地 parent。
+- **相关**：STATE `public_e2e_retest_product_dirty_backfill_2026_09_11`；wave4 产品候选 beta57 / LayerMask / Qwen3_VQA。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_dirty_product_beta57_vhs_pass2`（非 shipped）；STATE `public_e2e_retest_product_dirty_beta57_vhs_2026_09_11`；`updated_at` 2026-09-11T10:28:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：产品 dirty 回填；144483 PASS）
 - **产品 dirty 回填（ToIV 开发；via 项目管家）**：dirty（**未** git commit）— **勿 stage**。
