@@ -1,5 +1,76 @@
 {
-  "updated_at": "2026-09-11T10:24:00+08:00",
+  "updated_at": "2026-09-11T10:26:00+08:00",
+  "public_e2e_retest_product_dirty_backfill_2026_09_11": {
+    "status": "live_on_core_dirty_product_backfill_144483_pass",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "summary": "Product dirty backfill (uncommitted): easy/INPAINT/Wan VACE/orphan VHS; 144483 PASS; 294829 retest; 142022 → download/device",
+    "dirty_changes_do_not_stage": [
+      "easy promptLine remove_empty_lines",
+      "INPAINT blur_type / device_mode",
+      "Wan VACE num_frames",
+      "drop orphan VHS without images"
+    ],
+    "retest": {
+      "1444836353": {
+        "app": "rh-acc-1444836353",
+        "result": "PASS",
+        "port": ":8197"
+      },
+      "294829": {
+        "result": "queued_timeout",
+        "port": ":8194",
+        "note": "fields cleared; retest"
+      },
+      "142022": {
+        "result": "FAIL",
+        "fields_cleared": true,
+        "missing": [
+          "darkBeastMar0326",
+          "flux2-vae",
+          "qwen_3_8b",
+          "Flux2 nodes"
+        ],
+        "hand_to": [
+          "ToIV 模型下载",
+          "设备管家"
+        ]
+      }
+    },
+    "pass_apps": [
+      "1444836353"
+    ],
+    "prior_tip": "db38be3",
+    "prior_tip_note": "451079 PASS；387721 新缺 SeCVideoSegmentation — local parent",
+    "related_state": [
+      "public_e2e_retest_wave3_device_2026_09_11",
+      "public_e2e_retest_451079_387721_2026_09_11",
+      "public_e2e_wave4_2026_09_11"
+    ],
+    "facts": [
+      "Product dirty (uncommitted, do not stage): easy promptLine remove_empty_lines; INPAINT blur_type/device_mode; Wan VACE num_frames; drop orphan VHS without images",
+      "PASS rh-acc-1444836353 @ :8197",
+      "294829 fields cleared but queued_timeout @ :8194 → retest",
+      "142022 fields cleared → missing darkBeastMar0326 / flux2-vae / qwen_3_8b + Flux2 nodes → download/device",
+      "Prior tip db38be3 is local parent",
+      "Not shipped/online; product dirty; never stage product / .regen_tmp; no product SHA"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T10:26:00+08:00"
+  },
   "public_e2e_retest_451079_387721_2026_09_11": {
     "status": "live_on_core_public_e2e_451079_pass_387721_sec_device",
     "date": "2026-09-11",
