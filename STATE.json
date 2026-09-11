@@ -1,5 +1,63 @@
 {
-  "updated_at": "2026-09-11T10:23:00+08:00",
+  "updated_at": "2026-09-11T10:24:00+08:00",
+  "public_e2e_retest_451079_387721_2026_09_11": {
+    "status": "live_on_core_public_e2e_451079_pass_387721_sec_device",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "summary": "451079 PASS after VACE HIGH; 387721 PDIMAGE cleared, new miss SeCVideoSegmentation → device",
+    "retest": {
+      "4510792705": {
+        "app": "rh-acc-4510792705",
+        "result": "PASS",
+        "port": ":8197",
+        "note": "after VACE HIGH"
+      },
+      "3877213185": {
+        "app": "rh-acc-3877213185",
+        "result": "FAIL",
+        "hand_to": "设备管家",
+        "cleared": "PDIMAGE",
+        "new_missing": "SeCVideoSegmentation"
+      }
+    },
+    "pass_apps": [
+      "4510792705"
+    ],
+    "fail_apps": [
+      "3877213185"
+    ],
+    "prior_tip": "4f89e8b",
+    "prior_tip_note": "wave3 设备复测；PASS1/FAIL5 — content parent (remote)",
+    "local_stack_parent": "8f33a2c",
+    "local_stack_note": "wave4 tip 8f33a2c already local; this tip stacks on it",
+    "related_state": [
+      "public_e2e_retest_wave3_device_2026_09_11",
+      "public_e2e_wave3_2026_09_11",
+      "public_e2e_wave4_2026_09_11"
+    ],
+    "facts": [
+      "PASS rh-acc-4510792705 after VACE HIGH @ :8197",
+      "FAIL rh-acc-3877213185: PDIMAGE cleared; new missing SeCVideoSegmentation → 设备管家",
+      "Content prior tip 4f89e8b; local stack parent 8f33a2c",
+      "Related STATE public_e2e_retest_wave3_device_2026_09_11",
+      "Not shipped/online; product dirty; never stage product / .regen_tmp; no product SHA"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T10:24:00+08:00"
+  },
   "public_e2e_wave4_2026_09_11": {
     "status": "live_on_core_public_e2e_wave4_done_triaged",
     "date": "2026-09-11",

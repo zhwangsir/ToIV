@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：公开 E2E wave4；36 卡 PASS6/FAIL26/TIMEOUT4）：公开 E2E **wave4** 先前未测 **36** 卡 — **PASS 6** / **FAIL 26** / **TIMEOUT 4**；累计约 **~144 tested / 550** 公开 apps（波次 PASS ~59）；残差 — **可重试**：熔断/503/上传若干；**设备**：缺 Anything Everywhere3 / SAM3 Get Object Mask / 全局输入 / H3 文本节点 / IPAdapter FaceID LoRA；**产品候选**：LayerMask abs-path / beta57 / Qwen3_VQA HF / LoadImage toivref；前置 tip `4f89e8b`（wave3 设备复测；PASS1/FAIL5）— 本地 parent；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_wave4_done_triaged`；STATE `public_e2e_wave4_2026_09_11`；`updated_at` 2026-09-11T10:23:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-11（项目管家：451079 PASS；387721 新缺 SeCVideoSegmentation）：**PASS** `rh-acc-4510792705`（VACE HIGH 后）@ `:8197`；**FAIL** `rh-acc-3877213185` — PDIMAGE 已清，新缺 `SeCVideoSegmentation`（已转设备）；前置 tip `4f89e8b`（wave3 设备复测；PASS1/FAIL5）— 本地 stack 含 `8f33a2c`；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_451079_pass_387721_sec_device`；STATE `public_e2e_retest_451079_387721_2026_09_11`；`updated_at` 2026-09-11T10:24:00+08:00；via 项目管家（ToIV 开发）；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,15 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：451079 PASS；387721 新缺 SeCVideoSegmentation）
+- **wave3 设备残差复测（ToIV 开发；via 项目管家）**：
+  - **PASS**：`rh-acc-4510792705`（VACE HIGH 后）@ `:8197`
+  - **FAIL→设备**：`rh-acc-3877213185` — PDIMAGE 已清，新缺 `SeCVideoSegmentation`（已转设备管家）
+- **前置 tip**：`4f89e8b`（wave3 设备复测；PASS1/FAIL5）— 内容父 tip；本地 stack 另有 `8f33a2c`（wave4）。
+- **相关**：STATE `public_e2e_retest_wave3_device_2026_09_11`（451079/387721 曾仍缺；本条 451079 清、387721 换残差）。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_public_e2e_451079_pass_387721_sec_device`（非 shipped）；STATE `public_e2e_retest_451079_387721_2026_09_11`；`updated_at` 2026-09-11T10:24:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：公开 E2E wave4；36 卡 PASS6/FAIL26/TIMEOUT4）
 - **公开 E2E wave4（ToIV 开发；via 项目管家）**：先前未测 **36** 卡 — **PASS 6** / **FAIL 26** / **TIMEOUT 4**。
