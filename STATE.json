@@ -1,5 +1,59 @@
 {
-  "updated_at": "2026-09-11T10:28:00+08:00",
+  "updated_at": "2026-09-11T10:40:00+08:00",
+  "public_e2e_retest_466169_145828_2026_09_11": {
+    "status": "live_on_core_public_e2e_466169_pass_145828_seedvr2_device",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "summary": "466169 LTX distilled-lora PASS @ :8196; 145828 SeedVR2 FAIL Failed to download despite visible Comfy dir → device (node own path)",
+    "retest": {
+      "4661695490": {
+        "app": "rh-acc-4661695490",
+        "result": "PASS",
+        "port": ":8196",
+        "note": "LTX distilled-lora"
+      },
+      "1458284545": {
+        "app": "rh-acc-1458284545",
+        "result": "FAIL",
+        "hand_to": "设备管家",
+        "note": "SeedVR2 — Comfy dir visible but still Failed to download (node own path)"
+      }
+    },
+    "pass_apps": [
+      "4661695490"
+    ],
+    "fail_apps": [
+      "1458284545"
+    ],
+    "prior_tip": "3062f66",
+    "prior_tip_note": "产品 dirty 续；221805/315353 PASS — local parent",
+    "related_state": [
+      "public_e2e_wave3_2026_09_11",
+      "public_e2e_retest_product_dirty_beta57_vhs_2026_09_11"
+    ],
+    "facts": [
+      "PASS rh-acc-4661695490 LTX distilled-lora @ :8196",
+      "FAIL rh-acc-1458284545 SeedVR2: Comfy dir visible but Failed to download (node own path) → 设备管家",
+      "Prior tip 3062f66 is local parent",
+      "Related wave3 model triage SeedVR2 / LTX distilled-lora",
+      "Not shipped/online; product dirty; never stage product / .regen_tmp; no product SHA"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T10:40:00+08:00"
+  },
   "public_e2e_retest_product_dirty_beta57_vhs_2026_09_11": {
     "status": "live_on_core_dirty_product_beta57_vhs_pass2",
     "date": "2026-09-11",

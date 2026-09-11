@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：产品 dirty 续；221805/315353 PASS）：产品 dirty（**未** commit）续 — KSampler `beta57`→`beta`、VHS `skip_first_frames` 等；**PASS** `rh-acc-2218056705`、`rh-acc-3153534978`；仍跟 `426919` running；LayerMask 需 worker `models/segformer_b3_clothes` / `segformer_b2_clothes`；Qwen3_VQA 需 `LLM/Qwen3-VL-4B-Instruct`→`models/prompt_generator/`；前置 tip `a1db34c`（产品 dirty 回填；144483 PASS）— 本地 parent；无产品 SHA；本地 tip 无 push；status=`live_on_core_dirty_product_beta57_vhs_pass2`；STATE `public_e2e_retest_product_dirty_beta57_vhs_2026_09_11`；`updated_at` 2026-09-11T10:28:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-11（项目管家：466169 PASS；145828 SeedVR2 转设备）：**PASS** `rh-acc-4661695490` LTX distilled-lora @ `:8196`；**FAIL→设备** `rh-acc-1458284545` SeedVR2 — Comfy 目录可见但仍 Failed to download（节点自有路径，已转设备）；前置 tip `3062f66`（产品 dirty 续；221805/315353 PASS）— 本地 parent；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_466169_pass_145828_seedvr2_device`；STATE `public_e2e_retest_466169_145828_2026_09_11`；`updated_at` 2026-09-11T10:40:00+08:00；via 项目管家（ToIV 开发）；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,15 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：466169 PASS；145828 SeedVR2 转设备）
+- **模型残差复测（ToIV 开发；via 项目管家）**：
+  - **PASS**：`rh-acc-4661695490` LTX distilled-lora @ `:8196`
+  - **FAIL→设备**：`rh-acc-1458284545` SeedVR2 — Comfy 目录可见但仍 Failed to download（节点自有路径，已转设备管家）
+- **前置 tip**：`3062f66`（产品 dirty 续；221805/315353 PASS）— 已为本地 parent。
+- **相关**：STATE `public_e2e_wave3_2026_09_11`（模型分流曾列 SeedVR2 DiT+VAE / LTX distilled-lora 384）。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_public_e2e_466169_pass_145828_seedvr2_device`（非 shipped）；STATE `public_e2e_retest_466169_145828_2026_09_11`；`updated_at` 2026-09-11T10:40:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：产品 dirty 续；221805/315353 PASS）
 - **产品 dirty 续（ToIV 开发；via 项目管家）**：dirty（**未** git commit）— **勿 stage**。
