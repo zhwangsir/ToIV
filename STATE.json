@@ -1,5 +1,70 @@
 {
-  "updated_at": "2026-09-11T08:38:00+08:00",
+  "updated_at": "2026-09-11T08:47:00+08:00",
+  "public_e2e_retest_214347_pass_2026_09_11": {
+    "status": "live_on_core_public_e2e_214347_pass_nodes3_fails_cleared",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "summary": "214347 PASS after device DrawViTPose crop_y0 fix; wave2 nodes3 both FAILs cleared",
+    "pass_count": 1,
+    "fail_count": 0,
+    "retest": {
+      "214347": {
+        "app": "rh-acc-2143478786",
+        "result": "PASS",
+        "port": ":8197",
+        "job": "88a6c2b6…",
+        "media": "two Wanimate audio mp4 segments",
+        "note": "PASS after device DrawViTPose crop_y0 fix"
+      }
+    },
+    "pass_apps": [
+      "214347"
+    ],
+    "fail_apps": [],
+    "pass_ports": {
+      ":8197": [
+        "214347"
+      ]
+    },
+    "nodes3_fails_cleared": {
+      "417975": "already PASS in prior tip 72d158e / public_e2e_retest_wave2_nodes3_fix_2026_09_11",
+      "214347": "PASS this tip after device DrawViTPose crop_y0 fix"
+    },
+    "prior_tip": "72d158e",
+    "prior_tip_note": "wave2 nodes3 残差；417975 PASS；214347 转设备 — local parent",
+    "related_state": [
+      "public_e2e_retest_wave2_nodes3_fix_2026_09_11",
+      "public_e2e_retest_wave2_nodes3_2026_09_11",
+      "public_e2e_retest_wave2_nodes2_2026_09_11",
+      "public_e2e_retest_wave2_nodes_2026_09_11",
+      "public_e2e_wave2_2026_09_11"
+    ],
+    "related_note": "clears 214347 device residual from wave2_nodes3_fix; both nodes3 FAILs now PASS",
+    "facts": [
+      "PASS rh-acc-2143478786 after device DrawViTPose crop_y0 fix @ :8197 job=88a6c2b6…",
+      "media: two Wanimate audio mp4 segments",
+      "wave2 nodes3 two FAILs both cleared (417975 already PASS in prior tip; 214347 now PASS)",
+      "Prior tip 72d158e is local parent",
+      "Related STATE public_e2e_retest_wave2_nodes3_fix_2026_09_11 superseded for 214347 residual",
+      "Product dirty — never stage; never stage .regen_tmp",
+      "Not shipped/online; committed_product false; product_sha null"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T08:47:00+08:00"
+  },
   "public_e2e_retest_wave2_nodes3_2026_09_11": {
     "status": "live_on_core_public_e2e_wave2_nodes3_pass1_fail2",
     "date": "2026-09-11",
@@ -27,14 +92,16 @@
         "result": "FAIL",
         "note": "RMBG already present but still no media (only MathExpression/showAnything; WanAnimate/VHS did not produce)",
         "triage": "产品跟",
-        "followup": "after WanVideoModelLoader remap → DrawViTPose crop_y0 UnboundLocalError → 设备管家 (see public_e2e_retest_wave2_nodes3_fix_2026_09_11)"
+        "followup": "PASS after device DrawViTPose crop_y0 fix (see public_e2e_retest_214347_pass_2026_09_11)",
+        "cleared": true
       },
       "417975": {
         "app": "rh-acc-4179756034",
         "result": "FAIL",
         "note": "HF timeout cleared; new residual 'Config' object has no attribute 'model_type' (easy imageRemBg)",
         "triage": "产品/节点查",
-        "followup": "PASS via _normalize_easy_image_rembg (see public_e2e_retest_wave2_nodes3_fix_2026_09_11)"
+        "followup": "PASS via _normalize_easy_image_rembg (see public_e2e_retest_wave2_nodes3_fix_2026_09_11)",
+        "cleared": true
       }
     },
     "pass_apps": [
@@ -78,11 +145,12 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T08:38:00+08:00",
-    "followup_state": "public_e2e_retest_wave2_nodes3_fix_2026_09_11",
-    "followup_note": "2026-09-11 residual fix: 417975 PASS (easy imageRemBg rem_mode); 214347 FAIL→设备 DrawViTPose crop_y0; status superseded by followup",
+    "updated_at": "2026-09-11T08:47:00+08:00",
+    "followup_state": "public_e2e_retest_214347_pass_2026_09_11",
+    "followup_note": "2026-09-11: both nodes3 FAILs cleared (417975 via fix tip; 214347 via this PASS tip)",
     "followup_status": "live_on_core_dirty_wave2_nodes3_417975_pass_214347_device",
-    "superseded_by": "public_e2e_retest_wave2_nodes3_fix_2026_09_11"
+    "superseded_by": "public_e2e_retest_wave2_nodes3_fix_2026_09_11",
+    "nodes3_fails_cleared": true
   },
   "public_e2e_retest_107403_pass_2026_09_11": {
     "status": "live_on_core_public_e2e_107403_pass_trio_cleared",
@@ -10763,7 +10831,9 @@
         "result": "FAIL",
         "note": "after WanVideoModelLoader remap, new residual DrawViTPose crop_y0 UnboundLocalError",
         "triage": "设备管家",
-        "handed_to": "设备管家"
+        "handed_to": "设备管家",
+        "followup": "PASS via device DrawViTPose crop_y0 fix (see public_e2e_retest_214347_pass_2026_09_11)",
+        "cleared": true
       }
     },
     "pass_apps": [
@@ -10816,6 +10886,11 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T08:38:00+08:00"
+    "updated_at": "2026-09-11T08:47:00+08:00",
+    "followup_state": "public_e2e_retest_214347_pass_2026_09_11",
+    "followup_note": "2026-09-11: 214347 PASS after device DrawViTPose crop_y0 fix; wave2 nodes3 both FAILs cleared",
+    "followup_status": "live_on_core_public_e2e_214347_pass_nodes3_fails_cleared",
+    "superseded_by": "public_e2e_retest_214347_pass_2026_09_11",
+    "residual_cleared_in": "public_e2e_retest_214347_pass_2026_09_11"
   }
 }
