@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：022665 强制 :8196 再 PASS；SDPA）：`rh-acc-0226654210` 强制 `:8196` **再 PASS**（设备 QwenVL sm120 sageattn→SDPA 后）— job=`f7fbd951…`；log `Auto mode: Using SDPA` + FP16 override；此前 PASS @`:8193`（tip `19ce070`），本条为 :8196 再核；前置 tip `19ce070`（059347/022665 PASS @8193；107403 仍排队）— 本地 parent；产品 dirty **勿 stage** / `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_022665_8196_sdpa_pass`；STATE `public_e2e_retest_022665_8196_sdpa_2026_09_11`；`updated_at` 2026-09-11T07:58:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-11（项目管家：107403 PASS；三残差均清）：`rh-acc-1074032641` **PASS** @ `:8197` — job=`551f095d9b5b4ad4813d374d43b34c0a`；prompt=`d388d73a…`；media `视频/Name_WAN-VACE_00001.gif` + `00002.gif`；wall ~6063s（mostly queued after WanAnimate `f10ef2f0`）；先验残差 `059347`/`022665`/`107403` 均已 **PASS**；前置 tip `6310634`（022665 强制 :8196 再 PASS；SDPA）— 本地 parent；产品 dirty **勿 stage** / `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_107403_pass_trio_cleared`；STATE `public_e2e_retest_107403_pass_2026_09_11`；`updated_at` 2026-09-11T08:12:00+08:00；via 项目管家（ToIV 开发）；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,19 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：107403 PASS；三残差均清）
+- **107403 PASS；三残差均清（ToIV 开发；via 项目管家）**：
+  - `rh-acc-1074032641` **PASS** @ `:8197`
+  - job=`551f095d9b5b4ad4813d374d43b34c0a`；prompt=`d388d73a…`
+  - media：`视频/Name_WAN-VACE_00001.gif` + `00002.gif`
+  - wall clock ~6063s（mostly queued after WanAnimate `f10ef2f0`）
+  - 先验残差 `059347` / `022665` / `107403` **均已 PASS**（三残差均清）
+- **产品**：仍 dirty（已部署、**未** git commit）— **勿 stage**；勿 stage `.regen_tmp`。
+- **前置 tip**：`6310634`（022665 强制 :8196 再 PASS；SDPA）— 已为本地 parent。
+- **相关**：前置 STATE `public_e2e_retest_059347_022665_pass_2026_09_11` / `public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11`（107403 曾 QUEUED；本条清）。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_public_e2e_107403_pass_trio_cleared`（非 shipped）；STATE `public_e2e_retest_107403_pass_2026_09_11`；`updated_at` 2026-09-11T08:12:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：022665 强制 :8196 再 PASS；SDPA）
 - **022665 强制 :8196 再 PASS（ToIV 开发；via 项目管家）**：

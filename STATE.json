@@ -1,5 +1,71 @@
 {
-  "updated_at": "2026-09-11T07:58:00+08:00",
+  "updated_at": "2026-09-11T08:12:00+08:00",
+  "public_e2e_retest_107403_pass_2026_09_11": {
+    "status": "live_on_core_public_e2e_107403_pass_trio_cleared",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "retest": {
+      "107403": {
+        "app": "rh-acc-1074032641",
+        "result": "PASS",
+        "port": ":8197",
+        "job": "551f095d9b5b4ad4813d374d43b34c0a",
+        "prompt_prefix": "d388d73a…",
+        "media": [
+          "视频/Name_WAN-VACE_00001.gif",
+          "视频/Name_WAN-VACE_00002.gif"
+        ],
+        "wall_clock_s": 6063,
+        "note": "mostly queued after WanAnimate f10ef2f0"
+      }
+    },
+    "pass_apps": [
+      "107403"
+    ],
+    "pass_ports": {
+      ":8197": [
+        "107403"
+      ]
+    },
+    "trio_cleared": {
+      "059347": "PASS",
+      "022665": "PASS",
+      "107403": "PASS"
+    },
+    "trio_note": "Prior residuals 059347 / 022665 / 107403 all now PASS",
+    "prior_tip": "6310634",
+    "prior_tip_note": "022665 强制 :8196 再 PASS；SDPA — local parent",
+    "related_state": [
+      "public_e2e_retest_022665_8196_sdpa_2026_09_11",
+      "public_e2e_retest_059347_022665_pass_2026_09_11",
+      "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11"
+    ],
+    "facts": [
+      "rh-acc-1074032641 PASS @ :8197",
+      "job=551f095d9b5b4ad4813d374d43b34c0a; prompt=d388d73a…",
+      "media: 视频/Name_WAN-VACE_00001.gif + 00002.gif",
+      "wall clock ~6063s (mostly queued after WanAnimate f10ef2f0)",
+      "Prior residuals 059347 / 022665 / 107403 all now PASS — trio cleared",
+      "Product dirty — never stage; never stage .regen_tmp",
+      "Prior tip 6310634 is local parent",
+      "Not shipped/online; committed_product false; product_sha null"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T08:12:00+08:00"
+  },
   "public_e2e_retest_022665_8196_sdpa_2026_09_11": {
     "status": "live_on_core_public_e2e_022665_8196_sdpa_pass",
     "date": "2026-09-11",
@@ -87,9 +153,12 @@
       },
       "107403": {
         "app": "rh-acc-1074032641",
-        "result": "QUEUED",
+        "result": "PASS",
         "port": ":8197",
-        "note": "still queued @ :8197 after WanAnimate"
+        "was": "QUEUED",
+        "superseded_by": "public_e2e_retest_107403_pass_2026_09_11",
+        "job": "551f095d9b5b4ad4813d374d43b34c0a",
+        "note": "PASS @ :8197 — cleared by follow-up tip"
       }
     },
     "pass_apps": [
@@ -103,7 +172,7 @@
       ]
     },
     "residual_apps": {
-      "107403": "queued @ :8197 after WanAnimate"
+      "107403": "CLEARED PASS via public_e2e_retest_107403_pass_2026_09_11"
     },
     "clears_residuals_of": "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11",
     "clears_residuals_note": "Clears 059347 cublasLt and 022665 shape residuals from prior dirty retest tip 7b32907",
@@ -115,11 +184,11 @@
       "public_e2e_retest_ltx23_2026_09_11",
       "public_e2e_retest_wave2_nodes_2026_09_11"
     ],
-    "related_note": "Prior residual STATE updated: 059347/022665 now PASS; 107403 still queued",
+    "related_note": "Prior residual STATE updated: 059347/022665 PASS; 107403 now PASS (trio cleared)",
     "facts": [
       "rh-acc-0593472514 PASS @ :8193 after device AILab_QwenVL sm120+ Q8→FP16",
       "rh-acc-0226654210 PASS @ :8193 — _normalize_ltxv_dynamiccombo bare image_1 → num_guides.* + LatentUpscale x2-1.0 → 1.1",
-      "Still queued: rh-acc-1074032641 @ :8197 after WanAnimate",
+      "107403 residual CLEARED: rh-acc-1074032641 PASS @ :8197 (follow-up tip)",
       "Product dirty — never stage; never stage .regen_tmp",
       "Prior tip 7b32907 is local parent",
       "Not shipped/online; committed_product false; product_sha null"
@@ -130,7 +199,15 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T07:38:00+08:00"
+    "updated_at": "2026-09-11T07:38:00+08:00",
+    "residual_followup_107403": {
+      "by": "public_e2e_retest_107403_pass_2026_09_11",
+      "at": "2026-09-11T08:12:00+08:00",
+      "107403": "PASS @ :8197",
+      "note": "107403 residual cleared; trio 059347/022665/107403 all PASS"
+    },
+    "related_followup_state_107403": "public_e2e_retest_107403_pass_2026_09_11",
+    "updated_at_followup_107403": "2026-09-11T08:12:00+08:00"
   },
   "public_e2e_qwenvl_ltx_wan_dirty_retest_2026_09_11": {
     "status": "live_on_core_dirty_qwenvl_ltx_wan_partial_pass",
@@ -167,10 +244,12 @@
         "note": "PASS @ :8193 after device AILab_QwenVL sm120+ Q8→FP16"
       },
       "107403": {
-        "result": "QUEUED",
+        "result": "PASS",
         "port": ":8197",
-        "note": "still queued @ :8197 after WanAnimate",
-        "followup": "public_e2e_retest_059347_022665_pass_2026_09_11"
+        "was": "QUEUED",
+        "superseded_by": "public_e2e_retest_107403_pass_2026_09_11",
+        "job": "551f095d9b5b4ad4813d374d43b34c0a",
+        "note": "PASS @ :8197 — trio residuals all cleared"
       }
     },
     "pass_apps": [
@@ -179,7 +258,7 @@
       "205312"
     ],
     "residual_apps": {
-      "107403": "排队 (queue) @ :8197 after WanAnimate — still open"
+      "107403": "CLEARED PASS via public_e2e_retest_107403_pass_2026_09_11"
     },
     "true_sources_do_not_stage": [
       "public_e2e_retest_qwen3vl.json",
@@ -203,7 +282,7 @@
     "facts": [
       "Product dirty (deployed, NOT git committed): AILab_QwenVL video_frame_size; LTXV DYNAMICCOMBO image_*; Wan teacache / experimental / VAE names",
       "Retest PASS: 052027 / 293570 / 205312",
-      "Residuals still open: 022665 shape; 059347 cublasLt; 107403 排队 (queue)",
+      "Residuals cleared: 059347/022665/107403 all PASS (trio)",
       "True sources (do not stage): public_e2e_retest_qwen3vl.json; ltx_dynamiccombo; public_e2e_retest_107403.json",
       "Prior tip fbd9ac3 (011723 JoyCaption) is local parent",
       "Related prior tips: Qwen3-VL 5e2fe3d; LTX23 2dfb295; wave2 Preview-only 107403",
@@ -224,15 +303,19 @@
       "at": "2026-09-11T07:38:00+08:00",
       "059347": "PASS @ :8193 (AILab_QwenVL sm120+ Q8→FP16)",
       "022665": "PASS @ :8193 (_normalize_ltxv_dynamiccombo + LatentUpscale)",
-      "107403": "still queued @ :8197 after WanAnimate",
-      "note": "059347/022665 residuals cleared by follow-up tip; 107403 still queued"
+      "107403": "PASS @ :8197 via public_e2e_retest_107403_pass_2026_09_11",
+      "note": "059347/022665/107403 residuals all cleared; trio PASS",
+      "at_107403": "2026-09-11T08:12:00+08:00"
     },
     "residual_cleared": {
       "059347": "PASS via public_e2e_retest_059347_022665_pass_2026_09_11",
-      "022665": "PASS via public_e2e_retest_059347_022665_pass_2026_09_11"
+      "022665": "PASS via public_e2e_retest_059347_022665_pass_2026_09_11",
+      "107403": "PASS via public_e2e_retest_107403_pass_2026_09_11"
     },
     "related_followup_state": "public_e2e_retest_059347_022665_pass_2026_09_11",
-    "updated_at_followup": "2026-09-11T07:38:00+08:00"
+    "updated_at_followup": "2026-09-11T07:38:00+08:00",
+    "related_followup_state_107403": "public_e2e_retest_107403_pass_2026_09_11",
+    "updated_at_followup_107403": "2026-09-11T08:12:00+08:00"
   },
   "public_e2e_retest_011723_joycaption_2026_09_11": {
     "status": "live_on_core_public_e2e_011723_joycaption_pass",
@@ -470,12 +553,12 @@
     "pushed": false,
     "updated_at": "2026-09-11T07:09:00+08:00",
     "residual_followup_107403": {
-      "by": "public_e2e_retest_059347_022665_pass_2026_09_11",
-      "at": "2026-09-11T07:38:00+08:00",
-      "107403": "still queued @ :8197 after WanAnimate",
-      "note": "107403 residual evolved: Preview-only → 排队; still open after 059347/022665 PASS tip"
+      "by": "public_e2e_retest_107403_pass_2026_09_11",
+      "at": "2026-09-11T08:12:00+08:00",
+      "107403": "PASS @ :8197",
+      "note": "107403 residual cleared (was Preview-only → queued → PASS); trio cleared"
     },
-    "related_followup_state": "public_e2e_retest_059347_022665_pass_2026_09_11"
+    "related_followup_state": "public_e2e_retest_107403_pass_2026_09_11"
   },
   "public_e2e_retest_ltx23_2026_09_11": {
     "status": "live_on_core_public_e2e_ltx23_retest_fixing",
