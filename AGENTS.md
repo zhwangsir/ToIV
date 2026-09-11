@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：107403 PASS；三残差均清）：`rh-acc-1074032641` **PASS** @ `:8197` — job=`551f095d9b5b4ad4813d374d43b34c0a`；prompt=`d388d73a…`；media `视频/Name_WAN-VACE_00001.gif` + `00002.gif`；wall ~6063s（mostly queued after WanAnimate `f10ef2f0`）；先验残差 `059347`/`022665`/`107403` 均已 **PASS**；前置 tip `6310634`（022665 强制 :8196 再 PASS；SDPA）— 本地 parent；产品 dirty **勿 stage** / `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_107403_pass_trio_cleared`；STATE `public_e2e_retest_107403_pass_2026_09_11`；`updated_at` 2026-09-11T08:12:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-11（项目管家：wave2 nodes3；PASS1/FAIL2）：wave2 nodes3 复测（after RMBG+HF）**PASS 1 / FAIL 2** — PASS `rh-acc-2137763841` MimicPose+VACE mp4×2 @ `:8197`；FAIL `rh-acc-2143478786` RMBG 已有仍无 media（仅 MathExpression/showAnything；WanAnimate/VHS 未产出）→ 产品跟；FAIL `rh-acc-4179756034` HF timeout 已清，残差 `'Config' object has no attribute 'model_type'`（easy imageRemBg）→ 产品/节点查；前置 tip `0779810`（107403 PASS；三残差均清）— 本地 parent；相关 wave2 nodes2（RMBG/HF timeout 已转设备）；产品 dirty **勿 stage** / `.regen_tmp`；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_wave2_nodes3_pass1_fail2`；STATE `public_e2e_retest_wave2_nodes3_2026_09_11`；`updated_at` 2026-09-11T08:23:00+08:00；via 项目管家（ToIV 开发）；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,18 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：wave2 nodes3；PASS1/FAIL2）
+- **wave2 nodes3 复测（after RMBG+HF；ToIV 开发；via 项目管家）**：
+  - **PASS 1 / FAIL 2**
+  - **PASS**：`rh-acc-2137763841` MimicPose+VACE mp4×2 @ `:8197`
+  - **FAIL** `rh-acc-2143478786`：RMBG 已有仍无 media（仅 MathExpression/showAnything；WanAnimate/VHS 未产出）→ **产品跟**
+  - **FAIL** `rh-acc-4179756034`：HF timeout 已清；新残差 `'Config' object has no attribute 'model_type'`（easy imageRemBg）→ **产品/节点查**
+- **产品**：仍 dirty（已部署、**未** git commit）— **勿 stage**；勿 stage `.regen_tmp`。
+- **前置 tip**：`0779810`（107403 PASS；三残差均清）— 已为本地 parent。
+- **相关**：wave2 nodes2 tip / STATE `public_e2e_retest_wave2_nodes2_2026_09_11`（RMBG/HF timeout 曾转设备；本条为设备后复测）。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_public_e2e_wave2_nodes3_pass1_fail2`（非 shipped）；STATE `public_e2e_retest_wave2_nodes3_2026_09_11`；`updated_at` 2026-09-11T08:23:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：107403 PASS；三残差均清）
 - **107403 PASS；三残差均清（ToIV 开发；via 项目管家）**：

@@ -1,5 +1,83 @@
 {
-  "updated_at": "2026-09-11T08:12:00+08:00",
+  "updated_at": "2026-09-11T08:23:00+08:00",
+  "public_e2e_retest_wave2_nodes3_2026_09_11": {
+    "status": "live_on_core_public_e2e_wave2_nodes3_pass1_fail2",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "summary": "wave2 nodes3 retest after RMBG+HF: PASS 1 / FAIL 2",
+    "pass_count": 1,
+    "fail_count": 2,
+    "retest": {
+      "213776": {
+        "app": "rh-acc-2137763841",
+        "result": "PASS",
+        "port": ":8197",
+        "note": "MimicPose+VACE mp4×2"
+      },
+      "214347": {
+        "app": "rh-acc-2143478786",
+        "result": "FAIL",
+        "note": "RMBG already present but still no media (only MathExpression/showAnything; WanAnimate/VHS did not produce)",
+        "triage": "产品跟"
+      },
+      "417975": {
+        "app": "rh-acc-4179756034",
+        "result": "FAIL",
+        "note": "HF timeout cleared; new residual 'Config' object has no attribute 'model_type' (easy imageRemBg)",
+        "triage": "产品/节点查"
+      }
+    },
+    "pass_apps": [
+      "213776"
+    ],
+    "fail_apps": [
+      "214347",
+      "417975"
+    ],
+    "pass_ports": {
+      ":8197": [
+        "213776"
+      ]
+    },
+    "triage": {
+      "214347": "产品跟",
+      "417975": "产品/节点查"
+    },
+    "context": "after RMBG+HF (follow-up to wave2 nodes2 handed to device)",
+    "prior_tip": "0779810",
+    "prior_tip_note": "107403 PASS；三残差均清 — local parent",
+    "related_state": [
+      "public_e2e_retest_wave2_nodes2_2026_09_11",
+      "public_e2e_retest_wave2_nodes_2026_09_11",
+      "public_e2e_wave2_2026_09_11"
+    ],
+    "related_note": "wave2 nodes2: RMBG/HF timeout handed to device; this is post-device retest",
+    "facts": [
+      "wave2 nodes3 retest after RMBG+HF: PASS 1 / FAIL 2",
+      "PASS rh-acc-2137763841 MimicPose+VACE mp4×2 @ :8197",
+      "FAIL rh-acc-2143478786: RMBG already present but still no media (only MathExpression/showAnything; WanAnimate/VHS did not produce) → 产品跟",
+      "FAIL rh-acc-4179756034: HF timeout cleared; residual 'Config' object has no attribute 'model_type' (easy imageRemBg) → 产品/节点查",
+      "Prior tip 0779810 is local parent",
+      "Related STATE public_e2e_retest_wave2_nodes2_2026_09_11 (RMBG/HF timeout handed to device)",
+      "Product dirty — never stage; never stage .regen_tmp",
+      "Not shipped/online; committed_product false; product_sha null"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T08:23:00+08:00"
+  },
   "public_e2e_retest_107403_pass_2026_09_11": {
     "status": "live_on_core_public_e2e_107403_pass_trio_cleared",
     "date": "2026-09-11",
