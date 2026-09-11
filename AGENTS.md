@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：214347 PASS；wave2 nodes3 FAIL 均清）：`rh-acc-2143478786` **PASS**（设备 DrawViTPose `crop_y0` 修后）@ `:8197` job=`88a6c2b6…`；media：两段 Wanimate audio mp4；wave2 nodes3 两 FAIL 均清（417975 已在前置 tip PASS；214347 现 PASS）；前置 tip `72d158e`（wave2 nodes3 残差；417975 PASS；214347 转设备）— 本地 parent；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_214347_pass_nodes3_fails_cleared`；STATE `public_e2e_retest_214347_pass_2026_09_11`；`updated_at` 2026-09-11T08:47:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-11（项目管家：公开 E2E wave3；36 卡 PASS19/FAIL17）：公开 E2E **wave3** 先前未测 **36** 卡 — **PASS 19** / **FAIL 17** / **TIMEOUT 0**；累计约 **~120 tested / 550** 公开 apps；失败分流 — **设备**：缺 `Primitive integer [Crystools]`×3 / `easy promptLine.remove_empty_lines` / `INPAINT_ExpandMask.blur_type` / VACE weights invisible；**模型**：SeedVR2 DiT+VAE / LTX distilled-lora 384 / scheduler `beta57`（或产品 remap）；**产品**：HF ConnectTimeout/no snapshot / LayerMask absolute path 当 HF repo_id×2 / Preview-only×3 / VHS/MimicMotion empty；前置 tip `8139067`（214347 PASS；wave2 nodes3 FAIL 均清）— 本地 parent；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_wave3_done_triaged`；STATE `public_e2e_wave3_2026_09_11`；`updated_at` 2026-09-11T09:25:00+08:00；via 项目管家（ToIV 开发）；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,19 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：公开 E2E wave3；36 卡 PASS19/FAIL17）
+- **公开 E2E wave3（ToIV 开发；via 项目管家）**：先前未测 **36** 卡 — **PASS 19** / **FAIL 17** / **TIMEOUT 0**。
+- **累计进度**：约 **~120 tested / 550** 公开 apps（wave1/wave2 及后续复测累计）。
+- **真源（勿 stage）**：`public_e2e_wave3.json`（路径可能在 `.regen_tmp/...` — **仅引文件名，勿 stage**）。
+- **失败分流（已分流）**：
+  - **设备**：缺 `Primitive integer [Crystools]`×3；`easy promptLine.remove_empty_lines`；`INPAINT_ExpandMask.blur_type`；VACE weights invisible
+  - **模型**：SeedVR2 DiT+VAE；LTX distilled-lora 384；另 scheduler `beta57`（或产品 remap）
+  - **产品**：HF ConnectTimeout/no snapshot；LayerMask absolute path 当 HF repo_id×2；Preview-only×3；VHS/MimicMotion empty
+- **前置 tip**：`8139067`（214347 PASS；wave2 nodes3 FAIL 均清）— 已为本地 parent。
+- **相关**：STATE `public_e2e_wave1_2026_09_11` / `public_e2e_wave2_2026_09_11`；近期 tip `public_e2e_retest_214347_pass_2026_09_11`。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_public_e2e_wave3_done_triaged`（非 shipped）；STATE `public_e2e_wave3_2026_09_11`；`updated_at` 2026-09-11T09:25:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：214347 PASS；wave2 nodes3 FAIL 均清）
 - **214347 PASS；wave2 nodes3 FAIL 均清（ToIV 开发；via 项目管家）**：
