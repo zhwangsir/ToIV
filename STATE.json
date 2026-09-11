@@ -1,5 +1,84 @@
 {
-  "updated_at": "2026-09-11T09:25:00+08:00",
+  "updated_at": "2026-09-11T09:58:00+08:00",
+  "public_e2e_retest_wave3_device_2026_09_11": {
+    "status": "live_on_core_public_e2e_wave3_device_pass1_fail5",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "summary": "wave3 device retest — PASS 1 / FAIL 5",
+    "pass_count": 1,
+    "fail_count": 5,
+    "retest": {
+      "1126448130": {
+        "app": "rh-acc-1126448130",
+        "result": "PASS",
+        "port": ":8197"
+      }
+    },
+    "pass_apps": [
+      "1126448130"
+    ],
+    "still_missing_device": [
+      {
+        "id": "387721",
+        "missing": "PDIMAGE:LongerSize"
+      },
+      {
+        "id": "451079",
+        "missing": "VACE/…_HIGH_bf16 prefix path"
+      }
+    ],
+    "hand_to_product_default_backfill": [
+      {
+        "id": "294829",
+        "item": "easy promptLine.remove_empty_lines"
+      },
+      {
+        "id": "142022",
+        "item": "INPAINT_ExpandMask.blur_type"
+      }
+    ],
+    "also_check": [
+      {
+        "id": "144483",
+        "note": "VHS missing images/num_frames"
+      },
+      {
+        "id": "387721",
+        "note": "waiting on PDIMAGE"
+      }
+    ],
+    "prior_tip": "7865dd0",
+    "prior_tip_note": "公开 E2E wave3；36 卡 PASS19/FAIL17 — local parent",
+    "related_state": [
+      "public_e2e_wave3_2026_09_11"
+    ],
+    "related_note": "device residuals from wave3 triage retested this tip",
+    "facts": [
+      "wave3 device retest: PASS 1 / FAIL 5",
+      "PASS rh-acc-1126448130 @ :8197",
+      "Still missing device: PDIMAGE:LongerSize (387721); VACE/…_HIGH_bf16 prefix path (451079)",
+      "Hand to product default backfill: easy promptLine.remove_empty_lines (294829); INPAINT_ExpandMask.blur_type (142022)",
+      "Also check 144483 VHS missing images/num_frames; 387721 waiting on PDIMAGE",
+      "Prior tip 7865dd0 is local parent",
+      "Related STATE public_e2e_wave3_2026_09_11",
+      "Not shipped/online; product dirty; never stage product / .regen_tmp; no product SHA"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T09:58:00+08:00"
+  },
   "public_e2e_wave3_2026_09_11": {
     "status": "live_on_core_public_e2e_wave3_done_triaged",
     "date": "2026-09-11",
