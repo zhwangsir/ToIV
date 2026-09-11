@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-11（项目管家：wave3 设备复测；PASS1/FAIL5）：wave3 **设备复测** — **PASS 1** / **FAIL 5**；PASS `rh-acc-1126448130` @ `:8197`；仍缺设备 `PDIMAGE:LongerSize`(387721) / `VACE/…_HIGH_bf16` 前缀路径(451079)；交产品默认回填 `easy promptLine.remove_empty_lines`(294829) / `INPAINT_ExpandMask.blur_type`(142022)；另查 144483 VHS 缺 images/num_frames；387721 等 PDIMAGE；前置 tip `7865dd0`（公开 E2E wave3；36 卡 PASS19/FAIL17）— 本地 parent；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_wave3_device_pass1_fail5`；STATE `public_e2e_retest_wave3_device_2026_09_11`；`updated_at` 2026-09-11T09:58:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-11（项目管家：公开 E2E wave4；36 卡 PASS6/FAIL26/TIMEOUT4）：公开 E2E **wave4** 先前未测 **36** 卡 — **PASS 6** / **FAIL 26** / **TIMEOUT 4**；累计约 **~144 tested / 550** 公开 apps（波次 PASS ~59）；残差 — **可重试**：熔断/503/上传若干；**设备**：缺 Anything Everywhere3 / SAM3 Get Object Mask / 全局输入 / H3 文本节点 / IPAdapter FaceID LoRA；**产品候选**：LayerMask abs-path / beta57 / Qwen3_VQA HF / LoadImage toivref；前置 tip `4f89e8b`（wave3 设备复测；PASS1/FAIL5）— 本地 parent；无产品 SHA；本地 tip 无 push；status=`live_on_core_public_e2e_wave4_done_triaged`；STATE `public_e2e_wave4_2026_09_11`；`updated_at` 2026-09-11T10:23:00+08:00；via 项目管家（ToIV 开发）；
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 > **历史归档**：2026-08-21~09-03 全部变更叙事（含回归数据/生产实证细节）见 `.archive/AGENTS-full-20260903.md`，本文件只留活口径
 
@@ -184,6 +184,19 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（只留活口径;全史见 `.archive/AGENTS-full-20260903.md`）
+
+### 2026-09-11（项目管家：公开 E2E wave4；36 卡 PASS6/FAIL26/TIMEOUT4）
+- **公开 E2E wave4（ToIV 开发；via 项目管家）**：先前未测 **36** 卡 — **PASS 6** / **FAIL 26** / **TIMEOUT 4**。
+- **累计进度**：约 **~144 tested / 550** 公开 apps（波次 PASS ~59）。
+- **真源（勿 stage）**：`public_e2e_wave4.json`（路径可能在 `.regen_tmp/...` — **仅引文件名，勿 stage**）。
+- **残差要点（已分流）**：
+  - **可重试**：熔断 / 503 / 上传若干
+  - **设备**：缺 Anything Everywhere3；SAM3 Get Object Mask；全局输入；H3 文本节点；IPAdapter FaceID LoRA
+  - **产品候选**：LayerMask abs-path；beta57；Qwen3_VQA HF；LoadImage toivref
+- **前置 tip**：`4f89e8b`（wave3 设备复测；PASS1/FAIL5）— 已为本地 parent。
+- **相关**：STATE `public_e2e_wave3_2026_09_11` / `public_e2e_retest_wave3_device_2026_09_11`；近期 tip wave1/wave2/wave3。
+- **硬口径**：**非** shipped/online；产品仍 dirty **勿 stage**；勿 stage `.regen_tmp`；无产品 SHA；本地 tip **无 push**。
+- Status：`live_on_core_public_e2e_wave4_done_triaged`（非 shipped）；STATE `public_e2e_wave4_2026_09_11`；`updated_at` 2026-09-11T10:23:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-11（项目管家：wave3 设备复测；PASS1/FAIL5）
 - **wave3 设备复测（ToIV 开发；via 项目管家）**：**PASS 1** / **FAIL 5**。

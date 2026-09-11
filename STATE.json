@@ -1,5 +1,79 @@
 {
-  "updated_at": "2026-09-11T09:58:00+08:00",
+  "updated_at": "2026-09-11T10:23:00+08:00",
+  "public_e2e_wave4_2026_09_11": {
+    "status": "live_on_core_public_e2e_wave4_done_triaged",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "wave4": {
+      "cards": 36,
+      "pass": 6,
+      "fail": 26,
+      "timeout": 4,
+      "note": "Public E2E wave4: 36 previously untested cards — PASS 6 / FAIL 26 / TIMEOUT 4"
+    },
+    "cumulative_tested_approx": 144,
+    "total_public": 550,
+    "wave_pass_approx": 59,
+    "cumulative_note": "≈ ~144 tested / 550 public apps; wave PASS ~59 (wave1–wave4)",
+    "failure_triage": {
+      "可重试": [
+        "熔断",
+        "503",
+        "上传若干"
+      ],
+      "设备": [
+        "Anything Everywhere3",
+        "SAM3 Get Object Mask",
+        "全局输入",
+        "H3 文本节点",
+        "IPAdapter FaceID LoRA"
+      ],
+      "产品候选": [
+        "LayerMask abs-path",
+        "beta57",
+        "Qwen3_VQA HF",
+        "LoadImage toivref"
+      ]
+    },
+    "true_sources_do_not_stage": [
+      "public_e2e_wave4.json"
+    ],
+    "true_sources_note": "Under .regen_tmp/.../public_e2e_wave4.json — cite filename only; may or may not exist on disk yet; do not stage",
+    "prior_tip": "4f89e8b",
+    "prior_tip_note": "wave3 设备复测；PASS1/FAIL5 — local parent",
+    "prior_state": "public_e2e_retest_wave3_device_2026_09_11",
+    "related_state": [
+      "public_e2e_wave3_2026_09_11",
+      "public_e2e_retest_wave3_device_2026_09_11",
+      "public_e2e_wave1_2026_09_11",
+      "public_e2e_wave2_2026_09_11"
+    ],
+    "facts": [
+      "Public E2E wave4: 36 previously untested — PASS 6 / FAIL 26 / TIMEOUT 4",
+      "Cumulative ≈ ~144 tested / 550 public apps; wave PASS ~59",
+      "True source (do not stage): public_e2e_wave4.json",
+      "Residuals — 可重试: 熔断/503/上传若干; 设备: Anything Everywhere3 / SAM3 Get Object Mask / 全局输入 / H3 文本节点 / IPAdapter FaceID LoRA; 产品候选: LayerMask abs-path / beta57 / Qwen3_VQA HF / LoadImage toivref",
+      "Prior tip 4f89e8b (wave3 设备复测；PASS1/FAIL5) is local parent",
+      "Related: public_e2e_wave3_2026_09_11 / public_e2e_retest_wave3_device_2026_09_11 / wave1 / wave2",
+      "Not shipped/online; product dirty; never stage product / .regen_tmp; no product SHA"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "public_e2e_wave4.json"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T10:23:00+08:00"
+  },
   "public_e2e_retest_wave3_device_2026_09_11": {
     "status": "live_on_core_public_e2e_wave3_device_pass1_fail5",
     "date": "2026-09-11",
