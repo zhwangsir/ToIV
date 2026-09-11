@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-11T08:23:00+08:00",
+  "updated_at": "2026-09-11T08:38:00+08:00",
   "public_e2e_retest_wave2_nodes3_2026_09_11": {
     "status": "live_on_core_public_e2e_wave2_nodes3_pass1_fail2",
     "date": "2026-09-11",
@@ -26,13 +26,15 @@
         "app": "rh-acc-2143478786",
         "result": "FAIL",
         "note": "RMBG already present but still no media (only MathExpression/showAnything; WanAnimate/VHS did not produce)",
-        "triage": "产品跟"
+        "triage": "产品跟",
+        "followup": "after WanVideoModelLoader remap → DrawViTPose crop_y0 UnboundLocalError → 设备管家 (see public_e2e_retest_wave2_nodes3_fix_2026_09_11)"
       },
       "417975": {
         "app": "rh-acc-4179756034",
         "result": "FAIL",
         "note": "HF timeout cleared; new residual 'Config' object has no attribute 'model_type' (easy imageRemBg)",
-        "triage": "产品/节点查"
+        "triage": "产品/节点查",
+        "followup": "PASS via _normalize_easy_image_rembg (see public_e2e_retest_wave2_nodes3_fix_2026_09_11)"
       }
     },
     "pass_apps": [
@@ -76,7 +78,11 @@
     ],
     "agents_md": "updated",
     "pushed": false,
-    "updated_at": "2026-09-11T08:23:00+08:00"
+    "updated_at": "2026-09-11T08:38:00+08:00",
+    "followup_state": "public_e2e_retest_wave2_nodes3_fix_2026_09_11",
+    "followup_note": "2026-09-11 residual fix: 417975 PASS (easy imageRemBg rem_mode); 214347 FAIL→设备 DrawViTPose crop_y0; status superseded by followup",
+    "followup_status": "live_on_core_dirty_wave2_nodes3_417975_pass_214347_device",
+    "superseded_by": "public_e2e_retest_wave2_nodes3_fix_2026_09_11"
   },
   "public_e2e_retest_107403_pass_2026_09_11": {
     "status": "live_on_core_public_e2e_107403_pass_trio_cleared",
@@ -10728,5 +10734,88 @@
     "pushed": false,
     "updated_at": "2026-09-10T06:06:30+08:00",
     "note": "MODEL_SOURCES ok461/blocked343/total804 after v16 non-H3 download batch (长尾一批)"
+  },
+  "public_e2e_retest_wave2_nodes3_fix_2026_09_11": {
+    "status": "live_on_core_dirty_wave2_nodes3_417975_pass_214347_device",
+    "date": "2026-09-11",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "summary": "wave2 nodes3 residual product fix: 417975 PASS; 214347 FAIL→设备 (DrawViTPose crop_y0)",
+    "pass_count": 1,
+    "fail_count": 1,
+    "retest": {
+      "417975": {
+        "app": "rh-acc-4179756034",
+        "result": "PASS",
+        "port": ":8197",
+        "job": "ad581aea…",
+        "note": "_normalize_easy_image_rembg rem_mode RMBG-2.0→1.4"
+      },
+      "214347": {
+        "app": "rh-acc-2143478786",
+        "result": "FAIL",
+        "note": "after WanVideoModelLoader remap, new residual DrawViTPose crop_y0 UnboundLocalError",
+        "triage": "设备管家",
+        "handed_to": "设备管家"
+      }
+    },
+    "pass_apps": [
+      "417975"
+    ],
+    "fail_apps": [
+      "214347"
+    ],
+    "pass_ports": {
+      ":8197": [
+        "417975"
+      ]
+    },
+    "triage": {
+      "214347": "设备管家"
+    },
+    "handed_to": "设备管家",
+    "handed_note": "214347 DrawViTPose crop_y0 UnboundLocalError after WanVideoModelLoader remap",
+    "dirty_product": {
+      "file": "apps.py",
+      "items": [
+        "_normalize_wan_video_model_loader",
+        "_normalize_easy_image_rembg"
+      ],
+      "committed": false,
+      "note": "dirty not committed — never stage"
+    },
+    "prior_tip": "d43956d",
+    "prior_tip_note": "wave2 nodes3；PASS1/FAIL2 — local parent",
+    "related_state": [
+      "public_e2e_retest_wave2_nodes3_2026_09_11",
+      "public_e2e_retest_wave2_nodes2_2026_09_11",
+      "public_e2e_retest_wave2_nodes_2026_09_11",
+      "public_e2e_wave2_2026_09_11"
+    ],
+    "related_note": "follow-up residual fix after nodes3 PASS1/FAIL2; 417975 cleared; 214347 new device residual",
+    "facts": [
+      "PASS rh-acc-4179756034: _normalize_easy_image_rembg rem_mode RMBG-2.0→1.4 @ :8197 job=ad581aea…",
+      "FAIL→设备 rh-acc-2143478786: after WanVideoModelLoader remap, new residual DrawViTPose crop_y0 UnboundLocalError — handed to 设备管家",
+      "dirty (not committed): apps.py _normalize_wan_video_model_loader + _normalize_easy_image_rembg — never stage",
+      "Prior tip d43956d is local parent",
+      "Related STATE public_e2e_retest_wave2_nodes3_2026_09_11 updated as superseded baseline",
+      "Product dirty — never stage; never stage .regen_tmp",
+      "Not shipped/online; committed_product false; product_sha null"
+    ],
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty",
+      "apps.py"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "updated_at": "2026-09-11T08:38:00+08:00"
   }
 }
