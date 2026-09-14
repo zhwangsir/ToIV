@@ -186,4 +186,140 @@ async def test_submit_uses_picked_instance(monkeypatch):
         # 清理
         s.delete(job)
         s.delete(user)
-        s.commit()
+        s.commit
+
+
+# ── h3_worker_status(:8198 未就绪优雅降级 + 队列深度暴露)──────────────────
+
+
+class _StatusClient:
+    def __init__(self, base_url: str, running: int = 0, pending: int = 0,
+                 fail: bool = False, has_node: bool = True):
+        self.base_url = base_url
+        self._counts = (running, pending)
+        self._fail = fail
+        self._has_node = has_node
+
+    async def queue_counts(self):
+        if self._fail:
+            raise ConnectionError("down")
+        await asyncio.sleep(0)
+        return self._counts
+
+    async def object_info(self, node):
+        if not self._has_node:
+            raise ConnectionError("no node")
+        await asyncio.sleep(0)
+        return {node: {}}
+
+
+def _patch_status_clients(monkeypatch, urls: str, clients: dict):
+    _patch_instances(monkeypatch, urls)
+    monkeypatch.setattr(
+        h3_service, "ComfyUIClient",
+        lambda url, timeout=None: clients[url],
+    )
+    return clients
+
+
+def test_worker_status_single_instance_fallback(monkeypatch):
+    """env 未配(空 h3_base_urls)→ 状态列表只有单实例(:8195),零行为变化。"""
+    clients = _patch_status_clients(
+        monkeypatch, "",
+        {"http://h3-a:8195": _StatusClient("http://h3-a:8195", running=1, pending=2)},
+    )
+    rows = asyncio.run(h3_service.h3_worker_status())
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["url"] == "http://h3-a:8195" and row["healthy"] is True
+    assert row["queue_running"] == 1 and row["queue_pending"] == 2
+    assert row["queue_total"] == 3 and row["h3_node"] is True
+
+
+def test_worker_status_dead_instance_marked_not_raised(monkeypatch):
+    """双 worker 池::8198 探测失败 → healthy=false + error,不抛异常;:8195 正常。"""
+    _patch_status_clients(
+        monkeypatch,
+        "http://h3-a:8195,http://h3-b:8198",
+        {
+            "http://h3-a:8195": _StatusClient("http://h3-a:8195", running=0, pending=1),
+            "http://h3-b:8198": _StatusClient("http://h3-b:8198", fail=True),
+        },
+    )
+    rows = asyncio.run(h3_service.h3_worker_status())
+    assert len(rows) == 2
+    by_url = {r["url"]: r for r in rows}
+    assert by_url["http://h3-a:8195"]["healthy"] is True
+    assert by_url["http://h3-a:8195"]["queue_total"] == 1
+    dead = by_url["http://h3-b:8198"]
+    assert dead["healthy"] is False and dead["queue_total"] is None
+    assert dead["error"] and dead["h3_node"] is None
+
+
+def test_worker_status_missing_h3_node_flagged(monkeypatch):
+    """实例在线但缺 H3 节点(如 PC01 实例模型未挂完)→ h3_node=false,仍算 healthy。"""
+    _patch_status_clients(
+        monkeypatch,
+        "http://h3-a:8195,http://h3-b:8198",
+        {
+            "http://h3-a:8195": _StatusClient("http://h3-a:8195"),
+            "http://h3-b:8198": _StatusClient("http://h3-b:8198", has_node=False),
+        },
+    )
+    rows = asyncio.run(h3_service.h3_worker_status())
+    by_url = {r["url"]: r for r in rows}
+    assert by_url["http://h3-b:8198"]["healthy"] is True
+    assert by_url["http://h3-b:8198"]["h3_node"] is False
+
+
+# ── resolve_worker:双池作业产物取回(第二实例 URL 必须在白名单)────────────
+
+
+def _patch_deps_settings(monkeypatch):
+    """deps.resolve_worker 用的 settings 桩:空 pool 白名单 + 短超时。"""
+    from app import deps as deps_mod
+
+    class _DS:
+        worker_urls: list = []
+        request_timeout = 5.0
+
+    monkeypatch.setattr(deps_mod, "get_settings", lambda: _DS())
+    return deps_mod
+
+
+def test_resolve_worker_accepts_second_h3_instance(monkeypatch):
+    """Job.worker=:8198(第二实例)时产物取回不被判「未知的 worker」(2026-09-13 双池)。"""
+    deps_mod = _patch_deps_settings(monkeypatch)
+    _patch_instances(monkeypatch, "http://h3-a:8195,http://h3-b:8198")
+    c = deps_mod.resolve_worker("http://h3-b:8198")
+    assert c.base_url == "http://h3-b:8198"
+    c1 = deps_mod.resolve_worker("http://h3-a:8195/")
+    assert c1.base_url == "http://h3-a:8195"
+
+
+def test_resolve_worker_rejects_unknown_still(monkeypatch):
+    """未知 worker 仍 400(SSRF 白名单不放宽)。"""
+    import fastapi
+    deps_mod = _patch_deps_settings(monkeypatch)
+    _patch_instances(monkeypatch, "http://h3-a:8195,http://h3-b:8198")
+    with pytest.raises(fastapi.HTTPException) as ei:
+        deps_mod.resolve_worker("http://evil.example:9999")
+    assert ei.value.status_code == 400
+
+
+# ── upload 钉传跟 pick 一致(kind=h3_i2v)───────────────────────────────────
+
+
+def test_upload_h3_i2v_follows_picked_worker(monkeypatch):
+    """kind=h3_i2v 上传目标 = pick_h3_client()(least-loaded),不再钉死首实例。"""
+    from app.routes import upload as upload_mod
+
+    picked = _FakeClient("http://h3-b:8198")
+
+    async def _fake_pick():
+        return picked
+
+    _patch_instances(monkeypatch, "http://h3-a:8195,http://h3-b:8198")
+    monkeypatch.setattr(h3_service, "pick_h3_client", _fake_pick)
+    got = asyncio.run(upload_mod._pick_dedicated_upload_client("h3_i2v"))
+    assert got is picked

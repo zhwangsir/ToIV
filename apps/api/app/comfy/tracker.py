@@ -204,6 +204,44 @@ def _history_error_reason(entry: dict) -> str:
     return "ComfyUI 执行失败(status_str=error,无明细)"
 
 
+
+_SAVE_OR_COMBINE_TYPES = frozenset({
+    "VHS_VideoCombine", "SaveImage", "SaveVideo", "CreateVideo", "SaveAnimatedWEBP",
+})
+
+
+def _save_nodes_skipped_with_preview_only(entry: dict) -> bool:
+    """Comfy 在部分 output 校验失败时仍会 success,只跑 Preview*/PreviewAny。
+
+    图内若有 VHS_VideoCombine/Save* 却没有任何保存节点落入 history.outputs,
+    则 Preview 的 temp 图不能当作业成功(否则视频应用会「done」但无成片)。
+    """
+    prompt = entry.get("prompt")
+    if not isinstance(prompt, list) or len(prompt) < 3:
+        return False
+    graph = prompt[2]
+    if not isinstance(graph, dict):
+        return False
+    save_ids = [
+        str(nid)
+        for nid, node in graph.items()
+        if isinstance(node, dict) and node.get("class_type") in _SAVE_OR_COMBINE_TYPES
+    ]
+    if not save_ids:
+        return False
+    outputs = entry.get("outputs") or {}
+    for nid in save_ids:
+        node_out = outputs.get(nid)
+        if not isinstance(node_out, dict):
+            continue
+        for value in node_out.values():
+            if not isinstance(value, list):
+                continue
+            if any(isinstance(item, dict) and item.get("filename") for item in value):
+                return False
+    return True
+
+
 async def _poll_once(client: ComfyUIClient, prompt_id: str) -> str | None:
     """查一次 history。完成→落库返回 'done';执行出错→标 error;未完成→None。"""
     try:
@@ -229,6 +267,13 @@ async def _poll_once(client: ComfyUIClient, prompt_id: str) -> str | None:
                         }
                     )
     if files:
+        if _save_nodes_skipped_with_preview_only(entry):
+            mark_status(
+                prompt_id,
+                "error",
+                "主保存节点未产出文件(Comfy 可能因校验失败只执行了 Preview)",
+            )
+            return "error"
         mark_done(prompt_id, [image_url(client.base_url, f) for f in files])
         return "done"
     if status.get("status_str") == "error":

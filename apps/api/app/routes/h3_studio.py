@@ -29,6 +29,7 @@ from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.workflows.video_upscale import validate_resolution_target
 from app.services import h3 as h3_service
+from app.services import h3_accel
 from app.services import multishot_protocol as multishot
 from app.services import video_generators as vgen
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
@@ -144,6 +145,13 @@ class H3T2VRequest(BaseModel):
     resolution_target: str | None = Field(default=None, max_length=8)
     # 显式 R18 意图(h3-nsfw-t2v / h3-nsfw-i2v)。专页头不能单独把普通 H3 打进成人库。
     nsfw: bool = False
+    # H3 智能加速档(2026-09-12):off|lossless|balanced|extreme;规格文件缺失时按原生提交
+    acceleration: str = Field(default="off", max_length=16)
+
+    @field_validator("acceleration")
+    @classmethod
+    def _v_acceleration(cls, v: str) -> str:
+        return h3_accel.validate_acceleration(v)
 
     @field_validator("effect_preset")
     @classmethod
@@ -247,6 +255,7 @@ def _route_extend_submit(
             filename_prefix="ToIV_h3/extend",
         )
         graph = build_h3_i2v_graph(p)
+        graph, _ = _accel_transform(graph, getattr(req, "acceleration", "off"))
         with Session(db_engine) as s2:
             fresh_user = s2.get(User, owner_id) or user
             res = await h3_service.submit_h3_job(
@@ -263,6 +272,45 @@ def _safe_media_name(v: str) -> str:
     if ".." in name or name.startswith("/"):
         raise ValueError("文件名不允许路径穿越")
     return name
+
+
+def _accel_transform(graph: dict, level: str) -> tuple[dict, bool]:
+    """H3 智能加速改写(2026-09-12):off 零行为变化;规格缺失时降级原生提交。"""
+    if not level or level == "off":
+        return graph, False
+    return h3_accel.apply_acceleration(graph, level)
+
+
+def _accel_echo(result: dict, level: str, applied: bool) -> dict:
+    """响应与 Job 回显:请求档位 + 实际生效(降级时为 false)。"""
+    result["acceleration"] = level or "off"
+    result["acceleration_applied"] = bool(applied)
+    return result
+
+
+# ──────────────────────────────────────────────────────────────
+# GET /api/h3/acceleration/profiles —— 智能加速档位摘要(前端选择器)
+# ──────────────────────────────────────────────────────────────
+
+@router.get("/h3/acceleration/profiles")
+async def h3_acceleration_profiles(user: User = Depends(get_current_user)) -> dict:
+    """档位清单:实测倍率优先(规格文件可读),缺失档位回落社区参考值并注明 source。
+
+    附 workers 键:H3 worker 池状态(列表+队列深度+健康),前端 H3 卡可选展示;
+    未就绪实例 healthy=false,调度自动跳过。
+    """
+    data = h3_accel.profile_summaries()
+    data["workers"] = await h3_service.h3_worker_status()
+    return data
+
+
+@router.get("/h3/workers")
+async def h3_workers(user: User = Depends(get_current_user)) -> dict:
+    """H3 worker 池状态:每实例 URL + 队列深度(running/pending)+ 健康 + H3 节点有无。
+
+    纯探测零副作用;某实例(:8198)未就绪 → healthy=false + error,提交调度不受影响。
+    """
+    return {"workers": await h3_service.h3_worker_status()}
 
 
 class H3I2VRequest(H3T2VRequest):
@@ -380,6 +428,7 @@ async def generate_h3_t2v(
         )
         graph = build_h3_t2v_graph(params)
         kind = "h3_t2v"
+    graph, accel_applied = _accel_transform(graph, req.acceleration)
     result = await h3_service.submit_h3_job(
         graph, kind=kind, positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=h3_client,
@@ -387,8 +436,10 @@ async def generate_h3_t2v(
         nsfw=nsfw,
         snapshot_extra={
             "loras": snapshot_loras(picks), "lora_mode": lora_mode, "lora_reason": lora_reason,
+            "acceleration": req.acceleration, "acceleration_applied": accel_applied,
         },
     )
+    _accel_echo(result, req.acceleration, accel_applied)
     result["loras"] = snapshot_loras(picks)
     result["lora_mode"] = lora_mode
     result["lora_reason"] = lora_reason
@@ -450,6 +501,13 @@ class H3MultiShotRequest(BaseModel):
     entity_ids: list[str] | None = Field(default=None, max_length=9)  # H3 官方全能参考(Ref2VA)上限 9 图
     # 显式 R18 意图。专页头不能单独把多镜头打进成人库;组装 inner t2v 时原样拷贝。
     nsfw: bool = False
+    # H3 智能加速档(2026-09-12):与 t2v 同一语义,委托时原样拷贝进 inner t2v 请求
+    acceleration: str = Field(default="off", max_length=16)
+
+    @field_validator("acceleration")
+    @classmethod
+    def _v_acceleration(cls, v: str) -> str:
+        return h3_accel.validate_acceleration(v)
 
     @field_validator("effect_preset")
     @classmethod
@@ -519,6 +577,7 @@ async def generate_h3_multishot(
         resolution_target=req.resolution_target,
         entity_ids=req.entity_ids,
         nsfw=req.nsfw,
+        acceleration=req.acceleration,
     )
     t2v_req = _apply_effect(t2v_req)
     # 主体引用注入(与 t2v 同层同序:effect 之后,@图片N 恒在绝对开头)
@@ -544,6 +603,7 @@ async def generate_h3_multishot(
         **({"seed": t2v_req.seed} if t2v_req.seed is not None else {}),
     )
     graph = build_h3_t2v_graph(params)
+    graph, accel_applied = _accel_transform(graph, req.acceleration)
     result = await h3_service.submit_h3_job(
         graph, kind="h3_multishot", positive=params.positive, seed=params.seed,
         # params 快照存多镜头计划(shots + total_duration,精确重生的事实源)
@@ -551,8 +611,10 @@ async def generate_h3_multishot(
         nsfw=nsfw,  # 仅显式意图打标(同 t2v);nsfw 已拷进 inner t2v_req
         snapshot_extra={
             "loras": snapshot_loras(picks), "lora_mode": lora_mode, "lora_reason": lora_reason,
+            "acceleration": req.acceleration, "acceleration_applied": accel_applied,
         },
     )
+    _accel_echo(result, req.acceleration, accel_applied)
     result["loras"] = snapshot_loras(picks)
     result["lora_mode"] = lora_mode
     result["lora_reason"] = lora_reason
@@ -616,14 +678,17 @@ async def generate_h3_i2v(
     )
     graph = build_h3_i2v_graph(params)
     kind = "h3_fl2v" if last_name else "h3_i2v"
+    graph, accel_applied = _accel_transform(graph, req.acceleration)
     result = await h3_service.submit_h3_job(
         graph, kind=kind, positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
         nsfw=nsfw,  # 仅显式意图打标(同 t2v)
         snapshot_extra={
             "loras": snapshot_loras(picks), "lora_mode": lora_mode, "lora_reason": lora_reason,
+            "acceleration": req.acceleration, "acceleration_applied": accel_applied,
         },
     )
+    _accel_echo(result, req.acceleration, accel_applied)
     result["loras"] = snapshot_loras(picks)
     result["lora_mode"] = lora_mode
     result["lora_reason"] = lora_reason
@@ -699,15 +764,18 @@ async def generate_h3_r2v(
         graph = build_h3_r2v_graph(params)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+    graph, accel_applied = _accel_transform(graph, req.acceleration)
     result = await h3_service.submit_h3_job(
         graph, kind="h3_r2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
         nsfw=nsfw,
         snapshot_extra={
             "loras": snapshot_loras(picks), "lora_mode": lora_mode, "lora_reason": lora_reason,
+            "acceleration": req.acceleration, "acceleration_applied": accel_applied,
         },
         h3_node=H3_R2V_NODE,
     )
+    _accel_echo(result, req.acceleration, accel_applied)
     result["loras"] = snapshot_loras(picks)
     result["lora_mode"] = lora_mode
     result["lora_reason"] = lora_reason

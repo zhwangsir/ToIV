@@ -14,9 +14,12 @@
     调用方仍传 negative:节点没有该字段时折进 prompt 末尾「Avoid: …」
     (H3 单条件模型,这是唯一能起作用的路径);模板若已有 negative_prompt
     则写入节点、不再折进 prompt(见 _inject_common / _fold_negative)
-  · MiniMaxH3ReferenceToVideo(Ref2VA)另需 audio_vae + 1-based 参考槽
-    ref_image_1..9 / ref_video_1..3 / ref_video_audio_1..3 / ref_audio_1..3。
-    SFW 底模是 Ref2VA UNET,不是模板里的 FL2VA。
+  · MiniMaxH3ReferenceToVideo(Ref2VA)另需 audio_vae + COMFY_AUTOGROW_V3 参考槽。
+    API 键为 0-based 点号形式(真机 object_info / scripts/eval/r2v_eval.py):
+    ref_images.ref_image_0..8 / ref_videos.ref_video_0..2 /
+    ref_video_audios.ref_video_audio_0..2 / ref_audios.ref_audio_0..2。
+    提示词标签仍 1-based(<Picture 1> 对应 ref_image_0)。裸 ref_image_1 会被
+    节点 TypeError: unexpected keyword。SFW 底模是 Ref2VA UNET,不是 FL2VA。
 """
 from __future__ import annotations
 
@@ -46,9 +49,9 @@ _NODE_CLIP = "13"
 _NODE_VAE = "11"
 
 # r2v 参考加载节点:避开模板 6-104、i2v/fl2v 的 100/101、LoRA 200+
-_R2V_IMAGE_BASE = 110  # LoadImage 110-118 → ref_image_1..9
-_R2V_VIDEO_BASE = 120  # LoadVideo+GetVideoComponents 成对:120/121,122/123,124/125
-_R2V_AUDIO_BASE = 130  # LoadAudio 130-132 → ref_audio_1..3
+_R2V_IMAGE_BASE = 110  # LoadImage 110-118 → ref_images.ref_image_0..8
+_R2V_VIDEO_BASE = 120  # LoadVideo+GetVideoComponents 成对:120/121,122/123,124/125 → ref_video_0..2
+_R2V_AUDIO_BASE = 130  # LoadAudio 130-132 → ref_audios.ref_audio_0..2
 
 # SFW Ref2VA UNET:与 FL2VA 模板(minimax_h3_fl2va_pruned_int8_convrot)不同。
 # 文件名来自评测 scripts/eval/r2v_eval.py 与 Comfy 2026 文档;NAS 三件套含 ref2va。
@@ -248,22 +251,75 @@ def build_h3_r2v_graph(params: H3R2VParams) -> dict:
         },
     }
     h3_in = graph[_NODE_H3]["inputs"]
-    for i, name in enumerate(images, start=1):
-        nid = str(_R2V_IMAGE_BASE + i - 1)
+    # COMFY_AUTOGROW_V3: API 用 group.slot_0 点号键(0-based);裸 ref_image_1 会 TypeError。
+    for i, name in enumerate(images):
+        nid = str(_R2V_IMAGE_BASE + i)
         graph[nid] = {"class_type": "LoadImage", "inputs": {"image": name}}
-        h3_in[f"ref_image_{i}"] = [nid, 0]
-    for i, name in enumerate(videos, start=1):
-        load_id = str(_R2V_VIDEO_BASE + (i - 1) * 2)
-        split_id = str(_R2V_VIDEO_BASE + (i - 1) * 2 + 1)
+        h3_in[f"ref_images.ref_image_{i}"] = [nid, 0]
+    for i, name in enumerate(videos):
+        load_id = str(_R2V_VIDEO_BASE + i * 2)
+        split_id = str(_R2V_VIDEO_BASE + i * 2 + 1)
         graph[load_id] = {"class_type": "LoadVideo", "inputs": {"file": name}}
         graph[split_id] = {"class_type": "GetVideoComponents", "inputs": {"video": [load_id, 0]}}
-        h3_in[f"ref_video_{i}"] = [split_id, 0]
-        h3_in[f"ref_video_audio_{i}"] = [split_id, 1]
-    for i, name in enumerate(audios, start=1):
-        nid = str(_R2V_AUDIO_BASE + i - 1)
+        h3_in[f"ref_videos.ref_video_{i}"] = [split_id, 0]
+        h3_in[f"ref_video_audios.ref_video_audio_{i}"] = [split_id, 1]
+    for i, name in enumerate(audios):
+        nid = str(_R2V_AUDIO_BASE + i)
         graph[nid] = {"class_type": "LoadAudio", "inputs": {"audio": name}}
-        h3_in[f"ref_audio_{i}"] = [nid, 0]
+        h3_in[f"ref_audios.ref_audio_{i}"] = [nid, 0]
 
     _inject_common(graph, params)
     _inject_loras(graph, params.loras)
+    return graph
+
+
+# 裸 1-based 槽名 → AUTOGROW 点号 0-based(RH 导出 / 旧 builder 常见)
+# 更长前缀在前,避免 ref_video_ 误匹配 ref_video_audio_*
+_R2V_BARE_TO_AUTOGROW = (
+    ("ref_video_audio_", "ref_video_audios.ref_video_audio_", 1),
+    ("ref_image_", "ref_images.ref_image_", 1),
+    ("ref_video_", "ref_videos.ref_video_", 1),
+    ("ref_audio_", "ref_audios.ref_audio_", 1),
+)
+
+
+def normalize_h3_r2v_autogrow_inputs(graph: dict) -> dict:
+    """把 MiniMaxH3ReferenceToVideo 上的裸 ref_image_N 改写为 ref_images.ref_image_{N-1}。
+
+    真机节点 optional 是 COMFY_AUTOGROW_V3(prefix=ref_image_, min=0);API 提交必须用
+    group.slot 点号键。裸 ref_image_1 会 TypeError: unexpected keyword。已是点号键的
+    不动(含 0-based 评测图与少数 RH 1-based 点号图——后者若仍失败另案处理)。
+    """
+    if not isinstance(graph, dict):
+        return graph
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        if node.get("class_type") != "MiniMaxH3ReferenceToVideo":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        remaps: list[tuple[str, str]] = []
+        for key in list(inputs.keys()):
+            if not isinstance(key, str) or "." in key:
+                continue
+            for bare_prefix, dotted_prefix, one_based in _R2V_BARE_TO_AUTOGROW:
+                if not key.startswith(bare_prefix):
+                    continue
+                suffix = key[len(bare_prefix):]
+                if not suffix.isdigit():
+                    continue
+                n = int(suffix)
+                idx = n - one_based if one_based else n
+                if idx < 0:
+                    continue
+                remaps.append((key, f"{dotted_prefix}{idx}"))
+                break
+        for old, new in remaps:
+            if new in inputs and old != new:
+                # 已有正确键时丢掉裸键,避免重复喂同一槽
+                inputs.pop(old, None)
+            else:
+                inputs[new] = inputs.pop(old)
     return graph

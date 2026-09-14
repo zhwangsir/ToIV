@@ -94,6 +94,33 @@ def _validate_upload(filename: str | None, content_type: str | None, content: by
     return ext
 
 
+
+async def _pick_dedicated_upload_client(kind: str):
+    """市场/工作室 上传 kind → 专用实例客户端;非专用 kind 返回 None 走 pool.pick。
+
+    h3_i2v / wan_animate / wan_vace / avatar / wan_animate2 的 required_models 为空,
+    旧逻辑会 pool.pick 任意通用机,而 /api/apps/{id}/run 会派到 :8195/:8197/:8199,
+    导致 Invalid image file。直传到专用机与 run 同机。
+    """
+    try:
+        if kind == "h3_i2v":
+            # 双 worker 池(2026-09-13):跟提交同一 least-loaded 入口,上传落点
+            # 即当时队列最短实例;提交侧 pick 若改选他实例,由转运兜底,不报错。
+            # pick 内部对不可达实例自动降级(全挂回退首实例),未就绪零影响。
+            from app.services.h3 import pick_h3_client
+            return await pick_h3_client()
+        if kind in ("wan_animate", "wan_vace", "avatar"):
+            from app.services.longcat import get_longcat_client
+            return get_longcat_client()
+        if kind == "wan_animate2":
+            from app.services.wan_animate2 import get_animate2_client
+            return get_animate2_client()
+    except Exception:
+        # 配置缺失/导入失败 → 回退 pool,由 run 侧转运兜底
+        return None
+    return None
+
+
 @router.post("/upload")
 async def upload_image(
     image: UploadFile,
@@ -143,10 +170,17 @@ async def upload_image(
         if req_nodes and not req_nodes.issubset(await client.node_names()):
             raise HTTPException(status_code=503, detail="指定 worker 缺少该任务所需节点")
     else:
-        try:
-            client = await pool.pick(required=required_models(kind), required_nodes=required_nodes(kind))
-        except ComfyUIError as e:
-            raise HTTPException(status_code=503, detail=str(e)) from e
+        # 专用引擎 kind:直接落到专用实例(不在 WorkerPool / all_workers)。
+        # 市场 AppRunner 用 appUploadKind → 这些 kind;studio 原先 pool 落盘再 transfer,
+        # 直传后 studio transfer 变为同机读回,行为兼容。市场 /run 另有同机兜底转运。
+        client = await _pick_dedicated_upload_client(kind)
+        if client is None:
+            try:
+                client = await pool.pick(
+                    required=required_models(kind), required_nodes=required_nodes(kind)
+                )
+            except ComfyUIError as e:
+                raise HTTPException(status_code=503, detail=str(e)) from e
     try:
         name = await client.upload_image(content, image.filename or "upload.png")
     except ComfyUIError as e:

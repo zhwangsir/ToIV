@@ -90,6 +90,9 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     # 应用市场 RunningHub 化(2026-09-06):App 封面/作者列(纯展示元数据)
     ("app", "cover_url", "cover_url VARCHAR NOT NULL DEFAULT ''"),
     ("app", "author", "author VARCHAR NOT NULL DEFAULT ''"),
+    # 市场策展层(2026-09-12):用途分类 + 精选合集位(BOOLEAN 默认值必须 FALSE,PG 不认 0)
+    ("app", "use_case", "use_case VARCHAR NOT NULL DEFAULT ''"),
+    ("app", "featured", "featured BOOLEAN NOT NULL DEFAULT FALSE"),
 )
 
 # 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。
@@ -341,8 +344,7 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS idx_job_status_created ON job(status, created_at)",
     # job.post_status 列见 _SQLITE_MIGRATIONS;启动残留清理由 init_db 的
     # _clear_stale_post_status 显式执行(须在列迁移后,故不入本 raw 列表)
-    # ── R3.1:Agent Team 数据底座 4 表(agentrun/agenttask/agentevent/agentapproval)──
-    # 新库由 SQLModel create_all 建立;此处保 prod 既有库幂等补建(PG 上 AUTOINCREMENT
+    # ── R3.1:Agent Team 数据底座 4 表(agentrun/agenttask/agentevent/agentapproval)──    # 新库由 SQLModel create_all 建立;此处保 prod 既有库幂等补建(PG 上 AUTOINCREMENT
     # 等 SQLite 方言报错由执行器吞掉,对应表已被 create_all 覆盖,与既有条目同双轨写法)
     """
     CREATE TABLE IF NOT EXISTS agentrun (
@@ -533,6 +535,29 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_app_user ON app(user_id)",
+    # ── 应用说明书(2026-09-11 P1):appguide 表 ──
+    # 新库由 SQLModel create_all 建立;此处保 prod 既有库幂等补建。
+    """
+    CREATE TABLE IF NOT EXISTS appguide (
+        app_id          TEXT PRIMARY KEY,
+        purpose         TEXT DEFAULT '',
+        when_to_use     TEXT DEFAULT '',
+        steps           JSON NOT NULL DEFAULT '[]',
+        inputs          JSON NOT NULL DEFAULT '[]',
+        outputs         JSON NOT NULL DEFAULT '[]',
+        tips            JSON NOT NULL DEFAULT '[]',
+        related_app_ids JSON NOT NULL DEFAULT '[]',
+        status          TEXT DEFAULT 'draft',
+        updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+)
+
+# 列迁移之后才允许执行的幂等语句:_run_column_migrations 先跑 raw 再补列,
+# 依赖「本次新补列」的语句(如索引)放这里,避免既有库上因列未补而失败被吞。
+_SQLITE_POST_MIGRATIONS: tuple[str, ...] = (
+    # 市场策展层(2026-09-12):app.use_case 列表过滤索引(列由 _SQLITE_MIGRATIONS 补)
+    "CREATE INDEX IF NOT EXISTS idx_app_use_case ON app(use_case)",
 )
 
 
@@ -577,6 +602,13 @@ def _run_column_migrations() -> None:
             # duplicate column(并发/重复执行)或表不存在 → 幂等吞掉,但留 warning
             # (studioproject 缺列 500 事故教训:静默吞异常让缺列长期无人发现)
             logger.warning("迁移跳过(%s.%s): %s", table, column, exc)
+    # 依赖本次新补列的幂等语句(索引等),必须在列迁移之后执行
+    for raw in _SQLITE_POST_MIGRATIONS:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(raw))
+        except SQLAlchemyError as exc:
+            logger.warning("迁移跳过(语句 %.40s): %s", " ".join(raw.split()), exc)
 
 
 def _clear_stale_post_status() -> None:

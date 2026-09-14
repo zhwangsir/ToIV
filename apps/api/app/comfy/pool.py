@@ -383,7 +383,21 @@ class WorkerPool:
                         f"所有 worker 均不可达(熔断中)。最早熔断的 worker "
                         f"{self._states[opened[0][0]].client.base_url} 可能即将恢复,稍后重试"
                     )
-                raise ComfyUIError("没有具备所需模型且可用的 worker")
+                # 汇总各 worker 缺什么,便于本机补齐权重/节点(而非笼统 503)
+                miss_bits: list[str] = []
+                if required or required_nodes:
+                    for s in self._states:
+                        lack_m = sorted(required - (s.last_models or set())) if required else []
+                        lack_n = sorted(required_nodes - (s.last_nodes or set())) if required_nodes else []
+                        if lack_m or lack_n:
+                            parts = []
+                            if lack_m:
+                                parts.append("缺模型 " + ", ".join(lack_m[:6]) + ("…" if len(lack_m) > 6 else ""))
+                            if lack_n:
+                                parts.append("缺节点 " + ", ".join(lack_n[:6]) + ("…" if len(lack_n) > 6 else ""))
+                            miss_bits.append(f"{s.client.base_url}: " + "; ".join(parts))
+                detail = (" | ".join(miss_bits[:4])) if miss_bits else "无可用 worker"
+                raise ComfyUIError(f"没有具备所需模型且可用的 worker。{detail}")
 
             min_load = min(ql for _, ql in free)
             candidates = [i for i, ql in free if ql == min_load]

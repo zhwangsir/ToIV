@@ -43,11 +43,13 @@ def resolve_worker(worker: str) -> ComfyUIClient:
     normalized = worker.rstrip("/")
     if normalized in settings.worker_urls:
         return ComfyUIClient(normalized, timeout=settings.request_timeout)
-    # H3 专用实例(不在 pool 白名单):必须在 hostname 回退之前精确匹配,
-    # 否则同机(127)会被错配到 pool worker,而其 output 目录没有 H3 产物
-    h3_base = getattr(settings, "h3_base", "")
-    if h3_base and normalized == h3_base:
-        return ComfyUIClient(normalized, timeout=settings.request_timeout)
+    # H3 专用实例(不在 pool 白名单;2026-09-13 双 worker 池):必须在 hostname 回退之前
+    # 精确匹配任一配置实例,否则落第二实例的作业(worker=:8198)产物取回被判「未知的 worker」,
+    # 同机(127)还会被 hostname 回退错配到 pool worker(其 output 目录没有 H3 产物)
+    from app.services.h3 import h3_instances  # 函数内导入:避免 deps↔services 循环
+    for h3_url in h3_instances():
+        if normalized == h3_url:
+            return ComfyUIClient(normalized, timeout=settings.request_timeout)
     # LongCat 专用实例(不在 pool 白名单):同 H3,hostname 回退会错配到
     # 同机 pool worker(其 output 目录没有 LongCat 产物),必须先行精确匹配
     longcat_base = getattr(settings, "longcat_base", "")

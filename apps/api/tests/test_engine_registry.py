@@ -802,7 +802,8 @@ async def test_h3_nsfw_unavailable_mirrors_h3_instance(live_pool, user, h3_stub)
 # --------------------------------------------------------------------------- #
 
 async def test_every_engine_has_source(live_pool, user):
-    """每个引擎(含 R18 上下文)都透传 source:name/url(http 前缀)/author 必填。"""
+    """每个引擎(含 R18 上下文)都透传 source:name/author 公开必填;url 仅 admin
+    (2026-09-07 provenance 门控,非 admin 被剥除)。"""
     token = nsfw_intent_var.set(True)  # R18 上下文拿全量引擎,一次覆盖 SFW+R18
     try:
         engines = await list_engines(live_pool, user)
@@ -813,19 +814,30 @@ async def test_every_engine_has_source(live_pool, user):
         src = e.get("source")
         assert src is not None, f"{e['id']} 缺 source 出处字段"
         assert src.get("name"), f"{e['id']} source.name 为空"
-        assert src.get("url", "").startswith("http"), f"{e['id']} source.url 非法: {src.get('url')}"
+        assert "url" not in src, f"{e['id']} 非 admin 不应带 source.url"
         assert src.get("author"), f"{e['id']} source.author 为空"
+    # admin 上下文:url 必填且为 http 链
+    admin = user.model_copy(update={"role": "admin"})
+    token = nsfw_intent_var.set(True)
+    try:
+        admin_engines = await list_engines(live_pool, admin)
+    finally:
+        nsfw_intent_var.reset(token)
+    for e in admin_engines:
+        assert e["source"].get("url", "").startswith("http"), f"{e['id']} source.url 非法"
 
 
 async def test_source_passthrough_via_endpoint(live_pool, user):
-    """路由级:GET /api/models/engines 响应条目含 source 字段(注册表 → HTTP 透传)。"""
+    """路由级:GET /api/models/engines 响应条目含 source 字段(注册表 → HTTP 透传);
+    url 仅 admin 可见(provenance 门控)。"""
     from fastapi.testclient import TestClient
 
     from app.deps import get_current_user, get_pool
     from app.main import app
 
     app.dependency_overrides[get_pool] = lambda: live_pool
-    app.dependency_overrides[get_current_user] = lambda: user
+    admin = user.model_copy(update={"role": "admin"})
+    app.dependency_overrides[get_current_user] = lambda: admin
     try:
         res = TestClient(app).get("/api/models/engines")
     finally:
@@ -834,6 +846,16 @@ async def test_source_passthrough_via_endpoint(live_pool, user):
     for e in res.json()["engines"]:
         assert "source" in e, f"{e['id']} 端点响应缺 source"
         assert e["source"]["url"].startswith("http")
+    # 非 admin:source 仍在但无 url
+    app.dependency_overrides[get_pool] = lambda: live_pool
+    app.dependency_overrides[get_current_user] = lambda: user
+    try:
+        res2 = TestClient(app).get("/api/models/engines")
+    finally:
+        app.dependency_overrides.clear()
+    assert res2.status_code == 200
+    for e in res2.json()["engines"]:
+        assert "source" in e and "url" not in e["source"]
 
 
 # --------------------------------------------------------------------------- #
@@ -979,9 +1001,11 @@ _WAN_NODES = {"WanVideoModelLoader", "WanVideoAnimateEmbeds", "WanVideoVACEEncod
 
 
 async def test_wan_engines_available_with_wrapper_nodes(live_pool, user, longcat_stub):
-    """实例节点齐全(含 Animate/VACE 关键节点)→ 双引擎可用 + 参数表/出处完整。"""
+    """实例节点齐全(含 Animate/VACE 关键节点)→ 双引擎可用 + 参数表/出处完整。
+    source.url 仅 admin 可见(provenance 门控)。"""
     longcat_stub.nodes = set(_WAN_NODES)
-    ids = _by_id(await list_engines(live_pool, user))
+    admin = user.model_copy(update={"role": "admin"})
+    ids = _by_id(await list_engines(live_pool, admin))
     for eid in ("wan-animate", "wan-vace"):
         e = ids[eid]
         assert e["kind"] == "video" and e["nsfw"] is False
@@ -1057,7 +1081,9 @@ async def test_engines_endpoint_hard_cap_when_workers_hung(
     """pool worker 挂死 + 全部专用实例挂起:/api/models/engines 必须在 <3s 内响应
     (此前串行探测 + 30s 读超时叠加实测 34.2s);挂死引擎标不可用且带原因。"""
     # 全部专用实例探测一并挂起(h3 loras 由 h3_lora_stub 替身,默认即刻返回;
-    # 覆盖三路 IO:dyn 选项 / 专用实例探测 / pool probes)
+    # 覆盖三路 IO:dyn 选项 / 专用实例探测 / pool probes)。
+    # 2026-09-13 两级探测:object_info 超时后由 liveness(/queue)判官分流,
+    # client getter 一并打挂死替身,避免触真机 LAN 实例。
     monkeypatch.setattr(engine_registry, "_fetch_h3_nodes", lambda: asyncio.sleep(60))
     monkeypatch.setattr(engine_registry, "_fetch_longcat_nodes", lambda: asyncio.sleep(60))
     monkeypatch.setattr(engine_registry, "_fetch_animate2_nodes", lambda: asyncio.sleep(60))
@@ -1066,6 +1092,10 @@ async def test_engines_endpoint_hard_cap_when_workers_hung(
         "_fetch_qwen_edit_meta",
         lambda: asyncio.sleep(60),
     )
+    monkeypatch.setattr(engine_registry, "get_h3_client", lambda: _HungClient())
+    monkeypatch.setattr(engine_registry, "get_longcat_client", lambda: _HungClient())
+    monkeypatch.setattr(engine_registry, "get_animate2_client", lambda: _HungClient())
+    monkeypatch.setattr(engine_registry, "get_qwen_edit_client", lambda: _HungClient())
     pool = WorkerPool([_HungClient(), _HungClient()])
 
     t0 = time.monotonic()
@@ -1103,8 +1133,10 @@ async def test_probe_timed_converts_timeout_to_unavailable(user):
 
 
 async def test_wan_animate2_engine_registered_and_available(live_pool, user, wan_animate2_stub):
-    """实例含 WanAnimate2ToVideo 节点 → 引擎可用 + 参数表/出处完整。"""
-    ids = _by_id(await list_engines(live_pool, user))
+    """实例含 WanAnimate2ToVideo 节点 → 引擎可用 + 参数表/出处完整。
+    source.url 仅 admin 可见(provenance 门控)。"""
+    admin = user.model_copy(update={"role": "admin"})
+    ids = _by_id(await list_engines(live_pool, admin))
     e = ids["wan-animate-2"]
     assert e["kind"] == "video" and e["nsfw"] is False
     assert e["available"] is True and "unavailable_reason" not in e

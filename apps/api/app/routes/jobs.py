@@ -79,6 +79,21 @@ def _app_id_of(j: Job) -> str:
     return v if isinstance(v, str) else ""
 
 
+def _accel_of(j: Job) -> tuple[str, bool]:
+    """H3 智能加速回显(2026-09-12):从 params 快照解析 (请求档位, 实际生效)。
+
+    与 _batch_id_of 同范式:纯增量键,旧前端忽略;快照缺失/无键回落 ("", False)。
+    """
+    if not j.params:
+        return "", False
+    try:
+        snap = json.loads(j.params)
+    except (ValueError, AttributeError):
+        return "", False
+    level = snap.get("acceleration")
+    return (level if isinstance(level, str) else "", bool(snap.get("acceleration_applied")))
+
+
 def _job_dict(j: Job) -> dict:
     """作业 → 前端条目(作品库列表与版本链共用同一形状)。"""
     return {
@@ -109,6 +124,9 @@ def _job_dict(j: Job) -> dict:
         "batch_id": _batch_id_of(j),
         # 来源应用 id(2026-09-06 详情页「我的生成」过滤):非应用作业为空串
         "app_id": _app_id_of(j),
+        # H3 智能加速回显(2026-09-12):请求档位 + 实际生效(非加速作业为 "" / False)
+        "acceleration": _accel_of(j)[0],
+        "acceleration_applied": _accel_of(j)[1],
     }
 
 

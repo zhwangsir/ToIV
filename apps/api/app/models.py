@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, timezone
-from typing import Optional
+from typing import Any, Optional
 
 from sqlmodel import Field, SQLModel
 from sqlalchemy import BigInteger, Column, JSON
@@ -323,8 +323,32 @@ class App(SQLModel, table=True):
     is_public: bool = True  # 公共市场可见(个人 fork 默认 False;属主可上架分享)
     user_id: str = Field(default="", index=True)  # 空=公共(admin 建/内置);非空=个人应用属主
     usage_count: int = 0  # 运行次数(Job 到 done 才 +1,见 comfy/tracker.mark_done)
+    # 市场策展层(2026-09-12):按用途分类(12 类枚举,见 services/use_cases)+ 精选合集位
+    use_case: str = ""  # 用途分类 id(空=未打标);LLM 打标或 admin 人工改
+    featured: bool = False  # 精选合集位(admin 开关)
     sort: int = 100
     created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+
+# ---------------------------------------------------------------------------
+# 应用说明书(AppGuide)—— 每个应用一条用法说明(P1);草稿/已发布。
+# ---------------------------------------------------------------------------
+
+
+class AppGuide(SQLModel, table=True):
+    """应用说明书:用途/适用场景/步骤/输入输出/提示/关联应用。"""
+
+    app_id: str = Field(primary_key=True)  # 对应 App.id(1:1)
+    purpose: str = ""  # 这张卡做什么
+    when_to_use: str = ""  # 什么时候用
+    steps: list[Any] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    inputs: list[Any] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    outputs: list[Any] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    tips: list[Any] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    related_app_ids: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    status: str = "draft"  # draft | published
     updated_at: datetime = Field(default_factory=_now)
 
 

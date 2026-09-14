@@ -59,7 +59,26 @@ _MODEL_LOADERS = [
     # Nunchaku SVDQuant 4bit DiT(从 diffusion_models 目录加载,专用 loader,
     # 否则 flux1-nunchaku probe 误判缺模型 → available=False)
     ("NunchakuFluxDiTLoader", "model_path"),
+    # MelBand RoFormer 人声分离(RH LTX 对口型等):object_info 常只列 HF 注册表显示名,
+    # FS 路径 MelBandRoFormer_comfy/... 需靠 /models/{folder} 扫描补齐(见 _MODEL_FOLDERS)
+    ("MelBandRoFormerModelLoader", "model_name"),
+    # WanVideoWrapper VAE(Wan2.1_VAE.pth 等);与标准 VAELoader 同目录但字段为 model_name
+    ("WanVideoVAELoader", "model_name"),
+    # Florence2 / Qwen3-VL 目录型 LLM(RH LTX 图 AILab_QwenVL* 的 model_name=Qwen3-VL-4B-Instruct):
+    # Florence2ModelLoader.model 枚举通常来自 LLM 目录扫描;AILab 节点 object_info 是静态全量清单,
+    # 勿把 AILab_* 加进 _MODEL_LOADERS(会把未下载的 8B/32B 误判为已有)。
+    ("Florence2ModelLoader", "model"),
 ]
+# ComfyUI GET /models/{folder} 补充扫描:自定义节点 folder_paths 登记目录。
+# MelBand 节点 object_info 不枚举本地子路径(如 MelBandRoFormer_comfy/*.safetensors),
+# 而 RH 图硬编码这些相对路径 → 仅靠 _MODEL_LOADERS 会误判 503 缺模型。
+_MODEL_FOLDERS = (
+    "MelBandRoFormer",
+    "vocal_separator",
+    # Qwen3-VL / Florence2 等目录型权重;RH 图要求目录名(Qwen3-VL-4B-Instruct),
+    # /models/LLM 列出的是 dir/file 分片 → model_names 需登记父目录名(见下方合并逻辑)
+    "LLM",
+)
 _MODELS_TTL = 120.0
 
 # 模块级 httpx.AsyncClient 连接池缓存:(base_url, timeout) → AsyncClient。
@@ -103,6 +122,24 @@ class ComfyUIClient:
             detail = data.get("node_errors") or data.get("error") or data
             raise ComfyUIError(f"ComfyUI 拒绝了工作流: {detail}")
         return prompt_id
+
+    async def queue_prompt_validated(self, graph: dict, client_id: str) -> tuple[str, dict]:
+        """queue_prompt 的校验感知版:返回 (prompt_id, node_errors)。
+
+        ComfyUI ≥0.3x 对部分校验失败(value_not_in_list / required_input_missing)
+        不拒绝整单,而是跳过失效节点及其 dependent_outputs 继续执行
+        (HTTP 200 + node_errors)——主保存节点可能被判死而作业仍「success」。
+        调用方须检查 node_errors 并把真因透传,避免「成功但无产物」
+        (2026-09-13 wave16 Preview-only 类失败实证)。
+        整单拒绝(无 prompt_id)时与 queue_prompt 相同抛 ComfyUIError。
+        """
+        data = await self._post_json("/prompt", {"prompt": graph, "client_id": client_id})
+        prompt_id = data.get("prompt_id")
+        if not prompt_id:
+            detail = data.get("node_errors") or data.get("error") or data
+            raise ComfyUIError(f"ComfyUI 拒绝了工作流: {detail}")
+        node_errors = data.get("node_errors") or {}
+        return prompt_id, node_errors if isinstance(node_errors, dict) else {}
 
     async def get_history(self, prompt_id: str) -> dict:
         return await self._get_json(f"/history/{prompt_id}")
@@ -274,6 +311,24 @@ class ComfyUIClient:
                       and isinstance(opts[1].get("options"), list)):
                     # 新版 COMBO widget 格式: ["COMBO", {"options": [...]}]
                     names.update(opts[1]["options"])
+            except ComfyUIError:
+                pass
+        # folder_paths 目录直扫:补 MelBand 等 object_info 不列本地相对路径的缺口
+        for folder in _MODEL_FOLDERS:
+            try:
+                listed = await self._get_json(f"/models/{folder}")
+                if isinstance(listed, list):
+                    for x in listed:
+                        if not isinstance(x, str):
+                            continue
+                        names.add(x)
+                        # Windows worker 可能返回反斜杠;Florence2/Qwen VL 要求目录名
+                        norm = x.replace("\\", "/")
+                        if norm != x:
+                            names.add(norm)
+                        if "/" in norm:
+                            # Qwen3-VL-4B-Instruct/model-00001-of-00002.safetensors → 目录名
+                            names.add(norm.split("/", 1)[0])
             except ComfyUIError:
                 pass
         self._models_cache = names

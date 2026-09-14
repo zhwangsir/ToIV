@@ -78,9 +78,11 @@ def ctx():
 
 
 def _upload(client: TestClient, headers: dict, data: bytes, filename: str, content_type: str, **params):
+    # 默认 img2img:走 FakePool;专用 kind(avatar/h3_i2v/…)会直达真实专用实例 URL。
+    kind = params.pop("kind", "img2img")
     return client.post(
         "/api/upload",
-        params={"kind": "avatar", **params},
+        params={"kind": kind, **params},
         files={"image": (filename, data, content_type)},
         headers=headers,
     )

@@ -96,6 +96,7 @@ class _FakeH3Client:
         reachable: bool = True,
         has_h3_node: bool = True,
         free_vram_gib: float = 96.0,
+        total_vram_gib: float = 96.0,
         stats_fail: bool = False,
         self_queue: int = 0,
         pending: int = 0,
@@ -106,6 +107,7 @@ class _FakeH3Client:
         self._reachable = reachable
         self._has_h3_node = has_h3_node
         self.free_gib = free_vram_gib  # 公开可变:模拟驱逐同卡缓存后空闲回升
+        self._total_gib = total_vram_gib  # 卡总显存(32G 小卡阈值缩放回归用)
         self._stats_fail = stats_fail
         self._self_queue = self_queue  # H3 自身队列长度(0=空闲,可驱逐自身缓存)
         self._pending = pending  # pending 数(queued_behind 提示用)
@@ -161,7 +163,7 @@ class _FakeH3Client:
                     "name": "cuda:0 FakeGPU",
                     "type": "cuda",
                     "vram_free": int(self.free_gib * (1 << 30)),
-                    "vram_total": 96 * (1 << 30),
+                    "vram_total": int(self._total_gib * (1 << 30)),
                 }
             ]
         }
@@ -279,19 +281,20 @@ def test_builder_r2v_wires_images_videos_audios_and_ref2va_unet():
     assert g["104"]["class_type"] == "MiniMaxH3ReferenceToVideo"
     assert g["104"]["inputs"]["audio_vae"] == ["24", 0]
     assert g["104"]["inputs"]["ref_image_size"] == "match"
-    assert g["104"]["inputs"]["ref_image_1"] == ["110", 0]
-    assert g["104"]["inputs"]["ref_image_2"] == ["111", 0]
-    assert "ref_image_3" not in g["104"]["inputs"]
+    assert g["104"]["inputs"]["ref_images.ref_image_0"] == ["110", 0]
+    assert g["104"]["inputs"]["ref_images.ref_image_1"] == ["111", 0]
+    assert "ref_images.ref_image_2" not in g["104"]["inputs"]
+    assert "ref_image_1" not in g["104"]["inputs"]
     assert g["110"]["inputs"]["image"] == "a.png"
     assert g["111"]["inputs"]["image"] == "b.png"
     assert g["120"]["class_type"] == "LoadVideo"
     assert g["120"]["inputs"]["file"] == "cam.mp4"
     assert g["121"]["class_type"] == "GetVideoComponents"
-    assert g["104"]["inputs"]["ref_video_1"] == ["121", 0]
-    assert g["104"]["inputs"]["ref_video_audio_1"] == ["121", 1]
+    assert g["104"]["inputs"]["ref_videos.ref_video_0"] == ["121", 0]
+    assert g["104"]["inputs"]["ref_video_audios.ref_video_audio_0"] == ["121", 1]
     assert g["130"]["class_type"] == "LoadAudio"
     assert g["130"]["inputs"]["audio"] == "voice.wav"
-    assert g["104"]["inputs"]["ref_audio_1"] == ["130", 0]
+    assert g["104"]["inputs"]["ref_audios.ref_audio_0"] == ["130", 0]
     assert "100" not in g  # i2v 首帧加载器已替换
     assert "first_frame" not in g["104"]["inputs"]
     assert g["6"]["inputs"]["unet_name"] == H3_R2V_UNET
@@ -555,6 +558,61 @@ def test_vram_sufficient_no_eviction(client, monkeypatch):
     )
     assert r.status_code == 200, r.text
     assert co.free_calls == 0
+
+
+def test_vram_threshold_scales_down_on_small_card(client, monkeypatch):
+    """回归(2026-09-13 双池):32G 卡(:8198 --lowvram)空闲 30.2G 被固定 36G
+    阈值一律 503 误杀。阈值按卡总显存缩放到 50%(16G)→ 作业放行、不驱逐任何人。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3vram32g")
+    fake = _FakeH3Client(free_vram_gib=30.2, total_vram_gib=32.0)
+    _install_h3(monkeypatch, fake)
+    _stub_settings(monkeypatch, threshold=36.0)
+    co = _FakeCoWorker()
+    _install_co_worker(monkeypatch, co)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "a cat"},
+    )
+    assert r.status_code == 200, r.text
+    assert fake.self_free_calls == 0  # 30.2 ≥ 16,不触发驱逐
+    assert co.free_calls == 0
+
+
+def test_vram_threshold_unchanged_on_full_size_card(client, monkeypatch):
+    """96G 卡阈值维持配置值 36G:空闲 30G 仍判不足 → 走驱逐/503 旧路径(不误放行)。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3vram96g")
+    fake = _FakeH3Client(free_vram_gib=30.0, total_vram_gib=96.0)
+    fake._on_self_free = lambda: setattr(fake, "free_gib", 40.0)
+    _install_h3(monkeypatch, fake)
+    _stub_settings(monkeypatch, threshold=36.0)
+    co = _FakeCoWorker(queue=0)
+    _install_co_worker(monkeypatch, co)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "a cat"},
+    )
+    # 96G 卡阈值不缩放:30 < 36 → 驱逐自身缓存后 40 ≥ 36 放行(旧语义不变)
+    assert r.status_code == 200, r.text
+    assert fake.self_free_calls == 1
+
+
+def test_effective_vram_threshold_unit():
+    """_effective_vram_threshold:min(配置值, 总量×50%);读不到总量用配置值。"""
+    from app.services.h3 import _effective_vram_threshold
+
+    stats96 = {"devices": [{"type": "cuda", "vram_free": 30 << 30, "vram_total": 96 << 30}]}
+    stats32 = {"devices": [{"type": "cuda", "vram_free": 30 << 30, "vram_total": 32 << 30}]}
+    assert _effective_vram_threshold(stats96, 36.0) == 36.0   # 96G 卡:不缩放
+    assert _effective_vram_threshold(stats32, 36.0) == 16.0   # 32G 卡:36 → 16
+    assert _effective_vram_threshold(stats32, 8.0) == 8.0     # 配置值更小则取配置值
+    assert _effective_vram_threshold({"devices": []}, 36.0) == 36.0  # 无设备:配置值
+    assert _effective_vram_threshold({}, 36.0) == 36.0
 
 
 def test_vram_insufficient_evicts_self_cache_then_ok(client, monkeypatch):
@@ -1284,3 +1342,33 @@ def test_r2v_nsfw_swaps_unet_to_10eros(client, monkeypatch):
     assert fake.graphs[0]["6"]["inputs"]["unet_name"] == (
         "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors"
     )
+
+def test_normalize_h3_r2v_autogrow_rewrites_bare_one_based_slots():
+    """裸 ref_image_1 → ref_images.ref_image_0;已有点号键不动。"""
+    from app.workflows.h3_video import normalize_h3_r2v_autogrow_inputs
+
+    g = {
+        "104": {
+            "class_type": "MiniMaxH3ReferenceToVideo",
+            "inputs": {
+                "prompt": "x",
+                "ref_image_1": ["110", 0],
+                "ref_image_2": ["111", 0],
+                "ref_video_1": ["121", 0],
+                "ref_video_audio_1": ["121", 1],
+                "ref_audio_1": ["130", 0],
+                "ref_images.ref_image_0": ["999", 0],  # 已存在 → 丢弃冲突裸键
+            },
+        },
+        "200": {"class_type": "LoadImage", "inputs": {"image": "a.png"}},
+    }
+    normalize_h3_r2v_autogrow_inputs(g)
+    inp = g["104"]["inputs"]
+    assert "ref_image_1" not in inp
+    assert "ref_image_2" not in inp
+    assert inp["ref_images.ref_image_0"] == ["999", 0]  # 保留已有
+    assert inp["ref_images.ref_image_1"] == ["111", 0]
+    assert inp["ref_videos.ref_video_0"] == ["121", 0]
+    assert inp["ref_video_audios.ref_video_audio_0"] == ["121", 1]
+    assert inp["ref_audios.ref_audio_0"] == ["130", 0]
+

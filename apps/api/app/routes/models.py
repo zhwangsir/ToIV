@@ -17,6 +17,11 @@ from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user, get_pool
 from app.models import ModelCard, User
+from app.services.provenance import (
+    is_admin_user,
+    redact_nsfw_recommendation,
+    redact_wiki_card,
+)
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.services.engine_registry import list_engines, reset_avail_cache
@@ -574,11 +579,15 @@ async def nsfw_recommendations(
 ) -> dict:
     """返回静态 NSFW 模型推荐清单(基于 civitai 调研,不从 API 实时拉取)。
 
-    供 /nsfw 专区「NSFW 推荐」tab 展示,帮用户发现热门成人向底模与配套 LoRA。
-    下载链接指向 civitai,用户手动下载后放到 NAS;需登录认证(主站零 R18 痕迹,
-    此端点仅返回静态元数据,不含实际成人内容)。
+    2026-09-07:资源区对普通用户隐藏 R18 推荐;本端点须 X-NSFW 上下文
+    (nsfw_allowed)才返回清单,主站无头请求 403(与 jobs/recipes 同门控)。
+    前端仅 admin + R18 模式挂载 NsfwRecsPanel。
     """
-    return {"items": NSFW_RECOMMENDATIONS, "count": len(NSFW_RECOMMENDATIONS)}
+    if not nsfw_allowed(user):
+        raise HTTPException(status_code=403, detail="R18 推荐仅限 NSFW 上下文")
+    admin = is_admin_user(user)
+    items = [redact_nsfw_recommendation(it, is_admin=admin) for it in NSFW_RECOMMENDATIONS]
+    return {"items": items, "count": len(items)}
 
 
 @router.get("/models/engines")
@@ -693,6 +702,8 @@ async def model_wiki_list(
             or any(ql in t.lower() for t in c.get("tags", []))
             or ql in c.get("description", "").lower()
         ]
+    admin = is_admin_user(user)
+    cards = [redact_wiki_card(c, is_admin=admin) for c in cards]
     return {"cards": cards, "count": len(cards)}
 
 
@@ -710,7 +721,7 @@ async def model_wiki_detail(
     card = svc._merge(filename, type, session.get(ModelCard, svc._card_id(filename, type)))
     if not _visible(card, user):
         raise HTTPException(status_code=404, detail="模型不存在")
-    return card
+    return redact_wiki_card(card, is_admin=is_admin_user(user))
 
 
 @router.post("/models/wiki/enrich")
@@ -761,8 +772,15 @@ async def model_wiki_ask(
         raise HTTPException(status_code=422, detail="问题不能为空")
     enforce_generation_rate_limit(user)
     inventory = await svc.local_inventory(pool)
-    cards = [c for c in svc.build_cards(inventory, session) if _visible(c, user)]
+    admin = is_admin_user(user)
+    cards = [
+        redact_wiki_card(c, is_admin=admin)
+        for c in svc.build_cards(inventory, session) if _visible(c, user)
+    ]
     result = await svc.ask_model_wiki(question, cards)
+    # 再抹一次匹配卡(防服务层回填出处字段)
+    if isinstance(result, dict) and result.get("cards"):
+        result = {**result, "cards": [redact_wiki_card(c, is_admin=admin) for c in result["cards"]]}
     return result
 
 

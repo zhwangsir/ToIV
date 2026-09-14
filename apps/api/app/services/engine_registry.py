@@ -19,14 +19,15 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.capabilities import required_models, required_nodes
-from app.comfy.client import ComfyUIError
+from app.comfy.client import ComfyUIClient, ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.config import get_settings
 from app.workflows.model_profiles import AR_IMAGE, AR_VIDEO
 from app.models import User
 from app.nsfw_ctx import nsfw_allowed
+from app.services.provenance import is_admin_user, redact_engine_source
 from app.services.effect_presets import list_effect_presets
-from app.services.h3 import H3_NODE, get_h3_client, is_h3_nsfw_lora
+from app.services.h3 import H3_NODE, get_h3_client, h3_instances, is_h3_nsfw_lora
 from app.services.longcat import LONGCAT_NODE, get_longcat_client
 from app.services.qwen_edit import QWEN_EDIT_NODE, get_qwen_edit_client
 from app.services.wan_animate2 import WAN_ANIMATE2_NODE, get_animate2_client
@@ -54,16 +55,134 @@ _avail_cache: dict[str, tuple[bool, str | None]] = {}
 _avail_cache_at: float = 0.0
 
 
+# ── 两级探测(2026-09-13 P1:object_info 慢实例致 22+ 引擎恒置灰误报)────────
+# 实测 :8195 object_info 2.24s、:8196(模型列表巨大)14.1s,而 GET /queue 毫秒级。
+# 热路径 = liveness 快探(/queue ≤_LIVE_TIMEOUT)+ 节点/模型集合缓存(_NODE_CAP_TTL);
+# 缓存缺失时同 url 单飞内联拉取(≤_CAP_FETCH_TIMEOUT,同实例多引擎探测共享一次
+# object_info,避免自家并发风暴把实例 loop 打满连 /queue 都排不进),超时 →
+# 按 liveness 判定:活 → 乐观 available=true(单飞任务继续跑、落地缓存后下轮
+# 收敛真实结论);死 → 不可用 + 原因。绝不恢复 2026-08-30 的 34.2s 病灶:
+# 单路预算之和 < _PROBE_HARD_TIMEOUT,整接口三路并发 ≤2s+ε。
+_NODE_CAP_TTL = 600.0  # 节点/模型集合缓存 TTL(对象集合变化低频)
+_LIVE_TIMEOUT = 0.8    # liveness 快探(GET /queue)单路预算
+_CAP_FETCH_TIMEOUT = 1.0  # 缓存缺失时内联集合拉取预算
+CapFetcher = Callable[[], Awaitable[tuple[set[str], set[str]]]]  # () -> (models, nodes)
+
+_node_cap_cache: dict[str, tuple[float, frozenset[str], frozenset[str]]] = {}
+_cap_fetch_tasks: dict[str, asyncio.Task] = {}
+_cap_generation = 0  # reset_avail_cache 递增:跨测试/跨轮作废迟到落地
+
+
 def _mark_avail_probed() -> None:
     global _avail_cache_at
     _avail_cache_at = time.monotonic()
 
 
 def reset_avail_cache() -> None:
-    """清空可用性缓存(测试隔离 / 运维即时刷新用)。"""
+    """清空可用性缓存 + 节点/模型集合缓存(测试隔离 / 运维即时刷新用)。
+
+    顺带递增 generation:进行中的单飞拉取落地时校验,避免慢实例的旧 object_info
+    结果在一个 TTL 之后写回、污染新一轮探测。"""
     _avail_cache.clear()
-    global _avail_cache_at
+    _node_cap_cache.clear()
+    global _avail_cache_at, _cap_generation
     _avail_cache_at = 0.0
+    _cap_generation += 1
+
+
+async def _live_probe(client) -> bool:  # noqa: ANN001 — client 为 ComfyUIClient/测试替身
+    """liveness 快探:GET /queue(轻端点,object_info 慢实例上也是毫秒级)。
+
+    任何异常/超时 → False。这是「实例活着」与「object_info 慢」的判官:
+    慢但活 → 乐观可用;无响应 → 不可用。"""
+    try:
+        await asyncio.wait_for(client.queue_len(), timeout=_LIVE_TIMEOUT)
+        return True
+    except Exception:  # noqa: BLE001 — liveness 只问活没活,不问怎么死的
+        return False
+
+
+def _cap_cached(url: str) -> tuple[frozenset[str], frozenset[str]] | None:
+    ent = _node_cap_cache.get(url)
+    if ent is not None and (time.monotonic() - ent[0]) < _NODE_CAP_TTL:
+        return ent[1], ent[2]
+    return None
+
+
+async def _cap_get(url: str, fetch: CapFetcher) -> tuple[frozenset[str], frozenset[str]] | None:
+    """集合缓存读取/单飞填充:命中 → 集合;缺失 → 同 url 共用一个拉取 task。
+
+    内联只等 ≤_CAP_FETCH_TIMEOUT:超时/失败返回 None(调用方按 liveness 乐观
+    或降级),task  itself 继续跑完并落地缓存(=天然后台刷新,下轮收敛);
+    generation 作废跨轮迟到落地。单飞是刚需:同实例 6+ 引擎并发各发一次
+    object_info 会把 ComfyUI 单线程 loop 打满,连 /queue 都排不进去。
+    """
+    cached = _cap_cached(url)
+    if cached is not None:
+        return cached
+    task = _cap_fetch_tasks.get(url)
+    if task is None:
+        generation = _cap_generation
+
+        async def _run() -> tuple[frozenset[str], frozenset[str]]:
+            models, nodes = await fetch()
+            caps: tuple[frozenset[str], frozenset[str]] = (frozenset(models), frozenset(nodes))
+            if generation == _cap_generation:
+                _node_cap_cache[url] = (time.monotonic(), *caps)
+            return caps
+
+        task = asyncio.get_running_loop().create_task(_run())
+        _cap_fetch_tasks[url] = task
+
+        def _drop(t: asyncio.Task) -> None:
+            _cap_fetch_tasks.pop(url, None)
+            if not t.cancelled():
+                t.exception()  # 检索异常,防 "never retrieved" 噪音
+
+        task.add_done_callback(_drop)
+    try:
+        return await asyncio.wait_for(asyncio.shield(task), timeout=_CAP_FETCH_TIMEOUT)
+    except TimeoutError:
+        return None  # 慢实例:task 继续跑完落地缓存,当轮按 liveness 乐观
+    except ComfyUIError:
+        raise  # 实例已表态(连接拒绝/5xx):判死,由调用方给「不可达」原因
+    except Exception:  # noqa: BLE001 — 其它拉取异常按 unknown 走乐观路径
+        return None
+
+
+async def _probe_dedicated(
+    client,  # noqa: ANN001 — ComfyUIClient/测试替身
+    fetch: CapFetcher,
+    *,
+    label: str,
+    need_nodes: set[str] | frozenset[str] = frozenset(),
+    need_models: set[str] | frozenset[str] = frozenset(),
+    node_missing_msg: str | None = None,
+    model_missing_msg: str | None = None,
+) -> tuple[bool, str | None]:
+    """专用实例(H3/LongCat/Animate2/QwenEdit)两级探测。
+
+    集合缓存命中 → 直接按集合判定(测试替身与快实例同步语义);缺失/慢 →
+    liveness 快探分流:活 → 乐观可用(单飞拉取落地后下轮收敛);死 → 不可用。
+    """
+    url = ((getattr(client, "base_url", "") or "") or label).rstrip("/")
+    try:
+        cap = await _cap_get(url, fetch)
+    except ComfyUIError as e:  # 连接拒绝/HTTP 错误:实例已表态,直接判死
+        return False, f"{label} 实例不可达: {e}"
+    if cap is None:
+        if await _live_probe(client):
+            return True, None  # object_info 慢但实例活:不拖累可用性
+        return False, f"{label} 实例不可达(object_info 与 /queue 均无响应)"
+    models, nodes = cap
+    miss_n = set(need_nodes) - set(nodes)
+    if miss_n:
+        return False, node_missing_msg or f"{label} 实例缺少节点: {', '.join(sorted(miss_n))}"
+    miss_m = set(need_models) - set(models)
+    if miss_m:
+        return False, model_missing_msg or f"{label} 实例缺少模型: {', '.join(sorted(miss_m))}"
+    return True, None
+
 
 
 # ---------------------------------------------------------------------------
@@ -71,14 +190,43 @@ def reset_avail_cache() -> None:
 # ---------------------------------------------------------------------------
 
 async def _probe_pool(pool: WorkerPool, models: set[str], nodes: set[str]) -> tuple[bool, str | None]:
-    """用 WorkerPool.pick 探测链路可用性;不可用时给出原因(不抛异常拖垮整个端点)。"""
-    try:
-        await pool.pick(required=models, required_nodes=nodes)
+    """池探测两级化(2026-09-13 P1):liveness 快探(GET /queue)+ 模型/节点集合缓存。
+
+    object_info 在 NAS 大模型列表实例(:8196 实测 14.1s)上是常态慢,绝不留热路径:
+    集合缓存缺失 → 内联快拉(≤_CAP_FETCH_TIMEOUT,替身/快实例同步语义),超时 →
+    该 worker 记 unknown(liveness 通 → 乐观可用 + 后台刷新,下轮收敛);
+    liveness 全灭 → 不可用 + 原因。模型/节点须同一 worker 全满足(与 pick 同源)。
+    """
+    models, nodes = set(models), set(nodes)
+    live: list = []
+    for c in getattr(pool, "clients", []) or []:
+        if await _live_probe(c):
+            live.append(c)
+    if not live:
+        return False, "所有 worker 都不可达(liveness 快探失败)"
+    if not models and not nodes:
         return True, None
-    except ComfyUIError as e:
-        return False, str(e)
-    except Exception as e:  # 探测自身异常(网络/替身)同样降级为不可用 + 原因
-        return False, f"可用性探测失败: {e}"
+    unknown = False
+    for c in live:
+        url = ((getattr(c, "base_url", "") or "") or "pool").rstrip("/")
+
+        async def _fetch(client=c) -> tuple[set[str], set[str]]:  # noqa: B023 — 绑当前循环变量
+            return await client.model_names(), await client.node_names()
+
+        cap = await _cap_get(url, _fetch)
+        if cap is None:
+            # 慢 worker(object_info >1s,如 :8196):liveness 通 → 记 unknown,
+            # 单飞拉取继续跑、落地缓存后下轮收敛真实判定
+            unknown = True
+            continue
+        if models <= set(cap[0]) and nodes <= set(cap[1]):
+            return True, None
+    if unknown:
+        return True, None
+    return False, (
+        "池内无 worker 同时满足所需模型/节点: "
+        f"模型 {sorted(models)} 节点 {sorted(nodes)}"
+    )
 
 
 async def _probe_image(pool: WorkerPool) -> tuple[bool, str | None]:
@@ -111,7 +259,7 @@ def _probe_ltx_nsfw(kind: str) -> ProbeFn:
     return _run
 
 
-# H3 探测超时:实例挂起时不能拖垮 /api/models/engines 端点
+# H3 探测:node_names(object_info)留在缓存/后台层,热路径只做 liveness 快探
 _H3_PROBE_TIMEOUT = 8.0
 _LONGCAT_PROBE_TIMEOUT = 8.0
 
@@ -121,35 +269,79 @@ async def _fetch_h3_nodes() -> set[str]:
     return await get_h3_client().node_names()
 
 
-async def _probe_h3(pool: WorkerPool) -> tuple[bool, str | None]:
-    """H3 专用实例探测:/object_info 含 MiniMaxH3 节点即可用;失败给原因,不拖垮端点。
+async def _h3_caps() -> tuple[set[str], set[str]]:
+    models, nodes = set(), await _fetch_h3_nodes()
+    return models, nodes
 
-    与 pool 探测不同:H3 走独立实例(TOIV_H3_BASE_URL),pool 参数仅签名占位。
+
+async def _probe_h3(pool: WorkerPool) -> tuple[bool, str | None]:
+    """H3 专用实例两级探测:liveness 快探 + 节点集合缓存(见 _probe_dedicated)。
+
+    与 pool 探测不同:H3 走独立实例(TOIV_H3_BASE_URL(S)),pool 参数仅签名占位。
     若 TOIV_H3_ENABLED=false,直接标不可用,避免前端展示不可提交的引擎。
+    多实例池(2026-09-13,WS :8195 + PC01 :8198):任一实例在线且含 H3 节点即整体
+    可用——单实例失败只降级该实例,不把整池标离线(未就绪实例自然被跳过)。
     """
     if not get_settings().h3_enabled:
         return False, "H3 视频生成引擎已禁用(TOIV_H3_ENABLED=false)"
-    try:
-        nodes = await asyncio.wait_for(_fetch_h3_nodes(), timeout=_H3_PROBE_TIMEOUT)
-    except Exception as e:  # 不可达/超时/替身异常一律降级为不可用 + 原因
-        return False, f"H3 实例不可达: {e}"
-    if H3_NODE not in nodes:
-        return False, f"H3 实例缺少 {H3_NODE} 节点(需 ComfyUI ≥ 0.30)"
-    return True, None
+    urls = h3_instances()
+    missing_msg = f"H3 实例缺少 {H3_NODE} 节点(需 ComfyUI ≥ 0.30)"
+    if len(urls) <= 1:
+        return await _probe_dedicated(
+            get_h3_client(), _h3_caps, label="H3",
+            need_nodes={H3_NODE}, node_missing_msg=missing_msg,
+        )
+
+    async def _per_url(url: str) -> tuple[bool, str | None]:
+        client = ComfyUIClient(url, timeout=get_settings().request_timeout)
+
+        async def _fetch() -> tuple[set[str], set[str]]:
+            return set(), await client.node_names()
+
+        return await _probe_dedicated(
+            client, _fetch, label="H3",
+            need_nodes={H3_NODE}, node_missing_msg=missing_msg,
+        )
+
+    results = await asyncio.gather(*(_per_url(u) for u in urls))
+    if any(ok for ok, _ in results):
+        return True, None
+    if all("不可达" in (r or "") for _, r in results):
+        return False, "H3 实例全部不可达(多实例池探测失败)"
+    return False, missing_msg
 
 
 async def _fetch_h3_loras() -> list[str] | None:
     """H3 实例 LoraLoaderModelOnly 的 lora_name 枚举(模块级独立函数,便于测试替身)。
 
     不可达/缺节点 → None:注册表回退声明态空 options,绝不拖垮 /api/models/engines。
+    多实例池:并探全部实例取并集(任一落盘的 LoRA 都可选),全部失败才回退 None。
     """
-    try:
-        info = await asyncio.wait_for(
-            get_h3_client().object_info("LoraLoaderModelOnly"), timeout=_H3_PROBE_TIMEOUT
-        )
-    except Exception:
-        return None
-    return _enum(info, "LoraLoaderModelOnly", "lora_name")
+    urls = h3_instances()
+    if len(urls) <= 1:
+        try:
+            info = await asyncio.wait_for(
+                get_h3_client().object_info("LoraLoaderModelOnly"), timeout=_H3_PROBE_TIMEOUT
+            )
+        except Exception:
+            return None
+        return _enum(info, "LoraLoaderModelOnly", "lora_name")
+
+    async def _loras_for(url: str) -> list[str] | None:
+        try:
+            client = ComfyUIClient(url, timeout=get_settings().request_timeout)
+            info = await asyncio.wait_for(
+                client.object_info("LoraLoaderModelOnly"), timeout=_H3_PROBE_TIMEOUT
+            )
+        except Exception:
+            return None
+        return _enum(info, "LoraLoaderModelOnly", "lora_name")
+
+    merged: list[str] = []
+    for loras in await asyncio.gather(*(_loras_for(u) for u in urls)):
+        if loras:
+            merged.extend(name for name in loras if name not in merged)
+    return merged or None
 
 
 async def _fetch_longcat_nodes() -> set[str]:
@@ -157,8 +349,13 @@ async def _fetch_longcat_nodes() -> set[str]:
     return await get_longcat_client().node_names()
 
 
+async def _longcat_caps() -> tuple[set[str], set[str]]:
+    models, nodes = set(), await _fetch_longcat_nodes()
+    return models, nodes
+
+
 async def _probe_longcat(pool: WorkerPool) -> tuple[bool, str | None]:
-    """LongCat 专用实例探测:/object_info 含 WanVideoModelLoader 节点即可用;失败给原因。
+    """LongCat 专用实例两级探测:liveness 快探 + 节点集合缓存(见 _probe_dedicated)。
 
     与 pool 探测不同:LongCat 走 GPU2 独立实例(TOIV_LONGCAT_BASE_URL),pool 参数仅签名占位。
     若 TOIV_LONGCAT_ENABLED=false,直接标不可用,避免前端展示不可提交的引擎。
@@ -166,13 +363,11 @@ async def _probe_longcat(pool: WorkerPool) -> tuple[bool, str | None]:
     """
     if not getattr(get_settings(), "longcat_enabled", True):
         return False, "LongCat 视频生成引擎已禁用(TOIV_LONGCAT_ENABLED=false)"
-    try:
-        nodes = await asyncio.wait_for(_fetch_longcat_nodes(), timeout=_LONGCAT_PROBE_TIMEOUT)
-    except Exception as e:  # 不可达/超时/替身异常一律降级为不可用 + 原因
-        return False, f"LongCat 实例不可达: {e}"
-    if LONGCAT_NODE not in nodes:
-        return False, f"LongCat 实例缺少 {LONGCAT_NODE} 节点(需装有 WanVideo 节点包的实例)"
-    return True, None
+    return await _probe_dedicated(
+        get_longcat_client(), _longcat_caps, label="LongCat",
+        need_nodes={LONGCAT_NODE},
+        node_missing_msg=f"LongCat 实例缺少 {LONGCAT_NODE} 节点(需装有 WanVideo 节点包的实例)",
+    )
 
 
 # Wan2.2-Animate / Wan2.1-VACE 与 LongCat 同实例(:8197);在 longcat 探测基础上
@@ -182,16 +377,12 @@ WAN_VACE_NODE = "WanVideoVACEEncode"
 
 
 async def _probe_wan_node(pool: WorkerPool, node: str, label: str) -> tuple[bool, str | None]:
-    ok, reason = await _probe_longcat(pool)
-    if not ok:
-        return ok, reason
-    try:
-        nodes = await asyncio.wait_for(_fetch_longcat_nodes(), timeout=_LONGCAT_PROBE_TIMEOUT)
-    except Exception as e:
-        return False, f"{label} 实例不可达: {e}"
-    if node not in nodes:
-        return False, f"{label} 实例缺少 {node} 节点(需升级 WanVideoWrapper 节点包)"
-    return True, None
+    """同实例(:8197)追加节点检查:与 longcat 共用 caps 缓存(url 相同,二次命中零开销)。"""
+    return await _probe_dedicated(
+        get_longcat_client(), _longcat_caps, label=label,
+        need_nodes={node},
+        node_missing_msg=f"{label} 实例缺少 {node} 节点(需升级 WanVideoWrapper 节点包)",
+    )
 
 
 async def _probe_wan_animate(pool: WorkerPool) -> tuple[bool, str | None]:
@@ -244,7 +435,7 @@ async def _probe_flux_nunchaku(pool: WorkerPool) -> tuple[bool, str | None]:
     )
 
 
-# Wan-Animate-2 探测超时:实例挂起时不能拖垮 /api/models/engines 端点
+# Wan-Animate-2 探测:node_names(object_info)留在缓存/后台层,热路径只做 liveness 快探
 _WAN_ANIMATE2_PROBE_TIMEOUT = 8.0
 
 
@@ -253,24 +444,27 @@ async def _fetch_animate2_nodes() -> set[str]:
     return await get_animate2_client().node_names()
 
 
+async def _animate2_caps() -> tuple[set[str], set[str]]:
+    models, nodes = set(), await _fetch_animate2_nodes()
+    return models, nodes
+
+
 async def _probe_wan_animate2(pool: WorkerPool) -> tuple[bool, str | None]:
-    """Wan-Animate-2 专用实例探测:含 WanAnimate2ToVideo 节点即可用;失败给原因。
+    """Wan-Animate-2 专用实例两级探测:liveness 快探 + 节点集合缓存(见 _probe_dedicated)。
 
     与 pool 探测不同:走 GPU3 独立实例(TOIV_WAN_ANIMATE2_BASE_URL),pool 参数仅签名占位。
     若 TOIV_WAN_ANIMATE2_ENABLED=false,直接标不可用,避免前端展示不可提交的引擎。
     """
     if not getattr(get_settings(), "wan_animate2_enabled", True):
         return False, "Wan-Animate-2 引擎已禁用(TOIV_WAN_ANIMATE2_ENABLED=false)"
-    try:
-        nodes = await asyncio.wait_for(_fetch_animate2_nodes(), timeout=_WAN_ANIMATE2_PROBE_TIMEOUT)
-    except Exception as e:  # 不可达/超时/替身异常一律降级为不可用 + 原因
-        return False, f"Wan-Animate-2 实例不可达: {e}"
-    if WAN_ANIMATE2_NODE not in nodes:
-        return False, f"Wan-Animate-2 实例缺少 {WAN_ANIMATE2_NODE} 节点(需 ComfyUI master 原生支持)"
-    return True, None
+    return await _probe_dedicated(
+        get_animate2_client(), _animate2_caps, label="Wan-Animate-2",
+        need_nodes={WAN_ANIMATE2_NODE},
+        node_missing_msg=f"Wan-Animate-2 实例缺少 {WAN_ANIMATE2_NODE} 节点(需 ComfyUI master 原生支持)",
+    )
 
 
-# Qwen-Image-Edit 探测超时:实例挂起时不能拖垮 /api/models/engines 端点
+# Qwen-Image-Edit 探测:meta 拉取(object_info)留在缓存/后台层,热路径只做 liveness 快探
 _QWEN_EDIT_PROBE_TIMEOUT = _PROBE_HARD_TIMEOUT
 
 
@@ -280,22 +474,22 @@ async def _fetch_qwen_edit_meta() -> tuple[set[str], set[str]]:
     return await client.node_names(), await client.model_names()
 
 
-async def _probe_qwen_edit(pool: WorkerPool) -> tuple[bool, str | None]:
-    """Qwen-Image-Edit 专用实例探测:含 TextEncodeQwenImageEdit 节点 + 编辑 UNET 在枚举即可用。
+async def _qwen_edit_caps() -> tuple[set[str], set[str]]:
+    nodes, models = await _fetch_qwen_edit_meta()
+    return models, nodes
 
-    与 pool 探测不同:走 pc02 独立实例(TOIV_QWEN_EDIT_BASE_URL),pool 参数仅签名占位。
+
+async def _probe_qwen_edit(pool: WorkerPool) -> tuple[bool, str | None]:
+    """Qwen-Image-Edit 专用实例两级探测:liveness 快探 + (节点,UNET) 集合缓存。
+
+    与 pool 探测不同:走 pc01 独立实例(TOIV_QWEN_EDIT_BASE_URL),pool 参数仅签名占位。
     """
-    try:
-        nodes, models = await asyncio.wait_for(
-            _fetch_qwen_edit_meta(), timeout=_QWEN_EDIT_PROBE_TIMEOUT
-        )
-    except Exception as e:  # 不可达/超时/替身异常一律降级为不可用 + 原因
-        return False, f"Qwen-Image-Edit 实例不可达: {e}"
-    if QWEN_EDIT_NODE not in nodes:
-        return False, f"Qwen-Image-Edit 实例缺少 {QWEN_EDIT_NODE} 节点"
-    if QWEN_EDIT_UNET not in models:
-        return False, f"Qwen-Image-Edit 实例缺少编辑 UNET {QWEN_EDIT_UNET}"
-    return True, None
+    return await _probe_dedicated(
+        get_qwen_edit_client(), _qwen_edit_caps, label="Qwen-Image-Edit",
+        need_nodes={QWEN_EDIT_NODE}, need_models={QWEN_EDIT_UNET},
+        node_missing_msg=f"Qwen-Image-Edit 实例缺少 {QWEN_EDIT_NODE} 节点",
+        model_missing_msg=f"Qwen-Image-Edit 实例缺少编辑 UNET {QWEN_EDIT_UNET}",
+    )
 
 
 # Qwen-Image-Edit 相机角度下拉标签(指令原文见 workflows/qwen_edit.CAMERA_PRESETS)
@@ -1385,10 +1579,10 @@ def _default_registry() -> list[dict[str, Any]]:
         "submit": {"route": "/api/h3/t2v", "kind": "h3-t2v"},
         "description": "【R18 默认视频引擎】MiniMax H3 成人向文生视频:原生 32kHz 音画同发,可叠 R18 LoRA,专用实例 :8195",
         "source": {
-            "name": "MiniMax H3 + 社区 R18 LoRA",
-            "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
-            "author": "MiniMax × Civitai 社区(LoRA)",
-            "note": "底模为 MiniMax 开源权重;R18 能力由社区 LoRA 提供(civitai),仅 R18 上下文可选",
+            "name": "10Eros-Max H3 TURBO Ref2VA (int8)",
+            "url": "https://huggingface.co/cicalooo/10Eros-Max-h3-int8-convrot",
+            "author": "TenStrip × cicalooo(int8_convrot)",
+            "note": "R18 默认 UNET=10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot;BF16 源 TenStrip/10Eros-Max;可叠社区 R18 LoRA",
         },
         "params": _h3_nsfw_video_params(),
         "probe": _probe_h3,
@@ -1401,10 +1595,10 @@ def _default_registry() -> list[dict[str, Any]]:
         "submit": {"route": "/api/h3/i2v", "kind": "h3-i2v"},
         "description": "MiniMax H3 成人向图生视频:参考图首帧 → 音画同发,可叠 R18 LoRA",
         "source": {
-            "name": "MiniMax H3 + 社区 R18 LoRA",
-            "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
-            "author": "MiniMax × Civitai 社区(LoRA)",
-            "note": "底模为 MiniMax 开源权重;R18 能力由社区 LoRA 提供(civitai),仅 R18 上下文可选",
+            "name": "10Eros-Max H3 TURBO Ref2VA (int8)",
+            "url": "https://huggingface.co/cicalooo/10Eros-Max-h3-int8-convrot",
+            "author": "TenStrip × cicalooo(int8_convrot)",
+            "note": "R18 默认 UNET=10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot;BF16 源 TenStrip/10Eros-Max;可叠社区 R18 LoRA",
         },
         "params": [_ref_image_required(), *_h3_nsfw_video_params()],
         "probe": _probe_h3,
@@ -1417,9 +1611,9 @@ def _default_registry() -> list[dict[str, Any]]:
         "submit": {"route": "/api/h3/fl2v", "kind": "h3-fl2v"},
         "description": "MiniMax H3 成人向首尾帧:必填首帧+尾帧,同一 ImageToVideo 节点,可叠 R18 LoRA。不是 9 参考。",
         "source": {
-            "name": "MiniMax H3 + 社区 R18 LoRA",
-            "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
-            "author": "MiniMax × Civitai 社区(LoRA)",
+            "name": "10Eros-Max H3 TURBO Ref2VA (int8)",
+            "url": "https://huggingface.co/cicalooo/10Eros-Max-h3-int8-convrot",
+            "author": "TenStrip × cicalooo(int8_convrot)",
             "note": "NSFW 换 10Eros-Max Ref2VA 命名底模;图仍是 first+last,不是多参考",
         },
         "params": [_h3_fl2v_image_param(), *_h3_nsfw_video_params()],
@@ -1433,9 +1627,9 @@ def _default_registry() -> list[dict[str, Any]]:
         "submit": {"route": "/api/h3/r2v", "kind": "h3-r2v"},
         "description": "MiniMax H3 成人向 Ref2VA:1-9 图、0-3 视频、0-3 音频;提示词用 1-based 标签。不是首尾帧,不是 Director 时间线。",
         "source": {
-            "name": "MiniMax H3 + 社区 R18 LoRA",
-            "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
-            "author": "MiniMax × Civitai 社区(LoRA)",
+            "name": "10Eros-Max H3 TURBO Ref2VA (int8)",
+            "url": "https://huggingface.co/cicalooo/10Eros-Max-h3-int8-convrot",
+            "author": "TenStrip × cicalooo(int8_convrot)",
             "note": "NSFW 换已有 h3_nsfw_unet(10Eros-Max TURBO ref2va);图是多参考不是 last-frame",
         },
         "params": [*_h3_r2v_media_params(), *_h3_nsfw_video_params()],
@@ -1453,7 +1647,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "description": "【进阶】10Eros 文生视频无首帧会塌成色块,R18 必须上传首帧改走「LTX 2.3 图生视频」;不是默认引擎",
         "source": {
             "name": "LTX-Video 2.3 + 10Eros v14",
-            "url": "https://civitai.com/models/2447875",
+            "url": "https://civitai.red/models/2447875/ltx23-10eros",
             "author": "Lightricks × Civitai 社区(10Eros)",
             "note": "10Eros 为社区训练的 LTX2.3 NSFW 专用底模,已内置为默认视频 UNET",
         },
@@ -1470,7 +1664,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "description": "【进阶】10Eros 底模成人向图生视频,须上传首帧;不是默认引擎(默认请用 H3)",
         "source": {
             "name": "LTX-Video 2.3 + 10Eros v14",
-            "url": "https://civitai.com/models/2447875",
+            "url": "https://civitai.red/models/2447875/ltx23-10eros",
             "author": "Lightricks × Civitai 社区(10Eros)",
             "note": "10Eros 为社区训练的 LTX2.3 NSFW 专用底模,已内置为默认视频 UNET",
         },
@@ -1487,7 +1681,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "description": "【进阶】10Eros 底模成人向口型同步:人物参考图 + 驱动音频 → 对口型视频",
         "source": {
             "name": "LTX-Video 2.3 + 10Eros v14",
-            "url": "https://civitai.com/models/2447875",
+            "url": "https://civitai.red/models/2447875/ltx23-10eros",
             "author": "Lightricks × Civitai 社区(10Eros)",
             "note": "10Eros 为社区训练的 LTX2.3 NSFW 专用底模;ID LoRA 可选(身份保持)",
         },
@@ -2060,7 +2254,9 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
         if spec.get("hidden"):
             entry["hidden"] = True
         if "source" in spec:
-            entry["source"] = spec["source"]
+            entry["source"] = redact_engine_source(
+                dict(spec["source"]), is_admin=is_admin_user(user),
+            )
         if "submit" in spec:
             entry["submit"] = spec["submit"]
 

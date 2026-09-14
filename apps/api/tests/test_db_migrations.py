@@ -32,6 +32,7 @@ def test_raw_migration_failure_logs_warning(_mem_engine, monkeypatch, caplog):
         db, "_SQLITE_RAW_MIGRATIONS", ("CREATE TABL bogus_syntax (((",)
     )
     monkeypatch.setattr(db, "_SQLITE_MIGRATIONS", ())
+    monkeypatch.setattr(db, "_SQLITE_POST_MIGRATIONS", ())
 
     with caplog.at_level(logging.WARNING, logger="app.db"):
         db._run_column_migrations()  # 不抛异常
@@ -43,6 +44,7 @@ def test_raw_migration_failure_logs_warning(_mem_engine, monkeypatch, caplog):
 def test_column_migration_failure_logs_warning(_mem_engine, monkeypatch, caplog):
     """列迁移失败(表不存在):不抛,warning 含 表.列 定位信息。"""
     monkeypatch.setattr(db, "_SQLITE_RAW_MIGRATIONS", ())
+    monkeypatch.setattr(db, "_SQLITE_POST_MIGRATIONS", ())
     monkeypatch.setattr(
         db, "_SQLITE_MIGRATIONS", (("no_such_table", "ghost_col", "ghost_col INTEGER"),)
     )
@@ -61,6 +63,7 @@ def test_successful_migrations_no_warning(_mem_engine, monkeypatch, caplog):
         "_SQLITE_RAW_MIGRATIONS",
         ("CREATE TABLE IF NOT EXISTS mig_raw_t (id TEXT PRIMARY KEY)",),
     )
+    monkeypatch.setattr(db, "_SQLITE_POST_MIGRATIONS", ())
     # mig_t.ok 已存在 → 探测命中 continue,无 ALTER、无日志
     with _mem_engine.begin() as conn:
         conn.exec_driver_sql("CREATE TABLE mig_t (id TEXT PRIMARY KEY, ok TEXT)")
@@ -89,6 +92,43 @@ def test_job_error_column_migration_present_and_idempotent(_mem_engine):
         conn.exec_driver_sql("UPDATE job SET error='CUDA OOM' WHERE id='j1'")
         row = conn.exec_driver_sql("SELECT error FROM job WHERE id='j1'").fetchone()
         assert row[0] == "CUDA OOM"
+
+
+def test_app_curation_columns_migration_present_and_idempotent(_mem_engine):
+    """市场策展层(2026-09-12):app.use_case/featured 列迁移存在、幂等、可写可读;
+    use_case 索引在 post 清单(列迁移之后执行)且真实建立。"""
+    assert (
+        ("app", "use_case", "use_case VARCHAR NOT NULL DEFAULT ''")
+        in db._SQLITE_MIGRATIONS
+    )
+    assert (
+        ("app", "featured", "featured BOOLEAN NOT NULL DEFAULT FALSE")
+        in db._SQLITE_MIGRATIONS
+    )
+    assert (
+        "CREATE INDEX IF NOT EXISTS idx_app_use_case ON app(use_case)"
+        in db._SQLITE_POST_MIGRATIONS
+    )
+    with _mem_engine.begin() as conn:
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS app (id TEXT PRIMARY KEY, name TEXT)"
+        )
+    for _ in range(2):  # 跑两遍验证幂等(第二遍探测命中,直接跳过)
+        db._run_column_migrations()
+    with _mem_engine.begin() as conn:
+        cols = {r[1] for r in conn.exec_driver_sql('PRAGMA table_info("app")').fetchall()}
+        assert {"use_case", "featured"} <= cols
+        idx = {r[1] for r in conn.exec_driver_sql('PRAGMA index_list("app")').fetchall()}
+        assert "idx_app_use_case" in idx
+        # 既有行回填默认值;新写入正常
+        conn.exec_driver_sql("INSERT INTO app (id, name) VALUES ('a1', 'demo')")
+        conn.exec_driver_sql(
+            "UPDATE app SET use_case='drama', featured=1 WHERE id='a1'"
+        )
+        row = conn.exec_driver_sql(
+            "SELECT use_case, featured FROM app WHERE id='a1'"
+        ).fetchone()
+        assert row == ("drama", 1)
 
 
 def test_job_index_migrations_present_and_idempotent(_mem_engine):

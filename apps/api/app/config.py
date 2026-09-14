@@ -330,8 +330,10 @@ class Settings(BaseSettings):
     # 实例由 systemd 托管,权重经 extra_model_paths 挂 NAS h3/。
     h3_enabled: bool = True
     h3_base_url: str = "http://192.168.71.127:8195"
-    # H3 多实例(2026-08-25):逗号分隔的实例基址,提交时 least-loaded 调度(队列最短者优先,
-    # 全不可达回退首实例由 ensure_h3_ready 报 503)。空 = 单实例(h3_base_url)零行为变化。
+    # H3 双 worker 池(2026-09-13):逗号分隔的实例基址,提交时 least-loaded 调度
+    # (queue 最短者优先;探测失败视为 ∞ 自动跳过,全不可达回退首实例由 ensure_h3_ready
+    # 报 503)。生产 = WS :8195 + PC01 :8198(设备侧就绪前 healthy=false 自然降级单实例,
+    # 零报错)。空 = 单实例回落 h3_base_url,core .env 零改动也能跑。
     # 注意:每实例常驻 RAM ~30G(匿名内存,不可回收)+ 显存 30-33G,扩实例前先核
     # workstation free -h 与 nvidia-smi(H-3/H-2 纪律)。
     h3_base_urls: str = ""
@@ -353,6 +355,9 @@ class Settings(BaseSettings):
     # 直出完好)。仅 nsfw=True(X-NSFW 专区)提交时替换模板节点 "6" 的 unet_name;
     # SFW 保持模板 minimax_h3_fl2va_pruned_int8_convrot 不变。
     h3_nsfw_unet: str = "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors"
+    # H3 智能加速机读规格文件路径(services/h3_accel;空 = 仓库根
+    # .regen_tmp/h3_sglang_bench_20260912/profiles.json)。文件缺失时优雅降级按原生提交。
+    h3_accel_profiles_path: str = ""
 
     # —— LongCat-Video 长视频引擎(专用 ComfyUI 实例,workstation GPU0 :8197) ——
     # 独立于 WorkerPool(WanVideo 系节点仅该实例装有);systemd comfyui-longcat.service 托管,

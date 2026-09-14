@@ -29,7 +29,7 @@ from app.routes.video import _raise_from_comfy_error
 from app.services import hold_queue
 from app.services.resource_budget import ensure_host_ram
 from app.versioning import params_snapshot
-from app.workflows.h3_video import apply_nsfw_unet
+from app.workflows.h3_video import apply_nsfw_unet, normalize_h3_r2v_autogrow_inputs
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +118,48 @@ async def pick_h3_client() -> ComfyUIClient:
     return alive[0][2]
 
 
+_WORKER_STATUS_TIMEOUT = 3.0
+
+
+async def h3_worker_status() -> list[dict]:
+    """H3 worker 池状态(前端引擎卡/health 展示):每实例队列深度 + 健康 + H3 节点有无。
+
+    只做探测,零副作用;探测失败的实例标 healthy=false + error,不抛异常——
+    :8198 未就绪时列表里自然呈现不可用,调度(pick_h3_client)自动只用存活实例。
+    """
+    settings = get_settings()
+    urls = h3_instances()
+
+    async def _one(url: str) -> dict:
+        client = ComfyUIClient(url, timeout=settings.request_timeout)
+        status: dict = {
+            "url": url, "healthy": False,
+            "queue_running": None, "queue_pending": None, "queue_total": None,
+            "h3_node": None, "error": None,
+        }
+        try:
+            running, pending = await asyncio.wait_for(
+                client.queue_counts(), timeout=_WORKER_STATUS_TIMEOUT
+            )
+        except Exception as e:  # noqa: BLE001 — 状态端点:不可达只标记,不报错
+            status["error"] = str(e)[:200]
+            return status
+        status.update(
+            healthy=True, queue_running=running, queue_pending=pending,
+            queue_total=running + pending,
+        )
+        try:
+            info = await asyncio.wait_for(
+                client.object_info(H3_NODE), timeout=_WORKER_STATUS_TIMEOUT
+            )
+            status["h3_node"] = bool(info)
+        except Exception:  # noqa: BLE001 — 在线但缺节点/探测失败,如实标记
+            status["h3_node"] = False
+        return status
+
+    return list(await asyncio.gather(*(_one(u) for u in urls)))
+
+
 def ensure_h3_enabled() -> None:
     """若 H3 被配置关闭,统一 503 并给出原因(前端引擎注册表同步标不可用)。"""
     if not get_settings().h3_enabled:
@@ -150,8 +192,39 @@ def _cuda_free_gib(stats: dict) -> float | None:
     return None
 
 
+def _cuda_total_gib(stats: dict) -> float | None:
+    """从 /system_stats 提取首个 CUDA 设备的总显存(GiB);无设备 → None。"""
+    for dev in stats.get("devices") or []:
+        if dev.get("type") == "cuda" or str(dev.get("name", "")).startswith("cuda"):
+            total = dev.get("vram_total")
+            if isinstance(total, (int, float)) and total > 0:
+                return total / _GIB
+    return None
+
+
+# 预检阈值相对卡总显存的缩放上限:96G 卡(:8195)阈值维持配置值 36G 不变;
+# 32G 卡(:8198,--lowvram offload int8)阈值降到 16G,驱逐后 ~30G 空闲不再误杀。
+_VRAM_THRESHOLD_FRAC = 0.5
+
+
+def _effective_vram_threshold(stats: dict, base_threshold: float) -> float:
+    """预检有效阈值 = min(配置阈值, 卡总显存 × 50%);读不到总量时用配置值。
+
+    双池(2026-09-13)回归实证:固定 36G 阈值对 PC01 :8198(32G 卡)恒 503,
+    凡调度到该实例的 H3 作业一律失败——阈值必须按卡型缩放。
+    """
+    total = _cuda_total_gib(stats)
+    if not total:
+        return base_threshold
+    return min(base_threshold, total * _VRAM_THRESHOLD_FRAC)
+
+
 async def ensure_h3_vram(client: ComfyUIClient) -> None:
     """提交前显存预检:H3 int8 档增量峰值 ~30-33GiB(评测实测),空闲不足则:
+
+    阈值按卡总显存缩放(_effective_vram_threshold):96G 卡维持配置值(默认 36G),
+    32G 卡(:8198 --lowvram)降为总量 50%——固定阈值会把小卡实例一律误杀 503
+    (2026-09-13 双池回归实证:调度到 :8198 的作业全部「空闲 30.2GiB < 36GiB」失败)。
 
     0. **实例自身队列非空(有 H3 作业在跑/等待)→ 直接放行,走 ComfyUI 原生排队**
        —— 此时模型必已驻留显存(上个/当前作业加载过),串行执行无需显存增量,
@@ -179,10 +252,12 @@ async def ensure_h3_vram(client: ComfyUIClient) -> None:
     except ComfyUIError as e:
         logger.warning("H3 队列读取失败,继续显存预检: %s", e)
     try:
-        free = _cuda_free_gib(await client.get_system_stats())
+        stats = await client.get_system_stats()
     except ComfyUIError as e:
         logger.warning("H3 显存预检读取失败,跳过预检: %s", e)
         return
+    threshold = _effective_vram_threshold(stats, threshold)
+    free = _cuda_free_gib(stats)
     if free is None or free >= threshold:
         await ensure_host_ram(client, settings.h3_min_free_ram_gb, "H3")
         return
@@ -277,6 +352,8 @@ async def submit_h3_job(
     ensure_h3_enabled()
     client = client or await pick_h3_client()
     await ensure_h3_ready(client, node=h3_node)
+
+    normalize_h3_r2v_autogrow_inputs(graph)
 
     # 仅当调用方传入 nsfw=True(显式 body 或钉选 R18 LoRA)才换 10Eros-Max UNET;
     # 专页头单独不能换底。SFW 保持模板底模不动。在预检/hold 分支之前完成替换:
