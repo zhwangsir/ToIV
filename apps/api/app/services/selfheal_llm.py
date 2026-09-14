@@ -21,7 +21,7 @@ from app.services.app_packager import _extract_json
 from app.services.app_smoke import _COMBO_LOADERS
 
 # 允许 LLM 改写的输入字段(combo/标量类);连线与拓扑不在白名单
-_ALLOWED_FIELDS = set(_COMBO_LOADERS.values()) | {
+_ALLOWED_FIELDS = set(_COMBO_LOADERS.values()) | {"model"} | {
     "steps", "cfg", "guidance", "denoise", "seed", "width", "height",
     "length", "duration_sec", "fps", "frame_rate", "batch_size", "strength",
 }

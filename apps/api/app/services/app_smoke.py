@@ -142,6 +142,7 @@ _COMBO_LOADERS = {
     "ControlNetLoader": "control_net_name",
     "UpscaleModelLoader": "model_name",
     "CLIPVisionLoader": "clip_name",
+    "WanVideoModelLoader": "model",
 }
 _STEM_RE = re.compile(r"[^a-z0-9]+")
 
