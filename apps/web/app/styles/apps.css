@@ -2197,3 +2197,27 @@
     width: 148px;
   }
 }
+
+/* 自愈闭环烟测徽标(2026-09-15):市场卡右上角实测可用/待修 */
+.apps-smoke-badge {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+.apps-smoke-pass {
+  background: var(--ok);
+  color: var(--text-on-accent, var(--surface-0));
+}
+.apps-smoke-fail {
+  background: var(--surface-2);
+  color: var(--text-2);
+}

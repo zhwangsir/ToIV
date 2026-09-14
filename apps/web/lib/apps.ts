@@ -140,6 +140,9 @@ export interface AppItem {
   use_case: string;
   /** 精选标记(市场精选合集位)。 */
   featured: boolean;
+  /** 自愈闭环烟测(2026-09-15):pass=实测可用徽标;fail/timeout=待修。 */
+  smoke_status?: string;
+  smoke_cls?: string;
 }
 
 /** 应用使用指南(2026-09-12 P1 应用说明卡):GET /api/apps/{id}/guide 回包。 */
@@ -263,6 +266,8 @@ export function normalizeApp(raw: unknown): AppItem {
     use_case:
       typeof a.use_case === "string" && USE_CASE_IDS.has(a.use_case) ? a.use_case : "",
     featured: boolOf(a.featured),
+    smoke_status: typeof a.smoke_status === "string" ? a.smoke_status : "",
+    smoke_cls: typeof a.smoke_cls === "string" ? a.smoke_cls : "",
   };
 }
 

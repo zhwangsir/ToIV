@@ -834,6 +834,16 @@ function AppCard({
         <span className="rh-card-run" aria-hidden="true">
           <Icon name="play" size={13} /> 运行
         </span>
+        {a.smoke_status === "pass" && (
+          <span className="apps-smoke-badge apps-smoke-pass" title="自动烟测通过(导入即测)">
+            <Icon name="check" size={11} /> 实测可用
+          </span>
+        )}
+        {a.smoke_status && a.smoke_status !== "pass" && a.smoke_status !== "running" && (
+          <span className="apps-smoke-badge apps-smoke-fail" title={`自动烟测未通过(${a.smoke_cls || "未知"})`}>
+            待修
+          </span>
+        )}
         <div className="rh-card-scrim">
           <span className="rh-card-name">{a.name}</span>
           {a.guide_purpose && (
