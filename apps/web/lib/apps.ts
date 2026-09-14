@@ -1,4 +1,5 @@
 import { API_BASE, apiFetch, authHeaders, apiErrorMessage } from "./api";
+import type { H3AccelLevel } from "./h3Accel";
 import { CACHE_KEYS, TTL, invalidatePrefix, swr } from "./swr-cache";
 
 /**
@@ -7,8 +8,11 @@ import { CACHE_KEYS, TTL, invalidatePrefix, swr } from "./swr-cache";
  * 后端契约(并行开发中,以此为准):
  *   GET  /api/apps?category=&q=   → { items: App[] }(slim:params_schema=[] bindings={} required_nodes=[])
  *   GET  /api/apps/{id}           → App(完整 params_schema/bindings/workflow_json;运行页必须走详情)
+ *   GET  /api/apps/{id}/guide     → AppGuide(公开,仅 published;无/draft → 404)
+ *                                   列表/详情 App 附 has_guide/guide_purpose(仅 published 透出)
  *   POST /api/apps/{id}/fork      → 个人副本(App)
  *   POST /api/apps/{id}/run       → body { values } → { job_id, prompt_id }
+ *   POST /api/apps/{id}/open-in-comfy → { workflow_name, load_url, … }(画布自动 Load)
  *
  * M5 智能导入契约:
  *   POST /api/apps/import          → body { workflow } → 200 AppImportDraft
@@ -67,6 +71,35 @@ export interface AppBinding {
   field: string;
 }
 
+/** admin 出处外链(与后端 AppSourceLink 对齐;非 admin 恒空)。 */
+export interface AppSourceLink {
+  label: string;
+  url: string;
+}
+
+/** 用途分类枚举(2026-09-12 市场策展层;与后端 use_case id 对齐,""=未分类)。 */
+export const USE_CASES = [
+  { id: "drama", label: "短剧剧情" },
+  { id: "avatar", label: "数字人口播" },
+  { id: "face", label: "换脸人像" },
+  { id: "fashion", label: "换装穿搭" },
+  { id: "ecommerce", label: "电商产品" },
+  { id: "anime", label: "动漫二次元" },
+  { id: "art", label: "艺术创作" },
+  { id: "photo", label: "写实摄影" },
+  { id: "edit", label: "图片编辑" },
+  { id: "motion", label: "动作迁移" },
+  { id: "ad", label: "广告营销" },
+  { id: "other", label: "其他" },
+] as const;
+
+const USE_CASE_IDS = new Set<string>(USE_CASES.map((u) => u.id));
+
+/** 用途 id → 中文 label;未知/空 → 「其他」兜底由调用方决定,这里返回 null。 */
+export function useCaseLabel(id: string): string | null {
+  return USE_CASES.find((u) => u.id === id)?.label ?? null;
+}
+
 export interface AppItem {
   id: string;
   name: string;
@@ -82,6 +115,9 @@ export interface AppItem {
   output_kind: AppOutputKind;
   is_builtin: boolean;
   is_nsfw: boolean;
+  /** 合并卡:同时含 sfw/nsfw 时封面打双标签 */
+  content_modes?: string[];
+  nsfw_variant_id?: string | null;
   is_public: boolean;
   is_mine: boolean;
   usage_count: number;
@@ -90,6 +126,34 @@ export interface AppItem {
   cover_url: string | null;
   /** 作者名(可空,空显示「ToIV」)。 */
   author: string | null;
+  /** RunningHub webappId(仅 admin;非 admin 恒 null)。 */
+  rh_webapp_id: string | null;
+  /** RH 详情页外链(仅 admin)。 */
+  rh_webapp_url: string | null;
+  /** 出处外链列表(RH/HF/Civitai/描述 URL;仅 admin)。 */
+  source_links: AppSourceLink[];
+  /** 是否有已发布的使用指南(仅 published 透出)。 */
+  has_guide?: boolean;
+  /** 指南用途一句话(仅 published 透出;市场卡优先展示)。 */
+  guide_purpose?: string | null;
+  /** 用途分类(2026-09-12 市场策展层;USE_CASES 枚举 id,""=未分类)。 */
+  use_case: string;
+  /** 精选标记(市场精选合集位)。 */
+  featured: boolean;
+}
+
+/** 应用使用指南(2026-09-12 P1 应用说明卡):GET /api/apps/{id}/guide 回包。 */
+export interface AppGuide {
+  app_id: string;
+  purpose: string;
+  when_to_use: string;
+  steps: string[];
+  inputs: string[];
+  outputs: string[];
+  tips: string[];
+  related_app_ids: string[];
+  status: string;
+  updated_at: string;
 }
 
 /** 运行提交回执:契约保证 job_id/prompt_id;client_id/worker 后端给则透传(SSE 用)。 */
@@ -98,6 +162,9 @@ export interface AppRunReceipt {
   prompt_id: string;
   client_id: string;
   worker: string;
+  /** H3 智能加速回显(2026-09-12;旧后端无字段时 off/false)。 */
+  acceleration?: H3AccelLevel;
+  acceleration_applied?: boolean;
 }
 
 const CATEGORIES: readonly AppCategory[] = ["image", "video", "audio", "edit", "3d", "other"];
@@ -170,13 +237,49 @@ export function normalizeApp(raw: unknown): AppItem {
     output_kind: outputKind,
     is_builtin: boolOf(a.is_builtin),
     is_nsfw: boolOf(a.is_nsfw),
+    content_modes: Array.isArray(a.content_modes)
+      ? a.content_modes.map((x: unknown) => String(x))
+      : undefined,
+    nsfw_variant_id:
+      a.nsfw_variant_id == null || a.nsfw_variant_id === ""
+        ? null
+        : String(a.nsfw_variant_id),
     is_public: boolOf(a.is_public),
     is_mine: boolOf(a.is_mine),
     usage_count: numOf(a.usage_count, 0),
     sort: numOf(a.sort, 100),
     cover_url: typeof a.cover_url === "string" && a.cover_url.trim() ? a.cover_url.trim() : null,
     author: typeof a.author === "string" && a.author.trim() ? a.author.trim() : null,
+    rh_webapp_id:
+      typeof a.rh_webapp_id === "string" && a.rh_webapp_id.trim() ? a.rh_webapp_id.trim() : null,
+    rh_webapp_url:
+      typeof a.rh_webapp_url === "string" && a.rh_webapp_url.trim() ? a.rh_webapp_url.trim() : null,
+    source_links: normalizeSourceLinks(a.source_links),
+    has_guide: boolOf(a.has_guide),
+    guide_purpose:
+      typeof a.guide_purpose === "string" && a.guide_purpose.trim()
+        ? a.guide_purpose.trim()
+        : null,
+    use_case:
+      typeof a.use_case === "string" && USE_CASE_IDS.has(a.use_case) ? a.use_case : "",
+    featured: boolOf(a.featured),
   };
+}
+
+/** source_links 归一:仅收 {label,url} 且 url 为 http(s);非法项剔除。 */
+function normalizeSourceLinks(raw: unknown): AppSourceLink[] {
+  if (!Array.isArray(raw)) return [];
+  const out: AppSourceLink[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    const o = (item ?? {}) as Record<string, unknown>;
+    const url = typeof o.url === "string" ? o.url.trim() : "";
+    const label = typeof o.label === "string" ? o.label.trim() : "";
+    if (!url || !/^https?:\/\//i.test(url) || seen.has(url)) continue;
+    seen.add(url);
+    out.push({ label: label || "来源", url });
+  }
+  return out;
 }
 
 /** bindings 归一:非法项(缺 node/field 或非串)剔除。 */
@@ -306,6 +409,43 @@ export async function getApp(id: string): Promise<AppItem> {
   return normalizeApp(await res.json());
 }
 
+/** guide 字段宽容归一:单串按单行收进数组,非法项剔除。 */
+function guideStrList(raw: unknown): string[] {
+  const items = Array.isArray(raw) ? raw : raw == null ? [] : [raw];
+  return items
+    .map((x) => (typeof x === "string" ? x.trim() : ""))
+    .filter((x) => x !== "");
+}
+
+/** AppGuide 归一:文本字段缺省补 "",数组字段经 guideStrList。 */
+export function normalizeAppGuide(raw: unknown): AppGuide {
+  const g = (raw ?? {}) as Record<string, unknown>;
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  return {
+    app_id: String(g.app_id ?? ""),
+    purpose: str(g.purpose),
+    when_to_use: str(g.when_to_use),
+    steps: guideStrList(g.steps),
+    inputs: guideStrList(g.inputs),
+    outputs: guideStrList(g.outputs),
+    tips: guideStrList(g.tips),
+    related_app_ids: guideStrList(g.related_app_ids),
+    status: str(g.status),
+    updated_at: str(g.updated_at),
+  };
+}
+
+/** 应用使用指南(公开,仅 published;无/draft → 404,前端静默降级为 null 不抛错)。 */
+export async function getAppGuide(id: string): Promise<AppGuide | null> {
+  const res = await apiFetch(
+    `${API_BASE}/api/apps/${encodeURIComponent(id)}/guide`,
+    { headers: authHeaders() },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) return null; // 说明卡非关键路径:任何失败都静默降级
+  return normalizeAppGuide(await res.json());
+}
+
 /** Fork 公共应用为个人副本(非内置且非本人时入口可见)。 */
 export async function forkApp(id: string): Promise<AppItem> {
   const res = await apiFetch(`${API_BASE}/api/apps/${encodeURIComponent(id)}/fork`, {
@@ -316,15 +456,20 @@ export async function forkApp(id: string): Promise<AppItem> {
   return normalizeApp(await res.json());
 }
 
-/** 提交运行:body { values } → { job_id, prompt_id };client_id/worker 缺省补 ""(轮询兜底)。 */
+/** 提交运行:body { values } → { job_id, prompt_id };client_id/worker 缺省补 ""(轮询兜底)。
+ *  acceleration:H3 智能加速档(2026-09-12,仅 H3 家族应用;缺省 off 不带字段) */
 export async function runApp(
   id: string,
   values: Record<string, unknown>,
+  opts?: { content_mode?: "sfw" | "nsfw"; acceleration?: H3AccelLevel },
 ): Promise<AppRunReceipt> {
+  const body: Record<string, unknown> = { values };
+  if (opts?.content_mode) body.content_mode = opts.content_mode;
+  if (opts?.acceleration && opts.acceleration !== "off") body.acceleration = opts.acceleration;
   const res = await apiFetch(`${API_BASE}/api/apps/${encodeURIComponent(id)}/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ values }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) return raiseErr(res, "运行失败");
   // usage_count 已变,失效列表缓存(排序/计数下次拉新)
@@ -335,6 +480,8 @@ export async function runApp(
     prompt_id: String(data.prompt_id ?? ""),
     client_id: String(data.client_id ?? ""),
     worker: String(data.worker ?? ""),
+    acceleration: typeof data.acceleration === "string" ? (data.acceleration as H3AccelLevel) : "off",
+    acceleration_applied: data.acceleration_applied === true,
   };
 }
 
@@ -345,6 +492,220 @@ export async function runApp(
  * draft_id 短时有效(confirm 凭它取服务端草稿);warnings 为包装告警(预览页黄条展示);
  * bindings 为节点→参数绑定映射(前端预览不消费,确认时后端凭 draft_id 自取)。
  */
+
+/** 打开应用到原生 Comfy 二次编辑:后端 api_to_ui + userdata 上传,回 workflow_name 供 Canvas ?workflow=。 */
+export interface OpenInComfyResult {
+  workflow_name: string;
+  worker_url: string;
+  load_url: string;
+  app_id: string;
+  node_count: number;
+  save_back: string;
+}
+
+export async function openAppInComfy(id: string): Promise<OpenInComfyResult> {
+  const res = await apiFetch(`${API_BASE}/api/apps/${encodeURIComponent(id)}/open-in-comfy`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) return raiseErr(res, "打开 Comfy 编辑失败");
+  const data = (await res.json()) as Record<string, unknown>;
+  return {
+    workflow_name: String(data.workflow_name ?? ""),
+    worker_url: String(data.worker_url ?? ""),
+    load_url: String(data.load_url ?? ""),
+    app_id: String(data.app_id ?? id),
+    node_count: Number(data.node_count ?? 0),
+    save_back: String(data.save_back ?? "not_implemented"),
+  };
+}
+
+/** H3 家族应用判定(2026-09-12 智能加速,与后端 422 口径一致):
+ *  id 前缀 h3-,或 workflow_json 含 MiniMaxH3/HailuoH3 家族节点。 */
+export function appSupportsH3Accel(app: Pick<AppItem, "id" | "workflow_json">): boolean {
+  if (app.id.startsWith("h3-")) return true;
+  const wf = app.workflow_json;
+  if (!wf) return false;
+  return Object.values(wf).some((n) => {
+    const ct = n?.class_type ?? "";
+    return (
+      typeof ct === "string" &&
+      (ct.includes("MiniMaxH3") || ct.includes("MinimaxH3") || ct.includes("HailuoH3"))
+    );
+  });
+}
+
+/** 调 open-in-comfy 后跳转 /?view=canvas;失败仍跳转并写入 sessionStorage 提示(导出/手动 Load 兜底)。
+ *  SPA 路由认 searchParams.view,旧 #canvas hash 会被忽略(表现为「打开工作流」无响应)。
+ *  返回 { ok, error? } 供调用方 toast/ErrorBar;导航在返回前触发(页面即将卸载)。 */
+export async function openAppWorkflowInComfy(
+  app: Pick<AppItem, "id" | "name" | "workflow_json">,
+): Promise<{ ok: boolean; error?: string }> {
+  const go = () => {
+    const u = new URL(window.location.href);
+    u.pathname = "/";
+    u.search = "";
+    u.searchParams.set("view", "canvas");
+    u.hash = "";
+    window.location.assign(u.toString());
+  };
+  try {
+    const res = await openAppInComfy(app.id);
+    try {
+      sessionStorage.setItem(
+        "toiv_pending_comfy_workflow",
+        JSON.stringify({
+          id: app.id,
+          name: app.name,
+          workflow_name: res.workflow_name,
+          node_count: res.node_count,
+          save_back: res.save_back,
+          at: Date.now(),
+        }),
+      );
+    } catch {
+      /* quota / private mode */
+    }
+    go();
+    return { ok: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "打开失败";
+    const wf = app.workflow_json;
+    try {
+      sessionStorage.setItem(
+        "toiv_pending_comfy_workflow",
+        JSON.stringify({
+          id: app.id,
+          name: app.name,
+          workflow: wf && Object.keys(wf).length ? wf : undefined,
+          error: msg,
+          at: Date.now(),
+        }),
+      );
+    } catch {
+      /* ignore */
+    }
+    go();
+    return { ok: false, error: msg };
+  }
+}
+
+/** description 内 RH:{digits}(与后端 provenance.extract_rh_webapp_id 同口径);无则空串。 */
+const RH_WEBAPP_RE = /(?:\s*[·•|]\s*)?RH:\s*(\d+)\b/i;
+
+export function extractRhWebappId(text: string | null | undefined): string {
+  const m = RH_WEBAPP_RE.exec(text || "");
+  return m ? m[1] : "";
+}
+
+/** RH webappId → 官网详情 URL(与后端 provenance.rh_webapp_url 同口径)。 */
+export function rhWebappDetailUrl(webappId: string | null | undefined): string {
+  const id = String(webappId ?? "").trim();
+  if (!id || !/^\d+$/.test(id)) return "";
+  return `https://www.runninghub.ai/ai-detail/${id}`;
+}
+
+/**
+ * ComfyUI 核心/官方节点白名单(primitive):未命中视为 custom node。
+ * 覆盖 nodes.py / 常见 comfy_extras + 本仓库 workflow 模板里出现的原生类名;
+ * 不追求穷尽 —— 详情「节点信息」用,未知一律归自定义。
+ */
+export const COMFY_PRIMITIVE_TYPES: ReadonlySet<string> = new Set([
+  // loaders
+  "CheckpointLoader", "CheckpointLoaderSimple", "unCLIPCheckpointLoader",
+  "UNETLoader", "VAELoader", "CLIPLoader", "DualCLIPLoader", "TripleCLIPLoader",
+  "CLIPVisionLoader", "ControlNetLoader", "DiffControlNetLoader",
+  "LoraLoader", "LoraLoaderModelOnly", "StyleModelLoader", "GLIGENLoader",
+  "HypernetworkLoader", "UpscaleModelLoader", "PhotoMakerLoader",
+  // conditioning / clip
+  "CLIPTextEncode", "CLIPTextEncodeSDXL", "CLIPTextEncodeSDXLRefiner",
+  "CLIPSetLastLayer", "CLIPVisionEncode", "unCLIPConditioning",
+  "ConditioningCombine", "ConditioningAverage", "ConditioningConcat",
+  "ConditioningSetArea", "ConditioningSetAreaPercentage", "ConditioningSetMask",
+  "ConditioningSetTimestepRange", "ConditioningZeroOut", "ConditioningSetAreaStrength",
+  "ControlNetApply", "ControlNetApplyAdvanced", "ControlNetApplySD3",
+  "StyleModelApply", "GLIGENTextBoxApply",
+  // latent / sample
+  "EmptyLatentImage", "EmptySD3LatentImage", "EmptyHueLatentImage",
+  "VAEDecode", "VAEEncode", "VAEEncodeForInpaint", "VAEDecodeTiled", "VAEEncodeTiled",
+  "KSampler", "KSamplerAdvanced", "SamplerCustom", "SamplerCustomAdvanced",
+  "KSamplerSelect", "BasicScheduler", "BasicGuider", "CFGGuider", "DualCFGGuider",
+  "RandomNoise", "DisableNoise", "FlipSigmas", "SplitSigmas",
+  "LatentUpscale", "LatentUpscaleBy", "LatentComposite", "LatentCompositeMasked",
+  "LatentFromBatch", "RepeatLatentBatch", "LatentBlend", "LatentRotate", "LatentFlip",
+  "LatentCrop", "SetLatentNoiseMask",
+  // image I/O + ops
+  "LoadImage", "LoadImageMask", "LoadImageOutput", "SaveImage", "PreviewImage",
+  "ImageScale", "ImageScaleBy", "ImageScaleToTotalPixels", "ImageInvert", "ImageBatch",
+  "ImagePadForOutpaint", "ImageCompositeMasked", "ImageBlend", "ImageBlur", "ImageQuantize",
+  "ImageSharpen", "ImageCrop", "RepeatImageBatch", "ImageFromBatch",
+  "MaskToImage", "ImageToMask", "SolidMask", "FeatherMask", "GrowMask", "InvertMask",
+  "CropMask", "MaskComposite", "MaskToImage",
+  // audio / video core
+  "LoadAudio", "SaveAudio", "SaveAudioMP3", "PreviewAudio",
+  "LoadVideo", "SaveVideo", "CreateVideo", "GetVideoComponents", "GetImageSize",
+  // primitives / util / notes
+  "PrimitiveNode", "Note", "Reroute", "INTConstant", "FloatConstant", "StringConstant",
+  "ImpactInt", "ImpactFloat", "ImpactString",
+  // LTX / common extras appearing in ToIV seeds (still "official" extras, not community packs)
+  "LTXVGemmaCLIPModelLoader", "LTXVConditioning", "EmptyLTXVLatentVideo",
+  "LTXVImgToVideo", "LTXVAudioVAELoader", "LTXVReferenceAudio",
+  "VHS_VideoCombine", "VHS_LoadVideo", "VHS_LoadAudioUpload",
+]);
+
+export interface WorkflowNodeTypeCount {
+  type: string;
+  count: number;
+}
+
+export interface WorkflowNodeSummary {
+  totalNodes: number;
+  totalTypes: number;
+  primitiveCount: number;
+  customCount: number;
+  primitiveTypes: WorkflowNodeTypeCount[];
+  customTypes: WorkflowNodeTypeCount[];
+}
+
+/** 解析 Comfy API 图:按 class_type 计数,拆分 primitive / custom。 */
+export function summarizeWorkflowNodes(
+  wf: Record<string, AppWorkflowNode> | null | undefined,
+): WorkflowNodeSummary {
+  const counts = new Map<string, number>();
+  if (wf) {
+    for (const node of Object.values(wf)) {
+      const t = node?.class_type?.trim();
+      if (!t) continue;
+      counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+  }
+  const primitiveTypes: WorkflowNodeTypeCount[] = [];
+  const customTypes: WorkflowNodeTypeCount[] = [];
+  let primitiveCount = 0;
+  let customCount = 0;
+  for (const [type, count] of [...counts.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  )) {
+    const row = { type, count };
+    if (COMFY_PRIMITIVE_TYPES.has(type)) {
+      primitiveTypes.push(row);
+      primitiveCount += count;
+    } else {
+      customTypes.push(row);
+      customCount += count;
+    }
+  }
+  return {
+    totalNodes: primitiveCount + customCount,
+    totalTypes: counts.size,
+    primitiveCount,
+    customCount,
+    primitiveTypes,
+    customTypes,
+  };
+}
+
+
 export interface AppImportDraft {
   draft_id: string;
   name: string;
@@ -462,34 +823,100 @@ export function buildImportOverrides(
 /** 上传类参数(images/audio/video):表单存句柄对象,提交抽 filename 数组。 */
 const MEDIA_PARAM_TYPES: ReadonlySet<AppParamType> = new Set(["images", "audio", "video"]);
 
+/** RH 封面/示例 CDN URL 作 images default 时的标记:仅预览,不可当 worker 文件名提交。 */
+export function isRemoteDemoMedia(filename: string): boolean {
+  return /^https?:\/\//i.test(String(filename || "").trim());
+}
+
+export interface MediaFilenamesOpts {
+  /** 是否保留 http(s) 示例 URL;提交/必填校验应 false。默认 true 兼容旧调用。 */
+  includeRemoteDemo?: boolean;
+}
+
 /**
  * 媒体表单值 → 非空文件名数组。兼容 string / string[] / {filename}[](ParamField 句柄)。
  * 复合对象不得原样进载荷(后端 _as_filenames 会 422)。
  */
-export function mediaFilenames(value: unknown): string[] {
+export function mediaFilenames(value: unknown, opts: MediaFilenamesOpts = {}): string[] {
+  const includeRemoteDemo = opts.includeRemoteDemo !== false;
   if (value == null || value === "") return [];
   const items = Array.isArray(value) ? value : [value];
   const out: string[] = [];
   for (const item of items) {
     if (typeof item === "string") {
-      if (item.trim()) out.push(item.trim());
+      const f = item.trim();
+      if (!f) continue;
+      if (!includeRemoteDemo && isRemoteDemoMedia(f)) continue;
+      out.push(f);
     } else if (item && typeof item === "object" && "filename" in item) {
       const f = String((item as { filename: unknown }).filename ?? "").trim();
-      if (f) out.push(f);
+      if (!f) continue;
+      if (!includeRemoteDemo && isRemoteDemoMedia(f)) continue;
+      out.push(f);
     }
   }
   return out;
 }
 
+/** schema default → 可预览的媒体句柄(远程 demo URL 补 previewUrl)。 */
+export function normalizeMediaDefault(raw: unknown): unknown[] {
+  if (raw == null || raw === "") return [];
+  const items = Array.isArray(raw) ? raw : [raw];
+  const out: unknown[] = [];
+  for (const item of items) {
+    if (typeof item === "string") {
+      const f = item.trim();
+      if (!f) continue;
+      out.push({
+        filename: f,
+        previewUrl: isRemoteDemoMedia(f) ? f : "",
+        name: isRemoteDemoMedia(f) ? "示例参考图" : f,
+        worker: "",
+      });
+      continue;
+    }
+    if (item && typeof item === "object") {
+      const h = item as { filename?: unknown; previewUrl?: unknown; name?: unknown; worker?: unknown };
+      const f = String(h.filename ?? "").trim();
+      if (!f) continue;
+      const preview = String(h.previewUrl ?? "").trim() || (isRemoteDemoMedia(f) ? f : "");
+      out.push({
+        ...h,
+        filename: f,
+        previewUrl: preview,
+        name: String(h.name ?? "").trim() || (isRemoteDemoMedia(f) ? "示例参考图" : f),
+        worker: typeof h.worker === "string" ? h.worker : "",
+      });
+    }
+  }
+  return out;
+}
+
+/** 打开应用时的表单初值:优先 schema.default;媒体空 default → []。 */
+export function schemaInitialValues(schema: AppParam[]): Record<string, unknown> {
+  const v: Record<string, unknown> = {};
+  for (const p of schema) {
+    if (MEDIA_PARAM_TYPES.has(p.type)) {
+      const norm = normalizeMediaDefault(p.default);
+      v[p.key] = norm.length > 0 ? norm : [];
+    } else {
+      v[p.key] = p.default ?? (p.type === "switch" ? false : "");
+    }
+  }
+  return v;
+}
+
 /**
  * 应用运行页上传 kind:与 GenerateView 同口径,走 POST /api/upload?kind=。
- * h3 先落 pool worker(required_models 空);img2img 落到文生图机。
+ * 专用引擎 kind(h3_i2v / wan_animate / wan_animate2 / avatar)由 API 直传到
+ * :8195/:8197/:8199,与 /api/apps/{id}/run 同机;RH 卡仍常走 img2img,由服务端 /run 转运兜底。
  */
 export function appUploadKind(appId: string): string {
   if (appId.startsWith("h3-")) return "h3_i2v";
   if (appId.startsWith("wan-animate-2")) return "wan_animate2";
   if (appId.startsWith("wan-animate")) return "wan_animate";
   if (appId === "wan-vace" || appId === "vace-edit" || appId === "wan-transition") return "wan_vace";
+  if (appId.startsWith("longcat-") || appId.startsWith("phantom-") || appId.startsWith("ovi-")) return "avatar";
   if (appId.startsWith("avatar")) return "avatar";
   if (appId.startsWith("ltx")) return appId.includes("lipsync") ? "ltx_lipsync" : "ltx_i2v";
   return "img2img";
@@ -539,7 +966,7 @@ export function buildRunValues(
       continue;
     }
     if (MEDIA_PARAM_TYPES.has(p.type)) {
-      out[p.key] = mediaFilenames(v);
+      out[p.key] = mediaFilenames(v, { includeRemoteDemo: false });
       continue;
     }
     // 其它数组(历史兼容)原样透传,勿 String 化成 "a,b"
@@ -564,19 +991,20 @@ export function requiredParamLabel(
   for (const p of schema) {
     if (p.type === "switch") continue;
     if (p.required === false) continue; // 可选参考视频/音频
-    if (p.default != null) continue;
     const v = values[p.key];
+    // 媒体:http(s) 示例图仅预览,不算已上传;永不因 default 跳过必填
     if (MEDIA_PARAM_TYPES.has(p.type)) {
-      if (mediaFilenames(v).length === 0) return p.label;
+      if (mediaFilenames(v, { includeRemoteDemo: false }).length === 0) return p.label;
       continue;
     }
+    if (p.default != null) continue;
     if (v == null || String(v).trim() === "") return p.label;
   }
   return null;
 }
 
 export interface AppFilterOpts {
-  /** 搜索词(名称/描述包含,不区分大小写) */
+  /** 搜索词(名称/描述/指南用途包含,不区分大小写) */
   q?: string;
   /** 分类;"all"/空 = 不过滤 */
   category?: string;
@@ -584,20 +1012,66 @@ export interface AppFilterOpts {
   r18?: boolean;
   /** 产物类型;"all"/空 = 不过滤(图片/视频创作页按 output_kind 收窄) */
   outputKind?: string;
+  /** 用途分类(USE_CASES id);"all"/空 = 不过滤(2026-09-12 市场策展层) */
+  useCase?: string;
 }
 
-/** 客户端过滤:搜索 + 分类 + 产物类型 + NSFW(r18 off 时 is_nsfw 应用整卡隐藏)。 */
+/** 客户端过滤:搜索 + 分类 + 用途 + 产物类型 + NSFW(r18 off 时 is_nsfw 应用整卡隐藏)。 */
 export function filterApps(apps: AppItem[], opts: AppFilterOpts = {}): AppItem[] {
   const q = (opts.q ?? "").trim().toLowerCase();
   const category = opts.category ?? "all";
   const outputKind = opts.outputKind ?? "all";
+  const useCase = opts.useCase ?? "all";
   return apps.filter((a) => {
     if (a.is_nsfw && !opts.r18) return false;
     if (category !== "all" && a.category !== category) return false;
     if (outputKind !== "all" && a.output_kind !== outputKind) return false;
-    if (q && !`${a.name}\n${a.description}`.toLowerCase().includes(q)) return false;
+    if (useCase !== "all" && a.use_case !== useCase) return false;
+    if (
+      q &&
+      !`${a.name}\n${a.description}\n${a.guide_purpose ?? ""}`.toLowerCase().includes(q)
+    )
+      return false;
     return true;
   });
+}
+
+export interface UseCaseSummaryItem {
+  id: string;
+  label: string;
+  count: number;
+}
+
+/**
+ * 用途分类计数(GET /api/apps/use-cases/summary,后端已按可见性+NSFW 门控统计)。
+ * 市场策展层 chips 计数用;非关键路径:404/非 2xx/解析失败一律静默降级为 []。
+ */
+export async function fetchUseCaseSummary(): Promise<UseCaseSummaryItem[]> {
+  const res = await apiFetch(`${API_BASE}/api/apps/use-cases/summary`, {
+    headers: authHeaders(),
+  }).catch(() => null);
+  if (!res || !res.ok) return [];
+  const data = (await res.json().catch(() => null)) as unknown;
+  const list = Array.isArray(data)
+    ? data
+    : Array.isArray((data as { items?: unknown[] } | null)?.items)
+      ? (data as { items: unknown[] }).items
+      : [];
+  const out: UseCaseSummaryItem[] = [];
+  for (const item of list) {
+    const o = (item ?? {}) as Record<string, unknown>;
+    const id = typeof o.id === "string" ? o.id.trim() : "";
+    if (!id) continue;
+    out.push({
+      id,
+      label:
+        typeof o.label === "string" && o.label.trim()
+          ? o.label.trim()
+          : (useCaseLabel(id) ?? id),
+      count: Math.max(0, numOf(o.count, 0)),
+    });
+  }
+  return out;
 }
 
 export interface AppSections {
@@ -658,7 +1132,7 @@ export function rhFamilyChips(apps: AppItem[]): string[] {
   return [...canon, ...extras];
 }
 
-export const COMMUNITY_PAGE_SIZE = 24;
+export const COMMUNITY_PAGE_SIZE = 10;
 export const COMMUNITY_SEARCH_CAP = 120;
 
 export interface CommunitySlice {
@@ -670,7 +1144,7 @@ export interface CommunitySlice {
 
 /**
  * 社区卡分页:
- * - 无搜索且无 family:先展示 shown 张(默认 24),hasMore 供「显示更多」+24;
+ * - 无搜索且无 family:先展示 shown 张(默认 10),hasMore 供无限滚动哨兵小步 +10;
  * - 有搜索或选了 family:展示匹配(上限 120),超出 truncated。
  */
 export function sliceCommunityApps(
@@ -712,8 +1186,8 @@ export function appCategoryLabel(c: AppCategory): string {
   return APP_CATEGORY_LABEL[c] ?? c;
 }
 
-/** 视频创作页精选:H3 核心四件套置顶,其后 15s 加速/声音参考;NSFW 孪生在 r18 on 时由 filterApps 放行后同样置顶。
- *  不含 rh-* 社区卡(社区区单独分页,不进精选)。 */
+/** 视频创作页精选:H3 核心四件套置顶,其后 15s 加速/声音参考。
+ *  R18 孪生已并入 SFW 同卡(content_modes),不再单独置顶。不含 rh-* 社区卡。 */
 export const FEATURED_VIDEO_APP_IDS: readonly string[] = [
   "h3-t2v",
   "h3-i2v",
@@ -722,13 +1196,6 @@ export const FEATURED_VIDEO_APP_IDS: readonly string[] = [
   "h3-t2v-15s-fast",
   "h3-i2v-15s-fast",
   "h3-r2v-voice",
-  "h3-nsfw-t2v",
-  "h3-nsfw-i2v",
-  "h3-nsfw-fl2v",
-  "h3-nsfw-r2v",
-  "h3-nsfw-t2v-15s-fast",
-  "h3-nsfw-i2v-15s-fast",
-  "h3-nsfw-r2v-voice",
 ];
 
 /** 创作页按产物类型取精选 id;非视频暂无精选(保持后端 sort)。 */
@@ -787,6 +1254,16 @@ export function groupAppParams(schema: AppParam[]): AppParamGroup[] {
   if (prompt.length) groups.push({ key: "prompt", label: "提示词", params: prompt });
   if (gen.length) groups.push({ key: "gen", label: "生成参数", params: gen });
   return groups;
+}
+
+/** 市场排序:热门 = usage_count 降序(同用量按 name 稳定),默认保持原相对序。 */
+export type AppMarketSort = "default" | "hot";
+
+export function sortAppsHot(apps: AppItem[]): AppItem[] {
+  return [...apps].sort((a, b) => {
+    if (b.usage_count !== a.usage_count) return b.usage_count - a.usage_count;
+    return a.name.localeCompare(b.name, "zh");
+  });
 }
 
 /**
