@@ -376,6 +376,10 @@ class AppOut(BaseModel):
     # 市场策展层(2026-09-12):用途分类(空=未打标)+ 精选合集位
     use_case: str = ""
     featured: bool = False
+    # 自愈闭环(2026-09-15):导入即测烟测结果(市场可展示可用性徽标)
+    smoke_status: str = ""
+    smoke_cls: str = ""
+    smoke_at: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -453,6 +457,9 @@ def _to_out(a: App, viewer: User, *, with_workflow: bool = False, slim: bool = F
         guide_purpose=(guide.purpose or "") if guide_published else None,
         use_case=a.use_case or "",
         featured=bool(a.featured),
+        smoke_status=a.smoke_status or "",
+        smoke_cls=a.smoke_cls or "",
+        smoke_at=(a.smoke_at.isoformat(timespec="seconds") if a.smoke_at else None),
     )
 
 
@@ -931,7 +938,12 @@ def _normalize_comfy_literals_int(graph: dict, bindings: dict | None) -> dict | 
         if "value" in inputs:
             raw = inputs.pop("value")
             if "Number" not in inputs:
-                inputs["Number"] = "" if raw is None else str(raw)
+                if isinstance(raw, list):
+                    # 连线不能 str():str 化后 ComfyLiterals 运行期 int("['59', 0]") 必炸
+                    # (wave23 烟测实证 5262675969)。原样保留为 Number 槽上的连线。
+                    inputs["Number"] = raw
+                else:
+                    inputs["Number"] = "" if raw is None else str(raw)
             touched.add(str(nid))
         elif "Number" in inputs and not isinstance(inputs["Number"], str):
             inputs["Number"] = str(inputs["Number"])
@@ -1399,6 +1411,43 @@ def _normalize_compress_images(graph: dict) -> None:
             continue
         if not inputs.get("images"):
             inputs["images"] = list(ci_src)
+
+
+def _bypass_comfy_literals_link_nodes(graph: dict, bindings: dict | None = None) -> None:
+    """ComfyLiterals Int/Float 的 Number 是 STRING 槽:吃 INT/FLOAT 连线必被类型校验拒
+    (received_type(INT) mismatch input_type(STRING),wave23 烟测实证 5262675969)。
+    这类「连线喂 Number」的节点是冗余换算层:消费方直连其上游输出,摘除本节点。
+
+    仅处理 value/Number 为连线(list)的节点;字面量场景走 _normalize_comfy_literals_int。
+    bindings 命中的节点跳过(表单还要写值,摘了会 422)。
+    """
+    if not isinstance(graph, dict):
+        return
+    bound: set[str] = set()
+    if isinstance(bindings, dict):
+        for t in bindings.values():
+            if isinstance(t, dict) and t.get("node") is not None:
+                bound.add(str(t["node"]))
+    rewires: dict[str, list] = {}
+    for nid, node in graph.items():
+        if not isinstance(node, dict) or node.get("class_type") not in ("Int", "Float"):
+            continue
+        if nid in bound or str(nid) in bound:
+            continue
+        inputs = node.get("inputs") or {}
+        link = inputs.get("Number") if isinstance(inputs.get("Number"), list) else inputs.get("value")
+        if isinstance(link, list) and len(link) == 2:
+            rewires[str(nid)] = link
+    if not rewires:
+        return
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        for k, v in (node.get("inputs") or {}).items():
+            if isinstance(v, list) and len(v) == 2 and str(v[0]) in rewires and v[1] == 0:
+                node["inputs"][k] = list(rewires[str(v[0])])
+    for nid in rewires:
+        graph.pop(nid, None)
 
 
 def _normalize_comfy_literals_number_str(graph: dict) -> None:
@@ -2008,6 +2057,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     """
     graph = copy.deepcopy(workflow)
     bindings = _normalize_comfy_literals_int(graph, bindings)
+    _bypass_comfy_literals_link_nodes(graph, bindings)
     _normalize_node_class_aliases(graph)
     _normalize_text_multiline_dynamic_prompts(graph)
     _normalize_wan_video_quantization(graph)

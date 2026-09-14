@@ -93,6 +93,11 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     # 市场策展层(2026-09-12):用途分类 + 精选合集位(BOOLEAN 默认值必须 FALSE,PG 不认 0)
     ("app", "use_case", "use_case VARCHAR NOT NULL DEFAULT ''"),
     ("app", "featured", "featured BOOLEAN NOT NULL DEFAULT FALSE"),
+    # 自愈闭环 Phase1(2026-09-15):导入即测烟测结果与归因(可空时间列不需 DEFAULT)
+    ("app", "smoke_status", "smoke_status VARCHAR NOT NULL DEFAULT ''"),
+    ("app", "smoke_cls", "smoke_cls VARCHAR NOT NULL DEFAULT ''"),
+    ("app", "smoke_error", "smoke_error VARCHAR NOT NULL DEFAULT ''"),
+    ("app", "smoke_at", "smoke_at TIMESTAMP"),
 )
 
 # 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。

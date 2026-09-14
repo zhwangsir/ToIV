@@ -1781,7 +1781,7 @@ def test_build_graph_comfy_literals_number_str_after_binding():
     assert built["39"]["inputs"]["Number"] == "720"
     assert built["58"]["inputs"]["Number"] == "5"
     assert built["60"]["inputs"]["Number"] == "2.0"
-    assert built["61"]["inputs"]["Number"] == ["39", 0]
+    assert "61" not in built, "连线喂 Number 的 Int 被 bypass 摘除"
 
 
 def test_build_graph_wan_experimental_args_fresca_backfill():
@@ -1799,3 +1799,45 @@ def test_build_graph_wan_experimental_args_fresca_backfill():
     assert ins["fresca_freq_cutoff"] == 20
     assert ins["cfg_zero_star"] is False
     assert "video_attention_split_steps" not in ins
+
+
+def test_build_graph_comfy_literals_int_preserves_link():
+    """Int.value 是连线时不得 str 化(运行期 int(\"['59', 0]\") 必炸,wave23 烟测实证)。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "58": {"class_type": "Int", "inputs": {"value": "5"}},
+        "59": {"class_type": "MathExpression|pysssss", "inputs": {"a": ["58", 0], "expression": "a*16+1"}},
+        "60": {"class_type": "Int", "inputs": {"value": ["59", 0]}},
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["58"]["inputs"]["Number"] == "5"
+    assert "60" not in built, "连线喂 Number 的 Int 被 bypass 摘除(消费方直连 59)"
+
+
+def test_build_graph_bypass_comfy_literals_link_node():
+    """Int/Float 吃连线的冗余层:消费方直连上游、节点摘除。
+    (bindings 绑到连线槽会 422=既有拓扑防护,不在此重复测。)"""
+    from app.routes.apps import _build_graph
+    import pytest as _pt
+    from fastapi import HTTPException as _HE
+
+    graph = {
+        "58": {"class_type": "Int", "inputs": {"value": "5"}},
+        "59": {"class_type": "MathExpression|pysssss", "inputs": {"a": ["58", 0], "expression": "a*16+1"}},
+        "60": {"class_type": "Int", "inputs": {"value": ["59", 0]}},
+        "61": {"class_type": "Foo", "inputs": {"x": ["60", 0]}},
+    }
+    built = _build_graph(graph, {}, {})
+    assert "60" not in built, "连线喂 Number 的 Int 应被摘除"
+    assert built["61"]["inputs"]["x"] == ["59", 0], "消费方直连上游"
+
+    # 绑定命中连线喂 Number 的节点 → 保留节点(不 bypass),写值时由拓扑防护 422
+    graph2 = {
+        "58": {"class_type": "Int", "inputs": {"value": "5"}},
+        "70": {"class_type": "Int", "inputs": {"value": ["58", 0]}},
+    }
+    bindings2 = {"seconds": {"node": "70", "field": "inputs.Number"}}
+    with _pt.raises(_HE) as ei:
+        _build_graph(graph2, bindings2, {"seconds": 5})
+    assert ei.value.status_code == 422
