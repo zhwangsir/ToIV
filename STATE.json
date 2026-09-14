@@ -1,5 +1,42 @@
 {
-  "updated_at": "2026-09-13T21:40:00+08:00",
+  "updated_at": "2026-09-14T19:55:00+08:00",
+  "full_launch_sprint_2026_09_14": {
+    "status": "closed_497_of_550_90_4pct_user_testing_next",
+    "date": "2026-09-14",
+    "source": [
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": "partially(六批 tag migration-ready-20260914;当日新修未 commit)",
+    "product_sha": null,
+    "shipped": true,
+    "online": true,
+    "summary": "完整上线冲刺收口:497/550=90.4%(+27/日);api 3202 绿/MP 607 绿;引擎 25 全可用+三路由真跑 PASS;ImDisk+pc01 SYSTEM 任务;:8197 四包六模型;过时 H3 别名表清空(mat1/mat2 真凶,对照实验实证);调度对称修复;fresca 回填;封面 60/1166;残差 53 全分类白皮书",
+    "key_facts": [
+      "wave21 480/87.3% → wave22 +8 → 部署四修 → wave23 → 497/90.4%",
+      "mat1/mat2 真凶=_H3_UNET_NAME_ALIASES 过时映射,清空后 fl2va 族复活(直提 A/B 对照双 PASS)",
+      "调度对称=_MODEL_LOADERS 补 CLIPVisionLoader/WanVideoModelLoader(治缺模型 503 误判)",
+      ":8197 补 SDPose-OOD/GIMM-VFI/Jjk/art-venture+四模型=3618 类;:8196 重启激活 kernels0.15.2+DAV2=4477 类",
+      "ImDisk 迁移含断电级重启测试全过;pc01 两 ComfyUI 任务转 SYSTEM(修复无登录不启动)",
+      "引擎 25 全 available(35→25=R18 并 SFW);txt2img/img2img/H3-t2v 真跑 PASS",
+      "封面缺口 1166 已批 60 张,单飞可续(POST /api/apps/covers/generate)",
+      "进化计划已批:docs/EVOLUTION_PLAN.md(自愈闭环→漫剧制片线→Agent 导演)",
+      "产品新修已部署 core 未 commit;严禁 stage .regen_tmp;push 待拍板需先清凭据"
+    ],
+    "pass_apps_count": 497,
+    "fail_breakdown": {
+      "queued_timeout": 9,
+      "fail_product": 41,
+      "fail_timeout": 3
+    },
+    "do_not_stage": [
+      ".regen_tmp"
+    ],
+    "agents_md": "updated",
+    "pushed": false,
+    "prior_tip": "bab16b3",
+    "report": ".regen_tmp/FINAL_SETTLEMENT_20260914.md"
+  },
   "public_e2e_retest_466169_145828_2026_09_11": {
     "status": "live_on_core_public_e2e_466169_pass_145828_seedvr2_device",
     "date": "2026-09-11",

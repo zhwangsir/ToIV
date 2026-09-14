@@ -189,6 +189,11 @@ def _extract_required(graph: dict) -> set[str]:
     for node in graph.values():
         if not isinstance(node, dict):
             continue
+        # WanVideoWrapper 主模型走泛型 "model" 字段(不能全局提取,仅针对该 loader 类)
+        if node.get("class_type") == "WanVideoModelLoader":
+            m = (node.get("inputs") or {}).get("model")
+            if isinstance(m, str):
+                req.add(m)
         for key, val in (node.get("inputs") or {}).items():
             if key in _MODEL_INPUT_KEYS and isinstance(val, str):
                 req.add(val)

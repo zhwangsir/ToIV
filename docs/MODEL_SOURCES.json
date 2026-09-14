@@ -2,9 +2,9 @@
  "updated_at": "2026-09-14T02:30:00+08:00",
  "updated_at_timezone": "Asia/Shanghai",
  "totals": {
-  "ok": 474,
+  "ok": 475,
   "blocked": 336,
-  "total": 810,
+  "total": 811,
   "ok_missing_source_url": 9,
   "ok_true_gaps_no_url_no_repo_not_alias": 0,
   "ok_local_alias_without_http_url": 5
@@ -12179,6 +12179,17 @@
    "bytes": 16400000000,
    "notes": "~16.4G 超阈值；如需可下 FP8 ~9G 但不同名不满足 widget",
    "batch": "download_steward_e2e_closeout_20260913"
+  },
+  {
+   "basename": "svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
+   "rel_path": "diffusion_models/svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
+   "source_kind": "mirror",
+   "source_url": "https://hf-mirror.com/nunchaku-ai/nunchaku-qwen-image-edit/resolve/main/svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
+   "repo": "nunchaku-ai/nunchaku-qwen-image-edit",
+   "revision": "main",
+   "filename": "svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
+   "size_bytes": 13081386856,
+   "note": "2026-09-14 wave22 前置落盘(NAS toiv diffusion_models);SM120 只认 fp4,r128 变体补 rh-acc-5790522369"
   }
  ]
 }

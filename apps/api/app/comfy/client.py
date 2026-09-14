@@ -64,6 +64,12 @@ _MODEL_LOADERS = [
     ("MelBandRoFormerModelLoader", "model_name"),
     # WanVideoWrapper VAE(Wan2.1_VAE.pth 等);与标准 VAELoader 同目录但字段为 model_name
     ("WanVideoVAELoader", "model_name"),
+    # WanVideoWrapper 主模型(diffusion_models 目录):探测/required 两端都要覆盖,
+    # 否则 wan2.2 系图被派到无此文件的 worker → 提交期 value_not_in_list(wave22 实证)
+    ("WanVideoModelLoader", "model"),
+    # CLIPVisionLoader(clip_vision 目录):_extract_required 按 clip_name 提取,
+    # 探测端不同步收集会误判全 worker 缺模型 → 503(wave22 实证 1181571072)
+    ("CLIPVisionLoader", "clip_name"),
     # Florence2 / Qwen3-VL 目录型 LLM(RH LTX 图 AILab_QwenVL* 的 model_name=Qwen3-VL-4B-Instruct):
     # Florence2ModelLoader.model 枚举通常来自 LLM 目录扫描;AILab 节点 object_info 是静态全量清单,
     # 勿把 AILab_* 加进 _MODEL_LOADERS(会把未下载的 8B/32B 误判为已有)。

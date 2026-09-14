@@ -502,11 +502,12 @@ def test_build_graph_scheduler_alias_after_binding_write():
         {"ksampler_scheduler": "beta57", "unetloader_unet_name": "MiniMax-H3-FL2VA-int8-convrot.safetensors"},
     )
     assert built["45"]["inputs"]["scheduler"] == "beta"
-    assert built["48"]["inputs"]["unet_name"] == "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+    # 2026-09-14 起精确 int8 已落盘,别名表清空:原值保留不再改写 pruned
+    assert built["48"]["inputs"]["unet_name"] == "MiniMax-H3-FL2VA-int8-convrot.safetensors"
 
 
 def test_build_graph_h3_unet_aliases():
-    """UNETLoader 旧命名 H3 int8 权重 → 现网 pruned_int8 文件名。"""
+    """H3 权重别名表已清空(精确 int8_convrot 落盘,改写 pruned 反致 mat1/mat2):原值不动。"""
     from app.routes.apps import _build_graph
 
     graph = {
@@ -516,9 +517,9 @@ def test_build_graph_h3_unet_aliases():
         "9": {"class_type": "UNETLoader", "inputs": {"unet_name": "minimax_h3_ref2va_bf16.safetensors"}},
     }
     built = _build_graph(graph, {}, {})
-    assert built["475"]["inputs"]["unet_name"] == "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
-    assert built["1"]["inputs"]["unet_name"] == "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
-    assert built["127"]["inputs"]["unet_name"] == "minimax_h3_ref2va_pruned_int8_convrot.safetensors"
+    assert built["475"]["inputs"]["unet_name"] == "minimax_h3_fl2va_int8_convrot.safetensors"
+    assert built["1"]["inputs"]["unet_name"] == "MiniMax-H3-FL2VA-int8-convrot.safetensors"
+    assert built["127"]["inputs"]["unet_name"] == "MiniMax-H3-Ref2VA-int8-convrot.safetensors"
     assert built["9"]["inputs"]["unet_name"] == "minimax_h3_ref2va_bf16.safetensors"
 
 
@@ -1717,3 +1718,84 @@ def test_build_graph_upscale_model_alias_to_local_safetensors():
     built = _build_graph(graph, {}, {})
     assert built["1"]["inputs"]["model_name"] == "2xNomosUni_span_multijpg_ldl.safetensors"
     assert built["2"]["inputs"]["model_name"] == "4x-UltraSharp.pth"
+
+
+def test_build_graph_image_rembg_model_rename():
+    """Image Rembg 旧入参 model → required rembg_model;已有 rembg_model 不动。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "363": {
+            "class_type": "Image Rembg (Remove Background)",
+            "inputs": {"images": ["361", 0], "model": "u2net", "alpha_matting": False},
+        },
+        "364": {
+            "class_type": "Image Rembg (Remove Background)",
+            "inputs": {"images": ["361", 0], "rembg_model": "isnet-general-use"},
+        },
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["363"]["inputs"]["rembg_model"] == "u2net"
+    assert "model" not in built["363"]["inputs"]
+    assert built["364"]["inputs"]["rembg_model"] == "isnet-general-use"
+
+
+def test_build_graph_compress_images_rename_and_saveimage_wire():
+    """CompressImages 旧字段名 → images;孤儿 SaveImage 接同一 IMAGE 源;已连线不动。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "18": {"class_type": "VAEDecode", "inputs": {"samples": ["23", 0], "vae": ["2", 2]}},
+        "26": {
+            "class_type": "CompressImages",
+            "inputs": {"images or video_path": ["18", 0], "filename_prefix": "ComfyUI"},
+        },
+        "20": {"class_type": "SaveImage", "inputs": {"filename_prefix": "Qwen-AIO"}},
+        "21": {"class_type": "SaveImage", "inputs": {"filename_prefix": "X", "images": ["18", 0]}},
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["26"]["inputs"]["images"] == ["18", 0]
+    assert "images or video_path" not in built["26"]["inputs"]
+    assert built["20"]["inputs"]["images"] == ["18", 0]
+    assert built["21"]["inputs"]["images"] == ["18", 0]
+
+    # 无 CompressImages 的图不动孤儿 SaveImage
+    graph2 = {"20": {"class_type": "SaveImage", "inputs": {"filename_prefix": "Y"}}}
+    built2 = _build_graph(graph2, {}, {})
+    assert "images" not in built2["20"]["inputs"]
+
+
+def test_build_graph_comfy_literals_number_str_after_binding():
+    """绑定/回填把 5.0/'5.0' 写进 Int.Number → 整数串;Float 保 float;连线不动。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "39": {"class_type": "Int", "inputs": {"Number": "720"}},
+        "58": {"class_type": "Int", "inputs": {"Number": "5.0"}},
+        "60": {"class_type": "Float", "inputs": {"Number": "2"}},
+        "61": {"class_type": "Int", "inputs": {"Number": ["39", 0]}},
+    }
+    bindings = {"int_value_2": {"node": "58", "field": "inputs.Number"}}
+    values = {"int_value_2": 5.0}
+    built = _build_graph(graph, bindings, values)
+    assert built["39"]["inputs"]["Number"] == "720"
+    assert built["58"]["inputs"]["Number"] == "5"
+    assert built["60"]["inputs"]["Number"] == "2.0"
+    assert built["61"]["inputs"]["Number"] == ["39", 0]
+
+
+def test_build_graph_wan_experimental_args_fresca_backfill():
+    """WanVideoExperimentalArgs 缺 fresca 组 → 回填默认;已有值不覆盖。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "20": {"class_type": "WanVideoExperimentalArgs", "inputs": {"use_fresca": True, "fresca_scale_high": 1.5}},
+    }
+    built = _build_graph(graph, {}, {})
+    ins = built["20"]["inputs"]
+    assert ins["use_fresca"] is True
+    assert ins["fresca_scale_high"] == 1.5
+    assert ins["fresca_scale_low"] == 1.0
+    assert ins["fresca_freq_cutoff"] == 20
+    assert ins["cfg_zero_star"] is False
+    assert "video_attention_split_steps" not in ins

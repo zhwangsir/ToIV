@@ -26,9 +26,9 @@
 | P1-4 | 引擎注册表/Covers/Seed 等测试语义与实现漂移（详见 P0-1 分组） | [TEST] | 修复中 | 产品 | 同 P0-1 |
 | P1-5 | toiv-comfy-mcp `COMFYUI_URL` 指向已退役 :8189 | [DRIFT] | **FIXED**：drop-in 改 :8196，active，/mcp 401(认证态) | 设备 | 已修 |
 | P1-6 | comfyui-longcat 钉卡口径矛盾 | [DRIFT] | **FIXED**：统一 UUID 钉卡（实测物理 GPU0），主 unit 注释已改 | 设备 | 已修 |
-| P1-7 | LB backends.json 现网 2 后端（pc02 下线），core 兜底 env 与文档口径漂移 | [DRIFT] | 待修 | 设备 | 同步 core env 兜底值与 AGENTS 口径 |
+| P1-7 | LB backends.json 现网 2 后端（pc02 下线），core 兜底 env 与文档口径漂移 | [DRIFT] | **FIXED**（2026-09-14）：core deploy/.env `TOIV_COMFY_WORKERS` 同步为 :8196+:8188 双后端，api 重启后 /api/health 实测双 worker | 设备 | 已修（.env.bak-p17-20260914 备份） |
 | P1-8 | :8195 等实例节点缺口 | [STEWARD] | **FIXED+回归验证**：:8195 3829 节点缺失 0、原生作业 PASS；:8188 4306/:8198 4652；:8198 补 RH 包（官方权重+配置树）；**wave17+18 复测：70 app 翻 32 PASS（46%）**（wave17 5.7%→修复内存门后 wave18 47%）；剩 32 失败=20 缺模型值（内容缺口清单见 P1-13）+5 缺节点+6 产品 | 设备 | 已修 |
-| P1-9 | 模型权重缺口 | [STEWARD] | **大部分 FIXED**：sd3/t5xxl_fp16、Qwen3-VL-4B-FP8、SeedVR2（根因=旧文件 sha 损坏已重下）、DepthAnythingV2、segformer 全落盘；**hf-mirror drop-in×4 unit 治本**；blocked=Qwen3-VL-8B（>16G 阈值）；新发现缺口=fl2va 非 pruned 变体×2 命名 + Z-Image-Turbo-Fun-Controlnet-Union | 下载 | 增量已入 MODEL_SOURCES |
+| P1-9 | 模型权重缺口 | [STEWARD] | **大部分 FIXED**：sd3/t5xxl_fp16、Qwen3-VL-4B-FP8、SeedVR2（根因=旧文件 sha 损坏已重下）、DepthAnythingV2、segformer 全落盘；**hf-mirror drop-in×4 unit 治本**；blocked=Qwen3-VL-8B（>16G 阈值）；**2026-09-14 wave22 前置再落盘一批**：qwen_image_depth_diffsynth_controlnet（model_patches）、SeC-4B-fp16（sams）、Wan21_Uni3C_controlnet_fp16（controlnet）、Florence-2-large-PromptGen-v2.0（:8197 LLM）、Wan2.2-VACE-Fun-A14B low/high（各 32.3G，diffusion_models/VACE/）、svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps（r128 变体，Windows 库 diffusion_models 供 :8188） | 下载 | 增量已入 MODEL_SOURCES（811 条） |
 | P1-10 | web appsApi featured 排序 2 个预存失败（R18 孪生并入 SFW 后测试语义漂移） | [TEST] | **FIXED**：984 pass/0 fail 全绿（仅改测试断言） | 产品 | 已修 |
 | P1-11 | **引擎工作台可用性探测误报**（_PROBE_HARD_TIMEOUT 2s 把 object_info 2.24s/14.1s 的实例全判超时，22-30 引擎恒置灰，主入口瘫痪） | [E2E] | **FIXED+deployed**：两级探测（liveness 0.8s 快探+节点集合单飞缓存 TTL10min），engines 5/35→35/35，热路径 1.5s→0.048s | 产品 | 已修（单飞设计防自家并发风暴） |
 | P1-12 | **:8195 主机内存膨胀致 H3 RAM 门大面积拒单**（无缓存上限，多应用模型/LoRA 卸载缓存累积，进程 RSS 94G/峰值 113.8G，可用压到 12G，生产 H3 受影响） | [E2E] | **FIXED**：unit 加 `--cache-lru 5`（核心三件+2 LoRA 槽，RSS 上限 ~70G，作业间可回落到 ~1G），restart+节点回归全过 | 设备 | 已修；wave17 的 40 例误伤经 wave18 复测大部分翻盘 |
@@ -41,7 +41,7 @@
 |---|---|---|---|---|---|
 | P2-1 | workstation legacy units 未清理 | [DRIFT] | **FIXED**：34 unit+3 drop-in → /home/merlin/systemd-archive/（37 文件），daemon-reload | 设备 | 已修 |
 | P2-2 | pc01 三个 2026/7 残留旧计划任务 | [DRIFT] | **FIXED**：已删，XML 备份 C:\toiv-backup-schtasks\ | 设备 | 已修 |
-| P2-3 | SoftPerfect RAM disk 30 天试用 ~2026-10-13 到期 | [USER] | 待决策 | 用户 | 买 license 或换 ImDisk（需重启窗口） |
+| P2-3 | SoftPerfect RAM disk 30 天试用 ~2026-10-13 到期 | [USER] | **FIXED**（2026-09-14 用户拍板换 ImDisk）：ImDisk Toolkit 20250206 安装+切换+重启测试全 PASS，SoftPerfect 已卸载；R: 60G 预分配；两 ComfyUI 任务转 SYSTEM（修复重启后无人登录不启动）；详见 deploy/infra/pc01/README.md | 设备 | 已修 |
 | P2-4 | MacMini 服务无鉴权（内网隔离，公网暴露前需 token） | [E2E] | 记录 | 产品 | 加 Bearer token 中间件（接 TS 后再做） |
 | P2-5 | openclaw02-04 github 直连超时根因未查（出口策略差异） | [DRIFT] | 记录 | 设备 | 需要时查路由器出口策略；近期走 01 中转 |
 | P2-6 | DRT 栈 12 容器去留未拍板 + spark02 LiveKit | [USER] | 待用户决策 | DRT 负责人 | 决策点保留 F 组 |

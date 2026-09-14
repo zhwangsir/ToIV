@@ -4,11 +4,11 @@ $ErrorActionPreference = 'Continue'
 $log = 'C:\ComfyUI\sync_hotmodels.log'
 Start-Transcript -Path $log -Append -Force
 
-# 0. Ensure R: exists (SoftPerfect RAM Disk)
+# 0. Ensure R: exists (ImDisk, 2026-09-14 从 SoftPerfect 试用版迁移;60G 预分配=t vm)
 if (-not (Test-Path 'R:\')) {
-    $exe = 'C:\Program Files\SoftPerfect RAM Disk\ramdiskctl.exe'
-    & $exe create --size 64G --fs ntfs --letter R --volume-label HotModels --dynamic
-    Start-Sleep 3
+    & 'C:\Windows\System32\imdisk.exe' -a -t vm -s 60G -m R: -p "/FS:NTFS /Q /V:HotModels /Y"
+    $n = 0
+    while (-not (Test-Path 'R:\') -and $n -lt 30) { Start-Sleep 1; $n++ }
 }
 if (-not (Test-Path 'R:\')) { Write-Host 'FATAL: R: not available'; Stop-Transcript; exit 1 }
 

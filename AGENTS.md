@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-12（项目管家：H3 智能加速全栈 LIVE — 用户可选三档实测加速（近似无损 1.32× / 甜点位 2.94× / 极速预览 12.9×），api+web+deploy BUILD_ID `20260912-102826-bab16b3-dirty`；**SGLang 路线实测否决**（单卡 SM120：无损 0.90× 更慢、SubBlock 硬件锁死、Cache-DiT 零命中）；wave6 E2E PASS17/FAIL16/TIMEOUT3 已分流、wave7 跑中）——此前：市场策展层 LIVE；算力全量恢复；P1 应用说明卡 LIVE（550/550）；DeepSeek-V4-Flash 无审查双 Spark TP2 LIVE（70.5 tok/s、1M ctx）；数据最新 tip 仍为 2026-09-11 `bab16b3`
+> **最后更新**：2026-09-14（项目管家：**「完整上线」冲刺收口 = 497/550 = 90.4%**（+27/日）；api 3202 绿、MP 607 绿；引擎 25 全 available + 三路由真跑冒烟 PASS；ImDisk 迁移+pc01 SYSTEM 任务、:8197 四包/六模型、过时 H3 别名表清空（mat1/mat2 真凶，对照实验实证）、调度对称修复、fresca 回填、封面缺口 1166→已生成 60；产品新修已部署 core 未 commit；**待用户测试与下一步整改**，进化计划 docs/EVOLUTION_PLAN.md 已批）——此前：H3 智能加速全栈 LIVE；SGLang 路线实测否决；市场策展层 LIVE
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」「🔒 硬性规则」和「八、未完成任务总表」
 > **历史归档**：2026-09-04~09-11 全部变更叙事见 `.archive/AGENTS-changes-20260904-0911.md`；2026-08-21~09-03 见 `.archive/AGENTS-full-20260903.md`
 
@@ -193,7 +193,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 - **🟢 服务重构已收口 = 算力全量恢复 LIVE（2026-09-12，5 阶段全 PASS）**：新规划=用户拍板「WS+PC01/02 全量跑 ToIV 所需模型服务，Spark 提供底层 AI 算力」。WS 12 units 全部 enable+active（LB:8188 / gpu0-alt:8196 / longcat:8197 / **H3:8195 钉卡 GPU-0e6e9149 复核✓** / animate2:8199 / 超分 :8261-8263 / qwen3-embedding:9302 实测出向量 / toiv-audio-sep:9220 / toiv-comfy-mcp:9100 / fan_guard）；pc01:8188 + pc02:8193/8194 计划任务全恢复；LB `/admin/backends` 3 后端 healthy；core `/api/health` workers 三后端齐；**txt2img 冒烟真实出图**（512×512 PNG 落 :8196）。终态 GPU MiB used：G0=3499/G1=16883/G2=1277/G3=2350，RAM available 160Gi。Spark 侧 **DeepSeek-V4-Flash 无审查 TP2 LIVE（70.5 tok/s，1M ctx，见第五节）**，`vllm_glm53` stop 留存回滚。保留：core 业务网关、frp/openresty、DRT 栈、OpenClaw×4、监控 agent。快照：`.regen_tmp/service-restructure-20260912.md`。
   - ⚠️ fan_guard 实际脚本路径是 **`/opt/fan_guard.py`**（非 /tmp，unit 内 Environment 已配好，勿再按旧口径重传 /tmp）；冒烟产物 `toiv_smoke_00001_.png` 留在 /opt/ComfyUI/output 可随手清。
-- **前主线 = 公开 E2E 真跑矩阵（2026-09-13 550 全覆盖 done）**：每个**公开市场** app 必须 **submit → 产出视频/图片 PASS** 才计入可用。终局：**有效 PASS 337（61.3%）**（538 次记录运行口径 326 + wave16 复测翻盘 11）；失败分流 device-node 85 / product 81 / model-weight 23 / timeout 23。wave16 复测（36 卡瞬败重测）：**11 翻盘 / 22 真实顽固**（媒体转运失败类=产品真 bug）；剩 23 瞬败候选 + 顽固失败转 steward 包/产品 backlog。总报告 `.regen_tmp/fleet_utilization_20260913/MATRIX_FINAL_REPORT.md`；管家包 `.regen_tmp/e2e_closeout_20260913/`（DEVICE/DOWNLOAD）。
+- **🔒 主线收口 = 完整上线冲刺终局（2026-09-14）**：**497/550 = 90.4%**（今晨 470→+27）。构成：wave22（70 失败全量耐心复测，+8）→ 部署四修 → wave23（62 复测，face-first fixture）→ 终局 census。四修=①`_H3_UNET_NAME_ALIASES` 清空（**mat1/mat2 真凶**：精确 int8 落盘后旧映射强改 pruned 致 DiT/编码器不成对；直提 A/B 对照双 PASS 实证）②调度对称（`_MODEL_LOADERS` 补 CLIPVisionLoader/WanVideoModelLoader + `_extract_required` 同步，治「文件在位报缺模型 503」）③WanVideoExperimentalArgs fresca 组回填 ④img fixture face-first（InsightFace 族）。设备侧：**:8197 补 SDPose-OOD/GIMM-VFI/Jjk/art-venture 四包** + wan_2.1_vae/sam3.pt/Florence-2-large-PromptGen-v2.0/GIMM 四模型（3618 类全绿）；:8196 重启激活 kernels 0.15.2+DepthAnythingV2（4477 类，flux2/fp4-r128/depth-ctl/SeC/Uni3C combo 实测在位）；toiv NAS 补 Uni3C+wan2.2 fp8 对；模型下载 MODEL_SOURCES **811 条**。引擎冒烟：25 引擎全 available（35→25=R18 孪生并入 SFW）+ txt2img/img2img/H3-t2v 三路由真跑 PASS。封面缺口 1166、已批生成 60（单飞可续）。**残差 53 全分类**：超时 12（空闲窗口可再收）/校验绑定 13/其他产品 14/CUDA 内核 5（nunchaku SM120 上游）/缺模型 2/缺节点 4/转运 1/资源 1/下载 1；硬阻塞（RH 媒体真缺失/上游内核/坏源视频）证据在 whitepaper。决算报告 `.regen_tmp/FINAL_SETTLEMENT_20260914.md`。**产品新修已部署 core 未 commit**（别名表清空/调度对称/fresca/rembg/CompressImages/INT coerce/pc01 SYSTEM 任务/infra README/BUG_REGISTRY/EVOLUTION_PLAN/MODEL_SOURCES 811）——严禁 stage `.regen_tmp`。**下一步：用户测试 → 整改；进化计划 docs/EVOLUTION_PLAN.md 已批（自愈闭环→漫剧制片线→Agent 导演）**。
   - 波次 PASS 轨迹 23→11→19→6→12→17→20→24→18→14→22→36→36→36→32；大量残差修复后单卡复测 PASS（明细见归档）。
   - 大量残差修复后单卡复测 PASS（107403/214347/417975/451079/144483/221805/315353/466169 等，明细见归档）。
 - **最新数据 tip（2026-09-11 `bab16b3`，本地无 push）**：`rh-acc-4661695490` LTX distilled-lora **PASS** @ `:8196`；`rh-acc-1458284545` SeedVR2 **FAIL→设备管家**（Comfy 目录可见但仍 Failed to download，节点自有路径）。STATE `public_e2e_retest_466169_145828_2026_09_11`。
@@ -230,7 +230,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ### A. 主线：公开 E2E 真跑矩阵（ToIV 开发）
 
-- [ ] 剩余 **34/550** = wave15 最终波跑中（2026-09-13 02:58 启动）：跑完即 550 全覆盖 → 出矩阵总报告； steward 包按最终 fail 追加后正式交管家
+- [x] ~~剩余 34/550 wave15~~ → **550 全覆盖已完，终局 497/90.4%（2026-09-14，wave21/22/23 三轮收口，见第七节主线条）**；残差 53 全分类，硬阻塞证据 `.regen_tmp/lane_b_whitepaper_20260914.md` + `.regen_tmp/FINAL_SETTLEMENT_20260914.md`
+- [x] :8195/:8197 节点缺口批量安装 — **done（:8195 3829 类 / :8197 3618 类含 SDPose/GIMM/Jjk/art-venture）**
+- [x] 模型权重下载包 — **done（MODEL_SOURCES 811 条；SeedVR2/flux2 对/depth-ctl/SeC/Uni3C/Florence/VACE-Fun-A14B×2/fp4-r128 全落盘）**
+- [x] `426919` 跟到底：不再挂起（终局 census 已按最新状态计入）
+- [x] `294829` 重测：终局 census 口径已覆盖
+- [ ] wave23 后空闲窗口补刀（可选，非阻塞）：超时/排队 12 例再复测 + 封面余量 1128 续跑 + QwenEdit fp4 权重
 - [ ] **:8195 节点缺口批量安装** → **独立任务包已备**：`.regen_tmp/e2e_closeout_20260913/DEVICE_STEWARD_PACKAGE.md`（21 个缺节点 display name + app id 清单 + RH MiniMax-H3 模型目录修法 + 验收口径，wave5–12 聚合；wave13 结果出来后追加）——装完通知开发按包内 app id 重测
 - [ ] **模型权重下载包** → `.regen_tmp/e2e_closeout_20260913/DOWNLOAD_STEWARD_PACKAGE.md`（sd3/t5xxl_fp16、Qwen3-VL-8B/4B-FP8、SeedVR2 gguf 手动放置、HF 超时一批；含 worker 侧 `HF_ENDPOINT=hf-mirror.com` systemd drop-in 治本建议）
 - [ ] `426919`：仍 running，跟到底出结论

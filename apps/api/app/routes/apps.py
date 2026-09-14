@@ -1113,6 +1113,15 @@ def _normalize_wan_video_sampler_teacache(graph: dict) -> None:
 
 # WanVideoExperimentalArgs 新版 required 扩字段;RH/旧图常缺 → 剪掉 Sampler 链 → Preview-only。
 _WAN_EXPERIMENTAL_ARGS_DEFAULTS: dict[str, bool | float | int | str] = {
+    # 注:video_attention_split_steps 不回填(object_info 默认空串,INT 校验会炸);
+    # wave22 实证缺的是 fresca 组(1152197633)
+    "cfg_zero_star": False,
+    "use_zero_init": False,
+    "zero_star_steps": 0,
+    "use_fresca": False,
+    "fresca_scale_low": 1.0,
+    "fresca_scale_high": 1.25,
+    "fresca_freq_cutoff": 20,
     "use_tcfg": False,
     "raag_alpha": 0.0,
     "bidirectional_sampling": False,
@@ -1313,14 +1322,12 @@ def _normalize_scheduler_aliases(graph: dict) -> None:
                 inputs["sampler_name"] = mapped
 
 
-# H3 UNETLoader:RH 图引用旧命名/未落盘的 int8 权重 → :8195 现网列表
-# (wave18 实证 8 例,minimax_h3_fl2va_int8_convrot 系均未落盘,
-# 同量化 pruned 版在列)。同模型同量化语义等价,映射后仍失败则维持原报错。
-_H3_UNET_NAME_ALIASES: dict[str, str] = {
-    "minimax_h3_fl2va_int8_convrot.safetensors": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
-    "MiniMax-H3-FL2VA-int8-convrot.safetensors": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
-    "MiniMax-H3-Ref2VA-int8-convrot.safetensors": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
-}
+# H3 UNETLoader 权重别名:⚠️ 已清空(2026-09-14)。精确 int8_convrot 三件
+# (fl2va/ref2va/官方命名)已全量落盘 :8195(含 models/MiniMax-H3 官方树),
+# 旧表把 int8 改写到 pruned 变体反而制造 mat1/mat2 运行时错
+# (pruned DiT 与 int8_convrot 编码器不成对;对照实验 A/B 双 PASS 实证)。
+# 保留函数骨架:未来再出现"引用名≠现网名且语义等价"时,先真机核 combo 再加映射。
+_H3_UNET_NAME_ALIASES: dict[str, str] = {}
 
 
 def _normalize_h3_weight_aliases(graph: dict) -> None:
@@ -1338,6 +1345,89 @@ def _normalize_h3_weight_aliases(graph: dict) -> None:
             mapped = _H3_UNET_NAME_ALIASES.get(unet)
             if mapped:
                 inputs["unet_name"] = mapped
+
+
+def _normalize_image_rembg_model(graph: dict) -> None:
+    """Image Rembg(Remove Background) 旧版入参 `model` → 现网 required `rembg_model`。
+
+    :8196 object_info 2026-09-14 实证:required 含 rembg_model(REMBG_MODEL combo),
+    RH 旧图落旧字段名 model → required_input_missing 判死保存链。值(u2net 等)
+    为 rembg 模型名,combo 动态取自已装 rembg 包,原值合法即保留。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict) or node.get("class_type") != "Image Rembg (Remove Background)":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        if "rembg_model" not in inputs and "model" in inputs:
+            inputs["rembg_model"] = inputs.pop("model")
+
+
+def _normalize_compress_images(graph: dict) -> None:
+    """CompressImages 旧版入参 `images or video_path` → 现网 required `images`;
+    并给同图无连线的 SaveImage.images 接上同一 IMAGE 源(孤儿保存节点判死整图)。
+
+    现网节点(:8196 object_info 2026-09-14 实证):required images IMAGE,
+    输出 STRING(落盘副作用,不产 IMAGE)。RH 旧图字段名是 'images or video_path';
+    且此类图常另挂一个没接线的 SaveImage → 两保存节点全判死 fail-fast。
+    仅当图中存在已连线的 CompressImages 时才补线,源指向同一解码输出。
+    """
+    if not isinstance(graph, dict):
+        return
+    ci_src = None
+    for node in graph.values():
+        if not isinstance(node, dict) or node.get("class_type") != "CompressImages":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        if "images" not in inputs and "images or video_path" in inputs:
+            inputs["images"] = inputs.pop("images or video_path")
+        src = inputs.get("images")
+        if isinstance(src, list) and len(src) == 2:
+            ci_src = list(src)
+    if not ci_src:
+        return
+    for node in graph.values():
+        if not isinstance(node, dict) or node.get("class_type") != "SaveImage":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        if not inputs.get("images"):
+            inputs["images"] = list(ci_src)
+
+
+def _normalize_comfy_literals_number_str(graph: dict) -> None:
+    """绑定写值后再过一遍 ComfyLiterals Number 叶子,保证 int()/float() 可解析。
+
+    绑定/required 回填可能把 JSON 浮点(5.0)或浮点格式串('5.0')写进 Number
+    (STRING 槽);ComfyLiterals `int('5.0')` 抛 'Invalid value provided for INT'
+    (:8196 ComfyLiterals/nodes.py 2026-09-14 实证)。整值浮点压成整数串。
+    连线(list)与非数值串(表达式)不动。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict) or node.get("class_type") not in ("Int", "Float"):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict) or "Number" not in inputs:
+            continue
+        raw = inputs["Number"]
+        if isinstance(raw, (list, dict)):
+            continue
+        try:
+            if node.get("class_type") == "Int":
+                f = float(raw)
+                inputs["Number"] = str(int(round(f)))
+            else:
+                inputs["Number"] = str(float(raw))
+        except (TypeError, ValueError):
+            pass
 
 
 def _normalize_rmbg_background(graph: dict) -> None:
@@ -1933,6 +2023,8 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_scheduler_aliases(graph)
     _normalize_h3_weight_aliases(graph)
     _normalize_rmbg_background(graph)
+    _normalize_image_rembg_model(graph)
+    _normalize_compress_images(graph)
     _normalize_required_backfill(graph)
     _normalize_qwen_edit_prompt_string_link(graph)
     _normalize_tiny_vae_alias(graph)
@@ -1980,6 +2072,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_trim_audio_duration(graph)
     _normalize_qwen_edit_prompt_string_link(graph)
     _normalize_nunchaku_sm120_fp4(graph)
+    _normalize_comfy_literals_number_str(graph)
     normalize_h3_r2v_autogrow_inputs(graph)
     _normalize_ltxv_dynamiccombo(graph)
     _normalize_ltxv_img2video_num_images(graph)
