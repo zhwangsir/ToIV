@@ -1413,6 +1413,26 @@ def _normalize_compress_images(graph: dict) -> None:
             inputs["images"] = list(ci_src)
 
 
+def _normalize_double_extension(graph: dict) -> None:
+    """RH 导出的模型名偶发双扩展('X.safe.safetensors'/'X.ckpt.safetensors')→ 单扩展。
+
+    wave23 验收实证(Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safe.safetensors),
+    正确文件在 fleet 有单扩展版;对所有 loader 字段的字符串值做收尾修复。
+    """
+    if not isinstance(graph, dict):
+        return
+    pat = re.compile(r"\.(safe|ckpt|pt|pth|sft|st)\.safetensors$", re.IGNORECASE)
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        for k, v in inputs.items():
+            if isinstance(v, str) and pat.search(v):
+                inputs[k] = pat.sub(".safetensors", v)
+
+
 def _bypass_comfy_literals_link_nodes(graph: dict, bindings: dict | None = None) -> None:
     """ComfyLiterals Int/Float 的 Number 是 STRING 槽:吃 INT/FLOAT 连线必被类型校验拒
     (received_type(INT) mismatch input_type(STRING),wave23 烟测实证 5262675969)。
@@ -2092,6 +2112,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_nunchaku_sm120_fp4(graph)
     _normalize_wan_video_decode_tiles(graph)
     _normalize_upscale_model_aliases(graph)
+    _normalize_double_extension(graph)
     for key, target in (bindings or {}).items():
         if isinstance(target, list):
             files = _as_filenames(key, values.get(key))

@@ -31,7 +31,7 @@ _MEDIA_FIXTURE = {
     "video": ("drive_2s.mp4", "video/mp4"),
     "audio": ("dlg_h3b.wav", "audio/wav"),
 }
-_SMKE_TIMEOUT = {"image": 300, "audio": 300, "video": 1800}
+_SMKE_TIMEOUT = {"image": 480, "audio": 480, "video": 1800}
 _SMKE_ERROR_MAX = 300
 
 _SMKE_TASK: asyncio.Task | None = None
@@ -215,6 +215,58 @@ def combo_repair(graph: dict, objinfo: dict) -> list[str]:
     return fixes
 
 
+
+
+_UNION_CACHE: dict = {"objinfo": {}, "ts": 0.0}
+_UNION_TTL = 600.0
+
+
+async def _union_objinfo(pool: WorkerPool) -> dict:
+    """全 fleet 并集 combo:loader 类的取值清单跨 worker 合并(去重)。
+
+    修复器在 pick 之前用并集改写「RH 名≠fleet 名」:改写后 pick 自然路由到
+    持有该文件的 worker。带 10 分钟缓存(9 实例×8 类 object_info 太贵)。
+    """
+    import time as _t
+    from app.comfy.client import ComfyUIClient
+    from app.services.h3 import h3_instances
+
+    now = _t.monotonic()
+    if now - _UNION_CACHE.get("ts", 0.0) < _UNION_TTL and _UNION_CACHE.get("objinfo"):
+        return _UNION_CACHE["objinfo"]
+    settings = get_settings()
+    urls: list[str] = [c.base_url.rstrip("/") for c in getattr(pool, "clients", [])]
+    try:
+        urls += [u.rstrip("/") for u in h3_instances()]
+    except Exception:
+        pass
+    for attr in ("longcat_base", "qwen_edit_base", "wan_animate2_base", "infinitetalk_base"):
+        u = (getattr(settings, attr, "") or "").rstrip("/")
+        if u:
+            urls.append(u)
+    union: dict = {}
+    seen: set[str] = set()
+    for u in urls:
+        if not u or u in seen:
+            continue
+        seen.add(u)
+        c = ComfyUIClient(u, timeout=8)
+        for ct, field in _COMBO_LOADERS.items():
+            try:
+                info = await c.object_info(ct) or {}
+                combo = info[ct]["input"]["required"][field][0]
+            except Exception:
+                continue
+            slot = union.setdefault(ct, {"input": {"required": {field: [[]]}}})
+            cur = slot["input"]["required"].setdefault(field, [[]])[0]
+            for v in combo:
+                if v not in cur:
+                    cur.append(v)
+    if union:
+        _UNION_CACHE["objinfo"] = union
+        _UNION_CACHE["ts"] = now
+    return union
+
 # ---------------------------------------------------------------------------
 # 烟测主流程
 # ---------------------------------------------------------------------------
@@ -253,6 +305,14 @@ async def run_app_smoke(
         return _finish(session, app, "fail", classify_failure(str(exc), {}), fixes_all)
     if not graph:
         return _finish(session, app, "fail", {"cls": "app_data", "detail": "空工作流图"}, fixes_all)
+
+    # pick 之前先做并集校准:RH 名≠fleet 名时改写到真实在列变体,自然路由到持有者
+    try:
+        fixes0 = combo_repair(graph, await _union_objinfo(pool))
+        if fixes0:
+            fixes_all.extend(fixes0)
+    except Exception:  # noqa: BLE001 — 并集拉取失败不阻塞烟测
+        pass
 
     for attempt in (1, 2):  # 2=combo 校准修复后原位重试(重建会丢修复,故循环外构建)
         required = _extract_required(graph)
