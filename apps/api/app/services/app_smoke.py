@@ -50,7 +50,13 @@ def classify_failure(message: str, node_errors: dict | None = None) -> dict:
     def _has(pat: str) -> bool:
         return pat in low
 
-    if _has("missing_node_type") or _has("not found. the custom node"):
+    if _has("缺模型"):
+        cls = "missing_model"
+        detail = m[:160]
+    elif _has("缺节点"):
+        cls = "missing_node"
+        detail = m[:160]
+    elif _has("missing_node_type") or _has("not found. the custom node"):
         cls = "missing_node"
         detail = _first_json_field(m, "class_type") or m[:160]
     elif _has("not in list") and ("value_not_in_list" in low or "value not in list" in low):
@@ -257,7 +263,8 @@ async def run_app_smoke(
             client = await _pick_app_client(pool, set(filter(None, nodes)), required)
         except Exception as exc:
             res = classify_failure(str(exc), {})
-            res["cls"] = res["cls"] if res["cls"] != "product" else "transport"
+            if res["cls"] == "product":
+                res["cls"] = "transport"
             return _finish(session, app, "fail", res, fixes_all)
         # 先上传 fixture 媒体到目标实例,再做跨机转运兜底(顺序反了会被判 404)
         try:
@@ -266,16 +273,21 @@ async def run_app_smoke(
         except Exception as exc:
             return _finish(session, app, "fail", {"cls": "transport", "detail": str(exc)[:160]}, fixes_all)
 
-        prompt_id, node_errors = await _queue_with_validation(client, graph, f"smoke-{app.id[:16]}-{attempt}")
-        doomed, reasons = _doomed_save_nodes(graph, node_errors)
-        if doomed:
-            last_msg = "工作流校验未通过,主保存节点不会执行: " + "; ".join(reasons or sorted(doomed))
-            last_ne = node_errors or {}
+        try:
+            prompt_id, node_errors = await _queue_with_validation(client, graph, f"smoke-{app.id[:16]}-{attempt}")
+        except ComfyUIError as exc:  # /prompt 400 类校验拒绝 → 按校验失败进修复/LLM 阶段
+            last_msg = str(exc)
+            last_ne = {}
         else:
-            status, msg = await _poll_history(client, prompt_id, app.output_kind or "image")
-            if status == "pass":
-                return _finish(session, app, "pass", {"cls": "", "detail": msg}, fixes_all)
-            last_msg, last_ne = msg, node_errors or {}
+            doomed, reasons = _doomed_save_nodes(graph, node_errors)
+            if doomed:
+                last_msg = "工作流校验未通过,主保存节点不会执行: " + "; ".join(reasons or sorted(doomed))
+                last_ne = node_errors or {}
+            else:
+                status, msg = await _poll_history(client, prompt_id, app.output_kind or "image")
+                if status == "pass":
+                    return _finish(session, app, "pass", {"cls": "", "detail": msg}, fixes_all)
+                last_msg, last_ne = msg, node_errors or {}
         # 失败 → 确定性修复(combo 校准)后重试一次
         if attempt == 1:
             try:
