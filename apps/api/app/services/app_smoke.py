@@ -19,6 +19,7 @@ from pathlib import Path
 
 from sqlmodel import Session, select
 
+from app.config import get_settings
 from app.db import engine
 from app.models import App
 from app.comfy.pool import WorkerPool
@@ -210,8 +211,15 @@ def combo_repair(graph: dict, objinfo: dict) -> list[str]:
 # ---------------------------------------------------------------------------
 # 烟测主流程
 # ---------------------------------------------------------------------------
-async def run_app_smoke(pool: WorkerPool, session: Session, app: App) -> dict:
-    """单应用真跑一遍;结果落 App.smoke_*;返回 {status, cls, detail, fixes}。"""
+async def run_app_smoke(
+    pool: WorkerPool, session: Session, app: App,
+    *, workflow_override: dict | None = None, allow_llm: bool = True,
+) -> dict:
+    """单应用真跑一遍;结果落 App.smoke_*;返回 {status, cls, detail, fixes}。
+
+    workflow_override:用给定原始图代替 app.workflow_json(LVM 修复试提交用,
+    不落库);allow_llm=False 禁用 LLM 修复阶段(试提交内层必须关,防递归)。
+    """
     from app.routes.apps import (  # 惰性导入防循环(routes 顶层 import 本模块)
         _build_graph,
         _doomed_save_nodes,
@@ -231,8 +239,9 @@ async def run_app_smoke(pool: WorkerPool, session: Session, app: App) -> dict:
     last_msg = ""
     last_ne: dict = {}
 
+    base_workflow = workflow_override if workflow_override is not None else (app.workflow_json or {})
     try:
-        graph = _build_graph(app.workflow_json or {}, app.bindings or {}, values)
+        graph = _build_graph(base_workflow, app.bindings or {}, values)
     except Exception as exc:  # 构建期 422 类
         return _finish(session, app, "fail", classify_failure(str(exc), {}), fixes_all)
     if not graph:
@@ -284,7 +293,46 @@ async def run_app_smoke(pool: WorkerPool, session: Session, app: App) -> dict:
             except Exception as exc:  # noqa: BLE001 — 修复器故障不遮蔽原错误
                 last_msg = last_msg or f"repair error: {exc}"
         break
+
+    # ── LLM 修复阶段(Phase1-P1.6):确定性修复无解时 DSv4 提议补丁,沙箱+试提交
     res = classify_failure(last_msg, last_ne)
+    if (
+        allow_llm and res["cls"] in ("missing_node", "missing_model", "validation")
+        and get_settings().selfheal_llm_enabled
+    ):
+        try:
+            objinfo_all: dict = {}
+            for ct in {n.get("class_type") for n in graph.values() if isinstance(n, dict)}:
+                if not isinstance(ct, str):
+                    continue
+                try:
+                    objinfo_all.update(await client.object_info(ct) or {})
+                except Exception:
+                    pass
+            from app.services import selfheal_llm
+
+            out = await selfheal_llm.propose_and_validate(graph, res["cls"], last_msg, objinfo_all)
+            if out is not None:
+                patch, patched_raw, applied = out
+                trial = await run_app_smoke(
+                    pool, session, app, workflow_override=patched_raw, allow_llm=False,
+                )
+                note = f"trial={trial['status']} {trial['detail'][:160]} fixes={applied[:3]}"
+                selfheal_llm.record_proposal(
+                    session, app, res["cls"], last_msg, patch,
+                    workflow_override if workflow_override is not None else (app.workflow_json or {}),
+                    note,
+                )
+                if trial["status"] == "pass":
+                    app.workflow_json = patched_raw  # 补丁固化(原始图已备份提案)
+                    session.add(app)
+                    session.commit()
+                    return {**trial, "fixes": fixes_all + [f"llm:{a}" for a in applied]}
+                last_msg = f"llm-repair trial fail: {trial['detail'][:160]}"
+        except Exception as exc:  # noqa: BLE001 — LLM 修复故障不遮蔽原错误
+            last_msg = last_msg or f"llm repair error: {exc}"
+        res = classify_failure(last_msg, last_ne)
+
     return _finish(session, app, "timeout" if res["cls"] == "timeout" else "fail", res, fixes_all)
 
 
@@ -376,6 +424,8 @@ async def _run_batch(pool: WorkerPool, limit: int, include_nsfw: bool) -> int:
                 app.smoke_status = app.smoke_status or "fail"
                 session.add(app)
                 session.commit()
+            _SMKE_SUMMARY = {"done": done, "limit": limit,
+                             "finished_at": datetime.utcnow().isoformat(timespec="seconds")}
     _SMKE_SUMMARY = {"done": done, "finished_at": datetime.utcnow().isoformat(timespec="seconds")}
     return done
 

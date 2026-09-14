@@ -10,7 +10,7 @@ from datetime import date, datetime, timezone
 from typing import Any, Optional
 
 from sqlmodel import Field, SQLModel
-from sqlalchemy import BigInteger, Column, JSON
+from sqlalchemy import BigInteger, Column, JSON, TEXT
 
 
 def _uid() -> str:
@@ -920,4 +920,20 @@ class LiveBannedWord(SQLModel, table=True):
     id: str = Field(default_factory=_uid, primary_key=True)
     user_id: str = Field(foreign_key="user.id", index=True)  # 属主隔离
     word: str
+    created_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# 自愈闭环 Phase1(2026-09-15):LLM 修复提案——原始图备份 + 补丁 + 状态。
+# LLM 修复器自动应用通过烟测的补丁;人可随时 reject(同时还原原始图)。
+# ---------------------------------------------------------------------------
+class SelfhealProposal(SQLModel, table=True):
+    id: str = Field(default_factory=_uid, primary_key=True)
+    app_id: str = Field(index=True)  # 对应 App.id
+    failure_cls: str = ""  # 归因类(missing_node/missing_model/validation)
+    original_error: str = ""  # 触发修复的错误摘要
+    patch_json: str = Field(sa_column=Column(TEXT))  # LLM 补丁(ops 数组 JSON)
+    original_workflow_json: str = Field(sa_column=Column(TEXT))  # 还原备份
+    status: str = "applied"  # applied | rejected
+    note: str = ""  # 试提交结果/拒绝原因
     created_at: datetime = Field(default_factory=_now)

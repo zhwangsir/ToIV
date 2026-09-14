@@ -137,3 +137,64 @@ def test_app_smoke_columns_roundtrip_and_out():
         assert out["smoke_at"] is None
     finally:
         app.dependency_overrides.pop(get_session, None)
+
+
+# ---------------------------------------------------------------------------
+# LLM 修复器(Phase1-P1.6):补丁白名单 / combo 沙箱 / 提案还原
+# ---------------------------------------------------------------------------
+def test_apply_patch_whitelist():
+    from app.services.selfheal_llm import apply_patch
+
+    graph = {
+        "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "old.safetensors"}},
+        "2": {"class_type": "KSampler", "inputs": {"steps": 4}},
+    }
+    objinfo = {"UNETLoader": {}}
+    patch = [
+        {"op": "set_input", "node": "1", "field": "unet_name", "value": "new.safetensors"},
+        {"op": "set_input", "node": "1", "field": "model", "value": ["9", 0]},  # 连线拒绝
+        {"op": "set_input", "node": "2", "field": "not_allowed", "value": 1},  # 字段白名单外
+        {"op": "delete_node", "node": "2"},
+        {"op": "add_node", "node": "9"},  # 不在白名单,丢弃
+    ]
+    g, applied = apply_patch(graph, patch, objinfo)
+    assert g["1"]["inputs"]["unet_name"] == "new.safetensors"
+    assert "2" not in g
+    assert len(applied) == 2
+
+
+def test_combo_violations():
+    from app.services.selfheal_llm import combo_violations
+
+    graph = {"1": {"class_type": "UNETLoader", "inputs": {"unet_name": "nope.safetensors"}}}
+    objinfo = {"UNETLoader": {"input": {"required": {"unet_name": [["ok.safetensors"], {}]}}}}
+    bad = combo_violations(graph, objinfo)
+    assert len(bad) == 1 and "nope.safetensors" in bad[0]
+    graph["1"]["inputs"]["unet_name"] = "ok.safetensors"
+    assert combo_violations(graph, objinfo) == []
+
+
+def test_reject_proposal_restores_original():
+    from app.services.selfheal_llm import record_proposal, reject_proposal
+
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        a = App(id="p1", name="P", description="d", category="image",
+                workflow_json={"1": {"class_type": "Orig", "inputs": {}}})
+        s.add(a); s.commit()
+        patched = {"1": {"class_type": "Patched", "inputs": {}}}
+        p = record_proposal(s, a, "missing_model", "err", [{"op": "x"}],
+                            original_workflow={"1": {"class_type": "Orig", "inputs": {}}},
+                            note="trial=pass")
+        a.workflow_json = patched
+        s.add(a); s.commit()
+        out = reject_proposal(s, p.id)
+        s.refresh(a)
+        assert out["restored"] is True
+        assert a.workflow_json == {"1": {"class_type": "Orig", "inputs": {}}}
+        assert a.smoke_status == ""
+        s.refresh(p)
+        assert p.status == "rejected"

@@ -228,6 +228,10 @@ class Settings(BaseSettings):
     # 评分调用超时(秒):32B VLM 视频评分实测 10-60s,长视频更久;30s 旧值会系统性降级。
     # VideoScorer 内部 httpx 与 jobs.py 外层 wait_for(+10s 兜底)同读此值。
     video_scorer_timeout: float = 120.0
+    # 自愈闭环 LLM 修复器(2026-09-15):烟测失败且确定性修复器无解时,DSv4 读
+    # 失败图+object_info 提议图补丁,沙箱校验+试提交,通过则落库(原始图备份
+    # 在 SelfhealProposal,可一键还原)。用户 2026-09-14 全权授权,默认开。
+    selfheal_llm_enabled: bool = True
 
     # —— 反推提示词(reverse prompt):上传图/视频/音频 → 反推出可复用提示词 ——
     # 生产 SFW 反推(图+全部视频)= studio04 mlx-vlm Qwen2.5-VL-72B-Instruct-4bit

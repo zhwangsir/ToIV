@@ -66,3 +66,33 @@ async def smoke_batch(
 @router.get("/admin/apps/smoke/status")
 def smoke_status() -> dict:
     return {"running": smoke_svc.smoke_running(), "summary": smoke_svc.last_smoke_summary()}
+
+
+@router.get("/admin/selfheal/proposals")
+def list_selfheal_proposals(
+    limit: int = 50,
+    admin: User = Depends(get_current_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    from app.services import selfheal_llm
+
+    return {"proposals": selfheal_llm.list_proposals(session, limit=limit)}
+
+
+@router.post("/admin/selfheal/proposals/{proposal_id}/reject")
+def reject_selfheal_proposal(
+    proposal_id: str,
+    admin: User = Depends(get_current_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    from app.services import selfheal_llm
+
+    try:
+        out = selfheal_llm.reject_proposal(session, proposal_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    audit.record(
+        session, user=admin, action="app.selfheal_reject", target_type="app",
+        target_id=out.get("app_id") or "", summary="驳回 LLM 修复提案并还原原始图", detail=out,
+    )
+    return out
