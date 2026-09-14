@@ -1,0 +1,190 @@
+{
+  "pack_installed": true,
+  "pack_version": "ComfyUI-H3-SGLang-Pack 1.0.1 + ToIV patches (sglang>=0.5.19 CustomBlockAdapterSpec compat; sglang UUID patch in multimodal_gen/platforms/cuda.py)。SGLang 路线实测无单卡加速价值，生产加速档位改用原生节点（MiniMaxH3Turbo / MiniMaxH3BlockCacheT8 / SageAttention patch），本文件 2026-09-12 晚改写。",
+  "worker_endpoint": "none (in-Process ComfyUI :8195 native nodes; SGLang pack runtime available but not recommended on SM120 single GPU)",
+  "measured_on": "2026-09-12, workstation GPU2 RTX PRO 6000 Blackwell SM120, 1344x768x124f, seed 1101, native 基线: 端到端 879.1s / 去噪 ~515s / 峰值 84.9G; 方法见 bench.md",
+  "native_node_signature": [
+    "UNETLoader(unet_name=minimax_h3_fl2va_bf16.safetensors) -> MODEL",
+    "CLIPLoader(clip_name=qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors, type=minimax) -> CLIP",
+    "VAELoader(minimax_h3_video_vae_fp16.safetensors) -> VAE [+ VAELoader(minimax_h3_audio_vae_fp32.safetensors) for audio]",
+    "MiniMaxH3ImageToVideo(clip, vae, prompt, width=1344, height=768, length=124) -> CONDITIONING, LATENT",
+    "BasicGuider(model, conditioning) -> GUIDER ; KSamplerSelect(sampler_name=euler) -> SAMPLER ; BasicScheduler(model, simple, steps, denoise=1.0) -> SIGMAS ; RandomNoise(noise_seed) -> NOISE",
+    "SamplerCustomAdvanced(noise, guider, sampler, sigmas, latent_image) -> LATENT",
+    "VAEDecode / VAEDecodeAudio / CreateVideo(fps=24) / SaveVideo"
+  ],
+  "profiles": {
+    "lossless": {
+      "label": "近似无损加速（SageAttention Patch 单挂）",
+      "recommended": false,
+      "reason": "实测去噪 390s vs native 515s = 1.32x（≥1.1x 门槛），SSIM 0.8856 视觉接近，50 步语义不变。SM120 安全版节点（MiniMaxH3MemoryEfficientSageAttentionPatch）。 | 2026-09-12 同 bug：SageAttn 单挂也在 SamplerCustomAdvanced 生产图上报错，修复前一并下架",
+      "speedup": 1.32,
+      "ssim_vs_native": 0.8856,
+      "nodes_to_replace": {},
+      "nodes_to_add": [
+        {
+          "class_type": "MiniMaxH3MemoryEfficientSageAttentionPatch",
+          "display_name": "MiniMax H3 Mem Eff Sage Attention Patch",
+          "inputs": {
+            "model": [
+              "<UNETLoader_node>",
+              0
+            ]
+          },
+          "rewire": "BasicGuider.model 与 BasicScheduler.model 改接本节点 MODEL 输出（loader -> sagePatch -> guider/scheduler）；采样/解码链不动。"
+        }
+      ],
+      "sampler_params": {
+        "steps": 50,
+        "scheduler": "simple",
+        "sampler": "euler",
+        "flow_shift_video": 12.0,
+        "flow_shift_audio": 3.0
+      },
+      "requirements": [
+        "sageattention>=2.2.0（venv 已装）"
+      ],
+      "notes": "wall 790s 为含冷加载首跑；热作业端到端约 460s（≈1.3x）。"
+    },
+    "balanced": {
+      "label": "甜点位（BlockCache T8 + SageAttention，50 步）",
+      "recommended": true,
+      "reason": "实测去噪 175s vs native 515s = 2.94x，SSIM 0.8194（min 0.7847）过 0.75 门槛，50 步语义保留最好。本机质量/速度综合最优点。 | 2026-09-12 生产接线 bug:str.sample,修复前 recommended=false(与 app/data 规格同步) | 2026-09-12 接线 bug 已修(apply_acceleration 图形状感知重写:占位符词集解析/model 链改接/sampler_params 定向落点/连线校验),生产三档复测通过",
+      "speedup": 2.94,
+      "ssim_vs_native": 0.8194,
+      "nodes_to_replace": {},
+      "nodes_to_add": [
+        {
+          "class_type": "MiniMaxH3MemoryEfficientSageAttentionPatch",
+          "inputs": {
+            "model": [
+              "<UNETLoader_node>",
+              0
+            ]
+          },
+          "rewire": "model 链中间环"
+        },
+        {
+          "class_type": "MiniMaxH3BlockCacheT8",
+          "inputs": {
+            "model": [
+              "<SagePatch_node>",
+              0
+            ],
+            "residual_diff_threshold": 0.12,
+            "start_percent": 0.08,
+            "end_percent": 0.95,
+            "max_consecutive_hits": 2,
+            "cache_device": "cpu",
+            "metric_stride": 8,
+            "verbose": false
+          },
+          "rewire": "BasicGuider.model 与 BasicScheduler.model 接本节点 MODEL 输出（loader -> sagePatch -> blockCache -> guider/scheduler）"
+        }
+      ],
+      "sampler_params": {
+        "steps": 50,
+        "scheduler": "simple",
+        "sampler": "euler",
+        "flow_shift_video": 12.0,
+        "flow_shift_audio": 3.0
+      },
+      "notes": "实测该档用 metric_stride=1（提交竞态），节点默认 8；显存峰值 90.6G。非契约三档之一，作为附加档给出；如需严格三档可把本档提升为 balanced。",
+      "measured_config_caveat": "metric_stride=1 (submission raced the edit; node default is 8)"
+    },
+    "extreme": {
+      "label": "极速预览（Turbo LoRA 4 步，预览级画质）",
+      "recommended": true,
+      "reason": "产品人工抽检 2026-09-12 通过：12.9×/SSIM 0.7494，画面偏软、细节损失可见但构图语义完整，定位为草稿/预览档，用户知情选择。BlockCache 叠加零收益不必挂。 | 2026-09-12 生产接线 bug:str.sample,修复前 recommended=false(与 app/data 规格同步) | 2026-09-12 接线 bug 已修(apply_acceleration 图形状感知重写:占位符词集解析/model 链改接/sampler_params 定向落点/连线校验),生产三档复测通过",
+      "speedup": 12.9,
+      "ssim_vs_native": 0.7494,
+      "nodes_to_replace": {
+        "KSamplerSelect": {
+          "class_type": "MiniMaxH3TurboSampler",
+          "display_name": "MiniMax-H3 Turbo Sampler (4-step)",
+          "inputs": {},
+          "rewire": "SamplerCustomAdvanced.sampler 改接本节点 SAMPLER 输出，替换原 KSamplerSelect。"
+        }
+      },
+      "nodes_to_add": [
+        {
+          "class_type": "MiniMaxH3TurboLoRA",
+          "display_name": "MiniMax H3 Turbo LoRA",
+          "inputs": {
+            "model": [
+              "<UNETLoader_node>",
+              0
+            ],
+            "lora_name": "minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors",
+            "strength": 0.75,
+            "low_vram": false
+          },
+          "rewire": "BasicGuider.model 与 BasicScheduler.model 改接本节点 MODEL 输出（loader -> turboLoRA -> guider/scheduler）。API 提交必须显式带 strength/low_vram，缺参 400。"
+        }
+      ],
+      "sampler_params": {
+        "steps": 4,
+        "scheduler": "simple",
+        "sampler": "<MiniMaxH3TurboSampler>",
+        "flow_shift_video": 12.0,
+        "flow_shift_audio": 3.0
+      },
+      "measured_config": "turbo+blockcache 组合实测（routes4/routes5）：SSIM 0.7494 与纯 turbo 一致、热 wall 55.0s；BlockCacheT8 在 4 步下零命中，不建议叠加（省一个节点+显存）。",
+      "notes": "与 balanced 档输出等价；extreme 与 balanced 的差别仅在是否额外挂 BlockCacheT8（实测无收益）。strength 0.75 为社区甜点值。"
+    },
+    "blockcache_50step": {
+      "label": "质量优先加速（BlockCache T8 + SageAttention，50 步）[已并入 balanced]",
+      "recommended": true,
+      "reason": "实测去噪 175s vs native 515s = 2.94x，SSIM 0.8194（min 0.7847）过 0.75 门槛，50 步语义保留最好。本机质量/速度综合最优点。",
+      "speedup": 2.94,
+      "ssim_vs_native": 0.8194,
+      "nodes_to_replace": {},
+      "nodes_to_add": [
+        {
+          "class_type": "MiniMaxH3MemoryEfficientSageAttentionPatch",
+          "inputs": {
+            "model": [
+              "<UNETLoader_node>",
+              0
+            ]
+          },
+          "rewire": "model 链中间环"
+        },
+        {
+          "class_type": "MiniMaxH3BlockCacheT8",
+          "inputs": {
+            "model": [
+              "<SagePatch_node>",
+              0
+            ],
+            "residual_diff_threshold": 0.12,
+            "start_percent": 0.08,
+            "end_percent": 0.95,
+            "max_consecutive_hits": 2,
+            "cache_device": "cpu",
+            "metric_stride": 8,
+            "verbose": false
+          },
+          "rewire": "BasicGuider.model 与 BasicScheduler.model 接本节点 MODEL 输出（loader -> sagePatch -> blockCache -> guider/scheduler）"
+        }
+      ],
+      "sampler_params": {
+        "steps": 50,
+        "scheduler": "simple",
+        "sampler": "euler",
+        "flow_shift_video": 12.0,
+        "flow_shift_audio": 3.0
+      },
+      "notes": "实测该档用 metric_stride=1（提交竞态），节点默认 8；显存峰值 90.6G。非契约三档之一，作为附加档给出；如需严格三档可把本档提升为 balanced。",
+      "measured_config_caveat": "metric_stride=1 (submission raced the edit; node default is 8)"
+    }
+  },
+  "notes_for_api": [
+    "三档契约键 lossless/balanced/extreme 保持；附加键 blockcache_50step 为实测最优档，读取方若严格限定三键可忽略或映射。",
+    "API 提交注意：ComfyUI 校验 required inputs，带默认值的 widget（strength/low_vram/metric_stride/verbose/cache_device 等）也必须显式给出，否则 400。",
+    "turbo 档换 LoRA/步数会改变输出分布，SSIM 是与 50 步 native 的轨迹偏离度，不等于观感质量；上线前人工抽检。",
+    "热作业语义：ComfyUI 跨作业缓存 TE/条件/噪声节点，重复作业端到端显著快于首跑；表中 speedup 以去噪 busy 窗口为准，wall 已注明冷热。",
+    "SGLang pack 档案（lossless/balanced/extreme 旧语义）见 results.json 前 7 条与 git 历史；SM120 单卡实测无加速价值，不建议启用。",
+    "2026-09-12 产品拍板：balanced=blockcache_50step(2.94x,SSIM 0.8194,人工抽检近原生)；extreme=turbo 4步(12.9x,SSIM 0.7494,人工抽检=预览级画质,recommended=true 用户知情选择)；SGLang 三档全线无价值勿回退。",
+    "2026-09-12 23:15 补充下架：lossless 档生产实测同样 SamplerCustomAdvanced str.sample 报错——三档全部 recommended=false 待转换器修复；修复验证由产品 agent 执行（job: agent-wpfz99il）。"
+  ]
+}
