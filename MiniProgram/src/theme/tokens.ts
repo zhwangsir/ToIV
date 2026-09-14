@@ -1,9 +1,9 @@
 /**
- * 设计 Token —— 全端唯一视觉事实源（移植自 Mobile/src/theme/tokens.ts，逐值对齐）
- * 规则：
- * - 颜色只允许引用本文件，禁止在组件中裸写 hex（开发规范禁令 2）
- * - 5 套色板 × light/dark 双变体；默认 palette-01 浅色（浅色优先原则）
- * - 尺寸单位在小程序端以 rpx 表达：cssVarsFromPalette 统一 ×2 换算（4pt 网格 → 8rpx 起步）
+ * 设计 Token —— MiniProgram 视觉事实源（P4 2026-09-07 对齐 web 主题系统 v9）
+ * - 四套预设：minimal / cinema / paper / graphite（与 apps/web/lib/theme.ts + globals.css 同口径）
+ * - 亮基底（minimal/paper）有 light/dark；暗基底（cinema/graphite）恒暗，mode 切换不改色
+ * - 颜色只允许引用本文件（或经 useAppTheme 注入的 CSS 变量），组件禁裸写装饰 hex
+ * - 尺寸单位：cssVarsFromPalette 统一 ×2 换算（4pt 网格 → 8rpx 起步）
  */
 
 export const spacing = {
@@ -35,6 +35,8 @@ export const typography = {
   mono: { fontSize: 14, lineHeight: 20 },
 } as const;
 
+export type ThemePresetId = 'minimal' | 'cinema' | 'paper' | 'graphite';
+
 export interface Palette {
   bg: string;
   surface: string;
@@ -48,162 +50,227 @@ export interface Palette {
   danger: string;
 }
 
-export interface PaletteEntry {
-  id: string;
+export interface ThemePresetEntry {
+  id: ThemePresetId;
   name: string;
+  /** 暗基底：明暗切换不生效（与 web ThemePicker darkBased 同语义） */
+  darkBased: boolean;
+  /** 缩略色卡：底色 + accent 点（预览即主题定义本身） */
+  swatchBg: string;
+  swatchAccent: string;
   light: Palette;
   dark: Palette;
 }
 
-export const palettes: PaletteEntry[] = [
+/** @deprecated 用 ThemePresetEntry；保留别名避免旧 import 断裂 */
+export type PaletteEntry = ThemePresetEntry;
+
+const STATUS_LIGHT = {
+  success: '#0C6B34',
+  warning: '#8A4A06',
+  danger: '#B41919',
+} as const;
+
+const STATUS_DARK = {
+  success: '#46BE7E',
+  warning: '#E5A34B',
+  danger: '#F58484',
+} as const;
+
+const STATUS_PAPER = {
+  success: '#0A5C2D',
+  warning: '#7A3F05',
+  danger: '#A31515',
+} as const;
+
+/** 四套预设 —— 色值对齐 apps/web/app/globals.css 主题块 */
+export const THEME_PRESETS: ThemePresetEntry[] = [
   {
-    id: 'palette-01',
-    name: '胶片米白',
+    id: 'minimal',
+    name: '极简白',
+    darkBased: false,
+    swatchBg: '#FAFAF9',
+    swatchAccent: '#17181A',
     light: {
-      bg: '#FAF9F7',
-      surface: '#FFFFFF',
-      border: '#E8E6E1',
-      text: '#1C1B1A',
-      textSecondary: '#6B6660',
-      accent: '#B4532A',
-      accentSoft: '#F3E5DD',
-      success: '#2E7D4F',
-      warning: '#B7791F',
-      danger: '#C03A2B',
+      bg: '#FAFAF9',
+      surface: '#FAFAFA',
+      border: '#E8E8E9',
+      text: '#17181A',
+      textSecondary: '#54565C',
+      accent: '#17181A',
+      accentSoft: '#ECECED',
+      ...STATUS_LIGHT,
     },
     dark: {
-      bg: '#141312',
-      surface: '#1E1C1A',
-      border: '#322E2A',
-      text: '#F2EFEA',
-      textSecondary: '#A39D94',
-      accent: '#D98C5F',
-      accentSoft: '#3A2A20',
-      success: '#5CB87E',
-      warning: '#D9A44F',
-      danger: '#E06A54',
+      bg: '#101114',
+      surface: '#16181C',
+      border: '#2A2C31',
+      text: '#F4F4F3',
+      textSecondary: '#A9ACB2',
+      accent: '#F5F5F4',
+      accentSoft: '#2A2C30',
+      ...STATUS_DARK,
     },
   },
   {
-    id: 'palette-02',
-    name: '雾蓝',
+    id: 'cinema',
+    name: '影院',
+    darkBased: true,
+    swatchBg: '#0B0D10',
+    swatchAccent: '#C9F24F',
     light: {
-      bg: '#F7F9FB',
-      surface: '#FFFFFF',
-      border: '#E3E8EE',
-      text: '#17202A',
-      textSecondary: '#5E6B7A',
-      accent: '#2F5D8A',
-      accentSoft: '#E2EBF4',
-      success: '#2E7D4F',
-      warning: '#B7791F',
-      danger: '#C03A2B',
+      bg: '#0B0D10',
+      surface: '#14171C',
+      border: '#262B33',
+      text: '#F2F4F6',
+      textSecondary: '#B9C0C9',
+      accent: '#C9F24F',
+      accentSoft: '#2A3218',
+      ...STATUS_DARK,
     },
     dark: {
-      bg: '#10141A',
-      surface: '#1A2029',
-      border: '#2C3540',
-      text: '#EBF0F5',
-      textSecondary: '#98A4B3',
-      accent: '#6FA3D8',
-      accentSoft: '#24344A',
-      success: '#5CB87E',
-      warning: '#D9A44F',
-      danger: '#E06A54',
+      bg: '#0B0D10',
+      surface: '#14171C',
+      border: '#262B33',
+      text: '#F2F4F6',
+      textSecondary: '#B9C0C9',
+      accent: '#C9F24F',
+      accentSoft: '#2A3218',
+      ...STATUS_DARK,
     },
   },
   {
-    id: 'palette-03',
-    name: '松绿',
+    id: 'paper',
+    name: '纸墨',
+    darkBased: false,
+    swatchBg: '#F5EFE3',
+    swatchAccent: '#2B2318',
     light: {
-      bg: '#F7FAF8',
-      surface: '#FFFFFF',
-      border: '#E2EAE5',
-      text: '#17211C',
-      textSecondary: '#5D6E64',
-      accent: '#2F6B4F',
-      accentSoft: '#E1EFE7',
-      success: '#2E7D4F',
-      warning: '#B7791F',
-      danger: '#C03A2B',
+      bg: '#F5EFE3',
+      surface: '#FBF7ED',
+      border: '#E7DCC6',
+      text: '#2B2318',
+      textSecondary: '#5C5142',
+      accent: '#2B2318',
+      accentSoft: '#EDE6D8',
+      ...STATUS_PAPER,
     },
+    // paper 暗档与 minimal 暗档同轨（web: data-mode=dark 压过 paper）
     dark: {
-      bg: '#101512',
-      surface: '#1A221D',
-      border: '#2B352E',
-      text: '#EAF2ED',
-      textSecondary: '#97A89E',
-      accent: '#6FB390',
-      accentSoft: '#22392C',
-      success: '#5CB87E',
-      warning: '#D9A44F',
-      danger: '#E06A54',
+      bg: '#101114',
+      surface: '#16181C',
+      border: '#2A2C31',
+      text: '#F4F4F3',
+      textSecondary: '#A9ACB2',
+      accent: '#F5F5F4',
+      accentSoft: '#2A2C30',
+      ...STATUS_DARK,
     },
   },
   {
-    id: 'palette-04',
-    name: '墨',
+    id: 'graphite',
+    name: '石墨',
+    darkBased: true,
+    swatchBg: '#0A0B0D',
+    swatchAccent: '#FFFFFF',
     light: {
-      bg: '#FAFAFA',
-      surface: '#FFFFFF',
-      border: '#E5E5E5',
-      text: '#171717',
-      textSecondary: '#616161',
-      accent: '#1F2937',
-      accentSoft: '#E8EAED',
-      success: '#2E7D4F',
-      warning: '#B7791F',
-      danger: '#C03A2B',
+      bg: '#0A0B0D',
+      surface: '#101214',
+      border: '#2A2C31',
+      text: '#F4F4F3',
+      textSecondary: '#A9ACB2',
+      accent: '#FFFFFF',
+      accentSoft: '#2A2C30',
+      ...STATUS_DARK,
     },
     dark: {
-      bg: '#111111',
-      surface: '#1C1C1C',
-      border: '#303030',
-      text: '#F0F0F0',
-      textSecondary: '#9E9E9E',
-      accent: '#D4D8DD',
-      accentSoft: '#2E3237',
-      success: '#5CB87E',
-      warning: '#D9A44F',
-      danger: '#E06A54',
-    },
-  },
-  {
-    id: 'palette-05',
-    name: '暖沙',
-    light: {
-      bg: '#FBF8F3',
-      surface: '#FFFFFF',
-      border: '#EBE4D8',
-      text: '#201B14',
-      textSecondary: '#73685A',
-      accent: '#A3722B',
-      accentSoft: '#F4E9D7',
-      success: '#2E7D4F',
-      warning: '#B7791F',
-      danger: '#C03A2B',
-    },
-    dark: {
-      bg: '#161310',
-      surface: '#211D18',
-      border: '#383127',
-      text: '#F3EDE3',
-      textSecondary: '#B0A592',
-      accent: '#D9A558',
-      accentSoft: '#43331D',
-      success: '#5CB87E',
-      warning: '#D9A44F',
-      danger: '#E06A54',
+      bg: '#0A0B0D',
+      surface: '#101214',
+      border: '#2A2C31',
+      text: '#F4F4F3',
+      textSecondary: '#A9ACB2',
+      accent: '#FFFFFF',
+      accentSoft: '#2A2C30',
+      ...STATUS_DARK,
     },
   },
 ];
 
-export const DEFAULT_PALETTE_ID = 'palette-01';
+/** 兼容旧名：与 THEME_PRESETS 同一引用 */
+export const palettes = THEME_PRESETS;
 
+export const DEFAULT_THEME_ID: ThemePresetId = 'minimal';
+/** @deprecated 用 DEFAULT_THEME_ID */
+export const DEFAULT_PALETTE_ID = DEFAULT_THEME_ID;
+
+const PRESET_IDS = new Set<string>(THEME_PRESETS.map((p) => p.id));
+
+/** 旧五色板 / 实验 id → v9 预设 */
+const LEGACY_THEME_MAP: Record<string, ThemePresetId> = {
+  'palette-01': 'minimal',
+  'palette-02': 'minimal',
+  'palette-03': 'minimal',
+  'palette-04': 'graphite',
+  'palette-05': 'paper',
+  atelier: 'minimal',
+};
+
+export function normalizeThemeId(id: string | null | undefined): ThemePresetId {
+  if (!id) return DEFAULT_THEME_ID;
+  if (PRESET_IDS.has(id)) return id as ThemePresetId;
+  return LEGACY_THEME_MAP[id] ?? DEFAULT_THEME_ID;
+}
+
+export function getThemePreset(id: string): ThemePresetEntry {
+  const nid = normalizeThemeId(id);
+  return THEME_PRESETS.find((p) => p.id === nid) ?? THEME_PRESETS[0];
+}
+
+/**
+ * 解析色板。暗基底主题忽略 mode（恒用 dark 轨，与 web 同）。
+ */
 export function getPalette(id: string, mode: 'light' | 'dark'): Palette {
-  const entry = palettes.find((p) => p.id === id) ?? palettes[0];
+  const entry = getThemePreset(id);
+  if (entry.darkBased) return entry.dark;
   return entry[mode];
 }
+
+const ACCENT_HEX_RE = /^#[0-9a-fA-F]{6}$/;
+
+export function isAccentHex(hex: string | null | undefined): hex is string {
+  return typeof hex === 'string' && ACCENT_HEX_RE.test(hex);
+}
+
+/** 自定义 accent 上的文字色：按感知亮度取近黑/白（与 web accentOnColor 同公式） */
+export function accentOnColor(hex: string): '#17181A' | '#FFFFFF' {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const l = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return l > 0.55 ? '#17181A' : '#FFFFFF';
+}
+
+/** 在 hex 上叠一层近似 soft 底（小程序 CSS 变量用不透明 hex 更稳） */
+export function accentSoftFrom(hex: string, onDark: boolean): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const alpha = onDark ? 0.14 : 0.1;
+  const base = onDark ? 22 : 250;
+  const mix = (c: number) => Math.round(base * (1 - alpha) + c * alpha);
+  const to = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${to(mix(r))}${to(mix(g))}${to(mix(b))}`;
+}
+
+/** 快捷强调色（与 web ThemePicker ACCENT_SWATCHES 对齐） */
+export const ACCENT_SWATCHES = [
+  '#C9F24F',
+  '#8B5CF6',
+  '#3B82F6',
+  '#F59E0B',
+  '#EF4444',
+  '#17181A',
+] as const;
 
 /** pt → rpx（iPhone 6 基准 1pt ≈ 2rpx），小程序端尺寸统一走这里 */
 export function toRpx(pt: number): string {

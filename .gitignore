@@ -60,3 +60,13 @@ drama/output/
 
 # 全功能生成测试产物(大文件,不入库;结果记录在 TEST_LOG.md)
 test-results/
+
+# local auth tokens (never commit)
+.auth/
+
+# 项目管家工作产物(复测 runner/决算/dogfood 证据,一律不入库;交付文档落 docs/)
+.regen_tmp/
+dogfood-output/
+
+# 数据文件备份(生产口径以 rh_h3_presets.json 为准)
+apps/api/app/data/rh_h3_presets.json.bak*

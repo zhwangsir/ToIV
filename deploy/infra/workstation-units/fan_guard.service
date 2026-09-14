@@ -1,0 +1,11 @@
+[Unit]
+Description=NVML fan lock 100% (4x RTX PRO 6000)
+After=nvidia-persistenced.service
+
+[Service]
+ExecStart=/opt/nemotron-venv/bin/python /opt/fan_guard.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

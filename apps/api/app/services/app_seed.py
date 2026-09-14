@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import copy
+import os
 import json
 import logging
 from functools import lru_cache
@@ -27,7 +28,9 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.models import App, _now
 from app.services.workflow_convert import ui_to_api
+from app.services.app_content_modes import MERGE_HIDE_IDS
 from app.services.rh_h3_preset_seed import expand_rh_h3_presets
+from app.services.rh_family_preset_seed import expand_rh_family_presets
 from app.workflows.ace_step import AceStep15Params, AceStepParams, build_ace_step_15_graph, build_ace_step_graph
 from app.workflows.controlnet import ControlNetParams, build_controlnet_graph
 from app.workflows.facedetailer import FaceDetailerParams, build_facedetailer_graph
@@ -180,19 +183,23 @@ def _b(node: str, field: str) -> dict:
 
 def _spec(id: str, name: str, description: str, *, icon: str, category: str,
           output_kind: str, workflow_json: dict, params_schema: list[dict],
-          bindings: dict, is_nsfw: bool, sort: int, author: str = "ToIV 官方") -> dict:
+          bindings: dict, is_nsfw: bool, sort: int, author: str = "ToIV 官方",
+          is_public: bool = True) -> dict:
     return {
         "id": id, "name": name, "description": description,
         "icon": icon, "category": category, "output_kind": output_kind,
         "workflow_json": workflow_json, "params_schema": params_schema,
         "bindings": bindings, "is_nsfw": is_nsfw, "sort": sort,
         "author": author,
+        "is_public": bool(is_public),
     }
 
 
 # ---------------------------------------------------------------------------
 # 内置应用规格(图在 _build_specs 里装配,校验后落库)
 # ---------------------------------------------------------------------------
+# H3 SFW+R18 同卡合并(2026-09-08):见 app_content_modes.SFW_NSFW_TWINS;R18 孪生 is_public=False 软隐藏。
+
 def _h3_params(*, with_images: bool = False, with_last_frame: bool = False,
                with_r2v: bool = False, length: int = 124, steps: int = 20,
                audio_required: bool = False) -> list[dict]:
@@ -415,6 +422,7 @@ def _build_specs() -> list[dict]:
             workflow_json=_h3_graph("h3/t2v_prompt.json", nsfw=True),
             params_schema=_h3_params(), bindings=_h3_bindings(),
             is_nsfw=True, sort=26,
+            is_public=False,
         ),
         _spec(
             "h3-nsfw-i2v", "海螺 H3 图生视频(R18)",
@@ -424,6 +432,7 @@ def _build_specs() -> list[dict]:
             params_schema=_h3_params(with_images=True),
             bindings=_h3_bindings(with_images=True),
             is_nsfw=True, sort=27,
+            is_public=False,
         ),
         _spec(
             "h3-nsfw-fl2v", "海螺 H3 首尾帧转场(R18)",
@@ -433,6 +442,7 @@ def _build_specs() -> list[dict]:
             params_schema=_h3_params(with_images=True, with_last_frame=True),
             bindings=_h3_bindings(with_images=True, with_last_frame=True),
             is_nsfw=True, sort=28,
+            is_public=False,
         ),
         _spec(
             "h3-nsfw-r2v", "海螺 H3 全能参考(R18)",
@@ -442,6 +452,7 @@ def _build_specs() -> list[dict]:
             params_schema=_h3_params(with_r2v=True),
             bindings=_h3_bindings(with_r2v=True),
             is_nsfw=True, sort=29,
+            is_public=False,
         ),
         # h3-i2v-20s: H3 原生单段上限 362 帧≈15s@24fps;20s 是末帧 i2v 分段续写
         # (segment_extend),不是一镜到底。不伪造 20s 内置应用。
@@ -478,6 +489,7 @@ def _build_specs() -> list[dict]:
             workflow_json=_h3_graph("h3/t2v_prompt.json", nsfw=True),
             params_schema=_h3_params(length=362, steps=8), bindings=_h3_bindings(),
             is_nsfw=True, sort=33,
+            is_public=False,
         ),
         _spec(
             "h3-nsfw-i2v-15s-fast", "海螺 H3 图生 15 秒加速(R18)",
@@ -487,6 +499,7 @@ def _build_specs() -> list[dict]:
             params_schema=_h3_params(with_images=True, length=362, steps=8),
             bindings=_h3_bindings(with_images=True),
             is_nsfw=True, sort=34,
+            is_public=False,
         ),
         _spec(
             "h3-nsfw-r2v-voice", "海螺 H3 声音参考(R18)",
@@ -496,6 +509,7 @@ def _build_specs() -> list[dict]:
             params_schema=_h3_params(with_r2v=True, audio_required=True),
             bindings=_h3_bindings(with_r2v=True),
             is_nsfw=True, sort=35,
+            is_public=False,
         ),
         _spec(
             "txt2img-basic", "Flux2 文生图",
@@ -534,6 +548,7 @@ def _build_specs() -> list[dict]:
                 "seed": _b("3", "inputs.seed"),
             },
             is_nsfw=True, sort=35,
+            is_public=False,
         ),
         _spec(
             "flux1-nunchaku", "FLUX.1 Nunchaku",
@@ -609,6 +624,7 @@ def _build_specs() -> list[dict]:
                 "seed": _b("3", "inputs.seed"),
             },
             is_nsfw=True, sort=41,
+            is_public=False,
         ),
         _spec(
             "qwen-image-edit", "智能编辑(Qwen)",
@@ -777,7 +793,7 @@ def _build_specs() -> list[dict]:
         ),
         _spec(
             "vace-edit", "VACE 视频编辑",
-            "Wan2.1-VACE 视频到视频编辑:源视频 + 编辑指令 → 对象替换/风格迁移/重打光(默认 81 帧≈5s@16fps);关键帧锚点/区域 mask 仍走高级引擎编辑器",
+            "Wan2.1-VACE 视频到视频编辑:源视频 + 编辑指令 → 对象替换/风格迁移/重打光(默认 81 帧≈5s@16fps);关键帧锚点/区域 mask 仍走更多引擎编辑器",
             icon="wand", category="video", output_kind="video",
             workflow_json=build_wan_vace_edit_graph(WanVaceEditParams(
                 positive="edit the source video as instructed",
@@ -1182,6 +1198,15 @@ def _build_specs() -> list[dict]:
     for spec in specs:
         _validate_spec(spec)
     specs.extend(expand_rh_h3_presets({s["id"]: s for s in specs}))
+    # Wan/LTX/VACE RH family presets: opt-in only (TOIV_SEED_RH_FAMILY=1).
+    # Full catalog ~2k is too heavy for every boot; curated JSON under
+    # apps/api/app/data/rh_family_presets.json. Default stays API-seed path
+    # (.regen_tmp/seed_rh_wan_ltx_pilot.py) so live non-builtin rh-* stay editable.
+    if os.environ.get("TOIV_SEED_RH_FAMILY", "").strip() in {"1", "true", "yes", "on"}:
+        try:
+            specs.extend(expand_rh_family_presets({s["id"]: s for s in specs}))
+        except FileNotFoundError:
+            pass
     return specs
 
 
@@ -1236,6 +1261,7 @@ def seed_builtin_apps(session: Session) -> int:
                 row.category = spec["category"]
                 row.output_kind = spec["output_kind"]
                 row.is_nsfw = spec["is_nsfw"]
+                # is_public 不覆盖:soft-hide / 运营下架要活过 API 重启;仅新建行用规格默认值
                 row.sort = spec["sort"]
                 # 作者随规格(代码即正典)覆盖;cover_url 不碰——封面由上传/生成写入,
                 # seed 无权清掉(规格里本来就没有封面信息)
@@ -1258,7 +1284,7 @@ def seed_builtin_apps(session: Session) -> int:
                 submit_kind="app_run",
                 is_builtin=True,
                 is_nsfw=spec["is_nsfw"],
-                is_public=True,
+                is_public=bool(spec.get("is_public", True)),
                 user_id="",
                 usage_count=0,
                 author=spec.get("author") or "",
@@ -1268,7 +1294,16 @@ def seed_builtin_apps(session: Session) -> int:
             )
         )
         created += 1
+    # SFW+NSFW 同卡:软隐藏 R18 孪生卡(仍保留行供 runner 切 twin 图 / RH base 克隆)
+    hidden = 0
+    for hid in MERGE_HIDE_IDS:
+        row = rows.get(hid) or session.get(App, hid)
+        if row is not None and row.is_public:
+            row.is_public = False
+            row.updated_at = now
+            session.add(row)
+            hidden += 1
     session.commit()  # 更新路径也可能有写(内置规格漂移修复),统一提交
-    if created:
-        logger.info("内置应用播种完成:新增 %d 个", created)
+    if created or hidden:
+        logger.info("内置应用播种完成:新增 %d 个,软隐藏孪生 %d 个", created, hidden)
     return created

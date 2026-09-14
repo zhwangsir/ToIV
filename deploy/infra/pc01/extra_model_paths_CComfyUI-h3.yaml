@@ -1,0 +1,11 @@
+h3_nas:
+  base_path: "\\\\192.168.71.7\\NAS\\toiv\\comfyui-models\\h3"
+  diffusion_models: diffusion_models
+  text_encoders: text_encoders
+  vae: vae
+  loras: loras
+  latent_upscale_models: latent_upscale_models
+
+local:
+  base_path: C:\ComfyUI-h3
+  is_default: true

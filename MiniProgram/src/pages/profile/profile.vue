@@ -2,7 +2,7 @@
 /**
  * 我的页（MP5）
  * - 账户卡片：邮箱 + 角色（auth store 快照，弱网兜底在 restore 层）
- * - 外观：显示模式三段切换 + 五色板换肤（换肤零组件改动由 Token 保证）
+ * - 外观：v9 四预设（minimal/cinema/paper/graphite）+ 亮基底明暗 + 自定义强调色
  * - 高级：API 基址覆盖（自定义服务端）+ NSFW 意图开关（开启需二次确认）
  * - 关于（MP26）：关于展开（版本/定位/版权）+ 检查更新 + 清理缓存（白名单保护）+ 导出诊断（脱敏）
  * - 退出登录：secondary 克制变体语义，确认后清空会话回登录页
@@ -18,7 +18,11 @@ import { useAuthGuard } from '@/composables/use-auth-guard';
 import manifest from '@/manifest.json';
 import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore, type ThemeMode } from '@/stores/settings';
-import { getPalette, palettes } from '@/theme/tokens';
+import {
+  ACCENT_SWATCHES,
+  THEME_PRESETS,
+  isAccentHex,
+} from '@/theme/tokens';
 import {
   buildDiagnostics,
   formatBytes,
@@ -29,7 +33,7 @@ import { platformName } from '@/utils/platform';
 
 const APP_VERSION = manifest.versionName;
 
-const { themeVars, isDark, palette } = useAppTheme();
+const { themeVars, palette, preset } = useAppTheme();
 const { requireAuth } = useAuthGuard();
 const auth = useAuthStore();
 const settings = useSettingsStore();
@@ -42,7 +46,46 @@ const MODES: { id: ThemeMode; label: string; icon: string }[] = [
 
 const user = computed(() => auth.user);
 const effectiveApiBase = computed(() => resolveApiBase());
-const swatchMode = computed(() => (isDark.value ? 'dark' : 'light'));
+const showModeRow = computed(() => !preset.value.darkBased);
+const themePresets = THEME_PRESETS;
+const accentSwatches = ACCENT_SWATCHES;
+
+function pickTheme(id: string) {
+  settings.setTheme(id);
+}
+
+function pickAccent(hex: string) {
+  settings.setAccentCustom(hex);
+}
+
+function clearAccent() {
+  settings.setAccentCustom(null);
+}
+
+function editAccentCustom() {
+  uni.showModal({
+    title: '自定义强调色',
+    editable: true,
+    placeholderText: '#RRGGBB',
+    content: settings.accentCustom ?? '',
+    success: (res) => {
+      if (!res.confirm) return;
+      const value = (res.content ?? '').trim();
+      if (!value) {
+        settings.setAccentCustom(null);
+        uni.showToast({ title: '已恢复主题默认', icon: 'none' });
+        return;
+      }
+      const hex = value.startsWith('#') ? value : `#${value}`;
+      if (!isAccentHex(hex)) {
+        uni.showToast({ title: '需 6 位十六进制色值', icon: 'none' });
+        return;
+      }
+      settings.setAccentCustom(hex);
+      uni.showToast({ title: '强调色已更新', icon: 'none' });
+    },
+  });
+}
 
 onShow(() => {
   requireAuth();
@@ -262,11 +305,41 @@ function confirmSignOut() {
       </view>
     </view>
 
-    <!-- 外观 -->
+    <!-- 外观（P4：对齐 web 主题 v9） -->
     <text class="profile__section">
       外观
     </text>
-    <view class="profile__modes">
+
+    <!-- 四预设色卡 -->
+    <view class="profile__theme-grid">
+      <view
+        v-for="p in themePresets"
+        :key="p.id"
+        class="profile__theme-card"
+        :class="{ 'profile__theme-card--active': settings.paletteId === p.id }"
+        hover-class="profile__theme-card--pressed"
+        @tap="pickTheme(p.id)"
+      >
+        <view
+          class="profile__theme-thumb"
+          :style="{ backgroundColor: p.swatchBg }"
+        >
+          <view
+            class="profile__theme-dot"
+            :style="{ backgroundColor: p.swatchAccent }"
+          />
+        </view>
+        <text class="profile__theme-name">
+          {{ p.name }}
+        </text>
+      </view>
+    </view>
+
+    <!-- 明暗仅亮基底主题 -->
+    <view
+      v-if="showModeRow"
+      class="profile__modes"
+    >
       <view
         v-for="m in MODES"
         :key="m.id"
@@ -289,31 +362,47 @@ function confirmSignOut() {
       </view>
     </view>
 
-    <!-- 色板 -->
-    <view class="profile__panel">
+    <!-- 自定义强调色 -->
+    <view class="profile__panel profile__accent-panel">
       <view
-        v-for="(p, idx) in palettes"
-        :key="p.id"
         class="profile__row"
-        :class="{ 'profile__row--bordered': idx > 0 }"
         hover-class="profile__row--pressed"
-        @tap="settings.setPalette(p.id)"
+        @tap="editAccentCustom"
       >
         <view
           class="profile__swatch"
-          :style="{ backgroundColor: getPalette(p.id, swatchMode).accent }"
+          :style="{ backgroundColor: settings.accentCustom || palette.accent }"
         />
+        <view class="profile__row-main">
+          <text class="profile__row-label">
+            强调色
+          </text>
+          <text class="profile__row-sub">
+            {{ settings.accentCustom || '主题默认' }}
+          </text>
+        </view>
         <text
-          class="profile__row-label"
-          :class="{ 'profile__row-label--active': settings.paletteId === p.id }"
+          v-if="settings.accentCustom"
+          class="profile__row-action"
+          @tap.stop="clearAccent"
         >
-          {{ p.name }}
+          清除
         </text>
         <Icon
-          v-if="settings.paletteId === p.id"
-          name="check"
-          :size="36"
-          color="var(--color-accent)"
+          v-else
+          name="chevron-right"
+          :size="32"
+          color="var(--color-text-secondary)"
+        />
+      </view>
+      <view class="profile__accent-swatches">
+        <view
+          v-for="hex in accentSwatches"
+          :key="hex"
+          class="profile__accent-chip"
+          :class="{ 'profile__accent-chip--active': settings.accentCustom === hex }"
+          :style="{ backgroundColor: hex }"
+          @tap="pickAccent(hex)"
         />
       </view>
     </view>
@@ -701,6 +790,78 @@ function confirmSignOut() {
     color: var(--color-accent);
     font-weight: 500;
     padding: var(--space-2) var(--space-3);
+  }
+
+
+  &__theme-grid {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 16rpx;
+    margin: 0 32rpx 24rpx;
+  }
+
+  &__theme-card {
+    width: calc(50% - 8rpx);
+    box-sizing: border-box;
+    padding: 16rpx;
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    border: 2rpx solid var(--color-border);
+
+    &--active {
+      border-color: var(--color-accent);
+    }
+
+    &--pressed {
+      opacity: 0.85;
+    }
+  }
+
+  &__theme-thumb {
+    height: 72rpx;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 12rpx;
+  }
+
+  &__theme-dot {
+    width: 20rpx;
+    height: 20rpx;
+    border-radius: 999rpx;
+  }
+
+  &__theme-name {
+    display: block;
+    margin-top: 12rpx;
+    font-size: var(--font-caption);
+    color: var(--color-text);
+  }
+
+  &__accent-panel {
+    margin-top: 8rpx;
+  }
+
+  &__accent-swatches {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 16rpx;
+    padding: 8rpx 24rpx 24rpx;
+  }
+
+  &__accent-chip {
+    width: 48rpx;
+    height: 48rpx;
+    border-radius: 999rpx;
+    border: 2rpx solid var(--color-border);
+
+    &--active {
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 4rpx var(--color-accent-soft);
+    }
   }
 
   &__swatch {

@@ -1,0 +1,19 @@
+[Unit]
+Description=ToIV ComfyUI MCP Bridge (artokun/comfyui-mcp HTTP mode)
+After=network.target comfyui-gpu0.service
+
+[Service]
+Type=simple
+User=merlin
+Environment=COMFYUI_URL=http://127.0.0.1:8189
+Environment=MCP_TRANSPORT=http
+Environment=MCP_HOST=0.0.0.0
+Environment=MCP_PORT=9100
+Environment=COMFYUI_MCP_TOOL_MODE=full
+Environment=COMFYUI_MCP_HTTP_TOKEN=79615f1795d22476337c311a71d4e0e449b7acb5a4490626102873be057e5f94
+ExecStart=/usr/bin/comfyui-mcp --http --host 0.0.0.0 --port 9100 --token 79615f1795d22476337c311a71d4e0e449b7acb5a4490626102873be057e5f94
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

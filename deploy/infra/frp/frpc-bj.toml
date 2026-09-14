@@ -1,0 +1,20 @@
+serverAddr = "8.140.222.24"
+serverPort = 7000
+transport.protocol = "tcp"
+loginFailExit = false
+auth.method = "token"
+auth.token = "token123456"
+
+[[proxies]]
+name = "toiv-api-bj"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 8090
+remotePort = 18090
+
+[[proxies]]
+name = "toiv-web-bj"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 3100
+remotePort = 13100

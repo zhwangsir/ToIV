@@ -57,7 +57,10 @@ def test_specs_at_least_five_and_ids():
     ids = {s["id"] for s in specs}
     assert _EXPECTED_IDS <= ids
     rh = {i for i in ids if i.startswith("rh-")}
-    assert len(rh) >= 1000
+    # 2026-09:rh_h3_presets.json 已清空([]),rh- 种子数 == 目录行数(机制耦合,
+    # 目录恢复时自动跟随);id 不与核心/期望集碰撞
+    from app.services.rh_h3_preset_seed import load_preset_rows
+    assert len(rh) == len(load_preset_rows())
     assert rh.isdisjoint(_EXPECTED_IDS)
 
 
@@ -115,7 +118,7 @@ def test_seed_idempotent_and_builtin_upsert():
     engine = _engine()
     with Session(engine) as s:
         created = seed_builtin_apps(s)
-        assert created >= len(_EXPECTED_IDS) + 1000
+        assert created >= len(_EXPECTED_IDS)
         assert seed_builtin_apps(s) == 0  # 幂等:重复启动不重复建
         # 内置应用代码即正典(禁止 PUT):人工改动会被播种修复回规格值
         # (2026-08-31 起,用于修复存量坏图/规格漂移;个人应用行仍不动)
@@ -132,7 +135,8 @@ def test_seed_idempotent_and_builtin_upsert():
         rows = s.exec(select(App).where(App.is_builtin == True)).all()  # noqa: E712
         ids = {r.id for r in rows}
         assert _EXPECTED_IDS <= ids
-        assert sum(1 for i in ids if i.startswith("rh-")) >= 1000
+        from app.services.rh_h3_preset_seed import load_preset_rows
+        assert sum(1 for i in ids if i.startswith("rh-")) == len(load_preset_rows())
 
 
 def test_seed_apps_nsfw_flags():
@@ -246,6 +250,13 @@ class _FakeClient:
         self.graphs.append(graph)
         return "prompt-seed-1"
 
+    async def get_image_bytes(self, name: str, subfolder: str = "", folder_type: str = "input"):
+        """假装媒体已在本实例(input 直读命中)→ 转运逻辑直接跳过。"""
+        return b"fake-media", None
+
+    async def upload_image(self, content: bytes, name: str, subfolder: str = "", overwrite: bool = False) -> None:
+        return None
+
 
 class _FakePool:
     def __init__(self, client) -> None:
@@ -271,6 +282,22 @@ def _stub_h3_dedicated(monkeypatch, client) -> None:  # noqa: ANN001
     monkeypatch.setattr("app.services.h3.ensure_h3_vram", _noop)
 
 
+def _stub_dedicated_instances(monkeypatch, client) -> None:  # noqa: ANN001
+    """LongCat / Animate2 / QwenEdit 专用实例接缝同样 stub 到 fake client。
+
+    _pick_app_client 按图节点把 vace/longcat 等派到专用实例,不 stub 会触达
+    真机地址(192.168.71.127:8197 等);媒体转运源收集(_media_transfer_source_
+    clients)读到同一 fake 时因 base_url 相同被去重,不会产生网络调用。
+    """
+    for target in (
+        "app.services.longcat.get_longcat_client",
+        "app.services.longcat.pick_longcat_client",
+        "app.services.wan_animate2.get_animate2_client",
+        "app.services.qwen_edit.get_qwen_edit_client",
+    ):
+        monkeypatch.setattr(target, lambda *a, **k: client, raising=False)
+
+
 @pytest.fixture
 def ctx(monkeypatch):
     engine = _engine()
@@ -284,6 +311,7 @@ def ctx(monkeypatch):
     app.dependency_overrides[get_pool] = lambda: _FakePool(fake)
     monkeypatch.setattr(apps_route, "spawn_tracker", lambda client, prompt_id: None)
     _stub_h3_dedicated(monkeypatch, fake)
+    _stub_dedicated_instances(monkeypatch, fake)
     with Session(engine) as s:
         user_id = _make_user(s, "bob@toiv.ai")
         seed_builtin_apps(s)
@@ -394,19 +422,26 @@ def test_builtin_txt2img_run_and_nsfw_gate(ctx):
         json={"values": {"positive": "x"}},
     )
     assert r2.status_code == 403
-    # 新增 NSFW 引擎同样无 X-NSFW 头 403;带头可提交
+    # R18 孪生卡软隐藏:直接访问 404;改走 SFW 父卡 content_mode=nsfw
     r3 = c.post(
         "/api/apps/nsfw-txt2img/run",
         headers={"Authorization": f"Bearer {token}"},
         json={"values": {"positive": "x"}},
     )
-    assert r3.status_code == 403
+    assert r3.status_code == 404
+    r3b = c.post(
+        "/api/apps/txt2img-basic/run",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"values": {"positive": "x"}, "content_mode": "nsfw"},
+    )
+    assert r3b.status_code == 403
     r4 = c.post(
-        "/api/apps/nsfw-txt2img/run",
+        "/api/apps/txt2img-basic/run",
         headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},
-        json={"values": {"positive": "a cat"}},
+        json={"values": {"positive": "a cat"}, "content_mode": "nsfw"},
     )
     assert r4.status_code == 200, r4.text
+    # twin 图仍是 SD1.5 CheckpointLoaderSimple(节点 6=正向)
     assert fake.graphs[-1]["6"]["inputs"]["text"] == "a cat"
 
 
@@ -445,8 +480,8 @@ def test_h3_r2v_binds_first_ref_image_and_uses_ref2va_node():
     spec = next(s for s in _build_specs() if s["id"] == "h3-r2v")
     assert spec["workflow_json"]["104"]["class_type"] == "MiniMaxH3ReferenceToVideo"
     assert spec["workflow_json"]["104"]["inputs"]["audio_vae"] == ["24", 0]
-    assert spec["workflow_json"]["104"]["inputs"]["ref_image_1"] == ["110", 0]
-    assert spec["workflow_json"]["104"]["inputs"]["ref_image_9"] == ["118", 0]
+    assert spec["workflow_json"]["104"]["inputs"]["ref_images.ref_image_0"] == ["110", 0]
+    assert spec["workflow_json"]["104"]["inputs"]["ref_images.ref_image_8"] == ["118", 0]
     assert spec["workflow_json"]["110"]["class_type"] == "LoadImage"
     assert spec["workflow_json"]["118"]["class_type"] == "LoadImage"
     images_b = spec["bindings"]["images"]
@@ -481,10 +516,11 @@ def test_h3_r2v_three_images_fan_out_and_omits_unused():
     assert "120" not in graph
     assert "121" not in graph
     assert "130" not in graph
-    assert graph["104"]["inputs"]["ref_image_1"] == ["110", 0]
-    assert graph["104"]["inputs"]["ref_image_3"] == ["112", 0]
-    assert "ref_image_4" not in graph["104"]["inputs"]
-    assert "ref_video_1" not in graph["104"]["inputs"]
+    assert graph["104"]["inputs"]["ref_images.ref_image_0"] == ["110", 0]
+    assert graph["104"]["inputs"]["ref_images.ref_image_2"] == ["112", 0]
+    assert "ref_images.ref_image_3" not in graph["104"]["inputs"]
+    assert "ref_image_1" not in graph["104"]["inputs"]
+    assert "ref_videos.ref_video_0" not in graph["104"]["inputs"]
     assert "ref_audio_1" not in graph["104"]["inputs"]
 
 
@@ -508,10 +544,10 @@ def test_h3_r2v_video_audio_fan_out():
     assert "124" not in graph
     assert graph["130"]["inputs"]["audio"] == "s1.wav"
     assert "131" not in graph
-    assert graph["104"]["inputs"]["ref_video_1"] == ["121", 0]
-    assert graph["104"]["inputs"]["ref_video_2"] == ["123", 0]
-    assert "ref_video_3" not in graph["104"]["inputs"]
-    assert graph["104"]["inputs"]["ref_audio_1"] == ["130", 0]
+    assert graph["104"]["inputs"]["ref_videos.ref_video_0"] == ["121", 0]
+    assert graph["104"]["inputs"]["ref_videos.ref_video_1"] == ["123", 0]
+    assert "ref_videos.ref_video_2" not in graph["104"]["inputs"]
+    assert graph["104"]["inputs"]["ref_audios.ref_audio_0"] == ["130", 0]
 
 
 def test_h3_r2v_images_over_max_422():

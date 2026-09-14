@@ -1,0 +1,15 @@
+[Unit]
+Description=ComfyUI LongCat worker (GPU2, WanVideoWrapper)
+After=network.target
+
+[Service]
+Type=simple
+User=merlin
+WorkingDirectory=/home/merlin/ComfyUI-longcat
+Environment=CUDA_VISIBLE_DEVICES=2
+ExecStart=/opt/ComfyUI/venv/bin/python main.py --listen 0.0.0.0 --port 8197 --extra-model-paths-config /home/merlin/ComfyUI-longcat/extra_model_paths.yaml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

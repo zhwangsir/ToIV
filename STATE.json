@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-11T10:40:00+08:00",
+  "updated_at": "2026-09-13T21:40:00+08:00",
   "public_e2e_retest_466169_145828_2026_09_11": {
     "status": "live_on_core_public_e2e_466169_pass_145828_seedvr2_device",
     "date": "2026-09-11",
@@ -11375,5 +11375,465 @@
     "followup_status": "live_on_core_public_e2e_214347_pass_nodes3_fails_cleared",
     "superseded_by": "public_e2e_retest_214347_pass_2026_09_11",
     "residual_cleared_in": "public_e2e_retest_214347_pass_2026_09_11"
+  },
+  "p1_app_guides_live_2026_09_12": {
+    "status": "live_on_core_dirty",
+    "date": "2026-09-12",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "build_id": "20260911-211729-bab16b3-dirty",
+    "summary": "P1 应用说明卡 LIVE：550/550 公开应用 DSv4 批量生成（33min、0 失败）并 publish；抽检 20 张五字段全完整、不合格率 5%（≤10% 阈值通过）；前端详情页使用指南卡 + 运行台应用详情 tab + 市场卡片用途摘要；BUILD_ID 本地=core",
+    "generated": 550,
+    "failed": 0,
+    "spotcheck": {
+      "n": 20,
+      "fail_rate": 0.05,
+      "threshold": 0.1,
+      "result": "pass"
+    },
+    "published": 550,
+    "public_api": {
+      "public": 550,
+      "has_guide": 550,
+      "with_purpose": 550
+    },
+    "artifacts": {
+      "service": "apps/api/app/services/app_guide_gen.py",
+      "endpoints": [
+        "POST /api/admin/apps/{id}/guide/generate",
+        "POST /api/admin/app-guides/publish-all"
+      ],
+      "scripts": [
+        "scripts/ops/generate_app_guides.py",
+        "scripts/ops/spotcheck_app_guides.py"
+      ],
+      "log": ".regen_tmp/app_guide_gen_20260912.jsonl"
+    },
+    "next_goal": "市场策展层（用途分类重做 + 新手推荐/热门合集 + 搜索强化）",
+    "tests": "pytest test_app_guides 11 passed; test_apps+test_db_migrations 53 passed"
+  },
+  "engine_studio_live_2026_09_12": {
+    "status": "live_on_core_dirty",
+    "date": "2026-09-12",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "build_id": "20260911-225227-bab16b3-dirty",
+    "summary": "引擎工作台 LIVE：image/video 挂 EngineStudioView（模式×引擎×参数，零新后端复用 engines catalog+submitEngineGeneration+trackJob）；KindCreateView 退役挂载，应用全归应用市场；导航收口对话/应用市场/图片生成/视频生成；引擎离线置灰 UX（当前算力下线属预期）；h3-* upload kind 修正 h3_i2v 直传 :8195",
+    "views": {
+      "image": "EngineStudioView kind=image（文生图/图生图/编辑）",
+      "video": "EngineStudioView kind=video（t2v/i2v/fl2v/r2v）"
+    },
+    "new_files": [
+      "apps/web/components/studio/EngineStudioView.tsx",
+      "apps/web/lib/engineStudio.ts",
+      "apps/web/tests/engineStudio.test.ts"
+    ],
+    "tests": {
+      "web": "919 pass（2 featured 排序预存失败除外）",
+      "api": "3101 pass + 21 dirty 预存失败（rh_h3_presets/engine_registry/app_seed/app_covers/r18，待收）"
+    },
+    "pending": "引擎真跑 e2e 挂算力恢复后",
+    "next_goal": "市场策展层（用途分类 + 合集位 + 搜索强化）"
+  },
+  "market_curation_live_2026_09_12": {
+    "status": "live_on_core_dirty",
+    "date": "2026-09-12",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "build_id": "20260912-084335-bab16b3-dirty",
+    "summary": "市场策展层 LIVE：12 用途分类落库（App.use_case/featured）+ DSv4 两轮打标 550/550 ok 0 fallback + 抽检 20 张准确率 95% 通过 + 市场分类导航/精选热门合集位/搜索扩 name+description+guide_purpose；真机验证 summary 12 类计数齐、use_case 过滤生效",
+    "taxonomy": [
+      "drama",
+      "avatar",
+      "face",
+      "fashion",
+      "ecommerce",
+      "anime",
+      "art",
+      "photo",
+      "edit",
+      "motion",
+      "ad",
+      "other"
+    ],
+    "distribution": {
+      "other": 203,
+      "edit": 89,
+      "fashion": 43,
+      "drama": 41,
+      "avatar": 37,
+      "art": 36,
+      "motion": 32,
+      "face": 30,
+      "photo": 25,
+      "ecommerce": 7,
+      "anime": 4,
+      "ad": 3
+    },
+    "tagging": {
+      "total": 550,
+      "ok": 550,
+      "fallback": 0,
+      "rounds": 2,
+      "round1_accuracy": 0.82,
+      "spotcheck": {
+        "n": 20,
+        "accuracy": 0.95,
+        "threshold": 0.9,
+        "result": "pass"
+      }
+    },
+    "artifacts": {
+      "service": "apps/api/app/services/app_use_case_gen.py",
+      "taxonomy": "apps/api/app/services/use_cases.py",
+      "routes": "apps/api/app/routes/app_curation.py",
+      "script": "scripts/ops/tag_app_use_cases.py",
+      "log": ".regen_tmp/app_use_case_tag_20260912.jsonl"
+    },
+    "endpoints": [
+      "POST /api/admin/apps/{id}/use-case/generate",
+      "PUT /api/admin/apps/{id}/curation",
+      "GET /api/apps/use-cases/summary"
+    ],
+    "tests": "test_app_curation 10 passed; test_db_migrations 断言已补; web 968 pass（2 featured 排序预存失败除外）",
+    "verification": "BUILD_ID 本地=core；web bundle 含 apps-mkt- 标记；summary/use_case 过滤真机 200",
+    "next_goal_candidates": [
+      "公开 E2E 矩阵恢复（算力已全量恢复，剩 ~406/550 未测）",
+      "P3 万能管理台（扩展现有 Admin）",
+      "P2 说明书知识图谱"
+    ]
+  },
+  "compute_restore_2026_09_12": {
+    "status": "live",
+    "date": "2026-09-12",
+    "source": [
+      "项目管家"
+    ],
+    "summary": "算力全量恢复 5 阶段全 PASS：WS 12 units enable+active（LB:8188/gpu0-alt:8196/longcat:8197/H3:8195 钉卡 GPU2✓/animate2:8199/超分:8261-8263/embedding:9302 实测出向量/audio-sep:9220/comfy-mcp:9100/fan_guard）；pc01:8188+pc02:8193/8194 计划任务恢复；LB 3 后端 healthy；core health 三后端齐；txt2img 冒烟真实出图 512x512 PNG",
+    "gpu_used_mib": {
+      "G0": 3499,
+      "G1": 16883,
+      "G2": 1277,
+      "G3": 2350
+    },
+    "ram_available_gib": 160,
+    "notes": [
+      "fan_guard 脚本实际在 /opt/fan_guard.py（非 /tmp）",
+      "冒烟产物 toiv_smoke_00001_.png 留 /opt/ComfyUI/output 可清",
+      "core TOIV_EMBED_BASE_URL 已修正为 workstation :9302（真机核 deploy/.env=192.168.71.127:9302，实测出向量✓；spark01:9302 已死、旧口径作废）"
+    ],
+    "snapshot": ".regen_tmp/service-restructure-20260912.md",
+    "verification_2026_09_12": "全量健康复扫：WS 9 ComfyUI 端口 8195/8196/8197/8199/8261-8263 system_stats 全 200；audio-sep:9220 /health 200；comfy-mcp:9100 /mcp 401(需鉴权,服务活)；pc01:8188/pc02:8193/8194 全 200；LB /admin/backends 3 后端 healthy；core /api/health workers 三后端；DSv4 chat 实测出文；WS :9302 embedding 出向量；**经 LB :8188 派发 txt2img 真出图 health_check_00001_.png**"
+  },
+  "h3_accel_live_2026_09_12": {
+    "status": "live_on_core_dirty",
+    "date": "2026-09-12",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "build_id": "20260912-102826-bab16b3-dirty",
+    "summary": "H3 智能加速全栈 LIVE：用户可选 off/lossless/balanced/extreme（api /run + h3_studio，仅 h3 家族其余 422，响应+Job 双回显 acceleration_applied）；前端 H3AccelSelect 挂 AppRunnerView+EngineStudioView；档位规格 apps/api/app/data/h3_accel_profiles.json（core env TOIV_H3_ACCEL_PROFILES_PATH）",
+    "measured_profiles": {
+      "lossless": {
+        "nodes": "SageAttention Patch 单挂",
+        "speedup": 1.32,
+        "ssim_vs_native": 0.8856,
+        "recommended": true
+      },
+      "balanced": {
+        "nodes": "BlockCache T8 + SageAttention, 50 步",
+        "speedup": 2.94,
+        "ssim_vs_native": 0.8194,
+        "recommended": true,
+        "note": "人工抽检近原生=甜点位"
+      },
+      "extreme": {
+        "nodes": "Turbo LoRA 4 步 (s0.75)",
+        "speedup": 12.9,
+        "ssim_vs_native": 0.7494,
+        "recommended": true,
+        "note": "人工抽检=预览级画质，用户知情选择"
+      }
+    },
+    "benchmark_baseline": {
+      "workload": "1344x768x124f euler/simple seed1101",
+      "native_denoise_s": 515,
+      "native_e2e_s": 879,
+      "gpu": "RTX PRO 6000 SM120 单卡"
+    },
+    "sglang_route_rejected": {
+      "lossless": "0.90x 反慢(982s vs 879s)",
+      "subblock": "硬件锁 SM90/SM100,SM120 全 fleet 不可行",
+      "cachedit": "与 sglang 0.5.19 零命中",
+      "conclusion": "社区 8xH200 1.95x/6.24x 单卡不可复现"
+    },
+    "artifacts": {
+      "service": "apps/api/app/services/h3_accel.py",
+      "profiles_prod": "apps/api/app/data/h3_accel_profiles.json",
+      "profiles_source": ".regen_tmp/h3_sglang_bench_20260912/profiles.json",
+      "bench_report": ".regen_tmp/h3_sglang_bench_20260912/bench.md",
+      "endpoint": "GET /api/h3/acceleration/profiles",
+      "web": "apps/web/components/generate/H3AccelSelect.tsx + lib/h3Accel.ts"
+    },
+    "tests": "api test_h3_accel 17 绿（全量 3128 pass/22 已知预存）；web 982 pass/2 预存",
+    "verification": "端点三档 source=measured 200；h3-t2v+balanced 真实提交 200 queued；非 h3 422；非法档 422",
+    "notes": [
+      "ComfyUI 提交带默认值 widget 必须显式给出否则 400",
+      ".regen_tmp 是源稿，core 生产读 app/data 副本",
+      "workstation 留 4 处 sglang 相关本地改动（bench.md 清单），SGLang 回退测试可直接复用"
+    ],
+    "fix_2026_09_12": "转换器生产接线 bug 修复并三档回归全过：根因=sampler_params 盲合并进 SamplerCustomAdvanced.sampler 覆盖连线+占位符未解析+rewire 未实现+无 recommended 门（且早前 recommended:false 只改了无人读的 .regen_tmp 文件，core 热补丁门控后正式修复覆盖）；重写后 27 定向测试、全量 3138 pass/22 已知预存；生产三档真实作业全 success 有产物（balanced 779fe807=00024.mp4 / extreme cb137b2f=00025.mp4 ~1min / lossless 026a9949=00026.mp4 ~8min）；三档 recommended 恢复 true；BUILD_ID 不变 20260912-102826"
+  },
+  "public_e2e_wave6_2026_09_12": {
+    "status": "done_triaged",
+    "date": "2026-09-12",
+    "summary": "wave6 36 卡：PASS 17 / FAIL 16 / TIMEOUT 3；分流 device-node 6 / model-weight 5 / product 5 / timeout 3",
+    "top_blockers": [
+      "VHS_VideoCombine 提交校验 worker 缺失 x3(rh-acc-3933802498 等)",
+      "LayerMask SegmentAnythingUltra V2 HF 超时 x2",
+      "sd3/t5xxl_fp16 缺 x2",
+      "媒体转运 :8195/:8197 失败 x2(product)",
+      "SeedVR2 gguf 下载失败",
+      "Qwen3-VL-8B 缺",
+      "String to Int 节点缺"
+    ],
+    "results": ".regen_tmp/app_test_matrix_p0/public_e2e_wave6.json"
+  },
+  "public_e2e_wave7_2026_09_12": {
+    "status": "done_triaged",
+    "date": "2026-09-12",
+    "summary": "wave7 36 卡：PASS 20 / FAIL 16 / TIMEOUT 0（迄今最佳通过率 56%）；分流 device-node 9 / product 7",
+    "top_blockers": [
+      "Comfy 完成但无产物 x2",
+      "中文标题节点缺(合并为视频/最终视频原音频合成/角色1音频裁剪) x4",
+      "AIO_Preprocessor HF 下载失败",
+      "ClothesSegment segformer 下载失败(HF 超时→下载组)",
+      "主保存未产出(只执行 Preview) x1"
+    ],
+    "results": ".regen_tmp/app_test_matrix_p0/public_e2e_wave7.json"
+  },
+  "public_e2e_wave8_2026_09_12": {
+    "status": "done_triaged",
+    "date": "2026-09-12",
+    "summary": "wave8 36 卡：PASS 24 / FAIL 11 / TIMEOUT 1（通过率 67% 迄今最佳）；分流 device-node 8 / product 2 / model-weight 1 / timeout 1；累计 288/550 tested、132 PASS",
+    "results": ".regen_tmp/app_test_matrix_p0/public_e2e_wave8.json"
+  },
+  "public_e2e_wave9_2026_09_12": {
+    "status": "done_triaged",
+    "date": "2026-09-12",
+    "summary": "wave9 36 卡：PASS 18 / FAIL 13 / TIMEOUT 5（h3 密集波 11 个，:8195 排队致超时回升）；分流 device-node 8 / timeout 5 / product 3 / model-weight 2；累计 324/550 tested、150 PASS",
+    "top_blockers": [
+      "prompt_outputs_failed_validation x6(device-node 4 + model-weight 2)",
+      "queued 600s 超时 x3",
+      ":8194 图像缝合节点缺",
+      "Qwen3_VQA HF ConnectTimeout"
+    ],
+    "results": ".regen_tmp/app_test_matrix_p0/public_e2e_wave9.json"
+  },
+  "public_e2e_wave10_2026_09_13": {
+    "status": "done_triaged",
+    "date": "2026-09-13",
+    "summary": "wave10 36 卡（纯 H3 主导波）：PASS 14 / FAIL 20 / TIMEOUT 2；分流 device-node 10 / product 8 / model-weight 3 / timeout 2；失败全为已知类（H3 ref2va 目录 x2/中文节点/VHS/ShowAny/转运）；累计 360/550 tested、164 PASS",
+    "results": ".regen_tmp/app_test_matrix_p0/public_e2e_wave10.json"
+  },
+  "public_e2e_wave11_2026_09_13": {
+    "status": "done_triaged",
+    "date": "2026-09-13",
+    "summary": "wave11 36 卡（纯 H3 波）：PASS 22 / FAIL 14 / TIMEOUT 0（61%，纯 H3 波超预期）；分流 device-node 11 / product 3；累计 396/550 tested、186 PASS、剩 142",
+    "top_blockers": [
+      "VHS_VideoCombine :8195 缺 x4",
+      "按宽高比缩放_V2 x2",
+      "Seed (rgthree) x2",
+      "LayerUtility ImageScaleByAspect x1",
+      "媒体转运 :8195 失败 x2"
+    ],
+    "note": ":8195 节点缺口清单累积中（VHS/rgthree/LayerUtility/中文视频节点），达量后一次性交设备管家",
+    "results": ".regen_tmp/app_test_matrix_p0/public_e2e_wave11.json"
+  },
+  "public_e2e_wave12_2026_09_13": {
+    "status": "done_triaged",
+    "date": "2026-09-13",
+    "summary": "wave12 36 卡：PASS 36 / FAIL 0——首个全满波（100%）！rh-joe/rh-mini 家族标准 H3 工作流全绿；累计 432/550 tested、222 PASS、剩 106",
+    "results": ".regen_tmp/app_test_matrix_p0/public_e2e_wave12.json"
+  },
+  "public_e2e_wave13_2026_09_13": {
+    "status": "done",
+    "date": "2026-09-13",
+    "summary": "wave13 36 卡：PASS 36 / FAIL 0——连续第二个全满波！零新增 fail（ steward 包无需追加）；累计 468/550 tested、258 PASS、剩 70",
+    "results": ".regen_tmp/app_test_matrix_p0/public_e2e_wave13.json"
+  },
+  "e2e_closeout_steward_packages_2026_09_13": {
+    "status": "ready_for_handoff",
+    "date": "2026-09-13",
+    "device_package": ".regen_tmp/e2e_closeout_20260913/DEVICE_STEWARD_PACKAGE.md",
+    "download_package": ".regen_tmp/e2e_closeout_20260913/DOWNLOAD_STEWARD_PACKAGE.md",
+    "summary": "wave5-12 fail 聚合产出两管家独立任务包：设备包=21 个 :8195 缺节点(含 VHS x12 影响面)+RHMiniMaxH3 模型目录修法(Minimax-H3 dir 软链布局, x8)+segformer/Qwen3-VL 文件放置；下载包=sd3/t5xxl_fp16、Qwen3-VL-8B/4B-FP8、SeedVR2 gguf 手动放置、HF 超时批量(worker HF_ENDPOINT 治本建议)；wave13 完成后追加",
+    "note": "wave13 跑完后把新 fail 追加进两包再正式交管家；矩阵收尾总报告同步产出"
+  },
+  "public_e2e_wave14_2026_09_13": {
+    "status": "done",
+    "date": "2026-09-13",
+    "summary": "wave14 36 卡：PASS 36 / FAIL 0——连续第三个全满波；累计 504/550 tested、294 PASS、剩 34",
+    "results": ".regen_tmp/app_test_matrix_p0/public_e2e_wave14.json"
+  },
+  "pc02_offline_2026_09_13": {
+    "status": "mitigated_partial",
+    "date": "2026-09-13",
+    "summary": "PC02(114, :8193/:8194) 下线：LB 池移除 pc02(剩 gpu0+pc01)；QwenEdit 改路由 pc01:8188(EditUtils+权重全可见) 但 lrzjason Advance 包 pc01 缺——现有 QwenEdit 公开应用几乎全依赖该包(纯 EditUtils=0)，QwenEdit 应用暂不可用到设备管家装包；E2E 剩余纯 h3 波不受影响",
+    "actions": [
+      "backends.json 移除 pc02(bak-pc02down)",
+      "core env TOIV_QWEN_EDIT_BASE_URL=pc01:8188 + api 重启",
+      "设备包追加 lrzjason 装包待办"
+    ],
+    "verify": "真机: pc02 双端口 000; LB /admin/backends 2 后端 healthy; pc01 object_info 4 权重可见; 重测提交 400 missing lrzjason(预期内)"
+  },
+  "public_e2e_wave15_2026_09_13": {
+    "status": "running",
+    "date": "2026-09-13",
+    "summary": "wave15 = 最终波 34 卡 02:58 启动（最后 34 个未测，跑完 550 全覆盖），监控 bash-0ihr2(final watcher)",
+    "results": ".regen_tmp/app_test_matrix_p0/public_e2e_wave15.json"
+  },
+  "power_outage_recovery_2026_09_13": {
+    "status": "recovered",
+    "date": "2026-09-13",
+    "summary": "03:2x 断电全集群下线→04:00 全链路恢复。恢复顺序：WS 12 units 自启(enabled)→NAS 最后上线(03:37)→挂载→gpu0-alt/pc01 因启动早于 NAS 挂载缓存空模型列表各需重启一次→LB 重启后健康恢复→core 03:39 上线(toiv-api/web active)→DSv4 手工双节点重启(04:00 READY)→wave15 暂停/恢复零假失败(11 PASS 已在断电前入库)",
+    "lessons": [
+      "断电后 ComfyUI 实例若启动早于 NAS 挂载会缓存空模型列表(object_info ckpts=0)——必须 NAS 挂载后重启实例(ws systemd 好办；pc01 用 taskkill+schtasks /run StartComfyUI)",
+      "core 疑似无来电自启(最后恢复)——建议 BIOS 设 AC power on",
+      "DSv4 restart=no 需手工 dsv4-serve.sh 1(spark01)->0(spark02)，冷启动约 20 分钟",
+      "wave runner 断电保护姿势：pkill -STOP 暂停 + NAS/core 看门狗自动恢复"
+    ],
+    "smoke": "LB txt2img outage_smoke_00002_.png 真实出图；DSv4 /health 200"
+  },
+  "public_e2e_matrix_complete_2026_09_13": {
+    "status": "complete_wave15_final",
+    "date": "2026-09-13",
+    "summary": "550/550 全覆盖：PASS 326(60.6%)/FAIL 189/TIMEOUT 23；分流 device-node 85/product 81/model-weight 23/timeout 23；wave12-15 尾部连续四波≥88%；59 个环境性瞬败已发起 wave16 复测(04:28)；真实顽固失败≈94 待产品/管家修复",
+    "pass_rate": 0.606,
+    "pass": 326,
+    "report": ".regen_tmp/fleet_utilization_20260913/MATRIX_FINAL_REPORT.md",
+    "steward_packages": [
+      ".regen_tmp/e2e_closeout_20260913/DEVICE_STEWARD_PACKAGE.md",
+      ".regen_tmp/e2e_closeout_20260913/DOWNLOAD_STEWARD_PACKAGE.md"
+    ]
+  },
+  "h3_dual_pool_live_2026_09_13": {
+    "status": "live_on_core_dirty",
+    "date": "2026-09-13",
+    "build_id": "20260912-102826-bab16b3-dirty",
+    "summary": "H3 双 worker 池 LIVE：TOIV_H3_BASE_URLS=:8195,:8198(core .env，bak-h3pool-20260913)；least-loaded 调度(resolve_worker/upload/engine_probe 全链路适配)；:8198=PC01 5090+128G RAM offload 实例(ComfyUI 0.33.0)；真机 2 连提交验证分散落卡双 done；GET /api/h3/workers 200；api 3144 pass/22 已知预存(新增 test_h3_multi_instance 6 例)；:8198 未就绪自动降级 :8195",
+    "verify_script": ".regen_tmp/verify_h3_pool_20260913.py"
+  },
+  "fleet_utilization_2026_09_13": {
+    "status": "complete",
+    "date": "2026-09-13",
+    "summary": "全资源利用计划完成：H3 双 worker 池 LIVE(:8195+PC01:8198 least-loaded)；PC01 128G RAM 全利用(H3 int8 offload 实例真实出片 冷388s/热146.5s + 64G RAM disk 冷启动 10.5x)；WS GPU2 独占 H3 权重常驻(冷加载 360s 消除)；lrzjason QwenEdit 恢复(rh-acc-4402626562-6b4a8d 重测 PASS)；550 矩阵全覆盖 326 PASS(60.6%)",
+    "report": ".regen_tmp/fleet_utilization_20260913/FLEET_UTILIZATION_REPORT.md",
+    "key_numbers": {
+      "h3_workers": 2,
+      "ramdisk_cold_speedup": "10.5x",
+      "pc01_h3_first_video": "cold 388.1s / hot 146.5s",
+      "matrix": "550 covered, 326 pass (60.6%)"
+    },
+    "leftovers": [
+      "SoftPerfect RAM Disk 30天试用 ~2026-10-13 需 license 或换 ImDisk",
+      ":8198 无 T8/BlockCache 节点(可后补)",
+      "wave16 复测更新总报告"
+    ]
+  },
+  "migration_playbook_2026_09_13": {
+    "status": "docs_written",
+    "date": "2026-09-13",
+    "summary": "用户问「所有服务后续如需移植怎么办」→ 落地 docs/MIGRATION_PLAYBOOK.md：六层资产盘点（core/WS/PC01/spark/NAS/网络）、五大痛点（IP硬编码/dirty树/有状态数据/异构托管/依赖未锁定）、三原则（Git即真相/主机名抽象/配置外置）、四阶段执行手册（准备→基建→搬运→按序拉起带验收门+回滚）、各服务专项、现在就做的准备清单 6 项",
+    "key_message": "迁移难度不在搬家在复现：Git干净+配置外置+主机名抽象+清单齐全=标准流程；当前最大负债=dirty树未commit",
+    "top_action": "dirty 树分批 commit（迁移第一优先级，等用户拍板）"
+  },
+  "public_e2e_wave16_2026_09_13": {
+    "status": "done",
+    "date": "2026-09-13",
+    "summary": "wave16 瞬败复测 36 卡：11 翻盘 PASS / 22 仍失败(真实顽固) / 3 超时；有效 PASS 326→337(61.3%)；媒体转运失败类确认为产品真 bug",
+    "results": ".regen_tmp/app_test_matrix_p0/public_e2e_wave16.json"
+  },
+  "macmini_asr_integration_2026_09_13": {
+    "status": "live",
+    "date": "2026-09-13",
+    "summary": "MacMini 试点验收通过并接入生产：openclaw01 mlx-whisper ASR :9310（中文 4.3×/英文 6.8× 实时率，launchd 自愈）+ JoyCaption :9305 LIVE；whisper_server 补 verbose_json 契约；core TOIV_WHISPER_URL 改指 :9310（原 WS :9210 已死）→ /api/dub/transcribe 端到端复活：上传→听写 done 3.2s 准确出段",
+    "spread": "DONE：openclaw02/03/04 全铺开（ASR:9310+JoyCaption:9305 各台 LAN+TS 200、kill -9 自愈 ~12s、中文转写 4.3-4.7s/打标 9.1-9.7s、OpenClaw 未动）；坑：git 死代理三台全中已 unset、02-04 github 直连超时（走 01 中转）、缺 python-multipart 已补",
+    "report": ".regen_tmp/fleet_utilization_20260913/macmini_pilot_report.md"
+  },
+  "autonomous_batch_2026_09_13": {
+    "status": "complete",
+    "date": "2026-09-13",
+    "summary": "自主清单六件：①MacMini 4 台 ASR+JoyCaption LIVE+dub 链路复活(:9310 接入,e2e 3.2s)②产品 bug 批:转运真 gap 修复(3125723138 验证)+fail-fast 校验+:8198 显存预检回归修复(阈值按卡缩放)——诚实数字翻 PASS 3(wave 大量'转运失败'实为 stale RH 媒体引用 11 例应用数据类)③迁移准备三项全落地④:8198 T8 328 节点⑤commit 六批方案待批⑥文档同步。api 3155 pass/22 已知预存;全服务健康核过",
+    "deliverables": [
+      "docs/SERVICE_INVENTORY.md",
+      "deploy/infra/ (34 files)",
+      "deploy/infra/pip-freezes/ (7)",
+      "docs/COMMIT_BATCH_PLAN.md",
+      ".regen_tmp/fleet_utilization_20260913/macmini_pilot_report.md"
+    ],
+    "leftovers": [
+      "QwenEdit 12 例放宽 stall 复测可再收 PASS",
+      "11 例 stale RH 媒体引用转产品内容 backlog(导入管线剥离未绑定 Load* 节点)",
+      "Preview-only 部分判死图下一批",
+      "SoftPerfect license 2026-10-13 前决策"
+    ]
+  },
+  "bug_hunt_2026_09_13": {
+    "status": "complete_round1",
+    "date": "2026-09-13",
+    "summary": "全面测试找bug+方案+修复首轮完成：api 3176 pass/0 fail（22预存清零：1真回归=助手list_apps空结果已修部署，21测试过期重断言）；web 984/984全绿；e2e扫描31/35步过4误报排除、无P0、核心链路全通；新修P1=引擎探测误报（两级探测单飞缓存，engines 5/35→35/35、热路径0.048s）；总登记册 docs/BUG_REGISTRY.md（P0清零/P1剩9项主力是管家包执行/P2含featured补标、use_case扩面等2项待产品决策）",
+    "key_fixes": [
+      "tools_gen list_apps 真回归",
+      "engine probe two-tier（单飞防并发风暴）",
+      "21 组测试语义重断言"
+    ],
+    "registry": "docs/BUG_REGISTRY.md",
+    "sweep": ".regen_tmp/e2e_sweep_20260913.jsonl",
+    "leftovers": [
+      "P1 主力= steward 包执行（设备节点/模型权重）",
+      "P2-11 featured 补标待决策",
+      "P2-12 use_case 扩面待决策",
+      "e2e_sweep 收敛为每日定时冒烟（P0 清零后建议）"
+    ]
+  },
+  "wave17_18_steward_retest_2026_09_13": {
+    "status": "done",
+    "date": "2026-09-13",
+    "summary": "Steward 修复回归：wave17 70 app 首轮 PASS 4（被 :8195 内存膨胀 RAM 门误伤 40 例）；定位泄漏（无缓存上限 RSS 94G/峰值113.8G）→ --cache-lru 5 修复；wave18 重测 60 app PASS 28（47%）。70 app 最新口径合计 PASS 32（46%）；残差 32=缺模型值 20（内容缺口 P1-13）+缺节点 5+产品 6+超时 1",
+    "key_fix": [
+      ":8195 --cache-lru 5（H3 进程 RSS 上限 ~70G，作业间回落 ~1G，RAM 门不再误伤）"
+    ],
+    "results": [
+      ".regen_tmp/app_test_matrix_p0/public_e2e_wave17.json",
+      ".regen_tmp/app_test_matrix_p0/public_e2e_wave18.json"
+    ]
   }
 }

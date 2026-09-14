@@ -801,6 +801,7 @@ describe('buildH3NsfwT2VRequest', () => {
       duration_sec: 10,
       steps: 24,
       loras: [{ name: 'r18.safetensors', strength: 0.9 }],
+      nsfw: true,
     });
     expect('fps' in req).toBe(false);
   });

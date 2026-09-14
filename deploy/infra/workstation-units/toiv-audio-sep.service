@@ -1,0 +1,21 @@
+[Unit]
+Description=ToIV audio separation server (Demucs htdemucs, port 9220)
+After=network.target
+
+[Service]
+Type=simple
+User=merlin
+Group=merlin
+WorkingDirectory=/home/merlin/toiv-scripts
+Environment=PYTHONUNBUFFERED=1
+Environment=CUDA_VISIBLE_DEVICES=2
+Environment=TRANSFORMERS_OFFLINE=1
+Environment=HF_HUB_OFFLINE=1
+ExecStart=/home/merlin/toiv-scripts/audio-sep-venv/bin/python /home/merlin/toiv-scripts/audio_sep_server.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

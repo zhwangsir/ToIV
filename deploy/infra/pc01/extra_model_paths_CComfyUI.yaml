@@ -1,0 +1,57 @@
+# RAM disk hot models (priority: first = wins on name collision)
+ramdisk:
+  base_path: "R:\\models"
+  checkpoints: checkpoints
+  vae: vae
+  upscale_models: upscale_models
+  loras: loras
+
+nas:
+    base_path: "//192.168.71.7/NAS/Windows/ComfyUI/ComfyUIModel"
+    checkpoints: models/checkpoints
+    clip: models/clip
+    clip_vision: models/clip_vision
+    configs: models/configs
+    controlnet: models/controlnet
+    embeddings: models/embeddings
+    loras: models/loras
+    upscale_models: models/upscale_models
+    vae: models/vae
+    text_encoders: models/text_encoders
+    diffusion_models: models/diffusion_models
+    unet: models/unet
+    onnx: models/onnx
+    LLM: models/LLM
+toiv:
+    base_path: "//192.168.71.7/NAS/toiv/comfyui-models"
+    checkpoints: checkpoints
+    diffusion_models: diffusion_models
+    text_encoders: text_encoders
+    loras: loras
+    vae: vae
+    clip: clip
+    clip_vision: clip_vision
+    controlnet: controlnet
+    ipadapter: ipadapter
+    pulid: pulid
+    insightface: insightface
+    upscale_models: upscale_models
+    embeddings: embeddings
+    latent_upscale_models: latent_upscale_models
+    SEEDVR2: SEEDVR2
+    pose: pose
+    onnx: onnx
+    detection: detection
+    RMBG: RMBG
+    LLM: LLM
+    vocal_separator: vocal_separator
+    MelBandRoFormer: vocal_separator
+    frame_interpolation: frame_interpolation
+    style_models: style_models
+    unet: unet
+
+
+local:
+    base_path: C:\ComfyUI
+    is_default: true
+    LLM: models/LLM

@@ -1,16 +1,20 @@
-"""应用封面批量生成(应用市场 RunningHub 化,2026-09-06)。
+"""应用封面批量生成(应用市场 RunningHub 化,2026-09-06;P3 家族外扩 2026-09-07)。
 
 - plan_cover_targets(session):幂等产出待生成清单——cover_url 为空的 is_builtin
   应用逐个一卡;rh-* 社区卡按 base_id 家族去重,同族共享一张家族封面
   (1166 张卡只出 ~16 张家族封面,不烧 GPU 在重复图上)。提示词从
   name+description 派生,强制 SFW 插画风格(NSFW 卡用抽象氛围图,不描述成人内容)。
+- plan_expand_top_targets(session, top_n):P3 家族外扩——在已共享家族封面的
+  rh-* 卡里按 usage_count 取头部 top_n,为每张卡单独生成封面(force 覆盖该卡
+  cover_url,不删家族共享文件,其余同族成员仍用原图)。
 - generate_covers(pool, targets):自包含执行——txt2img 提交(复用生产
   nextgen/classic 分流构造器 + pool.pick)→ 轮询 worker history → 下载产物
   → 落 content_subdir("app-covers")→ 回写 App.cover_url + Job(kind=app_cover) 建档。
   分批限速(batch_size 并发 + 批间 sleep),不与生产任务抢显存。
 
 不在 api 启动时自动生成(避免拖慢启动);由 admin 端点
-POST /api/apps/covers/generate 显式触发(异步任务式,execute=false 可干跑只看清单)。
+POST /api/apps/covers/generate 显式触发(异步任务式,execute=false 可干跑只看清单;
+expand_top>0 时附加头部外扩目标)。
 """
 from __future__ import annotations
 
@@ -50,13 +54,18 @@ _POLL_S = 3.0
 
 @dataclass
 class CoverTarget:
-    """一个封面生成目标:单个内置应用,或一个 rh-* 家族(app_ids 全族共享封面)。"""
+    """一个封面生成目标:单个内置应用,或一个 rh-* 家族(app_ids 全族共享封面)。
 
-    key: str  # 去重键:单卡=app id;家族=base_id
+    force=True 时回写覆盖已有 cover_url(P3 外扩:头部卡从共享家族图拆出独立封面);
+    默认 False 只填空位,不覆盖人工上传/已有图。
+    """
+
+    key: str  # 去重键:单卡=app id;家族=base_id;外扩单卡=app id
     app_ids: list[str]
     name: str
     prompt: str
     is_nsfw: bool = False
+    force: bool = False  # P3:外扩覆盖该卡已有共享封面
 
     def to_dict(self) -> dict:
         return {
@@ -65,6 +74,7 @@ class CoverTarget:
             "name": self.name,
             "prompt": self.prompt,
             "is_nsfw": self.is_nsfw,
+            "force": self.force,
         }
 
 
@@ -89,6 +99,23 @@ def _cover_prompt(name: str, description: str, category: str, is_nsfw: bool) -> 
     )
 
 
+
+def _rh_base_id_map() -> dict[str, str]:
+    """rh-* id → base_id;目录不可读时返回空(调用方按单卡处理)。"""
+    try:
+        from app.services.rh_h3_preset_seed import load_preset_rows
+
+        out: dict[str, str] = {}
+        for r in load_preset_rows():
+            pid, bid = str(r.get("id") or ""), str(r.get("base_id") or "")
+            if pid and bid:
+                out[pid] = bid
+        return out
+    except (FileNotFoundError, ValueError) as e:
+        logger.warning("rh presets 目录不可读,rh-* 卡按单卡处理: %s", e)
+        return {}
+
+
 def plan_cover_targets(session: Session) -> list[CoverTarget]:
     """幂等待生成清单:cover_url 非空的一律跳过(重跑只补缺口)。
 
@@ -97,16 +124,7 @@ def plan_cover_targets(session: Session) -> list[CoverTarget]:
     rows = session.exec(
         select(App).where(App.is_builtin.is_(True), App.cover_url == "")  # type: ignore[attr-defined]
     ).all()
-    base_id_by_rh: dict[str, str] = {}
-    try:
-        from app.services.rh_h3_preset_seed import load_preset_rows
-
-        for r in load_preset_rows():
-            pid, bid = str(r.get("id") or ""), str(r.get("base_id") or "")
-            if pid and bid:
-                base_id_by_rh[pid] = bid
-    except (FileNotFoundError, ValueError) as e:
-        logger.warning("rh presets 目录不可读,rh-* 卡按单卡处理: %s", e)
+    base_id_by_rh = _rh_base_id_map()
 
     by_id = {a.id: a for a in rows}
     targets: list[CoverTarget] = []
@@ -131,6 +149,55 @@ def plan_cover_targets(session: Session) -> list[CoverTarget]:
             name=rep.name,
             prompt=_cover_prompt(rep.name, rep.description, rep.category, rep.is_nsfw),
             is_nsfw=rep.is_nsfw,
+        ))
+    return targets
+
+
+
+def plan_expand_top_targets(session: Session, top_n: int) -> list[CoverTarget]:
+    """P3 家族外扩:usage_count 头部的共享封面 rh-* 卡拆成独立封面目标。
+
+    候选 = 同 base_id 家族内至少两张卡共用同一 cover_url 的成员(仍吃家族共享图)。
+    已与同族 URL 不同的卡视为已外扩/人工替换,跳过。按 usage_count 降序取 top_n;
+    每张卡独立 CoverTarget(force=True),提示词用该卡自身 name+description。
+    top_n<=0 返回空列表。不触碰 cover_url 为空的缺口卡(留给 plan_cover_targets)。
+    """
+    if top_n <= 0:
+        return []
+    base_id_by_rh = _rh_base_id_map()
+    if not base_id_by_rh:
+        return []
+    rows = session.exec(
+        select(App).where(App.is_builtin.is_(True), App.id.like("rh-%"))  # type: ignore[attr-defined]
+    ).all()
+    # 家族内按 cover_url 分组,找出仍共享同一 URL 的成员
+    by_family: dict[str, list[App]] = {}
+    for a in rows:
+        bid = base_id_by_rh.get(a.id)
+        if not bid or not (a.cover_url or "").strip():
+            continue
+        by_family.setdefault(bid, []).append(a)
+
+    candidates: list[App] = []
+    for members in by_family.values():
+        by_url: dict[str, list[App]] = {}
+        for m in members:
+            by_url.setdefault(m.cover_url, []).append(m)
+        for group in by_url.values():
+            if len(group) >= 2:  # 仍共享 → 可外扩
+                candidates.extend(group)
+
+    candidates.sort(key=lambda a: (-a.usage_count, a.sort, a.id))
+    picked = candidates[:top_n]
+    targets: list[CoverTarget] = []
+    for a in picked:
+        targets.append(CoverTarget(
+            key=a.id,
+            app_ids=[a.id],
+            name=a.name,
+            prompt=_cover_prompt(a.name, a.description, a.category, a.is_nsfw),
+            is_nsfw=a.is_nsfw,
+            force=True,
         ))
     return targets
 
@@ -236,7 +303,9 @@ async def _gen_one(
             now_ids = []
             for aid in target.app_ids:
                 a = s.get(App, aid)
-                if a is not None and not a.cover_url:  # 仍空才写(已被人工上传的不覆盖)
+                # 默认只填空位;force=True(P3 外扩)覆盖该卡共享家族图,不删磁盘旧文件
+                # (同族其他卡可能仍引用同一 URL)。
+                if a is not None and (target.force or not a.cover_url):
                     a.cover_url = url
                     s.add(a)
                     now_ids.append(aid)

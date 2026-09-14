@@ -1,0 +1,14 @@
+[Unit]
+Description=ComfyUI Load Balancer (port 8188)
+After=network.target comfyui-gpu0.service comfyui-gpu1.service comfyui-gpu2.service comfyui-gpu3.service
+
+[Service]
+Type=simple
+User=merlin
+WorkingDirectory=/opt/ComfyUI
+ExecStart=/opt/ComfyUI/venv/bin/python comfyui-lb.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

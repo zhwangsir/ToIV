@@ -18,24 +18,38 @@ beforeEach(() => {
 });
 
 describe('settings store', () => {
-  it('默认值：palette-01 浅色', () => {
+  it('默认值：minimal 浅色', () => {
     const s = useSettingsStore();
     expect(s.paletteId).toBe(DEFAULT_PALETTE_ID);
     expect(s.mode).toBe('light');
+    expect(s.accentCustom).toBeNull();
     expect(s.nsfwIntent).toBe(false);
   });
 
-  it('setPalette/setMode 持久化并可恢复', () => {
+  it('setTheme/setMode/setAccentCustom 持久化并可恢复', () => {
     const s = useSettingsStore();
-    s.setPalette('palette-03');
+    s.setTheme('cinema');
     s.setMode('dark');
+    s.setAccentCustom('#8B5CF6');
 
     // 模拟冷启动：新 pinia 实例 + restore
     setActivePinia(createPinia());
     const restored = useSettingsStore();
     restored.restore();
-    expect(restored.paletteId).toBe('palette-03');
+    expect(restored.paletteId).toBe('cinema');
     expect(restored.mode).toBe('dark');
+    expect(restored.accentCustom).toBe('#8B5CF6');
+  });
+
+  it('restore 迁移旧 palette-* 到 v9 预设', () => {
+    const s = useSettingsStore();
+    s.setPalette('palette-04'); // 兼容别名写入 → normalize → graphite
+    expect(s.paletteId).toBe('graphite');
+
+    setActivePinia(createPinia());
+    const restored = useSettingsStore();
+    restored.restore();
+    expect(restored.paletteId).toBe('graphite');
   });
 
   it('setApiBase 桥接到 resolveApiBase', () => {

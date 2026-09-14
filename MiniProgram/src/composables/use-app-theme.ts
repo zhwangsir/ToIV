@@ -1,13 +1,24 @@
 /**
- * 应用主题 composable
+ * 应用主题 composable（P4 对齐 web v9）
  * - 小程序无法运行时改全局 CSS 变量，改为每页根节点 :style="themeVars" 注入
  * - mode=system 跟随 uni.getSystemInfoSync().theme（不支持的平台回落 light）
- * - 浅色优先：默认 palette-01 + light
+ * - 暗基底预设（cinema/graphite）忽略 mode，恒暗
+ * - accentCustom 覆盖 palette.accent / accentSoft
+ * - 默认 minimal + light
  */
 import { computed } from 'vue';
 
 import { useSettingsStore } from '@/stores/settings';
-import { getPalette, radius, spacing, toRpx, typography } from '@/theme/tokens';
+import {
+  accentSoftFrom,
+  getPalette,
+  getThemePreset,
+  radius,
+  spacing,
+  toRpx,
+  typography,
+  type Palette,
+} from '@/theme/tokens';
 
 function systemIsDark(): boolean {
   try {
@@ -21,11 +32,27 @@ function systemIsDark(): boolean {
 export function useAppTheme() {
   const settings = useSettingsStore();
 
-  const isDark = computed(() =>
-    settings.mode === 'system' ? systemIsDark() : settings.mode === 'dark',
+  const preset = computed(() => getThemePreset(settings.paletteId));
+
+  const isDark = computed(() => {
+    if (preset.value.darkBased) return true;
+    return settings.mode === 'system' ? systemIsDark() : settings.mode === 'dark';
+  });
+
+  const basePalette = computed(() =>
+    getPalette(settings.paletteId, isDark.value ? 'dark' : 'light'),
   );
 
-  const palette = computed(() => getPalette(settings.paletteId, isDark.value ? 'dark' : 'light'));
+  const palette = computed((): Palette => {
+    const base = basePalette.value;
+    const custom = settings.accentCustom;
+    if (!custom) return base;
+    return {
+      ...base,
+      accent: custom,
+      accentSoft: accentSoftFrom(custom, isDark.value),
+    };
+  });
 
   /** 页面根节点注入用 CSS 变量表（rpx 单位） */
   const themeVars = computed(() => ({
@@ -57,5 +84,5 @@ export function useAppTheme() {
     '--font-caption': toRpx(typography.caption.fontSize),
   }));
 
-  return { isDark, palette, themeVars };
+  return { isDark, palette, themeVars, preset };
 }

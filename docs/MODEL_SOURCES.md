@@ -1,13 +1,27 @@
-<!-- v21 P0 models download update 2026-09-10T17:58:18+08:00: ok=464 blocked=335 total=799; batch=capability_gap_v21_p0 newly_ok=4; drop vs 467/343/810 from dedup -->
+<!-- public_e2e_wave2 2026-09-11T05:28:02+08:00: newly_ok LTX23_audio=364855188 LTX23_video=1452258578 taeltx2_3=23531296; already_on_nas distilled fp8 + Qwen3-VL-4B-Instruct -->
 # MODEL_SOURCES
 
-Updated: 2026-09-10T17:58:18+08:00 (Asia/Shanghai)
+Updated: 2026-09-11T05:28:02+08:00 (Asia/Shanghai)
 
-Totals: ok=464 blocked=335 total=799
+Totals: ok=468 blocked=335 total=803
 
 Batch: capability_gap_v21_p0
 
 Note: previous tip 467/343/810 → 464/335/799 after v21 P0 batch + dedup.
+
+
+
+## Recent public_e2e_wave2 newly_ok
+
+- `LTX23_audio_vae_bf16.safetensors` → `vae/LTX23_audio_vae_bf16.safetensors` (364855188 bytes; Kijai/LTX2.3_comfy; MateBook aria2c+proxy:7897 → rsync NAS)
+- `LTX23_video_vae_bf16.safetensors` → `vae/LTX23_video_vae_bf16.safetensors` (1452258578 bytes; Kijai/LTX2.3_comfy; MateBook aria2c+proxy:7897 → rsync NAS)
+- `taeltx2_3.safetensors` → `vae/taeltx2_3.safetensors` (23531296 bytes; Tiny AE; vae/ not loras; Kijai/LTX2.3_comfy)
+- already_on_nas (verify only): `diffusion_models/ltx-2.3-22b-distilled-1.1_transformer_only_fp8_scaled.safetensors` (25226571988); `LLM/Qwen3-VL-4B-Instruct/` (8887291213; 设备管家 visibility)
+
+## Recent public_e2e_wave1 newly_ok
+
+- `Qwen3-VL-4B-Instruct` → `LLM/Qwen3-VL-4B-Instruct` (8887291213 bytes; official HF dir; MateBook aria2c+hf-mirror :7897 → rsync NAS)
+- MelBandRoformer_fp16.safetensors already_on_nas at vocal_separator/; E2E alias ensured at MelBandRoFormer_comfy/MelBandRoformer_fp16.safetensors (456479072)
 
 ## Recent v21 P0 newly_ok
 
@@ -198,12 +212,14 @@ Note: previous tip 467/343/810 → 464/335/799 after v21 P0 batch + dedup.
 | ok | ltx2.3韩立触发词hanli.safetensors | 100769608 | loras/ltx2.3韩立触发词hanli.safetensors | civitai:2529116@2842462 | v15 exact Civitai match (liao942287300dog LTX2.3韩立); downloaded via MateBook proxy→merlin NAS loras/; verified 100769608 bytes |
 | ok | LTX2_audio_vae_bf16.safetensors | 217740136 | vae/LTX2_audio_vae_bf16.safetensors | novoluz/ltx2_audio_vae_bf16 | app_refs=2 |
 | ok | LTX2_video_vae_bf16.safetensors | 2445008522 | vae/LTX2_video_vae_bf16.safetensors | Kijai/LTXV2_comfy | app_refs=1 |
+| ok | LTX23_video_vae_bf16.safetensors | 1452258578 | vae/LTX23_video_vae_bf16.safetensors | Kijai/LTX2.3_comfy | public_e2e_wave2; video VAE bf16 |
+| ok | LTX23_audio_vae_bf16.safetensors | 364855188 | vae/LTX23_audio_vae_bf16.safetensors | Kijai/LTX2.3_comfy | public_e2e_wave2; audio VAE bf16 |
 | ok | ltxv-2b-0.9.6-dev-04-25-v1.safetensors | 6340743924 | checkpoints/ltxv-2b-0.9.6-dev-04-25-v1.safetensors | Lightricks/LTX-Video | app -v1 suffix packaging; same bytes as canonical \| app_refs=1 |
 | ok | ltxv-2b-0.9.6-dev-04-25.safetensors | 6340743924 | checkpoints/ltxv-2b-0.9.6-dev-04-25.safetensors | Lightricks/LTX-Video | canonical HF name \| app_refs=1 |
 | ok | lynx_full_resampler_fp32.safetensors | 343684688 | model_patches/lynx_full_resampler_fp32.safetensors | Kijai/WanVideo_comfy | app_refs=1 |
 | ok | lynx_lite_resampler_fp32.safetensors | 327919184 | diffusion_models/lynx_lite_resampler_fp32.safetensors | Kijai/WanVideo_comfy | app_refs=2 |
 | ok | majicmixRealistic_v7.safetensors | 2132625894 | checkpoints/majicmixRealistic_v7.safetensors | marcy1111/majicmixRealistic_v7 | app_refs=1 |
-| ok | MelBandRoformer_fp16.safetensors | 456479072 | vocal_separator/MelBandRoformer_fp16.safetensors | Kijai/MelBandRoFormer_comfy | app_refs=12 \| v12_confirmed_on_nas |
+| ok | MelBandRoformer_fp16.safetensors | 456479072 | vocal_separator/MelBandRoformer_fp16.safetensors | Kijai/MelBandRoFormer_comfy | app_refs=12 \| v12_confirmed_on_nas \| e2e alias MelBandRoFormer_comfy/ |
 | ok | MelBandRoformer_fp32.safetensors | 912885656 | audio/MelBandRoformer_fp32.safetensors | denisbalon/melbandroformer-fp32.safetensors | app_refs=2 \| v15 confirmed already_on_nas audio/MelBandRoformer_fp32.safetensors bytes=912885656 \| v16 confirmed already_on_nas audio/MelBandRoformer_fp32.safetensors bytes=912885656 |
 | ok | minimax_h3_fl2v_turbo_8step_v1.0_10ErosMax_beta1_pruned_compat_v001_T8.safetensors | 1956194364 | h3/loras/minimax_h3_fl2v_turbo_8step_v1.0_10ErosMax_beta1_pruned_compat_v001_T8.safetensors | t8star/minimax_h3_turbo_4step_10ErosMax_test4_pruned_curveproj1025_T8 | h3_dedicated; path under h3/; not for 8196/8188/8193 general pool |
 | ok | minimax_h3_fl2va_fp8_e4m3fn.safetensors | 47012963608 | h3/diffusion_models/minimax_h3_fl2va_fp8_e4m3fn.safetensors | rzgar/minimax_h3_fl2va_fp8_e4m3fn | h3_dedicated; path under h3/; not for 8196/8188/8193 general pool |
@@ -279,6 +295,7 @@ Note: previous tip 467/343/810 → 464/335/799 after v21 P0 batch + dedup.
 | ok | Qwen-Rapid-AIO-SFW-v5.safetensors | 28978619898 | checkpoints/Qwen-Rapid-AIO-SFW-v5.safetensors | Phr00t/Qwen-Image-Edit-Rapid-AIO | app_refs=1 |
 | ok | Qwen-Rapid-AIO-SFW-v7.safetensors | 28978666882 | checkpoints/Qwen-Rapid-AIO-SFW-v7.safetensors | Phr00t/Qwen-Image-Edit-Rapid-AIO | app_refs=1 |
 | ok | Qwen-Rapid-AIO-v4.safetensors | 28978619370 | checkpoints/Qwen-Rapid-AIO-v4.safetensors | Phr00t/Qwen-Image-Edit-Rapid-AIO | app_refs=4 |
+| ok | Qwen3-VL-4B-Instruct | 8887291213 | LLM/Qwen3-VL-4B-Instruct | Qwen/Qwen3-VL-4B-Instruct | public_e2e_wave1 HF dir via MateBook aria2c+hf-mirror :7897; not Huihui/Sa2VA |
 | ok | Qwen2.5-VL-7B-Instruct | 16595979762 | LLM/Qwen2.5-VL-7B-Instruct | Qwen/Qwen2.5-VL-7B-Instruct | HF snapshot via merlin huggingface_hub HF_ENDPOINT=hf-mirror.com; hardlinked Windows tree when possible \| status=downloaded \| bytes=16595979762 \| app_refs from 468-list |
 | ok | Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf | 4280404800 | LLM/Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf | BennyDaBall/Qwen3-4b-Z-Image-Engineer-V4 | app_refs=1 |
 | ok | qwen3-vl-32b-int8_convrot.safetensors | 27141373256 | text_encoders/qwen3-vl-32b-int8_convrot.safetensors | Gluttony10/MiniMax-H3-INT8-CONVROT | ToIV开发拍板：入通用 text_encoders/（非 h3/）。纠正先前 h3_dedicated_skip。真 H3 专用仍仅 minimax_h3_* / MiniMax-H3-* / qwen3vl_32b_minimax_h3_*。 \| ToIV开发拍板：入通用 pool text_encoders/（非 h3/）。此前 MODEL_SOURCES 记为 h3_dedicated_skip，本轮纠正。非 qwen3vl_32b_minimax_h3_* 专用名。 |
@@ -368,6 +385,7 @@ Note: previous tip 467/343/810 → 464/335/799 after v21 P0 batch + dedup.
 | ok | t5xxl_fp16.safetensors | 9787841024 | text_encoders/t5xxl_fp16.safetensors | comfyanonymous/flux_text_encoders | app_refs=7 |
 | ok | t5xxl_fp8_e4m3fn_scaled.safetensors | 5157348688 | text_encoders/t5xxl_fp8_e4m3fn_scaled.safetensors | comfyanonymous/flux_text_encoders | app_refs=2 |
 | ok | taeh3.safetensors | 22709752 | vae/taeh3.safetensors | suanyu/taeh3-star7 | app_refs=1 |
+| ok | taeltx2_3.safetensors | 23531296 | vae/taeltx2_3.safetensors | Kijai/LTX2.3_comfy | public_e2e_wave2; Tiny AE for LTX 2.3 |
 | ok | UltraFlux-v1_model.safetensors | 335306212 | vae/UltraFlux-v1_model.safetensors | Owen777/UltraFlux-v1 | rename from Owen777 UltraFlux-v1 vae/diffusion_pytorch_model.safetensors (same size as LuckyOda UltraFlux-v1_model) \| app_refs=7 |
 | ok | umt5_xxl_fp16.safetensors | 11366399385 | text_encoders/umt5_xxl_fp16.safetensors | Comfy-Org/Wan_2.1_ComfyUI_repackaged | app_refs=1 |
 | ok | umt5_xxl_fp8_e4m3fn_scaled.safetensors | 6735906897 | text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors | Comfy-Org/Wan_2.1_ComfyUI_repackaged | official Comfy scaled umt5; companion to n_wan NSFW variant \| app_refs=1 |
@@ -823,3 +841,89 @@ Note: previous tip 467/343/810 → 464/335/799 after v21 P0 batch + dedup.
 | blocked | 转身-high.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch14_blocked_new.json |
 | blocked | 造光.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch14_blocked_new.json |
 | blocked | 造相美人base8.safetensors |  |  |  | reason=untraceable_chinese_community_name \| Chinese community/commercial basename; no HF exact hit in batch14 search. \| action=blocked_untraceable \| suggested_next=Civitai/Liblib/workflow hash or per-app provenance. \| app_refs=1 \| from=_batch14_blocked_new.json |
+
+## wan22_animate_fp8_kj (2026-09-11)
+- already_on_nas: `diffusion_models/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors` + `wan2.2-animate-2-14b/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors` (18401760586 bytes)
+- LongCat :8197 WanVideoModelLoader lists exact basename; source Kijai/WanVideo_comfy_fp8_scaled Wan22Animate/
+- status JSON: `.regen_tmp/wan22_animate_fp8_kj_download.json`
+| ok | segformer_b2_clothes | 109499625 | segformer_b2_clothes/ | mattmdjaga/segformer_b2_clothes | LayerMask models root; MateBook aria2c+hf-mirror :7897; inference essentials only; symlink segformer/segformer_b2_clothes; not h3 |
+| ok | segformer_b3_clothes | 189035723 | segformer_b3_clothes/ | sayeed99/segformer_b3_clothes | mattmdjaga/b3 unavailable; sayeed99==LayerStyle size; MateBook aria2c+hf-mirror :7897; symlink segformer/segformer_b3_clothes; not h3 |
+
+---
+
+# MODEL_SOURCES 增量片段 — download_exec 2026-09-13（主 agent 合入 docs/MODEL_SOURCES.md/.json）
+
+Batch: download_steward_e2e_closeout_20260913（workstation 直连 hf-mirror + aria2c -x16 / huggingface_hub snapshot，HF_HUB_DISABLE_XET=1）
+
+| status | basename | bytes | rel_path | repo | notes |
+|---|---|---:|---|---|---|
+| ok | seedvr2_ema_3b-Q4_K_M.gguf | 1995344224 | SEEDVR2/seedvr2_ema_3b-Q4_K_M.gguf | AInVFX/SeedVR2_comfyUI | 重装：主库 Windows 树同名文件 sha256 不符（7c357f46… vs 注册表 e665e390…）致节点校验失败重下超时（app 1458284545）；aria2c hf-mirror 重下 sha256=e665e390… 精确匹配；落 toiv SEEDVR2/ + 拷贝主库 models/SEEDVR2/（节点 cache_dir） |
+| ok | depth_anything_v2_vitl_fp32.safetensors | 1341306404 | depthanything/depth_anything_v2_vitl_fp32.safetensors | Kijai/DepthAnythingV2-safetensors | DownloadAndLoadDepthAnythingV2Model 默认档（fp16 官方不建议）；snapshot 直落主库 models/depthanything/（节点 models_dir 相对路径） |
+| ok | t5xxl_fp16.safetensors | 9787841024 | text_encoders/sd3/t5xxl_fp16.safetensors | 复用 toiv text_encoders/t5xxl_fp16.safetensors（stabilityai sd3 系） | 工作流 widget 硬编 `sd3/t5xxl_fp16.safetensors`（子目录相对名，CLIPLoader 族递归下拉）；主库 models/text_encoders/sd3/ 建子目录拷贝（同一 NAS Windows 树，:8196 与 pc01:8188 同时可见）；非假改名，与 toiv 顶层 fp16 同源同字节 |
+| ok | Qwen3-VL-4B-Instruct-FP8 | ~5.3G×2 | prompt_generator/Qwen3-VL-4B-Instruct-FP8/ | Qwen/Qwen3-VL-4B-Instruct-FP8 | Qwen3_VQA 节点 snapshot_download local_dir=folder_paths.models_dir/prompt_generator/<name>；snapshot 落 toiv prompt_generator/ 后拷贝主库 models/prompt_generator/ + models/LLM/Qwen-VL/（AILab_QwenVL 节点 base/Qwen-VL/<repo_name>） |
+| blocked | Qwen3-VL-8B-Instruct | ~1.64e10 | LLM/Qwen-VL/Qwen3-VL-8B-Instruct | Qwen/Qwen3-VL-8B-Instruct | 体积 ~16.4G 超 16G 阈值（任务规则：优先 4B-FP8，8B 记 blocked）；已查 https://hf-mirror.com/Qwen/Qwen3-VL-8B-Instruct （4 shard bf16）；如需可下 FP8 版 ~9G 但不同名不满足 widget |
+| ok | segformer_b2_clothes + b3_clothes | 109499625+189035723 | segformer_b2_clothes/ segformer_b3_clothes/ | mattmdjaga/segformer_b2_clothes, sayeed99/segformer_b3_clothes | 09-11 已落 toiv（MODEL_SOURCES 已记 ok）；本次核实主库 models/ 经 NAS 服务端符号链接同源可见（cp 报“同一文件”实证），LayerMask fallback 路径 models_dir/<name> 直接可用，无需重复下载 |
+
+## 治本（worker HF_ENDPOINT）
+
+| 侧 | 位置 | 内容 | 状态 |
+|---|---|---|---|
+| workstation | /etc/systemd/system/{comfyui-gpu0-alt,toiv-comfyui-h3,comfyui-longcat,comfyui-animate2}.service.d/hf-mirror.conf | Environment=HF_ENDPOINT=https://hf-mirror.com + HF_HUB_DISABLE_XET=1 | gpu0-alt/longcat/animate2 已 restart active ✓；h3 drop-in 已写、restart 等其队列清空（跑 H3 作业中） |
+| pc01 | C:\ComfyUI\hf_env.bat（set HF_ENDPOINT/HF_HUB_DISABLE_XET）+ start_comfyui.bat / start_comfyui_h3.bat 首行 call | 计划任务重启后生效（未重启 running 实例） |
+
+---
+
+# MODEL_SOURCES 增量 — Lane A（2026-09-14）
+
+> 供主 agent 合入 `docs/MODEL_SOURCES.md/.json`。全部经 hf-mirror 从 workstation 直连 aria2 落盘。
+
+## ok
+
+| 模型 | 落盘路径（NAS） | 来源 URL | 大小 | 备注 |
+|------|----------------|----------|------|------|
+| Z-Image-Turbo-Fun-Controlnet-Union.safetensors | `NAS/Windows/ComfyUI/ComfyUIModel/models/model_patches/` | https://hf-mirror.com/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors | 3.10GB | 官方 alibaba-pai；safetensors 头校验 136 tensors ✓；:8196 ModelPatchLoader 枚举实测可见 |
+| sam3.pt | `NAS/Windows/ComfyUI/ComfyUIModel/models/sam3/` | https://hf-mirror.com/1038lab/sam3/resolve/main/sam3.pt | 3.45GB | ⚠️ **非官方镜像**：facebook/sam3 在 hf-mirror 403（gated），改 1038lab 同名镜像；PK 头有效；无参照 sha，首跑加载即终审 |
+| depth_anything_v2_vitl_fp16.safetensors | `NAS/Windows/ComfyUI/ComfyUIModel/models/depthanything/` | https://hf-mirror.com/Kijai/DepthAnythingV2-safetensors/resolve/main/depth_anything_v2_vitl_fp16.safetensors | 670MB | Kijai 转换版；DepthAnythingV2 节点运行时下载治本；safetensors 头校验 ✓ |
+
+## 已存在免下（本次核实）
+
+| 模型 | 路径 | 说明 |
+|------|------|------|
+| wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors | `NAS/Windows/ComfyUI/ComfyUIModel/models/diffusion_models/` | Sep 13 前已在（Comfy-Org Wan_2.2 repackaged 命名） |
+| gimmvfi_r_arb_lpips_fp32.safetensors | `NAS/Windows/ComfyUI/ComfyUIModel/models/interpolation/gimm-vfi/` | Sep 8 已缓存 |
+| MiniMax-H3-FL2VA-int8_convrot.safetensors | workstation :8195 `models/MiniMax-H3/`（RH 布局，昨天落盘） | 本次软链 `MiniMax-H3-FL2VA-int8-convrot` + `minimax_h3_fl2va_int8_convrot` 两命名变体进 :8195 diffusion_models 供 UNETLoader |
+| ema_vae_fp16.safetensors 等 SeedVR2 全套 | `NAS/.../models/SEEDVR2/` | 已在且 sha256 与节点 registry 一致 |
+| qwen3vl_32b_minimax_h3_int8_convrot / minimax_h3_{video_vae_fp16,audio_vae_fp32} | `NAS/toiv/comfyui-models/h3/text_encoders/`、`h3/vae/` | 原生命名早已齐全 |
+| minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors | `NAS/toiv/comfyui-models/h3/loras/` | 已在 |
+
+## blocked
+
+| 模型 | 原因 |
+|------|------|
+| facebook/sam3 官方源 | hf-mirror 403（gated repo 需 license token）；已用 1038lab/sam3 镜像替代（见 ok 表备注） |
+
+---
+
+# MODEL_SOURCES 增量 — Lane A2（2026-09-14）
+
+> 来源 wave：Lane B whitepaper A/B 组残差。路径均为 NAS 落盘绝对路径（workstation 挂载视图 `/home/merlin/nas_mount/...`）。
+
+## ok
+
+| 模型 | 落盘路径 | 来源 URL | 备注 |
+|---|---|---|---|
+| clip_vision_h.safetensors (fp16, 1.26GB, vision_model.* Comfy 格式) | `NAS/Windows/ComfyUI/ComfyUIModel/models/clip_vision/clip_vision_h.safetensors` | https://hf-mirror.com/ratoenien/clip_vision_h/resolve/main/clip_vision_h.safetensors | Comfy-Org 同名文件镜像（Comfy-Org/clip_vision_h 在 hf-mirror 404）；sha 待与官方核对；112MiB/s |
+| clip_vision_h_Comfy-Org.safetensors（别名副本） | 同目录 `clip_vision_h_Comfy-Org.safetensors` | 本机 cp 别名（SMB 不支持软链） | app 存储名兼容（rh-acc-5641927681/1181571072） |
+| u2net.onnx | `NAS/Windows/ComfyUI/ComfyUIModel/models/rembg/u2net.onnx` | 本机 `~/.u2net/u2net.onnx`（176MB）cp | removebg 节点运行时下载目标=models/rembg/（ComfyUI_essentials RemBGSession+），预置消除 github 超时 |
+| isnet-anime.onnx | `NAS/Windows/ComfyUI/ComfyUIModel/models/rembg/isnet-anime.onnx` | https://ghfast.top/https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-anime.onnx | anime 模式预置 |
+| u2net_human_seg.onnx | `NAS/Windows/ComfyUI/ComfyUIModel/models/rembg/u2net_human_seg.onnx` | https://ghfast.top/https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net_human_seg.onnx | human 模式预置 |
+| buffalo_l（insightface 人脸包，6 onnx） | `NAS/Windows/ComfyUI/ComfyUIModel/models/insightface/models/buffalo_l/` | https://ghfast.top/https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip | IPAdapter FaceID / facexlib 链预置（原运行时下载 IncompleteRead 287MB 失败根因）；zip 288,621,354 bytes |
+| MiniMax-H3-Turbo-4step-Lora_ema_comfy.safetensors（70MB 别名） | `NAS/toiv/comfyui-models/h3/loras/MiniMax-H3-Turbo-4step-Lora_ema_comfy.safetensors` + workstation 本地 `/home/merlin/ComfyUI-h3-eval/models/loras/` 软链 | 源=`minimax_h3_turbo_4step_ema_ckpt850_pruned_comfyui.safetensors`（NAS 已有） | rh-acc-9704430593 存储名；:8195 combo 已验收可见 |
+| ltx-video-2b-v0.9.5.safetensors → checkpoints 副本 | `NAS/Windows/ComfyUI/ComfyUIModel/models/checkpoints/ltx-video-2b-v0.9.5.safetensors` | 源=同主库 diffusion_models（完整性校验通过，6,340,729,500 bytes） | rh-acc-7365627906 用 CheckpointLoaderSimple（非 UNETLoader），必须位于 checkpoints/ |
+
+## blocked
+
+| 模型 | 状态 | 已查 URL |
+|---|---|---|
+| Qwen3-VL-8B-Instruct（非 FP8，rh-acc-3948937217，非本清单项但同族） | WS :8196 `models/prompt_generator/` 仅 4B/4B-FP8/8B-FP8，缺 8B 全量（pc01 已有完整 17.5GB） | —（NAS 无；如需可 pc01→WS 拷贝或 hf-mirror snapshot） |
+

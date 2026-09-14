@@ -1,0 +1,17 @@
+[Unit]
+Description=ToIV ComfyUI H3 worker (MiniMax H3, 0.30, GPU2 独占, port 8195)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=merlin
+WorkingDirectory=/home/merlin/ComfyUI-h3-eval
+Environment=CUDA_VISIBLE_DEVICES=2
+Environment=LD_LIBRARY_PATH=/home/merlin/ComfyUI-h3-eval/venv/lib/python3.12/site-packages/nvidia/cu13/lib
+ExecStart=/home/merlin/ComfyUI-h3-eval/venv/bin/python main.py --listen 0.0.0.0 --port 8195 --extra-model-paths-config extra_model_paths.yaml
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,26 @@
+[Unit]
+Description=Qwen3-Embedding-4B Embedding Server
+After=network.target
+
+[Service]
+Type=simple
+User=merlin
+Group=merlin
+WorkingDirectory=/opt
+Environment=PATH=/opt/nemotron-venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONUNBUFFERED=1
+Environment=MODEL_PATH=/home/merlin/models/Qwen3-Embedding-4B
+Environment=DEVICE=cuda
+Environment=PORT=9302
+Environment=HOST=0.0.0.0
+Environment=CUDA_VISIBLE_DEVICES=1
+Environment=TRANSFORMERS_OFFLINE=1
+Environment=HF_HUB_OFFLINE=1
+ExecStart=/opt/nemotron-venv/bin/python /opt/qwen3-embedding-server.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

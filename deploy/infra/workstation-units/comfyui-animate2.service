@@ -1,0 +1,15 @@
+[Unit]
+Description=ComfyUI Wan-Animate-2 worker (GPU3, native WanAnimate2ToVideo, port 8199)
+After=network.target
+
+[Service]
+Type=simple
+User=merlin
+WorkingDirectory=/home/merlin/ComfyUI-animate2
+Environment=CUDA_VISIBLE_DEVICES=3
+ExecStart=/home/merlin/ComfyUI-animate2/venv/bin/python main.py --listen 0.0.0.0 --port 8199 --extra-model-paths-config /home/merlin/ComfyUI-animate2/extra_model_paths.yaml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

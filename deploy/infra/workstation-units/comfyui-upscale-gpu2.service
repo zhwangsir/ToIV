@@ -1,0 +1,15 @@
+[Unit]
+Description=ComfyUI upscale-only worker on GPU2 (port 8262)
+After=network.target
+
+[Service]
+Type=simple
+User=merlin
+WorkingDirectory=/opt/ComfyUI
+Environment=CUDA_VISIBLE_DEVICES=0
+ExecStart=/opt/ComfyUI/venv/bin/python main.py --listen 0.0.0.0 --port 8262 --output-directory /opt/ComfyUI/instances/gpu2/output --temp-directory /opt/ComfyUI/instances/gpu2/temp --input-directory /opt/ComfyUI/instances/gpu2/input --cache-lru 2 --disable-smart-memory
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
