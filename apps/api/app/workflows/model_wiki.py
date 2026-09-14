@@ -20,6 +20,7 @@
   tags             检索标签(中文)
   nsfw             R18 模型标
   civitai_url      来源页(可查作者/许可/版本)
+  huggingface_url  HuggingFace 模型卡(可空;与 civitai 二选一或并存)
 """
 from __future__ import annotations
 
@@ -40,6 +41,7 @@ class CardSpec:
     tags: tuple[str, ...] = ()
     nsfw: bool = False
     civitai_url: str = ""
+    huggingface_url: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -54,6 +56,7 @@ class CardSpec:
             "tags": list(self.tags),
             "nsfw": self.nsfw,
             "civitai_url": self.civitai_url,
+            "huggingface_url": self.huggingface_url,
             "source": "curated",
         }
 
@@ -80,6 +83,7 @@ _IMAGE_CKPT_CARDS: list[CardSpec] = [
         negative_hint="",  # CFG≈1 族负向失效,留空
         tags=("写实", "全能", "设计", "产品图", "电影感", "次世代"),
         civitai_url="",
+        huggingface_url="https://huggingface.co/black-forest-labs/FLUX.2-dev",
     ),
     CardSpec(
         filename_prefix="majicMIX realistic",
@@ -360,6 +364,7 @@ _IMAGE_CKPT_CARDS: list[CardSpec] = [
         prompt_dialect="英文自然语言长句",
         negative_hint="",
         tags=("写实", "全能"),
+        huggingface_url="https://huggingface.co/black-forest-labs/FLUX.1-dev",
     ),
     CardSpec(
         filename_prefix="DreamShaper",
@@ -473,6 +478,7 @@ _VIDEO_CARDS: list[CardSpec] = [
         prompt_dialect="英文流畅长句 + 简单运动描述(slow pan, drifting)",
         negative_hint="blurry, lowres, flickering, morphing, deformed, watermark",
         tags=("视频", "文生视频", "WAN"),
+        huggingface_url="https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B",
     ),
     CardSpec(
         filename_prefix="wan2.2_i2v",
@@ -484,6 +490,7 @@ _VIDEO_CARDS: list[CardSpec] = [
         prompt_dialect="英文运动描述为主(camera, motion, atmosphere)",
         negative_hint="blurry, flickering, morphing, deformed, static frame",
         tags=("视频", "图生视频", "WAN"),
+        huggingface_url="https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B",
     ),
     CardSpec(
         filename_prefix="longcat-video",
@@ -501,6 +508,22 @@ _VIDEO_CARDS: list[CardSpec] = [
         prompt_dialect="英文自然语言(主体/动作/场景连续过程)",
         negative_hint="",
         tags=("视频", "长视频", "数字人", "对口型"),
+        huggingface_url="https://huggingface.co/meituan-longcat/LongCat-Video",
+    ),
+    CardSpec(
+        filename_prefix="hunyuan_video",
+        label="HunyuanVideo I2V(腾讯混元视频)",
+        base_model="HunyuanVideo",
+        model_type="diffusion_models",
+        description=(
+            "腾讯混元视频图生视频底模;平台内置 hunyuan-i2v 使用 fp8 e4m3fn 固定权重"
+            "(hunyuan_video_I2V_720_fixed_fp8_e4m3fn.safetensors)。"
+        ),
+        usage="平台入口:视频组 hunyuan-i2v;建议 720p 档;搭配 hunyuan_video_vae_bf16。",
+        prompt_dialect="英文自然语言(主体/动作/场景)",
+        negative_hint="blurry, lowres, watermark, flickering",
+        tags=("视频", "图生视频", "混元"),
+        huggingface_url="https://huggingface.co/tencent/HunyuanVideo",
     ),
     CardSpec(
         filename_prefix="ltx-video",
@@ -518,6 +541,51 @@ _VIDEO_CARDS: list[CardSpec] = [
         prompt_dialect="英文画面+运动+声音氛围描述",
         negative_hint="blurry, lowres, watermark, flickering",
         tags=("视频", "音画同出", "对口型", "极速"),
+        huggingface_url="https://huggingface.co/Lightricks/LTX-2.5",
+    ),
+    CardSpec(
+        filename_prefix="10eros_v14",
+        label="LTX2.3 10Eros v1.4(R18 视频 UNET)",
+        base_model="LTX-Video 2.3",
+        model_type="diffusion_models",
+        description=(
+            "TenStrip 社区训练的 LTX-2.3 NSFW 专用底模(本地文件名 10eros_v14;"
+            "上游 10Eros_v1.4_fp8mixed_learned)。成人向动作/解剖概念强于官方 distilled;"
+            "无首帧文生易塌成色块,R18 优先图生。"
+        ),
+        usage=(
+            "平台入口:R18 LTX 引擎(ltx-img2video / ltx-txt2video / ltx-lipsync);"
+            "配置 TOIV_NSFW_DEFAULT_VIDEO_CKPT=10eros_v14.safetensors;"
+            "可叠 LTX NSFW motion / ID LoRA。"
+        ),
+        prompt_dialect="英文画面+运动+声音氛围;解剖/动作需明确写清",
+        negative_hint="blurry, lowres, watermark, flickering, subtitle, text",
+        tags=("视频", "R18", "LTX", "10Eros"),
+        nsfw=True,
+        civitai_url="https://civitai.red/models/2447875/ltx23-10eros",
+        huggingface_url="https://huggingface.co/TenStrip/LTX2.3-10Eros",
+    ),
+    CardSpec(
+        filename_prefix="10Eros_Max_h3",
+        label="10Eros-Max H3 TURBO Ref2VA(R18 UNET)",
+        base_model="MiniMax H3",
+        model_type="diffusion_models",
+        description=(
+            "TenStrip 10Eros-Max 嫁接到 MiniMax H3 的成人向 UNET;"
+            "平台默认 int8_convrot 量化版文件名 "
+            "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors"
+            "(HF cicalooo 量化;BF16 源见 TenStrip/10Eros-Max)。"
+        ),
+        usage=(
+            "平台入口:R18 H3 引擎(h3-nsfw-*);仅 nsfw=True 时替换模板节点 6 的 unet_name;"
+            "配置 TOIV_H3_NSFW_UNET;可叠 H3 社区 R18 LoRA(Riding POV 等)。"
+        ),
+        prompt_dialect="流畅英文正向长句;Ref2VA 用 1-based 参考标签;一切要求正向化",
+        negative_hint="blurry, lowres, watermark(最精简即可)",
+        tags=("视频", "R18", "H3", "10Eros-Max", "Ref2VA"),
+        nsfw=True,
+        civitai_url="https://civitai.com/models/2851079/h3-eros-max",
+        huggingface_url="https://huggingface.co/cicalooo/10Eros-Max-h3-int8-convrot",
     ),
     CardSpec(
         filename_prefix="h3",
@@ -535,6 +603,7 @@ _VIDEO_CARDS: list[CardSpec] = [
         prompt_dialect="流畅英文正向长句;一切要求正向化",
         negative_hint="blurry, lowres, watermark(最精简即可)",
         tags=("视频", "电影感", "音画同出", "长视频"),
+        huggingface_url="https://huggingface.co/MiniMaxAI/MiniMax-H3",
     ),
 ]
 

@@ -31,7 +31,7 @@ from app.security import create_token, hash_password
 # --------------------------------------------------------------------------- #
 
 
-def _seed_user(session: Session, email: str, nsfw_enabled: bool = False) -> str:
+def _seed_user(session: Session, email: str, nsfw_enabled: bool = False, role: str = "user") -> str:
     tenant = Tenant(name=email)
     session.add(tenant)
     session.commit()
@@ -41,6 +41,7 @@ def _seed_user(session: Session, email: str, nsfw_enabled: bool = False) -> str:
         hashed_password=hash_password("password1"),
         tenant_id=tenant.id,
         nsfw_enabled=nsfw_enabled,
+        role=role,
     )
     session.add(user)
     session.commit()
@@ -643,13 +644,29 @@ def test_raw_gate_uses_header_not_account_flag(client, monkeypatch):
 # --------------------------------------------------------------------------- #
 
 
-def test_nsfw_recommendations_include_10eros_loras(client):
-    """推荐清单含 10Eros/LTX2.3 配套 NSFW 运动 LoRA(已在 NAS);端点仅需登录。"""
+def test_nsfw_recommendations_require_nsfw_header(client):
+    """2026-09-07:无 X-NSFW 上下文 → 403(资源区普通用户不可拉 R18 推荐)。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "recs")
+        uid = _seed_user(s, "recs-sfw")
     token = create_token(uid)
     r = c.get("/api/models/nsfw-recommendations", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 403
+
+
+def test_nsfw_recommendations_include_10eros_loras(client):
+    """推荐清单含 10Eros/LTX2.3 配套 NSFW 运动 LoRA(已在 NAS);须 X-NSFW。
+
+    civitai_url 仅 admin 可见(2026-09-07 provenance 门控)→ 用 admin 断言链完整。
+    """
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "recs", role="admin")
+    token = create_token(uid)
+    r = c.get(
+        "/api/models/nsfw-recommendations",
+        headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},
+    )
     assert r.status_code == 200
     items = r.json()["items"]
     names = {it["name"] for it in items}
@@ -666,12 +683,17 @@ def test_nsfw_recommendations_include_h3_loras(client):
     2026-08-08 首批 4 个 + 生态扩充 4 个(Deepthroat/Vagina/NaughtyTimes/lightx2v Turbo)
     + 2026-08-10 再扩 3 个(HMNSFW AIO/AI Girl Series30/Turbo 850 合并版)
     + 2026-08-11 创作者作品集调研再扩 2 个(HMPussy/Stomach Bulge)。
+
+    civitai_url/version_id 仅 admin 可见(provenance 门控)→ admin 上下文断言。
     """
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "recs-h3")
+        uid = _seed_user(s, "recs-h3", role="admin")
     token = create_token(uid)
-    r = c.get("/api/models/nsfw-recommendations", headers={"Authorization": f"Bearer {token}"})
+    r = c.get(
+        "/api/models/nsfw-recommendations",
+        headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},
+    )
     assert r.status_code == 200
     items = [it for it in r.json()["items"] if it["category"] == "h3"]
     by_name = {it["name"]: it for it in items}

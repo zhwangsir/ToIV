@@ -30,59 +30,64 @@ function readSrc(rel: string): string {
 
 /* ── ① AppMarketView ── */
 
-test("AppMarketView 初始加载态渲染 grid 骨架(ui-loading--grid)", () => {
+test("AppMarketView 初始加载态渲染瀑布骨架(apps-skel + skeleton-shimmer)", () => {
   const html = renderToStaticMarkup(h(ToastProvider, null, h(AppMarketView)));
-  assert.match(html, /ui-loading--grid/, "市场加载态应为卡片网格骨架");
+  assert.match(html, /apps-skel/, "市场加载态应为瀑布骨架");
+  assert.match(html, /skeleton-shimmer/, "骨架须走 motion shimmer token");
 });
 
-test("AppMarketView 三区(内置/公共/我的)+ fork 门控 + 打开按钮(源码)", () => {
+test("AppMarketView 统一流:无分区标题 + fork 门控 + 懒加载封面(源码)", () => {
   const src = readSrc("components/apps/AppMarketView.tsx");
-  assert.ok(src.includes("内置应用"), "缺内置区");
-  assert.ok(src.includes("公共应用"), "缺公共区");
-  assert.ok(src.includes("我的应用"), "缺我的区");
-  assert.ok(src.includes("splitAppSections"), "三区划分应复用 lib/apps helper");
+  assert.ok(!src.includes("内置应用"), "分区「内置应用」应移除");
+  assert.ok(!src.includes("公共应用"), "分区「公共应用」应移除");
+  assert.ok(!src.includes("RunningHub 社区"), "分区「RunningHub 社区」应移除");
+  assert.ok(!src.includes("splitAppSections"), "统一流不再切四区");
+  assert.ok(!src.includes("CATEGORY_CHIPS"), "分类 chips 应移除");
+  assert.ok(!src.includes("rhFamilyChips"), "family chips 应移除");
   // fork 门控:非内置且非本人才显示
   assert.ok(src.includes("!a.is_builtin && !a.is_mine"), "fork 按钮门控缺失");
   assert.ok(src.includes("forkApp"), "未接 forkApp");
-  // 卡片要素:类别徽标 + 用量计数 + 打开
-  assert.ok(src.includes("apps-tag"), "缺类别徽标");
+  assert.ok(src.includes("apps-tag"), "缺角落小标");
   assert.ok(src.includes("apps-usage"), "缺用量计数");
-  assert.ok(src.includes("打开"), "缺「打开」按钮");
+  assert.ok(src.includes("LazyCoverImg"), "封面应走懒加载组件");
+  assert.ok(src.includes("IntersectionObserver"), "懒加载应使用 IntersectionObserver");
+  assert.ok(src.includes('loading="lazy"'), "img 应带 loading=lazy");
 });
 
-test("AppMarketView RunningHub 社区区:核心内置不含 rh- + 分页/截断(源码)", () => {
+test("AppMarketView 统一流无限滚动/截断 + 精选仍不含 rh-(源码)", () => {
   const src = readSrc("components/apps/AppMarketView.tsx");
   const lib = readSrc("lib/apps.ts");
-  assert.ok(src.includes("RunningHub 社区"), "缺社区区");
-  assert.ok(src.includes("内置应用"), "核心 H3 仍在内置区");
-  assert.ok(src.includes("sliceCommunityApps"), "社区分页应复用 helper");
-  assert.ok(src.includes("rhFamilyChips"), "family chips 应复用 helper");
-  assert.ok(src.includes("显示更多"), "空查询应有显示更多");
+  assert.ok(!src.includes("显示更多"), "按钮式分页应移除,改无限滚动");
+  assert.ok(src.includes("apps-load-sentinel"), "应有无限滚动哨兵");
+  assert.ok(src.includes("advanceStream"), "应有触底推进");
+  assert.ok(src.includes('rootMargin: "150px"'), "哨兵 IO 提前量约 150px");
+  assert.ok(src.includes("loadingMore"), "加载更多应有指示态");
+  assert.ok(src.includes("apps-load-more"), "续载应走底部细条而非大块骨架");
+  assert.ok(!src.includes("MarketSkeleton count={6}"), "续载不得再挂 MarketSkeleton(6)");
+  assert.ok(src.includes("is-appended"), "新追加卡应带 is-appended fade");
+  assert.ok(src.includes("enterFrom"), "应记录本轮追加起点以免整表重播");
   assert.ok(src.includes("结果已截断,请再缩小关键词"), "搜索超 cap 应提示截断");
   assert.ok(src.includes("COMMUNITY_PAGE_SIZE"), "分页步长应走常量");
-  assert.match(lib, /COMMUNITY_PAGE_SIZE = 24/, "空查询社区卡上限 24");
+  assert.ok(src.includes("COMMUNITY_SEARCH_CAP"), "搜索上限应走常量");
+  assert.match(lib, /COMMUNITY_PAGE_SIZE = 10/, "分页步长 10(小步续载)");
   assert.match(lib, /COMMUNITY_SEARCH_CAP = 120/, "搜索匹配上限 120");
-  assert.ok(lib.includes("isRhCommunityId"), "rh-* 应划入社区而非内置");
-  // 核心 H3 精选仍钉在内置,不把 rh-* 塞进 FEATURED
+  assert.ok(lib.includes("isRhCommunityId"), "rh-* helper 仍保留(后端/测试用)");
   assert.ok(lib.includes('"h3-t2v"'), "核心 H3 仍在精选");
   assert.ok(!/FEATURED_VIDEO_APP_IDS[\s\S]*?"rh-/.test(lib), "FEATURED 不得含 rh-*");
 });
 
-test("AppMarketView 三态接线:空态单行化/ErrorBar/LoadingBlock + NSFW 客户端过滤(源码)", () => {
+test("AppMarketView 三态接线:空态/ErrorBar/骨架 + NSFW 客户端过滤(源码)", () => {
   const src = readSrc("components/apps/AppMarketView.tsx");
-  // 2026-09-02 W3:整库大图标 Empty 退役,改单行 muted 提示 + 行内重试;
-  // 2026-09-04 美化 W4:单行提示收编 ui/Empty 共享三档 inline 档(同一语言,单一来源)
   assert.ok(src.includes('import { Empty }'), "空态应收编 ui/Empty 共享三档");
   assert.ok(src.includes('size="inline"'), "空态须走 inline 档(单行 muted 语言)");
   assert.ok(!src.includes("apps-empty-all"), "私造 apps-empty-all 空态类应退役");
   assert.ok(src.includes('import { ErrorBar }'), "未导入 ErrorBar(错误态)");
-  assert.ok(src.includes('import { LoadingBlock }'), "未导入 LoadingBlock(加载态)");
+  assert.ok(src.includes("MarketSkeleton"), "加载态应走瀑布骨架");
   assert.ok(src.includes("useR18Mode"), "NSFW 过滤应读 R18 模式");
   assert.ok(src.includes("filterApps"), "过滤应复用 lib/apps filterApps(含 NSFW 门控)");
   assert.ok(src.includes('import "@/app/styles/apps.css"'), "未引入 apps.css");
-  // 检索工具栏:搜索 + 分类 chips
   assert.ok(src.includes('role="search"'), "缺搜索工具栏语义");
-  assert.ok(src.includes("CATEGORY_CHIPS"), "缺分类 chips");
+  assert.ok(src.includes("热门"), "应保留热门排序");
 });
 
 /* ── ② AppRunnerView ── */
@@ -208,7 +213,7 @@ test("page.tsx 注册 market 视图:importer/VALID_VIEWS/VIEW_META/渲染分支"
     "viewImporters 缺 market 懒加载",
   );
   assert.match(src, /\| "market"/, "View 联合类型缺 market");
-  assert.ok(src.includes('market:     { label: "市场" }'), "VIEW_META 缺中文名");
+  assert.ok(src.includes('market:     { label: "应用市场" }'), "VIEW_META 缺中文名");
   assert.ok(src.includes('{view === "market" && <MarketView />}'), "缺渲染分支");
 });
 
@@ -223,20 +228,30 @@ test("page.tsx 旧 key 兼容:skills/apps 经 LEGACY_VIEW_REDIRECTS 跳 market(�
   assert.ok(!src.includes('key: "apps"'), "导航不应再含 apps 独立入口");
 });
 
-test("page.tsx 导航入口:灵动岛 + BottomNav 更多均含单一市场入口(store 图标)", () => {
+test("page.tsx 导航入口:左栏与底部主导航各一条应用市场入口(store 图标),抽屉去重", () => {
   const src = readSrc("app/page.tsx");
-  // W1 分组后灵动岛项带 group 字段,断言允许尾部扩展属性
-  const entries = src.match(/\{ key: "market", label: "市场", icon: "store"[^}]*\}/g) ?? [];
-  assert.equal(entries.length, 2, "灵动岛 ISLAND_ITEMS 与 BOTTOM_NAV_MORE_ITEMS 应各一条 market 入口");
+  // 2026-09-12 引擎工作台:market 改名「应用市场」,进左栏次位 + 底部主导航首位;
+  // 「更多」抽屉不再重复(双重入口去重)
+  const railBlock = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
+  const navBlock = src.slice(src.indexOf("const BOTTOM_NAV_ITEMS"), src.indexOf("const BOTTOM_NAV_MORE_ITEMS"));
+  const moreBlock = src.slice(src.indexOf("const BOTTOM_NAV_MORE_ITEMS"));
+  assert.ok(
+    railBlock.includes('{ key: "market", label: "应用市场", icon: "store" }'),
+    "左栏缺应用市场入口",
+  );
+  assert.ok(
+    navBlock.includes('{ key: "market", label: "应用市场", icon: "store" }'),
+    "底部主导航缺应用市场入口",
+  );
+  assert.ok(!moreBlock.includes('key: "market"'), "应用市场已进主入口,「更多」抽屉不应重复");
 });
 
-test("page.tsx 导航去重:底部主入口项不在「更多」抽屉重复(audio 回归)", () => {
+test("page.tsx 导航去重:audio 下沉「更多」抽屉,底部主导航不再承载(2026-09-12)", () => {
   const src = readSrc("app/page.tsx");
-  const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
-  assert.ok(
-    !moreBlock.includes('key: "audio"'),
-    "audio 已由底部主入口承载,「更多」抽屉不应重复",
-  );
+  const navBlock = src.slice(src.indexOf("const BOTTOM_NAV_ITEMS"), src.indexOf("const BOTTOM_NAV_MORE_ITEMS"));
+  const moreBlock = src.slice(src.indexOf("const BOTTOM_NAV_MORE_ITEMS"));
+  assert.ok(!navBlock.includes('key: "audio"'), "audio 已下沉抽屉,底部主导航不应重复");
+  assert.ok(moreBlock.includes('key: "audio"'), "「更多」抽屉缺 audio 入口");
 });
 
 test("page.tsx 导航去重:fusion 卡五目标不在「更多」抽屉重复(2026-08-31 二轮精简)", () => {
@@ -249,8 +264,9 @@ test("page.tsx 导航去重:fusion 卡五目标不在「更多」抽屉重复(20
       `${key} 已由融合卡承载,「更多」抽屉不应重复`,
     );
   }
-  // 非 fusion 目标保留:market/canvas/entities/animatic/resources/settings
-  for (const key of ["market", "canvas", "entities", "animatic", "resources", "settings"]) {
+  // 非 fusion 目标保留:audio/canvas/entities/animatic/resources/settings
+  // (2026-09-12:market 进底部主导航、audio 下沉抽屉,抽屉成员同步换血)
+  for (const key of ["audio", "canvas", "entities", "animatic", "resources", "settings"]) {
     assert.ok(moreBlock.includes(`key: "${key}"`), `「更多」抽屉缺 ${key} 入口`);
   }
 });
@@ -385,42 +401,45 @@ test("MarketView:at-seg 段控 + ErrorBoundary(key=tab)+ 懒加载内嵌双市�
   );
 });
 
-/* ── ⑤ 图片/视频创作壳:默认应用目录,高级引擎仍挂 GenerateView ── */
+/* ── ⑤ 图片/视频创作壳:默认应用目录,更多引擎仍挂 GenerateView ── */
 
-test("KindCreateView 段控:应用默认 + 高级引擎(源码)", () => {
+test("KindCreateView 段控:应用默认 + 更多引擎(源码)", () => {
   const src = readSrc("components/apps/KindCreateView.tsx");
   assert.ok(src.includes('useState<CreateTab>("apps")'), "默认 tab 应为应用,不是引擎");
   assert.ok(src.includes('"应用"'), "缺「应用」段");
-  assert.ok(src.includes('"高级引擎"'), "缺「高级引擎」段");
+  assert.ok(src.includes('"更多引擎"'), "缺「更多引擎」段");
   assert.ok(src.includes("at-seg"), "段控应复用 at-seg(与 MarketView 同款)");
   assert.ok(src.includes('role="tablist"'), "段控缺 tablist 语义");
   assert.ok(src.includes("AppMarketView"), "应用 tab 应挂 AppMarketView");
   assert.ok(src.includes("outputKind={kind}"), "目录应按 output_kind 过滤");
   assert.ok(src.includes("featuredAppIdsForKind"), "视频精选应走 featured helper");
-  assert.ok(src.includes('tab === "engine" && <GenerateView lockedKind={kind} />'), "高级引擎应挂 GenerateView");
+  assert.ok(src.includes('tab === "engine" && <GenerateView lockedKind={kind} />'), "更多引擎应挂 GenerateView");
   assert.ok(src.includes('import "@/app/styles/apps.css"'), "应复用 apps.css,不另起 CSS 语言");
 });
 
 test("KindCreateView 初始渲染应用段控为选中(静态)", () => {
   const html = renderToStaticMarkup(h(ToastProvider, null, h(KindCreateView, { kind: "video" })));
   assert.match(html, />应用</, "缺应用段按钮");
-  assert.match(html, />高级引擎</, "缺高级引擎段按钮");
+  assert.match(html, />更多引擎</, "缺更多引擎段按钮");
   assert.match(html, /aria-selected="true"[^>]*>应用</, "默认选中应为应用");
-  assert.match(html, /aria-selected="false"[^>]*>高级引擎</, "高级引擎默认未选");
+  assert.match(html, /aria-selected="false"[^>]*>更多引擎</, "更多引擎默认未选");
 });
 
-test("page.tsx:image/video 默认 KindCreateView,不再直接挂 GenerateView", () => {
+test("page.tsx:image/video 改挂 EngineStudioView 引擎工作台,KindCreateView 退役挂载(2026-09-12)", () => {
   const src = readSrc("app/page.tsx");
   assert.ok(
-    src.includes('image: () => import("@/components/apps/KindCreateView")'),
-    "image importer 应指向 KindCreateView",
+    src.includes('image: () => import("@/components/studio/EngineStudioView")'),
+    "image importer 应指向 EngineStudioView",
   );
   assert.ok(
-    src.includes('video: () => import("@/components/apps/KindCreateView")'),
-    "video importer 应指向 KindCreateView",
+    src.includes('video: () => import("@/components/studio/EngineStudioView")'),
+    "video importer 应指向 EngineStudioView",
   );
-  assert.ok(src.includes('{view === "image" && <KindCreateView kind="image" />}'), "image 渲染分支缺 KindCreateView");
-  assert.ok(src.includes('{view === "video" && <KindCreateView kind="video" />}'), "video 渲染分支缺 KindCreateView");
+  assert.ok(src.includes('{view === "image" && <EngineStudioView kind="image" />}'), "image 渲染分支缺 EngineStudioView");
+  assert.ok(src.includes('{view === "video" && <EngineStudioView kind="video" />}'), "video 渲染分支缺 EngineStudioView");
+  // KindCreateView 文件保留但不再被任何视图引用(应用全归应用市场)
+  assert.ok(!src.includes("components/apps/KindCreateView"), "page.tsx 不应再 import KindCreateView");
+  assert.ok(!src.includes("<KindCreateView"), "page.tsx 不应再渲染 KindCreateView");
   assert.ok(
     !src.includes('{view === "image" && <GenerateView lockedKind="image" />}'),
     "image 不应再直接挂 GenerateView",
@@ -431,6 +450,17 @@ test("page.tsx:image/video 默认 KindCreateView,不再直接挂 GenerateView", 
   );
   // 音频维持原状
   assert.ok(src.includes('{view === "audio" && <AudioView />}'), "audio 不应被这次改动波及");
+  // 导航改名:VIEW_META 与左栏同步「图片生成/视频生成/应用市场」
+  assert.ok(src.includes('image:     { label: "图片生成" }'), "VIEW_META image 应为图片生成");
+  assert.ok(src.includes('video:     { label: "视频生成" }'), "VIEW_META video 应为视频生成");
+  const railBlock = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
+  const railOrder = ["home", "market", "image", "video", "audio", "studio", "library", "resources"];
+  let last = -1;
+  for (const key of railOrder) {
+    const i = railBlock.indexOf(`key: "${key}"`);
+    assert.ok(i > last, `左栏顺序应为 ${railOrder.join("/")},${key} 位置异常`);
+    last = i;
+  }
 });
 
 test("AppMarketView 创作页过滤:outputKind + featuredIds + runnerBackLabel(源码)", () => {
@@ -439,7 +469,7 @@ test("AppMarketView 创作页过滤:outputKind + featuredIds + runnerBackLabel(�
   assert.ok(src.includes("sortFeaturedApps"), "精选排序应复用 lib/apps helper");
   assert.ok(src.includes("featuredIds"), "缺 featuredIds prop");
   assert.ok(src.includes("runnerBackLabel"), "创作页返回文案应可覆盖");
-  assert.ok(src.includes("!outputKind &&"), "产物类型锁定时应隐藏分类 chips");
+  assert.ok(src.includes('category: "all"'), "分类 chips 已撤,过滤固定 category=all");
 });
 
 /* ── ④ Icon / apps.css ── */
@@ -467,8 +497,13 @@ test("apps.css:类名齐全 + token 纪律(零 hex / 无违规断点 / 触达 44
     ".apps-kind-create",
     ".apps-kind-mode-row",
     ".apps-kind-body",
-    ".apps-family-chips",
+    ".apps-skel",
+    ".apps-skel-card",
     ".apps-community-more",
+    ".apps-load-sentinel",
+    ".apps-load-more",
+    ".apps-load-more-bar",
+    ".apps-card.is-appended",
     ".apps-truncated",
   ]) {
     assert.ok(css.includes(cls), `apps.css 缺 ${cls} 定义`);

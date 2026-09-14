@@ -301,7 +301,13 @@ test("charts.tsx:网格/十字线走 CSS 变量,浅色默认深灰细线", () =>
   const src = readSrc("components/ui/charts.tsx");
   assert.match(src, /var\(--uichart-grid, rgba\(15,23,42,\.10\)\)/, "浅色默认网格线");
   assert.match(src, /\[data-mode="dark"\] \.uichart/, "暗色覆盖块");
+  // P1:cinema/graphite 不落 data-mode,必须并列进暗网格选择器
+  assert.match(src, /\[data-theme="cinema"\] \.uichart/, "cinema 暗网格");
+  assert.match(src, /\[data-theme="graphite"\] \.uichart/, "graphite 暗网格");
   assert.match(src, /var\(--uichart-crosshair/, "十字线同步变量化");
+  // tooltip 恒深压暗浮层,亮主题 text-muted 不得充当 tooltip 字色
+  assert.match(src, /\.uichart-tooltip\s*\{[^}]*background:\s*var\(--overlay-stage\)/);
+  assert.match(src, /\.uichart-tooltip-time\s*\{[^}]*color:\s*rgba\(255,\s*255,\s*255,\s*0\.65\)/);
 });
 
 /* ── ⑦ 编排状态区(OrchPanel) ── */

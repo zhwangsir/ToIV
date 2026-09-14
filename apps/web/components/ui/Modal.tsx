@@ -1,5 +1,6 @@
 "use client";
 import { ReactNode, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "./Icon";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 
@@ -52,7 +53,12 @@ export function Modal({
 
   if (!open) return null;
 
-  return (
+  /* portal 到 body:逃逸祖先 stacking context。
+     实证(2026-09-07):AppRunner 「从作品库选」AssetPicker 挂在 sticky `.rh-params`
+     内时,右列 `.rh-preview-cover` 大图会压在 modal 之上(sticky 建层叠上下文,
+     fixed+z-modal 被困在参数列;预览列后绘盖住弹层)。同 LibraryLightbox /
+     Popover 口径。SSR(无 document)回落同树渲染,供 renderToStaticMarkup。 */
+  const overlay = (
     <div
       className="modal-overlay"
       onClick={(e) => {
@@ -175,4 +181,7 @@ export function Modal({
       `}</style>
     </div>
   );
+
+  if (typeof document === "undefined") return overlay;
+  return createPortal(overlay, document.body);
 }

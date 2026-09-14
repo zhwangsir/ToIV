@@ -196,6 +196,10 @@ export interface JobItem {
   batch_id?: string;
   /** 来源应用 id(app 运行作业,从 params 快照解析;2026-09-06 详情页「我的生成」按此过滤;空=非应用作业)。 */
   app_id?: string;
+  /** H3 智能加速请求档(2026-09-12,从 params 快照解析;空=未加速作业)。 */
+  acceleration?: string;
+  /** H3 智能加速实际生效(规格缺失降级时为 false)。 */
+  acceleration_applied?: boolean;
 }
 
 /** 回收站条目(2026-08-23):作品库字段 + 删除时间/恢复截止/剩余秒数(72h 保留期)。 */

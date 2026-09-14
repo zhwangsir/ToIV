@@ -114,6 +114,7 @@ def _merge(filename: str, model_type: str, enriched: ModelCard | None) -> dict:
         "creator": (enriched.creator if enriched else "") or "",
         "license": card.get("license") or (enriched.license if enriched else "") or "",
         "civitai_url": card.get("civitai_url") or (enriched.civitai_url if enriched else "") or "",
+        "huggingface_url": (card.get("huggingface_url") if card else "") or "",
         "downloads": enriched.downloads if enriched else 0,
         "nsfw": card.get("nsfw", False) or (enriched.nsfw if enriched else False),
         "sources": ([card["source"]] if card else [])

@@ -648,6 +648,8 @@ export interface ModelWikiCard {
   creator: string;
   license: string;
   civitai_url: string;
+  /** HuggingFace 模型卡 URL(仅 admin 非空;curated/引擎源)。 */
+  huggingface_url?: string;
   downloads: number;
   nsfw: boolean;
   sources: string[];
@@ -705,7 +707,7 @@ export async function searchMarketplace(
 
 /**
  * NSFW 模型推荐清单(静态,后端 civitai 调研写死)。契约:GET /api/models/nsfw-recommendations。
- * 供 /nsfw 专区「NSFW 推荐」tab 展示;需登录认证。失败抛错(调用方 catch 后显示空态)。
+ * 须 R18 上下文(X-NSFW);前端仅 admin + R18 模式挂载。失败抛错(调用方 catch 后显示空态)。
  */
 export async function getNsfwRecommendations(): Promise<NsfwRecommendation[]> {
   const res = await apiFetch(`/api/models/nsfw-recommendations`, {

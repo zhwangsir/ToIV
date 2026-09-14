@@ -438,7 +438,9 @@
   border-color: var(--accent);
 }
 
-/* ── 占位卡(生成中/失败/无预览产物) ───────────────────────────────── */
+/* ── 占位卡(生成中/失败/无预览/破图兜底):类型图标 + 渐变底(市场占位同范式) ──
+   渐变走主题表面/强调令牌(零 hex),随 minimal/cinema/paper/graphite 自动换肤;
+   data-filter 区分类型桶,未知 kind(「其他」)落 other。 */
 .lib-thumb-placeholder {
   position: absolute;
   inset: 0;
@@ -448,7 +450,61 @@
   justify-content: center;
   gap: var(--space-2);
   color: var(--text-muted);
-  background: var(--bg-surface-2);
+  background: linear-gradient(
+    155deg,
+    var(--bg-surface-3) 0%,
+    var(--bg-surface-2) 55%,
+    var(--bg-surface-1) 100%
+  );
+}
+.lib-thumb-placeholder[data-filter="image"] {
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--accent) 14%, var(--bg-surface-2)) 0%,
+    var(--bg-surface-2) 100%
+  );
+}
+.lib-thumb-placeholder[data-filter="video"] {
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--accent) 10%, var(--bg-surface-3)) 0%,
+    var(--bg-surface-2) 100%
+  );
+}
+.lib-thumb-placeholder[data-filter="audio"] {
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--accent) 8%, var(--bg-surface-2)) 0%,
+    var(--bg-surface-1) 100%
+  );
+}
+.lib-thumb-placeholder[data-filter="3d"] {
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--text-secondary) 12%, var(--bg-surface-3)) 0%,
+    var(--bg-surface-2) 100%
+  );
+}
+.lib-thumb-placeholder[data-filter="other"] {
+  background: linear-gradient(
+    155deg,
+    var(--bg-surface-3) 0%,
+    var(--bg-surface-2) 100%
+  );
+}
+.lib-thumb-placeholder.has-error {
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--err) 12%, var(--bg-surface-2)) 0%,
+    var(--bg-surface-2) 100%
+  );
+}
+.lib-thumb-placeholder-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  opacity: 0.9;
 }
 /* 状态 chip:左上角小胶囊(红点失败 / 微光生成中),单行截断,右侧让位 */
 .lib-thumb-status {

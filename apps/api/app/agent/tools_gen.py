@@ -1007,7 +1007,12 @@ async def exec_list_apps(args: dict, ctx: dict) -> tuple[str, list[dict]]:
             f"未知分类:{category}。可用:{', '.join(sorted(apps_route._CATEGORIES))}。",
             [_err_event("未知分类", category)],
         )
-    items = apps_route.list_apps(category=category, q=q, user=user, session=session)
+    # use_case/featured 必须显式给 None/False:端点参数默认是 Query() 对象,
+    # 直调(非 FastAPI 依赖注入)时 truthy,会把全部应用过滤掉(2026-09-13 实证)
+    items = apps_route.list_apps(
+        category=category, q=q, use_case=None, featured=False,
+        user=user, session=session,
+    )
     if not items:
         return "应用市场没有匹配的应用。可换关键词,或引导用户到「市场」页浏览。", []
     rh, core = [], []

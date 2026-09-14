@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from app.services.workflow_convert import is_ui_format, ui_to_api
+from app.services.workflow_convert import api_to_ui, is_api_format, is_ui_format, ui_to_api
 
 _TEMPLATES = Path(__file__).resolve().parents[1] / "app" / "workflows"
 
@@ -149,3 +149,38 @@ def test_unknown_class_type_strict_vs_lenient():
     assert api["1"] == {"class_type": "SomeCustomNode", "inputs": {}}
     assert api["2"]["inputs"]["images"] == ["1", 0]
     assert api["2"]["inputs"]["filename_prefix"] == "out"
+
+
+
+def test_api_to_ui_roundtrip_txt2img():
+    """API→UI→API:连线与已知 widgets 全保真;产出含 nodes/links 可被 Comfy Load。"""
+    original_ui = _load("txt2img_basic.json")
+    api = ui_to_api(original_ui)
+    assert is_api_format(api) and not is_ui_format(api)
+    ui = api_to_ui(api)
+    assert is_ui_format(ui)
+    assert len(ui["nodes"]) == len(api)
+    assert ui["links"] and ui["last_link_id"] == len(ui["links"])
+    back = ui_to_api(ui)
+    for nid, node in api.items():
+        assert back[nid]["class_type"] == node["class_type"]
+        assert back[nid]["inputs"] == node["inputs"]
+
+
+def test_api_to_ui_rejects_ui_and_empty():
+    with pytest.raises(ValueError, match="已是"):
+        api_to_ui(_load("txt2img_basic.json"))
+    with pytest.raises(ValueError, match="不是 ComfyUI API"):
+        api_to_ui({})
+
+
+def test_api_to_ui_unknown_class_keeps_links():
+    """未知 class_type:连线保留,widgets 按 key 排序尽力。"""
+    api = {
+        "1": {"class_type": "CustomFoo", "inputs": {"alpha": 3, "beta": "x"}},
+        "2": {"class_type": "CustomBar", "inputs": {"src": ["1", 0], "gain": 0.5}},
+    }
+    ui = api_to_ui(api)
+    assert len(ui["links"]) == 1
+    back = ui_to_api(ui)  # 宽松:未知类丢 widgets 保连线
+    assert back["2"]["inputs"]["src"] == ["1", 0]

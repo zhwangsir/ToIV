@@ -91,7 +91,9 @@ type View =
  *  M4 studio 替代短剧/漫剧:旧 key 一律重定向到 studio。
  *  2026-08-31 精简:Skill 市场/应用市场合并为「市场」(market),旧 key 重定向。
  *  2026-08-31 W1 IA 治理:models/train/backlot 双轨容器收编进资源中心(带 tab);
- *  drama 旧管线退役,重定向 studio(实体数据仍由 /drama/[id] 播放器承载)。 */
+ *  drama 旧管线退役,重定向 studio(实体数据仍由 /drama/[id] 播放器承载)。
+ *  2026-09-12 引擎工作台:image/video 改挂 EngineStudioView(纯引擎工作台),
+ *  KindCreateView(应用目录壳)退役挂载,应用全归应用市场(market)。 */
 const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
   create: "image",
   generate: "image",
@@ -125,9 +127,10 @@ const viewImporters = {
   assistant: () => import("@/components/assistant/AssistantView"),
   // W2:对话首页与助手同 chunk(AssistantView variant="page")
   home: () => import("@/components/assistant/AssistantView"),
-  // 图片/视频默认应用目录(KindCreateView);高级引擎仍走 GenerateView(组件内懒加载)
-  image: () => import("@/components/apps/KindCreateView"),
-  video: () => import("@/components/apps/KindCreateView"),
+  // 2026-09-12 引擎工作台:图片/视频 = 纯引擎工作台(EngineStudioView,kind 区分);
+  // KindCreateView(应用目录壳)退役挂载,不再被任何视图引用,应用全归应用市场
+  image: () => import("@/components/studio/EngineStudioView"),
+  video: () => import("@/components/studio/EngineStudioView"),
   audio: () => import("@/components/audio/AudioView"),
   fusion: () => import("@/components/fusion/FusionView"),
   imageEdit: () => import("@/components/image-edit/ImageEditView"),
@@ -153,8 +156,8 @@ function preloadView(key: View) {
   });
 }
 
-const KindCreateView = lazy(() =>
-  viewImporters.image().then((m) => ({ default: m.KindCreateView })),
+const EngineStudioView = lazy(() =>
+  viewImporters.image().then((m) => ({ default: m.EngineStudioView })),
 );
 // W2:对话首页 = AssistantView 整页形态(与 Shift+Enter 浮层同 chunk)
 const HomeView = lazy(() =>
@@ -247,8 +250,8 @@ const VALID_VIEWS = new Set<View>([
 const VIEW_META: Record<View, { label: string }> = {
   assistant: { label: "对话" },
   home:      { label: "对话" },
-  image:     { label: "图片" },
-  video:     { label: "视频" },
+  image:     { label: "图片生成" },
+  video:     { label: "视频生成" },
   audio:     { label: "音频" },
   fusion:    { label: "融合" },
   imageEdit: { label: "图片编辑" },
@@ -261,7 +264,7 @@ const VIEW_META: Record<View, { label: string }> = {
   library:    { label: "作品库" },
   entities:   { label: "主体库" },
   resources:  { label: "资源" },
-  market:     { label: "市场" },
+  market:     { label: "应用市场" },
   settings:   { label: "设置" },
   observability: { label: "观测" },
   admin:     { label: "管理" },
@@ -269,33 +272,35 @@ const VIEW_META: Record<View, { label: string }> = {
 
 /** Studio Console v1(2026-08-31):左侧 52px 图标栏主项——只保留高频页,
  *  融合/画布/主体库/译制/数字人/编辑器等经 ⌘K 命令面板或页面内入口到达。
- *  窄屏由底部导航承载(BOTTOM_NAV_ITEMS + 「更多」抽屉)。 */
+ *  窄屏由底部导航承载(BOTTOM_NAV_ITEMS + 「更多」抽屉)。
+ *  2026-09-12 引擎工作台:应用市场升至次位,图片/视频改名图片生成/视频生成(纯引擎)。 */
 const RAIL_ITEMS: RailItem[] = [
   { key: "home", label: "对话", icon: "chat" },
-  { key: "image", label: "图片", icon: "image" },
-  { key: "video", label: "视频", icon: "video" },
+  { key: "market", label: "应用市场", icon: "store" },
+  { key: "image", label: "图片生成", icon: "image" },
+  { key: "video", label: "视频生成", icon: "video" },
   { key: "audio", label: "音频", icon: "audio" },
   { key: "studio", label: "工作室", icon: "clapperboard" },
   { key: "library", label: "作品库", icon: "library" },
-  { key: "market", label: "市场", icon: "store" },
   { key: "resources", label: "资源", icon: "models" },
 ];
 
 /** 窄屏底部导航:主入口 5 个(含 CTA)+「更多」抽屉承载其余
- *  W2:CTA 由融合改为对话(首页即助手);融合场景卡入口下沉「更多」抽屉首位 */
+ *  W2:CTA 由融合改为对话(首页即助手);融合场景卡入口下沉「更多」抽屉首位
+ *  2026-09-12 引擎工作台:应用市场进主入口首位;audio 下沉「更多」抽屉首位(去重) */
 const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
+  { key: "market", label: "应用市场", icon: "store" },
   { key: "image", label: "图片", icon: "image" },
   { key: "video", label: "视频", icon: "video" },
-  { key: "audio", label: "音频", icon: "audio" },
   { key: "home", label: "对话", icon: "chat", isCta: true },
   { key: "library", label: "作品", icon: "library" },
 ];
 
 const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
-  // W2:融合门户(场景五卡)下沉抽屉首位
+  // 2026-09-12:audio 由主入口下沉抽屉首位(主入口让位应用市场);market 进主入口后抽屉不再重复
+  { key: "audio", label: "音频", icon: "audio" },
+  // W2:融合门户(场景五卡)下沉抽屉
   { key: "fusion", label: "融合", icon: "sparkles" },
-  { key: "market", label: "市场", icon: "store" },
-  // 2026-08-31 精简:audio 已由底部主入口承载,「更多」抽屉不再重复(双重入口去重)
   // 2026-08-31 精简二轮:fusion 卡五目标(studio/avatartalk/dub/imageEdit/videoEdit)
   // 在抽屉去重——融合页即底部 CTA 主入口,卡片一跳直达,抽屉不再摆第二套(11→6 项)
   { key: "canvas", label: "画布", icon: "workflow" },
@@ -771,8 +776,8 @@ function HomeContent() {
             <Suspense fallback={<ViewFallback label={meta.label} />}>
               {/* W2:对话为家——AssistantView 整页形态(门户空态/场景卡/快捷动作/最近作品) */}
               {view === "home" && <HomeView variant="page" onNavigate={(v) => handleNavSelect(v)} />}
-              {view === "image" && <KindCreateView kind="image" />}
-              {view === "video" && <KindCreateView kind="video" />}
+              {view === "image" && <EngineStudioView kind="image" />}
+              {view === "video" && <EngineStudioView kind="video" />}
               {view === "audio" && <AudioView />}
               {view === "fusion" && <FusionView onNavigate={handleFusionNavigate} />}
               {/* 融合二级页(2026-08-29):统一补「返回融合」入口(onBack) */}

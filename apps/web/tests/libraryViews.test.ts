@@ -379,3 +379,34 @@ test("LibraryView 新结构类名锚点 + library.css 16/9 与 token 收编", ()
   assert.ok(!css.includes("font-weight: 650"), "650 字重硬编码未收编");
   assert.ok(!css.includes("color: #FFFFFF"), "scrim #FFFFFF 硬编码未收编");
 });
+
+/* ── P2 作品库破图占位(2026-09-07):类型图标 + 渐变底,不露破图 ── */
+test("P2 破图占位:ThumbPlaceholder data-filter + JobThumbMedia 兜底 + CSS 渐变令牌", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes("function thumbFilterOf"), "缺 thumbFilterOf");
+  assert.ok(src.includes("function JobThumbMedia"), "缺 JobThumbMedia 统一入口");
+  assert.ok(src.includes("function VideoThumb"), "缺 VideoThumb 失败降级");
+  assert.ok(src.includes('data-filter={filterKey}'), "占位卡须挂 data-filter");
+  assert.ok(src.includes('lib-thumb-placeholder-icon'), "缺占位大图标包裹");
+  assert.ok(src.includes('filterKey === "other"'), "未知 kind 须落 other/file 图标");
+  assert.ok(src.includes("onError={() => setMediaFailed(true)}"), "灯箱图/视频坏链须降级占位");
+  assert.ok(src.includes("setMediaFailed(false)"), "切换作品须重置破图状态");
+
+  const css = readSrc("app/styles/library.css");
+  assert.ok(css.includes(".lib-thumb-placeholder[data-filter=\"image\"]"), "缺 image 渐变档");
+  assert.ok(css.includes(".lib-thumb-placeholder[data-filter=\"video\"]"), "缺 video 渐变档");
+  assert.ok(css.includes(".lib-thumb-placeholder[data-filter=\"audio\"]"), "缺 audio 渐变档");
+  assert.ok(css.includes(".lib-thumb-placeholder[data-filter=\"3d\"]"), "缺 3d 渐变档");
+  assert.ok(css.includes(".lib-thumb-placeholder[data-filter=\"other\"]"), "缺 other 渐变档");
+  assert.ok(css.includes(".lib-thumb-placeholder-icon"), "缺占位图标样式");
+  assert.ok(css.includes("linear-gradient"), "占位须渐变底(市场同范式)");
+  // 零 hex:占位块走 token / color-mix
+  const phStart = css.indexOf("/* ── 占位卡");
+  const phEnd = css.indexOf(".lib-thumb-status {");
+  assert.ok(phStart >= 0 && phEnd > phStart, "占位 CSS 块边界未找到");
+  const phBlock = css.slice(phStart, phEnd);
+  assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(phBlock), "占位卡不得硬编码 hex");
+  assert.ok(phBlock.includes("var(--bg-surface-2)"), "占位须引用表面令牌");
+  assert.ok(phBlock.includes("color-mix"), "类型档须 color-mix 强调令牌");
+});
+

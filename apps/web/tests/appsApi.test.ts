@@ -22,6 +22,9 @@ import {
   getApp,
   listApps,
   mediaFilenames,
+  isRemoteDemoMedia,
+  schemaInitialValues,
+  normalizeMediaDefault,
   normalizeApp,
   requiredParamLabel,
   rhFamilyChips,
@@ -400,22 +403,22 @@ test("rhFamilyOf/rhFamilyChips:取 description 第一个「 · 」前缀,正典�
   assert.deepEqual(rhFamilyChips(apps), ["场景预设", "图生视频", "未知门类"]);
 });
 
-test("sliceCommunityApps:空查询先 24 张+hasMore;搜索/family 上限 120", () => {
+test("sliceCommunityApps:空查询先 10 张+hasMore;搜索/family 上限 120", () => {
   const many = Array.from({ length: 50 }, (_, i) =>
     appItem(`rh-${i}`, { is_builtin: true, description: `${i < 30 ? "文生视频" : "图生视频"} · a · x` }),
   );
   const idle = sliceCommunityApps(many, { q: "", shown: COMMUNITY_PAGE_SIZE });
-  assert.equal(idle.items.length, 24);
+  assert.equal(idle.items.length, 10);
   assert.equal(idle.hasMore, true);
   assert.equal(idle.truncated, false);
-  const more = sliceCommunityApps(many, { q: "", shown: 48 });
-  assert.equal(more.items.length, 48);
+  const more = sliceCommunityApps(many, { q: "", shown: 20 });
+  assert.equal(more.items.length, 20);
   assert.equal(more.hasMore, true);
-  const fam = sliceCommunityApps(many, { q: "", family: "文生视频", shown: 24 });
+  const fam = sliceCommunityApps(many, { q: "", family: "文生视频", shown: 10 });
   assert.equal(fam.items.length, 30);
   assert.equal(fam.hasMore, false);
   const huge = Array.from({ length: 130 }, (_, i) => appItem(`rh-x-${i}`, { description: "场景预设 · a" }));
-  const capped = sliceCommunityApps(huge, { q: "场景", shown: 24 });
+  const capped = sliceCommunityApps(huge, { q: "场景", shown: 10 });
   assert.equal(capped.items.length, COMMUNITY_SEARCH_CAP);
   assert.equal(capped.truncated, true);
   assert.equal(capped.hasMore, false);
@@ -441,8 +444,12 @@ test("filterApps:outputKind + NSFW 同时生效(r18 off 仍藏 is_nsfw)", () => 
   assert.deepEqual(filterApps(apps, { outputKind: "video", r18: true }).map((a) => a.id), ["h3-t2v", "h3-nsfw-t2v"]);
 });
 
-test("FEATURED_VIDEO_APP_IDS:核心模式先于 15s/声音,NSFW 孪生同序", () => {
+test("FEATURED_VIDEO_APP_IDS:核心模式先于 15s/声音,不含 NSFW 孪生(已并入 SFW 同卡)", () => {
   assert.ok(FEATURED_VIDEO_APP_IDS.every((id) => !id.startsWith("rh-")), "精选不得含 rh-* 社区卡");
+  assert.ok(
+    FEATURED_VIDEO_APP_IDS.every((id) => !id.includes("nsfw")),
+    "R18 孪生已并入 SFW 同卡(content_modes),精选不再单独置顶",
+  );
   assert.deepEqual([...FEATURED_VIDEO_APP_IDS], [
     "h3-t2v",
     "h3-i2v",
@@ -451,17 +458,10 @@ test("FEATURED_VIDEO_APP_IDS:核心模式先于 15s/声音,NSFW 孪生同序", (
     "h3-t2v-15s-fast",
     "h3-i2v-15s-fast",
     "h3-r2v-voice",
-    "h3-nsfw-t2v",
-    "h3-nsfw-i2v",
-    "h3-nsfw-fl2v",
-    "h3-nsfw-r2v",
-    "h3-nsfw-t2v-15s-fast",
-    "h3-nsfw-i2v-15s-fast",
-    "h3-nsfw-r2v-voice",
   ]);
 });
 
-test("sortFeaturedApps:H3 四件套(+ NSFW 孪生)置顶,其余保序", () => {
+test("sortFeaturedApps:H3 四件套置顶,其余保序(NSFW 孪生随未精选组保序)", () => {
   const apps = [
     appItem("other-video", { sort: 1 }),
     appItem("h3-i2v", { sort: 20 }),
@@ -473,7 +473,7 @@ test("sortFeaturedApps:H3 四件套(+ NSFW 孪生)置顶,其余保序", () => {
   ];
   assert.deepEqual(
     sortFeaturedApps(apps, FEATURED_VIDEO_APP_IDS).map((a) => a.id),
-    ["h3-t2v", "h3-i2v", "h3-fl2v", "h3-t2v-15s-fast", "h3-r2v-voice", "h3-nsfw-t2v", "other-video"],
+    ["h3-t2v", "h3-i2v", "h3-fl2v", "h3-t2v-15s-fast", "h3-r2v-voice", "other-video", "h3-nsfw-t2v"],
   );
   assert.deepEqual(
     sortFeaturedApps(apps).map((a) => a.id),
@@ -486,4 +486,47 @@ test("featuredAppIdsForKind:仅视频有 H3 精选", () => {
   assert.equal(featuredAppIdsForKind("video"), FEATURED_VIDEO_APP_IDS);
   assert.equal(featuredAppIdsForKind("image"), undefined);
   assert.equal(featuredAppIdsForKind("audio"), undefined);
+});
+
+
+test("isRemoteDemoMedia / mediaFilenames 剥离 http(s) 示例", () => {
+  assert.equal(isRemoteDemoMedia("https://cdn.example/a.jpg"), true);
+  assert.equal(isRemoteDemoMedia("a.png"), false);
+  assert.deepEqual(
+    mediaFilenames([{ filename: "https://cdn.example/a.jpg" }, { filename: "real.png" }], {
+      includeRemoteDemo: false,
+    }),
+    ["real.png"],
+  );
+  assert.deepEqual(
+    mediaFilenames(["https://cdn.example/a.jpg"], { includeRemoteDemo: true }),
+    ["https://cdn.example/a.jpg"],
+  );
+});
+
+test("schemaInitialValues: images default 远程 URL 可预览;必填仍卡真实上传", () => {
+  const cover = "https://rh-hk-images.example/cover.jpg";
+  const schema: AppParam[] = [
+    {
+      key: "images",
+      label: "参考图",
+      type: "images",
+      default: [{ filename: cover, previewUrl: cover, name: "示例参考图" }],
+      required: true,
+    },
+    { key: "positive", label: "提示词", type: "textarea", default: "示例提示" },
+  ];
+  const vals = schemaInitialValues(schema);
+  const imgs = vals.images as Array<{ filename: string; previewUrl: string }>;
+  assert.equal(imgs.length, 1);
+  assert.equal(imgs[0].previewUrl, cover);
+  assert.equal(vals.positive, "示例提示");
+  // demo 不算已上传
+  assert.equal(requiredParamLabel(schema, vals), "参考图");
+  assert.deepEqual(normalizeMediaDefault(cover)[0], {
+    filename: cover,
+    previewUrl: cover,
+    name: "示例参考图",
+    worker: "",
+  });
 });

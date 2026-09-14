@@ -25,8 +25,9 @@ import { preloadEntities } from "./entities";
 const WARMERS: Record<string, ReadonlyArray<() => unknown>> = {
   home: [() => getMe(), () => listAgentSessions()],
   assistant: [() => getMe(), () => listAgentSessions()],
-  image: [() => listApps(), () => fetchEngines(), () => listModels()],
-  video: [() => listApps(), () => fetchEngines(), () => listModels()],
+  // 2026-09-12 引擎工作台:image/video 不再展示应用目录,首屏数据 = 引擎注册表 + 模型清单
+  image: [() => fetchEngines(), () => listModels()],
+  video: [() => fetchEngines(), () => listModels()],
   audio: [() => fetchEngines(), () => listModels()],
   library: [() => listJobs()],
   entities: [() => preloadEntities()],

@@ -9,7 +9,7 @@ import { test, expect, type Page } from "@playwright/test";
  * - R18 模式:图像/视频工作台混入 R18 引擎(带徽标)、引擎出处外链、重新检测按钮
  * - 作品库内容分级筛选(全部/SFW/R18)+ R18 作品徽标
  * - 短剧导航项仅 R18 模式可见;SFW 直输 ?view=drama 弹回对话
- * - 模型页 R18 推荐 tab;/nsfw 旧链接重定向不 404;关闭 R18 恢复 SFW
+ * - 模型页 R18 推荐 tab(仅 admin+R18);/nsfw 旧链接重定向不 404;关闭 R18 恢复 SFW
  *
  * 前置:
  * - storageState: .auth/admin.json (由 global-setup.ts 写入)
@@ -315,11 +315,12 @@ test.describe("R18 全局内容模式", () => {
     },
   );
 
-  // ─── 用例 8:模型页出现 R18 推荐 tab 并可切换 ───
+  // ─── 用例 8:admin + R18 时模型页出现 R18 推荐 tab;SFW 不出现 ───
   test(
-    "authed-r18: 模型页 R18 推荐 tab 可见",
+    "authed-r18: 模型页 R18 推荐 tab 仅 admin+R18 可见",
     { tag: "@authed" },
     async ({ page }) => {
+      // storageState 为 admin.json → admin + R18 应可见
       await gotoR18(page, "/?view=models");
 
       const r18Tab = page.getByRole("tab", { name: /R18 推荐/ });
@@ -327,7 +328,7 @@ test.describe("R18 全局内容模式", () => {
       await r18Tab.click();
       await expect(r18Tab).toHaveAttribute("aria-selected", "true");
 
-      // SFW 模式该 tab 不出现
+      // SFW 模式该 tab 不出现(普通用户资源区亦永不渲染)
       await gotoSfw(page, "/?view=models");
       await expect(
         page.getByRole("tab", { name: /R18 推荐/ }),

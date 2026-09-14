@@ -143,6 +143,9 @@ for (const t of [
   { name: "dark", selectors: [":root", '[data-mode="dark"]'] },
   // paper 主题状态色压深半档(暖纸底合成底贴边),纳入卡控
   { name: "paper", selectors: [":root", '[data-theme="paper"]'] },
+  // P1 2026-09-07:暗基底主题自带状态/soft,纳入卡控(不依赖 data-mode)
+  { name: "cinema", selectors: [":root", '[data-theme="cinema"]'] },
+  { name: "graphite", selectors: [":root", '[data-theme="graphite"]'] },
 ]) {
   const vars = mergedVars(...t.selectors);
   for (const k of ["ok", "warn", "err"] as const) {

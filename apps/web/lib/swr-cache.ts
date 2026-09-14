@@ -274,6 +274,8 @@ export const CACHE_KEYS = {
   apps: "apps",
   /** Agent Team 历史 run 列表 */
   agentRuns: "agent-runs",
+  /** H3 智能加速档位清单(实测倍率;规格文件产出后自动变为 measured) */
+  h3Accel: "h3-accel",
   /** Studio 项目列表 */
   studioProjects: "studio-projects",
 } as const;
@@ -300,6 +302,8 @@ export const TTL = {
   apps: 5 * 60 * 1000,
   /** Agent run 列表:运行中状态流转快,极短缓存仅去重连击。 */
   agentRuns: 15 * 1000,
+  /** H3 加速档位清单:规格文件由基准 agent 间歇产出,中等缓存。 */
+  h3Accel: 60 * 1000,
   /** Studio 项目列表:短缓存 + 增删改显式失效。 */
   studioProjects: 30 * 1000,
 } as const;

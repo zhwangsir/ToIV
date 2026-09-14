@@ -404,6 +404,14 @@ export const authHeaders = (): Record<string, string> => ({});
 /** 产物 URL 构造替身:直接透传(测试不断言完整 URL)。 */
 export const imageUrl = (path: string): string => path;
 
+/** AppRunnerView admin 出处门控:默认非 admin;用例可覆盖. */
+export const getMe = async (): Promise<{ user: { id: string; email: string; role: string }; usage: Record<string, unknown> }> => ({
+  user: { id: "u1", email: "user@test", role: "user" },
+  usage: {},
+});
+export const fetchMe = getMe;
+
+
 /** 分镜 AI 扩写替身(ShotCard 链接期需要;交互不触发,返回空结构)。 */
 export const optimizeStudioShot = async (): Promise<{
   scene: string;

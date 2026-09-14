@@ -29,8 +29,9 @@ export const CHART_SEMANTIC = {
   off: "var(--text-muted)",
 } as const;
 
-/** 网格/十字线颜色走 CSS 变量:浅色主题(默认)深灰细线,[data-mode="dark"] 白细线;
- * 生产当前为浅色主题,硬编码白线会隐形(2026-08-24 舰队视图落地时修)。 */
+/** 网格/十字线颜色走 CSS 变量:亮基底主题(默认)深灰细线;
+ * 暗档(data-mode=dark)与暗基底主题(cinema/graphite)白细线——后两者不写 data-mode,
+ * 必须并列选择器,否则影院/石墨下网格贴暗底隐形(P1 2026-09-07)。 */
 export const CHART_GRID = "var(--uichart-grid, rgba(15,23,42,.10))";
 
 /* ─────────────────────────── 纯函数(可单测) ─────────────────────────── */
@@ -624,13 +625,16 @@ export function ChartStyles() {
         --uichart-grid: rgba(15, 23, 42, 0.10);
         --uichart-crosshair: rgba(15, 23, 42, 0.30);
       }
-      [data-mode="dark"] .uichart {
+      /* 暗档 + 暗基底主题并列:cinema/graphite 不落 data-mode */
+      [data-mode="dark"] .uichart,
+      [data-theme="cinema"] .uichart,
+      [data-theme="graphite"] .uichart {
         --uichart-grid: rgba(255, 255, 255, 0.06);
         --uichart-crosshair: rgba(255, 255, 255, 0.25);
       }
       .uichart-axis {
-        font-size: 11px;
-        fill: var(--text-muted, #888);
+        font-size: var(--text-aux);
+        fill: var(--text-muted);
         font-variant-numeric: tabular-nums;
       }
       .uichart path,
@@ -641,21 +645,23 @@ export function ChartStyles() {
       .uichart-plot {
         position: relative;
       }
+      /* tooltip 恒深压暗浮层(不随亮主题 text-muted 变暗字):纸墨/极简亮底下仍可读 */
       .uichart-tooltip {
         position: absolute;
-        top: 8px;
+        top: var(--space-2);
         transform: translateX(-50%);
-        background: rgba(10, 14, 24, 0.92);
-        border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-        border-radius: 8px;
+        background: var(--overlay-stage);
+        color: var(--abs-white);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: var(--radius-control);
         padding: 6px 10px;
-        font-size: 11px;
+        font-size: var(--text-aux);
         pointer-events: none;
         white-space: nowrap;
         z-index: 2;
       }
       .uichart-tooltip-time {
-        color: var(--text-muted, #888);
+        color: rgba(255, 255, 255, 0.65);
         margin-bottom: 3px;
         font-variant-numeric: tabular-nums;
       }
@@ -667,7 +673,7 @@ export function ChartStyles() {
       .uichart-tooltip-val {
         margin-left: auto;
         font-variant-numeric: tabular-nums;
-        font-weight: 600;
+        font-weight: var(--font-semibold);
       }
       .uichart-tooltip-dot {
         width: 8px;
@@ -681,8 +687,8 @@ export function ChartStyles() {
         flex-wrap: wrap;
         gap: 6px 14px;
         margin-top: 6px;
-        font-size: 11px;
-        color: var(--text-muted, #888);
+        font-size: var(--text-aux);
+        color: var(--text-muted);
       }
       .uichart-legend-item {
         display: inline-flex;
@@ -714,14 +720,14 @@ export function ChartStyles() {
         transform: scale(1.04);
       }
       .uichart-donut-val {
-        font-size: 24px;
-        font-weight: 700;
-        fill: var(--text-primary, #e8ecf4);
+        font-size: var(--text-display-sm);
+        font-weight: var(--font-bold);
+        fill: var(--text-primary);
         font-variant-numeric: tabular-nums;
       }
       .uichart-donut-label {
-        font-size: 11px;
-        fill: var(--text-muted, #888);
+        font-size: var(--text-aux);
+        fill: var(--text-muted);
       }
       @media (prefers-reduced-motion: reduce) {
         .uichart path,

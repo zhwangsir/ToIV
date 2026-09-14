@@ -11,6 +11,13 @@ import {
   withToken,
 } from "./canvasUrl";
 
+/** 给画布 iframe 地址附带 Comfy ?workflow= 与防缓存 _r(同源代理保留既有 query)。 */
+function withWorkflowQuery(src: string, workflowName: string | undefined): string {
+  if (!workflowName) return src;
+  const join = src.includes("?") ? "&" : "?";
+  return `${src}${join}workflow=${encodeURIComponent(workflowName)}&_r=${Date.now()}`;
+}
+
 /**
  * 画布地址决策已收编到 ./canvasUrl(2026-08-30 公网混合内容根治):
  * - HTTP 页面:Tailscale → LAN 直连探测(顺序不变);
@@ -99,8 +106,41 @@ function probeStaticAsset(url: string): Promise<boolean> {
  * - 豁免:iframe 就绪遮罩(全出血剧院式加载幕布,含 spinner)与失败/混合内容全屏 fallback 卡
  *   为设计态容器,不换成 LoadingBlock/ErrorBar(同 ResultPanel 条目级徽章豁免原则)。
  */
+type PendingWorkflow = {
+  name: string;
+  workflowName?: string;
+  error?: string;
+  saveBack?: string;
+};
+
+/** 同步读 sessionStorage,避免 iframe 先以无 ?workflow= 挂载留下旧图。 */
+function readPendingWorkflow(): PendingWorkflow | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem("toiv_pending_comfy_workflow");
+    if (!raw) return null;
+    const data = JSON.parse(raw) as {
+      name?: string;
+      id?: string;
+      workflow_name?: string;
+      error?: string;
+      save_back?: string;
+    };
+    return {
+      name: data.name || data.id || "应用",
+      workflowName: data.workflow_name || undefined,
+      error: data.error || undefined,
+      saveBack: data.save_back || undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function CanvasView() {
   const [status, setStatus] = useState<Status>({ phase: "probing" });
+  /** 应用「在 Comfy 中打开」:后端已上传 UI 图;iframe ?workflow= + Comfy toiv_workflow_query 扩展负责真正 loadGraphData */
+  const [pending, setPending] = useState<PendingWorkflow | null>(() => readPendingWorkflow());
   const [retryTick, setRetryTick] = useState(0);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [iframeKey, setIframeKey] = useState(0);
@@ -151,11 +191,13 @@ export function CanvasView() {
     return () => clearTimeout(timer);
   }, [status, loadState, iframeKey]);
 
-  /** iframe onLoad 后再探测一次:服务在线且静态资源正常才解除遮罩 */
+  /** iframe onLoad 后再探测一次:服务在线且静态资源正常才解除遮罩;
+   *  并向 Comfy toiv_workflow_query 扩展 postMessage 补推待加载工作流(防 canvas-null 竞态)。 */
   const handleIframeLoad = useCallback(() => {
     if (status.phase !== "ready") return;
     const src = status.src;
     const gen = loadGenRef.current;
+    const workflowName = pending?.workflowName;
     (async () => {
       const [serviceOk, staticOk] = await Promise.all([
         reachable(src),
@@ -164,8 +206,25 @@ export function CanvasView() {
       if (loadGenRef.current === gen) {
         setLoadState(serviceOk && staticOk ? "loaded" : "error");
       }
+      // Parent→iframe bridge: extension waits for canvas then loadGraphData
+      if (workflowName && serviceOk) {
+        const post = () => {
+          try {
+            const win = document.querySelector<HTMLIFrameElement>("iframe.canvas-iframe")?.contentWindow;
+            win?.postMessage(
+              { type: "toiv-load-workflow", workflow: workflowName, workflowName },
+              "*",
+            );
+          } catch {
+            /* cross-origin / not ready */
+          }
+        };
+        post();
+        window.setTimeout(post, 800);
+        window.setTimeout(post, 2500);
+      }
     })();
-  }, [status]);
+  }, [status, pending?.workflowName]);
 
   const retry = () => {
     loadGenRef.current += 1;
@@ -197,7 +256,7 @@ export function CanvasView() {
             </span>
             <a
               className="canvas-open-external"
-              href={withToken(src, getToken())}
+              href={withToken(withWorkflowQuery(src, pending?.workflowName), getToken())}
               target="_blank"
               rel="noreferrer"
             >
@@ -231,11 +290,40 @@ export function CanvasView() {
           <Icon name="info" size={14} />
           画布建议桌面端操作,移动端仅支持预览
         </div>
+        {pending && (
+          <div className="canvas-pending-workflow" role="status">
+            <Icon name="workflow" size={14} />
+            <span>
+              {pending.workflowName
+                ? `正在加载应用「${pending.name}」到原生 Comfy(?workflow=${pending.workflowName})。若画布仍是旧图,请硬刷新或点「新窗口打开」。回写到应用尚未接通。`
+                : pending.error
+                  ? `应用「${pending.name}」自动加载失败(${pending.error})。可用应用页「导出」后在此 Load。`
+                  : `来自应用「${pending.name}」的工作流已暂存。请用应用页「导出」后在此 Load。`}
+            </span>
+            <button
+              type="button"
+              className="canvas-pending-dismiss"
+              onClick={() => {
+                try {
+                  sessionStorage.removeItem("toiv_pending_comfy_workflow");
+                } catch {
+                  /* ignore */
+                }
+                setPending(null);
+              }}
+            >
+              知道了
+            </button>
+          </div>
+        )}
         <div className="canvas-stage">
           <div className="canvas-frame">
             <iframe
-              key={iframeKey}
-              src={withToken(status.src, getToken())}
+              key={`${iframeKey}:${pending?.workflowName || ""}`}
+              src={withToken(
+                withWorkflowQuery(status.src, pending?.workflowName),
+                getToken(),
+              )}
               title="ComfyUI"
               className="canvas-iframe"
               onLoad={handleIframeLoad}
@@ -367,6 +455,30 @@ const styles = `
   }
 
   /* ── 移动端兜底提示条(默认隐藏,≤767px 显示) ── */
+  .canvas-pending-workflow {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    margin: 0 var(--space-3) var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-surface-1);
+    color: var(--text-secondary);
+    font-size: var(--text-aux);
+  }
+  .canvas-pending-workflow span {
+    flex: 1;
+    min-width: 0;
+  }
+  .canvas-pending-dismiss {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: var(--text-aux);
+  }
   .canvas-mobile-note {
     display: none;
   }

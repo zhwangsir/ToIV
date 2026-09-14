@@ -19,7 +19,7 @@ import type { NsfwRecommendation } from "@/lib/types";
  * NSFW 推荐模型清单面板(M9:NSFW 整合主站,自 /nsfw 专区 NsfwView recs 区块
  * 抽取为自包含组件)。
  *
- * 供 ModelsView「R18 推荐」tab 使用(仅 R18 模式渲染,门控在调用方);
+ * 供 ModelsView「R18 推荐」tab 使用(仅 admin + R18 模式渲染,门控在调用方);
  * 自带推荐清单加载/默认折叠、NAS 可用性检测、下载任务启动与合并轮询进度跟踪;
  * NAS 未启用时兜底展示 Civitai 外链。
  */

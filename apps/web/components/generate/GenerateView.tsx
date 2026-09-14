@@ -25,6 +25,7 @@ import {
   engineNeedsImage,
   engineNeedsVideo,
   engineSupportsNegative,
+  engineUploadKind,
   fetchEngines,
   refreshEngines,
   submitEngineGeneration,
@@ -1100,24 +1101,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     setSelectedId(entries[next].id);
   }
 
-  const uploadKind =
-    engine?.id === "img2img" || engine?.id === "nsfw-img2img"
-      ? "img2img"
-      : engine?.id === "h3-i2v"
-        ? "h3_i2v"
-        : engine?.id === "avatar-talk"
-          ? "avatar"
-          : engine?.id === "ltx-nsfw-lipsync"
-            ? "ltx_lipsync"
-            : engine?.id === "wan-animate"
-              ? "wan_animate"
-              : engine?.id === "wan-animate-2"
-                ? "wan_animate2"
-                : engine?.id === "wan-vace"
-                  ? "wan_vace"
-                  : engine?.id === "wan-transition" || engine?.id === "vace-edit"
-                    ? "wan_vace" // 与 VACE 同实例(:8197),复用同一上传 kind
-                    : "ltx_i2v";
+  const uploadKind = engine ? engineUploadKind(engine.id) : "ltx_i2v";
 
   return (
     <div className="generate-view">

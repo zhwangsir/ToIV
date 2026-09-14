@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import { ParamField } from "@/components/generate/ParamField";
 import { Icon } from "@/components/ui/Icon";
-import type { AppItem, AppBinding, AppWorkflowNode } from "@/lib/apps";
+import { openAppWorkflowInComfy, type AppItem, type AppBinding, type AppWorkflowNode } from "@/lib/apps";
 
 // ---------------------------------------------------------------------------
 // 布局
@@ -184,6 +184,19 @@ function edgePath(x1: number, y1: number, x2: number, y2: number): string {
 // 组件
 // ---------------------------------------------------------------------------
 
+/** 下载应用 workflow_json(ComfyUI API 格式),供原生 Comfy「Load」二次编辑。 */
+function downloadWorkflowJson(app: AppItem): void {
+  const wf = app.workflow_json;
+  if (!wf || Object.keys(wf).length === 0) return;
+  const blob = new Blob([JSON.stringify(wf, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${app.id || "app"}-workflow.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 interface AppWorkflowGraphProps {
   app: AppItem;
   values: Record<string, unknown>;
@@ -217,6 +230,7 @@ export function AppWorkflowGraph({ app, values, onParamChange, disabled, runSlot
   const [hoverId, setHoverId] = useState<string | null>(null);
   /** 脉冲高亮节点 id(聚焦导航时) */
   const [pulseId, setPulseId] = useState<string | null>(null);
+  const [comfyOpening, setComfyOpening] = useState(false);
   /** 「可调 n」循环聚焦游标 */
   const focusIdxRef = useRef(-1);
   const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -343,6 +357,32 @@ export function AppWorkflowGraph({ app, values, onParamChange, disabled, runSlot
         <button type="button" aria-label="适配全图" onClick={fit}>
           <Icon name="maximize" size={13} />
         </button>
+        {wf && Object.keys(wf).length > 0 && (
+          <>
+            <button
+              type="button"
+              className="wf-toolbar-export"
+              title="导出 ComfyUI API 工作流 JSON"
+              aria-label="导出工作流"
+              onClick={() => downloadWorkflowJson(app)}
+            >
+              <Icon name="download" size={12} /> 导出
+            </button>
+            <button
+              type="button"
+              className="wf-toolbar-comfy"
+              title="上传工作流到画布 worker 并在原生 Comfy 中打开编辑"
+              aria-label="在 Comfy 中打开"
+              disabled={comfyOpening}
+              onClick={() => {
+                setComfyOpening(true);
+                void openAppWorkflowInComfy(app).finally(() => setComfyOpening(false));
+              }}
+            >
+              <Icon name="canvas" size={12} /> {comfyOpening ? "正在打开…" : "在 Comfy 中打开"}
+            </button>
+          </>
+        )}
         <span className="wf-canvas-hint">
           拖动空白平移 · 滚轮缩放 · 双击节点聚焦 · {layout.boxes.length} 节点
         </span>

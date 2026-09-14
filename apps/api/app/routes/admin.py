@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
@@ -120,3 +120,29 @@ def delete_user(
     )
     session.commit()
     return {"deleted": user_id}
+
+
+# ---------------------------------------------------------------------------
+# 内置 AI 知识图谱(admin):实体 + 关系 JSON 导出 / 一跳查询
+# ---------------------------------------------------------------------------
+
+
+@router.get("/admin/knowledge-graph")
+def admin_knowledge_graph(
+    entity: str = Query(default="", max_length=200),
+    depth: int = Query(default=1, ge=1, le=3),
+    admin: User = Depends(get_current_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    """导出内置 AI 最小知识图谱;带 entity 时只返回命中节点的 ≤depth 跳邻域。
+
+    含 admin 出处字段(RH webappId / civitai / engine.source.url)。普通用户 403。
+    """
+    from app.services.knowledge_graph import build_builtin_knowledge_graph, query_neighborhood
+
+    _ = admin  # 门控已由 Depends(get_current_admin) 完成
+    graph = build_builtin_knowledge_graph(session)
+    if entity.strip():
+        sub = query_neighborhood(graph, entity, depth=depth)
+        return {"mode": "query", "entity": entity, "depth": depth, **sub}
+    return {"mode": "export", **graph}

@@ -20,7 +20,10 @@
   background-position: 100% 0;
   animation: skeleton-shimmer-sweep var(--duration-pulse) linear infinite;
 }
-[data-mode="dark"] .skeleton-shimmer {
+/* 暗档 + cinema/graphite 暗基底并列(后两者不落 data-mode) */
+[data-mode="dark"] .skeleton-shimmer,
+[data-theme="cinema"] .skeleton-shimmer,
+[data-theme="graphite"] .skeleton-shimmer {
   background-image: linear-gradient(
     100deg,
     transparent 25%,

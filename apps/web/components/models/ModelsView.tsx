@@ -87,6 +87,17 @@ const MARKET_TYPES: { value: string; label: string }[] = [
   { value: "Hypernetwork", label: "Hypernetwork" },
 ];
 
+/** 在线市场来源(API 已支持 civitai/huggingface;RH 应用走「市场→应用」页)。 */
+type MarketSource = "civitai" | "huggingface";
+const MARKET_SOURCES: { value: MarketSource; label: string }[] = [
+  { value: "civitai", label: "Civitai" },
+  { value: "huggingface", label: "HuggingFace" },
+];
+const MARKET_SOURCE_LABEL: Record<MarketSource, string> = {
+  civitai: "Civitai",
+  huggingface: "HuggingFace",
+};
+
 export function ModelsView() {
   const [tab, setTab] = useState<Tab>("local");
   // M9:R18 全局内容模式,仅开启时显示「R18 推荐」tab
@@ -135,6 +146,11 @@ export function ModelsView() {
       .then((me) => setIsAdmin(me.user?.role === "admin"))
       .catch(() => {});
   }, [loadWiki]);
+
+  // 防弹:非 admin 或关 R18 时若仍停留在 r18 tab,回退到本地
+  useEffect(() => {
+    if ((!r18 || !isAdmin) && tab === "r18") setTab("local");
+  }, [r18, isAdmin, tab]);
 
   const runEnrich = useCallback(async () => {
     setEnriching(true);
@@ -241,7 +257,8 @@ export function ModelsView() {
     }, 0);
   }, [localModels]);
 
-  // ---- 在线市场 ----
+  // ---- 在线市场(统一 HF/Civitai 列表;来源切换) ----
+  const [marketSource, setMarketSource] = useState<MarketSource>("civitai");
   const [marketQuery, setMarketQuery] = useState("");
   const [marketType, setMarketType] = useState("");
   const [marketItems, setMarketItems] = useState<MarketItem[]>([]);
@@ -252,13 +269,26 @@ export function ModelsView() {
   // 市场模型安装状态:id → 状态
   const [installState, setInstallState] = useState<Record<string, InstallState>>({});
 
+  const switchMarketSource = useCallback((next: MarketSource) => {
+    setMarketSource(next);
+    setMarketItems([]);
+    setMarketError(null);
+    setHasSearched(false);
+    setFailedThumbs(new Set());
+    // HF 无 Civitai 类型轴,切走时清空以免脏参数
+    if (next === "huggingface") setMarketType("");
+  }, []);
+
   const runSearch = useCallback(async () => {
     const q = marketQuery.trim();
     if (!q) return;
     setMarketLoading(true);
     setMarketError(null);
     try {
-      const res = await searchMarketplace("civitai", q, marketType || undefined);
+      // Civitai 才传 types;HF 搜索忽略 type(后端 pipeline_tag 另轨)
+      const typeArg =
+        marketSource === "civitai" && marketType ? marketType : undefined;
+      const res = await searchMarketplace(marketSource, q, typeArg);
       setMarketItems(res.items);
       setFailedThumbs(new Set());
       setHasSearched(true);
@@ -269,7 +299,7 @@ export function ModelsView() {
     } finally {
       setMarketLoading(false);
     }
-  }, [marketQuery, marketType]);
+  }, [marketQuery, marketType, marketSource]);
 
   const onMarketKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
@@ -374,11 +404,14 @@ export function ModelsView() {
     { intervalMs: 2000, enabled: hasInstalling, backoff: true },
   );
 
-  // 段控项(P1-1 墨丸 .at-seg);R18 推荐 tab 仅 R18 模式渲染,SFW 模式连 tab 头都不出现
+  // 段控项(P1-1 墨丸 .at-seg);R18 推荐仅 admin + R18 模式(普通用户资源区零 R18 推荐)
+  const showR18Recs = r18 && isAdmin;
   const tabItems: { key: Tab; label: string; icon: IconName }[] = [
     { key: "local", label: "本地模型", icon: "models" },
     { key: "market", label: "在线市场", icon: "search" },
-    ...(r18 ? [{ key: "r18" as Tab, label: "R18 推荐", icon: "lock" as IconName }] : []),
+    ...(showR18Recs
+      ? [{ key: "r18" as Tab, label: "R18 推荐", icon: "lock" as IconName }]
+      : []),
   ];
 
   return (
@@ -580,31 +613,58 @@ export function ModelsView() {
       ) : tab === "market" ? (
         <section className="mv-panel">
           <div className="mv-toolbar">
+            <div className="mv-source-chips" role="tablist" aria-label="模型市场来源">
+              {MARKET_SOURCES.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={marketSource === s.value}
+                  className={`mv-source-chip${marketSource === s.value ? " is-on" : ""}`}
+                  onClick={() => switchMarketSource(s.value)}
+                >
+                  {s.label}
+                </button>
+              ))}
+              <a
+                className="mv-source-chip mv-source-chip--link"
+                href="/?view=market"
+                title="RunningHub 风格应用市场在「市场 → 应用」"
+              >
+                应用(RH)
+              </a>
+            </div>
             <div className="mv-search mv-search-lg">
               <span className="mv-search-icon">
                 <Icon name="search" size={16} />
               </span>
               <input
                 className="input mv-search-input"
-                placeholder="搜索 Civitai：如 anime pastel mix、controlnet depth…"
+                placeholder={
+                  marketSource === "huggingface"
+                    ? "搜索 HuggingFace：如 black-forest-labs/FLUX.1-dev…"
+                    : "搜索 Civitai：如 anime pastel mix、controlnet depth…"
+                }
                 value={marketQuery}
                 onChange={(e) => setMarketQuery(e.target.value)}
                 onKeyDown={onMarketKey}
-                aria-label="搜索 Civitai 市场"
+                aria-label={`搜索 ${MARKET_SOURCE_LABEL[marketSource]} 市场`}
               />
             </div>
-            <select
-              className="input mv-type-select"
-              value={marketType}
-              onChange={(e) => setMarketType(e.target.value)}
-              aria-label="模型类型筛选"
-            >
-              {MARKET_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
+            {marketSource === "civitai" && (
+              <select
+                className="input mv-type-select"
+                value={marketType}
+                onChange={(e) => setMarketType(e.target.value)}
+                aria-label="模型类型筛选"
+              >
+                {MARKET_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            )}
             <button
               type="button"
               className="at-btn at-btn--primary"
@@ -634,17 +694,21 @@ export function ModelsView() {
             <Empty
               size="section"
               icon="search"
-              title={hasSearched ? "未找到匹配的模型" : "搜索 Civitai 在线市场"}
+              title={
+                hasSearched
+                  ? "未找到匹配的模型"
+                  : `搜索 ${MARKET_SOURCE_LABEL[marketSource]} 在线市场`
+              }
               desc={
                 hasSearched
-                  ? "换个关键词或调整类型筛选再试试"
+                  ? "换个关键词或调整类型/来源再试试"
                   : "输入模型名称、风格或关键词，发现社区精选模型"
               }
             />
           ) : (
             <>
               <div className="mv-result-meta">
-                共 {marketItems.length} 个结果 · 来源 Civitai
+                共 {marketItems.length} 个结果 · 来源 {MARKET_SOURCE_LABEL[marketSource]}
               </div>
               <div className="mv-market-grid">
                 {marketItems.map((m) => {
@@ -657,7 +721,7 @@ export function ModelsView() {
                         href={m.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        aria-label={`在 Civitai 查看 ${m.name}`}
+                        aria-label={`在 ${MARKET_SOURCE_LABEL[marketSource]} 查看 ${m.name}`}
                       >
                         {thumbOk ? (
                           <img
@@ -697,7 +761,7 @@ export function ModelsView() {
                             rel="noopener noreferrer"
                           >
                             <Icon name="link" size={12} strokeWidth={1.9} />
-                            在 Civitai 查看
+                            在 {MARKET_SOURCE_LABEL[marketSource]} 查看
                           </a>
                           <button
                             type="button"
@@ -745,8 +809,8 @@ export function ModelsView() {
             </>
           )}
         </section>
-      ) : r18 ? (
-        /* M9:R18 推荐面板(自 /nsfw 专区迁移,自包含加载/下载/轮询/样式) */
+      ) : showR18Recs ? (
+        /* admin + R18:资源区保留推荐面板;普通用户不渲染 */
         <NsfwRecsPanel />
       ) : null}
 
@@ -818,7 +882,7 @@ export function ModelsView() {
                     </p>
                   </section>
                 )}
-                {detailCard.civitai_url && (
+                {isAdmin && detailCard.civitai_url && (
                   <a
                     className="mv-card-link"
                     href={detailCard.civitai_url}
@@ -829,20 +893,38 @@ export function ModelsView() {
                     在 Civitai 查看完整介绍与版本
                   </a>
                 )}
+                {isAdmin && detailCard.huggingface_url && (
+                  <a
+                    className="mv-card-link"
+                    href={detailCard.huggingface_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Icon name="link" size={13} />
+                    在 HuggingFace 查看模型卡
+                  </a>
+                )}
               </>
             ) : (
               <p className="mv-card-empty">
-                该模型暂未收录介绍。管理员可点上方「富化介绍」从 Civitai
-                自动补全(用途/触发词/基模/许可);也可直接
-                <a
-                  className="mv-card-link-inline"
-                  href={`https://civitai.red/search/models?query=${encodeURIComponent(detailCard.filename.replace(/\.[^.]+$/, "").slice(0, 60))}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  去 Civitai 搜索
-                </a>
-                。
+                该模型暂未收录介绍。
+                {isAdmin ? (
+                  <>
+                    管理员可点上方「富化介绍」从 Civitai
+                    自动补全(用途/触发词/基模/许可);也可直接
+                    <a
+                      className="mv-card-link-inline"
+                      href={`https://civitai.red/search/models?query=${encodeURIComponent(detailCard.filename.replace(/\.[^.]+$/, "").slice(0, 60))}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      去 Civitai 搜索
+                    </a>
+                    。
+                  </>
+                ) : (
+                  <>可向管理员申请补全介绍,或换已有百科条目的模型查看。</>
+                )}
               </p>
             )}
           </div>
@@ -1017,6 +1099,40 @@ export function ModelsView() {
           display: flex;
           flex-direction: column;
           gap: var(--section-gap);
+        }
+
+        /* 市场来源 chips(HF / Civitai;RH 链到市场应用页) */
+        .mv-source-chips {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-1);
+          flex-wrap: wrap;
+        }
+        .mv-source-chip {
+          display: inline-flex;
+          align-items: center;
+          min-height: 32px;
+          padding: 0 var(--space-3);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-full);
+          background: var(--bg-surface-0);
+          color: var(--text-muted);
+          font-size: var(--text-aux);
+          font-weight: var(--font-medium);
+          cursor: pointer;
+          text-decoration: none;
+        }
+        .mv-source-chip:hover {
+          color: var(--text);
+          border-color: var(--border);
+        }
+        .mv-source-chip.is-on {
+          color: var(--text-on-accent);
+          background: var(--accent);
+          border-color: var(--accent);
+        }
+        .mv-source-chip--link {
+          border-style: dashed;
         }
 
         /* 工具栏面板化:搜索/筛选/统计聚合为一条独立面板,与下方内容拉开层级 */

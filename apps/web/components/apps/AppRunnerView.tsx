@@ -1,31 +1,42 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { AppWorkflowGraph } from "@/components/apps/AppWorkflowGraph";
 import { ParamField } from "@/components/generate/ParamField";
+import { H3AccelSelect } from "@/components/generate/H3AccelSelect";
 import { Button } from "@/components/ui/Button";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input } from "@/components/ui/Input";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { AgeGateModal } from "@/components/ui/AgeGateModal";
 import { useToast } from "@/components/ui/Toast";
 import {
   appAuthorInitial,
   appAuthorOf,
+  appSupportsH3Accel,
   appUploadKind,
   buildRunValues,
+  extractRhWebappId,
+  rhWebappDetailUrl,
   firstPinWorker,
   getApp,
+  getAppGuide,
   groupAppParams,
+  openAppWorkflowInComfy,
   placeholderAspect,
   requiredParamLabel,
   runApp,
+  summarizeWorkflowNodes,
+  schemaInitialValues,
+  type AppGuide,
   type AppItem,
   type AppParam,
 } from "@/lib/apps";
-import { imageUrl, listJobs } from "@/lib/api";
+import { getMe, imageUrl, listJobs } from "@/lib/api";
+import type { H3AccelLevel } from "@/lib/h3Accel";
+import { confirmAge, isAgeConfirmed, useR18Mode } from "@/lib/r18";
 import { mediaKindOf } from "@/lib/mediaKind";
 import { trackJob, TrackJobAbortError } from "@/lib/trackJob";
 import type { GenerateResponse, JobItem } from "@/lib/types";
@@ -33,16 +44,14 @@ import type { GenerateResponse, JobItem } from "@/lib/types";
 import "@/app/styles/apps.css";
 
 /**
- * 应用详情/运行页(2026-09-06 RunningHub 化重构):暗底(.rh-dark 作用域)+ 左右两栏——
- * 左列 380px 参数列(按 groupAppParams 三档折叠分区:荧光绿分区标题+chevron;
- * 数值参数用 −/+ stepper;上传字段缩略图由 Ref*Upload 自带) + 底部通栏荧光绿「立即运行」大按钮;
- * 右列预览(cover_url 大图,空则 category 渐变占位 + 简介)+「我的生成」
- * (本次运行结果置顶 + listJobs 按 app_id 过滤的历史产物网格,复用结果区渲染)。
- * 「简洁/工作流」段控保留在顶条:工作流 = AppWorkflowGraph 全图画布(浮动运行条不变)。
+ * 应用详情/运行页(2026-09-07 RH 详情落地 / open-app UX):
+ * 默认「详情」落地 = 左大封面 + 右标题/元信息 + 主 CTA「打开应用」「打开工作流」
+ * + 下方「节点信息」(primitive/custom)+ admin 出处;
+ * 「打开应用」→ RH 运行台 only(左参数 + 右「应用详情|我的生成」tabs),无简洁/工作流段控;
+ * 「打开工作流」/运行台「在画布中编辑」→ open-in-Comfy(/?view=canvas)。
+ * 内嵌 AppWorkflowGraph 段控已移除;画布编辑走 Comfy 路径。
  *
- * 提交链不变:POST /api/apps/{id}/run → trackJob(SSE + 轮询兜底)→ 产物按 output_kind 渲染。
- * ParamField 复用说明:ParamField 只依赖 props(param/value/onChange/disabled),
- * 不耦合任何引擎上下文;AppParam 是 EngineParam 的结构子集,直接复用。
+ * 设计锁:单色极简 + RH 市场版型 + 主题令牌(勿硬编码 RH 荧光绿)。
  */
 
 interface AppRunnerViewProps {
@@ -53,15 +62,12 @@ interface AppRunnerViewProps {
   backLabel?: string;
 }
 
-/** 参数初值:schema default 优先;images/audio/video 兜底 [];switch 兜底 false,其余兜底空串。 */
+/** 参数初值:走 schemaInitialValues(媒体也吃 default,远程 demo URL 可预览)。 */
 function initialValues(app: AppItem): Record<string, unknown> {
-  const v: Record<string, unknown> = {};
-  for (const p of app.params_schema) {
-    if (p.type === "images" || p.type === "audio" || p.type === "video") v[p.key] = [];
-    else v[p.key] = p.default ?? (p.type === "switch" ? false : "");
-  }
-  return v;
+  return schemaInitialValues(app.params_schema);
 }
+
+type RunnerPhase = "detail" | "run";
 
 export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: AppRunnerViewProps) {
   const toast = useToast();
@@ -69,8 +75,19 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
-  /** 双模式(2026-09-02):简洁 = 表单;工作流 = 全图展现 + 节点内联调参 */
-  const [mode, setMode] = useState<"simple" | "workflow">("simple");
+  const [contentMode, setContentMode] = useState<"sfw" | "nsfw">("sfw");
+  /** H3 智能加速档(2026-09-12):仅 H3 家族应用显示选择器,默认关闭 */
+  const [accel, setAccel] = useState<H3AccelLevel>("off");
+  const [r18, setR18Mode] = useR18Mode();
+  const [ageGateOpen, setAgeGateOpen] = useState(false);
+  /** 详情落地 → 打开应用后进入运行台 */
+  const [phase, setPhase] = useState<RunnerPhase>("detail");
+  /** 预览封面加载失败降级占位(与市场卡 onError 同范式) */
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [comfyOpening, setComfyOpening] = useState(false);
+  /** 使用指南(2026-09-12 P1 说明卡):has_guide 才拉;失败静默降级不显示 */
+  const [guide, setGuide] = useState<AppGuide | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [running, setRunning] = useState(false);
@@ -81,6 +98,8 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
   const abortRef = useRef<AbortController | null>(null);
   /** 「我的生成」:该 app 的历史产物(2026-09-06 RH 化;按 app_id 过滤,旧后端无 app_id 时自然为空) */
   const [history, setHistory] = useState<JobItem[]>([]);
+  /** 右栏 RH 双 Tab:应用详情(封面/元信息) | 我的生成(历史网格);默认详情,跑通后切历史 */
+  const [panelTab, setPanelTab] = useState<"detail" | "history">("detail");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -100,6 +119,40 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    setPreviewFailed(false);
+    setPhase("detail");
+    setComfyOpening(false);
+    setPanelTab("detail");
+    setAccel("off");
+  }, [appId, app?.cover_url]);
+
+  useEffect(() => {
+    setGuide(null);
+    if (!app?.id || !app.has_guide) return;
+    let alive = true;
+    void getAppGuide(app.id).then((g) => {
+      if (alive) setGuide(g);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [app?.id, app?.has_guide]);
+
+  useEffect(() => {
+    let alive = true;
+    getMe()
+      .then((me) => {
+        if (alive) setIsAdmin(me.user?.role === "admin");
+      })
+      .catch(() => {
+        if (alive) setIsAdmin(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -125,6 +178,11 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
     };
   }, [app]);
 
+  const nodeSummary = useMemo(
+    () => summarizeWorkflowNodes(app?.workflow_json ?? null),
+    [app?.workflow_json],
+  );
+
   const onParamChange = useCallback((key: string, value: unknown) => {
     setValues((prev) => ({ ...prev, [key]: value }));
   }, []);
@@ -143,6 +201,19 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
               return missing ? `请填写「${missing}」` : null;
             })();
 
+  function requestNsfwMode() {
+    if (r18) {
+      setContentMode("nsfw");
+      return;
+    }
+    if (isAgeConfirmed()) {
+      setR18Mode(true);
+      setContentMode("nsfw");
+      return;
+    }
+    setAgeGateOpen(true);
+  }
+
   async function run() {
     if (!app || disabledReason) return;
     setSubmitting(true);
@@ -153,7 +224,16 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
     abortRef.current = ctrl;
     let receipt: Awaited<ReturnType<typeof runApp>>;
     try {
-      receipt = await runApp(app.id, buildRunValues(app.params_schema, values));
+      receipt = await runApp(app.id, buildRunValues(app.params_schema, values), {
+        content_mode:
+          app.content_modes?.includes("sfw") && app.content_modes?.includes("nsfw")
+            ? contentMode
+            : app.is_nsfw
+              ? "nsfw"
+              : "sfw",
+        // 智能加速:非 H3 应用恒 off(选择器不渲染),这里兜底不传
+        acceleration: appSupportsH3Accel(app) ? accel : "off",
+      });
     } catch (e) {
       setRunError(e instanceof Error ? e.message : "提交失败");
       setSubmitting(false);
@@ -179,6 +259,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
         onProgress: (p) => setProgress(p.pct),
       });
       setResults(paths);
+      if (paths.length > 0) setPanelTab("history");
       toast.success(paths.length > 0 ? "生成完成" : "生成完成,产物可在作品库查看");
     } catch (e) {
       // 用户离开页面/重跑触发的 AbortError 静默吞掉(非失败)
@@ -190,6 +271,38 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
       setProgress(null);
     }
   }
+
+  function handleBack() {
+    if (phase === "run") {
+      setPhase("detail");
+      return;
+    }
+    onBack();
+  }
+
+  async function handleOpenWorkflow() {
+    if (!app || comfyOpening) return;
+    setComfyOpening(true);
+    setRunError(null);
+    try {
+      const res = await openAppWorkflowInComfy(app);
+      // 通常已 location.assign 离开本页;若导航未发生则落 ErrorBar + toast
+      if (!res.ok) {
+        const msg = res.error || "打开工作流失败";
+        setRunError(msg);
+        toast.error(msg);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "打开工作流失败";
+      setRunError(msg);
+      toast.error(msg);
+    } finally {
+      setComfyOpening(false);
+    }
+  }
+
+  const workflowMissing =
+    !app?.workflow_json || Object.keys(app.workflow_json ?? {}).length === 0;
 
   if (loading) {
     return (
@@ -222,13 +335,22 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
     );
   }
 
+  const backText = phase === "run" ? "返回详情" : backLabel;
+  const rhWebappId = app.rh_webapp_id || extractRhWebappId(app.description);
+  const adminSourceLinks = isAdmin
+    ? app.source_links.length > 0
+      ? app.source_links
+      : rhWebappId
+        ? [{ label: "RunningHub", url: app.rh_webapp_url || rhWebappDetailUrl(rhWebappId) }]
+        : []
+    : [];
+
   return (
     <div className="single-view apps-runner rh-dark">
-      {/* 工作台细顶条(2026-09-02 W3 页头移除):返回 + 应用名 + 描述(截断) + 右側段控/用量;
-          sticky 保留——长工作流下段控不能滚出视口;2026-09-06 RH 化:用量改 ▶ 荧光徽标 */}
+      {/* 工作台细顶条:返回 + 应用名 + 描述(截断) + 右側段控/用量 */}
       <header className="apps-runner-head">
-        <button type="button" className="apps-runner-back" onClick={onBack}>
-          <Icon name="chevron-left" size={13} /> {backLabel}
+        <button type="button" className="apps-runner-back" onClick={handleBack}>
+          <Icon name="chevron-left" size={13} /> {backText}
         </button>
         <span className="apps-runner-appicon" aria-hidden="true">
           <Icon name={(app.icon || "package") as IconName} size={14} />
@@ -250,57 +372,254 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
             <Icon name="play" size={10} />
             {app.usage_count} 次使用
           </span>
-          {/* 简洁/工作流 双模式段控(2026-09-02):工作流把全图展现给用户,最可控 */}
-          <div className="at-seg rh-seg" role="tablist" aria-label="显示模式">
-            {(
-              [
-                ["simple", "简洁"],
-                ["workflow", "工作流"],
-              ] as const
-            ).map(([m, label]) => (
-              <button
-                key={m}
-                type="button"
-                role="tab"
-                aria-selected={mode === m}
-                className={`at-seg-btn${mode === m ? " is-active" : ""}`}
-                onClick={() => setMode(m)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          {phase === "run" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={comfyOpening || workflowMissing}
+              title={
+                workflowMissing
+                  ? "该应用暂无工作流数据，无法在画布中编辑"
+                  : "在原生 Comfy 画布中编辑此应用工作流"
+              }
+              icon={<Icon name={comfyOpening ? "loading" : "workflow"} size={13} />}
+              onClick={() => void handleOpenWorkflow()}
+            >
+              {comfyOpening ? "正在打开…" : "在画布中编辑"}
+            </Button>
+          )}
         </span>
       </header>
 
       <ErrorBar message={runError} onClose={() => setRunError(null)} />
 
-      {mode === "workflow" ? (
-        <AppWorkflowGraph
-          app={app}
-          values={values}
-          onParamChange={onParamChange}
-          disabled={submitting || running}
-          uploadKind={appUploadKind(app.id)}
-          pinWorker={firstPinWorker(values)}
-          runSlot={
+      {phase === "detail" ? (
+        <div className="rh-detail">
+          <RhPanelTabs tab={panelTab} onChange={setPanelTab} />
+
+          {panelTab === "detail" ? (
             <>
-              <Button
-                variant="primary"
-                icon={<Icon name="zap" size={14} />}
-                loading={submitting || running}
-                disabled={disabledReason != null}
-                onClick={() => void run()}
-              >
-                运行应用
-              </Button>
-              {disabledReason && <span className="apps-disabled-reason">{disabledReason}</span>}
+          <div className="rh-detail-hero">
+            <div
+              className="rh-detail-cover"
+              data-category={app.category}
+              style={
+                app.cover_url && !previewFailed ? undefined : { aspectRatio: placeholderAspect(app.id) }
+              }
+            >
+              {app.cover_url && !previewFailed ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  className="rh-card-img"
+                  src={imageUrl(app.cover_url)}
+                  alt={app.name}
+                  onError={() => setPreviewFailed(true)}
+                />
+              ) : (
+                <span className="rh-card-placeholder-icon" aria-hidden="true">
+                  <Icon name={(app.icon || "package") as IconName} size={48} strokeWidth={1.2} />
+                </span>
+              )}
+            </div>
+
+            <div className="rh-detail-meta">
+              <h1 className="rh-detail-title">{app.name}</h1>
+              <div className="rh-detail-byline">
+                <span className="rh-card-avatar" aria-hidden="true">
+                  {appAuthorInitial(app)}
+                </span>
+                <span>{appAuthorOf(app)}</span>
+                <span className="rh-detail-dot" aria-hidden="true">
+                  ·
+                </span>
+                <span className="rh-detail-usage">
+                  <Icon name="play" size={11} />
+                  {app.usage_count} 次使用
+                </span>
+                {app.content_modes?.includes("sfw") && app.content_modes?.includes("nsfw") && (
+                  <>
+                    <span className="rh-detail-pill">SFW</span>
+                    <span className="rh-detail-pill">NSFW</span>
+                  </>
+                )}
+                {!(app.content_modes?.includes("sfw") && app.content_modes?.includes("nsfw")) &&
+                  (app.content_modes?.includes("nsfw") || (!app.content_modes?.length && app.is_nsfw)) && (
+                    <span className="rh-detail-pill">NSFW</span>
+                  )}
+                {app.is_builtin && <span className="rh-detail-pill">内置</span>}
+              </div>
+              {app.description && <p className="rh-detail-desc">{app.description}</p>}
+
+              <div className="rh-detail-ctas">
+                <button
+                  type="button"
+                  className="rh-detail-cta rh-detail-cta--primary"
+                  onClick={() => {
+                    setPhase("run");
+                    setPanelTab("detail");
+                  }}
+                >
+                  <Icon name="zap" size={15} />
+                  打开应用
+                </button>
+                <button
+                  type="button"
+                  className="rh-detail-cta rh-detail-cta--secondary"
+                  disabled={comfyOpening || workflowMissing}
+                  title={
+                    workflowMissing
+                      ? "该应用暂无工作流数据，无法打开"
+                      : "在原生 Comfy 画布中打开此应用工作流"
+                  }
+                  aria-busy={comfyOpening}
+                  onClick={() => void handleOpenWorkflow()}
+                >
+                  <Icon name={comfyOpening ? "loading" : "workflow"} size={15} />
+                  {comfyOpening ? "正在打开…" : "打开工作流"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {guide && <AppGuideCard guide={guide} />}
+
+          <section className="rh-detail-nodes" aria-label="节点信息">
+            <h2 className="rh-detail-section-title">节点信息</h2>
+            {nodeSummary.totalNodes === 0 ? (
+              <Empty size="inline" title="暂无工作流节点数据" />
+            ) : (
+              <>
+                <div className="rh-detail-node-stats">
+                  <span>
+                    共 <strong>{nodeSummary.totalNodes}</strong> 节点 / {nodeSummary.totalTypes} 类
+                  </span>
+                  <span>
+                    原生 <strong>{nodeSummary.primitiveCount}</strong>
+                  </span>
+                  <span>
+                    自定义 <strong>{nodeSummary.customCount}</strong>
+                  </span>
+                </div>
+                <div className="rh-detail-node-cols">
+                  <NodeTypeList
+                    title={`原生节点 (${nodeSummary.primitiveTypes.length})`}
+                    items={nodeSummary.primitiveTypes}
+                    empty="无原生节点"
+                  />
+                  <NodeTypeList
+                    title={`自定义节点 (${nodeSummary.customTypes.length})`}
+                    items={nodeSummary.customTypes}
+                    empty="无自定义节点"
+                  />
+                </div>
+              </>
+            )}
+          </section>
+
+          {isAdmin && (
+            <section className="rh-detail-provenance" aria-label="应用出处">
+              <h2 className="rh-detail-section-title">出处（仅管理员）</h2>
+              <dl className="rh-detail-prov-grid">
+                <div>
+                  <dt>应用 ID</dt>
+                  <dd>{app.id}</dd>
+                </div>
+                <div>
+                  <dt>作者</dt>
+                  <dd>{appAuthorOf(app)}</dd>
+                </div>
+                <div>
+                  <dt>RH webappId</dt>
+                  <dd>
+                    {rhWebappId ? (
+                      <a
+                        className="rh-prov-link"
+                        href={app.rh_webapp_url || rhWebappDetailUrl(rhWebappId)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {rhWebappId}
+                        <Icon name="link" size={12} />
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>分类 / 产物</dt>
+                  <dd>
+                    {app.category} · {app.output_kind}
+                  </dd>
+                </div>
+                <div>
+                  <dt>可见性</dt>
+                  <dd>
+                    {app.is_builtin ? "内置" : app.is_public ? "公开" : "私有"}
+                    {app.is_mine ? " · 我的" : ""}
+                  </dd>
+                </div>
+              </dl>
+              {adminSourceLinks.length > 0 && (
+                <ul className="rh-prov-links" aria-label="出处外链">
+                  {adminSourceLinks.map((l) => (
+                    <li key={l.url}>
+                      <a
+                        className="rh-prov-link"
+                        href={l.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {l.label}
+                        <Icon name="link" size={12} />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
             </>
-          }
-        />
+          ) : (
+            <section className="rh-history" aria-label="我的生成">
+              {results.length === 0 && history.length === 0 ? (
+                <Empty size="inline" title="还没有生成记录——点「打开应用」填参运行" />
+              ) : (
+                <div className="apps-results rh-history-grid">
+                  {results.map((p) => (
+                    <ResultTile key={`run:${p}`} path={p} app={app} />
+                  ))}
+                  {history.flatMap((j) =>
+                    j.results.map((p) => <ResultTile key={`${j.id}:${p}`} path={p} app={app} />),
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+        </div>
       ) : (
-        /* RH 两栏(2026-09-06):左 380px 参数列(折叠分区 + 通栏「立即运行」)/ 右预览+我的生成;
-           ≤1023px 纵向堆叠(参数列在上) */
+        /* RH 两栏:左参数列 / 右预览+我的生成(无简洁/工作流段控) */
+        <>
+              {app.content_modes?.includes("sfw") && app.content_modes?.includes("nsfw") && (
+                <div className="rh-content-mode" role="group" aria-label="内容模式">
+                  <button
+                    type="button"
+                    className={`rh-content-mode-btn${contentMode === "sfw" ? " is-active" : ""}`}
+                    onClick={() => setContentMode("sfw")}
+                    disabled={submitting || running}
+                  >
+                    SFW
+                  </button>
+                  <button
+                    type="button"
+                    className={`rh-content-mode-btn${contentMode === "nsfw" ? " is-active" : ""}`}
+                    onClick={() => requestNsfwMode()}
+                    disabled={submitting || running}
+                  >
+                    NSFW
+                  </button>
+                </div>
+              )}
         <div className="rh-runner-body">
           <aside className="rh-params">
             <div className="apps-runner-form rh-params-scroll">
@@ -308,7 +627,6 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
                 <RhParamSection key={g.key} title={g.label}>
                   {g.params.map((p) =>
                     p.type === "number" ? (
-                      /* 数值参数走 RH stepper(−/+),其余类型复用 ParamField */
                       <RhNumberField
                         key={p.key}
                         param={p}
@@ -330,8 +648,14 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
                   )}
                 </RhParamSection>
               ))}
+              {appSupportsH3Accel(app) && (
+                <H3AccelSelect
+                  value={accel}
+                  onChange={setAccel}
+                  disabled={submitting || running}
+                />
+              )}
             </div>
-            {/* 底部通栏运行条:荧光绿大按钮 + 禁用原因 + 运行状态 */}
             <div className="apps-runner-submit rh-runbar">
               <button
                 type="button"
@@ -355,40 +679,187 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
           </aside>
 
           <div className="rh-preview">
-            {/* 预览大卡:cover_url 大图,空则 category 渐变占位(与市场卡同语言) */}
-            <div
-              className="rh-preview-cover"
-              data-category={app.category}
-              style={app.cover_url ? undefined : { aspectRatio: placeholderAspect(app.id) }}
-            >
-              {app.cover_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img className="rh-card-img" src={imageUrl(app.cover_url)} alt={app.name} />
-              ) : (
-                <span className="rh-card-placeholder-icon" aria-hidden="true">
-                  <Icon name={(app.icon || "package") as IconName} size={40} strokeWidth={1.2} />
-                </span>
-              )}
-            </div>
+            <RhPanelTabs tab={panelTab} onChange={setPanelTab} />
 
-            {/* 我的生成:本次结果置顶 + 历史产物网格(按 app_id 过滤) */}
-            <section className="rh-history" aria-label="我的生成">
-              <h2 className="rh-history-title">我的生成</h2>
-              {results.length === 0 && history.length === 0 ? (
-                <Empty size="inline" title="还没有生成记录——填好参数点「立即运行」" />
-              ) : (
-                <div className="apps-results rh-history-grid">
-                  {results.map((p) => (
-                    <ResultTile key={`run:${p}`} path={p} app={app} />
-                  ))}
-                  {history.flatMap((j) =>
-                    j.results.map((p) => <ResultTile key={`${j.id}:${p}`} path={p} app={app} />),
-                  )}
-                </div>
-              )}
-            </section>
+            {panelTab === "detail" ? (
+              <>
+              <div
+                className="rh-preview-cover"
+                data-category={app.category}
+                style={app.cover_url && !previewFailed ? undefined : { aspectRatio: placeholderAspect(app.id) }}
+              >
+                {app.cover_url && !previewFailed ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    className="rh-card-img"
+                    src={imageUrl(app.cover_url)}
+                    alt={app.name}
+                    onError={() => setPreviewFailed(true)}
+                  />
+                ) : (
+                  <span className="rh-card-placeholder-icon" aria-hidden="true">
+                    <Icon name={(app.icon || "package") as IconName} size={40} strokeWidth={1.2} />
+                  </span>
+                )}
+              </div>
+              {guide && <AppGuideCard guide={guide} />}
+              </>
+            ) : (
+              <section className="rh-history" aria-label="我的生成">
+                {results.length === 0 && history.length === 0 ? (
+                  <Empty size="inline" title="还没有生成记录——填好参数点「立即运行」" />
+                ) : (
+                  <div className="apps-results rh-history-grid">
+                    {results.map((p) => (
+                      <ResultTile key={`run:${p}`} path={p} app={app} />
+                    ))}
+                    {history.flatMap((j) =>
+                      j.results.map((p) => <ResultTile key={`${j.id}:${p}`} path={p} app={app} />),
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         </div>
+        </>
+      )}
+      <AgeGateModal
+        open={ageGateOpen}
+        onConfirm={() => {
+          confirmAge();
+          setR18Mode(true);
+          setContentMode("nsfw");
+          setAgeGateOpen(false);
+        }}
+        onCancel={() => setAgeGateOpen(false)}
+      />
+    </div>
+  );
+}
+
+/** RH 右栏双 Tab:应用详情 | 我的生成(主题 accent 填充激活态,官网截图同构)。 */
+function RhPanelTabs({
+  tab,
+  onChange,
+}: {
+  tab: "detail" | "history";
+  onChange: (t: "detail" | "history") => void;
+}) {
+  return (
+    <div className="rh-panel-tabs" role="tablist" aria-label="应用面板">
+      {(
+        [
+          ["detail", "应用详情"],
+          ["history", "我的生成"],
+        ] as const
+      ).map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={tab === id}
+          className={`rh-panel-tab${tab === id ? " is-active" : ""}`}
+          onClick={() => onChange(id)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 使用指南说明卡(2026-09-12 P1):detail 落地页(节点信息之前)与运行台
+ * 「应用详情」tab(封面之下)复用。空字段小节整节不渲染;样式在 apps.css(apps-guide- 前缀)。
+ */
+function AppGuideCard({ guide }: { guide: AppGuide }) {
+  return (
+    <section className="apps-guide-card" aria-label="使用指南">
+      <h2 className="rh-detail-section-title">使用指南</h2>
+      {guide.purpose && (
+        <div className="apps-guide-section">
+          <h3 className="apps-guide-subtitle">用途</h3>
+          <p className="apps-guide-text">{guide.purpose}</p>
+        </div>
+      )}
+      {guide.when_to_use && (
+        <div className="apps-guide-section">
+          <h3 className="apps-guide-subtitle">适用场景</h3>
+          <p className="apps-guide-text">{guide.when_to_use}</p>
+        </div>
+      )}
+      {guide.steps.length > 0 && (
+        <div className="apps-guide-section">
+          <h3 className="apps-guide-subtitle">使用步骤</h3>
+          <ol className="apps-guide-steps">
+            {guide.steps.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {(guide.inputs.length > 0 || guide.outputs.length > 0) && (
+        <div className="apps-guide-io">
+          {guide.inputs.length > 0 && (
+            <div className="apps-guide-section">
+              <h3 className="apps-guide-subtitle">输入</h3>
+              <ul className="apps-guide-list">
+                {guide.inputs.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {guide.outputs.length > 0 && (
+            <div className="apps-guide-section">
+              <h3 className="apps-guide-subtitle">产出</h3>
+              <ul className="apps-guide-list">
+                {guide.outputs.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+      {guide.tips.length > 0 && (
+        <div className="apps-guide-section">
+          <h3 className="apps-guide-subtitle">提示</h3>
+          <ul className="apps-guide-list">
+            {guide.tips.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function NodeTypeList({
+  title,
+  items,
+  empty,
+}: {
+  title: string;
+  items: { type: string; count: number }[];
+  empty: string;
+}) {
+  return (
+    <div className="rh-detail-node-col">
+      <h3 className="rh-detail-node-col-title">{title}</h3>
+      {items.length === 0 ? (
+        <p className="rh-detail-node-empty">{empty}</p>
+      ) : (
+        <ul className="rh-detail-node-list">
+          {items.map((it) => (
+            <li key={it.type}>
+              <code>{it.type}</code>
+              <span className="rh-detail-node-count">×{it.count}</span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -433,7 +904,7 @@ function ResultTile({ path: p, app }: { path: string; app: AppItem }) {
   );
 }
 
-/** 参数折叠分区(2026-09-06 RH 化):荧光绿分区标题 + chevron,默认展开。 */
+/** 参数折叠分区:主题 accent 分区标题 + chevron,默认展开。 */
 function RhParamSection({
   title,
   children,
@@ -461,7 +932,7 @@ function RhParamSection({
 }
 
 /**
- * 数值 stepper(2026-09-06 RH 化):−/+ 按 step 步进并钳位 min/max;
+ * 数值 stepper:−/+ 按 step 步进并钳位 min/max;
  * 输入框保留原始字符串中间态(与 ParamField 同约定),失焦钳位归一,空值回落 default。
  */
 function RhNumberField({
@@ -482,7 +953,6 @@ function RhNumberField({
     if (typeof param.min === "number") v = Math.max(param.min, v);
     if (typeof param.max === "number") v = Math.min(param.max, v);
     const base = typeof param.min === "number" ? param.min : 0;
-    // toFixed(6) 消除浮点噪声(0.1 步长等)
     return Number((base + Math.round((v - base) / step) * step).toFixed(6));
   };
   const current = (): number => {

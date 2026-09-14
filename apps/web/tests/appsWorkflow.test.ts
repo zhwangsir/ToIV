@@ -1,5 +1,5 @@
 /**
- * 应用运行页双模式(2026-09-02,简洁/工作流)防回归:
+ * 应用工作流/画布打开防回归(2026-09-07:运行台去简洁/工作流段控,导航 view=canvas):
  * ① normalizeApp 新增 bindings/workflow_json 归一(非法项剔除)
  * ② orderWorkflowNodes 拓扑排序(链式/环回退)
  * ③ bindingsByNode 分组
@@ -104,11 +104,15 @@ test("bindingsByNode:按节点分组", () => {
   assert.equal(m.get("2")?.[0].key, "prompt");
 });
 
-test("AppRunnerView:双模式段控 + 工作流组件接线(源码断言)", () => {
+test("AppRunnerView:RH 运行台无简洁/工作流段控;画布编辑走 open-in-Comfy(源码断言)", () => {
   const src = readSrc("components/apps/AppRunnerView.tsx");
-  assert.ok(src.includes('["simple", "简洁"]') && src.includes('["workflow", "工作流"]'), "缺双模式段控");
-  assert.ok(src.includes("AppWorkflowGraph"), "未接工作流组件");
-  assert.ok(src.includes('role="tablist"'), "段控缺 tablist 语义");
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  assert.ok(!code.includes('"simple", "简洁"'), "不应再有简洁段控");
+  assert.ok(!code.includes('"workflow", "工作流"'), "不应再有工作流段控");
+  assert.ok(!code.includes("AppWorkflowGraph"), "运行台不应内嵌 AppWorkflowGraph");
+  assert.ok(code.includes("在画布中编辑"), "运行台应有「在画布中编辑」入口");
+  assert.ok(code.includes("openAppWorkflowInComfy"), "应接线 open-in-Comfy");
+  assert.ok(code.includes("RhPanelTabs") || code.includes("应用详情"), "应保留 RH 右栏 tabs");
 });
 
 test("layoutWorkflow:分层成列 + 连线提取 + 端口坐标", () => {
@@ -209,4 +213,18 @@ test("AppWorkflowGraph:无绑定节点时不渲染可调导航", () => {
     h(AppWorkflowGraph, { app, values: {}, onParamChange: () => {} }),
   );
   assert.ok(!html.includes("wf-toolbar-focus"), "无绑定节点不应出现可调导航");
+});
+
+test("AppWorkflowGraph:导出工作流 + 在 Comfy 中打开(源码)", () => {
+  const src = readSrc("components/apps/AppWorkflowGraph.tsx");
+  const lib = readSrc("lib/apps.ts");
+  assert.ok(src.includes("downloadWorkflowJson"), "缺导出 helper");
+  assert.ok(src.includes("openAppWorkflowInComfy"), "缺打开画布 helper");
+  assert.ok(lib.includes("export async function openAppInComfy"), "lib 应有后端 open-in-comfy client");
+  assert.ok(lib.includes("export async function openAppWorkflowInComfy"), "lib 应封装跳转 /?view=canvas");
+  assert.ok(lib.includes('searchParams.set("view", "canvas")'), "导航应 searchParams.set view=canvas");
+  assert.ok(!/#canvas[`'"]/.test(lib) && !lib.includes("${base}#canvas"), "location.assign 不应再拼 #canvas");
+  assert.ok(src.includes("在 Comfy 中打开"), "缺「在 Comfy 中打开」按钮文案");
+  assert.ok(lib.includes("toiv_pending_comfy_workflow"), "应暂存 pending workflow");
+  assert.ok(lib.includes("workflow_name"), "成功时应暂存 workflow_name 供 Canvas 自动 Load");
 });

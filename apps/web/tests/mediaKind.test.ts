@@ -90,9 +90,10 @@ test("LibraryView:网格 3D 作业图标占位 + 「3D」角标,不 <img> 加载
     src.includes('mediaKindOf(job.results[0], job.kind) === "model3d"'),
     "网格 3D 判定未走 mediaKindOf",
   );
-  // 3D 分支在 ImageThumb 之前短路(三处网格:文件夹/主网格/回收站)
-  const matches = src.match(/is3d \? \(/g) ?? [];
-  assert.ok(matches.length >= 3, `3D 网格分支应覆盖 3 处,实得 ${matches.length}`);
+  // P2:三处网格统一走 JobThumbMedia;其内 model3d/audio 短路到 ThumbPlaceholder
+  const uses = src.match(/<JobThumbMedia\b/g) ?? [];
+  assert.ok(uses.length >= 3, `JobThumbMedia 应覆盖 3 处网格,实得 ${uses.length}`);
+  assert.ok(src.includes('mk === "model3d" || mk === "audio"'), "3D/音频须短路占位,不走 img");
 });
 
 /* ── ④ AssistantView renderAvMedia ── */

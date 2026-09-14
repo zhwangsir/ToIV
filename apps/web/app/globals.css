@@ -279,10 +279,14 @@
   --accent-glow-soft: rgba(43, 35, 24, 0.08);
   --accent-glow-shadow: 0 2px 12px rgba(43, 35, 24, 0.20);
 
-  /* 状态色压深半档(暖纸底明度低于素白,原值合成底仅 ~4.4 贴边) */
+  /* 状态色压深半档(暖纸底明度低于素白,原值合成底仅 ~4.4 贴边);
+     soft 与前景同色相(P1 2026-09-07:不再继承 :root 浅色 soft 色相漂移) */
   --ok: #0A5C2D;
   --warn: #7A3F05;
   --err: #A31515;
+  --ok-soft: rgba(10, 92, 45, 0.12);
+  --warn-soft: rgba(122, 63, 5, 0.12);
+  --err-soft: rgba(163, 21, 21, 0.12);
 
   /* 玻璃材质:暖纸玻璃 */
   --glass-bg: rgba(251, 247, 237, 0.82);
@@ -1017,7 +1021,10 @@ select.input {
   background-repeat: no-repeat;
   background-position: right var(--space-3) center;
 }
-[data-mode="dark"] select.input {
+/* 暗档 + cinema/graphite 暗基底并列(后两者不落 data-mode) */
+[data-mode="dark"] select.input,
+[data-theme="cinema"] select.input,
+[data-theme="graphite"] select.input {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239A9EA6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 

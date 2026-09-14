@@ -21,10 +21,18 @@ test("api.ts:wiki 三端点封装(列表/问答/富化)+ ModelWikiCard 契约", 
   assert.ok(src.includes('"/api/models/ask"'), "缺问答端点");
   assert.ok(src.includes('"/api/models/wiki/enrich"'), "缺富化端点");
   for (const f of [
-    "has_detail", "trigger_words", "prompt_dialect", "usage", "civitai_url",
+    "has_detail", "trigger_words", "prompt_dialect", "usage", "civitai_url", "huggingface_url",
   ]) {
     assert.ok(src.includes(f), `ModelWikiCard 缺 ${f}`);
   }
+});
+
+test("ModelsView:admin 同时露出 Civitai + HuggingFace 外链", () => {
+  const src = readSrc("components/models/ModelsView.tsx");
+  assert.ok(src.includes("detailCard.civitai_url"), "缺 Civitai 链");
+  assert.ok(src.includes("detailCard.huggingface_url"), "缺 HuggingFace 链");
+  assert.ok(src.includes("在 HuggingFace 查看模型卡"), "缺 HF 文案");
+  assert.ok(src.includes("isAdmin && detailCard.huggingface_url"), "HF 链须 admin 门控");
 });
 
 test("ModelsView:文件行点击开详情卡(Modal 五段式)+ 未收录兜底", () => {

@@ -54,6 +54,18 @@ test("ModelsView 加载态接入 LoadingBlock(line + grid 双变体)", () => {
   assert.ok(src.includes('variant="grid"'), "市场加载缺少 grid 骨架");
 });
 
+test("ModelsView:在线市场 HF/Civitai 来源切换 + RH 链出", () => {
+  const src = readSrc("components/models/ModelsView.tsx");
+  assert.match(src, /MARKET_SOURCES/, "缺 MARKET_SOURCES");
+  assert.match(src, /value: "civitai"/, "缺 civitai 来源");
+  assert.match(src, /value: "huggingface"/, "缺 huggingface 来源");
+  assert.match(src, /searchMarketplace\(marketSource/, "搜索须透传来源");
+  assert.match(src, /应用\(RH\)/, "缺 RH 应用市场链出");
+  assert.match(src, /showR18Recs/, "缺 R18 推荐 admin 门控");
+  assert.match(src, /r18 && isAdmin/, "R18 推荐须 admin+R18");
+});
+
+
 /* ── ② Ripple 包裹 ── */
 test("PromptBar 生成主按钮被 Ripple 包裹(render 断言)", () => {
   // engine=null:跳过 OptimizeButton/ReverseButton(ReverseButton 需 ToastProvider,

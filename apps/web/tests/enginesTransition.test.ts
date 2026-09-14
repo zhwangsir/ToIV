@@ -133,12 +133,17 @@ test("③ GenerateView 接线:恰好 2 张门控 + uploadKind 复用 wan_vace", 
     src.includes('engine.id !== "wan-transition" || refImages.length === 2'),
     "canSubmit 缺首尾帧恰好 2 张门控",
   );
-  // uploadKind 映射:wan-transition 与 VACE 同实例(:8197),复用同一上传 kind
-  // (用 lastIndexOf:motionBrushSupported 等前置判断也含该字符串,锚定 uploadKind 分支)
-  const idx = src.lastIndexOf('engine?.id === "wan-transition"');
-  assert.ok(idx > 0, "uploadKind 缺 wan-transition 分支");
+  // uploadKind 映射(2026-09-12 抽取):GenerateView 改走共享 engineUploadKind,
+  // wan-transition 与 VACE 同实例(:8197)的分支收编进 lib/engines
   assert.ok(
-    src.slice(idx, idx + 200).includes('"wan_vace"'),
+    src.includes("engineUploadKind(engine.id)"),
+    "GenerateView 应走共享 engineUploadKind",
+  );
+  const lib = readSrc("lib/engines.ts");
+  const idx = lib.indexOf('engineId === "wan-transition"');
+  assert.ok(idx > 0, "engineUploadKind 缺 wan-transition 分支");
+  assert.ok(
+    lib.slice(idx, idx + 200).includes('"wan_vace"'),
     "wan-transition 上传 kind 应复用 wan_vace",
   );
 });

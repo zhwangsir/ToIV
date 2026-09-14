@@ -25,6 +25,14 @@ interface ParamFieldProps {
 
 type MediaHandle = { filename: string; worker?: string; name?: string; previewUrl?: string };
 
+/** http(s) 示例素材 URL → 可直接当预览。 */
+function remotePreview(filename: string, previewUrl?: string): string {
+  const p = (previewUrl || "").trim();
+  if (p) return p;
+  const f = filename.trim();
+  return /^https?:\/\//i.test(f) ? f : "";
+}
+
 /** 表单值 → 已上传句柄列表(兼容 string / string[] / 句柄对象,提交前由 buildRunValues 抽 filename)。 */
 function asMediaList<T extends MediaHandle>(value: unknown): T[] {
   if (value == null || value === "") return [];
@@ -32,10 +40,22 @@ function asMediaList<T extends MediaHandle>(value: unknown): T[] {
   const out: T[] = [];
   for (const item of items) {
     if (typeof item === "string" && item.trim()) {
-      out.push({ filename: item.trim(), worker: "", name: item.trim(), previewUrl: "" } as T);
+      const f = item.trim();
+      const preview = remotePreview(f);
+      out.push({
+        filename: f,
+        worker: "",
+        name: preview ? "示例参考图" : f,
+        previewUrl: preview,
+      } as T);
     } else if (item && typeof item === "object" && typeof (item as MediaHandle).filename === "string") {
       const h = item as MediaHandle;
-      out.push({ ...h, name: h.name || h.filename, previewUrl: h.previewUrl || "" } as T);
+      const preview = remotePreview(h.filename, h.previewUrl);
+      out.push({
+        ...h,
+        name: h.name || (preview ? "示例参考图" : h.filename),
+        previewUrl: preview,
+      } as T);
     }
   }
   return out;

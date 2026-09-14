@@ -80,30 +80,43 @@ function persistStyleCards(cards: StyleCard[]): void {
 /** 分页大小:每页 60 条,点击「加载更多」追加,避免全量渲染大图列表。 */
 const PAGE_SIZE = 60;
 
+/** 占位卡类型桶:kind 映射优先;未知 kind 用产物扩展名兜底;都无则 other(「其他」)。 */
+function thumbFilterOf(job: JobItem): "image" | "video" | "audio" | "3d" | "other" {
+  const f = kindToFilter(job.kind);
+  if (f === "image" || f === "video" || f === "audio" || f === "3d") return f;
+  if (job.results?.length) {
+    const mk = mediaKindOf(job.results[0], job.kind);
+    if (mk === "model3d") return "3d";
+    if (mk === "video" || mk === "audio" || mk === "image") return mk;
+  }
+  return "other";
+}
+
 function ThumbPlaceholder({ job }: { job: JobItem }) {
-  const filterKey = kindToFilter(job.kind);
+  const filterKey = thumbFilterOf(job);
+  const iconName =
+    job.status === "running"
+      ? "loading"
+      : job.status === "error"
+        ? "error"
+        : filterKey === "audio"
+          ? "audio"
+          : filterKey === "video"
+            ? "film"
+            : filterKey === "3d"
+              ? "box"
+              : filterKey === "other"
+                ? "file"
+                : "image";
   return (
     <div
-      className={`lib-thumb-placeholder ${job.status === "error" ? "has-error" : ""}`}
+      className={`lib-thumb-placeholder${job.status === "error" ? " has-error" : ""}`}
+      data-filter={filterKey}
     >
-      {/* 图标居中,状态文本分层为左上角状态 chip,互不重叠 */}
-      <Icon
-        name={
-          job.status === "running"
-            ? "loading"
-            : job.status === "error"
-              ? "error"
-              : filterKey === "audio"
-                ? "audio"
-                : filterKey === "video"
-                  ? "film"
-                  : filterKey === "3d"
-                    ? "box"
-                    : "image"
-        }
-        size={24}
-        strokeWidth={1.4}
-      />
+      {/* 类型图标居中 + 渐变底(跟市场 rh-card-placeholder 同范式);状态 chip 左上分层 */}
+      <span className="lib-thumb-placeholder-icon" aria-hidden="true">
+        <Icon name={iconName} size={28} strokeWidth={1.4} />
+      </span>
       {job.status === "running" && (
         <span className="lib-thumb-status is-running">
           <span className="lib-thumb-status-dot" aria-hidden="true" />
@@ -142,6 +155,40 @@ function ImageThumb({ job, blurred = false }: { job: JobItem; blurred?: boolean 
       }
     />
   );
+}
+
+/** 视频缩略:LazyVideo 加载失败(坏链/非视频)降级类型占位,不露出破图/空黑卡。 */
+function VideoThumb({ job, blurred = false }: { job: JobItem; blurred?: boolean }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <ThumbPlaceholder job={job} />;
+  return (
+    <LazyVideo
+      src={imageUrl(job.results[0])}
+      muted
+      loop
+      playsInline
+      onError={() => setFailed(true)}
+      style={
+        blurred
+          ? { filter: "blur(18px)", pointerEvents: "auto", cursor: "pointer" }
+          : undefined
+      }
+    />
+  );
+}
+
+/**
+ * 网格缩略统一入口(文件夹/主网格/回收站共用):
+ * 无产物 → 类型渐变占位;3D/音频永不走 <img>;视频/图像加载失败降级占位(P2 破图兜底)。
+ */
+function JobThumbMedia({ job, blurred = false }: { job: JobItem; blurred?: boolean }) {
+  const hasResult = job.status === "done" && job.results?.length > 0;
+  if (!hasResult) return <ThumbPlaceholder job={job} />;
+  const mk = mediaKindOf(job.results[0], job.kind);
+  // 3D / 音频:网格不尝试 <img>/<video> 加载,类型图标 + 渐变底占位(预览进灯箱)
+  if (mk === "model3d" || mk === "audio") return <ThumbPlaceholder job={job} />;
+  if (mk === "video") return <VideoThumb job={job} blurred={blurred} />;
+  return <ImageThumb job={job} blurred={blurred} />;
 }
 
 /** 作品库空态(库本身为空):单行 muted 提示 + 行内「去创作」(2026-09-02 W3 大图标面板退役)。 */
@@ -1004,7 +1051,7 @@ export function LibraryView(props?: LibraryViewProps) {
               {openFolder.members.map((job) => {
                 const hasResult = job.status === "done" && job.results?.length > 0;
                 const isVideo = isVideoKind(job.kind);
-                // 3D 产物:网格不尝试 <img> 加载,图标占位(预览进灯箱)
+                // 3D 角标(缩略走 JobThumbMedia 占位)
                 const is3d =
                   hasResult && mediaKindOf(job.results[0], job.kind) === "model3d";
                 const isNsfw = !!job.nsfw;
@@ -1029,24 +1076,14 @@ export function LibraryView(props?: LibraryViewProps) {
                           else openLightbox(job, openFolder.members);
                         }}
                       >
-                        {hasResult ? (
-                          is3d ? (
-                            <ThumbPlaceholder job={job} />
-                          ) : isVideo ? (
-                            <LazyVideo
-                              src={imageUrl(job.results[0])}
-                              muted
-                              loop
-                              playsInline
-                              style={isBlurred ? { filter: "blur(18px)" } : undefined}
-                            />
-                          ) : (
-                            <ImageThumb job={job} blurred={isBlurred} />
-                          )
-                        ) : (
-                          <ThumbPlaceholder job={job} />
-                        )}
+                        <JobThumbMedia job={job} blurred={isBlurred} />
                       </button>
+                      {is3d && (
+                        <span className="lib-3d-badge" aria-hidden="true">
+                          <Icon name="box" size={11} />
+                          3D
+                        </span>
+                      )}
                       {isNsfw && (
                         <button
                           type="button"
@@ -1206,33 +1243,8 @@ export function LibraryView(props?: LibraryViewProps) {
                         setHoveredBlurId((id) => (id === job.id ? null : id));
                       }}
                     >
-                    {hasResult ? (
-                      is3d ? (
-                        <ThumbPlaceholder job={job} />
-                      ) : isVideo ? (
-                        // P1-14:LazyVideo 初始 preload="none",进视口/悬停才拉首帧,
-                        // 避免作品库首屏几十张视频卡同时发 Range 请求
-                        <LazyVideo
-                          src={imageUrl(job.results[0])}
-                          muted
-                          loop
-                          playsInline
-                          style={
-                            isBlurred
-                              ? {
-                                  filter: "blur(18px)",
-                                  pointerEvents: "auto",
-                                  cursor: "pointer",
-                                }
-                              : undefined
-                          }
-                        />
-                      ) : (
-                        <ImageThumb job={job} blurred={isBlurred} />
-                      )
-                    ) : (
-                      <ThumbPlaceholder job={job} />
-                    )}
+                    {/* P2:统一缩略入口(含破图/音频/3D 占位兜底;视频仍走 LazyVideo) */}
+                    <JobThumbMedia job={job} blurred={isBlurred} />
 
                     {/* R18 模糊卡 hover 提示层:半透明「点击显示」,不拦截点击 */}
                     {isBlurred && !batchMode && hoveredBlurId === job.id && (
@@ -1994,6 +2006,11 @@ function LibraryLightbox({
   // 统一格式识别(扩展名优先、kind 兜底):glb 不再落进 <img> 裂图;
   // kind 非音频类但产物是 .mp3/.wav 的作业也能进音频分支
   const mediaKind = hasResult ? mediaKindOf(mediaUrl, job.kind) : null;
+  // P2:灯箱图/视频坏链降级类型占位,避免舞台露出破图图标
+  const [mediaFailed, setMediaFailed] = useState(false);
+  useEffect(() => {
+    setMediaFailed(false);
+  }, [mediaUrl]);
 
   // 打开期间锁定 body 滚动(与 ui/Modal 同一模式;overscroll-behavior 在 CSS 侧拦截滚轮链)
   useEffect(() => {
@@ -2034,7 +2051,7 @@ function LibraryLightbox({
       <div className="lib-lb-shell" onClick={(e) => e.stopPropagation()}>
         {/* 左侧:媒体舞台(全出血 contain;失败/音频作品显示对应占位) */}
         <div className="lib-lb-stage">
-          {hasResult ? (
+          {hasResult && !mediaFailed ? (
             mediaKind === "model3d" ? (
               <ModelViewer src={mediaUrl} className="lib-lb-model3d" />
             ) : mediaKind === "video" ? (
@@ -2045,6 +2062,7 @@ function LibraryLightbox({
                 controls
                 autoPlay
                 loop
+                onError={() => setMediaFailed(true)}
               />
             ) : mediaKind === "audio" ? (
               <div className="lib-lb-audio">
@@ -2063,6 +2081,7 @@ function LibraryLightbox({
                 height={270}
                 loading="lazy"
                 decoding="async"
+                onError={() => setMediaFailed(true)}
               />
             )
           ) : (
@@ -2380,7 +2399,6 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
             {(items ?? []).map((job) => {
               const hasResult = job.status === "done" && job.results?.length > 0;
               const isVideo = isVideoKind(job.kind);
-              // 3D 产物:不尝试 <img> 加载,图标占位
               const is3d =
                 hasResult && mediaKindOf(job.results[0], job.kind) === "model3d";
               const isNsfw = !!job.nsfw;
@@ -2402,24 +2420,14 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
                         else openLightbox(job);
                       }}
                     >
-                    {hasResult ? (
-                      is3d ? (
-                        <ThumbPlaceholder job={job} />
-                      ) : isVideo ? (
-                        <LazyVideo
-                          src={imageUrl(job.results[0])}
-                          muted
-                          loop
-                          playsInline
-                          style={isBlurred ? { filter: "blur(18px)" } : undefined}
-                        />
-                      ) : (
-                        <ImageThumb job={job} blurred={isBlurred} />
-                      )
-                    ) : (
-                      <ThumbPlaceholder job={job} />
-                    )}
+                    <JobThumbMedia job={job} blurred={isBlurred} />
                     </button>
+                    {is3d && (
+                      <span className="lib-3d-badge" aria-hidden="true">
+                        <Icon name="box" size={11} />
+                        3D
+                      </span>
+                    )}
                     {isNsfw && (
                       <button
                         type="button"

@@ -15,8 +15,8 @@ import "@/app/styles/cmdk.css";
 /** 命令面板页面条目:全量视图(含非左栏项),admin 项按权限注入。 */
 const CMDK_PAGES: { view: string; label: string; icon: IconName; admin?: boolean }[] = [
   { view: "home", label: "对话", icon: "chat" },
-  { view: "image", label: "图片", icon: "image" },
-  { view: "video", label: "视频", icon: "video" },
+  { view: "image", label: "图片生成", icon: "image" },
+  { view: "video", label: "视频生成", icon: "video" },
   { view: "audio", label: "音频", icon: "audio" },
   { view: "studio", label: "创作工作室", icon: "clapperboard" },
   { view: "avatartalk", label: "数字人", icon: "user" },
@@ -27,7 +27,7 @@ const CMDK_PAGES: { view: string; label: string; icon: IconName; admin?: boolean
   { view: "canvas", label: "画布", icon: "workflow" },
   { view: "library", label: "作品库", icon: "library" },
   { view: "entities", label: "主体库", icon: "users" },
-  { view: "market", label: "市场", icon: "store" },
+  { view: "market", label: "应用市场", icon: "store" },
   { view: "resources", label: "资源中心", icon: "models" },
   { view: "settings", label: "设置", icon: "settings" },
   { view: "observability", label: "观测", icon: "monitor", admin: true },
