@@ -6,18 +6,43 @@ import { fetchJobsPage, imageUrl } from "@/lib/api";
 import type { JobItem } from "@/lib/types";
 
 /**
- * 融合首页「最近作品」横条(2026-09-16 打磨):拉最近 12 件完成作品缩略,
- * 点击进作品库;空库/加载失败整条隐藏(不占位)。
+ * 融合首页「最近作品」横条(2026-09-16 打磨)。
+ * 加载策略:JS Image() 预加载成功后才渲染缩略(规避父级轮询重挂载导致的
+ * img 请求中断竞态);视频产物用渐变占位+▶ 角标;点击进作品库。
  */
 export function RecentWorksRail({ onOpenLibrary }: { onOpenLibrary: () => void }) {
-  const [jobs, setJobs] = useState<JobItem[] | null>(null);
+  const [thumbs, setThumbs] = useState<{ key: string; url: string; kind: string; video: boolean }[]>([]);
 
   useEffect(() => {
     let alive = true;
-    fetchJobsPage(0, 12)
-      .then((rows) => {
-        if (!alive) return;
-        setJobs(rows.filter((j) => j.status === "done" && j.results?.length));
+    fetchJobsPage(0, 14)
+      .then(async (rows) => {
+        const done = rows.filter((j) => j.status === "done" && j.results?.length);
+        const picked: { key: string; url: string; kind: string; video: boolean }[] = [];
+        await Promise.all(
+          done.slice(0, 12).map(
+            (j) =>
+              new Promise<void>((resolve) => {
+                const url = j.results[0];
+                const isVideo =
+                  /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url) || /video/i.test(j.kind);
+                const kindLabel = /video|t2v|i2v|h3|animate|lipsync/i.test(j.kind) || isVideo ? "视频" : "图";
+                if (isVideo) {
+                  picked.push({ key: j.id, url, kind: kindLabel, video: true });
+                  resolve();
+                  return;
+                }
+                const im = new Image();
+                im.onload = () => {
+                  if (alive) picked.push({ key: j.id, url, kind: kindLabel, video: false });
+                  resolve();
+                };
+                im.onerror = () => resolve();
+                im.src = imageUrl(url);
+              }),
+          ),
+        );
+        if (alive) setThumbs(picked.slice(0, 12));
       })
       .catch(() => {
         /* 静默:装饰性横条 */
@@ -27,8 +52,7 @@ export function RecentWorksRail({ onOpenLibrary }: { onOpenLibrary: () => void }
     };
   }, []);
 
-  const visible = jobs ?? [];
-  if (visible.length === 0) return null;
+  if (thumbs.length === 0) return null;
 
   return (
     <section className="av-recent" aria-label="最近作品">
@@ -39,28 +63,24 @@ export function RecentWorksRail({ onOpenLibrary }: { onOpenLibrary: () => void }
         </button>
       </div>
       <div className="av-recent-rail" role="list">
-        {visible.map((j) => (
+        {thumbs.map((t) => (
           <button
-            key={j.id}
+            key={t.key}
             type="button"
             role="listitem"
             className="av-recent-thumb"
-            title={(j.prompt || "作品").slice(0, 60)}
+            title="打开作品库查看"
             onClick={onOpenLibrary}
           >
-            {j.results[0] && (
+            {t.video ? (
+              <span className="av-recent-thumb-video" aria-hidden="true">
+                ▶
+              </span>
+            ) : (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={imageUrl(j.results[0])}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
-                }}
-              />
+              <img src={t.url} alt="" decoding="async" />
             )}
-            <span className="av-recent-kind">{j.kind === "app_video" || j.kind.includes("video") || j.kind.includes("h3") || j.kind.includes("t2v") || j.kind.includes("i2v") ? "视频" : "图"}</span>
+            <span className="av-recent-kind">{t.kind}</span>
           </button>
         ))}
       </div>
@@ -120,6 +140,15 @@ export function RecentWorksRail({ onOpenLibrary }: { onOpenLibrary: () => void }
         }
         .av-recent-thumb:hover img {
           transform: scale(1.05);
+        }
+        .av-recent-thumb-video {
+          position: absolute;
+          inset: 0;
+          display: grid;
+          place-items: center;
+          color: rgba(255, 255, 255, 0.85);
+          font-size: 18px;
+          background: linear-gradient(135deg, rgb(30 34 44), rgb(18 20 28));
         }
         .av-recent-kind {
           position: absolute;
