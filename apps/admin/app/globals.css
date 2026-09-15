@@ -1,3 +1,7 @@
+/* 主站设计令牌基座(搬移的 admin/observability 视图依赖)——置顶引入,
+   控制台自有样式在其后覆盖 */
+@import "./web-tokens.css";
+
 /* ToIV 管理系统 v1:独立深色控制台(内网);不依赖主站样式令牌,自包含 */
 :root {
   --bg: #0d0f12;

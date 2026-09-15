@@ -60,38 +60,18 @@ test("page.tsx:handleOpenDramaProject 携带 projectId 并透传给 StudioView",
   );
 });
 
-test("page.tsx:admin 视图 isAdmin 门控 + 非管理员无权限提示", () => {
+test("page.tsx:admin/observability 视图退役,管理系统改为外跳 admin-console(2026-09-15 合并)", () => {
   const src = readSrc("app/page.tsx");
-  assert.ok(
-    !src.includes('{view === "admin" && <AdminView />}'),
-    "admin 视图不得再裸挂(无门控)",
-  );
-  assert.match(
-    src,
-    /view === "admin" &&[\s\S]{0,400}isAdmin \? \([\s\S]{0,200}<AdminView \/>/,
-    "AdminView 应只在 isAdmin 分支渲染",
-  );
-  assert.ok(src.includes("无权限访问"), "非管理员应看到无权限提示");
-  assert.ok(src.includes("管理面板仅管理员账号可见"), "无权限提示副文案缺失");
+  assert.ok(!src.includes("AdminView"), "AdminView 应已迁出主站");
+  assert.ok(!src.includes("ObservabilityView"), "ObservabilityView 应已迁出主站");
+  assert.ok(src.includes("admin-console"), "侧栏/抽屉应保留管理系统跳转项");
+  assert.ok(src.includes(":3200"), "跳转应指向独立控制台端口");
 });
-
-test("page.tsx:admin 导航入口仅管理员可见(左栏 adminItems + 底部更多)", () => {
+test("page.tsx:管理系统入口仅管理员可见(左栏 adminItems + 底部更多)", () => {
   const src = readSrc("app/page.tsx");
-  // Studio Console v1:左栏 admin 项经 isAdmin 三元注入 SideRail adminItems;
-  // 底部「更多」抽屉复制后追加(不突变模块级常量)
-  assert.ok(src.includes("const railAdminItems: RailItem[] = isAdmin"), "admin 项须经 isAdmin 门控");
-  assert.ok(src.includes('adminItems={railAdminItems}'), "左栏未接 adminItems");
-  assert.ok(
-    src.includes('key: "admin", label: "管理", icon: "shield-check"'),
-    "缺 admin 管理入口",
-  );
-  assert.ok(
-    src.includes("bottomNavMoreItems = ["),
-    "底部「更多」应复制后追加 admin 项",
-  );
+  assert.ok(src.includes('key: "admin-console", label: "管理系统"'), "缺管理系统跳转项");
+  assert.ok(src.includes("if (isAdmin) {"), "跳转项应仅管理员注入");
 });
-
-/* ── ② StudioView initialProjectId 透传 ── */
 test("StudioView:initialProjectId 仅作 activeId 初值透传", () => {
   const src = readSrc("components/studio/StudioView.tsx");
   assert.ok(src.includes("initialProjectId?: string | null"), "props 缺 initialProjectId");

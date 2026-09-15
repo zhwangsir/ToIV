@@ -84,8 +84,6 @@ type View =
   | "resources"
   | "market"
   | "settings"
-  | "observability"
-  | "admin";
 
 /** M1 三大板块拆分:generate 退役拆为 图片/视频/音频,旧链接按 kind 重定向(不 404)。
  *  M4 studio 替代短剧/漫剧:旧 key 一律重定向到 studio。
@@ -145,8 +143,6 @@ const viewImporters = {
   resources: () => import("@/components/resources/ResourcesView"),
   market: () => import("@/components/market/MarketView"),
   settings: () => import("@/components/settings/SettingsView"),
-  observability: () => import("@/components/observability/ObservabilityView"),
-  admin: () => import("@/components/admin/AdminView"),
 } as const;
 
 /** 预热目标视图 chunk。webpack 模块缓存去重,重复/并发调用零额外开销。 */
@@ -205,13 +201,6 @@ const MarketView = lazy(() =>
 const SettingsView = lazy(() =>
   viewImporters.settings().then((m) => ({ default: m.SettingsView })),
 );
-const AdminView = lazy(() =>
-  viewImporters.admin().then((m) => ({ default: m.AdminView })),
-);
-const ObservabilityView = lazy(() =>
-  viewImporters.observability().then((m) => ({ default: m.ObservabilityView })),
-);
-
 /** 视图切换加载占位:统一走共享 LoadingBlock(P1-2 收编),保留 role/aria 状态语义。 */
 function ViewFallback({ label }: { label: string }) {
   return (
@@ -243,8 +232,6 @@ const VALID_VIEWS = new Set<View>([
   "resources",
   "market",
   "settings",
-  "observability",
-  "admin",
 ]);
 
 const VIEW_META: Record<View, { label: string }> = {
@@ -266,8 +253,6 @@ const VIEW_META: Record<View, { label: string }> = {
   resources:  { label: "资源" },
   market:     { label: "应用市场" },
   settings:   { label: "设置" },
-  observability: { label: "观测" },
-  admin:     { label: "管理" },
 };
 
 /** Studio Console v1(2026-08-31):左侧 52px 图标栏主项——只保留高频页,
@@ -609,6 +594,11 @@ function HomeContent() {
 
   const changeView = useCallback(
     (next: View) => {
+      // 独立管理系统(2026-09-15):侧栏「管理系统」项不是视图,新开控制台标签页
+      if ((next as string) === "admin-console") {
+        window.open(`${window.location.protocol}//${window.location.hostname}:3200`, "_blank");
+        return;
+      }
       preloadView(next); // 兜底:未预热目标在点击瞬间立即发起加载
       withViewTransition(() => {
         setView(next);
@@ -629,22 +619,23 @@ function HomeContent() {
         router.push("/agent-runs");
         return;
       }
+      // 独立管理系统(2026-09-15):抽屉「管理系统」项新开控制台标签页
+      if (key === "admin-console") {
+        window.open(`${window.location.protocol}//${window.location.hostname}:3200`, "_blank");
+        return;
+      }
       if (key === "studio") setStudioInitialProjectId(null);
       changeView(key as View);
     },
     [changeView, router],
   );
 
-  // 观测面板仅管理员(端点 admin-only):非管理员直输 ?view=observability 弹回融合页;
+  // 旧观测面板已并入独立管理系统(:3200);旧链接一律弹回融合页(管理系统从侧栏跳转);
   // 等会话探测完成(account 非 null)再判,避免登录中误弹。
   // 2026-09-02:弹回走 history.replaceState 而非 changeView(router.replace 会触发 RSC
   // 服务端往返;生产实测非管理员撞此门控时 RSC 请求重试风暴 97+ 次)
-  useEffect(() => {
-    if (view === "observability" && account !== null && account !== "admin") {
-      setView("fusion");
-      window.history.replaceState({}, "", "/?view=fusion");
-    }
-  }, [view, account]);
+  // 独立管理系统地址(与主站同主机,端口 3200;2026-09-15 管理/观测并入独立系统);
+  // 旧 ?view=admin|observability 直输用户:不在 VALID_VIEWS → 挂载重定向自然落融合页
 
   // 动态分镜 AI 模式:解析成功后跳 studio 创作工作室并直开该项目
   // (2026-08-30 批 D:此前丢弃 project.id,落项目列表找不到刚建的项目)
@@ -690,17 +681,13 @@ function HomeContent() {
   // 观测/管理仅管理员可见(端点 admin-only,普通用户加入口只会 403)
   // 注意:RAIL_ITEMS 是模块级常量,admin 注入必须复制新数组,不能 push 共享常量
   const railAdminItems: RailItem[] = isAdmin
-    ? [
-        { key: "observability", label: "观测", icon: "monitor" },
-        { key: "admin", label: "管理", icon: "shield-check" },
-      ]
+    ? [{ key: "admin-console", label: "管理系统", icon: "shield-check" }]
     : [];
   let bottomNavMoreItems: BottomNavItem[] = BOTTOM_NAV_MORE_ITEMS;
   if (isAdmin) {
     bottomNavMoreItems = [
       ...bottomNavMoreItems,
-      { key: "observability", label: "观测", icon: "monitor" },
-      { key: "admin", label: "管理", icon: "shield-check" },
+      { key: "admin-console", label: "管理系统", icon: "shield-check" },
     ];
   }
 
@@ -806,20 +793,7 @@ function HomeContent() {
               )}
               {view === "market" && <MarketView />}
               {view === "settings" && <SettingsView account={account} onLogout={onLogout} />}
-              {view === "admin" &&
-                // 2026-08-30 批 D:admin 门控对齐观测面板(:754 isAdmin 渲染门控);
-                // 非管理员直输 ?view=admin 给无权限提示,不再裸挂 AdminView(其接口 admin-only)
-                (isAdmin ? (
-                  <AdminView />
-                ) : (
-                  <Empty
-                    icon="lock"
-                    title="无权限访问"
-                    desc="管理面板仅管理员账号可见"
-                  />
-                ))}
-              {view === "observability" && isAdmin && <ObservabilityView />}
-            </Suspense>
+                          </Suspense>
           </ErrorBoundary>
         </div>
       </main>

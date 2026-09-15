@@ -2,17 +2,21 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { AdminView } from "@/components/admin/AdminView";
+import { ObservabilityView } from "@/components/ObservabilityView";
 import { AppsManager } from "@/components/AppsManager";
 import { Dashboard } from "@/components/Dashboard";
 import { SystemJobs } from "@/components/SystemJobs";
-import { getToken, login as apiLogin, me, setToken, type Me } from "@/lib/api";
+import { consoleLogin, getToken, me, setToken, type Me } from "@/lib/api";
 
-type TabKey = "dash" | "apps" | "sysjobs";
+type TabKey = "dash" | "apps" | "sysjobs" | "obs" | "manage";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "dash", label: "概览" },
   { key: "apps", label: "应用管理" },
   { key: "sysjobs", label: "系统任务" },
+  { key: "obs", label: "观测" },
+  { key: "manage", label: "平台管理" },
 ];
 
 export default function Page() {
@@ -46,7 +50,7 @@ export default function Page() {
     e.preventDefault();
     setLoginErr("");
     try {
-      const token = await apiLogin(email, password);
+      const token = await consoleLogin(email, password);
       setToken(token);
       const info = await me();
       if (info.user?.role !== "admin") {
@@ -129,6 +133,8 @@ export default function Page() {
         {tab === "dash" && <Dashboard />}
         {tab === "apps" && <AppsManager />}
         {tab === "sysjobs" && <SystemJobs />}
+        {tab === "obs" && <ObservabilityView />}
+        {tab === "manage" && <AdminView />}
       </main>
     </div>
   );

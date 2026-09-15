@@ -36,33 +36,6 @@ test("DramaPlayer 移动端断点为 767(-1 约定),768 清零", () => {
   assert.ok(css.includes("@media (max-width: 1023px)"), "缺少 1023px 平板档");
 });
 
-/* ── ② AdminView 移动容器 + 字重 token ── */
-test("AdminView 表格移动端:overflow-x 容器 + 767 档表格 min-width", () => {
-  const src = readSrc("components/admin/AdminView.tsx");
-  assert.ok(src.includes("admin-table-wrap"), "缺少表格滚动容器类");
-  assert.ok(/\.admin-table-wrap\s*\{[^}]*overflow-x:\s*auto/.test(src), "容器未开 overflow-x:auto");
-  // 767 档内表格保持最小可读宽度,110-180px 固定列不被压缩
-  const media767 = src.match(/@media \(max-width: 767px\)\s*\{[\s\S]*?\.admin-table\s*\{[^}]*min-width:\s*640px/);
-  assert.ok(media767, "缺少 767px 媒体查询块");
-  assert.ok(media767[0].includes("min-width: 640px"), "767 档缺少表格 min-width");
-});
-
-test("AdminView 字重收编 var(--font-semibold),650 清零", () => {
-  const src = readSrc("components/admin/AdminView.tsx");
-  assert.ok(src.includes("font-weight: var(--font-semibold)"), "头像字重未收编 token");
-  assert.ok(!src.includes("font-weight: 650"), "仍残留 font-weight:650 裸值");
-});
-
-test("AdminView 错误态 ErrorBar + 重试、加载态 LoadingBlock", () => {
-  const src = readSrc("components/admin/AdminView.tsx");
-  assert.ok(src.includes("import { ErrorBar }"), "未导入 ErrorBar");
-  assert.ok(src.includes("admin-error-row"), "缺少错误行容器类");
-  assert.ok(src.includes("onClose={() => setError(null)}"), "加载错误未接受控关闭");
-  assert.ok(src.includes("import { LoadingBlock }"), "未导入 LoadingBlock");
-  assert.ok(!src.includes("loading-spinner admin-loading"), "加载态仍是旧 spinner");
-});
-
-/* ── ③ DubView:ErrorBar ×5 + 列重排 ── */
 test("DubView 五处异步错误态全部接入 ErrorBar(受控 onClose)", () => {
   const src = readSrc("components/dub/DubView.tsx");
   assert.ok(src.includes("import { ErrorBar }"), "未导入 ErrorBar");

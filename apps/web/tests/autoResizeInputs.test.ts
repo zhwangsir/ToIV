@@ -145,7 +145,6 @@ const WIRED_FILES = [
   "components/agent-run/PlanPanel.tsx",
   "components/agent-run/TaskCardList.tsx",
   "components/agent-run/ConfirmGateModal.tsx",
-  "components/admin/AgentsAdminView.tsx",
   "app/agent-runs/page.tsx",
 ];
 
@@ -200,13 +199,6 @@ test("PromptBar 遮盖舞台修复:hook 40vh + stage.css max-height:40vh", () =>
   assert.ok(block, "stage.css 缺 .promptbar-textarea 规则块");
   assert.ok(block[0].includes("max-height: 40vh"), ".promptbar-textarea 未 40vh 封顶");
   assert.ok(!block[0].includes("max-height: none"), ".promptbar-textarea 仍无限高(遮盖舞台)");
-});
-
-test("布局受困处宽松上限:AgentsAdminView System Prompt 60vh(DramaView 已随 W4 死链删除)", () => {
-  assert.ok(
-    readSrc("components/admin/AgentsAdminView.tsx").includes("{ maxVh: 60 }"),
-    "AgentsAdminView System Prompt 未设 60vh",
-  );
 });
 
 test("ui/Textarea 基座支持 ref(React 19 ref-as-prop),供 hook 取节点", () => {
