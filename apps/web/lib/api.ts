@@ -379,7 +379,18 @@ export async function generateTxt2img(
     首页走 swr 缓存(fetchJobsRaw),后续页直连网络不进缓存(防 localStorage 膨胀)。 */
 export async function fetchJobsPage(offset: number, limit = 200, kind = ""): Promise<JobItem[]> {
   const kindQ = kind ? `&kind=${encodeURIComponent(kind)}` : "";
-  const res = await apiFetch(`/api/jobs?limit=${limit}&offset=${offset}${kindQ}`, { headers: authHeaders() });
+  // 弱网兜底(2026-09-16 UX 评审):45s 超时,挂死请求转错误态走重试
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 45_000);
+  let res: Response;
+  try {
+    res = await apiFetch(`/api/jobs?limit=${limit}&offset=${offset}${kindQ}`, {
+      headers: authHeaders(),
+      signal: ac.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) throw new Error(`加载作品失败 (${res.status})`);
   return res.json();
 }
@@ -402,10 +413,19 @@ export async function fetchJobCount(kind = "", nsfw = ""): Promise<{ count: numb
   const q = new URLSearchParams();
   if (kind) q.set("kind", kind);
   if (nsfw) q.set("nsfw", nsfw);
-  const res = await apiFetch(`/api/jobs/counts?${q.toString()}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error(`统计作品数失败 (${res.status})`);
-  const data = (await res.json()) as { count?: number; failed?: number };
-  return { count: Number(data.count) || 0, failed: Number(data.failed) || 0 };
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 45_000);
+  try {
+    const res = await apiFetch(`/api/jobs/counts?${q.toString()}`, {
+      headers: authHeaders(),
+      signal: ac.signal,
+    });
+    if (!res.ok) throw new Error(`统计作品数失败 (${res.status})`);
+    const data = (await res.json()) as { count?: number; failed?: number };
+    return { count: Number(data.count) || 0, failed: Number(data.failed) || 0 };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** 一键清理全部生成失败的作品(软删入回收站,72h 可恢复)。 */
