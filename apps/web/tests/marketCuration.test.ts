@@ -15,6 +15,8 @@ import {
   filterApps,
   normalizeApp,
   USE_CASES,
+  USE_CASE_GROUPS,
+  useCaseGroup,
   useCaseLabel,
 } from "../lib/apps";
 
@@ -176,7 +178,8 @@ test("fetchUseCaseSummary:404/非 2xx/异常一律静默降级 [],不抛错", as
 
 test("AppMarketView 策展层接线:chips/合集位/搜索提示(源码)", () => {
   const src = readFileSync(join(webRoot, "components/apps/AppMarketView.tsx"), "utf-8");
-  assert.ok(src.includes("fetchUseCaseSummary"), "应拉取用途计数 summary");
+  assert.ok(src.includes("USE_CASE_GROUPS"), "chips 应走 8 场景组(2026-09-14 分类重设计)");
+  assert.ok(src.includes("groupChips"), "场景组计数 memo 缺失(指纹去重=功能入口数)");
   assert.ok(src.includes("apps-mkt-chips"), "缺用途 chips 行");
   assert.ok(src.includes("useCase"), "filterApps 应接 useCase");
   assert.ok(src.includes("apps-mkt-section"), "缺合集位区块");
@@ -200,7 +203,30 @@ test("apps.css 含 apps-mkt- 段(chips/合集位/小卡)", () => {
     ".apps-mkt-rail",
     ".apps-mkt-mini",
     ".apps-mkt-search-hint",
+    ".apps-mkt-blurb",
   ]) {
     assert.ok(css.includes(cls), `apps.css 缺 ${cls}`);
   }
+});
+
+/* ── ④ 场景组(2026-09-14 分类重设计:12 枚举 → 8 场景组,展示层映射) ── */
+
+test("USE_CASE_GROUPS:8 组全覆盖 12 枚举,blurb 非空,id 唯一", () => {
+  assert.equal(USE_CASE_GROUPS.length, 8);
+  const ids = new Set(USE_CASE_GROUPS.map((g) => g.id));
+  assert.equal(ids.size, 8, "组 id 不得重复");
+  const covered = new Set(USE_CASE_GROUPS.flatMap((g) => g.useCases as readonly string[]));
+  for (const u of USE_CASES) {
+    assert.ok(covered.has(u.id), `枚举 ${u.id} 未落入任何场景组`);
+  }
+  for (const g of USE_CASE_GROUPS) {
+    assert.ok(g.blurb.length > 0, `${g.id} 缺 blurb`);
+  }
+});
+
+test("useCaseGroup:id 命中组定义,未知/空返回 null", () => {
+  assert.equal(useCaseGroup("portrait")?.label, "写真·人像");
+  assert.deepEqual([...(useCaseGroup("tools")?.useCases ?? [])], ["other"]);
+  assert.equal(useCaseGroup("zzz"), null);
+  assert.equal(useCaseGroup(""), null);
 });

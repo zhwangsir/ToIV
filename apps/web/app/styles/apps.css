@@ -2085,6 +2085,13 @@
   color: var(--rh-lime);
   opacity: 0.72;
 }
+/* 选中场景组下的一句话说明(分类重设计 2026-09-14) */
+.apps-mkt-blurb {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-aux);
+  font-family: var(--font-sans);
+  color: var(--rh-text-3);
+}
 
 /* 搜索结果计数提示 */
 .apps-mkt-search-hint {

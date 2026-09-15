@@ -12,19 +12,17 @@ import {
   appAuthorOf,
   COMMUNITY_PAGE_SIZE,
   COMMUNITY_SEARCH_CAP,
-  fetchUseCaseSummary,
   filterApps,
   forkApp,
   listApps,
   placeholderAspect,
   sortAppsHot,
   sortFeaturedApps,
-  USE_CASES,
-  useCaseLabel,
+  USE_CASE_GROUPS,
+  useCaseGroup,
   type AppItem,
   type AppMarketSort,
   type AppOutputKind,
-  type UseCaseSummaryItem,
 } from "@/lib/apps";
 import { getMe, getToken, imageUrl, TOKEN_KEY } from "@/lib/api";
 import { useCrossTabSync } from "@/lib/crossTab";
@@ -150,10 +148,8 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
 
   const [query, setQuery] = useState("");
   const [marketSort, setMarketSort] = useState<AppMarketSort>("default");
-  /** 用途分类 chips(2026-09-12 市场策展层);"all" = 不过滤 */
+  /** 场景组 chips(2026-09-14 分类重设计:12 use_case → 8 场景组);"all" = 不过滤 */
   const [useCase, setUseCase] = useState("all");
-  /** 用途计数 summary(后端门控统计);null = 未回/失败 → chips 用客户端计数兜底 */
-  const [useCaseSummary, setUseCaseSummary] = useState<UseCaseSummaryItem[] | null>(null);
   const [streamShown, setStreamShown] = useState(STREAM_PAGE);
   const [loadingMore, setLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
@@ -192,47 +188,38 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     void refresh();
   }, [refresh]);
 
-  // 用途计数:仅作 chips 展示,失败静默降级(客户端计数兜底,见 useCaseChips)
-  useEffect(() => {
-    let cancelled = false;
-    void fetchUseCaseSummary().then((list) => {
-      if (!cancelled && list.length > 0) setUseCaseSummary(list);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  /** 可见集(NSFW 门控 + outputKind;不含 q/useCase):chips 兜底计数与合集位的共同基底 */
+  /** 可见集(NSFW 门控 + outputKind;不含 q/useCase):chips 计数与合集位的共同基底 */
   const visibleApps = useMemo(
     () => filterApps(apps, { category: "all", r18, outputKind }),
     [apps, r18, outputKind],
   );
 
-  /** chips 行:全部(总数) + 各用途(label+count,0 不显示);summary 优先,客户端计数兜底 */
-  const useCaseChips = useMemo(() => {
-    const summaryCount = new Map<string, number>();
-    if (useCaseSummary) {
-      for (const s of useCaseSummary) summaryCount.set(s.id, s.count);
-    }
-    const clientCount = new Map<string, number>();
+  /** 场景组 chips:计数 = 组内不同功能入口(指纹)数,与折叠后的网格一致 */
+  const groupChips = useMemo(() => {
+    const all = new Set<string>();
+    const per = new Map<string, Set<string>>();
     for (const a of visibleApps) {
-      if (!a.use_case) continue;
-      clientCount.set(a.use_case, (clientCount.get(a.use_case) ?? 0) + 1);
+      const fp = a.fingerprint || a.id;
+      all.add(fp);
+      const g = USE_CASE_GROUPS.find((x) => (x.useCases as readonly string[]).includes(a.use_case ?? ""));
+      if (g) {
+        let set = per.get(g.id);
+        if (!set) {
+          set = new Set();
+          per.set(g.id, set);
+        }
+        set.add(fp);
+      }
     }
-    // summary 里出现但枚举未知的 id 也保留(后端先行时的前向兼容)
-    const ids = new Set<string>(USE_CASES.map((u) => u.id));
-    const extra = useCaseSummary?.filter((s) => !ids.has(s.id)) ?? [];
-    const chips: { id: string; label: string; count: number }[] = [
-      ...USE_CASES.map((u) => ({
-        id: u.id as string,
-        label: u.label as string,
-        count: summaryCount.get(u.id) ?? clientCount.get(u.id) ?? 0,
-      })),
-      ...extra.map((s) => ({ id: s.id, label: s.label, count: s.count })),
-    ];
-    return chips.filter((c) => c.count > 0 || c.id === useCase);
-  }, [useCaseSummary, visibleApps, useCase]);
+    return {
+      total: all.size,
+      chips: USE_CASE_GROUPS.map((g) => ({
+        id: g.id,
+        label: g.label,
+        count: per.get(g.id)?.size ?? 0,
+      })).filter((c) => c.count > 0 || c.id === useCase),
+    };
+  }, [visibleApps, useCase]);
 
   const [showVariants, setShowVariants] = useState(false);
   // 管理员视角默认只看已上架:私有/草稿导入残堆(曾达 1711)不进市场网格
@@ -255,9 +242,14 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     [apps],
   );
   const filtered = useMemo(() => {
-    // category 固定 all:分区/旧分类 chips 已撤;NSFW 与 outputKind 仍生效
+    // category 固定 all:分区/旧分类 chips 已撤;NSFW 与 outputKind 仍生效;
+    // 场景组 = 组内 use_case 白名单过滤(未分类应用仅在「全部」出现)
+    const grp = useCase === "all" ? null : useCaseGroup(useCase);
     const base = showUnlisted ? apps : apps.filter((a) => a.is_public || !adminSeen);
-    const list = filterApps(base, { q: query, category: "all", r18, outputKind, useCase });
+    const list0 = filterApps(base, { q: query, category: "all", r18, outputKind });
+    const list = grp
+      ? list0.filter((a) => (grp.useCases as readonly string[]).includes(a.use_case ?? ""))
+      : list0;
     // 功能归组(2026-09-15):同指纹变体默认折叠,搜索时仍全量(搜到变体算命中)
     const folded = showVariants || query.trim() !== "" ? list : list.filter((a) => !a.is_variant);
     const ranked = sortFeaturedApps(folded, featuredIds);
@@ -511,21 +503,31 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
               onClick={() => setUseCase("all")}
             >
               全部
-              <span className="apps-mkt-chip-count">{visibleApps.length}</span>
+              <span className="apps-mkt-chip-count">{groupChips.total}</span>
             </button>
-            {useCaseChips.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                className={`apps-mkt-chip${useCase === c.id ? " is-on" : ""}`}
-                aria-pressed={useCase === c.id}
-                onClick={() => setUseCase((prev) => (prev === c.id ? "all" : c.id))}
-              >
-                {useCaseLabel(c.id) ?? c.label}
-                <span className="apps-mkt-chip-count">{c.count}</span>
-              </button>
-            ))}
+            {groupChips.chips.map((c) => {
+              const grp = useCaseGroup(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`apps-mkt-chip${useCase === c.id ? " is-on" : ""}`}
+                  aria-pressed={useCase === c.id}
+                  onClick={() => setUseCase((prev) => (prev === c.id ? "all" : c.id))}
+                  title={grp?.blurb}
+                >
+                  {c.label}
+                  <span className="apps-mkt-chip-count">{c.count}</span>
+                </button>
+              );
+            })}
           </div>
+
+          {useCase !== "all" && !searching && groupChips.chips.length > 0 && (
+            <p className="apps-mkt-blurb" role="note">
+              {useCaseGroup(useCase)?.blurb}
+            </p>
+          )}
 
           {searching && (
             <p className="apps-mkt-search-hint" role="status">
