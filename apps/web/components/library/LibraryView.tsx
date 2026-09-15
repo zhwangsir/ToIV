@@ -272,6 +272,8 @@ export function LibraryView(props?: LibraryViewProps) {
   const [lightboxScope, setLightboxScope] = useState<readonly JobItem[] | null>(null);
   // 内容分组下钻:当前打开的文件夹 batch_id(null=主网格)
   const [openBatchId, setOpenBatchId] = useState<string | null>(null);
+  // 多产物作业二级页(2026-09-15 用户拍板):叠放卡点击下钻,一页看全组图片
+  const [openStackJobId, setOpenStackJobId] = useState<string | null>(null);
   // 风格卡(WS4):StyleBar 数据源 + 「存为风格」Popover 状态
   const [styleCards, setStyleCards] = useState<StyleCard[]>([]);
   const [styleTarget, setStyleTarget] = useState<JobItem | null>(null);
@@ -374,6 +376,15 @@ export function LibraryView(props?: LibraryViewProps) {
   useEffect(() => {
     if (openBatchId && !openFolder) setOpenBatchId(null);
   }, [openBatchId, openFolder]);
+
+  // 多图二级页目标作业:作业被删/不在客户端列表时自动退回作品库
+  const openStackJob: JobItem | null = useMemo(() => {
+    if (!openStackJobId) return null;
+    return (jobs ?? []).find((j) => j.id === openStackJobId) ?? null;
+  }, [jobs, openStackJobId]);
+  useEffect(() => {
+    if (openStackJobId && !openStackJob) setOpenStackJobId(null);
+  }, [openStackJobId, openStackJob]);
 
   // 灯箱穿梭列表:文件夹下钻内点开成员时限定在组内,否则为整个查询结果;
   // 展平为条目序列(单作业多产物逐张翻看,2026-09-15)
@@ -808,7 +819,7 @@ export function LibraryView(props?: LibraryViewProps) {
 
       {/* 工具条(sticky):搜索 / 类型 chips / 内容分级 / 排序 / 密度 / 批量管理 / 计数;
           文件夹下钻视图隐藏(返回主网格即恢复) */}
-      {!openFolder && (
+      {!openFolder && !openStackJob && (
       <div className="lib-toolbar">
         <div className="lib-search">
           <span className="lib-search-icon" aria-hidden="true">
@@ -972,7 +983,7 @@ export function LibraryView(props?: LibraryViewProps) {
       )}
 
       {/* 风格库横条(WS4):空态 StyleBar 内部返回 null,不渲染整条 */}
-      {!openFolder && (
+      {!openFolder && !openStackJob && (
       <StyleBar
         cards={styleCards}
         onApply={applyStyleCard}
@@ -1170,7 +1181,73 @@ export function LibraryView(props?: LibraryViewProps) {
           </>
         )}
 
-        {!error && !loading && !openFolder && !libraryEmpty && !resultEmpty && (
+        {/* 多产物二级页(2026-09-15 用户拍板):叠放卡下钻,一页看全组图片;
+            点任意一张进灯箱并从该张起翻(穿梭范围=本组) */}
+        {!error && !loading && !openFolder && openStackJob && (
+          <>
+            <nav className="lib-breadcrumb" aria-label="位置">
+              <button
+                type="button"
+                className="lib-breadcrumb-back"
+                onClick={() => setOpenStackJobId(null)}
+              >
+                <Icon name="chevron-left" size={14} />
+                作品库
+              </button>
+              <span className="lib-breadcrumb-sep" aria-hidden="true">
+                /
+              </span>
+              <span className="lib-breadcrumb-current">
+                {splitCardTitle(openStackJob).title || "多图作品"}
+              </span>
+              <span className="lib-breadcrumb-count">
+                {openStackJob.results.length} 张
+              </span>
+            </nav>
+            <div className="lib-grid lib-stack-grid">
+              {openStackJob.results.map((url, i) => {
+                const mk = mediaKindOf(url, openStackJob.kind);
+                return (
+                  <article key={`${openStackJob.id}-${i}`} className="lib-card">
+                    <div className="lib-thumb">
+                      <button
+                        type="button"
+                        className="lib-thumb-hit"
+                        aria-label={`预览第 ${i + 1} 张`}
+                        onClick={() => {
+                          setLightboxScope([openStackJob]);
+                          setLightboxIdx(
+                            flattenLightboxEntries([openStackJob]).findIndex(
+                              (e) => e.index === i,
+                            ),
+                          );
+                        }}
+                      >
+                        {mk === "audio" || mk === "model3d" ? (
+                          <ThumbPlaceholder job={openStackJob} />
+                        ) : mk === "video" ? (
+                          <LazyVideo src={imageUrl(url)} muted loop playsInline />
+                        ) : (
+                          <img
+                            src={imageUrl(url)}
+                            alt={`第 ${i + 1} 张`}
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        )}
+                      </button>
+                      <span className="lib-folder-badge" aria-hidden="true">
+                        {i + 1}
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {!error && !loading && !openFolder && !openStackJob && !libraryEmpty && !resultEmpty && (
           <>
             <div className="lib-grid">
               {visibleEntries.map((entry) => {
@@ -1221,12 +1298,14 @@ export function LibraryView(props?: LibraryViewProps) {
               const isNsfw = !!job.nsfw;
               const isBlurred = isNsfw && !revealedIds.has(job.id);
               const isSelected = selectedIds.has(job.id);
+              // 多产物作业(叠放卡):点击进二级页看全组
+              const isStack = hasResult && (job.results?.length ?? 0) > 1;
               // 2026-08-16 视图批 1:标题位优先语义首段,后端写入的元信息串降级为副标
               const cardText = splitCardTitle(job);
               return (
                 <article
                   key={job.id}
-                  className={`lib-card${isVideo ? " is-video" : ""}${deletingId === job.id ? " is-deleting" : ""}${isSelected ? " is-selected" : ""}${hasResult && (job.results?.length ?? 0) > 1 ? " is-stack" : ""}`}
+                  className={`lib-card${isVideo ? " is-video" : ""}${deletingId === job.id ? " is-deleting" : ""}${isSelected ? " is-selected" : ""}${isStack ? " is-stack" : ""}`}
                 >
                   <div className={`lib-thumb${job.status === "running" && !hasResult ? " is-running" : ""}`}>
                     {/* 预览/勾选触发区用真实 <button>,避免嵌套交互控件(WCAG nested-interactive) */}
@@ -1246,6 +1325,7 @@ export function LibraryView(props?: LibraryViewProps) {
                       onClick={() => {
                         if (batchMode) toggleSelect(job.id);
                         else if (isBlurred) toggleReveal(job.id);
+                        else if (isStack) setOpenStackJobId(job.id);
                         else openLightbox(job);
                       }}
                       onMouseEnter={() => {

@@ -719,17 +719,17 @@
    无需额外 DOM);角标复用文件夹徽标样式。灯箱内逐张翻看全部产物。 */
 .lib-card.is-stack .lib-thumb {
   box-shadow:
-    5px 5px 0 -1px var(--bg-surface-1),
-    5px 5px 0 0 var(--border-strong),
-    10px 10px 0 -1px var(--bg-surface-1),
-    10px 10px 0 0 var(--border-strong);
+    5px -5px 0 -1px var(--bg-surface-1),
+    5px -5px 0 0 var(--border-strong),
+    10px -10px 0 -1px var(--bg-surface-1),
+    10px -10px 0 0 var(--border-strong);
 }
 .lib-card.is-stack:hover .lib-thumb {
   box-shadow:
-    6px 6px 0 -1px var(--bg-surface-1),
-    6px 6px 0 0 var(--border-strong),
-    12px 12px 0 -1px var(--bg-surface-1),
-    12px 12px 0 0 var(--border-strong);
+    6px -6px 0 -1px var(--bg-surface-1),
+    6px -6px 0 0 var(--border-strong),
+    12px -12px 0 -1px var(--bg-surface-1),
+    12px -12px 0 0 var(--border-strong);
 }
 .lib-stack-badge {
   position: absolute;

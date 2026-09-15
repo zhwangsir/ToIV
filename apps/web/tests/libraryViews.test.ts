@@ -467,3 +467,13 @@ test("LibraryCard 多产物:is-stack 类 + N 张角标 + 灯箱条目接线(源�
   const css = readFileSync(join(webRoot, "app/styles/library.css"), "utf-8");
   assert.ok(css.includes(".lib-card.is-stack .lib-thumb"), "缺叠放阴影样式");
 });
+
+test("多产物二级页:叠放卡点击下钻(面包屑+全组网格),非直开灯箱(源码)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes("openStackJobId"), "缺二级页状态");
+  assert.ok(src.includes("else if (isStack) setOpenStackJobId(job.id)"), "叠放卡点击应进二级页");
+  assert.ok(src.includes("lib-breadcrumb-back"), "二级页缺返回面包屑");
+  assert.ok(src.includes("lib-stack-grid"), "二级页缺网格容器");
+  const css = readFileSync(join(webRoot, "app/styles/library.css"), "utf-8");
+  assert.ok(/5px -5px/.test(css), "衬纸应在右上角错位");
+});
