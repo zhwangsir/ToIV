@@ -380,10 +380,17 @@ async function raiseErr(res: Response, fallback: string): Promise<never> {
 
 /** 应用列表;category/q 非空才上 query(契约:?category=&q=)。非 2xx 抛错。
  *  走本机 SWR 缓存(2026-09-01 L1):市场/融合二访秒开;fork/导入/运行后显式失效。 */
-export async function listApps(filter?: { category?: string; q?: string }): Promise<AppItem[]> {
+/** 按功能指纹取同功能变体(运行台预设切换用;slim 行,含 id/name/usage/smoke)。 */
+export async function listVariantsByFingerprint(fp: string): Promise<AppItem[]> {
+  if (!fp) return [];
+  return listApps({ fingerprint: fp });
+}
+
+export async function listApps(filter?: { category?: string; q?: string; fingerprint?: string }): Promise<AppItem[]> {
   const qs = new URLSearchParams();
   if (filter?.category && filter.category !== "all") qs.set("category", filter.category);
   if (filter?.q?.trim()) qs.set("q", filter.q.trim());
+  if (filter?.fingerprint) qs.set("fingerprint", filter.fingerprint);
   const suffix = qs.toString();
   return swr(
     suffix ? `${CACHE_KEYS.apps}:${suffix}` : CACHE_KEYS.apps,

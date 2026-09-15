@@ -12,6 +12,7 @@ import { Field, Input } from "@/components/ui/Input";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { AgeGateModal } from "@/components/ui/AgeGateModal";
 import { useToast } from "@/components/ui/Toast";
+import { listVariantsByFingerprint } from "@/lib/apps";
 import {
   appAuthorInitial,
   appAuthorOf,
@@ -70,6 +71,8 @@ function initialValues(app: AppItem): Record<string, unknown> {
 type RunnerPhase = "detail" | "run";
 
 export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: AppRunnerViewProps) {
+  // 功能归组预设切换(2026-09-15):同指纹变体在运行台内切换,表单/工作流随之切换
+  const [activeId, setActiveId] = useState(appId);
   const toast = useToast();
   const [app, setApp] = useState<AppItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,7 +108,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
     setLoading(true);
     setLoadError(null);
     try {
-      const a = await getApp(appId);
+      const a = await getApp(activeId);
       setApp(a);
       setValues(initialValues(a));
     } catch (e) {
@@ -114,7 +117,24 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
     } finally {
       setLoading(false);
     }
-  }, [appId]);
+  }, [activeId]);
+
+  // 同指纹变体(2026-09-15 功能归组):运行台以「预设」形态切换,同一功能入口
+  const [variants, setVariants] = useState<AppItem[]>([]);
+  useEffect(() => {
+    setVariants([]);
+    const fp = app?.fingerprint;
+    if (!fp || (app?.variant_count ?? 0) < 2) return;
+    let alive = true;
+    listVariantsByFingerprint(fp)
+      .then((rows) => {
+        if (alive) setVariants(rows);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [app?.fingerprint, app?.variant_count]);
 
   useEffect(() => {
     void load();
@@ -230,7 +250,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
     abortRef.current = ctrl;
     let receipt: Awaited<ReturnType<typeof runApp>>;
     try {
-      receipt = await runApp(app.id, buildRunValues(app.params_schema, values), {
+      receipt = await runApp(activeId, buildRunValues(app.params_schema, values), {
         content_mode:
           app.content_modes?.includes("sfw") && app.content_modes?.includes("nsfw")
             ? contentMode
@@ -398,6 +418,25 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
       </header>
 
       <ErrorBar message={runError} onClose={() => setRunError(null)} />
+
+      {phase === "run" && variants.length > 1 && (
+        <div className="apps-preset-row" role="group" aria-label="同功能预设切换">
+          <span className="apps-preset-label">预设</span>
+          {variants.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              className={`apps-preset-chip${v.id === activeId ? " is-on" : ""}`}
+              aria-pressed={v.id === activeId}
+              onClick={() => setActiveId(v.id)}
+              title={`切换到「${v.name}」的参数与素材组合`}
+            >
+              {v.name.length > 18 ? `${v.name.slice(0, 18)}…` : v.name}
+              {v.smoke_status === "pass" ? " ✓" : ""}
+            </button>
+          ))}
+        </div>
+      )}
 
       {phase === "detail" ? (
         <div className="rh-detail">

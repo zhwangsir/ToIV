@@ -2184,6 +2184,7 @@ def list_apps(
     q: str | None = Query(default=None, max_length=120, description="名称/简介模糊搜索"),
     use_case: str | None = Query(default=None, description="按用途分类过滤(见 /apps/use-cases/summary)"),
     featured: bool = Query(default=False, description="只看精选合集位"),
+    fingerprint: str | None = Query(default=None, max_length=32, description="按功能指纹取同功能变体"),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[AppOut]:
@@ -2221,6 +2222,8 @@ def list_apps(
         if category and a.category != category:
             continue
         if use_case and (a.use_case or "") != use_case:
+            continue
+        if fingerprint and (a.fingerprint or "") != fingerprint:
             continue
         if featured and not a.featured:
             continue

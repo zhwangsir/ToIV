@@ -111,8 +111,8 @@ test("AppRunnerView 复用 ParamField 渲染 params_schema(不私造 AppParamFie
 
 test("AppRunnerView 打开时 GET /api/apps/{id} 拉完整 schema(不信任列表 slim 项)", () => {
   const src = readSrc("components/apps/AppRunnerView.tsx");
-  assert.ok(src.includes("getApp(appId)"), "运行页须 getApp 拉详情");
-  assert.ok(!src.includes("listApps("), "运行页不得用列表项的 params_schema");
+  assert.ok(src.includes("getApp(activeId)"), "运行页须按 activeId getApp 拉详情(预设切换后随变体)");
+  assert.ok(!src.includes("listApps("), "运行页不得用列表项的 params_schema(变体名单走 listVariantsByFingerprint)");
 });
 
 test("AppRunnerView 上传走 generate 同款 /api/upload(appUploadKind + pinWorker)", () => {
@@ -173,7 +173,7 @@ test("ParamField: last_frame images max=1 渲染单图上传;video/audio 渲染�
 test("AppRunnerView 提交链:buildRunValues 载荷 → runApp → trackJob(禁用原因提示)", () => {
   const src = readSrc("components/apps/AppRunnerView.tsx");
   assert.ok(src.includes("buildRunValues"), "提交载荷应经 buildRunValues 归一");
-  assert.ok(src.includes("runApp(app.id"), "应调 runApp(POST /run)");
+  assert.ok(src.includes("runApp(activeId"), "应调 runApp(POST /run;预设切换=切 activeId)");
   assert.ok(src.includes("trackJob("), "应复用 lib/trackJob 跟踪作业");
   assert.ok(src.includes("requiredParamLabel"), "必填缺口应卡控提交");
   assert.ok(src.includes("disabledReason"), "禁用原因提示缺失");
