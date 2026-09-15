@@ -362,6 +362,16 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
   }
 
   const backText = phase === "run" ? "返回详情" : backLabel;
+
+  // 预设 chips:当前选中置顶,其次烟测 pass,再次 usage;最多显示 8 个
+  const presetShown = [...variants]
+    .sort(
+      (a, b) =>
+        Number(b.id === activeId) - Number(a.id === activeId) ||
+        Number(b.smoke_status === "pass") - Number(a.smoke_status === "pass") ||
+        (b.usage_count ?? 0) - (a.usage_count ?? 0),
+    )
+    .slice(0, 8);
   const rhWebappId = app.rh_webapp_id || extractRhWebappId(app.description);
   const adminSourceLinks = isAdmin
     ? app.source_links.length > 0
@@ -422,28 +432,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
       {phase === "run" && variants.length > 1 && (
         <div className="apps-preset-row" role="group" aria-label="同功能预设切换">
           <span className="apps-preset-label">预设</span>
-          {(() => {
-            // 排序:当前选中置顶,其次烟测 pass,再次 usage;最多显示 8 个,当前选中永不截断
-            const sorted = [...variants].sort(
-              (a, b) =>
-                Number(b.id === activeId) - Number(a.id === activeId) ||
-                Number(b.smoke_status === "pass") - Number(a.smoke_status === "pass") ||
-                (b.usage_count ?? 0) - (a.usage_count ?? 0),
-            );
-            return sorted.slice(0, 8).map((v) => (
-            <button
-              key={v.id}
-              type="button"
-              className={`apps-preset-chip${v.id === activeId ? " is-on" : ""}`}
-              aria-pressed={v.id === activeId}
-              onClick={() => setActiveId(v.id)}
-              title={`切换到「${v.name}」的参数与素材组合`}
-            >
-              {v.name.length > 18 ? `${v.name.slice(0, 18)}…` : v.name}
-              {v.smoke_status === "pass" ? " ✓" : ""}
-            </button>
-            ));
-          })()}
+          {presetShown.map((v) => (
             <button
               key={v.id}
               type="button"
