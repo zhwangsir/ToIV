@@ -1487,6 +1487,12 @@ export function LibraryView(props?: LibraryViewProps) {
           onIndex={setLightboxIdx}
           onSaveStyle={openStylePopover}
           onReuse={reusePromptAsDraft}
+          onOpenApp={(j) => {
+            if (j.app_id) {
+              closeLightbox();
+              onNavigate?.(`market?app=${j.app_id}`);
+            }
+          }}
           onDelete={handleDelete}
           deletingId={deletingId}
           dialogsOpen={!!styleTarget || !!confirmDelete || !!confirmDeleteStyle || confirmBatchDelete || !!confirmUpscale}
@@ -1983,6 +1989,8 @@ interface LibraryLightboxProps {
   onSaveStyle?: (job: JobItem, anchor: HTMLButtonElement) => void;
   /** 复用提示词:复用 LibraryView.reusePromptAsDraft(写草稿 + 跳工作台) */
   onReuse?: (job: JobItem) => void;
+  /** 打开来源应用(2026-09-15 作品库×应用搭配):job.app_id 存在时出现「打开应用」 */
+  onOpenApp?: (job: JobItem) => void;
   /** 删除:复用 LibraryView.handleDelete(打开既有确认 Modal) */
   onDelete?: (job: JobItem) => void;
   deletingId?: string | null;
@@ -1999,6 +2007,7 @@ function LibraryLightbox({
   onIndex,
   onSaveStyle,
   onReuse,
+  onOpenApp,
   onDelete,
   deletingId = null,
   dialogsOpen,
@@ -2150,7 +2159,7 @@ function LibraryLightbox({
             </div>
             <div className="lib-lb-meta-row">
               <dt>类型</dt>
-              <dd className="lib-lb-kind-value">{job.kind}</dd>
+              <dd className="lib-lb-kind-value" title={job.kind}>{kindLabel(job.kind)}</dd>
             </div>
             <div className="lib-lb-meta-row">
               <dt>时间</dt>
@@ -2174,6 +2183,17 @@ function LibraryLightbox({
           {!previewOnly && mediaKind === "model3d" && <ThreeDOpsBar job={job} />}
 
           <div className="lib-lb-side-actions">
+            {!previewOnly && onOpenApp && job.app_id && (
+              <button
+                type="button"
+                className="lib-lb-action"
+                onClick={() => onOpenApp(job)}
+                title="在应用市场中打开来源应用"
+              >
+                <Icon name="store" size={14} />
+                打开应用
+              </button>
+            )}
             {hasResult && (
               <a
                 className="lib-lb-action"

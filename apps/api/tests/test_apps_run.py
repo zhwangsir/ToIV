@@ -1091,11 +1091,12 @@ def test_run_ok_writes_graph_and_creates_job(ctx):
         a = s.get(App, "t2i-basic")
         assert a.workflow_json["3"]["inputs"]["text"] == "default prompt"
 
-    # Job 建档:kind=app_run,params 存 app_id+表单快照,prompt 取首个文本参数
+    # Job 建档:kind 按产物类型派生(默认 submit_kind=app_run 视作未定制 → app_image),
+    # params 存 app_id+表单快照,prompt 取首个文本参数
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.prompt_id == "prompt-app-1")).first()
         assert job is not None
-        assert job.kind == "app_run"
+        assert job.kind == "app_image"
         assert job.status == "queued"
         assert job.prompt == "一只猫"
         snap = json.loads(job.params)
@@ -1841,3 +1842,24 @@ def test_build_graph_bypass_comfy_literals_link_node():
     with _pt.raises(_HE) as ei:
         _build_graph(graph2, bindings2, {"seconds": 5})
     assert ei.value.status_code == 422
+
+
+# --------------------------------------------------------------------------- #
+# kind 派生(2026-09-15 作品库×应用搭配):app_run 遗留默认视作未定制,按产物归类
+# --------------------------------------------------------------------------- #
+def test_app_job_kind_derivation():
+    from app.models import App
+
+    def mk(**kw) -> App:
+        base = dict(id="k", name="k", output_kind="video")
+        base.update(kw)
+        return App(**base)
+
+    f = apps_route._app_job_kind
+    assert f(mk()) == "app_video", "遗留 app_run 默认 → 按产物类型派生"
+    assert f(mk(submit_kind="")) == "app_video"
+    assert f(mk(output_kind="image")) == "app_image"
+    assert f(mk(output_kind="audio")) == "app_audio"
+    assert f(mk(output_kind="3d")) == "app_3d"
+    assert f(mk(output_kind="weird")) == "app_image", "未知产物类型兜底图像"
+    assert f(mk(submit_kind="my_custom")) == "my_custom", "显式定制 submit_kind 照旧尊重"

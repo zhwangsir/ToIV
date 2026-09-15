@@ -2176,6 +2176,21 @@ def _seed_of(values: dict) -> int:
         return 0
 
 
+def _app_job_kind(a: App) -> str:
+    """应用运行作业的 Job.kind 派生(2026-09-15 作品库×应用搭配)。
+
+    语义 kind(app_video/app_image/app_audio/app_3d)让作品库类型筛选/计数
+    直接生效(前端 FILTERS 按这些别名归桶);submit_kind 是历史遗留的笼统
+    "app_run"(550 导入全默认值),视作未定制 → 按应用真实产物类型派生;
+    用户显式配置过的其它 submit_kind 照旧尊重。
+    """
+    submit_kind = (a.submit_kind or "").strip()
+    if submit_kind and submit_kind != "app_run":
+        return submit_kind
+    output = (a.output_kind or "image").strip()
+    return f"app_{output}" if output in ("image", "video", "audio", "3d") else "app_image"
+
+
 # ---------------------------------------------------------------------------
 # 路由:M1 CRUD
 # ---------------------------------------------------------------------------
@@ -2944,7 +2959,7 @@ async def run_app(
         user_id=user.id,
         prompt_id=prompt_id,
         worker=client.base_url,
-        kind=a.submit_kind or "app_run",
+        kind=_app_job_kind(a),
         status="queued",
         prompt=_prompt_preview(a, values),
         seed=_seed_of(values),

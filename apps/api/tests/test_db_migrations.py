@@ -151,3 +151,41 @@ def test_job_index_migrations_present_and_idempotent(_mem_engine):
     for stmt in idx_stmts * 2:  # 跑两遍验证幂等
         with _mem_engine.begin() as conn:
             conn.exec_driver_sql(stmt)
+
+
+def test_app_run_kind_backfill_migration_present_and_idempotent(_mem_engine):
+    """作品库×应用搭配(2026-09-15):历史 app_run 作业按产物回填语义 kind。
+
+    done+有产物 → app_video/app_audio/app_3d/app_image(按 result 扩展名);
+    失败/无产物保持 app_run;重复执行幂等(已回填行不再匹配 WHERE)。
+    """
+    assert any("app_video" in stmt for stmt in db._SQLITE_POST_MIGRATIONS)
+    with _mem_engine.begin() as conn:
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS job (id TEXT PRIMARY KEY, kind TEXT, status TEXT, result TEXT)"
+        )
+        for jid, kind, status, result in [
+            ("v1", "app_run", "done", '["/api/images?filename=a.mp4&worker=w&sig=x"]'),
+            ("i1", "app_run", "done", '["/api/images?filename=b.png&worker=w&sig=x"]'),
+            ("a1", "app_run", "done", '["/api/images?filename=c.wav&worker=w&sig=x"]'),
+            ("m1", "app_run", "done", '["/api/images?filename=d.glb&worker=w&sig=x"]'),
+            ("e1", "app_run", "error", ""),
+            ("n1", "app_run", "done", "[]"),
+            ("h1", "h3_t2v", "done", '["/api/images?filename=e.mp4&worker=w&sig=x"]'),
+        ]:
+            conn.exec_driver_sql(
+                "INSERT INTO job (id, kind, status, result) VALUES (?, ?, ?, ?)",
+                (jid, kind, status, result),
+            )
+    for _ in range(2):  # 跑两遍验证幂等
+        db._run_column_migrations()
+    with _mem_engine.begin() as conn:
+        rows = conn.exec_driver_sql("SELECT id, kind FROM job").fetchall()
+        got = dict(rows)
+    assert got["v1"] == "app_video"
+    assert got["i1"] == "app_image"
+    assert got["a1"] == "app_audio"
+    assert got["m1"] == "app_3d"
+    assert got["e1"] == "app_run", "失败作业无产物,保持 app_run"
+    assert got["n1"] == "app_run", "无产物 done 保持 app_run"
+    assert got["h1"] == "h3_t2v", "非 app_run kind 不触碰"

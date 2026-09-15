@@ -410,3 +410,29 @@ test("P2 破图占位:ThumbPlaceholder data-filter + JobThumbMedia 兜底 + CSS 
   assert.ok(phBlock.includes("color-mix"), "类型档须 color-mix 强调令牌");
 });
 
+
+/* ── 应用产物归桶(2026-09-15 作品库×应用搭配) ── */
+
+test("kindToFilter:app_* 语义 kind 按产物类型归桶,app_run 不误归", () => {
+  assert.equal(kindToFilter("app_image"), "image");
+  assert.equal(kindToFilter("app_video"), "video");
+  assert.equal(kindToFilter("app_audio"), "audio");
+  assert.equal(kindToFilter("app_3d"), "3d");
+  assert.equal(kindToFilter("app_run"), null, "遗留 app_run 无产物不归桶");
+});
+
+test("kindsQueryForFilter:类型 chip 的服务端 kind 查询包含 app_* 别名", () => {
+  const video = kindsQueryForFilter("video").split(",");
+  assert.ok(video.includes("app_video"), "视频桶须带 app_video");
+  const image = kindsQueryForFilter("image").split(",");
+  assert.ok(image.includes("app_image"), "图像桶须带 app_image");
+  assert.ok(kindsQueryForFilter("audio").includes("app_audio"));
+  assert.ok(kindsQueryForFilter("3d").includes("app_3d"));
+});
+
+test("kindLabel:app_* 中文短名;未知 kind 仍兜底「其他」", () => {
+  assert.equal(kindLabel("app_video"), "应用·视频");
+  assert.equal(kindLabel("app_image"), "应用·图像");
+  assert.equal(kindLabel("app_run"), "应用");
+  assert.equal(kindLabel("no_such_kind"), "其他");
+});

@@ -33,6 +33,8 @@ export const FILTERS: FilterDef[] = [
       "inpaint", "removebg", "raw",
       // Qwen-Image-Edit 语义编辑 / 3D 相机(360° 环绕序列成员 kind)
       "qwen_edit",
+      // 应用市场产物(2026-09-15:Job.kind 按应用 output_kind 派生,app_run 已回填)
+      "app_image",
       // 短剧 studio 图像类产物
       "drama_grid_storyboard", "drama_scene_layout",
       // i2L 风格 LoRA(图像参考导出) / Motion Brush mask PNG
@@ -63,6 +65,8 @@ export const FILTERS: FilterDef[] = [
       "video_edit",
       // 关键帧链式转场(合并成片;段产物 kind=transition 已在上)
       "keyframe_chain",
+      // 应用市场产物(视频类应用)
+      "app_video",
       // 短剧 studio 视频类产物
       "drama_shot_video", "drama_shot_video_i2v", "drama_shot_video_v2", "drama_shot_lipsync",
       // 绿幕抠像 / Wan 动作迁移
@@ -72,9 +76,9 @@ export const FILTERS: FilterDef[] = [
   {
     key: "audio",
     label: "音频",
-    kinds: ["audio", "ace_audio", "audio_sep", "transcribe", "voice_track", "manju_voice"],
+    kinds: ["audio", "ace_audio", "audio_sep", "transcribe", "voice_track", "manju_voice", "app_audio"],
   },
-  { key: "3d", label: "3D", kinds: ["3d", "model3d", "hunyuan3d", "threed_material", "threed_render", "threed_texture"] },
+  { key: "3d", label: "3D", kinds: ["3d", "model3d", "hunyuan3d", "threed_material", "threed_render", "threed_texture", "app_3d"] },
 ];
 
 /** 动态前缀规则(后端按 preset/视角拼 kind):cad_* → 3D;drama_char_reference_* → 图像。 */
@@ -192,6 +196,12 @@ export function kindLabel(kind: string): string {
     drama_shot_video_v2: "镜头视频",
     drama_shot_lipsync: "镜头对口型",
     studio_script_parse: "剧本拆解",
+    // 应用市场产物(2026-09-15:kind 按应用产物类型派生;app_run=历史遗留/失败作业)
+    app_image: "应用·图像",
+    app_video: "应用·视频",
+    app_audio: "应用·音频",
+    app_3d: "应用·3D",
+    app_run: "应用",
   };
   if (map[kind]) return map[kind];
   if (kind.startsWith("cad_")) return "CAD";

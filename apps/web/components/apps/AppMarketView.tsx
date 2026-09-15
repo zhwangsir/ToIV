@@ -162,6 +162,22 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
   const [r18] = useR18Mode();
 
   const [openId, setOpenId] = useState<string | null>(null);
+  // 深链(2026-09-15 作品库「打开应用」):/?view=market&app=<id> 直开运行台;
+  // 挂载时读一次,关闭运行台时清掉 URL 参数(刷新不再重开,但保留可分享性)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const appParam = new URLSearchParams(window.location.search).get("app");
+    if (appParam) setOpenId(appParam);
+  }, []);
+  const closeRunner = useCallback(() => {
+    setOpenId(null);
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("app")) {
+      const params = new URLSearchParams(window.location.search);
+      params.delete("app");
+      const qs = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    }
+  }, []);
   const [forkingId, setForkingId] = useState<string | null>(null);
 
   const [loggedIn, setLoggedIn] = useState(false);
@@ -405,7 +421,7 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     return (
       <AppRunnerView
         appId={openId}
-        onBack={() => setOpenId(null)}
+        onBack={closeRunner}
         backLabel={runnerBackLabel}
       />
     );

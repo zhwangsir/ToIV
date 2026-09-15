@@ -564,6 +564,19 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
 _SQLITE_POST_MIGRATIONS: tuple[str, ...] = (
     # 市场策展层(2026-09-12):app.use_case 列表过滤索引(列由 _SQLITE_MIGRATIONS 补)
     "CREATE INDEX IF NOT EXISTS idx_app_use_case ON app(use_case)",
+    # 作品库×应用搭配(2026-09-15):历史 app_run 作业按产物类型回填语义 kind,
+    # 前端作品库类型筛选(图像/视频/音频/3D)才能罩住应用产物。幂等:新提交已由
+    # routes/apps._app_job_kind 直接派生;失败/无产物作业保持 app_run 不动。
+    # result 是 JSON URL 数组,LIKE 按扩展名判定(gif 前端按图渲染 → app_image)。
+    """
+    UPDATE job SET kind = CASE
+        WHEN result LIKE '%.mp4%' OR result LIKE '%.webm%' OR result LIKE '%.mov%' OR result LIKE '%.m4v%' THEN 'app_video'
+        WHEN result LIKE '%.wav%' OR result LIKE '%.mp3%' OR result LIKE '%.flac%' OR result LIKE '%.m4a%' OR result LIKE '%.ogg%' OR result LIKE '%.aac%' THEN 'app_audio'
+        WHEN result LIKE '%.glb%' OR result LIKE '%.gltf%' THEN 'app_3d'
+        ELSE 'app_image'
+    END
+    WHERE kind = 'app_run' AND status = 'done' AND result LIKE '%.%'
+    """,
 )
 
 
