@@ -124,18 +124,20 @@ export function getCurrentMode(): Mode {
   }
 }
 
-/** 读取当前预设主题(SSR 安全;非法值——含 v7 旧色板名——读取时清除并回落 minimal) */
+/** 读取当前预设主题(SSR 安全;非法值——含 v7 旧色板名——读取时清除)。
+ *  缺省主题 = cinema(2026-09-16 用户拍板:全站默认影院暗色);
+ *  用户显式选择 minimal 会写入 key("minimal"),与"从未设置"可区分。 */
 export function getCurrentTheme(): ThemePreset {
-  if (typeof window === "undefined") return "minimal";
+  if (typeof window === "undefined") return "cinema";
   try {
     migrateLegacyKeys();
     const raw = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (!raw) return "minimal";
+    if (!raw) return "cinema";
     if (THEME_PRESET_IDS.has(raw)) return raw as ThemePreset;
     window.localStorage.removeItem(THEME_STORAGE_KEY);
-    return "minimal";
+    return "cinema";
   } catch {
-    return "minimal";
+    return "cinema";
   }
 }
 
@@ -204,14 +206,10 @@ export function applyThemeDataset(theme: ThemePreset): void {
   syncThemeColorMeta();
 }
 
-/** 应用预设主题:写 localStorage(minimal 移除 key)+ dataset,无刷新即时生效 */
+/** 应用预设主题:写 localStorage(全部显式落 key,含 minimal)+ dataset,无刷新即时生效 */
 export function applyTheme(theme: ThemePreset): void {
   try {
-    if (theme === "minimal") {
-      window.localStorage.removeItem(THEME_STORAGE_KEY);
-    } else {
-      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-    }
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   } catch {
     /* localStorage 不可用时仅内存态生效 */
   }

@@ -152,7 +152,7 @@ test("getCustom:损坏 JSON 回落 {};旧 accent 字段迁移到 toiv_accent_cus
 
 /* ── ② 预设主题 ── */
 
-test("applyTheme:四预设写 localStorage + dataset;minimal 为缺省(移除 key/属性)", () => {
+test("applyTheme:四预设显式写 localStorage + dataset(2026-09-16 默认影院,minimal 显式落 key)", () => {
   resetFake();
   assert.deepEqual(
     THEME_PRESETS.map((p) => p.id),
@@ -164,15 +164,20 @@ test("applyTheme:四预设写 localStorage + dataset;minimal 为缺省(移除 ke
   assert.equal(dataset.theme, "cinema");
   assert.equal(getCurrentTheme(), "cinema");
   applyTheme("minimal");
-  assert.equal(store.has(THEME_STORAGE_KEY), false, "minimal 应移除 key(缺省)");
-  assert.equal(dataset.theme, undefined, "minimal 应移除 data-theme 属性");
+  assert.equal(store.get(THEME_STORAGE_KEY), "minimal", "minimal 应显式落 key(与从未设置可区分)");
+  assert.equal(dataset.theme, undefined, "minimal 仍不落 data-theme 属性");
   assert.equal(getCurrentTheme(), "minimal");
 });
 
-test("getCurrentTheme:v7 旧色板名等非法值读取时清除并回落 minimal", () => {
+test("getCurrentTheme:无 key 缺省回落 cinema(2026-09-16 默认影院)", () => {
+  resetFake();
+  assert.equal(getCurrentTheme(), "cinema", "从未设置主题 → 影院");
+});
+
+test("getCurrentTheme:v7 旧色板名等非法值读取时清除并回落缺省 cinema", () => {
   resetFake();
   store.set(THEME_STORAGE_KEY, "mint");
-  assert.equal(getCurrentTheme(), "minimal");
+  assert.equal(getCurrentTheme(), "cinema");
   assert.equal(store.has(THEME_STORAGE_KEY), false, "旧色板 key 应清除");
 });
 
@@ -255,6 +260,7 @@ test("layout.tsx 内联脚本:v9 四 key + dataset/内联 var 写入 + 旧值迁
   assert.ok(src.includes('localStorage.getItem("toiv_theme_custom")'));
   assert.ok(src.includes('localStorage.getItem("toiv_accent_custom")'), "缺自定义强调色 key");
   assert.ok(src.includes('d.dataset.theme=t'), "缺 data-theme 写入");
+  assert.ok(src.includes('||"cinema"'), "无 key 缺省应为 cinema(2026-09-16 默认影院)");
   assert.ok(src.includes('d.dataset.mode="dark"'));
   assert.ok(src.includes('d.dataset.pureBlack="1"'));
   assert.ok(src.includes('d.dataset.accentCustom="1"'), "缺 data-accent-custom 写入");
@@ -262,7 +268,7 @@ test("layout.tsx 内联脚本:v9 四 key + dataset/内联 var 写入 + 旧值迁
   assert.ok(src.includes('setProperty("--accent-user-on"'), "缺内联 on-accent 推导");
   assert.ok(src.includes("o.pureBlack===true"));
   // v7 旧色板名清除 + 旧 accent 迁移
-  assert.ok(src.includes('localStorage.removeItem("toiv_theme")'), "非法预设值应清除");
+  assert.ok(src.includes('d.dataset.theme="cinema"'), "非法预设值首帧兜底为 cinema(读取时 lib 侧清除)");
   assert.ok(src.includes('localStorage.setItem("toiv_accent_custom",o.accent)'), "旧 accent 应迁移");
   // 静态 themeColor 保持浅色默认
   assert.ok(src.includes('themeColor: "#FAFAF9"'));

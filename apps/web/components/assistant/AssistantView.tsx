@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense, type ReactNode } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { RecentWorksRail } from "./RecentWorksRail";
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
@@ -1945,6 +1946,7 @@ export function AssistantView(props?: AssistantViewProps) {
                     </button>
                   ))}
                 </div>
+                <RecentWorksRail onOpenLibrary={() => goView("library")} />
               </>
             )}
           </div>
