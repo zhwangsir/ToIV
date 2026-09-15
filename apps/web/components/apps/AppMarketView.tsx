@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Empty } from "@/components/ui/Empty";
@@ -46,86 +46,12 @@ import "@/app/styles/apps.css";
  * 追加时已放置 id 永不换列,仅列底增长;断点变化才一次性重分。
  */
 
+/** 一级分类(2026-09-15):空串=市场首页 */
+type MarketCat = "" | "image" | "video" | "audio";
+
 const STREAM_PAGE = COMMUNITY_PAGE_SIZE;
 const STREAM_MOUNT_CAP = 240;  // DOM 挂载上限(长会话窗口化)
 const STREAM_SEARCH_CAP = COMMUNITY_SEARCH_CAP;
-
-/** 与 apps.css .rh-grid 断点对齐:宽 6 / ≤1599→5 / ≤1199→4 / ≤767→2。
- * 优先用「网格容器宽度」(ResizeObserver),避免视口 matchMedia 与主栏实际宽度脱节
- * (侧栏/版心收窄时仍按 window 报 6 列 → 多出空 .rh-col 仍 flex 占位 → 左侧大空白)。
- */
-const RH_COL_MQ = [
-  "(max-width: 767px)",
-  "(max-width: 1199px)",
-  "(max-width: 1599px)",
-] as const;
-
-function rhColCountFromPx(widthPx: number): number {
-  if (widthPx <= 767) return 2;
-  if (widthPx <= 1199) return 4;
-  if (widthPx <= 1599) return 5;
-  return 6;
-}
-
-function rhColCountFromWidth(): number {
-  if (typeof window === "undefined") return 6;
-  return rhColCountFromPx(window.innerWidth);
-}
-
-/** 用 placeholderAspect 估相对高度,供最短列分配(单位宽=1)。 */
-function estimateCardHeight(id: string): number {
-  const ar = placeholderAspect(id); // e.g. "4 / 5" = width/height
-  const parts = ar.split("/");
-  const w = Number(parts[0]?.trim()) || 1;
-  const h = Number(parts[1]?.trim()) || 1;
-  return h / w + 0.12; // 微量固定 chrome,避免纯比例平局
-}
-
-/**
- * 稳定多列:已放置 id 固定列号,新 id 只追加到当前最短列(并列时偏左)。
- * colCount 变化时清空 placement 一次性重分。
- * 若出现「左侧空列、右侧有卡」(placement 腐坏/断点错位),强制重分并左起填满。
- */
-function distributeStableColumns(
-  items: AppItem[],
-  colCount: number,
-  placement: Map<string, number>,
-  placedColCount: { current: number },
-  forceReseed = false,
-): AppItem[][] {
-  const n = Math.max(1, colCount | 0);
-  if (forceReseed || placedColCount.current !== n) {
-    placement.clear();
-    placedColCount.current = n;
-  }
-  const alive = new Set(items.map((a) => a.id));
-  for (const id of [...placement.keys()]) {
-    if (!alive.has(id)) placement.delete(id);
-  }
-
-  const columns: AppItem[][] = Array.from({ length: n }, () => []);
-  const heights = Array.from({ length: n }, () => 0);
-
-  for (const item of items) {
-    let col = placement.get(item.id);
-    if (col == null || col < 0 || col >= n) {
-      col = 0;
-      for (let c = 1; c < n; c++) {
-        if (heights[c] < heights[col]) col = c;
-      }
-      placement.set(item.id, col);
-    }
-    columns[col].push(item);
-    heights[col] += estimateCardHeight(item.id);
-  }
-
-  // 防御:前导空列仍占 flex 份数 → 视口左半空白。重分一次即可左起填满。
-  const firstFilled = columns.findIndex((c) => c.length > 0);
-  if (firstFilled > 0 && !forceReseed) {
-    return distributeStableColumns(items, n, placement, placedColCount, true);
-  }
-  return columns;
-}
 
 function iconOf(a: AppItem): IconName {
   return (a.icon || "package") as IconName;
@@ -150,25 +76,48 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
   const [marketSort, setMarketSort] = useState<AppMarketSort>("default");
   /** 场景组 chips(2026-09-14 分类重设计:12 use_case → 8 场景组);"all" = 不过滤 */
   const [useCase, setUseCase] = useState("all");
+  /** 一级分类页(2026-09-15 用户拍板):空串=市场首页;image/video/audio=二级功能页 */
+  const [cat, setCat] = useState<MarketCat>("");
   const [streamShown, setStreamShown] = useState(STREAM_PAGE);
   const [loadingMore, setLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   /** 本轮追加起点下标;仅 i >= enterFrom 的卡加 is-appended fade,整表不重播 */
   const [enterFrom, setEnterFrom] = useState<number | null>(null);
-  const [colCount, setColCount] = useState(6);
-  const placementRef = useRef(new Map<string, number>());
-  const placedColCountRef = useRef(6);
   const [r18] = useR18Mode();
 
   const [openId, setOpenId] = useState<string | null>(null);
   // 深链(2026-09-15 作品库「打开应用」):/?view=market&app=<id> 直开运行台;
   // 挂载时读一次,关闭运行台时清掉 URL 参数(刷新不再重开,但保留可分享性)
+  // 二级分类页(2026-09-15 用户拍板):/?view=market&cat=image|video|audio
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const appParam = new URLSearchParams(window.location.search).get("app");
+    const params = new URLSearchParams(window.location.search);
+    const appParam = params.get("app");
     if (appParam) setOpenId(appParam);
+    const catParam = params.get("cat");
+    if (catParam === "image" || catParam === "video" || catParam === "audio") setCat(catParam);
   }, []);
+
+  /** 写/清 URL 的 cat 参数(不触发导航,replaceState 保分享可回放) */
+  const syncCatUrl = useCallback((next: MarketCat) => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (next) params.set("cat", next);
+    else params.delete("cat");
+    const qs = params.toString();
+    window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+  }, []);
+  const openCat = useCallback((c: MarketCat) => {
+    setCat(c);
+    setUseCase("all");
+    syncCatUrl(c);
+  }, [syncCatUrl]);
+  const exitCat = useCallback(() => {
+    setCat("");
+    setUseCase("all");
+    syncCatUrl("");
+  }, [syncCatUrl]);
   const closeRunner = useCallback(() => {
     setOpenId(null);
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("app")) {
@@ -238,6 +187,51 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     };
   }, [visibleApps, useCase]);
 
+  // 二级分类页数据(2026-09-15 用户拍板):图片/视频大分类 → 组内按功能组细分
+  const catPage = useMemo(() => {
+    if (!cat) return null;
+    const inCat = visibleApps.filter((a) => (a.output_kind || "image") === cat);
+    const per = new Map<string, Set<string>>();
+    for (const a of inCat) {
+      const g = USE_CASE_GROUPS.find((x) => (x.useCases as readonly string[]).includes(a.use_case ?? ""));
+      if (!g) continue;
+      const set = per.get(g.id) ?? new Set<string>();
+      set.add(a.fingerprint || a.id);
+      per.set(g.id, set);
+    }
+    const chips = USE_CASE_GROUPS.map((g) => ({
+      id: g.id,
+      label: g.label,
+      icon: g.icon,
+      count: per.get(g.id)?.size ?? 0,
+    })).filter((c) => c.count > 0);
+    const labels: Record<string, string> = { image: "图片应用", video: "视频应用", audio: "音频应用" };
+    return {
+      label: labels[cat] ?? cat,
+      total: inCat.length,
+      chips,
+    };
+  }, [visibleApps, cat]);
+
+  // 首页一级入口卡(图片/视频/音频):计数=该类功能入口数,封面取该类头部应用的图
+  const heroCats = useMemo(() => {
+    const defs: { key: "image" | "video" | "audio"; label: string; icon: IconName; desc: string }[] = [
+      { key: "image", label: "图片", icon: "image", desc: "写真 · 编辑 · 换装 · 风格创作" },
+      { key: "video", label: "视频", icon: "video", desc: "文生视频 · 图生视频 · 数字人" },
+      { key: "audio", label: "音频", icon: "audio", desc: "音乐生成与音频处理" },
+    ];
+    return defs
+      .map((d) => {
+        const inCat = visibleApps.filter((a) => !a.is_variant && (a.output_kind || "image") === d.key);
+        const covers = inCat
+          .map((a) => a.cover_url)
+          .filter((u): u is string => !!u)
+          .slice(0, 3);
+        return { ...d, count: new Set(inCat.map((a) => a.fingerprint || a.id)).size, covers };
+      })
+      .filter((d) => d.count > 0);
+  }, [visibleApps]);
+
   const [showVariants, setShowVariants] = useState(false);
   // 管理员视角默认只看已上架:私有/草稿导入残堆(曾达 1711)不进市场网格
   const [showUnlisted, setShowUnlisted] = useState(false);
@@ -264,25 +258,25 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     const grp = useCase === "all" ? null : useCaseGroup(useCase);
     const base = showUnlisted ? apps : apps.filter((a) => a.is_public || !adminSeen);
     const list0 = filterApps(base, { q: query, category: "all", r18, outputKind });
+    // 一级分类(二级页):按产物类型;空串=首页不过滤
+    const byCat = cat ? list0.filter((a) => (a.output_kind || "image") === cat) : list0;
     const list = grp
-      ? list0.filter((a) => (grp.useCases as readonly string[]).includes(a.use_case ?? ""))
-      : list0;
+      ? byCat.filter((a) => (grp.useCases as readonly string[]).includes(a.use_case ?? ""))
+      : byCat;
     // 功能归组(2026-09-15):同指纹变体默认折叠,搜索时仍全量(搜到变体算命中)
     const folded = showVariants || query.trim() !== "" ? list : list.filter((a) => !a.is_variant);
     const ranked = sortFeaturedApps(folded, featuredIds);
     return marketSort === "hot" ? sortAppsHot(ranked) : ranked;
-  }, [apps, query, r18, outputKind, useCase, featuredIds, marketSort, showVariants, showUnlisted, adminSeen]);
+  }, [apps, query, r18, outputKind, cat, useCase, featuredIds, marketSort, showVariants, showUnlisted, adminSeen]);
 
   const searching = query.trim() !== "";
   /** 合集位(精选/热门)仅在「未搜索 且 未选用途」时挂在瀑布流上方 */
-  const showCurated = !searching && useCase === "all";
   const curatedRails = useMemo(() => {
-    if (!showCurated) return { featured: [] as AppItem[], hot: [] as AppItem[] };
     const featured = visibleApps.filter((a) => a.featured);
     const featuredIdSet = new Set(featured.map((a) => a.id));
     const hot = sortAppsHot(visibleApps.filter((a) => !featuredIdSet.has(a.id))).slice(0, 10);
     return { featured, hot };
-  }, [showCurated, visibleApps]);
+  }, [visibleApps, searching, useCase]);
   const streamSlice = useMemo(() => {
     if (searching) {
       return {
@@ -302,45 +296,12 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     };
   }, [filtered, searching, streamShown]);
 
-  const gridRef = useRef<HTMLDivElement | null>(null);
-  // 网格在 loading/空态之后才挂载;依赖此旗标重绑 ResizeObserver
-  const gridLive = !loading && !loadError && filtered.length > 0;
-
-  // 列数跟随网格容器实际宽度(ResizeObserver);matchMedia 仅作无节点时的回退。
-  // useLayoutEffect:paint 前同步,避免先按默认 6 列落 placement 再收缩留下空列。
-  useLayoutEffect(() => {
-    const syncFrom = (widthPx: number) => {
-      const next = rhColCountFromPx(widthPx);
-      setColCount((prev) => (prev === next ? prev : next));
-    };
-    const el = gridRef.current;
-    if (el && typeof ResizeObserver !== "undefined") {
-      const ro = new ResizeObserver((entries) => {
-        const w = entries[0]?.contentRect?.width;
-        if (typeof w === "number" && w > 0) syncFrom(w);
-      });
-      ro.observe(el);
-      syncFrom(el.getBoundingClientRect().width);
-      return () => ro.disconnect();
-    }
-    const sync = () => syncFrom(window.innerWidth);
-    sync();
-    const mqs = RH_COL_MQ.map((q) => window.matchMedia(q));
-    for (const mq of mqs) mq.addEventListener("change", sync);
-    return () => {
-      for (const mq of mqs) mq.removeEventListener("change", sync);
-    };
-  }, [gridLive]);
-
   useEffect(() => {
     setStreamShown(STREAM_PAGE);
     setLoadingMore(false);
     loadingMoreRef.current = false;
     setEnterFrom(null);
-    placementRef.current.clear();
-    // 与 placement 一并失效,下次 distribute 必走重分(避免 placedColCount 仍匹配却带着腐坏列号)
-    placedColCountRef.current = -1;
-  }, [query, outputKind, marketSort, r18, useCase]);
+  }, [query, outputKind, marketSort, r18, useCase, cat]);
 
   /** 触底小步推进(+STREAM_PAGE);同步切片,安静追加(不闪 loading 细条) */
   const advanceStream = useCallback(() => {
@@ -395,15 +356,9 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     };
   }, [streamSlice.hasMore, streamSlice.items.length, searching, advanceStream]);
 
-  // 渲染期稳定分配(placement 缓存在 ref):追加不换列;勿放 useMemo 以免纯度问题
-  const streamColumns = distributeStableColumns(
-    streamSlice.items,
-    colCount,
-    placementRef.current,
-    placedColCountRef,
-  );
-  const itemIndexById = new Map<string, number>();
-  streamSlice.items.forEach((a, i) => itemIndexById.set(a.id, i));
+  // 瀑布流(2026-09-15 重构):CSS 原生多列(columns)接管,浏览器自行分列,
+  // 任何视口宽度都不会塌成单列;组件只负责窗口化切片
+  const masonryItems = streamSlice.items;
 
   async function fork(a: AppItem) {
     setForkingId(a.id);
@@ -488,72 +443,125 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
             )}
           </div>
 
-          {/* 用途分类 chips 行(2026-09-12 市场策展层):全部 + 各用途(count>0);
-              与搜索叠加过滤;再点选中的 chip 取消 */}
-          <div className="apps-mkt-chips" role="group" aria-label="按用途筛选">
-            {adminSeen && (
-              <button
-                type="button"
-                className={`apps-mkt-chip${showUnlisted ? " is-on" : ""}`}
-                aria-pressed={showUnlisted}
-                onClick={() => setShowUnlisted((v) => !v)}
-                title="含未上架(导入草稿/私有)。默认隐藏以防残堆稀释市场"
-              >
-                含未上架
-              </button>
-            )}
-            {variantTotal > 0 && (
-              <button
-                type="button"
-                className={`apps-mkt-chip${showVariants ? " is-on" : ""}`}
-                aria-pressed={showVariants}
-                onClick={() => setShowVariants((v) => !v)}
-                title="同功能工作流的参数/素材变体,默认折叠"
-              >
-                同功能变体 {variantTotal}
-              </button>
-            )}
-            <button
-              type="button"
-              className={`apps-mkt-chip${useCase === "all" ? " is-on" : ""}`}
-              aria-pressed={useCase === "all"}
-              onClick={() => setUseCase("all")}
-            >
-              全部
-              <span className="apps-mkt-chip-count">{groupChips.total}</span>
-            </button>
-            {groupChips.chips.map((c) => {
-              const grp = useCaseGroup(c.id);
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`apps-mkt-chip${useCase === c.id ? " is-on" : ""}`}
-                  aria-pressed={useCase === c.id}
-                  onClick={() => setUseCase((prev) => (prev === c.id ? "all" : c.id))}
-                  title={grp?.blurb}
-                >
-                  <Icon name={c.icon} size={12} aria-hidden="true" />
-                  {c.label}
-                  <span className="apps-mkt-chip-count">{c.count}</span>
+          {/* 二级分类页:面包屑 + 功能组 chips(2026-09-15 用户拍板两级结构) */}
+          {catPage && (
+            <>
+              <nav className="apps-mkt-crumb" aria-label="位置">
+                <button type="button" className="apps-mkt-crumb-back" onClick={() => exitCat()}>
+                  <Icon name="chevron-left" size={13} />
+                  市场首页
                 </button>
-              );
-            })}
-          </div>
-
-          {useCase !== "all" && !searching && groupChips.chips.length > 0 && (
-            <p className="apps-mkt-blurb" role="note">
-              {useCaseGroup(useCase)?.blurb}
-            </p>
+                <span className="apps-mkt-crumb-sep" aria-hidden="true">/</span>
+                <span className="apps-mkt-crumb-current">{catPage.label}</span>
+                <span className="apps-mkt-crumb-count">{catPage.total} 个应用</span>
+              </nav>
+              <div className="apps-mkt-chips" role="group" aria-label="按功能筛选">
+                <button
+                  type="button"
+                  className={`apps-mkt-chip${useCase === "all" ? " is-on" : ""}`}
+                  aria-pressed={useCase === "all"}
+                  onClick={() => setUseCase("all")}
+                >
+                  全部
+                  <span className="apps-mkt-chip-count">{catPage.total}</span>
+                </button>
+                {catPage.chips.map((c) => {
+                  const grp = useCaseGroup(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`apps-mkt-chip${useCase === c.id ? " is-on" : ""}`}
+                      aria-pressed={useCase === c.id}
+                      onClick={() => setUseCase((prev) => (prev === c.id ? "all" : c.id))}
+                      title={grp?.blurb}
+                    >
+                      <Icon name={c.icon} size={12} aria-hidden="true" />
+                      {c.label}
+                      <span className="apps-mkt-chip-count">{c.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {useCase !== "all" && (
+                <p className="apps-mkt-blurb" role="note">
+                  {useCaseGroup(useCase)?.blurb}
+                </p>
+              )}
+            </>
           )}
 
-          {searching && (
+          {/* 市场首页:一级分类入口卡(图片/视频/音频) */}
+          {cat === "" && !searching && heroCats.length > 0 && (
+            <div className="apps-mkt-hero" role="navigation" aria-label="应用分类">
+              {heroCats.map((h) => (
+                <button
+                  key={h.key}
+                  type="button"
+                  className="apps-mkt-hero-card"
+                  onClick={() => openCat(h.key)}
+                >
+                  <span className="apps-mkt-hero-covers" aria-hidden="true">
+                    {h.covers.map((u, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={i} src={u} alt="" loading="lazy" decoding="async" />
+                    ))}
+                  </span>
+                  <span className="apps-mkt-hero-body">
+                    <span className="apps-mkt-hero-title">
+                      <Icon name={h.icon} size={16} aria-hidden="true" />
+                      {h.label}
+                    </span>
+                    <span className="apps-mkt-hero-desc">{h.desc}</span>
+                    <span className="apps-mkt-hero-count">{h.count} 个应用</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {(searching || cat) && (
             <p className="apps-mkt-search-hint" role="status">
-              找到 {filtered.length} 个应用
+              {searching ? `找到 ${filtered.length} 个应用` : `${catPage?.label ?? ""} · 共 ${catPage?.total ?? 0} 个应用`}
             </p>
           )}
 
-          {filtered.length === 0 ? (
+          {cat === "" && !searching ? (
+            <>
+              {curatedRails.featured.length > 0 && (
+                <section className="apps-mkt-section" aria-label="精选应用">
+                  <h2 className="apps-mkt-section-title">
+                    <Icon name="sparkles" size={13} strokeWidth={1.8} />
+                    精选
+                    <span className="apps-mkt-section-count">
+                      {curatedRails.featured.length}
+                    </span>
+                  </h2>
+                  <div className="apps-mkt-rail" role="list">
+                    {curatedRails.featured.map((a) => (
+                      <MiniAppCard key={a.id} app={a} onOpen={() => setOpenId(a.id)} />
+                    ))}
+                  </div>
+                </section>
+              )}
+              {curatedRails.hot.length > 0 && (
+                <section className="apps-mkt-section" aria-label="热门应用">
+                  <h2 className="apps-mkt-section-title">
+                    <Icon name="zap" size={13} strokeWidth={1.8} />
+                    热门
+                    <span className="apps-mkt-section-count">
+                      {curatedRails.hot.length}
+                    </span>
+                  </h2>
+                  <div className="apps-mkt-rail" role="list">
+                    {curatedRails.hot.map((a) => (
+                      <MiniAppCard key={a.id} app={a} onOpen={() => setOpenId(a.id)} />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
+          ) : filtered.length === 0 ? (
             searching || useCase !== "all" ? (
               <Empty size="inline" title="没有匹配的应用——换个关键词或分类" />
             ) : (
@@ -575,69 +583,18 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
             )
           ) : (
             <>
-              {showCurated && (
-                <>
-                  {curatedRails.featured.length > 0 && (
-                    <section className="apps-mkt-section" aria-label="精选应用">
-                      <h2 className="apps-mkt-section-title">
-                        <Icon name="sparkles" size={13} strokeWidth={1.8} />
-                        精选
-                        <span className="apps-mkt-section-count">
-                          {curatedRails.featured.length}
-                        </span>
-                      </h2>
-                      <div className="apps-mkt-rail" role="list">
-                        {curatedRails.featured.map((a) => (
-                          <MiniAppCard key={a.id} app={a} onOpen={() => setOpenId(a.id)} />
-                        ))}
-                      </div>
-                    </section>
-                  )}
-                  {curatedRails.hot.length > 0 && (
-                    <section className="apps-mkt-section" aria-label="热门应用">
-                      <h2 className="apps-mkt-section-title">
-                        <Icon name="zap" size={13} strokeWidth={1.8} />
-                        热门
-                        <span className="apps-mkt-section-count">
-                          {curatedRails.hot.length}
-                        </span>
-                      </h2>
-                      <div className="apps-mkt-rail" role="list">
-                        {curatedRails.hot.map((a) => (
-                          <MiniAppCard key={a.id} app={a} onOpen={() => setOpenId(a.id)} />
-                        ))}
-                      </div>
-                    </section>
-                  )}
-                </>
-              )}
-              <div
-                ref={gridRef}
-                className="apps-grid rh-grid"
-                role="list"
-                aria-label="应用列表"
-                data-cols={colCount}
-              >
-                {streamColumns.map((col, ci) =>
-                  col.length === 0 ? null : (
-                  <div key={ci} className="rh-col" role="presentation">
-                    {col.map((a) => {
-                      const idx = itemIndexById.get(a.id) ?? 0;
-                      return (
-                        <AppCard
-                          key={a.id}
-                          app={a}
-                          appended={enterFrom != null && idx >= enterFrom}
-                          showFork={!a.is_builtin && !a.is_mine}
-                          forking={forkingId === a.id}
-                          onOpen={() => setOpenId(a.id)}
-                          onFork={() => void fork(a)}
-                        />
-                      );
-                    })}
-                  </div>
-                  ),
-                )}
+              <div className="apps-masonry" role="list" aria-label="应用列表">
+                {masonryItems.map((a, i) => (
+                  <AppCard
+                    key={a.id}
+                    app={a}
+                    appended={enterFrom != null && i >= enterFrom}
+                    showFork={!a.is_builtin && !a.is_mine}
+                    forking={forkingId === a.id}
+                    onOpen={() => setOpenId(a.id)}
+                    onFork={() => void fork(a)}
+                  />
+                ))}
               </div>
               {streamSlice.hasMore && (
                 <div className="apps-community-more">
@@ -675,40 +632,24 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
   );
 }
 
-/** 主题感知瀑布骨架:稳定多列 rh-col + skeleton-shimmer(motion tokens)。 */
+/** 主题感知瀑布骨架:CSS 原生多列占位卡(motion tokens shimmer)。 */
 function MarketSkeleton({ count }: { count: number }) {
   const ars = ["1 / 1", "4 / 5", "3 / 4", "5 / 4"] as const;
-  const cols = rhColCountFromWidth();
-  const columns: number[][] = Array.from({ length: cols }, () => []);
-  for (let i = 0; i < count; i++) columns[i % cols].push(i);
   return (
-    <div
-      className="apps-grid rh-grid apps-skel"
-      role="status"
-      aria-label="加载中"
-      aria-busy="true"
-      data-cols={cols}
-    >
-      {columns.map((col, ci) => (
-        <div key={ci} className="rh-col" role="presentation">
-          {col.map((i) => (
-            <div
-              key={i}
-              className="apps-skel-card skeleton-shimmer"
-              style={{ aspectRatio: ars[i % ars.length] }}
-              aria-hidden="true"
-            />
-          ))}
-        </div>
+    <div className="apps-masonry" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => (
+        <div
+          key={i}
+          className="apps-skeleton-card skeleton-shimmer"
+          style={{ aspectRatio: ars[i % ars.length] }}
+        />
       ))}
     </div>
   );
 }
 
-/**
- * 合集位紧凑小卡(2026-09-12 市场策展层,精选/热门横滚条):
- * 定宽横滚 + 4/3 封面 + 单行名称 + 用量;封面失败回退图标占位(与大卡同口径)。
- */
+
+
 function MiniAppCard({ app: a, onOpen }: { app: AppItem; onOpen: () => void }) {
   const [imgFailed, setImgFailed] = useState(false);
   const showImg = !!a.cover_url && !imgFailed;

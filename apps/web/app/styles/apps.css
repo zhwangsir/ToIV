@@ -933,6 +933,102 @@
   font-weight: var(--font-semibold);
 }
 
+/* ── 市场瀑布流 v2(2026-09-15 用户反馈塌列):CSS 原生多列接管,
+   浏览器自行分列,任何视口宽度都不会出现单列塌陷;卡片 break-inside 防截断 ── */
+.apps-masonry {
+  columns: 6 240px;
+  column-gap: var(--grid-gutter, 16px);
+}
+.apps-masonry > * {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  margin: 0 0 var(--grid-gutter, 16px);
+}
+.apps-skeleton-card {
+  background: linear-gradient(120deg, var(--bg-surface-1), var(--bg-surface-2));
+  border-radius: var(--radius-control, 10px);
+  min-height: 160px;
+}
+
+/* ── 一级分类入口卡(2026-09-15 两级分类):图片/视频/音频大卡 ── */
+.apps-mkt-hero {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--grid-gutter, 16px);
+  margin: var(--space-4) 0;
+}
+.apps-mkt-hero-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 150px;
+  padding: 0;
+  border: 1px solid var(--rh-border);
+  border-radius: var(--radius-control, 12px);
+  background: var(--rh-surface-1);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  transition: transform var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+.apps-mkt-hero-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--rh-lime);
+}
+.apps-mkt-hero-covers {
+  display: flex;
+  height: 96px;
+}
+.apps-mkt-hero-covers img {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(1.05);
+}
+.apps-mkt-hero-covers img + img { border-left: 1px solid var(--rh-border); }
+.apps-mkt-hero-body {
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px 12px;
+}
+.apps-mkt-hero-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: var(--font-semibold, 600);
+  color: var(--rh-text-1);
+}
+.apps-mkt-hero-desc { color: var(--rh-text-3); font-size: var(--text-aux); }
+.apps-mkt-hero-count { color: var(--rh-lime); font-size: var(--text-aux); font-variant-numeric: tabular-nums; }
+
+/* ── 二级分类页面包屑 ── */
+.apps-mkt-crumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  font-size: var(--text-aux);
+}
+.apps-mkt-crumb-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--rh-surface-1);
+  border: 1px solid var(--rh-border);
+  border-radius: var(--radius-full);
+  color: var(--rh-text-2);
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.apps-mkt-crumb-back:hover { color: var(--rh-text-1); border-color: var(--rh-border-strong); }
+.apps-mkt-crumb-sep { color: var(--rh-text-3); }
+.apps-mkt-crumb-current { color: var(--rh-text-1); font-weight: var(--font-semibold, 600); }
+.apps-mkt-crumb-count { color: var(--rh-text-3); font-variant-numeric: tabular-nums; }
+
 /* ── 瀑布流:稳定多列 DOM(.rh-col)×N(6/5/4/2);
    由 AppMarketView 按断点设 data-cols + 列容器,追加不重排已见卡;
    2026-09-07 节奏:gutter 用 --grid-gutter(16) 更接近 RH 卡距;

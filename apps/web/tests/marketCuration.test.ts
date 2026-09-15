@@ -188,9 +188,10 @@ test("AppMarketView 策展层接线:chips/合集位/搜索提示(源码)", () =>
   assert.ok(src.includes("MiniAppCard"), "合集位应走紧凑小卡");
   assert.ok(src.includes("找到"), "缺搜索结果计数提示");
   assert.ok(
-    src.includes('!searching && useCase === "all"'),
-    "合集位仅在未搜索且未选用途时显示",
+    src.includes('cat === "" && !searching && heroCats.length > 0'),
+    "一级分类入口卡仅在市场首页显示",
   );
+  assert.ok(src.includes("catPage &&"), "二级功能页应挂 catPage");
 });
 
 test("apps.css 含 apps-mkt- 段(chips/合集位/小卡)", () => {

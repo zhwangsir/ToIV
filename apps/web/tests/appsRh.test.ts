@@ -35,29 +35,17 @@ function readSrc(rel: string): string {
 
 /* ── ① 市场瀑布流 ── */
 
-test("RH 市场:根节点挂 rh-dark 暗底作用域 + 瀑布流 rh-grid(稳定多列 6/5/4/2)", () => {
+test("RH 市场:根节点挂 rh-dark 暗底作用域 + CSS 原生 masonry 瀑布流(2026-09-15 重构)", () => {
   const src = readSrc("components/apps/AppMarketView.tsx");
   const css = readSrc("app/styles/apps.css");
   assert.ok(src.includes('className="single-view apps-market rh-dark"'), "市场根节点缺 rh-dark 作用域");
-  assert.ok(src.includes("apps-grid rh-grid"), "分区网格应挂 rh-grid 瀑布流");
-  assert.ok(src.includes("rh-col"), "应渲染稳定列容器 rh-col");
-  assert.ok(src.includes("distributeStableColumns"), "应使用稳定列分配");
-  assert.ok(src.includes("data-cols"), "应暴露 data-cols 列数");
-  // 断点档位仍 6/5/4/2(JS matchMedia + data-cols 标记)
-  assert.match(css, /data-cols="6"/, "宽档应为 6 列标记");
-  assert.match(css, /data-cols="5"/, "次宽档应为 5 列标记");
-  assert.match(css, /data-cols="4"/, "中档应为 4 列标记");
-  assert.match(css, /data-cols="2"/, "窄档应为 2 列标记");
-  assert.ok(src.includes("max-width: 1599px"), "次宽断点 1599 应在源码");
-  assert.ok(src.includes("max-width: 1199px"), "中档断点 1199 应在源码");
-  assert.ok(src.includes("max-width: 767px"), "窄档断点 767 应在源码");
-  assert.match(css, /\.rh-grid \{[\s\S]*?column-gap: var\(--grid-gutter/, "gutter 应走 --grid-gutter(RH 卡距)");
-  assert.match(css, /\.rh-grid \.apps-card[\s\S]*?break-inside: avoid/, "卡片须 break-inside:avoid 防跨列截断");
-  assert.match(css, /\.rh-grid \.rh-col/, "CSS 应定义 rh-col 列容器");
-  assert.match(css, /\.apps-grid\.rh-grid/, "应用网格应双类压过 .apps-grid display:grid");
-  assert.match(css, /\.rh-col:empty/, "空列须 :empty 不占位,防左侧大空白");
-  assert.ok(src.includes("ResizeObserver"), "列数应跟容器宽度 ResizeObserver");
-  assert.ok(src.includes("firstFilled"), "前导空列应强制重分");
+  assert.ok(src.includes("apps-masonry"), "网格应使用 CSS 原生多列 masonry");
+  assert.ok(!src.includes("distributeStableColumns"), "手写稳定列分配应已移除(塌列根因)");
+  assert.ok(!src.includes("ResizeObserver"), "不应再用 ResizeObserver 测列数");
+  // CSS 原生多列:auto-fit 列数 + break-inside 防截断
+  assert.match(css, /\.apps-masonry \{[\s\S]*?columns:/, "masonry 应走 CSS columns");
+  assert.match(css, /\.apps-masonry > \* \{[\s\S]*?break-inside: avoid/, "卡片须 break-inside:avoid 防跨列截断");
+  assert.match(css, /\.apps-masonry \{[\s\S]*?column-gap: var\(--grid-gutter/, "gutter 应走 --grid-gutter(RH 卡距)");
 });
 
 test("RH 卡片:封面充满整卡 + scrim 标题 + 作者行 + ▶ usage_count(源码)", () => {
