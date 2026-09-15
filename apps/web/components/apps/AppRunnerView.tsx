@@ -124,7 +124,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
   useEffect(() => {
     setVariants([]);
     const fp = app?.fingerprint;
-    if (!fp || (app?.variant_count ?? 0) < 2) return;
+    if (!fp) return;
     let alive = true;
     listVariantsByFingerprint(fp)
       .then((rows) => {

@@ -465,6 +465,7 @@ def _to_out(a: App, viewer: User, *, with_workflow: bool = False, slim: bool = F
         smoke_status=a.smoke_status or "",
         smoke_cls=a.smoke_cls or "",
         smoke_at=(a.smoke_at.isoformat(timespec="seconds") if a.smoke_at else None),
+        fingerprint=a.fingerprint or "",
     )
 
 
