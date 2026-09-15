@@ -46,7 +46,7 @@ export function RecentWorksRail({ onOpenLibrary }: { onOpenLibrary: () => void }
         const apply = () => {
           if (alive) setThumbs(picked.slice(0, 12));
         };
-        await Promise.race([preloadAll.then(apply), new Promise((r) => setTimeout(r, 4000).then(apply))]);
+        await Promise.race([preloadAll.then(apply), new Promise<void>((r) => setTimeout(r, 4000)).then(apply)]);
       })
       .catch(() => {
         /* 静默:装饰性横条 */
