@@ -11893,5 +11893,11 @@
     "summary": "作品库×应用搭配：Job.kind 语义化（_app_job_kind 按应用 output_kind 派生 app_video/app_image/app_audio/app_3d，遗留 app_run 视作未定制；db 迁移按 result 扩展名回填历史 done 作业：app_video 421/app_image 317/app_audio 4，失败/无产物保持 app_run）；前端 FILTERS 收编四桶+kindLabel 短名；灯箱「打开应用」(job.app_id)→/?view=market&app=<id> 深链直开运行台，AppMarketView 挂载读参/关闭清参；封面全量批 561 目标守护续跑中；迭代（用户反馈）：叠放卡衬纸改右上角错位 + 点击下钻「多图作品」二级页（面包屑/全组网格/序号角标，点任意一张进灯箱从该张起翻），R18 模糊揭示纪律同步套用",
     "tests": "api 3223/0, web 990/0",
     "build": "20260915-105241-dd0342a+"
+  },
+  "standalone_admin_2026_09_15": {
+    "status": "live_v1",
+    "date": "2026-09-15",
+    "summary": "独立管理系统 apps/admin LIVE(core :3200,systemd toiv-admin,deploy/deploy-admin.sh):登录=core 账号 admin 角色;概览(健康/作品计数/失败清理/封面批/烟测批/自愈提案)、应用管理(全量表+行内烟测/重打标/分类/上下架/精选)、系统任务(封面生成记录溯源+全体失败作业);封面产物与用户作品库彻底分离(系统属主 job+app-covers 目录,仅管理系统可见);代理须用 localhost:8090(127.0.0.1 会 ECONNRESET)",
+    "url": "http://192.168.71.47:3200"
   }
 }
