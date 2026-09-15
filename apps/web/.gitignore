@@ -30,3 +30,4 @@ tmp/
 
 # 鉴权 storageState(含 token,勿入库)
 .auth/
+.verify*.mjs

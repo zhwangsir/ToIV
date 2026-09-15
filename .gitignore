@@ -70,3 +70,4 @@ dogfood-output/
 
 # 数据文件备份(生产口径以 rh_h3_presets.json 为准)
 apps/api/app/data/rh_h3_presets.json.bak*
+.verify*.mjs
