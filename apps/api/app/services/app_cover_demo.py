@@ -37,7 +37,8 @@ from app.models import App, Job
 logger = logging.getLogger(__name__)
 
 _DEMO_URL_MARK = "/appcover-demo-"  # demo 封面文件名标记(区别于插画 appcover-)
-_BATCH_CONCURRENCY = 2
+_BATCH_CONCURRENCY = 4  # 队列消费路数(坏应用不堵队,2026-09-15 队头阻塞修复)
+_PER_APP_CAP_S = {"video": 2100, "image": 900, "audio": 600, "3d": 900}  # 单应用整体时限
 _COVER_VIDEO_EXTS = {".mp4", ".webm", ".mov", ".gif", ".mkv", ".avi"}
 _COVER_IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 _MAX_FIXES_LOG = 5
@@ -137,13 +138,18 @@ def plan_demo_targets(session: Session, limit: int) -> list[App]:
         and (a.output_kind or "image") != "audio"
         and _DEMO_URL_MARK not in (a.cover_url or "")
     ]
-    todo.sort(key=lambda a: (
-        0 if a.featured else 1,
-        0 if a.smoke_status == "pass" else 1,
-        0 if not (a.cover_url or "").strip() else 1,
-        -a.usage_count,
-        a.id,
-    ))
+    # smoke 已知失败/超时的沉底(多为内容缺口/上游 bug,先给可跑的应用出封面)
+    def _rank(a: App) -> tuple:
+        rank = {"pass": 0, "": 1, "running": 1}.get(a.smoke_status or "", 2)
+        return (
+            0 if a.featured else 1,
+            rank,
+            0 if not (a.cover_url or "").strip() else 1,
+            -a.usage_count,
+            a.id,
+        )
+
+    todo.sort(key=_rank)
     return todo[: max(limit, 0)]
 
 
@@ -263,30 +269,74 @@ async def _demo_one(pool: WorkerPool, app_id: str, idx: int) -> dict:
     return out
 
 
-def _chunks(items: list[App], n: int):
-    for i in range(0, len(items), n):
-        yield items[i : i + n]
-
-
 async def _run_batch(pool: WorkerPool, limit: int) -> int:
+    """队列消费模式:4 路并发各取各的下一个目标,病态应用不再堵住整批(队头阻塞修复)。
+
+    单应用整体时限 _PER_APP_CAP_S(output_kind 分档):run_app_smoke 内部有轮询
+    上限,但探测/上传/修复阶段可能病态卡住——超时强杀并把 smoke 标记为 timeout,
+    让它在本批沉底,不反复重烧。
+    """
     global _DEMO_SUMMARY
-    done = ok = 0
     with Session(engine) as session:
         targets = plan_demo_targets(session, limit)
     _DEMO_SUMMARY["total"] = len(targets)
-    idx = 0
-    for chunk in _chunks(targets, _BATCH_CONCURRENCY):
-        results = await asyncio.gather(*(_demo_one(pool, a.id, idx + j) for j, a in enumerate(chunk)))
-        idx += len(chunk)
-        for r in results:
-            done += 1
-            ok += 1 if r.get("ok") else 0
-        _DEMO_SUMMARY.update(
-            done=done, ok=ok,
-            finished_at=datetime.utcnow().isoformat(timespec="seconds"),
-        )
-        logger.info("demo cover %d/%d ok=%d", done, len(targets), ok)
-    return ok
+
+    queue: asyncio.Queue[str] = asyncio.Queue()
+    for t in targets:
+        queue.put_nowait(t.id)
+    cap_by_kind = {t.id: _PER_APP_CAP_S.get(t.output_kind or "image", 900) for t in targets}
+    state = {"idx": 0, "done": 0, "ok": 0}
+    idx_lock = asyncio.Lock()
+
+    async def _next_idx() -> int:
+        async with idx_lock:
+            v = state["idx"]
+            state["idx"] += 1
+            return v
+
+    def _mark_timeout(app_id: str, cap_s: int) -> None:
+        try:
+            with Session(engine) as session:
+                a = session.get(App, app_id)
+                if a is not None and a.smoke_status == "running":
+                    a.smoke_status = "timeout"
+                    a.smoke_cls = "timeout"
+                    a.smoke_error = f"demo 整体超时 {cap_s}s(探测/生成卡死)"
+                    a.smoke_at = datetime.utcnow()
+                    session.add(a)
+                    session.commit()
+        except Exception:  # noqa: BLE001 — 标记失败不中断批次
+            pass
+
+    async def _consumer() -> None:
+        while True:
+            try:
+                app_id = queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
+            cap_s = cap_by_kind.get(app_id, 900)
+            idx = await _next_idx()
+            try:
+                r = await asyncio.wait_for(_demo_one(pool, app_id, idx), timeout=cap_s)
+            except (TimeoutError, asyncio.TimeoutError):
+                _mark_timeout(app_id, cap_s)
+                r = {"app_id": app_id, "ok": False, "error": f"整体超时 {cap_s}s"}
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 — 单应用失败不中断批次
+                r = {"app_id": app_id, "ok": False, "error": repr(exc)[:200]}
+            state["done"] += 1
+            state["ok"] += 1 if r.get("ok") else 0
+            _DEMO_SUMMARY.update(
+                done=state["done"], ok=state["ok"],
+                finished_at=datetime.utcnow().isoformat(timespec="seconds"),
+            )
+            if state["done"] % 10 == 0 or state["done"] == len(targets):
+                logger.info("demo cover %d/%d ok=%d", state["done"], len(targets), state["ok"])
+            queue.task_done()
+
+    await asyncio.gather(*(_consumer() for _ in range(_BATCH_CONCURRENCY)))
+    return state["ok"]
 
 
 _DEMO_TASK: asyncio.Task | None = None
