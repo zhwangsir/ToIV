@@ -11886,5 +11886,12 @@
     "review": ".regen_tmp/cover_review_20260914.py",
     "tests": "api 3221/0, web 987/0",
     "build": "20260915-094402-86b070c"
+  },
+  "library_app_interplay_2026_09_15": {
+    "status": "live",
+    "date": "2026-09-15",
+    "summary": "作品库×应用搭配：Job.kind 语义化（_app_job_kind 按应用 output_kind 派生 app_video/app_image/app_audio/app_3d，遗留 app_run 视作未定制；db 迁移按 result 扩展名回填历史 done 作业：app_video 421/app_image 317/app_audio 4，失败/无产物保持 app_run）；前端 FILTERS 收编四桶+kindLabel 短名；灯箱「打开应用」(job.app_id)→/?view=market&app=<id> 深链直开运行台，AppMarketView 挂载读参/关闭清参；封面全量批 561 目标守护续跑中",
+    "tests": "api 3223/0, web 990/0",
+    "build": "20260915-102311-9f1a091"
   }
 }
