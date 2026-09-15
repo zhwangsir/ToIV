@@ -96,3 +96,20 @@ def reject_selfheal_proposal(
         target_id=out.get("app_id") or "", summary="驳回 LLM 修复提案并还原原始图", detail=out,
     )
     return out
+
+
+class PreflightRequest(BaseModel):
+    workflow_json: dict
+    required_nodes: list[str] = Field(default_factory=list)
+
+
+@router.post("/admin/apps/preflight")
+async def preflight_app(
+    body: PreflightRequest,
+    admin: User = Depends(get_current_admin),
+    pool: WorkerPool = Depends(get_pool),
+) -> dict:
+    """导入前依赖预检(模型/节点全 fleet 可得性);导入管线入库前调用。"""
+    from app.services import app_smoke
+
+    return await app_smoke.preflight_check(pool, body.workflow_json, body.required_nodes or [])

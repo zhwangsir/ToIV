@@ -520,3 +520,47 @@ def smoke_running() -> bool:
 def last_smoke_summary() -> dict | None:
     """最近一次批量烟测摘要(无则 None)。"""
     return _SMKE_SUMMARY
+
+
+async def preflight_check(pool: WorkerPool, workflow_json: dict, required_nodes: list[str] | None = None) -> dict:
+    """导入前依赖预检:模型文件/节点类在全 fleet 是否可得(不烧 GPU,纯 object_info 并集)。
+
+    返回 {procurable, missing_models, missing_nodes, total_models}。
+    用途:RH 导入管线在入库前调用——不可得的应用打 content_missing 隔离,
+    不进入市场稀释可用率。
+    """
+    base = {"procurable": True, "missing_models": [], "missing_nodes": [], "total_models": 0}
+    try:
+        objinfo = await _union_objinfo(pool)
+    except Exception as exc:  # noqa: BLE001 — 并集不可得时不误杀
+        return {**base, "note": f"union unavailable: {exc!r}"[:120]}
+    missing_nodes = [
+        n for n in (required_nodes or [])
+        if isinstance(n, str) and n not in objinfo and not any(
+            _STEM_RE.sub("", n.lower()) == _STEM_RE.sub("", c.lower()) for c in objinfo
+        )
+    ]
+    missing_models: list[str] = []
+    total = 0
+    for node in (workflow_json or {}).values():
+        if not isinstance(node, dict):
+            continue
+        ct = node.get("class_type")
+        field = _COMBO_LOADERS.get(ct)
+        if not field or ct not in objinfo:
+            continue
+        try:
+            combo = objinfo[ct]["input"]["required"][field][0]
+        except (KeyError, TypeError, IndexError):
+            continue
+        val = (node.get("inputs") or {}).get(field)
+        if not isinstance(val, str) or not val:
+            continue
+        total += 1
+        if val not in combo:
+            missing_models.append(f"{ct}.{field}: {val}")
+    base["missing_nodes"] = missing_nodes
+    base["missing_models"] = missing_models[:20]
+    base["total_models"] = total
+    base["procurable"] = not missing_models and not missing_nodes
+    return base
