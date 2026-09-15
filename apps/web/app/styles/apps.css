@@ -2247,3 +2247,7 @@
   border-color: var(--accent);
   color: var(--accent);
 }
+.apps-preset-more {
+  font-size: 12px;
+  color: var(--text-2);
+}
