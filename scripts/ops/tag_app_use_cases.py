@@ -47,6 +47,8 @@ def main() -> int:
     ap.add_argument("--concurrency", type=int, default=8)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--only", default="")
+    ap.add_argument("--retag-stale", action="store_true",
+                    help="只打 use_case 为空或 other 的公开应用(2026-09-14 重打标:分类重设计前置)")
     ap.add_argument("--include-non-public", action="store_true", help="连同非公开应用一起打(RH 长尾扩面)")
     ap.add_argument("--log", default="", help="日志路径(默认 .regen_tmp/app_use_case_tag_<日期>.jsonl)")
     args = ap.parse_args()
@@ -64,6 +66,9 @@ def main() -> int:
         print(f"LIST FAIL {code}", file=sys.stderr)
         return 1
     ids = [a["id"] for a in apps if a.get("is_public") or args.include_non_public]
+    if args.retag_stale:
+        stale = {a["id"] for a in apps if not a.get("use_case") or a.get("use_case") == "other"}
+        ids = [i for i in ids if i in stale]
     if args.only:
         wanted = set(args.only.split(","))
         ids = [i for i in ids if i in wanted]
