@@ -26,7 +26,7 @@ import {
   type AppOutputKind,
   type UseCaseSummaryItem,
 } from "@/lib/apps";
-import { getToken, imageUrl, TOKEN_KEY } from "@/lib/api";
+import { getMe, getToken, imageUrl, TOKEN_KEY } from "@/lib/api";
 import { useCrossTabSync } from "@/lib/crossTab";
 import { useR18Mode } from "@/lib/r18";
 import { AppImportModal } from "./AppImportModal";
@@ -49,6 +49,7 @@ import "@/app/styles/apps.css";
  */
 
 const STREAM_PAGE = COMMUNITY_PAGE_SIZE;
+const STREAM_MOUNT_CAP = 240;  // DOM 挂载上限(长会话窗口化)
 const STREAM_SEARCH_CAP = COMMUNITY_SEARCH_CAP;
 
 /** 与 apps.css .rh-grid 断点对齐:宽 6 / ≤1599→5 / ≤1199→4 / ≤767→2。
@@ -234,18 +235,34 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
   }, [useCaseSummary, visibleApps, useCase]);
 
   const [showVariants, setShowVariants] = useState(false);
+  // 管理员视角默认只看已上架:私有/草稿导入残堆(曾达 1711)不进市场网格
+  const [showUnlisted, setShowUnlisted] = useState(false);
+  // 是否登录为管理员(决定「含未上架」chip 是否出现;普通用户恒只看已上架)
+  const [adminSeen, setAdminSeen] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    getMe()
+      .then((me) => {
+        if (alive && me.user?.role === "admin") setAdminSeen(true);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
   const variantTotal = useMemo(
     () => apps.reduce((n, a) => n + (a.is_variant ? 1 : 0), 0),
     [apps],
   );
   const filtered = useMemo(() => {
     // category 固定 all:分区/旧分类 chips 已撤;NSFW 与 outputKind 仍生效
-    const list = filterApps(apps, { q: query, category: "all", r18, outputKind, useCase });
+    const base = showUnlisted ? apps : apps.filter((a) => a.is_public || !adminSeen);
+    const list = filterApps(base, { q: query, category: "all", r18, outputKind, useCase });
     // 功能归组(2026-09-15):同指纹变体默认折叠,搜索时仍全量(搜到变体算命中)
     const folded = showVariants || query.trim() !== "" ? list : list.filter((a) => !a.is_variant);
     const ranked = sortFeaturedApps(folded, featuredIds);
     return marketSort === "hot" ? sortAppsHot(ranked) : ranked;
-  }, [apps, query, r18, outputKind, useCase, featuredIds, marketSort, showVariants]);
+  }, [apps, query, r18, outputKind, useCase, featuredIds, marketSort, showVariants, showUnlisted, adminSeen]);
 
   const searching = query.trim() !== "";
   /** 合集位(精选/热门)仅在「未搜索 且 未选用途」时挂在瀑布流上方 */
@@ -266,7 +283,8 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
         hasMore: false,
       };
     }
-    const shown = Math.max(STREAM_PAGE, streamShown);
+    // DOM 窗口化:最多挂载 240 张卡(与作品库同款),防长会话「加载更多」累积卡顿
+    const shown = Math.min(Math.max(STREAM_PAGE, streamShown), STREAM_MOUNT_CAP);
     return {
       items: filtered.slice(0, shown),
       matched: filtered.length,
@@ -464,6 +482,17 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
           {/* 用途分类 chips 行(2026-09-12 市场策展层):全部 + 各用途(count>0);
               与搜索叠加过滤;再点选中的 chip 取消 */}
           <div className="apps-mkt-chips" role="group" aria-label="按用途筛选">
+            {adminSeen && (
+              <button
+                type="button"
+                className={`apps-mkt-chip${showUnlisted ? " is-on" : ""}`}
+                aria-pressed={showUnlisted}
+                onClick={() => setShowUnlisted((v) => !v)}
+                title="含未上架(导入草稿/私有)。默认隐藏以防残堆稀释市场"
+              >
+                含未上架
+              </button>
+            )}
             {variantTotal > 0 && (
               <button
                 type="button"
