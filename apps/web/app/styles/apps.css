@@ -1974,7 +1974,98 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  /* 深色工作室氛围(2026-09-16 用户拍板):紫色顶光 + 荧光绿底晕 */
+  background:
+    radial-gradient(900px 420px at 72% -8%, rgba(124, 92, 255, 0.14), transparent 60%),
+    radial-gradient(700px 380px at 4% 108%, rgba(201, 242, 79, 0.07), transparent 55%),
+    var(--rh-bg, transparent);
 }
+
+/* ── 大提示词框(创作主焦点):聚焦发光 + 字数 + 灵感 chips ── */
+.apps-studio-prompt {
+  position: relative;
+  border-radius: 14px;
+  background: var(--rh-surface-2);
+  border: 1px solid var(--rh-border);
+  transition: box-shadow var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+.apps-studio-prompt:focus-within {
+  border-color: rgba(124, 92, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.16), inset 0 0 40px rgba(124, 92, 255, 0.05);
+}
+.apps-studio-prompt textarea {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 14.5px;
+  line-height: 1.65;
+  resize: vertical;
+  min-height: 118px;
+}
+.apps-studio-prompt textarea:focus { outline: none; }
+.apps-studio-prompt-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-2);
+}
+.apps-studio-prompt-chip {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--rh-border);
+  border-radius: var(--radius-full);
+  color: var(--rh-text-2);
+  font-size: var(--text-label);
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.apps-studio-prompt-chip:hover { color: var(--rh-text-1); border-color: var(--rh-border-strong); }
+.apps-studio-prompt-chip.is-hl { color: var(--rh-lime); border-color: rgba(201, 242, 79, 0.4); }
+.apps-studio-prompt-count {
+  margin-left: auto;
+  color: var(--rh-text-3);
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 参数分层:高级参数折叠区 ── */
+.apps-studio-adv { border-top: 1px dashed var(--rh-border); padding-top: var(--space-2); }
+.apps-studio-adv-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: 0;
+  color: var(--rh-text-3);
+  font-size: var(--text-aux);
+  padding: var(--space-1) 2px;
+  cursor: pointer;
+}
+.apps-studio-adv-toggle:hover { color: var(--rh-text-1); }
+.apps-studio-adv-body { padding-top: var(--space-2); }
+
+/* ── 引擎抽屉行 ── */
+.apps-studio-engineline { display: flex; flex-direction: column; gap: var(--space-2); }
+.apps-studio-engineline-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--rh-border);
+  border-radius: var(--radius-control);
+  color: var(--rh-text-2);
+  font-size: var(--text-aux);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  text-align: left;
+}
+.apps-studio-engineline-toggle b { color: var(--rh-text-1); font-weight: var(--font-semibold); }
+.apps-studio-engineline-more { margin-left: auto; color: var(--rh-lime); }
+.apps-studio-engineline .apps-studio-engines { flex-direction: row; }
 .apps-studio-head {
   flex-shrink: 0;
   display: flex;

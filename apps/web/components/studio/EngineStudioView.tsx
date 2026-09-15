@@ -91,6 +91,9 @@ export function EngineStudioView({ kind }: { kind: StudioKind }) {
     return mode.engines.find((e) => e.id === sel) ?? defaultStudioEngine(mode);
   }, [mode, engineByMode]);
 
+  // 改版(2026-09-16 用户拍板深色工作室风):引擎收进抽屉、参数分层
+  const [engineDrawer, setEngineDrawer] = useState(false);
+  const [advOpen, setAdvOpen] = useState(false);
   // 参数/提示词按引擎分槽保存,切换引擎不丢输入(会话级)
   const [valuesByEngine, setValuesByEngine] = useState<Record<string, Record<string, unknown>>>({});
   const [promptByEngine, setPromptByEngine] = useState<Record<string, string>>({});
@@ -100,6 +103,20 @@ export function EngineStudioView({ kind }: { kind: StudioKind }) {
   const values = useMemo(
     () => (engine ? { ...engineDefaults(engine), ...(valuesByEngine[engine.id] ?? {}) } : {}),
     [engine, valuesByEngine],
+  );
+  /** 参数分层(2026-09-16):媒体槽+尺寸/张数类为核心参数直接外露,其余进「高级参数」折叠 */
+  const _CORE_PARAM_RE = /(size|count|num|ratio|length|duration|resolution|尺寸|张数|比例|时长|分辨率|加速)/i;
+  const isCoreParam = (p: { key: string; label?: string; type: string }) =>
+    ["images", "image", "video", "audio"].includes(p.type) ||
+    _CORE_PARAM_RE.test(p.key) ||
+    _CORE_PARAM_RE.test(p.label ?? "");
+  const coreParams = useMemo(
+    () => (engine ? engine.params.filter((p) => isCoreParam(p)) : []),
+    [engine],
+  );
+  const advParams = useMemo(
+    () => (engine ? engine.params.filter((p) => !isCoreParam(p)) : []),
+    [engine],
   );
   const positive = engine ? promptByEngine[engine.id] ?? "" : "";
   const media = useMemo(() => (engine ? extractStudioMedia(engine, values) : null), [engine, values]);
@@ -348,53 +365,98 @@ export function EngineStudioView({ kind }: { kind: StudioKind }) {
             />
           ) : (
             <>
-              {/* 引擎卡条:label + 一句话描述 + 在线状态点 + R18 徽标;离线置灰仍可选中看参数 */}
-              {mode && mode.engines.length > 0 && (
-                <div className="apps-studio-engines" role="listbox" aria-label="选择引擎">
-                  {mode.engines.map((e) => (
-                    <button
-                      key={e.id}
-                      type="button"
-                      role="option"
-                      aria-selected={engine?.id === e.id}
-                      className={
-                        `apps-studio-engine-card${engine?.id === e.id ? " is-active" : ""}` +
-                        `${e.available ? "" : " is-offline"}`
-                      }
-                      onClick={() => setEngineByMode((prev) => ({ ...prev, [mode.id]: e.id }))}
-                      title={e.available ? e.description : `引擎离线:${e.unavailable_reason ?? "暂不可用"}`}
-                    >
-                      <span className="apps-studio-engine-top">
-                        <span
-                          className={`apps-studio-engine-dot${e.available ? " is-on" : ""}`}
-                          aria-hidden="true"
-                        />
-                        <span className="apps-studio-engine-label">{e.label}</span>
-                        {e.nsfw && <Badge tone="warn">R18</Badge>}
-                      </span>
-                      {e.description && <span className="apps-studio-engine-desc">{e.description}</span>}
-                      {!e.available && <span className="apps-studio-engine-off">引擎离线</span>}
-                    </button>
-                  ))}
+              {/* 引擎抽屉(2026-09-16):一行自动选择状态,点开才见引擎卡(高手可换,新手无感) */}
+              {mode && mode.engines.length > 0 && engine && (
+                <div className="apps-studio-engineline">
+                  <button
+                    type="button"
+                    className="apps-studio-engineline-toggle"
+                    onClick={() => setEngineDrawer((v) => !v)}
+                    aria-expanded={engineDrawer}
+                  >
+                    <span className={`apps-studio-engine-dot${engine.available ? " is-on" : ""}`} aria-hidden="true" />
+                    <span>
+                      {engine.available ? "已自动选择引擎 " : "引擎暂不可用 · "}
+                      <b>{engine.label}</b>
+                    </span>
+                    <span className="apps-studio-engineline-more">{engineDrawer ? "收起 ▴" : "更换 ›"}</span>
+                  </button>
+                  {engineDrawer && (
+                    <div className="apps-studio-engines" role="listbox" aria-label="选择引擎">
+                      {mode.engines.map((e) => (
+                        <button
+                          key={e.id}
+                          type="button"
+                          role="option"
+                          aria-selected={engine?.id === e.id}
+                          className={
+                            `apps-studio-engine-card${engine?.id === e.id ? " is-active" : ""}` +
+                            `${e.available ? "" : " is-offline"}`
+                          }
+                          onClick={() => {
+                            setEngineByMode((prev) => ({ ...prev, [mode.id]: e.id }));
+                            setEngineDrawer(false);
+                          }}
+                          title={e.available ? e.description : `引擎离线:${e.unavailable_reason ?? "暂不可用"}`}
+                        >
+                          <span className="apps-studio-engine-top">
+                            <span
+                              className={`apps-studio-engine-dot${e.available ? " is-on" : ""}`}
+                              aria-hidden="true"
+                            />
+                            <span className="apps-studio-engine-label">{e.label}</span>
+                            {e.nsfw && <Badge tone="warn">R18</Badge>}
+                          </span>
+                          {e.description && <span className="apps-studio-engine-desc">{e.description}</span>}
+                          {!e.available && <span className="apps-studio-engine-off">引擎离线</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               {engine && (
                 <>
-                  <Field label="提示词">
+                  {/* 大提示词框(2026-09-16):创作主焦点,发光聚焦+字数+灵感 */}
+                  <div className="apps-studio-prompt">
                     <Textarea
-                      rows={3}
+                      rows={5}
                       value={positive}
-                      placeholder={kind === "video" ? "描述想要的视频内容" : "描述想要的画面内容"}
+                      placeholder={kind === "video" ? "描述想要的视频内容,例如:雨后东京街头,霓虹倒映湿地,电影感运镜…" : "描述想要的画面,例如:雨后东京街头,穿白裙的少女撑伞回眸,电影感构图,35mm"}
                       disabled={gen.isRunning}
                       onChange={(e) =>
                         setPromptByEngine((prev) => ({ ...prev, [engine.id]: e.target.value }))
                       }
                     />
-                  </Field>
+                    <div className="apps-studio-prompt-meta">
+                      <button
+                        type="button"
+                        className="apps-studio-prompt-chip is-hl"
+                        onClick={() => {
+                          const examples = kind === "video"
+                            ? ["雨后东京街头,霓虹灯倒映在湿地,少女撑伞回眸,电影感运镜", "金色黄昏的海边,少女白裙随风,慢镜头发丝飘动", "赛博朋克城市夜景,少女回望镜头,霓虹光晕"]
+                            : ["雨后东京街头,穿白裙的少女撑伞回眸,电影感构图,35mm", "午后咖啡馆窗边,手冲咖啡与阳光,浅景深", "雪山日照金山,云海翻涌,风光大片构图"];
+                          const ex = examples[Math.floor(Math.random() * examples.length)];
+                          setPromptByEngine((prev) => ({ ...prev, [engine.id]: ex }));
+                        }}
+                      >
+                        ✨ 灵感
+                      </button>
+                      <button
+                        type="button"
+                        className="apps-studio-prompt-chip"
+                        onClick={() => setPromptByEngine((prev) => ({ ...prev, [engine.id]: "" }))}
+                      >
+                        清空
+                      </button>
+                      <span className="apps-studio-prompt-count">{positive.length}/500</span>
+                    </div>
+                  </div>
 
+                  {/* 核心参数(媒体槽+尺寸/张数类) */}
                   <div className="apps-studio-params">
-                    {engine.params.map((p) => (
+                    {coreParams.map((p) => (
                       <ParamField
                         key={p.key}
                         param={p}
@@ -406,6 +468,35 @@ export function EngineStudioView({ kind }: { kind: StudioKind }) {
                       />
                     ))}
                   </div>
+
+                  {advParams.length > 0 && (
+                    <div className="apps-studio-adv">
+                      <button
+                        type="button"
+                        className="apps-studio-adv-toggle"
+                        onClick={() => setAdvOpen((v) => !v)}
+                        aria-expanded={advOpen}
+                      >
+                        <span>⚙ 高级参数({advParams.length})</span>
+                        <span>{advOpen ? "收起 ▴" : "展开 ▾"}</span>
+                      </button>
+                      {advOpen && (
+                        <div className="apps-studio-params apps-studio-adv-body">
+                          {advParams.map((p) => (
+                            <ParamField
+                              key={p.key}
+                              param={p}
+                              value={values[p.key]}
+                              disabled={gen.isRunning}
+                              uploadKind={engineUploadKind(engine.id)}
+                              pinWorker={firstPinWorker(values)}
+                              onChange={setValue}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {isH3EngineId(engine.id) && (
                     <H3AccelSelect
