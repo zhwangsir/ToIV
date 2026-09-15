@@ -19,7 +19,8 @@ export function RecentWorksRail({ onOpenLibrary }: { onOpenLibrary: () => void }
       .then(async (rows) => {
         const done = rows.filter((j) => j.status === "done" && j.results?.length);
         const picked: { key: string; url: string; kind: string; video: boolean }[] = [];
-        await Promise.all(
+        // 4s 兜底:慢网下先渲染已就绪的部分,不等最慢的图
+        const preloadAll = Promise.all(
           done.slice(0, 12).map(
             (j) =>
               new Promise<void>((resolve) => {
@@ -42,7 +43,10 @@ export function RecentWorksRail({ onOpenLibrary }: { onOpenLibrary: () => void }
               }),
           ),
         );
-        if (alive) setThumbs(picked.slice(0, 12));
+        const apply = () => {
+          if (alive) setThumbs(picked.slice(0, 12));
+        };
+        await Promise.race([preloadAll.then(apply), new Promise((r) => setTimeout(r, 4000).then(apply))]);
       })
       .catch(() => {
         /* 静默:装饰性横条 */
