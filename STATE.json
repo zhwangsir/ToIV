@@ -11897,8 +11897,9 @@
   "standalone_admin_2026_09_15": {
     "status": "live_v1",
     "date": "2026-09-15",
-    "summary": "独立管理系统 apps/admin LIVE(core :3200,systemd toiv-admin,deploy/deploy-admin.sh):登录=core 账号 admin 角色;概览(健康/作品计数/失败清理/封面批/烟测批/自愈提案)、应用管理(全量表+行内烟测/重打标/分类/上下架/精选)、系统任务(封面生成记录溯源+全体失败作业);封面产物与用户作品库彻底分离(系统属主 job+app-covers 目录,仅管理系统可见);代理须用 localhost:8090(127.0.0.1 会 ECONNRESET)",
-    "url": "http://192.168.71.47:3200"
+    "summary": "独立管理系统 apps/admin LIVE(core :3200,systemd toiv-admin,deploy/deploy-admin.sh):登录=core 账号 admin 角色;概览(健康/作品计数/失败清理/封面批/烟测批/自愈提案)、应用管理(全量表+行内烟测/重打标/分类/上下架/精选)、系统任务(封面生成记录溯源+全体失败作业);封面产物与用户作品库彻底分离(系统属主 job+app-covers 目录,仅管理系统可见);代理须用 localhost:8090(127.0.0.1 会 ECONNRESET)；v2:主站 admin/observability 视图整体并入(观测=ObservabilityView+OrchPanel+charts,平台管理=AdminView 用户/Agent/说明书/运维/测试矩阵/审计);主站侧栏/更多抽屉改「管理系统」跳转项(admin-console,仅管理员,:3200 新开标签);搬移配套 ui 子集/hooks/lib/web-tokens 令牌基座;web 957/0",
+    "url": "http://192.168.71.47:3200",
+    "tabs": "概览/应用管理/系统任务/观测/平台管理"
   },
   "market_two_level_2026_09_15": {
     "status": "live",
