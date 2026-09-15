@@ -233,12 +233,19 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     return chips.filter((c) => c.count > 0 || c.id === useCase);
   }, [useCaseSummary, visibleApps, useCase]);
 
+  const [showVariants, setShowVariants] = useState(false);
+  const variantTotal = useMemo(
+    () => apps.reduce((n, a) => n + (a.is_variant ? 1 : 0), 0),
+    [apps],
+  );
   const filtered = useMemo(() => {
     // category 固定 all:分区/旧分类 chips 已撤;NSFW 与 outputKind 仍生效
     const list = filterApps(apps, { q: query, category: "all", r18, outputKind, useCase });
-    const ranked = sortFeaturedApps(list, featuredIds);
+    // 功能归组(2026-09-15):同指纹变体默认折叠,搜索时仍全量(搜到变体算命中)
+    const folded = showVariants || query.trim() !== "" ? list : list.filter((a) => !a.is_variant);
+    const ranked = sortFeaturedApps(folded, featuredIds);
     return marketSort === "hot" ? sortAppsHot(ranked) : ranked;
-  }, [apps, query, r18, outputKind, useCase, featuredIds, marketSort]);
+  }, [apps, query, r18, outputKind, useCase, featuredIds, marketSort, showVariants]);
 
   const searching = query.trim() !== "";
   /** 合集位(精选/热门)仅在「未搜索 且 未选用途」时挂在瀑布流上方 */
@@ -457,6 +464,17 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
           {/* 用途分类 chips 行(2026-09-12 市场策展层):全部 + 各用途(count>0);
               与搜索叠加过滤;再点选中的 chip 取消 */}
           <div className="apps-mkt-chips" role="group" aria-label="按用途筛选">
+            {variantTotal > 0 && (
+              <button
+                type="button"
+                className={`apps-mkt-chip${showVariants ? " is-on" : ""}`}
+                aria-pressed={showVariants}
+                onClick={() => setShowVariants((v) => !v)}
+                title="同功能工作流的参数/素材变体,默认折叠"
+              >
+                同功能变体 {variantTotal}
+              </button>
+            )}
             <button
               type="button"
               className={`apps-mkt-chip${useCase === "all" ? " is-on" : ""}`}

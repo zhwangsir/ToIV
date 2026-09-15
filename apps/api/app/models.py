@@ -326,6 +326,8 @@ class App(SQLModel, table=True):
     # 市场策展层(2026-09-12):按用途分类(12 类枚举,见 services/use_cases)+ 精选合集位
     use_case: str = ""  # 用途分类 id(空=未打标);LLM 打标或 admin 人工改
     featured: bool = False  # 精选合集位(admin 开关)
+    # 市场功能归组(2026-09-15):canonical 图指纹(同指纹=同功能变体,见 services/app_fingerprint)
+    fingerprint: str = ""  # 空=未计算
     # 自愈闭环 Phase1(2026-09-15):导入即测烟测结果与归因(见 services/app_smoke)
     smoke_status: str = ""  # ''|running|pass|fail|timeout
     smoke_cls: str = ""  # 归因类(missing_node/missing_model/validation/runtime/resource/timeout/transport/app_data)

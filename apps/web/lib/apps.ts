@@ -143,6 +143,10 @@ export interface AppItem {
   /** 自愈闭环烟测(2026-09-15):pass=实测可用徽标;fail/timeout=待修。 */
   smoke_status?: string;
   smoke_cls?: string;
+  /** 功能归组(2026-09-15):同指纹折叠,变体默认隐藏。 */
+  fingerprint?: string;
+  variant_count?: number;
+  is_variant?: boolean;
 }
 
 /** 应用使用指南(2026-09-12 P1 应用说明卡):GET /api/apps/{id}/guide 回包。 */
@@ -268,6 +272,9 @@ export function normalizeApp(raw: unknown): AppItem {
     featured: boolOf(a.featured),
     smoke_status: typeof a.smoke_status === "string" ? a.smoke_status : "",
     smoke_cls: typeof a.smoke_cls === "string" ? a.smoke_cls : "",
+    fingerprint: typeof a.fingerprint === "string" ? a.fingerprint : "",
+    variant_count: typeof a.variant_count === "number" ? a.variant_count : 0,
+    is_variant: Boolean(a.is_variant),
   };
 }
 

@@ -205,6 +205,14 @@ export function apiErrorMessage(detail: unknown, fallback: string, status: numbe
 /** 后端图片路径是相对的，拼成可访问 URL 并附带令牌（<img> 无法带请求头）。
  * 兼容：绝对 http(s) URL、以 / 开头的相对路径、缺少 / 的相对路径、空路径。
  */
+/** 缩略图 URL(作品库网格用):仅对 /api/images 形态生效,外链原样返回。 */
+export function imageThumbUrl(path: string): string {
+  if (!path) return "";
+  if (path.startsWith("http")) return withToken(path);
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return withToken(`${API_BASE}${normalized.replace(/^\/api\/images\b/, "/api/images/thumb")}`);
+}
+
 export function imageUrl(path: string): string {
   if (!path) return "";
   if (path.startsWith("http")) return withToken(path);

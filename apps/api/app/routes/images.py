@@ -124,3 +124,101 @@ async def get_image(
         except ComfyUIError as e:
             last_err = e
     raise HTTPException(status_code=502, detail=f"产物暂不可取(同机 worker 均不可达): {last_err}")
+
+
+# ── 缩略图(2026-09-15 作品库性能):同鉴权,原图取回后 Pillow 缩放,落盘缓存 ──
+import asyncio  # noqa: E402
+import hashlib  # noqa: E402
+import io as _io  # noqa: E402
+import os as _os  # noqa: E402
+
+_THUMB_W = 360
+_THUMB_DIR = Path(
+    _os.environ.get("TOIV_THUMB_CACHE", str(Path(__file__).resolve().parents[2] / ".thumbcache"))
+)
+_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
+
+
+@router.get("/images/thumb")
+async def get_image_thumb(
+    filename: str,
+    subfolder: str = "",
+    type_: str = Query(default="output", alias="type"),
+    worker: str = Query(...),
+    sig: str = Query(default=""),
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
+):
+    """作品库网格缩略图:360px WebP,磁盘缓存(键=内容 hash);非图片产物直接回原图。"""
+    try:
+        safe_filename = validate_path_component(filename, allow_subdirs=False)
+        safe_subfolder = validate_path_component(subfolder, allow_subdirs=True) if subfolder else ""
+    except PathTraversalError as e:
+        raise HTTPException(status_code=400, detail=f"非法路径: {e}") from e
+    if not safe_filename:
+        raise HTTPException(status_code=400, detail="filename 不能为空")
+
+    # 与 /images 完全同款的鉴权(sig 能力优先,DB 归属回退)
+    if sig:
+        expected = image_sig(filename, subfolder, type_, worker)
+        if not hmac.compare_digest(sig.encode(), expected.encode()):
+            raise HTTPException(status_code=404, detail="产物不存在")
+    elif user.role != "admin":
+        owns = db.exec(
+            select(Job.id)
+            .where(Job.result.like(f"%filename={filename}%"))
+            .where((Job.user_id == user.id) | (Job.tenant_id == user.tenant_id))
+        ).first()
+        if not owns:
+            raise HTTPException(status_code=404, detail="产物不存在")
+
+    def _cache_path(content: bytes) -> Path:
+        h = hashlib.sha256(f"{safe_filename}|{len(content)}".encode()).hexdigest()[:32]
+        return _THUMB_DIR / f"{h}.webp"
+
+    # 缓存命中则无需访问 worker(键含文件名字段但未含内容——同一 filename 重跑会覆盖,
+    # 故退化为:命中即用,未命中才取原图。网格缩略图允许这一近似。)
+    approx = _THUMB_DIR / (hashlib.sha256(f"t|{safe_filename}".encode()).hexdigest()[:32] + ".webp")
+    if approx.exists():
+        return Response(content=approx.read_bytes(), media_type="image/webp")
+
+    primary = resolve_worker(worker)
+    host = _host(primary.base_url)
+    siblings = [c for c in pool.clients if _host(c.base_url) == host and c.base_url != primary.base_url]
+    content: bytes | None = None
+    content_type = "image/png"
+    last_err: Exception | None = None
+    for client in [primary, *siblings]:
+        try:
+            content, content_type = await client.get_image_bytes(safe_filename, safe_subfolder, type_)
+            break
+        except ComfyUIError as e:
+            last_err = e
+    if content is None:
+        raise HTTPException(status_code=502, detail=f"产物暂不可取(同机 worker 均不可达): {last_err}")
+
+    if Path(safe_filename).suffix.lower() not in _IMAGE_EXTS:
+        return _ranged_response(content, content_type, None)  # 视频/音频/3D 回原图
+
+    def _make() -> bytes:
+        from PIL import Image
+
+        im = Image.open(_io.BytesIO(content))
+        im = im.convert("RGB") if im.mode not in ("RGB", "L") else im
+        w, h = im.size
+        if w > _THUMB_W:
+            im = im.resize((_THUMB_W, max(1, round(h * _THUMB_W / w))))
+        buf = _io.BytesIO()
+        im.save(buf, format="WEBP", quality=78, method=4)
+        return buf.getvalue()
+
+    webp = await asyncio.to_thread(_make)
+    try:
+        _THUMB_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = approx.with_suffix(".tmp")
+        tmp.write_bytes(webp)
+        tmp.replace(approx)
+    except OSError:
+        pass  # 缓存写失败不影响返回
+    return Response(content=webp, media_type="image/webp")

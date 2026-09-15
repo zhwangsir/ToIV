@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { deleteJob, fetchJobsPage, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, JOBS_PAGE_LIMIT, listJobs, permanentDeleteJob, purgeTrash, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
+import { deleteJob, fetchJobsPage, imageThumbUrl, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, JOBS_PAGE_LIMIT, listJobs, permanentDeleteJob, purgeTrash, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
 import { useR18Mode } from "@/lib/r18";
@@ -79,6 +79,9 @@ function persistStyleCards(cards: StyleCard[]): void {
 
 /** 分页大小:每页 60 条,点击「加载更多」追加,避免全量渲染大图列表。 */
 const PAGE_SIZE = 60;
+const MAX_MOUNTED = 180;
+// 服务端页大小:作品库 60(jobs 全局 200 过重:单页 200 条全量对象+产物列表)
+const LIBRARY_PAGE_LIMIT = 60;
 
 /** 占位卡类型桶:kind 映射优先;未知 kind 用产物扩展名兜底;都无则 other(「其他」)。 */
 function thumbFilterOf(job: JobItem): "image" | "video" | "audio" | "3d" | "other" {
@@ -138,7 +141,7 @@ function ImageThumb({ job, blurred = false }: { job: JobItem; blurred?: boolean 
   if (failed) return <ThumbPlaceholder job={job} />;
   return (
     <img
-      src={imageUrl(job.results[0])}
+      src={imageThumbUrl(job.results[0])}
       alt={job.prompt}
       /* 属性仅作加载前纵横比提示(16:9,与缩略图视口一致),
          CSS object-fit:cover 裁切填满,抑制 CLS */
@@ -283,13 +286,13 @@ export function LibraryView(props?: LibraryViewProps) {
     setLoadingMore(false);
     setError(null);
     const kind = kindsQueryForFilter(filter);
-    const req = kind ? fetchJobsPage(0, JOBS_PAGE_LIMIT, kind) : listJobs();
+    const req = kind ? fetchJobsPage(0, LIBRARY_PAGE_LIMIT, kind) : fetchJobsPage(0, LIBRARY_PAGE_LIMIT);
     req
       .then((page1) => {
         if (!jobsFetchGate.isLive(seq)) return;
         setJobs(page1);
         // 首页满页 → 服务端可能还有更早的作品(老作品不再被 50 条截断)
-        setServerHasMore(page1.length >= JOBS_PAGE_LIMIT);
+        setServerHasMore(page1.length >= LIBRARY_PAGE_LIMIT);
       })
       .catch((err) => {
         if (!jobsFetchGate.isLive(seq)) return;
@@ -307,7 +310,7 @@ export function LibraryView(props?: LibraryViewProps) {
     if (loadingMore || !serverHasMore) return;
     const seq = jobsFetchGate.peek();
     setLoadingMore(true);
-    fetchJobsPage(jobs?.length ?? 0, JOBS_PAGE_LIMIT, kindsQueryForFilter(filter))
+    fetchJobsPage(jobs?.length ?? 0, LIBRARY_PAGE_LIMIT, kindsQueryForFilter(filter))
       .then((page) => {
         if (!jobsFetchGate.isLive(seq)) return;
         setServerHasMore(page.length >= JOBS_PAGE_LIMIT);
@@ -391,7 +394,8 @@ export function LibraryView(props?: LibraryViewProps) {
   }, [jobs, selectedIds.size]);
 
   const visibleEntries = useMemo(
-    () => entries.slice(0, visibleCount),
+    // DOM 窗口化:最多挂载 180 条,更早的移出(滚动位置由锚点/重挂兜底),防长会话卡顿
+    () => entries.slice(Math.max(0, visibleCount - MAX_MOUNTED), visibleCount),
     [entries, visibleCount],
   );
   const hasMore = entries.length > visibleCount;

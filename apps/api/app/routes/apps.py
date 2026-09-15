@@ -78,6 +78,7 @@ from app.routes.images import _ranged_response
 from app.routes.upload import _sniff_media
 from app.routes.video import _raise_from_comfy_error
 from app.services import app_covers as covers_svc
+from app.services.app_fingerprint import fingerprint as graph_fingerprint
 from app.services import h3_accel
 from app.services.app_content_modes import (
     SFW_NSFW_TWINS,
@@ -380,6 +381,10 @@ class AppOut(BaseModel):
     smoke_status: str = ""
     smoke_cls: str = ""
     smoke_at: str | None = None
+    # 功能归组(2026-09-15):同指纹变体折叠
+    fingerprint: str = ""
+    variant_count: int = 0
+    is_variant: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -2192,6 +2197,20 @@ def list_apps(
         g.app_id: g
         for g in session.exec(select(AppGuide).where(AppGuide.status == "published")).all()
     }
+    # 功能归组(2026-09-15):同指纹变体计数与代表选定(代表=烟测 pass 优先,其次 usage 最高)
+    fp_groups: dict[str, list[App]] = {}
+    for a in rows:
+        if a.fingerprint:
+            fp_groups.setdefault(a.fingerprint, []).append(a)
+    fp_representative: set[str] = set()
+    fp_variant_count: dict[str, int] = {}
+    for fp, group in fp_groups.items():
+        if len(group) < 2:
+            continue
+        rep = max(group, key=lambda x: (x.smoke_status == "pass", x.usage_count, x.id))
+        fp_representative.add(rep.id)
+        fp_variant_count[rep.id] = len(group)
+        fp_variant_count.update({x.id: len(group) for x in group if x.id != rep.id})
     out: list[AppOut] = []
     needle = (q or "").strip().lower()
     for a in rows:
@@ -2207,7 +2226,11 @@ def list_apps(
             continue
         if needle and needle not in a.name.lower() and needle not in (a.description or "").lower():
             continue
-        out.append(_to_out(a, user, slim=True, guide=guide_map.get(a.id)))
+        row = _to_out(a, user, slim=True, guide=guide_map.get(a.id))
+        row.fingerprint = a.fingerprint or ""
+        row.variant_count = fp_variant_count.get(a.id, 0)
+        row.is_variant = bool(a.fingerprint) and a.id not in fp_representative and a.id in fp_variant_count
+        out.append(row)
     return out
 
 
@@ -2245,6 +2268,7 @@ def create_app(
         author=body.author,
         category=body.category,
         workflow_json=body.workflow_json,
+        fingerprint=graph_fingerprint(body.workflow_json),
         params_schema=body.params_schema,
         bindings=body.bindings,
         required_nodes=body.required_nodes,
@@ -2305,6 +2329,8 @@ def update_app(
         val = getattr(body, f)
         if val is not None:
             setattr(a, f, val)
+    if body.workflow_json is not None:
+        a.fingerprint = graph_fingerprint(a.workflow_json)
     a.updated_at = _now()
     session.add(a)
     session.commit()
@@ -2485,6 +2511,7 @@ def fork_app(
         author=src.author or "",
         category=src.category,
         workflow_json=copy.deepcopy(src.workflow_json or {}),
+        fingerprint=src.fingerprint or graph_fingerprint(src.workflow_json or {}),
         params_schema=copy.deepcopy(src.params_schema or []),
         bindings=copy.deepcopy(src.bindings or {}),
         required_nodes=list(src.required_nodes or []),
@@ -3115,6 +3142,7 @@ def confirm_import_app(
         icon=packaged.icon,
         category=packaged.category,
         workflow_json=copy.deepcopy(draft["workflow"]),
+        fingerprint=graph_fingerprint(draft["workflow"]),
         params_schema=copy.deepcopy(packaged.params_schema),
         bindings=copy.deepcopy(packaged.bindings),
         required_nodes=[],  # 运行时从图自动取

@@ -94,6 +94,7 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("app", "use_case", "use_case VARCHAR NOT NULL DEFAULT ''"),
     ("app", "featured", "featured BOOLEAN NOT NULL DEFAULT FALSE"),
     # 自愈闭环 Phase1(2026-09-15):导入即测烟测结果与归因(可空时间列不需 DEFAULT)
+    ("app", "fingerprint", "fingerprint VARCHAR NOT NULL DEFAULT ''"),
     ("app", "smoke_status", "smoke_status VARCHAR NOT NULL DEFAULT ''"),
     ("app", "smoke_cls", "smoke_cls VARCHAR NOT NULL DEFAULT ''"),
     ("app", "smoke_error", "smoke_error VARCHAR NOT NULL DEFAULT ''"),
