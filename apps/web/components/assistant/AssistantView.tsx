@@ -1946,9 +1946,10 @@ export function AssistantView(props?: AssistantViewProps) {
                     </button>
                   ))}
                 </div>
-                <RecentWorksRail onOpenLibrary={() => goView("library")} />
               </>
             )}
+            {/* 最近作品横条:恒挂载(条件分支外),LLM 离线/在线都不卸载,避免缩略图反复中断 */}
+            <RecentWorksRail onOpenLibrary={() => goView("library")} />
           </div>
           )
         ) : (
