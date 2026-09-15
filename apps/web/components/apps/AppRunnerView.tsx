@@ -216,6 +216,12 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
 
   async function run() {
     if (!app || disabledReason) return;
+    // 双保险:disabledReason 之外,提交前再核一次必填缺口(防 values 在渲染后被清空的竞态)
+    const missingNow = requiredParamLabel(app.params_schema, values);
+    if (missingNow) {
+      toast.error(`请先填写「${missingNow}」再运行`);
+      return;
+    }
     setSubmitting(true);
     setRunError(null);
     setResults([]);
