@@ -427,9 +427,19 @@ export function invalidateApps(): void {
 }
 
 async function fetchAppsRaw(suffix: string): Promise<AppItem[]> {
-  const res = await apiFetch(`${API_BASE}/api/apps${suffix ? `?${suffix}` : ""}`, {
-    headers: authHeaders(),
-  });
+  // 弱网兜底(2026-09-16 UX 评审):45s 超时中断挂死请求 → 抛错走 ErrorBar+重试,
+  // 不再无限转圈(frp 隧道闪断时一次被中断的请求会让页面永远 loading)
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 45_000);
+  let res: Response;
+  try {
+    res = await apiFetch(`${API_BASE}/api/apps${suffix ? `?${suffix}` : ""}`, {
+      headers: authHeaders(),
+      signal: ac.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) return raiseErr(res, "加载应用列表失败");
   const data = (await res.json()) as unknown;
   // 契约 {items: App[]};宽容兼容裸数组(与 listAgents 同范式)
