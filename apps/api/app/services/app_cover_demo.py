@@ -37,7 +37,7 @@ from app.models import App, Job
 logger = logging.getLogger(__name__)
 
 _DEMO_URL_MARK = "/appcover-demo-"  # demo 封面文件名标记(区别于插画 appcover-)
-_BATCH_CONCURRENCY = 4  # 队列消费路数(坏应用不堵队,2026-09-15 队头阻塞修复)
+_BATCH_CONCURRENCY = 6  # 队列消费路数(fleet 6 实例:LB×2+H3×2+longcat+animate2)
 _PER_APP_CAP_S = {"video": 2100, "image": 900, "audio": 600, "3d": 900}  # 单应用整体时限
 _COVER_VIDEO_EXTS = {".mp4", ".webm", ".mov", ".gif", ".mkv", ".avi"}
 _COVER_IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
