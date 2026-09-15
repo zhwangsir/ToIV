@@ -314,7 +314,47 @@ def count_jobs(
         if clause is not None:
             stmt = stmt.where(clause)
     total = session.exec(stmt).one()
-    return {"count": int(total or 0)}
+    # 失败作品数(一键清理入口角标;与 kind/nsfw 过滤无关,恒为全量失败)
+    failed_stmt = (
+        select(func.count())
+        .select_from(Job)
+        .where(Job.user_id == user.id)
+        .where(Job.deleted_at == None)  # noqa: E712
+        .where(Job.status == "error")
+    )
+    failed = session.exec(failed_stmt).one()
+    return {"count": int(total or 0), "failed": int(failed or 0)}
+
+
+@router.post("/jobs/cleanup-failed")
+def cleanup_failed_jobs(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """一键清理全部生成失败的作品(2026-09-15 用户需求)。
+
+    本人口径:status=error 且未删除的全部软删(含 R18——失败产物本就不可见),
+    走统一回收站通道(deleted_at 标记,72h 内可恢复,过期物理删除)。
+    单条审计汇总记录(不逐条出 undo_token,恢复走回收站)。
+    """
+    rows = session.exec(
+        select(Job)
+        .where(Job.user_id == user.id)
+        .where(Job.deleted_at == None)  # noqa: E712
+        .where(Job.status == "error")
+    ).all()
+    now = datetime.now(timezone.utc)
+    for job in rows:
+        job.deleted_at = now
+        session.add(job)
+    if rows:
+        audit.record(
+            session, user=user, action="job.cleanup_failed", target_type="job", target_id="",
+            summary=f"一键清理失败作品 ×{len(rows)}",
+            detail={"kinds": sorted({j.kind for j in rows})[:20]},
+        )
+    session.commit()
+    return {"ok": True, "deleted": len(rows), "undo_ttl": audit.UNDO_TTL_SECONDS}
 
 
 @router.get("/jobs/lookup")

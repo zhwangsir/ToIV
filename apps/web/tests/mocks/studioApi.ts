@@ -436,7 +436,9 @@ export const listJobs = (): Promise<JobItem[]> => libImpl.listJobs();
 export const JOBS_PAGE_LIMIT = 200;
 export const fetchJobsPage = async (_offset: number, _limit = JOBS_PAGE_LIMIT): Promise<JobItem[]> => [];
 /** 类型桶计数替身(2026-09-15 计数重设计;链接期需要,行为由源码断言覆盖)。 */
-export const fetchJobCount = async (_kind = "", _nsfw = ""): Promise<number> => 0;
+export const fetchJobCount = async (_kind = "", _nsfw = ""): Promise<{ count: number; failed: number }> => ({ count: 0, failed: 0 });
+/** 一键清理失败作品替身(链接期需要;行为由源码断言覆盖)。 */
+export const cleanupFailedJobs = async (): Promise<{ deleted: number }> => ({ deleted: 0 });
 /** 产物转运替身(AssetPicker 链接期需要;分页/去重逻辑由 assetPicker.test.ts 覆盖)。 */
 export const assetFromJob = async (_body: {
   job_id: string;

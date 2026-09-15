@@ -396,15 +396,26 @@ export async function lookupJob(promptId: string): Promise<JobItem | null> {
 }
 
 /** 作品库类型桶总数(2026-09-15 计数重设计):与 /api/jobs 同口径,只回 COUNT。
- *  kind 空串=全部;nsfw "true"/"false" 过滤内容分级(空=不过滤,R18 门控仍生效)。 */
-export async function fetchJobCount(kind = "", nsfw = ""): Promise<number> {
+ *  kind 空串=全部;nsfw "true"/"false" 过滤内容分级(空=不过滤,R18 门控仍生效)。
+ *  附带 failed=失败作品数(一键清理入口角标,恒为全量失败、与 kind/nsfw 无关)。 */
+export async function fetchJobCount(kind = "", nsfw = ""): Promise<{ count: number; failed: number }> {
   const q = new URLSearchParams();
   if (kind) q.set("kind", kind);
   if (nsfw) q.set("nsfw", nsfw);
   const res = await apiFetch(`/api/jobs/counts?${q.toString()}`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`统计作品数失败 (${res.status})`);
-  const data = (await res.json()) as { count?: number };
-  return Number(data.count) || 0;
+  const data = (await res.json()) as { count?: number; failed?: number };
+  return { count: Number(data.count) || 0, failed: Number(data.failed) || 0 };
+}
+
+/** 一键清理全部生成失败的作品(软删入回收站,72h 可恢复)。 */
+export async function cleanupFailedJobs(): Promise<{ deleted: number }> {
+  const res = await apiFetch("/api/jobs/cleanup-failed", {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`清理失败作品出错 (${res.status})`);
+  return res.json();
 }
 
 /** 首页大小:与后端单页上限一致;返回满页即可能还有下一页。 */

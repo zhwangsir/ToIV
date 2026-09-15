@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { deleteJob, fetchJobCount, fetchJobsPage, imageThumbUrl, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, listJobs, permanentDeleteJob, purgeTrash, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
+import { cleanupFailedJobs, deleteJob, fetchJobCount, fetchJobsPage, imageThumbUrl, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, listJobs, permanentDeleteJob, purgeTrash, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
 import { useR18Mode } from "@/lib/r18";
@@ -287,6 +287,8 @@ export function LibraryView(props?: LibraryViewProps) {
   // 类型桶总数(2026-09-15 计数重设计):服务端 COUNT,与分页/已加载量无关;
   // contentFilter 决定 nsfw 三态(主库 SFW 恒准;R18 模式下 SFW/R18 分开计)
   const [serverCounts, setServerCounts] = useState<Record<string, number> | null>(null);
+  // 失败作品数(一键清理角标):counts 接口全量口径,与 kind/nsfw 过滤无关
+  const [failedCount, setFailedCount] = useState(0);
   const countsFetchGate = useRef(makeSeqGate()).current;
   const loadCounts = useCallback(() => {
     const seq = countsFetchGate.next();
@@ -297,7 +299,10 @@ export function LibraryView(props?: LibraryViewProps) {
     ];
     Promise.all(buckets.map(async ([key, kinds]) => [key, await fetchJobCount(kinds, nsfw)] as const))
       .then((entries) => {
-        if (countsFetchGate.isLive(seq)) setServerCounts(Object.fromEntries(entries));
+        if (!countsFetchGate.isLive(seq)) return;
+        setServerCounts(Object.fromEntries(entries.map(([k, v]) => [k, v.count])));
+        const allEntry = entries.find(([k]) => k === "all");
+        setFailedCount(allEntry ? allEntry[1].failed : 0);
       })
       .catch(() => {
         /* 静默回落客户端计数(仅反映已加载部分) */
@@ -617,6 +622,29 @@ export function LibraryView(props?: LibraryViewProps) {
       setDeleteError(err instanceof Error ? err.message : "删除失败");
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  // 一键清理失败作品(2026-09-15):软删入回收站(72h 可恢复),不逐件出 undo
+  const [confirmCleanupFailed, setConfirmCleanupFailed] = useState(false);
+  const [cleanupFailedBusy, setCleanupFailedBusy] = useState(false);
+  const handleCleanupFailed = async () => {
+    setCleanupFailedBusy(true);
+    try {
+      const { deleted } = await cleanupFailedJobs();
+      setConfirmCleanupFailed(false);
+      invalidateJobs();
+      load();
+      loadCounts();
+      toast.success(
+        deleted > 0
+          ? `已清理 ${deleted} 件失败作品(72 小时内可在回收站恢复)`
+          : "没有需要清理的失败作品",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "清理失败作品出错");
+    } finally {
+      setCleanupFailedBusy(false);
     }
   };
 
@@ -1004,13 +1032,31 @@ export function LibraryView(props?: LibraryViewProps) {
             回收站
           </Button>
 
-          {/* 作品计数(2026-09-02 W3:页头移除,计数并入工具条尾) */}
-          <span className="lib-count-pill">
+          {/* 一键清理失败作品(2026-09-15 用户需求):有失败作品才出现;软删入回收站可恢复 */}
+          {failedCount > 0 && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="lib-trash-toggle"
+              icon={<Icon name="eraser" size={14} />}
+              onClick={() => setConfirmCleanupFailed(true)}
+            >
+              清理失败 {failedCount}
+            </Button>
+          )}
+
+          {/* 作品计数(2026-09-02 W3:页头移除,计数并入工具条尾;2026-09-15 改服务端总数) */}
+          <span
+            className="lib-count-pill"
+            title={serverCounts ? `已加载 ${filtered.length} / 共 ${serverCounts[filter] ?? 0} 件` : undefined}
+          >
             {loading
               ? "加载中…"
               : error
                 ? "加载失败"
-                : `${filtered.length} 件作品`}
+                : serverCounts
+                  ? `共 ${serverCounts[filter] ?? 0} 件作品`
+                  : `${filtered.length} 件作品`}
           </span>
         </div>
       </div>
@@ -1779,6 +1825,42 @@ export function LibraryView(props?: LibraryViewProps) {
               <Icon name="error" size={13} /> {deleteError}
             </div>
           )}
+        </div>
+      </Modal>
+
+      {/* 一键清理失败作品确认对话框:同一 Modal danger 基座;软删可从回收站恢复 */}
+      <Modal
+        open={confirmCleanupFailed}
+        onClose={() => setConfirmCleanupFailed(false)}
+        title="清理失败作品"
+        danger
+        preventClose={cleanupFailedBusy}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={cleanupFailedBusy}
+              onClick={() => setConfirmCleanupFailed(false)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              loading={cleanupFailedBusy}
+              icon={<Icon name="eraser" size={14} />}
+              onClick={handleCleanupFailed}
+            >
+              {cleanupFailedBusy ? "清理中…" : `清理 ${failedCount} 件失败作品`}
+            </Button>
+          </>
+        }
+      >
+        <div className="lib-confirm-body">
+          <div className="lib-confirm-warn">
+            将移除全部 <strong>{failedCount}</strong> 件生成失败的作品(各类任务通用,
+            不限当前筛选)。作品移入回收站,<strong>72 小时内可恢复</strong>;确认后本页
+            失败占位卡一并消失。
+          </div>
         </div>
       </Modal>
 

@@ -506,18 +506,88 @@ def test_jobs_counts_kind_nsfw_deleted(ctx):
         gen.close()
 
     # SFW 主库口径:fixture 自带 1 条 + 2 app_video + 1 app_image(R18 被剔除,软删不计)= 4
-    assert c.get("/api/jobs/counts", headers=h).json() == {"count": 4}
+    # (响应还带 failed 字段——一键清理角标,另测)
+    assert c.get("/api/jobs/counts", headers=h).json()["count"] == 4
     assert c.get("/api/jobs/counts", headers=h,
-                 params={"kind": "app_video,app_image"}).json() == {"count": 3}
+                 params={"kind": "app_video,app_image"}).json()["count"] == 3
     assert c.get("/api/jobs/counts", headers=h,
-                 params={"kind": "app_video"}).json() == {"count": 2}
+                 params={"kind": "app_video"}).json()["count"] == 2
     assert c.get("/api/jobs/counts", headers=h,
-                 params={"kind": "app_"}).json() == {"count": 3}
+                 params={"kind": "app_"}).json()["count"] == 3
     # nsfw 过滤参数在 R18 门控关闭时不放行 R18 行(主库恒 SFW)
     assert c.get("/api/jobs/counts", headers=h,
-                 params={"nsfw": "true"}).json() == {"count": 0}
+                 params={"nsfw": "true"}).json()["count"] == 0
     assert c.get("/api/jobs/counts", headers=h,
-                 params={"nsfw": "false"}).json() == {"count": 4}
+                 params={"nsfw": "false"}).json()["count"] == 4
     # 未认证 401
     assert c.get("/api/jobs/counts").status_code == 401
 
+
+
+def test_jobs_cleanup_failed_bulk_soft_delete(ctx):
+    """一键清理:仅本人口径下全部 error 软删;done/queued/已删不受影响;可从回收站恢复。"""
+    from datetime import datetime, timezone
+
+    from sqlmodel import select
+
+    c, token = ctx
+    h = {"Authorization": f"Bearer {token}"}
+
+    session_factory = next(iter(app.dependency_overrides.values()))
+    gen = session_factory()
+    s = next(gen)
+    try:
+        user = s.exec(select(User)).one()
+        uid, tid = user.id, user.tenant_id
+        rows = [
+            Job(tenant_id=tid, user_id=uid, prompt_id="e1", worker="http://w",
+                prompt="e", seed=0, kind="app_video", status="error",
+                error="CUDA OOM"),
+            Job(tenant_id=tid, user_id=uid, prompt_id="e2", worker="http://w",
+                prompt="e", seed=0, kind="h3_t2v", status="error",
+                error="timeout"),
+            Job(tenant_id=tid, user_id=uid, prompt_id="ok1", worker="http://w",
+                prompt="ok", seed=0, kind="app_image", status="done"),
+            Job(tenant_id=tid, user_id=uid, prompt_id="q1", worker="http://w",
+                prompt="q", seed=0, kind="app_video", status="queued"),
+            Job(tenant_id=tid, user_id=uid, prompt_id="ed1", worker="http://w",
+                prompt="ed", seed=0, kind="app_video", status="error",
+                error="already trashed"),
+        ]
+        for r in rows:
+            s.add(r)
+        s.commit()
+        rows[4].deleted_at = datetime.now(timezone.utc)  # 已在回收站的不再重复清理
+        s.add(rows[4])
+        s.commit()
+        # session 关闭后 ORM 属性过期,先取 id
+        err_ids = (rows[0].id, rows[1].id)
+    finally:
+        gen.close()
+
+    # counts 的 failed 数
+    r = c.get("/api/jobs/counts", headers=h)
+    assert r.json()["failed"] == 2
+
+    # 一键清理
+    r = c.post("/api/jobs/cleanup-failed", headers=h)
+    assert r.status_code == 200
+    assert r.json()["deleted"] == 2
+
+    # 二次调用:没有可清理的 → deleted=0(幂等)
+    r = c.post("/api/jobs/cleanup-failed", headers=h)
+    assert r.json()["deleted"] == 0
+
+    # 计数归零;done/queued 仍在列表
+    assert c.get("/api/jobs/counts", headers=h).json()["failed"] == 0
+    items = c.get("/api/jobs", headers=h).json()
+    kinds_now = sorted(i["kind"] for i in items if i["status"] in ("done", "queued"))
+    assert kinds_now == ["app_image", "app_video", "txt2img"]  # + fixture 自带的排队 txt2img
+
+    # 回收站可见清理掉的失败作品并可恢复(72h 通道)
+    trash = c.get("/api/jobs/trash", headers=h).json()
+    trash_ids = [t["id"] for t in (trash if isinstance(trash, list) else trash.get("items", []))]
+    assert err_ids[0] in trash_ids and err_ids[1] in trash_ids
+    r = c.post(f"/api/jobs/{err_ids[0]}/restore", headers=h)
+    assert r.status_code == 200
+    assert c.get("/api/jobs/counts", headers=h).json()["failed"] == 1

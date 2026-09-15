@@ -504,3 +504,14 @@ test("作品库计数重设计:chips 用服务端总数 + 已加载/总数提示
   );
   assert.ok(!src.includes("setServerHasMore(page.length >= JOBS_PAGE_LIMIT)"));
 });
+
+test("一键清理失败作品:工具栏按钮+确认 Modal+软删恢复通道(源码)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes("cleanupFailedJobs"), "未接清理接口");
+  assert.ok(src.includes("setConfirmCleanupFailed(true)"), "清理按钮未接确认框");
+  assert.ok(src.includes("清理失败 {failedCount}"), "按钮缺失败数角标");
+  assert.ok(src.includes("72 小时内可在回收站恢复"), "提示语应说明可恢复");
+  assert.ok(src.includes("loadCounts();"), "清理后计数应刷新");
+  const mock = readFileSync(join(webRoot, "tests/mocks/studioApi.ts"), "utf-8");
+  assert.ok(mock.includes("export const cleanupFailedJobs"), "替身缺导出会炸链接期");
+});
