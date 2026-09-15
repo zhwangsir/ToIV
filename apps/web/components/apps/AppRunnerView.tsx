@@ -429,22 +429,60 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
 
       <ErrorBar message={runError} onClose={() => setRunError(null)} />
 
+      {/* 封面海报横幅(2026-09-16 美化):真实 demo 封面 + 身份 + 累计运行 */}
+      {phase === "run" && app.cover_url && !previewFailed && (
+        <div className="apps-runner-hero">
+          <div
+            className="apps-runner-hero-img"
+            style={{ backgroundImage: `url(${imageUrl(app.cover_url)})` }}
+            aria-hidden="true"
+          />
+          <div className="apps-runner-hero-veil" aria-hidden="true" />
+          <div className="apps-runner-hero-id">
+            <div>
+              <div className="apps-runner-hero-name">{app.name}</div>
+              <div className="apps-runner-hero-sub">
+                <span className="rh-card-avatar" aria-hidden="true">{appAuthorInitial(app)}</span>
+                <span>{appAuthorOf(app)}</span>
+                {app.description && <span>· {app.description.slice(0, 46)}{app.description.length > 46 ? "…" : ""}</span>}
+              </div>
+            </div>
+            <div className="apps-runner-hero-runs">
+              {app.usage_count}
+              <i>累计运行</i>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 预设卡(2026-09-16):缩略示意 + 参数摘要,点选即切;文字 chips 退役 */}
       {phase === "run" && variants.length > 1 && (
         <div className="apps-preset-row" role="group" aria-label="同功能预设切换">
           <span className="apps-preset-label">预设</span>
-          {presetShown.map((v) => (
-            <button
-              key={v.id}
-              type="button"
-              className={`apps-preset-chip${v.id === activeId ? " is-on" : ""}`}
-              aria-pressed={v.id === activeId}
-              onClick={() => setActiveId(v.id)}
-              title={`切换到「${v.name}」的参数与素材组合`}
-            >
-              {v.name.length > 18 ? `${v.name.slice(0, 18)}…` : v.name}
-              {v.smoke_status === "pass" ? " ✓" : ""}
-            </button>
-          ))}
+          <div className="apps-preset-cards">
+            {presetShown.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                className={`apps-preset-card${v.id === activeId ? " is-on" : ""}`}
+                aria-pressed={v.id === activeId}
+                onClick={() => setActiveId(v.id)}
+                title={`切换到「${v.name}」的参数与素材组合`}
+              >
+                {v.cover_url && (
+                  <span
+                    className="apps-preset-card-thumb"
+                    style={{ backgroundImage: `url(${imageUrl(v.cover_url)})` }}
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="apps-preset-card-n">
+                  {v.name.length > 14 ? `${v.name.slice(0, 14)}…` : v.name}
+                  <i>{v.smoke_status === "pass" ? "✓ 可用" : "预设"}</i>
+                </span>
+              </button>
+            ))}
+          </div>
           {variants.length > 8 && (
             <span className="apps-preset-more">+{variants.length - 8} 变体</span>
           )}

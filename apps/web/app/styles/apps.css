@@ -1455,16 +1455,34 @@
   justify-content: center;
   gap: var(--space-2);
   width: 100%;
-  min-height: var(--touch-target);
+  min-height: 48px;
   border: none;
-  border-radius: var(--radius-control);
-  background: var(--rh-lime);
+  border-radius: 14px;
+  /* 荧光绿渐变 + 悬浮光晕(2026-09-16 视觉升级) */
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--rh-lime) 82%, white),
+    var(--rh-lime) 55%,
+    color-mix(in srgb, var(--rh-lime) 76%, black)
+  );
   color: var(--rh-on-lime);
-  font-size: var(--text-body);
-  font-weight: var(--font-semibold);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   font-family: var(--font-sans);
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-standard);
+  box-shadow: 0 8px 28px rgba(201, 242, 79, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+.rh-run-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 34px rgba(201, 242, 79, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.rh-run-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 .rh-run-btn:hover:not(:disabled) {
   background: var(--rh-lime-hover);
@@ -2215,6 +2233,120 @@
     width: 160px;
   }
 }
+
+/* ===========================================================================
+   应用运行页 v2(2026-09-16 用户拍板美观优先):封面海报横幅 + 预设卡
+   ============================================================================ */
+.apps-runner.rh-dark {
+  background:
+    radial-gradient(900px 420px at 72% -8%, rgba(124, 92, 255, 0.13), transparent 60%),
+    radial-gradient(700px 380px at 4% 108%, rgba(201, 242, 79, 0.06), transparent 55%),
+    var(--rh-bg, transparent);
+}
+.apps-runner-hero {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid var(--rh-border);
+  min-height: 170px;
+  display: flex;
+  align-items: flex-end;
+}
+.apps-runner-hero-img {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+.apps-runner-hero-veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(10, 11, 16, 0.1), rgba(10, 11, 16, 0.9) 86%);
+}
+.apps-runner-hero-id {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  width: 100%;
+}
+.apps-runner-hero-name {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--abs-white);
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+.apps-runner-hero-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: var(--text-aux);
+  margin-top: 2px;
+}
+.apps-runner-hero-runs {
+  margin-left: auto;
+  text-align: center;
+  color: var(--rh-lime);
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+.apps-runner-hero-runs i {
+  display: block;
+  font-style: normal;
+  font-size: var(--text-label);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.72);
+}
+.apps-preset-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-2);
+}
+.apps-preset-card {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--rh-border);
+  background: var(--rh-surface-1);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+.apps-preset-card-thumb {
+  display: block;
+  width: 100%;
+  height: 64px;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.8;
+}
+.apps-preset-card .apps-preset-card-n {
+  padding: 7px 10px 9px;
+  font-size: var(--text-label);
+  color: var(--rh-text-1);
+}
+.apps-preset-card .apps-preset-card-n i {
+  display: block;
+  font-style: normal;
+  color: var(--rh-text-3);
+  font-size: var(--text-aux);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.apps-preset-card:hover { border-color: var(--rh-border-strong); }
+.apps-preset-card.is-on {
+  border-color: var(--rh-lime);
+  box-shadow: 0 0 0 3px rgba(201, 242, 79, 0.15);
+}
+.apps-preset-card.is-on img { opacity: 1; }
 
 /* ===========================================================================
    市场策展层(2026-09-12):用途分类 chips 行 + 精选/热门合集位横滚小卡。
