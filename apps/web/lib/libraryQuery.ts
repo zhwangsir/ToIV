@@ -402,6 +402,39 @@ export function folderCover(folder: BatchFolder): JobItem {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 灯箱展平条目(2026-09-15 用户拍板):单作业多产物(如一次生成 N 张多视角图)
+// 在灯箱内逐张翻看,而不是只能看到 results[0]。作业按原顺序展开为
+// {job, url} 条目序列;无产物作业保留为占位条目(灯箱显示类型占位)。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 灯箱单个可浏览条目:某作业的第 index 张产物;placeholder=true 表示无产物占位。 */
+export interface LightboxEntry {
+  job: JobItem;
+  url: string;
+  /** 本作业内的产物序号(0 基) */
+  index: number;
+  /** 本作业产物总数(占位条目为 0) */
+  count: number;
+  placeholder: boolean;
+}
+
+/** 作业列表 → 灯箱条目序列:done 作业逐产物展开,其余保留单个占位条目。 */
+export function flattenLightboxEntries(jobs: readonly JobItem[]): LightboxEntry[] {
+  const out: LightboxEntry[] = [];
+  for (const job of jobs) {
+    const results = job.status === "done" ? (job.results ?? []) : [];
+    if (results.length === 0) {
+      out.push({ job, url: "", index: 0, count: 0, placeholder: true });
+      continue;
+    }
+    for (let i = 0; i < results.length; i++) {
+      out.push({ job, url: results[i], index: i, count: results.length, placeholder: false });
+    }
+  }
+  return out;
+}
+
 /** localStorage 键:网格密度(舒适/紧凑)。 */
 export const LIBRARY_DENSITY_KEY = "toiv_library_density";
 /** 读取网格密度(SSR/无窗口/值损坏一律回退舒适档)。 */

@@ -714,6 +714,45 @@
   left: calc(var(--space-2) + 26px);
 }
 
+/* ── 多产物作业叠放卡(2026-09-15 用户拍板):单次生成多张 → 照片堆叠观感 ──
+   两层「衬纸」用 box-shadow 实现 thumb 右下错位(overflow 不裁自身阴影,
+   无需额外 DOM);角标复用文件夹徽标样式。灯箱内逐张翻看全部产物。 */
+.lib-card.is-stack .lib-thumb {
+  box-shadow:
+    5px 5px 0 -1px var(--bg-surface-1),
+    5px 5px 0 0 var(--border-strong),
+    10px 10px 0 -1px var(--bg-surface-1),
+    10px 10px 0 0 var(--border-strong);
+}
+.lib-card.is-stack:hover .lib-thumb {
+  box-shadow:
+    6px 6px 0 -1px var(--bg-surface-1),
+    6px 6px 0 0 var(--border-strong),
+    12px 12px 0 -1px var(--bg-surface-1),
+    12px 12px 0 0 var(--border-strong);
+}
+.lib-stack-badge {
+  position: absolute;
+  bottom: var(--space-2);
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  background: var(--overlay-light);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-strong);
+  font-size: var(--text-label);
+  font-weight: var(--font-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--abs-white);
+  letter-spacing: 0.02em;
+  z-index: var(--z-lib-badge);
+  pointer-events: none;
+}
+
 /* ── 内容分组(2026-08-24):文件夹卡角标 + 下钻面包屑 ──────────────────────
    带 batch_id 的同批作业(360° 环绕序列)折叠为一张文件夹卡;
    封面=首张产物缩略图(成员签名 URL 直接复用),右上角成员数角标。 */

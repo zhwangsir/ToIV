@@ -23,6 +23,7 @@ import {
   countByFilter,
   DEFAULT_LIBRARY_QUERY,
   deleteJobsBatch,
+  flattenLightboxEntries,
   kindLabel,
   kindToFilter,
   kindsQueryForFilter,
@@ -435,4 +436,34 @@ test("kindLabel:app_* 中文短名;未知 kind 仍兜底「其他」", () => {
   assert.equal(kindLabel("app_image"), "应用·图像");
   assert.equal(kindLabel("app_run"), "应用");
   assert.equal(kindLabel("no_such_kind"), "其他");
+});
+
+/* ── 灯箱展平条目(2026-09-15):单作业多产物逐张翻 + 卡片叠放 ── */
+
+test("flattenLightboxEntries:多产物作业逐条展开,占位作业保留一格", () => {
+  const jobs = [
+    { id: "multi", status: "done", results: ["/a.png", "/b.png", "/c.png"] },
+    { id: "single", status: "done", results: ["/d.png"] },
+    { id: "err", status: "error", results: [] },
+  ] as unknown as Parameters<typeof flattenLightboxEntries>[0];
+  const entries = flattenLightboxEntries(jobs);
+  assert.equal(entries.length, 3 + 1 + 1);
+  assert.equal(entries[0].url, "/a.png");
+  assert.equal(entries[2].url, "/c.png");
+  assert.equal(entries[0].count, 3);
+  assert.equal(entries[1].index, 1);
+  assert.ok(entries.every((e) => e.job.id !== "err" || e.placeholder));
+  assert.equal(entries[4].job.id, "err");
+  assert.equal(entries[4].placeholder, true);
+});
+
+test("LibraryCard 多产物:is-stack 类 + N 张角标 + 灯箱条目接线(源码)", () => {
+  const src = readFileSync(join(webRoot, "components/library/LibraryView.tsx"), "utf-8");
+  assert.ok(src.includes("is-stack"), "多产物作业卡缺叠放类");
+  assert.ok(src.includes("lib-stack-badge"), "缺 N 张角标");
+  assert.ok(src.includes("flattenLightboxEntries"), "灯箱须走展平条目");
+  assert.ok(src.includes('entries={lightboxEntries}'), "主灯箱未接条目");
+  assert.ok(src.includes("第 {entry.index + 1} / {entry.count} 张"), "灯箱缺组内序号");
+  const css = readFileSync(join(webRoot, "app/styles/library.css"), "utf-8");
+  assert.ok(css.includes(".lib-card.is-stack .lib-thumb"), "缺叠放阴影样式");
 });

@@ -12,6 +12,7 @@ import {
   countByFilter,
   deleteJobsBatch,
   FILTERS,
+  flattenLightboxEntries,
   folderCover,
   formatRetention,
   formatTime,
@@ -29,6 +30,7 @@ import {
   type ContentFilterKey,
   type FilterKey,
   type LibraryDensity,
+  type LightboxEntry,
   type SortKey,
 } from "@/lib/libraryQuery";
 import type { JobItem, TrashJobItem } from "@/lib/types";
@@ -373,15 +375,20 @@ export function LibraryView(props?: LibraryViewProps) {
     if (openBatchId && !openFolder) setOpenBatchId(null);
   }, [openBatchId, openFolder]);
 
-  // 灯箱穿梭列表:文件夹下钻内点开成员时限定在组内,否则为整个查询结果
+  // 灯箱穿梭列表:文件夹下钻内点开成员时限定在组内,否则为整个查询结果;
+  // 展平为条目序列(单作业多产物逐张翻看,2026-09-15)
   const lightboxJobs = lightboxScope ?? filtered;
+  const lightboxEntries = useMemo(
+    () => flattenLightboxEntries(lightboxJobs),
+    [lightboxJobs],
+  );
 
   // 灯箱索引越界钳制:删除当前作品后列表收缩,滑到下一件;列表清空则关闭
   useEffect(() => {
     if (lightboxIdx === null) return;
-    if (lightboxJobs.length === 0) setLightboxIdx(null);
-    else if (lightboxIdx >= lightboxJobs.length) setLightboxIdx(lightboxJobs.length - 1);
-  }, [lightboxJobs.length, lightboxIdx]);
+    if (lightboxEntries.length === 0) setLightboxIdx(null);
+    else if (lightboxIdx >= lightboxEntries.length) setLightboxIdx(lightboxEntries.length - 1);
+  }, [lightboxEntries.length, lightboxIdx]);
 
   // 列表收缩(删除/刷新)后 prune 选中集,避免选中已不存在的作品
   useEffect(() => {
@@ -645,7 +652,8 @@ export function LibraryView(props?: LibraryViewProps) {
   // scope 缺省=主列表,文件夹下钻内传成员列表(穿梭不出组)
   const openLightbox = (job: JobItem, scope?: readonly JobItem[]) => {
     const list = scope ?? filtered;
-    const idx = list.findIndex((j) => j.id === job.id);
+    const entries = flattenLightboxEntries(list);
+    const idx = entries.findIndex((e) => e.job.id === job.id);
     if (idx >= 0) {
       setLightboxScope(scope ?? null);
       setLightboxIdx(idx);
@@ -1218,7 +1226,7 @@ export function LibraryView(props?: LibraryViewProps) {
               return (
                 <article
                   key={job.id}
-                  className={`lib-card${isVideo ? " is-video" : ""}${deletingId === job.id ? " is-deleting" : ""}${isSelected ? " is-selected" : ""}`}
+                  className={`lib-card${isVideo ? " is-video" : ""}${deletingId === job.id ? " is-deleting" : ""}${isSelected ? " is-selected" : ""}${hasResult && (job.results?.length ?? 0) > 1 ? " is-stack" : ""}`}
                 >
                   <div className={`lib-thumb${job.status === "running" && !hasResult ? " is-running" : ""}`}>
                     {/* 预览/勾选触发区用真实 <button>,避免嵌套交互控件(WCAG nested-interactive) */}
@@ -1263,6 +1271,14 @@ export function LibraryView(props?: LibraryViewProps) {
                       <span className="lib-3d-badge" aria-hidden="true">
                         <Icon name="box" size={11} />
                         3D
+                      </span>
+                    )}
+
+                    {/* 多产物作业(2026-09-15):叠放卡角标,进灯箱可逐张翻看 */}
+                    {hasResult && (job.results?.length ?? 0) > 1 && (
+                      <span className="lib-stack-badge" aria-hidden="true">
+                        <Icon name="library" size={11} />
+                        {job.results.length} 张
                       </span>
                     )}
 
@@ -1479,9 +1495,9 @@ export function LibraryView(props?: LibraryViewProps) {
           portal 到 body:.view-stage 的 view-transition-name 会创建层叠上下文
           (自身层级 auto≈0),fixed 灯箱困于其中时被根层级的账户按钮(z-100)反压
           盖住右上角关闭钮(2026-08-27 实证);portal 逃脱后 z-modal(300) 在根级生效 */}
-      {lightboxIdx !== null && lightboxJobs[lightboxIdx] && createPortal(
+      {lightboxIdx !== null && lightboxEntries[lightboxIdx] && createPortal(
         <LibraryLightbox
-          jobs={lightboxJobs as JobItem[]}
+          entries={lightboxEntries}
           index={lightboxIdx}
           onClose={closeLightbox}
           onIndex={setLightboxIdx}
@@ -1980,8 +1996,8 @@ function ThreeDOpsBar({ job }: { job: JobItem }) {
 // ────────────────────────────────────────────────────────────────
 
 interface LibraryLightboxProps {
-  /** 当前查询结果列表(穿梭范围) */
-  jobs: JobItem[];
+  /** 展平后的浏览条目(单作业多产物逐条展开,2026-09-15):穿梭/计数都按条目 */
+  entries: LightboxEntry[];
   index: number;
   onClose: () => void;
   onIndex: (idx: number) => void;
@@ -2001,7 +2017,7 @@ interface LibraryLightboxProps {
 }
 
 function LibraryLightbox({
-  jobs,
+  entries,
   index,
   onClose,
   onIndex,
@@ -2013,9 +2029,12 @@ function LibraryLightbox({
   dialogsOpen,
   previewOnly = false,
 }: LibraryLightboxProps) {
-  const job = jobs[index];
-  const hasResult = job.status === "done" && job.results?.length > 0;
-  const mediaUrl = hasResult ? imageUrl(job.results[0]) : "";
+  const entry = entries[index];
+  const job = entry?.job;
+  // 越界钳制 effect 在父层兜底;此处仅防御渲染(条目清空瞬间)
+  if (!entry || !job) return null;
+  const hasResult = !entry.placeholder;
+  const mediaUrl = hasResult ? imageUrl(entry.url) : "";
   // 统一格式识别(扩展名优先、kind 兜底):glb 不再落进 <img> 裂图;
   // kind 非音频类但产物是 .mp3/.wav 的作业也能进音频分支
   const mediaKind = hasResult ? mediaKindOf(mediaUrl, job.kind) : null;
@@ -2040,11 +2059,11 @@ function LibraryLightbox({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowLeft" && index > 0) onIndex(index - 1);
-      else if (e.key === "ArrowRight" && index < jobs.length - 1) onIndex(index + 1);
+      else if (e.key === "ArrowRight" && index < entries.length - 1) onIndex(index + 1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [dialogsOpen, index, jobs.length, onClose, onIndex]);
+  }, [dialogsOpen, index, entries.length, onClose, onIndex]);
 
   let createdFull = job.created_at;
   try {
@@ -2115,7 +2134,7 @@ function LibraryLightbox({
               <Icon name="chevron-left" size={18} />
             </button>
           )}
-          {index < jobs.length - 1 && (
+          {index < entries.length - 1 && (
             <button
               type="button"
               className="lib-lb-nav lib-lb-nav-next"
@@ -2133,7 +2152,7 @@ function LibraryLightbox({
           <div className="lib-lb-side-head">
             <span className="lib-kind">{kindLabel(job.kind)}</span>
             <span className="lib-lb-counter">
-              {index + 1} / {jobs.length}
+              {index + 1} / {entries.length}
             </span>
             <button
               type="button"
@@ -2172,6 +2191,14 @@ function LibraryLightbox({
               <dt>Seed</dt>
               <dd className="lib-lb-num">{job.seed}</dd>
             </div>
+            {entry.count > 1 && (
+              <div className="lib-lb-meta-row">
+                <dt>本组</dt>
+                <dd className="lib-lb-num">
+                  第 {entry.index + 1} / {entry.count} 张
+                </dd>
+              </div>
+            )}
           </dl>
 
           <div className="lib-lb-prompt-block">
@@ -2280,16 +2307,20 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
   };
 
   const trashJobs = items ?? [];
+  const trashEntries = useMemo(
+    () => flattenLightboxEntries(trashJobs),
+    [trashJobs],
+  );
   const openLightbox = (job: JobItem) => {
-    const idx = trashJobs.findIndex((j) => j.id === job.id);
+    const idx = trashEntries.findIndex((e) => e.job.id === job.id);
     if (idx >= 0) setLightboxIdx(idx);
   };
 
   useEffect(() => {
     if (lightboxIdx === null) return;
-    if (trashJobs.length === 0) setLightboxIdx(null);
-    else if (lightboxIdx >= trashJobs.length) setLightboxIdx(trashJobs.length - 1);
-  }, [trashJobs.length, lightboxIdx]);
+    if (trashEntries.length === 0) setLightboxIdx(null);
+    else if (lightboxIdx >= trashEntries.length) setLightboxIdx(trashEntries.length - 1);
+  }, [trashEntries.length, lightboxIdx]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -2520,9 +2551,9 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
         )}
       </div>
 
-      {lightboxIdx !== null && trashJobs[lightboxIdx] && createPortal(
+      {lightboxIdx !== null && trashEntries[lightboxIdx] && createPortal(
         <LibraryLightbox
-          jobs={trashJobs}
+          entries={trashEntries}
           index={lightboxIdx}
           onClose={() => setLightboxIdx(null)}
           onIndex={setLightboxIdx}
