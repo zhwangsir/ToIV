@@ -5,7 +5,7 @@
 set -eu
 
 SSH_OPTS=(-o ConnectTimeout=8)
-REMOTE="${1:-merlin@192.168.71.47}"
+REMOTE="${1:-merlin@100.77.80.100}"  # Tailscale(外出可部署)
 REMOTE_DIR="/home/merlin/toiv"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
