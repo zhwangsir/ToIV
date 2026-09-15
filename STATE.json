@@ -11872,5 +11872,19 @@
       ".regen_tmp/app_test_matrix_p0/public_e2e_wave17.json",
       ".regen_tmp/app_test_matrix_p0/public_e2e_wave18.json"
     ]
+  },
+  "market_group_nav_demo_covers_2026_09_15": {
+    "status": "running",
+    "date": "2026-09-15",
+    "summary": "市场分类重设计 + 真实 demo 封面管线 LIVE：①前端 12 use_case → 8 场景组导航（USE_CASE_GROUPS 展示层映射，chips 计数=指纹去重功能入口数，选中组显示 blurb）；②app_cover_demo 服务（应用自工作流真跑+beauty01-12 自产 SFW 写真素材包+视频 ffmpeg 抽帧做封面，run_app_smoke 加 values_override/collect_result，成功才覆盖 cover_url，Job kind=app_cover_demo 溯源）；③POST /api/admin/apps/covers/demo + status 单飞端点；④重打标 225 个 other/空分类（empty 56→34 余全 R18），other 202 确认为真通用工具；⑤封面守护 .regen_tmp/demo_cover_watch_20260914.py 自动续发至全量（~490 目标，视频占 65% 预计十几小时），JoyCaption 后审脚本 .regen_tmp/cover_review_20260914.py（首批 3/3 合格）",
+    "key_fixes": [
+      "agent list_apps 直调 fingerprint Query truthy 复发 09-13 同坑（对话选应用全空）",
+      "封面回读白名单放行 appcover-demo-*",
+      "demo 端点 sync def 无 running loop 500 → async def"
+    ],
+    "watcher": ".regen_tmp/demo_cover_watch_20260914.py",
+    "review": ".regen_tmp/cover_review_20260914.py",
+    "tests": "api 3221/0, web 987/0",
+    "build": "20260915-094402-86b070c"
   }
 }
