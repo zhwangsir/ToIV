@@ -11906,5 +11906,11 @@
     "date": "2026-09-15",
     "summary": "市场两级分类 + CSS 原生瀑布(用户反馈塌列):首页=图片/视频/音频一级入口卡(封面拼贴+入口数,601/484/5);二级页 ?cat= 可分享(面包屑+功能组 chips 按类内实际入口计数);瀑布流删 distributeStableColumns/ResizeObserver 手写测量(塌列根因),改 CSS columns 原生多列(420px=1列,1500px=5列,实测不塌);视频卡海报帧提速(ffmpeg 抽帧+7d 缓存);独立管理系统 apps/admin LIVE(:3200)",
     "build": "20260915-131801-1f31eea"
+  },
+  "remote_access_audit_20260915": {
+    "status": "round2_all_green",
+    "date": "2026-09-15",
+    "summary": "异地访问体检两轮:pc01 Tailscale 已修复(iphlpsvc 被禁→启用+MSI 静默重装 1.102.4,用户授权入网;新节点 pc01@100.86.169.64,旧 pc01-3 作废);终验矩阵全绿(core/ws/spark01/02/beijing/pc01 SSH+公网登录+CN 入口+NAS/openclaw TS);新发现 P2=HK 入口 frp 跨境 TLS 闪断(自动重连,CN 入口为主);Tailscale Plan 结论=免费 Personal 够用,服务器节点建议 Disable key expiry;待办收尾:封面批并发6(实测~47张/h)+finalize监督器(批完自动JoyCaption全审+报告),spark双机dsv4_60改restart=unless-stopped,deploy-admin/watcher切Tailscale地址;HK frp已在kcp(闪断=链路质量,CN入口为主)",
+    "report": ".regen_tmp/remote_access_audit_20260915.md"
   }
 }
