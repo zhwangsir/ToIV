@@ -13,7 +13,7 @@ import hashlib
 import json
 import re
 
-_VOLATILE_RE = re.compile(r"seed|prompt|text", re.IGNORECASE)
+_SEED_RE = re.compile(r"seed", re.IGNORECASE)
 
 
 def fingerprint(workflow_json: dict | None) -> str:
@@ -30,13 +30,18 @@ def fingerprint(workflow_json: dict | None) -> str:
         ins = node.get("inputs") or {}
         kv: list[tuple] = []
         for k in sorted(ins):
-            if _VOLATILE_RE.search(k):
-                continue
             v = ins[k]
             if isinstance(v, list):
                 continue  # 连线目标:重编号即变,忽略
-            if isinstance(v, str) and len(v) > 80:
-                v = v[:80]
+            if isinstance(v, str):
+                # 文本类(prompt 等)是应用功能的一部分,但空白差异不构成功能差异
+                v = " ".join(v.split())
+                if len(v) > 200:
+                    v = v[:200]
+            elif _SEED_RE.search(k):
+                continue  # 随机种子不构成功能差异
+            if v == "" or v is None:
+                continue
             if isinstance(v, (dict, list)):
                 v = json.dumps(v, ensure_ascii=False, sort_keys=True)[:120]
             kv.append((k, v))

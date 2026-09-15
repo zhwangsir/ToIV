@@ -19,17 +19,18 @@ from app.services.app_fingerprint import fingerprint  # noqa: E402
 
 
 def main() -> None:
+    force = "--force" in sys.argv
     done = 0
     with Session(engine) as session:
         rows = session.exec(select(App)).all()
         for a in rows:
-            if a.fingerprint:
+            if not force and a.fingerprint:
                 continue
             a.fingerprint = fingerprint(a.workflow_json)
             session.add(a)
             done += 1
         session.commit()
-    print(f"backfilled fingerprints: {done} apps")
+    print(f"backfilled fingerprints: {done} apps (force={force})")
 
 
 if __name__ == "__main__":
