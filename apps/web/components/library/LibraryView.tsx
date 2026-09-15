@@ -169,6 +169,10 @@ function VideoThumb({ job, blurred = false }: { job: JobItem; blurred?: boolean 
   return (
     <LazyVideo
       src={imageUrl(job.results[0])}
+      /* 海报=服务端 ffmpeg 抽帧(360px JPEG,~15KB):网格秒开,不再整屏拉视频元数据;
+         悬停才拉元数据做 hover 预览 */
+      poster={imageThumbUrl(job.results[0])}
+      hoverOnly
       muted
       loop
       playsInline
@@ -1318,6 +1322,8 @@ export function LibraryView(props?: LibraryViewProps) {
                         ) : mk === "video" ? (
                           <LazyVideo
                             src={imageUrl(url)}
+                            poster={imageThumbUrl(url)}
+                            hoverOnly
                             muted
                             loop
                             playsInline

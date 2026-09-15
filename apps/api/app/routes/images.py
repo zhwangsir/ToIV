@@ -120,6 +120,7 @@ async def get_image(
             # 音频/3D 产物按扩展名修正 content-type(/view 可能给默认 image/png)
             content_type = _EXTRA_CONTENT_TYPES.get(Path(safe_filename).suffix.lower(), content_type)
             # 视频/图片统一走 range 感知返回:视频靠 206+Accept-Ranges 才能播
+            # (_ranged_response 自带 Cache-Control: private 1d)
             return _ranged_response(content, content_type, request.headers.get("range"))
         except ComfyUIError as e:
             last_err = e
@@ -137,6 +138,51 @@ _THUMB_DIR = Path(
     _os.environ.get("TOIV_THUMB_CACHE", str(Path(__file__).resolve().parents[2] / ".thumbcache"))
 )
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
+_VIDEO_EXTS = {".mp4", ".webm", ".mov", ".m4v", ".mkv"}
+_THUMB_CACHE_HEADERS = {"Cache-Control": "private, max-age=604800"}  # 7d:签名 URL 内容不可变
+
+
+async def _video_poster(content: bytes, cache_path: Path) -> bytes | None:
+    """视频海报:ffmpeg 抽 1s 处帧(避开首帧黑场),缩到 360px JPEG,落盘缓存。
+
+    失败(无 ffmpeg/坏片/超时)返回 None,调用方回退原图,绝不 5xx。
+    """
+    import tempfile
+
+    def _extract() -> bytes | None:
+        with tempfile.TemporaryDirectory(prefix="vidthumb") as td:
+            src = Path(td) / "in.bin"
+            src.write_bytes(content)
+            out = Path(td) / "poster.jpg"
+            import subprocess
+
+            for _try in range(2):  # 1s 处失败(超短片)退首帧
+                proc = subprocess.run(
+                    ["ffmpeg", "-y", "-loglevel", "error", "-ss", "1" if _try == 0 else "0",
+                     "-i", str(src), "-frames:v", "1", "-vf", f"scale={_THUMB_W}:-2", "-q:v", "5",
+                     str(out)],
+                    capture_output=True, timeout=60,
+                )
+                if proc.returncode == 0 and out.exists() and out.stat().st_size > 0:
+                    return out.read_bytes()
+            return None
+
+    try:
+        if cache_path.exists():
+            return cache_path.read_bytes()
+        poster = await asyncio.to_thread(_extract)
+        if poster is None:
+            return None
+        try:
+            _THUMB_DIR.mkdir(parents=True, exist_ok=True)
+            tmp = cache_path.with_suffix(".tmp")
+            tmp.write_bytes(poster)
+            tmp.replace(cache_path)
+        except OSError:
+            pass
+        return poster
+    except Exception:  # noqa: BLE001 — 海报失败不阻塞响应
+        return None
 
 
 @router.get("/images/thumb")
@@ -181,7 +227,8 @@ async def get_image_thumb(
     # 故退化为:命中即用,未命中才取原图。网格缩略图允许这一近似。)
     approx = _THUMB_DIR / (hashlib.sha256(f"t|{safe_filename}".encode()).hexdigest()[:32] + ".webp")
     if approx.exists():
-        return Response(content=approx.read_bytes(), media_type="image/webp")
+        return Response(content=approx.read_bytes(), media_type="image/webp",
+                        headers=_THUMB_CACHE_HEADERS)
 
     primary = resolve_worker(worker)
     host = _host(primary.base_url)
@@ -199,7 +246,17 @@ async def get_image_thumb(
         raise HTTPException(status_code=502, detail=f"产物暂不可取(同机 worker 均不可达): {last_err}")
 
     if Path(safe_filename).suffix.lower() not in _IMAGE_EXTS:
-        return _ranged_response(content, content_type, None)  # 视频/音频/3D 回原图
+        # 视频:ffmpeg 抽 1s 处帧做海报(网格只拉 15KB 小图,不再挂 <video> 拉原片);
+        # 抽帧失败/音频/3D 回原图(旧行为兜底)
+        if Path(safe_filename).suffix.lower() in _VIDEO_EXTS:
+            vposter = _THUMB_DIR / (hashlib.sha256(f"tv|{safe_filename}".encode()).hexdigest()[:32] + ".jpg")
+            poster = await _video_poster(content, vposter)
+            if poster is not None:
+                return Response(
+                    content=poster, media_type="image/jpeg",
+                    headers=_THUMB_CACHE_HEADERS,
+                )
+        return _ranged_response(content, content_type, None)
 
     def _make() -> bytes:
         from PIL import Image
@@ -221,4 +278,4 @@ async def get_image_thumb(
         tmp.replace(approx)
     except OSError:
         pass  # 缓存写失败不影响返回
-    return Response(content=webp, media_type="image/webp")
+    return Response(content=webp, media_type="image/webp", headers=_THUMB_CACHE_HEADERS)

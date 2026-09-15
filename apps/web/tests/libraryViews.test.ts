@@ -515,3 +515,13 @@ test("一键清理失败作品:工具栏按钮+确认 Modal+软删恢复通道(�
   const mock = readFileSync(join(webRoot, "tests/mocks/studioApi.ts"), "utf-8");
   assert.ok(mock.includes("export const cleanupFailedJobs"), "替身缺导出会炸链接期");
 });
+
+test("视频卡提速:海报帧 + hoverOnly(不再整屏拉视频元数据)(源码)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(
+    src.includes("poster={imageThumbUrl(job.results[0])}"),
+    "视频卡缺服务端海报",
+  );
+  const lazy = readFileSync(join(webRoot, "components/ui/LazyVideo.tsx"), "utf-8");
+  assert.ok(lazy.includes("hoverOnly"), "LazyVideo 缺 hoverOnly 档位");
+});

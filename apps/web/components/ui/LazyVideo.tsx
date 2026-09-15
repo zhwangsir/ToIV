@@ -17,13 +17,18 @@ import { useEffect, useRef } from "react";
 export function LazyVideo({
   onMouseEnter,
   style,
+  hoverOnly = false,
   ...rest
-}: React.VideoHTMLAttributes<HTMLVideoElement>) {
+}: React.VideoHTMLAttributes<HTMLVideoElement> & {
+  /** true = 不做视口自动预载(有海报卡时用),悬停才拉元数据(2026-09-15 视频卡提速) */
+  hoverOnly?: boolean;
+}) {
   const ref = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    if (hoverOnly) return; // 海报卡:元数据拉取交给悬停,别让整屏卡片同时拉视频
     const enable = () => {
       if (el.preload === "none") {
         el.preload = "metadata";
@@ -45,7 +50,7 @@ export function LazyVideo({
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [hoverOnly]);
 
   return (
     <video
