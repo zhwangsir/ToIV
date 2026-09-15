@@ -501,12 +501,15 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
                   className="apps-mkt-hero-card"
                   onClick={() => openCat(h.key)}
                 >
-                  <span className="apps-mkt-hero-covers" aria-hidden="true">
-                    {h.covers.map((u, i) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img key={i} src={u} alt="" loading="lazy" decoding="async" />
-                    ))}
-                  </span>
+                  <span
+                    className="apps-mkt-hero-covers"
+                    aria-hidden="true"
+                    style={
+                      h.covers[0]
+                        ? { backgroundImage: `url(${h.covers[0]})` }
+                        : undefined
+                    }
+                  />
                   <span className="apps-mkt-hero-body">
                     <span className="apps-mkt-hero-title">
                       <Icon name={h.icon} size={16} aria-hidden="true" />
