@@ -714,6 +714,16 @@
   left: calc(var(--space-2) + 26px);
 }
 
+/* ── 作品库计数(2026-09-15 计数重设计):网格尾部已加载/总数提示 ── */
+.lib-loaded-hint {
+  margin: var(--space-2) 0 0;
+  text-align: center;
+  font-size: var(--text-aux);
+  font-family: var(--font-sans);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── 灯箱组内胶片条(2026-09-15):多产物作业舞台底部小图直接点选 ── */
 .lib-lb-filmstrip {
   position: absolute;

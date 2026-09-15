@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { deleteJob, fetchJobsPage, imageThumbUrl, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, JOBS_PAGE_LIMIT, listJobs, permanentDeleteJob, purgeTrash, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
+import { deleteJob, fetchJobCount, fetchJobsPage, imageThumbUrl, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, listJobs, permanentDeleteJob, purgeTrash, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
 import { useR18Mode } from "@/lib/r18";
@@ -241,7 +241,7 @@ export function LibraryView(props?: LibraryViewProps) {
   // 分页:首屏只渲染 PAGE_SIZE 条,「加载更多」追加;查询条件变更时重置
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   // 服务端分页(2026-08-16):首页走 swr 缓存(≤200 条),触底自动拉下一页追加;
-  // serverHasMore = 最后拉取的一页返回满页(==JOBS_PAGE_LIMIT)即可能还有
+  // serverHasMore = 最后拉取的一页返回满页(==LIBRARY_PAGE_LIMIT)即可能还有
   const [serverHasMore, setServerHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   // 工具条(2026-08-15 重设计):prompt 搜索 / 时间排序 / 网格密度(持久化)
@@ -284,6 +284,26 @@ export function LibraryView(props?: LibraryViewProps) {
   // 类型 chip 连点:忽略过期 fetchJobsPage 响应
   const jobsFetchGate = useRef(makeSeqGate()).current;
 
+  // 类型桶总数(2026-09-15 计数重设计):服务端 COUNT,与分页/已加载量无关;
+  // contentFilter 决定 nsfw 三态(主库 SFW 恒准;R18 模式下 SFW/R18 分开计)
+  const [serverCounts, setServerCounts] = useState<Record<string, number> | null>(null);
+  const countsFetchGate = useRef(makeSeqGate()).current;
+  const loadCounts = useCallback(() => {
+    const seq = countsFetchGate.next();
+    const nsfw = !r18Mode ? "" : contentFilter === "r18" ? "true" : contentFilter === "sfw" ? "false" : "";
+    const buckets: [FilterKey, string][] = [
+      ["all", ""],
+      ...FILTERS.filter((f) => f.key !== "all").map((f) => [f.key, kindsQueryForFilter(f.key)] as [FilterKey, string]),
+    ];
+    Promise.all(buckets.map(async ([key, kinds]) => [key, await fetchJobCount(kinds, nsfw)] as const))
+      .then((entries) => {
+        if (countsFetchGate.isLive(seq)) setServerCounts(Object.fromEntries(entries));
+      })
+      .catch(() => {
+        /* 静默回落客户端计数(仅反映已加载部分) */
+      });
+  }, [r18Mode, contentFilter]);
+
   const load = useCallback(() => {
     const seq = jobsFetchGate.next();
     setLoading(true);
@@ -317,7 +337,7 @@ export function LibraryView(props?: LibraryViewProps) {
     fetchJobsPage(jobs?.length ?? 0, LIBRARY_PAGE_LIMIT, kindsQueryForFilter(filter))
       .then((page) => {
         if (!jobsFetchGate.isLive(seq)) return;
-        setServerHasMore(page.length >= JOBS_PAGE_LIMIT);
+        setServerHasMore(page.length >= LIBRARY_PAGE_LIMIT); // 页大小就是 60,误用 200 会让滚动提前停
         if (page.length > 0) {
           setJobs((prev) => {
             const seen = new Set((prev ?? []).map((j) => j.id));
@@ -339,6 +359,10 @@ export function LibraryView(props?: LibraryViewProps) {
     load();
   }, [load]);
 
+  useEffect(() => {
+    loadCounts();
+  }, [loadCounts]);
+
   // 挂载后读取本地风格卡(SSR 安全:loadStyleCards 内部判 window)
   useEffect(() => {
     setStyleCards(loadStyleCards());
@@ -356,11 +380,18 @@ export function LibraryView(props?: LibraryViewProps) {
     [jobs, filter, contentFilter, search, sort],
   );
 
-  // 类型计数(chip 徽标):基于内容分级后的集合,与列表口径一致
-  const counts = useMemo(
-    () => countByFilter(jobs ?? [], contentFilter),
-    [jobs, contentFilter],
-  );
+  // 类型计数(chip 徽标):服务端真实总数优先(与分页无关);
+  // 未回/失败时回落客户端口径(只反映已加载部分,过渡态)
+  const counts = useMemo(() => {
+    const client = countByFilter(jobs ?? [], contentFilter);
+    if (!serverCounts) return client;
+    if (!r18Mode || contentFilter === "all") {
+      // 非 R18 模式服务端已剔 R18;all 桶三态同义 → 服务端数
+      return { ...client, ...serverCounts } as Record<FilterKey, number>;
+    }
+    // R18 模式 + SFW/R18 分级:服务端数已是该分级的口径(loadCounts 按 nsfw 三态拉取)
+    return { ...client, ...serverCounts } as Record<FilterKey, number>;
+  }, [jobs, contentFilter, serverCounts, r18Mode]);
 
   // 内容分组(2026-08-24):带 batch_id 的作业(360° 环绕序列)折叠为文件夹卡,
   // 主网格不再平铺成员;筛选已先作用于成员 → 文件夹按成员 kind 归属对应类型桶
@@ -516,6 +547,7 @@ export function LibraryView(props?: LibraryViewProps) {
               .then(() => {
                 invalidateJobs();
                 load();
+                loadCounts();
                 toast.success(`已恢复 ${undoTokens.length} 件作品`);
               })
               .catch(() => toast.error("撤销失败(可能已过期)"));
@@ -561,6 +593,7 @@ export function LibraryView(props?: LibraryViewProps) {
       const result = await deleteJob(job.id);
       invalidateJobs();
       setJobs((prev) => (prev ?? []).filter((j) => j.id !== job.id));
+      loadCounts();
       setConfirmDelete(null);
       setDeleteError(null);
       if (result.undo_token) {
@@ -571,6 +604,7 @@ export function LibraryView(props?: LibraryViewProps) {
               .then(() => {
                 invalidateJobs();
                 load();
+                loadCounts();
                 toast.success("已恢复作品");
               })
               .catch((e: unknown) => toast.error(e instanceof Error ? e.message : "撤销失败(可能已过期)"));
@@ -1548,6 +1582,17 @@ export function LibraryView(props?: LibraryViewProps) {
                     : "加载更早的作品"}
                 </Button>
               </div>
+            )}
+            {serverCounts && !loading && (
+              <p className="lib-loaded-hint" role="status">
+                {(() => {
+                  const total = serverCounts[filter] ?? 0;
+                  const loaded = filtered.length;
+                  return total > loaded
+                    ? `已显示 ${loaded} / 共 ${total} 件,下滑继续加载更早作品`
+                    : `共 ${total} 件作品`;
+                })()}
+              </p>
             )}
           </>
         )}

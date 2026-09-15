@@ -492,3 +492,15 @@ test("场景组 chips 携带图标:8 组 icon 均为合法 Icon 名(源码)", ()
     assert.ok(src.includes(`icon: "${icon}"`), `缺图标 ${icon}`);
   }
 });
+
+test("作品库计数重设计:chips 用服务端总数 + 已加载/总数提示 + 分页阈值修正(源码)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes("fetchJobCount"), "未接计数接口");
+  assert.ok(src.includes("serverCounts"), "缺服务端计数 state");
+  assert.ok(src.includes("lib-loaded-hint"), "缺已显示/总数提示");
+  assert.ok(
+    src.includes("setServerHasMore(page.length >= LIBRARY_PAGE_LIMIT)"),
+    "loadMoreServer 满页阈值必须用 LIBRARY_PAGE_LIMIT(60),误用 200 会让无限滚动提前停",
+  );
+  assert.ok(!src.includes("setServerHasMore(page.length >= JOBS_PAGE_LIMIT)"));
+});

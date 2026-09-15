@@ -395,6 +395,18 @@ export async function lookupJob(promptId: string): Promise<JobItem | null> {
   return res.json();
 }
 
+/** 作品库类型桶总数(2026-09-15 计数重设计):与 /api/jobs 同口径,只回 COUNT。
+ *  kind 空串=全部;nsfw "true"/"false" 过滤内容分级(空=不过滤,R18 门控仍生效)。 */
+export async function fetchJobCount(kind = "", nsfw = ""): Promise<number> {
+  const q = new URLSearchParams();
+  if (kind) q.set("kind", kind);
+  if (nsfw) q.set("nsfw", nsfw);
+  const res = await apiFetch(`/api/jobs/counts?${q.toString()}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`统计作品数失败 (${res.status})`);
+  const data = (await res.json()) as { count?: number };
+  return Number(data.count) || 0;
+}
+
 /** 首页大小:与后端单页上限一致;返回满页即可能还有下一页。 */
 export const JOBS_PAGE_LIMIT = 200;
 

@@ -16,6 +16,7 @@ from functools import lru_cache
 import websockets
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, ValidationError
+from sqlalchemy import func
 from sqlmodel import Session, or_, select
 from sse_starlette.sse import EventSourceResponse
 
@@ -286,6 +287,34 @@ def list_jobs(
         stmt.order_by(Job.created_at.desc()).offset(offset).limit(limit)
     ).all()
     return [_job_dict(j) for j in rows]
+
+
+@router.get("/jobs/counts")
+def count_jobs(
+    kind: str = Query(default="", description="同 GET /api/jobs?kind= 口径:逗号多值;_ 结尾为前缀;空=全部"),
+    nsfw: str = Query(default="", description="空=不过滤(R18 门控仍生效);true=仅 R18;false=仅 SFW"),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """作品库类型桶总数(2026-09-15 用户反馈计数不准)。
+
+    与 GET /api/jobs 完全同口径(本人/未删除/R18 门控/kind 匹配),但只回
+    COUNT,不受分页影响——前端筛选 chips 显示真实总数,不再随无限滚动增长。
+    """
+    stmt = select(func.count()).select_from(Job)
+    # 计数恒为本人口径(不提供 all 参数,与作品库浏览范围一致)
+    stmt = stmt.where(Job.user_id == user.id)
+    stmt = stmt.where(Job.deleted_at == None)  # noqa: E712
+    if not nsfw_allowed(user):
+        stmt = stmt.where(Job.nsfw == False)  # noqa: E712
+    if nsfw in ("true", "false"):
+        stmt = stmt.where(Job.nsfw == (nsfw == "true"))
+    if kind:
+        clause = _kind_filter_clause(kind)
+        if clause is not None:
+            stmt = stmt.where(clause)
+    total = session.exec(stmt).one()
+    return {"count": int(total or 0)}
 
 
 @router.get("/jobs/lookup")

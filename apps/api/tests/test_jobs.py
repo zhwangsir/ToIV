@@ -460,3 +460,64 @@ def test_job_dict_exposes_app_id():
     broken = Job(tenant_id="t", user_id="u", prompt_id="p3", worker="w", kind="app_run",
                  status="done", result='["/x"]', params="{bad json")
     assert _job_dict(broken)["app_id"] == ""
+
+# ---------------------------------------------------------------------------
+# /api/jobs/counts(2026-09-15 计数重设计):与列表同口径的桶总数
+# ---------------------------------------------------------------------------
+def test_jobs_counts_kind_nsfw_deleted(ctx):
+    """计数与 GET /api/jobs 完全同口径:本人/未删除/R18 门控/kind 多值与前缀。"""
+    from datetime import datetime, timezone
+
+    from sqlmodel import select
+
+    c, token = ctx
+    h = {"Authorization": f"Bearer {token}"}
+
+    session_factory = next(iter(app.dependency_overrides.values()))
+    gen = session_factory()
+    s = next(gen)
+    try:
+        user = s.exec(select(User)).one()
+        uid, tid = user.id, user.tenant_id
+        rows = [
+            Job(tenant_id=tid, user_id=uid, prompt_id="v1", worker="http://w",
+                prompt="v", seed=0, kind="app_video", status="done",
+                result='["/x.mp4"]'),
+            Job(tenant_id=tid, user_id=uid, prompt_id="v2", worker="http://w",
+                prompt="v", seed=0, kind="app_video", status="done",
+                result='["/y.mp4"]'),
+            Job(tenant_id=tid, user_id=uid, prompt_id="i1", worker="http://w",
+                prompt="i", seed=0, kind="app_image", status="done",
+                result='["/z.png"]'),
+            Job(tenant_id=tid, user_id=uid, prompt_id="n1", worker="http://w",
+                prompt="n", seed=0, kind="app_image", status="done",
+                result='["/n.png"]', nsfw=True),
+            Job(tenant_id=tid, user_id=uid, prompt_id="d1", worker="http://w",
+                prompt="d", seed=0, kind="app_video", status="done",
+                result='["/d.mp4"]'),
+        ]
+        for r in rows:
+            s.add(r)
+        s.commit()
+        rows[4].deleted_at = datetime.now(timezone.utc)  # 软删除:不计数
+        s.add(rows[4])
+        s.commit()
+    finally:
+        gen.close()
+
+    # SFW 主库口径:fixture 自带 1 条 + 2 app_video + 1 app_image(R18 被剔除,软删不计)= 4
+    assert c.get("/api/jobs/counts", headers=h).json() == {"count": 4}
+    assert c.get("/api/jobs/counts", headers=h,
+                 params={"kind": "app_video,app_image"}).json() == {"count": 3}
+    assert c.get("/api/jobs/counts", headers=h,
+                 params={"kind": "app_video"}).json() == {"count": 2}
+    assert c.get("/api/jobs/counts", headers=h,
+                 params={"kind": "app_"}).json() == {"count": 3}
+    # nsfw 过滤参数在 R18 门控关闭时不放行 R18 行(主库恒 SFW)
+    assert c.get("/api/jobs/counts", headers=h,
+                 params={"nsfw": "true"}).json() == {"count": 0}
+    assert c.get("/api/jobs/counts", headers=h,
+                 params={"nsfw": "false"}).json() == {"count": 4}
+    # 未认证 401
+    assert c.get("/api/jobs/counts").status_code == 401
+
