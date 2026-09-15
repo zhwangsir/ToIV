@@ -2323,6 +2323,9 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: var(--space-2);
+  /* 预设行是 flex 容器:卡组必须吃满剩余宽度,否则塌成单列 */
+  flex: 1 1 auto;
+  width: 100%;
 }
 .apps-preset-card {
   border-radius: 12px;
