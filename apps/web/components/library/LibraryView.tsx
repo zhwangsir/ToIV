@@ -1207,14 +1207,24 @@ export function LibraryView(props?: LibraryViewProps) {
             <div className="lib-grid lib-stack-grid">
               {openStackJob.results.map((url, i) => {
                 const mk = mediaKindOf(url, openStackJob.kind);
+                // R18 纪律(M9):组内图片同样默认模糊,先揭示才可进灯箱
+                const blurred = !!openStackJob.nsfw && !revealedIds.has(openStackJob.id);
                 return (
                   <article key={`${openStackJob.id}-${i}`} className="lib-card">
                     <div className="lib-thumb">
                       <button
                         type="button"
                         className="lib-thumb-hit"
-                        aria-label={`预览第 ${i + 1} 张`}
+                        aria-label={
+                          blurred
+                            ? "点击显示 R18 作品内容"
+                            : `预览第 ${i + 1} 张`
+                        }
                         onClick={() => {
+                          if (blurred) {
+                            toggleReveal(openStackJob.id);
+                            return;
+                          }
                           setLightboxScope([openStackJob]);
                           setLightboxIdx(
                             flattenLightboxEntries([openStackJob]).findIndex(
@@ -1226,13 +1236,20 @@ export function LibraryView(props?: LibraryViewProps) {
                         {mk === "audio" || mk === "model3d" ? (
                           <ThumbPlaceholder job={openStackJob} />
                         ) : mk === "video" ? (
-                          <LazyVideo src={imageUrl(url)} muted loop playsInline />
+                          <LazyVideo
+                            src={imageUrl(url)}
+                            muted
+                            loop
+                            playsInline
+                            style={blurred ? { filter: "blur(18px)" } : undefined}
+                          />
                         ) : (
                           <img
                             src={imageUrl(url)}
                             alt={`第 ${i + 1} 张`}
                             loading="lazy"
                             decoding="async"
+                            style={blurred ? { filter: "blur(18px)" } : undefined}
                           />
                         )}
                       </button>
