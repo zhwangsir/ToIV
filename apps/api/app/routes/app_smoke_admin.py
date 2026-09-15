@@ -73,7 +73,7 @@ class DemoCoverRequest(BaseModel):
 
 
 @router.post("/admin/apps/covers/demo")
-def demo_cover_batch(
+async def demo_cover_batch(  # async:def 里才有 running loop,create_task 需要(同步 def 会 500)
     body: DemoCoverRequest,
     admin: User = Depends(get_current_admin),
     pool: WorkerPool = Depends(get_pool),
