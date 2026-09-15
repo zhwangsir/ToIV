@@ -40,7 +40,7 @@ def fingerprint(workflow_json: dict | None) -> str:
             if isinstance(v, (dict, list)):
                 v = json.dumps(v, ensure_ascii=False, sort_keys=True)[:120]
             kv.append((k, v))
-        items.append((ct, tuple(kv)))
-    items.sort()
+        items.append((ct, json.dumps(kv, ensure_ascii=False, sort_keys=True, default=str)))
+    items.sort()  # 对序列化串排序,避免跨类型比较(str vs float)
     payload = json.dumps(items, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
