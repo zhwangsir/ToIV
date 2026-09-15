@@ -3169,7 +3169,7 @@ def confirm_import_app(
 # ---------------------------------------------------------------------------
 # 路由:M6 封面(RunningHub 化,2026-09-06)
 # ---------------------------------------------------------------------------
-_COVER_NAME_RE = re.compile(r"^appcover-[0-9a-f]{32}\.(png|jpg|webp|gif)$")
+_COVER_NAME_RE = re.compile(r"^appcover(?:-demo)?-[0-9a-f]{32}\.(png|jpg|webp|gif)$")
 _COVER_URL_PREFIX = "/api/apps/covers/file/"
 _COVER_MAX_BYTES = 8 * 1024 * 1024  # 8MB(卡片封面足够;防内存撑爆同 upload 纪律)
 _COVER_IMAGE_KINDS = {"png", "jpg", "webp", "gif"}  # _sniff_media 魔数口径
