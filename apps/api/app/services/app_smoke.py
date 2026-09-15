@@ -273,11 +273,15 @@ async def _union_objinfo(pool: WorkerPool) -> dict:
 async def run_app_smoke(
     pool: WorkerPool, session: Session, app: App,
     *, workflow_override: dict | None = None, allow_llm: bool = True,
+    values_override: dict | None = None, collect_result: bool = False,
 ) -> dict:
     """单应用真跑一遍;结果落 App.smoke_*;返回 {status, cls, detail, fixes}。
 
     workflow_override:用给定原始图代替 app.workflow_json(LVM 修复试提交用,
     不落库);allow_llm=False 禁用 LLM 修复阶段(试提交内层必须关,防递归)。
+    values_override:覆盖默认表单值(demo 封面注入美女素材/提示词用);
+    collect_result=True 时返回值附带 files([{filename,subfolder,type},…],demo
+    封面取产物用)。
     """
     from app.routes.apps import (  # 惰性导入防循环(routes 顶层 import 本模块)
         _build_graph,
@@ -294,6 +298,8 @@ async def run_app_smoke(
     session.commit()
 
     values = default_values(app.params_schema or [])
+    if values_override:
+        values = {**values, **values_override}
     fixes_all: list[str] = []
     last_msg = ""
     last_ne: dict = {}
@@ -344,9 +350,13 @@ async def run_app_smoke(
                 last_msg = "工作流校验未通过,主保存节点不会执行: " + "; ".join(reasons or sorted(doomed))
                 last_ne = node_errors or {}
             else:
-                status, msg = await _poll_history(client, prompt_id, app.output_kind or "image")
+                status, msg, out_files = await _poll_history(client, prompt_id, app.output_kind or "image")
                 if status == "pass":
-                    return _finish(session, app, "pass", {"cls": "", "detail": msg}, fixes_all)
+                    out = _finish(session, app, "pass", {"cls": "", "detail": msg}, fixes_all,
+                                  files=out_files if collect_result else None)
+                    if collect_result:
+                        out["worker"] = client.base_url  # demo 封面按此下载产物
+                    return out
                 last_msg, last_ne = msg, node_errors or {}
         # 失败 → 确定性修复(combo 校准)后重试一次
         if attempt == 1:
@@ -389,6 +399,7 @@ async def run_app_smoke(
                 patch, patched_raw, applied = out
                 trial = await run_app_smoke(
                     pool, session, app, workflow_override=patched_raw, allow_llm=False,
+                    values_override=values_override, collect_result=collect_result,
                 )
                 note = f"trial={trial['status']} {trial['detail'][:160]} fixes={applied[:3]}"
                 selfheal_llm.record_proposal(
@@ -437,8 +448,8 @@ async def _upload_fixtures(client, graph: dict) -> None:
         await client.upload_image(src.read_bytes(), name)
 
 
-async def _poll_history(client, prompt_id: str, output_kind: str) -> tuple[str, str]:
-    """轮询 history:pass(有产物)/error/timeout。"""
+async def _poll_history(client, prompt_id: str, output_kind: str) -> tuple[str, str, list[dict]]:
+    """轮询 history:pass(有产物,顺带展平产物清单)/error/timeout。"""
     limit = _SMKE_TIMEOUT.get(output_kind, 300)
     t0 = asyncio.get_event_loop().time()
     while asyncio.get_event_loop().time() - t0 < limit:
@@ -454,13 +465,26 @@ async def _poll_history(client, prompt_id: str, output_kind: str) -> tuple[str, 
         if st.get("status_str") == "error":
             msgs = [str(v[1].get("exception_message", "")) for v in (st.get("messages") or [])
                     if isinstance(v, list) and v and v[0] == "execution_error"]
-            return "error", (msgs[0] if msgs else "execution error")[:_SMKE_ERROR_MAX]
+            return "error", (msgs[0] if msgs else "execution error")[:_SMKE_ERROR_MAX], []
         if st.get("completed") and e.get("outputs"):
-            return "pass", f"outputs={list(e['outputs'])[:3]}"
-    return "error", f"poll exceeded {limit}s"
+            files: list[dict] = []
+            for node_out in e["outputs"].values():
+                if not isinstance(node_out, dict):
+                    continue
+                for key in ("images", "gifs", "videos", "audio"):
+                    for f in node_out.get(key) or []:
+                        if isinstance(f, dict) and f.get("filename"):
+                            files.append({
+                                "filename": f["filename"],
+                                "subfolder": f.get("subfolder", ""),
+                                "type": f.get("type", "output"),
+                            })
+            return "pass", f"outputs={list(e['outputs'])[:3]}", files
+    return "error", f"poll exceeded {limit}s", []
 
 
-def _finish(session: Session, app: App, status: str, res: dict, fixes: list[str]) -> dict:
+def _finish(session: Session, app: App, status: str, res: dict, fixes: list[str],
+            files: list[dict] | None = None) -> dict:
     detail = res.get("detail") or ""
     if fixes:
         detail = f"[fixes: {'; '.join(fixes[:3])}] {detail}"
@@ -470,7 +494,10 @@ def _finish(session: Session, app: App, status: str, res: dict, fixes: list[str]
     app.smoke_at = datetime.utcnow()
     session.add(app)
     session.commit()
-    return {"status": status, "cls": app.smoke_cls, "detail": detail, "fixes": fixes}
+    out = {"status": status, "cls": app.smoke_cls, "detail": detail, "fixes": fixes}
+    if files is not None:
+        out["files"] = files
+    return out
 
 
 # ---------------------------------------------------------------------------

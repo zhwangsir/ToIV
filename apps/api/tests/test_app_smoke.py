@@ -198,3 +198,116 @@ def test_reject_proposal_restores_original():
         assert a.smoke_status == ""
         s.refresh(p)
         assert p.status == "rejected"
+
+
+# ---------------------------------------------------------------------------
+# demo 封面(2026-09-14):素材注入 / 提示词注入规则 / 目标清单排序
+# ---------------------------------------------------------------------------
+from app.services import app_cover_demo as demo_svc
+
+
+def _mk_app(**kw) -> App:
+    base = dict(id="demo-t", name="t", workflow_json={},
+                params_schema=[], output_kind="image", is_public=True)
+    base.update(kw)
+    return App(**base)
+
+
+def test_demo_values_media_use_beauty_pack_and_smoke_prefix():
+    app = _mk_app(params_schema=[
+        {"key": "loadimage_image", "type": "images", "required": True},
+        {"key": "vhs_loadvideo_video", "type": "video", "required": True},
+        {"key": "audio_in", "type": "audio", "required": True},
+    ])
+    values, injected = demo_svc.demo_values(app, idx=0)
+    assert values["loadimage_image"] == "smoke_loadimage_image_beauty01.png"
+    assert values["vhs_loadvideo_video"] == "smoke_vhs_loadvideo_video_drive_2s.mp4"
+    assert values["audio_in"] == "smoke_audio_in_dlg_h3b.wav"
+    assert injected == ""  # 带媒体的图片应用=编辑类,不注入提示词
+    # 上传名必须能命中 fixtures 目录里的真实文件(app_smoke._upload_fixtures 契约)
+    from app.services.app_smoke import _FIXTURES
+    for name in (values["loadimage_image"], values["vhs_loadvideo_video"], values["audio_in"]):
+        stem = name.rsplit(".", 1)[0]
+        assert any(stem.endswith(f.stem) for f in _FIXTURES.iterdir()), name
+
+
+def test_demo_values_generative_image_gets_scene_prompt():
+    app = _mk_app(params_schema=[{"key": "prompt", "type": "text", "default": "a cat"}])
+    values, injected = demo_svc.demo_values(app, idx=0)
+    assert values["prompt"] == injected
+    assert "beautiful young woman" in injected
+
+
+def test_demo_values_video_app_with_image_input_gets_motion_prompt():
+    app = _mk_app(output_kind="video", params_schema=[
+        {"key": "prompt", "type": "textarea"},
+        {"key": "negative_prompt", "type": "textarea"},
+        {"key": "ref_image", "type": "images", "required": True},
+    ])
+    values, injected = demo_svc.demo_values(app, idx=2)
+    assert values["prompt"] == injected  # 视频类即使带图输入也注入动作模板
+    assert "negative" not in values["prompt"].lower()
+    assert "negative_prompt" not in values  # 负向槽不注入(运行时吃 schema 默认)
+    assert values["ref_image"].endswith("beauty03.png")
+
+
+def test_demo_values_video_length_capped():
+    app = _mk_app(output_kind="video", params_schema=[
+        {"key": "prompt", "type": "textarea"},
+        {"key": "length", "type": "number", "default": 121},
+    ])
+    values, _ = demo_svc.demo_values(app, idx=0)
+    assert values["length"] == demo_svc._VIDEO_LEN_CAP
+
+
+def _mk_target(i: int, **kw) -> App:
+    base = dict(id=f"rh-{i}", name=f"a{i}", is_public=True, is_builtin=True,
+                cover_url="", usage_count=0)
+    base.update(kw)
+    return App(**base)
+
+
+def test_plan_demo_targets_order_and_excludes():
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        rows = [
+            _mk_target(1, featured=True),
+            _mk_target(2, usage_count=99, cover_url="/api/apps/covers/file/appcover-demo-x.png"),  # 已有 demo 封面
+            _mk_target(3, is_nsfw=True),
+            _mk_target(4, output_kind="audio"),
+            _mk_target(5, usage_count=10, cover_url="/api/apps/covers/file/appcover-old.png"),
+            _mk_target(6, smoke_status="pass", usage_count=1),
+        ]
+        for r in rows:
+            s.add(r)
+        s.commit()
+        got = [a.id for a in demo_svc.plan_demo_targets(s, limit=10)]
+    assert "rh-2" not in got and "rh-3" not in got and "rh-4" not in got
+    assert got[0] == "rh-1"  # featured 最优先
+    assert "rh-6" in got and "rh-5" in got
+
+
+def test_demo_cover_endpoint_needs_admin():
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        t = Tenant(name="t"); s.add(t); s.commit(); s.refresh(t)
+        u = User(email="u@t.io", hashed_password=hash_password("x1"), tenant_id=t.id, role="user")
+        s.add(u); s.commit(); s.refresh(u)
+        tok = create_token(u.id)
+
+    def _get_session():
+        with Session(engine) as s2:
+            yield s2
+    app.dependency_overrides[get_session] = _get_session
+    try:
+        c = TestClient(app)
+        assert c.post("/api/admin/apps/covers/demo", json={"limit": 5},
+                      headers={"Authorization": f"Bearer {tok}"}).status_code in (401, 403)
+    finally:
+        app.dependency_overrides.pop(get_session, None)

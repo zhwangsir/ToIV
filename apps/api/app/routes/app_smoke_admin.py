@@ -68,6 +68,40 @@ def smoke_status() -> dict:
     return {"running": smoke_svc.smoke_running(), "summary": smoke_svc.last_smoke_summary()}
 
 
+class DemoCoverRequest(BaseModel):
+    limit: int = Field(default=40, ge=1, le=600)
+
+
+@router.post("/admin/apps/covers/demo")
+def demo_cover_batch(
+    body: DemoCoverRequest,
+    admin: User = Depends(get_current_admin),
+    pool: WorkerPool = Depends(get_pool),
+    session: Session = Depends(get_session),
+) -> dict:
+    """真实 demo 封面批(单飞):应用自工作流真跑 + 美女素材,产物做封面。"""
+    from app.services import app_cover_demo
+
+    if app_cover_demo.demo_running():
+        raise HTTPException(status_code=409, detail="demo 封面批次已在运行中")
+    planned = len(app_cover_demo.plan_demo_targets(session, body.limit))
+    task = app_cover_demo.spawn_demo_batch(pool, limit=body.limit)
+    if task is None:
+        raise HTTPException(status_code=409, detail="demo 封面批次已在运行中")
+    audit.record(
+        session, user=admin, action="app.cover_demo", target_type="app", target_id="",
+        summary=f"demo 封面批 limit={body.limit} 待做={planned}", detail={},
+    )
+    return {"started": True, "limit": body.limit, "planned": planned}
+
+
+@router.get("/admin/apps/covers/demo/status")
+def demo_cover_status() -> dict:
+    from app.services import app_cover_demo
+
+    return app_cover_demo.last_demo_summary()
+
+
 @router.get("/admin/selfheal/proposals")
 def list_selfheal_proposals(
     limit: int = 50,
