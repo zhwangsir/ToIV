@@ -1987,6 +1987,23 @@
    复用 at-seg 段控 / rh-runbar 运行钮 / stage.css ResultPanel 结果区;
    根节点带 .rh-dark,--rh-* 令牌已映射全站主题令牌(见 RH-ACCENT 块)。
    =========================================================================== */
+/* 恒定深色工作室调色板(2026-09-16 用户拍板,创作工具观感):
+   作用域内翻转全站令牌 → 子组件(ParamField/ResultPanel/inputs)同步入暗;
+   rgb 写法避开零-hex 纪律;不随全站亮/暗主题翻转 */
+.apps-studio,
+.apps-runner {
+  --bg-canvas: rgb(10 11 16);
+  --bg-surface-1: rgb(18 20 28);
+  --bg-surface-2: rgb(24 27 36);
+  --bg-surface-3: rgb(30 34 44);
+  --text-primary: rgb(242 244 248);
+  --text-secondary: rgb(154 163 178);
+  --text-muted: rgb(100 109 122);
+  --border-subtle: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.16);
+  color-scheme: dark;
+}
+
 .apps-studio {
   display: flex;
   flex-direction: column;
