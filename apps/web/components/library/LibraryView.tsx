@@ -2242,6 +2242,28 @@ function LibraryLightbox({
               <Icon name="chevron-right" size={18} />
             </button>
           )}
+
+          {/* 组内胶片条(2026-09-15):多产物作业在舞台底部平铺全组小图,点选直达;
+              仅图片条目入条(视频/音频组走顺序翻页) */}
+          {entry.count > 1 && (
+            <div className="lib-lb-filmstrip" role="tablist" aria-label="本组图片">
+              {entries.map((e, i) =>
+                e.job.id === job.id && !e.placeholder && mediaKindOf(e.url, e.job.kind) === "image" ? (
+                  <button
+                    key={`${e.job.id}-${e.index}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={i === index}
+                    aria-label={`第 ${e.index + 1} 张`}
+                    className={`lib-lb-film${i === index ? " is-on" : ""}`}
+                    onClick={() => onIndex(i)}
+                  >
+                    <img src={imageUrl(e.url)} alt="" loading="lazy" decoding="async" />
+                  </button>
+                ) : null,
+              )}
+            </div>
+          )}
         </div>
 
         {/* 右侧:固定宽元信息面板(类型 / 状态 / 时间 / kind / seed / 提示词全文 / 操作组) */}

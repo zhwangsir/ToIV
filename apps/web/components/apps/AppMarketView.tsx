@@ -232,6 +232,7 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
       chips: USE_CASE_GROUPS.map((g) => ({
         id: g.id,
         label: g.label,
+        icon: g.icon,
         count: per.get(g.id)?.size ?? 0,
       })).filter((c) => c.count > 0 || c.id === useCase),
     };
@@ -532,6 +533,7 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
                   onClick={() => setUseCase((prev) => (prev === c.id ? "all" : c.id))}
                   title={grp?.blurb}
                 >
+                  <Icon name={c.icon} size={12} aria-hidden="true" />
                   {c.label}
                   <span className="apps-mkt-chip-count">{c.count}</span>
                 </button>

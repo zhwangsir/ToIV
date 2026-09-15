@@ -477,3 +477,18 @@ test("多产物二级页:叠放卡点击下钻(面包屑+全组网格),非直开
   const css = readFileSync(join(webRoot, "app/styles/library.css"), "utf-8");
   assert.ok(/5px -5px/.test(css), "衬纸应在右上角错位");
 });
+
+test("灯箱组内胶片条:多产物作业底部点选直达(源码+样式)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes("lib-lb-filmstrip"), "缺胶片条容器");
+  assert.ok(src.includes("本组图片"), "缺 aria 标签");
+  const css = readFileSync(join(webRoot, "app/styles/library.css"), "utf-8");
+  assert.ok(css.includes(".lib-lb-film.is-on"), "缺选中态样式");
+});
+
+test("场景组 chips 携带图标:8 组 icon 均为合法 Icon 名(源码)", () => {
+  const src = readFileSync(join(webRoot, "lib/apps.ts"), "utf-8");
+  for (const icon of ["user", "crop", "sparkles", "clapperboard", "brush", "mic", "store", "sliders"]) {
+    assert.ok(src.includes(`icon: "${icon}"`), `缺图标 ${icon}`);
+  }
+});
