@@ -19,6 +19,7 @@ Job(kind=app_cover_demo) 存档可溯源。
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import random
@@ -83,6 +84,7 @@ def demo_values(app: App, idx: int) -> tuple[dict, str]:
     提示词注入规则见模块 docstring;超长视频长度参数压到 _VIDEO_LEN_CAP。
     """
     schema = app.params_schema or []
+    id_salt = int(hashlib.md5(app.id.encode()).hexdigest(), 16)
     values: dict = {}
     has_media = False
     prompt_keys: list[str] = []
@@ -99,7 +101,7 @@ def demo_values(app: App, idx: int) -> tuple[dict, str]:
             elif t == "video":
                 values[key] = f"smoke_{key}_drive_2s.mp4"
             else:
-                n = (idx % len(_SCENES)) + 1
+                n = (id_salt % len(_SCENES)) + 1
                 values[key] = f"smoke_{key}_beauty{n:02d}.png"
         elif t in ("text", "textarea"):
             if _PROMPT_KEY_RE.search(key) and not _NEG_RE.search(key):
@@ -117,10 +119,10 @@ def demo_values(app: App, idx: int) -> tuple[dict, str]:
             # 不随机会让几十个同类应用撞出同一张封面(2026-09-16 实证 32 个 H3 同图)
             values[key] = random.randrange(1, 2**31)
 
-    scene = _SCENES[idx % len(_SCENES)]
+    scene = _SCENES[id_salt % len(_SCENES)]
     is_video = (app.output_kind or "") == "video"
     if is_video:
-        injected = f"{_MOTION_TAILS[idx % len(_MOTION_TAILS)]}, high quality"
+        injected = f"{_MOTION_TAILS[id_salt % len(_MOTION_TAILS)]}, high quality"
     else:
         injected = f"1girl, chinese young woman, solo, {scene}, {_POS_TAIL}"
     # 注入条件:纯生成类(无媒体输入)一律换;视频类带图输入也换(动作模板与
