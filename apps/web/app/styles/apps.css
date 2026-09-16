@@ -979,11 +979,18 @@
   border-color: var(--rh-lime);
 }
 .apps-mkt-hero-covers {
-  display: block;
-  height: 110px;
+  display: flex;
+  height: 116px;
+}
+.apps-mkt-hero-cover {
+  flex: 1 1 0;
+  min-width: 0;
   background-size: cover;
   background-position: center 30%;
   filter: saturate(1.05);
+}
+.apps-mkt-hero-cover + .apps-mkt-hero-cover {
+  border-left: 2px solid var(--rh-bg);
 }
 .apps-mkt-hero-body {
   display: grid;

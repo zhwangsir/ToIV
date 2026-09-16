@@ -223,7 +223,8 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     return defs
       .map((d) => {
         const inCat = visibleApps.filter((a) => !a.is_variant && (a.output_kind || "image") === d.key);
-        const covers = inCat
+        // 封面取该类最热三张(展示面),计数按指纹去重
+        const covers = sortAppsHot(inCat)
           .map((a) => a.cover_url)
           .filter((u): u is string => !!u)
           .slice(0, 3);
@@ -522,15 +523,16 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
                   className="apps-mkt-hero-card"
                   onClick={() => openCat(h.key)}
                 >
-                  <span
-                    className="apps-mkt-hero-covers"
-                    aria-hidden="true"
-                    style={
-                      h.covers[0]
-                        ? { backgroundImage: `url(${h.covers[0]})` }
-                        : undefined
-                    }
-                  />
+                  {/* 三联封面拼贴(经 imageUrl 拼 token:裸相对路径 401 空盒 bug 修复) */}
+                  <span className="apps-mkt-hero-covers" aria-hidden="true" data-n={h.covers.length}>
+                    {h.covers.map((u, i) => (
+                      <span
+                        key={i}
+                        className="apps-mkt-hero-cover"
+                        style={{ backgroundImage: `url(${imageUrl(u)})` }}
+                      />
+                    ))}
+                  </span>
                   <span className="apps-mkt-hero-body">
                     <span className="apps-mkt-hero-title">
                       <Icon name={h.icon} size={16} aria-hidden="true" />
