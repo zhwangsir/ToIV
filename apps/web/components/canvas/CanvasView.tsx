@@ -45,7 +45,8 @@ async function fetchObjectInfo(classes: string[]): Promise<ObjectInfoMap> {
     try {
       const resp = await fetch(
         `${API_BASE}/api/canvas/object_info?classes=${encodeURIComponent(missing.join(","))}`,
-        { headers: { Authorization: `Bearer ${getToken()}` }, signal: AbortSignal.timeout(60_000) },
+        // 12s 快速失败:LB 被大作业压住时降级为未知节点渲染,不让画布白转一分钟
+        { headers: { Authorization: `Bearer ${getToken()}` }, signal: AbortSignal.timeout(12_000) },
       );
       if (!resp.ok) throw new Error(`object_info ${resp.status}`);
       const data = (await resp.json()) as ObjectInfoMap;
