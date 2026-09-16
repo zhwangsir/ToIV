@@ -2460,6 +2460,37 @@
   color: var(--rh-text-3);
   font-variant-numeric: tabular-nums;
 }
+/* 图片/视频分区瀑布流区块(2026-09-16):标题行右侧人话描述 + 查看全部 */
+.apps-mkt-kindsec .apps-mkt-section-title {
+  font-size: var(--text-title);
+  color: var(--rh-text-1);
+}
+.apps-mkt-kindsec-desc {
+  font-weight: var(--font-normal);
+  font-size: var(--text-label);
+  color: var(--rh-text-3);
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.apps-mkt-kindsec-more {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-badge);
+  color: var(--rh-text-2);
+  font-size: var(--text-label);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+.apps-mkt-kindsec-more:hover {
+  color: var(--rh-lime);
+  background: color-mix(in srgb, var(--rh-lime) 9%, transparent);
+}
 .apps-mkt-rail {
   display: flex;
   gap: var(--space-2);

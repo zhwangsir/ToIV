@@ -277,6 +277,27 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     const hot = sortAppsHot(visibleApps.filter((a) => !featuredIdSet.has(a.id))).slice(0, 10);
     return { featured, hot };
   }, [visibleApps, searching, useCase]);
+
+  // 首页图片/视频分区瀑布流(2026-09-16 用户拍板:两类应用明确分开,瀑布流+骨架屏质感保留)
+  const homeKindSections = useMemo(() => {
+    const defs = [
+      { key: "image" as const, label: "图片应用", icon: "image" as IconName, desc: "写真 · 编辑 · 换装 · 风格创作" },
+      { key: "video" as const, label: "视频应用", icon: "video" as IconName, desc: "文生视频 · 图生视频 · 数字人" },
+      { key: "audio" as const, label: "音频应用", icon: "audio" as IconName, desc: "音乐生成与音频处理" },
+    ];
+    return defs
+      .map((d) => {
+        const list0 = visibleApps.filter((a) => !a.is_variant && (a.output_kind || "image") === d.key);
+        const ranked = sortFeaturedApps(list0, featuredIds);
+        const sorted = marketSort === "hot" ? sortAppsHot(ranked) : ranked;
+        return {
+          ...d,
+          count: new Set(list0.map((a) => a.fingerprint || a.id)).size,
+          preview: sorted.slice(0, 10),
+        };
+      })
+      .filter((s) => s.count > 0);
+  }, [visibleApps, featuredIds, marketSort]);
   const streamSlice = useMemo(() => {
     if (searching) {
       return {
@@ -547,6 +568,36 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
                   </div>
                 </section>
               )}
+              {/* 图片/视频分区瀑布流(用户拍板:两类明确分开;沿用瀑布流+骨架屏质感) */}
+              {homeKindSections.map((sec) => (
+                <section className="apps-mkt-section apps-mkt-kindsec" key={sec.key} aria-label={sec.label}>
+                  <h2 className="apps-mkt-section-title">
+                    <Icon name={sec.icon} size={13} strokeWidth={1.8} />
+                    {sec.label}
+                    <span className="apps-mkt-section-count">{sec.count}</span>
+                    <span className="apps-mkt-kindsec-desc">{sec.desc}</span>
+                    <button
+                      type="button"
+                      className="apps-mkt-kindsec-more"
+                      onClick={() => openCat(sec.key)}
+                    >
+                      查看全部 →
+                    </button>
+                  </h2>
+                  <div className="apps-masonry" role="list" aria-label={sec.label}>
+                    {sec.preview.map((a) => (
+                      <AppCard
+                        key={a.id}
+                        app={a}
+                        showFork={!a.is_builtin && !a.is_mine}
+                        forking={forkingId === a.id}
+                        onOpen={() => setOpenId(a.id)}
+                        onFork={() => void fork(a)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
               {curatedRails.hot.length > 0 && (
                 <section className="apps-mkt-section" aria-label="热门应用">
                   <h2 className="apps-mkt-section-title">
