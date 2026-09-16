@@ -128,6 +128,21 @@ function prettyName(path: string): string {
   return base.replace(/\.json$/i, "").replace(/^toiv_app_/, "");
 }
 
+/** api 的 detail 可能是字符串也可能是 ComfyUI 校验错误对象,统一转可读文案。 */
+function detailText(d: unknown, fallback: string): string {
+  if (typeof d === "string" && d) return d;
+  if (d && typeof d === "object") {
+    const err = (d as { error?: { message?: string } }).error;
+    if (err && typeof err.message === "string" && err.message) return err.message;
+    try {
+      return JSON.stringify(d);
+    } catch {
+      /* 循环引用兜底 */
+    }
+  }
+  return fallback;
+}
+
 /* ── 运行态 ── */
 
 type RunState =
@@ -284,8 +299,9 @@ export function CanvasView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ graph: apiGraph }),
       });
-      const data = (await resp.json().catch(() => ({}))) as { prompt_id?: string; detail?: string };
-      if (!resp.ok || !data.prompt_id) throw new Error(data.detail || `提交失败 ${resp.status}`);
+      const data = (await resp.json().catch(() => ({}))) as { prompt_id?: string; detail?: unknown };
+      if (!resp.ok || !data.prompt_id)
+        throw new Error(detailText(data.detail, `提交失败 ${resp.status}`));
       setRun({ phase: "running", promptId: data.prompt_id, since: Date.now() });
       if (warnings.length > 0) console.info("[canvas] 运行告警:", warnings);
     } catch (e) {
@@ -301,7 +317,7 @@ export function CanvasView() {
       try {
         const resp = await authFetch(`${API_BASE}/api/jobs/lookup?prompt_id=${encodeURIComponent(promptId)}`);
         if (!resp.ok) return; // 404/500:下一轮再试
-        const job = (await resp.json()) as { status?: string; results?: string[]; error?: string };
+        const job = (await resp.json()) as { status?: string; results?: string[]; error?: unknown };
         if (cancelled) return;
         if (job.status === "done") {
           const first = job.results?.[0];
@@ -309,7 +325,7 @@ export function CanvasView() {
           setRun({ phase: "done", promptId, preview: isImg && first ? imageUrl(first) : undefined });
           clearInterval(timer);
         } else if (job.status === "error" || job.status === "cancelled") {
-          setRun({ phase: "error", message: job.error || `作业 ${job.status}` });
+          setRun({ phase: "error", message: detailText(job.error, `作业 ${job.status}`) });
           clearInterval(timer);
         } else if (Date.now() - since > 30 * 60_000) {
           setRun({ phase: "error", message: "等待超时(>30 分钟),作业可能仍在排队,可到作品库查看" });
