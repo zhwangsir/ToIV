@@ -94,17 +94,32 @@ test("ErrorBar 基座:role=alert + 文案渲染", async () => {
 });
 
 /* ── ⑤ CanvasView 移动端提示条 ── */
-test("CanvasView 含移动端提示条结构", async () => {
-  // CanvasView 依赖 window/document,node 环境无法直接渲染;
+test("CanvasIframe(旧 iframe 逃生门)含移动端提示条结构", async () => {
+  // CanvasView 系组件依赖 window/document,node 环境无法直接渲染;
   // 验证提示条样式已定义在组件 styled-jsx 中
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const src = fs.readFileSync(
+    path.join(__dirname, "../components/canvas/CanvasIframe.tsx"),
+    "utf8",
+  );
+  assert.ok(src.includes("canvas-mobile-note"), "缺少 canvas-mobile-note 类名");
+  assert.ok(src.includes("画布建议桌面端操作"), "缺少移动端提示文案");
+});
+
+/* ── ⑤b CanvasView 原生化(2026-09-16 去 iframe 化) ── */
+test("CanvasView 默认原生画布:FlowCanvas 挂载 + iframe 仅为逃生门 + 运行走 /generate/raw", async () => {
   const fs = await import("node:fs");
   const path = await import("node:path");
   const src = fs.readFileSync(
     path.join(__dirname, "../components/canvas/CanvasView.tsx"),
     "utf8",
   );
-  assert.ok(src.includes("canvas-mobile-note"), "缺少 canvas-mobile-note 类名");
-  assert.ok(src.includes("画布建议桌面端操作"), "缺少移动端提示文案");
+  assert.ok(src.includes("FlowCanvas"), "原生画布组件缺失");
+  assert.ok(src.includes('useState<"native" | "comfy">("native")'), "默认模式应为原生");
+  assert.ok(src.includes("/api/generate/raw"), "运行提交应走 raw 端点(入作品库)");
+  assert.ok(src.includes("/api/canvas/proxy/api/userdata"), "工作流列表应走同源代理");
+  assert.ok(src.includes("CanvasIframe"), "ComfyUI 原版逃生门应保留");
 });
 
 /* ── ⑥ Studio ShotCard 操作按钮接 Ripple ── */

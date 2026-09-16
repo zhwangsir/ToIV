@@ -82,8 +82,8 @@ test("StudioView:initialProjectId 仅作 activeId 初值透传", () => {
 });
 
 /* ── ③ CanvasView 自绘 SVG 收编 ── */
-test("CanvasView:警告三角收编 ui/Icon,无自绘 SVG 残留", () => {
-  const src = readSrc("components/canvas/CanvasView.tsx");
+test("CanvasIframe(旧 iframe 逃生门):警告三角收编 ui/Icon,无自绘 SVG 残留", () => {
+  const src = readSrc("components/canvas/CanvasIframe.tsx");
   assert.ok(
     !src.includes('d="M12 3 2.5 20h19L12 3Z"'),
     "自绘三角 path 应清除(UI_STANDARD §6 禁自定义 SVG)",

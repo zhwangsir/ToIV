@@ -19,7 +19,9 @@
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from urllib.parse import urlsplit
 
 import httpx
@@ -123,3 +125,44 @@ async def canvas_proxy(
     if request.url.query:
         url = f"{url}?{request.url.query}"
     return await _stream_passthrough(request, url)
+
+
+# ── 原生画布(2026-09-16):object_info 服务端缓存 ─────────────────────────────
+# 全量 object_info 20MB+,浏览器直拉既慢又给 ComfyUI loop 加压(同实例 6+ 并发
+# object_info 会饿死 loop,见引擎工作台两级探测教训);这里服务端拉一次缓存,
+# 单飞防并发风暴,?classes= 逗号分隔只回请求的类,响应缩到 KB 级。
+
+_OBJECT_INFO_TTL_S = 600.0
+_OBJECT_INFO_CACHE: dict = {"data": None, "at": 0.0}
+_OBJECT_INFO_LOCK = asyncio.Lock()
+_OBJECT_INFO_TIMEOUT = httpx.Timeout(60.0, connect=8.0)
+
+
+@router.get("/canvas/object_info")
+async def canvas_object_info(
+    classes: str = "",
+    user: User = Depends(get_current_user),
+) -> dict:
+    """ComfyUI /object_info 服务端缓存代理。classes 为空回全量(慎用),否则按类过滤。"""
+    want = {c.strip() for c in classes.split(",") if c.strip()}
+    cached = _OBJECT_INFO_CACHE["data"]
+    fresh = cached is not None and time.monotonic() - _OBJECT_INFO_CACHE["at"] <= _OBJECT_INFO_TTL_S
+    if not fresh:
+        async with _OBJECT_INFO_LOCK:
+            cached = _OBJECT_INFO_CACHE["data"]
+            fresh = cached is not None and time.monotonic() - _OBJECT_INFO_CACHE["at"] <= _OBJECT_INFO_TTL_S
+            if not fresh:
+                base = _target_base()
+                try:
+                    async with httpx.AsyncClient(timeout=_OBJECT_INFO_TIMEOUT, trust_env=False) as client:
+                        resp = await client.get(f"{base}/object_info")
+                        resp.raise_for_status()
+                        cached = resp.json()
+                except httpx.HTTPError as e:
+                    logger.warning("画布 object_info 上游不可达: %s", type(e).__name__)
+                    raise HTTPException(status_code=502, detail="画布服务不可达") from e
+                _OBJECT_INFO_CACHE["data"] = cached
+                _OBJECT_INFO_CACHE["at"] = time.monotonic()
+    if want and isinstance(cached, dict):
+        return {k: v for k, v in cached.items() if k in want}
+    return cached if isinstance(cached, dict) else {}

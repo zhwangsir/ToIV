@@ -81,12 +81,16 @@ test("withToken:同源代理路径附 ?token=;直连地址不动", () => {
 
 /* ── ④ 失败态不泄露内网地址(源码断言) ── */
 
-test("CanvasView:失败态无内网 IP/直连地址,通用「服务连接失败」+ 重试", () => {
-  const src = readSrc("components/canvas/CanvasView.tsx");
-  for (const ip of ["100.68.100.90", "192.168.71.127", "100.77.80.100"]) {
-    assert.ok(!src.includes(ip), `CanvasView 仍硬编码/展示内网地址 ${ip}`);
+test("CanvasView/CanvasIframe:失败态无内网 IP/直连地址,通用「服务连接失败」+ 重试", () => {
+  // 2026-09-16 原生化:新 CanvasView(原生画布)与 CanvasIframe(iframe 逃生门)都不得带内网地址
+  for (const rel of ["components/canvas/CanvasView.tsx", "components/canvas/CanvasIframe.tsx"]) {
+    const src = readSrc(rel);
+    for (const ip of ["100.68.100.90", "192.168.71.127", "100.77.80.100"]) {
+      assert.ok(!src.includes(ip), `${rel} 仍硬编码/展示内网地址 ${ip}`);
+    }
+    assert.ok(!src.includes("以下地址均未连通"), `${rel} 失败态仍渲染直连地址清单`);
   }
-  assert.ok(!src.includes("以下地址均未连通"), "失败态仍渲染直连地址清单");
-  assert.ok(src.includes("画布服务连接失败"), "缺通用失败文案");
-  assert.ok(src.includes("planCanvasSrc"), "未接入代理决策");
+  const iframe = readSrc("components/canvas/CanvasIframe.tsx");
+  assert.ok(iframe.includes("画布服务连接失败"), "缺通用失败文案");
+  assert.ok(iframe.includes("planCanvasSrc"), "未接入代理决策");
 });
