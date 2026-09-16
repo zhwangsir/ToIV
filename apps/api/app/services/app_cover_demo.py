@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 import re
 import time
 import uuid
@@ -67,6 +68,7 @@ _MOTION_TAILS = [
     "the beautiful young woman waves and smiles by the cafe window, warm sunlight, natural motion",
 ]
 _VIDEO_LEN_KEYS = {"length", "num_frames", "video_length", "frames", "frame_count", "duration"}
+_SEED_KEY_RE = re.compile(r"seed", re.I)
 _VIDEO_LEN_CAP = 73  # 封面只取一帧,超长视频压到 ~3s 档,波次跑得动(仍是真实产物)
 
 # 长度参数提示词之外的白名单注入——
@@ -110,6 +112,10 @@ def demo_values(app: App, idx: int) -> tuple[dict, str]:
             default = p.get("default")
             if isinstance(default, (int, float)) and default > _VIDEO_LEN_CAP:
                 values[key] = _VIDEO_LEN_CAP
+        elif t == "number" and _SEED_KEY_RE.search(key):
+            # 每应用随机 seed:工作流模板常钉死种子,提示词轮换池又小,
+            # 不随机会让几十个同类应用撞出同一张封面(2026-09-16 实证 32 个 H3 同图)
+            values[key] = random.randrange(1, 2**31)
 
     scene = _SCENES[idx % len(_SCENES)]
     is_video = (app.output_kind or "") == "video"
