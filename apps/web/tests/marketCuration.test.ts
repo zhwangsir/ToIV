@@ -176,22 +176,20 @@ test("fetchUseCaseSummary:404/非 2xx/异常一律静默降级 [],不抛错", as
 
 /* ── ④ 视图接线(源码断言) ── */
 
-test("AppMarketView 策展层接线:chips/合集位/搜索提示(源码)", () => {
+test("AppMarketView 策展层接线:分段器/chips/搜索提示(源码)", () => {
   const src = readFileSync(join(webRoot, "components/apps/AppMarketView.tsx"), "utf-8");
   assert.ok(src.includes("USE_CASE_GROUPS"), "chips 应走 8 场景组(2026-09-14 分类重设计)");
   assert.ok(src.includes("groupChips"), "场景组计数 memo 缺失(指纹去重=功能入口数)");
   assert.ok(src.includes("apps-mkt-chips"), "缺用途 chips 行");
   assert.ok(src.includes("useCase"), "filterApps 应接 useCase");
-  assert.ok(src.includes("apps-mkt-section"), "缺合集位区块");
-  assert.ok(src.includes("curatedRails.featured"), "缺精选横滚条");
-  assert.ok(src.includes("curatedRails.hot"), "缺热门横滚条");
-  assert.ok(src.includes("MiniAppCard"), "合集位应走紧凑小卡");
   assert.ok(src.includes("找到"), "缺搜索结果计数提示");
-  assert.ok(
-    src.includes('cat === "" && !searching && heroCats.length > 0'),
-    "一级分类入口卡仅在市场首页显示",
-  );
-  assert.ok(src.includes("catPage &&"), "二级功能页应挂 catPage");
+  // B+D 改版(2026-09-16):分段器即分类 + 实测可用能力筛选;入口卡/精选横排退役
+  assert.ok(src.includes("apps-mkt-seg"), "缺类型分段器(图片/视频/音频)");
+  assert.ok(src.includes("kindCounts"), "缺分段器计数 memo");
+  assert.ok(src.includes("verifiedOnly"), "缺实测可用能力筛选");
+  assert.ok(!src.includes("apps-mkt-hero-card"), "分类入口卡应已退役(B+D)");
+  assert.ok(!src.includes("curatedRails"), "精选/热门横排应已退役(B+D)");
+  assert.ok(src.includes("catPage &&"), "分段器/chips 应挂 catPage");
 });
 
 test("apps.css 含 apps-mkt- 段(chips/合集位/小卡)", () => {

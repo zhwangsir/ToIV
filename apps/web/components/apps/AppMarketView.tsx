@@ -76,6 +76,8 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
   const [marketSort, setMarketSort] = useState<AppMarketSort>("default");
   /** 场景组 chips(2026-09-14 分类重设计:12 use_case → 8 场景组);"all" = 不过滤 */
   const [useCase, setUseCase] = useState("all");
+  // D 能力筛选:只看实测可用(smoke pass)
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   /** 一级分类页(2026-09-15 用户拍板):空串=市场首页;image/video/audio=二级功能页 */
   const [cat, setCat] = useState<MarketCat>("");
   const [streamShown, setStreamShown] = useState(STREAM_PAGE);
@@ -97,6 +99,7 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     if (appParam) setOpenId(appParam);
     const catParam = params.get("cat");
     if (catParam === "image" || catParam === "video" || catParam === "audio") setCat(catParam);
+    else setCat("image"); // 2026-09-16 B+D 改版:分段器即分类,无参默认图片
   }, []);
 
   /** 写/清 URL 的 cat 参数(不触发导航,replaceState 保分享可回放) */
@@ -188,8 +191,7 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
   }, [visibleApps, useCase]);
 
   // 二级分类页数据(2026-09-15 用户拍板):图片/视频大分类 → 组内按功能组细分
-  const catPage = useMemo(() => {
-    if (!cat) return null;
+  const catPage = useMemo(() => {    if (!cat) return null;
     const inCat = visibleApps.filter((a) => (a.output_kind || "image") === cat);
     const per = new Map<string, Set<string>>();
     for (const a of inCat) {
@@ -213,24 +215,21 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     };
   }, [visibleApps, cat]);
 
-  // 首页一级入口卡(图片/视频/音频):计数=该类功能入口数,封面取该类头部应用的图
-  const heroCats = useMemo(() => {
-    const defs: { key: "image" | "video" | "audio"; label: string; icon: IconName; desc: string }[] = [
-      { key: "image", label: "图片", icon: "image", desc: "写真 · 编辑 · 换装 · 风格创作" },
-      { key: "video", label: "视频", icon: "video", desc: "文生视频 · 图生视频 · 数字人" },
-      { key: "audio", label: "音频", icon: "audio", desc: "音乐生成与音频处理" },
+  // 分段器计数(B+D 改版 2026-09-16):分段器即分类,指纹去重
+  const kindCounts = useMemo(() => {
+    const defs: { key: "image" | "video" | "audio"; label: string; icon: IconName }[] = [
+      { key: "image", label: "图片", icon: "image" },
+      { key: "video", label: "视频", icon: "video" },
+      { key: "audio", label: "音频", icon: "audio" },
     ];
-    return defs
-      .map((d) => {
-        const inCat = visibleApps.filter((a) => !a.is_variant && (a.output_kind || "image") === d.key);
-        // 封面取该类最热三张(展示面),计数按指纹去重
-        const covers = sortAppsHot(inCat)
-          .map((a) => a.cover_url)
-          .filter((u): u is string => !!u)
-          .slice(0, 3);
-        return { ...d, count: new Set(inCat.map((a) => a.fingerprint || a.id)).size, covers };
-      })
-      .filter((d) => d.count > 0);
+    return defs.map((d) => ({
+      ...d,
+      count: new Set(
+        visibleApps
+          .filter((a) => !a.is_variant && (a.output_kind || "image") === d.key)
+          .map((a) => a.fingerprint || a.id),
+      ).size,
+    }));
   }, [visibleApps]);
 
   const [showVariants, setShowVariants] = useState(false);
@@ -253,52 +252,26 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     () => apps.reduce((n, a) => n + (a.is_variant ? 1 : 0), 0),
     [apps],
   );
+  const searching = query.trim() !== "";
   const filtered = useMemo(() => {
     // category 固定 all:分区/旧分类 chips 已撤;NSFW 与 outputKind 仍生效;
     // 场景组 = 组内 use_case 白名单过滤(未分类应用仅在「全部」出现)
     const grp = useCase === "all" ? null : useCaseGroup(useCase);
     const base = showUnlisted ? apps : apps.filter((a) => a.is_public || !adminSeen);
     const list0 = filterApps(base, { q: query, category: "all", r18, outputKind });
-    // 一级分类(二级页):按产物类型;空串=首页不过滤
-    const byCat = cat ? list0.filter((a) => (a.output_kind || "image") === cat) : list0;
-    const list = grp
+    // 分段器(B+D 改版):按产物类型;搜索时跨全部类型找
+    const byCat = cat && !searching ? list0.filter((a) => (a.output_kind || "image") === cat) : list0;
+    const list = (grp
       ? byCat.filter((a) => (grp.useCases as readonly string[]).includes(a.use_case ?? ""))
-      : byCat;
+      : byCat
+    ).filter((a) => (verifiedOnly ? a.smoke_status === "pass" : true));
     // 功能归组(2026-09-15):同指纹变体默认折叠,搜索时仍全量(搜到变体算命中)
     const folded = showVariants || query.trim() !== "" ? list : list.filter((a) => !a.is_variant);
     const ranked = sortFeaturedApps(folded, featuredIds);
     return marketSort === "hot" ? sortAppsHot(ranked) : ranked;
-  }, [apps, query, r18, outputKind, cat, useCase, featuredIds, marketSort, showVariants, showUnlisted, adminSeen]);
+  }, [apps, query, r18, outputKind, cat, useCase, featuredIds, marketSort, showVariants, showUnlisted, adminSeen, verifiedOnly, searching]);
 
-  const searching = query.trim() !== "";
-  /** 合集位(精选/热门)仅在「未搜索 且 未选用途」时挂在瀑布流上方 */
-  const curatedRails = useMemo(() => {
-    const featured = visibleApps.filter((a) => a.featured);
-    const featuredIdSet = new Set(featured.map((a) => a.id));
-    const hot = sortAppsHot(visibleApps.filter((a) => !featuredIdSet.has(a.id))).slice(0, 10);
-    return { featured, hot };
-  }, [visibleApps, searching, useCase]);
 
-  // 首页图片/视频分区瀑布流(2026-09-16 用户拍板:两类应用明确分开,瀑布流+骨架屏质感保留)
-  const homeKindSections = useMemo(() => {
-    const defs = [
-      { key: "image" as const, label: "图片应用", icon: "image" as IconName, desc: "写真 · 编辑 · 换装 · 风格创作" },
-      { key: "video" as const, label: "视频应用", icon: "video" as IconName, desc: "文生视频 · 图生视频 · 数字人" },
-      { key: "audio" as const, label: "音频应用", icon: "audio" as IconName, desc: "音乐生成与音频处理" },
-    ];
-    return defs
-      .map((d) => {
-        const list0 = visibleApps.filter((a) => !a.is_variant && (a.output_kind || "image") === d.key);
-        const ranked = sortFeaturedApps(list0, featuredIds);
-        const sorted = marketSort === "hot" ? sortAppsHot(ranked) : ranked;
-        return {
-          ...d,
-          count: new Set(list0.map((a) => a.fingerprint || a.id)).size,
-          preview: sorted.slice(0, 10),
-        };
-      })
-      .filter((s) => s.count > 0);
-  }, [visibleApps, featuredIds, marketSort]);
   const streamSlice = useMemo(() => {
     if (searching) {
       return {
@@ -465,19 +438,26 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
             )}
           </div>
 
-          {/* 二级分类页:面包屑 + 功能组 chips(2026-09-15 用户拍板两级结构) */}
-          {catPage && (
+          {/* 分段器(B+D 改版 2026-09-16):分段即分类;搜索时隐藏、跨全类型找 */}
+          {catPage && !searching && (
             <>
-              <nav className="apps-mkt-crumb" aria-label="位置">
-                <button type="button" className="apps-mkt-crumb-back" onClick={() => exitCat()}>
-                  <Icon name="chevron-left" size={13} />
-                  市场首页
-                </button>
-                <span className="apps-mkt-crumb-sep" aria-hidden="true">/</span>
-                <span className="apps-mkt-crumb-current">{catPage.label}</span>
-                <span className="apps-mkt-crumb-count">{catPage.total} 个应用</span>
-              </nav>
-              <div className="apps-mkt-chips" role="group" aria-label="按功能筛选">
+              <div className="apps-mkt-seg" role="tablist" aria-label="应用类型">
+                {kindCounts.map((k) => (
+                  <button
+                    key={k.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={cat === k.key}
+                    className={`apps-mkt-seg-btn${cat === k.key ? " is-on" : ""}`}
+                    onClick={() => openCat(k.key)}
+                  >
+                    <Icon name={k.icon} size={15} strokeWidth={1.8} aria-hidden="true" />
+                    {k.label}
+                    <span className="apps-mkt-seg-count">{k.count}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="apps-mkt-chips" role="group" aria-label="筛选">
                 <button
                   type="button"
                   className={`apps-mkt-chip${useCase === "all" ? " is-on" : ""}`}
@@ -504,6 +484,16 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
                     </button>
                   );
                 })}
+                {/* D 能力筛选:实测可用(smoke pass) */}
+                <button
+                  type="button"
+                  className={`apps-mkt-chip apps-mkt-chip--ghost${verifiedOnly ? " is-on" : ""}`}
+                  aria-pressed={verifiedOnly}
+                  onClick={() => setVerifiedOnly((v) => !v)}
+                  title="只看冒烟测试通过的稳定应用"
+                >
+                  ✓ 实测可用
+                </button>
               </div>
               {useCase !== "all" && (
                 <p className="apps-mkt-blurb" role="note">
@@ -513,111 +503,13 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
             </>
           )}
 
-          {/* 市场首页:一级分类入口卡(图片/视频/音频) */}
-          {cat === "" && !searching && heroCats.length > 0 && (
-            <div className="apps-mkt-hero" role="navigation" aria-label="应用分类">
-              {heroCats.map((h) => (
-                <button
-                  key={h.key}
-                  type="button"
-                  className="apps-mkt-hero-card"
-                  onClick={() => openCat(h.key)}
-                >
-                  {/* 三联封面拼贴(经 imageUrl 拼 token:裸相对路径 401 空盒 bug 修复) */}
-                  <span className="apps-mkt-hero-covers" aria-hidden="true" data-n={h.covers.length}>
-                    {h.covers.map((u, i) => (
-                      <span
-                        key={i}
-                        className="apps-mkt-hero-cover"
-                        style={{ backgroundImage: `url(${imageUrl(u)})` }}
-                      />
-                    ))}
-                  </span>
-                  <span className="apps-mkt-hero-body">
-                    <span className="apps-mkt-hero-title">
-                      <Icon name={h.icon} size={16} aria-hidden="true" />
-                      {h.label}
-                    </span>
-                    <span className="apps-mkt-hero-desc">{h.desc}</span>
-                    <span className="apps-mkt-hero-count">{h.count} 个应用</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {(searching || cat) && (
+          {searching && (
             <p className="apps-mkt-search-hint" role="status">
-              {searching ? `找到 ${filtered.length} 个应用` : `${catPage?.label ?? ""} · 共 ${catPage?.total ?? 0} 个应用`}
+              找到 {filtered.length} 个应用
             </p>
           )}
 
-          {cat === "" && !searching ? (
-            <>
-              {curatedRails.featured.length > 0 && (
-                <section className="apps-mkt-section" aria-label="精选应用">
-                  <h2 className="apps-mkt-section-title">
-                    <Icon name="sparkles" size={13} strokeWidth={1.8} />
-                    精选
-                    <span className="apps-mkt-section-count">
-                      {curatedRails.featured.length}
-                    </span>
-                  </h2>
-                  <div className="apps-mkt-rail" role="list">
-                    {curatedRails.featured.map((a) => (
-                      <MiniAppCard key={a.id} app={a} onOpen={() => setOpenId(a.id)} />
-                    ))}
-                  </div>
-                </section>
-              )}
-              {/* 图片/视频分区瀑布流(用户拍板:两类明确分开;沿用瀑布流+骨架屏质感) */}
-              {homeKindSections.map((sec) => (
-                <section className="apps-mkt-section apps-mkt-kindsec" key={sec.key} aria-label={sec.label}>
-                  <h2 className="apps-mkt-section-title">
-                    <Icon name={sec.icon} size={13} strokeWidth={1.8} />
-                    {sec.label}
-                    <span className="apps-mkt-section-count">{sec.count}</span>
-                    <span className="apps-mkt-kindsec-desc">{sec.desc}</span>
-                    <button
-                      type="button"
-                      className="apps-mkt-kindsec-more"
-                      onClick={() => openCat(sec.key)}
-                    >
-                      查看全部 →
-                    </button>
-                  </h2>
-                  <div className="apps-masonry" role="list" aria-label={sec.label}>
-                    {sec.preview.map((a) => (
-                      <AppCard
-                        key={a.id}
-                        app={a}
-                        showFork={!a.is_builtin && !a.is_mine}
-                        forking={forkingId === a.id}
-                        onOpen={() => setOpenId(a.id)}
-                        onFork={() => void fork(a)}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
-              {curatedRails.hot.length > 0 && (
-                <section className="apps-mkt-section" aria-label="热门应用">
-                  <h2 className="apps-mkt-section-title">
-                    <Icon name="zap" size={13} strokeWidth={1.8} />
-                    热门
-                    <span className="apps-mkt-section-count">
-                      {curatedRails.hot.length}
-                    </span>
-                  </h2>
-                  <div className="apps-mkt-rail" role="list">
-                    {curatedRails.hot.map((a) => (
-                      <MiniAppCard key={a.id} app={a} onOpen={() => setOpenId(a.id)} />
-                    ))}
-                  </div>
-                </section>
-              )}
-            </>
-          ) : filtered.length === 0 ? (
+          {filtered.length === 0 ? (
             searching || useCase !== "all" ? (
               <Empty size="inline" title="没有匹配的应用——换个关键词或分类" />
             ) : (
