@@ -94,8 +94,10 @@ async function listWorkflows(): Promise<UdFile[]> {
 }
 
 async function readWorkflow(path: string): Promise<UiWorkflow> {
-  const url = `${API_BASE}/api/canvas/proxy/api/userdata/${encodeURIComponent(`workflows/${path}`)}`;
-  const resp = await authFetch(url);
+  // 专用端点:proxy 透传会把 %2F 解码导致上游 404,这里由 api 侧自行编码转发
+  const resp = await authFetch(
+    `${API_BASE}/api/canvas/workflow?path=${encodeURIComponent(path)}`,
+  );
   if (!resp.ok) throw new Error(`工作流读取 ${resp.status}`);
   return (await resp.json()) as UiWorkflow;
 }

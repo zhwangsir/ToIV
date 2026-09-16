@@ -151,3 +151,35 @@ def test_requires_auth(client_token, monkeypatch):
     client, _ = client_token
     r = client.get("/api/canvas/object_info?classes=KSampler")
     assert r.status_code == 401
+
+
+# ---------- /canvas/workflow 读取 ----------
+
+
+def test_workflow_read_encodes_path(client_token, monkeypatch):
+    """path 服务端整段编码为 workflows%2Fxxx.json(框架解码问题由服务端绕开);非法路径 422。"""
+    captured: dict = {}
+    payload = {"nodes": [], "links": []}
+    _install(monkeypatch, _FakeObjClient(captured, payload))
+    client, token = client_token
+
+    r = client.get("/api/canvas/workflow", params={"path": "txt2img-basic.json"}, headers=_auth(token))
+    assert r.status_code == 200, r.text
+    assert r.json() == payload
+    assert captured["url"] == f"{_UPSTREAM_BASE}/api/userdata/workflows%2Ftxt2img-basic.json"
+
+    r2 = client.get("/api/canvas/workflow", params={"path": "a/b.json"}, headers=_auth(token))
+    assert r2.status_code == 200
+    assert captured["url"] == f"{_UPSTREAM_BASE}/api/userdata/workflows%2Fa%2Fb.json"
+
+    for bad in ["../etc/passwd", "a.txt", "", "x.json\\y"]:
+        rr = client.get("/api/canvas/workflow", params={"path": bad}, headers=_auth(token))
+        assert rr.status_code == 422, bad
+
+
+def test_workflow_read_requires_auth(client_token, monkeypatch):
+    captured: dict = {}
+    _install(monkeypatch, _FakeObjClient(captured, {"nodes": []}))
+    client, _ = client_token
+    r = client.get("/api/canvas/workflow", params={"path": "x.json"})
+    assert r.status_code == 401

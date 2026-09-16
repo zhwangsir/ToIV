@@ -22,7 +22,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -166,3 +166,37 @@ async def canvas_object_info(
     if want and isinstance(cached, dict):
         return {k: v for k, v in cached.items() if k in want}
     return cached if isinstance(cached, dict) else {}
+
+
+_WORKFLOW_TIMEOUT = httpx.Timeout(30.0, connect=8.0)
+
+
+@router.get("/canvas/workflow")
+async def canvas_workflow(
+    path: str,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """读 ComfyUI userdata 工作流(UI 格式 JSON)。path 相对 workflows/ 目录。
+
+    不走 /canvas/proxy 透传的原因:框架路由会把 %2F 解码,而 ComfyUI(aiohttp)
+    的 /userdata/{file} 要求 raw path 保留 %2F,解码后必 404 —— 这里服务端
+    自己按整段 quote 构造上游 URL。
+    """
+    clean = path.strip().lstrip("/")
+    if not clean.lower().endswith(".json") or ".." in clean or "\\" in clean or not clean:
+        raise HTTPException(status_code=422, detail="非法工作流路径")
+    base = _target_base()
+    url = f"{base}/api/userdata/{quote('workflows/' + clean, safe='')}"
+    try:
+        async with httpx.AsyncClient(timeout=_WORKFLOW_TIMEOUT, trust_env=False) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPError as e:
+        logger.warning("画布工作流读取失败: %s", type(e).__name__)
+        raise HTTPException(status_code=502, detail="画布服务不可达") from e
+    except ValueError as e:
+        raise HTTPException(status_code=502, detail="工作流内容不是合法 JSON") from e
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=502, detail="工作流内容格式异常")
+    return data
