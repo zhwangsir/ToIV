@@ -295,6 +295,9 @@ class Settings(BaseSettings):
     # /api/canvas/proxy 的反代目标:与前端 CanvasView 直连回退地址同机(LAN :8188)。
     # SSRF 防线:目标地址只允许取本配置,路由不接受任何请求传入的地址。
     canvas_comfy_url: str = "http://192.168.71.127:8188"
+    # 画布元数据(userdata/object_info)回退上游:LB 满负荷时会对元数据请求直接
+    # 503,按序回退到同机专用实例(逗号分隔)
+    canvas_meta_urls: str = "http://192.168.71.127:8196"
 
     # —— OpenTalking 数字人引擎(unified 模式, 单进程) ——
     # 本地 dev: http://127.0.0.1:4403 (兄弟目录运行的 opentalking-unified 进程)

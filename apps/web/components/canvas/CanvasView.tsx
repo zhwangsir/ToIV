@@ -72,7 +72,7 @@ interface UdFile {
   modified: number;
 }
 
-const UD_LIST_URL = `${API_BASE}/api/canvas/proxy/api/userdata?dir=workflows&recurse=true&split=false&full_info=true`;
+const UD_LIST_URL = `${API_BASE}/api/canvas/workflows`; // api 侧缓存+旧值兜底,LB 忙时列表仍可用
 
 function authFetch(url: string, init?: RequestInit): Promise<Response> {
   return fetch(url, {
@@ -220,13 +220,21 @@ export function CanvasView() {
       setGraphLoading(true);
       setLoadError(null);
       setLoadErrClosed(false);
-      try {
-        await loadUi(await readWorkflow(path), prettyName(path));
-      } catch (e) {
-        setLoadError(e instanceof Error ? e.message : "工作流加载失败");
-      } finally {
-        setGraphLoading(false);
+      // 画布上游忙时元数据请求会间歇失败:自动重试一次再报错
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await loadUi(await readWorkflow(path), prettyName(path));
+          setGraphLoading(false);
+          return;
+        } catch (e) {
+          if (attempt === 1) {
+            setLoadError(e instanceof Error ? e.message : "工作流加载失败");
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 2500));
+        }
       }
+      setGraphLoading(false);
     },
     [loadUi],
   );
@@ -473,7 +481,31 @@ export function CanvasView() {
             ) : (
               <div className="cfl2-empty">
                 <Icon name="workflow" size={26} />
-                <p>{listState === "error" ? "工作流列表不可达" : "暂无工作流,可从应用页「在 ComfyUI 中打开」进入"}</p>
+                <p>
+                  {listState === "error"
+                    ? "工作流列表暂不可达(画布服务正被生成任务占用,稍后自动恢复)"
+                    : "暂无工作流,可从应用页「在 ComfyUI 中打开」进入"}
+                </p>
+                {listState === "error" && (
+                  <button
+                    type="button"
+                    className="cfl2-run"
+                    onClick={() => {
+                      setListState("loading");
+                      void (async () => {
+                        const fs = await reloadList();
+                        const pick = fs.find((f) => !f.path.startsWith("toiv_app_")) ?? fs[0];
+                        if (pick) {
+                          setSelected(pick.path);
+                          await loadSelected(pick.path);
+                        }
+                      })();
+                    }}
+                  >
+                    <Icon name="refresh" size={13} strokeWidth={1.9} />
+                    重试
+                  </button>
+                )}
               </div>
             )}
             {run.phase === "done" && (

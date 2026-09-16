@@ -118,7 +118,7 @@ test("CanvasView 默认原生画布:FlowCanvas 挂载 + iframe 仅为逃生门 +
   assert.ok(src.includes("FlowCanvas"), "原生画布组件缺失");
   assert.ok(src.includes('useState<"native" | "comfy">("native")'), "默认模式应为原生");
   assert.ok(src.includes("/api/generate/raw"), "运行提交应走 raw 端点(入作品库)");
-  assert.ok(src.includes("/api/canvas/proxy/api/userdata"), "工作流列表应走同源代理");
+  assert.ok(src.includes("/api/canvas/workflows"), "工作流列表应走 api 缓存端点(LB 忙时可用)");
   assert.ok(src.includes("CanvasIframe"), "ComfyUI 原版逃生门应保留");
 });
 

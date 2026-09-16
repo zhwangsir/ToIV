@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import time
 from types import SimpleNamespace
 
 import httpx
@@ -64,10 +65,16 @@ def client_token(monkeypatch):
     # 模块级缓存/锁必须逐测试重置,避免用例间串味
     canvas_mod._OBJECT_INFO_CACHE["data"] = None
     canvas_mod._OBJECT_INFO_CACHE["at"] = 0.0
+    canvas_mod._UD_LIST_CACHE["data"] = None
+    canvas_mod._UD_LIST_CACHE["at"] = 0.0
+    canvas_mod._UD_FILE_CACHE.clear()
     yield TestClient(app), create_token(uid)
     app.dependency_overrides.clear()
     canvas_mod._OBJECT_INFO_CACHE["data"] = None
     canvas_mod._OBJECT_INFO_CACHE["at"] = 0.0
+    canvas_mod._UD_LIST_CACHE["data"] = None
+    canvas_mod._UD_LIST_CACHE["at"] = 0.0
+    canvas_mod._UD_FILE_CACHE.clear()
 
 
 class _FakeResp:
@@ -183,3 +190,31 @@ def test_workflow_read_requires_auth(client_token, monkeypatch):
     client, _ = client_token
     r = client.get("/api/canvas/workflow", params={"path": "x.json"})
     assert r.status_code == 401
+
+
+# ---------- /canvas/workflows 清单(TTL 缓存 + 旧值兜底) ----------
+
+
+def test_workflows_list_cache_and_stale(client_token, monkeypatch):
+    """TTL 内不打上游;上游挂了回旧值;无缓存才 502。"""
+    client, token = client_token
+
+    async def good():
+        return [{"path": "a.json", "size": 1, "modified": 2}]
+
+    monkeypatch.setattr(canvas_mod, "_fetch_ud_list", good)
+    r1 = client.get("/api/canvas/workflows", headers=_auth(token))
+    assert r1.status_code == 200 and r1.json() == [{"path": "a.json", "size": 1, "modified": 2}]
+
+    async def bad():
+        raise httpx.ConnectError("boom")
+
+    monkeypatch.setattr(canvas_mod, "_fetch_ud_list", bad)
+    canvas_mod._UD_LIST_CACHE["at"] = time.monotonic() - 999  # 过期
+    r2 = client.get("/api/canvas/workflows", headers=_auth(token))
+    assert r2.status_code == 200, "上游挂了应回旧值"
+    assert r2.json()[0]["path"] == "a.json"
+
+    canvas_mod._UD_LIST_CACHE["data"] = None  # 无缓存
+    r3 = client.get("/api/canvas/workflows", headers=_auth(token))
+    assert r3.status_code == 502

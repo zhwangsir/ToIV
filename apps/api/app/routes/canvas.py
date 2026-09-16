@@ -62,6 +62,17 @@ def _target_base() -> str:
     return base
 
 
+def _meta_bases() -> list[str]:
+    """元数据(userdata/object_info)上游清单:主 LB 优先 + 配置回退(去重保序)。"""
+    s = get_settings()
+    bases = [s.canvas_comfy_url.strip().rstrip("/")]
+    for u in (getattr(s, "canvas_meta_urls", "") or "").split(","):
+        u = u.strip().rstrip("/")
+        if u and u not in bases:
+            bases.append(u)
+    return bases
+
+
 async def _stream_passthrough(request: Request, url: str) -> StreamingResponse:
     """GET/POST 字节级流式透传;上游网络错误 → 502(detail 不带内网地址)。"""
     fwd_headers = {
@@ -152,23 +163,81 @@ async def canvas_object_info(
             cached = _OBJECT_INFO_CACHE["data"]
             fresh = cached is not None and time.monotonic() - _OBJECT_INFO_CACHE["at"] <= _OBJECT_INFO_TTL_S
             if not fresh:
-                base = _target_base()
-                try:
-                    async with httpx.AsyncClient(timeout=_OBJECT_INFO_TIMEOUT, trust_env=False) as client:
-                        resp = await client.get(f"{base}/object_info")
-                        resp.raise_for_status()
-                        cached = resp.json()
-                except httpx.HTTPError as e:
-                    logger.warning("画布 object_info 上游不可达: %s", type(e).__name__)
-                    raise HTTPException(status_code=502, detail="画布服务不可达") from e
-                _OBJECT_INFO_CACHE["data"] = cached
+                data = None
+                last_err: httpx.HTTPError | None = None
+                for base in _meta_bases():
+                    try:
+                        async with httpx.AsyncClient(timeout=_OBJECT_INFO_TIMEOUT, trust_env=False) as client:
+                            resp = await client.get(f"{base}/object_info")
+                            resp.raise_for_status()
+                            data = resp.json()
+                        break
+                    except httpx.HTTPError as e:
+                        last_err = e
+                if data is None:
+                    logger.warning("画布 object_info 上游不可达: %s", type(last_err).__name__)
+                    raise HTTPException(status_code=502, detail="画布服务不可达") from last_err
+                _OBJECT_INFO_CACHE["data"] = data
                 _OBJECT_INFO_CACHE["at"] = time.monotonic()
+                cached = data
     if want and isinstance(cached, dict):
         return {k: v for k, v in cached.items() if k in want}
     return cached if isinstance(cached, dict) else {}
 
 
-_WORKFLOW_TIMEOUT = httpx.Timeout(30.0, connect=8.0)
+_WORKFLOW_TIMEOUT = httpx.Timeout(10.0, connect=4.0)
+
+# userdata 元数据缓存(LB 被大作业压住时其 HTTP 全部超时,读多写少的清单/文件
+# 走服务端缓存 + 旧值兜底,画布在批处理窗口内仍可用)
+_UD_LIST_TTL = 60.0
+_UD_FILE_TTL = 300.0
+_UD_LIST_CACHE: dict = {"data": None, "at": 0.0}
+_UD_FILE_CACHE: dict[str, tuple[float, dict]] = {}
+_UD_LOCK = asyncio.Lock()
+
+
+_UD_LIST_TIMEOUT = httpx.Timeout(8.0, connect=4.0)
+
+
+async def _fetch_ud_list() -> list:
+    last: httpx.HTTPError | None = None
+    for base in _meta_bases():  # LB 满负荷对元数据直接 503:按序回退同机专用实例
+        try:
+            async with httpx.AsyncClient(timeout=_UD_LIST_TIMEOUT, trust_env=False) as client:
+                resp = await client.get(
+                    f"{base}/api/userdata",
+                    params={"dir": "workflows", "recurse": "true", "split": "false", "full_info": "true"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            if isinstance(data, list):
+                return data
+        except (httpx.HTTPError, ValueError) as e:
+            last = e if isinstance(e, httpx.HTTPError) else last
+    if last is not None:
+        raise last
+    return []
+
+
+@router.get("/canvas/workflows")
+async def canvas_workflows(user: User = Depends(get_current_user)) -> list:
+    """ComfyUI userdata 工作流清单(TTL 60s;上游挂了回退旧值)。"""
+    fresh = _UD_LIST_CACHE["data"] is not None and time.monotonic() - _UD_LIST_CACHE["at"] <= _UD_LIST_TTL
+    if not fresh:
+        async with _UD_LOCK:
+            fresh = _UD_LIST_CACHE["data"] is not None and time.monotonic() - _UD_LIST_CACHE["at"] <= _UD_LIST_TTL
+            if not fresh:
+                try:
+                    data = await _fetch_ud_list()
+                    _UD_LIST_CACHE["data"] = data
+                    _UD_LIST_CACHE["at"] = time.monotonic()
+                except httpx.HTTPError:
+                    stale = _UD_LIST_CACHE["data"]
+                    if stale is None:
+                        logger.warning("画布工作流清单上游不可达且无缓存")
+                        raise HTTPException(status_code=502, detail="画布服务不可达")
+                    return stale  # 旧值兜底(可能缺最近保存,可容忍)
+    return _UD_LIST_CACHE["data"] or []
 
 
 @router.get("/canvas/workflow")
@@ -180,23 +249,35 @@ async def canvas_workflow(
 
     不走 /canvas/proxy 透传的原因:框架路由会把 %2F 解码,而 ComfyUI(aiohttp)
     的 /userdata/{file} 要求 raw path 保留 %2F,解码后必 404 —— 这里服务端
-    自己按整段 quote 构造上游 URL。
+    自己按整段 quote 构造上游 URL。带 5min 文件缓存 + 上游挂时旧值兜底。
     """
     clean = path.strip().lstrip("/")
     if not clean.lower().endswith(".json") or ".." in clean or "\\" in clean or not clean:
         raise HTTPException(status_code=422, detail="非法工作流路径")
-    base = _target_base()
-    url = f"{base}/api/userdata/{quote('workflows/' + clean, safe='')}"
-    try:
-        async with httpx.AsyncClient(timeout=_WORKFLOW_TIMEOUT, trust_env=False) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            data = resp.json()
-    except httpx.HTTPError as e:
-        logger.warning("画布工作流读取失败: %s", type(e).__name__)
-        raise HTTPException(status_code=502, detail="画布服务不可达") from e
-    except ValueError as e:
-        raise HTTPException(status_code=502, detail="工作流内容不是合法 JSON") from e
+    key = clean.lower()
+    hit = _UD_FILE_CACHE.get(key)
+    if hit is not None and time.monotonic() - hit[0] <= _UD_FILE_TTL:
+        return hit[1]
+    data: dict | None = None
+    last_err: httpx.HTTPError | None = None
+    for base in _meta_bases():
+        url = f"{base}/api/userdata/{quote('workflows/' + clean, safe='')}"
+        try:
+            async with httpx.AsyncClient(timeout=_WORKFLOW_TIMEOUT, trust_env=False) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                data = resp.json()
+            break
+        except httpx.HTTPError as e:
+            last_err = e
+        except ValueError as e:
+            raise HTTPException(status_code=502, detail="工作流内容不是合法 JSON") from e
+    if data is None:
+        if hit is not None:
+            return hit[1]  # 旧值兜底
+        logger.warning("画布工作流读取失败: %s", type(last_err).__name__)
+        raise HTTPException(status_code=502, detail="画布服务不可达") from last_err
     if not isinstance(data, dict):
         raise HTTPException(status_code=502, detail="工作流内容格式异常")
+    _UD_FILE_CACHE[key] = (time.monotonic(), data)
     return data
