@@ -5,6 +5,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -293,6 +294,8 @@ def create_app() -> FastAPI:
         # CORS 安全清单头,不暴露则 H5/小程序 H5 端读不到 → 续聊每次新建会话(M19/MP19 踩坑取证)
         expose_headers=["X-Agent-Session-Id"],
     )
+    # 市场列表 2MB JSON 大响应 gzip(2026-09-17 /api/apps 性能修复配套;弱网传输 10×)
+    app.add_middleware(GZipMiddleware, minimum_size=2048)
 
     # 安全响应头(QA-FULL-2026-08-11 P2,六项):API 只产 JSON/文件,统一最严白名单。
     # 页面侧(前端 :3100)播放产物走的是 <video>/fetch 子资源加载,受页面自身 CSP 约束,

@@ -19,6 +19,7 @@ from sqlmodel import Session, select
 from app.agent.llm import LLMError
 from app.db import get_session
 from app.deps import get_current_admin, get_current_user
+from app.services import apps_list_cache
 from app.models import App, User
 from app.nsfw_ctx import nsfw_allowed
 from app.routes.apps import _visible
@@ -90,6 +91,7 @@ def admin_put_curation(
     a.updated_at = _now()
     session.add(a)
     session.commit()
+    apps_list_cache.bump()
     session.refresh(a)
     return {"app_id": a.id, "use_case": a.use_case or "", "featured": bool(a.featured)}
 

@@ -19,6 +19,8 @@ H3(:8195)/LongCat(:8197)/animate2(:8199)/qwen-edit(:8194) 等专用实例,
 from __future__ import annotations
 
 import json
+from fastapi.responses import Response
+from types import SimpleNamespace
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -1014,6 +1016,9 @@ async def exec_list_apps(args: dict, ctx: dict) -> tuple[str, list[dict]]:
         category=category, q=q, use_case=None, featured=False, fingerprint=None,
         user=user, session=session,
     )
+    if isinstance(items, Response):
+        # 2026-09-17 列表缓存命中时回 JSON 字节;工具按属性访问行字段,包成 NS 对象
+        items = [SimpleNamespace(**row) for row in json.loads(items.body)]
     if not items:
         return "应用市场没有匹配的应用。可换关键词,或引导用户到「市场」页浏览。", []
     rh, core = [], []

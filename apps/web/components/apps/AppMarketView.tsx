@@ -192,7 +192,8 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
 
   // 二级分类页数据(2026-09-15 用户拍板):图片/视频大分类 → 组内按功能组细分
   const catPage = useMemo(() => {    if (!cat) return null;
-    const inCat = visibleApps.filter((a) => (a.output_kind || "image") === cat);
+    // 计数与分段器同口径:按指纹去重(变体只算一个功能)
+    const inCat = visibleApps.filter((a) => !a.is_variant && (a.output_kind || "image") === cat);
     const per = new Map<string, Set<string>>();
     for (const a of inCat) {
       const g = USE_CASE_GROUPS.find((x) => (x.useCases as readonly string[]).includes(a.use_case ?? ""));

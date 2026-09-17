@@ -49,7 +49,10 @@ import uuid
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response
+
+from app.services import apps_list_cache
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
@@ -2203,11 +2206,22 @@ def list_apps(
     fingerprint: str | None = Query(default=None, max_length=32, description="按功能指纹取同功能变体"),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
-) -> list[AppOut]:
+):
     """列表:公共 + 本人(+ 属主上架的个人应用),NSFW 仅 R18 可见,按 sort/name 排序。
     每行 slim(_to_out slim=True):params_schema/bindings/required_nodes 清空,workflow_json 已是 None。
-    运行器必须 GET /api/apps/{id} 拿完整 schema。"""
+    运行器必须 GET /api/apps/{id} 拿完整 schema。
+
+    2026-09-17 性能:响应走 45s TTL 缓存(写操作 bump 失效)——热路径每请求
+    全表查询+2195 行构造+序列化实测 4-14s,缓存命中直接回字节。"""
     allow_nsfw = nsfw_allowed(user)
+    params = dict(
+        category=category or "", q=q or "", use_case=use_case or "",
+        featured=featured, fingerprint=fingerprint or "",
+    )
+    key = apps_list_cache.make_key(user.id, allow_nsfw, params)
+    cached = apps_list_cache.get(key)
+    if cached is not None:
+        return Response(content=cached, media_type="application/json")
     rows = session.exec(select(App).order_by(App.sort, App.name)).all()
     # 已发布说明书一次性取 map(app_id → AppGuide),防 550 行逐行查(N+1)
     guide_map: dict[str, AppGuide] = {
@@ -2250,7 +2264,9 @@ def list_apps(
         row.variant_count = fp_variant_count.get(a.id, 0)
         row.is_variant = bool(a.fingerprint) and a.id not in fp_representative and a.id in fp_variant_count
         out.append(row)
-    return out
+    payload = json.dumps(jsonable_encoder(out), ensure_ascii=False).encode()
+    apps_list_cache.put(key, payload)
+    return Response(content=payload, media_type="application/json")
 
 
 @router.get("/{aid}", response_model=AppOut)
@@ -2301,6 +2317,7 @@ def create_app(
     )
     session.add(a)
     session.commit()
+    apps_list_cache.bump()
     session.refresh(a)
     return _to_out(a, admin, with_workflow=True)
 
@@ -2353,6 +2370,7 @@ def update_app(
     a.updated_at = _now()
     session.add(a)
     session.commit()
+    apps_list_cache.bump()
     session.refresh(a)
     privileged = a.user_id == user.id or user.role == "admin"
     return _to_out(a, user, with_workflow=privileged)
@@ -2370,6 +2388,7 @@ def delete_app(
     _remove_cover_file(a.cover_url)  # 本服务托管的封面随应用删除(外链不动)
     session.delete(a)
     session.commit()
+    apps_list_cache.bump()
     return {"ok": True, "id": aid}
 
 

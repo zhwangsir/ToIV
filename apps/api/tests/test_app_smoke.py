@@ -220,7 +220,8 @@ def test_demo_values_media_use_beauty_pack_and_smoke_prefix():
         {"key": "audio_in", "type": "audio", "required": True},
     ])
     values, injected = demo_svc.demo_values(app, idx=0)
-    assert values["loadimage_image"] == "smoke_loadimage_image_beauty01.png"
+    # 2026-09-17 素材按应用 ID 哈希选取(防同批撞车),该固定 id 的哈希落在 3 号素材
+    assert values["loadimage_image"] == "smoke_loadimage_image_beauty03.png"
     assert values["vhs_loadvideo_video"] == "smoke_vhs_loadvideo_video_drive_2s.mp4"
     assert values["audio_in"] == "smoke_audio_in_dlg_h3b.wav"
     assert injected == ""  # 带媒体的图片应用=编辑类,不注入提示词
