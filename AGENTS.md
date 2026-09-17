@@ -264,7 +264,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - [x] **产品 dirty 树处置 — done 2026-09-14**：按 COMMIT_BATCH_PLAN 六批次收编入库（见第七节详条；未 push，push 待拍板；`.regen_tmp`/`dogfood-output`/`*.bak` 已进 .gitignore 永不入库）
 - [x] P1 应用说明卡（用法/作用）— **done 2026-09-12**（550/550 LIVE，见第八节主线区详条）
 - [x] **市场策展层 — done 2026-09-12**（12 用途分类落库+550/550 打标抽检 95%+分类导航/精选热门合集/搜索强化 LIVE，见第七节详条）
-- [ ] **21 个 api dirty 树预存测试失败待收**（2026-09-12 全量 3101 绿之外）：test_rh_h3_presets×4（presets 已清空 [] 所致）/ test_engine_registry×4 / test_app_seed×7 / test_app_covers×4 / test_r18×2——09-08~11 dirty 波次遗留，与本波改动无关；随产品 dirty 处置一并收
+- [x] **21 个 api 预存测试失败已全数收清 — done 2026-09-14~17**（test_rh_h3_presets/engine_registry/app_seed/app_covers/r18 等语义漂移重断言 + 1 真回归修复；当前基线 api 3231 pass / 0 fail、web 963 pass / 0 fail）
 - [ ] 引擎真跑 e2e 验证挂算力恢复后：引擎工作台提交链路已通（离线置灰 UX 已验），待 WS/PC 服务恢复后每引擎真跑一发验收
 - [ ] P3 万能管理台（扩展现有 Admin）— planned
 - [ ] P2 说明书知识图谱 — planned
