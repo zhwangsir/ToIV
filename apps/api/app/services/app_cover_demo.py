@@ -23,6 +23,7 @@ import hashlib
 import json
 import logging
 import random
+import sys
 import re
 import time
 import uuid
@@ -364,6 +365,24 @@ def spawn_demo_batch(pool: WorkerPool, limit: int = 40) -> asyncio.Task | None:
 
 def demo_running() -> bool:
     return _DEMO_TASK is not None and not _DEMO_TASK.done()
+
+
+async def autorefire_loop(pool: WorkerPool, interval_s: int = 300) -> None:
+    """api 内建持续批送(2026-09-18):每 5 min 查一次,空闲且有目标就自动续发。
+
+    取代跑在外部 Mac 上的 watcher——Mac 换网/休眠会导致链路断而无人续发。
+    """
+    while True:
+        try:
+            if not demo_running():
+                with Session(engine) as session:
+                    pending = plan_demo_targets(session, 1)
+                if pending:
+                    logger.info("cover autorefire: 空闲续发(%d 个目标)", len(pending))
+                    spawn_demo_batch(pool, 600)
+        except Exception:  # noqa: BLE001 — 守护循环绝不抛出
+            logger.warning("cover autorefire 异常: %s", repr(sys.exc_info()[1])[:120])
+        await asyncio.sleep(interval_s)
 
 
 def last_demo_summary() -> dict:

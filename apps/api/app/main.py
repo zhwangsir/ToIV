@@ -170,6 +170,13 @@ async def lifespan(app: FastAPI):
     from app.services import video_upscale as video_upscale_svc
 
     video_upscale_svc.reconcile_interrupted()
+    # 封面批内建自动续发(2026-09-18):取代跑在外部 Mac 上的 watcher,
+    # 每 5 min 空闲且有目标即续发;TOIV_COVER_AUTOREFIRE=0 关闭
+    if get_settings().cover_autorefire:
+        from app.deps import get_pool
+        from app.services.app_cover_demo import autorefire_loop
+
+        asyncio.create_task(autorefire_loop(get_pool()))
     # 评测批次收口:watcher 是进程内任务,api 重启后 generating 批次重挂、
     # 卡在 scoring 的重调 finalize(幂等)
     from app.services import bestof as bestof_svc

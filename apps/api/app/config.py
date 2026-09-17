@@ -439,6 +439,8 @@ class Settings(BaseSettings):
     # 预检(RAM/VRAM)仍不足时作业置 held + HeldJob 票(graph/原因/需求快照入库),
     # 调度循环周期性复查,资源够按提交时间 FIFO 自动放行(见 services/hold_queue)。
     hold_queue_enabled: bool = True
+    # 封面 demo 批内建自动续发(2026-09-18);=0 关闭
+    cover_autorefire: bool = True
     # 调度复查间隔(秒)。保守 30s:预检本身可能触发缓存驱逐+5s 落定,不宜过密。
     hold_check_interval_sec: float = 30.0
     # 单轮最多放行数量(防雪崩:资源刚回升时一次性放行过多会立刻又打爆 GPU2)。
