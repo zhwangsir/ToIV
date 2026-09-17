@@ -54,6 +54,18 @@
 
 ---
 
+## 2026-09-17 主动猎错扫描（新增 + 当日收口）
+
+| # | 问题 | 来源 | 状态 | 责任 | 备注 |
+|---|---|---|---|---|---|
+| N1 | /api/apps 市场列表回归:2MB/4-14s(曾 0.8s),limit 参数不生效;封面批并发时事件循环争用加剧 | [E2E] | **FIXED**:45s TTL 响应缓存(写操作 bump 失效)+GZip(2MB→246KB),命中跳过全表查询+2195 行构造+pydantic 序列化 | 产品 | apps_list_cache.py;agent tools_gen 兼容 Response 命中 |
+| N2 | pc01:8198 H3 二实例反复挂(24h×3),计划任务仅 AtLogOn 崩后无人拉 | [E2E] | **FIXED**:Watchdog-ComfyUI-H3 计划任务(SYSTEM/5min),探端口不通即 /run StartComfyUI-H3 | 设备 | C:\toiv\watchdog-8198.ps1 |
+| N3 | core :3389 gnome-remote-desktop --system 绑全部网卡 | [E2E] | **FIXED**:system+user 两级 disable,端口已释放 | 设备 | Ubuntu 自带 RDP,非业务依赖 |
+| N4 | SeCVideoSegmentation 节点/模型不可用(387721 设备包尾项) | [STEWARD] | **FIXED**:Comfyui-SecNodes 克隆注册;sams 目录软链 NAS(fp16+bf16 已在 9/14 落盘),loader 枚举 ✓ | 设备 | 零下载 |
+| N5 | :8195 GIMM-VFI/SDPose-OOD/LayerStyle 三包导入失败(cupy/mmcv/blend_modes 缺失),影响 18 个包内应用 | [STEWARD] | **FIXED**:依赖补齐+重启,类全部注册;10 抽样应用 class_type 对照 object_info 缺失=0 | 设备 | 终审以真实 workflow_json class_type 为准 |
+
+---
+
 ## 防再犯机制（后续问题治理）
 
 1. **fail-fast 已上线**：提交前校验保存节点必死场景（422 透传+取消作业），不再白烧 GPU。
