@@ -1368,6 +1368,46 @@ def _normalize_h3_weight_aliases(graph: dict) -> None:
                 inputs["unet_name"] = mapped
 
 
+# 2026-09-17 P1-13:RH 应用引用名 → 已落盘等价文件(官方源下载后登记)。
+# 语义等价才映射;无对应下载的原值保留,走缺模型报错转下载包。
+_MODEL_FILE_ALIASES: dict[str, str] = {
+    # Comfy-Org/Qwen-Image-Layered_ComfyUI(fp8mixed=RH 的 fp8_e4m3fn 同物)
+    "qwen_image_layered_fp8_e4m3fn.safetensors": "qwen_image_layered_fp8mixed.safetensors",
+    # Comfy-Org/z_image_turbo(RH 改名副本)
+    "new_Z-Image_Turbo-diffusion.safetensors": "z_image_turbo_bf16.safetensors",
+}
+
+_LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
+    "UNETLoader": ("unet_name",),
+    "UnetLoaderGGUF": ("unet_name",),
+    "CheckpointLoaderSimple": ("ckpt_name",),
+    "VAELoader": ("vae_name",),
+    "UpscaleModelLoader": ("model_name",),
+    "CLIPLoader": ("clip_name",),
+}
+
+
+def _normalize_model_file_aliases(graph: dict) -> None:
+    """通用模型文件名映射:RH 引用名 → 已落盘等价文件(见 _MODEL_FILE_ALIASES)。"""
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        keys = _LOADER_MODEL_INPUT_KEYS.get(node.get("class_type", ""))
+        if not keys:
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        for k in keys:
+            v = inputs.get(k)
+            if isinstance(v, str):
+                mapped = _MODEL_FILE_ALIASES.get(v)
+                if mapped:
+                    inputs[k] = mapped
+
+
 def _normalize_image_rembg_model(graph: dict) -> None:
     """Image Rembg(Remove Background) 旧版入参 `model` → 现网 required `rembg_model`。
 
@@ -2101,6 +2141,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_easy_image_rembg(graph)
     _normalize_scheduler_aliases(graph)
     _normalize_h3_weight_aliases(graph)
+    _normalize_model_file_aliases(graph)
     _normalize_rmbg_background(graph)
     _normalize_image_rembg_model(graph)
     _normalize_compress_images(graph)
@@ -2145,6 +2186,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     # (wave19b 实证 rh-acc-3472811009)。全部幂等,只命中登记的非法值。
     _normalize_scheduler_aliases(graph)
     _normalize_h3_weight_aliases(graph)
+    _normalize_model_file_aliases(graph)
     _normalize_melband_roformer(graph)
     _normalize_rmbg_background(graph)
     _normalize_tiny_vae_alias(graph)
