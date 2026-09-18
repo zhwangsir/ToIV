@@ -188,6 +188,8 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、当前焦点（活口径摘要；逐条叙事见归档）
+- **🟢 09-16~18 会话增量（移交详情见 `.regen_tmp/HANDOFF_20260918.md`）**：①**画布原生化 LIVE**（React Flow 自研节点图替代 iframe，工作流列表/参数编辑/一键运行入作品库，`/api/canvas/object_info`+`/api/canvas/workflow` 服务端缓存编码，iframe 退役为「ComfyUI 原版」逃生门；测试 web 963 绿）；②**市场 B+D 改版 LIVE**（类型分段器即分类 图片603/视频492/音频5 + 实测可用能力筛选 + 全宽瀑布；分类入口卡/精选横排退役；分类卡 401 空盒修复）；③**/api/apps 性能修复**（45s TTL 缓存+GZip，2MB/4-14s→246KB）；④**封面撞车根修**（随机 seed + id_salt 素材选取，重复组 9→0；覆盖 468/570=82%）；⑤**封面 autorefire 内建 api**（5min 巡检自动续发，取代外部 Mac watcher）；⑥**设备包收口**（:8195 补 SeC/SDPose/GIMM-VFI/LayerStyle 导入依赖，10 抽样 class_type 缺失=0；SeC 权重 NAS 软链接通；Qwen-Image-Layered/Z-Image-Turbo 33GB 落盘 + `_MODEL_FILE_ALIASES` 别名层）；⑦**猎错扫描**（N1-N5 入册当日收口：/api/apps 性能、8198 看门狗 Watchdog-ComfyUI-H3、3389 关闭、tailscaled 僵死判别法）；⑧**进行中**：引擎真跑矩阵 v3（core /tmp/engine_matrix_20260918.py，结果 jsonl 待收→描述符修复批）；pc01:8198 静默退出看门狗兜底中。用户拍板：TS 续期到期再说/BIOS 搁置/DRT 不动/commit 自决（树 clean，tag migration-complete-20260914 + snapshot-20260917）。
+
 
 > 2026-09-04~09-11 全部变更叙事：`.archive/AGENTS-changes-20260904-0911.md`；更早（08-21~09-03）：`.archive/AGENTS-full-20260903.md`。机读状态：`STATE.json`。
 
