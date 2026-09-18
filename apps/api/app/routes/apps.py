@@ -1592,6 +1592,10 @@ _MISSING_REQUIRED_DEFAULTS: dict[str, dict[str, object]] = {
     "Flux2Scheduler": {"width": 1024, "height": 1024},
     "NunchakuQwenImageDiTLoader": {"cpu_offload": "auto"},
     "WanVideoVACEEncode": {"vace_start_percent": 0.0, "vace_end_percent": 1.0},
+    # ComfyUI_Qwen3-VL-Instruct 包换代后新增的 attention(旧 Qwen2_VQA 图不带,
+    # required_input_missing 判死保存链;2026-09-18 rh-acc-9515387905 实证)
+    "Qwen2_VQA": {"attention": "eager"},
+    "Qwen3_VQA": {"attention": "eager"},
 }
 
 

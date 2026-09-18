@@ -567,6 +567,19 @@ def test_build_graph_required_backfill():
     assert built["14"]["inputs"]["cpu_offload"] == "auto"
 
 
+def test_build_graph_qwen_vqa_attention_backfill():
+    """Qwen2_VQA/Qwen3_VQA 换代新增 attention required;旧图缺键回填 eager。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "22": {"class_type": "Qwen2_VQA", "inputs": {"text": "hi", "model": "Qwen2-VL-7B-Instruct"}},
+        "23": {"class_type": "Qwen3_VQA", "inputs": {"text": "hi", "attention": "sdpa"}},
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["22"]["inputs"]["attention"] == "eager"
+    assert built["23"]["inputs"]["attention"] == "sdpa"  # 已有键不覆盖
+
+
 def test_build_graph_qwen_edit_prompt_uses_string_slot():
     """TextEncodeQwenImageEdit*.prompt 接 easy promptLine COMBO 槽 → 改接 STRING 槽。"""
     from app.routes.apps import _build_graph
