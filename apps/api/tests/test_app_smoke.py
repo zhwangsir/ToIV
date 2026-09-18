@@ -103,6 +103,50 @@ def test_best_match_requires_containment():
 
 
 # ---------------------------------------------------------------------------
+# ComfyUI 0.34 动态 COMBO:object_info 槽位可能是 ["COMBO", {"options": [...]}]
+# (取 [0] 会得到 "COMBO" 字符串,逐字符迭代/成员判断全错)
+# ---------------------------------------------------------------------------
+def test_combo_opts_handles_both_formats():
+    assert svc._combo_opts([["a.safetensors", "b.pth"], {}]) == ["a.safetensors", "b.pth"]
+    assert svc._combo_opts(["COMBO", {"multiselect": False, "options": ["a.safetensors", "b.pth"]}]) == ["a.safetensors", "b.pth"]
+    assert svc._combo_opts(["COMBO"]) == []  # 纯动态无 options → 空,不误杀
+    assert svc._combo_opts([]) == []
+    assert svc._combo_opts(None) == []
+
+
+def test_combo_repair_new_dynamic_combo_format():
+    graph = {"2": {"class_type": "VAELoader", "inputs": {"vae_name": "wan_2.1_vae.safetensors"}}}
+    objinfo = {"VAELoader": {"input": {"required": {"vae_name": [
+        "COMBO", {"multiselect": False, "options": ["wan21_vae.safetensors"]},
+    ]}}}}
+    fixes = svc.combo_repair(graph, objinfo)
+    assert graph["2"]["inputs"]["vae_name"] == "wan21_vae.safetensors"
+    assert len(fixes) == 1
+
+
+def test_preflight_check_new_dynamic_combo_format():
+    """新版动态 COMBO 下值在列不得误报 missing(旧实现把 'COMBO' 当列表逐字符比)。"""
+    workflow = {"1": {"class_type": "UpscaleModelLoader",
+                      "inputs": {"model_name": "4x-UltraSharp.pth"}}}
+    objinfo = {"UpscaleModelLoader": {"input": {"required": {"model_name": [
+        "COMBO", {"multiselect": False, "options": ["4x-UltraSharp.pth"]},
+    ]}}}}
+    # preflight_check 需要 pool(仅拉并集失败时容错),这里 monkeypatch _union_objinfo
+    import app.services.app_smoke as smoke
+    orig = smoke._union_objinfo
+    async def _fake(pool):
+        return objinfo
+    smoke._union_objinfo = _fake
+    try:
+        import asyncio
+        res = asyncio.run(smoke.preflight_check(None, workflow))
+    finally:
+        smoke._union_objinfo = orig
+    assert res["procurable"] is True
+    assert res["missing_models"] == []
+
+
+# ---------------------------------------------------------------------------
 # smoke 列契约:建表/迁移后 App 可写可读,AppOut 透出
 # ---------------------------------------------------------------------------
 def _client_with_admin():

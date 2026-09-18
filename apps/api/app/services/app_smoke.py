@@ -153,6 +153,18 @@ _COMBO_LOADERS = {
 _STEM_RE = re.compile(r"[^a-z0-9]+")
 
 
+def _combo_opts(raw) -> list[str]:
+    """object_info combo 槽位 → 选项列表。兼容旧版 [["a","b"]] 与新版动态 COMBO
+    ["COMBO", {"options": [...]}] —— 后者直接取 [0] 得到 "COMBO" 字符串,
+    逐字符迭代会污染并集/误判缺失(ComfyUI 0.34 动态 COMBO 坑)。"""
+    if isinstance(raw, (list, tuple)) and raw:
+        if isinstance(raw[0], (list, tuple)):
+            return [str(v) for v in raw[0]]
+        if isinstance(raw[0], str) and len(raw) > 1 and isinstance(raw[1], dict):
+            return [str(v) for v in (raw[1].get("options") or [])]
+    return []
+
+
 def _stem(name: str) -> str:
     """文件名 stem 归一:去扩展/分隔符/常见前后缀噪声,供相似度比较。"""
     s = name.lower().rsplit(".", 1)[0]
@@ -201,10 +213,7 @@ def combo_repair(graph: dict, objinfo: dict) -> list[str]:
         if not field:
             continue
         info = objinfo.get(ct) or {}
-        try:
-            combo = info["input"]["required"][field][0]
-        except (KeyError, TypeError, IndexError):
-            continue
+        combo = _combo_opts((info.get("input") or {}).get("required", {}).get(field))
         val = (node.get("inputs") or {}).get(field)
         if not isinstance(val, str) or val in combo:
             continue
@@ -254,12 +263,12 @@ async def _union_objinfo(pool: WorkerPool) -> dict:
         for ct, field in _COMBO_LOADERS.items():
             try:
                 info = await c.object_info(ct) or {}
-                combo = info[ct]["input"]["required"][field][0]
+                opts = _combo_opts(info[ct]["input"]["required"].get(field))
             except Exception:
                 continue
             slot = union.setdefault(ct, {"input": {"required": {field: [[]]}}})
             cur = slot["input"]["required"].setdefault(field, [[]])[0]
-            for v in combo:
+            for v in opts:
                 if v not in cur:
                     cur.append(v)
     if union:
@@ -576,10 +585,7 @@ async def preflight_check(pool: WorkerPool, workflow_json: dict, required_nodes:
         field = _COMBO_LOADERS.get(ct)
         if not field or ct not in objinfo:
             continue
-        try:
-            combo = objinfo[ct]["input"]["required"][field][0]
-        except (KeyError, TypeError, IndexError):
-            continue
+        combo = _combo_opts((objinfo[ct].get("input") or {}).get("required", {}).get(field))
         val = (node.get("inputs") or {}).get(field)
         if not isinstance(val, str) or not val:
             continue

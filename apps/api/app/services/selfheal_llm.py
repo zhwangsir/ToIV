@@ -18,7 +18,7 @@ from app.agent import llm as llm_svc
 from app.agent.llm import LLMError
 from app.models import App, SelfhealProposal
 from app.services.app_packager import _extract_json
-from app.services.app_smoke import _COMBO_LOADERS
+from app.services.app_smoke import _COMBO_LOADERS, _combo_opts
 
 # 允许 LLM 改写的输入字段(combo/标量类);连线与拓扑不在白名单
 _ALLOWED_FIELDS = set(_COMBO_LOADERS.values()) | {"model"} | {
@@ -32,7 +32,7 @@ def build_repair_messages(graph: dict, cls: str, error: str, combos: dict) -> li
     combo_lines: list[str] = []
     for ct, field in _COMBO_LOADERS.items():
         try:
-            vals = combos.get(ct, {}).get("input", {}).get("required", {}).get(field, [[[]]])[0]
+            vals = _combo_opts(combos.get(ct, {}).get("input", {}).get("required", {}).get(field))
         except (KeyError, TypeError, IndexError):
             continue
         if not vals:
@@ -101,9 +101,8 @@ def combo_violations(graph: dict, objinfo: dict) -> list[str]:
         field = _COMBO_LOADERS.get(ct)
         if not field or ct not in objinfo:
             continue
-        try:
-            combo = objinfo[ct]["input"]["required"][field][0]
-        except (KeyError, TypeError, IndexError):
+        combo = _combo_opts((objinfo[ct].get("input") or {}).get("required", {}).get(field))
+        if not combo:
             continue
         val = (node.get("inputs") or {}).get(field)
         if isinstance(val, str) and combo and val not in combo:

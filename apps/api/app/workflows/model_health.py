@@ -82,7 +82,11 @@ async def _fetch_object_info(
         required = node_data.get("input", {}).get("required", {})
         for key in ("ckpt_name", "unet_name", "clip_name", "vae_name"):
             if key in required:
-                return required[key][0] if isinstance(required[key], list) else required[key][0]
+                raw = required[key]
+                # 旧版 [["a",...]] / 新版 ["COMBO", {"options": [...]}] 双兼容
+                if isinstance(raw, list) and raw and isinstance(raw[0], str) and len(raw) > 1 and isinstance(raw[1], dict):
+                    return raw[1].get("options") or []
+                return list(raw[0]) if isinstance(raw, list) and raw and isinstance(raw[0], list) else []
         return []
     except Exception:
         return None

@@ -249,10 +249,15 @@ def _client_for(pool: WorkerPool, base_url: str):
 async def exec_list_models(args: dict, pool: WorkerPool, user: User, session, attachment: dict | None = None) -> tuple[str, list[dict]]:
     try:
         info = await pool.clients[0].object_info("CheckpointLoaderSimple")
-        opts = info.get("CheckpointLoaderSimple", {}).get("input", {}).get("required", {}).get("ckpt_name", [[]])[0]
+        raw = info.get("CheckpointLoaderSimple", {}).get("input", {}).get("required", {}).get("ckpt_name", [[]])
+        # 旧版 [["a",...]] / 新版 ["COMBO", {"options": [...]}] 双兼容
+        if isinstance(raw, list) and raw and isinstance(raw[0], str) and len(raw) > 1 and isinstance(raw[1], dict):
+            opts = raw[1].get("options") or []
+        else:
+            opts = raw[0] if isinstance(raw, list) and raw else []
     except ComfyUIError:
         opts = []
-    return "当前可用图像大模型: " + (", ".join(opts[:30]) or "(查询失败)"), []
+    return "当前可用图像大模型: " + (", ".join(str(o) for o in opts[:30]) or "(查询失败)"), []
 
 
 async def exec_model_qa(args: dict, pool: WorkerPool, user: User, session, attachment: dict | None = None) -> tuple[str, list[dict]]:

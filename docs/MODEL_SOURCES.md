@@ -3,7 +3,7 @@
 
 Updated: 2026-09-11T05:28:02+08:00 (Asia/Shanghai)
 
-Totals: ok=468 blocked=335 total=803
+Totals: ok=469 blocked=335 total=804 (2026-09-18 +krea2 turbo.safetensors)
 
 Batch: capability_gap_v21_p0
 
@@ -49,6 +49,7 @@ Note: previous tip 467/343/810 → 464/335/799 after v21 P0 batch + dedup.
 | ok | 4xPurePhoto-RealPLSKR.pth | 29663426 | upscale_models/4xPurePhoto-RealPLSKR.pth | titomatus0203/4xPurePhoto-RealPLSKR | app_refs=1 |
 | ok | ae.sft | 335304388 | vae/ae.sft |  | RH ae.sft alias of Flux ae.safetensors; SMB no hardlink so byte-copy on toiv + hardlink to Windows tree \| method=cp_alias \| app_refs=18 |
 | ok | AnythingtoRealCharacters2511_20.safetensors | 354082336 | loras/AnythingtoRealCharacters2511_20.safetensors | WarmBloodAban/Anything_to_Real_Characters_2511 | app_refs=26 |
+| ok | turbo.safetensors | 26283332608 | diffusion_models/krea2/turbo.safetensors | krea/Krea-2-Turbo (ModelScope 镜像) | HF gated:auto 致 hf-mirror 403；改 ModelScope 官方镜像 aria2 直落 NAS；sha256=78bbf8f4…c47ffb3 与 HF X-Linked-Etag 一致（2026-09-18） |
 | ok | BAGEL-7B-MoT | 29561610186 | LLM/BAGEL-7B-MoT | ByteDance-Seed/BAGEL-7B-MoT | HF snapshot via merlin huggingface_hub HF_ENDPOINT=hf-mirror.com; hardlinked Windows tree when possible \| status=skip_exists \| bytes=29561610186 \| app_refs from 468-list |
 | ok | BEN_Base.pth | 1134588350 | ben/BEN_Base.pth | PramaLLC/BEN | app_refs=1 \| v14 already_on_nas confirmed \| app_refs=1 \| v15 confirmed already_on_nas ben/BEN_Base.pth bytes=1134588350 \| v16 confirmed already_on_nas ben/BEN_Base.pth bytes=1134588350 |
 | ok | Bernini_HIGH_fp8_e4m3fn_scaled.safetensors | 15574833216 | diffusion_models/Bernini_HIGH_fp8_e4m3fn_scaled.safetensors | GDGDFDFG/Wan22_Bernini_HIGH_fp8_e4m3fn_scaled.safetensors | rename from Wan22_Bernini_HIGH_fp8_e4m3fn_scaled.safetensors \| app_refs=2 |

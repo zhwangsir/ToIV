@@ -1,10 +1,10 @@
 {
- "updated_at": "2026-09-14T02:30:00+08:00",
+ "updated_at": "2026-09-18",
  "updated_at_timezone": "Asia/Shanghai",
  "totals": {
-  "ok": 475,
+  "ok": 476,
   "blocked": 336,
-  "total": 811,
+  "total": 812,
   "ok_missing_source_url": 9,
   "ok_true_gaps_no_url_no_repo_not_alias": 0,
   "ok_local_alias_without_http_url": 5
@@ -12190,6 +12190,20 @@
    "filename": "svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
    "size_bytes": 13081386856,
    "note": "2026-09-14 wave22 前置落盘(NAS toiv diffusion_models);SM120 只认 fp4,r128 变体补 rh-acc-5790522369"
+  },
+  {
+   "basename": "turbo.safetensors",
+   "rel_path": "diffusion_models/krea2/turbo.safetensors",
+   "source_kind": "modelscope",
+   "source_url": "https://modelscope.cn/models/krea/Krea-2-Turbo/resolve/master/turbo.safetensors",
+   "repo": "krea/Krea-2-Turbo",
+   "revision": "master",
+   "filename": "turbo.safetensors",
+   "license_or_gated": "HF gated:auto;hf-mirror 403,改 ModelScope 官方镜像下载",
+   "downloaded_at": "2026-09-18T19:06:00+08:00",
+   "status": "ok",
+   "bytes": 26283332608,
+   "notes": "sha256=78bbf8f4165eda19cea3cb06c78089221932a39e2eed8af9da741f942c47ffb3 与 HF X-Linked-Etag 一致;26GB ModelScope 500MB/s 直落 NAS"
   }
  ]
 }
