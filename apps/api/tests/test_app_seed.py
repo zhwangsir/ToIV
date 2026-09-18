@@ -33,7 +33,7 @@ _EXPECTED_IDS = {
     "h3-nsfw-t2v", "h3-nsfw-i2v", "h3-nsfw-fl2v", "h3-nsfw-r2v",
     "h3-nsfw-t2v-15s-fast", "h3-nsfw-i2v-15s-fast", "h3-nsfw-r2v-voice",
     "nsfw-txt2img", "nsfw-img2img", "qwen-image-edit", "flux1-nunchaku",
-    "ltx25-multishot", "wan-nsfw-i2v", "wan-animate", "wan-animate-2", "wan-vace", "vace-edit",
+    "wan-nsfw-i2v", "wan-animate", "wan-animate-2", "wan-vace", "vace-edit",
     "longcat-t2v", "longcat-i2v", "avatar-talk",
     "ovi-t2v", "ovi-i2v", "phantom-s2v",
     "ace-music", "ace-music-legacy",

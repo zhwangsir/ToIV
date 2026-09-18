@@ -617,14 +617,6 @@ async def _submit_phantom_s2v(pos, neg, params, pool, user, session) -> dict:
     return await phantom_studio.generate_phantom_s2v(req, user, session)
 
 
-async def _submit_ltx25_multishot(pos, neg, params, pool, user, session) -> dict:
-    from app.routes import ltx
-
-    # shots(2-4 镜头)由 LLM 按参数表显式给出;positive 仅作对话语境不注入
-    req = ltx.LtxMultishotRequest(negative=neg, **params)
-    return await ltx.generate_ltx_multishot(req, user, session)
-
-
 async def _submit_flux_nunchaku(pos, neg, params, pool, user, session) -> dict:
     from app.routes import flux_nunchaku
 
@@ -695,7 +687,6 @@ _DISPATCH = {
     "ovi-t2v": (_submit_ovi_t2v, ()),
     "ovi-i2v": (_submit_ovi_i2v, ("image", "worker")),
     "phantom-s2v": (_submit_phantom_s2v, ("images",)),
-    "ltx25-multishot": (_submit_ltx25_multishot, ()),
     "flux1-nunchaku": (_submit_flux_nunchaku, ()),
 }
 

@@ -76,20 +76,20 @@ def user() -> User:
 async def test_populate_registry_fills_entries(live_pool, user):
     """EnginePlugin bootstrap 填充后 list_engines 返回全部引擎条目。
 
-    SFW 上下文 25 条(10 条 NSFW 引擎被过滤);R18 上下文 35 条全量(+h3-fl2v/h3-r2v 及 NSFW 孪生)。
+    SFW 上下文 24 条(10 条 NSFW 引擎被过滤;ltx25-multishot 2026-09-19 退役);R18 上下文 35 条全量(+h3-fl2v/h3-r2v 及 NSFW 孪生)。
     """
     populate_registry()
     # SFW 上下文:NSFW 引擎(10 条)被过滤
     engines_sfw = await list_engines(live_pool, user)
-    assert len(engines_sfw) == 25, f"SFW 引擎条目数应为 25,实得 {len(engines_sfw)}"
+    assert len(engines_sfw) == 24, f"SFW 引擎条目数应为 24,实得 {len(engines_sfw)}"
 
-    # R18 上下文:全量 35 条
+    # R18 上下文:全量 34 条
     token = nsfw_intent_var.set(True)
     try:
         engines_r18 = await list_engines(live_pool, user)
     finally:
         nsfw_intent_var.reset(token)
-    assert len(engines_r18) == 35, f"R18 引擎条目数应为 35,实得 {len(engines_r18)}"
+    assert len(engines_r18) == 34, f"R18 引擎条目数应为 34,实得 {len(engines_r18)}"
 
     # 含 submit 绑定(每条引擎都有)
     for e in engines_r18:
@@ -111,14 +111,14 @@ async def test_lazy_ensure_registry_no_double_fill(live_pool, user):
         engines = await list_engines(live_pool, user)
     finally:
         nsfw_intent_var.reset(token)
-    assert len(engines) == 35
+    assert len(engines) == 34
     populate_registry()  # 再次调用不应重复
     token = nsfw_intent_var.set(True)
     try:
         engines2 = await list_engines(live_pool, user)
     finally:
         nsfw_intent_var.reset(token)
-    assert len(engines2) == 35
+    assert len(engines2) == 34
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +160,7 @@ async def test_disabled_engines_skip_probe(live_pool, user, monkeypatch):
     monkeypatch.setattr(er, "_probe_pool", _counting)
     populate_registry(disabled={"txt2img", "img2img"})
     await list_engines(live_pool, user)
-    assert calls == 4, f"停用引擎不应触发探测,实得 {calls} 次"
+    assert calls == 3, f"停用引擎不应触发探测,实得 {calls} 次"  # ltx25-multishot 退役后 -1
 
 
 # ---------------------------------------------------------------------------
@@ -179,3 +179,21 @@ async def test_submit_passthrough_in_r18_context(live_pool, user):
     ids = _by_id(engines)
     assert "submit" in ids["h3-nsfw-t2v"]
     assert ids["h3-nsfw-t2v"]["submit"]["route"].startswith("/api/")
+
+
+def test_upload_handle_params_have_upload_types():
+    """参数 hint 指 /api/upload 上传句柄的,type 必须是 audio/video/images。
+
+    前端 engineNeedsAudio/Video/Image 按 type 找上传槽;误标 text 会让 UI 不渲染
+    上传(avatar-talk audio 2026-09-19 实证:矩阵 submit_fail 暴露的真产品 bug)。
+    longcat-continue 的 video 是产物 URL(text 合法,hint 不含 /api/upload)。
+    """
+    er.populate_registry()
+    bad = []
+    for spec in er._REGISTRY:
+        for p in spec.get("params") or []:
+            hint = str(p.get("hint") or "")
+            t = p.get("type")
+            if "/api/upload" in hint and t not in ("audio", "video", "image", "images"):
+                bad.append(f"{spec['id']}.{p.get('key')}: type={t}")
+    assert bad == [], f"上传句柄参数 type 错位: {bad}"

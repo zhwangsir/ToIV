@@ -130,7 +130,7 @@ def test_dispatch_covers_all_registry_engines():
     """注册表引擎全部有提交分发(防新增引擎漏接;含 h3-fl2v/h3-r2v 及 NSFW 孪生)。"""
     engine_registry.populate_registry()
     ids = [s["id"] for s in engine_registry._REGISTRY]
-    assert len(ids) == 35
+    assert len(ids) == 34  # ltx25-multishot 2026-09-19 退役
     missing = [eid for eid in ids if eid not in tools_gen._DISPATCH]
     assert missing == []
     for eid in ("h3-fl2v", "h3-r2v", "h3-nsfw-fl2v", "h3-nsfw-r2v"):

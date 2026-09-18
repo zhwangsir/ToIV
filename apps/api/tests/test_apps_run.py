@@ -580,6 +580,22 @@ def test_build_graph_qwen_vqa_attention_backfill():
     assert built["23"]["inputs"]["attention"] == "sdpa"  # 已有键不覆盖
 
 
+def test_build_graph_font_alias_takibi_to_roboto():
+    """缺失字体(焚火体,源站登录墙)→ 在列替代 Roboto(英文对比标签语义无损)。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "124": {"class_type": "CR Simple Image Compare",
+                "inputs": {"image1": ["119", 0], "image2": ["55", 0],
+                           "font_name": "02Takibi-Light-2.otf"}},
+        "125": {"class_type": "CR Simple Image Compare",
+                "inputs": {"image1": ["119", 0], "font_name": "Roboto-Regular.ttf"}},
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["124"]["inputs"]["font_name"] == "Roboto-Regular.ttf"
+    assert built["125"]["inputs"]["font_name"] == "Roboto-Regular.ttf"  # 在列值不动
+
+
 def test_build_graph_qwen_edit_prompt_uses_string_slot():
     """TextEncodeQwenImageEdit*.prompt 接 easy promptLine COMBO 槽 → 改接 STRING 槽。"""
     from app.routes.apps import _build_graph

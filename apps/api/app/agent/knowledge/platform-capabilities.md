@@ -58,7 +58,6 @@
 - h3-fl2v 首尾帧:首帧+尾帧插值过渡(不是 9 参考)
 - h3-r2v 全能参考:1-9 图 / 0-3 视频 / 0-3 音频,提示词 `<Picture 1>` 标签
 - h3-multishot 多镜头:2-4 个镜头单 prompt 一次成片,自动切镜(总长 ≤15s)
-- ltx25-multishot:LTX-2.5 一键多镜头(≤20s 720p),角色/光线/嗓音跨切一致
 - longcat-t2v / longcat-i2v:LongCat 长视频引擎,蒸馏低步数出片
 - longcat-continue 视频续写:取已有视频末帧续写下一段长镜头
 - ovi-t2v / ovi-i2v:Ovi 音画联合生成(≤10s),语音对口型+环境音效

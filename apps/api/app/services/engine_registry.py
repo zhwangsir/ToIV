@@ -407,20 +407,6 @@ async def _probe_phantom(pool: WorkerPool) -> tuple[bool, str | None]:
     return await _probe_wan_node(pool, PHANTOM_NODE, "Phantom")
 
 
-async def _probe_ltx25(pool: WorkerPool) -> tuple[bool, str | None]:
-    """LTX-2.5 Multishot 探测:池内 worker(pc01 5090)具备 NVFP4 主模型+音画 VAE 即可用。"""
-    return await _probe_pool(
-        pool,
-        {
-            "ltx-2.5-22b-distilled-transformer-nvfp4.safetensors",
-            "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
-            "ltx-2.5-video-vae-bf16.safetensors",
-            "ltx-2.5-audio-vae-bf16.safetensors",
-        },
-        {"UNETLoader", "LTXVConditioning", "LTXVAudioVAEDecode"},
-    )
-
-
 async def _probe_flux_nunchaku(pool: WorkerPool) -> tuple[bool, str | None]:
     """Nunchaku fp4 FLUX.1-dev 探测:svdq 权重 + 专用 Loader 双约束(文件名+节点)。"""
     return await _probe_pool(
@@ -898,7 +884,7 @@ def _longcat_video_params() -> list[dict]:
 def _avatar_talk_params() -> list[dict]:
     return [
         _images(label="人像首帧", hint="jpg / png,单张 ≤ 20MB"),
-        {"key": "audio", "label": "驱动音频", "type": "text", "default": "",
+        {"key": "audio", "label": "驱动音频", "type": "audio", "default": None,
          "hint": "wav / mp3,经 /api/upload 上传(kind=avatar,≤20MB)"},
         _negative(),
         _num("width", "宽度", 480, min_=320, max_=1280, step=16,
@@ -1945,7 +1931,8 @@ def _default_registry() -> list[dict[str, Any]]:
         "params": _ace_audio_legacy_params(),
         "probe": _probe_ace_legacy,
     },
-    # ── Phase 4 新引擎(2026-08-28):Ovi 音画 / Phantom 角色一致性 / LTX-2.5 多镜头 / Nunchaku fp4 ──
+    # ── Phase 4 新引擎(2026-08-28):Ovi 音画 / Phantom 角色一致性 / Nunchaku fp4 ──
+    # (LTX-2.5 Multishot 引擎 2026-09-19 退役:LTX-2.5 全线停服 H3 替代;/api/ltx/multishot 路由保留,注册表不再挂卡)
     # Ovi 1.1 音画联合生成(Apache 2.0;Wan2.2-5B 双塔 fp8,Kijai 融合权重):文本/图 →
     # 同步音画 ≤10s@960²(语音对口型+环境音),补平台「音画直出」短板;同 :8197 WanVideoWrapper 实例
     {
@@ -2034,36 +2021,6 @@ def _default_registry() -> list[dict[str, Any]]:
             _seed(),
         ],
         "probe": _probe_phantom,
-    },
-    # LTX-2.5 Multishot 一键多镜头(Lightricks 22B NVFP4 蒸馏):单 prompt 分镜 2-4 镜
-    # 单次出片(≤20s 720p),角色/光线/嗓音跨切一致+原生音画;落点 pc01 5090(0.33 原生节点)
-    {
-        "id": "ltx25-multishot",
-        "label": "LTX-2.5 一键多镜头",
-        "kind": "video",
-        "nsfw": False,
-        "advanced": True,
-        "submit": {"route": "/api/ltx/multishot", "kind": "ltx_multishot"},
-        "description": "LTX-2.5 22B(NVFP4 蒸馏):单 prompt 分镜 2-4 镜单次出片(≤20s,720p),角色/光线/嗓音跨切一致,原生音画同出;热态 12s 片约 60s,落点 pc01 5090",
-        "source": {
-            "name": "LTX-2.5",
-            "url": "https://huggingface.co/Lightricks/LTX-2.5",
-            "author": "Lightricks",
-            "note": "开放权重;原生 multishot/4K/音画同出,ComfyUI 0.32+ 原生节点",
-        },
-        "params": [
-            {"key": "shots", "label": "分镜", "type": "textarea", "default": "",
-             "hint": "每行一镜:镜头描述|秒数(如「全景:车站人潮|4」);2-4 镜,总长≤20s;重复角色识别细节保一致性"},
-            {"key": "global_style", "label": "全局风格", "type": "text", "default": "",
-             "hint": "贯穿全片的风格/光线描述,如「暖色调,黄昏柔光,电影感」"},
-            _negative(),
-            _num("width", "宽度", 1280, min_=512, max_=1920, step=16),
-            _num("height", "高度", 720, min_=512, max_=1088, step=16, hint="模型 latent 网格吸附,720 实际出 704"),
-            {"key": "audio", "label": "音画同出", "type": "select", "default": "1",
-             "options": [{"value": "1", "label": "开(原生音画)"}, {"value": "0", "label": "关(静音)"}]},
-            _seed(),
-        ],
-        "probe": _probe_ltx25,
     },
     # Nunchaku fp4 FLUX.1-dev(SVDQuant,MIT Han Lab):5090 高速 SFW 出图(热跑 ~2.1s/张),
     # 与 flux2 默认引擎并存;专用 DiT/TE Loader,worker 双约束(svdq 文件+节点)自然 pinning

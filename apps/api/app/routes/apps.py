@@ -1386,6 +1386,32 @@ _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
     "CLIPLoader": ("clip_name",),
 }
 
+# 缺失字体 → fleet 在列替代(ComfyRoll fonts 目录,:8196/:8197 object_info 实证)。
+# 2026-09-19 02Takibi-Light-2.otf(焚火体,FontGraphic 商用免费):fonts.net.cn/mostfont
+# 等源站均登录墙无法直下,NAS/workstation 全盘无副本;rh-acc-7206923264 只用英文
+# 对比标签(front/after),Roboto-Regular 语义无损。未来拿到真字体落盘 ComfyRoll
+# fonts 目录后删表项即可恢复原值。
+_FONT_ALIASES: dict[str, str] = {
+    "02Takibi-Light-2.otf": "Roboto-Regular.ttf",
+}
+
+
+def _normalize_font_aliases(graph: dict) -> None:
+    """font_name 缺失字体 → 在列替代(见 _FONT_ALIASES;任意节点类型通用)。"""
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        v = inputs.get("font_name")
+        if isinstance(v, str):
+            mapped = _FONT_ALIASES.get(v)
+            if mapped:
+                inputs["font_name"] = mapped
+
 
 def _normalize_model_file_aliases(graph: dict) -> None:
     """通用模型文件名映射:RH 引用名 → 已落盘等价文件(见 _MODEL_FILE_ALIASES)。"""
@@ -2146,6 +2172,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_scheduler_aliases(graph)
     _normalize_h3_weight_aliases(graph)
     _normalize_model_file_aliases(graph)
+    _normalize_font_aliases(graph)
     _normalize_rmbg_background(graph)
     _normalize_image_rembg_model(graph)
     _normalize_compress_images(graph)
