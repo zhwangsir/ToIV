@@ -45,6 +45,11 @@ _PER_APP_CAP_S = {"video": 2100, "image": 900, "audio": 600, "3d": 900}  # 单�
 _COVER_VIDEO_EXTS = {".mp4", ".webm", ".mov", ".gif", ".mkv", ".avi"}
 _COVER_IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 _MAX_FIXES_LOG = 5
+# 2026-09-19 autorefire 暴走修复(:8196 积压 383 单饿杀用户生成):
+# 单应用 demo 尝试上限(成功/失败每次尝试都落 app_cover_demo Job 存档,达上限不再续发);
+# fleet 队列深度闸(总排队超闸暂停续发/消费,等 draining)。
+_MAX_DEMO_ATTEMPTS = 3
+_FLEET_QUEUE_GUARD = 12
 
 # 与素材包 beauty01-12 一一对应的场景描述(txt2img 同款,保证「参考图风格=提示词风格」自洽)
 _SCENES = [
@@ -138,14 +143,50 @@ def demo_values(app: App, idx: int) -> tuple[dict, str]:
     return values, (injected if target_key else "")
 
 
+def _demo_attempt_counts(session: Session) -> dict[str, int]:
+    """app_id → 已尝试次数(成功/失败每次尝试均落 kind=app_cover_demo Job 存档)。"""
+    from sqlmodel import func
+    rows = session.exec(select(Job.params).where(Job.kind == "app_cover_demo")).all()
+    counts: dict[str, int] = {}
+    for prm in rows:
+        try:
+            aid = json.loads(prm or "{}").get("app_id")
+        except Exception:  # noqa: BLE001 — 坏行跳过
+            continue
+        if aid:
+            counts[aid] = counts.get(aid, 0) + 1
+    return counts
+
+
+def _archive_demo_attempt(app_id: str, ok: bool, worker: str = "", prompt: str = "",
+                          result: str = "", error: str = "") -> None:
+    """每次 demo 尝试(成功/失败/超时)都落 Job 存档:溯源 + 尝试上限的持久计数。"""
+    try:
+        with Session(engine) as session:
+            session.add(Job(
+                tenant_id="", user_id="", prompt_id=worker, worker=worker,
+                kind="app_cover_demo",
+                status="done" if ok else "error",
+                prompt=(prompt or "[demo]")[:500], seed=0,
+                result=result[:500],
+                params=json.dumps({"app_id": app_id, "error": error[:200]},
+                                  ensure_ascii=False),
+            ))
+            session.commit()
+    except Exception:  # noqa: BLE001 — 存档失败不影响主流程
+        pass
+
+
 def plan_demo_targets(session: Session, limit: int) -> list[App]:
     """待做清单:公开、非 R18、非音频产物、还没有 demo 封面;按优先级排序截断。"""
     rows = session.exec(select(App).where(App.is_public == True)).all()  # noqa: E712
+    attempts = _demo_attempt_counts(session)
     todo = [
         a for a in rows
         if not a.is_nsfw
         and (a.output_kind or "image") != "audio"
         and _DEMO_URL_MARK not in (a.cover_url or "")
+        and attempts.get(a.id, 0) < _MAX_DEMO_ATTEMPTS
     ]
     # smoke 已知失败/超时的沉底(多为内容缺口/上游 bug,先给可跑的应用出封面)
     def _rank(a: App) -> tuple:
@@ -240,11 +281,14 @@ async def _demo_one(pool: WorkerPool, app_id: str, idx: int) -> dict:
             result = await run_app_smoke(pool, session, app, values_override=values, collect_result=True)
         except Exception as exc:  # noqa: BLE001 — 单应用失败不中断批次
             out["error"] = f"smoke error: {exc!r}"[:200]
+            _archive_demo_attempt(app_id, ok=False, error=out["error"])
             return out
         out["smoke"] = result["status"]
         out["cls"] = result.get("cls", "")
         if result["status"] != "pass" or not result.get("files"):
             out["error"] = result.get("detail", "")[:200]
+            _archive_demo_attempt(app_id, ok=False, prompt=injected or "",
+                                  error=f'{result.get("cls", "")}: {out["error"]}')
             return out
         try:
             made = await _make_cover(result["worker"], result["files"])
@@ -316,9 +360,13 @@ async def _run_batch(pool: WorkerPool, limit: int) -> int:
                     session.commit()
         except Exception:  # noqa: BLE001 — 标记失败不中断批次
             pass
+        _archive_demo_attempt(app_id, ok=False, error=f"demo 整体超时 {cap_s}s")
 
     async def _consumer() -> None:
         while True:
+            # fleet 深度闸:总排队超闸则暂停消费,等队列 draining(防 cover 洪峰饿杀用户生成)
+            while _fleet_queue_depth(pool) > _FLEET_QUEUE_GUARD:
+                await asyncio.sleep(30)
             try:
                 app_id = queue.get_nowait()
             except asyncio.QueueEmpty:
@@ -367,6 +415,14 @@ def demo_running() -> bool:
     return _DEMO_TASK is not None and not _DEMO_TASK.done()
 
 
+def _fleet_queue_depth(pool: WorkerPool) -> int:
+    """池内全部 worker 当前排队深度合计(stats 拿不到的 worker 按 0 计)。"""
+    try:
+        return sum(s.queue_len or 0 for s in pool.stats())
+    except Exception:  # noqa: BLE001 — 探测失败不阻断,返回 0 让上层自行决定
+        return 0
+
+
 async def autorefire_loop(pool: WorkerPool, interval_s: int = 300) -> None:
     """api 内建持续批送(2026-09-18):每 5 min 查一次,空闲且有目标就自动续发。
 
@@ -374,12 +430,12 @@ async def autorefire_loop(pool: WorkerPool, interval_s: int = 300) -> None:
     """
     while True:
         try:
-            if not demo_running():
+            if not demo_running() and _fleet_queue_depth(pool) <= _FLEET_QUEUE_GUARD:
                 with Session(engine) as session:
                     pending = plan_demo_targets(session, 1)
                 if pending:
                     logger.info("cover autorefire: 空闲续发(%d 个目标)", len(pending))
-                    spawn_demo_batch(pool, 600)
+                    spawn_demo_batch(pool, 120)
         except Exception:  # noqa: BLE001 — 守护循环绝不抛出
             logger.warning("cover autorefire 异常: %s", repr(sys.exc_info()[1])[:120])
         await asyncio.sleep(interval_s)

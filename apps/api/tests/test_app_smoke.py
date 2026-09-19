@@ -1,6 +1,8 @@
 """自愈闭环 Phase1(2026-09-15):归因器 / 默认参数合成 / combo 校准修复器 / smoke 列契约。"""
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
@@ -8,7 +10,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from app.db import get_session
 from app.main import app
-from app.models import App, Tenant, User
+from app.models import App, Job, Tenant, User
 from app.security import create_token, hash_password
 from app.services import app_smoke as svc
 
@@ -328,11 +330,44 @@ def test_plan_demo_targets_order_and_excludes():
         ]
         for r in rows:
             s.add(r)
+        # rh-7:已达尝试上限(3 次 app_cover_demo 存档)→ 不再续发
+        for i in range(3):
+            s.add(Job(tenant_id="", user_id="", prompt_id="", worker="",
+                      kind="app_cover_demo", status="error",
+                      params=json.dumps({"app_id": "rh-7"})))
+        s.add(_mk_target(7))
         s.commit()
         got = [a.id for a in demo_svc.plan_demo_targets(s, limit=10)]
     assert "rh-2" not in got and "rh-3" not in got and "rh-4" not in got
+    assert "rh-7" not in got  # 尝试上限排除(2026-09-19 autorefire 暴走修复)
     assert got[0] == "rh-1"  # featured 最优先
     assert "rh-6" in got and "rh-5" in got
+
+
+def test_archive_demo_attempt_counts_toward_cap():
+    """失败落档(_archive_demo_attempt)计入上限;成功路径落档不受影响。"""
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    demo_svc.engine = engine  # helper 内部用模块级 engine 建 Session
+    try:
+        demo_svc._archive_demo_attempt("rh-x", ok=False, error="boom")
+        demo_svc._archive_demo_attempt("rh-x", ok=False, error="boom2")
+        with Session(engine) as s:
+            s.add(_mk_target(20))
+            s.commit()
+            counts = demo_svc._demo_attempt_counts(s)
+            got = [a.id for a in demo_svc.plan_demo_targets(s, limit=10)]
+        assert counts.get("rh-x") == 2
+        assert "rh-20" in got  # 2 次 < 上限 3,仍在清单
+        demo_svc._archive_demo_attempt("rh-x", ok=False, error="boom3")
+        with Session(engine) as s:
+            counts = demo_svc._demo_attempt_counts(s)
+        assert counts.get("rh-x") == 3  # 达上限
+    finally:
+        from app.db import engine as real_engine
+        demo_svc.engine = real_engine
 
 
 def test_demo_cover_endpoint_needs_admin():
