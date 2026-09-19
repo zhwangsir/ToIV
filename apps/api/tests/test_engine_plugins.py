@@ -160,7 +160,7 @@ async def test_disabled_engines_skip_probe(live_pool, user, monkeypatch):
     monkeypatch.setattr(er, "_probe_pool", _counting)
     populate_registry(disabled={"txt2img", "img2img"})
     await list_engines(live_pool, user)
-    assert calls == 3, f"停用引擎不应触发探测,实得 {calls} 次"  # ltx25-multishot 退役后 -1
+    assert calls == 2, f"停用引擎不应触发探测,实得 {calls} 次"  # ltx25 退役 + nunchaku 内核下架(不调 _probe_pool)
 
 
 # ---------------------------------------------------------------------------

@@ -408,17 +408,23 @@ async def _probe_phantom(pool: WorkerPool) -> tuple[bool, str | None]:
 
 
 async def _probe_flux_nunchaku(pool: WorkerPool) -> tuple[bool, str | None]:
-    """Nunchaku fp4 FLUX.1-dev 探测:svdq 权重 + 专用 Loader 双约束(文件名+节点)。"""
-    return await _probe_pool(
-        pool,
-        {
-            "svdq-fp4_r32-flux.1-dev.safetensors",
-            "t5xxl_fp8_e4m3fn.safetensors",
-            "clip_l.safetensors",
-            "ae.safetensors",
-        },
-        {"NunchakuFluxDiTLoader", "NunchakuTextEncoderLoaderV2"},
-    )
+    """Nunchaku fp4 FLUX.1-dev 探测:svdq 权重 + 专用 Loader 双约束(文件名+节点)。
+
+    2026-09-19 临时下架:权重/节点齐但运行时 nunchaku 内核在 SM120(RTX PRO 6000)
+    integer overflow(matrix v3.1 真跑实证 200s 崩;BUG_REGISTRY「CUDA 内核 5」类)。
+    置灰展示原因,待 nunchaku 上游修复后恢复 pool 探测(下面留原实现注释)。
+    """
+    return (False, "nunchaku 内核在 SM120 暂不可运行(上游修复中),请用 FLUX.2 默认引擎")
+    # return await _probe_pool(
+    #     pool,
+    #     {
+    #         "svdq-fp4_r32-flux.1-dev.safetensors",
+    #         "t5xxl_fp8_e4m3fn.safetensors",
+    #         "clip_l.safetensors",
+    #         "ae.safetensors",
+    #     },
+    #     {"NunchakuFluxDiTLoader", "NunchakuTextEncoderLoaderV2"},
+    # )
 
 
 # Wan-Animate-2 探测:node_names(object_info)留在缓存/后台层,热路径只做 liveness 快探
