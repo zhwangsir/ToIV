@@ -10,6 +10,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Field, Textarea } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
+import { consumeAssetPick, saveAssetPick } from "@/lib/assetPick";
 import { usePoll } from "@/hooks/usePoll";
 import { cancelJob, invalidateJobs } from "@/lib/api";
 import { firstPinWorker } from "@/lib/apps";
@@ -142,6 +143,44 @@ export function EngineStudioView({ kind }: { kind: StudioKind }) {
     if (!engine) return;
     setValuesByEngine((prev) => ({ ...prev, [engine.id]: { ...(prev[engine.id] ?? {}), [key]: v } }));
   };
+
+  // 资产即输入(2026-09-21 P3):作品库「用作参考/续写」带来的句柄,引擎切换时直填媒体槽。
+  // 文件已在该 worker 上,提交链 filename+worker 直传免二次上传;引擎无匹配槽时保留暂存。
+  const pickFilledRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!engine || pickFilledRef.current === engine.id) return;
+    const pick = consumeAssetPick();
+    if (!pick) return;
+    const target =
+      pick.kind === "image"
+        ? engine.params.find((pp) => pp.type === "images")
+        : pick.kind === "video"
+          ? engine.params.find((pp) => pp.type === "video")
+          : engine.params.find((pp) => pp.type === "audio");
+    if (!target) {
+      saveAssetPick(pick); // 无匹配槽:留待用户切到有槽的引擎
+      return;
+    }
+    pickFilledRef.current = engine.id;
+    const handle = { filename: pick.filename, worker: pick.worker };
+    setValuesByEngine((prev) => {
+      const cur = prev[engine.id] ?? {};
+      // 多图槽(images 数组语义)插到数组;单槽直接覆盖
+      const nextVal =
+        target.type === "images" && Array.isArray(cur[target.key])
+          ? [...(cur[target.key] as unknown[]), handle]
+          : handle;
+      return { ...prev, [engine.id]: { ...cur, [target.key]: nextVal } };
+    });
+    toast.success(
+      pick.kind === "video"
+        ? "已填入驱动视频(作品直引,免上传)"
+        : pick.kind === "audio"
+          ? "已填入驱动音频(作品直引,免上传)"
+          : "已填入参考图(作品直引,免上传)",
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine]);
 
   // 会话历史(与 GenerateView 同一 HistoryEntry/ResultPanel 语言;不落 localStorage)
   const [entries, setEntries] = useState<HistoryEntry[]>([]);

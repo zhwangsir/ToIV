@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { pickFromJob, saveAssetPick } from "@/lib/assetPick";
 import { cleanupFailedJobs, deleteJob, fetchJobCount, fetchJobsPage, imageThumbUrl, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, listJobs, permanentDeleteJob, purgeTrash, rerunJob, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
@@ -698,9 +699,9 @@ export function LibraryView(props?: LibraryViewProps) {
   }, [toast]);
 
   const handleRetry = useCallback(
-    async (job: JobItem) => {
+    async (job: JobItem, seedMode: "keep" | "random" = "keep") => {
       try {
-        const r = await rerunJob(job.id, { seed_mode: "keep" });
+        const r = await rerunJob(job.id, { seed_mode: seedMode });
         setRetrying((prev) => new Map(prev).set(job.id, r.prompt_id));
         pollRetry(job.id, r.prompt_id);
       } catch (err) {
@@ -708,6 +709,33 @@ export function LibraryView(props?: LibraryViewProps) {
       }
     },
     [pollRetry, toast],
+  );
+
+  // 一键同款(C2):成功作品原参数换 seed 重抽(rerun random);与重试共用状态机。
+  const handleMakeAnother = useCallback(
+    (job: JobItem) => {
+      void handleRetry(job, "random");
+    },
+    [handleRetry],
+  );
+
+  // 资产即输入(C1):作品句柄暂存 → 跳对应生成台,引擎切换时自动填入媒体槽(免二次上传);
+  // video 类目标引擎带 video 槽(longcat-continue/wan-animate 等)即续写入口。
+  const handleUseAsInput = useCallback(
+    (job: JobItem) => {
+      const pick = pickFromJob(job);
+      if (!pick) {
+        toast.info("该作品无可用产物文件");
+        return;
+      }
+      saveAssetPick(pick);
+      const target = pick.kind === "video" ? "video" : pick.kind === "audio" ? "audio" : "image";
+      setLightboxIdx(null);
+      setLightboxScope(null);
+      if (onNavigate) onNavigate(target);
+      else window.location.assign(`/?view=${target}`);
+    },
+    [onNavigate, toast],
   );
 
   // ── 批量管理 ──
@@ -1910,6 +1938,43 @@ export function LibraryView(props?: LibraryViewProps) {
                         >
                           <Icon name="link" size={14} />
                         </button>
+                        {/* 用作参考(C1):作品直引为生成台媒体槽(图/视/音) */}
+                        {hasResult && (
+                          <button
+                            type="button"
+                            className="lib-action-btn"
+                            title={
+                              isVideo
+                                ? "用作驱动/续写(生成台自动填入视频槽)"
+                                : thumbFilterOf(job) === "audio"
+                                  ? "用作音频(生成台自动填入音频槽)"
+                                  : "用作参考图(生成台自动填入图槽)"
+                            }
+                            aria-label={`用作输入: ${job.prompt || "无提示词"}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUseAsInput(job);
+                            }}
+                          >
+                            <Icon name="send" size={14} />
+                          </button>
+                        )}
+                        {/* 一键同款(C2):成功作品换 seed 重抽 */}
+                        {job.status === "done" && canRerun(job) && (
+                          <button
+                            type="button"
+                            className="lib-action-btn"
+                            title="再做一张(同参数换 seed)"
+                            aria-label={`再做一张: ${job.prompt || "无提示词"}`}
+                            disabled={retrying.has(job.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMakeAnother(job);
+                            }}
+                          >
+                            <Icon name="replay" size={14} />
+                          </button>
+                        )}
                         {/* 一键重试(A1):失败且有快照时显示 */}
                         {job.status === "error" && canRerun(job) && (
                           <button
@@ -2159,6 +2224,8 @@ export function LibraryView(props?: LibraryViewProps) {
           onDelete={handleDelete}
           deletingId={deletingId}
           onRetry={handleRetry}
+          onUseAsInput={handleUseAsInput}
+          onMakeAnother={handleMakeAnother}
           favorites={favorites}
           onToggleFav={(j) => toggleFavorite(j.id)}
           retryingId={
@@ -2707,6 +2774,10 @@ interface LibraryLightboxProps {
   /** 收藏(P1 A5):favorites 为当前收藏集;onToggleFav 切换 */
   favorites?: ReadonlySet<string>;
   onToggleFav?: (job: JobItem) => void;
+  /** 资产即输入(P3 C1):作品直引为生成台媒体槽 */
+  onUseAsInput?: (job: JobItem) => void;
+  /** 一键同款(P3 C2):同参数换 seed 重抽 */
+  onMakeAnother?: (job: JobItem) => void;
   /** 存风格 Popover / 删除 Modal 打开时,灯箱让出 Esc/方向键(避免一按两关) */
   dialogsOpen: boolean;
   /** 回收站预览:只看不改,隐藏复用/存风格/删除/3D 操作,避免误恢复或加厚删除 */
@@ -2727,6 +2798,8 @@ function LibraryLightbox({
   retryingId = null,
   favorites,
   onToggleFav,
+  onUseAsInput,
+  onMakeAnother,
   dialogsOpen,
   previewOnly = false,
 }: LibraryLightboxProps) {
@@ -3007,6 +3080,28 @@ function LibraryLightbox({
                 <Icon name="download" size={14} />
                 下载
               </a>
+            )}
+            {!previewOnly && onUseAsInput && hasResult && (
+            <button
+              type="button"
+              className="lib-lb-action"
+              onClick={() => onUseAsInput(job)}
+              title="作品直引为生成台媒体槽(免二次上传)"
+            >
+              <Icon name="send" size={14} />
+              用作参考
+            </button>
+            )}
+            {!previewOnly && onMakeAnother && job.status === "done" && canRerun(job) && (
+            <button
+              type="button"
+              className="lib-lb-action"
+              onClick={() => onMakeAnother(job)}
+              title="同参数换 seed 重抽一张"
+            >
+              <Icon name="replay" size={14} />
+              再做一张
+            </button>
             )}
             {!previewOnly && onToggleFav && (
             <button

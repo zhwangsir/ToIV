@@ -1,6 +1,12 @@
 // 作品库 P0 真机验证:来源筛选/重试入口/元信息角标/灯箱快捷键
 import { test, expect } from "@playwright/test";
 
+// 隧道(TS 跨省 ~37KB/s)下全局放宽:导航 60s / 动作 30s
+test.beforeEach(({ page }) => {
+  page.setDefaultNavigationTimeout(60000);
+  page.setDefaultTimeout(30000);
+});
+
 test("library P0: source filter + meta badges + lightbox kbd hints", async ({ page }) => {
   test.setTimeout(120000);
   await page.goto("/?view=library", { waitUntil: "domcontentloaded" });
@@ -94,4 +100,23 @@ test("library P2: variant group folder + saved view", async ({ page }) => {
   await page.locator(".lib-view-chip", { hasText: "e2e 测试视图" }).locator(".lib-view-chip-hit").click();
   await page.locator(".lib-view-chip", { hasText: "e2e 测试视图" }).locator(".lib-view-chip-x").click();
   await expect(page.locator(".lib-view-chip", { hasText: "e2e 测试视图" })).toHaveCount(0);
+});
+
+test("library P3: use-as-input carries work into studio slot", async ({ page }) => {
+  test.setTimeout(150000);
+  await page.goto("/?view=library", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+
+  // 挑一张有产物的图像卡 → hover「用作输入」→ 跳图片生成台
+  const card = page
+    .locator(".lib-card:not(.lib-folder-card)")
+    .filter({ has: page.locator(".lib-thumb img") })
+    .first();
+  await card.hover();
+  await card.getByRole("button", { name: /^用作输入: / }).click();
+  // 生成台挂载后:文生图无图槽(暂存保留),切到「图生图」→ 自动填入 + 提示
+  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+  await page.getByText("图生图", { exact: true }).first().click();
+  await expect(page.getByText(/已填入参考图/).first()).toBeVisible({ timeout: 30000 });
+  await page.screenshot({ path: "ui-sweep/library-p3-use-as-input.png" });
 });

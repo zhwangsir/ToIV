@@ -565,7 +565,7 @@ test("重试 UI 接线:卡面内联按钮 + hover 操作 + 灯箱按钮 + 快捷
   const src = readSrc("components/library/LibraryView.tsx");
   assert.ok(src.includes("lib-retry-inline"), "失败卡缺内联重试按钮");
   assert.ok(src.includes("lib-retrying"), "缺重试中遮罩");
-  assert.ok(src.includes('rerunJob(job.id, { seed_mode: "keep" })'), "未接 rerun 接口");
+  assert.ok(src.includes("rerunJob(job.id, { seed_mode: seedMode })"), "未接 rerun 接口");
   assert.ok(src.includes("lib-lb-kbd-hints"), "灯箱缺快捷键提示条");
   assert.ok(src.includes('"D"') && src.includes('"R"'), "快捷键缺 D/R 扩展");
 });
@@ -718,4 +718,38 @@ test("P2 UI 接线:变体组标题/存视图按钮/视图 chips(源码)", () => 
   assert.ok(src.includes("存视图"), "缺存视图按钮");
   assert.ok(src.includes("lib-view-chip"), "缺视图 chips 行");
   assert.ok(src.includes("applyView"), "视图未接应用回调");
+});
+
+// ── 2026-09-21 作品库 P3:资产即输入 / 一键同款 ──
+
+test("assetPick:作品 URL → 句柄解析(图/视/音) + 消费语义(kind 不匹配保留)", async () => {
+  const { pickFromJob, saveAssetPick, consumeAssetPick, clearAssetPick } = await import("@/lib/assetPick");
+  const mk = (url: string) => ({ results: [url] }) as never;
+  const img = pickFromJob(mk("/api/images?filename=a.png&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8196&sig=x"));
+  assert.equal(img?.kind, "image");
+  assert.equal(img?.filename, "a.png");
+  assert.equal(img?.worker, "http://192.168.71.127:8196");
+  assert.equal(pickFromJob(mk("/api/images?filename=v.mp4&worker=http://w:1"))?.kind, "video");
+  assert.equal(pickFromJob(mk("/api/images?filename=m.mp3&worker=http://w:1"))?.kind, "audio");
+  assert.equal(pickFromJob(mk("/api/images?filename=missing-worker.png")), null);
+  assert.equal(pickFromJob({ results: [] } as never), null);
+
+  // 消费:kind 不匹配保留,匹配清除, clearAssetPick 幂等
+  saveAssetPick({ kind: "video", filename: "v.mp4", worker: "http://w:1", url: "" });
+  assert.equal(consumeAssetPick("image"), null, "不匹配应保留");
+  assert.equal(consumeAssetPick()?.filename, "v.mp4", "不限 kind 消费成功");
+  assert.equal(consumeAssetPick(), null, "已清除");
+  clearAssetPick();
+  assert.equal(consumeAssetPick(), null);
+});
+
+test("P3 UI 接线:用作参考/再做一张/引擎台消费 pick(源码)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes("handleUseAsInput"), "缺用作参考 handler");
+  assert.ok(src.includes("handleMakeAnother"), "缺再做一张 handler");
+  assert.ok(src.includes('seed_mode: seedMode'), "rerun 未参数化 seedMode");
+  assert.ok(src.includes("用作输入"), "卡 hover 缺用作参考按钮");
+  const studio = readSrc("components/studio/EngineStudioView.tsx");
+  assert.ok(studio.includes("consumeAssetPick"), "引擎台未消费资产暂存");
+  assert.ok(studio.includes("已填入参考图"), "缺填入成功提示");
 });
