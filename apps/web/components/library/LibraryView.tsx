@@ -274,6 +274,15 @@ export function LibraryView(props?: LibraryViewProps) {
   // 重试状态机(2026-09-20 A1):jobId → 新 prompt_id(轮询中)
   const [retrying, setRetrying] = useState<ReadonlyMap<string, string>>(new Map());
   const [sourceOpen, setSourceOpen] = useState(false);
+  // 来源弹层 Esc 关闭(与灯箱同惯例)
+  useEffect(() => {
+    if (!sourceOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSourceOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sourceOpen]);
   // 删除确认对话框状态:confirmDelete=待删作品;skipConfirmChecked=「不再确认」勾选
   const [confirmDelete, setConfirmDelete] = useState<JobItem | null>(null);
   const [skipConfirmChecked, setSkipConfirmChecked] = useState(false);

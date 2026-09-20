@@ -71,3 +71,13 @@ dogfood-output/
 # 数据文件备份(生产口径以 rh_h3_presets.json 为准)
 apps/api/app/data/rh_h3_presets.json.bak*
 .verify*.mjs
+
+# 2026-09-18 并入的数字人引擎 R&D 目录（独立 git 历史，ToIV 经 URL :4403 调用，禁止打包部署/提交）
+opentalking/
+
+# 2026-09-20 作品库 P0 测试产物(走查截图/Playwright 输出,本地产物不入库)
+apps/web/ui-sweep/
+apps/web/test-results/
+apps/web/test-results-prod/
+apps/web/playwright-report/
+apps/web/.auth/
