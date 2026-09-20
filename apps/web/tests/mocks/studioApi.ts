@@ -895,3 +895,13 @@ export const wakeOrchService = (name: string): Promise<OrchService> => {
   orchCalls.wakeOrchService += 1;
   return orchImpl.wakeOrchService(name);
 };
+
+// 画板(2026-09-21)替身
+export const fetchBoards = async () => [];
+export const createBoard = async (name: string) => ({
+  id: "b1", name, description: "", cover_job_id: "", cover_url: "",
+  item_count: 0, sort: 0, created_at: "",
+});
+export const deleteBoard = async () => undefined;
+export const fetchBoardItems = async () => [];
+export const putBoardItems = async (_b: string, items: unknown[]) => items.length;

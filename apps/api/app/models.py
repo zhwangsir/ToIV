@@ -48,6 +48,34 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_now)
 
 
+class Board(SQLModel, table=True):
+    """手动主题板(2026-09-21 用户拍板,纯本地组织工具):聚合作品成主题集。
+
+    板内资产与作品库同套「用作参考/同款/续写」链路(assetPick 复用);
+    sort 用于板间排序,cover_job_id 空=用首个有产物成员当封面。
+    """
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex, primary_key=True)
+    tenant_id: str = Field(default="", index=True)
+    user_id: str = Field(default="", index=True)
+    name: str
+    description: str = ""
+    cover_job_id: str = ""
+    sort: int = 0
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class BoardItem(SQLModel, table=True):
+    """画板成员:作品挂进板;note/shot_text 为 v2 分镜板预留(先持久化不强制用)。"""
+
+    id: int | None = Field(default=None, primary_key=True)
+    board_id: str = Field(index=True)
+    job_id: str = Field(index=True)
+    sort_order: int = 0
+    note: str = ""
+    shot_text: str = ""  # v2 分镜板:每行的分镜文本(漫剧线对接)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class UserPreference(SQLModel, table=True):
     """用户偏好跨端同步(2026-09-21 作品库):收藏/视图/密度/风格卡。
 

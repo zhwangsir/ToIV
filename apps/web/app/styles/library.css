@@ -2045,3 +2045,60 @@
 
 /* 变体组文件夹卡:角标用虚线边框区分 360° 实线组 */
 .lib-folder-card:has(.lib-card-title) .lib-stack-badge { /* 保持既有角标 */ }
+
+/* ── 画板(2026-09-21 手动主题板) ── */
+
+.lib-boards { display: flex; flex-direction: column; gap: 12px; }
+.lib-board-count {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--text-tertiary, rgba(235, 237, 245, 0.42));
+}
+.lib-board-spacer { flex: 1; }
+.lib-board-new {
+  display: flex;
+  gap: 8px;
+  max-width: 520px;
+}
+.lib-board-new-input {
+  flex: 1;
+  padding: 7px 14px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-elevated, #16181e);
+  border: 1px solid color-mix(in srgb, var(--accent, #b8f03c) 35%, transparent);
+  border-radius: var(--radius-full, 999px);
+  outline: none;
+}
+.lib-board-new-input:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #b8f03c) 20%, transparent);
+}
+.lib-board-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 56px 20px;
+  color: var(--text-tertiary, rgba(235, 237, 245, 0.42));
+  text-align: center;
+}
+.lib-board-empty p { margin: 0; }
+.lib-board-empty-hint { font-size: 12px; opacity: 0.75; }
+.lib-board-picker {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 280px;
+}
+.lib-board-picker-empty {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text-tertiary, rgba(235, 237, 245, 0.42));
+  text-align: center;
+}
+.lib-board-picker-new {
+  color: var(--accent, #b8f03c);
+  gap: 6px;
+  justify-content: flex-start;
+}

@@ -794,3 +794,18 @@ test("跨端同步:pullPreferences 服务端覆盖本地(空串不动)+端点路
   assert.ok(view.includes("pullPreferences"), "作品库未拉取偏好");
   assert.ok(view.includes("schedulePush({ favorites"), "收藏变更未推送");
 });
+
+// ── 2026-09-21 画板(手动主题板) ──
+
+test("画板:UI 接线——入口按钮/移入画板选择器/板视图切换(源码)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes("lib-boards-toggle"), "工具条缺画板入口");
+  assert.ok(src.includes("openBoardPicker"), "缺移入画板选择器");
+  assert.ok(src.includes("addJobToBoard"), "缺追加成员逻辑");
+  assert.ok(src.includes("lib-board-picker"), "缺板选择器弹层");
+  assert.ok(src.includes("BoardsView"), "未挂画板视图");
+  const boards = readSrc("components/library/BoardsView.tsx");
+  assert.ok(boards.includes("lib-board-new"), "板视图缺新建输入");
+  assert.ok(boards.includes("removeItem"), "缺移除成员");
+  assert.ok(boards.includes("onUseAsInput"), "板内未接资产即输入");
+});

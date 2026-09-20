@@ -529,6 +529,72 @@ export interface RerunResponse extends GenerateResponse {
   root_id?: string;
 }
 
+// ---------- 画板(2026-09-21 手动主题板) ----------
+
+export interface BoardOut {
+  id: string;
+  name: string;
+  description: string;
+  cover_job_id: string;
+  cover_url: string;
+  item_count: number;
+  sort: number;
+  created_at: string;
+}
+
+export interface BoardItemOut {
+  id: number;
+  sort_order: number;
+  note: string;
+  shot_text: string;
+  job: JobItem;
+}
+
+export async function fetchBoards(): Promise<BoardOut[]> {
+  const res = await apiFetch("/api/boards", { headers: authHeaders() });
+  if (!res.ok) throw new Error(`拉取画板失败 (${res.status})`);
+  return res.json();
+}
+
+export async function createBoard(name: string, description = ""): Promise<BoardOut> {
+  const res = await apiFetch("/api/boards", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ name, description }),
+  });
+  if (!res.ok) await raiseApiError(res, "新建画板失败");
+  return res.json();
+}
+
+export async function deleteBoard(boardId: string): Promise<void> {
+  const res = await apiFetch(`/api/boards/${boardId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "删除画板失败");
+}
+
+export async function fetchBoardItems(boardId: string): Promise<BoardItemOut[]> {
+  const res = await apiFetch(`/api/boards/${boardId}/items`, { headers: authHeaders() });
+  if (!res.ok) await raiseApiError(res, "拉取画板成员失败");
+  return res.json();
+}
+
+/** 整组替换成员(增删+重排一次写)。 */
+export async function putBoardItems(
+  boardId: string,
+  items: { job_id: string; note?: string; shot_text?: string }[],
+): Promise<number> {
+  const res = await apiFetch(`/api/boards/${boardId}/items`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok) await raiseApiError(res, "更新画板成员失败");
+  const data = await res.json();
+  return data.item_count;
+}
+
 /** 跨端偏好:拉取作品库收藏/视图/密度/风格卡(空串=未同步过)。 */
 export async function fetchPreferences(): Promise<{ favorites: string; views: string; density: string; style_cards: string }> {
   const res = await apiFetch("/api/account/preferences", { headers: authHeaders() });

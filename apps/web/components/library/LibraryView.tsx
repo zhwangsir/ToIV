@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 
 import { pickFromJob, saveAssetPick } from "@/lib/assetPick";
 import { pullPreferences, schedulePush } from "@/lib/preferencesSync";
+import { BoardsView } from "@/components/library/BoardsView";
+import { fetchBoardItems, fetchBoards, putBoardItems, type BoardOut } from "@/lib/api";
 import { buildRemixLink } from "@/lib/remixLink";
 import { cleanupFailedJobs, deleteJob, fetchJobCount, fetchJobsPage, imageThumbUrl, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, listJobs, permanentDeleteJob, purgeTrash, rerunJob, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
@@ -370,6 +372,10 @@ export function LibraryView(props?: LibraryViewProps) {
   const styleAnchorRef = useRef<HTMLButtonElement | null>(null);
   // 回收站(2026-08-23):组件内条件渲染切换,不动路由
   const [showTrash, setShowTrash] = useState(false);
+  // 画板(2026-09-21):画板视图切换 + 「移入画板」选择器(目标作品)
+  const [showBoards, setShowBoards] = useState(false);
+  const [boardPickerJob, setBoardPickerJob] = useState<JobItem | null>(null);
+  const [boardsForPicker, setBoardsForPicker] = useState<BoardOut[] | null>(null);
   // 类型 chip 连点:忽略过期 fetchJobsPage 响应
   const jobsFetchGate = useRef(makeSeqGate()).current;
 
@@ -793,6 +799,41 @@ export function LibraryView(props?: LibraryViewProps) {
     [toast],
   );
 
+  // 移入画板:拉板列表开选择器 → 追加成员(读现有整组+PUT)
+  const openBoardPicker = useCallback(async (job: JobItem) => {
+    setBoardPickerJob(job);
+    setBoardsForPicker(null);
+    try {
+      setBoardsForPicker(await fetchBoards());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "拉取画板失败");
+      setBoardsForPicker([]);
+    }
+  }, [toast]);
+
+  const addJobToBoard = useCallback(
+    async (board: BoardOut) => {
+      if (!boardPickerJob) return;
+      try {
+        const cur = await fetchBoardItems(board.id);
+        if (cur.some((it) => it.job.id === boardPickerJob.id)) {
+          toast.info(`已在画板「${board.name}」中`);
+        } else {
+          await putBoardItems(board.id, [
+            ...cur.map((it) => ({ job_id: it.job.id, note: it.note, shot_text: it.shot_text })),
+            { job_id: boardPickerJob.id },
+          ]);
+          toast.success(`已移入画板「${board.name}」`);
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "移入画板失败");
+      } finally {
+        setBoardPickerJob(null);
+      }
+    },
+    [boardPickerJob, toast],
+  );
+
   // 资产即输入(C1):作品句柄暂存 → 跳对应生成台,引擎切换时自动填入媒体槽(免二次上传);
   // video 类目标引擎带 video 槽(longcat-continue/wan-animate 等)即续写入口。
   const handleUseAsInput = useCallback(
@@ -1194,6 +1235,19 @@ export function LibraryView(props?: LibraryViewProps) {
   };
 
   // 回收站视图(组件内条件渲染,不动路由;恢复后失效缓存并刷新主列表)
+  if (showBoards) {
+    return (
+      <BoardsView
+        onBack={() => setShowBoards(false)}
+        onOpenJob={(memberJobs, idx) => {
+          setLightboxScope(memberJobs);
+          setLightboxIdx(idx);
+        }}
+        onUseAsInput={handleUseAsInput}
+      />
+    );
+  }
+
   if (showTrash) {
     return (
       <LibraryTrashView
@@ -1464,6 +1518,17 @@ export function LibraryView(props?: LibraryViewProps) {
             onClick={() => (batchMode ? exitBatchMode() : setBatchMode(true))}
           >
             {batchMode ? "完成" : "批量管理"}
+          </Button>
+
+          {/* 画板入口(2026-09-21 手动主题板) */}
+          <Button
+            size="sm"
+            variant="secondary"
+            className="lib-boards-toggle"
+            icon={<Icon name="layers" size={14} />}
+            onClick={() => setShowBoards(true)}
+          >
+            画板
           </Button>
 
           {/* 回收站入口(72h 保留期;与工具行同款次要按钮) */}
@@ -2066,6 +2131,21 @@ export function LibraryView(props?: LibraryViewProps) {
                             <Icon name="share" size={14} />
                           </button>
                         )}
+                        {/* 移入画板(2026-09-21):聚合到手动主题板 */}
+                        {job.status === "done" && (
+                          <button
+                            type="button"
+                            className="lib-action-btn"
+                            title="移入画板"
+                            aria-label={`移入画板: ${job.prompt || "无提示词"}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void openBoardPicker(job);
+                            }}
+                          >
+                            <Icon name="layers" size={14} />
+                          </button>
+                        )}
                         {/* 一键重试(A1):失败且有快照时显示 */}
                         {job.status === "error" && canRerun(job) && (
                           <button
@@ -2348,6 +2428,51 @@ export function LibraryView(props?: LibraryViewProps) {
           dialogsOpen={!!styleTarget || !!confirmDelete || !!confirmDeleteStyle || confirmBatchDelete || !!confirmUpscale}
         />,
         document.body,
+      )}
+
+      {/* 移入画板选择器(2026-09-21):作品 → 目标板(无板时引导新建) */}
+      {boardPickerJob && (
+        <>
+          <button
+            type="button"
+            className="lib-source-scrim"
+            aria-label="关闭画板选择器"
+            onClick={() => setBoardPickerJob(null)}
+          />
+          <div className="lib-source-pop lib-board-picker" role="dialog" aria-label="移入画板">
+            <div className="lib-source-group">移入画板:{boardPickerJob.prompt?.slice(0, 24) || "作品"}</div>
+            {boardsForPicker === null ? (
+              <div className="lib-board-picker-empty">加载中…</div>
+            ) : boardsForPicker.length === 0 ? (
+              <div className="lib-board-picker-empty">
+                还没有画板——点工具条「画板」先新建一个
+              </div>
+            ) : (
+              boardsForPicker.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  className="lib-source-item"
+                  onClick={() => void addJobToBoard(b)}
+                >
+                  <span className="lib-source-item-label">{b.name}</span>
+                  <span className="lib-chip-count">{b.item_count}</span>
+                </button>
+              ))
+            )}
+            <button
+              type="button"
+              className="lib-source-item lib-board-picker-new"
+              onClick={() => {
+                setBoardPickerJob(null);
+                setShowBoards(true);
+              }}
+            >
+              <Icon name="plus" size={12} />
+              新建画板…
+            </button>
+          </div>
+        </>
       )}
 
       {/* 存为风格 Popover(WS4):锚定到触发按钮,命名后写入 toiv_style_cards */}

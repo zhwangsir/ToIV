@@ -143,3 +143,32 @@ test("remix link: open shared link imports params into studio", async ({ page })
   await expect(page.getByText(/同款参数已导入|同款提示词已导入/).first()).toBeVisible({ timeout: 30000 });
   await page.screenshot({ path: "ui-sweep/remix-import.png" });
 });
+
+test("boards: list / detail / add work via picker", async ({ page }) => {
+  test.setTimeout(150000);
+  await page.goto("/?view=library", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+
+  // 板列表:e2e 验证板(API 预建)可见
+  await page.getByRole("button", { name: "画板" }).click();
+  await expect(page.locator(".lib-board-card").first()).toBeVisible({ timeout: 30000 });
+  await page.screenshot({ path: "ui-sweep/library-boards.png" });
+
+  // 打开板详情(空板提示)+ 返回
+  await page.locator(".lib-board-card").first().locator(".lib-thumb-hit").click();
+  await expect(page.locator(".lib-breadcrumb-current")).toBeVisible({ timeout: 15000 });
+  await page.getByRole("button", { name: "全部画板" }).click();
+
+  // 回作品库 → hover 成功卡「移入画板」→ 选择器出现
+  await page.locator(".lib-breadcrumb-back").click();
+  const card = page
+    .locator(".lib-card:not(.lib-folder-card)")
+    .filter({ has: page.locator(".lib-thumb img, .lib-thumb video") })
+    .first();
+  await card.hover();
+  await card.getByRole("button", { name: /^移入画板: / }).click();
+  await expect(page.locator(".lib-board-picker")).toBeVisible({ timeout: 20000 });
+  // 选「e2e 验证板」→ toast 成功
+  await page.locator(".lib-board-picker").getByRole("button", { name: /e2e 验证板/ }).click();
+  await expect(page.getByText(/已移入画板|已在画板/).first()).toBeVisible({ timeout: 20000 });
+});
