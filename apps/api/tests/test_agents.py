@@ -534,3 +534,25 @@ def test_preferences_require_auth(ctx):
     c, *_ = ctx
     r = c.put("/api/account/preferences", json={"default_agent_id": "x"})
     assert r.status_code == 401
+
+
+def test_preferences_sync_roundtrip(ctx):
+    """跨端偏好(2026-09-21 作品库):favorites/views/density/style_cards PUT→GET 往返;空字段不动。"""
+    c, _, user_token, _ = ctx
+    H = {"Authorization": f"Bearer {user_token}"}
+    r = c.put("/api/account/preferences", headers=H, json={
+        "favorites": '["j1","j2"]',
+        "views": '[{"id":"v1","name":"n","query":{}}]',
+        "density": "compact",
+        "style_cards": "[]",
+    })
+    assert r.status_code == 200, r.text
+    got = c.get("/api/account/preferences", headers=H).json()
+    assert got["favorites"] == '["j1","j2"]'
+    assert got["density"] == "compact"
+    # 增量:只传 views 不动 favorites
+    r2 = c.put("/api/account/preferences", headers=H, json={"views": "[]"})
+    assert r2.status_code == 200
+    got2 = c.get("/api/account/preferences", headers=H).json()
+    assert got2["views"] == "[]"
+    assert got2["favorites"] == '["j1","j2"]'

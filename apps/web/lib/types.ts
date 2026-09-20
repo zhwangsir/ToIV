@@ -183,6 +183,8 @@ export interface JobItem {
   parent_id?: string;
   /** 版本树根 job id(后端已归一,同链同根;前端按它分组)。 */
   root_id?: string;
+  /** 续写来源(2026-09-21):被续写的源作品 id;非续写为空串。 */
+  continued_from?: string;
   /** 有参数快照才能精确重生(旧数据无)。 */
   has_params?: boolean;
   /** R18 标记:仅 /nsfw 专区(带 X-NSFW)列表含 R18 作品,前端据此过滤专区作品库。 */

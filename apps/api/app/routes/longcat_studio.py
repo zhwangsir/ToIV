@@ -19,11 +19,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
-from app.models import User
+from app.models import Job, User
 from app.nsfw_ctx import job_nsfw_from_intent
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
@@ -109,6 +109,9 @@ class LongCatContinueRequest(BaseModel):
     duration_sec: float | None = Field(default=None, gt=0, le=600)
     # deprecated:兼容入参,请改用 duration_sec;同给时忽略
     num_frames: int | None = Field(default=None, ge=17, le=961)
+    # 续写链(2026-09-21 作品库):源作品 Job.id(作品库「用作输入→续写」带入),
+    # 纯展示字段;归属校验在路由侧做,伪造/越权静默清空。
+    source_job_id: str | None = Field(default=None, max_length=64)
     steps: int = Field(default=10, ge=1, le=50)
     fps: int | None = Field(default=None, ge=8, le=30)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
@@ -281,6 +284,18 @@ async def generate_longcat_continue(
         req=req, user=user, session=session, client=client,
         nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),  # R18 上下文打标(同 t2v)
     )
+    # 续写链(2026-09-21):源作品归属校验通过后回写 continued_from(伪造/越权/不存在→空)
+    src_id = (req.source_job_id or "").strip()
+    if src_id:
+        src = session.get(Job, src_id)
+        if src is not None and src.user_id == user.id and src.status == "done":
+            new_job = session.exec(
+                select(Job).where(Job.prompt_id == result.get("prompt_id"))
+            ).first()
+            if new_job is not None:
+                new_job.continued_from = src_id
+                session.add(new_job)
+                session.commit()
     return _attach_duration_chain(
         result, plan, lambda: client, req.resolution_target
     )

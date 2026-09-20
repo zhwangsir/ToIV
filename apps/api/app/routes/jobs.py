@@ -146,6 +146,8 @@ def _job_dict(j: Job, app_name: str = "") -> dict:
         "nsfw": bool(j.nsfw),
         # 版本树:parent 空=根;root_id 归一为自身 id,前端按它分组
         "parent_id": j.parent_id or "",
+        # 续写来源(2026-09-21):非续写为空串;前端「续写于」徽标/灯箱行
+        "continued_from": j.continued_from or "",
         "root_id": (j.root_id or j.id) if j.id else "",
         "has_params": bool(j.params),  # 有快照才能精确重生(旧数据无)
         # 资源预算二期:held 作业的排队原因(资源不足说明/超时说明);非 held 为空串。

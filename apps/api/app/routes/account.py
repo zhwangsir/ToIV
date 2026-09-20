@@ -28,6 +28,11 @@ class NsfwToggleRequest(BaseModel):
 
 class PreferencesRequest(BaseModel):
     default_agent_id: str | None = Field(default=None, max_length=64)
+    # 作品库偏好跨端同步(2026-09-21):JSON 字符串(空串=不动该字段);后端只存不解析
+    favorites: str | None = Field(default=None, max_length=200_000)
+    views: str | None = Field(default=None, max_length=200_000)
+    density: str | None = Field(default=None, max_length=16)
+    style_cards: str | None = Field(default=None, max_length=400_000)
 
 
 @router.post("/account/nsfw")
@@ -63,5 +68,38 @@ def set_preferences(
     """
     user.default_agent_id = body.default_agent_id or None
     session.add(user)
+    # 偏好同步:upsert(行可能不存在)
+    from app.models import UserPreference
+    pref = session.get(UserPreference, user.id)
+    if pref is None:
+        pref = UserPreference(user_id=user.id)
+    changed = False
+    for field in ("favorites", "views", "density", "style_cards"):
+        val = getattr(body, field)
+        if val is not None and val != getattr(pref, field):
+            setattr(pref, field, val)
+            changed = True
+    if changed:
+        from datetime import datetime as _dt
+        pref.updated_at = _dt.utcnow()
+    session.add(pref)
     session.commit()
     return {"default_agent_id": user.default_agent_id}
+
+
+@router.get("/account/preferences")
+def get_preferences(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """拉取跨端偏好(作品库收藏/视图/密度/风格卡);无记录返回空串字段。"""
+    from app.models import UserPreference
+    pref = session.get(UserPreference, user.id)
+    if pref is None:
+        return {"favorites": "", "views": "", "density": "", "style_cards": ""}
+    return {
+        "favorites": pref.favorites,
+        "views": pref.views,
+        "density": pref.density,
+        "style_cards": pref.style_cards,
+    }

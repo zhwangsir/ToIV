@@ -13,8 +13,10 @@ export interface AssetPick {
   kind: "image" | "video" | "audio";
   filename: string;
   worker: string;
-  /** 原始 /api/images?... 产物 URL(展示/回溯用)。 */
+  /** 原始 /api/images?... 产物 URL(展示/回溯/续写 text 槽直填用)。 */
   url: string;
+  /** 来源作品 Job.id(2026-09-21 续写链:longcat-continue 落 continued_from)。 */
+  job_id?: string;
 }
 
 /** 从作品首个产物解析媒体类型 + 句柄;解析不出返回 null。 */
@@ -31,7 +33,7 @@ export function pickFromJob(job: JobItem): AssetPick | null {
     : lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.endsWith(".mov") || lower.endsWith(".mkv")
       ? "video"
       : "image";
-  return { kind, filename, worker, url };
+  return { kind, filename, worker, url, job_id: job.id };
 }
 
 export function saveAssetPick(pick: AssetPick): void {

@@ -120,3 +120,26 @@ test("library P3: use-as-input carries work into studio slot", async ({ page }) 
   await expect(page.getByText(/已填入参考图/).first()).toBeVisible({ timeout: 30000 });
   await page.screenshot({ path: "ui-sweep/library-p3-use-as-input.png" });
 });
+
+test("remix link: open shared link imports params into studio", async ({ page }) => {
+  test.setTimeout(150000);
+  // 取一个真实完成的 txt2img 作业构造同款链接(与 lib 同构编码,不依赖 window)
+  await page.goto("/?view=library", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+  const token = await page.evaluate(() => localStorage.getItem("toiv_token") ?? "");
+  const res = await page.request.get("/api/jobs?limit=5&status=done&kind=txt2img", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = await res.json();
+  const jobs = (Array.isArray(body) ? body : (body.jobs ?? [])) as { id: string; kind: string; prompt: string; seed: number }[];
+  const job = jobs.find((j) => (j.prompt ?? "").trim());
+  if (!job) { console.log("REMIX_E2E_SKIP: no done txt2img with prompt"); return; } // 无可用作业时跳过(环境性)
+  console.log("REMIX_E2E_JOB:", job.id, job.kind);
+  const { buildRemixPayload, encodeRemix } = await import("../lib/remixLink");
+  const payload = buildRemixPayload(job as never);
+  const link = `/?view=image&remix=${encodeRemix(payload)}`;
+  await page.goto(link, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+  await expect(page.getByText(/同款参数已导入|同款提示词已导入/).first()).toBeVisible({ timeout: 30000 });
+  await page.screenshot({ path: "ui-sweep/remix-import.png" });
+});

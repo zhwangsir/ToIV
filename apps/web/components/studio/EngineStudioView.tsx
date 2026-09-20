@@ -11,6 +11,7 @@ import { Field, Textarea } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { consumeAssetPick, saveAssetPick } from "@/lib/assetPick";
+import { takeRemixFromLocation } from "@/lib/remixLink";
 import { usePoll } from "@/hooks/usePoll";
 import { cancelJob, invalidateJobs } from "@/lib/api";
 import { firstPinWorker } from "@/lib/apps";
@@ -144,6 +145,40 @@ export function EngineStudioView({ kind }: { kind: StudioKind }) {
     setValuesByEngine((prev) => ({ ...prev, [engine.id]: { ...(prev[engine.id] ?? {}), [key]: v } }));
   };
 
+  // 闭门同款(2026-09-21):?remix= 分享链接导入——标量参数+seed+引擎选择,媒体自备。
+  // 引擎列表可能异步到达 → 在 engines effect 之后应用;只导入一次(URL 已被 take 清除)。
+  const remixPendingRef = useRef<ReturnType<typeof takeRemixFromLocation>>(null);
+  const remixAppliedRef = useRef(false);
+  useEffect(() => {
+    if (remixAppliedRef.current) return;
+    if (remixPendingRef.current === null) {
+      remixPendingRef.current = takeRemixFromLocation();
+    }
+    const remix = remixPendingRef.current;
+    if (!remix) { remixAppliedRef.current = true; return; }
+    if (!engines || engines.length === 0) return; // 等引擎列表
+    remixAppliedRef.current = true;
+    const target = remix.e ? engines.find((en) => en.id === remix.e) : null;
+    if (target && mode) {
+      setEngineByMode((prev) => ({ ...prev, [mode.id]: target.id }));
+    }
+    const eid = target?.id ?? engines[0].id;
+    setPromptByEngine((prev) => ({ ...prev, [eid]: remix.p }));
+    if (target) {
+      const hasSeed = target.params.some((pp) => pp.key === "seed");
+      setValuesByEngine((prev) => ({
+        ...prev,
+        [eid]: {
+          ...(prev[eid] ?? {}),
+          ...remix.v,
+          ...(remix.s !== null && hasSeed ? { seed: remix.s } : {}),
+        },
+      }));
+    }
+    toast.success(target ? "同款参数已导入(媒体请自备)" : "同款提示词已导入(该引擎暂不可用)");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engines]);
+
   // 资产即输入(2026-09-21 P3):作品库「用作参考/续写」带来的句柄,引擎切换时直填媒体槽。
   // 文件已在该 worker 上,提交链 filename+worker 直传免二次上传;引擎无匹配槽时保留暂存。
   const pickFilledRef = useRef<string | null>(null);
@@ -151,33 +186,42 @@ export function EngineStudioView({ kind }: { kind: StudioKind }) {
     if (!engine || pickFilledRef.current === engine.id) return;
     const pick = consumeAssetPick();
     if (!pick) return;
+    // longcat-continue 的视频槽是 text 型(收产物 URL)——视频 pick 优先匹配它并带续写链 id
+    const textVideo =
+      pick.kind === "video"
+        ? engine.params.find((pp) => pp.key === "video" && pp.type === "text")
+        : undefined;
     const target =
       pick.kind === "image"
         ? engine.params.find((pp) => pp.type === "images")
-        : pick.kind === "video"
+        : textVideo ?? (pick.kind === "video"
           ? engine.params.find((pp) => pp.type === "video")
-          : engine.params.find((pp) => pp.type === "audio");
+          : engine.params.find((pp) => pp.type === "audio"));
     if (!target) {
       saveAssetPick(pick); // 无匹配槽:留待用户切到有槽的引擎
       return;
     }
     pickFilledRef.current = engine.id;
-    const handle = { filename: pick.filename, worker: pick.worker };
     setValuesByEngine((prev) => {
       const cur = prev[engine.id] ?? {};
-      // 多图槽(images 数组语义)插到数组;单槽直接覆盖
+      // 续写链(2026-09-21):隐藏值随提交带给 longcat-continue(source_job_id)
+      const chain = pick.kind === "video" && pick.job_id ? { __source_job_id: pick.job_id } : {};
+      // text 型 video 槽填产物 URL;媒体槽填 {filename, worker} 句柄;多图槽插数组
+      const handle = textVideo ? pick.url : { filename: pick.filename, worker: pick.worker };
       const nextVal =
         target.type === "images" && Array.isArray(cur[target.key])
           ? [...(cur[target.key] as unknown[]), handle]
           : handle;
-      return { ...prev, [engine.id]: { ...cur, [target.key]: nextVal } };
+      return { ...prev, [engine.id]: { ...cur, [target.key]: nextVal, ...chain } };
     });
     toast.success(
-      pick.kind === "video"
-        ? "已填入驱动视频(作品直引,免上传)"
-        : pick.kind === "audio"
-          ? "已填入驱动音频(作品直引,免上传)"
-          : "已填入参考图(作品直引,免上传)",
+      textVideo
+        ? "已填入源视频(续写链已挂,可直接续写)"
+        : pick.kind === "video"
+          ? "已填入驱动视频(作品直引,免上传)"
+          : pick.kind === "audio"
+            ? "已填入驱动音频(作品直引,免上传)"
+            : "已填入参考图(作品直引,免上传)",
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine]);

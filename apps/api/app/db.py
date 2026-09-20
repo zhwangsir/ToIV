@@ -36,6 +36,8 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("manjushot", "video_url", "video_url VARCHAR NOT NULL DEFAULT ''"),
     # 版本树三列(父版本/链根/参数快照,精修迭代地基),已存在的 job 表补列
     ("job", "parent_id", "parent_id VARCHAR NOT NULL DEFAULT ''"),
+    # 续写链展示(2026-09-21):longcat-continue 等来源作品 id,纯增量展示字段
+    ("job", "continued_from", "continued_from VARCHAR NOT NULL DEFAULT ''"),
     ("job", "root_id", "root_id VARCHAR NOT NULL DEFAULT ''"),
     ("job", "params", "params VARCHAR NOT NULL DEFAULT ''"),
     # 未成年防护:用户出生日期(可空,空=未填写,视为成年以兼容老数据)。

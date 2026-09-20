@@ -393,6 +393,10 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
       return generateLongcatContinue({
         ..._longcatPayload(values, positive, negative, seed),
         video,
+        // 续写链(2026-09-21):作品库「用作输入→续写」经 studio 隐藏值带入
+        ...(_str(values, "__source_job_id").trim()
+          ? { source_job_id: _str(values, "__source_job_id").trim() }
+          : {}),
       });
     }
 

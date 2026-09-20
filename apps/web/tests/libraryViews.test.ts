@@ -753,3 +753,44 @@ test("P3 UI 接线:用作参考/再做一张/引擎台消费 pick(源码)", () =
   assert.ok(studio.includes("consumeAssetPick"), "引擎台未消费资产暂存");
   assert.ok(studio.includes("已填入参考图"), "缺填入成功提示");
 });
+
+// ── 2026-09-21 续写链 / 跨端同步 / 闭门同款 ──
+
+test("闭门同款:remix 编解码往返 + kind→engineId 映射 + 媒体键剥离", async () => {
+  const { buildRemixPayload, encodeRemix, decodeRemix, engineIdForKind } = await import("@/lib/remixLink");
+  assert.equal(engineIdForKind("h3_t2v"), "h3-t2v");
+  assert.equal(engineIdForKind("longcat_t2v"), "longcat-t2v");
+  assert.equal(engineIdForKind("audio"), "ace-music");
+  const job = {
+    id: "j1", kind: "h3_t2v", prompt: "a cat", seed: 42,
+    meta: { width: 832, height: 480, steps: 25, duration_hint: 5 },
+    params: "",
+  } as never;
+  const p = buildRemixPayload(job);
+  assert.equal(p.e, "h3-t2v");
+  assert.equal(p.s, 42);
+  assert.equal(p.v.width, 832);
+  const back = decodeRemix(encodeRemix(p));
+  assert.deepEqual(back, p);
+  assert.equal(decodeRemix("!!!not-base64"), null);
+});
+
+test("续写链:UI 徽标 + 灯箱行 + studio 隐藏值 + 请求字段(源码)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes("lib-continued-badge"), "缺续写于徽标");
+  assert.ok(src.includes("续写于"), "灯箱缺续写行");
+  const studio = readSrc("components/studio/EngineStudioView.tsx");
+  assert.ok(studio.includes("__source_job_id"), "studio 缺续写链隐藏值");
+  const api = readFileSync(join(webRoot, "lib/api.ts"), "utf-8");
+  assert.ok(api.includes("source_job_id"), "LongcatContinueParams 缺 source_job_id");
+});
+
+test("跨端同步:pullPreferences 服务端覆盖本地(空串不动)+端点路径(源码)", async () => {
+  const api = readFileSync(join(webRoot, "lib/api.ts"), "utf-8");
+  assert.ok(api.includes('"/api/account/preferences"'), "偏好端点路径缺失");
+  const sync = readFileSync(join(webRoot, "lib/preferencesSync.ts"), "utf-8");
+  assert.ok(sync.includes("if (remote.favorites)"), "空串字段不应覆盖本地");
+  const view = readSrc("components/library/LibraryView.tsx");
+  assert.ok(view.includes("pullPreferences"), "作品库未拉取偏好");
+  assert.ok(view.includes("schedulePush({ favorites"), "收藏变更未推送");
+});

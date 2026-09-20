@@ -529,6 +529,23 @@ export interface RerunResponse extends GenerateResponse {
   root_id?: string;
 }
 
+/** 跨端偏好:拉取作品库收藏/视图/密度/风格卡(空串=未同步过)。 */
+export async function fetchPreferences(): Promise<{ favorites: string; views: string; density: string; style_cards: string }> {
+  const res = await apiFetch("/api/account/preferences", { headers: authHeaders() });
+  if (!res.ok) throw new Error(`拉取偏好失败 (${res.status})`);
+  return res.json();
+}
+
+/** 跨端偏好:增量推送(只传非空字段,空串=不动)。 */
+export async function pushPreferences(patch: { favorites?: string; views?: string; density?: string; style_cards?: string }): Promise<void> {
+  const res = await apiFetch("/api/account/preferences", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(`同步偏好失败 (${res.status})`);
+}
+
 /** 从历史作业精确重生;寻址接受 job id 或 prompt_id。新作业自动挂进版本链。 */
 export async function rerunJob(jobKey: string, opts: RerunOptions): Promise<RerunResponse> {
   const res = await apiFetch(`/api/jobs/${encodeURIComponent(jobKey)}/rerun`, {
@@ -1092,6 +1109,8 @@ export async function generateLongcatI2V(
 export interface LongcatContinueParams extends LongcatT2VParams {
   video: string;   // /api/images?... 产物 URL 或上传视频文件名(后者需 worker)
   worker?: string; // 上传视频所在 worker(video 为文件名时必填)
+  /** 续写链(2026-09-21):源作品 Job.id,后端校验归属后落 continued_from。 */
+  source_job_id?: string;
 }
 
 export async function generateLongcatContinue(

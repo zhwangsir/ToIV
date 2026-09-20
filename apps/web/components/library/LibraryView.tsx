@@ -4,6 +4,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { createPortal } from "react-dom";
 
 import { pickFromJob, saveAssetPick } from "@/lib/assetPick";
+import { pullPreferences, schedulePush } from "@/lib/preferencesSync";
+import { buildRemixLink } from "@/lib/remixLink";
 import { cleanupFailedJobs, deleteJob, fetchJobCount, fetchJobsPage, imageThumbUrl, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, listJobs, permanentDeleteJob, purgeTrash, rerunJob, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
@@ -301,6 +303,7 @@ export function LibraryView(props?: LibraryViewProps) {
     setViews((prev) => {
       const next = [...prev, v];
       saveViews(next);
+      schedulePush({ views: JSON.stringify(next) });
       return next;
     });
     setSaveName("");
@@ -310,6 +313,7 @@ export function LibraryView(props?: LibraryViewProps) {
     setViews((prev) => {
       const next = prev.filter((v) => v.id !== id);
       saveViews(next);
+      schedulePush({ views: JSON.stringify(next) });
       return next;
     });
   }, []);
@@ -320,6 +324,7 @@ export function LibraryView(props?: LibraryViewProps) {
       if (next.has(jobId)) next.delete(jobId);
       else next.add(jobId);
       saveFavorites(next);
+      schedulePush({ favorites: JSON.stringify([...next]) });
       return next;
     });
   }, []);
@@ -455,6 +460,43 @@ export function LibraryView(props?: LibraryViewProps) {
   // 挂载后读取本地风格卡(SSR 安全:loadStyleCards 内部判 window)
   useEffect(() => {
     setStyleCards(loadStyleCards());
+  }, []);
+
+  // 跨端偏好同步(2026-09-21):登录时拉服务端覆盖本地(服务端为准);空串字段不动本地
+  useEffect(() => {
+    void pullPreferences({
+      favorites: (json) => {
+        try {
+          const arr = JSON.parse(json);
+          if (Array.isArray(arr)) {
+            const set = new Set(arr as string[]);
+            setFavorites(set);
+            saveFavorites(set);
+          }
+        } catch { /* 坏 JSON 不覆盖 */ }
+      },
+      views: (json) => {
+        try {
+          const arr = JSON.parse(json);
+          if (Array.isArray(arr)) {
+            setViews(arr);
+            saveViews(arr);
+          }
+        } catch { /* 同上 */ }
+      },
+      density: (v) => {
+        if (v === "comfortable" || v === "compact") {
+          setDensity(v);
+          persistDensity(v);
+        }
+      },
+      styleCards: (json) => {
+        try {
+          window.localStorage.setItem(STYLE_CARDS_KEY, json);
+          setStyleCards(loadStyleCards());
+        } catch { /* 同上 */ }
+      },
+    });
   }, []);
 
   // 查询管线(纯函数,见 lib/libraryQuery):内容分级 → 类型 → 搜索 → 排序
@@ -649,6 +691,7 @@ export function LibraryView(props?: LibraryViewProps) {
   const changeDensity = (next: LibraryDensity) => {
     setDensity(next);
     persistDensity(next);
+    schedulePush({ density: next });
   };
 
   // ── 重试(2026-09-20 A1)──
@@ -711,12 +754,43 @@ export function LibraryView(props?: LibraryViewProps) {
     [pollRetry, toast],
   );
 
+  // 续写链:按 id 盘内找源作品开灯箱,找不到则提示
+  const openJobById = useCallback(
+    (jobId: string) => {
+      const hit = (jobs ?? []).find((j) => j.id === jobId);
+      if (hit) {
+        setLightboxScope(null);
+        const idx = flattenLightboxEntries(filtered).findIndex((en) => en.job.id === hit.id);
+        if (idx >= 0) setLightboxIdx(idx);
+        else openLightbox(hit);
+      } else {
+        toast.info("源作品不在当前列表(可能被删除或未加载)");
+      }
+    },
+    [jobs, filtered, toast],
+  );
+
   // 一键同款(C2):成功作品原参数换 seed 重抽(rerun random);与重试共用状态机。
   const handleMakeAnother = useCallback(
     (job: JobItem) => {
       void handleRetry(job, "random");
     },
     [handleRetry],
+  );
+
+  // 闭门同款(2026-09-21):分享链接携带 prompt+seed+引擎+标量参数,
+  // 接收方打开链接即导入运行台(媒体自备);纯前端零后端、无广场不触发 UGC 合规。
+  const handleShareRemix = useCallback(
+    async (job: JobItem) => {
+      try {
+        const url = buildRemixLink(job, isVideoKind(job.kind) ? "video" : "image");
+        await navigator.clipboard.writeText(url);
+        toast.success("同款链接已复制——对方打开即导入参数(媒体请自备)");
+      } catch {
+        toast.error("复制失败:请检查浏览器剪贴板权限");
+      }
+    },
+    [toast],
   );
 
   // 资产即输入(C1):作品句柄暂存 → 跳对应生成台,引擎切换时自动填入媒体槽(免二次上传);
@@ -1066,6 +1140,7 @@ export function LibraryView(props?: LibraryViewProps) {
     };
     setStyleCards((prev) => {
       const next = [card, ...prev.filter((c) => c.name !== name)];
+      schedulePush({ style_cards: JSON.stringify(next) });
       persistStyleCards(next);
       return next;
     });
@@ -1097,6 +1172,7 @@ export function LibraryView(props?: LibraryViewProps) {
     setStyleCards((prev) => {
       const next = prev.filter((c) => c.id !== card.id);
       persistStyleCards(next);
+      schedulePush({ style_cards: JSON.stringify(next) });
       return next;
     });
     setConfirmDeleteStyle(null);
@@ -1975,6 +2051,21 @@ export function LibraryView(props?: LibraryViewProps) {
                             <Icon name="replay" size={14} />
                           </button>
                         )}
+                        {/* 闭门同款:分享链接(成功且有提示词) */}
+                        {job.status === "done" && (job.prompt ?? "").trim() && (
+                          <button
+                            type="button"
+                            className="lib-action-btn"
+                            title="复制同款链接(对方打开即导入参数)"
+                            aria-label={`分享同款: ${job.prompt || "无提示词"}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleShareRemix(job);
+                            }}
+                          >
+                            <Icon name="share" size={14} />
+                          </button>
+                        )}
                         {/* 一键重试(A1):失败且有快照时显示 */}
                         {job.status === "error" && canRerun(job) && (
                           <button
@@ -2063,6 +2154,25 @@ export function LibraryView(props?: LibraryViewProps) {
                           </span>
                         ) : null}
                       </span>
+                    )}
+
+                    {/* 续写链徽标(2026-09-21):续写产物的源作品入口,点击跳父作灯箱 */}
+                    {!!job.continued_from && isVideo && (
+                      <button
+                        type="button"
+                        className="lib-continued-badge"
+                        title="查看续写来源作品"
+                        aria-label="查看续写来源作品"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const parent = (jobs ?? []).find((j) => j.id === job.continued_from);
+                          if (parent) openLightbox(parent);
+                          else toast.info("源作品不在当前列表(可能被删除或未加载)");
+                        }}
+                      >
+                        <Icon name="history" size={10} />
+                        续写于
+                      </button>
                     )}
 
                     {/* 重试中遮罩(A1):conic 流光 + 脉冲 pill,原位反馈不跳转 */}
@@ -2226,6 +2336,8 @@ export function LibraryView(props?: LibraryViewProps) {
           onRetry={handleRetry}
           onUseAsInput={handleUseAsInput}
           onMakeAnother={handleMakeAnother}
+          onOpenJobById={openJobById}
+          onShareRemix={handleShareRemix}
           favorites={favorites}
           onToggleFav={(j) => toggleFavorite(j.id)}
           retryingId={
@@ -2778,6 +2890,10 @@ interface LibraryLightboxProps {
   onUseAsInput?: (job: JobItem) => void;
   /** 一键同款(P3 C2):同参数换 seed 重抽 */
   onMakeAnother?: (job: JobItem) => void;
+  /** 续写链(2026-09-21):按 id 打开源作品(不在灯箱条目内时父级兜底盘内查找) */
+  onOpenJobById?: (jobId: string) => void;
+  /** 闭门同款(2026-09-21):复制同款分享链接 */
+  onShareRemix?: (job: JobItem) => void;
   /** 存风格 Popover / 删除 Modal 打开时,灯箱让出 Esc/方向键(避免一按两关) */
   dialogsOpen: boolean;
   /** 回收站预览:只看不改,隐藏复用/存风格/删除/3D 操作,避免误恢复或加厚删除 */
@@ -2800,6 +2916,8 @@ function LibraryLightbox({
   onToggleFav,
   onUseAsInput,
   onMakeAnother,
+  onOpenJobById,
+  onShareRemix,
   dialogsOpen,
   previewOnly = false,
 }: LibraryLightboxProps) {
@@ -3036,6 +3154,29 @@ function LibraryLightbox({
                 </dd>
               </div>
             )}
+            {!!job.continued_from && (
+              <div className="lib-lb-meta-row">
+                <dt>续写于</dt>
+                <dd>
+                  <button
+                    type="button"
+                    className="lib-lb-src-link"
+                    onClick={() => {
+                      const parent = entries.map((en) => en.job).find((j) => j.id === job.continued_from)
+                        ?? null;
+                      if (parent) {
+                        const idx = entries.findIndex((en) => en.job.id === parent.id);
+                        if (idx >= 0) onIndex(idx);
+                      } else if (job.continued_from) {
+                        onOpenJobById?.(job.continued_from);
+                      }
+                    }}
+                  >
+                    源作品
+                  </button>
+                </dd>
+              </div>
+            )}
             <div className="lib-lb-meta-row">
               <dt>Seed</dt>
               <dd className="lib-lb-num">{job.seed}</dd>
@@ -3101,6 +3242,17 @@ function LibraryLightbox({
             >
               <Icon name="replay" size={14} />
               再做一张
+            </button>
+            )}
+            {!previewOnly && (job.prompt ?? "").trim() && (
+            <button
+              type="button"
+              className="lib-lb-action"
+              onClick={() => onShareRemix?.(job)}
+              title="复制同款链接(对方打开即导入参数)"
+            >
+              <Icon name="share" size={14} />
+              分享同款
             </button>
             )}
             {!previewOnly && onToggleFav && (

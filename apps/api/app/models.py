@@ -48,6 +48,20 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_now)
 
 
+class UserPreference(SQLModel, table=True):
+    """用户偏好跨端同步(2026-09-21 作品库):收藏/视图/密度/风格卡。
+
+    JSON 字符串列(与 Job.params 同范式),last-write-wins 合并(单用户足够,不做 CRDT);
+    服务端为准,前端 localStorage 写穿兜底离线。updated_at 供未来多设备冲突提示。
+    """
+    user_id: str = Field(primary_key=True)
+    favorites: str = "[]"        # Job.id 数组 JSON
+    views: str = "[]"            # SavedView 数组 JSON
+    density: str = ""            # comfortable | compact | 空=未同步过
+    style_cards: str = "[]"      # StyleCard 数组 JSON
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Job(SQLModel, table=True):
     id: str = Field(default_factory=_uid, primary_key=True)
     tenant_id: str = Field(index=True)
@@ -71,6 +85,9 @@ class Job(SQLModel, table=True):
     # —— 版本树(精修迭代地基):每次生成挂到父版本,同链共根 ——
     parent_id: str = ""  # 父版本 Job.id(空=无父,自身即根)
     root_id: str = ""  # 版本树根 Job.id(空=自身即根;查链用 root_id or id)
+    # 续写来源(2026-09-21 作品库 P3.5):被续写的源作品 Job.id,纯展示链(勿与
+    # parent_id 版本链混用——版本链是 rerun 语义)。空=非续写产物。
+    continued_from: str = ""
     params: str = ""  # 建档时完整请求快照(JSON),支撑精确重生/锁seed微调/分支
     # 软删除时间(操作防护体系 SAFETY-2026-08-17):空=正常;非空=已进回收站,
     # 保留期(audit.UNDO_TTL_SECONDS,72h)内可经 /api/undo/{token} 或回收站恢复,
