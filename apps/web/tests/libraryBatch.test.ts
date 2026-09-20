@@ -115,7 +115,7 @@ test("LibraryView:文件夹卡(封面缩略图 + ×N 角标 + 标题/时间)与�
   assert.ok(src.includes("setOpenBatchId(folder.batchId)"), "点击文件夹应进入下钻");
   // 下钻:面包屑 + 成员网格
   assert.ok(src.includes("lib-breadcrumb"), "缺面包屑");
-  assert.ok(src.includes("环绕序列 {openFolder.batchId.slice(0, 8)}"), "面包屑缺批次标识");
+  assert.ok(src.includes("openFolder.batchId.slice(0, 8)"), "面包屑缺批次标识");  // 2026-09-20 P2:变体组分流后 else 支仍切片批次 id
   assert.ok(src.includes("openFolder.members.map"), "缺成员网格");
   assert.ok(src.includes("setOpenBatchId(null)"), "缺返回主网格");
   // 主网格不再平铺成员:分组后才分页渲染

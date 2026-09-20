@@ -385,6 +385,8 @@ export function countByFilter(
 export interface BatchFolder {
   batchId: string;
   members: JobItem[];
+  /** 变体组(P2 2026-09-20):同 kind+seed+prompt 的作业折叠(区别于 360° 内容分组)。 */
+  variant?: boolean;
 }
 
 /** 主网格条目:普通作品卡 或 文件夹卡。 */
@@ -398,7 +400,17 @@ export type LibraryEntry =
  * - 成员不足 2 个(其余被删/被筛选掉)回落为普通作品卡;无 batch_id 的旧作业原样;
  * - 筛选后调用 → 文件夹天然按成员 kind 归属对应类型桶(成员全被滤掉即不显示)。
  */
-export function groupLibraryEntries(jobs: readonly JobItem[]): LibraryEntry[] {
+/** 变体组键(P2):同 kind+seed+prompt(去首尾空白)认定为同参数变体;seed 为空不参与。 */
+export function variantKeyOf(j: JobItem): string {
+  if (j.seed === null || j.seed === undefined) return "";
+  const p = (j.prompt ?? "").trim();
+  return `v:${j.kind}:${j.seed}:${p}`;
+}
+
+export function groupLibraryEntries(
+  jobs: readonly JobItem[],
+  opts: { groupVariants?: boolean } = {},
+): LibraryEntry[] {
   const byBatch = new Map<string, JobItem[]>();
   for (const j of jobs) {
     if (!j.batch_id) continue;
@@ -406,22 +418,44 @@ export function groupLibraryEntries(jobs: readonly JobItem[]): LibraryEntry[] {
     if (g) g.push(j);
     else byBatch.set(j.batch_id, [j]);
   }
+  // 变体归组(P2):未被 batch_id 收编且 seed 非空者,按 variantKey 折叠(≥2 才成组)
+  const byVariant = new Map<string, JobItem[]>();
+  if (opts.groupVariants) {
+    for (const j of jobs) {
+      if (j.batch_id) continue;
+      const vk = variantKeyOf(j);
+      if (!vk) continue;
+      const g = byVariant.get(vk);
+      if (g) g.push(j);
+      else byVariant.set(vk, [j]);
+    }
+  }
   const emitted = new Set<string>();
   const out: LibraryEntry[] = [];
   for (const j of jobs) {
     const b = j.batch_id;
-    if (!b) {
-      out.push({ type: "job", job: j });
+    if (b) {
+      if (emitted.has(b)) continue;
+      emitted.add(b);
+      const members = byBatch.get(b) ?? [j];
+      if (members.length >= 2) {
+        out.push({ type: "batch", folder: { batchId: b, members } });
+      } else {
+        out.push({ type: "job", job: members[0] });
+      }
       continue;
     }
-    if (emitted.has(b)) continue;
-    emitted.add(b);
-    const members = byBatch.get(b) ?? [j];
-    if (members.length >= 2) {
-      out.push({ type: "batch", folder: { batchId: b, members } });
-    } else {
-      out.push({ type: "job", job: members[0] });
+    const vk = opts.groupVariants ? variantKeyOf(j) : "";
+    if (vk) {
+      const members = byVariant.get(vk) ?? [j];
+      if (members.length >= 2) {
+        if (emitted.has(vk)) continue;
+        emitted.add(vk);
+        out.push({ type: "batch", folder: { batchId: vk, members, variant: true } });
+        continue;
+      }
     }
+    out.push({ type: "job", job: j });
   }
   return out;
 }
@@ -638,4 +672,49 @@ export function pngHasWorkflow(bytes: Uint8Array): boolean {
     if (type === "IEND") break;
   }
   return false;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 2026-09-20 作品库 P2:动态文件夹(Saved Views)——筛选组合存为视图,命中自动进出
+// ─────────────────────────────────────────────────────────────
+
+/** 已存视图:一组筛选条件(应用时整组覆盖工具条状态)。 */
+export interface SavedView {
+  id: string;
+  name: string;
+  query: {
+    filter: FilterKey;
+    contentFilter: ContentFilterKey;
+    source: string;
+    search: string;
+    favOnly: boolean;
+  };
+}
+
+const VIEWS_KEY = "toiv_library_views";
+
+export function loadViews(): SavedView[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(VIEWS_KEY);
+    const arr: unknown = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(
+      (v): v is SavedView =>
+        !!v && typeof v === "object" && typeof (v as SavedView).id === "string"
+        && typeof (v as SavedView).name === "string"
+        && !!(v as SavedView).query,
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function saveViews(views: readonly SavedView[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(VIEWS_KEY, JSON.stringify(views));
+  } catch {
+    /* 同收藏:写不进就算了 */
+  }
 }

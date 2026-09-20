@@ -22,10 +22,13 @@ import {
   canRerun,
   kindLabel,
   loadFavorites,
+  loadViews,
   pngHasWorkflow,
   saveFavorites,
+  saveViews,
   timeSlotKeyOf,
   TIME_SLOT_LABELS,
+  type SavedView,
   kindToFilter,
   kindsQueryForFilter,
   loadDensity,
@@ -283,6 +286,33 @@ export function LibraryView(props?: LibraryViewProps) {
   // 收藏(P1 A5):localStorage 持久;只看收藏开关;跨端同步留 P2
   const [favorites, setFavorites] = useState<ReadonlySet<string>>(() => loadFavorites());
   const [favOnly, setFavOnly] = useState(false);
+  // 动态文件夹(P2):已存视图 localStorage;saveName=内联命名输入(空=未在命名)
+  const [views, setViews] = useState<SavedView[]>(() => loadViews());
+  const [saveName, setSaveName] = useState("");
+  const saveCurrentView = useCallback(() => {
+    const name = saveName.trim();
+    if (!name) return;
+    const v: SavedView = {
+      id: `view-${Date.now().toString(36)}`,
+      name,
+      query: { filter, contentFilter, source, search, favOnly },
+    };
+    setViews((prev) => {
+      const next = [...prev, v];
+      saveViews(next);
+      return next;
+    });
+    setSaveName("");
+  }, [saveName, filter, contentFilter, source, search, favOnly]);
+
+  const deleteView = useCallback((id: string) => {
+    setViews((prev) => {
+      const next = prev.filter((v) => v.id !== id);
+      saveViews(next);
+      return next;
+    });
+  }, []);
+
   const toggleFavorite = useCallback((jobId: string) => {
     setFavorites((prev) => {
       const next = new Set(prev);
@@ -484,9 +514,10 @@ export function LibraryView(props?: LibraryViewProps) {
     return { ...client, ...serverCounts } as Record<FilterKey, number>;
   }, [jobs, contentFilter, serverCounts, r18Mode]);
 
-  // 内容分组(2026-08-24):带 batch_id 的作业(360° 环绕序列)折叠为文件夹卡,
-  // 主网格不再平铺成员;筛选已先作用于成员 → 文件夹按成员 kind 归属对应类型桶
-  const entries = useMemo(() => groupLibraryEntries(filtered), [filtered]);
+  // 内容分组(2026-08-24):带 batch_id 的作业(360° 环绕序列)折叠为文件夹卡;
+  // P2 变体组:同 kind+seed+prompt 的作业折叠为「变体组」文件夹(防 rerun 刷库);
+  // 筛选已先作用于成员 → 文件夹按成员 kind 归属对应类型桶
+  const entries = useMemo(() => groupLibraryEntries(filtered, { groupVariants: true }), [filtered]);
 
   // 当前打开的文件夹(下钻);成员删到 <2 时文件夹自然消失 → 自动退回主网格
   const openFolder: BatchFolder | null = useMemo(() => {
@@ -584,6 +615,19 @@ export function LibraryView(props?: LibraryViewProps) {
 
   // 查询条件变更统一重置分页(首屏 60 条)
   const resetPage = useCallback(() => setVisibleCount(PAGE_SIZE), []);
+
+  // 应用视图:整组覆盖工具条筛选态(与 Midjourney Saved Searches 同哲学:管属性不管位置)
+  const applyView = useCallback(
+    (v: SavedView) => {
+      setFilter(v.query.filter);
+      setContentFilter(v.query.contentFilter);
+      setSource(v.query.source);
+      setSearch(v.query.search);
+      setFavOnly(v.query.favOnly);
+      resetPage();
+    },
+    [resetPage],
+  );
 
   // R18 模式关闭时若正选中 R18 chip,回退「全部」(chip 已不渲染,避免选中态悬空)
   useEffect(() => {
@@ -1223,6 +1267,37 @@ export function LibraryView(props?: LibraryViewProps) {
           收藏{favorites.size > 0 ? ` ${favorites.size}` : ""}
         </button>
 
+        {/* 存视图(P2):把当前筛选组合存为动态文件夹;命名输入内联展开 */}
+        {saveName === "" ? (
+          <button
+            type="button"
+            className="lib-chip lib-chip--sm"
+            title="把当前筛选组合存为视图(动态文件夹)"
+            onClick={() => setSaveName(" ")}
+          >
+            <Icon name="plus" size={12} />
+            存视图
+          </button>
+        ) : (
+          <span className="lib-view-save">
+            <input
+              className="lib-view-save-input"
+              value={saveName.trim()}
+              placeholder="视图名称…"
+              aria-label="视图名称"
+              autoFocus
+              onChange={(e) => setSaveName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveCurrentView();
+                if (e.key === "Escape") setSaveName("");
+              }}
+            />
+            <button type="button" className="lib-chip lib-chip--sm is-active" onClick={saveCurrentView}>
+              存
+            </button>
+          </span>
+        )}
+
         <div className="lib-toolbar-cluster">
           <span className="lib-toolbar-divider" aria-hidden="true" />
           <div className="lib-seg" role="group" aria-label="排序方式">
@@ -1412,7 +1487,9 @@ export function LibraryView(props?: LibraryViewProps) {
                 /
               </span>
               <span className="lib-breadcrumb-current">
-                环绕序列 {openFolder.batchId.slice(0, 8)}
+                {openFolder.variant
+                  ? `同参数变体 ×${openFolder.members.length}`
+                  : `环绕序列 ${openFolder.batchId.slice(0, 8)}`}
               </span>
               <span className="lib-breadcrumb-count">{openFolder.members.length} 张</span>
             </nav>
@@ -1614,6 +1691,32 @@ export function LibraryView(props?: LibraryViewProps) {
 
         {!error && !loading && !openFolder && !openStackJob && !libraryEmpty && !resultEmpty && (
           <>
+            {views.length > 0 && (
+              <div className="lib-views" role="group" aria-label="已存视图">
+                <Icon name="layers" size={12} aria-hidden="true" />
+                {views.map((v) => (
+                  <span key={v.id} className="lib-view-chip">
+                    <button
+                      type="button"
+                      className="lib-view-chip-hit"
+                      title="应用该视图的筛选组合"
+                      onClick={() => applyView(v)}
+                    >
+                      {v.name}
+                    </button>
+                    <button
+                      type="button"
+                      className="lib-view-chip-x"
+                      aria-label={`删除视图 ${v.name}`}
+                      title="删除视图"
+                      onClick={() => deleteView(v.id)}
+                    >
+                      <Icon name="close" size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="lib-grid">
               {visibleEntries.map((entry, entryIdx) => {
               // 时间分组粘性标题(B3):槽变化处在网格里占满整行
@@ -1635,7 +1738,7 @@ export function LibraryView(props?: LibraryViewProps) {
                       <button
                         type="button"
                         className="lib-thumb-hit"
-                        aria-label={`打开文件夹: 360° 环绕序列,共 ${folder.members.length} 张`}
+                        aria-label={`打开文件夹: ${folder.variant ? "变体组" : "360° 环绕序列"},共 ${folder.members.length} 张`}
                         onClick={() => setOpenBatchId(folder.batchId)}
                       >
                         {coverDone ? (
@@ -1651,7 +1754,7 @@ export function LibraryView(props?: LibraryViewProps) {
                       </span>
                     </div>
                     <div className="lib-foot">
-                      <div className="lib-card-title">360° 环绕序列</div>
+                      <div className="lib-card-title">{folder.variant ? "同参数变体" : "360° 环绕序列"}</div>
                       <div className="lib-meta">
                         <span className="lib-kind">{kindLabel(cover.kind)}</span>
                         <span className="lib-time">{formatTime(cover.created_at)}</span>

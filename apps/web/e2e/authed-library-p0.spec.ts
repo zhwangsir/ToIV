@@ -11,7 +11,7 @@ test("library P0: source filter + meta badges + lightbox kbd hints", async ({ pa
   await page.screenshot({ path: "ui-sweep/library-p0-source.png" });
   await page.locator(".lib-source-scrim").click();
   // hover 浮出操作组 → 「查看大图」进灯箱(比点媒体区更确定)
-  const card = page.locator(".lib-card").first();
+  const card = page.locator(".lib-card:not(.lib-folder-card)").first();
   await card.hover();
   await card.getByRole("button", { name: "查看大图" }).click();
   await page.waitForSelector(".lib-lightbox", { timeout: 10000 });
@@ -70,4 +70,28 @@ test("library P1: favorites + time headers + meta copy + retry flow", async ({ p
       await page.screenshot({ path: "ui-sweep/library-p1-retrying.png" });
     }
   }
+});
+
+test("library P2: variant group folder + saved view", async ({ page }) => {
+  test.setTimeout(120000);
+  await page.goto("/?view=library", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+
+  // 变体组:同 kind+seed+prompt 的作业折成「同参数变体」文件夹(等卡片挂载,隧道慢)
+  const variantFolder = page.locator(".lib-folder-card", { hasText: "同参数变体" }).first();
+  await expect(variantFolder).toBeVisible({ timeout: 30000 });
+  await variantFolder.locator(".lib-thumb-hit").click();
+  await expect(page.locator(".lib-breadcrumb")).toContainText("同参数变体", { timeout: 15000 });
+  await page.screenshot({ path: "ui-sweep/library-p2-variant.png" });
+  await page.locator(".lib-breadcrumb-back").click(); // 返回主网格(面包屑按钮)
+
+  // 存视图:当前筛选组合存为视图 chip
+  await page.getByRole("button", { name: "存视图" }).click();
+  await page.getByLabel("视图名称").fill("e2e 测试视图");
+  await page.getByRole("button", { name: "存", exact: true }).click();
+  await expect(page.locator(".lib-view-chip", { hasText: "e2e 测试视图" })).toBeVisible();
+  // 应用视图(点击 chip,筛选生效即不报错)+ 删除
+  await page.locator(".lib-view-chip", { hasText: "e2e 测试视图" }).locator(".lib-view-chip-hit").click();
+  await page.locator(".lib-view-chip", { hasText: "e2e 测试视图" }).locator(".lib-view-chip-x").click();
+  await expect(page.locator(".lib-view-chip", { hasText: "e2e 测试视图" })).toHaveCount(0);
 });

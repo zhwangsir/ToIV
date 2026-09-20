@@ -661,3 +661,61 @@ test("P1 UI 接线:收藏三入口/时间标题/复制参数/PNG 徽标/Shift �
   assert.ok(src.includes("rangeSelectTo"), "缺连选函数");
   assert.ok(src.includes("e.shiftKey"), "卡面点击未接 Shift");
 });
+
+// ── 2026-09-20 作品库 P2:变体组归组 / Saved Views ──
+
+test("变体组:同 kind+seed+prompt 折叠 ≥2,batch_id 优先,孤品回落", async () => {
+  const { groupLibraryEntries, variantKeyOf } = await import("@/lib/libraryQuery");
+  const mk = (id: string, kind: string, seed: number | null, prompt: string, batchId = "") =>
+    ({ id, kind, seed, prompt, batch_id: batchId }) as never;
+  // 三个同参数变体 + 一个孤品 + 一个 batch_id 组
+  const jobs = [
+    mk("a", "txt2img", 42, "a cat"),
+    mk("b", "txt2img", 42, "a cat"),
+    mk("c", "txt2img", 42, "a cat"),
+    mk("d", "txt2img", 7, "a cat"),
+    mk("e", "txt2img", 1, "x", "batch-1"),
+    mk("f", "txt2img", 2, "y", "batch-1"),
+  ];
+  const entries = groupLibraryEntries(jobs, { groupVariants: true });
+  const folders = entries.filter((e) => e.type === "batch");
+  // 变体组 1 个(3 成员,variant=true) + batch 组 1 个(variant 未设)
+  assert.equal(folders.length, 2);
+  const vf = folders.find((e) => e.type === "batch" && e.folder.variant);
+  assert.ok(vf && vf.type === "batch");
+  assert.equal(vf.type === "batch" ? vf.folder.members.length : 0, 3);
+  // 孤品 d 原样平铺
+  assert.ok(entries.some((e) => e.type === "job" && e.job.id === "d"));
+  // 关 groupVariants:变体不平折
+  const flat = groupLibraryEntries(jobs);
+  assert.ok(!flat.some((e) => e.type === "batch" && e.folder.variant));
+  // seed 空不参与
+  assert.equal(variantKeyOf(mk("z", "txt2img", null, "p")), "");
+});
+
+test("Saved Views:持久化往返 + 坏数据容错 + 应用语义", async () => {
+  const { loadViews, saveViews } = await import("@/lib/libraryQuery");
+  assert.deepEqual(loadViews(), []);
+  window.localStorage.setItem("toiv_library_views", "[{\"bad\":1}]");
+  assert.deepEqual(loadViews(), []);
+  const views = [
+    {
+      id: "v1", name: "H3 视频",
+      query: { filter: "video", contentFilter: "all", source: "engine:h3_t2v", search: "", favOnly: false },
+    },
+  ];
+  saveViews(views);
+  assert.equal(loadViews().length, 1);
+  assert.equal(loadViews()[0].query.source, "engine:h3_t2v");
+  saveViews([]);
+  assert.deepEqual(loadViews(), []);
+});
+
+test("P2 UI 接线:变体组标题/存视图按钮/视图 chips(源码)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes("groupVariants: true"), "未开变体归组");
+  assert.ok(src.includes('folder.variant ? "同参数变体"'), "文件夹卡未区分变体组");
+  assert.ok(src.includes("存视图"), "缺存视图按钮");
+  assert.ok(src.includes("lib-view-chip"), "缺视图 chips 行");
+  assert.ok(src.includes("applyView"), "视图未接应用回调");
+});
