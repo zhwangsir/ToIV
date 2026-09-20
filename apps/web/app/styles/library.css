@@ -1931,3 +1931,55 @@
   border-bottom-width: 2px;
   border-radius: 4px;
 }
+
+/* ── 作品库 P1(2026-09-20):收藏 / 时间分组 / 元数据桥 ── */
+
+/* 收藏激活态:心形点亮(品牌色) */
+.lib-action-btn--fav { color: var(--accent, #b8f03c); }
+.lib-action-btn--fav:hover {
+  background: color-mix(in srgb, var(--accent, #b8f03c) 16%, transparent);
+}
+.lib-lb-action--fav {
+  color: var(--accent, #b8f03c);
+  border-color: color-mix(in srgb, var(--accent, #b8f03c) 40%, transparent);
+}
+
+/* 时间分组粘性标题:网格整行 + 左侧竖线标记(B3) */
+.lib-time-header {
+  grid-column: 1 / -1;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 2px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--text-secondary, rgba(235, 237, 245, 0.75));
+  background: color-mix(in srgb, var(--bg-base, #0b0d12) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-left: 3px solid var(--accent, #b8f03c);
+  border-radius: 0 var(--radius-md, 8px) var(--radius-md, 8px) 0;
+}
+.lib-time-header::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.12), transparent);
+}
+
+/* PNG 内嵌工作流徽标(B4) */
+.lib-lb-wf-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  font-size: 11px;
+  color: var(--accent, #b8f03c);
+  background: color-mix(in srgb, var(--accent, #b8f03c) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #b8f03c) 38%, transparent);
+  border-radius: var(--radius-full, 999px);
+}

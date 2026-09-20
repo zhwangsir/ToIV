@@ -20,3 +20,54 @@ test("library P0: source filter + meta badges + lightbox kbd hints", async ({ pa
   await page.keyboard.press("Escape");
   await expect(page.locator(".lib-lightbox")).toHaveCount(0);
 });
+
+test("library P1: favorites + time headers + meta copy + retry flow", async ({ page }) => {
+  test.setTimeout(150000);
+  await page.goto("/?view=library", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+
+  // 时间分组标题(今天/近 7 天等至少出现一类)
+  await expect(page.locator(".lib-time-header").first()).toBeVisible({ timeout: 20000 });
+
+  // 收藏:挑一张有产物的卡(running/无产物卡灯箱无「复制参数」入口)
+  const card = page
+    .locator(".lib-card:not(.lib-folder-card)")
+    .filter({ has: page.locator(".lib-thumb img, .lib-thumb video") })
+    .first();
+  await card.hover();
+  await card.getByRole("button", { name: /^收藏: |^取消收藏: / }).first().click();
+  await expect(page.getByRole("button", { name: /只看收藏|收藏 \d+/ })).toBeVisible();
+
+  // 灯箱:复制参数按钮 + 收藏动作
+  await card.hover();
+  await card.getByRole("button", { name: "查看大图" }).click();
+  await page.waitForSelector(".lib-lightbox", { timeout: 20000 });
+  await expect(page.getByRole("button", { name: /复制参数|已复制/ })).toBeVisible();
+  await page.screenshot({ path: "ui-sweep/library-p1-lightbox.png" });
+  await page.keyboard.press("Escape");
+
+  // 重试流:失败卡的一键重试 → 流光遮罩出现(真实重提已提交)
+  // 重试流:遮罩出现(~1.4s,POST 往返)或旧卡快速完成被移除,都算流转成功
+  const failed = page.locator(".lib-card", { has: page.locator(".lib-retry-inline") }).first();
+  if (await failed.count()) {
+    const before = await page
+      .locator(".lib-card", { has: page.locator(".lib-retry-inline") })
+      .count();
+    await failed.locator(".lib-retry-inline").click();
+    await expect
+      .poll(
+        async () => {
+          const overlay = await page.locator(".lib-retrying").count();
+          const now = await page
+            .locator(".lib-card", { has: page.locator(".lib-retry-inline") })
+            .count();
+          return overlay > 0 || now < before;
+        },
+        { timeout: 30000, intervals: [500] },
+      )
+      .toBe(true);
+    if ((await page.locator(".lib-retrying").count()) > 0) {
+      await page.screenshot({ path: "ui-sweep/library-p1-retrying.png" });
+    }
+  }
+});

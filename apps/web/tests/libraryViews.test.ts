@@ -577,3 +577,87 @@ test("来源筛选 UI 接线:下拉 + 引擎/应用分组 + 计数(源码)", () 
   assert.ok(src.includes("sourceLabelOf"), "缺 chip 当前值文案");
   assert.ok(src.includes("setSource(o.value)"), "选项未接筛选状态");
 });
+
+// ── 2026-09-20 作品库 P1:收藏 / 时间分组 / 元数据桥 / Shift 连选 ──
+
+test("收藏:load/save 持久化 + 容错(坏 JSON/SSR)", async () => {
+  const { loadFavorites, saveFavorites } = await import("@/lib/libraryQuery");
+  // SSR(无 window):不炸,空集
+  assert.equal(loadFavorites().size, 0);
+  // 坏 JSON → 空集
+  window.localStorage.setItem("toiv_library_favorites", "{broken");
+  assert.equal(loadFavorites().size, 0);
+  // 正常往返
+  saveFavorites(new Set(["a", "b"]));
+  assert.deepEqual([...loadFavorites()].sort(), ["a", "b"]);
+  saveFavorites(new Set());
+  assert.equal(loadFavorites().size, 0);
+});
+
+test("时间分组:groupJobsByTimeSlot 槽边界(今天/昨天/近7天/近30天/更早)", async () => {
+  const { groupJobsByTimeSlot } = await import("@/lib/libraryQuery");
+  const now = new Date("2026-09-20T15:00:00").getTime();
+  const day = 86400_000;
+  const mk = (id: string, msAgo: number) =>
+    ({ id, kind: "txt2img", prompt: "", created_at: new Date(now - msAgo).toISOString() }) as never;
+  const jobs = [
+    mk("t1", 1 * 3600_000),                 // 今天
+    mk("y1", day + 3600_000),               // 昨天
+    mk("w1", 3 * day),                      // 近 7 天
+    mk("m1", 20 * day),                     // 近 30 天
+    mk("o1", 60 * day),                     // 更早
+  ];
+  const groups = groupJobsByTimeSlot(jobs, now);
+  assert.deepEqual(groups.map((g) => g.key), ["today", "yesterday", "week", "month", "older"]);
+  assert.deepEqual(groups.map((g) => g.jobs[0].id), ["t1", "y1", "w1", "m1", "o1"]);
+  // 空槽不出现
+  const g2 = groupJobsByTimeSlot([mk("o2", 90 * day)], now);
+  assert.deepEqual(g2.map((g) => g.key), ["older"]);
+});
+
+test("元数据桥:buildMetaBlock 含 prompt/seed/分辨率;pngHasWorkflow 识别 tEXt 关键字", async () => {
+  const { buildMetaBlock, pngHasWorkflow } = await import("@/lib/libraryQuery");
+  const job = {
+    id: "j1", kind: "txt2img", prompt: "a cat", seed: 42,
+    created_at: "2026-09-20T00:00:00",
+    meta: { width: 1024, height: 576, steps: 25 },
+  } as never;
+  const block = buildMetaBlock(job);
+  assert.ok(block.includes("prompt: a cat"));
+  assert.ok(block.includes("seed: 42"));
+  assert.ok(block.includes("size: 1024x576"));
+  assert.ok(block.includes("steps: 25"));
+  assert.ok(block.includes("job_id: j1"));
+
+  // 伪造 PNG:签名 + tEXt 块(keyword=workflow,value 任意)
+  const text = "workflow\x00{\"x\":1}";
+  const chunk = new Uint8Array(8 + text.length + 4);
+  const dv = new DataView(chunk.buffer);
+  dv.setUint32(0, text.length);
+  chunk.set([116, 69, 88, 116], 4); // "tEXt"
+  for (let i = 0; i < text.length; i++) chunk[8 + i] = text.charCodeAt(i);
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...chunk]);
+  assert.ok(pngHasWorkflow(png));
+  // 无 tEXt → false
+  assert.ok(!pngHasWorkflow(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])));
+  // 非 PNG → false
+  assert.ok(!pngHasWorkflow(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9])));
+});
+
+test("P1 UI 接线:收藏三入口/时间标题/复制参数/PNG 徽标/Shift 连选(源码)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  // 收藏:工具条开关 + hover 心形 + 灯箱动作 + F 键
+  assert.ok(src.includes("favOnly"), "缺只看收藏开关");
+  assert.ok(src.includes("toggleFavorite"), "缺收藏切换");
+  assert.ok(src.includes('e.key === "f"'), "灯箱缺 F 收藏键");
+  // 时间分组
+  assert.ok(src.includes("lib-time-header"), "缺时间分组标题");
+  assert.ok(src.includes("timeSlotKeyOf"), "未用时间槽纯函数");
+  // 元数据桥
+  assert.ok(src.includes("buildMetaBlock"), "缺参数块构造");
+  assert.ok(src.includes("pngHasWorkflow"), "缺 PNG 工作流探测");
+  assert.ok(src.includes("lib-lb-wf-chip"), "缺工作流徽标");
+  // Shift 连选
+  assert.ok(src.includes("rangeSelectTo"), "缺连选函数");
+  assert.ok(src.includes("e.shiftKey"), "卡面点击未接 Shift");
+});

@@ -521,3 +521,121 @@ export async function deleteJobsBatch(
   }
   return { done, failed, undoTokens };
 }
+
+// ─────────────────────────────────────────────────────────────
+// 2026-09-20 作品库 P1:收藏 / 时间分组 / 元数据桥(纯函数层)
+// ─────────────────────────────────────────────────────────────
+
+const FAVORITES_KEY = "toiv_library_favorites";
+
+/** 收藏集(jobId 集合):localStorage 持久,纯前端 P1;跨端同步留 P2(preferences 表)。 */
+export function loadFavorites(): ReadonlySet<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(FAVORITES_KEY);
+    const arr: unknown = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? (arr as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function saveFavorites(ids: ReadonlySet<string>): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(FAVORITES_KEY, JSON.stringify([...ids]));
+  } catch {
+    /* 隐私模式等写不进就算了 */
+  }
+}
+
+/** 时间分组槽(排序=最新时):今天/昨天/本周/本月/更早。 */
+export type TimeSlotKey = "today" | "yesterday" | "week" | "month" | "older";
+
+export const TIME_SLOT_LABELS: Record<TimeSlotKey, string> = {
+  today: "今天",
+  yesterday: "昨天",
+  week: "近 7 天",
+  month: "近 30 天",
+  older: "更早",
+};
+
+export interface TimeGroup {
+  key: TimeSlotKey;
+  label: string;
+  jobs: JobItem[];
+}
+
+/** startOfDay(ms) 的本地时区实现(不依赖 date-fns)。 */
+function startOfLocalDay(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/** 单条作品的时间槽(今天/昨天/近7天/近30天/更早);now 可注入便于测试。 */
+export function timeSlotKeyOf(ms: number, now: number = Date.now()): TimeSlotKey {
+  const todayStart = startOfLocalDay(now);
+  if (ms >= todayStart) return "today";
+  if (ms >= todayStart - 86400_000) return "yesterday";
+  if (ms >= todayStart - 6 * 86400_000) return "week";
+  if (ms >= todayStart - 29 * 86400_000) return "month";
+  return "older";
+}
+
+/** 作品按时间槽分组(输入须已按新→旧排好序;组内保持原序)。 */
+export function groupJobsByTimeSlot(jobs: readonly JobItem[], now: number = Date.now()): TimeGroup[] {
+  const buckets: Record<TimeSlotKey, JobItem[]> = {
+    today: [], yesterday: [], week: [], month: [], older: [],
+  };
+  for (const j of jobs) {
+    buckets[timeSlotKeyOf(createdAtMs(j), now)].push(j);
+  }
+  const meta: { key: TimeSlotKey; label: string }[] = (
+    Object.entries(TIME_SLOT_LABELS) as [TimeSlotKey, string][]
+  ).map(([key, label]) => ({ key, label }));
+  return meta
+    .filter((m) => buckets[m.key].length > 0)
+    .map((m) => ({ key: m.key, label: m.label, jobs: buckets[m.key] }));
+}
+
+/** 元数据桥:复制参数块(站外重建上下文;PNG 图 ComfyUI 已内嵌 workflow,此为显式文本桥)。 */
+export function buildMetaBlock(job: JobItem): string {
+  const lines = [
+    `# ToIV 作品参数 · ${job.kind}`,
+    `prompt: ${job.prompt || "(无)"}`,
+    `seed: ${job.seed}`,
+  ];
+  if (job.meta?.width && job.meta?.height) {
+    lines.push(`size: ${job.meta.width}x${job.meta.height}`);
+  }
+  if (typeof job.meta?.steps === "number") lines.push(`steps: ${job.meta.steps}`);
+  if (typeof job.duration === "number") lines.push(`duration: ${job.duration}s`);
+  lines.push(`created_at: ${job.created_at}`);
+  lines.push(`job_id: ${job.id}`);
+  return lines.join("\n");
+}
+
+/** PNG 是否内嵌 ComfyUI workflow/prompt(tEXt/zTXt 块关键字探测)。 */
+export function pngHasWorkflow(bytes: Uint8Array): boolean {
+  // PNG 签名 8 字节;其后为 [len(4) type(4) data(len) crc(4)] 链
+  if (bytes.length < 8) return false;
+  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  for (let i = 0; i < 8; i++) if (bytes[i] !== sig[i]) return false;
+  const decoder = new TextDecoder();
+  let off = 8;
+  const needles = ["workflow", "prompt"];
+  while (off + 8 <= bytes.length) {
+    const len = ((bytes[off] << 24) | (bytes[off + 1] << 16) | (bytes[off + 2] << 8) | bytes[off + 3]) >>> 0;
+    const type = decoder.decode(bytes.subarray(off + 4, off + 8));
+    if (type === "tEXt" || type === "zTXt" || type === "iTXt") {
+      // 只扫块头 4KB 关键字,避免大块全解码
+      const head = bytes.subarray(off + 8, Math.min(off + 8 + len, off + 8 + 4096));
+      const text = decoder.decode(head).toLowerCase();
+      if (needles.some((n) => text.includes(n))) return true;
+    }
+    off += 8 + len + 4;
+    if (type === "IEND") break;
+  }
+  return false;
+}

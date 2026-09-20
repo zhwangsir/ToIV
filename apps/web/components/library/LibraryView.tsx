@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { cleanupFailedJobs, deleteJob, fetchJobCount, fetchJobsPage, imageThumbUrl, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, listJobs, permanentDeleteJob, purgeTrash, rerunJob, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
@@ -18,8 +18,14 @@ import {
   formatTime,
   groupLibraryEntries,
   isVideoKind,
+  buildMetaBlock,
   canRerun,
   kindLabel,
+  loadFavorites,
+  pngHasWorkflow,
+  saveFavorites,
+  timeSlotKeyOf,
+  TIME_SLOT_LABELS,
   kindToFilter,
   kindsQueryForFilter,
   loadDensity,
@@ -274,6 +280,18 @@ export function LibraryView(props?: LibraryViewProps) {
   // 重试状态机(2026-09-20 A1):jobId → 新 prompt_id(轮询中)
   const [retrying, setRetrying] = useState<ReadonlyMap<string, string>>(new Map());
   const [sourceOpen, setSourceOpen] = useState(false);
+  // 收藏(P1 A5):localStorage 持久;只看收藏开关;跨端同步留 P2
+  const [favorites, setFavorites] = useState<ReadonlySet<string>>(() => loadFavorites());
+  const [favOnly, setFavOnly] = useState(false);
+  const toggleFavorite = useCallback((jobId: string) => {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
+      saveFavorites(next);
+      return next;
+    });
+  }, []);
   // 来源弹层 Esc 关闭(与灯箱同惯例)
   useEffect(() => {
     if (!sourceOpen) return;
@@ -409,7 +427,7 @@ export function LibraryView(props?: LibraryViewProps) {
   }, []);
 
   // 查询管线(纯函数,见 lib/libraryQuery):内容分级 → 类型 → 搜索 → 排序
-  const filtered = useMemo(
+  const baseFiltered = useMemo(
     () =>
       applyLibraryQuery(jobs ?? [], {
         filter,
@@ -419,6 +437,12 @@ export function LibraryView(props?: LibraryViewProps) {
         source,
       }),
     [jobs, filter, contentFilter, search, sort, source],
+  );
+
+  // 只看收藏(P1 A5):组件态收藏集过滤(集合来自 localStorage,不进纯函数)
+  const filtered = useMemo(
+    () => (favOnly ? baseFiltered.filter((j) => favorites.has(j.id)) : baseFiltered),
+    [baseFiltered, favOnly, favorites],
   );
 
   // 来源选项(A2):引擎族=已加载作品里的 kind 去重(带计数);应用=app_id 去重。
@@ -514,6 +538,30 @@ export function LibraryView(props?: LibraryViewProps) {
     () => entries.slice(Math.max(0, visibleCount - MAX_MOUNTED), visibleCount),
     [entries, visibleCount],
   );
+
+  // 时间分组头部(B3):仅「最新」排序生效;文件夹按最新成员时间归槽;
+  // Map<可视索引, 槽文案>,槽变化处插粘性组标题(纯展示,不影响条目 key/穿梭)。
+  const timeHeaderAt = useMemo(() => {
+    const m = new Map<number, string>();
+    if (sort !== "newest") return m;
+    let prevSlot: string | null = null;
+    const msOf = (iso: string) => {
+      const t = Date.parse(iso);
+      return Number.isNaN(t) ? 0 : t;
+    };
+    visibleEntries.forEach((entry, i) => {
+      const t =
+        entry.type === "job"
+          ? msOf(entry.job.created_at)
+          : Math.max(...entry.folder.members.map((mm) => msOf(mm.created_at)));
+      const slot = timeSlotKeyOf(t);
+      if (slot !== prevSlot) {
+        m.set(i, TIME_SLOT_LABELS[slot]);
+        prevSlot = slot;
+      }
+    });
+    return m;
+  }, [visibleEntries, sort]);
   const hasMore = entries.length > visibleCount;
 
   // 统一推进一步:客户端已加载的先看(扩 visibleCount),看完了再拉服务端下一页
@@ -621,12 +669,27 @@ export function LibraryView(props?: LibraryViewProps) {
   // ── 批量管理 ──
 
   const toggleSelect = (jobId: string) => {
+    batchAnchorRef.current = jobId;
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(jobId)) next.delete(jobId);
       else next.add(jobId);
       return next;
     });
+  };
+
+  // Shift 连选(B1 2026-09-20):从上次点选锚点连选到当前(仅普通作品卡,跳过文件夹)
+  const batchAnchorRef = useRef<string | null>(null);
+  const rangeSelectTo = (jobId: string) => {
+    const ids = visibleEntries.flatMap((e) => (e.type === "job" ? [e.job.id] : []));
+    const from = batchAnchorRef.current ? ids.indexOf(batchAnchorRef.current) : -1;
+    const to = ids.indexOf(jobId);
+    if (from < 0 || to < 0 || from === to) {
+      toggleSelect(jobId);
+      return;
+    }
+    const [lo, hi] = from < to ? [from, to] : [to, from];
+    setSelectedIds((prev) => new Set([...prev, ...ids.slice(lo, hi + 1)]));
   };
 
   const exitBatchMode = () => {
@@ -1149,6 +1212,17 @@ export function LibraryView(props?: LibraryViewProps) {
           )}
         </div>
 
+        <button
+          type="button"
+          className={`lib-chip lib-chip--sm${favOnly ? " is-active" : ""}`}
+          aria-pressed={favOnly}
+          title="只看收藏的作品"
+          onClick={() => { setFavOnly((v) => !v); resetPage(); }}
+        >
+          <Icon name="heart" size={12} />
+          收藏{favorites.size > 0 ? ` ${favorites.size}` : ""}
+        </button>
+
         <div className="lib-toolbar-cluster">
           <span className="lib-toolbar-divider" aria-hidden="true" />
           <div className="lib-seg" role="group" aria-label="排序方式">
@@ -1541,14 +1615,22 @@ export function LibraryView(props?: LibraryViewProps) {
         {!error && !loading && !openFolder && !openStackJob && !libraryEmpty && !resultEmpty && (
           <>
             <div className="lib-grid">
-              {visibleEntries.map((entry) => {
+              {visibleEntries.map((entry, entryIdx) => {
+              // 时间分组粘性标题(B3):槽变化处在网格里占满整行
+              const timeHeader = timeHeaderAt.get(entryIdx);
               // 文件夹卡(内容分组):同批成员折叠为一卡,封面=首张产物缩略图,点击进入下钻
               if (entry.type === "batch") {
                 const folder = entry.folder;
                 const cover = folderCover(folder);
                 const coverDone = cover.status === "done" && cover.results?.length > 0;
                 return (
-                  <article key={`batch-${folder.batchId}`} className="lib-card lib-folder-card">
+                  <Fragment key={`batch-${folder.batchId}`}>
+                  {timeHeader && (
+                    <div className="lib-time-header" role="separator" aria-label={timeHeader}>
+                      {timeHeader}
+                    </div>
+                  )}
+                  <article className="lib-card lib-folder-card">
                     <div className="lib-thumb">
                       <button
                         type="button"
@@ -1576,6 +1658,7 @@ export function LibraryView(props?: LibraryViewProps) {
                       </div>
                     </div>
                   </article>
+                  </Fragment>
                 );
               }
               const job = entry.job;
@@ -1594,8 +1677,13 @@ export function LibraryView(props?: LibraryViewProps) {
               // 2026-08-16 视图批 1:标题位优先语义首段,后端写入的元信息串降级为副标
               const cardText = splitCardTitle(job);
               return (
+                <Fragment key={job.id}>
+                {timeHeader && (
+                  <div className="lib-time-header" role="separator" aria-label={timeHeader}>
+                    {timeHeader}
+                  </div>
+                )}
                 <article
-                  key={job.id}
                   className={`lib-card${isVideo ? " is-video" : ""}${deletingId === job.id ? " is-deleting" : ""}${isSelected ? " is-selected" : ""}${isStack ? " is-stack" : ""}`}
                 >
                   <div className={`lib-thumb${job.status === "running" && !hasResult ? " is-running" : ""}`}>
@@ -1613,8 +1701,11 @@ export function LibraryView(props?: LibraryViewProps) {
                             : `预览作品: ${job.prompt || "无提示词"}`
                       }
                       aria-pressed={batchMode ? isSelected : undefined}
-                      onClick={() => {
-                        if (batchMode) toggleSelect(job.id);
+                      onClick={(e) => {
+                        if (batchMode) {
+                          if (e.shiftKey) rangeSelectTo(job.id);
+                          else toggleSelect(job.id);
+                        }
                         else if (isBlurred) toggleReveal(job.id);
                         else if (isStack) setOpenStackJobId(job.id);
                         else openLightbox(job);
@@ -1679,6 +1770,19 @@ export function LibraryView(props?: LibraryViewProps) {
                         className="lib-actions"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        <button
+                          type="button"
+                          className={`lib-action-btn${favorites.has(job.id) ? " lib-action-btn--fav" : ""}`}
+                          title={favorites.has(job.id) ? "取消收藏" : "收藏"}
+                          aria-label={favorites.has(job.id) ? `取消收藏: ${job.prompt || "无提示词"}` : `收藏: ${job.prompt || "无提示词"}`}
+                          aria-pressed={favorites.has(job.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(job.id);
+                          }}
+                        >
+                          <Icon name="heart" size={14} />
+                        </button>
                         <button
                           type="button"
                           className="lib-action-btn"
@@ -1859,6 +1963,7 @@ export function LibraryView(props?: LibraryViewProps) {
                     </div>
                   </div>
                 </article>
+                </Fragment>
               );
             })}
             </div>
@@ -1951,6 +2056,8 @@ export function LibraryView(props?: LibraryViewProps) {
           onDelete={handleDelete}
           deletingId={deletingId}
           onRetry={handleRetry}
+          favorites={favorites}
+          onToggleFav={(j) => toggleFavorite(j.id)}
           retryingId={
             lightboxIdx !== null && retrying.has(lightboxEntries[lightboxIdx]?.job.id ?? "")
               ? lightboxEntries[lightboxIdx].job.id
@@ -2494,6 +2601,9 @@ interface LibraryLightboxProps {
   /** 一键重试(2026-09-20 A1):失败且有快照时显示;retryingId 时转圈禁用 */
   onRetry?: (job: JobItem) => void;
   retryingId?: string | null;
+  /** 收藏(P1 A5):favorites 为当前收藏集;onToggleFav 切换 */
+  favorites?: ReadonlySet<string>;
+  onToggleFav?: (job: JobItem) => void;
   /** 存风格 Popover / 删除 Modal 打开时,灯箱让出 Esc/方向键(避免一按两关) */
   dialogsOpen: boolean;
   /** 回收站预览:只看不改,隐藏复用/存风格/删除/3D 操作,避免误恢复或加厚删除 */
@@ -2512,6 +2622,8 @@ function LibraryLightbox({
   deletingId = null,
   onRetry,
   retryingId = null,
+  favorites,
+  onToggleFav,
   dialogsOpen,
   previewOnly = false,
 }: LibraryLightboxProps) {
@@ -2529,6 +2641,27 @@ function LibraryLightbox({
   useEffect(() => {
     setMediaFailed(false);
   }, [mediaUrl]);
+
+  // PNG 内嵌 ComfyUI workflow 反显(B4):点开图作品时探测 tEXt/zTXt 关键字,缓存于组件态
+  const [pngWorkflow, setPngWorkflow] = useState<boolean | null>(null);
+  useEffect(() => {
+    setPngWorkflow(null);
+    if (!hasResult || mediaKind !== "image" || !mediaUrl) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(mediaUrl);
+        if (!res.ok || cancelled) return;
+        const buf = new Uint8Array(await res.arrayBuffer());
+        if (!cancelled) setPngWorkflow(pngHasWorkflow(buf));
+      } catch {
+        /* 探测失败=不显示徽标 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mediaUrl, hasResult, mediaKind]);
 
   // 打开期间锁定 body 滚动(与 ui/Modal 同一模式;overscroll-behavior 在 CSS 侧拦截滚轮链)
   useEffect(() => {
@@ -2556,11 +2689,24 @@ function LibraryLightbox({
         a.click();
       } else if ((e.key === "r" || e.key === "R") && onRetry && canRerun(job) && retryingId !== job.id) {
         onRetry(job);
+      } else if ((e.key === "f" || e.key === "F") && onToggleFav) {
+        onToggleFav(job);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [dialogsOpen, index, entries.length, onClose, onIndex, hasResult, mediaUrl, onRetry, retryingId, job]);
+  }, [dialogsOpen, index, entries.length, onClose, onIndex, hasResult, mediaUrl, onRetry, retryingId, onToggleFav, job]);
+
+  const copyMetaBlock = async () => {
+    try {
+      await navigator.clipboard.writeText(buildMetaBlock(job));
+      setMetaCopied(true);
+      setTimeout(() => setMetaCopied(false), 1600);
+    } catch {
+      /* 剪贴板不可用时静默(不打扰浏览) */
+    }
+  };
+  const [metaCopied, setMetaCopied] = useState(false);
 
   let createdFull = job.created_at;
   try {
@@ -2706,6 +2852,14 @@ function LibraryLightbox({
                 <span className="lib-lb-time-rel">({formatTime(job.created_at)})</span>
               </dd>
             </div>
+            {pngWorkflow === true && (
+              <div className="lib-lb-meta-row">
+                <dt>工作流</dt>
+                <dd>
+                  <span className="lib-lb-wf-chip">已内嵌 ComfyUI 工作流</span>
+                </dd>
+              </div>
+            )}
             <div className="lib-lb-meta-row">
               <dt>Seed</dt>
               <dd className="lib-lb-num">{job.seed}</dd>
@@ -2750,6 +2904,28 @@ function LibraryLightbox({
                 <Icon name="download" size={14} />
                 下载
               </a>
+            )}
+            {!previewOnly && onToggleFav && (
+            <button
+              type="button"
+              className={`lib-lb-action${favorites?.has(job.id) ? " lib-lb-action--fav" : ""}`}
+              onClick={() => onToggleFav(job)}
+              title="收藏 / 取消收藏(F)"
+            >
+              <Icon name="heart" size={14} />
+              {favorites?.has(job.id) ? "已收藏" : "收藏"}
+            </button>
+            )}
+            {hasResult && (
+            <button
+              type="button"
+              className="lib-lb-action"
+              onClick={() => void copyMetaBlock()}
+              title="复制参数块(站外重建上下文)"
+            >
+              <Icon name="filecode" size={14} />
+              {metaCopied ? "已复制" : "复制参数"}
+            </button>
             )}
             {!previewOnly && onRetry && canRerun(job) && (
             <button
@@ -2801,6 +2977,7 @@ function LibraryLightbox({
             <span><kbd>Esc</kbd> 关闭</span>
             {hasResult && <span><kbd>D</kbd> 下载</span>}
             {!previewOnly && onRetry && canRerun(job) && <span><kbd>R</kbd> 重试</span>}
+            {!previewOnly && onToggleFav && <span><kbd>F</kbd> 收藏</span>}
           </div>
         </aside>
       </div>
