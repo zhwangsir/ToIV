@@ -547,7 +547,10 @@ export interface BoardItemOut {
   sort_order: number;
   note: string;
   shot_text: string;
-  job: JobItem;
+  /** 分镜结构化草稿 JSON(LLM 拆镜 ShotDraft;占位/普通行可能为空串) */
+  shot_meta: string;
+  /** null = 占位分镜行(尚未挂作品) */
+  job: JobItem | null;
 }
 
 export async function fetchBoards(): Promise<BoardOut[]> {
@@ -566,6 +569,30 @@ export async function createBoard(name: string, description = ""): Promise<Board
   return res.json();
 }
 
+/** 分镜板 v2(M1):LLM 拆剧本 → 建板+占位分镜行(L3 层实测 20-30s,前端放宽到 120s)。 */
+export async function createBoardFromScript(input: {
+  script: string;
+  num_shots?: number;
+  style?: string;
+  name?: string;
+}): Promise<{ board: BoardOut; item_count: number }> {
+  const res = await apiFetch("/api/boards/from-script", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+    signal: AbortSignal.timeout(120_000),
+  });
+  if (!res.ok) await raiseApiError(res, "剧本拆镜失败");
+  return res.json();
+}
+
+/** 整板导出 drama_studio 格式 JSON 文档(组件侧自行 Blob 下载)。 */
+export async function exportBoard(boardId: string): Promise<unknown> {
+  const res = await apiFetch(`/api/boards/${boardId}/export`, { headers: authHeaders() });
+  if (!res.ok) await raiseApiError(res, "导出画板失败");
+  return res.json();
+}
+
 export async function deleteBoard(boardId: string): Promise<void> {
   const res = await apiFetch(`/api/boards/${boardId}`, {
     method: "DELETE",
@@ -580,10 +607,10 @@ export async function fetchBoardItems(boardId: string): Promise<BoardItemOut[]> 
   return res.json();
 }
 
-/** 整组替换成员(增删+重排一次写)。 */
+/** 整组替换成员(增删+重排一次写;job_id 空串=占位分镜行;shot_meta 必须回带防丢)。 */
 export async function putBoardItems(
   boardId: string,
-  items: { job_id: string; note?: string; shot_text?: string }[],
+  items: { job_id: string; note?: string; shot_text?: string; shot_meta?: string }[],
 ): Promise<number> {
   const res = await apiFetch(`/api/boards/${boardId}/items`, {
     method: "PUT",

@@ -10,7 +10,7 @@ test.beforeEach(({ page }) => {
 test("library P0: source filter + meta badges + lightbox kbd hints", async ({ page }) => {
   test.setTimeout(120000);
   await page.goto("/?view=library", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+  await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
   // 来源筛选下拉
   await page.getByRole("button", { name: /来源/ }).first().click();
   await expect(page.locator(".lib-source-pop")).toBeVisible();
@@ -30,7 +30,7 @@ test("library P0: source filter + meta badges + lightbox kbd hints", async ({ pa
 test("library P1: favorites + time headers + meta copy + retry flow", async ({ page }) => {
   test.setTimeout(150000);
   await page.goto("/?view=library", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+  await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
 
   // 时间分组标题(今天/近 7 天等至少出现一类)
   await expect(page.locator(".lib-time-header").first()).toBeVisible({ timeout: 20000 });
@@ -81,7 +81,7 @@ test("library P1: favorites + time headers + meta copy + retry flow", async ({ p
 test("library P2: variant group folder + saved view", async ({ page }) => {
   test.setTimeout(120000);
   await page.goto("/?view=library", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+  await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
 
   // 变体组:同 kind+seed+prompt 的作业折成「同参数变体」文件夹(等卡片挂载,隧道慢)
   const variantFolder = page.locator(".lib-folder-card", { hasText: "同参数变体" }).first();
@@ -105,7 +105,7 @@ test("library P2: variant group folder + saved view", async ({ page }) => {
 test("library P3: use-as-input carries work into studio slot", async ({ page }) => {
   test.setTimeout(150000);
   await page.goto("/?view=library", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+  await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
 
   // 挑一张有产物的图像卡 → hover「用作输入」→ 跳图片生成台
   const card = page
@@ -115,7 +115,7 @@ test("library P3: use-as-input carries work into studio slot", async ({ page }) 
   await card.hover();
   await card.getByRole("button", { name: /^用作输入: / }).click();
   // 生成台挂载后:文生图无图槽(暂存保留),切到「图生图」→ 自动填入 + 提示
-  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+  await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
   await page.getByText("图生图", { exact: true }).first().click();
   await expect(page.getByText(/已填入参考图/).first()).toBeVisible({ timeout: 30000 });
   await page.screenshot({ path: "ui-sweep/library-p3-use-as-input.png" });
@@ -125,7 +125,7 @@ test("remix link: open shared link imports params into studio", async ({ page })
   test.setTimeout(150000);
   // 取一个真实完成的 txt2img 作业构造同款链接(与 lib 同构编码,不依赖 window)
   await page.goto("/?view=library", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+  await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
   const token = await page.evaluate(() => localStorage.getItem("toiv_token") ?? "");
   const res = await page.request.get("/api/jobs?limit=5&status=done&kind=txt2img", {
     headers: { Authorization: `Bearer ${token}` },
@@ -139,7 +139,7 @@ test("remix link: open shared link imports params into studio", async ({ page })
   const payload = buildRemixPayload(job as never);
   const link = `/?view=image&remix=${encodeRemix(payload)}`;
   await page.goto(link, { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+  await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
   await expect(page.getByText(/同款参数已导入|同款提示词已导入/).first()).toBeVisible({ timeout: 30000 });
   await page.screenshot({ path: "ui-sweep/remix-import.png" });
 });
@@ -147,7 +147,7 @@ test("remix link: open shared link imports params into studio", async ({ page })
 test("boards: list / detail / add work via picker", async ({ page }) => {
   test.setTimeout(150000);
   await page.goto("/?view=library", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.innerText.length > 100, { timeout: 60000 });
+  await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
 
   // 板列表:e2e 验证板(API 预建)可见
   await page.getByRole("button", { name: "画板" }).click();

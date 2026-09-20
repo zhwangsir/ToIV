@@ -65,14 +65,18 @@ class Board(SQLModel, table=True):
 
 
 class BoardItem(SQLModel, table=True):
-    """画板成员:作品挂进板;note/shot_text 为 v2 分镜板预留(先持久化不强制用)。"""
+    """画板成员:作品挂进板;note/shot_text/shot_meta 为 v2 分镜板服务。
+
+    job_id 空串 = 占位分镜行(LLM 拆剧本产出、尚未挂作品的行)。
+    """
 
     id: int | None = Field(default=None, primary_key=True)
     board_id: str = Field(index=True)
     job_id: str = Field(index=True)
     sort_order: int = 0
     note: str = ""
-    shot_text: str = ""  # v2 分镜板:每行的分镜文本(漫剧线对接)
+    shot_text: str = ""  # v2 分镜板:每行的人读分镜文本(漫剧线对接)
+    shot_meta: str = ""  # v2 分镜板:LLM 拆镜结构化草稿 JSON(ShotDraft,供导出/重生成)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

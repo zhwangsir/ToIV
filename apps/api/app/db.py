@@ -101,6 +101,8 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("app", "smoke_cls", "smoke_cls VARCHAR NOT NULL DEFAULT ''"),
     ("app", "smoke_error", "smoke_error VARCHAR NOT NULL DEFAULT ''"),
     ("app", "smoke_at", "smoke_at TIMESTAMP"),
+    # 分镜板 v2(M1,2026-09-21):LLM 拆镜结构化草稿 JSON(ShotDraft),既有 boarditem 表补列
+    ("boarditem", "shot_meta", "shot_meta VARCHAR NOT NULL DEFAULT ''"),
 )
 
 # 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。

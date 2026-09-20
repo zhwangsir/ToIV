@@ -816,11 +816,16 @@ export function LibraryView(props?: LibraryViewProps) {
       if (!boardPickerJob) return;
       try {
         const cur = await fetchBoardItems(board.id);
-        if (cur.some((it) => it.job.id === boardPickerJob.id)) {
+        if (cur.some((it) => it.job?.id === boardPickerJob.id)) {
           toast.info(`已在画板「${board.name}」中`);
         } else {
           await putBoardItems(board.id, [
-            ...cur.map((it) => ({ job_id: it.job.id, note: it.note, shot_text: it.shot_text })),
+            ...cur.map((it) => ({
+              job_id: it.job?.id ?? "",
+              note: it.note,
+              shot_text: it.shot_text,
+              shot_meta: it.shot_meta,
+            })),
             { job_id: boardPickerJob.id },
           ]);
           toast.success(`已移入画板「${board.name}」`);
@@ -1234,17 +1239,63 @@ export function LibraryView(props?: LibraryViewProps) {
     resetPage();
   };
 
+  // 沉浸查看器:Frame.io 式左舞台 + 右元信息面板;←/→ 穿梭 + 快捷操作;
+  // 文件夹下钻内点开成员时穿梭范围限定为该组成员(lightboxScope)。
+  // portal 到 body:.view-stage 的 view-transition-name 会创建层叠上下文
+  // (自身层级 auto≈0),fixed 灯箱困于其中时被根层级的账户按钮(z-100)反压
+  // 盖住右上角关闭钮(2026-08-27 实证);portal 逃脱后 z-modal(300) 在根级生效。
+  // 变量提升(2026-09-21 修复):showBoards 早退曾致板详情点成员不开灯箱且 lightboxIdx
+  // 残留(返回作品库后灯箱突弹)——条件视图分支也要能挂载灯箱。
+  const lightboxPortal =
+    lightboxIdx !== null && lightboxEntries[lightboxIdx]
+      ? createPortal(
+          <LibraryLightbox
+            entries={lightboxEntries}
+            index={lightboxIdx}
+            onClose={closeLightbox}
+            onIndex={setLightboxIdx}
+            onSaveStyle={openStylePopover}
+            onReuse={reusePromptAsDraft}
+            onOpenApp={(j) => {
+              if (j.app_id) {
+                closeLightbox();
+                onNavigate?.(`market?app=${j.app_id}`);
+              }
+            }}
+            onDelete={handleDelete}
+            deletingId={deletingId}
+            onRetry={handleRetry}
+            onUseAsInput={handleUseAsInput}
+            onMakeAnother={handleMakeAnother}
+            onOpenJobById={openJobById}
+            onShareRemix={handleShareRemix}
+            favorites={favorites}
+            onToggleFav={(j) => toggleFavorite(j.id)}
+            retryingId={
+              retrying.has(lightboxEntries[lightboxIdx]?.job.id ?? "")
+                ? lightboxEntries[lightboxIdx].job.id
+                : null
+            }
+            dialogsOpen={!!styleTarget || !!confirmDelete || !!confirmDeleteStyle || confirmBatchDelete || !!confirmUpscale}
+          />,
+          document.body,
+        )
+      : null;
+
   // 回收站视图(组件内条件渲染,不动路由;恢复后失效缓存并刷新主列表)
   if (showBoards) {
     return (
-      <BoardsView
-        onBack={() => setShowBoards(false)}
-        onOpenJob={(memberJobs, idx) => {
-          setLightboxScope(memberJobs);
-          setLightboxIdx(idx);
-        }}
-        onUseAsInput={handleUseAsInput}
-      />
+      <>
+        <BoardsView
+          onBack={() => setShowBoards(false)}
+          onOpenJob={(memberJobs, idx) => {
+            setLightboxScope(memberJobs);
+            setLightboxIdx(idx);
+          }}
+          onUseAsInput={handleUseAsInput}
+        />
+        {lightboxPortal}
+      </>
     );
   }
 
@@ -2392,43 +2443,8 @@ export function LibraryView(props?: LibraryViewProps) {
         </div>
       )}
 
-      {/* 沉浸查看器:Frame.io 式左舞台 + 右元信息面板;←/→ 穿梭 + 快捷操作;
-          文件夹下钻内点开成员时穿梭范围限定为该组成员(lightboxScope)。
-          portal 到 body:.view-stage 的 view-transition-name 会创建层叠上下文
-          (自身层级 auto≈0),fixed 灯箱困于其中时被根层级的账户按钮(z-100)反压
-          盖住右上角关闭钮(2026-08-27 实证);portal 逃脱后 z-modal(300) 在根级生效 */}
-      {lightboxIdx !== null && lightboxEntries[lightboxIdx] && createPortal(
-        <LibraryLightbox
-          entries={lightboxEntries}
-          index={lightboxIdx}
-          onClose={closeLightbox}
-          onIndex={setLightboxIdx}
-          onSaveStyle={openStylePopover}
-          onReuse={reusePromptAsDraft}
-          onOpenApp={(j) => {
-            if (j.app_id) {
-              closeLightbox();
-              onNavigate?.(`market?app=${j.app_id}`);
-            }
-          }}
-          onDelete={handleDelete}
-          deletingId={deletingId}
-          onRetry={handleRetry}
-          onUseAsInput={handleUseAsInput}
-          onMakeAnother={handleMakeAnother}
-          onOpenJobById={openJobById}
-          onShareRemix={handleShareRemix}
-          favorites={favorites}
-          onToggleFav={(j) => toggleFavorite(j.id)}
-          retryingId={
-            lightboxIdx !== null && retrying.has(lightboxEntries[lightboxIdx]?.job.id ?? "")
-              ? lightboxEntries[lightboxIdx].job.id
-              : null
-          }
-          dialogsOpen={!!styleTarget || !!confirmDelete || !!confirmDeleteStyle || confirmBatchDelete || !!confirmUpscale}
-        />,
-        document.body,
-      )}
+      {/* 沉浸查看器灯箱:portal 变量已提升至 showBoards 早退之前(条件视图内同样挂载) */}
+      {lightboxPortal}
 
       {/* 移入画板选择器(2026-09-21):作品 → 目标板(无板时引导新建) */}
       {boardPickerJob && (

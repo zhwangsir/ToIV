@@ -905,3 +905,12 @@ export const createBoard = async (name: string) => ({
 export const deleteBoard = async () => undefined;
 export const fetchBoardItems = async () => [];
 export const putBoardItems = async (_b: string, items: unknown[]) => items.length;
+// 分镜板 v2(M1)替身
+export const createBoardFromScript = async (input: { name?: string }) => ({
+  board: {
+    id: "b-script", name: input.name ?? "漫剧分镜", description: "", cover_job_id: "",
+    cover_url: "", item_count: 0, sort: 0, created_at: "",
+  },
+  item_count: 0,
+});
+export const exportBoard = async () => ({ title: "", characters: [], shots: [], narration: [] });
