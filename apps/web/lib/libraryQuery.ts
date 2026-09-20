@@ -287,6 +287,8 @@ export interface LibraryQuery {
   /** prompt 搜索词(纯客户端,大小写不敏感,首尾空白忽略)。 */
   search: string;
   sort: SortKey;
+  /** 来源筛选(2026-09-20 作品库优化 A2):空=全部;engine:{kind}=引擎族;app:{appId}=来源应用。 */
+  source?: string;
 }
 
 export const DEFAULT_LIBRARY_QUERY: LibraryQuery = {
@@ -316,6 +318,17 @@ export function applyLibraryQuery(jobs: readonly JobItem[], q: LibraryQuery): Jo
     const filter = q.filter;
     out = out.filter((j) => kindToFilter(j.kind) === filter);
   }
+  // ②.5 来源维度:引擎族按 kind 精确;应用按 app_id 精确(纯前端,数据已随列表)
+  if (q.source) {
+    const src = q.source;
+    out = out.filter((j) =>
+      src.startsWith("engine:")
+        ? j.kind === src.slice(7)
+        : src.startsWith("app:")
+          ? !!j.app_id && j.app_id === src.slice(4)
+          : true,
+    );
+  }
   // ③ prompt 搜索(大小写不敏感子串)
   const needle = q.search.trim().toLowerCase();
   if (needle) {
@@ -325,6 +338,25 @@ export function applyLibraryQuery(jobs: readonly JobItem[], q: LibraryQuery): Jo
   const dir = q.sort === "oldest" ? 1 : -1;
   out.sort((a, b) => (createdAtMs(a) - createdAtMs(b)) * dir);
   return out;
+}
+
+/** 支持「重试」的 kind 白名单(2026-09-20,与后端 _rerun_registry 镜像)。
+ *  含上传媒体但后端原生支持解析的 wan_i2v/img2img 等在内;不在表内的
+ *  (h3_i2v/longcat_i2v/应用运行等)前端不显示重试按钮,引导「复用提示词」。 */
+export const RERUNNABLE_KINDS: ReadonlySet<string> = new Set([
+  "txt2img", "nsfw-txt2img", "img2img", "nsfw-img2img",
+  "controlnet", "upscale", "facedetailer", "raw",
+  "removebg", "inpaint", "wan_t2v", "wan_i2v",
+  "hunyuan3d", "ace_audio", "audio",
+  "manju_lipsync", "manju_shot_txt2img", "manju_shot_ipadapter",
+  "video_upscale",
+  "h3_t2v", "h3_multishot", "longcat_t2v", "ovi_t2v", "ltx_t2v",
+]);
+
+/** 作品可否一键重试(白名单 ∧ 有参数快照)。 */
+export function canRerun(j: JobItem): boolean {
+  return RERUNNABLE_KINDS.has(j.kind) && !!j.has_params && j.status !== "queued"
+    && j.status !== "running" && j.status !== "held";
 }
 
 /** 各类型计数(chip 徽标):基于内容分级后的集合,未识别 kind 只计入「全部」。 */

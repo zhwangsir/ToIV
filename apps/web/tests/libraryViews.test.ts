@@ -20,6 +20,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   applyLibraryQuery,
+  canRerun,
   countByFilter,
   DEFAULT_LIBRARY_QUERY,
   deleteJobsBatch,
@@ -524,4 +525,55 @@ test("视频卡提速:海报帧 + hoverOnly(不再整屏拉视频元数据)(源�
   );
   const lazy = readFileSync(join(webRoot, "components/ui/LazyVideo.tsx"), "utf-8");
   assert.ok(lazy.includes("hoverOnly"), "LazyVideo 缺 hoverOnly 档位");
+});
+
+// ── 2026-09-20 作品库优化 P0:来源筛选 / 重试白名单 ──
+
+test("来源筛选:applyLibraryQuery source 维度(引擎族/应用)", () => {
+  const q = applyLibraryQuery;
+  const mk = (id: string, kind: string, appId = "") =>
+    ({ id, kind, app_id: appId, prompt: "p" }) as never;
+  const jobs = [
+    mk("a", "txt2img"),
+    mk("b", "h3_t2v"),
+    mk("c", "h3_t2v"),
+    mk("d", "app_video", "rh-x"),
+    mk("e", "app_image", "rh-x"),
+  ];
+  const base = { filter: "all", contentFilter: "all", search: "", sort: "newest" } as never;
+  assert.equal(q(jobs, { ...base, source: "" }).length, 5);
+  assert.deepEqual(
+    q(jobs, { ...base, source: "engine:h3_t2v" }).map((j) => j.id), ["b", "c"]);
+  assert.deepEqual(
+    q(jobs, { ...base, source: "app:rh-x" }).map((j) => j.id), ["d", "e"]);
+  assert.deepEqual(q(jobs, { ...base, source: "engine:missing" }).length, 0);
+});
+
+test("重试白名单:canRerun 仅白名单 kind 且有快照且非进行中", () => {
+  const mk = (kind: string, has = true, status = "error") =>
+    ({ kind, has_params: has, status }) as never;
+  assert.ok(canRerun(mk("txt2img")));
+  assert.ok(canRerun(mk("h3_t2v")));
+  assert.ok(canRerun(mk("longcat_t2v")));
+  assert.ok(!canRerun(mk("h3_i2v")), "h3_i2v 媒体句柄会失效,不可重试");
+  assert.ok(!canRerun(mk("app_video")), "应用运行不可重试");
+  assert.ok(!canRerun(mk("txt2img", false)), "无快照不可重试");
+  assert.ok(!canRerun(mk("txt2img", true, "running")), "进行中不可重试");
+});
+
+test("重试 UI 接线:卡面内联按钮 + hover 操作 + 灯箱按钮 + 快捷键提示(源码)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes("lib-retry-inline"), "失败卡缺内联重试按钮");
+  assert.ok(src.includes("lib-retrying"), "缺重试中遮罩");
+  assert.ok(src.includes('rerunJob(job.id, { seed_mode: "keep" })'), "未接 rerun 接口");
+  assert.ok(src.includes("lib-lb-kbd-hints"), "灯箱缺快捷键提示条");
+  assert.ok(src.includes('"D"') && src.includes('"R"'), "快捷键缺 D/R 扩展");
+});
+
+test("来源筛选 UI 接线:下拉 + 引擎/应用分组 + 计数(源码)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes("lib-source-pop"), "缺来源下拉弹层");
+  assert.ok(src.includes('lib-source-group'), "缺引擎/应用分组");
+  assert.ok(src.includes("sourceLabelOf"), "缺 chip 当前值文案");
+  assert.ok(src.includes("setSource(o.value)"), "选项未接筛选状态");
 });

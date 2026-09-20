@@ -439,6 +439,10 @@ export const fetchJobsPage = async (_offset: number, _limit = JOBS_PAGE_LIMIT): 
 export const fetchJobCount = async (_kind = "", _nsfw = ""): Promise<{ count: number; failed: number }> => ({ count: 0, failed: 0 });
 /** 一键清理失败作品替身(链接期需要;行为由源码断言覆盖)。 */
 export const cleanupFailedJobs = async (): Promise<{ deleted: number }> => ({ deleted: 0 });
+
+/** 重试(2026-09-20 作品库 P0):替身返回固定 prompt_id,链期不炸即可。 */
+export const rerunJob = async (jobKey: string, _opts?: unknown): Promise<{ prompt_id: string }> =>
+  ({ prompt_id: `rerun-${jobKey}` });
 /** 产物转运替身(AssetPicker 链接期需要;分页/去重逻辑由 assetPicker.test.ts 覆盖)。 */
 export const assetFromJob = async (_body: {
   job_id: string;

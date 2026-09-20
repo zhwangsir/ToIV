@@ -196,10 +196,16 @@ export interface JobItem {
   batch_id?: string;
   /** 来源应用 id(app 运行作业,从 params 快照解析;2026-09-06 详情页「我的生成」按此过滤;空=非应用作业)。 */
   app_id?: string;
+  /** 来源应用名(2026-09-20,后端批量解析;与 app_id 同生共灭)。 */
+  app_name?: string;
   /** H3 智能加速请求档(2026-09-12,从 params 快照解析;空=未加速作业)。 */
   acceleration?: string;
   /** H3 智能加速实际生效(规格缺失降级时为 false)。 */
   acceleration_applied?: boolean;
+  /** 元信息(2026-09-20 作品库优化):params 快照派生,缺项不出现。 */
+  meta?: { width?: number; height?: number; steps?: number; duration_hint?: number };
+  /** 视频时长(秒,lookup 单条端点懒探测 ffprobe;列表无此键)。 */
+  duration?: number;
 }
 
 /** 回收站条目(2026-08-23):作品库字段 + 删除时间/恢复截止/剩余秒数(72h 保留期)。 */

@@ -9,7 +9,9 @@ import asyncio
 import inspect
 import json
 import logging
+import subprocess
 import time
+from urllib.parse import parse_qs, quote, urlparse
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
@@ -27,7 +29,7 @@ from app.comfy.tracker import mark_status, record_result, write_progress
 from app.config import get_settings
 from app.db import engine, get_session
 from app.deps import get_current_user, get_pool, resolve_worker
-from app.models import Job, User
+from app.models import App, Job, User
 from app.nsfw_ctx import nsfw_allowed
 from app.scoring import VideoScorer, VideoScoreResult
 
@@ -95,7 +97,38 @@ def _accel_of(j: Job) -> tuple[str, bool]:
     return (level if isinstance(level, str) else "", bool(snap.get("acceleration_applied")))
 
 
-def _job_dict(j: Job) -> dict:
+def _meta_of(j: Job) -> dict:
+    """作品元信息(参数快照派生,零 IO):分辨率/引擎参数痕。缺项不出现。"""
+    meta: dict = {}
+    try:
+        prm = json.loads(j.params or "{}")
+    except Exception:  # noqa: BLE001 — 坏快照不给 meta
+        return meta
+    w = prm.get("width"); h = prm.get("height")
+    if isinstance(w, (int, float)) and isinstance(h, (int, float)) and w and h:
+        meta["width"] = int(w); meta["height"] = int(h)
+    steps = prm.get("steps")
+    if isinstance(steps, (int, float)) and steps:
+        meta["steps"] = int(steps)
+    dur = prm.get("duration") or prm.get("seconds") or prm.get("total_duration")
+    if isinstance(dur, (int, float)) and dur:
+        meta["duration_hint"] = round(float(dur), 2)
+    return meta
+
+
+def _app_names_map(session: Session, jobs: list[Job]) -> dict[str, str]:
+    """批量解析作业来源应用名(一次 IN 查询,防 N+1)。"""
+    ids = {aid for j in jobs if (aid := _app_id_of(j))}
+    if not ids:
+        return {}
+    try:
+        rows = session.exec(select(App.id, App.name).where(App.id.in_(ids))).all()
+        return {str(r[0]): str(r[1]) for r in rows}
+    except Exception:  # noqa: BLE001 — 名字解析失败不阻断列表
+        return {}
+
+
+def _job_dict(j: Job, app_name: str = "") -> dict:
     """作业 → 前端条目(作品库列表与版本链共用同一形状)。"""
     return {
         "id": j.id,
@@ -125,10 +158,68 @@ def _job_dict(j: Job) -> dict:
         "batch_id": _batch_id_of(j),
         # 来源应用 id(2026-09-06 详情页「我的生成」过滤):非应用作业为空串
         "app_id": _app_id_of(j),
+        # 来源应用名(2026-09-20 作品库来源筛选):调用方批量解析,空=非应用作业
+        "app_name": app_name,
         # H3 智能加速回显(2026-09-12):请求档位 + 实际生效(非加速作业为 "" / False)
         "acceleration": _accel_of(j)[0],
         "acceleration_applied": _accel_of(j)[1],
+        # 元信息(2026-09-20 作品库优化):参数快照派生,零 IO;纯增量键旧前端忽略
+        "meta": _meta_of(j),
     }
+
+
+_VIDEO_EXTS = (".mp4", ".webm", ".mov", ".mkv", ".avi")
+
+
+def _video_duration(job: Job) -> float:
+    """视频作品时长(秒):Redis 缓存懒探测;失败返回 0(前端不显示角标)。
+
+    探测路径:result URL 里的 worker+filename 直拼 LAN /view,ffprobe 秒回。
+    仅 lookup 单条端点调用(不进列表热路径)。
+    """
+    from app.services import redis_client as _rc
+
+    key = f"toiv:jobmeta:{job.prompt_id}:dur"
+    r = _rc.get_redis()
+    if r is not None:
+        try:
+            cached = r.get(key)
+            if cached is not None:
+                return float(cached)
+        except Exception:  # noqa: BLE001 — 缓存坏不影响主路
+            pass
+    try:
+        results = json.loads(job.result) if job.result else []
+        url = ""
+        for u in results:
+            fn = (parse_qs(urlparse(str(u)).query).get("filename") or [str(u).split("/")[-1]])[0]
+            if fn.lower().endswith(_VIDEO_EXTS):
+                url = str(u)
+                break
+        if not url:
+            return 0.0
+        q = parse_qs(urlparse(url).query)
+        worker = (q.get("worker") or [""])[0].rstrip("/")
+        filename = (q.get("filename") or [""])[0]
+        if not worker or not filename:
+            return 0.0
+        view = (f"{worker}/view?filename={quote(filename)}"
+                f"&subfolder={quote((q.get('subfolder') or [''])[0])}"
+                f"&type={quote((q.get('type') or ['output'])[0])}")
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", view],
+            capture_output=True, timeout=10, text=True,
+        ).stdout.strip()
+        dur = float(out) if out else 0.0
+    except Exception:  # noqa: BLE001 — 探测失败=无角标,不炸 lookup
+        return 0.0
+    if r is not None and dur > 0:
+        try:
+            r.set(key, str(dur))
+        except Exception:  # noqa: BLE001
+            pass
+    return dur
 
 
 # ---------------------------------------------------------------------------
@@ -286,7 +377,8 @@ def list_jobs(
     rows = session.exec(
         stmt.order_by(Job.created_at.desc()).offset(offset).limit(limit)
     ).all()
-    return [_job_dict(j) for j in rows]
+    names = _app_names_map(session, list(rows))
+    return [_job_dict(j, names.get(_app_id_of(j), "")) for j in rows]
 
 
 @router.get("/jobs/counts")
@@ -374,7 +466,14 @@ def lookup_job(
         raise HTTPException(status_code=404, detail="作业不存在")
     if job.nsfw and not nsfw_allowed(user):
         raise HTTPException(status_code=404, detail="作业不存在")
-    return _job_dict(job)
+    out = _job_dict(job, _app_names_map(session, [job]).get(_app_id_of(job), ""))
+    if job.status == "done":
+        dur = _video_duration(job)
+        if dur > 0:
+            out["duration"] = round(dur, 2)
+    return out
+
+
 
 
 @router.delete("/jobs/{job_id}")
@@ -673,7 +772,13 @@ def _rerun_registry() -> dict[str, tuple[type[BaseModel], object]]:
     """
     from app.routes import generate as g
     from app.routes.audio import AudioRequest, generate_audio
+    from app.routes.h3_studio import (H3MultiShotRequest, H3T2VRequest,
+                                      generate_h3_multishot, generate_h3_t2v)
     from app.routes.lipsync import LipsyncRequest, lipsync_shot
+    from app.routes.longcat_studio import (LongCatT2VRequest,
+                                           generate_longcat_t2v)
+    from app.routes.ltx_studio import Ltx2T2VRequest, generate_ltx2_t2v
+    from app.routes.ovi import OviT2VRequest, generate_ovi_t2v
     from app.routes.manju import ShotRenderRequest, render_shot
     from app.routes.threed import Gen3DRequest, generate_3d
     from app.routes.video import WanI2VRequest, generate_video
@@ -696,6 +801,13 @@ def _rerun_registry() -> dict[str, tuple[type[BaseModel], object]]:
         "manju_shot_txt2img": (ShotRenderRequest, render_shot),
         "manju_shot_ipadapter": (ShotRenderRequest, render_shot),
         "video_upscale": (VideoUpscaleRequest, upscale_video),
+        # 引擎工作室族(2026-09-20 作品库重试补齐):自包含 t2v 类可直接重放;
+        # i2v/图生类依赖 worker 上可能已失效的媒体句柄,暂不入表(前端引导复用提示词)
+        "h3_t2v": (H3T2VRequest, generate_h3_t2v),
+        "h3_multishot": (H3MultiShotRequest, generate_h3_multishot),
+        "longcat_t2v": (LongCatT2VRequest, generate_longcat_t2v),
+        "ovi_t2v": (OviT2VRequest, generate_ovi_t2v),
+        "ltx_t2v": (Ltx2T2VRequest, generate_ltx2_t2v),
     }
 
 
@@ -799,7 +911,8 @@ def job_versions(
     if not nsfw_allowed(user):
         stmt = stmt.where(Job.nsfw == False)  # noqa: E712  SQLModel 需 == 比较生成 SQL
     rows = session.exec(stmt.order_by(Job.created_at.asc(), Job.id.asc())).all()
-    return [_job_dict(j) for j in rows]
+    names = _app_names_map(session, list(rows))
+    return [_job_dict(j, names.get(_app_id_of(j), "")) for j in rows]
 
 
 async def _emit_done(client: ComfyUIClient, prompt_id: str) -> tuple[dict, list[str]]:

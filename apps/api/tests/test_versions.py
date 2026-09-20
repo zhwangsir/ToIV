@@ -273,3 +273,27 @@ def test_list_jobs_includes_version_fields(ctx):
     assert by_id[a.id]["has_params"] is True
     assert by_id[b.id]["parent_id"] == a.id
     assert by_id[b.id]["root_id"] == a.id
+
+
+def test_rerun_registry_covers_engine_studio_t2v_family(ctx):
+    """作品库重试白名单覆盖引擎工作室自包含 t2v 族(2026-09-20 补齐)。"""
+    from app.routes.jobs import _rerun_registry
+
+    reg = _rerun_registry()
+    for kind in ("h3_t2v", "h3_multishot", "longcat_t2v", "ovi_t2v", "ltx_t2v"):
+        assert kind in reg, f"{kind} 未入 rerun 白名单"
+    # h3/longcat 的 i2v 族刻意不入表(媒体句柄会失效);wan_i2v 为原生支持例外
+    for kind in ("h3_i2v", "longcat_i2v"):
+        assert kind not in reg
+
+
+def test_job_dict_meta_from_params_snapshot(ctx):
+    """_job_dict.meta:分辨率/步数从 params 快照派生;坏快照不炸。"""
+    from app.routes.jobs import _job_dict
+
+    client, token, engine, uid, tid = ctx
+    a = _mk_job(engine, uid, tid, params=json.dumps(
+        {"positive": "x", "width": 1024, "height": 576, "steps": 25}))
+    b = _mk_job(engine, uid, tid, params="{broken json")
+    assert _job_dict(a)["meta"] == {"width": 1024, "height": 576, "steps": 25}
+    assert _job_dict(b)["meta"] == {}

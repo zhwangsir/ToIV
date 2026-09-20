@@ -1726,3 +1726,208 @@
     transform: none;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   作品库优化(2026-09-20 P0):来源筛选 / 元信息角标 / 重试状态机 / 灯箱快捷键
+   设计语言沿用卡片玻璃体系(--glass-*),重试主色用品牌 lime 系(--accent 同源)
+   ───────────────────────────────────────────────────────────── */
+
+/* 来源筛选:工具条下拉(玻璃弹层 + 分组 hairline) */
+.lib-source {
+  position: relative;
+  display: inline-flex;
+}
+.lib-source .lib-chip { gap: 4px; }
+.lib-source-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-lib-actions, 3) + 40);
+  background: transparent;
+  border: 0;
+  cursor: default;
+}
+.lib-source-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 208px;
+  max-height: 320px;
+  overflow: auto;
+  padding: var(--space-1, 4px);
+  background: var(--bg-elevated, rgba(22, 24, 30, 0.96));
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.45));
+  z-index: calc(var(--z-lib-actions, 3) + 41);
+  animation: lib-source-in 0.16s var(--ease-standard);
+}
+@keyframes lib-source-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.lib-source-group {
+  padding: 6px 10px 3px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary, rgba(235, 237, 245, 0.42));
+}
+.lib-source-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--text-secondary, rgba(235, 237, 245, 0.75));
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.lib-source-item:hover { background: var(--hover-bg, rgba(255, 255, 255, 0.06)); color: var(--text-primary); }
+.lib-source-item.is-active {
+  background: color-mix(in srgb, var(--accent, #b8f03c) 14%, transparent);
+  color: var(--accent, #b8f03c);
+}
+.lib-source-item .lib-chip-count { background: transparent; opacity: 0.75; }
+
+/* 元信息角标:媒体左下玻璃组(分辨率/时长) */
+.lib-meta-badges {
+  position: absolute;
+  left: var(--space-2, 8px);
+  bottom: var(--space-2, 8px);
+  display: inline-flex;
+  gap: 4px;
+  z-index: 2;
+  pointer-events: none;
+}
+.lib-meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(10, 12, 16, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-full, 999px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 重试中遮罩:conic 流光环 + 脉冲 pill(原位状态反馈) */
+.lib-retrying {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(10, 12, 16, 0.62);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 4;
+}
+.lib-retrying-ring {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--accent, #b8f03c), transparent 65%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  animation: lib-retrying-spin 0.9s linear infinite;
+}
+@keyframes lib-retrying-spin { to { transform: rotate(360deg); } }
+.lib-retrying-pill {
+  padding: 3px 12px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--accent, #b8f03c);
+  background: rgba(10, 12, 16, 0.72);
+  border: 1px solid color-mix(in srgb, var(--accent, #b8f03c) 45%, transparent);
+  border-radius: var(--radius-full, 999px);
+  animation: lib-retrying-pulse 1.4s ease-in-out infinite;
+}
+@keyframes lib-retrying-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent, #b8f03c) 35%, transparent); }
+  50%      { box-shadow: 0 0 14px 2px color-mix(in srgb, var(--accent, #b8f03c) 25%, transparent); }
+}
+
+/* 失败卡内联重试:品牌色实心按钮(比 hover 浮层易发现) */
+.lib-retry-inline {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #10130a;
+  background: var(--accent, #b8f03c);
+  border: 0;
+  border-radius: var(--radius-full, 999px);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent, #b8f03c) 40%, transparent);
+  cursor: pointer;
+  z-index: 5;
+  transition: transform 0.14s var(--ease-standard), box-shadow 0.14s ease, filter 0.14s ease;
+}
+.lib-retry-inline:hover {
+  transform: translateX(-50%) translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--accent, #b8f03c) 55%, transparent);
+}
+.lib-retry-inline:active { transform: translateX(-50%) translateY(0) scale(0.97); }
+
+/* hover 浮层/灯箱的品牌色强调按钮 */
+.lib-action-btn--accent { color: var(--accent, #b8f03c); }
+.lib-action-btn--accent:hover {
+  background: color-mix(in srgb, var(--accent, #b8f03c) 16%, transparent);
+}
+.lib-lb-action--accent {
+  color: #10130a;
+  background: var(--accent, #b8f03c);
+  border-color: transparent;
+  font-weight: 600;
+}
+.lib-lb-action--accent:hover { filter: brightness(1.06); }
+.lib-lb-action--accent:disabled { opacity: 0.6; cursor: wait; }
+
+/* 灯箱底部快捷键提示 kbd 行 */
+.lib-lb-kbd-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: var(--space-3, 12px);
+  padding-top: var(--space-2, 8px);
+  border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.07));
+  font-size: 11px;
+  color: var(--text-tertiary, rgba(235, 237, 245, 0.42));
+}
+.lib-lb-kbd-hints span { display: inline-flex; align-items: center; gap: 4px; }
+.lib-lb-kbd-hints kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--text-secondary, rgba(235, 237, 245, 0.75));
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+}

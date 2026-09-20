@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { cleanupFailedJobs, deleteJob, fetchJobCount, fetchJobsPage, imageThumbUrl, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, listJobs, permanentDeleteJob, purgeTrash, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
+import { cleanupFailedJobs, deleteJob, fetchJobCount, fetchJobsPage, imageThumbUrl, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, listJobs, permanentDeleteJob, purgeTrash, rerunJob, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
 import { useR18Mode } from "@/lib/r18";
@@ -18,6 +18,7 @@ import {
   formatTime,
   groupLibraryEntries,
   isVideoKind,
+  canRerun,
   kindLabel,
   kindToFilter,
   kindsQueryForFilter,
@@ -95,6 +96,22 @@ function thumbFilterOf(job: JobItem): "image" | "video" | "audio" | "3d" | "othe
     if (mk === "video" || mk === "audio" || mk === "image") return mk;
   }
   return "other";
+}
+
+/** 来源筛选当前值的中文展示(工具条 chip 文案)。 */
+function sourceLabelOf(
+  source: string,
+  options: { engines: { value: string; label: string; count: number }[]; apps: { value: string; label: string; count: number }[] },
+): string {
+  if (!source) return "来源";
+  const hit = [...options.engines, ...options.apps].find((o) => o.value === source);
+  return hit ? hit.label : "来源";
+}
+
+/** 秒 → m:ss(时长角标)。 */
+function formatDurationHint(sec: number): string {
+  const s = Math.max(0, Math.round(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 function ThumbPlaceholder({ job }: { job: JobItem }) {
@@ -252,6 +269,11 @@ export function LibraryView(props?: LibraryViewProps) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("newest");
   const [density, setDensity] = useState<LibraryDensity>(() => loadDensity());
+  // 来源筛选(2026-09-20 A2):空=全部;engine:{kind} / app:{appId}
+  const [source, setSource] = useState("");
+  // 重试状态机(2026-09-20 A1):jobId → 新 prompt_id(轮询中)
+  const [retrying, setRetrying] = useState<ReadonlyMap<string, string>>(new Map());
+  const [sourceOpen, setSourceOpen] = useState(false);
   // 删除确认对话框状态:confirmDelete=待删作品;skipConfirmChecked=「不再确认」勾选
   const [confirmDelete, setConfirmDelete] = useState<JobItem | null>(null);
   const [skipConfirmChecked, setSkipConfirmChecked] = useState(false);
@@ -385,9 +407,36 @@ export function LibraryView(props?: LibraryViewProps) {
         contentFilter,
         search,
         sort,
+        source,
       }),
-    [jobs, filter, contentFilter, search, sort],
+    [jobs, filter, contentFilter, search, sort, source],
   );
+
+  // 来源选项(A2):引擎族=已加载作品里的 kind 去重(带计数);应用=app_id 去重。
+  // 只基于已加载部分(服务端分页),选项随加载自然增多——对「找最近来源」场景足够。
+  const sourceOptions = useMemo(() => {
+    const jobsArr = jobs ?? [];
+    const engines = new Map<string, number>();
+    const apps = new Map<string, { name: string; count: number }>();
+    for (const j of jobsArr) {
+      if (!j.app_id) {
+        engines.set(j.kind, (engines.get(j.kind) ?? 0) + 1);
+      } else {
+        const cur = apps.get(j.app_id);
+        apps.set(j.app_id, {
+          name: j.app_name || j.app_id,
+          count: (cur?.count ?? 0) + 1,
+        });
+      }
+    }
+    const eng = [...engines.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([kind, count]) => ({ value: `engine:${kind}`, label: kindLabel(kind), count }));
+    const app = [...apps.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([id, v]) => ({ value: `app:${id}`, label: v.name, count: v.count }));
+    return { engines: eng, apps: app };
+  }, [jobs]);
 
   // 类型计数(chip 徽标):服务端真实总数优先(与分页无关);
   // 未回/失败时回落客户端口径(只反映已加载部分,过渡态)
@@ -499,6 +548,66 @@ export function LibraryView(props?: LibraryViewProps) {
     setDensity(next);
     persistDensity(next);
   };
+
+  // ── 重试(2026-09-20 A1)──
+  // 原参数原 seed 重放(rerunJob=后端 /jobs/{id}/rerun keep);
+  // 旧失败卡原位显示「重试中」遮罩并轮询新作业,成功后旧卡移除、新卡自然浮顶,
+  // 失败则原位恢复并内联报错。轮询定时器随组件卸载清理。
+  const retryTimers = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
+  useEffect(() => {
+    const timers = retryTimers.current;
+    return () => {
+      timers.forEach((t) => clearInterval(t));
+    };
+  }, []);
+
+  const pollRetry = useCallback((oldJobId: string, promptId: string) => {
+    const tick = async () => {
+      try {
+        const res = await fetch(
+          `/api/jobs/lookup?prompt_id=${encodeURIComponent(promptId)}`,
+          { headers: { Authorization: `Bearer ${localStorage.getItem("toiv_token") ?? ""}` } },
+        );
+        if (!res.ok) return;
+        const job = (await res.json()) as JobItem;
+        if (job.status === "queued" || job.status === "running" || job.status === "held") return;
+        const timer = retryTimers.current.get(oldJobId);
+        if (timer) clearInterval(timer);
+        retryTimers.current.delete(oldJobId);
+        setRetrying((prev) => {
+          const next = new Map(prev);
+          next.delete(oldJobId);
+          return next;
+        });
+        if (job.status === "done") {
+          // 旧失败卡移除,新卡由顶部 natural 排序浮出(若已加载页内则原地有数据)
+          setJobs((prev) => (prev ? prev.filter((x) => x.id !== oldJobId) : prev));
+          invalidateJobs();
+          toast.success("重试成功,新作品已入库");
+        } else {
+          toast.error(job.error || "重试失败,可再次尝试");
+        }
+      } catch {
+        /* 网络抖动下一拍再试 */
+      }
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), 4000);
+    retryTimers.current.set(oldJobId, timer);
+  }, [toast]);
+
+  const handleRetry = useCallback(
+    async (job: JobItem) => {
+      try {
+        const r = await rerunJob(job.id, { seed_mode: "keep" });
+        setRetrying((prev) => new Map(prev).set(job.id, r.prompt_id));
+        pollRetry(job.id, r.prompt_id);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "重试提交失败");
+      }
+    },
+    [pollRetry, toast],
+  );
 
   // ── 批量管理 ──
 
@@ -959,6 +1068,76 @@ export function LibraryView(props?: LibraryViewProps) {
               {c.label}
             </button>
           ))}
+        </div>
+
+        {/* 来源筛选(2026-09-20 A2):引擎族/应用 两组带计数;点遮罩或选「全部来源」关闭 */}
+        <div className="lib-source">
+          <button
+            type="button"
+            className={`lib-chip lib-chip--sm${source ? " is-active" : ""}`}
+            aria-pressed={!!source}
+            aria-haspopup="listbox"
+            aria-expanded={sourceOpen}
+            onClick={() => setSourceOpen((v) => !v)}
+            title="按来源筛选(引擎 / 应用)"
+          >
+            <Icon name="sliders" size={12} />
+            <span>{sourceLabelOf(source, sourceOptions)}</span>
+            <Icon name={sourceOpen ? "chevron-up" : "chevron-down"} size={12} />
+          </button>
+          {sourceOpen && (
+            <>
+              <button
+                type="button"
+                className="lib-source-scrim"
+                aria-label="关闭来源筛选"
+                onClick={() => setSourceOpen(false)}
+              />
+              <div className="lib-source-pop" role="listbox" aria-label="来源筛选">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={!source}
+                  className={`lib-source-item${!source ? " is-active" : ""}`}
+                  onClick={() => { setSource(""); setSourceOpen(false); resetPage(); }}
+                >
+                  全部来源
+                </button>
+                {sourceOptions.engines.length > 0 && (
+                  <div className="lib-source-group">引擎</div>
+                )}
+                {sourceOptions.engines.map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    role="option"
+                    aria-selected={source === o.value}
+                    className={`lib-source-item${source === o.value ? " is-active" : ""}`}
+                    onClick={() => { setSource(o.value); setSourceOpen(false); resetPage(); }}
+                  >
+                    <span className="lib-source-item-label">{o.label}</span>
+                    <span className="lib-chip-count">{o.count}</span>
+                  </button>
+                ))}
+                {sourceOptions.apps.length > 0 && (
+                  <div className="lib-source-group">应用</div>
+                )}
+                {sourceOptions.apps.map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    role="option"
+                    aria-selected={source === o.value}
+                    className={`lib-source-item${source === o.value ? " is-active" : ""}`}
+                    onClick={() => { setSource(o.value); setSourceOpen(false); resetPage(); }}
+                  >
+                    <span className="lib-source-item-label">{o.label}</span>
+                    <span className="lib-chip-count">{o.count}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="lib-toolbar-cluster">
@@ -1515,6 +1694,22 @@ export function LibraryView(props?: LibraryViewProps) {
                         >
                           <Icon name="link" size={14} />
                         </button>
+                        {/* 一键重试(A1):失败且有快照时显示 */}
+                        {job.status === "error" && canRerun(job) && (
+                          <button
+                            type="button"
+                            className="lib-action-btn lib-action-btn--accent"
+                            title="一键重试(原参数原 seed)"
+                            aria-label={`一键重试: ${job.prompt || "无提示词"}`}
+                            disabled={retrying.has(job.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleRetry(job);
+                            }}
+                          >
+                            <Icon name="refresh" size={14} />
+                          </button>
+                        )}
                         {/* 视频超分到 4K:仅视频产物卡渲染(超分产物自身不再二次超分) */}
                         {isVideo && hasResult && job.kind !== "video_upscale" && (
                           <button
@@ -1570,6 +1765,47 @@ export function LibraryView(props?: LibraryViewProps) {
                         <Icon name="playing" size={11} />
                         视频
                       </div>
+                    )}
+
+                    {/* 元信息角标(2026-09-20 A3):左下玻璃组——分辨率/时长(参数快照派生) */}
+                    {job.meta && (job.meta.width || job.meta.duration_hint) && (
+                      <span className="lib-meta-badges" aria-hidden="true">
+                        {job.meta.width && job.meta.height && (
+                          <span className="lib-meta-badge">
+                            {job.meta.width}×{job.meta.height}
+                          </span>
+                        )}
+                        {job.meta.duration_hint ? (
+                          <span className="lib-meta-badge">
+                            <Icon name="clock" size={10} />
+                            {formatDurationHint(job.meta.duration_hint)}
+                          </span>
+                        ) : null}
+                      </span>
+                    )}
+
+                    {/* 重试中遮罩(A1):conic 流光 + 脉冲 pill,原位反馈不跳转 */}
+                    {retrying.has(job.id) && (
+                      <div className="lib-retrying" role="status" aria-label="重试生成中">
+                        <span className="lib-retrying-ring" aria-hidden="true" />
+                        <span className="lib-retrying-pill">重试中</span>
+                      </div>
+                    )}
+
+                    {/* 失败卡的内联重试(A1):白底主按钮比 hover 浮层更易发现;
+                        canRerun=false(h3_i2v 等)时不显示,引导走「复用提示词」 */}
+                    {job.status === "error" && canRerun(job) && !retrying.has(job.id) && (
+                      <button
+                        type="button"
+                        className="lib-retry-inline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleRetry(job);
+                        }}
+                      >
+                        <Icon name="refresh" size={13} />
+                        一键重试
+                      </button>
                     )}
 
                     {/* R18 徽标:右下角可点,切换本卡模糊/揭示;缩略图点击揭示后进灯箱 */}
@@ -1705,6 +1941,12 @@ export function LibraryView(props?: LibraryViewProps) {
           }}
           onDelete={handleDelete}
           deletingId={deletingId}
+          onRetry={handleRetry}
+          retryingId={
+            lightboxIdx !== null && retrying.has(lightboxEntries[lightboxIdx]?.job.id ?? "")
+              ? lightboxEntries[lightboxIdx].job.id
+              : null
+          }
           dialogsOpen={!!styleTarget || !!confirmDelete || !!confirmDeleteStyle || confirmBatchDelete || !!confirmUpscale}
         />,
         document.body,
@@ -2240,6 +2482,9 @@ interface LibraryLightboxProps {
   /** 删除:复用 LibraryView.handleDelete(打开既有确认 Modal) */
   onDelete?: (job: JobItem) => void;
   deletingId?: string | null;
+  /** 一键重试(2026-09-20 A1):失败且有快照时显示;retryingId 时转圈禁用 */
+  onRetry?: (job: JobItem) => void;
+  retryingId?: string | null;
   /** 存风格 Popover / 删除 Modal 打开时,灯箱让出 Esc/方向键(避免一按两关) */
   dialogsOpen: boolean;
   /** 回收站预览:只看不改,隐藏复用/存风格/删除/3D 操作,避免误恢复或加厚删除 */
@@ -2256,6 +2501,8 @@ function LibraryLightbox({
   onOpenApp,
   onDelete,
   deletingId = null,
+  onRetry,
+  retryingId = null,
   dialogsOpen,
   previewOnly = false,
 }: LibraryLightboxProps) {
@@ -2283,17 +2530,28 @@ function LibraryLightbox({
     };
   }, []);
 
-  // 键盘:Esc 关闭,←/→ 穿梭;存风格/删除对话框打开时让出按键
+  // 键盘:Esc 关闭,←/→ 穿梭,D 下载,R 重试(A4 2026-09-20);
+  // 存风格/删除对话框打开时让出按键;输入焦点在表单时也不劫持。
   useEffect(() => {
     if (dialogsOpen) return;
     const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowLeft" && index > 0) onIndex(index - 1);
       else if (e.key === "ArrowRight" && index < entries.length - 1) onIndex(index + 1);
+      else if ((e.key === "d" || e.key === "D") && hasResult) {
+        const a = document.createElement("a");
+        a.href = mediaUrl;
+        a.download = "";
+        a.click();
+      } else if ((e.key === "r" || e.key === "R") && onRetry && canRerun(job) && retryingId !== job.id) {
+        onRetry(job);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [dialogsOpen, index, entries.length, onClose, onIndex]);
+  }, [dialogsOpen, index, entries.length, onClose, onIndex, hasResult, mediaUrl, onRetry, retryingId, job]);
 
   let createdFull = job.created_at;
   try {
@@ -2484,6 +2742,17 @@ function LibraryLightbox({
                 下载
               </a>
             )}
+            {!previewOnly && onRetry && canRerun(job) && (
+            <button
+              type="button"
+              className="lib-lb-action lib-lb-action--accent"
+              disabled={retryingId === job.id}
+              onClick={() => onRetry(job)}
+            >
+              <Icon name={retryingId === job.id ? "loading" : "refresh"} size={14} />
+              一键重试
+            </button>
+            )}
             {!previewOnly && onReuse && (
             <button
               type="button"
@@ -2515,6 +2784,14 @@ function LibraryLightbox({
               删除作品
             </button>
             )}
+          </div>
+
+          {/* 快捷键提示(A4):底部 kbd 行,半透明不抢焦点 */}
+          <div className="lib-lb-kbd-hints" aria-hidden="true">
+            <span><kbd>←</kbd><kbd>→</kbd> 切换</span>
+            <span><kbd>Esc</kbd> 关闭</span>
+            {hasResult && <span><kbd>D</kbd> 下载</span>}
+            {!previewOnly && onRetry && canRerun(job) && <span><kbd>R</kbd> 重试</span>}
           </div>
         </aside>
       </div>
