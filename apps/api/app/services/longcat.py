@@ -79,11 +79,19 @@ async def transfer_ref_image(client: ComfyUIClient, source: ComfyUIClient, image
 
     LongCat 实例独立于集群,前端经 /api/upload 上传的参考图落在 pool worker 上,
     提交 i2v 前须搬过去(读 /view → POST /upload/image)。与 h3.transfer_ref_image 同模式。
+    读取先 input 后 output 兜底:主体库/作品库产物 URL(type=output)同样可作参考图。
     """
-    try:
-        content, _ = await source.get_image_bytes(image, "", "input")
-    except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=f"从参考图所在 worker 读取失败: {e}") from e
+    content: bytes | None = None
+    first_err: ComfyUIError | None = None
+    for url_type in ("input", "output"):
+        try:
+            content, _ = await source.get_image_bytes(image, "", url_type)
+            break
+        except ComfyUIError as e:
+            if first_err is None:
+                first_err = e
+    if content is None:
+        raise HTTPException(status_code=502, detail=f"从参考图所在 worker 读取失败: {first_err}") from first_err
     try:
         return await client.upload_image(content, image)
     except ComfyUIError as e:

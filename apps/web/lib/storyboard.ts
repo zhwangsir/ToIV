@@ -37,6 +37,8 @@ export interface ShotMeta {
   speaker?: string;
   duration_sec?: number;
   characters?: string[];
+  /** M2:角色实体 id(与 characters 同序,rename-safe) */
+  entity_ids?: string[];
   render_mode?: string;
 }
 
@@ -48,6 +50,57 @@ export function parseShotMeta(shotMeta: string | null | undefined): ShotMeta | n
     return obj && typeof obj === "object" && !Array.isArray(obj) ? (obj as ShotMeta) : null;
   } catch {
     return null;
+  }
+}
+
+// ---------- M2 角色一致性:角色条聚合 / 生成引擎 ----------
+
+export interface BoardCharacter {
+  /** 去重键:id:<entity_id> 或 name:<角色名> */
+  key: string;
+  name: string;
+  entity_id?: string;
+}
+
+/** 聚合整板角色(entity_ids 优先 key,characters 名下放;首现序去重)。 */
+export function collectBoardCharacters(items: BoardItemOut[]): BoardCharacter[] {
+  const out: BoardCharacter[] = [];
+  const seen = new Set<string>();
+  for (const it of items) {
+    const meta = parseShotMeta(it.shot_meta);
+    if (!meta) continue;
+    const names = (meta.characters ?? []).map((n) => String(n).trim()).filter(Boolean);
+    const ids = (meta.entity_ids ?? []).map((i) => String(i).trim()).filter(Boolean);
+    const n = Math.max(names.length, ids.length);
+    for (let i = 0; i < n; i++) {
+      const name = names[i] ?? "";
+      const eid = ids[i] ?? "";
+      const key = eid ? `id:${eid}` : name ? `name:${name}` : "";
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ key, name: name || "(未命名)", entity_id: eid || undefined });
+    }
+  }
+  return out;
+}
+
+/** 分镜单镜生成引擎(M2):角色锁定推荐 / 多参考 / 快速兜底。 */
+export const GEN_ENGINES = [
+  { id: "phantom-s2v", label: "角色锁定", blurb: "Phantom:定妆照参考,跨镜一致性最强(需角色有定妆照)" },
+  { id: "h3-r2v", label: "H3 多参考", blurb: "Ref2VA 多图参考(需角色有定妆照)" },
+  { id: "h3-t2v", label: "H3 快速", blurb: "无角色也能跑;有定妆照自动带首帧" },
+] as const;
+export type GenEngineId = (typeof GEN_ENGINES)[number]["id"];
+
+/** localStorage 读/写板级生成引擎选择(非法值回退默认)。 */
+export const GEN_ENGINE_KEY = "toiv_board_gen_engine";
+export function readGenEngine(): GenEngineId {
+  try {
+    const v = localStorage.getItem(GEN_ENGINE_KEY);
+    const hit = GEN_ENGINES.find((e) => e.id === v);
+    return hit ? hit.id : "phantom-s2v";
+  } catch {
+    return "phantom-s2v";
   }
 }
 

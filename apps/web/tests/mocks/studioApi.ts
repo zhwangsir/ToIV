@@ -914,3 +914,7 @@ export const createBoardFromScript = async (input: { name?: string }) => ({
   item_count: 0,
 });
 export const exportBoard = async () => ({ title: "", characters: [], shots: [], narration: [] });
+export const generateBoardShot = async (_b: string, _i: number, input: { engine: string }) => ({
+  prompt_id: "p-mock", client_id: "c-mock", worker: "w", seed: 1, kind: "h3_t2v",
+  engine: input.engine,
+});

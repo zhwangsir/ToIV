@@ -8,7 +8,8 @@
     num_frames 非 4n+1 向下吸附;宽高非 16 对齐向下取整
   · POST /api/phantom/s2v:成功提交(Job kind=phantom_s2v、seed 落快照、参考图转运);
     实例不可达 → 503;缺 WanVideoPhantomEmbeds 节点 → 503;
-    entity_ids 联动(句柄注入参考图链;他人主体 404;无句柄主体 422)
+    entity_ids 联动(句柄 JSON / 站内 /api/images URL 双形态注入参考图链;
+    他人主体 404;无可用参考图主体 422)
 """
 from __future__ import annotations
 
@@ -415,8 +416,28 @@ def test_s2v_entity_ids_injected(client, monkeypatch):
     assert "phantom_latent_2" in g["6"]["inputs"]
 
 
+def test_s2v_entity_internal_url_form_injected(client, monkeypatch):
+    """主体参考图为站内 /api/images URL 形态(tracker 产物/作品库回填)同样可注入(2026-09-21 根修)。"""
+    fake = _FakePhantomClient()
+    _install_phantom(monkeypatch, fake)
+    tc, eng = client
+    with Session(eng) as s:
+        uid = _seed_user(s, "phantom-url@example.com")
+        s.add(Entity(
+            tenant_id="t", user_id=uid, kind="character", name="定妆角色",
+            reference_front="/api/images?filename=ToIV_front.png&type=output&worker=http://fake-pool-worker",
+        ))
+        s.commit()
+        eid = s.exec(select(Entity).where(Entity.name == "定妆角色")).first().id
+
+    r = tc.post("/api/phantom/s2v", json=_payload(images=[], entity_ids=[eid]), headers=_auth_headers(uid))
+    assert r.status_code == 200, r.text
+    g = fake.graphs[0]
+    assert g["20"]["inputs"]["image"] == "ToIV_front.png"
+
+
 def test_s2v_entity_not_found_404_and_handleless_422(client, monkeypatch):
-    """他人/不存在主体 → 404;主体无上传句柄参考图 → 422。"""
+    """他人/不存在主体 → 404;主体无可用参考图(外部 URL)→ 422。"""
     fake = _FakePhantomClient()
     _install_phantom(monkeypatch, fake)
     tc, eng = client
@@ -424,7 +445,7 @@ def test_s2v_entity_not_found_404_and_handleless_422(client, monkeypatch):
         uid = _seed_user(s, "phantom-e404@example.com")
         s.add(Entity(
             tenant_id="t", user_id=uid, kind="character", name="无图角色",
-            ref_image="https://example.com/external.png",  # URL 形态,无句柄
+            ref_image="https://example.com/external.png",  # 外部 URL 形态,不可注入
         ))
         s.commit()
         handleless_id = s.exec(select(Entity).where(Entity.name == "无图角色")).first().id

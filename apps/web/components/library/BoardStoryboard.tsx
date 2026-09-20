@@ -1,11 +1,14 @@
 "use client";
 
 /**
- * BoardStoryboard:分镜板 v2(M1,2026-09-21)——画板的分镜视图。
+ * BoardStoryboard:分镜板 v2/v3(M1+M2,2026-09-21)——画板的分镜视图。
  * 每行 = 镜号 + 缩略图(挂载作品,点击开灯箱) + 分镜文本(失焦保存) + 状态 chip +
- * 操作(挂作品/换作品·重生成·用作参考·上移下移·移出);底部「+ 添加分镜行」追加占位行。
+ * 操作(挂作品/换作品·生成/重生成·用作参考·上移下移·移出);底部「+ 添加分镜行」追加占位行。
+ * 顶部工具行(M2):生成引擎段控(角色锁定/H3 多参考/H3 快速,localStorage 记忆)+
+ * 角色条(聚合各行 shot_meta 角色,定妆照缩略图/无定妆照徽标,点击跳主体库)。
  * 整组写全部走 PUT /api/boards/{id}/items(rowsToPutPayload 回带 note/shot_text/shot_meta),
- * 乐观更新+失败回滚;重生成复用 rerun 端点(seed random),轮询新作业 done 后整组换回行内。
+ * 乐观更新+失败回滚;重生成双路径——canRerun 作业走 rerun 端点,其余走 generate 端点
+ * (按 shot_meta+角色定妆照提交引擎),轮询新作业 done 后整组换回行内。
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -15,16 +18,28 @@ import { useToast } from "@/components/ui/Toast";
 import {
   apiFetch,
   authHeaders,
+  generateBoardShot,
   imageThumbUrl,
   imageUrl,
   invalidateJobs,
+  listEntities,
   lookupJob,
   putBoardItems,
   rerunJob,
   type BoardItemOut,
+  type EntityItem,
 } from "@/lib/api";
 import { canRerun, isVideoKind, kindLabel } from "@/lib/libraryQuery";
-import { moveRow, parseShotMeta, rowsToPutPayload } from "@/lib/storyboard";
+import {
+  GEN_ENGINES,
+  GEN_ENGINE_KEY,
+  collectBoardCharacters,
+  moveRow,
+  parseShotMeta,
+  readGenEngine,
+  rowsToPutPayload,
+  type GenEngineId,
+} from "@/lib/storyboard";
 import type { JobItem } from "@/lib/types";
 
 interface BoardStoryboardProps {
@@ -35,6 +50,8 @@ interface BoardStoryboardProps {
   onCountChange: (n: number) => void;
   onOpenJob: (jobs: JobItem[], index: number) => void;
   onUseAsInput: (job: JobItem) => void;
+  /** 角色条点击 → 跳主体库补定妆照/音色(M2) */
+  onOpenEntities?: () => void;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -53,6 +70,7 @@ export function BoardStoryboard({
   onCountChange,
   onOpenJob,
   onUseAsInput,
+  onOpenEntities,
 }: BoardStoryboardProps) {
   const toast = useToast();
   const [drafts, setDrafts] = useState<Record<number, string>>({});
@@ -60,6 +78,17 @@ export function BoardStoryboard({
   const [regenIds, setRegenIds] = useState<Set<number>>(new Set());
   const [pickerRow, setPickerRow] = useState<number | null>(null);
   const [pickerJobs, setPickerJobs] = useState<JobItem[] | null>(null);
+  const [engine, setEngine] = useState<GenEngineId>(() => readGenEngine());
+  const [castEntities, setCastEntities] = useState<EntityItem[] | null>(null);
+
+  // 角色条:板内角色名/entity_ids → 主体库定妆照映射(挂载拉一次,主体库编辑后重进刷新)
+  useEffect(() => {
+    let alive = true;
+    listEntities("character")
+      .then((list) => { if (alive) setCastEntities(list); })
+      .catch(() => { /* 主体库拉取失败不阻断分镜编辑 */ });
+    return () => { alive = false; };
+  }, []);
 
   const itemsRef = useRef(items);
   useEffect(() => {
@@ -166,6 +195,25 @@ export function BoardStoryboard({
     [pollRegen, toast],
   );
 
+  // 分镜生成(M2):占位行/非白名单作业行——按 shot_meta+角色定妆照走 generate 端点
+  const handleGenerate = useCallback(
+    async (row: BoardItemOut) => {
+      setRegenIds((prev) => new Set(prev).add(row.id));
+      try {
+        const r = await generateBoardShot(boardId, row.id, { engine });
+        pollRegen(row.id, r.prompt_id);
+      } catch (err) {
+        setRegenIds((prev) => {
+          const next = new Set(prev);
+          next.delete(row.id);
+          return next;
+        });
+        toast.error(err instanceof Error ? err.message : "分镜生成提交失败");
+      }
+    },
+    [boardId, engine, pollRegen, toast],
+  );
+
   // ── 挂作品:选择器拉最近完成作品 ──
   const openPicker = useCallback(
     async (rowId: number) => {
@@ -217,8 +265,78 @@ export function BoardStoryboard({
     [lightboxJobs, onOpenJob],
   );
 
+  const boardChars = collectBoardCharacters(items);
+
   return (
     <div className="lib-shot-list">
+      <div className="lib-shot-toolbar">
+        <div className="lib-seg lib-shot-engine" role="tablist" aria-label="生成引擎">
+          {GEN_ENGINES.map((e) => (
+            <button
+              key={e.id}
+              type="button"
+              title={e.blurb}
+              className={`lib-seg-btn${engine === e.id ? " is-active" : ""}`}
+              onClick={() => {
+                setEngine(e.id);
+                try {
+                  localStorage.setItem(GEN_ENGINE_KEY, e.id);
+                } catch {
+                  /* 隐私模式忽略 */
+                }
+              }}
+            >
+              {e.label}
+            </button>
+          ))}
+        </div>
+        {boardChars.length > 0 && (
+          <div className="lib-cast-strip" aria-label="板内角色">
+            {boardChars.map((ch) => {
+              const ent = ch.entity_id
+                ? castEntities?.find((e) => e.id === ch.entity_id)
+                : castEntities?.find((e) => e.name === ch.name);
+              const hasImage = !!(
+                ent && (ent.reference_front || ent.ref_image || ent.reference_side || ent.reference_back)
+              );
+              const slot = ent?.reference_front ? "front" : "ref";
+              return (
+                <button
+                  key={ch.key}
+                  type="button"
+                  className="lib-cast-chip"
+                  aria-label={`角色: ${ch.name}${ent && hasImage ? "" : "(无定妆照)"}`}
+                  title={
+                    ent
+                      ? hasImage
+                        ? `${ch.name}:点击打开主体库`
+                        : `${ch.name}:无定妆照,点击去主体库补图`
+                      : `${ch.name}:点击打开主体库`
+                  }
+                  onClick={() => onOpenEntities?.()}
+                >
+                  {ent && hasImage ? (
+                    <img
+                      className="lib-cast-chip-img"
+                      src={imageUrl(`/api/entities/${ent.id}/images/${slot}`)}
+                      alt={ch.name}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <span className="lib-cast-chip-img lib-cast-chip-img--empty">
+                      <Icon name="user" size={13} />
+                    </span>
+                  )}
+                  <span className="lib-cast-chip-name">{ch.name}</span>
+                  {(!ent || !hasImage) && <span className="lib-cast-chip-noimg">无定妆照</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {items.map((row, idx) => {
         const job = row.job;
         const meta = parseShotMeta(row.shot_meta);
@@ -289,16 +407,33 @@ export function BoardStoryboard({
                 >
                   <Icon name="upload" size={14} />
                 </button>
-                <button
-                  type="button"
-                  className="lib-shot-op"
-                  title={job && canRerun(job) ? "重生成(换 seed 重抽)" : "该类型作业不支持重生成"}
-                  aria-label={`重生成: 第 ${idx + 1} 镜`}
-                  disabled={!job || !canRerun(job) || regenerating}
-                  onClick={() => void handleRegen(row)}
-                >
-                  <Icon name="refresh" size={14} />
-                </button>
+                {job && canRerun(job) ? (
+                  <button
+                    type="button"
+                    className="lib-shot-op"
+                    title="重生成(rerun 换 seed 重抽)"
+                    aria-label={`重生成: 第 ${idx + 1} 镜`}
+                    disabled={regenerating}
+                    onClick={() => void handleRegen(row)}
+                  >
+                    <Icon name="refresh" size={14} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="lib-shot-op"
+                    title={
+                      meta?.prompt?.trim() || row.shot_text.trim()
+                        ? `${job ? "重生成" : "生成"}(${GEN_ENGINES.find((e) => e.id === engine)?.label ?? engine})`
+                        : "先填分镜文本再生成"
+                    }
+                    aria-label={job ? `重生成: 第 ${idx + 1} 镜` : `生成分镜: 第 ${idx + 1} 镜`}
+                    disabled={regenerating || !(meta?.prompt?.trim() || row.shot_text.trim())}
+                    onClick={() => void handleGenerate(row)}
+                  >
+                    <Icon name="refresh" size={14} />
+                  </button>
+                )}
                 {job && hasResult ? (
                   <button
                     type="button"

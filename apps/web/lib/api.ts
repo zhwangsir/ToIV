@@ -593,6 +593,22 @@ export async function exportBoard(boardId: string): Promise<unknown> {
   return res.json();
 }
 
+/** 分镜单镜生成(M2):按行 shot_meta + 角色实体定妆照提交引擎(phantom-s2v/h3-r2v/h3-t2v)。 */
+export async function generateBoardShot(
+  boardId: string,
+  itemId: number,
+  input: { engine: string; seed?: number; fps?: number },
+): Promise<GenerateResponse & { engine?: string }> {
+  const res = await apiFetch(`/api/boards/${boardId}/items/${itemId}/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+    signal: AbortSignal.timeout(90_000),
+  });
+  if (!res.ok) await raiseApiError(res, "分镜生成提交失败");
+  return res.json();
+}
+
 export async function deleteBoard(boardId: string): Promise<void> {
   const res = await apiFetch(`/api/boards/${boardId}`, {
     method: "DELETE",

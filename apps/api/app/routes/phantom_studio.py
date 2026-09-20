@@ -26,7 +26,7 @@ from app.models import Entity, User
 from app.nsfw_ctx import job_nsfw_from_intent
 from app.ratelimit import enforce_generation_rate_limit
 from app.services import longcat as longcat_service
-from app.services.entities import best_image_value, parse_image_handle
+from app.services.entities import image_handle_for_injection
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.workflows.phantom_s2v import (
     MAX_REF_IMAGES,
@@ -125,12 +125,12 @@ def _entity_ref_handles(req: PhantomS2VRequest, user: User, session: Session) ->
         e = session.get(Entity, eid)
         if not e or e.user_id != user.id:
             raise HTTPException(status_code=404, detail=f"主体不存在({eid})")
-        raw = best_image_value(e)
-        handle = parse_image_handle(raw) if raw else None
+        # 句柄 JSON 与站内 /api/images URL 双形态统一解析(image_handle_for_injection)
+        handle = image_handle_for_injection(e)
         if not handle:
             raise HTTPException(
                 status_code=422,
-                detail=f"主体 {e.name} 无可用的上传句柄参考图(URL 形态请先经 resolve-refs 落 worker)",
+                detail=f"主体 {e.name} 无可用参考图(请到主体库上传/生成定妆照)",
             )
         out.append(RefImage(filename=handle["filename"], worker=handle["worker"]))
     return out

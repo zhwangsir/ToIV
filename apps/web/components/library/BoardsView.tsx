@@ -36,9 +36,11 @@ interface BoardsViewProps {
   onOpenJob: (jobs: JobItem[], index: number) => void;
   /** 板内作品直引为生成台媒体槽(复用作品库 assetPick) */
   onUseAsInput: (job: JobItem) => void;
+  /** 分镜角色条点击 → 跳主体库(M2) */
+  onOpenEntities?: () => void;
 }
 
-export function BoardsView({ onBack, onOpenJob, onUseAsInput }: BoardsViewProps) {
+export function BoardsView({ onBack, onOpenJob, onUseAsInput, onOpenEntities }: BoardsViewProps) {
   const toast = useToast();
   const [boards, setBoards] = useState<BoardOut[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -246,6 +248,7 @@ export function BoardsView({ onBack, onOpenJob, onUseAsInput }: BoardsViewProps)
             }
             onOpenJob={onOpenJob}
             onUseAsInput={onUseAsInput}
+            onOpenEntities={onOpenEntities}
           />
         ) : items.length === 0 ? (
           <div className="lib-board-empty">

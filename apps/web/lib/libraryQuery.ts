@@ -51,6 +51,10 @@ export const FILTERS: FilterDef[] = [
       "h3_multishot",
       // H3 超 15s 分段续写(末帧 i2v,kind=h3_extend_i2v)
       "h3_extend_i2v",
+      // H3 Ref2VA 多参考(分镜板 M2 主路之一)
+      "h3_r2v",
+      // Phantom 角色一致性视频(分镜板 M2 角色锁定)
+      "phantom_s2v",
       "ltx_t2v", "ltx_i2v", "ltx_lipsync", "ltx2_t2v", "ltx2_i2v",
       "frame_interpolate", "dub_lipsync_long", "manju_lipsync", "anime_lipsync",
       // 视频超分(M6 fleet 帧级 4K 管线)
@@ -155,6 +159,8 @@ export function kindLabel(kind: string): string {
     h3_i2v: "图生视频",
     h3_multishot: "多镜头",
     h3_extend_i2v: "长视频续写",
+    h3_r2v: "多参考视频",
+    phantom_s2v: "角色一致性视频",
     ltx_t2v: "文生视频",
     ltx_i2v: "图生视频",
     ltx_lipsync: "对口型",

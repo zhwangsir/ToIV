@@ -1293,6 +1293,7 @@ export function LibraryView(props?: LibraryViewProps) {
             setLightboxIdx(idx);
           }}
           onUseAsInput={handleUseAsInput}
+          onOpenEntities={() => onNavigate?.("entities")}
         />
         {lightboxPortal}
       </>

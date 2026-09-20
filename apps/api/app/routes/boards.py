@@ -8,6 +8,7 @@
 - DELETE /api/boards/{id}       删板(级联成员)
 - GET    /api/boards/{id}/items 板内成员(按 sort_order;带作品字段;占位行 job=null)
 - PUT    /api/boards/{id}/items 整组替换成员(增删+重排一次写,防半状态;job_id 空=占位行)
+- POST   /api/boards/{id}/items/{item_id}/generate 分镜单镜生成(M2:角色实体→phantom/h3 参考图)
 - GET    /api/boards/{id}/export 整板导出 drama_studio 格式 JSON(附件下载)
 """
 from __future__ import annotations
@@ -22,11 +23,17 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.agent.llm import LLMError
+from app.comfy.pool import WorkerPool
 from app.db import get_session
-from app.deps import get_current_user
+from app.deps import get_current_user, get_pool
 from app.models import Board, BoardItem, Job, User
 from app.routes.jobs import _app_id_of, _app_names_map, _job_dict
-from app.services.board_storyboard import build_export_document, compose_shot_text
+from app.services.board_generate import submit_shot_generation
+from app.services.board_storyboard import (
+    build_export_document,
+    compose_shot_text,
+    upsert_script_characters,
+)
 from app.services.studio.storyboard import StoryboardError, parse_script
 
 logger = logging.getLogger(__name__)
@@ -73,6 +80,14 @@ class ScriptBoardCreate(BaseModel):
     num_shots: int = Field(default=8, ge=1, le=50)
     style: str = Field(default="", max_length=2000)
     name: str = Field(default="", max_length=64)
+
+
+class ShotGenerateIn(BaseModel):
+    """分镜单镜生成(M2):按行 shot_meta + 角色实体参考图提交引擎。"""
+
+    engine: str = Field(pattern="^(phantom-s2v|h3-r2v|h3-t2v)$")
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    fps: int = Field(default=16, ge=8, le=30)
 
 
 def _board_out(session: Session, b: Board) -> dict:
@@ -245,13 +260,15 @@ async def create_board_from_script(
     """分镜板 v2(M1):LLM 拆剧本 → 建板 + 占位分镜行(shot_text 人读/shot_meta 结构化)。
 
     复用现役 studio 链 parse_script(L3 精修层 + 指代消解后处理,实测 20-30s)。
+    M2:角色草稿幂等落库 Entity(kind=character),shot_meta 写 entity_ids(与 characters 同序)。
     """
     try:
-        _characters, shots = await parse_script(
+        characters, shots = await parse_script(
             premise=body.script, num_shots=body.num_shots, style=body.style
         )
     except (StoryboardError, LLMError) as exc:
         raise HTTPException(status_code=503, detail=f"剧本拆解服务暂不可用: {exc}") from exc
+    name_to_eid = upsert_script_characters(session, user, characters)
     name = body.name.strip()
     if not name:
         head = " ".join(body.script.split())[:12]
@@ -261,15 +278,53 @@ async def create_board_from_script(
     session.commit()
     session.refresh(b)
     for idx, draft in enumerate(shots):
+        meta = draft.model_dump()
+        meta["entity_ids"] = [name_to_eid[n] for n in (draft.characters or []) if n in name_to_eid]
         session.add(BoardItem(
             board_id=b.id,
             job_id="",
             sort_order=idx,
             shot_text=compose_shot_text(draft),
-            shot_meta=json.dumps(draft.model_dump(), ensure_ascii=False),
+            shot_meta=json.dumps(meta, ensure_ascii=False),
         ))
     session.commit()
     return {"board": _board_out(session, b), "item_count": len(shots)}
+
+
+@router.post("/boards/{board_id}/items/{item_id}/generate")
+async def generate_board_shot(
+    board_id: str,
+    item_id: int,
+    body: ShotGenerateIn,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    pool: WorkerPool = Depends(get_pool),
+) -> dict:
+    """分镜单镜生成(M2):按行 shot_meta(prompt/时长)+角色实体(定妆照)提交引擎。
+
+    phantom-s2v=角色锁定(实体需有定妆照)/h3-r2v=多参考(resolve-refs 出句柄)/
+    h3-t2v=快速兜底(无角色也可)。手动添加的无 shot_meta 行以 shot_text 作 scene 兜底。
+    """
+    b = _owned_board(session, user, board_id)
+    item = session.get(BoardItem, item_id)
+    if not item or item.board_id != b.id:
+        raise HTTPException(status_code=404, detail="分镜行不存在")
+    meta: dict = {}
+    if item.shot_meta:
+        try:
+            obj = json.loads(item.shot_meta)
+            if isinstance(obj, dict):
+                meta = obj
+        except ValueError:
+            meta = {}
+    if not str(meta.get("scene") or "").strip() and item.shot_text.strip():
+        meta["scene"] = item.shot_text.strip()
+    try:
+        return await submit_shot_generation(
+            session, pool, user, meta, body.engine, seed=body.seed, fps=body.fps
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/boards/{board_id}/export")
@@ -278,7 +333,7 @@ def export_board(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> JSONResponse:
-    """整板导出 drama_studio 格式 JSON(字段对齐 _shot_dict;媒体取自挂载作品)。"""
+    """整板导出 drama_studio 格式 JSON(字段对齐 _shot_dict;媒体取自挂载作品;M2 角色升维)。"""
     b = _owned_board(session, user, board_id)
     items = session.exec(
         select(BoardItem).where(BoardItem.board_id == b.id).order_by(BoardItem.sort_order)
@@ -289,7 +344,7 @@ def export_board(
         if job is not None and job.deleted_at is not None:
             job = None
         rows.append((it, job))
-    doc = build_export_document(b, rows)
+    doc = build_export_document(b, rows, session=session, user_id=user.id)
     quoted = quote(f"{b.name}.drama_studio.json")
     return JSONResponse(
         content=doc,

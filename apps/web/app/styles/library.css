@@ -2349,3 +2349,64 @@
   font-size: 11px;
   color: var(--text-tertiary, rgba(235, 237, 245, 0.42));
 }
+
+
+/* ── 分镜板 M2(2026-09-21):生成工具行 / 角色条 ── */
+
+.lib-shot-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.lib-shot-engine { flex: none; }
+
+.lib-cast-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+.lib-cast-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 3px;
+  border: 1px solid var(--line, rgba(235, 237, 245, 0.1));
+  border-radius: var(--radius-full, 999px);
+  background: var(--bg-elevated, #16181e);
+  color: var(--text-secondary, rgba(235, 237, 245, 0.62));
+  cursor: pointer;
+  transition: border-color 140ms ease;
+}
+.lib-cast-chip:hover {
+  border-color: color-mix(in srgb, var(--accent, #b8f03c) 40%, transparent);
+  color: var(--text-primary);
+}
+.lib-cast-chip-img {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-base, #0e1013);
+  flex: none;
+}
+.lib-cast-chip-img--empty { color: var(--text-tertiary, rgba(235, 237, 245, 0.42)); }
+.lib-cast-chip-name {
+  font-size: 12px;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lib-cast-chip-noimg {
+  font-size: 10px;
+  padding: 0 6px;
+  border-radius: var(--radius-full, 999px);
+  color: #ffc94d;
+  background: rgba(255, 201, 77, 0.12);
+}

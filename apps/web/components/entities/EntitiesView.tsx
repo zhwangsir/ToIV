@@ -381,27 +381,34 @@ function EntityFormModal({ open, editing, defaultKind, onClose, onSaved }: Entit
           />
         </Field>
         {form.kind === "avatar" && (
-          <>
-            <Field label="绿幕素材" hint="绿幕背景的形象素材,后续抠像/合成工作流使用">
-              <label className="ent-check">
-                <input
-                  type="checkbox"
-                  checked={form.green_screen}
-                  disabled={saving}
-                  onChange={(e) => setForm((f) => ({ ...f, green_screen: e.target.checked }))}
-                />
-                <span>这是绿幕形象</span>
-              </label>
-            </Field>
-            <Field label="默认音色参考" hint="可空;填入参考音频 URL,数字人合成时优先克隆该音色">
-              <Input
-                value={form.ref_audio}
-                maxLength={2000}
-                placeholder="/api/drama/voice/voice-xxx.wav"
-                onChange={(e) => setForm((f) => ({ ...f, ref_audio: e.target.value }))}
+          <Field label="绿幕素材" hint="绿幕背景的形象素材,后续抠像/合成工作流使用">
+            <label className="ent-check">
+              <input
+                type="checkbox"
+                checked={form.green_screen}
+                disabled={saving}
+                onChange={(e) => setForm((f) => ({ ...f, green_screen: e.target.checked }))}
               />
-            </Field>
-          </>
+              <span>这是绿幕形象</span>
+            </label>
+          </Field>
+        )}
+        {(form.kind === "avatar" || form.kind === "character") && (
+          <Field
+            label="默认音色参考"
+            hint={
+              form.kind === "character"
+                ? "可空;填入参考音频 URL,漫剧分镜配音(M3)将优先克隆该音色"
+                : "可空;填入参考音频 URL,数字人合成时优先克隆该音色"
+            }
+          >
+            <Input
+              value={form.ref_audio}
+              maxLength={2000}
+              placeholder="/api/drama/voice/voice-xxx.wav"
+              onChange={(e) => setForm((f) => ({ ...f, ref_audio: e.target.value }))}
+            />
+          </Field>
         )}
         {error && <p className="ent-form-error">{error}</p>}
       </div>
