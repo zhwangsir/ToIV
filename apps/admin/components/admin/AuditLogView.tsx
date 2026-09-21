@@ -8,15 +8,29 @@ import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 
-/** 动作 → 中文标签(未知动作回退原字符串)。 */
+/** 动作 → 中文标签(未知动作回退原字符串);键与后端 audit action 点号风格一致(startswith 前缀过滤)。 */
 const ACTION_LABELS: Record<string, string> = {
-  job_delete: "删除作品",
-  job_delete_undo: "撤销删除",
-  jobs_batch_delete: "批量删除",
-  user_create: "创建用户",
-  user_delete: "删除用户",
-  agent_session_delete: "删除智能体会话",
-  workflow_deploy: "部署工作流",
+  "job.delete": "删除作品",
+  "job.undo": "撤销删除",
+  "job.restore": "恢复作品",
+  "job.cancel": "取消作业",
+  "job.purge": "彻底删除",
+  "job.purge_all": "清空回收站",
+  "job.cleanup_failed": "清理失败作业",
+  "session.delete": "删除智能体会话",
+  "app.run": "运行应用",
+  "app.smoke": "应用烟测",
+  "app.smoke_batch": "批量烟测",
+  "app.cover_demo": "封面 Demo",
+  "app.covers_generate": "批量生成封面",
+  "app.open_in_comfy": "在 ComfyUI 打开",
+  "app.selfheal_reject": "拒绝自愈提案",
+  "admin.user.delete": "删除用户",
+  "project.delete": "删除项目",
+  "character.delete": "删除角色",
+  "orch.wake": "唤醒服务",
+  "orch.wake_failed": "唤醒失败",
+  "orch.sleep": "休眠服务",
 };
 
 /** 相对时间:刚刚 / N 分钟前 / N 小时前 / N 天前 / 完整日期时间。 */
