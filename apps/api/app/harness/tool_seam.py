@@ -189,6 +189,23 @@ def builtin_tool_specs() -> list[ToolSpec]:
                      "查询一键成片作业状态与产物(done 自动展示成片)", rate_scope=""),
         ]
 
+    def _selfheal_specs() -> list[ToolSpec]:
+        from app.agent import tools_selfheal
+
+        def sh(name: str) -> dict:
+            return next(s for s in tools_selfheal.TOOL_SCHEMAS_SELFHEAL if s["function"]["name"] == name)
+
+        return [
+            ToolSpec("list_smoke_failures", sh("list_smoke_failures"), tools_selfheal.exec_list_smoke_failures,
+                     "列出烟测失败/超时的应用及归因(仅管理员)", rate_scope=""),
+            ToolSpec("explain_app_failure", sh("explain_app_failure"), tools_selfheal.exec_explain_app_failure,
+                     "详解一个应用的烟测失败+修复建议+已有提案(仅管理员)", rate_scope=""),
+            ToolSpec("run_app_smoke", sh("run_app_smoke"), tools_selfheal.exec_run_app_smoke,
+                     "对应用现场重跑烟测(管线自动归因+修复重试;仅管理员)", rate_scope=""),
+            ToolSpec("reject_app_fix", sh("reject_app_fix"), tools_selfheal.exec_reject_app_fix,
+                     "回滚一个 LLM 修复提案(补丁帮倒忙时;仅管理员)", rate_scope=""),
+        ]
+
     return [
         ToolSpec("generate_image", schema("generate_image"), _wrap(tools.exec_generate_image),
                  "文生图(海报/插画/照片/概念图等)"),
@@ -239,6 +256,8 @@ def builtin_tool_specs() -> list[ToolSpec]:
                  "在作品库打开一个已有产物(需 job_id,限本人)", rate_scope=""),
         # ── 漫剧线工具(tools_drama.py;分镜板管线:拆镜→单镜→成片→追踪)──
         *_drama_specs(),
+        # ── 自愈闭环延伸工具(tools_selfheal.py;烟测失败归因/修复建议/重测/回滚)──
+        *_selfheal_specs(),
     ]
 
 
