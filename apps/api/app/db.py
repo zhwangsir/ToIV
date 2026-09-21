@@ -16,7 +16,22 @@ _settings = get_settings()
 _connect_args = (
     {"check_same_thread": False} if _settings.database_url.startswith("sqlite") else {}
 )
-engine = create_engine(_settings.database_url, connect_args=_connect_args)
+# 2026-09-21 生产事故:目录涨到 5140 公开应用后,/api/apps 慢流式响应(frp 37KB/s)
+# 在 FastAPI「yield 依赖响应流完才 teardown」语义下把 DB 会话挂到流完,
+# 默认池 5+10 全部楔死(idle in transaction 15 条)→ 全 API 假死。
+# 默认池对同步 SQLModel 应用本就偏小,这里显式放大+保活+短回收兜底同类抖动。
+_pool_kwargs = (
+    {}
+    if _settings.database_url.startswith("sqlite")
+    else {
+        "pool_size": 20,
+        "max_overflow": 20,
+        "pool_timeout": 15,
+        "pool_recycle": 1800,
+        "pool_pre_ping": True,
+    }
+)
+engine = create_engine(_settings.database_url, connect_args=_connect_args, **_pool_kwargs)
 
 
 # R18 软开关相关的幂等迁移。create_all 只建新表、不 ALTER 既有表,

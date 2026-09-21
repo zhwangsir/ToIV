@@ -8,12 +8,17 @@ GET /api/apps 每次都全表查询 + 2195 行构造 + JSON 序列化(2MB,实测
 """
 from __future__ import annotations
 
+import threading
 import time
 
 _TTL_S = 45.0
 _MAX_ENTRIES = 12
 _VER = 0
 _CACHE: dict[tuple, tuple[float, bytes]] = {}
+# 单飞重建锁(2026-09-21):缓存失效/TTL 过期瞬间,N 个并发请求会各自全表查询+
+# 5140 行构造(冷路径 10-30s),每条都占住一个 DB 连接——目录规模化后叠加慢流式
+# 挂会话可直接楔死连接池。重建全局单飞:后来者等首个重建完直接吃新缓存。
+_REBUILD_LOCK = threading.Lock()
 
 
 def bump() -> None:
@@ -43,3 +48,8 @@ def put(key: tuple, payload: bytes) -> None:
         oldest = min(_CACHE, key=lambda k: _CACHE[k][0])
         _CACHE.pop(oldest, None)
     _CACHE[key] = (time.monotonic(), payload)
+
+
+def rebuild_lock() -> threading.Lock:
+    """缓存重建单飞锁:get 未命中后在锁内二次 get,double-check 防重复重建。"""
+    return _REBUILD_LOCK

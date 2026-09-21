@@ -2336,52 +2336,65 @@ def list_apps(
     key = apps_list_cache.make_key(user.id, allow_nsfw, params)
     cached = apps_list_cache.get(key)
     if cached is not None:
+        # 早释会话(2026-09-21 事故):FastAPI yield 依赖要等响应流完才 teardown,
+        # 7MB 慢流(frp 37KB/s)会把会话(连接)挂住几分钟——缓存命中路径同样
+        # 已因 auth 查询开了事务(pg 侧 idle in transaction 实证)。返回前显式关。
+        session.close()
         return Response(content=cached, media_type="application/json")
-    rows = session.exec(select(App).order_by(App.sort, App.name)).all()
-    # 已发布说明书一次性取 map(app_id → AppGuide),防 550 行逐行查(N+1)
-    guide_map: dict[str, AppGuide] = {
-        g.app_id: g
-        for g in session.exec(select(AppGuide).where(AppGuide.status == "published")).all()
-    }
-    # 功能归组(2026-09-15):同指纹变体计数与代表选定(代表=烟测 pass 优先,其次 usage 最高)
-    fp_groups: dict[str, list[App]] = {}
-    for a in rows:
-        if a.fingerprint:
-            fp_groups.setdefault(a.fingerprint, []).append(a)
-    fp_representative: set[str] = set()
-    fp_variant_count: dict[str, int] = {}
-    for fp, group in fp_groups.items():
-        if len(group) < 2:
-            continue
-        rep = max(group, key=lambda x: (x.smoke_status == "pass", x.usage_count, x.id))
-        fp_representative.add(rep.id)
-        fp_variant_count[rep.id] = len(group)
-        fp_variant_count.update({x.id: len(group) for x in group if x.id != rep.id})
-    out: list[AppOut] = []
-    needle = (q or "").strip().lower()
-    for a in rows:
-        if not _visible(a, user):
-            continue
-        if a.is_nsfw and not allow_nsfw:
-            continue
-        if category and a.category != category:
-            continue
-        if use_case and (a.use_case or "") != use_case:
-            continue
-        if fingerprint and (a.fingerprint or "") != fingerprint:
-            continue
-        if featured and not a.featured:
-            continue
-        if needle and needle not in a.name.lower() and needle not in (a.description or "").lower():
-            continue
-        row = _to_out(a, user, slim=True, guide=guide_map.get(a.id))
-        row.fingerprint = a.fingerprint or ""
-        row.variant_count = fp_variant_count.get(a.id, 0)
-        row.is_variant = bool(a.fingerprint) and a.id not in fp_representative and a.id in fp_variant_count
-        out.append(row)
-    payload = json.dumps(jsonable_encoder(out), ensure_ascii=False).encode()
-    apps_list_cache.put(key, payload)
-    return Response(content=payload, media_type="application/json")
+    # 冷路径单飞:缓存失效瞬间 N 并发各自全表重建(10-30s/条)会占满连接池;
+    # 锁内二次检查,后来者直接吃首个重建的成果。
+    with apps_list_cache.rebuild_lock():
+        cached = apps_list_cache.get(key)
+        if cached is not None:
+            session.close()
+            return Response(content=cached, media_type="application/json")
+        rows = session.exec(select(App).order_by(App.sort, App.name)).all()
+        # 已发布说明书一次性取 map(app_id → AppGuide),防 550 行逐行查(N+1)
+        guide_map: dict[str, AppGuide] = {
+            g.app_id: g
+            for g in session.exec(select(AppGuide).where(AppGuide.status == "published")).all()
+        }
+        # 功能归组(2026-09-15):同指纹变体计数与代表选定(代表=烟测 pass 优先,其次 usage 最高)
+        fp_groups: dict[str, list[App]] = {}
+        for a in rows:
+            if a.fingerprint:
+                fp_groups.setdefault(a.fingerprint, []).append(a)
+        fp_representative: set[str] = set()
+        fp_variant_count: dict[str, int] = {}
+        for fp, group in fp_groups.items():
+            if len(group) < 2:
+                continue
+            rep = max(group, key=lambda x: (x.smoke_status == "pass", x.usage_count, x.id))
+            fp_representative.add(rep.id)
+            fp_variant_count[rep.id] = len(group)
+            fp_variant_count.update({x.id: len(group) for x in group if x.id != rep.id})
+        out: list[AppOut] = []
+        needle = (q or "").strip().lower()
+        for a in rows:
+            if not _visible(a, user):
+                continue
+            if a.is_nsfw and not allow_nsfw:
+                continue
+            if category and a.category != category:
+                continue
+            if use_case and (a.use_case or "") != use_case:
+                continue
+            if fingerprint and (a.fingerprint or "") != fingerprint:
+                continue
+            if featured and not a.featured:
+                continue
+            if needle and needle not in a.name.lower() and needle not in (a.description or "").lower():
+                continue
+            row = _to_out(a, user, slim=True, guide=guide_map.get(a.id))
+            row.fingerprint = a.fingerprint or ""
+            row.variant_count = fp_variant_count.get(a.id, 0)
+            row.is_variant = bool(a.fingerprint) and a.id not in fp_representative and a.id in fp_variant_count
+            out.append(row)
+        payload = json.dumps(jsonable_encoder(out), ensure_ascii=False).encode()
+        apps_list_cache.put(key, payload)
+        # 同命中路径:返回前显式早释会话,勿把连接挂到 7MB 慢流结束
+        session.close()
+        return Response(content=payload, media_type="application/json")
 
 
 @router.get("/{aid}", response_model=AppOut)
