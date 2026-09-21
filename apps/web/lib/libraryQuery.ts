@@ -592,6 +592,46 @@ export async function deleteJobsBatch(
   return { done, failed, undoTokens };
 }
 
+export interface DeleteJobsSmartDeps {
+  /** 单件软删(小组本地循环路径,也是 bulk 异常时的回退路径)。 */
+  single: (id: string) => Promise<{ undo_token?: string } | void>;
+  /** 大组一次 HTTP 批量软删(POST /api/jobs/bulk-delete,逐件独立撤销凭据)。 */
+  bulk: (ids: readonly string[]) => Promise<{
+    done?: Array<{ id: string; undo_token?: string }>;
+    failed?: string[];
+  }>;
+  /** 成员数超过该阈值走 bulk 端点(默认 20,与端点优选口径一致)。 */
+  threshold?: number;
+}
+
+/**
+ * 大组切端点(P1 2026-09-22):ids 超过阈值走一次 HTTP 批量软删,响应映射回
+ * 与 deleteJobsBatch 完全相同的 {done, failed, undoTokens} 形状,调用方零改动;
+ * 小组维持本地顺序循环;bulk 整体抛错(401/网络)自动回退本地循环,不阻断删除。
+ */
+export async function deleteJobsSmart(
+  ids: readonly string[],
+  deps: DeleteJobsSmartDeps,
+): Promise<BatchDeleteResult & { undoTokens: string[] }> {
+  const { single, bulk, threshold = 20 } = deps;
+  if (ids.length > threshold) {
+    try {
+      const r = await bulk(ids);
+      const doneItems = r.done ?? [];
+      return {
+        done: doneItems.map((d) => d.id),
+        failed: [...(r.failed ?? [])],
+        undoTokens: doneItems
+          .map((d) => d.undo_token)
+          .filter((t): t is string => typeof t === "string" && t.length > 0),
+      };
+    } catch {
+      return deleteJobsBatch(ids, single);
+    }
+  }
+  return deleteJobsBatch(ids, single);
+}
+
 // ─────────────────────────────────────────────────────────────
 // 2026-09-20 作品库 P1:收藏 / 时间分组 / 元数据桥(纯函数层)
 // ─────────────────────────────────────────────────────────────

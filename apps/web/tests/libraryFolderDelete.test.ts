@@ -2,7 +2,7 @@
  * 作品库文件夹整组删除 P0 单测(2026-09-22)
  * ① 入口:文件夹卡 hover 操作组(打开/删除整组)+ 批量模式整组点选(已选气泡)
  * ② 确认流:Modal 成员数/状态分布/进行中排除/回收站+画板提示/「不再确认」持久化
- * ③ 撤销:复用 deleteJobsBatch + undoTokens + 「全部撤销」循环(与批量删除同范式)
+ * ③ 撤销:deleteJobsSmart(>20 走 bulk 端点) + undoTokens + 「全部撤销」循环(与批量删除同范式)
  * ④ 进行中排除:folderTerminalMembers/folderStatusSummary 纯函数(queued/running 剔除)
  * 背景:2026-09-20 曾拍板「不做整组删除防误删」;P0 翻案——删除只作用于
  * 点击瞬间快照的终态成员,回收站 72h + 全部撤销双兜底。
@@ -101,12 +101,15 @@ test("确认 Modal:成员数/状态分布/进行中排除/回收站+画板提示
 });
 
 /* ── ③ 撤销 ── */
-test("执行与撤销:快照终态成员 → deleteJobsBatch → toast 全部撤销(批量同范式)", () => {
+test("执行与撤销:快照终态成员 → deleteJobsSmart → toast 全部撤销(批量同范式)", () => {
   const src = readSrc("components/library/LibraryView.tsx");
   const exec = src.slice(src.indexOf("const handleConfirmFolderDelete"), src.indexOf("const handleFolderModalConfirm"));
   // 红线:组是视图派生,只删点击瞬间快照的终态成员 id
   assert.ok(exec.includes("folderTerminalMembers(folder).map((m) => m.id)"), "未快照终态成员");
-  assert.ok(exec.includes("deleteJobsBatch(ids, deleteJob)"), "未复用批量删除助手");
+  assert.ok(
+    exec.includes("deleteJobsSmart(ids, { single: deleteJob, bulk: bulkDeleteJobs })"),
+    "未走 deleteJobsSmart(大组切 bulk 端点)",
+  );
   assert.ok(exec.includes("undoTokens"), "未收集撤销凭据");
   assert.ok(exec.includes('label: "全部撤销"'), "缺全部撤销入口");
   assert.ok(exec.includes("undoTokens.map((t) => undoDelete(t))"), "撤销未逐件恢复");

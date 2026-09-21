@@ -8,14 +8,14 @@ import { pullPreferences, schedulePush } from "@/lib/preferencesSync";
 import { BoardsView } from "@/components/library/BoardsView";
 import { fetchBoardItems, fetchBoards, putBoardItems, type BoardOut } from "@/lib/api";
 import { buildRemixLink } from "@/lib/remixLink";
-import { cleanupFailedJobs, deleteJob, fetchJobCount, fetchJobsPage, imageThumbUrl, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, listJobs, permanentDeleteJob, purgeTrash, rerunJob, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
+import { bulkDeleteJobs, cleanupFailedJobs, deleteJob, fetchJobCount, fetchJobsPage, imageThumbUrl, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, listJobs, permanentDeleteJob, purgeTrash, rerunJob, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
 import { useR18Mode } from "@/lib/r18";
 import {
   applyLibraryQuery,
   countByFilter,
-  deleteJobsBatch,
+  deleteJobsSmart,
   FILTERS,
   flattenLightboxEntries,
   folderCover,
@@ -926,13 +926,14 @@ export function LibraryView(props?: LibraryViewProps) {
     });
   };
 
-  // 确认批量删除:顺序执行,成功项移出列表;有失败则保留失败项选中并内联报错
+  // 确认批量删除:大组(>20)走 bulk 端点一次软删,小组顺序单删,成功项移出列表;
+  // 有失败则保留失败项选中并内联报错
   const handleConfirmBatchDelete = async () => {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
     setBatchDeleting(true);
     setDeleteError(null);
-    const { done, failed, undoTokens } = await deleteJobsBatch(ids, deleteJob);
+    const { done, failed, undoTokens } = await deleteJobsSmart(ids, { single: deleteJob, bulk: bulkDeleteJobs });
     setBatchDeleting(false);
     if (done.length > 0) {
       invalidateJobs();
@@ -982,14 +983,14 @@ export function LibraryView(props?: LibraryViewProps) {
     setConfirmFolderDelete(folder);
   };
 
-  // 确认整组删除:快照终态成员 id → 复用 deleteJobsBatch(顺序单删+失败不中断)
+  // 确认整组删除:快照终态成员 id → deleteJobsSmart(>20 走 bulk 端点,否则顺序单删+失败不中断)
   // → toast「全部撤销」循环恢复(与批量删除同一范式);成员 <2 时文件夹经既有回落消失
   const handleConfirmFolderDelete = async (folder: BatchFolder) => {
     const ids = folderTerminalMembers(folder).map((m) => m.id);
     if (ids.length === 0) return;
     setFolderDeleting(true);
     setDeleteError(null);
-    const { done, failed, undoTokens } = await deleteJobsBatch(ids, deleteJob);
+    const { done, failed, undoTokens } = await deleteJobsSmart(ids, { single: deleteJob, bulk: bulkDeleteJobs });
     setFolderDeleting(false);
     if (done.length > 0) {
       invalidateJobs();

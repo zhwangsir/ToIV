@@ -16,6 +16,10 @@ test.describe("智能体 UI", () => {
   // ── 图像工作台 OptimizeButton ─────────────────────────────
   // 优化按钮在工作台底部提示词条(PromptBar)内,SFW/R18 视图均有。
   test("图像工作台出现 OptimizeButton", async ({ page }) => {
+    // STALE(2026-09-22 登记):09-12 引擎工作台改造后 ?view=image 渲染 EngineStudioView
+    // (.apps-studio,无 PromptBar/OptimizeButton),GenerateView 已无路由挂载;
+    // 优化入口现状=助手 optimize_prompt 工具(A1 对照卡)。待按新架构重写,先跳过。
+    test.skip(true, "stale: GenerateView 已退役(09-12 引擎工作台),待按新架构重写");
     await page.goto("/?view=image", { waitUntil: "domcontentloaded" });
     try {
       await page.waitForLoadState("networkidle", { timeout: 10000 });
@@ -33,6 +37,9 @@ test.describe("智能体 UI", () => {
 
   // ── AdminView 智能体管理 ───────────────────────────────────────
   test("AdminView 出现智能体管理 tab", async ({ page }) => {
+    // STALE(2026-09-22 登记):09-15 管理系统独立(:3200)后主站 ?view=admin 弹回对话页,
+    // AdminView/智能体管理 tab 在独立控制台;admin e2e 现状保持为零(D7 重建时覆盖),先跳过。
+    test.skip(true, "stale: 管理系统已独立 :3200(09-15),主站无 AdminView");
     await page.goto("/?view=admin", { waitUntil: "domcontentloaded" });
     try {
       await page.waitForLoadState("networkidle", { timeout: 10000 });
@@ -46,6 +53,8 @@ test.describe("智能体 UI", () => {
   });
 
   test("AdminView 切到智能体管理 tab 应展示列表", async ({ page }) => {
+    // STALE(2026-09-22 登记):同上——管理系统已独立 :3200,主站无 AdminView,先跳过。
+    test.skip(true, "stale: 管理系统已独立 :3200(09-15),主站无 AdminView");
     await page.goto("/?view=admin", { waitUntil: "domcontentloaded" });
     try {
       await page.waitForLoadState("networkidle", { timeout: 10000 });

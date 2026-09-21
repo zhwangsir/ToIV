@@ -357,7 +357,7 @@ test("LibraryView 新结构类名锚点 + library.css 16/9 与 token 收编", ()
   }
   // 交互逻辑锚点:密度持久化 / 批量删除流 / 清空查询
   assert.ok(src.includes("persistDensity"), "密度未持久化");
-  assert.ok(src.includes("deleteJobsBatch"), "批量删除未走批量 helper");
+  assert.ok(src.includes("deleteJobsSmart"), "批量删除未走批量 helper");
   assert.ok(src.includes("applyLibraryQuery"), "查询未走统一管线");
   assert.ok(src.includes("kindsQueryForFilter"), "类型 chip 未走服务端 kind 过滤");
   assert.ok(src.includes("makeSeqGate"), "chip 连点未接序号门闩");

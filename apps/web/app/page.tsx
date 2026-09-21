@@ -750,19 +750,21 @@ function HomeContent() {
       )}
 
       {/* AI 助手全局浮层(2026-08-17 底层化):Shift+Enter 唤起,任意视图之上对话;
-          助手内跳视图先收浮层再切换 */}
+          助手内跳视图先收浮层再切换;onNavigate 走融合跳转(A1 工具卡深链带查询串) */}
       <AssistantOverlay
         open={assistantOpen}
         onClose={() => setAssistantOpen(false)}
-        onNavigate={(v) => handleNavSelect(v)}
+        onNavigate={handleFusionNavigate}
       />
 
       <main id="main" className={`app-main${view === "avatartalk" ? " avatartalk-main" : ""}`}>
         <div className="view-root view-stage">
           <ErrorBoundary key={view} viewName={meta.label}>
             <Suspense fallback={<ViewFallback label={meta.label} />}>
-              {/* W2:对话为家——AssistantView 整页形态(门户空态/场景卡/快捷动作/最近作品) */}
-              {view === "home" && <HomeView variant="page" onNavigate={(v) => handleNavSelect(v)} />}
+              {/* W2:对话为家——AssistantView 整页形态(门户空态/场景卡/快捷动作/最近作品);
+                  onNavigate 走融合跳转(handleFusionNavigate):A1 工具卡深链带查询串
+                  (market?app=…),handleNavSelect 不解析查询串会整条吞进 view */}
+              {view === "home" && <HomeView variant="page" onNavigate={handleFusionNavigate} />}
               {view === "image" && <EngineStudioView kind="image" />}
               {view === "video" && <EngineStudioView kind="video" />}
               {view === "audio" && <AudioView />}

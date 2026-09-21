@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense, type ReactNode } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense, Fragment, type ReactNode } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { RecentWorksRail } from "./RecentWorksRail";
+import {
+  TOOL_RENDERERS,
+  renderToolCard,
+  type ToolCardCtx,
+} from "@/components/assistant/toolcards/registry";
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
@@ -106,6 +111,9 @@ export interface ToolChip {
   status: "start" | "ok" | "error";
   summary: string;
   detail?: string;
+  /** A1(2026-09-22):ok 态结构化结果,注册工具渲染结果卡(toolcards/registry);
+      未注册/解析失败忽略,仅 chip 展示 */
+  payload?: Record<string, unknown>;
 }
 
 /** 生成作业卡(job 事件):kind/label/状态徽章,done 后渲染 results 媒体。 */
@@ -981,6 +989,22 @@ export function AssistantView(props?: AssistantViewProps) {
     [onNavigate],
   );
 
+  /** A1 工具结果卡(2026-09-22)动作回调:应用到输入框 / 打开应用 / 打开画板。 */
+  const toolCardCtx = useMemo<ToolCardCtx>(
+    () => ({
+      // 优化后提示词直接回填受控输入框并聚焦,等待用户确认发送
+      onApplyInput: (text) => {
+        setInput(text);
+        textareaRef.current?.focus();
+      },
+      // 应用深链形态同 LibraryView 作业卡(onNavigate?.(`market?app=${id}`))
+      onOpenApp: (appId) => goView(`market?app=${appId}`),
+      // 画板详情暂无 URL 定位参数(BoardsView 详情为本地 state),兜底跳作品库
+      onOpenBoard: () => goView("library"),
+    }),
+    [goView],
+  );
+
   // @ 触发:取最后一个 @ 之后的文本作过滤词(空词=全量入口)
   const skillEntries = useMemo(() => {
     const idx = input.lastIndexOf("@");
@@ -1351,6 +1375,9 @@ export function AssistantView(props?: AssistantViewProps) {
                   status: ev.status === "ok" ? "ok" : ev.status === "error" ? "error" : "start",
                   summary: ev.summary || "",
                   detail: ev.detail,
+                  // A1:ok 态结构化 payload 透传;条件展开——缺省不写入键,
+                  // upsert 归并(...chip 展开)时保留此前已透传的 payload
+                  ...(ev.payload ? { payload: ev.payload } : {}),
                 });
               } else if (ev.type === "job") {
                 next = upsertJobCard(prev, {
@@ -2035,21 +2062,29 @@ export function AssistantView(props?: AssistantViewProps) {
                         {msg.role === "assistant" ? renderInlineMarkdown(msg.content) : msg.content}
                         {/* 工具调用小条:转圈(start)/绿勾(ok)/红叉(error+detail) */}
                         {msg.tools?.map((t) => (
-                          <div key={t.id} className={`av-tool-chip is-${t.status}`}>
-                            <span className="av-tool-chip-icon">
-                              <Icon
-                                name={t.status === "start" ? "loading" : t.status === "ok" ? "check" : "close"}
-                                size={12}
-                                strokeWidth={2}
-                              />
-                            </span>
-                            <span className="av-tool-chip-text">
-                              <span className="av-tool-chip-summary">{t.summary || t.name}</span>
-                              {t.status === "error" && t.detail ? (
-                                <span className="av-tool-chip-detail">{t.detail}</span>
-                              ) : null}
-                            </span>
-                          </div>
+                          <Fragment key={t.id}>
+                            <div className={`av-tool-chip is-${t.status}`}>
+                              <span className="av-tool-chip-icon">
+                                <Icon
+                                  name={t.status === "start" ? "loading" : t.status === "ok" ? "check" : "close"}
+                                  size={12}
+                                  strokeWidth={2}
+                                />
+                              </span>
+                              <span className="av-tool-chip-text">
+                                <span className="av-tool-chip-summary">{t.summary || t.name}</span>
+                                {t.status === "error" && t.detail ? (
+                                  <span className="av-tool-chip-detail">{t.detail}</span>
+                                ) : null}
+                              </span>
+                            </div>
+                            {/* A1 工具结果卡:ok + 注册工具 + payload 时在 chip 下追加
+                                (chip 保留作状态条目;payload 解析失败 renderToolCard
+                                归 null,回退仅 chip);未注册工具完全维持现状 */}
+                            {t.status === "ok" && t.payload && TOOL_RENDERERS[t.name]
+                              ? renderToolCard(t.name, t.payload, toolCardCtx)
+                              : null}
+                          </Fragment>
                         ))}
                         {/* 生成作业卡:kind 中文名 + label + 状态徽章;W4 起经 AvJobCards
                             聚合——同消息 ≥2 个 done 作业的视觉产物合并为一条胶片条 */}

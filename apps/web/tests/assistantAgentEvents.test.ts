@@ -94,9 +94,9 @@ test("api.ts:命名 SSE 事件(tool/job/proposal)以 event 名回填 type", () =
   // 命名事件 data 不带 type 字段,须回填,否则前端无法分流
   assert.ok(fn.includes("parsed.type = event"), "未以 event 名回填 type");
   assert.ok(fn.includes('event === "done"'), "缺 done 终止");
-  // AgentEvent 承载三类新事件的可选字段
+  // AgentEvent 承载三类新事件的可选字段(+ A1 工具卡 payload)
   const ev = src.slice(src.indexOf("export interface AgentEvent"));
-  for (const f of ["job_id", "hold_reason", "results", "proposal_id", "estimate", "summary", "detail"]) {
+  for (const f of ["job_id", "hold_reason", "results", "proposal_id", "estimate", "summary", "detail", "payload"]) {
     assert.ok(ev.includes(f), `AgentEvent 缺字段 ${f}`);
   }
 });

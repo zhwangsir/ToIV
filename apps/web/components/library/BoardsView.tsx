@@ -3,10 +3,11 @@
 /**
  * BoardsView:手动主题板(2026-09-21 用户拍板,纯本地组织工具)。
  *
- * 两个视图态:板列表(封面卡+新建+剧本拆镜) ↔ 板详情(网格/分镜双模式)。
+ * 两个视图态:板列表(封面卡+hover 删除+新建+剧本拆镜) ↔ 板详情(网格/分镜双模式)。
  * 网格模式:成员卡复用作品卡视觉,动作=用作参考(assetPick)/打开灯箱/移除;
  * 分镜模式(M1):BoardStoryboard 行编辑(分镜文本/挂作品/单镜重生成/排序)。
- * 新建/删除/改名走二次确认 Modal 既有范式;详情面包屑带「导出 drama_studio」JSON 下载。
+ * 新建/删除/改名走二次确认 Modal 既有范式(删除=danger 基座,明示不删成员作品);
+ * 板卡与详情页共用同一 handleDeleteBoard 执行函数;详情面包屑带「导出 drama_studio」JSON 下载。
  */
 import { useCallback, useEffect, useState } from "react";
 
@@ -405,6 +406,16 @@ export function BoardsView({ onBack, onOpenJob, onUseAsInput, onOpenEntities }: 
                   <Icon name="library" size={11} />
                   {b.item_count} 件
                 </span>
+                <div className="lib-actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button" className="lib-action-btn lib-action-btn--danger"
+                    title="删除画板(不删成员作品)"
+                    aria-label={`删除画板: ${b.name}`}
+                    onClick={() => setConfirmDeleteBoard(b)}
+                  >
+                    <Icon name="delete" size={13} />
+                  </button>
+                </div>
               </div>
               <div className="lib-foot">
                 <div className="lib-card-title" title={b.name}>{b.name}</div>
@@ -427,7 +438,7 @@ export function BoardsView({ onBack, onOpenJob, onUseAsInput, onOpenEntities }: 
           </>
         }
       >
-        板内作品只解除聚合关系,保留在作品库,不会删除。
+        画板仅删除组织,不删成员作品:板内作品只解除聚合关系,保留在作品库。
       </Modal>
 
       <Modal

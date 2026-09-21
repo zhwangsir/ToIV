@@ -456,6 +456,12 @@ export const assetFromJob = async (_body: {
   worker?: string;
 }): Promise<{ filename: string; worker: string }> => ({ filename: "mock.wav", worker: "mock-worker" });
 export const deleteJob = async (_jobId: string): Promise<{ undo_token?: string }> => ({});
+export const bulkDeleteJobs = async (ids: readonly string[]) => ({
+  ok: true,
+  done: ids.map((id) => ({ id, undo_token: `mock-undo-${id}` })),
+  failed: [] as string[],
+  undo_ttl: 259200,
+});
 export const cancelJob = async (_jobId: string): Promise<{ ok: boolean; status: string; worker_action: string }> => ({
   ok: true, status: "canceled", worker_action: "skipped",
 });

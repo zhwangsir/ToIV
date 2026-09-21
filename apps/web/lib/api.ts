@@ -800,6 +800,33 @@ export async function deleteJob(jobId: string): Promise<DeleteJobResult> {
   }
 }
 
+/** 批量删除(文件夹整组删除 P1 2026-09-22):单件成功条目(带独立撤销凭据)。 */
+export interface BulkDeleteDoneItem {
+  id: string;
+  undo_token?: string;
+  undo_expires_at?: string;
+}
+
+/** 批量删除返回:done/failed 分组(非终态/非本人/不存在静默进 failed)。 */
+export interface BulkDeleteResult {
+  ok: boolean;
+  done: BulkDeleteDoneItem[];
+  failed: string[];
+  undo_ttl?: number;
+}
+
+/** 大组一次 HTTP 批量软删(ids≤200,后端逐件归属校验+独立 undo_token;>20 成员时前端优选)。 */
+export async function bulkDeleteJobs(ids: readonly string[]): Promise<BulkDeleteResult> {
+  const res = await apiFetch(`/api/jobs/bulk-delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ ids: [...ids] }),
+  });
+  if (!res.ok) await raiseApiError(res, "批量删除失败");
+  invalidateJobs();
+  return res.json();
+}
+
 /** 撤销一次作品删除(回收站保留期 72h 内);成功后失效缓存让作品回归列表。 */
 export async function undoDelete(undoToken: string): Promise<void> {
   const res = await apiFetch(`/api/undo/${undoToken}`, {
@@ -1975,6 +2002,9 @@ export interface AgentEvent {
   status?: string;
   summary?: string;
   detail?: string;
+  /** tool 事件(A1 工具卡 2026-09-22):ok 态随附的结构化结果(按工具名解析;
+      未注册/无 payload 一律回退既有 chip 渲染,向后兼容) */
+  payload?: Record<string, unknown>;
   /** job 事件:生成作业卡(results 为完整签名 URL,可直接渲染) */
   job_id?: string;
   kind?: string;
