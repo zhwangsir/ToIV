@@ -940,13 +940,177 @@ export async function askModelWiki(question: string): Promise<{ answer: string; 
 export async function enrichModelWiki(opts?: {
   force?: boolean;
   max?: number;
+  targets?: [string, string][];
 }): Promise<{ enriched: number; skipped: number; failed: number }> {
+  // longRequest(180s):逐条查 civitai + 1.2s 限速,max=40 约 60-120s,默认 30s 必超
   const res = await apiFetch("/api/models/wiki/enrich", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ force: opts?.force ?? false, max: opts?.max ?? 40 }),
-  });
+    body: JSON.stringify({
+      force: opts?.force ?? false,
+      max: opts?.max ?? 40,
+      ...(opts?.targets?.length ? { targets: opts.targets } : {}),
+    }),
+  }, { longRequest: true });
   if (!res.ok) await raiseApiError(res, "富化失败");
+  return res.json();
+}
+
+// ---------- Admin D2 模型资产域(2026-09-22):本地清单/百科/引擎注册表/出处清单 ----------
+
+/** 引擎注册表条目(/api/models/engines;params schema 本域不展开,原样保留)。 */
+export interface EngineInfo {
+  id: string;
+  label: string;
+  kind: string;
+  available: boolean;
+  unavailable_reason?: string | null;
+  nsfw?: boolean;
+  description?: string;
+  params?: unknown[];
+}
+
+export interface EnginesResponse {
+  engines: EngineInfo[];
+  count: number;
+}
+
+async function fetchEnginesRaw(): Promise<EnginesResponse> {
+  const res = await apiFetch(`/api/models/engines`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`加载引擎注册表失败 (${res.status})`);
+  return res.json();
+}
+
+/** 引擎注册表(含实时可用性),走本机 SWR 缓存(短 TTL,探测结果 60s 刷新)。 */
+export function fetchEngines(): Promise<EnginesResponse> {
+  return swr(CACHE_KEYS.engines, fetchEnginesRaw, TTL.engines);
+}
+
+/** 强制重探测(清后端可用性缓存);成功后失效本地缓存让下次读取拿到新结果。 */
+export async function refreshEngines(): Promise<EnginesResponse> {
+  // longRequest(180s):全引擎并行重探测,worker 挂起时远超 30s 默认超时
+  const res = await apiFetch(`/api/models/engines/refresh`, {
+    method: "POST",
+    headers: authHeaders(),
+  }, { longRequest: true });
+  if (!res.ok) await raiseApiError(res, "引擎重探测失败");
+  invalidate(CACHE_KEYS.engines);
+  return res.json();
+}
+
+/** 模型出处清单条目(MODEL_SOURCES 快照行;status null=未判定)。 */
+export interface ModelSourceItem {
+  basename: string;
+  rel_path: string | null;
+  source_kind: string;
+  source_url: string | null;
+  repo: string | null;
+  revision: string | null;
+  filename: string | null;
+  license_or_gated: string | null;
+  downloaded_at: string | null;
+  status: "ok" | "blocked" | null;
+  bytes: number | null;
+  notes: string | null;
+  batch: string | null;
+}
+
+export interface ModelSourcesResponse {
+  updated_at: string | null;
+  totals: { ok?: number; blocked?: number; total?: number } & Record<string, unknown>;
+  sources_scanned: string[];
+  items: ModelSourceItem[];
+}
+
+/** 模型出处清单(admin,只读静态快照;404=未部署)。 */
+export async function fetchModelSources(): Promise<ModelSourcesResponse> {
+  const res = await apiFetch(`/api/admin/model-sources`, { headers: authHeaders() });
+  if (!res.ok) await raiseApiError(res, "模型出处清单加载失败");
+  return res.json();
+}
+
+// ---------- Admin D6 实测矩阵(2026-09-22):L0 结构扫描 550 + L2 真 GPU 热路径 24 ----------
+
+/** L0 结构扫描行(550 公开应用;l0_status=pass|warn|fail)。 */
+export interface L0ResultRow {
+  id: string;
+  name: string;
+  output_kind: string;
+  usage_count: number;
+  category: string;
+  l0_status: "pass" | "warn" | "fail" | string;
+  reasons: string[];
+  warns: string[];
+  schema_keys?: string[];
+  required_fields?: string[];
+  orphan_bindings?: string[];
+  capability_ok?: boolean | null;
+}
+
+/** L2 热路径行(24;run_http=提交 HTTP 码,run_response 含 job_id/prompt_id/worker)。 */
+export interface L2ResultRow {
+  id: string;
+  name: string;
+  family: string;
+  is_builtin: boolean;
+  output_kind: string;
+  started_at: string;
+  submit_kind: string;
+  run_http: number | null;
+  run_response: {
+    job_id?: string | null;
+    prompt_id?: string | null;
+    worker?: string | null;
+    detail?: string | null;
+  } | null;
+  /** 行顶层冗余字段(与 run_response 同源;提交失败时 run_response 为空可兜底)。 */
+  job_id?: string | null;
+  prompt_id?: string | null;
+  worker?: string | null;
+  status?: string;
+  job_status?: string;
+  elapsed_sec?: number | null;
+}
+
+/** L2 候选(热路径入选依据:score/why)。 */
+export interface L2Candidate {
+  id: string;
+  name: string;
+  output_kind: string;
+  is_builtin: boolean;
+  family: string;
+  score: number;
+  why: string;
+  usage_count?: number;
+  l0_status?: string;
+}
+
+export interface TestMatrixResponse {
+  l0_summary: {
+    total_public?: number;
+    pass?: number;
+    fail?: number;
+    warn?: number;
+    by_output_kind?: Record<string, Record<string, number>>;
+    elapsed_sec?: number;
+    generated_at?: string;
+  } | null;
+  l0_results: L0ResultRow[];
+  l2_summary: {
+    total?: number;
+    counts?: { pass?: number; fail_product?: number; fail_timeout?: number };
+    by_status?: Record<string, string[]>;
+    pass_ids?: string[];
+    generated_at?: string;
+  } | null;
+  l2_results: L2ResultRow[];
+  l2_candidates: L2Candidate[];
+}
+
+/** 实测矩阵汇总+逐行(admin,只读静态快照;404=未部署)。 */
+export async function fetchTestMatrix(): Promise<TestMatrixResponse> {
+  const res = await apiFetch(`/api/admin/test-matrix`, { headers: authHeaders() });
+  if (!res.ok) await raiseApiError(res, "实测矩阵加载失败");
   return res.json();
 }
 

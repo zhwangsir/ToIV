@@ -1,5 +1,5 @@
 {
- "updated_at": "2026-09-22T01:00:00+08:00",
+ "updated_at": "2026-09-22T02:00:00+08:00",
  "full_launch_sprint_2026_09_14": {
   "status": "closed_497_of_550_90_4pct_user_testing_next",
   "date": "2026-09-14",
@@ -12046,5 +12046,20 @@
   "production": "web BUILD_ID 20260921-170653-nogit;admin core 重构部署;api 批 2 已含本轮后端(bulk-delete/旁路/payload)",
   "verification": "e2e A2 三例真机过(SideRail 直达/分叉置顶/继续回填——生产运行台真 run);admin 新建 Modal/批量精选浮动条截图(dogfood-output/screenshots/batch3-*.png);e2e library 7/7 回归",
   "remaining": "批 4:助手 A3 组件工程化(AssistantView 五模块拆分)/Admin D2 模型资产/D6 实测矩阵;A1 工具卡回放语义另立项"
+ },
+ "batch4_a3_refactor_d2_d6_2026_09_22": {
+  "status": "done",
+  "date": "2026-09-22",
+  "source": "设备管家",
+  "scope": "四域方案批 4:助手 A3 组件工程化/Admin D2 模型资产/D6 实测矩阵",
+  "delivered": [
+   "A3:AssistantView.tsx 3614→1635 行——MessageList/Composer/PortalEmpty/SessionDrawer 四新组件+styled-jsx 1150 行外迁 app/styles/assistant-view.css(零 hex,56 token 核实);数据层留主壳+re-export 保导入路径;13 测试文件源码断言重指;行为零变化(av- 类名 diff 空,1021 全绿+e2e 三 spec 过)",
+   "D2:AdminView 第六子页「模型资产」四 tab(本地清单/模型百科+Civitai 富化/引擎注册表+重探测/MODEL_SOURCES 视图);新端点 GET /api/admin/model-sources(813 项,60s 缓存);docs/MODEL_SOURCES.json 快照入 app/data(docs 不在 rsync 范围)",
+   "D6:占位页→GET /api/admin/test-matrix(app/data/app_test_matrix/ 快照,L0 550/550+L2 24 回执);L0 fail 优先表+L2 四卡+candidates 折叠"
+  ],
+  "tests": "api 3331 全绿(+4);web 1021 全绿(拆分持平);admin tsc+build 绿",
+  "production": "web BUILD_ID 20260921-193554-nogit;admin 重构部署;api 新两端点实测 200(813 项/L0 550/L2 24)",
+  "verification": "真机:助手门户/popup/历史面板 A3 后全正常;D2 出处清单 476/336/812 三卡;D6 L0 五卡+L2 区;截图 dogfood-output/screenshots/batch4-*.png",
+  "remaining": "批 5(收尾):助手 A4 移动端/Admin D7 工程化(admin 测试 0→1+lib 瘦身+deploy 固化)/D5 观测深化;MODEL_SOURCES 更新需重拷 app/data 快照"
  }
 }

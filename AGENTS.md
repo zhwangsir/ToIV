@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-22（批 3 交付：助手 A2 IA（智能体入口/继续对话草稿通道/会话 fork)+Admin 内容运营（新建/导入/预检/封面/删除/批量精选）+P2 卫生项（变体排系统 kind/回收站全部恢复）+3d output_kind 补齐；当前：api 3327/web 1021/e2e library 7/7+agents-ui A2 3/3；whisper 四节点集群 LIVE；**下一步=四域方案批 4**，见第七节）
+> **最后更新**：2026-09-22（批 4 交付：A3 组件工程化（AssistantView 3614→1635 五模块拆分+CSS 外迁，行为零变化）+Admin D2 模型资产/D6 实测矩阵实装；当前：api 3331/web 1021/e2e 三 spec 11 过 3 跳；whisper 四节点集群 LIVE；**下一步=四域方案批 5（收尾批）**，见第七节）
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -130,9 +130,9 @@
 
 ## 七、当前焦点（活口径摘要）
 
-### 基线（2026-09-22 批 3 后核）
-- **测试**：api **3327** / web **1021** / e2e authed-library-p0 **7/7**+authed-agents-ui A2 三例过（3 例陈旧 skip 登记，见八节）；分支 `feat/app-guides-admin-cms`（**勿 push、勿 stage `.regen_tmp`/`dogfood-output`**）。
-- **生产**：见五节；web BUILD_ID `20260921-170653-nogit`；admin 批 3 重构部署（:3200）。
+### 基线（2026-09-22 批 4 后核）
+- **测试**：api **3331** / web **1021** / e2e 三 spec **11 过 3 跳**（陈旧登记）；分支 `feat/app-guides-admin-cms`（**勿 push、勿 stage `.regen_tmp`/`dogfood-output`**）。
+- **生产**：见五节；web BUILD_ID `20260921-193554-nogit`；admin 批 4 重构部署（:3200）。
 - **目录**：应用 **6773 总/5061 公开/5558 rh-acc**，use_case 打标全覆盖；说明卡 550/550；作品库 72 件（44 件折 18 变体文件夹）。
 
 ### 批 1 已交付（2026-09-22，三件套全绿+真机验证）
@@ -146,14 +146,19 @@
 3. **文件夹 P1**：`POST /api/jobs/bulk-delete`+`deleteJobsSmart` >20 切端点（抛错回退）；板列表卡删除入口。
 
 ### 批 3 已交付（2026-09-22，全绿+真机验证）
-1. **助手 A2 信息架构**：SideRail 补「智能体」入口（对话次位，bot 图标，复用 handleNavSelect 特判）；agent-runs 详情「在对话中继续」（新一次性草稿通道 `lib/assistantDraft.ts`：stash→home 挂载消费回填+聚焦，popup 不抢）；会话 fork 入 UI（历史项分叉钮，`convStore.fork` server 走端点/local 兜底复制，`getAgentSession` 错位文案顺带修正）；Icon 注册 fork(GitFork)。7 组 jest+e2e 三例（rail 直达/分叉置顶/继续回填，生产运行台真 run 验证）。
-2. **Admin P1 内容运营**（AppsManager 232→1273 行）：新建应用 Modal（id 正则预检/JSON 预解析/409·422 内联）；导入两阶段 Modal（LLM 分析 180s 长请求+草稿预览+可编辑覆盖+「导入为个人应用需上架」明示）；preflight 预检面板（结果常驻可改输入重检）；行内封面上传（multipart+魔数/8MB+封面原地 cache-bust 刷新）；删除（内置不显示+danger Modal）；批量精选（勾选列+浮动条顺序循环单条失败不中断）。admin 无 toast 基建→自包含 apm-toast。**后端同源补齐**：`_OUTPUT_KINDS` 加 3d（分类/图标/语义 kind 链早已认，独缺白名单;apps.py+app_packager.py 双处+test_apps 1 例）。
-3. **P2 卫生项**：变体分组排除系统 kind（`SYSTEM_KIND_PREFIXES=["app_cover","app_smoke"]`，admin all=1 不再出巨型伪文件夹）；回收站「全部恢复」（确认 Modal+顺序循环失败不中断+toast 汇总）。
+1. **助手 A2 信息架构**：SideRail 智能体入口；agent-runs 详情「在对话中继续」（一次性草稿通道 `lib/assistantDraft.ts`）；会话 fork 入 UI（`convStore.fork` server 端点/local 兜底）。e2e 三例（rail/分叉置顶/继续回填）。
+2. **Admin P1 内容运营**（AppsManager 232→1273 行）：新建/导入两阶段/preflight/封面上传/删除/批量精选；apm-toast 自包含。后端 `_OUTPUT_KINDS` 补 3d 双处。
+3. **P2 卫生项**：变体分组排系统 kind（`SYSTEM_KIND_PREFIXES`）；回收站「全部恢复」。
 
-### 下一步=四域方案批 4（方案已备，说「继续」即开工）
-1. **助手 A3 组件工程化**（`docs/ASSISTANT_UI_REDESIGN_PLAN_20260922.md`）：AssistantView 3500 行拆 MessageList/Composer/Portal/ToolCards/SessionDrawer 五模块；styled-jsx 外迁 assistant-view.css；红线=assistant* 不变式逐组迁移验证。
-2. **Admin D2 模型资产域**（`docs/ADMIN_REPLAN_20260922.md`）：models/local 浏览+model wiki/enrich+引擎注册表只读+MODEL_SOURCES 只读视图（新端点读 docs/MODEL_SOURCES.json）。
-3. **Admin D6 实测矩阵实装**：L2 矩阵结果接 API 替换占位页。
+### 批 4 已交付（2026-09-22，全绿+真机验证）
+1. **助手 A3 组件工程化**：`AssistantView.tsx` **3614→1635 行**——拆 MessageList(551)/Composer(278)/PortalEmpty(153)/SessionDrawer(226) 四新组件+styled-jsx 1150 行外迁 `app/styles/assistant-view.css`（零 hex，56 token 全核实）；数据层留主壳+re-export 保原导入路径（6 测试零迁移）；13 个测试文件源码断言重指（字符串零变更）；lazy Modal 约束随 SessionDrawer 迁移保留；全量 1021 绿+e2e 三 spec 过+生产构建过，**行为零变化**（av- 类名集合机器 diff 为空）。
+2. **Admin D2 模型资产域**（AdminView 第六子页「模型资产」，四 tab）：本地清单（类目 chips+nsfw/vpred 徽标+搜索）；模型百科（type/q 过滤+行内展开详情+Civitai 富化 Modal 180s 长请求）；引擎注册表只读+手动重探测；MODEL_SOURCES 只读视图（新 `GET /api/admin/model-sources`：476/336/812 三卡+status 筛选+搜索）。**部署口径**：docs/MODEL_SOURCES.json 快照入 `apps/api/app/data/model_sources.json`（docs 不在 rsync 范围；后续更新需同步重拷）。
+3. **Admin D6 实测矩阵实装**：占位页→`GET /api/admin/test-matrix`（新端点读 `app/data/app_test_matrix/` 快照——`.regen_tmp` 不部署故拷入）；L0 五卡（550/550+输出分布）+fail 优先排序表；L2 四卡（24：pass 8/fail_product 15/fail_timeout 1）+24 行回执+candidates details 折叠。
+
+### 下一步=四域方案批 5（收尾批，方案已备，说「继续」即开工）
+1. **助手 A4 移动端**：助手全屏 sheet 形态；⌘K 入口移动端可见化；composer 工具行断点特化。
+2. **Admin D7 工程化**：admin 测试 0→1（node:test 同 web 模式）；`lib/api.ts` 瘦身（4900→~800 行按域分包）；`deploy-admin.sh` 固化 core 本机构建口径。
+3. **D5 观测深化**：knowledge-graph 查询 UI（webappId 反查）；观测页并入队列深度闸状态。
 - 总方案 `docs/EVOLUTION_PLAN_20260922.md`；移交提示词套件 `docs/HANDOFF_PROMPT_20260922.md`。
 
 ### 关键拍板（长期有效）
@@ -162,9 +167,10 @@
 
 ## 八、未完成任务总表（仅存开口项；已核销见归档/STATE.json）
 
-### 产品（批 3 之后）
-- [ ] 四域方案批 4~5：助手 A3 组件工程化/A4 移动端 → Admin D2 模型资产/D6 实测矩阵/D7 工程化（lib 瘦身/deploy 固化/admin 测试 0→1）→ C3 拆分收尾
+### 产品（批 4 之后）
+- [ ] 四域方案批 5（收尾）：助手 A4 移动端 → Admin D7 工程化（admin 测试 0→1/lib 瘦身/deploy 固化）→ D5 观测深化（knowledge-graph UI/队列闸）
 - [ ] authed-agents-ui.spec 3 例陈旧重写（已 skip 登记：GenerateView 09-12 退役/管理系统 09-15 独立 :3200，重写按新架构；admin e2e 随 D7 一并）
+- [ ] MODEL_SOURCES 更新需同步重拷 `apps/api/app/data/model_sources.json`（docs 不在 rsync 范围）；实测矩阵快照同（`app/data/app_test_matrix/`）
 - [ ] A1 工具卡回放语义：历史会话 tool 消息不重建 payload 卡（现状仅实时流渲染，与 chip 回放一致；如需回放卡另立项）
 - [ ] Comfy 二次编辑 save-back（open-in-comfy 已通）
 - [ ] SeC 387721：einops reshape 错=SecNodes×torch2.13/sm_120 上游边界（已登记，flash-attn 关闭保留）
