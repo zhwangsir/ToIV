@@ -1622,11 +1622,14 @@ _MISSING_REQUIRED_DEFAULTS: dict[str, dict[str, object]] = {
     # required_input_missing 判死保存链;2026-09-18 rh-acc-9515387905 实证)
     "Qwen2_VQA": {"attention": "eager"},
     "Qwen3_VQA": {"attention": "eager"},
+    # SeC 换装遮罩链:RH 图 SeCModelLoader.model_file 常带 null(2026-09-21
+    # rh-acc-3877213185 实证);:8195/:8196 object_info 在列值 SeC-4B-fp16/bf16,取 fp16
+    "SeCModelLoader": {"model_file": "SeC-4B-fp16.safetensors"},
 }
 
 
 def _normalize_required_backfill(graph: dict) -> None:
-    """上表节点缺失的 required 入参按 object_info 默认值回填(已有键不覆盖)。"""
+    """上表节点缺失的 required 入参按 object_info 默认值回填(已有键不覆盖;null 视同缺失)。"""
     if not isinstance(graph, dict):
         return
     for node in graph.values():
@@ -1639,8 +1642,45 @@ def _normalize_required_backfill(graph: dict) -> None:
         if not isinstance(inputs, dict):
             continue
         for key, default in defaults.items():
-            if key not in inputs:
+            if key not in inputs or inputs.get(key) is None:
                 inputs[key] = default
+
+
+def _normalize_sec_empty_bbox(graph: dict) -> None:
+    """SeCVideoSegmentation.bbox 空串 → None。
+
+    SecNodes parse_bbox 对 None 早退(跳过 bbox),但对 "" 会误入 dict 分支炸
+    「string indices must be integers」(2026-09-21 rh-acc-3877213185 实证);
+    input_mask/点提示已有时空 bbox 语义即 None。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        if (node.get("class_type") or "") != "SeCVideoSegmentation":
+            continue
+        inputs = node.get("inputs")
+        if isinstance(inputs, dict) and inputs.get("bbox") == "":
+            inputs["bbox"] = None
+
+
+def _normalize_sec_flash_attn_blackwell(graph: dict) -> None:
+    """SeCModelLoader.use_flash_attn=True → False(sm_120 全 fleet,flash-attn 内核实证不兼容)。
+
+    SeC 模型注意力在 Blackwell(sm_120)走 flash-attn 路径炸 einops reshape
+    (2026-09-21 rh-acc-3877213185 @ :8197 实证);False 走 eager 注意力,语义一致仅减速。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        if (node.get("class_type") or "") != "SeCModelLoader":
+            continue
+        inputs = node.get("inputs")
+        if isinstance(inputs, dict) and inputs.get("use_flash_attn") is True:
+            inputs["use_flash_attn"] = False
 
 
 def _normalize_qwen_edit_prompt_string_link(graph: dict) -> None:
@@ -2177,6 +2217,8 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_image_rembg_model(graph)
     _normalize_compress_images(graph)
     _normalize_required_backfill(graph)
+    _normalize_sec_empty_bbox(graph)
+    _normalize_sec_flash_attn_blackwell(graph)
     _normalize_qwen_edit_prompt_string_link(graph)
     _normalize_tiny_vae_alias(graph)
     _normalize_sd3_clip_basename(graph)

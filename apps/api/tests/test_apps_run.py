@@ -580,6 +580,53 @@ def test_build_graph_qwen_vqa_attention_backfill():
     assert built["23"]["inputs"]["attention"] == "sdpa"  # 已有键不覆盖
 
 
+def test_build_graph_sec_model_file_null_backfill():
+    """SeCModelLoader.model_file 带 null(RH 图常见)→ 回填 SeC-4B-fp16;显式值不覆盖。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "43": {"class_type": "SeCModelLoader", "inputs": {"model_file": None, "device": "auto"}},
+        "44": {"class_type": "SeCModelLoader", "inputs": {"model_file": "SeC-4B-bf16.safetensors"}},
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["43"]["inputs"]["model_file"] == "SeC-4B-fp16.safetensors"
+    assert built["43"]["inputs"]["device"] == "auto"
+    assert built["44"]["inputs"]["model_file"] == "SeC-4B-bf16.safetensors"
+
+
+def test_build_graph_sec_empty_bbox_to_none():
+    """SeCVideoSegmentation.bbox 空串 → None(节点 parse_bbox 对 "" 误入 dict 分支炸掉);
+    非空 bbox/其他类不动。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "85": {"class_type": "SeCVideoSegmentation",
+               "inputs": {"bbox": "", "positive_points": "", "model": ["43", 0]}},
+        "86": {"class_type": "SeCVideoSegmentation",
+               "inputs": {"bbox": ["10", 0]},  # 链接形态不动
+        },
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["85"]["inputs"]["bbox"] is None
+    assert built["85"]["inputs"]["positive_points"] == ""  # 点提示空串合法,不动
+    assert built["86"]["inputs"]["bbox"] == ["10", 0]
+
+
+def test_build_graph_sec_flash_attn_blackwell():
+    """SeCModelLoader.use_flash_attn=True → False(sm_120 fleet flash-attn 不兼容);False/其他类不动。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "43": {"class_type": "SeCModelLoader", "inputs": {"use_flash_attn": True}},
+        "44": {"class_type": "SeCModelLoader", "inputs": {"use_flash_attn": False}},
+        "45": {"class_type": "KSampler", "inputs": {"use_flash_attn": True}},
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["43"]["inputs"]["use_flash_attn"] is False
+    assert built["44"]["inputs"]["use_flash_attn"] is False
+    assert built["45"]["inputs"]["use_flash_attn"] is True
+
+
 def test_build_graph_font_alias_takibi_to_roboto():
     """缺失字体(焚火体,源站登录墙)→ 在列替代 Roboto(英文对比标签语义无损)。"""
     from app.routes.apps import _build_graph
