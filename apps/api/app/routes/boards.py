@@ -9,16 +9,21 @@
 - GET    /api/boards/{id}/items 板内成员(按 sort_order;带作品字段;占位行 job=null)
 - PUT    /api/boards/{id}/items 整组替换成员(增删+重排一次写,防半状态;job_id 空=占位行)
 - POST   /api/boards/{id}/items/{item_id}/generate 分镜单镜生成(M2:角色实体→phantom/h3 参考图)
+- POST   /api/boards/{id}/assemble 一键成片(M3:逐镜生成+配音+词锚定字幕+ffmpeg 拼接)
+- GET    /api/boards/{id}/film-jobs 该板成片作业(新→旧,带进度)
+- GET    /api/boards/film/{name} 成片/字幕文件(mp4|ass|srt)
 - GET    /api/boards/{id}/export 整板导出 drama_studio 格式 JSON(附件下载)
 """
 from __future__ import annotations
 
 import json
 import logging
+import re
+import uuid
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
@@ -27,7 +32,13 @@ from app.comfy.pool import WorkerPool
 from app.db import get_session
 from app.deps import get_current_user, get_pool
 from app.models import Board, BoardItem, Job, User
+from app.ratelimit import enforce_generation_rate_limit
 from app.routes.jobs import _app_id_of, _app_names_map, _job_dict
+from app.services.board_film import (
+    KIND as BOARD_FILM_KIND,
+    build_film_plan_shots,
+    spawn_film,
+)
 from app.services.board_generate import submit_shot_generation
 from app.services.board_storyboard import (
     build_export_document,
@@ -35,6 +46,7 @@ from app.services.board_storyboard import (
     upsert_script_characters,
 )
 from app.services.studio.storyboard import StoryboardError, parse_script
+from app.storage import drama_output_root
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -88,6 +100,19 @@ class ShotGenerateIn(BaseModel):
     engine: str = Field(pattern="^(phantom-s2v|h3-r2v|h3-t2v)$")
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     fps: int = Field(default=16, ge=8, le=30)
+
+
+class AssembleIn(BaseModel):
+    """一键成片(M3):缺失镜逐镜生成 → 台词镜配音 → 词锚定字幕 → ffmpeg 拼接。
+
+    reuse_existing=true(默认):行已挂 done 视频作业直接复用(审片循环——改镜重生成后
+    重拼只补缺失/被换镜);burn_subtitles=false 时只拼接不烧字(ass/srt 侧车仍产出)。
+    """
+
+    engine: str = Field(default="phantom-s2v", pattern="^(phantom-s2v|h3-r2v|h3-t2v)$")
+    fps: int = Field(default=16, ge=8, le=30)
+    reuse_existing: bool = True
+    burn_subtitles: bool = True
 
 
 def _board_out(session: Session, b: Board) -> dict:
@@ -353,4 +378,130 @@ def export_board(
                 f"attachment; filename=board.drama_studio.json; filename*=UTF-8''{quoted}"
             )
         },
+    )
+
+
+_FILM_NAME_RE = re.compile(r"^board-film-[0-9a-f]{32}\.(mp4|ass|srt)$")
+
+
+@router.post("/boards/{board_id}/assemble")
+async def assemble_board(
+    board_id: str,
+    body: AssembleIn,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """一键成片(M3):建合成 Job(kind=board_film, worker="")+后台管线,秒回 prompt_id。
+
+    同一板已有活跃(queued/running)成片作业 → 409 防重(返回在跑作业 id)。
+    """
+    enforce_generation_rate_limit(user)
+    b = _owned_board(session, user, board_id)
+    items = session.exec(
+        select(BoardItem).where(BoardItem.board_id == b.id).order_by(BoardItem.sort_order)
+    ).all()
+    shots = build_film_plan_shots(items)
+    if not shots:
+        raise HTTPException(status_code=422, detail="没有可成片的分镜行(请先拆镜或补分镜文本)")
+    active = session.exec(
+        select(Job).where(Job.kind == BOARD_FILM_KIND, Job.status.in_(("queued", "running")))
+    ).all()
+    for j in active:
+        try:
+            if json.loads(j.params or "{}").get("board_id") == b.id:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"已有在跑的成片作业: {j.prompt_id}(可等完成或取消后再发)",
+                )
+        except ValueError:
+            continue
+    prompt_id = f"film-{uuid.uuid4().hex[:16]}"
+    plan = {
+        "board_id": b.id,
+        "engine": body.engine,
+        "fps": body.fps,
+        "reuse_existing": body.reuse_existing,
+        "burn_subtitles": body.burn_subtitles,
+        "shots": shots,
+    }
+    job = Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id=prompt_id,
+        worker="",  # 非 ComfyUI 作业:tracker 自动跳过,生命周期归 board_film 管线
+        kind=BOARD_FILM_KIND,
+        status="queued",
+        prompt=b.name[:500],
+        seed=0,
+        params=json.dumps(plan, ensure_ascii=False),
+    )
+    session.add(job)
+    session.commit()
+    spawn_film(prompt_id)
+    return {"prompt_id": prompt_id, "kind": BOARD_FILM_KIND, "status": "queued"}
+
+
+@router.get("/boards/{board_id}/film-jobs")
+def list_film_jobs(
+    board_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """该板成片作业(新→旧),progress JSON 解析透出。"""
+    b = _owned_board(session, user, board_id)
+    rows = session.exec(
+        select(Job)
+        .where(Job.user_id == user.id, Job.kind == BOARD_FILM_KIND)
+        .order_by(Job.created_at.desc())
+        .limit(10)
+    ).all()
+    out = []
+    for j in rows:
+        try:
+            plan = json.loads(j.params or "{}")
+        except ValueError:
+            plan = {}
+        if plan.get("board_id") != b.id:
+            continue
+        progress = None
+        if j.progress:
+            try:
+                progress = json.loads(j.progress)
+            except ValueError:
+                progress = None
+        results = []
+        if j.result:
+            try:
+                results = json.loads(j.result)
+            except ValueError:
+                results = []
+        out.append({
+            "prompt_id": j.prompt_id,
+            "status": j.status,
+            "progress": progress,
+            "results": results,
+            "error": j.error or "",
+            "film": plan.get("film") or {},
+            "created_at": j.created_at.isoformat(),
+        })
+    return out
+
+
+@router.get("/boards/film/{name}")
+def get_film_file(
+    name: str,
+    user: User = Depends(get_current_user),
+) -> FileResponse:
+    """成片/字幕文件(mp4 播放;ass/srt 侧车下载)。"""
+    if not _FILM_NAME_RE.match(name):
+        raise HTTPException(status_code=400, detail="非法文件名")
+    path = drama_output_root() / name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="文件不存在")
+    media = "video/mp4" if name.endswith(".mp4") else "text/plain; charset=utf-8"
+    return FileResponse(
+        path,
+        media_type=media,
+        filename=name,
+        headers={"Cache-Control": "public, max-age=86400"},
     )

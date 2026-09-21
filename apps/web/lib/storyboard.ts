@@ -104,6 +104,27 @@ export function readGenEngine(): GenEngineId {
   }
 }
 
+// ---------- M3 一键成片:阶段标签 / 进度推导 ----------
+
+const FILM_STAGE_LABELS: Record<string, string> = {
+  videos: "逐镜生成视频",
+  voices: "逐镜配音",
+  words: "词锚定字幕",
+  assemble: "ffmpeg 拼接",
+  done: "已完成",
+};
+
+export function filmStageLabel(stage: string | null | undefined): string {
+  if (!stage) return "排队中";
+  return FILM_STAGE_LABELS[stage] ?? stage;
+}
+
+/** 进度百分比(0-100;无 progress 或 total=0 → null 显示不定态)。 */
+export function filmProgressPct(progress: { done: number; total: number } | null | undefined): number | null {
+  if (!progress || !progress.total) return null;
+  return Math.round((progress.done / progress.total) * 100);
+}
+
 /** 导出文档 Blob 下载(文件名含中文时浏览器自行处理)。 */
 export function triggerDownload(filename: string, doc: unknown): void {
   const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });

@@ -609,6 +609,47 @@ export async function generateBoardShot(
   return res.json();
 }
 
+// ---------- 一键成片(M3) ----------
+
+export interface BoardFilmProgress {
+  stage: string;
+  done: number;
+  total: number;
+  detail: string;
+}
+
+export interface BoardFilmJob {
+  prompt_id: string;
+  status: string;
+  progress: BoardFilmProgress | null;
+  results: string[];
+  error: string;
+  film: { ass_url?: string; srt_url?: string; width?: number; height?: number };
+  created_at: string;
+}
+
+/** 一键成片提交:缺失镜逐镜生成+配音+词锚定字幕+ffmpeg 拼接(后台管线,秒回)。 */
+export async function assembleBoard(
+  boardId: string,
+  input: { engine: string; fps?: number; reuse_existing?: boolean; burn_subtitles?: boolean },
+): Promise<{ prompt_id: string; kind: string; status: string }> {
+  const res = await apiFetch(`/api/boards/${boardId}/assemble`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!res.ok) await raiseApiError(res, "一键成片提交失败");
+  return res.json();
+}
+
+/** 该板成片作业(新→旧,带进度)。 */
+export async function fetchBoardFilmJobs(boardId: string): Promise<BoardFilmJob[]> {
+  const res = await apiFetch(`/api/boards/${boardId}/film-jobs`, { headers: authHeaders() });
+  if (!res.ok) await raiseApiError(res, "拉取成片作业失败");
+  return res.json();
+}
+
 export async function deleteBoard(boardId: string): Promise<void> {
   const res = await apiFetch(`/api/boards/${boardId}`, {
     method: "DELETE",

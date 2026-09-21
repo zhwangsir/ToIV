@@ -12,7 +12,7 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { moveRow, parseShotMeta, rowsToPutPayload, collectBoardCharacters, GEN_ENGINES } from "../lib/storyboard";
+import { moveRow, parseShotMeta, rowsToPutPayload, collectBoardCharacters, GEN_ENGINES, filmProgressPct, filmStageLabel } from "../lib/storyboard";
 import { kindLabel, kindToFilter } from "../lib/libraryQuery";
 import type { BoardItemOut } from "../lib/api";
 
@@ -127,4 +127,25 @@ test("⑤ M2 接线:作品库收编 h3_r2v/phantom_s2v + 生成引擎常量 + ap
     entitiesView.includes('form.kind === "avatar" || form.kind === "character"'),
     "EntitiesView 音色字段未对 character 放开",
   );
+});
+
+test("⑥ M3 一键成片:kindLabel/桶 + 阶段标签/进度 + 前端接线", () => {
+  assert.equal(kindToFilter("board_film"), "video");
+  assert.equal(kindLabel("board_film"), "漫剧成片");
+  assert.equal(filmStageLabel("videos"), "逐镜生成视频");
+  assert.equal(filmStageLabel("words"), "词锚定字幕");
+  assert.equal(filmStageLabel(undefined), "排队中");
+  assert.equal(filmStageLabel("mystery"), "mystery");
+  assert.equal(filmProgressPct({ done: 1, total: 4 }), 25);
+  assert.equal(filmProgressPct({ done: 0, total: 0 }), null);
+  assert.equal(filmProgressPct(null), null);
+
+  const api = readFileSync(join(here, "../lib/api.ts"), "utf-8");
+  assert.ok(api.includes("assembleBoard"), "api.ts 缺 assembleBoard");
+  assert.ok(api.includes("fetchBoardFilmJobs"), "api.ts 缺 fetchBoardFilmJobs");
+
+  const boardStory = readFileSync(join(here, "../components/library/BoardStoryboard.tsx"), "utf-8");
+  assert.ok(boardStory.includes("一键成片"), "分镜组件缺一键成片按钮");
+  assert.ok(boardStory.includes("lib-film-card"), "分镜组件缺成片状态卡");
+  assert.ok(boardStory.includes("assembleBoard"), "分镜组件未接 assembleBoard");
 });

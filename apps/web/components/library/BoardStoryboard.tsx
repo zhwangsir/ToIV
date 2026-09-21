@@ -14,10 +14,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
+import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import {
   apiFetch,
+  assembleBoard,
   authHeaders,
+  fetchBoardFilmJobs,
   generateBoardShot,
   imageThumbUrl,
   imageUrl,
@@ -26,6 +29,7 @@ import {
   lookupJob,
   putBoardItems,
   rerunJob,
+  type BoardFilmJob,
   type BoardItemOut,
   type EntityItem,
 } from "@/lib/api";
@@ -34,6 +38,8 @@ import {
   GEN_ENGINES,
   GEN_ENGINE_KEY,
   collectBoardCharacters,
+  filmProgressPct,
+  filmStageLabel,
   moveRow,
   parseShotMeta,
   readGenEngine,
@@ -52,6 +58,8 @@ interface BoardStoryboardProps {
   onUseAsInput: (job: JobItem) => void;
   /** 角色条点击 → 跳主体库补定妆照/音色(M2) */
   onOpenEntities?: () => void;
+  /** 成片完成/行被服务端换挂后刷新成员(M3) */
+  onRefreshItems?: () => void;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -71,6 +79,7 @@ export function BoardStoryboard({
   onOpenJob,
   onUseAsInput,
   onOpenEntities,
+  onRefreshItems,
 }: BoardStoryboardProps) {
   const toast = useToast();
   const [drafts, setDrafts] = useState<Record<number, string>>({});
@@ -80,6 +89,9 @@ export function BoardStoryboard({
   const [pickerJobs, setPickerJobs] = useState<JobItem[] | null>(null);
   const [engine, setEngine] = useState<GenEngineId>(() => readGenEngine());
   const [castEntities, setCastEntities] = useState<EntityItem[] | null>(null);
+  const [filmJobs, setFilmJobs] = useState<BoardFilmJob[] | null>(null);
+  const [showAssemble, setShowAssemble] = useState(false);
+  const [assembling, setAssembling] = useState(false);
 
   // 角色条:板内角色名/entity_ids → 主体库定妆照映射(挂载拉一次,主体库编辑后重进刷新)
   useEffect(() => {
@@ -89,6 +101,50 @@ export function BoardStoryboard({
       .catch(() => { /* 主体库拉取失败不阻断分镜编辑 */ });
     return () => { alive = false; };
   }, []);
+
+  // ── 一键成片(M3):初载拉一次;活跃期 4s 轮询;终态刷新成员+作品库 ──
+  const latestFilm = filmJobs?.[0] ?? null;
+  const filmActive = !!latestFilm && (latestFilm.status === "queued" || latestFilm.status === "running");
+  const loadFilmJobs = useCallback(() => {
+    fetchBoardFilmJobs(boardId)
+      .then((jobs) => {
+        setFilmJobs((prev) => {
+          const next0 = jobs[0];
+          const prev0 = prev?.[0];
+          if (
+            next0 && next0.status !== prev0?.status &&
+            (next0.status === "done" || next0.status === "error")
+          ) {
+            invalidateJobs(); // 成片/换挂的作业进作品库
+            onRefreshItems?.(); // 服务端换挂了行(生成→done),刷新成员
+          }
+          return jobs;
+        });
+      })
+      .catch(() => { /* 下拍再试 */ });
+  }, [boardId, onRefreshItems]);
+  useEffect(() => {
+    loadFilmJobs();
+  }, [loadFilmJobs]);
+  useEffect(() => {
+    if (!filmActive) return;
+    const t = setInterval(loadFilmJobs, 4000);
+    return () => clearInterval(t);
+  }, [filmActive, loadFilmJobs]);
+
+  const handleAssemble = useCallback(async () => {
+    setAssembling(true);
+    try {
+      const r = await assembleBoard(boardId, { engine });
+      toast.success(`一键成片已提交(${r.prompt_id.slice(0, 12)}…),后台逐镜生成中`);
+      setShowAssemble(false);
+      loadFilmJobs();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "一键成片提交失败");
+    } finally {
+      setAssembling(false);
+    }
+  }, [boardId, engine, loadFilmJobs, toast]);
 
   const itemsRef = useRef(items);
   useEffect(() => {
@@ -335,7 +391,66 @@ export function BoardStoryboard({
             })}
           </div>
         )}
+        <span className="lib-shot-toolbar-spacer" />
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<Icon name="clapperboard" size={14} />}
+          disabled={items.length === 0 || filmActive}
+          title={filmActive ? "已有在跑的成片作业" : "缺失镜逐镜生成+配音+拼接(复用已有视频镜)"}
+          onClick={() => setShowAssemble(true)}
+        >
+          一键成片
+        </Button>
       </div>
+
+      {latestFilm && (
+        <div className={`lib-film-card is-${latestFilm.status}`}>
+          <div className="lib-film-head">
+            <Icon name="clapperboard" size={15} />
+            <span className="lib-film-title">一键成片</span>
+            <span className={`lib-film-status is-${latestFilm.status}`}>
+              {latestFilm.status === "done"
+                ? "已完成"
+                : latestFilm.status === "error"
+                  ? "失败"
+                  : latestFilm.status === "canceled"
+                    ? "已取消"
+                    : filmActive
+                      ? `${filmStageLabel(latestFilm.progress?.stage)} ${latestFilm.progress?.done ?? 0}/${latestFilm.progress?.total ?? "?"}`
+                      : latestFilm.status}
+            </span>
+            {filmActive && filmProgressPct(latestFilm.progress) !== null && (
+              <span className="lib-film-bar" aria-hidden="true">
+                <i style={{ width: `${filmProgressPct(latestFilm.progress)}%` }} />
+              </span>
+            )}
+          </div>
+          {latestFilm.status === "error" && latestFilm.error && (
+            <div className="lib-film-error">{latestFilm.error}</div>
+          )}
+          {latestFilm.status === "done" && latestFilm.results[0] && (
+            <div className="lib-film-result">
+              <video src={imageUrl(latestFilm.results[0])} controls preload="metadata" />
+              <div className="lib-film-links">
+                <a href={imageUrl(latestFilm.results[0])} download>
+                  下载 mp4
+                </a>
+                {latestFilm.film?.ass_url && (
+                  <a href={imageUrl(latestFilm.film.ass_url)} download>
+                    卡拉 OK 字幕 ass
+                  </a>
+                )}
+                {latestFilm.film?.srt_url && (
+                  <a href={imageUrl(latestFilm.film.srt_url)} download>
+                    srt
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {items.map((row, idx) => {
         const job = row.job;
@@ -487,6 +602,34 @@ export function BoardStoryboard({
           添加分镜行
         </Button>
       </div>
+
+      <Modal
+        open={showAssemble}
+        onClose={() => !assembling && setShowAssemble(false)}
+        title="一键成片"
+        footer={
+          <>
+            <Button variant="ghost" disabled={assembling} onClick={() => setShowAssemble(false)}>
+              取消
+            </Button>
+            <Button variant="primary" loading={assembling} onClick={() => void handleAssemble()}>
+              开始成片
+            </Button>
+          </>
+        }
+      >
+        <div className="lib-film-modal">
+          <p>
+            将以「{GEN_ENGINES.find((e) => e.id === engine)?.label ?? engine}」引擎对 {items.length} 个分镜行成片:
+          </p>
+          <ul>
+            <li>缺视频的镜逐镜生成(已挂视频的行直接复用,不重跑)</li>
+            <li>有台词的镜按角色音色配音(IndexTTS 克隆)</li>
+            <li>词锚定字幕(whisper 逐词)+ ffmpeg 拼接烧字,产物进作品库</li>
+          </ul>
+          <p className="lib-film-modal-hint">后台管线执行(可离开本页,任务中心可见进度);完成后下方出现播放卡。</p>
+        </div>
+      </Modal>
 
       {pickerRow !== null ? (
         <div className="lib-source-scrim" onClick={() => setPickerRow(null)}>

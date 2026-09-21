@@ -918,3 +918,8 @@ export const generateBoardShot = async (_b: string, _i: number, input: { engine:
   prompt_id: "p-mock", client_id: "c-mock", worker: "w", seed: 1, kind: "h3_t2v",
   engine: input.engine,
 });
+// 一键成片(M3)替身
+export const assembleBoard = async () => ({
+  prompt_id: "film-mock", kind: "board_film", status: "queued",
+});
+export const fetchBoardFilmJobs = async () => [];

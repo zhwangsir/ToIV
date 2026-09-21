@@ -55,6 +55,8 @@ export const FILTERS: FilterDef[] = [
       "h3_r2v",
       // Phantom 角色一致性视频(分镜板 M2 角色锁定)
       "phantom_s2v",
+      // 分镜板一键成片(M3 合成作业)
+      "board_film",
       "ltx_t2v", "ltx_i2v", "ltx_lipsync", "ltx2_t2v", "ltx2_i2v",
       "frame_interpolate", "dub_lipsync_long", "manju_lipsync", "anime_lipsync",
       // 视频超分(M6 fleet 帧级 4K 管线)
@@ -161,6 +163,7 @@ export function kindLabel(kind: string): string {
     h3_extend_i2v: "长视频续写",
     h3_r2v: "多参考视频",
     phantom_s2v: "角色一致性视频",
+    board_film: "漫剧成片",
     ltx_t2v: "文生视频",
     ltx_i2v: "图生视频",
     ltx_lipsync: "对口型",

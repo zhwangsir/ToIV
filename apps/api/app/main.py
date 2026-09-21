@@ -196,6 +196,10 @@ async def lifespan(app: FastAPI):
     from app.services import keyframe_chain as keyframe_chain_svc
 
     keyframe_chain_svc.reconcile_interrupted()
+    # 分镜板一键成片收口:未终态 board_film 作业按 params 快照重挂后台管线(幂等续跑)
+    from app.services import board_film as board_film_svc
+
+    board_film_svc.reconcile_board_films()
     # R3.2 Agent Team 断点续跑:api 重启后,running 的 run 从 LangGraph checkpoint
     # 续跑(无 checkpoint 则幂等重放,已完成任务节点自查跳过);
     # awaiting_assembly 的 run 正挂确认门等用户裁决,不自动推进;单 run 失败标 error 不拖垮启动

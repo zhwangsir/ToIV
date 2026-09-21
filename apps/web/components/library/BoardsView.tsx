@@ -249,6 +249,7 @@ export function BoardsView({ onBack, onOpenJob, onUseAsInput, onOpenEntities }: 
             onOpenJob={onOpenJob}
             onUseAsInput={onUseAsInput}
             onOpenEntities={onOpenEntities}
+            onRefreshItems={() => loadItems(openBoard.id)}
           />
         ) : items.length === 0 ? (
           <div className="lib-board-empty">
