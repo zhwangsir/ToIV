@@ -729,6 +729,104 @@ export async function fetchComfyBackends(): Promise<{ source: string; backends: 
   return res.json();
 }
 
+// ---------- Admin P1 内容运营(2026-09-22):应用创建/删除/导入/封面/preflight ----------
+
+/** 应用创建请求体(与后端 AppCreate 对齐;workflow_json 必填)。 */
+export interface AdminAppCreateBody {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  cover_url?: string;
+  author?: string;
+  category?: string;
+  /** 与后端 AppCreate.workflow_json(dict)对齐:传解析后的对象,不是字符串。 */
+  workflow_json: Record<string, unknown>;
+  params_schema?: unknown[];
+  bindings?: Record<string, unknown>;
+  required_nodes?: string[];
+  output_kind?: string;
+  submit_kind?: string;
+  is_nsfw?: boolean;
+  is_public?: boolean;
+  sort?: number;
+}
+
+/** 创建应用(admin;id 撞车 409,图/schema 交叉校验 422)。 */
+export async function createApp(body: AdminAppCreateBody): Promise<Record<string, unknown>> {
+  const res = await apiFetch(`/api/apps`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await raiseApiError(res, "创建应用失败");
+  return res.json();
+}
+
+/** 删除应用(admin;内置 403)。 */
+export async function deleteApp(appId: string): Promise<void> {
+  const res = await apiFetch(`/api/apps/${encodeURIComponent(appId)}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "删除应用失败");
+}
+
+/** 单应用封面上传(multipart;png/jpg/webp/gif ≤8MB,后端魔数校验)。 */
+export async function uploadAppCover(appId: string, file: File): Promise<Record<string, unknown>> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await apiFetch(`/api/apps/${encodeURIComponent(appId)}/cover`, {
+    method: "POST",
+    headers: authHeaders(), // FormData 边界由浏览器自动生成,勿设 Content-Type
+    body: fd,
+  });
+  if (!res.ok) await raiseApiError(res, "封面上传失败");
+  return res.json();
+}
+
+/** 预检响应(导入前依赖检查)。 */
+export interface PreflightResult {
+  procurable: boolean;
+  missing_models: string[];
+  missing_nodes: string[];
+  total_models: number;
+  note?: string;
+}
+
+/** 导入前预检:workflow 的模型/节点全 fleet 可得性。 */
+export async function preflightApp(workflowJson: Record<string, unknown>, requiredNodes: string[] = []): Promise<PreflightResult> {
+  const res = await apiFetch(`/api/admin/apps/preflight`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ workflow_json: workflowJson, required_nodes: requiredNodes }),
+  });
+  if (!res.ok) await raiseApiError(res, "预检失败");
+  return res.json();
+}
+
+/** 导入草稿(LLM 分析 workflow → 结构化草稿;10min TTL 不落库;LLM 失败 503)。 */
+export async function importAppDraft(workflow: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const res = await apiFetch(`/api/apps/import`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ workflow }),
+  }, { longRequest: true });
+  if (!res.ok) await raiseApiError(res, "导入分析失败");
+  return res.json();
+}
+
+/** 导入确认(草稿落库为个人应用;admin 再经上架转公共)。 */
+export async function confirmAppImport(body: { draft_id: string; overrides?: Record<string, unknown> }): Promise<Record<string, unknown>> {
+  const res = await apiFetch(`/api/apps/import/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await raiseApiError(res, "导入确认失败");
+  return res.json();
+}
+
 
 /** 审计日志条目(admin /api/admin/audit-logs)。 */
 export interface AuditLogItem {
@@ -4999,6 +5097,10 @@ export interface AdminApp {
   smoke_cls: string;
   usage_count: number;
   cover_url: string | null;
+  /** AppOut 恒下发(列表 slim 也含):删除入口按 is_builtin 隐藏(后端内置 403)。 */
+  is_builtin: boolean;
+  /** AppOut 恒下发:新建/导入表单的分类选项并集来源之一。 */
+  category: string;
 }
 
 export interface SystemJob {

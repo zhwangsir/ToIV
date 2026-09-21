@@ -1,5 +1,5 @@
 {
- "updated_at": "2026-09-22T00:30:00+08:00",
+ "updated_at": "2026-09-22T01:00:00+08:00",
  "full_launch_sprint_2026_09_14": {
   "status": "closed_497_of_550_90_4pct_user_testing_next",
   "date": "2026-09-14",
@@ -12030,5 +12030,21 @@
   "production": "api deploy.sh 重启健康;web BUILD_ID 20260921-145646-nogit;admin core 全量 install+build 部署",
   "verification": "生产 SSE 实测 optimize_prompt payload 逐字段到达;playwright 真机:av-tc-optimize 对照卡渲染+应用到输入框回填 359 字;admin 作业队列 100 行/说明书 550 行/观测三卡(whisper 4/4·LB 2/2·冒烟报告+假活角标);截图 dogfood-output/screenshots/batch2-*.png;e2e authed-library-p0 7/7+agent-drama 过;authed-agents-ui 3 例陈旧(GenerateView 09-12 退役/管理系统 09-15 独立)已 skip 登记",
   "remaining": "批 3:助手 A2 IA(SideRail 智能体入口/fork 入 UI)/Admin P1 内容运营(应用创建删除导入/封面上传/preflight)/P2 卫生项(变体分组排系统 kind/回收站批量恢复);authed-agents-ui 3 例按新架构重写;A1 工具卡回放语义另立项"
+ },
+ "batch3_ia_content_ops_2026_09_22": {
+  "status": "done",
+  "date": "2026-09-22",
+  "source": "设备管家",
+  "scope": "四域方案批 3:助手 A2 IA/Admin P1 内容运营/P2 卫生项",
+  "delivered": [
+   "A2:SideRail 智能体入口(对话次位,handleNavSelect 特判复用);agent-runs 详情「在对话中继续」(lib/assistantDraft.ts 一次性草稿通道,page 形态挂载消费回填+聚焦,popup 不抢);会话 fork 入 UI(convStore.fork server 走端点/local 兜底复制;getAgentSession 错位文案修正);Icon fork(GitFork)",
+   "Admin 内容运营(AppsManager 232→1273 行):新建/导入两阶段(180s 长请求)/preflight/封面上传(multipart 魔数)/删除(内置门控)/批量精选(勾选列+浮动条);自包含 apm-toast(admin 无 toast 基建)",
+   "P2:变体分组排系统 kind(SYSTEM_KIND_PREFIXES);回收站「全部恢复」(确认 Modal+失败不中断+toast 汇总)",
+   "后端同源补齐:_OUTPUT_KINDS 加 3d(apps.py+app_packager.py 双处;test_apps 1 例)"
+  ],
+  "tests": "api 3327 全绿(+1);web 1021 全绿(+9:A2 七组+变体排除+全部恢复);admin tsc+build 绿",
+  "production": "web BUILD_ID 20260921-170653-nogit;admin core 重构部署;api 批 2 已含本轮后端(bulk-delete/旁路/payload)",
+  "verification": "e2e A2 三例真机过(SideRail 直达/分叉置顶/继续回填——生产运行台真 run);admin 新建 Modal/批量精选浮动条截图(dogfood-output/screenshots/batch3-*.png);e2e library 7/7 回归",
+  "remaining": "批 4:助手 A3 组件工程化(AssistantView 五模块拆分)/Admin D2 模型资产/D6 实测矩阵;A1 工具卡回放语义另立项"
  }
 }
