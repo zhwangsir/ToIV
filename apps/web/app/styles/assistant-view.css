@@ -1153,12 +1153,87 @@
   .av-composer {
     padding: var(--space-3) var(--space-3) var(--space-3);
   }
+  /* 纯图标钮触控目标 ≥44px(--touch-target;A4 token 化,值不变) */
   .av-composer-btn {
-    width: 44px;
-    height: 44px;
+    width: var(--touch-target);
+    height: var(--touch-target);
   }
   /* iOS <16px 输入框聚焦自动放大页面,提到 16px 规避 */
   .av-composer-input {
     font-size: 16px;
+  }
+}
+
+/* ───── A4 移动端 sheet(2026-09-22 批 5):窄屏下助手浮层由居中 popup 卡变为
+   底部全屏 sheet——顶部留安全边距+拖拽把手,圆角仅顶部,下滑/遮罩/Esc 关闭。
+   桌面 popup 形态零变化:覆盖全部封在 ≤767 媒体块内,基座规则仍在 assistant.css,
+   同特异性凭文件序后至优先(本文件在 assistant.css 之后 import)。 ───── */
+
+/* 拖拽把手:桌面恒隐藏(popup 无把手);窄屏 sheet 内显示并接管下滑关闭 */
+.av-overlay-sheet-handle {
+  display: none;
+  position: absolute;
+  top: var(--space-2);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-surface-3);
+}
+/* sheet 降临:自下方滑入(替代桌面 scale 弹窗降临,仅媒体块内引用) */
+@keyframes av-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-8));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 767px) {
+  .av-overlay-panel {
+    /* 底部全屏 sheet:左右下贴边(assistant.css 窄屏块 inset:0 之上仅抬顶),
+       顶部留安全边距+状态栏;圆角仅顶部(对齐全局 .sheet 形态) */
+    top: calc(env(safe-area-inset-top, 0px) + var(--space-6));
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+    /* 关态:下沉+淡出(替代桌面 scale(.96),方向性 transition 双向正确) */
+    transform: translateY(var(--space-8));
+    transition: transform var(--duration-base) var(--ease-standard),
+      opacity var(--duration-base) var(--ease-standard);
+  }
+  .av-overlay.is-open .av-overlay-panel {
+    transform: translateY(0);
+    animation: av-sheet-in var(--duration-base) var(--ease-standard);
+  }
+  .av-overlay-sheet-handle {
+    display: block;
+    /* 下滑手势不触发内容滚动/下拉刷新 */
+    touch-action: none;
+  }
+  /* 把手命中域外扩(视觉 36×4 不变,触达向 --touch-target 看齐) */
+  .av-overlay-sheet-handle::before {
+    content: "";
+    position: absolute;
+    inset: calc(-1 * var(--space-2)) calc(-1 * var(--space-4));
+  }
+  /* composer 工具行断点特化:折叠次要项(文档/附件)保输入区宽度——
+     popup 本无文档钮,仅页形态工具行收一档;会话钮等结构不动 */
+  .av-composer-docs {
+    display: none;
+  }
+}
+
+/* A4:sheet 过渡/降临动画同样服从 reduced-motion(置本文件末位,同特异性后至优先,
+   覆盖上方媒体块内的 transition/animation 声明) */
+@media (prefers-reduced-motion: reduce) {
+  .av-overlay-panel {
+    transition: none;
+  }
+  .av-overlay.is-open .av-overlay-panel {
+    animation: none;
   }
 }

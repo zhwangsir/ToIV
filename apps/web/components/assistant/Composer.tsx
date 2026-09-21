@@ -204,7 +204,7 @@ export function Composer({
               <>
               <button
                 type="button"
-                className={`av-composer-btn av-composer-btn-ghost av-composer-tool${docsOpen || attachedDocs.length ? " is-active" : ""}`}
+                className={`av-composer-btn av-composer-btn-ghost av-composer-tool av-composer-docs${docsOpen || attachedDocs.length ? " is-active" : ""}`}
                 title="文档(上传/挂载,供长文本理解)"
                 aria-label="文档"
                 onClick={() => setDocsOpen((v) => !v)}

@@ -23,13 +23,16 @@ interface BottomNavProps {
   current: string;
   onSelect: (key: string) => void;
   ctaAction?: () => void;
+  /** ⌘K 命令面板移动入口(A4,2026-09-22):「更多」抽屉首位「搜索」项,
+      与桌面 SideRail 搜索钮同一打开通道(page.tsx setPaletteOpen) */
+  onOpenSearch?: () => void;
 }
 
 /**
  * 窄屏(<1024px)底部导航:主入口 ≤5 + 「更多」抽屉承载其余。
  * 样式走主题 token(激活态 accent);抽屉复用全局 .sheet。
  */
-export function BottomNav({ items, moreItems = [], current, onSelect, ctaAction }: BottomNavProps) {
+export function BottomNav({ items, moreItems = [], current, onSelect, ctaAction, onOpenSearch }: BottomNavProps) {
   const [moreOpen, setMoreOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   // 「更多」抽屉 a11y(2026-08-30 UX 批 C):Esc 关闭 + Tab 焦点陷阱 + 关闭后焦点回位
@@ -107,6 +110,21 @@ export function BottomNav({ items, moreItems = [], current, onSelect, ctaAction 
       >
         <div className="sheet-handle" aria-hidden="true" />
         <div className="sheet-body">
+          {/* ⌘K 移动入口(A4):抽屉首位固定「搜索」——窄屏无物理 ⌘K,
+              命令面板(功能/会话/作品检索)由此可达;选中先收抽屉再开面板 */}
+          {onOpenSearch && (
+            <button
+              type="button"
+              className="more-nav-item bottom-nav-search"
+              onClick={() => {
+                setMoreOpen(false);
+                onOpenSearch();
+              }}
+            >
+              <Icon name="search" size={18} />
+              <span>搜索</span>
+            </button>
+          )}
           {moreItems.map((item) => {
             const isActive = item.key === current;
             return (

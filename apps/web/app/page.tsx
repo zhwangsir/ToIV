@@ -808,6 +808,7 @@ function HomeContent() {
         current={view}
         onSelect={handleNavSelect}
         ctaAction={() => changeView("home")}
+        onOpenSearch={() => setPaletteOpen(true)}
       />
     </div>
   );

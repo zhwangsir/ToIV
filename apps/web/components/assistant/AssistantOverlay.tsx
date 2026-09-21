@@ -1,8 +1,11 @@
 "use client";
 
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState, type TouchEvent } from "react";
 
 import { Icon } from "@/components/ui/Icon";
+
+/** 下滑关闭位移阈值(A4 移动端 sheet):松手时拖拽超过该值即收起浮层,否则弹回 */
+const SHEET_CLOSE_PX = 96;
 
 interface AssistantOverlayProps {
   /** 浮层显隐(Shift+Enter 切换;开启前由 page.tsx 先播霓虹边缘动画)。 */
@@ -43,6 +46,10 @@ function AssistantBoot() {
  * 常驻成本可忽略。
  *
  * 交互:Esc / 遮罩点击关闭;助手内的视图跳转先关浮层再切视图。
+ *
+ * 2026-09-22 A4 移动端:窄屏(≤767px)下居中 popup 卡变为底部全屏 sheet
+ * (顶部留安全边距+拖拽把手,下滑/遮罩/Esc 关闭,样式见 assistant-view.css
+ * 尾部媒体块);桌面端 popup 形态零变化(把手桌面恒 display:none)。
  */
 export function AssistantOverlay({ open, onClose, onNavigate }: AssistantOverlayProps) {
   // 常驻挂载标记:打开过一次即 true,此后仅切换可见性
@@ -78,6 +85,29 @@ export function AssistantOverlay({ open, onClose, onNavigate }: AssistantOverlay
     };
   }, [open]);
 
+  // 下滑关闭(A4 移动端 sheet):把手拖拽——move 跟手写内联 translateY,
+  // end/cancel 清内联(关态 transition 接管网弹/收起动画),过阈 onClose。
+  // 桌面把手恒隐藏不触发;无断点 JS 分支,形态切换全在 CSS 媒体查询
+  const panelRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef<number | null>(null);
+  const onSheetTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    dragStartY.current = e.touches[0].clientY;
+  };
+  const onSheetTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+    if (dragStartY.current === null) return;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    if (dy > 0 && panelRef.current) {
+      panelRef.current.style.transform = `translateY(${dy}px)`;
+    }
+  };
+  const onSheetTouchEnd = (e: TouchEvent<HTMLDivElement>) => {
+    if (dragStartY.current === null) return;
+    const dy = e.changedTouches[0].clientY - dragStartY.current;
+    dragStartY.current = null;
+    if (panelRef.current) panelRef.current.style.transform = "";
+    if (dy > SHEET_CLOSE_PX) onClose();
+  };
+
   if (!mounted) return null;
 
   return (
@@ -90,7 +120,17 @@ export function AssistantOverlay({ open, onClose, onNavigate }: AssistantOverlay
       {...(open ? {} : { inert: "" as unknown as boolean })}
     >
       <div className="av-overlay-backdrop" onClick={onClose} aria-hidden="true" />
-      <div className="av-overlay-panel">
+      <div className="av-overlay-panel" ref={panelRef}>
+        {/* sheet 拖拽把手(A4):窄屏下滑关闭——跟手位移,松手过阈收起/未过阈弹回;
+            桌面恒 display:none,onTouch* 在桌面空转(无触摸事件源) */}
+        <div
+          className="av-overlay-sheet-handle"
+          aria-hidden="true"
+          onTouchStart={onSheetTouchStart}
+          onTouchMove={onSheetTouchMove}
+          onTouchEnd={onSheetTouchEnd}
+          onTouchCancel={onSheetTouchEnd}
+        />
         {/* 最小关闭按钮(popup 形态无页头,关闭 affordance 由浮层 chrome 承担) */}
         <button
           type="button"
