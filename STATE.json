@@ -11986,5 +11986,18 @@
     },
     "diagnostics": "core venv 已装 py-spy(sudo dump);pg_stat_activity 查询文本+state_change 是楔死定位主证据",
     "note": "demo 批新种无封面 rh-acc 失败属已知硬阻塞类(missing_node/480s poll),有界勿误读"
+  },
+  "openclaw_whisper_cluster_2026_09_21": {
+    "status": "live",
+    "date": "2026-09-21",
+    "source": "设备管家",
+    "fix_commit": "ffd4939",
+    "diagnosis": "openclaw02-04 并非关机/睡眠:LAN ping+ARP 全活,whisper:9310/OpenClaw:18789 全 OPEN,仅 tailscaled 僵死;远程命令通道全堵(WS/01 密钥未授权、Mac 无 IPv6、网关 terminal=false)",
+    "solution": "服务层集群化:whisper_url 多址故障转移(连接类/5xx 换节点,4xx/中止不转移)+core env 四址(.86/.75/.81/.85:9310)",
+    "verification": "四节点 /v1/audio/transcriptions 逐词 4/4 出段;生产真语音上传→外部听写 2.5s 准确出段;api 3315 全绿",
+    "env_backup": "deploy/.env.bak-whisper-cluster-20260921",
+    "remaining": "tailscaled 恢复需现场 tailscale down/up;已无项目面影响",
+    "rule_new": "「TS 离线」≠「服务掉线」——先 LAN ping+端口扫再下结论",
+    "note": "Mac ssh config 存 openclaw IPv6 公网直连旧路(2026-07,外地无 IPv6 不可用作兜底)"
   }
 }
