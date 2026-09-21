@@ -98,7 +98,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/apps", tags=["apps"])
 
 _CATEGORIES = {"image", "video", "audio", "edit", "3d", "other"}
-_OUTPUT_KINDS = {"image", "video", "audio"}
+# 2026-09-22:补 3d(_CATEGORIES/图标映射/语义 kind app_3d 早已认 3d,独缺此白名单;
+# DB 虽暂无 3d 应用,admin 新建表单可选项需要;run 路径 kind 中性不受影响)
+_OUTPUT_KINDS = {"image", "video", "audio", "3d"}
 # 与 engine_registry params 同款表单类型;其余类型创建时拒绝,防脏 schema 进库
 _PARAM_TYPES = {
     "text", "textarea", "number", "select", "switch", "slider",

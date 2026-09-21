@@ -166,6 +166,14 @@ def test_create_duplicate_id_409(ctx):
     assert r.status_code == 409
 
 
+def test_create_output_kind_3d_accepted(ctx):
+    """2026-09-22:_OUTPUT_KINDS 补 3d(分类/图标/语义 kind 链早已认,白名单独缺)。"""
+    c, tokens, _, _ = ctx
+    r = c.post("/api/apps", headers=_h(tokens, "admin"), json=_create_body(id="t3d", output_kind="3d"))
+    assert r.status_code == 200, r.text
+    assert r.json()["output_kind"] == "3d"
+
+
 def test_create_invalid_category_422(ctx):
     c, tokens, _, _ = ctx
     r = c.post("/api/apps", headers=_h(tokens, "admin"), json=_create_body(category="bogus"))

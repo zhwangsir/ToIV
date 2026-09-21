@@ -52,7 +52,7 @@ _DEFAULT_ICON = "sparkles"
 
 # 与 routes/apps 同源(避免 routes→services 反向依赖):category/output_kind/参数类型
 _CATEGORIES = {"image", "video", "audio", "edit", "3d", "other"}
-_OUTPUT_KINDS = {"image", "video", "audio"}
+_OUTPUT_KINDS = {"image", "video", "audio", "3d"}  # 2026-09-22 补 3d(与 routes/apps 同源)
 _PARAM_TYPES = {
     "text", "textarea", "number", "select", "switch", "slider",
     "images", "audio", "video", "loras",
