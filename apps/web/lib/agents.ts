@@ -3,7 +3,7 @@ import { API_BASE, getToken } from "./api";
 /**
  * 智能体驱动的提示词优化 —— 前端 API client + 本地持久化。
  *
- * listAgents 出错时返回空数组(优雅降级:让 AgentSwitcher / OptimizeButton
+ * listAgents 出错时返回空数组(优雅降级:让 OptimizeButton 等消费方
  * 退化到"无智能体可选,走原默认 system prompt"路径,不阻塞主流程)。
  *
  * 注意:后端 applies_to 在响应中可能是逗号串(老路径)或数组(契约理想态),

@@ -22,7 +22,6 @@ import { PlanPanel } from "./PlanPanel";
 import { TaskCardList } from "./TaskCardList";
 import { RUN_TERMINAL, runStatusMeta, stripMarkdown } from "./agentRunMeta";
 import { useAgentRun } from "./useAgentRun";
-import { AgentRunStyles } from "./AgentRunStyles";
 import "@/app/styles/agent-runs.css";
 
 export function AgentRunView({ runId, ack }: { runId: string; ack?: string | null }) {
@@ -227,7 +226,6 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
           取消该任务?进行中的节点会按作业取消语义终止。
         </Modal>
       </div>
-      <AgentRunStyles />
     </div>
   );
 }

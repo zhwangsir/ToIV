@@ -1919,7 +1919,10 @@ export function AssistantView(props?: AssistantViewProps) {
             <div className="av-empty av-popup-empty">
               <div className="av-empty-title">有什么可以帮你?</div>
               <div className="av-empty-desc">输入内容开始对话 · Esc 或点击遮罩关闭</div>
-              <div className="av-popup-empty-hint">Shift+Enter 随时唤起/关闭</div>
+              {/* 快捷键提示仅桌面端:移动端无 Shift+Enter 物理键,按断点隐藏(A0) */}
+              {!isMobileMq && (
+                <div className="av-popup-empty-hint">Shift+Enter 随时唤起/关闭</div>
+              )}
             </div>
           ) : (
           /* 门户空态(2026-09-06 单色极简改造):Fraunces 问候 + 输入框 + 极简场景入口行;
@@ -3194,7 +3197,7 @@ export function AssistantView(props?: AssistantViewProps) {
           color: var(--text-muted);
         }
 
-        /* ───── 侧边面板(历史 / 模型设置 / 文档) ───── */
+        /* ───── 侧边面板(历史 / 文档) ───── */
         .av-panel {
           position: absolute;
           /* W4 修复:桌面端顶让位 56px chrome 带(CornerNav/账户/任务中心),

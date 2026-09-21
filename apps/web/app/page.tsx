@@ -803,7 +803,7 @@ function HomeContent() {
         moreItems={bottomNavMoreItems}
         current={view}
         onSelect={handleNavSelect}
-        ctaAction={() => changeView("fusion")}
+        ctaAction={() => changeView("home")}
       />
     </div>
   );

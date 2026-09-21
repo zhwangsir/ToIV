@@ -220,13 +220,6 @@ test("BacklotView 错误态渲染 ErrorBar", async () => {
   assert.match(html, /加载看板失败/);
 });
 
-/* ── ⑨ AgentRunStyles 兼容组件返回 null ── */
-test("AgentRunStyles 兼容组件渲染为空", async () => {
-  const { AgentRunStyles } = await import("../components/agent-run/AgentRunStyles");
-  const result = AgentRunStyles();
-  assert.equal(result, null);
-});
-
 /* ── ⑩ ConfirmGateModal 主按钮接 MagnetFollow+Ripple ── */
 test("ConfirmGateModal 确认合成按钮被 MagnetFollow+Ripple 包裹", async () => {
   const fs = await import("node:fs");
