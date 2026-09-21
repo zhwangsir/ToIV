@@ -223,6 +223,27 @@ def _whisper_transcribe_sync(model, path: str, job: dict) -> list[dict]:
     return out
 
 
+async def _transcribe_external_failover(endpoints: list[str], src_path, name: str, job_id: str = "") -> list[dict]:
+    """多址故障转移(2026-09-21 openclaw 集群化):连接类错误/5xx 换下一节点;
+    4xx(音频/参数本身问题)与用户中止不转移,直接抛出。"""
+    last_exc: Exception | None = None
+    for base in endpoints:
+        try:
+            return await _transcribe_external(base, src_path, name, job_id=job_id)
+        except asyncio.CancelledError:
+            raise
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code < 500:
+                raise
+            last_exc = e
+            logger.warning("whisper 节点 %s 5xx(%s),换下一节点", base, e.response.status_code)
+        except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout,
+                httpx.WriteError, httpx.RemoteProtocolError, OSError) as e:
+            last_exc = e
+            logger.warning("whisper 节点 %s 不可达(%s),换下一节点", base, type(e).__name__)
+    raise last_exc if last_exc is not None else RuntimeError("whisper 无可用节点")
+
+
 async def _transcribe_external(base: str, src_path, name: str, job_id: str = "") -> list[dict]:
     """外部 ASR。优先私有契约 POST {base}/asr;404 时回退 OpenAI 兼容
     /v1/audio/transcriptions(response_format=verbose_json,segments 结构相同),
@@ -269,11 +290,10 @@ async def _run_transcribe(job: dict, src_path, name: str) -> None:
         return
     try:
         s = get_settings()
-        if s.whisper_url.strip():
+        endpoints = s.whisper_endpoint_list
+        if endpoints:
             job["stage"] = "外部听写中"
-            segs = await _transcribe_external(
-                s.whisper_url.strip().rstrip("/"), src_path, name, job_id=job["id"]
-            )
+            segs = await _transcribe_external_failover(endpoints, src_path, name, job_id=job["id"])
         else:
             job["stage"] = "加载模型"
             model = await _get_whisper_model()

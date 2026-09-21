@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     audio_sep_url: str = ""
     # 译制听写 Whisper(ASR)。whisper_url 非空 = 调外部 GPU 服务(契约:POST {whisper_url}/asr
     # multipart(file)→ {segments:[{start,end,text}]});空 = 用 api 容器内置 faster-whisper(CPU)。
+    # 2026-09-21 起支持逗号/空格分隔多址(openclaw01-04 :9310 集群):按序故障转移,
+    # 连接类错误/5xx 换下一节点,4xx(音频本身问题)不转移。
     whisper_url: str = ""
     whisper_model: str = "base"  # tiny/base/small/medium(base 平衡速度/质量)
     whisper_compute: str = "int8"  # int8 最快;float16 适配 GPU;auto 自动
@@ -556,6 +558,12 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         # 兼容分号/逗号两种分隔(.env 用分号更直观，避免与 URL 内可能出现的逗号冲突)
         return [o.strip() for o in self.cors_origins.replace(";", ",").split(",") if o.strip()]
+
+    @property
+    def whisper_endpoint_list(self) -> list[str]:
+        """whisper 外部听写节点列表(逗号/空格分隔多址,按序故障转移);单址时与旧行为一致。"""
+        raw = self.whisper_url.replace(",", " ")
+        return [u.strip().rstrip("/") for u in raw.split() if u.strip()]
 
 
 @lru_cache

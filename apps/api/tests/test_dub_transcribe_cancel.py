@@ -44,7 +44,7 @@ def test_whisper_loop_stops_when_canceled(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_run_transcribe_skips_result_if_canceled_after_whisper(monkeypatch):
-    monkeypatch.setattr(dub_text, "get_settings", lambda: SimpleNamespace(whisper_url=""))
+    monkeypatch.setattr(dub_text, "get_settings", lambda: SimpleNamespace(whisper_url="", whisper_endpoint_list=[]))
 
     async def _model():
         return object()

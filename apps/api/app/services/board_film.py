@@ -182,10 +182,17 @@ def words_to_srt(entries: list[dict]) -> str:
 
 
 async def _words_external(path: Path) -> list[dict] | None:
-    """外部 whisper(openclaw mlx-whisper)逐词:OpenAI 兼容 verbose_json+word 粒度。"""
-    base = get_settings().whisper_url.strip().rstrip("/")
-    if not base:
-        return None
+    """外部 whisper(openclaw mlx-whisper)逐词:多址按序尝试(2026-09-21 集群化),
+    全不可用回 None(调用方走内置 faster-whisper 兜底)。"""
+    for base in get_settings().whisper_endpoint_list:
+        out = await _words_external_one(base, path)
+        if out:
+            return out
+    return None
+
+
+async def _words_external_one(base: str, path: Path) -> list[dict] | None:
+    """单节点逐词:OpenAI 兼容 verbose_json+word 粒度。"""
     try:
         async with httpx.AsyncClient(timeout=120.0, trust_env=False) as client:
             with path.open("rb") as fh:
@@ -205,7 +212,7 @@ async def _words_external(path: Path) -> list[dict] | None:
         ]
         return [w for w in out if w["text"]] or None
     except (httpx.HTTPError, ValueError, OSError) as e:
-        logger.info("外部 whisper 逐词不可用: %s", e)
+        logger.info("外部 whisper 逐词不可用(%s): %s", base, e)
         return None
 
 
