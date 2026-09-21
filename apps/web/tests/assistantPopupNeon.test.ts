@@ -24,17 +24,20 @@ test("AssistantView:variant prop 定义且 popup 隐藏页头/面板/文档按�
   assert.ok(!src.includes("<header"), "页头已退役,不应再渲染 header");
   // 三个侧面板整体隐藏(fragment 包裹)
   assert.ok(src.includes("{!popup && (\n        <>"), "侧面板未按 popup 隐藏");
-  // 文档入口按钮隐藏
-  assert.ok(src.includes(") : !popup ? ("), "composer 文档按钮未按 popup 隐藏");
-  // popup 空态极简 + 底部输入框
-  assert.ok(src.includes("av-popup-empty"), "popup 极简空态缺失");
+  // 文档入口按钮隐藏(A3:composer 渲染拆至 Composer.tsx)
+  const composerSrc = readSrc("components/assistant/Composer.tsx");
+  assert.ok(composerSrc.includes(") : !popup ? ("), "composer 文档按钮未按 popup 隐藏");
+  // popup 空态极简(A3:空态拆至 PortalEmpty.tsx)+ 底部输入框
+  const portalSrc = readSrc("components/assistant/PortalEmpty.tsx");
+  assert.ok(portalSrc.includes("av-popup-empty"), "popup 极简空态缺失");
   assert.ok(src.includes("{(!isEmpty || popup) && renderComposer(false)}"), "popup 空态底部输入框缺失");
 });
 
 test("AssistantView:popup 气泡列 640px 收窄(层次聚焦)", () => {
-  const src = readSrc("components/assistant/AssistantView.tsx");
-  assert.ok(src.includes(".av-view--popup .av-msg-list"), "popup 气泡列样式缺失");
-  assert.ok(/max-width:\s*640px/.test(src), "popup 气泡列未收窄到 640px");
+  // A3:样式外迁 app/styles/assistant-view.css
+  const css = readSrc("app/styles/assistant-view.css");
+  assert.ok(css.includes(".av-view--popup .av-msg-list"), "popup 气泡列样式缺失");
+  assert.ok(/max-width:\s*640px/.test(css), "popup 气泡列未收窄到 640px");
 });
 
 /* ── ② AssistantOverlay ── */

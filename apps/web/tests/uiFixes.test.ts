@@ -132,7 +132,8 @@ test("markdown:未闭合/内侧空白一律按原文保留,不产生残缺标签
 });
 
 test("markdown:仅助手气泡走渲染器,用户消息纯文本直出(源码断言)", () => {
-  const src = readSrc("components/assistant/AssistantView.tsx");
+  // A3(2026-09-22):消息渲染拆至 MessageList.tsx
+  const src = readSrc("components/assistant/MessageList.tsx");
   assert.ok(
     src.includes('msg.role === "assistant" ? renderInlineMarkdown(msg.content) : msg.content'),
     "用户消息不得经 markdown(避免 2*3*5 误斜体)",

@@ -111,21 +111,24 @@ test("AssistantView:onEvent 处理 tool/job/proposal 三类新事件", () => {
   assert.ok(src.includes("upsertToolChip"), "tool 事件未走 upsertToolChip");
   assert.ok(src.includes("upsertJobCard"), "job 事件未走 upsertJobCard");
   assert.ok(src.includes("upsertProposalCard"), "proposal 事件未走 upsertProposalCard");
-  // 工具条渲染:三态图标 + 失败 detail
-  assert.ok(src.includes("av-tool-chip"), "缺工具条渲染");
-  assert.ok(src.includes('t.status === "error" && t.detail'), "失败未展示 detail");
+  // 工具条渲染:三态图标 + 失败 detail(A3:消息渲染拆至 MessageList.tsx)
+  const msgSrc = readSrc("components/assistant/MessageList.tsx");
+  assert.ok(msgSrc.includes("av-tool-chip"), "缺工具条渲染");
+  assert.ok(msgSrc.includes('t.status === "error" && t.detail'), "失败未展示 detail");
   for (const s of ['"loading"', '"check"', '"close"']) {
-    assert.ok(src.includes(s), `工具条缺 ${s} 图标`);
+    assert.ok(msgSrc.includes(s), `工具条缺 ${s} 图标`);
   }
 });
 
 test("AssistantView:提案卡三按钮调 resume 且 body 正确", () => {
   const src = readSrc("components/assistant/AssistantView.tsx");
+  // A3:提案卡渲染拆至 MessageList.tsx
+  const msgSrc = readSrc("components/assistant/MessageList.tsx");
   for (const label of ["确认执行", "修改", "放弃", "提交修改"]) {
-    assert.ok(src.includes(label), `提案卡缺「${label}」按钮`);
+    assert.ok(msgSrc.includes(label), `提案卡缺「${label}」按钮`);
   }
   for (const a of ['onProposalDecision(p, "approve")', 'onProposalDecision(p, "reject")', 'onProposalDecision(p, "modify", modifyNote.trim())']) {
-    assert.ok(src.includes(a), `缺 ${a} 调用`);
+    assert.ok(msgSrc.includes(a), `缺 ${a} 调用`);
   }
   // resume body:四字段(note 空时不传)
   assert.ok(src.includes("conversation_id: resume.conversationId"), "resume 缺 conversation_id");
@@ -135,7 +138,7 @@ test("AssistantView:提案卡三按钮调 resume 且 body 正确", () => {
   // 落锤只读态
   assert.ok(src.includes("markProposalResolved"), "决策未落锤只读");
   for (const t of ["已确认执行", "已修改并执行", "已放弃"]) {
-    assert.ok(src.includes(t), `缺只读态文案「${t}」`);
+    assert.ok(msgSrc.includes(t), `缺只读态文案「${t}」`);
   }
 });
 
@@ -145,19 +148,21 @@ test("AssistantView:作业卡 8s 轮询(列表+id 过滤)+ done 复用媒体渲�
   assert.ok(src.includes("fetchJobsPage(0, JOBS_PAGE_LIMIT)"), "轮询未走列表端点");
   assert.ok(src.includes("window.setInterval(poll, 8000)"), "轮询间隔非 8s");
   assert.ok(src.includes("applyJobSnapshots"), "轮询未回写快照");
+  // A3:作业卡渲染与状态徽章纯函数随消息渲染拆至 MessageList.tsx
+  const msgSrc = readSrc("components/assistant/MessageList.tsx");
   // 状态徽章五态 + held 原因展示
   for (const t of ["排队中", "资源等待", "运行中", "完成", "失败"]) {
-    assert.ok(src.includes(t), `缺状态徽章「${t}」`);
+    assert.ok(msgSrc.includes(t), `缺状态徽章「${t}」`);
   }
-  assert.ok(src.includes('j.status === "held" && j.holdReason'), "held 未展示 hold_reason");
+  assert.ok(msgSrc.includes('j.status === "held" && j.holdReason'), "held 未展示 hold_reason");
   // done 产物复用现有媒体渲染分支(W4:多产物经 AvJobResults 胶片条化,单产物仍 renderAvMedia)
-  assert.ok(src.includes('j.status === "done" && j.results?.length'), "done 未渲染产物");
-  assert.ok(src.includes("AvJobResults"), "done 产物未走 AvJobResults 胶片条分流");
-  assert.ok(src.includes("renderAvMedia"), "单产物/audio/3d 未保留 renderAvMedia");
-  assert.ok(src.includes("mediaTypeForJob"), "done 产物未按 kind 分流媒体类型");
+  assert.ok(msgSrc.includes('j.status === "done" && j.results?.length'), "done 未渲染产物");
+  assert.ok(msgSrc.includes("AvJobResults"), "done 产物未走 AvJobResults 胶片条分流");
+  assert.ok(msgSrc.includes("renderAvMedia"), "单产物/audio/3d 未保留 renderAvMedia");
+  assert.ok(msgSrc.includes("mediaTypeForJob"), "done 产物未按 kind 分流媒体类型");
   assert.ok(src.includes("onJobCancel"), "作业卡缺停止");
   assert.ok(src.includes("cancelJob(jobId)"), "作业卡停止未 cancelJob");
-  assert.ok(src.includes("已中止"), "缺已中止徽章文案");
+  assert.ok(msgSrc.includes("已中止"), "缺已中止徽章文案");
 });
 
 /* ── ④ 保活与不活跃超时(2026-08-24「回复失败:服务暂时不可用」修复) ── */
@@ -413,5 +418,7 @@ test("AssistantView composer Stop:abort SSE 且 cancelJob 本轮进行中作业"
   assert.ok(fn.includes("abortControllerRef.current?.abort()"), "Stop 未 abort SSE");
   assert.ok(fn.includes("isJobCardActive"), "Stop 未扫进行中作业卡");
   assert.ok(fn.includes("cancelJob(id)"), "Stop 未 cancelJob 已提交作业");
-  assert.ok(src.includes("停止本轮回复并中止已提交的生成作业"), "Stop 按钮未标明会中止作业");
+  // A3:停止按钮渲染拆至 Composer.tsx
+  const composerSrc = readSrc("components/assistant/Composer.tsx");
+  assert.ok(composerSrc.includes("停止本轮回复并中止已提交的生成作业"), "Stop 按钮未标明会中止作业");
 });

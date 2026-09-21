@@ -234,7 +234,8 @@ test("AssistantView:ToolChip 接口携带 payload;onEvent 条件展开透传", (
 });
 
 test("AssistantView:渲染点 ok+payload+注册表 追加卡片,chip 回退保留", () => {
-  const src = readSrc("components/assistant/AssistantView.tsx");
+  // A3(2026-09-22):消息渲染(工具 chip + 结果卡渲染点)拆至 MessageList.tsx
+  const src = readSrc("components/assistant/MessageList.tsx");
   assert.ok(
     src.includes('t.status === "ok" && t.payload && TOOL_RENDERERS[t.name]'),
     "渲染点缺 ok+payload+注册表 条件",

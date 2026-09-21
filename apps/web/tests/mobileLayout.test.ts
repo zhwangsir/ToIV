@@ -50,7 +50,15 @@ function ruleBody(scope: string, selectorBrace: string): string {
 const stage = readSrc("app/styles/stage.css");
 const library = readSrc("app/styles/library.css");
 const assistant = readSrc("app/styles/assistant.css");
-const assistantView = readSrc("components/assistant/AssistantView.tsx");
+// A3(2026-09-22)组件工程化:AssistantView 拆五模块,样式外迁 assistant-view.css
+const assistantViewCss = readSrc("app/styles/assistant-view.css");
+const assistantAllSrc = [
+  "components/assistant/AssistantView.tsx",
+  "components/assistant/MessageList.tsx",
+  "components/assistant/Composer.tsx",
+  "components/assistant/PortalEmpty.tsx",
+  "components/assistant/SessionDrawer.tsx",
+].map(readSrc).join("\n");
 
 const stageNarrow = mediaBlock(stage, "(max-width: 1023px)");
 const libMobile = mediaBlock(library, "(max-width: 767px)");
@@ -143,12 +151,14 @@ test("assistant:Studio Console v1 后 assistant.css 无徽章/页头规则(随�
   assert.ok(!assistant.includes("av-model-name"), "模型名截断规则应退役");
   assert.ok(!assistant.includes(".av-header"), "页头规则应退役");
   // 空态模型行已于 2026-09-06 单色极简退役(连同铭牌/快捷提示/最近作品带)
-  assert.ok(!assistantView.includes("av-console-model"), "空态模型行应退役");
+  // A3(2026-09-22):退役元素断言跨主壳+全部拆分模块(防残留回迁)
+  assert.ok(!assistantAllSrc.includes("av-console-model"), "空态模型行应退役");
 });
 
 test("AssistantView:文档式消息流(无头像节点,用户右对齐灰字)", () => {
-  assert.ok(!assistantView.includes("av-msg-avatar"), "消息头像节点应移除");
-  assert.ok(assistantView.includes(".av-msg.is-user .av-msg-bubble"), "缺用户消息右对齐规则");
+  assert.ok(!assistantAllSrc.includes("av-msg-avatar"), "消息头像节点应移除");
+  // A3:样式外迁 assistant-view.css
+  assert.ok(assistantViewCss.includes(".av-msg.is-user .av-msg-bubble"), "缺用户消息右对齐规则");
 });
 
 /* ── ④ 桌面规则守护:改动全部封在移动断点内 ── */

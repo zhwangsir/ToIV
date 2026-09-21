@@ -86,16 +86,24 @@ test("AudioView 无页头:生成/编辑段控独立窄行且带图标(2026-08-18
 
 /* ── ④ 首页门户(2026-09-06 单色极简)── */
 test("首页空态:极简 console 形态(问候+输入框+场景入口行),门户区块全退役", () => {
-  const src = readSrc("components/assistant/AssistantView.tsx");
+  // A3(2026-09-22):门户空态拆至 PortalEmpty.tsx;退役元素断言跨主壳+全部拆分模块
+  const src = readSrc("components/assistant/PortalEmpty.tsx");
   assert.ok(src.includes("av-portal--console"), "缺 console 空态变体");
   assert.ok(src.includes("av-portal-greeting"), "缺问候语");
   assert.ok(src.includes("av-scene-card"), "缺场景入口行");
+  const allSrc = [
+    "components/assistant/AssistantView.tsx",
+    "components/assistant/MessageList.tsx",
+    "components/assistant/Composer.tsx",
+    "components/assistant/PortalEmpty.tsx",
+    "components/assistant/SessionDrawer.tsx",
+  ].map(readSrc).join("\n");
   // 2026-09-06 单色极简:铭牌/模型行/快捷提示 chips/最近作品带全部退役
   for (const dead of ["av-console-wordmark", "av-console-model", "av-quick-row", "av-recent", "QUICK_PROMPTS", "av-portal-sub"]) {
-    assert.ok(!src.includes(dead), `已退役门户元素残留:${dead}`);
+    assert.ok(!allSrc.includes(dead), `已退役门户元素残留:${dead}`);
   }
-  assert.ok(!src.includes("av-eng-block"), "引擎胶囊条应退役");
-  assert.ok(!src.includes("av-works"), "最近作品区应退役");
+  assert.ok(!allSrc.includes("av-eng-block"), "引擎胶囊条应退役");
+  assert.ok(!allSrc.includes("av-works"), "最近作品区应退役");
 
   const css = readSrc("app/styles/assistant.css");
   // 2026-09-06 紧凑化:门户内容整体上移(flex-start + clamp 顶距),不再垂直居中

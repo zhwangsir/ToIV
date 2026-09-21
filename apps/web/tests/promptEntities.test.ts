@@ -303,8 +303,10 @@ test("AssistantView:@ 面板并入「主体」分组 + chip 预览 + 发送携�
   const src = readSrc("components/assistant/AssistantView.tsx");
   assert.ok(src.includes('from "@/lib/entities"'), "未引入 entities lib");
   assert.ok(src.includes("onPickEntity"), "缺主体选定回调");
-  assert.ok(src.includes(">主体</span>"), "@ 面板缺主体分组");
-  assert.ok(src.includes("EntityRefsPreview"), "缺 chip 预览");
+  // A3(2026-09-22):@ 面板与 chip 预览拆至 Composer.tsx
+  const composerSrc = readSrc("components/assistant/Composer.tsx");
+  assert.ok(composerSrc.includes(">主体</span>"), "@ 面板缺主体分组");
+  assert.ok(composerSrc.includes("EntityRefsPreview"), "缺 chip 预览");
   assert.ok(src.includes("resolveEntityIds(text, subjectEntities)"), "发送未解析 entity_ids");
   assert.ok(src.includes("{ entity_ids: entityIds }"), "agentChatStream 未携带 entity_ids");
   const api = readSrc("lib/api.ts");

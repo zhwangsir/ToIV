@@ -74,9 +74,12 @@ test("AssistantView:accept 走 DOC_ACCEPT + 按钮全格式文案", () => {
 test("AssistantView:文档列表/挂载 chip/历史 chip 三处按类型图标", () => {
   const src = readSrc("components/assistant/AssistantView.tsx");
   assert.ok(src.includes("docKindIcon(doc.kind)"), "文档列表项未按类型图标");
-  assert.ok(src.includes("docKindIcon(d.kind)"), "composer 挂载 chip 未按类型图标");
+  // A3(2026-09-22):composer 挂载 chip → Composer.tsx;历史消息 chip → MessageList.tsx
+  const composerSrc = readSrc("components/assistant/Composer.tsx");
+  assert.ok(composerSrc.includes("docKindIcon(d.kind)"), "composer 挂载 chip 未按类型图标");
+  const msgSrc = readSrc("components/assistant/MessageList.tsx");
   assert.ok(
-    src.includes("docKindIcon(docKindFromFilename(d.filename))"),
+    msgSrc.includes("docKindIcon(docKindFromFilename(d.filename))"),
     "历史消息 chip 未按扩展名推图标",
   );
 });

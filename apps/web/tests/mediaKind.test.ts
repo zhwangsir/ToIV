@@ -98,7 +98,8 @@ test("LibraryView:网格 3D 作业图标占位 + 「3D」角标,不 <img> 加载
 
 /* ── ④ AssistantView renderAvMedia ── */
 test("AssistantView:model3d 分支内联 ModelViewer + 下载链接保留", () => {
-  const src = readSrc("components/assistant/AssistantView.tsx");
+  // A3(2026-09-22):媒体渲染拆至 MessageList.tsx
+  const src = readSrc("components/assistant/MessageList.tsx");
   const branch = src.slice(src.indexOf('m.type === "model3d"'));
   assert.ok(branch.includes("ModelViewer"), "model3d 分支未接 ModelViewer");
   assert.ok(branch.includes("av-media-3d"), "缺查看器高度容器类");
@@ -117,7 +118,8 @@ test("ImageEditView:Model3DResult 下载卡上方内联 ModelViewer", () => {
 
 /* ── ⑥ mediaTypeForJob 收敛 ── */
 test("AssistantView:mediaTypeForJob 收敛为 mediaKindOf 薄封装", () => {
-  const src = readSrc("components/assistant/AssistantView.tsx");
+  // A3(2026-09-22):作业卡纯函数随消息渲染拆至 MessageList.tsx(AssistantView re-export)
+  const src = readSrc("components/assistant/MessageList.tsx");
   const fn = src.slice(src.indexOf("export function mediaTypeForJob"));
   assert.ok(fn.slice(0, 300).includes("mediaKindOf(url, kind)"), "mediaTypeForJob 未收敛到 mediaKindOf");
 });

@@ -158,9 +158,11 @@ test("⑦ A2 画布编排:提案卡画布按钮 + 画布提案手off 装载", ()
   assert.ok(api.includes("fetchAgentCanvasProposal"), "api.ts 缺 fetchAgentCanvasProposal");
 
   const av = readFileSync(join(here, "../components/assistant/AssistantView.tsx"), "utf-8");
-  assert.ok(av.includes("在画布中打开"), "提案卡缺「在画布中打开」按钮");
+  // A3(2026-09-22):提案卡渲染拆至 MessageList.tsx
+  const avMsg = readFileSync(join(here, "../components/assistant/MessageList.tsx"), "utf-8");
+  assert.ok(avMsg.includes("在画布中打开"), "提案卡缺「在画布中打开」按钮");
   assert.ok(av.includes("toiv_canvas_proposal"), "AssistantView 未写画布提案手off");
-  assert.ok(av.includes('kind === "canvas_graph"'), "提案卡未按 kind 分流");
+  assert.ok(avMsg.includes('kind === "canvas_graph"'), "提案卡未按 kind 分流");
 
   const cv = readFileSync(join(here, "../components/canvas/CanvasView.tsx"), "utf-8");
   assert.ok(cv.includes("readCanvasProposal"), "CanvasView 未读画布提案手off");

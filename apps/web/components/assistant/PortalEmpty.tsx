@@ -1,0 +1,153 @@
+"use client";
+
+/**
+ * 助手门户空态模块(2026-09-22 A3 组件工程化):
+ * 自 AssistantView.tsx 拆出——门户入口数据(SKILL_ENTRIES/OFFLINE_ENTRIES/filterPortalEntries)
+ * 与空态组件(页形态门户 PortalEmpty / popup 极简空态 PopupEmpty)。
+ * 行为零变化:JSX/类名/文案逐字保留,仅闭包变量改为同名 props。
+ */
+import { type ReactNode } from "react";
+import { Icon, type IconName } from "@/components/ui/Icon";
+import { RecentWorksRail } from "./RecentWorksRail";
+
+// ───── @ 技能面板 / 门户入口(2026-09-06 单色极简:门户空态只剩问候 + 输入框 + 场景入口行) ─────
+
+export interface PortalEntry {
+  view: string;
+  icon: IconName;
+  label: string;
+  desc: string;
+  /** r18 = 仅 R18 模式渲染(drama 视图受 page.tsx 全局门控);sfwOnly = 仅 SFW 模式补位 */
+  r18?: boolean;
+  sfwOnly?: boolean;
+}
+
+/** @ 技能面板一期内容 = 工作台快捷入口(二期接 Skills 广场)。 */
+export const SKILL_ENTRIES: PortalEntry[] = [
+  { view: "drama", icon: "clapperboard", label: "短剧工作台", desc: "剧本到成片的全链路工作台", r18: true },
+  { view: "image", icon: "image", label: "图像创作", desc: "文生图 / 图生图" },
+  { view: "video", icon: "video", label: "视频创作", desc: "H3 / LongCat" },
+  { view: "audio", icon: "audio", label: "音频工坊", desc: "音乐 / 配音 / 人声分离" },
+  { view: "avatartalk", icon: "user", label: "数字人", desc: "照片说话 / 对口型" },
+  { view: "library", icon: "library", label: "作品库", desc: "全部生成产物" },
+];
+
+/** W5 助手离线降级(2026-08-31):对话不可用时,门户展开全量工作台导航(替代对话框)。
+ *  覆盖 L1 工作台层全部高频页,顺序与导航分组一致;drama 走 studio 直达(旧管线已退役)。 */
+export const OFFLINE_ENTRIES: PortalEntry[] = [
+  { view: "image", icon: "image", label: "图像", desc: "文生图 · 图生图" },
+  { view: "video", icon: "video", label: "视频", desc: "H3 · LongCat" },
+  { view: "audio", icon: "audio", label: "音频", desc: "音乐 · 配音" },
+  { view: "studio", icon: "clapperboard", label: "工作室", desc: "短剧全流程" },
+  { view: "avatartalk", icon: "user", label: "数字人", desc: "说话视频" },
+  { view: "dub", icon: "mic", label: "译制", desc: "听写 · 配音" },
+  { view: "imageEdit", icon: "palette", label: "图片编辑", desc: "重绘 · 扩图" },
+  { view: "videoEdit", icon: "film", label: "视频剪辑", desc: "裁剪 · 补帧" },
+  { view: "canvas", icon: "grid", label: "画布", desc: "专家工作流" },
+  { view: "library", icon: "library", label: "作品库", desc: "全部产物" },
+  { view: "entities", icon: "users", label: "主体库", desc: "角色 · 场景" },
+  { view: "market", icon: "package", label: "市场", desc: "应用 · 技能" },
+];
+
+/** 按 R18 模式过滤门户入口(纯函数,单测锚点)。 */
+export function filterPortalEntries(
+  entries: readonly PortalEntry[],
+  r18: boolean,
+): PortalEntry[] {
+  return entries.filter((e) => (e.r18 ? r18 : true) && (e.sfwOnly ? !r18 : true));
+}
+
+/** 门户问候语按时段切换(纯展示,无业务含义)。 */
+export function portalGreeting(hour: number): string {
+  if (hour < 6) return "夜深了";
+  if (hour < 12) return "早上好";
+  if (hour < 18) return "下午好";
+  return "晚上好";
+}
+
+export interface PortalEmptyProps {
+  /** W5:探活失败即离线——对话框让位「离线提示 + 全量工作台导航」 */
+  llmOffline: boolean;
+  /** 门户问候语(主壳挂载时按时段取一次,跨空态往返保持稳定) */
+  greeting: string;
+  r18: boolean;
+  goView: (view: string) => void;
+  /** 门户 C 位输入框槽位(主壳 renderComposer(true) 注入,与底部输入框同源) */
+  composer: ReactNode;
+}
+
+/* 门户空态(2026-09-06 单色极简改造):Fraunces 问候 + 输入框 + 极简场景入口行;
+   铭牌/模型行/快捷提示 chips/最近作品带全部退役;
+   版心 --layout-content,区块节奏 --space-3(2026-09-06 紧凑化;样式在 assistant.css 门户区块) */
+export function PortalEmpty({ llmOffline, greeting, r18, goView, composer }: PortalEmptyProps) {
+  return (
+    <div className="av-empty av-portal av-portal--console">
+      {llmOffline ? (
+        /* W5 助手离线降级:对话框让位「离线提示 + 全量工作台导航」 */
+        <>
+          <div className="av-offline" role="alert">
+            <Icon name="warning" size={16} strokeWidth={1.8} />
+            <span className="av-offline-title">助手暂时离线</span>
+            <span className="av-offline-desc">对话能力暂不可用,可直接使用下方工作台继续创作。</span>
+          </div>
+          <div className="av-scene-row av-scene-row--offline">
+            {OFFLINE_ENTRIES.map((c) => (
+              <button
+                key={c.view}
+                type="button"
+                className="av-scene-chip"
+                title={c.desc}
+                onClick={() => goView(c.view)}
+              >
+                <Icon name={c.icon} size={14} strokeWidth={1.8} />
+                <span>{c.label}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="av-portal-hero">
+            <h2 className="av-portal-greeting">
+              {greeting},想创作点什么?
+            </h2>
+          </div>
+          <div className="av-portal-composer">{composer}</div>
+          <div className="av-scene-grid">
+            {filterPortalEntries(SKILL_ENTRIES, r18).map((e) => (
+              <button
+                key={e.view}
+                type="button"
+                className="av-scene-card"
+                title={e.desc}
+                onClick={() => goView(e.view)}
+              >
+                <span className="av-scene-card-icon" aria-hidden="true">
+                  <Icon name={e.icon} size={16} strokeWidth={1.7} />
+                </span>
+                <span className="av-scene-card-title">{e.label}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {/* 最近作品横条:恒挂载(条件分支外),LLM 离线/在线都不卸载,避免缩略图反复中断 */}
+      <RecentWorksRail onOpenLibrary={() => goView("library")} />
+    </div>
+  );
+}
+
+/* 弹窗极简空态:标题 + 操作提示,输入框由底部 renderComposer 承担
+   (Studio Console v1 起拉丁 kicker 铭牌退役,用户:文字太多) */
+export function PopupEmpty({ isMobileMq }: { isMobileMq: boolean }) {
+  return (
+    <div className="av-empty av-popup-empty">
+      <div className="av-empty-title">有什么可以帮你?</div>
+      <div className="av-empty-desc">输入内容开始对话 · Esc 或点击遮罩关闭</div>
+      {/* 快捷键提示仅桌面端:移动端无 Shift+Enter 物理键,按断点隐藏(A0) */}
+      {!isMobileMq && (
+        <div className="av-popup-empty-hint">Shift+Enter 随时唤起/关闭</div>
+      )}
+    </div>
+  );
+}

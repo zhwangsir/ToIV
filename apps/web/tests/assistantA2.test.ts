@@ -90,15 +90,19 @@ test("store.fork:local 兜底本地复制(标题加分叉后缀,新 id)", async 
 
 /* ── ② 分叉钮(源码断言) ── */
 test("renderConvList:分叉钮(stopPropagation/aria-label/接 forkConversation)", () => {
+  // A3(2026-09-22):会话列表渲染拆至 SessionDrawer.tsx(ConvList),样式外迁 assistant-view.css;
+  // forkConversation/fork 处理函数仍留在主壳 AssistantView.tsx
+  const listSrc = readSrc("components/assistant/SessionDrawer.tsx");
+  assert.ok(listSrc.includes('className="av-conv-fork"'), "缺分叉钮");
+  assert.ok(listSrc.includes("forkConversation(conv)"), "分叉钮未接处理函数");
+  assert.ok(listSrc.includes("e.stopPropagation(); forkConversation"), "分叉须 stopPropagation(防误切会话)");
+  assert.ok(listSrc.includes("`分叉对话 ${conv.title}`"), "缺 aria-label");
   const src = readSrc("components/assistant/AssistantView.tsx");
-  assert.ok(src.includes('className="av-conv-fork"'), "缺分叉钮");
-  assert.ok(src.includes("forkConversation(conv)"), "分叉钮未接处理函数");
-  assert.ok(src.includes("e.stopPropagation(); forkConversation"), "分叉须 stopPropagation(防误切会话)");
-  assert.ok(src.includes("`分叉对话 ${conv.title}`"), "缺 aria-label");
   assert.ok(src.includes('convStore.fork(conv.id)'), "处理函数未走 store.fork");
   // 样式:与删除键同族(accent hover 区别于 err)
-  assert.ok(src.includes(".av-conv-fork,"), "分叉钮未共享删除键基座样式");
-  assert.ok(src.includes(".av-conv-fork:hover"), "缺分叉 hover 态");
+  const css = readSrc("app/styles/assistant-view.css");
+  assert.ok(css.includes(".av-conv-fork,"), "分叉钮未共享删除键基座样式");
+  assert.ok(css.includes(".av-conv-fork:hover"), "缺分叉 hover 态");
 });
 
 /* ── ③ 一次性草稿通道 ── */
