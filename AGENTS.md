@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-22（批 1 三件套交付：文件夹整组删除 P0/助手 A0/Admin 审计点号化；当前：api 3315/web 993/e2e library spec 7/7；应用目录 6773/公开 5061 全量打标；whisper 四节点集群 LIVE；**下一步=四域方案批 2**，见第七节）
+> **最后更新**：2026-09-22（批 2 交付：A1 工具卡片六族+协议 payload 增量/Admin 设备域+说明书批量+作业队列/文件夹 P1 bulk；当前：api 3326/web 1012/e2e library 7/7；应用目录 6773/公开 5061 全量打标；whisper 四节点集群 LIVE；**下一步=四域方案批 3**，见第七节）
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -130,20 +130,25 @@
 
 ## 七、当前焦点（活口径摘要）
 
-### 基线（2026-09-22 批 1 后核）
-- **测试**：api **3315** / web **993**（988+6 新增−1 移除）/ e2e authed-library-p0 **7/7**（含新增整组删除例）；分支 `feat/app-guides-admin-cms`（**勿 push、勿 stage `.regen_tmp`/`dogfood-output`**）。
-- **生产**：见五节；web BUILD_ID `20260921-121034-nogit`；admin 同批 core 重构部署（:3200）。
+### 基线（2026-09-22 批 2 后核）
+- **测试**：api **3326** / web **1012** / e2e authed-library-p0 **7/7**+authed-agent-drama 过（authed-agents-ui 3 例系 09-12/09-15 架构陈旧已 skip 登记，见八节）；分支 `feat/app-guides-admin-cms`（**勿 push、勿 stage `.regen_tmp`/`dogfood-output`**）。
+- **生产**：见五节；web BUILD_ID `20260921-145646-nogit`；admin 批 2 重构部署（:3200）。
 - **目录**：应用 **6773 总/5061 公开/5558 rh-acc**，use_case 打标全覆盖；说明卡 550/550；作品库 72 件（44 件折 18 变体文件夹）。
 
 ### 批 1 已交付（2026-09-22，三件套全绿+真机验证）
-1. **作品库文件夹整组删除 P0**：文件夹卡 hover 操作组（打开/删除整组）+批量模式整组点选（终态成员入删单+「已选 X/Y」气泡）；确认 Modal=成员数/状态分布/进行中排除/回收站 72h+画板静默移除/「不再确认」；执行复用 `deleteJobsBatch`+「全部撤销」；纯函数 `folderTerminalMembers`/`folderStatusSummary`（`lib/libraryQuery.ts`）；三处「不做整组删除」注释与 libraryBatch 钉死测试已改写；新增 `tests/libraryFolderDelete.test.ts` 4 组+`authed-library-p0.spec.ts` 1 例（生产真删真撤销，69→69 零净破坏）。
-2. **助手 A0 快赢**：移动端 CTA `ctaAction` fusion→home（`page.tsx`，真机 iPhone  viewport 验证落 `?view=home`）；popup 空态 Shift+Enter 提示 `!isMobileMq` 分端隐藏；`AgentRunStyles.tsx` 空文件+引用+测试⑨物理删除；「模型设置」注释残留与 `lib/agents.ts` AgentSwitcher 漂移注释清理。
-3. **Admin 审计筛选键点号化**：`AuditLogView.tsx` ACTION_LABELS 21 个真实动作全点号化+中文标签（job.delete/app.run/orch.wake…），真机 :3200 筛「删除作品」50 行命中（含批 1 e2e 两条「已撤销」记录闭环）。
+1. **作品库文件夹整组删除 P0**：文件夹卡 hover 操作组+批量整组点选+确认 Modal（状态分布/进行中排除/画板静默移除）+「全部撤销」；纯函数 `folderTerminalMembers`/`folderStatusSummary`；三处「不做整组删除」翻案；新增 4 组 jest+e2e 1 例（生产真删真撤销 69→69）。
+2. **助手 A0 快赢**：移动端 CTA fusion→home（真机 iPhone 验证）；popup 快捷键提示分端；`AgentRunStyles.tsx` 空文件物理删除。
+3. **Admin 审计筛选键点号化**：21 个真实动作+中文标签，筛「删除作品」50 行命中。
 
-### 下一步=四域方案批 2（方案已备，说「继续」即开工）
-1. **助手 A1 工具卡片**（`docs/ASSISTANT_UI_REDESIGN_PLAN_20260922.md`）：toolRenderers 注册表+六族卡（optimize_prompt 对照 38 次/40% 优先）；红线=assistant* 十组不变式。
-2. **Admin P0 设备域**（`docs/ADMIN_REPLAN_20260922.md`）：fleet「假活」识别（systemd active 但端口不监听）+openclaw 节点卡+LB 后端健康；D3 说明书批量（全量列表+批量生成/发布/关联回填，纯前端）。
-3. **文件夹 P1 bulk 端点**（`docs/LIBRARY_FOLDER_DELETE_PLAN_20260922.md`）：`POST /api/jobs/bulk-delete`（ids≤200+per-job undo_token）+Saved Views chips ×+板列表卡删除；Admin P1 作业队列域（行内 cancel/rerun/delete/restore/purge，审计 57% 是 delete）。
+### 批 2 已交付（2026-09-22，全绿+真机验证；api commit `ea4e13d` 系）
+1. **助手 A1 工具卡片**：后端五工具 ok 事件结构化 payload（`ok_tool_event`，runner 透传，LLM 文本不变；方案「协议零改动」实勘证伪→最小协议增量）——optimize_prompt 对照/search_knowledge/list_apps/list_models/create_storyboard/selfheal×2；前端 `components/assistant/toolcards/`（registry 7 名→6 族卡+防御解析+`av-tc-` 前缀 jsx global），chip 保留、无 payload 回退；「应用到输入框」回填 composer 真机验证（av-tc-optimize 卡+回填 359 字）；page.tsx 两处 onNavigate 改 `handleFusionNavigate`（原 handleNavSelect 不解析 `market?app=` 查询串会整条吞进 view）。13 组 jest；生产 SSE 实测 payload 逐字段到达。
+2. **Admin P0 设备域+D3 说明书批量+P1 作业队列**：观测 tab fleet 卡「疑似假活」角标（online 但服务 down）+服务健康三卡（whisper 4/4、LB 后端 2/2（新 `/system/comfy-backends` 代理）、GPU 冒烟触发+报告）；说明书页「批量操作」面板（550 全量列表+status 筛选+批量生成单飞轮询（新端点，短会话守 P-8）/全部发布/关联回填）；AdminView 第五子页「作业队列」（全员 all=1+属主 email 透出+行内 cancel/rerun/delete/restore/permanent（后端 admin 旁路，普通用户 404 语义不变）+回收站视图）。**顺带根修**：smoke_admin 四处 audit.record 漏 commit（生产 app.smoke/smoke_batch/cover_demo/selfheal_reject 四类审计 0 条实证）+boards 删除补 board.delete 审计。
+3. **文件夹 P1**：`POST /api/jobs/bulk-delete`（ids≤200/非终态跳过/逐件 undo_token）；前端 `deleteJobsSmart` >20 自动切端点（bulk 抛错回退本地循环）两处处理器复用；板列表卡 hover 删除入口+「不删成员作品」确认 Modal。
+
+### 下一步=四域方案批 3（方案已备，说「继续」即开工）
+1. **助手 A2 信息架构**：SideRail 补「智能体」入口；agent-runs 详情「在对话中继续」；会话 fork 入 UI（forkAgentSession 前后端就绪）。
+2. **Admin P1 内容运营**：应用创建/删除/导入 UI、单应用封面上传、preflight 预检面板、批量 featured。
+3. **卫生项**（`docs/LIBRARY_FOLDER_DELETE_PLAN_20260922.md` P2）：变体分组排除系统 kind（admin all=1 伪文件夹）；回收站批量恢复。
 - 总方案 `docs/EVOLUTION_PLAN_20260922.md`；移交提示词套件 `docs/HANDOFF_PROMPT_20260922.md`。
 
 ### 关键拍板（长期有效）
@@ -152,8 +157,10 @@
 
 ## 八、未完成任务总表（仅存开口项；已核销见归档/STATE.json）
 
-### 产品（批 1 之后）
-- [ ] 四域方案批 2~5：助手 A1 工具卡片/A2 IA → Admin P0 设备域+D3 内容运营 → 文件夹 P1 bulk 端点+Admin P1 作业队列 → C3 拆分/D2 模型资产/D6 实测矩阵/D7 工程化（lib 瘦身/deploy 固化/admin 测试 0→1）
+### 产品（批 2 之后）
+- [ ] 四域方案批 3~5：助手 A2 IA/A3 组件工程化 → Admin P1 内容运营 → P2 卫生项（变体分组排系统 kind/回收站批量恢复）→ C3 拆分/D2 模型资产/D6 实测矩阵/D7 工程化（lib 瘦身/deploy 固化/admin 测试 0→1）
+- [ ] authed-agents-ui.spec 3 例陈旧重写（已 skip 登记：GenerateView 09-12 退役/管理系统 09-15 独立 :3200，重写按新架构；admin e2e 随 D7 一并）
+- [ ] A1 工具卡回放语义：历史会话 tool 消息不重建 payload 卡（现状仅实时流渲染，与 chip 回放一致；如需回放卡另立项）
 - [ ] Comfy 二次编辑 save-back（open-in-comfy 已通）
 - [ ] SeC 387721：einops reshape 错=SecNodes×torch2.13/sm_120 上游边界（已登记，flash-attn 关闭保留）
 

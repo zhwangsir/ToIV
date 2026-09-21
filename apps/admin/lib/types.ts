@@ -200,6 +200,10 @@ export interface JobItem {
   acceleration?: string;
   /** H3 智能加速实际生效(规格缺失降级时为 false)。 */
   acceleration_applied?: boolean;
+  /** 属主(2026-09-22 Admin P1 作业队列域):admin all=1 口径透出,本人口径为空串。 */
+  user_id?: string;
+  /** 属主 email(admin all=1 口径;解析失败回退空串,前端显示 user_id 截断)。 */
+  user_email?: string;
 }
 
 /** 回收站条目(2026-08-23):作品库字段 + 删除时间/恢复截止/剩余秒数(72h 保留期)。 */

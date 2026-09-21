@@ -16,8 +16,9 @@ import { AuditLogView } from "@/components/admin/AuditLogView";
 import { AppOpsAdminView } from "@/components/admin/AppOpsAdminView";
 import { AppGuidesAdminView } from "@/components/admin/AppGuidesAdminView";
 import { AppTestMatrixAdminView } from "@/components/admin/AppTestMatrixAdminView";
+import { JobsQueueAdminView } from "@/components/admin/JobsQueueAdminView";
 
-type AdminSubView = "users" | "agents" | "audit" | "ops" | "guides" | "matrix";
+type AdminSubView = "users" | "agents" | "audit" | "ops" | "jobs" | "guides" | "matrix";
 
 /** 相对时间格式化:刚刚 / N 分钟前 / N 小时前 / N 天前 / 日期。 */
 function formatTime(iso: string): string {
@@ -168,6 +169,7 @@ export function AdminView() {
             { key: "agents", label: "智能体管理", icon: <Icon name="sparkles" size={14} /> },
             { key: "audit", label: "操作日志", icon: <Icon name="history" size={14} /> },
             { key: "ops", label: "应用运营", icon: <Icon name="package" size={14} /> },
+            { key: "jobs", label: "作业队列", icon: <Icon name="database" size={14} /> },
             { key: "guides", label: "说明书", icon: <Icon name="file" size={14} /> },
             { key: "matrix", label: "实测矩阵", icon: <Icon name="grid" size={14} /> },
           ]}
@@ -182,6 +184,8 @@ export function AdminView() {
       {subView === "audit" && <AuditLogView />}
 
       {subView === "ops" && <AppOpsAdminView />}
+
+      {subView === "jobs" && <JobsQueueAdminView />}
 
       {subView === "guides" && <AppGuidesAdminView />}
 

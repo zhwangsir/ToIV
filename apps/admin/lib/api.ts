@@ -600,6 +600,136 @@ export async function purgeTrash(): Promise<number> {
   return data.purged ?? 0;
 }
 
+// ---------- Admin P1 作业队列域(2026-09-22):全员作业/回收站(all=1;行内操作走 admin 旁路,复用上列 cancel/rerun/delete/restore/permanent) ----------
+
+/** 全员作业列表(admin;kind/status 过滤+分页;行带 user_email 属主)。 */
+export async function fetchAdminJobs(params: { limit?: number; offset?: number; status?: string; kind?: string } = {}): Promise<JobItem[]> {
+  const q = new URLSearchParams();
+  q.set("all", "1");
+  q.set("limit", String(params.limit ?? 100));
+  q.set("offset", String(params.offset ?? 0));
+  if (params.status) q.set("status", params.status);
+  if (params.kind) q.set("kind", params.kind);
+  const res = await apiFetch(`/api/jobs?${q.toString()}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`加载全员作业失败 (${res.status})`);
+  return res.json();
+}
+
+/** 全员回收站(admin;删除时间倒序;行带 user_email 属主)。 */
+export async function fetchAdminTrash(offset = 0, limit = 100): Promise<TrashJobItem[]> {
+  const res = await apiFetch(`/api/jobs/trash?all=1&limit=${limit}&offset=${offset}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`加载全员回收站失败 (${res.status})`);
+  return res.json();
+}
+
+// ---------- D3 说明书批量(2026-09-22):全量列表 + 批量生成(单飞轮询) + 全部发布 + 关联回填 ----------
+
+/** 说明书条目(admin 全量列表行;draft/published)。 */
+export interface AdminGuideItem {
+  app_id: string;
+  purpose: string;
+  when_to_use: string;
+  steps: unknown[];
+  inputs: unknown[];
+  outputs: unknown[];
+  tips: unknown[];
+  related_app_ids: string[];
+  status: "draft" | "published";
+  updated_at: string | null;
+}
+
+/** 全部说明书(draft+published,updated_at 倒序)。 */
+export async function listAdminGuides(): Promise<AdminGuideItem[]> {
+  const res = await apiFetch(`/api/admin/app-guides`, { headers: authHeaders() });
+  if (!res.ok) await raiseApiError(res, "说明书列表加载失败");
+  return res.json();
+}
+
+/** 批量生成说明书(单飞;started=false 且 reason 给出时无待做目标)。 */
+export async function generateGuidesBatch(params: { limit?: number; only_missing?: boolean } = {}): Promise<{ started: boolean; planned: number; reason?: string }> {
+  const res = await apiFetch(`/api/admin/app-guides/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ limit: params.limit ?? 50, only_missing: params.only_missing ?? true }),
+  });
+  if (!res.ok) await raiseApiError(res, "批量生成触发失败(可能已有批次在跑)");
+  return res.json();
+}
+
+/** 批量生成进行态:running + 最近一批汇总。 */
+export async function fetchGuidesBatchStatus(): Promise<{
+  running: boolean;
+  summary: { done: number; failed: { id: string; error: string }[]; finished_at: string } | null;
+}> {
+  const res = await apiFetch(`/api/admin/app-guides/generate/status`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`批量生成状态加载失败 (${res.status})`);
+  return res.json();
+}
+
+/** 全部 draft 说明书批量发布;返回发布条数。 */
+export async function publishAllGuides(): Promise<{ published: number }> {
+  const res = await apiFetch(`/api/admin/app-guides/publish-all`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "批量发布失败");
+  return res.json();
+}
+
+/** 关联回填(published 卡确定性相似度写 related_app_ids);返回 done/skipped。 */
+export async function backfillGuideRelations(): Promise<{ done: number; skipped: number }> {
+  const res = await apiFetch(`/api/admin/app-guides/relations/backfill`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "关联回填失败");
+  return res.json();
+}
+
+// ---------- Admin P0 设备域(2026-09-22):GPU 冒烟 + LB 后端健康 ----------
+
+/** 手动触发一次 GPU 冒烟(同步等待;overall 失败时抛错并在 err.report 带报告体)。 */
+export async function triggerGpuSmoke(): Promise<Record<string, unknown>> {
+  // longRequest(180s):冒烟同步跑 txt2img+LTX 两路,默认 30s 几乎必超(2026-09-22 P0 设备域实测口径)
+  const res = await apiFetch(`/api/system/gpu-smoke`, {
+    method: "POST",
+    headers: authHeaders(),
+  }, { longRequest: true });
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
+    const err = new Error(`GPU 冒烟失败 (${res.status})`) as Error & { report?: unknown };
+    err.report = (body as { detail?: unknown }).detail ?? body;
+    throw err;
+  }
+  return body;
+}
+
+/** 最近一次 GPU 冒烟报告(无报告返回 null)。 */
+export async function fetchGpuSmokeLatest(): Promise<Record<string, unknown> | null> {
+  const res = await apiFetch(`/api/system/gpu-smoke/latest`, { headers: authHeaders() });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`冒烟报告加载失败 (${res.status})`);
+  return res.json();
+}
+
+/** LB 后端池条目(/admin/backends 代理)。 */
+export interface ComfyBackend {
+  id?: string;
+  url: string;
+  gpu?: number;
+  weight?: number;
+  remote?: boolean;
+  healthy?: boolean;
+}
+
+/** ComfyUI-LB 后端池健康(api 代理 LB /admin/backends)。 */
+export async function fetchComfyBackends(): Promise<{ source: string; backends: ComfyBackend[] }> {
+  const res = await apiFetch(`/api/system/comfy-backends`, { headers: authHeaders() });
+  if (!res.ok) await raiseApiError(res, "LB 后端健康加载失败");
+  return res.json();
+}
+
+
 /** 审计日志条目(admin /api/admin/audit-logs)。 */
 export interface AuditLogItem {
   id: string;

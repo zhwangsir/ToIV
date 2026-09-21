@@ -1,18 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { OrchPanel } from "./OrchPanel";
 import {
+  fetchComfyBackends,
   fetchFleet,
   fetchFleetDevice,
+  fetchGpuSmokeLatest,
   fetchObservability,
+  triggerGpuSmoke,
+  type ComfyBackend,
   type FleetDeviceDetail,
   type FleetDeviceSummary,
+  type FleetServiceStatus,
   type FleetSummary,
   type ObservabilitySnapshot,
 } from "@/lib/api";
+import { Badge } from "@/components/ui/Badge";
 import { ErrorBar } from "@/components/ui/ErrorBar";
+import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
   BarChart,
@@ -77,7 +84,7 @@ export function pickLatencySeries(
     .map(({ name, values }) => ({ name, values }));
 }
 
-/** 设备卡(一级网格):状态点 + 名称 + x/y + 角色 + headline。 */
+/** 设备卡(一级网格):状态点 + 名称 + x/y + 角色 + headline;在线但有 down 服务时挂「疑似假活」角标(P0 设备域)。 */
 function FleetCard({
   device,
   onSelect,
@@ -85,6 +92,10 @@ function FleetCard({
   device: FleetDeviceSummary;
   onSelect: (id: string) => void;
 }) {
+  const suspectDown =
+    device.online === true && device.services_up < device.services_total
+      ? device.services_total - device.services_up
+      : 0;
   return (
     <button
       type="button"
@@ -95,6 +106,14 @@ function FleetCard({
       <div className="obs-fleet-head">
         <span className={fleetDotClass(device.online)} aria-hidden="true" />
         <span className="obs-fleet-name">{device.name}</span>
+        {suspectDown > 0 && (
+          <span
+            className="obs-fleet-suspect"
+            title={`设备在线但 ${suspectDown} 个服务端口不可达(systemd 假活/进程崩溃)`}
+          >
+            疑似假活
+          </span>
+        )}
         <span className="obs-fleet-xy">
           {device.services_up}/{device.services_total}
         </span>
@@ -127,6 +146,340 @@ function FleetSection({
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+/* ───────────────────── 服务健康(P0 设备域 v1,2026-09-22) ───────────────────── */
+
+/** 服务探测状态 → 状态点类。 */
+function svcDotClass(status: FleetServiceStatus): string {
+  if (status === "up") return "obs-dot is-on";
+  if (status === "down") return "obs-dot is-down";
+  return "obs-dot is-unknown";
+}
+
+function svcStatusLabel(status: FleetServiceStatus): string {
+  if (status === "up") return "正常";
+  if (status === "down") return "离线";
+  return "未知";
+}
+
+/** whisper ASR 集群卡:openclaw01-04 四节点 :9310 状态(逐节点取详情,手动+首载刷新)。 */
+function WhisperHealthCard({ fleet }: { fleet: FleetSummary | null }) {
+  const nodes = useMemo(
+    () => (fleet?.devices ?? []).filter((d) => d.id.startsWith("openclaw")),
+    [fleet],
+  );
+  const nodeKey = nodes.map((n) => n.id).join(",");
+  const [statusMap, setStatusMap] = useState<Record<string, FleetServiceStatus>>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    const list = nodeKey ? nodeKey.split(",") : [];
+    if (list.length === 0) return;
+    setLoading(true);
+    setError(null);
+    const results = await Promise.allSettled(
+      list.map((id) => fetchFleetDevice(id)),
+    );
+    const next: Record<string, FleetServiceStatus> = {};
+    let failures = 0;
+    results.forEach((r, i) => {
+      if (r.status === "fulfilled") {
+        const svc = r.value.services.find((s) => s.port === 9310);
+        next[list[i]] = svc?.status ?? "unknown";
+      } else {
+        next[list[i]] = "unknown";
+        failures += 1;
+      }
+    });
+    setStatusMap(next);
+    if (failures === list.length) setError("whisper 节点详情全部加载失败");
+    setLoading(false);
+  }, [nodeKey]);
+
+  // 节点集合出现后首载探测一次;此后靠手动刷新(详情接口逐节点调用,不挂 12s 轮询)
+  useEffect(() => {
+    if (nodeKey) void refresh();
+  }, [nodeKey, refresh]);
+
+  const upCount = nodes.filter((n) => statusMap[n.id] === "up").length;
+  return (
+    <div className="obs-health-card" aria-label="whisper ASR 集群">
+      <div className="obs-health-head">
+        whisper ASR 集群(在线 {nodes.length > 0 ? `${upCount}/${nodes.length}` : "—"})
+        <button
+          type="button"
+          className="obs-health-refresh"
+          onClick={() => void refresh()}
+          disabled={loading || nodes.length === 0}
+          title="重新探测四节点 :9310"
+          aria-label="刷新 whisper 集群状态"
+        >
+          <Icon name={loading ? "loading" : "refresh"} size={13} />
+        </button>
+      </div>
+      {error && <div className="obs-health-err">{error}</div>}
+      {fleet === null && !error && (
+        <p className="obs-health-note">等待舰队数据…</p>
+      )}
+      {fleet !== null && nodes.length === 0 && (
+        <p className="obs-health-note">舰队注册表中无 openclaw 节点</p>
+      )}
+      {nodes.length > 0 && (
+        <ul className="obs-health-list">
+          {nodes.map((n) => {
+            const st = statusMap[n.id] ?? "unknown";
+            return (
+              <li key={n.id}>
+                <span className={svcDotClass(st)} aria-hidden="true" />
+                <span className="obs-health-name">{n.name}</span>
+                <span className="obs-health-meta">:9310 · {svcStatusLabel(st)}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** LB 后端卡:ComfyUI-LB 池健康(api 代理 /admin/backends;不可达只在本卡报错,不炸页)。 */
+function LbBackendsCard() {
+  const [data, setData] = useState<{ source: string; backends: ComfyBackend[] } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setData(await fetchComfyBackends());
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "LB 后端健康加载失败");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const backends = data?.backends ?? [];
+  const healthyCount = backends.filter((b) => b.healthy === true).length;
+  return (
+    <div className="obs-health-card" aria-label="ComfyUI-LB 后端池">
+      <div className="obs-health-head">
+        LB 后端池(健康 {data ? `${healthyCount}/${backends.length}` : "—"})
+        <button
+          type="button"
+          className="obs-health-refresh"
+          onClick={() => void load()}
+          disabled={loading}
+          title="重新拉取 LB /admin/backends"
+          aria-label="刷新 LB 后端池"
+        >
+          <Icon name={loading ? "loading" : "refresh"} size={13} />
+        </button>
+      </div>
+      {error && <div className="obs-health-err">{error}</div>}
+      {!error && !loading && backends.length === 0 && (
+        <p className="obs-health-note">后端池为空 · 检查 LB 注册表配置</p>
+      )}
+      {backends.length > 0 && (
+        <ul className="obs-health-list">
+          {backends.map((b) => (
+            <li key={b.id ?? b.url}>
+              <span
+                className={
+                  b.healthy === true
+                    ? "obs-dot is-on"
+                    : b.healthy === false
+                      ? "obs-dot is-down"
+                      : "obs-dot is-unknown"
+                }
+                aria-hidden="true"
+              />
+              <span className="obs-health-url" title={b.url}>
+                {b.url}
+              </span>
+              <span className="obs-health-meta">
+                {b.gpu !== undefined ? `GPU${b.gpu}` : ""}
+                {b.remote ? " · 远程" : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+interface SmokeCaseView {
+  name: string;
+  ok: boolean;
+  durationMs: number | null;
+  error: string | null;
+}
+
+interface SmokeReportView {
+  ok: boolean;
+  ts: number | null;
+  durationMs: number | null;
+  cases: SmokeCaseView[];
+}
+
+/** 冒烟报告体防御式解析(报告结构 {ts, ok, duration_ms, cases[]};字段缺失宽容)。 */
+function parseSmokeReport(raw: unknown): SmokeReportView | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.ok !== "boolean") return null;
+  const casesRaw = Array.isArray(r.cases) ? r.cases : [];
+  return {
+    ok: r.ok,
+    ts: typeof r.ts === "number" ? r.ts : null,
+    durationMs: typeof r.duration_ms === "number" ? r.duration_ms : null,
+    cases: casesRaw.map((c) => {
+      const rec = (c ?? {}) as Record<string, unknown>;
+      return {
+        name: typeof rec.name === "string" ? rec.name : "case",
+        ok: rec.ok === true,
+        durationMs: typeof rec.duration_ms === "number" ? rec.duration_ms : null,
+        error: typeof rec.error === "string" ? rec.error : null,
+      };
+    }),
+  };
+}
+
+/** GPU 冒烟卡:最近报告概要 + 手动触发(同步等待,失败时 err.report 带报告体)。 */
+function GpuSmokeCard() {
+  const [report, setReport] = useState<SmokeReportView | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [runMsg, setRunMsg] = useState<{ text: string; isErr: boolean } | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setReport(parseSmokeReport(await fetchGpuSmokeLatest()));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "冒烟报告加载失败");
+    } finally {
+      setLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const onTrigger = async () => {
+    setBusy(true);
+    setRunMsg(null);
+    try {
+      const parsed = parseSmokeReport(await triggerGpuSmoke());
+      if (parsed) setReport(parsed);
+      setRunMsg({ text: "本次冒烟通过", isErr: false });
+    } catch (err) {
+      // overall 失败:后端 500 + detail=报告体(lib 已挂到 err.report)
+      const rep = parseSmokeReport((err as { report?: unknown })?.report);
+      if (rep) {
+        setReport(rep);
+        const failed = rep.cases.filter((c) => !c.ok).map((c) => c.name).join("、");
+        setRunMsg({ text: `本次冒烟未通过:${failed || "overall 失败"}`, isErr: true });
+      } else {
+        setRunMsg({
+          text: err instanceof Error ? err.message : "冒烟触发失败",
+          isErr: true,
+        });
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="obs-health-card" aria-label="GPU 冒烟">
+      <div className="obs-health-head">
+        GPU 冒烟
+        <button
+          type="button"
+          className="obs-health-refresh"
+          onClick={() => void load()}
+          disabled={busy}
+          title="重新读取最近报告"
+          aria-label="刷新冒烟报告"
+        >
+          <Icon name="refresh" size={13} />
+        </button>
+      </div>
+      {error && <div className="obs-health-err">{error}</div>}
+      {!error && loaded && !report && (
+        <p className="obs-health-note">尚无报告 · 每日定点自动跑,或手动触发一次</p>
+      )}
+      {report && (
+        <div className="obs-health-summary">
+          <Badge tone={report.ok ? "ok" : "err"}>
+            {report.ok ? "通过" : "未通过"}
+          </Badge>
+          <span>
+            {report.ts !== null
+              ? new Date(report.ts * 1000).toLocaleString("zh-CN")
+              : "—"}
+            {report.durationMs !== null
+              ? ` · 耗时 ${(report.durationMs / 1000).toFixed(1)}s`
+              : ""}
+          </span>
+        </div>
+      )}
+      {report && report.cases.length > 0 && (
+        <div className="obs-health-cases">
+          {report.cases.map((c) => (
+            <Badge
+              key={c.name}
+              tone={c.ok ? "ok" : "err"}
+              title={c.error ?? `${c.name} · ${((c.durationMs ?? 0) / 1000).toFixed(1)}s`}
+            >
+              {c.name}
+            </Badge>
+          ))}
+        </div>
+      )}
+      {runMsg && (
+        <div className={runMsg.isErr ? "obs-health-err" : "obs-health-note"}>
+          {runMsg.text}
+        </div>
+      )}
+      <div className="obs-health-actions">
+        <button
+          type="button"
+          className="obs-health-run"
+          onClick={() => void onTrigger()}
+          disabled={busy}
+          title="同步执行 txt2img 小图 + LTX 短视频冒烟(约 1-3 分钟)"
+        >
+          <Icon name={busy ? "loading" : "zap"} size={13} />
+          {busy ? "冒烟执行中…" : "立即冒烟"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** 「服务健康」区:whisper 集群 / LB 后端池 / GPU 冒烟 三卡(Fleet 区下方)。 */
+function ServiceHealthSection({ fleet }: { fleet: FleetSummary | null }) {
+  return (
+    <section className="obs-card" aria-label="服务健康">
+      <h2 className="obs-card-title">服务健康</h2>
+      <div className="obs-health-grid">
+        <WhisperHealthCard fleet={fleet} />
+        <LbBackendsCard />
+        <GpuSmokeCard />
+      </div>
     </section>
   );
 }
@@ -675,6 +1028,7 @@ export function ObservabilityView() {
             <ErrorBar message={fleetError} onClose={() => setFleetError(null)} />
           )}
           {fleet && <FleetSection fleet={fleet} onSelect={setSelected} />}
+          <ServiceHealthSection fleet={fleet} />
           <KpiStrip data={data} />
           {data.held.reasons.length > 0 && (
             <ul className="obs-held-reasons">
@@ -954,6 +1308,157 @@ function ObsStyles() {
           display: flex;
           align-items: center;
           gap: var(--space-2);
+          flex-wrap: wrap;
+        }
+        /* 「疑似假活」角标(P0 设备域):在线但存在 down 服务(warn 语义) */
+        .obs-fleet-suspect {
+          display: inline-flex;
+          align-items: center;
+          padding: 0 var(--space-2);
+          height: 18px;
+          border-radius: var(--radius-badge);
+          background: var(--warn-soft);
+          color: var(--warn);
+          font-size: var(--text-label);
+          font-weight: var(--font-medium);
+          white-space: nowrap;
+          cursor: help;
+        }
+        /* ── 服务健康三卡(P0 设备域 v1) ── */
+        .obs-health-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: var(--space-3, 12px);
+        }
+        @media (max-width: 1080px) {
+          .obs-health-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+        .obs-health-card {
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          padding: var(--space-3, 12px);
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2, 8px);
+          min-width: 0;
+        }
+        .obs-health-head {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          font-size: var(--text-aux);
+          font-weight: var(--font-semibold);
+          color: var(--text-muted);
+        }
+        .obs-health-refresh {
+          margin-left: auto;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          background: transparent;
+          color: var(--text-muted);
+          cursor: pointer;
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
+        }
+        .obs-health-refresh:hover:not(:disabled) {
+          border-color: var(--border-strong);
+          color: var(--text-primary);
+        }
+        .obs-health-refresh:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .obs-health-list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-1);
+          font-size: var(--text-aux);
+        }
+        .obs-health-list li {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          min-width: 0;
+        }
+        .obs-health-name {
+          font-weight: var(--font-semibold);
+          color: var(--text-primary);
+        }
+        .obs-health-url {
+          font-family: var(--font-mono);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .obs-health-meta {
+          margin-left: auto;
+          flex-shrink: 0;
+          color: var(--text-muted);
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+        .obs-health-note {
+          margin: 0;
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+        }
+        .obs-health-err {
+          margin: 0;
+          font-size: var(--text-aux);
+          color: var(--err);
+          word-break: break-all;
+        }
+        .obs-health-summary {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: var(--space-2);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+          font-variant-numeric: tabular-nums;
+        }
+        .obs-health-cases {
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--space-2);
+        }
+        .obs-health-actions {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          margin-top: auto;
+        }
+        .obs-health-run {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-1);
+          min-height: 28px;
+          padding: 0 var(--space-3);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          background: var(--bg-surface-1);
+          color: var(--text-primary);
+          font: inherit;
+          font-size: var(--text-aux);
+          cursor: pointer;
+          transition: border-color var(--duration-fast) var(--ease-standard);
+        }
+        .obs-health-run:hover:not(:disabled) {
+          border-color: var(--border-strong);
+        }
+        .obs-health-run:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
         .obs-fleet-name {
           font-size: var(--text-body);
@@ -1201,7 +1706,9 @@ function ObsStyles() {
           .obs-gpu,
           .obs-fleet-card,
           .obs-back,
-          .obs-vram-fill {
+          .obs-vram-fill,
+          .obs-health-refresh,
+          .obs-health-run {
             transition: none !important;
           }
         }

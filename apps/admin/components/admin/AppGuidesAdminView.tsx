@@ -8,6 +8,8 @@ import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Tabs } from "@/components/ui/Tabs";
+import { GuideBatchAdminPanel } from "@/components/admin/GuideBatchAdminPanel";
 
 interface CatalogApp {
   id: string;
@@ -122,6 +124,8 @@ export function AppGuidesAdminView() {
   const [error, setError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  // 子页:单卡编辑 | 批量操作(D3,2026-09-22)
+  const [subView, setSubView] = useState<"edit" | "batch">("edit");
 
   useEffect(() => {
     setLoadingApps(true);
@@ -190,21 +194,46 @@ export function AppGuidesAdminView() {
         title="说明书"
         desc="为应用填写用途 / 场景 / 步骤 · 草稿或发布"
         actions={
-          <button
-            type="button"
-            className="at-btn at-btn--primary admin-create-btn"
-            onClick={() => void onSave()}
-            disabled={!form.app_id || saving || loadingGuide}
-          >
-            <Icon name="check" size={14} />
-            {saving ? "保存中…" : "保存说明书"}
-          </button>
+          subView === "edit" ? (
+            <button
+              type="button"
+              className="at-btn at-btn--primary admin-create-btn"
+              onClick={() => void onSave()}
+              disabled={!form.app_id || saving || loadingGuide}
+            >
+              <Icon name="check" size={14} />
+              {saving ? "保存中…" : "保存说明书"}
+            </button>
+          ) : undefined
         }
       />
+
+      <div className="admin-guides-tabs">
+        <Tabs
+          items={[
+            { key: "edit", label: "单卡编辑", icon: <Icon name="file" size={14} /> },
+            { key: "batch", label: "批量操作", icon: <Icon name="grid" size={14} /> },
+          ]}
+          current={subView}
+          onChange={(k) => setSubView(k as "edit" | "batch")}
+          ariaLabel="说明书子页"
+        />
+      </div>
 
       {error && <ErrorBar message={error} onClose={() => setError(null)} />}
       {okMsg && <div className="admin-guides-ok">{okMsg}</div>}
 
+      {subView === "batch" && (
+        <GuideBatchAdminPanel
+          apps={apps}
+          onEditApp={(id) => {
+            setSelectedId(id);
+            setSubView("edit");
+          }}
+        />
+      )}
+
+      {subView === "edit" && (
       <div className="admin-guides-layout">
         <aside className="admin-guides-aside at-card">
           <label className="admin-ops-search">
@@ -325,8 +354,18 @@ export function AppGuidesAdminView() {
           )}
         </section>
       </div>
+      )}
 
       <style jsx>{`
+        .admin-guides-tabs {
+          align-self: flex-start;
+          margin-bottom: var(--space-3);
+        }
+        @media (max-width: 767px) {
+          .admin-guides-tabs {
+            align-self: stretch;
+          }
+        }
         .admin-guides-ok {
           margin-bottom: var(--space-3);
           padding: 8px 12px;

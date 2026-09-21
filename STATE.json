@@ -1,5 +1,5 @@
 {
- "updated_at": "2026-09-22T00:00:00+08:00",
+ "updated_at": "2026-09-22T00:30:00+08:00",
  "full_launch_sprint_2026_09_14": {
   "status": "closed_497_of_550_90_4pct_user_testing_next",
   "date": "2026-09-14",
@@ -12014,5 +12014,21 @@
   "production": "web BUILD_ID 20260921-121034-nogit(core 本机 pnpm build);admin core 全量 npm install+build 部署 :3200;deploy.sh --skip-web 同步源码+api 重启健康",
   "verification": "e2e 生产真删变体组 2 件→全部撤销→计数 69→69 零净破坏;审计页筛「删除作品」50 行命中(含该 e2e 两条已撤销记录);移动端 iPhone viewport CTA 落 ?view=home;截图 dogfood-output/screenshots/batch1-*.png + apps/web/ui-sweep/library-folder-delete-*.png",
   "remaining": "批 2:助手 A1 工具卡片六族/Admin P0 设备域假活识别+D3 说明书批量/文件夹 P1 bulk 端点+Admin P1 作业队列"
+ },
+ "batch2_toolcards_admin_domains_2026_09_22": {
+  "status": "done",
+  "date": "2026-09-22",
+  "source": "设备管家",
+  "scope": "四域方案批 2(docs/EVOLUTION_PLAN_20260922.md):助手 A1 工具卡片/Admin P0 设备域+D3 说明书批量+P1 作业队列/文件夹 P1 bulk",
+  "delivered": [
+   "A1:后端五工具 ok 事件结构化 payload(ok_tool_event@tool_seam,runner 透传,LLM 文本不变;方案「协议零改动」实勘证伪→最小协议增量);前端 toolcards/registry 7 名→6 族卡(对照/知识/应用列表/模型 chips/画板/自愈双形态),chip 保留回退,应用到输入框/打开应用/打开画板三动作;page.tsx 两处 onNavigate 改 handleFusionNavigate(handleNavSelect 不解析 market?app= 查询串)",
+   "Admin:观测 tab 假活角标+服务健康三卡(whisper 4/4/LB 2/2(新 /system/comfy-backends 代理)/GPU 冒烟);说明书批量面板(550 全量+批量生成单飞轮询(新端点短会话守 P-8)/全部发布/关联回填);AdminView 作业队列子页(all=1+user_email+行内 cancel/rerun/delete/restore/permanent(admin 旁路)+回收站)",
+   "文件夹 P1:POST /api/jobs/bulk-delete(ids≤200/非终态跳过/逐件 undo_token);前端 deleteJobsSmart >20 切端点(bulk 抛错回退循环);板列表卡删除入口",
+   "根修:smoke_admin 四处 audit.record 漏 commit(生产四类审计 0 条实证)+boards 删除补 board.delete 审计+fleet 注册表(openclaw=whisper 集群+pc02 摘除)"
+  ],
+  "tests": "api 3326 全绿(+11);web 1012 全绿(+19);admin tsc+build 绿;typecheck 既有 tests/libraryViews.test.ts 5 错为基线残留(与本批无关)",
+  "production": "api deploy.sh 重启健康;web BUILD_ID 20260921-145646-nogit;admin core 全量 install+build 部署",
+  "verification": "生产 SSE 实测 optimize_prompt payload 逐字段到达;playwright 真机:av-tc-optimize 对照卡渲染+应用到输入框回填 359 字;admin 作业队列 100 行/说明书 550 行/观测三卡(whisper 4/4·LB 2/2·冒烟报告+假活角标);截图 dogfood-output/screenshots/batch2-*.png;e2e authed-library-p0 7/7+agent-drama 过;authed-agents-ui 3 例陈旧(GenerateView 09-12 退役/管理系统 09-15 独立)已 skip 登记",
+  "remaining": "批 3:助手 A2 IA(SideRail 智能体入口/fork 入 UI)/Admin P1 内容运营(应用创建删除导入/封面上传/preflight)/P2 卫生项(变体分组排系统 kind/回收站批量恢复);authed-agents-ui 3 例按新架构重写;A1 工具卡回放语义另立项"
  }
 }
