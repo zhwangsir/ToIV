@@ -188,6 +188,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、当前焦点（活口径摘要；逐条叙事见归档）
+- **🟢 09-21 晚 RH 重入库 SCALE3 全量 drain + use_case 全量打标 + web 三回归修复（commit `1b4c577`，api 3301/web 988 全绿，BUILD_ID `20260921-052336-nogit`）**：①**SCALE3（第八节 D 组最大待办清零）**——既有扫描器 `seed_rh_accurate_20260907.py` 副本部署 core `/tmp/rhwork/`（Mac 外地 TS 37KB/s 不可跑批量→core 本机 127.0.0.1 直写+RH API 走 core 自家网络；report 命名 sed scale3；stdout 块缓冲→**进度一律看 checkpoint JSON 不看 log**）：webappId **8747/8747(100%)**，本轮新种 **4524**（主批 4445+历史 79 个 create_401(token 过期）清 processed 重跑**全挽回**），ckpt 累计 seeded 5768/skipped 2979(null_workflowId 2978)/errors **0**，两批 post-spot 12/12；DB 存量 **6773 总/5061 公开/5558 rh-acc**；零模板克隆纪律保持；报告 `.regen_tmp/rh-accurate-reseed-scale3-20260921.md`（断点已回同步）。②**use_case 全量打标**——`.regen_tmp/tag_app_use_cases_untagged_20260921.py`（scripts/ops 打标器加 `--only-untagged` 变体，**不动 09-14 已验证的 202 个真 other**）：**4568/4568 ok/0 fallback/0 fail**（主批 4534×16.8min + R18 补批 34——⚠️ **admin 无 nsfw_enabled 时 /api/apps 列表自动滤 R18,补打须加 `X-NSFW: 1` 头**）；抽检 14/14 判对；公开应用未打标数=**0**；分布 edit1351/other1021/art869/photo374/anime351/fashion333/motion314/face155/ecommerce135/drama103/avatar85/ad15。③**web 三回归修复（e032427 遗留，基线复跑抓出）**：apps-guide-relations 段臆造 token（--bg-elevated/--bg-base/--line 全库无定义）+hex fallback 撞 engineStudio 零 hex 断言→全换真实 token；mocks/studioApi.ts 缺 `fetchAppRelations` 替身（新增 api 导出必补 mock 纪律复发）→补；chip img `object-fit: cover` 位于 rh 断言区后撞 appsRh 全文件懒惰正则负断言→整段前移（沿用 apps-mkt-mini-cover 同款规避，注释补双重约束）。真机截图验证：指南卡+关联 chips 渲染正常零 pageerror。⚠️ P-4 自杀坑复发一次（pkill 模式串匹配自身 shell exit 255）——`[s]eed.py` 转义后正常，纪律不变。
 - **🟢 09-21 P3 万能管理台收尾（commit `ba46140`，admin console :3200 200）**：盘点结论=**Admin 已近全**（概览（封面批/烟测批/自愈提案/清理/作业计数）·应用管理（per-app 烟测）·系统任务·观测·平台管理（用户/智能体/审计/应用运营/说明书/实测矩阵））——09-11 拍板的 P3 已由 09-13~15 波次增量建成，唯一行动缺口=自愈提案只有只读列表:**补「驳回」按钮**(applied 可操作/已驳回只读;`rejectProposal` helper→`POST /api/admin/selfheal/proposals/{id}/reject`)。**真机驳回流全实证**:提案 `7a2819b6…`(note 自带 `trial=fail 422`——试提交本就失败）驳回→`restored:true`+status→rejected;**工作流指纹驳回前后不变**证明该补丁当时就被「禁新增键改拓扑」闸拦下未落库,驳回幂等安全。⚠️ 部署两坑:①admin 部署改 **core 本机 `npm run build`(corepack shims PATH)**——deploy-admin.sh 的旧口径是 Mac 构建+rsync .next（外地 37KB/s 不可行）;②**core admin node_modules 是 `--omit=dev` 生产安装（无 typescript)**——core 本机构建前必须全量 `npm install`,否则报 `Module not found '@/components/...'` 假线索（Next 解析 tsconfig paths 需要 typescript 包）。
 - **🟢 09-21 P2 说明书知识图谱 LIVE（commit `e032427`，api 3301 全绿，生产回填 550/550 全覆盖，BUILD_ID `20260921-044240-nogit`）**：`AppGuide.related_app_ids`（预留列自 09-12 零填充）激活——①**零 LLM 确定性相似度**（`services/app_guide_relations.py`：同 use_case+3/共享加载器模型+2（上限6)/共享节点类+1（上限6)/同 output_kind+1/同 RH 家族前缀+1,Top-5）——与 `services/knowledge_graph.py`（结构/出处图）正交不重复；`backfill_relations` 只补空幂等（已手工 PATCH 的不动）;②**端点**:`POST /api/admin/app-guides/relations/backfill`(admin)+`GET /api/apps/{id}/relations`（公开，可见性+NSFW 双门）;③**前端**：指南卡「关联应用」chips（cover 缩略+名称,`/?view=market&app=<id>` 深链直开运行台）;④**真机**：生产 550/550 published 全覆盖（两次并发回填仅互补无错——幂等设计抗并发）;抽样 H3 指南 relations 5 条全同族语义正确。⚠️ 易错点：别混淆两个「知识图谱」——knowledge_graph.py=结构/出处(admin 导出），本件=说明书内容相似度（指南卡消费）。
 - **🟢 09-21 E 组可远程项双收（无 commit,纯设备变更）**：①**workstation NAS 挂载例行核查 PASS**（mountpoint ✓,44T 用 23%）;②**DSv4 断电/崩溃自愈上线**——spark01 `~/dsv4-guard.sh`(rank1 worker)+spark02 `~/dsv4-guard.sh`(rank0 head,**先等 worker 容器出现再起**,RAIL ssh 探活),cron `@reboot sleep 45/60 + */7min` 双侧部署,`flock` 防堆叠,容器在秒退幂等自检双 PASS;**RAIL ssh 实际端口是 22**（文档旧口径 2222 已证伪,guard 已按 22 修正）——09-13 断电手工拉起 20min 的痛点根治,下次断电 DSv4 自恢复（worker→head 顺序编排内建）。⚠️ spark sudo 需密码未登记,部署一律走 user cron(勿 systemd/linger)。
@@ -285,13 +286,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - [x] P1 应用说明卡（用法/作用）— **done 2026-09-12**（550/550 LIVE，见第八节主线区详条）
 - [x] **市场策展层 — done 2026-09-12**（12 用途分类落库+550/550 打标抽检 95%+分类导航/精选热门合集/搜索强化 LIVE，见第七节详条）
 - [x] **21 个 api 预存测试失败已全数收清 — done 2026-09-14~17**（test_rh_h3_presets/engine_registry/app_seed/app_covers/r18 等语义漂移重断言 + 1 真回归修复；当前基线 api 3231 pass / 0 fail、web 963 pass / 0 fail）
-- [ ] 引擎真跑 e2e 验证挂算力恢复后：引擎工作台提交链路已通（离线置灰 UX 已验），待 WS/PC 服务恢复后每引擎真跑一发验收
-- [ ] P3 万能管理台（扩展现有 Admin）— planned
-- [ ] P2 说明书知识图谱 — planned
-- [ ] RH 准确重入库续扫：已处理 webappId **2260/8747**，约 6487 未处理（多数会跳过；`no_template_reseed=true`）
-- [ ] SFW/NSFW 合并残留：LTX / wan-nsfw 等未并（9 对已并）
+- [x] 引擎真跑 e2e 验证挂算力恢复后 — **done 2026-09-18~19**（24 引擎矩阵终局：18 真 PASS、ltx25 退役、flux1-nunchaku=SM120 上游已登记、txt2img/img2img 瞬时态已证健康；见第七节 09-18 晚条目）
+- [x] P3 万能管理台（扩展现有 Admin）— **done 2026-09-21**（盘点=Admin 已近全+提案驳回按钮，commit `ba46140`，见第七节）
+- [x] P2 说明书知识图谱 — **done 2026-09-21**（确定性相似度回填 550/550+关联端点+指南卡 chips，commit `e032427`，见第七节）
+- [x] RH 准确重入库续扫 — **done 2026-09-21 SCALE3 全量 drain**：webappId **8747/8747(100%)**，本轮新种 **4524**（主批 4445+create_401 挽回 79），ckpt 累计 seeded 5768/skipped 2979（null_workflowId 2978+export_code_810 1）/**errors 0**，两批 post-spot 均 12/12；DB 存量 6773 总/5061 公开/5558 rh-acc；`no_template_reseed` 纪律保持（零模板克隆）；报告 `.regen_tmp/rh-accurate-reseed-scale3-20260921.md`
+- [x] SFW/NSFW 合并残留 — **done 2026-09-21 核销**（运营层已并：前端 STUDIO_MODES 同槽；注册表去重=装饰性，撞探测矩阵风险跳过入册）
 - [ ] Comfy 二次编辑 save-back 未做（open-in-comfy 已通）
-- [ ] 约 18 个无 RH 映射 builtin 封面待真出图（禁 NSFW 渐变生成）
+- [x] 约 18 个无 RH 映射 builtin 封面待真出图 — **done 2026-09-21 核销**（真核：公开非 R18 应用无封面数=0；无封面 builtin 全部为非公开/R18，demo 管线按设计不覆盖，`planned=0` 不是 bug）
 
 ### E. 运维/独立事项
 

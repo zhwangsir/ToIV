@@ -11912,5 +11912,55 @@
     "date": "2026-09-15",
     "summary": "异地访问体检两轮:pc01 Tailscale 已修复(iphlpsvc 被禁→启用+MSI 静默重装 1.102.4,用户授权入网;新节点 pc01@100.86.169.64,旧 pc01-3 作废);终验矩阵全绿(core/ws/spark01/02/beijing/pc01 SSH+公网登录+CN 入口+NAS/openclaw TS);新发现 P2=HK 入口 frp 跨境 TLS 闪断(自动重连,CN 入口为主);Tailscale Plan 结论=免费 Personal 够用,服务器节点建议 Disable key expiry;待办收尾:封面批并发6(实测~47张/h)+finalize监督器(批完自动JoyCaption全审+报告),spark双机dsv4_60改restart=unless-stopped,deploy-admin/watcher切Tailscale地址;HK frp已在kcp(闪断=链路质量,CN入口为主)",
     "report": ".regen_tmp/remote_access_audit_20260915.md"
+  },
+  "rh_accurate_reseed_scale3_2026_09_21": {
+    "status": "done_full_drain",
+    "live": true,
+    "date": "2026-09-21",
+    "source": "ToIV 开发",
+    "catalog_size": 8747,
+    "processed": 8747,
+    "processed_pct": 100,
+    "new_seeded_this_session": 4524,
+    "new_seeded_breakdown": "main_batch 4445 + create_401_recovery_batch 79",
+    "cumulative_seeded_ckpt": 5768,
+    "cumulative_skipped": 2979,
+    "cumulative_errors": 0,
+    "skip_reasons": {
+      "null_workflowId": 2978,
+      "export_code_810": 1
+    },
+    "post_spot_checks": "12/12 OK x2 batches",
+    "db_counts_after": {
+      "app_total": 6773,
+      "app_public": 5061,
+      "rh_acc": 5558
+    },
+    "no_template_clones": true,
+    "run_location": "core /tmp/rhwork (127.0.0.1 direct; Mac 外地不经 TS 传批量)",
+    "report": ".regen_tmp/rh-accurate-reseed-scale3-20260921.md",
+    "checkpoint": ".regen_tmp/rh_accurate_reseed_checkpoint.json (synced back)",
+    "prior_create_401_all_recovered": true,
+    "relates_to": "rh_clone_purge_reimport_2026_09_07",
+    "note": "SCALE3 全量 drain：8747/8747 处理完毕；新种 4524；零错误；无模板克隆；脚本=既有 seed_rh_accurate_20260907.py core 侧副本（report 命名 sed scale3）"
+  },
+  "app_use_case_tag_full_2026_09_21": {
+    "status": "done",
+    "live": true,
+    "date": "2026-09-21",
+    "source": "ToIV 开发",
+    "tagged": 4568,
+    "ok": 4568,
+    "fallback": 0,
+    "fail": 0,
+    "breakdown": "main_batch 4534 (16.8min, concurrency 8) + r18_batch 34 (X-NSFW header patch)",
+    "untagged_public_remaining": 0,
+    "spot_check": "14/14 correct",
+    "distribution": "edit1351/other1021/art869/photo374/anime351/fashion333/motion314/face155/ecommerce135/drama103/avatar85/ad15",
+    "variant_script": ".regen_tmp/tag_app_use_cases_untagged_20260921.py (--only-untagged; 不动 09-14 已验证 202 真 other)",
+    "logs": ".regen_tmp/app_use_case_tag_20260921.jsonl + _r18_",
+    "pitfall": "admin 无 nsfw_enabled 时 /api/apps 列表自动滤 R18;补打须 X-NSFW: 1 头",
+    "relates_to": "rh_accurate_reseed_scale3_2026_09_21",
+    "note": "SCALE3 新种 4524 应用 use_case 全量打标收口;市场场景组导航计数恢复全覆盖"
   }
 }
