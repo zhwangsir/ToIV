@@ -258,9 +258,11 @@ const VIEW_META: Record<View, { label: string }> = {
 /** Studio Console v1(2026-08-31):左侧 52px 图标栏主项——只保留高频页,
  *  融合/画布/主体库/译制/数字人/编辑器等经 ⌘K 命令面板或页面内入口到达。
  *  窄屏由底部导航承载(BOTTOM_NAV_ITEMS + 「更多」抽屉)。
- *  2026-09-12 引擎工作台:应用市场升至次位,图片/视频改名图片生成/视频生成(纯引擎)。 */
+ *  2026-09-12 引擎工作台:应用市场升至次位,图片/视频改名图片生成/视频生成(纯引擎)。
+ *  2026-09-22 A2:「智能体」进左栏(对话=轻交互/运行台=重编排并存;独立路由,handleNavSelect 特判)。 */
 const RAIL_ITEMS: RailItem[] = [
   { key: "home", label: "对话", icon: "chat" },
+  { key: "agent-runs", label: "智能体", icon: "bot" },
   { key: "market", label: "应用市场", icon: "store" },
   { key: "image", label: "图片生成", icon: "image" },
   { key: "video", label: "视频生成", icon: "video" },

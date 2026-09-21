@@ -9,6 +9,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { imageUrl } from "@/lib/api";
+import { stashAssistantDraft } from "@/lib/assistantDraft";
 import { Icon } from "@/components/ui/Icon";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
@@ -66,6 +67,23 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
             </div>
           </div>
           <div className="agent-topbar-actions">
+            {/* A2(2026-09-22):「在对话中继续」——run 上下文(goal+状态)stash 成助手草稿,
+                跳 home 由 AssistantView 挂载消费回填输入框(一次性,lib/assistantDraft) */}
+            {d && stripMarkdown(d.goal).trim() && (
+              <Link
+                href="/?view=home"
+                className="btn btn-sm btn-secondary agent-continue-chat"
+                title="带上本任务上下文跳到对话页继续"
+                onClick={() =>
+                  stashAssistantDraft(
+                    `继续处理智能体任务:「${stripMarkdown(d.goal).trim().slice(0, 200)}」` +
+                      `(当前状态:${runStatusMeta(d.status).label})。`,
+                  )
+                }
+              >
+                <Icon name="chat" size={12} /> 在对话中继续
+              </Link>
+            )}
             <div className="agent-mode" role="tablist" aria-label="视图形态">
               <button
                 type="button"

@@ -2289,7 +2289,7 @@ export async function getAgentSession(
     headers: authHeaders(),
     signal,
   });
-  if (!res.ok) await raiseApiError(res, "分叉会话失败");
+  if (!res.ok) await raiseApiError(res, "加载会话失败");
   invalidate(CACHE_KEYS.sessions);
   return res.json();
 }

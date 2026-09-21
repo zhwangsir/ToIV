@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense, Fragment, type ReactNode } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { RecentWorksRail } from "./RecentWorksRail";
+import { takeAssistantDraft } from "@/lib/assistantDraft";
 import {
   TOOL_RENDERERS,
   renderToolCard,
@@ -22,6 +23,7 @@ import {
   cancelJob,
   deleteAgentSession,
   fetchJobsPage,
+  forkAgentSession,
   getAgentSession,
   getLlmModel,
   imageUrl,
@@ -462,6 +464,9 @@ export interface AgentConversationStore {
     onId: (id: string) => void,
   ) => void;
   remove: (id: string) => Promise<void>;
+  /** 分叉(A2 2026-09-22):复制源会话为新会话(server 走 fork 端点;local 兜底本地复制),
+      返回新会话 id(失败返回 null,错误透出到 listError)。 */
+  fork: (id: string) => Promise<string | null>;
 }
 
 export function useAgentConversations(): AgentConversationStore {
@@ -602,6 +607,33 @@ export function useAgentConversations(): AgentConversationStore {
     [serverMode],
   );
 
+  const fork = useCallback(
+    async (id: string): Promise<string | null> => {
+      if (serverMode) {
+        try {
+          const summary = await forkAgentSession(id);
+          const conv = summaryToConversation(summary);
+          setServerConvs((prev) => [conv, ...prev]);
+          return conv.id;
+        } catch (err) {
+          setListError(err instanceof Error ? err.message : "分叉会话失败");
+          return null;
+        }
+      }
+      // local 兜底:本地复制(消息全量拷贝,标题加分叉后缀)
+      const srcConv = localConvs.find((c) => c.id === id);
+      if (!srcConv) return null;
+      const newId = genId();
+      const now = Date.now();
+      setLocalConvs((prev) => [
+        { ...srcConv, id: newId, title: `${srcConv.title}(分叉)`, createdAt: now, updatedAt: now },
+        ...prev,
+      ]);
+      return newId;
+    },
+    [serverMode, localConvs],
+  );
+
   return {
     serverMode,
     conversations: serverMode ? serverConvs : localConvs,
@@ -610,6 +642,7 @@ export function useAgentConversations(): AgentConversationStore {
     open,
     register,
     remove,
+    fork,
   };
 }
 
@@ -1153,6 +1186,19 @@ export function AssistantView(props?: AssistantViewProps) {
     }
   }, [conversations, loadConversation]);
 
+  // A2(2026-09-22):跨页「在对话中继续」一次性草稿——仅 page 形态消费,
+  // 挂载时取出即删(popup 不抢:草稿的目标是 home 整页);回填后聚焦输入框
+  useEffect(() => {
+    if (popup) return;
+    const draft = takeAssistantDraft();
+    if (draft) {
+      setInput(draft);
+      textareaRef.current?.focus();
+    }
+    // 仅首挂载消费一次(一次性语义);textareaRef/setInput 稳定
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const deleteConversation = useCallback(
     (id: string) => {
       void convStore.remove(id);
@@ -1161,6 +1207,16 @@ export function AssistantView(props?: AssistantViewProps) {
       }
     },
     [activeConvId, onNewChat, convStore],
+  );
+
+  // 分叉(A2):复制会话为新对话(列表顶部);正在浏览的源会话不受影响
+  const forkConversation = useCallback(
+    (conv: Conversation) => {
+      void convStore.fork(conv.id).then((newId) => {
+        if (newId) toast.success("已分叉为新对话(见列表顶部)");
+      });
+    },
+    [convStore, toast],
   );
 
   // popup 会话抽屉:Esc 关闭。浮层全局 Esc 是 capture 监听(AssistantOverlay),
@@ -1715,6 +1771,15 @@ export function AssistantView(props?: AssistantViewProps) {
                   {conv.messageCount ?? conv.messages.length} 条消息 · {formatTime(conv.updatedAt)}
                 </span>
               </div>
+            </button>
+            <button
+              type="button"
+              className="av-conv-fork"
+              onClick={(e) => { e.stopPropagation(); forkConversation(conv); }}
+              title="分叉对话(复制为新会话)"
+              aria-label={`分叉对话 ${conv.title}`}
+            >
+              <Icon name="fork" size={11} strokeWidth={1.8} />
             </button>
             <button
               type="button"
@@ -3375,6 +3440,7 @@ export function AssistantView(props?: AssistantViewProps) {
           color: var(--text-muted);
           font-family: var(--font-mono);
         }
+        .av-conv-fork,
         .av-conv-delete {
           flex-shrink: 0;
           display: inline-flex;
@@ -3389,15 +3455,22 @@ export function AssistantView(props?: AssistantViewProps) {
             background-color var(--duration-fast) var(--ease-standard),
             color var(--duration-fast) var(--ease-standard);
         }
-        /* 触屏无 hover,删除键常显,否则会话无法删除 */
+        /* 触屏无 hover,操作键常显,否则会话无法删除/分叉 */
         @media (hover: none) {
+          .av-conv-fork,
           .av-conv-delete {
             opacity: 1;
           }
         }
+        .av-conv-item:hover .av-conv-fork,
+        .av-conv-fork:focus-visible,
         .av-conv-item:hover .av-conv-delete,
         .av-conv-delete:focus-visible {
           opacity: 1;
+        }
+        .av-conv-fork:hover {
+          background: var(--accent-soft);
+          color: var(--accent);
         }
         .av-conv-delete:hover {
           background: var(--err-soft);
@@ -3514,6 +3587,7 @@ export function AssistantView(props?: AssistantViewProps) {
             width: 44px;
             height: 44px;
           }
+          .av-conv-fork,
           .av-conv-delete {
             width: 32px;
             height: 32px;

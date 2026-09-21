@@ -3729,6 +3729,8 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
   const [purgeError, setPurgeError] = useState<string | null>(null);
   // 一键清空:独立确认态与进行中态(复用 busyId 语义,"__all__" 表示整桶操作)
   const [confirmPurgeAll, setConfirmPurgeAll] = useState(false);
+  // 批量恢复(P2 2026-09-22):全部恢复确认态+进行中态(语义同 "__all__" 槽位)
+  const [confirmRestoreAll, setConfirmRestoreAll] = useState(false);
   const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(new Set());
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
@@ -3818,6 +3820,37 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
     }
   };
 
+  // 全部恢复(P2):Modal 确认后顺序恢复(单件失败不中断),成功项移出列表
+  const handleConfirmRestoreAll = async () => {
+    const ids = (items ?? []).map((j) => j.id);
+    if (ids.length === 0) return;
+    setBusyId("__all__");
+    setPurgeError(null);
+    const done: string[] = [];
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        await restoreJob(id);
+        done.push(id);
+      } catch {
+        failed++;
+      }
+    }
+    setBusyId(null);
+    setConfirmRestoreAll(false);
+    if (done.length > 0) {
+      const doneSet = new Set(done);
+      setItems((prev) => (prev ?? []).filter((j) => !doneSet.has(j.id)));
+      invalidateJobs();
+      onRestored?.();
+      toast.success(
+        failed === 0 ? `已恢复 ${done.length} 件作品` : `已恢复 ${done.length} 件,${failed} 件失败(可逐个重试)`,
+      );
+    } else {
+      setPurgeError(`全部恢复失败(${failed} 件),可逐个重试`);
+    }
+  };
+
   const trashEmpty = !loading && !error && (items?.length ?? 0) === 0;
   const skeletonCount = 8;
 
@@ -3838,18 +3871,32 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
         <span className="lib-trash-title">回收站</span>
         <span className="lib-trash-desc">删除的作品保留 72 小时,到期自动彻底删除</span>
         {(items?.length ?? 0) > 0 && (
-          <Button
-            size="sm"
-            variant="danger"
-            className="lib-trash-purge-all"
-            icon={<Icon name="delete" size={14} />}
-            onClick={() => {
-              setPurgeError(null);
-              setConfirmPurgeAll(true);
-            }}
-          >
-            清空回收站
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="lib-trash-restore-all"
+              icon={<Icon name="undo" size={14} />}
+              onClick={() => {
+                setPurgeError(null);
+                setConfirmRestoreAll(true);
+              }}
+            >
+              全部恢复
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              className="lib-trash-purge-all"
+              icon={<Icon name="delete" size={14} />}
+              onClick={() => {
+                setPurgeError(null);
+                setConfirmPurgeAll(true);
+              }}
+            >
+              清空回收站
+            </Button>
+          </>
         )}
       </header>
 
@@ -3992,7 +4039,7 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
           index={lightboxIdx}
           onClose={() => setLightboxIdx(null)}
           onIndex={setLightboxIdx}
-          dialogsOpen={!!confirmPurge || confirmPurgeAll}
+          dialogsOpen={!!confirmPurge || confirmPurgeAll || confirmRestoreAll}
           previewOnly
         />,
         document.body,
@@ -4075,6 +4122,45 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
           <div className="lib-confirm-warn">
             确定清空回收站?{items?.length ?? 0} 件作品将被全部彻底删除,
             <strong>此操作不可恢复</strong>。
+          </div>
+          {purgeError && (
+            <div className="lib-confirm-error">
+              <Icon name="error" size={13} /> {purgeError}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* 全部恢复确认对话框(P2):非 danger(恢复是安全操作);失败件数文案明示可重试 */}
+      <Modal
+        open={confirmRestoreAll}
+        onClose={() => setConfirmRestoreAll(false)}
+        title="全部恢复"
+        preventClose={busyId !== null}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={busyId !== null}
+              onClick={() => setConfirmRestoreAll(false)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="primary"
+              loading={busyId !== null}
+              icon={<Icon name="undo" size={14} />}
+              onClick={handleConfirmRestoreAll}
+            >
+              {busyId ? "恢复中…" : `恢复 ${items?.length ?? 0} 件`}
+            </Button>
+          </>
+        }
+      >
+        <div className="lib-confirm-body">
+          <div className="lib-confirm-warn">
+            将回收站里 <strong>{items?.length ?? 0}</strong> 件作品全部恢复到作品库
+            (回到各自类型桶;单件失败不中断,失败的保留在回收站可逐个重试)。
           </div>
           {purgeError && (
             <div className="lib-confirm-error">

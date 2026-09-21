@@ -85,6 +85,21 @@ test("groupLibraryEntries:成员删到只剩 1 个时回落普通卡(文件夹�
   assert.equal((entries[0] as { type: "job"; job: JobItem }).job.id, "solo");
 });
 
+test("groupLibraryEntries:系统 kind(app_cover_demo 等)不参与变体折叠(防巨型伪文件夹)", () => {
+  const demo = Array.from({ length: 5 }, (_, i) =>
+    makeJob(`d${i}`, { kind: "app_cover_demo", seed: 42, prompt: "same prompt" }),
+  );
+  const entries = groupLibraryEntries(demo, { groupVariants: true });
+  assert.ok(entries.every((e) => e.type === "job"), "系统 kind 应平铺不折叠");
+  // 同参数普通作业不受影响,仍折叠
+  const normal = Array.from({ length: 3 }, (_, i) =>
+    makeJob(`n${i}`, { kind: "txt2img", seed: 42, prompt: "same prompt" }),
+  );
+  const folded = groupLibraryEntries(normal, { groupVariants: true });
+  assert.equal(folded.length, 1);
+  assert.equal(folded[0].type, "batch");
+});
+
 /* ── ② 封面 ── */
 test("folderCover:封面=首个有产物的成员,全员无产物回退首成员", () => {
   const running = makeJob("r", { status: "running", results: [], batch_id: "b2" });

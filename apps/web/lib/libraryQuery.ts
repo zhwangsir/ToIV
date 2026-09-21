@@ -409,9 +409,14 @@ export type LibraryEntry =
  * - 成员不足 2 个(其余被删/被筛选掉)回落为普通作品卡;无 batch_id 的旧作业原样;
  * - 筛选后调用 → 文件夹天然按成员 kind 归属对应类型桶(成员全被滤掉即不显示)。
  */
-/** 变体组键(P2):同 kind+seed+prompt(去首尾空白)认定为同参数变体;seed 为空不参与。 */
+/** 系统作业 kind(封面管线等):不参与变体折叠(2026-09-22 P2——admin all=1 视图
+    会把成百上千件 app_cover_demo 折出巨型伪文件夹;真实用户库本就看不到系统作业)。 */
+const SYSTEM_KIND_PREFIXES = ["app_cover", "app_smoke"];
+
+/** 变体组键(P2):同 kind+seed+prompt(去首尾空白)认定为同参数变体;seed 为空/系统 kind 不参与。 */
 export function variantKeyOf(j: JobItem): string {
   if (j.seed === null || j.seed === undefined) return "";
+  if (SYSTEM_KIND_PREFIXES.some((p) => j.kind.startsWith(p))) return "";
   const p = (j.prompt ?? "").trim();
   return `v:${j.kind}:${j.seed}:${p}`;
 }

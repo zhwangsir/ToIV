@@ -13,6 +13,67 @@ import { test, expect } from "@playwright/test";
  */
 
 test.describe("智能体 UI", () => {
+  // ── A2:SideRail「智能体」入口(2026-09-22) ──
+  test("SideRail 智能体入口直达运行台", async ({ page }) => {
+    test.setTimeout(120000);
+    await page.goto("/?view=home", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
+    // 左栏次位(对话之后)「智能体」→ 独立路由 /agent-runs(锁定 .siderail,防命中底部抽屉隐藏项)
+    const railBtn = page.locator(".siderail button[aria-label='智能体']").first();
+    await expect(railBtn).toBeVisible({ timeout: 30000 });
+    await railBtn.click();
+    await page.waitForURL(/\/agent-runs/, { timeout: 30000 });
+    await expect(page.getByText(/任务列表|Agent/).first()).toBeVisible({ timeout: 30000 });
+    await page.screenshot({ path: "ui-sweep/a2-agent-runs-rail.png" });
+  });
+
+  // ── A2:会话分叉入 UI(2026-09-22) ──
+  test("助手会话列表分叉:复制为新对话并置顶", async ({ page }) => {
+    test.setTimeout(150000);
+    await page.goto("/?view=home", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
+    // 打开历史面板
+    await page.getByRole("button", { name: /对话历史|历史/ }).first().click();
+    const list = page.locator(".av-conv-item");
+    await list.first().waitFor({ state: "visible", timeout: 30000 });
+    const before = await list.count();
+    if (before === 0) {
+      console.log("FORK_E2E_SKIP: 无历史会话");
+      return;
+    }
+    const first = list.first();
+    await first.hover();
+    await first.getByRole("button", { name: /^分叉对话 / }).click();
+    await expect(page.getByText(/已分叉为新对话/)).toBeVisible({ timeout: 30000 });
+    await expect(list).toHaveCount(before + 1, { timeout: 15000 });
+    await page.screenshot({ path: "ui-sweep/a2-fork-session.png" });
+  });
+
+  // ── A2:运行台详情「在对话中继续」草稿通道 ──
+  test("agent-runs 详情「在对话中继续」回填助手输入框", async ({ page }) => {
+    test.setTimeout(150000);
+    await page.goto("/agent-runs", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
+    // 列表第一条进详情(无运行记录时环境性跳过;列表项是 button 非链接;先等挂载再判空)
+    await page.waitForSelector(".agent-run-open", { timeout: 30000 }).catch(() => null);
+    const first = page.locator(".agent-run-open").first();
+    if ((await first.count()) === 0) {
+      console.log("CONTINUE_E2E_SKIP: 无运行记录");
+      return;
+    }
+    await first.click();
+    const btn = page.locator(".agent-continue-chat");
+    await expect(btn).toBeVisible({ timeout: 30000 });
+    await btn.click();
+    await page.waitForURL(/view=home/, { timeout: 30000 });
+    const composer = page.locator(".av-composer-input");
+    await expect(composer).toBeVisible({ timeout: 30000 });
+    const v = await composer.inputValue();
+    expect(v).toContain("继续处理智能体任务");
+    await page.screenshot({ path: "ui-sweep/a2-continue-in-chat.png" });
+  });
+
+
   // ── 图像工作台 OptimizeButton ─────────────────────────────
   // 优化按钮在工作台底部提示词条(PromptBar)内,SFW/R18 视图均有。
   test("图像工作台出现 OptimizeButton", async ({ page }) => {

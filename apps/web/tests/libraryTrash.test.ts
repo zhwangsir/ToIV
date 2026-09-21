@@ -95,6 +95,24 @@ test("LibraryTrashView:恢复/彻底删除走 api 导出,彻底删除 Modal 二�
   assert.ok(trash.includes("formatRetention(job.restore_remaining_seconds)"), "卡片未显示剩余保留期");
 });
 
+/* ── ④b 批量恢复(P2 2026-09-22) ── */
+test("LibraryTrashView:全部恢复入口+确认 Modal+顺序循环失败不中断", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  const trash = src.slice(src.indexOf("export function LibraryTrashView"));
+  // 头部入口(在清空回收站旁)+确认 Modal(非 danger:恢复是安全操作)
+  assert.ok(trash.includes("lib-trash-restore-all"), "缺「全部恢复」头部入口");
+  assert.ok(trash.includes("confirmRestoreAll"), "缺全部恢复确认态");
+  assert.ok(trash.includes('title="全部恢复"'), "缺全部恢复 Modal");
+  // 执行体:顺序循环 restoreJob,单件失败不中断,成功项移出列表+失效缓存
+  const exec = trash.slice(trash.indexOf("const handleConfirmRestoreAll"));
+  assert.ok(exec.includes("await restoreJob(id)"), "未循环调 restoreJob");
+  assert.ok(exec.includes("failed++"), "缺失败计数(单件失败不中断)");
+  assert.ok(exec.includes("invalidateJobs()"), "恢复后未失效作品库缓存");
+  assert.ok(exec.includes("onRestored?.()"), "恢复后未通知主列表刷新");
+  // 灯箱在全部恢复 Modal 打开时同样让位
+  assert.ok(trash.includes("|| confirmRestoreAll"), "灯箱 dialogsOpen 未含恢复确认态");
+});
+
 test("LibraryTrashView:缩略图点击进灯箱,NSFW 先揭示;恢复/彻底删除仍在卡片脚部", () => {
   const src = readSrc("components/library/LibraryView.tsx");
   const trash = src.slice(src.indexOf("export function LibraryTrashView"));
