@@ -1,15 +1,28 @@
 # pc01
 
 > **来源主机**：pc01（192.168.71.116，Windows / RTX 5090 / 用户 home）
-> **采集时间**：2026-09-13（`schtasks /query /fo csv /v` + scp）；**2026-09-14 更新**：RAM disk 迁移 ImDisk + 任务转 SYSTEM
+> **采集时间**：2026-09-13（`schtasks /query /fo csv /v` + scp）；**2026-09-14 更新**：RAM disk 迁移 ImDisk + 任务转 SYSTEM；**2026-09-21 更新**：**:8198 改 NSSM 服务化**（见下「现行服务化」）
 > **用途**：迁移手册阶段 0 配置入仓（只复制不启用）。对应清单 `docs/SERVICE_INVENTORY.md` ③组。
+
+## 现行服务化（2026-09-21 起，:8198 NSSM 根治）
+
+| 项 | 值 |
+|---|---|
+| 服务 | `ComfyUI-H3`（NSSM 2.24 win64,`C:\nssm.exe`） |
+| 命令 | `C:\ComfyUI-h3\start_comfyui_h3.bat`（AppDirectory=`C:\ComfyUI-h3`） |
+| 启动 | `SERVICE_AUTO_START`（LocalSystem;bat 自挂 Z: NAS 已在脚本内） |
+| 复活 | `AppRestartDelay 5000`（进程退出 5s 后自动重启,kill 实证 ~12s 恢复 200） |
+| 日志 | `C:\ComfyUI-h3\nssm-out.log` / `nssm-err.log` |
+| 退役 | `\StartComfyUI-H3` 与 `\Watchdog-ComfyUI-H3` 两计划任务已 **Disabled 留档**（勿删,回退时 enable 并 `nssm stop/remove ComfyUI-H3`） |
+
+安装序列（迁移复现用）：`nssm install ComfyUI-H3 C:\ComfyUI-h3\start_comfyui_h3.bat` → `set AppDirectory` → `set AppRestartDelay 5000` → `set AppStdout/AppStderr` → `set Start SERVICE_AUTO_START` → `nssm start ComfyUI-H3`。
 
 ## 现行计划任务（3 个）
 
 | 任务 | 触发 | 身份 | 命令 | 端口 |
 |---|---|---|---|---|
 | `\StartComfyUI` | 系统启动（延迟 2min） | **SYSTEM / HIGHEST**（2026-09-14 从 InteractiveToken 改，修复重启后无人登录不起实例） | `C:\ComfyUI\start_comfyui.bat` | :8188 |
-| `\StartComfyUI-H3` | 系统启动（延迟 2min） | **SYSTEM / HIGHEST**（同上） | `C:\ComfyUI-h3\start_comfyui_h3.bat` | :8198（--lowvram） |
+| ~~`\StartComfyUI-H3`~~ | ~~系统启动~~ | **已 Disabled（2026-09-21，见上 NSSM）** | ~~`C:\ComfyUI-h3\start_comfyui_h3.bat`~~ | ~~:8198~~ |
 | `\RamDiskHotSync` | 系统启动时 | SYSTEM | `C:\ComfyUI\sync_hotmodels.ps1`（NAS→R: 60G RAM 盘热模型） | — |
 
 残留旧任务（未入仓，迁移时勿建）：`\ComfyUI`、`\ComfyUI_Headless`、`\ComfyUI_Start`（2026/7 一次性）。

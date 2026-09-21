@@ -15,7 +15,7 @@ from urllib.parse import urlencode
 
 from app.agent.rag import get_kb
 from app.capabilities import required_models
-from app.comfy.client import ComfyUIError
+from app.comfy.client import ComfyUIError, get_image_bytes_any
 from app.comfy.pool import WorkerPool
 from app.config import get_settings
 from app.harness.ctx import get_ctx
@@ -471,7 +471,7 @@ async def exec_generate_3d(args: dict, pool: WorkerPool, user: User, session, at
         except ComfyUIError as e:
             return f"暂无具备 3D 模型的 worker: {e}", []
         try:
-            content, _ = await src.get_image_bytes(attachment["filename"], "", "input")
+            content, _ = await get_image_bytes_any(src, attachment["filename"])
             input_name = await client.upload_image(content, attachment["filename"])
         except ComfyUIError as e:
             return f"源图转存失败: {e}", []

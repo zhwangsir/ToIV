@@ -28,7 +28,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session
 
-from app.comfy.client import ComfyUIError
+from app.comfy.client import ComfyUIError, get_image_bytes_any
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import Job, User
@@ -756,7 +756,7 @@ async def generate_wan_animate2(
     else:
         # 自动 caption:读一次参考图字节,先反推外观描述再上传(避免二次读取)
         try:
-            content, content_type = await source.get_image_bytes(req.image, "", "input")
+            content, content_type = await get_image_bytes_any(source, req.image)
         except ComfyUIError as e:
             raise HTTPException(status_code=502, detail=f"从参考图所在 worker 读取失败: {e}") from e
         positive = (await animate2_service.caption_reference_appearance(content, content_type)).strip()

@@ -30,6 +30,18 @@ class ComfyUIError(RuntimeError):
         self.detail = detail
 
 
+async def get_image_bytes_any(client, filename: str, subfolder: str = "") -> tuple[bytes, str]:
+    """读图字节:input 优先,output 兜底。
+
+    作品库产物/AI 三视图回写等是 type=output 形态,作生成参考图时不应被
+    「只看 input」误杀(2026-09-21 qwen-edit 引擎路径实证;longcat/h3 转运已先修)。
+    """
+    try:
+        return await client.get_image_bytes(filename, subfolder, "input")
+    except ComfyUIError:
+        return await client.get_image_bytes(filename, subfolder, "output")
+
+
 # 各类模型加载器的 (节点, 字段),用于汇总该 worker 实际拥有的模型文件名
 _MODEL_LOADERS = [
     ("CheckpointLoaderSimple", "ckpt_name"),

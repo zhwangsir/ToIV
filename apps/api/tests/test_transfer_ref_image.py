@@ -61,3 +61,26 @@ async def test_transfer_both_missing_502(svc):
     assert exc.value.status_code == 502
     assert "读取失败" in exc.value.detail
     assert src.calls == ["input", "output"]
+
+
+# ---------------------------------------------------------------------------
+# get_image_bytes_any 统一兜底(qwen-edit/应用转运/agent/wan/motion_brush/imagedims)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_image_bytes_any_fallback():
+    from app.comfy.client import get_image_bytes_any
+
+    src = _Source({"output"})
+    content, ctype = await get_image_bytes_any(src, "x.png")
+    assert content == b"IMG" and src.calls == ["input", "output"]
+
+    src2 = _Source({"input"})
+    content2, _ = await get_image_bytes_any(src2, "x.png")
+    assert content2 == b"IMG" and src2.calls == ["input"]
+
+    src3 = _Source(set())
+    with pytest.raises(ComfyUIError):
+        await get_image_bytes_any(src3, "x.png")
+    assert src3.calls == ["input", "output"]

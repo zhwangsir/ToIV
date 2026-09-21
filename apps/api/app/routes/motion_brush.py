@@ -15,7 +15,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from app.comfy.client import ComfyUIError
+from app.comfy.client import ComfyUIError, get_image_bytes_any
 from app.deps import get_current_user, resolve_worker
 from app.models import User
 from app.ratelimit import enforce_generation_rate_limit
@@ -77,7 +77,7 @@ async def create_motion_brush_mask(
     source = resolve_worker(req.worker)
     # 源图存在性校验(顺带确认 worker 在线);不存在 → 422,worker 故障 → 502
     try:
-        await source.get_image_bytes(req.source_image, "", "input")
+        await get_image_bytes_any(source, req.source_image)
     except ComfyUIError as e:
         if e.status_code == 404:
             raise HTTPException(

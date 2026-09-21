@@ -59,7 +59,7 @@ from sqlmodel import Session, select
 from app import audit
 from app.agent.llm import LLMError
 from app.agent.tools import _extract_required
-from app.comfy.client import ComfyUIClient, ComfyUIError
+from app.comfy.client import ComfyUIClient, ComfyUIError, get_image_bytes_any
 from app.comfy.pool import WorkerPool
 from app.comfy.tracker import _SAVE_OR_COMBINE_TYPES, spawn as spawn_tracker
 from app.config import get_settings
@@ -2813,7 +2813,7 @@ async def _ensure_graph_media_on_client(client, pool, graph: dict) -> None:
         last_err: Exception | None = None
         for src in sources:
             try:
-                content, _ = await src.get_image_bytes(name, "", "input")
+                content, _ = await get_image_bytes_any(src, name)
             except ComfyUIError as e:
                 last_err = e
                 continue

@@ -11,7 +11,7 @@ import logging
 
 from PIL import Image
 
-from app.comfy.client import ComfyUIClient
+from app.comfy.client import ComfyUIClient, get_image_bytes_any
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ async def input_image_dims(client: ComfyUIClient, filename: str) -> tuple[int, i
     if key in _cache:
         return _cache[key]
     try:
-        data, _ = await client.get_image_bytes(filename, "", "input")
+        data, _ = await get_image_bytes_any(client, filename)
         with Image.open(io.BytesIO(data)) as im:
             dims = (im.width, im.height)
     except Exception as e:  # noqa: BLE001 — 任何失败都不应阻塞出图,回退默认即可

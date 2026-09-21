@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session
 
 from app.capabilities import required_nodes
-from app.comfy.client import ComfyUIError
+from app.comfy.client import ComfyUIError, get_image_bytes_any
 from app.comfy.imagedims import input_image_dims
 from app.comfy.pool import WorkerPool
 from app.comfy.tracker import spawn as spawn_tracker, wait_for_jobs
@@ -1278,7 +1278,7 @@ async def generate_qwen_edit(
             positive = f"{positive}\n[主体库] " + "; ".join(hints) if positive else "; ".join(hints)
     src = resolve_worker(req.worker)  # 源图所在 worker(resolve_worker 防 SSRF)
     try:
-        content, _ = await src.get_image_bytes(req.image, "", "input")
+        content, _ = await get_image_bytes_any(src, req.image)
     except ComfyUIError as e:
         raise HTTPException(status_code=502, detail=f"读取源图失败: {e}") from e
     client = get_qwen_edit_client()  # 专用编辑实例,不入池
