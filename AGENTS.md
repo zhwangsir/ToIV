@@ -272,7 +272,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - [ ] wave4 设备组：Anything Everywhere3 / SAM3 Get Object Mask / 全局输入 / H3 文本节点 / IPAdapter FaceID LoRA
 - [ ] LayerMask：worker 需 `models/segformer_b3_clothes` + `models/segformer_b2_clothes`
 - [ ] Qwen3_VQA：`LLM/Qwen3-VL-4B-Instruct` → `models/prompt_generator/`
-- [ ] GPU0 reset 未修（独立事项，挂 workstation 重启窗口）
+- [x] GPU0 reset — **done 2026-09-21 真机核销**：09-13 断电重启已清（uptime 8 天）；nvidia-smi 无 requires reset 标志、四卡全枚举正常在位（G0 37.4G/G1 39.2G/G2 41G 钉卡✓/G3 27.3G）、无僵尸 compute app；H-6 数字索引偏移坑作为历史教训保留（UUID 钉卡纪律不变）
 
 ### C. 模型下载
 
