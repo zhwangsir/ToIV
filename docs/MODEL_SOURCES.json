@@ -12204,6 +12204,19 @@
    "status": "ok",
    "bytes": 26283332608,
    "notes": "sha256=78bbf8f4165eda19cea3cb06c78089221932a39e2eed8af9da741f942c47ffb3 与 HF X-Linked-Etag 一致;26GB ModelScope 500MB/s 直落 NAS"
+  },
+  {
+   "basename": "minimax_h3_ref2va_pruned_bf16.safetensors",
+   "rel_path": "h3/diffusion_models/minimax_h3_ref2va_pruned_bf16.safetensors",
+   "source_kind": "mirror",
+   "source_url": "https://hf-mirror.com/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_bf16.safetensors",
+   "repo": "Comfy-Org/MiniMax-H3",
+   "revision": "main",
+   "filename": "diffusion_models/minimax_h3_ref2va_pruned_bf16.safetensors",
+   "size_bytes": 40225724176,
+   "license_ok": true,
+   "downloaded_at": "2026-09-21",
+   "note": "H3 Ref2VA pruned bf16(质量/体积折中档);aria2 hf-mirror 落盘,:8195 UNETLoader 在列"
   }
  ]
 }

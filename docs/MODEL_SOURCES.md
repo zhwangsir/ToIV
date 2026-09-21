@@ -3,7 +3,7 @@
 
 Updated: 2026-09-11T05:28:02+08:00 (Asia/Shanghai)
 
-Totals: ok=469 blocked=335 total=804 (2026-09-18 +krea2 turbo.safetensors)
+Totals: ok=476 blocked=337 total=813 (2026-09-21 +minimax_h3_ref2va_pruned_bf16.safetensors 37.45GiB hf-mirror→NAS h3/diffusion_models,:8195 UNETLoader 在列;142022 三件套(darkBeast/flux2-vae/qwen_3_8b)复核均在位核销)
 
 Batch: capability_gap_v21_p0
 
