@@ -43,6 +43,7 @@ async def smoke_one_app(
         session, user=admin, action="app.smoke", target_type="app", target_id=app_id,
         summary=f"烟测 {result['status']} {result['cls']}", detail=result,
     )
+    session.commit()
     return result
 
 
@@ -60,6 +61,7 @@ async def smoke_batch(
         session, user=admin, action="app.smoke_batch", target_type="app", target_id="",
         summary=f"批量烟测 limit={body.limit} nsfw={body.include_nsfw}", detail={},
     )
+    session.commit()
     return {"started": True, "limit": body.limit, "include_nsfw": body.include_nsfw}
 
 
@@ -92,6 +94,7 @@ async def demo_cover_batch(  # async:def 里才有 running loop,create_task 需�
         session, user=admin, action="app.cover_demo", target_type="app", target_id="",
         summary=f"demo 封面批 limit={body.limit} 待做={planned}", detail={},
     )
+    session.commit()
     return {"started": True, "limit": body.limit, "planned": planned}
 
 
@@ -129,6 +132,7 @@ def reject_selfheal_proposal(
         session, user=admin, action="app.selfheal_reject", target_type="app",
         target_id=out.get("app_id") or "", summary="驳回 LLM 修复提案并还原原始图", detail=out,
     )
+    session.commit()
     return out
 
 

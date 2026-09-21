@@ -336,7 +336,9 @@ async def test_list_models_via_registry(db_env):
         "list_models", {}, _ctx(_FakePool(_FakeClient()), user, s)
     )
     assert text == "当前可用图像大模型: ckpt-a.safetensors, ckpt-b.safetensors"
-    assert events == []
+    # A1 列表卡:ok 事件带 models 结构化 payload
+    assert len(events) == 1 and events[0]["type"] == "tool_event"
+    assert events[0]["data"]["payload"]["models"] == ["ckpt-a.safetensors", "ckpt-b.safetensors"]
 
 
 async def test_list_models_query_failure(db_env):
@@ -492,7 +494,10 @@ async def test_tools_execute_compat_entry_delegates_to_registry(db_env):
     text, events = await tools.execute(
         "list_models", {}, _FakePool(_FakeClient()), user, s
     )
-    assert "当前可用图像大模型" in text and events == []
+    assert "当前可用图像大模型" in text
+    # A1 列表卡:兼容入口同样透出 ok 事件 + models payload
+    assert len(events) == 1 and events[0]["type"] == "tool_event"
+    assert events[0]["data"]["payload"]["models"]
     # 未知工具与旧行为一致
     text2, _ = await tools.execute("ghost", {}, _FakePool(_FakeClient()), user, s)
     assert text2 == "未知工具: ghost"

@@ -411,7 +411,11 @@ async def test_optimize_tool_reuses_route(db_env, monkeypatch):
     )
     assert "a fluffy cat, masterpiece" in text
     assert "blurry" in text
-    assert events == []
+    # A1 对照卡:ok 事件带 original/optimized/negative 结构化 payload(给 LLM 的文本不变)
+    assert len(events) == 1 and events[0]["type"] == "tool_event"
+    payload = events[0]["data"]["payload"]
+    assert payload["original"] == "一只猫" and payload["optimized"] == "a fluffy cat, masterpiece"
+    assert payload["negative"] == "blurry"
     # 与 /api/optimize 同一系统提示(内容感知规则在)
     assert "提示词工程师" in seen["system"]
 

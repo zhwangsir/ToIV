@@ -60,7 +60,10 @@ def test_create_storyboard_happy_and_errors(ctx_factory, monkeypatch):
     text, events = _run(tools_drama.exec_create_storyboard(
         {"script": "雨夜破庙,少年避雨遇少女", "num_shots": 4}, c))
     assert "board_id=" in text and "4 个分镜行" in text and "2 个角色" in text
-    assert events == []
+    # A1 画板卡:ok 事件带 board_id/行列数 payload(打开画板深链用)
+    assert len(events) == 1 and events[0]["type"] == "tool_event"
+    payload = events[0]["data"]["payload"]
+    assert payload["board_id"] and payload["item_count"] == 4 and payload["cast_count"] == 2
     c["session"].close()
 
     c = _ctx(engine, u1)

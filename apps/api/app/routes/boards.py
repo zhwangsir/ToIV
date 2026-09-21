@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.agent.llm import LLMError
+from app import audit
 from app.comfy.pool import WorkerPool
 from app.db import get_session
 from app.deps import get_current_user, get_pool
@@ -215,6 +216,11 @@ def delete_board(
     for it in session.exec(select(BoardItem).where(BoardItem.board_id == b.id)).all():
         session.delete(it)
     session.delete(b)
+    # 审计与 Job 删除范式对齐(2026-09-22 P1;画板删除不可撤销,不挂 undo_token)
+    audit.record(
+        session, user=user, action="board.delete", target_type="board", target_id=b.id,
+        summary=f"删除画板:{(b.name or '')[:40]}",
+    )
     session.commit()
     return {"deleted": True}
 

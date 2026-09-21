@@ -128,7 +128,22 @@ def _app_names_map(session: Session, jobs: list[Job]) -> dict[str, str]:
         return {}
 
 
-def _job_dict(j: Job, app_name: str = "") -> dict:
+def _user_emails_map(session: Session, rows: list[Job]) -> dict[str, str]:
+    """作业属主 email 批量解析(admin all=1 队列表显示属主;与 _app_names_map 同范式)。
+
+    解析失败不阻断列表(回退空串,前端显示 user_id 截断)。
+    """
+    ids = {j.user_id for j in rows if j.user_id}
+    if not ids:
+        return {}
+    try:
+        urs = session.exec(select(User.id, User.email).where(User.id.in_(ids))).all()
+        return {str(r[0]): str(r[1]) for r in urs}
+    except Exception:  # noqa: BLE001 — 属主解析失败不阻断列表
+        return {}
+
+
+def _job_dict(j: Job, app_name: str = "", user_email: str = "") -> dict:
     """作业 → 前端条目(作品库列表与版本链共用同一形状)。"""
     return {
         "id": j.id,
@@ -167,6 +182,9 @@ def _job_dict(j: Job, app_name: str = "") -> dict:
         "acceleration_applied": _accel_of(j)[1],
         # 元信息(2026-09-20 作品库优化):参数快照派生,零 IO;纯增量键旧前端忽略
         "meta": _meta_of(j),
+        # 属主(2026-09-22 Admin P1 作业队列域):调用方批量解析;本人口径端点恒为空串
+        "user_id": j.user_id or "",
+        "user_email": user_email,
     }
 
 
@@ -279,6 +297,8 @@ def list_active_jobs(
     if not (all_users and user.role == "admin"):
         stmt = stmt.where(Job.user_id == user.id)
     rows = session.exec(stmt.order_by(Job.created_at)).all()  # type: ignore[arg-type]
+    # admin all=1 时透出属主 email(Admin P1 作业队列域);本人口径恒空串
+    emails = _user_emails_map(session, list(rows)) if (all_users and user.role == "admin") else {}
     now = datetime.now(timezone.utc)
     items: list[dict] = []
     for j in rows:
@@ -322,6 +342,9 @@ def list_active_jobs(
                 },
                 "hold_reason": j.hold_reason or "",
                 "nsfw": bool(j.nsfw),
+                # 属主(Admin P1 作业队列域):admin all=1 时透出,本人口径空串
+                "user_id": j.user_id or "",
+                "user_email": emails.get(j.user_id, ""),
             }
         )
     return {"items": items, "server_time": now.isoformat()}
@@ -380,7 +403,9 @@ def list_jobs(
         stmt.order_by(Job.created_at.desc()).offset(offset).limit(limit)
     ).all()
     names = _app_names_map(session, list(rows))
-    return [_job_dict(j, names.get(_app_id_of(j), "")) for j in rows]
+    # admin all=1 时透出属主 email(Admin P1 作业队列域);本人口径恒空串
+    emails = _user_emails_map(session, list(rows)) if (all_users and user.role == "admin") else {}
+    return [_job_dict(j, names.get(_app_id_of(j), ""), emails.get(j.user_id, "")) for j in rows]
 
 
 @router.get("/jobs/counts")
@@ -451,6 +476,62 @@ def cleanup_failed_jobs(
     return {"ok": True, "deleted": len(rows), "undo_ttl": audit.UNDO_TTL_SECONDS}
 
 
+class BulkDeleteRequest(BaseModel):
+    """批量删除请求(作品库文件夹整组删除 P1,2026-09-22);ids 去重后逐件处理。"""
+
+    ids: list[str] = Field(default_factory=list, max_length=200)
+
+
+@router.post("/jobs/bulk-delete")
+def bulk_delete_jobs(
+    body: BulkDeleteRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """批量软删作品(大文件夹一次 HTTP 完成,替代前端 N×单删往返)。
+
+    与单删(DELETE /jobs/{id})的差异:
+    - 非本人/不存在/已删除 → 静默进 failed(不 404 整批,不泄露存在性);
+    - 非终态(queued/running)跳过进 failed——整组删除只清终态成员
+      (前端 Modal 已明示排除件数,本闸为服务端双保险);
+    - 每件成功单独审计 + 独立 undo_token(回收站/撤销语义与单删完全一致,
+      前端「全部撤销」循环与逐件恢复不变)。
+    重复 id 只处理一次;空列表幂等返回空分组;>200 由 pydantic 422 拒绝。
+    """
+    now = datetime.now(timezone.utc)
+    done: list[dict] = []
+    failed: list[str] = []
+    seen: set[str] = set()
+    for jid in body.ids:
+        if jid in seen:
+            continue
+        seen.add(jid)
+        job = session.exec(select(Job).where(Job.id == jid)).first()
+        if (
+            not job
+            or job.user_id != user.id
+            or job.deleted_at is not None
+            or job.status in ("queued", "running")
+        ):
+            failed.append(jid)
+            continue
+        job.deleted_at = now
+        session.add(job)
+        _, token = audit.record(
+            session, user=user, action="job.delete", target_type="job", target_id=job.id,
+            summary=f"删除作品:{(job.prompt or '')[:40]}",
+            detail={"kind": job.kind, "status": job.status, "bulk": True},
+            undo_ttl=audit.UNDO_TTL_SECONDS,
+        )
+        done.append({
+            "id": job.id,
+            "undo_token": token,
+            "undo_expires_at": (now + timedelta(seconds=audit.UNDO_TTL_SECONDS)).isoformat(),
+        })
+    session.commit()
+    return {"ok": True, "done": done, "failed": failed, "undo_ttl": audit.UNDO_TTL_SECONDS}
+
+
 @router.get("/jobs/lookup")
 def lookup_job(
     prompt_id: str = Query(min_length=1),
@@ -486,13 +567,13 @@ def delete_job(
 ) -> dict:
     """从作品库移除当前用户的一件作品(SAFETY:软删除 + 72 小时回收站保留期)。
 
-    仅删自己的作业(user_id 校验);非本人/不存在一律 404(不泄露存在性)。
+    本人或 admin 可删(admin P1 作业队列域行内操作);普通用户非本人一律 404(不泄露存在性)。
     产物文件留在 worker 输出目录;行只打 deleted_at 标记,保留期内凭返回的
     undo_token POST /api/undo/{token} 或经回收站 POST /api/jobs/{id}/restore 恢复;
     过期由清理任务物理删除(audit.trash_purge_loop)。
     """
     job = session.exec(select(Job).where(Job.id == job_id)).first()
-    if not job or job.user_id != user.id:
+    if not job or not _operatable(user, job):
         raise HTTPException(status_code=404, detail="作品不存在")
     job.deleted_at = datetime.now(timezone.utc)
     session.add(job)
@@ -554,7 +635,7 @@ async def cancel_job(
     job = session.exec(select(Job).where(Job.id == job_id)).first()
     if job is None:
         job = session.exec(select(Job).where(Job.prompt_id == job_id)).first()
-    if not job or job.user_id != user.id:
+    if not job or not _operatable(user, job):
         raise HTTPException(status_code=404, detail="作业不存在")
     if job.status in ("done", "error", "canceled"):
         raise HTTPException(status_code=409, detail=f"作业已终态({job.status}),无需取消")
@@ -569,11 +650,11 @@ async def cancel_job(
         detail={"kind": job.kind, "prev_status": prev_status, "prompt_id": job.prompt_id},
     )
 
-    # 链式作业取消传播:成员段落同一终态(已终态的段不动)
+    # 链式作业取消传播:成员段落同一终态(已终态的段不动;按作业属主查,admin 操作他人链同语义)
     segments: list[Job] = []
     for seg_pid in _chain_segment_ids(job):
         seg = session.exec(
-            select(Job).where(Job.prompt_id == seg_pid, Job.user_id == user.id)
+            select(Job).where(Job.prompt_id == seg_pid, Job.user_id == job.user_id)
         ).first()
         if seg is None or seg.status in ("done", "error", "canceled"):
             continue
@@ -629,23 +710,32 @@ def _trash_cutoff() -> datetime:
     )
 
 
-def _trash_dict(j: Job) -> dict:
+def _trash_dict(j: Job, user_email: str = "") -> dict:
     """回收站条目 = 作品库条目形状 + 删除时间/恢复截止/剩余秒数。"""
     deleted = _as_utc(j.deleted_at)  # type: ignore[arg-type]  调用方保证非空
     expires = deleted + timedelta(seconds=audit.UNDO_TTL_SECONDS)
     remaining = max(0, int((expires - datetime.now(timezone.utc)).total_seconds()))
     return {
-        **_job_dict(j),
+        **_job_dict(j, user_email=user_email),
         "deleted_at": deleted.isoformat(),
         "restore_expires_at": expires.isoformat(),
         "restore_remaining_seconds": remaining,
     }
 
 
+def _operatable(user: User, job: Job) -> bool:
+    """操作归属:本人,或 admin(2026-09-22 Admin P1 作业队列域——admin 可行内操作全员作业)。
+
+    普通用户保持「非本人 404 不泄露存在性」语义;admin 的每个操作照落审计
+    (audit user=操作者本人,详情含属主语境)。
+    """
+    return job.user_id == user.id or user.role == "admin"
+
+
 def _trashed_owned_job(session: Session, user: User, job_id: str) -> Job:
-    """取当前用户回收站中的一件作品;不存在/非本人/未删除一律 404(不泄露存在性)。"""
+    """取回收站中的一件作品(本人或 admin);不存在/无权/未删除一律 404(不泄露存在性)。"""
     job = session.exec(select(Job).where(Job.id == job_id)).first()
-    if not job or job.user_id != user.id or job.deleted_at is None:
+    if not job or not _operatable(user, job) or job.deleted_at is None:
         raise HTTPException(status_code=404, detail="回收站中没有该作品")
     return job
 
@@ -654,24 +744,27 @@ def _trashed_owned_job(session: Session, user: User, job_id: str) -> Job:
 def list_trash(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    all_users: bool = Query(default=False, alias="all", description="admin 专属:查看全部用户的回收站(Admin P1 回收站管理)"),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[dict]:
     """当前用户的回收站(删除时间倒序;仅保留期内的条目,过期由清理任务物理删除)。
 
-    归属/门控规则与 GET /api/jobs 一致:只看自己的;主站(非 X-NSFW 上下文)剔除 R18。
+    归属/门控规则与 GET /api/jobs 一致:只看自己的(admin 可 ?all=1 看全员);主站(非 X-NSFW 上下文)剔除 R18。
     """
     stmt = select(Job).where(
-        Job.user_id == user.id,
         Job.deleted_at != None,  # noqa: E712  SQLModel 需 == 比较生成 SQL
         Job.deleted_at > _trash_cutoff(),
     )
+    if not (all_users and user.role == "admin"):
+        stmt = stmt.where(Job.user_id == user.id)
     if not nsfw_allowed(user):
         stmt = stmt.where(Job.nsfw == False)  # noqa: E712
     rows = session.exec(
         stmt.order_by(Job.deleted_at.desc()).offset(offset).limit(limit)
     ).all()
-    return [_trash_dict(j) for j in rows]
+    emails = _user_emails_map(session, list(rows)) if (all_users and user.role == "admin") else {}
+    return [_trash_dict(j, emails.get(j.user_id, "")) for j in rows]
 
 
 @router.post("/jobs/{job_id}/restore")
@@ -751,12 +844,20 @@ def purge_trash(
 
 
 def _owned_job(session: Session, user: User, key: str) -> Job:
-    """按 id 或 prompt_id 取当前用户的作业;不存在/非本人/主站碰 R18 一律 404。"""
+    """按 id 或 prompt_id 取当前用户的作业;不存在/非本人/主站碰 R18 一律 404。
+
+    admin 兜底(2026-09-22 Admin P1 作业队列域):本人口径未命中时再按全员查一次,
+    普通用户保持「非本人 404 不泄露存在性」语义。
+    """
     job = session.exec(select(Job).where(Job.id == key, Job.user_id == user.id)).first()
     if job is None:
         job = session.exec(
             select(Job).where(Job.prompt_id == key, Job.user_id == user.id)
         ).first()
+    if job is None and user.role == "admin":
+        job = session.exec(select(Job).where(Job.id == key)).first()
+        if job is None:
+            job = session.exec(select(Job).where(Job.prompt_id == key)).first()
     # 软删除(SAFETY):已移除作品视同不存在(rerun/版本链/详情均不可达;undo 恢复后回归)
     if job is not None and job.deleted_at is not None:
         job = None

@@ -113,6 +113,27 @@ async def gpu_smoke_latest(_: User = Depends(get_current_admin)) -> dict:
     return json.loads(latest.read_text())
 
 
+@router.get("/system/comfy-backends")
+async def comfy_backends(_: User = Depends(get_current_admin)) -> dict:
+    """ComfyUI-LB 后端池健康(Admin P0 设备域,2026-09-22):代理 LB /admin/backends。
+
+    LB 在 workstation(:8188),admin 前端不宜跨域直连;经 api 代理统一鉴权口径。
+    未配置注册表地址 404;LB 不可达 502(不炸面板,前端按错误条显示)。
+    """
+    settings = get_settings()
+    url = (settings.comfy_workers_registry_url or "").strip()
+    if not url:
+        raise HTTPException(status_code=404, detail="未配置 LB 后端注册表地址")
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as c:
+            resp = await c.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+    except (httpx.HTTPError, ValueError) as e:
+        raise HTTPException(status_code=502, detail=f"LB 后端注册表不可达: {e}") from e
+    return {"source": url, "backends": data.get("backends") or []}
+
+
 # ── H3 Harness 自省端点(profile/插件/引擎停用清单) ──
 
 

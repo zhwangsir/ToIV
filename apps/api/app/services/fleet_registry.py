@@ -103,21 +103,12 @@ DEVICE_REGISTRY: list[dict] = [
         "ts_ip": "100.69.134.27",
         "hardware": "Windows · RTX 5090",
         "probe_host": "192.168.71.116",
-        "services": [_comfy("ComfyUI worker", 8188)],
-    },
-    {
-        "id": "pc02",
-        "name": "PC02",
-        "role": "ComfyUI worker + 编辑专用实例",
-        "lan_ip": "192.168.71.114",
-        "ts_ip": "100.107.94.26",
-        "hardware": "Windows · RTX 5090",
-        "probe_host": "192.168.71.114",
         "services": [
-            _comfy("ComfyUI worker", 8193, note="LB 池"),
-            _comfy("Qwen 编辑专用", 8194, note="Qwen-Image-Edit"),
+            _comfy("ComfyUI worker", 8188),
+            _comfy("H3 第二实例", 8198, note="TOIV_H3_BASE_URLS 双池"),
         ],
     },
+    # pc02 已于 2026-09-13 下线(LB 池已移除),从舰队注册表摘除;历史规格见 git 历史。
     {
         "id": "nas",
         "name": "NAS",
@@ -157,18 +148,24 @@ DEVICE_REGISTRY: list[dict] = [
         {
             "id": f"openclaw0{i}",
             "name": f"OpenClaw0{i}",
-            "role": "OpenClaw 网关",
+            # 2026-09-22 修订:角色更正为 whisper ASR 集群节点(09-21 集群化),
+            # 注册 whisper :9310 探针(OpenAI 兼容契约);02-04 tailscaled 僵死但 LAN 全通
+            # (「TS 离线」≠「服务掉线」,N-5),故探针一律走 LAN。
+            "role": "whisper ASR 集群节点 + JoyCaption",
             "lan_ip": lan,
             "ts_ip": ts,
             "hardware": "Mac mini M4 16GB",
             "probe_host": lan,
-            "services": [_tcp("SSH", 22)],
+            "services": [
+                _http("whisper ASR", 9310, path="/v1/models", note="四址故障转移集群"),
+                _tcp("JoyCaption", 9305),
+            ],
         }
         for i, lan, ts in [
-            (1, "192.168.71.86", "100.69.0.4"),
+            (1, "192.168.71.86", "100.115.23.67"),
             (2, "192.168.71.75", "100.76.35.7"),
             (3, "192.168.71.81", "100.76.140.121"),
-            (4, "192.168.71.85", "100.91.128.30"),
+            (4, "192.168.71.85", "100.125.217.11"),
         ]
     ],
     {

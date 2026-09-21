@@ -19,6 +19,7 @@ from app.comfy.client import ComfyUIError, get_image_bytes_any
 from app.comfy.pool import WorkerPool
 from app.config import get_settings
 from app.harness.ctx import get_ctx
+from app.harness.tool_seam import ok_tool_event
 from app.models import Job, User
 from app.workflows.ace_step import AceStep15Params, ace_step_15_required_models, build_ace_step_15_graph
 from app.workflows.hunyuan3d import Hunyuan3DParams, build_hunyuan3d_graph
@@ -257,7 +258,13 @@ async def exec_list_models(args: dict, pool: WorkerPool, user: User, session, at
             opts = raw[0] if isinstance(raw, list) and raw else []
     except ComfyUIError:
         opts = []
-    return "当前可用图像大模型: " + (", ".join(str(o) for o in opts[:30]) or "(查询失败)"), []
+    names = [str(o) for o in opts[:30]]
+    if not names:
+        return "当前可用图像大模型: (查询失败)", []
+    # A1 列表卡:模型名结构化下发
+    return "当前可用图像大模型: " + ", ".join(names), [
+        ok_tool_event(f"{len(names)} 个图像大模型可用", {"models": names})
+    ]
 
 
 async def exec_model_qa(args: dict, pool: WorkerPool, user: User, session, attachment: dict | None = None) -> tuple[str, list[dict]]:
@@ -393,7 +400,12 @@ async def exec_search_knowledge(args: dict, pool: WorkerPool, user: User, sessio
     chunks = await get_kb().retrieve(args.get("query") or "", k=4)
     if not chunks:
         return "知识库暂无相关内容(或检索暂不可用),请凭通用知识谨慎作答。", []
-    return "知识库检索结果:\n\n" + "\n\n---\n\n".join(c.text for c in chunks), []
+    # A1 结果卡:标题+摘要结构化下发(全文仍只给 LLM);单条摘要截 400 字防大包
+    return "知识库检索结果:\n\n" + "\n\n---\n\n".join(c.text for c in chunks), [
+        ok_tool_event(f"检索到 {len(chunks)} 条知识", {
+            "items": [{"title": c.title, "snippet": c.text[:400]} for c in chunks],
+        })
+    ]
 
 
 async def exec_run_workflow(args: dict, pool: WorkerPool, user: User, session, attachment: dict | None = None) -> tuple[str, list[dict]]:

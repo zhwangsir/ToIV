@@ -4,11 +4,15 @@
 - GET  /api/admin/apps/{id}/guide    管理员读(草稿亦可见;无则空壳)
 - PUT  /api/admin/apps/{id}/guide    管理员 upsert
 - POST /api/admin/apps/{id}/guide/generate   LLM 生成草稿落库(status=draft)
+- POST /api/admin/app-guides/generate        批量生成(单飞 fire-and-forget,D3 2026-09-22)
+- GET  /api/admin/app-guides/generate/status 批次进行态
 - GET  /api/admin/app-guides         管理员列表全部说明书
 - POST /api/admin/app-guides/publish-all     全部 draft 批量发布
 """
 from __future__ import annotations
 
+import asyncio
+import logging
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -17,13 +21,16 @@ from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
 from app.agent.llm import LLMError
-from app.db import get_session
+from app.db import engine, get_session
 from app.deps import get_current_admin, get_current_user
 from app.models import App, AppGuide, User
 from app.nsfw_ctx import nsfw_allowed
 from app.services.app_guide_gen import generate_guide_draft, save_guide
+from app import audit
 
 router = APIRouter(tags=["app-guides"])
+
+logger = logging.getLogger(__name__)
 
 _GUIDE_STATUSES = {"draft", "published"}
 
@@ -260,3 +267,80 @@ def admin_publish_all_guides(
         session.add(g)
     session.commit()
     return {"published": len(rows)}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 批量生成(D3 2026-09-22):单飞 fire-and-forget,与 app_smoke.spawn_smoke_batch 同范式;
+# 逐项「读→关会话→LLM→开会话→写」短会话(P-8:异步长任务禁持 DB 会话跨 await)。
+# ─────────────────────────────────────────────────────────────────────────────
+
+_batch_state: dict[str, Any] = {"running": False, "summary": None}
+
+
+class GuidesBatchRequest(BaseModel):
+    limit: int = Field(default=50, ge=1, le=500)
+    # True=只补无说明书的应用;False=含 draft 重新生成(published 永不动)
+    only_missing: bool = True
+
+
+async def _run_guides_batch(app_ids: list[str]) -> None:
+    done = 0
+    failed: list[dict] = []
+    for aid in app_ids:
+        try:
+            with Session(engine) as s:
+                a = s.get(App, aid)  # 列值随 get 全量加载,会话关闭后可安全读
+            if a is None:
+                failed.append({"id": aid, "error": "应用不存在"})
+                continue
+            draft = await generate_guide_draft(a)
+            with Session(engine) as s:
+                save_guide(s, aid, draft, status="draft")
+            done += 1
+        except Exception as e:  # noqa: BLE001 — 单项失败不中断批次
+            logger.warning("guides batch: %s 生成失败(%s)", aid, e)
+            failed.append({"id": aid, "error": str(e)[:120]})
+    _batch_state["running"] = False
+    _batch_state["summary"] = {
+        "done": done,
+        "failed": failed,
+        "finished_at": _now().isoformat(),
+    }
+
+
+@router.post("/admin/app-guides/generate")
+async def admin_generate_guides_batch(
+    body: GuidesBatchRequest,
+    admin: User = Depends(get_current_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    """批量 LLM 生成说明书草稿(单飞;撞车 409)。目标:无说明书应用,可含 draft 重生成。"""
+    if _batch_state["running"]:
+        raise HTTPException(status_code=409, detail="说明书批量生成已在运行中")
+    # 单列 select 直接回标量(不要 r[0] 下标——会切成字符串首字符)
+    guide_ids = set(session.exec(select(AppGuide.app_id)).all())
+    draft_ids = set(
+        session.exec(select(AppGuide.app_id).where(AppGuide.status == "draft")).all()
+    )
+    rows = session.exec(select(App).order_by(App.updated_at.desc())).all()
+    targets = [
+        a.id for a in rows
+        if a.id not in guide_ids or (not body.only_missing and a.id in draft_ids)
+    ][: body.limit]
+    if not targets:
+        return {"started": False, "planned": 0, "reason": "无待生成目标"}
+    _batch_state["running"] = True
+    _batch_state["summary"] = None
+    asyncio.create_task(_run_guides_batch(list(targets)))
+    audit.record(
+        session, user=admin, action="app.guides_batch", target_type="app", target_id="",
+        summary=f"批量生成说明书 limit={body.limit} 待做={len(targets)}", detail={},
+    )
+    session.commit()
+    return {"started": True, "planned": len(targets), "only_missing": body.only_missing}
+
+
+@router.get("/admin/app-guides/generate/status")
+def admin_guides_batch_status() -> dict:
+    """批量生成进行态:running + 最近一批汇总(done/failed/finished_at)。"""
+    return {"running": _batch_state["running"], "summary": _batch_state["summary"]}

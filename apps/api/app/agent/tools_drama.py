@@ -17,6 +17,7 @@ import logging
 from sqlmodel import select
 
 from app.agent.tools_gen import _err_event, _job_event
+from app.harness.tool_seam import ok_tool_event
 from app.models import Board, BoardItem, Job, User
 from app.ratelimit import enforce_generation_rate_limit
 from app.services.board_film import KIND as BOARD_FILM_KIND, start_board_film
@@ -197,7 +198,10 @@ async def exec_create_storyboard(args: dict, ctx: dict) -> tuple[str, list[dict]
         f"{cast_count} 个角色已落库主体库(可在主体库补定妆照/音色以提升一致性)。"
         f"下一步:用户确认后可 assemble_storyboard(board_id=\"{board.id}\") 一键成片"
         f"(逐镜生成+配音+字幕+拼接,后台执行);角色有定妆照用 phantom-s2v,否则 h3-t2v。"
-    ), []
+    ), [ok_tool_event(f"分镜板「{board.name}」已创建", {
+        "board_id": board.id, "name": board.name,
+        "item_count": item_count, "cast_count": cast_count,
+    })]
 
 
 async def exec_get_storyboard(args: dict, ctx: dict) -> tuple[str, list[dict]]:

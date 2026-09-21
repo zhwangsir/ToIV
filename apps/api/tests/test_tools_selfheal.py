@@ -72,7 +72,11 @@ def test_list_smoke_failures_and_gate(fx):
     text, events = _run(tools_selfheal.exec_list_smoke_failures({"limit": 10}, c))
     assert "坏应用甲" in text and "超时应用乙" in text and "好应用丙" not in text
     assert "missing_model" in text and "缺模型权重" in text
-    assert events == []
+    # A1 自愈报告卡:ok 事件带 items 归因 payload
+    assert len(events) == 1 and events[0]["type"] == "tool_event"
+    items = events[0]["data"]["payload"]["items"]
+    assert {i["name"] for i in items} == {"坏应用甲", "超时应用乙"}
+    assert all(i["cls"] and i["advice"] for i in items)
     c["session"].close()
 
 

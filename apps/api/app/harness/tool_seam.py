@@ -39,6 +39,16 @@ logger = logging.getLogger(__name__)
 ToolExecutor = Callable[[dict, dict], Awaitable[tuple[str, list[dict]]]]
 
 
+def ok_tool_event(summary: str, payload: dict) -> dict:
+    """工具成功终态 + 结构化载荷(A1 工具卡,2026-09-22)。
+
+    执行器在 events 里返回本事件后,runner 补 id/name 透出为 SSE `tool` 事件;
+    前端按工具名渲染专用结果卡(无渲染器/无 payload 一律回退既有 chip,向后兼容);
+    给 LLM 的结果文本不受影响。summary 守 P-9:首 60 字禁 hint 词。
+    """
+    return {"type": "tool_event", "data": {"status": "ok", "summary": summary, "payload": payload}}
+
+
 @dataclass
 class ToolSpec:
     """一个工具的完整声明。summary 是给 SYSTEM 工具清单段的一句话。"""

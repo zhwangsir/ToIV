@@ -30,7 +30,7 @@ def test_registry_device_ids_unique_and_complete():
     ids = [d["id"] for d in DEVICE_REGISTRY]
     assert len(ids) == len(set(ids)), "设备 id 必须唯一"
     expected = {
-        "workstation", "core", "pc01", "pc02", "nas", "spark01", "spark02",
+        "workstation", "core", "pc01", "nas", "spark01", "spark02",
         # studio01-04 已于 2026-08-29 全线下线,移出舰队注册表
         "openclaw01", "openclaw02", "openclaw03", "openclaw04",
         "cloud", "beijing",
@@ -38,6 +38,8 @@ def test_registry_device_ids_unique_and_complete():
     assert expected <= set(ids)
     assert not {"studio01", "studio02", "studio03", "studio04"} & set(ids), \
         "Studio01-04 已下线,不得留在注册表"
+    # pc02 已于 2026-09-13 下线(LB 池已移除),不得留在注册表
+    assert "pc02" not in set(ids)
 
 
 def test_registry_service_specs_legal():

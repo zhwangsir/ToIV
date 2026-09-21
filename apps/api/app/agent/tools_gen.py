@@ -30,6 +30,7 @@ from pydantic import ValidationError
 from sqlmodel import select
 
 from app.comfy.pool import WorkerPool
+from app.harness.tool_seam import ok_tool_event
 from app.models import AgentSession, App, Entity, Job, User
 from app.nsfw_ctx import nsfw_allowed
 
@@ -1052,12 +1053,22 @@ async def exec_list_apps(args: dict, ctx: dict) -> tuple[str, list[dict]]:
                 "用 q 搜标题,例如「舞后小憩」「首尾帧」「全能参考」。"
             )
     lines = [_format_app_line(a) for a in shown]
+    # A1 列表卡:前 12 条结构化下发(封面/用途/打开应用深链用);LLM 文本不变
+    cards = [{
+        "id": str(getattr(a, "id", "") or ""),
+        "name": str(getattr(a, "name", "") or ""),
+        "description": str(getattr(a, "description", "") or "")[:120],
+        "cover_url": str(getattr(a, "cover_url", "") or ""),
+        "use_case": str(getattr(a, "use_case", "") or ""),
+        "output_kind": str(getattr(a, "output_kind", "") or ""),
+        "is_nsfw": bool(getattr(a, "is_nsfw", False)),
+    } for a in shown[:12]]
     return (
         "应用市场清单(视频/H3 请优先 run_app 这些应用,不要用裸引擎):\n"
         + "\n".join(lines)
         + footer
         + "\n选定后用 get_app 看参数,再用 run_app 提交。"
-    ), []
+    ), [ok_tool_event(f"找到 {len(items)} 个应用", {"items": cards, "total": len(items)})]
 
 
 async def exec_get_app(args: dict, ctx: dict) -> tuple[str, list[dict]]:
@@ -1222,7 +1233,10 @@ async def exec_optimize_prompt(args: dict, ctx: dict) -> tuple[str, list[dict]]:
     if resp.negative:
         text += f"\n负向提示词:\n{resp.negative}"
     text += "\n(提交生成时用上面的优化结果,不要再用原始描述。)"
-    return text, []
+    # A1 对照卡:优化前后文随 ok 事件结构化下发,前端渲染「原文⇄优化文」对照卡
+    return text, [ok_tool_event("提示词已优化", {
+        "original": prompt, "optimized": resp.optimized, "negative": resp.negative or "",
+    })]
 
 
 async def exec_propose_plan(args: dict, ctx: dict) -> tuple[str, list[dict]]:

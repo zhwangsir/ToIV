@@ -15,6 +15,7 @@ import logging
 from sqlmodel import select
 
 from app.agent.tools_gen import _err_event, _job_event
+from app.harness.tool_seam import ok_tool_event
 from app.models import App, SelfhealProposal, User
 
 logger = logging.getLogger(__name__)
@@ -131,12 +132,16 @@ async def exec_list_smoke_failures(args: dict, ctx: dict) -> tuple[str, list[dic
     if not rows:
         return "当前所有应用烟测均通过或尚未测过。", []
     lines = [f"共 {len(rows)} 个应用烟测未通过:"]
+    items = []
     for a in rows:
         cls = a.smoke_cls or "unknown"
         err = (a.smoke_error or "").replace("\n", " ")[:80]
-        lines.append(f"- {a.name}(id={a.id}):[{cls}] {_cls_line(cls)};{err}")
+        advice = _cls_line(cls)
+        lines.append(f"- {a.name}(id={a.id}):[{cls}] {advice};{err}")
+        items.append({"id": a.id, "name": a.name, "cls": cls, "advice": advice, "error": err})
     lines.append("逐一看详情用 explain_app_failure(app_id);确认要重测某应用用 run_app_smoke(app_id)。")
-    return "\n".join(lines), []
+    # A1 自愈报告卡:归因/建议结构化下发
+    return "\n".join(lines), [ok_tool_event(f"{len(rows)} 个应用烟测未通过", {"items": items})]
 
 
 async def exec_explain_app_failure(args: dict, ctx: dict) -> tuple[str, list[dict]]:
@@ -167,7 +172,17 @@ async def exec_explain_app_failure(args: dict, ctx: dict) -> tuple[str, list[dic
         lines.append("  觉得补丁帮倒忙可 reject_app_fix(proposal_id) 回滚。")
     if a.smoke_status in ("fail", "timeout"):
         lines.append("用户确认后可 run_app_smoke(app_id) 现场重测(管线会自动归因+修复重试)。")
-    return "\n".join(lines), []
+    # A1 自愈报告卡:状态/归因/建议/提案结构化下发
+    return "\n".join(lines), [ok_tool_event(f"应用「{a.name}」失败归因", {
+        "app_id": a.id, "name": a.name,
+        "smoke_status": a.smoke_status or "", "smoke_cls": a.smoke_cls or "",
+        "smoke_error": (a.smoke_error or "")[:300],
+        "advice": _cls_line(a.smoke_cls or "unknown"),
+        "proposals": [
+            {"id": p.id, "status": p.status, "failure_cls": p.failure_cls, "note": (p.note or "")[:80]}
+            for p in props
+        ],
+    })]
 
 
 async def exec_run_app_smoke(args: dict, ctx: dict) -> tuple[str, list[dict]]:
