@@ -124,6 +124,25 @@ function readPending(): PendingApp | null {
   }
 }
 
+/** A2 画布提案手off(assistant 提案卡「在画布中打开」写入,读取即消费)。 */
+function readCanvasProposal(): { title: string; warnings: string[]; graph: Record<string, ApiGraphNode> } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("toiv_canvas_proposal");
+    if (!raw) return null;
+    localStorage.removeItem("toiv_canvas_proposal");
+    const d = JSON.parse(raw) as { title?: unknown; warnings?: unknown; graph?: unknown };
+    if (!d || typeof d.graph !== "object" || d.graph === null || Array.isArray(d.graph)) return null;
+    return {
+      title: typeof d.title === "string" && d.title.trim() ? d.title.trim() : "agent 画布提案",
+      warnings: Array.isArray(d.warnings) ? d.warnings.map(String) : [],
+      graph: d.graph as Record<string, ApiGraphNode>,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function prettyName(path: string): string {
   const base = path.split("/").pop() ?? path;
   return base.replace(/\.json$/i, "").replace(/^toiv_app_/, "");
@@ -166,6 +185,7 @@ export function CanvasView() {
   const [pending, setPending] = useState<PendingApp | null>(() => readPending());
   const [run, setRun] = useState<RunState>({ phase: "idle" });
   const [graphLabel, setGraphLabel] = useState<string>("");
+  const [proposalBanner, setProposalBanner] = useState<{ title: string; warnings: string[] } | null>(null);
   const reloadTick = useRef(0);
 
   /** 统一装载:先补 object_info,再解析;uiJson 带坐标,apiJson 走自动布局。 */
@@ -239,10 +259,21 @@ export function CanvasView() {
     [loadUi],
   );
 
-  /* 首次:pending 优先(应用入口),否则自动选最新工作流 */
+  /* 首次:agent 画布提案手off 优先,其次 pending(应用入口),否则自动选最新工作流 */
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // A2:assistant 提案卡「在画布中打开」的手off 图,直接装载进原生画布待审
+      const prop = readCanvasProposal();
+      if (prop) {
+        try {
+          await loadApi(prop.graph, `画布提案「${prop.title}」`);
+          if (!cancelled) setProposalBanner({ title: prop.title, warnings: prop.warnings });
+          return;
+        } catch {
+          /* 提案图解析失败则回落默认装载 */
+        }
+      }
       const fs = await reloadList();
       if (cancelled) return;
       if (pending?.workflowName) {
@@ -465,6 +496,24 @@ export function CanvasView() {
                   }
                   setPending(null);
                 }}
+              >
+                知道了
+              </button>
+            </div>
+          )}
+          {proposalBanner && (
+            <div className="cfl2-pending cfl2-proposal" role="status">
+              <Icon name="sparkles" size={14} />
+              <span>
+                agent 画布提案「{proposalBanner.title}」已载入——参数可就地编辑,审查后点「运行」执行
+                {proposalBanner.warnings.length > 0 && (
+                  <em>({proposalBanner.warnings.length} 条 warning: {proposalBanner.warnings[0].slice(0, 60)}…)</em>
+                )}
+              </span>
+              <button
+                type="button"
+                className="cfl2-pending-x"
+                onClick={() => setProposalBanner(null)}
               >
                 知道了
               </button>

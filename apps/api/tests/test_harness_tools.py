@@ -61,6 +61,7 @@ LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作�
 - check_jobs:查询生成作业状态与产物(用户追问进度时;done 的自动把产物展示给用户)
 - optimize_prompt:提示词优化(提交生成前必调;按引擎/底模自动切方言)
 - propose_plan:大需求提案(视频/批量/多步/整集类先出方案等用户确认再执行)
+- propose_canvas_graph:画布编排提案(API 格式工作流图经校验后提交,用户在画布中审查执行)
 - adjust_3d:3D 模型材质/渲染调整(材质烘焙成新 GLB 模型/染色;旋转视频、快照为可选查看产物;立即出产物)
 - navigate_view:切换前端界面到指定功能页(「去/打开 X」类意图)
 - prefill_generate:预填生成工作台提示词并跳转(用户想微调参数再手动提交时)
@@ -103,7 +104,7 @@ BUILTIN_ORDER = [
     # 深度接管生成工具(tools_gen.py,2026-08-24)
     # P1 全局主体库(2026-08-26):list_entities 注册在 submit_generation 之后
     "submit_generation", "list_entities", "list_apps", "get_app", "run_app",
-    "check_jobs", "optimize_prompt", "propose_plan",
+    "check_jobs", "optimize_prompt", "propose_plan", "propose_canvas_graph",
     "adjust_3d",
     # W3 UI 驱动工具(2026-08-31)
     "navigate_view", "prefill_generate", "open_asset",

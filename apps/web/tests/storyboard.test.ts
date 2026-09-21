@@ -152,3 +152,18 @@ test("⑥ M3 一键成片:kindLabel/桶 + 阶段标签/进度 + 前端接线", (
   assert.ok(boardStory.includes("换主角") && boardStory.includes("换词") && boardStory.includes("换背景"),
     "remix 弹窗缺三类 tab");
 });
+
+test("⑦ A2 画布编排:提案卡画布按钮 + 画布提案手off 装载", () => {
+  const api = readFileSync(join(here, "../lib/api.ts"), "utf-8");
+  assert.ok(api.includes("fetchAgentCanvasProposal"), "api.ts 缺 fetchAgentCanvasProposal");
+
+  const av = readFileSync(join(here, "../components/assistant/AssistantView.tsx"), "utf-8");
+  assert.ok(av.includes("在画布中打开"), "提案卡缺「在画布中打开」按钮");
+  assert.ok(av.includes("toiv_canvas_proposal"), "AssistantView 未写画布提案手off");
+  assert.ok(av.includes('kind === "canvas_graph"'), "提案卡未按 kind 分流");
+
+  const cv = readFileSync(join(here, "../components/canvas/CanvasView.tsx"), "utf-8");
+  assert.ok(cv.includes("readCanvasProposal"), "CanvasView 未读画布提案手off");
+  assert.ok(cv.includes("proposalBanner"), "CanvasView 缺提案横幅态");
+  assert.ok(cv.includes("agent 画布提案"), "CanvasView 缺提案横幅文案");
+});

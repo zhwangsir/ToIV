@@ -186,6 +186,30 @@ TOOL_SCHEMAS_GEN = [
     {
         "type": "function",
         "function": {
+            "name": "propose_canvas_graph",
+            "description": (
+                "画布编排(A2):把搭好的 ComfyUI 工作流图(API 格式)作为画布提案提交,"
+                "用户在画布中审查/微调后一键执行(不直接运行,人审闸)。"
+                "用户要「搭个工作流/在图上改结构/加个节点链」时用;"
+                "搭图前必须 search_knowledge 查真实节点名/模型文件名/连线配方,"
+                "不确定的结构先 web_search 或问用户;图先经服务端静态校验,"
+                "有错误会返回给你重写(别拿错图去提案)。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "提案标题(一句话,如「txt2img→4x 超分两段图」)"},
+                    "description": {"type": "string", "description": "图结构与关键参数说明(markdown,给用户审查用)"},
+                    "graph": {"type": "object", "description": "API 格式 ComfyUI 图:{node_id: {class_type, inputs}}", "additionalProperties": True},
+                    "estimate": {"type": "string", "description": "预计耗时/资源(可选)"},
+                },
+                "required": ["title", "description", "graph"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "adjust_3d",
             "description": (
                 "对已有 3D 模型(GLB)做材质/渲染/纹理级调整,立即返回产物。"
@@ -1236,6 +1260,83 @@ async def exec_propose_plan(args: dict, ctx: dict) -> tuple[str, list[dict]]:
     return (
         f"方案已提交给用户确认(proposal_id={proposal['proposal_id']})。"
         "本轮到此结束:简要告诉用户方案要点,等其确认/修改/拒绝,不要自行开始执行。"
+    ), [event]
+
+
+async def exec_propose_canvas_graph(args: dict, ctx: dict) -> tuple[str, list[dict]]:
+    """画布编排提案:静态校验 → pending_proposal(type=canvas_graph) → proposal 事件。
+
+    与 propose_plan 同一确认门语义;图本体只落会话(不进 SSE 事件,防大图上送),
+    前端经 GET /api/agent/sessions/{sid}/canvas-proposal 取回在画布中打开。
+    """
+    sess: AgentSession | None = ctx.get("agent_session")
+    session = ctx["session"]
+    user: User = ctx["user"]
+    if sess is None:
+        return "当前上下文不支持画布提案(非会话对话)。", [_err_event("无会话上下文")]
+    title = str(args.get("title") or "").strip()[:120]
+    description = str(args.get("description") or "").strip()[:4000]
+    estimate = str(args.get("estimate") or "").strip()[:300]
+    graph = args.get("graph")
+    if not title or not description:
+        return "提案标题与说明不能为空。", [_err_event("提案为空")]
+    if not isinstance(graph, dict) or not graph:
+        return "graph 必须是非空对象(API 格式 ComfyUI 图)。", [_err_event("graph 非法")]
+
+    from app.routes.canvas import canvas_object_info
+    from app.services.canvas_graph import validate_api_graph
+
+    # 全量 object_info 服务端缓存代理(10min TTL 单飞);按图内类过滤回 KB 级
+    classes = sorted({
+        str(n.get("class_type") or "") for n in graph.values() if isinstance(n, dict)
+    } - {""})
+    try:
+        objinfo = await canvas_object_info(",".join(classes), user=user)
+    except Exception as e:
+        return f"取 fleet 节点清单失败,无法校验图: {e}", [
+            _err_event("object_info 不可用", str(e)[:200]),
+        ]
+    if not isinstance(objinfo, dict) or not objinfo:
+        return "fleet 节点清单为空(画布上游可能未就绪),暂无法校验图,请稍后重试。", [
+            _err_event("object_info 为空"),
+        ]
+    verdict = validate_api_graph(graph, objinfo)
+    if verdict["errors"]:
+        head = "画布图静态校验未通过,请按下列错误重写后重新提案:\n" + "\n".join(
+            f"- {e}" for e in verdict["errors"][:12]
+        )
+        return head, [_err_event("画布图校验未通过", "; ".join(verdict["errors"][:3])[:200])]
+
+    prop = {
+        "type": "canvas_graph",
+        "proposal_id": uuid.uuid4().hex[:12],
+        "title": title,
+        "body": description,
+        "estimate": estimate,
+        "warnings": verdict["warnings"][:20],
+        "graph": graph,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    sess.pending_proposal = json.dumps(prop, ensure_ascii=False)
+    session.add(sess)
+    session.commit()
+
+    event = {"type": "proposal", "data": {
+        "proposal_id": prop["proposal_id"],
+        "title": title,
+        "body": description,
+        "estimate": estimate,
+        "kind": "canvas_graph",
+        "node_count": verdict["node_count"],
+        "warnings": verdict["warnings"][:6],
+    }}
+    return (
+        f"画布提案已提交给用户(proposal_id={prop['proposal_id']},"
+        f"{verdict['node_count']} 节点,校验通过"
+        + (f",{len(verdict['warnings'])} 条 warning" if verdict["warnings"] else "")
+        + ")。本轮到此结束:简要告诉用户图结构要点,"
+        "等用户在画布中审查/执行或拒绝,不要自行运行该图。"
     ), [event]
 
 

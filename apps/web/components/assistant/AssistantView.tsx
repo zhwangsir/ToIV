@@ -124,6 +124,8 @@ export interface AgentProposalCard {
   title: string;
   body: string;
   estimate?: string;
+  /** 提案类型(A2 canvas_graph=画布图,可在画布中打开审查;缺省=纯文本方案) */
+  kind?: string;
   resolution?: "approve" | "modify" | "reject";
   note?: string;
 }
@@ -1365,6 +1367,7 @@ export function AssistantView(props?: AssistantViewProps) {
                   title: ev.title || "执行方案",
                   body: ev.body || "",
                   estimate: ev.estimate,
+                  kind: typeof ev.kind === "string" ? ev.kind : undefined,
                 });
               }
               if (!assistantMsg) {
@@ -1507,6 +1510,30 @@ export function AssistantView(props?: AssistantViewProps) {
       });
     },
     [requestReply],
+  );
+
+  // A2 画布编排:画布提案卡「在画布中打开」——取回图本体经 localStorage 手off 给画布视图
+  const onOpenCanvasProposal = useCallback(
+    async (card: AgentProposalCard) => {
+      const conversationId =
+        activeConvIdRef.current ?? lastSessionIdRef.current ?? "";
+      if (!conversationId) {
+        toast.error("没有可定位的会话,无法取回画布提案");
+        return;
+      }
+      try {
+        const { fetchAgentCanvasProposal } = await import("@/lib/api");
+        const prop = await fetchAgentCanvasProposal(conversationId);
+        localStorage.setItem(
+          "toiv_canvas_proposal",
+          JSON.stringify({ title: prop.title, warnings: prop.warnings, graph: prop.graph }),
+        );
+        goView("canvas");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "取回画布提案失败");
+      }
+    },
+    [goView, toast],
   );
 
   // 进行中作业卡 8s 轮询:无单 job 查询端点,复用列表端点(fetchJobsPage 直连网络,
@@ -2058,9 +2085,19 @@ export function AssistantView(props?: AssistantViewProps) {
                             ) : (
                               <>
                                 <div className="av-proposal-actions">
+                                  {p.kind === "canvas_graph" ? (
+                                    <button
+                                      type="button"
+                                      className="av-proposal-btn is-primary"
+                                      disabled={busy}
+                                      onClick={() => void onOpenCanvasProposal(p)}
+                                    >
+                                      在画布中打开
+                                    </button>
+                                  ) : null}
                                   <button
                                     type="button"
-                                    className="av-proposal-btn is-primary"
+                                    className={`av-proposal-btn${p.kind === "canvas_graph" ? "" : " is-primary"}`}
                                     disabled={busy}
                                     onClick={() => onProposalDecision(p, "approve")}
                                   >

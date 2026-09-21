@@ -650,6 +650,24 @@ export async function fetchBoardFilmJobs(boardId: string): Promise<BoardFilmJob[
   return res.json();
 }
 
+/** 画布提案图本体(A2:agent 的 pending canvas_graph 提案,前端「在画布中打开」取图)。 */
+export interface AgentCanvasProposal {
+  proposal_id: string;
+  title: string;
+  body: string;
+  warnings: string[];
+  status: string;
+  graph: Record<string, { class_type: string; inputs: Record<string, unknown> }>;
+}
+
+export async function fetchAgentCanvasProposal(sessionId: string): Promise<AgentCanvasProposal> {
+  const res = await apiFetch(`/api/agent/sessions/${sessionId}/canvas-proposal`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "取回画布提案失败");
+  return res.json();
+}
+
 export interface BoardRemixResult {
   board: BoardOut;
   stats: { shots: number; video_reset: number; voice_redo: number };

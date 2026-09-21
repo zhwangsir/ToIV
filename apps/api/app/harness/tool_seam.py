@@ -247,6 +247,8 @@ def builtin_tool_specs() -> list[ToolSpec]:
                  "提示词优化(提交生成前必调;按引擎/底模自动切方言)", rate_scope=""),
         ToolSpec("propose_plan", gen_schema("propose_plan"), tools_gen.exec_propose_plan,
                  "大需求提案(视频/批量/多步/整集类先出方案等用户确认再执行)", rate_scope=""),
+        ToolSpec("propose_canvas_graph", gen_schema("propose_canvas_graph"), tools_gen.exec_propose_canvas_graph,
+                 "画布编排提案(API 格式工作流图经校验后提交,用户在画布中审查执行)", rate_scope=""),
         ToolSpec("adjust_3d", gen_schema("adjust_3d"), tools_gen.exec_adjust_3d,
                  "3D 模型材质/渲染调整(材质烘焙成新 GLB 模型/染色;旋转视频、快照为可选查看产物;立即出产物)", rate_scope=""),
         # ── W3 UI 驱动工具(零服务端副作用的界面指令;open_asset 仅做归属校验)──

@@ -350,6 +350,29 @@ async def list_agent_sessions(
     return [_session_dict(s, int(counts.get(s.id, 0))) for s in rows]
 
 
+@router.get("/agent/sessions/{sid}/canvas-proposal")
+def get_canvas_proposal(
+    sid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """取回画布提案图本体(前端「在画布中打开」取图;type!=canvas_graph 或无 pending 404)。"""
+    sess = _get_owned_session(session, user, sid)
+    if not sess.pending_proposal:
+        raise HTTPException(status_code=404, detail="该会话没有待确认的提案")
+    prop = json.loads(sess.pending_proposal)
+    if prop.get("type") != "canvas_graph":
+        raise HTTPException(status_code=404, detail="待确认提案不是画布图")
+    return {
+        "proposal_id": prop.get("proposal_id"),
+        "title": prop.get("title", ""),
+        "body": prop.get("body", ""),
+        "warnings": prop.get("warnings") or [],
+        "status": prop.get("status", "pending"),
+        "graph": prop.get("graph") or {},
+    }
+
+
 @router.get("/agent/sessions/{sid}")
 async def get_agent_session(
     sid: str,

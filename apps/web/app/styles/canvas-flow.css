@@ -589,3 +589,10 @@
     max-width: 150px;
   }
 }
+
+/* A2 画布提案横幅(2026-09-21) */
+.cfl2-proposal em {
+  font-style: normal;
+  color: #ffc94d;
+  margin-left: 4px;
+}
