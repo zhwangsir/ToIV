@@ -19,6 +19,8 @@ import {
   FILTERS,
   flattenLightboxEntries,
   folderCover,
+  folderStatusSummary,
+  folderTerminalMembers,
   formatRetention,
   formatTime,
   groupLibraryEntries,
@@ -346,6 +348,9 @@ export function LibraryView(props?: LibraryViewProps) {
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
+  // 文件夹整组删除(P0):confirmFolderDelete=待删文件夹(成员在点击瞬间已快照进组内列表)
+  const [confirmFolderDelete, setConfirmFolderDelete] = useState<BatchFolder | null>(null);
+  const [folderDeleting, setFolderDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // 删除确认对话框(替代 window.confirm / window.alert);skipConfirmChecked=「不再确认」勾选
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -892,7 +897,7 @@ export function LibraryView(props?: LibraryViewProps) {
   };
 
   /** 全选当前已渲染的筛选结果(批量清理免逐张点;已全选时再点切换为清空)。
-   *  文件夹成员不参与主网格批量选择(防整组误删),仅普通作品卡可选。 */
+   *  「全选」仍只圈普通作品卡;文件夹卡在批量模式下单独点选(整组终态成员入删单)。 */
   const toggleSelectAllVisible = () => {
     setSelectedIds((prev) => {
       const allVisibleIds = visibleEntries.flatMap((e) => (e.type === "job" ? [e.job.id] : []));
@@ -903,6 +908,21 @@ export function LibraryView(props?: LibraryViewProps) {
         return next;
       }
       return new Set([...prev, ...allVisibleIds]);
+    });
+  };
+
+  /** 批量模式下文件夹卡点选:全部终态成员一次入/出删单(进行中成员始终排除)。 */
+  const toggleFolderSelect = (folder: BatchFolder) => {
+    const ids = folderTerminalMembers(folder).map((m) => m.id);
+    if (ids.length === 0) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allIn = ids.every((id) => next.has(id));
+      for (const id of ids) {
+        if (allIn) next.delete(id);
+        else next.add(id);
+      }
+      return next;
     });
   };
 
@@ -943,6 +963,72 @@ export function LibraryView(props?: LibraryViewProps) {
       setSelectedIds(new Set(failed));
       setDeleteError(`${failed.length} 件删除失败,已保留选中,可重试`);
     }
+  };
+
+  // ── 文件夹整组删除(P0) ──
+  // 组是前端视图派生(当前筛选+分页下的成员集合),删除只作用于点击瞬间快照的
+  // 终态成员;进行中成员排除(Modal 明示件数),跑完后可单独删除。
+
+  // 点击「删除整组」:全组进行中时按钮已 disabled,这里双保险;确认门沿用单删的
+  // 「不再确认」偏好(SAFETY:回收站 72h + 全部撤销双兜底)
+  const handleFolderDelete = (folder: BatchFolder) => {
+    setDeleteError(null);
+    if (folderTerminalMembers(folder).length === 0) return;
+    if (typeof window !== "undefined" && window.localStorage.getItem("toiv_skip_del_confirm") === "1") {
+      void handleConfirmFolderDelete(folder);
+      return;
+    }
+    setSkipConfirmChecked(false);
+    setConfirmFolderDelete(folder);
+  };
+
+  // 确认整组删除:快照终态成员 id → 复用 deleteJobsBatch(顺序单删+失败不中断)
+  // → toast「全部撤销」循环恢复(与批量删除同一范式);成员 <2 时文件夹经既有回落消失
+  const handleConfirmFolderDelete = async (folder: BatchFolder) => {
+    const ids = folderTerminalMembers(folder).map((m) => m.id);
+    if (ids.length === 0) return;
+    setFolderDeleting(true);
+    setDeleteError(null);
+    const { done, failed, undoTokens } = await deleteJobsBatch(ids, deleteJob);
+    setFolderDeleting(false);
+    if (done.length > 0) {
+      invalidateJobs();
+      const doneSet = new Set(done);
+      setJobs((prev) => (prev ?? []).filter((j) => !doneSet.has(j.id)));
+      loadCounts();
+    }
+    if (failed.length === 0) {
+      setConfirmFolderDelete(null);
+      if (undoTokens.length > 0) {
+        toast.success(`已删除 ${done.length} 件作品`, {
+          label: "全部撤销",
+          onClick: () => {
+            Promise.allSettled(undoTokens.map((t) => undoDelete(t)))
+              .then(() => {
+                invalidateJobs();
+                load();
+                loadCounts();
+                toast.success(`已恢复 ${undoTokens.length} 件作品`);
+              })
+              .catch(() => toast.error("撤销失败(可能已过期)"));
+          },
+        });
+      } else {
+        toast.success(`已删除 ${done.length} 件作品`);
+      }
+    } else {
+      setDeleteError(`${failed.length} 件删除失败,其余已移入回收站`);
+    }
+  };
+
+  // Modal 确认整组删除:先持久化「不再确认」偏好(与单删同一 localStorage 键),再执行
+  const handleFolderModalConfirm = async () => {
+    if (!confirmFolderDelete) return;
+    if (typeof window !== "undefined") {
+      if (skipConfirmChecked) window.localStorage.setItem("toiv_skip_del_confirm", "1");
+      else window.localStorage.removeItem("toiv_skip_del_confirm");
+    }
+    await handleConfirmFolderDelete(confirmFolderDelete);
   };
 
   // 点击删除:确认门可记忆跳过(SAFETY:删除已有回收站 72h 恢复兜底,熟练用户免打扰);
@@ -1692,7 +1778,7 @@ export function LibraryView(props?: LibraryViewProps) {
         )}
 
         {/* 文件夹下钻视图(内容分组,2026-08-24):面包屑 + 成员网格;
-            成员卡与普通作品卡同行为(点开大图组内穿梭/单独删除),不做整组删除 */}
+            成员卡与普通作品卡同行为(点开大图组内穿梭/单独删除);整组删除入口在文件夹卡上(P0) */}
         {!error && !loading && openFolder && (
           <>
             <nav className="lib-breadcrumb" aria-label="位置">
@@ -1942,11 +2028,15 @@ export function LibraryView(props?: LibraryViewProps) {
               {visibleEntries.map((entry, entryIdx) => {
               // 时间分组粘性标题(B3):槽变化处在网格里占满整行
               const timeHeader = timeHeaderAt.get(entryIdx);
-              // 文件夹卡(内容分组):同批成员折叠为一卡,封面=首张产物缩略图,点击进入下钻
+              // 文件夹卡(内容分组):同批成员折叠为一卡,封面=首张产物缩略图;
+              // 点击进入下钻(批量模式下点击=整组终态成员入/出删单)
               if (entry.type === "batch") {
                 const folder = entry.folder;
                 const cover = folderCover(folder);
                 const coverDone = cover.status === "done" && cover.results?.length > 0;
+                const terminalIds = folderTerminalMembers(folder).map((m) => m.id);
+                const selectedCount = terminalIds.filter((id) => selectedIds.has(id)).length;
+                const folderAllSelected = terminalIds.length > 0 && selectedCount === terminalIds.length;
                 return (
                   <Fragment key={`batch-${folder.batchId}`}>
                   {timeHeader && (
@@ -1954,13 +2044,25 @@ export function LibraryView(props?: LibraryViewProps) {
                       {timeHeader}
                     </div>
                   )}
-                  <article className="lib-card lib-folder-card">
+                  <article
+                    className={`lib-card lib-folder-card${folderAllSelected ? " is-selected" : ""}`}
+                  >
                     <div className="lib-thumb">
                       <button
                         type="button"
                         className="lib-thumb-hit"
-                        aria-label={`打开文件夹: ${folder.variant ? "变体组" : "360° 环绕序列"},共 ${folder.members.length} 张`}
-                        onClick={() => setOpenBatchId(folder.batchId)}
+                        aria-label={
+                          batchMode
+                            ? folderAllSelected
+                              ? `取消选择文件夹: 共 ${terminalIds.length} 张可删`
+                              : `选择文件夹: 共 ${terminalIds.length} 张可删`
+                            : `打开文件夹: ${folder.variant ? "变体组" : "360° 环绕序列"},共 ${folder.members.length} 张`
+                        }
+                        aria-pressed={batchMode ? folderAllSelected : undefined}
+                        onClick={() => {
+                          if (batchMode) toggleFolderSelect(folder);
+                          else setOpenBatchId(folder.batchId);
+                        }}
                       >
                         {coverDone ? (
                           <ImageThumb job={cover} />
@@ -1973,6 +2075,68 @@ export function LibraryView(props?: LibraryViewProps) {
                         <Icon name="library" size={11} />
                         ×{folder.members.length}
                       </span>
+                      {/* 批量模式:左上勾选圈(整组终态成员入删单;计数气泡明示已选/可删) */}
+                      {batchMode && (
+                        <button
+                          type="button"
+                          className={`lib-check${folderAllSelected ? " is-checked" : ""}`}
+                          aria-label={
+                            folderAllSelected
+                              ? `取消选择文件夹: 共 ${terminalIds.length} 张可删`
+                              : `选择文件夹: 共 ${terminalIds.length} 张可删`
+                          }
+                          aria-pressed={folderAllSelected}
+                          disabled={terminalIds.length === 0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFolderSelect(folder);
+                          }}
+                        >
+                          <Icon name="check" size={12} />
+                        </button>
+                      )}
+                      {batchMode && selectedCount > 0 && (
+                        <span className="lib-folder-selected-badge" aria-hidden="true">
+                          已选 {selectedCount}/{terminalIds.length}
+                        </span>
+                      )}
+                      {/* 快捷操作浮层(与普通卡同族):打开下钻 / 删除整组(P0) */}
+                      {!batchMode && (
+                        <div
+                          className="lib-actions"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            className="lib-action-btn"
+                            title="打开文件夹"
+                            aria-label="打开文件夹"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenBatchId(folder.batchId);
+                            }}
+                          >
+                            <Icon name="zoom-in" size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="lib-action-btn lib-action-btn--danger"
+                            title={
+                              terminalIds.length === 0
+                                ? "组内作品均在进行中,暂不能删除"
+                                : `删除整组(${terminalIds.length} 件)`
+                            }
+                            aria-label={`删除整组: 共 ${terminalIds.length} 张`}
+                            disabled={terminalIds.length === 0 || folderDeleting}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFolderDelete(folder);
+                            }}
+                          >
+                            <Icon name={folderDeleting ? "loading" : "delete"} size={14} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div className="lib-foot">
                       <div className="lib-card-title">{folder.variant ? "同参数变体" : "360° 环绕序列"}</div>
@@ -2614,6 +2778,69 @@ export function LibraryView(props?: LibraryViewProps) {
             </div>
           )}
         </div>
+      </Modal>
+
+      {/* 文件夹整组删除确认对话框(P0):成员数 + 状态分布 + 进行中排除明示;
+          同一 danger Modal 基座,沿用「不再确认」偏好与全部撤销兜底 */}
+      <Modal
+        open={!!confirmFolderDelete}
+        onClose={() => setConfirmFolderDelete(null)}
+        title="删除整组作品"
+        danger
+        preventClose={folderDeleting}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={folderDeleting}
+              onClick={() => setConfirmFolderDelete(null)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              loading={folderDeleting}
+              icon={<Icon name="delete" size={14} />}
+              onClick={handleFolderModalConfirm}
+            >
+              {folderDeleting
+                ? "删除中…"
+                : `确认删除 ${confirmFolderDelete ? folderTerminalMembers(confirmFolderDelete).length : 0} 件`}
+            </Button>
+          </>
+        }
+      >
+        {confirmFolderDelete && (
+          <div className="lib-confirm-body">
+            <div className="lib-confirm-warn">
+              该{confirmFolderDelete.variant ? "变体组" : "环绕序列"}共{" "}
+              {confirmFolderDelete.members.length} 件作品(完成{" "}
+              {folderStatusSummary(confirmFolderDelete).done} / 失败{" "}
+              {folderStatusSummary(confirmFolderDelete).error});
+              {folderStatusSummary(confirmFolderDelete).active > 0 && (
+                <>
+                  进行中 {folderStatusSummary(confirmFolderDelete).active}{" "}
+                  件将被排除,可在完成后单独删除;
+                </>
+              )}
+              作品将移入回收站,<strong>72 小时内可逐件恢复</strong>
+              (删除提示中点「全部撤销」,或到回收站恢复);画板中的成员将被静默移除。
+            </div>
+            <label className="lib-confirm-skip">
+              <input
+                type="checkbox"
+                checked={skipConfirmChecked}
+                onChange={(e) => setSkipConfirmChecked(e.target.checked)}
+              />
+              <span>不再确认(删除后仍可在回收站恢复)</span>
+            </label>
+            {deleteError && (
+              <div className="lib-confirm-error">
+                <Icon name="error" size={13} /> {deleteError}
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
 
       {/* 一键清理失败作品确认对话框:同一 Modal danger 基座;软删可从回收站恢复 */}

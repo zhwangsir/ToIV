@@ -835,6 +835,26 @@
   z-index: var(--z-lib-badge);
   pointer-events: none;
 }
+/* 整组删除(P0 2026-09-22):hover 操作组下沉避开右上 ×N 角标;
+   批量模式「已选 X/Y」气泡钉缩略图右下(accent 语义) */
+.lib-folder-card .lib-actions {
+  top: calc(var(--space-2) + 26px);
+}
+.lib-folder-selected-badge {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  padding: 2px var(--space-2);
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  font-size: var(--text-label);
+  font-weight: var(--font-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-on-accent);
+  letter-spacing: 0.02em;
+  z-index: var(--z-lib-badge);
+  pointer-events: none;
+}
 .lib-breadcrumb {
   display: flex;
   align-items: center;

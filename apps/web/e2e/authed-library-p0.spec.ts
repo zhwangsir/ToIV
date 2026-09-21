@@ -27,6 +27,41 @@ test("library P0: source filter + meta badges + lightbox kbd hints", async ({ pa
   await expect(page.locator(".lib-lightbox")).toHaveCount(0);
 });
 
+test("library folder delete P0: variant folder batch delete + undo all", async ({ page }) => {
+  test.setTimeout(150000);
+  await page.goto("/?view=library", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
+  // 确认门偏好清掉,保证走 Modal(整组删除沿用单删同一 localStorage 键)
+  await page.evaluate(() => localStorage.removeItem("toiv_skip_del_confirm"));
+
+  // 用生产现存变体组验证(删除后全部撤销,零净破坏);无文件夹时环境性跳过
+  // (网格分页加载,文件夹出现晚于首屏文本——显式等 30s 再判跳过,与 P2 同容忍度)
+  const folder = page.locator(".lib-folder-card").first();
+  await page.waitForSelector(".lib-folder-card", { timeout: 30000 }).catch(() => null);
+  if ((await folder.count()) === 0) {
+    console.log("FOLDER_DELETE_E2E_SKIP: no folder card in library");
+    return;
+  }
+  await expect(folder).toBeVisible({ timeout: 30000 });
+  await folder.hover();
+  await folder.getByRole("button", { name: /^删除整组: 共 \d+ 张$/ }).click();
+
+  // 确认 Modal:成员数/状态分布/回收站与画板提示
+  await expect(page.getByText("删除整组作品")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(/共 \d+ 件作品\(完成 \d+ \/ 失败 \d+\)/)).toBeVisible();
+  await expect(page.getByText(/72 小时内可逐件恢复/)).toBeVisible();
+  await expect(page.getByText(/画板中的成员将被静默移除/)).toBeVisible();
+  await page.screenshot({ path: "ui-sweep/library-folder-delete-modal.png" });
+
+  // 确认删除 → toast「全部撤销」→ 撤销还原(对生产零净破坏)
+  await page.getByRole("button", { name: /^确认删除 \d+ 件$/ }).click();
+  const undoBtn = page.getByRole("button", { name: "全部撤销" });
+  await expect(undoBtn).toBeVisible({ timeout: 30000 });
+  await undoBtn.click();
+  await expect(page.getByText(/已恢复 \d+ 件作品/)).toBeVisible({ timeout: 30000 });
+  await page.screenshot({ path: "ui-sweep/library-folder-delete-undo.png" });
+});
+
 test("library P1: favorites + time headers + meta copy + retry flow", async ({ page }) => {
   test.setTimeout(150000);
   await page.goto("/?view=library", { waitUntil: "domcontentloaded" });

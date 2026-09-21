@@ -123,7 +123,7 @@ test("LibraryView:文件夹卡(封面缩略图 + ×N 角标 + 标题/时间)与�
   assert.ok(!src.includes("visibleJobs"), "主网格不应再平铺未分组列表");
 });
 
-test("LibraryView:成员卡同行为(大图组内穿梭 / 单独删除),不做整组删除", () => {
+test("LibraryView:成员卡同行为(大图组内穿梭 / 单独删除);整组删除入口在文件夹卡(P0)", () => {
   const src = readSrc("components/library/LibraryView.tsx");
   // 灯箱穿梭范围:下钻内点开成员限定组内
   assert.ok(src.includes("openLightbox(job, openFolder.members)"), "成员大图应组内穿梭");
@@ -131,9 +131,10 @@ test("LibraryView:成员卡同行为(大图组内穿梭 / 单独删除),不做�
   // 成员单独删除复用既有确认流
   const drill = src.slice(src.indexOf("lib-breadcrumb"));
   assert.ok(drill.includes("handleDelete(job)"), "成员应可单独删除");
-  // 批量「全选本页」只选普通卡,文件夹成员不参与主网格批量选择(防整组误删)
+  // 批量「全选本页」仍只圈普通卡;文件夹整组删除走文件夹卡专属入口(2026-09-22 P0 翻案)
   assert.ok(
     src.includes('visibleEntries.flatMap((e) => (e.type === "job" ? [e.job.id] : []))'),
     "全选应跳过文件夹成员",
   );
+  assert.ok(src.includes("handleFolderDelete(folder)"), "文件夹卡缺整组删除入口");
 });

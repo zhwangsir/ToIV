@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-22（二次压缩至 20KB 内。当前：api 3315/web 988/e2e 11/11 全绿；应用目录 6773/公开 5061 全量打标；whisper 四节点集群 LIVE；**下一步=四域方案批 1**，见第七节）
+> **最后更新**：2026-09-22（批 1 三件套交付：文件夹整组删除 P0/助手 A0/Admin 审计点号化；当前：api 3315/web 993/e2e library spec 7/7；应用目录 6773/公开 5061 全量打标；whisper 四节点集群 LIVE；**下一步=四域方案批 2**，见第七节）
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -130,15 +130,20 @@
 
 ## 七、当前焦点（活口径摘要）
 
-### 基线（2026-09-22 核）
-- **测试**：api **3315** / web **988** / e2e 六 spec **11/11**；分支 `feat/app-guides-admin-cms`（**勿 push、勿 stage `.regen_tmp`/`dogfood-output`**）。
-- **生产**：见五节；web BUILD_ID `20260921-052336-nogit`。
+### 基线（2026-09-22 批 1 后核）
+- **测试**：api **3315** / web **993**（988+6 新增−1 移除）/ e2e authed-library-p0 **7/7**（含新增整组删除例）；分支 `feat/app-guides-admin-cms`（**勿 push、勿 stage `.regen_tmp`/`dogfood-output`**）。
+- **生产**：见五节；web BUILD_ID `20260921-121034-nogit`；admin 同批 core 重构部署（:3200）。
 - **目录**：应用 **6773 总/5061 公开/5558 rh-acc**，use_case 打标全覆盖；说明卡 550/550；作品库 72 件（44 件折 18 变体文件夹）。
 
-### 下一步=四域方案批 1（方案已备，说「继续」即开工）
-1. **作品库文件夹整组删除 P0**（`docs/LIBRARY_FOLDER_DELETE_PLAN_20260922.md`）：文件夹卡删除入口+确认 Modal+复用批量删/撤销；三处「不做整组删除」注释与测试同步改。
-2. **助手 A0 快赢**（`docs/ASSISTANT_UI_REDESIGN_PLAN_20260922.md`）：移动端 CTA ctaAction 跳 fusion→改 home（page.tsx:806）；popup 提示分端；残留清理。后续 A1 工具卡片（toolRenderers 六族，生产实数：工具结果占消息 46%）。
-3. **Admin 审计筛选键点号化**（`docs/ADMIN_REPLAN_20260922.md`）：AuditLogView 下划线→点号，2932 条存量立即可查。后续 P0 设备域（假活识别）+说明书批量。
+### 批 1 已交付（2026-09-22，三件套全绿+真机验证）
+1. **作品库文件夹整组删除 P0**：文件夹卡 hover 操作组（打开/删除整组）+批量模式整组点选（终态成员入删单+「已选 X/Y」气泡）；确认 Modal=成员数/状态分布/进行中排除/回收站 72h+画板静默移除/「不再确认」；执行复用 `deleteJobsBatch`+「全部撤销」；纯函数 `folderTerminalMembers`/`folderStatusSummary`（`lib/libraryQuery.ts`）；三处「不做整组删除」注释与 libraryBatch 钉死测试已改写；新增 `tests/libraryFolderDelete.test.ts` 4 组+`authed-library-p0.spec.ts` 1 例（生产真删真撤销，69→69 零净破坏）。
+2. **助手 A0 快赢**：移动端 CTA `ctaAction` fusion→home（`page.tsx`，真机 iPhone  viewport 验证落 `?view=home`）；popup 空态 Shift+Enter 提示 `!isMobileMq` 分端隐藏；`AgentRunStyles.tsx` 空文件+引用+测试⑨物理删除；「模型设置」注释残留与 `lib/agents.ts` AgentSwitcher 漂移注释清理。
+3. **Admin 审计筛选键点号化**：`AuditLogView.tsx` ACTION_LABELS 21 个真实动作全点号化+中文标签（job.delete/app.run/orch.wake…），真机 :3200 筛「删除作品」50 行命中（含批 1 e2e 两条「已撤销」记录闭环）。
+
+### 下一步=四域方案批 2（方案已备，说「继续」即开工）
+1. **助手 A1 工具卡片**（`docs/ASSISTANT_UI_REDESIGN_PLAN_20260922.md`）：toolRenderers 注册表+六族卡（optimize_prompt 对照 38 次/40% 优先）；红线=assistant* 十组不变式。
+2. **Admin P0 设备域**（`docs/ADMIN_REPLAN_20260922.md`）：fleet「假活」识别（systemd active 但端口不监听）+openclaw 节点卡+LB 后端健康；D3 说明书批量（全量列表+批量生成/发布/关联回填，纯前端）。
+3. **文件夹 P1 bulk 端点**（`docs/LIBRARY_FOLDER_DELETE_PLAN_20260922.md`）：`POST /api/jobs/bulk-delete`（ids≤200+per-job undo_token）+Saved Views chips ×+板列表卡删除；Admin P1 作业队列域（行内 cancel/rerun/delete/restore/purge，审计 57% 是 delete）。
 - 总方案 `docs/EVOLUTION_PLAN_20260922.md`；移交提示词套件 `docs/HANDOFF_PROMPT_20260922.md`。
 
 ### 关键拍板（长期有效）

@@ -478,6 +478,33 @@ export function folderCover(folder: BatchFolder): JobItem {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 整组删除(P0 2026-09-22):组是前端视图派生,删除只作用于点击瞬间快照的
+// 终态成员;进行中(queued/running)成员排除在外,跑完后可单独删除。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 终态成员(done/error):整组删除只对这些成员下删单。 */
+export function folderTerminalMembers(folder: BatchFolder): JobItem[] {
+  return folder.members.filter((m) => m.status === "done" || m.status === "error");
+}
+
+/** 状态分布(确认 Modal 文案用):done/error 分项 + active=进行中(queued/running)。 */
+export function folderStatusSummary(folder: BatchFolder): {
+  done: number;
+  error: number;
+  active: number;
+} {
+  let done = 0;
+  let error = 0;
+  let active = 0;
+  for (const m of folder.members) {
+    if (m.status === "done") done++;
+    else if (m.status === "error") error++;
+    else active++;
+  }
+  return { done, error, active };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 灯箱展平条目(2026-09-15 用户拍板):单作业多产物(如一次生成 N 张多视角图)
 // 在灯箱内逐张翻看,而不是只能看到 results[0]。作业按原顺序展开为
 // {job, url} 条目序列;无产物作业保留为占位条目(灯箱显示类型占位)。
