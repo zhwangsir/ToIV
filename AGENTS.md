@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-22（批 4 交付：A3 组件工程化（AssistantView 3614→1635 五模块拆分+CSS 外迁，行为零变化）+Admin D2 模型资产/D6 实测矩阵实装；当前：api 3331/web 1021/e2e 三 spec 11 过 3 跳；whisper 四节点集群 LIVE；**下一步=四域方案批 5（收尾批）**，见第七节）
+> **最后更新**：2026-09-22（**四域方案五批全收口**——批 5 收尾：A4 移动端 sheet/Admin D7 工程化（lib 5387→1224+测试 0→1 12 例+deploy 固化）/D5 观测深化；当前：api 3332/web 1028/admin 12/e2e 10 过 3 跳；whisper 四节点集群 LIVE；开口项见第八节）
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -130,9 +130,9 @@
 
 ## 七、当前焦点（活口径摘要）
 
-### 基线（2026-09-22 批 4 后核）
-- **测试**：api **3331** / web **1021** / e2e 三 spec **11 过 3 跳**（陈旧登记）；分支 `feat/app-guides-admin-cms`（**勿 push、勿 stage `.regen_tmp`/`dogfood-output`**）。
-- **生产**：见五节；web BUILD_ID `20260921-193554-nogit`；admin 批 4 重构部署（:3200）。
+### 基线（2026-09-22 批 5 后核）
+- **测试**：api **3332** / web **1028** / **admin 12（0→1）** / e2e **10 过 3 跳**（陈旧登记）；分支 `feat/app-guides-admin-cms`（**勿 push、勿 stage `.regen_tmp`/`dogfood-output`**）。
+- **生产**：见五节；web BUILD_ID `20260921-204424-nogit`；admin deploy-admin.sh 固化版部署（:3200）。
 - **目录**：应用 **6773 总/5061 公开/5558 rh-acc**，use_case 打标全覆盖；说明卡 550/550；作品库 72 件（44 件折 18 变体文件夹）。
 
 ### 批 1 已交付（2026-09-22，三件套全绿+真机验证）
@@ -155,11 +155,13 @@
 2. **Admin D2 模型资产域**（AdminView 第六子页「模型资产」，四 tab）：本地清单（类目 chips+nsfw/vpred 徽标+搜索）；模型百科（type/q 过滤+行内展开详情+Civitai 富化 Modal 180s 长请求）；引擎注册表只读+手动重探测；MODEL_SOURCES 只读视图（新 `GET /api/admin/model-sources`：476/336/812 三卡+status 筛选+搜索）。**部署口径**：docs/MODEL_SOURCES.json 快照入 `apps/api/app/data/model_sources.json`（docs 不在 rsync 范围；后续更新需同步重拷）。
 3. **Admin D6 实测矩阵实装**：占位页→`GET /api/admin/test-matrix`（新端点读 `app/data/app_test_matrix/` 快照——`.regen_tmp` 不部署故拷入）；L0 五卡（550/550+输出分布）+fail 优先排序表；L2 四卡（24：pass 8/fail_product 15/fail_timeout 1）+24 行回执+candidates details 折叠。
 
-### 下一步=四域方案批 5（收尾批，方案已备，说「继续」即开工）
-1. **助手 A4 移动端**：助手全屏 sheet 形态；⌘K 入口移动端可见化；composer 工具行断点特化。
-2. **Admin D7 工程化**：admin 测试 0→1（node:test 同 web 模式）；`lib/api.ts` 瘦身（4900→~800 行按域分包）；`deploy-admin.sh` 固化 core 本机构建口径。
-3. **D5 观测深化**：knowledge-graph 查询 UI（webappId 反查）；观测页并入队列深度闸状态。
-- 总方案 `docs/EVOLUTION_PLAN_20260922.md`；移交提示词套件 `docs/HANDOFF_PROMPT_20260922.md`。
+### 批 5 已交付（2026-09-22 收尾批，全绿+真机验证；四域方案五批全收口）
+1. **助手 A4 移动端**：AssistantOverlay 窄屏（≤767px）全屏 sheet 形态（顶部安全边距+把手下滑关闭 96px 阈值+`av-sheet-in` 滑入+reduced-motion 豁免；桌面 popup 一字未动——assistant-view.css 后至覆盖，assistant.css 零改）；⌘K 入口移动端可见化（「更多」抽屉首位「搜索」项→`setPaletteOpen(true)` 同一通道）；composer 工具行断点特化（44px token 化+页形态文档钮窄屏折叠 `av-composer-docs`）。7 组 jest，真机 iPhone viewport 验证（把手/面板 390×640/抽屉搜索开 cmdk）。
+2. **Admin D7 工程化**：`lib/api.ts` **5387→1224 行**（450 导出静态核+BFS 闭包删 338 零引用块；按域 9 文件+barrel，`@/lib/api` 导入零改动）；**admin 测试 0→1**（node:test harness 平移 web 模式，4 文件 12 例：apiErrorMessage 归一/封装 URL 契约/ACTION_LABELS 点号防回归/deploy 口径锁）；`deploy-admin.sh` 固化 core 本机构建口径（rsync 源码→core 全量 install→core build→restart，删 Mac 构建前置；已 dogfood 部署一次 23s 全程）。
+3. **D5 观测深化**：「图谱反查」入模型资产第五 tab（`GET /api/admin/knowledge-graph` entity+depth 查询，节点/边双表+种子徽标+出处外链）；观测服务健康区第四卡「封面队列闸」（api observability 聚合块 `cover_gate`：`plan_demo_targets` 复用拼装，闸 12/上限 3/批限 120 常量单一真源；生产实测 pending 4482 透出）。
+
+### 下一步（四域方案已全收口；新议题另立）
+- 总方案 `docs/EVOLUTION_PLAN_20260922.md` 五批全交付；开口项见第八节（运维现场项/卫生项/新议题）。
 
 ### 关键拍板（长期有效）
 - **ToIV 仅本地自用/学习，不公开运营**——社区广场/UGC 合规搁置备档；hypit 平台级集成否决。
@@ -167,9 +169,8 @@
 
 ## 八、未完成任务总表（仅存开口项；已核销见归档/STATE.json）
 
-### 产品（批 4 之后）
-- [ ] 四域方案批 5（收尾）：助手 A4 移动端 → Admin D7 工程化（admin 测试 0→1/lib 瘦身/deploy 固化）→ D5 观测深化（knowledge-graph UI/队列闸）
-- [ ] authed-agents-ui.spec 3 例陈旧重写（已 skip 登记：GenerateView 09-12 退役/管理系统 09-15 独立 :3200，重写按新架构；admin e2e 随 D7 一并）
+### 产品（批 5 收尾后）
+- [ ] authed-agents-ui.spec 3 例陈旧重写（已 skip 登记：GenerateView 09-12 退役/管理系统 09-15 独立 :3200，重写按新架构；admin e2e 随 D7 后补——admin 已有 node:test 基建可搭 e2e）
 - [ ] MODEL_SOURCES 更新需同步重拷 `apps/api/app/data/model_sources.json`（docs 不在 rsync 范围）；实测矩阵快照同（`app/data/app_test_matrix/`）
 - [ ] A1 工具卡回放语义：历史会话 tool 消息不重建 payload 卡（现状仅实时流渲染，与 chip 回放一致；如需回放卡另立项）
 - [ ] Comfy 二次编辑 save-back（open-in-comfy 已通）

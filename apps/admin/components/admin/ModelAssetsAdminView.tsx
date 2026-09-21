@@ -5,17 +5,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   enrichModelWiki,
   fetchEngines,
+  fetchKnowledgeGraph,
   fetchModelSources,
   listLocalModels,
   listModelWiki,
   refreshEngines,
   type EnginesResponse,
+  type KgNode,
+  type KgQueryResponse,
   type ModelSourceItem,
   type ModelSourcesResponse,
   type ModelWikiCard,
 } from "@/lib/api";
 import type { LocalModels } from "@/lib/types";
-import { Badge } from "@/components/ui/Badge";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
@@ -25,7 +28,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Switch } from "@/components/ui/Switch";
 import { Tabs } from "@/components/ui/Tabs";
 
-type MaSection = "local" | "wiki" | "engines" | "sources";
+type MaSection = "local" | "wiki" | "engines" | "sources" | "graph";
 
 const TOAST_MS = 3600;
 /** 出处清单默认截断行数(813 行全量渲染过重;「显示全部」展开)。 */
@@ -874,7 +877,341 @@ function SourcesSection() {
 }
 
 // ---------------------------------------------------------------------------
-// D2 模型资产域(2026-09-22):四区块 tab 化(信息密度优先)
+// e. 知识图谱反查(D5,2026-09-22):webappId/应用/引擎/模型 → ≤depth 跳邻域
+// ---------------------------------------------------------------------------
+
+const KG_TYPE_LABEL: Record<string, string> = {
+  engine: "引擎",
+  engine_family: "引擎族",
+  lora: "LoRA",
+  app: "应用",
+  rh_webapp: "RH 出处",
+  model: "模型",
+  external_source: "外部来源",
+};
+
+const KG_TYPE_TONE: Record<string, BadgeTone> = {
+  engine: "accent",
+  app: "run",
+  lora: "ok",
+  model: "warn",
+  rh_webapp: "neutral",
+  engine_family: "neutral",
+  external_source: "neutral",
+};
+
+/** 节点关键信息摘要(按类型取 props 主字段,截断展示)。 */
+function kgNodeBrief(n: KgNode): string {
+  const p = n.props ?? {};
+  const s = (k: string): string => (typeof p[k] === "string" ? (p[k] as string) : "");
+  const num = (k: string): string =>
+    typeof p[k] === "number" ? String(p[k]) : "";
+  switch (n.type) {
+    case "engine":
+      return [s("kind") && `kind ${s("kind")}`, truncate(s("description"), 40)]
+        .filter(Boolean)
+        .join(" · ");
+    case "lora":
+      return [
+        s("filename"),
+        s("role") && `role ${s("role")}`,
+        num("default_strength") && `强度 ${num("default_strength")}`,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    case "app":
+      return [
+        s("app_id"),
+        s("category"),
+        s("output_kind") && `输出 ${s("output_kind")}`,
+        s("rh_webapp_id") && `webapp ${s("rh_webapp_id")}`,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    case "rh_webapp":
+      return s("webapp_id") && `webappId ${s("webapp_id")}`;
+    case "engine_family":
+      return s("family") && `族 ${s("family")}`;
+    case "model":
+      return [s("filename"), s("base_model"), s("creator")].filter(Boolean).join(" · ");
+    case "external_source":
+      return [s("provider"), s("source_id")].filter(Boolean).join(" ");
+    default:
+      return "";
+  }
+}
+
+/** 节点出处外链(props 里第一个可用 URL;rh_webapp 无 URL 不臆造链接)。 */
+function kgNodeLink(n: KgNode): string | null {
+  const p = n.props ?? {};
+  for (const k of ["source_url", "civitai_url", "url"]) {
+    const v = p[k];
+    if (typeof v === "string" && /^https?:\/\//.test(v)) return v;
+  }
+  return null;
+}
+
+/** 行数默认截断(图谱邻域大时全量渲染过重;「显示全部」展开)。 */
+const KG_DEFAULT_ROWS = 200;
+
+function GraphSection() {
+  const [entity, setEntity] = useState("");
+  const [depth, setDepth] = useState(1);
+  const [applied, setApplied] = useState<{ entity: string; depth: number } | null>(null);
+  const [data, setData] = useState<KgQueryResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showAllNodes, setShowAllNodes] = useState(false);
+  const [showAllEdges, setShowAllEdges] = useState(false);
+
+  const runQuery = useCallback((q: { entity: string; depth: number } | null) => {
+    setApplied(q);
+    setData(null);
+    setError(null);
+    setShowAllNodes(false);
+    setShowAllEdges(false);
+    if (!q) return;
+    setLoading(true);
+    fetchKnowledgeGraph({ entity: q.entity, depth: q.depth })
+      .then(setData)
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : "知识图谱查询失败"),
+      )
+      .finally(() => setLoading(false));
+  }, []);
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = entity.trim();
+    if (!q) return;
+    runQuery({ entity: q, depth });
+  };
+
+  const onDepthChange = (d: number) => {
+    setDepth(d);
+    // 已有查询在跑时,调深度立即按新深度重查
+    if (applied) runQuery({ entity: applied.entity, depth: d });
+  };
+
+  const nodes = data?.nodes ?? [];
+  const edges = data?.edges ?? [];
+  const visibleNodes = showAllNodes ? nodes : nodes.slice(0, KG_DEFAULT_ROWS);
+  const visibleEdges = showAllEdges ? edges : edges.slice(0, KG_DEFAULT_ROWS);
+
+  return (
+    <div className="ma-section">
+      <div className="ma-filters at-card">
+        <form className="ma-kg-form" onSubmit={onSubmit}>
+          <input
+            type="search"
+            className="input ma-search"
+            value={entity}
+            onChange={(e) => setEntity(e.target.value)}
+            placeholder="webappId / 应用 id / 引擎或模型名(模糊命中 id·名称·出处)…"
+            aria-label="图谱反查关键词"
+          />
+          <select
+            className="input ma-kg-depth"
+            value={depth}
+            onChange={(e) => onDepthChange(Number(e.target.value))}
+            aria-label="邻域深度"
+            title="邻域深度(跳数)"
+          >
+            <option value={1}>1 跳</option>
+            <option value={2}>2 跳</option>
+            <option value={3}>3 跳</option>
+          </select>
+          <button
+            type="submit"
+            className="at-btn at-btn--primary"
+            disabled={loading || !entity.trim()}
+          >
+            <Icon name={loading ? "loading" : "search"} size={14} />
+            反查
+          </button>
+        </form>
+        {data && (
+          <span className="ma-section-note">
+            种子 {data.seeds.length} · 节点 {data.counts.nodes} · 边 {data.counts.edges}
+          </span>
+        )}
+      </div>
+
+      <div className="at-card ma-card">
+        {error && !loading && (
+          <div className="ma-error-row">
+            <ErrorBar message={error} onClose={() => setError(null)} />
+            <button
+              type="button"
+              className="at-btn at-btn--ghost"
+              onClick={() => runQuery(applied)}
+            >
+              <Icon name="refresh" size={14} />
+              重试
+            </button>
+          </div>
+        )}
+
+        {!error && loading && (
+          <LoadingBlock variant="line" count={4} className="ma-loading" />
+        )}
+
+        {!error && !loading && !applied && (
+          <Empty
+            size="section"
+            icon="workflow"
+            title="输入关键词反查知识图谱"
+            desc="实体:引擎 / 应用 / LoRA / 模型 / RH webapp 出处;按 id·名称·props 模糊命中后取 ≤3 跳邻域"
+          />
+        )}
+
+        {!error && !loading && applied && data && nodes.length === 0 && (
+          <Empty
+            size="section"
+            icon="search"
+            title="未命中任何节点"
+            desc={`「${applied.entity}」在图谱 id/名称/出处中均无匹配,换个关键词试试`}
+          />
+        )}
+
+        {!error && !loading && data && nodes.length > 0 && (
+          <>
+            <div className="ma-table-wrap">
+              <table className="ma-table">
+                <thead>
+                  <tr>
+                    <th className="ma-col-status">类型</th>
+                    <th>名称</th>
+                    <th>节点 id</th>
+                    <th>关键信息</th>
+                    <th className="ma-col-cat">出处</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleNodes.map((n) => {
+                    const link = kgNodeLink(n);
+                    const brief = kgNodeBrief(n);
+                    const isSeed = data.seeds.includes(n.id);
+                    return (
+                      <tr key={n.id}>
+                        <td className="ma-col-status">
+                          <Badge tone={KG_TYPE_TONE[n.type] ?? "neutral"} dot={false}>
+                            {KG_TYPE_LABEL[n.type] ?? n.type}
+                          </Badge>
+                        </td>
+                        <td>
+                          <span className="ma-name">
+                            {n.label}
+                            {isSeed && (
+                              <span className="ma-flag" title="命中种子节点">
+                                种子
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="ma-mono ma-dim" title={n.id}>
+                            {truncate(n.id, 44)}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="ma-dim" title={brief}>
+                            {brief ? truncate(brief, 56) : "—"}
+                          </span>
+                        </td>
+                        <td className="ma-col-cat">
+                          {link ? (
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="ma-link"
+                              title={link}
+                            >
+                              <Icon name="link" size={12} />
+                              来源
+                            </a>
+                          ) : (
+                            <span className="ma-dim">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {!showAllNodes && nodes.length > KG_DEFAULT_ROWS && (
+              <div className="ma-more-row">
+                <button
+                  type="button"
+                  className="at-btn at-btn--ghost"
+                  onClick={() => setShowAllNodes(true)}
+                >
+                  <Icon name="plus" size={14} />
+                  显示全部 {nodes.length} 个节点(当前 {KG_DEFAULT_ROWS})
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {data && edges.length > 0 && (
+        <div className="at-card ma-card">
+          <div className="ma-kg-edges-head">关系边({edges.length})</div>
+          <div className="ma-table-wrap">
+            <table className="ma-table">
+              <thead>
+                <tr>
+                  <th>源</th>
+                  <th className="ma-col-status">关系</th>
+                  <th>目标</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleEdges.map((e, i) => (
+                  <tr key={`${e.from}:${e.rel}:${e.to}:${i}`}>
+                    <td>
+                      <span className="ma-mono ma-dim" title={e.from}>
+                        {truncate(e.from, 48)}
+                      </span>
+                    </td>
+                    <td className="ma-col-status">
+                      <Badge tone="neutral" dot={false}>
+                        {e.rel}
+                      </Badge>
+                    </td>
+                    <td>
+                      <span className="ma-mono ma-dim" title={e.to}>
+                        {truncate(e.to, 48)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {!showAllEdges && edges.length > KG_DEFAULT_ROWS && (
+            <div className="ma-more-row">
+              <button
+                type="button"
+                className="at-btn at-btn--ghost"
+                onClick={() => setShowAllEdges(true)}
+              >
+                <Icon name="plus" size={14} />
+                显示全部 {edges.length} 条边(当前 {KG_DEFAULT_ROWS})
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// D2 模型资产域(2026-09-22):五区块 tab 化(信息密度优先;图谱反查=D5)
 // ---------------------------------------------------------------------------
 
 export function ModelAssetsAdminView() {
@@ -899,7 +1236,7 @@ export function ModelAssetsAdminView() {
     <div className="ma-view">
       <PageHeader
         title="模型资产"
-        desc="本地模型清单 · 模型百科 · 引擎注册表 · MODEL_SOURCES 出处"
+        desc="本地模型清单 · 模型百科 · 引擎注册表 · MODEL_SOURCES 出处 · 图谱反查"
       />
       <div className="ma-tabs">
         <Tabs
@@ -908,6 +1245,7 @@ export function ModelAssetsAdminView() {
             { key: "wiki", label: "模型百科", icon: <Icon name="library" size={14} /> },
             { key: "engines", label: "引擎注册表", icon: <Icon name="cpu" size={14} /> },
             { key: "sources", label: "出处清单", icon: <Icon name="filejson" size={14} /> },
+            { key: "graph", label: "图谱反查", icon: <Icon name="workflow" size={14} /> },
           ]}
           current={section}
           onChange={(k) => setSection(k as MaSection)}
@@ -919,6 +1257,7 @@ export function ModelAssetsAdminView() {
       {section === "wiki" && <WikiSection showToast={showToast} />}
       {section === "engines" && <EnginesSection showToast={showToast} />}
       {section === "sources" && <SourcesSection />}
+      {section === "graph" && <GraphSection />}
 
       {toast && <div className={`ma-toast ${toast.tone}`}>{toast.msg}</div>}
 
@@ -986,6 +1325,24 @@ export function ModelAssetsAdminView() {
         .ma-search {
           flex: 1 1 220px;
           min-width: 160px;
+        }
+        .ma-kg-form {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          flex: 1 1 420px;
+          min-width: 240px;
+        }
+        .ma-kg-depth {
+          flex-shrink: 0;
+          min-width: 84px;
+        }
+        .ma-kg-edges-head {
+          padding: var(--space-3) var(--space-4);
+          font-size: var(--text-aux);
+          font-weight: var(--font-medium);
+          color: var(--text-secondary);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .ma-action {
           margin-left: auto;

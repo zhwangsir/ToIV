@@ -1,5 +1,5 @@
 {
- "updated_at": "2026-09-22T02:00:00+08:00",
+ "updated_at": "2026-09-22T03:30:00+08:00",
  "full_launch_sprint_2026_09_14": {
   "status": "closed_497_of_550_90_4pct_user_testing_next",
   "date": "2026-09-14",
@@ -12061,5 +12061,20 @@
   "production": "web BUILD_ID 20260921-193554-nogit;admin 重构部署;api 新两端点实测 200(813 项/L0 550/L2 24)",
   "verification": "真机:助手门户/popup/历史面板 A3 后全正常;D2 出处清单 476/336/812 三卡;D6 L0 五卡+L2 区;截图 dogfood-output/screenshots/batch4-*.png",
   "remaining": "批 5(收尾):助手 A4 移动端/Admin D7 工程化(admin 测试 0→1+lib 瘦身+deploy 固化)/D5 观测深化;MODEL_SOURCES 更新需重拷 app/data 快照"
+ },
+ "batch5_finale_2026_09_22": {
+  "status": "done",
+  "date": "2026-09-22",
+  "source": "设备管家",
+  "scope": "四域方案批 5(收尾批)——五批全收口",
+  "delivered": [
+   "A4 移动端:AssistantOverlay 窄屏全屏 sheet(把手下滑关闭 96px+av-sheet-in+reduced-motion 豁免,桌面 popup 零改动);⌘K 入「更多」抽屉首位(setPaletteOpen 同通道);composer 断点特化(44px token 化+av-composer-docs 折叠)。7 jest+真机 iPhone 验证",
+   "D7:lib/api.ts 5387→1224 行(450 导出静态核+BFS 闭包删 338 零引用;9 域文件+barrel 导入零改动);admin 测试 0→1(node:test 4 文件 12 例);deploy-admin.sh 固化 core 本机构建(dogfood 23s 一次过)",
+   "D5:模型资产第五 tab「图谱反查」(knowledge-graph entity+depth);观测第四卡「封面队列闸」(observability 聚合 cover_gate,闸 12/上限 3/批限 120 单一真源,生产 pending 4482)"
+  ],
+  "tests": "api 3332(+1 cover_gate)/web 1028(+7)/admin 12(0→1)/e2e 10 过 3 跳(陈旧登记)",
+  "production": "web BUILD_ID 20260921-204424-nogit;admin deploy-admin.sh 固化版部署;cover_gate 生产透出",
+  "verification": "真机:移动端 sheet(把手+390×640 面板+提示正确隐藏)/⌘K 抽屉入口/观测闸卡/KG h3-t2v 反查 235 节点;截图 dogfood-output/screenshots/batch5-*.png",
+  "remaining": "开口项见 AGENTS 八节:运维现场项(openclaw/cloud tailscaled/core BIOS)/spec 陈旧重写/快照重拷口径/A1 回放卡/Comfy save-back/SeC 边界"
  }
 }

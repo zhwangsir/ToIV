@@ -1,30 +1,32 @@
 #!/usr/bin/env bash
 # 部署独立管理系统(apps/admin → core :3200,systemd toiv-admin)。
-# 用法: bash deploy/deploy-admin.sh
-# 前置: cd apps/admin && npm run build(本脚本校验 .next/BUILD_ID 存在)
-set -eu
+# 用法: bash deploy/deploy-admin.sh [REMOTE]
+#
+# 现行口径(2026-09-22 固化,D7):一律 core 本机构建——
+#   ① rsync 源码(不含 node_modules/.next/.git/env)
+#   ② core 全量 npm install(勿 --omit=dev:缺 typescript 会报 @/components 假线索)
+#   ③ core npm run build
+#   ④ 刷新 systemd unit + restart + 健康等待
+# 历史教训:Mac 外地 Tailscale ~37KB/s,.next 构建产物不可传输;
+#   旧版 Mac 构建+rsync .next 口径已退役(且 admin 构建前 core 必须全量 install)。
+set -eEuo pipefail
 
-SSH_OPTS=(-o ConnectTimeout=8)
-REMOTE="${1:-merlin@100.77.80.100}"  # Tailscale(外出可部署)
+SSH_OPTS=(-o ConnectTimeout=40 -o ServerAliveInterval=10 -o ServerAliveCountMax=6)
+REMOTE="${1:-core-ts}"  # Tailscale(外地可部署);LAN 在家时也可传 core
 REMOTE_DIR="/home/merlin/toiv"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-
-if [ ! -f apps/admin/.next/BUILD_ID ]; then
-  echo "✖ 本地无 apps/admin/.next 构建产物。请先: cd apps/admin && npm run build" >&2
-  exit 1
-fi
 
 echo "▶ rsync 管理系统源码 → ${REMOTE}:${REMOTE_DIR}/admin/ …"
 rsync -az --delete -e "ssh ${SSH_OPTS[*]}" \
   --exclude=node_modules --exclude=.next --exclude=.git --exclude='*.env*' \
   apps/admin/ "${REMOTE}:${REMOTE_DIR}/admin/"
-echo "▶ rsync 构建产物 .next …"
-rsync -az --delete -e "ssh ${SSH_OPTS[*]}" --exclude=cache \
-  apps/admin/.next/ "${REMOTE}:${REMOTE_DIR}/admin/.next/"
 
-echo "▶ 远端依赖安装(仅首次/依赖变更时实际耗时)…"
-ssh "${SSH_OPTS[@]}" "${REMOTE}" "cd ${REMOTE_DIR}/admin && PATH=/usr/share/nodejs/corepack/shims:\$PATH npm install --omit=dev --no-audit --no-fund 2>&1 | tail -1"
+echo "▶ core 全量依赖安装(依赖未变时秒回)…"
+ssh "${SSH_OPTS[@]}" "${REMOTE}" "cd ${REMOTE_DIR}/admin && PATH=/usr/share/nodejs/corepack/shims:\$PATH npm install --no-audit --no-fund 2>&1 | tail -1"
+
+echo "▶ core 本机构建(.next 不出机)…"
+ssh "${SSH_OPTS[@]}" "${REMOTE}" "cd ${REMOTE_DIR}/admin && PATH=/usr/share/nodejs/corepack/shims:\$PATH npm run build 2>&1 | tail -12"
 
 echo "▶ 安装/刷新 systemd unit(toiv-admin, :3200)…"
 ssh "${SSH_OPTS[@]}" "${REMOTE}" "sudo tee /etc/systemd/system/toiv-admin.service > /dev/null" <<'UNIT'
@@ -56,7 +58,7 @@ for i in $(seq 1 30); do
   code=$(ssh "${SSH_OPTS[@]}" "${REMOTE}" "curl -s -o /dev/null -w '%{http_code}' http://localhost:3200/ || true")
   if [ "$code" = "200" ]; then
     echo "  toiv-admin 已就绪(第 ${i} 次探测)"
-    echo "✅ 管理系统部署完成: http://192.168.71.47:3200"
+    echo "✅ 管理系统部署完成: http://192.168.71.47:3200(core 本机构建)"
     exit 0
   fi
   sleep 2

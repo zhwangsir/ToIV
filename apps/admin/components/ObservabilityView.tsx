@@ -11,6 +11,7 @@ import {
   fetchObservability,
   triggerGpuSmoke,
   type ComfyBackend,
+  type CoverGateState,
   type FleetDeviceDetail,
   type FleetDeviceSummary,
   type FleetServiceStatus,
@@ -470,8 +471,113 @@ function GpuSmokeCard() {
   );
 }
 
-/** 「服务健康」区:whisper 集群 / LB 后端池 / GPU 冒烟 三卡(Fleet 区下方)。 */
-function ServiceHealthSection({ fleet }: { fleet: FleetSummary | null }) {
+/** 封面队列闸卡(D5,2026-09-22):autorefire 深度闸状态(随观测快照透出,12s 轮询同源刷新)。
+ *  字段以 cover_gate 为准;「跳过数」后端无计数器,从略并在来源行注明。 */
+function CoverGateCard({
+  gate,
+  onRefresh,
+}: {
+  /** undefined=旧后端快照无此键(api 未部署);null=快照未就绪。 */
+  gate: CoverGateState | null | undefined;
+  onRefresh: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      await onRefresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const summary = gate?.summary;
+  const batchLine = (() => {
+    if (!gate) return "";
+    if (!summary || summary.never_run) return "尚未跑过批次";
+    if (summary.running) {
+      const el = summary.elapsed_s != null ? ` · ${summary.elapsed_s}s` : "";
+      return `在跑 ${summary.done ?? 0}/${summary.total ?? "—"} · ok ${summary.ok ?? 0}${el}`;
+    }
+    const at = summary.finished_at ?? summary.started_at ?? "";
+    return `最近批 ${summary.done ?? 0}/${summary.total ?? "—"} · ok ${summary.ok ?? 0}${at ? ` · ${at}` : ""}`;
+  })();
+
+  return (
+    <div className="obs-health-card" aria-label="封面队列闸">
+      <div className="obs-health-head">
+        封面队列闸(深度 {gate ? `${gate.queue_depth}/${gate.queue_guard}` : "—"})
+        <button
+          type="button"
+          className="obs-health-refresh"
+          onClick={() => void run()}
+          disabled={busy}
+          title="重新拉取观测快照"
+          aria-label="刷新封面队列闸"
+        >
+          <Icon name={busy ? "loading" : "refresh"} size={13} />
+        </button>
+      </div>
+      {gate === undefined && (
+        <p className="obs-health-note">当前后端快照无 cover_gate 字段 · 待 api 部署后展示</p>
+      )}
+      {gate === null && <p className="obs-health-note">等待快照数据…</p>}
+      {gate && (
+        <>
+          <div className="obs-health-summary">
+            <Badge tone={gate.gated ? "err" : "ok"}>
+              {gate.gated ? "已触发·暂停续发" : "放行"}
+            </Badge>
+            {gate.running && <Badge tone="run">批次在跑</Badge>}
+            {!gate.autorefire_enabled && (
+              <Badge tone="neutral" title="TOIV_COVER_AUTOREFIRE=0">
+                autorefire 停用
+              </Badge>
+            )}
+          </div>
+          <ul className="obs-health-list">
+            <li>
+              <span className="obs-health-name">fleet 排队深度</span>
+              <span className="obs-health-meta">
+                {gate.queue_depth} / 闸值 {gate.queue_guard}
+              </span>
+            </li>
+            <li>
+              <span className="obs-health-name">待做目标</span>
+              <span className="obs-health-meta">{gate.pending} 个应用</span>
+            </li>
+            <li>
+              <span className="obs-health-name">批次</span>
+              <span className="obs-health-meta" title={batchLine}>
+                {batchLine}
+              </span>
+            </li>
+            <li>
+              <span className="obs-health-name">限幅</span>
+              <span className="obs-health-meta">
+                尝试上限 {gate.attempt_cap} 次/应用 · 批限 {gate.batch_limit}
+              </span>
+            </li>
+          </ul>
+          <p className="obs-health-note">
+            来源:cover_gate(app_cover_demo 状态函数,10s 快照缓存)·「跳过数」无计数器未展示
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** 「服务健康」区:whisper 集群 / LB 后端池 / GPU 冒烟 / 封面队列闸 四卡(Fleet 区下方)。 */
+function ServiceHealthSection({
+  fleet,
+  gate,
+  onRefreshGate,
+}: {
+  fleet: FleetSummary | null;
+  gate: CoverGateState | null | undefined;
+  onRefreshGate: () => Promise<void>;
+}) {
   return (
     <section className="obs-card" aria-label="服务健康">
       <h2 className="obs-card-title">服务健康</h2>
@@ -479,6 +585,7 @@ function ServiceHealthSection({ fleet }: { fleet: FleetSummary | null }) {
         <WhisperHealthCard fleet={fleet} />
         <LbBackendsCard />
         <GpuSmokeCard />
+        <CoverGateCard gate={gate} onRefresh={onRefreshGate} />
       </div>
     </section>
   );
@@ -1028,7 +1135,11 @@ export function ObservabilityView() {
             <ErrorBar message={fleetError} onClose={() => setFleetError(null)} />
           )}
           {fleet && <FleetSection fleet={fleet} onSelect={setSelected} />}
-          <ServiceHealthSection fleet={fleet} />
+          <ServiceHealthSection
+            fleet={fleet}
+            gate={data ? data.cover_gate : null}
+            onRefreshGate={() => load(true)}
+          />
           <KpiStrip data={data} />
           {data.held.reasons.length > 0 && (
             <ul className="obs-held-reasons">
@@ -1324,10 +1435,10 @@ function ObsStyles() {
           white-space: nowrap;
           cursor: help;
         }
-        /* ── 服务健康三卡(P0 设备域 v1) ── */
+        /* ── 服务健康四卡(P0 设备域 v1 + D5 封面队列闸) ── */
         .obs-health-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
           gap: var(--space-3, 12px);
         }
         @media (max-width: 1080px) {
