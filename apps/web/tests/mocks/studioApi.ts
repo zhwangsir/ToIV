@@ -412,6 +412,11 @@ export const getMe = async (): Promise<{ user: { id: string; email: string; role
 });
 export const fetchMe = getMe;
 
+/** 说明书知识图谱(P2)关联应用替身(AppRunnerView 链接期需要;默认空数组)。 */
+export const fetchAppRelations = async (): Promise<
+  { id: string; name: string; cover_url: string; use_case: string; output_kind: string }[]
+> => [];
+
 
 /** 分镜 AI 扩写替身(ShotCard 链接期需要;交互不触发,返回空结构)。 */
 export const optimizeStudioShot = async (): Promise<{
