@@ -2684,3 +2684,36 @@
   font-size: 12px;
   color: var(--text-2);
 }
+
+/* 说明书知识图谱:关联应用 chips(2026-09-21 P2) */
+.apps-guide-relations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.apps-guide-relation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 3px;
+  border: 1px solid var(--line, rgba(235, 237, 245, 0.1));
+  border-radius: var(--radius-full, 999px);
+  background: var(--bg-elevated, #16181e);
+  color: var(--text-secondary, rgba(235, 237, 245, 0.72));
+  font-size: 12px;
+  text-decoration: none;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+.apps-guide-relation-chip:hover {
+  border-color: color-mix(in srgb, var(--accent, #b8f03c) 45%, transparent);
+  color: var(--text-primary);
+}
+.apps-guide-relation-chip img,
+.apps-guide-relation-noimg {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-block;
+  background: var(--bg-base, #0e1013);
+}

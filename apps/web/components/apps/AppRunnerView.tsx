@@ -35,7 +35,7 @@ import {
   type AppItem,
   type AppParam,
 } from "@/lib/apps";
-import { getMe, imageUrl, listJobs } from "@/lib/api";
+import { fetchAppRelations, getMe, imageThumbUrl, imageUrl, listJobs, type AppRelation } from "@/lib/api";
 import type { H3AccelLevel } from "@/lib/h3Accel";
 import { confirmAge, isAgeConfirmed, useR18Mode } from "@/lib/r18";
 import { mediaKindOf } from "@/lib/mediaKind";
@@ -870,6 +870,18 @@ function RhPanelTabs({
  * 「应用详情」tab(封面之下)复用。空字段小节整节不渲染;样式在 apps.css(apps-guide- 前缀)。
  */
 function AppGuideCard({ guide }: { guide: AppGuide }) {
+  const [relations, setRelations] = useState<AppRelation[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (guide.related_app_ids.length > 0) {
+      fetchAppRelations(guide.app_id)
+        .then((rs) => { if (alive) setRelations(rs); })
+        .catch(() => { /* 关联拉取失败不阻塞指南卡 */ });
+    } else {
+      setRelations([]);
+    }
+    return () => { alive = false; };
+  }, [guide.app_id, guide.related_app_ids.length]);
   return (
     <section className="apps-guide-card" aria-label="使用指南">
       <h2 className="rh-detail-section-title">使用指南</h2>
@@ -927,6 +939,28 @@ function AppGuideCard({ guide }: { guide: AppGuide }) {
               <li key={i}>{s}</li>
             ))}
           </ul>
+        </div>
+      )}
+      {relations && relations.length > 0 && (
+        <div className="apps-guide-section">
+          <h3 className="apps-guide-subtitle">关联应用</h3>
+          <div className="apps-guide-relations">
+            {relations.map((r) => (
+              <a
+                key={r.id}
+                className="apps-guide-relation-chip"
+                href={`/?view=market&app=${r.id}`}
+                title={`${r.name}(打开运行台)`}
+              >
+                {r.cover_url ? (
+                  <img src={imageThumbUrl(r.cover_url)} alt={r.name} loading="lazy" decoding="async" />
+                ) : (
+                  <span className="apps-guide-relation-noimg" aria-hidden="true" />
+                )}
+                <span>{r.name}</span>
+              </a>
+            ))}
+          </div>
         </div>
       )}
     </section>

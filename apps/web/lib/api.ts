@@ -668,6 +668,22 @@ export async function fetchAgentCanvasProposal(sessionId: string): Promise<Agent
   return res.json();
 }
 
+/** 说明书知识图谱(P2):应用关联应用(名称/封面/用途分类;未回填时空数组)。 */
+export interface AppRelation {
+  id: string;
+  name: string;
+  cover_url: string;
+  use_case: string;
+  output_kind: string;
+}
+
+export async function fetchAppRelations(appId: string): Promise<AppRelation[]> {
+  const res = await apiFetch(`/api/apps/${appId}/relations`, { headers: authHeaders() });
+  if (res.status === 404) return [];
+  if (!res.ok) await raiseApiError(res, "拉取关联应用失败");
+  return res.json();
+}
+
 export interface BoardRemixResult {
   board: BoardOut;
   stats: { shots: number; video_reset: number; voice_redo: number };

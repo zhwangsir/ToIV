@@ -125,6 +125,53 @@ def get_published_guide(
     return _guide_out(g)
 
 
+@router.get("/apps/{aid}/relations")
+def get_app_relations(
+    aid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """说明书知识图谱(P2):该应用已发布说明书的关联应用(名称/封面/用途分类)。
+
+    前端「关联应用」chips 用;related_app_ids 未回填的应用返回空数组。
+    """
+    a = session.get(App, aid)
+    if not a or not _app_visible_for_read(a, user):
+        raise HTTPException(status_code=404, detail="应用不存在")
+    if a.is_nsfw and not nsfw_allowed(user):
+        raise HTTPException(status_code=404, detail="应用不存在")
+    g = session.get(AppGuide, aid)
+    if not g or g.status != "published":
+        return []
+    out: list[dict] = []
+    for rid in (g.related_app_ids or []):
+        r = session.get(App, str(rid))
+        if r is None or not _app_visible_for_read(r, user):
+            continue
+        if r.is_nsfw and not nsfw_allowed(user):
+            continue
+        out.append({
+            "id": r.id,
+            "name": r.name,
+            "cover_url": r.cover_url or "",
+            "use_case": r.use_case or "",
+            "output_kind": r.output_kind or "image",
+        })
+    return out
+
+
+@router.post("/admin/app-guides/relations/backfill")
+def admin_backfill_relations(
+    admin: User = Depends(get_current_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    """说明书知识图谱回填(P2):全量 published 卡按确定性相似度写 related_app_ids。"""
+    _ = admin
+    from app.services.app_guide_relations import backfill_relations
+
+    return backfill_relations(session, only_empty=True)
+
+
 @router.get("/admin/app-guides")
 def admin_list_guides(
     admin: User = Depends(get_current_admin),
