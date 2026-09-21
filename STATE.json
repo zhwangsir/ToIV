@@ -11962,5 +11962,29 @@
     "pitfall": "admin 无 nsfw_enabled 时 /api/apps 列表自动滤 R18;补打须 X-NSFW: 1 头",
     "relates_to": "rh_accurate_reseed_scale3_2026_09_21",
     "note": "SCALE3 新种 4524 应用 use_case 全量打标收口;市场场景组导航计数恢复全覆盖"
+  },
+  "api_pool_wedge_incident_2026_09_21": {
+    "status": "fixed_verified",
+    "live": true,
+    "date": "2026-09-21",
+    "source": "ToIV 开发",
+    "severity": "P0 (全 API 假死,双入口 000)",
+    "trigger": "SCALE3 目录 550→5140 公开应用(列表 7MB)后 e2e 慢流式响应",
+    "mechanism": "FastAPI yield 依赖响应流完才 teardown → DB 会话挂到 7MB 慢流结束;命中路径亦因 auth 查询开事务;默认池 5+10 共 15 条全 idle in transaction → QueuePool 超时连锁",
+    "fix_commit": "fb7a69d",
+    "fix_layers": [
+      "db.py PG pool_size=20/max_overflow=20/pool_timeout=15/pool_recycle=1800/pool_pre_ping",
+      "list_apps 三条返回路径全部显式 session.close()(命中/单飞复核/冷路径)",
+      "apps_list_cache 重建全局单飞锁 double-check"
+    ],
+    "accepted_residual": "_demo_one/app_smoke._run_batch 设计性持会话跨生成 await(有界钉持,池 40 容量下无害);教训:异步长任务禁持 DB 会话跨 await",
+    "verification": {
+      "pg_final": "20 idle / 0 idle-in-transaction",
+      "e2e": "11/11 (修前 9 fail/2 pass)",
+      "api_tests": 3306,
+      "apps_list_cold": "2.4s"
+    },
+    "diagnostics": "core venv 已装 py-spy(sudo dump);pg_stat_activity 查询文本+state_change 是楔死定位主证据",
+    "note": "demo 批新种无封面 rh-acc 失败属已知硬阻塞类(missing_node/480s poll),有界勿误读"
   }
 }
