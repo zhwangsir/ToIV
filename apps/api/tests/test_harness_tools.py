@@ -70,6 +70,7 @@ LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作�
 - generate_shot:单独重跑分镜板某一镜(审片点名不满意/失败重试)
 - assemble_storyboard:一键成片(逐镜生成+配音+词锚定字幕+拼接;后台执行返回作业 id)
 - check_film:查询一键成片作业状态与产物(done 自动展示成片)
+- remix_storyboard:整片级 remix(克隆板换主角/换词/换背景并自动成片;原版不动)
 - list_smoke_failures:列出烟测失败/超时的应用及归因(仅管理员)
 - explain_app_failure:详解一个应用的烟测失败+修复建议+已有提案(仅管理员)
 - run_app_smoke:对应用现场重跑烟测(管线自动归因+修复重试;仅管理员)
@@ -108,7 +109,7 @@ BUILTIN_ORDER = [
     "navigate_view", "prefill_generate", "open_asset",
     # 漫剧线工具(2026-09-21 A1 多轮导演:分镜板管线)
     "create_storyboard", "get_storyboard", "generate_shot",
-    "assemble_storyboard", "check_film",
+    "assemble_storyboard", "check_film", "remix_storyboard",
     # 自愈闭环延伸工具(2026-09-21 A3:烟测失败归因/修复建议)
     "list_smoke_failures", "explain_app_failure", "run_app_smoke", "reject_app_fix",
 ]

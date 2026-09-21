@@ -187,6 +187,8 @@ def builtin_tool_specs() -> list[ToolSpec]:
                      "一键成片(逐镜生成+配音+词锚定字幕+拼接;后台执行返回作业 id)", rate_scope=""),
             ToolSpec("check_film", ds("check_film"), tools_drama.exec_check_film,
                      "查询一键成片作业状态与产物(done 自动展示成片)", rate_scope=""),
+            ToolSpec("remix_storyboard", ds("remix_storyboard"), tools_drama.exec_remix_storyboard,
+                     "整片级 remix(克隆板换主角/换词/换背景并自动成片;原版不动)", rate_scope=""),
         ]
 
     def _selfheal_specs() -> list[ToolSpec]:

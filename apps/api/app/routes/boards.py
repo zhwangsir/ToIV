@@ -10,6 +10,7 @@
 - PUT    /api/boards/{id}/items 整组替换成员(增删+重排一次写,防半状态;job_id 空=占位行)
 - POST   /api/boards/{id}/items/{item_id}/generate 分镜单镜生成(M2:角色实体→phantom/h3 参考图)
 - POST   /api/boards/{id}/assemble 一键成片(M3:逐镜生成+配音+词锚定字幕+ffmpeg 拼接)
+- POST   /api/boards/{id}/remix 整片级 remix(M3.5:克隆板+换主角/换词/换背景+一键成片)
 - GET    /api/boards/{id}/film-jobs 该板成片作业(新→旧,带进度)
 - GET    /api/boards/film/{name} 成片/字幕文件(mp4|ass|srt)
 - GET    /api/boards/{id}/export 整板导出 drama_studio 格式 JSON(附件下载)
@@ -107,6 +108,24 @@ class AssembleIn(BaseModel):
     fps: int = Field(default=16, ge=8, le=30)
     reuse_existing: bool = True
     burn_subtitles: bool = True
+
+
+class RemixIn(BaseModel):
+    """整片级 remix(M3.5):克隆板+结构级改写+一键成片(默认自动发起)。
+
+    - kind=protagonist:character_map={旧角色名: 新主体 id}(命中行强制重出);
+    - kind=words:dialogue_overrides={item_id: {dialogue, speaker?}}(视频全复用,最省);
+    - kind=broll:prompt_suffix 全局追加 或 prompt_overrides={item_id: prompt}(强制重出)。
+    """
+
+    kind: str = Field(pattern="^(protagonist|words|broll)$")
+    engine: str = Field(default="phantom-s2v", pattern="^(phantom-s2v|h3-r2v|h3-t2v)$")
+    fps: int = Field(default=16, ge=8, le=30)
+    character_map: dict[str, str] = Field(default_factory=dict)
+    dialogue_overrides: dict[int, dict] = Field(default_factory=dict)
+    prompt_suffix: str = Field(default="", max_length=500)
+    prompt_overrides: dict[int, str] = Field(default_factory=dict)
+    auto_assemble: bool = True
 
 
 def _board_out(session: Session, b: Board) -> dict:
@@ -346,6 +365,38 @@ def export_board(
 
 
 _FILM_NAME_RE = re.compile(r"^board-film-[0-9a-f]{32}\.(mp4|ass|srt)$")
+
+
+@router.post("/boards/{board_id}/remix")
+async def remix_board(
+    board_id: str,
+    body: RemixIn,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """整片级 remix(M3.5):克隆板+按类改写+(默认)一键成片。
+
+    返回新板 id 与(若 auto_assemble)成片作业 prompt_id;原版不动。
+    """
+    enforce_generation_rate_limit(user)
+    b = _owned_board(session, user, board_id)
+    from app.services.board_remix import clone_board_with_remix, resolve_character_map
+
+    character_map = None
+    if body.kind == "protagonist":
+        character_map = resolve_character_map(session, user, body.character_map)
+    nb, stats = clone_board_with_remix(
+        session, user, b, body.kind,
+        character_map=character_map,
+        dialogue_overrides=body.dialogue_overrides,
+        prompt_suffix=body.prompt_suffix,
+        prompt_overrides=body.prompt_overrides,
+    )
+    out: dict = {"board": _board_out(session, nb), "stats": stats, "film": None}
+    if body.auto_assemble:
+        job = start_board_film(session, user, nb, body.engine, body.fps)
+        out["film"] = {"prompt_id": job.prompt_id, "kind": job.kind, "status": job.status}
+    return out
 
 
 @router.post("/boards/{board_id}/assemble")

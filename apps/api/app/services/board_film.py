@@ -286,14 +286,31 @@ async def _synth_voice(text: str, speaker: str, entities: list[Entity | None]) -
 
 
 async def _download_clip(pool: WorkerPool, url: str, dest: Path) -> None:
-    """下载片段:/api/images 产物走 pool 直读(绕 401),其余 httpx 直取。"""
+    """下载片段:/api/images 产物走 pool 直读(绕 401);站内鉴权端点
+    (/api/boards/film、/api/drama/output、/api/studio/files、/api/drama/voice)
+    直接读本地文件(服务端自调无 token 必 401,remix 链式引用成片实证);其余 httpx 直取。
+    """
     from urllib.parse import urlsplit
 
-    if urlsplit(url).path.startswith("/api/images"):
+    path = urlsplit(url).path
+    if path.startswith("/api/images"):
         from app.routes.drama_studio import _download_images_clip
 
         await _download_images_clip(pool, url, dest)
         return
+    for prefix, root in (
+        ("/api/boards/film/", drama_output_root()),
+        ("/api/drama/output/", drama_output_root()),
+        ("/api/studio/files/", drama_output_root() / "studio"),
+        ("/api/drama/voice/", drama_output_root()),
+    ):
+        if path.startswith(prefix):
+            src = root / path[len(prefix):]
+            if not src.is_file():
+                raise HTTPException(status_code=404, detail=f"本地片段不存在: {src.name}")
+            content = await asyncio.to_thread(src.read_bytes)
+            await asyncio.to_thread(dest.write_bytes, content)
+            return
     async with httpx.AsyncClient(timeout=180.0, follow_redirects=True, trust_env=False) as client:
         r = await client.get(_resolve_local_url(url))
         r.raise_for_status()

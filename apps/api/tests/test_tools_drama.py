@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 import app.agent.tools_drama as tools_drama
-from app.models import Board, BoardItem, Job, Tenant, User
+from app.models import Board, BoardItem, Entity, Job, Tenant, User
 from app.security import hash_password
 
 
@@ -206,3 +206,56 @@ def test_assemble_conflict_text(ctx_factory, monkeypatch):
     text, events = _run(tools_drama.exec_assemble_storyboard({"board_id": bid}, c))
     assert "409" not in text and "已有在跑" in text and events[0]["type"] == "tool_event"
     c["session"].close()
+
+
+def test_remix_storyboard_tool(ctx_factory, monkeypatch):
+    engine, (u1, _) = ctx_factory
+    with Session(engine) as s:
+        u1o = s.get(User, u1)
+        b = Board(tenant_id=u1o.tenant_id, user_id=u1, name="原板")
+        s.add(b)
+        s.commit()
+        s.refresh(b)
+        e = Entity(tenant_id=u1o.tenant_id, user_id=u1, kind="character", name="雪衣",
+                   prompt_hint="1girl, silver hair")
+        s.add(e)
+        it = BoardItem(board_id=b.id, job_id="", sort_order=0, shot_text="镜一",
+                       shot_meta='{"prompt":"林凡 runs","characters":["林凡"],"entity_ids":[]}')
+        s.add(it)
+        s.commit()
+        s.refresh(e)
+        bid, eid = b.id, e.id
+
+    def fake_start(session, user, board, engine, fps, reuse_existing=True, burn_subtitles=True):
+        j = Job(id=uuid.uuid4().hex, prompt_id=f"film-{uuid.uuid4().hex[:12]}",
+                tenant_id=user.tenant_id, user_id=user.id, worker="", kind="board_film",
+                status="queued", prompt=board.name, seed=0,
+                params=json.dumps({"board_id": board.id, "shots": []}))
+        session.add(j)
+        session.commit()
+        return j
+
+    monkeypatch.setattr("app.services.board_film.start_board_film", fake_start)
+    c = _ctx(engine, u1)
+    text, events = _run(tools_drama.exec_remix_storyboard(
+        {"board_id": bid, "kind": "protagonist", "engine": "h3-t2v",
+         "character_map": {"林凡": eid}}, c))
+    assert "换主角" in text and "remix换主角" in text and "board_id=" in text
+    assert "film-" in text and events and events[0]["type"] == "job"
+    c["session"].close()
+
+    # 缺 map → 错误文案;他人板 → 不存在
+    c = _ctx(engine, u1)
+    text, events = _run(tools_drama.exec_remix_storyboard(
+        {"board_id": bid, "kind": "protagonist"}, c))
+    assert "character_map" in text and events[0]["type"] == "tool_event"
+    c["session"].close()
+
+    c2_session = Session(engine)
+    with Session(engine) as s:
+        u2 = s.exec(select(User).where(User.email == "d2@t.io")).first()
+    c2 = {"user": u2, "session": c2_session, "pool": None}
+    text, events = _run(tools_drama.exec_remix_storyboard(
+        {"board_id": bid, "kind": "words", "dialogue_overrides": {"1": {"dialogue": "x"}}}, c2))
+    assert "不存在" in text and events[0]["type"] == "tool_event"
+    c2_session.close()

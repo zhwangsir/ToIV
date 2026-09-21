@@ -130,6 +130,40 @@ TOOL_SCHEMAS_DRAMA = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "remix_storyboard",
+            "description": (
+                "整片级 remix:克隆分镜板做结构级变体(原版不动),并自动一键成片。"
+                "三种:protagonist=换主角(character_map 旧角色名→主体库新主体 id,先 list_entities;"
+                "命中行强制重出);words=换词(dialogue_overrides 行 item_id→新台词,"
+                "视频全复用只重配音,最省);broll=换背景(prompt_suffix 全局追加场景词,强制重出)。"
+                "用户说「把这版短剧换个主角/换句台词/换个场景风格」时用;"
+                "完成后新板与成片作业 id 一并返回。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "board_id": {"type": "string", "description": "源分镜板 id"},
+                    "kind": {"type": "string", "enum": ["protagonist", "words", "broll"],
+                             "description": "变体类型:换主角/换词/换背景"},
+                    "engine": {"type": "string", "enum": ["phantom-s2v", "h3-r2v", "h3-t2v"],
+                               "description": "生成引擎(缺省 phantom-s2v;无定妆照用 h3-t2v)"},
+                    "character_map": {"type": "object",
+                                      "description": "kind=protagonist 必填:{旧角色名: 新主体 id}"},
+                    "dialogue_overrides": {"type": "object",
+                                           "description": "kind=words 必填:{item_id: {dialogue, speaker?}}"},
+                    "prompt_suffix": {"type": "string",
+                                      "description": "kind=broll 用:全局追加的场景/风格词(英文)"},
+                    "auto_assemble": {"type": "boolean", "default": True,
+                                      "description": "是否立即一键成片(默认 true)"},
+                    "fps": {"type": "integer", "description": "视频帧率 8-30(默认 16)", "default": 16},
+                },
+                "required": ["board_id", "kind"],
+            },
+        },
+    },
 ]
 
 
@@ -243,6 +277,66 @@ async def exec_assemble_storyboard(args: dict, ctx: dict) -> tuple[str, list[dic
         f"一键成片已提交(film prompt_id={job.prompt_id}):后台逐镜生成缺失视频→配音→词锚定字幕→拼接,"
         f"已挂视频的镜自动复用。进度用 check_film(board_id=\"{b.id}\") 追踪;完成后成片进作品库。"
     ), [_job_event(job_id=job.prompt_id, kind=BOARD_FILM_KIND, status="queued", label="一键成片")]
+
+
+async def exec_remix_storyboard(args: dict, ctx: dict) -> tuple[str, list[dict]]:
+    user: User = ctx["user"]
+    session = ctx["session"]
+    b = _owned_board(session, user, str(args.get("board_id") or ""))
+    if b is None:
+        return "分镜板不存在或不属于当前用户。", [_err_event("分镜板不存在")]
+    kind = str(args.get("kind") or "")
+    engine = str(args.get("engine") or "phantom-s2v")
+    from app.services.board_film import start_board_film
+    from app.services.board_remix import clone_board_with_remix, resolve_character_map
+
+    try:
+        character_map = None
+        if kind == "protagonist":
+            raw_map = args.get("character_map") or {}
+            if not isinstance(raw_map, dict) or not raw_map:
+                return "kind=protagonist 需要 character_map({旧角色名: 新主体 id})。", [
+                    _err_event("缺 character_map")]
+            character_map = resolve_character_map(session, user, {str(k): str(v) for k, v in raw_map.items()})
+        dialogue_overrides: dict[int, dict] = {}
+        if kind == "words":
+            raw_ov = args.get("dialogue_overrides") or {}
+            if not isinstance(raw_ov, dict) or not raw_ov:
+                return "kind=words 需要 dialogue_overrides({item_id: {dialogue, speaker?}})。", [
+                    _err_event("缺 dialogue_overrides")]
+            for k, v in raw_ov.items():
+                try:
+                    dialogue_overrides[int(k)] = v if isinstance(v, dict) else {"dialogue": str(v)}
+                except (TypeError, ValueError):
+                    continue
+        nb, stats = clone_board_with_remix(
+            session, user, b, kind,
+            character_map=character_map,
+            dialogue_overrides=dialogue_overrides,
+            prompt_suffix=str(args.get("prompt_suffix") or "")[:500],
+        )
+    except Exception as e:
+        return f"remix 改写失败: {e}", [_err_event("remix 改写失败", str(e)[:200])]
+    film_text = ""
+    events: list[dict] = []
+    if args.get("auto_assemble", True):
+        try:
+            try:
+                fps = max(8, min(30, int(args.get("fps") or 16)))
+            except (TypeError, ValueError):
+                fps = 16
+            job = start_board_film(session, user, nb, engine, fps)
+            film_text = f";一键成片已提交(film prompt_id={job.prompt_id})"
+            events.append(_job_event(job_id=job.prompt_id, kind=BOARD_FILM_KIND,
+                                     status="queued", label="remix 成片"))
+        except Exception as e:
+            film_text = f"(成片发起失败:{e},可稍后 assemble_storyboard 手动发起)"
+    kind_label = {"protagonist": "换主角", "words": "换词", "broll": "换背景"}.get(kind, kind)
+    return (
+        f"remix({kind_label})完成:新分镜板「{nb.name}」(board_id={nb.id}),"
+        f"{stats['shots']} 行(强制重出 {stats['video_reset']} 镜,配音重跑 {stats['voice_redo']} 镜)"
+        f"{film_text}。原版「{b.name}」未动;进度用 check_film(board_id=\"{nb.id}\") 追踪。"
+    ), events
 
 
 async def exec_check_film(args: dict, ctx: dict) -> tuple[str, list[dict]]:

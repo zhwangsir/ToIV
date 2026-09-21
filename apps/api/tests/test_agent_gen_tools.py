@@ -113,14 +113,14 @@ def test_gen_tools_registered_after_builtin():
         assert n in names
     # 追加在 10 个同步小工具之后(含市场应用工具 + W3 三个 UI 驱动工具)
     # 漫剧线五工具(2026-09-21 A1)注册在最后,不进入本断言的尾部窗口
-    assert names[-21:-9] == [
+    assert names[-22:-10] == [
         "submit_generation", "list_entities", "list_apps", "get_app", "run_app",
         "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d",
         "navigate_view", "prefill_generate", "open_asset",
     ]
-    assert names[-9:-4] == [
+    assert names[-10:-4] == [
         "create_storyboard", "get_storyboard", "generate_shot",
-        "assemble_storyboard", "check_film",
+        "assemble_storyboard", "check_film", "remix_storyboard",
     ]
     assert names[-4:] == [
         "list_smoke_failures", "explain_app_failure", "run_app_smoke", "reject_app_fix",

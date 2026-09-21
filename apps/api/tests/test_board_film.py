@@ -340,6 +340,21 @@ def test_pipeline_shot_failure_nonfatal(ctx, monkeypatch, tmp_path):
     assert len(calls["submit"]) == 2
 
 
+def test_download_clip_local_prefix(ctx, tmp_path, monkeypatch):
+    """站内鉴权端点(/api/boards/film 等)直接读本地文件(服务端自调 401 实证)。"""
+    monkeypatch.setattr(film, "drama_output_root", lambda: tmp_path)
+    src_file = tmp_path / ("board-film-" + "a" * 32 + ".mp4")
+    src_file.write_bytes(b"MP4LOCAL")
+    dest = tmp_path / "dest.mp4"
+
+    asyncio.run(film._download_clip(None, f"/api/boards/film/{src_file.name}", dest))
+    assert dest.read_bytes() == b"MP4LOCAL"
+
+    with pytest.raises(Exception) as exc:
+        asyncio.run(film._download_clip(None, "/api/boards/film/board-film-" + "b" * 32 + ".mp4", dest))
+    assert "不存在" in str(exc.value)
+
+
 def test_reconcile_respawns(ctx, monkeypatch):
     _, _, _, engine = ctx
     from sqlmodel import select

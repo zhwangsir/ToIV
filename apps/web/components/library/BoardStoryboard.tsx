@@ -28,9 +28,11 @@ import {
   listEntities,
   lookupJob,
   putBoardItems,
+  remixBoard,
   rerunJob,
   type BoardFilmJob,
   type BoardItemOut,
+  type BoardOut,
   type EntityItem,
 } from "@/lib/api";
 import { canRerun, isVideoKind, kindLabel } from "@/lib/libraryQuery";
@@ -60,6 +62,8 @@ interface BoardStoryboardProps {
   onOpenEntities?: () => void;
   /** 成片完成/行被服务端换挂后刷新成员(M3) */
   onRefreshItems?: () => void;
+  /** remix 建出新板后打开(M3.5) */
+  onRemixed?: (board: BoardOut) => void;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -80,6 +84,7 @@ export function BoardStoryboard({
   onUseAsInput,
   onOpenEntities,
   onRefreshItems,
+  onRemixed,
 }: BoardStoryboardProps) {
   const toast = useToast();
   const [drafts, setDrafts] = useState<Record<number, string>>({});
@@ -92,6 +97,12 @@ export function BoardStoryboard({
   const [filmJobs, setFilmJobs] = useState<BoardFilmJob[] | null>(null);
   const [showAssemble, setShowAssemble] = useState(false);
   const [assembling, setAssembling] = useState(false);
+  const [showRemix, setShowRemix] = useState(false);
+  const [remixTab, setRemixTab] = useState<"protagonist" | "words" | "broll">("protagonist");
+  const [remixMap, setRemixMap] = useState<Record<string, string>>({});
+  const [remixWords, setRemixWords] = useState<Record<number, string>>({});
+  const [remixSuffix, setRemixSuffix] = useState("");
+  const [remixBusy, setRemixBusy] = useState(false);
 
   // 角色条:板内角色名/entity_ids → 主体库定妆照映射(挂载拉一次,主体库编辑后重进刷新)
   useEffect(() => {
@@ -145,6 +156,52 @@ export function BoardStoryboard({
       setAssembling(false);
     }
   }, [boardId, engine, loadFilmJobs, toast]);
+
+  // ── 整片级 remix(M3.5)──
+  const handleRemixSubmit = useCallback(async () => {
+    setRemixBusy(true);
+    try {
+      const payload: Parameters<typeof remixBoard>[1] = { kind: remixTab, engine };
+      if (remixTab === "protagonist") {
+        const map = Object.fromEntries(Object.entries(remixMap).filter(([, v]) => v));
+        if (Object.keys(map).length === 0) {
+          toast.error("至少给一个角色选择要换成的主体");
+          return;
+        }
+        payload.character_map = map;
+      } else if (remixTab === "words") {
+        const ov = Object.fromEntries(
+          Object.entries(remixWords)
+            .filter(([, v]) => v.trim())
+            .map(([k, v]) => [k, { dialogue: v.trim() }]),
+        );
+        if (Object.keys(ov).length === 0) {
+          toast.error("至少改一镜的台词");
+          return;
+        }
+        payload.dialogue_overrides = ov as never;
+      } else {
+        if (!remixSuffix.trim()) {
+          toast.error("填一下要追加的场景/风格词");
+          return;
+        }
+        payload.prompt_suffix = remixSuffix.trim();
+      }
+      const r = await remixBoard(boardId, payload);
+      toast.success(
+        `remix 完成:「${r.board.name}」已建${r.film ? ",一键成片已提交" : ""}(强制重出 ${r.stats.video_reset} 镜)`,
+      );
+      setShowRemix(false);
+      setRemixMap({});
+      setRemixWords({});
+      setRemixSuffix("");
+      onRemixed?.(r.board);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "remix 提交失败");
+    } finally {
+      setRemixBusy(false);
+    }
+  }, [boardId, engine, remixTab, remixMap, remixWords, remixSuffix, onRemixed, toast]);
 
   const itemsRef = useRef(items);
   useEffect(() => {
@@ -393,6 +450,16 @@ export function BoardStoryboard({
         )}
         <span className="lib-shot-toolbar-spacer" />
         <Button
+          variant="secondary"
+          size="sm"
+          icon={<Icon name="redo" size={14} />}
+          disabled={items.length === 0 || filmActive}
+          title="克隆本板做结构级变体:换主角/换词/换背景(原版不动)"
+          onClick={() => setShowRemix(true)}
+        >
+          remix
+        </Button>
+        <Button
           variant="primary"
           size="sm"
           icon={<Icon name="clapperboard" size={14} />}
@@ -628,6 +695,122 @@ export function BoardStoryboard({
             <li>词锚定字幕(whisper 逐词)+ ffmpeg 拼接烧字,产物进作品库</li>
           </ul>
           <p className="lib-film-modal-hint">后台管线执行(可离开本页,任务中心可见进度);完成后下方出现播放卡。</p>
+        </div>
+      </Modal>
+
+      <Modal
+        open={showRemix}
+        onClose={() => !remixBusy && setShowRemix(false)}
+        title="整片级 remix(克隆本板,原版不动)"
+        footer={
+          <>
+            <Button variant="ghost" disabled={remixBusy} onClick={() => setShowRemix(false)}>
+              取消
+            </Button>
+            <Button variant="primary" loading={remixBusy} onClick={() => void handleRemixSubmit()}>
+              开始 remix 并成片
+            </Button>
+          </>
+        }
+      >
+        <div className="lib-film-modal">
+          <div className="lib-seg lib-shot-engine" role="tablist" aria-label="remix 类型">
+            {(
+              [
+                ["protagonist", "换主角"],
+                ["words", "换词"],
+                ["broll", "换背景"],
+              ] as const
+            ).map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                className={`lib-seg-btn${remixTab === k ? " is-active" : ""}`}
+                onClick={() => setRemixTab(k)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {remixTab === "protagonist" && (
+            <div className="lib-remix-pane">
+              {boardChars.length === 0 ? (
+                <p>本板没有角色(拆镜产出角色后才能换主角)。</p>
+              ) : (
+                boardChars.map((ch) => (
+                  <label key={ch.key} className="lib-remix-row">
+                    <span className="lib-remix-row-name">{ch.name} 换成</span>
+                    <select
+                      value={remixMap[ch.name] ?? ""}
+                      aria-label={`${ch.name} 换成`}
+                      onChange={(e) =>
+                        setRemixMap((m) => ({ ...m, [ch.name]: e.target.value }))
+                      }
+                    >
+                      <option value="">(不换)</option>
+                      {(castEntities ?? [])
+                        .filter((e) => e.kind === "character" && e.name !== ch.name)
+                        .map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.name}
+                            {e.prompt_hint ? "" : "(无外观提示)"}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                ))
+              )}
+              <p className="lib-film-modal-hint">命中行强制重出视频(换绑主体参考图+外观提示);台词不变。</p>
+            </div>
+          )}
+
+          {remixTab === "words" && (
+            <div className="lib-remix-pane">
+              {items.filter((it) => parseShotMeta(it.shot_meta)?.dialogue).length === 0 ? (
+                <p>本板没有带台词的分镜行。</p>
+              ) : (
+                items.map((it, idx) => {
+                  const meta = parseShotMeta(it.shot_meta);
+                  if (!meta?.dialogue) return null;
+                  return (
+                    <label key={it.id} className="lib-remix-row lib-remix-row--col">
+                      <span className="lib-remix-row-name">
+                        镜{String(idx + 1).padStart(2, "0")}({meta.speaker || "旁白"})
+                      </span>
+                      <textarea
+                        rows={2}
+                        value={remixWords[it.id] ?? meta.dialogue}
+                        aria-label={`新台词: 第 ${idx + 1} 镜`}
+                        maxLength={500}
+                        onChange={(e) =>
+                          setRemixWords((m) => ({ ...m, [it.id]: e.target.value }))
+                        }
+                      />
+                    </label>
+                  );
+                })
+              )}
+              <p className="lib-film-modal-hint">只重写填了内容的镜;视频全部复用,仅重配音+字幕,是最省的变体。</p>
+            </div>
+          )}
+
+          {remixTab === "broll" && (
+            <div className="lib-remix-pane">
+              <label className="lib-remix-row lib-remix-row--col">
+                <span className="lib-remix-row-name">全局追加场景/风格词(英文)</span>
+                <input
+                  type="text"
+                  value={remixSuffix}
+                  placeholder="如: cyberpunk city, neon rain, night"
+                  aria-label="全局追加场景词"
+                  maxLength={500}
+                  onChange={(e) => setRemixSuffix(e.target.value)}
+                />
+              </label>
+              <p className="lib-film-modal-hint">追加到每镜生成提示词末尾,全部强制重出;角色与台词不动。</p>
+            </div>
+          )}
         </div>
       </Modal>
 

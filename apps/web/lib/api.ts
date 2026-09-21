@@ -650,6 +650,35 @@ export async function fetchBoardFilmJobs(boardId: string): Promise<BoardFilmJob[
   return res.json();
 }
 
+export interface BoardRemixResult {
+  board: BoardOut;
+  stats: { shots: number; video_reset: number; voice_redo: number };
+  film: { prompt_id: string; kind: string; status: string } | null;
+}
+
+/** 整片级 remix(M3.5):克隆板+结构级改写+(默认)一键成片。 */
+export async function remixBoard(
+  boardId: string,
+  input: {
+    kind: "protagonist" | "words" | "broll";
+    engine?: string;
+    fps?: number;
+    character_map?: Record<string, string>;
+    dialogue_overrides?: Record<number, { dialogue: string; speaker?: string }>;
+    prompt_suffix?: string;
+    auto_assemble?: boolean;
+  },
+): Promise<BoardRemixResult> {
+  const res = await apiFetch(`/api/boards/${boardId}/remix`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!res.ok) await raiseApiError(res, "remix 提交失败");
+  return res.json();
+}
+
 export async function deleteBoard(boardId: string): Promise<void> {
   const res = await apiFetch(`/api/boards/${boardId}`, {
     method: "DELETE",

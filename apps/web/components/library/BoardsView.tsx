@@ -250,6 +250,10 @@ export function BoardsView({ onBack, onOpenJob, onUseAsInput, onOpenEntities }: 
             onUseAsInput={onUseAsInput}
             onOpenEntities={onOpenEntities}
             onRefreshItems={() => loadItems(openBoard.id)}
+            onRemixed={(b) => {
+              load();
+              openDetail(b, "story");
+            }}
           />
         ) : items.length === 0 ? (
           <div className="lib-board-empty">

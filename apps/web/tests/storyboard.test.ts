@@ -148,4 +148,7 @@ test("⑥ M3 一键成片:kindLabel/桶 + 阶段标签/进度 + 前端接线", (
   assert.ok(boardStory.includes("一键成片"), "分镜组件缺一键成片按钮");
   assert.ok(boardStory.includes("lib-film-card"), "分镜组件缺成片状态卡");
   assert.ok(boardStory.includes("assembleBoard"), "分镜组件未接 assembleBoard");
+  assert.ok(boardStory.includes("remixBoard"), "分镜组件未接 remixBoard");
+  assert.ok(boardStory.includes("换主角") && boardStory.includes("换词") && boardStory.includes("换背景"),
+    "remix 弹窗缺三类 tab");
 });

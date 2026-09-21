@@ -923,3 +923,9 @@ export const assembleBoard = async () => ({
   prompt_id: "film-mock", kind: "board_film", status: "queued",
 });
 export const fetchBoardFilmJobs = async () => [];
+export const remixBoard = async (_b: string, input: { kind: string }) => ({
+  board: { id: "b-remix", name: `原板 · remix${input.kind}`, description: "", cover_job_id: "",
+           cover_url: "", item_count: 2, sort: 0, created_at: "" },
+  stats: { shots: 2, video_reset: 1, voice_redo: 1 },
+  film: { prompt_id: "film-mock", kind: "board_film", status: "queued" },
+});
