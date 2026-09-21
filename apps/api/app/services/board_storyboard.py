@@ -115,6 +115,45 @@ def upsert_script_characters(
     return out
 
 
+async def create_board_from_script(
+    session: Session,
+    user: User,
+    script: str,
+    num_shots: int = 8,
+    style: str = "",
+    name: str = "",
+) -> tuple[Board, int, int]:
+    """LLM 拆剧本 → 建板+占位分镜行(route /api/boards/from-script 与 agent 工具共用)。
+
+    返回 (Board, 分镜行数, 落库角色数);parse_script 失败抛 StoryboardError/LLMError
+    (调用方各自转 503/错误文案)。M2:角色草稿幂等落库 Entity,shot_meta 写 entity_ids。
+    """
+    from app.services.studio.storyboard import parse_script
+
+    characters, shots = await parse_script(premise=script, num_shots=num_shots, style=style)
+    name_to_eid = upsert_script_characters(session, user, characters)
+    board_name = name.strip()
+    if not board_name:
+        head = " ".join(script.split())[:12]
+        board_name = f"漫剧分镜 · {head}" if head else "漫剧分镜"
+    b = Board(tenant_id=user.tenant_id, user_id=user.id, name=board_name[:64])
+    session.add(b)
+    session.commit()
+    session.refresh(b)
+    for idx, draft in enumerate(shots):
+        meta = draft.model_dump()
+        meta["entity_ids"] = [name_to_eid[n] for n in (draft.characters or []) if n in name_to_eid]
+        session.add(BoardItem(
+            board_id=b.id,
+            job_id="",
+            sort_order=idx,
+            shot_text=compose_shot_text(draft),
+            shot_meta=json.dumps(meta, ensure_ascii=False),
+        ))
+    session.commit()
+    return b, len(shots), len(name_to_eid)
+
+
 def resolve_shot_entities(
     session: Session, user_id: str, meta: dict[str, Any]
 ) -> list[Entity | None]:

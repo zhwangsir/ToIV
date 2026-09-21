@@ -19,7 +19,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-import uuid
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -34,18 +33,13 @@ from app.deps import get_current_user, get_pool
 from app.models import Board, BoardItem, Job, User
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.jobs import _app_id_of, _app_names_map, _job_dict
-from app.services.board_film import (
-    KIND as BOARD_FILM_KIND,
-    build_film_plan_shots,
-    spawn_film,
-)
-from app.services.board_generate import submit_shot_generation
+from app.services.board_film import KIND as BOARD_FILM_KIND, start_board_film
+from app.services.board_generate import prepare_shot_meta, submit_shot_generation
 from app.services.board_storyboard import (
     build_export_document,
-    compose_shot_text,
-    upsert_script_characters,
+    create_board_from_script as create_board_from_script_svc,
 )
-from app.services.studio.storyboard import StoryboardError, parse_script
+from app.services.studio.storyboard import StoryboardError
 from app.storage import drama_output_root
 
 logger = logging.getLogger(__name__)
@@ -288,32 +282,12 @@ async def create_board_from_script(
     M2:角色草稿幂等落库 Entity(kind=character),shot_meta 写 entity_ids(与 characters 同序)。
     """
     try:
-        characters, shots = await parse_script(
-            premise=body.script, num_shots=body.num_shots, style=body.style
+        b, item_count, _cast = await create_board_from_script_svc(
+            session, user, body.script, body.num_shots, body.style, body.name
         )
     except (StoryboardError, LLMError) as exc:
         raise HTTPException(status_code=503, detail=f"剧本拆解服务暂不可用: {exc}") from exc
-    name_to_eid = upsert_script_characters(session, user, characters)
-    name = body.name.strip()
-    if not name:
-        head = " ".join(body.script.split())[:12]
-        name = f"漫剧分镜 · {head}" if head else "漫剧分镜"
-    b = Board(tenant_id=user.tenant_id, user_id=user.id, name=name[:64])
-    session.add(b)
-    session.commit()
-    session.refresh(b)
-    for idx, draft in enumerate(shots):
-        meta = draft.model_dump()
-        meta["entity_ids"] = [name_to_eid[n] for n in (draft.characters or []) if n in name_to_eid]
-        session.add(BoardItem(
-            board_id=b.id,
-            job_id="",
-            sort_order=idx,
-            shot_text=compose_shot_text(draft),
-            shot_meta=json.dumps(meta, ensure_ascii=False),
-        ))
-    session.commit()
-    return {"board": _board_out(session, b), "item_count": len(shots)}
+    return {"board": _board_out(session, b), "item_count": item_count}
 
 
 @router.post("/boards/{board_id}/items/{item_id}/generate")
@@ -334,19 +308,9 @@ async def generate_board_shot(
     item = session.get(BoardItem, item_id)
     if not item or item.board_id != b.id:
         raise HTTPException(status_code=404, detail="分镜行不存在")
-    meta: dict = {}
-    if item.shot_meta:
-        try:
-            obj = json.loads(item.shot_meta)
-            if isinstance(obj, dict):
-                meta = obj
-        except ValueError:
-            meta = {}
-    if not str(meta.get("scene") or "").strip() and item.shot_text.strip():
-        meta["scene"] = item.shot_text.strip()
     try:
         return await submit_shot_generation(
-            session, pool, user, meta, body.engine, seed=body.seed, fps=body.fps
+            session, pool, user, prepare_shot_meta(item), body.engine, seed=body.seed, fps=body.fps
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -397,48 +361,10 @@ async def assemble_board(
     """
     enforce_generation_rate_limit(user)
     b = _owned_board(session, user, board_id)
-    items = session.exec(
-        select(BoardItem).where(BoardItem.board_id == b.id).order_by(BoardItem.sort_order)
-    ).all()
-    shots = build_film_plan_shots(items)
-    if not shots:
-        raise HTTPException(status_code=422, detail="没有可成片的分镜行(请先拆镜或补分镜文本)")
-    active = session.exec(
-        select(Job).where(Job.kind == BOARD_FILM_KIND, Job.status.in_(("queued", "running")))
-    ).all()
-    for j in active:
-        try:
-            if json.loads(j.params or "{}").get("board_id") == b.id:
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"已有在跑的成片作业: {j.prompt_id}(可等完成或取消后再发)",
-                )
-        except ValueError:
-            continue
-    prompt_id = f"film-{uuid.uuid4().hex[:16]}"
-    plan = {
-        "board_id": b.id,
-        "engine": body.engine,
-        "fps": body.fps,
-        "reuse_existing": body.reuse_existing,
-        "burn_subtitles": body.burn_subtitles,
-        "shots": shots,
-    }
-    job = Job(
-        tenant_id=user.tenant_id,
-        user_id=user.id,
-        prompt_id=prompt_id,
-        worker="",  # 非 ComfyUI 作业:tracker 自动跳过,生命周期归 board_film 管线
-        kind=BOARD_FILM_KIND,
-        status="queued",
-        prompt=b.name[:500],
-        seed=0,
-        params=json.dumps(plan, ensure_ascii=False),
+    job = start_board_film(
+        session, user, b, body.engine, body.fps, body.reuse_existing, body.burn_subtitles
     )
-    session.add(job)
-    session.commit()
-    spawn_film(prompt_id)
-    return {"prompt_id": prompt_id, "kind": BOARD_FILM_KIND, "status": "queued"}
+    return {"prompt_id": job.prompt_id, "kind": job.kind, "status": job.status}
 
 
 @router.get("/boards/{board_id}/film-jobs")

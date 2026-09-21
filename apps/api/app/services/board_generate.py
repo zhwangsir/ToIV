@@ -12,13 +12,14 @@ generate_phantom_s2v / generate_h3_r2v / generate_h3_t2v(各自含就绪探测/�
 """
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import HTTPException
 from sqlmodel import Session
 
 from app.comfy.pool import WorkerPool
-from app.models import Entity, User
+from app.models import BoardItem, Entity, User
 from app.routes.entities import ResolveRefsRequest, resolve_entity_refs
 from app.routes.h3_studio import H3R2VRequest, H3T2VRequest, generate_h3_r2v, generate_h3_t2v
 from app.routes.phantom_studio import PhantomS2VRequest, generate_phantom_s2v
@@ -26,6 +27,21 @@ from app.services.board_storyboard import resolve_shot_entities
 from app.services.entities import image_handle_for_injection
 
 ENGINE_IDS = ("phantom-s2v", "h3-r2v", "h3-t2v")
+
+
+def prepare_shot_meta(item: BoardItem) -> dict[str, Any]:
+    """行 → shot_meta(手动占位行以 shot_text 作 scene 兜底,generate 路由与 agent 工具共用)。"""
+    meta: dict[str, Any] = {}
+    if item.shot_meta:
+        try:
+            obj = json.loads(item.shot_meta)
+            if isinstance(obj, dict):
+                meta = obj
+        except ValueError:
+            meta = {}
+    if not str(meta.get("scene") or "").strip() and item.shot_text.strip():
+        meta["scene"] = item.shot_text.strip()
+    return meta
 
 
 def build_shot_positive(meta: dict[str, Any]) -> str:

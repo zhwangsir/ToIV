@@ -889,3 +889,60 @@ def build_film_plan_shots(items: list[BoardItem]) -> list[dict]:
             }
         )
     return shots
+
+
+def start_board_film(
+    session: Session,
+    user: User,
+    board: Board,
+    engine: str,
+    fps: int = 16,
+    reuse_existing: bool = True,
+    burn_subtitles: bool = True,
+) -> Job:
+    """建一键成片合成 Job + 起后台管线(assemble 路由与 agent 工具共用)。
+
+    空板/无可成片行 422;同板已有活跃作业 409(返回文案含在跑 prompt_id)。
+    """
+    items = session.exec(
+        select(BoardItem).where(BoardItem.board_id == board.id).order_by(BoardItem.sort_order)
+    ).all()
+    shots = build_film_plan_shots(items)
+    if not shots:
+        raise HTTPException(status_code=422, detail="没有可成片的分镜行(请先拆镜或补分镜文本)")
+    active = session.exec(
+        select(Job).where(Job.kind == KIND, Job.status.in_(("queued", "running")))
+    ).all()
+    for j in active:
+        try:
+            if json.loads(j.params or "{}").get("board_id") == board.id:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"已有在跑的成片作业: {j.prompt_id}(可等完成或取消后再发)",
+                )
+        except ValueError:
+            continue
+    prompt_id = f"film-{uuid.uuid4().hex[:16]}"
+    plan = {
+        "board_id": board.id,
+        "engine": engine,
+        "fps": fps,
+        "reuse_existing": reuse_existing,
+        "burn_subtitles": burn_subtitles,
+        "shots": shots,
+    }
+    job = Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id=prompt_id,
+        worker="",  # 非 ComfyUI 作业:tracker 自动跳过,生命周期归 board_film 管线
+        kind=KIND,
+        status="queued",
+        prompt=board.name[:500],
+        seed=0,
+        params=json.dumps(plan, ensure_ascii=False),
+    )
+    session.add(job)
+    session.commit()
+    spawn_film(prompt_id)
+    return job

@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 import app.services.board_generate as board_gen
+import app.services.studio.storyboard as studio_storyboard
 import app.routes.boards as boards_route
 from app.db import get_session
 from app.main import app
@@ -89,7 +90,7 @@ def _drafts() -> tuple[list[CharacterDraft], list[ShotDraft]]:
 def _mock_parse(monkeypatch):
     async def fake_parse(premise, num_shots=8, style="", known_characters=None):
         return _drafts()
-    monkeypatch.setattr(boards_route, "parse_script", fake_parse)
+    monkeypatch.setattr(studio_storyboard, "parse_script", fake_parse)
 
 
 def test_from_script_upserts_characters(ctx, monkeypatch):

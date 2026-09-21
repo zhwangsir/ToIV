@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
+import app.services.studio.storyboard as studio_storyboard
 import app.routes.boards as boards_route
 from app.db import get_session
 from app.main import app
@@ -86,7 +87,7 @@ def test_from_script_creates_placeholder_rows(ctx, monkeypatch):
         assert num_shots == 3
         return [CharacterDraft(name="林凡"), CharacterDraft(name="小雪")], _fake_shots()
 
-    monkeypatch.setattr(boards_route, "parse_script", fake_parse)
+    monkeypatch.setattr(studio_storyboard, "parse_script", fake_parse)
     r = c.post("/api/boards/from-script",
                json={"script": "山村少年夜行遇雨,破庙避雨遇少女。", "num_shots": 3},
                headers=H)
@@ -124,7 +125,7 @@ def test_from_script_llm_failure_503(ctx, monkeypatch):
     async def boom(premise, num_shots=8, style="", known_characters=None):
         raise StoryboardError("LLM 不可用:连接拒绝")
 
-    monkeypatch.setattr(boards_route, "parse_script", boom)
+    monkeypatch.setattr(studio_storyboard, "parse_script", boom)
     r = c.post("/api/boards/from-script", json={"script": "任意剧本"}, headers=H)
     assert r.status_code == 503
     assert "剧本拆解服务暂不可用" in r.json()["detail"]
@@ -166,7 +167,7 @@ def test_export_document_shape(ctx, monkeypatch):
     async def fake_parse(premise, num_shots=8, style="", known_characters=None):
         return [], _fake_shots()
 
-    monkeypatch.setattr(boards_route, "parse_script", fake_parse)
+    monkeypatch.setattr(studio_storyboard, "parse_script", fake_parse)
     bid = c.post("/api/boards/from-script",
                  json={"script": "导出测试剧本", "num_shots": 3, "name": "导出板"},
                  headers=H).json()["board"]["id"]

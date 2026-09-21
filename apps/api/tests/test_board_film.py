@@ -138,7 +138,7 @@ def test_assemble_endpoint_creates_job(ctx, monkeypatch):
         {"shot_text": "手动行文本"},
     ])
     spawned = []
-    monkeypatch.setattr(boards_route, "spawn_film", lambda pid: spawned.append(pid))
+    monkeypatch.setattr(film, "spawn_film", lambda pid: spawned.append(pid))
 
     r = c.post(f"/api/boards/{bid}/assemble", json={"engine": "h3-t2v"}, headers=H)
     assert r.status_code == 200, r.text
@@ -246,7 +246,7 @@ def _mk_film_job(ctx, monkeypatch, rows: list[dict], *, engine="phantom-s2v") ->
     """走端点建作业(spawn 打住),返回 (board_id, prompt_id, H)。"""
     bid, H = _mk_board(ctx, rows)
     c, _, _, _ = ctx
-    monkeypatch.setattr(boards_route, "spawn_film", lambda pid: None)
+    monkeypatch.setattr(film, "spawn_film", lambda pid: None)
     r = c.post(f"/api/boards/{bid}/assemble", json={"engine": engine}, headers=H)
     assert r.status_code == 200, r.text
     return bid, r.json()["prompt_id"], H
@@ -311,7 +311,7 @@ def test_pipeline_reuse_existing(ctx, monkeypatch, tmp_path):
     bid = c.post("/api/boards", json={"name": "复用板"}, headers=H).json()["id"]
     meta = json.dumps({"prompt": "已有视频"}, ensure_ascii=False)
     c.put(f"/api/boards/{bid}/items", json={"items": [{"job_id": vid, "shot_meta": meta}]}, headers=H)
-    monkeypatch.setattr(boards_route, "spawn_film", lambda pid: None)
+    monkeypatch.setattr(film, "spawn_film", lambda pid: None)
     pid = c.post(f"/api/boards/{bid}/assemble", json={"engine": "h3-t2v"}, headers=H).json()["prompt_id"]
     _run(pid)
 

@@ -65,6 +65,11 @@ LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作�
 - navigate_view:切换前端界面到指定功能页(「去/打开 X」类意图)
 - prefill_generate:预填生成工作台提示词并跳转(用户想微调参数再手动提交时)
 - open_asset:在作品库打开一个已有产物(需 job_id,限本人)
+- create_storyboard:剧本拆镜建分镜板(短剧/漫剧任务第一步;角色自动落库主体库)
+- get_storyboard:查看分镜板内容与各镜状态(拆镜汇报/成片前检查)
+- generate_shot:单独重跑分镜板某一镜(审片点名不满意/失败重试)
+- assemble_storyboard:一键成片(逐镜生成+配音+词锚定字幕+拼接;后台执行返回作业 id)
+- check_film:查询一键成片作业状态与产物(done 自动展示成片)
 
 原则:
 1. 用户表达创作意图时,主动调用相应工具完成,而不是只给建议。
@@ -97,6 +102,9 @@ BUILTIN_ORDER = [
     "adjust_3d",
     # W3 UI 驱动工具(2026-08-31)
     "navigate_view", "prefill_generate", "open_asset",
+    # 漫剧线工具(2026-09-21 A1 多轮导演:分镜板管线)
+    "create_storyboard", "get_storyboard", "generate_shot",
+    "assemble_storyboard", "check_film",
 ]
 
 
@@ -116,6 +124,8 @@ def test_schemas_equal_legacy_tool_schemas():
     from app.agent import tools_gen
 
     want = tools.TOOL_SCHEMAS + tools_gen.TOOL_SCHEMAS_GEN
+    from app.agent import tools_drama
+    want = want + tools_drama.TOOL_SCHEMAS_DRAMA
     # 按 name 对齐后逐键比对(注册顺序=SYSTEM 清单顺序,与 schema 数组序不同)
     want_by_name = {w["function"]["name"]: w for w in want}
     assert {g["function"]["name"] for g in got} == set(want_by_name)

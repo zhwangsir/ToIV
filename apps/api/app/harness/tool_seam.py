@@ -170,6 +170,25 @@ def builtin_tool_specs() -> list[ToolSpec]:
     def gen_schema(name: str) -> dict:
         return next(s for s in tools_gen.TOOL_SCHEMAS_GEN if s["function"]["name"] == name)
 
+    def _drama_specs() -> list[ToolSpec]:
+        from app.agent import tools_drama
+
+        def ds(name: str) -> dict:
+            return next(s for s in tools_drama.TOOL_SCHEMAS_DRAMA if s["function"]["name"] == name)
+
+        return [
+            ToolSpec("create_storyboard", ds("create_storyboard"), tools_drama.exec_create_storyboard,
+                     "剧本拆镜建分镜板(短剧/漫剧任务第一步;角色自动落库主体库)", rate_scope=""),
+            ToolSpec("get_storyboard", ds("get_storyboard"), tools_drama.exec_get_storyboard,
+                     "查看分镜板内容与各镜状态(拆镜汇报/成片前检查)", rate_scope=""),
+            ToolSpec("generate_shot", ds("generate_shot"), tools_drama.exec_generate_shot,
+                     "单独重跑分镜板某一镜(审片点名不满意/失败重试)", rate_scope=""),
+            ToolSpec("assemble_storyboard", ds("assemble_storyboard"), tools_drama.exec_assemble_storyboard,
+                     "一键成片(逐镜生成+配音+词锚定字幕+拼接;后台执行返回作业 id)", rate_scope=""),
+            ToolSpec("check_film", ds("check_film"), tools_drama.exec_check_film,
+                     "查询一键成片作业状态与产物(done 自动展示成片)", rate_scope=""),
+        ]
+
     return [
         ToolSpec("generate_image", schema("generate_image"), _wrap(tools.exec_generate_image),
                  "文生图(海报/插画/照片/概念图等)"),
@@ -218,6 +237,8 @@ def builtin_tool_specs() -> list[ToolSpec]:
                  "预填生成工作台提示词并跳转(用户想微调参数再手动提交时)", rate_scope=""),
         ToolSpec("open_asset", gen_schema("open_asset"), tools_gen.exec_open_asset,
                  "在作品库打开一个已有产物(需 job_id,限本人)", rate_scope=""),
+        # ── 漫剧线工具(tools_drama.py;分镜板管线:拆镜→单镜→成片→追踪)──
+        *_drama_specs(),
     ]
 
 

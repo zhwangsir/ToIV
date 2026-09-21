@@ -112,10 +112,15 @@ def test_gen_tools_registered_after_builtin():
               "navigate_view", "prefill_generate", "open_asset"):
         assert n in names
     # 追加在 10 个同步小工具之后(含市场应用工具 + W3 三个 UI 驱动工具)
-    assert names[-12:] == [
+    # 漫剧线五工具(2026-09-21 A1)注册在最后,不进入本断言的尾部窗口
+    assert names[-17:-5] == [
         "submit_generation", "list_entities", "list_apps", "get_app", "run_app",
         "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d",
         "navigate_view", "prefill_generate", "open_asset",
+    ]
+    assert names[-5:] == [
+        "create_storyboard", "get_storyboard", "generate_shot",
+        "assemble_storyboard", "check_film",
     ]
     schemas = {s["function"]["name"]: s for s in reg.schemas()}
     assert schemas["submit_generation"]["function"]["parameters"]["required"] == [
