@@ -4919,3 +4919,5 @@ export const systemJobs = (kinds: string) =>
   api.get<SystemJob[]>(`/api/jobs?all=1&limit=100&kind=${encodeURIComponent(kinds)}`);
 export const listProposals = () =>
   api.get<{ proposals: SelfhealProposal[] }>("/api/admin/selfheal/proposals");
+export const rejectProposal = (proposalId: string) =>
+  api.post(`/api/admin/selfheal/proposals/${encodeURIComponent(proposalId)}/reject`);

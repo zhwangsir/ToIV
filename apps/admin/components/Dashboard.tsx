@@ -8,6 +8,7 @@ import {
   health,
   jobCounts,
   listProposals,
+  rejectProposal,
   smokeStatus,
   startDemoBatch,
   startSmokeBatch,
@@ -67,6 +68,20 @@ export function Dashboard() {
       await reload();
     } catch (err) {
       setNote(err instanceof Error ? err.message : "启动出错");
+    }
+  };
+
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const doReject = async (p: SelfhealProposal) => {
+    setRejectingId(p.id);
+    try {
+      await rejectProposal(p.id);
+      setNote(`提案已驳回,工作流已还原(${p.app_id.slice(0, 18)}…)`);
+      await reload();
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : "驳回失败");
+    } finally {
+      setRejectingId(null);
     }
   };
 
@@ -190,6 +205,7 @@ export function Dashboard() {
                     <th>归因</th>
                     <th>状态</th>
                     <th>备注</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
@@ -201,6 +217,21 @@ export function Dashboard() {
                       </td>
                       <td>{p.status}</td>
                       <td className="muted">{p.note?.slice(0, 60)}</td>
+                      <td>
+                        {p.status === "applied" ? (
+                          <button
+                            type="button"
+                            className="pill-btn danger"
+                            disabled={rejectingId === p.id}
+                            title="驳回该提案并把应用工作流还原到补丁前"
+                            onClick={() => void doReject(p)}
+                          >
+                            {rejectingId === p.id ? "驳回中…" : "驳回"}
+                          </button>
+                        ) : (
+                          <span className="muted">已驳回</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
