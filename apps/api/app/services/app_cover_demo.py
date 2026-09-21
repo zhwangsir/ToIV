@@ -50,6 +50,8 @@ _MAX_FIXES_LOG = 5
 # fleet 队列深度闸(总排队超闸暂停续发/消费,等 draining)。
 _MAX_DEMO_ATTEMPTS = 3
 _FLEET_QUEUE_GUARD = 12
+# autorefire 单次续发批限(spawn_demo_batch limit);观测卡透出用同一常量,勿另起字面量
+_AUTOREFIRE_BATCH_LIMIT = 120
 
 # 与素材包 beauty01-12 一一对应的场景描述(txt2img 同款,保证「参考图风格=提示词风格」自洽)
 _SCENES = [
@@ -435,7 +437,7 @@ async def autorefire_loop(pool: WorkerPool, interval_s: int = 300) -> None:
                     pending = plan_demo_targets(session, 1)
                 if pending:
                     logger.info("cover autorefire: 空闲续发(%d 个目标)", len(pending))
-                    spawn_demo_batch(pool, 120)
+                    spawn_demo_batch(pool, _AUTOREFIRE_BATCH_LIMIT)
         except Exception:  # noqa: BLE001 — 守护循环绝不抛出
             logger.warning("cover autorefire 异常: %s", repr(sys.exc_info()[1])[:120])
         await asyncio.sleep(interval_s)
@@ -449,3 +451,29 @@ def last_demo_summary() -> dict:
     if out["running"] and _DEMO_SUMMARY.get("started_mono"):
         out["elapsed_s"] = int(time.monotonic() - _DEMO_SUMMARY["started_mono"])
     return out
+
+
+# 待做目标计数扫描上限:plan_demo_targets 先全量过滤再切片,给大值即得真实总数
+_PENDING_COUNT_LIMIT = 100_000
+
+
+def cover_gate_state(session: Session, pool: WorkerPool) -> dict:
+    """观测面板「封面队列闸」只读快照(D5,2026-09-22)。
+
+    纯拼装现有状态函数(demo_running/_fleet_queue_depth/plan_demo_targets/
+    last_demo_summary),无新采集器;「跳过数」无现存计数器,从略不造数。
+    """
+    from app.config import get_settings
+
+    depth = _fleet_queue_depth(pool)
+    return {
+        "autorefire_enabled": get_settings().cover_autorefire,
+        "running": demo_running(),
+        "queue_depth": depth,
+        "queue_guard": _FLEET_QUEUE_GUARD,
+        "gated": depth > _FLEET_QUEUE_GUARD,
+        "pending": len(plan_demo_targets(session, _PENDING_COUNT_LIMIT)),
+        "attempt_cap": _MAX_DEMO_ATTEMPTS,
+        "batch_limit": _AUTOREFIRE_BATCH_LIMIT,
+        "summary": last_demo_summary(),
+    }

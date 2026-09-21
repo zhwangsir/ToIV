@@ -41,8 +41,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlmodel import Session, select
 
+from app.comfy.pool import WorkerPool
 from app.db import get_session
-from app.deps import get_current_admin
+from app.deps import get_current_admin, get_pool
 from app.models import Job, User
 
 router = APIRouter(tags=["observability"])
@@ -282,7 +283,9 @@ def _hourly_success(session: Session) -> list[dict]:
     return hourly
 
 
-async def _build_snapshot(session: Session) -> dict:
+async def _build_snapshot(session: Session, pool: WorkerPool) -> dict:
+    from app.services import app_cover_demo
+
     queue, success, held = _queue_snapshot(session)
     gpus = await _probe_gpus()
     snapshot = {
@@ -292,6 +295,8 @@ async def _build_snapshot(session: Session) -> dict:
         "success_24h": success,
         "held": held,
         "gpus": gpus,
+        # 封面 autorefire 深度闸(D5):现有服务状态函数拼装,随快照 10s 缓存
+        "cover_gate": app_cover_demo.cover_gate_state(session, pool),
         # 逐小时分桶只在重建时算一次(10s 缓存内共享同一组桶)
         "hourly": _hourly_success(session),
     }
@@ -304,8 +309,9 @@ async def _build_snapshot(session: Session) -> dict:
 async def observability(
     _: User = Depends(get_current_admin),
     session: Session = Depends(get_session),
+    pool: WorkerPool = Depends(get_pool),
 ) -> dict:
-    """观测面板聚合快照(队列分桶 + 24h 成功率 + GPU 卡 VRAM)。仅管理员。"""
+    """观测面板聚合快照(队列分桶 + 24h 成功率 + GPU 卡 VRAM + 封面队列闸)。仅管理员。"""
     global _cache, _cache_at
     now = time.monotonic()
     if _cache is not None and now - _cache_at < _CACHE_TTL_SEC:
@@ -315,7 +321,7 @@ async def observability(
         now = time.monotonic()
         if _cache is not None and now - _cache_at < _CACHE_TTL_SEC:
             return _cache
-        snapshot = await _build_snapshot(session)
+        snapshot = await _build_snapshot(session, pool)
         _cache = snapshot
         _cache_at = time.monotonic()
         return snapshot

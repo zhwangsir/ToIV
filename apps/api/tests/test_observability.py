@@ -263,6 +263,23 @@ def test_series_offline_card_null(ctx, monkeypatch):
         assert values == [None], f"{cid} 离线应采样 null"
 
 
+def test_cover_gate_block(ctx):
+    """cover_gate(D5):深度闸字段透出(queue_guard=12/attempt_cap=3/batch_limit=120),
+    测试池未探测 → 深度 0 未触发;无公开应用 → pending 0;未跑批 → running False。"""
+    res = ctx["client"].get("/api/observability", headers=_auth(ctx["admin_token"]))
+    assert res.status_code == 200
+    gate = res.json()["cover_gate"]
+    assert gate["queue_guard"] == 12
+    assert gate["attempt_cap"] == 3
+    assert gate["batch_limit"] == 120
+    assert gate["queue_depth"] == 0
+    assert gate["gated"] is False
+    assert gate["running"] is False
+    assert gate["pending"] == 0
+    assert gate["summary"]["running"] is False
+    assert isinstance(gate["autorefire_enabled"], bool)
+
+
 def test_hourly_bucket_distribution(ctx):
     """24 个整点桶零填充升序;done/error 按 created_at 落桶;窗口外/软删除不计。"""
     engine = ctx["session_engine"]
