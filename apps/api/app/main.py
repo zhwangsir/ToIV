@@ -16,6 +16,7 @@ from app.logging_config import redact_token_in_query, setup_logging
 from app.routes import (
     account,
     admin,
+    admin_model_assets,
     agent,
     agent_team,
     agents,
@@ -387,6 +388,7 @@ def create_app() -> FastAPI:
         auth,
         account,
         admin,
+        admin_model_assets,
         assets,
         models,
         marketplace,

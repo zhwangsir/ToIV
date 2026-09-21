@@ -1,0 +1,50 @@
+{
+  "generated_at": "2026-09-11T00:40:38+0800",
+  "timezone": "Asia/Shanghai",
+  "core": "http://192.168.71.47:8090",
+  "total_public": 550,
+  "pass": 550,
+  "fail": 0,
+  "warn": 0,
+  "fetch_errors": 0,
+  "dropped_non_catalog": 0,
+  "by_output_kind": {
+    "audio": {
+      "pass": 2
+    },
+    "image": {
+      "pass": 189
+    },
+    "video": {
+      "pass": 359
+    }
+  },
+  "top_fail_reasons": [],
+  "capability_ok_true": 550,
+  "capability_ok_false": 0,
+  "capability_ok_unknown": 0,
+  "capability_ok_mismatch_ids": [],
+  "capability_mismatch_counts": {
+    "public_but_capability_false": 0,
+    "l0_passwarn_but_capability_false": 0,
+    "l0_fail_but_capability_true": 0,
+    "capability_unknown": 0
+  },
+  "capability_meta": {
+    "source": "capability_gap_scan_v23",
+    "main_ok_n": 459,
+    "dedicated_h3_n": 1146,
+    "dedicated_a2_n": 14,
+    "cap_ok_n": 1619,
+    "scanned_ids_n": 2172,
+    "blocked_n": 1713,
+    "ok_set_definition": "main_ok ∪ ok_if_dedicated_h3 ∪ ok_if_dedicated_animate2"
+  },
+  "elapsed_sec": 2.45,
+  "notes": [
+    "L0 only: schema/bindings/required_nodes structure; no GPU job submit.",
+    "capability_ok = id ∈ (main_ok ∪ dedicated_h3 ∪ dedicated_animate2) from latest gap scan.",
+    "builtin empty params_schema treated as documented exception → warn, not fail.",
+    "No soft-hide applied; report-only."
+  ]
+}

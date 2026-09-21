@@ -1,0 +1,111 @@
+{
+  "generated_at": "2026-09-11T01:14:18+08:00",
+  "timezone": "Asia/Shanghai",
+  "base": "http://192.168.71.47:8090",
+  "total": 24,
+  "counts": {
+    "pass": 8,
+    "fail_product": 15,
+    "fail_timeout": 1
+  },
+  "by_status": {
+    "pass": [
+      "h3-t2v",
+      "h3-i2v",
+      "txt2img-basic",
+      "wan-animate-2",
+      "h3-fl2v",
+      "h3-i2v-15s-fast",
+      "qwen-image-edit",
+      "img2img-basic"
+    ],
+    "fail_product": [
+      "wan-animate",
+      "longcat-i2v",
+      "flux1-nunchaku",
+      "pulid",
+      "rh-acc-7754829825-7c33df",
+      "rh-acc-1099076609-5b577d",
+      "rh-acc-1169267714-43e935",
+      "rh-acc-0024814594-adc75c",
+      "rh-acc-1402669058-f27871",
+      "rh-acc-2372477953-92c022",
+      "rh-acc-0226654210-196163",
+      "rh-acc-0394349569-8e5196",
+      "rh-acc-0593472514-c5793e",
+      "rh-acc-0117231618-41d6f5",
+      "rh-acc-0176605185-79d0b8"
+    ],
+    "fail_timeout": [
+      "rh-acc-0525722625-f06cfb"
+    ]
+  },
+  "pass_ids": [
+    "h3-t2v",
+    "h3-i2v",
+    "txt2img-basic",
+    "wan-animate-2",
+    "h3-fl2v",
+    "h3-i2v-15s-fast",
+    "qwen-image-edit",
+    "img2img-basic"
+  ],
+  "fail_product_ids": [
+    "wan-animate",
+    "longcat-i2v",
+    "flux1-nunchaku",
+    "pulid",
+    "rh-acc-7754829825-7c33df",
+    "rh-acc-1099076609-5b577d",
+    "rh-acc-1169267714-43e935",
+    "rh-acc-0024814594-adc75c",
+    "rh-acc-1402669058-f27871",
+    "rh-acc-2372477953-92c022",
+    "rh-acc-0226654210-196163",
+    "rh-acc-0394349569-8e5196",
+    "rh-acc-0593472514-c5793e",
+    "rh-acc-0117231618-41d6f5",
+    "rh-acc-0176605185-79d0b8"
+  ],
+  "fail_timeout_ids": [
+    "rh-acc-0525722625-f06cfb"
+  ],
+  "skipped_capacity_ids": [],
+  "families_touched": [
+    "animate",
+    "flux",
+    "h3_avsync",
+    "ltx",
+    "qwen",
+    "wan22"
+  ],
+  "families_with_pass": [
+    "animate",
+    "flux",
+    "h3_avsync",
+    "qwen"
+  ],
+  "families_with_fail_only": [
+    "ltx",
+    "wan22"
+  ],
+  "diverse_families_attempted": 6,
+  "evidence_dir": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/.regen_tmp/app_test_matrix_p0/artifacts",
+  "results_path": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/.regen_tmp/app_test_matrix_p0/l2_results.jsonl",
+  "failures_path": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/.regen_tmp/app_test_matrix_p0/l2_failures.md",
+  "runner": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/.regen_tmp/app_test_matrix_p0/l2_smoke_runner.py",
+  "concurrency": {
+    "max_inflight": 2,
+    "job_timeout_sec": 600,
+    "queued_stall_sec": 360
+  },
+  "notes": [
+    "Real usability: POST /api/apps/{id}/run after admin login; poll GET /api/jobs/lookup",
+    "Dedicated engines (H3 :8195, LongCat/Animate :8197, Animate2 :8199, QwenEdit :8194) are outside WorkerPool all_workers; L2 pinned upload with worker=+kind (h3_i2v/wan_animate/…) because market /run does NOT transfer pool→dedicated (product gap; studio path does transfer).",
+    "Default all_workers-only upload to H3 reproduces Invalid image file on LoadImage — fail_product if not pinned.",
+    "wan-animate / many rh-acc animate+ltx apps routed to pool and 503 missing models/nodes (not dedicated pick) — fail_product.",
+    "longcat-i2v: model filename baked in workflow missing on :8197 — fail_product.",
+    "No skipped_capacity — all 24 candidates attempted.",
+    "Short length/frames prefer schema min; steps capped ~8 when default higher."
+  ]
+}
