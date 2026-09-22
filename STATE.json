@@ -13,20 +13,26 @@
     "product_sha_note": "cover gate force-refresh fix deployed on core; this tip is docs-only; product branch not merged to main",
     "shipped": false,
     "online": false,
-    "summary": "rh-acc-9923136513 idle-window final smoke FAIL runtime_cuda kernels; cover_gate unlocked; 1292bb5 deployed; TOIV_COVER_AUTOREFIRE=false",
+    "summary": "rh-acc-9923136513 idle-window FAIL runtime_cuda kernels version conflict (want 0.15.2<=v<0.16.0, fleet 0.16.2); cover_gate unlocked; 1292bb5 deployed; TOIV_COVER_AUTOREFIRE=false",
     "rh_acc_9923136513": {
       "app_id": "rh-acc-9923136513-48997d",
       "name": "Z-Image 去 AI 感",
       "result": "FAIL",
       "error_class": "runtime_cuda",
-      "detail": "finegrained-fp8 kernels package missing or incompatible; need 0.16.0<=version",
+      "detail": "finegrained-fp8 kernels version conflict: node wants 0.15.2<=v<0.16.0, fleet has 0.16.2; retest after :8196 restart + kernels 0.16.2 trust_ok still FAIL",
       "cover_gate_at_test": {
         "gated": false,
         "queue_idle": true,
         "note": "gate unlocked and queue idle; failure not due to cover_gate"
       },
       "owner": "设备",
-      "next": "verify kernels/HF_ENDPOINT/trust on accepting worker; retest"
+      "next": "设备管家裁处 kernels 版本区间冲突后复测",
+      "kernels": {
+        "fleet": "0.16.2",
+        "finegrained_fp8_requires": "0.15.2<=v<0.16.0",
+        "retest_after_8196_restart_trust_ok": "still FAIL",
+        "owner": "设备管家在裁处"
+      }
     },
     "cover_gate_fix": {
       "product_sha": "1292bb5",
@@ -49,11 +55,12 @@
     "agents_md": "updated_header_sec7_sec8_only_no_cluster_truth",
     "pushed": false,
     "facts": [
-      "rh-acc-9923136513-48997d idle-window final smoke FAIL / runtime_cuda: finegrained-fp8 kernels missing or incompatible (need 0.16.0<=version)",
+      "rh-acc-9923136513-48997d idle-window final smoke FAIL / runtime_cuda",
+      "finegrained-fp8 kernels version conflict: requires 0.15.2<=v<0.16.0 but fleet is 0.16.2; retest after :8196 restart + 0.16.2 trust_ok still FAIL",
       "At test time cover_gate unlocked and queue idle",
       "Product fix 1292bb5 (sum_queue_depth force=) deployed to core; TOIV_COVER_AUTOREFIRE=false; polling routine deleted",
       "Product branch not merged to main; do not rewrite AGENTS cluster SSH truth sections",
-      "Hand off to 设备 for worker kernels/trust verification then retest"
+      "设备管家在裁处 kernels 版本冲突"
     ],
     "updated_at": "2026-09-23T05:49:00+08:00"
   },
