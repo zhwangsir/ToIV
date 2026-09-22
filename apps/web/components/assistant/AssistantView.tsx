@@ -206,27 +206,66 @@ export function summaryToConversation(s: AgentSessionSummary): Conversation {
  * 空内容气泡会渲染成常驻打字点,且推理碎片本就刻意不落库( runner 伴生文本抑制)。 */
 export function messagesToChat(rows: AgentSessionMessage[]): ChatMessage[] {
   const out: ChatMessage[] = [];
+  // A1 回放卡(2026-09-22):tool 行 tool_calls JSON 内的结构化 payload 重建为 chip
+  // (注册工具渲染结果卡);缓冲后并入下一条可见气泡——真实时序里 tool 行先于
+  // 助手文本气泡,不能直接挂"上一条"(那是上一轮)
+  let pendingTools: ToolChip[] = [];
+  const flushTools = (target: ChatMessage | undefined) => {
+    if (!pendingTools.length || !target) return;
+    target.tools = [...(target.tools ?? []), ...pendingTools];
+    pendingTools = [];
+  };
+  const flushToolsToLastAssistant = () => {
+    const last = out[out.length - 1];
+    flushTools(last && last.role === "assistant" ? last : undefined);
+  };
   for (const m of rows) {
     const ts = Date.parse(m.created_at) || Date.now();
-    if (m.role === "user" || m.role === "assistant") {
-      // 空 assistant 轮(工具调用中间轮)跳过;媒体由随后 tool 行并入下一条可见气泡
-      if (m.role === "assistant" && !m.content.trim() && !(m.media?.length)) continue;
+    if (m.role === "user") {
+      // 新一轮开始:上轮中止遗留的 chip 挂到上一条 assistant 气泡(没有则丢弃)
+      flushToolsToLastAssistant();
       out.push({ id: `srv-${m.id}`, role: m.role, content: m.content, timestamp: ts });
-    } else if (m.role === "tool" && m.media?.length) {
-      let last = out[out.length - 1];
-      if (!last || last.role !== "assistant") {
-        last = { id: `srv-${m.id}-media`, role: "assistant", content: "", timestamp: ts };
-        out.push(last);
+    } else if (m.role === "assistant") {
+      // 空 assistant 轮(工具调用中间轮)跳过;媒体由随后 tool 行并入下一条可见气泡
+      if (!m.content.trim() && !(m.media?.length)) continue;
+      const bubble: ChatMessage = { id: `srv-${m.id}`, role: m.role, content: m.content, timestamp: ts };
+      out.push(bubble);
+      flushTools(bubble);
+    } else if (m.role === "tool") {
+      // payload chip 缓冲(等待本轮 assistant 文本气泡)
+      const tc = m.tool_calls && typeof m.tool_calls === "object"
+        ? (m.tool_calls as { name?: unknown; payload?: unknown })
+        : null;
+      if (tc && typeof tc.name === "string" && tc.payload && typeof tc.payload === "object") {
+        pendingTools.push({
+          id: `srv-${m.id}`,
+          name: tc.name,
+          status: "ok",
+          summary: tc.name,
+          payload: tc.payload as Record<string, unknown>,
+        });
       }
-      // W4:按 URL 去重——check_jobs 落库媒体与 submit_generation 回填媒体可能同产物双来源
-      const seen = new Set((last.media ?? []).flatMap((g) => g.urls));
-      const fresh = m.media
-        .map((g) => ({ ...g, urls: g.urls.filter((u) => !seen.has(u)) }))
-        .filter((g) => g.urls.length > 0);
-      for (const g of fresh) g.urls.forEach((u) => seen.add(u));
-      if (fresh.length) last.media = [...(last.media ?? []), ...fresh];
+      if (m.media?.length) {
+        let last = out[out.length - 1];
+        if (!last || last.role !== "assistant") {
+          last = { id: `srv-${m.id}-media`, role: "assistant", content: "", timestamp: ts };
+          out.push(last);
+        }
+        // W4:按 URL 去重——check_jobs 落库媒体与 submit_generation 回填媒体可能同产物双来源
+        const seen = new Set((last.media ?? []).flatMap((g) => g.urls));
+        const fresh = m.media
+          .map((g) => ({ ...g, urls: g.urls.filter((u) => !seen.has(u)) }))
+          .filter((g) => g.urls.length > 0);
+        for (const g of fresh) g.urls.forEach((u) => seen.add(u));
+        if (fresh.length) last.media = [...(last.media ?? []), ...fresh];
+        // 媒体行就是本轮收尾:缓冲的 chip 一并并入
+        flushTools(last);
+      }
     }
   }
+  // 流尾兜底:中止轮(tool 行后无 assistant 文本)不产空气泡(守 W4 不变式),
+  // chip 仅在上一条为 assistant 气泡时并入,否则丢弃(实时流已展示过一次)
+  flushToolsToLastAssistant();
   return out;
 }
 

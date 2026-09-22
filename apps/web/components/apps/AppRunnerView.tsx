@@ -26,6 +26,7 @@ import {
   getAppGuide,
   groupAppParams,
   openAppWorkflowInComfy,
+  saveAppFromComfy,
   placeholderAspect,
   requiredParamLabel,
   runApp,
@@ -327,6 +328,29 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
     }
   }
 
+  // 从 Comfy 画布存回工作流(save-back 2026-09-22):open-in-comfy 推送过、画布内保存过的
+  // 最新版本读回落库;409=画布未保存/无改动,404=画布上没有该文件;成功后重拉应用联动刷新
+  const [savingBack, setSavingBack] = useState(false);
+  async function handleSaveFromComfy() {
+    if (!app || savingBack) return;
+    setSavingBack(true);
+    setRunError(null);
+    try {
+      const res = await saveAppFromComfy(app.id);
+      const orphan = res.orphan_bindings?.length
+        ? `;注意:参数绑定 ${res.orphan_bindings.join("/")} 引用的节点已不在图中`
+        : "";
+      toast.success(`已存回工作流(${res.node_count} 节点)${orphan}`);
+      await load();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "从画布存回失败";
+      setRunError(msg);
+      toast.error(msg);
+    } finally {
+      setSavingBack(false);
+    }
+  }
+
   const workflowMissing =
     !app?.workflow_json || Object.keys(app.workflow_json ?? {}).length === 0;
 
@@ -422,6 +446,23 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
               onClick={() => void handleOpenWorkflow()}
             >
               {comfyOpening ? "正在打开…" : "在画布中编辑"}
+            </Button>
+          )}
+          {/* save-back(2026-09-22):admin 可见;读回画布已保存版本覆盖应用工作流 */}
+          {phase === "run" && isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={savingBack || workflowMissing}
+              title={
+                workflowMissing
+                  ? "该应用暂无工作流数据"
+                  : "把画布里保存过的最新版本存回应用(先在画布内保存;无改动会提示)"
+              }
+              icon={<Icon name={savingBack ? "loading" : "download"} size={13} />}
+              onClick={() => void handleSaveFromComfy()}
+            >
+              {savingBack ? "正在存回…" : "从画布存回"}
             </Button>
           )}
         </span>

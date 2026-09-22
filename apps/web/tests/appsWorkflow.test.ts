@@ -228,3 +228,18 @@ test("AppWorkflowGraph:导出工作流 + 在 Comfy 中打开(源码)", () => {
   assert.ok(lib.includes("toiv_pending_comfy_workflow"), "应暂存 pending workflow");
   assert.ok(lib.includes("workflow_name"), "成功时应暂存 workflow_name 供 Canvas 自动 Load");
 });
+
+/* ── save-back(2026-09-22):从 Comfy 画布存回应用工作流 ── */
+test("save-from-comfy:lib 封装契约 + AppRunnerView 按钮接线(源码断言)", () => {
+  const lib = readSrc("lib/apps.ts");
+  assert.ok(lib.includes("export async function saveAppFromComfy"), "缺 saveAppFromComfy 导出");
+  assert.ok(lib.includes("/save-from-comfy`"), "路径错误");
+  assert.ok(lib.includes('method: "POST"'), "应为 POST");
+  const src = readSrc("components/apps/AppRunnerView.tsx");
+  assert.ok(src.includes("saveAppFromComfy"), "运行台未引入 saveAppFromComfy");
+  assert.ok(src.includes("handleSaveFromComfy"), "缺存回处理函数");
+  assert.ok(src.includes("从画布存回"), "缺「从画布存回」按钮");
+  assert.ok(src.includes("isAdmin &&"), "存回入口应 admin 门控(公共/内置应用仅 admin 可改)");
+  assert.ok(src.includes("await load()"), "存回成功后应重拉应用联动刷新");
+  assert.ok(src.includes("orphan_bindings"), "悬空绑定应透出提示");
+});

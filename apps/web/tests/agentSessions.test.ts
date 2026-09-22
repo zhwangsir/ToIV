@@ -190,3 +190,39 @@ test("messagesToChat 纯函数:无媒体的 tool 消息不产生气泡", () => {
   assert.equal(out.length, 2, "无媒体 tool 消息与空工具轮 assistant 均不出气泡");
   assert.deepEqual(out.map((m) => m.role), ["user", "assistant"]);
 });
+
+test("messagesToChat:A1 回放卡——tool 行 payload 重建 chip 并入本轮 assistant 气泡", () => {
+  const out = messagesToChat([
+    { id: 1, role: "user", content: "优化一下", tool_calls: null, media: [], created_at: "2026-08-14T00:00:00Z" },
+    { id: 2, role: "assistant", content: "", tool_calls: [{ id: "t1" }], media: [], created_at: "2026-08-14T00:00:01Z" },
+    // 工具行:payload 落库于 tool_calls JSON(2026-09-22 起)
+    { id: 3, role: "tool", content: "优化后提示词:…", tool_calls: { tool_call_id: "t1", name: "optimize_prompt", args: {}, payload: { original: "猫", optimized: "a cat, masterpiece", negative: "" } }, media: [], created_at: "2026-08-14T00:00:02Z" },
+    { id: 4, role: "assistant", content: "已优化", tool_calls: null, media: [], created_at: "2026-08-14T00:00:03Z" },
+  ]);
+  assert.equal(out.length, 2, "气泡数不变(纯工具轮仍不产气泡)");
+  const bubble = out[1];
+  assert.equal(bubble.role, "assistant");
+  assert.equal(bubble.tools?.length, 1, "chip 应并入本轮 assistant 气泡(非上一轮)");
+  const chip = bubble.tools![0];
+  assert.equal(chip.name, "optimize_prompt");
+  assert.equal(chip.status, "ok");
+  assert.equal((chip.payload as { optimized: string }).optimized, "a cat, masterpiece");
+});
+
+test("messagesToChat:A1 回放卡——无 payload 旧会话零 chip(回退现状);流尾中止轮挂上一轮", () => {
+  // 旧会话 tool 行无 payload:行为与回放现状一致
+  const legacy = messagesToChat([
+    { id: 1, role: "user", content: "有哪些模型", tool_calls: null, media: [], created_at: "2026-08-14T00:00:00Z" },
+    { id: 2, role: "tool", content: "当前可用: a", tool_calls: { name: "list_models" }, media: [], created_at: "2026-08-14T00:00:01Z" },
+    { id: 3, role: "assistant", content: "目前有 a", tool_calls: null, media: [], created_at: "2026-08-14T00:00:02Z" },
+  ]);
+  assert.ok(legacy.every((m) => !m.tools?.length), "无 payload 不产生 chip");
+  // 中止轮:tool 行后无 assistant 文本 → 不产空气泡(守 W4 不变式),chip 丢弃
+  const aborted = messagesToChat([
+    { id: 1, role: "user", content: "优化", tool_calls: null, media: [], created_at: "2026-08-14T00:00:00Z" },
+    { id: 2, role: "assistant", content: "上一轮回复", tool_calls: null, media: [], created_at: "2026-08-14T00:00:01Z" },
+    { id: 3, role: "user", content: "再优化", tool_calls: null, media: [], created_at: "2026-08-14T00:00:02Z" },
+    { id: 4, role: "tool", content: "优化后:…", tool_calls: { tool_call_id: "t9", name: "optimize_prompt", args: {}, payload: { original: "x", optimized: "y", negative: "" } }, media: [], created_at: "2026-08-14T00:00:03Z" },
+  ]);
+  assert.ok(aborted.every((m) => !m.tools?.length), "中止轮不产空气泡,chip 丢弃(实时流已展示过一次)");
+});

@@ -1,15 +1,14 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * 智能体优化系统 UI 测试 (chromium-authed project)
+ * 智能体系统 UI 测试 (chromium-authed project)
  *
- * 覆盖前端 UI 流程:
- * - 主站图像工作台(GenerateView)出现 OptimizeButton
- * - AdminView 智能体管理 tab + 列表 + 编辑入口
- *
- * 说明:W0 后顶栏 AgentSwitcher 已移至侧栏底部;M4 起侧栏底部 AgentSwitcher 已移除,
- * 智能体选择收敛到各生成页 OptimizeButton 内联弹出。
- * M9 起 NSFW 专区并入主站(R18 全局模式),OptimizeButton 用例改走主站图像视图。
+ * 2026-09-22 重写(旧三例系 09-12/09-15 架构陈旧,曾 skip 登记):
+ * - A2:SideRail「智能体」入口直达 /agent-runs;会话分叉置顶;「在对话中继续」草稿回填
+ * - 助手 optimize_prompt → A1 对照卡 + 应用到输入框(优化入口现状=助手工具;
+ *   GenerateView 09-12 已退役,工作台 PromptBar/OptimizeButton 随之离场)
+ * - 智能体管理(列表/tab)改打独立管理系统(TOIV_ADMIN_BASE,默认 TS 100.77.80.100:3200;
+ *   管理系统 09-15 起不在主站;登录用 admin/admin123 表单)
  */
 
 test.describe("智能体 UI", () => {
@@ -74,69 +73,54 @@ test.describe("智能体 UI", () => {
   });
 
 
-  // ── 图像工作台 OptimizeButton ─────────────────────────────
-  // 优化按钮在工作台底部提示词条(PromptBar)内,SFW/R18 视图均有。
-  test("图像工作台出现 OptimizeButton", async ({ page }) => {
-    // STALE(2026-09-22 登记):09-12 引擎工作台改造后 ?view=image 渲染 EngineStudioView
-    // (.apps-studio,无 PromptBar/OptimizeButton),GenerateView 已无路由挂载;
-    // 优化入口现状=助手 optimize_prompt 工具(A1 对照卡)。待按新架构重写,先跳过。
-    test.skip(true, "stale: GenerateView 已退役(09-12 引擎工作台),待按新架构重写");
-    await page.goto("/?view=image", { waitUntil: "domcontentloaded" });
-    try {
-      await page.waitForLoadState("networkidle", { timeout: 10000 });
-    } catch {
-      /* dev 模式 networkidle 可能超时,忽略 */
-    }
-
-    // 统一生成工作台渲染
-    await expect(page.locator(".generate-view")).toBeVisible({ timeout: 10000 });
-
-    // 应有"优化提示词"按钮(含 sparkles 图标 + 优化文案)
-    const optimizeBtn = page.locator("button").filter({ hasText: /优化提示词|优化/ }).first();
-    await expect(optimizeBtn).toBeVisible({ timeout: 10000 });
+  // ── 提示词优化(2026-09-22 重写:GenerateView 已退役,优化入口=助手 optimize_prompt 工具+A1 对照卡) ──
+  test("助手优化提示词:对照卡渲染+应用到输入框", async ({ page }) => {
+    test.setTimeout(150000);
+    await page.goto("/?view=home", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".av-composer-input", { timeout: 60000 });
+    await page.locator(".av-composer-input").fill("帮我优化提示词:一只橘猫在窗台晒太阳");
+    await page.locator(".av-composer-input").press("Enter");
+    // A1 对照卡( optimize_prompt payload 卡;LLM+优化两跳,宽限 90s)
+    const card = page.locator("[class*='av-tc-optimize']").first();
+    await card.waitFor({ state: "visible", timeout: 90000 });
+    await expect(card.getByText(/应用到输入框/)).toBeVisible({ timeout: 10000 });
+    await page.screenshot({ path: "ui-sweep/agents-ui-optimize-card.png" });
+    // 「应用到输入框」回填 composer
+    await card.getByRole("button", { name: /应用到输入框/ }).click();
+    const v = await page.locator(".av-composer-input").inputValue();
+    expect(v.length).toBeGreaterThan(30);
   });
 
-  // ── AdminView 智能体管理 ───────────────────────────────────────
-  test("AdminView 出现智能体管理 tab", async ({ page }) => {
-    // STALE(2026-09-22 登记):09-15 管理系统独立(:3200)后主站 ?view=admin 弹回对话页,
-    // AdminView/智能体管理 tab 在独立控制台;admin e2e 现状保持为零(D7 重建时覆盖),先跳过。
-    test.skip(true, "stale: 管理系统已独立 :3200(09-15),主站无 AdminView");
-    await page.goto("/?view=admin", { waitUntil: "domcontentloaded" });
-    try {
-      await page.waitForLoadState("networkidle", { timeout: 10000 });
-    } catch {
-      /* 忽略 */
-    }
+  // ── 智能体管理(2026-09-22 重写:管理系统独立 :3200,改打独立控制台;admin 需登录) ──
+  const ADMIN_BASE = process.env.TOIV_ADMIN_BASE ?? "http://100.77.80.100:3200";
 
-    // 应出现"智能体管理"tab(role=tab,避免匹配顶栏 AgentSwitcher)
-    const agentTab = page.getByRole("tab", { name: /智能体/ }).first();
-    await expect(agentTab).toBeVisible({ timeout: 10000 });
+  async function adminLogin(page: import("@playwright/test").Page) {
+    await page.goto(`${ADMIN_BASE}/`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".login-card, nav.tabs", { timeout: 60000 });
+    if (await page.locator(".login-card").count()) {
+      await page.locator(".login-card input").first().fill("admin");
+      await page.locator('.login-card input[type="password"]').fill("admin123");
+      await page.locator('.login-card button[type="submit"]').click();
+      await page.waitForSelector("nav.tabs", { timeout: 60000 });
+    }
+  }
+
+  test("管理系统:智能体管理 tab 出现(独立控制台)", async ({ page }) => {
+    test.setTimeout(120000);
+    await adminLogin(page);
+    await page.getByRole("button", { name: "平台管理" }).first().click();
+    await expect(page.getByRole("tab", { name: "智能体管理" })).toBeVisible({ timeout: 30000 });
   });
 
-  test("AdminView 切到智能体管理 tab 应展示列表", async ({ page }) => {
-    // STALE(2026-09-22 登记):同上——管理系统已独立 :3200,主站无 AdminView,先跳过。
-    test.skip(true, "stale: 管理系统已独立 :3200(09-15),主站无 AdminView");
-    await page.goto("/?view=admin", { waitUntil: "domcontentloaded" });
-    try {
-      await page.waitForLoadState("networkidle", { timeout: 10000 });
-    } catch {
-      /* 忽略 */
-    }
-
-    // 点智能体管理 tab(role=tab,精确匹配 AdminView 内的 tab 按钮)
-    const agentTab = page.getByRole("tab", { name: /智能体/ }).first();
-    await agentTab.click();
-
-    // 等列表渲染(数据请求 + 渲染)
-    await page.waitForTimeout(2000);
-
-    // 应出现智能体列表(AgentsAdminView 根元素 class=agents-admin)
+  test("管理系统:智能体管理列表 ≥11(含 NSFW 内置)", async ({ page }) => {
+    test.setTimeout(120000);
+    await adminLogin(page);
+    await page.getByRole("button", { name: "平台管理" }).first().click();
+    await page.getByRole("tab", { name: "智能体管理" }).click();
     const adminView = page.locator(".agents-admin").first();
-    await expect(adminView).toBeVisible({ timeout: 8000 });
-
-    // 列表项数 >= 11(管理页可见含 NSFW 的全部内置)
+    await expect(adminView).toBeVisible({ timeout: 30000 });
+    await page.waitForTimeout(2000);
     const items = adminView.locator("[class*='aa-item'], [class*='aa-card'], [class*='agent-row']");
-    const count = await items.count();
-    expect(count, "至少 11 个智能体(含 NSFW)").toBeGreaterThanOrEqual(11);
+    expect(await items.count(), "至少 11 个智能体(含 NSFW)").toBeGreaterThanOrEqual(11);
   });
 });

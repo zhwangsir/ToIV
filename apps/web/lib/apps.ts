@@ -571,6 +571,26 @@ export async function openAppInComfy(id: string): Promise<OpenInComfyResult> {
   };
 }
 
+/** 从 Comfy 画布存回应用工作流(save-back,2026-09-22):
+ *  读回 userdata 里 toiv_app_{id}.json(用户在 Comfy 内 Ctrl+S 保存)→ 后端 ui_to_api 落库。
+ *  409=画布内容与现图一致(未保存);404=画布上没有该文件(未「在 Comfy 中打开」过)。 */
+export interface SaveFromComfyResult {
+  ok: boolean;
+  id: string;
+  fingerprint: string;
+  node_count: number;
+  orphan_bindings: string[];
+}
+
+export async function saveAppFromComfy(id: string): Promise<SaveFromComfyResult> {
+  const res = await apiFetch(`${API_BASE}/api/apps/${encodeURIComponent(id)}/save-from-comfy`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) return raiseErr(res, "从 Comfy 存回失败");
+  return res.json();
+}
+
 /** H3 家族应用判定(2026-09-12 智能加速,与后端 422 口径一致):
  *  id 前缀 h3-,或 workflow_json 含 MiniMaxH3/HailuoH3 家族节点。 */
 export function appSupportsH3Accel(app: Pick<AppItem, "id" | "workflow_json">): boolean {
