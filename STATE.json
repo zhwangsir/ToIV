@@ -1,5 +1,82 @@
 {
- "updated_at": "2026-09-22T18:00:00+08:00",
+ "updated_at": "2026-09-22T21:05:00+08:00",
+  "model_sources_core_sync_2026_09_22":
+  {
+    "status": "already_live_verified",
+    "date": "2026-09-22",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "committed_product": false,
+    "product_sha": null,
+    "shipped": false,
+    "online": false,
+    "summary": "model_sources.json + app_test_matrix/ already live on core; rh-acc-9923136513 final test deferred on cover_gate",
+    "model_sources": {
+      "core_path": "/home/merlin/toiv/api/app/data/",
+      "layout_note": "core flat path, not …/apps/api/…",
+      "file": "model_sources.json",
+      "md5": "6aeded7b82dbe3f02bd23e060a3bdf01",
+      "size_bytes": 500960,
+      "totals": {
+        "ok": 478,
+        "blocked": 336,
+        "total": 815
+      },
+      "updated_at_file": "2026-09-18",
+      "local_matches_core": true
+    },
+    "app_test_matrix": {
+      "core_path": "/home/merlin/toiv/api/app/data/app_test_matrix/",
+      "files": 5,
+      "mtime_note": "Sep 22 02:53 matches local",
+      "local_matches_core": true
+    },
+    "deploy": {
+      "need_scp": false,
+      "need_restart": false,
+      "already_live": true
+    },
+    "rh_acc_9923136513": {
+      "result": "deferred",
+      "reason": "cover_gate gated=true",
+      "cover_gate": {
+        "gated": true,
+        "queue_depth": 13,
+        "guard": 12,
+        "pending_approx": 4461,
+        "autorefire": "running"
+      },
+      "business_queue": {
+        "queued": 0,
+        "running": 0
+      },
+      "next": "retry final test after cover_gate opens or device drain"
+    },
+    "branch_note": {
+      "product_branch": "feat/app-guides-admin-cms",
+      "product_head": "b30806d",
+      "remote_main": "bab16b3",
+      "push_policy": "do not push product branch yet (handoff rule)"
+    },
+    "do_not_stage": [
+      ".regen_tmp",
+      "product dirty"
+    ],
+    "agents_md": "updated_sec7_sec8",
+    "pushed": false,
+    "facts": [
+      "model_sources.json + app_test_matrix/ already live on core at /home/merlin/toiv/api/app/data/",
+      "model_sources.md5 6aeded7b82dbe3f02bd23e060a3bdf01; ok478/blocked336/total815",
+      "app_test_matrix five files size/mtime match local; no scp/restart needed",
+      "rh-acc-9923136513 final idle-window test deferred: cover_gate gated=true queue_depth 13>12 pending≈4461",
+      "Product branch feat/app-guides-admin-cms @ b30806d ahead of main bab16b3; do not push yet",
+      "AGENTS §八「需重拷」checked off this round; future local docs changes still need resync"
+    ],
+    "updated_at": "2026-09-22T21:05:00+08:00"
+  },
  "full_launch_sprint_2026_09_14": {
   "status": "closed_497_of_550_90_4pct_user_testing_next",
   "date": "2026-09-14",
