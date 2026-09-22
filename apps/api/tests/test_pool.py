@@ -92,3 +92,24 @@ async def test_pick_raises_when_no_capable_worker():
     pool = WorkerPool([ModelClient("a", 0, {"x"})])
     with pytest.raises(ComfyUIError):
         await pool.pick(required={"missing.safetensors"})
+
+async def test_sum_queue_depth_force_refreshes_stale_cache():
+    """封面闸假忙死锁根因:缓存 last_queue_len 陈旧时非 force 合计仍偏高;
+    force=True 必须直打 queue_len,才能在 Comfy 已空时松开闸门。"""
+    a = FakeClient("a", qlen=10)
+    b = FakeClient("b", qlen=3)
+    pool = WorkerPool([a, b])
+    assert await pool.sum_queue_depth(force=True) == 13
+    a._qlen = 0
+    b._qlen = 0
+    # TTL 内非 force 仍读缓存 → 13(旧行为会死锁封面消费者)
+    assert await pool.sum_queue_depth(force=False) == 13
+    assert await pool.sum_queue_depth(force=True) == 0
+
+
+async def test_sum_queue_depth_skips_unreachable():
+    dead = FakeClient("dead", qlen=99, fail=True)
+    alive = FakeClient("alive", qlen=4)
+    pool = WorkerPool([dead, alive])
+    assert await pool.sum_queue_depth(force=True) == 4
+

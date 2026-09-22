@@ -367,7 +367,9 @@ async def _run_batch(pool: WorkerPool, limit: int) -> int:
     async def _consumer() -> None:
         while True:
             # fleet 深度闸:总排队超闸则暂停消费,等队列 draining(防 cover 洪峰饿杀用户生成)
-            while _fleet_queue_depth(pool) > _FLEET_QUEUE_GUARD:
+            # 闸门必须 force 刷新:仅读 stats().last_queue_len 会在 Comfy 已空时
+            # 仍卡在陈旧深度上永久 sleep(2026-09-22/23 假忙死锁)。
+            while await _fleet_queue_depth_live(pool, force=True) > _FLEET_QUEUE_GUARD:
                 await asyncio.sleep(30)
             try:
                 app_id = queue.get_nowait()
@@ -418,10 +420,22 @@ def demo_running() -> bool:
 
 
 def _fleet_queue_depth(pool: WorkerPool) -> int:
-    """池内全部 worker 当前排队深度合计(stats 拿不到的 worker 按 0 计)。"""
+    """池内全部 worker 缓存排队深度合计(只读快照;观测面板用)。
+
+    不做强制探测——真闸门请用 `_fleet_queue_depth_live(force=True)`,否则
+    陈旧 last_queue_len 会把封面消费者永久卡住。
+    """
     try:
         return sum(s.queue_len or 0 for s in pool.stats())
     except Exception:  # noqa: BLE001 — 探测失败不阻断,返回 0 让上层自行决定
+        return 0
+
+
+async def _fleet_queue_depth_live(pool: WorkerPool, *, force: bool = True) -> int:
+    """强制/惰性刷新后的 fleet 排队深度(封面批闸门专用)。"""
+    try:
+        return await pool.sum_queue_depth(force=force)
+    except Exception:  # noqa: BLE001 — 探测失败不阻断,返回 0 让消费者继续
         return 0
 
 
@@ -432,7 +446,9 @@ async def autorefire_loop(pool: WorkerPool, interval_s: int = 300) -> None:
     """
     while True:
         try:
-            if not demo_running() and _fleet_queue_depth(pool) <= _FLEET_QUEUE_GUARD:
+            if not demo_running() and (
+                await _fleet_queue_depth_live(pool, force=True)
+            ) <= _FLEET_QUEUE_GUARD:
                 with Session(engine) as session:
                     pending = plan_demo_targets(session, 1)
                 if pending:

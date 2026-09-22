@@ -405,6 +405,23 @@ class WorkerPool:
             self._rr += 1
             return self._states[chosen].client
 
+    async def sum_queue_depth(self, *, force: bool = False) -> int:
+        """合计各 worker 当前排队深度(探测失败/熔断按 0)。
+
+        force=True 绕过本机与 Redis 探测缓存,直打 Comfy /queue——封面闸消费循环
+        必须用 force,否则 last_queue_len 陈旧会把消费者永久 sleep 在假忙深度上。
+        """
+        now = time.monotonic()
+        async with self._lock:
+            probed = await asyncio.gather(
+                *(self._probe_one(s, now, set(), set(), force=force) for s in self._states)
+            )
+        total = 0
+        for ok, ql in probed:
+            if ok and ql < _UNREACHABLE:
+                total += int(ql)
+        return total
+
     def stats(self) -> list[WorkerStats]:
         """返回所有 worker 的运行时状态快照(供 /health 展示)。"""
         now = time.monotonic()
