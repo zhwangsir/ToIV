@@ -127,6 +127,7 @@
 - **P-7 新 Python 服务环境三坑**(sm_120)：torch 必须 cu128+/cu130;老牌 CV 包 `--no-build-isolation`;**库主版本升级后旧调用约定逐处核对,能跑≠语义对**。
 - **P-8 DB 会话纪律（09-21 池楔死 P0）**：FastAPI yield 依赖**响应流完才 teardown**——大 payload 端点必须内存拼好字节后**显式 session.close() 再返回**;**异步长任务禁持 DB 会话跨 await**;PG 池已显式 20+20/pre_ping;诊断=pg_stat_activity 看 idle in transaction（基线 20 idle/0 楔死）+core venv py-spy。
 - **P-9 agent 工具纪律**：加工具同步四处断言（BUILTIN_ORDER/schemas/LEGACY_SYSTEM/test_agent_gen_tools）;服务抽出 import 必须别名防遮蔽;**成功文案首 60 字禁 hint 词**（"失败/超时/不可用/仅 R18/过于频繁/未知工具/不存在",错误路径反而要含）。
+- **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
 
@@ -180,7 +181,10 @@
 ### 设备/运维（现场或决策项）
 - [ ] openclaw02-04 + cloud tailscaled 恢复（**需现场**：`tailscale down && up` / `systemctl restart tailscaled`）
 - [ ] core BIOS 来电自启建议设置（断电后需人工确认）
-- [ ] 决策点：cloud 遗留 aigc-auth/deploy-flask/exo-proxy 清理；OpenClaw×4 网关去留（上游已断）
+- [x] ~~决策点：cloud 遗留清理~~（2026-09-22 拍板执行：aigc-auth/deploy-flask/deploy-exo-proxy 三 docker 容器 `update --restart=no`+stop（镜像与 /root/aigc-auth、/opt/exo-proxy 目录保留可回滚）；ssh-fwd-22007~22012 死转发（指向陈旧 TS IP）stop+disable;frps/openresty/node-exporter 与双域实测 200 无恙）
+- [x] ~~决策点：OpenClaw×4 网关去留~~（2026-09-22 拍板执行：四节点 `ai.openclaw.gateway` LaunchAgent bootout+plist 改 `.disabled-20260922`（回滚=改名+load）;whisper :9310/JoyCaption :9305 四节点 LIVE 实测无恙,机器角色=whisper ASR 集群保留）
+- [ ] pc01 补装 kernels 0.16.x（其 SSH/TS 暂不可达;finegrained-fp8 节点若落 pc01 会撞版本闸,WS 已装妥）
+- [ ] rh-acc-9923136513-48997d(Z-Image 去 AI 感)：缺陷链已根治（kernels 0.16.2 + 超分 fleet :8261-3 补 `HF_ENDPOINT=hf-mirror.com` drop-in——**fp8 finegrained 信任门根治,惠及全部同类应用**）;剩余=真机慢链(Z-Image+SeedVR2 双段,共享 GPU 下 >480s 烟测窗)——与原 wave23「超时/排队非产品缺陷」同判定,极闲窗口可复核
 - [x] ~~wave4 设备组残留核查~~（2026-09-22 真机核：Anything Everywhere3/easy sam3GetObjectMask/IPAdapter FaceID 节点族在位；H3 文本节点由 h3_like 前缀兜底覆盖非问题;「全局输入」全库无此节点名=误记;FaceID LoRA 原文件 Best_FaceID_v1.0 仍 blocked,等效 ip-adapter-faceid-plusv2_sd15/sdxl 已在位）
 - [ ] MODEL_SOURCES 持续追加（当前 ok478/blocked336/total815）
 - [x] ~~wave23 后空闲窗口补刀~~（超时/排队：残差 7 例中 6 例间歇期已由烟测管线翻盘 pass,1 例三测演进为真修（kernels 0.16.2 装妥）+长链超时留空闲窗口终测;QwenEdit fp4:r128 edit+r128 image 8steps 已落 NAS,r32 edit 已在库补登记,账对齐 478/336/815;封面余量=autorefire 深度闸自动跑,勿手动）

@@ -1,5 +1,5 @@
 {
- "updated_at": "2026-09-22T10:30:00+08:00",
+ "updated_at": "2026-09-22T18:00:00+08:00",
  "full_launch_sprint_2026_09_14": {
   "status": "closed_497_of_550_90_4pct_user_testing_next",
   "date": "2026-09-14",
@@ -12094,5 +12094,18 @@
   "production": "web BUILD_ID 20260922-014516-nogit;api+admin 部署;生产回放卡/save-back 按钮真机验证",
   "ops_notes": "pc01 TS SSH 超时但 LAN+服务实活(N-5 再实证:LB 探针瞬态假不健康);kernels 0.16.2 装入 /opt/ComfyUI/venv(WS);pc01 若跑 finegrained-fp8 节点需同装(其 SSH 暂不可达)",
   "remaining": "现场项(openclaw/cloud tailscaled/core BIOS)/rh-acc-9923136513 空闲窗口终测/SeC 上游边界"
+ },
+ "decommission_decisions_2026_09_22": {
+  "status": "done",
+  "date": "2026-09-22",
+  "source": "设备管家",
+  "scope": "用户授权「你自行决定」——三决策点处置 + rh-acc-9923136513 缺陷链根治",
+  "decisions": [
+   "cloud 遗留清理=执行退役:aigc-auth/deploy-flask/deploy-exo-proxy 三 docker 容器 update --restart=no + stop(镜像与 /root/aigc-auth、/opt/exo-proxy 目录保留可回滚);ssh-fwd-22007~22012 死转发(指向陈旧 TS IP)stop+disable;frps/openresty/node-exporter 及双域(wineryz+dgmt)实测 200 无恙",
+   "OpenClaw×4 网关=执行退役:四节点 ai.openclaw.gateway LaunchAgent bootout + plist 改 .disabled-20260922(回滚=改名+launchctl load);whisper :9310/JoyCaption :9305 四节点 LIVE,机器角色=whisper ASR 集群保留",
+   "rh-acc-9923136513 终测演进:④暴露 kernels 0.16 信任门——超分 fleet :8261-3 无 HF_ENDPOINT(get_organization_overview 直连 hf.co 超时→假 runtime_cuda);根修=三 unit 补 drop-in(.service.d 命名坑,P-10 已收)+kernels 0.16.2 已装;⑤复测信任门过,剩余=真机慢链(共享 GPU >480s 烟测窗),同 wave23 原判「超时/排队非产品缺陷」"
+  ],
+  "ops_notes": "pc01 补装 kernels 待其 SSH 恢复;openclaw02-04/cloud tailscaled 仍现场项;超分 fleet HF_ENDPOINT drop-in 已落 WS systemd(daemon-reload+restart 实测三实例 200)",
+  "remaining": "现场项(tailscaled/BIOS/pc01 kernels)/SeC 上游边界/极闲窗口 rh-acc-9923136513 复核(可选)"
  }
 }
