@@ -16,11 +16,11 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.db import get_session
 from app.main import app
-from app.models import App, Tenant, User
+from app.models import App, AuditLog, Tenant, User
 from app.security import create_token, hash_password
 
 # --------------------------------------------------------------------------- #
@@ -547,6 +547,105 @@ def test_open_in_comfy_requires_auth_and_visible(ctx):
     with Session(engine) as s:
         _seed_app(s, id="pub", name="公开", user_id="")
     assert c.post("/api/apps/nope/open-in-comfy", headers=_h(tokens, "user")).status_code == 404
+
+
+# --------------------------------------------------------------------------- #
+# save-from-comfy(二次编辑存回,2026-09-22)
+# --------------------------------------------------------------------------- #
+def _comfy_fake(ui_payload, monkeypatch, status=200):
+    """httpx AsyncClient 替身:GET userdata 回 ui_payload(或 404);admin/backends 回空。"""
+    import app.routes.apps as apps_route
+
+    class _Resp:
+        def __init__(self, code):
+            self.status_code = code
+            self.content = b"{}"
+
+        def json(self):
+            return ui_payload if self.status_code == 200 else {}
+
+    class _Client:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url):
+            if "admin/backends" in url:
+                class _B:
+                    status_code = 200
+                    content = b"{}"
+
+                    def json(self):
+                        return {"backends": []}
+
+                return _B()
+            return _Resp(status)
+
+    monkeypatch.setattr(apps_route.httpx, "AsyncClient", _Client)
+    monkeypatch.setattr(
+        apps_route,
+        "get_settings",
+        lambda: type("S", (), {"canvas_comfy_url": "http://canvas-test:8188"})(),
+    )
+
+
+def test_save_from_comfy_happy(ctx, monkeypatch):
+    """画布读回 UI 图 → ui_to_api → workflow_json/fingerprint 更新 + 审计。"""
+    from app.services.app_fingerprint import fingerprint as fp_of
+    from app.services.workflow_convert import api_to_ui, ui_to_api
+
+    c, tokens, ids, engine = ctx
+    with Session(engine) as s:
+        _seed_app(s, id="pub", name="公开", user_id="", fingerprint=fp_of(_GRAPH))
+
+    # 画布上的版本:_GRAPH 多一个节点(指纹必变)
+    changed_api = {**_GRAPH, "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "x"}}}
+    _comfy_fake(api_to_ui(changed_api), monkeypatch)
+    r = c.post("/api/apps/pub/save-from-comfy", headers=_h(tokens, "admin"))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["ok"] is True and body["node_count"] == len(changed_api)
+    assert body["fingerprint"] == fp_of(changed_api)
+    with Session(engine) as s:
+        a = s.get(App, "pub")
+        assert a.fingerprint == fp_of(changed_api)
+        assert a.workflow_json == ui_to_api(api_to_ui(changed_api))  # 存回为 API 格式
+        log = s.exec(select(AuditLog).where(AuditLog.action == "app.save_from_comfy")).first()
+        assert log is not None and log.target_id == "pub"
+
+
+def test_save_from_comfy_unchanged_409_and_missing_404(ctx, monkeypatch):
+    from app.services.app_fingerprint import fingerprint as fp_of
+    from app.services.workflow_convert import api_to_ui
+
+    c, tokens, ids, engine = ctx
+    with Session(engine) as s:
+        _seed_app(s, id="pub", name="公开", user_id="", fingerprint=fp_of(_GRAPH))
+    # 画布内容与现图一致(指纹相同)→ 409
+    _comfy_fake(api_to_ui(_GRAPH), monkeypatch)
+    r = c.post("/api/apps/pub/save-from-comfy", headers=_h(tokens, "admin"))
+    assert r.status_code == 409 and "未检测到改动" in r.json()["detail"]
+    # 画布上没有该文件 → 404
+    _comfy_fake(None, monkeypatch, status=404)
+    r = c.post("/api/apps/pub/save-from-comfy", headers=_h(tokens, "admin"))
+    assert r.status_code == 404
+
+
+def test_save_from_comfy_permission_and_auth(ctx, monkeypatch):
+    c, tokens, ids, engine = ctx
+    with Session(engine) as s:
+        _seed_app(s, id="mine", name="个人", user_id=ids["user"])  # user 的个人应用
+        _seed_app(s, id="pub", name="公共", user_id="")
+    _comfy_fake({"nodes": []}, monkeypatch)
+    # 匿名 401;非属主改个人应用 403;普通用户改公共应用 403
+    assert c.post("/api/apps/pub/save-from-comfy").status_code == 401
+    assert c.post("/api/apps/mine/save-from-comfy", headers=_h(tokens, "other")).status_code == 403
+    assert c.post("/api/apps/pub/save-from-comfy", headers=_h(tokens, "user")).status_code == 403
 
 
 def test_app_raw_migration_present_and_idempotent():

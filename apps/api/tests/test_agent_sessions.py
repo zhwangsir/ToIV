@@ -204,6 +204,40 @@ def test_chat_tool_round_logs_user_assistant_tool(ctx, monkeypatch):
     assert rows[3].content == "已为你列出模型"
 
 
+def test_chat_tool_payload_persisted_for_replay(ctx, monkeypatch):
+    """A1 回放卡(2026-09-22):工具 ok 事件的 payload 随 tool 消息落库(tool_calls JSON),
+    回放端点透出,前端据此重建结果卡。"""
+    c, alice, _, engine, _ = ctx
+    _mock_llm(
+        monkeypatch,
+        [
+            {
+                "content": "",
+                "tool_calls": [
+                    {"id": "t1", "function": {"name": "list_models", "arguments": "{}"}}
+                ],
+            },
+            {"content": "已为你列出模型"},
+        ],
+    )
+    r = _chat(c, alice, [{"role": "user", "content": "有哪些模型"}])
+    assert r.status_code == 200, r.text
+    sid = r.headers["x-agent-session-id"]
+
+    # 落库:tool 行 tool_calls JSON 带 payload.models
+    rows = _messages(engine, sid)
+    tool_row = next(m for m in rows if m.role == "tool")
+    blob = json.loads(tool_row.tool_calls)
+    assert blob["name"] == "list_models"
+    assert isinstance(blob.get("payload"), dict) and blob["payload"]["models"], \
+        "payload 应随 tool 消息落库"
+
+    # 回放端点透出(tool_calls 已 parse)
+    detail = c.get(f"/api/agent/sessions/{sid}", headers=_auth(alice)).json()
+    drow = next(m for m in detail["messages"] if m["role"] == "tool")
+    assert drow["tool_calls"]["payload"]["models"], "回放端点应透出 payload"
+
+
 def test_chat_continue_only_appends_new_user_message(ctx, monkeypatch):
     """续聊:历史已在库,只追加本轮新输入,不重复落库整段历史。"""
     c, alice, _, engine, _ = ctx

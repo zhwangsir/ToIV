@@ -90,7 +90,7 @@ from app.services.app_content_modes import (
 )
 from app.services.app_packager import ICON_WHITELIST, package_with_llm
 from app.services.workflow_analyzer import analyze_workflow
-from app.services.workflow_convert import api_to_ui, is_api_format, is_ui_format
+from app.services.workflow_convert import api_to_ui, is_api_format, is_ui_format, ui_to_api
 from app.storage import content_subdir
 
 logger = logging.getLogger(__name__)
@@ -2657,6 +2657,98 @@ async def open_app_in_comfy(
         app_id=aid,
         node_count=len(ui.get("nodes") or []),
     )
+
+
+@router.post("/{aid}/save-from-comfy")
+async def save_app_from_comfy(
+    aid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """从 Comfy 画布存回应用工作流(二次编辑 save-back,2026-09-22)。
+
+    链路:open-in-comfy 已把 UI 图落到 userdata workflows/toiv_app_{aid}.json;
+    用户在 Comfy 里 Ctrl+S 保存覆盖该文件后,本端点读回 → ui_to_api →
+    更新 App.workflow_json + fingerprint 重算 + 审计。
+    - 读回内容与现图指纹一致 → 409(画布未保存/无改动,防误覆盖);
+    - 绑定悬空(schema/bindings 引用已删节点)不阻断,以 warnings 透出;
+    - 权限与修改应用同口径(_check_editable:属主/admin;内置 admin 可改)。
+    """
+    a = _get_visible(session, aid, user)
+    _check_editable(a, user, "修改")
+
+    settings = get_settings()
+    worker_url = (settings.canvas_comfy_url or "").strip().rstrip("/")
+    if not worker_url:
+        raise HTTPException(status_code=503, detail="未配置画布 Comfy 地址(TOIV_CANVAS_COMFY_URL)")
+    safe = re.sub(r"[^A-Za-z0-9_-]", "_", aid)[:64] or "app"
+    workflow_name = f"toiv_app_{safe}.json"
+    encoded_path = f"workflows%2F{workflow_name}"
+
+    targets = await _comfy_userdata_targets(worker_url)
+    ui: dict | None = None
+    last_err = ""
+    try:
+        async with httpx.AsyncClient(timeout=15.0, trust_env=False) as client:
+            for base in targets:
+                try:
+                    resp = await client.get(f"{base}/api/userdata/{encoded_path}")
+                    if resp.status_code == 404:
+                        last_err = f"画布上没有该工作流文件 @ {base}"
+                        continue
+                    data = resp.json()
+                    if isinstance(data, dict) and isinstance(data.get("nodes"), list):
+                        ui = data
+                        break
+                    last_err = f"读回内容非 UI 工作流 @ {base}"
+                except httpx.RequestError as exc:
+                    last_err = f"{type(exc).__name__} @ {base}"
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail="连接画布 Comfy worker 失败") from exc
+    if ui is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"画布上读不到该应用的工作流({last_err or '未推送过'});先在应用页「在 Comfy 中打开」并在画布内保存",
+        )
+
+    try:
+        api = ui_to_api(ui)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"画布工作流转 API 格式失败: {e}") from e
+
+    new_fp = graph_fingerprint(api)
+    if new_fp == (a.fingerprint or ""):
+        raise HTTPException(status_code=409, detail="画布内容与应用一致,未检测到改动(请先在 Comfy 里保存)")
+
+    # 悬空绑定检查(不阻断):bindings 里引用的节点 id 在新图里不存在
+    orphan: list[str] = []
+    bindings = a.bindings if isinstance(a.bindings, dict) else {}
+    for key, ref in bindings.items():
+        node_id = str((ref or {}).get("node") or "") if isinstance(ref, dict) else ""
+        if node_id and node_id not in api:
+            orphan.append(key)
+
+    a.workflow_json = api
+    a.fingerprint = new_fp
+    a.updated_at = _now()
+    session.add(a)
+    audit.record(
+        session,
+        user=user,
+        action="app.save_from_comfy",
+        target_type="app",
+        target_id=aid,
+        summary=f"从 Comfy 存回应用工作流:{a.name}",
+        detail={"node_count": len(api), "orphan_bindings": orphan},
+    )
+    session.commit()
+    return {
+        "ok": True,
+        "id": aid,
+        "fingerprint": new_fp,
+        "node_count": len(api),
+        "orphan_bindings": orphan,
+    }
 
 
 @router.post("/{aid}/fork", response_model=AppOut)

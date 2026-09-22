@@ -390,9 +390,19 @@ async def run(
                     "summary": (text or "").splitlines()[0][:60],
                 }}
             msgs.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": text})
+            # A1 回放卡(2026-09-22):工具 ok 事件的结构化 payload 随 tool 消息落库
+            # (tool_calls JSON 增 payload 键)——回放时前端据此重建结果卡;
+            # 旧会话无 payload,回退纯文本(向后兼容)
+            tc_blob: dict = {"tool_call_id": tc.get("id", ""), "name": name, "args": args}
+            for ev in events:
+                if isinstance(ev, dict) and ev.get("type") == "tool_event":
+                    pl = (ev.get("data") or {}).get("payload")
+                    if isinstance(pl, dict):
+                        tc_blob["payload"] = pl
+                        break
             await _log(
                 "tool", text,
-                tool_calls={"tool_call_id": tc.get("id", ""), "name": name, "args": args},
+                tool_calls=tc_blob,
                 media=media,
             )
 
