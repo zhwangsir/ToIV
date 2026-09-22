@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-22（**四域方案五批全收口**——批 5 收尾：A4 移动端 sheet/Admin D7 工程化（lib 5387→1224+测试 0→1 12 例+deploy 固化）/D5 观测深化；当前：api 3332/web 1028/admin 12/e2e 10 过 3 跳；whisper 四节点集群 LIVE；开口项见第八节）
+> **最后更新**：2026-09-22（**四域方案五批+开口项收尾全收口**——spec 三例重写/A1 工具卡回放/Comfy save-back/wave4 核查核销/QwenEdit fp4 落账/超时排队 7 例清账；当前：api 3336/web 1031/admin 12/e2e 13/13 全绿；whisper 四节点集群 LIVE；残余仅现场项与 1 例空闲窗口终测，见八节）
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -130,9 +130,9 @@
 
 ## 七、当前焦点（活口径摘要）
 
-### 基线（2026-09-22 批 5 后核）
-- **测试**：api **3332** / web **1028** / **admin 12（0→1）** / e2e **10 过 3 跳**（陈旧登记）；分支 `feat/app-guides-admin-cms`（**勿 push、勿 stage `.regen_tmp`/`dogfood-output`**）。
-- **生产**：见五节；web BUILD_ID `20260921-204424-nogit`；admin deploy-admin.sh 固化版部署（:3200）。
+### 基线（2026-09-22 收尾后核）
+- **测试**：api **3336** / web **1031** / **admin 12** / e2e **13/13 全绿**（agents-ui 三例已按新架构重写：优化对照卡+管理系统打 :3200）；分支 `feat/app-guides-admin-cms`（**勿 push、勿 stage `.regen_tmp`/`dogfood-output`**）。
+- **生产**：见五节；web BUILD_ID `20260922-014516-nogit`；admin deploy-admin.sh 固化版部署（:3200）。
 - **目录**：应用 **6773 总/5061 公开/5558 rh-acc**，use_case 打标全覆盖；说明卡 550/550；作品库 72 件（44 件折 18 变体文件夹）。
 
 ### 批 1 已交付（2026-09-22，三件套全绿+真机验证）
@@ -169,17 +169,18 @@
 
 ## 八、未完成任务总表（仅存开口项；已核销见归档/STATE.json）
 
-### 产品（批 5 收尾后）
-- [ ] authed-agents-ui.spec 3 例陈旧重写（已 skip 登记：GenerateView 09-12 退役/管理系统 09-15 独立 :3200，重写按新架构；admin e2e 随 D7 后补——admin 已有 node:test 基建可搭 e2e）
+### 产品（批 5 收尾+开口项收尾后）
+- [x] ~~authed-agents-ui.spec 3 例陈旧重写~~（已按新架构重写：优化对照卡+管理系统两例打 :3200，6/6 绿）
+- [x] ~~A1 工具卡回放语义~~（payload 随 tool 消息落库 tool_calls JSON+messagesToChat 回放重建并入本轮气泡;中止轮不产空气泡守 W4;生产 reload 后卡仍在实证）
+- [x] ~~Comfy 二次编辑 save-back~~（`POST /api/apps/{id}/save-from-comfy`：读回 userdata→ui_to_api→指纹闸 409 防误覆盖+悬空绑定透出+审计;运行台 admin 门控「从画布存回」按钮）
 - [ ] MODEL_SOURCES 更新需同步重拷 `apps/api/app/data/model_sources.json`（docs 不在 rsync 范围）；实测矩阵快照同（`app/data/app_test_matrix/`）
-- [ ] A1 工具卡回放语义：历史会话 tool 消息不重建 payload 卡（现状仅实时流渲染，与 chip 回放一致；如需回放卡另立项）
-- [ ] Comfy 二次编辑 save-back（open-in-comfy 已通）
+- [ ] rh-acc-9923136513-48997d(Z-Image 去 AI 感)：三测演进——kernels 0.16.2 已装（runtime_cuda 根修）→池瞬态→长链 480s 窗口不够（封面批占 GPU0）;**待封面 drain 后空闲窗口终测**
 - [ ] SeC 387721：einops reshape 错=SecNodes×torch2.13/sm_120 上游边界（已登记，flash-attn 关闭保留）
 
 ### 设备/运维（现场或决策项）
 - [ ] openclaw02-04 + cloud tailscaled 恢复（**需现场**：`tailscale down && up` / `systemctl restart tailscaled`）
 - [ ] core BIOS 来电自启建议设置（断电后需人工确认）
 - [ ] 决策点：cloud 遗留 aigc-auth/deploy-flask/exo-proxy 清理；OpenClaw×4 网关去留（上游已断）
-- [ ] wave4 设备组残留核查（Anything Everywhere3/SAM3 Get Object Mask/全局输入/H3 文本节点/IPAdapter FaceID）
-- [ ] MODEL_SOURCES 持续追加（当前 ok476/blocked337/total813）
-- [ ] wave23 后空闲窗口补刀（可选）：超时/排队 12 例复测+封面余量续跑+QwenEdit fp4 权重
+- [x] ~~wave4 设备组残留核查~~（2026-09-22 真机核：Anything Everywhere3/easy sam3GetObjectMask/IPAdapter FaceID 节点族在位；H3 文本节点由 h3_like 前缀兜底覆盖非问题;「全局输入」全库无此节点名=误记;FaceID LoRA 原文件 Best_FaceID_v1.0 仍 blocked,等效 ip-adapter-faceid-plusv2_sd15/sdxl 已在位）
+- [ ] MODEL_SOURCES 持续追加（当前 ok478/blocked336/total815）
+- [x] ~~wave23 后空闲窗口补刀~~（超时/排队：残差 7 例中 6 例间歇期已由烟测管线翻盘 pass,1 例三测演进为真修（kernels 0.16.2 装妥）+长链超时留空闲窗口终测;QwenEdit fp4:r128 edit+r128 image 8steps 已落 NAS,r32 edit 已在库补登记,账对齐 478/336/815;封面余量=autorefire 深度闸自动跑,勿手动）

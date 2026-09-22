@@ -1,5 +1,5 @@
 {
- "updated_at": "2026-09-22T03:30:00+08:00",
+ "updated_at": "2026-09-22T10:30:00+08:00",
  "full_launch_sprint_2026_09_14": {
   "status": "closed_497_of_550_90_4pct_user_testing_next",
   "date": "2026-09-14",
@@ -12076,5 +12076,23 @@
   "production": "web BUILD_ID 20260921-204424-nogit;admin deploy-admin.sh 固化版部署;cover_gate 生产透出",
   "verification": "真机:移动端 sheet(把手+390×640 面板+提示正确隐藏)/⌘K 抽屉入口/观测闸卡/KG h3-t2v 反查 235 节点;截图 dogfood-output/screenshots/batch5-*.png",
   "remaining": "开口项见 AGENTS 八节:运维现场项(openclaw/cloud tailscaled/core BIOS)/spec 陈旧重写/快照重拷口径/A1 回放卡/Comfy save-back/SeC 边界"
+ },
+ "loose_ends_closeout_2026_09_22": {
+  "status": "done",
+  "date": "2026-09-22",
+  "source": "设备管家",
+  "scope": "开口项收尾(用户指令「完成所有任务」)",
+  "delivered": [
+   "spec 三例陈旧重写(agents-ui 6/6 绿):优化对照卡(助手 optimize_prompt)+管理系统两例打 :3200 独立控制台(TOIV_ADMIN_BASE)",
+   "A1 工具卡回放:payload 随 tool 消息落库 tool_calls JSON+messagesToChat 回放重建并入本轮气泡(中止轮不产空气泡守 W4);生产 reload 后卡仍在实证",
+   "Comfy save-back:POST /api/apps/{id}/save-from-comfy(userdata 读回→ui_to_api→指纹闸 409 防误覆盖+悬空绑定透出+审计 app.save_from_comfy);运行台 admin 门控「从画布存回」",
+   "wave4 残留核查:Anything Everywhere3/easy sam3GetObjectMask/FaceID 节点族在位;H3 文本节点=h3_like 前缀兜底非问题;「全局输入」全库无此节点=误记;FaceID LoRA 原文件 blocked,等效 ip-adapter-faceid-plusv2 sd15/sdxl 在位",
+   "超时/排队清账:残差 7 例 6 例间歇期烟测已翻盘 pass;rh-acc-9923136513-48997d 三测演进:kernels 0.16.2 装妥(runtime_cuda 根修)→池瞬态(pc01 LB 假不健康,LAN 实活)→长链 480s 窗口不够(封面批占 GPU0),留空闲窗口终测",
+   "QwenEdit fp4:r128 edit+r128 image 8steps 下载落 NAS 主库(aria2c hf-mirror);r32 edit 已在库补登记;r128 edit 桩(status=None)核销;MODEL_SOURCES 账对齐 478/336/815+app/data 快照同步"
+  ],
+  "tests": "api 3336(+4:回放落库+save-back 3)/web 1031(+1)/admin 12/e2e agents-ui 重写后 6/6+library 7/7=13/13",
+  "production": "web BUILD_ID 20260922-014516-nogit;api+admin 部署;生产回放卡/save-back 按钮真机验证",
+  "ops_notes": "pc01 TS SSH 超时但 LAN+服务实活(N-5 再实证:LB 探针瞬态假不健康);kernels 0.16.2 装入 /opt/ComfyUI/venv(WS);pc01 若跑 finegrained-fp8 节点需同装(其 SSH 暂不可达)",
+  "remaining": "现场项(openclaw/cloud tailscaled/core BIOS)/rh-acc-9923136513 空闲窗口终测/SeC 上游边界"
  }
 }

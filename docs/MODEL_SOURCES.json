@@ -2,9 +2,9 @@
  "updated_at": "2026-09-18",
  "updated_at_timezone": "Asia/Shanghai",
  "totals": {
-  "ok": 476,
+  "ok": 478,
   "blocked": 336,
-  "total": 812,
+  "total": 815,
   "ok_missing_source_url": 9,
   "ok_true_gaps_no_url_no_repo_not_alias": 0,
   "ok_local_alias_without_http_url": 5
@@ -12183,13 +12183,18 @@
   {
    "basename": "svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
    "rel_path": "diffusion_models/svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
-   "source_kind": "mirror",
+   "source_kind": "hf",
    "source_url": "https://hf-mirror.com/nunchaku-ai/nunchaku-qwen-image-edit/resolve/main/svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
    "repo": "nunchaku-ai/nunchaku-qwen-image-edit",
    "revision": "main",
    "filename": "svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
    "size_bytes": 13081386856,
-   "note": "2026-09-14 wave22 前置落盘(NAS toiv diffusion_models);SM120 只认 fp4,r128 变体补 rh-acc-5790522369"
+   "note": "2026-09-14 wave22 前置落盘(NAS toiv diffusion_models);SM120 只认 fp4,r128 变体补 rh-acc-5790522369",
+   "downloaded_at": "2026-09-22T09:36:57+08:00",
+   "status": "ok",
+   "bytes": 13081386856,
+   "notes": "nunchaku SVDQuant fp4;QwenEdit fp4 补刀(映射表目标);原占位桩(status=None)本次落盘核销;aria2c -x16 经 hf-mirror",
+   "batch": "_wave23_gap_fill_20260922"
   },
   {
    "basename": "turbo.safetensors",
@@ -12217,6 +12222,36 @@
    "license_ok": true,
    "downloaded_at": "2026-09-21",
    "note": "H3 Ref2VA pruned bf16(质量/体积折中档);aria2 hf-mirror 落盘,:8195 UNETLoader 在列"
+  },
+  {
+   "basename": "svdq-fp4_r32-qwen-image-edit-lightningv1.0-4steps.safetensors",
+   "rel_path": "diffusion_models/svdq-fp4_r32-qwen-image-edit-lightningv1.0-4steps.safetensors",
+   "source_kind": "hf",
+   "source_url": "https://hf-mirror.com/nunchaku-ai/nunchaku-qwen-image-edit/resolve/main/svdq-fp4_r32-qwen-image-edit-lightningv1.0-4steps.safetensors",
+   "repo": "nunchaku-ai/nunchaku-qwen-image-edit",
+   "revision": "main",
+   "filename": "svdq-fp4_r32-qwen-image-edit-lightningv1.0-4steps.safetensors",
+   "license_or_gated": null,
+   "downloaded_at": "2026-09-22T09:36:04+08:00",
+   "status": "ok",
+   "bytes": 11948923656,
+   "notes": "nunchaku SVDQuant fp4(SM120/Blackwell 专用);QwenEdit fp4 补刀(映射表 _NUNCHAKU_INT4_TO_FP4 目标);2026-09-14(已在库,本次补登记);aria2c -x16 经 hf-mirror 落 NAS 主库",
+   "batch": "_wave23_gap_fill_20260922"
+  },
+  {
+   "basename": "svdq-fp4_r128-qwen-image-lightningv1.1-8steps.safetensors",
+   "rel_path": "diffusion_models/svdq-fp4_r128-qwen-image-lightningv1.1-8steps.safetensors",
+   "source_kind": "hf",
+   "source_url": "https://hf-mirror.com/nunchaku-ai/nunchaku-qwen-image/resolve/main/svdq-fp4_r128-qwen-image-lightningv1.1-8steps.safetensors",
+   "repo": "nunchaku-ai/nunchaku-qwen-image",
+   "revision": "main",
+   "filename": "svdq-fp4_r128-qwen-image-lightningv1.1-8steps.safetensors",
+   "license_or_gated": null,
+   "downloaded_at": "2026-09-22T09:36:04+08:00",
+   "status": "ok",
+   "bytes": 12720797660,
+   "notes": "nunchaku SVDQuant fp4(SM120/Blackwell 专用);QwenEdit fp4 补刀(映射表 _NUNCHAKU_INT4_TO_FP4 目标);2026-09-22T09:36:04+08:00;aria2c -x16 经 hf-mirror 落 NAS 主库",
+   "batch": "_wave23_gap_fill_20260922"
   }
  ]
 }
