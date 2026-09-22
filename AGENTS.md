@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-22（项目管家：model_sources+app_test_matrix core 已 live 核销；992313 封面闸暂缓）：`model_sources.json`+`app_test_matrix/` **生产已齐**（真源 `/home/merlin/toiv/api/app/data/` 扁平；md5 `6aeded7b…` tot ok478/blocked336/total815；五文件 mtime Sep22 02:53 一致；**无需再 scp/restart**）；`rh-acc-9923136513` 空闲窗终测 **暂缓**（`/api/observability` cover_gate `gated=true` queue_depth 13>12，pending≈4461，autorefire running；业务 queued/running=0）；产品分支仍 `feat/app-guides-admin-cms` @ `b30806d`（比两边 main `bab16b3` 超前，按交接口径先不推）；status=`already_live_verified`；STATE `model_sources_core_sync_2026_09_22`；`updated_at` 2026-09-22T21:05:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-23（项目管家：992313 空闲窗终测 FAIL；封面闸假忙已修）：`rh-acc-9923136513-48997d`（Z-Image 去 AI 感）idle-window 最终 smoke = **FAIL / runtime_cuda**——finegrained-fp8 `kernels` 包缺失或不兼容（需 `0.16.0≤version`）；当时 cover_gate **已解锁**且队列空闲；封面闸假忙死锁产品修 `1292bb5`（`sum_queue_depth(force=)`）已部署 core，生产 `TOIV_COVER_AUTOREFIRE=false`；轮询例程已删；产品分支仍 `feat/app-guides-admin-cms`（HEAD 含 `1292bb5`）**未合 main**；勿改 AGENTS 集群真源；STATE `rh_acc_992313_fail_cover_gate_fix_2026_09_23`；`updated_at` 2026-09-23T05:49:00+08:00；via 项目管家（ToIV 开发）；
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -131,6 +131,12 @@
 
 ## 七、当前焦点（活口径摘要）
 
+### 2026-09-23（项目管家：992313 终测 FAIL；封面闸假忙已修）
+- **`rh-acc-9923136513-48997d` idle-window 最终 smoke = FAIL**：`runtime_cuda` / finegrained-fp8 **`kernels` 包缺失或不兼容**（需 `0.16.0≤version`）；测时 cover_gate **已解锁**且队列空闲（非闸阻塞）。转设备侧核接单 worker 的 kernels/HF_ENDPOINT/trust 落点。
+- **封面闸假忙死锁已修并部署**：产品 `1292bb5`（`sum_queue_depth(force=)`）已上 core；生产 `TOIV_COVER_AUTOREFIRE=false`；gated=false / depth=0（tip 口径）；轮询例程已删。
+- **分支口径**：产品仍 `feat/app-guides-admin-cms`（含 `1292bb5`），**未合 main**；docs tip 仅五件套，cherry-pick 到 main 双推；勿 stage `.regen_tmp` / 产品 dirty / `docs/MODEL_SOURCES.json` 未授权改动。
+- Status：`idle_window_fail_runtime_cuda_kernels`；STATE `rh_acc_992313_fail_cover_gate_fix_2026_09_23`；`updated_at` 2026-09-23T05:49:00+08:00。via 项目管家（ToIV 开发）。
+
 ### 2026-09-22（项目管家：model_sources core 已 live；992313 封面闸暂缓）
 - **`model_sources.json` + `app_test_matrix/` 生产已齐**（ToIV 开发；via 项目管家）：真源布局 core 扁平 `/home/merlin/toiv/api/app/data/`（非 `…/apps/api/…`）；`model_sources.json` 本地与 core md5 一致 `6aeded7b82dbe3f02bd23e060a3bdf01`（500960B；ok478/blocked336/total815；updated_at 2026-09-18）；`app_test_matrix/` 五文件 size/mtime 与本地一致（Sep 22 02:53）；本轮 **无需再 scp/restart**（已 live）。第八节「需重拷」本轮可核销。
 - **`rh-acc-9923136513` 空闲窗终测暂缓**：`/api/observability` cover_gate 仍 `gated=true`（queue_depth 13 > guard 12），pending≈4461，autorefire running；业务队列 queued/running=0。等封面闸松开或设备侧 drain 后再终测。
@@ -182,7 +188,7 @@
 - [x] ~~A1 工具卡回放语义~~（payload 随 tool 消息落库 tool_calls JSON+messagesToChat 回放重建并入本轮气泡;中止轮不产空气泡守 W4;生产 reload 后卡仍在实证）
 - [x] ~~Comfy 二次编辑 save-back~~（`POST /api/apps/{id}/save-from-comfy`：读回 userdata→ui_to_api→指纹闸 409 防误覆盖+悬空绑定透出+审计;运行台 admin 门控「从画布存回」按钮）
 - [x] ~~MODEL_SOURCES / app_test_matrix 需重拷~~（**2026-09-22 核销**：core 真源 `/home/merlin/toiv/api/app/data/` 已 live；`model_sources.json` md5 `6aeded7b82dbe3f02bd23e060a3bdf01` tot ok478/blocked336/total815；`app_test_matrix/` 五文件 size/mtime 与本地一致；本轮无需再 scp/restart；STATE `model_sources_core_sync_2026_09_22`；**后续**若本地改 docs 快照仍需同步重拷）
-- [ ] rh-acc-9923136513-48997d(Z-Image 去 AI 感)：三测演进——kernels 0.16.2 已装（runtime_cuda 根修）→池瞬态→长链 480s 窗口不够（封面批占 GPU0）；**2026-09-22 暂缓**：cover_gate 仍 `gated=true`（queue_depth 13 > guard 12），pending≈4461，autorefire running；业务 queued/running=0；**等封面闸松开或设备侧 drain 后再终测**
+- [ ] rh-acc-9923136513-48997d(Z-Image 去 AI 感)：**2026-09-23 空闲窗终测 FAIL** / `runtime_cuda`——finegrained-fp8 `kernels` 缺失或不兼容（需 `0.16.0≤version`）；测时 cover_gate 已解锁+队列空闲；封面闸假忙产品修 `1292bb5` 已部署、`TOIV_COVER_AUTOREFIRE=false`；**转设备**核接单 worker kernels/trust 落点后复测
 - [ ] SeC 387721：einops reshape 错=SecNodes×torch2.13/sm_120 上游边界（已登记，flash-attn 关闭保留）
 
 ### 设备/运维（现场或决策项）
@@ -191,7 +197,7 @@
 - [x] ~~决策点：cloud 遗留清理~~（2026-09-22 拍板执行：aigc-auth/deploy-flask/deploy-exo-proxy 三 docker 容器 `update --restart=no`+stop（镜像与 /root/aigc-auth、/opt/exo-proxy 目录保留可回滚）；ssh-fwd-22007~22012 死转发（指向陈旧 TS IP）stop+disable;frps/openresty/node-exporter 与双域实测 200 无恙）
 - [x] ~~决策点：OpenClaw×4 网关去留~~（2026-09-22 拍板执行：四节点 `ai.openclaw.gateway` LaunchAgent bootout+plist 改 `.disabled-20260922`（回滚=改名+load）;whisper :9310/JoyCaption :9305 四节点 LIVE 实测无恙,机器角色=whisper ASR 集群保留）
 - [ ] pc01 补装 kernels 0.16.x（其 SSH/TS 暂不可达;finegrained-fp8 节点若落 pc01 会撞版本闸,WS 已装妥）
-- [ ] rh-acc-9923136513-48997d(Z-Image 去 AI 感)：缺陷链已根治（kernels 0.16.2 + 超分 fleet :8261-3 补 `HF_ENDPOINT=hf-mirror.com` drop-in——**fp8 finegrained 信任门根治,惠及全部同类应用**）;剩余=真机慢链；**2026-09-22**：cover_gate `gated=true`（depth 13>12 / pending≈4461）故空闲窗终测暂缓，闸松开后再复核
+- [ ] rh-acc-9923136513-48997d(Z-Image 去 AI 感)：**2026-09-23 空闲窗终测 FAIL**（闸已开仍 FAIL）——报 finegrained-fp8 `kernels` 缺失/不兼容（需 `0.16.0≤version`）；疑接单 worker 未落到已装 kernels/`HF_ENDPOINT`/trust；先验「kernels 0.16.2 + fleet drop-in」未在本跑实证；**设备侧核 worker 落点后复测**；封面闸假忙 `1292bb5` 已部署、`TOIV_COVER_AUTOREFIRE=false`（产品侧闸项已清）
 - [x] ~~wave4 设备组残留核查~~（2026-09-22 真机核：Anything Everywhere3/easy sam3GetObjectMask/IPAdapter FaceID 节点族在位；H3 文本节点由 h3_like 前缀兜底覆盖非问题;「全局输入」全库无此节点名=误记;FaceID LoRA 原文件 Best_FaceID_v1.0 仍 blocked,等效 ip-adapter-faceid-plusv2_sd15/sdxl 已在位）
 - [ ] MODEL_SOURCES 持续追加（当前 ok478/blocked336/total815）
 - [x] ~~wave23 后空闲窗口补刀~~（超时/排队：残差 7 例中 6 例间歇期已由烟测管线翻盘 pass,1 例三测演进为真修（kernels 0.16.2 装妥）+长链超时留空闲窗口终测;QwenEdit fp4:r128 edit+r128 image 8steps 已落 NAS,r32 edit 已在库补登记,账对齐 478/336/815;封面余量=autorefire 深度闸自动跑,勿手动）
