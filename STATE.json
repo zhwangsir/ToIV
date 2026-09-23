@@ -1,5 +1,69 @@
 {
- "updated_at": "2026-09-23T05:49:00+08:00",
+ "updated_at": "2026-09-23T14:06:00+08:00",
+  "product_trunk_main_only_2026_09_23": {
+    "status": "product_trunk_main_only",
+    "date": "2026-09-23",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "User decision: product trunk is main only; feat/app-guides-admin-cms merged at 858d3c9; dual-pushed; feat remotes deleted; keep claude/jovial-fermi-* for cherry-pick; stash MODEL_SOURCES+AGENTS wip not in main",
+    "decision": {
+      "product_trunk": "main_only",
+      "no_more_product_feature_branches": true,
+      "admin_cms_followups_on": "main",
+      "do_not_record": "feat/app-guides-admin-cms"
+    },
+    "merge": {
+      "source_branch": "feat/app-guides-admin-cms",
+      "included": [
+        "1292bb5 cover gate",
+        "Admin five batches",
+        "assistant A1-A4"
+      ],
+      "main_tip": "858d3c9",
+      "dual_push": [
+        "origin/Gitee",
+        "github"
+      ],
+      "verified_tip_both": "858d3c9"
+    },
+    "cleanup": {
+      "deleted_remote": [
+        "feat/app-guides-admin-cms",
+        "feat/mp-library-kinds"
+      ],
+      "deleted_local_empty": [
+        "ace-step",
+        "mp-engine-catchup",
+        "mp-library-kinds",
+        "mobile-uniapp-only"
+      ],
+      "kept_for_cherry_pick": {
+        "branches": "claude/jovial-fermi-*",
+        "commits": 7,
+        "behind_approx": 718,
+        "policy": "cherry-pick only; do not hard-merge whole branch"
+      }
+    },
+    "not_in_main": {
+      "stash": "stash@{0} MODEL_SOURCES+AGENTS wip from old feat",
+      "note": "do not pop into trunk by mistake"
+    },
+    "agents_md": "updated_header_sec7_branch_bullets",
+    "pushed": false,
+    "facts": [
+      "User decided: no more product feature branches; fuse after compare; product trunk = main only",
+      "feat/app-guides-admin-cms (1292bb5 cover gate + Admin five batches + assistant A1-A4) merged into main @ 858d3c9",
+      "Dual-pushed origin(Gitee)+github main; both tips verified 858d3c9",
+      "Deleted remote feat/app-guides-admin-cms and feat/mp-library-kinds; deleted local empty ace-step/mp-engine-catchup/mp-library-kinds/mobile-uniapp-only",
+      "Keep claude/jovial-fermi-* (~7 commits, ~718 behind) for cherry-pick; do not hard-merge",
+      "Local stash still has MODEL_SOURCES+AGENTS wip; not in main",
+      "Do not record feat/app-guides-admin-cms as current product branch anymore"
+    ],
+    "updated_at": "2026-09-23T14:06:00+08:00"
+  },
   "rh_acc_992313_fail_cover_gate_fix_2026_09_23": {
     "status": "idle_window_fail_runtime_cuda_kernels",
     "date": "2026-09-23",

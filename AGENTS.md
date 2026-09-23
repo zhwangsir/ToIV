@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-23（项目管家：992313 空闲窗终测 FAIL；封面闸假忙已修）：`rh-acc-9923136513-48997d`（Z-Image 去 AI 感）idle-window 最终 smoke = **FAIL / runtime_cuda**——finegrained-fp8 `kernels` 版本冲突（节点现要求 `0.15.2≤v<0.16.0`，舰队为 `0.16.2`；:8196 restart+0.16.2 trust_ok 后复测仍 FAIL）；当时 cover_gate **已解锁**且队列空闲；封面闸假忙死锁产品修 `1292bb5`（`sum_queue_depth(force=)`）已部署 core，生产 `TOIV_COVER_AUTOREFIRE=false`；轮询例程已删；产品分支仍 `feat/app-guides-admin-cms`（HEAD 含 `1292bb5`）**未合 main**；勿改 AGENTS 集群真源；STATE `rh_acc_992313_fail_cover_gate_fix_2026_09_23`；`updated_at` 2026-09-23T05:49:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-23（项目管家：产品主干仅 main）：用户拍板不再多开产品分支、对比后融合；`feat/app-guides-admin-cms`（含 `1292bb5` 封面闸 + Admin 五批 + 助手 A1–A4）已合入 **main** @ `858d3c9`；已双推 origin(Gitee)+github `main`；远端 `feat/app-guides-admin-cms` / `feat/mp-library-kinds` 已删；本地空枝 ace-step / mp-engine-catchup / mp-library-kinds / mobile-uniapp-only 已删；保留 `claude/jovial-fermi-*` 漫剧 7 提交待挑合（落后约 718，不整支硬并）；本地 stash 仍有 MODEL_SOURCES+AGENTS wip，**未进 main**；后续管理系统深化也在 **main** 上做；勿再记 `feat/app-guides-admin-cms`；STATE `product_trunk_main_only_2026_09_23`；`updated_at` 2026-09-23T14:06:00+08:00；via 项目管家（ToIV 开发）；
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -131,21 +131,30 @@
 
 ## 七、当前焦点（活口径摘要）
 
+### 2026-09-23（项目管家：产品主干仅 main）
+- **用户拍板**：不再多开产品分支；对比后融合。产品主干 = **仅 main**；后续管理系统深化也在 main 上做；**勿再记** `feat/app-guides-admin-cms`。
+- **已执行**：`feat/app-guides-admin-cms`（含 `1292bb5` 封面闸 + Admin 五批 + 助手 A1–A4）已合入 main @ `858d3c9`；双推 origin(Gitee)+github `main`（两边 tip 已核 `858d3c9`）。
+- **枝清理**：远端删 `feat/app-guides-admin-cms`、`feat/mp-library-kinds`；本地空枝删 ace-step / mp-engine-catchup / mp-library-kinds / mobile-uniapp-only。
+- **保留**：`claude/jovial-fermi-*` 漫剧 7 提交待挑合（落后约 718，**不整支硬并**）。
+- **未进 main**：本地 stash 仍有 MODEL_SOURCES+AGENTS wip（`stash@{0}` on 旧 feat）；勿误 pop 进主干。
+- Status：`product_trunk_main_only`；STATE `product_trunk_main_only_2026_09_23`；`updated_at` 2026-09-23T14:06:00+08:00。via 项目管家（ToIV 开发）。
+
+
 ### 2026-09-23（项目管家：992313 终测 FAIL；封面闸假忙已修）
 - **`rh-acc-9923136513-48997d` idle-window 最终 smoke = FAIL**：`runtime_cuda` / finegrained-fp8 **`kernels` 版本冲突**（现要求 `0.15.2≤v<0.16.0`，舰队 `0.16.2`；:8196 restart+trust_ok 复测仍 FAIL）；测时 cover_gate **已解锁**且队列空闲（非闸阻塞）。转设备侧核接单 worker 的 kernels/HF_ENDPOINT/trust 落点。 复测后定为版本区间冲突，**设备管家在裁处**。
 - **封面闸假忙死锁已修并部署**：产品 `1292bb5`（`sum_queue_depth(force=)`）已上 core；生产 `TOIV_COVER_AUTOREFIRE=false`；gated=false / depth=0（tip 口径）；轮询例程已删。
-- **分支口径**：产品仍 `feat/app-guides-admin-cms`（含 `1292bb5`），**未合 main**；docs tip 仅五件套，cherry-pick 到 main 双推；勿 stage `.regen_tmp` / 产品 dirty / `docs/MODEL_SOURCES.json` 未授权改动。
+- **分支口径**（已被同日下午主干融合取代）：曾记产品仍 `feat/app-guides-admin-cms` 未合 main；**现已合入 main @ `858d3c9`，主干仅 main**（见上节）。
 - Status：`idle_window_fail_runtime_cuda_kernels`；STATE `rh_acc_992313_fail_cover_gate_fix_2026_09_23`；`updated_at` 2026-09-23T05:49:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-22（项目管家：model_sources core 已 live；992313 封面闸暂缓）
 - **`model_sources.json` + `app_test_matrix/` 生产已齐**（ToIV 开发；via 项目管家）：真源布局 core 扁平 `/home/merlin/toiv/api/app/data/`（非 `…/apps/api/…`）；`model_sources.json` 本地与 core md5 一致 `6aeded7b82dbe3f02bd23e060a3bdf01`（500960B；ok478/blocked336/total815；updated_at 2026-09-18）；`app_test_matrix/` 五文件 size/mtime 与本地一致（Sep 22 02:53）；本轮 **无需再 scp/restart**（已 live）。第八节「需重拷」本轮可核销。
 - **`rh-acc-9923136513` 空闲窗终测暂缓**：`/api/observability` cover_gate 仍 `gated=true`（queue_depth 13 > guard 12），pending≈4461，autorefire running；业务队列 queued/running=0。等封面闸松开或设备侧 drain 后再终测。
-- **分支口径**：产品仍 `feat/app-guides-admin-cms` @ `b30806d`，比两边 main `bab16b3` 超前；**按交接口径先不推**；勿 stage `.regen_tmp`。
+- **分支口径**（历史）：当时产品仍 `feat/app-guides-admin-cms` @ `b30806d` 超前 main；**2026-09-23 已合入 main，主干仅 main**。
 - Status：`already_live_verified`；STATE `model_sources_core_sync_2026_09_22`；`updated_at` 2026-09-22T21:05:00+08:00。via 项目管家（ToIV 开发）。
 
 
 ### 基线（2026-09-22 收尾后核）
-- **测试**：api **3336** / web **1031** / **admin 12** / e2e **13/13 全绿**（agents-ui 三例已按新架构重写：优化对照卡+管理系统打 :3200）；分支 `feat/app-guides-admin-cms`（**勿 push、勿 stage `.regen_tmp`/`dogfood-output`**）。
+- **测试**：api **3336** / web **1031** / **admin 12** / e2e **13/13 全绿**（agents-ui 三例已按新架构重写：优化对照卡+管理系统打 :3200）；分支 **main**（原 `feat/app-guides-admin-cms` 已于 2026-09-23 合入；**勿 stage `.regen_tmp`/`dogfood-output`**）。
 - **生产**：见五节；web BUILD_ID `20260922-014516-nogit`；admin deploy-admin.sh 固化版部署（:3200）。
 - **目录**：应用 **6773 总/5061 公开/5558 rh-acc**，use_case 打标全覆盖；说明卡 550/550；作品库 72 件（44 件折 18 变体文件夹）。
 
