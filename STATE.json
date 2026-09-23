@@ -1,21 +1,36 @@
 {
-  "updated_at": "2026-09-23T18:10:00+08:00",
+  "updated_at": "2026-09-23T18:15:00+08:00",
   "assistant_portal_cinematic_empty_2026_09_23": {
-    "status": "assistant_portal_cinematic_empty",
+    "status": "assistant_portal_cinematic_empty_deployed",
     "date": "2026-09-23",
     "source": [
       "ToIV 开发",
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "Portal online empty: greeting+composer+ambient/entrance; remove scene grid + recent works rail; keep offline chips + SKILL_ENTRIES for @ panel",
+    "summary": "Portal online empty cinematic: greeting+composer+ambient; no scene grid/recent works; deployed core-ts web BUILD_ID=20260923-101036-nogit (supersedes 20260923-100246-nogit); tip=cdac9e4",
     "product_trunk": "main_only",
     "files": [
       "apps/web/components/assistant/PortalEmpty.tsx",
       "apps/web/app/styles/assistant.css",
       "apps/web/components/assistant/AssistantView.tsx",
       "apps/web/tests/assistantPortal.test.ts"
-    ]
+    ],
+    "deploy": {
+      "core_ts": "100.77.80.100",
+      "web_build_id": "20260923-101036-nogit",
+      "supersedes_build_id": "20260923-100246-nogit",
+      "api_health": 200,
+      "web_health": 200,
+      "status": "done"
+    },
+    "remotes": {
+      "origin_gitee_main": "cdac9e4",
+      "github_main": "cdac9e4",
+      "includes_docs_tip": "41c08d1",
+      "verified_both": true
+    },
+    "product_tip": "cdac9e4"
   },
   "assistant_p0_chat_agent_2026_09_23": {
     "status": "assistant_p0_deployed_core",
@@ -44,7 +59,9 @@
       "supersedes_build_id": "20260923-092729-nogit",
       "api_health": 200,
       "web_health": 200,
-      "status": "done"
+      "status": "done",
+      "current_web_build_id": "20260923-101036-nogit",
+      "note": "现网 web BUILD_ID 已被 cinematic 覆盖为 20260923-101036-nogit"
     },
     "remotes": {
       "origin_gitee_main": "cf2c10d",
@@ -80,7 +97,8 @@
       "web_to_core": "done",
       "web_build_id": "20260923-100246-nogit",
       "supersedes_build_id": "20260923-092729-nogit",
-      "note": "IA 首次上 core 后由 P0 web+api 再部署覆盖 BUILD_ID"
+      "note": "现网 web BUILD_ID 已被 cinematic 覆盖为 20260923-101036-nogit",
+      "current_web_build_id": "20260923-101036-nogit"
     },
     "product_trunk": "main_only"
   },

@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-23 助手门户 cinematic 空态已上 core-ts（项目管家；ToIV 开发 tip；docs；产品 tip `cdac9e4`）：origin/github/本地 main tip=`cdac9e4`（含 docs `41c08d1`）；web BUILD_ID=`20260923-101036-nogit`（覆盖 `20260923-100246-nogit`）；api/web health 200；五件套部署口径已入账；status=`assistant_portal_cinematic_empty_deployed`；STATE `assistant_portal_cinematic_empty_2026_09_23`；updated_at 2026-09-23T18:15:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-23 助手门户 cinematic 空态（项目管家；ToIV 开发 tip；docs）：在线空态去宫格/最近作品，问候+composer+ambient；离线 chips 保留；portal/A2/W4 单测；产品主干仍仅 main；status=`assistant_portal_cinematic_empty`；STATE `assistant_portal_cinematic_empty_2026_09_23`；updated_at 2026-09-23T18:10:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-23 助手 P0 web+api 已上 core-ts（项目管家；ToIV 开发 tip；docs；产品 tip `cf2c10d`）：origin(Gitee)/github/本地 main 已核 tip=`cf2c10d`；api health 200；web BUILD_ID=`20260923-100246-nogit`（覆盖先前 IA `20260923-092729-nogit`）；web health 200；五件套 IA/助手节 deploy in_progress→已完成；status=`assistant_p0_deployed_core`；STATE `assistant_p0_chat_agent_2026_09_23`；updated_at 2026-09-23T18:05:00+08:00；AGENTS §七 已短注。

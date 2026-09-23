@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-23（项目管家：助手门户 cinematic 空态）：在线空态去场景宫格/最近作品，仅问候+composer+ambient/入场动效；离线 alert+工作台 chips 保留；`@` SKILL_ENTRIES 不变；产品主干仍仅 **main**；STATE `assistant_portal_cinematic_empty_2026_09_23`；`updated_at` 2026-09-23T18:10:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-23（项目管家：助手门户 cinematic 空态）：在线空态去场景宫格/最近作品，仅问候+composer+ambient/入场动效；离线 alert+工作台 chips 保留；`@` SKILL_ENTRIES 不变；产品主干仍仅 **main**；已上 core-ts web BUILD_ID=`20260923-101036-nogit`（覆盖 `20260923-100246-nogit`；api/web health 200）；产品 tip=`cdac9e4`（含 docs `41c08d1`）；STATE `assistant_portal_cinematic_empty_2026_09_23`；`updated_at` 2026-09-23T18:15:00+08:00；via 项目管家（ToIV 开发）；
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -133,13 +133,16 @@
 
 ### 2026-09-23（项目管家：助手门户 cinematic 空态）
 - 在线空态去场景宫格与最近作品轨；仅 Fraunces 问候 + portal composer + ambient/入场；离线 alert+OFFLINE chips 保留；`@` SKILL_ENTRIES 不变。
-- Status：`assistant_portal_cinematic_empty`；STATE `assistant_portal_cinematic_empty_2026_09_23`；`updated_at` 2026-09-23T18:10:00+08:00。via 项目管家（ToIV 开发）。
+- **产品 tip `cdac9e4`**（含先前 docs tip `41c08d1`）；origin/github/本地 main 已齐。
+- **部署**：web 已上 **core-ts**；BUILD_ID=`20260923-101036-nogit`（覆盖 `20260923-100246-nogit`）；api/web health 200。
+- **主干**：仍仅 **main**。
+- Status：`assistant_portal_cinematic_empty_deployed`；STATE `assistant_portal_cinematic_empty_2026_09_23`；`updated_at` 2026-09-23T18:15:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-23（项目管家：助手 P0 禁跳转+chips+任务回会话）
 - **P0.1**：`runner` 原则 19 + `navigate_view`/`prefill_generate` 工具描述收紧为逃逸出口；Agent Team L0 ack「请在对话智能体里直接完成」。
 - **P0.2**：`SKILL_ENTRIES` 改为对话 prompt chips（作品库仍 navigate）；@ 面板同语义。
 - **P0.3**：composer「任务」开抽屉/左侧「最近任务」；「在对话里继续」预填；`/agent-runs` 深链保留。未嵌入完整 Agent Team UI。
-- **部署**：P0 web+api 已上 **core-ts**（100.77.80.100）；api health 200；web BUILD_ID=`20260923-100246-nogit`（覆盖先前 IA 的 `20260923-092729-nogit`）；web health 200。
+- **部署**：P0 web+api 已上 **core-ts**（100.77.80.100）；api health 200；web BUILD_ID 曾=`20260923-100246-nogit`（现网已由 cinematic `20260923-101036-nogit` 覆盖；更早 IA `20260923-092729-nogit`）；web health 200。
 - **远端**：origin(Gitee)/github/本地 main tip=`cf2c10d`（已齐）。
 - **主干**：仍仅 **main**。
 - Status：`assistant_p0_deployed_core`；STATE `assistant_p0_chat_agent_2026_09_23`；`updated_at` 2026-09-23T18:05:00+08:00。via 项目管家（ToIV 开发）。
@@ -147,7 +150,7 @@
 ### 2026-09-23（项目管家：对话=智能体 IA）
 - **产品 tip `b65cef4`** 已双推 Gitee+GitHub main（上一 tip `75f96fa` 之上 +1）。
 - **IA**：侧栏唯一「智能体」= home 对话面；`/agent-runs` 降为「任务」深链（更多抽屉 + composer），不再与对话并排第二入口。
-- **部署**：web→core **已完成**；现网 BUILD_ID 以助手 P0 部署为准（`20260923-100246-nogit`，覆盖 `20260923-092729-nogit`）。
+- **部署**：web→core **已完成**；现网 BUILD_ID 以 cinematic 空态部署为准（`20260923-101036-nogit`，覆盖 P0 `20260923-100246-nogit`）。
 - **主干**：仍仅 **main**。
 - Status：`web_agent_chat_ia_deployed`；STATE `web_agent_chat_ia_2026_09_23`；`updated_at` 2026-09-23T18:05:00+08:00。via 项目管家（ToIV 开发）。
 
