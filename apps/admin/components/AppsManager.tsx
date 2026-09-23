@@ -10,6 +10,7 @@ import {
   importAppDraft,
   listApps,
   preflightApp,
+  bulkSetPublic,
   putCuration,
   retagOne,
   smokeOne,
@@ -77,7 +78,7 @@ export function AppsManager() {
   const [apps, setApps] = useState<AdminApp[] | null>(null);
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<"all" | "public" | "smoke-fail">("all");
+  const [filter, setFilter] = useState<"all" | "public" | "hidden" | "smoke-fail" | "smoke-untested">("all");
   const [rows, setRows] = useState<Record<string, RowState>>({});
   // Admin P1 内容运营:toast/勾选/批量/封面/弹窗态
   const [toast, setToast] = useState<Toast | null>(null);
@@ -127,7 +128,9 @@ export function AppsManager() {
   const visible = useMemo(() => {
     const list = apps ?? [];
     if (filter === "public") return list.filter((a) => a.is_public);
+    if (filter === "hidden") return list.filter((a) => !a.is_public);
     if (filter === "smoke-fail") return list.filter((a) => a.smoke_status === "fail" || a.smoke_status === "timeout");
+    if (filter === "smoke-untested") return list.filter((a) => !a.smoke_status || a.smoke_status === "untested");
     return list;
   }, [apps, filter]);
 
@@ -271,6 +274,27 @@ export function AppsManager() {
     }
   };
 
+
+  /** 批量 soft-hide / 上架:走 bulk-public 端点,单次最多 200。 */
+  const bulkPublic = async (is_public: boolean) => {
+    const ids = [...sel];
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const r = await bulkSetPublic(ids, is_public);
+      showToast(
+        `${is_public ? "批量上架" : "批量软隐藏"}完成:成功 ${r.done} / 缺失 ${r.missing}`,
+        r.missing > 0 ? "err" : "ok",
+      );
+      setSel(new Set());
+      await load();
+    } catch (e) {
+      showToast(errMsg(e, "批量上下架失败"), "err");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   /** 批量精选:顺序循环逐条 putCuration,单条失败不中断,toast 汇总。 */
   const bulkFeature = async (featured: boolean) => {
     const ids = [...sel];
@@ -307,7 +331,9 @@ export function AppsManager() {
         <select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}>
           <option value="all">全部应用</option>
           <option value="public">仅已上架</option>
+          <option value="hidden">仅软隐藏</option>
           <option value="smoke-fail">烟测失败/超时</option>
+          <option value="smoke-untested">烟测未测</option>
         </select>
         <button className="btn primary" onClick={() => setCreateOpen(true)}>
           新建应用
@@ -478,6 +504,16 @@ export function AppsManager() {
       {sel.size > 0 && (
         <div className="apm-bulkbar">
           <span className="muted">已选 {sel.size} 个应用</span>
+          <button
+            className="btn"
+            disabled={bulkBusy}
+            onClick={() => void bulkPublic(false)}
+          >
+            批量软隐藏({sel.size})
+          </button>
+          <button className="btn" disabled={bulkBusy} onClick={() => void bulkPublic(true)}>
+            批量上架({sel.size})
+          </button>
           <button
             className="btn primary"
             disabled={bulkBusy}

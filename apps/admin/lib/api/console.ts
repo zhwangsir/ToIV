@@ -60,3 +60,38 @@ export const listProposals = () =>
 
 export const rejectProposal = (proposalId: string) =>
   api.post(`/api/admin/selfheal/proposals/${encodeURIComponent(proposalId)}/reject`);
+
+export interface CloseoutSmokeCounts {
+  pass: number;
+  fail: number;
+  timeout: number;
+  running: number;
+  untested: number;
+}
+
+export interface CloseoutSummary {
+  apps_total: number;
+  public_total: number;
+  soft_hidden_builtin: number;
+  smoke: CloseoutSmokeCounts;
+  cover_gate: {
+    autorefire_enabled: boolean;
+    running: boolean;
+    queue_depth: number;
+    queue_guard: number;
+    gated: boolean;
+    pending: number;
+    attempt_cap: number;
+    batch_limit: number;
+  };
+  smoke_batch: { running: boolean; summary?: unknown };
+  demo_batch?: DemoStatus;
+}
+
+export const closeoutSummary = () => api.get<CloseoutSummary>("/api/admin/closeout-summary");
+
+export const bulkSetPublic = (ids: string[], is_public: boolean) =>
+  api.post<{ done: number; missing: number; is_public: boolean }>(
+    "/api/admin/apps/bulk-public",
+    { ids, is_public },
+  );

@@ -21,6 +21,7 @@ const ACTION_LABELS: Record<string, string> = {
   "app.run": "运行应用",
   "app.smoke": "应用烟测",
   "app.smoke_batch": "批量烟测",
+  "app.bulk_public": "批量上下架",
   "app.cover_demo": "封面 Demo",
   "app.covers_generate": "批量生成封面",
   "app.open_in_comfy": "在 ComfyUI 打开",

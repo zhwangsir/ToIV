@@ -9,9 +9,11 @@ import {
   jobCounts,
   listProposals,
   rejectProposal,
+  closeoutSummary,
   smokeStatus,
   startDemoBatch,
   startSmokeBatch,
+  type CloseoutSummary,
   type DemoStatus,
   type HealthInfo,
   type JobCounts,
@@ -24,6 +26,7 @@ export function Dashboard() {
   const [demo, setDemo] = useState<DemoStatus | null>(null);
   const [smoke, setSmoke] = useState<DemoStatus | null>(null);
   const [proposals, setProposals] = useState<SelfhealProposal[]>([]);
+  const [closeout, setCloseout] = useState<CloseoutSummary | null>(null);
   const [cleanupBusy, setCleanupBusy] = useState(false);
   const [note, setNote] = useState("");
 
@@ -34,12 +37,14 @@ export function Dashboard() {
       demoStatus(),
       smokeStatus(),
       listProposals(),
+      closeoutSummary(),
     ]);
     if (results[0].status === "fulfilled") setHealthInfo(results[0].value);
     if (results[1].status === "fulfilled") setCounts(results[1].value);
     if (results[2].status === "fulfilled") setDemo(results[2].value);
     if (results[3].status === "fulfilled") setSmoke(results[3].value);
     if (results[4].status === "fulfilled") setProposals(results[4].value.proposals ?? []);
+    if (results[5].status === "fulfilled") setCloseout(results[5].value);
   }, []);
 
   useEffect(() => {
@@ -103,6 +108,56 @@ export function Dashboard() {
   return (
     <div style={{ display: "grid", gap: 14 }}>
       <div className="grid-cards">
+        <div className="card" style={{ gridColumn: "1 / -1" }}>
+          <h3>收尾运营 · 公开市场</h3>
+          {closeout ? (
+            <>
+              <div className="stat-row">
+                <div className="stat">
+                  <div className="num">{closeout.public_total}</div>
+                  <div className="lbl">公开卡</div>
+                </div>
+                <div className="stat">
+                  <div className="num" style={{ color: "var(--ok, #3c8)" }}>
+                    {closeout.smoke.pass}
+                  </div>
+                  <div className="lbl">烟测 PASS</div>
+                </div>
+                <div className="stat">
+                  <div className="num" style={{ color: "var(--danger)" }}>
+                    {closeout.smoke.fail + closeout.smoke.timeout}
+                  </div>
+                  <div className="lbl">FAIL/超时</div>
+                </div>
+                <div className="stat">
+                  <div className="num">{closeout.smoke.untested}</div>
+                  <div className="lbl">未测</div>
+                </div>
+                <div className="stat">
+                  <div className="num">{closeout.soft_hidden_builtin}</div>
+                  <div className="lbl">软隐藏(内置)</div>
+                </div>
+              </div>
+              <div className="bar" style={{ marginTop: 8 }}>
+                <span className={`pill${closeout.cover_gate.gated ? " warn" : " ok"}`}>
+                  封面闸 {closeout.cover_gate.gated ? "关闭中" : "放行"}
+                </span>
+                <span className="pill">
+                  AUTOREFIRE {closeout.cover_gate.autorefire_enabled ? "开" : "关"}
+                </span>
+                <span className="pill">队列深度 {closeout.cover_gate.queue_depth}/{closeout.cover_gate.queue_guard}</span>
+                <span className="pill">待封面 {closeout.cover_gate.pending}</span>
+                <span className="pill">{closeout.smoke_batch?.running ? "烟测批运行中" : "烟测批空闲"}</span>
+              </div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                soft-hide 在「应用管理」勾选后批量下架；DoD 以公开卡 submit→出片 PASS 为准。
+              </div>
+            </>
+          ) : (
+            <div className="muted">加载收尾快照…</div>
+          )}
+        </div>
+
         <div className="card">
           <h3>平台健康</h3>
           <div className="stat-row">
