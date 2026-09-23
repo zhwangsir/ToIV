@@ -1,7 +1,8 @@
 /**
- * 助手门户入口单测(node:test,无 DOM)——Studio Console v1(2026-08-31)口径:
- * 首页空态只剩输入框,旧「引擎胶囊/场景 chip/最近作品」已退役;
- * 本文件仅保留仍存活的 filterPortalEntries × @ 技能面板(SKILL_ENTRIES)门控测试。
+ * 助手门户入口单测(node:test,无 DOM)——2026-09-23 cinematic 空态口径:
+ * 在线空态 = 问候 + portal composer(+ ambient);场景宫格/最近作品轨已撤离;
+ * SKILL_ENTRIES 仅服务 Composer「@」技能面板;本文件保留 filterPortalEntries 门控
+ * 与 PortalEmpty 源码锁。
  * @/lib/api 经 tests/loader.mjs 映射到 mocks/studioApi 可控替身。
  */
 import assert from "node:assert/strict";
@@ -46,7 +47,7 @@ test("Studio Console v1:离线降级导航覆盖工作台层,不含系统层", (
 });
 
 
-test("P0.2 SKILL_ENTRIES:生成类带 prompt;作品库 navigate;非 goView 目录", () => {
+test("P0.2 SKILL_ENTRIES:生成类带 prompt;作品库 navigate;非门户宫格", () => {
   for (const e of SKILL_ENTRIES) {
     if (e.view === "library") {
       assert.equal(e.navigate, true, "作品库应 navigate");
@@ -57,7 +58,12 @@ test("P0.2 SKILL_ENTRIES:生成类带 prompt;作品库 navigate;非 goView 目�
     }
   }
   const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../components/assistant/PortalEmpty.tsx"), "utf-8");
-  assert.ok(src.includes("onChipPrompt"), "PortalEmpty 未接 onChipPrompt");
+  assert.ok(src.includes("对话内 prompt chips") || src.includes("@」技能面板"), "缺 @ chips 注释");
+  assert.ok(src.includes("av-portal--cinematic"), "缺 cinematic 根类");
+  assert.ok(src.includes("av-portal-ambient"), "缺 ambient 层");
+  assert.ok(src.includes("av-portal-in"), "缺入场类");
+  assert.ok(!src.includes("RecentWorksRail"), "门户不应再挂 RecentWorksRail");
+  assert.ok(!src.includes("av-scene-grid"), "门户不应再渲染 av-scene-grid");
+  assert.ok(!src.includes("av-scene-card"), "门户不应再渲染 av-scene-card");
   assert.ok(!src.includes("一期内容 = 工作台快捷入口"), "陈旧工作台快捷入口注释未清");
-  assert.ok(src.includes("对话内 prompt chips"), "缺 P0 chips 注释");
 });

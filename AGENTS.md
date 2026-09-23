@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-23（项目管家：助手 P0 禁跳转+chips+任务回会话）：生成意图禁默认 `navigate_view`/`prefill_generate`；门户技能=对话 prompt chips；composer「任务」开最近任务分栏（在对话里继续）；L0 ack 改对话智能体、`/?view=assistant`→`home`；对标 `docs/AGENT_PEER_RESEARCH_20260923.md`；产品主干仍仅 **main**；P0 web+api 已上 core-ts（BUILD_ID=`20260923-100246-nogit`，api/web health 200；覆盖先前 `20260923-092729-nogit`）；Gitee/GitHub/本地 main tip=`cf2c10d`；STATE `assistant_p0_chat_agent_2026_09_23`；`updated_at` 2026-09-23T18:05:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-23（项目管家：助手门户 cinematic 空态）：在线空态去场景宫格/最近作品，仅问候+composer+ambient/入场动效；离线 alert+工作台 chips 保留；`@` SKILL_ENTRIES 不变；产品主干仍仅 **main**；STATE `assistant_portal_cinematic_empty_2026_09_23`；`updated_at` 2026-09-23T18:10:00+08:00；via 项目管家（ToIV 开发）；
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -130,6 +130,10 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-09-23（项目管家：助手门户 cinematic 空态）
+- 在线空态去场景宫格与最近作品轨；仅 Fraunces 问候 + portal composer + ambient/入场；离线 alert+OFFLINE chips 保留；`@` SKILL_ENTRIES 不变。
+- Status：`assistant_portal_cinematic_empty`；STATE `assistant_portal_cinematic_empty_2026_09_23`；`updated_at` 2026-09-23T18:10:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-23（项目管家：助手 P0 禁跳转+chips+任务回会话）
 - **P0.1**：`runner` 原则 19 + `navigate_view`/`prefill_generate` 工具描述收紧为逃逸出口；Agent Team L0 ack「请在对话智能体里直接完成」。

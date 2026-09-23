@@ -1,5 +1,22 @@
 {
-  "updated_at": "2026-09-23T18:05:00+08:00",
+  "updated_at": "2026-09-23T18:10:00+08:00",
+  "assistant_portal_cinematic_empty_2026_09_23": {
+    "status": "assistant_portal_cinematic_empty",
+    "date": "2026-09-23",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "Portal online empty: greeting+composer+ambient/entrance; remove scene grid + recent works rail; keep offline chips + SKILL_ENTRIES for @ panel",
+    "product_trunk": "main_only",
+    "files": [
+      "apps/web/components/assistant/PortalEmpty.tsx",
+      "apps/web/app/styles/assistant.css",
+      "apps/web/components/assistant/AssistantView.tsx",
+      "apps/web/tests/assistantPortal.test.ts"
+    ]
+  },
   "assistant_p0_chat_agent_2026_09_23": {
     "status": "assistant_p0_deployed_core",
     "date": "2026-09-23",

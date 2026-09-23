@@ -172,11 +172,14 @@ test("W5 降级:探活失败置离线,门户隐藏对话框、展开全量工作
 
 /* ── ⑤ Studio Console v1:空态极简 + 文档式消息流 ── */
 
-test("Studio Console:空态只剩问候+输入框+场景入口行,门户区块全退役", () => {
+test("Studio Console:空态只剩问候+composer(cinematic),门户区块全退役", () => {
   // A3(2026-09-22):门户/popup 空态拆至 PortalEmpty.tsx,composer 拆至 Composer.tsx;
   // 退役元素断言跨主壳+全部拆分模块(防残留回迁)
   const portalSrc = readSrc("components/assistant/PortalEmpty.tsx");
   assert.ok(portalSrc.includes("av-portal--console"), "缺 console 空态变体");
+  assert.ok(portalSrc.includes("av-portal--cinematic"), "缺 cinematic 空态变体");
+  assert.ok(!portalSrc.includes("RecentWorksRail"), "门户不应挂 RecentWorksRail");
+  assert.ok(!portalSrc.includes("av-scene-grid"), "门户不应渲染场景宫格");
   const allSrc = [
     "components/assistant/AssistantView.tsx",
     "components/assistant/MessageList.tsx",

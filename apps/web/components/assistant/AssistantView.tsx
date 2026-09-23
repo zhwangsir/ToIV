@@ -737,7 +737,7 @@ export function AssistantView(props?: AssistantViewProps) {
 
   const isEmpty = messages.length === 0;
 
-  // ───── @ 面板 / R18 模式(门户空态场景卡复用 SKILL_ENTRIES,经 filterPortalEntries 门控) ─────
+  // ───── @ 面板 / R18 模式(Composer @ 技能面板复用 SKILL_ENTRIES,经 filterPortalEntries 门控) ─────
   const [r18] = useR18Mode();
   // @ 技能面板:Esc/选定后关闭;输入再变化时重新允许弹出
   const [skillDismissed, setSkillDismissed] = useState(false);
@@ -809,12 +809,6 @@ export function AssistantView(props?: AssistantViewProps) {
     },
     [goView],
   );
-
-  /** P0.2 门户场景卡:预填 composer + 聚焦(不离开智能体)。 */
-  const onChipPrompt = useCallback((prompt: string) => {
-    setInput(prompt);
-    requestAnimationFrame(() => textareaRef.current?.focus());
-  }, []);
 
   /** 选定主体:@触发词 → `@实体名 `(文本内引用,不跳转;发送时解析为 entity_ids)。 */
   const onPickEntity = useCallback((ent: EntityInfo) => {
@@ -1565,15 +1559,12 @@ export function AssistantView(props?: AssistantViewProps) {
                (Studio Console v1 起拉丁 kicker 铭牌退役,用户:文字太多) */
             <PopupEmpty isMobileMq={isMobileMq} />
           ) : (
-          /* 门户空态(2026-09-06 单色极简改造):Fraunces 问候 + 输入框 + 极简场景入口行;
-             铭牌/模型行/快捷提示 chips/最近作品带全部退役;
-             版心 --layout-content,区块节奏 --space-3(2026-09-06 紧凑化;样式在 assistant.css 门户区块) */
+          /* 门户空态(2026-09-23 cinematic):Fraunces 问候 + portal composer + ambient;
+             场景宫格/最近作品轨撤离;技能 chips 仅 Composer @;样式在 assistant.css */
           <PortalEmpty
             llmOffline={llmOffline}
             greeting={greeting}
-            r18={r18}
             goView={goView}
-            onChipPrompt={onChipPrompt}
             composer={renderComposer(true)}
           />
           )

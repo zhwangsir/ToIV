@@ -8,35 +8,68 @@
    性能红线:只动 transform/opacity/filter;--neon-angle/--core-sweep 走 rAF 内联;
    prefers-reduced-motion 一切直开(JS 侧不渲染 neon 节点,CSS 侧动画全停) */
 
-/* ── 首页门户空态(2026-09-06 单色极简改造):Fraunces 问候展示字 + 输入框
-   + 极简场景入口行(无边框纯文字行,hover 极淡底);
-   铭牌/模型行/快捷提示 chips/最近作品带全部退役;
-   版心吃 --layout-content;2026-09-06 紧凑化:问候字档 display-md→display-sm、
-   主区块节奏 --section-gap-lg→--space-3、内容整体上移(flex-start + clamp 顶距) ── */
+/* ── 首页门户空态(2026-09-23 cinematic):Fraunces 问候 + portal composer;
+   场景宫格(.av-scene-grid/.av-scene-card*)与最近作品轨已撤离在线空态;
+   技能 chips 仅 Composer「@」面板(SKILL_ENTRIES);离线仍用 .av-scene-row chips;
+   版心 --layout-content;动效仅 opacity/transform/filter,尊重 prefers-reduced-motion ── */
 
-/* 门户容器(2026-09-06 紧凑化:内容整体上移到视口上段,不再垂直居中——
-   居中态首屏下 60% 全空,用户反馈留白过多;顶距 clamp 随视口高度弹性,下限 space-8);
-   min-height:100% 保留撑满对话区,内容超出时自然滚动 */
+/* 门户容器:相对定位承载 ambient;顶距 clamp 保留上段呼吸,略抬以利视觉中心感 */
 .av-empty.av-portal {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   max-width: var(--layout-content);
   margin: 0 auto;
   min-height: 100%;
   justify-content: flex-start;
-  padding-top: clamp(var(--space-8), 14vh, 132px);
+  padding-top: clamp(var(--space-10), 18vh, 160px);
+}
+
+.av-portal--cinematic {
+  isolation: isolate;
+}
+
+/* 软 ambient 辉光:token 径向 + 大模糊 + 慢呼吸(6–8s);无粒子/彩虹 */
+.av-portal-ambient {
+  position: absolute;
+  left: 50%;
+  top: 28%;
+  width: min(72vw, 520px);
+  height: min(48vw, 360px);
+  transform: translate(-50%, -50%) scale(1);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(
+      ellipse at center,
+      var(--accent-glow-soft) 0%,
+      color-mix(in oklab, var(--accent) 10%, transparent) 42%,
+      transparent 72%
+    );
+  filter: blur(48px);
+  opacity: 0.72;
+  animation: av-portal-ambient-breathe 7s var(--ease-standard) infinite;
+}
+@keyframes av-portal-ambient-breathe {
+  0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.96); }
+  50% { opacity: 0.85; transform: translate(-50%, -50%) scale(1); }
 }
 
 .av-portal-composer {
+  position: relative;
+  z-index: 1;
   width: 100%;
 }
 
-/* 问候区:Fraunces 展示字(2026-09-06 紧凑化:--text-display-md→--text-display-sm 档,
-   letter-spacing -0.01em);2026-09-06 单色极简:副文案与 italic 着色退役,纯单色标题 */
+/* 问候区:Fraunces 展示字 + 细 hairline;入场见 .av-portal-in */
 .av-portal-hero {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 .av-portal-greeting {
   margin: 0;
@@ -47,56 +80,42 @@
   line-height: 1.25;
   color: var(--text-primary);
 }
-
-/* 场景入口(2026-09-06 单色极简):无边框纯文字行「图标 + 名称」,hover 极淡底;
-   描述行退役(desc 改挂 title tooltip) */
-.av-scene-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  /* 2026-09-06 紧凑化:行距 space-2→space-1,列距 --grid-gutter→space-3 */
-  gap: var(--space-1) var(--space-3);
-  width: 100%;
-}
-.av-scene-card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
+.av-portal-hero-rule {
+  width: min(96px, 28%);
+  height: 1px;
+  background: color-mix(in oklab, var(--border-subtle) 80%, transparent);
   border: 0;
-  border-radius: var(--radius-control);
-  background: none;
-  font: inherit;
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-standard);
 }
-.av-scene-card:hover {
-  background: var(--accent-glow-soft);
+
+/* 入场:仅 opacity + translateY;问候先、composer 延迟 ~120ms;~500ms 页面级缓动 */
+.av-portal-in {
+  animation: av-portal-fade-up 500ms var(--ease-emphasized) both;
 }
-.av-scene-card-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
+.av-portal-in--late {
+  animation-delay: 120ms;
 }
-.av-scene-card-title {
-  font-size: var(--text-body);
-  font-weight: var(--font-medium);
-  color: var(--text-primary);
+@keyframes av-portal-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 767px) {
   .av-portal-greeting {
     font-size: var(--text-display-sm);
   }
-  .av-scene-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
-@media (max-width: 575px) {
-  .av-scene-grid {
-    grid-template-columns: 1fr;
+
+@media (prefers-reduced-motion: reduce) {
+  .av-portal-ambient {
+    animation: none;
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .av-portal-in,
+  .av-portal-in--late {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }
 

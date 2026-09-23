@@ -84,13 +84,17 @@ test("AudioView 无页头:生成/编辑段控独立窄行且带图标(2026-08-18
   assert.ok(!src.includes("hideHeader"), "hideHeader prop 已退役,不应再传");
 });
 
-/* ── ④ 首页门户(2026-09-06 单色极简)── */
-test("首页空态:极简 console 形态(问候+输入框+场景入口行),门户区块全退役", () => {
-  // A3(2026-09-22):门户空态拆至 PortalEmpty.tsx;退役元素断言跨主壳+全部拆分模块
+/* ── ④ 首页门户(2026-09-23 cinematic 空态)── */
+test("首页空态:cinematic console(问候+composer+ambient),场景宫格/最近作品撤离", () => {
+  // A3(2026-09-22):门户空态拆至 PortalEmpty.tsx;2026-09-23 去宫格+cinematic
   const src = readSrc("components/assistant/PortalEmpty.tsx");
   assert.ok(src.includes("av-portal--console"), "缺 console 空态变体");
+  assert.ok(src.includes("av-portal--cinematic"), "缺 cinematic 变体");
   assert.ok(src.includes("av-portal-greeting"), "缺问候语");
-  assert.ok(src.includes("av-scene-card"), "缺场景入口行");
+  assert.ok(src.includes("av-portal-ambient"), "缺 ambient 层");
+  assert.ok(!src.includes("av-scene-card"), "场景宫格卡应撤离门户");
+  assert.ok(!src.includes("av-scene-grid"), "场景宫格应撤离门户");
+  assert.ok(!src.includes("RecentWorksRail"), "最近作品轨应撤离门户");
   const allSrc = [
     "components/assistant/AssistantView.tsx",
     "components/assistant/MessageList.tsx",
@@ -106,11 +110,13 @@ test("首页空态:极简 console 形态(问候+输入框+场景入口行),门�
   assert.ok(!allSrc.includes("av-works"), "最近作品区应退役");
 
   const css = readSrc("app/styles/assistant.css");
-  // 2026-09-06 紧凑化:门户内容整体上移(flex-start + clamp 顶距),不再垂直居中
+  // cinematic:仍 flex-start + clamp 顶距(略抬),ambient/入场尊重 reduced-motion
   const portal = cssBlock(css, ".av-empty.av-portal");
   assert.ok(portal.includes("justify-content: flex-start"), "门户内容上移:应 flex-start 顶对齐 + clamp 顶距");
   assert.ok(portal.includes("padding-top: clamp("), "门户顶距应走 clamp 弹性档");
   assert.ok(portal.includes("min-height: 100%"), "空态须撑满对话区");
+  assert.ok(css.includes(".av-portal-ambient"), "缺 ambient 样式");
+  assert.ok(css.includes("prefers-reduced-motion"), "缺 reduced-motion 降级");
   for (const deadCss of [".av-quick-row", ".av-recent", ".av-console-wordmark", ".av-portal-sub", ".av-scene-card-desc"]) {
     assert.ok(!css.includes(deadCss), `已退役门户样式残留:${deadCss}`);
   }

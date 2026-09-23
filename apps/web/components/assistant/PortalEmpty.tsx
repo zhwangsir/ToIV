@@ -1,17 +1,19 @@
 "use client";
 
 /**
- * 助手门户空态模块(2026-09-22 A3 组件工程化;2026-09-23 P0 对话 chips):
+ * 助手门户空态模块(2026-09-22 A3 组件工程化;2026-09-23 P0 对话 chips;
+ * 2026-09-23 cinematic 空态):
  * 自 AssistantView.tsx 拆出——门户入口数据(SKILL_ENTRIES/OFFLINE_ENTRIES/filterPortalEntries)
  * 与空态组件(页形态门户 PortalEmpty / popup 极简空态 PopupEmpty)。
- * P0: SKILL_ENTRIES 从「工作台快捷入口」改为对话内 prompt chips(留在智能体);
+ * P0: SKILL_ENTRIES 为 Composer「@」技能面板对话内 prompt chips(门户在线空态不再渲染场景宫格);
  * 离线 OFFLINE_ENTRIES 仍为工作台导航(离线降级 OK)。
+ * 在线空态 = 居中问候(Fraunces) + portal composer + ambient 辉光/入场动效;
+ * 最近作品轨组件文件保留供他处引用；门户在线空态不再挂载该轨。
  */
 import { type ReactNode } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { RecentWorksRail } from "./RecentWorksRail";
 
-// ───── @ 技能面板 / 门户入口(2026-09-23 P0:对话内 prompt chips) ─────
+// ───── @ 技能面板入口数据(2026-09-23 P0:对话内 prompt chips;非门户宫格) ─────
 
 export interface PortalEntry {
   view: string;
@@ -27,7 +29,7 @@ export interface PortalEntry {
   sfwOnly?: boolean;
 }
 
-/** @ 技能 / 门户场景 = 对话内 prompt chips(可执行意图,非工作台跳转)。 */
+/** @ 技能面板 = 对话内 prompt chips(可执行意图,非工作台跳转;门户在线空态不渲染此列表)。 */
 export const SKILL_ENTRIES: PortalEntry[] = [
   {
     view: "drama",
@@ -112,35 +114,24 @@ export interface PortalEmptyProps {
   llmOffline: boolean;
   /** 门户问候语(主壳挂载时按时段取一次,跨空态往返保持稳定) */
   greeting: string;
-  r18: boolean;
+  /** 离线工作台 chip 导航(在线 cinematic 空态不用) */
   goView: (view: string) => void;
-  /** 生成类 chip:预填 composer 留在智能体(不 goView) */
-  onChipPrompt: (prompt: string) => void;
   /** 门户 C 位输入框槽位(主壳 renderComposer(true) 注入,与底部输入框同源) */
   composer: ReactNode;
 }
 
-/* 门户空态(2026-09-06 单色极简改造):Fraunces 问候 + 输入框 + 极简场景入口行;
-   铭牌/模型行/快捷提示 chips/最近作品带全部退役;
-   版心 --layout-content,区块节奏 --space-3(2026-09-06 紧凑化;样式在 assistant.css 门户区块) */
+/* 门户空态(2026-09-23 cinematic):Fraunces 问候 + portal composer + ambient;
+   场景宫格与最近作品轨已撤离门户(技能 chips 仅 Composer @ 面板);
+   离线仍保留 alert + OFFLINE_ENTRIES 工作台 chips */
 export function PortalEmpty({
   llmOffline,
   greeting,
-  r18,
   goView,
-  onChipPrompt,
   composer,
 }: PortalEmptyProps) {
-  const onSkillClick = (e: PortalEntry) => {
-    if (e.navigate || !e.prompt) {
-      goView(e.view);
-      return;
-    }
-    onChipPrompt(e.prompt);
-  };
-
   return (
-    <div className="av-empty av-portal av-portal--console">
+    <div className="av-empty av-portal av-portal--console av-portal--cinematic">
+      <div className="av-portal-ambient" aria-hidden />
       {llmOffline ? (
         /* W5 助手离线降级:对话框让位「离线提示 + 全量工作台导航」 */
         <>
@@ -166,32 +157,15 @@ export function PortalEmpty({
         </>
       ) : (
         <>
-          <div className="av-portal-hero">
+          <div className="av-portal-hero av-portal-in">
             <h2 className="av-portal-greeting">
               {greeting},想创作点什么?
             </h2>
+            <div className="av-portal-hero-rule" aria-hidden />
           </div>
-          <div className="av-portal-composer">{composer}</div>
-          <div className="av-scene-grid">
-            {filterPortalEntries(SKILL_ENTRIES, r18).map((e) => (
-              <button
-                key={e.view}
-                type="button"
-                className="av-scene-card"
-                title={e.desc}
-                onClick={() => onSkillClick(e)}
-              >
-                <span className="av-scene-card-icon" aria-hidden="true">
-                  <Icon name={e.icon} size={16} strokeWidth={1.7} />
-                </span>
-                <span className="av-scene-card-title">{e.label}</span>
-              </button>
-            ))}
-          </div>
+          <div className="av-portal-composer av-portal-in av-portal-in--late">{composer}</div>
         </>
       )}
-      {/* 最近作品横条:恒挂载(条件分支外),LLM 离线/在线都不卸载,避免缩略图反复中断 */}
-      <RecentWorksRail onOpenLibrary={() => goView("library")} />
     </div>
   );
 }
