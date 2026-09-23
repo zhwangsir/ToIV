@@ -1966,6 +1966,38 @@ def test_build_graph_seedvr2_cache_model_bool():
     assert built["5"]["inputs"]["cache_model"] is True
 
 
+def test_build_graph_seedvr2_attention_mode_flash_to_sdpa():
+    """SeedVR2*.attention_mode flash_attn* → sdpa;其它不动。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "27": {
+            "class_type": "SeedVR2LoadDiTModel",
+            "inputs": {
+                "model": "seedvr2_ema_3b_fp8_e4m3fn.safetensors",
+                "attention_mode": "flash_attn",
+            },
+        },
+        "28": {
+            "class_type": "SeedVR2LoadDiTModel",
+            "inputs": {"model": "seedvr2.safetensors", "attention_mode": "flash_attn_2"},
+        },
+        "29": {
+            "class_type": "SeedVR2LoadDiTModel",
+            "inputs": {"model": "seedvr2.safetensors", "attention_mode": "sdpa"},
+        },
+        "30": {
+            "class_type": "SeedVR2VideoUpscaler",
+            "inputs": {"attention_mode": "flash_attn_3"},
+        },
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["27"]["inputs"]["attention_mode"] == "sdpa"
+    assert built["28"]["inputs"]["attention_mode"] == "sdpa"
+    assert built["29"]["inputs"]["attention_mode"] == "sdpa"
+    assert built["30"]["inputs"]["attention_mode"] == "sdpa"
+
+
 def test_build_graph_wan_set_loras_rewires_hidden_to_select():
     """WanVideoSetLoRAs.lora ← RHHiddenNodes → 改挂 WanVideoLoraSelectMulti。"""
     from app.routes.apps import _build_graph

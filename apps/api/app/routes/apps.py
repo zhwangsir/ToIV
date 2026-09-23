@@ -1763,6 +1763,42 @@ def _normalize_seedvr2_cache_model_bool(graph: dict) -> None:
             inputs["cache_model"] = False
 
 
+_SEEDVR2_FLASH_ATTN_MODES = frozenset({
+    "flash_attn",
+    "flash_attn_2",
+    "flash_attn_3",
+    "flash-attn",
+    "flash-attn-2",
+    "flash-attn-3",
+})
+_SEEDVR2_ATTN_NODE_TYPES = (
+    "SeedVR2LoadDiTModel",
+    "SeedVR2LoadVAEModel",
+    "SeedVR2VideoUpscaler",
+)
+
+
+def _normalize_seedvr2_attention_mode(graph: dict) -> None:
+    """SeedVR2*.attention_mode:flash_attn* → sdpa(设备不装 flash_attn)。
+
+    RH 图常写 flash_attn/flash_attn_2/3;fleet 明确不装 flash-attn 包 →
+    运行/导入失败(2026-09-24 rh-acc-2588987393 实证)。已是 sdpa/其它不动。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        if (node.get("class_type") or "") not in _SEEDVR2_ATTN_NODE_TYPES:
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        mode = inputs.get("attention_mode")
+        if isinstance(mode, str) and mode.strip().lower() in _SEEDVR2_FLASH_ATTN_MODES:
+            inputs["attention_mode"] = "sdpa"
+
+
 def _normalize_wan_video_set_loras_hidden(graph: dict) -> None:
     """WanVideoSetLoRAs.lora ← RHHiddenNodes:改挂图内 WanVideoLoraSelect*。
 
@@ -2433,6 +2469,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_sec_flash_attn_blackwell(graph)
     _normalize_qwen_edit_prompt_string_link(graph)
     _normalize_seedvr2_cache_model_bool(graph)
+    _normalize_seedvr2_attention_mode(graph)
     _normalize_wan_video_set_loras_hidden(graph)
     _normalize_empty_h3_prompt_text(graph)
     _normalize_tiny_vae_alias(graph)
@@ -2485,6 +2522,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_wan_video_decode_tiles(graph)
     _normalize_qwen_edit_prompt_string_link(graph)
     _normalize_seedvr2_cache_model_bool(graph)
+    _normalize_seedvr2_attention_mode(graph)
     _normalize_wan_video_set_loras_hidden(graph)
     _normalize_empty_h3_prompt_text(graph)
     _normalize_nunchaku_sm120_fp4(graph)
