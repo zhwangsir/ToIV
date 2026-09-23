@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-23（项目管家：Admin wave6 已上 main+core）：产品主干仍仅 **main**；`256264f` feat(admin) wave6 收尾运营面——`GET /api/admin/closeout-summary` + `POST /api/admin/apps/bulk-public` + 概览「收尾运营」卡 + 应用管理筛选/批量 soft-hide；`docs/ADMIN_WAVE6_20260923.md`；单测 1 绿；已 deploy api+admin → core-ts（:8090/:3200 就绪）；**origin(Gitee) main tip=`256264f`**（含 docs tip `fd41f2b`）；**github/main 仍停 `858d3c9`**（本机 443 不通，待补推 fd41f2b+256264f）；勿再记产品 feature 枝；勿改 AGENTS 集群真源；STATE `admin_wave6_closeout_ops_2026_09_23`；`updated_at` 2026-09-23T14:22:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-23（项目管家：对话=智能体 IA）：产品 tip `b65cef4` 已双推 main——侧栏唯一「智能体」= home 对话面；`/agent-runs` 降为「任务」深链（更多抽屉+composer），不再与对话并排第二入口；上一 tip `75f96fa` 之上 +1；ToIV 开发接着 deploy web→core；产品主干仍仅 **main**；STATE `web_agent_chat_ia_2026_09_23`；`updated_at` 2026-09-23T17:25:00+08:00；via 项目管家（ToIV 开发）；
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -131,6 +131,14 @@
 
 ## 七、当前焦点（活口径摘要）
 
+
+
+### 2026-09-23（项目管家：对话=智能体 IA）
+- **产品 tip `b65cef4`** 已双推 Gitee+GitHub main（上一 tip `75f96fa` 之上 +1）。
+- **IA**：侧栏唯一「智能体」= home 对话面；`/agent-runs` 降为「任务」深链（更多抽屉 + composer），不再与对话并排第二入口。
+- **部署**：ToIV 开发接着 deploy web→core（进行中）。
+- **主干**：仍仅 **main**。
+- Status：`web_agent_chat_ia_landed`；STATE `web_agent_chat_ia_2026_09_23`；`updated_at` 2026-09-23T17:25:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-23（项目管家：Admin wave6 已上 main+core）
 - **产品主干**：仍仅 **main**；管理系统深化继续在 main（勿再开产品 feature 枝）。

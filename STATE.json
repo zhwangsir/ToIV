@@ -1,5 +1,34 @@
 {
-  "updated_at": "2026-09-23T14:22:00+08:00",
+  "updated_at": "2026-09-23T17:25:00+08:00",
+  "web_agent_chat_ia_2026_09_23": {
+    "status": "web_agent_chat_ia_landed",
+    "date": "2026-09-23",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "Web IA: sidebar sole 智能体 = home chat; /agent-runs demoted to 任务 deep-link; dual-pushed main @ b65cef4; web deploy to core in progress",
+    "commit": {
+      "sha": "b65cef4",
+      "message": "feat(web): 对话就是智能体——合并侧栏入口",
+      "parent_docs_tip": "75f96fa"
+    },
+    "ia": {
+      "sidebar_sole_agent": "home chat surface",
+      "agent_runs": "demoted to 任务 deep-link (more drawer + composer)",
+      "no_parallel_second_entry": true
+    },
+    "remotes": {
+      "origin_gitee_main": "b65cef4",
+      "github_main": "b65cef4",
+      "verified_both": true
+    },
+    "deploy": {
+      "web_to_core": "in_progress_by_toiv_dev"
+    },
+    "product_trunk": "main_only"
+  },
   "admin_wave6_closeout_ops_2026_09_23": {
     "status": "admin_wave6_on_main_core",
     "date": "2026-09-23",

@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-23 对话=智能体 IA（项目管家；ToIV 开发 tip；docs；产品 tip `b65cef4`）：侧栏唯一「智能体」= home 对话面；`/agent-runs` 降为「任务」深链（更多抽屉+composer）；已双推 Gitee+GitHub main（核 tip `b65cef4`，上一 tip `75f96fa` +1）；web→core 部署进行中；产品主干仍仅 main；status=`web_agent_chat_ia_landed`；STATE `web_agent_chat_ia_2026_09_23`；updated_at 2026-09-23T17:25:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-23 Admin wave6 已上 main+core（项目管家；ToIV 开发 tip；docs；产品 tip `256264f`）：产品主干仍仅 **main**；`GET /api/admin/closeout-summary` + `POST /api/admin/apps/bulk-public` + 概览「收尾运营」卡 + 应用管理筛选/批量 soft-hide；`docs/ADMIN_WAVE6_20260923.md`；单测 1 绿；已 deploy api+admin → core-ts（:8090/:3200 就绪）；**origin(Gitee) main=`256264f`**（含 docs tip `fd41f2b`）；**github/main 仍 `858d3c9`**（443 不通，待补推）；勿再开产品 feature 枝；勿改 AGENTS 集群真源；status=`admin_wave6_on_main_core`；STATE `admin_wave6_closeout_ops_2026_09_23`；updated_at 2026-09-23T14:22:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-23 产品主干仅 main（项目管家；ToIV 开发 tip；docs；merge tip `858d3c9`）：用户拍板不再多开产品分支、对比后融合；`feat/app-guides-admin-cms`（含 `1292bb5` 封面闸+Admin 五批+助手 A1–A4）已合入 **main** @ `858d3c9`；双推 origin+github `main` 已核 tip `858d3c9`；远端 feat/app-guides-admin-cms 与 feat/mp-library-kinds 已删；本地空枝 ace-step/mp-engine-catchup/mp-library-kinds/mobile-uniapp-only 已删；保留 `claude/jovial-fermi-*` 漫剧 7 提交待挑合（落后约 718，不整支硬并）；本地 stash 仍有 MODEL_SOURCES+AGENTS wip **未进 main**；后续管理系统深化在 main 上做；勿再记 feat/app-guides-admin-cms；勿 stage 产品 dirty / stash wip；status=`product_trunk_main_only`；STATE `product_trunk_main_only_2026_09_23`；updated_at 2026-09-23T14:06:00+08:00；AGENTS §七 已短注。
