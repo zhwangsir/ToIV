@@ -2033,7 +2033,7 @@ def test_build_graph_empty_h3_prompt_text_filled():
 
 
 def test_build_graph_trim_audio_start_index_reset():
-    """TrimAudioDuration.start_index 数值>0 → 0;链接不动;start/end 倒置仍交换。"""
+    """TrimAudioDuration.start_index 数值>0 → 0;链接 Primitive>0 → 字面 0;倒置交换。"""
     from app.routes.apps import _build_graph
 
     graph = {
@@ -2049,11 +2049,35 @@ def test_build_graph_trim_audio_start_index_reset():
             "class_type": "TrimAudioDuration",
             "inputs": {"audio": ["9", 0], "start_time": 5.0, "end_time": 2},
         },
+        "4": {
+            "class_type": "TrimAudioDuration",
+            "inputs": {"audio": ["9", 0], "start_index": ["393", 0], "duration": 60},
+        },
+        "392": {"class_type": "PrimitiveFloat", "inputs": {"value": 31}},
+        "393": {"class_type": "PrimitiveFloat", "inputs": {"value": 0}},
     }
     built = _build_graph(graph, {}, {})
     assert built["1"]["inputs"]["start_index"] == 0
     assert built["1"]["inputs"]["duration"] == 60
-    assert built["2"]["inputs"]["start_index"] == ["392", 0]
+    assert built["2"]["inputs"]["start_index"] == 0
     assert built["3"]["inputs"]["start_time"] == 2
     assert built["3"]["inputs"]["end_time"] == 5.0
+    assert built["4"]["inputs"]["start_index"] == ["393", 0]
+
+
+def test_build_graph_strips_unbound_hash_load_saveimage_only():
+    """未绑定哈希 LoadImage 仅喂 SaveImage/Preview*:剥 Load+预览槽,主链不动。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "10": {"class_type": "LoadImage", "inputs": {"image": _HASH_IMG}},
+        "13": {"class_type": "ImageScale", "inputs": {"image": ["10", 0]}},
+        "25": {"class_type": "LoadImage", "inputs": {"image": _HASH_IMG}},
+        "26": {"class_type": "SaveImage", "inputs": {"images": ["25", 0], "filename_prefix": "ComfyUI"}},
+    }
+    bindings = {"loadimage_image": {"node": "10", "field": "inputs.image"}}
+    built = _build_graph(graph, bindings, {})
+    assert "10" in built  # 绑定槽保留
+    assert "13" in built
+    assert "25" not in built and "26" not in built
 

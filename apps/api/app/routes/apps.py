@@ -712,6 +712,7 @@ def _omit_media_slot(graph: dict, node_id: object) -> None:
 #     或 first_frame/last_frame(均 optional):删键即安全;
 #   - 经媒体预处理节点(ImageResizeKJv2/AudioCrop/TrimAudioDuration/GetVideoComponents)
 #     转一手再到上述槽位:级联剥掉预处理节点;
+#   - 下游仅 SaveImage/Preview* 等预览槽:剥 Load 并丢掉这些预览节点;
 #   - 其他任何下游形态(绑定缺失的必需输入等)不剥,维持原失败行为。
 # toivref-<32hex>:ToIV 导入期生成的引用图,源媒体已不在 ToIV 存储,
 # 任何 worker 都转运不到(wave4/16 实证 4 例,LoadImage Invalid image file)。
@@ -724,6 +725,16 @@ _RH_MEDIA_PREPROCESSORS = {
     "AudioCrop",
     "TrimAudioDuration",
     "GetVideoComponents",
+}
+# RH 图常另挂「仅 Save/Preview」的对照 Load*(哈希文件名);剥 Load 时连同
+# 这些无主链产物的预览槽一起丢掉(2026-09-24 rh-acc-9943753729 实证)。
+_RH_MEDIA_PREVIEW_SINKS = {
+    "SaveImage",
+    "PreviewImage",
+    "PreviewAny",
+    "PreviewImageCompared",
+    "easy showAnything",
+    "easy clearCacheAll",
 }
 
 
@@ -780,6 +791,7 @@ def _normalize_stale_rh_media(graph: dict, bindings: dict) -> None:
             return False
         detach: list[tuple[str, str]] = []  # (consumer_id, key) 直接删键
         cascade: list[str] = []  # 需级联剥离的预处理节点
+        preview_sinks: list[str] = []
         for cid, cnode, key in _refs_to(nid):
             cct = cnode.get("class_type") or ""
             if cct.startswith(("MiniMaxH3", "MinimaxH3")) and (
@@ -788,6 +800,8 @@ def _normalize_stale_rh_media(graph: dict, bindings: dict) -> None:
                 detach.append((cid, key))
             elif cct in _RH_MEDIA_PREPROCESSORS and key in ("image", "audio", "video"):
                 cascade.append(cid)
+            elif cct in _RH_MEDIA_PREVIEW_SINKS:
+                preview_sinks.append(cid)
             else:
                 keep.add(nid)
                 return False
@@ -799,6 +813,8 @@ def _normalize_stale_rh_media(graph: dict, bindings: dict) -> None:
             inputs = graph[cid].get("inputs")
             if isinstance(inputs, dict) and key in inputs:
                 del inputs[key]
+        for cid in preview_sinks:
+            drop.add(cid)
         drop.add(nid)
         return True
 
@@ -1904,8 +1920,9 @@ def _normalize_trim_audio_duration(graph: dict) -> None:
 
     另一形态(KJ/新版)用 start_index+duration:RH 常烘焙 start_index=25s 而
     烟测/替换音频仅数秒 →「Start time must be … within the audio length」
-    (2026-09-24 rh-acc-8653018114 实证)。数值型 start_index>0 回零;链接
-    形态不动。duration 过长由节点按音频长度截断,不在此改。
+    (2026-09-24 rh-acc-8653018114 实证)。数值型 start_index>0 回零;链接到
+    PrimitiveFloat/Int 且 value>0 时改挂字面 0(2026-09-24 rh-acc-6866908162
+    实证,链接形态原先放过仍炸)。duration 过长由节点按音频长度截断,不在此改。
     """
     if not isinstance(graph, dict):
         return
@@ -1923,6 +1940,30 @@ def _normalize_trim_audio_duration(graph: dict) -> None:
         si = inputs.get("start_index")
         if isinstance(si, (int, float)) and not isinstance(si, bool) and float(si) > 0:
             inputs["start_index"] = 0
+            continue
+        if isinstance(si, list) and len(si) >= 1:
+            src_node = graph.get(str(si[0]))
+            if not isinstance(src_node, dict):
+                continue
+            if (src_node.get("class_type") or "") not in (
+                "PrimitiveFloat",
+                "PrimitiveInt",
+                "PrimitiveNumber",
+                "easy float",
+                "easy int",
+                "FloatConstant",
+                "INTConstant",
+                "JWFloat",
+                "JWInteger",
+            ):
+                continue
+            src_inputs = src_node.get("inputs")
+            if not isinstance(src_inputs, dict):
+                continue
+            val = src_inputs.get("value")
+            if isinstance(val, (int, float)) and not isinstance(val, bool) and float(val) > 0:
+                inputs["start_index"] = 0
+
 
 
 def _normalize_sd3_clip_basename(graph: dict) -> None:
