@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-23（项目管家：产品主干仅 main）：用户拍板不再多开产品分支、对比后融合；`feat/app-guides-admin-cms`（含 `1292bb5` 封面闸 + Admin 五批 + 助手 A1–A4）已合入 **main** @ `858d3c9`；已双推 origin(Gitee)+github `main`；远端 `feat/app-guides-admin-cms` / `feat/mp-library-kinds` 已删；本地空枝 ace-step / mp-engine-catchup / mp-library-kinds / mobile-uniapp-only 已删；保留 `claude/jovial-fermi-*` 漫剧 7 提交待挑合（落后约 718，不整支硬并）；本地 stash 仍有 MODEL_SOURCES+AGENTS wip，**未进 main**；后续管理系统深化也在 **main** 上做；勿再记 `feat/app-guides-admin-cms`；STATE `product_trunk_main_only_2026_09_23`；`updated_at` 2026-09-23T14:06:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-23（项目管家：Admin wave6 已上 main+core）：产品主干仍仅 **main**；`256264f` feat(admin) wave6 收尾运营面——`GET /api/admin/closeout-summary` + `POST /api/admin/apps/bulk-public` + 概览「收尾运营」卡 + 应用管理筛选/批量 soft-hide；`docs/ADMIN_WAVE6_20260923.md`；单测 1 绿；已 deploy api+admin → core-ts（:8090/:3200 就绪）；**origin(Gitee) main tip=`256264f`**（含 docs tip `fd41f2b`）；**github/main 仍停 `858d3c9`**（本机 443 不通，待补推 fd41f2b+256264f）；勿再记产品 feature 枝；勿改 AGENTS 集群真源；STATE `admin_wave6_closeout_ops_2026_09_23`；`updated_at` 2026-09-23T14:22:00+08:00；via 项目管家（ToIV 开发）；
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -131,9 +131,17 @@
 
 ## 七、当前焦点（活口径摘要）
 
+
+### 2026-09-23（项目管家：Admin wave6 已上 main+core）
+- **产品主干**：仍仅 **main**；管理系统深化继续在 main（勿再开产品 feature 枝）。
+- **交付 `256264f`**：`GET /api/admin/closeout-summary`（公开烟测分布/软隐藏/封面闸）；`POST /api/admin/apps/bulk-public`（批量 soft-hide/上架）；admin 概览「收尾运营」卡 + 应用管理筛选/批量；`docs/ADMIN_WAVE6_20260923.md`；单测 1 绿。
+- **生产**：api+admin 已 deploy 到 core-ts（:8090/:3200 就绪）。
+- **远端**：origin(Gitee) main tip=`256264f`（含 docs tip `fd41f2b`）；github/main 仍 `858d3c9`（443 不通，待补推）。
+- Status：`admin_wave6_on_main_core`；STATE `admin_wave6_closeout_ops_2026_09_23`；`updated_at` 2026-09-23T14:22:00+08:00。via 项目管家（ToIV 开发）。
+
 ### 2026-09-23（项目管家：产品主干仅 main）
 - **用户拍板**：不再多开产品分支；对比后融合。产品主干 = **仅 main**；后续管理系统深化也在 main 上做；**勿再记** `feat/app-guides-admin-cms`。
-- **已执行**：`feat/app-guides-admin-cms`（含 `1292bb5` 封面闸 + Admin 五批 + 助手 A1–A4）已合入 main @ `858d3c9`；双推 origin(Gitee)+github `main`（两边 tip 已核 `858d3c9`）。
+- **已执行**：`feat/app-guides-admin-cms`（含 `1292bb5` 封面闸 + Admin 五批 + 助手 A1–A4）已合入 main @ `858d3c9`；融合点 `858d3c9`；其后 docs `fd41f2b` + Admin wave6 `256264f` 已在 **origin(Gitee) main**；github/main 仍停 `858d3c9` 待补推。
 - **枝清理**：远端删 `feat/app-guides-admin-cms`、`feat/mp-library-kinds`；本地空枝删 ace-step / mp-engine-catchup / mp-library-kinds / mobile-uniapp-only。
 - **保留**：`claude/jovial-fermi-*` 漫剧 7 提交待挑合（落后约 718，**不整支硬并**）。
 - **未进 main**：本地 stash 仍有 MODEL_SOURCES+AGENTS wip（`stash@{0}` on 旧 feat）；勿误 pop 进主干。
