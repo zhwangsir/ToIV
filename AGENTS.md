@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-23（项目管家：助手 P0 禁跳转+chips+任务回会话）：生成意图禁默认 `navigate_view`/`prefill_generate`；门户技能=对话 prompt chips；composer「任务」开最近任务分栏（在对话里继续）；L0 ack 改对话智能体、`/?view=assistant`→`home`；对标 `docs/AGENT_PEER_RESEARCH_20260923.md`；产品主干仍仅 **main**；STATE `assistant_p0_chat_agent_2026_09_23`；`updated_at` 2026-09-23T17:52:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-09-23（项目管家：助手 P0 禁跳转+chips+任务回会话）：生成意图禁默认 `navigate_view`/`prefill_generate`；门户技能=对话 prompt chips；composer「任务」开最近任务分栏（在对话里继续）；L0 ack 改对话智能体、`/?view=assistant`→`home`；对标 `docs/AGENT_PEER_RESEARCH_20260923.md`；产品主干仍仅 **main**；P0 web+api 已上 core-ts（BUILD_ID=`20260923-100246-nogit`，api/web health 200；覆盖先前 `20260923-092729-nogit`）；Gitee/GitHub/本地 main tip=`cf2c10d`；STATE `assistant_p0_chat_agent_2026_09_23`；`updated_at` 2026-09-23T18:05:00+08:00；via 项目管家（ToIV 开发）；
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -135,15 +135,17 @@
 - **P0.1**：`runner` 原则 19 + `navigate_view`/`prefill_generate` 工具描述收紧为逃逸出口；Agent Team L0 ack「请在对话智能体里直接完成」。
 - **P0.2**：`SKILL_ENTRIES` 改为对话 prompt chips（作品库仍 navigate）；@ 面板同语义。
 - **P0.3**：composer「任务」开抽屉/左侧「最近任务」；「在对话里继续」预填；`/agent-runs` 深链保留。未嵌入完整 Agent Team UI。
-- **主干**：仍仅 **main**；部署由父代理。
-- Status：`assistant_p0_landed`；STATE `assistant_p0_chat_agent_2026_09_23`；`updated_at` 2026-09-23T17:52:00+08:00。via 项目管家（ToIV 开发）。
+- **部署**：P0 web+api 已上 **core-ts**（100.77.80.100）；api health 200；web BUILD_ID=`20260923-100246-nogit`（覆盖先前 IA 的 `20260923-092729-nogit`）；web health 200。
+- **远端**：origin(Gitee)/github/本地 main tip=`cf2c10d`（已齐）。
+- **主干**：仍仅 **main**。
+- Status：`assistant_p0_deployed_core`；STATE `assistant_p0_chat_agent_2026_09_23`；`updated_at` 2026-09-23T18:05:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-23（项目管家：对话=智能体 IA）
 - **产品 tip `b65cef4`** 已双推 Gitee+GitHub main（上一 tip `75f96fa` 之上 +1）。
 - **IA**：侧栏唯一「智能体」= home 对话面；`/agent-runs` 降为「任务」深链（更多抽屉 + composer），不再与对话并排第二入口。
-- **部署**：ToIV 开发接着 deploy web→core（进行中）。
+- **部署**：web→core **已完成**；现网 BUILD_ID 以助手 P0 部署为准（`20260923-100246-nogit`，覆盖 `20260923-092729-nogit`）。
 - **主干**：仍仅 **main**。
-- Status：`web_agent_chat_ia_landed`；STATE `web_agent_chat_ia_2026_09_23`；`updated_at` 2026-09-23T17:25:00+08:00。via 项目管家（ToIV 开发）。
+- Status：`web_agent_chat_ia_deployed`；STATE `web_agent_chat_ia_2026_09_23`；`updated_at` 2026-09-23T18:05:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-23（项目管家：Admin wave6 已上 main+core）
 - **产品主干**：仍仅 **main**；管理系统深化继续在 main（勿再开产品 feature 枝）。

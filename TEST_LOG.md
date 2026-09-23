@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-23 助手 P0 web+api 已上 core-ts（项目管家；ToIV 开发 tip；docs；产品 tip `cf2c10d`）：origin(Gitee)/github/本地 main 已核 tip=`cf2c10d`；api health 200；web BUILD_ID=`20260923-100246-nogit`（覆盖先前 IA `20260923-092729-nogit`）；web health 200；五件套 IA/助手节 deploy in_progress→已完成；status=`assistant_p0_deployed_core`；STATE `assistant_p0_chat_agent_2026_09_23`；updated_at 2026-09-23T18:05:00+08:00；AGENTS §七 已短注。
+
 - 2026-09-23 助手 P0 禁跳转+chips+任务回会话（项目管家；ToIV 开发 tip；docs）：禁默认 navigate/prefill；门户技能=对话 chips；最近任务回会话抽屉；L0→对话智能体；`/?view=assistant`→home；web portal/A2/W4 20 绿；api L0+harness+ui_action 绿；产品主干仍仅 main；status=`assistant_p0_landed`；STATE `assistant_p0_chat_agent_2026_09_23`；updated_at 2026-09-23T17:52:00+08:00；AGENTS §七 已短注。
 
 - 2026-09-23 对话=智能体 IA（项目管家；ToIV 开发 tip；docs；产品 tip `b65cef4`）：侧栏唯一「智能体」= home 对话面；`/agent-runs` 降为「任务」深链（更多抽屉+composer）；已双推 Gitee+GitHub main（核 tip `b65cef4`，上一 tip `75f96fa` +1）；web→core 部署进行中；产品主干仍仅 main；status=`web_agent_chat_ia_landed`；STATE `web_agent_chat_ia_2026_09_23`；updated_at 2026-09-23T17:25:00+08:00；AGENTS §七 已短注。

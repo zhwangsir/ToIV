@@ -1,14 +1,14 @@
 {
-  "updated_at": "2026-09-23T17:52:00+08:00",
+  "updated_at": "2026-09-23T18:05:00+08:00",
   "assistant_p0_chat_agent_2026_09_23": {
-    "status": "assistant_p0_landed",
+    "status": "assistant_p0_deployed_core",
     "date": "2026-09-23",
     "source": [
       "ToIV 开发",
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "P0 对话=智能体体感:禁默认跳转(system+tools)+门户 chips 预填对话+任务回会话抽屉; L0 ack 改对话智能体; view=assistant→home",
+    "summary": "P0 对话=智能体体感已落地并上 core-ts:禁默认跳转+门户 chips+任务回会话; web BUILD_ID=20260923-100246-nogit; api/web health 200; tip=cf2c10d 双端齐",
     "p0": {
       "ban_default_navigate": true,
       "portal_skill_chips": true,
@@ -20,17 +20,30 @@
     "tests": {
       "web": "assistantPortal/A2/W4 20 pass",
       "api": "ui_action+L0+harness_tools pass"
+    },
+    "deploy": {
+      "core_ts": "100.77.80.100",
+      "web_build_id": "20260923-100246-nogit",
+      "supersedes_build_id": "20260923-092729-nogit",
+      "api_health": 200,
+      "web_health": 200,
+      "status": "done"
+    },
+    "remotes": {
+      "origin_gitee_main": "cf2c10d",
+      "github_main": "cf2c10d",
+      "verified_both": true
     }
   },
   "web_agent_chat_ia_2026_09_23": {
-    "status": "web_agent_chat_ia_landed",
+    "status": "web_agent_chat_ia_deployed",
     "date": "2026-09-23",
     "source": [
       "ToIV 开发",
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "Web IA: sidebar sole 智能体 = home chat; /agent-runs demoted to 任务 deep-link; dual-pushed main @ b65cef4; web deploy to core in progress",
+    "summary": "Web IA: sidebar sole 智能体 = home chat; /agent-runs demoted to 任务 deep-link; dual-pushed main @ b65cef4; web deploy to core done (current BUILD_ID=20260923-100246-nogit via P0)",
     "commit": {
       "sha": "b65cef4",
       "message": "feat(web): 对话就是智能体——合并侧栏入口",
@@ -47,7 +60,10 @@
       "verified_both": true
     },
     "deploy": {
-      "web_to_core": "in_progress_by_toiv_dev"
+      "web_to_core": "done",
+      "web_build_id": "20260923-100246-nogit",
+      "supersedes_build_id": "20260923-092729-nogit",
+      "note": "IA 首次上 core 后由 P0 web+api 再部署覆盖 BUILD_ID"
     },
     "product_trunk": "main_only"
   },
