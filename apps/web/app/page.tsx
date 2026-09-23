@@ -235,8 +235,8 @@ const VALID_VIEWS = new Set<View>([
 ]);
 
 const VIEW_META: Record<View, { label: string }> = {
-  assistant: { label: "对话" },
-  home:      { label: "对话" },
+  assistant: { label: "智能体" },
+  home:      { label: "智能体" },
   image:     { label: "图片生成" },
   video:     { label: "视频生成" },
   audio:     { label: "音频" },
@@ -259,10 +259,10 @@ const VIEW_META: Record<View, { label: string }> = {
  *  融合/画布/主体库/译制/数字人/编辑器等经 ⌘K 命令面板或页面内入口到达。
  *  窄屏由底部导航承载(BOTTOM_NAV_ITEMS + 「更多」抽屉)。
  *  2026-09-12 引擎工作台:应用市场升至次位,图片/视频改名图片生成/视频生成(纯引擎)。
- *  2026-09-22 A2:「智能体」进左栏(对话=轻交互/运行台=重编排并存;独立路由,handleNavSelect 特判)。 */
+ *  2026-09-23:用户锁定「对话就是智能体」——左栏唯一入口「智能体」= home 对话面;
+ *  运行台 /agent-runs 降为对话内「任务」深链(更多抽屉 + composer),不再并排第二入口。 */
 const RAIL_ITEMS: RailItem[] = [
-  { key: "home", label: "对话", icon: "chat" },
-  { key: "agent-runs", label: "智能体", icon: "bot" },
+  { key: "home", label: "智能体", icon: "bot" },
   { key: "market", label: "应用市场", icon: "store" },
   { key: "image", label: "图片生成", icon: "image" },
   { key: "video", label: "视频生成", icon: "video" },
@@ -279,7 +279,7 @@ const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   { key: "market", label: "应用市场", icon: "store" },
   { key: "image", label: "图片", icon: "image" },
   { key: "video", label: "视频", icon: "video" },
-  { key: "home", label: "对话", icon: "chat", isCta: true },
+  { key: "home", label: "智能体", icon: "bot", isCta: true },
   { key: "library", label: "作品", icon: "library" },
 ];
 
@@ -295,8 +295,8 @@ const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
   // 2026-08-30 批 D:animatic 原与 studio 同用 clapperboard,换 film(胶片条)提辨识度
   { key: "animatic", label: "动态分镜", icon: "film" },
   { key: "resources", label: "资源", icon: "models" },
-  // W1:agent-runs 孤儿路由收口——智能体团队运行记录进抽屉(独立路由,handleNavSelect 特判跳转)
-  { key: "agent-runs", label: "智能体", icon: "bot" },
+  // 2026-09-23:运行台降级为「任务」(多智能体编排记录),入口在更多抽屉,不与智能体主入口并列
+  { key: "agent-runs", label: "任务", icon: "workflow" },
   // 窄屏设置唯一入口(桌面走右上角 AccountButton)
   { key: "settings", label: "设置", icon: "settings" },
 ];

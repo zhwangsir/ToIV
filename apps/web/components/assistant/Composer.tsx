@@ -230,6 +230,14 @@ export function Composer({
               >
                 <Icon name="create" size={14} strokeWidth={1.8} />
               </button>
+              <a
+                href="/agent-runs"
+                className="av-composer-btn av-composer-btn-ghost av-composer-tool"
+                title="任务(多智能体运行台)"
+                aria-label="任务"
+              >
+                <Icon name="workflow" size={14} strokeWidth={1.8} />
+              </a>
               </>
             ) : (
               /* popup:文档入口让位于「会话」按钮(历史/新建/删除抽屉) */

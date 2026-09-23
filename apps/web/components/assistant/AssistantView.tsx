@@ -1505,7 +1505,7 @@ export function AssistantView(props?: AssistantViewProps) {
 
   return (
     <div className={`av-view${popup ? " av-view--popup" : ""}`}>
-      <h1 className="sr-only">对话流</h1>
+      <h1 className="sr-only">智能体</h1>
       {/* Studio Console v1(2026-08-31):页头整体移除——顶部无 chrome;
           历史/新收进输入框工具行;2026-09-06 单色极简:模型行亦退役 */}
 

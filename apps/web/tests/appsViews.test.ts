@@ -325,7 +325,7 @@ test("Studio Console v1:SideRail 左栏注册(8 高频项)+ ⌘K 面板挂载", 
 test("W1:agent-runs 孤儿路由收口进「更多」抽屉(特判跳独立路由)", () => {
   const src = readSrc("app/page.tsx");
   const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
-  assert.ok(moreBlock.includes('key: "agent-runs"'), "「更多」抽屉缺智能体入口");
+  assert.ok(moreBlock.includes('key: "agent-runs"'), "「更多」抽屉缺任务入口");
   assert.ok(
     src.includes('router.push("/agent-runs")'),
     "agent-runs 应特判跳独立 Next 路由",
@@ -338,7 +338,7 @@ test("W2:home 视图注册全链路(union/VALID/META/importer/渲染分支)", ()
   assert.ok(src.includes('| "home"'), "View union 缺 home");
   const validBlock = src.slice(src.indexOf("VALID_VIEWS"), src.indexOf("VIEW_META"));
   assert.ok(validBlock.includes('"home"'), "VALID_VIEWS 缺 home");
-  assert.ok(src.includes('home:      { label: "对话" }'), "VIEW_META 缺 home");
+  assert.ok(src.includes('home:      { label: "智能体" }'), "VIEW_META 缺 home");
   assert.ok(
     src.includes('home: () => import("@/components/assistant/AssistantView")'),
     "home 应与助手同 chunk",
@@ -357,14 +357,18 @@ test("W2:默认落地为对话首页(fusion 退为场景入口)", () => {
   assert.ok(src.includes('router.replace("/?view=home")'), "assistant 旧链接 URL 应规整为 home");
   // 底部 CTA 由 fusion 改为 home;融合下沉抽屉
   const navBlock = src.slice(src.indexOf("BOTTOM_NAV_ITEMS"), src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
-  assert.ok(navBlock.includes('{ key: "home", label: "对话", icon: "chat", isCta: true }'), "CTA 应为对话");
+  assert.ok(navBlock.includes('{ key: "home", label: "智能体", icon: "bot", isCta: true }'), "CTA 应为智能体");
   const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
   assert.ok(moreBlock.includes('key: "fusion"'), "融合应在「更多」抽屉");
   // Studio Console v1:左栏首项即对话(home),离开首页后永远有回程入口
   const railBlock = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
   assert.ok(
-    railBlock.includes('{ key: "home", label: "对话", icon: "chat" }'),
-    "左栏首项缺「对话」入口",
+    railBlock.includes('{ key: "home", label: "智能体", icon: "bot" }'),
+    "左栏首项缺「智能体」入口",
+  );
+  assert.ok(
+    !railBlock.includes('key: "agent-runs"'),
+    "左栏不应再并排「智能体/运行台」第二入口",
   );
 });
 

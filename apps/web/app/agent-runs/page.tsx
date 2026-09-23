@@ -81,7 +81,7 @@ export default function AgentRunsPage() {
           <p className="agent-l0" role="status">
             <span className="agent-l0-text">{list.l0Ack}</span>
             <Link href="/?view=assistant" className="agent-l0-link">
-              前往对话工作台 <Icon name="chevron-right" size={13} />
+              前往智能体 <Icon name="chevron-right" size={13} />
             </Link>
             <button
               type="button"
@@ -107,7 +107,7 @@ export default function AgentRunsPage() {
             }}
           />
           <div className="agent-goal-actions">
-            <span className="agent-goal-hint">⌘/Ctrl + Enter 直接创建;简单问题会直链对话工作台</span>
+            <span className="agent-goal-hint">⌘/Ctrl + Enter 直接创建;简单问题会直链智能体对话面</span>
             <button
               type="button"
               className="at-btn at-btn--primary"

@@ -133,16 +133,20 @@ test("AgentRunView:在对话中继续(stash run 上下文+跳 home)", () => {
   assert.ok(src.includes("继续处理智能体任务"), "草稿未带 run 上下文");
 });
 
-/* ── ⑥ SideRail 入口 + 图标 ── */
-test("SideRail:「智能体」入口在对话次位(handleNavSelect 特判 agent-runs)", () => {
+/* ── ⑥ SideRail 入口 + 图标(2026-09-23:对话=智能体,运行台降为任务) ── */
+test("SideRail:「智能体」即对话面;运行台仅「任务」深链", () => {
   const src = readSrc("app/page.tsx");
   const rail = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
-  const homeIdx = rail.indexOf('key: "home"');
-  const agentIdx = rail.indexOf('key: "agent-runs"');
-  assert.ok(agentIdx > homeIdx, "智能体应在对话之后");
-  assert.ok(rail.includes('label: "智能体", icon: "bot"'), "智能体入口缺 label/icon");
+  assert.ok(rail.includes('key: "home", label: "智能体", icon: "bot"'), "左栏首项应为智能体=对话面");
+  assert.ok(!rail.includes('key: "agent-runs"'), "左栏不应再并排运行台入口");
+  const more = src.slice(src.indexOf("const BOTTOM_NAV_MORE_ITEMS"), src.indexOf("function withViewTransition"));
+  assert.ok(more.includes('key: "agent-runs", label: "任务"'), "更多抽屉应保留任务入口");
   // handleNavSelect 对 agent-runs 的既有特判(独立路由)仍在
   assert.ok(src.includes('key === "agent-runs"'), "agent-runs 特判丢失");
+  // composer 任务深链
+  const composer = readSrc("components/assistant/Composer.tsx");
+  assert.ok(composer.includes('aria-label="任务"'), "composer 缺任务深链");
+  assert.ok(composer.includes('href="/agent-runs"'), "任务深链应对 /agent-runs");
   // fork 图标注册
   const icon = readSrc("components/ui/Icon.tsx");
   assert.ok(icon.includes("fork: GitFork"), "fork 图标未注册");

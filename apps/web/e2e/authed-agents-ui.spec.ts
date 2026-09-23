@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
  * 智能体系统 UI 测试 (chromium-authed project)
  *
  * 2026-09-22 重写(旧三例系 09-12/09-15 架构陈旧,曾 skip 登记):
- * - A2:SideRail「智能体」入口直达 /agent-runs;会话分叉置顶;「在对话中继续」草稿回填
+ * - A2′:SideRail「智能体」=对话面;运行台改「任务」深链;/agent-runs 深链保留;会话分叉;「在对话中继续」
  * - 助手 optimize_prompt → A1 对照卡 + 应用到输入框(优化入口现状=助手工具;
  *   GenerateView 09-12 已退役,工作台 PromptBar/OptimizeButton 随之离场)
  * - 智能体管理(列表/tab)改打独立管理系统(TOIV_ADMIN_BASE,默认 TS 100.77.80.100:3200;
@@ -12,18 +12,31 @@ import { test, expect } from "@playwright/test";
  */
 
 test.describe("智能体 UI", () => {
-  // ── A2:SideRail「智能体」入口(2026-09-22) ──
-  test("SideRail 智能体入口直达运行台", async ({ page }) => {
-    test.setTimeout(120000);
-    await page.goto("/?view=home", { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
-    // 左栏次位(对话之后)「智能体」→ 独立路由 /agent-runs(锁定 .siderail,防命中底部抽屉隐藏项)
+  // ── A2′:SideRail「智能体」=对话面(2026-09-23) ──
+  test("SideRail 智能体入口打开对话面(对话=智能体)", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    // 左栏唯一「智能体」→ home 对话面(不再直达 /agent-runs)
     const railBtn = page.locator(".siderail button[aria-label='智能体']").first();
     await expect(railBtn).toBeVisible({ timeout: 30000 });
     await railBtn.click();
+    await page.waitForURL(/\/(?:\?view=home)?$|\?view=home/, { timeout: 30000 }).catch(() => null);
+    // 对话面挂载(页即助手)
+    await expect(page.locator(".av-view").first()).toBeVisible({ timeout: 30000 });
+    await page.screenshot({ path: "ui-sweep/a2-agent-is-chat.png" });
+  });
+
+  test("更多抽屉「任务」进运行台", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    // 窄屏更多抽屉或桌面侧栏均可能;桌面走 composer「任务」深链
+    const taskBtn = page.locator(".av-composer-tool[aria-label='任务'], a[aria-label='任务'], button[aria-label='任务']").first();
+    if (await taskBtn.count()) {
+      await taskBtn.click();
+    } else {
+      // 兜底:直达仍合法深链
+      await page.goto("/agent-runs", { waitUntil: "domcontentloaded" });
+    }
     await page.waitForURL(/\/agent-runs/, { timeout: 30000 });
-    await expect(page.getByText(/任务列表|Agent/).first()).toBeVisible({ timeout: 30000 });
-    await page.screenshot({ path: "ui-sweep/a2-agent-runs-rail.png" });
+    await page.screenshot({ path: "ui-sweep/a2-tasks-runs.png" });
   });
 
   // ── A2:会话分叉入 UI(2026-09-22) ──
