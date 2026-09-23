@@ -2033,7 +2033,7 @@ def test_build_graph_empty_h3_prompt_text_filled():
 
 
 def test_build_graph_trim_audio_start_index_reset():
-    """TrimAudioDuration.start_index 数值>0 → 0;链接 Primitive>0 → 字面 0;倒置交换。"""
+    """TrimAudioDuration:数值/任意链接 start_index→0;duration>10→3;倒置交换。"""
     from app.routes.apps import _build_graph
 
     graph = {
@@ -2051,18 +2051,51 @@ def test_build_graph_trim_audio_start_index_reset():
         },
         "4": {
             "class_type": "TrimAudioDuration",
-            "inputs": {"audio": ["9", 0], "start_index": ["393", 0], "duration": 60},
+            "inputs": {"audio": ["9", 0], "start_index": ["393", 0], "duration": 5},
+        },
+        "5": {
+            "class_type": "TrimAudioDuration",
+            "inputs": {"audio": ["9", 0], "start_index": ["999", 0], "duration": 8},
         },
         "392": {"class_type": "PrimitiveFloat", "inputs": {"value": 31}},
         "393": {"class_type": "PrimitiveFloat", "inputs": {"value": 0}},
+        # 999 故意不在图内 — 任意链接仍回零
     }
     built = _build_graph(graph, {}, {})
     assert built["1"]["inputs"]["start_index"] == 0
-    assert built["1"]["inputs"]["duration"] == 60
+    assert built["1"]["inputs"]["duration"] == 3
     assert built["2"]["inputs"]["start_index"] == 0
+    assert built["2"]["inputs"]["duration"] == 3
     assert built["3"]["inputs"]["start_time"] == 2
     assert built["3"]["inputs"]["end_time"] == 5.0
-    assert built["4"]["inputs"]["start_index"] == ["393", 0]
+    assert built["4"]["inputs"]["start_index"] == 0
+    assert built["4"]["inputs"]["duration"] == 5  # <=10 不动
+    assert built["5"]["inputs"]["start_index"] == 0
+
+
+def test_build_graph_lora_backslash_path_normalize():
+    """LoraLoader/easy loraStack:klein\\name → klein/name;已正斜杠不动。"""
+    from app.routes.apps import _build_graph
+
+    bs = chr(92)
+    graph = {
+        "341": {
+            "class_type": "LoraLoaderModelOnly",
+            "inputs": {"lora_name": f"klein{bs}Flux2-Klein-9B-一致性V2.safetensors", "strength_model": 1.0},
+        },
+        "349": {
+            "class_type": "easy loraStack",
+            "inputs": {"lora_1_name": "Flux2-Klein-9B-一致性V2.safetensors", "num_loras": 1},
+        },
+        "350": {
+            "class_type": "LoraLoaderModelOnly",
+            "inputs": {"lora_name": "klein/already_ok.safetensors", "strength_model": 1.0},
+        },
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["341"]["inputs"]["lora_name"] == "klein/Flux2-Klein-9B-一致性V2.safetensors"
+    assert built["349"]["inputs"]["lora_1_name"] == "Flux2-Klein-9B-一致性V2.safetensors"
+    assert built["350"]["inputs"]["lora_name"] == "klein/already_ok.safetensors"
 
 
 def test_build_graph_strips_unbound_hash_load_saveimage_only():

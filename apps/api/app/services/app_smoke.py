@@ -432,8 +432,22 @@ async def run_app_smoke(
     return _finish(session, app, "timeout" if res["cls"] == "timeout" else "fail", res, fixes_all)
 
 
+# 多图槽轮换不同 fixture,避免 FL2VA first+last 同指纹撞 H3 encode cache
+# → condition_blocks[1] semantic_frame_index 串线(2026-09-24 rh-acc-1665610753)。
+_IMAGE_FIXTURE_ROTATION = (
+    "face_ref.png",
+    "shiba_frame.jpg",
+    "beauty01.png",
+    "beauty02.png",
+)
+
+
 def _fixture_name(key: str, media_type: str) -> str:
-    base = _MEDIA_FIXTURE.get(media_type, ("shiba_frame.jpg", "image/jpeg"))[0]
+    if media_type in ("image", "images"):
+        idx = sum(ord(c) for c in key) % len(_IMAGE_FIXTURE_ROTATION)
+        base = _IMAGE_FIXTURE_ROTATION[idx]
+    else:
+        base = _MEDIA_FIXTURE.get(media_type, ("shiba_frame.jpg", "image/jpeg"))[0]
     stem, ext = base.rsplit(".", 1)
     return f"smoke_{key}_{stem}.{ext}"
 

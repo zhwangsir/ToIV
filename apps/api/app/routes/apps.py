@@ -1918,11 +1918,13 @@ def _normalize_trim_audio_duration(graph: dict) -> None:
     节点要求 start < end 且在音频长度内(wave10/11 实证 2 例);离线不知音频
     长度,仅修复确定非法的倒置。已有 start<end 不动。
 
-    另一形态(KJ/新版)用 start_index+duration:RH 常烘焙 start_index=25s 而
-    烟测/替换音频仅数秒 →「Start time must be … within the audio length」
-    (2026-09-24 rh-acc-8653018114 实证)。数值型 start_index>0 回零;链接到
-    PrimitiveFloat/Int 且 value>0 时改挂字面 0(2026-09-24 rh-acc-6866908162
-    实证,链接形态原先放过仍炸)。duration 过长由节点按音频长度截断,不在此改。
+    另一形态(KJ/新版)用 start_index+duration:RH 常烘焙 start_index=25s /
+    链接 PrimitiveFloat=31 而烟测音频仅数秒 →「Start time must be … within
+    the audio length」(2026-09-24 rh-acc-8653018114/6866908162 实证)。
+    - 数值 start_index>0 → 0
+    - 任意链接列表 start_index → 字面 0(烟测短音频;真用户可再填)
+    - 数值 duration>10 → 3(安全烟测窗;节点本可截断但部分版本直接判死)
+    保留 start_time/end_time 交换。
     """
     if not isinstance(graph, dict):
         return
@@ -1940,30 +1942,12 @@ def _normalize_trim_audio_duration(graph: dict) -> None:
         si = inputs.get("start_index")
         if isinstance(si, (int, float)) and not isinstance(si, bool) and float(si) > 0:
             inputs["start_index"] = 0
-            continue
-        if isinstance(si, list) and len(si) >= 1:
-            src_node = graph.get(str(si[0]))
-            if not isinstance(src_node, dict):
-                continue
-            if (src_node.get("class_type") or "") not in (
-                "PrimitiveFloat",
-                "PrimitiveInt",
-                "PrimitiveNumber",
-                "easy float",
-                "easy int",
-                "FloatConstant",
-                "INTConstant",
-                "JWFloat",
-                "JWInteger",
-            ):
-                continue
-            src_inputs = src_node.get("inputs")
-            if not isinstance(src_inputs, dict):
-                continue
-            val = src_inputs.get("value")
-            if isinstance(val, (int, float)) and not isinstance(val, bool) and float(val) > 0:
-                inputs["start_index"] = 0
-
+        elif isinstance(si, list) and len(si) >= 1:
+            # 链接(含 PrimitiveFloat/下游节点)一律改字面 0 — 烟测 fixture 音频短
+            inputs["start_index"] = 0
+        dur = inputs.get("duration")
+        if isinstance(dur, (int, float)) and not isinstance(dur, bool) and float(dur) > 10:
+            inputs["duration"] = 3
 
 
 def _normalize_sd3_clip_basename(graph: dict) -> None:
@@ -1985,6 +1969,47 @@ def _normalize_sd3_clip_basename(graph: dict) -> None:
             base = raw.replace(chr(92), "/").rstrip("/").rsplit("/", 1)[-1]
             if base and base != raw:
                 inputs[field] = base
+
+
+
+_LORA_NAME_FIELDS = (
+    "lora_name",
+    "lora_1_name",
+    "lora_2_name",
+    "lora_3_name",
+    "lora_4_name",
+    "lora_5_name",
+    "lora_6_name",
+    "lora_7_name",
+    "lora_8_name",
+    "lora_9_name",
+    "lora_10_name",
+)
+
+
+def _normalize_lora_path_separators(graph: dict) -> None:
+    """LoRA 路径:RH Windows 反斜杠 → 正斜杠(保留子目录)。
+
+    例 klein\\Flux2-Klein-9B-一致性V2.safetensors → klein/Flux2-….
+    (2026-09-24 rh-acc-0106596353/0311966722 missing_model 实证)。已是
+    正斜杠/纯 basename 不动。
+    """
+    if not isinstance(graph, dict):
+        return
+    bs = chr(92)
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        for field in _LORA_NAME_FIELDS:
+            raw = inputs.get(field)
+            if not isinstance(raw, str) or bs not in raw:
+                continue
+            fixed = raw.replace(bs, "/").replace("//", "/")
+            if fixed and fixed != raw:
+                inputs[field] = fixed
 
 
 def _normalize_vhs_load_video(graph: dict) -> None:
@@ -2342,27 +2367,37 @@ def _normalize_wan_video_decode_tiles(graph: dict) -> None:
 
     RH 图写 tile_y=272/tile_stride_y=400 → 「Tile height must be larger than
     the tile stride height」判死(wave20 实证 rh-acc-5219795969)。越界时把
-    stride 压到 tile 尺寸;未开 enable_vae_tiling 时语义无损。
+    stride 压到 tile 尺寸;未开 enable_vae_tiling 时语义无损。兼容 float/str。
     """
     if not isinstance(graph, dict):
         return
+
+    def _as_num(v: object) -> int | None:
+        if isinstance(v, bool):
+            return None
+        if isinstance(v, int):
+            return v
+        if isinstance(v, float):
+            return int(v)
+        if isinstance(v, str) and v.strip():
+            try:
+                return int(float(v.strip()))
+            except ValueError:
+                return None
+        return None
+
     for node in graph.values():
         if not isinstance(node, dict) or node.get("class_type") != "WanVideoDecode":
             continue
         inputs = node.get("inputs")
         if not isinstance(inputs, dict):
             continue
-        try:
-            tx = inputs.get("tile_x")
-            ty = inputs.get("tile_y")
-            sx = inputs.get("tile_stride_x")
-            sy = inputs.get("tile_stride_y")
-            if isinstance(tx, int) and isinstance(sx, int) and sx > tx:
-                inputs["tile_stride_x"] = tx
-            if isinstance(ty, int) and isinstance(sy, int) and sy > ty:
-                inputs["tile_stride_y"] = ty
-        except (TypeError, ValueError):
-            continue
+        tx, ty = _as_num(inputs.get("tile_x")), _as_num(inputs.get("tile_y"))
+        sx, sy = _as_num(inputs.get("tile_stride_x")), _as_num(inputs.get("tile_stride_y"))
+        if tx is not None and sx is not None and sx > tx:
+            inputs["tile_stride_x"] = tx
+        if ty is not None and sy is not None and sy > ty:
+            inputs["tile_stride_y"] = ty
 
 
 def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
@@ -2403,6 +2438,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_tiny_vae_alias(graph)
     _normalize_sd3_clip_basename(graph)
     _normalize_trim_audio_duration(graph)
+    _normalize_lora_path_separators(graph)
     _normalize_vhs_load_video(graph)
     _normalize_vhs_video_combine(graph)
     _normalize_layermask_model_paths(graph)
@@ -2445,6 +2481,8 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_tiny_vae_alias(graph)
     _normalize_sd3_clip_basename(graph)
     _normalize_trim_audio_duration(graph)
+    _normalize_lora_path_separators(graph)
+    _normalize_wan_video_decode_tiles(graph)
     _normalize_qwen_edit_prompt_string_link(graph)
     _normalize_seedvr2_cache_model_bool(graph)
     _normalize_wan_video_set_loras_hidden(graph)

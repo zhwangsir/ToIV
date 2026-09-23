@@ -52,6 +52,7 @@ def test_classify_validation_and_cuda_and_timeout_and_transport():
 def test_default_values_media_fixture_names_and_types():
     schema = [
         {"key": "loadimage_image", "type": "images", "required": True},
+        {"key": "loadimage_image_2", "type": "images", "required": True},
         {"key": "vhs_loadvideo_video", "type": "video", "required": True},
         {"key": "audio_in", "type": "audio", "required": True},
         {"key": "steps", "type": "number", "default": 20},
@@ -60,7 +61,10 @@ def test_default_values_media_fixture_names_and_types():
         {"key": "loras", "type": "loras"},
     ]
     v = svc.default_values(schema)
-    assert v["loadimage_image"].startswith("smoke_loadimage_image_face_ref.")
+    assert v["loadimage_image"].startswith("smoke_loadimage_image_")
+    assert v["loadimage_image"].endswith((".jpg", ".png"))
+    # 多图槽须不同 fixture 内容,避免 FL2VA first+last 同指纹撞 encode cache
+    assert v["loadimage_image"] != v["loadimage_image_2"]
     assert v["vhs_loadvideo_video"].endswith(".mp4")
     assert v["audio_in"].endswith(".wav")
     assert v["steps"] == 20
