@@ -1939,3 +1939,121 @@ def test_app_job_kind_derivation():
     assert f(mk(output_kind="3d")) == "app_3d"
     assert f(mk(output_kind="weird")) == "app_image", "未知产物类型兜底图像"
     assert f(mk(submit_kind="my_custom")) == "my_custom", "显式定制 submit_kind 照旧尊重"
+
+
+def test_build_graph_seedvr2_cache_model_bool():
+    """SeedVR2Load*.cache_model 链到 UNETLoader(MODEL) → False;已是 bool 不动。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "8": {"class_type": "UNETLoader", "inputs": {"unet_name": "x.safetensors"}},
+        "3": {
+            "class_type": "SeedVR2LoadVAEModel",
+            "inputs": {"model": "ema_vae_fp16.safetensors", "cache_model": ["8", 0]},
+        },
+        "4": {
+            "class_type": "SeedVR2LoadDiTModel",
+            "inputs": {"model": "seedvr2.safetensors", "cache_model": ["8", 0]},
+        },
+        "5": {
+            "class_type": "SeedVR2LoadDiTModel",
+            "inputs": {"model": "seedvr2.safetensors", "cache_model": True},
+        },
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["3"]["inputs"]["cache_model"] is False
+    assert built["4"]["inputs"]["cache_model"] is False
+    assert built["5"]["inputs"]["cache_model"] is True
+
+
+def test_build_graph_wan_set_loras_rewires_hidden_to_select():
+    """WanVideoSetLoRAs.lora ← RHHiddenNodes → 改挂 WanVideoLoraSelectMulti。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "22": {"class_type": "WanVideoModelLoader", "inputs": {"model": "wan.safetensors"}},
+        "511": {"class_type": "RHHiddenNodes", "inputs": {"pwd": ""}},
+        "467": {
+            "class_type": "WanVideoLoraSelectMulti",
+            "inputs": {"lora_0": "a.safetensors", "strength_0": 1},
+        },
+        "48": {
+            "class_type": "WanVideoSetLoRAs",
+            "inputs": {"lora": ["511", 0], "model": ["22", 0]},
+        },
+        "50": {"class_type": "WanVideoSetBlockSwap", "inputs": {"model": ["48", 0]}},
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["48"]["inputs"]["lora"] == ["467", 0]
+    assert built["50"]["inputs"]["model"] == ["48", 0]
+    assert "511" in built  # Hidden 壳保留(可能另有它用)
+
+
+def test_build_graph_wan_set_loras_bypasses_when_no_select():
+    """无 LoraSelect 时旁路 SetLoRAs:下游改接 model 入边。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "22": {"class_type": "WanVideoModelLoader", "inputs": {"model": "wan.safetensors"}},
+        "511": {"class_type": "RHHiddenNodes", "inputs": {"pwd": ""}},
+        "48": {
+            "class_type": "WanVideoSetLoRAs",
+            "inputs": {"lora": ["511", 0], "model": ["22", 0]},
+        },
+        "50": {"class_type": "WanVideoSetBlockSwap", "inputs": {"model": ["48", 0]}},
+    }
+    built = _build_graph(graph, {}, {})
+    assert "48" not in built
+    assert built["50"]["inputs"]["model"] == ["22", 0]
+
+
+def test_build_graph_empty_h3_prompt_text_filled():
+    """H3 Encode.prompt → 空 CR Text 时填兜底;非空不动;空串绑定不覆盖。"""
+    from app.routes.apps import _build_graph, _H3_PROMPT_FALLBACK
+
+    graph = {
+        "23": {"class_type": "CR Text", "inputs": {"text": ""}},
+        "27": {"class_type": "CR Text", "inputs": {"text": "keep me"}},
+        "16": {
+            "class_type": "RHMiniMaxH3FL2VAEncode",
+            "inputs": {"prompt": ["23", 0], "target": ["18", 0]},
+        },
+        "17": {
+            "class_type": "RHMiniMaxH3FL2VAEncode",
+            "inputs": {"prompt": ["27", 0], "target": ["18", 0]},
+        },
+    }
+    built = _build_graph(
+        graph,
+        {"cr_text_text": {"node": "23", "field": "inputs.text"}},
+        {"cr_text_text": ""},  # 空串绑定跳过,normalizer 兜底生效
+    )
+    assert built["23"]["inputs"]["text"] == _H3_PROMPT_FALLBACK
+    assert built["27"]["inputs"]["text"] == "keep me"
+
+
+def test_build_graph_trim_audio_start_index_reset():
+    """TrimAudioDuration.start_index 数值>0 → 0;链接不动;start/end 倒置仍交换。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "1": {
+            "class_type": "TrimAudioDuration",
+            "inputs": {"audio": ["9", 0], "start_index": 25.0, "duration": 60},
+        },
+        "2": {
+            "class_type": "TrimAudioDuration",
+            "inputs": {"audio": ["9", 0], "start_index": ["392", 0], "duration": 600},
+        },
+        "3": {
+            "class_type": "TrimAudioDuration",
+            "inputs": {"audio": ["9", 0], "start_time": 5.0, "end_time": 2},
+        },
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["1"]["inputs"]["start_index"] == 0
+    assert built["1"]["inputs"]["duration"] == 60
+    assert built["2"]["inputs"]["start_index"] == ["392", 0]
+    assert built["3"]["inputs"]["start_time"] == 2
+    assert built["3"]["inputs"]["end_time"] == 5.0
+

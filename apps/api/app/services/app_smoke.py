@@ -122,8 +122,11 @@ def default_values(schema: list[dict]) -> dict:
             values[key] = _fixture_name(key, t)
             continue
         if "default" in p and p.get("default") is not None:
-            values[key] = p["default"]
-            continue
+            # 空串默认对烟测无意义(H3 CR Text default="" →「prompt 不能为空」);
+            # text/textarea 改走下方 "smoke test",其它类型仍尊重空默认。
+            if not (t in ("text", "textarea") and p.get("default") == ""):
+                values[key] = p["default"]
+                continue
         if t == "select":
             opts = p.get("options") or []
             values[key] = opts[0].get("value") if opts and isinstance(opts[0], dict) else (opts[0] if opts else "")

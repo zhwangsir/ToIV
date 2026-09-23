@@ -385,6 +385,7 @@ class AppOut(BaseModel):
     # 自愈闭环(2026-09-15):导入即测烟测结果(市场可展示可用性徽标)
     smoke_status: str = ""
     smoke_cls: str = ""
+    smoke_error: str = ""  # 失败摘要(截断);列表/详情均可,便于 closeout 分流
     smoke_at: str | None = None
     # 功能归组(2026-09-15):同指纹变体折叠
     fingerprint: str = ""
@@ -469,6 +470,7 @@ def _to_out(a: App, viewer: User, *, with_workflow: bool = False, slim: bool = F
         featured=bool(a.featured),
         smoke_status=a.smoke_status or "",
         smoke_cls=a.smoke_cls or "",
+        smoke_error=(a.smoke_error or "")[:300],
         smoke_at=(a.smoke_at.isoformat(timespec="seconds") if a.smoke_at else None),
         fingerprint=a.fingerprint or "",
     )
@@ -1722,7 +1724,131 @@ _TINY_VAE_ALIAS_TO_LOCAL: dict[str, str] = {
 }
 
 
+def _normalize_seedvr2_cache_model_bool(graph: dict) -> None:
+    """SeedVR2Load*Model.cache_model:RH 误把 UNETLoader(MODEL) 链进 BOOLEAN。
+
+    真机校验:received_type(MODEL) mismatch input_type(BOOLEAN) 判死保存链
+    (2026-09-24 rh-acc-0539219970 实证)。链接形态一律改 False(关闭缓存,
+    语义安全);已是 bool/缺键不动。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        ct = node.get("class_type") or ""
+        if ct not in ("SeedVR2LoadDiTModel", "SeedVR2LoadVAEModel"):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        cm = inputs.get("cache_model")
+        if isinstance(cm, list):
+            inputs["cache_model"] = False
+
+
+def _normalize_wan_video_set_loras_hidden(graph: dict) -> None:
+    """WanVideoSetLoRAs.lora ← RHHiddenNodes:改挂图内 WanVideoLoraSelect*。
+
+    RH 组节点密码壳输出 IMAGE,SetLoRAs 要 WANVIDLORA → return_type_mismatch
+    判死(2026-09-24 rh-acc-1082395650 实证)。图内常另有未接线的
+    WanVideoLoraSelect/SelectMulti;有则改挂,无则旁路 SetLoRAs(下游改接
+    其 model 入边)。
+    """
+    if not isinstance(graph, dict):
+        return
+    lora_src: str | None = None
+    for nid, node in graph.items():
+        if not isinstance(node, dict):
+            continue
+        ct = node.get("class_type") or ""
+        if ct in ("WanVideoLoraSelect", "WanVideoLoraSelectMulti", "WanVideoLoraSelectFromJSON"):
+            lora_src = str(nid)
+            break
+    bypass: list[str] = []
+    for nid, node in list(graph.items()):
+        if not isinstance(node, dict) or node.get("class_type") != "WanVideoSetLoRAs":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        lora = inputs.get("lora")
+        if not (isinstance(lora, list) and len(lora) >= 2):
+            continue
+        src = graph.get(str(lora[0]))
+        if not isinstance(src, dict) or src.get("class_type") != "RHHiddenNodes":
+            continue
+        if lora_src is not None:
+            inputs["lora"] = [lora_src, 0]
+            continue
+        # 无可用 Select → 旁路:下游改接本节点 model 入边,稍后删本节点
+        model_in = inputs.get("model")
+        if not (isinstance(model_in, list) and len(model_in) >= 2):
+            continue
+        for cid, cnode in graph.items():
+            if cid == nid or not isinstance(cnode, dict):
+                continue
+            cin = cnode.get("inputs")
+            if not isinstance(cin, dict):
+                continue
+            for key, v in list(cin.items()):
+                if isinstance(v, list) and len(v) >= 2 and str(v[0]) == str(nid):
+                    cin[key] = [model_in[0], model_in[1]]
+        bypass.append(str(nid))
+    for nid in bypass:
+        graph.pop(nid, None)
+
+
+_H3_PROMPT_FALLBACK = "a person in a scene"
+_H3_PROMPT_TEXT_NODES = {
+    "CR Text",
+    "CR Prompt Text",
+    "PrimitiveStringMultiline",
+    "String Literal",
+    "easy string",
+}
+
+
+def _normalize_empty_h3_prompt_text(graph: dict) -> None:
+    """H3 *Encode.prompt 链到空 CR Text/字符串节点 → 填兜底提示词。
+
+    RH/导入常把 CR Text.text 留空且 schema default="";烟测 default_values
+    或用户未填时写入空串 → 节点报「prompt 不能为空」
+    (2026-09-24 rh-acc-1665610753/6910604290 实证)。仅改被 H3 Encode
+    prompt 入边引用的空文本节点;已有非空不动。
+    """
+    if not isinstance(graph, dict):
+        return
+    targets: set[str] = set()
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        ct = node.get("class_type") or ""
+        if not isinstance(ct, str):
+            continue
+        if not (("MiniMaxH3" in ct or "MinimaxH3" in ct) and "Encode" in ct):
+            continue
+        prompt = (node.get("inputs") or {}).get("prompt")
+        if isinstance(prompt, list) and len(prompt) >= 1:
+            targets.add(str(prompt[0]))
+        elif isinstance(prompt, str) and not prompt.strip():
+            node["inputs"]["prompt"] = _H3_PROMPT_FALLBACK
+    for nid in targets:
+        src = graph.get(nid)
+        if not isinstance(src, dict):
+            continue
+        if (src.get("class_type") or "") not in _H3_PROMPT_TEXT_NODES:
+            continue
+        inputs = src.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        for field in ("text", "value", "string", "prompt"):
+            if field in inputs and isinstance(inputs.get(field), str) and not str(inputs.get(field)).strip():
+                inputs[field] = _H3_PROMPT_FALLBACK
+
+
 def _normalize_tiny_vae_alias(graph: dict) -> None:
+
     """ModelPreviewOverrideKJ.tiny_vae:未落盘别名 → 'none'(关闭预览覆写)。"""
     if not isinstance(graph, dict):
         return
@@ -1771,10 +1897,15 @@ def _parse_timecode(value: object) -> float | None:
 
 
 def _normalize_trim_audio_duration(graph: dict) -> None:
-    """TrimAudioDuration:start_time >= end_time 时交换(RH 烘焙值倒置)。
+    """TrimAudioDuration:start_time >= end_time 时交换;start_index 超窗回零。
 
     节点要求 start < end 且在音频长度内(wave10/11 实证 2 例);离线不知音频
     长度,仅修复确定非法的倒置。已有 start<end 不动。
+
+    另一形态(KJ/新版)用 start_index+duration:RH 常烘焙 start_index=25s 而
+    烟测/替换音频仅数秒 →「Start time must be … within the audio length」
+    (2026-09-24 rh-acc-8653018114 实证)。数值型 start_index>0 回零;链接
+    形态不动。duration 过长由节点按音频长度截断,不在此改。
     """
     if not isinstance(graph, dict):
         return
@@ -1786,9 +1917,12 @@ def _normalize_trim_audio_duration(graph: dict) -> None:
             continue
         start = _parse_timecode(inputs.get("start_time"))
         end = _parse_timecode(inputs.get("end_time"))
-        if start is None or end is None or start < end:
-            continue
-        inputs["start_time"], inputs["end_time"] = inputs.get("end_time"), inputs.get("start_time")
+        if start is not None and end is not None and start >= end:
+            inputs["start_time"], inputs["end_time"] = inputs.get("end_time"), inputs.get("start_time")
+        # start_index + duration 形态
+        si = inputs.get("start_index")
+        if isinstance(si, (int, float)) and not isinstance(si, bool) and float(si) > 0:
+            inputs["start_index"] = 0
 
 
 def _normalize_sd3_clip_basename(graph: dict) -> None:
@@ -2222,6 +2356,9 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_sec_empty_bbox(graph)
     _normalize_sec_flash_attn_blackwell(graph)
     _normalize_qwen_edit_prompt_string_link(graph)
+    _normalize_seedvr2_cache_model_bool(graph)
+    _normalize_wan_video_set_loras_hidden(graph)
+    _normalize_empty_h3_prompt_text(graph)
     _normalize_tiny_vae_alias(graph)
     _normalize_sd3_clip_basename(graph)
     _normalize_trim_audio_duration(graph)
@@ -2253,8 +2390,8 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
                     _omit_media_slot(graph, slot.get("node") if isinstance(slot, dict) else None)
             continue
         v = values.get(key)
-        if v is None:
-            continue  # 未提供且无默认:保留图内原值
+        if v is None or v == "":
+            continue  # 未提供/空串:保留图内原值(与 seed 空串跳过同款;H3 空 prompt 靠 normalizer 兜底)
         _write_leaf(graph, key, target, v)
     # 值类 remap 须在绑定写值之后再过一遍:scheduler/unet 等常为表单 select,
     # 表单提交的非法枚举(beta57/旧 H3 权重名)会在上方覆写图内原值
@@ -2268,6 +2405,9 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_sd3_clip_basename(graph)
     _normalize_trim_audio_duration(graph)
     _normalize_qwen_edit_prompt_string_link(graph)
+    _normalize_seedvr2_cache_model_bool(graph)
+    _normalize_wan_video_set_loras_hidden(graph)
+    _normalize_empty_h3_prompt_text(graph)
     _normalize_nunchaku_sm120_fp4(graph)
     _normalize_comfy_literals_number_str(graph)
     normalize_h3_r2v_autogrow_inputs(graph)

@@ -72,6 +72,19 @@ def test_default_values_media_fixture_names_and_types():
 # ---------------------------------------------------------------------------
 # combo 校准修复器
 # ---------------------------------------------------------------------------
+def test_default_values_empty_text_default_becomes_smoke_test():
+    """text/textarea default="" 时烟测改用 smoke test(避免 H3 prompt 空)。"""
+    schema = [
+        {"key": "cr_text_text", "type": "textarea", "default": ""},
+        {"key": "positive", "type": "text", "default": "keep"},
+        {"key": "steps", "type": "number", "default": 0},
+    ]
+    v = svc.default_values(schema)
+    assert v["cr_text_text"] == "smoke test"
+    assert v["positive"] == "keep"
+    assert v["steps"] == 0
+
+
 def test_combo_repair_rewrites_class_alias_and_model_variant():
     graph = {
         "1": {"class_type": "stringtoint", "inputs": {"string": "5"}},
