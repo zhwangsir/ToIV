@@ -1,35 +1,77 @@
 "use client";
 
 /**
- * 助手门户空态模块(2026-09-22 A3 组件工程化):
+ * 助手门户空态模块(2026-09-22 A3 组件工程化;2026-09-23 P0 对话 chips):
  * 自 AssistantView.tsx 拆出——门户入口数据(SKILL_ENTRIES/OFFLINE_ENTRIES/filterPortalEntries)
  * 与空态组件(页形态门户 PortalEmpty / popup 极简空态 PopupEmpty)。
- * 行为零变化:JSX/类名/文案逐字保留,仅闭包变量改为同名 props。
+ * P0: SKILL_ENTRIES 从「工作台快捷入口」改为对话内 prompt chips(留在智能体);
+ * 离线 OFFLINE_ENTRIES 仍为工作台导航(离线降级 OK)。
  */
 import { type ReactNode } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { RecentWorksRail } from "./RecentWorksRail";
 
-// ───── @ 技能面板 / 门户入口(2026-09-06 单色极简:门户空态只剩问候 + 输入框 + 场景入口行) ─────
+// ───── @ 技能面板 / 门户入口(2026-09-23 P0:对话内 prompt chips) ─────
 
 export interface PortalEntry {
   view: string;
   icon: IconName;
   label: string;
   desc: string;
+  /** 对话内预填句;有则点击填 composer 留在智能体(生成类默认) */
+  prompt?: string;
+  /** 浏览类仍可 goView(如作品库);与 prompt 互斥优先 navigate */
+  navigate?: boolean;
   /** r18 = 仅 R18 模式渲染(drama 视图受 page.tsx 全局门控);sfwOnly = 仅 SFW 模式补位 */
   r18?: boolean;
   sfwOnly?: boolean;
 }
 
-/** @ 技能面板一期内容 = 工作台快捷入口(二期接 Skills 广场)。 */
+/** @ 技能 / 门户场景 = 对话内 prompt chips(可执行意图,非工作台跳转)。 */
 export const SKILL_ENTRIES: PortalEntry[] = [
-  { view: "drama", icon: "clapperboard", label: "短剧工作台", desc: "剧本到成片的全链路工作台", r18: true },
-  { view: "image", icon: "image", label: "图像创作", desc: "文生图 / 图生图" },
-  { view: "video", icon: "video", label: "视频创作", desc: "H3 / LongCat" },
-  { view: "audio", icon: "audio", label: "音频工坊", desc: "音乐 / 配音 / 人声分离" },
-  { view: "avatartalk", icon: "user", label: "数字人", desc: "照片说话 / 对口型" },
-  { view: "library", icon: "library", label: "作品库", desc: "全部生成产物" },
+  {
+    view: "drama",
+    icon: "clapperboard",
+    label: "短剧",
+    desc: "分镜工具做短剧",
+    prompt: "帮我用分镜工具做短剧：",
+    r18: true,
+  },
+  {
+    view: "image",
+    icon: "image",
+    label: "图像",
+    desc: "文生图 / 图生图",
+    prompt: "帮我用市场应用或内置能力生成一张图：",
+  },
+  {
+    view: "video",
+    icon: "video",
+    label: "视频",
+    desc: "图生 / 文生视频",
+    prompt: "帮我用市场应用做一个图生/文生视频：",
+  },
+  {
+    view: "audio",
+    icon: "audio",
+    label: "音频",
+    desc: "音乐 / 配音",
+    prompt: "帮我生成一段音乐/配音：",
+  },
+  {
+    view: "avatartalk",
+    icon: "user",
+    label: "数字人",
+    desc: "照片说话",
+    prompt: "帮我做一段照片说话的数字人视频：",
+  },
+  {
+    view: "library",
+    icon: "library",
+    label: "作品库",
+    desc: "全部生成产物",
+    navigate: true,
+  },
 ];
 
 /** W5 助手离线降级(2026-08-31):对话不可用时,门户展开全量工作台导航(替代对话框)。
@@ -72,6 +114,8 @@ export interface PortalEmptyProps {
   greeting: string;
   r18: boolean;
   goView: (view: string) => void;
+  /** 生成类 chip:预填 composer 留在智能体(不 goView) */
+  onChipPrompt: (prompt: string) => void;
   /** 门户 C 位输入框槽位(主壳 renderComposer(true) 注入,与底部输入框同源) */
   composer: ReactNode;
 }
@@ -79,7 +123,22 @@ export interface PortalEmptyProps {
 /* 门户空态(2026-09-06 单色极简改造):Fraunces 问候 + 输入框 + 极简场景入口行;
    铭牌/模型行/快捷提示 chips/最近作品带全部退役;
    版心 --layout-content,区块节奏 --space-3(2026-09-06 紧凑化;样式在 assistant.css 门户区块) */
-export function PortalEmpty({ llmOffline, greeting, r18, goView, composer }: PortalEmptyProps) {
+export function PortalEmpty({
+  llmOffline,
+  greeting,
+  r18,
+  goView,
+  onChipPrompt,
+  composer,
+}: PortalEmptyProps) {
+  const onSkillClick = (e: PortalEntry) => {
+    if (e.navigate || !e.prompt) {
+      goView(e.view);
+      return;
+    }
+    onChipPrompt(e.prompt);
+  };
+
   return (
     <div className="av-empty av-portal av-portal--console">
       {llmOffline ? (
@@ -120,7 +179,7 @@ export function PortalEmpty({ llmOffline, greeting, r18, goView, composer }: Por
                 type="button"
                 className="av-scene-card"
                 title={e.desc}
-                onClick={() => goView(e.view)}
+                onClick={() => onSkillClick(e)}
               >
                 <span className="av-scene-card-icon" aria-hidden="true">
                   <Icon name={e.icon} size={16} strokeWidth={1.7} />

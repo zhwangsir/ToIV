@@ -143,10 +143,15 @@ test("SideRail:「智能体」即对话面;运行台仅「任务」深链", () =
   assert.ok(more.includes('key: "agent-runs", label: "任务"'), "更多抽屉应保留任务入口");
   // handleNavSelect 对 agent-runs 的既有特判(独立路由)仍在
   assert.ok(src.includes('key === "agent-runs"'), "agent-runs 特判丢失");
-  // composer 任务深链
+  // composer 任务:开抽屉「最近任务」(P0.3);深链仍在 RecentTasksList
   const composer = readSrc("components/assistant/Composer.tsx");
-  assert.ok(composer.includes('aria-label="任务"'), "composer 缺任务深链");
-  assert.ok(composer.includes('href="/agent-runs"'), "任务深链应对 /agent-runs");
+  assert.ok(composer.includes('aria-label="任务"'), "composer 缺任务入口");
+  assert.ok(composer.includes("onOpenTasks"), "任务钮未接 onOpenTasks");
+  assert.ok(!composer.includes('href="/agent-runs"'), "composer 不应再硬链离页 /agent-runs");
+  const drawer = readSrc("components/assistant/SessionDrawer.tsx");
+  assert.ok(drawer.includes('href="/agent-runs"'), "任务分栏应保留 /agent-runs 深链");
+  assert.ok(drawer.includes("在对话里继续"), "缺在对话里继续 CTA");
+  assert.ok(drawer.includes("RecentTasksList"), "缺 RecentTasksList");
   // fork 图标注册
   const icon = readSrc("components/ui/Icon.tsx");
   assert.ok(icon.includes("fork: GitFork"), "fork 图标未注册");

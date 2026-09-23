@@ -59,7 +59,7 @@ import {
   filterPortalEntries,
   portalGreeting,
 } from "./PortalEmpty";
-import { ConvList, DeleteConfirmModals } from "./SessionDrawer";
+import { ConvList, DeleteConfirmModals, RecentTasksList } from "./SessionDrawer";
 import "@/app/styles/docs.css";
 import "@/app/styles/assistant.css";
 import "@/app/styles/assistant-view.css";
@@ -707,6 +707,8 @@ export function AssistantView(props?: AssistantViewProps) {
   const conversations = convStore.conversations;
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  /** P0.3:左侧面板 / popup 抽屉分栏(会话 | 最近任务) */
+  const [panelTab, setPanelTab] = useState<"sessions" | "tasks">("sessions");
   // W5:助手离线降级(门户空态探活失败 → 隐藏对话框,展开全量工作台导航)
   const [llmOffline, setLlmOffline] = useState(false);
   // 移动端断点:placeholder 文案按端适配(移动端无 Enter 键)
@@ -792,15 +794,27 @@ export function AssistantView(props?: AssistantViewProps) {
     input.includes("@") && !skillDismissed && !busy &&
     (skillEntries.length > 0 || entityEntries.length > 0);
 
-  /** 选定技能入口:剥掉尾部的 @触发词,跳转对应视图。 */
+  /** P0.2 选定技能:剥掉 @触发词;生成类预填 prompt 留在对话,浏览类(作品库)仍 goView。 */
   const onPickSkill = useCallback(
     (view: string) => {
-      setInput((prev) => prev.replace(/@[^@]*$/, ""));
+      const entry = SKILL_ENTRIES.find((e) => e.view === view);
       setSkillDismissed(true);
-      goView(view);
+      if (entry?.navigate || !entry?.prompt) {
+        setInput((prev) => prev.replace(/@[^@]*$/, ""));
+        goView(view);
+        return;
+      }
+      setInput(entry.prompt);
+      requestAnimationFrame(() => textareaRef.current?.focus());
     },
     [goView],
   );
+
+  /** P0.2 门户场景卡:预填 composer + 聚焦(不离开智能体)。 */
+  const onChipPrompt = useCallback((prompt: string) => {
+    setInput(prompt);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, []);
 
   /** 选定主体:@触发词 → `@实体名 `(文本内引用,不跳转;发送时解析为 entity_ids)。 */
   const onPickEntity = useCallback((ent: EntityInfo) => {
@@ -1467,6 +1481,25 @@ export function AssistantView(props?: AssistantViewProps) {
     [send, skillPanelVisible, skillEntries, entityEntries, onPickSkill, onPickEntity],
   );
 
+  const onOpenTasks = useCallback(() => {
+    setPanelTab("tasks");
+    setHistoryOpen(true);
+    setDocsOpen(false);
+  }, []);
+
+  const onContinueTaskInChat = useCallback((draft: string) => {
+    setInput(draft);
+    setHistoryOpen(false);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, []);
+
+  const tasksSlot = (
+    <RecentTasksList
+      active={historyOpen && panelTab === "tasks"}
+      onContinueInChat={onContinueTaskInChat}
+    />
+  );
+
   /* 对话框(门户 C 位 / 会话底部两处复用):portal=true 时褪去底部固定档的渐变底与内边距 */
   const renderComposer = (portal: boolean) => (
     <Composer
@@ -1485,7 +1518,15 @@ export function AssistantView(props?: AssistantViewProps) {
       docsOpen={docsOpen}
       setDocsOpen={setDocsOpen}
       historyOpen={historyOpen}
-      setHistoryOpen={setHistoryOpen}
+      setHistoryOpen={(v) => {
+        // 兼容 boolean | updater;打开历史默认会话分栏
+        setHistoryOpen((prev) => {
+          const next = typeof v === "function" ? v(prev) : v;
+          if (next && !prev) setPanelTab("sessions");
+          return next;
+        });
+      }}
+      onOpenTasks={onOpenTasks}
       attachedDocs={attachedDocs}
       removeAttachedDoc={removeAttachedDoc}
       subjectEntities={subjectEntities}
@@ -1500,6 +1541,9 @@ export function AssistantView(props?: AssistantViewProps) {
       loadConversation={loadConversation}
       forkConversation={forkConversation}
       setConfirmDeleteConv={setConfirmDeleteConv}
+      drawerTab={panelTab}
+      setDrawerTab={setPanelTab}
+      tasksSlot={tasksSlot}
     />
   );
 
@@ -1529,6 +1573,7 @@ export function AssistantView(props?: AssistantViewProps) {
             greeting={greeting}
             r18={r18}
             goView={goView}
+            onChipPrompt={onChipPrompt}
             composer={renderComposer(true)}
           />
           )
@@ -1560,19 +1605,42 @@ export function AssistantView(props?: AssistantViewProps) {
         <>
       <div className={`av-panel av-panel--left${historyOpen ? " is-open" : ""}`}>
         <div className="av-panel-head">
-          <span className="av-panel-title">对话历史</span>
-          <button type="button" className="av-panel-close" onClick={() => setHistoryOpen(false)} aria-label="关闭对话历史面板" title="关闭">
+          <div className="av-panel-tabs" role="tablist" aria-label="会话与任务">
+            <button
+              type="button"
+              role="tab"
+              className={`av-panel-tab${panelTab === "sessions" ? " is-active" : ""}`}
+              aria-selected={panelTab === "sessions"}
+              onClick={() => setPanelTab("sessions")}
+            >
+              对话历史
+            </button>
+            <button
+              type="button"
+              role="tab"
+              className={`av-panel-tab${panelTab === "tasks" ? " is-active" : ""}`}
+              aria-selected={panelTab === "tasks"}
+              onClick={() => setPanelTab("tasks")}
+            >
+              最近任务
+            </button>
+          </div>
+          <button type="button" className="av-panel-close" onClick={() => setHistoryOpen(false)} aria-label="关闭面板" title="关闭">
             <Icon name="close" size={12} strokeWidth={1.8} />
           </button>
         </div>
         <div className="av-panel-body">
-          <ConvList
-            convStore={convStore}
-            activeConvId={activeConvId}
-            loadConversation={loadConversation}
-            forkConversation={forkConversation}
-            setConfirmDeleteConv={setConfirmDeleteConv}
-          />
+          {panelTab === "tasks" ? (
+            tasksSlot
+          ) : (
+            <ConvList
+              convStore={convStore}
+              activeConvId={activeConvId}
+              loadConversation={loadConversation}
+              forkConversation={forkConversation}
+              setConfirmDeleteConv={setConfirmDeleteConv}
+            />
+          )}
         </div>
       </div>
 

@@ -224,7 +224,7 @@ def test_create_l0_returns_guidance_without_run(ctx):
     r = client.post("/api/agent-runs", headers=H, json={"goal": "帮我生成一张猫图"})
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body == {"level": "L0", "ack": "单步任务建议直达工作台", "run_id": None}
+    assert body == {"level": "L0", "ack": "单步任务请在对话智能体里直接完成,无需开团队任务", "run_id": None}
     # 未建 run:列表为空
     assert client.get("/api/agent-runs", headers=H).json() == []
 

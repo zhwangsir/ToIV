@@ -5,6 +5,9 @@
  * @/lib/api 经 tests/loader.mjs 映射到 mocks/studioApi 可控替身。
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 // ── window/localStorage 替身:必须在导入组件模块前装好(模块顶层读 window 兜底) ──
@@ -40,4 +43,21 @@ test("Studio Console v1:离线降级导航覆盖工作台层,不含系统层", (
   for (const v of ["admin", "observability", "settings", "home"]) {
     assert.ok(!views.includes(v), `离线导航不应含 ${v}`);
   }
+});
+
+
+test("P0.2 SKILL_ENTRIES:生成类带 prompt;作品库 navigate;非 goView 目录", () => {
+  for (const e of SKILL_ENTRIES) {
+    if (e.view === "library") {
+      assert.equal(e.navigate, true, "作品库应 navigate");
+      assert.ok(!e.prompt, "作品库不应带生成 prompt");
+    } else {
+      assert.ok(e.prompt && e.prompt.length > 4, `${e.view} 缺对话 prompt`);
+      assert.ok(!e.navigate, `${e.view} 不应 navigate`);
+    }
+  }
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../components/assistant/PortalEmpty.tsx"), "utf-8");
+  assert.ok(src.includes("onChipPrompt"), "PortalEmpty 未接 onChipPrompt");
+  assert.ok(!src.includes("一期内容 = 工作台快捷入口"), "陈旧工作台快捷入口注释未清");
+  assert.ok(src.includes("对话内 prompt chips"), "缺 P0 chips 注释");
 });

@@ -1,14 +1,15 @@
 "use client";
 
 /**
- * 助手输入区模块(2026-09-22 A3 组件工程化):
+ * 助手输入区模块(2026-09-22 A3 组件工程化;2026-09-23 P0 chips/任务回会话):
  * 自 AssistantView.tsx 拆出——composer(附件 chips/@主体引用预览/@ 技能·主体面板/
  * popup 会话抽屉挂载位/发送·中止·工具行),门户 C 位与会话底部两处复用。
- * 行为零变化:JSX/类名/文案逐字保留,仅闭包变量改为同名 props。
+ * P0:@ 技能 = 对话 prompt(非工作台跳转);「任务」开抽屉「最近任务」而非硬离页。
  */
 import {
   type Dispatch,
   type KeyboardEvent,
+  type ReactNode,
   type RefObject,
   type SetStateAction,
 } from "react";
@@ -45,6 +46,8 @@ export interface ComposerProps {
   setDocsOpen: Dispatch<SetStateAction<boolean>>;
   historyOpen: boolean;
   setHistoryOpen: Dispatch<SetStateAction<boolean>>;
+  /** P0.3:打开左侧/抽屉的「最近任务」分栏 */
+  onOpenTasks: () => void;
   attachedDocs: DocItem[];
   removeAttachedDoc: (id: string) => void;
   subjectEntities: EntityInfo[];
@@ -60,6 +63,11 @@ export interface ComposerProps {
   loadConversation: (conv: Conversation) => void | Promise<void>;
   forkConversation: (conv: Conversation) => void;
   setConfirmDeleteConv: Dispatch<SetStateAction<Conversation | null>>;
+  /** popup 抽屉当前分栏 */
+  drawerTab?: "sessions" | "tasks";
+  setDrawerTab?: Dispatch<SetStateAction<"sessions" | "tasks">>;
+  /** popup 任务列表槽(主壳注入 RecentTasksList) */
+  tasksSlot?: ReactNode;
 }
 
 export function Composer({
@@ -79,6 +87,7 @@ export function Composer({
   setDocsOpen,
   historyOpen,
   setHistoryOpen,
+  onOpenTasks,
   attachedDocs,
   removeAttachedDoc,
   subjectEntities,
@@ -93,6 +102,9 @@ export function Composer({
   loadConversation,
   forkConversation,
   setConfirmDeleteConv,
+  drawerTab,
+  setDrawerTab,
+  tasksSlot,
 }: ComposerProps) {
   return (
     <div className={`av-composer${portal ? " av-composer--portal" : ""}`}>
@@ -132,16 +144,19 @@ export function Composer({
             loadConversation={loadConversation}
             forkConversation={forkConversation}
             setConfirmDeleteConv={setConfirmDeleteConv}
+            drawerTab={drawerTab}
+            setDrawerTab={setDrawerTab}
+            tasksSlot={tasksSlot}
           />
         )}
-        {/* @ 技能面板(一期 = 工作台快捷入口;视觉与 at-card 同构)。
+        {/* @ 技能面板(P0:对话 prompt chips;视觉与 at-card 同构)。
             2026-08-26 起并入第二分组「主体」(@主体引用):选定插入 @实体名 文本引用,
             不跳转;发送时解析为 entity_ids 传给后端 */}
         {skillPanelVisible && (
-          <div className="av-skill-panel at-card" role="menu" aria-label="技能、工作台与主体库快捷入口">
+          <div className="av-skill-panel at-card" role="menu" aria-label="技能与主体库快捷入口">
             {skillEntries.length > 0 && (
               <div className="av-skill-panel-head">
-                <span className="av-skill-panel-title">技能 / 工作台</span>
+                <span className="av-skill-panel-title">技能</span>
                 <span className="av-skill-panel-hint">Enter 选定首项 · Esc 关闭</span>
               </div>
             )}
@@ -230,21 +245,23 @@ export function Composer({
               >
                 <Icon name="create" size={14} strokeWidth={1.8} />
               </button>
-              <a
-                href="/agent-runs"
+              {/* P0.3:任务回会话——开抽屉「最近任务」,深链 /agent-runs 仍保留在任务分栏 */}
+              <button
+                type="button"
                 className="av-composer-btn av-composer-btn-ghost av-composer-tool"
-                title="任务(多智能体运行台)"
+                title="最近任务(在对话里继续)"
                 aria-label="任务"
+                onClick={onOpenTasks}
               >
                 <Icon name="workflow" size={14} strokeWidth={1.8} />
-              </a>
+              </button>
               </>
             ) : (
               /* popup:文档入口让位于「会话」按钮(历史/新建/删除抽屉) */
               <button
                 type="button"
                 className={`av-composer-btn av-composer-btn-ghost av-composer-tool av-pop-conv-toggle${historyOpen ? " is-active" : ""}`}
-                title="会话(历史/新建/删除)"
+                title="会话(历史/新建/删除/最近任务)"
                 aria-label="会话管理"
                 onClick={() => setHistoryOpen((v) => !v)}
               >

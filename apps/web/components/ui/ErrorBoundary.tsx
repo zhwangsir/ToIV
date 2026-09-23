@@ -60,7 +60,7 @@ export class ErrorBoundary extends Component<Props, State> {
             className="btn btn-ghost"
             onClick={() => {
               // 回到首页 assistant 视图
-              window.location.href = "/?view=assistant";
+              window.location.href = "/?view=home";
             }}
           >
             <Icon name="chat" size={14} />

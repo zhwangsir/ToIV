@@ -1,5 +1,27 @@
 {
-  "updated_at": "2026-09-23T17:25:00+08:00",
+  "updated_at": "2026-09-23T17:52:00+08:00",
+  "assistant_p0_chat_agent_2026_09_23": {
+    "status": "assistant_p0_landed",
+    "date": "2026-09-23",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "P0 对话=智能体体感:禁默认跳转(system+tools)+门户 chips 预填对话+任务回会话抽屉; L0 ack 改对话智能体; view=assistant→home",
+    "p0": {
+      "ban_default_navigate": true,
+      "portal_skill_chips": true,
+      "tasks_back_into_chat": "SessionDrawer/left panel 最近任务 + 在对话里继续; /agent-runs 深链保留",
+      "deferred": "未嵌入完整 Agent Team UI;任务详情仍软链 /agent-runs/{id}"
+    },
+    "peer_research": "docs/AGENT_PEER_RESEARCH_20260923.md",
+    "product_trunk": "main_only",
+    "tests": {
+      "web": "assistantPortal/A2/W4 20 pass",
+      "api": "ui_action+L0+harness_tools pass"
+    }
+  },
   "web_agent_chat_ia_2026_09_23": {
     "status": "web_agent_chat_ia_landed",
     "date": "2026-09-23",

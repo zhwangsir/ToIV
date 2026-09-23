@@ -3,7 +3,7 @@
 /**
  * Agent Team 统一入口(列表页,R3.1):
  * 大目标输入框(一句话需求)+ 创建按钮 + 历史 run 卡片列表(状态徽章 + 任务进度)。
- * 创建后:L0 → 秒回提示并链到对话工作台;L1/L2 → 跳详情页进计划确认门。
+ * 创建后:L0 → 秒回提示并链到对话智能体;L1/L2 → 跳详情页进计划确认门。
  *
  * Film Atelier 重塑(2026-08-15,P0-2):
  * - 直接 import agent-runs.css(此前仅详情页 AgentRunView 引入,列表页无样式 = 贴边裸排根因);
@@ -44,7 +44,7 @@ export default function AgentRunsPage() {
       );
       return;
     }
-    // L0:留在本页,秒回提示 + 链到对话工作台
+    // L0:留在本页,秒回提示 + 链到对话智能体
     setGoal("");
   };
 
@@ -76,11 +76,11 @@ export default function AgentRunsPage() {
         {/* 错误条(可关闭,统一 ErrorBar) */}
         <ErrorBar message={list.error} onClose={list.clearError} />
 
-        {/* L0 秒回提示(链到对话工作台) */}
+        {/* L0 秒回提示(链到对话智能体) */}
         {list.l0Ack && (
           <p className="agent-l0" role="status">
             <span className="agent-l0-text">{list.l0Ack}</span>
-            <Link href="/?view=assistant" className="agent-l0-link">
+            <Link href="/?view=home" className="agent-l0-link">
               前往智能体 <Icon name="chevron-right" size={13} />
             </Link>
             <button

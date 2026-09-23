@@ -111,7 +111,7 @@ def _classify_messages(goal: str) -> list[dict]:
             "role": "system",
             "content": (
                 "你是 AIGC 创作平台的任务分级器。把用户需求分三级:"
-                "L0=单步生成(一张图/一个短视频/单次问答,直达生成工具);"
+                "L0=单步生成(一张图/一个短视频/单次问答,由对话智能体用生成工具完成);"
                 "L1=标准单链多步任务(一支短片/宣传片,走固定流水线);"
                 "L2=复杂项目(短剧/多场景/多镜头系列/混合模态,走 Agent Team 并行编排)。"
                 '只输出 JSON:{"level":"L0|L1|L2","reason":"一句话理由"},'
@@ -379,7 +379,7 @@ async def create_agent_run(
     """创建 Agent Team 任务(秒回):立即落 run(status=planning)并返回,
     LLM 分级细化 + 剧本拆解在后台协程完成(_plan_run),前端经 SSE/轮询拿 plan。
 
-    同步段只做启发式 Director Gate 分流(毫秒级):L0 不建 run 直接回指引;
+    同步段只做启发式 Director Gate 分流(毫秒级):L0 不建 run,回 ack 让对话智能体处理单步;
     L1/L2 建 run 后秒回。LLM 分级(≤8s)+ parse_script(实测 20-30s)若留在
     请求内会撞前端 30s 超时:请求被中止但 run 已落库,用户无反馈(死路 A)。
     """
@@ -396,7 +396,7 @@ async def create_agent_run(
         }
     level = classify_meta["level"]
     if level == "L0":
-        return {"level": "L0", "ack": "单步任务建议直达工作台", "run_id": None}
+        return {"level": "L0", "ack": "单步任务请在对话智能体里直接完成,无需开团队任务", "run_id": None}
 
     run = AgentRun(user_id=user.id, level=level, goal=body.goal)
     plan = {

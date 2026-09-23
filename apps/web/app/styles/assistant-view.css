@@ -1237,3 +1237,85 @@
     animation: none;
   }
 }
+
+/* ── P0.3 会话/任务分栏 + 最近任务列表(2026-09-23) ── */
+.av-panel-tabs {
+  display: flex;
+  gap: var(--space-1, 4px);
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+.av-panel-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.av-panel-tab.is-active {
+  color: var(--text);
+  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  font-weight: 600;
+}
+.av-panel-tab:hover {
+  color: var(--text);
+}
+.av-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  padding: 4px 0;
+}
+.av-task-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-2, rgba(127, 127, 127, 0.08));
+}
+.av-task-title {
+  font-size: 13px;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.av-task-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.av-task-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.av-task-continue,
+.av-task-open,
+.av-tasks-all {
+  font-size: 12px;
+  color: var(--accent, var(--text));
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+.av-task-continue:hover,
+.av-task-open:hover,
+.av-tasks-all:hover {
+  text-decoration: underline;
+}
+.av-tasks-all {
+  align-self: flex-start;
+  margin-top: 4px;
+  opacity: 0.85;
+}

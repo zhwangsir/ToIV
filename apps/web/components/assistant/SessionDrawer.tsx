@@ -1,16 +1,26 @@
 "use client";
 
 /**
- * 助手会话管理模块(2026-09-22 A3 组件工程化):
+ * 助手会话管理模块(2026-09-22 A3;2026-09-23 P0.3 最近任务回会话):
  * 自 AssistantView.tsx 拆出——会话列表(页形态历史面板 / popup 会话抽屉共用)、
- * popup 会话抽屉、删除确认弹窗组(对话/文档)。
- * 行为零变化:JSX/类名/文案逐字保留,仅闭包变量改为同名 props。
+ * popup 会话抽屉、删除确认弹窗组(对话/文档)、最近任务列表。
  */
-import { lazy, Suspense, type Dispatch, type RefObject, type SetStateAction } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useState,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+  type ReactNode,
+} from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Button";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import type { DocItem } from "@/lib/docs";
+import { listAgentRuns, type AgentRunSummary } from "@/lib/api";
+import { stashAssistantDraft } from "@/lib/assistantDraft";
 import { formatTime } from "./MessageList";
 import type { AgentConversationStore, Conversation } from "./AssistantView";
 
@@ -90,12 +100,109 @@ export function ConvList({
   );
 }
 
+export interface RecentTasksListProps {
+  /** 拉取开关:面板打开时才请求 */
+  active: boolean;
+  /** 「在对话里继续」:预填 composer 并关闭面板 */
+  onContinueInChat: (draft: string) => void;
+}
+
+/** P0.3:最近 agent-runs 轻量列表(不重建 Agent Team UI)。 */
+export function RecentTasksList({ active, onContinueInChat }: RecentTasksListProps) {
+  const [runs, setRuns] = useState<AgentRunSummary[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!active) return;
+    const ac = new AbortController();
+    setErr(null);
+    listAgentRuns({ limit: 8 })
+      .then((rows) => {
+        if (!ac.signal.aborted) setRuns(rows);
+      })
+      .catch((e) => {
+        if (!ac.signal.aborted) {
+          setRuns([]);
+          setErr(e instanceof Error ? e.message : "加载任务失败");
+        }
+      });
+    return () => ac.abort();
+  }, [active]);
+
+  if (runs === null) {
+    return <LoadingBlock variant="line" count={3} />;
+  }
+  if (err) {
+    return (
+      <div className="av-panel-empty">
+        <Icon name="warning" size={16} strokeWidth={1.4} />
+        <span>{err}</span>
+      </div>
+    );
+  }
+  if (runs.length === 0) {
+    return (
+      <div className="av-panel-empty">
+        <Icon name="workflow" size={20} strokeWidth={1.4} />
+        <span>暂无团队任务</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="av-tasks-list">
+      {runs.map((r) => {
+        const done = r.task_counts?.done ?? 0;
+        const total = r.task_counts?.total ?? 0;
+        const goal = (r.goal || "").trim() || "(无标题)";
+        const draft = `继续处理智能体任务「${goal.slice(0, 80)}」(run ${r.id.slice(0, 8)}…,状态 ${r.status})：`;
+        return (
+          <div key={r.id} className="av-task-item">
+            <div className="av-task-main">
+              <span className="av-task-title" title={goal}>{goal}</span>
+              <span className="av-task-meta">
+                {r.status} · {done}/{total} · {r.level}
+              </span>
+            </div>
+            <div className="av-task-actions">
+              <button
+                type="button"
+                className="av-task-continue"
+                title="在对话里继续"
+                onClick={() => {
+                  stashAssistantDraft(draft);
+                  onContinueInChat(draft);
+                }}
+              >
+                在对话里继续
+              </button>
+              <a
+                className="av-task-open"
+                href={`/agent-runs/${encodeURIComponent(r.id)}`}
+                title="打开任务详情"
+              >
+                详情
+              </a>
+            </div>
+          </div>
+        );
+      })}
+      <a className="av-tasks-all" href="/agent-runs">
+        全部任务 →
+      </a>
+    </div>
+  );
+}
+
 export interface SessionDrawerProps extends ConvListProps {
   historyOpen: boolean;
   setHistoryOpen: Dispatch<SetStateAction<boolean>>;
   onNewChat: () => void;
   /** popup 会话抽屉根节点(主壳点外部关闭判定用) */
   convDrawerRef: RefObject<HTMLDivElement | null>;
+  drawerTab?: "sessions" | "tasks";
+  setDrawerTab?: Dispatch<SetStateAction<"sessions" | "tasks">>;
+  tasksSlot?: ReactNode;
 }
 
 /* popup 会话抽屉(锚于输入框上方,与 @ 技能面板同位):
@@ -105,6 +212,9 @@ export function SessionDrawer({
   setHistoryOpen,
   onNewChat,
   convDrawerRef,
+  drawerTab = "sessions",
+  setDrawerTab,
+  tasksSlot,
   ...convListProps
 }: SessionDrawerProps) {
   return (
@@ -116,23 +226,44 @@ export function SessionDrawer({
       aria-hidden={!historyOpen}
     >
       <div className="av-pop-conv-head">
-        <span className="av-pop-conv-title">会话</span>
-        <button
-          type="button"
-          className="av-tb-btn av-pop-conv-new"
-          onClick={() => {
-            onNewChat();
-            setHistoryOpen(false);
-          }}
-          title="新会话"
-          aria-label="新会话"
-        >
-          <Icon name="create" size={13} strokeWidth={1.8} />
-          <span>新会话</span>
-        </button>
+        <div className="av-panel-tabs" role="tablist" aria-label="会话与任务">
+          <button
+            type="button"
+            role="tab"
+            className={`av-panel-tab${drawerTab === "sessions" ? " is-active" : ""}`}
+            aria-selected={drawerTab === "sessions"}
+            onClick={() => setDrawerTab?.("sessions")}
+          >
+            会话
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className={`av-panel-tab${drawerTab === "tasks" ? " is-active" : ""}`}
+            aria-selected={drawerTab === "tasks"}
+            onClick={() => setDrawerTab?.("tasks")}
+          >
+            任务
+          </button>
+        </div>
+        {drawerTab === "sessions" && (
+          <button
+            type="button"
+            className="av-tb-btn av-pop-conv-new"
+            onClick={() => {
+              onNewChat();
+              setHistoryOpen(false);
+            }}
+            title="新会话"
+            aria-label="新会话"
+          >
+            <Icon name="create" size={13} strokeWidth={1.8} />
+            <span>新会话</span>
+          </button>
+        )}
       </div>
       <div className="av-pop-conv-body">
-        <ConvList {...convListProps} />
+        {drawerTab === "tasks" ? tasksSlot : <ConvList {...convListProps} />}
       </div>
     </div>
   );

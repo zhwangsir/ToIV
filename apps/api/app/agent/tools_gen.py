@@ -287,9 +287,12 @@ TOOL_SCHEMAS_GEN = [
         "function": {
             "name": "navigate_view",
             "description": (
-                "把前端界面切换到指定功能页(用户说「去/打开/切到 X」或任务需要在特定页面继续时用)。"
-                "例如「帮我把这个视频送去译制」→ navigate_view(dub);「我要做数字人」→ avatartalk;"
-                "「看看我的作品」→ library;「进工作室做短剧」→ studio。"
+                "【逃逸出口·慎用】仅当目标能力尚无对话工具通路时,才把前端切到重表单页。"
+                "禁止用于图像/视频/音频/数字人/短剧等已可由 list_apps/run_app/submit_generation/generate_* "
+                "完成的生成意图——那些必须在对话里直接调生成工具。"
+                "适用例:「帮我把这个视频送去译制」→ navigate_view(dub);用户明确要打开作品库浏览 → library;"
+                "复杂图片/视频剪辑台(尚无 API)→ imageEdit/videoEdit。数字人/短剧优先用 generate_*/分镜工具,"
+                "不要用本工具跳走。"
             ),
             "parameters": {
                 "type": "object",
@@ -315,8 +318,8 @@ TOOL_SCHEMAS_GEN = [
         "function": {
             "name": "prefill_generate",
             "description": (
-                "预填生成工作台的提示词并跳过去(用户想自己微调参数再手动提交时用;"
-                "若用户意图是「直接生成」,仍用 submit_generation)。"
+                "【逃逸出口·慎用】预填生成工作台提示词并跳转——仅当用户明确说「我要自己去工作台调参/微调」时用;"
+                "默认生成意图必须用 submit_generation / run_app / generate_*,禁止用本工具代替对话内生成。"
             ),
             "parameters": {
                 "type": "object",

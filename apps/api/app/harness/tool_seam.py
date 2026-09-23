@@ -263,9 +263,9 @@ def builtin_tool_specs() -> list[ToolSpec]:
                  "3D 模型材质/渲染调整(材质烘焙成新 GLB 模型/染色;旋转视频、快照为可选查看产物;立即出产物)", rate_scope=""),
         # ── W3 UI 驱动工具(零服务端副作用的界面指令;open_asset 仅做归属校验)──
         ToolSpec("navigate_view", gen_schema("navigate_view"), tools_gen.exec_navigate_view,
-                 "切换前端界面到指定功能页(「去/打开 X」类意图)", rate_scope=""),
+                 "【逃逸】仅无 API 的重表单页才跳转;生成意图禁止用(优先 run_app/submit_generation/generate_*)", rate_scope=""),
         ToolSpec("prefill_generate", gen_schema("prefill_generate"), tools_gen.exec_prefill_generate,
-                 "预填生成工作台提示词并跳转(用户想微调参数再手动提交时)", rate_scope=""),
+                 "【逃逸】仅用户明确要去工作台调参时预填跳转;默认生成用 submit_generation/run_app", rate_scope=""),
         ToolSpec("open_asset", gen_schema("open_asset"), tools_gen.exec_open_asset,
                  "在作品库打开一个已有产物(需 job_id,限本人)", rate_scope=""),
         # ── 漫剧线工具(tools_drama.py;分镜板管线:拆镜→单镜→成片→追踪)──
