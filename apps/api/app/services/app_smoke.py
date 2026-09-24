@@ -437,9 +437,10 @@ async def run_app_smoke(
 
 # 多图槽轮换不同 fixture,避免 FL2VA first+last 同指纹撞 H3 encode cache
 # → condition_blocks[1] semantic_frame_index 串线(2026-09-24 rh-acc-1665610753)。
+# 只轮换含人脸的图:shiba 无人脸,会让 Stand-In/Lynx/WanAnimate 等人脸卡误判
+#「No face detected」(2026-09-25 rh-acc-0079678466)。
 _IMAGE_FIXTURE_ROTATION = (
     "face_ref.png",
-    "shiba_frame.jpg",
     "beauty01.png",
     "beauty02.png",
 )
