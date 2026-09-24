@@ -110,6 +110,9 @@ def _first_not_in_list(message: str) -> str:
 # ---------------------------------------------------------------------------
 # 默认参数:从 params_schema 合成一份「能跑就行」的值
 # ---------------------------------------------------------------------------
+_SEED_KEY_RE = re.compile(r"seed|种子", re.I)
+
+
 def default_values(schema: list[dict]) -> dict:
     values: dict = {}
     for p in schema or []:
@@ -134,6 +137,10 @@ def default_values(schema: list[dict]) -> dict:
             values[key] = 1
         elif t in ("loras",):
             values[key] = []
+        elif _SEED_KEY_RE.search(str(key)) or _SEED_KEY_RE.search(str(p.get("label") or "")):
+            # seed 常是 text 参数但绑定 INT 叶子:"smoke test" 会被 _coerce_for_leaf 422
+            # (2026-09-25 ltx-txt2video/ltx-img2video/ltx-lipsync/wan-nsfw-i2v 实证)
+            values[key] = "42"
         else:
             values[key] = "smoke test"
     return values
