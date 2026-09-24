@@ -2060,6 +2060,101 @@ def test_build_graph_wan_set_loras_bypasses_when_no_select():
     assert built["50"]["inputs"]["model"] == ["22", 0]
 
 
+def test_build_graph_flashvsr_model_backfill():
+    """FlashVSRNode/InitPipe 缺 model → FlashVSR-v1.1;已有值不覆盖;NodeAdv 不动。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "74": {
+            "class_type": "FlashVSRNode",
+            "inputs": {
+                "frames": ["61", 0],
+                "mode": "tiny",
+                "scale": 2,
+                "tiled_vae": True,
+                "tiled_dit": True,
+                "unload_dit": True,
+                "seed": 1,
+            },
+        },
+        "75": {
+            "class_type": "FlashVSRInitPipe",
+            "inputs": {"mode": "tiny", "precision": "bf16"},
+        },
+        "76": {
+            "class_type": "FlashVSRNode",
+            "inputs": {
+                "frames": ["61", 0],
+                "mode": "tiny",
+                "scale": 2,
+                "tiled_vae": True,
+                "tiled_dit": True,
+                "unload_dit": False,
+                "seed": 0,
+                "model": "FlashVSR",
+            },
+        },
+        "77": {
+            "class_type": "FlashVSRNodeAdv",
+            "inputs": {"pipe": ["75", 0], "frames": ["61", 0], "scale": 2},
+        },
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["74"]["inputs"]["model"] == "FlashVSR-v1.1"
+    assert built["75"]["inputs"]["model"] == "FlashVSR-v1.1"
+    assert built["76"]["inputs"]["model"] == "FlashVSR"
+    assert "model" not in built["77"]["inputs"]
+
+
+def test_build_graph_model_sampling_sd3_rewires_hidden_model():
+    """ModelSamplingSD3.model ← RHHiddenNodes → 改挂壳内 model_1 上游 MODEL。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "80": {"class_type": "UnetLoaderGGUF", "inputs": {"unet_name": "wan.gguf"}},
+        "25": {
+            "class_type": "LoraLoaderModelOnly",
+            "inputs": {
+                "model": ["80", 0],
+                "lora_name": "accel.safetensors",
+                "strength_model": 1.0,
+            },
+        },
+        "83": {
+            "class_type": "RHHiddenNodes",
+            "inputs": {"model_1": ["25", 0], "pwd": ""},
+        },
+        "4": {
+            "class_type": "ModelSamplingSD3",
+            "inputs": {"model": ["83", 0], "shift": 8.0},
+        },
+        "53": {
+            "class_type": "PathchSageAttentionKJ",
+            "inputs": {"model": ["4", 0], "sage_attention": "auto"},
+        },
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["4"]["inputs"]["model"] == ["25", 0]
+    assert built["4"]["inputs"]["shift"] == 8.0
+    assert built["53"]["inputs"]["model"] == ["4", 0]
+    assert "83" in built  # Hidden 壳保留
+
+
+def test_build_graph_model_sampling_sd3_no_fake_model_when_hidden_empty():
+    """RHHiddenNodes 无 model_* 上游时不发明 MODEL,保持原链接。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "83": {"class_type": "RHHiddenNodes", "inputs": {"pwd": ""}},
+        "4": {
+            "class_type": "ModelSamplingSD3",
+            "inputs": {"model": ["83", 0], "shift": 5.0},
+        },
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["4"]["inputs"]["model"] == ["83", 0]
+
+
 def test_build_graph_empty_h3_prompt_text_filled():
     """H3 Encode.prompt → 空 CR Text 时填兜底;非空不动;空串绑定不覆盖。"""
     from app.routes.apps import _build_graph, _H3_PROMPT_FALLBACK

@@ -1753,6 +1753,11 @@ _MISSING_REQUIRED_DEFAULTS: dict[str, dict[str, object]] = {
         "batch_size": 1,
         "ckpt_name": "rife49.pth",
     },
+    # FlashVSR 换代后 model combo 必填(:8196 object_info 2026-09-24 实证
+    # default FlashVSR-v1.1);RH 旧图常缺 → required_input_missing
+    # (rh-acc-0213376002 / 0796854274 实证)。FlashVSRNodeAdv 走 pipe 不回填。
+    "FlashVSRNode": {"model": "FlashVSR-v1.1"},
+    "FlashVSRInitPipe": {"model": "FlashVSR-v1.1"},
 }
 
 
@@ -2039,6 +2044,54 @@ def _normalize_wan_video_set_loras_hidden(graph: dict) -> None:
         bypass.append(str(nid))
     for nid in bypass:
         graph.pop(nid, None)
+
+
+def _hidden_model_upstream_link(hidden: dict) -> list | None:
+    """从 RHHiddenNodes.inputs 取壳内 MODEL 上游连线(model_1 / model / model_*)。"""
+    inputs = hidden.get("inputs")
+    if not isinstance(inputs, dict):
+        return None
+    for key in ("model_1", "model", "MODEL"):
+        v = inputs.get(key)
+        if isinstance(v, list) and len(v) >= 2:
+            return [v[0], v[1]]
+    for key, v in inputs.items():
+        if (
+            isinstance(key, str)
+            and key.lower().startswith("model")
+            and isinstance(v, list)
+            and len(v) >= 2
+        ):
+            return [v[0], v[1]]
+    return None
+
+
+def _normalize_model_sampling_sd3_hidden(graph: dict) -> None:
+    """ModelSamplingSD3.model ← RHHiddenNodes(IMAGE):改挂壳内 model_* 上游 MODEL。
+
+    RH 密码组 object_info 仅 image_*/IMAGE;旧图把 Lora/UNET 经 model_1 塞进壳再接
+    ModelSamplingSD3 → received_type(IMAGE) mismatch input_type(MODEL)
+    (2026-09-24 rh-acc-0213376002 / 0796854274 实证)。有 model_* 连线则改挂该上游;
+    无可用 MODEL 上游则不发明 MODEL、不旁路(旁路到 Hidden 仍是 IMAGE)。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict) or node.get("class_type") != "ModelSamplingSD3":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        model = inputs.get("model")
+        if not (isinstance(model, list) and len(model) >= 2):
+            continue
+        src = graph.get(str(model[0]))
+        if not isinstance(src, dict) or src.get("class_type") != "RHHiddenNodes":
+            continue
+        upstream = _hidden_model_upstream_link(src)
+        if upstream is None:
+            continue
+        inputs["model"] = [upstream[0], upstream[1]]
 
 
 _H3_PROMPT_FALLBACK = "a person in a scene"
@@ -2664,6 +2717,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_seedvr2_cache_model_bool(graph)
     _normalize_seedvr2_attention_mode(graph)
     _normalize_wan_video_set_loras_hidden(graph)
+    _normalize_model_sampling_sd3_hidden(graph)
     _normalize_empty_h3_prompt_text(graph)
     _normalize_tiny_vae_alias(graph)
     _normalize_sd3_clip_basename(graph)
@@ -2717,6 +2771,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_seedvr2_cache_model_bool(graph)
     _normalize_seedvr2_attention_mode(graph)
     _normalize_wan_video_set_loras_hidden(graph)
+    _normalize_model_sampling_sd3_hidden(graph)
     _normalize_empty_h3_prompt_text(graph)
     _normalize_nunchaku_sm120_fp4(graph)
     _normalize_comfy_literals_number_str(graph)
