@@ -1876,6 +1876,10 @@ _MISSING_REQUIRED_DEFAULTS: dict[str, dict[str, object]] = {
     # 或缺键 → required_input_missing(2026-09-25 rh-acc-0307518466)。
     # multiline_text 已连时 file 被忽略,但仍须占位;枚举空时为 "no text files found"。
     "Text Load Line From File": {"file": "no text files found"},
+    # Florence2Run:task=more_detailed_caption 时 text_input 仍 required
+    # (object_info default "");RH 旧图常缺 → required_input_missing
+    # (2026-09-25 rh-acc-6231837698 实证)。
+    "Florence2Run": {"text_input": ""},
 }
 
 
