@@ -152,6 +152,9 @@ _COMBO_LOADERS = {
     "UpscaleModelLoader": "model_name",
     "CLIPVisionLoader": "clip_name",
     "WanVideoModelLoader": "model",
+    # LongCat/:8197 常缺 RH 默认 Florence-2-base;并入并集后 combo_repair/路由可感知
+    # (2026-09-25 rh-acc-6231837698 实证 :8196 有 / :8197 仅 Flux-Large+PromptGen)
+    "Florence2ModelLoader": "model",
 }
 _STEM_RE = re.compile(r"[^a-z0-9]+")
 
