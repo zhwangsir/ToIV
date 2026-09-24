@@ -62,7 +62,7 @@
         "Node name for S&R": "LTXVGemmaCLIPModelLoader"
       },
       "widgets_values": [
-        "gemma3_12b_it/model.safetensors",
+        "gemma3_12b_it_bf16/model.safetensors",
         "10eros_v14.safetensors",
         1024
       ]

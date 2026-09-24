@@ -1559,6 +1559,9 @@ _MODEL_FILE_ALIASES: dict[str, str] = {
     "InfiniteTalk/Wan2_1-InfiniTetalk-Single_fp16.safetensors": "Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors",
     "InfiniteTalk/Wan2_1-InfiniteTalk-Single_fp16.safetensors": "Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors",
     "Wan2_1-InfiniteTalk-Single_fp16.safetensors": "Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors",
+    # 旧 LTX 内置模板指 gemma3_12b_it/(fp8_scaled 已 .disabled,HF 加载器忽略 weight_scale);
+    # fleet 与 config.nsfw_default_gemma 统一 bf16 目录(2026-09-25 ltx-txt2video 等三卡)
+    "gemma3_12b_it/model.safetensors": "gemma3_12b_it_bf16/model.safetensors",
 }
 
 _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
@@ -1575,6 +1578,7 @@ _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
     "SeedVR2LoadDiTModel": ("model",),
     "SeedVR2LoadVAEModel": ("model",),
     "MultiTalkModelLoader": ("model",),
+    "LTXVGemmaCLIPModelLoader": ("gemma_path",),
 }
 
 # 缺失字体 → fleet 在列替代(ComfyRoll fonts 目录,:8196/:8197 object_info 实证)。
