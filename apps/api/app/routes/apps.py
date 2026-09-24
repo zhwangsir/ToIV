@@ -1862,7 +1862,37 @@ _MISSING_REQUIRED_DEFAULTS: dict[str, dict[str, object]] = {
     # (rh-acc-0213376002 / 0796854274 实证)。FlashVSRNodeAdv 走 pipe 不回填。
     "FlashVSRNode": {"model": "FlashVSR-v1.1"},
     "FlashVSRInitPipe": {"model": "FlashVSR-v1.1"},
+    # Text Load Line From File 换代后 required file(COMBO);RH 旧键 file_path
+    # 或缺键 → required_input_missing(2026-09-25 rh-acc-0307518466)。
+    # multiline_text 已连时 file 被忽略,但仍须占位;枚举空时为 "no text files found"。
+    "Text Load Line From File": {"file": "no text files found"},
 }
+
+
+
+def _normalize_text_load_line_from_file(graph: dict) -> None:
+    """Text Load Line From File:RH `file_path` → 现网 `file`,并回填缺省。
+
+    :8196 object_info 2026-09-25 required file(COMBO);RH 旧图写 file_path 或
+    完全缺键 → required_input_missing(rh-acc-0307518466)。multiline_text
+    已连时 file 运行期忽略,但仍须合法占位。已有 file 不覆盖。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        if (node.get("class_type") or "") != "Text Load Line From File":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        if "file" not in inputs and "file_path" in inputs:
+            inputs["file"] = inputs.pop("file_path")
+        if "file" not in inputs or inputs.get("file") in (None, ""):
+            inputs["file"] = "no text files found"
+        elif isinstance(inputs.get("file_path"), str):
+            inputs.pop("file_path", None)
 
 
 def _normalize_llama_cpp_presence_penalty(graph: dict) -> None:
@@ -2912,6 +2942,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_rmbg_background(graph)
     _normalize_image_rembg_model(graph)
     _normalize_compress_images(graph)
+    _normalize_text_load_line_from_file(graph)
     _normalize_llama_cpp_presence_penalty(graph)
     _normalize_rife_vfi(graph)
     _normalize_custom_add_label_widgets(graph)
