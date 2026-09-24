@@ -1800,7 +1800,7 @@ def test_build_graph_wan_video_decode_tile_stride_clamp():
         "29": {"class_type": "WanVideoDecode", "inputs": {"vae": ["38", 0], "samples": ["90", 0], "tile_y": 272, "tile_x": 272, "tile_stride_y": 128, "tile_stride_x": 144}},
     }
     built = _build_graph(graph, {}, {})
-    assert built["28"]["inputs"]["tile_stride_y"] == 272
+    assert built["28"]["inputs"]["tile_stride_y"] == 271
     assert built["28"]["inputs"]["tile_stride_x"] == 144
     assert built["29"]["inputs"]["tile_stride_y"] == 128
 

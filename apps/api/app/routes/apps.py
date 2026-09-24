@@ -2756,10 +2756,12 @@ def _normalize_wan_video_decode_tiles(graph: dict) -> None:
             continue
         tx, ty = _as_num(inputs.get("tile_x")), _as_num(inputs.get("tile_y"))
         sx, sy = _as_num(inputs.get("tile_stride_x")), _as_num(inputs.get("tile_stride_y"))
-        if tx is not None and sx is not None and sx > tx:
-            inputs["tile_stride_x"] = tx
-        if ty is not None and sy is not None and sy > ty:
-            inputs["tile_stride_y"] = ty
+        # Comfy 自定义校验是 tile > stride(严格大于);压成相等仍会挂
+        # (2026-09-24 rh-acc-5219795969: 272/272 仍报 Tile height must be larger)。
+        if tx is not None and sx is not None and sx >= tx:
+            inputs["tile_stride_x"] = max(1, tx - 1)
+        if ty is not None and sy is not None and sy >= ty:
+            inputs["tile_stride_y"] = max(1, ty - 1)
 
 
 def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
