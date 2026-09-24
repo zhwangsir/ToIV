@@ -1553,6 +1553,12 @@ _MODEL_FILE_ALIASES: dict[str, str] = {
     "Lynx/Wan2_1-T2V-14B-Lynx_lite_ip_layers_fp16.safetensors": "Wan2_1-T2V-14B-Lynx_lite_ip_layers_fp16.safetensors",
     "Lynx/Wan2_1-T2V-14B-Lynx_full_ip_layers_fp16.safetensors": "Wan2_1-T2V-14B-Lynx_full_ip_layers_fp16.safetensors",
     "Lynx/Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors": "Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors",
+    # InfiniteTalk:RH 写 InfiniteTalk/…InfiniTetalk…fp16(原文拼错),fleet 仅 KJ fp8 平铺;
+    # 不映射时组合兜底会塞成 Remix t2v 底模 → WanVideoSampler 'blocks.0.norm_x.weight'
+    # (2026-09-25 rh-acc-1411483649)
+    "InfiniteTalk/Wan2_1-InfiniTetalk-Single_fp16.safetensors": "Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors",
+    "InfiniteTalk/Wan2_1-InfiniteTalk-Single_fp16.safetensors": "Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors",
+    "Wan2_1-InfiniteTalk-Single_fp16.safetensors": "Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors",
 }
 
 _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
@@ -1568,6 +1574,7 @@ _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
     "WanVideoLoraSelect": ("lora",),
     "SeedVR2LoadDiTModel": ("model",),
     "SeedVR2LoadVAEModel": ("model",),
+    "MultiTalkModelLoader": ("model",),
 }
 
 # 缺失字体 → fleet 在列替代(ComfyRoll fonts 目录,:8196/:8197 object_info 实证)。
