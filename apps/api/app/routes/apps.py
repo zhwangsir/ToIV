@@ -2734,6 +2734,8 @@ _NUNCHAKU_INT4_TO_FP4: dict[str, str] = {
     "svdq-int4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors": "svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
     "svdq-int4_r32-qwen-image-lightningv1.1-8steps.safetensors": "svdq-fp4_r32-qwen-image-lightningv1.1-8steps.safetensors",
     "svdq-int4_r128-qwen-image-lightningv1.1-8steps.safetensors": "svdq-fp4_r128-qwen-image-lightningv1.1-8steps.safetensors",
+    # 2026-09-25 rh-acc-7404027905 Blackwell; fp4 已落 toiv diffusion_models
+    "svdq-int4_r128-qwen-image-edit-2509-lightningv2.0-8steps.safetensors": "svdq-fp4_r128-qwen-image-edit-2509-lightningv2.0-8steps.safetensors",
 }
 
 
