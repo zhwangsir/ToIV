@@ -642,7 +642,17 @@ def _write_leaf(graph: dict, key: str, target: dict, value: object) -> None:
     root, leaf = target["field"].split(".", 1)
     if root == "inputs":
         container = node.get("inputs")
-        if not isinstance(container, dict) or leaf not in container:
+        if not isinstance(container, dict):
+            raise HTTPException(
+                status_code=422,
+                detail=f"绑定 {key} 目标 {target['node']}.inputs.{leaf} 不存在(禁新增键改拓扑)",
+            )
+        # ComfyLiterals Int/Float:图内已 value→Number 后,旧绑定仍写 inputs.value。
+        # llm-repair / 二次 _build_graph 若未再 remap bindings 会 422
+        # (2026-09-25 rh-acc-0079678466 / 6231837698)。
+        if leaf not in container and leaf == "value" and node.get("class_type") in ("Int", "Float") and "Number" in container:
+            leaf = "Number"
+        if leaf not in container:
             raise HTTPException(
                 status_code=422,
                 detail=f"绑定 {key} 目标 {target['node']}.inputs.{leaf} 不存在(禁新增键改拓扑)",
