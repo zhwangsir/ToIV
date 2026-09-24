@@ -1547,6 +1547,12 @@ _MODEL_FILE_ALIASES: dict[str, str] = {
     # rh-acc-1051204609;设备核实 :8197 仅 SeC-4B-fp16/bf16.safetensors)
     "SeC-4B (sharded)": "SeC-4B-fp16.safetensors",
     "SeC-4B": "SeC-4B-fp16.safetensors",
+    # Lynx:RH 写 Lynx/<file>,现网 diffusion_models 平铺(2026-09-25
+    # rh-acc-0079678466;模型下载双落 flat)
+    "Lynx/lynx_lite_resampler_fp32.safetensors": "lynx_lite_resampler_fp32.safetensors",
+    "Lynx/Wan2_1-T2V-14B-Lynx_lite_ip_layers_fp16.safetensors": "Wan2_1-T2V-14B-Lynx_lite_ip_layers_fp16.safetensors",
+    "Lynx/Wan2_1-T2V-14B-Lynx_full_ip_layers_fp16.safetensors": "Wan2_1-T2V-14B-Lynx_full_ip_layers_fp16.safetensors",
+    "Lynx/Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors": "Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors",
 }
 
 _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
@@ -1557,6 +1563,11 @@ _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
     "UpscaleModelLoader": ("model_name",),
     "CLIPLoader": ("clip_name",),
     "SeCModelLoader": ("model_file",),
+    "LoadLynxResampler": ("model_name",),
+    "WanVideoExtraModelSelect": ("extra_model",),
+    "WanVideoLoraSelect": ("lora",),
+    "SeedVR2LoadDiTModel": ("model",),
+    "SeedVR2LoadVAEModel": ("model",),
 }
 
 # 缺失字体 → fleet 在列替代(ComfyRoll fonts 目录,:8196/:8197 object_info 实证)。
@@ -2817,6 +2828,9 @@ _NODE_CLASS_ALIASES: dict[str, str] = {
     "GIMM-VFI Interpolate": "GIMMVFI_interpolate",
     "String to Int": "StringToInt",
     "Depth Anything V2": "DepthAnything_V2",
+    # RH 显示名 → fleet class(2026-09-25 能力缺口核实)
+    "Color Correct of Utils": "ColorCorrectOfUtils",
+    "Stand-In Processor Loader": "FaceProcessorLoader",
 }
 
 
