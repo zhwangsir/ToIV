@@ -2487,10 +2487,13 @@ def _normalize_lora_path_separators(graph: dict) -> None:
 
 
 def _normalize_vhs_load_video(graph: dict) -> None:
-    """VHS_LoadVideo:RH 烘焙 skip_first_frames 过大 → No frames generated。
+    """VHS_LoadVideo:RH 烘焙 skip_first_frames 过大 → No frames / mask 帧错位。
 
-    短 fixture / 替换视频帧数常 < RH 原片;当 frame_load_cap>0 且
-    skip_first_frames >= frame_load_cap 时回零(保留 cap)。已合理的 skip 不动。
+    短 fixture / 替换视频帧数常 < RH 原片。当 frame_load_cap>0 且
+    skip_first_frames >= frame_load_cap 时回零(保留 cap)。
+    另:skip 已吃掉过半 cap 时(例 skip=30 cap=33)短片只剩几帧,掩码/
+    VACE 仍按满 cap 组张量 → shape 错位(2026-09-25 rh-acc-0388281345);
+    此时同样回零。已合理的小 skip 不动。
     """
     if not isinstance(graph, dict):
         return
@@ -2502,9 +2505,11 @@ def _normalize_vhs_load_video(graph: dict) -> None:
             continue
         skip = inputs.get("skip_first_frames")
         cap = inputs.get("frame_load_cap")
-        if not isinstance(skip, int) or not isinstance(cap, int):
+        if not isinstance(skip, (int, float)) or not isinstance(cap, (int, float)):
             continue
-        if cap > 0 and skip >= cap:
+        skip_i = int(skip)
+        cap_i = int(cap)
+        if cap_i > 0 and (skip_i >= cap_i or skip_i >= max(1, cap_i // 2)):
             inputs["skip_first_frames"] = 0
 
 
