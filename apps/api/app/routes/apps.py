@@ -1654,7 +1654,101 @@ _MISSING_REQUIRED_DEFAULTS: dict[str, dict[str, object]] = {
     # SeC 换装遮罩链:RH 图 SeCModelLoader.model_file 常带 null(2026-09-21
     # rh-acc-3877213185 实证);:8195/:8196 object_info 在列值 SeC-4B-fp16/bf16,取 fp16
     "SeCModelLoader": {"model_file": "SeC-4B-fp16.safetensors"},
+    # llama-cpp 换代新增(RH 旧图无此键 → required_input_missing;
+    # 2026-09-24 rh-acc-1290184706 / 0649692161 实证)
+    "llama_cpp_parameters": {"present_penalty": 0.0},
+    "llama_cpp_model_loader": {"load_mtp": False},
+    # ComfyUI-Frame-Interpolation RIFE 换代新增 dtype/torch_compile/batch_size;
+    # RH 旧键 rife_name 另由 _normalize_rife_vfi 改挂 ckpt_name
+    "RIFE VFI": {
+        "dtype": "float32",
+        "torch_compile": False,
+        "batch_size": 1,
+        "ckpt_name": "rife49.pth",
+    },
 }
+
+
+def _normalize_llama_cpp_presence_penalty(graph: dict) -> None:
+    """llama_cpp_parameters:RH `presence_penalty` → 现网 `present_penalty`。
+
+    :8196 object_info 2026-09-24 实证 required 为 present_penalty;RH 旧图落
+    presence_penalty → required_input_missing(2026-09-24 rh-acc-1290184706)。
+    已有 present_penalty 不覆盖;仅改名迁移。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        if (node.get("class_type") or "") != "llama_cpp_parameters":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        if "present_penalty" not in inputs and "presence_penalty" in inputs:
+            inputs["present_penalty"] = inputs.pop("presence_penalty")
+
+
+def _normalize_rife_vfi(graph: dict) -> None:
+    """RIFE VFI:RH `rife_name` → 现网 `ckpt_name`。
+
+    :8196 object_info 2026-09-24 实证 required ckpt_name;RH 旧图写 rife_name
+    → required_input_missing(同批 129018/064969)。值保留。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        if (node.get("class_type") or "") != "RIFE VFI":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        if "ckpt_name" not in inputs and "rife_name" in inputs:
+            inputs["ckpt_name"] = inputs.pop("rife_name")
+
+
+def _normalize_custom_add_label_widgets(graph: dict) -> None:
+    """CustomAddLabel:RH 控件错位时把 text/font 从错误键挪回。
+
+    实证(2026-09-24 rh-acc-1290184706):font_size='First Sampling'(实为 text)、
+    height='Quicksand-Bold.ttf'(实为 font)、font='light'(与 color 重复)。
+    仅当 font_size 为非数字字符串且 height 像字体文件名时触发。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        if (node.get("class_type") or "") != "CustomAddLabel":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        fs = inputs.get("font_size")
+        ht = inputs.get("height")
+        if not isinstance(fs, str) or fs.strip().isdigit():
+            continue
+        if not (
+            isinstance(ht, str)
+            and ht.lower().endswith((".ttf", ".otf", ".ttc"))
+        ):
+            continue
+        old_font = inputs.get("font")
+        inputs["text"] = fs
+        inputs["font"] = ht
+        inputs["font_size"] = 40
+        inputs["height"] = 90
+        if isinstance(old_font, str) and old_font in ("light", "dark"):
+            inputs["color"] = old_font
+        er = inputs.get("enable_resize")
+        if not isinstance(er, bool):
+            inputs["enable_resize"] = False
+        ls = inputs.get("longer_size")
+        if not isinstance(ls, int) or ls < 64:
+            inputs["longer_size"] = 1024
 
 
 def _normalize_required_backfill(graph: dict) -> None:
@@ -2473,6 +2567,9 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_rmbg_background(graph)
     _normalize_image_rembg_model(graph)
     _normalize_compress_images(graph)
+    _normalize_llama_cpp_presence_penalty(graph)
+    _normalize_rife_vfi(graph)
+    _normalize_custom_add_label_widgets(graph)
     _normalize_required_backfill(graph)
     _normalize_sec_empty_bbox(graph)
     _normalize_sec_flash_attn_blackwell(graph)

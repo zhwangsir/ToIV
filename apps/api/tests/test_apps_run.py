@@ -2161,3 +2161,86 @@ def test_normalize_sec_model_file_sharded_alias():
     )
     assert built["250"]["inputs"]["model_file"] == "SeC-4B-fp16.safetensors"
     assert built["250"]["inputs"]["use_flash_attn"] is False
+
+
+def test_build_graph_llama_presence_penalty():
+    """presence_penalty → present_penalty; load_mtp / present defaults backfill."""
+    from app.routes.apps import _build_graph
+
+    wf = {
+        "10": {
+            "class_type": "llama_cpp_model_loader",
+            "inputs": {"model": "x.gguf", "mmproj": "None", "chat_handler": "None", "n_ctx": 1024,
+                       "vram_limit": -1, "image_min_tokens": 0, "image_max_tokens": 0},
+        },
+        "11": {
+            "class_type": "llama_cpp_parameters",
+            "inputs": {
+                "max_tokens": 16, "top_k": 30, "top_p": 0.9, "min_p": 0.05, "typical_p": 1.0,
+                "temperature": 0.8, "repeat_penalty": 1.0, "frequency_penalty": 0.0,
+                "presence_penalty": 1.0, "mirostat_mode": 0, "mirostat_eta": 0.1,
+                "mirostat_tau": 5.0, "state_uid": -1,
+            },
+        },
+    }
+    built = _build_graph(wf, {}, {})
+    assert "presence_penalty" not in built["11"]["inputs"]
+    assert built["11"]["inputs"]["present_penalty"] == 1.0
+    assert built["10"]["inputs"]["load_mtp"] is False
+
+
+def test_build_graph_rife_vfi_alias_and_backfill():
+    from app.routes.apps import _build_graph
+
+    wf = {
+        "151": {
+            "class_type": "RIFE VFI",
+            "inputs": {
+                "frames": ["1", 0],
+                "clear_cache_after_n_frames": 10,
+                "multiplier": 2,
+                "fast_mode": True,
+                "ensemble": True,
+                "scale_factor": 1.0,
+                "rife_name": "rife49.pth",
+            },
+        }
+    }
+    built = _build_graph(wf, {}, {})
+    assert "rife_name" not in built["151"]["inputs"]
+    assert built["151"]["inputs"]["ckpt_name"] == "rife49.pth"
+    assert built["151"]["inputs"]["dtype"] == "float32"
+    assert built["151"]["inputs"]["torch_compile"] is False
+    assert built["151"]["inputs"]["batch_size"] == 1
+
+
+def test_build_graph_custom_add_label_widget_shift():
+    from app.routes.apps import _build_graph
+
+    wf = {
+        "185": {
+            "class_type": "CustomAddLabel",
+            "inputs": {
+                "image": ["1", 0],
+                "color": "light",
+                "longer_size": 6,
+                "font_size": "First Sampling",
+                "text": "down",
+                "enable_resize": 3,
+                "text_y": 32,
+                "text_x": 50,
+                "height": "Quicksand-Bold.ttf",
+                "font": "light",
+                "direction": "down",
+            },
+        }
+    }
+    built = _build_graph(wf, {}, {})
+    inp = built["185"]["inputs"]
+    assert inp["text"] == "First Sampling"
+    assert inp["font"] == "Quicksand-Bold.ttf"
+    assert inp["font_size"] == 40
+    assert inp["height"] == 90
+    assert inp["color"] == "light"
+    assert inp["enable_resize"] is False
+    assert inp["longer_size"] == 1024
