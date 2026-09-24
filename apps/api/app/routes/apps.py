@@ -1331,9 +1331,13 @@ _SCHEDULER_ALIAS_TO_LOCAL: dict[str, str] = {
 
 # RH 图偶发 res_2s / res_2m 采样器名(wave18 实证 4 例):真机 44 项枚举里
 # "2s" 系只有 dpmpp_2s_ancestral、"2m" 系有 dpmpp_2m,按最接近项映射。
+# sa_solver:枚举内有,但 workstation 长驻 Comfy 双栈 cusolver 下
+# torch.linalg.solve → cusolverDnCreate INTERNAL_ERROR(设备 2026-09-24
+# 实证 rh-acc-2588987393);改 euler 避开该路径。
 _SAMPLER_ALIAS_TO_LOCAL: dict[str, str] = {
     "res_2s": "dpmpp_2s_ancestral",
     "res_2m": "dpmpp_2m",
+    "sa_solver": "euler",
 }
 
 

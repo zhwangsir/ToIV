@@ -475,6 +475,7 @@ def test_build_graph_scheduler_sampler_aliases():
         "45": {"class_type": "KSampler", "inputs": {"scheduler": "beta57", "sampler_name": "res_2s"}},
         "4": {"class_type": "KSampler", "inputs": {"scheduler": "bong_tangent", "sampler_name": "res_2m"}},
         "7": {"class_type": "KSampler", "inputs": {"scheduler": "karras", "sampler_name": "euler"}},
+        "8": {"class_type": "KSampler", "inputs": {"scheduler": "beta", "sampler_name": "sa_solver"}},
     }
     built = _build_graph(graph, {}, {})
     assert built["45"]["inputs"]["scheduler"] == "beta"
@@ -483,6 +484,7 @@ def test_build_graph_scheduler_sampler_aliases():
     assert built["4"]["inputs"]["sampler_name"] == "dpmpp_2m"
     assert built["7"]["inputs"]["scheduler"] == "karras"
     assert built["7"]["inputs"]["sampler_name"] == "euler"
+    assert built["8"]["inputs"]["sampler_name"] == "euler"
 
 
 def test_build_graph_scheduler_alias_after_binding_write():
