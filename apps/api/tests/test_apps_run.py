@@ -2155,6 +2155,44 @@ def test_build_graph_model_sampling_sd3_no_fake_model_when_hidden_empty():
     assert built["4"]["inputs"]["model"] == ["83", 0]
 
 
+
+def test_build_graph_sdpose_drops_grounding_dino_when_yolo_present():
+    """有 YOLO 时卸 GroundingDINO loader,避免 Bert get_head_mask 炸。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "199": {
+            "class_type": "SDPoseOODLoader",
+            "inputs": {"model_type": "WholeBody", "unet_precision": "bf16", "device": "cuda"},
+        },
+        "200": {
+            "class_type": "GroundingDinoModelLoader_SDPose",
+            "inputs": {"model_name": "GroundingDINO_SwinT_OGC (694MB)"},
+        },
+        "201": {
+            "class_type": "YOLOModelLoader",
+            "inputs": {"model_name": "person_yolov8m-seg.pt"},
+        },
+        "202": {
+            "class_type": "SDPoseOODProcessor",
+            "inputs": {
+                "sdpose_model": ["199", 0],
+                "images": ["177", 0],
+                "yolo_model": ["201", 0],
+                "grounding_dino_model": ["200", 0],
+                "score_threshold": 0.2,
+            },
+        },
+        "177": {"class_type": "VHS_LoadVideo", "inputs": {"video": "a.mp4"}},
+    }
+    built = _build_graph(graph, {}, {})
+    assert "200" not in built
+    assert "grounding_dino_model" not in built["202"]["inputs"]
+    assert built["202"]["inputs"]["yolo_model"] == ["201", 0]
+    assert "201" in built
+
+
+
 def test_build_graph_empty_h3_prompt_text_filled():
     """H3 Encode.prompt → 空 CR Text 时填兜底;非空不动;空串绑定不覆盖。"""
     from app.routes.apps import _build_graph, _H3_PROMPT_FALLBACK

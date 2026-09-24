@@ -2094,6 +2094,42 @@ def _normalize_model_sampling_sd3_hidden(graph: dict) -> None:
         inputs["model"] = [upstream[0], upstream[1]]
 
 
+def _normalize_sdpose_drop_grounding_dino(graph: dict) -> None:
+    """卸掉 GroundingDinoModelLoader_SDPose,SDPose 改走 YOLO / 全图兜底。
+
+    transformers≥4.5x 上 groundingdino BertModel 无 get_head_mask,加载即炸
+    (2026-09-24 rh-acc-8938444801 @ :8197 实证)。Processor 本就按
+    Florence2 → GroundingDINO → YOLO → Full Image 回退;有 YOLO 时卸 GD
+    不改语义。删 GD loader 节点并去掉 grounding_dino_model 入边,避免
+    Comfy 仍执行加载。
+    """
+    if not isinstance(graph, dict):
+        return
+    gd_ids = {
+        nid
+        for nid, node in graph.items()
+        if isinstance(node, dict)
+        and node.get("class_type") == "GroundingDinoModelLoader_SDPose"
+    }
+    if not gd_ids:
+        return
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict) or "grounding_dino_model" not in inputs:
+            continue
+        link = inputs.get("grounding_dino_model")
+        if isinstance(link, list) and link and str(link[0]) in gd_ids:
+            inputs.pop("grounding_dino_model", None)
+        elif link is None:
+            inputs.pop("grounding_dino_model", None)
+    for nid in gd_ids:
+        graph.pop(nid, None)
+
+
+
+
 _H3_PROMPT_FALLBACK = "a person in a scene"
 _H3_PROMPT_TEXT_NODES = {
     "CR Text",
@@ -2718,6 +2754,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_seedvr2_attention_mode(graph)
     _normalize_wan_video_set_loras_hidden(graph)
     _normalize_model_sampling_sd3_hidden(graph)
+    _normalize_sdpose_drop_grounding_dino(graph)
     _normalize_empty_h3_prompt_text(graph)
     _normalize_tiny_vae_alias(graph)
     _normalize_sd3_clip_basename(graph)
