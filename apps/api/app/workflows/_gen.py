@@ -53,7 +53,21 @@ def save(name: str, workflow: dict):
 
 
 def _finalize(nodes: list[dict], links: list[list]) -> dict:
-    """组装成 ComfyUI UI 可识别的完整工作流对象。"""
+    """组装成 ComfyUI UI 可识别的完整工作流对象。
+
+    links 为唯一真相:按 (to_node, to_slot) 回写节点 input.link、按 (from_node, from_slot)
+    回写 output.links。手写 input_(…, link_id) 曾与 links 表错号 → UI 转 API 时
+    LTXVConditioning.positive 接到 UNET MODEL(2026-09-25 ltx-txt2video/img2video)。
+    """
+    by_id = {n["id"]: n for n in nodes}
+    for n in nodes:
+        for i in n.get("inputs") or []:
+            i["link"] = None
+        for o in n.get("outputs") or []:
+            o["links"] = []
+    for lid, fn, fs, tn, ts, _typ in links:
+        by_id[tn]["inputs"][ts]["link"] = lid
+        by_id[fn]["outputs"][fs]["links"].append(lid)
     return {
         "last_node_id": max(n["id"] for n in nodes),
         "last_link_id": max(l[0] for l in links) if links else 0,

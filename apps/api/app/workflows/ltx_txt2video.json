@@ -21,7 +21,9 @@
         {
           "name": "MODEL",
           "type": "MODEL",
-          "links": [],
+          "links": [
+            3
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -53,7 +55,10 @@
         {
           "name": "CLIP",
           "type": "CLIP",
-          "links": [],
+          "links": [
+            1,
+            2
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -86,7 +91,9 @@
         {
           "name": "VAE",
           "type": "VAE",
-          "links": [],
+          "links": [
+            10
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -123,7 +130,9 @@
         {
           "name": "CONDITIONING",
           "type": "CONDITIONING",
-          "links": [],
+          "links": [
+            4
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -160,7 +169,9 @@
         {
           "name": "CONDITIONING",
           "type": "CONDITIONING",
-          "links": [],
+          "links": [
+            5
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -190,26 +201,30 @@
         {
           "name": "positive",
           "type": "CONDITIONING",
-          "link": 3
+          "link": 4
         },
         {
           "name": "negative",
           "type": "CONDITIONING",
-          "link": 4
+          "link": 5
         }
       ],
       "outputs": [
         {
           "name": "CONDITIONING",
           "type": "CONDITIONING",
-          "links": [],
+          "links": [
+            6
+          ],
           "shape": 3,
           "slot_index": 0
         },
         {
           "name": "CONDITIONING",
           "type": "CONDITIONING",
-          "links": [],
+          "links": [
+            7
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -240,7 +255,9 @@
         {
           "name": "LATENT",
           "type": "LATENT",
-          "links": [],
+          "links": [
+            8
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -273,7 +290,7 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 5
+          "link": 3
         },
         {
           "name": "positive",
@@ -295,7 +312,9 @@
         {
           "name": "LATENT",
           "type": "LATENT",
-          "links": [],
+          "links": [
+            9
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -343,7 +362,9 @@
         {
           "name": "IMAGE",
           "type": "IMAGE",
-          "links": [],
+          "links": [
+            11
+          ],
           "shape": 3,
           "slot_index": 0
         }

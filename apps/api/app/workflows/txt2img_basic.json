@@ -21,21 +21,28 @@
         {
           "name": "MODEL",
           "type": "MODEL",
-          "links": [],
+          "links": [
+            3
+          ],
           "shape": 3,
           "slot_index": 0
         },
         {
           "name": "CLIP",
           "type": "CLIP",
-          "links": [],
+          "links": [
+            1,
+            2
+          ],
           "shape": 3,
           "slot_index": 0
         },
         {
           "name": "VAE",
           "type": "VAE",
-          "links": [],
+          "links": [
+            8
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -72,7 +79,9 @@
         {
           "name": "CONDITIONING",
           "type": "CONDITIONING",
-          "links": [],
+          "links": [
+            4
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -109,7 +118,9 @@
         {
           "name": "CONDITIONING",
           "type": "CONDITIONING",
-          "links": [],
+          "links": [
+            5
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -140,7 +151,9 @@
         {
           "name": "LATENT",
           "type": "LATENT",
-          "links": [],
+          "links": [
+            6
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -194,7 +207,9 @@
         {
           "name": "LATENT",
           "type": "LATENT",
-          "links": [],
+          "links": [
+            7
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -242,7 +257,9 @@
         {
           "name": "IMAGE",
           "type": "IMAGE",
-          "links": [],
+          "links": [
+            9
+          ],
           "shape": 3,
           "slot_index": 0
         }

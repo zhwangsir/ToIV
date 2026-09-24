@@ -21,7 +21,9 @@
         {
           "name": "MODEL",
           "type": "MODEL",
-          "links": [],
+          "links": [
+            3
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -53,7 +55,10 @@
         {
           "name": "CLIP",
           "type": "CLIP",
-          "links": [],
+          "links": [
+            1,
+            2
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -86,7 +91,10 @@
         {
           "name": "VAE",
           "type": "VAE",
-          "links": [],
+          "links": [
+            6,
+            16
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -123,7 +131,9 @@
         {
           "name": "CONDITIONING",
           "type": "CONDITIONING",
-          "links": [],
+          "links": [
+            4
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -160,7 +170,9 @@
         {
           "name": "CONDITIONING",
           "type": "CONDITIONING",
-          "links": [],
+          "links": [
+            5
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -191,7 +203,9 @@
         {
           "name": "IMAGE",
           "type": "IMAGE",
-          "links": [],
+          "links": [
+            7
+          ],
           "shape": 3,
           "slot_index": 0
         },
@@ -230,7 +244,9 @@
         {
           "name": "AUDIO",
           "type": "AUDIO",
-          "links": [],
+          "links": [
+            10
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -261,7 +277,9 @@
         {
           "name": "AUDIO_VAE",
           "type": "AUDIO_VAE",
-          "links": [],
+          "links": [
+            11
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -313,21 +331,27 @@
         {
           "name": "CONDITIONING",
           "type": "CONDITIONING",
-          "links": [],
+          "links": [
+            8
+          ],
           "shape": 3,
           "slot_index": 0
         },
         {
           "name": "CONDITIONING",
           "type": "CONDITIONING",
-          "links": [],
+          "links": [
+            9
+          ],
           "shape": 3,
           "slot_index": 0
         },
         {
           "name": "LATENT",
           "type": "LATENT",
-          "links": [],
+          "links": [
+            12
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -388,21 +412,27 @@
         {
           "name": "MODEL",
           "type": "MODEL",
-          "links": [],
+          "links": [
+            13
+          ],
           "shape": 3,
           "slot_index": 0
         },
         {
           "name": "CONDITIONING",
           "type": "CONDITIONING",
-          "links": [],
+          "links": [
+            14
+          ],
           "shape": 3,
           "slot_index": 0
         },
         {
           "name": "CONDITIONING",
           "type": "CONDITIONING",
-          "links": [],
+          "links": [
+            15
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -456,7 +486,9 @@
         {
           "name": "LATENT",
           "type": "LATENT",
-          "links": [],
+          "links": [
+            17
+          ],
           "shape": 3,
           "slot_index": 0
         }
@@ -504,7 +536,9 @@
         {
           "name": "IMAGE",
           "type": "IMAGE",
-          "links": [],
+          "links": [
+            18
+          ],
           "shape": 3,
           "slot_index": 0
         }
