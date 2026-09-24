@@ -2396,3 +2396,26 @@ def test_build_graph_custom_add_label_widget_shift():
     assert inp["color"] == "light"
     assert inp["enable_resize"] is False
     assert inp["longer_size"] == 1024
+
+def test_build_graph_unwraps_wan_text_encode_rh_value():
+    from app.routes.apps import _build_graph
+
+    graph = _build_graph(
+        {
+            "1": {
+                "class_type": "WanVideoTextEncode",
+                "inputs": {
+                    "positive_prompt": "a",
+                    "negative_prompt": "b",
+                    "device": {"__value__": [False, True]},
+                    "use_disk_cache": {"__value__": [False, True]},
+                },
+            }
+        },
+        {},
+        {},
+    )
+    inputs = graph["1"]["inputs"]
+    assert inputs["device"] == "cpu"
+    assert inputs["use_disk_cache"] is True
+

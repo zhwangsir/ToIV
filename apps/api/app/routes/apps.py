@@ -1013,6 +1013,53 @@ def _normalize_wan_video_quantization(graph: dict) -> None:
         inputs["quantization"] = fixed if fixed in valid else "disabled"
 
 
+def _unwrap_rh_widget_value(raw: object, options: list | tuple | None = None, default: object = None) -> object:
+    """RH 控件偶发把 combo/bool 包成 {"__value__": [False, True, ...]}。
+
+    与 options 等长时取第一个 True 对应项;无 options 且长度为 2 的布尔对
+    按 [选否, 选是] 解成 bool。解不出则回落 default(若给)或原值。
+    """
+    if isinstance(raw, dict) and "__value__" in raw:
+        raw = raw.get("__value__")
+    if isinstance(raw, list) and raw and all(isinstance(x, bool) for x in raw):
+        if options is not None and len(options) == len(raw):
+            for opt, flag in zip(options, raw):
+                if flag:
+                    return opt
+            return default if default is not None else options[0]
+        if len(raw) == 2 and options is None:
+            # [False, True] → True; [True, False] → False
+            if raw[0] != raw[1]:
+                return bool(raw[1])
+            return bool(raw[0])
+    return raw if default is None else (default if raw is None else raw)
+
+
+def _normalize_wan_video_text_encode(graph: dict) -> None:
+    """WanVideoTextEncode:RH `__value__` 布尔数组 → device/use_disk_cache 真值。
+
+    真机 optional device combo ['gpu','cpu'] default gpu; use_disk_cache BOOLEAN。
+    RH 图写 {"__value__": [False, True]} 原样提交 → Value not in list
+    (2026-09-24 rh-acc-0845298689 实证)。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict) or node.get("class_type") != "WanVideoTextEncode":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        if "device" in inputs:
+            inputs["device"] = _unwrap_rh_widget_value(
+                inputs.get("device"), options=("gpu", "cpu"), default="gpu"
+            )
+        if "use_disk_cache" in inputs:
+            inputs["use_disk_cache"] = _unwrap_rh_widget_value(
+                inputs.get("use_disk_cache"), default=False
+            )
+
+
 def _normalize_text_multiline_dynamic_prompts(graph: dict) -> None:
     """WAS Text Multiline 新版 schema 要求 dynamic_prompts;RH/旧图常只有 text。
 
@@ -2727,6 +2774,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_node_class_aliases(graph)
     _normalize_text_multiline_dynamic_prompts(graph)
     _normalize_wan_video_quantization(graph)
+    _normalize_wan_video_text_encode(graph)
     _normalize_melband_roformer(graph)
     _normalize_ailab_qwen_vl(graph)
     _normalize_wan_video_sampler_teacache(graph)
