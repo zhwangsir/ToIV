@@ -1848,6 +1848,31 @@ def test_build_graph_image_rembg_model_rename():
 
 
 
+
+def test_build_graph_wan_text_encode_hidden_prompt():
+    """WanVideoTextEncode.positive_prompt ← RHHidden → 改挂壳内 TextInput_。"""
+    from app.routes.apps import _build_graph
+
+    wf = {
+        "22": {"class_type": "TextInput_", "inputs": {"text": "一个动漫风格美女健身"}},
+        "59": {
+            "class_type": "RHHiddenNodes",
+            "inputs": {"ref_image_0": ["21", 0], "text2_1": ["22", 0], "pwd": ""},
+        },
+        "13": {
+            "class_type": "WanVideoTextEncode",
+            "inputs": {
+                "t5": ["7", 0],
+                "positive_prompt": ["59", 0],
+                "negative_prompt": "bad",
+            },
+        },
+    }
+    built = _build_graph(wf, {}, {})
+    assert built["13"]["inputs"]["positive_prompt"] == ["22", 0]
+
+
+
 def test_build_graph_compress_images_rename_and_saveimage_wire():
     """CompressImages 旧字段名 → images;孤儿 SaveImage 接同一 IMAGE 源;已连线不动。"""
     from app.routes.apps import _build_graph

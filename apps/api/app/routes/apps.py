@@ -2098,6 +2098,61 @@ def _normalize_seedvr2_attention_mode(graph: dict) -> None:
             inputs["attention_mode"] = "sdpa"
 
 
+
+def _hidden_text_upstream_link(hidden: dict) -> list | None:
+    """从 RHHiddenNodes.inputs 取壳内文本上游(text* / prompt* / STRING 槽)。"""
+    inputs = hidden.get("inputs")
+    if not isinstance(inputs, dict):
+        return None
+    preferred = (
+        "text2_1",
+        "text_1",
+        "text",
+        "prompt",
+        "positive",
+        "positive_prompt",
+    )
+    for key in preferred:
+        v = inputs.get(key)
+        if isinstance(v, list) and len(v) >= 2:
+            return [v[0], v[1]]
+    for key, v in inputs.items():
+        if not isinstance(key, str) or not isinstance(v, list) or len(v) < 2:
+            continue
+        low = key.lower()
+        if low.startswith(("text", "prompt", "string")):
+            return [v[0], v[1]]
+    return None
+
+
+def _normalize_wan_text_encode_hidden_prompt(graph: dict) -> None:
+    """WanVideoTextEncode.*_prompt ← RHHiddenNodes(IMAGE):改挂壳内 text* 上游 STRING。
+
+    RH 密码组 object_info 只暴露 IMAGE;旧图把 TextInput_/CR Prompt 经 text2_1
+    塞进壳再接 WanVideoTextEncode.positive_prompt → received_type(IMAGE)
+    mismatch input_type(STRING)(2026-09-24 rh-acc-0157732866 实证)。有 text*
+    连线则改挂该上游;无则不发明提示词。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict) or node.get("class_type") != "WanVideoTextEncode":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        for field in ("positive_prompt", "negative_prompt"):
+            link = inputs.get(field)
+            if not (isinstance(link, list) and len(link) >= 2):
+                continue
+            src = graph.get(str(link[0]))
+            if not isinstance(src, dict) or src.get("class_type") != "RHHiddenNodes":
+                continue
+            upstream = _hidden_text_upstream_link(src)
+            if upstream is not None:
+                inputs[field] = [upstream[0], upstream[1]]
+
+
 def _normalize_wan_video_set_loras_hidden(graph: dict) -> None:
     """WanVideoSetLoRAs.lora ← RHHiddenNodes:改挂图内 WanVideoLoraSelect*。
 
@@ -2860,6 +2915,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_seedvr2_cache_model_bool(graph)
     _normalize_seedvr2_attention_mode(graph)
     _normalize_wan_video_set_loras_hidden(graph)
+    _normalize_wan_text_encode_hidden_prompt(graph)
     _normalize_model_sampling_sd3_hidden(graph)
     _normalize_sdpose_drop_grounding_dino(graph)
     _normalize_empty_h3_prompt_text(graph)
@@ -2915,6 +2971,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_seedvr2_cache_model_bool(graph)
     _normalize_seedvr2_attention_mode(graph)
     _normalize_wan_video_set_loras_hidden(graph)
+    _normalize_wan_text_encode_hidden_prompt(graph)
     _normalize_model_sampling_sd3_hidden(graph)
     _normalize_empty_h3_prompt_text(graph)
     _normalize_nunchaku_sm120_fp4(graph)
