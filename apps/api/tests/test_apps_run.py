@@ -2148,3 +2148,16 @@ def test_build_graph_strips_unbound_hash_load_saveimage_only():
     assert "13" in built
     assert "25" not in built and "26" not in built
 
+
+
+def test_normalize_sec_model_file_sharded_alias():
+    """RH SeC-4B (sharded) → 现网单文件枚举值。"""
+    from app.routes.apps import _build_graph
+
+    built = _build_graph(
+        {"250": {"class_type": "SeCModelLoader", "inputs": {"model_file": "SeC-4B (sharded)", "use_flash_attn": True}}},
+        {},
+        {},
+    )
+    assert built["250"]["inputs"]["model_file"] == "SeC-4B-fp16.safetensors"
+    assert built["250"]["inputs"]["use_flash_attn"] is False

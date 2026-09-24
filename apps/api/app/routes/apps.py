@@ -1399,6 +1399,10 @@ _MODEL_FILE_ALIASES: dict[str, str] = {
     "qwen_image_layered_fp8_e4m3fn.safetensors": "qwen_image_layered_fp8mixed.safetensors",
     # Comfy-Org/z_image_turbo(RH 改名副本)
     "new_Z-Image_Turbo-diffusion.safetensors": "z_image_turbo_bf16.safetensors",
+    # SeC loader 只枚举单文件;RH 图写 sharded 目录名(2026-09-24
+    # rh-acc-1051204609;设备核实 :8197 仅 SeC-4B-fp16/bf16.safetensors)
+    "SeC-4B (sharded)": "SeC-4B-fp16.safetensors",
+    "SeC-4B": "SeC-4B-fp16.safetensors",
 }
 
 _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
@@ -1408,6 +1412,7 @@ _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
     "VAELoader": ("vae_name",),
     "UpscaleModelLoader": ("model_name",),
     "CLIPLoader": ("clip_name",),
+    "SeCModelLoader": ("model_file",),
 }
 
 # 缺失字体 → fleet 在列替代(ComfyRoll fonts 目录,:8196/:8197 object_info 实证)。
