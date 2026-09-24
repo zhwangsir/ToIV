@@ -703,6 +703,93 @@ def _omit_media_slot(graph: dict, node_id: object) -> None:
         graph.pop(d, None)
 
 
+
+def _media_kind_of_loader(class_type: str | None) -> str | None:
+    """Load* 类 → image/video/audio;未知返回 None。"""
+    if not isinstance(class_type, str):
+        return None
+    if class_type == "LoadImage" or class_type.endswith("LoadImage"):
+        return "image"
+    if class_type in ("LoadAudio", "VHS_LoadAudioUpload"):
+        return "audio"
+    if class_type in ("LoadVideo", "VHS_LoadVideo", "VHS_LoadVideoPath"):
+        return "video"
+    if "Audio" in class_type and "Load" in class_type:
+        return "audio"
+    if "Video" in class_type and "Load" in class_type:
+        return "video"
+    return None
+
+
+def _is_stale_rh_media_stem(fname: str) -> bool:
+    stem = fname.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    return bool(_STALE_RH_HASH_RE.match(stem) or _STALE_TOIVREF_RE.match(stem))
+
+
+def _normalize_unbound_stale_rh_media_to_bound(graph: dict, bindings: dict) -> None:
+    """无法安全剥离的 RH 哈希 Load*:改写为已绑定/可用的同类型媒体文件名。
+
+    典型:RH 图只绑 1 个 LoadImage 表单槽,其余哈希图仍喂主链
+    (llama_cpp_instruct_adv / VAEEncode 等)→ Invalid image file。
+    表单已上传的那张图是合法替身;烟测 fixture 同理(2026-09-24 rh-acc-064969)。
+    """
+    if not isinstance(graph, dict) or not graph:
+        return
+    bound: set[str] = set()
+    for target in (bindings or {}).values():
+        slots = target if isinstance(target, list) else [target]
+        for slot in slots:
+            if isinstance(slot, dict) and slot.get("node"):
+                bound.add(str(slot["node"]))
+
+    donors: dict[str, list[str]] = {"image": [], "video": [], "audio": []}
+
+    def _offer(nid: str, prefer_bound: bool) -> None:
+        node = graph.get(nid)
+        if not isinstance(node, dict):
+            return
+        if prefer_bound and str(nid) not in bound:
+            return
+        if (not prefer_bound) and str(nid) in bound:
+            return
+        kind = _media_kind_of_loader(node.get("class_type"))
+        fname = _stale_rh_media_filename(node)
+        if not kind or not fname or _is_stale_rh_media_stem(fname):
+            return
+        if fname not in donors[kind]:
+            donors[kind].append(fname)
+
+    for nid in list(graph.keys()):
+        _offer(str(nid), prefer_bound=True)
+    for nid in list(graph.keys()):
+        _offer(str(nid), prefer_bound=False)
+    if not any(donors.values()):
+        return
+
+    for nid, node in list(graph.items()):
+        if not isinstance(node, dict) or str(nid) in bound:
+            continue
+        kind = _media_kind_of_loader(node.get("class_type"))
+        fname = _stale_rh_media_filename(node)
+        if not kind or not fname or not _is_stale_rh_media_stem(fname):
+            continue
+        donor_list = donors.get(kind) or []
+        if not donor_list:
+            continue
+        donor = donor_list[0]
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        keys = _MEDIA_LOADER_KEYS.get(node.get("class_type") or "")
+        if keys is None and "Load" in str(node.get("class_type") or ""):
+            keys = ("image", "video", "audio", "file")
+        for k in keys or ():
+            v = inputs.get(k)
+            if isinstance(v, str) and v.strip() == fname:
+                inputs[k] = donor
+                break
+
+
 # RH 导入残留的「原站用户媒体」Load* 节点:文件名为内容哈希(sha256,或 pasted/<hash>),
 # 未绑定任何表单槽——文件只存在于 RH 原站,任何 worker 都没有,提交必 502(转运)
 # 或 422(校验 Invalid image file → 主保存节点判死)。2026-09-13 wave10-16 实证 11 例。
@@ -2637,6 +2724,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_ltxv_dynamiccombo(graph)
     _normalize_ltxv_img2video_num_images(graph)
     _normalize_stale_rh_media(graph, bindings)
+    _normalize_unbound_stale_rh_media_to_bound(graph, bindings)
     return graph
 
 

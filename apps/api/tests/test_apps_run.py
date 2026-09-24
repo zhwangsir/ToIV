@@ -449,6 +449,25 @@ def test_build_graph_keeps_bound_or_unstrippable_load_nodes():
     assert "240" in built
 
 
+def test_build_graph_rewrites_unstrippable_hash_load_to_bound_image():
+    """无法剥离的哈希 Load* 改用已绑定上传文件名(064969 单槽多哈希)。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "207": {"class_type": "LoadImage", "inputs": {"image": _HASH_IMG}},
+        "30": {"class_type": "VAEEncode", "inputs": {"pixels": ["207", 0]}},
+        "137": {"class_type": "LoadImage", "inputs": {"image": _HASH_IMG}},
+        "9": {"class_type": "SaveImage", "inputs": {"images": ["30", 0]}},
+    }
+    bindings = {"loadimage_image": {"node": "137", "field": "inputs.image"}}
+    built = _build_graph(graph, bindings, {"loadimage_image": "user_upload.png"})
+    assert built["137"]["inputs"]["image"] == "user_upload.png"
+    assert built["207"]["inputs"]["image"] == "user_upload.png"
+    # 库内原件不动
+    assert graph["207"]["inputs"]["image"] == _HASH_IMG
+
+
+
 _TOIVREF_IMG = "toivref-2cbdebc680534affa8695cc725d07a89.jpg"
 
 
