@@ -1597,23 +1597,80 @@ def _normalize_model_file_aliases(graph: dict) -> None:
                     inputs[k] = mapped
 
 
-def _normalize_image_rembg_model(graph: dict) -> None:
-    """Image Rembg(Remove Background) 旧版入参 `model` → 现网 required `rembg_model`。
+# WAS Image Rembg 现网要 REMBG_MODEL(来自 WASRembgModelLoader),不再吃字符串
+# rembg 名。RH/旧图仍写 model=u2net 或 rembg_model="u2net" → AttributeError
+# `'str' object has no attribute 'name'`(2026-09-24 rh-acc-4834981890 @ :8196)。
+_WAS_REMBG_LEGACY_MODEL_TO_LOADER: dict[str, str] = {
+    "u2net": "BiRefNet General",
+    "u2netp": "BiRefNet General 512",
+    "u2net_human_seg": "BiRefNet Portrait",
+    "u2net_cloth_seg": "BiRefNet General",
+    "silueta": "BiRefNet General 512",
+    "isnet-general-use": "BiRefNet General",
+    "isnet-anime": "BiRefNet Fine Detail",
+    "sam": "BiRefNet General",
+    # 已是新 loader 枚举名时原样保留
+    "BiRefNet General": "BiRefNet General",
+    "BiRefNet General HR": "BiRefNet General HR",
+    "BiRefNet General Dynamic": "BiRefNet General Dynamic",
+    "BiRefNet General 512": "BiRefNet General 512",
+    "BiRefNet Portrait": "BiRefNet Portrait",
+    "BiRefNet Matting HR": "BiRefNet Matting HR",
+    "BiRefNet Fine Detail": "BiRefNet Fine Detail",
+    "BiRefNet Fine Detail Extended": "BiRefNet Fine Detail Extended",
+    "BiRefNet Camouflage": "BiRefNet Camouflage",
+    "BiRefNet Salient Object": "BiRefNet Salient Object",
+    "BEN2": "BEN2",
+}
 
-    :8196 object_info 2026-09-14 实证:required 含 rembg_model(REMBG_MODEL combo),
-    RH 旧图落旧字段名 model → required_input_missing 判死保存链。值(u2net 等)
-    为 rembg 模型名,combo 动态取自已装 rembg 包,原值合法即保留。
+
+def _alloc_graph_node_id(graph: dict, prefix: str = "wasrembg") -> str:
+    """给注入节点分配不冲突的字符串 id。"""
+    n = 0
+    while True:
+        cand = f"{prefix}_{n}"
+        if cand not in graph:
+            return cand
+        n += 1
+
+
+def _normalize_image_rembg_model(graph: dict) -> None:
+    """Image Rembg:旧字符串 model/rembg_model → 注入 WASRembgModelLoader 并接线。
+
+    现网(:8196 2026-09-24):required rembg_model 类型是 REMBG_MODEL,须由
+    WASRembgModelLoader 输出;再塞 u2net 等 str 会在 was image_rembg.py
+    取 rembg_model.name 时 AttributeError。已是 [nid,0] 连线则不动。
     """
     if not isinstance(graph, dict):
         return
-    for node in graph.values():
+    for nid, node in list(graph.items()):
         if not isinstance(node, dict) or node.get("class_type") != "Image Rembg (Remove Background)":
             continue
         inputs = node.get("inputs")
         if not isinstance(inputs, dict):
             continue
-        if "rembg_model" not in inputs and "model" in inputs:
-            inputs["rembg_model"] = inputs.pop("model")
+        cur = inputs.get("rembg_model")
+        if cur is None and "model" in inputs:
+            cur = inputs.pop("model")
+        if isinstance(cur, list) and len(cur) >= 1:
+            # 已接 loader
+            inputs.pop("model", None)
+            continue
+        if not isinstance(cur, str) or not cur.strip():
+            # 缺值:仍注入默认 General,避免 required_input_missing
+            legacy = "u2net"
+        else:
+            legacy = cur.strip()
+            inputs.pop("model", None)
+        loader_model = _WAS_REMBG_LEGACY_MODEL_TO_LOADER.get(
+            legacy, "BiRefNet General"
+        )
+        loader_id = _alloc_graph_node_id(graph)
+        graph[loader_id] = {
+            "class_type": "WASRembgModelLoader",
+            "inputs": {"model": loader_model},
+        }
+        inputs["rembg_model"] = [loader_id, 0]
 
 
 def _normalize_compress_images(graph: dict) -> None:

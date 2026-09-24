@@ -1819,23 +1819,33 @@ def test_build_graph_upscale_model_alias_to_local_safetensors():
 
 
 def test_build_graph_image_rembg_model_rename():
-    """Image Rembg 旧入参 model → required rembg_model;已有 rembg_model 不动。"""
+    """Image Rembg 旧字符串 model/rembg_model → 注入 WASRembgModelLoader 连线。"""
     from app.routes.apps import _build_graph
 
-    graph = {
+    wf = {
         "363": {
             "class_type": "Image Rembg (Remove Background)",
-            "inputs": {"images": ["361", 0], "model": "u2net", "alpha_matting": False},
+            "inputs": {"images": ["361", 0], "model": "u2net", "transparency": False},
         },
         "364": {
             "class_type": "Image Rembg (Remove Background)",
-            "inputs": {"images": ["361", 0], "rembg_model": "isnet-general-use"},
+            "inputs": {"images": ["361", 0], "rembg_model": "isnet-anime"},
+        },
+        "365": {
+            "class_type": "Image Rembg (Remove Background)",
+            "inputs": {"images": ["361", 0], "rembg_model": ["9", 0]},
         },
     }
-    built = _build_graph(graph, {}, {})
-    assert built["363"]["inputs"]["rembg_model"] == "u2net"
+    built = _build_graph(wf, {}, {})
+    link = built["363"]["inputs"]["rembg_model"]
+    assert isinstance(link, list) and link[0] in built
+    assert built[link[0]]["class_type"] == "WASRembgModelLoader"
+    assert built[link[0]]["inputs"]["model"] == "BiRefNet General"
     assert "model" not in built["363"]["inputs"]
-    assert built["364"]["inputs"]["rembg_model"] == "isnet-general-use"
+    link2 = built["364"]["inputs"]["rembg_model"]
+    assert built[link2[0]]["inputs"]["model"] == "BiRefNet Fine Detail"
+    assert built["365"]["inputs"]["rembg_model"] == ["9", 0]
+
 
 
 def test_build_graph_compress_images_rename_and_saveimage_wire():
