@@ -1902,6 +1902,10 @@ _MISSING_REQUIRED_DEFAULTS: dict[str, dict[str, object]] = {
     # (object_info default "");RH 旧图常缺 → required_input_missing
     # (2026-09-25 rh-acc-6231837698 实证)。
     "Florence2Run": {"text_input": ""},
+    # PainterNodes 升级后 PainterVRAM 新增 auto_max/seed;mtb String Replace 新增 use_regex
+    # (:8196 object_info 2026-09-25 实证;rh-acc-2804021249 required_input_missing)
+    "PainterVRAM": {"auto_max": 0.0, "seed": 0},
+    "String Replace (mtb)": {"use_regex": False},
 }
 
 
