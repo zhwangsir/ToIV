@@ -8,7 +8,7 @@
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Query, APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session
 
@@ -34,11 +34,12 @@ async def smoke_one_app(
     admin: User = Depends(get_current_admin),
     pool: WorkerPool = Depends(get_pool),
     session: Session = Depends(get_session),
+    timeout_s: int | None = Query(default=None, ge=60, le=3600),
 ) -> dict:
     a = session.get(App, app_id)
     if not a:
         raise HTTPException(status_code=404, detail="应用不存在")
-    result = await smoke_svc.run_app_smoke(pool, session, a)
+    result = await smoke_svc.run_app_smoke(pool, session, a, timeout_s=timeout_s)
     audit.record(
         session, user=admin, action="app.smoke", target_type="app", target_id=app_id,
         summary=f"烟测 {result['status']} {result['cls']}", detail=result,

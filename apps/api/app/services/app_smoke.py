@@ -32,6 +32,38 @@ _MEDIA_FIXTURE = {
     "audio": ("dlg_h3b.wav", "audio/wav"),
 }
 _SMKE_TIMEOUT = {"image": 480, "audio": 480, "video": 1800}
+# O3 超时分级:output_kind=image 但图里跑视频/大模型链(wan 图生视频输出帧序列、
+# 27B LLM 分镜、RIFE/SeedVR2/FlashVSR 超分插帧)按视频档计时。烟测超时并不会
+# 取消 worker 上的作业,GPU 时间照样花掉,480s 只会把「慢但能出」误记 timeout,
+# 还让下一张卡排队连带超时(2026-09-25 rh-acc-2804021249 实证)。
+_HEAVY_CLASS_MARKERS = (
+    "WanVideo", "WanImageToVideo", "WanFirstLastFrame", "WanAnimate", "WanVace",
+    "LTXV", "HunyuanVideo", "HyVideo", "SeedVR2", "FlashVSR", "RIFE", "VFI",
+    "llama_cpp", "SVD_img2vid", "CogVideo", "Mochi",
+)
+_HEAVY_WEIGHT_MARKERS = ("wan2", "wan_2", "ltx", "hunyuan", "cogvideo", "mochi")
+_SMKE_TIMEOUT_MAX = 3600
+
+
+def smoke_limit(graph: dict, output_kind: str, override: int | None = None) -> int:
+    """烟测轮询上限(秒):显式 override 优先;image/audio 图含重链时升到视频档。"""
+    if override:
+        return max(60, min(int(override), _SMKE_TIMEOUT_MAX))
+    base = _SMKE_TIMEOUT.get(output_kind, 300)
+    if base >= _SMKE_TIMEOUT["video"]:
+        return base
+    for n in (graph or {}).values():
+        if not isinstance(n, dict):
+            continue
+        ct = str(n.get("class_type") or "")
+        if any(m in ct for m in _HEAVY_CLASS_MARKERS):
+            return _SMKE_TIMEOUT["video"]
+        if ct in ("UNETLoader", "CheckpointLoaderSimple"):
+            name = str((n.get("inputs") or {}).get("unet_name")
+                       or (n.get("inputs") or {}).get("ckpt_name") or "").lower()
+            if any(m in name for m in _HEAVY_WEIGHT_MARKERS):
+                return _SMKE_TIMEOUT["video"]
+    return base
 _SMKE_ERROR_MAX = 300
 
 _SMKE_TASK: asyncio.Task | None = None
@@ -296,6 +328,7 @@ async def run_app_smoke(
     pool: WorkerPool, session: Session, app: App,
     *, workflow_override: dict | None = None, allow_llm: bool = True,
     values_override: dict | None = None, collect_result: bool = False,
+    timeout_s: int | None = None,
 ) -> dict:
     """单应用真跑一遍;结果落 App.smoke_*;返回 {status, cls, detail, fixes}。
 
@@ -372,7 +405,16 @@ async def run_app_smoke(
                 last_msg = "工作流校验未通过,主保存节点不会执行: " + "; ".join(reasons or sorted(doomed))
                 last_ne = node_errors or {}
             else:
-                status, msg, out_files = await _poll_history(client, prompt_id, app.output_kind or "image")
+                limit = smoke_limit(graph, app.output_kind or "image", timeout_s)
+                status, msg, out_files = await _poll_history(
+                    client, prompt_id, app.output_kind or "image", limit=limit)
+                timed_out = status == "error" and msg.startswith("poll exceeded")
+                if timed_out:
+                    # 到点仍未出片:清掉 worker 上的这张作业,免得拖累后续卡连带超时
+                    try:
+                        await client.cancel_prompt(prompt_id)
+                    except Exception:  # noqa: BLE001 — 清场尽力而为
+                        pass
                 if status == "pass":
                     out = _finish(session, app, "pass", {"cls": "", "detail": msg}, fixes_all,
                                   files=out_files if collect_result else None)
@@ -380,6 +422,8 @@ async def run_app_smoke(
                         out["worker"] = client.base_url  # demo 封面按此下载产物
                     return out
                 last_msg, last_ne = msg, node_errors or {}
+                if timed_out:
+                    break  # 超时不是校验问题,combo 重试只会再排一遍重作业
         # 失败 → 确定性修复(combo 校准)后重试一次
         if attempt == 1:
             try:
@@ -422,6 +466,7 @@ async def run_app_smoke(
                 trial = await run_app_smoke(
                     pool, session, app, workflow_override=patched_raw, allow_llm=False,
                     values_override=values_override, collect_result=collect_result,
+                    timeout_s=timeout_s,
                 )
                 note = f"trial={trial['status']} {trial['detail'][:160]} fixes={applied[:3]}"
                 selfheal_llm.record_proposal(
@@ -485,9 +530,11 @@ async def _upload_fixtures(client, graph: dict) -> None:
         await client.upload_image(src.read_bytes(), name)
 
 
-async def _poll_history(client, prompt_id: str, output_kind: str) -> tuple[str, str, list[dict]]:
+async def _poll_history(client, prompt_id: str, output_kind: str,
+                        limit: int | None = None) -> tuple[str, str, list[dict]]:
     """轮询 history:pass(有产物,顺带展平产物清单)/error/timeout。"""
-    limit = _SMKE_TIMEOUT.get(output_kind, 300)
+    if not limit:
+        limit = _SMKE_TIMEOUT.get(output_kind, 300)
     t0 = asyncio.get_event_loop().time()
     while asyncio.get_event_loop().time() - t0 < limit:
         await asyncio.sleep(6)
