@@ -1972,6 +1972,59 @@ def _normalize_rife_vfi(graph: dict) -> None:
             inputs["ckpt_name"] = inputs.pop("rife_name")
 
 
+def _normalize_duck_hide_node(graph: dict) -> None:
+    """DuckHideNode(鸭鸭图 媒体内容保护):RH 私有加密封装,本地无此节点。
+
+    实证 2026-09-25 rh-acc-1484729345:RIFE 补帧后 → DuckHideNode → SaveImage,
+    输出是一张"加密图",对用户无意义且 missing_node_type。本地化:
+    combine_video=True 时就地换成 VHS_VideoCombine(fps 沿用),并删掉只吃
+    它输出的 SaveImage/PreviewImage;否则把下游改挂到它的 images 输入(直通)。
+    """
+    if not isinstance(graph, dict):
+        return
+    for nid, node in list(graph.items()):
+        if not isinstance(node, dict) or node.get("class_type") != "DuckHideNode":
+            continue
+        inputs = node.get("inputs") if isinstance(node.get("inputs"), dict) else {}
+        src = inputs.get("images")
+        sid = str(nid)
+        if not (isinstance(src, list) and len(src) == 2):
+            graph.pop(sid, None)
+            continue
+        if inputs.get("combine_video", True):
+            fps = inputs.get("fps")
+            node["class_type"] = "VHS_VideoCombine"
+            node["inputs"] = {
+                "images": src,
+                "frame_rate": fps if isinstance(fps, (int, float)) and fps > 0 else 16,
+                "loop_count": 0,
+                "filename_prefix": "ToIV",
+                "format": "video/h264-mp4",
+                "pingpong": False,
+                "save_output": True,
+            }
+            for oid, other in list(graph.items()):
+                if not isinstance(other, dict):
+                    continue
+                if other.get("class_type") not in ("SaveImage", "PreviewImage"):
+                    continue
+                oin = other.get("inputs") or {}
+                link = oin.get("images")
+                if isinstance(link, list) and link and str(link[0]) == sid:
+                    graph.pop(oid, None)
+        else:
+            graph.pop(sid, None)
+            for other in graph.values():
+                if not isinstance(other, dict):
+                    continue
+                oin = other.get("inputs")
+                if not isinstance(oin, dict):
+                    continue
+                for k, v in list(oin.items()):
+                    if isinstance(v, list) and len(v) == 2 and str(v[0]) == sid:
+                        oin[k] = list(src)
+
+
 def _normalize_custom_add_label_widgets(graph: dict) -> None:
     """CustomAddLabel:RH 控件错位时把 text/font 从错误键挪回。
 
@@ -2984,6 +3037,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_text_load_line_from_file(graph)
     _normalize_llama_cpp_presence_penalty(graph)
     _normalize_rife_vfi(graph)
+    _normalize_duck_hide_node(graph)
     _normalize_custom_add_label_widgets(graph)
     _normalize_required_backfill(graph)
     _normalize_sec_empty_bbox(graph)
