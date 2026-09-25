@@ -531,6 +531,13 @@
 
 ---
 
+
+## 2026-09-25 10:14 CST — closeout monitor: O1 web-only deploy
+
+- 现象：默认 `deploy/deploy.sh` 会重启 `toiv-api`，打断公开市场烟测。
+- 改动：`deploy/deploy.sh` 新增 `--web-only`（只 rsync `apps/web` + `.next`，只重启 `toiv-web`；与 `--skip-web`/`--install` 互斥）。
+- 验证：`bash -n deploy/deploy.sh` 通过。本轮未做真机 web 部署（无前端 diff，避免无意义重启）。
+- 收尾侧：发现 `untested_runner` 在 08:44 API 重启后死亡；已用 API venv 拉起，并加 `tmp/untested_runner.sh` 包装。公开卡约 pass 679 / untested 1291 / timeout 147 / fail 4（启动时快照；runner 已在继续出 PASS）。
 ## P3B-P3C-2026-08-28 · Nunchaku + SeedVR2 + flux2/TeaCache 清理（三线并行）
 
 **时间**: 2026-08-28

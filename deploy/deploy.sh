@@ -7,6 +7,7 @@
 #   deploy/deploy.sh --install       # 首次部署:rsync 后执行远端 install.sh(需 sudo)
 #   deploy/deploy.sh workstation     # 部署到 workstation(默认 core)
 #   deploy/deploy.sh --skip-web      # 本地无 .next 构建产物时仍部署(前端保留远端旧构建)
+#   deploy/deploy.sh --web-only      # 仅前端:rsync web+.next,只重启 toiv-web(不碰 toiv-api,保护烟测)
 #   deploy/deploy.sh --rollback      # 回滚:恢复部署前快照(api/app + web/.next),重启并健康检查
 #
 # -E:ERR trap 在函数内失败时也生效(用于部署失败时打印回滚提示)
@@ -17,12 +18,14 @@ REMOTE="core"
 REMOTE_DIR="/home/merlin/toiv"
 INSTALL=false
 SKIP_WEB=false
+WEB_ONLY=false
 ROLLBACK=false
 
 for arg in "$@"; do
   case "$arg" in
     --install)  INSTALL=true ;;
     --skip-web) SKIP_WEB=true ;;
+    --web-only) WEB_ONLY=true ;;
     --rollback) ROLLBACK=true ;;
     *)          REMOTE="$arg" ;;
   esac
@@ -98,6 +101,15 @@ if [ "$ROLLBACK" = true ]; then
   exit 0
 fi
 
+if [ "$WEB_ONLY" = true ] && [ "$SKIP_WEB" = true ]; then
+  echo "✖ --web-only 与 --skip-web 互斥" >&2
+  exit 1
+fi
+if [ "$WEB_ONLY" = true ] && [ "$INSTALL" = true ]; then
+  echo "✖ --web-only 与 --install 互斥" >&2
+  exit 1
+fi
+
 # 本地构建产物前置检查:toiv-web 是 next start 跑预构建产物,没有 .next 部署上去
 # 就是「没有前端的 web 服务」,直接失败而不是仅警告(可用 --skip-web 显式跳过)
 HAS_WEB_BUILD=false
@@ -111,17 +123,22 @@ else
   exit 1
 fi
 
-echo "▶ 部署目标: ${REMOTE}:${REMOTE_DIR}"
+if [ "$WEB_ONLY" = true ]; then
+  echo "▶ 部署目标: ${REMOTE}:${REMOTE_DIR} (web-only)"
+else
+  echo "▶ 部署目标: ${REMOTE}:${REMOTE_DIR}"
+fi
 
 # rsync 前在远端保存回滚快照:cp -al 硬链接副本,零拷贝开销;
 # rsync 默认先写临时文件再 rename,不会改动快照指向的 inode,快照安全
 echo "▶ 远端保存回滚快照(.rollback-previous)…"
-ssh "${SSH_OPTS[@]}" "${REMOTE}" bash -s -- "${REMOTE_DIR}" <<'REMOTE_EOF'
+ssh "${SSH_OPTS[@]}" "${REMOTE}" bash -s -- "${REMOTE_DIR}" "$WEB_ONLY" <<'REMOTE_EOF'
 set -eu
 cd "$1"
+web_only="$2"
 rm -rf .rollback-previous
 mkdir -p .rollback-previous
-if [ -d api/app ]; then cp -al api/app .rollback-previous/api-app; fi
+if [ "$web_only" != true ] && [ -d api/app ]; then cp -al api/app .rollback-previous/api-app; fi
 if [ -d web/.next ]; then cp -al web/.next .rollback-previous/web-next; fi
 echo "  快照完成"
 REMOTE_EOF
@@ -129,52 +146,74 @@ REMOTE_EOF
 # 快照已就位,此后任一步失败都提示回滚路径
 trap 'echo "✖ 部署失败。可执行 deploy/deploy.sh --rollback ${REMOTE} 回滚到部署前状态" >&2' ERR
 
-echo "▶ rsync 源码 → ${REMOTE} …"
-# 远端 core 仍用旧目录结构 /home/merlin/toiv/{api,web,deploy}
-# --delete:删除远端旧组件残留
-# 注意:deploy/.env 是 core 上的生产配置(含 secret),不在 rsync 范围内,
-# 如需修改生产配置请直接编辑 /home/merlin/toiv/deploy/.env 并重启 toiv-api。
-rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
-  apps/api/ "${REMOTE}:${REMOTE_DIR}/api/"
-rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
-  apps/web/ "${REMOTE}:${REMOTE_DIR}/web/"
-rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
-  deploy/ "${REMOTE}:${REMOTE_DIR}/deploy/"
-echo "  rsync 完成"
-
-if [ "$HAS_WEB_BUILD" = true ]; then
-  # 防呆:部署构建必须是不带 INTERNAL_API_BASE 的(默认烘焙 localhost:8090)。
-  # 本地验证用的 8200 构建若误部署,core 上 /api 代理全 500(2026-08-07 批3 事故)。
-  # 两种写法都要拦:localhost:8200 与 127.0.0.1:8200(2026-08-10 .env.local 用后者,漏检过一次)
+if [ "$WEB_ONLY" = true ]; then
+  if [ "$HAS_WEB_BUILD" != true ]; then
+    echo "✖ --web-only 需要本地 apps/web/.next 构建产物" >&2
+    echo "  请先 cd apps/web && npm run build" >&2
+    exit 1
+  fi
   if grep -qE "(localhost|127\.0\.0\.1):8200" apps/web/.next/routes-manifest.json 2>/dev/null; then
     echo "✖ .next 是本地验证构建(API 代理烘焙为 8200)。请先执行:cd apps/web && npm run build" >&2
     exit 1
   fi
+  echo "▶ rsync 前端源码 → ${REMOTE}(不碰 api)…"
+  rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
+    apps/web/ "${REMOTE}:${REMOTE_DIR}/web/"
   echo "▶ rsync 前端构建产物(.next) → ${REMOTE} …"
   rsync -az --delete -e "ssh ${SSH_OPTS[*]}" --exclude=cache \
     apps/web/.next/ "${REMOTE}:${REMOTE_DIR}/web/.next/"
-  echo "  .next 完成"
-fi
-
-if [ "$INSTALL" = true ]; then
-  echo "▶ 远端执行真机安装脚本(需要 sudo) ..."
-  ssh "${SSH_OPTS[@]}" "${REMOTE}" \
-    "sudo bash ${REMOTE_DIR}/deploy/bare-metal/install.sh"
-  # install.sh 内部负责 enable/start,这里只负责等待两服务就绪
-  # 健康探测用 /api/health(openapi.json 已按 TOIV_EXPOSE_API_DOCS 门控,默认关)
-  remote_wait_health "toiv-api" "http://localhost:8090/api/health"
-  remote_wait_health "toiv-web" "http://localhost:3100"
-else
-  echo "▶ 远端重载配置 …"
-  ssh "${SSH_OPTS[@]}" "${REMOTE}" "sudo systemctl daemon-reload"
-  # 依次重启:先 api 后 web,各自重启后立即做该服务健康等待,
-  # 缩短整体停机窗口,且 api 起不来时不会白白重启 web
-  remote_restart toiv-api
-  # 健康探测用 /api/health 而非 /openapi.json:后者自 QA-FULL-2026-08-11 起
-  # 按 TOIV_EXPOSE_API_DOCS 门控(默认关闭),探测它会误判服务未就绪
-  remote_wait_health "toiv-api" "http://localhost:8090/api/health"
+  echo "  web+.next 完成"
+  echo "▶ 仅重启 toiv-web(保留 toiv-api / 烟测)…"
   remote_restart toiv-web
   remote_wait_health "toiv-web" "http://localhost:3100"
+else
+  echo "▶ rsync 源码 → ${REMOTE} …"
+  # 远端 core 仍用旧目录结构 /home/merlin/toiv/{api,web,deploy}
+  # --delete:删除远端旧组件残留
+  # 注意:deploy/.env 是 core 上的生产配置(含 secret),不在 rsync 范围内,
+  # 如需修改生产配置请直接编辑 /home/merlin/toiv/deploy/.env 并重启 toiv-api。
+  rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
+    apps/api/ "${REMOTE}:${REMOTE_DIR}/api/"
+  rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
+    apps/web/ "${REMOTE}:${REMOTE_DIR}/web/"
+  rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
+    deploy/ "${REMOTE}:${REMOTE_DIR}/deploy/"
+  echo "  rsync 完成"
+
+  if [ "$HAS_WEB_BUILD" = true ]; then
+    # 防呆:部署构建必须是不带 INTERNAL_API_BASE 的(默认烘焙 localhost:8090)。
+    # 本地验证用的 8200 构建若误部署,core 上 /api 代理全 500(2026-08-07 批3 事故)。
+    # 两种写法都要拦:localhost:8200 与 127.0.0.1:8200(2026-08-10 .env.local 用后者,漏检过一次)
+    if grep -qE "(localhost|127\.0\.0\.1):8200" apps/web/.next/routes-manifest.json 2>/dev/null; then
+      echo "✖ .next 是本地验证构建(API 代理烘焙为 8200)。请先执行:cd apps/web && npm run build" >&2
+      exit 1
+    fi
+    echo "▶ rsync 前端构建产物(.next) → ${REMOTE} …"
+    rsync -az --delete -e "ssh ${SSH_OPTS[*]}" --exclude=cache \
+      apps/web/.next/ "${REMOTE}:${REMOTE_DIR}/web/.next/"
+    echo "  .next 完成"
+  fi
+
+  if [ "$INSTALL" = true ]; then
+    echo "▶ 远端执行真机安装脚本(需要 sudo) ..."
+    ssh "${SSH_OPTS[@]}" "${REMOTE}" \
+      "sudo bash ${REMOTE_DIR}/deploy/bare-metal/install.sh"
+    # install.sh 内部负责 enable/start,这里只负责等待两服务就绪
+    # 健康探测用 /api/health(openapi.json 已按 TOIV_EXPOSE_API_DOCS 门控,默认关)
+    remote_wait_health "toiv-api" "http://localhost:8090/api/health"
+    remote_wait_health "toiv-web" "http://localhost:3100"
+  else
+    echo "▶ 远端重载配置 …"
+    ssh "${SSH_OPTS[@]}" "${REMOTE}" "sudo systemctl daemon-reload"
+    # 依次重启:先 api 后 web,各自重启后立即做该服务健康等待,
+    # 缩短整体停机窗口,且 api 起不来时不会白白重启 web
+    remote_restart toiv-api
+    # 健康探测用 /api/health 而非 /openapi.json:后者自 QA-FULL-2026-08-11 起
+    # 按 TOIV_EXPOSE_API_DOCS 门控(默认关闭),探测它会误判服务未就绪
+    remote_wait_health "toiv-api" "http://localhost:8090/api/health"
+    remote_restart toiv-web
+    remote_wait_health "toiv-web" "http://localhost:3100"
+  fi
 fi
 
 trap - ERR
