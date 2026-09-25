@@ -86,6 +86,9 @@ _MODEL_LOADERS = [
     # Florence2ModelLoader.model 枚举通常来自 LLM 目录扫描;AILab 节点 object_info 是静态全量清单,
     # 勿把 AILab_* 加进 _MODEL_LOADERS(会把未下载的 8B/32B 误判为已有)。
     ("Florence2ModelLoader", "model"),
+    # GACLove/ComfyUI-VFI 的 RIFEInterpolation:model_name 在 optional,包内自扫 models/rife
+    # (未登记 folder_paths)→ 不收集会误判缺 flownet.pkl(2804021249 实证)
+    ("RIFEInterpolation", "model_name"),
 ]
 # ComfyUI GET /models/{folder} 补充扫描:自定义节点 folder_paths 登记目录。
 # MelBand 节点 object_info 不枚举本地子路径(如 MelBandRoFormer_comfy/*.safetensors),
@@ -320,7 +323,8 @@ class ComfyUIClient:
         for node, field in _MODEL_LOADERS:
             try:
                 info = await self.object_info(node)
-                opts = info.get(node, {}).get("input", {}).get("required", {}).get(field, [[]])
+                inp = info.get(node, {}).get("input", {})
+                opts = inp.get("required", {}).get(field) or inp.get("optional", {}).get(field) or [[]]
                 if opts and isinstance(opts[0], list):
                     # 旧版格式: [[opt1, opt2, ...]]
                     names.update(opts[0])
