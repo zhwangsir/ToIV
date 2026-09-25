@@ -1658,3 +1658,10 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 ---
 
 > **归档说明(2026-08-23 文档治理)**:更早的历史条目(ENGINE-R1~R4、HARNESS-M1/M2、CLOSEOUT-R51~R60、WAN-NSFW、RES/WIKI/QUEUE/LINKAGE 等 40+ 条)已清理——关键结论均已沉淀在代码注释、AGENTS.md 与 STATE.json 硬约束中;TEST_LOG 自本条起新条目继续倒序追加。
+
+## 2026-09-25 22:14 — O3 烟测超时分级
+
+- **改动**: `smoke_limit(graph, output_kind, override)`：image/audio 图含 RIFE/VFI/大模型等重链，或 UNET/ckpt 名含 Wan/LTX 等，升到视频档 1800s；路由支持 `timeout_s`；超时取消 worker job。
+- **测试**: `apps/api/tests/test_smoke_limit.py` 4 passed。
+- **部署**: core 已同步 `app_smoke.py`；本巡检重启 `toiv-api` 加载新代码（烟测 runner 自愈续跑）。
+- **commit**: `0e2fdba`
