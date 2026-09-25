@@ -1864,7 +1864,7 @@ _MISSING_REQUIRED_DEFAULTS: dict[str, dict[str, object]] = {
         "epsilon": 0.001,
         "guide_strength": "",
     },
-    "PainterFluxImageEdit": {"mode": "1_image", "batch_size": 1},
+    "PainterFluxImageEdit": {"batch_size": 1},
     "AILab_QwenVL": {"attention_mode": "auto"},
     "UltimateSDUpscale": {"batch_size": 1},
     "Flux2Scheduler": {"width": 1024, "height": 1024},
@@ -1974,6 +1974,38 @@ def _normalize_rife_vfi(graph: dict) -> None:
             continue
         if "ckpt_name" not in inputs and "rife_name" in inputs:
             inputs["ckpt_name"] = inputs.pop("rife_name")
+
+
+def _normalize_painter_flux_image_edit(graph: dict) -> None:
+    """PainterFluxImageEdit V3(PainterNodes 全包,2026-09-25 设备换装):
+
+    旧单节点包输入 mode + image1..image10 + image1_mask;新版 AUTOGROW
+    `images`(prefix image_,名字 image_0..image_5)+ `image_0_mask`,无 mode。
+    API 子键须 `images.image_N`(同 LTXV DYNAMICCOMBO 点号)。
+    映射:imageK → images.image_{K-1}(K≤6,超出丢弃);image1_mask → image_0_mask;
+    丢 mode。已是新键不动。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        if (node.get("class_type") or "") != "PainterFluxImageEdit":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        inputs.pop("mode", None)
+        if "image1_mask" in inputs:
+            val = inputs.pop("image1_mask")
+            inputs.setdefault("image_0_mask", val)
+        for key in list(inputs.keys()):
+            if not (isinstance(key, str) and key.startswith("image") and key[5:].isdigit()):
+                continue
+            k = int(key[5:])
+            val = inputs.pop(key)
+            if 1 <= k <= 6:
+                inputs.setdefault(f"images.image_{k - 1}", val)
 
 
 def _normalize_duck_hide_node(graph: dict) -> None:
@@ -3041,6 +3073,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_text_load_line_from_file(graph)
     _normalize_llama_cpp_presence_penalty(graph)
     _normalize_rife_vfi(graph)
+    _normalize_painter_flux_image_edit(graph)
     _normalize_duck_hide_node(graph)
     _normalize_custom_add_label_widgets(graph)
     _normalize_required_backfill(graph)
