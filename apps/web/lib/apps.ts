@@ -165,6 +165,8 @@ export interface AppItem {
   /** 自愈闭环烟测(2026-09-15):pass=实测可用徽标;fail/timeout=待修。 */
   smoke_status?: string;
   smoke_cls?: string;
+  /** 最近一次烟测时间(ISO;pass 卡用于「最近验证」展示)。 */
+  smoke_at?: string | null;
   /** 功能归组(2026-09-15):同指纹折叠,变体默认隐藏。 */
   fingerprint?: string;
   variant_count?: number;
@@ -294,6 +296,8 @@ export function normalizeApp(raw: unknown): AppItem {
     featured: boolOf(a.featured),
     smoke_status: typeof a.smoke_status === "string" ? a.smoke_status : "",
     smoke_cls: typeof a.smoke_cls === "string" ? a.smoke_cls : "",
+    smoke_at:
+      typeof a.smoke_at === "string" && a.smoke_at.trim() ? a.smoke_at.trim() : null,
     fingerprint: typeof a.fingerprint === "string" ? a.fingerprint : "",
     variant_count: typeof a.variant_count === "number" ? a.variant_count : 0,
     is_variant: Boolean(a.is_variant),
@@ -1335,6 +1339,46 @@ export function sortAppsHot(apps: AppItem[]): AppItem[] {
     if (b.usage_count !== a.usage_count) return b.usage_count - a.usage_count;
     return a.name.localeCompare(b.name, "zh");
   });
+}
+
+/** 烟测可用性档:pass 最前,未测最后;稳定排序不打乱同档相对序。 */
+export function smokeAvailabilityRank(status?: string | null): number {
+  const s = (status || "").trim();
+  if (s === "pass") return 0;
+  if (s === "running") return 1;
+  if (s === "fail" || s === "timeout") return 2;
+  return 3; // 未测 / 空
+}
+
+/** 未测卡不置顶:同档保持相对序(U5 2026-09-25)。 */
+export function sortAppsVerifiedFirst(apps: AppItem[]): AppItem[] {
+  return [...apps]
+    .map((a, i) => ({ a, i }))
+    .sort((x, y) => {
+      const d = smokeAvailabilityRank(x.a.smoke_status) - smokeAvailabilityRank(y.a.smoke_status);
+      return d !== 0 ? d : x.i - y.i;
+    })
+    .map((x) => x.a);
+}
+
+/** 最近验证相对时间(空/非法 → 空串,由视图决定是否省略)。 */
+export function formatSmokeVerifiedAt(iso?: string | null, now = Date.now()): string {
+  if (!iso || !String(iso).trim()) return "";
+  try {
+    const t = new Date(iso).getTime();
+    if (!Number.isFinite(t)) return "";
+    const diff = Math.max(0, now - t);
+    const min = 60_000;
+    const hr = 60 * min;
+    const day = 24 * hr;
+    if (diff < min) return "刚刚";
+    if (diff < hr) return `${Math.floor(diff / min)} 分钟前`;
+    if (diff < day) return `${Math.floor(diff / hr)} 小时前`;
+    if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`;
+    return new Date(t).toLocaleDateString("zh-CN");
+  } catch {
+    return "";
+  }
 }
 
 /**

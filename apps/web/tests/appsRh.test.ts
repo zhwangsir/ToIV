@@ -22,6 +22,8 @@ import {
   normalizeApp,
   placeholderAspect,
   sortAppsHot,
+  sortAppsVerifiedFirst,
+  formatSmokeVerifiedAt,
   summarizeWorkflowNodes,
   type AppParam,
 } from "../lib/apps";
@@ -384,4 +386,47 @@ test("rh-dark 令牌全部映射全站主题令牌(2026-09-07 主题化,不再�
   const cinema = globals.slice(iCinema, globals.indexOf("\n}", iCinema));
   assert.ok(cinema.includes("--accent: #C9F24F"), "荧光绿应在 cinema 主题块");
   assert.ok(!globals.includes("--rh-lime"), "rh 令牌不得进 globals.css(作用域纪律)");
+});
+
+test("U5: sortAppsVerifiedFirst 未测沉底,pass 置前且稳定", () => {
+  const mk = (id: string, smoke_status = ""): AppItem =>
+    ({
+      id,
+      name: id,
+      description: "",
+      icon: "sparkles",
+      cover_url: null,
+      author: null,
+      rh_webapp_id: null,
+      rh_webapp_url: null,
+      source_links: [],
+      use_case: "",
+      featured: false,
+      category: "image",
+      output_kind: "image",
+      params_schema: [],
+      bindings: {},
+      required_nodes: [],
+      is_public: true,
+      is_builtin: true,
+      is_nsfw: false,
+      is_mine: false,
+      usage_count: 0,
+      sort: 100,
+      smoke_status,
+    }) as AppItem;
+  const list = [mk("u1"), mk("p1", "pass"), mk("f1", "fail"), mk("u2"), mk("p2", "pass")];
+  const sorted = sortAppsVerifiedFirst(list);
+  assert.deepEqual(
+    sorted.map((a) => a.id),
+    ["p1", "p2", "f1", "u1", "u2"],
+  );
+});
+
+test("U5: formatSmokeVerifiedAt 相对时间", () => {
+  const now = Date.parse("2026-09-25T18:00:00+08:00");
+  assert.equal(formatSmokeVerifiedAt(null, now), "");
+  assert.equal(formatSmokeVerifiedAt("2026-09-25T17:59:30+08:00", now), "刚刚");
+  assert.equal(formatSmokeVerifiedAt("2026-09-25T17:30:00+08:00", now), "30 分钟前");
+  assert.equal(formatSmokeVerifiedAt("2026-09-25T10:00:00+08:00", now), "8 小时前");
 });

@@ -17,6 +17,8 @@ import {
   listApps,
   placeholderAspect,
   sortAppsHot,
+  sortAppsVerifiedFirst,
+  formatSmokeVerifiedAt,
   sortFeaturedApps,
   USE_CASE_GROUPS,
   useCaseGroup,
@@ -269,7 +271,9 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
     // 功能归组(2026-09-15):同指纹变体默认折叠,搜索时仍全量(搜到变体算命中)
     const folded = showVariants || query.trim() !== "" ? list : list.filter((a) => !a.is_variant);
     const ranked = sortFeaturedApps(folded, featuredIds);
-    return marketSort === "hot" ? sortAppsHot(ranked) : ranked;
+    const ordered = marketSort === "hot" ? sortAppsHot(ranked) : ranked;
+    // U5: 未测卡不默认置顶(精选/热门之后再按烟测档稳定下沉)
+    return sortAppsVerifiedFirst(ordered);
   }, [apps, query, r18, outputKind, cat, useCase, featuredIds, marketSort, showVariants, showUnlisted, adminSeen, verifiedOnly, searching]);
 
 
@@ -791,11 +795,18 @@ function AppCard({
         <span className="rh-card-run" aria-hidden="true">
           <Icon name="play" size={13} /> 运行
         </span>
-        {a.smoke_status === "pass" && (
-          <span className="apps-smoke-badge apps-smoke-pass" title="自动烟测通过(导入即测)">
-            <Icon name="check" size={11} /> 实测可用
-          </span>
-        )}
+        {a.smoke_status === "pass" && (() => {
+          const when = formatSmokeVerifiedAt(a.smoke_at);
+          const label = when ? `实测可用 · ${when}` : "实测可用";
+          const title = when
+            ? `最近验证 ${when}(自动烟测通过)`
+            : "自动烟测通过(导入即测)";
+          return (
+            <span className="apps-smoke-badge apps-smoke-pass" title={title}>
+              <Icon name="check" size={11} /> {label}
+            </span>
+          );
+        })()}
         {a.smoke_status && a.smoke_status !== "pass" && a.smoke_status !== "running" && (
           <span className="apps-smoke-badge apps-smoke-fail" title={`自动烟测未通过(${a.smoke_cls || "未知"})`}>
             待修

@@ -187,6 +187,8 @@ test("AppMarketView 策展层接线:分段器/chips/搜索提示(源码)", () =>
   assert.ok(src.includes("apps-mkt-seg"), "缺类型分段器(图片/视频/音频)");
   assert.ok(src.includes("kindCounts"), "缺分段器计数 memo");
   assert.ok(src.includes("verifiedOnly"), "缺实测可用能力筛选");
+  assert.ok(src.includes("sortAppsVerifiedFirst"), "缺未测沉底排序");
+  assert.ok(src.includes("formatSmokeVerifiedAt"), "缺最近验证时间");
   assert.ok(!src.includes("apps-mkt-hero-card"), "分类入口卡应已退役(B+D)");
   assert.ok(!src.includes("curatedRails"), "精选/热门横排应已退役(B+D)");
   assert.ok(src.includes("catPage &&"), "分段器/chips 应挂 catPage");

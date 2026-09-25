@@ -532,6 +532,26 @@
 ---
 
 
+## CLOSEOUT-MONITOR-2026-09-25-1814 · 烟测巡检 + 硬阻塞 soft-hide + U5 市场可用性透明
+
+**时间**: 2026-09-25 18:14 CST（自动巡检）
+**类型**: 收尾分诊 + 体验并行（U5）
+
+### 收尾
+
+- 巡检路径: MateBook → Tailscale core `100.77.80.100`；`untested_runner` 存活；API `:8090` uvicorn 正常；Comfy `:8195/:8196/:8197` 均 200。
+- 公开市场: **2101**（本轮 soft-hide **10** 张硬阻塞；此前 16:14 为 2111）。
+- 烟测: **PASS 794** / 未测 ~1150 / 超时 156 / 失败 **0** / 跑中 1（相对 16:14 PASS ~766，约 +28）。
+- soft-hide 明细见 core `tmp/softhide_1814_20260925.json`（reshape×3、VACE no-frames、OOM×2、validation×3）+ `rh-acc-2659591170-9664e3`（format 枚举校验失败，误标 missing_model）。
+
+### U5 市场可用性透明
+
+- `apps/web/lib/apps.ts`: 透传 `smoke_at`；新增 `sortAppsVerifiedFirst` / `formatSmokeVerifiedAt`。
+- `AppMarketView`: 精选/热门之后按烟测档沉未测；PASS 徽标展示「实测可用 · 相对时间」。
+- 测试: `appsRh` + `marketCuration` 相关用例全绿；部署走 `deploy.sh --web-only`（不重启 API）。
+
+---
+
 ## 2026-09-25 10:14 CST — closeout monitor: O1 web-only deploy
 
 - 现象：默认 `deploy/deploy.sh` 会重启 `toiv-api`，打断公开市场烟测。
