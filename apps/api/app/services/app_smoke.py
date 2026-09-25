@@ -353,6 +353,12 @@ async def run_app_smoke(
     session.commit()
 
     values = default_values(app.params_schema or [])
+    for key in mask_consuming_image_keys(
+        workflow_override if workflow_override is not None else (app.workflow_json or {}),
+        app.bindings or {},
+    ):
+        if key in values:
+            values[key] = f"smoke_{key}_masked_ref.png"
     if values_override:
         values = {**values, **values_override}
     fixes_all: list[str] = []
@@ -496,6 +502,43 @@ _IMAGE_FIXTURE_ROTATION = (
     "beauty01.png",
     "beauty02.png",
 )
+
+
+_MASK_LOADERS = {"LoadImage", "LoadImageMask"}
+
+
+def mask_consuming_image_keys(workflow: dict, bindings: dict) -> list[str]:
+    """表单图槽绑定的 LoadImage 若其 MASK 输出(slot 1)被下游消费 → 该槽需带遮罩图。
+
+    局部重绘类卡(RH 里用户在 clipspace 手涂遮罩)用无 alpha 的烟测图时,
+    LoadImage 给 64x64 空遮罩,下游 Mask Fill Holes / LayerStyle 尺寸不符返回 None
+    → easy imageSize 'NoneType' has no attribute 'shape'(2026-09-25 rh-acc-3051342849)。
+    这类槽烟测改用 masked_ref.png(中央椭圆透明 = 遮罩区)。
+    """
+    if not isinstance(workflow, dict):
+        return []
+    node_to_key: dict[str, str] = {}
+    for key, target in (bindings or {}).items():
+        for slot in (target if isinstance(target, list) else [target]):
+            if isinstance(slot, dict) and slot.get("node") is not None:
+                node_to_key.setdefault(str(slot["node"]), key)
+    out: list[str] = []
+    for nid, node in workflow.items():
+        if not isinstance(node, dict) or node.get("class_type") not in _MASK_LOADERS:
+            continue
+        key = node_to_key.get(str(nid))
+        if not key or key in out:
+            continue
+        for other in workflow.values():
+            if not isinstance(other, dict):
+                continue
+            if any(
+                isinstance(v, list) and len(v) == 2 and str(v[0]) == str(nid) and v[1] == 1
+                for v in (other.get("inputs") or {}).values()
+            ):
+                out.append(key)
+                break
+    return out
 
 
 def _fixture_name(key: str, media_type: str) -> str:
