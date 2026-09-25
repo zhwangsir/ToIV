@@ -212,6 +212,10 @@ async def lifespan(app: FastAPI):
     from app.routes import agent_team as agent_team_routes
 
     agent_team_routes.resume_unfinished_plans(engine)
+    # O2 烟测可续跑:API 重启后把中断的 running 卡清回未测,交给 runner/batch 重跑
+    from app.services import app_smoke as app_smoke_svc
+
+    app_smoke_svc.reconcile_interrupted_smokes()
     # GPU 生成链路每日冒烟(txt2img 小图 + LTX 短视频),失败经 webhook 报警
     from app.config import get_settings as _gs
     from app.services.gpu_smoke import daily_smoke_loop, smoke_report_dir

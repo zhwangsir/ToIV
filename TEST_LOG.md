@@ -1,3 +1,8 @@
+## 2026-09-26 00:14 — O2 烟测可续跑 + closeout 巡检
+
+- **O2**：`app_smoke.reconcile_interrupted_smokes()` 在 API lifespan 启动时把 `smoke_status=running` 清回未测；单测 `test_reconcile_interrupted_smokes_clears_running` 绿。本期**未重启** `toiv-api`（保护在跑烟测）；下次 API 部署自动生效。现场已手工清掉 3 张卡住的 running。
+- **Closeout**：公开卡 2099（软藏 2 张硬阻塞验证失败：`rh-acc-3152556034-1d6b6c` RHHiddenNodes/类型不匹配、`rh-acc-3071337473-4e565a` validation）；PASS ~868 / 未测 ~1058–1061 / timeout 166 / fail 4（多为瞬时 transport/熔断，已起 `resmoke_transport_0014` 复测）。Untested runner 存活；Comfy :8195/:8196/:8197 健康；API `/api/health` 200。
+
 # TEST_LOG.md — ToIV
 
 - 2026-09-23 助手门户 cinematic 空态已上 core-ts（项目管家；ToIV 开发 tip；docs；产品 tip `cdac9e4`）：origin/github/本地 main tip=`cdac9e4`（含 docs `41c08d1`）；web BUILD_ID=`20260923-101036-nogit`（覆盖 `20260923-100246-nogit`）；api/web health 200；五件套部署口径已入账；status=`assistant_portal_cinematic_empty_deployed`；STATE `assistant_portal_cinematic_empty_2026_09_23`；updated_at 2026-09-23T18:15:00+08:00；AGENTS §七 已短注。

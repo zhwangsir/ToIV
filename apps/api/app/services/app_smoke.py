@@ -628,6 +628,33 @@ def _finish(session: Session, app: App, status: str, res: dict, fixes: list[str]
 
 
 # ---------------------------------------------------------------------------
+# O2:API 重启后把中断的 running 烟测卡放回待测(空状态),untested runner / batch 可续跑
+# ---------------------------------------------------------------------------
+def reconcile_interrupted_smokes() -> int:
+    """把 smoke_status=running 的卡清回 ''(未测)。
+
+    烟测是进程内协程:API 重启后 running 会永久卡住,untested_runner 又只挑
+    smoke_status 为空的卡,导致被打断的卡既不重跑也不出现在失败列表。
+    启动时收口一次即可;正在跑的烟测会在 run_app_smoke 开头再次写成 running。
+    """
+    n = 0
+    with Session(engine) as session:
+        rows = session.exec(select(App).where(App.smoke_status == "running")).all()
+        for app in rows:
+            app.smoke_status = ""
+            app.smoke_cls = ""
+            app.smoke_error = ""
+            session.add(app)
+            n += 1
+        if n:
+            session.commit()
+    if n:
+        import logging
+        logging.getLogger("toiv.smoke").info("reconcile_interrupted_smokes cleared %d running card(s)", n)
+    return n
+
+
+# ---------------------------------------------------------------------------
 # 批量(单飞):按 smoke_status 空/失败的顺序跑一批
 # ---------------------------------------------------------------------------
 def _pick_batch(session: Session, limit: int, include_nsfw: bool) -> list[App]:

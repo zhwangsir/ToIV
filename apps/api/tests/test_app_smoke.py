@@ -408,3 +408,34 @@ def test_demo_cover_endpoint_needs_admin():
                       headers={"Authorization": f"Bearer {tok}"}).status_code in (401, 403)
     finally:
         app.dependency_overrides.pop(get_session, None)
+
+
+# ---------------------------------------------------------------------------
+# O2:API 重启后 running → 未测
+# ---------------------------------------------------------------------------
+def test_reconcile_interrupted_smokes_clears_running(monkeypatch):
+    """running 卡清回空状态;非 running 不动。"""
+    eng = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(eng)
+    with Session(eng) as s:
+        s.add(App(id="a-run", name="run", description="d", category="image",
+                  is_public=True, smoke_status="running", smoke_cls="x", smoke_error="mid"))
+        s.add(App(id="a-pass", name="pass", description="d", category="image",
+                  is_public=True, smoke_status="pass"))
+        s.add(App(id="a-fail", name="fail", description="d", category="image",
+                  is_public=True, smoke_status="fail", smoke_cls="transport", smoke_error="cb"))
+        s.commit()
+    monkeypatch.setattr(svc, "engine", eng)
+    assert svc.reconcile_interrupted_smokes() == 1
+    with Session(eng) as s:
+        run = s.get(App, "a-run")
+        assert run.smoke_status == ""
+        assert run.smoke_cls == ""
+        assert run.smoke_error == ""
+        assert s.get(App, "a-pass").smoke_status == "pass"
+        assert s.get(App, "a-fail").smoke_status == "fail"
+    assert svc.reconcile_interrupted_smokes() == 0
