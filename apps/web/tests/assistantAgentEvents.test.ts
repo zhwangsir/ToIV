@@ -155,6 +155,10 @@ test("AssistantView:作业卡 8s 轮询(列表+id 过滤)+ done 复用媒体渲�
     assert.ok(msgSrc.includes(t), `缺状态徽章「${t}」`);
   }
   assert.ok(msgSrc.includes('j.status === "held" && j.holdReason'), "held 未展示 hold_reason");
+  assert.ok(msgSrc.includes("JobErrorSelfheal"), "U1 失败自愈条未接线");
+  assert.ok(msgSrc.includes("onJobRetry"), "U1 缺 onJobRetry");
+  assert.ok(msgSrc.includes("一键重试") || readSrc("components/assistant/JobErrorSelfheal.tsx").includes("一键重试"), "U1 缺一键重试文案");
+  assert.ok(readSrc("components/assistant/JobErrorSelfheal.tsx").includes("换一张同类卡"), "U1 缺换同类卡文案");
   // done 产物复用现有媒体渲染分支(W4:多产物经 AvJobResults 胶片条化,单产物仍 renderAvMedia)
   assert.ok(msgSrc.includes('j.status === "done" && j.results?.length'), "done 未渲染产物");
   assert.ok(msgSrc.includes("AvJobResults"), "done 产物未走 AvJobResults 胶片条分流");
@@ -372,6 +376,24 @@ test("applyJobSnapshots:进行中卡片按 id 过滤推进,done 灌产物,无变
   // 无变化时引用不变(轮询空转不触发重渲染)
   const same = applyJobSnapshots(done, [makeJob("j1", { status: "done" })]);
   assert.equal(same, done);
+});
+
+test("applyJobSnapshots U1:error 态灌入 error/appId/hasParams", () => {
+  let msgs: ChatMessage[] = [makeMsg("a1", "assistant")];
+  msgs = upsertJobCard(msgs, { jobId: "j2", kind: "app_image", status: "running", label: "抠图" });
+  const failed = applyJobSnapshots(msgs, [
+    makeJob("j2", {
+      status: "error",
+      error: "CUDA out of memory",
+      app_id: "rh-acc-1",
+      has_params: true,
+    }),
+  ]);
+  const card = failed[0].jobs?.[0];
+  assert.equal(card?.status, "error");
+  assert.equal(card?.error, "CUDA out of memory");
+  assert.equal(card?.appId, "rh-acc-1");
+  assert.equal(card?.hasParams, true);
 });
 
 test("shouldRecoverFromTimeout:无会话或 HTTP 4xx/5xx 不回放;AbortError/超时可回放", () => {

@@ -83,7 +83,7 @@ test("胶片条:消息媒体与作业卡产物均接线 AvMediaList/AvJobCards",
   // A3(2026-09-22):消息渲染拆至 MessageList.tsx;样式外迁 assistant-view.css
   const src = readSrc("components/assistant/MessageList.tsx");
   assert.ok(src.includes("<AvMediaList media={msg.media} />"), "消息媒体未走胶片条分流");
-  assert.ok(src.includes("<AvJobCards jobs={msg.jobs}"), "作业卡未走聚合组件");
+  assert.ok(src.includes("<AvJobCards") && src.includes("jobs={msg.jobs}"), "作业卡未走聚合组件");
   const css = readSrc("app/styles/assistant-view.css");
   assert.ok(css.includes(".av-filmstrip::before"), "缺打孔列样式");
   assert.ok(css.includes("scroll-snap-type: x mandatory"), "胶片条缺 scroll-snap");

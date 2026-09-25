@@ -1664,6 +1664,18 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 
 > **归档说明(2026-08-23 文档治理)**:更早的历史条目(ENGINE-R1~R4、HARNESS-M1/M2、CLOSEOUT-R51~R60、WAN-NSFW、RES/WIKI/QUEUE/LINKAGE 等 40+ 条)已清理——关键结论均已沉淀在代码注释、AGENTS.md 与 STATE.json 硬约束中;TEST_LOG 自本条起新条目继续倒序追加。
 
+## 2026-09-26 06:30 — U1 助手作业失败用户侧自愈
+
+- **目标**:对话作业卡失败时给用户看大白话原因 + 「一键重试」+「换一张同类卡」(smoke_status=pass)。
+- **改动**(前端-only,不重启 API):
+  - `AgentJobCard` 增 `error`/`appId`/`hasParams`;`applyJobSnapshots` 轮询灌入
+  - `JobErrorSelfheal` + `lib/jobSelfheal.ts`(plainJobErrorReason / pickSimilarPassApps)
+  - 一键重试:引擎白名单走 `rerunJob`;应用卡打开原应用;其余重发上一条对话
+  - 换同类卡:`listApps` + PASS 过滤,按 category/use_case 排序,点开 `market?app=`
+- **测试**:`jobSelfheal.test.ts` + `assistantAgentEvents` U1 断言 + W4 接线 — 相关 43 passed
+- **部署**:`deploy/deploy.sh --web-only`(不重启 toiv-api)
+- **commit**:见本轮 git
+
 ## 2026-09-25 22:14 — O3 烟测超时分级
 
 - **改动**: `smoke_limit(graph, output_kind, override)`：image/audio 图含 RIFE/VFI/大模型等重链，或 UNET/ckpt 名含 Wan/LTX 等，升到视频档 1800s；路由支持 `timeout_s`；超时取消 worker job。

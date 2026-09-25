@@ -14,6 +14,7 @@ import {
   AgentSessionMessage,
   AgentSessionSummary,
   cancelJob,
+  rerunJob,
   deleteAgentSession,
   fetchJobsPage,
   forkAgentSession,
@@ -36,6 +37,7 @@ import {
 } from "@/components/nav/CommandPalette";
 import { useR18Mode } from "@/lib/r18";
 import type { JobItem } from "@/lib/types";
+import { jobCardCanRerun } from "@/lib/jobSelfheal";
 import {
   deleteDoc,
   DOC_ACCEPT,
@@ -141,6 +143,12 @@ export interface AgentJobCard {
   label: string;
   holdReason?: string;
   results?: string[];
+  /** 失败原因(U1:轮询 JobItem.error 灌入;卡片大白话映射)。 */
+  error?: string;
+  /** 来源应用 id(U1:换同类卡 / 打开原应用重跑)。 */
+  appId?: string;
+  /** 有参数快照时可走 /jobs/{id}/rerun(U1 一键重试)。 */
+  hasParams?: boolean;
 }
 
 /** 提案确认卡(proposal 事件):resolution 非空即只读态。 */
@@ -437,15 +445,37 @@ export function applyJobSnapshots(msgs: ChatMessage[], rows: JobItem[]): ChatMes
     const jobs = m.jobs.map((card) => {
       if (!isJobCardActive(card.status)) return card;
       const row = rows.find((r) => r.id === card.jobId || r.prompt_id === card.jobId);
-      if (!row || !row.status || row.status === card.status) return card;
+      if (!row || !row.status) return card;
+      const nextError =
+        row.status === "error"
+          ? (typeof row.error === "string" && row.error.trim()
+              ? row.error.trim()
+              : card.error)
+          : card.error;
+      const nextAppId = row.app_id || card.appId;
+      const nextHasParams =
+        typeof row.has_params === "boolean" ? row.has_params : card.hasParams;
+      const nextResults =
+        row.status === "done" && row.results?.length
+          ? row.results.map(imageUrl)
+          : card.results;
+      if (
+        row.status === card.status &&
+        nextError === card.error &&
+        nextAppId === card.appId &&
+        nextHasParams === card.hasParams &&
+        nextResults === card.results
+      ) {
+        return card;
+      }
       mChanged = true;
       return {
         ...card,
         status: row.status,
-        results:
-          row.status === "done" && row.results?.length
-            ? row.results.map(imageUrl)
-            : card.results,
+        results: nextResults,
+        error: nextError,
+        appId: nextAppId,
+        hasParams: nextHasParams,
       };
     });
     if (!mChanged) return m;
@@ -1180,6 +1210,13 @@ export function AssistantView(props?: AssistantViewProps) {
                   label: ev.label || "",
                   holdReason: ev.hold_reason,
                   results: ev.results?.length ? ev.results : undefined,
+                  // U1:后端若带 error/app_id 则透传(现主靠轮询 JobItem 灌入)
+                  ...(typeof ev.error === "string" && ev.error
+                    ? { error: ev.error }
+                    : {}),
+                  ...(typeof ev.app_id === "string" && ev.app_id
+                    ? { appId: ev.app_id }
+                    : {}),
                 });
               } else {
                 next = upsertProposalCard(prev, {
@@ -1395,6 +1432,56 @@ export function AssistantView(props?: AssistantViewProps) {
     });
   }, [toast]);
 
+  /** U1:作业失败一键重试——引擎白名单走 rerunJob 并 upsert 新作业卡;
+   *  应用作业打开原应用;其余重发上一条用户消息让助手再跑。 */
+  const onJobRetry = useCallback(
+    async (job: AgentJobCard) => {
+      if (jobCardCanRerun(job)) {
+        try {
+          const r = await rerunJob(job.jobId, { seed_mode: "keep" });
+          const newId = r.job_id || r.prompt_id;
+          if (newId) {
+            setMessages((prev) =>
+              upsertJobCard(prev, {
+                jobId: newId,
+                kind: job.kind,
+                status: "queued",
+                label: job.label ? `${job.label}(重试)` : "重试",
+                appId: job.appId,
+                hasParams: job.hasParams,
+              }),
+            );
+            toast.success("已重新提交");
+          } else {
+            toast.success("已重新提交,请在作品库查看进度");
+          }
+          return;
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "重试提交失败");
+          // 应用回退:打开原卡
+          if (job.appId) {
+            goView(`market?app=${job.appId}`);
+          }
+          return;
+        }
+      }
+      if (job.appId) {
+        goView(`market?app=${job.appId}`);
+        toast.info("已打开原应用,点提交即可重跑");
+        return;
+      }
+      // 兜底:重发上一条用户消息(与气泡「重试」同路径)
+      if (busy) return;
+      const base =
+        messages[messages.length - 1]?.kind === "error"
+          ? messages.slice(0, -1)
+          : messages;
+      setMessages(base);
+      void requestReply(base, lastDocIdsRef.current);
+    },
+    [toast, goView, busy, messages, requestReply],
+  )
+
   const send = useCallback(
     async (presetPrompt?: string) => {
       const text = (presetPrompt ?? input).trim();
@@ -1578,6 +1665,7 @@ export function AssistantView(props?: AssistantViewProps) {
             retry={retry}
             toolCardCtx={toolCardCtx}
             onJobCancel={onJobCancel}
+            onJobRetry={onJobRetry}
             onProposalDecision={onProposalDecision}
             onOpenCanvasProposal={onOpenCanvasProposal}
             modifyFor={modifyFor}

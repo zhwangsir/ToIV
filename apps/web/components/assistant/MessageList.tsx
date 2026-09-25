@@ -20,6 +20,7 @@ import {
   type ToolCardCtx,
 } from "@/components/assistant/toolcards/registry";
 import type { AgentJobCard, AgentProposalCard, ChatMessage } from "./AssistantView";
+import { JobErrorSelfheal } from "./JobErrorSelfheal";
 
 // ───── 助手气泡行内 markdown(2026-08-16 审计修复):最小手写解析,不引第三方 md 库 ─────
 // 此前气泡纯文本直出,LLM 的 `**` 标记原样泄漏。边界规则(CommonMark flanking 简化版):
@@ -243,15 +244,22 @@ export function mediaTypeForJob(kind: string, url = ""): string {
   return mediaKindOf(url, kind);
 }
 
-/** 作业卡组 + 聚合胶片条(W4):卡片只承担状态/进度/中止,视觉产物统一汇聚展示。 */
+/** 作业卡组 + 聚合胶片条(W4):卡片只承担状态/进度/中止,视觉产物统一汇聚展示。
+ *  U1:失败态展示大白话原因 + 一键重试 / 换一张同类卡。 */
 export function AvJobCards({
   jobs,
   msgId,
   onCancel,
+  onJobRetry,
+  onOpenApp,
+  busy = false,
 }: {
   jobs: readonly AgentJobCard[];
   msgId: string;
   onCancel: (jobId: string) => void;
+  onJobRetry?: (job: AgentJobCard) => void | Promise<void>;
+  onOpenApp?: (appId: string) => void;
+  busy?: boolean;
 }) {
   const agg = aggregateJobFrames(jobs);
   return (
@@ -283,6 +291,20 @@ export function AvJobCards({
           {j.status === "held" && j.holdReason ? (
             <div className="av-job-card-hold">{j.holdReason}</div>
           ) : null}
+          {j.status === "error" && onJobRetry && onOpenApp ? (
+            <JobErrorSelfheal
+              job={j}
+              busy={busy}
+              onRetry={onJobRetry}
+              onOpenApp={onOpenApp}
+            />
+          ) : j.status === "error" ? (
+            <div className="av-job-error">
+              <div className="av-job-error-reason">
+                {j.error || j.holdReason || "生成失败"}
+              </div>
+            </div>
+          ) : null}
           {/* 聚合模式:产物上移合并胶片条,卡内不再重复渲染 */}
           {agg.length === 0 && j.status === "done" && j.results?.length ? (
             <AvJobResults kind={j.kind} results={j.results} jobId={j.jobId} />
@@ -311,6 +333,8 @@ export interface AvMessageListProps {
   retry: () => void;
   toolCardCtx: ToolCardCtx;
   onJobCancel: (jobId: string) => void;
+  /** U1:作业失败一键重试 */
+  onJobRetry: (job: AgentJobCard) => void | Promise<void>;
   onProposalDecision: (
     card: AgentProposalCard,
     action: "approve" | "modify" | "reject",
@@ -334,6 +358,7 @@ export function AvMessageList({
   retry,
   toolCardCtx,
   onJobCancel,
+  onJobRetry,
   onProposalDecision,
   onOpenCanvasProposal,
   modifyFor,
@@ -421,7 +446,14 @@ export function AvMessageList({
                   {/* 生成作业卡:kind 中文名 + label + 状态徽章;W4 起经 AvJobCards
                       聚合——同消息 ≥2 个 done 作业的视觉产物合并为一条胶片条 */}
                   {msg.jobs?.length ? (
-                    <AvJobCards jobs={msg.jobs} msgId={msg.id} onCancel={onJobCancel} />
+                    <AvJobCards
+                      jobs={msg.jobs}
+                      msgId={msg.id}
+                      onCancel={onJobCancel}
+                      onJobRetry={onJobRetry}
+                      onOpenApp={toolCardCtx.onOpenApp}
+                      busy={busy}
+                    />
                   ) : null}
                   {/* 提案确认卡:确认执行/修改/放弃;落锤后只读 */}
                   {msg.proposals?.map((p) => (

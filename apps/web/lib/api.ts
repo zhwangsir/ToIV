@@ -2011,6 +2011,9 @@ export interface AgentEvent {
   label?: string;
   hold_reason?: string;
   results?: string[];
+  /** U1:失败原因 / 来源应用(可选;前端亦从 JobItem 轮询灌入) */
+  error?: string;
+  app_id?: string;
   /** proposal 事件:方案确认卡(markdown 正文 + 预计耗时) */
   proposal_id?: string;
   title?: string;
