@@ -2008,6 +2008,39 @@ def _normalize_painter_flux_image_edit(graph: dict) -> None:
                 inputs.setdefault(f"images.image_{k - 1}", val)
 
 
+def _normalize_autocrop_faces_single(graph: dict) -> None:
+    """AutoCropFaces 直喂 easy imageRemBg 时只裁 1 张脸。
+
+    实证 2026-09-26 rh-acc-9454613506(换脸):参考图里检出多张脸时
+    AutoCropFaces(number_of_faces=5)输出 batch>1,easy imageRemBg 内部
+    tensor2pil 不支持 batch → PIL "Cannot handle this data type: (1, 1, W, 4)"。
+    换脸参考只需要一张脸,把 number_of_faces / max_faces_per_image 夹到 1。
+    """
+    if not isinstance(graph, dict):
+        return
+    for nid, node in graph.items():
+        if not isinstance(node, dict) or node.get("class_type") != "AutoCropFaces":
+            continue
+        feeds_rembg = False
+        for other in graph.values():
+            if not isinstance(other, dict) or other.get("class_type") != "easy imageRemBg":
+                continue
+            if any(
+                isinstance(v, list) and len(v) == 2 and str(v[0]) == str(nid) and v[1] == 0
+                for v in (other.get("inputs") or {}).values()
+            ):
+                feeds_rembg = True
+                break
+        if not feeds_rembg:
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        for k in ("number_of_faces", "max_faces_per_image"):
+            if isinstance(inputs.get(k), (int, float)) and inputs[k] > 1:
+                inputs[k] = 1
+
+
 def _normalize_duck_hide_node(graph: dict) -> None:
     """DuckHideNode(鸭鸭图 媒体内容保护):RH 私有加密封装,本地无此节点。
 
@@ -3074,6 +3107,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_llama_cpp_presence_penalty(graph)
     _normalize_rife_vfi(graph)
     _normalize_painter_flux_image_edit(graph)
+    _normalize_autocrop_faces_single(graph)
     _normalize_duck_hide_node(graph)
     _normalize_custom_add_label_widgets(graph)
     _normalize_required_backfill(graph)
