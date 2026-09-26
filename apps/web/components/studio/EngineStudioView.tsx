@@ -24,6 +24,8 @@ import {
 } from "@/lib/engines";
 import {
   defaultStudioEngine,
+  engineShortLabel,
+  engineTagline,
   extractStudioMedia,
   resolveStudioModes,
   type StudioKind,
@@ -448,56 +450,82 @@ export function EngineStudioView({ kind }: { kind: StudioKind }) {
             />
           ) : (
             <>
-              {/* 引擎抽屉(2026-09-16):一行自动选择状态,点开才见引擎卡(高手可换,新手无感) */}
-              {mode && mode.engines.length > 0 && engine && (
-                <div className="apps-studio-engineline">
-                  <button
-                    type="button"
-                    className="apps-studio-engineline-toggle"
-                    onClick={() => setEngineDrawer((v) => !v)}
-                    aria-expanded={engineDrawer}
-                  >
-                    <span className={`apps-studio-engine-dot${engine.available ? " is-on" : ""}`} aria-hidden="true" />
-                    <span>
-                      {engine.available ? "已自动选择引擎 " : "引擎暂不可用 · "}
-                      <b>{engine.label}</b>
-                    </span>
-                    <span className="apps-studio-engineline-more">{engineDrawer ? "收起 ▴" : "更换 ›"}</span>
-                  </button>
-                  {engineDrawer && (
-                    <div className="apps-studio-engines" role="listbox" aria-label="选择引擎">
-                      {mode.engines.map((e) => (
-                        <button
-                          key={e.id}
-                          type="button"
-                          role="option"
-                          aria-selected={engine?.id === e.id}
-                          className={
-                            `apps-studio-engine-card${engine?.id === e.id ? " is-active" : ""}` +
-                            `${e.available ? "" : " is-offline"}`
-                          }
-                          onClick={() => {
-                            setEngineByMode((prev) => ({ ...prev, [mode.id]: e.id }));
-                            setEngineDrawer(false);
-                          }}
-                          title={e.available ? e.description : `引擎离线:${e.unavailable_reason ?? "暂不可用"}`}
-                        >
-                          <span className="apps-studio-engine-top">
-                            <span
-                              className={`apps-studio-engine-dot${e.available ? " is-on" : ""}`}
-                              aria-hidden="true"
-                            />
-                            <span className="apps-studio-engine-label">{e.label}</span>
-                            {e.nsfw && <Badge tone="warn">R18</Badge>}
-                          </span>
-                          {e.description && <span className="apps-studio-engine-desc">{e.description}</span>}
-                          {!e.available && <span className="apps-studio-engine-off">引擎离线</span>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* 引擎选择器(2026-09-27 重做):收起=一行下拉字段(名称+一句卖点),
+                  展开=整宽竖排单选列表(选中打勾,推荐/R18/离线用标签,不再用圆点);
+                  只有一个引擎时显示为静态字段,不给假交互。 */}
+              {mode && mode.engines.length > 0 && engine && (() => {
+                const recommended = defaultStudioEngine(mode);
+                const multi = mode.engines.length > 1;
+                const tagline = engine.available
+                  ? engineTagline(engine)
+                  : `暂不可用:${engine.unavailable_reason ?? "引擎离线"}`;
+                return (
+                  <div className={`apps-studio-enginepick${engineDrawer ? " is-open" : ""}`}>
+                    <button
+                      type="button"
+                      className="apps-studio-enginepick-field"
+                      onClick={() => multi && setEngineDrawer((v) => !v)}
+                      aria-expanded={multi ? engineDrawer : undefined}
+                      aria-haspopup={multi ? "listbox" : undefined}
+                      disabled={!multi}
+                    >
+                      <span className="apps-studio-enginepick-cap">引擎</span>
+                      <span className="apps-studio-enginepick-main">
+                        <span className="apps-studio-enginepick-name">
+                          {engineShortLabel(engine.label, mode.label)}
+                          {!engine.available && <Badge dot={false} tone="neutral">离线</Badge>}
+                          {engine.nsfw && <Badge dot={false} tone="warn">R18</Badge>}
+                        </span>
+                        {tagline && <span className="apps-studio-enginepick-tag">{tagline}</span>}
+                      </span>
+                      {multi && (
+                        <span className="apps-studio-enginepick-more">
+                          {engineDrawer ? "收起" : `${mode.engines.length} 个可选`}
+                          <Icon name="chevron-down" size={14} />
+                        </span>
+                      )}
+                    </button>
+                    {multi && engineDrawer && (
+                      <div className="apps-studio-enginepick-list" role="listbox" aria-label="选择引擎">
+                        {mode.engines.map((e) => {
+                          const active = engine.id === e.id;
+                          return (
+                            <button
+                              key={e.id}
+                              type="button"
+                              role="option"
+                              aria-selected={active}
+                              className={
+                                `apps-studio-enginepick-opt${active ? " is-active" : ""}` +
+                                `${e.available ? "" : " is-offline"}`
+                              }
+                              onClick={() => {
+                                setEngineByMode((prev) => ({ ...prev, [mode.id]: e.id }));
+                                setEngineDrawer(false);
+                              }}
+                            >
+                              <span className="apps-studio-enginepick-radio" aria-hidden="true">
+                                {active && <Icon name="check" size={12} />}
+                              </span>
+                              <span className="apps-studio-enginepick-main">
+                                <span className="apps-studio-enginepick-name">
+                                  {engineShortLabel(e.label, mode.label)}
+                                  {recommended?.id === e.id && e.available && <Badge dot={false} tone="accent">推荐</Badge>}
+                                  {e.nsfw && <Badge dot={false} tone="warn">R18</Badge>}
+                                  {!e.available && <Badge dot={false} tone="neutral">离线</Badge>}
+                                </span>
+                                <span className="apps-studio-enginepick-desc">
+                                  {e.available ? engineTagline(e) : `暂不可用:${e.unavailable_reason ?? "引擎离线"}`}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {engine && (
                 <>

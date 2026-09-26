@@ -109,3 +109,44 @@ export function extractStudioMedia(
   }
   return refs;
 }
+
+/**
+ * 引擎选择器文案(2026-09-27 用户反馈"引擎选择显示效果和设计很有问题"):
+ * 注册表 description 是运维向(端口/专用实例/【默认】标记),不直接给用户看。
+ * - engineTagline:按 id 给一句用户向卖点;未登记的引擎从 description 清洗兜底。
+ * - engineShortLabel:模式页签已表明"图生视频",引擎名去掉重复的模式后缀。
+ */
+const ENGINE_TAGLINES: Record<string, string> = {
+  txt2img: "通用出图,底模和风格可选",
+  "nsfw-txt2img": "成人向底模出图",
+  img2img: "在参考图基础上重绘",
+  "nsfw-img2img": "成人向参考图重绘",
+  "qwen-image-edit": "用一句话改图,可切换拍摄角度",
+  "h3-t2v": "画面和声音一起生成,剧情连贯",
+  "longcat-t2v": "长镜头,单条最长约 60 秒",
+  "ltx-nsfw-t2v": "成人向;上传首帧效果更稳",
+  "h3-i2v": "以图为首帧,画面和声音一起生成",
+  "longcat-i2v": "以图为首帧拍长镜头,最长约 60 秒",
+  "ltx-nsfw-i2v": "成人向图生视频,可叠加风格",
+  "wan-nsfw-i2v": "Wan2.2 图生视频,单段约 7.5 秒",
+  "h3-fl2v": "给出首帧和尾帧,自动补出中间过程",
+  "h3-r2v": "最多 9 张参考图,锁定人物和场景",
+};
+
+export function engineTagline(e: Pick<EngineInfo, "id" | "description">): string {
+  const known = ENGINE_TAGLINES[e.id];
+  if (known) return known;
+  const raw = (e.description ?? "").trim();
+  if (!raw) return "";
+  return raw
+    .replace(/【[^】]*】/g, "")
+    .replace(/[,,;;]?\s*(?:[\w.\-]+\s*)?专用实例\s*:\s*\d+/g, "")
+    .replace(/\s*:\s*\d{4}\b/g, "")
+    .replace(/^[,,;;\s]+|[,,;;\s]+$/g, "")
+    .trim();
+}
+
+export function engineShortLabel(label: string, modeLabel: string): string {
+  const stripped = label.split(modeLabel).join("").replace(/\s{2,}/g, " ").trim();
+  return stripped || label;
+}

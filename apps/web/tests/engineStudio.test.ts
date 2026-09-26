@@ -204,8 +204,8 @@ test("EngineStudioView 复用接线:ParamField/submitEngineGeneration/ResultPane
   assert.ok(src.includes('import "@/app/styles/apps.css"'), "样式应集中进 apps.css");
   assert.ok(!src.includes("styled-jsx") && !src.includes("<style jsx"), "不应使用 styled-jsx(集中 css 纪律)");
   for (const cls of [
-    "apps-studio-engines",
-    "apps-studio-engine-card",
+    "apps-studio-enginepick",
+    "apps-studio-enginepick-opt",
     "is-offline",
     "apps-studio-params",
     "apps-studio-runbar",
@@ -240,11 +240,11 @@ test("apps.css:apps-studio-* 类齐全且 token 纪律(零 hex)", () => {
     ".apps-studio-head",
     ".apps-studio-body",
     ".apps-studio-panel",
-    ".apps-studio-engines",
-    ".apps-studio-engine-card",
-    ".apps-studio-engine-dot",
-    ".apps-studio-engine-desc",
-    ".apps-studio-engine-off",
+    ".apps-studio-enginepick",
+    ".apps-studio-enginepick-field",
+    ".apps-studio-enginepick-list",
+    ".apps-studio-enginepick-opt",
+    ".apps-studio-enginepick-desc",
     ".apps-studio-params",
     ".apps-studio-runbar",
     ".apps-studio-block",
@@ -272,4 +272,13 @@ test("STUDIO_MODES 映射覆盖设计清单(模式标签与引擎 id)", () => {
   assert.deepEqual(STUDIO_MODES.video.map((m) => m.label), ["文生视频", "图生视频", "首尾帧", "参考生视频"]);
   assert.deepEqual(STUDIO_MODES.video[0].engineIds, ["h3-t2v", "longcat-t2v", "ltx-nsfw-t2v"]);
   assert.deepEqual(STUDIO_MODES.video[1].engineIds, ["h3-i2v", "longcat-i2v", "ltx-nsfw-i2v", "wan-nsfw-i2v"]);
+});
+
+test("engine picker copy: 用户向 tagline + 去重模式后缀", async () => {
+  const { engineTagline, engineShortLabel } = await import("../lib/engineStudio");
+  assert.equal(engineShortLabel("MiniMax H3 图生视频", "图生视频"), "MiniMax H3");
+  assert.equal(engineShortLabel("图生视频", "图生视频"), "图生视频");
+  assert.equal(engineTagline({ id: "h3-i2v", description: "x 专用实例 :8195" }), "以图为首帧,画面和声音一起生成");
+  const t = engineTagline({ id: "unknown", description: "【进阶】LongCat-Video 长视频引擎:首帧参考图 → 长镜头,专用实例 :8197" });
+  assert.ok(!t.includes("专用实例") && !t.includes("8197") && !t.includes("【"), t);
 });
