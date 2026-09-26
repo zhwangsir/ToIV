@@ -777,20 +777,6 @@
   pointer-events: auto;
   width: min(320px, 80%);
 }
-.at-gen-progress-track {
-  width: 100%;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--bg-surface-2);
-  border: 1px solid var(--border-subtle);
-  overflow: hidden;
-}
-.at-gen-progress-fill {
-  height: 100%;
-  border-radius: var(--radius-full);
-  background: var(--accent, var(--text-primary));
-  transition: width var(--duration-base) var(--ease-standard);
-}
 .at-gen-progress-text {
   font-size: var(--text-aux);
   color: var(--text-muted);

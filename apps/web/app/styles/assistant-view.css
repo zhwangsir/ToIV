@@ -62,17 +62,6 @@
   overflow-x: hidden;
   background: var(--bg-canvas);
 }
-.av-chat-wrap::-webkit-scrollbar {
-  width: 6px;
-}
-.av-chat-wrap::-webkit-scrollbar-track {
-  background: transparent;
-}
-.av-chat-wrap::-webkit-scrollbar-thumb {
-  background: var(--bg-surface-3);
-  border-radius: 3px;
-}
-
 /* ───── 空态(欢迎页:hero 式舒展排版) ───── */
 .av-empty {
   position: relative;

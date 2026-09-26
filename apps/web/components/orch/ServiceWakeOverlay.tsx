@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
+import ProgressBar from "@/components/ui/ProgressBar";
 import { Icon } from "@/components/ui/Icon";
 import { ORCH_SERVICE_LABELS, useOrchStatus } from "@/lib/orch";
 
@@ -99,11 +100,13 @@ export function ServiceWakeOverlay({
 
         {!isError && (
           <>
-            <div className="sw-progress">
-              <div className="sw-progress-track">
-                <div className="sw-progress-bar" />
-              </div>
-            </div>
+            <ProgressBar
+              className="sw-progress"
+              fillClassName="sw-progress-bar"
+              size="md"
+              value={null}
+              ariaLabel="服务唤醒中"
+            />
             <p className="sw-hint">
               首次调用可能需要 1-2 分钟
             </p>
@@ -199,28 +202,6 @@ export function ServiceWakeOverlay({
           line-height: 1.3;
         }
 
-        .sw-progress {
-          width: 100%;
-        }
-        .sw-progress-track {
-          height: 8px;
-          background: var(--bg-surface-2);
-          border-radius: var(--radius-full);
-          overflow: hidden;
-        }
-        .sw-progress-bar {
-          height: 100%;
-          width: 60%;
-          background: var(--accent);
-          border-radius: var(--radius-full);
-          animation: sw-pulse 1200ms var(--ease-standard) infinite;
-        }
-        @keyframes sw-pulse {
-          0% { opacity: 0.5; transform: translateX(-10%); }
-          50% { opacity: 1; transform: translateX(60%); }
-          100% { opacity: 0.5; transform: translateX(-10%); }
-        }
-
         .sw-hint {
           margin: 0;
           font-size: var(--text-aux);
@@ -257,14 +238,6 @@ export function ServiceWakeOverlay({
           color: var(--text-primary);
         }
 
-        @media (prefers-reduced-motion: reduce) {
-          .sw-progress-bar {
-            animation: none;
-            opacity: 1;
-            transform: none;
-            width: 100%;
-          }
-        }
       `}</style>
     </div>
   );

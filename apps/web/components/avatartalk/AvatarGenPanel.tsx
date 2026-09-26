@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import ProgressBar from "@/components/ui/ProgressBar";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
@@ -537,21 +538,13 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
             {gen.status === "running" && (
               <div className="at-gen-progress" role="status" aria-label="生成进度">
                 {gen.progress.max > 0 ? (
-                  <>
-                    <div className="at-gen-progress-track">
-                      <div
-                        className="at-gen-progress-fill"
-                        style={{
-                          width: `${Math.min(100, Math.round((gen.progress.value / gen.progress.max) * 100))}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="at-gen-progress-text">
-                      采样 {gen.progress.value}/{gen.progress.max}
-                    </span>
-                  </>
+                  <ProgressBar
+                    value={(gen.progress.value / gen.progress.max) * 100}
+                    label={`采样 ${gen.progress.value}/${gen.progress.max}`}
+                    meta={`${Math.min(100, Math.round((gen.progress.value / gen.progress.max) * 100))}%`}
+                  />
                 ) : (
-                  <span className="at-gen-progress-text">排队 / 准备中…</span>
+                  <ProgressBar value={null} state="queued" label="排队 / 准备中…" />
                 )}
                 <Button variant="ghost" size="sm" onClick={() => void onCancelWait()} title="中止后端作业并停止本页跟踪">
                   停止

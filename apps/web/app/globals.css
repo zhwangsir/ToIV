@@ -602,21 +602,7 @@ img, video {
   font-variant-numeric: tabular-nums;
 }
 
-/* 滚动条 */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--bg-surface-3);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
+/* 滚动条:统一在 app/styles/details.css(标准属性优先 + webkit 回退,2026-09-27) */
 
 /* ========== Accessibility ========== */
 

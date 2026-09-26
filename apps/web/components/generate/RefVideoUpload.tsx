@@ -118,15 +118,20 @@ export function RefVideoUpload({ param, value, onChange, uploadKind, pinWorker, 
       {/* 上传进度条(2026-08-30 P1-4):XHR upload.onprogress 真实进度,大视频不再盲等 */}
       {uploading && progress !== null && (
         <div
-          className="ref-video-progress"
+          className="ref-video-progress ui-progress-block"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={progress}
           aria-label="上传进度"
         >
-          <div className="ref-video-progress-fill" style={{ width: `${progress}%` }} />
-          <span className="ref-video-progress-text">上传中 {progress}%</span>
+          <div className="ui-progress-meta">
+            <span className="ui-progress-label">上传中</span>
+            <span className="ui-progress-pct">{progress}%</span>
+          </div>
+          <div className="ui-progress" data-state="running">
+            <div className="ref-video-progress-fill ui-progress-fill" style={{ width: `${progress}%` }} />
+          </div>
         </div>
       )}
       <AssetPicker
@@ -174,27 +179,7 @@ export function RefVideoUpload({ param, value, onChange, uploadKind, pinWorker, 
         }
         /* 上传进度条:accent 软底填充 + 居中百分比(与任务中心条同语言) */
         .ref-video-progress {
-          position: relative;
-          height: 22px;
-          border-radius: var(--radius-control);
-          background: var(--bg-surface-3);
-          overflow: hidden;
-        }
-        .ref-video-progress-fill {
-          height: 100%;
-          background: var(--accent);
-          opacity: 0.35;
-          transition: width var(--duration-fast) var(--ease-standard);
-        }
-        .ref-video-progress-text {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 11px;
-          color: var(--text-secondary);
-          font-variant-numeric: tabular-nums;
+          margin-top: var(--space-2);
         }
       `}</style>
     </Field>

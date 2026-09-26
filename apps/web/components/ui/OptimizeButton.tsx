@@ -431,13 +431,6 @@ export function OptimizeButton({
           max-height: 280px;
           overflow-y: auto;
         }
-        .ob-list::-webkit-scrollbar {
-          width: 6px;
-        }
-        .ob-list::-webkit-scrollbar-thumb {
-          background: var(--bg-surface-3);
-          border-radius: 3px;
-        }
         .ob-option {
           display: flex;
           align-items: flex-start;

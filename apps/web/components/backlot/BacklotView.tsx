@@ -12,6 +12,7 @@ import type {
 } from "@/lib/api";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Button";
+import ProgressBar from "@/components/ui/ProgressBar";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
@@ -93,29 +94,27 @@ function ProgressTriple({
       {items.map((it) => {
         const p = pct(it.value, total);
         return (
-          <div key={it.label} className="bl-progress-item">
-            <div className="bl-progress-head">
+          <ProgressBar
+            key={it.label}
+            className="bl-progress-item"
+            size="md"
+            value={p}
+            state={p >= 100 ? "done" : "running"}
+            ariaLabel={`${it.label}进度`}
+            label={
               <span className="bl-progress-label">
                 <Icon name={it.icon} size={11} strokeWidth={1.8} />
                 {it.label}
               </span>
+            }
+            meta={
               <span className="bl-progress-count">
                 {it.value}
                 <span className="bl-progress-sep">/</span>
                 {total}
               </span>
-            </div>
-            <div
-              className="bl-progress-bar"
-              role="progressbar"
-              aria-label={`${it.label}进度`}
-              aria-valuenow={p}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <div className="bl-progress-fill" style={{ width: `${p}%` }} />
-            </div>
-          </div>
+            }
+          />
         );
       })}
     </div>
@@ -744,17 +743,6 @@ export function BacklotView({
           flex-direction: column;
           gap: var(--space-3);
         }
-        .bl-progress-item {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-2);
-        }
-        .bl-progress-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: var(--space-2);
-        }
         .bl-progress-label {
           display: inline-flex;
           align-items: center;
@@ -774,23 +762,6 @@ export function BacklotView({
           opacity: 0.5;
           margin: 0 1px;
         }
-        .bl-progress-bar {
-          position: relative;
-          height: 6px;
-          background: var(--bg-surface-3);
-          border-radius: var(--radius-badge);
-          overflow: hidden;
-        }
-        .bl-progress-fill {
-          position: absolute;
-          top: 0;
-          left: 0;
-          bottom: 0;
-          background: var(--accent);
-          border-radius: var(--radius-badge);
-          transition: width var(--duration-base) var(--ease-standard);
-        }
-
         /* ── Slide-over 详情面板 ── */
         .bl-overlay {
           position: fixed;

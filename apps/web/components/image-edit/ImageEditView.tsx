@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type DragEvent } from "react"
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import UiProgressBar from "@/components/ui/ProgressBar";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
@@ -566,14 +567,14 @@ function Model3DResult({ resultUrl }: { resultUrl: string }) {
 function ProgressBar({ progress }: { progress: JobProgress }) {
   const pct = progress.max > 0 ? progress.pct : 0;
   return (
-    <div className="ie-progress">
-      <div className="ie-progress-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-        <div className="ie-progress-fill" style={{ width: `${pct}%` }} />
-      </div>
-      <span className="ie-progress-text">
-        {progress.max > 0 ? `处理中 ${progress.value}/${progress.max}` : "排队中…"}
-      </span>
-    </div>
+    <UiProgressBar
+      className="ie-progress"
+      value={progress.max > 0 ? pct : null}
+      state={progress.max > 0 ? "running" : "queued"}
+      label={progress.max > 0 ? `处理中 ${progress.value}/${progress.max}` : "排队中…"}
+      meta={progress.max > 0 ? `${pct}%` : undefined}
+      ariaLabel="处理进度"
+    />
   );
 }
 
@@ -1626,24 +1627,6 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
         }
 
         /* ── 进度条 ── */
-        .ie-progress {
-          display: flex;
-          align-items: center;
-          gap: var(--space-3);
-        }
-        .ie-progress-track {
-          flex: 1;
-          height: 4px;
-          background: var(--bg-surface-3);
-          border-radius: var(--radius-full);
-          overflow: hidden;
-        }
-        .ie-progress-fill {
-          height: 100%;
-          background: var(--accent);
-          border-radius: var(--radius-full);
-          transition: width var(--duration-fast) var(--ease-standard);
-        }
         .ie-progress-text {
           font-size: var(--text-aux);
           color: var(--text-secondary);

@@ -14,6 +14,7 @@ import "./styles/motion.css";
 import "./styles/effects.css";
 /* 原生画布(2026-09-16 去 iframe 化):React Flow 节点图样式 */
 import "./styles/canvas-flow.css";
+import "./styles/details.css";
 import { ToastProvider } from "@/components/ui/Toast";
 import { ReleaseWatch } from "@/components/ReleaseWatch";
 import { GlobalProgress } from "@/components/ui/GlobalProgress";

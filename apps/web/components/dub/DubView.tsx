@@ -25,6 +25,7 @@ import {
 } from "@/lib/api";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import ProgressBar from "@/components/ui/ProgressBar";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Input, Select } from "@/components/ui/Input";
@@ -625,10 +626,14 @@ export function DubView({ onBack }: { onBack?: () => void }) {
                   )}
                 </div>
                 {uploading && (
-                  <div className="dub-progress">
-                    <div className="dub-progress-bar" style={{ width: `${uploadPct}%` }} />
-                    <span className="dub-progress-label">{uploadPct}%</span>
-                  </div>
+                  <ProgressBar
+                    className="dub-progress"
+                    fillClassName="dub-progress-bar"
+                    value={uploadPct}
+                    label="上传中"
+                    meta={`${uploadPct}%`}
+                    ariaLabel="上传进度"
+                  />
                 )}
               </div>
             )}
@@ -701,12 +706,14 @@ export function DubView({ onBack }: { onBack?: () => void }) {
             </div>
 
             {subBusy && (
-              <div className="dub-progress">
-                <div className="dub-progress-bar" style={{ width: `${subPct}%` }} />
-                <span className="dub-progress-label">
-                  {subStage} · {subPct}%
-                </span>
-              </div>
+              <ProgressBar
+                className="dub-progress"
+                fillClassName="dub-progress-bar"
+                value={subPct}
+                label={subStage}
+                meta={`${subPct}%`}
+                ariaLabel="字幕进度"
+              />
             )}
             {subError && (
               <ErrorBar message={subError} onClose={() => setSubError(null)} />
@@ -856,12 +863,14 @@ export function DubView({ onBack }: { onBack?: () => void }) {
                 </div>
 
                 {voiceBusy && (
-                  <div className="dub-progress">
-                    <div className="dub-progress-bar" style={{ width: `${voicePct}%` }} />
-                    <span className="dub-progress-label">
-                      {voiceStage} · {voicePct}%
-                    </span>
-                  </div>
+                  <ProgressBar
+                    className="dub-progress"
+                    fillClassName="dub-progress-bar"
+                    value={voicePct}
+                    label={voiceStage}
+                    meta={`${voicePct}%`}
+                    ariaLabel="配音进度"
+                  />
                 )}
                 {voiceError && (
                   <ErrorBar message={voiceError} onClose={() => setVoiceError(null)} />
@@ -1220,17 +1229,14 @@ export function DubView({ onBack }: { onBack?: () => void }) {
                   </div>
                 </div>
                 {lipsyncStatus.status === "running" && lipsyncStatus.total > 0 && (
-                  <div className="dub-progress">
-                    <div
-                      className="dub-progress-bar"
-                      style={{
-                        width: `${Math.round((lipsyncStatus.completed / lipsyncStatus.total) * 100)}%`,
-                      }}
-                    />
-                    <span className="dub-progress-label">
-                      {Math.round((lipsyncStatus.completed / lipsyncStatus.total) * 100)}%
-                    </span>
-                  </div>
+                  <ProgressBar
+                    className="dub-progress"
+                    fillClassName="dub-progress-bar"
+                    value={(lipsyncStatus.completed / lipsyncStatus.total) * 100}
+                    label={`口型同步 ${lipsyncStatus.completed}/${lipsyncStatus.total}`}
+                    meta={`${Math.round((lipsyncStatus.completed / lipsyncStatus.total) * 100)}%`}
+                    ariaLabel="口型同步进度"
+                  />
                 )}
                 {lipsyncStatus.status === "done" && lipsyncStatus.url && (
                   <div className="dub-lipsync-done">
@@ -1696,32 +1702,9 @@ export function DubView({ onBack }: { onBack?: () => void }) {
         }
 
         /* ── 进度条:accent → run 渐变(运行态专用色) ── */
-        .dub-progress {
-          position: relative;
-          width: 100%;
-          height: 28px;
-          background: var(--bg-canvas);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-control);
-          overflow: hidden;
-        }
-        .dub-progress-bar {
-          height: 100%;
-          background: linear-gradient(90deg, var(--accent), var(--run));
-          transition: width var(--duration-base) var(--ease-standard);
-        }
-        .dub-progress-label {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: var(--text-aux);
-          /* 反色混合:文字落在未填充轨道上呈深色、落在深色填充条上呈浅色,五套主题均可读 */
-          color: var(--text-on-accent);
-          mix-blend-mode: difference;
-          letter-spacing: 0.02em;
-          font-variant-numeric: tabular-nums;
+        /* 进度条走统一 ProgressBar(details.css .ui-progress*),这里只留间距 */
+        .dub-view :global(.dub-progress) {
+          margin-top: var(--space-2);
         }
 
         /* ── 错误提示 ── */

@@ -14,6 +14,7 @@ import {
 import type { TrainJob, TrainProgress, TrainStartParams } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import ProgressBar from "@/components/ui/ProgressBar";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
@@ -864,12 +865,14 @@ function TrainCard({
 
       {(isActive || isDone) && progress && (
         <div className="tv-progress-wrap">
-          <div className="tv-progress-track">
-            <div
-              className="tv-progress-fill"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
+          <ProgressBar
+            size="xs"
+            trackClassName="tv-progress-track"
+            fillClassName="tv-progress-fill"
+            value={progressPct}
+            state={isDone ? "done" : "running"}
+            ariaLabel="训练进度"
+          />
           <div className="tv-progress-info">
             <span className="tv-progress-pct">{progressPct}%</span>
             {progress.loss > 0 && (
@@ -1050,20 +1053,7 @@ function TrainCard({
           flex-direction: column;
           gap: var(--space-2);
         }
-        /* 进度条(2026-09-04 美化 W4):8px 粗轨 → 2px 细轨,填充琥珀点睛
-           (最小触点原则:单条 2px 状态线,非大面积着色) */
-        .tv-progress-track {
-          height: 2px;
-          background: var(--bg-surface-2);
-          border-radius: var(--radius-full);
-          overflow: hidden;
-        }
-        .tv-progress-fill {
-          height: 100%;
-          background: var(--accent-glow);
-          border-radius: var(--radius-full);
-          transition: width var(--duration-base) var(--ease-standard);
-        }
+        /* 进度条(2026-09-04 美化 W4 定 2px 细轨):走统一 ProgressBar size="xs" */
         .tv-progress-info {
           display: flex;
           align-items: center;

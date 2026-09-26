@@ -197,19 +197,33 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
+  height: 2px;
   z-index: var(--z-toast);
   pointer-events: none;
 }
+/* 2026-09-27 细节层:2px 细条 + 前沿柔光(nprogress 的 peg 光晕,0 0 10px / 0 0 5px),
+   宽度变化走 M3 进度曲线;首帧 150ms 后才显形,秒完成的任务不闪条 */
 .global-progress-fill {
+  position: relative;
   height: 100%;
   background: var(--accent);
-  transition: width var(--duration-base) var(--ease-standard);
+  border-radius: 0 var(--radius-full) var(--radius-full) 0;
+  box-shadow:
+    0 0 10px color-mix(in oklab, var(--accent) 45%, transparent),
+    0 0 4px color-mix(in oklab, var(--accent) 60%, transparent);
+  transition: width 280ms var(--ease-progress, var(--ease-standard));
+  animation: global-progress-appear var(--duration-fast) var(--ease-standard) 150ms both;
+}
+@keyframes global-progress-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 /* 不确定态(排队/轮询类):40% 宽循环滑动,节奏与 .gen-progress 局部条一致 */
 .global-progress-fill.is-indeterminate {
   width: 40%;
   animation: global-progress-slide var(--duration-loop) var(--ease-standard) infinite;
+  background: linear-gradient(90deg, transparent, var(--accent) 35%, var(--accent) 65%, transparent);
+  box-shadow: none;
 }
 @keyframes global-progress-slide {
   0% { transform: translateX(-100%); }

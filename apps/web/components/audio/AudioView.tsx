@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Empty } from "@/components/ui/Empty";
+import ProgressBar from "@/components/ui/ProgressBar";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Textarea } from "@/components/ui/Input";
@@ -44,13 +45,13 @@ function fileExt(name: string): string {
 /** 任务进度条(与译制台同款:渐变条 + 百分比/阶段文案)。 */
 function ToolProgress({ pct, label }: { pct: number; label?: string }) {
   return (
-    <div className="audio-progress">
-      <div className="audio-progress-bar" style={{ width: `${Math.round(pct)}%` }} />
-      <span className="audio-progress-label">
-        {label ? `${label} · ` : ""}
-        {Math.round(pct)}%
-      </span>
-    </div>
+    <ProgressBar
+      className="audio-progress"
+      fillClassName="audio-progress-bar"
+      value={pct}
+      label={label ?? "处理中"}
+      meta={`${Math.round(pct)}%`}
+    />
   );
 }
 
@@ -930,31 +931,7 @@ export function AudioView() {
 
         /* 进度条(与译制台 dub-progress 同款) */
         .audio-view :global(.audio-progress) {
-          position: relative;
-          width: 100%;
-          height: 28px;
-          background: var(--bg-canvas);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-control);
-          overflow: hidden;
-        }
-        .audio-view :global(.audio-progress-bar) {
-          height: 100%;
-          background: linear-gradient(90deg, var(--accent), var(--run));
-          transition: width var(--duration-base) var(--ease-standard);
-        }
-        .audio-view :global(.audio-progress-label) {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: var(--text-aux);
-          /* on-accent(近白)+ difference:空轨上呈深色、进度条(深)上呈浅色,全程可读 */
-          color: var(--text-on-accent);
-          mix-blend-mode: difference;
-          letter-spacing: 0.02em;
-          font-variant-numeric: tabular-nums;
+          margin-top: var(--space-2);
         }
 
         /* 结果区:嵌套面板加大留白与圆角,与舞台拉开层级 */

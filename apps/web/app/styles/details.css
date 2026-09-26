@@ -1,0 +1,222 @@
+/* ════════════════════════════════════════════════════════════════════
+   细节层(2026-09-27):进度条 / 滚动条 / 骨架 / 媒体淡入 / 按压反馈
+   参考:shadcn·Radix Progress(transform 驱动)、Material 3 进度缓动
+   cubic-bezier(0.4,0,0.6,1) 250ms、Suno 不确定态 25% 段 1.5s、Turbo
+   「先填满再淡出」、Primer 运行中蒙版微光、Vercel/Runway/Krea 细滚动条
+   (standard 属性优先 + webkit 回退)、Emil Kowalski 按压 0.97。
+   规则:只用 token(color-mix 内除外无 hex);全部遵守 prefers-reduced-motion;
+   作品库「生成中」卡片仍不扫光(W3 决议),微光只在进度条填充内。
+   ════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --ease-progress: cubic-bezier(0.4, 0, 0.6, 1);
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --duration-instant: 100ms;
+  /* 不确定态 1.5s(Suno)= loop × 1.25;运行微光 1.8s = loop × 1.5 */
+  --duration-indeterminate: calc(var(--duration-loop) * 1.25);
+  --duration-sheen: calc(var(--duration-loop) * 1.5);
+  --ui-progress-track: color-mix(in oklab, var(--text-muted) 18%, transparent);
+  --ui-progress-fill: var(--accent);
+  --ui-scroll-thumb: color-mix(in oklab, var(--text-muted) 38%, transparent);
+  --ui-scroll-thumb-hover: color-mix(in oklab, var(--text-muted) 64%, transparent);
+}
+
+/* ── 1. 统一进度条 ──────────────────────────────────────────────── */
+.ui-progress-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.ui-progress-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-aux);
+  line-height: 16px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+.ui-progress-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-progress-pct {
+  flex: none;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-progress {
+  --ui-progress-h: 4px;
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: var(--ui-progress-h);
+  border-radius: var(--radius-full);
+  background: var(--ui-progress-track);
+  overflow: hidden;
+  isolation: isolate;
+  transition: opacity var(--duration-base) var(--ease-standard);
+}
+/* 纵向块里不能 flex:1(column 方向 flex-basis:0 会把高度压成 0);flex:1 只服务横排场景 */
+.ui-progress-block > .ui-progress { flex: none; }
+.ui-progress[data-size="xs"] { --ui-progress-h: 2px; }
+.ui-progress[data-size="md"] { --ui-progress-h: 6px; }
+
+/* 填充:宽度由内联 width 驱动(各处已有的百分比),缓动换成 M3 进度曲线,
+   ComfyUI 采样步事件成簇到达时平滑而不拖沓;起步给 3px 细条,「已开始」可见 */
+.ui-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  min-width: 3px;
+  max-width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ui-progress-fill);
+  transition:
+    width 280ms var(--ease-progress),
+    background-color var(--duration-base) var(--ease-standard),
+    opacity var(--duration-base) var(--ease-standard);
+}
+/* 运行中:填充内一道极淡的蒙版微光(Primer 同款,只动透明度蒙版不动颜色) */
+@media (prefers-reduced-motion: no-preference) {
+  .ui-progress[data-state="running"] .ui-progress-fill {
+    -webkit-mask-image: linear-gradient(75deg, black 30%, color-mix(in srgb, black 62%, transparent) 50%, black 70%);
+            mask-image: linear-gradient(75deg, black 30%, color-mix(in srgb, black 62%, transparent) 50%, black 70%);
+    -webkit-mask-size: 250% 100%;
+            mask-size: 250% 100%;
+    animation: ui-progress-sheen var(--duration-sheen) linear infinite;
+  }
+}
+@keyframes ui-progress-sheen {
+  from { -webkit-mask-position: 150% 0; mask-position: 150% 0; }
+  to   { -webkit-mask-position: -50% 0; mask-position: -50% 0; }
+}
+
+/* 不确定态:25% 段从左滑出右(Suno 几何);排队态用 muted 色、放慢到 2s */
+.ui-progress[data-indeterminate] .ui-progress-fill {
+  width: 25% !important;
+  -webkit-mask-image: none;
+          mask-image: none;
+  transition: none;
+  animation: ui-progress-indeterminate var(--duration-indeterminate) cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+.ui-progress[data-indeterminate][data-state="queued"] .ui-progress-fill {
+  background: var(--text-muted);
+  animation-duration: calc(var(--duration-loop) * 1.667);
+}
+@keyframes ui-progress-indeterminate {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(400%); }
+}
+
+/* 完成:填满后 150ms 淡出(Turbo 先填后淡) */
+.ui-progress[data-state="done"] .ui-progress-fill { width: 100% !important; }
+.ui-progress[data-state="done"][data-autohide] {
+  opacity: 0;
+  transition: opacity var(--duration-fast) ease-in 280ms;
+}
+/* 失败:冻结在最后值并转红,轨道淡红 */
+.ui-progress[data-state="error"] {
+  background: color-mix(in oklab, var(--err) 16%, transparent);
+}
+.ui-progress[data-state="error"] .ui-progress-fill {
+  background: var(--err);
+  animation: none;
+  -webkit-mask-image: none;
+          mask-image: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-progress-fill { transition: none; }
+  .ui-progress[data-indeterminate] .ui-progress-fill {
+    animation: none;
+    width: 100% !important;
+    transform: none;
+    opacity: 0.35;
+  }
+}
+
+/* ── 2. 滚动条:标准属性优先,webkit 回退 ──────────────────────────
+   坑:Chrome 121+ 里只要祖先算出了非 auto 的 scrollbar-color/width,
+   ::-webkit-scrollbar-* 就整棵子树失效,之前「有的区域 6px 自绘、有的系统细条」
+   即因此。现在统一由 html 一处下发(scrollbar-color 可继承),各区不再各写。 */
+@supports (scrollbar-color: auto) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ui-scroll-thumb) transparent;
+  }
+  /* 悬停到可滚动区时滑块加深一档,提示「这里能滚」 */
+  :where(
+    .generate-params-body, .av-chat-wrap, .ob-list, .lib-source-pop,
+    .stage-scroll, .apps-scroll, .modal-body
+  ):hover {
+    scrollbar-color: var(--ui-scroll-thumb-hover) transparent;
+  }
+}
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--ui-scroll-thumb);
+    border: 3px solid transparent; /* 10px 盒 / 4px 可见滑块:内嵌不贴边 */
+    background-clip: padding-box;
+    border-radius: var(--radius-full);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--ui-scroll-thumb-hover);
+    border-width: 2px;
+  }
+}
+/* 密集面板(参数浮板、对话流、下拉列表):鼠标不在时隐藏滑块,移入/聚焦时出现;
+   触屏无悬停,不隐藏 */
+@media (hover: hover) and (pointer: fine) {
+  @supports (scrollbar-color: auto) {
+    :where(.generate-params-body, .av-chat-wrap, .ob-list) {
+      scrollbar-color: transparent transparent;
+      transition: scrollbar-color var(--duration-base) var(--ease-standard);
+    }
+    :where(.generate-params-body, .av-chat-wrap, .ob-list):is(:hover, :focus-within) {
+      scrollbar-color: var(--ui-scroll-thumb) transparent;
+    }
+  }
+}
+/* 弹层/抽屉:滚到底不带动背后页面 */
+:where(.lib-source-pop, .ob-list, .modal-body, .generate-params-body, .bl-overlay) {
+  overscroll-behavior: contain;
+}
+@media (forced-colors: active) {
+  html { scrollbar-color: auto; }
+}
+
+/* ── 3. 按压反馈:高频小按钮统一 0.97 / 图标钮 0.92,100ms 回弹 ──── */
+:where(.lib-action-btn, .lib-chip, .lib-filter, .ve-mini-btn, .av-composer-btn,
+  .av-tc-btn, .av-proposal-btn, .rh-run-btn, .rh-stepper-btn, .at-composer-btn) {
+  transition-property: transform, background-color, border-color, color, opacity, box-shadow;
+  transition-duration: var(--duration-instant), var(--duration-fast), var(--duration-fast),
+    var(--duration-fast), var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out-strong);
+}
+:where(.lib-chip, .lib-filter, .ve-mini-btn, .av-proposal-btn, .rh-run-btn,
+  .rh-stepper-btn):active:not(:disabled) {
+  transform: scale(0.97);
+}
+:where(.lib-action-btn, .av-composer-btn, .av-tc-btn, .at-composer-btn):active:not(:disabled) {
+  transform: scale(0.92);
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.lib-action-btn, .lib-chip, .lib-filter, .ve-mini-btn, .av-composer-btn,
+    .av-tc-btn, .av-proposal-btn, .rh-run-btn, .rh-stepper-btn, .at-composer-btn):active {
+    transform: none;
+  }
+}

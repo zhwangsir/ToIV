@@ -156,7 +156,6 @@
   min-height: 0;
   /* 多图批次 wrap 成多行时行高合计可超容器:允许滚动而非裁切 */
   overflow-y: auto;
-  scrollbar-width: thin;
 }
 .stage-media-wrap .media-main {
   max-width: 100%;
@@ -295,22 +294,35 @@
   color: var(--text-muted);
 }
 
+/* 舞台采样进度(2026-09-27 细节层对齐 .ui-progress):淡轨 + M3 进度缓动 +
+   运行中填充内蒙版微光;不确定态 25% 段 1.5s 缓入缓出 */
 .gen-progress {
+  position: relative;
   flex: 1;
   height: 4px;
-  background: var(--bg-surface-3);
+  background: var(--ui-progress-track, var(--bg-surface-3));
   border-radius: var(--radius-full);
   overflow: hidden;
 }
 .gen-progress-fill {
   height: 100%;
+  min-width: 3px;
   background: var(--run);
   border-radius: var(--radius-full);
-  transition: width var(--duration-fast) var(--ease-standard);
+  transition: width 280ms var(--ease-progress, var(--ease-standard));
+}
+@media (prefers-reduced-motion: no-preference) {
+  .gen-progress-fill:not(.is-indeterminate) {
+    -webkit-mask-image: linear-gradient(75deg, black 30%, color-mix(in srgb, black 62%, transparent) 50%, black 70%);
+            mask-image: linear-gradient(75deg, black 30%, color-mix(in srgb, black 62%, transparent) 50%, black 70%);
+    -webkit-mask-size: 250% 100%;
+            mask-size: 250% 100%;
+    animation: ui-progress-sheen var(--duration-sheen, 1.8s) linear infinite;
+  }
 }
 .gen-progress-fill.is-indeterminate {
-  width: 30%;
-  animation: gen-progress-slide var(--duration-loop) var(--ease-standard) infinite;
+  width: 25%;
+  animation: gen-progress-slide calc(var(--duration-loop) * 1.25) cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 @keyframes gen-progress-slide {
   0% { transform: translateX(-100%); }
@@ -503,8 +515,6 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
   border-top: 1px solid var(--border-subtle);
   background: color-mix(in oklab, var(--bg-canvas) 55%, var(--bg-surface-1));
 }
@@ -693,17 +703,6 @@
 .generate-group-seg .at-seg-btn {
   flex: 1;
 }
-/* 细暗滚动条(WebKit):挂在浮板滚动区 body 上 */
-.generate-params-body::-webkit-scrollbar {
-  width: 6px;
-}
-.generate-params-body::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: var(--radius-full);
-}
-.generate-params-body::-webkit-scrollbar-track {
-  background: transparent;
-}
 @keyframes params-panel-in {
   from { opacity: 0; transform: translateX(12px); }
   to { opacity: 1; transform: none; }
@@ -746,8 +745,6 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
   display: flex;
   flex-direction: column;
   gap: var(--section-gap);
@@ -1259,8 +1256,6 @@
   width: min(320px, calc(100vw - var(--space-8)));
   max-height: min(320px, 50vh);
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
   padding: var(--space-2);
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
@@ -1457,8 +1452,6 @@
   width: min(300px, calc(100vw - var(--space-8)));
   max-height: min(280px, 50vh);
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
   padding: var(--space-2);
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
