@@ -53,8 +53,8 @@ test("RH 市场:根节点挂 rh-dark 暗底作用域 + CSS 原生 masonry 瀑布
 test("RH 卡片:封面充满整卡 + scrim 标题 + 作者行 + ▶ usage_count(源码)", () => {
   const src = readSrc("components/apps/AppMarketView.tsx");
   const css = readSrc("app/styles/apps.css");
-  // 封面:cover_url 经 imageUrl 带 token;加载失败 onError 降级占位
-  assert.ok(src.includes("imageUrl(a.cover_url"), "封面应走 imageUrl 带 token");
+  // 封面:cover_url 经 coverImageUrl(视频封面截帧;本服务地址带 token);加载失败 onError 降级占位
+  assert.ok(src.includes("coverImageUrl(a.cover_url"), "封面应走 coverImageUrl");
   assert.ok(src.includes("onError={() => setImgFailed(true)}"), "封面加载失败应降级占位");
   assert.ok(src.includes("rh-card-scrim"), "缺底部 scrim 叠层");
   assert.ok(src.includes("rh-card-name"), "缺标题");
@@ -175,7 +175,7 @@ test("RH 详情参数列:折叠分区(荧光标题+chevron)+ 数值 stepper + �
 test("RH 详情右列:封面预览(占位降级)+「我的生成」按 app_id 过滤历史 Job", () => {
   const src = readSrc("components/apps/AppRunnerView.tsx");
   assert.ok(src.includes("rh-preview-cover"), "缺预览大卡");
-  assert.ok(src.includes("imageUrl(app.cover_url)"), "预览封面应走 imageUrl");
+  assert.ok(src.includes("coverImageUrl(app.cover_url)"), "预览封面应走 coverImageUrl");
   assert.ok(src.includes("placeholderAspect(app.id)"), "预览占位同样按 id 散列高度");
   assert.ok(src.includes("我的生成"), "缺「我的生成」区");
   assert.ok(src.includes("listJobs"), "历史应复用作品库 listJobs(SWR)");

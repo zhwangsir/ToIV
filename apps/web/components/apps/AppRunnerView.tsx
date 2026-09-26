@@ -36,7 +36,7 @@ import {
   type AppItem,
   type AppParam,
 } from "@/lib/apps";
-import { fetchAppRelations, getMe, imageThumbUrl, imageUrl, listJobs, type AppRelation } from "@/lib/api";
+import { coverImageUrl, coverVideoUrl, isVideoCoverUrl, fetchAppRelations, getMe, imageThumbUrl, imageUrl, listJobs, type AppRelation } from "@/lib/api";
 import type { H3AccelLevel } from "@/lib/h3Accel";
 import { confirmAge, isAgeConfirmed, useR18Mode } from "@/lib/r18";
 import { mediaKindOf } from "@/lib/mediaKind";
@@ -475,7 +475,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
         <div className="apps-runner-hero">
           <div
             className="apps-runner-hero-img"
-            style={{ backgroundImage: `url(${imageUrl(app.cover_url)})` }}
+            style={{ backgroundImage: `url(${coverImageUrl(app.cover_url)})` }}
             aria-hidden="true"
           />
           <div className="apps-runner-hero-veil" aria-hidden="true" />
@@ -513,7 +513,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
                 {v.cover_url && (
                   <span
                     className="apps-preset-card-thumb"
-                    style={{ backgroundImage: `url(${imageUrl(v.cover_url)})` }}
+                    style={{ backgroundImage: `url(${coverImageUrl(v.cover_url)})` }}
                     aria-hidden="true"
                   />
                 )}
@@ -545,13 +545,26 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
               }
             >
               {app.cover_url && !previewFailed ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  className="rh-card-img"
-                  src={imageUrl(app.cover_url)}
-                  alt={app.name}
-                  onError={() => setPreviewFailed(true)}
-                />
+                coverVideoUrl(app.cover_url) ? (
+                  <video
+                    className="rh-card-img"
+                    src={coverVideoUrl(app.cover_url) ?? undefined}
+                    poster={coverImageUrl(app.cover_url)}
+                    muted
+                    loop
+                    autoPlay
+                    playsInline
+                    onError={() => setPreviewFailed(true)}
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    className="rh-card-img"
+                    src={coverImageUrl(app.cover_url)}
+                    alt={app.name}
+                    onError={() => setPreviewFailed(true)}
+                  />
+                )
               ) : (
                 <span className="rh-card-placeholder-icon" aria-hidden="true">
                   <Icon name={(app.icon || "package") as IconName} size={48} strokeWidth={1.2} />
@@ -826,13 +839,26 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
                 style={app.cover_url && !previewFailed ? undefined : { aspectRatio: placeholderAspect(app.id) }}
               >
                 {app.cover_url && !previewFailed ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    className="rh-card-img"
-                    src={imageUrl(app.cover_url)}
-                    alt={app.name}
-                    onError={() => setPreviewFailed(true)}
-                  />
+                  coverVideoUrl(app.cover_url) ? (
+                    <video
+                      className="rh-card-img"
+                      src={coverVideoUrl(app.cover_url) ?? undefined}
+                      poster={coverImageUrl(app.cover_url)}
+                      muted
+                      loop
+                      autoPlay
+                      playsInline
+                      onError={() => setPreviewFailed(true)}
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      className="rh-card-img"
+                      src={coverImageUrl(app.cover_url)}
+                      alt={app.name}
+                      onError={() => setPreviewFailed(true)}
+                    />
+                  )
                 ) : (
                   <span className="rh-card-placeholder-icon" aria-hidden="true">
                     <Icon name={(app.icon || "package") as IconName} size={40} strokeWidth={1.2} />
@@ -994,7 +1020,7 @@ function AppGuideCard({ guide }: { guide: AppGuide }) {
                 title={`${r.name}(打开运行台)`}
               >
                 {r.cover_url ? (
-                  <img src={imageThumbUrl(r.cover_url)} alt={r.name} loading="lazy" decoding="async" />
+                  <img src={isVideoCoverUrl(r.cover_url) ? coverImageUrl(r.cover_url) : imageThumbUrl(r.cover_url)} alt={r.name} loading="lazy" decoding="async" />
                 ) : (
                   <span className="apps-guide-relation-noimg" aria-hidden="true" />
                 )}

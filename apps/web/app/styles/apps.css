@@ -1159,6 +1159,30 @@
   height: 100%;
   object-fit: cover;
 }
+/* 动态封面(RH mp4 封面):静帧打底,悬停叠播原片 */
+.rh-card-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.rh-card-play {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  color: white;
+  background: rgb(0 0 0 / 0.45);
+  pointer-events: none;
+}
+.rh-card:hover .rh-card-play { opacity: 0; }
 .rh-card:hover .rh-card-img,
 .rh-card:focus-visible .rh-card-img {
   transform: scale(1.04);

@@ -404,6 +404,11 @@ export const authHeaders = (): Record<string, string> => ({});
 /** 产物 URL 构造替身:直接透传(测试不断言完整 URL)。 */
 export const imageUrl = (path: string): string => path;
 export const imageThumbUrl = (path: string): string => path;
+export const isVideoCoverUrl = (url: string | null | undefined): boolean =>
+  !!url && /\.(mp4|webm|mov|m4v)$/i.test(url.split(/[?#]/, 1)[0]);
+export const coverImageUrl = (path: string | null | undefined): string => path ?? "";
+export const coverVideoUrl = (path: string | null | undefined): string | null =>
+  path && isVideoCoverUrl(path) ? path.split(/[?#]/, 1)[0] : null;
 
 /** AppRunnerView admin 出处门控:默认非 admin;用例可覆盖. */
 export const getMe = async (): Promise<{ user: { id: string; email: string; role: string }; usage: Record<string, unknown> }> => ({

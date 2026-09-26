@@ -26,7 +26,7 @@ import {
   type AppMarketSort,
   type AppOutputKind,
 } from "@/lib/apps";
-import { getMe, getToken, imageUrl, TOKEN_KEY } from "@/lib/api";
+import { coverImageUrl, coverVideoUrl, getMe, getToken, TOKEN_KEY } from "@/lib/api";
 import { useCrossTabSync } from "@/lib/crossTab";
 import { useR18Mode } from "@/lib/r18";
 import { AppImportModal } from "./AppImportModal";
@@ -629,7 +629,7 @@ function MiniAppCard({ app: a, onOpen }: { app: AppItem; onOpen: () => void }) {
       <div className="apps-mkt-mini-cover" data-category={a.category}>
         {showImg ? (
           <LazyCoverImg
-            src={imageUrl(a.cover_url ?? "")}
+            src={coverImageUrl(a.cover_url)}
             alt={a.name}
             onError={() => setImgFailed(true)}
           />
@@ -721,7 +721,9 @@ function AppCard({
 }) {
   const [imgFailed, setImgFailed] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [hovering, setHovering] = useState(false);
   const showImg = !!a.cover_url && !imgFailed;
+  const videoSrc = showImg && imgLoaded ? coverVideoUrl(a.cover_url) : null;
   const ar = placeholderAspect(a.id);
   return (
     <article
@@ -730,6 +732,8 @@ function AppCard({
       tabIndex={0}
       aria-label={`打开应用 ${a.name}`}
       title={a.description || a.name}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button, a")) return;
         if (window.getSelection()?.toString()) return;
@@ -754,11 +758,28 @@ function AppCard({
               <span className="rh-card-img-skel skeleton-shimmer" aria-hidden="true" />
             )}
             <LazyCoverImg
-              src={imageUrl(a.cover_url ?? "")}
+              src={coverImageUrl(a.cover_url)}
               alt={a.name}
               onError={() => setImgFailed(true)}
               onLoad={() => setImgLoaded(true)}
             />
+            {videoSrc && hovering && (
+              <video
+                className="rh-card-video"
+                src={videoSrc}
+                muted
+                loop
+                autoPlay
+                playsInline
+                preload="auto"
+                aria-hidden="true"
+              />
+            )}
+            {videoSrc && (
+              <span className="rh-card-play" aria-label="动态封面,悬停播放">
+                <Icon name="play" size={10} />
+              </span>
+            )}
           </>
         ) : (
           <span className="rh-card-placeholder-icon" aria-hidden="true">

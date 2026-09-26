@@ -10,7 +10,7 @@
  */
 import type { ReactNode } from "react";
 import { Icon } from "@/components/ui/Icon";
-import { imageUrl } from "@/lib/api";
+import { coverImageUrl, imageUrl } from "@/lib/api";
 
 /** 卡片动作回调:由 AssistantView 注入(setInput / market 深链 / library 兜底)。 */
 export interface ToolCardCtx {
@@ -125,7 +125,7 @@ export function AppListCard({ payload, ctx }: ToolCardProps): ReactNode {
             <Icon name="grid" size={14} strokeWidth={1.8} />
             {it.cover ? (
               <img
-                src={imageUrl(it.cover)}
+                src={coverImageUrl(it.cover)}
                 alt={it.name}
                 loading="lazy"
                 decoding="async"

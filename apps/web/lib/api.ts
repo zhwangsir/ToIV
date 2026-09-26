@@ -72,9 +72,14 @@ export function authHeaders(): Record<string, string> {
   if (_nsfwIntent) h["X-NSFW"] = "1";
   return h;
 }
+/** 只有本服务 API 地址才带 ?token=;外链(RunningHub 图床等)绝不附登录凭证。 */
+export function isOwnApiUrl(url: string): boolean {
+  if (!/^https?:\/\//i.test(url)) return true;
+  return !!API_BASE && url.startsWith(API_BASE);
+}
 function withToken(url: string): string {
   const t = getToken();
-  if (!t) return url;
+  if (!t || !isOwnApiUrl(url)) return url;
   return url + (url.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(t);
 }
 
@@ -211,6 +216,42 @@ export function imageThumbUrl(path: string): string {
   if (path.startsWith("http")) return withToken(path);
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return withToken(`${API_BASE}${normalized.replace(/^\/api\/images\b/, "/api/images/thumb")}`);
+}
+
+const VIDEO_PATH_RE = /\.(mp4|webm|mov|m4v)$/i;
+/** RunningHub 图床(腾讯 COS)支持 ci-process=snapshot 截帧。 */
+const RH_COS_HOST_RE = /^rh-[a-z0-9-]*images\.xiaoyaoyou\.com$/i;
+
+function splitUrlPath(url: string): { base: string; path: string; host: string } {
+  const base = url.split(/[?#]/, 1)[0];
+  const m = /^https?:\/\/([^/]+)(\/[^?#]*)?/i.exec(base);
+  return { base, host: m ? m[1] : "", path: m ? m[2] || "" : base };
+}
+
+/** 封面地址指向视频文件(RH 部分卡的封面是 mp4 动图)。 */
+export function isVideoCoverUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return VIDEO_PATH_RE.test(splitUrlPath(url).path);
+}
+
+/**
+ * 卡片封面的图片地址:视频封面在 RH 图床上走截帧(768 宽 jpg),<img> 才能显示;
+ * 其余照常走 imageUrl。
+ */
+export function coverImageUrl(path: string | null | undefined): string {
+  if (!path) return "";
+  if (isVideoCoverUrl(path)) {
+    const { base, host } = splitUrlPath(path);
+    if (RH_COS_HOST_RE.test(host)) return `${base}?ci-process=snapshot&time=1&format=jpg&width=768`;
+  }
+  return imageUrl(path);
+}
+
+/** 视频封面的原片地址(悬停/详情页播放用);非视频封面返回 null。 */
+export function coverVideoUrl(path: string | null | undefined): string | null {
+  if (!path || !isVideoCoverUrl(path)) return null;
+  const { base } = splitUrlPath(path);
+  return /^https?:\/\//i.test(base) ? base : imageUrl(base);
 }
 
 export function imageUrl(path: string): string {
