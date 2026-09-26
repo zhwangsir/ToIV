@@ -1562,6 +1562,9 @@ _MODEL_FILE_ALIASES: dict[str, str] = {
     # 旧 LTX 内置模板指 gemma3_12b_it/(fp8_scaled 已 .disabled,HF 加载器忽略 weight_scale);
     # fleet 与 config.nsfw_default_gemma 统一 bf16 目录(2026-09-25 ltx-txt2video 等三卡)
     "gemma3_12b_it/model.safetensors": "gemma3_12b_it_bf16/model.safetensors",
+    # EchoShot-VACE:RH 名只在 RunningHub 存在(MD5 与 Kijai comfy/alibaba-pai 原版均不符),
+    # 落盘 Kijai/Wan2.1-Fun-Reward-LoRAs-comfy 同功能版(2026-09-26 rh-acc-4383012865)
+    "Wan2.1-Fun-1.3B-InP-MPS_reward_lora.safetensors": "Wan2.1-Fun-1.3B-InP-MPS_reward_lora_comfy.safetensors",
 }
 
 _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
