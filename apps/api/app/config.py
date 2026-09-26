@@ -13,6 +13,10 @@ class Settings(BaseSettings):
 
     # 逗号分隔的 ComfyUI worker 列表（P0 单实例，P2 起对应多 GPU 多进程）
     comfy_workers: str = "http://192.168.71.127:8189"
+    # 同一台算力机的内网/Tailscale 双地址(逗号分隔 lan=ts):旧产物 URL 里记的是内网地址,
+    # 集群切 Tailscale 后白名单只剩 TS 地址,不认这张表会把整库老作品判「未知的 worker」(400)。
+    # 表里的机器视为受信算力机:池里有同机 worker 就用池 worker,没有就直连原地址(仅 ComfyUI 端口段)。
+    worker_host_aliases: str = "192.168.71.127=100.68.100.90,192.168.71.116=100.69.134.27"
     # ComfyUI-LB 后端注册表地址（GET 返回 {"backends":[{"id","url","gpu","weight",
     # "remote","healthy"}...]}，如 http://192.168.71.127:8188/admin/backends）。
     # 非空 = WorkerPool 每 60s 惰性拉取、动态跟随 LB 后端增删（拉取成功以注册表为准，
@@ -508,6 +512,16 @@ class Settings(BaseSettings):
         # 兼容逗号和空格两种分隔(.env 历史上两种都出现过;逗号优先,空格兜底)
         raw = self.comfy_workers.replace(" ", ",").replace(",,", ",")
         return [u.strip().rstrip("/") for u in raw.split(",") if u.strip()]
+
+    @property
+    def worker_host_groups(self) -> list[set[str]]:
+        """worker_host_aliases 解析成「同机地址集合」列表。"""
+        groups: list[set[str]] = []
+        for pair in self.worker_host_aliases.replace(" ", ",").split(","):
+            hosts = {h.strip() for h in pair.split("=") if h.strip()}
+            if len(hosts) >= 2:
+                groups.append(hosts)
+        return groups
 
     @property
     def forge_base(self) -> str:

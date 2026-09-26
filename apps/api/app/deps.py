@@ -26,6 +26,11 @@ def get_pool() -> WorkerPool:
     )
 
 
+# 受信算力机直连时允许的 ComfyUI 端口段(防把白名单机器当任意端口代理)
+_COMFY_PORT_MIN = 8188
+_COMFY_PORT_MAX = 8299
+
+
 def _host(url: str) -> str:
     parts = urlsplit(url)
     return parts.hostname or url
@@ -75,6 +80,16 @@ def resolve_worker(worker: str) -> ComfyUIClient:
     for url in settings.worker_urls:
         if _host(url) == target_host:
             return ComfyUIClient(url, timeout=settings.request_timeout)
+    # 同机双地址回退(内网 ↔ Tailscale):旧产物记内网地址,白名单只有 TS 地址
+    same_machine = next((g for g in getattr(settings, "worker_host_groups", []) if target_host in g), None)
+    if same_machine:
+        for url in settings.worker_urls:
+            if _host(url) in same_machine:
+                return ComfyUIClient(url, timeout=settings.request_timeout)
+        # 池里没有这台机(如 pc01 已出池但产物仍在本机):受信机器直连原地址,限 ComfyUI 端口段
+        port = urlsplit(normalized).port
+        if urlsplit(normalized).scheme in ("http", "https") and port and _COMFY_PORT_MIN <= port <= _COMFY_PORT_MAX:
+            return ComfyUIClient(normalized, timeout=settings.request_timeout)
     raise HTTPException(status_code=400, detail="未知的 worker")
 
 

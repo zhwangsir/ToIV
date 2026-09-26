@@ -137,3 +137,47 @@ def test_resolve_worker_infinitetalk_exact_match(monkeypatch):
     monkeypatch.setattr("app.deps.get_settings", lambda: fake)
     client = resolve_worker("http://192.168.71.127:8201")
     assert client.base_url == "http://192.168.71.127:8201"
+
+
+@pytest.fixture
+def settings_ts_workers(monkeypatch):
+    """集群切 Tailscale 后:白名单只有 TS 地址,旧产物 URL 记的是内网地址。"""
+    s = type(
+        "S",
+        (),
+        {
+            "worker_urls": ["http://100.68.100.90:8196"],
+            "worker_host_groups": [
+                {"192.168.71.127", "100.68.100.90"},
+                {"192.168.71.116", "100.69.134.27"},
+            ],
+            "request_timeout": 30.0,
+        },
+    )()
+    monkeypatch.setattr("app.deps.get_settings", lambda: s)
+    monkeypatch.setattr("app.services.h3.h3_instances", lambda: [])
+
+
+def test_resolve_worker_lan_url_maps_to_tailscale_pool_worker(settings_ts_workers):
+    client = resolve_worker("http://192.168.71.127:8196")
+    assert client.base_url == "http://100.68.100.90:8196"
+
+
+def test_resolve_worker_trusted_machine_outside_pool_connects_direct(settings_ts_workers):
+    client = resolve_worker("http://192.168.71.116:8188")
+    assert client.base_url == "http://192.168.71.116:8188"
+
+
+def test_resolve_worker_trusted_machine_rejects_non_comfy_port(settings_ts_workers):
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc:
+        resolve_worker("http://192.168.71.116:22")
+    assert exc.value.status_code == 400
+
+
+def test_resolve_worker_unknown_host_still_rejected(settings_ts_workers):
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException):
+        resolve_worker("http://10.0.0.5:8188")
