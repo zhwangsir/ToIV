@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  closeoutSummary,
   fetchTestMatrix,
+  type CloseoutSummary,
   type L0ResultRow,
   type L2ResultRow,
   type TestMatrixResponse,
@@ -88,6 +90,7 @@ function kindDist(by: Record<string, Record<string, number>> | undefined): strin
  */
 export function AppTestMatrixAdminView() {
   const [data, setData] = useState<TestMatrixResponse | null>(null);
+  const [closeout, setCloseout] = useState<CloseoutSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [l0Filter, setL0Filter] = useState("");
@@ -95,8 +98,14 @@ export function AppTestMatrixAdminView() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    fetchTestMatrix()
-      .then(setData)
+    Promise.all([
+      fetchTestMatrix(),
+      closeoutSummary().catch(() => null),
+    ])
+      .then(([matrix, summary]) => {
+        setData(matrix);
+        setCloseout(summary);
+      })
       .catch((err) =>
         setError(err instanceof Error ? err.message : "加载实测矩阵失败"),
       )
@@ -140,8 +149,45 @@ export function AppTestMatrixAdminView() {
     <div className="tm-view">
       <PageHeader
         title="实测矩阵"
-        desc="应用分级实测 · L0 结构扫描(全量公开应用)+ L2 真 GPU 热路径冒烟(静态快照)"
+        desc="应用分级实测 · 实时收尾进度 + L0 结构扫描快照 + L2 热路径冒烟快照"
       />
+
+      {!loading && closeout && (
+        <section className="tm-section" aria-label="实时收尾进度">
+          <h2 className="tm-h">实时收尾进度</h2>
+          <div className="tm-stats">
+            <div className="tm-stat at-card">
+              <span className="tm-stat-label">公开应用</span>
+              <span className="tm-stat-value">{closeout.public_total}</span>
+              <span className="tm-stat-hint">当前市场上架</span>
+            </div>
+            <div className="tm-stat at-card">
+              <span className="tm-stat-label">实测通过</span>
+              <span className="tm-stat-value tm-v-ok">{closeout.smoke.pass}</span>
+              <span className="tm-stat-hint">submit→出片/出图 PASS</span>
+            </div>
+            <div className="tm-stat at-card">
+              <span className="tm-stat-label">未测</span>
+              <span className="tm-stat-value">{closeout.smoke.untested}</span>
+              <span className="tm-stat-hint">
+                {closeout.smoke.running > 0 ? `进行中 ${closeout.smoke.running}` : "排队待测"}
+              </span>
+            </div>
+            <div className="tm-stat at-card">
+              <span className="tm-stat-label">超时</span>
+              <span className="tm-stat-value tm-v-warn">{closeout.smoke.timeout}</span>
+              <span className="tm-stat-hint">待加长时限复测</span>
+            </div>
+            <div className="tm-stat at-card">
+              <span className="tm-stat-label">失败</span>
+              <span className="tm-stat-value tm-v-err">{closeout.smoke.fail}</span>
+              <span className="tm-stat-hint">
+                软隐藏内置 {closeout.soft_hidden_builtin}
+              </span>
+            </div>
+          </div>
+        </section>
+      )}
 
       {error && !loading && (
         <div className="at-card tm-state-card">

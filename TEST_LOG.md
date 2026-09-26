@@ -1700,6 +1700,14 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 
 > **归档说明(2026-08-23 文档治理)**:更早的历史条目(ENGINE-R1~R4、HARNESS-M1/M2、CLOSEOUT-R51~R60、WAN-NSFW、RES/WIKI/QUEUE/LINKAGE 等 40+ 条)已清理——关键结论均已沉淀在代码注释、AGENTS.md 与 STATE.json 硬约束中;TEST_LOG 自本条起新条目继续倒序追加。
 
+## 2026-09-27 00:14 — U7/U8 Admin 作业队列入账 + 实测矩阵实时收尾
+
+- **目标**:收尾巡检余量推进 UX 最高未勾项；后台一眼看见公开卡实测进度。
+- **U7**:`JobsQueueAdminView` 全员作业 + 行内 cancel/rerun/delete/restore/purge + 回收站此前已上线(`2e8f926`)；本巡检核对 API `/api/jobs?all=1` 与 admin :3200 可用后入账。
+- **U8**:`AppTestMatrixAdminView` 顶部增加「实时收尾进度」条，并行拉 `closeoutSummary()`（公开总数 / PASS / 未测 / 超时 / 失败）；L0/L2 静态快照保留作历史对照。
+- **部署**:仅 admin（`deploy/deploy-admin.sh`），不重启 `toiv-api`，烟测 runner 不停。
+- **收尾快照**(本巡检):公开 2069 · PASS ~1190 · 未测 ~694 · 超时 184 · 失败 0；runner 存活。
+
 ## 2026-09-26 12:20 — SolAttnPatch → PatchSolAttnSGLang（H3 :8195）
 
 - **症状**: `MiniMax H3 R2V Last Frame I2V`（rh-acc-3977317378-1601b4）烟测 missing_node「Patch Sol-Attn」。
