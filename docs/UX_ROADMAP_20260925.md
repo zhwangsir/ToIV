@@ -28,7 +28,7 @@
 | U3 | 活知识 ✅ | `search_knowledge` 接入公开 PASS 市场卡说明/可用状态；`list_apps`/`get_app` 标注实测可用性并优先推荐 PASS（2026-09-26 16:14） | 对标调研 P1-4 |
 | U4 | 生成作业卡入注册表 ✅ | submit_generation / run_app / generate_image 结果统一走工具卡注册表（复用 av-job 样式；与消息级 AvJobCards 同 job_id 去重）（2026-09-26 20:14） | 助手重设计 A1 |
 | U5 | 市场可用性透明 ✅ | 卡片「实测可用 · 相对时间」；未测卡沉底（`sortAppsVerifiedFirst`）；随收尾自动变好看（2026-09-25 18:14） | 收尾衍生 |
-| U6 | 主题全站走查 | 四套预设 × 明暗 × 主要视图，修对比度与状态色，补卡控测试 | UI 整改 P1 |
+| U6 | 主题全站走查 ✅ | 补卡控 paper×dark / paper×dark×pure-black（text/accent/status/chart）；cinema/graphite 源码断言 ok/warn/err+soft；token 无需改动；themeContrast 92/92（2026-09-26 22:25） | UI 整改 P1 |
 | U7 | Admin 作业与队列域 | 全员作业列表 + 行内取消/重跑/删除/恢复 + 回收站视图 | Admin 重规划 P1 |
 | U8 | Admin 实测矩阵实装 | 烟测结果（jsonl）入端点，替换占位页；收尾进度在后台一眼可见 | Admin 重规划 P2 |
 | U9 | Admin 模型资产域 | 本地模型浏览 + `MODEL_SOURCES` 只读视图 | Admin 重规划 P2 |

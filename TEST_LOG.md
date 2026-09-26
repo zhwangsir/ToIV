@@ -1,3 +1,10 @@
+## 2026-09-26 22:25 CST — U6 主题全站走查（对比度卡控补全）
+
+- **U6**：`themeContrast.test.ts` 新增 `paper-dark` / `paper-dark-pure-black` 组合门禁（muted/secondary×四底、on-accent、status soft、chart≥3）；cinema/graphite 增加 ok/warn/err+soft 源码存在性断言。级联后 dark 压过 paper，现有 token 全绿，**未改** `globals.css`。
+- **抽查**：AppMarketView / PortalEmpty / ThemePicker 无对比度向硬编码 hex（ThemePicker ACCENT_SWATCHES 为自定义色板豁免）。
+- **验证**：`node --test tests/themeContrast.test.ts` 92/92；`apps/web` `npm test` 1074/1074。
+- **部署**：未重启 toiv-api；未跑全量 deploy；待 parent 仅 web 部署。
+
 ## 2026-09-26 18:14 CST — 收尾巡检 + soft-hide 换装卡
 
 ## 2026-09-26 20:14 · U4 生成作业卡入注册表 + 收尾分诊

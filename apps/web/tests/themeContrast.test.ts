@@ -1,9 +1,11 @@
 /**
  * 基座对比度门禁(2026-08-16 Team A,WCAG 2.x 相对亮度法):
- * ① globals.css 实解析:muted/secondary × canvas/surface-1/2/3 全配对(5 浅 + 暗 + 纯黑)
+ * ① globals.css 实解析:muted/secondary × canvas/surface-1/2/3 全配对
+ *    (minimal/paper 亮 + dark/pure-black + paper×dark/paper×dark×pure-black + cinema/graphite)
  *    —— muted ≥4.5(surface-2 为重点,其余一并断言)、secondary ≥4.5 全底
- * ② --text-on-accent × --accent:5 浅 + 暗 + 暗色四色板变体,全部 ≥4.5
+ * ② --text-on-accent × --accent:同上全套适用组合,全部 ≥4.5
  * ③ 状态色 ok/warn/err × 自身 soft 合成底(soft = 状态色 α 叠加在四层面板上取最坏值)≥4.5
+ *    (含 paper×dark/paper×dark×pure-black;cinema/graphite 源码断言自带 soft)
  * ④ 基座 token 存在性源码断言:--content-max/--content-wide/--leading-loose、
  *    .single-view/.view-shell 消费 var(--content-wide)、.view-root 底 nav 让位
  * ⑤ 断点纪律:全 app css 无 1024/1280 媒体查询残留(统一 -1 约定 1023/1279)
@@ -93,16 +95,30 @@ function colorOf(vars: Record<string, string>, token: string): Rgb & { a: number
 const SURFACES = ["bg-canvas", "bg-surface-1", "bg-surface-2", "bg-surface-3"] as const;
 
 /* ── ① muted/secondary × 四底全配对 ── */
+const PURE_BLACK =
+  '[data-mode="dark"]:not([data-theme="cinema"]):not([data-theme="graphite"])[data-pure-black="1"]';
+
+/* U6 2026-09-26:补 paper×dark / paper×dark×pure-black;cinema/graphite 保持暗基底无 light */
 const textThemes: { name: string; selectors: string[] }[] = [
   { name: "minimal", selectors: [":root"] },
   { name: "paper", selectors: [":root", '[data-theme="paper"]'] },
   { name: "dark", selectors: [":root", '[data-mode="dark"]'] },
   {
     name: "dark-pure-black",
+    selectors: [":root", '[data-mode="dark"]', PURE_BLACK],
+  },
+  // paper 块在 dark 之前:级联后 dark 压过 paper 亮色 token(与运行时一致)
+  {
+    name: "paper-dark",
+    selectors: [":root", '[data-theme="paper"]', '[data-mode="dark"]'],
+  },
+  {
+    name: "paper-dark-pure-black",
     selectors: [
       ":root",
+      '[data-theme="paper"]',
       '[data-mode="dark"]',
-      '[data-mode="dark"]:not([data-theme="cinema"]):not([data-theme="graphite"])[data-pure-black="1"]',
+      PURE_BLACK,
     ],
   },
   { name: "cinema", selectors: [":root", '[data-theme="cinema"]'] },
@@ -143,6 +159,20 @@ for (const t of [
   { name: "dark", selectors: [":root", '[data-mode="dark"]'] },
   // paper 主题状态色压深半档(暖纸底合成底贴边),纳入卡控
   { name: "paper", selectors: [":root", '[data-theme="paper"]'] },
+  // U6 2026-09-26:paper×dark / paper×dark×pure-black 状态色走 dark 轨
+  {
+    name: "paper-dark",
+    selectors: [":root", '[data-theme="paper"]', '[data-mode="dark"]'],
+  },
+  {
+    name: "paper-dark-pure-black",
+    selectors: [
+      ":root",
+      '[data-theme="paper"]',
+      '[data-mode="dark"]',
+      PURE_BLACK,
+    ],
+  },
   // P1 2026-09-07:暗基底主题自带状态/soft,纳入卡控(不依赖 data-mode)
   { name: "cinema", selectors: [":root", '[data-theme="cinema"]'] },
   { name: "graphite", selectors: [":root", '[data-theme="graphite"]'] },
@@ -160,6 +190,17 @@ for (const t of [
       );
     });
   }
+}
+
+/* ── ③c U6 源码断言:cinema/graphite 自带状态徽标 soft 令牌(不依赖 data-mode) ── */
+for (const theme of ["cinema", "graphite"] as const) {
+  test(`${theme} 块含 --ok/--warn/--err 与对应 -soft(状态徽标光源)`, () => {
+    const block = extractBlock(globals, `[data-theme="${theme}"]`);
+    for (const k of ["ok", "warn", "err", "ok-soft", "warn-soft", "err-soft"] as const) {
+      assert.ok(block[k], `${theme} 缺少 --${k}`);
+      assert.ok(parseColor(block[k]), `${theme} --${k} 非可解析颜色: ${block[k]}`);
+    }
+  });
 }
 
 /* ── ④ 基座 token 存在性/消费断言 ── */
