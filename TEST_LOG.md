@@ -1,3 +1,15 @@
+## 2026-09-27 04:18 — 收尾 soft-hide 4 张硬阻塞（无 UX 新项）
+
+- **目标**:两小时巡检：健康检查 + 新失败分诊；UX 表 U1–U9 已齐，U10 小程序同步明确收尾后再做，本轮不推进优化项。
+- **健康**:未测 runner 存活（~idx 460）；API :8090 200；工作站 Comfy :8195/:8196/:8197 经 Tailscale 200。
+- **soft-hide** 4 张（记录 `/home/merlin/toiv/tmp/softhide_0418_20260927.json`）:
+  - `rh-acc-5986921473-dd2988` Wan2.2 SmoothMix 首尾帧：cusolverDnCreate INTERNAL_ERROR（同既有 cusolver 类）
+  - `rh-acc-5997000705-f67522` wan2.2 FunVACE：RHHiddenNodes + 校验失败，RH 导出无法本地化
+  - `rh-acc-6070484994-e5fd0b` 文生图-智能提示词版：RHHiddenNodes 包模型进 AuraFlow + ImpactSwitch 校验失败
+  - `rh-acc-6003208194-bfb098` wan animate 带蒙版：SeCVideoSegmentation object_id=0 / mllm_memory_size=-1，且含 RHHidden+AnimateEmbeds
+- **收尾快照**:公开 2062 · PASS 1248 · 未测/空 629 · 超时 184 · 失败 0 · 运行中 1。相对 02:14：PASS +29、公开 −4（本轮 soft-hide）。
+- **优化**:无新项（U10 延后）。
+
 ## 2026-09-27 02:14 — U9 Admin 模型资产域入账 + 收尾 soft-hide
 
 - **目标**:收尾巡检余量推进 UX 最高未勾项；后台能看本地模型与 MODEL_SOURCES。
