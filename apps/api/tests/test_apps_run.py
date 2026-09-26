@@ -1753,12 +1753,17 @@ def test_build_graph_node_class_aliases():
         "2": {"class_type": "String to Int", "inputs": {"string": "42"}},
         "3": {"class_type": "Depth Anything V2", "inputs": {"images": ["4", 0], "da_model": ["5", 0]}},
         "4": {"class_type": "GIMMVFI_interpolate", "inputs": {"images": ["3", 0]}},
+        # H3 :8195 只有 PatchSolAttnSGLang;SolAttnPatch / 显示名须改写
+        "5": {"class_type": "SolAttnPatch", "inputs": {"model": ["6", 0], "tau": 1.2}},
+        "6": {"class_type": "Patch Sol-Attn", "inputs": {"model": ["7", 0], "tau": 1.0}},
     }
     built = _build_graph(graph, {}, {})
     assert built["1"]["class_type"] == "GIMMVFI_interpolate"
     assert built["2"]["class_type"] == "StringToInt"
     assert built["3"]["class_type"] == "DepthAnything_V2"
     assert built["4"]["class_type"] == "GIMMVFI_interpolate"
+    assert built["5"]["class_type"] == "PatchSolAttnSGLang"
+    assert built["6"]["class_type"] == "PatchSolAttnSGLang"
 
 
 def test_build_graph_vace_encode_required_backfill():

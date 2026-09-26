@@ -1672,6 +1672,14 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 
 > **归档说明(2026-08-23 文档治理)**:更早的历史条目(ENGINE-R1~R4、HARNESS-M1/M2、CLOSEOUT-R51~R60、WAN-NSFW、RES/WIKI/QUEUE/LINKAGE 等 40+ 条)已清理——关键结论均已沉淀在代码注释、AGENTS.md 与 STATE.json 硬约束中;TEST_LOG 自本条起新条目继续倒序追加。
 
+## 2026-09-26 12:20 — SolAttnPatch → PatchSolAttnSGLang（H3 :8195）
+
+- **症状**: `MiniMax H3 R2V Last Frame I2V`（rh-acc-3977317378-1601b4）烟测 missing_node「Patch Sol-Attn」。
+- **根因**: MiniMaxH3* 强制走 H3 专用实例 `:8195`；该实例只有 `PatchSolAttnSGLang`，`SolAttnPatch` 在通用池 `:8196`。错误文案用了 `_meta.title`。
+- **修复**: `_NODE_CLASS_ALIASES` 增加 `SolAttnPatch` / `Patch Sol-Attn` → `PatchSolAttnSGLang`（输入签名兼容）。
+- **测试**: `test_build_graph_node_class_aliases` passed。
+- **部署**: 本巡检同步 API 并复测该卡。
+
 ## 2026-09-26 06:30 — U1 助手作业失败用户侧自愈
 
 - **目标**:对话作业卡失败时给用户看大白话原因 + 「一键重试」+「换一张同类卡」(smoke_status=pass)。

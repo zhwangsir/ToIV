@@ -3015,6 +3015,10 @@ _NODE_CLASS_ALIASES: dict[str, str] = {
     # RH 显示名 → fleet class(2026-09-25 能力缺口核实)
     "Color Correct of Utils": "ColorCorrectOfUtils",
     "Stand-In Processor Loader": "FaceProcessorLoader",
+    # H3 专用实例 :8195 装的是 SGLang 包类名;通用池 :8196 才是 SolAttnPatch。
+    # MiniMaxH3* 强制走 :8195,不改写会 missing_node(显示名 Patch Sol-Attn)。
+    "SolAttnPatch": "PatchSolAttnSGLang",
+    "Patch Sol-Attn": "PatchSolAttnSGLang",
 }
 
 
