@@ -2228,6 +2228,26 @@ def test_build_graph_sdpose_drops_grounding_dino_when_yolo_present():
 
 
 
+
+def test_build_graph_cr_text_missing_key_backfill():
+    """非 H3 链的 CR Text:inputs 无 text 键或空串 → 回填兜底(4135655426)。"""
+    from app.routes.apps import _build_graph, _H3_PROMPT_FALLBACK
+
+    graph = {
+        "30": {"class_type": "CR Text", "inputs": {}},
+        "31": {"class_type": "CR Text", "inputs": {"text": ""}},
+        "32": {"class_type": "CR Text", "inputs": {"text": "keep"}},
+        "33": {
+            "class_type": "TextEncodeQwenImageEdit",
+            "inputs": {"prompt": ["30", 0], "clip": ["1", 0]},
+        },
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["30"]["inputs"]["text"] == _H3_PROMPT_FALLBACK
+    assert built["31"]["inputs"]["text"] == _H3_PROMPT_FALLBACK
+    assert built["32"]["inputs"]["text"] == "keep"
+
+
 def test_build_graph_empty_h3_prompt_text_filled():
     """H3 Encode.prompt → 空 CR Text 时填兜底;非空不动;空串绑定不覆盖。"""
     from app.routes.apps import _build_graph, _H3_PROMPT_FALLBACK

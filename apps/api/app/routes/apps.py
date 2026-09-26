@@ -1906,6 +1906,10 @@ _MISSING_REQUIRED_DEFAULTS: dict[str, dict[str, object]] = {
     # (:8196 object_info 2026-09-25 实证;rh-acc-2804021249 required_input_missing)
     "PainterVRAM": {"auto_max": 0.0, "seed": 0},
     "String Replace (mtb)": {"use_regex": False},
+    # RH 旧图 CR Text.inputs 常为 {}(无 text 键)→ required_input_missing
+    # 剪枝保存链(2026-09-26 rh-acc-4135655426 实证;非 H3 Encode 链)。
+    "CR Text": {"text": "a person in a scene"},
+    "CR Prompt Text": {"prompt": "a person in a scene"},
 }
 
 
@@ -2142,14 +2146,25 @@ def _normalize_required_backfill(graph: dict) -> None:
     for node in graph.values():
         if not isinstance(node, dict):
             continue
-        defaults = _MISSING_REQUIRED_DEFAULTS.get(node.get("class_type") or "")
+        ct = node.get("class_type") or ""
+        defaults = _MISSING_REQUIRED_DEFAULTS.get(ct)
         if not defaults:
             continue
         inputs = node.get("inputs")
         if not isinstance(inputs, dict):
             continue
         for key, default in defaults.items():
-            if key not in inputs or inputs.get(key) is None:
+            cur = inputs.get(key)
+            missing = key not in inputs or cur is None
+            # CR Text/CR Prompt Text:空串与缺键同等(RH 常见),连线 list 不动
+            if (
+                not missing
+                and ct in ("CR Text", "CR Prompt Text")
+                and isinstance(cur, str)
+                and not cur.strip()
+            ):
+                missing = True
+            if missing and not isinstance(cur, list):
                 inputs[key] = default
 
 
