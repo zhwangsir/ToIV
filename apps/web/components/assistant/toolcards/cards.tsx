@@ -304,6 +304,89 @@ export function SelfhealCard({ payload, ctx }: ToolCardProps): ReactNode {
   );
 }
 
+/** ⑦ submit_generation / run_app / generate_image:作业快照卡(复用 av-job-* 样式)。
+ *  纯渲染零 hooks;直播进度仍走消息级 AvJobCards,MessageList 对同 job_id 去重。 */
+export function GenerationJobCard({ payload }: ToolCardProps): ReactNode {
+  const jobId = str(payload.job_id);
+  const kind = str(payload.kind) || "image";
+  const status = str(payload.status) || "queued";
+  const label = str(payload.label);
+  const holdReason = str(payload.hold_reason);
+  const error = str(payload.error);
+  const results = (Array.isArray(payload.results) ? payload.results : [])
+    .map((u) => str(u))
+    .filter(Boolean);
+  if (!jobId && !label && !results.length) return null;
+  const statusLabel =
+    status === "queued"
+      ? "排队中"
+      : status === "held"
+        ? "资源等待"
+        : status === "running"
+          ? "运行中"
+          : status === "done"
+            ? "完成"
+            : status === "error"
+              ? "失败"
+              : status === "canceled"
+                ? "已中止"
+                : status || "排队中";
+  const kindText =
+    kind.includes("video") || kind === "video"
+      ? "视频"
+      : kind.includes("audio") || kind === "audio"
+        ? "音频"
+        : kind.includes("3d")
+          ? "3D"
+          : "图像";
+  return (
+    <div className={`av-tc av-tc-job av-job-card is-${status === "queued" || status === "held" || status === "running" ? "active" : status}`}>
+      <ToolCardStyle />
+      <div className="av-job-card-head">
+        <span className="av-job-card-kind">
+          <Icon
+            name={kindText === "视频" ? "video" : kindText === "音频" ? "audio" : kindText === "3D" ? "box" : "image"}
+            size={12}
+            strokeWidth={1.8}
+          />
+          {kindText}
+        </span>
+        <span className="av-job-card-actions">
+          <span className={`av-job-badge is-${status}`}>{statusLabel}</span>
+        </span>
+      </div>
+      {label ? <div className="av-job-card-label">{label}</div> : null}
+      {status === "held" && holdReason ? (
+        <div className="av-job-card-hold">{holdReason}</div>
+      ) : null}
+      {status === "error" && (error || holdReason) ? (
+        <div className="av-job-error">
+          <div className="av-job-error-reason">{error || holdReason}</div>
+        </div>
+      ) : null}
+      {status === "done" && results.length ? (
+        <div className="av-tc-job-results">
+          {results.slice(0, 4).map((url) => (
+            <span key={url} className="av-tc-thumb">
+              <Icon name="image" size={14} strokeWidth={1.8} />
+              <img
+                src={imageUrl(url)}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {jobId ? <div className="av-tc-foot">作业 {jobId}</div> : null}
+    </div>
+  );
+}
+
 /** av-tc 一族样式(零 hex,仅 globals.css 既有 token;对照网格移动端纵排)。 */
 function ToolCardStyle() {
   return (
@@ -535,6 +618,11 @@ function ToolCardStyle() {
         display: flex;
         flex-direction: column;
         gap: var(--space-1);
+      }
+      .av-tc-job-results {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
       }
     `}</style>
   );

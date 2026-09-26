@@ -360,7 +360,10 @@ async def test_generate_image_via_registry(db_env):
         "generate_image", {"prompt": "a cat"}, _ctx(_FakePool(client), user, s)
     )
     assert text.startswith("已生成 1 张图片并展示给用户")
-    assert len(events) == 1 and events[0]["type"] == "image"
+    assert len(events) == 2 and events[0]["type"] == "image"
+    assert events[1]["type"] == "tool_event" and events[1]["data"]["status"] == "ok"
+    assert events[1]["data"]["payload"]["status"] == "done"
+    assert events[1]["data"]["payload"]["results"] == events[0]["urls"]
     assert "out.png" in events[0]["urls"][0] and "worker=http" in events[0]["urls"][0]
 
 

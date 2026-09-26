@@ -16,6 +16,7 @@ import { ModelViewer } from "@/components/ui/ModelViewer";
 import { docKindFromFilename, docKindIcon } from "@/lib/docs";
 import {
   TOOL_RENDERERS,
+  JOB_TOOL_NAMES,
   renderToolCard,
   type ToolCardCtx,
 } from "@/components/assistant/toolcards/registry";
@@ -504,7 +505,19 @@ export function AvMessageList({
                           (chip 保留作状态条目;payload 解析失败 renderToolCard
                           归 null,回退仅 chip);未注册工具完全维持现状 */}
                       {t.status === "ok" && t.payload && TOOL_RENDERERS[t.name]
-                        ? renderToolCard(t.name, t.payload, toolCardCtx)
+                        ? (() => {
+                            // U4:作业类工具若同消息已有 AvJobCards(同 job_id)则跳过,避免双卡
+                            if (JOB_TOOL_NAMES.has(t.name) && msg.jobs?.length) {
+                              const jid =
+                                typeof t.payload.job_id === "string"
+                                  ? t.payload.job_id
+                                  : "";
+                              if (jid && msg.jobs.some((j) => j.jobId === jid)) {
+                                return null;
+                              }
+                            }
+                            return renderToolCard(t.name, t.payload, toolCardCtx);
+                          })()
                         : null}
                     </Fragment>
                   ))}

@@ -320,7 +320,21 @@ async def exec_generate_image(args: dict, pool: WorkerPool, user: User, session,
     if not files:
         return "图片生成超时,请稍后重试。", []
     urls = [_url(client.base_url, f) for f in files]
-    return f"已生成 {len(urls)} 张图片并展示给用户(seed={p.seed})。", [{"type": "image", "urls": urls}]
+    # U4(2026-09-26):generate_image 结果进工具卡注册表(完成态作业快照 + 原 image 事件)
+    payload = {
+        "job_id": pid,
+        "kind": "image",
+        "status": "done",
+        "label": "文生图",
+        "results": urls,
+    }
+    return (
+        f"已生成 {len(urls)} 张图片并展示给用户(seed={p.seed})。",
+        [
+            {"type": "image", "urls": urls},
+            ok_tool_event(f"已生成 {len(urls)} 张图片", payload),
+        ],
+    )
 
 
 async def exec_generate_music(args: dict, pool: WorkerPool, user: User, session, attachment: dict | None = None) -> tuple[str, list[dict]]:

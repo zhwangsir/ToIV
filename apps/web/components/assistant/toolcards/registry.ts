@@ -7,6 +7,7 @@
 import { createElement, type ReactNode } from "react";
 import {
   AppListCard,
+  GenerationJobCard,
   KnowledgeCard,
   ModelsCard,
   OptimizePromptCard,
@@ -52,7 +53,26 @@ export const TOOL_RENDERERS: Record<string, ToolRenderer> = {
     title: "失败诊断",
     render: (payload, ctx) => createElement(SelfhealCard, { payload, ctx }),
   },
+  submit_generation: {
+    title: "生成作业",
+    render: (payload, ctx) => createElement(GenerationJobCard, { payload, ctx }),
+  },
+  run_app: {
+    title: "应用作业",
+    render: (payload, ctx) => createElement(GenerationJobCard, { payload, ctx }),
+  },
+  generate_image: {
+    title: "文生图",
+    render: (payload, ctx) => createElement(GenerationJobCard, { payload, ctx }),
+  },
 };
+
+/** 作业类工具:与消息级 AvJobCards 同 job_id 时由 MessageList 去重,避免双卡。 */
+export const JOB_TOOL_NAMES = new Set([
+  "submit_generation",
+  "run_app",
+  "generate_image",
+]);
 
 /** 渲染入口:未注册 / payload 非对象 / 渲染抛错 → null(调用点维持仅 chip)。 */
 export function renderToolCard(

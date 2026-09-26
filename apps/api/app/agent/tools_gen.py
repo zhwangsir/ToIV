@@ -906,7 +906,17 @@ async def exec_submit_generation(args: dict, ctx: dict) -> tuple[str, list[dict]
         text += f"时长说明:{result['duration_notice']}"
     if result.get("upscale_notice"):
         text += f"超分说明:{result['upscale_notice']}"
-    return text, [event]
+    # U4(2026-09-26):工具 ok 带结构化 payload,前端注册表可复用作业卡(与 job 事件并存;前端去重)
+    payload = {
+        "job_id": job_id,
+        "kind": kind,
+        "status": status,
+        "label": label,
+        "engine_id": engine_id,
+    }
+    if hold_reason:
+        payload["hold_reason"] = hold_reason
+    return text, [event, ok_tool_event(f"已提交 {label}", payload)]
 
 
 async def exec_list_entities(args: dict, ctx: dict) -> tuple[str, list[dict]]:
@@ -1218,7 +1228,17 @@ async def exec_run_app(args: dict, ctx: dict) -> tuple[str, list[dict]]:
             "请告知用户 job_id 与预计耗时;完成后产物会自动进作品库,"
             "用户追问进度时用 check_jobs 查询并把结果展示给用户。"
         )
-    return text, [event]
+    # U4(2026-09-26):run_app 同 submit_generation,工具卡注册表可渲染作业快照
+    payload = {
+        "job_id": job_id,
+        "kind": kind,
+        "status": status,
+        "label": label,
+        "app_id": app_id,
+    }
+    if hold_reason:
+        payload["hold_reason"] = hold_reason
+    return text, [event, ok_tool_event(f"已提交 {label}", payload)]
 
 
 

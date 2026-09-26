@@ -1,5 +1,11 @@
 ## 2026-09-26 18:14 CST — 收尾巡检 + soft-hide 换装卡
 
+## 2026-09-26 20:14 · U4 生成作业卡入注册表 + 收尾分诊
+
+- **U4**：`submit_generation` / `run_app` / `generate_image` 工具 ok 事件带作业快照 payload；前端 `GenerationJobCard` 注册进工具卡表；与消息级 `AvJobCards` 同 `job_id` 去重。
+- **验证**：`apps/web` `assistantToolCards.test.ts` 17/17；`test_submit_txt2img_stub_chain` + `test_generate_image_via_registry` 通过。
+- **收尾分诊**：soft-hide 5 张硬阻塞（RHHiddenNodes / 遮罩帧长 / LTX avcodec）；CUDA launch timeout `rh-acc-5105036290-baab7a` 重置为 untested。公开卡 2072；PASS 1130 / untested 758 / timeout 183 / fail 0。
+
 - **收尾**:公开卡 2077；PASS 1102 / 未测 792 / 超时 182 / 失败 0 / 跑测中 1（相对 16:14：PASS +26、未测 -29、公开 -1）。未测 runner 存活；API :8090、Comfy :8195/:8196/:8197 健康（Tailscale）。
 - **运营**: soft-hide `rh-acc-4892356610-301123`（Flux2 全能模特换装）— SamplerCustomAdvanced `sigmas` 收到 IMAGE 而非 SIGMAS，RH 导出接线硬阻断，无法本地修好。
 - **优化**: 本轮分诊后未开新 UX 项；下一轮推进 U4（生成作业卡入工具注册表）。U2/U3 已在 14:16/16:14 落地，随 18:14 用户汇报一并说明。

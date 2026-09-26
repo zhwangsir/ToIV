@@ -1,6 +1,6 @@
 /**
  * A1 工具结果卡片单测(node:test + react-dom/server 静态渲染)——2026-09-22:
- * ① 注册表:七个工具名(六族卡,SelfhealCard 兼容双形态)全注册;未知工具/非对象 payload 回退 null
+ * ① 注册表:十个工具名(六族卡+作业卡三工具,SelfhealCard 兼容双形态)全注册;未知工具/非对象 payload 回退 null
  * ② 六族卡字段齐全渲染(对照卡/知识条目/应用横条/模型 chips/画板卡/自愈诊断)
  * ③ 防御式解析:缺字段/类型错/垃圾 payload → 归 null(渲染点回退仅 chip,不炸消息流)
  * ④ AssistantView 源码断言:payload 穿线(接口/onEvent 条件展开)、渲染点条件
@@ -36,6 +36,9 @@ const TOOL_NAMES = [
   "create_storyboard",
   "list_smoke_failures",
   "explain_app_failure",
+  "submit_generation",
+  "run_app",
+  "generate_image",
 ] as const;
 
 const renderCard = (
@@ -46,7 +49,7 @@ const renderCard = (
   renderToStaticMarkup(h(React.Fragment, null, renderToolCard(name, payload, ctx)));
 
 /* ── ① 注册表 ── */
-test("注册表:六族卡七个工具名全注册(title+render),未知工具/非对象 payload 回退 null", () => {
+test("注册表:作业卡三工具+六族卡共十个工具名全注册(title+render),未知工具/非对象 payload 回退 null", () => {
   for (const name of TOOL_NAMES) {
     const entry = TOOL_RENDERERS[name];
     assert.ok(entry, `缺注册 ${name}`);
@@ -194,6 +197,45 @@ test("SelfhealCard 形态 B(explain):诊断徽标 + 建议 + 提案列表 + 查�
   assert.match(html, /切换备用后端/);
   assert.match(html, /open/);
   assert.match(html, /查看应用/);
+});
+
+test("GenerationJobCard(submit_generation):状态徽章 + 标签 + 作业 id", () => {
+  const html = renderCard("submit_generation", {
+    job_id: "job-1",
+    kind: "video",
+    status: "running",
+    label: "H3 文生视频",
+  });
+  assert.match(html, /av-tc-job|av-job-card/);
+  assert.match(html, /H3 文生视频/);
+  assert.match(html, /运行中/);
+  assert.match(html, /作业 job-1/);
+  assert.match(html, /视频/);
+});
+
+test("GenerationJobCard(generate_image):完成态缩略图", () => {
+  const html = renderCard("generate_image", {
+    job_id: "pid-9",
+    kind: "image",
+    status: "done",
+    label: "文生图",
+    results: ["out/a.png", "out/b.png"],
+  });
+  assert.match(html, /文生图/);
+  assert.match(html, /完成/);
+  assert.match(html, /src="out\/a\.png"/);
+  assert.match(html, /src="out\/b\.png"/);
+});
+
+test("GenerationJobCard:缺关键字段归 null", () => {
+  assert.equal(renderCard("run_app", {}), "");
+  assert.equal(renderCard("submit_generation", { status: "queued" }), "");
+});
+
+test("MessageList:作业类工具与同 job_id 的 AvJobCards 去重", () => {
+  const src = readSrc("components/assistant/MessageList.tsx");
+  assert.ok(src.includes("JOB_TOOL_NAMES"), "未导入 JOB_TOOL_NAMES");
+  assert.ok(src.includes("msg.jobs.some((j) => j.jobId === jid)"), "缺同 job_id 去重");
 });
 
 /* ── ③ 防御式解析:垃圾 payload → null(回退仅 chip) ── */

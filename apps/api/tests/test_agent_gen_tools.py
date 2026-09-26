@@ -172,6 +172,15 @@ async def test_submit_txt2img_stub_chain(db_env, monkeypatch):
     data = job_events[0]["data"]
     assert data["job_id"] == job.id and data["status"] == "queued"
     assert data["kind"] == "txt2img" and "results" not in data
+    # U4:工具 ok 事件带作业快照 payload(前端注册表)
+    tool_oks = [
+        e for e in events
+        if e.get("type") == "tool_event" and (e.get("data") or {}).get("status") == "ok"
+    ]
+    assert len(tool_oks) == 1
+    payload = tool_oks[0]["data"]["payload"]
+    assert payload["job_id"] == job.id and payload["status"] == "queued"
+    assert payload["kind"] == "txt2img" and payload["label"]
 
 
 async def test_submit_unknown_engine(db_env):
