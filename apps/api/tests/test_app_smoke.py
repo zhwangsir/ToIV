@@ -34,6 +34,25 @@ def test_classify_missing_model():
     assert r["repairable"] is True
 
 
+def test_classify_sampler_not_in_list_is_missing_node_pack():
+    msg = ("请求 /prompt 失败 (400): {'error': {'type': 'prompt_outputs_failed_validation'}, 'node_errors': "
+           "{'3': {'errors': [{'type': 'value_not_in_list', 'message': 'Value not in list', "
+           "'details': \"sampler_name: 'res_2s_ode' not in ['euler', 'dpmpp_2m']\"}]}}}")
+    r = svc.classify_failure(msg, {})
+    assert r["cls"] == "missing_node"
+    assert "res_2s_ode" in r["detail"]
+
+
+def test_classify_enum_not_in_list_is_validation():
+    r = svc.classify_failure("Value not in list: mode: 'fancy' not in ['a', 'b']", {})
+    assert r["cls"] == "validation"
+
+
+def test_classify_lora_file_not_in_list_still_missing_model():
+    r = svc.classify_failure("Value not in list: lora_name: 'Kook_Zimage.safetensors' not in ['x.safetensors']", {})
+    assert r["cls"] == "missing_model"
+
+
 def test_classify_validation_and_cuda_and_timeout_and_transport():
     assert svc.classify_failure("Required input is missing", {})["cls"] == "validation"
     assert svc.classify_failure("mat1 and mat2 shapes cannot be multiplied", {})["cls"] == "runtime_cuda"

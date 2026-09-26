@@ -92,8 +92,19 @@ def classify_failure(message: str, node_errors: dict | None = None) -> dict:
         cls = "missing_node"
         detail = _first_json_field(m, "class_type") or m[:160]
     elif _has("not in list") and ("value_not_in_list" in low or "value not in list" in low):
-        cls = "missing_model"
-        detail = _first_not_in_list(m) or m[:160]
+        # 只有「文件名」不在下拉里才算缺权重;sampler_name/scheduler 等枚举值缺失
+        # 是自定义节点包没装(2026-09-27 rh-acc-5812480002 res_2s_ode 需 RES4LYF,
+        # 曾被误归 missing_model 派给模型下载)。
+        field, val = _not_in_list_field_value(m)
+        if field in _ENUM_FROM_NODE_PACK_FIELDS and val and not _looks_like_model_file(val):
+            cls = "missing_node"
+            detail = f"{field}: {val}(枚举值由自定义节点包提供)"
+        elif val and not _looks_like_model_file(val):
+            cls = "validation"
+            detail = f"{field}: {val}" if field else (_first_not_in_list(m) or m[:160])
+        else:
+            cls = "missing_model"
+            detail = _first_not_in_list(m) or m[:160]
     elif _has("required_input_missing") or _has("required input is missing") or _has("prompt_outputs_failed_validation"):
         cls = "validation"
         detail = m[:160]
@@ -129,6 +140,24 @@ def _first_json_field(message: str, field: str) -> str:
     seg = mobj.group(0)
     m2 = re.search(rf'\\"{field}\\": \\"([^"\\]+)\\"', seg) or re.search(rf'"{field}": "([^"]+)"', seg)
     return m2.group(1) if m2 else ""
+
+
+_ENUM_FROM_NODE_PACK_FIELDS = frozenset({"sampler_name", "scheduler", "sampler", "noise_type"})
+_MODEL_FILE_EXTS = (".safetensors", ".ckpt", ".pt", ".pth", ".bin", ".gguf", ".onnx", ".sft", ".pkl", ".vae")
+
+
+def _looks_like_model_file(val: str) -> bool:
+    v = (val or "").strip().lower()
+    return v.endswith(_MODEL_FILE_EXTS) or "/" in v or "\\" in v
+
+
+def _not_in_list_field_value(message: str) -> tuple[str, str]:
+    """抽 node_errors details 里的 "<field>: '<val>' not in"(兼容 Value not in list 旧格式与转义引号)。"""
+    mobj = (re.search(r"([A-Za-z_]\w*)\s*:\s*\\?'([^'\\]+)\\?'\s+not in", message)
+            or re.search(r"value not in list:?\s*([A-Za-z_]\w*)\s*:\s*\\?'([^'\\]+)\\?'", message, re.I))
+    if not mobj:
+        return "", ""
+    return mobj.group(1), mobj.group(2)
 
 
 def _first_not_in_list(message: str) -> str:
