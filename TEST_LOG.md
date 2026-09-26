@@ -1,3 +1,14 @@
+## 2026-09-27 02:14 — U9 Admin 模型资产域入账 + 收尾 soft-hide
+
+- **目标**:收尾巡检余量推进 UX 最高未勾项；后台能看本地模型与 MODEL_SOURCES。
+- **U9**:`ModelAssetsAdminView`（本地 / 百科 / 引擎 / MODEL_SOURCES）此前已上线；本巡检核 `/api/models/local`（checkpoints 48 / loras 354 / vae 40）、`/api/admin/model-sources`（815 条）、`/api/models/wiki`（670）、`/api/models/engines`（24）与 admin :3200，`test_admin_model_assets` 4 passed 后入账。不重启 API。
+- **收尾 soft-hide** 3 张硬阻塞（记录 `/home/merlin/toiv/tmp/softhide_0214_20260927.json`）:
+  - `rh-acc-5606957057-726888` FusionX-VACE：RH 烘焙 mp4 转运失败（VHS_LoadVideo hash 缺失）
+  - `rh-acc-5754893313-4603dd` wan2.2 动作一致性：OOM
+  - `rh-acc-5880392706-f999e0` Wan2.1 VACE：缺 RH 专有节点「序号切换」
+- **留给模型下载**:`rh-acc-5812480002-667a20` 瑶光氛围 zimage（缺 `z_image_bf16` / `z_image_turbo-vae` / `Kook_Zimage_瑶光` / `Kook_Zimage_如梦似幻` / `Z-Image-Fun-Lora-Distill-8-Steps-2603-ComfyUI`；SeedVR2 Q8_0 + ema_vae 已在 WS）
+- **收尾快照**:公开 2066 · PASS 1219 · 未测 661 · 超时 184 · 失败 1 · 运行中 1；runner ~idx 430；Comfy :8195/:8196/:8197 健康。
+
 ## 2026-09-26 22:25 CST — U6 主题全站走查（对比度卡控补全）
 
 - **U6**：`themeContrast.test.ts` 新增 `paper-dark` / `paper-dark-pure-black` 组合门禁（muted/secondary×四底、on-accent、status soft、chart≥3）；cinema/graphite 增加 ok/warn/err+soft 源码存在性断言。级联后 dark 压过 paper，现有 token 全绿，**未改** `globals.css`。

@@ -31,7 +31,7 @@
 | U6 | 主题全站走查 ✅ | 补卡控 paper×dark / paper×dark×pure-black（text/accent/status/chart）；cinema/graphite 源码断言 ok/warn/err+soft；token 无需改动；themeContrast 92/92（2026-09-26 22:25） | UI 整改 P1 |
 | U7 | Admin 作业与队列域 ✅ | 全员作业列表 + 行内取消/重跑/删除/恢复 + 回收站视图（`JobsQueueAdminView` 已上线；2026-09-27 00:14 巡检入账） | Admin 重规划 P1 |
 | U8 | Admin 实测矩阵实装 ✅ | `GET /api/admin/test-matrix` + 矩阵页「实时收尾进度」接 `closeout-summary`（公开 PASS/未测/超时一眼可见；L0/L2 历史快照保留）（2026-09-27 00:14） | Admin 重规划 P2 |
-| U9 | Admin 模型资产域 | 本地模型浏览 + `MODEL_SOURCES` 只读视图 | Admin 重规划 P2 |
+| U9 | Admin 模型资产域 ✅ | 本地模型浏览 + `MODEL_SOURCES` 只读视图（`ModelAssetsAdminView` + `/api/models/local` + `/api/admin/model-sources`；2026-09-27 02:14 巡检入账） | Admin 重规划 P2 |
 | U10 | 小程序同步 | MiniProgram 对齐市场瀑布流/详情/主题（独立工作量，收尾后） | UI 整改 P4 |
 
 ## 3. 运维便利（同线推进）
