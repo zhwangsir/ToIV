@@ -397,14 +397,59 @@ async def exec_generate_video(args: dict, pool: WorkerPool, user: User, session,
 
 
 async def exec_search_knowledge(args: dict, pool: WorkerPool, user: User, session, attachment: dict | None = None) -> tuple[str, list[dict]]:
-    chunks = await get_kb().retrieve(args.get("query") or "", k=4)
-    if not chunks:
+    query = (args.get("query") or "").strip()
+    chunks = await get_kb().retrieve(query, k=4)
+    # U3:活知识 — 同步挂上公开市场「实测可用」卡(说明/可用状态),助手推荐只推 PASS
+    market_lines: list[str] = []
+    market_items: list[dict] = []
+    if query and session is not None:
+        try:
+            from sqlmodel import select, or_, col, func
+            from app.models import App
+            q_like = f"%{query[:80].lower()}%"
+            rows = session.exec(
+                select(App)
+                .where(App.is_public == True)  # noqa: E712
+                .where(App.smoke_status == "pass")
+                .where(or_(
+                    func.lower(App.name).like(q_like),
+                    func.lower(func.coalesce(App.description, "")).like(q_like),
+                    func.lower(func.coalesce(App.use_case, "")).like(q_like),
+                ))
+                .order_by(col(App.usage_count).desc())
+                .limit(8)
+            ).all()
+            for a in rows:
+                desc = (a.description or "")[:120]
+                market_lines.append(
+                    f"- {a.name}(id={a.id},{a.category},{a.output_kind},实测可用)"
+                    + (f":{desc}" if desc else "")
+                )
+                market_items.append({
+                    "title": a.name,
+                    "snippet": (a.description or "")[:400],
+                    "app_id": a.id,
+                    "smoke_status": "pass",
+                    "availability": "实测可用",
+                })
+        except Exception:  # noqa: BLE001 — 知识检索主路径不因市场附带失败
+            market_lines, market_items = [], []
+
+    parts: list[str] = []
+    items: list[dict] = []
+    if chunks:
+        parts.append("知识库检索结果:\n\n" + "\n\n---\n\n".join(c.text for c in chunks))
+        items.extend({"title": c.title, "snippet": c.text[:400]} for c in chunks)
+    if market_lines:
+        parts.append(
+            "相关市场应用(仅实测可用,可 list_apps/get_app/run_app):\n" + "\n".join(market_lines)
+        )
+        items.extend(market_items)
+    if not parts:
         return "知识库暂无相关内容(或检索暂不可用),请凭通用知识谨慎作答。", []
     # A1 结果卡:标题+摘要结构化下发(全文仍只给 LLM);单条摘要截 400 字防大包
-    return "知识库检索结果:\n\n" + "\n\n---\n\n".join(c.text for c in chunks), [
-        ok_tool_event(f"检索到 {len(chunks)} 条知识", {
-            "items": [{"title": c.title, "snippet": c.text[:400]} for c in chunks],
-        })
+    return "\n\n".join(parts), [
+        ok_tool_event(f"检索到 {len(items)} 条知识/可用应用", {"items": items})
     ]
 
 

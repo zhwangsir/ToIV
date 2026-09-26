@@ -1,3 +1,12 @@
+
+## 2026-09-26 16:14 CST — U3 活知识 + 收尾巡检
+
+- **收尾**:公开卡 2078；PASS 1076 / 未测 821 / 超时 180 / 失败 0 / 跑测中 1。软隐藏 RH 烘焙媒体转运硬阻断 `rh-acc-4721537026-650ece`（VHS_LoadVideo hash mp4 任意 worker 皆无）。未测 runner 存活；API :8090、web :3100、Comfy :8195/:8196/:8197 健康（Tailscale）。
+- **U3**:`search_knowledge` 附带公开 PASS 市场卡；`list_apps` 标注实测可用性并 PASS 置顶；`get_app` 带可用性/失败归因/required_nodes 线索。pytest 6 related passed。
+## 2026-09-26 16:14 CST — U3 活知识 + 收尾巡检
+
+- **收尾**:公开卡 2078；PASS 1076 / 未测 821 / 超时 180 / 失败 0 / 跑测中 1。软隐藏 RH 烘焙媒体转运硬阻断 `rh-acc-4721537026-650ece`（VHS_LoadVideo hash mp4 任意 worker 皆无）。未测 runner 存活；API :8090、web :3100、Comfy :8195/:8196/:8197 健康（Tailscale）。
+- **U3**:`search_knowledge` 附带公开 PASS 市场卡；`list_apps` 标注实测可用性并 PASS 置顶；`get_app` 带可用性/失败归因/required_nodes 线索。pytest 6 related passed。
 ## 2026-09-26 10:30 CST — CR Text 缺键回填 + 校验死卡 soft-hide
 
 - **改动**: `apps/api/app/routes/apps.py` — `_MISSING_REQUIRED_DEFAULTS` 增加 `CR Text`/`CR Prompt Text`；空串视同缺键回填（`8b38f45`）。

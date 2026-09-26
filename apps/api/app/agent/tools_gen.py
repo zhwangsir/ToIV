@@ -955,17 +955,43 @@ def _required_param_keys(schema: list) -> list[str]:
     return keys
 
 
+def _smoke_label(item) -> str:
+    """U3:助手侧可用性短标签(只推实测可用;未测/失败显式降权)。"""
+    st = (getattr(item, "smoke_status", None) or "").strip()
+    if st == "pass":
+        return "实测可用"
+    if st == "timeout":
+        return "实测超时"
+    if st in ("fail", "error", "smoke_error"):
+        return "实测失败"
+    if st == "running":
+        return "实测中"
+    return "未实测"
+
+
 def _format_app_line(item) -> str:
     req = _required_param_keys(item.params_schema)
     nsfw = "NSFW" if item.is_nsfw else "SFW"
     desc = (item.description or "")[:80]
     # 列表 slim 后 params_schema 为空,必填改由 get_app 给出,避免谎称「无必填」
     extra = f" | 必填:{','.join(req)}" if req else ""
+    avail = _smoke_label(item)
     return (
-        f"- {item.name}(id={item.id},{item.category},{item.output_kind},{nsfw})"
+        f"- {item.name}(id={item.id},{item.category},{item.output_kind},{nsfw},{avail})"
         + (f":{desc}" if desc else "")
         + extra
     )
+
+
+def _prefer_pass_apps(items: list) -> list:
+    """U3:实测可用置顶;同档按 usage/id。助手推荐优先看前面的 PASS。"""
+    def key(a):
+        st = (getattr(a, "smoke_status", None) or "").strip()
+        rank = 0 if st == "pass" else 1 if st == "running" else 2 if st == "timeout" else 3 if st else 4
+        if st in ("fail", "error", "smoke_error"):
+            rank = 5
+        return (rank, -(getattr(a, "usage_count", 0) or 0), str(getattr(a, "id", "") or ""))
+    return sorted(items, key=key)
 
 
 def _format_param_schema(schema: list) -> str:
@@ -1050,16 +1076,26 @@ async def exec_list_apps(args: dict, ctx: dict) -> tuple[str, list[dict]]:
         (rh if str(getattr(a, "id", "")).startswith("rh-") else core).append(a)
     footer = ""
     if q:
-        shown = items[:40]
+        shown = _prefer_pass_apps(list(items))[:40]
+        pass_n = sum(1 for a in shown if (getattr(a, "smoke_status", None) or "") == "pass")
         if len(items) > 40:
             footer = f"\n仅列出前 40 条,共 {len(items)} 条匹配。换更具体的 q 或到「市场」页浏览。"
+        footer += f"\n其中实测可用 {pass_n} 张;推荐只推「实测可用」,未实测/失败勿当默认推荐。"
     else:
-        shown = core
+        # 无关键词:内置核心卡也按实测可用性排序,助手默认只强调 PASS
+        ranked = _prefer_pass_apps(list(core))
+        pass_ids = {str(getattr(a, "id", "")) for a in ranked if (getattr(a, "smoke_status", None) or "") == "pass"}
+        pass_only = [a for a in ranked if str(getattr(a, "id", "")) in pass_ids]
+        rest = [a for a in ranked if str(getattr(a, "id", "")) not in pass_ids]
+        # 无关键词时先铺实测可用(最多 32),再附少量未测作对照,避免刷屏
+        shown = (pass_only[:32] + rest[:8]) if pass_only else ranked[:40]
         if rh:
+            rh_pass = sum(1 for a in rh if (getattr(a, "smoke_status", None) or "") == "pass")
             footer = (
-                f"\n另有 {len(rh)} 张 RunningHub H3 社区预制(场景/加速/换人/口播等),"
+                f"\n另有 {len(rh)} 张 RunningHub 社区预制(实测可用 {rh_pass}),"
                 "用 q 搜标题,例如「舞后小憩」「首尾帧」「全能参考」。"
             )
+        footer += "\n推荐只推标注「实测可用」的卡;未实测勿默认推荐。"
     lines = [_format_app_line(a) for a in shown]
     # A1 列表卡:前 12 条结构化下发(封面/用途/打开应用深链用);LLM 文本不变
     cards = [{
@@ -1070,6 +1106,8 @@ async def exec_list_apps(args: dict, ctx: dict) -> tuple[str, list[dict]]:
         "use_case": str(getattr(a, "use_case", "") or ""),
         "output_kind": str(getattr(a, "output_kind", "") or ""),
         "is_nsfw": bool(getattr(a, "is_nsfw", False)),
+        "smoke_status": str(getattr(a, "smoke_status", "") or ""),
+        "availability": _smoke_label(a),
     } for a in shown[:12]]
     return (
         "应用市场清单(视频/H3 请优先 run_app 这些应用,不要用裸引擎):\n"
@@ -1095,10 +1133,25 @@ async def exec_get_app(args: dict, ctx: dict) -> tuple[str, list[dict]]:
             _err_event("应用不存在", aid)
         ]
     nsfw = "是(仅 R18)" if item.is_nsfw else "否"
+    avail = _smoke_label(item)
+    smoke_bit = f"可用性:{avail}"
+    st = (getattr(item, "smoke_status", None) or "").strip()
+    if st == "fail":
+        err = (getattr(item, "smoke_error", None) or "")[:160]
+        cls = (getattr(item, "smoke_cls", None) or "")
+        smoke_bit += f"(勿默认推荐;归因 {cls or '—'}{(' · ' + err) if err else ''})"
+    elif st != "pass":
+        smoke_bit += "(未充分验证,勿当默认推荐;可换一张实测可用同类卡)"
+    # 缺模型/节点硬提示:required_nodes 原样透出,助手可转告用户或转能力缺口
+    nodes = getattr(item, "required_nodes", None) or []
+    nodes_bit = ""
+    if isinstance(nodes, list) and nodes:
+        nodes_bit = "所需节点/模型线索:" + ", ".join(str(n) for n in nodes[:12]) + "\n"
     text = (
         f"应用 {item.name}(id={item.id})\n"
-        f"分类:{item.category} 产物:{item.output_kind} NSFW:{nsfw}\n"
+        f"分类:{item.category} 产物:{item.output_kind} NSFW:{nsfw} {smoke_bit}\n"
         f"简介:{item.description or '无'}\n"
+        f"{nodes_bit}"
         "参数表(run_app 的 values 用这些 key):\n"
         f"{_format_param_schema(item.params_schema)}\n"
         "填值要点:必填项必须给;媒体类填本轮上传文件名;"

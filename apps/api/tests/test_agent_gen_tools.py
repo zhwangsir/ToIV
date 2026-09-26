@@ -680,6 +680,70 @@ def _seed_market_apps(session, user):
     return sfw, nsfw
 
 
+
+async def test_list_apps_marks_pass_and_prefers_verified(db_env):
+    """U3:列表标注实测可用性,PASS 卡排在未测之前。"""
+    s, user = db_env
+    sfw, _ = _seed_market_apps(s, user)
+    sfw.smoke_status = "pass"
+    s.add(sfw)
+    untested = App(
+        id="demo-untested", name="演示未测卡", description="未测",
+        icon="film", category="video",
+        workflow_json=sfw.workflow_json, params_schema=sfw.params_schema,
+        bindings=sfw.bindings, output_kind="video",
+        is_builtin=True, is_nsfw=False, is_public=True, user_id="",
+        sort=5, smoke_status="",
+    )
+    s.add(untested)
+    s.commit()
+    reg = get_ctx().service("tools")
+    text, events = await reg.execute("list_apps", {"q": "海螺"}, _ctx(_FakePool(_FakeClient()), user, s))
+    assert "实测可用" in text
+    assert "h3-t2v" in text
+    # 结构化卡带可用性
+    items = events[0]["data"]["payload"]["items"]
+    hit = next(i for i in items if i["id"] == "h3-t2v")
+    assert hit["smoke_status"] == "pass" and hit["availability"] == "实测可用"
+
+
+async def test_search_knowledge_appends_pass_market_apps(db_env, monkeypatch):
+    """U3:search_knowledge 附带公开 PASS 市场卡。"""
+    from app.agent import tools as agent_tools
+
+    class _Chunk:
+        def __init__(self, title, text):
+            self.title, self.text = title, text
+
+    class _KB:
+        async def retrieve(self, query, k=4):
+            return [_Chunk("配方", "通用配方说明")]
+
+    monkeypatch.setattr(agent_tools, "get_kb", lambda: _KB())
+    s, user = db_env
+    sfw, _ = _seed_market_apps(s, user)
+    sfw.smoke_status = "pass"
+    s.add(sfw)
+    s.commit()
+    text, events = await agent_tools.exec_search_knowledge(
+        {"query": "海螺"}, _FakePool(_FakeClient()), user, s
+    )
+    assert "知识库检索结果" in text
+    assert "相关市场应用" in text and "h3-t2v" in text and "实测可用" in text
+    assert any(i.get("app_id") == "h3-t2v" for i in events[0]["data"]["payload"]["items"])
+
+
+async def test_get_app_includes_availability(db_env):
+    s, user = db_env
+    sfw, _ = _seed_market_apps(s, user)
+    sfw.smoke_status = "pass"
+    s.add(sfw)
+    s.commit()
+    reg = get_ctx().service("tools")
+    text, _ = await reg.execute("get_app", {"id": "h3-t2v"}, _ctx(_FakePool(_FakeClient()), user, s))
+    assert "可用性:实测可用" in text
+
+
 async def test_list_apps_hides_nsfw_when_not_allowed(db_env):
     s, user = db_env
     _seed_market_apps(s, user)
