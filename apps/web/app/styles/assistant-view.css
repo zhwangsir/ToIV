@@ -768,6 +768,71 @@
   white-space: nowrap;
 }
 
+
+/* U2:多步计划步骤条 */
+.av-plan-steps {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.av-plan-step {
+  display: grid;
+  grid-template-columns: 1.25rem 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+}
+.av-plan-step-index {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle, rgba(127,127,127,0.35));
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+.av-plan-step-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+.av-plan-step-phase {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+.av-plan-step.is-active {
+  background: color-mix(in srgb, var(--accent, #888) 12%, transparent);
+}
+.av-plan-step.is-active .av-plan-step-index {
+  border-color: var(--accent, #888);
+  color: var(--accent, #888);
+}
+.av-plan-step.is-active .av-plan-step-phase {
+  color: var(--accent, #888);
+}
+.av-plan-step.is-done .av-plan-step-index {
+  border-color: var(--ok, #3a3);
+  color: var(--ok, #3a3);
+}
+.av-plan-step.is-done .av-plan-step-phase {
+  color: var(--ok, #3a3);
+}
+.av-plan-step.is-idle {
+  opacity: 0.55;
+}
+.av-plan-step.is-planned .av-plan-step-phase {
+  color: var(--text-muted);
+}
+
 /* 打字指示器(运行态,用 --run) */
 .av-typing {
   display: inline-flex;

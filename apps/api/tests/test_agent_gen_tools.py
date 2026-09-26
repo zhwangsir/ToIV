@@ -533,6 +533,7 @@ def _chat_with_proposal(c: TestClient, token: str, monkeypatch) -> tuple[str, di
     assert len(proposals) == 1
     assert proposals[0]["title"] == "三段短片方案"
     assert proposals[0]["estimate"] == "约 45 分钟"
+    assert proposals[0].get("steps") == ["出底图", "H3 出三段", "拼接"]
     assert events[-1][0] == "done"
     return sid, proposals[0]
 

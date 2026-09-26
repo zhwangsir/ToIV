@@ -157,6 +157,8 @@ export interface AgentProposalCard {
   title: string;
   body: string;
   estimate?: string;
+  /** U2:有序步骤标题;缺省时前端从 body 编号行推断 */
+  steps?: string[];
   /** 提案类型(A2 canvas_graph=画布图,可在画布中打开审查;缺省=纯文本方案) */
   kind?: string;
   resolution?: "approve" | "modify" | "reject";
@@ -1224,6 +1226,7 @@ export function AssistantView(props?: AssistantViewProps) {
                   title: ev.title || "执行方案",
                   body: ev.body || "",
                   estimate: ev.estimate,
+                  steps: Array.isArray(ev.steps) ? ev.steps.map(String) : undefined,
                   kind: typeof ev.kind === "string" ? ev.kind : undefined,
                 });
               }

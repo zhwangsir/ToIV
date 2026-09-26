@@ -1698,3 +1698,10 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 - **测试**: `apps/api/tests/test_smoke_limit.py` 4 passed。
 - **部署**: core 已同步 `app_smoke.py`；本巡检重启 `toiv-api` 加载新代码（烟测 runner 自愈续跑）。
 - **commit**: `0e2fdba`
+
+## 2026-09-26 14:16 · U2 多步计划步骤条（与收尾并行）
+
+- 目标：大需求 `propose_plan` 后，对话提案卡显示「计划 / 进行中 / 完成」步骤条。
+- 改动：`tools_gen._normalize_plan_steps` + `steps` 字段；前端 `extractPlanSteps` / `AvPlanSteps`；仅 web 部署不打断烟测。
+- 验证：`apps/web` node:test `assistantPlanSteps.test.ts`；api `test_propose_plan` 断言 steps 从 body 推断。
+

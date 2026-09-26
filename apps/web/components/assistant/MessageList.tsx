@@ -197,6 +197,71 @@ export function AvJobResults({
 /** 同消息多作业卡产物聚合(纯函数,单测锚点):≥2 个 done 卡且合并视觉帧 ≥2 时,
  *  产物从各卡抽出、合并为一条胶片条(卡内不再重复渲染,对话流更紧凑);
  *  否则返回空数组,各卡照旧自带产物。 */
+
+/** U2:从结构化 steps 或 body 编号/列表行提取步骤标题。 */
+export function extractPlanSteps(steps: readonly string[] | undefined, body: string | undefined): string[] {
+  const fromArgs = (steps ?? []).map((s) => String(s || "").trim()).filter(Boolean).map((s) => s.slice(0, 80));
+  if (fromArgs.length >= 2) return fromArgs.slice(0, 8);
+  const inferred: string[] = [];
+  for (const line of (body || "").split(/\r?\n/)) {
+    const m = line.trim().match(/^(?:\d+[\.、\)]\s+|[-*]\s+)(.+)$/);
+    if (!m) continue;
+    const t = m[1].trim();
+    if (t) inferred.push(t.slice(0, 80));
+    if (inferred.length >= 8) break;
+  }
+  return inferred.length >= 2 ? inferred : fromArgs;
+}
+
+export type PlanStepPhase = "planned" | "active" | "done" | "idle";
+
+/** U2:提案态 → 步骤条相位。pending=全计划;approve/modify+busy=首步进行中;完成后全完成;reject=idle。 */
+export function planStepPhases(
+  steps: readonly string[],
+  resolution: AgentProposalCard["resolution"] | undefined,
+  busy: boolean,
+): PlanStepPhase[] {
+  if (!steps.length) return [];
+  if (resolution === "reject") return steps.map(() => "idle");
+  if (!resolution) return steps.map(() => "planned");
+  if (busy) {
+    return steps.map((_, i) => (i === 0 ? "active" : "planned"));
+  }
+  return steps.map(() => "done");
+}
+
+export function AvPlanSteps({
+  steps,
+  phases,
+}: {
+  steps: readonly string[];
+  phases: readonly PlanStepPhase[];
+}) {
+  if (steps.length < 2) return null;
+  const phaseLabel: Record<PlanStepPhase, string> = {
+    planned: "计划",
+    active: "进行中",
+    done: "完成",
+    idle: "已取消",
+  };
+  return (
+    <ol className="av-plan-steps" aria-label="任务步骤">
+      {steps.map((label, i) => {
+        const phase = phases[i] ?? "planned";
+        return (
+          <li key={`${i}-${label}`} className={`av-plan-step is-${phase}`}>
+            <span className="av-plan-step-index" aria-hidden="true">
+              {phase === "done" ? "✓" : i + 1}
+            </span>
+            <span className="av-plan-step-label">{label}</span>
+            <span className="av-plan-step-phase">{phaseLabel[phase]}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export function aggregateJobFrames(jobs: readonly AgentJobCard[]): AvFrame[] {
   const done = jobs.filter((j) => j.status === "done" && j.results?.length);
   if (done.length < 2) return [];
@@ -468,6 +533,11 @@ export function AvMessageList({
                       {p.body ? (
                         <div className="av-proposal-body">{renderInlineMarkdown(p.body)}</div>
                       ) : null}
+                      {(() => {
+                        const steps = extractPlanSteps(p.steps, p.body);
+                        const phases = planStepPhases(steps, p.resolution, busy);
+                        return <AvPlanSteps steps={steps} phases={phases} />;
+                      })()}
                       {p.resolution ? (
                         <div className={`av-proposal-result is-${p.resolution}`}>
                           <Icon

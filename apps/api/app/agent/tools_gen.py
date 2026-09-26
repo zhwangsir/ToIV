@@ -179,6 +179,11 @@ TOOL_SCHEMAS_GEN = [
                     "title": {"type": "string", "description": "方案标题(一句话)"},
                     "body": {"type": "string", "description": "方案正文(markdown):分步拆解、每步用的引擎/底模/提示词方向、产出物"},
                     "estimate": {"type": "string", "description": "预计耗时/资源,如「3 段 H3,约 45 分钟」"},
+                    "steps": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "有序步骤标题列表(2-8 项);前端步骤条直接渲染。缺省时从 body 编号行推断",
+                    },
                 },
                 "required": ["title", "body"],
             },
@@ -1242,6 +1247,32 @@ async def exec_optimize_prompt(args: dict, ctx: dict) -> tuple[str, list[dict]]:
     })]
 
 
+def _normalize_plan_steps(raw, body: str) -> list[str]:
+    """U2:结构化步骤优先;否则从 body 编号/列表行推断。最多 8 条。"""
+    steps: list[str] = []
+    if isinstance(raw, list):
+        for item in raw:
+            s = str(item or "").strip()
+            if s:
+                steps.append(s[:80])
+            if len(steps) >= 8:
+                break
+    if len(steps) >= 2:
+        return steps
+    import re
+    inferred: list[str] = []
+    for line in (body or "").splitlines():
+        m = re.match(r"^(?:\d+[\.、\)]\s+|[-*]\s+)(.+)$", line.strip())
+        if not m:
+            continue
+        t = m.group(1).strip()
+        if t:
+            inferred.append(t[:80])
+        if len(inferred) >= 8:
+            break
+    return inferred if len(inferred) >= 2 else steps
+
+
 async def exec_propose_plan(args: dict, ctx: dict) -> tuple[str, list[dict]]:
     sess: AgentSession | None = ctx.get("agent_session")
     session = ctx["session"]
@@ -1249,6 +1280,7 @@ async def exec_propose_plan(args: dict, ctx: dict) -> tuple[str, list[dict]]:
     title = str(args.get("title") or "").strip()[:120]
     body = str(args.get("body") or "").strip()[:4000]
     estimate = str(args.get("estimate") or "").strip()[:300]
+    steps = _normalize_plan_steps(args.get("steps"), body)
     if not title or not body:
         return "提案标题与正文不能为空。", [_err_event("提案为空")]
     if sess is None:
@@ -1261,6 +1293,7 @@ async def exec_propose_plan(args: dict, ctx: dict) -> tuple[str, list[dict]]:
         "title": title,
         "body": body,
         "estimate": estimate,
+        "steps": steps,
         "status": "pending",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -1273,6 +1306,7 @@ async def exec_propose_plan(args: dict, ctx: dict) -> tuple[str, list[dict]]:
         "title": title,
         "body": body,
         "estimate": estimate,
+        "steps": steps,
     }}
     return (
         f"方案已提交给用户确认(proposal_id={proposal['proposal_id']})。"
