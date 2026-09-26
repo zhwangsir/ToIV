@@ -1613,7 +1613,7 @@
   /* 工具条:单行横滚 + 两端渐隐指示(审计实测「视频 50」pill 被硬裁且无横滑线索)。
      渐隐用 mask 实现(只取 alpha 通道,black 为关键字非色值,与 studio.css 阶段条同款手法);
      无需额外 DOM,pointer-events 天然不拦截 */
-  .lib-toolbar {
+  .lib-type-tabs {
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -1633,7 +1633,7 @@
       transparent
     );
   }
-  .lib-toolbar::-webkit-scrollbar {
+  .lib-type-tabs::-webkit-scrollbar {
     display: none;
   }
   .lib-search {
@@ -2537,4 +2537,414 @@
 .lib-remix-row input[type="text"]:focus,
 .lib-remix-row textarea:focus {
   border-color: color-mix(in srgb, var(--accent, #b8f03c) 45%, transparent);
+}
+
+
+/* ═════════════════════════════════════════════════════════════════════
+   2026-09-27 作品库重设计
+   - 工具条两行:标题+计数 | 搜索+管理;类型下划线 tab | 筛选弹层 + 已选胶囊 | 排序/密度
+   - 卡片媒体优先:缩略图统一 4/5 裁切(时间分组整行标题下,混排比例会让行高参差;
+     完整画面进灯箱看),标题/来源/时间改为悬停时从底部渐变浮出;生成中/失败常显
+   - hover 操作组常驻 收藏/再做一张(重试)/删除,其余收进「更多」展开
+   - 时间分组标题去竖线/去粘性(避免与 sticky 工具条叠压),改轻量分隔
+   ═════════════════════════════════════════════════════════════════════ */
+
+.library-view .lib-toolbar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: var(--space-3) 0 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.lib-head-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.lib-head-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  flex-shrink: 0;
+}
+.lib-title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.lib-head-title .lib-count-pill {
+  padding: 0;
+  background: none;
+  border: 0;
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+}
+.lib-head-actions {
+  position: relative;
+  z-index: calc(var(--z-toast) + 1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  min-width: 0;
+}
+.lib-head-actions .lib-search {
+  flex: 0 1 260px;
+  width: 260px;
+}
+.lib-filter-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 40px;
+}
+.lib-filter-row .lib-toolbar-cluster {
+  z-index: auto;
+}
+
+/* 类型 tab:下划线式,选中墨线压底边(与工具条 hairline 对齐) */
+.lib-type-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-4);
+  align-self: stretch;
+}
+.lib-type-tabs .lib-tab {
+  position: relative;
+  overflow: visible;
+  height: auto;
+  padding: 0 1px;
+  gap: 6px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+}
+.lib-type-tabs .lib-tab:hover {
+  background: none;
+  color: var(--text-primary);
+}
+.lib-type-tabs .lib-tab.is-active {
+  background: none;
+  color: var(--text-primary);
+}
+.lib-type-tabs .lib-tab::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.lib-type-tabs .lib-tab.is-active::after {
+  background: var(--text-primary);
+}
+.lib-type-tabs .lib-tab .lib-chip-count {
+  background: none;
+  padding: 0;
+  color: var(--text-muted);
+  font-weight: var(--font-regular, 400);
+}
+
+/* 筛选按钮 + 弹层(复用 lib-source-pop 的浮层材质,改为分区面板) */
+.lib-filter {
+  position: relative;
+  display: inline-flex;
+}
+.lib-filter-btn {
+  gap: 4px;
+}
+.lib-filter-pop {
+  min-width: 280px;
+  max-width: 340px;
+  max-height: min(480px, 70vh);
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.lib-filter-sec {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.lib-filter-sec:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.lib-filter-sec > .lib-source-group {
+  padding-left: 2px;
+}
+.lib-filter-sec .lib-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lib-filter-sec.lib-source {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+.lib-filter-sec .lib-source-sub {
+  padding-top: 2px;
+  opacity: 0.8;
+}
+.lib-filter-foot {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--space-1);
+}
+.lib-filter-reset {
+  padding: 2px 6px;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-control);
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.lib-filter-reset:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-2);
+}
+
+/* 已选条件胶囊 */
+.lib-active-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+.lib-active-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  max-width: 180px;
+  padding: 0 8px 0 10px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-size: var(--text-label);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.lib-active-pill > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lib-active-pill:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+/* ── 卡片:统一 4/5 媒体 + 悬停浮出图注 ── */
+.library-view:not(.is-trash) .lib-grid > .lib-card:not(.lib-folder-card):not(.lib-board-card) .lib-thumb,
+.library-view:not(.is-trash) .lib-grid > .lib-card.is-video:not(.lib-folder-card):not(.lib-board-card) .lib-thumb {
+  aspect-ratio: 4 / 5;
+}
+.library-view .lib-grid {
+  gap: var(--space-3);
+}
+.library-view .lib-grid > .lib-card:not(.lib-folder-card):not(.lib-board-card) {
+  contain-intrinsic-size: auto 320px;
+}
+.library-view:not(.is-trash) .lib-grid > .lib-card:not(.lib-folder-card):not(.lib-board-card) .lib-foot {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  z-index: var(--z-lib-badge);
+  padding: var(--space-6) var(--space-3) var(--space-2);
+  border-radius: 0 0 var(--radius-control) var(--radius-control);
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, black 72%, transparent),
+    color-mix(in srgb, black 34%, transparent) 60%,
+    transparent
+  );
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity var(--duration-base) var(--ease-standard),
+    transform var(--duration-base) var(--ease-standard);
+}
+.library-view:not(.is-trash) .lib-grid > .lib-card:not(.lib-folder-card):not(.lib-board-card):hover .lib-foot,
+.library-view:not(.is-trash) .lib-grid > .lib-card:not(.lib-folder-card):not(.lib-board-card):focus-within .lib-foot,
+.library-view:not(.is-trash) .lib-grid > .lib-card.is-pending .lib-foot {
+  opacity: 1;
+  transform: translateY(0);
+}
+.library-view:not(.is-trash) .lib-grid > .lib-card:not(.lib-folder-card):not(.lib-board-card) .lib-card-title {
+  min-height: 0;
+  color: rgb(255 255 255 / 0.96);
+  -webkit-line-clamp: 2;
+}
+.library-view:not(.is-trash) .lib-grid > .lib-card:not(.lib-folder-card):not(.lib-board-card) .lib-card-sub,
+.library-view:not(.is-trash) .lib-grid > .lib-card:not(.lib-folder-card):not(.lib-board-card) .lib-kind,
+.library-view:not(.is-trash) .lib-grid > .lib-card:not(.lib-folder-card):not(.lib-board-card) .lib-time {
+  color: rgb(255 255 255 / 0.72);
+}
+/* 悬停时左下尺寸角标让位给图注 */
+.library-view:not(.is-trash) .lib-grid > .lib-card:hover .lib-meta-badges,
+.library-view:not(.is-trash) .lib-grid > .lib-card.is-pending .lib-meta-badges {
+  opacity: 0;
+}
+.lib-meta-badges {
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+/* 卡片不再上浮(图注已在画面内,上浮会与相邻行抖动),改描边提强 */
+.library-view .lib-grid > .lib-card:not(.lib-folder-card):not(.lib-board-card):hover {
+  transform: none;
+}
+.library-view .lib-grid > .lib-card:not(.lib-folder-card):not(.lib-board-card):hover .lib-thumb img,
+.library-view .lib-grid > .lib-card:not(.lib-folder-card):not(.lib-board-card):hover .lib-thumb video {
+  transform: scale(1.02);
+}
+.library-view .lib-thumb img,
+.library-view .lib-thumb video {
+  transition: transform var(--duration-slow, 320ms) var(--ease-standard);
+}
+
+/* ── hover 操作组:次要动作收进「更多」 ── */
+.lib-actions:not(.is-more-open) .lib-action-btn--sec {
+  display: none;
+}
+.lib-action-more {
+  color: var(--text-muted);
+}
+
+/* ── 时间分组:轻量分隔(去竖线 / 去粘性 / 去模糊底) ── */
+.library-view .lib-time-header {
+  position: static;
+  margin: var(--space-4) 0 0;
+  padding: 0 0 var(--space-1);
+  font-size: var(--text-aux);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-left: 0;
+  border-radius: 0;
+}
+.library-view .lib-time-header:first-child {
+  margin-top: 0;
+}
+.library-view .lib-time-header::after {
+  background: var(--border-subtle);
+}
+
+/* ── 空态:标题 + 说明 + 三个直达入口 ── */
+.library-view .lib-empty {
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4) var(--space-10, 80px);
+  text-align: center;
+}
+.library-view .lib-empty-hint {
+  font-size: var(--text-body);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+.lib-empty-sub {
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+}
+.lib-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 767px) {
+  .lib-head-row {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .lib-head-actions {
+    width: 100%;
+    margin-left: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .lib-head-actions .lib-search {
+    flex: 1 0 160px;
+  }
+  .lib-filter-row {
+    flex-wrap: wrap;
+  }
+  .lib-type-tabs {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .lib-filter-row > .lib-toolbar-divider {
+    display: none;
+  }
+  .lib-filter-pop {
+    position: fixed;
+    top: auto;
+    left: var(--space-2);
+    right: var(--space-2);
+    bottom: calc(var(--bottomnav-h, 0px) + var(--space-2));
+    max-width: none;
+  }
+  /* 触屏无 hover:图注常显 */
+  .library-view:not(.is-trash) .lib-grid > .lib-card:not(.lib-folder-card):not(.lib-board-card) .lib-foot {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .library-view .lib-thumb img,
+  .library-view .lib-thumb video {
+    transition: none;
+  }
+}
+
+/* 修正(2026-09-27 截图核对):来源名左对齐;排队/生成中状态胶囊 */
+.lib-filter-sec .lib-source-item {
+  text-align: left;
+}
+.lib-filter-sec .lib-source-item-label {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
+}
+.lib-pending-pill {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 28px);
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface-3);
+  border: 1px solid var(--border-subtle);
+  font-size: var(--text-label);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: var(--z-lib-badge);
 }

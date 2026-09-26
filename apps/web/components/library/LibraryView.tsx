@@ -233,21 +233,39 @@ function JobThumbMedia({ job, blurred = false }: { job: JobItem; blurred?: boole
   return <ImageThumb job={job} blurred={blurred} />;
 }
 
-/** 作品库空态(库本身为空):单行 muted 提示 + 行内「去创作」(2026-09-02 W3 大图标面板退役)。 */
-export function LibraryEmptyState({ onCreate }: { onCreate?: () => void }) {
+/** 作品库空态(库本身为空,2026-09-27 重设计):标题 + 一句说明 + 三个直达入口;
+ *  保留「暂无作品」与行内「去创作」锚点。onNavigate 缺省时只给「去创作」。 */
+export function LibraryEmptyState({
+  onCreate,
+  onNavigate,
+}: {
+  onCreate?: () => void;
+  onNavigate?: (target: string) => void;
+}) {
   return (
     <div className="lib-empty">
       <span className="lib-empty-hint">暂无作品</span>
-      {onCreate && (
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={<Icon name="create" size={14} />}
-          onClick={onCreate}
-        >
-          去创作
-        </Button>
-      )}
+      <span className="lib-empty-sub">生成的图片、视频、音频都会自动收进这里,按时间归档。</span>
+      <div className="lib-empty-actions">
+        {onNavigate && (
+          <>
+            <Button variant="secondary" size="sm" icon={<Icon name="image" size={14} />} onClick={() => onNavigate("image")}>
+              生成图片
+            </Button>
+            <Button variant="secondary" size="sm" icon={<Icon name="video" size={14} />} onClick={() => onNavigate("video")}>
+              生成视频
+            </Button>
+            <Button variant="secondary" size="sm" icon={<Icon name="store" size={14} />} onClick={() => onNavigate("market")}>
+              逛应用市场
+            </Button>
+          </>
+        )}
+        {onCreate && (
+          <Button variant="ghost" size="sm" icon={<Icon name="create" size={14} />} onClick={onCreate}>
+            去创作
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -290,6 +308,8 @@ export function LibraryView(props?: LibraryViewProps) {
   // 重试状态机(2026-09-20 A1):jobId → 新 prompt_id(轮询中)
   const [retrying, setRetrying] = useState<ReadonlyMap<string, string>>(new Map());
   const [sourceOpen, setSourceOpen] = useState(false);
+  // 卡片 hover 操作组「更多」展开的作业 id(2026-09-27 重设计)
+  const [moreOpenId, setMoreOpenId] = useState<string | null>(null);
   // 收藏(P1 A5):localStorage 持久;只看收藏开关;跨端同步留 P2
   const [favorites, setFavorites] = useState<ReadonlySet<string>>(() => loadFavorites());
   const [favOnly, setFavOnly] = useState(false);
@@ -1323,8 +1343,21 @@ export function LibraryView(props?: LibraryViewProps) {
     setSearch("");
     setFilter("all");
     setContentFilter("all");
+    setSource("");
+    setFavOnly(false);
     resetPage();
   };
+
+  // 2026-09-27 重设计:「筛选」弹层内生效条件数 + 工具行已选胶囊(类型 tab 自带高亮,不入胶囊)
+  const activePills: { key: string; label: string; clear: () => void }[] = [
+    ...(search.trim() ? [{ key: "q", label: `搜索:${search.trim().slice(0, 12)}`, clear: () => setSearch("") }] : []),
+    ...(contentFilter !== "all"
+      ? [{ key: "cf", label: contentFilter === "r18" ? "R18" : "SFW", clear: () => setContentFilter("all") }]
+      : []),
+    ...(source ? [{ key: "src", label: sourceLabelOf(source, sourceOptions), clear: () => setSource("") }] : []),
+    ...(favOnly ? [{ key: "fav", label: "只看收藏", clear: () => setFavOnly(false) }] : []),
+  ];
+  const activeFilterCount = activePills.filter((p) => p.key !== "q").length;
 
   // 沉浸查看器:Frame.io 式左舞台 + 右元信息面板;←/→ 穿梭 + 快捷操作;
   // 文件夹下钻内点开成员时穿梭范围限定为该组成员(lightboxScope)。
@@ -1409,304 +1442,349 @@ export function LibraryView(props?: LibraryViewProps) {
           文件夹下钻视图隐藏(返回主网格即恢复) */}
       {!openFolder && !openStackJob && (
       <div className="lib-toolbar">
-        <div className="lib-search">
-          <span className="lib-search-icon" aria-hidden="true">
-            <Icon name="search" size={14} />
-          </span>
-          <input
-            className="lib-search-input"
-            value={search}
-            placeholder="搜索提示词…"
-            aria-label="搜索提示词"
-            onChange={(e) => {
-              setSearch(e.target.value);
-              resetPage();
-            }}
-          />
-          {search && (
-            <button
-              type="button"
-              className="lib-search-clear"
-              aria-label="清空搜索"
-              title="清空搜索"
-              onClick={() => {
-                setSearch("");
-                resetPage();
-              }}
+        {/* 2026-09-27 作品库重设计:两行结构。
+            第一行 = 标题 + 计数 | 搜索 + 管理动作(批量 / 画板 / 回收站 / 清理失败);
+            第二行 = 类型下划线 tab | 「筛选」弹层(分级 / 来源 / 收藏 / 存视图)+ 已选条件胶囊 | 排序 + 密度 */}
+        <div className="lib-head-row">
+          <div className="lib-head-title">
+            <h1 className="lib-title">作品库</h1>
+            {/* 作品计数(2026-09-15 服务端总数) */}
+            <span
+              className="lib-count-pill"
+              title={serverCounts ? `已加载 ${filtered.length} / 共 ${serverCounts[filter] ?? 0} 件` : undefined}
             >
-              <Icon name="close" size={12} />
-            </button>
-          )}
-        </div>
-
-        <div className="lib-chips" role="group" aria-label="作品类型筛选">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              className={`lib-chip${filter === f.key ? " is-active" : ""}`}
-              aria-pressed={filter === f.key}
-              onClick={() => {
-                setFilter(f.key);
-                resetPage();
-              }}
-            >
-              <span>{f.label}</span>
-              <span className="lib-chip-count">{counts[f.key]}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* 组间 hairline(2026-08-16 审计):类型过滤 / 内容分级 / 排序三组胶囊混排难分边界 */}
-        <span className="lib-toolbar-divider" aria-hidden="true" />
-
-        <div className="lib-chips" role="group" aria-label="内容分级筛选">
-          {(
-            [
-              { key: "all", label: "全部" },
-              { key: "sfw", label: "SFW" },
-              ...(r18Mode ? [{ key: "r18", label: "R18" }] : []),
-            ] as { key: ContentFilterKey; label: string }[]
-          ).map((c) => (
-            <button
-              key={c.key}
-              type="button"
-              className={`lib-chip lib-chip--sm${contentFilter === c.key ? " is-active" : ""}${c.key === "r18" ? " lib-chip--danger" : ""}`}
-              aria-pressed={contentFilter === c.key}
-              onClick={() => {
-                setContentFilter(c.key);
-                resetPage();
-              }}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-
-        {/* 来源筛选(2026-09-20 A2):引擎族/应用 两组带计数;点遮罩或选「全部来源」关闭 */}
-        <div className="lib-source">
-          <button
-            type="button"
-            className={`lib-chip lib-chip--sm${source ? " is-active" : ""}`}
-            aria-pressed={!!source}
-            aria-haspopup="listbox"
-            aria-expanded={sourceOpen}
-            onClick={() => setSourceOpen((v) => !v)}
-            title="按来源筛选(引擎 / 应用)"
-          >
-            <Icon name="sliders" size={12} />
-            <span>{sourceLabelOf(source, sourceOptions)}</span>
-            <Icon name={sourceOpen ? "chevron-up" : "chevron-down"} size={12} />
-          </button>
-          {sourceOpen && (
-            <>
-              <button
-                type="button"
-                className="lib-source-scrim"
-                aria-label="关闭来源筛选"
-                onClick={() => setSourceOpen(false)}
+              {loading
+                ? "加载中…"
+                : error
+                  ? "加载失败"
+                  : serverCounts
+                    ? `共 ${serverCounts[filter] ?? 0} 件作品`
+                    : `${filtered.length} 件作品`}
+            </span>
+          </div>
+          <div className="lib-head-actions">
+            <div className="lib-search">
+              <span className="lib-search-icon" aria-hidden="true">
+                <Icon name="search" size={14} />
+              </span>
+              <input
+                className="lib-search-input"
+                value={search}
+                placeholder="搜索提示词…"
+                aria-label="搜索提示词"
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  resetPage();
+                }}
               />
-              <div className="lib-source-pop" role="listbox" aria-label="来源筛选">
+              {search && (
                 <button
                   type="button"
-                  role="option"
-                  aria-selected={!source}
-                  className={`lib-source-item${!source ? " is-active" : ""}`}
-                  onClick={() => { setSource(""); setSourceOpen(false); resetPage(); }}
+                  className="lib-search-clear"
+                  aria-label="清空搜索"
+                  title="清空搜索"
+                  onClick={() => {
+                    setSearch("");
+                    resetPage();
+                  }}
                 >
-                  全部来源
+                  <Icon name="close" size={12} />
                 </button>
-                {sourceOptions.engines.length > 0 && (
-                  <div className="lib-source-group">引擎</div>
-                )}
-                {sourceOptions.engines.map((o) => (
-                  <button
-                    key={o.value}
-                    type="button"
-                    role="option"
-                    aria-selected={source === o.value}
-                    className={`lib-source-item${source === o.value ? " is-active" : ""}`}
-                    onClick={() => { setSource(o.value); setSourceOpen(false); resetPage(); }}
-                  >
-                    <span className="lib-source-item-label">{o.label}</span>
-                    <span className="lib-chip-count">{o.count}</span>
-                  </button>
-                ))}
-                {sourceOptions.apps.length > 0 && (
-                  <div className="lib-source-group">应用</div>
-                )}
-                {sourceOptions.apps.map((o) => (
-                  <button
-                    key={o.value}
-                    type="button"
-                    role="option"
-                    aria-selected={source === o.value}
-                    className={`lib-source-item${source === o.value ? " is-active" : ""}`}
-                    onClick={() => { setSource(o.value); setSourceOpen(false); resetPage(); }}
-                  >
-                    <span className="lib-source-item-label">{o.label}</span>
-                    <span className="lib-chip-count">{o.count}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+              )}
+            </div>
 
-        <button
-          type="button"
-          className={`lib-chip lib-chip--sm${favOnly ? " is-active" : ""}`}
-          aria-pressed={favOnly}
-          title="只看收藏的作品"
-          onClick={() => { setFavOnly((v) => !v); resetPage(); }}
-        >
-          <Icon name="heart" size={12} />
-          收藏{favorites.size > 0 ? ` ${favorites.size}` : ""}
-        </button>
+            <span className="lib-toolbar-divider" aria-hidden="true" />
 
-        {/* 存视图(P2):把当前筛选组合存为动态文件夹;命名输入内联展开 */}
-        {saveName === "" ? (
-          <button
-            type="button"
-            className="lib-chip lib-chip--sm"
-            title="把当前筛选组合存为视图(动态文件夹)"
-            onClick={() => setSaveName(" ")}
-          >
-            <Icon name="plus" size={12} />
-            存视图
-          </button>
-        ) : (
-          <span className="lib-view-save">
-            <input
-              className="lib-view-save-input"
-              value={saveName.trim()}
-              placeholder="视图名称…"
-              aria-label="视图名称"
-              autoFocus
-              onChange={(e) => setSaveName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") saveCurrentView();
-                if (e.key === "Escape") setSaveName("");
-              }}
-            />
-            <button type="button" className="lib-chip lib-chip--sm is-active" onClick={saveCurrentView}>
-              存
-            </button>
-          </span>
-        )}
-
-        <div className="lib-toolbar-cluster">
-          <span className="lib-toolbar-divider" aria-hidden="true" />
-          <div className="lib-seg" role="group" aria-label="排序方式">
-            <button
-              type="button"
-              className={`lib-seg-btn${sort === "newest" ? " is-active" : ""}`}
-              aria-pressed={sort === "newest"}
-              onClick={() => {
-                setSort("newest");
-                resetPage();
-              }}
+            {/* 一键清理失败作品(2026-09-15):有失败作品才出现;软删入回收站可恢复 */}
+            {failedCount > 0 && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="lib-trash-toggle lib-cleanup-failed"
+                icon={<Icon name="eraser" size={14} />}
+                onClick={() => setConfirmCleanupFailed(true)}
+              >
+                清理失败 {failedCount}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant={batchMode ? "primary" : "secondary"}
+              className="lib-batch-toggle"
+              icon={<Icon name={batchMode ? "check" : "list-ordered"} size={14} />}
+              onClick={() => (batchMode ? exitBatchMode() : setBatchMode(true))}
             >
-              最新
-            </button>
-            <button
-              type="button"
-              className={`lib-seg-btn${sort === "oldest" ? " is-active" : ""}`}
-              aria-pressed={sort === "oldest"}
-              onClick={() => {
-                setSort("oldest");
-                resetPage();
-              }}
+              {batchMode ? "完成" : "批量管理"}
+            </Button>
+            {/* 画板入口(2026-09-21 手动主题板) */}
+            <Button
+              size="sm"
+              variant="secondary"
+              className="lib-boards-toggle"
+              icon={<Icon name="layers" size={14} />}
+              onClick={() => setShowBoards(true)}
             >
-              最早
-            </button>
-          </div>
-
-          <div className="lib-seg lib-density" role="group" aria-label="密度切换">
-            <button
-              type="button"
-              className={`lib-seg-btn${density === "comfortable" ? " is-active" : ""}`}
-              aria-pressed={density === "comfortable"}
-              aria-label="舒适密度"
-              title="舒适"
-              onClick={() => changeDensity("comfortable")}
-            >
-              <Icon name="layout-grid" size={14} />
-            </button>
-            <button
-              type="button"
-              className={`lib-seg-btn${density === "compact" ? " is-active" : ""}`}
-              aria-pressed={density === "compact"}
-              aria-label="紧凑密度"
-              title="紧凑"
-              onClick={() => changeDensity("compact")}
-            >
-              <Icon name="grid" size={14} />
-            </button>
-          </div>
-
-          {/* 组间 hairline(2026-08-16 视图批 1):「排序与视图」与「批量管理」划界,
-              工具行四组结构成形(类型过滤 | 内容门控 | 排序与视图 | 批量管理) */}
-          <span className="lib-toolbar-divider" aria-hidden="true" />
-
-          <Button
-            size="sm"
-            variant={batchMode ? "primary" : "secondary"}
-            className="lib-batch-toggle"
-            icon={<Icon name={batchMode ? "check" : "list-ordered"} size={14} />}
-            onClick={() => (batchMode ? exitBatchMode() : setBatchMode(true))}
-          >
-            {batchMode ? "完成" : "批量管理"}
-          </Button>
-
-          {/* 画板入口(2026-09-21 手动主题板) */}
-          <Button
-            size="sm"
-            variant="secondary"
-            className="lib-boards-toggle"
-            icon={<Icon name="layers" size={14} />}
-            onClick={() => setShowBoards(true)}
-          >
-            画板
-          </Button>
-
-          {/* 回收站入口(72h 保留期;与工具行同款次要按钮) */}
-          <Button
-            size="sm"
-            variant="secondary"
-            className="lib-trash-toggle"
-            icon={<Icon name="delete" size={14} />}
-            onClick={() => setShowTrash(true)}
-          >
-            回收站
-          </Button>
-
-          {/* 一键清理失败作品(2026-09-15 用户需求):有失败作品才出现;软删入回收站可恢复 */}
-          {failedCount > 0 && (
+              画板
+            </Button>
+            {/* 回收站入口(72h 保留期) */}
             <Button
               size="sm"
               variant="secondary"
               className="lib-trash-toggle"
-              icon={<Icon name="eraser" size={14} />}
-              onClick={() => setConfirmCleanupFailed(true)}
+              icon={<Icon name="delete" size={14} />}
+              onClick={() => setShowTrash(true)}
             >
-              清理失败 {failedCount}
+              回收站
             </Button>
+          </div>
+        </div>
+
+        <div className="lib-filter-row">
+          <div className="lib-chips lib-type-tabs" role="group" aria-label="作品类型筛选">
+            {FILTERS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className={`lib-chip lib-tab${filter === f.key ? " is-active" : ""}`}
+                aria-pressed={filter === f.key}
+                onClick={() => {
+                  setFilter(f.key);
+                  resetPage();
+                }}
+              >
+                <span>{f.label}</span>
+                <span className="lib-chip-count">{counts[f.key]}</span>
+              </button>
+            ))}
+          </div>
+
+          <span className="lib-toolbar-divider" aria-hidden="true" />
+
+          {/* 「筛选」弹层(2026-09-27):内容分级 / 来源(引擎·应用)/ 只看收藏 / 存视图 收进一处,
+              工具行只留类型 tab + 已选条件胶囊,避免十几颗胶囊混排 */}
+          <div className="lib-filter">
+            <button
+              type="button"
+              className={`lib-chip lib-chip--sm lib-filter-btn${activeFilterCount > 0 ? " is-active" : ""}`}
+              aria-haspopup="dialog"
+              aria-expanded={sourceOpen}
+              onClick={() => setSourceOpen((v) => !v)}
+              title="筛选:分级 / 来源 / 收藏"
+            >
+              <Icon name="sliders" size={12} />
+              <span>筛选</span>
+              {activeFilterCount > 0 && <span className="lib-chip-count">{activeFilterCount}</span>}
+            </button>
+            {sourceOpen && (
+              <>
+                <button
+                  type="button"
+                  className="lib-source-scrim"
+                  aria-label="关闭筛选"
+                  onClick={() => setSourceOpen(false)}
+                />
+                <div className="lib-source-pop lib-filter-pop" role="dialog" aria-label="筛选">
+                  <div className="lib-filter-sec">
+                    <div className="lib-source-group">内容分级</div>
+                    <div className="lib-chips" role="group" aria-label="内容分级筛选">
+                      {(
+                        [
+                          { key: "all", label: "全部" },
+                          { key: "sfw", label: "SFW" },
+                          ...(r18Mode ? [{ key: "r18", label: "R18" }] : []),
+                        ] as { key: ContentFilterKey; label: string }[]
+                      ).map((c) => (
+                        <button
+                          key={c.key}
+                          type="button"
+                          className={`lib-chip lib-chip--sm${contentFilter === c.key ? " is-active" : ""}${c.key === "r18" ? " lib-chip--danger" : ""}`}
+                          aria-pressed={contentFilter === c.key}
+                          onClick={() => {
+                            setContentFilter(c.key);
+                            resetPage();
+                          }}
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="lib-filter-sec">
+                    <div className="lib-source-group">收藏</div>
+                    <button
+                      type="button"
+                      className={`lib-chip lib-chip--sm${favOnly ? " is-active" : ""}`}
+                      aria-pressed={favOnly}
+                      title="只看收藏的作品"
+                      onClick={() => { setFavOnly((v) => !v); resetPage(); }}
+                    >
+                      <Icon name="heart" size={12} />
+                      只看收藏{favorites.size > 0 ? ` ${favorites.size}` : ""}
+                    </button>
+                  </div>
+
+                  {/* 来源筛选(2026-09-20 A2):引擎族/应用 两组带计数 */}
+                  <div className="lib-filter-sec lib-source" role="listbox" aria-label="来源筛选">
+                    <div className="lib-source-group">来源</div>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={!source}
+                      className={`lib-source-item${!source ? " is-active" : ""}`}
+                      onClick={() => { setSource(""); resetPage(); }}
+                    >
+                      全部来源
+                    </button>
+                    {sourceOptions.engines.length > 0 && (
+                      <div className="lib-source-group lib-source-sub">引擎</div>
+                    )}
+                    {sourceOptions.engines.map((o) => (
+                      <button
+                        key={o.value}
+                        type="button"
+                        role="option"
+                        aria-selected={source === o.value}
+                        className={`lib-source-item${source === o.value ? " is-active" : ""}`}
+                        onClick={() => { setSource(o.value); resetPage(); }}
+                      >
+                        <span className="lib-source-item-label">{o.label}</span>
+                        <span className="lib-chip-count">{o.count}</span>
+                      </button>
+                    ))}
+                    {sourceOptions.apps.length > 0 && (
+                      <div className="lib-source-group lib-source-sub">应用</div>
+                    )}
+                    {sourceOptions.apps.map((o) => (
+                      <button
+                        key={o.value}
+                        type="button"
+                        role="option"
+                        aria-selected={source === o.value}
+                        className={`lib-source-item${source === o.value ? " is-active" : ""}`}
+                        onClick={() => { setSource(o.value); resetPage(); }}
+                      >
+                        <span className="lib-source-item-label">{o.label}</span>
+                        <span className="lib-chip-count">{o.count}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 存视图(P2):把当前筛选组合存为动态文件夹;命名输入内联展开 */}
+                  <div className="lib-filter-sec lib-filter-foot">
+                    {saveName === "" ? (
+                      <button
+                        type="button"
+                        className="lib-chip lib-chip--sm"
+                        title="把当前筛选组合存为视图(动态文件夹)"
+                        onClick={() => setSaveName(" ")}
+                      >
+                        <Icon name="plus" size={12} />
+                        存视图
+                      </button>
+                    ) : (
+                      <span className="lib-view-save">
+                        <input
+                          className="lib-view-save-input"
+                          value={saveName.trim()}
+                          placeholder="视图名称…"
+                          aria-label="视图名称"
+                          autoFocus
+                          onChange={(e) => setSaveName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveCurrentView();
+                            if (e.key === "Escape") setSaveName("");
+                          }}
+                        />
+                        <button type="button" className="lib-chip lib-chip--sm is-active" onClick={saveCurrentView}>
+                          存
+                        </button>
+                      </span>
+                    )}
+                    {activeFilterCount > 0 && (
+                      <button type="button" className="lib-filter-reset" onClick={clearQuery}>
+                        重置筛选
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* 已选条件胶囊:一眼看到当前生效的筛选,× 单独撤销 */}
+          {activePills.length > 0 && (
+            <div className="lib-active-pills" role="group" aria-label="已选筛选条件">
+              {activePills.map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  className="lib-active-pill"
+                  title={`移除:${p.label}`}
+                  onClick={() => { p.clear(); resetPage(); }}
+                >
+                  <span>{p.label}</span>
+                  <Icon name="close" size={10} />
+                </button>
+              ))}
+              {activePills.length > 1 && (
+                <button type="button" className="lib-filter-reset" onClick={clearQuery}>
+                  清空
+                </button>
+              )}
+            </div>
           )}
 
-          {/* 作品计数(2026-09-02 W3:页头移除,计数并入工具条尾;2026-09-15 改服务端总数) */}
-          <span
-            className="lib-count-pill"
-            title={serverCounts ? `已加载 ${filtered.length} / 共 ${serverCounts[filter] ?? 0} 件` : undefined}
-          >
-            {loading
-              ? "加载中…"
-              : error
-                ? "加载失败"
-                : serverCounts
-                  ? `共 ${serverCounts[filter] ?? 0} 件作品`
-                  : `${filtered.length} 件作品`}
-          </span>
+          <div className="lib-toolbar-cluster">
+            <span className="lib-toolbar-divider" aria-hidden="true" />
+            <div className="lib-seg" role="group" aria-label="排序方式">
+              <button
+                type="button"
+                className={`lib-seg-btn${sort === "newest" ? " is-active" : ""}`}
+                aria-pressed={sort === "newest"}
+                onClick={() => {
+                  setSort("newest");
+                  resetPage();
+                }}
+              >
+                最新
+              </button>
+              <button
+                type="button"
+                className={`lib-seg-btn${sort === "oldest" ? " is-active" : ""}`}
+                aria-pressed={sort === "oldest"}
+                onClick={() => {
+                  setSort("oldest");
+                  resetPage();
+                }}
+              >
+                最早
+              </button>
+            </div>
+
+            <div className="lib-seg lib-density" role="group" aria-label="密度切换">
+              <button
+                type="button"
+                className={`lib-seg-btn${density === "comfortable" ? " is-active" : ""}`}
+                aria-pressed={density === "comfortable"}
+                aria-label="舒适密度"
+                title="舒适"
+                onClick={() => changeDensity("comfortable")}
+              >
+                <Icon name="layout-grid" size={14} />
+              </button>
+              <button
+                type="button"
+                className={`lib-seg-btn${density === "compact" ? " is-active" : ""}`}
+                aria-pressed={density === "compact"}
+                aria-label="紧凑密度"
+                title="紧凑"
+                onClick={() => changeDensity("compact")}
+              >
+                <Icon name="grid" size={14} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
       )}
@@ -1746,7 +1824,7 @@ export function LibraryView(props?: LibraryViewProps) {
         )}
 
         {!error && !loading && libraryEmpty && (
-          <LibraryEmptyState onCreate={goCreate} />
+          <LibraryEmptyState onCreate={goCreate} onNavigate={onNavigate} />
         )}
 
         {!error && !loading && resultEmpty && (
@@ -2173,7 +2251,8 @@ export function LibraryView(props?: LibraryViewProps) {
                   </div>
                 )}
                 <article
-                  className={`lib-card${isVideo ? " is-video" : ""}${deletingId === job.id ? " is-deleting" : ""}${isSelected ? " is-selected" : ""}${isStack ? " is-stack" : ""}`}
+                  className={`lib-card${isVideo ? " is-video" : ""}${deletingId === job.id ? " is-deleting" : ""}${isSelected ? " is-selected" : ""}${isStack ? " is-stack" : ""}${job.status !== "done" ? " is-pending" : ""}`}
+                  onMouseLeave={() => setMoreOpenId((id) => (id === job.id ? null : id))}
                 >
                   <div className={`lib-thumb${job.status === "running" && !hasResult ? " is-running" : ""}`}>
                     {/* 预览/勾选触发区用真实 <button>,避免嵌套交互控件(WCAG nested-interactive) */}
@@ -2256,7 +2335,7 @@ export function LibraryView(props?: LibraryViewProps) {
                     {/* 快捷操作浮层:hover 浮出右上角玻璃操作组(查看/复用/存风格/删除) */}
                     {!batchMode && (
                       <div
-                        className="lib-actions"
+                        className={`lib-actions${moreOpenId === job.id ? " is-more-open" : ""}`}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <button
@@ -2274,7 +2353,7 @@ export function LibraryView(props?: LibraryViewProps) {
                         </button>
                         <button
                           type="button"
-                          className="lib-action-btn"
+                          className="lib-action-btn lib-action-btn--sec"
                           title="查看大图"
                           aria-label="查看大图"
                           onClick={(e) => {
@@ -2286,7 +2365,7 @@ export function LibraryView(props?: LibraryViewProps) {
                         </button>
                         <button
                           type="button"
-                          className="lib-action-btn"
+                          className="lib-action-btn lib-action-btn--sec"
                           title="复用提示词"
                           aria-label="复用提示词"
                           onClick={(e) => {
@@ -2300,7 +2379,7 @@ export function LibraryView(props?: LibraryViewProps) {
                         {hasResult && (
                           <button
                             type="button"
-                            className="lib-action-btn"
+                            className="lib-action-btn lib-action-btn--sec"
                             title={
                               isVideo
                                 ? "用作驱动/续写(生成台自动填入视频槽)"
@@ -2337,7 +2416,7 @@ export function LibraryView(props?: LibraryViewProps) {
                         {job.status === "done" && (job.prompt ?? "").trim() && (
                           <button
                             type="button"
-                            className="lib-action-btn"
+                            className="lib-action-btn lib-action-btn--sec"
                             title="复制同款链接(对方打开即导入参数)"
                             aria-label={`分享同款: ${job.prompt || "无提示词"}`}
                             onClick={(e) => {
@@ -2352,7 +2431,7 @@ export function LibraryView(props?: LibraryViewProps) {
                         {job.status === "done" && (
                           <button
                             type="button"
-                            className="lib-action-btn"
+                            className="lib-action-btn lib-action-btn--sec"
                             title="移入画板"
                             aria-label={`移入画板: ${job.prompt || "无提示词"}`}
                             onClick={(e) => {
@@ -2383,7 +2462,7 @@ export function LibraryView(props?: LibraryViewProps) {
                         {isVideo && hasResult && job.kind !== "video_upscale" && (
                           <button
                             type="button"
-                            className="lib-action-btn"
+                            className="lib-action-btn lib-action-btn--sec"
                             title="超分到 4K"
                             aria-label={`超分到 4K: ${job.prompt || "无提示词"}`}
                             disabled={upscalingId === job.id}
@@ -2400,7 +2479,7 @@ export function LibraryView(props?: LibraryViewProps) {
                         )}
                         <button
                           type="button"
-                          className="lib-action-btn"
+                          className="lib-action-btn lib-action-btn--sec"
                           title="存为风格"
                           aria-label="存为风格"
                           onClick={(e) => {
@@ -2409,6 +2488,20 @@ export function LibraryView(props?: LibraryViewProps) {
                           }}
                         >
                           <Icon name="palette" size={14} />
+                        </button>
+                        {/* 更多(2026-09-27 重设计):常驻只留 收藏/再做一张(重试)/删除,其余收进展开 */}
+                        <button
+                          type="button"
+                          className="lib-action-btn lib-action-more"
+                          title={moreOpenId === job.id ? "收起" : "更多操作"}
+                          aria-label={moreOpenId === job.id ? "收起更多操作" : "更多操作"}
+                          aria-expanded={moreOpenId === job.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMoreOpenId((id) => (id === job.id ? null : job.id));
+                          }}
+                        >
+                          <Icon name={moreOpenId === job.id ? "chevron-right" : "chevron-left"} size={14} />
                         </button>
                         <button
                           type="button"
@@ -2470,6 +2563,14 @@ export function LibraryView(props?: LibraryViewProps) {
                         <Icon name="history" size={10} />
                         续写于
                       </button>
+                    )}
+
+                    {/* 排队状态(2026-09-27 重设计):生成中已有角标+转圈,排队态补写明状态,不再只剩空白图标 */}
+                    {(job.status === "queued" || job.status === "pending") && !hasResult && !retrying.has(job.id) && (
+                      <span className="lib-pending-pill" role="status">
+                        <Icon name="clock" size={12} />
+                        排队中
+                      </span>
                     )}
 
                     {/* 重试中遮罩(A1):conic 流光 + 脉冲 pill,原位反馈不跳转 */}

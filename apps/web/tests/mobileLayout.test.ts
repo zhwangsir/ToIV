@@ -106,7 +106,8 @@ test("stage ≤1023:触控目标 ≥44px(抽屉收起钮 / 引擎说明 ⓘ / �
 /* ── ② library.css:过滤行横滑渐隐 + 页头紧凑 + 触控目标 ── */
 
 test("library ≤767:过滤行横滑 overflow-x:auto + 两端渐隐 mask 指示", () => {
-  const body = ruleBody(libMobile, ".lib-toolbar {");
+  // 2026-09-27 重设计:工具条改两行,横滑+渐隐下沉到类型 tab 行(整条 mask 会把「筛选」弹层一起裁掉)
+  const body = ruleBody(libMobile, ".lib-type-tabs {");
   assert.ok(body.includes("overflow-x: auto"), "工具条单行横滚");
   assert.ok(body.includes("flex-wrap: nowrap"), "不换行才需要渐隐指示");
   assert.ok(body.includes("-webkit-mask-image: linear-gradient("), "缺 WebKit 渐隐 mask");
