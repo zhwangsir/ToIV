@@ -1,3 +1,11 @@
+## 2026-09-26 10:30 CST — CR Text 缺键回填 + 校验死卡 soft-hide
+
+- **改动**: `apps/api/app/routes/apps.py` — `_MISSING_REQUIRED_DEFAULTS` 增加 `CR Text`/`CR Prompt Text`；空串视同缺键回填（`8b38f45`）。
+- **测试**: `pytest tests/test_apps_run.py::test_build_graph_cr_text_missing_key_backfill` + 既有 H3 空文案用例，2 passed。
+- **部署**: `deploy/deploy.sh --skip-web core-ts`（Tailscale；勿用 LAN `core`）。
+- **真机**: `rh-acc-4135655426-5119de` smoke → **PASS**（outputs 21/77/82）。
+- **运营**: soft-hide 4 张校验死卡（`4110077953` / `4062144514` / `4170135553` / `4180937730`）。
+- **收尾快照**: 公开 2085；pass 991 / untested 911 / timeout 179 / fail 3；untested_runner 存活。
 ## 2026-09-26 00:14 — O2 烟测可续跑 + closeout 巡检
 
 - **O2**：`app_smoke.reconcile_interrupted_smokes()` 在 API lifespan 启动时把 `smoke_status=running` 清回未测；单测 `test_reconcile_interrupted_smokes_clears_running` 绿。本期**未重启** `toiv-api`（保护在跑烟测）；下次 API 部署自动生效。现场已手工清掉 3 张卡住的 running。
