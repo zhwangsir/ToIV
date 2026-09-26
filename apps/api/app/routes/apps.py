@@ -2205,6 +2205,42 @@ def _normalize_sec_flash_attn_blackwell(graph: dict) -> None:
             inputs["use_flash_attn"] = False
 
 
+
+def _normalize_qwen3_vqa_imageloader_path(graph: dict) -> None:
+    """Qwen3_VQA.source_path 接 ImageLoader.PATH(str) → 改走 image=IMAGE。
+
+    Qwen3_VQA(IuvenisSapiens/ComfyUI_Qwen3-VL-Instruct)把 source_path 当 list
+    做 `source_path + [{type:text,...}]`;ImageLoader 的 PATH 输出却是字符串路径
+    → TypeError: can only concatenate str (not "list") to str
+    (2026-09-26 rh-acc-4182354944-a49d9c 实证)。改接 optional image 槽(节点内
+    落 temp 再组 content list),语义等价;已有 image 连线则只删坏掉的 source_path。
+    MultiplePathsInput 产出的 PATH 本就是 list,不匹配 ImageLoader 故不动。
+    """
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict) or node.get("class_type") != "Qwen3_VQA":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        sp = inputs.get("source_path")
+        if not (isinstance(sp, list) and len(sp) >= 2):
+            continue
+        src = graph.get(str(sp[0]))
+        if not isinstance(src, dict) or src.get("class_type") != "ImageLoader":
+            continue
+        try:
+            slot = int(sp[1])
+        except (TypeError, ValueError):
+            continue
+        if slot != 2:  # ImageLoader RETURN = (IMAGE, MASK, PATH)
+            continue
+        if not isinstance(inputs.get("image"), list):
+            inputs["image"] = [sp[0], 0]
+        inputs.pop("source_path", None)
+
+
 def _normalize_qwen_edit_prompt_string_link(graph: dict) -> None:
     """TextEncodeQwenImageEdit* .prompt:easy promptLine 的 COMBO 输出槽改接 STRING 槽。
 
@@ -3128,6 +3164,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_required_backfill(graph)
     _normalize_sec_empty_bbox(graph)
     _normalize_sec_flash_attn_blackwell(graph)
+    _normalize_qwen3_vqa_imageloader_path(graph)
     _normalize_qwen_edit_prompt_string_link(graph)
     _normalize_seedvr2_cache_model_bool(graph)
     _normalize_seedvr2_attention_mode(graph)
@@ -3184,6 +3221,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_trim_audio_duration(graph)
     _normalize_lora_path_separators(graph)
     _normalize_wan_video_decode_tiles(graph)
+    _normalize_qwen3_vqa_imageloader_path(graph)
     _normalize_qwen_edit_prompt_string_link(graph)
     _normalize_seedvr2_cache_model_bool(graph)
     _normalize_seedvr2_attention_mode(graph)
