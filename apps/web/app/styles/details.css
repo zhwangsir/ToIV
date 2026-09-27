@@ -220,3 +220,63 @@
     transform: none;
   }
 }
+
+/* ── 5. 骨架扫光改走 transform(Vercel 同款):伪元素平移,不再每帧重绘背景 ──
+   与 W3 裁决不冲突:只作用于「还没内容」的占位块,运行中作品卡仍不加光 */
+/* position 走 :where(零特异性):已绝对定位的占位(如 .rh-card-img-skel)保持原样 */
+:where(.skeleton-shimmer, .lib-thumb-skel) {
+  position: relative;
+}
+.skeleton-shimmer,
+.lib-thumb-skel {
+  overflow: hidden;
+  isolation: isolate;
+  background-image: none;
+  animation: none;
+}
+.skeleton-shimmer::after,
+.lib-thumb-skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in oklab, var(--text-primary) 7%, transparent) 50%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  animation: ui-skeleton-sweep calc(var(--duration-loop) * 1.333) ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes ui-skeleton-sweep {
+  to { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer::after,
+  .lib-thumb-skel::after { animation: none; opacity: 0; }
+}
+
+/* ── 6. 作品库类型标签:下划线从中间展开(切换时有方向感,不再硬闪) ── */
+.lib-type-tabs .lib-tab::after {
+  background: var(--text-primary);
+  transform: scaleX(0);
+  transform-origin: center;
+  opacity: 0;
+  transition:
+    transform 220ms var(--ease-out-strong),
+    opacity var(--duration-fast) var(--ease-standard);
+}
+.lib-type-tabs .lib-tab:hover::after {
+  transform: scaleX(0.35);
+  opacity: 0.35;
+}
+.lib-type-tabs .lib-tab.is-active::after {
+  transform: scaleX(1);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lib-type-tabs .lib-tab::after { transition: none; }
+}
