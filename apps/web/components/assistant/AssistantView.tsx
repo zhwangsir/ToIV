@@ -129,6 +129,8 @@ export interface ChatMessage {
   proposals?: AgentProposalCard[];
   /** thinking 事件(2026-09-28):每轮思考的计时与正文(过程块展示;不回传后端) */
   thinking?: ThinkingRound[];
+  /** 本页会话内经流式事件新建(非历史回放):正文到达时逐字展开 */
+  streamed?: boolean;
 }
 
 /** 工具调用小条(tool 事件,2026-08-24 助手升级协议)。 */
@@ -1196,6 +1198,7 @@ export function AssistantView(props?: AssistantViewProps) {
                 role: "assistant",
                 content: "",
                 timestamp: now,
+                streamed: true,
                 thinking: upsertThinkingRound(undefined, ev, now),
               };
               setMessages((prev) => [...prev, assistantMsg!]);
@@ -1221,6 +1224,7 @@ export function AssistantView(props?: AssistantViewProps) {
                 role: "assistant",
                 content: delta,
                 timestamp: Date.now(),
+                streamed: true,
               };
               setMessages((prev) => [...prev, assistantMsg!]);
             } else {

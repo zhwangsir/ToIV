@@ -329,6 +329,11 @@ def create_app() -> FastAPI:
         h.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
         if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
             h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        # SSE 禁中途压缩(2026-09-28):Next rewrite 代理(:3100)默认 gzip 会把整条事件流
+        # 攒到结束才下发——助手「思考中/工具进度/回答」全部挤到最后一刻。compression
+        # 中间件与多数反代遵守 no-transform,事件逐条实时到达浏览器。
+        if (h.get("content-type") or "").startswith("text/event-stream"):
+            h["Cache-Control"] = "no-store, no-transform"
         return response
 
     # 应用侧访问日志(P1-12):method + path + 脱敏 query + status 一行 INFO(模块 toiv.access)。

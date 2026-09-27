@@ -188,8 +188,24 @@ function prefersReducedMotion(): boolean {
 }
 
 /** 挂载时处于流式(live)才启用动画;之后即使流结束也把剩余部分平滑显完。 */
-export function AvSmoothText({ text, live }: { text: string; live: boolean }) {
-  const [animate] = useState(() => live && !prefersReducedMotion());
+/** 已完成逐字展开的消息 id:切会话/视图回来重挂载时不重播动画 */
+const revealedIds = new Set<string>();
+
+export function AvSmoothText({
+  text,
+  live,
+  fresh = false,
+  id,
+}: {
+  text: string;
+  live: boolean;
+  /** 本页会话内刚收到的回答:后端一次性下发整段时(busy 与正文同帧结束)也逐字展开 */
+  fresh?: boolean;
+  id?: string;
+}) {
+  const [animate] = useState(
+    () => (live || fresh) && !(id && revealedIds.has(id)) && !prefersReducedMotion(),
+  );
   const [shown, setShown] = useState(() => (animate ? 0 : text.length));
   const shownRef = useRef(shown);
   const textRef = useRef(text);
@@ -213,10 +229,11 @@ export function AvSmoothText({ text, live }: { text: string; live: boolean }) {
       const next = revealStep(shownRef.current, target);
       shownRef.current = next;
       setShown(next);
+      if (next >= target && id) revealedIds.add(id);
       rafRef.current = next < target ? window.requestAnimationFrame(tick) : null;
     };
     rafRef.current = window.requestAnimationFrame(tick);
-  }, [text, animate]);
+  }, [text, animate, id]);
 
   useEffect(() => () => {
     if (rafRef.current != null) window.cancelAnimationFrame(rafRef.current);

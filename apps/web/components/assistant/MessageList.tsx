@@ -499,7 +499,7 @@ export function AvMessageList({
                         live={live}
                         hasText={!!msg.content.trim()}
                       />
-                      {msg.content ? <AvSmoothText text={msg.content} live={live} /> : null}
+                      {msg.content ? <AvSmoothText text={msg.content} live={live} fresh={!!msg.streamed} id={msg.id} /> : null}
                     </>
                   ) : (
                     msg.content
