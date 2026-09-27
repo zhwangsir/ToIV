@@ -1565,6 +1565,9 @@ _MODEL_FILE_ALIASES: dict[str, str] = {
     # EchoShot-VACE:RH 名只在 RunningHub 存在(MD5 与 Kijai comfy/alibaba-pai 原版均不符),
     # 落盘 Kijai/Wan2.1-Fun-Reward-LoRAs-comfy 同功能版(2026-09-26 rh-acc-4383012865)
     "Wan2.1-Fun-1.3B-InP-MPS_reward_lora.safetensors": "Wan2.1-Fun-1.3B-InP-MPS_reward_lora_comfy.safetensors",
+    # H3 turbo 4 步 LoRA:RH 名为第三方转换版(无公开同名源),落盘官方 comfy 版
+    # drbaph/MiniMax-H3-Turbo-Lora-ComfyUI@bb2bc49 同一 LoRA(2026-09-28 rh-acc-6680503297)
+    "minimax_h3_turbo_4step-convertedByAIEverything.safetensors": "MiniMax-H3-Turbo-4step-Lora_ema_comfy.safetensors",
 }
 
 _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
@@ -1578,6 +1581,8 @@ _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
     "LoadLynxResampler": ("model_name",),
     "WanVideoExtraModelSelect": ("extra_model",),
     "WanVideoLoraSelect": ("lora",),
+    "LoraLoaderModelOnly": ("lora_name",),
+    "LoraLoader": ("lora_name",),
     "SeedVR2LoadDiTModel": ("model",),
     "SeedVR2LoadVAEModel": ("model",),
     "MultiTalkModelLoader": ("model",),
