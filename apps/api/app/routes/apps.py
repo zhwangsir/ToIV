@@ -1988,6 +1988,38 @@ def _normalize_rife_vfi(graph: dict) -> None:
             inputs["ckpt_name"] = inputs.pop("rife_name")
 
 
+# VHS_LoadVideo.force_rate 现网是 FLOAT;RH 图常经「Float to Int」转成 INT 再接入,
+# RH 旧 VHS 宽松放行,现网校验 received_type(INTS) mismatch input_type(FLOAT)
+# (2026-09-28 rh-acc-8038963202)。绕过转换节点直接接回它的 float 源(帧率本就是浮点)。
+_VHS_FLOAT_RATE_NODES = ("VHS_LoadVideo", "VHS_LoadVideoPath", "VHS_LoadVideoFFmpeg", "VHS_LoadVideoFFmpegPath")
+_FLOAT_TO_INT_NODES = {"Float to Int": "float"}
+
+
+def _normalize_vhs_force_rate_int_link(graph: dict) -> None:
+    if not isinstance(graph, dict):
+        return
+    for node in graph.values():
+        if not isinstance(node, dict) or node.get("class_type") not in _VHS_FLOAT_RATE_NODES:
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        link = inputs.get("force_rate")
+        if not (isinstance(link, list) and link):
+            continue
+        src = graph.get(str(link[0]))
+        if not isinstance(src, dict):
+            continue
+        key = _FLOAT_TO_INT_NODES.get(src.get("class_type") or "")
+        if not key:
+            continue
+        upstream = (src.get("inputs") or {}).get(key)
+        if isinstance(upstream, list) and upstream:
+            inputs["force_rate"] = list(upstream)
+        elif isinstance(upstream, (int, float)) and not isinstance(upstream, bool):
+            inputs["force_rate"] = float(upstream)
+
+
 def _normalize_painter_flux_image_edit(graph: dict) -> None:
     """PainterFluxImageEdit V3(PainterNodes 全包,2026-09-25 设备换装):
 
@@ -3169,6 +3201,7 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     _normalize_text_load_line_from_file(graph)
     _normalize_llama_cpp_presence_penalty(graph)
     _normalize_rife_vfi(graph)
+    _normalize_vhs_force_rate_int_link(graph)
     _normalize_painter_flux_image_edit(graph)
     _normalize_autocrop_faces_single(graph)
     _normalize_duck_hide_node(graph)
