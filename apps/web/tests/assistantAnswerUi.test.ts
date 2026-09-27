@@ -146,3 +146,8 @@ test("CSS:新类齐全、零 hex、扫光有减弱动效兜底", () => {
   assert.ok(css.includes(".av-shimmer { animation: none;"), "扫光需 reduced-motion 兜底");
   assert.ok(reduce.length > 0);
 });
+
+test("引用块内的列表按块级渲染(源码断言:quote 递归 renderBlocks)", () => {
+  const src = readFileSync(new URL("../components/assistant/AnswerView.tsx", import.meta.url), "utf8");
+  assert.match(src, /av-md-quote[\s\S]{0,200}renderBlocks\(b\.text/);
+});

@@ -115,12 +115,10 @@ function renderInline(text: string, key: string): ReactNode[] {
   });
 }
 
-export function AvMarkdown({ text, caret = false }: { text: string; caret?: boolean }) {
-  const blocks = parseMarkdownBlocks(text);
-  return (
-    <div className={`av-md${caret ? " is-streaming" : ""}`}>
-      {blocks.map((b, i) => {
-        const k = `b${i}`;
+/** 块级渲染;引用块内容递归走块级(引用里的列表/段落),深度封顶防病态嵌套 */
+function renderBlocks(text: string, prefix: string, depth = 0): ReactNode[] {
+  return parseMarkdownBlocks(text).map((b, i) => {
+        const k = `${prefix}b${i}`;
         switch (b.type) {
           case "h": {
             const Tag = (`h${b.level + 2}` as "h3" | "h4" | "h5");
@@ -149,7 +147,11 @@ export function AvMarkdown({ text, caret = false }: { text: string; caret?: bool
               </div>
             );
           case "quote":
-            return <blockquote key={k} className="av-md-quote">{renderInline(b.text, k)}</blockquote>;
+            return (
+              <blockquote key={k} className="av-md-quote">
+                {depth < 2 ? renderBlocks(b.text, `${k}-`, depth + 1) : renderInline(b.text, k)}
+              </blockquote>
+            );
           case "hr":
             return <hr key={k} className="av-md-hr" />;
           case "table":
@@ -172,9 +174,11 @@ export function AvMarkdown({ text, caret = false }: { text: string; caret?: bool
           default:
             return <p key={k} className="av-md-p">{renderInline(b.text, k)}</p>;
         }
-      })}
-    </div>
-  );
+  });
+}
+
+export function AvMarkdown({ text, caret = false }: { text: string; caret?: boolean }) {
+  return <div className={`av-md${caret ? " is-streaming" : ""}`}>{renderBlocks(text, "")}</div>;
 }
 
 // ───── 逐字显现 ─────

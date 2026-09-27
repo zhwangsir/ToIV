@@ -1737,6 +1737,10 @@
   padding: 2px 0 2px 14px;
   border-left: 3px solid var(--border-strong);
   color: var(--text-secondary);
+  /* 引用内递归块(段落/列表)沿用正文节奏 */
+  display: flex;
+  flex-direction: column;
+  gap: 0.45em;
 }
 .av-md-hr {
   border: 0;
