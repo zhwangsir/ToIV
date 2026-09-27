@@ -52,6 +52,8 @@ export interface AppParam {
   hint?: string;
   /** 后端 params_schema.required;未下发时仍用 default==null 作必填启发式。 */
   required?: boolean;
+  /** 局部重绘遮罩槽(后端显式标注;运行页也会按工作流自动判定)。 */
+  mask?: boolean;
 }
 
 /** 工作流节点(ComfyUI API 格式,2026-09-02 工作流模式):class_type + inputs/widgets。 */
@@ -242,6 +244,7 @@ function normalizeParam(raw: unknown): AppParam {
   if (typeof p.hint === "string" && p.hint) out.hint = p.hint;
   if (p.required === true) out.required = true;
   else if (p.required === false) out.required = false;
+  if (p.mask === true) out.mask = true;
   return out;
 }
 

@@ -331,6 +331,7 @@ export function ParamField({ param, value, onChange, disabled, uploadKind = "img
       return (
         <RefImageUpload
           param={param}
+          maskable={param.mask === true}
           value={refs[0] ?? null}
           uploadKind={uploadKind}
           pinWorker={pinWorker}

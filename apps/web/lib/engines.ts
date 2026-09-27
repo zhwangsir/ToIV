@@ -57,6 +57,8 @@ export interface EngineParam {
   ar?: [number, number];
   default: unknown;
   hint?: string;
+  /** 图槽被工作流当遮罩源(LoadImage MASK 输出被消费):表单提供涂抹重绘区域。 */
+  mask?: boolean;
 }
 
 export interface EngineSource {

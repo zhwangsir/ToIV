@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AssetPicker } from "@/components/generate/AssetPicker";
+import { InpaintMaskPainter } from "@/components/generate/InpaintMaskPainter";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Field } from "@/components/ui/Input";
@@ -34,10 +35,12 @@ interface RefImageUploadProps {
   /** 钉到指定 worker(与首帧/其它参考同机,提交时后端从该 worker 转运)。 */
   pinWorker?: string | null;
   disabled?: boolean;
+  /** 局部重绘槽(工作流消费该图的 MASK):上传后可直接在图上涂抹重绘区域。 */
+  maskable?: boolean;
 }
 
 /** 参考图上传:客户端校验(20MB / 扩展名)→ /api/upload → 缩略预览,可移除重传。 */
-export function RefImageUpload({ param, value, onChange, uploadKind, pinWorker, disabled }: RefImageUploadProps) {
+export function RefImageUpload({ param, value, onChange, uploadKind, pinWorker, disabled, maskable }: RefImageUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
   const [uploading, setUploading] = useState(false);
@@ -45,6 +48,39 @@ export function RefImageUpload({ param, value, onChange, uploadKind, pinWorker, 
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  /** 未涂抹的原图(遮罩槽重复涂抹时 RGB 取它);masked = 当前表单值已是涂好遮罩的图。 */
+  const [source, setSource] = useState<{ url: string; name: string } | null>(null);
+  const [masked, setMasked] = useState(false);
+  const [painterOpen, setPainterOpen] = useState(false);
+
+  // 表单值被清空/外部替换 → 原图记录作废
+  useEffect(() => {
+    if (!value) {
+      setSource(null);
+      setMasked(false);
+    }
+  }, [value]);
+
+  const painterSource = source ?? (value ? { url: value.previewUrl, name: value.name } : null);
+
+  function takeNewImage(ref: UploadedRef) {
+    onChange(ref);
+    setSource({ url: ref.previewUrl, name: ref.name });
+    setMasked(false);
+    if (maskable) setPainterOpen(true);
+  }
+
+  async function applyMask(file: File) {
+    const r = await uploadImage(file, uploadKind, false, pinWorker ?? value?.worker ?? undefined);
+    onChange({
+      filename: r.filename,
+      worker: r.worker,
+      previewUrl: URL.createObjectURL(file),
+      name: file.name,
+    });
+    setMasked(true);
+    toast.success("重绘区域已保存");
+  }
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -63,7 +99,7 @@ export function RefImageUpload({ param, value, onChange, uploadKind, pinWorker, 
       const r = await uploadImage(file, uploadKind, false, pinWorker ?? undefined, {
         onProgress: (pct) => setProgress(pct),
       });
-      onChange({
+      takeNewImage({
         filename: r.filename,
         worker: r.worker,
         previewUrl: URL.createObjectURL(file),
@@ -127,6 +163,23 @@ export function RefImageUpload({ param, value, onChange, uploadKind, pinWorker, 
           </Button>
         </div>
       )}
+      {maskable && value && (
+        <div className="ref-mask-row">
+          <Button
+            variant={masked ? "ghost" : "secondary"}
+            size="sm"
+            icon={<Icon name="brush" size={13} />}
+            disabled={disabled || !painterSource}
+            onClick={() => setPainterOpen(true)}
+          >
+            {masked ? "修改重绘区域" : "涂抹重绘区域"}
+          </Button>
+          <span className="ref-mask-state" data-done={masked ? "1" : undefined}>
+            {masked ? "已涂好，透明处会被重绘" : "还没涂抹：这张卡需要标出要改的地方"}
+          </span>
+        </div>
+      )}
+      {maskable && !value && <p className="ref-mask-tip">上传后可直接在图上涂出要重绘的区域</p>}
       {/* 上传进度条(2026-08-30 P1-4):XHR upload.onprogress 真实进度,大图不再盲等 */}
       {uploading && progress !== null && (
         <div
@@ -152,8 +205,18 @@ export function RefImageUpload({ param, value, onChange, uploadKind, pinWorker, 
         assetType="image"
         kind={uploadKind}
         pinWorker={pinWorker}
-        onPick={(a) => onChange({ ...a })}
+        onPick={(a) => takeNewImage({ ...a })}
       />
+      {maskable && painterSource && (
+        <InpaintMaskPainter
+          open={painterOpen}
+          onClose={() => setPainterOpen(false)}
+          sourceUrl={painterSource.url}
+          sourceName={painterSource.name}
+          maskUrl={masked && value ? value.previewUrl : null}
+          onApply={applyMask}
+        />
+      )}
       <input
         ref={inputRef}
         type="file"
@@ -194,6 +257,25 @@ export function RefImageUpload({ param, value, onChange, uploadKind, pinWorker, 
           display: flex;
           gap: var(--space-2);
           flex-wrap: wrap;
+        }
+        .ref-mask-row {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          margin-top: var(--space-2);
+          flex-wrap: wrap;
+        }
+        .ref-mask-state {
+          font-size: var(--text-aux);
+          color: var(--warn, var(--text-muted));
+        }
+        .ref-mask-state[data-done] {
+          color: var(--text-muted);
+        }
+        .ref-mask-tip {
+          margin: var(--space-1, 4px) 0 0;
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
         /* 上传进度条:accent 软底填充 + 居中百分比(与任务中心条同语言) */
         .ref-image-progress {

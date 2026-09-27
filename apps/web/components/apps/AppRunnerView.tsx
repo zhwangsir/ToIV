@@ -39,6 +39,7 @@ import {
 import { coverImageUrl, coverVideoUrl, isVideoCoverUrl, fetchAppRelations, getMe, imageThumbUrl, imageUrl, listJobs, type AppRelation } from "@/lib/api";
 import type { H3AccelLevel } from "@/lib/h3Accel";
 import { confirmAge, isAgeConfirmed, useR18Mode } from "@/lib/r18";
+import { maskImageKeys } from "@/lib/inpaintMask";
 import { mediaKindOf } from "@/lib/mediaKind";
 import { trackJob, TrackJobAbortError } from "@/lib/trackJob";
 import type { GenerateResponse, JobItem } from "@/lib/types";
@@ -202,6 +203,12 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
   const nodeSummary = useMemo(
     () => summarizeWorkflowNodes(app?.workflow_json ?? null),
     [app?.workflow_json],
+  );
+
+  /** 局部重绘槽:工作流消费该图的 MASK → 图槽内置涂抹器。 */
+  const maskKeys = useMemo(
+    () => maskImageKeys(app?.workflow_json ?? null, app?.bindings ?? null),
+    [app?.workflow_json, app?.bindings],
   );
 
   const onParamChange = useCallback((key: string, value: unknown) => {
@@ -787,7 +794,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
                     ) : (
                       <ParamField
                         key={p.key}
-                        param={p}
+                        param={maskKeys.has(p.key) && !p.mask ? { ...p, mask: true } : p}
                         value={values[p.key]}
                         onChange={onParamChange}
                         disabled={submitting || running}
