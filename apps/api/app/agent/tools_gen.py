@@ -1072,10 +1072,15 @@ async def exec_list_apps(args: dict, ctx: dict) -> tuple[str, list[dict]]:
     # use_case/featured/fingerprint 必须显式给 None/False:端点参数默认是 Query()
     # 对象,直调(非 FastAPI 依赖注入)时 truthy,会把全部应用过滤掉
     # (2026-09-13 use_case/featured 实证;2026-09-15 fingerprint 复发同坑)
-    items = apps_route.list_apps(
-        category=category, q=q, use_case=None, featured=False, fingerprint=None,
-        user=user, session=session,
-    )
+    # 独立短会话(2026-09-28 根修):端点为早释连接会 session.close()(09-21 事故修复),
+    # 直传 agent 共享会话会把 AgentSession/User 一并脱管,工具落库时 DetachedInstanceError
+    # 中断整轮回答。绑定同一引擎另开会话,端点关的只是它自己。
+    from sqlmodel import Session as _OwnSession
+    with _OwnSession(bind=session.get_bind()) as own:
+        items = apps_route.list_apps(
+            category=category, q=q, use_case=None, featured=False, fingerprint=None,
+            user=user, session=own,
+        )
     if isinstance(items, Response):
         # 2026-09-17 列表缓存命中时回 JSON 字节;工具按属性访问行字段,包成 NS 对象
         items = [SimpleNamespace(**row) for row in json.loads(items.body)]

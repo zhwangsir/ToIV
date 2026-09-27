@@ -832,3 +832,19 @@ async def test_run_app_unknown_app_404(db_env, monkeypatch):
     assert "404" in text or "不存在" in text
     assert events[0]["data"]["status"] == "error"
     assert s.exec(select(Job)).all() == []
+
+
+async def test_list_apps_keeps_agent_session_bound(db_env):
+    """2026-09-28 根修:端点早释 session.close() 不得波及 agent 共享会话——
+    否则工具落库访问 AgentSession.id 抛 DetachedInstanceError,整轮回答中断。"""
+    s, user = db_env
+    _seed_market_apps(s, user)
+    sess = AgentSession(user_id=user.id, title="t", nsfw=False)
+    s.add(sess)
+    s.commit()
+    reg = get_ctx().service("tools")
+    await reg.execute("list_apps", {}, _ctx(_FakePool(_FakeClient()), user, s))
+    s.commit()  # 过期属性 → 下次访问需重新加载(脱管会抛)
+    assert sess.id and user.id
+    s.add(AgentMessage(session_id=sess.id, role="tool", content="x"))
+    s.commit()

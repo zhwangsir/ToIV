@@ -1268,6 +1268,9 @@ export function AssistantView(props?: AssistantViewProps) {
             } else if (act === "open_asset") {
               goView("library");
             }
+          } else if (ev.type === "tool" && !ev.id && !ev.status) {
+            // 旧契约 tool 事件(msg 信封内 name/args,无 id/status):状态条由带 id 的
+            // tool_event(start→ok/error)负责;若也建条会多出一个永远转圈的重复步骤
           } else if (ev.type === "tool" || ev.type === "job" || ev.type === "proposal") {
             // 工具条/作业卡/提案卡:upsert 归并到最后一条 assistant 气泡(同 id 更新);
             // 本轮尚无文本气泡且事件新建了气泡时,后续 text 增量续到该气泡(避免碎片化)
