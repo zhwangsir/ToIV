@@ -55,14 +55,23 @@ def _merge_reasoning(message: dict, usage: dict | None = None) -> dict:
     写入 message["_reasoning_tokens"] 供上层做配额/质量评估(无则 0)。
     """
     content = message.get("content")
+    # _reasoning(2026-09-28 助手思考展示):归一化的推理原文,供 runner 以 thinking 事件
+    # 下发到前端「思考中/已思考 N 秒」折叠块;推理被回填为正式回答时置空,避免重复展示
+    field_reasoning = message.get("reasoning_content") or message.get("reasoning") or ""
+    thought = field_reasoning if isinstance(field_reasoning, str) else ""
     if isinstance(content, str) and "</think>" in content:
         # 思考型模型(如 Nemotron omni)把推理包在 <think>…</think> 混进 content;
         # 对话展示只保留正式回答,与 optimize/drama_studio/manju 的剥离逻辑一致
-        message["content"] = content.split("</think>", 1)[1].strip()
+        head, tail = content.split("</think>", 1)
+        message["content"] = tail.strip()
+        inline = head.replace("<think>", "").strip()
+        if inline and not thought:
+            thought = inline
     elif not content or (isinstance(content, str) and not content.strip()):
-        reasoning = message.get("reasoning_content") or message.get("reasoning")
-        if reasoning:
-            message["content"] = reasoning
+        if field_reasoning:
+            message["content"] = field_reasoning
+            thought = ""
+    message["_reasoning"] = thought.strip()
     # 提取 reasoning token 计数(OpenAI 1.x+ / vLLM / EXO 可能提供)
     rtokens = 0
     if usage:

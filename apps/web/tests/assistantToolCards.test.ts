@@ -287,8 +287,10 @@ test("AssistantView:渲染点 ok+payload+注册表 追加卡片,chip 回退保�
     "渲染点未走 renderToolCard",
   );
   // chip 三态/error detail 旧逻辑原样保留
-  assert.ok(src.includes("av-tool-chip"), "chip 渲染丢失");
-  assert.ok(src.includes('t.status === "error" && t.detail'), "error detail 展示丢失");
+  // 2026-09-28:chip 三态/error detail 迁入过程块时间线(AnswerView.tsx ToolStep)
+  const stepSrc = readSrc("components/assistant/AnswerView.tsx");
+  assert.ok(stepSrc.includes("av-step is-tool"), "chip 渲染丢失");
+  assert.ok(stepSrc.includes('t.status === "error" && t.detail'), "error detail 展示丢失");
 });
 
 test("AssistantView:工具卡 ctx 三回调接线(setInput/market 深链/library 兜底)", () => {

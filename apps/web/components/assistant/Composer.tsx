@@ -211,11 +211,8 @@ export function Composer({
         )}
         <div className="av-composer-box">
           <div className="av-composer-actions av-composer-actions--left">
-            {busy ? (
-              <button type="button" className="av-composer-btn av-composer-stop" onClick={onStop} title="停止本轮回复并中止已提交的生成作业">
-                <Icon name="minus" size={12} strokeWidth={2.2} />
-              </button>
-            ) : !popup ? (
+            {/* 2026-09-28:停止键并入右侧发送位(ChatGPT 式发送/停止同位切换),左侧工具常驻 */}
+            {!popup ? (
               <>
               <button
                 type="button"
@@ -242,6 +239,7 @@ export function Composer({
                 title="新对话"
                 aria-label="新对话"
                 onClick={onNewChat}
+                disabled={busy}
               >
                 <Icon name="create" size={14} strokeWidth={1.8} />
               </button>
@@ -280,18 +278,31 @@ export function Composer({
             }}
             onKeyDown={onKeyDown}
             rows={1}
-            disabled={busy}
+            aria-busy={busy}
           />
           <div className="av-composer-actions">
-            <button
-              type="button"
-              className="av-composer-btn av-composer-send"
-              onClick={() => send()}
-              disabled={!input.trim() || busy}
-              title="发送"
-            >
-              <Icon name="send" size={14} strokeWidth={1.8} />
-            </button>
+            {busy ? (
+              <button
+                type="button"
+                className="av-composer-btn av-composer-send av-composer-stop is-stop"
+                onClick={onStop}
+                title="停止生成(同时中止本轮已提交的生成作业)"
+                aria-label="停止生成"
+              >
+                <span className="av-stop-square" aria-hidden />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="av-composer-btn av-composer-send"
+                onClick={() => send()}
+                disabled={!input.trim()}
+                title="发送"
+                aria-label="发送"
+              >
+                <Icon name="send" size={14} strokeWidth={1.8} />
+              </button>
+            )}
           </div>
         </div>
       </div>

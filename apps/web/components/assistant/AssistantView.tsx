@@ -55,6 +55,12 @@ import { useAutoResize } from "@/hooks/useAutoResize";
 import { AvMessageList, isJobCardActive } from "./MessageList";
 import { Composer } from "./Composer";
 import {
+  hasThinkingText,
+  settleThinking,
+  upsertThinkingRound,
+  type ThinkingRound,
+} from "./assistantFormat";
+import {
   PortalEmpty,
   PopupEmpty,
   SKILL_ENTRIES,
@@ -121,6 +127,8 @@ export interface ChatMessage {
   jobs?: AgentJobCard[];
   /** proposal 事件:方案确认卡(确认/修改/放弃 后只读) */
   proposals?: AgentProposalCard[];
+  /** thinking 事件(2026-09-28):每轮思考的计时与正文(过程块展示;不回传后端) */
+  thinking?: ThinkingRound[];
 }
 
 /** 工具调用小条(tool 事件,2026-08-24 助手升级协议)。 */
@@ -133,6 +141,8 @@ export interface ToolChip {
   /** A1(2026-09-22):ok 态结构化结果,注册工具渲染结果卡(toolcards/registry);
       未注册/解析失败忽略,仅 chip 展示 */
   payload?: Record<string, unknown>;
+  /** 发起该工具调用的思考轮次(过程块时间线按轮次交织) */
+  round?: number;
 }
 
 /** 生成作业卡(job 事件):kind/label/状态徽章,done 后渲染 results 媒体。 */
@@ -869,6 +879,9 @@ export function AssistantView(props?: AssistantViewProps) {
     return () => ac.abort();
   }, []);
 
+  // 贴底跟随(2026-09-28):用户上滑阅读时不再被新内容强拉到底;离底时浮出「回到底部」
+  const stickRef = useRef(true);
+  const [showJump, setShowJump] = useState(false);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -876,10 +889,51 @@ export function AssistantView(props?: AssistantViewProps) {
     // 挂载/视图切回 assistant/清空会话三条路径都汇聚到 isEmpty=true,一并归零
     if (isEmpty) {
       el.scrollTop = 0;
+      stickRef.current = true;
+      setShowJump(false);
       return;
     }
-    el.scrollTop = el.scrollHeight;
+    const last = messages[messages.length - 1];
+    // 刚发出的用户消息总是拉到底;其余仅在贴底状态下跟随
+    if (stickRef.current || last?.role === "user") {
+      stickRef.current = true;
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages, busy, isEmpty]);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || isEmpty) return;
+    const onScroll = () => {
+      const near = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+      stickRef.current = near;
+      setShowJump(!near);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    // 逐字显现/媒体加载会在 messages 不变时撑高内容:贴底时跟随
+    const inner = el.querySelector(".av-msg-list");
+    const ro =
+      typeof ResizeObserver !== "undefined" && inner
+        ? new ResizeObserver(() => {
+            if (stickRef.current) el.scrollTop = el.scrollHeight;
+          })
+        : null;
+    if (ro && inner) ro.observe(inner);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      ro?.disconnect();
+    };
+  }, [isEmpty]);
+  const jumpToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickRef.current = true;
+    setShowJump(false);
+    let reduce = false;
+    try {
+      reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch { /* 默认平滑 */ }
+    el.scrollTo({ top: el.scrollHeight, behavior: reduce ? "auto" : "smooth" });
+  }, []);
 
   // composer 自动增高(scrollHeight 方案,40vh 宽松封顶,超出内滚;替代原行数估算 176px 硬顶)
   useAutoResize(textareaRef, input, { maxVh: 40 });
@@ -1126,9 +1180,35 @@ export function AssistantView(props?: AssistantViewProps) {
         const apiMessages = buildApiMessages(baseMsgs, { sessionId: sid });
 
         let assistantMsg: ChatMessage | null = null;
+        // 当前思考轮次:工具条目打上轮次,过程块时间线按「思考→工具」交织
+        let curRound: number | undefined;
 
         const onEvent = (ev: AgentEvent) => {
           if (controller.signal.aborted) return;
+          if (ev.type === "thinking") {
+            // 思考事件只收起等待指示,不算「首个内容块」:纯思考零正文的流仍按失败处理
+            setPending(false);
+            if (typeof ev.round === "number") curRound = ev.round;
+            const now = Date.now();
+            if (!assistantMsg) {
+              assistantMsg = {
+                id: genId(),
+                role: "assistant",
+                content: "",
+                timestamp: now,
+                thinking: upsertThinkingRound(undefined, ev, now),
+              };
+              setMessages((prev) => [...prev, assistantMsg!]);
+            } else {
+              const mid = assistantMsg.id;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === mid ? { ...m, thinking: upsertThinkingRound(m.thinking, ev, now) } : m,
+                ),
+              );
+            }
+            return;
+          }
           if (!gotFirstChunkRef.current) {
             gotFirstChunkRef.current = true;
             setPending(false);
@@ -1203,6 +1283,7 @@ export function AssistantView(props?: AssistantViewProps) {
                   // A1:ok 态结构化 payload 透传;条件展开——缺省不写入键,
                   // upsert 归并(...chip 展开)时保留此前已透传的 payload
                   ...(ev.payload ? { payload: ev.payload } : {}),
+                  ...(curRound !== undefined ? { round: curRound } : {}),
                 });
               } else if (ev.type === "job") {
                 next = upsertJobCard(prev, {
@@ -1281,6 +1362,19 @@ export function AssistantView(props?: AssistantViewProps) {
         window.clearTimeout(timeoutId);
         setBusy(false);
         setPending(false);
+        // 思考收尾:未完成轮次按已过时长结算;只有空思考(无正文/工具/产物)的占位气泡直接移除
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (!last || last.role !== "assistant" || !last.thinking?.length) return prev;
+          const bare =
+            !last.content.trim() &&
+            !last.tools?.length &&
+            !last.jobs?.length &&
+            !last.proposals?.length &&
+            !last.media?.length;
+          if (bare && !hasThinkingText(last.thinking)) return prev.slice(0, -1);
+          return [...prev.slice(0, -1), { ...last, thinking: settleThinking(last.thinking, Date.now()) }];
+        });
         abortRef.current = false;
         abortControllerRef.current = null;
       }
@@ -1522,6 +1616,17 @@ export function AssistantView(props?: AssistantViewProps) {
     void requestReply(base, lastDocIdsRef.current);
   }, [busy, messages, requestReply]);
 
+  /** 重新生成:去掉末尾的助手回答,按上一条用户消息重答(区别于错误气泡的「重试」)。 */
+  const regenerate = useCallback(() => {
+    if (busy) return;
+    let end = messages.length;
+    while (end > 0 && messages[end - 1].role === "assistant") end -= 1;
+    if (end === 0) return;
+    const base = messages.slice(0, end);
+    setMessages(base);
+    void requestReply(base, lastDocIdsRef.current);
+  }, [busy, messages, requestReply]);
+
   const onStop = useCallback(() => {
     userStoppedRef.current = true;
     abortRef.current = true;
@@ -1666,6 +1771,7 @@ export function AssistantView(props?: AssistantViewProps) {
             pending={pending}
             busy={busy}
             retry={retry}
+            onRegenerate={regenerate}
             toolCardCtx={toolCardCtx}
             onJobCancel={onJobCancel}
             onJobRetry={onJobRetry}
@@ -1677,6 +1783,13 @@ export function AssistantView(props?: AssistantViewProps) {
             setModifyNote={setModifyNote}
           />
         )}
+        {!isEmpty && showJump ? (
+          <div className="av-jump-wrap">
+            <button type="button" className="av-jump-btn" onClick={jumpToBottom} aria-label="回到底部" title="回到底部">
+              <Icon name="chevron-down" size={16} strokeWidth={1.9} />
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/* 会话态:对话框沉底(门户态时由 C 位 renderComposer(true) 承担;

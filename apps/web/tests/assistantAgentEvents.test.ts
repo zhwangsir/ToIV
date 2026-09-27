@@ -112,8 +112,9 @@ test("AssistantView:onEvent 处理 tool/job/proposal 三类新事件", () => {
   assert.ok(src.includes("upsertJobCard"), "job 事件未走 upsertJobCard");
   assert.ok(src.includes("upsertProposalCard"), "proposal 事件未走 upsertProposalCard");
   // 工具条渲染:三态图标 + 失败 detail(A3:消息渲染拆至 MessageList.tsx)
-  const msgSrc = readSrc("components/assistant/MessageList.tsx");
-  assert.ok(msgSrc.includes("av-tool-chip"), "缺工具条渲染");
+  // 2026-09-28:工具条目并入过程块时间线(AnswerView.tsx 的 ToolStep)
+  const msgSrc = readSrc("components/assistant/AnswerView.tsx");
+  assert.ok(msgSrc.includes("av-step is-tool"), "缺工具条渲染");
   assert.ok(msgSrc.includes('t.status === "error" && t.detail'), "失败未展示 detail");
   for (const s of ['"loading"', '"check"', '"close"']) {
     assert.ok(msgSrc.includes(s), `工具条缺 ${s} 图标`);
@@ -442,5 +443,5 @@ test("AssistantView composer Stop:abort SSE 且 cancelJob 本轮进行中作业"
   assert.ok(fn.includes("cancelJob(id)"), "Stop 未 cancelJob 已提交作业");
   // A3:停止按钮渲染拆至 Composer.tsx
   const composerSrc = readSrc("components/assistant/Composer.tsx");
-  assert.ok(composerSrc.includes("停止本轮回复并中止已提交的生成作业"), "Stop 按钮未标明会中止作业");
+  assert.ok(composerSrc.includes("中止本轮已提交的生成作业"), "Stop 按钮未标明会中止作业");
 });

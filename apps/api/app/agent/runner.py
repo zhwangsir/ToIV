@@ -200,6 +200,26 @@ def _media_type_for_urls(urls: list[str]) -> str:
     return _MEDIA_TYPE_BY_EXT.get(ext, "image")
 
 
+
+THINKING_MAX_CHARS = 4000
+
+
+def _thinking_done_event(assistant: dict, chatter: str, rnd: int, t0: float) -> dict:
+    """thinking done 事件:推理原文(模型 reasoning 字段/<think> 前缀)+ 工具轮伴生文本。
+
+    工具轮伴生文本多为推理碎片(W4 起不作正式回答下发),归入可折叠思考块展示;
+    截断到 THINKING_MAX_CHARS 防超长推理撑爆 SSE 帧。
+    """
+    parts = [str(assistant.get("_reasoning") or "").strip(), (chatter or "").strip()]
+    text = "\n\n".join(p for p in parts if p)
+    if len(text) > THINKING_MAX_CHARS:
+        text = text[:THINKING_MAX_CHARS].rstrip() + "…"
+    return {
+        "type": "thinking", "status": "done", "round": rnd,
+        "elapsed_ms": int((time.monotonic() - t0) * 1000),
+        "content": text,
+    }
+
 async def run(
     messages: list[dict], pool: WorkerPool, user: User, session,
     attachment: dict | None = None,
@@ -292,6 +312,10 @@ async def run(
                 ("last_user", last_user_turn(msgs)),
             ]
             assistant = None
+            # 2026-09-28 思考展示:每轮模型请求前下发 thinking start(前端「思考中…」流光行),
+            # 返回后下发 done(耗时 + 推理原文,前端折叠为「已思考 N 秒」)
+            yield {"type": "thinking", "status": "start", "round": rnd}
+            think_t0 = time.monotonic()
             for idx, (tag, working) in enumerate(attempts):
                 logger.debug(
                     "agent.loop: round=%d/%d try=%s msgs=%d chars=%d budget=%d",
@@ -323,6 +347,7 @@ async def run(
             return
         tool_calls = assistant.get("tool_calls") or []
         content = assistant.get("content") or ""
+        yield _thinking_done_event(assistant, content if tool_calls else "", rnd, think_t0)
         # 2026-08-31 W4:带工具调用的轮次,伴生文本多为模型推理碎片(英文自述/思考过程),
         # 既不下发也不落库——用户可见的是工具状态条与最终回答,会话回放不重演推理;
         # working copy(msgs)仍保留原文,维持模型多轮上下文连贯。

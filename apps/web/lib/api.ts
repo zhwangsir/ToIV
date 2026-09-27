@@ -2066,6 +2066,9 @@ export interface AgentEvent {
   action?: string;
   view?: string;
   prompt?: string;
+  /** thinking 事件(2026-09-28):status=start|done,round=第几轮,done 带 elapsed_ms 与思考正文 content */
+  round?: number;
+  elapsed_ms?: number;
 }
 
 export interface AgentImageRef {

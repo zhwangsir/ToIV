@@ -190,7 +190,7 @@ test("composer ≤767:触达 var(--touch-target)(44px 值不变)+ 文档次要�
   assert.ok(docs.includes("display: none"), "窄屏文档次要项未折叠");
   // popup 会话钮结构不破(assistantPopupSessions 钉的不变式复核)
   assert.ok(composerSrc.includes("av-pop-conv-toggle"), "popup 会话钮 class 缺失");
-  assert.ok(composerSrc.includes(") : !popup ? ("), "composer popup 分支结构变化");
+  assert.ok(composerSrc.includes("{!popup ? ("), "composer popup 分支结构变化");
 });
 
 /* ── ⑤ CSS 纪律 ── */

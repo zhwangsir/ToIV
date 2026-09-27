@@ -26,7 +26,7 @@ test("AssistantView:variant prop 定义且 popup 隐藏页头/面板/文档按�
   assert.ok(src.includes("{!popup && (\n        <>"), "侧面板未按 popup 隐藏");
   // 文档入口按钮隐藏(A3:composer 渲染拆至 Composer.tsx)
   const composerSrc = readSrc("components/assistant/Composer.tsx");
-  assert.ok(composerSrc.includes(") : !popup ? ("), "composer 文档按钮未按 popup 隐藏");
+  assert.ok(composerSrc.includes("{!popup ? ("), "composer 文档按钮未按 popup 隐藏");
   // popup 空态极简(A3:空态拆至 PortalEmpty.tsx)+ 底部输入框
   const portalSrc = readSrc("components/assistant/PortalEmpty.tsx");
   assert.ok(portalSrc.includes("av-popup-empty"), "popup 极简空态缺失");

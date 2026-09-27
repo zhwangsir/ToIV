@@ -541,6 +541,8 @@ async def test_runner_context_overflow_yields_friendly_zh():
             )]
 
         assert fake_llm.n == 3  # 预算 → 半预算 → 只留最近 user
+        # thinking start 为 2026-09-28 思考展示事件(前端流光行),过滤后只剩错误
+        events = [e for e in events if e.get("type") != "thinking"]
         assert len(events) == 1 and events[0]["type"] == "error"
         assert events[0]["content"] == CONTEXT_OVERFLOW_USER_MSG
         assert "新开会话" not in events[0]["content"]

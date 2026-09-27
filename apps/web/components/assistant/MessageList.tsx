@@ -22,6 +22,7 @@ import {
 } from "@/components/assistant/toolcards/registry";
 import type { AgentJobCard, AgentProposalCard, ChatMessage } from "./AssistantView";
 import { JobErrorSelfheal } from "./JobErrorSelfheal";
+import { AvMsgActions, AvProcess, AvSmoothText } from "./AnswerView";
 
 // ───── 助手气泡行内 markdown(2026-08-16 审计修复):最小手写解析,不引第三方 md 库 ─────
 // 此前气泡纯文本直出,LLM 的 `**` 标记原样泄漏。边界规则(CommonMark flanking 简化版):
@@ -397,6 +398,8 @@ export interface AvMessageListProps {
   pending: boolean;
   busy: boolean;
   retry: () => void;
+  /** 重新生成最后一条回答(去掉该回答后重发上一条用户消息) */
+  onRegenerate?: () => void;
   toolCardCtx: ToolCardCtx;
   onJobCancel: (jobId: string) => void;
   /** U1:作业失败一键重试 */
@@ -422,6 +425,7 @@ export function AvMessageList({
   pending,
   busy,
   retry,
+  onRegenerate,
   toolCardCtx,
   onJobCancel,
   onJobRetry,
@@ -438,6 +442,7 @@ export function AvMessageList({
         const MSG_RENDER_WINDOW = 80;
         const hiddenCount = showAllHistory ? 0 : Math.max(0, messages.length - MSG_RENDER_WINDOW);
         const visible = hiddenCount > 0 ? messages.slice(-MSG_RENDER_WINDOW) : messages;
+        const lastMsg = messages[messages.length - 1];
         return (
           <>
             {hiddenCount > 0 && (
@@ -449,10 +454,13 @@ export function AvMessageList({
                 加载更早的 {hiddenCount} 条消息(默认只渲染最近 {MSG_RENDER_WINDOW} 条,防长会话卡顿)
               </button>
             )}
-            {visible.map((msg) => (
+            {visible.map((msg) => {
+              const isLast = msg === lastMsg;
+              const live = busy && isLast && msg.role === "assistant" && msg.kind !== "error";
+              return (
         <div
           key={msg.id}
-          className={`av-msg${msg.role === "user" ? " is-user" : " is-assistant"}`}
+          className={`av-msg${msg.role === "user" ? " is-user" : " is-assistant"}${live ? " is-live" : ""}${isLast ? " is-last" : ""}`}
         >
           <div className="av-msg-body">
             <div className={`av-msg-bubble${msg.kind === "error" ? " av-msg-bubble--error" : ""}`}>
@@ -470,7 +478,7 @@ export function AvMessageList({
                     <span>重试</span>
                   </button>
                 </>
-              ) : msg.content || msg.media?.length || msg.tools?.length || msg.jobs?.length || msg.proposals?.length ? (
+              ) : msg.content || msg.media?.length || msg.tools?.length || msg.jobs?.length || msg.proposals?.length || msg.thinking?.length || live ? (
                 <>
                   {msg.docs?.length ? (
                     <span className="doc-chips doc-chips--msg">
@@ -482,45 +490,41 @@ export function AvMessageList({
                       ))}
                     </span>
                   ) : null}
-                  {msg.role === "assistant" ? renderInlineMarkdown(msg.content) : msg.content}
-                  {/* 工具调用小条:转圈(start)/绿勾(ok)/红叉(error+detail) */}
-                  {msg.tools?.map((t) => (
-                    <Fragment key={t.id}>
-                      <div className={`av-tool-chip is-${t.status}`}>
-                        <span className="av-tool-chip-icon">
-                          <Icon
-                            name={t.status === "start" ? "loading" : t.status === "ok" ? "check" : "close"}
-                            size={12}
-                            strokeWidth={2}
-                          />
-                        </span>
-                        <span className="av-tool-chip-text">
-                          <span className="av-tool-chip-summary">{t.summary || t.name}</span>
-                          {t.status === "error" && t.detail ? (
-                            <span className="av-tool-chip-detail">{t.detail}</span>
-                          ) : null}
-                        </span>
-                      </div>
-                      {/* A1 工具结果卡:ok + 注册工具 + payload 时在 chip 下追加
-                          (chip 保留作状态条目;payload 解析失败 renderToolCard
-                          归 null,回退仅 chip);未注册工具完全维持现状 */}
-                      {t.status === "ok" && t.payload && TOOL_RENDERERS[t.name]
-                        ? (() => {
-                            // U4:作业类工具若同消息已有 AvJobCards(同 job_id)则跳过,避免双卡
-                            if (JOB_TOOL_NAMES.has(t.name) && msg.jobs?.length) {
-                              const jid =
-                                typeof t.payload.job_id === "string"
-                                  ? t.payload.job_id
-                                  : "";
-                              if (jid && msg.jobs.some((j) => j.jobId === jid)) {
-                                return null;
-                              }
+                  {msg.role === "assistant" ? (
+                    <>
+                      {/* 过程块:思考 + 工具时间线(进行中展开,正文到达后收起) */}
+                      <AvProcess
+                        rounds={msg.thinking}
+                        tools={msg.tools}
+                        live={live}
+                        hasText={!!msg.content.trim()}
+                      />
+                      {msg.content ? <AvSmoothText text={msg.content} live={live} /> : null}
+                    </>
+                  ) : (
+                    msg.content
+                  )}
+                  {/* A1 工具结果卡:ok + 注册工具 + payload 时置于正文之后(步骤条目在过程块里);
+                      payload 解析失败 renderToolCard 归 null;未注册工具只在过程块显示 */}
+                  {msg.tools?.map((t) =>
+                    t.status === "ok" && t.payload && TOOL_RENDERERS[t.name] ? (
+                      <Fragment key={t.id}>
+                        {(() => {
+                          // U4:作业类工具若同消息已有 AvJobCards(同 job_id)则跳过,避免双卡
+                          if (JOB_TOOL_NAMES.has(t.name) && msg.jobs?.length) {
+                            const jid =
+                              typeof t.payload.job_id === "string"
+                                ? t.payload.job_id
+                                : "";
+                            if (jid && msg.jobs.some((j) => j.jobId === jid)) {
+                              return null;
                             }
-                            return renderToolCard(t.name, t.payload, toolCardCtx);
-                          })()
-                        : null}
-                    </Fragment>
-                  ))}
+                          }
+                          return renderToolCard(t.name, t.payload, toolCardCtx);
+                        })()}
+                      </Fragment>
+                    ) : null,
+                  )}
                   {/* 生成作业卡:kind 中文名 + label + 状态徽章;W4 起经 AvJobCards
                       聚合——同消息 ≥2 个 done 作业的视觉产物合并为一条胶片条 */}
                   {msg.jobs?.length ? (
@@ -641,10 +645,21 @@ export function AvMessageList({
                 </span>
               )}
             </div>
-            <span className="av-msg-time">{formatTime(msg.timestamp)}</span>
+            <div className="av-msg-foot">
+              {msg.kind !== "error" && !live ? (
+                <AvMsgActions
+                  text={msg.content}
+                  canRegenerate={msg.role === "assistant" && isLast && !busy && !!onRegenerate}
+                  onRegenerate={onRegenerate}
+                  pinned={isLast}
+                />
+              ) : null}
+              <span className="av-msg-time">{formatTime(msg.timestamp)}</span>
+            </div>
           </div>
         </div>
-            ))}
+              );
+            })}
           </>
         );
       })()}
@@ -652,11 +667,11 @@ export function AvMessageList({
         <div className="av-msg is-assistant" aria-live="polite">
           <div className="av-msg-body">
             <div className="av-msg-bubble">
-              <span className="av-typing">
-                <span className="av-typing-dot" />
-                <span className="av-typing-dot" />
-                <span className="av-typing-dot" />
-              </span>
+              <div className="av-process is-working">
+                <span className="av-process-head">
+                  <span className="av-process-label av-shimmer">思考中…</span>
+                </span>
+              </div>
             </div>
           </div>
         </div>

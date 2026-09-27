@@ -33,7 +33,7 @@ test("popup composer 左侧渲染「会话」按钮(history 图标,切换 histor
   assert.ok(composerSrc.includes("av-pop-conv-toggle"), "会话按钮 class 缺失");
   assert.ok(composerSrc.includes('aria-label="会话管理"'), "会话按钮 aria-label 缺失");
   // 按钮在 composer 的 popup 分支(文档按钮的 !popup 互斥侧)
-  const branch = composerSrc.slice(composerSrc.indexOf(") : !popup ? ("));
+  const branch = composerSrc.slice(composerSrc.indexOf("{!popup ? ("));
   assert.ok(branch.includes("av-pop-conv-toggle"), "会话按钮不在 composer popup 分支");
   assert.ok(branch.includes('name="history"'), "会话按钮未用 history 图标");
   assert.ok(

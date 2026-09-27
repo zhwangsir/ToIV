@@ -232,9 +232,17 @@
   white-space: pre-wrap;
 }
 .av-msg.is-user .av-msg-bubble {
+  /* 2026-09-28:用户消息改为柔和气泡(ChatGPT / Claude 式),与全文宽的助手回答形成节奏差 */
   max-width: 80%;
-  color: var(--text-secondary);
-  text-align: right;
+  color: var(--text-primary);
+  text-align: left;
+  background: var(--bg-surface-2);
+  border-radius: 18px;
+  padding: 10px 16px;
+  line-height: 1.6;
+}
+.av-msg.is-assistant .av-msg-bubble {
+  white-space: normal;
 }
 .av-msg-time {
   font-size: var(--text-label);
@@ -936,22 +944,26 @@
   color: var(--text-muted);
   box-shadow: none;
 }
-/* 停止:运行态专用 --run */
-.av-composer-stop {
-  background: var(--run-soft);
-  color: var(--run);
-  animation: av-stop-breathe 2s ease-in-out infinite;
+/* 停止(2026-09-28):与发送同位切换——实心圆 + 方块,静态不呼吸(ChatGPT 式) */
+.av-composer-send.av-composer-stop {
+  background: var(--text-primary);
+  color: var(--bg-canvas);
+  box-shadow: none;
 }
-@keyframes av-stop-breathe {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--run) 25%, transparent); }
-  50% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--run) 0%, transparent); }
-}
-.av-composer-stop:hover {
-  background: var(--run);
-  color: var(--text-on-accent);
+.av-composer-send.av-composer-stop:hover {
+  background: color-mix(in oklab, var(--text-primary) 82%, transparent);
+  color: var(--bg-canvas);
+  box-shadow: none;
 }
 .av-composer-stop:active {
   transform: scale(0.94);
+}
+.av-stop-square {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border-radius: 2.5px;
+  background: currentColor;
 }
 .av-composer-input {
   position: relative;
@@ -1243,7 +1255,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .av-typing-dot { animation: none; }
-  .av-composer-stop { animation: none; }
+  .av-shimmer { animation: none; background: none; color: var(--text-secondary); -webkit-text-fill-color: currentColor; }
+  .av-process-panel, .av-process-chevron, .av-msg-actions, .av-jump-btn { transition: none; }
+  .av-md.is-streaming > :last-child::after { animation: none; }
   .av-composer-input::placeholder { animation: none; }
   .av-panel-overlay { animation: none; }
   .av-pop-conv { transition: none; }
@@ -1456,4 +1470,418 @@
   align-self: flex-start;
   margin-top: 4px;
   opacity: 0.85;
+}
+
+
+/* ───── 助手回答重做(2026-09-28,参考 ChatGPT / Claude) ───── */
+
+/* 扫光文字:进行中的状态标签(思考中… / 当前工具) */
+.av-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--text-muted) 0%,
+    var(--text-muted) 35%,
+    var(--text-primary) 50%,
+    var(--text-muted) 65%,
+    var(--text-muted) 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: av-shimmer 2s linear infinite;
+}
+@keyframes av-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -150% 0; }
+}
+
+/* 过程块:标题行 + 可折叠时间线 */
+.av-process {
+  display: flex;
+  flex-direction: column;
+  align-self: flex-start;
+  max-width: 100%;
+}
+.av-process-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+.av-process-head:disabled {
+  cursor: default;
+}
+.av-process-head:hover:not(:disabled) .av-process-label:not(.av-shimmer) {
+  color: var(--text-primary);
+}
+.av-process-label {
+  color: var(--text-muted);
+  transition: color 160ms var(--ease-standard);
+}
+.av-process-chevron {
+  display: inline-flex;
+  color: var(--text-muted);
+  transform: rotate(-90deg);
+  transition: transform 200ms var(--ease-standard);
+}
+.av-process.is-open .av-process-chevron {
+  transform: rotate(0deg);
+}
+.av-process-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 260ms var(--ease-standard), opacity 200ms var(--ease-standard);
+}
+.av-process.is-open .av-process-panel {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.av-process-panel-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.av-steps {
+  list-style: none;
+  margin: var(--space-2) 0 var(--space-1);
+  padding: 0 0 0 2px;
+  display: flex;
+  flex-direction: column;
+}
+.av-step {
+  position: relative;
+  display: flex;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+.av-step:last-child {
+  padding-bottom: 0;
+}
+/* 竖线:连接相邻步骤 */
+.av-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 18px;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-subtle);
+}
+.av-step-dot {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 3px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+}
+.av-step.is-think .av-step-dot::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--text-muted);
+}
+.av-step.is-ok .av-step-dot {
+  color: var(--text-secondary);
+}
+.av-step.is-error .av-step-dot {
+  background: var(--err-soft);
+  color: var(--err);
+}
+.av-step.is-start .av-step-dot svg {
+  animation: av-step-spin 0.9s linear infinite;
+}
+@keyframes av-step-spin {
+  to { transform: rotate(360deg); }
+}
+.av-step-body {
+  min-width: 0;
+  flex: 1;
+}
+.av-step-title {
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.av-step-think {
+  margin-top: 2px;
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  max-height: 16em;
+  overflow-y: auto;
+}
+.av-step-detail {
+  margin-top: 2px;
+  font-size: var(--text-label);
+  color: var(--err);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* Markdown 正文 */
+.av-md {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7em;
+  min-width: 0;
+}
+.av-md > * {
+  margin: 0;
+}
+.av-md-p {
+  margin: 0;
+}
+.av-md-h {
+  margin: 0.5em 0 0;
+  color: var(--text-primary);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.av-md-h:first-child {
+  margin-top: 0;
+}
+.av-md-h1 { font-size: 1.25em; }
+.av-md-h2 { font-size: 1.12em; }
+.av-md-h3 { font-size: 1em; }
+.av-md-list {
+  margin: 0;
+  padding-left: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+}
+.av-md-list li::marker {
+  color: var(--text-muted);
+}
+.av-md a {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+}
+.av-md a:hover {
+  text-decoration-color: var(--accent);
+}
+.av-md strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.av-md-icode {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  padding: 0.12em 0.4em;
+  border-radius: 5px;
+  background: var(--bg-surface-2);
+}
+.av-md-code {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background: var(--bg-surface-2);
+}
+.av-md-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 6px 14px;
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.av-md-code-lang {
+  font-family: var(--font-mono);
+}
+.av-md-code-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 5px;
+}
+.av-md-code-copy:hover,
+.av-md-code-copy.is-done {
+  color: var(--text-primary);
+}
+.av-md-code pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  line-height: 1.6;
+  white-space: pre;
+}
+.av-md-quote {
+  margin: 0;
+  padding: 2px 0 2px 14px;
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+.av-md-hr {
+  border: 0;
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 0.4em 0;
+}
+.av-md-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.av-md-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.94em;
+}
+.av-md-table th,
+.av-md-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+.av-md-table th {
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-surface-2);
+}
+.av-md-table tr:last-child td {
+  border-bottom: 0;
+}
+/* 流式光标:最后一个块尾部的小圆点 */
+.av-md.is-streaming > :last-child::after {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  margin-left: 0.3em;
+  border-radius: var(--radius-full);
+  background: var(--text-primary);
+  vertical-align: 0.1em;
+  animation: av-caret 1s var(--ease-standard) infinite;
+}
+.av-md.is-streaming > .av-md-code:last-child::after,
+.av-md.is-streaming > .av-md-table-wrap:last-child::after,
+.av-md.is-streaming > .av-md-hr:last-child::after {
+  display: none;
+}
+@keyframes av-caret {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* 消息脚:操作栏 + 时间 */
+.av-msg-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 28px;
+}
+.av-msg.is-user .av-msg-foot {
+  justify-content: flex-end;
+}
+.av-msg-foot .av-msg-time {
+  opacity: 0;
+  transition: opacity 160ms var(--ease-standard);
+}
+.av-msg:hover .av-msg-foot .av-msg-time {
+  opacity: 1;
+}
+.av-msg-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: -6px;
+  opacity: 0;
+  transition: opacity 160ms var(--ease-standard);
+}
+.av-msg.is-user .av-msg-actions {
+  margin-left: 0;
+  order: 2;
+}
+.av-msg:hover .av-msg-actions,
+.av-msg-actions:focus-within,
+.av-msg.is-assistant .av-msg-actions.is-pinned {
+  opacity: 1;
+}
+.av-act-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 140ms var(--ease-standard), color 140ms var(--ease-standard);
+}
+.av-act-btn:hover {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+.av-act-btn.is-done {
+  color: var(--text-primary);
+}
+@media (hover: none) {
+  .av-msg-actions,
+  .av-msg-foot .av-msg-time {
+    opacity: 1;
+  }
+}
+
+/* 回到底部:滚动容器内 sticky 浮钮 */
+.av-jump-wrap {
+  position: sticky;
+  bottom: var(--space-3);
+  height: 0;
+  display: flex;
+  justify-content: center;
+  overflow: visible;
+  z-index: 2;
+  pointer-events: none;
+}
+.av-jump-btn {
+  pointer-events: auto;
+  transform: translateY(-44px);
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-1);
+  color: var(--text-secondary);
+  box-shadow: 0 4px 14px color-mix(in oklab, var(--text-primary) 12%, transparent);
+  cursor: pointer;
+  transition: color 140ms var(--ease-standard), transform 160ms var(--ease-standard);
+}
+.av-jump-btn:hover {
+  color: var(--text-primary);
+}
+.av-jump-btn:active {
+  transform: translateY(-44px) scale(0.94);
 }

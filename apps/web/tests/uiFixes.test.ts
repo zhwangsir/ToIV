@@ -135,7 +135,8 @@ test("markdown:仅助手气泡走渲染器,用户消息纯文本直出(源码断
   // A3(2026-09-22):消息渲染拆至 MessageList.tsx
   const src = readSrc("components/assistant/MessageList.tsx");
   assert.ok(
-    src.includes('msg.role === "assistant" ? renderInlineMarkdown(msg.content) : msg.content'),
+    // 2026-09-28:助手走 AvSmoothText(块级 markdown),用户分支纯文本直出
+    /msg\.role === "assistant" \? \([\s\S]*?<AvSmoothText text=\{msg\.content\}[\s\S]*?\) : \(\s*msg\.content\s*\)/.test(src),
     "用户消息不得经 markdown(避免 2*3*5 误斜体)",
   );
 });

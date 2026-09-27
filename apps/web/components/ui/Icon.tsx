@@ -22,6 +22,7 @@ import {
   ChevronUp,
   Clock,
   Contrast,
+  Copy,
   Cpu,
   Crop,
   Database,
@@ -211,6 +212,7 @@ const ICON_MAP = {
   phone: Phone,
   "phone-off": PhoneOff,
   square: Square,
+  copy: Copy,
   // 短剧播放器 W3 追加
   play: Play,
   pause: Pause,
