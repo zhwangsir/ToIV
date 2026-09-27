@@ -499,12 +499,11 @@ export function AvMessageList({
                         live={live}
                         hasText={!!msg.content.trim()}
                       />
-                      {msg.content ? <AvSmoothText text={msg.content} live={live} fresh={!!msg.streamed} id={msg.id} /> : null}
                     </>
                   ) : (
                     msg.content
                   )}
-                  {/* A1 工具结果卡:ok + 注册工具 + payload 时置于正文之后(步骤条目在过程块里);
+                  {/* A1 工具结果卡:ok + 注册工具 + payload 时置于过程块之后、正文之前(步骤条目在过程块里);
                       payload 解析失败 renderToolCard 归 null;未注册工具只在过程块显示 */}
                   {msg.tools?.map((t) =>
                     t.status === "ok" && t.payload && TOOL_RENDERERS[t.name] ? (
@@ -525,6 +524,11 @@ export function AvMessageList({
                       </Fragment>
                     ) : null,
                   )}
+                  {/* 正文置于工具结果卡之后(2026-09-28,对齐 ChatGPT/Claude):
+                      贴底滚动时逐字展开的回答落在视口内,不被大列表卡顶出屏外 */}
+                  {msg.role === "assistant" && msg.content ? (
+                    <AvSmoothText text={msg.content} live={live} fresh={!!msg.streamed} id={msg.id} />
+                  ) : null}
                   {/* 生成作业卡:kind 中文名 + label + 状态徽章;W4 起经 AvJobCards
                       聚合——同消息 ≥2 个 done 作业的视觉产物合并为一条胶片条 */}
                   {msg.jobs?.length ? (
