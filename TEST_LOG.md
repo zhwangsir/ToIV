@@ -1764,3 +1764,10 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 - 改动：`tools_gen._normalize_plan_steps` + `steps` 字段；前端 `extractPlanSteps` / `AvPlanSteps`；仅 web 部署不打断烟测。
 - 验证：`apps/web` node:test `assistantPlanSteps.test.ts`；api `test_propose_plan` 断言 steps 从 body 推断。
 
+## 2026-09-28 16:15 CST — FluxResolutionNode.divisible_by backfill
+
+- **Change**: `_MISSING_REQUIRED_DEFAULTS["FluxResolutionNode"]={"divisible_by":"64"}` (`e435cfa`)
+- **Why**: RH 旧图缺 `divisible_by` → required_input_missing（rh-acc-9374404609 / rh-acc-9510591489）；:8196 object_info default `64`
+- **Verify**: unit `test_build_graph_flux_resolution_divisible_by_backfill` PASS；core deploy `core-ts --skip-web`；resmoke both cards PASS（254s / 497s）
+- **Also soft-hid**: rh-acc-9426029569 (RHHiddenNodes), rh-acc-9462758401 (integer overflow), rh-acc-9601103873 (orphan Mask Fill Holes)
+- **Kept fail**: rh-acc-6680503297 corrupt H3 LoRA → 模型下载
