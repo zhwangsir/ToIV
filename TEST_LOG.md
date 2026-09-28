@@ -4,7 +4,8 @@
 - **健康**:未测 runner 已 `ALL_DONE`（未测=0，无需拉起）；API :8090 200；Comfy :8195/:8196/:8197 经 Tailscale 200；队列空。
 - **收尾快照**:公开 186 · PASS 184 · 未测 0 · 超时 2 · 失败 0 · 运行中 0→长测中。
 - **产品修**:`POST /api/admin/apps/{id}/smoke` 增加 `SmokeOneRequest`，`timeout_s` query 优先、否则取 JSON body（`test_smoke_one_accepts_timeout_s_in_body` 绿）。**未部署**（避免打断正在跑的长测）。
-- **复测**:`resmoke_0618_timeouts.py` 以 query `timeout_s=3600` 复测 `rh-acc-1636329473-e20b06`（VACE_14B 换背景）与 `rh-acc-3944911874-eb2c03`（wan2.1VACE+Lightx2v 换装）；先前 0423 批次 body 超时被忽略，实际只跑到默认 1800s。
+- **复测**:`resmoke_0618_timeouts.py` 以 query `timeout_s=3600` 复测两张超时卡；`rh-acc-1636329473-e20b06` 仍在 ~120s 返回不透明 `timed out`（与多次复测一致）→ soft-hide（`softhide_0618_20260929.json`）；`rh-acc-3944911874-eb2c03` 长测仍在跑。VACE 换背景能力仍有公开 PASS（如 `vace-edit` / `rh-acc-9094134785`）。
+- **收尾快照（soft-hide 后）**:公开 185 · PASS 184 · 未测 0 · 超时 0 · 失败 0 · 运行中 1。
 - **优化**:无新项（U1–U9/O1–O3 已齐；U10 小程序仍收尾后）。
 
 ## 2026-09-27 04:18 — 收尾 soft-hide 4 张硬阻塞（无 UX 新项）
