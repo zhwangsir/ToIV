@@ -937,8 +937,8 @@ export function AssistantView(props?: AssistantViewProps) {
     el.scrollTo({ top: el.scrollHeight, behavior: reduce ? "auto" : "smooth" });
   }, []);
 
-  // composer 自动增高(scrollHeight 方案,40vh 宽松封顶,超出内滚;替代原行数估算 176px 硬顶)
-  useAutoResize(textareaRef, input, { maxVh: 40 });
+  // composer 自动增高(scrollHeight 方案):至多 8 行(且不超过 40vh),超出内滚,对齐 ChatGPT
+  useAutoResize(textareaRef, input, { maxVh: 40, maxLines: 8 });
 
   const onNewChat = useCallback(() => {
     setMessages([]);

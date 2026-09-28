@@ -26,6 +26,8 @@ import { useEffect, type RefObject } from "react";
 export interface AutoResizeOpts {
   /** 视口高度百分比上限(如 40 = 40vh);缺省/非法值 = 不封顶。 */
   maxVh?: number;
+  /** 行数上限(如 8 = 8 行,按元素行高 + 上下内边距换算);与 maxVh 同时给出时取较小者。 */
+  maxLines?: number;
 }
 
 /** maxVh → px 上限换算(纯函数,可单测);非法输入返回 Infinity(不封顶)。 */
@@ -37,6 +39,34 @@ export function capFromVh(maxVh: number | undefined, viewportHeight: number): nu
     return Number.POSITIVE_INFINITY;
   }
   return (viewportHeight * maxVh) / 100;
+}
+
+/** maxLines → px 上限(纯函数,可单测);非法输入返回 Infinity(不封顶)。 */
+export function capFromLines(
+  maxLines: number | undefined,
+  lineHeightPx: number,
+  paddingYPx: number,
+): number {
+  if (maxLines === undefined || !Number.isFinite(maxLines) || maxLines <= 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+  if (!Number.isFinite(lineHeightPx) || lineHeightPx <= 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const pad = Number.isFinite(paddingYPx) && paddingYPx > 0 ? paddingYPx : 0;
+  return maxLines * lineHeightPx + pad;
+}
+
+/** 按元素计算样式换算行数上限;无 getComputedStyle(node 单测)时不封顶。 */
+function lineCap(el: HTMLTextAreaElement, maxLines: number | undefined): number {
+  if (maxLines === undefined) return Number.POSITIVE_INFINITY;
+  if (typeof window === "undefined" || typeof window.getComputedStyle !== "function") {
+    return Number.POSITIVE_INFINITY;
+  }
+  const cs = window.getComputedStyle(el);
+  let lh = parseFloat(cs.lineHeight);
+  if (!Number.isFinite(lh)) lh = parseFloat(cs.fontSize) * 1.5;
+  return capFromLines(maxLines, lh, parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom));
 }
 
 /** 目标高度:scrollHeight 与 cap 取小(纯函数,可单测)。 */
@@ -70,20 +100,22 @@ export function useAutoResize(
   opts?: AutoResizeOpts,
 ): void {
   const maxVh = opts?.maxVh;
+  const maxLines = opts?.maxLines;
 
   // 受控值变化时重算(粘贴/程序化赋值/外部回写均覆盖)
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    applyAutoHeight(el, capFromVh(maxVh, viewportH()));
-  }, [ref, value, maxVh]);
+    applyAutoHeight(el, Math.min(capFromVh(maxVh, viewportH()), lineCap(el, maxLines)));
+  }, [ref, value, maxVh, maxLines]);
 
   // input 事件兜底:非受控键入(defaultValue 场景)也即时增高
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof el.addEventListener !== "function") return;
-    const onInput = () => applyAutoHeight(el, capFromVh(maxVh, viewportH()));
+    const onInput = () =>
+      applyAutoHeight(el, Math.min(capFromVh(maxVh, viewportH()), lineCap(el, maxLines)));
     el.addEventListener("input", onInput);
     return () => el.removeEventListener("input", onInput);
-  }, [ref, maxVh]);
+  }, [ref, maxVh, maxLines]);
 }

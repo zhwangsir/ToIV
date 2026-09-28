@@ -151,3 +151,22 @@ test("引用块内的列表按块级渲染(源码断言:quote 递归 renderBlock
   const src = readFileSync(new URL("../components/assistant/AnswerView.tsx", import.meta.url), "utf8");
   assert.match(src, /av-md-quote[\s\S]{0,200}renderBlocks\(b\.text/);
 });
+
+test("助手打磨(2026-09-28 下午):composer 8 行封顶、过程块停留收起 + 完成行、代码块吸顶、流式淡入/lime 衰减、操作栏抹出", async () => {
+  const { capFromLines } = await import("../hooks/useAutoResize");
+  assert.equal(capFromLines(8, 24, 12), 204);
+  assert.equal(capFromLines(undefined, 24, 12), Number.POSITIVE_INFINITY);
+  assert.equal(capFromLines(8, Number.NaN, 12), Number.POSITIVE_INFINITY);
+  assert.equal(capFromLines(8, 20, Number.NaN), 160);
+  const view = readSrc("components/assistant/AssistantView.tsx");
+  assert.ok(view.includes("maxLines: 8"), "composer 至多 8 行");
+  const answer = readSrc("components/assistant/AnswerView.tsx");
+  assert.ok(answer.includes("PROCESS_LINGER_MS = 600"), "过程块答案开始后停留 600ms");
+  assert.ok(answer.includes("is-done-row"), "过程时间线有完成行");
+  const css = readSrc("app/styles/assistant-view.css");
+  assert.ok(/\.av-md-code-head \{[^}]*position: sticky/.test(css), "代码块头吸顶");
+  assert.ok(css.includes("overflow: clip"), "代码块用 clip 以免破坏 sticky");
+  assert.ok(css.includes("av-fresh-tint") && css.includes("av-block-in"), "流式新块淡入 + lime 衰减");
+  assert.ok(css.includes("av-actions-wipe"), "最新回答操作栏抹出");
+  assert.ok(css.includes(".av-md.is-streaming > :last-child { animation: none; }"), "流式动效有 reduced-motion 兜底");
+});

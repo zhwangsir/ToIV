@@ -266,10 +266,27 @@ function currentActivity(rounds: ThinkingRound[] | undefined, tools: ToolChip[] 
   return (tools ?? []).length ? "整理结果中…" : "组织回答中…";
 }
 
+/** 正文开始后过程块再停留的时长(参考 ChatGPT/开源实现 ~600ms),避免内容被突然抽走 */
+export const PROCESS_LINGER_MS = 600;
+
 export function AvProcess({ rounds, tools, live, hasText }: AvProcessProps) {
   const toolList = tools ?? [];
   const hasDetail = hasThinkingText(rounds) || toolList.length > 0;
-  const autoOpen = live && !hasText;
+  const [lingering, setLingering] = useState(false);
+  const prevHasText = useRef(hasText);
+  const lingerTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (live && hasText && !prevHasText.current && !prefersReducedMotion()) {
+      setLingering(true);
+      if (lingerTimer.current) window.clearTimeout(lingerTimer.current);
+      lingerTimer.current = window.setTimeout(() => setLingering(false), PROCESS_LINGER_MS);
+    }
+    prevHasText.current = hasText;
+  }, [live, hasText]);
+  useEffect(() => () => {
+    if (lingerTimer.current) window.clearTimeout(lingerTimer.current);
+  }, []);
+  const autoOpen = (live && !hasText) || lingering;
   const [userOpen, setUserOpen] = useState<boolean | null>(null);
   const open = userOpen ?? autoOpen;
 
@@ -313,6 +330,19 @@ export function AvProcess({ rounds, tools, live, hasText }: AvProcessProps) {
     }
   }
   for (const t of toolList) if (!usedTools.has(t.id)) steps.push(<ToolStep key={t.id} t={t} />);
+  // 收尾行:过程结束(不在工作且无运行中工具)后以「完成 ✓」封底,对齐 Claude 时间线
+  if (steps.length && !working && !toolList.some((t) => t.status === "start")) {
+    steps.push(
+      <li key="done" className="av-step is-tool is-ok is-done-row">
+        <span className="av-step-dot" aria-hidden>
+          <Icon name="check" size={10} strokeWidth={2.2} />
+        </span>
+        <div className="av-step-body">
+          <div className="av-step-title">完成</div>
+        </div>
+      </li>,
+    );
+  }
 
   return (
     <div className={`av-process${open ? " is-open" : ""}${working ? " is-working" : ""}`}>

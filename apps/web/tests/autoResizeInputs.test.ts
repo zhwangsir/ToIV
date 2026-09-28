@@ -162,8 +162,8 @@ test("AssistantView:176px 硬顶与行数估算逻辑已删除", () => {
   assert.ok(!src.includes("textareaRows"), "行数估算 state 残留");
   assert.ok(!src.includes("resize: none"), "composer resize:none 残留");
   assert.ok(
-    src.includes("useAutoResize(textareaRef, input, { maxVh: 40 })"),
-    "composer 未按 40vh 接 hook",
+    src.includes("useAutoResize(textareaRef, input, { maxVh: 40, maxLines: 8 })"),
+    "composer 未按 40vh/8 行接 hook",
   );
 });
 
