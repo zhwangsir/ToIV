@@ -458,3 +458,49 @@ def test_reconcile_interrupted_smokes_clears_running(monkeypatch):
         assert s.get(App, "a-pass").smoke_status == "pass"
         assert s.get(App, "a-fail").smoke_status == "fail"
     assert svc.reconcile_interrupted_smokes() == 0
+
+
+# ---------------------------------------------------------------------------
+# admin 单卡烟测:timeout_s 同时认 query 与 JSON body(运维脚本常用 body)
+# ---------------------------------------------------------------------------
+def test_smoke_one_accepts_timeout_s_in_body(monkeypatch):
+    """POST JSON {"timeout_s": 900} 必须传到 run_app_smoke;query 优先于 body。"""
+    from app.deps import get_pool
+
+    captured: dict = {}
+
+    async def fake_run(pool, session, app_obj, timeout_s=None, **kwargs):
+        captured["timeout_s"] = timeout_s
+        return {"status": "pass", "cls": "", "detail": "ok", "fixes": []}
+
+    monkeypatch.setattr(svc, "run_app_smoke", fake_run)
+
+    engine, tok = _client_with_admin()
+    with Session(engine) as s:
+        s.add(App(id="rh-acc-timeout-body-test", name="T", description="d",
+                  category="video", workflow_json={}, is_public=True))
+        s.commit()
+
+    def _get_session():
+        with Session(engine) as s:
+            yield s
+
+    class _Pool:
+        pass
+
+    app.dependency_overrides[get_session] = _get_session
+    app.dependency_overrides[get_pool] = lambda: _Pool()
+    try:
+        c = TestClient(app)
+        h = {"Authorization": f"Bearer {tok}"}
+        r = c.post("/api/admin/apps/rh-acc-timeout-body-test/smoke",
+                   headers=h, json={"timeout_s": 900})
+        assert r.status_code == 200, r.text
+        assert captured.get("timeout_s") == 900
+        r2 = c.post("/api/admin/apps/rh-acc-timeout-body-test/smoke?timeout_s=1200",
+                    headers=h, json={"timeout_s": 900})
+        assert r2.status_code == 200, r2.text
+        assert captured.get("timeout_s") == 1200
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_pool, None)

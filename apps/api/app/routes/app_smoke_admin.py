@@ -8,7 +8,7 @@
 """
 from __future__ import annotations
 
-from fastapi import Query, APIRouter, Depends, HTTPException
+from fastapi import Body, Query, APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session
 
@@ -28,6 +28,11 @@ class SmokeBatchRequest(BaseModel):
     include_nsfw: bool = False  # R18 应用默认跳过(烟测走 SFW 口径)
 
 
+class SmokeOneRequest(BaseModel):
+    """可选 JSON 体:运维脚本常把 timeout_s 放 body,query 仍优先。"""
+    timeout_s: int | None = Field(default=None, ge=60, le=3600)
+
+
 @router.post("/admin/apps/{app_id}/smoke")
 async def smoke_one_app(
     app_id: str,
@@ -35,11 +40,13 @@ async def smoke_one_app(
     pool: WorkerPool = Depends(get_pool),
     session: Session = Depends(get_session),
     timeout_s: int | None = Query(default=None, ge=60, le=3600),
+    body: SmokeOneRequest | None = Body(default=None),
 ) -> dict:
     a = session.get(App, app_id)
     if not a:
         raise HTTPException(status_code=404, detail="应用不存在")
-    result = await smoke_svc.run_app_smoke(pool, session, a, timeout_s=timeout_s)
+    effective = timeout_s if timeout_s is not None else (body.timeout_s if body else None)
+    result = await smoke_svc.run_app_smoke(pool, session, a, timeout_s=effective)
     audit.record(
         session, user=admin, action="app.smoke", target_type="app", target_id=app_id,
         summary=f"烟测 {result['status']} {result['cls']}", detail=result,
