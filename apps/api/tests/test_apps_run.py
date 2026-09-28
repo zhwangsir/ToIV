@@ -588,6 +588,35 @@ def test_build_graph_required_backfill():
     assert built["14"]["inputs"]["cpu_offload"] == "auto"
 
 
+def test_build_graph_flux_resolution_divisible_by_backfill():
+    """FluxResolutionNode 换代新增 divisible_by required;RH 旧图缺键回填 64。"""
+    from app.routes.apps import _build_graph
+
+    graph = {
+        "69": {
+            "class_type": "FluxResolutionNode",
+            "inputs": {
+                "aspect_ratio": "3:4 (Golden Ratio)",
+                "megapixel": "2.0",
+                "custom_ratio": False,
+                "custom_aspect_ratio": "1:1",
+            },
+        },
+        "13": {
+            "class_type": "FluxResolutionNode",
+            "inputs": {
+                "aspect_ratio": "9:16 (Slim Vertical)",
+                "megapixel": "1.5",
+                "divisible_by": "32",
+                "custom_ratio": False,
+            },
+        },
+    }
+    built = _build_graph(graph, {}, {})
+    assert built["69"]["inputs"]["divisible_by"] == "64"
+    assert built["13"]["inputs"]["divisible_by"] == "32"  # 已有键不覆盖
+
+
 def test_build_graph_qwen_vqa_attention_backfill():
     """Qwen2_VQA/Qwen3_VQA 换代新增 attention required;旧图缺键回填 eager。"""
     from app.routes.apps import _build_graph

@@ -1918,6 +1918,10 @@ _MISSING_REQUIRED_DEFAULTS: dict[str, dict[str, object]] = {
     # 剪枝保存链(2026-09-26 rh-acc-4135655426 实证;非 H3 Encode 链)。
     "CR Text": {"text": "a person in a scene"},
     "CR Prompt Text": {"prompt": "a person in a scene"},
+    # FluxResolutionNode 换代后 required divisible_by(COMBO 8/16/32/64, default 64);
+    # RH 旧图常缺 → required_input_missing 剪枝保存链
+    # (2026-09-28 rh-acc-9374404609 / rh-acc-9510591489 实证;:8196 object_info)
+    "FluxResolutionNode": {"divisible_by": "64"},
 }
 
 
