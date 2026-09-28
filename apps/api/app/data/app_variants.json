@@ -30,11 +30,6 @@
     "label": "极速版",
     "desc": "少步数/加速 LoRA/蒸馏,出结果更快,细节略少(走「MiniMax H3 Image-to-Video Fast」已测工作流)",
     "app_id": "rh-acc-7966609410-426d6f"
-   },
-   {
-    "label": "智能提示词",
-    "desc": "内置视觉大模型反推/润色提示词,少写提示词也能出效果(走「MiniMaxH3+ Generates Video fro」已测工作流)",
-    "app_id": "rh-acc-3241326594-c20bea"
    }
   ],
   "presets": []

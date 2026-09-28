@@ -10,6 +10,7 @@ from app.models import App
 src = json.load(open("/home/merlin/toiv/tmp/variants_v1.json"))
 DROP = {("qwen-image-edit","色彩调整"),("rh-acc-0341958658-5aead4","画面延伸"),("rh-acc-0341958658-5aead4","多方位"),("rh-acc-7398243328-b4f484","影视二创")}
 RENAME = {"丝袜美女转圈":"起身转圈","发型衣服换发色":"换发色","加背景白底":"产品换场景","详情页":"海边出游海报","字体/抽象/艺术摄影":"旅行横屏海报","与自己相拥":"双人相拥"}
+MODE_DROP = {("h3-i2v","rh-acc-3241326594-c20bea")}  # 名为智能提示词,实为首尾帧
 PRESET_TO_MODE = {"插入中间帧","衣服分离","图转实物","无塑料感"}
 def smoke(a):
     s = a.smoke_status
@@ -33,7 +34,7 @@ with Session(engine) as s:
         modes=[]
         for m in v.get("modes",[]):
             t = s.get(App, m["app_id"])
-            if t and smoke(t)=="pass" and bool(t.is_nsfw)==bool(keeper.is_nsfw):
+            if t and (kid, t.id) not in MODE_DROP and smoke(t)=="pass" and bool(t.is_nsfw)==bool(keeper.is_nsfw):
                 modes.append({"label":m["label"],"desc":m.get("desc",""),"app_id":t.id}); stats["modes"]+=1
             else: stats["modes_drop"]+=1
         presets=[]; kk = prompt_key(keeper)
