@@ -459,6 +459,41 @@ async function fetchAppsRaw(suffix: string): Promise<AppItem[]> {
 }
 
 /** 应用详情(含 params_schema;workflow_json 仅属主/admin,前端不消费)。 */
+/** 应用内「模式 / 示例」(2026-09-29 市场去重):模式=切到有能力差异的同类卡跑,示例=一键填提示词。 */
+export interface AppModeItem {
+  label: string;
+  desc: string;
+  app_id: string;
+}
+export interface AppPresetItem {
+  label: string;
+  values: Record<string, unknown>;
+}
+export interface AppVariantsInfo {
+  keeper_id: string;
+  keeper_name: string;
+  modes: AppModeItem[];
+  presets: AppPresetItem[];
+}
+
+export async function getAppVariants(id: string): Promise<AppVariantsInfo | null> {
+  try {
+    const res = await apiFetch(`${API_BASE}/api/apps/${encodeURIComponent(id)}/variants`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) return null;
+    const raw = (await res.json()) as Partial<AppVariantsInfo>;
+    return {
+      keeper_id: String(raw.keeper_id || id),
+      keeper_name: String(raw.keeper_name || ""),
+      modes: Array.isArray(raw.modes) ? raw.modes.filter((m) => m && m.app_id && m.label) : [],
+      presets: Array.isArray(raw.presets) ? raw.presets.filter((p) => p && p.label && p.values) : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getApp(id: string): Promise<AppItem> {
   const res = await apiFetch(`${API_BASE}/api/apps/${encodeURIComponent(id)}`, {
     headers: authHeaders(),

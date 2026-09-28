@@ -12,7 +12,7 @@ import { Field, Input } from "@/components/ui/Input";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { AgeGateModal } from "@/components/ui/AgeGateModal";
 import { useToast } from "@/components/ui/Toast";
-import { listVariantsByFingerprint } from "@/lib/apps";
+import { getAppVariants, listVariantsByFingerprint, type AppVariantsInfo } from "@/lib/apps";
 import {
   appAuthorInitial,
   appAuthorOf,
@@ -112,7 +112,20 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
     try {
       const a = await getApp(activeId);
       setApp(a);
-      setValues(initialValues(a));
+      const base = initialValues(a);
+      // 模式切换:沿用用户已填的素材/提示词(同 key 同类型才带过去)
+      const carry = carryRef.current;
+      carryRef.current = null;
+      if (carry) {
+        for (const p of a.params_schema) {
+          const prev = carry.values[p.key];
+          const prevType = carry.types[p.key];
+          if (prevType === p.type && prev != null && prev !== "" && !(Array.isArray(prev) && prev.length === 0)) {
+            base[p.key] = prev;
+          }
+        }
+      }
+      setValues(base);
     } catch (e) {
       setApp(null);
       setLoadError(e instanceof Error ? e.message : "加载应用失败");
@@ -120,6 +133,35 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
       setLoading(false);
     }
   }, [activeId]);
+
+  // 应用内模式/示例(2026-09-29 市场去重):以入口 appId 为代表卡取一次,切模式时保持
+  const carryRef = useRef<{ values: Record<string, unknown>; types: Record<string, string> } | null>(null);
+  const [modeInfo, setModeInfo] = useState<AppVariantsInfo | null>(null);
+  useEffect(() => {
+    setModeInfo(null);
+    setActiveId(appId);
+    let alive = true;
+    void getAppVariants(appId).then((v) => {
+      if (alive) setModeInfo(v && (v.modes.length || v.presets.length) ? v : null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [appId]);
+  const switchMode = useCallback(
+    (targetId: string) => {
+      if (targetId === activeId) return;
+      if (app) {
+        const types: Record<string, string> = {};
+        for (const p of app.params_schema) types[p.key] = p.type;
+        carryRef.current = { values, types };
+      }
+      setActiveId(targetId);
+    },
+    [activeId, app, values],
+  );
+  const activeMode = modeInfo?.modes.find((m) => m.app_id === activeId) ?? null;
+  const onKeeper = !!modeInfo && activeId === modeInfo.keeper_id;
 
   // 同指纹变体(2026-09-15 功能归组):运行台以「预设」形态切换,同一功能入口
   const [variants, setVariants] = useState<AppItem[]>([]);
@@ -144,11 +186,14 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
 
   useEffect(() => {
     setPreviewFailed(false);
+  }, [app?.cover_url]);
+  // 只在换入口应用时回到详情;运行台内切模式/预设不打断
+  useEffect(() => {
     setPhase("detail");
     setComfyOpening(false);
     setPanelTab("detail");
     setAccel("off");
-  }, [appId, app?.cover_url]);
+  }, [appId]);
 
   useEffect(() => {
     setGuide(null);
@@ -488,7 +533,9 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
           <div className="apps-runner-hero-veil" aria-hidden="true" />
           <div className="apps-runner-hero-id">
             <div>
-              <div className="apps-runner-hero-name">{app.name}</div>
+              <div className="apps-runner-hero-name">
+                {activeMode && modeInfo?.keeper_name ? `${modeInfo.keeper_name} · ${activeMode.label}` : app.name}
+              </div>
               <div className="apps-runner-hero-sub">
                 <span className="rh-card-avatar" aria-hidden="true">{appAuthorInitial(app)}</span>
                 <span>{appAuthorOf(app)}</span>
@@ -500,6 +547,50 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
               <i>累计运行</i>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 应用内模式/示例(2026-09-29):同类卡的能力差异收成模式,提示词差异收成示例 */}
+      {phase === "run" && modeInfo && modeInfo.modes.length > 0 && (
+        <div className="apps-preset-row" role="group" aria-label="应用模式">
+          <span className="apps-preset-label">模式</span>
+          <button
+            type="button"
+            className={`apps-preset-chip${onKeeper ? " is-on" : ""}`}
+            aria-pressed={onKeeper}
+            onClick={() => switchMode(modeInfo.keeper_id)}
+            title="标准版"
+          >
+            标准
+          </button>
+          {modeInfo.modes.map((m) => (
+            <button
+              key={m.app_id}
+              type="button"
+              className={`apps-preset-chip${m.app_id === activeId ? " is-on" : ""}`}
+              aria-pressed={m.app_id === activeId}
+              onClick={() => switchMode(m.app_id)}
+              title={m.desc || m.label}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {phase === "run" && onKeeper && modeInfo && modeInfo.presets.length > 0 && (
+        <div className="apps-preset-row" role="group" aria-label="提示词示例">
+          <span className="apps-preset-label">示例</span>
+          {modeInfo.presets.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              className="apps-preset-chip"
+              onClick={() => setValues((prev) => ({ ...prev, ...p.values }))}
+              title={String(Object.values(p.values)[0] ?? "").slice(0, 120)}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
       )}
 

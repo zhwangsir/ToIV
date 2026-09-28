@@ -53,6 +53,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response
 
 from app.services import apps_list_cache
+from app.services import app_variants
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
@@ -410,10 +411,21 @@ def _visible(a: App, user: User) -> bool:
     return bool(a.is_public)
 
 
+def _visible_as_mode(session: Session, a: App, user: User) -> bool:
+    """隐藏的目录卡若是某张公开代表卡的「模式」目标,允许详情/运行(不进市场列表)。"""
+    if a.user_id or a.is_public:
+        return False
+    kid = app_variants.keeper_of(a.id)
+    if not kid:
+        return False
+    k = session.get(App, kid)
+    return bool(k and not k.user_id and k.is_public)
+
+
 def _get_visible(session: Session, aid: str, user: User) -> App:
     """取应用并套可见性 + NSFW 门控;不可见一律 404(不泄露存在性)。"""
     a = session.get(App, aid)
-    if not a or not _visible(a, user):
+    if not a or not (_visible(a, user) or _visible_as_mode(session, a, user)):
         raise HTTPException(status_code=404, detail="应用不存在")
     if a.is_nsfw and not nsfw_allowed(user):
         raise HTTPException(status_code=404, detail="应用不存在")
@@ -3410,6 +3422,33 @@ def list_apps(
         return Response(content=payload, media_type="application/json")
 
 
+@router.get("/{aid}/variants")
+def get_app_variants(
+    aid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """应用内「模式 / 示例」:aid 可为代表卡或其模式目标;无则空列表。
+
+    模式只列当前用户可见的目标(NSFW 门控同详情);示例只对代表卡本身有意义。
+    """
+    _get_visible(session, aid, user)
+    found = app_variants.variants_for(aid)
+    if not found:
+        return {"keeper_id": aid, "keeper_name": "", "modes": [], "presets": []}
+    kid, v = found
+    keeper = session.get(App, kid)
+    if not keeper or not (_visible(keeper, user)) or (keeper.is_nsfw and not nsfw_allowed(user)):
+        return {"keeper_id": aid, "keeper_name": "", "modes": [], "presets": []}
+    modes = []
+    for m in v["modes"]:
+        t = session.get(App, m["app_id"])
+        if not t or (t.is_nsfw and not nsfw_allowed(user)):
+            continue
+        modes.append({"label": m["label"], "desc": m.get("desc") or "", "app_id": t.id})
+    return {"keeper_id": kid, "keeper_name": keeper.name, "modes": modes, "presets": v["presets"]}
+
+
 @router.get("/{aid}", response_model=AppOut)
 def get_app(
     aid: str,
@@ -4133,7 +4172,7 @@ async def run_app(
     只在 Job 到 done 时由 tracker.mark_done 按 params.app_id +1。
     """
     a = session.get(App, aid)
-    if not a or not _visible(a, user):
+    if not a or not (_visible(a, user) or _visible_as_mode(session, a, user)):
         raise HTTPException(status_code=404, detail="应用不存在")
     # is_nsfw 应用须 R18 上下文(与详情 404 不泄露不同:run 是动作,显式 403 引导去专页)
     if a.is_nsfw and not nsfw_allowed(user):
