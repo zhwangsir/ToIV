@@ -1794,3 +1794,10 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 - **Verify**: unit `test_build_graph_flux_resolution_divisible_by_backfill` PASS；core deploy `core-ts --skip-web`；resmoke both cards PASS（254s / 497s）
 - **Also soft-hid**: rh-acc-9426029569 (RHHiddenNodes), rh-acc-9462758401 (integer overflow), rh-acc-9601103873 (orphan Mask Fill Holes)
 - **Kept fail**: rh-acc-6680503297 corrupt H3 LoRA → 模型下载
+
+## 2026-09-30 00:33 CST — 巡检：v3 预览开关 web-only 上线 core
+
+- **背景**: 公开市场收尾已达成（184 PASS / 0 未测）；UX 路线图 U1–U10b / O1–O3 均已 ✅。本周期推进积压项：把已入 main 的 `40484b8`（「新界面(预览)」默认关）部署到 core。
+- **动作**: MateBook 本地 `npm run build` → `deploy/deploy.sh --web-only core-ts`（LAN `core`/`192.168.71.47` 不可达，走 Tailscale）。
+- **验证**: BUILD_ID `20260929-163659-40484b8-dirty`；`ui-v3.css` / ThemePicker「新界面(预览)」在位；toiv-web 200；toiv-api 未重启且 `/api/health` ok；closeout-summary 仍 `public 184 / pass 184`；Comfy :8195/:8196/:8197 200。
+- **未做**: GitHub 443 仍超时，未补推；`ca77eef`（smoke `timeout_s` body）core API 仍未加载，留待下次无烟测时的 API 重启批次。
