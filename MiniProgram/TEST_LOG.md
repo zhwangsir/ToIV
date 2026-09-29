@@ -1,3 +1,7 @@
+## 2026-09-29 — U10b 应用详情一键运行器
+
+详情页替换「下一版上线」占位：params 表单 + `runApp` + listJobs 轮询出片/出图。`npm test` 28 files / 623 PASS（含 `app-runner` 9 + `runApp` API）。
+
 ## 2026-09-29 — U10a 市场瀑布流
 
 底栏「市场」页：双列封面瀑布、实测可用筛选/徽标、详情只读。`npm test` 611 PASS。

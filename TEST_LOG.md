@@ -1,3 +1,9 @@
+## 2026-09-29 14:28 CST — U10b MiniProgram 应用详情一键运行器
+
+- **范围**：`runApp` 客户端；`app-runner` 参数归一/必填/提交载荷；详情页参数区+预览区（手机端上下栈）；SFW/NSFW 双模式切换；images 选图上传；audio/video/mask/loras 降级提示。
+- **验证**：`cd miniprogram && npm test` → 28 files / 623 tests PASS（含 `tests/app-runner.test.ts` 9 + `runApp` API）。未重启 `toiv-api`（小程序包不走 web 部署）。
+- **收尾旁路**：公开市场仍 CLOSEOUT_MET（184 PASS）；优化线 U10b ✅。
+
 
 ## 2026-09-29 10:14 CST — U10a MiniProgram 市场瀑布流
 

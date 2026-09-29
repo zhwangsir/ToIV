@@ -33,7 +33,7 @@
 | U8 | Admin 实测矩阵实装 ✅ | `GET /api/admin/test-matrix` + 矩阵页「实时收尾进度」接 `closeout-summary`（公开 PASS/未测/超时一眼可见；L0/L2 历史快照保留）（2026-09-27 00:14） | Admin 重规划 P2 |
 | U9 | Admin 模型资产域 ✅ | 本地模型浏览 + `MODEL_SOURCES` 只读视图（`ModelAssetsAdminView` + `/api/models/local` + `/api/admin/model-sources`；2026-09-27 02:14 巡检入账） | Admin 重规划 P2 |
 | U10a | 小程序市场瀑布流 ✅ | 底栏「市场」+ 双列封面瀑布 + 实测可用徽标/筛选 + 详情只读页；主题沿用 v9 tokens（2026-09-29 10:14） | UI 整改 P4 |
-| U10b | 小程序应用运行器 | 详情页左参右预 + `POST /api/apps/{id}/run` 一键出片（接 U10a） | UI 整改 P4 |
+| U10b | 小程序应用运行器 ✅ | 详情页参数区+预览区 + `POST /api/apps/{id}/run` 一键出片；常见 text/number/select/switch/images；audio/video/mask/loras 降级提示（2026-09-29 14:28） | UI 整改 P4 |
 
 ## 3. 运维便利（同线推进）
 

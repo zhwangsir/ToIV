@@ -954,9 +954,53 @@ export interface MarketAppItem {
   is_variant: boolean;
 }
 
-/** 详情行：含 params_schema，供后续运行器 */
+/** 应用参数 schema 项（U10b；与 Web AppParam / 引擎 params 同款子集） */
+export type AppParamType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'slider'
+  | 'select'
+  | 'switch'
+  | 'images'
+  | 'audio'
+  | 'video'
+  | 'loras';
+
+export interface AppParamOption {
+  value: string;
+  label: string;
+  nsfw?: boolean;
+  desc?: string;
+}
+
+export interface AppParam {
+  key: string;
+  label: string;
+  type: AppParamType;
+  default: unknown;
+  options?: AppParamOption[];
+  min?: number;
+  max?: number;
+  step?: number;
+  hint?: string;
+  required?: boolean;
+  mask?: boolean;
+}
+
+/** POST /api/apps/{id}/run 回执 */
+export interface AppRunReceipt {
+  job_id: string;
+  prompt_id: string;
+  client_id: string;
+  worker: string;
+  acceleration?: string;
+  acceleration_applied?: boolean;
+}
+
+/** 详情行：含 params_schema，供运行器 */
 export interface MarketAppDetail extends MarketAppItem {
-  params_schema: Array<Record<string, unknown>>;
+  params_schema: AppParam[];
   bindings: Record<string, unknown>;
   required_nodes: string[];
   has_guide: boolean;

@@ -70,6 +70,7 @@ import type {
   WechatLoginRequest,
   MarketAppItem,
   MarketAppDetail,
+  AppRunReceipt,
 } from '@/types/api';
 
 /**
@@ -149,6 +150,31 @@ export async function listMarketApps(query: ListMarketAppsQuery = {}): Promise<M
 /** 应用详情：GET /api/apps/{id}（含 params_schema） */
 export async function getMarketApp(id: string): Promise<MarketAppDetail> {
   return apiFetch<MarketAppDetail>(`/api/apps/${encodeURIComponent(id)}`);
+}
+
+/**
+ * 运行应用：POST /api/apps/{id}/run（LONG 超时）
+ * body { values, content_mode? } → { job_id, prompt_id, client_id, worker }
+ */
+export async function runApp(
+  id: string,
+  values: Record<string, unknown>,
+  opts?: { content_mode?: 'sfw' | 'nsfw' },
+): Promise<AppRunReceipt> {
+  const body: Record<string, unknown> = { values };
+  if (opts?.content_mode) body.content_mode = opts.content_mode;
+  const data = await apiFetch<Record<string, unknown>>(
+    `/api/apps/${encodeURIComponent(id)}/run`,
+    { method: 'POST', body, long: true },
+  );
+  return {
+    job_id: String(data.job_id ?? ''),
+    prompt_id: String(data.prompt_id ?? ''),
+    client_id: String(data.client_id ?? ''),
+    worker: String(data.worker ?? ''),
+    acceleration: typeof data.acceleration === 'string' ? data.acceleration : undefined,
+    acceleration_applied: data.acceleration_applied === true,
+  };
 }
 
 /** 文生图提交：POST /api/generate/txt2img（服务端后台落库，客户端轮询 /api/jobs） */

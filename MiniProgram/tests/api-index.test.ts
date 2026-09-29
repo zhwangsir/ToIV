@@ -39,6 +39,9 @@ import {
   uploadDoc,
   uploadImage,
   uploadVideo,
+  listMarketApps,
+  getMarketApp,
+  runApp,
 } from '@/api';
 import { getToken, LONG_TIMEOUT_MS, setNsfwIntent, setToken } from '@/api/client';
 import { setApiBaseOverride } from '@/api/config';
@@ -667,3 +670,42 @@ describe('jobs', () => {
     expect(lastRequest().url).toContain('/api/jobs/j1/versions');
   });
 });
+
+describe('market apps (U10)', () => {
+  it('listMarketApps GET /api/apps', async () => {
+    enqueueResponse(200, []);
+    await listMarketApps({ q: '猫' });
+    expect(lastRequest().method).toBe('GET');
+    expect(lastRequest().url).toContain('/api/apps');
+    expect(lastRequest().url).toContain('q=%E7%8C%AB');
+  });
+
+  it('getMarketApp GET /api/apps/{id}', async () => {
+    enqueueResponse(200, { id: 'a1', params_schema: [] });
+    await getMarketApp('a1');
+    expect(lastRequest().url).toContain('/api/apps/a1');
+  });
+
+  it('runApp POST /api/apps/{id}/run LONG + content_mode', async () => {
+    enqueueResponse(200, {
+      job_id: 'j1',
+      prompt_id: 'p1',
+      client_id: 'c1',
+      worker: 'w1',
+    });
+    const receipt = await runApp('a1', { prompt: '雨夜' }, { content_mode: 'nsfw' });
+    expect(receipt).toEqual({
+      job_id: 'j1',
+      prompt_id: 'p1',
+      client_id: 'c1',
+      worker: 'w1',
+      acceleration: undefined,
+      acceleration_applied: false,
+    });
+    expect(lastRequest().method).toBe('POST');
+    expect(lastRequest().url).toContain('/api/apps/a1/run');
+    expect(lastRequest().data).toEqual({ values: { prompt: '雨夜' }, content_mode: 'nsfw' });
+    expect(lastRequest().timeout).toBe(LONG_TIMEOUT_MS);
+  });
+});
+
