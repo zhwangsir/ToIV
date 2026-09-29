@@ -1,3 +1,7 @@
+## 2026-09-29 — U10a 市场瀑布流
+
+底栏「市场」页：双列封面瀑布、实测可用筛选/徽标、详情只读。`npm test` 611 PASS。
+
 # TEST_LOG.md — MiniProgram
 
 - 2026-08-27 library buckets 25cdc6a

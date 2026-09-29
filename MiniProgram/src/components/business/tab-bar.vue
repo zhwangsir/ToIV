@@ -16,6 +16,7 @@ const { themeVars } = useAppTheme();
 
 const tabs = [
   { path: '/pages/index/index', label: '创作', icon: 'sparkles' },
+  { path: '/pages/market/market', label: '市场', icon: 'layout-grid' },
   { path: '/pages/jobs/jobs', label: '作业', icon: 'layers' },
   { path: '/pages/library/library', label: '作品库', icon: 'image' },
   { path: '/pages/profile/profile', label: '我的', icon: 'user' },

@@ -8,6 +8,14 @@
       }
     },
     {
+      "path": "pages/market/market",
+      "style": {
+        "navigationBarTitleText": "市场",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
       "path": "pages/jobs/jobs",
       "style": {
         "navigationBarTitleText": "作业",
@@ -72,6 +80,13 @@
           "path": "artifact/artifact",
           "style": {
             "navigationBarTitleText": "作品详情"
+          }
+        },
+        {
+          "path": "app-detail/app-detail",
+          "style": {
+            "navigationBarTitleText": "应用详情",
+            "navigationStyle": "custom"
           }
         }
       ]

@@ -592,7 +592,7 @@ async function batchSave() {
       </view>
     </view>
 
-    <TabBar :selected="2" />
+    <TabBar :selected="3" />
   </view>
 </template>
 

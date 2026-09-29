@@ -68,6 +68,8 @@ import type {
   WanTransitionRequest,
   WanVaceRequest,
   WechatLoginRequest,
+  MarketAppItem,
+  MarketAppDetail,
 } from '@/types/api';
 
 /**
@@ -122,6 +124,31 @@ export async function fetchMe(): Promise<MeResult> {
 export async function fetchEngines(): Promise<EngineInfo[]> {
   const data = await apiFetch<{ engines?: EngineInfo[] }>('/api/models/engines');
   return data.engines ?? [];
+}
+
+// ── 应用市场（U10）──
+
+export type ListMarketAppsQuery = {
+  category?: string;
+  q?: string;
+  use_case?: string;
+  featured?: boolean;
+};
+
+/** 公开/可见应用列表：GET /api/apps（slim） */
+export async function listMarketApps(query: ListMarketAppsQuery = {}): Promise<MarketAppItem[]> {
+  const qs = new URLSearchParams();
+  if (query.category) qs.set('category', query.category);
+  if (query.q) qs.set('q', query.q);
+  if (query.use_case) qs.set('use_case', query.use_case);
+  if (query.featured) qs.set('featured', 'true');
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch<MarketAppItem[]>(`/api/apps${suffix}`);
+}
+
+/** 应用详情：GET /api/apps/{id}（含 params_schema） */
+export async function getMarketApp(id: string): Promise<MarketAppDetail> {
+  return apiFetch<MarketAppDetail>(`/api/apps/${encodeURIComponent(id)}`);
 }
 
 /** 文生图提交：POST /api/generate/txt2img（服务端后台落库，客户端轮询 /api/jobs） */

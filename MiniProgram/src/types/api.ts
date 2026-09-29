@@ -923,3 +923,43 @@ export interface AgentRunSseEvent {
   type: string;
   data: Record<string, unknown>;
 }
+
+// ── 应用市场（GET /api/apps，U10 小程序瀑布流）──
+
+/** slim 列表行：与 AppOut(slim=True) 对齐；schema/bindings 恒空 */
+export interface MarketAppItem {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  cover_url: string;
+  author: string;
+  category: string;
+  output_kind: string;
+  submit_kind: string;
+  is_builtin: boolean;
+  is_nsfw: boolean;
+  is_public: boolean;
+  content_modes: string[];
+  usage_count: number;
+  sort: number;
+  use_case: string;
+  featured: boolean;
+  smoke_status: string;
+  smoke_cls: string;
+  smoke_error: string;
+  smoke_at: string | null;
+  fingerprint: string;
+  variant_count: number;
+  is_variant: boolean;
+}
+
+/** 详情行：含 params_schema，供后续运行器 */
+export interface MarketAppDetail extends MarketAppItem {
+  params_schema: Array<Record<string, unknown>>;
+  bindings: Record<string, unknown>;
+  required_nodes: string[];
+  has_guide: boolean;
+  guide_purpose: string | null;
+}
+

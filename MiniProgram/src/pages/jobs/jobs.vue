@@ -378,7 +378,7 @@ function goAgentRuns() {
       />
     </view>
 
-    <TabBar :selected="1" />
+    <TabBar :selected="2" />
   </view>
 </template>
 

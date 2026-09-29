@@ -640,7 +640,7 @@ function confirmSignOut() {
       </text>
     </view>
 
-    <TabBar :selected="3" />
+    <TabBar :selected="4" />
   </view>
 </template>
 

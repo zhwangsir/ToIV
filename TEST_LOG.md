@@ -1,3 +1,10 @@
+
+## 2026-09-29 10:14 CST — U10a MiniProgram 市场瀑布流
+
+- **范围**：`MiniProgram` 底栏新增「市场」；`listMarketApps`/`getMarketApp`；`sortAppsVerifiedFirst` + 双列瀑布；封面卡实测可用徽标；详情只读页（运行器留给 U10b）。
+- **验证**：`cd MiniProgram && npm test` → 27 files / 611 tests PASS（含 `tests/market.test.ts` 4）。未重启 `toiv-api`/`toiv-web`（小程序包不走 web 部署）。
+- **收尾旁路**：公开市场仍 184/184 PASS；untested runner ALL_DONE；Comfy :8195/:8196/:8197 + API :8090 健康。
+
 ## 2026-09-29 06:25 CST — 烟测 timeout_s 同时认 JSON body + 末两张超时卡长测
 
 - **目标**:两小时巡检；公开市场收尾（去重后 186 张）只剩 2 张 timeout；修运维脚本把 `timeout_s` 放 body 被 API 忽略的问题。
