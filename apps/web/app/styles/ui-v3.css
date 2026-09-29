@@ -1,0 +1,178 @@
+/* 新界面 v3「显影」基础层(2026-09-29 P1):仅在 html[data-ui="v3"] 生效,旧界面零影响。
+   把 v3 设计 token(Geist + 思源黑体、靛紫强调、分层阴影、圆角体系、暗房)映射到现有
+   全局变量名,让既有页面打开开关即换肤;后续阶段再逐页换 v3 布局与动效。
+   设计源:/workspace/redesign/out-v3/mockups/v3.css */
+html[data-ui="v3"] {
+  --font-sans: var(--font-geist), "Geist", var(--font-noto-sc), "Noto Sans SC", "PingFang SC", "HarmonyOS Sans SC", system-ui, sans-serif;
+  --font-display: var(--font-sans);
+  --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --bg-canvas: #F6F6F4;
+  --bg-surface-1: #FFFFFF;
+  --bg-surface-2: #F1F1EF;
+  --bg-surface-3: #ECECE9;
+  --border-subtle: rgba(17, 17, 19, 0.07);
+  --border-strong: rgba(17, 17, 19, 0.13);
+  --text-primary: #111113;
+  --text-secondary: #56565C;
+  --text-muted: #6E6E74;
+
+  --accent: #4B57F5;
+  --accent-hover: #5B66FF;
+  --accent-soft: rgba(75, 87, 245, 0.10);
+  --accent-halo: rgba(75, 87, 245, 0.35);
+  --text-on-accent: #FFFFFF;
+  --accent-glow: #4B57F5;
+  --accent-glow-soft: rgba(75, 87, 245, 0.10);
+  --accent-glow-deep: #7A5CFA;
+  --accent-gradient: linear-gradient(135deg, #5563FF 0%, #7A5CFA 100%);
+  --accent-glow-shadow: 0 10px 28px -10px rgba(75, 87, 245, 0.35);
+
+  --ok: #128A4E;
+  --warn: #B7700F;
+  --err: #D93A2B;
+  --ok-soft: rgba(18, 138, 78, 0.10);
+  --warn-soft: rgba(183, 112, 15, 0.10);
+  --err-soft: rgba(217, 58, 43, 0.08);
+
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(17, 17, 19, 0.06);
+  --glass-blur: blur(20px) saturate(1.6);
+
+  --radius-badge: 6px;
+  --radius-control: 10px;
+  --radius-panel: 16px;
+  --radius-pop: 14px;
+
+  --shadow-xs: 0 0 0 1px rgba(17, 17, 19, .05), 0 1px 2px rgba(17, 17, 19, .05);
+  --shadow-sm: var(--shadow-xs);
+  --shadow-md: 0 0 0 1px rgba(17, 17, 19, .05), 0 1px 2px rgba(17, 17, 19, .04), 0 4px 12px -2px rgba(17, 17, 19, .06);
+  --shadow-lg: 0 0 0 1px rgba(17, 17, 19, .06), 0 2px 4px rgba(17, 17, 19, .04), 0 12px 32px -8px rgba(17, 17, 19, .14);
+  --shadow-xl: 0 0 0 1px rgba(17, 17, 19, .06), 0 4px 8px rgba(17, 17, 19, .04), 0 32px 72px -16px rgba(17, 17, 19, .24);
+  --shadow-pop: var(--shadow-lg);
+  --shadow-lift: var(--shadow-lg);
+  --shadow-float: var(--shadow-xl);
+
+  --duration-fast: 160ms;
+  --duration-base: 240ms;
+  --duration-slow: 420ms;
+  --ease-standard: cubic-bezier(.22, 1, .36, 1);
+  --ease-emphasized: cubic-bezier(.32, .72, 0, 1);
+
+  --text-title: 20px;
+  --text-section: 16px;
+  --text-body: 13px;
+  --text-aux: 12px;
+  --text-label: 11px;
+  --text-display-sm: 24px;
+  --text-display-md: 32px;
+  --text-display-lg: 52px;
+  --leading-loose: 1.65;
+  --focus-ring: 2px solid var(--accent);
+}
+
+/* 暗房:亮基底主题的暗档,或暗基底主题(cinema/graphite)在 v3 下统一走暗房 */
+html[data-ui="v3"][data-mode="dark"],
+html[data-ui="v3"][data-theme="cinema"],
+html[data-ui="v3"][data-theme="graphite"] {
+  --bg-canvas: #09090B;
+  --bg-surface-1: #131316;
+  --bg-surface-2: #17171B;
+  --bg-surface-3: #1B1B20;
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --text-primary: #F4F4F5;
+  --text-secondary: #A6A6AE;
+  --text-muted: #8A8A92;
+
+  --accent: #7C86FF;
+  --accent-hover: #8C95FF;
+  --accent-soft: rgba(124, 134, 255, 0.14);
+  --accent-halo: rgba(124, 134, 255, 0.5);
+  --accent-glow: #7C86FF;
+  --accent-glow-soft: rgba(124, 134, 255, 0.14);
+  --accent-glow-deep: #A78BFA;
+  --accent-gradient: linear-gradient(135deg, #6E7BFF 0%, #9B6BFF 100%);
+  --accent-glow-shadow: 0 10px 28px -10px rgba(124, 134, 255, 0.5);
+
+  --ok: #3DD68C;
+  --warn: #F5B84B;
+  --err: #FF6B5B;
+  --ok-soft: rgba(61, 214, 140, 0.12);
+  --warn-soft: rgba(245, 184, 75, 0.12);
+  --err-soft: rgba(255, 107, 91, 0.10);
+
+  --glass-bg: rgba(22, 22, 26, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.08);
+
+  --shadow-xs: 0 0 0 1px rgba(255, 255, 255, .06), inset 0 1px 0 rgba(255, 255, 255, .04);
+  --shadow-sm: var(--shadow-xs);
+  --shadow-md: 0 0 0 1px rgba(255, 255, 255, .07), inset 0 1px 0 rgba(255, 255, 255, .05), 0 8px 24px -8px rgba(0, 0, 0, .6);
+  --shadow-lg: 0 0 0 1px rgba(255, 255, 255, .08), inset 0 1px 0 rgba(255, 255, 255, .06), 0 16px 40px -8px rgba(0, 0, 0, .7);
+  --shadow-xl: 0 0 0 1px rgba(255, 255, 255, .09), inset 0 1px 0 rgba(255, 255, 255, .07), 0 40px 90px -20px rgba(0, 0, 0, .85);
+  color-scheme: dark;
+}
+
+/* 自定义强调色仍优先(用户显式选择) */
+html[data-ui="v3"][data-accent-custom] {
+  --accent: var(--accent-user);
+  --accent-glow: var(--accent-user);
+  --text-on-accent: var(--accent-user-on);
+}
+
+html[data-ui="v3"] body {
+  font-family: var(--font-sans);
+  letter-spacing: 0.005em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv11", "ss01";
+}
+html[data-ui="v3"] :lang(zh) p,
+html[data-ui="v3"] p { line-height: 1.65; }
+html[data-ui="v3"] h1, html[data-ui="v3"] h2, html[data-ui="v3"] h3 {
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  font-feature-settings: "palt";
+}
+html[data-ui="v3"] code, html[data-ui="v3"] kbd, html[data-ui="v3"] .mono {
+  font-feature-settings: "tnum", "zero";
+}
+
+/* 背景氛围:浅色顶部微光;暗房冷暖双光源 */
+html[data-ui="v3"] body {
+  background:
+    radial-gradient(1200px 500px at 20% -10%, rgba(85, 99, 255, .06), transparent 60%),
+    radial-gradient(900px 400px at 100% 0%, rgba(255, 170, 120, .05), transparent 60%),
+    var(--bg-canvas);
+  background-attachment: fixed;
+}
+html[data-ui="v3"][data-mode="dark"] body,
+html[data-ui="v3"][data-theme="cinema"] body,
+html[data-ui="v3"][data-theme="graphite"] body {
+  background:
+    radial-gradient(1100px 520px at 15% -12%, rgba(110, 123, 255, .16), transparent 62%),
+    radial-gradient(900px 480px at 105% 5%, rgba(255, 140, 90, .08), transparent 60%),
+    radial-gradient(1200px 600px at 50% 120%, rgba(155, 107, 255, .07), transparent 60%),
+    var(--bg-canvas);
+  background-attachment: fixed;
+}
+html[data-ui="v3"][data-mode="dark"] body::before,
+html[data-ui="v3"][data-theme="cinema"] body::before,
+html[data-ui="v3"][data-theme="graphite"] body::before { opacity: 0.045; }
+
+/* 焦点光环 + 选中色 */
+html[data-ui="v3"] :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+html[data-ui="v3"] ::selection { background: var(--accent-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-ui="v3"] { --duration-fast: 0ms; --duration-base: 0ms; --duration-slow: 0ms; }
+}
+
+/* 设置里的「新界面(预览)」开关行:两套界面下都可见 */
+.theme-ui-toggle {
+  display: flex;
+  align-items: center;
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}

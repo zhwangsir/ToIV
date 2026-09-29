@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Fraunces } from "next/font/google";
+import { Inter, JetBrains_Mono, Fraunces, Geist, Geist_Mono, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import "./styles/glass.css";
 import "./styles/nav-account.css";
@@ -15,6 +15,8 @@ import "./styles/effects.css";
 /* 原生画布(2026-09-16 去 iframe 化):React Flow 节点图样式 */
 import "./styles/canvas-flow.css";
 import "./styles/details.css";
+/* 新界面 v3 基础层:仅 html[data-ui="v3"] 生效(新旧界面开关,2026-09-29) */
+import "./styles/ui-v3.css";
 import { ToastProvider } from "@/components/ui/Toast";
 import { ReleaseWatch } from "@/components/ReleaseWatch";
 import { GlobalProgress } from "@/components/ui/GlobalProgress";
@@ -41,6 +43,16 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
+/* v3 字体:Geist(拉丁/数字)+ 思源黑体(中文)+ Geist Mono;均 OFL,仅新界面引用 */
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
+const notoSansSC = Noto_Sans_SC({
+  weight: ["400", "500", "600"],
+  variable: "--font-noto-sc",
+  display: "swap",
+  preload: false,
+});
+
 export const metadata: Metadata = {
   title: "ToIV — AI 创作平台",
   description: "Film Atelier · AI 驱动的影视创作工作台",
@@ -63,7 +75,7 @@ export const viewport: Viewport = {
    派生由 globals.css [data-accent-custom] 块 color-mix 完成)。
    主题应用后把 <meta name="theme-color"> 同步为 --bg-canvas 计算值(内联脚本可能早于
    样式表解析,故在 DOMContentLoaded/load 再各补一次,确保取到真实计算值)。 */
-const themeInitScript = `(function(){try{var d=document.documentElement;var t=localStorage.getItem("toiv_theme")||"cinema";if(t==="cinema"||t==="paper"||t==="graphite"){d.dataset.theme=t;}else if(t!=="minimal"){d.dataset.theme="cinema";}var m=localStorage.getItem("toiv_mode");if(m==="dark"){d.dataset.mode="dark";}var raw=localStorage.getItem("toiv_theme_custom");if(raw){try{var o=JSON.parse(raw);if(o){if(typeof o.accent==="string"&&/^#[0-9a-fA-F]{6}$/.test(o.accent)&&!localStorage.getItem("toiv_accent_custom")){localStorage.setItem("toiv_accent_custom",o.accent);}if(o.pureBlack===true){d.dataset.pureBlack="1";localStorage.setItem("toiv_theme_custom",JSON.stringify({pureBlack:true}));}else{localStorage.removeItem("toiv_theme_custom");}}}catch(e2){}}var a=localStorage.getItem("toiv_accent_custom");if(a){if(/^#[0-9a-fA-F]{6}$/.test(a)){d.dataset.accentCustom="1";d.style.setProperty("--accent-user",a);var r=parseInt(a.substr(1,2),16),g=parseInt(a.substr(3,2),16),b=parseInt(a.substr(5,2),16);var l=(0.2126*r+0.7152*g+0.0722*b)/255;d.style.setProperty("--accent-user-on",l>0.55?"#17181A":"#FFFFFF");}else{localStorage.removeItem("toiv_accent_custom");}}var s=function(){var v=getComputedStyle(document.documentElement).getPropertyValue("--bg-canvas").trim();if(!v)return;var mt=document.querySelector('meta[name="theme-color"]');if(!mt){mt=document.createElement("meta");mt.name="theme-color";document.head.appendChild(mt);}if(mt.content!==v){mt.content=v;}};s();document.addEventListener("DOMContentLoaded",s);window.addEventListener("load",s);}catch(e){}})();`;
+const themeInitScript = `(function(){try{var d=document.documentElement;try{var qu=new URLSearchParams(location.search).get("ui");if(qu==="v3"){localStorage.setItem("toiv_ui","v3");}else if(qu==="classic"){localStorage.removeItem("toiv_ui");}}catch(e3){}if(localStorage.getItem("toiv_ui")==="v3"){d.dataset.ui="v3";}var t=localStorage.getItem("toiv_theme")||"cinema";if(t==="cinema"||t==="paper"||t==="graphite"){d.dataset.theme=t;}else if(t!=="minimal"){d.dataset.theme="cinema";}var m=localStorage.getItem("toiv_mode");if(m==="dark"){d.dataset.mode="dark";}var raw=localStorage.getItem("toiv_theme_custom");if(raw){try{var o=JSON.parse(raw);if(o){if(typeof o.accent==="string"&&/^#[0-9a-fA-F]{6}$/.test(o.accent)&&!localStorage.getItem("toiv_accent_custom")){localStorage.setItem("toiv_accent_custom",o.accent);}if(o.pureBlack===true){d.dataset.pureBlack="1";localStorage.setItem("toiv_theme_custom",JSON.stringify({pureBlack:true}));}else{localStorage.removeItem("toiv_theme_custom");}}}catch(e2){}}var a=localStorage.getItem("toiv_accent_custom");if(a){if(/^#[0-9a-fA-F]{6}$/.test(a)){d.dataset.accentCustom="1";d.style.setProperty("--accent-user",a);var r=parseInt(a.substr(1,2),16),g=parseInt(a.substr(3,2),16),b=parseInt(a.substr(5,2),16);var l=(0.2126*r+0.7152*g+0.0722*b)/255;d.style.setProperty("--accent-user-on",l>0.55?"#17181A":"#FFFFFF");}else{localStorage.removeItem("toiv_accent_custom");}}var s=function(){var v=getComputedStyle(document.documentElement).getPropertyValue("--bg-canvas").trim();if(!v)return;var mt=document.querySelector('meta[name="theme-color"]');if(!mt){mt=document.createElement("meta");mt.name="theme-color";document.head.appendChild(mt);}if(mt.content!==v){mt.content=v;}};s();document.addEventListener("DOMContentLoaded",s);window.addEventListener("load",s);}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -73,7 +85,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`${inter.variable} ${jetbrainsMono.variable} ${fraunces.variable}`}
+      className={`${inter.variable} ${jetbrainsMono.variable} ${fraunces.variable} ${geist.variable} ${geistMono.variable} ${notoSansSC.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />

@@ -29,6 +29,7 @@ import {
   type ThemeCustom,
   type ThemePreset,
 } from "@/lib/theme";
+import { applyUiVersion, readUiVersion, UI_CHANGED_EVENT, type UiVersion } from "@/lib/uiVersion";
 
 /** 快捷强调色板(预设 accent 定义本身,非装饰色,豁免硬编码纪律;
    第一枚 = cinema 荧光绿,最后一枚 = minimal 墨色) */
@@ -49,6 +50,15 @@ export function ThemePicker() {
   const [mode, setMode] = useState<Mode>("light");
   const [custom, setCustom] = useState<ThemeCustom>({});
   const [accent, setAccent] = useState<string | null>(null);
+  const [ui, setUi] = useState<UiVersion>("classic");
+
+  // 新旧界面开关(v3 预览):挂载后读真实值;多实例经事件同步
+  useEffect(() => {
+    setUi(readUiVersion());
+    const onUi = (e: Event) => setUi((e as CustomEvent<UiVersion>).detail);
+    window.addEventListener(UI_CHANGED_EVENT, onUi);
+    return () => window.removeEventListener(UI_CHANGED_EVENT, onUi);
+  }, []);
 
   useEffect(() => {
     setTheme(getCurrentTheme());
@@ -98,6 +108,17 @@ export function ThemePicker() {
 
   return (
     <div className="theme-picker">
+      <div className="theme-ui-toggle">
+        <Switch
+          checked={ui === "v3"}
+          onChange={(on) => {
+            const next: UiVersion = on ? "v3" : "classic";
+            setUi(next);
+            applyUiVersion(next);
+          }}
+          label="新界面(预览)"
+        />
+      </div>
       <div className="theme-picker-label">主题</div>
       <div className="theme-preset-grid" role="radiogroup" aria-label="预设主题">
         {THEME_PRESETS.map((p) => {
