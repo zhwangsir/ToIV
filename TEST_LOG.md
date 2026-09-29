@@ -1801,3 +1801,13 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 - **动作**: MateBook 本地 `npm run build` → `deploy/deploy.sh --web-only core-ts`（LAN `core`/`192.168.71.47` 不可达，走 Tailscale）。
 - **验证**: BUILD_ID `20260929-163659-40484b8-dirty`；`ui-v3.css` / ThemePicker「新界面(预览)」在位；toiv-web 200；toiv-api 未重启且 `/api/health` ok；closeout-summary 仍 `public 184 / pass 184`；Comfy :8195/:8196/:8197 200。
 - **未做**: GitHub 443 仍超时，未补推；`ca77eef`（smoke `timeout_s` body）core API 仍未加载，留待下次无烟测时的 API 重启批次。
+
+## 2026-09-30 02:18 CST — 巡检：ca77eef API 部署 + GitHub 补推
+
+- **背景**: 公开市场收尾维持 184 PASS / 0 未测 / 0 失败 / 0 超时；untested runner ALL_DONE；UX 路线图 U1–U10b / O1–O3 均已 ✅。上轮留下的 API 修复 `ca77eef`（smoke `timeout_s` 支持 JSON body）尚未加载到 core。
+- **动作**:
+  1. MateBook → `core-ts`（Tailscale `100.77.80.100`）健康检查：API :8090 ok；Comfy :8195/:8196/:8197 200；runner 未在跑且日志 `ALL_DONE 1088`，无需拉起。
+  2. 本地 `pytest tests/test_app_smoke.py -k timeout` 2 passed；`deploy/deploy.sh --skip-web core-ts` 部署并重启 toiv-api（烟测空闲窗口）。
+  3. 补推 GitHub：`0ead346..010642e`（含 v3 预览开关与 TEST_LOG）。
+- **验证**: core `app_smoke_admin.py` 已含 `SmokeOneRequest` / `body.timeout_s`；`/api/health` ok；closeout-summary `public 184 / pass 184`；Comfy 三端口 200。
+- **优化线**: 路线图无未勾选项；本周期推进积压 API 修复上线，未开新 UI 项（v3 全量 redesign 仍待用户拍板）。
