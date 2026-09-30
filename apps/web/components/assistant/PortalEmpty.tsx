@@ -2,7 +2,7 @@
 
 /**
  * 助手门户空态(2026-09-30 计划 d 意图首页):
- * 在线 = 短问候 + 意图入口(图标+短名) + portal composer + 最近作品;
+ * 在线 = 短问候 + 意图入口(图标+短名) + 一图上传 + portal composer + 最近作品;
  * 高级参数不在首页;SKILL_ENTRIES 仅 Composer「@」面板;
  * 离线仍保留 alert + OFFLINE_ENTRIES 工作台 chips。
  */
@@ -115,14 +115,26 @@ export interface PortalEmptyProps {
   goView: (view: string) => void;
   /** 门户 C 位输入框槽位(主壳 renderComposer(true) 注入,与底部输入框同源) */
   composer: ReactNode;
+  /** 计划 d:一图上传(打开图片文件选择) */
+  onPickImage?: () => void;
+  /** 已挂图片文件名(短展示) */
+  portalImageName?: string | null;
+  /** 清除已挂图片 */
+  onClearPortalImage?: () => void;
+  /** 上传中 */
+  portalImageBusy?: boolean;
 }
 
-/* 计划 d:短问候 + 意图入口 + 输入 + 最近作品;少字,无说明段落 */
+/* 计划 d:短问候 + 意图 + 加图 + 输入 + 最近作品;少字 */
 export function PortalEmpty({
   llmOffline,
   greeting,
   goView,
   composer,
+  onPickImage,
+  portalImageName,
+  onClearPortalImage,
+  portalImageBusy,
 }: PortalEmptyProps) {
   return (
     <div className="av-empty av-portal av-portal--console av-portal--cinematic av-portal--intent">
@@ -168,6 +180,32 @@ export function PortalEmpty({
                 <span>{e.label}</span>
               </button>
             ))}
+          </div>
+          <div className="av-intent-upload av-portal-in">
+            {portalImageName ? (
+              <button
+                type="button"
+                className="av-intent-upload-chip"
+                title="移除"
+                onClick={onClearPortalImage}
+                disabled={portalImageBusy}
+              >
+                <Icon name="image" size={14} strokeWidth={1.8} />
+                <span className="av-intent-upload-name">{portalImageName}</span>
+                <Icon name="close" size={12} strokeWidth={1.8} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="av-intent-upload-btn"
+                title="加图"
+                onClick={onPickImage}
+                disabled={portalImageBusy || !onPickImage}
+              >
+                <Icon name={portalImageBusy ? "loading" : "image"} size={14} strokeWidth={1.8} />
+                <span>{portalImageBusy ? "上传中" : "加图"}</span>
+              </button>
+            )}
           </div>
           <div className="av-portal-composer av-portal-in av-portal-in--late">{composer}</div>
           <div className="av-intent-works av-portal-in av-portal-in--late">

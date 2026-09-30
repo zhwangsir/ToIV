@@ -831,7 +831,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
           ) : (
             <section className="rh-history" aria-label="我的生成">
               {results.length === 0 && history.length === 0 ? (
-                <Empty size="inline" title="还没有生成记录——点「打开应用」填参运行" />
+                <Empty size="inline" title="暂无" />
               ) : (
                 <div className="apps-results rh-history-grid">
                   {results.map((p) => (
@@ -872,7 +872,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
           <aside className="rh-params">
             <div className="apps-runner-form rh-params-scroll">
               {groupAppParams(app.params_schema).map((g) => (
-                <RhParamSection key={g.key} title={g.label}>
+                <RhParamSection key={g.key} title={g.label} defaultOpen={g.key !== "gen"}>
                   {g.params.map((p) =>
                     p.type === "number" ? (
                       <RhNumberField
@@ -920,7 +920,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
               )}
               {running && (
                 <p className="apps-run-status" role="status">
-                  {progress != null ? `生成中 ${progress}%` : "已提交,排队/生成中…"}
+                  {progress != null ? `生成中 ${progress}%` : "排队中"}
                 </p>
               )}
             </div>
@@ -968,7 +968,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
             ) : (
               <section className="rh-history" aria-label="我的生成">
                 {results.length === 0 && history.length === 0 ? (
-                  <Empty size="inline" title="还没有生成记录——填好参数点「立即运行」" />
+                  <Empty size="inline" title="暂无" />
                 ) : (
                   <div className="apps-results rh-history-grid">
                     {results.map((p) => (
@@ -1199,15 +1199,17 @@ function ResultTile({ path: p, app }: { path: string; app: AppItem }) {
   );
 }
 
-/** 参数折叠分区:主题 accent 分区标题 + chevron,默认展开。 */
+/** 参数折叠分区:主题 accent 分区标题 + chevron;素材/提示词默认开,高级默认关。 */
 function RhParamSection({
   title,
   children,
+  defaultOpen = true,
 }: {
   title: string;
   children: React.ReactNode;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <section className={`rh-section${open ? " is-open" : ""}`}>
       <button

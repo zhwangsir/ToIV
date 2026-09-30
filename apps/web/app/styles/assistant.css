@@ -212,6 +212,49 @@
   display: flex;
   justify-content: center;
 }
+
+/* 计划 d:门户一图上传 — 图标+短名 */
+.av-intent-upload {
+  display: flex;
+  justify-content: center;
+  margin: 0 auto var(--space-3);
+}
+.av-intent-upload-btn,
+.av-intent-upload-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-full, 999px);
+  border: 1px dashed var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-aux);
+  font-family: var(--font-sans);
+  cursor: pointer;
+}
+.av-intent-upload-btn:hover:not(:disabled),
+.av-intent-upload-chip:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.av-intent-upload-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.av-intent-upload-chip {
+  border-style: solid;
+  background: var(--bg-surface-1);
+  color: var(--text-primary);
+  max-width: 240px;
+}
+.av-intent-upload-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
 html[data-ui="v3"] .av-intent-chip {
   border-radius: 999px;
 }

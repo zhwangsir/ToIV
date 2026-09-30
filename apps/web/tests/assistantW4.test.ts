@@ -177,6 +177,7 @@ test("Studio Console:意图首页(问候+意图+composer+最近),旧宫格退役
   const portalSrc = readSrc("components/assistant/PortalEmpty.tsx");
   assert.ok(portalSrc.includes("av-portal--cinematic"), "缺 cinematic 空态变体");
   assert.ok(portalSrc.includes("av-intent-row"), "缺意图入口");
+  assert.ok(portalSrc.includes("av-intent-upload"), "计划 d 缺一图上传");
   assert.ok(portalSrc.includes("RecentWorksRail"), "计划 d 应挂 RecentWorksRail");
   assert.ok(!portalSrc.includes("av-scene-grid"), "门户不应渲染场景宫格");
   const allSrc = [

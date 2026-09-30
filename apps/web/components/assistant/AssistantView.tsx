@@ -774,6 +774,7 @@ export function AssistantView(props?: AssistantViewProps) {
   const lastDocIdsRef = useRef<string[]>([]); // 重试时复用上轮挂载
   const lastSessionIdRef = useRef<string | null>(null); // 本轮响应头带回的会话 id
   const docFileRef = useRef<HTMLInputElement>(null);
+  const imageFileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // popup 会话抽屉根节点(点外部关闭判定用)
@@ -1090,7 +1091,7 @@ export function AssistantView(props?: AssistantViewProps) {
       e.target.value = ""; // 允许重复选同一文件
       if (!file) return;
       if (file.size > 50 * 1024 * 1024) {
-        toast.error("文件超过 50MB 上限");
+        toast.error("超过 50MB");
         return;
       }
       setDocUploading(true);
@@ -1101,19 +1102,23 @@ export function AssistantView(props?: AssistantViewProps) {
         setAttachedDocs((prev) =>
           prev.some((d) => d.id === doc.id) ? prev : [...prev, doc],
         );
-        toast.success(
-          doc.status === "no_embed"
-            ? "文档已保存,但向量服务不可用,暂无法检索"
-            : "文档已上传并挂载",
-        );
+        toast.success(doc.status === "no_embed" ? "已保存" : "已挂载");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "文档上传失败");
+        toast.error(err instanceof Error ? err.message : "上传失败");
       } finally {
         setDocUploading(false);
       }
     },
     [toast],
   );
+
+  const onPickPortalImage = useCallback(() => {
+    imageFileRef.current?.click();
+  }, []);
+
+  const onClearPortalImage = useCallback(() => {
+    setAttachedDocs((prev) => prev.filter((d) => !["jpg","jpeg","png","webp","gif","bmp","tiff","tif"].includes(d.kind.toLowerCase())));
+  }, []);
 
   // 由确认弹窗触发:删除中阻止关闭;失败保留弹窗可重试/取消,成功即关闭
   const onDeleteDoc = useCallback(
@@ -1768,6 +1773,14 @@ export function AssistantView(props?: AssistantViewProps) {
             greeting={greeting}
             goView={goView}
             composer={renderComposer(true)}
+            onPickImage={onPickPortalImage}
+            portalImageName={
+              attachedDocs.find((d) =>
+                ["jpg","jpeg","png","webp","gif","bmp","tiff","tif"].includes(d.kind.toLowerCase()),
+              )?.filename ?? null
+            }
+            onClearPortalImage={onClearPortalImage}
+            portalImageBusy={docUploading}
           />
           )
         ) : (
@@ -1916,6 +1929,15 @@ export function AssistantView(props?: AssistantViewProps) {
         ref={docFileRef}
         type="file"
         accept={DOC_ACCEPT}
+        className="doc-file-input"
+        onChange={onPickDocFile}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+      <input
+        ref={imageFileRef}
+        type="file"
+        accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif"
         className="doc-file-input"
         onChange={onPickDocFile}
         aria-hidden="true"

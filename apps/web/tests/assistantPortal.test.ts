@@ -64,6 +64,8 @@ test("P0.2 SKILL_ENTRIES:生成类带 prompt;作品库 navigate;非门户宫格"
   assert.ok(src.includes("av-portal-in"), "缺入场类");
   assert.ok(src.includes("RecentWorksRail"), "计划 d 应挂 RecentWorksRail");
   assert.ok(src.includes("av-intent-row"), "缺意图入口");
+  assert.ok(src.includes("av-intent-upload"), "计划 d 缺一图上传");
+  assert.ok(src.includes("加图"), "缺加图短文案");
   assert.ok(!src.includes("av-scene-grid"), "门户不应再渲染 av-scene-grid");
   assert.ok(!src.includes("av-scene-card"), "门户不应再渲染 av-scene-card");
   assert.ok(!src.includes("一期内容 = 工作台快捷入口"), "陈旧工作台快捷入口注释未清");

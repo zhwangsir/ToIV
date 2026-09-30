@@ -1350,7 +1350,7 @@ export interface AppParamGroup {
 
 /**
  * 详情页左列参数分组(schema 无 group 字段,按类型启发式归三档,固定顺序):
- * 素材上传(images/audio/video)→ 提示词(text/textarea)→ 生成参数(number/select/switch);
+ * 素材(images/audio/video)→ 提示词(text/textarea)→ 高级(number/select/switch);
  * 空组不返回(视图据此不渲染空分区)。
  */
 export function groupAppParams(schema: AppParam[]): AppParamGroup[] {
@@ -1363,9 +1363,9 @@ export function groupAppParams(schema: AppParam[]): AppParamGroup[] {
     else gen.push(p);
   }
   const groups: AppParamGroup[] = [];
-  if (media.length) groups.push({ key: "media", label: "素材上传", params: media });
+  if (media.length) groups.push({ key: "media", label: "素材", params: media });
   if (prompt.length) groups.push({ key: "prompt", label: "提示词", params: prompt });
-  if (gen.length) groups.push({ key: "gen", label: "生成参数", params: gen });
+  if (gen.length) groups.push({ key: "gen", label: "高级", params: gen });
   return groups;
 }
 

@@ -157,6 +157,7 @@ test("RH 详情参数列:折叠分区(荧光标题+chevron)+ 数值 stepper + �
   assert.ok(src.includes("RhParamSection"), "缺折叠分区组件");
   assert.ok(src.includes("aria-expanded"), "分区头应有展开语义");
   assert.ok(src.includes('name="chevron-down"'), "分区头应有 chevron");
+  assert.ok(src.includes('defaultOpen={g.key !== "gen"}'), "高级参数应默认折叠");
   assert.match(css, /\.rh-section-title \{[\s\S]*?color: var\(--rh-lime\)/, "分区标题应荧光绿");
   // 数值 −/+ stepper(其余类型仍 ParamField)
   assert.ok(src.includes("RhNumberField"), "缺数值 stepper 组件");
@@ -262,7 +263,7 @@ test("appAuthorOf/appAuthorInitial:author 空兜底「ToIV」,首字符大写", 
   assert.equal(appAuthorInitial({ author: "某作者" }), "某");
 });
 
-test("groupAppParams:素材/提示词/生成参数三档固定序,空组剔除", () => {
+test("groupAppParams:素材/提示词/高级三档固定序,空组剔除", () => {
   const P = (key: string, type: AppParam["type"]): AppParam => ({ key, label: key, type, default: null });
   const groups = groupAppParams([
     P("steps", "number"),
@@ -274,7 +275,7 @@ test("groupAppParams:素材/提示词/生成参数三档固定序,空组剔除",
   assert.deepEqual(
     groups.map((g) => g.key),
     ["media", "prompt", "gen"],
-    "分组顺序应为 素材上传→提示词→生成参数",
+    "分组顺序应为 素材→提示词→高级",
   );
   assert.deepEqual(groups[0].params.map((p) => p.key), ["image", "audio"]);
   assert.deepEqual(groups[1].params.map((p) => p.key), ["prompt"]);
