@@ -213,7 +213,7 @@ test("page.tsx 注册 market 视图:importer/VALID_VIEWS/VIEW_META/渲染分支"
     "viewImporters 缺 market 懒加载",
   );
   assert.match(src, /\| "market"/, "View 联合类型缺 market");
-  assert.ok(src.includes('market:     { label: "应用市场" }'), "VIEW_META 缺中文名");
+  assert.ok(src.includes('market:     { label: "工具箱" }'), "VIEW_META 缺中文名");
   assert.ok(src.includes('{view === "market" && <MarketView />}'), "缺渲染分支");
 });
 
@@ -228,22 +228,31 @@ test("page.tsx 旧 key 兼容:skills/apps 经 LEGACY_VIEW_REDIRECTS 跳 market(�
   assert.ok(!src.includes('key: "apps"'), "导航不应再含 apps 独立入口");
 });
 
-test("page.tsx 导航入口:左栏与底部主导航各一条应用市场入口(store 图标),抽屉去重", () => {
+test("page.tsx 导航入口:做短剧主入口 + 工具箱(原市场)", () => {
   const src = readSrc("app/page.tsx");
-  // 2026-09-12 引擎工作台:market 改名「应用市场」,进左栏次位 + 底部主导航首位;
-  // 「更多」抽屉不再重复(双重入口去重)
+  // 2026-10-01:studio=做短剧主入口;market 改「工具箱」;图片/视频/音频下沉更多
   const railBlock = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
   const navBlock = src.slice(src.indexOf("const BOTTOM_NAV_ITEMS"), src.indexOf("const BOTTOM_NAV_MORE_ITEMS"));
   const moreBlock = src.slice(src.indexOf("const BOTTOM_NAV_MORE_ITEMS"));
   assert.ok(
-    railBlock.includes('{ key: "market", label: "应用市场", icon: "store" }'),
-    "左栏缺应用市场入口",
+    railBlock.includes('{ key: "studio", label: "做短剧", icon: "clapperboard" }'),
+    "左栏缺做短剧主入口",
   );
   assert.ok(
-    navBlock.includes('{ key: "market", label: "应用市场", icon: "store" }'),
-    "底部主导航缺应用市场入口",
+    railBlock.includes('{ key: "market", label: "工具箱", icon: "store" }'),
+    "左栏缺工具箱入口",
   );
-  assert.ok(!moreBlock.includes('key: "market"'), "应用市场已进主入口,「更多」抽屉不应重复");
+  assert.ok(
+    navBlock.includes('{ key: "studio", label: "做短剧", icon: "clapperboard", isCta: true }'),
+    "底部 CTA 应为做短剧",
+  );
+  assert.ok(
+    navBlock.includes('{ key: "market", label: "工具箱", icon: "store" }'),
+    "底部主导航缺工具箱",
+  );
+  assert.ok(!moreBlock.includes('key: "market"'), "工具箱已进主入口,「更多」抽屉不应重复");
+  assert.ok(moreBlock.includes('key: "image"'), "图片应在更多/工具箱二级");
+  assert.ok(moreBlock.includes('key: "video"'), "视频应在更多/工具箱二级");
 });
 
 test("page.tsx 导航去重:audio 下沉「更多」抽屉,底部主导航不再承载(2026-09-12)", () => {
@@ -306,19 +315,17 @@ test("W1:ResourcesView 支持 ?tab= 初始直达(白名单校验)", () => {
   assert.ok(src.includes('searchParams.get("tab")'), "应解析 tab 参数");
 });
 
-test("Studio Console v1:SideRail 左栏注册(8 高频项)+ ⌘K 面板挂载", () => {
+test("Studio Console v1:SideRail 左栏注册(做短剧主入口)+ ⌘K 面板挂载", () => {
   const src = readSrc("app/page.tsx");
-  // 左栏组件与数据源
   assert.ok(src.includes('import { SideRail'), "缺 SideRail 引入");
   assert.ok(src.includes("RAIL_ITEMS"), "缺 RAIL_ITEMS");
   const railBlock = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
-  for (const key of ['"home"', '"image"', '"video"', '"audio"', '"studio"', '"library"', '"market"', '"resources"']) {
+  for (const key of ['"studio"', '"home"', '"library"', '"market"']) {
     assert.ok(railBlock.includes(`key: ${key}`), `左栏缺 ${key}`);
   }
-  // ⌘K 命令面板
+  assert.ok(!railBlock.includes('key: "image"'), "图片应下沉工具箱二级");
   assert.ok(src.includes("CommandPalette"), "缺 CommandPalette");
   assert.ok(src.includes('e.key.toLowerCase() === "k"'), "缺 ⌘K 快捷键监听");
-  // 旧灵动岛退役
   assert.ok(!src.includes("CornerNav"), "CornerNav 应退役");
 });
 
@@ -355,16 +362,19 @@ test("W2:默认落地为对话首页(fusion 退为场景入口)", () => {
   assert.ok(src.includes('resolveView(raw) ?? "home"'), "默认视图应为 home");
   assert.ok(src.includes('if (raw === "assistant") return "home"'), "?view=assistant 应落 home");
   assert.ok(src.includes('router.replace("/?view=home")'), "assistant 旧链接 URL 应规整为 home");
-  // 底部 CTA 由 fusion 改为 home;融合下沉抽屉
+  // 2026-10-01:底部 CTA=做短剧;智能体仍在主栏;融合在更多
   const navBlock = src.slice(src.indexOf("BOTTOM_NAV_ITEMS"), src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
-  assert.ok(navBlock.includes('{ key: "home", label: "智能体", icon: "bot", isCta: true }'), "CTA 应为智能体");
+  assert.ok(navBlock.includes('{ key: "studio", label: "做短剧", icon: "clapperboard", isCta: true }'), "CTA 应为做短剧");
   const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
   assert.ok(moreBlock.includes('key: "fusion"'), "融合应在「更多」抽屉");
-  // Studio Console v1:左栏首项即对话(home),离开首页后永远有回程入口
   const railBlock = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
   assert.ok(
+    railBlock.includes('{ key: "studio", label: "做短剧", icon: "clapperboard" }'),
+    "左栏首项应为做短剧",
+  );
+  assert.ok(
     railBlock.includes('{ key: "home", label: "智能体", icon: "bot" }'),
-    "左栏首项缺「智能体」入口",
+    "左栏缺「智能体」入口",
   );
   assert.ok(
     !railBlock.includes('key: "agent-runs"'),
@@ -454,17 +464,20 @@ test("page.tsx:image/video 改挂 EngineStudioView 引擎工作台,KindCreateVie
   );
   // 音频维持原状
   assert.ok(src.includes('{view === "audio" && <AudioView />}'), "audio 不应被这次改动波及");
-  // 导航改名:VIEW_META 与左栏同步「图片生成/视频生成/应用市场」
+  // 2026-10-01:VIEW_META 引擎名保留;左栏精简为做短剧/智能体/作品/工具箱
   assert.ok(src.includes('image:     { label: "图片生成" }'), "VIEW_META image 应为图片生成");
   assert.ok(src.includes('video:     { label: "视频生成" }'), "VIEW_META video 应为视频生成");
+  assert.ok(src.includes('studio:    { label: "做短剧" }'), "VIEW_META studio 应为做短剧");
   const railBlock = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
-  const railOrder = ["home", "market", "image", "video", "audio", "studio", "library", "resources"];
+  const railOrder = ["studio", "home", "library", "market"];
   let last = -1;
   for (const key of railOrder) {
     const i = railBlock.indexOf(`key: "${key}"`);
     assert.ok(i > last, `左栏顺序应为 ${railOrder.join("/")},${key} 位置异常`);
     last = i;
   }
+  assert.ok(!railBlock.includes('key: "image"'), "图片应已下沉,不在左栏主入口");
+  assert.ok(!railBlock.includes('key: "video"'), "视频应已下沉,不在左栏主入口");
 });
 
 test("AppMarketView 创作页过滤:outputKind + featuredIds + runnerBackLabel(源码)", () => {

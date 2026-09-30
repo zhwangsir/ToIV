@@ -23,10 +23,11 @@ import { AssemblyStage } from "./stages/AssemblyStage";
 import "@/app/styles/studio.css";
 
 const STAGES = [
+  // 2026-10-01:短剧工作流骨架(接现有 stage 组件;视频/配音仍在分镜与合成内)
   { key: "script", label: "剧本", icon: "create" },
-  { key: "cast", label: "角色", icon: "users" },
+  { key: "cast", label: "资产", icon: "users" },
   { key: "storyboard", label: "分镜", icon: "film" },
-  { key: "assembly", label: "合成", icon: "playing" },
+  { key: "assembly", label: "成片", icon: "playing" },
 ] as const;
 
 type StageKey = (typeof STAGES)[number]["key"];
@@ -56,8 +57,8 @@ const PROJECT_PROGRESS_STEP: Record<string, number> = {
 };
 
 /**
- * Studio 创作工作室(替代旧 短剧/漫剧 双模块)。
- * 四阶段流水线:剧本 → 角色 → 分镜(分镜级 视频/图像运镜 混合)→ 合成。
+ * Studio 做短剧(替代旧 短剧/漫剧 双模块)。
+ * 短剧工作流骨架:剧本 → 资产(角色/场景) → 分镜(+视频/配音) → 成片。
  */
 export function StudioView({
   onBack,
@@ -128,7 +129,7 @@ export function StudioView({
     return (
       <div className="studio-home view-shell">
         <PageHeader
-          title="创作工作室"
+          title="做短剧"
           desc="剧本 → 角色 → 分镜混合生成 → 合成,四步完成一部短剧"
           icon="clapperboard"
           onBack={onBack}

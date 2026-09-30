@@ -68,7 +68,7 @@ test("CommandPalette:open 渲染输入框+页面条目;admin 项按权限门控"
   );
   assert.ok(open.includes("cmdk-input"), "缺输入框");
   assert.ok(open.includes('role="dialog"'), "缺 dialog 语义");
-  assert.ok(open.includes("创作工作室"), "缺工作室条目");
+  assert.ok(open.includes("做短剧"), "缺做短剧条目");
   assert.ok(open.includes("观测"), "admin 应看到观测");
   assert.ok(open.includes("新对话"), "缺新对话动作");
 

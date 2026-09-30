@@ -246,12 +246,12 @@ const VIEW_META: Record<View, { label: string }> = {
   animatic:  { label: "动态分镜" },
   avatartalk: { label: "数字人" },
   canvas:    { label: "画布" },
-  studio:    { label: "创作" },
+  studio:    { label: "做短剧" },
   dub:       { label: "译制" },
   library:    { label: "作品库" },
   entities:   { label: "主体库" },
   resources:  { label: "资源" },
-  market:     { label: "应用市场" },
+  market:     { label: "工具箱" },
   settings:   { label: "设置" },
 };
 
@@ -259,45 +259,38 @@ const VIEW_META: Record<View, { label: string }> = {
  *  融合/画布/主体库/译制/数字人/编辑器等经 ⌘K 命令面板或页面内入口到达。
  *  窄屏由底部导航承载(BOTTOM_NAV_ITEMS + 「更多」抽屉)。
  *  2026-09-12 引擎工作台:应用市场升至次位,图片/视频改名图片生成/视频生成(纯引擎)。
- *  2026-09-23:用户锁定「对话就是智能体」——左栏唯一入口「智能体」= home 对话面;
- *  运行台 /agent-runs 降为对话内「任务」深链(更多抽屉 + composer),不再并排第二入口。 */
+ *  2026-09-23:「对话就是智能体」= home 对话面;运行台 /agent-runs 为「任务」深链。
+ *  2026-10-01:AI 短剧唯一主体——左栏主入口「做短剧」(studio);市场改「工具箱」;
+ *  图片/视频/音频/资源下沉更多抽屉。 */
 const RAIL_ITEMS: RailItem[] = [
+  // 2026-10-01:AI 短剧唯一主体 — 主入口「做短剧」;市场/生图/生视频/音频/资源收进工具箱(更多)
+  { key: "studio", label: "做短剧", icon: "clapperboard" },
   { key: "home", label: "智能体", icon: "bot" },
-  { key: "market", label: "应用市场", icon: "store" },
-  { key: "image", label: "图片生成", icon: "image" },
-  { key: "video", label: "视频生成", icon: "video" },
-  { key: "audio", label: "音频", icon: "audio" },
-  { key: "studio", label: "工作室", icon: "clapperboard" },
-  { key: "library", label: "作品库", icon: "library" },
-  { key: "resources", label: "资源", icon: "models" },
+  { key: "library", label: "作品", icon: "library" },
+  { key: "market", label: "工具箱", icon: "store" },
 ];
 
 /** 窄屏底部导航:主入口 5 个(含 CTA)+「更多」抽屉承载其余
  *  W2:CTA 由融合改为对话(首页即助手);融合场景卡入口下沉「更多」抽屉首位
  *  2026-09-12 引擎工作台:应用市场进主入口首位;audio 下沉「更多」抽屉首位(去重) */
 const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
-  { key: "market", label: "应用市场", icon: "store" },
-  { key: "image", label: "图片", icon: "image" },
-  { key: "video", label: "视频", icon: "video" },
-  { key: "home", label: "智能体", icon: "bot", isCta: true },
+  { key: "studio", label: "做短剧", icon: "clapperboard", isCta: true },
+  { key: "home", label: "智能体", icon: "bot" },
   { key: "library", label: "作品", icon: "library" },
+  { key: "market", label: "工具箱", icon: "store" },
 ];
 
 const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
-  // 2026-09-12:audio 由主入口下沉抽屉首位(主入口让位应用市场);market 进主入口后抽屉不再重复
+  // 2026-10-01:工具箱二级 — 生图/生视频/音频/资源等从主栏下沉
+  { key: "image", label: "图片", icon: "image" },
+  { key: "video", label: "视频", icon: "video" },
   { key: "audio", label: "音频", icon: "audio" },
-  // W2:融合门户(场景五卡)下沉抽屉
-  { key: "fusion", label: "融合", icon: "sparkles" },
-  // 2026-08-31 精简二轮:fusion 卡五目标(studio/avatartalk/dub/imageEdit/videoEdit)
-  // 在抽屉去重——融合页即底部 CTA 主入口,卡片一跳直达,抽屉不再摆第二套(11→6 项)
-  { key: "canvas", label: "画布", icon: "workflow" },
-  { key: "entities", label: "主体库", icon: "users" },
-  // 2026-08-30 批 D:animatic 原与 studio 同用 clapperboard,换 film(胶片条)提辨识度
-  { key: "animatic", label: "动态分镜", icon: "film" },
   { key: "resources", label: "资源", icon: "models" },
-  // 2026-09-23:运行台降级为「任务」(多智能体编排记录),入口在更多抽屉,不与智能体主入口并列
+  { key: "entities", label: "主体库", icon: "users" },
+  { key: "animatic", label: "动态分镜", icon: "film" },
+  { key: "canvas", label: "画布", icon: "workflow" },
+  { key: "fusion", label: "融合", icon: "sparkles" },
   { key: "agent-runs", label: "任务", icon: "workflow" },
-  // 窄屏设置唯一入口(桌面走右上角 AccountButton)
   { key: "settings", label: "设置", icon: "settings" },
 ];
 
@@ -807,7 +800,7 @@ function HomeContent() {
         moreItems={bottomNavMoreItems}
         current={view}
         onSelect={handleNavSelect}
-        ctaAction={() => changeView("home")}
+        ctaAction={() => changeView("studio")}
         onOpenSearch={() => setPaletteOpen(true)}
       />
     </div>

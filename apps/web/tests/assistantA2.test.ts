@@ -137,7 +137,8 @@ test("AgentRunView:在对话中继续(stash run 上下文+跳 home)", () => {
 test("SideRail:「智能体」即对话面;运行台仅「任务」深链", () => {
   const src = readSrc("app/page.tsx");
   const rail = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
-  assert.ok(rail.includes('key: "home", label: "智能体", icon: "bot"'), "左栏首项应为智能体=对话面");
+  assert.ok(rail.includes('key: "home", label: "智能体", icon: "bot"'), "左栏应保留智能体=对话面");
+  assert.ok(rail.includes('key: "studio", label: "做短剧", icon: "clapperboard"'), "左栏首项应为做短剧");
   assert.ok(!rail.includes('key: "agent-runs"'), "左栏不应再并排运行台入口");
   const more = src.slice(src.indexOf("const BOTTOM_NAV_MORE_ITEMS"), src.indexOf("function withViewTransition"));
   assert.ok(more.includes('key: "agent-runs", label: "任务"'), "更多抽屉应保留任务入口");
