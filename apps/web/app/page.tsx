@@ -788,7 +788,7 @@ function HomeContent() {
               {view === "resources" && (
                 <ResourcesView onCreateProject={() => handleNavSelect("studio")} />
               )}
-              {view === "market" && <MarketView />}
+              {view === "market" && <MarketView onNavigate={handleFusionNavigate} />}
               {view === "settings" && <SettingsView account={account} onLogout={onLogout} />}
                           </Suspense>
           </ErrorBoundary>

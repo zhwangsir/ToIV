@@ -64,7 +64,7 @@ export interface AppMarketViewProps {
   outputKind?: AppOutputKind;
   /** 置顶 id(视频页 H3 精选);过滤后再排 */
   featuredIds?: readonly string[];
-  /** 运行页返回按钮文案,默认「返回市场」 */
+  /** 运行页返回按钮文案,默认走 AppRunner「返回」;工具箱可传短文案 */
   runnerBackLabel?: string;
 }
 

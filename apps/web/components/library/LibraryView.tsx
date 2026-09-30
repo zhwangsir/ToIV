@@ -256,7 +256,7 @@ export function LibraryEmptyState({
               生成视频
             </Button>
             <Button variant="secondary" size="sm" icon={<Icon name="store" size={14} />} onClick={() => onNavigate("market")}>
-              逛应用市场
+              逛应用
             </Button>
           </>
         )}
@@ -3676,7 +3676,7 @@ function LibraryLightbox({
                 type="button"
                 className="lib-lb-action"
                 onClick={() => onOpenApp(job)}
-                title="在应用市场中打开来源应用"
+                title="打开来源应用"
               >
                 <Icon name="store" size={14} />
                 打开应用

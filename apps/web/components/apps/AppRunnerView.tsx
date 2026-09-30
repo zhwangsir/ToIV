@@ -59,9 +59,9 @@ import "@/app/styles/apps.css";
 
 interface AppRunnerViewProps {
   appId: string;
-  /** 返回应用市场(AppMarketView 视图内切换,非路由跳转) */
+  /** 返回应用列表(AppMarketView 视图内切换,非路由跳转) */
   onBack: () => void;
-  /** 返回按钮文案;默认「返回市场」(创作页传入「返回应用」) */
+  /** 返回按钮文案;默认「返回」(创作页可传入「返回应用」) */
   backLabel?: string;
 }
 
@@ -72,7 +72,7 @@ function initialValues(app: AppItem): Record<string, unknown> {
 
 type RunnerPhase = "detail" | "run";
 
-export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: AppRunnerViewProps) {
+export function AppRunnerView({ appId, onBack, backLabel = "返回" }: AppRunnerViewProps) {
   // 功能归组预设切换(2026-09-15):同指纹变体在运行台内切换,表单/工作流随之切换
   const [activeId, setActiveId] = useState(appId);
   const toast = useToast();

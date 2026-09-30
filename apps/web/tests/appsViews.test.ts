@@ -178,7 +178,7 @@ test("AppRunnerView 提交链:buildRunValues 载荷 → runApp → trackJob(禁�
   assert.ok(src.includes("requiredParamLabel"), "必填缺口应卡控提交");
   assert.ok(src.includes("disabledReason"), "禁用原因提示缺失");
   // 2026-09-02 W3:PageHeader 退役,返回入口收进细顶条
-  assert.ok(src.includes("返回市场"), "缺返回市场入口");
+  assert.ok(src.includes('backLabel = "返回"') || src.includes("返回"), "缺返回入口");
   assert.ok(src.includes("apps-runner-head"), "缺工作台细顶条");
 });
 
@@ -214,7 +214,7 @@ test("page.tsx 注册 market 视图:importer/VALID_VIEWS/VIEW_META/渲染分支"
   );
   assert.match(src, /\| "market"/, "View 联合类型缺 market");
   assert.ok(src.includes('market:     { label: "工具箱" }'), "VIEW_META 缺中文名");
-  assert.ok(src.includes('{view === "market" && <MarketView />}'), "缺渲染分支");
+  assert.ok(src.includes('{view === "market" && <MarketView'), "缺渲染分支");
 });
 
 test("page.tsx 旧 key 兼容:skills/apps 经 LEGACY_VIEW_REDIRECTS 跳 market(不 404)", () => {
@@ -399,12 +399,17 @@ test("W3:AgentEvent 类型含 ui_action 字段", () => {
   assert.ok(src.includes("view?: string"), "AgentEvent 缺 view 字段");
 });
 
-test("MarketView:at-seg 段控 + ErrorBoundary(key=tab)+ 懒加载内嵌双市场", () => {
+test("MarketView:工具箱段控 + ErrorBoundary(key=tab)+ 懒加载应用/技能/引擎", () => {
   const src = readSrc("components/market/MarketView.tsx");
   assert.ok(src.includes("import { ErrorBoundary }"), "未导入 ErrorBoundary");
   assert.ok(src.includes("key={tab}"), "ErrorBoundary 未绑定 tab key(切换不重置)");
   assert.ok(src.includes("at-seg"), "缺 at-seg 段控");
   assert.ok(src.includes('role="tablist"'), "段控缺 tablist 语义");
+  assert.ok(src.includes('aria-label="工具箱"'), "段控 aria-label 应为工具箱");
+  assert.ok(src.includes('data-testid="toolbox-hub"'), "缺 toolbox-hub 标记");
+  for (const label of ["应用", "技能", "图片", "视频", "音频", "资源"]) {
+    assert.ok(src.includes(`label: "${label}"`), `工具箱缺「${label}」段`);
+  }
   assert.ok(
     src.includes('import("@/components/apps/AppMarketView")'),
     "缺 AppMarketView 懒加载",
@@ -412,6 +417,18 @@ test("MarketView:at-seg 段控 + ErrorBoundary(key=tab)+ 懒加载内嵌双市�
   assert.ok(
     src.includes('import("@/components/skills/SkillMarketView")'),
     "缺 SkillMarketView 懒加载",
+  );
+  assert.ok(
+    src.includes('import("@/components/studio/EngineStudioView")'),
+    "缺 EngineStudioView 懒加载",
+  );
+  assert.ok(
+    src.includes('import("@/components/audio/AudioView")'),
+    "缺 AudioView 懒加载",
+  );
+  assert.ok(
+    src.includes('import("@/components/resources/ResourcesView")'),
+    "缺 ResourcesView 懒加载",
   );
 });
 

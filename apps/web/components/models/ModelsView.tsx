@@ -629,7 +629,7 @@ export function ModelsView() {
               <a
                 className="mv-source-chip mv-source-chip--link"
                 href="/?view=market"
-                title="RunningHub 风格应用市场在「市场 → 应用」"
+                title="RunningHub 风格应用在「工具箱 → 应用」"
               >
                 应用(RH)
               </a>
