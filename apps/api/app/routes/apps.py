@@ -3512,9 +3512,9 @@ def update_app(
     """改应用;内置 403;个人应用属主可改;公共应用需 admin。is_builtin/user_id 不可变。"""
     a = _get_visible(session, aid, user)
     _check_editable(a, user, "修改")
-    # 内置仅允许 admin 调整上架状态/排序(下架无法本机跑通的死卡),禁止改图与文案。
+    # 内置仅允许 admin 调整上架/排序/短名(下架死卡、意图短名);禁止改图与长文案。
     if a.is_builtin:
-        allowed = {"is_public", "sort"}
+        allowed = {"is_public", "sort", "name"}
         patch_fields = {
             f for f in (
                 "name", "description", "icon", "cover_url", "author", "category",

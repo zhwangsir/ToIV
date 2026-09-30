@@ -474,7 +474,7 @@ def _build_specs() -> list[dict]:
             is_nsfw=False, sort=31,
         ),
         _spec(
-            "h3-r2v-voice", "海螺 H3 声音参考",
+            "h3-r2v-voice", "配音",
             "声音参考/克隆须配图或视频,不能纯音频。同一 Ref2VA 图:最多 9 图 3 视频 3 音频;提示词用 1-based 标签 <Picture 1> / <Audio 1>",
             icon="mic", category="video", output_kind="video",
             workflow_json=_h3_r2v_graph(),
@@ -792,7 +792,7 @@ def _build_specs() -> list[dict]:
             is_nsfw=False, sort=83,
         ),
         _spec(
-            "vace-edit", "VACE 视频编辑",
+            "vace-edit", "视频换装",
             "Wan2.1-VACE 视频到视频编辑:源视频 + 编辑指令 → 对象替换/风格迁移/重打光(默认 81 帧≈5s@16fps);关键帧锚点/区域 mask 仍走更多引擎编辑器",
             icon="wand", category="video", output_kind="video",
             workflow_json=build_wan_vace_edit_graph(WanVaceEditParams(
@@ -960,7 +960,7 @@ def _build_specs() -> list[dict]:
             is_nsfw=False, sort=110,
         ),
         _spec(
-            "ace-music", "ACE 文生音乐",
+            "ace-music", "音乐",
             "ACE-Step 1.5 Turbo:风格标签 + 可选歌词,出 MP3(默认 30s / 8 步)",
             icon="audio", category="audio", output_kind="audio",
             workflow_json=build_ace_step_15_graph(AceStep15Params(tags="")),
@@ -983,7 +983,7 @@ def _build_specs() -> list[dict]:
             is_nsfw=False, sort=120,
         ),
         _spec(
-            "ace-music-legacy", "ACE 文生音乐(1.0)",
+            "ace-music-legacy", "音乐·旧版",
             "ACE-Step 1.0 旧版文生音乐工作流,可回退",
             icon="audio", category="audio", output_kind="audio",
             workflow_json=build_ace_step_graph(AceStepParams(tags="")),
@@ -1033,7 +1033,7 @@ def _build_specs() -> list[dict]:
             is_nsfw=False, sort=200,
         ),
         _spec(
-            "upscale", "图像放大",
+            "upscale", "放大",
             "4x-UltraSharp ESRGAN 放大(原生 4 倍)",
             icon="zoom-in", category="edit", output_kind="image",
             workflow_json=build_upscale_graph(UpscaleParams(image="")),
@@ -1042,7 +1042,7 @@ def _build_specs() -> list[dict]:
             is_nsfw=False, sort=201,
         ),
         _spec(
-            "removebg", "抠图去背",
+            "removebg", "抠图",
             "rembg u2net 通用抠图,输出透明底 PNG",
             icon="scissors", category="edit", output_kind="image",
             workflow_json=build_removebg_graph(RemoveBgParams(image="")),
