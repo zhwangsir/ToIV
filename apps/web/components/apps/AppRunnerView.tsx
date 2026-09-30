@@ -292,7 +292,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
     // 双保险:disabledReason 之外,提交前再核一次必填缺口(防 values 在渲染后被清空的竞态)
     const missingNow = requiredParamLabel(app.params_schema, values);
     if (missingNow) {
-      toast.error(`请先填写「${missingNow}」再运行`);
+      toast.error(`缺「${missingNow}」`);
       return;
     }
     setSubmitting(true);
@@ -339,7 +339,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
       });
       setResults(paths);
       if (paths.length > 0) setPanelTab("history");
-      toast.success(paths.length > 0 ? "生成完成" : "生成完成,产物可在作品库查看");
+      toast.success("完成");
     } catch (e) {
       // 用户离开页面/重跑触发的 AbortError 静默吞掉(非失败)
       if (!(e instanceof TrackJobAbortError)) {
@@ -491,7 +491,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
               disabled={comfyOpening || workflowMissing}
               title={
                 workflowMissing
-                  ? "该应用暂无工作流数据，无法在画布中编辑"
+                  ? "无工作流"
                   : "在原生 Comfy 画布中编辑此应用工作流"
               }
               icon={<Icon name={comfyOpening ? "loading" : "workflow"} size={13} />}
@@ -508,7 +508,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
               disabled={savingBack || workflowMissing}
               title={
                 workflowMissing
-                  ? "该应用暂无工作流数据"
+                  ? "无工作流"
                   : "把画布里保存过的最新版本存回应用(先在画布内保存;无改动会提示)"
               }
               icon={<Icon name={savingBack ? "loading" : "download"} size={13} />}
@@ -716,7 +716,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
                   disabled={comfyOpening || workflowMissing}
                   title={
                     workflowMissing
-                      ? "该应用暂无工作流数据，无法打开"
+                      ? "无工作流"
                       : "在原生 Comfy 画布中打开此应用工作流"
                   }
                   aria-busy={comfyOpening}
@@ -734,7 +734,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: App
           <section className="rh-detail-nodes" aria-label="节点信息">
             <h2 className="rh-detail-section-title">节点信息</h2>
             {nodeSummary.totalNodes === 0 ? (
-              <Empty size="inline" title="暂无工作流节点数据" />
+              <Empty size="inline" title="暂无" />
             ) : (
               <>
                 <div className="rh-detail-node-stats">
@@ -1048,8 +1048,8 @@ function AppGuideCard({ guide }: { guide: AppGuide }) {
     return () => { alive = false; };
   }, [guide.app_id, guide.related_app_ids.length]);
   return (
-    <section className="apps-guide-card" aria-label="使用指南">
-      <h2 className="rh-detail-section-title">使用指南</h2>
+    <details className="apps-guide-card" aria-label="指南">
+      <summary className="rh-detail-section-title">指南</summary>
       {guide.purpose && (
         <div className="apps-guide-section">
           <h3 className="apps-guide-subtitle">用途</h3>
@@ -1128,7 +1128,7 @@ function AppGuideCard({ guide }: { guide: AppGuide }) {
           </div>
         </div>
       )}
-    </section>
+    </details>
   );
 }
 

@@ -402,7 +402,7 @@
   "modes": [
    {
     "label": "潮玩/手办风格",
-    "desc": "加载「潮玩/手办」风格 LoRA 出图(走「Qwen-Image-Edit-Lora4步-手办媲美-」已测工作流)",
+    "desc": "",
     "app_id": "rh-acc-3636838402-5c9175"
    },
    {
@@ -1095,12 +1095,12 @@
   "modes": [
    {
     "label": "批量出图",
-    "desc": "一次输出多张/多角度批量结果(走「AI一镜到底（FusionX_VACE_首尾帧）」已测工作流)",
+    "desc": "",
     "app_id": "rh-acc-3709706242-f85ab2"
    },
    {
     "label": "长视频",
-    "desc": "分段续接/无限时长,生成更长视频(走「wan2_2_fun_vace_flfv_longvideo」已测工作流)",
+    "desc": "",
     "app_id": "rh-acc-8938929154-cdce7d"
    },
    {
@@ -1112,6 +1112,11 @@
     "label": "FlashVSR变身",
     "desc": "",
     "app_id": "rh-acc-0213376002-aa4abe"
+   },
+   {
+    "label": "补帧",
+    "desc": "",
+    "app_id": "rh-minmax-h3-aab4fcfc"
    }
   ],
   "presets": []
@@ -1277,5 +1282,14 @@
    }
   ],
   "presets": []
+ },
+ "removebg": {
+  "modes": [
+   {
+    "label": "分层",
+    "desc": "",
+    "app_id": "rh-acc-8075737089-37e645"
+   }
+  ]
  }
 }

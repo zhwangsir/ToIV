@@ -223,7 +223,7 @@ export function AssetPicker({ open, onClose, assetType, kind, pinWorker, onPick 
       )}
       {assetType === "image" && source === "entities" ? (
         entityItems.length === 0 ? (
-          <p className="asset-picker-empty">主体库中还没有带图的主体(先去主体库建主体或生成三视图)</p>
+          <p className="asset-picker-empty">暂无主体</p>
         ) : (
           <div className="asset-picker-grid">
             {entityItems.map((e) => {
@@ -253,7 +253,7 @@ export function AssetPicker({ open, onClose, assetType, kind, pinWorker, onPick 
       ) : loading ? (
         <p className="asset-picker-empty">加载中…</p>
       ) : items.length === 0 ? (
-        <p className="asset-picker-empty">作品库中还没有可用的{TYPE_LABEL[assetType]}产物</p>
+        <p className="asset-picker-empty">暂无{TYPE_LABEL[assetType]}</p>
       ) : (
         <div className="asset-picker-grid">
           {items.map((it) => {

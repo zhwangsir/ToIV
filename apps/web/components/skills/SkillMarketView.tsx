@@ -282,7 +282,7 @@ export function SkillMarketView() {
               <input
                 type="search"
                 className="skill-search-input"
-                placeholder="搜索技能名称或描述…"
+                placeholder="搜索"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 aria-label="搜索技能"
@@ -314,7 +314,7 @@ export function SkillMarketView() {
 
           {(filtering && mine.length + builtin.length + pub.length === 0) && (
             /* 空态升级(2026-09-04 美化 W4):单行 muted → 共享三档空态 inline 档 */
-            <Empty size="inline" title="没有匹配的技能——换个关键词,或清除筛选条件" />
+            <Empty size="inline" title="无匹配" />
           )}
 
           <section className="skill-section">
@@ -336,7 +336,7 @@ export function SkillMarketView() {
             </div>
             <div className="skill-grid">
               {mine.length === 0 ? (
-                <Empty size="inline" title="还没有个人技能——点右上「导入技能」,或粘贴他人分享的 JSON" />
+                <Empty size="inline" title="暂无" />
               ) : (
                 mine.map((a) => (
                   <article key={a.id} className="skill-card">
@@ -436,7 +436,7 @@ export function SkillMarketView() {
         {jsonMode && !editing ? (
           <Field
             label="技能 JSON"
-            hint="他人技能卡「分享」复制的 JSON,粘贴后一键导入为个人技能"
+            hint="粘贴 JSON"
             error={formError ?? undefined}
           >
             <Textarea

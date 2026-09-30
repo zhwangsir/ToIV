@@ -407,7 +407,7 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
               <input
                 type="search"
                 className="apps-search-input"
-                placeholder="搜索应用名称或描述…"
+                placeholder="搜索"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 aria-label="搜索应用"
@@ -495,33 +495,27 @@ export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppM
                   className={`apps-mkt-chip apps-mkt-chip--ghost${verifiedOnly ? " is-on" : ""}`}
                   aria-pressed={verifiedOnly}
                   onClick={() => setVerifiedOnly((v) => !v)}
-                  title="只看冒烟测试通过的稳定应用"
+                  title="实测可用"
                 >
-                  ✓ 实测可用
+                  实测
                 </button>
               </div>
-              {useCase !== "all" && (
-                <p className="apps-mkt-blurb" role="note">
-                  {useCaseGroup(useCase)?.blurb}
-                </p>
-              )}
             </>
           )}
 
           {searching && (
             <p className="apps-mkt-search-hint" role="status">
-              找到 {filtered.length} 个应用
+              {filtered.length}
             </p>
           )}
 
           {filtered.length === 0 ? (
             searching || useCase !== "all" ? (
-              <Empty size="inline" title="没有匹配的应用——换个关键词或分类" />
+              <Empty size="inline" title="无匹配" />
             ) : (
               <Empty
                 size="inline"
-                title="应用市场暂无应用"
-                desc="应用由后端注册表提供"
+                title="暂无"
                 action={
                   <Button
                     variant="ghost"

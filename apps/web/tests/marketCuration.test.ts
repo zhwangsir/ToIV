@@ -204,8 +204,7 @@ test("apps.css 含 apps-mkt- 段(chips/合集位/小卡)", () => {
     ".apps-mkt-rail",
     ".apps-mkt-mini",
     ".apps-mkt-search-hint",
-    ".apps-mkt-blurb",
-  ]) {
+      ]) {
     assert.ok(css.includes(cls), `apps.css 缺 ${cls}`);
   }
 });
@@ -226,7 +225,7 @@ test("USE_CASE_GROUPS:8 组全覆盖 12 枚举,blurb 非空,id 唯一", () => {
 });
 
 test("useCaseGroup:id 命中组定义,未知/空返回 null", () => {
-  assert.equal(useCaseGroup("portrait")?.label, "写真·人像");
+  assert.equal(useCaseGroup("portrait")?.label, "人像");
   assert.deepEqual([...(useCaseGroup("tools")?.useCases ?? [])], ["other"]);
   assert.equal(useCaseGroup("zzz"), null);
   assert.equal(useCaseGroup(""), null);

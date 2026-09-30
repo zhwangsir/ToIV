@@ -89,7 +89,7 @@ export const USE_CASES = [
   { id: "anime", label: "动漫二次元" },
   { id: "art", label: "艺术创作" },
   { id: "photo", label: "写实摄影" },
-  { id: "edit", label: "图片编辑" },
+  { id: "edit", label: "修图" },
   { id: "motion", label: "动作迁移" },
   { id: "ad", label: "广告营销" },
   { id: "other", label: "其他" },
@@ -107,14 +107,14 @@ export function useCaseLabel(id: string): string | null {
  * 场景组,只做展示层映射不改库;未分类("")不属于任何组,仅「全部」可见。
  */
 export const USE_CASE_GROUPS = [
-  { id: "portrait", label: "写真·人像", icon: "user", useCases: ["photo", "face"], blurb: "写实人像写真与面部生成处理" },
-  { id: "editimg", label: "图片编辑", icon: "crop", useCases: ["edit"], blurb: "局部重绘、修复扩图、抠像去背" },
-  { id: "fashion", label: "时尚·换装", icon: "sparkles", useCases: ["fashion"], blurb: "换装试衣与穿搭展示" },
-  { id: "story", label: "剧情·运镜", icon: "clapperboard", useCases: ["drama", "motion"], blurb: "短剧叙事视频与动作舞蹈迁移" },
-  { id: "style", label: "风格·艺术", icon: "brush", useCases: ["art", "anime"], blurb: "艺术插画与动漫风格创作" },
-  { id: "avatar", label: "数字人·口播", icon: "mic", useCases: ["avatar"], blurb: "数字人口播、对口型、照片说话" },
-  { id: "biz", label: "电商·广告", icon: "store", useCases: ["ecommerce", "ad"], blurb: "产品图与营销素材" },
-  { id: "tools", label: "工具·其他", icon: "sliders", useCases: ["other"], blurb: "通用文生图/视频与效率工具" },
+  { id: "portrait", label: "人像", icon: "user", useCases: ["photo", "face"], blurb: "写实人像写真与面部生成处理" },
+  { id: "editimg", label: "修图", icon: "crop", useCases: ["edit"], blurb: "局部重绘、修复扩图、抠像去背" },
+  { id: "fashion", label: "换装", icon: "sparkles", useCases: ["fashion"], blurb: "换装试衣与穿搭展示" },
+  { id: "story", label: "剧情", icon: "clapperboard", useCases: ["drama", "motion"], blurb: "短剧叙事视频与动作舞蹈迁移" },
+  { id: "style", label: "风格", icon: "brush", useCases: ["art", "anime"], blurb: "艺术插画与动漫风格创作" },
+  { id: "avatar", label: "口播", icon: "mic", useCases: ["avatar"], blurb: "数字人口播、对口型、照片说话" },
+  { id: "biz", label: "电商", icon: "store", useCases: ["ecommerce", "ad"], blurb: "产品图与营销素材" },
+  { id: "tools", label: "其他", icon: "sliders", useCases: ["other"], blurb: "通用文生图/视频与效率工具" },
 ] as const;
 
 export type UseCaseGroupId = (typeof USE_CASE_GROUPS)[number]["id"];
