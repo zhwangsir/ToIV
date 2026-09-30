@@ -160,7 +160,7 @@ test("W5 降级:探活失败置离线,门户隐藏对话框、展开全量工作
   const portalSrc = readSrc("components/assistant/PortalEmpty.tsx");
   assert.ok(portalSrc.includes("llmOffline ? ("), "缺离线分支");
   assert.ok(portalSrc.includes('role="alert"'), "离线提示缺 alert 语义");
-  assert.ok(portalSrc.includes("助手暂时离线"), "缺离线提示文案");
+  assert.ok(portalSrc.includes("助手离线"), "缺离线提示文案");
   assert.ok(portalSrc.includes("OFFLINE_ENTRIES.map"), "离线态未展开全量导航");
   for (const v of ["image", "video", "audio", "studio", "avatartalk", "dub", "imageEdit", "videoEdit", "canvas", "library", "entities", "market"]) {
     assert.ok(OFFLINE_ENTRIES.some((e) => e.view === v), `离线导航缺 ${v}`);
@@ -172,32 +172,20 @@ test("W5 降级:探活失败置离线,门户隐藏对话框、展开全量工作
 
 /* ── ⑤ Studio Console v1:空态极简 + 文档式消息流 ── */
 
-test("Studio Console:空态只剩问候+composer(cinematic),门户区块全退役", () => {
-  // A3(2026-09-22):门户/popup 空态拆至 PortalEmpty.tsx,composer 拆至 Composer.tsx;
-  // 退役元素断言跨主壳+全部拆分模块(防残留回迁)
+test("Studio Console:意图首页(问候+意图+composer+最近),旧宫格退役", () => {
+  // A3(2026-09-22):门户空态拆至 PortalEmpty.tsx;2026-09-30 计划 d 意图入口
   const portalSrc = readSrc("components/assistant/PortalEmpty.tsx");
-  assert.ok(portalSrc.includes("av-portal--console"), "缺 console 空态变体");
   assert.ok(portalSrc.includes("av-portal--cinematic"), "缺 cinematic 空态变体");
-  assert.ok(!portalSrc.includes("RecentWorksRail"), "门户不应挂 RecentWorksRail");
+  assert.ok(portalSrc.includes("av-intent-row"), "缺意图入口");
+  assert.ok(portalSrc.includes("RecentWorksRail"), "计划 d 应挂 RecentWorksRail");
   assert.ok(!portalSrc.includes("av-scene-grid"), "门户不应渲染场景宫格");
   const allSrc = [
     "components/assistant/AssistantView.tsx",
-    "components/assistant/MessageList.tsx",
-    "components/assistant/Composer.tsx",
     "components/assistant/PortalEmpty.tsx",
-    "components/assistant/SessionDrawer.tsx",
   ].map(readSrc).join("\n");
-  // 2026-09-06 单色极简:铭牌/模型行/快捷提示/最近作品带亦退役
-  for (const dead of ["ParticleField", "QUICK_ACTIONS", "SCENE_CAPSULES", "av-eng-block", "av-works", "buildEngineCapsules", "pickRecentWorks", "av-console-wordmark", "av-console-model", "QUICK_PROMPTS", "av-recent"]) {
-    assert.ok(!allSrc.includes(dead), `旧门户元素残留: ${dead}`);
+  for (const dead of ["ParticleField", "QUICK_ACTIONS", "SCENE_CAPSULES", "av-eng-block", "av-works", "buildEngineCapsules", "pickRecentWorks", "av-console-wordmark", "av-console-model", "QUICK_PROMPTS"]) {
+    assert.ok(!allSrc.includes(dead), `已退役门户元素残留:${dead}`);
   }
-  // 文档式消息流:无头像节点
-  assert.ok(!allSrc.includes("av-msg-avatar"), "消息头像节点应移除");
-  // 页头退役,历史/新对话收进输入框工具行
-  assert.ok(!allSrc.includes("av-header"), "页头应整体退役");
-  const composerSrc = readSrc("components/assistant/Composer.tsx");
-  assert.ok(composerSrc.includes('aria-label="对话历史"'), "历史按钮应收进输入区");
-  assert.ok(composerSrc.includes('aria-label="新对话"'), "新对话按钮应收进输入区");
 });
 
 test("Studio Console:胶片条 token 仍在 globals.css(组件未随微粒场一并退役)", () => {

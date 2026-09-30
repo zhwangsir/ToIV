@@ -141,7 +141,7 @@ test("popup 空态:Shift+Enter 唤起/关闭提示", () => {
     portalSrc.indexOf("av-popup-empty"),
     portalSrc.indexOf("av-popup-empty") + 800,
   );
-  assert.ok(empty.includes("Shift+Enter 随时唤起/关闭"), "popup 空态 Shift+Enter 提示缺失");
+  assert.ok(empty.includes("Shift+Enter"), "popup 空态 Shift+Enter 提示缺失");
   assert.ok(empty.includes("av-popup-empty-hint"), "提示行 class 缺失");
 });
 

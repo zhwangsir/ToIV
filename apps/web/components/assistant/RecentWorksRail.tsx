@@ -59,11 +59,11 @@ export function RecentWorksRail({ onOpenLibrary }: { onOpenLibrary: () => void }
   if (thumbs.length === 0) return null;
 
   return (
-    <section className="av-recent" aria-label="最近作品">
+    <section className="av-recent" aria-label="最近">
       <div className="av-recent-head">
-        <span className="av-recent-title">最近作品</span>
+        <span className="av-recent-title">最近</span>
         <button type="button" className="av-recent-more" onClick={onOpenLibrary}>
-          作品库 ›
+          全部
         </button>
       </div>
       <div className="av-recent-rail" role="list">
@@ -73,7 +73,7 @@ export function RecentWorksRail({ onOpenLibrary }: { onOpenLibrary: () => void }
             type="button"
             role="listitem"
             className="av-recent-thumb"
-            title="打开作品库查看"
+            title="作品库"
             onClick={onOpenLibrary}
           >
             {t.video ? (

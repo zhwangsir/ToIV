@@ -85,16 +85,19 @@ test("AudioView 无页头:生成/编辑段控独立窄行且带图标(2026-08-18
 });
 
 /* ── ④ 首页门户(2026-09-23 cinematic 空态)── */
-test("首页空态:cinematic console(问候+composer+ambient),场景宫格/最近作品撤离", () => {
-  // A3(2026-09-22):门户空态拆至 PortalEmpty.tsx;2026-09-23 去宫格+cinematic
+test("首页空态:意图入口+composer+最近(计划 d 少字)", () => {
+  // 2026-09-30 计划 d:意图芯片 + 输入 + 最近作品;旧场景宫格仍撤离
   const src = readSrc("components/assistant/PortalEmpty.tsx");
   assert.ok(src.includes("av-portal--console"), "缺 console 空态变体");
   assert.ok(src.includes("av-portal--cinematic"), "缺 cinematic 变体");
+  assert.ok(src.includes("av-portal--intent"), "缺 intent 变体");
   assert.ok(src.includes("av-portal-greeting"), "缺问候语");
   assert.ok(src.includes("av-portal-ambient"), "缺 ambient 层");
+  assert.ok(src.includes("av-intent-row"), "缺意图入口");
+  assert.ok(src.includes("INTENT_ENTRIES"), "缺 INTENT_ENTRIES");
+  assert.ok(src.includes("RecentWorksRail"), "计划 d 应挂最近作品");
   assert.ok(!src.includes("av-scene-card"), "场景宫格卡应撤离门户");
   assert.ok(!src.includes("av-scene-grid"), "场景宫格应撤离门户");
-  assert.ok(!src.includes("RecentWorksRail"), "最近作品轨应撤离门户");
   const allSrc = [
     "components/assistant/AssistantView.tsx",
     "components/assistant/MessageList.tsx",
@@ -102,12 +105,12 @@ test("首页空态:cinematic console(问候+composer+ambient),场景宫格/最�
     "components/assistant/PortalEmpty.tsx",
     "components/assistant/SessionDrawer.tsx",
   ].map(readSrc).join("\n");
-  // 2026-09-06 单色极简:铭牌/模型行/快捷提示 chips/最近作品带全部退役
-  for (const dead of ["av-console-wordmark", "av-console-model", "av-quick-row", "av-recent", "QUICK_PROMPTS", "av-portal-sub"]) {
+  // 铭牌/模型行/快捷提示仍退役;av-recent 仅在 RecentWorksRail 内
+  for (const dead of ["av-console-wordmark", "av-console-model", "av-quick-row", "QUICK_PROMPTS", "av-portal-sub"]) {
     assert.ok(!allSrc.includes(dead), `已退役门户元素残留:${dead}`);
   }
   assert.ok(!allSrc.includes("av-eng-block"), "引擎胶囊条应退役");
-  assert.ok(!allSrc.includes("av-works"), "最近作品区应退役");
+  assert.ok(!allSrc.includes("av-works"), "旧 av-works 区应退役");
 
   const css = readSrc("app/styles/assistant.css");
   // cinematic:仍 flex-start + clamp 顶距(略抬),ambient/入场尊重 reduced-motion
