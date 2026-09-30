@@ -429,3 +429,111 @@ def test_character_reference_images_patch(ctx):
     )
     assert pr2.status_code == 200 and pr2.json()["reference_images"] == []
 
+
+
+def test_render_body_h3_default_and_candidates(ctx, monkeypatch):
+    """Batch2:render body 默认 h3;num_candidates=2 写 candidates 并可 pick。"""
+    from app.services.studio import orchestrator as orch
+    from app.services.studio.renderers.base import RenderResult
+
+    client, token = ctx
+    H = _h(token)
+    pid = _mk_project(client, H)
+    # 角色三视图
+    cr = client.post(
+        f"/api/studio/projects/{pid}/characters",
+        headers=H,
+        json={"name": "林夏", "visual_prompt": "girl"},
+    )
+    assert cr.status_code == 200
+    cid = cr.json()["id"]
+    refs = [
+        "/api/images?filename=f.png&type=input&worker=w",
+        "/api/images?filename=s.png&type=input&worker=w",
+        "/api/images?filename=b.png&type=input&worker=w",
+    ]
+    assert client.patch(
+        f"/api/studio/characters/{cid}", headers=H, json={"reference_images": refs}
+    ).status_code == 200
+    # 分镜
+    sr = client.put(
+        f"/api/studio/projects/{pid}/shots",
+        headers=H,
+        json={
+            "shots": [
+                {
+                    "scene": "雨夜便利店",
+                    "prompt": "rainy convenience store",
+                    "characters": ["林夏"],
+                    "render_mode": "video",
+                }
+            ]
+        },
+    )
+    assert sr.status_code == 200, sr.text
+    sid = sr.json()["shots"][0]["id"]
+
+    n = {"i": 0}
+
+    class FakeRenderer:
+        name = "video"
+
+        async def render(self, shot, cast, pool, **kw):
+            n["i"] += 1
+            # 校验默认/显式 h3 + 参考注入路径有 cast
+            assert kw.get("video_model") == "h3"
+            return RenderResult(kind="video", url=f"/api/studio/files/c{n['i']}.mp4")
+
+    monkeypatch.setattr(orch, "get_renderer", lambda shot: FakeRenderer())
+
+    r = client.post(
+        f"/api/studio/shots/{sid}/render",
+        headers=H,
+        json={"video_model": "h3", "num_candidates": 2},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["video_model"] == "h3"
+    assert body["status"] == "rendered"
+    assert isinstance(body.get("candidates"), list) and len(body["candidates"]) == 2
+    assert body["video_url"].endswith("c1.mp4")
+    assert body["candidates"][0]["is_picked"] is True
+    assert isinstance(body.get("ref_images"), list) and len(body["ref_images"]) == 3
+
+    # pick 第二个
+    c2 = body["candidates"][1]["id"]
+    pr = client.post(f"/api/studio/shots/{sid}/candidates/{c2}/pick", headers=H)
+    assert pr.status_code == 200, pr.text
+    picked = pr.json()
+    assert picked["video_url"].endswith("c2.mp4")
+    assert any(c["id"] == c2 and c["is_picked"] for c in picked["candidates"])
+
+
+def test_render_no_body_stays_single_candidate(ctx, monkeypatch):
+    """无 body 的旧调用保持单候选,不强制翻倍打 H3。"""
+    from app.services.studio import orchestrator as orch
+    from app.services.studio.renderers.base import RenderResult
+
+    client, token = ctx
+    H = _h(token)
+    pid = _mk_project(client, H)
+    sr = client.put(
+        f"/api/studio/projects/{pid}/shots",
+        headers=H,
+        json={"shots": [{"prompt": "x", "render_mode": "video"}]},
+    )
+    sid = sr.json()["shots"][0]["id"]
+    calls = {"n": 0}
+
+    class FakeRenderer:
+        name = "video"
+
+        async def render(self, shot, cast, pool, **kw):
+            calls["n"] += 1
+            return RenderResult(kind="video", url="/api/studio/files/one.mp4")
+
+    monkeypatch.setattr(orch, "get_renderer", lambda shot: FakeRenderer())
+    r = client.post(f"/api/studio/shots/{sid}/render", headers=H)
+    assert r.status_code == 200, r.text
+    assert calls["n"] == 1
+    assert r.json()["video_model"] == "h3"

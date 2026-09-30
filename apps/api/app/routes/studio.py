@@ -64,10 +64,7 @@ def _project_detail(session: Session, p: StudioProject) -> dict:
             {**c.model_dump(), "reference_images": json.loads(c.reference_images or "[]")}
             for c in chars
         ],
-        "shots": [
-            {**s.model_dump(), "characters": json.loads(s.characters or "[]")}
-            for s in shots
-        ],
+        "shots": [_shot_out(s) for s in shots],
     }
 
 
@@ -581,22 +578,82 @@ def _get_shot(session: Session, sid: str, user: User) -> StudioShot:
 
 
 def _shot_out(s: StudioShot) -> dict:
-    return {**s.model_dump(), "characters": json.loads(s.characters or "[]")}
+    """分镜响应:characters/candidates/ref_images 解析为 list。"""
+    try:
+        candidates = json.loads(s.candidates_json or "[]")
+    except (ValueError, TypeError):
+        candidates = []
+    try:
+        ref_images = json.loads(s.ref_images_json or "[]")
+    except (ValueError, TypeError):
+        ref_images = []
+    data = s.model_dump()
+    data.pop("candidates_json", None)
+    data.pop("ref_images_json", None)
+    data["characters"] = json.loads(s.characters or "[]")
+    data["candidates"] = candidates if isinstance(candidates, list) else []
+    data["ref_images"] = ref_images if isinstance(ref_images, list) else []
+    data.setdefault("video_model", getattr(s, "video_model", None) or "h3")
+    return data
+
+
+class RenderShotBody(BaseModel):
+    """Batch2 视频步:引擎 / 多候选 / 多参考(均可选;缺省兼容旧客户端)。"""
+
+    video_model: str = Field(default="h3", max_length=16)
+    num_candidates: int = Field(default=2, ge=1, le=4)
+    ref_images: list[str] | None = Field(default=None, max_length=9)
+    scene_images: list[str] | None = Field(default=None, max_length=4)
 
 
 @router.post("/studio/shots/{sid}/render")
 async def render_one(
     sid: str,
+    body: RenderShotBody | None = None,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
     request: Request = None  # FastAPI 注入;勿标 Optional 否则当 Pydantic 字段,
 ):
-    """渲染单镜(同步等待)。render_mode 决定走视频链还是图像运镜链。"""
+    """渲染单镜(同步等待)。render_mode 决定走视频链还是图像运镜链。
+
+    body 缺省(旧客户端/批量):video_model=h3、num_candidates=1。
+    视频步 UI 显式传 num_candidates(默认 2)与 ref_images。
+    """
     shot = _get_shot(session, sid, user)
+    # 无 body → 单候选(兼容 renderStudioShot 旧调用与批量路径语义)
+    vm = (body.video_model if body else None) or "h3"
+    n = body.num_candidates if body is not None else 1
+    refs = body.ref_images if body is not None else None
+    scenes = body.scene_images if body is not None else None
     try:
-        return _shot_out(await orchestrator.render_shot(session, shot, request=request))
+        return _shot_out(
+            await orchestrator.render_shot(
+                session,
+                shot,
+                request=request,
+                video_model=vm,
+                num_candidates=n,
+                ref_images=refs,
+                scene_images=scenes,
+            )
+        )
     except RenderError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+@router.post("/studio/shots/{sid}/candidates/{cid}/pick")
+def pick_shot_candidate(
+    sid: str,
+    cid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """选用某个候选视频为当前分镜成片。"""
+    shot = _get_shot(session, sid, user)
+    try:
+        return _shot_out(orchestrator.pick_candidate(session, shot, cid))
+    except RenderError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/studio/projects/{pid}/render")

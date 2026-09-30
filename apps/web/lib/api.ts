@@ -4568,6 +4568,16 @@ export interface StudioCharacter {
   created_at?: string;
 }
 
+export interface StudioShotCandidate {
+  id: string;
+  url: string;
+  seed: number;
+  status: string; // generating | done | error
+  is_picked: boolean;
+  error: string;
+  video_model?: string;
+}
+
 export interface StudioShot {
   id: string;
   project_id: string;
@@ -4587,6 +4597,12 @@ export interface StudioShot {
   voice_url: string;
   final_clip_url: string;
   error: string;
+  /** Batch2 视频步:默认 h3 */
+  video_model?: string;
+  /** 多候选列表 */
+  candidates?: StudioShotCandidate[];
+  /** 本镜多参考图 URL(角色三视图 + 场景) */
+  ref_images?: string[];
   created_at?: string;
   updated_at?: string;
 }
@@ -4784,15 +4800,30 @@ export const saveStudioShots = (
 ): Promise<{ shots: StudioShot[] }> =>
   studioReq(`/studio/projects/${pid}/shots`, "PUT", { shots });
 
-/** 渲染单镜(同步等待 ComfyUI 产出,视频链可达数分钟)→ 放宽到 600s。 */
+export interface StudioRenderBody {
+  video_model?: "h3" | "ltx";
+  num_candidates?: number;
+  ref_images?: string[];
+  scene_images?: string[];
+}
+
+/** 渲染单镜(同步等待 ComfyUI 产出,视频链可达数分钟)→ 放宽到 600s。
+ *  Batch2:可传 video_model(默认 h3)/num_candidates(视频步默认 2)/ref_images。 */
 export const renderStudioShot = (
   sid: string,
-  opts?: { signal?: AbortSignal },
+  opts?: { signal?: AbortSignal; body?: StudioRenderBody },
 ): Promise<StudioShot> =>
-  studioReq(`/studio/shots/${sid}/render`, "POST", undefined, {
+  studioReq(`/studio/shots/${sid}/render`, "POST", opts?.body, {
     timeoutMs: 600_000,
     signal: opts?.signal,
   });
+
+/** 选用某个候选为当前分镜视频。契约:POST /api/studio/shots/{sid}/candidates/{cid}/pick。 */
+export const pickStudioCandidate = (
+  sid: string,
+  cid: string,
+): Promise<StudioShot> =>
+  studioReq(`/studio/shots/${sid}/candidates/${cid}/pick`, "POST");
 
 /** 批量渲染(逐镜同步,跳过终态;N 镜可达数十分钟)→ 放宽到 1800s。 */
 export const renderStudioAll = (

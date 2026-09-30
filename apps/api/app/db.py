@@ -118,6 +118,12 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("app", "smoke_at", "smoke_at TIMESTAMP"),
     # 分镜板 v2(M1,2026-09-21):LLM 拆镜结构化草稿 JSON(ShotDraft),既有 boarditem 表补列
     ("boarditem", "shot_meta", "shot_meta VARCHAR NOT NULL DEFAULT ''"),
+    # Batch2 视频步残余(2026-10-01):Studio 分镜引擎/多候选/多参考
+    ("studioshot", "video_model", "video_model VARCHAR NOT NULL DEFAULT 'h3'"),
+    ("studioshot", "candidates_json", "candidates_json VARCHAR NOT NULL DEFAULT '[]'"),
+    ("studioshot", "ref_images_json", "ref_images_json VARCHAR NOT NULL DEFAULT '[]'"),
+    # Batch2 角色三视图:既有 studiocharacter 表幂等补列
+    ("studiocharacter", "reference_images", "reference_images VARCHAR NOT NULL DEFAULT '[]'"),
 )
 
 # 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。

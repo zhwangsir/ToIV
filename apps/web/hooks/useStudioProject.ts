@@ -6,10 +6,12 @@ import {
   saveStudioShots,
   renderStudioShot,
   renderStudioAll,
+  pickStudioCandidate,
   voiceStudioShot,
   lipsyncStudioShot,
   assembleStudio,
   type StudioProjectDetail,
+  type StudioRenderBody,
   type StudioShot,
   type StudioShotInput,
 } from "@/lib/api";
@@ -103,13 +105,21 @@ export function useStudioProject(pid: string | null) {
   );
 
   const renderShot = useCallback(
-    (sid: string) => {
+    (sid: string, body?: StudioRenderBody) => {
       const ac = new AbortController();
       abortByKey.current[`render:${sid}`] = ac;
       return withBusy(`render:${sid}`, "生成分镜", async () =>
-        patchShotLocal(await renderStudioShot(sid, { signal: ac.signal })),
+        patchShotLocal(await renderStudioShot(sid, { signal: ac.signal, body })),
       );
     },
+    [withBusy, patchShotLocal],
+  );
+
+  const pickCandidate = useCallback(
+    (sid: string, cid: string) =>
+      withBusy(`pick:${sid}`, "选用候选", async () =>
+        patchShotLocal(await pickStudioCandidate(sid, cid)),
+      ),
     [withBusy, patchShotLocal],
   );
 
@@ -173,6 +183,7 @@ export function useStudioProject(pid: string | null) {
     refresh,
     saveShots,
     renderShot,
+    pickCandidate,
     cancelRenderShot,
     renderAll,
     cancelRenderAll,

@@ -43,8 +43,22 @@ def _cast_for(session: Session, shot: StudioShot) -> list[StudioCharacter]:
 async def render_shot(
     session: Session, shot: StudioShot, pool: "WorkerPool | None" = None,
     request: Any = None,
+    *,
+    video_model: str | None = None,
+    num_candidates: int = 1,
+    ref_images: list[str] | None = None,
+    scene_images: list[str] | None = None,
 ) -> StudioShot:
-    """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。"""
+    """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。
+
+    Batch2 视频步:
+      · video_model 默认 h3(亦可显式 ltx);
+      · num_candidates>1 时串行多 seed 出片,写入 candidates_json,首个成功自动 pick;
+      · ref_images/scene_images 供 H3 @图片N 多参考(空则从角色三视图自动收集)。
+    """
+    import random
+    import uuid
+
     if pool is None:
         from app.deps import get_pool
 
@@ -63,24 +77,83 @@ async def render_shot(
             "height": project.height,
             "fps": project.fps,
         }
-    try:
-        if request is not None:
-            render_kw["request"] = request
-        result = await get_renderer(shot).render(
-            shot, _cast_for(session, shot), pool, **render_kw
+    engine = (video_model or getattr(shot, "video_model", "") or "h3").strip() or "h3"
+    if engine not in ("h3", "ltx"):
+        engine = "h3"
+    shot.video_model = engine
+    n = max(1, min(4, int(num_candidates or 1)))
+    cast = _cast_for(session, shot)
+    # 多参考:显式列表优先;否则从角色三视图(+场景)自动收集,并落库供 UI 回显
+    from app.services.studio.shot_refs import collect_cast_ref_images, ref_urls
+
+    if ref_images is not None:
+        resolved_refs = [u for u in ref_images if isinstance(u, str) and u.strip()]
+        # 显式列表:渲染器按该序编号(标签简化为参考图N)
+        render_kw["ref_images"] = resolved_refs
+    else:
+        resolved_refs = ref_urls(
+            collect_cast_ref_images(cast, scene_images=scene_images)
         )
+        # 自动收集:留给渲染器从 cast 重建带角色名的 @图片N 标签
+        if scene_images is not None:
+            render_kw["scene_images"] = scene_images
+    shot.ref_images_json = json.dumps(resolved_refs, ensure_ascii=False)
+    if request is not None:
+        render_kw["request"] = request
+    render_kw["video_model"] = engine
+    renderer = get_renderer(shot)
+
+    async def _once(seed: int | None = None) -> Any:
+        kw = dict(render_kw)
+        if seed is not None:
+            kw["seed"] = seed
+        return await renderer.render(shot, cast, pool, **kw)
+
+    try:
+        if shot.render_mode != "video" or n <= 1:
+            result = await _once()
+            candidates: list[dict[str, Any]] = []
+        else:
+            # 多候选:不同 seed 串行提交(不并行,避免打爆 H3 单实例队列)
+            seeds = [random.randint(0, 2**31 - 1) for _ in range(n)]
+            candidates = []
+            result = None
+            first_err: Exception | None = None
+            for seed in seeds:
+                cid = uuid.uuid4().hex
+                entry: dict[str, Any] = {
+                    "id": cid,
+                    "url": "",
+                    "seed": seed,
+                    "status": "generating",
+                    "is_picked": False,
+                    "error": "",
+                    "video_model": engine,
+                }
+                try:
+                    r = await _once(seed)
+                    entry["url"] = r.url
+                    entry["status"] = "done"
+                    if result is None:
+                        result = r
+                        entry["is_picked"] = True
+                except RenderError as e:
+                    entry["status"] = "error"
+                    entry["error"] = str(e)[:200]
+                    if first_err is None:
+                        first_err = e
+                candidates.append(entry)
+            if result is None:
+                raise first_err or RenderError("全部候选生成失败")
     except RenderError as e:
         shot.status = "error"
         shot.error = str(e)
         session.add(shot)
         session.commit()
         raise
+
     if result.kind == "image":
         shot.image_url = result.url
-        # L2 质量门(advisory v1):渲染完成点发事件,由 QualityPlugin 订阅执行
-        # evaluate_image(打分→三态决策,只记日志不阻断);打分器未装/异常一律降级,
-        # 渲染结果不受影响。R2 接 best-of-K 重生成。
-        # 无订阅者(quality 插件未激活)时 emit 为空操作,零开销。
         try:
             from app.harness.ctx import get_ctx
 
@@ -93,8 +166,59 @@ async def render_shot(
     else:
         shot.video_url = result.url
         shot.final_clip_url = result.url
+    if candidates:
+        shot.candidates_json = json.dumps(candidates, ensure_ascii=False)
+    elif n <= 1 and shot.render_mode == "video":
+        # 单候选也写一条,便于 UI 统一展示
+        shot.candidates_json = json.dumps(
+            [
+                {
+                    "id": uuid.uuid4().hex,
+                    "url": result.url if result.kind == "video" else "",
+                    "seed": 0,
+                    "status": "done",
+                    "is_picked": True,
+                    "error": "",
+                    "video_model": engine,
+                }
+            ],
+            ensure_ascii=False,
+        )
     shot.status = "rendered"
     session.add(shot)
     session.commit()
     session.refresh(shot)
     return shot
+
+
+def pick_candidate(session: Session, shot: StudioShot, candidate_id: str) -> StudioShot:
+    """将指定候选标为采用,回写 video_url/final_clip_url。"""
+    try:
+        rows = json.loads(shot.candidates_json or "[]")
+    except (ValueError, TypeError):
+        rows = []
+    if not isinstance(rows, list) or not rows:
+        raise RenderError("无候选可挑选")
+    found = None
+    for c in rows:
+        if not isinstance(c, dict):
+            continue
+        if c.get("id") == candidate_id:
+            found = c
+            c["is_picked"] = True
+        else:
+            c["is_picked"] = False
+    if not found:
+        raise RenderError("候选不存在")
+    if found.get("status") != "done" or not found.get("url"):
+        raise RenderError("候选未完成或无产物")
+    shot.video_url = str(found["url"])
+    shot.final_clip_url = str(found["url"])
+    shot.candidates_json = json.dumps(rows, ensure_ascii=False)
+    if found.get("video_model"):
+        shot.video_model = str(found["video_model"])
+    session.add(shot)
+    session.commit()
+    session.refresh(shot)
+    return shot
+

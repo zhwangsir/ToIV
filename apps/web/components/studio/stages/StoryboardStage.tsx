@@ -50,6 +50,9 @@ export function StoryboardStage({
   // 删除分镜确认门(2026-08-30 UX 批 C):直接删改全量列表不可逆,先 Modal 确认
   const [confirmDeleteShot, setConfirmDeleteShot] = useState<StudioShot | null>(null);
   const [rerunningFailed, setRerunningFailed] = useState(false);
+  // Batch2 视频步默认:H3 + 每镜 2 候选
+  const [videoModel, setVideoModel] = useState<"h3" | "ltx">("h3");
+  const [numCandidates, setNumCandidates] = useState(2);
 
   // 批量生成是长任务:期间 5s 轮询刷新(页面隐藏暂停,失败指数退避),分镜状态/媒体实时可见
   usePoll(() => project.refresh(), {
@@ -133,6 +136,36 @@ export function StoryboardStage({
           <Icon name={focus === "voice" ? "mic" : focus === "lipsync" ? "sparkles" : "video"} size={12} />
           {FOCUS_LABEL[focus]}
         </p>
+      )}
+
+      {focus === "video" && (
+        <div className="studio-video-toolbar" data-testid="studio-video-toolbar">
+          <label>
+            <Icon name="zap" size={12} />
+            <select
+              value={videoModel}
+              aria-label="默认引擎"
+              onChange={(e) => setVideoModel(e.target.value === "ltx" ? "ltx" : "h3")}
+            >
+              <option value="h3">H3</option>
+              <option value="ltx">LTX</option>
+            </select>
+          </label>
+          <label>
+            候选
+            <select
+              value={numCandidates}
+              aria-label="默认候选数"
+              onChange={(e) => setNumCandidates(Number(e.target.value))}
+            >
+              {[1, 2, 3, 4].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       )}
 
       {/* Batch2 督导条:失败/渲染中/完成计数 + 重跑失败 */}
@@ -221,10 +254,26 @@ export function StoryboardStage({
               busyLipsync={Boolean(project.busy[`lipsync:${s.id}`])}
               saveState={project.saveState}
               savedAt={project.savedAt}
+              videoFocus={focus === "video"}
+              defaultVideoModel={videoModel}
+              defaultNumCandidates={numCandidates}
               onModeChange={(mode: StudioRenderMode) => patchShot(s.id, { render_mode: mode })}
               onPatch={(fields) => patchShot(s.id, fields)}
-              onRender={() =>
-                void project.renderShot(s.id).catch(() => {
+              onRender={(body) =>
+                void project
+                  .renderShot(
+                    s.id,
+                    body ??
+                      (focus === "video"
+                        ? { video_model: videoModel, num_candidates: numCandidates }
+                        : undefined),
+                  )
+                  .catch(() => {
+                    /* 错误已由 hook error 提示条透出 */
+                  })
+              }
+              onPickCandidate={(cid) =>
+                void project.pickCandidate(s.id, cid).catch(() => {
                   /* 错误已由 hook error 提示条透出 */
                 })
               }

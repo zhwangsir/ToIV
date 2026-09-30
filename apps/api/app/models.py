@@ -707,6 +707,10 @@ class StudioShot(SQLModel, table=True):
     voice_url: str = ""
     final_clip_url: str = ""  # 该镜最终片段(运镜/对口型后)
     error: str = ""
+    # Batch2 视频步:引擎(默认 h3) + 多候选 + 本镜多参考图 URL
+    video_model: str = "h3"  # h3 | ltx
+    candidates_json: str = "[]"  # JSON:[{id,url,seed,status,is_picked,error}]
+    ref_images_json: str = "[]"  # JSON:本镜选用的参考图 URL 列表
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
 

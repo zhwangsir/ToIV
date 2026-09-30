@@ -77,17 +77,32 @@ class VideoRenderer:
         prompt = f"{cast_tokens}, {shot.prompt}" if cast_tokens else shot.prompt
         # 默认 h3:LTX-2.5 专用实例 :8198 已退役(2026-08-21 用户决策,由 H3 全面替代),
         # 沿用旧默认 "ltx" 会让 studio 视频分镜全数连接拒绝
-        gen = get_generator(kw.get("video_model") or "h3", pool)
+        video_model = (kw.get("video_model") or getattr(shot, "video_model", "") or "h3").strip() or "h3"
+        # Batch2:H3 多参考 @图片N(角色三视图 + 场景图);非 h3 不注入
+        from app.services.studio.shot_refs import h3_ref_prefix
+
+        ref_prefix, used_refs = h3_ref_prefix(
+            cast,
+            engine=video_model,
+            ref_images=kw.get("ref_images"),
+            scene_images=kw.get("scene_images"),
+        )
+        if ref_prefix:
+            prompt = ref_prefix + prompt
+            kw["_used_ref_images"] = used_refs  # 供编排层回写 shot.ref_images_json
+        gen = get_generator(video_model, pool)
         try:
-            # 项目级产出规格(缺省回落 LTX 常用 768×384@16)
-            result = await gen.generate(
-                prompt,
+            # 项目级产出规格(缺省回落 LTX 常用 768×384@16);seed 供多候选分叉
+            gen_kw = dict(
                 negative=shot.negative,
                 width=int(kw.get("width") or 768),
                 height=int(kw.get("height") or 384),
                 duration_sec=shot.duration_sec,
                 fps=int(kw.get("fps") or 16),
             )
+            if kw.get("seed") is not None:
+                gen_kw["seed"] = int(kw["seed"])
+            result = await gen.generate(prompt, **gen_kw)
         except Exception as e:
             raise RenderError(f"视频生成失败:{e}") from e
         if not result.success:

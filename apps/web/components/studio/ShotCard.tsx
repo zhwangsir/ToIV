@@ -4,11 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import {
   imageUrl,
   optimizeStudioShot,
+  uploadImage,
   type StudioCharacter,
+  type StudioRenderBody,
   type StudioRenderMode,
   type StudioShot,
   type StudioShotInput,
 } from "@/lib/api";
+import { collectAutoRefSlots, slotsToUrls } from "@/lib/studioVideoRefs";
 import { Icon } from "@/components/ui/Icon";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 import { Ripple } from "@/components/ui/Ripple";
@@ -45,10 +48,17 @@ export interface ShotCardProps {
   /** 失焦自动保存状态(项目级,所有卡片共享) */
   saveState: StudioSaveState;
   savedAt: Date | null;
+  /** Batch2:视频步焦点时展示引擎/多候选/多参考 */
+  videoFocus?: boolean;
+  /** 项目级默认引擎(视频步工具栏) */
+  defaultVideoModel?: "h3" | "ltx";
+  /** 项目级默认候选数 */
+  defaultNumCandidates?: number;
   onModeChange: (mode: StudioRenderMode) => void;
   onPatch: (fields: Partial<StudioShotInput>) => void;
-  onRender: () => void;
+  onRender: (body?: StudioRenderBody) => void;
   onCancelRender?: () => void;
+  onPickCandidate?: (cid: string) => void;
   onVoice: () => void;
   onLipsync: () => void;
   onDelete: () => void;
@@ -67,10 +77,14 @@ export function ShotCard({
   busyLipsync,
   saveState,
   savedAt,
+  videoFocus = false,
+  defaultVideoModel = "h3",
+  defaultNumCandidates = 2,
   onModeChange,
   onPatch,
   onRender,
   onCancelRender,
+  onPickCandidate,
   onVoice,
   onLipsync,
   onDelete,
@@ -90,6 +104,19 @@ export function ShotCard({
   const [skills, setSkills] = useState<Agent[]>([]);
   const [optimizing, setOptimizing] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  // Batch2 视频步:引擎默认 H3;候选数默认 2;场景参考可追加
+  const [videoModel, setVideoModel] = useState<"h3" | "ltx">(
+    (shot.video_model === "ltx" ? "ltx" : defaultVideoModel) as "h3" | "ltx",
+  );
+  const [numCandidates, setNumCandidates] = useState(
+    Math.min(4, Math.max(1, defaultNumCandidates || 2)),
+  );
+  const [sceneRefs, setSceneRefs] = useState<string[]>(() => {
+    const autoChar = new Set(
+      collectAutoRefSlots(characters, shot.characters).map((s) => s.url),
+    );
+    return (shot.ref_images || []).filter((u) => u && !autoChar.has(u));
+  });
 
   // 面板展开时拉可选技能(公共 + 本人导入,失败静默降级为无技能可选)
   useEffect(() => {
@@ -141,6 +168,23 @@ export function ShotCard({
   const savedAtLabel = savedAt
     ? `${String(savedAt.getHours()).padStart(2, "0")}:${String(savedAt.getMinutes()).padStart(2, "0")}`
     : null;
+
+  const showVideoOpts = videoFocus || shot.render_mode === "video";
+  const autoSlots = collectAutoRefSlots(characters, shot.characters, sceneRefs);
+  const refUrls = slotsToUrls(autoSlots);
+  const candidates = shot.candidates || [];
+
+  const doRender = () => {
+    if (!showVideoOpts) {
+      onRender();
+      return;
+    }
+    onRender({
+      video_model: videoModel,
+      num_candidates: numCandidates,
+      ref_images: refUrls,
+    });
+  };
 
   return (
     <article className="studio-shot" data-status={shot.status}>
@@ -379,6 +423,118 @@ export function ShotCard({
           </div>
         )}
 
+        {/* Batch2 视频步:H3 默认 + 多参考 + 多候选 */}
+        {showVideoOpts && (
+          <div className="studio-video-opts" data-testid="studio-video-opts">
+            <div className="studio-video-row">
+              <label className="studio-video-engine">
+                <Icon name="zap" size={12} />
+                <select
+                  value={videoModel}
+                  disabled={busy}
+                  aria-label="视频引擎"
+                  onChange={(e) => setVideoModel(e.target.value === "ltx" ? "ltx" : "h3")}
+                >
+                  <option value="h3">H3</option>
+                  <option value="ltx">LTX</option>
+                </select>
+              </label>
+              <label className="studio-video-cands">
+                候选
+                <select
+                  value={numCandidates}
+                  disabled={busy}
+                  aria-label="候选数"
+                  onChange={(e) => setNumCandidates(Number(e.target.value))}
+                >
+                  {[1, 2, 3, 4].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="studio-shot-refs" data-testid="studio-shot-refs">
+              <span className="studio-label">参考</span>
+              <div className="studio-shot-ref-row">
+                {autoSlots.length === 0 ? (
+                  <span className="studio-shot-ref-empty">无</span>
+                ) : (
+                  autoSlots.map((slot) => (
+                    <div
+                      key={`${slot.kind}-${slot.label}-${slot.url}`}
+                      className="studio-shot-ref-slot"
+                      title={slot.label}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={imageUrl(slot.url)}
+                        alt={slot.label}
+                        className="studio-shot-ref-thumb"
+                        loading="lazy"
+                      />
+                      <span className="studio-shot-ref-cap">{slot.label}</span>
+                    </div>
+                  ))
+                )}
+                <label className="studio-shot-ref-add" title="场景图">
+                  <Icon name="plus" size={12} />
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    hidden
+                    disabled={busy}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!f) return;
+                      void (async () => {
+                        try {
+                          const r = await uploadImage(f, "img2img", true);
+                          const qs = new URLSearchParams({
+                            filename: r.filename,
+                            type: "input",
+                            worker: r.worker,
+                          });
+                          setSceneRefs((prev) => [...prev, `/api/images?${qs}`].slice(0, 4));
+                        } catch {
+                          /* 上传失败由全局错误条/静默;不打断主流程 */
+                        }
+                      })();
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+            {candidates.length > 0 && (
+              <div className="studio-cand-row" data-testid="studio-cand-row">
+                {candidates.map((c, i) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`studio-cand${c.is_picked ? " is-picked" : ""}${c.status === "error" ? " is-error" : ""}`}
+                    disabled={busy || c.status !== "done" || !onPickCandidate}
+                    title={c.error || `候选 ${i + 1}`}
+                    onClick={() => onPickCandidate?.(c.id)}
+                  >
+                    {c.status === "done" && c.url ? (
+                      <video src={imageUrl(c.url)} muted playsInline preload="metadata" />
+                    ) : (
+                      <span>{c.status === "generating" ? "…" : c.status === "error" ? "!" : i + 1}</span>
+                    )}
+                    {c.is_picked && (
+                      <span className="studio-cand-check">
+                        <Icon name="check" size={10} />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {shot.error && <p className="studio-shot-error">{shot.error}</p>}
 
         {/* ── 操作 ── */}
@@ -389,7 +545,7 @@ export function ShotCard({
               className={busyRender ? "btn btn-sm btn-danger" : "btn btn-sm btn-primary"}
               disabled={busy && !busyRender}
               title={busyRender ? "中止本镜渲染(断开请求并尝试中断 GPU)" : undefined}
-              onClick={busyRender && onCancelRender ? onCancelRender : onRender}
+              onClick={busyRender && onCancelRender ? onCancelRender : doRender}
             >
               <Icon name={busyRender ? "close" : "playing"} size={12} />
               {busyRender ? "中止" : "生成"}
