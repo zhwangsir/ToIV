@@ -181,6 +181,8 @@ class CharacterPatch(BaseModel):
     description: str | None = Field(default=None, max_length=2000)
     visual_prompt: str | None = Field(default=None, max_length=2000)
     voice_ref_url: str | None = Field(default=None, max_length=1024)
+    # Batch2:三视图/参考图 URL 列表(落库 JSON 字符串;路由层 json.dumps)
+    reference_images: list[str] | None = Field(default=None, max_length=8)
 
 
 class ShotInput(BaseModel):

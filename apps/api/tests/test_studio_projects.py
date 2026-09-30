@@ -391,3 +391,41 @@ def test_studio_file_serving(ctx, monkeypatch, tmp_path):
     # 不存在 → 404;路径穿越 → 400(或路由不匹配 404/405,绝不放行)
     assert client.get("/api/studio/files/none.mp4", headers=H).status_code == 404
     assert client.get("/api/studio/files/..%2F..%2Fsecret", headers=H).status_code in (400, 404, 405)
+
+def test_character_reference_images_patch(ctx):
+    """Batch2:CharacterPatch.reference_images list → DB JSON;响应为 list。"""
+    client, token = ctx
+    H = _h(token)
+    pid = _mk_project(client, H)
+    r = client.post(
+        f"/api/studio/projects/{pid}/characters",
+        headers=H,
+        json={"name": "林夏"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert isinstance(body.get("reference_images"), list), body
+    cid = body["id"]
+    refs = [
+        "/api/images?filename=front.png&type=input&worker=http://w",
+        "/api/images?filename=side.png&type=input&worker=http://w",
+        "/api/images?filename=full.png&type=input&worker=http://w",
+    ]
+    pr = client.patch(
+        f"/api/studio/characters/{cid}",
+        headers=H,
+        json={"reference_images": refs},
+    )
+    assert pr.status_code == 200, pr.text
+    out = pr.json()
+    assert out["reference_images"] == refs
+    detail = client.get(f"/api/studio/projects/{pid}", headers=H).json()
+    assert detail["characters"][0]["reference_images"] == refs
+    # 清空
+    pr2 = client.patch(
+        f"/api/studio/characters/{cid}",
+        headers=H,
+        json={"reference_images": []},
+    )
+    assert pr2.status_code == 200 and pr2.json()["reference_images"] == []
+

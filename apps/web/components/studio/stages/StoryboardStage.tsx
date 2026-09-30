@@ -26,24 +26,35 @@ function toInput(s: StudioShot): StudioShotInput {
   };
 }
 
+const FOCUS_LABEL: Record<"video" | "voice" | "lipsync", string> = {
+  video: "视频",
+  voice: "配音",
+  lipsync: "对口型",
+};
+
 /**
- * ③ 分镜阶段:分镜网格 + 分镜级混合生成。
+ * ③ 分镜阶段:分镜网格 + 分镜级混合生成 + Batch2 督导条。
  * 所有编辑走全量 saveShots(未包含即删除);批量生成期间每 5s 轮询进度。
+ * focus=视频/配音/对口型 时复用本组件(步骤条薄过滤)。
  */
 export function StoryboardStage({
   project,
+  focus,
 }: {
   project: ReturnType<typeof useStudioProject>;
+  /** Batch2:从步骤条「视频/配音/对口型」进入时的工作焦点 */
+  focus?: "video" | "voice" | "lipsync";
 }) {
   const d = project.detail;
   const renderingAll = Boolean(project.busy["render:all"]);
   // 删除分镜确认门(2026-08-30 UX 批 C):直接删改全量列表不可逆,先 Modal 确认
   const [confirmDeleteShot, setConfirmDeleteShot] = useState<StudioShot | null>(null);
+  const [rerunningFailed, setRerunningFailed] = useState(false);
 
   // 批量生成是长任务:期间 5s 轮询刷新(页面隐藏暂停,失败指数退避),分镜状态/媒体实时可见
   usePoll(() => project.refresh(), {
     intervalMs: 5000,
-    enabled: renderingAll,
+    enabled: renderingAll || rerunningFailed,
     backoff: true,
     immediate: false,
   });
@@ -74,8 +85,92 @@ export function StoryboardStage({
     ["rendered", "voiced", "lipsynced", "done"].includes(s.status),
   ).length;
 
+  const errored = shots.filter((s) => s.status === "error");
+  const rendering = shots.filter((s) => s.status === "rendering" || s.status === "queued");
+  const doneCount = shots.filter((s) =>
+    ["rendered", "voiced", "lipsynced", "done"].includes(s.status),
+  ).length;
+
+  const rerunFailed = async () => {
+    const targets = shots.filter((s) => s.status === "error");
+    if (targets.length === 0 || rerunningFailed) return;
+    setRerunningFailed(true);
+    try {
+      // 顺序重跑失败镜(复用 renderShot;不走 renderAll 以免误伤进行中任务)
+      for (const s of targets) {
+        try {
+          await project.renderShot(s.id);
+        } catch {
+          /* 单镜失败继续下一镜;错误条由 hook 透出 */
+        }
+      }
+    } finally {
+      setRerunningFailed(false);
+    }
+  };
+
+  // focus 薄过滤:视频看未渲/失败;配音看已渲未配;对口型看已配未对口
+  let visible = shots;
+  if (focus === "video") {
+    visible = shots.filter(
+      (s) => !["rendered", "voiced", "lipsynced", "done"].includes(s.status) || s.status === "error",
+    );
+    if (visible.length === 0) visible = shots;
+  } else if (focus === "voice") {
+    const need = shots.filter(
+      (s) => ["rendered"].includes(s.status) || (s.dialogue && !["voiced", "lipsynced", "done"].includes(s.status)),
+    );
+    if (need.length > 0) visible = need;
+  } else if (focus === "lipsync") {
+    const need = shots.filter((s) => s.status === "voiced");
+    if (need.length > 0) visible = need;
+  }
+
   return (
     <section className="studio-stage studio-stage-board">
+      {focus && (
+        <p className="studio-focus-banner" data-focus={focus}>
+          <Icon name={focus === "voice" ? "mic" : focus === "lipsync" ? "sparkles" : "video"} size={12} />
+          {FOCUS_LABEL[focus]}
+        </p>
+      )}
+
+      {/* Batch2 督导条:失败/渲染中/完成计数 + 重跑失败 */}
+      {shots.length > 0 && (
+        <div className="studio-supervise" data-testid="studio-supervise">
+          <div className="studio-supervise-stats">
+            <span className="studio-supervise-item is-error">
+              <Icon name="alert" size={12} /> {errored.length}
+            </span>
+            <span className="studio-supervise-item is-busy">
+              <Icon name="loading" size={12} /> {rendering.length}
+            </span>
+            <span className="studio-supervise-item is-ok">
+              <Icon name="check" size={12} /> {doneCount}
+            </span>
+          </div>
+          {errored.length > 0 && (
+            <ul className="studio-supervise-errors">
+              {errored.slice(0, 6).map((s) => (
+                <li key={s.id} title={s.error || ""}>
+                  #{s.idx + 1} {(s.error || "失败").slice(0, 48)}
+                  {(s.error || "").length > 48 ? "…" : ""}
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm studio-supervise-rerun"
+            disabled={errored.length === 0 || renderingAll || rerunningFailed}
+            onClick={() => void rerunFailed()}
+          >
+            <Icon name={rerunningFailed ? "loading" : "refresh"} size={13} />
+            重跑失败
+          </button>
+        </div>
+      )}
+
       <div className="studio-board-toolbar">
         <span className="studio-board-stat">
           {shots.length} 镜 · 已生成 {renderedCount}
@@ -115,13 +210,13 @@ export function StoryboardStage({
         />
       ) : (
         <div className="studio-shot-grid">
-          {shots.map((s) => (
+          {visible.map((s) => (
             <ShotCard
               key={s.id}
               shot={s}
               projectId={d.id}
               characters={d.characters}
-              busyRender={Boolean(project.busy[`render:${s.id}`]) || renderingAll}
+              busyRender={Boolean(project.busy[`render:${s.id}`]) || renderingAll || rerunningFailed}
               busyVoice={Boolean(project.busy[`voice:${s.id}`])}
               busyLipsync={Boolean(project.busy[`lipsync:${s.id}`])}
               saveState={project.saveState}

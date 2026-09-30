@@ -45,6 +45,12 @@ def _get_project(session: Session, pid: str, user: User) -> StudioProject:
     return p
 
 
+
+def _character_out(c: StudioCharacter) -> dict:
+    """角色响应:reference_images 解析为 list(与 _project_detail 一致,避免泄漏 JSON 串)。"""
+    return {**c.model_dump(), "reference_images": json.loads(c.reference_images or "[]")}
+
+
 def _project_detail(session: Session, p: StudioProject) -> dict:
     chars = session.exec(
         select(StudioCharacter).where(StudioCharacter.project_id == p.id)
@@ -172,7 +178,7 @@ def create_character(
     session.add(c)
     session.commit()
     session.refresh(c)
-    return c
+    return _character_out(c)
 
 
 @router.patch("/studio/characters/{cid}")
@@ -186,12 +192,24 @@ def patch_character(
     if not c:
         raise HTTPException(status_code=404, detail="角色不存在")
     _get_project(session, c.project_id, user)  # 租户校验
-    for k, v in body.model_dump(exclude_none=True).items():
+    data = body.model_dump(exclude_none=True)
+    # Batch2:reference_images list → DB JSON 字符串列
+    if "reference_images" in data:
+        refs = data["reference_images"] or []
+        if not isinstance(refs, list):
+            raise HTTPException(status_code=400, detail="reference_images 须为字符串数组")
+        if len(refs) > 8:
+            raise HTTPException(status_code=400, detail="reference_images 最多 8 张")
+        for u in refs:
+            if not isinstance(u, str) or len(u) > 1024:
+                raise HTTPException(status_code=400, detail="reference_images 项无效")
+        data["reference_images"] = json.dumps(refs, ensure_ascii=False)
+    for k, v in data.items():
         setattr(c, k, v)
     session.add(c)
     session.commit()
     session.refresh(c)
-    return c
+    return _character_out(c)
 
 
 @router.delete("/studio/characters/{cid}")

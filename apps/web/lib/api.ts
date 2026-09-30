@@ -4613,6 +4613,8 @@ export interface StudioCharacterInput {
   name: string;
   description?: string;
   visual_prompt?: string;
+  /** Batch2:三视图/参考图 URL 列表(正/侧/全身…) */
+  reference_images?: string[];
 }
 
 export interface StudioParseResult {
@@ -4770,7 +4772,7 @@ export const addStudioCharacter = (
   studioReq(`/studio/projects/${pid}/characters`, "POST", body);
 export const patchStudioCharacter = (
   cid: string,
-  body: Partial<StudioCharacterInput & { voice_ref_url: string }>,
+  body: Partial<StudioCharacterInput & { voice_ref_url: string; reference_images: string[] }>,
 ): Promise<StudioCharacter> => studioReq(`/studio/characters/${cid}`, "PATCH", body);
 export const deleteStudioCharacter = (cid: string): Promise<{ ok: boolean }> =>
   studioReq(`/studio/characters/${cid}`, "DELETE");
@@ -4802,10 +4804,19 @@ export const renderStudioAll = (
     signal: opts?.signal,
   });
 
-/** 聚合状态(轮询用):各状态计数。 */
+/** Studio 管线下一步(与 compute_studio_next_step 对齐)。 */
+export interface StudioNextStep {
+  step: string;
+  label: string;
+  action: string;
+  todo: number;
+  shot_ids?: string[];
+}
+
+/** 聚合状态(轮询用):各状态计数 + next_step(Batch2 步骤条)。 */
 export const studioStatus = (
   pid: string,
-): Promise<{ total: number; by_status: Record<string, number> }> =>
+): Promise<{ total: number; by_status: Record<string, number>; next_step: StudioNextStep }> =>
   studioReq(`/studio/projects/${pid}/status`, "GET");
 
 /** 单镜配音(IndexTTS2,说话人命中角色卡带参考音则克隆)→ 放宽到 180s。 */

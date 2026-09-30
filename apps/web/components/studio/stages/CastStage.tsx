@@ -4,7 +4,9 @@ import { useRef, useState, type TextareaHTMLAttributes } from "react";
 import {
   addStudioCharacter,
   deleteStudioCharacter,
+  imageUrl,
   patchStudioCharacter,
+  uploadImage,
   type StudioCharacter,
 } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
@@ -17,9 +19,34 @@ import { useAutoResize } from "@/hooks/useAutoResize";
 import type { useStudioProject } from "@/hooks/useStudioProject";
 
 /**
- * ② 角色阶段:角色卡 CRUD(跨镜一致性锚点)。
+ * ② 角色阶段:角色卡 CRUD(跨镜一致性锚点)+ Batch2 三视图参考槽(正/侧/全身)。
  * 内联编辑失焦即存;voice_ref_url M4 只读展示,参考音上传后续扩展。
  */
+
+/** 三视图槽位标签(对齐 H3 林夏定妆:正/侧/全身)。 */
+const REF_SLOTS = [
+  { key: 0, label: "正" },
+  { key: 1, label: "侧" },
+  { key: 2, label: "全身" },
+] as const;
+
+const IMAGE_EXT_OK = ["jpg", "jpeg", "png", "webp"];
+const IMAGE_MAX_BYTES = 20 * 1024 * 1024;
+
+function fileExt(name: string): string {
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+
+/** 上传句柄 → 可回显的 /api/images?… URL(type=input)。 */
+function uploadToRefUrl(filename: string, worker: string): string {
+  const qs = new URLSearchParams({
+    filename,
+    type: "input",
+    worker,
+  });
+  return `/api/images?${qs.toString()}`;
+}
 
 /**
  * 角色卡描述框(非受控 defaultValue + onBlur 落库):自动增高包装,
@@ -30,6 +57,109 @@ function CastTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   useAutoResize(ref, String(props.defaultValue ?? ""));
   return <Textarea {...props} ref={ref} />;
+}
+
+function RefSlots({
+  character,
+  onPatch,
+  disabled,
+}: {
+  character: StudioCharacter;
+  onPatch: (refs: string[]) => Promise<void>;
+  disabled?: boolean;
+}) {
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [uploading, setUploading] = useState<number | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const refs = [...(character.reference_images || [])];
+  while (refs.length < 3) refs.push("");
+
+  const setSlot = async (idx: number, url: string | null) => {
+    // 固定 3 槽位序(正/侧/全身),空槽用 "" 占位以免错位
+    const next = [refs[0] || "", refs[1] || "", refs[2] || ""];
+    next[idx] = url ?? "";
+    await onPatch(next);
+  };
+
+  const onFile = async (idx: number, file: File | undefined) => {
+    if (!file) return;
+    setLocalError(null);
+    if (!IMAGE_EXT_OK.includes(fileExt(file.name))) {
+      setLocalError("仅支持 jpg / png / webp");
+      return;
+    }
+    if (file.size > IMAGE_MAX_BYTES) {
+      setLocalError("图片超过 20MB 上限");
+      return;
+    }
+    setUploading(idx);
+    try {
+      // allWorkers=true:角色参考图分发全 worker,供后续分镜跨机
+      const r = await uploadImage(file, "img2img", true);
+      await setSlot(idx, uploadToRefUrl(r.filename, r.worker));
+    } catch (e) {
+      setLocalError(e instanceof Error ? e.message : "上传失败");
+    } finally {
+      setUploading(null);
+      const el = inputRefs.current[idx];
+      if (el) el.value = "";
+    }
+  };
+
+  return (
+    <div className="studio-ref-slots">
+      <span className="studio-label">三视图</span>
+      <div className="studio-ref-row">
+        {REF_SLOTS.map((slot) => {
+          const url = refs[slot.key] || "";
+          const busy = uploading === slot.key;
+          return (
+            <div key={slot.key} className="studio-ref-slot">
+              <span className="studio-ref-label">{slot.label}</span>
+              {url ? (
+                <div className="studio-ref-thumb-wrap">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imageUrl(url)}
+                    alt={slot.label}
+                    className="studio-ref-thumb"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <button
+                    type="button"
+                    className="studio-ref-clear"
+                    title="清除"
+                    aria-label={`清除${slot.label}`}
+                    disabled={disabled || busy}
+                    onClick={() => void setSlot(slot.key, null)}
+                  >
+                    <Icon name="close" size={11} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="studio-ref-upload"
+                  disabled={disabled || busy}
+                  onClick={() => inputRefs.current[slot.key]?.click()}
+                  title={`上传${slot.label}`}
+                >
+                  <Icon name={busy ? "loading" : "upload"} size={14} />
+                </button>
+              )}
+              <input ref={(el) => { inputRefs.current[slot.key] = el; }} type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" hidden disabled={disabled || busy} onChange={(e) => void onFile(slot.key, e.target.files?.[0])} />
+            </div>
+          );
+        })}
+      </div>
+      {localError && (
+        <p className="studio-ref-error" role="alert">
+          {localError}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function CastStage({
@@ -136,6 +266,12 @@ export function CastStage({
                 e.target.value !== c.visual_prompt &&
                 void patch(c.id, { visual_prompt: e.target.value })
               }
+            />
+            <RefSlots
+              character={c}
+              onPatch={async (reference_images) => {
+                await patch(c.id, { reference_images });
+              }}
             />
             {c.voice_ref_url && (
               <p className="studio-char-voice">

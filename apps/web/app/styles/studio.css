@@ -745,6 +745,176 @@
   }
 }
 
+
+/* ── Batch2:步骤就绪点 + 下一步提示 + 三视图槽 + 督导条 ── */
+.studio-stage-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  flex-shrink: 0;
+}
+.studio-stage-dot[data-ready="ready"],
+.studio-stage-btn.is-ready .studio-stage-dot {
+  background: var(--accent-glow, var(--accent));
+}
+.studio-stage-dot[data-ready="partial"],
+.studio-stage-btn.is-partial .studio-stage-dot {
+  background: var(--accent);
+  opacity: 0.55;
+}
+.studio-stage-dot[data-ready="error"],
+.studio-stage-btn.is-error .studio-stage-dot {
+  background: var(--danger, #e5484d);
+}
+.studio-stage-btn.is-error:not(.is-active) {
+  color: var(--danger, #e5484d);
+}
+.studio-stage-btn.is-partial:not(.is-active) .studio-stage-num {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.studio-next-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.studio-focus-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--text-aux);
+  font-weight: var(--font-medium);
+  color: var(--accent);
+}
+.studio-ref-slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.studio-ref-row {
+  display: flex;
+  gap: var(--space-2);
+}
+.studio-ref-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.studio-ref-label {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+}
+.studio-ref-thumb-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+}
+.studio-ref-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.studio-ref-clear {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+}
+.studio-ref-upload {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+}
+.studio-ref-upload:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.studio-ref-upload:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.studio-ref-error {
+  margin: 0;
+  font-size: var(--text-label);
+  color: var(--danger, #e5484d);
+}
+.studio-supervise {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.studio-supervise-stats {
+  display: inline-flex;
+  gap: var(--space-3);
+}
+.studio-supervise-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-aux);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.studio-supervise-item.is-error { color: var(--danger, #e5484d); }
+.studio-supervise-item.is-ok { color: var(--accent); }
+.studio-supervise-errors {
+  flex: 1 1 180px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  min-width: 0;
+}
+.studio-supervise-errors li {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.studio-supervise-rerun {
+  margin-left: auto;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .studio-project-card .studio-project-del,
   .studio-stage-btn,

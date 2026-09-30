@@ -1,14 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createStudioProject,
   deleteStudioProject,
   listStudioProjects,
+  studioStatus,
+  type StudioNextStep,
+  type StudioProjectDetail,
   type StudioProjectSummary,
 } from "@/lib/api";
 import { useStudioProject } from "@/hooks/useStudioProject";
-import { Icon } from "@/components/ui/Icon";
+import { usePoll } from "@/hooks/usePoll";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { Empty } from "@/components/ui/Empty";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Modal } from "@/components/ui/Modal";
@@ -22,15 +26,19 @@ import { StoryboardStage } from "./stages/StoryboardStage";
 import { AssemblyStage } from "./stages/AssemblyStage";
 import "@/app/styles/studio.css";
 
+/** Batch2 IA:七步短名;视频/配音/对口型复用 StoryboardStage。 */
 const STAGES = [
-  // 2026-10-01:短剧工作流骨架(接现有 stage 组件;视频/配音仍在分镜与合成内)
-  { key: "script", label: "剧本", icon: "create" },
-  { key: "cast", label: "资产", icon: "users" },
-  { key: "storyboard", label: "分镜", icon: "film" },
-  { key: "assembly", label: "成片", icon: "playing" },
+  { key: "script", label: "剧本", icon: "create" as IconName },
+  { key: "cast", label: "资产", icon: "users" as IconName },
+  { key: "storyboard", label: "分镜", icon: "film" as IconName },
+  { key: "video", label: "视频", icon: "video" as IconName },
+  { key: "voice", label: "配音", icon: "mic" as IconName },
+  { key: "lipsync", label: "对口型", icon: "sparkles" as IconName },
+  { key: "assembly", label: "成片", icon: "playing" as IconName },
 ] as const;
 
 type StageKey = (typeof STAGES)[number]["key"];
+type ReadyState = "pending" | "ready" | "partial" | "error";
 
 const PROJECT_STATUS_LABEL: Record<string, string> = {
   draft: "草稿",
@@ -48,17 +56,106 @@ const PROJECT_STATUS_TONE: Record<string, string> = {
   error: " at-badge--err",
 };
 
-/** 项目状态 → 流水线进度(副标行「进度 n/4」;error 无进度语义)。 */
+/** 项目状态 → 流水线进度(副标行「进度 n/7」;error 无进度语义)。 */
 const PROJECT_PROGRESS_STEP: Record<string, number> = {
   draft: 1,
-  storyboard: 2,
-  generating: 3,
-  ready: 4,
+  storyboard: 3,
+  generating: 4,
+  ready: 7,
 };
+
+const RENDERED = new Set(["rendered", "voiced", "lipsynced", "done"]);
+const VOICED = new Set(["voiced", "lipsynced", "done"]);
+const LIPSYNCED = new Set(["lipsynced", "done"]);
+
+function shotHasError(d: StudioProjectDetail): boolean {
+  return d.shots.some((s) => s.status === "error");
+}
+
+/** 从项目详情推导七步就绪态(pending/partial/ready/error)。 */
+export function deriveStageReadiness(
+  d: StudioProjectDetail | null,
+): Record<StageKey, ReadyState> {
+  const base: Record<StageKey, ReadyState> = {
+    script: "pending",
+    cast: "pending",
+    storyboard: "pending",
+    video: "pending",
+    voice: "pending",
+    lipsync: "pending",
+    assembly: "pending",
+  };
+  if (!d) return base;
+
+  base.script = d.premise?.trim() ? "ready" : "pending";
+
+  const chars = d.characters;
+  if (chars.length === 0) {
+    base.cast = "pending";
+  } else {
+    const counts = chars.map((c) => (c.reference_images || []).filter(Boolean).length);
+    const minRefs = Math.min(...counts);
+    const anyRef = counts.some((n) => n >= 1);
+    if (minRefs >= 3) base.cast = "ready";
+    else if (anyRef || chars.every((c) => c.name?.trim())) base.cast = anyRef ? "partial" : "partial";
+    else base.cast = "pending";
+    // 有角色名即至少 partial(可进分镜);有 ≥1 参考图强化 partial;≥3 全就绪
+    if (chars.length > 0 && base.cast === "pending") base.cast = "partial";
+  }
+
+  const shots = d.shots;
+  base.storyboard = shots.length > 0 ? "ready" : "pending";
+
+  if (shots.length === 0) {
+    base.video = base.voice = base.lipsync = "pending";
+  } else if (shotHasError(d)) {
+    base.video = shots.some((s) => s.status === "error") ? "error" : base.video;
+    // 失败镜优先标视频步;配音/对口型按全体进度
+    const allRendered = shots.every((s) => RENDERED.has(s.status));
+    const allVoiced = shots.every((s) => VOICED.has(s.status));
+    const allLipsynced = shots.every((s) => LIPSYNCED.has(s.status));
+    if (!allRendered && base.video !== "error") {
+      base.video = shots.some((s) => RENDERED.has(s.status)) ? "partial" : "pending";
+    } else if (allRendered) base.video = "ready";
+    base.voice = allVoiced ? "ready" : shots.some((s) => VOICED.has(s.status)) ? "partial" : "pending";
+    base.lipsync = allLipsynced
+      ? "ready"
+      : shots.some((s) => LIPSYNCED.has(s.status))
+        ? "partial"
+        : "pending";
+  } else {
+    const allRendered = shots.every((s) => RENDERED.has(s.status));
+    const allVoiced = shots.every((s) => VOICED.has(s.status));
+    const allLipsynced = shots.every((s) => LIPSYNCED.has(s.status));
+    base.video = allRendered
+      ? "ready"
+      : shots.some((s) => RENDERED.has(s.status) || s.status === "rendering" || s.status === "queued")
+        ? "partial"
+        : "pending";
+    base.voice = allVoiced
+      ? "ready"
+      : shots.some((s) => VOICED.has(s.status))
+        ? "partial"
+        : "pending";
+    base.lipsync = allLipsynced
+      ? "ready"
+      : shots.some((s) => LIPSYNCED.has(s.status))
+        ? "partial"
+        : "pending";
+  }
+
+  base.assembly = d.final_url?.trim()
+    ? "ready"
+    : shots.length > 0 && shots.every((s) => LIPSYNCED.has(s.status) || RENDERED.has(s.status))
+      ? "partial"
+      : "pending";
+
+  return base;
+}
 
 /**
  * Studio 做短剧(替代旧 短剧/漫剧 双模块)。
- * 短剧工作流骨架:剧本 → 资产(角色/场景) → 分镜(+视频/配音) → 成片。
+ * Batch2:剧本 → 资产 → 分镜 → 视频 → 配音 → 对口型 → 成片(步骤就绪态)。
  */
 export function StudioView({
   onBack,
@@ -79,6 +176,7 @@ export function StudioView({
   const [listError, setListError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<StudioProjectSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [nextStep, setNextStep] = useState<StudioNextStep | null>(null);
   const toast = useToast();
   const project = useStudioProject(activeId);
 
@@ -94,6 +192,22 @@ export function StudioView({
   }, []);
 
   useEffect(reload, [reload]);
+
+  // Batch2:轮询 status.next_step 作紧凑提示(不抢 H3 资源)
+  usePoll(
+    async () => {
+      if (!activeId) return;
+      try {
+        const s = await studioStatus(activeId);
+        setNextStep(s.next_step ?? null);
+      } catch {
+        /* 轮询失败静默,详情仍可用 */
+      }
+    },
+    { intervalMs: 8000, enabled: Boolean(activeId), backoff: true, immediate: true },
+  );
+
+  const readiness = useMemo(() => deriveStageReadiness(project.detail), [project.detail]);
 
   const createProject = async () => {
     try {
@@ -211,7 +325,7 @@ export function StudioView({
                         </time>
                         <span className="studio-project-stage">
                           {PROJECT_PROGRESS_STEP[p.status]
-                            ? `进度 ${PROJECT_PROGRESS_STEP[p.status]}/4`
+                            ? `进度 ${PROJECT_PROGRESS_STEP[p.status]}/7`
                             : "进度 —"}
                         </span>
                       </span>
@@ -273,9 +387,15 @@ export function StudioView({
     );
   }
 
-  // ── 工作台(四阶段) ──
+  // ── 工作台(七阶段) ──
   const d = project.detail;
-  const stageIdx = STAGES.findIndex((x) => x.key === stage);
+  const nextHint =
+    nextStep && nextStep.step !== "done"
+      ? `${nextStep.label}${nextStep.todo ? ` · ${nextStep.todo}` : ""}`
+      : nextStep?.step === "done"
+        ? "全部完成"
+        : null;
+
   return (
     <div className="studio-view">
       <nav className="studio-stages" aria-label="创作阶段">
@@ -286,26 +406,47 @@ export function StudioView({
           {d && <span className="studio-view-title">{d.title || "未命名"}</span>}
         </div>
         <div className="studio-stage-tabs" role="tablist">
-          {/* 进度感(2026-09-04 美化 W3):序号徽章三态——已完成段琥珀填充 / 当前段墨丸强调 / 未到段 hairline */}
-          {STAGES.map((s, i) => {
-            const done = i < stageIdx;
+          {STAGES.map((s) => {
+            const ready = readiness[s.key];
+            const active = stage === s.key;
+            const readyClass =
+              ready === "ready"
+                ? " is-ready is-done"
+                : ready === "partial"
+                  ? " is-partial"
+                  : ready === "error"
+                    ? " is-error"
+                    : " is-pending";
             return (
-            <button
-              key={s.key}
-              type="button"
-              role="tab"
-              aria-selected={stage === s.key}
-              className={`studio-stage-btn${stage === s.key ? " is-active" : ""}${done ? " is-done" : ""}`}
-              onClick={() => setStage(s.key)}
-            >
-              <span className="studio-stage-num" aria-hidden="true">
-                {done ? <Icon name="check" size={11} /> : i + 1}
-              </span>
-              <Icon name={s.icon} size={14} /> {s.label}
-            </button>
+              <button
+                key={s.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                data-ready={ready}
+                className={`studio-stage-btn${active ? " is-active" : ""}${readyClass}`}
+                onClick={() => setStage(s.key)}
+              >
+                <span className="studio-stage-dot" aria-hidden="true" data-ready={ready} />
+                <span className="studio-stage-num" aria-hidden="true">
+                  {ready === "ready" ? (
+                    <Icon name="check" size={11} />
+                  ) : ready === "error" ? (
+                    <Icon name="alert" size={11} />
+                  ) : (
+                    STAGES.findIndex((x) => x.key === s.key) + 1
+                  )}
+                </span>
+                <Icon name={s.icon} size={14} /> {s.label}
+              </button>
             );
           })}
         </div>
+        {nextHint && (
+          <p className="studio-next-hint" data-testid="studio-next-hint">
+            <Icon name="zap" size={12} /> {nextHint}
+          </p>
+        )}
       </nav>
 
       <ErrorBar message={project.error} onClose={project.clearError} />
@@ -315,7 +456,19 @@ export function StudioView({
         <>
           {stage === "script" && <ScriptStage project={project} onDone={() => setStage("cast")} />}
           {stage === "cast" && <CastStage project={project} onDone={() => setStage("storyboard")} />}
-          {stage === "storyboard" && <StoryboardStage project={project} />}
+          {(stage === "storyboard" ||
+            stage === "video" ||
+            stage === "voice" ||
+            stage === "lipsync") && (
+            <StoryboardStage
+              project={project}
+              focus={
+                stage === "storyboard"
+                  ? undefined
+                  : (stage as "video" | "voice" | "lipsync")
+              }
+            />
+          )}
           {stage === "assembly" && <AssemblyStage project={project} />}
         </>
       )}
