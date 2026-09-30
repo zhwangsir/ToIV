@@ -30,6 +30,11 @@
     "label": "极速版",
     "desc": "少步数/加速 LoRA/蒸馏,出结果更快,细节略少(走「MiniMax H3 Image-to-Video Fast」已测工作流)",
     "app_id": "rh-acc-7966609410-426d6f"
+   },
+   {
+    "label": "15秒加速",
+    "desc": "",
+    "app_id": "h3-i2v-15s-fast"
    }
   ],
   "presets": []
@@ -80,6 +85,11 @@
     "label": "极速版",
     "desc": "少步数/加速 LoRA/蒸馏,出结果更快,细节略少(走「video_minimax_h3_t2v_lightx2v_」已测工作流)",
     "app_id": "rh-acc-2006094849-b2ef00"
+   },
+   {
+    "label": "15秒加速",
+    "desc": "",
+    "app_id": "h3-t2v-15s-fast"
    }
   ],
   "presets": []
@@ -367,6 +377,16 @@
     "label": "极速版",
     "desc": "少步数/加速 LoRA/蒸馏,出结果更快,细节略少(走「Wan2.2 All-in-one V7图生视频极速版V1（」已测工作流)",
     "app_id": "rh-acc-9943753729-f90502"
+   },
+   {
+    "label": "二次元",
+    "desc": "",
+    "app_id": "rh-acc-2575054848-d673fe"
+   },
+   {
+    "label": "LongCat",
+    "desc": "",
+    "app_id": "longcat-i2v"
    }
   ],
   "presets": [
@@ -384,6 +404,16 @@
     "label": "潮玩/手办风格",
     "desc": "加载「潮玩/手办」风格 LoRA 出图(走「Qwen-Image-Edit-Lora4步-手办媲美-」已测工作流)",
     "app_id": "rh-acc-3636838402-5c9175"
+   },
+   {
+    "label": "真人转3D",
+    "desc": "",
+    "app_id": "rh-acc-6878984193-13c361"
+   },
+   {
+    "label": "多角度",
+    "desc": "",
+    "app_id": "rh-acc-2948292609-6c9c19"
    }
   ],
   "presets": []
@@ -1077,6 +1107,11 @@
     "label": "插入中间帧",
     "desc": "",
     "app_id": "rh-acc-5146143745-1c0343"
+   },
+   {
+    "label": "FlashVSR变身",
+    "desc": "",
+    "app_id": "rh-acc-0213376002-aa4abe"
    }
   ],
   "presets": []
@@ -1214,6 +1249,31 @@
     "label": "高清放大",
     "desc": "内置放大/超分节点,直接输出更高分辨率(走「Wan Animate 动作迁移（背景不变）」已测工作流)",
     "app_id": "rh-acc-6186996738-9aed3a"
+   }
+  ],
+  "presets": []
+ },
+ "rh-acc-8490907650-9066b5": {
+  "modes": [
+   {
+    "label": "Remix",
+    "desc": "",
+    "app_id": "rh-acc-2277210113-899a09"
+   },
+   {
+    "label": "LongCat",
+    "desc": "",
+    "app_id": "longcat-t2v"
+   }
+  ],
+  "presets": []
+ },
+ "ovi-i2v": {
+  "modes": [
+   {
+    "label": "文生音画",
+    "desc": "",
+    "app_id": "ovi-t2v"
    }
   ],
   "presets": []

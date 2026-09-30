@@ -373,7 +373,7 @@ def _build_specs() -> list[dict]:
     specs: list[dict] = [
         # ----- 已有 7(补 h3-i2v 首帧 / LTX i2v+lipsync 媒体) -----
         _spec(
-            "h3-t2v", "海螺 H3 文生视频",
+            "h3-t2v", "文生视频·H3",
             "MiniMax H3 音画直出:场景+对白+音频一段提示词出 5 秒短剧视频",
             icon="film", category="video", output_kind="video",
             workflow_json=_h3_graph("h3/t2v_prompt.json"),
@@ -381,7 +381,7 @@ def _build_specs() -> list[dict]:
             is_nsfw=False, sort=10,
         ),
         _spec(
-            "h3-i2v", "海螺 H3 图生视频",
+            "h3-i2v", "图生视频·H3",
             "首帧图驱动 H3:紧接画面续写动作/对白/音频,适合分镜接力",
             icon="video", category="video", output_kind="video",
             workflow_json=_h3_graph("h3/i2v_prompt.json"),
@@ -911,7 +911,7 @@ def _build_specs() -> list[dict]:
             is_nsfw=False, sort=100,
         ),
         _spec(
-            "ovi-i2v", "Ovi 图生音画",
+            "ovi-i2v", "对口型·Ovi",
             "Ovi 1.1 首帧图 + 音画联合提示词:口型与环境音同步直出",
             icon="volume", category="video", output_kind="video",
             workflow_json=build_ovi_i2v_graph(OviI2VParams(
