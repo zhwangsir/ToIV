@@ -53,6 +53,7 @@ import { RefImageUpload, type UploadedRef } from "./RefImageUpload";
 import { RefImagesUpload } from "./RefImagesUpload";
 import { RefVideoUpload, type UploadedVideo } from "./RefVideoUpload";
 import { ResultPanel, type HistoryEntry } from "./ResultPanel";
+import { saveLookPick } from "@/lib/studioLookPick";
 import {
   clampH3ValuesOnExtendToggle,
   h3HistoryPresentation,
@@ -1146,6 +1147,18 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             onApplyPrompt={(text) => {
               if (!engine) return;
               setPromptByEngine((prev) => ({ ...prev, [engine.id]: text }));
+            }}
+            onApplyLook={(entry) => {
+              if (entry.kind !== "image") return;
+              const url = entry.paths[0];
+              if (!url) return;
+              const q = new URLSearchParams(url.split("?")[1] ?? "");
+              saveLookPick({
+                url,
+                filename: q.get("filename") || undefined,
+                worker: q.get("worker") || undefined,
+              });
+              toast.success("已暂存定妆图,到「做短剧 → 资产」点应用");
             }}
             onCancel={onCancel}
             onRetry={onRetry}

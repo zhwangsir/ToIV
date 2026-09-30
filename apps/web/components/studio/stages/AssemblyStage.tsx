@@ -6,8 +6,7 @@ import { Empty } from "@/components/ui/Empty";
 import type { useStudioProject } from "@/hooks/useStudioProject";
 
 /**
- * ④ 合成阶段:分镜片段时间轴 + 合成成片。
- * 就绪判定:final_clip_url 非空(渲染链产出);合成后展示成片播放器与下载。
+ * ④ 合成阶段:分镜片段时间轴 + 合成成片 + Batch3 验收条。
  */
 export function AssemblyStage({
   project,
@@ -19,9 +18,39 @@ export function AssemblyStage({
 
   const ready = d.shots.filter((s) => s.final_clip_url);
   const assembling = Boolean(project.busy["assemble"]);
+  const totalSec = d.shots.reduce((n, s) => n + (s.duration_sec || 0), 0);
+  const voiced = d.shots.filter((s) =>
+    ["voiced", "lipsynced", "done"].includes(s.status),
+  ).length;
+  const lipsynced = d.shots.filter((s) =>
+    ["lipsynced", "done"].includes(s.status),
+  ).length;
+  const withRefs = d.characters.filter(
+    (c) => (c.reference_images || []).filter(Boolean).length >= 1,
+  ).length;
+  const sceneN = (d.scene_images || []).length;
 
   return (
     <section className="studio-stage studio-stage-assembly">
+      <div className="studio-accept-bar" data-testid="studio-accept-bar">
+        <span title="分镜总时长">
+          <Icon name="clock" size={12} /> {totalSec}s
+        </span>
+        <span title="就绪片段">
+          <Icon name="film" size={12} /> {ready.length}/{d.shots.length}
+        </span>
+        <span title="配音">
+          <Icon name="mic" size={12} /> {voiced}
+        </span>
+        <span title="对口型">
+          <Icon name="sparkles" size={12} /> {lipsynced}
+        </span>
+        <span title="定妆角色 / 场景绑定">
+          <Icon name="user" size={12} /> {withRefs}/{d.characters.length}
+          {sceneN > 0 ? ` · 景${sceneN}` : ""}
+        </span>
+      </div>
+
       <div className="studio-board-toolbar">
         <span className="studio-board-stat">
           就绪 {ready.length}/{d.shots.length} 镜
@@ -42,14 +71,12 @@ export function AssemblyStage({
         </button>
       </div>
 
-      {/* 分镜片段时间轴;无分镜时给引导空态(2026-08-30 UX 批 C),不再渲染空列表;
-          2026-09-04 美化 W3 升 section 档 */}
       {d.shots.length === 0 ? (
         <Empty
           size="section"
           icon="film"
           title="还没有分镜可合成"
-          desc="先到「剧本」阶段 AI 拆解剧情生成分镜,或在「分镜」阶段点「新增分镜」手动创建;生成完毕后再回来合成成片"
+          desc="先到「剧本」拆解或「分镜」新增"
         />
       ) : (
         <ol className="studio-timeline">
@@ -72,7 +99,6 @@ export function AssemblyStage({
         </ol>
       )}
 
-      {/* 成片 */}
       {d.final_url && (
         <div className="studio-final">
           <h3 className="studio-final-title">

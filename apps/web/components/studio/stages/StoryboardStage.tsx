@@ -138,6 +138,68 @@ export function StoryboardStage({
         </p>
       )}
 
+      {focus === "voice" && (
+        <div className="studio-voice-toolbar" data-testid="studio-voice-toolbar">
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            disabled={
+              shots.filter((s) => s.dialogue && !["voiced", "lipsynced", "done"].includes(s.status)).length === 0 ||
+              Object.keys(project.busy).some((k) => k.startsWith("voice:"))
+            }
+            title="对有台词且未配音的分镜一键配音"
+            onClick={() => {
+              const targets = shots.filter(
+                (s) => s.dialogue && !["voiced", "lipsynced", "done"].includes(s.status),
+              );
+              void (async () => {
+                for (const s of targets) {
+                  try {
+                    await project.voiceShot(s.id);
+                  } catch {
+                    /* 单镜失败继续;错误条由 hook 透出 */
+                  }
+                }
+              })();
+            }}
+          >
+            <Icon name="mic" size={13} />
+            一键配音
+          </button>
+        </div>
+      )}
+
+      {focus === "lipsync" && (
+        <div className="studio-lipsync-toolbar" data-testid="studio-lipsync-toolbar">
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            disabled={
+              shots.filter((s) => s.status === "voiced" || (s.video_url && s.voice_url)).length === 0 ||
+              Object.keys(project.busy).some((k) => k.startsWith("lipsync:"))
+            }
+            title="对已配音分镜一键对口型"
+            onClick={() => {
+              const targets = shots.filter(
+                (s) => s.status === "voiced" || (Boolean(s.video_url) && Boolean(s.voice_url)),
+              );
+              void (async () => {
+                for (const s of targets) {
+                  try {
+                    await project.lipsyncShot(s.id);
+                  } catch {
+                    /* 单镜失败继续 */
+                  }
+                }
+              })();
+            }}
+          >
+            <Icon name="sparkles" size={13} />
+            一键对口型
+          </button>
+        </div>
+      )}
+
       {focus === "video" && (
         <div className="studio-video-toolbar" data-testid="studio-video-toolbar">
           <label>
@@ -257,6 +319,7 @@ export function StoryboardStage({
               videoFocus={focus === "video"}
               defaultVideoModel={videoModel}
               defaultNumCandidates={numCandidates}
+              projectSceneImages={d.scene_images || []}
               onModeChange={(mode: StudioRenderMode) => patchShot(s.id, { render_mode: mode })}
               onPatch={(fields) => patchShot(s.id, fields)}
               onRender={(body) =>

@@ -1067,3 +1067,94 @@
   align-items: center;
   justify-content: center;
 }
+
+
+/* Batch3:场景图绑定 + 一键定妆 + 成片验收条 */
+.studio-scene-bind {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+  background: var(--bg-surface-1);
+  border-radius: var(--radius-md, 10px);
+}
+.studio-scene-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.studio-scene-slot {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm, 6px);
+  overflow: hidden;
+  background: var(--bg-surface-2, #1a1a1f);
+}
+.studio-scene-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.studio-ref-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.studio-look-state {
+  font-size: 11px;
+  color: var(--text-tertiary, #888);
+}
+.studio-look-state.is-ready { color: var(--success, #3ecf8e); }
+.studio-look-state.is-partial { color: var(--warning, #e6a23c); }
+.studio-look-state.is-error { color: var(--danger, #f56c6c); }
+.studio-look-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+.studio-look-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  background: var(--bg-surface-2, #1a1a1f);
+  border-radius: var(--radius-md, 10px);
+  font-size: 13px;
+}
+.studio-look-banner-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.studio-voice-toolbar,
+.studio-lipsync-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  margin-bottom: var(--space-2);
+}
+.studio-accept-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  background: var(--bg-surface-1);
+  border-radius: var(--radius-md, 10px);
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+}
+.studio-accept-bar span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

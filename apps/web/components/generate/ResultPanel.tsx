@@ -181,6 +181,8 @@ interface ResultPanelProps {
   onCancel: () => void;
   /** 失败条目重试(沿用该条目的引擎/提示词/参数快照);不传则不渲染重试按钮。 */
   onRetry?: (entry: HistoryEntry) => void;
+  /** Batch3:出图卡一键定妆(图片产物 → 短剧角色三视图)。 */
+  onApplyLook?: (entry: HistoryEntry) => void;
 }
 
 /** 质量维度条:label + 横向条 + 百分比,颜色按值分段(对齐后端评估语义)。 */
@@ -247,7 +249,7 @@ function useElapsed(active: boolean, since: number | undefined): string {
  * 失败态为舞台中央错误卡:友好说明 + 可折叠技术详情(底层原文)+ 重试。
  * 全部样式在 app/styles/stage.css;生成中骨架用全局 skeleton-shimmer(WS5 motion.css)。
  */
-export function ResultPanel({ entries, selectedId, onSelect, liveProgress, qualityWarning, onApplyPrompt, onCancel, onRetry }: ResultPanelProps) {
+export function ResultPanel({ entries, selectedId, onSelect, liveProgress, qualityWarning, onApplyPrompt, onCancel, onRetry, onApplyLook }: ResultPanelProps) {
   const [compare, setCompare] = useState(false);
   const [compareA, setCompareA] = useState<string>("");
   const [compareB, setCompareB] = useState<string>("");
@@ -471,6 +473,19 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
                   下载(2026-08-30):完成且有产物时显示;多产物逐一下载 */}
               {current.status === "done" && !current.postProcessing && current.paths.length > 0 && (
                 <div className="stage-media-actions">
+                  {onApplyLook && current.kind === "image" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<Icon name="user" size={13} />}
+                      onClick={() => onApplyLook(current)}
+                      title="一键定妆到短剧角色"
+                      aria-label="定妆"
+                      data-testid="result-apply-look"
+                    >
+                      定妆
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"

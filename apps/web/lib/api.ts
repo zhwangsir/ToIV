@@ -4550,6 +4550,8 @@ export interface StudioProjectSummary {
   width: number;
   height: number;
   fps: number;
+  /** Batch3:项目级场景图 URL(视频多参考自动带入) */
+  scene_images?: string[];
   status: string; // draft | storyboard | generating | ready | error
   final_url: string;
   error?: string;
@@ -4695,6 +4697,8 @@ export const patchStudioProject = (
     width: number;
     height: number;
     fps: number;
+    /** Batch3:项目级场景图绑定 */
+    scene_images: string[];
   }>,
 ): Promise<StudioProjectSummary> =>
   studioReq<StudioProjectSummary>(`/studio/projects/${pid}`, "PATCH", body).then((p) => {

@@ -90,16 +90,18 @@ export function deriveStageReadiness(
   base.script = d.premise?.trim() ? "ready" : "pending";
 
   const chars = d.characters;
+  const sceneN = (d.scene_images || []).filter(Boolean).length;
   if (chars.length === 0) {
-    base.cast = "pending";
+    base.cast = sceneN > 0 ? "partial" : "pending";
   } else {
     const counts = chars.map((c) => (c.reference_images || []).filter(Boolean).length);
     const minRefs = Math.min(...counts);
     const anyRef = counts.some((n) => n >= 1);
+    // 角色三视图齐 + 至少 1 张场景绑定 → ready;仅角色齐仍 ready(场景可选增强)
     if (minRefs >= 3) base.cast = "ready";
-    else if (anyRef || chars.every((c) => c.name?.trim())) base.cast = anyRef ? "partial" : "partial";
+    else if (anyRef || sceneN > 0 || chars.every((c) => c.name?.trim()))
+      base.cast = "partial";
     else base.cast = "pending";
-    // 有角色名即至少 partial(可进分镜);有 ≥1 参考图强化 partial;≥3 全就绪
     if (chars.length > 0 && base.cast === "pending") base.cast = "partial";
   }
 

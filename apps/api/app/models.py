@@ -666,6 +666,8 @@ class StudioProject(SQLModel, table=True):
     width: int = 768
     height: int = 384
     fps: int = 16
+    # Batch3:项目级场景图绑定(JSON URL 列表;视频多参考自动带入)
+    scene_images_json: str = "[]"
     status: str = "draft"  # draft | storyboard | generating | ready | error
     final_url: str = ""  # 成片 URL
     error: str = ""

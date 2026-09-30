@@ -430,6 +430,48 @@ def test_character_reference_images_patch(ctx):
     assert pr2.status_code == 200 and pr2.json()["reference_images"] == []
 
 
+def test_project_scene_images_patch(ctx):
+    """Batch3:ProjectPatch.scene_images list → DB JSON;详情/列表为 list。"""
+    client, token = ctx
+    H = _h(token)
+    pid = _mk_project(client, H)
+    detail0 = client.get(f"/api/studio/projects/{pid}", headers=H).json()
+    assert detail0.get("scene_images") == []
+    assert "scene_images_json" not in detail0
+    scenes = [
+        "/api/images?filename=store.png&type=input&worker=http://w",
+        "/api/images?filename=street.png&type=input&worker=http://w",
+    ]
+    pr = client.patch(
+        f"/api/studio/projects/{pid}",
+        headers=H,
+        json={"scene_images": scenes},
+    )
+    assert pr.status_code == 200, pr.text
+    out = pr.json()
+    assert out["scene_images"] == scenes
+    assert "scene_images_json" not in out
+    detail = client.get(f"/api/studio/projects/{pid}", headers=H).json()
+    assert detail["scene_images"] == scenes
+    listed = client.get("/api/studio/projects", headers=H).json()
+    hit = next(x for x in listed if x["id"] == pid)
+    assert hit["scene_images"] == scenes
+    # 超限
+    bad = client.patch(
+        f"/api/studio/projects/{pid}",
+        headers=H,
+        json={"scene_images": scenes + scenes + scenes},
+    )
+    # pydantic max_length=4 → 422;路由层兜底 → 400
+    assert bad.status_code in (400, 422), bad.text
+    # 清空
+    pr2 = client.patch(
+        f"/api/studio/projects/{pid}",
+        headers=H,
+        json={"scene_images": []},
+    )
+    assert pr2.status_code == 200 and pr2.json()["scene_images"] == []
+
 
 def test_render_body_h3_default_and_candidates(ctx, monkeypatch):
     """Batch2:render body 默认 h3;num_candidates=2 写 candidates 并可 pick。"""

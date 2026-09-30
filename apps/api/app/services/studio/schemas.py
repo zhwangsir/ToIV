@@ -168,6 +168,8 @@ class ProjectPatch(BaseModel):
     width: int | None = Field(default=None, ge=256, le=1920, multiple_of=8)
     height: int | None = Field(default=None, ge=256, le=1920, multiple_of=8)
     fps: int | None = Field(default=None, ge=4, le=30)
+    # Batch3:项目级场景图 URL 列表(路由层落库 scene_images_json)
+    scene_images: list[str] | None = Field(default=None, max_length=4)
 
 
 class CharacterCreate(BaseModel):

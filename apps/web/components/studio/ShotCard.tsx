@@ -11,7 +11,7 @@ import {
   type StudioShot,
   type StudioShotInput,
 } from "@/lib/api";
-import { collectAutoRefSlots, slotsToUrls } from "@/lib/studioVideoRefs";
+import { collectAutoRefSlots, mergeSceneImages, slotsToUrls } from "@/lib/studioVideoRefs";
 import { Icon } from "@/components/ui/Icon";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 import { Ripple } from "@/components/ui/Ripple";
@@ -54,6 +54,8 @@ export interface ShotCardProps {
   defaultVideoModel?: "h3" | "ltx";
   /** 项目级默认候选数 */
   defaultNumCandidates?: number;
+  /** Batch3:项目绑定场景图(视频多参考自动带入) */
+  projectSceneImages?: string[];
   onModeChange: (mode: StudioRenderMode) => void;
   onPatch: (fields: Partial<StudioShotInput>) => void;
   onRender: (body?: StudioRenderBody) => void;
@@ -80,6 +82,7 @@ export function ShotCard({
   videoFocus = false,
   defaultVideoModel = "h3",
   defaultNumCandidates = 2,
+  projectSceneImages = [],
   onModeChange,
   onPatch,
   onRender,
@@ -112,10 +115,12 @@ export function ShotCard({
     Math.min(4, Math.max(1, defaultNumCandidates || 2)),
   );
   const [sceneRefs, setSceneRefs] = useState<string[]>(() => {
+    const bound = new Set((projectSceneImages || []).filter(Boolean));
     const autoChar = new Set(
       collectAutoRefSlots(characters, shot.characters).map((s) => s.url),
     );
-    return (shot.ref_images || []).filter((u) => u && !autoChar.has(u));
+    // 本镜追加 = shot.ref_images 去掉角色自动槽与项目绑定场景
+    return (shot.ref_images || []).filter((u) => u && !autoChar.has(u) && !bound.has(u));
   });
 
   // 面板展开时拉可选技能(公共 + 本人导入,失败静默降级为无技能可选)
@@ -170,7 +175,8 @@ export function ShotCard({
     : null;
 
   const showVideoOpts = videoFocus || shot.render_mode === "video";
-  const autoSlots = collectAutoRefSlots(characters, shot.characters, sceneRefs);
+  const mergedScenes = mergeSceneImages(projectSceneImages, sceneRefs);
+  const autoSlots = collectAutoRefSlots(characters, shot.characters, mergedScenes);
   const refUrls = slotsToUrls(autoSlots);
   const candidates = shot.candidates || [];
 
@@ -474,7 +480,12 @@ export function ShotCard({
                         className="studio-shot-ref-thumb"
                         loading="lazy"
                       />
-                      <span className="studio-shot-ref-cap">{slot.label}</span>
+                      <span className="studio-shot-ref-cap">
+                        {slot.kind === "scene" &&
+                        (projectSceneImages || []).includes(slot.url)
+                          ? `${slot.label}·绑`
+                          : slot.label}
+                      </span>
                     </div>
                   ))
                 )}

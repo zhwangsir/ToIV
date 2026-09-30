@@ -51,6 +51,24 @@ def _character_out(c: StudioCharacter) -> dict:
     return {**c.model_dump(), "reference_images": json.loads(c.reference_images or "[]")}
 
 
+def _parse_scene_images(raw: str | None) -> list[str]:
+    try:
+        scenes = json.loads(raw or "[]")
+    except (ValueError, TypeError):
+        scenes = []
+    if not isinstance(scenes, list):
+        return []
+    return [u for u in scenes if isinstance(u, str) and u.strip()]
+
+
+def _project_out(p: StudioProject) -> dict:
+    """项目响应:scene_images_json → scene_images list(不泄漏 JSON 串列名)。"""
+    data = p.model_dump()
+    data.pop("scene_images_json", None)
+    data["scene_images"] = _parse_scene_images(getattr(p, "scene_images_json", None))
+    return data
+
+
 def _project_detail(session: Session, p: StudioProject) -> dict:
     chars = session.exec(
         select(StudioCharacter).where(StudioCharacter.project_id == p.id)
@@ -59,7 +77,7 @@ def _project_detail(session: Session, p: StudioProject) -> dict:
         select(StudioShot).where(StudioShot.project_id == p.id).order_by(StudioShot.idx)
     ).all()
     return {
-        **p.model_dump(),
+        **_project_out(p),
         "characters": [
             {**c.model_dump(), "reference_images": json.loads(c.reference_images or "[]")}
             for c in chars
@@ -92,7 +110,7 @@ def create_project(
     session.add(p)
     session.commit()
     session.refresh(p)
-    return p
+    return _project_out(p)
 
 
 @router.get("/studio/projects")
@@ -105,7 +123,7 @@ def list_projects(
         .where(StudioProject.tenant_id == user.tenant_id)
         .order_by(StudioProject.updated_at.desc())
     ).all()
-    return rows
+    return [_project_out(p) for p in rows]
 
 
 @router.get("/studio/projects/{pid}")
@@ -125,12 +143,24 @@ def patch_project(
     session: Session = Depends(get_session),
 ):
     p = _get_project(session, pid, user)
-    for k, v in body.model_dump(exclude_none=True).items():
+    data = body.model_dump(exclude_none=True)
+    # Batch3:scene_images list → DB JSON 字符串列
+    if "scene_images" in data:
+        scenes = data.pop("scene_images") or []
+        if not isinstance(scenes, list):
+            raise HTTPException(status_code=400, detail="scene_images 须为字符串数组")
+        if len(scenes) > 4:
+            raise HTTPException(status_code=400, detail="scene_images 最多 4 张")
+        for u in scenes:
+            if not isinstance(u, str) or not u.strip():
+                raise HTTPException(status_code=400, detail="scene_images 项无效")
+        data["scene_images_json"] = json.dumps(scenes, ensure_ascii=False)
+    for k, v in data.items():
         setattr(p, k, v)
     session.add(p)
     session.commit()
     session.refresh(p)
-    return p
+    return _project_out(p)
 
 
 @router.delete("/studio/projects/{pid}")

@@ -1,6 +1,6 @@
 /**
- * Batch2 视频步:从角色三视图(正/侧/全身)自动收集多参考图 URL。
- * 场景图由调用方追加(sceneImages)。上限 9(H3 Ref2VA)。
+ * Batch2/3 视频步:从角色三视图(正/侧/全身)自动收集多参考图 URL。
+ * 项目绑定场景图 + 本镜追加场景图一并并入。上限 9(H3 Ref2VA)。
  */
 import type { StudioCharacter } from "@/lib/api";
 
@@ -11,6 +11,24 @@ export type StudioRefSlot = {
   label: string;
   kind: "character" | "scene";
 };
+
+/** 合并项目绑定场景图与本镜追加,去重保序,最多 maxScene 张。 */
+export function mergeSceneImages(
+  bound: string[] = [],
+  extra: string[] = [],
+  maxScene = 4,
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const u of [...bound, ...extra]) {
+    const url = (u || "").trim();
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+    if (out.length >= maxScene) break;
+  }
+  return out;
+}
 
 export function collectAutoRefSlots(
   characters: StudioCharacter[],

@@ -11,6 +11,7 @@ import { Field, Textarea } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { consumeAssetPick, saveAssetPick } from "@/lib/assetPick";
+import { saveLookPick } from "@/lib/studioLookPick";
 import { takeRemixFromLocation } from "@/lib/remixLink";
 import { usePoll } from "@/hooks/usePoll";
 import { cancelJob, invalidateJobs } from "@/lib/api";
@@ -656,6 +657,17 @@ export function EngineStudioView({ kind }: { kind: StudioKind }) {
             onApplyPrompt={(text) => {
               if (!engine) return;
               setPromptByEngine((prev) => ({ ...prev, [engine.id]: text }));
+            }}
+            onApplyLook={(entry) => {
+              const url = entry.paths[0];
+              if (!url) return;
+              const q = new URLSearchParams(url.split("?")[1] ?? "");
+              saveLookPick({
+                url,
+                filename: q.get("filename") || undefined,
+                worker: q.get("worker") || undefined,
+              });
+              toast.success("已暂存定妆图,到「做短剧 → 资产」点应用");
             }}
             onCancel={onCancel}
             onRetry={onRetry}
