@@ -10,6 +10,7 @@ import {
   voiceStudioShot,
   lipsyncStudioShot,
   assembleStudio,
+  rerunStudioStep,
   type StudioProjectDetail,
   type StudioRenderBody,
   type StudioShot,
@@ -172,6 +173,23 @@ export function useStudioProject(pid: string | null) {
     [withBusy, pid, refresh],
   );
 
+  /** Batch5:步骤整组重跑;失败镜写入 hook error,不静默吞 */
+  const rerunStep = useCallback(
+    (step: "video" | "voice" | "lipsync" | "storyboard") =>
+      withBusy(`rerun:${step}`, "整组重跑", async () => {
+        if (!pid) return;
+        const r = await rerunStudioStep(pid, step);
+        await refresh();
+        if (r.failed > 0) {
+          const first = r.errors[0]?.detail || "未知错误";
+          const msg = `整组重跑完成:成功 ${r.ok}/${r.attempted},失败 ${r.failed}(${first})`;
+          setError(msg);
+          throw new Error(msg);
+        }
+      }),
+    [withBusy, pid, refresh],
+  );
+
   return {
     detail,
     loading,
@@ -190,5 +208,6 @@ export function useStudioProject(pid: string | null) {
     voiceShot,
     lipsyncShot,
     assemble,
+    rerunStep,
   };
 }

@@ -50,6 +50,7 @@ export function StoryboardStage({
   // 删除分镜确认门(2026-08-30 UX 批 C):直接删改全量列表不可逆,先 Modal 确认
   const [confirmDeleteShot, setConfirmDeleteShot] = useState<StudioShot | null>(null);
   const [rerunningFailed, setRerunningFailed] = useState(false);
+  const [stepRerunning, setStepRerunning] = useState(false);
   // Batch2 视频步默认:H3 + 每镜 2 候选
   const [videoModel, setVideoModel] = useState<"h3" | "ltx">("h3");
   const [numCandidates, setNumCandidates] = useState(2);
@@ -57,7 +58,7 @@ export function StoryboardStage({
   // 批量生成是长任务:期间 5s 轮询刷新(页面隐藏暂停,失败指数退避),分镜状态/媒体实时可见
   usePoll(() => project.refresh(), {
     intervalMs: 5000,
-    enabled: renderingAll || rerunningFailed,
+    enabled: renderingAll || rerunningFailed || stepRerunning,
     backoff: true,
     immediate: false,
   });
@@ -109,6 +110,21 @@ export function StoryboardStage({
       }
     } finally {
       setRerunningFailed(false);
+    }
+  };
+
+  /** Batch5:当前步整组重跑(未完成/失败镜);错误经 hook 透出 */
+  const rerunStepGroup = async () => {
+    if (stepRerunning) return;
+    const step =
+      focus === "voice" ? "voice" : focus === "lipsync" ? "lipsync" : focus === "video" ? "video" : "storyboard";
+    setStepRerunning(true);
+    try {
+      await project.rerunStep(step);
+    } catch {
+      /* 错误已由 hook error 提示条透出 */
+    } finally {
+      setStepRerunning(false);
     }
   };
 
@@ -166,6 +182,17 @@ export function StoryboardStage({
             <Icon name="mic" size={13} />
             一键配音
           </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            data-testid="studio-step-rerun"
+            disabled={stepRerunning || Object.keys(project.busy).some((k) => k.startsWith("voice:") || k.startsWith("rerun:"))}
+            title="整组重跑未完成/失败镜"
+            onClick={() => void rerunStepGroup()}
+          >
+            <Icon name={stepRerunning ? "loading" : "refresh"} size={13} />
+            整组重跑
+          </button>
         </div>
       )}
 
@@ -197,11 +224,33 @@ export function StoryboardStage({
             <Icon name="sparkles" size={13} />
             一键对口型
           </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            data-testid="studio-step-rerun"
+            disabled={stepRerunning || Object.keys(project.busy).some((k) => k.startsWith("lipsync:") || k.startsWith("rerun:"))}
+            title="整组重跑未完成/失败镜"
+            onClick={() => void rerunStepGroup()}
+          >
+            <Icon name={stepRerunning ? "loading" : "refresh"} size={13} />
+            整组重跑
+          </button>
         </div>
       )}
 
       {focus === "video" && (
         <div className="studio-video-toolbar" data-testid="studio-video-toolbar">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            data-testid="studio-step-rerun"
+            disabled={stepRerunning || renderingAll || rerunningFailed}
+            title="整组重跑未完成/失败镜"
+            onClick={() => void rerunStepGroup()}
+          >
+            <Icon name={stepRerunning ? "loading" : "refresh"} size={13} />
+            整组重跑
+          </button>
           <label>
             <Icon name="zap" size={12} />
             <select
@@ -257,12 +306,25 @@ export function StoryboardStage({
           <button
             type="button"
             className="btn btn-ghost btn-sm studio-supervise-rerun"
-            disabled={errored.length === 0 || renderingAll || rerunningFailed}
+            disabled={errored.length === 0 || renderingAll || rerunningFailed || stepRerunning}
             onClick={() => void rerunFailed()}
           >
             <Icon name={rerunningFailed ? "loading" : "refresh"} size={13} />
             重跑失败
           </button>
+          {!focus && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              data-testid="studio-step-rerun"
+              disabled={stepRerunning || renderingAll}
+              title="整组重跑未完成/失败镜"
+              onClick={() => void rerunStepGroup()}
+            >
+              <Icon name={stepRerunning ? "loading" : "refresh"} size={13} />
+              整组重跑
+            </button>
+          )}
         </div>
       )}
 

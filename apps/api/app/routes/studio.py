@@ -123,7 +123,13 @@ def list_projects(
         .where(StudioProject.tenant_id == user.tenant_id)
         .order_by(StudioProject.updated_at.desc())
     ).all()
-    return [_project_out(p) for p in rows]
+    out = []
+    for p in rows:
+        item = _project_out(p)
+        # Batch5:列表进度点(复用 compute_studio_next_step)
+        item["pipeline"] = _studio_pipeline_brief(session, p.id)
+        out.append(item)
+    return out
 
 
 @router.get("/studio/projects/{pid}")
@@ -815,6 +821,375 @@ async def assemble_project_endpoint(
         code = 422 if "未就绪" in msg or "无分镜" in msg else 502
         raise HTTPException(status_code=code, detail=msg) from e
     return _project_detail(session, project)
+
+
+
+# ── Batch5:样片种子 + 步骤整组重跑 ─────────────────────────────────────────
+
+SAMPLE_RAIN_NIGHT_TITLE = "雨夜便利店·林夏"
+SAMPLE_RAIN_NIGHT_MARKER = "[sample:rain-night]"
+SAMPLE_RAIN_NIGHT_PREMISE = (
+    f"{SAMPLE_RAIN_NIGHT_MARKER} 雨夜便利店短剧样片。"
+    "林夏进店→冷柜→结账→出门四拍；竖屏 9:16 768p。"
+)
+
+# 四拍与 H3 长视频实验剧本对齐(对白含验收句)
+_SAMPLE_SHOTS = [
+    {
+        "scene": "雨夜便利店门口·进店",
+        "prompt": (
+            "vertical 9:16 short drama, rainy night convenience store, young woman Lin Xia "
+            "pushes glass door, shakes water off umbrella, looks at clerk"
+        ),
+        "dialogue": "还营业吧？",
+        "speaker": "林夏",
+        "camera": "跟拍推进",
+        "duration_sec": 15,
+        "characters": ["林夏"],
+    },
+    {
+        "scene": "便利店冷柜·货架",
+        "prompt": (
+            "same rainy night convenience store aisle, Lin Xia walks to fridge, "
+            "picks a bottle of water, soft cold white light"
+        ),
+        "dialogue": "加班到现在…就这一瓶。",
+        "speaker": "林夏",
+        "camera": "手部特写到脸",
+        "duration_sec": 15,
+        "characters": ["林夏"],
+    },
+    {
+        "scene": "收银台·结账",
+        "prompt": (
+            "convenience store checkout, Lin Xia puts water bottle on counter, "
+            "asks clerk about WeChat pay"
+        ),
+        "dialogue": "微信可以吗？",
+        "speaker": "林夏",
+        "camera": "过肩",
+        "duration_sec": 15,
+        "characters": ["林夏"],
+    },
+    {
+        "scene": "便利店门口·出门",
+        "prompt": (
+            "Lin Xia with plastic bag pushes door open, looks back into store, "
+            "then walks into heavier rain on neon street"
+        ),
+        "dialogue": "外面雨更大了。",
+        "speaker": "林夏",
+        "camera": "后退跟拍",
+        "duration_sec": 15,
+        "characters": ["林夏"],
+    },
+]
+
+_LINXIA_DESC = (
+    "年轻女人林夏，黑色冲锋衣，湿发贴额，神情克制；雨夜便利店冷白灯。"
+)
+_LINXIA_VISUAL = (
+    "young East Asian woman Lin Xia, black windbreaker, wet hair on forehead, "
+    "restrained expression, rainy night convenience store cold white light"
+)
+
+
+def _sample_asset_candidates() -> list[Path]:
+    """样片素材搜索路径:优先 H3 实验资产,其次本地 uploads/assets。"""
+    from app.storage import drama_output_root
+
+    roots = [
+        Path("/home/merlin/toiv/tmp/h3_long_exp/assets"),
+        Path(__file__).resolve().parents[4] / "tmp" / "h3_long_exp" / "assets",
+        drama_output_root() / "sample_assets",
+        Path("/home/merlin/toiv/uploads/assets"),
+    ]
+    # 去重保序
+    seen: set[str] = set()
+    out: list[Path] = []
+    for r in roots:
+        key = str(r)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(r)
+    return out
+
+
+def _stage_sample_image(src_name: str, dest_name: str) -> str | None:
+    """复制样片图到 studio 产出目录,返回 /api/studio/files URL;不可用则 None。"""
+    import shutil
+    from app.storage import drama_output_root
+
+    src: Path | None = None
+    for root in _sample_asset_candidates():
+        cand = root / src_name
+        if cand.is_file():
+            src = cand
+            break
+    if src is None:
+        return None
+    dest_dir = drama_output_root() / "studio"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / dest_name
+    if not dest.is_file() or dest.stat().st_size != src.stat().st_size:
+        shutil.copy2(src, dest)
+    return f"/api/studio/files/{dest_name}"
+
+
+def _find_sample_rain_night(session: Session, user: User) -> StudioProject | None:
+    rows = session.exec(
+        select(StudioProject).where(
+            StudioProject.tenant_id == user.tenant_id,
+            StudioProject.user_id == user.id,
+        )
+    ).all()
+    for p in rows:
+        if SAMPLE_RAIN_NIGHT_MARKER in (p.premise or ""):
+            return p
+        if (p.title or "").strip() == SAMPLE_RAIN_NIGHT_TITLE:
+            return p
+    return None
+
+
+def _studio_pipeline_brief(session: Session, pid: str) -> dict:
+    """项目级管线摘要(供样片返回/列表进度点)。"""
+    shots = session.exec(
+        select(StudioShot).where(StudioShot.project_id == pid)
+    ).all()
+    next_step = compute_studio_next_step(shots)
+    counts: dict[str, int] = {}
+    for s in shots:
+        counts[s.status] = counts.get(s.status, 0) + 1
+    return {
+        "total_shots": len(shots),
+        "by_status": counts,
+        "next_step": next_step,
+    }
+
+
+@router.post("/studio/sample-projects/rain-night")
+def seed_rain_night_sample(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """幂等种子:创建/更新固定样片「雨夜便利店·林夏」。
+
+    - 重复调用不堆第二个项目(按 premise marker / 标题命中)
+    - 三视图/场景图可得则绑定 URL;不可用仍建角色卡并标 assets_ready=false
+    - 返回 project id + pipeline status
+    """
+    front = _stage_sample_image("linxia_front.png", "sample_linxia_front.png")
+    side = _stage_sample_image("linxia_side.png", "sample_linxia_side.png")
+    full = _stage_sample_image("linxia_full.png", "sample_linxia_full.png")
+    scene = _stage_sample_image("scene_rain_store.png", "sample_scene_rain_store.png")
+    refs = [u for u in (front, side, full) if u]
+    assets_ready = len(refs) >= 3 and bool(scene)
+    asset_notes: list[str] = []
+    if len(refs) < 3:
+        asset_notes.append("角色三视图未齐(素材不可用)")
+    if not scene:
+        asset_notes.append("场景图不可用")
+
+    existing = _find_sample_rain_night(session, user)
+    created = existing is None
+    if existing is None:
+        p = StudioProject(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            title=SAMPLE_RAIN_NIGHT_TITLE,
+            premise=SAMPLE_RAIN_NIGHT_PREMISE,
+            style="雨夜便利店冷白灯/霓虹积水，竖屏 9:16",
+            render_mode_default="video",
+            width=768,
+            height=1360,
+            fps=24,
+            status="storyboard",
+        )
+        session.add(p)
+        session.commit()
+        session.refresh(p)
+    else:
+        p = existing
+        p.title = SAMPLE_RAIN_NIGHT_TITLE
+        p.premise = SAMPLE_RAIN_NIGHT_PREMISE
+        p.style = "雨夜便利店冷白灯/霓虹积水，竖屏 9:16"
+        p.width = 768
+        p.height = 1360
+        p.fps = 24
+        if p.status in ("draft", ""):
+            p.status = "storyboard"
+        session.add(p)
+        session.commit()
+        session.refresh(p)
+
+    # 场景图
+    scenes = [scene] if scene else []
+    p.scene_images_json = json.dumps(scenes, ensure_ascii=False)
+    session.add(p)
+
+    # 角色:林夏(幂等按名)
+    char = session.exec(
+        select(StudioCharacter).where(
+            StudioCharacter.project_id == p.id,
+            StudioCharacter.name == "林夏",
+        )
+    ).first()
+    if char is None:
+        char = StudioCharacter(project_id=p.id, name="林夏")
+    char.description = _LINXIA_DESC
+    char.visual_prompt = _LINXIA_VISUAL
+    char.reference_images = json.dumps(refs, ensure_ascii=False)
+    session.add(char)
+
+    # 分镜:固定 4 镜全量替换(样片契约;保留已有媒体若镜数/对白一致则尽量按 idx 复用 id)
+    old_shots = session.exec(
+        select(StudioShot).where(StudioShot.project_id == p.id).order_by(StudioShot.idx)
+    ).all()
+    by_idx = {s.idx: s for s in old_shots}
+    keep_ids: set[str] = set()
+    for i, spec in enumerate(_SAMPLE_SHOTS):
+        shot = by_idx.get(i)
+        if shot is None:
+            shot = StudioShot(project_id=p.id)
+        shot.idx = i
+        shot.scene = spec["scene"]
+        shot.prompt = spec["prompt"]
+        shot.dialogue = spec["dialogue"]
+        shot.speaker = spec["speaker"]
+        shot.camera = spec["camera"]
+        shot.duration_sec = int(spec["duration_sec"])
+        shot.characters = json.dumps(spec["characters"], ensure_ascii=False)
+        shot.render_mode = "video"
+        shot.video_model = "h3"
+        if shot.status in ("", None):
+            shot.status = "draft"
+        session.add(shot)
+        session.flush()
+        keep_ids.add(shot.id)
+    for s in old_shots:
+        if s.id not in keep_ids:
+            session.delete(s)
+
+    session.commit()
+    session.refresh(p)
+    pipeline = _studio_pipeline_brief(session, p.id)
+    detail = _project_detail(session, p)
+    return {
+        "id": p.id,
+        "title": p.title,
+        "created": created,
+        "assets_ready": assets_ready,
+        "asset_notes": asset_notes,
+        "reference_images": refs,
+        "scene_images": scenes,
+        "pipeline": pipeline,
+        "project": detail,
+    }
+
+
+@router.post("/studio/projects/{pid}/steps/{step}/rerun")
+async def step_group_rerun(
+    pid: str,
+    step: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    request: Request = None,
+):
+    """步骤整组重跑:对当前步未完成或失败镜头批量触发,错误写入 errors 不静默吞。
+
+    step ∈ video | voice | lipsync | storyboard
+      · video/storyboard: draft/error/queued/rendering 以外的未达 rendered+ 镜
+      · voice: 有台词且未 voiced+ 的镜(需已出视频;否则记入 errors)
+      · lipsync: 未 lipsynced+ 且具备视频+配音的镜
+    """
+    step = (step or "").strip().lower()
+    if step not in {"video", "voice", "lipsync", "storyboard"}:
+        raise HTTPException(
+            status_code=422, detail="step 须为 video|voice|lipsync|storyboard"
+        )
+    _get_project(session, pid, user)
+    shots = session.exec(
+        select(StudioShot).where(StudioShot.project_id == pid).order_by(StudioShot.idx)
+    ).all()
+    if not shots:
+        raise HTTPException(status_code=422, detail="无分镜可重跑")
+
+    rendered_ok = {"rendered", "voiced", "lipsynced", "done"}
+    voiced_ok = {"voiced", "lipsynced", "done"}
+    lipsync_ok = {"lipsynced", "done"}
+
+    targets: list[StudioShot] = []
+    if step in ("video", "storyboard"):
+        # 未达 rendered+ 的镜(含 draft/error/queued/rendering)
+        targets = [s for s in shots if s.status not in rendered_ok]
+    elif step == "voice":
+        targets = [
+            s
+            for s in shots
+            if (s.dialogue or "").strip() and s.status not in voiced_ok
+        ]
+    else:  # lipsync
+        targets = [s for s in shots if s.status not in lipsync_ok]
+
+    attempted = 0
+    ok = 0
+    failed = 0
+    errors: list[dict] = []
+
+    for shot in targets:
+        if request is not None and await request.is_disconnected():
+            break
+        attempted += 1
+        try:
+            if step in ("video", "storyboard"):
+                await orchestrator.render_shot(session, shot, request=request)
+            elif step == "voice":
+                if not (shot.dialogue or "").strip():
+                    raise ValueError("该镜无台词")
+                if shot.status not in rendered_ok and not shot.video_url:
+                    raise ValueError("需要先出视频")
+                character = None
+                speaker = (shot.speaker or "").strip()
+                if speaker:
+                    character = session.exec(
+                        select(StudioCharacter).where(
+                            StudioCharacter.project_id == shot.project_id,
+                            StudioCharacter.name == speaker,
+                        )
+                    ).first()
+                    if character is None:
+                        raise ValueError(f"未找到说话人「{speaker}」的角色卡")
+                    if not (character.voice_ref_url or "").strip():
+                        raise ValueError(f"角色「{speaker}」未配置音色")
+                await voice_svc.synth_for_shot(session, shot, character)
+            else:
+                if shot.render_mode != "video":
+                    raise ValueError("仅视频镜支持对口型")
+                if not shot.video_url or not shot.voice_url:
+                    raise ValueError("需要先出视频并配音")
+                await lipsync_svc.lipsync_for_shot(session, shot)
+            ok += 1
+        except Exception as e:  # noqa: BLE001 — 整组聚合错误,不中断其余镜
+            failed += 1
+            errors.append(
+                {
+                    "shot_id": shot.id,
+                    "idx": shot.idx,
+                    "detail": str(e)[:240],
+                }
+            )
+
+    pipeline = _studio_pipeline_brief(session, pid)
+    return {
+        "step": step,
+        "attempted": attempted,
+        "ok": ok,
+        "failed": failed,
+        "errors": errors,
+        "pipeline": pipeline,
+    }
+
 
 
 # ── 产出文件服务 ───────────────────────────────────────────────────────────

@@ -1158,3 +1158,25 @@
   align-items: center;
   gap: 4px;
 }
+
+
+/* Batch5:我的剧集进度点 */
+.studio-home-progress {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  vertical-align: middle;
+}
+.studio-home-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong, #3a3a45);
+  display: inline-block;
+}
+.studio-home-dot.is-on {
+  background: var(--accent, #7c6af5);
+}
+.studio-home-dot.is-cur {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent, #7c6af5) 35%, transparent);
+}

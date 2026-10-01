@@ -5,6 +5,7 @@ import {
   createStudioProject,
   deleteStudioProject,
   listStudioProjects,
+  seedRainNightSample,
   studioStatus,
   type StudioNextStep,
   type StudioProjectDetail,
@@ -175,6 +176,7 @@ export function StudioView({
   // 项目列表三态(2026-08-30 UX 批 C):加载中骨架 / 失败 ErrorBar+重试 / 真空态,
   // 失败不再静默降级成空列表(区分「空」与「挂了」)
   const [listLoading, setListLoading] = useState(true);
+  const [seedingSample, setSeedingSample] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<StudioProjectSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -222,6 +224,26 @@ export function StudioView({
     }
   };
 
+  const seedSample = async () => {
+    setSeedingSample(true);
+    setError(null);
+    try {
+      const r = await seedRainNightSample();
+      await reload();
+      setActiveId(r.id);
+      setStage("storyboard");
+      if (!r.assets_ready) {
+        setError(
+          `样片已就绪,素材未齐:${(r.asset_notes || []).join(";") || "三视图/场景待补"}`,
+        );
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "样片种子失败");
+    } finally {
+      setSeedingSample(false);
+    }
+  };
+
   const removeProject = (p: StudioProjectSummary) => setConfirmDelete(p);
 
   const doRemoveProject = async () => {
@@ -246,19 +268,32 @@ export function StudioView({
       <div className="studio-home view-shell">
         <PageHeader
           title="做短剧"
-          desc="剧本 → 角色 → 分镜混合生成 → 合成,四步完成一部短剧"
+          desc="我的剧集"
           icon="clapperboard"
           onBack={onBack}
           backLabel="返回融合"
           actions={
-            /* btn-primary 类保留:e2e(authed-studio)锚点;视觉走 .at-btn--primary 墨丸 */
-            <button
-              type="button"
-              className="at-btn at-btn--primary btn-primary"
-              onClick={() => void createProject()}
-            >
-              <Icon name="plus" size={14} /> 新建项目
-            </button>
+            <>
+              <button
+                type="button"
+                className="at-btn at-btn--ghost"
+                data-testid="studio-seed-rain-night"
+                disabled={seedingSample}
+                title="雨夜便利店·林夏"
+                onClick={() => void seedSample()}
+              >
+                <Icon name={seedingSample ? "loading" : "sparkles"} size={14} />
+                样片
+              </button>
+              {/* btn-primary 类保留:e2e(authed-studio)锚点;视觉走 .at-btn--primary 墨丸 */}
+              <button
+                type="button"
+                className="at-btn at-btn--primary btn-primary"
+                onClick={() => void createProject()}
+              >
+                <Icon name="plus" size={14} /> 新建
+              </button>
+            </>
           }
         />
         <ErrorBar message={error} onClose={() => setError(null)} />
@@ -299,7 +334,7 @@ export function StudioView({
             />
           </div>
         ) : (
-          <ul className="studio-project-list">
+          <ul className="studio-project-list" aria-label="我的剧集" data-testid="studio-my-dramas">
             {projects.map((p) => (
               <li key={p.id} className="studio-project-item at-card-in">
                 <div className="studio-project-card at-card at-card--interactive">
@@ -325,10 +360,30 @@ export function StudioView({
                             minute: "2-digit",
                           })}
                         </time>
-                        <span className="studio-project-stage">
-                          {PROJECT_PROGRESS_STEP[p.status]
-                            ? `进度 ${PROJECT_PROGRESS_STEP[p.status]}/7`
-                            : "进度 —"}
+                        <span
+                          className="studio-project-stage studio-home-progress"
+                          data-testid="studio-home-progress"
+                          title={
+                            p.pipeline?.next_step?.label
+                              ? `下一步 ${p.pipeline.next_step.label}`
+                              : PROJECT_STATUS_LABEL[p.status] || p.status
+                          }
+                        >
+                          {STAGES.map((st, i) => {
+                            const step = p.pipeline?.next_step?.step;
+                            // 粗映射:done=全亮;否则按 status 粗进度 + next_step 提示
+                            const done = p.status === "ready";
+                            const idx = PROJECT_PROGRESS_STEP[p.status] ?? 1;
+                            const on = done || i < idx;
+                            const cur = !done && i + 1 === idx;
+                            return (
+                              <i
+                                key={st.key}
+                                className={`studio-home-dot${on ? " is-on" : ""}${cur ? " is-cur" : ""}`}
+                                data-step={st.key}
+                              />
+                            );
+                          })}
                         </span>
                       </span>
                     </span>

@@ -4871,6 +4871,52 @@ export const assembleStudio = (pid: string): Promise<StudioProjectDetail> =>
   });
 
 /** 分镜 AI 扩写结果:简短中文描述 → 结构化分镜(不落库,前端回填表单)。 */
+/** Batch5:幂等种子「雨夜便利店·林夏」样片项目 */
+export type StudioSampleSeedResult = {
+  id: string;
+  title: string;
+  created: boolean;
+  assets_ready: boolean;
+  asset_notes: string[];
+  reference_images: string[];
+  scene_images: string[];
+  pipeline: {
+    total_shots: number;
+    by_status: Record<string, number>;
+    next_step: StudioNextStep;
+  };
+  project: StudioProjectDetail;
+};
+
+export const seedRainNightSample = (): Promise<StudioSampleSeedResult> =>
+  studioReq<StudioSampleSeedResult>("/studio/sample-projects/rain-night", "POST");
+
+/** Batch5:步骤整组重跑 video|voice|lipsync|storyboard */
+export type StudioStepRerunResult = {
+  step: string;
+  attempted: number;
+  ok: number;
+  failed: number;
+  errors: { shot_id: string; idx: number; detail: string }[];
+  pipeline: {
+    total_shots: number;
+    by_status: Record<string, number>;
+    next_step: StudioNextStep;
+  };
+};
+
+export const rerunStudioStep = (
+  pid: string,
+  step: "video" | "voice" | "lipsync" | "storyboard",
+): Promise<StudioStepRerunResult> =>
+  studioReq<StudioStepRerunResult>(
+    `/studio/projects/${pid}/steps/${step}/rerun`,
+    "POST",
+    undefined,
+    { timeoutMs: 600_000 },
+  );
+
+
 export interface StudioShotOptimizeResult {
   scene: string;
   camera: string;
