@@ -97,8 +97,9 @@ _STYLE_NEGATIVE = {
         "deformed, extra limbs, hanfu, ancient chinese clothing, white robe, white dress, "
         "white hair, silver hair, grey hair, blue hair, blonde hair, "
         "multiple people, collage, split screen, grid, two people in one frame, "
+        "1boy, 2boys, male, man, couple, duo, two girls, twins, "
         "glitch, chromatic aberration, scan lines, multiple faces, face sheet, "
-        "sketch dump, concept art board"
+        "sketch dump, concept art board, white jacket, white coat"
     ),
 }
 
@@ -150,12 +151,13 @@ _CJK_FONT_CANDIDATES = (
 # 角色服装关键词(现代雨夜便利店设定):服饰拆解强制对齐,禁汉服
 _COSTUME_FORCE = (
     "overhead flat lay product photography, garments and props laid flat on table, "
-    "ONLY these items: black hooded raincoat unfolded, black windbreaker jacket, "
-    "black rain boots, transparent clear umbrella, white plastic shopping bag, "
-    "clothing pieces arranged neatly as product shots, "
+    "ONLY these items: ONE black hooded raincoat unfolded, ONE black windbreaker, "
+    "ONE pair black rain boots, ONE transparent clear umbrella, ONE white plastic shopping bag, "
+    "black garments only, clothing pieces arranged neatly as product shots, "
     "isolated on solid seamless background, no person, no face, no mannequin, "
-    "no model wearing clothes, no hanfu, no ancient costume, no white robe, "
-    "no white dress, no gown, fashion design sheet"
+    "no model wearing clothes, no hanging rack display, no color variants, "
+    "no hanfu, no ancient costume, no white robe, no white jacket, no white coat, "
+    "no beige jacket, no blue jacket, fashion design sheet"
 )
 
 
@@ -318,25 +320,26 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
         if style == "ancient_realistic"
         else "solid seamless light gray background"
     )
+    solo = "1girl, solo, single female only, alone, no other people, no male"
     prompts: dict[str, str] = {
         "portrait": (
-            f"{base}, full body standing portrait of {name}, facing camera, "
+            f"{solo}, {base}, full body standing portrait of {name}, facing camera, "
             f"jet black hair, black hair, same outfit black hooded raincoat, "
             f"hood optional, no silver hair, {solid}, character design, {suf}"
         ),
         "front": (
-            f"{base}, ONE figure only, front view full body turnaround of {name}, orthographic, "
+            f"{solo}, {base}, ONE figure only, front view full body turnaround of {name}, orthographic, "
             f"jet black hair, same character same black hooded raincoat, standing straight, "
             f"single person only, empty background, {solid}, {suf}"
         ),
         "side": (
-            f"{base}, ONE figure only, STRICT side profile full body turnaround of {name}, "
+            f"{solo}, {base}, ONE figure only, STRICT side profile full body turnaround of {name}, "
             f"looking left, 90 degree side view, jet black hair, "
             f"orthographic, same character same black hooded raincoat, standing straight, "
             f"single person only, NOT front view, NOT back view, empty background, {solid}, {suf}"
         ),
         "back": (
-            f"{base}, ONE figure only, STRICT back view full body turnaround of {name}, "
+            f"{solo}, {base}, ONE figure only, STRICT back view full body turnaround of {name}, "
             f"facing completely away from camera, back of head and hood visible, "
             f"jet black hair, orthographic, single person only, "
             f"same character same black hooded raincoat, NOT front view, NOT face, "
@@ -350,10 +353,10 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
     }
     for i, expr in enumerate(_EXPR_PROMPTS):
         prompts[f"expr_{i}"] = (
-            f"{base}, {expr} of {name}, single face only, one person, "
+            f"{solo}, {base}, {expr} of {name}, single face only, one person, "
             f"square headshot bust shoulders-up, hood down, face fully visible, "
             f"jet black hair, same identity as main portrait, exaggerated distinct expression, "
-            f"{solid}, {suf}"
+            f"NO second person, {solid}, {suf}"
         )
     return prompts
 
@@ -472,13 +475,16 @@ def _extract_palette(img: Image.Image, n: int = 6) -> list[str]:
             skin_cands.append((cnt, (r, g, b)))
         if len(out) >= n:
             break
-    # 保证有肤色/唇色可辨
+    # 保证有肤色/唇色/透明伞灰可辨;全近黑则重置
     fallback = ["#E8C4A8", "#C98A7A", "#1A1A1E", "#2C2C34", "#C8C8C8", "#5A6A7A"]
     if skin_cands:
         sr, sg, sb = skin_cands[0][1]
         skin_hx = f"#{sr:02X}{sg:02X}{sb:02X}"
         if skin_hx not in out:
             out.insert(0, skin_hx)
+    dark_n = sum(1 for hx in out[:4] if int(hx[1:3], 16) + int(hx[3:5], 16) + int(hx[5:7], 16) < 120)
+    if dark_n >= 3:
+        out = list(fallback)
     for hx in fallback:
         if len(out) >= n:
             break
