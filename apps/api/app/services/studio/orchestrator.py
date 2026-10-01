@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 from app.harness import events as ev
 from app.models import StudioCharacter, StudioProject, StudioShot
 from app.services.studio.renderers.base import RenderError, get_renderer
+import asyncio
 
 if TYPE_CHECKING:
     from app.comfy.pool import WorkerPool
@@ -222,8 +223,12 @@ async def render_shot(
                         return str(p) if p.is_file() else None
                     return None
 
-                win_id, candidates = pick_best_candidate(
-                    candidates, ref_image_path=ref_path, local_url_resolver=_resolve_vid
+                # insightface/cv2 同步且重：单 worker 下会堵死事件循环（雨夜镜1 API 挂死）
+                win_id, candidates = await asyncio.to_thread(
+                    pick_best_candidate,
+                    candidates,
+                    ref_image_path=ref_path,
+                    local_url_resolver=_resolve_vid,
                 )
                 if win_id:
                     for c in candidates:

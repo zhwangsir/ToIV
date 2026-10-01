@@ -11,6 +11,21 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+_FACE_APP = None
+
+
+def _get_face_app():
+    """复用 FaceAnalysis，避免每次选优重新加载 buffalo_l 堵死 API。"""
+    global _FACE_APP
+    if _FACE_APP is not None:
+        return _FACE_APP
+    from insightface.app import FaceAnalysis
+
+    app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
+    app.prepare(ctx_id=-1, det_size=(640, 640))
+    _FACE_APP = app
+    return app
+
 
 def _try_import_face():
     try:
@@ -75,7 +90,6 @@ def score_video_face(
         return out
     import cv2
     import numpy as np
-    from insightface.app import FaceAnalysis
 
     ref_p = Path(ref_image_path)
     vid_p = Path(video_path)
@@ -83,8 +97,11 @@ def score_video_face(
         out["error"] = "参考图或视频不存在"
         return out
 
-    app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
-    app.prepare(ctx_id=-1, det_size=(640, 640))
+    try:
+        app = _get_face_app()
+    except Exception as e:
+        out["error"] = f"FaceAnalysis 初始化失败:{e}"
+        return out
     ref_img = cv2.imread(str(ref_p))
     if ref_img is None:
         out["error"] = "参考图读取失败"
