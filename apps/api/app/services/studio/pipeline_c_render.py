@@ -43,7 +43,8 @@ def _h3_length(duration_sec: float) -> int:
 
 
 async def _fetch_bytes(url: str) -> bytes:
-    """拉取参考图字节：studio/files 直读；/api/images 或 http(s) 走 HTTP。"""
+    """拉取参考图字节：studio/files 只直读磁盘，禁止回环调本 API（单 worker 会死锁）。"""
+    import os
     from app.storage import drama_output_root
 
     u = (url or "").strip()
@@ -51,10 +52,34 @@ async def _fetch_bytes(url: str) -> bytes:
         raise RenderError("空参考图 URL")
     marker = "/api/studio/files/"
     if marker in u:
-        name = u.split(marker, 1)[1].split("?", 1)[0]
-        path = drama_output_root() / "studio" / Path(name).name
-        if path.is_file():
-            return path.read_bytes()
+        name = Path(u.split(marker, 1)[1].split("?", 1)[0]).name
+        if not name or name.startswith(".") or "/" in name or "\\" in name:
+            raise RenderError("非法 studio 文件路径")
+        roots = [
+            drama_output_root() / "studio",
+            Path(os.environ.get("TOIV_DRAMA_VIDEO_DIR", "")) / "studio",
+            Path("/mnt/toiv-nas/toiv/outputs/drama/final/studio"),
+            Path("/home/merlin/toiv/tmp/h3_long_exp/assets"),
+        ]
+        for root in roots:
+            try:
+                path = root / name
+            except Exception:
+                continue
+            if path.is_file():
+                data = path.read_bytes()
+                if data:
+                    return data
+        # 兼容样片原名（无 sample_ 前缀）
+        alt = name.replace("sample_", "", 1) if name.startswith("sample_") else ""
+        if alt:
+            for root in roots:
+                path = root / alt
+                if path.is_file():
+                    data = path.read_bytes()
+                    if data:
+                        return data
+        raise RenderError(f"studio 参考图不在磁盘:{name}（禁止回环拉取）")
     if u.startswith("/") and Path(u).is_file():
         return Path(u).read_bytes()
     # /api/images?filename=&worker=
@@ -69,16 +94,12 @@ async def _fetch_bytes(url: str) -> bytes:
             data, _ = await client.get_image_bytes(fn, sub, typ)
             if data:
                 return data
-    async with httpx.AsyncClient(timeout=60.0, trust_env=False) as http:
-        # 相对路径：拼本地 API（仅测试/同进程）
-        if u.startswith("/"):
-            from app.config import get_settings
-
-            base = get_settings().api_base_url.rstrip("/")
-            u = base + u
-        r = await http.get(u)
-        r.raise_for_status()
-        return r.content
+    if u.startswith("http://") or u.startswith("https://"):
+        async with httpx.AsyncClient(timeout=60.0, trust_env=False) as http:
+            r = await http.get(u)
+            r.raise_for_status()
+            return r.content
+    raise RenderError(f"无法拉取参考图:{u[:80]}")
 
 
 async def _upload_refs(client: ComfyUIClient, urls: list[str]) -> list[str]:
