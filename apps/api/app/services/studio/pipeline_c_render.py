@@ -209,7 +209,8 @@ async def render_pipeline_c(
 
     url = await _wait_video_url(client.base_url, prompt_id, request=request)
     # 约定 context 产物名（与 SaveLatent filename_prefix 对齐）
-    context_latent = f"{prefix_ctx}_00001.safetensors"
+    # SaveLatent 序号与 clip_index 对齐（镜0→00001、镜1→00002…）；写死 00001 会导致续写 FileNotFound
+    context_latent = f"{prefix_ctx}_{int(clip_index):05d}.safetensors"
     return {
         "url": url,
         "context_latent": context_latent,

@@ -49,6 +49,30 @@ async def _wait_video_url(worker: str, prompt_id: str, request: Any = None) -> s
             files = await client.get_result_files(prompt_id)
         except ComfyUIError:
             files = []  # worker 暂不可达/历史未就绪,下轮再试
+        # 失败任务无产物时尽快抛错，避免空等到 _POLL_TIMEOUT（Motion Context 缺文件等）
+        if not files:
+            try:
+                hist_wrap = await client.get_history(prompt_id)
+            except Exception:
+                hist_wrap = None
+            entry = None
+            if isinstance(hist_wrap, dict):
+                entry = hist_wrap.get(prompt_id) or (hist_wrap if "status" in hist_wrap else None)
+            if isinstance(entry, dict):
+                status = entry.get("status") if isinstance(entry.get("status"), dict) else {}
+                outputs = entry.get("outputs") or {}
+                if status.get("status_str") == "error" or (
+                    status.get("completed") is True and not outputs
+                ):
+                    detail = ""
+                    for m in status.get("messages") or []:
+                        if isinstance(m, (list, tuple)) and len(m) >= 2 and m[0] == "execution_error":
+                            err = m[1] if not isinstance(m[1], dict) else m[1].get("exception_message") or m[1]
+                            detail = str(err)[:300]
+                            break
+                    raise RenderError(
+                        f"Comfy 任务失败无视频产物:{detail or status.get('status_str') or 'error'}"
+                    )
         if files:
             f = files[0]
             data, _ = await client.get_image_bytes(
