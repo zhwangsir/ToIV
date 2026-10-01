@@ -1661,9 +1661,11 @@ def _pick_best_face_with_yaw(cands: list[bytes], face_key: str) -> tuple[bytes, 
             "n": len(cands),
             "n_pass": len(passed),
         }
-    target = {"face_front": 0.0, "face_three_quarter": 42.0,  # fix15: 偏好 35–50° "face_side": 90.0}.get(
-        face_key, 0.0
-    )
+    target = {
+        "face_front": 0.0,
+        "face_three_quarter": 42.0,  # fix15: 偏好 35–50°
+        "face_side": 90.0,
+    }.get(face_key, 0.0)
     scored.sort(
         key=lambda t: (
             abs((abs(t[1]) if t[1] is not None else 999.0) - target),
