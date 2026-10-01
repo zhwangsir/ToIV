@@ -1838,6 +1838,32 @@ def collage_costume_items(items: list[bytes], *, style: str) -> bytes:
     return buf.getvalue()
 
 
+def compose_boot_pair(single_boot: bytes, *, style: str, size: int = 768) -> bytes:
+    """单靴 PNG → 左右一对(右靴镜像),保证服饰格正好两只。"""
+    try:
+        boot = Image.open(BytesIO(single_boot)).convert("RGB")
+    except Exception:  # noqa: BLE001
+        boot = Image.new("RGB", (size, size), (255, 255, 255))
+    boot = _trim_object_bbox(boot, style=style, pad=8)
+    bg = (255, 255, 255) if style == "anime" else (30, 32, 38)
+    canvas = Image.new("RGB", (size, size), bg)
+    # 每只靴约占半宽
+    target_h = int(size * 0.78)
+    ratio = target_h / max(1, boot.height)
+    tw = max(1, int(boot.width * ratio))
+    boot_r = boot.resize((tw, target_h), Image.Resampling.LANCZOS)
+    boot_l = boot_r.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    gap = max(8, size // 40)
+    total_w = boot_l.width + boot_r.width + gap
+    x0 = max(0, (size - total_w) // 2)
+    y0 = max(0, (size - target_h) // 2)
+    canvas.paste(boot_l, (x0, y0))
+    canvas.paste(boot_r, (x0 + boot_l.width + gap, y0))
+    buf = BytesIO()
+    canvas.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def _trim_object_bbox(img: Image.Image, *, style: str, pad: int = 12) -> Image.Image:
     """按物品包围盒裁切(去大片纯色底),供 letterbox 拼版。"""
     rgb = img.convert("RGB")
@@ -2186,17 +2212,16 @@ async def regenerate_sheet_panels(
                         + prompt
                         + ", white polyethylene, not blue"
                     )
-                # 服饰单品一律文生图(靴模板 img2img 易成实心黑柱,已弃)
-                # 靴:弱化角色向 suffix + 双轮候选,硬要求可识别靴形且 blob≤2
+                # 服饰单品文生图。靴:先出「单只」再程序化镜像拼成一对(模型易出一排多靴)
                 item_prompt_final = prompt
                 if item_key == "boots":
                     item_prompt_final = (
-                        "clean anime product illustration, pair of black rubber rain boots, "
-                        "exactly two boots left and right, visible boot shaft opening and thick sole, "
-                        "glossy wellington style, standing on white floor, large centered, "
-                        "empty white background, no text, no shelf, no row of many boots, "
+                        "clean anime product illustration, ONE single black rubber rain boot only, "
+                        "exactly one boot, solo wellington, visible shaft opening and thick sole, "
+                        "glossy, large centered, empty white background, no text, "
+                        "NOT a pair, NOT two boots, NOT three, NOT a row, NOT multiple, "
                         + item_prompt
-                        + ", product still life only"
+                        + ", single footwear product only"
                     )
                 rounds = 2 if item_key in ("boots", "pants") else 1
                 for round_i in range(rounds):
@@ -2224,20 +2249,20 @@ async def regenerate_sheet_panels(
                     best_try = _pick_best_candidate(cands, f"costume_{item_key}")
                     img = Image.open(BytesIO(best_try)).convert("RGB").resize((64, 64))
                     blobs = _count_dark_blobs(list(img.getdata()))
-                    # 靴:拒绝「两根黑柱」(过实心矩形剪影)
                     if item_key == "boots":
-                        pen = _costume_item_penalty(best_try, "boots")
-                        if blobs <= 2 and pen < 8.0:
+                        # 单靴目标:1 blob(或≤2);过多则再抽
+                        if blobs <= 2:
                             break
-                        logger.warning(
-                            "靴候选不合格 blobs=%s pen=%.2f,再抽", blobs, pen
-                        )
+                        logger.warning("单靴候选多件 blobs=%s,再抽", blobs)
                     elif item_key == "pants":
                         if blobs <= 3:
                             break
                     else:
                         break
-                picked_items.append(_pick_best_candidate(cands, f"costume_{item_key}"))
+                best = _pick_best_candidate(cands, f"costume_{item_key}")
+                if item_key == "boots":
+                    best = compose_boot_pair(best, style=meta.style)
+                picked_items.append(best)
             panels["costume"] = collage_costume_items(picked_items, style=meta.style)
             debug["picks"]["costume"] = {
                 "items": [k for k, _ in _COSTUME_ITEMS],
