@@ -94,12 +94,14 @@ _STYLE_NEGATIVE = {
     "anime": (
         "photorealistic, real photo, photograph, realistic skin pores, "
         "3d render, western cartoon, blurry, low quality, text, watermark, "
+        "chinese text, chinese characters, letters, alphabet, caption, subtitle, title, "
         "deformed, extra limbs, hanfu, ancient chinese clothing, white robe, white dress, "
         "white hair, silver hair, grey hair, blue hair, blonde hair, "
         "multiple people, collage, split screen, grid, two people in one frame, "
         "1boy, 2boys, male, man, couple, duo, two girls, twins, "
         "glitch, chromatic aberration, scan lines, multiple faces, face sheet, "
-        "sketch dump, concept art board, white jacket, white coat"
+        "sketch dump, concept art board, white jacket, white coat, "
+        "beige cloak, brown cloak, red cloak, tan cape, khaki poncho"
     ),
 }
 
@@ -152,33 +154,39 @@ _CJK_FONT_CANDIDATES = (
 _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
     (
         "raincoat",
-        "overhead flat lay product photo, ONE black hooded raincoat unfolded flat, "
-        "matte black fabric only, solid seamless light gray background, no person, no face, "
-        "no mannequin, no model, no text, no red cloak, no beige cloak, no brown cloak",
+        "product still life, single object only, one matte jet-black hooded raincoat "
+        "spread flat on table, pure black nylon fabric, zipper visible, "
+        "solid seamless pure white background, studio lighting, no person, no face, "
+        "no mannequin, no wearing, no cloak, no cape, no poncho, no beige, no brown, "
+        "no tan, no khaki, no red, no text, no chinese",
     ),
     (
         "pants",
-        "overhead flat lay product photo, ONE pair black pants trousers laid flat, "
-        "matte black fabric only, solid seamless light gray background, no person, no face, "
-        "no mannequin, no model, no text, no red cloak, no beige cloak, no brown cloak",
+        "product still life, single object only, one pair matte jet-black trousers "
+        "laid flat folded, pure black fabric, "
+        "solid seamless pure white background, studio lighting, no person, no face, "
+        "no mannequin, no cloak, no cape, no beige, no brown, no tan, no red, no text",
     ),
     (
         "boots",
-        "overhead flat lay product photo, ONE pair black rain boots shoes laid flat, "
-        "matte black only, solid seamless light gray background, no person, no face, "
-        "no mannequin, no model, no text, no red cloak, no beige cloak, no brown cloak",
+        "product still life, single object only, one pair glossy jet-black rain boots "
+        "side by side, pure black rubber, "
+        "solid seamless pure white background, studio lighting, no person, no face, "
+        "no mannequin, no cloak, no beige, no brown, no sandals, no text",
     ),
     (
         "umbrella",
-        "overhead flat lay product photo, ONE transparent clear plastic umbrella closed or open, "
-        "clear vinyl only, solid seamless light gray background, no person, no face, "
-        "no mannequin, no model, no text, no red cloak, no beige cloak, no brown cloak",
+        "product still life, single object only, one fully transparent clear umbrella "
+        "with visible ribs, clear vinyl canopy, black handle, "
+        "solid seamless pure white background, studio lighting, no person, no face, "
+        "no opaque umbrella, no colored canopy, no cloak, no text",
     ),
     (
         "bag",
-        "overhead flat lay product photo, ONE white plastic shopping bag laid flat, "
-        "plain white bag only, solid seamless light gray background, no person, no face, "
-        "no mannequin, no model, no text, no red cloak, no beige cloak, no brown cloak",
+        "product still life, single object only, one plain white plastic shopping bag "
+        "with handles, empty, crinkled plastic, "
+        "solid seamless pure light gray background, studio lighting, no person, no face, "
+        "no logo, no text, no chinese, no cloak, no beige",
     ),
 )
 _COSTUME_FORCE = (
@@ -393,7 +401,8 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
             f"{solo}, {base}, {expr} of {name}, single face only, one person, "
             f"square headshot bust shoulders-up, hood down, face fully visible, "
             f"jet black hair, same identity as main portrait, exaggerated distinct expression, "
-            f"NO second person, {solid}, {suf}"
+            f"NO second person, no text, no letters, no chinese characters, no caption, "
+            f"{solid}, {suf}"
         )
     return prompts
 
@@ -1443,11 +1452,26 @@ def _pick_best_candidate(cands: list[bytes], key: str) -> bytes:
             cands, key=lambda b: _score_turnaround_candidate(b, key), reverse=True
         )
         return ranked[0]
-    # 其它:过滤花屏空白后取第一张,否则取第一张
-    for b in cands:
-        if not _panel_is_blank_or_glitch(b):
-            return b
-    return cands[0]
+    # 其它/服饰单品:过滤花屏空白;服饰再抑米色/棕色主调
+    def _beige_penalty(data: bytes) -> float:
+        if not key.startswith("costume"):
+            return 0.0
+        img = Image.open(BytesIO(data)).convert("RGB").resize((32, 32))
+        px = list(img.getdata())
+        n = max(1, len(px))
+        beige = sum(1 for r, g, b in px if r > 120 and g > 90 and b < r - 15 and abs(r - g) < 45)
+        black = sum(1 for r, g, b in px if r < 70 and g < 70 and b < 80)
+        return beige / n - black / n
+
+    ranked = sorted(
+        cands,
+        key=lambda b: (
+            0 if _panel_is_blank_or_glitch(b) else 1,
+            -_beige_penalty(b),
+        ),
+        reverse=True,
+    )
+    return ranked[0]
 
 
 def collage_costume_items(items: list[bytes], *, style: str) -> bytes:
@@ -1506,30 +1530,29 @@ async def _generate_costume_collage(
 
 async def _probe_openpose_available(client: Any) -> tuple[bool, str]:
     """探测 worker 是否具备 openpose 控网+预处理器;不可用则返回原因。"""
+    base = getattr(client, "base_url", None) or getattr(client, "_base_url", None)
+    if not base:
+        return False, "client 无 base_url,无法探测 object_info,改用强 side/back IPA"
     try:
-        info = await client.get_object_info("ControlNetLoader")
-    except Exception as e:  # noqa: BLE001
-        return False, f"object_info ControlNetLoader 失败:{e}"
-    try:
-        # 兼容不同 client 返回结构
-        models = []
-        if isinstance(info, dict):
+        import httpx
+
+        async with httpx.AsyncClient(timeout=8.0) as hx:
+            r = await hx.get(f"{str(base).rstrip('/')}/object_info/ControlNetLoader")
+            if r.status_code != 200:
+                return False, f"object_info ControlNetLoader HTTP {r.status_code}"
+            info = r.json()
             node = info.get("ControlNetLoader") or info
             inputs = (node.get("input") or {}).get("required") or {}
             cn = inputs.get("control_net_name")
-            if isinstance(cn, list) and cn:
-                models = cn[0] if isinstance(cn[0], list) else cn
-        model_blob = " ".join(str(m) for m in models).lower()
-        has_union = "union" in model_blob and "sdxl" in model_blob
-        has_sd15 = "openpose" in model_blob
-        if not (has_union or has_sd15):
-            return False, "worker 未装 openpose/union controlnet 模型"
+            models = cn[0] if isinstance(cn, list) and cn and isinstance(cn[0], list) else (cn or [])
+            model_blob = " ".join(str(m) for m in models).lower()
+            if "openpose" not in model_blob and "union" not in model_blob:
+                return False, "worker 未装 openpose/union controlnet 模型"
+            r2 = await hx.get(f"{str(base).rstrip('/')}/object_info/AIO_Preprocessor")
+            if r2.status_code != 200:
+                return False, "缺少 AIO_Preprocessor/OpenposePreprocessor"
     except Exception as e:  # noqa: BLE001
-        return False, f"解析 controlnet 列表失败:{e}"
-    try:
-        await client.get_object_info("AIO_Preprocessor")
-    except Exception as e:  # noqa: BLE001
-        return False, f"缺少 AIO_Preprocessor/OpenposePreprocessor:{e}"
+        return False, f"object_info 探测失败:{e}"
     # 还需现成骨架图;仓库内无标准 openpose 骨架资产时不强行用立绘抽骨架
     return False, "无预置正/侧/背 openpose 骨架图资产,改用强 side/back IPA"
 
