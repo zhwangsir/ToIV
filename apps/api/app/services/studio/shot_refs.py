@@ -35,28 +35,30 @@ def collect_cast_ref_images(
     scene_images: list[str] | None = None,
     max_refs: int = 9,
 ) -> list[RefImage]:
-    """角色设定卡(若有) + 三视图(正/侧/全身) + 场景图 → RefImage(最多 max_refs)。
+    """立绘+三视图(正/侧/背) + 场景图 → RefImage(最多 max_refs)。
 
-    设定卡 URL 含 char_sheet_ 标记,优先置前供 Ref2VA;其余按三视图槽位。
+    Batch7 v2(17:45#6):整卡 char_sheet_ 不进 Ref2VA 视频参考链;
+    仅使用非设定卡 URL(优先 char_panel_ 立绘/三视图)。
     """
     refs: list[RefImage] = []
+    _panel_slot = {
+        "portrait": "立绘",
+        "front": "正面",
+        "side": "侧面",
+        "back": "背面",
+    }
     for c in cast:
         name = str(getattr(c, "name", "") or "").strip() or "角色"
         urls = _parse_ref_list(getattr(c, "reference_images", None))
-        sheets = [u for u in urls if "char_sheet_" in u]
         views = [u for u in urls if "char_sheet_" not in u]
-        for url in sheets[:1]:
-            refs.append(
-                RefImage(
-                    label=f"{name}设定卡身份与服装参考",
-                    role=name,
-                    image_url=url,
-                )
-            )
-            if len(refs) >= max_refs:
-                return refs
-        for i, url in enumerate(views[:3]):
-            slot = _CHAR_SLOT_LABELS[i] if i < len(_CHAR_SLOT_LABELS) else f"参考{i + 1}"
+        for i, url in enumerate(views[:4]):
+            slot = None
+            for key, lab in _panel_slot.items():
+                if f"_{key}_" in url or url.rstrip("/").endswith(f"_{key}.png"):
+                    slot = lab
+                    break
+            if slot is None:
+                slot = _CHAR_SLOT_LABELS[i] if i < len(_CHAR_SLOT_LABELS) else f"参考{i + 1}"
             refs.append(
                 RefImage(
                     label=f"{name}{slot}身份与服装参考",

@@ -307,19 +307,15 @@ async def generate_character_sheet_route(
         description=(c.description or "").strip(),
     )
     try:
-        try:
-            existing_refs = json.loads(c.reference_images or "[]")
-        except (ValueError, TypeError):
-            existing_refs = []
-        if not isinstance(existing_refs, list):
-            existing_refs = []
-        url, _png = await sheet_svc.generate_character_sheet(
+        # 17:45#2:默认不复用旧 sample 三视图;allow_reuse_refs=False
+        url, _png, panel_urls = await sheet_svc.generate_character_sheet(
             character_id=c.id,
             meta=meta,
             pool=pool,
             worker=body.worker,
             seed=body.seed,
-            reuse_ref_urls=[u for u in existing_refs if isinstance(u, str)],
+            reuse_ref_urls=None,
+            allow_reuse_refs=False,
         )
     except sheet_svc.CharacterSheetError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e)) from e
@@ -330,8 +326,11 @@ async def generate_character_sheet_route(
         existing = []
     if not isinstance(existing, list):
         existing = []
-    refs = sheet_svc.merge_sheet_into_refs(
-        [u for u in existing if isinstance(u, str)], url
+    # 17:45#6:Ref2VA 只写立绘+三视图;整卡不进 reference_images
+    refs = sheet_svc.merge_video_refs(
+        [u for u in existing if isinstance(u, str)],
+        panel_urls=panel_urls,
+        sheet_url=url,
     )
     c.reference_images = json.dumps(refs, ensure_ascii=False)
     session.add(c)
@@ -340,6 +339,7 @@ async def generate_character_sheet_route(
     out = _character_out(c)
     out["sheet_url"] = url
     out["sheet_style"] = body.style
+    out["panel_urls"] = panel_urls
     return out
 
 

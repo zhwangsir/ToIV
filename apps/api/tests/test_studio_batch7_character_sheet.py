@@ -1,4 +1,4 @@
-"""Batch7:角色设定卡 — 拼版几何/字体/失败码/Ref2VA 回写。"""
+"""Batch7 v2:角色设定卡 — 17:45 七条纠偏 + 拼版/Ref2VA/失败码。"""
 from __future__ import annotations
 
 from io import BytesIO
@@ -72,12 +72,20 @@ def _mk_char(client: TestClient, H: dict, **kw) -> str:
             "visual_prompt", "1girl, black hair, rain coat, convenience store clerk"
         ),
     }
-    if "name" in kw and kw["name"] == "":
-        # bypass API min_length by direct DB? API requires min_length=1
-        pass
     r = client.post(f"/api/studio/projects/{pid}/characters", headers=H, json=body)
     assert r.status_code == 200, r.text
     return r.json()["id"]
+
+
+def _all_panel_keys():
+    return list(sheet_svc._PANEL_KEYS) + list(sheet_svc._EXPR_KEYS)
+
+
+def _placeholder_panels():
+    panels = {}
+    for i, k in enumerate(_all_panel_keys()):
+        panels[k] = sheet_svc.placeholder_panel((40 + i * 12, 80, 160), (512, 768))
+    return panels
 
 
 def test_layout_geometry_keys():
@@ -110,22 +118,48 @@ def test_compose_geometry_and_png_bytes():
         height_cm=165,
         role="店员",
         personality="温柔",
-        design_notes="雨夜便利店",
+        design_notes="雨夜便利店\n黑雨衣主视觉\n三视图统一\n表情分格\n服饰平铺",
         visual_prompt="1girl",
     )
-    panels = {
-        k: sheet_svc.placeholder_panel((40 + i * 20, 80, 160), (512, 768))
-        for i, k in enumerate(sheet_svc._PANEL_KEYS)
-    }
+    panels = _placeholder_panels()
     png = sheet_svc.compose_character_sheet(panels, meta)
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
     img = Image.open(BytesIO(png))
     assert img.size == (2400, 3200)
 
 
+def test_compose_ancient_dark_theme_pixels():
+    """古风卡画布应为深底(#0B0E14 类),非白底。"""
+    meta = sheet_svc.SheetMeta(
+        name="林夏",
+        style="ancient_realistic",
+        design_notes="a\nb\nc",
+        visual_prompt="1girl raincoat",
+    )
+    panels = _placeholder_panels()
+    png = sheet_svc.compose_character_sheet(panels, meta)
+    img = Image.open(BytesIO(png)).convert("RGB")
+    # 取角落背景像素
+    px = img.getpixel((10, 50))
+    assert px[0] < 40 and px[1] < 40 and px[2] < 50, px
+
+
+def test_build_design_notes_min_3_lines():
+    meta = sheet_svc.SheetMeta(
+        name="林夏",
+        style="anime",
+        role="便利店员",
+        personality="温柔果断",
+        description="雨夜便利店冷白灯",
+        visual_prompt="black raincoat",
+    )
+    notes = sheet_svc.build_design_notes(meta)
+    assert len([ln for ln in notes.splitlines() if ln.strip()]) >= 3
+
+
 def test_compose_rejects_empty_name():
     meta = sheet_svc.SheetMeta(name="  ", style="anime")
-    panels = {k: sheet_svc.placeholder_panel((100, 100, 100)) for k in sheet_svc._PANEL_KEYS}
+    panels = _placeholder_panels()
     with pytest.raises(sheet_svc.CharacterSheetError) as ei:
         sheet_svc.compose_character_sheet(panels, meta)
     assert ei.value.status_code == 422
@@ -133,31 +167,79 @@ def test_compose_rejects_empty_name():
 
 def test_compose_rejects_bad_style():
     meta = sheet_svc.SheetMeta(name="林夏", style="oil")
-    panels = {k: sheet_svc.placeholder_panel((100, 100, 100)) for k in sheet_svc._PANEL_KEYS}
+    panels = _placeholder_panels()
     with pytest.raises(sheet_svc.CharacterSheetError) as ei:
         sheet_svc.compose_character_sheet(panels, meta)
     assert ei.value.status_code == 422
 
 
-def test_merge_sheet_into_refs_prefers_front():
-    old = ["/a/front.png", "/a/side.png", "http://x/char_sheet_old_anime_abc.png"]
-    merged = sheet_svc.merge_sheet_into_refs(old, "/api/studio/files/char_sheet_new_anime_x.png")
-    assert merged[0].endswith("char_sheet_new_anime_x.png")
+def test_merge_video_refs_no_sheet_front():
+    panels = {
+        "portrait": "/api/studio/files/char_panel_x_anime_portrait_a.png",
+        "front": "/api/studio/files/char_panel_x_anime_front_b.png",
+        "side": "/api/studio/files/char_panel_x_anime_side_c.png",
+        "back": "/api/studio/files/char_panel_x_anime_back_d.png",
+    }
+    old = [
+        "/api/studio/files/sample_linxia_front.png",
+        "http://x/char_sheet_old_anime_abc.png",
+    ]
+    merged = sheet_svc.merge_video_refs(
+        old, panel_urls=panels, sheet_url="/api/studio/files/char_sheet_new.png"
+    )
+    assert merged[0].endswith("portrait_a.png")
+    assert all("char_sheet_" not in u for u in merged)
+    assert "/api/studio/files/sample_linxia_front.png" in merged
+
+
+def test_merge_sheet_into_refs_compat_no_front_sheet():
+    old = ["/a/front.png", "http://x/char_sheet_old_anime_abc.png"]
+    merged = sheet_svc.merge_sheet_into_refs(
+        old, "/api/studio/files/char_sheet_new_anime_x.png"
+    )
+    assert not any("char_sheet_" in u for u in merged)
     assert "/a/front.png" in merged
-    assert not any("char_sheet_old" in u for u in merged)
 
 
-def test_shot_refs_prefers_character_sheet():
+def test_shot_refs_skips_character_sheet():
     c = StudioCharacter(
         project_id="p",
         name="林夏",
-        reference_images='["/api/studio/files/char_sheet_lin_anime_1.png","/a/front.png","/a/side.png","/a/full.png"]',
+        reference_images=(
+            '["/api/studio/files/char_panel_lin_anime_portrait_1.png",'
+            '"/api/studio/files/char_panel_lin_anime_front_1.png",'
+            '"/api/studio/files/char_panel_lin_anime_side_1.png",'
+            '"/api/studio/files/char_panel_lin_anime_back_1.png",'
+            '"/api/studio/files/char_sheet_lin_anime_1.png"]'
+        ),
     )
     refs = collect_cast_ref_images([c])
     urls = ref_urls(refs)
-    assert "char_sheet_" in urls[0]
-    assert "设定卡" in refs[0].label
-    assert urls[1:] == ["/a/front.png", "/a/side.png", "/a/full.png"]
+    assert all("char_sheet_" not in u for u in urls)
+    assert "portrait" in urls[0]
+    assert "立绘" in refs[0].label
+
+
+def test_costume_prompt_bans_hanfu():
+    meta = sheet_svc.SheetMeta(
+        name="林夏",
+        style="anime",
+        visual_prompt="young woman black raincoat",
+        description="便利店员",
+    )
+    prompts = sheet_svc.build_panel_prompts(meta)
+    assert "hanfu" in prompts["costume"].lower() or "no hanfu" in prompts["costume"]
+    assert "raincoat" in prompts["costume"].lower()
+    assert "anime" in prompts["portrait"].lower() or "cel" in prompts["portrait"].lower()
+
+
+def test_forbidden_worker_ports():
+    with pytest.raises(sheet_svc.CharacterSheetError) as ei:
+        sheet_svc._assert_sheet_worker_allowed("http://100.68.100.90:8195")
+    assert ei.value.status_code == 400
+    with pytest.raises(sheet_svc.CharacterSheetError):
+        sheet_svc._assert_sheet_worker_allowed("http://100.68.100.90:8196")
+    sheet_svc._assert_sheet_worker_allowed("http://100.68.100.90:8261")
 
 
 def test_api_missing_visual_422(ctx):
@@ -219,19 +301,14 @@ def test_api_backend_unavailable_503(ctx):
     assert r.status_code == 503, r.text
 
 
-def test_api_success_writes_reference_images(ctx):
+def test_api_success_writes_panel_refs_not_sheet(ctx):
     client, token, out_root, _ = ctx
     H = _h(token)
     cid = _mk_char(client, H)
 
     async def fake_gen(*, character_id, meta, pool, **kw):
-        panels = {
-            k: sheet_svc.placeholder_panel((50, 90, 140)).tobytes()  # wrong - need png
-            for k in sheet_svc._PANEL_KEYS
-        }
-        # proper png bytes
         panels = {}
-        for i, k in enumerate(sheet_svc._PANEL_KEYS):
+        for i, k in enumerate(_all_panel_keys()):
             buf = BytesIO()
             sheet_svc.placeholder_panel((40 + i * 10, 70, 150)).convert("RGB").save(
                 buf, format="PNG"
@@ -239,7 +316,21 @@ def test_api_success_writes_reference_images(ctx):
             panels[k] = buf.getvalue()
         png = sheet_svc.compose_character_sheet(panels, meta)
         url = sheet_svc.save_sheet_png(png, character_id=character_id, style=meta.style)
-        return url, png
+        panel_urls = {
+            "portrait": sheet_svc.save_panel_png(
+                panels["portrait"], character_id=character_id, style=meta.style, key="portrait"
+            ),
+            "front": sheet_svc.save_panel_png(
+                panels["front"], character_id=character_id, style=meta.style, key="front"
+            ),
+            "side": sheet_svc.save_panel_png(
+                panels["side"], character_id=character_id, style=meta.style, key="side"
+            ),
+            "back": sheet_svc.save_panel_png(
+                panels["back"], character_id=character_id, style=meta.style, key="back"
+            ),
+        }
+        return url, png, panel_urls
 
     with patch(
         "app.services.studio.character_sheet.generate_character_sheet",
@@ -254,9 +345,12 @@ def test_api_success_writes_reference_images(ctx):
     body = r.json()
     assert body["sheet_url"].startswith("/api/studio/files/char_sheet_")
     assert body["sheet_style"] == "anime"
-    assert any("char_sheet_" in u for u in body["reference_images"])
-    assert body["reference_images"][0] == body["sheet_url"]
-    # file on disk
+    assert "panel_urls" in body
+    assert body["panel_urls"]["portrait"]
+    # 整卡不得置前进 reference_images
+    assert all("char_sheet_" not in u for u in body["reference_images"])
+    assert "char_panel_" in body["reference_images"][0]
+    assert "portrait" in body["reference_images"][0]
     name = body["sheet_url"].rsplit("/", 1)[-1]
     assert (out_root / "studio" / name).is_file()
 
