@@ -219,11 +219,14 @@ _COSTUME_ITEM_NEGATIVE: dict[str, str] = {
     "pants": (
         "shorts, short pants, bermuda, cropped pants, knee-length pants, skirt, "
         "multiple pairs, repeated pants, row of pants, many pants, four pants, "
-        "collage of pants, grid of trousers, split screen pants, duplicate trousers"
+        "collage of pants, grid of trousers, split screen pants, duplicate trousers, "
+        "empty panel, empty slot, UI mockup, wireframe box, rectangular frame, "
+        "interface layout, three empty boxes, catalog UI"
     ),
     "boots": (
         "many boots, row of boots, repeated boots, multiple pairs, five boots, six boots, "
-        "line of boots, collage of footwear, duplicate rain boots, crowd of boots"
+        "four boots, three boots, line of boots, collage of footwear, duplicate rain boots, "
+        "crowd of boots, shelf of boots, more than two boots"
     ),
 }
 
@@ -1783,6 +1786,16 @@ def _pick_best_candidate(cands: list[bytes], key: str) -> bytes:
         ),
         reverse=True,
     )
+    # 裤/靴:优先剔除多件(blob≥4);若全军覆没仍取惩罚最低者
+    if item_key in ("pants", "boots") and ranked:
+        ok = []
+        for b in ranked:
+            img = Image.open(BytesIO(b)).convert("RGB").resize((64, 64))
+            blobs = _count_dark_blobs(list(img.getdata()))
+            if blobs <= (2 if item_key == "boots" else 3):
+                ok.append(b)
+        if ok:
+            return ok[0]
     return ranked[0]
 
 
@@ -1862,20 +1875,22 @@ async def _generate_costume_collage(
         prompt = f"{item_prompt}, {suf}"
         if item_key == "boots":
             prompt = (
-                "one pair (two) black rain boots only, exactly two boots side by side, "
-                "NOT many boots, NOT a row of boots, NOT repeated, NOT multiple pairs, "
-                "product shot, no person, "
+                "exactly two black rain boots only, one left boot and one right boot, "
+                "a single isolated pair centered large in frame with empty white space around, "
+                "NOT three, NOT four, NOT five, NOT a row, NOT a shelf, NOT repeated, "
+                "product still life, no person, "
                 + prompt
-                + ", footwear product photography only, single pair"
+                + ", footwear product photography, only two boots"
             )
         elif item_key == "pants":
             prompt = (
-                "single pair of long black trousers, full length, one item only, "
-                "exactly one pair laid flat, two long legs to ankles, "
-                "NOT shorts, NOT knee-length, NOT multiple, NOT repeated, NOT a row of pants, "
-                "product shot, no person, no mannequin, garment fills frame, "
+                "single pair of long black trousers laid flat centered, full length to ankles, "
+                "one item only filling the frame, plain white background only, "
+                "NOT shorts, NOT multiple, NOT repeated, NOT a row of pants, "
+                "NOT empty panels, NOT UI mockup, NOT wireframe boxes, NOT empty slots, "
+                "product shot, no person, no mannequin, "
                 + prompt
-                + ", clothing only, not empty"
+                + ", clothing flat lay only"
             )
         elif item_key == "umbrella":
             prompt = (
@@ -2119,20 +2134,22 @@ async def regenerate_sheet_panels(
                 prompt = f"{item_prompt}, {suf}"
                 if item_key == "boots":
                     prompt = (
-                        "one pair (two) black rain boots only, exactly two boots side by side, "
-                        "NOT many boots, NOT a row of boots, NOT repeated, NOT multiple pairs, "
-                        "product shot, no person, "
+                        "exactly two black rain boots only, one left boot and one right boot, "
+                        "a single isolated pair centered large in frame with empty white space around, "
+                        "NOT three, NOT four, NOT five, NOT a row, NOT a shelf, NOT repeated, "
+                        "product still life, no person, "
                         + prompt
-                        + ", footwear product photography only, single pair"
+                        + ", footwear product photography, only two boots"
                     )
                 elif item_key == "pants":
                     prompt = (
-                        "single pair of long black trousers, full length, one item only, "
-                        "exactly one pair laid flat, two long legs to ankles, "
-                        "NOT shorts, NOT knee-length, NOT multiple, NOT repeated, NOT a row of pants, "
-                        "product shot, no person, no mannequin, garment fills frame, "
+                        "single pair of long black trousers laid flat centered, full length to ankles, "
+                        "one item only filling the frame, plain white background only, "
+                        "NOT shorts, NOT multiple, NOT repeated, NOT a row of pants, "
+                        "NOT empty panels, NOT UI mockup, NOT wireframe boxes, NOT empty slots, "
+                        "product shot, no person, no mannequin, "
                         + prompt
-                        + ", clothing only, not empty"
+                        + ", clothing flat lay only"
                     )
                 elif item_key == "raincoat":
                     prompt = (
