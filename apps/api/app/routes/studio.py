@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.deps import get_current_user
+from app.deps import get_current_user, get_pool
 from app.models import StudioCharacter, StudioProject, StudioShot, User
 from app.services.drama_pipeline import compute_studio_next_step
 from app.services.studio import assemble as assemble_svc
@@ -25,6 +25,7 @@ from app.services.studio.renderers.base import RenderError
 from app.services.studio.schemas import (
     CharacterCreate,
     CharacterPatch,
+    CharacterSheetRequest,
     ProjectCreate,
     ProjectPatch,
     ScriptParseRequest,
@@ -265,6 +266,76 @@ def delete_character(
     )
     session.commit()
     return {"ok": True}
+
+
+# ── Batch7 角色设定卡 ───────────────────────────────────────────────────────
+
+
+@router.post("/studio/characters/{cid}/character-sheet")
+async def generate_character_sheet_route(
+    cid: str,
+    body: CharacterSheetRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    pool=Depends(get_pool),
+):
+    """分格出图 + Pillow 固定版式拼版;卡图写入 reference_images 供 Ref2VA。"""
+    from app.services.studio import character_sheet as sheet_svc
+
+    c = session.get(StudioCharacter, cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="角色不存在")
+    _get_project(session, c.project_id, user)
+
+    name = (c.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="角色名为空")
+
+    visual = (body.visual_prompt_override or c.visual_prompt or "").strip()
+    if not visual and not (c.description or "").strip():
+        raise HTTPException(status_code=422, detail="角色缺少视觉描述")
+
+    meta = sheet_svc.SheetMeta(
+        name=name,
+        style=body.style,
+        height_cm=body.height_cm,
+        role=(body.role or "").strip(),
+        personality=(body.personality or "").strip(),
+        design_notes=(body.design_notes or "").strip(),
+        colors=list(body.colors or []),
+        visual_prompt=visual,
+        description=(c.description or "").strip(),
+    )
+    try:
+        url, _png = await sheet_svc.generate_character_sheet(
+            character_id=c.id,
+            meta=meta,
+            pool=pool,
+            worker=body.worker,
+            seed=body.seed,
+        )
+    except sheet_svc.CharacterSheetError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+
+    try:
+        existing = json.loads(c.reference_images or "[]")
+    except (ValueError, TypeError):
+        existing = []
+    if not isinstance(existing, list):
+        existing = []
+    refs = sheet_svc.merge_sheet_into_refs(
+        [u for u in existing if isinstance(u, str)], url
+    )
+    c.reference_images = json.dumps(refs, ensure_ascii=False)
+    session.add(c)
+    session.commit()
+    session.refresh(c)
+    out = _character_out(c)
+    out["sheet_url"] = url
+    out["sheet_style"] = body.style
+    return out
+
+
 
 
 # ── 分镜批量保存 ───────────────────────────────────────────────────────────

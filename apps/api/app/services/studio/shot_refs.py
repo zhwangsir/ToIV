@@ -35,12 +35,27 @@ def collect_cast_ref_images(
     scene_images: list[str] | None = None,
     max_refs: int = 9,
 ) -> list[RefImage]:
-    """角色三视图(正/侧/全身) + 场景图 → RefImage 列表(最多 max_refs,H3 Ref2VA 上限 9)。"""
+    """角色设定卡(若有) + 三视图(正/侧/全身) + 场景图 → RefImage(最多 max_refs)。
+
+    设定卡 URL 含 char_sheet_ 标记,优先置前供 Ref2VA;其余按三视图槽位。
+    """
     refs: list[RefImage] = []
     for c in cast:
         name = str(getattr(c, "name", "") or "").strip() or "角色"
         urls = _parse_ref_list(getattr(c, "reference_images", None))
-        for i, url in enumerate(urls[:3]):
+        sheets = [u for u in urls if "char_sheet_" in u]
+        views = [u for u in urls if "char_sheet_" not in u]
+        for url in sheets[:1]:
+            refs.append(
+                RefImage(
+                    label=f"{name}设定卡身份与服装参考",
+                    role=name,
+                    image_url=url,
+                )
+            )
+            if len(refs) >= max_refs:
+                return refs
+        for i, url in enumerate(views[:3]):
             slot = _CHAR_SLOT_LABELS[i] if i < len(_CHAR_SLOT_LABELS) else f"参考{i + 1}"
             refs.append(
                 RefImage(

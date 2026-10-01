@@ -4809,6 +4809,30 @@ export const patchStudioCharacter = (
 export const deleteStudioCharacter = (cid: string): Promise<{ ok: boolean }> =>
   studioReq(`/studio/characters/${cid}`, "DELETE");
 
+/** Batch7:生成角色设定卡(古风写实 / 二次元),回写 reference_images。 */
+export type StudioCharacterSheetStyle = "ancient_realistic" | "anime";
+export interface StudioCharacterSheetResult extends StudioCharacter {
+  sheet_url: string;
+  sheet_style: StudioCharacterSheetStyle;
+}
+export const generateStudioCharacterSheet = (
+  cid: string,
+  body: {
+    style: StudioCharacterSheetStyle;
+    height_cm?: number;
+    role?: string;
+    personality?: string;
+    design_notes?: string;
+    colors?: string[];
+    visual_prompt_override?: string;
+    worker?: string;
+    seed?: number;
+  },
+): Promise<StudioCharacterSheetResult> =>
+  studioReq(`/studio/characters/${cid}/character-sheet`, "POST", body, {
+    longRequest: true,
+  });
+
 /** 分镜批量保存(无 id=新增,有 id=更新;生成方式变化会重置该镜媒体与状态)。 */
 export const saveStudioShots = (
   pid: string,

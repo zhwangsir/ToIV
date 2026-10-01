@@ -4,11 +4,13 @@ import { useEffect, useRef, useState, type TextareaHTMLAttributes } from "react"
 import {
   addStudioCharacter,
   deleteStudioCharacter,
+  generateStudioCharacterSheet,
   imageUrl,
   patchStudioCharacter,
   patchStudioProject,
   uploadImage,
   type StudioCharacter,
+  type StudioCharacterSheetStyle,
 } from "@/lib/api";
 import { AssetPicker } from "@/components/generate/AssetPicker";
 import { Icon } from "@/components/ui/Icon";
@@ -288,6 +290,80 @@ function RefSlots({
     </div>
   );
 }
+
+function SheetActions({
+  character,
+  onDone,
+  onError,
+}: {
+  character: StudioCharacter;
+  onDone: () => Promise<void>;
+  onError: (msg: string | null) => void;
+}) {
+  const [busy, setBusy] = useState<StudioCharacterSheetStyle | null>(null);
+  const toast = useToast();
+  const sheetUrl = (character.reference_images || []).find((u) => u.includes("char_sheet_"));
+
+  const run = async (style: StudioCharacterSheetStyle) => {
+    setBusy(style);
+    onError(null);
+    try {
+      await generateStudioCharacterSheet(character.id, { style });
+      await onDone();
+      toast.success(style === "ancient_realistic" ? "古风卡就绪" : "二次元卡就绪");
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "设定卡失败");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="studio-sheet-actions" data-testid="studio-sheet-actions">
+      <span className="studio-label">
+        <Icon name="image" size={12} /> 设定卡
+      </span>
+      <div className="studio-look-actions">
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          data-testid="studio-sheet-ancient"
+          disabled={!!busy}
+          title="古风写实设定卡"
+          onClick={() => void run("ancient_realistic")}
+        >
+          <Icon name={busy === "ancient_realistic" ? "loading" : "sparkles"} size={12} />
+          古风
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          data-testid="studio-sheet-anime"
+          disabled={!!busy}
+          title="二次元设定卡"
+          onClick={() => void run("anime")}
+        >
+          <Icon name={busy === "anime" ? "loading" : "sparkles"} size={12} />
+          二次元
+        </button>
+      </div>
+      {sheetUrl && (
+        <a
+          className="studio-sheet-thumb-link"
+          href={imageUrl(sheetUrl)}
+          target="_blank"
+          rel="noreferrer"
+          data-testid="studio-sheet-preview"
+          title="查看设定卡"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={imageUrl(sheetUrl)} alt="设定卡" className="studio-sheet-thumb" />
+        </a>
+      )}
+    </div>
+  );
+}
+
 
 function SceneBind({
   projectId,
@@ -589,6 +665,13 @@ export function CastStage({
               onPatch={async (reference_images) => {
                 await patch(c.id, { reference_images });
               }}
+            />
+            <SheetActions
+              character={c}
+              onDone={async () => {
+                await project.refresh();
+              }}
+              onError={setError}
             />
             {c.voice_ref_url && (
               <p className="studio-char-voice">

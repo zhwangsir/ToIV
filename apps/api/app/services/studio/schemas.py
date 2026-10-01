@@ -210,3 +210,18 @@ class ScriptParseRequest(BaseModel):
     premise: str = Field(min_length=1, max_length=20000)
     num_shots: int = Field(default=8, ge=1, le=50)
     style: str = Field(default="", max_length=2000)
+
+
+class CharacterSheetRequest(BaseModel):
+    """Batch7:生成角色设定卡(古风写实 / 二次元)。"""
+
+    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    height_cm: int = Field(default=168, ge=120, le=220)
+    role: str = Field(default="", max_length=100)
+    personality: str = Field(default="", max_length=200)
+    design_notes: str = Field(default="", max_length=1000)
+    colors: list[str] | None = Field(default=None, max_length=8)
+    visual_prompt_override: str | None = Field(default=None, max_length=2000)
+    worker: str | None = Field(default=None, max_length=200)
+    seed: int | None = None
+
