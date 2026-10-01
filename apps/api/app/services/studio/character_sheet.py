@@ -540,14 +540,12 @@ def merge_video_refs(
             continue
         if is_sheet_url(u) or is_panel_url(u):
             continue
-        # 21:30:清掉 sample_linxia_* 旧样片,只保留立绘+三视图进 Ref2VA
-        if "sample_linxia_" in u:
-            continue
+        # 06:55:不得删除原 sample 参考;sample_* 保留在后位
         if u in ordered:
             continue
         rest.append(u.strip())
-    # 仅立绘+三视图;不再回填其它旧参考
-    return ordered[:_MAX_REFS]
+    # 立绘+三视图置前,其后保留既有非 panel/sheet 参考(含 sample)
+    return (ordered + rest)[:_MAX_REFS]
 
 
 def merge_sheet_into_refs(
@@ -1567,6 +1565,7 @@ def enforce_head_shoulders_square(
         out = buf.getvalue()
         if check_coverage:
             assert_panel_coverage(out, min_ratio=0.90)
+            assert_face_visible(out, min_face_area=0.04)
         return out
 
     face_bb = _insightface_face_bbox_xyxy(data)
@@ -1618,7 +1617,54 @@ def enforce_head_shoulders_square(
     out = buf.getvalue()
     if check_coverage:
         assert_panel_coverage(out, min_ratio=0.90)
+        assert_face_visible(out, min_face_area=0.04)
     return out
+
+
+def assert_face_visible(
+    data: bytes,
+    *,
+    min_face_area: float = 0.04,
+    face_key: str | None = None,
+) -> tuple[float, float, float, float]:
+    """锁定/输出前:格内必须有可检测人脸,且脸面积占比足够(拦下巴耳裁切)。
+
+    返回人脸 bbox (x1,y1,x2,y2)。insightface 优先,启发式回退;都无则报错。
+    """
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    bb = _insightface_face_bbox_xyxy(data)
+    if bb is None:
+        bb = _heuristic_skin_face_bbox(img)
+    if bb is None:
+        raise CharacterSheetError(
+            "panel face missing (no detectable face)",
+            status_code=422,
+        )
+    x1, y1, x2, y2 = [float(v) for v in bb]
+    fw = max(1.0, x2 - x1)
+    fh = max(1.0, y2 - y1)
+    area = (fw * fh) / float(max(1, w * h))
+    if area + 1e-12 < float(min_face_area):
+        raise CharacterSheetError(
+            f"panel face area {area:.3f} < {min_face_area:.2f} (face cropped away)",
+            status_code=422,
+        )
+    # 脸中心须在格内中部偏上,拦只剩耳/下巴贴边
+    fcx = (x1 + x2) / 2.0
+    fcy = (y1 + y2) / 2.0
+    if not (0.12 * w <= fcx <= 0.88 * w) or not (0.08 * h <= fcy <= 0.72 * h):
+        raise CharacterSheetError(
+            "panel face off-center (chin/ear crop)",
+            status_code=422,
+        )
+    # 侧脸允许更贴边,但仍要脸宽可见
+    if face_key == "side" and fw / float(w) < 0.18:
+        raise CharacterSheetError(
+            "panel side face too narrow (face cropped)",
+            status_code=422,
+        )
+    return (x1, y1, x2, y2)
 
 
 def face_crop_looks_ok(data: bytes) -> bool:
