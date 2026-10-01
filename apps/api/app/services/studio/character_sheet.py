@@ -2057,28 +2057,9 @@ async def regenerate_sheet_panels(
                         + prompt
                         + ", white polyethylene, not blue"
                     )
-                # 模板锚定形状,img2img 保持单品结构
-                tmpl = _costume_template_bytes(item_key)
-                try:
-                    tmpl_name = await client.upload_image(
-                        tmpl, f"sheet_costume_tmpl_{item_key}_{character_id[:8]}.png"
-                    )
-                except Exception as e:  # noqa: BLE001
-                    logger.warning("costume template upload fail %s: %s", item_key, e)
-                    tmpl_name = None
+                # 00:01 父代理:回退文生图,不用模板 img2img(易出剪影)
                 for ci in range(max(1, n_candidates)):
                     w, h = (768, 768) if meta.style == "anime" else (512, 512)
-                    use_ref = tmpl_name
-                    ref_mode = "img2img" if tmpl_name else "none"
-                    # 雨衣/裤稍低 denoise 保黑形;伞/袋略高以出透明/褶皱
-                    # denoise 过低会留下程序化剪影;抬高以出二次元成品形
-                    denoise = {
-                        "raincoat": 0.70,
-                        "pants": 0.68,
-                        "boots": 0.66,
-                        "umbrella": 0.72,
-                        "bag": 0.70,
-                    }.get(item_key, 0.70)
                     cands.append(
                         await generate_panel_bytes(
                             pool,
@@ -2093,9 +2074,9 @@ async def regenerate_sheet_panels(
                             filename_prefix=f"ToIV_char_sheet_costume_{item_key}",
                             style=meta.style,
                             client=client,
-                            ref_image=use_ref,
-                            ref_mode=ref_mode,
-                            denoise=denoise,
+                            ref_image=None,
+                            ref_mode="none",
+                            denoise=1.0,
                         )
                     )
                 picked_items.append(_pick_best_candidate(cands, f"costume_{item_key}"))
