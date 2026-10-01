@@ -1400,47 +1400,135 @@ def _heuristic_skin_face_bbox(
     return left, top, right, bot
 
 
+def panel_content_coverage(
+    img: Image.Image | bytes,
+    *,
+    bg_tol: int = 40,
+    uniform_frac: float = 0.92,
+) -> float:
+    """非背景内容占画面比例(0~1)。
+
+    从四边向内剥「与边角色一致的均匀空白/深色垫边」;覆盖率=
+    剩余内容框面积 / 全图。专门拦截 fix15c「小图贴大片深色空白」;
+    深色头发贴深底的正常头肩不会被误杀(边缘非均匀空带)。
+    """
+    if isinstance(img, (bytes, bytearray)):
+        im = Image.open(BytesIO(img)).convert("RGB")
+    else:
+        im = img.convert("RGB")
+    w, h = im.size
+    if w < 8 or h < 8:
+        return 0.0
+    # 降采样加速
+    small = im.resize((64, 64), Image.Resampling.BOX)
+    sw, sh = small.size
+    px = list(small.getdata())
+
+    def _pix(x: int, y: int) -> tuple[int, int, int]:
+        return px[y * sw + x]
+
+    corners = [_pix(1, 1), _pix(sw - 2, 1), _pix(1, sh - 2), _pix(sw - 2, sh - 2)]
+    bg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
+
+    def _is_bg(r: int, g: int, b: int) -> bool:
+        if abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) < bg_tol:
+            return True
+        # 近白信箱
+        if r > 235 and g > 235 and b > 235:
+            return True
+        return False
+
+    def _row_bg_frac(y: int) -> float:
+        return sum(1 for x in range(sw) if _is_bg(*_pix(x, y))) / float(sw)
+
+    def _col_bg_frac(x: int) -> float:
+        return sum(1 for y in range(sh) if _is_bg(*_pix(x, y))) / float(sh)
+
+    top = 0
+    while top < sh // 2 and _row_bg_frac(top) >= uniform_frac:
+        top += 1
+    bot = 0
+    while bot < sh // 2 and _row_bg_frac(sh - 1 - bot) >= uniform_frac:
+        bot += 1
+    left = 0
+    while left < sw // 2 and _col_bg_frac(left) >= uniform_frac:
+        left += 1
+    right = 0
+    while right < sw // 2 and _col_bg_frac(sw - 1 - right) >= uniform_frac:
+        right += 1
+    cw = max(0, sw - left - right)
+    ch = max(0, sh - top - bot)
+    return float(max(0.0, min(1.0, (cw * ch) / float(sw * sh))))
+
+
+def assert_panel_coverage(
+    img: Image.Image | bytes,
+    min_ratio: float = 0.90,
+) -> float:
+    """每格输出前检查:非背景内容覆盖 < min_ratio 则 raise,禁止出卡。"""
+    ratio = panel_content_coverage(img)
+    if ratio + 1e-9 < float(min_ratio):
+        raise CharacterSheetError(
+            f"panel coverage {ratio:.3f} < {min_ratio:.2f} (shrunk/padded panel)",
+            status_code=422,
+        )
+    return ratio
+
+
 def enforce_head_shoulders_square(
     data: bytes,
     size: int = 768,
     *,
     skip_reframe: bool = False,
     max_upscale: float = 1.5,
+    check_coverage: bool = True,
 ) -> bytes:
-    """头肩正方形裁切(fix15):以**检测到的人脸框**为中心 cover 铺满。
+    """头肩正方形裁切(fix16):以**检测到的人脸框**为中心 cover 铺满。
 
     - 优先 insightface 人脸框;否则肤色/五官启发式(禁整前景,避免宽袖/汉服拉偏)。
     - 裁切轴=脸中心;上边含完整发顶/发髻(脸顶再留约 12–16% 格高);下边到锁骨下(≈脸高×2.0–2.2)。
-    - 放大上限 max_upscale(默认 1.5):源脸过小则外扩取景,禁止硬放大糊脸;调用方应另重生大脸构图。
-    - skip_reframe=True:已合格锁定格(如 fix12b 侧脸)只做正方形铺满,不做激进重裁。
+    - 放大上限 max_upscale(默认 1.5):源脸过小则外扩取景;仍不足则 cover 填满(禁深色垫边缩水)。
+    - skip_reframe=True:锁定格走同一 cover 填满(头顶方裁→铺满),禁止小图贴大空白。
+    - check_coverage:输出前 assert_panel_coverage(>=0.90)。
     """
     import math
 
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
     if skip_reframe:
+        # 锁定格:与生成格同一 cover 逻辑——取上部头肩方块后 LANCZOS 铺满目标格
         side = min(w, h)
         left = max(0, (w - side) // 2)
         top = max(0, (h - side) // 2)
-        # 高图锁定侧脸:优先取上部头肩方块,勿居中切掉头顶
         if h > w * 1.15:
             top = max(0, min(h - side, int(h * 0.02)))
+        # 若有人脸,按脸中心/发顶~锁骨重取方裁(与生成格一致)
+        face_bb = _insightface_face_bbox_xyxy(data)
+        if face_bb is None:
+            face_bb = _heuristic_skin_face_bbox(img)
+        if face_bb is not None:
+            fx1, fy1, fx2, fy2 = [float(v) for v in face_bb]
+            fw = max(8.0, fx2 - fx1)
+            fh = max(8.0, fy2 - fy1)
+            fcx = (fx1 + fx2) / 2.0
+            span_h = fh * 2.10
+            span_w = max(fw * 1.55, span_h * 0.95)
+            side2 = int(max(span_w, span_h, 64))
+            side2 = min(side2, w, h)
+            left = max(0, min(w - side2, int(round(fcx - side2 / 2.0))))
+            top = max(0, min(h - side2, int(round(fy1 - 0.14 * side2))))
+            if top + side2 > h:
+                top = max(0, h - side2)
+            side = side2
         crop = img.crop((left, top, left + side, top + side))
-        # 锁定格也遵守放大上限:不足则居中垫边再缩,勿超 1.5×
-        scale = float(size) / float(side) if side > 0 else 999.0
-        if scale > max_upscale:
-            out = Image.new("RGB", (size, size), (20, 22, 28))
-            nw = max(1, int(round(side * max_upscale)))
-            resized = crop.resize((nw, nw), Image.Resampling.LANCZOS)
-            ox = (size - nw) // 2
-            oy = (size - nw) // 2
-            out.paste(resized, (ox, oy))
-            crop = out
-        else:
-            crop = crop.resize((size, size), Image.Resampling.LANCZOS)
+        # fix16:一律 cover 填满,禁止 (20,22,28) 深色垫边缩水
+        crop = crop.resize((size, size), Image.Resampling.LANCZOS)
         buf = BytesIO()
         crop.save(buf, format="PNG")
-        return buf.getvalue()
+        out = buf.getvalue()
+        if check_coverage:
+            assert_panel_coverage(out, min_ratio=0.90)
+        return out
 
     face_bb = _insightface_face_bbox_xyxy(data)
     if face_bb is None:
@@ -1484,19 +1572,14 @@ def enforce_head_shoulders_square(
     if top + side > h:
         top = max(0, h - side)
     crop = img.crop((left, top, left + side, top + side))
-    scale = float(size) / float(side) if side > 0 else 999.0
-    if scale > max_upscale + 1e-6:
-        # 仍超限(图本身小于 min_side):最多 1.5× 后居中垫,禁止糊脸硬放
-        out = Image.new("RGB", (size, size), crop.getpixel((0, 0)))
-        nw = max(1, int(round(side * max_upscale)))
-        resized = crop.resize((nw, nw), Image.Resampling.LANCZOS)
-        out.paste(resized, ((size - nw) // 2, (size - nw) // 2))
-        crop = out
-    else:
-        crop = crop.resize((size, size), Image.Resampling.LANCZOS)
+    # fix16:禁止深色/角点色垫边缩水;一律 cover 填满目标尺寸
+    crop = crop.resize((size, size), Image.Resampling.LANCZOS)
     buf = BytesIO()
     crop.save(buf, format="PNG")
-    return buf.getvalue()
+    out = buf.getvalue()
+    if check_coverage:
+        assert_panel_coverage(out, min_ratio=0.90)
+    return out
 
 
 def face_crop_looks_ok(data: bytes) -> bool:
@@ -3092,7 +3175,7 @@ def compose_faces_triptych(
 ) -> bytes:
     """正/3-4/侧 三个头部特写横拼为 faces 面板。
 
-    fix14:人脸中心 cover;锁定合格侧脸可 skip_enforce_keys 跳过激进重裁。
+    fix16:锁定格与生成格同一 face-center cover(禁垫边缩水);每格 assert_panel_coverage>=0.90。
     入格 cover 按人脸焦点裁(高格水平居中会砍掉侧脸五官)。
     二次元浅底:已正方形铺满源谨慎 trim,避免 cel 线/浅底被当灰边。
     """
@@ -3109,6 +3192,8 @@ def compose_faces_triptych(
             filled = enforce_head_shoulders_square(raw, size=768, skip_reframe=True)
         else:
             filled = enforce_head_shoulders_square(raw, size=768)
+        # fix16:拼版前再拦一次覆盖率(双重保险)
+        assert_panel_coverage(filled, min_ratio=0.90)
         # 焦点:filled 上的人脸中心(用于高格 cover)
         focus = None
         bb = _insightface_face_bbox_xyxy(filled)
