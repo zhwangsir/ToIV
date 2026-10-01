@@ -102,3 +102,47 @@ async def pad_audio_to_duration(
     if not out_path.is_file() or out_path.stat().st_size < 16:
         raise FFmpegError("配音 pad 静音产物无效")
     return out_path
+
+
+async def probe_has_audio(path: Path) -> bool:
+    """ffprobe 是否含音轨;无 ffprobe 视为 False(保守,避免静音成片)。"""
+    if shutil.which("ffprobe") is None:
+        return False
+    proc = await asyncio.create_subprocess_exec(
+        "ffprobe", "-v", "error", "-select_streams", "a",
+        "-show_entries", "stream=codec_type",
+        "-of", "csv=p=0", str(path),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    out, _ = await proc.communicate()
+    if proc.returncode != 0:
+        return False
+    return b"audio" in (out or b"")
+
+
+async def mux_audio_into_video(
+    video_path: Path, audio_path: Path, out_path: Path
+) -> Path:
+    """把音轨 mux 进视频(替换/补上音轨)。视频 copy,音频 aac。
+
+    LatentSync 常吐无音轨 mp4;对口型后必须把配音 wav 合回去。
+    """
+    ensure_ffmpeg()
+    await run_ffmpeg(
+        [
+            "ffmpeg", "-y",
+            "-i", video_path.as_posix(),
+            "-i", audio_path.as_posix(),
+            "-map", "0:v:0", "-map", "1:a:0",
+            "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+            "-ar", "48000", "-ac", "2",
+            "-shortest", "-movflags", "+faststart",
+            out_path.as_posix(),
+        ],
+        timeout=300.0,
+    )
+    if not out_path.is_file() or out_path.stat().st_size < 32:
+        raise FFmpegError("mux 音轨产物无效")
+    return out_path
+

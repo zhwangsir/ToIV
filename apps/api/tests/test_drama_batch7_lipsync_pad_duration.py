@@ -122,3 +122,56 @@ async def test_pad_audio_to_duration_helper(tmp_path):
     _make_silent_wav(src, 0.8)
     await pad_audio_to_duration(src, 2.5, out)
     assert await probe_duration(out) == pytest.approx(2.5, abs=0.12)
+
+
+@pytest.mark.skipif(not _have_ffmpeg(), reason="需要 ffmpeg/ffprobe")
+@pytest.mark.asyncio
+async def test_mux_audio_into_video_adds_audio_stream(tmp_path):
+    """无音轨 mp4 + wav → 产物含 audio。"""
+    from app.services.studio.ffmpeg_ops import mux_audio_into_video, probe_has_audio
+
+    video = tmp_path / "v.mp4"
+    audio = tmp_path / "a.wav"
+    out = tmp_path / "out.mp4"
+    _make_color_mp4(video, 2.0)
+    _make_silent_wav(audio, 1.5)
+    await mux_audio_into_video(video, audio, out)
+    assert await probe_has_audio(out)
+    assert await probe_duration(out) == pytest.approx(1.5, abs=0.2)  # -shortest 跟较短音
+
+
+@pytest.mark.skipif(not _have_ffmpeg(), reason="需要 ffmpeg/ffprobe")
+@pytest.mark.asyncio
+async def test_mux_voice_into_clip_bytes(tmp_path):
+    video = tmp_path / "v.mp4"
+    audio = tmp_path / "a.wav"
+    _make_color_mp4(video, 2.0)
+    _make_silent_wav(audio, 2.0)
+    out = await ls.mux_voice_into_clip(video.read_bytes(), audio.read_bytes())
+    outp = tmp_path / "m.mp4"
+    outp.write_bytes(out)
+    from app.services.studio.ffmpeg_ops import probe_has_audio
+    assert await probe_has_audio(outp)
+
+
+@pytest.mark.skipif(not _have_ffmpeg(), reason="需要 ffmpeg/ffprobe")
+@pytest.mark.asyncio
+async def test_assemble_rejects_clip_without_audio(tmp_path, monkeypatch):
+    """成片无音轨 → AssembleError。"""
+    monkeypatch.setattr(assemble_svc, "drama_output_root", lambda: tmp_path)
+    studio = tmp_path / "studio"
+    studio.mkdir()
+    src = studio / "src.mp4"
+    clip = studio / "clip.mp4"
+    _make_color_mp4(src, 2.0)
+    _make_color_mp4(clip, 2.0)  # 无音轨
+
+    class _S:
+        idx = 0
+        video_url = "/api/studio/files/src.mp4"
+        final_clip_url = "/api/studio/files/clip.mp4"
+        duration_sec = 2
+
+    with pytest.raises(assemble_svc.AssembleError, match="缺音轨"):
+        await assemble_svc.assert_clips_have_audio([_S()])
+

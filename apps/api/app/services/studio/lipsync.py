@@ -156,6 +156,29 @@ async def pad_audio_to_video_length(video_bytes: bytes, voice_bytes: bytes) -> b
         return out.read_bytes()
 
 
+
+async def mux_voice_into_clip(video_bytes: bytes, voice_bytes: bytes) -> bytes:
+    """对口型产物若无音轨,把配音 wav mux 回去;已有音轨则仍以配音覆盖(对口型以配音为准)。"""
+    from app.services.studio.ffmpeg_ops import FFmpegError, mux_audio_into_video
+
+    with tempfile.TemporaryDirectory(prefix="studio_ls_mux_") as td:
+        tdir = Path(td)
+        vpath = tdir / "ls.mp4"
+        apath = tdir / "voice.wav"
+        out = tdir / "muxed.mp4"
+        vpath.write_bytes(video_bytes)
+        apath.write_bytes(voice_bytes)
+        try:
+            await mux_audio_into_video(vpath, apath, out)
+        except FFmpegError as e:
+            raise LipsyncError(f"对口型 mux 配音失败:{e}") from e
+        data = out.read_bytes()
+        if not data:
+            raise LipsyncError("对口型 mux 配音产物为空")
+        logger.info("lipsync mux voice: video=%dB audio=%dB → %dB", len(video_bytes), len(voice_bytes), len(data))
+        return data
+
+
 async def lipsync_via_agent(shot: StudioShot) -> str:
     """走 workstation LatentSync HTTP agent(:9103),与 /api/video/lipsync 同契约。"""
     from app.config import get_settings
@@ -274,7 +297,9 @@ async def lipsync_via_agent(shot: StudioShot) -> str:
             raise LipsyncError(f"对口型产物下载失败:{e}") from e
         if vr.status_code != 200 or not vr.content:
             raise LipsyncError(f"对口型产物下载失败(status={vr.status_code})")
-        return _save_clip(vr.content)
+        # LatentSync 常吐无音轨 mp4:必须把(已 pad)配音 mux 回去
+        muxed = await mux_voice_into_clip(vr.content, voice_bytes)
+        return _save_clip(muxed)
 
 
 async def lipsync_video(shot: StudioShot, pool: "WorkerPool") -> str:
@@ -323,7 +348,8 @@ async def lipsync_video(shot: StudioShot, pool: "WorkerPool") -> str:
         )
     except ComfyUIError as e:
         raise LipsyncError(f"取产物失败:{e}") from e
-    return _save_clip(data)
+    muxed = await mux_voice_into_clip(data, voice_bytes)
+    return _save_clip(muxed)
 
 
 async def lipsync_for_shot(

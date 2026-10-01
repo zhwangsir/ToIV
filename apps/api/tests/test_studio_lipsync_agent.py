@@ -22,10 +22,13 @@ from app.services.studio import lipsync as ls
 
 @pytest.fixture(autouse=True)
 def _skip_real_pad(monkeypatch):
-    """单测用假字节非真媒体；pad 探测会失败，默认旁路。"""
+    """单测用假字节非真媒体；pad/mux 探测会失败，默认旁路。"""
     async def _passthrough(video_bytes, voice_bytes):
         return voice_bytes
+    async def _mux_passthrough(video_bytes, voice_bytes):
+        return video_bytes  # 假 mp4 无法真 mux；单测只验证调用链
     monkeypatch.setattr(ls, "pad_audio_to_video_length", _passthrough)
+    monkeypatch.setattr(ls, "mux_voice_into_clip", _mux_passthrough)
 
 
 

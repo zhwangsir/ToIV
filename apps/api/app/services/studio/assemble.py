@@ -16,7 +16,12 @@ from pathlib import Path
 from sqlmodel import Session
 
 from app.models import StudioProject, StudioShot
-from app.services.studio.ffmpeg_ops import FFmpegError, concat_parts, probe_duration
+from app.services.studio.ffmpeg_ops import (
+    FFmpegError,
+    concat_parts,
+    probe_duration,
+    probe_has_audio,
+)
 from app.storage import drama_output_root
 
 _FILES_PREFIX = "/api/studio/files/"
@@ -96,6 +101,27 @@ async def assert_clip_durations_match_source(shots: list[StudioShot]) -> None:
             )
 
 
+
+async def assert_clips_have_audio(shots: list[StudioShot]) -> None:
+    """断言每镜 final_clip 含音轨;对口型剥音未 mux 时在合成前拦截。"""
+    ordered = sorted(shots, key=lambda s: s.idx)
+    missing = []
+    for s in ordered:
+        if not s.final_clip_url:
+            continue
+        clip_p = _clip_path(s.final_clip_url)
+        try:
+            has = await probe_has_audio(clip_p)
+        except Exception as e:  # noqa: BLE001 — 探测异常视为无音
+            raise AssembleError(f"镜{s.idx}音轨探测失败:{e}") from e
+        if not has:
+            missing.append(s.idx)
+    if missing:
+        raise AssembleError(
+            f"分镜成片缺音轨(对口型未 mux 配音):{missing};请重跑 lipsync"
+        )
+
+
 async def assemble_project(
     session: Session, project: StudioProject, shots: list[StudioShot]
 ) -> str:
@@ -104,6 +130,7 @@ async def assemble_project(
     parts = [_clip_path(u) for u in urls]
     try:
         await assert_clip_durations_match_source(shots)
+        await assert_clips_have_audio(shots)
     except AssembleError as e:
         project.status = "error"
         project.error = str(e)
