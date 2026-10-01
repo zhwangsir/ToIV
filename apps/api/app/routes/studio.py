@@ -634,9 +634,10 @@ def _shot_out(s: StudioShot) -> dict:
 
 
 class RenderShotBody(BaseModel):
-    """Batch2 视频步:引擎 / 多候选 / 多参考(均可选;缺省兼容旧客户端)。"""
+    """Batch6 视频步:引擎 / 管线 C / 多候选 / 多参考(均可选;缺省兼容旧客户端)。"""
 
     video_model: str = Field(default="h3", max_length=16)
+    pipeline: str = Field(default="c", max_length=16)  # c | legacy
     num_candidates: int = Field(default=2, ge=1, le=4)
     ref_images: list[str] | None = Field(default=None, max_length=9)
     scene_images: list[str] | None = Field(default=None, max_length=4)
@@ -661,6 +662,7 @@ async def render_one(
     n = body.num_candidates if body is not None else 1
     refs = body.ref_images if body is not None else None
     scenes = body.scene_images if body is not None else None
+    pipe = (body.pipeline if body is not None else "c") or "c"
     try:
         return _shot_out(
             await orchestrator.render_shot(
@@ -671,6 +673,7 @@ async def render_one(
                 num_candidates=n,
                 ref_images=refs,
                 scene_images=scenes,
+                pipeline=pipe,
             )
         )
     except RenderError as e:
@@ -711,7 +714,14 @@ async def render_batch(
         if shot.status in orchestrator.terminal_states():
             continue
         try:
-            await orchestrator.render_shot(session, shot, request=request)
+            await orchestrator.render_shot(
+                session,
+                shot,
+                request=request,
+                video_model="h3",
+                num_candidates=2,
+                pipeline="c",
+            )
             done += 1
         except RenderError:
             failed += 1
@@ -1002,7 +1012,7 @@ def seed_rain_night_sample(
             style="雨夜便利店冷白灯/霓虹积水，竖屏 9:16",
             render_mode_default="video",
             width=768,
-            height=1360,
+            height=1344,
             fps=24,
             status="storyboard",
         )
@@ -1015,7 +1025,7 @@ def seed_rain_night_sample(
         p.premise = SAMPLE_RAIN_NIGHT_PREMISE
         p.style = "雨夜便利店冷白灯/霓虹积水，竖屏 9:16"
         p.width = 768
-        p.height = 1360
+        p.height = 1344
         p.fps = 24
         if p.status in ("draft", ""):
             p.status = "storyboard"
@@ -1143,7 +1153,14 @@ async def step_group_rerun(
         attempted += 1
         try:
             if step in ("video", "storyboard"):
-                await orchestrator.render_shot(session, shot, request=request)
+                await orchestrator.render_shot(
+                    session,
+                    shot,
+                    request=request,
+                    video_model="h3",
+                    num_candidates=2,
+                    pipeline="c",
+                )
             elif step == "voice":
                 if not (shot.dialogue or "").strip():
                     raise ValueError("该镜无台词")

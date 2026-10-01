@@ -23,6 +23,7 @@ class RenderResult:
 
     kind: str
     url: str
+    pipeline_meta: dict | None = None
 
 
 class ShotRenderer(Protocol):

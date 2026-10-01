@@ -4812,13 +4812,15 @@ export const saveStudioShots = (
 
 export interface StudioRenderBody {
   video_model?: "h3" | "ltx";
+  /** Batch6: c=Motion Context+Ref2VA+原生音频；legacy=旧 t2v */
+  pipeline?: "c" | "legacy";
   num_candidates?: number;
   ref_images?: string[];
   scene_images?: string[];
 }
 
 /** 渲染单镜(同步等待 ComfyUI 产出,视频链可达数分钟)→ 放宽到 600s。
- *  Batch2:可传 video_model(默认 h3)/num_candidates(视频步默认 2)/ref_images。 */
+ *  Batch6:可传 video_model(默认 h3)/pipeline(默认 c)/num_candidates(视频步默认 2)/ref_images。 */
 export const renderStudioShot = (
   sid: string,
   opts?: { signal?: AbortSignal; body?: StudioRenderBody },

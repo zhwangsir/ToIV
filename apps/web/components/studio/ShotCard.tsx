@@ -187,6 +187,7 @@ export function ShotCard({
     }
     onRender({
       video_model: videoModel,
+      pipeline: videoModel === "h3" ? "c" : undefined,
       num_candidates: numCandidates,
       ref_images: refUrls,
     });

@@ -90,6 +90,30 @@ class VideoRenderer:
         if ref_prefix:
             prompt = ref_prefix + prompt
             kw["_used_ref_images"] = used_refs  # 供编排层回写 shot.ref_images_json
+        # Batch6: H3 默认管线 C（Ref2VA+Motion Context+原生音频）；显式 pipeline=legacy 回退旧 t2v
+        pipeline = (kw.get("pipeline") or "c").strip().lower()
+        if video_model == "h3" and pipeline == "c":
+            from app.services.studio.pipeline_c_render import render_pipeline_c
+            from app.services.studio.renderers.base import RenderResult as _RR
+
+            try:
+                out = await render_pipeline_c(
+                    shot,
+                    cast,
+                    width=int(kw.get("width") or 768),
+                    height=int(kw.get("height") or 1344),
+                    seed=kw.get("seed"),
+                    ref_images=kw.get("ref_images"),
+                    scene_images=kw.get("scene_images"),
+                    context_latent_path=str(kw.get("context_latent_path") or ""),
+                    clip_index=int(kw.get("clip_index") or 1),
+                    request=kw.get("request"),
+                )
+            except RenderError:
+                raise
+            except Exception as e:
+                raise RenderError(f"管线 C 失败:{e}") from e
+            return _RR(kind="video", url=out["url"], pipeline_meta=out)
         gen = get_generator(video_model, pool)
         try:
             # 项目级产出规格(缺省回落 LTX 常用 768×384@16);seed 供多候选分叉

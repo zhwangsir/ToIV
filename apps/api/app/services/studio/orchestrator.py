@@ -48,13 +48,16 @@ async def render_shot(
     num_candidates: int = 1,
     ref_images: list[str] | None = None,
     scene_images: list[str] | None = None,
+    pipeline: str | None = None,
+    context_latent_path: str | None = None,
+    auto_pick: bool = True,
 ) -> StudioShot:
     """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。
 
-    Batch2 视频步:
-      · video_model 默认 h3(亦可显式 ltx);
-      · num_candidates>1 时串行多 seed 出片,写入 candidates_json,首个成功自动 pick;
-      · ref_images/scene_images 供 H3 @图片N 多参考(空则从角色三视图自动收集)。
+    Batch6 视频步(默认管线 C):
+      · video_model 默认 h3;pipeline 默认 c(Motion Context+Ref2VA+原生音频);
+      · num_candidates>1 时串行多 seed,按裁脸相似度+无烧录字幕选优;
+      · 同项目上一镜的 context_latent 自动续写(也可显式传入)。
     """
     import random
     import uuid
@@ -101,6 +104,42 @@ async def render_shot(
     if request is not None:
         render_kw["request"] = request
     render_kw["video_model"] = engine
+    pipe = (pipeline or "c").strip().lower() if engine == "h3" else "legacy"
+    if pipe not in ("c", "legacy"):
+        pipe = "c"
+    render_kw["pipeline"] = pipe
+    # 续写：显式 context > 同项目上一镜 picked 的 context_latent
+    ctx = (context_latent_path or "").strip()
+    if not ctx and pipe == "c" and shot.render_mode == "video":
+        siblings = session.exec(
+            select(StudioShot).where(StudioShot.project_id == shot.project_id)
+        ).all()
+        prev = None
+        for s in siblings:
+            if s.idx < shot.idx and (prev is None or s.idx > prev.idx):
+                prev = s
+        if prev is not None:
+            try:
+                prev_cands = json.loads(prev.candidates_json or "[]")
+            except (ValueError, TypeError):
+                prev_cands = []
+            if isinstance(prev_cands, list):
+                for c in prev_cands:
+                    if isinstance(c, dict) and c.get("is_picked") and c.get("context_latent"):
+                        ctx = str(c["context_latent"])
+                        break
+    if ctx:
+        render_kw["context_latent_path"] = ctx
+    render_kw["clip_index"] = int(getattr(shot, "idx", 0) or 0) + 1
+    # 项目场景图：未显式传时从项目读取
+    if scene_images is None and project is not None:
+        try:
+            scene_images = json.loads(getattr(project, "scene_images_json", None) or "[]")
+        except (ValueError, TypeError):
+            scene_images = []
+        if not isinstance(scene_images, list):
+            scene_images = []
+        render_kw["scene_images"] = scene_images
     renderer = get_renderer(shot)
 
     async def _once(seed: int | None = None) -> Any:
@@ -134,6 +173,14 @@ async def render_shot(
                     r = await _once(seed)
                     entry["url"] = r.url
                     entry["status"] = "done"
+                    meta = getattr(r, "pipeline_meta", None) or {}
+                    if isinstance(meta, dict):
+                        if meta.get("context_latent"):
+                            entry["context_latent"] = meta["context_latent"]
+                        if meta.get("pipeline"):
+                            entry["pipeline"] = meta["pipeline"]
+                        if meta.get("prompt"):
+                            entry["prompt"] = str(meta["prompt"])[:500]
                     if result is None:
                         result = r
                         entry["is_picked"] = True
@@ -145,6 +192,52 @@ async def render_shot(
                 candidates.append(entry)
             if result is None:
                 raise first_err or RenderError("全部候选生成失败")
+            # Batch6：裁脸选优（可关）
+            if auto_pick and len(candidates) > 1:
+                from app.services.studio.candidate_pick import pick_best_candidate
+                from app.storage import drama_output_root
+
+                ref_path = None
+                for c in cast:
+                    urls = []
+                    try:
+                        urls = json.loads(getattr(c, "reference_images", None) or "[]")
+                    except (ValueError, TypeError):
+                        urls = []
+                    if urls:
+                        u = str(urls[0])
+                        marker = "/api/studio/files/"
+                        if marker in u:
+                            name = u.split(marker, 1)[1].split("?", 1)[0]
+                            candp = drama_output_root() / "studio" / name
+                            if candp.is_file():
+                                ref_path = candp
+                                break
+
+                def _resolve_vid(url: str):
+                    marker = "/api/studio/files/"
+                    if marker in url:
+                        name = url.split(marker, 1)[1].split("?", 1)[0]
+                        p = drama_output_root() / "studio" / name
+                        return str(p) if p.is_file() else None
+                    return None
+
+                win_id, candidates = pick_best_candidate(
+                    candidates, ref_image_path=ref_path, local_url_resolver=_resolve_vid
+                )
+                if win_id:
+                    for c in candidates:
+                        if c.get("id") == win_id and c.get("url"):
+                            # 构造轻量 result 替换
+                            class _R:
+                                kind = "video"
+                                url = c["url"]
+                                pipeline_meta = {
+                                    "context_latent": c.get("context_latent"),
+                                    "pipeline": c.get("pipeline") or pipe,
+                                }
+                            result = _R()
+                            break
     except RenderError as e:
         shot.status = "error"
         shot.error = str(e)
@@ -170,6 +263,7 @@ async def render_shot(
         shot.candidates_json = json.dumps(candidates, ensure_ascii=False)
     elif n <= 1 and shot.render_mode == "video":
         # 单候选也写一条,便于 UI 统一展示
+        meta = getattr(result, "pipeline_meta", None) or {}
         shot.candidates_json = json.dumps(
             [
                 {
@@ -180,6 +274,8 @@ async def render_shot(
                     "is_picked": True,
                     "error": "",
                     "video_model": engine,
+                    "pipeline": ((meta.get("pipeline") if isinstance(meta, dict) else None) or (pipe if engine == "h3" else "")),
+                    "context_latent": (meta.get("context_latent") if isinstance(meta, dict) else "") or "",
                 }
             ],
             ensure_ascii=False,
