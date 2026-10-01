@@ -12,6 +12,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+from app.services.studio.scene_gate import SceneGateError, gate_video
+
 
 class CandidatePickError(RuntimeError):
     """选优不可用或全部候选无法评分时抛出；调用方应标 shot 失败，禁止静默回落。"""
@@ -253,6 +255,10 @@ def pick_best_candidate(
     continuity_weight: float = 0.25,
     regression_weight: float = 0.35,
     min_face_mean: float = 0.45,
+    require_scene_gate: bool = False,
+    scene_positive: str | None = None,
+    scene_negatives: list[str] | None = None,
+    scene_gate_fn=None,
 ) -> tuple[str | None, list[dict[str, Any]]]:
     """按 face_mean - burnin - ocr + 连贯加分 - 回退罚分 选优。
 
@@ -384,6 +390,60 @@ def pick_best_candidate(
                     f"最佳={face_best!r})，禁止入选并应加候选重跑"
                 )
             best_id = max(gated, key=lambda c: float(c["pick_score"])).get("id")
+        else:
+            gated = [
+                c for c in done if c.get("pick_score") is not None and c.get("id") == best_id
+            ]
+
+        # 场景门禁（CLIP+Florence）：require_scene_gate 时人脸过线候选还须 scene_gate=pass
+        if require_scene_gate:
+            gate_fn = scene_gate_fn or gate_video
+            scene_ok: list[dict[str, Any]] = []
+            pool = [
+                c
+                for c in done
+                if c.get("pick_score") is not None
+                and (
+                    not face_ok
+                    or float(min_face_mean) <= 0
+                    or (
+                        c.get("face_mean") is not None
+                        and float(c["face_mean"]) >= float(min_face_mean)
+                    )
+                )
+            ]
+            for c in pool:
+                path = _local(str(c["url"]))
+                if path is None:
+                    c["scene_gate"] = "fail"
+                    c["scene_gate_detail"] = {"error": "video_path_unresolved"}
+                    continue
+                try:
+                    kwargs = {}
+                    if scene_positive:
+                        kwargs["positive"] = scene_positive
+                    if scene_negatives:
+                        kwargs["negatives"] = scene_negatives
+                    detail = gate_fn(path, **kwargs)
+                    c["scene_gate"] = detail.get("scene_gate") or ("pass" if detail.get("pass") else "fail")
+                    c["scene_gate_detail"] = detail
+                except SceneGateError as e:
+                    c["scene_gate"] = "fail"
+                    c["scene_gate_detail"] = {"error": str(e)}
+                except Exception as e:
+                    c["scene_gate"] = "fail"
+                    c["scene_gate_detail"] = {"error": f"{type(e).__name__}:{e}"}
+                note = str(c.get("pick_note") or "")
+                c["pick_note"] = (note + "+" if note else "") + f"scene_gate={c['scene_gate']}"
+                if c.get("scene_gate") == "pass":
+                    scene_ok.append(c)
+            if not scene_ok:
+                for c in candidates:
+                    c["is_picked"] = False
+                raise CandidatePickError(
+                    "选优失败:无人脸+场景双门禁同时达标(scene_gate=pass)，禁止入选并应改提示词重跑"
+                )
+            best_id = max(scene_ok, key=lambda c: float(c["pick_score"])).get("id")
 
         for c in candidates:
             c["is_picked"] = c.get("id") == best_id

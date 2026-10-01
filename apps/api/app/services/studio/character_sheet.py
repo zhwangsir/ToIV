@@ -104,7 +104,7 @@ _STYLE_NEGATIVE = {
         "beige cloak, brown cloak, red cloak, tan cape, khaki poncho, "
         "mannequin, human body in product shot, person wearing boots, "
         "white hoodie, white t-shirt, color-block hoodie, navy sleeves on white shirt, "
-        "baseball cap, hat on stand, lamp, opaque black umbrella dome"
+        "baseball cap, hat on stand, ceiling lamp, dome light, opaque black dome, hard hat, helmet, bowl,
     ),
 }
 
@@ -171,7 +171,7 @@ _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
         "laid flat fully visible, two long pant legs clearly separated side by side, "
         "waistband visible, pure jet black fabric only, clothing flat lay catalog photo, "
         "solid seamless pure white background, studio lighting, "
-        "no person, no face, no body, no mannequin, no shorts, no cropped pants, "
+        "no person, no face, no body, no mannequin, no shorts, no short pants, no bermuda, no cropped pants, no knee-length, no skirt, "
         "no navy, no blue, no grey, no beige, no brown, no cloak, no text",
     ),
     (
@@ -184,7 +184,7 @@ _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
     ),
     (
         "umbrella",
-        "product still life, single object only, one open fully transparent clear plastic umbrella "
+        "product still life, single object only, one open clear transparent rain umbrella with visible ribs and handle, "
         "with thin black ribs and black shaft handle, see-through vinyl canopy, "
         "solid seamless pure light gray background, studio lighting, "
         "no person, no face, no hat, no cap, no lamp, no opaque canopy, no solid black dome, "
@@ -200,8 +200,8 @@ _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
 )
 _COSTUME_FORCE = (
     "overhead flat lay product photography, garments and props laid flat on table, "
-    "ONLY these five items: ONE black hooded raincoat, ONE pair black pants, "
-    "ONE pair black rain boots, ONE transparent clear umbrella, ONE white plastic shopping bag, "
+    "ONLY these five items: ONE black hooded raincoat, ONE pair full-length black long pants (not shorts), "
+    "ONE pair black rain boots, ONE clear transparent rain umbrella with shaft and handle (not a lamp, not a hat), ONE white plastic shopping bag, "
     "black garments only, clothing pieces arranged neatly as product shots, "
     "isolated on solid seamless background, no person, no face, no mannequin, "
     "no model wearing clothes, no hanging rack display, no color variants, "
@@ -1796,10 +1796,17 @@ async def _generate_costume_collage(
             )
         elif item_key == "pants":
             prompt = (
-                "flat lay complete black trousers only, two legs visible, product shot, "
-                "no person, no mannequin, garment fills frame, "
+                "flat lay complete full-length black long pants trousers only, two long legs to ankles, "
+                "NOT shorts, NOT knee-length, product shot, no person, no mannequin, garment fills frame, "
                 + prompt
                 + ", clothing only, not empty"
+            )
+        elif item_key == "umbrella":
+            prompt = (
+                "single open clear transparent plastic rain umbrella only, visible metal ribs and black handle shaft, "
+                "product still life on white background, NOT a lamp, NOT a hat, NOT a dome light, NOT opaque, "
+                + prompt
+                + ", umbrella product photography only"
             )
         elif item_key == "raincoat":
             prompt = (
