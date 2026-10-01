@@ -72,8 +72,9 @@ LAYOUT = {
 
 _STYLE_SUFFIX = {
     "ancient_realistic": (
-        "cinematic photorealistic character design, detailed fabric texture, "
-        "rain droplets, solid seamless dark gray background, no scenery, "
+        "cinematic photorealistic character design, detailed silk fabric texture, "
+        "traditional Chinese hanfu, ink-wash soft lighting, "
+        "solid seamless dark gray background, no scenery, "
         "no text, character sheet quality"
     ),
     "anime": (
@@ -86,7 +87,9 @@ _STYLE_SUFFIX = {
 _STYLE_NEGATIVE = {
     "ancient_realistic": (
         "blurry, low quality, text, watermark, deformed, extra limbs, "
-        "hanfu, ancient chinese clothing, white robe, white hanfu, white dress, "
+        "raincoat, windbreaker, hoodie, modern jacket, plastic umbrella, "
+        "convenience store, neon lights, rain boots, plastic shopping bag, "
+        "contemporary clothing, streetwear, zippered coat, "
         "white hair, silver hair, grey hair, "
         "multiple people, collage, split screen, grid, two people in one frame, "
         "glitch, chromatic aberration"
@@ -108,6 +111,8 @@ _STYLE_NEGATIVE = {
     ),
 }
 
+_YAW_FACE_APP = None  # insightface FaceAnalysis cache
+
 _FACE_ANGLE_NEGATIVE: dict[str, str] = {
     "face_front": (
         "side profile, strict profile, 90 degree profile, three-quarter turn, "
@@ -116,13 +121,15 @@ _FACE_ANGLE_NEGATIVE: dict[str, str] = {
     "face_three_quarter": (
         "front face looking at camera, symmetrical frontal face, both eyes equal, "
         "looking at viewer, facing camera, strict side profile, 90 degree profile, "
-        "full profile silhouette, hood up, hood covering hair"
+        "full profile silhouette, extreme dutch tilt, head flopped sideways, "
+        "over-the-shoulder, looking back, hood up, hood covering hair, full body"
     ),
     "face_side": (
         "front face, looking at camera, both eyes visible, symmetrical face, "
         "frontal view, three-quarter view, face toward camera, two eyes, "
+        "over-the-shoulder, looking back over shoulder, turned toward viewer, "
         "hood up, logo on hood, emblem, badge, abstract circle face, stylized mark, "
-        "symbol instead of face, blank hood"
+        "symbol instead of face, blank hood, full body, waist up standing"
     ),
 }
 
@@ -220,6 +227,43 @@ _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
         "no person, no face, no blue bag, no tote canvas, no logo, no text, no chinese, no cloak",
     ),
 )
+
+# 古风汉服单品(交领/襦裙/腰带/发簪/团扇);禁止沿用雨衣伞袋
+_COSTUME_ITEMS_ANCIENT: tuple[tuple[str, str], ...] = (
+    (
+        "ruqun",
+        "product still life, single object only, one traditional Chinese qi-xiong ruqun skirt "
+        "and cross-collar blouse set laid flat, silk fabric, ink-wash colors deep ink and muted jade, "
+        "fills most of frame, solid seamless dark gray background, studio lighting, "
+        "no person, no face, no mannequin, no raincoat, no modern jacket, no text",
+    ),
+    (
+        "jiaoling",
+        "product still life, single object only, one traditional Chinese cross-collar jiaoling robe "
+        "laid flat open, dark silk, wide sleeves, "
+        "fills most of frame, solid seamless dark gray background, studio lighting, "
+        "no person, no face, no raincoat, no hoodie, no zipper, no text",
+    ),
+    (
+        "sash",
+        "product still life, single object only, one wide silk waist sash belt for hanfu, "
+        "dark embroidered ribbon, coiled neatly, "
+        "solid seamless dark gray background, studio lighting, no person, no text",
+    ),
+    (
+        "hairpin",
+        "product still life, single object only, one ornate Chinese hairpin zan with jade tip, "
+        "metal and jade, catalog photo, solid seamless dark gray background, "
+        "studio lighting, no person, no face, no text",
+    ),
+    (
+        "fan",
+        "product still life, single object only, one round silk tuanshan hand fan, "
+        "ink painting motif, wooden handle, solid seamless dark gray background, "
+        "studio lighting, no person, no umbrella, no plastic, no text",
+    ),
+)
+
 _COSTUME_FORCE = (
     "overhead flat lay product photography, garments and props laid flat on table, "
     "ONLY these five items: ONE black hooded raincoat, ONE pair full-length black long pants (not shorts), "
@@ -519,12 +563,20 @@ def build_design_notes(meta: SheetMeta) -> str:
     ).strip()
     desc = (meta.description or "").strip()
     style_zh = "古风写实" if meta.style == "ancient_realistic" else "二次元"
-    auto = [
-        f"{name}：雨夜便利店相遇的核心角色，身份为{role}，性格{personality}。",
-        "视觉主轴为黑色连帽雨衣/冲锋衣、湿发贴额与冷白灯光，辅以白色塑料袋道具。",
-        "三视图与表情均以主立绘为同一人参考，统一服装与纯色底，保证 Ref2VA 跨镜一致。",
-        f"本卡风格滤镜为{style_zh}；服饰拆解对齐现代雨夜设定，禁止汉服等错位单品。",
-    ]
+    if meta.style == "ancient_realistic":
+        auto = [
+            f"{name}：同一人古风写实变体，身份为{role}，性格{personality}。",
+            "视觉主轴为交领汉服/齐胸襦裙或水墨写实古装，黑发，深底金字设定卡。",
+            "三视图与表情均以主立绘为同一人参考，统一古装与纯色深底，保证 Ref2VA 跨镜一致。",
+            f"本卡风格滤镜为{style_zh}；服饰拆解为古风单品，禁止雨衣/卫衣/便利店等现代装。",
+        ]
+    else:
+        auto = [
+            f"{name}：雨夜便利店相遇的核心角色，身份为{role}，性格{personality}。",
+            "视觉主轴为黑色连帽雨衣/冲锋衣、湿发贴额与冷白灯光，辅以白色塑料袋道具。",
+            "三视图与表情均以主立绘为同一人参考，统一服装与纯色底，保证 Ref2VA 跨镜一致。",
+            f"本卡风格滤镜为{style_zh}；服饰拆解对齐现代雨夜设定，禁止汉服等错位单品。",
+        ]
     if desc and desc not in auto[0]:
         auto.insert(1, desc[:80])
     if lines:
@@ -538,19 +590,41 @@ def _character_base(meta: SheetMeta) -> str:
     base = (meta.visual_prompt or meta.description or meta.name).strip()
     if not base:
         raise CharacterSheetError("角色缺少视觉描述", status_code=422)
-    # 强制黑发+现代雨衣;抑制银发/汉服漂移(21:01 纠偏)
+    import re as _re
     low = base.lower()
     for bad in ("silver hair", "white hair", "grey hair", "gray hair", "blue hair", "blonde"):
         if bad in low:
-            import re as _re
             base = _re.sub(bad, "black hair", base, flags=_re.I)
             low = base.lower()
+    if "black hair" not in low and "黑发" not in base:
+        base = f"{base}, jet black hair, black hair"
+        low = base.lower()
+
+    if meta.style == "ancient_realistic":
+        for bad in (
+            "raincoat", "windbreaker", "hoodie", "convenience store",
+            "plastic umbrella", "rain boots", "shopping bag", "neon",
+            "zippered", "streetwear",
+        ):
+            if bad in low:
+                base = _re.sub(_re.escape(bad), "", base, flags=_re.I)
+                low = base.lower()
+        base = _re.sub(r",\s*,", ", ", base).strip(" ,")
+        low = base.lower()
+        if "hanfu" not in low and "古装" not in base and "襦裙" not in base:
+            base = (
+                f"{base}, traditional Chinese hanfu, cross-collar jiaoling robe, "
+                "qi-xiong ruqun or ink-wash ancient costume, silk wide sleeves, "
+                "no raincoat, no modern clothing"
+            )
+        else:
+            base = f"{base}, jet black hair, black hair, traditional Chinese clothing"
+        return base
+
     extra = (
         "jet black hair, black hair, black hooded raincoat, black windbreaker, "
         "wet black hair on forehead, young East Asian woman, convenience store clerk vibe"
     )
-    if "black hair" not in low and "黑发" not in base:
-        base = f"{base}, jet black hair, black hair"
     if "raincoat" not in low and "雨衣" not in base and "windbreaker" not in low:
         base = f"{base}, {extra}"
     else:
@@ -570,30 +644,41 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
         else "solid seamless light gray background"
     )
     solo = "1girl, solo, single female only, alone, no other people, no male"
+    if style == "ancient_realistic":
+        outfit = (
+            "same traditional Chinese hanfu, cross-collar robe, qi-xiong ruqun, "
+            "silk wide sleeves, no raincoat, no modern jacket"
+        )
+        head_bit = "hair ornaments optional, face fully visible"
+        back_head = "ONLY back of head and hair bun, NO face NO eyes"
+    else:
+        outfit = "same character same black hooded raincoat"
+        head_bit = "hood DOWN face fully visible"
+        back_head = "ONLY back of head and hood, NO face NO eyes"
     prompts: dict[str, str] = {
         "portrait": (
             f"{solo}, {base}, full body standing portrait of {name}, facing camera, "
-            f"jet black hair, black hair, same outfit black hooded raincoat, "
-            f"hood optional, no silver hair, {solid}, character design, {suf}"
+            f"jet black hair, black hair, {outfit}, "
+            f"no silver hair, {solid}, character design, {suf}"
         ),
         "front": (
             f"{solo}, {base}, ONE figure only, front view full body turnaround of {name}, orthographic, "
-            f"adult woman 165cm proportions, long legs, hood DOWN face fully visible, "
-            f"jet black hair, same character same black hooded raincoat, standing straight, "
+            f"adult woman 165cm proportions, long legs, {head_bit}, "
+            f"jet black hair, {outfit}, standing straight, "
             f"feet on ground line, figure fills frame height, single person only, empty background, {solid}, {suf}"
         ),
         "side": (
             f"{solo}, {base}, ONE figure only, STRICT side profile full body turnaround of {name}, "
-            f"looking left, 90 degree side view, adult woman 165cm proportions, hood down, "
-            f"jet black hair, orthographic, same character same black hooded raincoat, standing straight, "
+            f"looking left, 90 degree side view, adult woman 165cm proportions, {head_bit}, "
+            f"jet black hair, orthographic, {outfit}, standing straight, "
             f"feet on ground, figure fills frame height, single person only, "
             f"NOT front view, NOT back view, empty background, {solid}, {suf}"
         ),
         "back": (
             f"{solo}, {base}, ONE figure only, STRICT back view full body turnaround of {name}, "
-            f"facing completely away from camera, ONLY back of head and hood, NO face NO eyes, "
+            f"facing completely away from camera, {back_head}, "
             f"adult woman 165cm proportions, jet black hair, orthographic, single person only, "
-            f"same character same black hooded raincoat, feet on ground, figure fills frame height, "
+            f"{outfit}, feet on ground, figure fills frame height, "
             f"NOT front view, NOT face, NOT side view, empty background, {solid}, {suf}"
         ),
         "faces": (
@@ -1179,59 +1264,224 @@ def crop_head_from_figure(data: bytes, *, size: int = 768, top_frac: float = 0.3
     return buf.getvalue()
 
 
-def enforce_head_shoulders_square(data: bytes, size: int = 768) -> bytes:
-    """表情出图后强制头肩正方形:紧裁脸/头发包围盒,使脸占格≥55%。
 
-    模型常无视 closeup 提示画出半身或大灰底小头;此步硬裁填满。
-    """
+def enforce_head_shoulders_square(data: bytes, size: int = 768) -> bytes:
+    """强制头肩正方形并铺满:前景上半→迭代收紧至前景占格≥78%。"""
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
+
+    def _fg_bbox(im: Image.Image):
+        small = im.resize((64, 64), Image.Resampling.BILINEAR)
+        sp = small.load()
+        xs, ys = [], []
+        for y in range(64):
+            for x in range(64):
+                r, g, b = sp[x, y]
+                mx, mn = max(r, g, b), min(r, g, b)
+                if r > 225 and g > 225 and b > 225:
+                    continue
+                if mx - mn < 18 and 55 <= mx <= 210:
+                    continue
+                if mx < 28 and mx - mn < 10:
+                    continue
+                xs.append(x)
+                ys.append(y)
+        if len(xs) < 12:
+            return None
+        minx, maxx, miny, maxy = min(xs), max(xs), min(ys), max(ys)
+        span = max(1, maxy - miny)
+        maxy = miny + max(10, int(span * 0.70))
+        iw, ih = im.size
+        return (
+            int(minx * iw / 64),
+            int(miny * ih / 64),
+            int((maxx + 1) * iw / 64),
+            int((maxy + 1) * ih / 64),
+        )
+
+    def _fg_ratio(im: Image.Image) -> float:
+        small = im.resize((32, 32), Image.Resampling.BILINEAR)
+        px = list(small.getdata())
+        fg = 0
+        for r, g, b in px:
+            mx, mn = max(r, g, b), min(r, g, b)
+            if r > 225 and g > 225 and b > 225:
+                continue
+            if mx - mn < 18 and 55 <= mx <= 210:
+                continue
+            if mx < 28:
+                continue
+            fg += 1
+        return fg / 1024.0
+
+    bb = _fg_bbox(img)
+    if bb is None:
+        cx, cy = w // 2, int(h * 0.28)
+        side = min(w, h, max(int(h * 0.50), int(w * 0.62)))
+        left = max(0, min(w - side, cx - side // 2))
+        top = max(0, min(h - side, cy - side // 2))
+        crop = img.crop((left, top, left + side, top + side))
+    else:
+        left0, top0, right0, bot0 = bb
+        bw, bh = max(1, right0 - left0), max(1, bot0 - top0)
+        cx = (left0 + right0) // 2
+        cy = (top0 + bot0) // 2 - int(bh * 0.05)
+        side = int(max(bw, bh) * 1.10)
+        side = max(side, int(min(w, h) * 0.40))
+        side = min(side, w, h)
+        crop = img
+        for _ in range(6):
+            left = max(0, min(w - side, cx - side // 2))
+            top = max(0, min(h - side, cy - side // 2))
+            crop = img.crop((left, top, left + side, top + side))
+            if _fg_ratio(crop) >= 0.78 or side < int(min(w, h) * 0.34):
+                break
+            side = max(64, int(side * 0.90))
+    crop = crop.resize((size, size), Image.Resampling.LANCZOS)
+    buf = BytesIO()
+    crop.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def estimate_face_yaw_deg(data: bytes) -> float | None:
+    """估计人脸 yaw(度绝对值 0~90)。优先 insightface;否则左右不对称启发式。"""
+    try:
+        import numpy as np
+        import cv2
+        from insightface.app import FaceAnalysis
+        import os
+
+        arr = np.frombuffer(data, dtype=np.uint8)
+        bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if bgr is not None:
+            global _YAW_FACE_APP
+            app = _YAW_FACE_APP
+            if app is None:
+                root = os.environ.get("INSIGHTFACE_HOME") or os.path.expanduser(
+                    "~/.insightface"
+                )
+                app = FaceAnalysis(
+                    name="buffalo_l",
+                    providers=["CPUExecutionProvider"],
+                    root=root,
+                )
+                app.prepare(ctx_id=-1, det_size=(640, 640))
+                _YAW_FACE_APP = app
+            faces = app.get(bgr)
+            if faces:
+                f = sorted(
+                    faces,
+                    key=lambda x: (x.bbox[2] - x.bbox[0]) * (x.bbox[3] - x.bbox[1]),
+                    reverse=True,
+                )[0]
+                pose = getattr(f, "pose", None)
+                if pose is not None and len(pose) >= 2:
+                    return float(abs(pose[1]))
+                kps = getattr(f, "kps", None)
+                bbox = getattr(f, "bbox", None)
+                if kps is not None and len(kps) >= 3:
+                    le, re, nose = kps[0], kps[1], kps[2]
+                    mid_x = (float(le[0]) + float(re[0])) / 2.0
+                    eye_w = abs(float(re[0]) - float(le[0])) + 1e-3
+                    off = (float(nose[0]) - mid_x) / eye_w
+                    yaw = min(90.0, abs(off) * 80.0)
+                    if bbox is not None:
+                        face_w = max(1.0, float(bbox[2] - bbox[0]))
+                        if eye_w / face_w < 0.12:
+                            yaw = max(yaw, 82.0)
+                        elif eye_w / face_w < 0.22:
+                            yaw = max(yaw, 48.0)
+                    return float(yaw)
+    except Exception:  # noqa: BLE001
+        pass
+
+    img = Image.open(BytesIO(data)).convert("RGB")
     small = img.resize((64, 64), Image.Resampling.BILINEAR)
-    sp = small.load()
-    xs, ys = [], []
-    for y in range(64):
+    px = list(small.getdata())
+    left_m = right_m = mass_x = mass = 0.0
+    for y in range(8, 48):
         for x in range(64):
-            r, g, b = sp[x, y]
+            r, g, b = px[y * 64 + x]
             mx, mn = max(r, g, b), min(r, g, b)
             if r > 230 and g > 230 and b > 230:
                 continue
             if mx - mn < 14 and 70 <= mx <= 200:
                 continue
-            xs.append(x)
-            ys.append(y)
-    if len(xs) >= 16:
-        # 用前景包围盒,外扩后取正方形,保证脸填满
-        minx, maxx = min(xs), max(xs)
-        miny, maxy = min(ys), max(ys)
-        # 映射回原图像素
-        left0 = int(minx * w / 64)
-        right0 = int((maxx + 1) * w / 64)
-        top0 = int(miny * h / 64)
-        bot0 = int((maxy + 1) * h / 64)
-        bw, bh = max(1, right0 - left0), max(1, bot0 - top0)
-        # 外扩 12%,再强制正方形边长≈包围盒较大边
-        pad = int(max(bw, bh) * 0.12)
-        side = int(max(bw, bh) * 1.08) + pad
-        side = max(side, int(min(w, h) * 0.42))  # 至少占原图 42%
-        side = min(side, w, h)
-        cx = (left0 + right0) // 2
-        cy = (top0 + bot0) // 2
-        # 偏上保住额头
-        cy = max(side // 2, cy - int(side * 0.06))
-        left = max(0, min(w - side, cx - side // 2))
-        top = max(0, min(h - side, cy - side // 2))
-    else:
-        cx, cy = w // 2, int(h * 0.30)
-        side = min(w, h, max(int(h * 0.55), int(w * 0.70)))
-        left = max(0, min(w - side, cx - side // 2))
-        top = max(0, min(h - side, cy - side // 2))
-    if top + side > h:
-        top = max(0, h - side)
-    crop = img.crop((left, top, left + side, top + side))
-    crop = crop.resize((size, size), Image.Resampling.LANCZOS)
-    buf = BytesIO()
-    crop.save(buf, format="PNG")
-    return buf.getvalue()
+            if mx < 25:
+                continue
+            mass_x += x
+            mass += 1.0
+            if x < 32:
+                left_m += 1.0
+            else:
+                right_m += 1.0
+    if mass < 20:
+        return None
+    offset = abs(mass_x / mass - 32.0) / 32.0
+    ratio = abs(left_m - right_m) / max(left_m + right_m, 1.0)
+    return float(min(90.0, (0.55 * offset + 0.45 * ratio) * 120.0))
+
+
+def yaw_ok_for_face_key(yaw: float | None, face_key: str) -> bool:
+    if yaw is None:
+        return False
+    y = abs(float(yaw))
+    if face_key == "face_front":
+        return y < 15.0
+    if face_key == "face_three_quarter":
+        return 30.0 <= y <= 60.0
+    if face_key == "face_side":
+        return 75.0 <= y <= 105.0
+    return False
+
+
+def _pick_best_face_with_yaw(cands: list[bytes], face_key: str) -> tuple[bytes, dict]:
+    scored: list[tuple[float, float | None, float, bytes]] = []
+    for b in cands:
+        yaw = estimate_face_yaw_deg(b)
+        ang = _score_face_angle_candidate(b, face_key)
+        ok = yaw_ok_for_face_key(yaw, face_key)
+        joint = ang + (40.0 if ok else -25.0)
+        if yaw is not None:
+            target = {
+                "face_front": 0.0,
+                "face_three_quarter": 45.0,
+                "face_side": 90.0,
+            }.get(face_key, 0.0)
+            joint -= abs(abs(yaw) - target) * 0.35
+        scored.append((joint, yaw, ang, b))
+    scored.sort(key=lambda t: t[0], reverse=True)
+    passed = [t for t in scored if yaw_ok_for_face_key(t[1], face_key)]
+    if passed:
+        best = passed[0]
+        return best[3], {
+            "yaw": best[1],
+            "angle_score": best[2],
+            "joint": best[0],
+            "yaw_ok": True,
+            "n": len(cands),
+            "n_pass": len(passed),
+        }
+    target = {"face_front": 0.0, "face_three_quarter": 45.0, "face_side": 90.0}.get(
+        face_key, 0.0
+    )
+    scored.sort(
+        key=lambda t: (
+            abs((abs(t[1]) if t[1] is not None else 999.0) - target),
+            -t[0],
+        )
+    )
+    best = scored[0]
+    return best[3], {
+        "yaw": best[1],
+        "angle_score": best[2],
+        "joint": best[0],
+        "yaw_ok": False,
+        "n": len(cands),
+        "n_pass": 0,
+    }
+
+
 
 
 async def _wait_images(client: Any, prompt_id: str) -> list[dict]:
@@ -1839,6 +2089,10 @@ async def generate_character_sheet(
                         negative_extra=ang_neg,
                     )
                 tri[fk] = enforce_head_shoulders_square(fd, size=768)
+            # 单候选也过 yaw 记录(多候选在 regenerate / fix11 脚本)
+            for fk in list(tri.keys()):
+                _y = estimate_face_yaw_deg(tri[fk])
+                logger.info("faces %s yaw=%s ok=%s", fk, _y, yaw_ok_for_face_key(_y, fk))
             panels["faces"] = compose_faces_triptych(
                 tri, style=meta.style, size=_panel_size("faces", meta.style)
             )
@@ -2201,11 +2455,16 @@ async def _generate_costume_collage(
     seed: int | None,
     n_candidates: int = 1,
 ) -> bytes:
-    """五件(雨衣/裤/靴/伞/袋)各出图再 collage;禁真人穿着。"""
+    """五件单品各出图再 collage;古风用汉服单品,现代用雨衣套装。"""
     del n_candidates  # 整卡路径各 1;分区重跑路径在 regenerate 里加候选
     suf = _STYLE_SUFFIX.get(meta.style, _STYLE_SUFFIX["anime"])
     item_bytes: list[bytes] = []
-    for idx, (item_key, item_prompt) in enumerate(_COSTUME_ITEMS):
+    items = (
+        _COSTUME_ITEMS_ANCIENT
+        if meta.style == "ancient_realistic"
+        else _COSTUME_ITEMS
+    )
+    for idx, (item_key, item_prompt) in enumerate(items):
         prompt = f"{item_prompt}, {suf}"
         if item_key == "boots":
             prompt = (
@@ -2868,7 +3127,12 @@ async def regenerate_sheet_panels(
             suf = _STYLE_SUFFIX.get(meta.style, _STYLE_SUFFIX["anime"])
             locked_item_keys: list[str] = []
             regen_item_keys: list[str] = []
-            for idx, (item_key, item_prompt) in enumerate(_COSTUME_ITEMS):
+            costume_items = (
+                _COSTUME_ITEMS_ANCIENT
+                if meta.style == "ancient_realistic"
+                else _COSTUME_ITEMS
+            )
+            for idx, (item_key, item_prompt) in enumerate(costume_items):
                 lock_key = f"costume_{item_key}"
                 if lock_key in panels and panels[lock_key]:
                     picked_items.append(panels[lock_key])
@@ -2968,7 +3232,7 @@ async def regenerate_sheet_panels(
                 picked_items.append(best)
             panels["costume"] = collage_costume_items(picked_items, style=meta.style)
             debug["picks"]["costume"] = {
-                "items": [k for k, _ in _COSTUME_ITEMS],
+                "items": [k for k, _ in costume_items],
                 "locked_items": locked_item_keys,
                 "regen_items": regen_item_keys,
             }
@@ -3036,18 +3300,14 @@ async def regenerate_sheet_panels(
                         mode_used = "ipa_angle" if face else "txt2img"
                     fd = enforce_head_shoulders_square(fd, size=768)
                     fk_cands.append(fd)
-                best = _pick_best_candidate(fk_cands, fk)
+                best, meta_yaw = _pick_best_face_with_yaw(fk_cands, fk)
                 tri[fk] = best
-                score_dbg[fk] = {
-                    "n": len(fk_cands),
-                    "score": _score_face_angle_candidate(best, fk),
-                    "mode": mode_used,
-                }
+                score_dbg[fk] = {**meta_yaw, "mode": mode_used}
             panels["faces"] = compose_faces_triptych(
                 tri, style=meta.style, size=_panel_size("faces", meta.style)
             )
             debug["picks"]["faces"] = {
-                "mode": "triptych_headcrop_ipa",
+                "mode": "triptych_headcrop_ipa_yaw",
                 "keys": list(face_keys),
                 "scores": score_dbg,
             }
