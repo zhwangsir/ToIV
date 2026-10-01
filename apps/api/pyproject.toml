@@ -51,6 +51,12 @@ transcription = [
     "faster-whisper>=1.1.1",
     "requests>=2.31",
 ]
+# 管线 C 多候选裁脸选优（惰性导入；不装则回落首个成功候选）
+face-pick = [
+    "insightface>=0.7.3",
+    "onnxruntime>=1.17",
+    "opencv-python-headless>=4.8",
+]
 
 [build-system]
 requires = ["hatchling"]
