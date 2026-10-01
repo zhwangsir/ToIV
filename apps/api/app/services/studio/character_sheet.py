@@ -256,8 +256,17 @@ def _costume_template_bytes(item_key: str, size: int = 768) -> bytes:
         d.rectangle([m + wleg + gap, m * 2, m + 2 * wleg + gap, size - m], fill=(12, 12, 14))
         d.rectangle([m, m * 2, m + 2 * wleg + gap, m * 3], fill=(12, 12, 14))  # waist
     elif item_key == "boots":
+        # 仅描边双靴轮廓,避免 img2img 变成实心黑柱
         for ox in (size // 2 - m * 3, size // 2 + m):
-            d.rounded_rectangle([ox, m * 3, ox + m * 2, size - m], radius=20, fill=(12, 12, 14))
+            d.rounded_rectangle(
+                [ox, m * 3, ox + m * 2, size - m],
+                radius=20,
+                outline=(30, 30, 34),
+                width=6,
+            )
+            # 靴口与鞋底提示线
+            d.ellipse([ox + 8, m * 3 + 4, ox + m * 2 - 8, m * 3 + m], outline=(50, 50, 55), width=3)
+            d.rectangle([ox, size - m - 12, ox + m * 2, size - m], outline=(30, 30, 34), width=4)
     elif item_key == "umbrella":
         # 透明伞:浅灰穹顶描边+骨架
         cx, cy = size // 2, size // 2 - m
@@ -352,6 +361,13 @@ def _costume_item_penalty(data: bytes, item_key: str) -> float:
         if blobs >= 4:
             pen += 7.0 + (blobs - 4) * 2.5
         elif blobs == 3:
+            pen += 3.0
+        # 实心黑柱/剪影:暗像素占比过高且边缘过齐 → 不像可穿雨靴
+        if br > 0.42:
+            pen += (br - 0.42) * 12.0
+        # 顶部应有靴口(近顶行不应全黑)
+        top_dark = sum(1 for x in range(64) for y in range(0, 10) if px[y * 64 + x][0] < 70)
+        if top_dark > 10 * 40:
             pen += 3.0
     elif item_key == "umbrella":
         # 要半透明结构,不要实心黑帽/灯
@@ -2170,51 +2186,57 @@ async def regenerate_sheet_panels(
                         + prompt
                         + ", white polyethylene, not blue"
                     )
-                # 雨衣/伞/袋/裤:文生图;靴:模板 img2img 锚定「正好两只」形状(高 denoise 避死剪影)
-                boot_ref = None
-                ref_mode_item = "none"
-                denoise_item = 1.0
+                # 服饰单品一律文生图(靴模板 img2img 易成实心黑柱,已弃)
+                # 靴:弱化角色向 suffix + 双轮候选,硬要求可识别靴形且 blob≤2
+                item_prompt_final = prompt
                 if item_key == "boots":
-                    try:
-                        boot_ref = await client.upload_image(
-                            _costume_template_bytes("boots", size=768),
-                            f"sheet_boot_tpl_{character_id[:8]}.png",
-                        )
-                        ref_mode_item = "img2img"
-                        denoise_item = 0.82
-                    except Exception as e:  # noqa: BLE001
-                        logger.warning("靴模板上传失败,回退文生图: %s", e)
-                rounds = 2 if item_key == "boots" else 1
+                    item_prompt_final = (
+                        "clean anime product illustration, pair of black rubber rain boots, "
+                        "exactly two boots left and right, visible boot shaft opening and thick sole, "
+                        "glossy wellington style, standing on white floor, large centered, "
+                        "empty white background, no text, no shelf, no row of many boots, "
+                        + item_prompt
+                        + ", product still life only"
+                    )
+                rounds = 2 if item_key in ("boots", "pants") else 1
                 for round_i in range(rounds):
                     for ci in range(max(1, n_candidates)):
                         w, h = (768, 768) if meta.style == "anime" else (512, 512)
                         cands.append(
                             await generate_panel_bytes(
                                 pool,
-                                prompt,
+                                item_prompt_final,
                                 ckpt_name=ckpt,
                                 width=w,
                                 height=h,
                                 seed=None
                                 if seed is None
-                                else seed + 8000 + idx * 10 + ci + round_i * 100,
+                                else seed + 8000 + idx * 10 + ci + round_i * 170,
                                 worker=worker,
                                 filename_prefix=f"ToIV_char_sheet_costume_{item_key}",
                                 style=meta.style,
                                 client=client,
-                                ref_image=boot_ref,
-                                ref_mode=ref_mode_item,
-                                denoise=denoise_item,
+                                ref_image=None,
+                                ref_mode="none",
+                                denoise=1.0,
                             )
                         )
                     best_try = _pick_best_candidate(cands, f"costume_{item_key}")
                     img = Image.open(BytesIO(best_try)).convert("RGB").resize((64, 64))
                     blobs = _count_dark_blobs(list(img.getdata()))
-                    if item_key != "boots" or blobs <= 2:
+                    # 靴:拒绝「两根黑柱」(过实心矩形剪影)
+                    if item_key == "boots":
+                        pen = _costume_item_penalty(best_try, "boots")
+                        if blobs <= 2 and pen < 8.0:
+                            break
+                        logger.warning(
+                            "靴候选不合格 blobs=%s pen=%.2f,再抽", blobs, pen
+                        )
+                    elif item_key == "pants":
+                        if blobs <= 3:
+                            break
+                    else:
                         break
-                    logger.warning(
-                        "靴候选仍多件(blobs=%s),再抽一轮 n=%s", blobs, n_candidates
-                    )
                 picked_items.append(_pick_best_candidate(cands, f"costume_{item_key}"))
             panels["costume"] = collage_costume_items(picked_items, style=meta.style)
             debug["picks"]["costume"] = {
