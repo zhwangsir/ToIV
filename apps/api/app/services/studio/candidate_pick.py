@@ -356,12 +356,22 @@ def pick_best_candidate(
                 c["is_picked"] = False
             raise CandidatePickError("选优失败:全部候选无法解析本地路径或评分")
 
-        # 人脸门禁：无人脸或低于阈值不得入选（雨夜镜1 v2：负脸分/null 曾污染级联）
+        # 人脸门禁：仅在 face_mean≥阈值 的候选中按 score 入选；全员未过则失败
         if face_ok and float(min_face_mean) > 0:
-            by_id = {c.get("id"): c for c in done}
-            best = by_id.get(best_id) or {}
-            face_best = best.get("face_mean")
-            if face_best is None or float(face_best) < float(min_face_mean):
+            gated = [
+                c
+                for c in done
+                if c.get("face_mean") is not None
+                and float(c["face_mean"]) >= float(min_face_mean)
+                and c.get("pick_score") is not None
+            ]
+            if not gated:
+                faces = [
+                    float(c["face_mean"])
+                    for c in done
+                    if c.get("face_mean") is not None
+                ]
+                face_best = max(faces) if faces else None
                 for c in candidates:
                     c["is_picked"] = False
                     note = str(c.get("pick_note") or "")
@@ -373,6 +383,7 @@ def pick_best_candidate(
                     f"选优失败:无人脸达标(需 face_mean≥{min_face_mean:.2f}，"
                     f"最佳={face_best!r})，禁止入选并应加候选重跑"
                 )
+            best_id = max(gated, key=lambda c: float(c["pick_score"])).get("id")
 
         for c in candidates:
             c["is_picked"] = c.get("id") == best_id

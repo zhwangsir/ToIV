@@ -70,10 +70,14 @@ def build_c_visual_prompt(
     # 室内货架镜：强制店内 + 可测正脸（雨夜镜1 v2 曾出门外侧写/手部无脸）
     blob = " ".join([shot_prompt or "", scene or "", camera or "", body]).lower()
     if any(k in blob for k in ("aisle", "货架", "冷柜", "fridge", "checkout", "收银", "店内")):
+        # 19:30/v6：强制中景正脸，抑制手特写/帽兜挡脸
         body += (
-            " Inside the convenience store interior between shelves, "
-            "character face clearly visible toward camera or three-quarter view, "
-            "not outside on the wet sidewalk, not hands-only close-up for the whole shot."
+            " Medium shot inside the convenience store interior between shelves, "
+            "hoodie hood down, face fully visible facing camera, "
+            "eyes and nose clearly readable, upper body in frame, "
+            "not outside on the wet sidewalk, "
+            "not close-up of hands, not hands-only close-up, "
+            "not hood covering face, not half face, not face cut off."
         )
     avoid = merge_negative(negative)
     if ref_prefix:
