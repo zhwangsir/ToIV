@@ -39,13 +39,13 @@ SHEET_STYLES = ("ancient_realistic", "anime")
 SHEET_W, SHEET_H = 2400, 3200
 _PANEL_KEYS = ("portrait", "front", "side", "back", "faces", "costume")
 _EXPR_KEYS = tuple(f"expr_{i}" for i in range(6))
-_EXPR_LABELS = ("威严", "冷酷", "沉思", "温柔", "愤怒", "果断")
+_EXPR_LABELS = ("威严", "冷酷", "沉思", "温柔", "惊恐", "果断")
 _EXPR_PROMPTS = (
     "stern majestic expression, serious face closeup",
     "cold aloof expression, icy gaze closeup",
     "thoughtful contemplative expression, looking slightly down closeup",
     "gentle soft smile, warm kind eyes closeup",
-    "angry furious expression, furrowed brows closeup",
+    "terrified shocked expression, wide eyes open mouth closeup, fear",
     "resolute determined expression, firm gaze closeup",
 )
 _CHAR_SHEET_MARK = "char_sheet_"
@@ -86,15 +86,19 @@ _STYLE_SUFFIX = {
 _STYLE_NEGATIVE = {
     "ancient_realistic": (
         "blurry, low quality, text, watermark, deformed, extra limbs, "
-        "hanfu, ancient chinese clothing, white robe, white hanfu, "
-        "multiple people, collage, split screen, grid, glitch, chromatic aberration"
+        "hanfu, ancient chinese clothing, white robe, white hanfu, white dress, "
+        "white hair, silver hair, grey hair, "
+        "multiple people, collage, split screen, grid, two people in one frame, "
+        "glitch, chromatic aberration"
     ),
     "anime": (
         "photorealistic, real photo, photograph, realistic skin pores, "
         "3d render, western cartoon, blurry, low quality, text, watermark, "
-        "deformed, extra limbs, hanfu, ancient chinese clothing, white robe, "
-        "multiple people, collage, split screen, grid, glitch, chromatic aberration, "
-        "scan lines, multiple faces, face sheet, sketch dump, concept art board"
+        "deformed, extra limbs, hanfu, ancient chinese clothing, white robe, white dress, "
+        "white hair, silver hair, grey hair, blue hair, blonde hair, "
+        "multiple people, collage, split screen, grid, two people in one frame, "
+        "glitch, chromatic aberration, scan lines, multiple faces, face sheet, "
+        "sketch dump, concept art board"
     ),
 }
 
@@ -145,11 +149,13 @@ _CJK_FONT_CANDIDATES = (
 
 # 角色服装关键词(现代雨夜便利店设定):服饰拆解强制对齐,禁汉服
 _COSTUME_FORCE = (
-    "overhead flat lay product photography, garments laid flat on table, "
-    "black hooded raincoat unfolded, black windbreaker, black rain boots, "
-    "white plastic shopping bag accessory, clothing pieces arranged neatly, "
+    "overhead flat lay product photography, garments and props laid flat on table, "
+    "ONLY these items: black hooded raincoat unfolded, black windbreaker jacket, "
+    "black rain boots, transparent clear umbrella, white plastic shopping bag, "
+    "clothing pieces arranged neatly as product shots, "
     "isolated on solid seamless background, no person, no face, no mannequin, "
-    "no model wearing clothes, no hanfu, no ancient costume, fashion design sheet"
+    "no model wearing clothes, no hanfu, no ancient costume, no white robe, "
+    "no white dress, no gown, fashion design sheet"
 )
 
 
@@ -281,13 +287,23 @@ def _character_base(meta: SheetMeta) -> str:
     base = (meta.visual_prompt or meta.description or meta.name).strip()
     if not base:
         raise CharacterSheetError("角色缺少视觉描述", status_code=422)
-    # 强化现代雨衣设定,抑制汉服漂移
+    # 强制黑发+现代雨衣;抑制银发/汉服漂移(21:01 纠偏)
+    low = base.lower()
+    for bad in ("silver hair", "white hair", "grey hair", "gray hair", "blue hair", "blonde"):
+        if bad in low:
+            import re as _re
+            base = _re.sub(bad, "black hair", base, flags=_re.I)
+            low = base.lower()
     extra = (
-        "black hooded raincoat, black windbreaker, wet hair on forehead, "
-        "young East Asian woman, convenience store clerk vibe"
+        "jet black hair, black hair, black hooded raincoat, black windbreaker, "
+        "wet black hair on forehead, young East Asian woman, convenience store clerk vibe"
     )
-    if "raincoat" not in base.lower() and "雨衣" not in base and "windbreaker" not in base.lower():
+    if "black hair" not in low and "黑发" not in base:
+        base = f"{base}, jet black hair, black hair"
+    if "raincoat" not in low and "雨衣" not in base and "windbreaker" not in low:
         base = f"{base}, {extra}"
+    else:
+        base = f"{base}, jet black hair, black hair"
     return base
 
 
@@ -305,21 +321,26 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
     prompts: dict[str, str] = {
         "portrait": (
             f"{base}, full body standing portrait of {name}, facing camera, "
-            f"same outfit black hooded raincoat, {solid}, character design, {suf}"
+            f"jet black hair, black hair, same outfit black hooded raincoat, "
+            f"hood optional, no silver hair, {solid}, character design, {suf}"
         ),
         "front": (
-            f"{base}, front view full body turnaround of {name}, orthographic, "
-            f"same character same black hooded raincoat, standing straight, single person only, {solid}, {suf}"
+            f"{base}, ONE figure only, front view full body turnaround of {name}, orthographic, "
+            f"jet black hair, same character same black hooded raincoat, standing straight, "
+            f"single person only, empty background, {solid}, {suf}"
         ),
         "side": (
-            f"{base}, STRICT side profile full body turnaround of {name}, looking left, 90 degree side, "
+            f"{base}, ONE figure only, STRICT side profile full body turnaround of {name}, "
+            f"looking left, 90 degree side view, jet black hair, "
             f"orthographic, same character same black hooded raincoat, standing straight, "
-            f"single person only, NOT front view, {solid}, {suf}"
+            f"single person only, NOT front view, NOT back view, empty background, {solid}, {suf}"
         ),
         "back": (
-            f"{base}, STRICT back view full body turnaround of {name}, facing away from camera, "
-            f"showing back of hood and coat, orthographic, single person only, "
-            f"same character same black hooded raincoat, NOT front view, NOT face, {solid}, {suf}"
+            f"{base}, ONE figure only, STRICT back view full body turnaround of {name}, "
+            f"facing completely away from camera, back of head and hood visible, "
+            f"jet black hair, orthographic, single person only, "
+            f"same character same black hooded raincoat, NOT front view, NOT face, "
+            f"NOT side view, empty background, {solid}, {suf}"
         ),
         "faces": (
             f"{base}, face and hairstyle multi-angle closeups of {name}, "
@@ -329,8 +350,10 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
     }
     for i, expr in enumerate(_EXPR_PROMPTS):
         prompts[f"expr_{i}"] = (
-            f"{base}, {expr} of {name}, single face only, one person, square headshot, shoulders up, "
-            f"same face same wet black hair, {solid}, {suf}"
+            f"{base}, {expr} of {name}, single face only, one person, "
+            f"square headshot bust shoulders-up, hood down, face fully visible, "
+            f"jet black hair, same identity as main portrait, exaggerated distinct expression, "
+            f"{solid}, {suf}"
         )
     return prompts
 
@@ -413,23 +436,54 @@ def _draw_panel_frame(
 
 
 def _extract_palette(img: Image.Image, n: int = 6) -> list[str]:
-    small = img.convert("RGB").resize((48, 48), Image.Resampling.BOX)
-    colors = small.getcolors(48 * 48) or []
+    """从人物前景取色(中心裁切 + 剔除近背景色),避免灰/近黑色板(21:01)。"""
+    rgb = img.convert("RGB")
+    w, h = rgb.size
+    # 四角估背景
+    corners = [
+        rgb.getpixel((2, 2)),
+        rgb.getpixel((w - 3, 2)),
+        rgb.getpixel((2, h - 3)),
+        rgb.getpixel((w - 3, h - 3)),
+    ]
+    bg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
+    # 中心人物区
+    crop = rgb.crop((int(w * 0.18), int(h * 0.06), int(w * 0.82), int(h * 0.92)))
+    small = crop.resize((64, 64), Image.Resampling.BOX)
+    colors = small.getcolors(64 * 64) or []
     colors.sort(key=lambda c: c[0], reverse=True)
     out: list[str] = []
-    for _cnt, rgb in colors:
-        r, g, b = rgb
-        if max(r, g, b) < 28 or min(r, g, b) > 230:
+    skin_cands: list[tuple[int, tuple[int, int, int]]] = []
+    for cnt, (r, g, b) in colors:
+        # 跳过近背景 / 极端黑白
+        if abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) < 45:
+            continue
+        if max(r, g, b) < 18 or min(r, g, b) > 245:
+            continue
+        # 灰背景带(低饱和)
+        mx, mn = max(r, g, b), min(r, g, b)
+        if mx - mn < 12 and 70 <= mx <= 190:
             continue
         hx = f"#{r:02X}{g:02X}{b:02X}"
         if hx not in out:
             out.append(hx)
+        # 肤色候选
+        if 90 < r < 245 and 60 < g < 210 and 45 < b < 190 and r >= g >= b - 10:
+            skin_cands.append((cnt, (r, g, b)))
         if len(out) >= n:
             break
-    while len(out) < n:
-        h = (len(out) * 0.14) % 1.0
-        r, g, b = colorsys.hsv_to_rgb(h, 0.45, 0.75)
-        out.append(f"#{int(r*255):02X}{int(g*255):02X}{int(b*255):02X}")
+    # 保证有肤色/唇色可辨
+    fallback = ["#E8C4A8", "#C98A7A", "#1A1A1E", "#2C2C34", "#C8C8C8", "#5A6A7A"]
+    if skin_cands:
+        sr, sg, sb = skin_cands[0][1]
+        skin_hx = f"#{sr:02X}{sg:02X}{sb:02X}"
+        if skin_hx not in out:
+            out.insert(0, skin_hx)
+    for hx in fallback:
+        if len(out) >= n:
+            break
+        if hx not in out:
+            out.append(hx)
     return out[:n]
 
 
@@ -1230,12 +1284,12 @@ async def generate_character_sheet(
             ref_mode = "img2img" if meta.style == "anime" else "ipa"
             denoise = 0.58
         elif key.startswith("expr_"):
-            # 表情:优先用裁脸参考 img2img/IPA,保证同一人
+            # 表情:裁脸参考 + 较高 denoise,保证同一人且表情可区分(21:01)
             face = face_ref_name or ref_name
             if face:
                 use_ref = face
                 ref_mode = "img2img" if meta.style == "anime" else "ipa"
-                denoise = 0.48 if meta.style == "anime" else 0.55
+                denoise = 0.72 if meta.style == "anime" else 0.68
             else:
                 use_ref = None
                 ref_mode = "none"
