@@ -11,7 +11,7 @@ import {
   type StudioShot,
   type StudioShotInput,
 } from "@/lib/api";
-import { collectAutoRefSlots, mergeSceneImages, slotsToUrls } from "@/lib/studioVideoRefs";
+import { collectAutoRefSlots, sceneImagesForShot, slotsToUrls } from "@/lib/studioVideoRefs";
 import { Icon } from "@/components/ui/Icon";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 import { Ripple } from "@/components/ui/Ripple";
@@ -175,7 +175,7 @@ export function ShotCard({
     : null;
 
   const showVideoOpts = videoFocus || shot.render_mode === "video";
-  const mergedScenes = mergeSceneImages(projectSceneImages, sceneRefs);
+  const mergedScenes = sceneImagesForShot(projectSceneImages, shot.idx, sceneRefs);
   const autoSlots = collectAutoRefSlots(characters, shot.characters, mergedScenes);
   const refUrls = slotsToUrls(autoSlots);
   const candidates = shot.candidates || [];
@@ -558,7 +558,11 @@ export function ShotCard({
           </div>
         )}
 
-        {shot.error && <p className="studio-shot-error">{shot.error}</p>}
+        {shot.status === "error" || shot.error ? (
+          <p className="studio-shot-error" role="alert" data-testid="studio-shot-error">
+            <Icon name="alert" size={12} /> {shot.error || "选优/生成失败"}
+          </p>
+        ) : null}
 
         {/* ── 操作 ── */}
         <div className="studio-shot-actions">

@@ -435,6 +435,8 @@
 .studio-shot[data-status="error"],
 .studio-shot[data-status="error"]:hover {
   border-color: var(--err);
+  box-shadow: 0 0 0 1px var(--err), 0 0 0 4px color-mix(in srgb, var(--err) 22%, transparent);
+  background: color-mix(in srgb, var(--err) 8%, var(--bg-surface));
 }
 .studio-shot-media {
   position: relative;
@@ -604,6 +606,14 @@
   color: var(--text-muted);
 }
 .studio-shot-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  font-weight: var(--font-medium);
+  background: color-mix(in srgb, var(--err) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--err) 45%, transparent);
+  border-radius: var(--radius-control);
+  padding: var(--space-1) var(--space-2);
   font-size: var(--text-label);
   color: var(--err);
 }

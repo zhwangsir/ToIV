@@ -88,7 +88,25 @@ async def render_shot(
     n = max(1, min(4, int(num_candidates or 1)))
     cast = _cast_for(session, shot)
     # 多参考:显式列表优先;否则从角色三视图(+场景)自动收集,并落库供 UI 回显
-    from app.services.studio.shot_refs import collect_cast_ref_images, ref_urls
+    from app.services.studio.shot_refs import (
+        collect_cast_ref_images,
+        ref_urls,
+        resolve_scene_images_for_shot,
+    )
+
+    # 场景参考：显式 > 项目列表按镜 idx 解析（≥2 张时每镜一张）
+    if scene_images is None and project is not None:
+        try:
+            scene_images = json.loads(getattr(project, "scene_images_json", None) or "[]")
+        except (ValueError, TypeError):
+            scene_images = []
+        if not isinstance(scene_images, list):
+            scene_images = []
+    if scene_images is not None:
+        scene_images = resolve_scene_images_for_shot(
+            scene_images, getattr(shot, "idx", 0) or 0
+        )
+        render_kw["scene_images"] = scene_images
 
     if ref_images is not None:
         resolved_refs = [u for u in ref_images if isinstance(u, str) and u.strip()]
@@ -99,8 +117,6 @@ async def render_shot(
             collect_cast_ref_images(cast, scene_images=scene_images)
         )
         # 自动收集:留给渲染器从 cast 重建带角色名的 @图片N 标签
-        if scene_images is not None:
-            render_kw["scene_images"] = scene_images
     shot.ref_images_json = json.dumps(resolved_refs, ensure_ascii=False)
     if request is not None:
         render_kw["request"] = request
@@ -132,15 +148,6 @@ async def render_shot(
     if ctx:
         render_kw["context_latent_path"] = ctx
     render_kw["clip_index"] = int(getattr(shot, "idx", 0) or 0) + 1
-    # 项目场景图：未显式传时从项目读取
-    if scene_images is None and project is not None:
-        try:
-            scene_images = json.loads(getattr(project, "scene_images_json", None) or "[]")
-        except (ValueError, TypeError):
-            scene_images = []
-        if not isinstance(scene_images, list):
-            scene_images = []
-        render_kw["scene_images"] = scene_images
     renderer = get_renderer(shot)
 
     async def _once(seed: int | None = None) -> Any:

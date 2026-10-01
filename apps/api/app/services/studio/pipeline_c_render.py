@@ -147,6 +147,7 @@ async def render_pipeline_c(
         raise RenderError("管线 C 需要角色三视图或场景参考图")
 
     cast_visual = ", ".join(c.visual_prompt for c in cast if getattr(c, "visual_prompt", None))
+    # T8 无独立负向口：merge_negative 必须并进 Avoid，否则店招/乱码条款被丢弃
     positive = build_c_visual_prompt(
         shot_prompt=getattr(shot, "prompt", "") or "",
         cast_visual=cast_visual,
@@ -154,9 +155,8 @@ async def render_pipeline_c(
         dialogue=getattr(shot, "dialogue", "") or "",
         camera=getattr(shot, "camera", "") or "",
         scene=getattr(shot, "scene", "") or "",
+        negative=getattr(shot, "negative", "") or "",
     )
-    # negative 折进 Avoid（T8 节点无独立负向口时由 prompt 携带；仍保留合并供快照）
-    _ = merge_negative(getattr(shot, "negative", "") or "")
 
     try:
         h3_service.ensure_h3_enabled()

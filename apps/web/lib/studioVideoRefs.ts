@@ -30,6 +30,21 @@ export function mergeSceneImages(
   return out;
 }
 
+/** 项目场景图 → 本镜用图：≥2 张按 idx 取一张，避免全集共用门外图。 */
+export function sceneImagesForShot(
+  bound: string[] = [],
+  shotIdx = 0,
+  extra: string[] = [],
+  maxScene = 4,
+): string[] {
+  const list = (bound || []).map((u) => (u || "").trim()).filter(Boolean);
+  const perShot =
+    list.length > 1
+      ? [list[Math.max(0, Math.min(shotIdx || 0, list.length - 1))]]
+      : list;
+  return mergeSceneImages(perShot, extra, maxScene);
+}
+
 export function collectAutoRefSlots(
   characters: StudioCharacter[],
   shotCharacterNames: string[],

@@ -68,6 +68,21 @@ def test_build_c_visual_prompt_keeps_dialogue_out():
 def test_merge_negative_adds_subtitle_block():
     n = merge_negative("blur")
     assert "blur" in n and "字幕" in n
+    assert "店招" in n and "storefront" in n.lower()
+
+
+def test_build_c_visual_prompt_includes_storefront_avoid():
+    """店招/乱码负向必须进 Avoid（曾被 _ = merge_negative 丢弃）。"""
+    p = build_c_visual_prompt(
+        shot_prompt="雨夜便利店门口",
+        scene="门外",
+        negative="blurry",
+    )
+    assert "Avoid:" in p
+    assert "店招" in p
+    assert "storefront" in p.lower() or "signboard" in p.lower()
+    assert "乱码" in p or "garbled" in p.lower()
+    assert "blurry" in p
 
 
 def test_pipeline_c_graph_first_segment():

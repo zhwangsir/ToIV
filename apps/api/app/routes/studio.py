@@ -1005,21 +1005,30 @@ def _sample_asset_candidates() -> list[Path]:
 
 
 def _stage_sample_image(src_name: str, dest_name: str) -> str | None:
-    """复制样片图到 studio 产出目录,返回 /api/studio/files URL;不可用则 None。"""
+    """复制样片图到 studio 产出目录,返回 /api/studio/files URL;不可用则 None。
+
+    若目标已在 studio 落盘（如先前手工/脚本放入的每镜场景图），直接复用。
+    """
     import shutil
     from app.storage import drama_output_root
 
-    src: Path | None = None
-    for root in _sample_asset_candidates():
-        cand = root / src_name
-        if cand.is_file():
-            src = cand
-            break
-    if src is None:
-        return None
     dest_dir = drama_output_root() / "studio"
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / dest_name
+    # 已落盘目标优先（雨夜每镜 scene_shotN_*.png）
+    if dest.is_file() and dest.stat().st_size > 0:
+        return f"/api/studio/files/{dest_name}"
+    src: Path | None = None
+    for root in _sample_asset_candidates():
+        for cand_name in (src_name, dest_name):
+            cand = root / cand_name
+            if cand.is_file():
+                src = cand
+                break
+        if src is not None:
+            break
+    if src is None:
+        return None
     if not dest.is_file() or dest.stat().st_size != src.stat().st_size:
         shutil.copy2(src, dest)
     return f"/api/studio/files/{dest_name}"
@@ -1071,13 +1080,29 @@ def seed_rain_night_sample(
     side = _stage_sample_image("linxia_side.png", "sample_linxia_side.png")
     full = _stage_sample_image("linxia_full.png", "sample_linxia_full.png")
     scene = _stage_sample_image("scene_rain_store.png", "sample_scene_rain_store.png")
+    # 每镜场景参考（门外/货架/收银台/出门）；素材缺失时回落样片门外图
+    shot_scenes = [
+        _stage_sample_image("scene_shot0_door.png", "scene_shot0_door.png")
+        or _stage_sample_image("scene_rain_store.png", "scene_shot0_door.png"),
+        _stage_sample_image("scene_shot1_aisle.png", "scene_shot1_aisle.png")
+        or scene,
+        _stage_sample_image("scene_shot2_checkout.png", "scene_shot2_checkout.png")
+        or scene,
+        _stage_sample_image("scene_shot3_exit.png", "scene_shot3_exit.png")
+        or scene,
+    ]
     refs = [u for u in (front, side, full) if u]
-    assets_ready = len(refs) >= 3 and bool(scene)
+    scenes_bound = [u for u in shot_scenes if u]
+    if not scenes_bound and scene:
+        scenes_bound = [scene]
+    assets_ready = len(refs) >= 3 and bool(scenes_bound)
     asset_notes: list[str] = []
     if len(refs) < 3:
         asset_notes.append("角色三视图未齐(素材不可用)")
-    if not scene:
+    if not scenes_bound:
         asset_notes.append("场景图不可用")
+    elif len(scenes_bound) < 4:
+        asset_notes.append(f"场景图仅 {len(scenes_bound)}/4 镜（缺镜将回落）")
 
     existing = _find_sample_rain_night(session, user)
     created = existing is None
@@ -1111,8 +1136,8 @@ def seed_rain_night_sample(
         session.commit()
         session.refresh(p)
 
-    # 场景图
-    scenes = [scene] if scene else []
+    # 场景图：按镜序绑定（门外/货架/收银台/出门），渲染时按 idx 取一张
+    scenes = scenes_bound
     p.scene_images_json = json.dumps(scenes, ensure_ascii=False)
     session.add(p)
 

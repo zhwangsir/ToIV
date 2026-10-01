@@ -36,6 +36,10 @@ def ctx(tmp_path, monkeypatch):
         "linxia_side.png",
         "linxia_full.png",
         "scene_rain_store.png",
+        "scene_shot0_door.png",
+        "scene_shot1_aisle.png",
+        "scene_shot2_checkout.png",
+        "scene_shot3_exit.png",
     ):
         (assets / name).write_bytes(b"\x89PNG\r\n\x1a\n" + name.encode() + b"\0" * 32)
 
@@ -84,7 +88,9 @@ def test_batch5_seed_idempotent_and_pipeline(ctx):
     assert body1["title"] == "雨夜便利店·林夏"
     assert body1["assets_ready"] is True
     assert len(body1["reference_images"]) == 3
-    assert len(body1["scene_images"]) == 1
+    assert len(body1["scene_images"]) == 4
+    assert "scene_shot0_door" in body1["scene_images"][0]
+    assert "scene_shot1_aisle" in body1["scene_images"][1]
     assert body1["pipeline"]["total_shots"] == 4
     pid = body1["id"]
     shots = body1["project"]["shots"]

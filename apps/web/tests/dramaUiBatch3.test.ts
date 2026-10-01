@@ -29,13 +29,15 @@ test("studioLookPick + studioVideoRefs:定妆桥与场景合并", () => {
   assert.ok(look.includes("LOOK_PICK_KEY"), "缺 LOOK_PICK_KEY");
   const refs = readSrc("lib/studioVideoRefs.ts");
   assert.ok(refs.includes("mergeSceneImages"), "缺 mergeSceneImages");
+  assert.ok(refs.includes("sceneImagesForShot"), "缺 sceneImagesForShot 每镜场景");
   assert.ok(refs.includes("scene"), "未支持场景图");
 });
 
 test("ShotCard/Storyboard:项目场景图自动进多参考;配音对口型工具栏", () => {
   const card = readSrc("components/studio/ShotCard.tsx");
   assert.ok(card.includes("projectSceneImages"), "ShotCard 未接项目场景图");
-  assert.ok(card.includes("mergeSceneImages"), "未合并场景图");
+  assert.ok(card.includes("sceneImagesForShot"), "未按镜取场景图");
+  assert.ok(card.includes("studio-shot-error"), "缺失败标红区");
   const board = readSrc("components/studio/stages/StoryboardStage.tsx");
   assert.ok(board.includes("projectSceneImages={d.scene_images"), "未透传 scene_images");
   assert.ok(board.includes("studio-voice-toolbar"), "缺一键配音工具栏");
@@ -72,4 +74,5 @@ test("studio.css:Batch3 场景/定妆/验收样式", () => {
   assert.ok(css.includes(".studio-look-actions"), "缺定妆操作样式");
   assert.ok(css.includes(".studio-accept-bar"), "缺验收条样式");
   assert.ok(css.includes(".studio-voice-toolbar"), "缺配音工具栏样式");
+  assert.ok(css.includes('[data-status="error"]'), "缺分镜 error 标红");
 });

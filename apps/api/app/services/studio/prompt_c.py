@@ -1,11 +1,16 @@
-"""管线 C 画面提示词：台词不进画面；负向屏蔽字幕/文字/水印。"""
+"""管线 C 画面提示词：台词不进画面；负向屏蔽字幕/店招/乱码文字/水印。"""
 from __future__ import annotations
 
 import re
 
+# 默认 Avoid：烧录字幕 + 店招/招牌乱码英文（雨夜样片证据：Bit/Gems/NB Bit…）
 C_AVOID_TEXT = (
     "subtitles, captions, on-screen text, watermark, logo, title card, "
-    "烧录字幕, 字幕, 台词文字, 水印, 台标, 花字, 标题文字"
+    "storefront sign, shop sign, store signboard, neon sign text, "
+    "garbled text, gibberish english, random letters, burned-in text, "
+    "readable english words on signs, billboard text, "
+    "烧录字幕, 字幕, 台词文字, 水印, 台标, 花字, 标题文字, "
+    "店招, 招牌, 乱码英文, 乱码文字, logo文字"
 )
 
 _DIALOGUE_PATTERNS = (
@@ -17,6 +22,10 @@ _DIALOGUE_PATTERNS = (
     re.compile(r"问[：:][^\n。；;]*"),
     re.compile(r"道[：:][^\n。；;]*"),
 )
+
+# 判定「已含文字屏蔽」的关键词；缺店招/乱码时仍追加
+_TEXT_BLOCK_MARKERS = ("字幕", "subtitle", "caption", "watermark", "水印")
+_SIGN_BLOCK_MARKERS = ("店招", "招牌", "storefront", "signboard", "garbled", "乱码")
 
 
 def strip_dialogue(text: str) -> str:
@@ -37,8 +46,12 @@ def build_c_visual_prompt(
     dialogue: str = "",
     camera: str = "",
     scene: str = "",
+    negative: str = "",
 ) -> str:
-    """组装管线 C 正向提示：参考行 + 场景/运镜/角色外观 + 画面描述（无台词）+ Avoid。"""
+    """组装管线 C 正向提示：参考行 + 场景/运镜/角色外观 + 画面描述（无台词）+ Avoid。
+
+    Avoid 必须含 merge_negative 结果（店招/乱码/字幕），经 Comfy prompt 生效。
+    """
     body_parts: list[str] = []
     if scene.strip():
         body_parts.append(scene.strip())
@@ -53,8 +66,8 @@ def build_c_visual_prompt(
     if visual:
         body_parts.append(visual)
     body = "，".join(body_parts) if body_parts else "竖屏短剧镜头，人物与场景清晰"
-    body += "。画面只有角色与场景，无任何文字。"
-    avoid = C_AVOID_TEXT
+    body += "。画面只有角色与场景，无任何文字、店招或乱码。"
+    avoid = merge_negative(negative)
     if ref_prefix:
         head = ref_prefix if ref_prefix.endswith("\n") else ref_prefix + "\n"
         return f"{head}{body}\n\nAvoid: {avoid}"
@@ -62,11 +75,14 @@ def build_c_visual_prompt(
 
 
 def merge_negative(existing: str = "") -> str:
-    """合并镜头原有 negative 与 C 默认文字屏蔽。"""
+    """合并镜头原有 negative 与 C 默认文字/店招屏蔽（缺项才追加，不丢弃）。"""
     base = (existing or "").strip()
     if not base:
         return C_AVOID_TEXT
-    if "字幕" in base or "subtitle" in base.lower():
+    low = base.lower()
+    need_text = not any(m in base or m in low for m in _TEXT_BLOCK_MARKERS)
+    need_sign = not any(m in base or m in low for m in _SIGN_BLOCK_MARKERS)
+    if not need_text and not need_sign:
         return base
+    # 已有部分屏蔽时仍并入完整默认，保证店招/乱码条款到位
     return f"{base}, {C_AVOID_TEXT}"
-

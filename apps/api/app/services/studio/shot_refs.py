@@ -82,6 +82,25 @@ def collect_cast_ref_images(
     return refs
 
 
+
+def resolve_scene_images_for_shot(
+    scene_images: list[str] | None,
+    shot_idx: int = 0,
+) -> list[str]:
+    """项目级场景图 → 本镜场景参考。
+
+    - 0 张：[]
+    - 1 张：全项目共用（兼容旧种子）
+    - ≥2 张：按 shot.idx 取一张（门外/货架/收银台/出门），避免全集共用门外图
+    """
+    scenes = [str(u).strip() for u in (scene_images or []) if str(u or "").strip()]
+    if not scenes:
+        return []
+    if len(scenes) == 1:
+        return scenes
+    i = max(0, min(int(shot_idx or 0), len(scenes) - 1))
+    return [scenes[i]]
+
 def ref_urls(refs: list[RefImage]) -> list[str]:
     return [r.image_url for r in refs if r.image_url]
 
