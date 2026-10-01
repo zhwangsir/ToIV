@@ -266,7 +266,7 @@ async def ensure_h3_vram(client: ComfyUIClient) -> None:
     logger.warning("H3 显存不足(空闲 %.1fG < 阈值 %.1fG),尝试驱逐 H3 自身缓存", free, threshold)
     try:
         if await client.queue_len() == 0:
-            await client.free_memory()
+            await asyncio.wait_for(client.free_memory(), timeout=60.0)
             logger.info("已驱逐 H3 自身模型缓存")
             # /free 卸载是异步的(41G 级权重释放需数秒),立即复查会读到旧值
             # 误报 503(2026-08-21 竞态实证:驱逐后 9ms 复查仍 26.1G → 误杀批量补段)
@@ -277,23 +277,24 @@ async def ensure_h3_vram(client: ComfyUIClient) -> None:
                 return
         else:
             logger.info("H3 队列非空闲,不驱逐自身缓存")
-    except ComfyUIError as e:
-        logger.warning("驱逐 H3 自身缓存失败(忽略,继续协调同卡 worker): %s", e)
+    except (ComfyUIError, asyncio.TimeoutError) as e:
+        logger.warning("驱逐 H3 自身缓存失败/超时(忽略,继续协调同卡 worker): %s", e)
 
     # 2) 同卡 pool worker 空闲缓存
     logger.warning("H3 显存仍不足,尝试驱逐同卡 worker 缓存")
     evicted_any = False
     for url in settings.h3_co_worker_urls:
-        co = ComfyUIClient(url, timeout=settings.request_timeout)
+        # 短超时:同卡 worker /free 偶发挂死会拖垮整次 studio 渲染(Batch6 实证)
+        co = ComfyUIClient(url, timeout=min(20.0, float(settings.request_timeout or 60)))
         try:
             if await co.queue_len() > 0:
                 logger.info("同卡 worker %s 队列非空闲,不驱逐", url)
                 continue
-            await co.free_memory()
+            await asyncio.wait_for(co.free_memory(), timeout=25.0)
             evicted_any = True
             logger.info("已驱逐同卡 worker %s 的模型缓存", url)
-        except ComfyUIError as e:
-            logger.warning("驱逐同卡 worker %s 缓存失败(忽略,继续复查): %s", url, e)
+        except (ComfyUIError, asyncio.TimeoutError) as e:
+            logger.warning("驱逐同卡 worker %s 缓存失败/超时(忽略,继续复查): %s", url, e)
     try:
         if evicted_any:
             await asyncio.sleep(_VRAM_SETTLE_SEC)
