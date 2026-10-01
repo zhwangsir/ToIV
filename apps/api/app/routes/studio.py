@@ -307,12 +307,19 @@ async def generate_character_sheet_route(
         description=(c.description or "").strip(),
     )
     try:
+        try:
+            existing_refs = json.loads(c.reference_images or "[]")
+        except (ValueError, TypeError):
+            existing_refs = []
+        if not isinstance(existing_refs, list):
+            existing_refs = []
         url, _png = await sheet_svc.generate_character_sheet(
             character_id=c.id,
             meta=meta,
             pool=pool,
             worker=body.worker,
             seed=body.seed,
+            reuse_ref_urls=[u for u in existing_refs if isinstance(u, str)],
         )
     except sheet_svc.CharacterSheetError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e)) from e

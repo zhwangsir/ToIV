@@ -523,6 +523,36 @@ async def generate_panel_bytes(
     return data
 
 
+async def load_image_bytes_from_url(url: str) -> bytes | None:
+    """读取本服务 studio/files 或可直链图;失败返回 None。"""
+    from app.storage import drama_output_root
+
+    u = (url or "").strip()
+    if not u:
+        return None
+    marker = "/api/studio/files/"
+    if marker in u:
+        name = u.split(marker, 1)[-1].split("?", 1)[0]
+        if "/" in name or name.startswith("."):
+            return None
+        path = drama_output_root() / "studio" / name
+        if path.is_file():
+            return path.read_bytes()
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            r = await client.get(u if u.startswith("http") else f"http://127.0.0.1:8090{u}")
+            ctype = r.headers.get("content-type", "")
+            if r.status_code == 200 and (
+                r.content[:4] == b'\x89PNG' or ctype.startswith("image/")
+            ):
+                return r.content
+    except Exception:  # noqa: BLE001
+        logger.warning("设定卡:拉取参考图失败 url=%s", u[:120])
+    return None
+
+
 async def generate_character_sheet(
     *,
     character_id: str,
@@ -532,8 +562,12 @@ async def generate_character_sheet(
     worker: str | None = None,
     seed: int | None = None,
     panels_override: dict[str, bytes] | None = None,
+    reuse_ref_urls: list[str] | None = None,
 ) -> tuple[str, bytes]:
-    """出齐分格 → 拼版 → 落盘。返回 (url, png_bytes)。"""
+    """出齐分格 → 拼版 → 落盘。返回 (url, png_bytes)。
+
+    reuse_ref_urls:既有三视图 URL(非设定卡),可复用为 front/side/back/portrait 降负载。
+    """
     from app.config import get_settings
 
     if not (meta.name or "").strip():
@@ -547,6 +581,21 @@ async def generate_character_sheet(
 
     prompts = build_panel_prompts(meta)
     panels: dict[str, bytes] = dict(panels_override or {})
+
+    # 复用角色已有三视图,减少 GPU 出图次数
+    views = [u for u in (reuse_ref_urls or []) if u and not is_sheet_url(u)]
+    slot_map = ("front", "side", "back")
+    for i, key in enumerate(slot_map):
+        if key in panels or i >= len(views):
+            continue
+        data = await load_image_bytes_from_url(views[i])
+        if data:
+            panels[key] = data
+    if "portrait" not in panels and views:
+        data = await load_image_bytes_from_url(views[0])
+        if data:
+            panels["portrait"] = data
+
     missing = [k for k in _PANEL_KEYS if k not in panels]
     ckpt = ckpt_name or get_settings().default_ckpt
     for key in missing:
