@@ -1285,53 +1285,176 @@ def crop_head_from_figure(data: bytes, *, size: int = 768, top_frac: float = 0.3
 
 
 
-def enforce_head_shoulders_square(data: bytes, size: int = 768) -> bytes:
-    """头肩正方形裁切(fix13):以脸为中心 cover 铺满,禁灰边信箱。
 
-    先取前景包围盒(头顶→锁骨外扩),再做成正方形 crop 并 resize 铺满格子。
-    相对 fix11 禁半脸迭代;相对 fix12 去掉「最小 42% 边」导致的小人居中灰边。
-    """
-    img = Image.open(BytesIO(data)).convert("RGB")
+def _insightface_face_bbox_xyxy(data: bytes) -> tuple[float, float, float, float] | None:
+    """最大人脸框 (x1,y1,x2,y2) 像素坐标; insightface 不可用则 None。"""
+    try:
+        import numpy as np
+        import cv2
+        from insightface.app import FaceAnalysis
+        import os
+
+        arr = np.frombuffer(data, dtype=np.uint8)
+        bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if bgr is None:
+            return None
+        global _YAW_FACE_APP
+        app = _YAW_FACE_APP
+        if app is None:
+            root = os.environ.get("INSIGHTFACE_HOME") or os.path.expanduser(
+                "~/.insightface"
+            )
+            app = FaceAnalysis(
+                name="buffalo_l",
+                providers=["CPUExecutionProvider"],
+                root=root,
+            )
+            app.prepare(ctx_id=-1, det_size=(640, 640))
+            _YAW_FACE_APP = app
+        faces = app.get(bgr)
+        if not faces:
+            return None
+        f = sorted(
+            faces,
+            key=lambda x: (x.bbox[2] - x.bbox[0]) * (x.bbox[3] - x.bbox[1]),
+            reverse=True,
+        )[0]
+        bb = getattr(f, "bbox", None)
+        if bb is None:
+            return None
+        return float(bb[0]), float(bb[1]), float(bb[2]), float(bb[3])
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _heuristic_skin_face_bbox(
+    img: Image.Image,
+) -> tuple[int, int, int, int] | None:
+    """肤色/五官启发式脸框,优先上半身肤色块,避免宽袖汉服全身前景拉偏中心。"""
     w, h = img.size
     small = img.resize((64, 64), Image.Resampling.BILINEAR)
     sp = small.load()
     xs, ys = [], []
     for y in range(64):
+        # 忽略最底 30%(裙/袖),脸几乎都在上 70%
+        if y >= 46:
+            continue
         for x in range(64):
             r, g, b = sp[x, y]
             mx, mn = max(r, g, b), min(r, g, b)
-            if r > 230 and g > 230 and b > 230:
+            # 跳过近白/近灰底/近黑
+            if r > 235 and g > 235 and b > 235:
                 continue
-            if mx - mn < 14 and 70 <= mx <= 200:
+            if mx - mn < 12 and 60 <= mx <= 210:
                 continue
-            if mx < 22 and mx - mn < 8:
+            if mx < 28 and mx - mn < 10:
                 continue
-            xs.append(x)
-            ys.append(y)
-    if len(xs) >= 16:
-        minx, maxx = min(xs), max(xs)
-        miny, maxy = min(ys), max(ys)
-        span = max(1, maxy - miny)
-        # 向下扩展约 22% 纳入锁骨/肩领,勿截下巴
-        maxy = min(63, maxy + max(2, int(span * 0.22)))
-        # 向上略扩保住额头/发顶
-        miny = max(0, miny - max(1, int(span * 0.08)))
-        left0 = int(minx * w / 64)
-        right0 = int((maxx + 1) * w / 64)
-        top0 = int(miny * h / 64)
-        bot0 = int((maxy + 1) * h / 64)
-        bw, bh = max(1, right0 - left0), max(1, bot0 - top0)
-        # 正方形边长贴紧内容(轻度外扩),禁止强制 min(w,h)*0.42 造成灰边
-        pad = int(max(bw, bh) * 0.06)
-        side = int(max(bw, bh) * 1.04) + pad
+            # 写实肤色
+            skin_real = (
+                r > 95
+                and g > 40
+                and b > 20
+                and r >= g
+                and r >= b
+                and (r - g) > 10
+                and (mx - mn) > 15
+            )
+            # 二次元浅肤 / 粉白脸
+            skin_anime = (
+                r > 170
+                and g > 130
+                and b > 120
+                and r >= g - 5
+                and abs(g - b) < 45
+                and (mx - mn) > 8
+            )
+            if skin_real or skin_anime:
+                xs.append(x)
+                ys.append(y)
+    if len(xs) < 10:
+        return None
+    minx, maxx = min(xs), max(xs)
+    miny, maxy = min(ys), max(ys)
+    # 向上找发顶(深色块紧贴肤色上方)
+    hair_top = miny
+    for y in range(miny - 1, max(0, miny - 18), -1):
+        dark = 0
+        for x in range(max(0, minx - 2), min(63, maxx + 2) + 1):
+            r, g, b = sp[x, y]
+            if max(r, g, b) < 90:
+                dark += 1
+        if dark >= max(2, (maxx - minx) // 3):
+            hair_top = y
+        else:
+            break
+    miny = hair_top
+    pad = 1
+    minx, miny = max(0, minx - pad), max(0, miny - pad)
+    maxx, maxy = min(63, maxx + pad), min(63, maxy + pad)
+    left = int(minx * w / 64)
+    right = int((maxx + 1) * w / 64)
+    top = int(miny * h / 64)
+    bot = int((maxy + 1) * h / 64)
+    if right - left < 8 or bot - top < 8:
+        return None
+    return left, top, right, bot
+
+
+def enforce_head_shoulders_square(
+    data: bytes,
+    size: int = 768,
+    *,
+    skip_reframe: bool = False,
+) -> bytes:
+    """头肩正方形裁切(fix14):以**检测到的人脸框**为中心 cover 铺满。
+
+    - 优先 insightface 人脸框;否则肤色/五官启发式(禁整前景,避免宽袖/汉服拉偏)。
+    - 裁切轴=脸中心;上边≈脸顶再留约 10% 格高(发顶外扩);下边到锁骨(≈脸高×1.6–1.8)。
+    - skip_reframe=True:已合格锁定格(如 fix12b 侧脸)只做正方形铺满,不做激进重裁。
+    """
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    if skip_reframe:
+        side = min(w, h)
+        left = max(0, (w - side) // 2)
+        top = max(0, (h - side) // 2)
+        # 高图锁定侧脸:优先取上部头肩方块,勿居中切掉头顶
+        if h > w * 1.15:
+            top = max(0, min(h - side, int(h * 0.02)))
+        crop = img.crop((left, top, left + side, top + side))
+        crop = crop.resize((size, size), Image.Resampling.LANCZOS)
+        buf = BytesIO()
+        crop.save(buf, format="PNG")
+        return buf.getvalue()
+
+    face_bb = _insightface_face_bbox_xyxy(data)
+    if face_bb is None:
+        face_bb = _heuristic_skin_face_bbox(img)
+    if face_bb is not None:
+        fx1, fy1, fx2, fy2 = [float(v) for v in face_bb]
+        fw = max(8.0, fx2 - fx1)
+        fh = max(8.0, fy2 - fy1)
+        fcx = (fx1 + fx2) / 2.0
+        # 竖向:脸顶上留发,下扩到锁骨
+        span_h = fh * 1.75
+        span_w = max(fw * 1.40, span_h * 0.92)
+        side = int(max(span_w, span_h))
         side = max(side, 64)
         side = min(side, w, h)
-        cx = (left0 + right0) // 2
-        cy = (top0 + bot0) // 2
-        cy = max(side // 2, cy - int(side * 0.03))
-        left = max(0, min(w - side, cx - side // 2))
-        top = max(0, min(h - side, cy - side // 2))
+        # 脸中心为水平轴;竖直使脸顶约在裁切框 10% 处
+        left = int(round(fcx - side / 2.0))
+        top = int(round(fy1 - 0.10 * side))
+        left = max(0, min(w - side, left))
+        top = max(0, min(h - side, top))
+        if top + side > h:
+            top = max(0, h - side)
+        # 校验:脸中心仍在裁切框内(防侧脸只剩下巴/耳)
+        if not (left + side * 0.12 <= fcx <= left + side * 0.88):
+            left = max(0, min(w - side, int(round(fcx - side / 2.0))))
+        if not (top + side * 0.05 <= fy1 <= top + side * 0.45):
+            top = max(0, min(h - side, int(round(fy1 - 0.10 * side))))
     else:
+        # 最后回退:上半身中心方裁(仍偏上,勿用全身前景)
         cx, cy = w // 2, int(h * 0.28)
         side = min(w, h, max(int(h * 0.48), int(w * 0.55)))
         left = max(0, min(w - side, cx - side // 2))
@@ -2098,7 +2221,7 @@ async def generate_character_sheet(
                         ckpt_name=ckpt,
                         width=768,
                         height=768,
-                        seed=seed,  # fix13: 同批同 seed 出正/45/侧,减少画风漂移
+                        seed=None if seed is None else seed + (abs(hash(fk)) % 10000),
                         worker=worker,
                         filename_prefix=f"ToIV_char_sheet_{fk}_pose",
                         style=meta.style,
@@ -2123,7 +2246,7 @@ async def generate_character_sheet(
                         ckpt_name=ckpt,
                         width=768,
                         height=768,
-                        seed=seed,  # fix13: 同批同 seed
+                        seed=None if seed is None else seed + (abs(hash(fk)) % 10000),
                         worker=worker,
                         filename_prefix=f"ToIV_char_sheet_{fk}",
                         style=meta.style,
@@ -2901,30 +3024,104 @@ def _trim_letterbox_rgb(img: Image.Image) -> Image.Image:
     return img.crop((left, top, right, bot))
 
 
+def _fit_cover_focus(
+    img: Image.Image,
+    box: tuple[int, int, int, int],
+    focus_xy: tuple[float, float] | None = None,
+) -> tuple[Image.Image, tuple[int, int]]:
+    """cover 铺满格子;若给 focus_xy(源图像素)则裁切窗对准该点(防侧脸居中砍掉五官)。"""
+    x, y, w, h = box
+    src = img.convert("RGBA")
+    sw, sh = src.size
+    scale = max(w / sw, h / sh)
+    nw, nh = max(1, int(sw * scale)), max(1, int(sh * scale))
+    src = src.resize((nw, nh), Image.Resampling.LANCZOS)
+    if focus_xy is None:
+        left = max(0, (nw - w) // 2)
+        top = max(0, (nh - h) // 2)
+    else:
+        fx = float(focus_xy[0]) * (nw / max(sw, 1))
+        fy = float(focus_xy[1]) * (nh / max(sh, 1))
+        left = int(round(fx - w / 2.0))
+        top = int(round(fy - h / 2.0))
+        left = max(0, min(nw - w, left))
+        top = max(0, min(nh - h, top))
+    src = src.crop((left, top, left + w, top + h))
+    return src, (x, y)
+
+
 def compose_faces_triptych(
     faces: dict[str, bytes],
     *,
     style: str = "anime",
     size: tuple[int, int] = (1024, 640),
+    skip_enforce_keys: set[str] | frozenset[str] | None = None,
 ) -> bytes:
     """正/3-4/侧 三个头部特写横拼为 faces 面板。
 
-    fix13:先 trim 灰边信箱,再 cover 裁切铺满格(以脸为中心),禁小人居中灰边。
+    fix14:人脸中心 cover;锁定合格侧脸可 skip_enforce_keys 跳过激进重裁。
+    入格 cover 按人脸焦点裁(高格水平居中会砍掉侧脸五官)。
+    二次元浅底:已正方形铺满源谨慎 trim,避免 cel 线/浅底被当灰边。
     """
     bg = (248, 248, 252) if style == "anime" else (20, 22, 28)
     canvas = Image.new("RGB", size, bg)
     keys = ("face_front", "face_three_quarter", "face_side")
     cell_w = size[0] // 3
+    skip = set(skip_enforce_keys or ())
     for i, key in enumerate(keys):
         raw = faces.get(key)
         if not raw:
             continue
-        # 入格前再过一次头肩正方形,保证 cover 源本身已铺满
-        filled = enforce_head_shoulders_square(raw, size=768)
+        if key in skip:
+            filled = enforce_head_shoulders_square(raw, size=768, skip_reframe=True)
+        else:
+            filled = enforce_head_shoulders_square(raw, size=768)
+        # 焦点:filled 上的人脸中心(用于高格 cover)
+        focus = None
+        bb = _insightface_face_bbox_xyxy(filled)
+        if bb is not None:
+            focus = ((bb[0] + bb[2]) / 2.0, (bb[1] + bb[3]) / 2.0)
+        else:
+            him = Image.open(BytesIO(filled)).convert("RGB")
+            hbb = _heuristic_skin_face_bbox(him)
+            if hbb is not None:
+                focus = ((hbb[0] + hbb[2]) / 2.0, (hbb[1] + hbb[3]) / 2.0)
         img = Image.open(BytesIO(filled)).convert("RGBA")
-        img = _trim_letterbox_rgb(img).convert("RGBA")
+        iw, ih = img.size
+        if iw != ih or min(iw, ih) < 200:
+            img = _trim_letterbox_rgb(img).convert("RGBA")
+        else:
+            sample = img.convert("RGB").resize((32, 32), Image.Resampling.BILINEAR)
+            spx = list(sample.getdata())
+
+            def _edge_gray(cols, rows):
+                n = 0
+                g = 0
+                for yy in rows:
+                    for xx in cols:
+                        r, gv, b = spx[yy * 32 + xx]
+                        n += 1
+                        mx, mn = max(r, gv, b), min(r, gv, b)
+                        if (r > 230 and gv > 230 and b > 230) or (
+                            mx - mn < 14 and 65 <= mx <= 210
+                        ):
+                            g += 1
+                return g / max(n, 1)
+
+            left_g = _edge_gray(range(0, 3), range(32))
+            right_g = _edge_gray(range(29, 32), range(32))
+            top_g = _edge_gray(range(32), range(0, 3))
+            bot_g = _edge_gray(range(32), range(29, 32))
+            if left_g > 0.85 and right_g > 0.85 and (top_g > 0.5 or bot_g > 0.5):
+                img = _trim_letterbox_rgb(img).convert("RGBA")
+                # trim 后焦点按比例缩放
+                if focus is not None and iw > 0 and ih > 0:
+                    focus = (
+                        focus[0] * img.width / iw,
+                        focus[1] * img.height / ih,
+                    )
         box = (i * cell_w + 4, 4, cell_w - 8, size[1] - 8)
-        fitted, pos = _fit(img, box, cover=True)
+        fitted, pos = _fit_cover_focus(img, box, focus_xy=focus)
         canvas.paste(fitted.convert("RGB"), pos)
     buf = BytesIO()
     canvas.save(buf, format="PNG")
