@@ -155,20 +155,23 @@ _CJK_FONT_CANDIDATES = (
 _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
     (
         "raincoat",
-        "product still life, single object only, one matte jet-black hooded raincoat "
-        "spread flat on table, pure black nylon fabric, zipper visible, "
-        "solid seamless pure white background, studio lighting, clean empty floor, "
-        "no person, no face, no mannequin, no wearing, no cloak, no cape, no poncho, "
-        "no beige, no brown, no tan, no khaki, no red, no text, no chinese, "
-        "no debris, no stray objects, no black arcs, no shadows clutter",
+        "product still life, single object only, one complete matte jet-black hooded raincoat "
+        "garment laid flat open on table, visible hood attached at collar, two long sleeves, "
+        "full torso panels, zipper down the front, pure black nylon fabric filling most of frame, "
+        "clothing flat lay catalog photo, solid seamless pure white background, studio lighting, "
+        "no empty frame, no blank white image, no person, no face, no mannequin, no wearing, "
+        "no cloak, no cape, no poncho, no beige, no brown, no tan, no khaki, no red, no text, "
+        "no chinese, no debris, no stray objects",
     ),
     (
         "pants",
-        "product still life, single object only, one pair matte jet-black trousers "
-        "laid flat folded on table, pure black fabric, clothing flat lay, "
+        "product still life, single object only, one complete pair matte jet-black trousers "
+        "laid flat fully visible on table, two pant legs clearly separated, waistband and zipper, "
+        "pure black fabric filling most of frame, clothing flat lay catalog photo, "
         "solid seamless pure white background, studio lighting, "
-        "no person, no face, no body, no mannequin, no legs wearing pants, "
-        "no human silhouette, no cloak, no cape, no beige, no brown, no tan, no red, no text",
+        "no empty frame, no blank white image, no person, no face, no body, no mannequin, "
+        "no legs wearing pants, no human silhouette, no cloak, no cape, no beige, no brown, "
+        "no tan, no red, no text",
     ),
     (
         "boots",
@@ -1618,7 +1621,11 @@ def _pick_best_candidate(cands: list[bytes], key: str) -> bytes:
             el = edge_light / edge_n
             if cd > 0.35 and el > 0.4:
                 humanoid = cd * el
-        return beige / n - black / n + humanoid * 2.5
+        # 空镜/近白严重惩罚(雨衣空镜根因);要求足够黑像素
+        empty = 0.0
+        if black / n < 0.12:
+            empty = (0.12 - black / n) * 8.0
+        return beige / n - black / n + humanoid * 2.5 + empty
 
     ranked = sorted(
         cands,
@@ -1710,6 +1717,20 @@ async def _generate_costume_collage(
                 "pair of black rain boots, product shot, no person, "
                 + prompt
                 + ", footwear product photography only"
+            )
+        elif item_key == "pants":
+            prompt = (
+                "flat lay complete black trousers only, two legs visible, product shot, "
+                "no person, no mannequin, garment fills frame, "
+                + prompt
+                + ", clothing only, not empty"
+            )
+        elif item_key == "raincoat":
+            prompt = (
+                "flat lay complete black hooded raincoat only, hood and sleeves visible, "
+                "product shot, no person, no mannequin, garment fills frame, "
+                + prompt
+                + ", clothing only, not empty white frame"
             )
         w, h = (768, 768) if meta.style == "anime" else (512, 512)
         data = await generate_panel_bytes(
@@ -1936,9 +1957,17 @@ async def regenerate_sheet_panels(
                     )
                 elif item_key == "pants":
                     prompt = (
-                        "flat lay black trousers only, product shot, no person, no mannequin, "
+                        "flat lay complete black trousers only, two legs visible, product shot, "
+                        "no person, no mannequin, garment fills frame, "
                         + prompt
-                        + ", garment folded on table, clothing only"
+                        + ", clothing only, not empty"
+                    )
+                elif item_key == "raincoat":
+                    prompt = (
+                        "flat lay complete black hooded raincoat only, hood and sleeves visible, "
+                        "product shot, no person, no mannequin, garment fills frame, "
+                        + prompt
+                        + ", clothing only, not empty white frame"
                     )
                 for ci in range(max(1, n_candidates)):
                     w, h = (768, 768) if meta.style == "anime" else (512, 512)
