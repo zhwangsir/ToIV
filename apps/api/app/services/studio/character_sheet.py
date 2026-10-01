@@ -312,12 +312,14 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
             f"same character same black hooded raincoat, standing straight, single person only, {solid}, {suf}"
         ),
         "side": (
-            f"{base}, side view full body turnaround of {name}, orthographic profile, "
-            f"same character same black hooded raincoat, standing straight, single person only, {solid}, {suf}"
+            f"{base}, STRICT side profile full body turnaround of {name}, looking left, 90 degree side, "
+            f"orthographic, same character same black hooded raincoat, standing straight, "
+            f"single person only, NOT front view, {solid}, {suf}"
         ),
         "back": (
-            f"{base}, back view full body turnaround of {name}, orthographic from behind, "
-            f"facing away, same character same black hooded raincoat, {solid}, {suf}"
+            f"{base}, STRICT back view full body turnaround of {name}, facing away from camera, "
+            f"showing back of hood and coat, orthographic, single person only, "
+            f"same character same black hooded raincoat, NOT front view, NOT face, {solid}, {suf}"
         ),
         "faces": (
             f"{base}, face and hairstyle multi-angle closeups of {name}, "
@@ -1220,9 +1222,9 @@ async def generate_character_sheet(
         denoise = 0.62
         if key in ("front", "side", "back") and ref_name:
             use_ref = ref_name
-            # anime:img2img 更稳;ancient:IPA 保脸/姿态
-            ref_mode = "img2img" if meta.style == "anime" else "ipa"
-            denoise = 0.72 if meta.style == "anime" else 0.65
+            # 三视图统一 IPA 保同一人(img2img 易锁死正面)
+            ref_mode = "ipa"
+            denoise = 0.65
         elif key == "faces" and (face_ref_name or ref_name):
             use_ref = face_ref_name or ref_name
             ref_mode = "img2img" if meta.style == "anime" else "ipa"
