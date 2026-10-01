@@ -309,11 +309,11 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
         ),
         "front": (
             f"{base}, front view full body turnaround of {name}, orthographic, "
-            f"same character same black hooded raincoat, standing straight, {solid}, {suf}"
+            f"same character same black hooded raincoat, standing straight, single person only, {solid}, {suf}"
         ),
         "side": (
             f"{base}, side view full body turnaround of {name}, orthographic profile, "
-            f"same character same black hooded raincoat, standing straight, {solid}, {suf}"
+            f"same character same black hooded raincoat, standing straight, single person only, {solid}, {suf}"
         ),
         "back": (
             f"{base}, back view full body turnaround of {name}, orthographic from behind, "
@@ -762,6 +762,21 @@ def placeholder_panel(
     return img
 
 
+def crop_face_ref(portrait_bytes: bytes, size: int = 768) -> bytes:
+    """从立绘取上半身/脸部正方形参考,供表情 img2img 保同一人。"""
+    img = Image.open(BytesIO(portrait_bytes)).convert("RGB")
+    w, h = img.size
+    # 取上部 55% 高度居中正方形
+    side = min(w, int(h * 0.55))
+    left = max(0, (w - side) // 2)
+    top = max(0, int(h * 0.02))
+    crop = img.crop((left, top, left + side, top + side))
+    crop = crop.resize((size, size), Image.Resampling.LANCZOS)
+    buf = BytesIO()
+    crop.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 async def _wait_images(client: Any, prompt_id: str) -> list[dict]:
     waited = 0.0
     from app.comfy.client import ComfyUIError
@@ -1179,14 +1194,20 @@ async def generate_character_sheet(
 
     # 2) 上传立绘作 IPAdapter 参考
     ref_name: str | None = None
+    face_ref_name: str | None = None
     try:
         ref_name = await client.upload_image(
             panels["portrait"],
             f"sheet_ref_{character_id[:8]}_{meta.style}.png",
         )
+        face_bytes = crop_face_ref(panels["portrait"])
+        face_ref_name = await client.upload_image(
+            face_bytes,
+            f"sheet_face_{character_id[:8]}_{meta.style}.png",
+        )
     except Exception as e:  # noqa: BLE001
-        logger.warning("设定卡:上传立绘参考失败,三视图退回 txt2img: %s", e)
-        ref_name = None
+        logger.warning("设定卡:上传立绘/脸参考失败,后续退回 txt2img: %s", e)
+        ref_name = ref_name  # may be set
 
     # 3) 其余面板(三视图/脸/服饰/6 表情)
     need_keys = list(_PANEL_KEYS) + list(_EXPR_KEYS)
@@ -1202,16 +1223,17 @@ async def generate_character_sheet(
             # anime:img2img 更稳;ancient:IPA 保脸/姿态
             ref_mode = "img2img" if meta.style == "anime" else "ipa"
             denoise = 0.72 if meta.style == "anime" else 0.65
-        elif key == "faces" and ref_name:
-            use_ref = ref_name
+        elif key == "faces" and (face_ref_name or ref_name):
+            use_ref = face_ref_name or ref_name
             ref_mode = "img2img" if meta.style == "anime" else "ipa"
-            denoise = 0.60
+            denoise = 0.58
         elif key.startswith("expr_"):
-            # 表情:anime 纯 txt2img 避免全身参考拉伸成拼贴;ancient 用 IPA 保同一张脸
-            if meta.style == "ancient_realistic" and ref_name:
-                use_ref = ref_name
-                ref_mode = "ipa"
-                denoise = 0.55
+            # 表情:优先用裁脸参考 img2img/IPA,保证同一人
+            face = face_ref_name or ref_name
+            if face:
+                use_ref = face
+                ref_mode = "img2img" if meta.style == "anime" else "ipa"
+                denoise = 0.48 if meta.style == "anime" else 0.55
             else:
                 use_ref = None
                 ref_mode = "none"
