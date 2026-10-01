@@ -167,19 +167,23 @@ _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
     ),
     (
         "pants",
-        "product still life, single object only, one complete pair matte jet-black trousers "
-        "laid flat fully visible, two long pant legs clearly separated side by side, "
-        "waistband visible, pure jet black fabric only, clothing flat lay catalog photo, "
-        "solid seamless pure white background, studio lighting, "
-        "no person, no face, no body, no mannequin, no shorts, no short pants, no bermuda, no cropped pants, no knee-length, no skirt, "
+        "product still life, single object only, ONE single pair of long black trousers, "
+        "full length to ankles, one item only, exactly one waistband and two long pant legs, "
+        "laid flat fully visible side by side, matte jet-black fabric, clothing flat lay catalog photo, "
+        "fills most of frame, solid seamless pure white background, studio lighting, "
+        "no person, no face, no body, no mannequin, no shorts, no short pants, no bermuda, "
+        "no cropped pants, no knee-length, no skirt, no multiple pairs, no repeated pants, "
+        "no row of pants, no four pants, no collage of pants, no grid of trousers, "
         "no navy, no blue, no grey, no beige, no brown, no cloak, no text",
     ),
     (
         "boots",
-        "product still life, single object only, one pair glossy jet-black rubber rain boots "
+        "product still life, single object only, one pair (exactly two) glossy jet-black rubber rain boots "
         "standing side by side, footwear only, empty boots, pure black rubber, "
-        "solid seamless pure white background, studio lighting, "
+        "fills most of frame, solid seamless pure white background, studio lighting, "
         "no person, no face, no body, no mannequin, no legs, no feet inside, "
+        "no many boots, no row of boots, no repeated boots, no multiple pairs, "
+        "no five boots, no six boots, no line of boots, no collage of footwear, "
         "no sandals, no text, no debris",
     ),
     (
@@ -209,6 +213,19 @@ _COSTUME_FORCE = (
     "no beige jacket, no blue jacket, no red cloak, no beige cloak, no brown cloak, "
     "fashion design sheet"
 )
+
+# 单品附加负向(防多件/重复/短裤);在 _build_sheet_graph 里按 prompt 关键字拼接
+_COSTUME_ITEM_NEGATIVE: dict[str, str] = {
+    "pants": (
+        "shorts, short pants, bermuda, cropped pants, knee-length pants, skirt, "
+        "multiple pairs, repeated pants, row of pants, many pants, four pants, "
+        "collage of pants, grid of trousers, split screen pants, duplicate trousers"
+    ),
+    "boots": (
+        "many boots, row of boots, repeated boots, multiple pairs, five boots, six boots, "
+        "line of boots, collage of footwear, duplicate rain boots, crowd of boots"
+    ),
+}
 
 
 def _costume_template_bytes(item_key: str, size: int = 768) -> bytes:
@@ -262,8 +279,34 @@ def _costume_template_bytes(item_key: str, size: int = 768) -> bytes:
     return buf.getvalue()
 
 
+def _count_dark_blobs(px: list[tuple[int, int, int]], size: int = 64, thr: int = 80) -> int:
+    """64x64 暗色连通域数量(4-邻域);用于惩罚一格多件/一排重复。"""
+    dark = [False] * (size * size)
+    for i, (r, g, b) in enumerate(px):
+        dark[i] = r < thr and g < thr and b < thr + 10
+    seen = [False] * (size * size)
+    blobs = 0
+    for i in range(size * size):
+        if not dark[i] or seen[i]:
+            continue
+        blobs += 1
+        stack = [i]
+        seen[i] = True
+        while stack:
+            cur = stack.pop()
+            x, y = cur % size, cur // size
+            for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                if nx < 0 or ny < 0 or nx >= size or ny >= size:
+                    continue
+                j = ny * size + nx
+                if dark[j] and not seen[j]:
+                    seen[j] = True
+                    stack.append(j)
+    return blobs
+
+
 def _costume_item_penalty(data: bytes, item_key: str) -> float:
-    """越大越差;按单品约束(雨衣必须够黑、伞不能实心黑、袋偏白)。"""
+    """越大越差;按单品约束(雨衣必须够黑、伞不能实心黑、袋偏白;裤/靴禁多件)。"""
     img = Image.open(BytesIO(data)).convert("RGB").resize((64, 64))
     px = list(img.getdata())
     n = max(1, len(px))
@@ -275,6 +318,7 @@ def _costume_item_penalty(data: bytes, item_key: str) -> float:
     beige = sum(1 for r, g, b in px if r > 120 and g > 90 and b < r - 15 and abs(r - g) < 45)
     pen = beige / n
     br, wr, lr = black / n, white / n, light / n
+    blobs = _count_dark_blobs(px)
     if item_key in ("raincoat", "pants", "boots"):
         if br < 0.18:
             pen += (0.18 - br) * 10.0
@@ -287,6 +331,25 @@ def _costume_item_penalty(data: bytes, item_key: str) -> float:
         center = px[20 * 64 + 32]
         if center[0] < 80 and wr > 0.35:
             pen += 1.5
+    if item_key == "pants":
+        # 一条长裤通常 1–2 个暗连通域;4 条短裤/一排重复 → 多 blob
+        if blobs >= 4:
+            pen += 6.0 + (blobs - 4) * 2.0
+        elif blobs == 3:
+            pen += 2.5
+        # 短裤倾向:上下半暗区高度偏矮(暗像素集中在中带)
+        rows_dark = [sum(1 for x in range(64) if px[y * 64 + x][0] < 70) for y in range(64)]
+        active = [y for y, c in enumerate(rows_dark) if c > 6]
+        if active:
+            span = (active[-1] - active[0] + 1) / 64.0
+            if span < 0.55:
+                pen += (0.55 - span) * 8.0  # 竖向不够长 → 像短裤/裁切
+    elif item_key == "boots":
+        # 一对靴 ≈ 1–2 blob;一排五六只 → blob≥4
+        if blobs >= 4:
+            pen += 7.0 + (blobs - 4) * 2.5
+        elif blobs == 3:
+            pen += 3.0
     elif item_key == "umbrella":
         # 要半透明结构,不要实心黑帽/灯
         if br > 0.45:
@@ -1110,6 +1173,15 @@ def _build_sheet_graph(
             + ", person, face, body, human, model, mannequin, wearing clothes, "
             "legs, feet, silhouette, bodysuit, tight suit"
         )
+    if (
+        "trousers" in pl
+        or "long pants" in pl
+        or "pant legs" in pl
+        or ("pants" in pl and "product" in pl)
+    ):
+        neg = neg + ", " + _COSTUME_ITEM_NEGATIVE["pants"]
+    if "rain boots" in pl or ("boots" in pl and "product" in pl):
+        neg = neg + ", " + _COSTUME_ITEM_NEGATIVE["boots"]
     if "head and shoulders" in pl or "extreme face closeup" in pl:
         neg = (
             neg
@@ -1790,14 +1862,18 @@ async def _generate_costume_collage(
         prompt = f"{item_prompt}, {suf}"
         if item_key == "boots":
             prompt = (
-                "pair of black rain boots, product shot, no person, "
+                "one pair (two) black rain boots only, exactly two boots side by side, "
+                "NOT many boots, NOT a row of boots, NOT repeated, NOT multiple pairs, "
+                "product shot, no person, "
                 + prompt
-                + ", footwear product photography only"
+                + ", footwear product photography only, single pair"
             )
         elif item_key == "pants":
             prompt = (
-                "flat lay complete full-length black long pants trousers only, two long legs to ankles, "
-                "NOT shorts, NOT knee-length, product shot, no person, no mannequin, garment fills frame, "
+                "single pair of long black trousers, full length, one item only, "
+                "exactly one pair laid flat, two long legs to ankles, "
+                "NOT shorts, NOT knee-length, NOT multiple, NOT repeated, NOT a row of pants, "
+                "product shot, no person, no mannequin, garment fills frame, "
                 + prompt
                 + ", clothing only, not empty"
             )
@@ -2026,22 +2102,35 @@ async def regenerate_sheet_panels(
         )
     for key in need:
         if key == "costume":
-            # 五件各出 n_candidates 再挑,再 collage
+            # 五件各出 n_candidates 再挑,再 collage;
+            # 若 locked_panels 含 costume_<item>(如 costume_raincoat)则跳过该格,只重跑未锁定单品
             picked_items: list[bytes] = []
             suf = _STYLE_SUFFIX.get(meta.style, _STYLE_SUFFIX["anime"])
+            locked_item_keys: list[str] = []
+            regen_item_keys: list[str] = []
             for idx, (item_key, item_prompt) in enumerate(_COSTUME_ITEMS):
+                lock_key = f"costume_{item_key}"
+                if lock_key in panels and panels[lock_key]:
+                    picked_items.append(panels[lock_key])
+                    locked_item_keys.append(item_key)
+                    continue
+                regen_item_keys.append(item_key)
                 cands: list[bytes] = []
                 prompt = f"{item_prompt}, {suf}"
                 if item_key == "boots":
                     prompt = (
-                        "pair of black rain boots, product shot, no person, "
+                        "one pair (two) black rain boots only, exactly two boots side by side, "
+                        "NOT many boots, NOT a row of boots, NOT repeated, NOT multiple pairs, "
+                        "product shot, no person, "
                         + prompt
-                        + ", footwear product photography only"
+                        + ", footwear product photography only, single pair"
                     )
                 elif item_key == "pants":
                     prompt = (
-                        "flat lay complete black trousers only, two legs visible, product shot, "
-                        "no person, no mannequin, garment fills frame, "
+                        "single pair of long black trousers, full length, one item only, "
+                        "exactly one pair laid flat, two long legs to ankles, "
+                        "NOT shorts, NOT knee-length, NOT multiple, NOT repeated, NOT a row of pants, "
+                        "product shot, no person, no mannequin, garment fills frame, "
                         + prompt
                         + ", clothing only, not empty"
                     )
@@ -2088,7 +2177,11 @@ async def regenerate_sheet_panels(
                     )
                 picked_items.append(_pick_best_candidate(cands, f"costume_{item_key}"))
             panels["costume"] = collage_costume_items(picked_items, style=meta.style)
-            debug["picks"]["costume"] = {"items": [k for k, _ in _COSTUME_ITEMS]}
+            debug["picks"]["costume"] = {
+                "items": [k for k, _ in _COSTUME_ITEMS],
+                "locked_items": locked_item_keys,
+                "regen_items": regen_item_keys,
+            }
             continue
 
         cands = []
