@@ -2170,27 +2170,50 @@ async def regenerate_sheet_panels(
                         + prompt
                         + ", white polyethylene, not blue"
                     )
-                # 00:01 父代理:回退文生图,不用模板 img2img(易出剪影)
-                for ci in range(max(1, n_candidates)):
-                    w, h = (768, 768) if meta.style == "anime" else (512, 512)
-                    cands.append(
-                        await generate_panel_bytes(
-                            pool,
-                            prompt,
-                            ckpt_name=ckpt,
-                            width=w,
-                            height=h,
-                            seed=None
-                            if seed is None
-                            else seed + 8000 + idx * 10 + ci,
-                            worker=worker,
-                            filename_prefix=f"ToIV_char_sheet_costume_{item_key}",
-                            style=meta.style,
-                            client=client,
-                            ref_image=None,
-                            ref_mode="none",
-                            denoise=1.0,
+                # 雨衣/伞/袋/裤:文生图;靴:模板 img2img 锚定「正好两只」形状(高 denoise 避死剪影)
+                boot_ref = None
+                ref_mode_item = "none"
+                denoise_item = 1.0
+                if item_key == "boots":
+                    try:
+                        boot_ref = await client.upload_image(
+                            _costume_template_bytes("boots", size=768),
+                            f"sheet_boot_tpl_{character_id[:8]}.png",
                         )
+                        ref_mode_item = "img2img"
+                        denoise_item = 0.82
+                    except Exception as e:  # noqa: BLE001
+                        logger.warning("靴模板上传失败,回退文生图: %s", e)
+                rounds = 2 if item_key == "boots" else 1
+                for round_i in range(rounds):
+                    for ci in range(max(1, n_candidates)):
+                        w, h = (768, 768) if meta.style == "anime" else (512, 512)
+                        cands.append(
+                            await generate_panel_bytes(
+                                pool,
+                                prompt,
+                                ckpt_name=ckpt,
+                                width=w,
+                                height=h,
+                                seed=None
+                                if seed is None
+                                else seed + 8000 + idx * 10 + ci + round_i * 100,
+                                worker=worker,
+                                filename_prefix=f"ToIV_char_sheet_costume_{item_key}",
+                                style=meta.style,
+                                client=client,
+                                ref_image=boot_ref,
+                                ref_mode=ref_mode_item,
+                                denoise=denoise_item,
+                            )
+                        )
+                    best_try = _pick_best_candidate(cands, f"costume_{item_key}")
+                    img = Image.open(BytesIO(best_try)).convert("RGB").resize((64, 64))
+                    blobs = _count_dark_blobs(list(img.getdata()))
+                    if item_key != "boots" or blobs <= 2:
+                        break
+                    logger.warning(
+                        "靴候选仍多件(blobs=%s),再抽一轮 n=%s", blobs, n_candidates
                     )
                 picked_items.append(_pick_best_candidate(cands, f"costume_{item_key}"))
             panels["costume"] = collage_costume_items(picked_items, style=meta.style)
