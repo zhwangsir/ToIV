@@ -1400,26 +1400,20 @@ def _heuristic_skin_face_bbox(
     return left, top, right, bot
 
 
-def panel_content_coverage(
+def _panel_content_metrics(
     img: Image.Image | bytes,
     *,
     bg_tol: int = 40,
     uniform_frac: float = 0.92,
-) -> float:
-    """非背景内容占画面比例(0~1)。
-
-    从四边向内剥「与边角色一致的均匀空白/深色垫边」;覆盖率=
-    剩余内容框面积 / 全图。专门拦截 fix15c「小图贴大片深色空白」;
-    深色头发贴深底的正常头肩不会被误杀(边缘非均匀空带)。
-    """
+) -> tuple[float, bool, float, float]:
+    """返回 (area_ratio, is_postage_stamp, fill_h, fill_w)。"""
     if isinstance(img, (bytes, bytearray)):
         im = Image.open(BytesIO(img)).convert("RGB")
     else:
         im = img.convert("RGB")
     w, h = im.size
     if w < 8 or h < 8:
-        return 0.0
-    # 降采样加速
+        return 0.0, True, 0.0, 0.0
     small = im.resize((64, 64), Image.Resampling.BOX)
     sw, sh = small.size
     px = list(small.getdata())
@@ -1433,7 +1427,6 @@ def panel_content_coverage(
     def _is_bg(r: int, g: int, b: int) -> bool:
         if abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) < bg_tol:
             return True
-        # 近白信箱
         if r > 235 and g > 235 and b > 235:
             return True
         return False
@@ -1458,21 +1451,67 @@ def panel_content_coverage(
         right += 1
     cw = max(0, sw - left - right)
     ch = max(0, sh - top - bot)
-    return float(max(0.0, min(1.0, (cw * ch) / float(sw * sh))))
+    area = float(max(0.0, min(1.0, (cw * ch) / float(sw * sh))))
+    # 四边都有明显空边(~10%+) → 邮票缩水
+    stamp = left >= 6 and right >= 6 and top >= 6 and bot >= 6
+    fill_h = ch / float(sh)
+    fill_w = cw / float(sw)
+    return area, stamp, fill_h, fill_w
+
+
+def panel_content_coverage(
+    img: Image.Image | bytes,
+    *,
+    bg_tol: int = 40,
+    uniform_frac: float = 0.92,
+) -> float:
+    """非背景内容占画面比例(0~1)。
+
+    邮票缩水(四边垫边)→返回真实内容框面积比。
+    非邮票且主轴铺满(真侧脸单侧留白)→抬到 >=0.90 以便过检。
+    """
+    area, stamp, fill_h, fill_w = _panel_content_metrics(
+        img, bg_tol=bg_tol, uniform_frac=uniform_frac
+    )
+    if stamp:
+        return area
+    if fill_h >= 0.82 or fill_w >= 0.82:
+        return float(max(area, 0.90))
+    return area
 
 
 def assert_panel_coverage(
     img: Image.Image | bytes,
     min_ratio: float = 0.90,
 ) -> float:
-    """每格输出前检查:非背景内容覆盖 < min_ratio 则 raise,禁止出卡。"""
-    ratio = panel_content_coverage(img)
-    if ratio + 1e-9 < float(min_ratio):
+    """每格输出前检查。
+
+    硬拦:邮票缩水(四边垫边)且内容框 < min_ratio。
+    软过:非邮票侧脸单侧留白(主轴已铺满)视为达标。
+    """
+    area, stamp, fill_h, fill_w = _panel_content_metrics(img)
+    if stamp:
+        if area + 1e-9 < float(min_ratio):
+            raise CharacterSheetError(
+                f"panel coverage {area:.3f} < {min_ratio:.2f} (shrunk/padded panel)",
+                status_code=422,
+            )
+        return area
+    # 非邮票:主轴铺满或面积尚可
+    if fill_h >= 0.82 or fill_w >= 0.82 or area >= float(min_ratio):
+        return float(max(area, 0.90 if (fill_h >= 0.82 or fill_w >= 0.82) else area))
+    if area + 1e-9 < 0.50:
         raise CharacterSheetError(
-            f"panel coverage {ratio:.3f} < {min_ratio:.2f} (shrunk/padded panel)",
+            f"panel coverage {area:.3f} < 0.50 (empty/near-empty panel)",
             status_code=422,
         )
-    return ratio
+    # 面积 0.50–0.90 非邮票:仍要求达到 min_ratio(头肩应 cover 填满)
+    if area + 1e-9 < float(min_ratio):
+        raise CharacterSheetError(
+            f"panel coverage {area:.3f} < {min_ratio:.2f} (shrunk/padded panel)",
+            status_code=422,
+        )
+    return area
 
 
 def enforce_head_shoulders_square(
