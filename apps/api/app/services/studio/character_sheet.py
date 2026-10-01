@@ -87,19 +87,20 @@ _STYLE_NEGATIVE = {
     "ancient_realistic": (
         "blurry, low quality, text, watermark, deformed, extra limbs, "
         "hanfu, ancient chinese clothing, white robe, white hanfu, "
-        "multiple people, collage, split screen, grid"
+        "multiple people, collage, split screen, grid, glitch, chromatic aberration"
     ),
     "anime": (
         "photorealistic, real photo, photograph, realistic skin pores, "
         "3d render, western cartoon, blurry, low quality, text, watermark, "
         "deformed, extra limbs, hanfu, ancient chinese clothing, white robe, "
-        "multiple people, collage, split screen, grid"
+        "multiple people, collage, split screen, grid, glitch, chromatic aberration, "
+        "scan lines, multiple faces, face sheet, sketch dump, concept art board"
     ),
 }
 
 _SHEET_CKPT = {
     "ancient_realistic": "DreamShaper_8_pruned.safetensors",
-    "anime": "hassakuXLIllustrious_v34.safetensors",
+    "anime": "animagineXL40.safetensors",
 }
 
 _THEME = {
@@ -144,10 +145,11 @@ _CJK_FONT_CANDIDATES = (
 
 # 角色服装关键词(现代雨夜便利店设定):服饰拆解强制对齐,禁汉服
 _COSTUME_FORCE = (
-    "flat lay product breakdown of black hooded raincoat, black windbreaker, "
-    "black rain boots, white plastic shopping bag accessory, clothing pieces "
-    "isolated on solid seamless background, no person, no face, no hanfu, "
-    "no ancient costume, fashion design sheet"
+    "overhead flat lay product photography, garments laid flat on table, "
+    "black hooded raincoat unfolded, black windbreaker, black rain boots, "
+    "white plastic shopping bag accessory, clothing pieces arranged neatly, "
+    "isolated on solid seamless background, no person, no face, no mannequin, "
+    "no model wearing clothes, no hanfu, no ancient costume, fashion design sheet"
 )
 
 
@@ -325,7 +327,7 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
     }
     for i, expr in enumerate(_EXPR_PROMPTS):
         prompts[f"expr_{i}"] = (
-            f"{base}, {expr} of {name}, square headshot, shoulders up, "
+            f"{base}, {expr} of {name}, single face only, one person, square headshot, shoulders up, "
             f"same face same wet black hair, {solid}, {suf}"
         )
     return prompts
@@ -879,6 +881,37 @@ def _build_ipa_graph(
     return build_ipadapter_txt2img_graph(IPAdapterTxt2ImgParams(**kw))
 
 
+def _build_img2img_graph(
+    prompt: str,
+    *,
+    image_name: str,
+    ckpt_name: str,
+    seed: int | None,
+    filename_prefix: str,
+    style: str,
+    denoise: float = 0.62,
+) -> dict:
+    from app.workflows.img2img import Img2ImgParams, build_img2img_graph
+
+    neg = _STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"])
+    # costume 额外负向:禁止真人穿着
+    if "flat lay" in prompt.lower() or "garments laid flat" in prompt.lower():
+        neg = neg + ", person, face, wearing clothes, model, mannequin, full body portrait"
+    kw: dict[str, Any] = dict(
+        positive=prompt,
+        image=image_name,
+        negative=neg,
+        ckpt_name=ckpt_name,
+        denoise=denoise,
+        filename_prefix=filename_prefix,
+        steps=28 if style == "anime" else 22,
+        cfg=6.5 if style == "anime" else 7.0,
+    )
+    if seed is not None:
+        kw["seed"] = seed
+    return build_img2img_graph(Img2ImgParams(**kw))
+
+
 def _assert_sheet_worker_allowed(url: str) -> None:
     port = urlsplit(url).port
     if port in _FORBIDDEN_WORKER_PORTS:
@@ -969,17 +1002,40 @@ async def generate_panel_bytes(
     style: str = "anime",
     client: Any | None = None,
     ref_image: str | None = None,
+    ref_mode: str = "auto",
+    denoise: float = 0.62,
 ) -> bytes:
-    """单格出图 → PNG bytes。有 ref_image 时走 IPAdapter;否则 txt2img。
+    """单格出图 → PNG bytes。
 
-    注意:忽略 pool.pick,强制 :8261-:8263,避免撞生产 :8195/:8196。
+    ref_mode: auto|ipa|img2img|none
+      - anime 默认 img2img(规避 hassaku/IPA glitch)
+      - ancient 默认 ipa
+    注意:忽略 pool.pick,强制 :8261-:8263。
     """
     del pool  # 设定卡不走通用 WorkerPool
     from app.comfy.client import ComfyUIError
 
     cli = client or await _pick_sheet_client(worker)
+    mode = ref_mode
+    if mode == "auto":
+        if not ref_image:
+            mode = "none"
+        elif style == "anime":
+            mode = "img2img"
+        else:
+            mode = "ipa"
     try:
-        if ref_image:
+        if ref_image and mode == "img2img":
+            graph = _build_img2img_graph(
+                prompt,
+                image_name=ref_image,
+                ckpt_name=ckpt_name,
+                seed=seed,
+                filename_prefix=filename_prefix,
+                style=style,
+                denoise=denoise,
+            )
+        elif ref_image and mode == "ipa":
             graph = _build_ipa_graph(
                 prompt,
                 ref_image=ref_image,
@@ -1138,20 +1194,45 @@ async def generate_character_sheet(
         if key == "portrait" or key in panels:
             continue
         w, h = _panel_size(key, meta.style)
-        use_ref = ref_name if key in ("front", "side", "back", "faces", *_EXPR_KEYS) else None
-        # costume 不绑脸参考,纯平铺
+        use_ref = None
+        ref_mode = "none"
+        denoise = 0.62
+        if key in ("front", "side", "back") and ref_name:
+            use_ref = ref_name
+            # anime:img2img 更稳;ancient:IPA 保脸/姿态
+            ref_mode = "img2img" if meta.style == "anime" else "ipa"
+            denoise = 0.72 if meta.style == "anime" else 0.65
+        elif key == "faces" and ref_name:
+            use_ref = ref_name
+            ref_mode = "img2img" if meta.style == "anime" else "ipa"
+            denoise = 0.60
+        elif key.startswith("expr_"):
+            # 表情:anime 纯 txt2img 避免全身参考拉伸成拼贴;ancient 用 IPA 保同一张脸
+            if meta.style == "ancient_realistic" and ref_name:
+                use_ref = ref_name
+                ref_mode = "ipa"
+                denoise = 0.55
+            else:
+                use_ref = None
+                ref_mode = "none"
+        elif key == "costume":
+            # 服饰纯 txt2img 平铺,不绑立绘以免变成穿着照
+            use_ref = None
+            ref_mode = "none"
         panels[key] = await generate_panel_bytes(
             pool,
             prompts[key],
             ckpt_name=ckpt,
             width=w,
             height=h,
-            seed=None if seed is None else seed + hash(key) % 10000,
+            seed=None if seed is None else seed + (abs(hash(key)) % 10000),
             worker=worker,
             filename_prefix=f"ToIV_char_sheet_{key}",
             style=meta.style,
             client=client,
             ref_image=use_ref,
+            ref_mode=ref_mode,
+            denoise=denoise,
         )
         if key in ("front", "side", "back"):
             panel_urls[key] = save_panel_png(
