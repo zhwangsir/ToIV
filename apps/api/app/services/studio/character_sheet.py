@@ -1582,21 +1582,49 @@ def _pick_best_candidate(cands: list[bytes], key: str) -> bytes:
         )
         return ranked[0]
     # 其它/服饰单品:过滤花屏空白;服饰再抑米色/棕色主调
-    def _beige_penalty(data: bytes) -> float:
+    def _costume_penalty(data: bytes) -> float:
+        """越大越差:米色主调 + 疑似人体/假人轮廓。"""
         if not key.startswith("costume"):
             return 0.0
-        img = Image.open(BytesIO(data)).convert("RGB").resize((32, 32))
+        img = Image.open(BytesIO(data)).convert("RGB").resize((48, 48))
         px = list(img.getdata())
         n = max(1, len(px))
-        beige = sum(1 for r, g, b in px if r > 120 and g > 90 and b < r - 15 and abs(r - g) < 45)
+        beige = sum(
+            1
+            for r, g, b in px
+            if r > 120 and g > 90 and b < r - 15 and abs(r - g) < 45
+        )
         black = sum(1 for r, g, b in px if r < 70 and g < 70 and b < 80)
-        return beige / n - black / n
+        sw = 48
+        center_dark = 0
+        center_n = 0
+        for y in range(6, 42):
+            for x in range(16, 32):
+                center_n += 1
+                r, g, b = px[y * sw + x]
+                if r < 80 and g < 80 and b < 90:
+                    center_dark += 1
+        edge_light = 0
+        edge_n = 0
+        for y in range(48):
+            for x in list(range(0, 8)) + list(range(40, 48)):
+                edge_n += 1
+                r, g, b = px[y * sw + x]
+                if r > 200 and g > 200 and b > 200:
+                    edge_light += 1
+        humanoid = 0.0
+        if center_n and edge_n:
+            cd = center_dark / center_n
+            el = edge_light / edge_n
+            if cd > 0.35 and el > 0.4:
+                humanoid = cd * el
+        return beige / n - black / n + humanoid * 2.5
 
     ranked = sorted(
         cands,
         key=lambda b: (
             0 if _panel_is_blank_or_glitch(b) else 1,
-            -_beige_penalty(b),
+            -_costume_penalty(b),
         ),
         reverse=True,
     )
@@ -1905,6 +1933,12 @@ async def regenerate_sheet_panels(
                         "pair of black rain boots, product shot, no person, "
                         + prompt
                         + ", footwear product photography only"
+                    )
+                elif item_key == "pants":
+                    prompt = (
+                        "flat lay black trousers only, product shot, no person, no mannequin, "
+                        + prompt
+                        + ", garment folded on table, clothing only"
                     )
                 for ci in range(max(1, n_candidates)):
                     w, h = (768, 768) if meta.style == "anime" else (512, 512)
