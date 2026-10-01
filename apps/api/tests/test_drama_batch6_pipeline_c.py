@@ -358,3 +358,71 @@ def test_regression_penalizes_shot0_lookalike(tmp_path, monkeypatch):
     by = {c["id"]: c for c in out}
     assert (by["bad"].get("regression") or 0) > (by["good"].get("regression") or 0)
 
+
+def test_face_gate_rejects_low_face_mean(tmp_path, monkeypatch):
+    """face_mean 低于门禁或 null 时必须 CandidatePickError，禁止入选。"""
+    import app.services.studio.candidate_pick as cp
+    from app.services.studio.candidate_pick import CandidatePickError
+
+    a = tmp_path / "a.mp4"; a.write_bytes(b"x")
+    b = tmp_path / "b.mp4"; b.write_bytes(b"y")
+    ref = tmp_path / "ref.png"; ref.write_bytes(b"z")
+
+    def fake_face(path, ref_image_path):
+        # a=负脸分；b=无人脸
+        if str(path).endswith("a.mp4"):
+            return {"face_mean": -0.03, "burnin_penalty": 0, "ocr_penalty": 0, "error": ""}
+        return {"face_mean": None, "burnin_penalty": 0, "ocr_penalty": 0, "error": "无人脸检出"}
+
+    def fake_cont(path, prev, scene_ref_path=None, regression_ref_path=None):
+        return {"continuity": 0.8, "regression": 0.2, "error": ""}
+
+    monkeypatch.setattr(cp, "score_video_face", fake_face)
+    monkeypatch.setattr(cp, "score_scene_continuity", fake_cont)
+    monkeypatch.setattr(cp, "_try_import_face", lambda: True)
+
+    cands = [
+        {"id": "bad", "url": str(a), "status": "done", "is_picked": False},
+        {"id": "nullface", "url": str(b), "status": "done", "is_picked": False},
+    ]
+    with pytest.raises(CandidatePickError, match="无人脸达标"):
+        cp.pick_best_candidate(
+            cands,
+            ref_image_path=ref,
+            local_url_resolver=lambda u: u,
+            min_face_mean=0.45,
+        )
+    assert all(not c.get("is_picked") for c in cands)
+
+
+def test_face_gate_allows_passing_face(tmp_path, monkeypatch):
+    import app.services.studio.candidate_pick as cp
+
+    a = tmp_path / "a.mp4"; a.write_bytes(b"x")
+    b = tmp_path / "b.mp4"; b.write_bytes(b"y")
+    ref = tmp_path / "ref.png"; ref.write_bytes(b"z")
+
+    def fake_face(path, ref_image_path):
+        if str(path).endswith("b.mp4"):
+            return {"face_mean": 0.62, "burnin_penalty": 0, "ocr_penalty": 0, "error": ""}
+        return {"face_mean": 0.2, "burnin_penalty": 0, "ocr_penalty": 0, "error": ""}
+
+    def fake_cont(path, prev, scene_ref_path=None, regression_ref_path=None):
+        return {"continuity": 0.5, "regression": 0.2, "error": ""}
+
+    monkeypatch.setattr(cp, "score_video_face", fake_face)
+    monkeypatch.setattr(cp, "score_scene_continuity", fake_cont)
+    monkeypatch.setattr(cp, "_try_import_face", lambda: True)
+
+    cands = [
+        {"id": "low", "url": str(a), "status": "done", "is_picked": False},
+        {"id": "ok", "url": str(b), "status": "done", "is_picked": False},
+    ]
+    wid, out = cp.pick_best_candidate(
+        cands,
+        ref_image_path=ref,
+        local_url_resolver=lambda u: u,
+        min_face_mean=0.45,
+    )
+    assert wid == "ok"
+    assert next(c for c in out if c["id"] == "ok")["is_picked"] is True

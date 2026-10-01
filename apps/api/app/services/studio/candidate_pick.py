@@ -199,15 +199,23 @@ def score_video_face(
 
     cap = cv2.VideoCapture(str(vid_p))
     n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-    idxs = [0, max(0, n // 2), max(0, n - 1)]
+    # 密采样：避免只踩到手部特写帧导致 face_mean=null（雨夜镜1 v2 候选2）
+    if n <= 1:
+        idxs = [0]
+    else:
+        idxs = sorted({max(0, min(n - 1, int(round(x)))) for x in [
+            0, n * 0.15, n * 0.35, n // 2, n * 0.65, n * 0.85, n - 1
+        ]})
     sims: list[float] = []
     burn = 0.0
     ocr = 0.0
+    frames_ok = 0
     for i in idxs:
         cap.set(cv2.CAP_PROP_POS_FRAMES, i)
         ok, frame = cap.read()
         if not ok or frame is None:
             continue
+        frames_ok += 1
         burn = max(burn, _burnin_penalty(frame))
         ocr = max(ocr, _ocr_penalty(frame))
         fl = app.get(frame)
@@ -224,8 +232,13 @@ def score_video_face(
     out["sims"] = sims
     out["burnin_penalty"] = burn
     out["ocr_penalty"] = ocr
+    out["frames_sampled"] = frames_ok
     if sims:
         out["face_mean"] = float(sum(sims) / len(sims))
+    elif frames_ok > 0:
+        out["error"] = "无人脸检出"
+    else:
+        out["error"] = "视频帧读取失败"
     return out
 
 
@@ -239,11 +252,13 @@ def pick_best_candidate(
     regression_ref_path: str | Path | None = None,
     continuity_weight: float = 0.25,
     regression_weight: float = 0.35,
+    min_face_mean: float = 0.45,
 ) -> tuple[str | None, list[dict[str, Any]]]:
     """按 face_mean - burnin - ocr + 连贯加分 - 回退罚分 选优。
 
     选优失败抛 CandidatePickError（禁止静默回落首候选）。
     regression_ref_path：通常为镜0成片，扣「与开场过像」的回退候选。
+    min_face_mean：人脸门禁（默认 0.45）；face_mean 为空或低于门禁的候选不得入选。
     """
     done = [c for c in candidates if c.get("status") == "done" and c.get("url")]
     if not done:
@@ -340,6 +355,24 @@ def pick_best_candidate(
             for c in candidates:
                 c["is_picked"] = False
             raise CandidatePickError("选优失败:全部候选无法解析本地路径或评分")
+
+        # 人脸门禁：无人脸或低于阈值不得入选（雨夜镜1 v2：负脸分/null 曾污染级联）
+        if face_ok and float(min_face_mean) > 0:
+            by_id = {c.get("id"): c for c in done}
+            best = by_id.get(best_id) or {}
+            face_best = best.get("face_mean")
+            if face_best is None or float(face_best) < float(min_face_mean):
+                for c in candidates:
+                    c["is_picked"] = False
+                    note = str(c.get("pick_note") or "")
+                    if "face_gate" not in note:
+                        c["pick_note"] = (note + "+" if note else "") + (
+                            f"face_gate<{min_face_mean:.2f}"
+                        )
+                raise CandidatePickError(
+                    f"选优失败:无人脸达标(需 face_mean≥{min_face_mean:.2f}，"
+                    f"最佳={face_best!r})，禁止入选并应加候选重跑"
+                )
 
         for c in candidates:
             c["is_picked"] = c.get("id") == best_id

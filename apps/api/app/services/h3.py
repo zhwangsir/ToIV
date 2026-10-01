@@ -249,7 +249,8 @@ async def ensure_h3_vram(client: ComfyUIClient) -> None:
     try:
         _stats0 = await client.get_system_stats()
         _free0 = _cuda_free_gib(_stats0)
-        if _free0 is not None and _free0 >= max(20.0, threshold * 0.9):
+        # 31G 级空闲也曾触发 /free，随后同卡 worker 驱逐拖死 studio 渲染（雨夜镜2）
+        if _free0 is not None and _free0 >= max(28.0, threshold * 0.85):
             logger.info("BATCH6_SKIP_FREE H3 显存 %.1fG，跳过驱逐", _free0)
             await ensure_host_ram(client, 0, "H3")  # 0=关闭 RAM 驱逐
             return
@@ -295,6 +296,10 @@ async def ensure_h3_vram(client: ComfyUIClient) -> None:
     evicted_any = False
     for url in settings.h3_co_worker_urls:
         # 短超时:同卡 worker /free 偶发挂死会拖垮整次 studio 渲染(Batch6 实证)
+        # 生产 :8196 永不 /free（用户硬禁打断）
+        if ":8196" in (url or ""):
+            logger.info("跳过驱逐生产 worker %s", url)
+            continue
         co = ComfyUIClient(url, timeout=min(20.0, float(settings.request_timeout or 60)))
         try:
             if await co.queue_len() > 0:
