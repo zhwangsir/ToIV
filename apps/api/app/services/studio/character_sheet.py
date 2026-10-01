@@ -104,7 +104,7 @@ _STYLE_NEGATIVE = {
         "beige cloak, brown cloak, red cloak, tan cape, khaki poncho, "
         "mannequin, human body in product shot, person wearing boots, "
         "white hoodie, white t-shirt, color-block hoodie, navy sleeves on white shirt, "
-        "baseball cap, hat on stand, ceiling lamp, dome light, opaque black dome, hard hat, helmet, bowl,
+        "baseball cap, hat on stand, ceiling lamp, dome light, opaque black dome, hard hat, helmet, bowl"
     ),
 }
 
