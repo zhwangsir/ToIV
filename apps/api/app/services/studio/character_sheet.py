@@ -2071,13 +2071,14 @@ async def regenerate_sheet_panels(
                     use_ref = tmpl_name
                     ref_mode = "img2img" if tmpl_name else "none"
                     # 雨衣/裤稍低 denoise 保黑形;伞/袋略高以出透明/褶皱
+                    # denoise 过低会留下程序化剪影;抬高以出二次元成品形
                     denoise = {
-                        "raincoat": 0.48,
-                        "pants": 0.50,
-                        "boots": 0.52,
-                        "umbrella": 0.58,
-                        "bag": 0.55,
-                    }.get(item_key, 0.52)
+                        "raincoat": 0.70,
+                        "pants": 0.68,
+                        "boots": 0.66,
+                        "umbrella": 0.72,
+                        "bag": 0.70,
+                    }.get(item_key, 0.70)
                     cands.append(
                         await generate_panel_bytes(
                             pool,
