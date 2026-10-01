@@ -108,6 +108,24 @@ _STYLE_NEGATIVE = {
     ),
 }
 
+_FACE_ANGLE_NEGATIVE: dict[str, str] = {
+    "face_front": (
+        "side profile, strict profile, 90 degree profile, three-quarter turn, "
+        "head turned away, only one eye, silhouette nose, hood up, hood covering hair"
+    ),
+    "face_three_quarter": (
+        "front face looking at camera, symmetrical frontal face, both eyes equal, "
+        "looking at viewer, facing camera, strict side profile, 90 degree profile, "
+        "full profile silhouette, hood up, hood covering hair"
+    ),
+    "face_side": (
+        "front face, looking at camera, both eyes visible, symmetrical face, "
+        "frontal view, three-quarter view, face toward camera, two eyes, "
+        "hood up, logo on hood, emblem, badge, abstract circle face, stylized mark, "
+        "symbol instead of face, blank hood"
+    ),
+}
+
 _SHEET_CKPT = {
     "ancient_realistic": "DreamShaper_8_pruned.safetensors",
     "anime": "animagineXL40.safetensors",
@@ -585,18 +603,32 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
         ),
         "face_front": (
             f"{solo}, {base}, FRONT facing head and shoulders closeup of {name}, "
-            f"looking at camera, hood down, face fills frame, jet black hair, "
-            f"eyes nose mouth clear, NO full body, NO waist, {solid}, {suf}"
+            f"looking straight at camera, both eyes equal size, symmetrical face, "
+            f"both ears faintly visible, hood DOWN completely off head, bare head, "
+            f"no hood, no cloak covering hair, face fills frame, jet black hair, "
+            f"eyes nose mouth clear, sharp focus, NO full body, NO waist, "
+            f"NOT side profile, NOT three-quarter turn, {solid}, {suf}"
         ),
         "face_three_quarter": (
-            f"{solo}, {base}, THREE-QUARTER view head and shoulders closeup of {name}, "
-            f"face turned 45 degrees, hood down, face fills frame, jet black hair, "
-            f"NO full body, NO waist, {solid}, {suf}"
+            f"{solo}, {base}, looking away, head tilt, THREE-QUARTER VIEW, "
+            f"from side, head and shoulders closeup of {name}, "
+            f"head yaw turned about 45 degrees to the LEFT, nose tip clearly left of face center, "
+            f"viewer sees left cheek more, near eye larger than far eye, far eye partially visible, "
+            f"one ear clearly visible on near side, hood DOWN bare head no hood, "
+            f"face fills frame, jet black hair, sharp focus, "
+            f"NOT front facing, NOT looking into camera, NOT symmetrical frontal face, "
+            f"NOT 90 degree full profile, NO full body, NO waist, {solid}, {suf}"
         ),
         "face_side": (
-            f"{solo}, {base}, STRICT SIDE PROFILE head and shoulders closeup of {name}, "
-            f"90 degree profile, one eye visible, ear nose silhouette, hood down, "
-            f"face fills frame, jet black hair, NO full body, {solid}, {suf}"
+            f"{solo}, {base}, profile, from side, side view, looking away, "
+            f"STRICT SIDE PROFILE head and shoulders closeup of {name}, "
+            f"exact 90 degree profile facing LEFT, ONLY one eye visible, "
+            f"clear nose bridge silhouette, lips chin jawline ear outline, "
+            f"other eye completely hidden behind head, face not toward camera, "
+            f"hood DOWN bare head, no hood, no cloak over head, jet black hair, "
+            f"realistic anime face anatomy, sharp focus, face fills frame, "
+            f"NOT front face, NOT three-quarter, NOT both eyes, NOT logo, NOT emblem, "
+            f"NOT abstract mark, NOT circle face on hood, NO full body, {solid}, {suf}"
         ),
         "costume": f"{_COSTUME_FORCE}, {suf}",
     }
@@ -1133,6 +1165,20 @@ def crop_face_ref(portrait_bytes: bytes, size: int = 768) -> bytes:
     return buf.getvalue()
 
 
+def crop_head_from_figure(data: bytes, *, size: int = 768, top_frac: float = 0.34) -> bytes:
+    """从全身/半身立绘裁头肩正方形,供面部角度锚定(尤其侧脸来自三视图侧格)。"""
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    head = img.crop((int(w * 0.05), 0, int(w * 0.95), max(1, int(h * top_frac))))
+    side = max(head.width, head.height, 8)
+    canvas = Image.new("RGB", (side, side), (220, 220, 224))
+    canvas.paste(head, ((side - head.width) // 2, (side - head.height) // 2))
+    canvas = canvas.resize((size, size), Image.Resampling.LANCZOS)
+    buf = BytesIO()
+    canvas.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def enforce_head_shoulders_square(data: bytes, size: int = 768) -> bytes:
     """表情出图后强制头肩正方形:紧裁脸/头发包围盒,使脸占格≥55%。
 
@@ -1343,10 +1389,13 @@ def _build_img2img_graph(
     filename_prefix: str,
     style: str,
     denoise: float = 0.62,
+    negative_extra: str = "",
 ) -> dict:
     from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 
     neg = _STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"])
+    if negative_extra:
+        neg = f"{neg}, {negative_extra}"
     pl = prompt.lower()
     # costume / 单品额外负向:禁止真人穿着与人体靴
     if (
@@ -1474,6 +1523,7 @@ async def generate_panel_bytes(
     ref_image: str | None = None,
     ref_mode: str = "auto",
     denoise: float = 0.62,
+    negative_extra: str = "",
 ) -> bytes:
     """单格出图 → PNG bytes。
 
@@ -1504,6 +1554,7 @@ async def generate_panel_bytes(
                 filename_prefix=filename_prefix,
                 style=style,
                 denoise=denoise,
+                negative_extra=negative_extra,
             )
         elif ref_image and mode == "ipa":
             graph = _build_ipa_graph(
@@ -1526,6 +1577,17 @@ async def generate_panel_bytes(
                 filename_prefix=filename_prefix,
                 style=style,
             )
+        if negative_extra:
+            # 追加角度负向到 CLIP 负向节点(常见 id 7)
+            for nid, node in list(graph.items()):
+                if not isinstance(node, dict):
+                    continue
+                if node.get("class_type") == "CLIPTextEncode":
+                    inputs = node.get("inputs") or {}
+                    # 负向通常 text 含 ugly/bad;保守:两端都可追加时只改已含 ugly 的
+                    t = str(inputs.get("text") or "")
+                    if "ugly" in t.lower() or "bad" in t.lower() or "worst" in t.lower():
+                        inputs["text"] = f"{t}, {negative_extra}"
         prompt_id = await cli.queue_prompt(graph, client_id=uuid.uuid4().hex)
     except ComfyUIError as e:
         raise CharacterSheetError(f"出图后端不可用:{e}", status_code=503) from e
@@ -1718,22 +1780,64 @@ async def generate_character_sheet(
         elif key == "faces":
             face = face_ref_name or ref_name
             tri: dict[str, bytes] = {}
+            use_op, _why = await _probe_openpose_available(client)
+            face_assets = ensure_openpose_face_assets() if use_op else {}
             for fk in ("face_front", "face_three_quarter", "face_side"):
-                fd = await generate_panel_bytes(
-                    pool,
-                    prompts[fk],
-                    ckpt_name=ckpt,
-                    width=768,
-                    height=768,
-                    seed=None if seed is None else seed + (abs(hash(fk)) % 10000),
-                    worker=worker,
-                    filename_prefix=f"ToIV_char_sheet_{fk}",
-                    style=meta.style,
-                    client=client,
-                    ref_image=face,
-                    ref_mode="img2img" if meta.style == "anime" else "ipa",
-                    denoise=0.62,
-                )
+                ang_neg = _FACE_ANGLE_NEGATIVE.get(fk, "")
+                if use_op and fk in face_assets and face:
+                    # 角度靠头肩骨架;身份靠 IPA;禁止正脸 img2img 锁死姿态
+                    pose_name = await client.upload_image(
+                        face_assets[fk].read_bytes(),
+                        f"sheet_face_pose_{character_id[:8]}_{fk}.png",
+                    )
+                    if fk == "face_front":
+                        cn_s, ipa_w, ipa_st = 0.88, 0.72, 0.0
+                    elif fk == "face_three_quarter":
+                        cn_s, ipa_w, ipa_st = 0.96, 0.48, 0.20
+                    else:
+                        cn_s, ipa_w, ipa_st = 0.98, 0.38, 0.30
+                    fd = await generate_panel_bytes_openpose(
+                        pool,
+                        prompts[fk],
+                        pose_image_name=pose_name,
+                        ckpt_name=ckpt,
+                        width=768,
+                        height=768,
+                        seed=None if seed is None else seed + (abs(hash(fk)) % 10000),
+                        worker=worker,
+                        filename_prefix=f"ToIV_char_sheet_{fk}_pose",
+                        style=meta.style,
+                        client=client,
+                        ref_image=face,
+                        skip_preprocess=True,
+                        strength=cn_s,
+                        ipa_weight=ipa_w,
+                        ipa_start=ipa_st,
+                        ipa_end=1.0,
+                        negative_extra=ang_neg,
+                    )
+                else:
+                    # 回退:侧/3-4 用 IPA(不锁姿态);正面可 img2img
+                    if fk == "face_front" and meta.style == "anime" and face:
+                        mode, den = "img2img", 0.58
+                    else:
+                        mode, den = ("ipa" if face else "none"), 0.90
+                    fd = await generate_panel_bytes(
+                        pool,
+                        prompts[fk],
+                        ckpt_name=ckpt,
+                        width=768,
+                        height=768,
+                        seed=None if seed is None else seed + (abs(hash(fk)) % 10000),
+                        worker=worker,
+                        filename_prefix=f"ToIV_char_sheet_{fk}",
+                        style=meta.style,
+                        client=client,
+                        ref_image=face,
+                        ref_mode=mode,
+                        denoise=den,
+                        negative_extra=ang_neg,
+                    )
                 tri[fk] = enforce_head_shoulders_square(fd, size=768)
             panels["faces"] = compose_faces_triptych(
                 tri, style=meta.style, size=_panel_size("faces", meta.style)
@@ -1880,12 +1984,99 @@ def _score_turnaround_candidate(data: bytes, key: str) -> float:
     return score
 
 
+def _score_face_angle_candidate(data: bytes, face_key: str) -> float:
+    """面部三格角度启发式:front 奖励对称;3/4 奖励中等不对称;side 奖励强侧影。"""
+    if _panel_is_blank_or_glitch(data):
+        return -1e9
+    img = Image.open(BytesIO(data)).convert("RGB")
+    small = img.resize((64, 64), Image.Resampling.BILINEAR)
+    px = list(small.getdata())
+    sw, sh = 64, 64
+    left = [px[y * sw + x] for y in range(int(sh * 0.15), int(sh * 0.70)) for x in range(8, 32)]
+    right = [px[y * sw + x] for y in range(int(sh * 0.15), int(sh * 0.70)) for x in range(32, 56)]
+
+    def _mean(cells: list) -> tuple[float, float, float]:
+        n = max(1, len(cells))
+        return tuple(sum(c[i] for c in cells) / n for i in range(3))  # type: ignore[return-value]
+
+    ml, mr = _mean(left), _mean(right)
+    asym = sum(abs(ml[i] - mr[i]) for i in range(3))
+    # 中心脸块(正脸高);侧脸时中心常偏暗或偏一侧
+    center_face = 0.0
+    ct = 0
+    for y in range(int(sh * 0.20), int(sh * 0.62)):
+        for x in range(int(sw * 0.32), int(sw * 0.68)):
+            ct += 1
+            r, g, b = px[y * sw + x]
+            if r > 85 and g > 60 and b > 50 and r >= g - 15:
+                center_face += 1.0
+            elif abs(r - g) < 28 and abs(g - b) < 28 and 45 < r < 220:
+                center_face += 0.55
+    center_ratio = center_face / max(1, ct)
+    # 鼻尖/轮廓偏置:侧脸前景质量心偏一侧
+    mass_x = 0.0
+    mass = 0.0
+    for y in range(int(sh * 0.18), int(sh * 0.68)):
+        for x in range(sw):
+            r, g, b = px[y * sw + x]
+            if r > 230 and g > 230 and b > 230:
+                continue
+            if abs(r - g) < 12 and abs(g - b) < 12 and 160 <= r <= 230:
+                continue
+            mass_x += x
+            mass += 1.0
+    cx = (mass_x / mass) if mass > 10 else 32.0
+    offset = abs(cx - 32.0)
+    head = _score_expression_head_ratio(data)
+    score = head * 0.35
+    if face_key == "face_front":
+        score += (1.0 - min(1.0, asym / 40.0)) * 40.0
+        score += center_ratio * 50.0
+        score -= offset * 1.2
+    elif face_key == "face_three_quarter":
+        # 要可见不对称,但别到纯侧影
+        if 8.0 <= asym <= 45.0:
+            score += 35.0
+        else:
+            score -= abs(asym - 22.0) * 0.8
+        if 4.0 <= offset <= 14.0:
+            score += 25.0
+        else:
+            score -= abs(offset - 8.0) * 1.5
+        score += center_ratio * 20.0
+    else:  # face_side
+        score += min(55.0, asym * 1.4)
+        score += min(30.0, offset * 2.2)
+        score -= center_ratio * 35.0  # 正脸中心块过大则扣
+        if asym < 10:
+            score -= 40.0
+        if offset < 3:
+            score -= 25.0
+        # 惩罚大块纯白圆标/抽象图案(侧脸变成罩子 logo)
+        white_blob = 0
+        for y in range(int(sh * 0.15), int(sh * 0.70)):
+            for x in range(int(sw * 0.20), int(sw * 0.80)):
+                r, g, b = px[y * sw + x]
+                if r > 230 and g > 230 and b > 230:
+                    white_blob += 1
+        if white_blob > 180:
+            score -= 50.0
+        if white_blob > 280:
+            score -= 40.0
+    return score
+
+
 def _pick_best_candidate(cands: list[bytes], key: str) -> bytes:
     if not cands:
         raise CharacterSheetError(f"无候选:{key}", status_code=500)
     if key in ("front", "side", "back"):
         ranked = sorted(
             cands, key=lambda b: _score_turnaround_candidate(b, key), reverse=True
+        )
+        return ranked[0]
+    if key.startswith("face_"):
+        ranked = sorted(
+            cands, key=lambda b: _score_face_angle_candidate(b, key), reverse=True
         )
         return ranked[0]
     if key.startswith("expr_"):
@@ -2215,6 +2406,148 @@ def ensure_openpose_assets(*, height_cm: int = 165) -> dict[str, Path]:
     return out
 
 
+
+# 面部三格专用头肩 OpenPose(正/3-4/侧);放大 yaw,供 ControlNet 锁角度
+_OPENPOSE_FACE_FRONT: list[tuple[float, float]] = [
+    (0.50, 0.28),  # nose
+    (0.50, 0.42),  # neck
+    (0.28, 0.48),  # R shoulder
+    (0.18, 0.72),  # R elbow
+    (0.14, 0.92),  # R wrist
+    (0.72, 0.48),  # L shoulder
+    (0.82, 0.72),  # L elbow
+    (0.86, 0.92),  # L wrist
+    (0.38, 0.95),  # R hip (cropped)
+    (0.38, 0.98),
+    (0.38, 0.99),
+    (0.62, 0.95),  # L hip
+    (0.62, 0.98),
+    (0.62, 0.99),
+    (0.40, 0.24),  # R eye
+    (0.60, 0.24),  # L eye
+    (0.30, 0.30),  # R ear
+    (0.70, 0.30),  # L ear
+]
+_OPENPOSE_FACE_THREE_QUARTER: list[tuple[float, float]] = [
+    (0.38, 0.30),  # nose pointing left of center
+    (0.48, 0.42),  # neck
+    (0.34, 0.50),  # R shoulder (far, foreshortened)
+    (0.28, 0.74),
+    (0.24, 0.92),
+    (0.70, 0.48),  # L shoulder (near, larger)
+    (0.82, 0.72),
+    (0.86, 0.92),
+    (0.42, 0.95),
+    (0.42, 0.98),
+    (0.42, 0.99),
+    (0.62, 0.95),
+    (0.62, 0.98),
+    (0.62, 0.99),
+    (0.30, 0.26),  # R eye (far, smaller position)
+    (0.48, 0.24),  # L eye (near)
+    (0.22, 0.32),  # R ear barely / back
+    (0.62, 0.28),  # L ear clearly visible
+]
+_OPENPOSE_FACE_SIDE: list[tuple[float, float]] = [
+    (0.28, 0.32),  # nose tip far left (profile)
+    (0.48, 0.42),  # neck
+    (0.46, 0.50),  # shoulders nearly stacked
+    (0.44, 0.74),
+    (0.42, 0.92),
+    (0.52, 0.50),
+    (0.54, 0.74),
+    (0.56, 0.92),
+    (0.48, 0.95),
+    (0.48, 0.98),
+    (0.48, 0.99),
+    (0.52, 0.95),
+    (0.52, 0.98),
+    (0.52, 0.99),
+    (0.34, 0.28),  # only near eye
+    (0.34, 0.28),  # duplicate eye slot (profile)
+    (0.58, 0.30),  # ear on silhouette back
+    (0.58, 0.30),
+]
+
+
+def render_openpose_face_skeleton(
+    view: str,
+    *,
+    width: int = 768,
+    height: int = 768,
+) -> bytes:
+    """程序绘制头肩 OpenPose:front / three_quarter / side。"""
+    view = (view or "front").lower().replace("-", "_")
+    if view in ("three_quarter", "face_three_quarter", "3_4", "tq"):
+        kps = _OPENPOSE_FACE_THREE_QUARTER
+    elif view in ("side", "face_side", "profile"):
+        kps = _OPENPOSE_FACE_SIDE
+    else:
+        kps = _OPENPOSE_FACE_FRONT
+    img = Image.new("RGB", (width, height), (0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    margin_x = int(width * 0.08)
+    top = int(height * 0.06)
+    usable_h = int(height * 0.88)
+    usable_w = width - 2 * margin_x
+
+    def _xy(i: int) -> tuple[int, int]:
+        x, y = kps[i]
+        return int(margin_x + x * usable_w), int(top + y * usable_h)
+
+    thick = max(5, width // 80)
+    # 头肩相关肢干优先
+    limbs = [
+        (1, 2, (255, 0, 0)),
+        (1, 5, (0, 255, 0)),
+        (2, 3, (255, 85, 0)),
+        (3, 4, (255, 170, 0)),
+        (5, 6, (0, 255, 85)),
+        (6, 7, (0, 255, 170)),
+        (1, 8, (170, 0, 255)),
+        (1, 11, (255, 0, 170)),
+        (0, 1, (255, 0, 85)),
+        (0, 14, (255, 255, 0)),
+        (0, 15, (255, 255, 0)),
+        (14, 16, (0, 255, 255)),
+        (15, 17, (0, 255, 255)),
+    ]
+    for a, b, color in limbs:
+        draw.line([_xy(a), _xy(b)], fill=color, width=thick)
+    r = max(6, width // 56)
+    for i in range(len(kps)):
+        x, y = _xy(i)
+        draw.ellipse([x - r, y - r, x + r, y + r], fill=(255, 255, 255))
+    hx, hy = _xy(0)
+    # 头颅椭圆按视角拉偏,强化侧向
+    if view in ("side", "face_side", "profile"):
+        draw.ellipse([hx - 18, hy - 55, hx + 70, hy + 55], outline=(255, 255, 0), width=4)
+    elif view in ("three_quarter", "face_three_quarter", "3_4", "tq"):
+        draw.ellipse([hx - 35, hy - 58, hx + 55, hy + 52], outline=(255, 255, 0), width=4)
+    else:
+        draw.ellipse([hx - 48, hy - 58, hx + 48, hy + 52], outline=(255, 255, 0), width=4)
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def ensure_openpose_face_assets() -> dict[str, Path]:
+    """生成并落盘面部正/3-4/侧骨架;返回 face_key→路径。"""
+    d = openpose_asset_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    mapping = {
+        "face_front": "front",
+        "face_three_quarter": "three_quarter",
+        "face_side": "side",
+    }
+    out: dict[str, Path] = {}
+    for fk, view in mapping.items():
+        p = d / f"openpose_face_{view}_768.png"
+        p.write_bytes(render_openpose_face_skeleton(view))
+        out[fk] = p
+    return out
+
+
 def compose_faces_triptych(
     faces: dict[str, bytes],
     *,
@@ -2366,6 +2699,11 @@ async def generate_panel_bytes_openpose(
     client: Any | None = None,
     ref_image: str | None = None,
     skip_preprocess: bool = True,
+    strength: float = 0.88,
+    ipa_weight: float = 0.72,
+    ipa_start: float = 0.0,
+    ipa_end: float = 1.0,
+    negative_extra: str = "",
 ) -> bytes:
     """openpose ControlNet 出图(尺寸覆盖 EmptyLatent)。
 
@@ -2378,13 +2716,15 @@ async def generate_panel_bytes_openpose(
 
     cli = client or await _pick_sheet_client(worker)
     neg = _STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"])
+    if negative_extra:
+        neg = f"{neg}, {negative_extra}"
     kw: dict[str, Any] = dict(
         positive=prompt,
         image=pose_image_name,
         control_type="openpose",
         negative=neg,
         ckpt_name=ckpt_name,
-        strength=0.88,
+        strength=strength,
         steps=28 if style == "anime" else 22,
         cfg=6.0 if style == "anime" else 7.0,
         filename_prefix=filename_prefix,
@@ -2420,12 +2760,12 @@ async def generate_panel_bytes_openpose(
                 "model": ["200", 0],
                 "ipadapter": ["200", 1],
                 "image": ["202", 0],
-                "weight": 0.72,
+                "weight": ipa_weight,
                 "weight_type": "linear",
                 "combine_embeds": "concat",
                 "embeds_scaling": "V only",
-                "start_at": 0.0,
-                "end_at": 1.0,
+                "start_at": ipa_start,
+                "end_at": ipa_end,
             },
         }
         if "3" in graph and "inputs" in graph["3"]:
@@ -2635,38 +2975,82 @@ async def regenerate_sheet_panels(
             continue
 
         if key == "faces":
-            # 正/3-4/侧 三个头部特写各出 n_candidates 再横拼(禁止全身)
+            # fix10c/d: 优先用已锁定三视图裁头肩锚定正/侧;3/4 与严格侧脸走 IPA(禁正脸 img2img 塌角度)
             face_keys = ("face_front", "face_three_quarter", "face_side")
             tri: dict[str, bytes] = {}
             face = face_ref_name or ref_name
+            score_dbg: dict[str, Any] = {}
+            head_front_name = None
+            head_side_name = None
+            if panels.get("front"):
+                try:
+                    head_front_name = await client.upload_image(
+                        crop_head_from_figure(panels["front"]),
+                        f"sheet_head_front_{character_id[:8]}.png",
+                    )
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("faces: front headcrop upload fail: %s", e)
+            if panels.get("side"):
+                try:
+                    head_side_name = await client.upload_image(
+                        crop_head_from_figure(panels["side"]),
+                        f"sheet_head_side_{character_id[:8]}.png",
+                    )
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("faces: side headcrop upload fail: %s", e)
             for fk in face_keys:
                 fk_cands: list[bytes] = []
-                for fj in range(max(1, min(n_candidates, 3))):
+                ang_neg = _FACE_ANGLE_NEGATIVE.get(fk, "")
+                mode_used = "unknown"
+                for fj in range(max(1, min(n_candidates, 5))):
                     fp = prompts.get(fk) or prompts["faces"]
-                    fd = await generate_panel_bytes(
-                        pool,
-                        fp,
-                        ckpt_name=ckpt,
-                        width=768,
-                        height=768,
-                        seed=None
-                        if seed is None
-                        else seed + (abs(hash(fk + str(fj))) % 10000),
-                        worker=worker,
-                        filename_prefix=f"ToIV_char_sheet_{fk}",
-                        style=meta.style,
-                        client=client,
-                        ref_image=face,
-                        ref_mode="img2img" if meta.style == "anime" else "ipa",
-                        denoise=0.62,
-                    )
+                    if fk == "face_front" and head_front_name:
+                        fd = await generate_panel_bytes(
+                            pool, fp, ckpt_name=ckpt, width=768, height=768,
+                            seed=None if seed is None else seed + (abs(hash(fk + str(fj))) % 10000),
+                            worker=worker, filename_prefix=f"ToIV_char_sheet_{fk}",
+                            style=meta.style, client=client, ref_image=head_front_name,
+                            ref_mode="img2img", denoise=0.42, negative_extra=ang_neg,
+                        )
+                        mode_used = "ta_headcrop_img2img"
+                    elif fk == "face_side" and head_side_name and fj < 2:
+                        # 先用侧身头肩底保角度,再混 IPA 候选
+                        fd = await generate_panel_bytes(
+                            pool, fp, ckpt_name=ckpt, width=768, height=768,
+                            seed=None if seed is None else seed + (abs(hash(fk + str(fj))) % 10000),
+                            worker=worker, filename_prefix=f"ToIV_char_sheet_{fk}",
+                            style=meta.style, client=client, ref_image=head_side_name,
+                            ref_mode="img2img", denoise=0.40, negative_extra=ang_neg,
+                        )
+                        mode_used = "ta_headcrop_img2img+ipa_mix"
+                    else:
+                        # 3/4 与严格侧脸追加候选:IPA 不锁正脸姿态
+                        fd = await generate_panel_bytes(
+                            pool, fp, ckpt_name=ckpt, width=768, height=768,
+                            seed=None if seed is None else seed + (abs(hash(fk + str(fj))) % 10000) + 91,
+                            worker=worker, filename_prefix=f"ToIV_char_sheet_{fk}",
+                            style=meta.style, client=client, ref_image=face,
+                            ref_mode="ipa" if face else "none", denoise=1.0,
+                            negative_extra=ang_neg,
+                        )
+                        mode_used = "ipa_angle" if face else "txt2img"
                     fd = enforce_head_shoulders_square(fd, size=768)
                     fk_cands.append(fd)
-                tri[fk] = _pick_best_candidate(fk_cands, "expr_0")
+                best = _pick_best_candidate(fk_cands, fk)
+                tri[fk] = best
+                score_dbg[fk] = {
+                    "n": len(fk_cands),
+                    "score": _score_face_angle_candidate(best, fk),
+                    "mode": mode_used,
+                }
             panels["faces"] = compose_faces_triptych(
                 tri, style=meta.style, size=_panel_size("faces", meta.style)
             )
-            debug["picks"]["faces"] = {"mode": "triptych", "keys": list(face_keys)}
+            debug["picks"]["faces"] = {
+                "mode": "triptych_headcrop_ipa",
+                "keys": list(face_keys),
+                "scores": score_dbg,
+            }
             continue
 
         cands = []
