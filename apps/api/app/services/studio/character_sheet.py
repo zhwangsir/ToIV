@@ -148,16 +148,49 @@ _CJK_FONT_CANDIDATES = (
     "/usr/share/fonts/truetype/source-han-sans/SourceHanSansSC-Regular.otf",
 )
 
-# 角色服装关键词(现代雨夜便利店设定):服饰拆解强制对齐,禁汉服
+# 角色服装关键词(现代雨夜便利店设定):五件单品分生成再 collage,禁汉服/真人穿着
+_COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
+    (
+        "raincoat",
+        "overhead flat lay product photo, ONE black hooded raincoat unfolded flat, "
+        "matte black fabric only, solid seamless light gray background, no person, no face, "
+        "no mannequin, no model, no text, no red cloak, no beige cloak, no brown cloak",
+    ),
+    (
+        "pants",
+        "overhead flat lay product photo, ONE pair black pants trousers laid flat, "
+        "matte black fabric only, solid seamless light gray background, no person, no face, "
+        "no mannequin, no model, no text, no red cloak, no beige cloak, no brown cloak",
+    ),
+    (
+        "boots",
+        "overhead flat lay product photo, ONE pair black rain boots shoes laid flat, "
+        "matte black only, solid seamless light gray background, no person, no face, "
+        "no mannequin, no model, no text, no red cloak, no beige cloak, no brown cloak",
+    ),
+    (
+        "umbrella",
+        "overhead flat lay product photo, ONE transparent clear plastic umbrella closed or open, "
+        "clear vinyl only, solid seamless light gray background, no person, no face, "
+        "no mannequin, no model, no text, no red cloak, no beige cloak, no brown cloak",
+    ),
+    (
+        "bag",
+        "overhead flat lay product photo, ONE white plastic shopping bag laid flat, "
+        "plain white bag only, solid seamless light gray background, no person, no face, "
+        "no mannequin, no model, no text, no red cloak, no beige cloak, no brown cloak",
+    ),
+)
 _COSTUME_FORCE = (
     "overhead flat lay product photography, garments and props laid flat on table, "
-    "ONLY these items: ONE black hooded raincoat unfolded, ONE black windbreaker, "
+    "ONLY these five items: ONE black hooded raincoat, ONE pair black pants, "
     "ONE pair black rain boots, ONE transparent clear umbrella, ONE white plastic shopping bag, "
     "black garments only, clothing pieces arranged neatly as product shots, "
     "isolated on solid seamless background, no person, no face, no mannequin, "
     "no model wearing clothes, no hanging rack display, no color variants, "
     "no hanfu, no ancient costume, no white robe, no white jacket, no white coat, "
-    "no beige jacket, no blue jacket, fashion design sheet"
+    "no beige jacket, no blue jacket, no red cloak, no beige cloak, no brown cloak, "
+    "fashion design sheet"
 )
 
 
@@ -234,10 +267,14 @@ def merge_video_refs(
             continue
         if is_sheet_url(u) or is_panel_url(u):
             continue
+        # 21:30:清掉 sample_linxia_* 旧样片,只保留立绘+三视图进 Ref2VA
+        if "sample_linxia_" in u:
+            continue
         if u in ordered:
             continue
         rest.append(u.strip())
-    return (ordered + rest)[:_MAX_REFS]
+    # 仅立绘+三视图;不再回填其它旧参考
+    return ordered[:_MAX_REFS]
 
 
 def merge_sheet_into_refs(
@@ -1276,13 +1313,23 @@ async def generate_character_sheet(
     for key in need_keys:
         if key == "portrait" or key in panels:
             continue
+        if key == "costume":
+            panels["costume"] = await _generate_costume_collage(
+                pool,
+                meta=meta,
+                ckpt=ckpt,
+                worker=worker,
+                client=client,
+                seed=seed,
+            )
+            continue
         w, h = _panel_size(key, meta.style)
         use_ref = None
         ref_mode = "none"
         denoise = 0.62
         if key in ("front", "side", "back") and ref_name:
             use_ref = ref_name
-            # 三视图统一 IPA 保同一人(img2img 易锁死正面)
+            # 三视图:优先 openpose;不可用则强 IPA(见 regenerate / _turnaround_mode)
             ref_mode = "ipa"
             denoise = 0.65
         elif key == "faces" and (face_ref_name or ref_name):
@@ -1290,19 +1337,15 @@ async def generate_character_sheet(
             ref_mode = "img2img" if meta.style == "anime" else "ipa"
             denoise = 0.58
         elif key.startswith("expr_"):
-            # 表情:裁脸参考 + 较高 denoise,保证同一人且表情可区分(21:01)
+            # 表情:主立绘头部裁图 img2img, denoise 0.52(落在 0.45–0.6)
             face = face_ref_name or ref_name
             if face:
                 use_ref = face
                 ref_mode = "img2img" if meta.style == "anime" else "ipa"
-                denoise = 0.72 if meta.style == "anime" else 0.68
+                denoise = 0.52
             else:
                 use_ref = None
                 ref_mode = "none"
-        elif key == "costume":
-            # 服饰纯 txt2img 平铺,不绑立绘以免变成穿着照
-            use_ref = None
-            ref_mode = "none"
         panels[key] = await generate_panel_bytes(
             pool,
             prompts[key],
@@ -1329,3 +1372,405 @@ async def generate_character_sheet(
     png = compose_character_sheet(panels, meta)
     url = save_sheet_png(png, character_id=character_id, style=meta.style)
     return url, png, panel_urls
+
+
+def _panel_is_blank_or_glitch(data: bytes) -> bool:
+    """简单启发式:空白/花屏则 True。"""
+    try:
+        img = Image.open(BytesIO(data)).convert("RGB")
+    except Exception:  # noqa: BLE001
+        return True
+    img = img.resize((64, 64), Image.Resampling.BILINEAR)
+    pixels = list(img.getdata())
+    if not pixels:
+        return True
+    n = len(pixels)
+    mean = tuple(sum(c[i] for c in pixels) / n for i in range(3))
+    var = sum(sum((c[i] - mean[i]) ** 2 for i in range(3)) for c in pixels) / n
+    # 近纯色 / 极低对比
+    if var < 80:
+        return True
+    # 花屏:邻像素 RGB 通道剧烈抖动
+    zig = 0
+    for i in range(1, n):
+        zig += sum(abs(pixels[i][j] - pixels[i - 1][j]) for j in range(3))
+    zig /= n
+    if zig > 90 and var > 8000:
+        return True
+    return False
+
+
+def _score_turnaround_candidate(data: bytes, key: str) -> float:
+    """分数越高越好;side/back 优先非正脸(左右不对称 + 非居中大脸块)。"""
+    if _panel_is_blank_or_glitch(data):
+        return -1e9
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    small = img.resize((48, 64), Image.Resampling.BILINEAR)
+    px = list(small.getdata())
+    sw, sh = small.size
+    # 左右差:侧面/背面通常不对称或发际线偏一侧
+    left = px[: sw * sh // 2] if False else [px[y * sw + x] for y in range(sh) for x in range(sw // 2)]
+    right = [px[y * sw + x] for y in range(sh) for x in range(sw // 2, sw)]
+    def _mean(cells):
+        n = max(1, len(cells))
+        return tuple(sum(c[i] for c in cells) / n for i in range(3))
+    ml, mr = _mean(left), _mean(right)
+    asym = sum(abs(ml[i] - mr[i]) for i in range(3))
+    # 上半部中心肤色块面积(正脸偏高)
+    face_score = 0.0
+    for y in range(int(sh * 0.1), int(sh * 0.45)):
+        for x in range(int(sw * 0.3), int(sw * 0.7)):
+            r, g, b = px[y * sw + x]
+            if r > 90 and g > 70 and b > 60 and r >= g - 10:
+                face_score += 1.0
+    face_score /= max(1, sw * sh)
+    score = 100.0 - (face_score * 200.0 if key in ("side", "back") else 0.0)
+    if key in ("side", "back"):
+        score += asym * 0.8
+    else:
+        score += face_score * 50.0
+    # 非空白奖励
+    score += 10.0
+    return score
+
+
+def _pick_best_candidate(cands: list[bytes], key: str) -> bytes:
+    if not cands:
+        raise CharacterSheetError(f"无候选:{key}", status_code=500)
+    if key in ("front", "side", "back"):
+        ranked = sorted(
+            cands, key=lambda b: _score_turnaround_candidate(b, key), reverse=True
+        )
+        return ranked[0]
+    # 其它:过滤花屏空白后取第一张,否则取第一张
+    for b in cands:
+        if not _panel_is_blank_or_glitch(b):
+            return b
+    return cands[0]
+
+
+def collage_costume_items(items: list[bytes], *, style: str) -> bytes:
+    """五件单品横排拼成 costume 区图。"""
+    w, h = _panel_size("costume", style)
+    canvas = Image.new("RGB", (w, h), (240, 240, 244) if style == "anime" else (30, 32, 38))
+    n = max(1, len(items))
+    cell_w = w // n
+    for i, raw in enumerate(items):
+        try:
+            im = Image.open(BytesIO(raw)).convert("RGB")
+        except Exception:  # noqa: BLE001
+            continue
+        box = (i * cell_w + 4, 8, cell_w - 8, h - 16)
+        _paste(canvas, im, box, cover=True)
+    buf = BytesIO()
+    canvas.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+async def _generate_costume_collage(
+    pool: "WorkerPool",
+    *,
+    meta: SheetMeta,
+    ckpt: str,
+    worker: str | None,
+    client: Any,
+    seed: int | None,
+    n_candidates: int = 1,
+) -> bytes:
+    """五件(雨衣/裤/靴/伞/袋)各出图再 collage;禁真人穿着。"""
+    del n_candidates  # 整卡路径各 1;分区重跑路径在 regenerate 里加候选
+    suf = _STYLE_SUFFIX.get(meta.style, _STYLE_SUFFIX["anime"])
+    item_bytes: list[bytes] = []
+    for idx, (item_key, item_prompt) in enumerate(_COSTUME_ITEMS):
+        prompt = f"{item_prompt}, {suf}"
+        w, h = (768, 768) if meta.style == "anime" else (512, 512)
+        data = await generate_panel_bytes(
+            pool,
+            prompt,
+            ckpt_name=ckpt,
+            width=w,
+            height=h,
+            seed=None if seed is None else seed + 7000 + idx,
+            worker=worker,
+            filename_prefix=f"ToIV_char_sheet_costume_{item_key}",
+            style=meta.style,
+            client=client,
+            ref_image=None,
+            ref_mode="none",
+            denoise=1.0,
+        )
+        item_bytes.append(data)
+    return collage_costume_items(item_bytes, style=meta.style)
+
+
+async def _probe_openpose_available(client: Any) -> tuple[bool, str]:
+    """探测 worker 是否具备 openpose 控网+预处理器;不可用则返回原因。"""
+    try:
+        info = await client.get_object_info("ControlNetLoader")
+    except Exception as e:  # noqa: BLE001
+        return False, f"object_info ControlNetLoader 失败:{e}"
+    try:
+        # 兼容不同 client 返回结构
+        models = []
+        if isinstance(info, dict):
+            node = info.get("ControlNetLoader") or info
+            inputs = (node.get("input") or {}).get("required") or {}
+            cn = inputs.get("control_net_name")
+            if isinstance(cn, list) and cn:
+                models = cn[0] if isinstance(cn[0], list) else cn
+        model_blob = " ".join(str(m) for m in models).lower()
+        has_union = "union" in model_blob and "sdxl" in model_blob
+        has_sd15 = "openpose" in model_blob
+        if not (has_union or has_sd15):
+            return False, "worker 未装 openpose/union controlnet 模型"
+    except Exception as e:  # noqa: BLE001
+        return False, f"解析 controlnet 列表失败:{e}"
+    try:
+        await client.get_object_info("AIO_Preprocessor")
+    except Exception as e:  # noqa: BLE001
+        return False, f"缺少 AIO_Preprocessor/OpenposePreprocessor:{e}"
+    # 还需现成骨架图;仓库内无标准 openpose 骨架资产时不强行用立绘抽骨架
+    return False, "无预置正/侧/背 openpose 骨架图资产,改用强 side/back IPA"
+
+
+async def generate_panel_bytes_openpose(
+    pool: "WorkerPool",
+    prompt: str,
+    *,
+    pose_image_name: str,
+    ckpt_name: str,
+    width: int,
+    height: int,
+    seed: int | None,
+    worker: str | None,
+    filename_prefix: str,
+    style: str,
+    client: Any | None = None,
+) -> bytes:
+    """openpose ControlNet 出图(尺寸覆盖 EmptyLatent)。"""
+    del pool
+    from app.comfy.client import ComfyUIError
+    from app.workflows.controlnet import ControlNetParams, build_controlnet_graph
+
+    cli = client or await _pick_sheet_client(worker)
+    neg = _STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"])
+    kw: dict[str, Any] = dict(
+        positive=prompt,
+        image=pose_image_name,
+        control_type="openpose",
+        negative=neg,
+        ckpt_name=ckpt_name,
+        strength=0.85,
+        steps=28 if style == "anime" else 22,
+        cfg=6.0 if style == "anime" else 7.0,
+        filename_prefix=filename_prefix,
+    )
+    if seed is not None:
+        kw["seed"] = seed
+    graph = build_controlnet_graph(ControlNetParams(**kw))
+    if "5" in graph and "inputs" in graph["5"]:
+        graph["5"]["inputs"]["width"] = width
+        graph["5"]["inputs"]["height"] = height
+    try:
+        prompt_id = await cli.queue_prompt(graph, client_id=uuid.uuid4().hex)
+    except ComfyUIError as e:
+        raise CharacterSheetError(f"openpose 出图提交失败:{e}", status_code=503) from e
+    images = await _wait_images(cli, prompt_id)
+    img = images[0]
+    data, _ = await cli.get_image_bytes(
+        img["filename"], img.get("subfolder", ""), img.get("type", "output")
+    )
+    return data
+
+
+async def regenerate_sheet_panels(
+    *,
+    character_id: str,
+    meta: SheetMeta,
+    pool: "WorkerPool",
+    locked_panels: dict[str, bytes],
+    regen_keys: list[str],
+    n_candidates: int = 3,
+    ckpt_name: str | None = None,
+    worker: str | None = None,
+    seed: int | None = None,
+) -> tuple[str, bytes, dict[str, str], dict[str, Any]]:
+    """分区锁定 + 单格重生成。
+
+    locked_panels: 已合格锁定的键→PNG bytes(跳过生成)。
+    regen_keys: 须重做的键(front/side/back/expr_*/costume/faces/palette 等)。
+    各 regen 键出 n_candidates 后启发式挑一张。
+    返回 (sheet_url, png_bytes, panel_urls, debug_info)。
+    """
+    if not (meta.name or "").strip():
+        raise CharacterSheetError("角色名为空", status_code=422)
+    if meta.style not in SHEET_STYLES:
+        raise CharacterSheetError(
+            f"style 须为 {'/'.join(SHEET_STYLES)}", status_code=422
+        )
+    resolve_cjk_font(24)
+    meta.design_notes = build_design_notes(meta)
+    prompts = build_panel_prompts(meta)
+    panels: dict[str, bytes] = dict(locked_panels or {})
+    panel_urls: dict[str, str] = {}
+    debug: dict[str, Any] = {
+        "locked": sorted(panels.keys()),
+        "regen_keys": list(regen_keys),
+        "n_candidates": n_candidates,
+        "openpose": {},
+        "picks": {},
+    }
+
+    ckpt = ckpt_name or _SHEET_CKPT.get(meta.style, _SHEET_CKPT["anime"])
+    client = await _pick_sheet_client(worker)
+
+    # 锁定立绘必须有(表情/三视图参考)
+    if "portrait" not in panels:
+        raise CharacterSheetError("locked_panels 缺少 portrait", status_code=422)
+    panel_urls["portrait"] = save_panel_png(
+        panels["portrait"],
+        character_id=character_id,
+        style=meta.style,
+        key="portrait",
+    )
+
+    ref_name: str | None = None
+    face_ref_name: str | None = None
+    try:
+        ref_name = await client.upload_image(
+            panels["portrait"],
+            f"sheet_ref_{character_id[:8]}_{meta.style}.png",
+        )
+        face_bytes = crop_face_ref(panels["portrait"])
+        face_ref_name = await client.upload_image(
+            face_bytes,
+            f"sheet_face_{character_id[:8]}_{meta.style}.png",
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning("设定卡 regenerate:上传参考失败: %s", e)
+
+    use_openpose, openpose_reason = await _probe_openpose_available(client)
+    debug["openpose"] = {"enabled": use_openpose, "reason": openpose_reason}
+
+    need = [k for k in regen_keys if k and k != "portrait"]
+    for key in need:
+        if key == "costume":
+            # 五件各出 n_candidates 再挑,再 collage
+            picked_items: list[bytes] = []
+            suf = _STYLE_SUFFIX.get(meta.style, _STYLE_SUFFIX["anime"])
+            for idx, (item_key, item_prompt) in enumerate(_COSTUME_ITEMS):
+                cands: list[bytes] = []
+                for ci in range(max(1, n_candidates)):
+                    w, h = (768, 768) if meta.style == "anime" else (512, 512)
+                    cands.append(
+                        await generate_panel_bytes(
+                            pool,
+                            f"{item_prompt}, {suf}",
+                            ckpt_name=ckpt,
+                            width=w,
+                            height=h,
+                            seed=None
+                            if seed is None
+                            else seed + 8000 + idx * 10 + ci,
+                            worker=worker,
+                            filename_prefix=f"ToIV_char_sheet_costume_{item_key}",
+                            style=meta.style,
+                            client=client,
+                            ref_image=None,
+                            ref_mode="none",
+                        )
+                    )
+                picked_items.append(_pick_best_candidate(cands, f"costume_{item_key}"))
+            panels["costume"] = collage_costume_items(picked_items, style=meta.style)
+            debug["picks"]["costume"] = {"items": [k for k, _ in _COSTUME_ITEMS]}
+            continue
+
+        cands = []
+        w, h = _panel_size(key, meta.style)
+        for ci in range(max(1, n_candidates)):
+            use_ref = None
+            ref_mode = "none"
+            denoise = 0.62
+            prompt = prompts.get(key) or prompts.get("front", "")
+            if key in ("front", "side", "back"):
+                # 强化侧/背提示
+                if key == "side":
+                    prompt = (
+                        prompts["side"]
+                        + ", extreme side silhouette, ear visible, only one eye visible, "
+                        "nose profile, 90 degree turn, NOT looking at camera"
+                    )
+                elif key == "back":
+                    prompt = (
+                        prompts["back"]
+                        + ", completely back facing, no eyes, no nose, no mouth, "
+                        "occiput and hood from behind only"
+                    )
+                if use_openpose:
+                    # 预留:有骨架图时走 openpose(当前 probe 恒 False)
+                    pass
+                if ref_name:
+                    use_ref = ref_name
+                    ref_mode = "ipa"
+                    denoise = 0.70
+            elif key.startswith("expr_"):
+                face = face_ref_name or ref_name
+                if face:
+                    use_ref = face
+                    ref_mode = "img2img" if meta.style == "anime" else "ipa"
+                    denoise = 0.52
+            elif key == "faces" and (face_ref_name or ref_name):
+                use_ref = face_ref_name or ref_name
+                ref_mode = "img2img" if meta.style == "anime" else "ipa"
+                denoise = 0.58
+            data = await generate_panel_bytes(
+                pool,
+                prompt,
+                ckpt_name=ckpt,
+                width=w,
+                height=h,
+                seed=None if seed is None else seed + (abs(hash(key + str(ci))) % 10000),
+                worker=worker,
+                filename_prefix=f"ToIV_char_sheet_{key}",
+                style=meta.style,
+                client=client,
+                ref_image=use_ref,
+                ref_mode=ref_mode,
+                denoise=denoise,
+            )
+            cands.append(data)
+        best = _pick_best_candidate(cands, key)
+        panels[key] = best
+        debug["picks"][key] = {
+            "n": len(cands),
+            "blank_rejected": sum(1 for b in cands if _panel_is_blank_or_glitch(b)),
+            "score": _score_turnaround_candidate(best, key)
+            if key in ("front", "side", "back")
+            else None,
+        }
+        if key in ("front", "side", "back"):
+            panel_urls[key] = save_panel_png(
+                panels[key],
+                character_id=character_id,
+                style=meta.style,
+                key=key,
+            )
+
+    # 拼版所需缺省键:用占位以免 compose 崩(faces 可用 front)
+    if "faces" not in panels and "front" in panels:
+        panels["faces"] = panels["front"]
+    if "costume" not in panels:
+        # 若未重做且未锁定,给浅色占位
+        ph = placeholder_panel((220, 220, 226), _panel_size("costume", meta.style))
+        buf = BytesIO()
+        ph.convert("RGB").save(buf, format="PNG")
+        panels["costume"] = buf.getvalue()
+    for ek in _EXPR_KEYS:
+        if ek not in panels and ek not in locked_panels:
+            # 允许只重部分表情;缺的用立绘脸裁
+            panels[ek] = crop_face_ref(panels["portrait"], size=768)
+
+    png = compose_character_sheet(panels, meta)
+    url = save_sheet_png(png, character_id=character_id, style=meta.style)
+    return url, png, panel_urls, debug

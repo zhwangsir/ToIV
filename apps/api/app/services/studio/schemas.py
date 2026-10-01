@@ -225,3 +225,23 @@ class CharacterSheetRequest(BaseModel):
     worker: str | None = Field(default=None, max_length=200)
     seed: int | None = None
 
+
+class CharacterSheetPanelsRequest(BaseModel):
+    """Batch7 21:30:分区锁定 + 单格/多格重生成。"""
+
+    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    keys: list[str] = Field(..., min_length=1, max_length=20)
+    n_candidates: int = Field(default=3, ge=1, le=5)
+    lock_from_sheet: bool = Field(
+        default=True,
+        description="True 时从角色现有 reference_images/最新 panel 锁定未在 keys 内的格",
+    )
+    height_cm: int = Field(default=168, ge=120, le=220)
+    role: str = Field(default="", max_length=100)
+    personality: str = Field(default="", max_length=200)
+    design_notes: str = Field(default="", max_length=1000)
+    colors: list[str] | None = Field(default=None, max_length=8)
+    visual_prompt_override: str | None = Field(default=None, max_length=2000)
+    worker: str | None = Field(default=None, max_length=200)
+    seed: int | None = None
+

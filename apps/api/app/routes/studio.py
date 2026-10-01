@@ -26,6 +26,7 @@ from app.services.studio.schemas import (
     CharacterCreate,
     CharacterPatch,
     CharacterSheetRequest,
+    CharacterSheetPanelsRequest,
     ProjectCreate,
     ProjectPatch,
     ScriptParseRequest,
@@ -343,6 +344,100 @@ async def generate_character_sheet_route(
     return out
 
 
+
+
+
+@router.post("/studio/characters/{cid}/character-sheet/panels")
+async def regenerate_character_sheet_panels_route(
+    cid: str,
+    body: CharacterSheetPanelsRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    pool=Depends(get_pool),
+):
+    """单格/多格重生成:锁定合格区,仅重做 keys;写回立绘+三视图参考(清 sample_linxia)。"""
+    from app.services.studio import character_sheet as sheet_svc
+    from app.storage import drama_output_root
+
+    c = session.get(StudioCharacter, cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="角色不存在")
+    _get_project(session, c.project_id, user)
+
+    name = (c.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="角色名为空")
+    visual = (body.visual_prompt_override or c.visual_prompt or "").strip()
+    if not visual and not (c.description or "").strip():
+        raise HTTPException(status_code=422, detail="角色缺少视觉描述")
+
+    meta = sheet_svc.SheetMeta(
+        name=name,
+        style=body.style,
+        height_cm=body.height_cm,
+        role=(body.role or "").strip(),
+        personality=(body.personality or "").strip(),
+        design_notes=(body.design_notes or "").strip(),
+        colors=list(body.colors or []),
+        visual_prompt=visual,
+        description=(c.description or "").strip(),
+    )
+
+    locked: dict[str, bytes] = {}
+    if body.lock_from_sheet:
+        # 从 studio 目录取该角色该风格最新 portrait(及未列入 keys 的 turnaround)
+        studio = drama_output_root() / "studio"
+        style = body.style
+        prefix = f"char_panel_{cid[:8]}_{style}_"
+        regen_set = set(body.keys)
+        # 锁定 portrait 必须
+        portraits = sorted(studio.glob(f"{prefix}portrait_*.png"), key=lambda p: p.stat().st_mtime)
+        if portraits:
+            locked["portrait"] = portraits[-1].read_bytes()
+        for key in ("front", "side", "back", "faces", "costume", *sheet_svc._EXPR_KEYS):
+            if key in regen_set or key == "portrait":
+                continue
+            hits = sorted(studio.glob(f"{prefix}{key}_*.png"), key=lambda p: p.stat().st_mtime)
+            if hits:
+                locked[key] = hits[-1].read_bytes()
+        if "portrait" not in locked:
+            raise HTTPException(status_code=422, detail="无可用锁定立绘,请先整卡或提供 portrait")
+
+    try:
+        url, _png, panel_urls, debug = await sheet_svc.regenerate_sheet_panels(
+            character_id=c.id,
+            meta=meta,
+            pool=pool,
+            locked_panels=locked,
+            regen_keys=list(body.keys),
+            n_candidates=body.n_candidates,
+            worker=body.worker,
+            seed=body.seed,
+        )
+    except sheet_svc.CharacterSheetError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+
+    try:
+        existing = json.loads(c.reference_images or "[]")
+    except (ValueError, TypeError):
+        existing = []
+    if not isinstance(existing, list):
+        existing = []
+    refs = sheet_svc.merge_video_refs(
+        [u for u in existing if isinstance(u, str)],
+        panel_urls=panel_urls,
+        sheet_url=url,
+    )
+    c.reference_images = json.dumps(refs, ensure_ascii=False)
+    session.add(c)
+    session.commit()
+    session.refresh(c)
+    out = _character_out(c)
+    out["sheet_url"] = url
+    out["sheet_style"] = body.style
+    out["panel_urls"] = panel_urls
+    out["debug"] = debug
+    return out
 
 
 # ── 分镜批量保存 ───────────────────────────────────────────────────────────
