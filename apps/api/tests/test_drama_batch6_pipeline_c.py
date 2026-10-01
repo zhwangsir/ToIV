@@ -85,6 +85,20 @@ def test_pipeline_c_graph_first_segment():
     assert g["19"]["class_type"] == "MiniMaxH3MotionContextSaveLatent"
     assert g["9"]["inputs"]["audio_mode"] == "native"
     assert g["9"]["inputs"]["length"] == 362
+    assert g["9"]["inputs"]["task_type"] == "Ref2VA"  # 无首帧不可用 Hybrid
+
+
+def test_pipeline_c_graph_hybrid_when_first_frame():
+    g = build_h3_pipeline_c_graph(
+        H3PipelineCParams(
+            positive="test",
+            images=("a.png",),
+            first_frame="tail.png",
+        )
+    )
+    assert g["9"]["inputs"]["task_type"] == "Hybrid"
+    assert g["9"]["inputs"]["first_frame"] == ["7", 0]
+    assert g["7"]["inputs"]["image"] == "tail.png"
 
 
 def test_pipeline_c_graph_continue_has_motion_context():

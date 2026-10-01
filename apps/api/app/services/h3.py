@@ -245,6 +245,16 @@ async def ensure_h3_vram(client: ComfyUIClient) -> None:
     threshold = settings.h3_min_free_vram_gb
     if threshold <= 0:  # 阈值设为 0 = 显式关闭预检
         return
+    # Batch6: 显存够用时完全跳过驱逐（/free 会挂死连接池）
+    try:
+        _stats0 = await client.get_system_stats()
+        _free0 = _cuda_free_gib(_stats0)
+        if _free0 is not None and _free0 >= max(20.0, threshold * 0.9):
+            logger.info("BATCH6_SKIP_FREE H3 显存 %.1fG，跳过驱逐", _free0)
+            await ensure_host_ram(client, 0, "H3")  # 0=关闭 RAM 驱逐
+            return
+    except Exception as _e:
+        logger.warning("BATCH6_SKIP_FREE 预检失败: %s", _e)
     try:
         if await client.queue_len() > 0:
             logger.info("H3 实例队列非空,跳过显存预检(ComfyUI 原生排队,模型已驻留)")

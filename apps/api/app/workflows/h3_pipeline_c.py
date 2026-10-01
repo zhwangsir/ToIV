@@ -78,6 +78,10 @@ def build_h3_pipeline_c_graph(params: H3PipelineCParams) -> dict[str, Any]:
     }
 
     # 参考图 LoadImage：7a,7b,...
+    # T8 resolve_task_type：仅参考图 → ref2va；参考图+首/尾帧 → hybrid。
+    # 写死 Hybrid 且无 first_frame 会在执行时报 HYBRID requires first_frame。
+    ff = (params.first_frame or "").strip()
+    task_type = "Hybrid" if ff else "Ref2VA"
     h3_inputs: dict[str, Any] = {
         "clip": ["10", 0],
         "video_vae": ["11", 0],
@@ -86,7 +90,7 @@ def build_h3_pipeline_c_graph(params: H3PipelineCParams) -> dict[str, Any]:
         "width": int(params.width),
         "height": int(params.height),
         "length": int(params.length),
-        "task_type": "Hybrid",
+        "task_type": task_type,
         "audio_mode": "native",
         "audio_denoise_strength": 0.35,
         "add_source_as_reference": True,
@@ -100,7 +104,6 @@ def build_h3_pipeline_c_graph(params: H3PipelineCParams) -> dict[str, Any]:
         graph[nid] = {"class_type": "LoadImage", "inputs": {"image": name}}
         h3_inputs[f"ref_images.ref_image_{i}"] = [nid, 0]
 
-    ff = (params.first_frame or "").strip()
     if ff:
         graph["7"] = {"class_type": "LoadImage", "inputs": {"image": ff}}
         h3_inputs["first_frame"] = ["7", 0]
