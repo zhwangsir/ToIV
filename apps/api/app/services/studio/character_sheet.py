@@ -165,9 +165,10 @@ _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
     (
         "pants",
         "product still life, single object only, one pair matte jet-black trousers "
-        "laid flat folded, pure black fabric, "
-        "solid seamless pure white background, studio lighting, no person, no face, "
-        "no mannequin, no cloak, no cape, no beige, no brown, no tan, no red, no text",
+        "laid flat folded on table, pure black fabric, clothing flat lay, "
+        "solid seamless pure white background, studio lighting, "
+        "no person, no face, no body, no mannequin, no legs wearing pants, "
+        "no human silhouette, no cloak, no cape, no beige, no brown, no tan, no red, no text",
     ),
     (
         "boots",
@@ -182,9 +183,9 @@ _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
     (
         "umbrella",
         "product still life, single object only, one fully transparent clear umbrella "
-        "with visible ribs, clear vinyl canopy, black handle, "
-        "solid seamless pure white background, studio lighting, no person, no face, "
-        "no opaque umbrella, no colored canopy, no cloak, no text",
+        "with visible ribs, see-through vinyl canopy, black handle, "
+        "solid seamless pure light gray background, studio lighting, no person, no face, "
+        "no opaque umbrella, no white canopy, no colored canopy, no cloak, no text",
     ),
     (
         "bag",
@@ -911,6 +912,27 @@ def crop_face_ref(portrait_bytes: bytes, size: int = 768) -> bytes:
     return buf.getvalue()
 
 
+def enforce_head_shoulders_square(data: bytes, size: int = 768) -> bytes:
+    """表情出图后强制头肩正方形:取上部居中方块,保证脸占格≥约一半。
+
+    模型常无视 closeup 提示画出半身;此步是硬裁,标签仍由拼版画在格下。
+    """
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    # 优先取上部 48% 高度为边,若宽不够则用全宽
+    side = min(w, max(int(h * 0.48), int(w * 0.85)))
+    side = min(side, w, h)
+    left = max(0, (w - side) // 2)
+    top = max(0, int(h * 0.02))
+    if top + side > h:
+        top = max(0, h - side)
+    crop = img.crop((left, top, left + side, top + side))
+    crop = crop.resize((size, size), Image.Resampling.LANCZOS)
+    buf = BytesIO()
+    crop.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 async def _wait_images(client: Any, prompt_id: str) -> list[dict]:
     waited = 0.0
     from app.comfy.client import ComfyUIError
@@ -1431,6 +1453,8 @@ async def generate_character_sheet(
             ref_mode=ref_mode,
             denoise=denoise,
         )
+        if key.startswith("expr_"):
+            panels[key] = enforce_head_shoulders_square(panels[key], size=768)
         if key in ("front", "side", "back"):
             panel_urls[key] = save_panel_png(
                 panels[key],
@@ -1580,19 +1604,22 @@ def _pick_best_candidate(cands: list[bytes], key: str) -> bytes:
 
 
 def collage_costume_items(items: list[bytes], *, style: str) -> bytes:
-    """五件单品横排拼成 costume 区图;按包围盒 letterbox,不裁切物品。"""
-    w, h = _panel_size("costume", style)
-    canvas = Image.new("RGB", (w, h), (240, 240, 244) if style == "anime" else (30, 32, 38))
+    """五件单品横排拼成 costume 区图;正方形格 + 包围盒 letterbox,不裁切。"""
+    # 用接近版式区的宽扁画布,每格近似正方形,避免竖长条中心裁切
     n = max(1, len(items))
-    cell_w = w // n
+    cell = 256
+    pad = 8
+    w = n * cell + pad * 2
+    h = cell + pad * 2
+    bg = (240, 240, 244) if style == "anime" else (30, 32, 38)
+    canvas = Image.new("RGB", (w, h), bg)
     for i, raw in enumerate(items):
         try:
             im = Image.open(BytesIO(raw)).convert("RGB")
         except Exception:  # noqa: BLE001
             continue
-        # 先按非白/非深灰像素取物品包围盒,再 letterbox 进格
         im = _trim_object_bbox(im, style=style)
-        box = (i * cell_w + 4, 8, cell_w - 8, h - 16)
+        box = (pad + i * cell + 4, pad + 4, cell - 8, cell - 8)
         _paste(canvas, im, box, cover=False)
     buf = BytesIO()
     canvas.save(buf, format="PNG")
@@ -1960,13 +1987,22 @@ async def regenerate_sheet_panels(
             )
             cands.append(data)
         best = _pick_best_candidate(cands, key)
+        if key.startswith("expr_"):
+            best = enforce_head_shoulders_square(best, size=768)
         panels[key] = best
         debug["picks"][key] = {
             "n": len(cands),
             "blank_rejected": sum(1 for b in cands if _panel_is_blank_or_glitch(b)),
-            "score": _score_turnaround_candidate(best, key)
-            if key in ("front", "side", "back")
-            else None,
+            "score": (
+                _score_turnaround_candidate(best, key)
+                if key in ("front", "side", "back")
+                else (
+                    _score_expression_head_ratio(best)
+                    if key.startswith("expr_")
+                    else None
+                )
+            ),
+            "head_enforced": key.startswith("expr_"),
         }
         if key in ("front", "side", "back"):
             panel_urls[key] = save_panel_png(
