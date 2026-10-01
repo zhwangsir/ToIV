@@ -62,6 +62,16 @@ REMOTE_EOF
 
 remote_restart() {
   local unit="$1"
+  if [[ "${unit}" == "toiv-api" && "${FORCE_API_RESTART:-0}" != "1" ]]; then
+    # 渲染驱动经 API 长连接收片,重启会打断真跑:有驱动在跑时拒绝重启
+    local busy
+    busy=$(ssh "${SSH_OPTS[@]}" "${REMOTE}" "pgrep -af 'tmp/batch[0-9]+_[^ ]*\.py' | grep -v pgrep || true")
+    if [[ -n "${busy}" ]]; then
+      echo "✖ 有渲染驱动在跑,拒绝重启 toiv-api(代码已同步,待驱动结束后再重启;确需强制设 FORCE_API_RESTART=1):" >&2
+      echo "${busy}" >&2
+      exit 3
+    fi
+  fi
   echo "▶ 远端重启 ${unit} …"
   ssh "${SSH_OPTS[@]}" "${REMOTE}" "sudo systemctl restart ${unit}"
 }
