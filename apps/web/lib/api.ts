@@ -4557,6 +4557,12 @@ export interface StudioProjectSummary {
   error?: string;
   created_at: string;
   updated_at: string;
+  /** Batch5:列表进度点(compute_studio_next_step) */
+  pipeline?: {
+    total_shots: number;
+    by_status: Record<string, number>;
+    next_step?: StudioNextStep;
+  };
 }
 
 export interface StudioCharacter {
