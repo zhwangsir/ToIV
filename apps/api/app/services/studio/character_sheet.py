@@ -231,36 +231,41 @@ _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
 # 古风汉服单品(交领/襦裙/腰带/发簪/团扇);禁止沿用雨衣伞袋
 _COSTUME_ITEMS_ANCIENT: tuple[tuple[str, str], ...] = (
     (
-        "ruqun",
-        "product still life, single object only, one traditional Chinese qi-xiong ruqun skirt "
-        "and cross-collar blouse set laid flat, silk fabric, ink-wash colors deep ink and muted jade, "
-        "fills most of frame, solid seamless dark gray background, studio lighting, "
-        "no person, no face, no mannequin, no raincoat, no modern jacket, no text",
+        "beizi",
+        "e-commerce flat lay product photo, garment only, ONE traditional Chinese beizi outer robe "
+        "laid flat open on table, dark silk, long wide sleeves spread left and right, "
+        "no body inside, empty garment shape, fills most of frame, "
+        "solid seamless dark gray background, studio softbox, "
+        "no person, no face, no hands, no mannequin, no model wearing clothes, "
+        "no half body portrait, no raincoat, no modern jacket, no text",
     ),
     (
         "jiaoling",
-        "product still life, single object only, one traditional Chinese cross-collar jiaoling robe "
-        "laid flat open, dark silk, wide sleeves, "
-        "fills most of frame, solid seamless dark gray background, studio lighting, "
-        "no person, no face, no raincoat, no hoodie, no zipper, no text",
+        "e-commerce flat lay product photo, garment only, ONE traditional Chinese cross-collar "
+        "jiaoling robe laid flat open like clothing catalog, dark silk, wide sleeves, "
+        "no body inside, empty garment, fills most of frame, "
+        "solid seamless dark gray background, studio lighting, "
+        "no person, no face, no mannequin, no worn clothes, no hoodie, no zipper, no text",
     ),
     (
         "sash",
-        "product still life, single object only, one wide silk waist sash belt for hanfu, "
-        "dark embroidered ribbon, coiled neatly, "
-        "solid seamless dark gray background, studio lighting, no person, no text",
+        "product still life flat lay, accessory only, ONE wide silk waist sash belt for hanfu, "
+        "dark embroidered ribbon coiled neatly on table, no person wearing it, "
+        "solid seamless dark gray background, studio lighting, no person, no waist, no text",
     ),
     (
         "hairpin",
-        "product still life, single object only, one ornate Chinese hairpin zan with jade tip, "
-        "metal and jade, catalog photo, solid seamless dark gray background, "
-        "studio lighting, no person, no face, no text",
+        "product still life, accessory only, ONE ornate Chinese hairpin zan with jade tip, "
+        "metal and jade isolated on table, catalog photo, "
+        "solid seamless dark gray background, studio lighting, "
+        "no person, no hair, no head, no face, no text",
     ),
     (
         "fan",
-        "product still life, single object only, one round silk tuanshan hand fan, "
-        "ink painting motif, wooden handle, solid seamless dark gray background, "
-        "studio lighting, no person, no umbrella, no plastic, no text",
+        "product still life, accessory only, ONE round silk tuanshan hand fan, "
+        "ink painting motif, wooden handle, isolated object, "
+        "solid seamless dark gray background, studio lighting, "
+        "no person, no hand holding, no umbrella, no plastic, no text",
     ),
 )
 
@@ -444,6 +449,18 @@ def _costume_item_penalty(data: bytes, item_key: str) -> float:
             pen += (blue / n) * 8.0
         if br > 0.25:
             pen += br * 4.0
+    # 古风单品:检测「有人脸/肤色中带」→ 着装半身,重罚
+    if item_key in ("beizi", "jiaoling", "ruqun", "sash", "hairpin", "fan"):
+        skin = sum(
+            1
+            for r, g, b in px
+            if r > 90 and g > 60 and b > 45 and r > g + 8 and r > b + 12 and abs(g - b) < 40
+        )
+        if skin / n > 0.06:
+            pen += 8.0 + (skin / n) * 20.0
+        # 中心偏上若像头部圆形暗块+下方躯干,也偏着装
+        if item_key in ("beizi", "jiaoling", "ruqun") and br < 0.08 and skin / n > 0.03:
+            pen += 4.0
     return pen
 
 
@@ -1056,7 +1073,7 @@ def compose_character_sheet(
         buf = BytesIO()
         src.convert("RGB").save(buf, format="PNG")
         norm = Image.open(BytesIO(normalize_turnaround_figure(buf.getvalue(), out_w=box[2], out_h=box[3]))).convert("RGBA")
-        _paste(canvas, norm, box, cover=True)
+        _paste(canvas, norm, box, cover=False)
         label = {"front": "正", "side": "侧", "back": "背"}[key]
         draw.text(
             (box[0] + view_w // 2 - 20, ty + th - 36),
@@ -1266,81 +1283,99 @@ def crop_head_from_figure(data: bytes, *, size: int = 768, top_frac: float = 0.3
 
 
 def enforce_head_shoulders_square(data: bytes, size: int = 768) -> bytes:
-    """强制头肩正方形并铺满:前景上半→迭代收紧至前景占格≥78%。"""
+    """头肩正方形裁切(fix12/fix10d 比例):头顶→锁骨,禁裁半脸/去额头下巴。
+
+    相对 fix11 的「迭代收紧≥78%」回退:保留完整前景包围盒并轻度外扩,
+    向下略延以纳入锁骨/肩线,偏上保住额头。
+    """
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
-
-    def _fg_bbox(im: Image.Image):
-        small = im.resize((64, 64), Image.Resampling.BILINEAR)
-        sp = small.load()
-        xs, ys = [], []
-        for y in range(64):
-            for x in range(64):
-                r, g, b = sp[x, y]
-                mx, mn = max(r, g, b), min(r, g, b)
-                if r > 225 and g > 225 and b > 225:
-                    continue
-                if mx - mn < 18 and 55 <= mx <= 210:
-                    continue
-                if mx < 28 and mx - mn < 10:
-                    continue
-                xs.append(x)
-                ys.append(y)
-        if len(xs) < 12:
-            return None
-        minx, maxx, miny, maxy = min(xs), max(xs), min(ys), max(ys)
-        span = max(1, maxy - miny)
-        maxy = miny + max(10, int(span * 0.70))
-        iw, ih = im.size
-        return (
-            int(minx * iw / 64),
-            int(miny * ih / 64),
-            int((maxx + 1) * iw / 64),
-            int((maxy + 1) * ih / 64),
-        )
-
-    def _fg_ratio(im: Image.Image) -> float:
-        small = im.resize((32, 32), Image.Resampling.BILINEAR)
-        px = list(small.getdata())
-        fg = 0
-        for r, g, b in px:
+    small = img.resize((64, 64), Image.Resampling.BILINEAR)
+    sp = small.load()
+    xs, ys = [], []
+    for y in range(64):
+        for x in range(64):
+            r, g, b = sp[x, y]
             mx, mn = max(r, g, b), min(r, g, b)
-            if r > 225 and g > 225 and b > 225:
+            if r > 230 and g > 230 and b > 230:
                 continue
-            if mx - mn < 18 and 55 <= mx <= 210:
+            if mx - mn < 14 and 70 <= mx <= 200:
                 continue
-            if mx < 28:
+            if mx < 22 and mx - mn < 8:
                 continue
-            fg += 1
-        return fg / 1024.0
-
-    bb = _fg_bbox(img)
-    if bb is None:
-        cx, cy = w // 2, int(h * 0.28)
-        side = min(w, h, max(int(h * 0.50), int(w * 0.62)))
+            xs.append(x)
+            ys.append(y)
+    if len(xs) >= 16:
+        minx, maxx = min(xs), max(xs)
+        miny, maxy = min(ys), max(ys)
+        # 向下扩展约 18% 纳入锁骨/肩,勿截下巴
+        span = max(1, maxy - miny)
+        maxy = min(63, maxy + max(2, int(span * 0.18)))
+        left0 = int(minx * w / 64)
+        right0 = int((maxx + 1) * w / 64)
+        top0 = int(miny * h / 64)
+        bot0 = int((maxy + 1) * h / 64)
+        bw, bh = max(1, right0 - left0), max(1, bot0 - top0)
+        pad = int(max(bw, bh) * 0.10)
+        side = int(max(bw, bh) * 1.06) + pad
+        side = max(side, int(min(w, h) * 0.42))
+        side = min(side, w, h)
+        cx = (left0 + right0) // 2
+        cy = (top0 + bot0) // 2
+        # 偏上保住额头,略放下纳入锁骨
+        cy = max(side // 2, cy - int(side * 0.04))
         left = max(0, min(w - side, cx - side // 2))
         top = max(0, min(h - side, cy - side // 2))
-        crop = img.crop((left, top, left + side, top + side))
     else:
-        left0, top0, right0, bot0 = bb
-        bw, bh = max(1, right0 - left0), max(1, bot0 - top0)
-        cx = (left0 + right0) // 2
-        cy = (top0 + bot0) // 2 - int(bh * 0.05)
-        side = int(max(bw, bh) * 1.10)
-        side = max(side, int(min(w, h) * 0.40))
-        side = min(side, w, h)
-        crop = img
-        for _ in range(6):
-            left = max(0, min(w - side, cx - side // 2))
-            top = max(0, min(h - side, cy - side // 2))
-            crop = img.crop((left, top, left + side, top + side))
-            if _fg_ratio(crop) >= 0.78 or side < int(min(w, h) * 0.34):
-                break
-            side = max(64, int(side * 0.90))
+        cx, cy = w // 2, int(h * 0.30)
+        side = min(w, h, max(int(h * 0.55), int(w * 0.70)))
+        left = max(0, min(w - side, cx - side // 2))
+        top = max(0, min(h - side, cy - side // 2))
+    if top + side > h:
+        top = max(0, h - side)
+    crop = img.crop((left, top, left + side, top + side))
     crop = crop.resize((size, size), Image.Resampling.LANCZOS)
     buf = BytesIO()
     crop.save(buf, format="PNG")
     return buf.getvalue()
+
+
+def face_crop_looks_ok(data: bytes) -> bool:
+    """目检启发式:禁半脸(顶缘裁掉额头或底缘贴下巴截断);允许头顶少量留白。"""
+    img = Image.open(BytesIO(data)).convert("RGB")
+    small = img.resize((32, 32), Image.Resampling.BILINEAR)
+    px = list(small.getdata())
+
+    def _fg(r, g, b) -> bool:
+        mx, mn = max(r, g, b), min(r, g, b)
+        if r > 235 and g > 235 and b > 235:
+            return False
+        if mx - mn < 12 and 80 <= mx <= 210:
+            return False
+        return True
+
+    # 只看中间竖带,忽略左右信箱白边
+    def _band_fg(y0, y1):
+        return sum(
+            1
+            for x in range(6, 26)
+            for y in range(y0, y1)
+            if _fg(*px[y * 32 + x])
+        )
+
+    top_fg = _band_fg(0, 5)
+    bot_fg = _band_fg(27, 32)
+    mid_fg = _band_fg(8, 24)
+    # 顶缘几乎全被裁掉(头发顶贴边过猛且中带很少) → 半脸
+    if top_fg >= 90 and mid_fg < 40:
+        return False
+    # 中带几乎无前景
+    if mid_fg < 25:
+        return False
+    # 底缘贴满且顶缘也贴满 → 极端特写裁掉额/下可能
+    if bot_fg >= 85 and top_fg >= 85 and mid_fg > 120:
+        return False
+    return True
 
 
 def estimate_face_yaw_deg(data: bytes) -> float | None:
@@ -1442,6 +1477,11 @@ def _pick_best_face_with_yaw(cands: list[bytes], face_key: str) -> tuple[bytes, 
         ang = _score_face_angle_candidate(b, face_key)
         ok = yaw_ok_for_face_key(yaw, face_key)
         joint = ang + (40.0 if ok else -25.0)
+        # 目检优先于纯 yaw:半脸/去额去下巴重罚
+        if face_crop_looks_ok(b):
+            joint += 35.0
+        else:
+            joint -= 55.0
         if yaw is not None:
             target = {
                 "face_front": 0.0,
@@ -2499,22 +2539,35 @@ async def _generate_costume_collage(
                 + prompt
                 + ", clothing only, not empty white frame"
             )
+        # 古风单品易出着装半身:多候选+anime 产品 ckpt+惩罚择优
+        n_try = 4 if meta.style == "ancient_realistic" else 1
+        use_ckpt, use_style = ckpt, meta.style
         w, h = (768, 768) if meta.style == "anime" else (512, 512)
-        data = await generate_panel_bytes(
-            pool,
-            prompt,
-            ckpt_name=ckpt,
-            width=w,
-            height=h,
-            seed=None if seed is None else seed + 7000 + idx,
-            worker=worker,
-            filename_prefix=f"ToIV_char_sheet_costume_{item_key}",
-            style=meta.style,
-            client=client,
-            ref_image=None,
-            ref_mode="none",
-            denoise=1.0,
-        )
+        if meta.style == "ancient_realistic":
+            use_ckpt = "animagineXL40.safetensors"
+            use_style = "anime"
+            w, h = 768, 768
+            prompt = prompt + ", anime product illustration, flat lay, no person, no face"
+        cands: list[bytes] = []
+        for ci in range(n_try):
+            cands.append(
+                await generate_panel_bytes(
+                    pool,
+                    prompt,
+                    ckpt_name=use_ckpt,
+                    width=w,
+                    height=h,
+                    seed=None if seed is None else seed + 7000 + idx * 17 + ci * 41,
+                    worker=worker,
+                    filename_prefix=f"ToIV_char_sheet_costume_{item_key}",
+                    style=use_style,
+                    client=client,
+                    ref_image=None,
+                    ref_mode="none",
+                    denoise=1.0,
+                )
+            )
+        data = _pick_best_candidate(cands, f"costume_{item_key}")
         item_bytes.append(data)
     return collage_costume_items(item_bytes, style=meta.style)
 
@@ -2832,7 +2885,11 @@ def compose_faces_triptych(
 
 
 def normalize_turnaround_figure(data: bytes, *, out_w: int = 768, out_h: int = 1152) -> bytes:
-    """裁掉大块灰/白底后按高度贴满(脚底贴底),避免三视图显矮像小孩。"""
+    """裁掉大块灰/白底后按高度贴满到刻度(≈165cm):脚底贴底、头顶近顶。
+
+    fix12:宽袖/横幅人物若按宽缩放会变矮(古风汉服常见);改为始终按高度铺满,
+    超出宽度则水平居中裁切,禁止回落为矮小人形。
+    """
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
     small = img.resize((64, 64), Image.Resampling.BILINEAR)
@@ -2843,12 +2900,13 @@ def normalize_turnaround_figure(data: bytes, *, out_w: int = 768, out_h: int = 1
             r, g, b = px[x, y]
             if r > 235 and g > 235 and b > 235:
                 continue
-            if abs(r - g) < 12 and abs(g - b) < 12 and 160 <= r <= 230:
-                continue  # 浅灰底
+            if abs(r - g) < 14 and abs(g - b) < 14 and 150 <= r <= 235:
+                continue  # 浅/中灰底与柔光晕
+            if abs(r - g) < 12 and abs(g - b) < 12 and 35 <= r <= 110:
+                continue  # 深灰影棚底
             ys.append(y)
             xs.append(x)
     if len(ys) < 30:
-        # 几乎找不到前景:原图缩放居中
         fitted, _ = _fit(img.convert("RGBA"), (0, 0, out_w, out_h), cover=False)
         canvas = Image.new("RGB", (out_w, out_h), (230, 230, 234))
         canvas.paste(fitted.convert("RGB"), ((out_w - fitted.width) // 2, out_h - fitted.height))
@@ -2860,15 +2918,16 @@ def normalize_turnaround_figure(data: bytes, *, out_w: int = 768, out_h: int = 1
     left = max(0, int(min(xs) * w / 64) - 8)
     right = min(w, int(max(xs) * w / 64) + 8)
     crop = img.crop((left, top, right, bottom))
-    # 按高度贴满,水平居中,脚在底部
+    # 始终按高度贴满(对齐 165cm 刻度);过宽则水平裁
     scale = out_h / max(1, crop.height)
     nw, nh = max(1, int(crop.width * scale)), out_h
-    if nw > out_w:
-        scale = out_w / crop.width
-        nw, nh = out_w, max(1, int(crop.height * scale))
     crop = crop.resize((nw, nh), Image.Resampling.LANCZOS)
+    if nw > out_w:
+        left_c = (nw - out_w) // 2
+        crop = crop.crop((left_c, 0, left_c + out_w, out_h))
+        nw = out_w
     canvas = Image.new("RGB", (out_w, out_h), (230, 230, 234))
-    canvas.paste(crop, ((out_w - nw) // 2, out_h - nh))
+    canvas.paste(crop, ((out_w - nw) // 2, 0))  # 头顶贴顶、脚随高度铺满
     buf = BytesIO()
     canvas.save(buf, format="PNG")
     return buf.getvalue()
@@ -3190,15 +3249,30 @@ async def regenerate_sheet_panels(
                         + item_prompt
                         + ", single footwear product only"
                     )
-                rounds = 2 if item_key in ("boots", "pants") else 1
+                rounds = 3 if item_key in ("boots", "pants", "beizi", "jiaoling", "sash", "hairpin", "fan") else 1
                 for round_i in range(rounds):
                     for ci in range(max(1, n_candidates)):
-                        w, h = (768, 768) if meta.style == "anime" else (512, 512)
+                        # 古风单品平铺:写实 ckpt 易出着装人像,改用 anime 产品图再拼入深底卡
+                        use_ckpt = ckpt
+                        use_style = meta.style
+                        wh = (768, 768) if meta.style == "anime" else (512, 512)
+                        if meta.style == "ancient_realistic" and item_key in (
+                            "beizi", "jiaoling", "sash", "hairpin", "fan", "ruqun"
+                        ):
+                            use_ckpt = "animagineXL40.safetensors"
+                            use_style = "anime"
+                            wh = (768, 768)
+                            item_prompt_final = (
+                                item_prompt_final
+                                + ", anime product illustration, clothing flat lay catalog, "
+                                "no person, no face, no hands"
+                            )
+                        w, h = wh
                         cands.append(
                             await generate_panel_bytes(
                                 pool,
                                 item_prompt_final,
-                                ckpt_name=ckpt,
+                                ckpt_name=use_ckpt,
                                 width=w,
                                 height=h,
                                 seed=None
@@ -3206,7 +3280,7 @@ async def regenerate_sheet_panels(
                                 else seed + 8000 + idx * 10 + ci + round_i * 170,
                                 worker=worker,
                                 filename_prefix=f"ToIV_char_sheet_costume_{item_key}",
-                                style=meta.style,
+                                style=use_style,
                                 client=client,
                                 ref_image=None,
                                 ref_mode="none",
@@ -3256,10 +3330,20 @@ async def regenerate_sheet_panels(
                     logger.warning("faces: front headcrop upload fail: %s", e)
             if panels.get("side"):
                 try:
-                    head_side_name = await client.upload_image(
-                        crop_head_from_figure(panels["side"]),
-                        f"sheet_head_side_{character_id[:8]}.png",
-                    )
+                    side_head = crop_head_from_figure(panels["side"])
+                    side_yaw = estimate_face_yaw_deg(side_head)
+                    # 三视图「侧」若是回头过肩(yaw 偏低),禁止硬裁入卡;改走真侧脸 IPA
+                    if side_yaw is not None and abs(float(side_yaw)) >= 55.0:
+                        head_side_name = await client.upload_image(
+                            side_head,
+                            f"sheet_head_side_{character_id[:8]}.png",
+                        )
+                    else:
+                        logger.warning(
+                            "faces: side turnaround yaw=%s not profile, skip headcrop anchor",
+                            side_yaw,
+                        )
+                        head_side_name = None
                 except Exception as e:  # noqa: BLE001
                     logger.warning("faces: side headcrop upload fail: %s", e)
             for fk in face_keys:
