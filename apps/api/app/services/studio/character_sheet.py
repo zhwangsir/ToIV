@@ -474,6 +474,66 @@ async def _wait_images(client: Any, prompt_id: str) -> list[dict]:
     raise CharacterSheetError(f"出图超时({_POLL_TIMEOUT:.0f}s)", status_code=504)
 
 
+# 设定卡默认用经典 SD 底模(秒级~分钟级),避免生产默认 Flux2 加载过久/构图不匹配
+_SHEET_DEFAULT_CKPT = "DreamShaper_8_pruned.safetensors"
+
+
+def _build_sheet_graph(
+    prompt: str,
+    *,
+    ckpt_name: str,
+    width: int,
+    height: int,
+    seed: int | None,
+    filename_prefix: str,
+) -> tuple[dict, set[str]]:
+    """与 app_covers 同款 nextgen/classic 分流;返回 (graph, required_models)。"""
+    from app.workflows.model_profiles import is_nextgen, nextgen_recipe, profile_for
+    from app.workflows.nextgen import NextgenParams, build_nextgen_graph
+    from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
+
+    negative = "blurry, low quality, text, watermark, deformed, extra limbs"
+    if is_nextgen(ckpt_name):
+        prof = profile_for(ckpt_name)
+        recipe = nextgen_recipe(ckpt_name)
+        kw: dict[str, Any] = dict(
+            model_name=ckpt_name,
+            positive=prompt,
+            negative=negative if getattr(prof, "neg_prompt", True) else "",
+            width=width,
+            height=height,
+            steps=getattr(prof, "steps", 20),
+            cfg=getattr(prof, "cfg", 3.5),
+            sampler=getattr(prof, "sampler", "euler"),
+            scheduler=getattr(prof, "scheduler", "simple"),
+            batch_size=1,
+            filename_prefix=filename_prefix,
+        )
+        if seed is not None:
+            kw["seed"] = seed
+        graph = build_nextgen_graph(NextgenParams(**kw))
+        required = {ckpt_name}
+        if recipe is not None:
+            for attr in ("clip_name", "vae_name", "unet_name"):
+                v = getattr(recipe, attr, None)
+                if v:
+                    required.add(v)
+        return graph, required
+
+    params_kw: dict = dict(
+        positive=prompt,
+        negative=negative,
+        ckpt_name=ckpt_name,
+        width=width,
+        height=height,
+        filename_prefix=filename_prefix,
+        steps=20,
+    )
+    if seed is not None:
+        params_kw["seed"] = seed
+    return build_txt2img_graph(Txt2ImgParams(**params_kw)), {ckpt_name}
+
+
 async def generate_panel_bytes(
     pool: "WorkerPool",
     prompt: str,
@@ -488,24 +548,20 @@ async def generate_panel_bytes(
     """单格 txt2img → PNG bytes。无可用 worker → 503。"""
     from app.comfy.client import ComfyUIError
     from app.deps import resolve_worker
-    from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 
-    params_kw: dict = dict(
-        positive=prompt,
-        negative="blurry, low quality, text, watermark, deformed, extra limbs",
+    graph, required = _build_sheet_graph(
+        prompt,
         ckpt_name=ckpt_name,
         width=width,
         height=height,
+        seed=seed,
         filename_prefix=filename_prefix,
     )
-    if seed is not None:
-        params_kw["seed"] = seed
-    graph = build_txt2img_graph(Txt2ImgParams(**params_kw))
     try:
         if worker:
             client = resolve_worker(worker)
         else:
-            client = await pool.pick(required={ckpt_name})
+            client = await pool.pick(required=required)
         prompt_id = await client.queue_prompt(graph, client_id=uuid.uuid4().hex)
     except ComfyUIError as e:
         raise CharacterSheetError(f"出图后端不可用:{e}", status_code=503) from e
@@ -597,7 +653,8 @@ async def generate_character_sheet(
             panels["portrait"] = data
 
     missing = [k for k in _PANEL_KEYS if k not in panels]
-    ckpt = ckpt_name or get_settings().default_ckpt
+    # 设定卡优先经典 SD(DreamShaper);调用方可显式传 Flux
+    ckpt = ckpt_name or _SHEET_DEFAULT_CKPT
     for key in missing:
         panels[key] = await generate_panel_bytes(
             pool,
