@@ -1134,39 +1134,51 @@ def crop_face_ref(portrait_bytes: bytes, size: int = 768) -> bytes:
 
 
 def enforce_head_shoulders_square(data: bytes, size: int = 768) -> bytes:
-    """表情出图后强制头肩正方形:按非背景质心居中,避免脸被挤到格边。
+    """表情出图后强制头肩正方形:紧裁脸/头发包围盒,使脸占格≥55%。
 
-    模型常无视 closeup 提示画出半身;此步是硬裁,标签仍由拼版画在格下。
+    模型常无视 closeup 提示画出半身或大灰底小头;此步硬裁填满。
     """
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
-    # 找非灰/非白前景质心(脸/头发)
     small = img.resize((64, 64), Image.Resampling.BILINEAR)
     sp = small.load()
-    xs, ys, nfg = [], [], 0
+    xs, ys = [], []
     for y in range(64):
         for x in range(64):
             r, g, b = sp[x, y]
             mx, mn = max(r, g, b), min(r, g, b)
-            # 跳过近白/近纯灰底
             if r > 230 and g > 230 and b > 230:
                 continue
             if mx - mn < 14 and 70 <= mx <= 200:
                 continue
             xs.append(x)
             ys.append(y)
-            nfg += 1
-    if nfg >= 20:
-        cx = int(sum(xs) / nfg * w / 64)
-        cy = int(sum(ys) / nfg * h / 64)
+    if len(xs) >= 16:
+        # 用前景包围盒,外扩后取正方形,保证脸填满
+        minx, maxx = min(xs), max(xs)
+        miny, maxy = min(ys), max(ys)
+        # 映射回原图像素
+        left0 = int(minx * w / 64)
+        right0 = int((maxx + 1) * w / 64)
+        top0 = int(miny * h / 64)
+        bot0 = int((maxy + 1) * h / 64)
+        bw, bh = max(1, right0 - left0), max(1, bot0 - top0)
+        # 外扩 12%,再强制正方形边长≈包围盒较大边
+        pad = int(max(bw, bh) * 0.12)
+        side = int(max(bw, bh) * 1.08) + pad
+        side = max(side, int(min(w, h) * 0.42))  # 至少占原图 42%
+        side = min(side, w, h)
+        cx = (left0 + right0) // 2
+        cy = (top0 + bot0) // 2
+        # 偏上保住额头
+        cy = max(side // 2, cy - int(side * 0.06))
+        left = max(0, min(w - side, cx - side // 2))
+        top = max(0, min(h - side, cy - side // 2))
     else:
-        cx, cy = w // 2, int(h * 0.28)
-    side = min(w, max(int(h * 0.52), int(w * 0.78)))
-    side = min(side, w, h)
-    left = max(0, min(w - side, cx - side // 2))
-    top = max(0, min(h - side, cy - side // 2))
-    # 偏上一点,保住额头
-    top = max(0, top - int(side * 0.08))
+        cx, cy = w // 2, int(h * 0.30)
+        side = min(w, h, max(int(h * 0.55), int(w * 0.70)))
+        left = max(0, min(w - side, cx - side // 2))
+        top = max(0, min(h - side, cy - side // 2))
     if top + side > h:
         top = max(0, h - side)
     crop = img.crop((left, top, left + side, top + side))
