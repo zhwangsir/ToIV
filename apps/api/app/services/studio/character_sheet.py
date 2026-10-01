@@ -102,7 +102,9 @@ _STYLE_NEGATIVE = {
         "glitch, chromatic aberration, scan lines, multiple faces, face sheet, "
         "sketch dump, concept art board, white jacket, white coat, "
         "beige cloak, brown cloak, red cloak, tan cape, khaki poncho, "
-        "mannequin, human body in product shot, person wearing boots"
+        "mannequin, human body in product shot, person wearing boots, "
+        "white hoodie, white t-shirt, color-block hoodie, navy sleeves on white shirt, "
+        "baseball cap, hat on stand, lamp, opaque black umbrella dome"
     ),
 }
 
@@ -156,46 +158,44 @@ _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
     (
         "raincoat",
         "product still life, single object only, one complete matte jet-black hooded raincoat "
-        "garment laid flat open on table, visible hood attached at collar, two long sleeves, "
-        "full torso panels, zipper down the front, pure black nylon fabric filling most of frame, "
-        "clothing flat lay catalog photo, solid seamless pure white background, studio lighting, "
-        "no empty frame, no blank white image, no person, no face, no mannequin, no wearing, "
-        "no cloak, no cape, no poncho, no beige, no brown, no tan, no khaki, no red, no text, "
-        "no chinese, no debris, no stray objects",
+        "garment laid flat open on table like e-commerce flat lay, attached hood at collar, "
+        "two long sleeves spread left and right, full torso, front zipper, "
+        "entire garment pure jet black nylon, no white panels, no navy panels, no grey panels, "
+        "fills most of frame, solid seamless pure white background, studio lighting, "
+        "no person, no face, no mannequin, no worn clothes, no white t-shirt, no hoodie, "
+        "no cloak, no cape, no poncho, no beige, no brown, no tan, no khaki, no red, no text",
     ),
     (
         "pants",
         "product still life, single object only, one complete pair matte jet-black trousers "
-        "laid flat fully visible on table, two pant legs clearly separated, waistband and zipper, "
-        "pure black fabric filling most of frame, clothing flat lay catalog photo, "
+        "laid flat fully visible, two long pant legs clearly separated side by side, "
+        "waistband visible, pure jet black fabric only, clothing flat lay catalog photo, "
         "solid seamless pure white background, studio lighting, "
-        "no empty frame, no blank white image, no person, no face, no body, no mannequin, "
-        "no legs wearing pants, no human silhouette, no cloak, no cape, no beige, no brown, "
-        "no tan, no red, no text",
+        "no person, no face, no body, no mannequin, no shorts, no cropped pants, "
+        "no navy, no blue, no grey, no beige, no brown, no cloak, no text",
     ),
     (
         "boots",
-        "product still life, pair of black rain boots, product shot, no person, "
-        "single object only, one pair glossy jet-black rubber rain boots standing side by side, "
-        "footwear only, empty boots, pure black rubber, clean studio product photo, "
+        "product still life, single object only, one pair glossy jet-black rubber rain boots "
+        "standing side by side, footwear only, empty boots, pure black rubber, "
         "solid seamless pure white background, studio lighting, "
         "no person, no face, no body, no mannequin, no legs, no feet inside, "
-        "no human silhouette, no tight black bodysuit, no cloak, no beige, no brown, "
-        "no sandals, no text, no debris, no stray objects",
+        "no sandals, no text, no debris",
     ),
     (
         "umbrella",
-        "product still life, single object only, one fully transparent clear umbrella "
-        "with visible ribs, see-through vinyl canopy, black handle, "
-        "solid seamless pure light gray background, studio lighting, no person, no face, "
-        "no opaque umbrella, no white canopy, no colored canopy, no cloak, no text",
+        "product still life, single object only, one open fully transparent clear plastic umbrella "
+        "with thin black ribs and black shaft handle, see-through vinyl canopy, "
+        "solid seamless pure light gray background, studio lighting, "
+        "no person, no face, no hat, no cap, no lamp, no opaque canopy, no solid black dome, "
+        "no white canopy, no colored canopy, no cloak, no text",
     ),
     (
         "bag",
-        "product still life, single object only, one plain white plastic shopping bag "
-        "with handles, empty, crinkled plastic, "
-        "solid seamless pure light gray background, studio lighting, no person, no face, "
-        "no logo, no text, no chinese, no cloak, no beige",
+        "product still life, single object only, one plain opaque white plastic shopping bag "
+        "with two handles, empty, slightly crinkled white polyethylene, "
+        "solid seamless pure light gray background, studio lighting, "
+        "no person, no face, no blue bag, no tote canvas, no logo, no text, no chinese, no cloak",
     ),
 )
 _COSTUME_FORCE = (
@@ -209,6 +209,101 @@ _COSTUME_FORCE = (
     "no beige jacket, no blue jacket, no red cloak, no beige cloak, no brown cloak, "
     "fashion design sheet"
 )
+
+
+def _costume_template_bytes(item_key: str, size: int = 768) -> bytes:
+    """程序化单品轮廓底图,供服饰 img2img 锚定形状(防白卫衣/畸变伞)。"""
+    bg = (245, 245, 248) if item_key in ("umbrella", "bag") else (255, 255, 255)
+    im = Image.new("RGB", (size, size), bg)
+    d = ImageDraw.Draw(im)
+    m = size // 10
+    if item_key == "raincoat":
+        # 张开的黑雨衣:帽兜+双袖+躯干
+        body = [m * 3, m * 3, size - m * 3, size - m * 2]
+        d.rectangle(body, fill=(12, 12, 14))
+        # hood
+        d.ellipse([size // 2 - m * 2, m, size // 2 + m * 2, m * 4], fill=(12, 12, 14))
+        # sleeves
+        d.rectangle([m, m * 4, m * 3, m * 7], fill=(12, 12, 14))
+        d.rectangle([size - m * 3, m * 4, size - m, m * 7], fill=(12, 12, 14))
+        # zipper line
+        d.line([(size // 2, m * 3), (size // 2, size - m * 2)], fill=(40, 40, 44), width=3)
+    elif item_key == "pants":
+        # 两条裤腿
+        gap = m
+        wleg = (size - 2 * m - gap) // 2
+        d.rectangle([m, m * 2, m + wleg, size - m], fill=(12, 12, 14))
+        d.rectangle([m + wleg + gap, m * 2, m + 2 * wleg + gap, size - m], fill=(12, 12, 14))
+        d.rectangle([m, m * 2, m + 2 * wleg + gap, m * 3], fill=(12, 12, 14))  # waist
+    elif item_key == "boots":
+        for ox in (size // 2 - m * 3, size // 2 + m):
+            d.rounded_rectangle([ox, m * 3, ox + m * 2, size - m], radius=20, fill=(12, 12, 14))
+    elif item_key == "umbrella":
+        # 透明伞:浅灰穹顶描边+骨架
+        cx, cy = size // 2, size // 2 - m
+        bbox = [cx - m * 4, cy - m * 3, cx + m * 4, cy + m * 2]
+        d.ellipse(bbox, outline=(30, 30, 34), width=4)
+        for ang in range(-60, 61, 20):
+            import math
+            rad = math.radians(ang)
+            x2 = cx + int(m * 3.6 * math.sin(rad))
+            y2 = cy + int(m * 2.2 * math.cos(rad))
+            d.line([(cx, cy + m), (x2, y2)], fill=(50, 50, 55), width=2)
+        d.line([(cx, cy + m), (cx, size - m)], fill=(20, 20, 24), width=5)
+        d.ellipse([cx - 8, size - m - 8, cx + 8, size - m + 8], fill=(20, 20, 24))
+    elif item_key == "bag":
+        d.rectangle([m * 2, m * 3, size - m * 2, size - m * 2], fill=(250, 250, 252), outline=(200, 200, 205), width=3)
+        d.arc([m * 2 + 20, m, size // 2 - 10, m * 4], 0, 180, fill=(180, 180, 185), width=6)
+        d.arc([size // 2 + 10, m, size - m * 2 - 20, m * 4], 0, 180, fill=(180, 180, 185), width=6)
+    else:
+        d.rectangle([m, m, size - m, size - m], outline=(0, 0, 0), width=2)
+    buf = BytesIO()
+    im.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _costume_item_penalty(data: bytes, item_key: str) -> float:
+    """越大越差;按单品约束(雨衣必须够黑、伞不能实心黑、袋偏白)。"""
+    img = Image.open(BytesIO(data)).convert("RGB").resize((64, 64))
+    px = list(img.getdata())
+    n = max(1, len(px))
+    black = sum(1 for r, g, b in px if r < 70 and g < 70 and b < 80)
+    white = sum(1 for r, g, b in px if r > 220 and g > 220 and b > 220)
+    light = sum(1 for r, g, b in px if r > 180 and g > 180 and b > 180)
+    blue = sum(1 for r, g, b in px if b > r + 25 and b > g + 15 and b > 120)
+    navy = sum(1 for r, g, b in px if b > r + 10 and g < 90 and 40 < b < 140 and r < 80)
+    beige = sum(1 for r, g, b in px if r > 120 and g > 90 and b < r - 15 and abs(r - g) < 45)
+    pen = beige / n
+    br, wr, lr = black / n, white / n, light / n
+    if item_key in ("raincoat", "pants", "boots"):
+        if br < 0.18:
+            pen += (0.18 - br) * 10.0
+        # 白上衣/拼色惩罚
+        if wr > 0.25:
+            pen += (wr - 0.25) * 8.0
+        if navy / n > 0.12:
+            pen += (navy / n) * 6.0
+        # 假人:中心黑+边缘白
+        center = px[20 * 64 + 32]
+        if center[0] < 80 and wr > 0.35:
+            pen += 1.5
+    elif item_key == "umbrella":
+        # 要半透明结构,不要实心黑帽/灯
+        if br > 0.45:
+            pen += (br - 0.45) * 8.0
+        if wr + lr < 0.25:
+            pen += 2.0
+    elif item_key == "bag":
+        if lr < 0.35:
+            pen += (0.35 - lr) * 6.0
+        if blue / n > 0.12:
+            pen += (blue / n) * 8.0
+        if br > 0.25:
+            pen += br * 4.0
+    return pen
+
+
+
 
 
 class CharacterSheetError(Exception):
@@ -594,8 +689,8 @@ def _compose_expression_grid(
         if img is None:
             raise CharacterSheetError(f"缺面板:{key}", status_code=500)
         row, col = divmod(i, cols)
-        # 头肩图填满方格(cover);标签单独画在下方留白
-        fitted, _ = _fit(img.convert("RGBA"), (0, 0, cell - 8, cell - 8), cover=True)
+        # 头肩图 letterbox 入格(contain),避免 cover 把脸裁到格边
+        fitted, _ = _fit(img.convert("RGBA"), (0, 0, cell - 8, cell - 8), cover=False)
         ox = col * cell + 4
         oy = row * (cell + label_h) + 4
         grid.paste(fitted, (ox, oy), fitted)
@@ -916,17 +1011,39 @@ def crop_face_ref(portrait_bytes: bytes, size: int = 768) -> bytes:
 
 
 def enforce_head_shoulders_square(data: bytes, size: int = 768) -> bytes:
-    """表情出图后强制头肩正方形:取上部居中方块,保证脸占格≥约一半。
+    """表情出图后强制头肩正方形:按非背景质心居中,避免脸被挤到格边。
 
     模型常无视 closeup 提示画出半身;此步是硬裁,标签仍由拼版画在格下。
     """
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
-    # 优先取上部 48% 高度为边,若宽不够则用全宽
-    side = min(w, max(int(h * 0.48), int(w * 0.85)))
+    # 找非灰/非白前景质心(脸/头发)
+    small = img.resize((64, 64), Image.Resampling.BILINEAR)
+    sp = small.load()
+    xs, ys, nfg = [], [], 0
+    for y in range(64):
+        for x in range(64):
+            r, g, b = sp[x, y]
+            mx, mn = max(r, g, b), min(r, g, b)
+            # 跳过近白/近纯灰底
+            if r > 230 and g > 230 and b > 230:
+                continue
+            if mx - mn < 14 and 70 <= mx <= 200:
+                continue
+            xs.append(x)
+            ys.append(y)
+            nfg += 1
+    if nfg >= 20:
+        cx = int(sum(xs) / nfg * w / 64)
+        cy = int(sum(ys) / nfg * h / 64)
+    else:
+        cx, cy = w // 2, int(h * 0.28)
+    side = min(w, max(int(h * 0.52), int(w * 0.78)))
     side = min(side, w, h)
-    left = max(0, (w - side) // 2)
-    top = max(0, int(h * 0.02))
+    left = max(0, min(w - side, cx - side // 2))
+    top = max(0, min(h - side, cy - side // 2))
+    # 偏上一点,保住额头
+    top = max(0, top - int(side * 0.08))
     if top + side > h:
         top = max(0, h - side)
     crop = img.crop((left, top, left + side, top + side))
@@ -1584,54 +1701,13 @@ def _pick_best_candidate(cands: list[bytes], key: str) -> bytes:
             cands, key=lambda b: _score_expression_head_ratio(b), reverse=True
         )
         return ranked[0]
-    # 其它/服饰单品:过滤花屏空白;服饰再抑米色/棕色主调
-    def _costume_penalty(data: bytes) -> float:
-        """越大越差:米色主调 + 疑似人体/假人轮廓。"""
-        if not key.startswith("costume"):
-            return 0.0
-        img = Image.open(BytesIO(data)).convert("RGB").resize((48, 48))
-        px = list(img.getdata())
-        n = max(1, len(px))
-        beige = sum(
-            1
-            for r, g, b in px
-            if r > 120 and g > 90 and b < r - 15 and abs(r - g) < 45
-        )
-        black = sum(1 for r, g, b in px if r < 70 and g < 70 and b < 80)
-        sw = 48
-        center_dark = 0
-        center_n = 0
-        for y in range(6, 42):
-            for x in range(16, 32):
-                center_n += 1
-                r, g, b = px[y * sw + x]
-                if r < 80 and g < 80 and b < 90:
-                    center_dark += 1
-        edge_light = 0
-        edge_n = 0
-        for y in range(48):
-            for x in list(range(0, 8)) + list(range(40, 48)):
-                edge_n += 1
-                r, g, b = px[y * sw + x]
-                if r > 200 and g > 200 and b > 200:
-                    edge_light += 1
-        humanoid = 0.0
-        if center_n and edge_n:
-            cd = center_dark / center_n
-            el = edge_light / edge_n
-            if cd > 0.35 and el > 0.4:
-                humanoid = cd * el
-        # 空镜/近白严重惩罚(雨衣空镜根因);要求足够黑像素
-        empty = 0.0
-        if black / n < 0.12:
-            empty = (0.12 - black / n) * 8.0
-        return beige / n - black / n + humanoid * 2.5 + empty
-
+    # 其它/服饰单品:过滤花屏空白;按单品键精细惩罚
+    item_key = key.split("costume_", 1)[-1] if key.startswith("costume_") else ""
     ranked = sorted(
         cands,
         key=lambda b: (
             0 if _panel_is_blank_or_glitch(b) else 1,
-            -_costume_penalty(b),
+            -(_costume_item_penalty(b, item_key) if item_key else 0.0),
         ),
         reverse=True,
     )
@@ -1969,8 +2045,39 @@ async def regenerate_sheet_panels(
                         + prompt
                         + ", clothing only, not empty white frame"
                     )
+                elif item_key == "umbrella":
+                    prompt = (
+                        "transparent clear umbrella only, open canopy with ribs, product shot, "
+                        + prompt
+                        + ", not a hat, not a lamp"
+                    )
+                elif item_key == "bag":
+                    prompt = (
+                        "white plastic shopping bag only, product shot, "
+                        + prompt
+                        + ", white polyethylene, not blue"
+                    )
+                # 模板锚定形状,img2img 保持单品结构
+                tmpl = _costume_template_bytes(item_key)
+                try:
+                    tmpl_name = await client.upload_image(
+                        tmpl, f"sheet_costume_tmpl_{item_key}_{character_id[:8]}.png"
+                    )
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("costume template upload fail %s: %s", item_key, e)
+                    tmpl_name = None
                 for ci in range(max(1, n_candidates)):
                     w, h = (768, 768) if meta.style == "anime" else (512, 512)
+                    use_ref = tmpl_name
+                    ref_mode = "img2img" if tmpl_name else "none"
+                    # 雨衣/裤稍低 denoise 保黑形;伞/袋略高以出透明/褶皱
+                    denoise = {
+                        "raincoat": 0.48,
+                        "pants": 0.50,
+                        "boots": 0.52,
+                        "umbrella": 0.58,
+                        "bag": 0.55,
+                    }.get(item_key, 0.52)
                     cands.append(
                         await generate_panel_bytes(
                             pool,
@@ -1985,9 +2092,9 @@ async def regenerate_sheet_panels(
                             filename_prefix=f"ToIV_char_sheet_costume_{item_key}",
                             style=meta.style,
                             client=client,
-                            ref_image=None,
-                            ref_mode="none",
-                            # denoise 对 txt2img 无意义;负向在 _build_sheet_graph + prompt
+                            ref_image=use_ref,
+                            ref_mode=ref_mode,
+                            denoise=denoise,
                         )
                     )
                 picked_items.append(_pick_best_candidate(cands, f"costume_{item_key}"))
