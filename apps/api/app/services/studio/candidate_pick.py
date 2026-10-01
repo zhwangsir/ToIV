@@ -1,7 +1,8 @@
 """管线 C 多候选选优：裁脸相似度优先，疑似烧录字幕/乱码降权。
 
-insightface / cv2 可用时走真评分；不可用时回落「首个成功候选」，并在 meta 标明。
-OCR 可选：若安装 pytesseract 则检测中部字幕带文字密度。
+insightface / cv2 可用时走真评分。选优失败必须抛 CandidatePickError，
+禁止静默回落首候选（掩盖假选优）。OCR 可选。
+连贯分：奖励贴近上一镜末帧/场景参考；扣「与镜0首帧过像」的回退候选。
 """
 from __future__ import annotations
 
@@ -10,6 +11,10 @@ from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+class CandidatePickError(RuntimeError):
+    """选优不可用或全部候选无法评分时抛出；调用方应标 shot 失败，禁止静默回落。"""
 
 _FACE_APP = None
 
@@ -81,12 +86,14 @@ def score_scene_continuity(
     prev_video_path: str | Path | None,
     *,
     scene_ref_path: str | Path | None = None,
+    regression_ref_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """与上一镜末帧 / 场景参考图的画面相近度（0~1），用于抑制场景回退。
 
-    用 HSV 直方图相关，不依赖 insightface；缺材料时 continuity=None。
+    regression_ref_path：镜0（或锚点）视频；与其首帧过像时写入 regression 罚分
+    （0~1，越高越像回退）。用 HSV 直方图相关，不依赖 insightface。
     """
-    out: dict[str, Any] = {"continuity": None, "error": ""}
+    out: dict[str, Any] = {"continuity": None, "regression": None, "error": ""}
     try:
         import cv2
         import numpy as np
@@ -138,6 +145,14 @@ def score_scene_continuity(
         corr = float(cv2.compareHist(h0, _hist(r), cv2.HISTCMP_CORREL))
         scores.append(max(0.0, min(1.0, (corr + 1.0) / 2.0)))  # [-1,1] -> [0,1]
     out["continuity"] = float(sum(scores) / len(scores))
+
+    # 与镜0首帧过像 → regression 罚分（抑制场景回退到开场）
+    if regression_ref_path and Path(regression_ref_path).is_file():
+        reg_fr = _frame_at(Path(regression_ref_path), "first")
+        if reg_fr is not None:
+            corr = float(cv2.compareHist(h0, _hist(reg_fr), cv2.HISTCMP_CORREL))
+            # [-1,1] -> [0,1]；越高越像镜0
+            out["regression"] = float(max(0.0, min(1.0, (corr + 1.0) / 2.0)))
     return out
 
 
@@ -221,16 +236,18 @@ def pick_best_candidate(
     local_url_resolver=None,
     prev_video_path: str | Path | None = None,
     scene_ref_path: str | Path | None = None,
+    regression_ref_path: str | Path | None = None,
     continuity_weight: float = 0.25,
+    regression_weight: float = 0.35,
 ) -> tuple[str | None, list[dict[str, Any]]]:
-    """按 face_mean - burnin - ocr + 连贯加分 选优；返回 (winner_id, 更新后的 candidates)。
+    """按 face_mean - burnin - ocr + 连贯加分 - 回退罚分 选优。
 
-    local_url_resolver: (url)->本地路径；缺省仅接受已是本地路径的 url。
-    prev_video_path / scene_ref_path: 抑制跨镜场景回退（直方图相关）。
+    选优失败抛 CandidatePickError（禁止静默回落首候选）。
+    regression_ref_path：通常为镜0成片，扣「与开场过像」的回退候选。
     """
     done = [c for c in candidates if c.get("status") == "done" and c.get("url")]
     if not done:
-        return None, candidates
+        raise CandidatePickError("无成功候选可评分")
 
     def _local(url: str) -> Path | None:
         if local_url_resolver is not None:
@@ -246,46 +263,21 @@ def pick_best_candidate(
     face_ok = bool(
         ref_image_path and Path(ref_image_path).is_file() and _try_import_face()
     )
-    if not face_ok:
-        # 无人脸评分时仍可用连贯分在成功候选里择优；再不行回落首个
-        if prev_video_path or scene_ref_path:
-            best_id = None
-            best_score = float("-inf")
-            for c in done:
-                path = _local(str(c["url"]))
-                if path is None:
-                    c["pick_score"] = None
-                    c["pick_note"] = "video_path_unresolved"
-                    continue
-                cont_m = score_scene_continuity(
-                    path, prev_video_path, scene_ref_path=scene_ref_path
-                )
-                cont = cont_m.get("continuity")
-                score = float(cont) if cont is not None else -1.0
-                c["continuity"] = cont
-                c["pick_score"] = score
-                c["pick_note"] = (
-                    f"continuity_only:{cont:.3f}" if cont is not None
-                    else f"face_scorer_unavailable;{cont_m.get('error') or 'no_cont'}"
-                )
-                if score > best_score:
-                    best_score = score
-                    best_id = c.get("id")
-            if best_id is None:
-                best_id = done[0].get("id")
-            for c in candidates:
-                c["is_picked"] = c.get("id") == best_id
-            return best_id, candidates
-        winner = next((c for c in done if c.get("is_picked")), done[0])
+    have_cont_material = bool(prev_video_path or scene_ref_path)
+
+    if not face_ok and not have_cont_material:
         for c in candidates:
-            c["is_picked"] = c.get("id") == winner.get("id")
+            c["is_picked"] = False
             c.setdefault("pick_score", None)
-            c.setdefault("pick_note", "face_scorer_unavailable_fallback_first")
-        return winner.get("id"), candidates
+            c["pick_note"] = "face_scorer_unavailable"
+        raise CandidatePickError(
+            "选优失败:人脸评分不可用且无连贯材料，禁止静默回落首候选"
+        )
 
     try:
         best_id = None
         best_score = float("-inf")
+        scored_any = False
         for c in done:
             path = _local(str(c["url"]))
             if path is None:
@@ -293,44 +285,71 @@ def pick_best_candidate(
                 c["pick_note"] = "video_path_unresolved"
                 c["face_mean"] = None
                 continue
-            m = score_video_face(path, ref_image_path)
-            face = m.get("face_mean")
-            pen = float(m.get("burnin_penalty") or 0) + float(m.get("ocr_penalty") or 0)
+            face = None
+            pen = 0.0
+            note_parts: list[str] = []
+            if face_ok:
+                m = score_video_face(path, ref_image_path)
+                face = m.get("face_mean")
+                pen = float(m.get("burnin_penalty") or 0) + float(m.get("ocr_penalty") or 0)
+                c["face_mean"] = face
+                c["burnin_penalty"] = m.get("burnin_penalty")
+                c["ocr_penalty"] = m.get("ocr_penalty")
+                note_parts.append(m.get("error") or "facecrop")
+            else:
+                c["face_mean"] = None
+                note_parts.append("continuity_only")
+
             cont_m = score_scene_continuity(
-                path, prev_video_path, scene_ref_path=scene_ref_path
+                path,
+                prev_video_path,
+                scene_ref_path=scene_ref_path,
+                regression_ref_path=regression_ref_path,
             )
             cont = cont_m.get("continuity")
+            reg = cont_m.get("regression")
             cont_bonus = float(cont) * float(continuity_weight) if cont is not None else 0.0
-            score = (float(face) if face is not None else -1.0) - pen + cont_bonus
-            # 无脸直接淘汰到极低分
-            if face is None:
-                score = -2.0 - pen + cont_bonus
-            c["face_mean"] = face
-            c["burnin_penalty"] = m.get("burnin_penalty")
-            c["ocr_penalty"] = m.get("ocr_penalty")
+            reg_pen = float(reg) * float(regression_weight) if reg is not None else 0.0
+            # 过像镜0 且连贯分也低时加重（典型：场景回退到门外）
+            if reg is not None and cont is not None and float(reg) >= 0.7 and float(cont) <= 0.45:
+                reg_pen = max(reg_pen, float(reg) * float(regression_weight) * 1.4)
+
+            if face_ok:
+                score = (float(face) if face is not None else -1.0) - pen + cont_bonus - reg_pen
+                if face is None:
+                    score = -2.0 - pen + cont_bonus - reg_pen
+            else:
+                score = (float(cont) if cont is not None else -1.0) - reg_pen
+
             c["continuity"] = cont
+            c["regression"] = reg
             c["pick_score"] = score
-            note = m.get("error") or "facecrop"
             if cont is not None:
-                note = f"{note}+continuity={cont:.3f}"
+                note_parts.append(f"continuity={cont:.3f}")
             elif cont_m.get("error"):
-                note = f"{note};continuity_skip:{cont_m.get('error')}"
-            c["pick_note"] = note
+                note_parts.append(f"continuity_skip:{cont_m.get('error')}")
+            if reg is not None:
+                note_parts.append(f"regression={reg:.3f}")
+            c["pick_note"] = "+".join(note_parts) if note_parts else "scored"
+            scored_any = True
             if score > best_score:
                 best_score = score
                 best_id = c.get("id")
 
-        if best_id is None:
-            best_id = done[0].get("id")
+        if not scored_any or best_id is None:
+            for c in candidates:
+                c["is_picked"] = False
+            raise CandidatePickError("选优失败:全部候选无法解析本地路径或评分")
+
         for c in candidates:
             c["is_picked"] = c.get("id") == best_id
         return best_id, candidates
+    except CandidatePickError:
+        raise
     except Exception as e:
-        # 模型下载失败/ONNX 异常等：绝不能把已出片请求打成 500
-        logger.warning("pick_best_candidate 异常，回落首个成功候选: %s", e)
-        winner = next((c for c in done if c.get("is_picked")), done[0])
+        logger.warning("pick_best_candidate 异常，标失败不回落: %s", e)
         for c in candidates:
-            c["is_picked"] = c.get("id") == winner.get("id")
+            c["is_picked"] = False
             c.setdefault("pick_score", None)
-            c["pick_note"] = f"face_scorer_error_fallback:{type(e).__name__}"
-        return winner.get("id"), candidates
+            c["pick_note"] = f"face_scorer_error:{type(e).__name__}"
+        raise CandidatePickError(f"选优失败:{type(e).__name__}: {e}") from e

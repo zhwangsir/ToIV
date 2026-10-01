@@ -193,9 +193,12 @@ async def render_shot(
                 candidates.append(entry)
             if result is None:
                 raise first_err or RenderError("全部候选生成失败")
-            # Batch6：裁脸选优（可关）
+            # Batch6：裁脸选优（可关）；失败标 shot 失败，禁止静默回落
             if auto_pick and len(candidates) > 1:
-                from app.services.studio.candidate_pick import pick_best_candidate
+                from app.services.studio.candidate_pick import (
+                    CandidatePickError,
+                    pick_best_candidate,
+                )
                 from app.storage import drama_output_root
 
                 ref_path = None
@@ -261,15 +264,43 @@ async def render_shot(
                                 scene_ref_path = str(candp)
                                 break
 
+                # 镜0 成片作为回退锚点：扣「与开场过像」的候选（雨夜镜2 门外回退）
+                regression_ref_path = None
+                if shot.idx > 0:
+                    shot0 = None
+                    for s in siblings:
+                        if s.idx == 0:
+                            shot0 = s
+                            break
+                    if shot0 is not None:
+                        s0_url = (shot0.video_url or "").strip()
+                        if not s0_url:
+                            try:
+                                s0c = json.loads(shot0.candidates_json or "[]")
+                            except (ValueError, TypeError):
+                                s0c = []
+                            for c in s0c if isinstance(s0c, list) else []:
+                                if isinstance(c, dict) and c.get("is_picked") and c.get("url"):
+                                    s0_url = str(c["url"])
+                                    break
+                        if s0_url:
+                            regression_ref_path = _resolve_vid(s0_url)
+
                 # insightface/cv2 同步且重：单 worker 下会堵死事件循环（雨夜镜1 API 挂死）
-                win_id, candidates = await asyncio.to_thread(
-                    pick_best_candidate,
-                    candidates,
-                    ref_image_path=ref_path,
-                    local_url_resolver=_resolve_vid,
-                    prev_video_path=prev_video_path,
-                    scene_ref_path=scene_ref_path,
-                )
+                try:
+                    win_id, candidates = await asyncio.to_thread(
+                        pick_best_candidate,
+                        candidates,
+                        ref_image_path=ref_path,
+                        local_url_resolver=_resolve_vid,
+                        prev_video_path=prev_video_path,
+                        scene_ref_path=scene_ref_path,
+                        regression_ref_path=regression_ref_path,
+                    )
+                except CandidatePickError as e:
+                    # 候选已出片但选优失败：写入 candidates 供 UI 标红，shot 走 error
+                    shot.candidates_json = json.dumps(candidates, ensure_ascii=False)
+                    raise RenderError(str(e)) from e
                 if win_id:
                     for c in candidates:
                         if c.get("id") == win_id and c.get("url"):

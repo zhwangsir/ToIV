@@ -20,6 +20,15 @@ from app.models import StudioShot
 from app.services.studio import lipsync as ls
 
 
+@pytest.fixture(autouse=True)
+def _skip_real_pad(monkeypatch):
+    """单测用假字节非真媒体；pad 探测会失败，默认旁路。"""
+    async def _passthrough(video_bytes, voice_bytes):
+        return voice_bytes
+    monkeypatch.setattr(ls, "pad_audio_to_video_length", _passthrough)
+
+
+
 _MP4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 80
 _WAV = b"RIFF" + b"\x00" * 60
 

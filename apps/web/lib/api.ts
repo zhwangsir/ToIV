@@ -4584,6 +4584,12 @@ export interface StudioShotCandidate {
   is_picked: boolean;
   error: string;
   video_model?: string;
+  /** 选优分数/说明（失败时 UI 标红可展示） */
+  face_mean?: number | null;
+  pick_score?: number | null;
+  pick_note?: string;
+  continuity?: number | null;
+  regression?: number | null;
 }
 
 export interface StudioShot {

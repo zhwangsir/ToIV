@@ -60,6 +60,9 @@ def test_clip_path_rejects_traversal():
 @pytest.mark.asyncio
 async def test_assemble_project_ok(tmp_path, monkeypatch):
     monkeypatch.setattr(assemble, "drama_output_root", lambda: tmp_path)
+    async def _ok_assert(shots):
+        return None
+    monkeypatch.setattr(assemble, "assert_clip_durations_match_source", _ok_assert)
     (tmp_path / "studio").mkdir()
     for n in ("a.mp4", "b.mp4"):
         (tmp_path / "studio" / n).write_bytes(b"mp4")
@@ -84,6 +87,9 @@ async def test_assemble_ffmpeg_error_marks_project(tmp_path, monkeypatch):
     from app.services.studio.ffmpeg_ops import FFmpegError
 
     monkeypatch.setattr(assemble, "drama_output_root", lambda: tmp_path)
+    async def _ok_assert(shots):
+        return None
+    monkeypatch.setattr(assemble, "assert_clip_durations_match_source", _ok_assert)
     (tmp_path / "studio").mkdir()
     (tmp_path / "studio" / "a.mp4").write_bytes(b"mp4")
 

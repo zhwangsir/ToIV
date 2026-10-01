@@ -527,7 +527,18 @@ export function ShotCard({
                     type="button"
                     className={`studio-cand${c.is_picked ? " is-picked" : ""}${c.status === "error" ? " is-error" : ""}`}
                     disabled={busy || c.status !== "done" || !onPickCandidate}
-                    title={c.error || `候选 ${i + 1}`}
+                    title={
+                      [
+                        c.error || "",
+                        (c as { pick_note?: string }).pick_note || "",
+                        typeof (c as { face_mean?: number }).face_mean === "number"
+                          ? `face=${((c as { face_mean?: number }).face_mean as number).toFixed(2)}`
+                          : "",
+                        `候选 ${i + 1}`,
+                      ]
+                        .filter(Boolean)
+                        .join(" | ")
+                    }
                     onClick={() => onPickCandidate?.(c.id)}
                   >
                     {c.status === "done" && c.url ? (

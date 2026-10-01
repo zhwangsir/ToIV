@@ -122,19 +122,24 @@ def test_pipeline_c_requires_refs():
         build_h3_pipeline_c_graph(H3PipelineCParams(positive="x", images=()))
 
 
-def test_pick_best_fallback_first_when_no_scorer():
+def test_pick_best_raises_when_no_scorer_and_no_continuity():
+    """无人脸评分且无连贯材料 → 抛错，禁止静默回落首候选。"""
+    from app.services.studio.candidate_pick import CandidatePickError
+
     cands = [
         {"id": "a", "url": "/nope/a.mp4", "status": "done", "is_picked": True},
         {"id": "b", "url": "/nope/b.mp4", "status": "done", "is_picked": False},
     ]
-    wid, out = pick_best_candidate(cands, ref_image_path=None)
-    assert wid == "a"
-    assert out[0]["is_picked"] is True
+    with pytest.raises(CandidatePickError, match="禁止静默回落"):
+        pick_best_candidate(cands, ref_image_path=None)
+    assert all(c.get("is_picked") is False for c in cands)
+    assert "face_scorer_unavailable" in (cands[0].get("pick_note") or "")
 
 
-def test_pick_best_fallback_when_scorer_raises(tmp_path, monkeypatch):
-    """选优内部异常必须回落，不能冒泡成 render 500。"""
+def test_pick_best_raises_when_scorer_raises(tmp_path, monkeypatch):
+    """选优内部异常必须抛错标失败，禁止回落首候选。"""
     import app.services.studio.candidate_pick as cp
+    from app.services.studio.candidate_pick import CandidatePickError
 
     ref = tmp_path / "ref.jpg"
     ref.write_bytes(b"x")
@@ -146,10 +151,10 @@ def test_pick_best_fallback_when_scorer_raises(tmp_path, monkeypatch):
     ]
     monkeypatch.setattr(cp, "_try_import_face", lambda: True)
     monkeypatch.setattr(cp, "score_video_face", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
-    wid, out = pick_best_candidate(cands, ref_image_path=ref)
-    assert wid == "a"
-    assert out[0]["is_picked"] is True
-    assert "face_scorer_error_fallback" in (out[0].get("pick_note") or "")
+    with pytest.raises(CandidatePickError, match="选优失败"):
+        pick_best_candidate(cands, ref_image_path=ref)
+    assert all(c.get("is_picked") is False for c in cands)
+    assert "face_scorer_error" in (cands[0].get("pick_note") or "")
 
 
 def test_render_body_accepts_pipeline_c(ctx, monkeypatch):
@@ -249,9 +254,10 @@ def test_continuity_prefers_matching_scene(tmp_path, monkeypatch):
     bad.write_bytes(b"b")
     monkeypatch.setattr(cp, "_try_import_face", lambda: False)
 
-    def fake_cont(path, prev, scene_ref_path=None):
+    def fake_cont(path, prev, scene_ref_path=None, regression_ref_path=None):
         return {
             "continuity": 0.85 if str(path).endswith("good.mp4") else 0.15,
+            "regression": None,
             "error": "",
         }
 
@@ -289,9 +295,9 @@ def test_pick_score_includes_continuity_bonus(tmp_path, monkeypatch):
             "error": "",
         }
 
-    def fake_cont(path, prev, scene_ref_path=None):
+    def fake_cont(path, prev, scene_ref_path=None, regression_ref_path=None):
         p = str(path)
-        return {"continuity": 0.9 if p.endswith("b.mp4") else 0.1, "error": ""}
+        return {"continuity": 0.9 if p.endswith("b.mp4") else 0.1, "regression": None, "error": ""}
 
     monkeypatch.setattr(cp, "score_video_face", fake_face)
     monkeypatch.setattr(cp, "score_scene_continuity", fake_cont)
@@ -304,3 +310,36 @@ def test_pick_score_includes_continuity_bonus(tmp_path, monkeypatch):
     )
     assert wid == "b"
     assert out[1]["is_picked"] is True
+
+
+def test_regression_penalizes_shot0_lookalike(tmp_path, monkeypatch):
+    """与镜0首帧过像的回退候选应被连贯/回退分扣掉。"""
+    import app.services.studio.candidate_pick as cp
+
+    good = tmp_path / "good.mp4"
+    bad = tmp_path / "bad.mp4"
+    good.write_bytes(b"g")
+    bad.write_bytes(b"b")
+    monkeypatch.setattr(cp, "_try_import_face", lambda: False)
+
+    def fake_cont(path, prev, scene_ref_path=None, regression_ref_path=None):
+        # bad=像镜0(高 regression)+低连贯；good=高连贯+低 regression
+        if str(path).endswith("bad.mp4"):
+            return {"continuity": 0.2, "regression": 0.9, "error": ""}
+        return {"continuity": 0.8, "regression": 0.2, "error": ""}
+
+    monkeypatch.setattr(cp, "score_scene_continuity", fake_cont)
+    cands = [
+        {"id": "bad", "url": str(bad), "status": "done", "is_picked": True},
+        {"id": "good", "url": str(good), "status": "done", "is_picked": False},
+    ]
+    wid, out = cp.pick_best_candidate(
+        cands,
+        ref_image_path=None,
+        prev_video_path=tmp_path / "prev.mp4",
+        regression_ref_path=tmp_path / "shot0.mp4",
+    )
+    assert wid == "good"
+    by = {c["id"]: c for c in out}
+    assert (by["bad"].get("regression") or 0) > (by["good"].get("regression") or 0)
+

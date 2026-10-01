@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import tempfile
 import uuid
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpx
@@ -114,6 +116,46 @@ async def _wait_result_files(client, prompt_id: str) -> list[dict]:
     raise LipsyncError(f"对口型超时({_POLL_TIMEOUT:.0f}s)")
 
 
+
+async def pad_audio_to_video_length(video_bytes: bytes, voice_bytes: bytes) -> bytes:
+    """对口型前把配音补静音到视频时长,避免成片被台词长度截断。"""
+    from app.services.studio.ffmpeg_ops import (
+        FFmpegError,
+        pad_audio_to_duration,
+        probe_duration,
+    )
+
+    with tempfile.TemporaryDirectory(prefix="studio_ls_pad_") as td:
+        tdir = Path(td)
+        vpath = tdir / "src.mp4"
+        apath = tdir / "voice_in.wav"
+        out = tdir / "voice_padded.wav"
+        vpath.write_bytes(video_bytes)
+        apath.write_bytes(voice_bytes)
+        try:
+            vdur = await probe_duration(vpath)
+        except FFmpegError as e:
+            raise LipsyncError(f"视频时长探测失败:{e}") from e
+        try:
+            adur = await probe_duration(apath)
+        except FFmpegError as e:
+            raise LipsyncError(f"配音时长探测失败:{e}") from e
+        # 已接近视频时长则原样返回(误差 <50ms 不重编码)
+        if adur + 0.05 >= vdur:
+            logger.info(
+                "lipsync pad skip: audio=%.3fs video=%.3fs", adur, vdur
+            )
+            return voice_bytes
+        try:
+            await pad_audio_to_duration(apath, vdur, out)
+        except FFmpegError as e:
+            raise LipsyncError(f"配音 pad 静音失败:{e}") from e
+        logger.info(
+            "lipsync pad: audio %.3fs → %.3fs (video)", adur, vdur
+        )
+        return out.read_bytes()
+
+
 async def lipsync_via_agent(shot: StudioShot) -> str:
     """走 workstation LatentSync HTTP agent(:9103),与 /api/video/lipsync 同契约。"""
     from app.config import get_settings
@@ -127,6 +169,8 @@ async def lipsync_via_agent(shot: StudioShot) -> str:
     ) as http:
         video_bytes = await _download(http, shot.video_url)
         voice_bytes = await _download(http, shot.voice_url)
+
+    voice_bytes = await pad_audio_to_video_length(video_bytes, voice_bytes)
 
     async with httpx.AsyncClient(timeout=300.0, trust_env=False) as client:
         try:
@@ -252,6 +296,8 @@ async def lipsync_video(shot: StudioShot, pool: "WorkerPool") -> str:
     ) as http:
         video_bytes = await _download(http, shot.video_url)
         voice_bytes = await _download(http, shot.voice_url)
+
+    voice_bytes = await pad_audio_to_video_length(video_bytes, voice_bytes)
 
     try:
         vfn = await client.upload_image(
