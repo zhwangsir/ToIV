@@ -314,6 +314,12 @@ class ComfyUIClient:
     async def object_info(self, node: str) -> dict:
         return await self._get_json(f"/object_info/{node}")
 
+    async def get_object_info(self, node: str | None = None) -> dict:
+        """GET /object_info 或 /object_info/{node};供 openpose 等能力探测。"""
+        if node:
+            return await self._get_json(f"/object_info/{node}")
+        return await self._get_json("/object_info")
+
     async def model_names(self) -> set[str]:
         """该 worker 实际拥有的所有模型文件名(跨类型汇总,缓存 120s)。"""
         now = time.monotonic()

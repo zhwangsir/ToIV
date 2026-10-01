@@ -41,12 +41,12 @@ _PANEL_KEYS = ("portrait", "front", "side", "back", "faces", "costume")
 _EXPR_KEYS = tuple(f"expr_{i}" for i in range(6))
 _EXPR_LABELS = ("威严", "冷酷", "沉思", "温柔", "惊恐", "果断")
 _EXPR_PROMPTS = (
-    "stern majestic expression, serious face closeup",
-    "cold aloof expression, icy gaze closeup",
-    "thoughtful contemplative expression, looking slightly down closeup",
-    "gentle soft smile, warm kind eyes closeup",
-    "terrified shocked expression, wide eyes open mouth closeup, fear",
-    "resolute determined expression, firm gaze closeup",
+    "stern majestic expression, extreme face closeup head and shoulders",
+    "cold aloof expression, icy gaze, extreme face closeup head and shoulders",
+    "thoughtful contemplative expression, looking slightly down, extreme face closeup head and shoulders",
+    "gentle soft smile, warm kind eyes, extreme face closeup head and shoulders",
+    "terrified shocked expression, wide eyes open mouth, fear, extreme face closeup head and shoulders",
+    "resolute determined expression, firm gaze, extreme face closeup head and shoulders",
 )
 _CHAR_SHEET_MARK = "char_sheet_"
 _CHAR_PANEL_MARK = "char_panel_"
@@ -101,7 +101,8 @@ _STYLE_NEGATIVE = {
         "1boy, 2boys, male, man, couple, duo, two girls, twins, "
         "glitch, chromatic aberration, scan lines, multiple faces, face sheet, "
         "sketch dump, concept art board, white jacket, white coat, "
-        "beige cloak, brown cloak, red cloak, tan cape, khaki poncho"
+        "beige cloak, brown cloak, red cloak, tan cape, khaki poncho, "
+        "mannequin, human body in product shot, person wearing boots"
     ),
 }
 
@@ -156,9 +157,10 @@ _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
         "raincoat",
         "product still life, single object only, one matte jet-black hooded raincoat "
         "spread flat on table, pure black nylon fabric, zipper visible, "
-        "solid seamless pure white background, studio lighting, no person, no face, "
-        "no mannequin, no wearing, no cloak, no cape, no poncho, no beige, no brown, "
-        "no tan, no khaki, no red, no text, no chinese",
+        "solid seamless pure white background, studio lighting, clean empty floor, "
+        "no person, no face, no mannequin, no wearing, no cloak, no cape, no poncho, "
+        "no beige, no brown, no tan, no khaki, no red, no text, no chinese, "
+        "no debris, no stray objects, no black arcs, no shadows clutter",
     ),
     (
         "pants",
@@ -169,10 +171,13 @@ _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
     ),
     (
         "boots",
-        "product still life, single object only, one pair glossy jet-black rain boots "
-        "side by side, pure black rubber, "
-        "solid seamless pure white background, studio lighting, no person, no face, "
-        "no mannequin, no cloak, no beige, no brown, no sandals, no text",
+        "product still life, pair of black rain boots, product shot, no person, "
+        "single object only, one pair glossy jet-black rubber rain boots standing side by side, "
+        "footwear only, empty boots, pure black rubber, clean studio product photo, "
+        "solid seamless pure white background, studio lighting, "
+        "no person, no face, no body, no mannequin, no legs, no feet inside, "
+        "no human silhouette, no tight black bodysuit, no cloak, no beige, no brown, "
+        "no sandals, no text, no debris, no stray objects",
     ),
     (
         "umbrella",
@@ -399,9 +404,11 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
     for i, expr in enumerate(_EXPR_PROMPTS):
         prompts[f"expr_{i}"] = (
             f"{solo}, {base}, {expr} of {name}, single face only, one person, "
-            f"square headshot bust shoulders-up, hood down, face fully visible, "
+            f"EXTREME close-up head and shoulders portrait, face fills at least 40 percent of frame, "
+            f"tight headshot, hood down, face fully visible, eyes nose mouth clear, "
             f"jet black hair, same identity as main portrait, exaggerated distinct expression, "
-            f"NO second person, no text, no letters, no chinese characters, no caption, "
+            f"NO half body, NO full body, NO standing pose, NO waist, NO legs, NO hands props, "
+            f"NO second person, no text, no letters, no chinese characters, no caption, no labels, "
             f"{solid}, {suf}"
         )
     return prompts
@@ -560,21 +567,43 @@ def _draw_height_scale(
     draw.text((scale_x - 10, bottom + 8), "cm", font=font, fill=fill)
 
 
-def _compose_expression_grid(panels: dict[str, Image.Image]) -> Image.Image:
-    """2x3 正方形表情格 + 底部标签区(标签由外层中文绘制,此处留白)。"""
+def _compose_expression_grid(
+    panels: dict[str, Image.Image],
+    *,
+    label_fill: tuple[int, ...] = (30, 30, 36),
+    draw_labels: bool = True,
+) -> Image.Image:
+    """2x3 头肩特写格 + 格下标签区(标签只画在留白带,绝不压进生成图)。"""
     cell = 320
-    label_h = 40
+    label_h = 44
     cols, rows = 3, 2
     grid = Image.new("RGBA", (cols * cell, rows * (cell + label_h)), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(grid)
+    font = None
+    if draw_labels:
+        try:
+            font = resolve_cjk_font(22)
+        except CharacterSheetError:
+            font = ImageFont.load_default()
     for i, key in enumerate(_EXPR_KEYS):
         img = panels.get(key)
         if img is None:
             raise CharacterSheetError(f"缺面板:{key}", status_code=500)
         row, col = divmod(i, cols)
+        # 头肩图填满方格(cover);标签单独画在下方留白
         fitted, _ = _fit(img.convert("RGBA"), (0, 0, cell - 8, cell - 8), cover=True)
         ox = col * cell + 4
         oy = row * (cell + label_h) + 4
         grid.paste(fitted, (ox, oy), fitted)
+        if draw_labels and i < len(_EXPR_LABELS):
+            lab = _EXPR_LABELS[i]
+            lx = col * cell + cell // 2
+            ly = row * (cell + label_h) + cell + 6
+            if font is not None:
+                tw = draw.textlength(lab, font=font)
+                draw.text((lx - tw / 2, ly), lab, font=font, fill=label_fill)
+            else:
+                draw.text((lx - 18, ly), lab, fill=label_fill)
     return grid
 
 
@@ -725,16 +754,9 @@ def compose_character_sheet(
     ex, ey, ew, eh = LAYOUT["expressions"]
     expr_imgs = {k: _as_image(k) for k in _EXPR_KEYS if k in panels}
     if len(expr_imgs) == 6:
-        grid = _compose_expression_grid(expr_imgs)
+        # 标签已画在 grid 格下留白;cover=False 保完整格带
+        grid = _compose_expression_grid(expr_imgs, label_fill=theme["text"])
         _paste(canvas, grid, (ex + 8, ey + 32, ew - 16, eh - 40), cover=False)
-        # 每格下方标签
-        cell_w = (ew - 24) // 3
-        cell_h = (eh - 48) // 2
-        for i, lab in enumerate(_EXPR_LABELS):
-            row, col = divmod(i, 3)
-            lx = ex + 12 + col * cell_w + cell_w // 2 - 18
-            ly = ey + 32 + row * cell_h + int(cell_h * 0.72)
-            draw.text((lx, ly), lab, font=font_label, fill=theme["text"])
     else:
         _paste(
             canvas,
@@ -760,7 +782,8 @@ def compose_character_sheet(
         label_fill=theme["text_dim"],
     )
     cx, cy, cw, ch = LAYOUT["costume"]
-    _paste(canvas, _as_image("costume"), (cx + 8, cy + 32, cw - 16, ch - 40), cover=True)
+    # letterbox:完整物品可见,禁止竖长条中心裁切
+    _paste(canvas, _as_image("costume"), (cx + 8, cy + 32, cw - 16, ch - 40), cover=False)
 
     colors = list(meta.colors) if meta.colors else _extract_palette(portrait)
     colors = [_normalize_hex(c) for c in colors if _normalize_hex(c)]
@@ -871,13 +894,16 @@ def placeholder_panel(
 
 
 def crop_face_ref(portrait_bytes: bytes, size: int = 768) -> bytes:
-    """从立绘取上半身/脸部正方形参考,供表情 img2img 保同一人。"""
+    """从立绘取头肩特写正方形参考,供表情 img2img(紧裁,避免半身站姿)。"""
     img = Image.open(BytesIO(portrait_bytes)).convert("RGB")
     w, h = img.size
-    # 取上部 55% 高度居中正方形
-    side = min(w, int(h * 0.55))
+    # 紧裁上部头肩:边长约宽的 72% 或高的 38%,取较小者,偏上
+    side = min(int(w * 0.72), int(h * 0.38), w, h)
+    side = max(64, side)
     left = max(0, (w - side) // 2)
-    top = max(0, int(h * 0.02))
+    top = max(0, int(h * 0.01))
+    if top + side > h:
+        top = max(0, h - side)
     crop = img.crop((left, top, left + side, top + side))
     crop = crop.resize((size, size), Image.Resampling.LANCZOS)
     buf = BytesIO()
@@ -930,6 +956,24 @@ def _build_sheet_graph(
     from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 
     neg = negative or _STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"])
+    pl = prompt.lower()
+    if (
+        "product still life" in pl
+        or "product shot" in pl
+        or "rain boots" in pl
+        or "flat lay" in pl
+    ):
+        neg = (
+            neg
+            + ", person, face, body, human, model, mannequin, wearing clothes, "
+            "legs, feet, silhouette, bodysuit, tight suit"
+        )
+    if "head and shoulders" in pl or "extreme face closeup" in pl:
+        neg = (
+            neg
+            + ", full body, half body, standing pose, waist, legs, "
+            "chinese text, caption, subtitle, label on image"
+        )
     if is_nextgen(ckpt_name):
         prof = profile_for(ckpt_name)
         recipe = nextgen_recipe(ckpt_name)
@@ -1017,9 +1061,26 @@ def _build_img2img_graph(
     from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 
     neg = _STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"])
-    # costume 额外负向:禁止真人穿着
-    if "flat lay" in prompt.lower() or "garments laid flat" in prompt.lower():
-        neg = neg + ", person, face, wearing clothes, model, mannequin, full body portrait"
+    pl = prompt.lower()
+    # costume / 单品额外负向:禁止真人穿着与人体靴
+    if (
+        "flat lay" in pl
+        or "garments laid flat" in pl
+        or "product still life" in pl
+        or "product shot" in pl
+        or "rain boots" in pl
+    ):
+        neg = (
+            neg
+            + ", person, face, body, human, wearing clothes, model, mannequin, "
+            "full body portrait, legs, feet, silhouette, bodysuit, tight suit"
+        )
+    if "expr" in pl or "closeup" in pl or "head and shoulders" in pl:
+        neg = (
+            neg
+            + ", full body, half body, standing pose, waist up wide, legs, "
+            "hands holding props, chinese text, caption, subtitle, label"
+        )
     kw: dict[str, Any] = dict(
         positive=prompt,
         image=image_name,
@@ -1346,12 +1407,12 @@ async def generate_character_sheet(
             ref_mode = "img2img" if meta.style == "anime" else "ipa"
             denoise = 0.58
         elif key.startswith("expr_"):
-            # 表情:主立绘头部裁图 img2img, denoise 0.52(落在 0.45–0.6)
+            # 表情:紧裁头肩 img2img;denoise 提高以拉开表情差异(禁半身站姿)
             face = face_ref_name or ref_name
             if face:
                 use_ref = face
                 ref_mode = "img2img" if meta.style == "anime" else "ipa"
-                denoise = 0.52
+                denoise = 0.68
             else:
                 use_ref = None
                 ref_mode = "none"
@@ -1409,6 +1470,45 @@ def _panel_is_blank_or_glitch(data: bytes) -> bool:
     return False
 
 
+def _score_expression_head_ratio(data: bytes) -> float:
+    """表情格启发式:上半部脸/肤色占比越高越好;鼓励头肩特写(目标≥0.40)。"""
+    if _panel_is_blank_or_glitch(data):
+        return -1e9
+    img = Image.open(BytesIO(data)).convert("RGB")
+    small = img.resize((64, 64), Image.Resampling.BILINEAR)
+    px = list(small.getdata())
+    sw, sh = small.size
+    face = 0
+    total = 0
+    # 统计偏上 70% 区域的肤色/亮部脸块
+    for y in range(int(sh * 0.05), int(sh * 0.70)):
+        for x in range(int(sw * 0.15), int(sw * 0.85)):
+            total += 1
+            r, g, b = px[y * sw + x]
+            if r > 80 and g > 55 and b > 45 and r >= g - 20:
+                face += 1
+            elif abs(r - g) < 25 and abs(g - b) < 25 and 40 < r < 220:
+                # anime 平涂脸
+                face += 0.6
+    ratio = face / max(1, total)
+    # 惩罚下半身迹象:底部 25% 出现大量深色衣/腿结构且上部脸少
+    bottom_dark = 0
+    bt = 0
+    for y in range(int(sh * 0.75), sh):
+        for x in range(sw):
+            bt += 1
+            r, g, b = px[y * sw + x]
+            if r < 60 and g < 60 and b < 70:
+                bottom_dark += 1
+    dark_ratio = bottom_dark / max(1, bt)
+    score = ratio * 100.0
+    if ratio < 0.40:
+        score -= (0.40 - ratio) * 120.0
+    if dark_ratio > 0.35 and ratio < 0.45:
+        score -= 25.0  # 半身站姿常见:下半大块黑衣
+    return score
+
+
 def _score_turnaround_candidate(data: bytes, key: str) -> float:
     """分数越高越好;side/back 优先非正脸(左右不对称 + 非居中大脸块)。"""
     if _panel_is_blank_or_glitch(data):
@@ -1452,6 +1552,11 @@ def _pick_best_candidate(cands: list[bytes], key: str) -> bytes:
             cands, key=lambda b: _score_turnaround_candidate(b, key), reverse=True
         )
         return ranked[0]
+    if key.startswith("expr_"):
+        ranked = sorted(
+            cands, key=lambda b: _score_expression_head_ratio(b), reverse=True
+        )
+        return ranked[0]
     # 其它/服饰单品:过滤花屏空白;服饰再抑米色/棕色主调
     def _beige_penalty(data: bytes) -> float:
         if not key.startswith("costume"):
@@ -1475,7 +1580,7 @@ def _pick_best_candidate(cands: list[bytes], key: str) -> bytes:
 
 
 def collage_costume_items(items: list[bytes], *, style: str) -> bytes:
-    """五件单品横排拼成 costume 区图。"""
+    """五件单品横排拼成 costume 区图;按包围盒 letterbox,不裁切物品。"""
     w, h = _panel_size("costume", style)
     canvas = Image.new("RGB", (w, h), (240, 240, 244) if style == "anime" else (30, 32, 38))
     n = max(1, len(items))
@@ -1485,11 +1590,48 @@ def collage_costume_items(items: list[bytes], *, style: str) -> bytes:
             im = Image.open(BytesIO(raw)).convert("RGB")
         except Exception:  # noqa: BLE001
             continue
+        # 先按非白/非深灰像素取物品包围盒,再 letterbox 进格
+        im = _trim_object_bbox(im, style=style)
         box = (i * cell_w + 4, 8, cell_w - 8, h - 16)
-        _paste(canvas, im, box, cover=True)
+        _paste(canvas, im, box, cover=False)
     buf = BytesIO()
     canvas.save(buf, format="PNG")
     return buf.getvalue()
+
+
+def _trim_object_bbox(img: Image.Image, *, style: str, pad: int = 12) -> Image.Image:
+    """按物品包围盒裁切(去大片纯色底),供 letterbox 拼版。"""
+    rgb = img.convert("RGB")
+    w, h = rgb.size
+    px = rgb.load()
+    # anime 白底 / 古风深底
+    if style == "anime":
+        def _fg(r, g, b) -> bool:
+            return not (r > 230 and g > 230 and b > 230)
+    else:
+        def _fg(r, g, b) -> bool:
+            return not (r < 45 and g < 45 and b < 50)
+    min_x, min_y, max_x, max_y = w, h, 0, 0
+    found = False
+    for y in range(h):
+        for x in range(w):
+            if _fg(*px[x, y]):
+                found = True
+                if x < min_x:
+                    min_x = x
+                if y < min_y:
+                    min_y = y
+                if x > max_x:
+                    max_x = x
+                if y > max_y:
+                    max_y = y
+    if not found or max_x <= min_x or max_y <= min_y:
+        return rgb
+    min_x = max(0, min_x - pad)
+    min_y = max(0, min_y - pad)
+    max_x = min(w - 1, max_x + pad)
+    max_y = min(h - 1, max_y + pad)
+    return rgb.crop((min_x, min_y, max_x + 1, max_y + 1))
 
 
 async def _generate_costume_collage(
@@ -1508,6 +1650,12 @@ async def _generate_costume_collage(
     item_bytes: list[bytes] = []
     for idx, (item_key, item_prompt) in enumerate(_COSTUME_ITEMS):
         prompt = f"{item_prompt}, {suf}"
+        if item_key == "boots":
+            prompt = (
+                "pair of black rain boots, product shot, no person, "
+                + prompt
+                + ", footwear product photography only"
+            )
         w, h = (768, 768) if meta.style == "anime" else (512, 512)
         data = await generate_panel_bytes(
             pool,
@@ -1529,32 +1677,65 @@ async def _generate_costume_collage(
 
 
 async def _probe_openpose_available(client: Any) -> tuple[bool, str]:
-    """探测 worker 是否具备 openpose 控网+预处理器;不可用则返回原因。"""
-    base = getattr(client, "base_url", None) or getattr(client, "_base_url", None)
-    if not base:
-        return False, "client 无 base_url,无法探测 object_info,改用强 side/back IPA"
-    try:
-        import httpx
+    """探测 worker 是否具备 openpose 控网+预处理器。
 
-        async with httpx.AsyncClient(timeout=8.0) as hx:
-            r = await hx.get(f"{str(base).rstrip('/')}/object_info/ControlNetLoader")
-            if r.status_code != 200:
-                return False, f"object_info ControlNetLoader HTTP {r.status_code}"
-            info = r.json()
-            node = info.get("ControlNetLoader") or info
-            inputs = (node.get("input") or {}).get("required") or {}
-            cn = inputs.get("control_net_name")
-            models = cn[0] if isinstance(cn, list) and cn and isinstance(cn[0], list) else (cn or [])
-            model_blob = " ".join(str(m) for m in models).lower()
-            if "openpose" not in model_blob and "union" not in model_blob:
-                return False, "worker 未装 openpose/union controlnet 模型"
-            r2 = await hx.get(f"{str(base).rstrip('/')}/object_info/AIO_Preprocessor")
-            if r2.status_code != 200:
-                return False, "缺少 AIO_Preprocessor/OpenposePreprocessor"
+    须走 ComfyUIClient.get_object_info / object_info;缺方法则直接 GET /object_info。
+    不可用时返回 (False, reason)——调用方对三视图必须 raise,禁止静默 IPA 假成功。
+    """
+    info: dict[str, Any] = {}
+    try:
+        if hasattr(client, "get_object_info"):
+            info = await client.get_object_info()
+        elif hasattr(client, "object_info"):
+            # 单节点接口:拼 ControlNetLoader + 预处理器
+            chunk = await client.object_info("ControlNetLoader")
+            if isinstance(chunk, dict):
+                info.update(chunk)
+            try:
+                chunk2 = await client.object_info("AIO_Preprocessor")
+                if isinstance(chunk2, dict):
+                    info.update(chunk2)
+            except Exception:  # noqa: BLE001
+                pass
+        else:
+            base = getattr(client, "base_url", None) or getattr(client, "_base_url", None)
+            if not base:
+                return False, "client 无 get_object_info/base_url,无法探测 object_info"
+            import httpx
+
+            async with httpx.AsyncClient(timeout=12.0) as hx:
+                r = await hx.get(f"{str(base).rstrip('/')}/object_info")
+                if r.status_code != 200:
+                    return False, f"GET /object_info HTTP {r.status_code}"
+                info = r.json() if isinstance(r.json(), dict) else {}
     except Exception as e:  # noqa: BLE001
         return False, f"object_info 探测失败:{e}"
-    # 还需现成骨架图;仓库内无标准 openpose 骨架资产时不强行用立绘抽骨架
-    return False, "无预置正/侧/背 openpose 骨架图资产,改用强 side/back IPA"
+
+    if not isinstance(info, dict) or not info:
+        return False, "object_info 为空"
+
+    node = info.get("ControlNetLoader") or {}
+    inputs = (node.get("input") or {}).get("required") or {}
+    cn = inputs.get("control_net_name")
+    models = cn[0] if isinstance(cn, list) and cn and isinstance(cn[0], list) else (cn or [])
+    model_blob = " ".join(str(m) for m in models).lower()
+    if "openpose" not in model_blob and "union" not in model_blob:
+        return False, "worker 未装 openpose/union controlnet 模型"
+
+    has_prep = any(
+        k in info
+        for k in (
+            "AIO_Preprocessor",
+            "OpenposePreprocessor",
+            "DWPreprocessor",
+            "OpenPosePreprocessor",
+        )
+    )
+    if not has_prep:
+        return False, "缺少 Openpose/AIO/DW Preprocessor 节点"
+
+    # 还需预置正/侧/背骨架图资产;当前仓库无标准资产 → 不可用
+    return False, "无预置正/侧/背 openpose 骨架图资产"
 
 
 async def generate_panel_bytes_openpose(
@@ -1677,6 +1858,13 @@ async def regenerate_sheet_panels(
     debug["openpose"] = {"enabled": use_openpose, "reason": openpose_reason}
 
     need = [k for k in regen_keys if k and k != "portrait"]
+    turnaround_need = [k for k in need if k in ("front", "side", "back")]
+    if turnaround_need and not use_openpose:
+        raise CharacterSheetError(
+            f"openpose 不可用,拒绝静默 IPA 出三视图({','.join(turnaround_need)}):"
+            f"{openpose_reason}",
+            status_code=503,
+        )
     for key in need:
         if key == "costume":
             # 五件各出 n_candidates 再挑,再 collage
@@ -1684,12 +1872,19 @@ async def regenerate_sheet_panels(
             suf = _STYLE_SUFFIX.get(meta.style, _STYLE_SUFFIX["anime"])
             for idx, (item_key, item_prompt) in enumerate(_COSTUME_ITEMS):
                 cands: list[bytes] = []
+                prompt = f"{item_prompt}, {suf}"
+                if item_key == "boots":
+                    prompt = (
+                        "pair of black rain boots, product shot, no person, "
+                        + prompt
+                        + ", footwear product photography only"
+                    )
                 for ci in range(max(1, n_candidates)):
                     w, h = (768, 768) if meta.style == "anime" else (512, 512)
                     cands.append(
                         await generate_panel_bytes(
                             pool,
-                            f"{item_prompt}, {suf}",
+                            prompt,
                             ckpt_name=ckpt,
                             width=w,
                             height=h,
@@ -1702,6 +1897,7 @@ async def regenerate_sheet_panels(
                             client=client,
                             ref_image=None,
                             ref_mode="none",
+                            # denoise 对 txt2img 无意义;负向在 _build_sheet_graph + prompt
                         )
                     )
                 picked_items.append(_pick_best_candidate(cands, f"costume_{item_key}"))
@@ -1742,7 +1938,7 @@ async def regenerate_sheet_panels(
                 if face:
                     use_ref = face
                     ref_mode = "img2img" if meta.style == "anime" else "ipa"
-                    denoise = 0.52
+                    denoise = 0.68
             elif key == "faces" and (face_ref_name or ref_name):
                 use_ref = face_ref_name or ref_name
                 ref_mode = "img2img" if meta.style == "anime" else "ipa"
