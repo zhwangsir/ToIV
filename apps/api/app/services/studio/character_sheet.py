@@ -1405,13 +1405,17 @@ def enforce_head_shoulders_square(
     size: int = 768,
     *,
     skip_reframe: bool = False,
+    max_upscale: float = 1.5,
 ) -> bytes:
-    """头肩正方形裁切(fix14):以**检测到的人脸框**为中心 cover 铺满。
+    """头肩正方形裁切(fix15):以**检测到的人脸框**为中心 cover 铺满。
 
     - 优先 insightface 人脸框;否则肤色/五官启发式(禁整前景,避免宽袖/汉服拉偏)。
-    - 裁切轴=脸中心;上边≈脸顶再留约 10% 格高(发顶外扩);下边到锁骨(≈脸高×1.6–1.8)。
+    - 裁切轴=脸中心;上边含完整发顶/发髻(脸顶再留约 12–16% 格高);下边到锁骨下(≈脸高×2.0–2.2)。
+    - 放大上限 max_upscale(默认 1.5):源脸过小则外扩取景,禁止硬放大糊脸;调用方应另重生大脸构图。
     - skip_reframe=True:已合格锁定格(如 fix12b 侧脸)只做正方形铺满,不做激进重裁。
     """
+    import math
+
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
     if skip_reframe:
@@ -1422,7 +1426,18 @@ def enforce_head_shoulders_square(
         if h > w * 1.15:
             top = max(0, min(h - side, int(h * 0.02)))
         crop = img.crop((left, top, left + side, top + side))
-        crop = crop.resize((size, size), Image.Resampling.LANCZOS)
+        # 锁定格也遵守放大上限:不足则居中垫边再缩,勿超 1.5×
+        scale = float(size) / float(side) if side > 0 else 999.0
+        if scale > max_upscale:
+            out = Image.new("RGB", (size, size), (20, 22, 28))
+            nw = max(1, int(round(side * max_upscale)))
+            resized = crop.resize((nw, nw), Image.Resampling.LANCZOS)
+            ox = (size - nw) // 2
+            oy = (size - nw) // 2
+            out.paste(resized, (ox, oy))
+            crop = out
+        else:
+            crop = crop.resize((size, size), Image.Resampling.LANCZOS)
         buf = BytesIO()
         crop.save(buf, format="PNG")
         return buf.getvalue()
@@ -1435,15 +1450,19 @@ def enforce_head_shoulders_square(
         fw = max(8.0, fx2 - fx1)
         fh = max(8.0, fy2 - fy1)
         fcx = (fx1 + fx2) / 2.0
-        # 竖向:脸顶上留发,下扩到锁骨
-        span_h = fh * 1.75
-        span_w = max(fw * 1.40, span_h * 0.92)
+        # 竖向:完整发顶/发髻 + 锁骨下(fix15 放宽,忌切髻)
+        span_h = fh * 2.10
+        span_w = max(fw * 1.55, span_h * 0.95)
         side = int(max(span_w, span_h))
         side = max(side, 64)
+        # 放大上限:裁边至少 size/max_upscale,否则外扩取景而非硬放大
+        min_side = int(math.ceil(float(size) / float(max_upscale)))
+        if side < min_side:
+            side = min(min_side, w, h)
         side = min(side, w, h)
-        # 脸中心为水平轴;竖直使脸顶约在裁切框 10% 处
+        # 脸中心水平;竖直使脸顶约在裁切框 12% 处(发髻完整)
         left = int(round(fcx - side / 2.0))
-        top = int(round(fy1 - 0.10 * side))
+        top = int(round(fy1 - 0.14 * side))
         left = max(0, min(w - side, left))
         top = max(0, min(h - side, top))
         if top + side > h:
@@ -1451,18 +1470,30 @@ def enforce_head_shoulders_square(
         # 校验:脸中心仍在裁切框内(防侧脸只剩下巴/耳)
         if not (left + side * 0.12 <= fcx <= left + side * 0.88):
             left = max(0, min(w - side, int(round(fcx - side / 2.0))))
-        if not (top + side * 0.05 <= fy1 <= top + side * 0.45):
-            top = max(0, min(h - side, int(round(fy1 - 0.10 * side))))
+        if not (top + side * 0.04 <= fy1 <= top + side * 0.40):
+            top = max(0, min(h - side, int(round(fy1 - 0.14 * side))))
     else:
         # 最后回退:上半身中心方裁(仍偏上,勿用全身前景)
         cx, cy = w // 2, int(h * 0.28)
-        side = min(w, h, max(int(h * 0.48), int(w * 0.55)))
+        side = min(w, h, max(int(h * 0.52), int(w * 0.58)))
+        min_side = int(math.ceil(float(size) / float(max_upscale)))
+        if side < min_side:
+            side = min(min_side, w, h)
         left = max(0, min(w - side, cx - side // 2))
         top = max(0, min(h - side, cy - side // 2))
     if top + side > h:
         top = max(0, h - side)
     crop = img.crop((left, top, left + side, top + side))
-    crop = crop.resize((size, size), Image.Resampling.LANCZOS)
+    scale = float(size) / float(side) if side > 0 else 999.0
+    if scale > max_upscale + 1e-6:
+        # 仍超限(图本身小于 min_side):最多 1.5× 后居中垫,禁止糊脸硬放
+        out = Image.new("RGB", (size, size), crop.getpixel((0, 0)))
+        nw = max(1, int(round(side * max_upscale)))
+        resized = crop.resize((nw, nw), Image.Resampling.LANCZOS)
+        out.paste(resized, ((size - nw) // 2, (size - nw) // 2))
+        crop = out
+    else:
+        crop = crop.resize((size, size), Image.Resampling.LANCZOS)
     buf = BytesIO()
     crop.save(buf, format="PNG")
     return buf.getvalue()
@@ -1613,7 +1644,7 @@ def _pick_best_face_with_yaw(cands: list[bytes], face_key: str) -> tuple[bytes, 
         if yaw is not None:
             target = {
                 "face_front": 0.0,
-                "face_three_quarter": 45.0,
+                "face_three_quarter": 42.0,  # fix15: 偏好 35–50°
                 "face_side": 90.0,
             }.get(face_key, 0.0)
             joint -= abs(abs(yaw) - target) * 0.35
@@ -1630,7 +1661,7 @@ def _pick_best_face_with_yaw(cands: list[bytes], face_key: str) -> tuple[bytes, 
             "n": len(cands),
             "n_pass": len(passed),
         }
-    target = {"face_front": 0.0, "face_three_quarter": 45.0, "face_side": 90.0}.get(
+    target = {"face_front": 0.0, "face_three_quarter": 42.0,  # fix15: 偏好 35–50° "face_side": 90.0}.get(
         face_key, 0.0
     )
     scored.sort(
