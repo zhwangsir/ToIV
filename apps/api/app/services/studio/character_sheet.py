@@ -3233,16 +3233,17 @@ def compose_faces_triptych(
             filled = enforce_head_shoulders_square(raw, size=768)
         # fix16:拼版前再拦一次覆盖率(双重保险)
         assert_panel_coverage(filled, min_ratio=0.90)
-        # 焦点:filled 上的人脸中心(用于高格 cover)
+        # 焦点:生成格用人脸中心;锁定格禁用 focus(防高格 cover 把头裁成半脸/空灰)
         focus = None
-        bb = _insightface_face_bbox_xyxy(filled)
-        if bb is not None:
-            focus = ((bb[0] + bb[2]) / 2.0, (bb[1] + bb[3]) / 2.0)
-        else:
-            him = Image.open(BytesIO(filled)).convert("RGB")
-            hbb = _heuristic_skin_face_bbox(him)
-            if hbb is not None:
-                focus = ((hbb[0] + hbb[2]) / 2.0, (hbb[1] + hbb[3]) / 2.0)
+        if key not in skip:
+            bb = _insightface_face_bbox_xyxy(filled)
+            if bb is not None:
+                focus = ((bb[0] + bb[2]) / 2.0, (bb[1] + bb[3]) / 2.0)
+            else:
+                him = Image.open(BytesIO(filled)).convert("RGB")
+                hbb = _heuristic_skin_face_bbox(him)
+                if hbb is not None:
+                    focus = ((hbb[0] + hbb[2]) / 2.0, (hbb[1] + hbb[3]) / 2.0)
         img = Image.open(BytesIO(filled)).convert("RGBA")
         iw, ih = img.size
         if iw != ih or min(iw, ih) < 200:
