@@ -259,7 +259,7 @@ def test_shot_patch_mood_beat(ctx):
 
 
 def test_assemble_requires_done_shots(ctx):
-    """无已完成分镜视频时合成应返回 422。"""
+    """无已完成分镜视频时合成应返回 422(Batch4:可诊断镜号)。"""
     client, token, _ = ctx
     H = _h(token)
     pid = client.post("/api/drama/projects", headers=H, json={"title": "x", "script": "s"}).json()["id"]
@@ -268,7 +268,8 @@ def test_assemble_requires_done_shots(ctx):
         client.post(f"/api/drama/projects/{pid}/storyboard", headers=H, json={"num_shots": 1})
     r = client.post(f"/api/drama/projects/{pid}/assemble", headers=H, json={})
     assert r.status_code == 422
-    assert "无已完成的分镜视频" in r.json()["detail"]
+    detail = r.json()["detail"]
+    assert "分镜未就绪" in detail or "无分镜" in detail or "无已完成" in detail
 
 
 def test_project_isolation(ctx):

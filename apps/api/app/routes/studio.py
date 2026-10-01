@@ -740,18 +740,34 @@ async def voice_one(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """单镜配音:按说话人命中角色卡(带参考音则克隆音色);状态 rendered → voiced。"""
+    """单镜配音:按说话人命中角色卡(带参考音则克隆音色);状态 rendered → voiced。
+
+    Batch4 边界:
+      · 空台词 → 422
+      · 有说话人但角色卡不存在 / 未配置音色 → 422(不静默降级默认音糊弄)
+      · 无说话人(旁白) → 允许默认音色
+      · TTS 不可达 → 502(VoiceError)
+    """
     shot = _get_shot(session, sid, user)
     if not shot.dialogue.strip():
         raise HTTPException(status_code=422, detail="该镜无台词")
     character = None
-    if shot.speaker:
+    speaker = (shot.speaker or "").strip()
+    if speaker:
         character = session.exec(
             select(StudioCharacter).where(
                 StudioCharacter.project_id == shot.project_id,
-                StudioCharacter.name == shot.speaker,
+                StudioCharacter.name == speaker,
             )
         ).first()
+        if character is None:
+            raise HTTPException(
+                status_code=422, detail=f"未找到说话人「{speaker}」的角色卡"
+            )
+        if not (character.voice_ref_url or "").strip():
+            raise HTTPException(
+                status_code=422, detail=f"角色「{speaker}」未配置音色"
+            )
     try:
         await voice_svc.synth_for_shot(session, shot, character)
     except voice_svc.VoiceError as e:

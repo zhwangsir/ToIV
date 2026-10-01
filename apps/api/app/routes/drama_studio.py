@@ -2936,9 +2936,15 @@ async def _do_assemble(
     shots = session.exec(
         select(DramaShot).where(DramaShot.project_id == p.id).order_by(DramaShot.idx)
     ).all()
-    ready = [s for s in shots if s.video_status == "done" and s.video_url]
-    if not ready:
-        raise HTTPException(status_code=422, detail="无已完成的分镜视频可合成")
+    # Batch4:全部镜头须就绪;部分缺失返回可诊断镜号,不再静默只拼已完成子集
+    if not shots:
+        raise HTTPException(status_code=422, detail="项目无分镜")
+    missing = [s.idx for s in shots if not (s.video_status == "done" and s.video_url)]
+    if missing:
+        raise HTTPException(
+            status_code=422, detail=f"分镜未就绪(缺视频):{missing}"
+        )
+    ready = list(shots)
 
     if shutil.which("ffmpeg") is None:
         raise HTTPException(status_code=500, detail="服务端未安装 ffmpeg")

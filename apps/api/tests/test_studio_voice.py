@@ -286,6 +286,7 @@ def test_voice_route_no_dialogue_422(ctx):
     shot = _mk_shot(client, H, pid)  # 无台词
     r = client.post(f"/api/studio/shots/{shot['id']}/voice", headers=H)
     assert r.status_code == 422
+    assert "台词" in r.json()["detail"]
 
 
 def test_voice_route_ok_uses_speaker_character(ctx, monkeypatch):
@@ -293,11 +294,19 @@ def test_voice_route_ok_uses_speaker_character(ctx, monkeypatch):
     client, token = ctx
     H = _h(token)
     pid = _mk_project(client, H)
-    client.post(
+    cr = client.post(
         f"/api/studio/projects/{pid}/characters",
         headers=H,
         json={"name": "楚生", "visual_prompt": "1boy"},
     )
+    assert cr.status_code == 200, cr.text
+    cid = cr.json()["id"]
+    pr = client.patch(
+        f"/api/studio/characters/{cid}",
+        headers=H,
+        json={"voice_ref_url": "/api/studio/files/ref-voice.wav"},
+    )
+    assert pr.status_code == 200, pr.text
     shot = _mk_shot(client, H, pid, dialogue="我回来了。", speaker="楚生")
 
     seen: dict[str, object] = {}
