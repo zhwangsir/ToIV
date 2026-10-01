@@ -139,30 +139,25 @@ async def test_synth_unconfigured(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_lipsync_video_pipeline_mocked(monkeypatch):
-    """全 mock:下载源 → 上传 worker → LatentSync 构图提交 → 轮询产物 → 落盘 URL。"""
+async def test_lipsync_video_pipeline_mocked(tmp_path, monkeypatch):
+    """全 mock:本机 studio 直读 → 上传 worker → LatentSync 构图 → 落盘 URL。
+
+    lipsync_url 置空以确保走 Comfy 回退(agent 路径见 test_studio_lipsync_agent)。
+    """
     from app.models import StudioShot
     from app.services.studio import lipsync as ls
 
+    root = tmp_path / "drama"
+    studio = root / "studio"
+    studio.mkdir(parents=True)
+    (studio / "v.mp4").write_bytes(b"video-bytes")
+    (studio / "v.wav").write_bytes(b"RIFF-audio")
+    monkeypatch.setattr("app.storage.drama_output_root", lambda: root)
+    monkeypatch.setattr("app.config.get_settings", lambda: type("S", (), {
+        "lipsync_url": "", "api_base_url": "http://api.test",
+    })())
+
     calls: dict[str, object] = {}
-
-    class FakeResp:
-        def __init__(self, content: bytes):
-            self.content = content
-
-        def raise_for_status(self):
-            return None
-
-    class FakeHttp:
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *a):
-            return None
-
-        async def get(self, url):
-            calls.setdefault("gets", []).append(url)
-            return FakeResp(b"video-bytes" if "v.mp4" in url else b"RIFF-audio")
 
     class FakeClient:
         base_url = "http://fake:8188"
@@ -185,7 +180,6 @@ async def test_lipsync_video_pipeline_mocked(monkeypatch):
         async def pick(self, required=(), required_nodes=()):
             return FakeClient()
 
-    monkeypatch.setattr(ls.httpx, "AsyncClient", lambda **kw: FakeHttp())
     monkeypatch.setattr(ls, "_save_clip", lambda data: "/api/studio/files/ls.mp4")
 
     shot = StudioShot(
@@ -211,10 +205,20 @@ async def test_lipsync_video_requires_media():
 
 
 @pytest.mark.asyncio
-async def test_lipsync_worker_down(monkeypatch):
+async def test_lipsync_worker_down(tmp_path, monkeypatch):
     from app.comfy.client import ComfyUIError
     from app.models import StudioShot
     from app.services.studio import lipsync as ls
+
+    root = tmp_path / "drama"
+    studio = root / "studio"
+    studio.mkdir(parents=True)
+    (studio / "v.mp4").write_bytes(b"video-bytes")
+    (studio / "v.wav").write_bytes(b"RIFF-audio")
+    monkeypatch.setattr("app.storage.drama_output_root", lambda: root)
+    monkeypatch.setattr("app.config.get_settings", lambda: type("S", (), {
+        "lipsync_url": "", "api_base_url": "http://api.test",
+    })())
 
     class DownPool:
         async def pick(self, required=(), required_nodes=()):
