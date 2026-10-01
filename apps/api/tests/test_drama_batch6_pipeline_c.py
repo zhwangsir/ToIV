@@ -132,6 +132,26 @@ def test_pick_best_fallback_first_when_no_scorer():
     assert out[0]["is_picked"] is True
 
 
+def test_pick_best_fallback_when_scorer_raises(tmp_path, monkeypatch):
+    """选优内部异常必须回落，不能冒泡成 render 500。"""
+    import app.services.studio.candidate_pick as cp
+
+    ref = tmp_path / "ref.jpg"
+    ref.write_bytes(b"x")
+    vid = tmp_path / "a.mp4"
+    vid.write_bytes(b"y")
+    cands = [
+        {"id": "a", "url": str(vid), "status": "done", "is_picked": True},
+        {"id": "b", "url": str(vid), "status": "done", "is_picked": False},
+    ]
+    monkeypatch.setattr(cp, "_try_import_face", lambda: True)
+    monkeypatch.setattr(cp, "score_video_face", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    wid, out = pick_best_candidate(cands, ref_image_path=ref)
+    assert wid == "a"
+    assert out[0]["is_picked"] is True
+    assert "face_scorer_error_fallback" in (out[0].get("pick_note") or "")
+
+
 def test_render_body_accepts_pipeline_c(ctx, monkeypatch):
     from app.services.studio import orchestrator as orch
     from app.services.studio.renderers.base import RenderResult

@@ -20,8 +20,10 @@ def _get_face_app():
     if _FACE_APP is not None:
         return _FACE_APP
     from insightface.app import FaceAnalysis
+    import os
 
-    app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
+    root = os.environ.get("INSIGHTFACE_HOME") or os.path.expanduser("~/.insightface")
+    app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"], root=root)
     app.prepare(ctx_id=-1, det_size=(640, 640))
     _FACE_APP = app
     return app
@@ -180,33 +182,43 @@ def pick_best_candidate(
             c.setdefault("pick_note", "face_scorer_unavailable_fallback_first")
         return winner.get("id"), candidates
 
-    best_id = None
-    best_score = float("-inf")
-    for c in done:
-        path = _local(str(c["url"]))
-        if path is None:
-            c["pick_score"] = None
-            c["pick_note"] = "video_path_unresolved"
-            c["face_mean"] = None
-            continue
-        m = score_video_face(path, ref_image_path)
-        face = m.get("face_mean")
-        pen = float(m.get("burnin_penalty") or 0) + float(m.get("ocr_penalty") or 0)
-        score = (float(face) if face is not None else -1.0) - pen
-        # 无脸直接淘汰到极低分
-        if face is None:
-            score = -2.0 - pen
-        c["face_mean"] = face
-        c["burnin_penalty"] = m.get("burnin_penalty")
-        c["ocr_penalty"] = m.get("ocr_penalty")
-        c["pick_score"] = score
-        c["pick_note"] = m.get("error") or "facecrop"
-        if score > best_score:
-            best_score = score
-            best_id = c.get("id")
+    try:
+        best_id = None
+        best_score = float("-inf")
+        for c in done:
+            path = _local(str(c["url"]))
+            if path is None:
+                c["pick_score"] = None
+                c["pick_note"] = "video_path_unresolved"
+                c["face_mean"] = None
+                continue
+            m = score_video_face(path, ref_image_path)
+            face = m.get("face_mean")
+            pen = float(m.get("burnin_penalty") or 0) + float(m.get("ocr_penalty") or 0)
+            score = (float(face) if face is not None else -1.0) - pen
+            # 无脸直接淘汰到极低分
+            if face is None:
+                score = -2.0 - pen
+            c["face_mean"] = face
+            c["burnin_penalty"] = m.get("burnin_penalty")
+            c["ocr_penalty"] = m.get("ocr_penalty")
+            c["pick_score"] = score
+            c["pick_note"] = m.get("error") or "facecrop"
+            if score > best_score:
+                best_score = score
+                best_id = c.get("id")
 
-    if best_id is None:
-        best_id = done[0].get("id")
-    for c in candidates:
-        c["is_picked"] = c.get("id") == best_id
-    return best_id, candidates
+        if best_id is None:
+            best_id = done[0].get("id")
+        for c in candidates:
+            c["is_picked"] = c.get("id") == best_id
+        return best_id, candidates
+    except Exception as e:
+        # 模型下载失败/ONNX 异常等：绝不能把已出片请求打成 500
+        logger.warning("pick_best_candidate 异常，回落首个成功候选: %s", e)
+        winner = next((c for c in done if c.get("is_picked")), done[0])
+        for c in candidates:
+            c["is_picked"] = c.get("id") == winner.get("id")
+            c.setdefault("pick_score", None)
+            c["pick_note"] = f"face_scorer_error_fallback:{type(e).__name__}"
+        return winner.get("id"), candidates
