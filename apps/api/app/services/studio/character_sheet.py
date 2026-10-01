@@ -727,8 +727,11 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
             f"exact 90 degree profile facing LEFT, ONLY one eye visible, "
             f"clear nose bridge silhouette, lips chin jawline ear outline, "
             f"other eye completely hidden behind head, face not toward camera, "
-            f"hood DOWN bare head, no hood, no cloak over head, jet black hair, "
-            f"realistic anime face anatomy, sharp focus, face fills frame, "
+            f"hood DOWN bare head, no hood over head, jet black hair, "
+            f"MUST show {outfit} collar/neckline on shoulders, clothed bust, "
+            f"same art style as reference, cel-shaded consistent lineart, "
+            f"NO floating disembodied head, NO white outline halo, NO photoreal skin, "
+            f"sharp focus, face and shoulders fill frame, "
             f"NOT front face, NOT three-quarter, NOT both eyes, NOT logo, NOT emblem, "
             f"NOT abstract mark, NOT circle face on hood, NO full body, {solid}, {suf}"
         ),
@@ -1283,10 +1286,10 @@ def crop_head_from_figure(data: bytes, *, size: int = 768, top_frac: float = 0.3
 
 
 def enforce_head_shoulders_square(data: bytes, size: int = 768) -> bytes:
-    """头肩正方形裁切(fix12/fix10d 比例):头顶→锁骨,禁裁半脸/去额头下巴。
+    """头肩正方形裁切(fix13):以脸为中心 cover 铺满,禁灰边信箱。
 
-    相对 fix11 的「迭代收紧≥78%」回退:保留完整前景包围盒并轻度外扩,
-    向下略延以纳入锁骨/肩线,偏上保住额头。
+    先取前景包围盒(头顶→锁骨外扩),再做成正方形 crop 并 resize 铺满格子。
+    相对 fix11 禁半脸迭代;相对 fix12 去掉「最小 42% 边」导致的小人居中灰边。
     """
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
@@ -1308,27 +1311,29 @@ def enforce_head_shoulders_square(data: bytes, size: int = 768) -> bytes:
     if len(xs) >= 16:
         minx, maxx = min(xs), max(xs)
         miny, maxy = min(ys), max(ys)
-        # 向下扩展约 18% 纳入锁骨/肩,勿截下巴
         span = max(1, maxy - miny)
-        maxy = min(63, maxy + max(2, int(span * 0.18)))
+        # 向下扩展约 22% 纳入锁骨/肩领,勿截下巴
+        maxy = min(63, maxy + max(2, int(span * 0.22)))
+        # 向上略扩保住额头/发顶
+        miny = max(0, miny - max(1, int(span * 0.08)))
         left0 = int(minx * w / 64)
         right0 = int((maxx + 1) * w / 64)
         top0 = int(miny * h / 64)
         bot0 = int((maxy + 1) * h / 64)
         bw, bh = max(1, right0 - left0), max(1, bot0 - top0)
-        pad = int(max(bw, bh) * 0.10)
-        side = int(max(bw, bh) * 1.06) + pad
-        side = max(side, int(min(w, h) * 0.42))
+        # 正方形边长贴紧内容(轻度外扩),禁止强制 min(w,h)*0.42 造成灰边
+        pad = int(max(bw, bh) * 0.06)
+        side = int(max(bw, bh) * 1.04) + pad
+        side = max(side, 64)
         side = min(side, w, h)
         cx = (left0 + right0) // 2
         cy = (top0 + bot0) // 2
-        # 偏上保住额头,略放下纳入锁骨
-        cy = max(side // 2, cy - int(side * 0.04))
+        cy = max(side // 2, cy - int(side * 0.03))
         left = max(0, min(w - side, cx - side // 2))
         top = max(0, min(h - side, cy - side // 2))
     else:
-        cx, cy = w // 2, int(h * 0.30)
-        side = min(w, h, max(int(h * 0.55), int(w * 0.70)))
+        cx, cy = w // 2, int(h * 0.28)
+        side = min(w, h, max(int(h * 0.48), int(w * 0.55)))
         left = max(0, min(w - side, cx - side // 2))
         top = max(0, min(h - side, cy - side // 2))
     if top + side > h:
@@ -2093,7 +2098,7 @@ async def generate_character_sheet(
                         ckpt_name=ckpt,
                         width=768,
                         height=768,
-                        seed=None if seed is None else seed + (abs(hash(fk)) % 10000),
+                        seed=seed,  # fix13: 同批同 seed 出正/45/侧,减少画风漂移
                         worker=worker,
                         filename_prefix=f"ToIV_char_sheet_{fk}_pose",
                         style=meta.style,
@@ -2118,7 +2123,7 @@ async def generate_character_sheet(
                         ckpt_name=ckpt,
                         width=768,
                         height=768,
-                        seed=None if seed is None else seed + (abs(hash(fk)) % 10000),
+                        seed=seed,  # fix13: 同批同 seed
                         worker=worker,
                         filename_prefix=f"ToIV_char_sheet_{fk}",
                         style=meta.style,
@@ -2860,13 +2865,52 @@ def ensure_openpose_face_assets() -> dict[str, Path]:
     return out
 
 
+def _trim_letterbox_rgb(img: Image.Image) -> Image.Image:
+    """去掉四周近灰/近白/近黑信箱,供面部格 cover 铺满(fix13)。"""
+    rgb = img.convert("RGB")
+    w, h = rgb.size
+    small = rgb.resize((64, 64), Image.Resampling.BILINEAR)
+    sp = small.load()
+    xs, ys = [], []
+    for y in range(64):
+        for x in range(64):
+            r, g, b = sp[x, y]
+            mx, mn = max(r, g, b), min(r, g, b)
+            if r > 235 and g > 235 and b > 235:
+                continue
+            if mx - mn < 14 and 65 <= mx <= 210:
+                continue
+            if mx < 24 and mx - mn < 10:
+                continue
+            xs.append(x)
+            ys.append(y)
+    if len(xs) < 12:
+        return img
+    minx, maxx = min(xs), max(xs)
+    miny, maxy = min(ys), max(ys)
+    # 轻度外扩避免裁掉发丝/肩线
+    pad = 2
+    minx, miny = max(0, minx - pad), max(0, miny - pad)
+    maxx, maxy = min(63, maxx + pad), min(63, maxy + pad)
+    left = int(minx * w / 64)
+    right = int((maxx + 1) * w / 64)
+    top = int(miny * h / 64)
+    bot = int((maxy + 1) * h / 64)
+    if right - left < 8 or bot - top < 8:
+        return img
+    return img.crop((left, top, right, bot))
+
+
 def compose_faces_triptych(
     faces: dict[str, bytes],
     *,
     style: str = "anime",
     size: tuple[int, int] = (1024, 640),
 ) -> bytes:
-    """正/3-4/侧 三个头部特写横拼为 faces 面板。"""
+    """正/3-4/侧 三个头部特写横拼为 faces 面板。
+
+    fix13:先 trim 灰边信箱,再 cover 裁切铺满格(以脸为中心),禁小人居中灰边。
+    """
     bg = (248, 248, 252) if style == "anime" else (20, 22, 28)
     canvas = Image.new("RGB", size, bg)
     keys = ("face_front", "face_three_quarter", "face_side")
@@ -2875,8 +2919,11 @@ def compose_faces_triptych(
         raw = faces.get(key)
         if not raw:
             continue
-        img = Image.open(BytesIO(raw)).convert("RGBA")
-        box = (i * cell_w + 6, 6, cell_w - 12, size[1] - 12)
+        # 入格前再过一次头肩正方形,保证 cover 源本身已铺满
+        filled = enforce_head_shoulders_square(raw, size=768)
+        img = Image.open(BytesIO(filled)).convert("RGBA")
+        img = _trim_letterbox_rgb(img).convert("RGBA")
+        box = (i * cell_w + 4, 4, cell_w - 8, size[1] - 8)
         fitted, pos = _fit(img, box, cover=True)
         canvas.paste(fitted.convert("RGB"), pos)
     buf = BytesIO()
