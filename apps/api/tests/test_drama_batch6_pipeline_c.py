@@ -220,7 +220,7 @@ def test_render_body_accepts_pipeline_c(ctx, monkeypatch):
     # 禁用 face pick 依赖真实文件
     monkeypatch.setattr(
         "app.services.studio.candidate_pick.pick_best_candidate",
-        lambda cands, ref_image_path=None, local_url_resolver=None: (
+        lambda cands, ref_image_path=None, local_url_resolver=None, **kw: (
             cands[0]["id"],
             [{**c, "is_picked": i == 0} for i, c in enumerate(cands)],
         ),
@@ -237,3 +237,70 @@ def test_render_body_accepts_pipeline_c(ctx, monkeypatch):
     assert body["status"] == "rendered"
     assert len(body["candidates"]) == 2
     assert body["candidates"][0].get("pipeline") == "c" or body["candidates"][0].get("context_latent")
+
+
+def test_continuity_prefers_matching_scene(tmp_path, monkeypatch):
+    """无人脸评分时，连贯分更高的候选应胜出（抑制场景回退）。"""
+    import app.services.studio.candidate_pick as cp
+
+    good = tmp_path / "good.mp4"
+    bad = tmp_path / "bad.mp4"
+    good.write_bytes(b"g")
+    bad.write_bytes(b"b")
+    monkeypatch.setattr(cp, "_try_import_face", lambda: False)
+
+    def fake_cont(path, prev, scene_ref_path=None):
+        return {
+            "continuity": 0.85 if str(path).endswith("good.mp4") else 0.15,
+            "error": "",
+        }
+
+    monkeypatch.setattr(cp, "score_scene_continuity", fake_cont)
+    cands = [
+        {"id": "bad", "url": str(bad), "status": "done", "is_picked": True},
+        {"id": "good", "url": str(good), "status": "done", "is_picked": False},
+    ]
+    wid, out = cp.pick_best_candidate(
+        cands, ref_image_path=None, prev_video_path=tmp_path / "prev.mp4"
+    )
+    assert wid == "good"
+    by_id = {c["id"]: c for c in out}
+    assert (by_id["good"].get("continuity") or 0) > (by_id["bad"].get("continuity") or 0)
+
+
+def test_pick_score_includes_continuity_bonus(tmp_path, monkeypatch):
+    import app.services.studio.candidate_pick as cp
+
+    ref = tmp_path / "ref.jpg"
+    ref.write_bytes(b"x")
+    a = tmp_path / "a.mp4"
+    b = tmp_path / "b.mp4"
+    a.write_bytes(b"1")
+    b.write_bytes(b"2")
+    monkeypatch.setattr(cp, "_try_import_face", lambda: True)
+
+    def fake_face(path, ref_image_path):
+        # 两人脸分相同，连贯分应决出胜负
+        return {
+            "face_mean": 0.5,
+            "sims": [0.5],
+            "burnin_penalty": 0.0,
+            "ocr_penalty": 0.0,
+            "error": "",
+        }
+
+    def fake_cont(path, prev, scene_ref_path=None):
+        p = str(path)
+        return {"continuity": 0.9 if p.endswith("b.mp4") else 0.1, "error": ""}
+
+    monkeypatch.setattr(cp, "score_video_face", fake_face)
+    monkeypatch.setattr(cp, "score_scene_continuity", fake_cont)
+    cands = [
+        {"id": "a", "url": str(a), "status": "done", "is_picked": True},
+        {"id": "b", "url": str(b), "status": "done", "is_picked": False},
+    ]
+    wid, out = cp.pick_best_candidate(
+        cands, ref_image_path=ref, prev_video_path=tmp_path / "prev.mp4"
+    )
+    assert wid == "b"
+    assert out[1]["is_picked"] is True

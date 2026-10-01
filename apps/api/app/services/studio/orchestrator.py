@@ -223,12 +223,52 @@ async def render_shot(
                         return str(p) if p.is_file() else None
                     return None
 
+                # 上一镜成片 / 场景参考：抑制候选场景回退（雨夜镜2 曾出现）
+                prev_video_path = None
+                siblings = session.exec(
+                    select(StudioShot).where(StudioShot.project_id == shot.project_id)
+                ).all()
+                prev_shot = None
+                for s in siblings:
+                    if s.idx < shot.idx and (prev_shot is None or s.idx > prev_shot.idx):
+                        prev_shot = s
+                if prev_shot is not None:
+                    prev_url = (prev_shot.video_url or "").strip()
+                    if not prev_url:
+                        try:
+                            pc = json.loads(prev_shot.candidates_json or "[]")
+                        except (ValueError, TypeError):
+                            pc = []
+                        for c in pc if isinstance(pc, list) else []:
+                            if isinstance(c, dict) and c.get("is_picked") and c.get("url"):
+                                prev_url = str(c["url"])
+                                break
+                    if prev_url:
+                        prev_video_path = _resolve_vid(prev_url)
+
+                scene_ref_path = None
+                for u in (scene_images or []) if isinstance(scene_images, list) else []:
+                    if isinstance(u, str) and u.strip():
+                        sp = _resolve_vid(u.strip())
+                        if sp:
+                            scene_ref_path = sp
+                            break
+                        marker = "/api/studio/files/"
+                        if marker in u:
+                            name = u.split(marker, 1)[1].split("?", 1)[0]
+                            candp = drama_output_root() / "studio" / name
+                            if candp.is_file():
+                                scene_ref_path = str(candp)
+                                break
+
                 # insightface/cv2 同步且重：单 worker 下会堵死事件循环（雨夜镜1 API 挂死）
                 win_id, candidates = await asyncio.to_thread(
                     pick_best_candidate,
                     candidates,
                     ref_image_path=ref_path,
                     local_url_resolver=_resolve_vid,
+                    prev_video_path=prev_video_path,
+                    scene_ref_path=scene_ref_path,
                 )
                 if win_id:
                     for c in candidates:
