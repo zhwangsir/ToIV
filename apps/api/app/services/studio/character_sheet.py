@@ -560,25 +560,43 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
         ),
         "front": (
             f"{solo}, {base}, ONE figure only, front view full body turnaround of {name}, orthographic, "
+            f"adult woman 165cm proportions, long legs, hood DOWN face fully visible, "
             f"jet black hair, same character same black hooded raincoat, standing straight, "
-            f"single person only, empty background, {solid}, {suf}"
+            f"feet on ground line, figure fills frame height, single person only, empty background, {solid}, {suf}"
         ),
         "side": (
             f"{solo}, {base}, ONE figure only, STRICT side profile full body turnaround of {name}, "
-            f"looking left, 90 degree side view, jet black hair, "
-            f"orthographic, same character same black hooded raincoat, standing straight, "
-            f"single person only, NOT front view, NOT back view, empty background, {solid}, {suf}"
+            f"looking left, 90 degree side view, adult woman 165cm proportions, hood down, "
+            f"jet black hair, orthographic, same character same black hooded raincoat, standing straight, "
+            f"feet on ground, figure fills frame height, single person only, "
+            f"NOT front view, NOT back view, empty background, {solid}, {suf}"
         ),
         "back": (
             f"{solo}, {base}, ONE figure only, STRICT back view full body turnaround of {name}, "
-            f"facing completely away from camera, back of head and hood visible, "
-            f"jet black hair, orthographic, single person only, "
-            f"same character same black hooded raincoat, NOT front view, NOT face, "
-            f"NOT side view, empty background, {solid}, {suf}"
+            f"facing completely away from camera, ONLY back of head and hood, NO face NO eyes, "
+            f"adult woman 165cm proportions, jet black hair, orthographic, single person only, "
+            f"same character same black hooded raincoat, feet on ground, figure fills frame height, "
+            f"NOT front view, NOT face, NOT side view, empty background, {solid}, {suf}"
         ),
         "faces": (
-            f"{base}, face and hairstyle multi-angle closeups of {name}, "
-            f"front three-quarter profile, hair details, {solid}, {suf}"
+            f"{solo}, {base}, three head closeups of {name} only, "
+            f"front and three-quarter and side profile faces in a row, "
+            f"EXTREME face closeups head and shoulders, NO full body, {solid}, {suf}"
+        ),
+        "face_front": (
+            f"{solo}, {base}, FRONT facing head and shoulders closeup of {name}, "
+            f"looking at camera, hood down, face fills frame, jet black hair, "
+            f"eyes nose mouth clear, NO full body, NO waist, {solid}, {suf}"
+        ),
+        "face_three_quarter": (
+            f"{solo}, {base}, THREE-QUARTER view head and shoulders closeup of {name}, "
+            f"face turned 45 degrees, hood down, face fills frame, jet black hair, "
+            f"NO full body, NO waist, {solid}, {suf}"
+        ),
+        "face_side": (
+            f"{solo}, {base}, STRICT SIDE PROFILE head and shoulders closeup of {name}, "
+            f"90 degree profile, one eye visible, ear nose silhouette, hood down, "
+            f"face fills frame, jet black hair, NO full body, {solid}, {suf}"
         ),
         "costume": f"{_COSTUME_FORCE}, {suf}",
     }
@@ -753,17 +771,26 @@ def _compose_expression_grid(
     *,
     label_fill: tuple[int, ...] = (30, 30, 36),
     draw_labels: bool = True,
+    box_w: int | None = None,
+    box_h: int | None = None,
 ) -> Image.Image:
-    """2x3 头肩特写格 + 格下标签区(标签只画在留白带,绝不压进生成图)。"""
-    cell = 320
-    label_h = 44
+    """2x3 头肩特写格:按目标区尺寸建格,cover 填满格(禁 contain 缩成细条)。"""
     cols, rows = 3, 2
-    grid = Image.new("RGBA", (cols * cell, rows * (cell + label_h)), (0, 0, 0, 0))
+    label_h = 36 if draw_labels else 0
+    # 默认对齐 LAYOUT expressions 内容区
+    if box_w is None or box_h is None:
+        _, _, ew, eh = LAYOUT["expressions"]
+        box_w = box_w or (ew - 16)
+        box_h = box_h or (eh - 40)
+    cell_w = max(64, box_w // cols)
+    cell_h = max(64, box_h // rows)
+    img_h = max(48, cell_h - label_h)
+    grid = Image.new("RGBA", (cols * cell_w, rows * cell_h), (245, 245, 248, 255))
     draw = ImageDraw.Draw(grid)
     font = None
     if draw_labels:
         try:
-            font = resolve_cjk_font(22)
+            font = resolve_cjk_font(20)
         except CharacterSheetError:
             font = ImageFont.load_default()
     for i, key in enumerate(_EXPR_KEYS):
@@ -771,15 +798,19 @@ def _compose_expression_grid(
         if img is None:
             raise CharacterSheetError(f"缺面板:{key}", status_code=500)
         row, col = divmod(i, cols)
-        # 头肩图 letterbox 入格(contain),避免 cover 把脸裁到格边
-        fitted, _ = _fit(img.convert("RGBA"), (0, 0, cell - 8, cell - 8), cover=False)
-        ox = col * cell + 4
-        oy = row * (cell + label_h) + 4
-        grid.paste(fitted, (ox, oy), fitted)
+        ox = col * cell_w + 3
+        oy = row * cell_h + 3
+        # 头肩 cover 填满格子,杜绝大片空白/细条缩略图
+        fitted, pos = _fit(
+            img.convert("RGBA"),
+            (ox, oy, cell_w - 6, img_h - 4),
+            cover=True,
+        )
+        grid.paste(fitted, pos, fitted)
         if draw_labels and i < len(_EXPR_LABELS):
             lab = _EXPR_LABELS[i]
-            lx = col * cell + cell // 2
-            ly = row * (cell + label_h) + cell + 6
+            lx = col * cell_w + cell_w // 2
+            ly = row * cell_h + img_h + 4
             if font is not None:
                 tw = draw.textlength(lab, font=font)
                 draw.text((lx - tw / 2, ly), lab, font=font, fill=label_fill)
@@ -903,7 +934,12 @@ def compose_character_sheet(
     view_h = th - 90
     for i, key in enumerate(("front", "side", "back")):
         box = (tx + 110 + i * view_w, view_box_y, view_w - 12, view_h)
-        _paste(canvas, _as_image(key), box, cover=False)
+        # cover=False + 先按高度归一:脚底贴底、头顶贴齐刻度
+        src = _as_image(key)
+        buf = BytesIO()
+        src.convert("RGB").save(buf, format="PNG")
+        norm = Image.open(BytesIO(normalize_turnaround_figure(buf.getvalue(), out_w=box[2], out_h=box[3]))).convert("RGBA")
+        _paste(canvas, norm, box, cover=True)
         label = {"front": "正", "side": "侧", "back": "背"}[key]
         draw.text(
             (box[0] + view_w // 2 - 20, ty + th - 36),
@@ -935,9 +971,14 @@ def compose_character_sheet(
     ex, ey, ew, eh = LAYOUT["expressions"]
     expr_imgs = {k: _as_image(k) for k in _EXPR_KEYS if k in panels}
     if len(expr_imgs) == 6:
-        # 标签已画在 grid 格下留白;cover=False 保完整格带
-        grid = _compose_expression_grid(expr_imgs, label_fill=theme["text"])
-        _paste(canvas, grid, (ex + 8, ey + 32, ew - 16, eh - 40), cover=False)
+        # 按内容区精确建格 + cover 贴入,表情必须填满格子
+        grid = _compose_expression_grid(
+            expr_imgs,
+            label_fill=theme["text"],
+            box_w=ew - 16,
+            box_h=eh - 40,
+        )
+        _paste(canvas, grid, (ex + 8, ey + 32, ew - 16, eh - 40), cover=True)
     else:
         _paste(
             canvas,
@@ -1630,15 +1671,62 @@ async def generate_character_sheet(
         use_ref = None
         ref_mode = "none"
         denoise = 0.62
-        if key in ("front", "side", "back") and ref_name:
-            use_ref = ref_name
-            # 三视图:优先 openpose;不可用则强 IPA(见 regenerate / _turnaround_mode)
-            ref_mode = "ipa"
-            denoise = 0.65
-        elif key == "faces" and (face_ref_name or ref_name):
-            use_ref = face_ref_name or ref_name
-            ref_mode = "img2img" if meta.style == "anime" else "ipa"
-            denoise = 0.58
+        if key in ("front", "side", "back"):
+            use_op, _why = await _probe_openpose_available(client)
+            if use_op and ref_name:
+                assets = ensure_openpose_assets(height_cm=meta.height_cm or 165)
+                pose_name = await client.upload_image(
+                    assets[key].read_bytes(),
+                    f"sheet_pose_{character_id[:8]}_{key}.png",
+                )
+                panels[key] = await generate_panel_bytes_openpose(
+                    pool,
+                    prompts[key],
+                    pose_image_name=pose_name,
+                    ckpt_name=ckpt,
+                    width=w,
+                    height=h,
+                    seed=None if seed is None else seed + (abs(hash(key)) % 10000),
+                    worker=worker,
+                    filename_prefix=f"ToIV_char_sheet_{key}_pose",
+                    style=meta.style,
+                    client=client,
+                    ref_image=ref_name,
+                    skip_preprocess=True,
+                )
+                panels[key] = normalize_turnaround_figure(panels[key], out_w=w, out_h=h)
+                panel_urls[key] = save_panel_png(
+                    panels[key], character_id=character_id, style=meta.style, key=key
+                )
+                continue
+            if ref_name:
+                use_ref = ref_name
+                ref_mode = "ipa"
+                denoise = 0.65
+        elif key == "faces":
+            face = face_ref_name or ref_name
+            tri: dict[str, bytes] = {}
+            for fk in ("face_front", "face_three_quarter", "face_side"):
+                fd = await generate_panel_bytes(
+                    pool,
+                    prompts[fk],
+                    ckpt_name=ckpt,
+                    width=768,
+                    height=768,
+                    seed=None if seed is None else seed + (abs(hash(fk)) % 10000),
+                    worker=worker,
+                    filename_prefix=f"ToIV_char_sheet_{fk}",
+                    style=meta.style,
+                    client=client,
+                    ref_image=face,
+                    ref_mode="img2img" if meta.style == "anime" else "ipa",
+                    denoise=0.62,
+                )
+                tri[fk] = enforce_head_shoulders_square(fd, size=768)
+            panels["faces"] = compose_faces_triptych(
+                tri, style=meta.style, size=_panel_size("faces", meta.style)
+            )
+            continue
         elif key.startswith("expr_"):
             # 表情:紧裁头肩 img2img;denoise 提高以拉开表情差异(禁半身站姿)
             face = face_ref_name or ref_name
@@ -1667,6 +1755,7 @@ async def generate_character_sheet(
         if key.startswith("expr_"):
             panels[key] = enforce_head_shoulders_square(panels[key], size=768)
         if key in ("front", "side", "back"):
+            panels[key] = normalize_turnaround_figure(panels[key], out_w=w, out_h=h)
             panel_urls[key] = save_panel_png(
                 panels[key],
                 character_id=character_id,
@@ -1968,6 +2057,219 @@ async def _generate_costume_collage(
     return collage_costume_items(item_bytes, style=meta.style)
 
 
+
+# OpenPose BODY_25 近似关键点(归一化 0..1,脚底 y≈1,头顶≈0.02;按 165cm 成人比例)
+_OPENPOSE_FRONT: list[tuple[float, float]] = [
+    (0.50, 0.06),  # 0 nose
+    (0.50, 0.12),  # 1 neck
+    (0.38, 0.14),  # 2 R shoulder
+    (0.30, 0.28),  # 3 R elbow
+    (0.28, 0.40),  # 4 R wrist
+    (0.62, 0.14),  # 5 L shoulder
+    (0.70, 0.28),  # 6 L elbow
+    (0.72, 0.40),  # 7 L wrist
+    (0.44, 0.42),  # 8 R hip
+    (0.42, 0.66),  # 9 R knee
+    (0.42, 0.92),  # 10 R ankle
+    (0.56, 0.42),  # 11 L hip
+    (0.58, 0.66),  # 12 L knee
+    (0.58, 0.92),  # 13 L ankle
+    (0.46, 0.05),  # 14 R eye
+    (0.54, 0.05),  # 15 L eye
+    (0.44, 0.06),  # 16 R ear
+    (0.56, 0.06),  # 17 L ear
+]
+_OPENPOSE_SIDE: list[tuple[float, float]] = [
+    (0.58, 0.06),
+    (0.52, 0.12),
+    (0.50, 0.14),
+    (0.48, 0.30),
+    (0.46, 0.42),
+    (0.54, 0.14),
+    (0.56, 0.30),
+    (0.58, 0.42),
+    (0.50, 0.42),
+    (0.50, 0.66),
+    (0.50, 0.92),
+    (0.52, 0.42),
+    (0.52, 0.66),
+    (0.52, 0.92),
+    (0.60, 0.05),
+    (0.56, 0.05),
+    (0.48, 0.06),
+    (0.62, 0.06),
+]
+_OPENPOSE_BACK: list[tuple[float, float]] = [
+    (0.50, 0.07),  # occiput approx
+    (0.50, 0.12),
+    (0.62, 0.14),
+    (0.70, 0.28),
+    (0.72, 0.40),
+    (0.38, 0.14),
+    (0.30, 0.28),
+    (0.28, 0.40),
+    (0.56, 0.42),
+    (0.58, 0.66),
+    (0.58, 0.92),
+    (0.44, 0.42),
+    (0.42, 0.66),
+    (0.42, 0.92),
+    (0.54, 0.05),
+    (0.46, 0.05),
+    (0.56, 0.06),
+    (0.44, 0.06),
+]
+_OPENPOSE_LIMBS: list[tuple[int, int, tuple[int, int, int]]] = [
+    (1, 2, (255, 0, 0)),
+    (1, 5, (0, 255, 0)),
+    (2, 3, (255, 85, 0)),
+    (3, 4, (255, 170, 0)),
+    (5, 6, (0, 255, 85)),
+    (6, 7, (0, 255, 170)),
+    (1, 8, (170, 0, 255)),
+    (1, 11, (255, 0, 170)),
+    (8, 9, (85, 0, 255)),
+    (9, 10, (0, 85, 255)),
+    (11, 12, (0, 170, 255)),
+    (12, 13, (0, 255, 255)),
+    (0, 1, (255, 0, 85)),
+]
+
+
+def openpose_asset_dir() -> Path:
+    return Path(__file__).resolve().parent.parent.parent / "assets" / "openpose"
+
+
+def render_openpose_skeleton(
+    view: str,
+    *,
+    width: int = 768,
+    height: int = 1152,
+    height_cm: int = 165,
+) -> bytes:
+    """程序绘制 OpenPose 风格正/侧/背关键点骨架图(黑底彩线,按成人比例占满高度)。"""
+    del height_cm  # 比例已烘焙进关键点;保留参数供调用方对齐 165cm
+    view = (view or "front").lower()
+    if view == "side":
+        kps = _OPENPOSE_SIDE
+    elif view == "back":
+        kps = _OPENPOSE_BACK
+    else:
+        kps = _OPENPOSE_FRONT
+    img = Image.new("RGB", (width, height), (0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    # 上下留白 4%,人物占 92% 高度 → 贴合 165cm 刻度
+    margin_x = int(width * 0.18)
+    top = int(height * 0.04)
+    usable_h = int(height * 0.92)
+    usable_w = width - 2 * margin_x
+
+    def _xy(i: int) -> tuple[int, int]:
+        x, y = kps[i]
+        return int(margin_x + x * usable_w), int(top + y * usable_h)
+
+    thick = max(4, width // 96)
+    for a, b, color in _OPENPOSE_LIMBS:
+        draw.line([_xy(a), _xy(b)], fill=color, width=thick)
+    r = max(5, width // 64)
+    for i in range(len(kps)):
+        x, y = _xy(i)
+        draw.ellipse([x - r, y - r, x + r, y + r], fill=(255, 255, 255))
+    # 头圆
+    hx, hy = _xy(0)
+    hr = max(10, width // 28)
+    draw.ellipse([hx - hr, hy - hr - 4, hx + hr, hy + hr + 4], outline=(255, 255, 0), width=3)
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def ensure_openpose_assets(*, height_cm: int = 165) -> dict[str, Path]:
+    """生成并落盘正/侧/背骨架 PNG;返回 view→路径。"""
+    d = openpose_asset_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    out: dict[str, Path] = {}
+    for view in ("front", "side", "back"):
+        p = d / f"openpose_{view}_165.png"
+        data = render_openpose_skeleton(view, height_cm=height_cm)
+        p.write_bytes(data)
+        out[view] = p
+    meta = d / "README.txt"
+    meta.write_text(
+        "Programmatic OpenPose BODY18-like skeletons for Batch7 turnaround.\n"
+        "Views: front/side/back at 165cm adult proportions.\n",
+        encoding="utf-8",
+    )
+    return out
+
+
+def compose_faces_triptych(
+    faces: dict[str, bytes],
+    *,
+    style: str = "anime",
+    size: tuple[int, int] = (1024, 640),
+) -> bytes:
+    """正/3-4/侧 三个头部特写横拼为 faces 面板。"""
+    bg = (248, 248, 252) if style == "anime" else (20, 22, 28)
+    canvas = Image.new("RGB", size, bg)
+    keys = ("face_front", "face_three_quarter", "face_side")
+    cell_w = size[0] // 3
+    for i, key in enumerate(keys):
+        raw = faces.get(key)
+        if not raw:
+            continue
+        img = Image.open(BytesIO(raw)).convert("RGBA")
+        box = (i * cell_w + 6, 6, cell_w - 12, size[1] - 12)
+        fitted, pos = _fit(img, box, cover=True)
+        canvas.paste(fitted.convert("RGB"), pos)
+    buf = BytesIO()
+    canvas.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def normalize_turnaround_figure(data: bytes, *, out_w: int = 768, out_h: int = 1152) -> bytes:
+    """裁掉大块灰/白底后按高度贴满(脚底贴底),避免三视图显矮像小孩。"""
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    small = img.resize((64, 64), Image.Resampling.BILINEAR)
+    px = small.load()
+    ys, xs = [], []
+    for y in range(64):
+        for x in range(64):
+            r, g, b = px[x, y]
+            if r > 235 and g > 235 and b > 235:
+                continue
+            if abs(r - g) < 12 and abs(g - b) < 12 and 160 <= r <= 230:
+                continue  # 浅灰底
+            ys.append(y)
+            xs.append(x)
+    if len(ys) < 30:
+        # 几乎找不到前景:原图缩放居中
+        fitted, _ = _fit(img.convert("RGBA"), (0, 0, out_w, out_h), cover=False)
+        canvas = Image.new("RGB", (out_w, out_h), (230, 230, 234))
+        canvas.paste(fitted.convert("RGB"), ((out_w - fitted.width) // 2, out_h - fitted.height))
+        buf = BytesIO()
+        canvas.save(buf, format="PNG")
+        return buf.getvalue()
+    top = max(0, int(min(ys) * h / 64) - 4)
+    bottom = min(h, int(max(ys) * h / 64) + 8)
+    left = max(0, int(min(xs) * w / 64) - 8)
+    right = min(w, int(max(xs) * w / 64) + 8)
+    crop = img.crop((left, top, right, bottom))
+    # 按高度贴满,水平居中,脚在底部
+    scale = out_h / max(1, crop.height)
+    nw, nh = max(1, int(crop.width * scale)), out_h
+    if nw > out_w:
+        scale = out_w / crop.width
+        nw, nh = out_w, max(1, int(crop.height * scale))
+    crop = crop.resize((nw, nh), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGB", (out_w, out_h), (230, 230, 234))
+    canvas.paste(crop, ((out_w - nw) // 2, out_h - nh))
+    buf = BytesIO()
+    canvas.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 async def _probe_openpose_available(client: Any) -> tuple[bool, str]:
     """探测 worker 是否具备 openpose 控网+预处理器。
 
@@ -2026,8 +2328,15 @@ async def _probe_openpose_available(client: Any) -> tuple[bool, str]:
     if not has_prep:
         return False, "缺少 Openpose/AIO/DW Preprocessor 节点"
 
-    # 还需预置正/侧/背骨架图资产;当前仓库无标准资产 → 不可用
-    return False, "无预置正/侧/背 openpose 骨架图资产"
+    # 程序生成正/侧/背骨架图并入库;缺失则现场生成
+    try:
+        assets = ensure_openpose_assets(height_cm=165)
+    except Exception as e:  # noqa: BLE001
+        return False, f"openpose 骨架资产生成失败:{e}"
+    missing = [k for k, p in assets.items() if not p.is_file()]
+    if missing:
+        return False, f"openpose 骨架资产缺失:{','.join(missing)}"
+    return True, f"openpose ok assets={','.join(sorted(assets))}"
 
 
 async def generate_panel_bytes_openpose(
@@ -2043,8 +2352,14 @@ async def generate_panel_bytes_openpose(
     filename_prefix: str,
     style: str,
     client: Any | None = None,
+    ref_image: str | None = None,
+    skip_preprocess: bool = True,
 ) -> bytes:
-    """openpose ControlNet 出图(尺寸覆盖 EmptyLatent)。"""
+    """openpose ControlNet 出图(尺寸覆盖 EmptyLatent)。
+
+    skip_preprocess=True:合成骨架图直喂 ControlNet(不再跑 OpenposePreprocessor)。
+    ref_image:可选主立绘,注入 IPAdapter 保同一人。
+    """
     del pool
     from app.comfy.client import ComfyUIError
     from app.workflows.controlnet import ControlNetParams, build_controlnet_graph
@@ -2057,7 +2372,7 @@ async def generate_panel_bytes_openpose(
         control_type="openpose",
         negative=neg,
         ckpt_name=ckpt_name,
-        strength=0.85,
+        strength=0.88,
         steps=28 if style == "anime" else 22,
         cfg=6.0 if style == "anime" else 7.0,
         filename_prefix=filename_prefix,
@@ -2068,6 +2383,41 @@ async def generate_panel_bytes_openpose(
     if "5" in graph and "inputs" in graph["5"]:
         graph["5"]["inputs"]["width"] = width
         graph["5"]["inputs"]["height"] = height
+    if skip_preprocess:
+        # 合成 OpenPose 彩骨架直通:ControlNetApplyAdvanced.image ← LoadImage
+        apply = graph.get("15") or {}
+        if isinstance(apply, dict) and "inputs" in apply:
+            apply["inputs"]["image"] = ["10", 0]
+        # 去掉预处理器节点,避免把骨架图再跑一遍检测毁掉
+        graph.pop("12", None)
+    # 可选 IPA:在 KSampler.model 前插入 UnifiedLoader+Advanced(节点 200+)
+    if ref_image:
+        from app.workflows.ipadapter import DEFAULT_PRESET
+
+        graph["200"] = {
+            "class_type": "IPAdapterUnifiedLoader",
+            "inputs": {"model": ["4", 0], "preset": DEFAULT_PRESET},
+        }
+        graph["202"] = {
+            "class_type": "LoadImage",
+            "inputs": {"image": ref_image},
+        }
+        graph["201"] = {
+            "class_type": "IPAdapterAdvanced",
+            "inputs": {
+                "model": ["200", 0],
+                "ipadapter": ["200", 1],
+                "image": ["202", 0],
+                "weight": 0.72,
+                "weight_type": "linear",
+                "combine_embeds": "concat",
+                "embeds_scaling": "V only",
+                "start_at": 0.0,
+                "end_at": 1.0,
+            },
+        }
+        if "3" in graph and "inputs" in graph["3"]:
+            graph["3"]["inputs"]["model"] = ["201", 0]
     try:
         prompt_id = await cli.queue_prompt(graph, client_id=uuid.uuid4().hex)
     except ComfyUIError as e:
@@ -2078,6 +2428,7 @@ async def generate_panel_bytes_openpose(
         img["filename"], img.get("subfolder", ""), img.get("type", "output")
     )
     return data
+
 
 
 async def regenerate_sheet_panels(
@@ -2271,6 +2622,41 @@ async def regenerate_sheet_panels(
             }
             continue
 
+        if key == "faces":
+            # 正/3-4/侧 三个头部特写各出 n_candidates 再横拼(禁止全身)
+            face_keys = ("face_front", "face_three_quarter", "face_side")
+            tri: dict[str, bytes] = {}
+            face = face_ref_name or ref_name
+            for fk in face_keys:
+                fk_cands: list[bytes] = []
+                for fj in range(max(1, min(n_candidates, 3))):
+                    fp = prompts.get(fk) or prompts["faces"]
+                    fd = await generate_panel_bytes(
+                        pool,
+                        fp,
+                        ckpt_name=ckpt,
+                        width=768,
+                        height=768,
+                        seed=None
+                        if seed is None
+                        else seed + (abs(hash(fk + str(fj))) % 10000),
+                        worker=worker,
+                        filename_prefix=f"ToIV_char_sheet_{fk}",
+                        style=meta.style,
+                        client=client,
+                        ref_image=face,
+                        ref_mode="img2img" if meta.style == "anime" else "ipa",
+                        denoise=0.62,
+                    )
+                    fd = enforce_head_shoulders_square(fd, size=768)
+                    fk_cands.append(fd)
+                tri[fk] = _pick_best_candidate(fk_cands, "expr_0")
+            panels["faces"] = compose_faces_triptych(
+                tri, style=meta.style, size=_panel_size("faces", meta.style)
+            )
+            debug["picks"]["faces"] = {"mode": "triptych", "keys": list(face_keys)}
+            continue
+
         cands = []
         w, h = _panel_size(key, meta.style)
         for ci in range(max(1, n_candidates)):
@@ -2293,8 +2679,33 @@ async def regenerate_sheet_panels(
                         "occiput and hood from behind only"
                     )
                 if use_openpose:
-                    # 预留:有骨架图时走 openpose(当前 probe 恒 False)
-                    pass
+                    # 真跑:上传程序骨架 → ControlNet(+IPA 主立绘) → 高度归一
+                    assets = ensure_openpose_assets(height_cm=meta.height_cm or 165)
+                    pose_path = assets[key]
+                    pose_name = await client.upload_image(
+                        pose_path.read_bytes(),
+                        f"sheet_pose_{character_id[:8]}_{key}.png",
+                    )
+                    data = await generate_panel_bytes_openpose(
+                        pool,
+                        prompt,
+                        pose_image_name=pose_name,
+                        ckpt_name=ckpt,
+                        width=w,
+                        height=h,
+                        seed=None
+                        if seed is None
+                        else seed + (abs(hash(key + str(ci))) % 10000),
+                        worker=worker,
+                        filename_prefix=f"ToIV_char_sheet_{key}_pose",
+                        style=meta.style,
+                        client=client,
+                        ref_image=ref_name,
+                        skip_preprocess=True,
+                    )
+                    data = normalize_turnaround_figure(data, out_w=w, out_h=h)
+                    cands.append(data)
+                    continue
                 if ref_name:
                     use_ref = ref_name
                     ref_mode = "ipa"
@@ -2305,10 +2716,6 @@ async def regenerate_sheet_panels(
                     use_ref = face
                     ref_mode = "img2img" if meta.style == "anime" else "ipa"
                     denoise = 0.68
-            elif key == "faces" and (face_ref_name or ref_name):
-                use_ref = face_ref_name or ref_name
-                ref_mode = "img2img" if meta.style == "anime" else "ipa"
-                denoise = 0.58
             data = await generate_panel_bytes(
                 pool,
                 prompt,
@@ -2328,6 +2735,8 @@ async def regenerate_sheet_panels(
         best = _pick_best_candidate(cands, key)
         if key.startswith("expr_"):
             best = enforce_head_shoulders_square(best, size=768)
+        if key in ("front", "side", "back"):
+            best = normalize_turnaround_figure(best, out_w=w, out_h=h)
         panels[key] = best
         debug["picks"][key] = {
             "n": len(cands),
