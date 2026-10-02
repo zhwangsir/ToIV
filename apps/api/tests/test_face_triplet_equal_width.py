@@ -1,4 +1,4 @@
-"""面部三格等宽拼版门禁（18:10：几何等宽 + 人脸框居中）。"""
+"""面部三格同宽同高拼版门禁（18:38：等矩形 + 人脸高占比一致）。"""
 from __future__ import annotations
 
 from io import BytesIO
@@ -33,12 +33,15 @@ def test_equal_width_collage_geometry():
     im = Image.open(BytesIO(panel))
     assert im.width == 3 * 200 + 2 * 10
     assert im.height == 300
-    info = sheet_svc.assert_face_triplet_equal_width(panel, n=3, cell_w=200, gap=10)
+    info = sheet_svc.assert_face_triplet_equal_width(
+        panel, n=3, cell_w=200, cell_h=300, gap=10
+    )
     assert info["geo"]["cell_w"] == 200
+    assert info["geo"]["cell_h"] == 300
 
 
-def test_equal_width_face_bbox_and_margins():
-    """源人脸宽不同时，按注入 bbox 拼版后人脸等宽±2px 且左右边距≥10%。"""
+def test_equal_size_face_height_frac_and_margins():
+    """源人脸尺寸不同时，拼后人脸高度占比差≤10%，格同宽同高，左右边距≥10%。"""
     boxes = {
         0: (40, 40, 200, 220),
         1: (100, 30, 300, 250),
@@ -52,13 +55,11 @@ def test_equal_width_face_bbox_and_margins():
     calls = {"n": 0}
 
     def fake_bb(im):
-        # 源图 400x500 时返回预设；拼后的 cell 按几何反推困难，改为按非浅底像素估
         w, h = im.size
         if w == 400 and h == 500:
             idx = calls["n"]
             calls["n"] += 1
             return boxes[idx]
-        # cell 内：找非背景色块
         px = im.load()
         minx, maxx = w, -1
         miny, maxy = h, -1
@@ -73,30 +74,64 @@ def test_equal_width_face_bbox_and_margins():
                 maxy = max(maxy, y)
         if maxx < 0:
             return None
-        # 用人脸椭圆近似：排除衣服矩形下层，取上部 55% 为脸
         face_bottom = miny + int((maxy - miny) * 0.55)
         return (minx, miny, maxx, face_bottom)
 
     with mock.patch.object(sheet_svc, "_face_bbox_for_center", side_effect=fake_bb):
         panel = sheet_svc.collage_face_triplet_equal_width(
-            faces, cell_w=220, cell_h=320, gap=8, face_width_frac=0.70, min_side_margin=0.10
+            faces,
+            cell_w=220,
+            cell_h=320,
+            gap=8,
+            face_height_frac=0.55,
+            min_side_margin=0.10,
         )
         info = sheet_svc.assert_face_triplet_equal_width(
             panel,
             n=3,
             cell_w=220,
+            cell_h=320,
             gap=8,
-            max_face_width_delta_px=2,
+            max_face_height_frac_delta=0.10,
             min_side_margin=0.10,
         )
-    assert max(info["face_widths"]) - min(info["face_widths"]) <= 2
+    fracs = info["face_height_fracs"]
+    assert max(fracs) - min(fracs) <= 0.10 + 1e-6
+    assert max(info["cell_heights"]) - min(info["cell_heights"]) <= 2
     for m in info["margins"]:
         assert m["left"] >= 0.10 - 1e-6
         assert m["right"] >= 0.10 - 1e-6
 
 
+def test_gap_columns_have_no_stray_content():
+    """格间 gap 列应接近背景色，不得有细竖杂条。"""
+    faces = [
+        _face(300, 400, (200, 160, 140), face_box=(80, 40, 220, 200)),
+        _face(300, 400, (190, 150, 130), face_box=(70, 30, 230, 210)),
+        _face(300, 400, (180, 140, 120), face_box=(90, 50, 210, 190)),
+    ]
+    cell_w, cell_h, gap = 240, 320, 12
+    bg = (248, 248, 252)
+    panel = sheet_svc.collage_face_triplet_equal_width(
+        faces, cell_w=cell_w, cell_h=cell_h, gap=gap, bg=bg
+    )
+    im = Image.open(BytesIO(panel)).convert("RGB")
+    px = im.load()
+    for gi in range(2):
+        x0 = (gi + 1) * cell_w + gi * gap
+        dark = 0
+        total = 0
+        for x in range(x0, x0 + gap):
+            for y in range(cell_h):
+                r, g, b = px[x, y]
+                total += 1
+                if abs(r - bg[0]) > 18 or abs(g - bg[1]) > 18 or abs(b - bg[2]) > 18:
+                    dark += 1
+        assert dark / max(total, 1) < 0.05, f"gap{gi} stray={dark}/{total}"
+
+
 def test_sheet_faces_paste_not_cover_crop():
-    """整卡 faces 贴入不得 cover 裁掉 L/R（回归 18:10）。"""
+    """整卡 faces 贴入不得 cover 裁掉 L/R；宽高一致、脸高占比差≤10%。"""
     faces = [
         _face(300, 400, (200, 160, 140), face_box=(80, 40, 220, 200)),
         _face(300, 400, (190, 150, 130), face_box=(70, 30, 230, 210)),
@@ -131,6 +166,10 @@ def test_sheet_faces_paste_not_cover_crop():
     )
     sheet = sheet_svc.compose_character_sheet(locked, meta)
     measured = sheet_svc.assert_sheet_faces_equal_width(
-        sheet, max_cell_delta_px=2, min_side_margin=0.08
+        sheet,
+        max_cell_delta_px=2,
+        min_side_margin=0.08,
+        max_face_height_frac_delta=0.10,
     )
     assert max(measured["cell_widths"]) - min(measured["cell_widths"]) <= 2
+    assert max(measured["cell_heights"]) - min(measured["cell_heights"]) <= 2
