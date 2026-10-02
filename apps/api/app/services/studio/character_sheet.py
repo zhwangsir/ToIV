@@ -17,6 +17,8 @@
 """
 from __future__ import annotations
 
+import math
+
 import asyncio
 import colorsys
 import logging
@@ -1316,7 +1318,8 @@ def compose_character_sheet(
         label_fill=theme["text_dim"],
     )
     fx, fy, fw, fh = LAYOUT["faces"]
-    _paste(canvas, _as_image("faces"), (fx + 8, fy + 32, fw - 16, fh - 40), cover=True)
+    # 18:10: faces 禁止 cover——cover 会按高放大后裁掉 L/R，导致中宽左右窄
+    _paste(canvas, _as_image("faces"), (fx + 8, fy + 32, fw - 16, fh - 40), cover=False)
 
     # 表情:优先用 expr_0..5 拼 2x3;兼容旧单图 expressions
     _draw_panel_frame(
@@ -3270,6 +3273,21 @@ def assert_costume_cells_nonempty(
     return ratios
 
 
+def _face_bbox_for_center(im: Image.Image) -> tuple[int, int, int, int] | None:
+    """拼版用人脸框：优先 InsightFace，其次肤色启发式。"""
+    bb = _insightface_face_bbox_xyxy(im)
+    if bb is not None:
+        x0, y0, x1, y1 = (int(bb[0]), int(bb[1]), int(bb[2]), int(bb[3]))
+        if x1 > x0 and y1 > y0:
+            return (x0, y0, x1, y1)
+    hbb = _heuristic_skin_face_bbox(im)
+    if hbb is not None:
+        x0, y0, x1, y1 = (int(hbb[0]), int(hbb[1]), int(hbb[2]), int(hbb[3]))
+        if x1 > x0 and y1 > y0:
+            return (x0, y0, x1, y1)
+    return None
+
+
 def collage_face_triplet_equal_width(
     faces: list[bytes],
     *,
@@ -3277,24 +3295,104 @@ def collage_face_triplet_equal_width(
     cell_h: int = 384,
     gap: int = 12,
     bg: tuple[int, int, int] = (248, 248, 252),
+    face_width_frac: float = 0.70,
+    min_side_margin: float = 0.10,
 ) -> bytes:
-    """面部三格等宽横拼：L/M/R 各 cover 进同尺寸格（18:00 父代理）。"""
+    """面部三格等宽横拼（18:10）：格宽相等；按源人脸框等比缩放到同宽并水平居中。"""
     if len(faces) != 3:
         raise CharacterSheetError(f"face triplet needs 3 images, got {len(faces)}")
+    max_frac = 1.0 - 2.0 * float(min_side_margin)
+    if face_width_frac > max_frac:
+        face_width_frac = max_frac
+    target_fw = max(8, int(round(cell_w * float(face_width_frac))))
+    min_px = int(math.ceil(cell_w * float(min_side_margin)))
     canvas = Image.new("RGB", (3 * cell_w + 2 * gap, cell_h), bg)
     for i, raw in enumerate(faces):
         im = Image.open(BytesIO(raw)).convert("RGB")
-        # cover into cell
-        scale = max(cell_w / im.width, cell_h / im.height)
-        nw, nh = max(1, int(im.width * scale)), max(1, int(im.height * scale))
-        im = im.resize((nw, nh), Image.Resampling.LANCZOS)
-        left = max(0, (nw - cell_w) // 2)
-        top = max(0, (nh - cell_h) // 2)
-        im = im.crop((left, top, left + cell_w, top + cell_h))
-        canvas.paste(im, (i * (cell_w + gap), 0))
+        bb = _face_bbox_for_center(im)
+        cell = Image.new("RGB", (cell_w, cell_h), bg)
+        if bb is None:
+            scale = min(cell_w / im.width, cell_h / im.height)
+            nw = max(1, int(round(im.width * scale)))
+            nh = max(1, int(round(im.height * scale)))
+            im2 = im.resize((nw, nh), Image.Resampling.LANCZOS)
+            cell.paste(im2, ((cell_w - nw) // 2, (cell_h - nh) // 2))
+            canvas.paste(cell, (i * (cell_w + gap), 0))
+            continue
+        x0, y0, x1, y1 = bb
+        fw = max(1, x1 - x0)
+        fh = max(1, y1 - y0)
+        scale = target_fw / float(fw)
+        max_scale_h = (cell_h * 0.92) / float(fh)
+        scale = min(scale, max_scale_h)
+        # 用源框几何映射，避免 resize 后检测漂移
+        nw = max(1, int(round(im.width * scale)))
+        nh = max(1, int(round(im.height * scale)))
+        im2 = im.resize((nw, nh), Image.Resampling.LANCZOS)
+        sx0 = int(round(x0 * scale))
+        sy0 = int(round(y0 * scale))
+        sx1 = sx0 + target_fw  # 强制目标人脸宽
+        # 水平居中：人脸中心 = 格心
+        fcx = (sx0 + sx1) / 2.0
+        ox = int(round(cell_w / 2.0 - fcx))
+        if ox + sx0 < min_px:
+            ox = min_px - sx0
+        if ox + sx1 > cell_w - min_px:
+            ox = cell_w - min_px - sx1
+        top_margin = max(4, int(cell_h * 0.06))
+        oy = top_margin - sy0
+        if oy + nh > cell_h:
+            oy = cell_h - nh
+        if oy < -sy0 + 2:
+            oy = -sy0 + 2
+        cell.paste(im2, (ox, oy))
+        canvas.paste(cell, (i * (cell_w + gap), 0))
     buf = BytesIO()
     canvas.save(buf, format="PNG")
     return buf.getvalue()
+
+
+def measure_face_triplet_layout(
+    faces_png: bytes,
+    *,
+    n: int = 3,
+    cell_w: int | None = None,
+    gap: int = 0,
+) -> dict:
+    """量测面部三格：几何格宽 + 人脸框宽/左右边距。"""
+    im = Image.open(BytesIO(faces_png)).convert("RGB")
+    w, h = im.size
+    if cell_w is not None:
+        cells = []
+        for i in range(n):
+            x0 = i * (cell_w + gap)
+            cells.append(im.crop((x0, 0, x0 + cell_w, h)))
+    else:
+        cell = w // n
+        cells = [im.crop((i * cell, 0, (i + 1) * cell if i < n - 1 else w, h)) for i in range(n)]
+    face_widths: list[int] = []
+    margins: list[dict] = []
+    for cim in cells:
+        bb = _face_bbox_for_center(cim)
+        if bb is None:
+            face_widths.append(0)
+            margins.append({"left": 0.0, "right": 0.0, "bbox": None})
+            continue
+        x0, y0, x1, y1 = bb
+        face_widths.append(x1 - x0)
+        margins.append(
+            {
+                "left": x0 / max(1, cim.width),
+                "right": (cim.width - x1) / max(1, cim.width),
+                "bbox": [x0, y0, x1, y1],
+            }
+        )
+    return {
+        "panel_size": [w, h],
+        "cell_widths": [c.width for c in cells],
+        "face_widths": face_widths,
+        "margins": margins,
+    }
 
 
 def assert_face_triplet_equal_width(
@@ -3304,23 +3402,56 @@ def assert_face_triplet_equal_width(
     cell_w: int | None = None,
     gap: int | None = None,
     max_content_ratio: float = 1.6,
+    max_face_width_delta_px: int | None = None,
+    min_side_margin: float | None = None,
 ) -> dict:
     """断言面部三格等宽。
 
-    显式 cell_w/gap：校验画布几何。
+    显式 cell_w/gap：校验画布几何；可选再验人脸框等宽±px 与水平居中边距。
     否则：等分切格后前景宽度比不得超过 max_content_ratio（挡旧 hstack）。
     """
     im = Image.open(BytesIO(faces_png)).convert("RGB")
     w, h = im.size
     if w < n * 8:
         raise CharacterSheetError(f"faces panel too narrow: {w}")
+    info: dict = {"geo": None, "content_widths": [], "face_widths": [], "margins": []}
     if cell_w is not None and gap is not None:
         expect = n * cell_w + (n - 1) * gap
         if w != expect:
             raise CharacterSheetError(
                 f"faces geometry {w} != {n}*{cell_w}+{n - 1}*{gap}={expect}"
             )
-        return {"geo": {"cell_w": cell_w, "gap": gap}, "content_widths": []}
+        info["geo"] = {"cell_w": cell_w, "gap": gap}
+        if max_face_width_delta_px is None and min_side_margin is None:
+            return info
+        measured = measure_face_triplet_layout(
+            faces_png, n=n, cell_w=cell_w, gap=gap
+        )
+        info["face_widths"] = measured["face_widths"]
+        info["margins"] = measured["margins"]
+        info["cell_widths"] = measured["cell_widths"]
+        widths = [x for x in measured["face_widths"] if x > 0]
+        if len(widths) < n:
+            raise CharacterSheetError(
+                f"face bbox missing in cells: face_widths={measured['face_widths']}"
+            )
+        if max_face_width_delta_px is not None:
+            delta = max(widths) - min(widths)
+            if delta > int(max_face_width_delta_px):
+                raise CharacterSheetError(
+                    f"face widths not equal ±{max_face_width_delta_px}px: "
+                    f"{measured['face_widths']} delta={delta}"
+                )
+        if min_side_margin is not None:
+            for i, m in enumerate(measured["margins"]):
+                if m["left"] + 1e-9 < float(min_side_margin) or m["right"] + 1e-9 < float(
+                    min_side_margin
+                ):
+                    raise CharacterSheetError(
+                        f"face cell{i} not centered: margins L={m['left']:.3f} "
+                        f"R={m['right']:.3f} need >={min_side_margin}"
+                    )
+        return info
     cell = w // n
     widths: list[int] = []
     for i in range(n):
@@ -3347,7 +3478,71 @@ def assert_face_triplet_equal_width(
         raise CharacterSheetError(
             f"face cells not equal width: content_widths={widths} ratio={ratio:.2f}"
         )
-    return {"geo": None, "content_widths": widths}
+    info["content_widths"] = widths
+    return info
+
+
+def assert_sheet_faces_equal_width(
+    sheet_png: bytes,
+    *,
+    max_cell_delta_px: int = 2,
+    max_face_width_delta_px: int | None = None,
+    min_side_margin: float = 0.10,
+) -> dict:
+    """最终整卡 faces 区实测：三格可见宽度±2px、人脸水平边距≥10%；可选人脸框等宽。"""
+    im = Image.open(BytesIO(sheet_png)).convert("RGB")
+    fx, fy, fw, fh = LAYOUT["faces"]
+    # 与 compose_character_sheet 贴入盒一致
+    box = (fx + 8, fy + 32, fw - 16, fh - 40)
+    x, y, w, h = box
+    region = im.crop((x, y, x + w, y + h))
+    # 按贴入后面板：等分三格（compose 已改为 contain，禁止 cover 裁左右）
+    n = 3
+    cell = w // n
+    cell_widths: list[int] = []
+    face_widths: list[int] = []
+    margins: list[dict] = []
+    for i in range(n):
+        x0 = i * cell
+        x1 = w if i == n - 1 else (i + 1) * cell
+        cim = region.crop((x0, 0, x1, h))
+        cell_widths.append(cim.width)
+        bb = _face_bbox_for_center(cim)
+        if bb is None:
+            face_widths.append(0)
+            margins.append({"left": 0.0, "right": 0.0})
+            continue
+        a, b0, c0, d0 = bb
+        face_widths.append(c0 - a)
+        margins.append(
+            {"left": a / max(1, cim.width), "right": (cim.width - c0) / max(1, cim.width)}
+        )
+    if max(cell_widths) - min(cell_widths) > int(max_cell_delta_px):
+        raise CharacterSheetError(
+            f"sheet face cells not equal width ±{max_cell_delta_px}px: {cell_widths}"
+        )
+    positive = [x for x in face_widths if x > 0]
+    if len(positive) < n:
+        raise CharacterSheetError(f"sheet face bbox missing: {face_widths}")
+    if max_face_width_delta_px is not None and max(positive) - min(positive) > int(
+        max_face_width_delta_px
+    ):
+        raise CharacterSheetError(
+            f"sheet face widths not equal ±{max_face_width_delta_px}px: {face_widths}"
+        )
+    for i, m in enumerate(margins):
+        if m["left"] + 1e-9 < float(min_side_margin) or m["right"] + 1e-9 < float(
+            min_side_margin
+        ):
+            raise CharacterSheetError(
+                f"sheet face cell{i} not centered: L={m['left']:.3f} R={m['right']:.3f}"
+            )
+    return {
+        "cell_widths": cell_widths,
+        "face_widths": face_widths,
+        "margins": margins,
+        "region": [w, h],
+    }
 
 
 
