@@ -272,25 +272,22 @@ def detect_burned_text(
         return False
 
     def _prep_variants(im: Image.Image) -> list[Image.Image]:
-        """Contrast / invert / upscale variants to catch thin burned Chinese subs."""
+        """少量高对比变体：够抓「好*」烧录，又避免全帧爆炸变体拖死验收。"""
         from PIL import ImageEnhance, ImageOps
 
         base = im.convert("RGB")
         outs = [base]
         try:
-            outs.append(ImageEnhance.Contrast(base).enhance(2.2))
-            outs.append(ImageEnhance.Contrast(base).enhance(3.0))
-            outs.append(ImageOps.autocontrast(base))
-            gray = ImageOps.grayscale(base)
-            outs.append(ImageOps.autocontrast(gray).convert("RGB"))
-            outs.append(ImageOps.invert(ImageOps.autocontrast(gray)).convert("RGB"))
+            outs.append(ImageEnhance.Contrast(base).enhance(2.4))
+            gray = ImageOps.autocontrast(ImageOps.grayscale(base)).convert("RGB")
+            outs.append(gray)
+            outs.append(ImageOps.invert(gray))
         except Exception:
             pass
-        big = []
+        big: list[Image.Image] = []
         for o in outs:
             big.append(o)
             big.append(o.resize((max(32, o.width * 3), max(32, o.height * 3)), Image.Resampling.LANCZOS))
-            big.append(o.resize((max(32, o.width * 5), max(32, o.height * 5)), Image.Resampling.LANCZOS))
         return big
 
     def _ocr_image(im: Image.Image) -> list[str]:
@@ -307,12 +304,15 @@ def detect_burned_text(
                     for row in result:
                         if isinstance(row, (list, tuple)) and len(row) >= 2:
                             texts.append(str(row[1]))
-        if pytesseract is not None:
-            for cand in _prep_variants(im)[:6]:
+                    if texts:
+                        break  # 已有命中即可停
+        if not texts and pytesseract is not None:
+            for cand in _prep_variants(im)[:4]:
                 try:
                     raw = pytesseract.image_to_string(cand, lang=langs) or ""
                     if raw.strip():
                         texts.append(raw)
+                        break
                 except Exception:
                     pass
         return texts
