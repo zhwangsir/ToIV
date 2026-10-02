@@ -3310,6 +3310,113 @@ def _sample_edge_fill_color(im: Image.Image, fallback: tuple[int, int, int]) -> 
     return (rs[mid], gs[mid], bs[mid])
 
 
+def _trim_panel_edge_strips(im: Image.Image, *, max_frac: float = 0.22) -> Image.Image:
+    """裁掉源图四周纯色/灰边杂条（19:20：compose 前按内容框去竖边条）。
+
+    从四边向内推进：列/行近乎均匀，且与内侧邻带平均色差 >40，或近白/近灰信箱，则裁掉。
+    最多裁每边 max_frac，避免吃掉主体。
+    """
+    rgb = im.convert("RGB")
+    w, h = rgb.size
+    if w < 16 or h < 16:
+        return im
+    px = rgb.load()
+
+    def _col_stats(x: int) -> tuple[float, tuple[float, float, float]]:
+        rs = gs = bs = 0.0
+        for y in range(h):
+            r, g, b = px[x, y]
+            rs += r
+            gs += g
+            bs += b
+        n = float(h)
+        mean = (rs / n, gs / n, bs / n)
+        var = 0.0
+        for y in range(h):
+            r, g, b = px[x, y]
+            var += (r - mean[0]) ** 2 + (g - mean[1]) ** 2 + (b - mean[2]) ** 2
+        return var / (n * 3.0), mean
+
+    def _row_stats(y: int) -> tuple[float, tuple[float, float, float]]:
+        rs = gs = bs = 0.0
+        for x in range(w):
+            r, g, b = px[x, y]
+            rs += r
+            gs += g
+            bs += b
+        n = float(w)
+        mean = (rs / n, gs / n, bs / n)
+        var = 0.0
+        for x in range(w):
+            r, g, b = px[x, y]
+            var += (r - mean[0]) ** 2 + (g - mean[1]) ** 2 + (b - mean[2]) ** 2
+        return var / (n * 3.0), mean
+
+    def _delta(a: tuple[float, float, float], b: tuple[float, float, float]) -> float:
+        return (abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2])) / 3.0
+
+    def _is_letterbox(mean: tuple[float, float, float]) -> bool:
+        r, g, b = mean
+        mx, mn = max(r, g, b), min(r, g, b)
+        if r > 230 and g > 230 and b > 230:
+            return True
+        if mx - mn < 16 and 60 <= mx <= 220:
+            return True
+        if mx < 28 and mx - mn < 12:
+            return True
+        return False
+
+    max_x = max(2, int(w * max_frac))
+    max_y = max(2, int(h * max_frac))
+    left = 0
+    while left < max_x:
+        var, mean = _col_stats(left)
+        _, inner = _col_stats(min(w - 1, left + 8))
+        if (var < 120.0 and _delta(mean, inner) > 40.0) or (
+            var < 80.0 and _is_letterbox(mean)
+        ):
+            left += 1
+            continue
+        break
+    right = w
+    while w - right < max_x and right > left + 8:
+        var, mean = _col_stats(right - 1)
+        _, inner = _col_stats(max(0, right - 9))
+        if (var < 120.0 and _delta(mean, inner) > 40.0) or (
+            var < 80.0 and _is_letterbox(mean)
+        ):
+            right -= 1
+            continue
+        break
+    top = 0
+    while top < max_y:
+        var, mean = _row_stats(top)
+        _, inner = _row_stats(min(h - 1, top + 8))
+        if (var < 120.0 and _delta(mean, inner) > 40.0) or (
+            var < 80.0 and _is_letterbox(mean)
+        ):
+            top += 1
+            continue
+        break
+    bot = h
+    while h - bot < max_y and bot > top + 8:
+        var, mean = _row_stats(bot - 1)
+        _, inner = _row_stats(max(0, bot - 9))
+        if (var < 120.0 and _delta(mean, inner) > 40.0) or (
+            var < 80.0 and _is_letterbox(mean)
+        ):
+            bot -= 1
+            continue
+        break
+    if right - left < 16 or bot - top < 16:
+        return im
+    if left == 0 and right == w and top == 0 and bot == h:
+        # 再走一遍内容包围盒（挡非均匀灰边条）
+        trimmed = _trim_letterbox_rgb(rgb)
+        return trimmed if trimmed.size != rgb.size else im
+    return rgb.crop((left, top, right, bot))
+
+
 def collage_face_triplet_equal_width(
     faces: list[bytes],
     *,
@@ -3321,53 +3428,79 @@ def collage_face_triplet_equal_width(
     face_height_frac: float = 0.55,
     min_side_margin: float = 0.10,
 ) -> bytes:
-    """面部三格同宽同高横拼（18:38）。
+    """面部三格同宽同高横拼（19:20）。
 
-    同一矩形顶边对齐；按人脸高度缩放到约占格高 55%，再以人脸框中心裁入格；
-    图不够大用边缘色/统一浅灰补满。face_width_frac 仅作最大脸宽上限。
+    先裁源图边缘杂条/纯色边；再按人脸框取头顶优先的头窗，cover 铺满格，格内不留补边。
+    头窗高度按 face_height_frac 归一，使三格脸高接近；R 侧脸优先保头顶。
     """
     if len(faces) != 3:
         raise CharacterSheetError(f"face triplet needs 3 images, got {len(faces)}")
     max_fw_frac = 1.0 - 2.0 * float(min_side_margin)
     max_face_w = max(8, int(round(cell_w * min(float(face_width_frac), max_fw_frac))))
     target_fh = max(8, int(round(cell_h * float(face_height_frac))))
+    # 头窗相对脸框：上方多留（保头顶），下方到锁骨附近
+    top_pad_frac = 0.45
+    bot_pad_frac = 0.70
+    side_pad_frac = 0.55
     canvas = Image.new("RGB", (3 * cell_w + 2 * gap, cell_h), bg)
     for i, raw in enumerate(faces):
-        im = Image.open(BytesIO(raw)).convert("RGB")
+        im = _trim_panel_edge_strips(Image.open(BytesIO(raw)).convert("RGB"))
         bb = _face_bbox_for_center(im)
-        fill = _sample_edge_fill_color(im, bg)
-        cell = Image.new("RGB", (cell_w, cell_h), fill)
         if bb is None:
-            scale = min(cell_w / im.width, cell_h / im.height)
-            nw = max(1, int(round(im.width * scale)))
-            nh = max(1, int(round(im.height * scale)))
-            im2 = im.resize((nw, nh), Image.Resampling.LANCZOS)
-            cell.paste(im2, ((cell_w - nw) // 2, (cell_h - nh) // 2))
-            canvas.paste(cell, (i * (cell_w + gap), 0))
+            fitted, _pos = _fit_cover_keep_crown(im, (0, 0, cell_w, cell_h))
+            canvas.paste(fitted.convert("RGB"), (i * (cell_w + gap), 0))
             continue
         x0, y0, x1, y1 = bb
         fw = max(1, x1 - x0)
         fh = max(1, y1 - y0)
-        scale = target_fh / float(fh)
-        if fw * scale > max_face_w:
-            scale = max_face_w / float(fw)
-        nw = max(1, int(round(im.width * scale)))
-        nh = max(1, int(round(im.height * scale)))
-        im2 = im.resize((nw, nh), Image.Resampling.LANCZOS)
-        fill = _sample_edge_fill_color(im2, fill)
-        cell = Image.new("RGB", (cell_w, cell_h), fill)
-        sx0 = x0 * scale
-        sy0 = y0 * scale
-        sx1 = x1 * scale
-        sy1 = y1 * scale
-        fcx = (sx0 + sx1) / 2.0
-        actual_fh = max(1.0, sy1 - sy0)
-        # 头顶到下巴居中偏上：剩余空间约 40% 在上、60% 在下
-        face_top_in_cell = max(2.0, (cell_h - actual_fh) * 0.40)
-        ox = int(round(cell_w / 2.0 - fcx))
-        oy = int(round(face_top_in_cell - sy0))
-        cell.paste(im2, (ox, oy))
-        canvas.paste(cell, (i * (cell_w + gap), 0))
+        # 以脸为中心扩头窗（像素）
+        cx = (x0 + x1) / 2.0
+        pad_top = fh * top_pad_frac
+        pad_bot = fh * bot_pad_frac
+        pad_side = fw * side_pad_frac
+        # 目标：脸高在头窗中约占 target_fh/cell_h，故头窗高 ≈ fh / face_height_frac
+        win_h = max(fh + pad_top + pad_bot, fh / max(0.25, float(face_height_frac)))
+        win_w = win_h * (cell_w / float(cell_h))
+        # 脸宽上限：头窗宽不够时加宽
+        if fw + 2 * pad_side > win_w:
+            win_w = fw + 2 * pad_side
+            win_h = win_w * (cell_h / float(cell_w))
+        # 水平居中脸；垂直：头顶优先（face_top 距窗顶 = pad_top）
+        left = cx - win_w / 2.0
+        top = y0 - pad_top
+        # 夹紧到图像内；若触边则平移，仍尽量保头顶
+        if left < 0:
+            left = 0
+        if left + win_w > im.width:
+            left = max(0, im.width - win_w)
+        if top < 0:
+            top = 0
+        if top + win_h > im.height:
+            # 触底时尽量上移，优先保头顶：若仍溢出则贴底
+            top = max(0, im.height - win_h)
+        # 整数裁窗；不足则用边缘色扩展成头窗再 cover
+        il = int(round(left))
+        it = int(round(top))
+        ir = int(round(left + win_w))
+        ib = int(round(top + win_h))
+        il = max(0, min(il, im.width - 1))
+        it = max(0, min(it, im.height - 1))
+        ir = max(il + 1, min(ir, im.width))
+        ib = max(it + 1, min(ib, im.height))
+        crop = im.crop((il, it, ir, ib))
+        # 若裁窗因夹紧变矮/窄，垫到目标比例再 cover（用边缘色，随后 cover 会铺满格）
+        tw = max(1, int(round(win_w)))
+        th = max(1, int(round(win_h)))
+        if crop.width != tw or crop.height != th:
+            fill = _sample_edge_fill_color(crop, bg)
+            canvas_h = Image.new("RGB", (tw, th), fill)
+            # 贴顶优先（保头顶）
+            ox = max(0, (tw - crop.width) // 2)
+            oy = 0
+            canvas_h.paste(crop, (ox, oy))
+            crop = canvas_h
+        fitted, _pos = _fit_cover_keep_crown(crop, (0, 0, cell_w, cell_h))
+        canvas.paste(fitted.convert("RGB"), (i * (cell_w + gap), 0))
     buf = BytesIO()
     canvas.save(buf, format="PNG")
     return buf.getvalue()
@@ -3538,6 +3671,78 @@ def assert_face_triplet_equal_width(
         )
     info["content_widths"] = widths
     return info
+
+
+def assert_face_triplet_cell_edges_clean(
+    faces_png: bytes,
+    *,
+    cell_w: int,
+    cell_h: int,
+    gap: int = 12,
+    band: int = 4,
+    max_delta: float = 40.0,
+    max_band_var: float = 120.0,
+) -> dict:
+    """19:20：每格四边 band px 内不得有「近均匀且与邻带色差>max_delta」的竖/横杂条。"""
+    im = Image.open(BytesIO(faces_png)).convert("RGB")
+    expect_w = 3 * cell_w + 2 * gap
+    if im.width != expect_w or im.height != cell_h:
+        raise CharacterSheetError(
+            f"faces geometry {im.size} != ({expect_w},{cell_h})"
+        )
+    px = im.load()
+    bad: list[str] = []
+
+    def _stats(x0: int, y0: int, x1: int, y1: int) -> tuple[tuple[float, float, float], float]:
+        rs = gs = bs = 0.0
+        n = 0
+        samples: list[tuple[int, int, int]] = []
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                r, g, b = px[x, y]
+                rs += r
+                gs += g
+                bs += b
+                n += 1
+                samples.append((r, g, b))
+        if n <= 0:
+            return (0.0, 0.0, 0.0), 0.0
+        mean = (rs / n, gs / n, bs / n)
+        var = sum(
+            (r - mean[0]) ** 2 + (g - mean[1]) ** 2 + (b - mean[2]) ** 2
+            for r, g, b in samples
+        ) / (n * 3.0)
+        return mean, var
+
+    def _delta(a, b) -> float:
+        return (abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2])) / 3.0
+
+    for i in range(3):
+        x0 = i * (cell_w + gap)
+        checks = [
+            ("L", (x0, 0, x0 + band, cell_h), (x0 + band, 0, x0 + min(cell_w, band * 3), cell_h)),
+            (
+                "R",
+                (x0 + cell_w - band, 0, x0 + cell_w, cell_h),
+                (x0 + max(0, cell_w - band * 3), 0, x0 + cell_w - band, cell_h),
+            ),
+            ("T", (x0, 0, x0 + cell_w, band), (x0, band, x0 + cell_w, min(cell_h, band * 3))),
+            (
+                "B",
+                (x0, cell_h - band, x0 + cell_w, cell_h),
+                (x0, max(0, cell_h - band * 3), x0 + cell_w, cell_h - band),
+            ),
+        ]
+        for name, outer_box, inner_box in checks:
+            omean, ovar = _stats(*outer_box)
+            imean, _ivar = _stats(*inner_box)
+            d = _delta(omean, imean)
+            if ovar <= max_band_var and d > max_delta:
+                bad.append(f"cell{i}-{name} var={ovar:.1f} delta={d:.1f}")
+    if bad:
+        raise CharacterSheetError(f"face cell edge strips: {bad}")
+    return {"ok": True, "band": band, "max_delta": max_delta, "max_band_var": max_band_var}
+
 
 
 def assert_sheet_faces_equal_width(
