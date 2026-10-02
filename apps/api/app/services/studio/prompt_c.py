@@ -112,7 +112,8 @@ def _color_family(hx: str) -> str:
         if r > g + 8 and r > b + 8 and r > 28:
             return "deep_brown"
         return "black"
-    if r > 140 and g > 100 and b < 130 and (r - b) > 40:
+    # 金/琥珀：黄味足、蓝色通道低；排除粉肤（b 偏高）
+    if r > 150 and g > 110 and b < 100 and (r - b) > 50 and (g - b) > 30:
         return "gold"
     # 服装棕（在肤色判定前，避免 #8B7355 类布色被当肤色丢掉）
     if (
