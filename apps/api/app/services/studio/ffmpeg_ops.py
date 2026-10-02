@@ -210,53 +210,179 @@ def detect_burned_text(
     fps: float = 1.0,
     max_t: float | None = None,
     langs: str = "chi_sim+eng",
+    allowlist: Iterable[str] | None = None,
+    min_chars: int = 2,
 ) -> dict:
-    """成片验收：按 fps 抽帧 OCR，任一帧检出可读/乱码字符即不过。
+    """成片验收：按 fps 抽帧 OCR，检出可读/乱码烧录字即不过。
 
-    依赖本机 tesseract + pytesseract；不可用时返回 ok=False 并写 error。
+    优先 RapidOCR（中文烧录字幕）；失败回落 tesseract。
+    每帧除整图外，另对底部字幕区放大 OCR（父代理 17:00：字幕区放大+中文模型）。
+    allowlist 内店名（如「夜灯便利」）不计命中。
     """
+    import json as _json
     import re
     import subprocess
+    import tempfile
     from pathlib import Path as _P
 
     video_path = _P(video_path)
-    alnum = re.compile("[A-Za-z0-9\u4e00-\u9fff]")
+    alnum = re.compile("[" + "A-Za-z0-9" + "\u4e00-\u9fff" + "]")
+    allow = {re.sub(r"\s+", "", x) for x in (allowlist or ("夜灯便利",))}
     try:
-        import pytesseract
         from PIL import Image
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "hits": [], "n_frames": 0, "error": f"ocr_deps_missing:{e}"}
 
+    rapid = None
+    try:
+        from rapidocr_onnxruntime import RapidOCR
+        import numpy as np  # noqa: F401
+
+        rapid = RapidOCR()
+    except Exception:
+        rapid = None
+
+    try:
+        import pytesseract
+    except Exception:
+        pytesseract = None  # type: ignore
+
+    if rapid is None and pytesseract is None:
+        return {"ok": False, "hits": [], "n_frames": 0, "error": "ocr_deps_missing:no_engine"}
+
+    def _norm(s: str) -> str:
+        return "".join(alnum.findall(s or ""))
+
+    def _allowed(txt: str) -> bool:
+        if not txt:
+            return True
+        if txt in allow:
+            return True
+        for a in allow:
+            if not a:
+                continue
+            if a in txt and _norm(txt.replace(a, "")) == "":
+                return True
+            # 店招碎片（便利/夜灯）也放行
+            if len(txt) >= 2 and (txt in a or a.startswith(txt) or a.endswith(txt)):
+                return True
+        store_chars = set("夜灯便利店招牌霓虹火光")
+        if ("夜" in txt and len(txt) <= 4) or (set(txt) <= store_chars and len(txt) <= 4):
+            return True
+        return False
+
+    def _ocr_image(im: Image.Image) -> list[str]:
+        texts: list[str] = []
+        if rapid is not None:
+            import numpy as np
+
+            for cand in (im, im.resize((im.width * 3, im.height * 3), Image.Resampling.LANCZOS)):
+                try:
+                    result, _ = rapid(np.asarray(cand.convert("RGB")))
+                except Exception:
+                    result = None
+                if result:
+                    for row in result:
+                        if isinstance(row, (list, tuple)) and len(row) >= 2:
+                            texts.append(str(row[1]))
+        if not texts and pytesseract is not None:
+            try:
+                raw = pytesseract.image_to_string(im, lang=langs) or ""
+                if raw.strip():
+                    texts.append(raw)
+            except Exception:
+                pass
+        return texts
+
+    def _frame_texts(fp: _P) -> list[str]:
+        im = Image.open(fp).convert("RGB")
+        w, h = im.size
+        out: list[str] = []
+        out.extend(_ocr_image(im))
+        # 烧录字幕通常贴在下巴下方窄带；裁太松 RapidOCR 会漏（17:00 t10「好困」）
+        bands = [
+            (0.70, 0.76, 0.28, 0.73),
+            (0.71, 0.755, 0.30, 0.70),
+            (0.69, 0.77, 0.25, 0.75),
+            (0.60, 0.80, 0.20, 0.80),
+        ]
+        for ya, yb, xa, xb in bands:
+            y0, y1, x0, x1 = int(h * ya), int(h * yb), int(w * xa), int(w * xb)
+            if y1 <= y0 or x1 <= x0:
+                continue
+            crop = im.crop((x0, y0, x1, y1))
+            if crop.width < 8 or crop.height < 8:
+                continue
+            up = crop.resize(
+                (max(32, crop.width * 4), max(32, crop.height * 4)),
+                Image.Resampling.LANCZOS,
+            )
+            out.extend(_ocr_image(up))
+        return out
+
     probe = subprocess.check_output(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json", str(video_path)],
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "json",
+            str(video_path),
+        ],
         text=True,
         timeout=30,
     )
-    import json as _json
     dur = float(_json.loads(probe)["format"]["duration"])
     end = dur if max_t is None else min(dur, float(max_t))
     step = 1.0 / float(fps) if fps > 0 else 1.0
-    hits = []
+    hits: list[dict] = []
     t = 0.0
     n = 0
-    import tempfile
     with tempfile.TemporaryDirectory(prefix="toiv_ocr_") as td:
         td_p = _P(td)
         while t < end - 0.01:
             fp = td_p / f"f_{n:04d}.jpg"
             p = subprocess.run(
-                ["ffmpeg", "-y", "-ss", f"{t:.3f}", "-i", str(video_path), "-frames:v", "1", "-q:v", "2", str(fp)],
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-ss",
+                    f"{t:.3f}",
+                    "-i",
+                    str(video_path),
+                    "-frames:v",
+                    "1",
+                    "-q:v",
+                    "2",
+                    str(fp),
+                ],
                 capture_output=True,
                 timeout=60,
             )
             if p.returncode != 0 or not fp.is_file():
                 t += step
                 continue
-            raw = pytesseract.image_to_string(Image.open(fp), lang=langs) or ""
-            txt = "".join(alnum.findall(raw))
             n += 1
-            if len(txt) >= 3:
+            for raw in _frame_texts(fp):
+                txt = _norm(raw)
+                has_cjk = any("一" <= ch <= "鿿" for ch in txt)
+                # 拉丁噪声需≥3；汉字≥1
+                if has_cjk:
+                    if len(txt) < 1:
+                        continue
+                elif len(txt) < max(3, min_chars):
+                    continue
+                if _allowed(txt):
+                    continue
                 hits.append({"t": round(t, 2), "text": txt[:80]})
+                break
             t += step
-    return {"ok": len(hits) == 0, "hits": hits, "n_frames": n, "error": ""}
-
+    return {
+        "ok": len(hits) == 0,
+        "hits": hits,
+        "n_frames": n,
+        "error": "",
+        "engine": "rapid" if rapid else "tesseract",
+    }
