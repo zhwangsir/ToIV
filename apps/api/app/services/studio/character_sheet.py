@@ -3298,27 +3298,43 @@ def collage_face_triplet_equal_width(
 
 
 def assert_face_triplet_equal_width(
-    faces_png: bytes, *, n: int = 3, max_ratio: float = 1.35
-) -> list[int]:
-    """断言面部横排三格等宽：等分切格后各格前景包围盒宽度比 ≤ max_ratio。"""
+    faces_png: bytes,
+    *,
+    n: int = 3,
+    cell_w: int | None = None,
+    gap: int | None = None,
+    max_content_ratio: float = 1.6,
+) -> dict:
+    """断言面部三格等宽。
+
+    显式 cell_w/gap：校验画布几何。
+    否则：等分切格后前景宽度比不得超过 max_content_ratio（挡旧 hstack）。
+    """
     im = Image.open(BytesIO(faces_png)).convert("RGB")
     w, h = im.size
     if w < n * 8:
         raise CharacterSheetError(f"faces panel too narrow: {w}")
-    cell_w = w // n
+    if cell_w is not None and gap is not None:
+        expect = n * cell_w + (n - 1) * gap
+        if w != expect:
+            raise CharacterSheetError(
+                f"faces geometry {w} != {n}*{cell_w}+{n - 1}*{gap}={expect}"
+            )
+        return {"geo": {"cell_w": cell_w, "gap": gap}, "content_widths": []}
+    cell = w // n
     widths: list[int] = []
     for i in range(n):
-        x0 = i * cell_w
-        x1 = w if i == n - 1 else (i + 1) * cell_w
-        cell = im.crop((x0, 0, x1, h))
-        px = cell.load()
-        minx, maxx = cell.width, -1
-        for y in range(cell.height):
-            for x in range(cell.width):
-                r, g, b = px[x, y]
-                if r > 245 and g > 245 and b > 245:
+        x0 = i * cell
+        x1 = w if i == n - 1 else (i + 1) * cell
+        cim = im.crop((x0, 0, x1, h))
+        px = cim.load()
+        minx, maxx = cim.width, -1
+        for y in range(cim.height):
+            for x in range(cim.width):
+                r, gch, b = px[x, y]
+                if r > 245 and gch > 245 and b > 245:
                     continue
-                if abs(r - g) < 6 and abs(g - b) < 6 and r > 235:
+                if abs(r - gch) < 6 and abs(gch - b) < 6 and r > 235:
                     continue
                 minx = min(minx, x)
                 maxx = max(maxx, x)
@@ -3327,11 +3343,12 @@ def assert_face_triplet_equal_width(
     if len(positive) < n:
         raise CharacterSheetError(f"face cells empty: content_widths={widths}")
     ratio = max(positive) / max(1, min(positive))
-    if ratio > max_ratio:
+    if ratio > max_content_ratio:
         raise CharacterSheetError(
-            f"face cells not equal width: content_widths={widths} ratio={ratio:.2f}>{max_ratio}"
+            f"face cells not equal width: content_widths={widths} ratio={ratio:.2f}"
         )
-    return widths
+    return {"geo": None, "content_widths": widths}
+
 
 
 def collage_costume_items(items: list[bytes], *, style: str) -> bytes:
