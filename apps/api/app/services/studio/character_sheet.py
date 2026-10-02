@@ -659,8 +659,10 @@ def build_design_notes(meta: SheetMeta) -> str:
     if lines:
         # 保留用户短句,补足到至少 3 行
         merged = lines + [a for a in auto if a not in lines]
-        return "\n".join(merged[:5])
-    return "\n".join(auto[:5])
+        out = "\n".join(merged[:5])
+    else:
+        out = "\n".join(auto[:5])
+    return strip_internal_design_jargon(out)
 
 
 def _character_base(meta: SheetMeta) -> str:
@@ -1440,6 +1442,191 @@ def _guess_field(description: str, key: str) -> str:
         return ""
     m = re.search(rf"{key}\s*[:：]\s*([^\n;；|/]+)", description)
     return (m.group(1).strip() if m else "")[:40]
+
+
+
+def extract_locked_panels_from_sheet(
+    sheet_bytes: bytes,
+    *,
+    existing: dict[str, bytes] | None = None,
+) -> dict[str, bytes]:
+    """从整卡按 LAYOUT 裁出缺失分格,含 expr_0..5。
+
+    用途:panel-replace / regenerate 锁定时,磁盘无 expr_* 也不能用空白盖掉已有表情。
+    existing 中已有的键原样保留,不覆盖。
+    """
+    locked: dict[str, bytes] = dict(existing or {})
+    sim = Image.open(BytesIO(sheet_bytes)).convert("RGB")
+
+    def _put(key: str, crop: Image.Image) -> None:
+        if key in locked and locked[key]:
+            return
+        buf = BytesIO()
+        crop.convert("RGB").save(buf, format="PNG")
+        locked[key] = buf.getvalue()
+
+    for k, box in LAYOUT.items():
+        if k in (
+            "canvas",
+            "name",
+            "profile",
+            "turnaround",
+            "palette",
+            "notes",
+            "footer",
+            "expressions",
+        ):
+            continue
+        if k in locked and locked[k]:
+            continue
+        x, y, w, h = box
+        if k in ("faces", "costume"):
+            crop = sim.crop((x + 8, y + 32, x + w - 8, y + h - 8))
+        else:
+            crop = sim.crop((x, y, x + w, y + h))
+        _put(k, crop)
+
+    # 三视图从 turnaround 三等分
+    if any(k not in locked or not locked.get(k) for k in ("front", "side", "back")):
+        tx, ty, tw, th = LAYOUT["turnaround"]
+        view_w = (tw - 140) // 3
+        for i, k in enumerate(("front", "side", "back")):
+            if k in locked and locked[k]:
+                continue
+            box = (
+                tx + 110 + i * view_w,
+                ty + 50,
+                tx + 110 + (i + 1) * view_w - 12,
+                ty + th - 40,
+            )
+            _put(k, sim.crop(box))
+
+    # 表情:整区 + 拆成 expr_0..5(去掉每格标签带)
+    ex, ey, ew, eh = LAYOUT["expressions"]
+    content = sim.crop((ex + 8, ey + 32, ex + ew - 8, ey + eh - 8))
+    if "expressions" not in locked or not locked.get("expressions"):
+        _put("expressions", content)
+    need_expr = sum(1 for k in _EXPR_KEYS if k in locked and locked.get(k)) < 6
+    if need_expr:
+        cols, rows = 3, 2
+        cw, ch = content.size
+        cell_w = max(1, cw // cols)
+        cell_h = max(1, ch // rows)
+        label_h = 44
+        img_h = max(48, cell_h - label_h)
+        for i, ek in enumerate(_EXPR_KEYS):
+            if ek in locked and locked.get(ek):
+                continue
+            row, col = divmod(i, cols)
+            x0 = col * cell_w
+            y0 = row * cell_h
+            cell = content.crop((x0 + 3, y0 + 3, x0 + cell_w - 3, y0 + img_h - 3))
+            _put(ek, cell)
+    return locked
+
+
+def style_similarity_score(
+    candidate: bytes,
+    reference: bytes,
+    *,
+    size: int = 128,
+) -> dict[str, float]:
+    """相对参考正视头部的画风相似度:平滑直方图 + 均色 + 像素相关。
+
+    返回 dict: hist (0~1), pixel (0~1), mean (0~1), score (加权)。无外部 CLIP 时用此门禁。
+    """
+    import math
+
+    def _prep(data: bytes) -> Image.Image:
+        im = Image.open(BytesIO(data)).convert("RGB")
+        return im.resize((size, size), Image.Resampling.BILINEAR)
+
+    a = _prep(candidate)
+    b = _prep(reference)
+
+    def _smooth_hist(im: Image.Image) -> list[float]:
+        # 每通道 16-bin,并做邻域平滑,避免近色落邻箱得 0
+        out: list[float] = []
+        full = im.histogram()
+        for ch in range(3):
+            hx = full[ch * 256 : (ch + 1) * 256]
+            bins = [sum(hx[i * 16 : (i + 1) * 16]) for i in range(16)]
+            sm = [0.0] * 16
+            for i, v in enumerate(bins):
+                sm[i] += v * 0.5
+                if i:
+                    sm[i - 1] += v * 0.25
+                if i + 1 < 16:
+                    sm[i + 1] += v * 0.25
+            out.extend(sm)
+        return out
+
+    def _cos(u: list[float], v: list[float]) -> float:
+        dot = sum(a * b for a, b in zip(u, v))
+        nu = math.sqrt(sum(a * a for a in u)) or 1.0
+        nv = math.sqrt(sum(b * b for b in v)) or 1.0
+        return max(0.0, min(1.0, dot / (nu * nv)))
+
+    ha, hb = _smooth_hist(a), _smooth_hist(b)
+    hist = _cos(ha, hb)
+
+    pa = list(a.getdata())
+    pb = list(b.getdata())
+    ma = [sum(p[i] for p in pa) / len(pa) for i in range(3)]
+    mb = [sum(p[i] for p in pb) / len(pb) for i in range(3)]
+    mean_dist = math.sqrt(sum((ma[i] - mb[i]) ** 2 for i in range(3))) / 441.67
+    mean = max(0.0, min(1.0, 1.0 - mean_dist))
+
+    num = dx = dy = 0.0
+    for p, q in zip(pa, pb):
+        for i in range(3):
+            a0 = p[i] - ma[i]
+            b0 = q[i] - mb[i]
+            num += a0 * b0
+            dx += a0 * a0
+            dy += b0 * b0
+    if dx < 1e-6 or dy < 1e-6:
+        pixel = mean
+    else:
+        pixel = max(0.0, min(1.0, (num / math.sqrt(dx * dy) + 1.0) / 2.0))
+
+    score = 0.45 * hist + 0.35 * mean + 0.20 * pixel
+    return {
+        "hist": float(hist),
+        "pixel": float(pixel),
+        "mean": float(mean),
+        "score": float(score),
+    }
+
+
+
+def style_ok_for_face(
+    candidate: bytes,
+    reference: bytes,
+    *,
+    min_score: float = 0.72,
+) -> tuple[bool, dict[str, float]]:
+    """画风门禁:与卡内正视头部相似度低于阈值则不入卡。"""
+    meta = style_similarity_score(candidate, reference)
+    return bool(meta["score"] >= float(min_score)), meta
+
+
+def strip_internal_design_jargon(text: str) -> str:
+    """卡面设计说明去掉 fix/LoRA/az45/硬门禁等内部字样。"""
+    if not text:
+        return text
+    bad = re.compile(
+        r"(fix\d+[a-z]?|LoRA|lora|az\s*45|az45|硬门禁|yaw\s*门禁|CLIP\s*门禁|"
+        r"final_review|Qwen-Edit|batch7|openpose|IPA\b)",
+        re.I,
+    )
+    lines = []
+    for ln in text.splitlines():
+        s = bad.sub("", ln)
+        s = re.sub(r"\s{2,}", " ", s).strip(" -|;,，、")
+        if s:
+            lines.append(s)
+    return "\n".join(lines)
 
 
 def save_sheet_png(data: bytes, *, character_id: str, style: str) -> str:

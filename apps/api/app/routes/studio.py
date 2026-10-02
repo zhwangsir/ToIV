@@ -425,6 +425,20 @@ async def regenerate_character_sheet_panels_route(
             hits = sorted(studio.glob(f"{prefix}{key}_*.png"), key=lambda p: p.stat().st_mtime)
             if hits:
                 locked[key] = hits[-1].read_bytes()
+        # 磁盘无 expr_* 时从最新整卡裁出,禁止重生单格时表情被占位脸裁掉
+        if sum(1 for k in sheet_svc._EXPR_KEYS if k in locked) < 6:
+            sheets = sorted(
+                studio.glob(f"char_sheet_{cid[:8]}_{style}_*.png"),
+                key=lambda p: p.stat().st_mtime,
+            )
+            if sheets:
+                locked = sheet_svc.extract_locked_panels_from_sheet(
+                    sheets[-1].read_bytes(),
+                    existing=locked,
+                )
+                # 重生键仍以 regen 为准(整卡裁出的同名键丢掉)
+                for rk in regen_set:
+                    locked.pop(rk, None)
         if "portrait" not in locked:
             raise HTTPException(status_code=422, detail="无可用锁定立绘,请先整卡或提供 portrait")
 
@@ -579,55 +593,58 @@ async def replace_character_sheet_panel(
         hits = sorted(studio.glob(f"{prefix}{k}_*.png"), key=lambda p: p.stat().st_mtime)
         if hits:
             locked[k] = hits[-1].read_bytes()
-    # 缺格时从最新整卡按 LAYOUT 裁切补齐
-    # 注意:仅有 portrait+exprs 时 len>=5 仍可能缺 front/side/faces,不能只看数量
+    # 缺格(含表情 expr_0..5)一律从最新整卡裁切补齐;禁止空白占位盖掉已有表情
     _need = ("portrait", "front", "side", "back", "faces", "costume")
-    if "portrait" not in locked or any(k not in locked for k in _need):
+    _need_expr = (
+        "expressions" not in locked
+        and sum(1 for k in locked if k.startswith("expr_") and locked.get(k)) < 6
+    )
+    if (
+        "portrait" not in locked
+        or any(k not in locked for k in _need)
+        or _need_expr
+    ):
         sheets = sorted(
             studio.glob(f"char_sheet_{cid[:8]}_{style}_*.png"),
             key=lambda p: p.stat().st_mtime,
         )
         if sheets:
-            from io import BytesIO
-            from PIL import Image
-            sim = Image.open(sheets[-1]).convert("RGB")
-            for k, box in sheet_svc.LAYOUT.items():
-                if k in ("canvas", "name", "profile", "turnaround", "palette", "notes", "footer"):
-                    continue
-                if k in locked:
-                    continue
-                x, y, w, h = box
-                if k in ("faces", "costume", "expressions"):
-                    crop = sim.crop((x + 8, y + 32, x + w - 8, y + h - 8))
-                else:
-                    crop = sim.crop((x, y, x + w, y + h))
-                buf = BytesIO()
-                crop.save(buf, format="PNG")
-                locked[k] = buf.getvalue()
-            # 三视图从 turnaround 三等分
-            if any(k not in locked for k in ("front", "side", "back")):
-                tx, ty, tw, th = sheet_svc.LAYOUT["turnaround"]
-                view_w = (tw - 140) // 3
-                for i, k in enumerate(("front", "side", "back")):
-                    if k in locked:
-                        continue
-                    box = (tx + 110 + i * view_w, ty + 50, tx + 110 + (i + 1) * view_w - 12, ty + th - 40)
-                    crop = sim.crop(box)
-                    buf = BytesIO()
-                    crop.save(buf, format="PNG")
-                    locked[k] = buf.getvalue()
+            locked = sheet_svc.extract_locked_panels_from_sheet(
+                sheets[-1].read_bytes(),
+                existing=locked,
+            )
     if "portrait" not in locked:
         raise HTTPException(status_code=422, detail="无立绘,无法重拼")
-    if "expressions" not in locked and sum(1 for k in locked if k.startswith("expr_")) < 6:
-        # 占位浅底,避免 compose 崩
-        from io import BytesIO
-        from PIL import Image
-        buf = BytesIO()
-        Image.new("RGB", (980, 480), (248, 248, 252)).save(buf, format="PNG")
-        locked["expressions"] = buf.getvalue()
+    # 仍缺表情且无整卡可裁时才浅底占位(极端冷启动);有整卡时绝不用空白盖表情
+    if "expressions" not in locked and sum(
+        1 for k in locked if k.startswith("expr_") and locked.get(k)
+    ) < 6:
+        sheets = sorted(
+            studio.glob(f"char_sheet_{cid[:8]}_{style}_*.png"),
+            key=lambda p: p.stat().st_mtime,
+        )
+        if sheets:
+            locked = sheet_svc.extract_locked_panels_from_sheet(
+                sheets[-1].read_bytes(),
+                existing=locked,
+            )
+        else:
+            from io import BytesIO
+            from PIL import Image
+            buf = BytesIO()
+            Image.new("RGB", (980, 480), (248, 248, 252)).save(buf, format="PNG")
+            locked["expressions"] = buf.getvalue()
 
     dest = studio / f"{prefix}{key}_{_sheet_token()}.png"
     dest.write_bytes(raw)
+    # 持久化其余锁定格(含 expr_*),避免下次再丢表情
+    for k, data in locked.items():
+        if k == key or k == "expressions":
+            continue
+        if not data:
+            continue
+        if not list(studio.glob(f"{prefix}{k}_*.png")):
+            (studio / f"{prefix}{k}_{_sheet_token()}.png").write_bytes(data)
 
     meta = sheet_svc.SheetMeta(
         name=(c.name or "").strip() or "角色",
@@ -646,19 +663,27 @@ async def replace_character_sheet_panel(
 
     sheet_name = f"char_sheet_{cid[:8]}_{style}_{_sheet_token()}.png"
     (studio / sheet_name).write_bytes(png)
-    panel_urls = {k: f"/api/studio/files/{prefix}{k}_replaced.png" for k in locked}
-    # 真实 URL:用最新文件名
-    panel_urls = {}
+    # 真实 URL:用最新文件名;expressions 合成区无独立文件时仍报 expr_0..5
+    panel_urls: dict[str, str] = {}
     for k in locked:
+        if k == "expressions":
+            continue
         hits = sorted(studio.glob(f"{prefix}{k}_*.png"), key=lambda p: p.stat().st_mtime)
         if hits:
             panel_urls[k] = f"/api/studio/files/{hits[-1].name}"
+    # 保证响应含 6 表情键(即使刚从整卡裁出并落盘)
+    for ek in sheet_svc._EXPR_KEYS:
+        if ek not in panel_urls and ek in locked:
+            hits = sorted(studio.glob(f"{prefix}{ek}_*.png"), key=lambda p: p.stat().st_mtime)
+            if hits:
+                panel_urls[ek] = f"/api/studio/files/{hits[-1].name}"
     return {
         "sheet_url": f"/api/studio/files/{sheet_name}",
         "sheet_style": style,
         "panel_urls": panel_urls,
         "replaced_key": key,
         "apply_to_video_refs": False,
+        "preserved_keys": sorted(k for k in locked if k != key and locked.get(k)),
     }
 
 
