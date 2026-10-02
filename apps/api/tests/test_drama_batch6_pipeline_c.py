@@ -11,7 +11,10 @@ from app.main import app
 from app.models import Tenant, User
 from app.security import create_token, hash_password
 from app.workflows.h3_pipeline_c import H3PipelineCParams, build_h3_pipeline_c_graph
-from app.services.studio.prompt_c import build_c_visual_prompt, strip_dialogue, merge_negative
+from app.services.studio.prompt_c import (
+    build_c_visual_prompt, strip_dialogue, merge_negative,
+    costume_lock_for_style, build_cast_visual_for_style,
+)
 from app.services.studio.candidate_pick import pick_best_candidate
 
 
@@ -426,3 +429,49 @@ def test_face_gate_allows_passing_face(tmp_path, monkeypatch):
     )
     assert wid == "ok"
     assert next(c for c in out if c["id"] == "ok")["is_picked"] is True
+
+
+def test_costume_lock_for_style_ancient():
+    s = costume_lock_for_style("ancient_realistic", visual_prompt="Lin Xia black raincoat hoodie", name="林夏")
+    low = s.lower()
+    assert "jiaoling" in low or "hanfu" in low
+    assert "gold" in low
+    assert "indigo" in low or "navy" in low
+    assert "no raincoat" in low and "no hoodie" in low
+    # 正向段不得再写雨衣/帽衫（仅允许 no- 否定）
+    positive = low.split("no hood", 1)[0]
+    assert "raincoat" not in positive
+    assert "hoodie" not in positive
+
+
+def test_costume_lock_for_style_anime():
+    s = costume_lock_for_style("anime", visual_prompt="girl in hanfu", name="林夏")
+    low = s.lower()
+    assert "raincoat" in low
+    assert "hood down" in low
+    assert "no hanfu" in low
+    positive = low.split("no hanfu", 1)[0]
+    assert "hanfu" not in positive
+
+
+def test_build_cast_visual_for_style_injects():
+    class C:
+        name = "林夏"
+        visual_prompt = "young woman, black raincoat"
+    out = build_cast_visual_for_style([C()], style="ancient_realistic")
+    low = out.lower()
+    assert "hanfu" in low or "jiaoling" in low
+    positive = low.split("no hood", 1)[0]
+    assert "raincoat" not in positive
+
+
+def test_build_c_visual_prompt_with_costume_lock():
+    lock = costume_lock_for_style("ancient_realistic", visual_prompt="Lin Xia", name="林夏")
+    p = build_c_visual_prompt(
+        shot_prompt="rainy ancient courtyard alley",
+        cast_visual=lock,
+        scene="古风雨夜庭院",
+    )
+    assert "indigo" in p.lower() or "hanfu" in p.lower()
+    assert "Avoid:" in p
+

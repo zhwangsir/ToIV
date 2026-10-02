@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 
 from app.comfy.client import ComfyUIClient, ComfyUIError
-from app.services.studio.prompt_c import build_c_visual_prompt, merge_negative
+from app.services.studio.prompt_c import build_c_visual_prompt, build_cast_visual_for_style, merge_negative
 from app.services.studio.renderers.base import RenderError
 from app.services.studio.renderers.image_motion import _save_output
 from app.services.studio.renderers.video import _wait_video_url
@@ -151,7 +151,7 @@ async def render_pipeline_c(
     if not urls:
         raise RenderError("管线 C 需要角色三视图或场景参考图")
 
-    cast_visual = ", ".join(c.visual_prompt for c in cast if getattr(c, "visual_prompt", None))
+    cast_visual = build_cast_visual_for_style(cast, style=style)
     # T8 无独立负向口：merge_negative 必须并进 Avoid，否则店招/乱码条款被丢弃
     positive = build_c_visual_prompt(
         shot_prompt=getattr(shot, "prompt", "") or "",
