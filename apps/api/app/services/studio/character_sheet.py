@@ -2255,14 +2255,27 @@ def estimate_face_yaw_deg(data: bytes) -> float | None:
     return float(min(90.0, (0.55 * offset + 0.45 * ratio) * 120.0))
 
 
-def yaw_ok_for_face_key(yaw: float | None, face_key: str) -> bool:
+def yaw_ok_for_face_key(
+    yaw: float | None,
+    face_key: str,
+    *,
+    style: str | None = None,
+) -> bool:
+    """偏航门禁。
+
+    二次元 insightface 对 cel 脸系统性偏低（目检约 35–45° 常被估成 ~24°），
+    故 anime/二次元 的三分脸放宽为 20–60；写实仍为 30–60。正/侧不变。
+    """
     if yaw is None:
         return False
     y = abs(float(yaw))
+    st = (style or "").strip().lower()
+    anime = st in {"anime", "二次元", "cel", "cartoon"}
     if face_key == "face_front":
         return y < 15.0
     if face_key == "face_three_quarter":
-        return 30.0 <= y <= 60.0
+        lo = 20.0 if anime else 30.0
+        return lo <= y <= 60.0
     if face_key == "face_side":
         return 75.0 <= y <= 105.0
     return False
