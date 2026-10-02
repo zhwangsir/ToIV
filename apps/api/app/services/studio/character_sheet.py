@@ -233,11 +233,13 @@ _COSTUME_ITEMS_ANCIENT: tuple[tuple[str, str], ...] = (
     (
         "beizi",
         "e-commerce flat lay product photo, garment only, ONE traditional Chinese beizi outer robe "
-        "laid flat open on table, dark silk, long wide sleeves spread left and right, "
+        "laid flat open on table, jet black silk with gold trim and gold embroidery, "
+        "black-and-gold colorway only, long wide sleeves spread left and right, "
         "no body inside, empty garment shape, fills most of frame, "
         "solid seamless dark gray background, studio softbox, "
         "no person, no face, no hands, no mannequin, no model wearing clothes, "
-        "no half body portrait, no raincoat, no modern jacket, no text",
+        "no half body portrait, no raincoat, no modern jacket, "
+        "no red, no crimson, no scarlet, no vermilion, no orange robe, no text",
     ),
     (
         "jiaoling",
@@ -494,16 +496,22 @@ def resolve_cjk_font(size: int = 28) -> ImageFont.FreeTypeFont:
         p = Path(path)
         if not p.is_file():
             continue
-        try:
-            font = ImageFont.truetype(str(p), size=size)
-        except OSError:
-            continue
-        try:
-            bbox = font.getbbox("角色")
-        except Exception:  # noqa: BLE001
-            continue
-        if bbox and (bbox[2] - bbox[0]) > 8:
-            return font
+        # TTC 可能多 face:逐 index 试到能画中文
+        for face_idx in (0, 1, 2, 3, 4):
+            try:
+                font = ImageFont.truetype(str(p), size=size, index=face_idx)
+            except OSError:
+                if face_idx == 0:
+                    break
+                continue
+            except Exception:  # noqa: BLE001
+                continue
+            try:
+                bbox = font.getbbox("角色威严冷酷")
+            except Exception:  # noqa: BLE001
+                continue
+            if bbox and (bbox[2] - bbox[0]) > 24:
+                return font
     raise CharacterSheetError(
         "中文字体缺失(需 PingFang/思源/STHeiti/Noto Sans CJK 等)",
         status_code=503,
@@ -690,11 +698,13 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
             f"NOT front view, NOT back view, empty background, {solid}, {suf}"
         ),
         "back": (
-            f"{solo}, {base}, ONE figure only, STRICT back view full body turnaround of {name}, "
-            f"facing completely away from camera, {back_head}, "
+            f"{solo}, {base}, ONE figure only, STRICT rear view full body turnaround of {name}, "
+            f"facing completely away from camera, back of head only, {back_head}, "
+            f"hair bun / hood from behind, spine and shoulder blades visible, "
+            f"NO face, NO eyes, NO nose, NO mouth, NO looking back over shoulder, "
             f"adult woman 165cm proportions, jet black hair, orthographic, single person only, "
             f"{outfit}, feet on ground, figure fills frame height, "
-            f"NOT front view, NOT face, NOT side view, empty background, {solid}, {suf}"
+            f"NOT front view, NOT three-quarter, NOT face, NOT side view, empty background, {solid}, {suf}"
         ),
         "faces": (
             f"{solo}, {base}, three head closeups of {name} only, "
@@ -825,11 +835,12 @@ def _draw_panel_frame(
         draw.text((x + 10, y + 8), label, font=font, fill=label_fill)
 
 
-def _extract_palette(img: Image.Image, n: int = 6) -> list[str]:
-    """从人物前景取色(中心裁切 + 剔除近背景色),避免灰/近黑色板(21:01)。"""
+def _extract_palette(
+    img: Image.Image, n: int = 6, *, style: str = "anime"
+) -> list[str]:
+    """从人物前景取色;剔除近背景/近黑,保证肤色(+古风金色)可用。"""
     rgb = img.convert("RGB")
     w, h = rgb.size
-    # 四角估背景
     corners = [
         rgb.getpixel((2, 2)),
         rgb.getpixel((w - 3, 2)),
@@ -837,40 +848,60 @@ def _extract_palette(img: Image.Image, n: int = 6) -> list[str]:
         rgb.getpixel((w - 3, h - 3)),
     ]
     bg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
-    # 中心人物区
-    crop = rgb.crop((int(w * 0.18), int(h * 0.06), int(w * 0.82), int(h * 0.92)))
+    # 上半身/面颊优先(避开全黑袍)
+    crop = rgb.crop((int(w * 0.22), int(h * 0.04), int(w * 0.78), int(h * 0.55)))
     small = crop.resize((64, 64), Image.Resampling.BOX)
     colors = small.getcolors(64 * 64) or []
     colors.sort(key=lambda c: c[0], reverse=True)
     out: list[str] = []
     skin_cands: list[tuple[int, tuple[int, int, int]]] = []
+    gold_cands: list[tuple[int, tuple[int, int, int]]] = []
     for cnt, (r, g, b) in colors:
-        # 跳过近背景 / 极端黑白
         if abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) < 45:
             continue
-        if max(r, g, b) < 18 or min(r, g, b) > 245:
+        if max(r, g, b) < 28 or min(r, g, b) > 245:
             continue
-        # 灰背景带(低饱和)
         mx, mn = max(r, g, b), min(r, g, b)
         if mx - mn < 12 and 70 <= mx <= 190:
+            continue
+        # 跳过近黑(袍底),留给 fallback 补黑
+        if r + g + b < 90:
             continue
         hx = f"#{r:02X}{g:02X}{b:02X}"
         if hx not in out:
             out.append(hx)
-        # 肤色候选
-        if 90 < r < 245 and 60 < g < 210 and 45 < b < 190 and r >= g >= b - 10:
+        if 90 < r < 245 and 60 < g < 210 and 45 < b < 190 and r >= g - 5 and g >= b - 15:
             skin_cands.append((cnt, (r, g, b)))
+        # 金色/琥珀
+        if r > 140 and g > 100 and b < 120 and (r - b) > 40 and (g - b) > 20:
+            gold_cands.append((cnt, (r, g, b)))
         if len(out) >= n:
             break
-    # 保证有肤色/唇色/透明伞灰可辨;全近黑则重置
-    fallback = ["#E8C4A8", "#C98A7A", "#1A1A1E", "#2C2C34", "#C8C8C8", "#5A6A7A"]
+    if style == "ancient_realistic":
+        fallback = ["#E8C4A8", "#D4AF37", "#1A1A1E", "#2C2C34", "#C9A227", "#8B7355"]
+    else:
+        fallback = ["#E8C4A8", "#C98A7A", "#1A1A1E", "#2C2C34", "#D4D3D8", "#5A6A7A"]
     if skin_cands:
         sr, sg, sb = skin_cands[0][1]
         skin_hx = f"#{sr:02X}{sg:02X}{sb:02X}"
-        if skin_hx not in out:
-            out.insert(0, skin_hx)
-    dark_n = sum(1 for hx in out[:4] if int(hx[1:3], 16) + int(hx[3:5], 16) + int(hx[5:7], 16) < 120)
-    if dark_n >= 3:
+        if skin_hx in out:
+            out.remove(skin_hx)
+        out.insert(0, skin_hx)
+    elif fallback[0] not in out:
+        out.insert(0, fallback[0])
+    if style == "ancient_realistic":
+        if gold_cands:
+            gr, gg, gb = gold_cands[0][1]
+            gold_hx = f"#{gr:02X}{gg:02X}{gb:02X}"
+            if gold_hx in out:
+                out.remove(gold_hx)
+            out.insert(min(1, len(out)), gold_hx)
+        elif "#D4AF37" not in out:
+            out.insert(min(1, len(out)), "#D4AF37")
+    def _luma(hx: str) -> int:
+        return int(hx[1:3], 16) + int(hx[3:5], 16) + int(hx[5:7], 16)
+    dark_n = sum(1 for hx in out[:6] if _luma(hx) < 160)
+    if dark_n >= 4 or len(out) < 3:
         out = list(fallback)
     for hx in fallback:
         if len(out) >= n:
@@ -878,6 +909,41 @@ def _extract_palette(img: Image.Image, n: int = 6) -> list[str]:
         if hx not in out:
             out.append(hx)
     return out[:n]
+
+
+def sanitize_portrait_panel(img: Image.Image) -> Image.Image:
+    """裁掉立绘底部已烘焙的名字/资料条,避免与 compose 的 name/profile 重复。"""
+    rgb = img.convert("RGBA")
+    w, h = rgb.size
+    if h < 200 or w < 80:
+        return rgb
+    # 自底向上找「宽深色横条」(名字底);出现则裁到条上方
+    sample = rgb.convert("RGB").resize((64, max(32, h // 8)), Image.Resampling.BOX)
+    sw, sh = sample.size
+    cut_ratio = None
+    for yi in range(sh - 1, int(sh * 0.55), -1):
+        row = [sample.getpixel((xi, yi)) for xi in range(sw)]
+        dark = sum(1 for r, g, b in row if r + g + b < 140)
+        if dark >= int(sw * 0.55):
+            # 横条上方再留一点边
+            cut_ratio = (yi / sh) * 0.98
+            break
+    if cut_ratio is None or cut_ratio < 0.55:
+        return rgb
+    cut_y = max(int(h * 0.55), int(h * cut_ratio))
+    if cut_y >= h - 8:
+        return rgb
+    return rgb.crop((0, 0, w, cut_y))
+
+
+def _strip_expr_label_band(img: Image.Image) -> Image.Image:
+    """去掉表情格底部已烘焙标签带,改由后端真字体重绘。"""
+    rgba = img.convert("RGBA")
+    w, h = rgba.size
+    if h < 64:
+        return rgba
+    cut = int(h * 0.80)
+    return rgba.crop((0, 0, w, max(48, cut)))
 
 
 def _draw_height_scale(
@@ -911,7 +977,7 @@ def _compose_expression_grid(
 ) -> Image.Image:
     """2x3 头肩特写格:按目标区尺寸建格,cover 填满格(禁 contain 缩成细条)。"""
     cols, rows = 3, 2
-    label_h = 36 if draw_labels else 0
+    label_h = 40 if draw_labels else 0
     # 默认对齐 LAYOUT expressions 内容区
     if box_w is None or box_h is None:
         _, _, ew, eh = LAYOUT["expressions"]
@@ -922,12 +988,7 @@ def _compose_expression_grid(
     img_h = max(48, cell_h - label_h)
     grid = Image.new("RGBA", (cols * cell_w, rows * cell_h), (245, 245, 248, 255))
     draw = ImageDraw.Draw(grid)
-    font = None
-    if draw_labels:
-        try:
-            font = resolve_cjk_font(20)
-        except CharacterSheetError:
-            font = ImageFont.load_default()
+    font = resolve_cjk_font(22) if draw_labels else None
     for i, key in enumerate(_EXPR_KEYS):
         img = panels.get(key)
         if img is None:
@@ -935,22 +996,20 @@ def _compose_expression_grid(
         row, col = divmod(i, cols)
         ox = col * cell_w + 3
         oy = row * cell_h + 3
-        # 头肩 cover 填满格子,杜绝大片空白/细条缩略图
+        # 先剥旧标签带,再用真字体重绘(fix19)
+        clean = _strip_expr_label_band(img.convert("RGBA"))
         fitted, pos = _fit(
-            img.convert("RGBA"),
+            clean,
             (ox, oy, cell_w - 6, img_h - 4),
             cover=True,
         )
         grid.paste(fitted, pos, fitted)
-        if draw_labels and i < len(_EXPR_LABELS):
+        if draw_labels and font is not None and i < len(_EXPR_LABELS):
             lab = _EXPR_LABELS[i]
             lx = col * cell_w + cell_w // 2
-            ly = row * cell_h + img_h + 4
-            if font is not None:
-                tw = draw.textlength(lab, font=font)
-                draw.text((lx - tw / 2, ly), lab, font=font, fill=label_fill)
-            else:
-                draw.text((lx - 18, ly), lab, fill=label_fill)
+            ly = row * cell_h + img_h + 6
+            tw = draw.textlength(lab, font=font)
+            draw.text((lx - tw / 2, ly), lab, font=font, fill=label_fill)
     return grid
 
 
@@ -1001,7 +1060,7 @@ def compose_character_sheet(
         fill=theme["title_text"],
     )
 
-    portrait = _as_image("portrait")
+    portrait = sanitize_portrait_panel(_as_image("portrait"))
     _paste(canvas, portrait, LAYOUT["portrait"], cover=True)
     _draw_panel_frame(
         draw,
@@ -1142,10 +1201,22 @@ def compose_character_sheet(
     # letterbox:完整物品可见,禁止竖长条中心裁切
     _paste(canvas, _as_image("costume"), (cx + 8, cy + 32, cw - 16, ch - 40), cover=False)
 
-    colors = list(meta.colors) if meta.colors else _extract_palette(portrait)
+    colors = list(meta.colors) if meta.colors else _extract_palette(
+        portrait, style=meta.style
+    )
     colors = [_normalize_hex(c) for c in colors if _normalize_hex(c)]
     if not colors:
-        colors = _extract_palette(portrait)
+        colors = _extract_palette(portrait, style=meta.style)
+    # 古风强制含肤色+金色;二次元强制含肤色+浅灰(防全黑)
+    if meta.style == "ancient_realistic":
+        for must in ("#E8C4A8", "#D4AF37"):
+            if must not in colors:
+                colors = [must] + [c for c in colors if c != must]
+    else:
+        for must in ("#E8C4A8", "#D4D3D8"):
+            if must not in colors:
+                colors = [must] + [c for c in colors if c != must]
+    colors = colors[:6]
     plx, ply, plw, plh = LAYOUT["palette"]
     _draw_panel_frame(
         draw,
