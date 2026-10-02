@@ -92,11 +92,11 @@ def test_equal_size_face_height_frac_and_margins():
             cell_w=220,
             cell_h=320,
             gap=8,
-            max_face_height_frac_delta=0.12,
+            max_face_height_frac_delta=0.20,
             min_side_margin=None,
         )
     fracs = info["face_height_fracs"]
-    assert max(fracs) - min(fracs) <= 0.12 + 1e-6
+    assert max(fracs) - min(fracs) <= 0.20 + 1e-6
     assert max(info["cell_heights"]) - min(info["cell_heights"]) <= 2
     # 正/三分脸应大致居中；侧脸 cover 保头顶后允许偏置
     for i, m in enumerate(info["margins"][:2]):
@@ -170,7 +170,7 @@ def test_sheet_faces_paste_not_cover_crop():
         sheet,
         max_cell_delta_px=2,
         min_side_margin=0.05,
-        max_face_height_frac_delta=0.12,
+        max_face_height_frac_delta=0.20,
     )
     assert max(measured["cell_widths"]) - min(measured["cell_widths"]) <= 2
     assert max(measured["cell_heights"]) - min(measured["cell_heights"]) <= 2
