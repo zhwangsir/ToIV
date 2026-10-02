@@ -942,8 +942,15 @@ def _strip_expr_label_band(img: Image.Image) -> Image.Image:
     w, h = rgba.size
     if h < 64:
         return rgba
-    cut = int(h * 0.80)
-    return rgba.crop((0, 0, w, max(48, cut)))
+    # 更狠:旧拼版标签可占底 25%+,留头肩
+    cut = int(h * 0.70)
+    out = rgba.crop((0, 0, w, max(48, cut)))
+    # 底缘再抹一条浅色,防残留描边进 cover
+    from PIL import ImageDraw as _ID
+    d = _ID.Draw(out)
+    bh = max(2, out.size[1] // 40)
+    d.rectangle([0, out.size[1] - bh, out.size[0], out.size[1]], fill=(245, 245, 248, 255))
+    return out
 
 
 def _draw_height_scale(
@@ -2644,7 +2651,7 @@ def _score_expression_head_ratio(data: bytes) -> float:
 
 
 def _score_turnaround_candidate(data: bytes, key: str) -> float:
-    """分数越高越好;side/back 优先非正脸(左右不对称 + 非居中大脸块)。"""
+    """分数越高越好;side/back 优先非正脸;back 严惩「无脸正面/空白脸椭圆」。"""
     if _panel_is_blank_or_glitch(data):
         return -1e9
     img = Image.open(BytesIO(data)).convert("RGB")
@@ -2652,28 +2659,41 @@ def _score_turnaround_candidate(data: bytes, key: str) -> float:
     small = img.resize((48, 64), Image.Resampling.BILINEAR)
     px = list(small.getdata())
     sw, sh = small.size
-    # 左右差:侧面/背面通常不对称或发际线偏一侧
-    left = px[: sw * sh // 2] if False else [px[y * sw + x] for y in range(sh) for x in range(sw // 2)]
+    left = [px[y * sw + x] for y in range(sh) for x in range(sw // 2)]
     right = [px[y * sw + x] for y in range(sh) for x in range(sw // 2, sw)]
     def _mean(cells):
         n = max(1, len(cells))
         return tuple(sum(c[i] for c in cells) / n for i in range(3))
     ml, mr = _mean(left), _mean(right)
     asym = sum(abs(ml[i] - mr[i]) for i in range(3))
-    # 上半部中心肤色块面积(正脸偏高)
     face_score = 0.0
-    for y in range(int(sh * 0.1), int(sh * 0.45)):
-        for x in range(int(sw * 0.3), int(sw * 0.7)):
+    blank_face = 0.0
+    hair_dark = 0.0
+    head_cells = 0
+    for y in range(int(sh * 0.08), int(sh * 0.42)):
+        for x in range(int(sw * 0.28), int(sw * 0.72)):
+            head_cells += 1
             r, g, b = px[y * sw + x]
             if r > 90 and g > 70 and b > 60 and r >= g - 10:
                 face_score += 1.0
+            # 空白椭圆脸(二次元常见假背影)
+            if r > 210 and g > 210 and b > 210 and abs(r - g) < 18 and abs(g - b) < 18:
+                blank_face += 1.0
+            if r + g + b < 140 and max(r, g, b) - min(r, g, b) < 40:
+                hair_dark += 1.0
     face_score /= max(1, sw * sh)
+    blank_ratio = blank_face / max(1, head_cells)
+    hair_ratio = hair_dark / max(1, head_cells)
     score = 100.0 - (face_score * 200.0 if key in ("side", "back") else 0.0)
     if key in ("side", "back"):
         score += asym * 0.8
     else:
         score += face_score * 50.0
-    # 非空白奖励
+    if key == "back":
+        # 真背影:后脑头发应占上半中心;空白脸/正脸肤色重罚
+        score -= blank_ratio * 180.0
+        score += hair_ratio * 60.0
+        score -= face_score * 120.0
     score += 10.0
     return score
 
