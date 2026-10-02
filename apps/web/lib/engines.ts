@@ -221,6 +221,8 @@ export interface EngineSubmitInput {
    * 缺省/off 不发字段,后端行为不变。提交前由后端按实测规格改写采样图。
    */
   acceleration?: H3AccelLevel;
+  /** 速度分档(INTENT e):fast|quality;与 acceleration 共存时显式 accel 优先。 */
+  speed_tier?: "fast" | "quality";
   /**
    * @主体引用(2026-08-26):prompt 内 @实体名 解析出的主体库 id(提及首现序)。
    * H3 链路(entity_ids 字段)后端据此在绝对开头注入 @图片N 引用行
@@ -287,6 +289,9 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
   // H3 智能加速(2026-09-12):非 off 档随负载下发,后端按实测规格改写采样图
   const accelPayload = input.acceleration && input.acceleration !== "off"
     ? { acceleration: input.acceleration }
+    : {};
+  const speedTierPayload = input.speed_tier
+    ? { speed_tier: input.speed_tier }
     : {};
   const imageParam = engineNeedsImage(engine);
   const multiImage = imageParam !== null && (imageParam.max ?? 1) > 1;
@@ -361,6 +366,7 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         ..._h3Payload(values, positive, negative, seed),
         ..._entityIdsPayload(entityIds),
         ...accelPayload,
+        ...speedTierPayload,
         ...(refImage ? { image: refImage.filename, worker: refImage.worker } : {}),
       };
       return _postH3(refImage ? "/api/h3/i2v" : "/api/h3/t2v", h3Body);
@@ -372,6 +378,7 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         ..._h3NsfwPayload(values, positive, negative, seed),
         ..._entityIdsPayload(entityIds),
         ...accelPayload,
+        ...speedTierPayload,
         ...(refImage ? { image: refImage.filename, worker: refImage.worker } : {}),
       };
       return _postH3(refImage ? "/api/h3/i2v" : "/api/h3/t2v", h3Body);
@@ -425,6 +432,7 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         ..._h3Payload(values, positive, negative, seed),
         ..._entityIdsPayload(entityIds),
         ...accelPayload,
+        ...speedTierPayload,
         image: refImage!.filename,
         worker: refImage!.worker,
       });
@@ -434,6 +442,7 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         ..._h3NsfwPayload(values, positive, negative, seed),
         ..._entityIdsPayload(entityIds),
         ...accelPayload,
+        ...speedTierPayload,
         image: refImage!.filename,
         worker: refImage!.worker,
       });
@@ -450,6 +459,7 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         ...flPayload,
         ..._entityIdsPayload(entityIds),
         ...accelPayload,
+        ...speedTierPayload,
         image: refImages[0].filename,
         last_frame: refImages[1].filename,
         worker: refImages[0].worker,
@@ -470,6 +480,7 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         ...r2vPayload,
         ..._entityIdsPayload(entityIds),
         ...accelPayload,
+        ...speedTierPayload,
         worker,
         ...(refImages && refImages.length > 0 ? { images: refImages.map((r) => r.filename) } : {}),
         ...(refVideo ? { videos: [refVideo.filename] } : {}),

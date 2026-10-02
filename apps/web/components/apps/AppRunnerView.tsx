@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ParamField } from "@/components/generate/ParamField";
 import { H3AccelSelect } from "@/components/generate/H3AccelSelect";
+import { SpeedTierSelect } from "@/components/generate/SpeedTierSelect";
 import { Button } from "@/components/ui/Button";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
@@ -38,6 +39,14 @@ import {
 } from "@/lib/apps";
 import { coverImageUrl, coverVideoUrl, isVideoCoverUrl, fetchAppRelations, getMe, imageThumbUrl, imageUrl, listJobs, type AppRelation } from "@/lib/api";
 import type { H3AccelLevel } from "@/lib/h3Accel";
+import { plainJobErrorReason } from "@/lib/jobSelfheal";
+import {
+  DEFAULT_SPEED_TIER,
+  loadSpeedTier,
+  saveSpeedTier,
+  speedTierToH3Accel,
+  type SpeedTier,
+} from "@/lib/speedTier";
 import { confirmAge, isAgeConfirmed, useR18Mode } from "@/lib/r18";
 import { maskImageKeys } from "@/lib/inpaintMask";
 import { mediaKindOf } from "@/lib/mediaKind";
@@ -83,6 +92,11 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回" }: AppRunner
   const [contentMode, setContentMode] = useState<"sfw" | "nsfw">("sfw");
   /** H3 智能加速档(2026-09-12):仅 H3 家族应用显示选择器,默认关闭 */
   const [accel, setAccel] = useState<H3AccelLevel>("off");
+  const [speedTier, setSpeedTier] = useState<SpeedTier>(DEFAULT_SPEED_TIER);
+  useEffect(() => {
+    setSpeedTier(loadSpeedTier());
+  }, []);
+
   const [r18, setR18Mode] = useR18Mode();
   const [ageGateOpen, setAgeGateOpen] = useState(false);
   /** 详情落地 → 打开应用后进入运行台 */
@@ -303,6 +317,11 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回" }: AppRunner
     abortRef.current = ctrl;
     let receipt: Awaited<ReturnType<typeof runApp>>;
     try {
+      // 速度分档优先;H3 且用户未选手动加速时由 speed_tier 映射 balanced/off
+      const h3 = appSupportsH3Accel(app);
+      const effectiveAccel: H3AccelLevel = h3
+        ? (accel !== "off" ? accel : speedTierToH3Accel(speedTier))
+        : "off";
       receipt = await runApp(activeId, buildRunValues(app.params_schema, values), {
         content_mode:
           app.content_modes?.includes("sfw") && app.content_modes?.includes("nsfw")
@@ -310,11 +329,11 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回" }: AppRunner
             : app.is_nsfw
               ? "nsfw"
               : "sfw",
-        // 智能加速:非 H3 应用恒 off(选择器不渲染),这里兜底不传
-        acceleration: appSupportsH3Accel(app) ? accel : "off",
+        acceleration: effectiveAccel,
+        speed_tier: speedTier,
       });
     } catch (e) {
-      setRunError(e instanceof Error ? e.message : "提交失败");
+      setRunError(plainJobErrorReason(e instanceof Error ? e.message : "提交失败"));
       setSubmitting(false);
       return;
     }
@@ -322,6 +341,9 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回" }: AppRunner
     // 任何异常(含非 Error 抛出)都不得把表单永久留在「正在提交」禁用态
     setSubmitting(false);
     setRunning(true);
+    if (typeof receipt.queued_behind === "number" && receipt.queued_behind > 0) {
+      toast.info(`排队中:前方还有 ${receipt.queued_behind} 个作业`);
+    }
     try {
       // trackJob 复用统一作业跟踪(SSE 进度 + 断线重连 + lookupJob 轮询兜底);
       // client_id/worker 契约未保证,空串时 SSE 连不上会自动降级轮询,产物不丢
@@ -343,7 +365,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回" }: AppRunner
     } catch (e) {
       // 用户离开页面/重跑触发的 AbortError 静默吞掉(非失败)
       if (!(e instanceof TrackJobAbortError)) {
-        setRunError(e instanceof Error ? e.message : "运行失败");
+        setRunError(plainJobErrorReason(e instanceof Error ? e.message : "运行失败"));
       }
     } finally {
       setRunning(false);
@@ -896,6 +918,16 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回" }: AppRunner
                   )}
                 </RhParamSection>
               ))}
+              <SpeedTierSelect
+                value={speedTier}
+                onChange={(t) => {
+                  setSpeedTier(t);
+                  saveSpeedTier(t);
+                  // 与进阶加速同步:切分档时复位手动加速,走分档映射
+                  if (appSupportsH3Accel(app)) setAccel("off");
+                }}
+                disabled={submitting || running}
+              />
               {appSupportsH3Accel(app) && (
                 <H3AccelSelect
                   value={accel}

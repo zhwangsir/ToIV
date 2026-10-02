@@ -84,6 +84,7 @@ from app.routes.video import _raise_from_comfy_error
 from app.services import app_covers as covers_svc
 from app.services.app_fingerprint import fingerprint as graph_fingerprint
 from app.services import h3_accel
+from app.services import speed_tier as speed_tier_svc
 from app.services.app_content_modes import (
     SFW_NSFW_TWINS,
     content_modes_for,
@@ -335,11 +336,18 @@ class AppRunRequest(BaseModel):
     content_mode: str | None = Field(default=None, max_length=8)
     # H3 智能加速档(2026-09-12):off|lossless|balanced|extreme;仅 H3 家族应用可非 off
     acceleration: str = Field(default="off", max_length=16)
+    # 速度分档(INTENT e 2026-10-03):fast|quality;默认精细。H3→acceleration 映射;非 H3→步数折半。
+    speed_tier: str = Field(default=speed_tier_svc.DEFAULT_SPEED_TIER, max_length=16)
 
     @field_validator("acceleration")
     @classmethod
     def _v_acceleration(cls, v: str) -> str:
         return h3_accel.validate_acceleration(v)
+
+    @field_validator("speed_tier")
+    @classmethod
+    def _v_speed_tier(cls, v: str) -> str:
+        return speed_tier_svc.validate_speed_tier(v)
 
 
 class AppSourceLink(BaseModel):
@@ -4207,14 +4215,27 @@ async def run_app(
     nodes = set(run_app.required_nodes or a.required_nodes or []) or {
         n["class_type"] for n in graph.values() if isinstance(n, dict) and n.get("class_type")
     }
-    # H3 智能加速(2026-09-12):非 H3 家族应用拒收非 off 档(口径与 _pick_app_client 一致);
-    # 规格文件缺失时 apply 内部降级为原生提交(applied=False + warning 日志),不报错。
-    if body.acceleration != "off" and not h3_accel.is_h3_family(a.id, nodes):
+    # 速度分档(INTENT e)+H3 智能加速:
+    # - speed_tier=fast|quality(默认精细);显式 acceleration!=off 优先进阶档
+    # - H3:fast→balanced / quality→off;非 H3:fast 折半 KSampler steps
+    # - 非 H3 拒收非 off acceleration(与旧口径一致)
+    is_h3 = h3_accel.is_h3_family(a.id, nodes)
+    speed_tier = speed_tier_svc.validate_speed_tier(body.speed_tier)
+    effective_accel = (
+        speed_tier_svc.resolve_h3_acceleration(speed_tier, body.acceleration)
+        if is_h3
+        else body.acceleration
+    )
+    if effective_accel != "off" and not is_h3:
         raise HTTPException(status_code=422, detail="智能加速(acceleration)仅支持 H3 家族应用")
-    if body.acceleration != "off":
-        graph, accel_applied = h3_accel.apply_acceleration(graph, body.acceleration)
+    steps_applied = False
+    steps_meta: dict = {}
+    if is_h3 and effective_accel != "off":
+        graph, accel_applied = h3_accel.apply_acceleration(graph, effective_accel)
     else:
         accel_applied = False
+        if not is_h3 and speed_tier == "fast":
+            graph, steps_applied, steps_meta = speed_tier_svc.apply_fast_steps(graph, speed_tier)
     try:
         client = await _pick_app_client(pool, nodes, required)
     except ComfyUIError as e:
@@ -4258,7 +4279,10 @@ async def run_app(
         params=json.dumps(
             {
                 "app_id": a.id, "run_app_id": run_app.id, "content_mode": mode, "values": values,
-                "acceleration": body.acceleration, "acceleration_applied": accel_applied,
+                "acceleration": effective_accel, "acceleration_applied": accel_applied,
+                "speed_tier": speed_tier,
+                "speed_tier_steps_applied": steps_applied,
+                "speed_tier_steps_meta": steps_meta,
             },
             ensure_ascii=False,
         ),
@@ -4275,6 +4299,12 @@ async def run_app(
     # 服务端后台追踪结果落库,不依赖客户端 SSE(同 generate 系端点)
     spawn_tracker(client, prompt_id)
 
+    queued_behind = 0
+    try:
+        _running, queued_behind = await client.queue_counts()
+    except Exception:  # noqa: BLE001 — 排队提示失败不挡提交
+        queued_behind = 0
+
     return {
         "job_id": job.id,
         "prompt_id": prompt_id,
@@ -4283,8 +4313,11 @@ async def run_app(
         "app_id": a.id,
         "content_mode": mode,
         "usage_count": a.usage_count,
-        "acceleration": body.acceleration,
+        "acceleration": effective_accel,
         "acceleration_applied": accel_applied,
+        "speed_tier": speed_tier,
+        "speed_tier_steps_applied": steps_applied,
+        "queued_behind": queued_behind,
     }
 
 

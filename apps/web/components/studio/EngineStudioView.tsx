@@ -33,10 +33,18 @@ import {
 } from "@/lib/engineStudio";
 import { friendlyError } from "@/lib/friendlyError";
 import { isH3EngineId, type H3AccelLevel } from "@/lib/h3Accel";
+import {
+  DEFAULT_SPEED_TIER,
+  loadSpeedTier,
+  saveSpeedTier,
+  speedTierToH3Accel,
+  type SpeedTier,
+} from "@/lib/speedTier";
 import { R18_CHANGED_EVENT } from "@/lib/r18";
 import { useGeneration } from "@/lib/useGeneration";
 import { ParamField } from "@/components/generate/ParamField";
 import { H3AccelSelect } from "@/components/generate/H3AccelSelect";
+import { SpeedTierSelect } from "@/components/generate/SpeedTierSelect";
 import { ResultPanel, type HistoryEntry } from "@/components/generate/ResultPanel";
 import "@/app/styles/apps.css";
 
@@ -104,6 +112,8 @@ export function EngineStudioView({ kind }: { kind: StudioKind }) {
   const [promptByEngine, setPromptByEngine] = useState<Record<string, string>>({});
   /** H3 智能加速档按引擎分槽(2026-09-12):仅 h3-* 引擎渲染,默认关闭 */
   const [accelByEngine, setAccelByEngine] = useState<Record<string, H3AccelLevel>>({});
+  const [speedTier, setSpeedTier] = useState<SpeedTier>(DEFAULT_SPEED_TIER);
+  useEffect(() => { setSpeedTier(loadSpeedTier()); }, []);
 
   const values = useMemo(
     () => (engine ? { ...engineDefaults(engine), ...(valuesByEngine[engine.id] ?? {}) } : {}),
@@ -312,7 +322,12 @@ export function EngineStudioView({ kind }: { kind: StudioKind }) {
         refImages: targetMedia.refImages,
         refAudio: targetMedia.refAudio,
         refVideo: targetMedia.refVideo,
-        acceleration: isH3EngineId(target.id) ? (accelByEngine[target.id] ?? "off") : undefined,
+        acceleration: isH3EngineId(target.id)
+          ? ((accelByEngine[target.id] ?? "off") !== "off"
+              ? (accelByEngine[target.id] ?? "off")
+              : speedTierToH3Accel(speedTier))
+          : undefined,
+        speed_tier: speedTier,
       });
       const entry: HistoryEntry = {
         id: newEntryId(),
@@ -610,6 +625,17 @@ export function EngineStudioView({ kind }: { kind: StudioKind }) {
                     </div>
                   )}
 
+                  <SpeedTierSelect
+                    value={speedTier}
+                    onChange={(t) => {
+                      setSpeedTier(t);
+                      saveSpeedTier(t);
+                      if (isH3EngineId(engine.id)) {
+                        setAccelByEngine((prev) => ({ ...prev, [engine.id]: "off" }));
+                      }
+                    }}
+                    disabled={gen.isRunning}
+                  />
                   {isH3EngineId(engine.id) && (
                     <H3AccelSelect
                       value={accelByEngine[engine.id] ?? "off"}

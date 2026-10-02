@@ -198,6 +198,11 @@ export interface AppRunReceipt {
   /** H3 智能加速回显(2026-09-12;旧后端无字段时 off/false)。 */
   acceleration?: H3AccelLevel;
   acceleration_applied?: boolean;
+  /** 速度分档回显(INTENT e;缺省 quality)。 */
+  speed_tier?: "fast" | "quality";
+  speed_tier_steps_applied?: boolean;
+  /** 提交时前方排队数(Comfy pending;0=无排队)。 */
+  queued_behind?: number;
 }
 
 const CATEGORIES: readonly AppCategory[] = ["image", "video", "audio", "edit", "3d", "other"];
@@ -554,11 +559,16 @@ export async function forkApp(id: string): Promise<AppItem> {
 export async function runApp(
   id: string,
   values: Record<string, unknown>,
-  opts?: { content_mode?: "sfw" | "nsfw"; acceleration?: H3AccelLevel },
+  opts?: {
+    content_mode?: "sfw" | "nsfw";
+    acceleration?: H3AccelLevel;
+    speed_tier?: "fast" | "quality";
+  },
 ): Promise<AppRunReceipt> {
   const body: Record<string, unknown> = { values };
   if (opts?.content_mode) body.content_mode = opts.content_mode;
   if (opts?.acceleration && opts.acceleration !== "off") body.acceleration = opts.acceleration;
+  if (opts?.speed_tier) body.speed_tier = opts.speed_tier;
   const res = await apiFetch(`${API_BASE}/api/apps/${encodeURIComponent(id)}/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -568,6 +578,10 @@ export async function runApp(
   // usage_count 已变,失效列表缓存(排序/计数下次拉新)
   invalidateApps();
   const data = (await res.json()) as Record<string, unknown>;
+  const tier =
+    data.speed_tier === "fast" || data.speed_tier === "quality"
+      ? data.speed_tier
+      : undefined;
   return {
     job_id: String(data.job_id ?? ""),
     prompt_id: String(data.prompt_id ?? ""),
@@ -575,6 +589,12 @@ export async function runApp(
     worker: String(data.worker ?? ""),
     acceleration: typeof data.acceleration === "string" ? (data.acceleration as H3AccelLevel) : "off",
     acceleration_applied: data.acceleration_applied === true,
+    speed_tier: tier,
+    speed_tier_steps_applied: data.speed_tier_steps_applied === true,
+    queued_behind:
+      typeof data.queued_behind === "number" && Number.isFinite(data.queued_behind)
+        ? data.queued_behind
+        : undefined,
   };
 }
 
