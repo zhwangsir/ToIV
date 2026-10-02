@@ -3441,7 +3441,7 @@ def collage_face_triplet_equal_width(
     gap: int = 12,
     bg: tuple[int, int, int] = (248, 248, 252),
     face_width_frac: float = 0.70,
-    face_height_frac: float = 0.55,
+    face_height_frac: float = 0.50,
     min_side_margin: float = 0.10,
 ) -> bytes:
     """面部三格同宽同高横拼（19:20）。
@@ -3476,7 +3476,7 @@ def collage_face_triplet_equal_width(
             win_h = win_w / aspect
         # 垂直：头顶优先——脸顶距窗顶约占 (1-fh_frac)*0.40
         top_slack = win_h - fh
-        face_top_in_win = max(2.0, top_slack * 0.55)  # 19:20 R 保头顶
+        face_top_in_win = max(2.0, top_slack * 0.72)  # 19:20 R 保头顶
         top = y0 - face_top_in_win
         left = fcx - win_w / 2.0
         # 在原图上取整数窗；越界用边缘色扩展，保证窗完整后再缩放铺满
