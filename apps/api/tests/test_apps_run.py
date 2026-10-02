@@ -2523,6 +2523,30 @@ def test_run_accepts_seed_even_if_not_in_schema(ctx):
     assert r.json().get("seed") == 13579 or True  # seed 可能仅在 Job
 
 
+def test_run_top_level_seed_reproducible(ctx):
+    """顶层 body.seed 与 values.seed 等价写入图(03:20 P0: resume 顶层 seed 不得被忽略)。"""
+    c, tokens, _ids, engine, fake, _pool = ctx
+    r = c.post(
+        "/api/apps/t2i-basic/run",
+        headers=_h(tokens),
+        json={"values": {"prompt": "top-seed"}, "seed": 97531},
+    )
+    assert r.status_code == 200, r.text
+    assert fake.graphs[-1]["8"]["inputs"]["seed"] == 97531
+
+
+def test_run_values_seed_wins_over_top_level(ctx):
+    """values.seed 优先于顶层 seed。"""
+    c, tokens, _ids, engine, fake, _pool = ctx
+    r = c.post(
+        "/api/apps/t2i-basic/run",
+        headers=_h(tokens),
+        json={"values": {"prompt": "win", "seed": 111}, "seed": 222},
+    )
+    assert r.status_code == 200, r.text
+    assert fake.graphs[-1]["8"]["inputs"]["seed"] == 111
+
+
 def test_run_seed_policy_randomizes_when_omitted(ctx):
     """未传 seed 时图内固定种子被随机覆盖;连提两次不同。"""
     c, tokens, _ids, engine, fake, _pool = ctx

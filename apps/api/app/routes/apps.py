@@ -333,6 +333,8 @@ class AppPatch(BaseModel):
 
 class AppRunRequest(BaseModel):
     values: dict = Field(default_factory=dict)  # 表单值:{参数key: 值}
+    # 顶层 seed(可选):与 values.seed 等价;resume/旧客户端常放顶层。values.seed 优先。
+    seed: int | str | None = Field(default=None)
     # sfw|nsfw — 合并卡在 runner 内切换;缺省按应用 is_nsfw
     content_mode: str | None = Field(default=None, max_length=8)
     # H3 智能加速档(2026-09-12):off|lossless|balanced|extreme;仅 H3 家族应用可非 off
@@ -4218,7 +4220,11 @@ async def run_app(
             run_nsfw = True
     enforce_generation_rate_limit(user)
     # 表单仍按父卡 schema 校验(与 twin 对齐);图/绑定取实际运行卡
-    values = _validate_params(a.params_schema or [], body.values)
+    raw_values = dict(body.values or {})
+    # 顶层 seed → values(values.seed 已有则不覆盖);修 resume 把 seed 放顶层被忽略(03:20 P0)
+    if "seed" not in raw_values and body.seed is not None and body.seed != "":
+        raw_values["seed"] = body.seed
+    values = _validate_params(a.params_schema or [], raw_values)
     graph = _build_graph(run_app.workflow_json or {}, run_app.bindings or {}, values)
     if not graph:
         raise HTTPException(status_code=422, detail="应用未配置工作流图")

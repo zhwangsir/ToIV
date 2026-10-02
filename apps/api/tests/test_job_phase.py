@@ -10,7 +10,12 @@ from app.services.job_phase import (
     phase_label,
     resolve_phase,
 )
-from app.services.worker_warmup import _queue_busy, build_warmup_graph
+from app.services.worker_warmup import (
+    _queue_busy,
+    build_warmup_graph,
+    is_warmup_allowed_url,
+    warmup_pool_urls,
+)
 
 
 def test_phase_label_known():
@@ -74,3 +79,26 @@ def test_build_warmup_graphs_have_seed_and_prefix():
 
     g3 = build_warmup_graph("h3-t2v", 9)
     assert isinstance(g3, dict) and len(g3) >= 3
+
+
+def test_warmup_forbids_production_8196():
+    assert is_warmup_allowed_url("http://100.68.100.90:8196") is False
+    assert is_warmup_allowed_url("http://100.68.100.90:8205") is False
+    assert is_warmup_allowed_url("http://100.68.100.90:8195") is True
+    assert is_warmup_allowed_url("http://100.68.100.90:8261") is True
+    assert is_warmup_allowed_url("http://100.68.100.90:8263") is True
+
+
+def test_warmup_pool_urls_never_include_8196(monkeypatch):
+    class S:
+        upscale_workers = "http://100.68.100.90:8261,http://100.68.100.90:8262"
+        h3_base_url = "http://100.68.100.90:8195"
+        @property
+        def worker_urls(self):
+            return ["http://100.68.100.90:8196", "http://100.68.100.90:8263"]
+
+    urls = warmup_pool_urls(S())
+    assert urls
+    assert all(":8196" not in u for u in urls)
+    assert any(u.endswith(":8261") for u in urls)
+    assert any(u.endswith(":8195") for u in urls)

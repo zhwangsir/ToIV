@@ -93,8 +93,8 @@ def describe_tier(speed_tier: str) -> str:
 
 
 def describe_tier_hint(speed_tier: str) -> str:
-    """档位说明短句(少字;02:41 观感:快速偏卡通、精细更写实)。"""
+    """档位说明短句(少字;02:41 观感 + 03:20 H3 约快 15%、画质接近)。"""
     if validate_speed_tier(speed_tier) == "fast":
-        return "更快出图,画面偏概括/卡通"
+        return "约快15%,画质接近;画面偏概括/卡通"
     return "原生参数,细节更写实"
 

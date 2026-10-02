@@ -208,3 +208,9 @@ def test_run_quality_default_no_step_patch(ctx):
     assert body["speed_tier"] == "quality"
     assert body["speed_tier_steps_applied"] is False
     assert fake.graphs[-1]["8"]["inputs"]["steps"] == 20
+
+
+def test_describe_tier_hint_mentions_h3_speedup():
+    from app.services.speed_tier import describe_tier_hint
+    assert "15%" in describe_tier_hint("fast")
+    assert "写实" in describe_tier_hint("quality")
