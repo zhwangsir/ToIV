@@ -163,6 +163,16 @@ def test_run_rejects_bad_speed_tier(ctx):
         json={"values": {"prompt": "一只猫"}, "speed_tier": "turbo"},
     )
     assert r.status_code == 422
+    detail = r.json().get("detail")
+    if isinstance(detail, list):
+        detail = " ".join(
+            (x.get("msg") if isinstance(x, dict) else str(x)) for x in detail
+        )
+    detail_s = str(detail)
+    assert "速度档位只能选快速或精细" in detail_s
+    assert "speed_tier" not in detail_s
+    assert "fast" not in detail_s
+    assert "quality" not in detail_s
 
 
 def test_run_fast_persists_and_halves_steps(ctx):

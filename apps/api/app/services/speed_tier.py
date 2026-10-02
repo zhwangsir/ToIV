@@ -27,10 +27,10 @@ def validate_speed_tier(v: object) -> str:
     if v is None or v == "":
         return DEFAULT_SPEED_TIER
     if not isinstance(v, str):
-        raise ValueError("speed_tier 须为 fast / quality")
+        raise ValueError("速度档位只能选快速或精细")
     tier = v.strip().lower()
     if tier not in SPEED_TIERS:
-        raise ValueError(f"speed_tier 须为 {' / '.join(SPEED_TIERS)} 之一")
+        raise ValueError("速度档位只能选快速或精细")
     return tier
 
 

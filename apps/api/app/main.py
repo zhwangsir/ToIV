@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -386,6 +387,19 @@ def create_app() -> FastAPI:
     # 全局未处理异常兜底:带请求上下文(method+path)落 ERROR 日志,
     # 返回统一 500 JSON(不泄露内部细节)。HTTPException 走自身 handler 不受影响;
     # ServerErrorMiddleware 处理后仍会 re-raise,uvicorn.error 的 traceback 保留。
+    @app.exception_handler(RequestValidationError)
+    async def _validation_exc_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        """用户可见校验文案：速度档位错误返回纯中文，不露出字段名。"""
+        for err in exc.errors():
+            loc = err.get("loc") or ()
+            msg = str(err.get("msg") or "")
+            if "speed_tier" in loc or "速度档位只能选快速或精细" in msg:
+                return JSONResponse(
+                    status_code=422,
+                    content={"detail": "速度档位只能选快速或精细"},
+                )
+        return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
     @app.exception_handler(Exception)
     async def _unhandled_exc_handler(request: Request, exc: Exception) -> JSONResponse:
         logging.getLogger("toiv.unhandled").exception(
