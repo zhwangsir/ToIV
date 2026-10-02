@@ -526,6 +526,60 @@ def is_panel_url(url: str) -> bool:
     return _CHAR_PANEL_MARK in (url or "")
 
 
+def panel_style_from_url(url: str) -> str | None:
+    """从 char_panel_{cid8}_{style}_{key}_*.png 解析 style;非 panel 返回 None。"""
+    if not is_panel_url(url):
+        return None
+    name = Path(urlsplit(url).path).name
+    # char_panel_803fb69b_ancient_realistic_front_xxx.png
+    # char_panel_803fb69b_anime_portrait_xxx.png
+    if not name.startswith(_CHAR_PANEL_MARK):
+        return None
+    rest = name[len(_CHAR_PANEL_MARK) :]
+    parts = rest.split("_")
+    if len(parts) < 3:
+        return None
+    # parts[0]=cid8; style may be anime | ancient_realistic
+    if len(parts) >= 3 and parts[1] == "ancient" and parts[2] == "realistic":
+        return "ancient_realistic"
+    if parts[1] in SHEET_STYLES:
+        return parts[1]
+    return None
+
+
+class ReferenceImagesStyleError(CharacterSheetError):
+    """reference_images 写入设定卡格图时缺显式风格匹配。"""
+
+
+def assert_reference_images_panel_style(
+    refs: list[str],
+    *,
+    allowed_styles: set[str] | frozenset[str] | None,
+) -> None:
+    """写入守卫:reference_images 含 char_panel_* 时必须显式风格匹配,否则拒绝。
+
+    父代理 12:01:设定卡格图不得静默写入雨夜写实角色 reference_images。
+    allowed_styles 为 None/空 → 一律拒绝任何 char_panel_*。
+    """
+    allowed = {s for s in (allowed_styles or set()) if s in SHEET_STYLES}
+    bad: list[str] = []
+    for u in refs or []:
+        if not isinstance(u, str) or not is_panel_url(u):
+            continue
+        st = panel_style_from_url(u)
+        if st is None or st not in allowed:
+            bad.append(u)
+    if bad:
+        allow_txt = ",".join(sorted(allowed)) if allowed else "(无)"
+        raise ReferenceImagesStyleError(
+            f"reference_images 含设定卡格图但未显式匹配风格(allowed={allow_txt}): "
+            + "; ".join(bad[:3]),
+            status_code=422,
+        )
+
+
+
+
 def merge_video_refs(
     existing: list[str],
     *,

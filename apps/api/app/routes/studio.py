@@ -228,6 +228,8 @@ def patch_character(
         raise HTTPException(status_code=404, detail="角色不存在")
     _get_project(session, c.project_id, user)  # 租户校验
     data = body.model_dump(exclude_none=True)
+    # 非 ORM 字段:风格匹配白名单(仅守卫用)
+    allowed_panel_styles = data.pop("allowed_panel_styles", None)
     # Batch2:reference_images list → DB JSON 字符串列
     if "reference_images" in data:
         refs = data["reference_images"] or []
@@ -238,6 +240,15 @@ def patch_character(
         for u in refs:
             if not isinstance(u, str) or len(u) > 1024:
                 raise HTTPException(status_code=400, detail="reference_images 项无效")
+        # 12:01 守卫:char_panel_* 须显式风格匹配
+        from app.services.studio import character_sheet as sheet_svc
+        allowed: set[str] = set()
+        if isinstance(allowed_panel_styles, (list, tuple, set)):
+            allowed = {str(s) for s in allowed_panel_styles}
+        try:
+            sheet_svc.assert_reference_images_panel_style(refs, allowed_styles=allowed)
+        except sheet_svc.ReferenceImagesStyleError as e:
+            raise HTTPException(status_code=e.status_code, detail=str(e)) from e
         data["reference_images"] = json.dumps(refs, ensure_ascii=False)
     for k, v in data.items():
         setattr(c, k, v)
@@ -280,7 +291,7 @@ async def generate_character_sheet_route(
     session: Session = Depends(get_session),
     pool=Depends(get_pool),
 ):
-    """分格出图 + Pillow 固定版式拼版;卡图写入 reference_images 供 Ref2VA。"""
+    """分格出图 + Pillow 固定版式拼版;默认只落设定卡文件,不写 reference_images。"""
     from app.services.studio import character_sheet as sheet_svc
 
     c = session.get(StudioCharacter, cid)
@@ -321,26 +332,38 @@ async def generate_character_sheet_route(
     except sheet_svc.CharacterSheetError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e)) from e
 
-    try:
-        existing = json.loads(c.reference_images or "[]")
-    except (ValueError, TypeError):
-        existing = []
-    if not isinstance(existing, list):
-        existing = []
-    # 17:45#6:Ref2VA 只写立绘+三视图;整卡不进 reference_images
-    refs = sheet_svc.merge_video_refs(
-        [u for u in existing if isinstance(u, str)],
-        panel_urls=panel_urls,
-        sheet_url=url,
-    )
-    c.reference_images = json.dumps(refs, ensure_ascii=False)
-    session.add(c)
-    session.commit()
-    session.refresh(c)
+    # 12:01:默认不写 reference_images;仅 apply_to_video_refs+风格匹配时写入立绘+三视图
+    refs_out = None
+    if getattr(body, "apply_to_video_refs", False):
+        try:
+            existing = json.loads(c.reference_images or "[]")
+        except (ValueError, TypeError):
+            existing = []
+        if not isinstance(existing, list):
+            existing = []
+        refs = sheet_svc.merge_video_refs(
+            [u for u in existing if isinstance(u, str)],
+            panel_urls=panel_urls,
+            sheet_url=url,
+        )
+        try:
+            sheet_svc.assert_reference_images_panel_style(
+                refs, allowed_styles={body.style}
+            )
+        except sheet_svc.ReferenceImagesStyleError as e:
+            raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+        c.reference_images = json.dumps(refs, ensure_ascii=False)
+        session.add(c)
+        session.commit()
+        session.refresh(c)
+        refs_out = refs
     out = _character_out(c)
     out["sheet_url"] = url
     out["sheet_style"] = body.style
     out["panel_urls"] = panel_urls
+    out["apply_to_video_refs"] = bool(getattr(body, "apply_to_video_refs", False))
+    if refs_out is not None:
+        out["reference_images"] = refs_out
     return out
 
 
@@ -417,27 +440,227 @@ async def regenerate_character_sheet_panels_route(
     except sheet_svc.CharacterSheetError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e)) from e
 
-    try:
-        existing = json.loads(c.reference_images or "[]")
-    except (ValueError, TypeError):
-        existing = []
-    if not isinstance(existing, list):
-        existing = []
-    refs = sheet_svc.merge_video_refs(
-        [u for u in existing if isinstance(u, str)],
-        panel_urls=panel_urls,
-        sheet_url=url,
-    )
-    c.reference_images = json.dumps(refs, ensure_ascii=False)
-    session.add(c)
-    session.commit()
-    session.refresh(c)
+    refs_out = None
+    if getattr(body, "apply_to_video_refs", False):
+        try:
+            existing = json.loads(c.reference_images or "[]")
+        except (ValueError, TypeError):
+            existing = []
+        if not isinstance(existing, list):
+            existing = []
+        refs = sheet_svc.merge_video_refs(
+            [u for u in existing if isinstance(u, str)],
+            panel_urls=panel_urls,
+            sheet_url=url,
+        )
+        try:
+            sheet_svc.assert_reference_images_panel_style(
+                refs, allowed_styles={body.style}
+            )
+        except sheet_svc.ReferenceImagesStyleError as e:
+            raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+        c.reference_images = json.dumps(refs, ensure_ascii=False)
+        session.add(c)
+        session.commit()
+        session.refresh(c)
+        refs_out = refs
     out = _character_out(c)
     out["sheet_url"] = url
     out["sheet_style"] = body.style
     out["panel_urls"] = panel_urls
     out["debug"] = debug
+    out["apply_to_video_refs"] = bool(getattr(body, "apply_to_video_refs", False))
+    if refs_out is not None:
+        out["reference_images"] = refs_out
     return out
+
+
+
+@router.get("/studio/characters/{cid}/character-sheets")
+def list_character_sheets(
+    cid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """列出角色已落盘设定卡(按风格取最新 sheet + 分格)。不改 reference_images。"""
+    from app.services.studio import character_sheet as sheet_svc
+    from app.storage import drama_output_root
+
+    c = session.get(StudioCharacter, cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="角色不存在")
+    _get_project(session, c.project_id, user)
+    studio = drama_output_root() / "studio"
+    out = []
+    if studio.exists():
+        for style in sheet_svc.SHEET_STYLES:
+            sheets = sorted(
+                studio.glob(f"char_sheet_{cid[:8]}_{style}_*.png"),
+                key=lambda p: p.stat().st_mtime,
+            )
+            if not sheets:
+                continue
+            latest = sheets[-1]
+            prefix = f"char_panel_{cid[:8]}_{style}_"
+            panels: dict[str, str] = {}
+            for key in ("portrait", "front", "side", "back", "faces", "costume"):
+                hits = sorted(
+                    studio.glob(f"{prefix}{key}_*.png"),
+                    key=lambda p: p.stat().st_mtime,
+                )
+                if hits:
+                    panels[key] = f"/api/studio/files/{hits[-1].name}"
+            out.append(
+                {
+                    "style": style,
+                    "sheet_url": f"/api/studio/files/{latest.name}",
+                    "mtime": latest.stat().st_mtime,
+                    "panel_urls": panels,
+                }
+            )
+    return {"character_id": cid, "sheets": out}
+
+
+@router.post("/studio/characters/{cid}/character-sheet/panel-replace")
+async def replace_character_sheet_panel(
+    cid: str,
+    body: dict,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """用上传图替换单格并重拼整卡。body: style,key,image_b64 或 image_url。不写 reference_images。"""
+    import base64
+    import time
+    from app.services.studio import character_sheet as sheet_svc
+    from app.storage import drama_output_root
+
+    c = session.get(StudioCharacter, cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="角色不存在")
+    _get_project(session, c.project_id, user)
+
+    style = str(body.get("style") or "")
+    key = str(body.get("key") or "")
+    if style not in sheet_svc.SHEET_STYLES:
+        raise HTTPException(status_code=422, detail="style 无效")
+    allowed_keys = {
+        "portrait", "front", "side", "back", "faces", "costume",
+        *sheet_svc._EXPR_KEYS,
+    }
+    if key not in allowed_keys:
+        raise HTTPException(status_code=422, detail=f"key 无效:{key}")
+
+    raw: bytes | None = None
+    b64 = body.get("image_b64")
+    if isinstance(b64, str) and b64.strip():
+        try:
+            raw = base64.b64decode(b64.split(",")[-1])
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(status_code=422, detail="image_b64 无效") from e
+    elif isinstance(body.get("image_url"), str) and body["image_url"].strip():
+        # 仅允许本站 studio files
+        name = Path(body["image_url"]).name
+        path = drama_output_root() / "studio" / name
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="替换图不存在")
+        raw = path.read_bytes()
+    if not raw:
+        raise HTTPException(status_code=422, detail="需要 image_b64 或 image_url")
+
+    studio = drama_output_root() / "studio"
+    studio.mkdir(parents=True, exist_ok=True)
+    prefix = f"char_panel_{cid[:8]}_{style}_"
+    locked: dict[str, bytes] = {key: raw}
+    for k in ("portrait", "front", "side", "back", "faces", "costume", *sheet_svc._EXPR_KEYS):
+        if k == key:
+            continue
+        hits = sorted(studio.glob(f"{prefix}{k}_*.png"), key=lambda p: p.stat().st_mtime)
+        if hits:
+            locked[k] = hits[-1].read_bytes()
+    # 缺格时从最新整卡按 LAYOUT 裁切补齐
+    if "portrait" not in locked or len(locked) < 5:
+        sheets = sorted(
+            studio.glob(f"char_sheet_{cid[:8]}_{style}_*.png"),
+            key=lambda p: p.stat().st_mtime,
+        )
+        if sheets:
+            from io import BytesIO
+            from PIL import Image
+            sim = Image.open(sheets[-1]).convert("RGB")
+            for k, box in sheet_svc.LAYOUT.items():
+                if k in ("canvas", "name", "profile", "turnaround", "palette", "notes", "footer"):
+                    continue
+                if k in locked:
+                    continue
+                x, y, w, h = box
+                if k in ("faces", "costume", "expressions"):
+                    crop = sim.crop((x + 8, y + 32, x + w - 8, y + h - 8))
+                else:
+                    crop = sim.crop((x, y, x + w, y + h))
+                buf = BytesIO()
+                crop.save(buf, format="PNG")
+                locked[k] = buf.getvalue()
+            # 三视图从 turnaround 三等分
+            if any(k not in locked for k in ("front", "side", "back")):
+                tx, ty, tw, th = sheet_svc.LAYOUT["turnaround"]
+                view_w = (tw - 140) // 3
+                for i, k in enumerate(("front", "side", "back")):
+                    if k in locked:
+                        continue
+                    box = (tx + 110 + i * view_w, ty + 50, tx + 110 + (i + 1) * view_w - 12, ty + th - 40)
+                    crop = sim.crop(box)
+                    buf = BytesIO()
+                    crop.save(buf, format="PNG")
+                    locked[k] = buf.getvalue()
+    if "portrait" not in locked:
+        raise HTTPException(status_code=422, detail="无立绘,无法重拼")
+    if "expressions" not in locked and sum(1 for k in locked if k.startswith("expr_")) < 6:
+        # 占位浅底,避免 compose 崩
+        from io import BytesIO
+        from PIL import Image
+        buf = BytesIO()
+        Image.new("RGB", (980, 480), (248, 248, 252)).save(buf, format="PNG")
+        locked["expressions"] = buf.getvalue()
+
+    dest = studio / f"{prefix}{key}_{_sheet_token()}.png"
+    dest.write_bytes(raw)
+
+    meta = sheet_svc.SheetMeta(
+        name=(c.name or "").strip() or "角色",
+        style=style,
+        height_cm=int(body.get("height_cm") or 168),
+        role=str(body.get("role") or ""),
+        personality=str(body.get("personality") or ""),
+        design_notes=str(body.get("design_notes") or ""),
+        visual_prompt=(c.visual_prompt or "").strip(),
+        description=(c.description or "").strip(),
+    )
+    try:
+        png = sheet_svc.compose_character_sheet(locked, meta)
+    except sheet_svc.CharacterSheetError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+
+    sheet_name = f"char_sheet_{cid[:8]}_{style}_{_sheet_token()}.png"
+    (studio / sheet_name).write_bytes(png)
+    panel_urls = {k: f"/api/studio/files/{prefix}{k}_replaced.png" for k in locked}
+    # 真实 URL:用最新文件名
+    panel_urls = {}
+    for k in locked:
+        hits = sorted(studio.glob(f"{prefix}{k}_*.png"), key=lambda p: p.stat().st_mtime)
+        if hits:
+            panel_urls[k] = f"/api/studio/files/{hits[-1].name}"
+    return {
+        "sheet_url": f"/api/studio/files/{sheet_name}",
+        "sheet_style": style,
+        "panel_urls": panel_urls,
+        "replaced_key": key,
+        "apply_to_video_refs": False,
+    }
+
+
+def _sheet_token() -> str:
+    return uuid.uuid4().hex[:12]
+
 
 
 # ── 分镜批量保存 ───────────────────────────────────────────────────────────

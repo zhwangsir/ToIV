@@ -4814,6 +4814,14 @@ export type StudioCharacterSheetStyle = "ancient_realistic" | "anime";
 export interface StudioCharacterSheetResult extends StudioCharacter {
   sheet_url: string;
   sheet_style: StudioCharacterSheetStyle;
+  panel_urls?: Record<string, string>;
+  apply_to_video_refs?: boolean;
+}
+export interface StudioCharacterSheetListItem {
+  style: StudioCharacterSheetStyle;
+  sheet_url: string;
+  mtime: number;
+  panel_urls: Record<string, string>;
 }
 export const generateStudioCharacterSheet = (
   cid: string,
@@ -4827,9 +4835,59 @@ export const generateStudioCharacterSheet = (
     visual_prompt_override?: string;
     worker?: string;
     seed?: number;
+    apply_to_video_refs?: boolean;
   },
 ): Promise<StudioCharacterSheetResult> =>
   studioReq(`/studio/characters/${cid}/character-sheet`, "POST", body, {
+    longRequest: true,
+  });
+
+export const listStudioCharacterSheets = (
+  cid: string,
+): Promise<{ character_id: string; sheets: StudioCharacterSheetListItem[] }> =>
+  studioReq(`/studio/characters/${cid}/character-sheets`, "GET");
+
+export const regenerateStudioCharacterSheetPanels = (
+  cid: string,
+  body: {
+    style: StudioCharacterSheetStyle;
+    keys: string[];
+    n_candidates?: number;
+    lock_from_sheet?: boolean;
+    height_cm?: number;
+    role?: string;
+    personality?: string;
+    design_notes?: string;
+    colors?: string[];
+    visual_prompt_override?: string;
+    worker?: string;
+    seed?: number;
+    apply_to_video_refs?: boolean;
+  },
+): Promise<StudioCharacterSheetResult & { debug?: unknown }> =>
+  studioReq(`/studio/characters/${cid}/character-sheet/panels`, "POST", body, {
+    longRequest: true,
+  });
+
+export const replaceStudioCharacterSheetPanel = (
+  cid: string,
+  body: {
+    style: StudioCharacterSheetStyle;
+    key: string;
+    image_b64?: string;
+    image_url?: string;
+    height_cm?: number;
+    role?: string;
+    personality?: string;
+    design_notes?: string;
+  },
+): Promise<{
+  sheet_url: string;
+  sheet_style: StudioCharacterSheetStyle;
+  panel_urls: Record<string, string>;
+  replaced_key: string;
+}> =>
+  studioReq(`/studio/characters/${cid}/character-sheet/panel-replace`, "POST", body, {
     longRequest: true,
   });
 

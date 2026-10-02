@@ -1213,3 +1213,57 @@
   object-fit: cover;
   object-position: top;
 }
+
+
+/* Batch7 设定卡完整编辑器 */
+.studio-sheet-editor { display: flex; flex-direction: column; gap: var(--space-2); }
+.studio-sheet-editor-toolbar {
+  display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: end;
+}
+.studio-sheet-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.studio-sheet-field select {
+  min-width: 120px; height: 32px; border-radius: 6px;
+  border: 1px solid var(--border, #333); background: var(--bg-elevated, #1a1a1e);
+  color: var(--text, #eee); padding: 0 8px;
+}
+.studio-sheet-editor-error {
+  display: flex; gap: var(--space-2); align-items: center;
+}
+.studio-sheet-editor-body {
+  display: grid; grid-template-columns: 1fr 160px; gap: var(--space-3); min-height: 420px;
+}
+.studio-sheet-preview-wrap {
+  border: 1px solid var(--border, #333); border-radius: 8px; overflow: hidden;
+  background: #111; min-height: 400px; display: flex; align-items: center; justify-content: center;
+}
+.studio-sheet-preview-empty { color: var(--text-dim, #888); font-size: 13px; }
+.studio-sheet-preview-frame { position: relative; width: 100%; }
+.studio-sheet-preview-img { display: block; width: 100%; height: auto; }
+.studio-sheet-hotspot {
+  position: absolute; border: 1px solid transparent; background: transparent;
+  color: transparent; padding: 0; cursor: pointer; border-radius: 4px;
+}
+.studio-sheet-hotspot span {
+  display: none; position: absolute; left: 4px; top: 4px; font-size: 10px;
+  background: rgba(0,0,0,.65); color: #fff; padding: 1px 4px; border-radius: 3px;
+}
+.studio-sheet-hotspot:hover,
+.studio-sheet-hotspot.is-active {
+  border-color: var(--accent, #7c6af5); background: color-mix(in oklab, var(--accent, #7c6af5) 12%, transparent);
+}
+.studio-sheet-hotspot:hover span,
+.studio-sheet-hotspot.is-active span { display: inline-block; }
+.studio-sheet-hotspot.is-locked { outline: 1px dashed var(--warn, #e6a23c); }
+.studio-sheet-side { display: flex; flex-direction: column; gap: var(--space-2); }
+.studio-sheet-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.studio-sheet-list-item {
+  width: 100%; text-align: left; padding: 6px 8px; border-radius: 6px;
+  border: 1px solid var(--border, #333); background: transparent; color: var(--text, #eee);
+  font-size: 12px; cursor: pointer;
+}
+.studio-sheet-list-item.is-active { border-color: var(--accent, #7c6af5); }
+.studio-sheet-cell-thumb {
+  width: 100%; border-radius: 6px; border: 1px solid var(--border, #333); object-fit: cover; max-height: 140px;
+}
+.studio-sheet-editor-footer { display: flex; justify-content: flex-end; gap: var(--space-2); width: 100%; }
+.studio-muted { color: var(--text-dim, #888); font-size: 12px; }

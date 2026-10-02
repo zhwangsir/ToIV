@@ -12,6 +12,7 @@ import {
   type StudioCharacter,
   type StudioCharacterSheetStyle,
 } from "@/lib/api";
+import { CharacterSheetEditor } from "@/components/studio/CharacterSheetEditor";
 import { AssetPicker } from "@/components/generate/AssetPicker";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
@@ -293,14 +294,17 @@ function RefSlots({
 
 function SheetActions({
   character,
+  characters,
   onDone,
   onError,
 }: {
   character: StudioCharacter;
+  characters: StudioCharacter[];
   onDone: () => Promise<void>;
   onError: (msg: string | null) => void;
 }) {
   const [busy, setBusy] = useState<StudioCharacterSheetStyle | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
   const toast = useToast();
   const sheetUrl = (character.reference_images || []).find((u) => u.includes("char_sheet_"));
 
@@ -308,7 +312,10 @@ function SheetActions({
     setBusy(style);
     onError(null);
     try {
-      await generateStudioCharacterSheet(character.id, { style });
+      await generateStudioCharacterSheet(character.id, {
+        style,
+        apply_to_video_refs: false,
+      });
       await onDone();
       toast.success(style === "ancient_realistic" ? "古风卡就绪" : "二次元卡就绪");
     } catch (e) {
@@ -324,6 +331,17 @@ function SheetActions({
         <Icon name="image" size={12} /> 设定卡
       </span>
       <div className="studio-look-actions">
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          data-testid="studio-sheet-open-editor"
+          disabled={!!busy}
+          title="设定卡编辑器"
+          onClick={() => setEditorOpen(true)}
+        >
+          <Icon name="image" size={12} />
+          编辑
+        </button>
         <button
           type="button"
           className="btn btn-ghost btn-sm"
@@ -360,6 +378,13 @@ function SheetActions({
           <img src={imageUrl(sheetUrl)} alt="设定卡" className="studio-sheet-thumb" />
         </a>
       )}
+      <CharacterSheetEditor
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        characters={characters.length ? characters : [character]}
+        initialCharacterId={character.id}
+        onChanged={onDone}
+      />
     </div>
   );
 }
@@ -668,6 +693,7 @@ export function CastStage({
             />
             <SheetActions
               character={c}
+              characters={d.characters || [c]}
               onDone={async () => {
                 await project.refresh();
               }}

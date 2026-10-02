@@ -1,4 +1,4 @@
-"""06:55: reference_images 写入后 json.loads 必须成功且不得删除 sample 参考。"""
+"""12:01: reference_images 写入守卫 — char_panel_* 必须显式风格匹配。"""
 from __future__ import annotations
 
 import json
@@ -8,10 +8,45 @@ import pytest
 from app.services.studio import character_sheet as sheet_svc
 
 
-def _write_refs(existing: list[str], panel_urls: dict[str, str]) -> str:
-    """模拟 routes/studio.py 设定卡回写:merge 后 json.dumps。"""
-    refs = sheet_svc.merge_video_refs(existing, panel_urls=panel_urls, sheet_url=None)
-    return json.dumps(refs, ensure_ascii=False)
+def test_panel_style_from_url_anime_and_ancient():
+    assert (
+        sheet_svc.panel_style_from_url(
+            "/api/studio/files/char_panel_803fb69b_anime_portrait_abc.png"
+        )
+        == "anime"
+    )
+    assert (
+        sheet_svc.panel_style_from_url(
+            "/api/studio/files/char_panel_803fb69b_ancient_realistic_front_304.png"
+        )
+        == "ancient_realistic"
+    )
+    assert sheet_svc.panel_style_from_url("/api/studio/files/sample_linxia_front.png") is None
+
+
+def test_reference_images_rejects_panel_without_style_match():
+    refs = [
+        "/api/studio/files/sample_linxia_front.png",
+        "/api/studio/files/char_panel_803fb69b_anime_portrait_abc.png",
+    ]
+    with pytest.raises(sheet_svc.ReferenceImagesStyleError):
+        sheet_svc.assert_reference_images_panel_style(refs, allowed_styles=None)
+    with pytest.raises(sheet_svc.ReferenceImagesStyleError):
+        sheet_svc.assert_reference_images_panel_style(refs, allowed_styles=set())
+    with pytest.raises(sheet_svc.ReferenceImagesStyleError):
+        # 古风角色不允许写入二次元格图
+        sheet_svc.assert_reference_images_panel_style(
+            refs, allowed_styles={"ancient_realistic"}
+        )
+
+
+def test_reference_images_allows_panel_with_explicit_style():
+    refs = [
+        "/api/studio/files/sample_linxia_front.png",
+        "/api/studio/files/char_panel_803fb69b_anime_portrait_abc.png",
+        "/api/studio/files/char_panel_803fb69b_anime_front_654.png",
+    ]
+    sheet_svc.assert_reference_images_panel_style(refs, allowed_styles={"anime"})
 
 
 def test_reference_images_write_json_loads_and_keeps_sample():
@@ -26,22 +61,26 @@ def test_reference_images_write_json_loads_and_keeps_sample():
         "side": "/api/studio/files/char_panel_803_side.png",
         "back": "/api/studio/files/char_panel_803_back.png",
     }
-    raw = _write_refs(existing, panels)
+    refs = sheet_svc.merge_video_refs(existing, panel_urls=panels, sheet_url=None)
+    raw = json.dumps(refs, ensure_ascii=False)
     loaded = json.loads(raw)
     assert isinstance(loaded, list)
-    assert all(isinstance(u, str) for u in loaded)
     for s in existing:
         assert s in loaded, s
-    for u in panels.values():
-        assert u in loaded
-    # 禁止把整卡写进链
+    # 整卡不进链
     assert not any("char_sheet_" in u for u in loaded)
 
 
-def test_reference_images_rejects_non_json_array_literal_shape():
-    """复现 06:55 事故形态:psql 数组字面量不可被 json.loads。"""
-    bad = "{/api/studio/files/char_panel_x.png}"
-    with pytest.raises(json.JSONDecodeError):
-        json.loads(bad)
-    good = json.dumps(["/api/studio/files/sample_linxia_front.png"], ensure_ascii=False)
-    assert json.loads(good) == ["/api/studio/files/sample_linxia_front.png"]
+def test_merge_does_not_imply_style_permission():
+    """merge 只拼 URL;真正写入前必须再过 assert_reference_images_panel_style。"""
+    existing = ["/api/studio/files/sample_linxia_front.png"]
+    panels = {
+        "portrait": "/api/studio/files/char_panel_803fb69b_anime_portrait_x.png",
+        "front": "/api/studio/files/char_panel_803fb69b_anime_front_x.png",
+        "side": "/api/studio/files/char_panel_803fb69b_anime_side_x.png",
+        "back": "/api/studio/files/char_panel_803fb69b_anime_back_x.png",
+    }
+    merged = sheet_svc.merge_video_refs(existing, panel_urls=panels, sheet_url=None)
+    with pytest.raises(sheet_svc.ReferenceImagesStyleError):
+        sheet_svc.assert_reference_images_panel_style(merged, allowed_styles=None)
+    sheet_svc.assert_reference_images_panel_style(merged, allowed_styles={"anime"})

@@ -185,6 +185,10 @@ class CharacterPatch(BaseModel):
     voice_ref_url: str | None = Field(default=None, max_length=1024)
     # Batch2:三视图/参考图 URL 列表(落库 JSON 字符串;路由层 json.dumps)
     reference_images: list[str] | None = Field(default=None, max_length=8)
+    allowed_panel_styles: list[str] | None = Field(
+        default=None,
+        description="写入 reference_images 含 char_panel_* 时必须显式列出允许的风格",
+    )
 
 
 class ShotInput(BaseModel):
@@ -216,6 +220,10 @@ class CharacterSheetRequest(BaseModel):
     """Batch7:生成角色设定卡(古风写实 / 二次元)。"""
 
     style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    apply_to_video_refs: bool = Field(
+        default=False,
+        description="True 时才把本风格立绘+三视图写入 reference_images(须风格匹配)",
+    )
     height_cm: int = Field(default=168, ge=120, le=220)
     role: str = Field(default="", max_length=100)
     personality: str = Field(default="", max_length=200)
@@ -230,6 +238,10 @@ class CharacterSheetPanelsRequest(BaseModel):
     """Batch7 21:30:分区锁定 + 单格/多格重生成。"""
 
     style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    apply_to_video_refs: bool = Field(
+        default=False,
+        description="True 时才把本风格立绘+三视图写入 reference_images(须风格匹配)",
+    )
     keys: list[str] = Field(..., min_length=1, max_length=20)
     n_candidates: int = Field(default=3, ge=1, le=5)
     lock_from_sheet: bool = Field(
