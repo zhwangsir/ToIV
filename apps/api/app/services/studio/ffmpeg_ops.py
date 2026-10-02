@@ -271,12 +271,34 @@ def detect_burned_text(
             return True
         return False
 
+    def _prep_variants(im: Image.Image) -> list[Image.Image]:
+        """Contrast / invert / upscale variants to catch thin burned Chinese subs."""
+        from PIL import ImageEnhance, ImageOps
+
+        base = im.convert("RGB")
+        outs = [base]
+        try:
+            outs.append(ImageEnhance.Contrast(base).enhance(2.2))
+            outs.append(ImageEnhance.Contrast(base).enhance(3.0))
+            outs.append(ImageOps.autocontrast(base))
+            gray = ImageOps.grayscale(base)
+            outs.append(ImageOps.autocontrast(gray).convert("RGB"))
+            outs.append(ImageOps.invert(ImageOps.autocontrast(gray)).convert("RGB"))
+        except Exception:
+            pass
+        big = []
+        for o in outs:
+            big.append(o)
+            big.append(o.resize((max(32, o.width * 3), max(32, o.height * 3)), Image.Resampling.LANCZOS))
+            big.append(o.resize((max(32, o.width * 5), max(32, o.height * 5)), Image.Resampling.LANCZOS))
+        return big
+
     def _ocr_image(im: Image.Image) -> list[str]:
         texts: list[str] = []
         if rapid is not None:
             import numpy as np
 
-            for cand in (im, im.resize((im.width * 3, im.height * 3), Image.Resampling.LANCZOS)):
+            for cand in _prep_variants(im):
                 try:
                     result, _ = rapid(np.asarray(cand.convert("RGB")))
                 except Exception:
@@ -285,13 +307,14 @@ def detect_burned_text(
                     for row in result:
                         if isinstance(row, (list, tuple)) and len(row) >= 2:
                             texts.append(str(row[1]))
-        if not texts and pytesseract is not None:
-            try:
-                raw = pytesseract.image_to_string(im, lang=langs) or ""
-                if raw.strip():
-                    texts.append(raw)
-            except Exception:
-                pass
+        if pytesseract is not None:
+            for cand in _prep_variants(im)[:6]:
+                try:
+                    raw = pytesseract.image_to_string(cand, lang=langs) or ""
+                    if raw.strip():
+                        texts.append(raw)
+                except Exception:
+                    pass
         return texts
 
     def _frame_texts(fp: _P) -> list[str]:

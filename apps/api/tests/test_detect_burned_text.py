@@ -118,5 +118,7 @@ def test_detect_burned_text_flags_haokun_subtitle_fixture():
         r = detect_burned_text(mp4, fps=1.0, min_chars=1)
     assert r["ok"] is False, r
     assert r["hits"], r
+    joined = "".join(h.get("text", "") for h in r["hits"])
+    assert "好" in joined, r  # 17:00：必须至少检出「好」
     joined = "".join(h["text"] for h in r["hits"])
     assert any("好" in h["text"] for h in r["hits"]), joined
