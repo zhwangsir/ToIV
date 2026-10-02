@@ -3311,10 +3311,11 @@ def _sample_edge_fill_color(im: Image.Image, fallback: tuple[int, int, int]) -> 
 
 
 def _trim_panel_edge_strips(im: Image.Image, *, max_frac: float = 0.22) -> Image.Image:
-    """裁掉源图四周纯色/灰边杂条（19:20：compose 前按内容框去竖边条）。
+    """裁掉源图四周纯色/灰边/近白分隔竖条（19:20）。
 
-    从四边向内推进：列/行近乎均匀，且与内侧邻带平均色差 >40，或近白/近灰信箱，则裁掉。
-    最多裁每边 max_frac，避免吃掉主体。
+    1) 四边近均匀且与内侧色差>40，或近白/近灰信箱 → 裁
+    2) 靠边的近白低方差分隔带（即便最外缘是噪点）→ 整带以外裁掉
+    3) 再走内容包围盒 `_trim_letterbox_rgb` 兜底
     """
     rgb = im.convert("RGB")
     w, h = rgb.size
@@ -3366,6 +3367,9 @@ def _trim_panel_edge_strips(im: Image.Image, *, max_frac: float = 0.22) -> Image
             return True
         return False
 
+    def _is_white_sep(var: float, mean: tuple[float, float, float]) -> bool:
+        return var < 100.0 and mean[0] > 220 and mean[1] > 220 and mean[2] > 220
+
     max_x = max(2, int(w * max_frac))
     max_y = max(2, int(h * max_frac))
     left = 0
@@ -3388,6 +3392,19 @@ def _trim_panel_edge_strips(im: Image.Image, *, max_frac: float = 0.22) -> Image
             right -= 1
             continue
         break
+    # 近白分隔带：即便最外缘是深色噪点，也裁到分隔带内侧
+    white_right = [
+        x
+        for x in range(max(left, w - max_x), right)
+        if _is_white_sep(*_col_stats(x))
+    ]
+    if white_right:
+        right = min(white_right)
+    white_left = [
+        x for x in range(left, min(right, left + max_x)) if _is_white_sep(*_col_stats(x))
+    ]
+    if white_left:
+        left = max(white_left) + 1
     top = 0
     while top < max_y:
         var, mean = _row_stats(top)
@@ -3410,11 +3427,10 @@ def _trim_panel_edge_strips(im: Image.Image, *, max_frac: float = 0.22) -> Image
         break
     if right - left < 16 or bot - top < 16:
         return im
-    if left == 0 and right == w and top == 0 and bot == h:
-        # 再走一遍内容包围盒（挡非均匀灰边条）
-        trimmed = _trim_letterbox_rgb(rgb)
-        return trimmed if trimmed.size != rgb.size else im
-    return rgb.crop((left, top, right, bot))
+    cropped = rgb.crop((left, top, right, bot))
+    # 兜底内容包围盒
+    trimmed = _trim_letterbox_rgb(cropped)
+    return trimmed if trimmed.size[0] >= 16 and trimmed.size[1] >= 16 else cropped
 
 
 def collage_face_triplet_equal_width(
@@ -3460,7 +3476,7 @@ def collage_face_triplet_equal_width(
             win_h = win_w / aspect
         # 垂直：头顶优先——脸顶距窗顶约占 (1-fh_frac)*0.40
         top_slack = win_h - fh
-        face_top_in_win = max(2.0, top_slack * 0.40)
+        face_top_in_win = max(2.0, top_slack * 0.55)  # 19:20 R 保头顶
         top = y0 - face_top_in_win
         left = fcx - win_w / 2.0
         # 在原图上取整数窗；越界用边缘色扩展，保证窗完整后再缩放铺满
