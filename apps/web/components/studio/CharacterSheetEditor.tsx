@@ -70,6 +70,10 @@ export function CharacterSheetEditor({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryAction, setRetryAction] = useState<null | (() => Promise<void>)>(null);
+  const [role, setRole] = useState("");
+  const [personality, setPersonality] = useState("");
+  const [designNotes, setDesignNotes] = useState("");
+  const [heightCm, setHeightCm] = useState("168");
 
   const character = useMemo(
     () => characters.find((c) => c.id === cid) || null,
@@ -100,6 +104,15 @@ export function CharacterSheetEditor({
   }, [open, initialCharacterId]);
 
   useEffect(() => {
+    if (!open || !character) return;
+    const desc = (character.description || "").trim();
+    setRole(desc.split(/[，,/|]/)[0]?.trim() || "");
+    setPersonality("");
+    setDesignNotes(desc);
+    setHeightCm("168");
+  }, [open, character?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     if (!open || !cid) return;
     void refreshList();
   }, [open, cid, style]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -125,8 +138,15 @@ export function CharacterSheetEditor({
   const onCreate = () =>
     runWithRetry("生成", async () => {
       if (!cid) throw new Error("请先选角色");
+      const meta = {
+        role: role.trim() || undefined,
+        personality: personality.trim() || undefined,
+        design_notes: designNotes.trim() || undefined,
+        height_cm: Number(heightCm) > 0 ? Number(heightCm) : undefined,
+      };
       const res: StudioCharacterSheetResult = await generateStudioCharacterSheet(cid, {
         style,
+        ...meta,
         // 12:01:绝不默写 reference_images
         apply_to_video_refs: false,
       });
@@ -141,10 +161,17 @@ export function CharacterSheetEditor({
     runWithRetry("单格重生", async () => {
       if (!cid || !selectedKey) throw new Error("先点一格");
       if (locked[selectedKey]) throw new Error("该格已锁定");
+      const meta = {
+        role: role.trim() || undefined,
+        personality: personality.trim() || undefined,
+        design_notes: designNotes.trim() || undefined,
+        height_cm: Number(heightCm) > 0 ? Number(heightCm) : undefined,
+      };
       const res = await regenerateStudioCharacterSheetPanels(cid, {
         style,
         keys: [selectedKey],
         lock_from_sheet: true,
+        ...meta,
         apply_to_video_refs: false,
       });
       setSheetUrl(res.sheet_url);
@@ -257,6 +284,51 @@ export function CharacterSheetEditor({
               <option value="anime">二次元</option>
               <option value="ancient_realistic">古风</option>
             </select>
+          </label>
+          <label className="studio-sheet-field">
+            <span>身高</span>
+            <input
+              type="number"
+              min={140}
+              max={200}
+              value={heightCm}
+              disabled={!!busy}
+              onChange={(e) => setHeightCm(e.target.value)}
+              data-testid="sheet-editor-height"
+            />
+          </label>
+          <label className="studio-sheet-field studio-sheet-field-wide">
+            <span>身份</span>
+            <input
+              type="text"
+              value={role}
+              disabled={!!busy}
+              placeholder="便利店员"
+              onChange={(e) => setRole(e.target.value)}
+              data-testid="sheet-editor-role"
+            />
+          </label>
+          <label className="studio-sheet-field studio-sheet-field-wide">
+            <span>性格</span>
+            <input
+              type="text"
+              value={personality}
+              disabled={!!busy}
+              placeholder="温柔果断"
+              onChange={(e) => setPersonality(e.target.value)}
+              data-testid="sheet-editor-personality"
+            />
+          </label>
+          <label className="studio-sheet-field studio-sheet-field-notes">
+            <span>设计说明</span>
+            <textarea
+              rows={2}
+              value={designNotes}
+              disabled={!!busy}
+              placeholder="3–5 行，写入设定卡"
+              onChange={(e) => setDesignNotes(e.target.value)}
+              data-testid="sheet-editor-notes"
+            />
           </label>
           <div className="studio-look-actions">
             <button

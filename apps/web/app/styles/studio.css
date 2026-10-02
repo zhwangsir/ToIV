@@ -1221,11 +1221,19 @@
   display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: end;
 }
 .studio-sheet-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
-.studio-sheet-field select {
-  min-width: 120px; height: 32px; border-radius: 6px;
+.studio-sheet-field select,
+.studio-sheet-field input,
+.studio-sheet-field textarea {
+  min-width: 120px; border-radius: 6px;
   border: 1px solid var(--border, #333); background: var(--bg-elevated, #1a1a1e);
   color: var(--text, #eee); padding: 0 8px;
 }
+.studio-sheet-field select,
+.studio-sheet-field input { height: 32px; }
+.studio-sheet-field textarea { padding: 6px 8px; resize: vertical; min-width: 220px; }
+.studio-sheet-field-wide input { min-width: 140px; }
+.studio-sheet-field-notes { flex: 1 1 220px; }
+.studio-sheet-thumbs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .studio-sheet-editor-error {
   display: flex; gap: var(--space-2); align-items: center;
 }

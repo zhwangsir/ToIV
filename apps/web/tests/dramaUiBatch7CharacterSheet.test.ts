@@ -20,6 +20,9 @@ test("CastStage:设定卡古风/二次元入口", () => {
   assert.ok(src.includes("CharacterSheetEditor"), "未挂设定卡编辑器");
   assert.ok(src.includes("ancient_realistic"), "未传古风写实 style");
   assert.ok(src.includes("apply_to_video_refs: false"), "快捷生成须默认不写 reference_images");
+  assert.ok(src.includes("listStudioCharacterSheets"), "CastStage 须按风格列表取缩略图");
+  assert.ok(src.includes('data-testid="studio-sheet-thumbs"'), "缺按风格缩略图区");
+  assert.ok(!src.includes('u.includes("char_sheet_")'), "不得再从 reference_images 找整卡");
 });
 
 test("api.ts:设定卡契约", () => {
@@ -45,6 +48,10 @@ test("CharacterSheetEditor:热区与失败重试", () => {
   assert.ok(src.includes('data-testid="sheet-editor-lock"'), "缺锁定");
   assert.ok(src.includes('data-testid="sheet-editor-export"'), "缺导出");
   assert.ok(src.includes('data-testid="sheet-editor-retry"'), "缺重试");
+  assert.ok(src.includes('data-testid="sheet-editor-role"'), "缺身份资料");
+  assert.ok(src.includes('data-testid="sheet-editor-personality"'), "缺性格资料");
+  assert.ok(src.includes('data-testid="sheet-editor-notes"'), "缺设计说明");
+  assert.ok(src.includes('data-testid="sheet-editor-height"'), "缺身高");
   assert.ok(src.includes("apply_to_video_refs: false"), "编辑器生成须不写 refs");
 });
 

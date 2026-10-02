@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, type TextareaHTMLAttributes } from "react";
+import { useCallback, useEffect, useRef, useState, type TextareaHTMLAttributes } from "react";
 import {
   addStudioCharacter,
   deleteStudioCharacter,
   generateStudioCharacterSheet,
   imageUrl,
+  listStudioCharacterSheets,
   patchStudioCharacter,
   patchStudioProject,
   uploadImage,
   type StudioCharacter,
+  type StudioCharacterSheetListItem,
   type StudioCharacterSheetStyle,
 } from "@/lib/api";
 import { CharacterSheetEditor } from "@/components/studio/CharacterSheetEditor";
@@ -305,8 +307,21 @@ function SheetActions({
 }) {
   const [busy, setBusy] = useState<StudioCharacterSheetStyle | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [sheets, setSheets] = useState<StudioCharacterSheetListItem[]>([]);
   const toast = useToast();
-  const sheetUrl = (character.reference_images || []).find((u) => u.includes("char_sheet_"));
+
+  const refreshSheets = useCallback(async () => {
+    try {
+      const res = await listStudioCharacterSheets(character.id);
+      setSheets(res.sheets || []);
+    } catch {
+      // 缩略图失败不挡主流程
+    }
+  }, [character.id]);
+
+  useEffect(() => {
+    void refreshSheets();
+  }, [refreshSheets, character.reference_images]);
 
   const run = async (style: StudioCharacterSheetStyle) => {
     setBusy(style);
@@ -317,6 +332,7 @@ function SheetActions({
         apply_to_video_refs: false,
       });
       await onDone();
+      await refreshSheets();
       toast.success(style === "ancient_realistic" ? "古风卡就绪" : "二次元卡就绪");
     } catch (e) {
       onError(e instanceof Error ? e.message : "设定卡失败");
@@ -365,25 +381,37 @@ function SheetActions({
           二次元
         </button>
       </div>
-      {sheetUrl && (
-        <a
-          className="studio-sheet-thumb-link"
-          href={imageUrl(sheetUrl)}
-          target="_blank"
-          rel="noreferrer"
-          data-testid="studio-sheet-preview"
-          title="查看设定卡"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageUrl(sheetUrl)} alt="设定卡" className="studio-sheet-thumb" />
-        </a>
+      {sheets.length > 0 && (
+        <div className="studio-sheet-thumbs" data-testid="studio-sheet-thumbs">
+          {sheets.map((s) => (
+            <a
+              key={s.style}
+              className="studio-sheet-thumb-link"
+              href={imageUrl(s.sheet_url)}
+              target="_blank"
+              rel="noreferrer"
+              data-testid={`studio-sheet-preview-${s.style}`}
+              title={s.style === "anime" ? "二次元设定卡" : "古风设定卡"}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageUrl(s.sheet_url)}
+                alt={s.style === "anime" ? "二次元设定卡" : "古风设定卡"}
+                className="studio-sheet-thumb"
+              />
+            </a>
+          ))}
+        </div>
       )}
       <CharacterSheetEditor
         open={editorOpen}
         onClose={() => setEditorOpen(false)}
         characters={characters.length ? characters : [character]}
         initialCharacterId={character.id}
-        onChanged={onDone}
+        onChanged={async () => {
+          await onDone();
+          await refreshSheets();
+        }}
       />
     </div>
   );
