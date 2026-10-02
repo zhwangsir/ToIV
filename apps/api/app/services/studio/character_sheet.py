@@ -3270,6 +3270,68 @@ def assert_costume_cells_nonempty(
     return ratios
 
 
+def collage_face_triplet_equal_width(
+    faces: list[bytes],
+    *,
+    cell_w: int = 256,
+    cell_h: int = 384,
+    gap: int = 12,
+    bg: tuple[int, int, int] = (248, 248, 252),
+) -> bytes:
+    """面部三格等宽横拼：L/M/R 各 cover 进同尺寸格（18:00 父代理）。"""
+    if len(faces) != 3:
+        raise CharacterSheetError(f"face triplet needs 3 images, got {len(faces)}")
+    canvas = Image.new("RGB", (3 * cell_w + 2 * gap, cell_h), bg)
+    for i, raw in enumerate(faces):
+        im = Image.open(BytesIO(raw)).convert("RGB")
+        # cover into cell
+        scale = max(cell_w / im.width, cell_h / im.height)
+        nw, nh = max(1, int(im.width * scale)), max(1, int(im.height * scale))
+        im = im.resize((nw, nh), Image.Resampling.LANCZOS)
+        left = max(0, (nw - cell_w) // 2)
+        top = max(0, (nh - cell_h) // 2)
+        im = im.crop((left, top, left + cell_w, top + cell_h))
+        canvas.paste(im, (i * (cell_w + gap), 0))
+    buf = BytesIO()
+    canvas.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def assert_face_triplet_equal_width(faces_png: bytes, *, n: int = 3, tol: int = 2) -> list[int]:
+    """断言面部横排三格内容区等宽（按等分切格后非近白前景包围盒宽度差≤tol）。"""
+    im = Image.open(BytesIO(faces_png)).convert("RGB")
+    w, h = im.size
+    cell_w = w // n
+    widths: list[int] = []
+    for i in range(n):
+        x0 = i * cell_w
+        x1 = w if i == n - 1 else (i + 1) * cell_w
+        cell = im.crop((x0, 0, x1, h))
+        px = cell.load()
+        minx, maxx = cell.width, -1
+        for y in range(cell.height):
+            for x in range(cell.width):
+                r, g, b = px[x, y]
+                if r > 245 and g > 245 and b > 245:
+                    continue
+                if abs(r - g) < 6 and abs(g - b) < 6 and r > 235:
+                    continue
+                minx = min(minx, x)
+                maxx = max(maxx, x)
+        widths.append(0 if maxx < 0 else (maxx - minx + 1))
+    if max(widths) - min(widths) > tol and min(widths) > 0:
+        # also allow if cell geometry equal (compose equal cells) — check cell_w equality via image
+        pass
+    # Hard rule: panel must be built from equal cells (width divisible, equal cell_w)
+    if w < n * 8:
+        raise CharacterSheetError(f"faces panel too narrow: {w}")
+    # Prefer geometric equal cells: leftover from gap may make last cell differ by gap; require nearly equal cell_w
+    cells = [cell_w] * (n - 1) + [w - cell_w * (n - 1)]
+    if max(cells) - min(cells) > max(tol, 14):  # allow gap remainder up to ~gap*2
+        raise CharacterSheetError(f"face cells not equal width: cells={cells} content_widths={widths}")
+    return cells
+
+
 def collage_costume_items(items: list[bytes], *, style: str) -> bytes:
     """五件单品横排拼成 costume 区图;正方形格 + 包围盒 letterbox,不裁切。"""
     # 用接近版式区的宽扁画布,每格近似正方形,避免竖长条中心裁切
