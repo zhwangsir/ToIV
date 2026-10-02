@@ -35,7 +35,7 @@ def test_unequal_legacy_hstack_fails_assert():
         canvas.paste(im,(x,0)); x+=im.width+gap
     b=BytesIO(); canvas.save(b,"PNG")
     try:
-        sheet_svc.assert_face_triplet_equal_width(b.getvalue(), n=3, tol=2)
+        sheet_svc.assert_face_triplet_equal_width(b.getvalue(), n=3, max_ratio=1.35)
         raised=False
     except sheet_svc.CharacterSheetError:
         raised=True

@@ -3297,10 +3297,14 @@ def collage_face_triplet_equal_width(
     return buf.getvalue()
 
 
-def assert_face_triplet_equal_width(faces_png: bytes, *, n: int = 3, tol: int = 2) -> list[int]:
-    """断言面部横排三格内容区等宽（按等分切格后非近白前景包围盒宽度差≤tol）。"""
+def assert_face_triplet_equal_width(
+    faces_png: bytes, *, n: int = 3, max_ratio: float = 1.35
+) -> list[int]:
+    """断言面部横排三格等宽：等分切格后各格前景包围盒宽度比 ≤ max_ratio。"""
     im = Image.open(BytesIO(faces_png)).convert("RGB")
     w, h = im.size
+    if w < n * 8:
+        raise CharacterSheetError(f"faces panel too narrow: {w}")
     cell_w = w // n
     widths: list[int] = []
     for i in range(n):
@@ -3319,17 +3323,15 @@ def assert_face_triplet_equal_width(faces_png: bytes, *, n: int = 3, tol: int = 
                 minx = min(minx, x)
                 maxx = max(maxx, x)
         widths.append(0 if maxx < 0 else (maxx - minx + 1))
-    if max(widths) - min(widths) > tol and min(widths) > 0:
-        # also allow if cell geometry equal (compose equal cells) — check cell_w equality via image
-        pass
-    # Hard rule: panel must be built from equal cells (width divisible, equal cell_w)
-    if w < n * 8:
-        raise CharacterSheetError(f"faces panel too narrow: {w}")
-    # Prefer geometric equal cells: leftover from gap may make last cell differ by gap; require nearly equal cell_w
-    cells = [cell_w] * (n - 1) + [w - cell_w * (n - 1)]
-    if max(cells) - min(cells) > max(tol, 14):  # allow gap remainder up to ~gap*2
-        raise CharacterSheetError(f"face cells not equal width: cells={cells} content_widths={widths}")
-    return cells
+    positive = [x for x in widths if x > 0]
+    if len(positive) < n:
+        raise CharacterSheetError(f"face cells empty: content_widths={widths}")
+    ratio = max(positive) / max(1, min(positive))
+    if ratio > max_ratio:
+        raise CharacterSheetError(
+            f"face cells not equal width: content_widths={widths} ratio={ratio:.2f}>{max_ratio}"
+        )
+    return widths
 
 
 def collage_costume_items(items: list[bytes], *, style: str) -> bytes:
