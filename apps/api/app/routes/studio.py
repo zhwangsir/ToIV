@@ -22,6 +22,8 @@ from app.services.studio import lipsync as lipsync_svc
 from app.services.studio import orchestrator, storyboard
 from app.services.studio import voice as voice_svc
 from app.services.studio.renderers.base import RenderError
+import uuid
+
 from app.services.studio.schemas import (
     CharacterCreate,
     CharacterPatch,
@@ -578,7 +580,9 @@ async def replace_character_sheet_panel(
         if hits:
             locked[k] = hits[-1].read_bytes()
     # 缺格时从最新整卡按 LAYOUT 裁切补齐
-    if "portrait" not in locked or len(locked) < 5:
+    # 注意:仅有 portrait+exprs 时 len>=5 仍可能缺 front/side/faces,不能只看数量
+    _need = ("portrait", "front", "side", "back", "faces", "costume")
+    if "portrait" not in locked or any(k not in locked for k in _need):
         sheets = sorted(
             studio.glob(f"char_sheet_{cid[:8]}_{style}_*.png"),
             key=lambda p: p.stat().st_mtime,
