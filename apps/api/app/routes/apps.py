@@ -535,7 +535,10 @@ def _validate_params(schema: list[dict], values: dict) -> dict:
             out[key] = None
             continue
         if ptype in ("text", "textarea"):
-            if not isinstance(v, str):
+            # seed 保留参数：int/str 都收，统一成可解析字符串(03:20 P0 顶层 int seed)
+            if key == "seed" and isinstance(v, (int, float)) and not isinstance(v, bool):
+                v = str(int(v))
+            elif not isinstance(v, str):
                 raise HTTPException(status_code=422, detail=f"参数 {key} 须为字符串")
         elif ptype in ("number", "slider"):
             if isinstance(v, bool) or not isinstance(v, (int, float)):
