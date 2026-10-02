@@ -1078,6 +1078,41 @@ def _draw_height_scale(
     draw.text((scale_x - 10, bottom + 8), "cm", font=font, fill=fill)
 
 
+def _fit_cover_keep_crown(
+    img: Image.Image,
+    box: tuple[int, int, int, int],
+) -> tuple[Image.Image, tuple[int, int]]:
+    """cover 填满,优先保留头顶:用脸框偏上裁,无脸时偏上 1/4 而非居中。"""
+    x, y, w, h = box
+    src = img.convert("RGBA")
+    scale = max(w / src.width, h / src.height)
+    nw, nh = max(1, int(src.width * scale)), max(1, int(src.height * scale))
+    src = src.resize((nw, nh), Image.Resampling.LANCZOS)
+    left = max(0, (nw - w) // 2)
+    # 默认贴顶,优先保留头顶/刘海(父代理 13:00)
+    top = 0
+    try:
+        buf = BytesIO()
+        src.convert("RGB").save(buf, format="PNG")
+        bb = _insightface_face_bbox_xyxy(buf.getvalue())
+    except Exception:  # noqa: BLE001
+        bb = None
+    if bb is not None:
+        _x1, y1, _x2, y2 = bb
+        face_cy = (y1 + y2) / 2.0
+        # 脸心落在裁窗上方约 0.45;若会裁掉头顶则退回贴顶
+        desired_top = int(face_cy - 0.45 * h)
+        top = 0 if desired_top < 0 else min(desired_top, nh - h)
+        face_cx = (_x1 + _x2) / 2.0
+        left = max(0, min(int(face_cx - w / 2.0), nw - w))
+    if left + w > nw:
+        left = max(0, nw - w)
+    if top + h > nh:
+        top = max(0, nh - h)
+    src = src.crop((left, top, left + w, top + h))
+    return src, (x, y)
+
+
 def _compose_expression_grid(
     panels: dict[str, Image.Image],
     *,
@@ -1086,41 +1121,58 @@ def _compose_expression_grid(
     box_w: int | None = None,
     box_h: int | None = None,
 ) -> Image.Image:
-    """2x3 头肩特写格:按目标区尺寸建格,cover 填满格(禁 contain 缩成细条)。"""
+    """2x3:每格=图片区+其下独立标签带;图片脸心 cover 保头顶;标签不与图重叠。"""
     cols, rows = 3, 2
-    label_h = 40 if draw_labels else 0
-    # 默认对齐 LAYOUT expressions 内容区
+    label_h = 44 if draw_labels else 0
     if box_w is None or box_h is None:
         _, _, ew, eh = LAYOUT["expressions"]
         box_w = box_w or (ew - 16)
         box_h = box_h or (eh - 40)
-    cell_w = max(64, box_w // cols)
-    cell_h = max(64, box_h // rows)
+    cell_w = max(64, int(box_w) // cols)
+    cell_h = max(64 + label_h, int(box_h) // rows)
     img_h = max(48, cell_h - label_h)
+    # 硬隔离:图片区高度严格不含标签带
+    assert label_h == 0 or img_h + label_h <= cell_h
     grid = Image.new("RGBA", (cols * cell_w, rows * cell_h), (245, 245, 248, 255))
     draw = ImageDraw.Draw(grid)
-    font = resolve_cjk_font(22) if draw_labels else None
+    font = resolve_cjk_font(20) if draw_labels else None
     for i, key in enumerate(_EXPR_KEYS):
         img = panels.get(key)
         if img is None:
             raise CharacterSheetError(f"缺面板:{key}", status_code=500)
         row, col = divmod(i, cols)
-        ox = col * cell_w + 3
-        oy = row * cell_h + 3
-        # 先剥旧标签带,再用真字体重绘(fix19)
+        cell_x0 = col * cell_w
+        cell_y0 = row * cell_h
+        # 图片区:内缩 3px,严格落在 [cell_y0, cell_y0+img_h)
+        ox = cell_x0 + 3
+        oy = cell_y0 + 3
+        iw = cell_w - 6
+        ih = img_h - 6
         clean = _strip_expr_label_band(img.convert("RGBA"))
-        fitted, pos = _fit(
-            clean,
-            (ox, oy, cell_w - 6, img_h - 4),
-            cover=True,
-        )
+        fitted, pos = _fit_cover_keep_crown(clean, (ox, oy, iw, ih))
+        # 再抹一层底,防贴图溢出标签带
+        if fitted.height > ih:
+            fitted = fitted.crop((0, 0, fitted.width, ih))
         grid.paste(fitted, pos, fitted)
         if draw_labels and font is not None and i < len(_EXPR_LABELS):
+            # 标签带:独立矩形,与图片区零重叠
+            band_y0 = cell_y0 + img_h
+            band_y1 = cell_y0 + cell_h
+            draw.rectangle(
+                [cell_x0, band_y0, cell_x0 + cell_w, band_y1],
+                fill=(245, 245, 248, 255),
+            )
             lab = _EXPR_LABELS[i]
-            lx = col * cell_w + cell_w // 2
-            ly = row * cell_h + img_h + 6
             tw = draw.textlength(lab, font=font)
-            draw.text((lx - tw / 2, ly), lab, font=font, fill=label_fill)
+            lx = cell_x0 + (cell_w - tw) / 2.0
+            # 垂直居中于标签带
+            try:
+                bbox = font.getbbox(lab)
+                th = bbox[3] - bbox[1]
+            except Exception:  # noqa: BLE001
+                th = 20
+            ly = band_y0 + max(2, (label_h - th) // 2)
+            draw.text((lx, ly), lab, font=font, fill=label_fill)
     return grid
 
 
