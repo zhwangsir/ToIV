@@ -417,7 +417,12 @@ async def regenerate_character_sheet_panels_route(
     session: Session = Depends(get_session),
     pool=Depends(get_pool),
 ):
-    """单格/多格重生成:锁定合格区,仅重做 keys;写回立绘+三视图参考(清 sample_linxia)。"""
+    """单格/多格重生成:锁定合格区,仅重做 keys。
+
+    默认只落设定卡/分格文件,不写视频参考。
+    apply_to_video_refs=true 时只写 reference_images_by_style 本风格分桶
+    (portrait+front/side/back),绝不改扁平 reference_images(sample_linxia×3 兜底保留)。
+    """
     from app.services.studio import character_sheet as sheet_svc
     from app.storage import drama_output_root
 

@@ -57,6 +57,9 @@ test("CharacterSheetEditor:热区与失败重试", () => {
   assert.ok(src.includes('data-testid="sheet-editor-notes"'), "缺设计说明");
   assert.ok(src.includes('data-testid="sheet-editor-height"'), "缺身高");
   assert.ok(src.includes("apply_to_video_refs: false"), "编辑器生成须不写 refs");
+  const applyFalseCount = (src.match(/apply_to_video_refs:\s*false/g) || []).length;
+  assert.ok(applyFalseCount >= 2, "生成与单格重生均须默认 apply_to_video_refs: false");
+  assert.ok(!/apply_to_video_refs:\s*true/.test(src), "编辑器不得默认 true 写 refs");
 });
 
 test("studio.css:设定卡样式", () => {

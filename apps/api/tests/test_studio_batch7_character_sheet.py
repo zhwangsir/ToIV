@@ -440,6 +440,95 @@ def test_api_anime_apply_keeps_ancient_bucket(ctx):
     assert not any("char_sheet_" in u for u in flat)
 
 
+
+def test_panels_apply_by_style_keeps_flat_samples(ctx):
+    """panels + apply_to_video_refs=True:只写本风格 by_style,扁平 sample×3 与另一桶不动。"""
+    client, token, out_root, _ = ctx
+    H = _h(token)
+    cid = _mk_char(client, H)
+    samples = [
+        "/api/studio/files/sample_linxia_front.png",
+        "/api/studio/files/sample_linxia_side.png",
+        "/api/studio/files/sample_linxia_full.png",
+    ]
+    ancient = [
+        "/api/studio/files/char_panel_aaaaaaaa_ancient_realistic_portrait_2.png",
+        "/api/studio/files/char_panel_aaaaaaaa_ancient_realistic_front_2.png",
+        "/api/studio/files/char_panel_aaaaaaaa_ancient_realistic_side_2.png",
+        "/api/studio/files/char_panel_aaaaaaaa_ancient_realistic_back_2.png",
+    ]
+    r_patch = client.patch(
+        f"/api/studio/characters/{cid}",
+        headers=H,
+        json={
+            "reference_images": samples,
+            "reference_images_by_style": {"ancient_realistic": ancient},
+        },
+    )
+    assert r_patch.status_code == 200, r_patch.text
+
+    async def fake_regen(*, character_id, meta, pool, **kw):
+        panels = {}
+        for i, k in enumerate(_all_panel_keys()):
+            buf = BytesIO()
+            sheet_svc.placeholder_panel((50 + i * 8, 60, 140)).convert("RGB").save(
+                buf, format="PNG"
+            )
+            panels[k] = buf.getvalue()
+        png = sheet_svc.compose_character_sheet(panels, meta)
+        url = sheet_svc.save_sheet_png(png, character_id=character_id, style=meta.style)
+        panel_urls = {
+            "portrait": sheet_svc.save_panel_png(
+                panels["portrait"], character_id=character_id, style=meta.style, key="portrait"
+            ),
+            "front": sheet_svc.save_panel_png(
+                panels["front"], character_id=character_id, style=meta.style, key="front"
+            ),
+            "side": sheet_svc.save_panel_png(
+                panels["side"], character_id=character_id, style=meta.style, key="side"
+            ),
+            "back": sheet_svc.save_panel_png(
+                panels["back"], character_id=character_id, style=meta.style, key="back"
+            ),
+        }
+        return url, png, panel_urls, {"locked": [], "regen_keys": list(kw.get("regen_keys") or []), "picks": {}}
+
+    with patch(
+        "app.services.studio.character_sheet.regenerate_sheet_panels",
+        new=AsyncMock(side_effect=fake_regen),
+    ):
+        r = client.post(
+            f"/api/studio/characters/{cid}/character-sheet/panels",
+            headers=H,
+            json={
+                "style": "anime",
+                "keys": ["front"],
+                "lock_from_sheet": False,
+                "apply_to_video_refs": True,
+            },
+        )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["apply_to_video_refs"] is True
+    by = body.get("reference_images_by_style") or {}
+    assert "anime" in by and len(by["anime"]) >= 4
+    assert any("portrait" in u for u in by["anime"])
+    assert any("front" in u for u in by["anime"])
+    assert any("side" in u for u in by["anime"])
+    assert any("back" in u for u in by["anime"])
+    assert all("anime" in u for u in by["anime"])
+    assert all("char_sheet_" not in u for u in by["anime"])
+    # 另一风格桶不被覆盖
+    assert by.get("ancient_realistic") == ancient
+    # 扁平 sample_linxia×3 原样
+    flat = body.get("reference_images") or []
+    for s in samples:
+        assert s in flat
+    assert flat == samples or all(s in flat for s in samples)
+    assert not any("char_panel_" in u for u in flat)
+    assert not any("char_sheet_" in u for u in flat)
+
+
 def test_font_missing_maps_503(monkeypatch):
     monkeypatch.setattr(sheet_svc, "_CJK_FONT_CANDIDATES", ("/no/such/font.ttf",))
     with pytest.raises(sheet_svc.CharacterSheetError) as ei:

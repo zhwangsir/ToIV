@@ -226,7 +226,7 @@ class CharacterSheetRequest(BaseModel):
     style: str = Field(..., pattern="^(ancient_realistic|anime)$")
     apply_to_video_refs: bool = Field(
         default=False,
-        description="True 时才把本风格立绘+三视图写入 reference_images(须风格匹配)",
+        description="True 时才把本风格立绘+三视图写入 reference_images_by_style 分桶(不改扁平 reference_images)",
     )
     height_cm: int = Field(default=168, ge=120, le=220)
     role: str = Field(default="", max_length=100)
@@ -244,7 +244,7 @@ class CharacterSheetPanelsRequest(BaseModel):
     style: str = Field(..., pattern="^(ancient_realistic|anime)$")
     apply_to_video_refs: bool = Field(
         default=False,
-        description="True 时才把本风格立绘+三视图写入 reference_images(须风格匹配)",
+        description="True 时才把本风格立绘+三视图写入 reference_images_by_style 分桶(不改扁平 reference_images)",
     )
     keys: list[str] = Field(..., min_length=1, max_length=20)
     n_candidates: int = Field(default=3, ge=1, le=5)

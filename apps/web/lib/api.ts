@@ -4813,7 +4813,7 @@ export const patchStudioCharacter = (
 export const deleteStudioCharacter = (cid: string): Promise<{ ok: boolean }> =>
   studioReq(`/studio/characters/${cid}`, "DELETE");
 
-/** Batch7:生成角色设定卡(古风写实 / 二次元),回写 reference_images。 */
+/** Batch7:生成角色设定卡(古风写实 / 二次元);默认不写 refs,apply_to_video_refs 只写 by_style。 */
 export type StudioCharacterSheetStyle = "ancient_realistic" | "anime";
 export interface StudioCharacterSheetResult extends StudioCharacter {
   sheet_url: string;
