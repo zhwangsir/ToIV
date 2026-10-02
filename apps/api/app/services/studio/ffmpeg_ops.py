@@ -202,3 +202,61 @@ def compare_window_loudness(
             }
         )
     return {"ok": ok, "max_abs_diff_db": max_abs_diff_db, "windows": windows}
+
+
+def detect_burned_text(
+    video_path: str | Path,
+    *,
+    fps: float = 1.0,
+    max_t: float | None = None,
+    langs: str = "chi_sim+eng",
+) -> dict:
+    """成片验收：按 fps 抽帧 OCR，任一帧检出可读/乱码字符即不过。
+
+    依赖本机 tesseract + pytesseract；不可用时返回 ok=False 并写 error。
+    """
+    import re
+    import subprocess
+    from pathlib import Path as _P
+
+    video_path = _P(video_path)
+    alnum = re.compile("[A-Za-z0-9\u4e00-\u9fff]")
+    try:
+        import pytesseract
+        from PIL import Image
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "hits": [], "n_frames": 0, "error": f"ocr_deps_missing:{e}"}
+
+    probe = subprocess.check_output(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json", str(video_path)],
+        text=True,
+        timeout=30,
+    )
+    import json as _json
+    dur = float(_json.loads(probe)["format"]["duration"])
+    end = dur if max_t is None else min(dur, float(max_t))
+    step = 1.0 / float(fps) if fps > 0 else 1.0
+    hits = []
+    t = 0.0
+    n = 0
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="toiv_ocr_") as td:
+        td_p = _P(td)
+        while t < end - 0.01:
+            fp = td_p / f"f_{n:04d}.jpg"
+            p = subprocess.run(
+                ["ffmpeg", "-y", "-ss", f"{t:.3f}", "-i", str(video_path), "-frames:v", "1", "-q:v", "2", str(fp)],
+                capture_output=True,
+                timeout=60,
+            )
+            if p.returncode != 0 or not fp.is_file():
+                t += step
+                continue
+            raw = pytesseract.image_to_string(Image.open(fp), lang=langs) or ""
+            txt = "".join(alnum.findall(raw))
+            n += 1
+            if len(txt) >= 3:
+                hits.append({"t": round(t, 2), "text": txt[:80]})
+            t += step
+    return {"ok": len(hits) == 0, "hits": hits, "n_frames": n, "error": ""}
+

@@ -3227,6 +3227,49 @@ def _pick_best_candidate(cands: list[bytes], key: str) -> bytes:
     return ranked[0]
 
 
+def costume_cell_content_ratios(costume_png: bytes, n: int = 5) -> list[float]:
+    """服饰栏每格前景像素占比。白底不计；细灰条不计；近黑仅当整格几乎全黑时当空底。"""
+    im = Image.open(BytesIO(costume_png)).convert("RGB")
+    w, h = im.size
+    cell_w = max(1, w // max(1, n))
+    ratios: list[float] = []
+    for i in range(n):
+        x0 = i * cell_w
+        x1 = w if i == n - 1 else (i + 1) * cell_w
+        cell = im.crop((x0, 0, x1, h))
+        px = list(cell.getdata())
+        near_black = 0
+        fg = 0
+        for r, g, b in px:
+            if r > 230 and g > 230 and b > 230:
+                continue
+            if abs(r - g) < 8 and abs(g - b) < 8 and 140 < r < 210:
+                continue
+            if r < 28 and g < 28 and b < 32:
+                near_black += 1
+                continue
+            fg += 1
+        # 整格近黑空底 → 0；否则近黑可能是雨衣也算前景
+        if near_black / max(1, len(px)) > 0.85:
+            ratios.append(0.0)
+        else:
+            ratios.append((fg + near_black) / max(1, len(px)))
+    return ratios
+
+
+def assert_costume_cells_nonempty(
+    costume_png: bytes, *, min_ratio: float = 0.12, n: int = 5
+) -> list[float]:
+    """服饰栏每格须非空且内容像素占比 > 阈值；否则 CharacterSheetError。"""
+    ratios = costume_cell_content_ratios(costume_png, n=n)
+    bad = [i for i, r in enumerate(ratios) if r < min_ratio]
+    if bad:
+        raise CharacterSheetError(
+            f"costume cells empty/thin: idx={bad} ratios={[round(x, 3) for x in ratios]} min={min_ratio}"
+        )
+    return ratios
+
+
 def collage_costume_items(items: list[bytes], *, style: str) -> bytes:
     """五件单品横排拼成 costume 区图;正方形格 + 包围盒 letterbox,不裁切。"""
     # 用接近版式区的宽扁画布,每格近似正方形,避免竖长条中心裁切
