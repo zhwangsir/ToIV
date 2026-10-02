@@ -3474,10 +3474,13 @@ def collage_face_triplet_equal_width(
         if fw / win_w > max_face_w_frac:
             win_w = fw / max_face_w_frac
             win_h = win_w / aspect
-        # 垂直：头顶优先——脸顶距窗顶约占 (1-fh_frac)*0.40
+        # 垂直：头顶优先；若源图脸顶已贴边(y0≈0)则窗顶贴源顶，禁止向上垫灰边
         top_slack = win_h - fh
         face_top_in_win = max(2.0, top_slack * 0.72)  # 19:20 R 保头顶
-        top = y0 - face_top_in_win
+        if y0 <= 4.0:
+            top = 0.0
+        else:
+            top = y0 - face_top_in_win
         left = fcx - win_w / 2.0
         # 在原图上取整数窗；越界用边缘色扩展，保证窗完整后再缩放铺满
         fill = _sample_edge_fill_color(im, bg)
