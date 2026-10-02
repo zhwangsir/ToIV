@@ -1,13 +1,14 @@
-"""ffmpeg 助手:进程执行 / 片段拼接。
-
-与 app.routes.assembly 内的实现同源独立演化(服务层自持,不反向依赖路由层)。
-"""
 from __future__ import annotations
-
+import subprocess
+from typing import Iterable
 import asyncio
 import shutil
 from pathlib import Path
 
+"""ffmpeg 助手:进程执行 / 片段拼接。
+
+与 app.routes.assembly 内的实现同源独立演化(服务层自持,不反向依赖路由层)。
+"""
 
 class FFmpegError(RuntimeError):
     pass
@@ -146,3 +147,58 @@ async def mux_audio_into_video(
         raise FFmpegError("mux 音轨产物无效")
     return out_path
 
+
+def window_mean_volume_db(path: str | Path, starts: Iterable[float], win: float = 2.0) -> list[dict]:
+    """Return mean_volume dB for each [start, start+win) window via ffmpeg volumedetect."""
+    path = Path(path)
+    rows: list[dict] = []
+    for s in starts:
+        cmd = [
+            "ffmpeg", "-hide_banner",
+            "-ss", f"{float(s):.3f}", "-t", f"{float(win):.3f}",
+            "-i", str(path), "-af", "volumedetect", "-f", "null", "-",
+        ]
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        mean = None
+        for line in (p.stderr or "").splitlines():
+            if "mean_volume:" in line:
+                mean = float(line.split("mean_volume:")[1].split("dB")[0].strip())
+                break
+        if mean is None:
+            raise RuntimeError(f"no mean_volume for {path} @ {s}")
+        rows.append({"t": float(s), "mean_db": mean})
+    return rows
+
+
+def compare_window_loudness(
+    old_path: str | Path,
+    new_path: str | Path,
+    *,
+    starts: Iterable[float] | None = None,
+    win: float = 2.0,
+    max_abs_diff_db: float = 4.0,
+) -> dict:
+    """成片验收：2 秒窗响度对比。默认 0–12s 每 2s 一窗，|new-old|≤max_abs_diff_db 才过。"""
+    if starts is None:
+        starts = list(range(0, 14, 2))
+    else:
+        starts = list(starts)
+    old_rows = window_mean_volume_db(old_path, starts, win=win)
+    new_rows = window_mean_volume_db(new_path, starts, win=win)
+    windows = []
+    ok = True
+    for a, b in zip(old_rows, new_rows):
+        diff = b["mean_db"] - a["mean_db"]
+        passed = abs(diff) <= max_abs_diff_db
+        if not passed:
+            ok = False
+        windows.append(
+            {
+                "t": a["t"],
+                "old": a["mean_db"],
+                "new": b["mean_db"],
+                "diff": round(diff, 2),
+                "pass": passed,
+            }
+        )
+    return {"ok": ok, "max_abs_diff_db": max_abs_diff_db, "windows": windows}
