@@ -3430,18 +3430,15 @@ def collage_face_triplet_equal_width(
 ) -> bytes:
     """面部三格同宽同高横拼（19:20）。
 
-    先裁源图边缘杂条/纯色边；再按人脸框取头顶优先的头窗，cover 铺满格，格内不留补边。
-    头窗高度按 face_height_frac 归一，使三格脸高接近；R 侧脸优先保头顶。
+    先裁源图边缘杂条；再取与格子同比例的头窗（脸高≈face_height_frac、保头顶），
+    直接缩放铺满格——等价 cover 且无补边。
     """
     if len(faces) != 3:
         raise CharacterSheetError(f"face triplet needs 3 images, got {len(faces)}")
     max_fw_frac = 1.0 - 2.0 * float(min_side_margin)
-    max_face_w = max(8, int(round(cell_w * min(float(face_width_frac), max_fw_frac))))
-    target_fh = max(8, int(round(cell_h * float(face_height_frac))))
-    # 头窗相对脸框：上方多留（保头顶），下方到锁骨附近
-    top_pad_frac = 0.45
-    bot_pad_frac = 0.70
-    side_pad_frac = 0.55
+    max_face_w_frac = min(float(face_width_frac), max_fw_frac)
+    fh_frac = float(face_height_frac)
+    aspect = cell_w / float(cell_h)
     canvas = Image.new("RGB", (3 * cell_w + 2 * gap, cell_h), bg)
     for i, raw in enumerate(faces):
         im = _trim_panel_edge_strips(Image.open(BytesIO(raw)).convert("RGB"))
@@ -3450,57 +3447,41 @@ def collage_face_triplet_equal_width(
             fitted, _pos = _fit_cover_keep_crown(im, (0, 0, cell_w, cell_h))
             canvas.paste(fitted.convert("RGB"), (i * (cell_w + gap), 0))
             continue
-        x0, y0, x1, y1 = bb
-        fw = max(1, x1 - x0)
-        fh = max(1, y1 - y0)
-        # 以脸为中心扩头窗（像素）
-        cx = (x0 + x1) / 2.0
-        pad_top = fh * top_pad_frac
-        pad_bot = fh * bot_pad_frac
-        pad_side = fw * side_pad_frac
-        # 目标：脸高在头窗中约占 target_fh/cell_h，故头窗高 ≈ fh / face_height_frac
-        win_h = max(fh + pad_top + pad_bot, fh / max(0.25, float(face_height_frac)))
-        win_w = win_h * (cell_w / float(cell_h))
-        # 脸宽上限：头窗宽不够时加宽
-        if fw + 2 * pad_side > win_w:
-            win_w = fw + 2 * pad_side
-            win_h = win_w * (cell_h / float(cell_w))
-        # 水平居中脸；垂直：头顶优先（face_top 距窗顶 = pad_top）
-        left = cx - win_w / 2.0
-        top = y0 - pad_top
-        # 夹紧到图像内；若触边则平移，仍尽量保头顶
-        if left < 0:
-            left = 0
-        if left + win_w > im.width:
-            left = max(0, im.width - win_w)
-        if top < 0:
-            top = 0
-        if top + win_h > im.height:
-            # 触底时尽量上移，优先保头顶：若仍溢出则贴底
-            top = max(0, im.height - win_h)
-        # 整数裁窗；不足则用边缘色扩展成头窗再 cover
-        il = int(round(left))
-        it = int(round(top))
-        ir = int(round(left + win_w))
-        ib = int(round(top + win_h))
-        il = max(0, min(il, im.width - 1))
-        it = max(0, min(it, im.height - 1))
-        ir = max(il + 1, min(ir, im.width))
-        ib = max(it + 1, min(ib, im.height))
-        crop = im.crop((il, it, ir, ib))
-        # 若裁窗因夹紧变矮/窄，垫到目标比例再 cover（用边缘色，随后 cover 会铺满格）
+        x0, y0, x1, y1 = [float(v) for v in bb]
+        fw = max(1.0, x1 - x0)
+        fh = max(1.0, y1 - y0)
+        fcx = (x0 + x1) / 2.0
+        # 头窗高度使脸高占比 = fh_frac；宽度跟格子比例
+        win_h = fh / max(0.25, fh_frac)
+        win_w = win_h * aspect
+        # 脸宽不得超过 max_face_w_frac*格宽 对应的头窗宽
+        if fw / win_w > max_face_w_frac:
+            win_w = fw / max_face_w_frac
+            win_h = win_w / aspect
+        # 垂直：头顶优先——脸顶距窗顶约占 (1-fh_frac)*0.40
+        top_slack = win_h - fh
+        face_top_in_win = max(2.0, top_slack * 0.40)
+        top = y0 - face_top_in_win
+        left = fcx - win_w / 2.0
+        # 在原图上取整数窗；越界用边缘色扩展，保证窗完整后再缩放铺满
+        fill = _sample_edge_fill_color(im, bg)
         tw = max(1, int(round(win_w)))
         th = max(1, int(round(win_h)))
-        if crop.width != tw or crop.height != th:
-            fill = _sample_edge_fill_color(crop, bg)
-            canvas_h = Image.new("RGB", (tw, th), fill)
-            # 贴顶优先（保头顶）
-            ox = max(0, (tw - crop.width) // 2)
-            oy = 0
-            canvas_h.paste(crop, (ox, oy))
-            crop = canvas_h
-        fitted, _pos = _fit_cover_keep_crown(crop, (0, 0, cell_w, cell_h))
-        canvas.paste(fitted.convert("RGB"), (i * (cell_w + gap), 0))
+        canvas_h = Image.new("RGB", (tw, th), fill)
+        # 源图贴入相对位置
+        src_left = int(round(left))
+        src_top = int(round(top))
+        # 计算与原图交集
+        paste_x = -src_left if src_left < 0 else 0
+        paste_y = -src_top if src_top < 0 else 0
+        crop_l = max(0, src_left)
+        crop_t = max(0, src_top)
+        crop_r = min(im.width, src_left + tw)
+        crop_b = min(im.height, src_top + th)
+        if crop_r > crop_l and crop_b > crop_t:
+            canvas_h.paste(im.crop((crop_l, crop_t, crop_r, crop_b)), (paste_x, paste_y))
+        cell = canvas_h.resize((cell_w, cell_h), Image.Resampling.LANCZOS)
+        canvas.paste(cell, (i * (cell_w + gap), 0))
     buf = BytesIO()
     canvas.save(buf, format="PNG")
     return buf.getvalue()
