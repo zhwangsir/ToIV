@@ -151,3 +151,47 @@ def test_recompose_404_without_sheet(ctx):
         json={"style": "anime", "design_notes": "x"},
     )
     assert r.status_code == 404
+
+
+def test_recompose_never_writes_refs_or_by_style(ctx):
+    """recompose 只改文字/整卡文件,绝不写扁平 refs 或分桶 by_style。"""
+    import json
+
+    cid = ctx["cid"]
+    ancient_refs = [
+        "/api/studio/files/char_panel_aaaaaaaa_ancient_realistic_portrait_2.png",
+        "/api/studio/files/char_panel_aaaaaaaa_ancient_realistic_front_2.png",
+    ]
+    samples = [
+        "/api/studio/files/sample_linxia_front.png",
+        "/api/studio/files/sample_linxia_side.png",
+    ]
+    by_style = {"ancient_realistic": list(ancient_refs)}
+    with Session(ctx["engine"]) as session:
+        c = session.get(StudioCharacter, cid)
+        assert c is not None
+        c.reference_images = json.dumps(samples, ensure_ascii=False)
+        c.reference_images_by_style = json.dumps(by_style, ensure_ascii=False)
+        session.add(c)
+        session.commit()
+
+    r = ctx["client"].post(
+        f"/api/studio/characters/{cid}/character-sheet/recompose",
+        headers=ctx["headers"],
+        json={
+            "style": ctx["style"],
+            "role": "雨夜店员",
+            "personality": "温柔果断",
+            "design_notes": "锁图只改字。\n不写 refs。\n分桶不动。",
+            "height_cm": 168,
+            "persist_description": True,
+        },
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["apply_to_video_refs"] is False
+    with Session(ctx["engine"]) as session:
+        c = session.get(StudioCharacter, cid)
+        assert c is not None
+        assert json.loads(c.reference_images or "[]") == samples
+        assert json.loads(c.reference_images_by_style or "{}") == by_style

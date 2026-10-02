@@ -353,13 +353,91 @@ def test_api_success_writes_panel_refs_not_sheet(ctx):
     assert body["sheet_style"] == "anime"
     assert "panel_urls" in body
     assert body["panel_urls"]["portrait"]
-    # 整卡不得置前进 reference_images
-    assert all("char_sheet_" not in u for u in body["reference_images"])
-    assert body["reference_images"], "apply_to_video_refs=true 应写入面板 refs"
-    assert "char_panel_" in body["reference_images"][0]
-    assert "portrait" in body["reference_images"][0]
+    # 22:31+:apply_to_video_refs 只写 by_style 分桶,不改扁平 reference_images;整卡不进链
+    assert all("char_sheet_" not in u for u in (body.get("reference_images") or []))
+    by = body.get("reference_images_by_style") or {}
+    assert "anime" in by and by["anime"], "apply_to_video_refs=true 应写入 anime 分桶"
+    assert "char_panel_" in by["anime"][0]
+    assert "portrait" in by["anime"][0]
+    assert all("anime" in u for u in by["anime"])
     name = body["sheet_url"].rsplit("/", 1)[-1]
     assert (out_root / "studio" / name).is_file()
+
+
+
+def test_api_anime_apply_keeps_ancient_bucket(ctx):
+    """API: anime + apply_to_video_refs 只写 anime 桶,不改 ancient_realistic;扁平 sample 不动。"""
+    client, token, out_root, _ = ctx
+    H = _h(token)
+    cid = _mk_char(client, H)
+    samples = [
+        "/api/studio/files/sample_linxia_front.png",
+        "/api/studio/files/sample_linxia_side.png",
+        "/api/studio/files/sample_linxia_full.png",
+    ]
+    ancient = [
+        "/api/studio/files/char_panel_aaaaaaaa_ancient_realistic_portrait_2.png",
+        "/api/studio/files/char_panel_aaaaaaaa_ancient_realistic_front_2.png",
+        "/api/studio/files/char_panel_aaaaaaaa_ancient_realistic_side_2.png",
+        "/api/studio/files/char_panel_aaaaaaaa_ancient_realistic_back_2.png",
+    ]
+    r_patch = client.patch(
+        f"/api/studio/characters/{cid}",
+        headers=H,
+        json={
+            "reference_images": samples,
+            "reference_images_by_style": {"ancient_realistic": ancient},
+        },
+    )
+    assert r_patch.status_code == 200, r_patch.text
+
+    async def fake_gen(*, character_id, meta, pool, **kw):
+        panels = {}
+        for i, k in enumerate(_all_panel_keys()):
+            buf = BytesIO()
+            sheet_svc.placeholder_panel((40 + i * 10, 70, 150)).convert("RGB").save(
+                buf, format="PNG"
+            )
+            panels[k] = buf.getvalue()
+        png = sheet_svc.compose_character_sheet(panels, meta)
+        url = sheet_svc.save_sheet_png(png, character_id=character_id, style=meta.style)
+        panel_urls = {
+            "portrait": sheet_svc.save_panel_png(
+                panels["portrait"], character_id=character_id, style=meta.style, key="portrait"
+            ),
+            "front": sheet_svc.save_panel_png(
+                panels["front"], character_id=character_id, style=meta.style, key="front"
+            ),
+            "side": sheet_svc.save_panel_png(
+                panels["side"], character_id=character_id, style=meta.style, key="side"
+            ),
+            "back": sheet_svc.save_panel_png(
+                panels["back"], character_id=character_id, style=meta.style, key="back"
+            ),
+        }
+        return url, png, panel_urls
+
+    with patch(
+        "app.services.studio.character_sheet.generate_character_sheet",
+        new=AsyncMock(side_effect=fake_gen),
+    ):
+        r = client.post(
+            f"/api/studio/characters/{cid}/character-sheet",
+            headers=H,
+            json={"style": "anime", "apply_to_video_refs": True},
+        )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["apply_to_video_refs"] is True
+    by = body.get("reference_images_by_style") or {}
+    assert "anime" in by and len(by["anime"]) >= 4
+    assert all("anime" in u for u in by["anime"])
+    assert by.get("ancient_realistic") == ancient
+    # 扁平 sample 不被 anime 面板覆盖
+    flat = body.get("reference_images") or []
+    for s in samples:
+        assert s in flat
+    assert not any("char_sheet_" in u for u in flat)
 
 
 def test_font_missing_maps_503(monkeypatch):
