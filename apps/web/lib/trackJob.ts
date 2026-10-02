@@ -434,55 +434,22 @@ export function trackJob(
       });
 
       es.addEventListener("phase", (ev) => {
-
-
         if (settled) return;
-
-
         try {
-
-
           const d = JSON.parse((ev as MessageEvent).data || "{}") as {
-
-
             phase?: string;
-
-
             label?: string;
-
-
           };
-
-
           const label = (d.label || "").trim();
-
-
           const phase = (d.phase || "").trim();
-
-
           if (label) {
-
-
             busBegin(busId, label);
-
-
             opts.onPhase?.({ phase: phase || "unknown", label });
-
-
           }
-
-
         } catch {
-
-
           /* ignore malformed phase */
-
-
         }
-
-
       });
-
 
       es.addEventListener("progress", (e) => {
         armWatchdog();
