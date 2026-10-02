@@ -1,6 +1,6 @@
 # ToIV AI 短剧产品方案（正式）
 
-> 锁定日期：2026-10-01；修订：2026-10-03 00:25（设定卡双风格收线 + 资料重拼 UI + 雨夜 splice2 基线固化）。
+> 锁定日期：2026-10-01；修订：2026-10-03 01:20（INTENT e/f：速度分档落地 + 常用20事评分表复跑对比）。
 > 主体：一句话 → 分镜 → 角色设定卡 → 视频（管线 C）→ 配音 → pad 对口型 → 成片。
 
 ## 1. 视频默认管线 C
@@ -55,4 +55,10 @@
 ## 8. 下一优先
 
 - 设定卡完整 UI 已接资料重拼；继续压失败/边界（无卡保存 404、跨风格不互盖 refs）。
-- 旧积压：INTENT e/f（速度分档 + 评分表复跑）、`:8197` Motion Context 缺口、GitHub 推送偶发 443。
+- **INTENT e 已完成**（`e36d898`）：速度分档 `fast|quality` 已部署（BUILD_ID 含 e36d898f）。
+- **INTENT f 已完成**（2026-10-03）：评分表复跑与前后对比见
+  - core：`/home/merlin/toiv/tmp/intent_scorecard_20261003.{json,md}`
+  - core：`/home/merlin/toiv/tmp/intent_scorecard_compare_20260930_vs_20261003.md`
+  - 副本：`~/Desktop/ALLProject/toiv_report_intent_f/`
+  - 要点：公开卡 **86→85**；本窗 live 抠图 7.2s / 局部重绘 84.2s / 音乐 72.1s；视频类沿用 09-30 耗时。
+- 旧积压：`:8197` Motion Context 缺口、GitHub 推送偶发 443；INTENT d 少字清扫 / c 配音 TTS 仍待续。
