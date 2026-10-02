@@ -65,12 +65,13 @@ LAYOUT = {
     "name": (48, 1240, 720, 72),
     "profile": (48, 1320, 720, 420),
     "turnaround": (800, 48, 1552, 1692),
-    "faces": (48, 1780, 760, 520),
-    "expressions": (840, 1780, 980, 520),
-    "costume": (48, 2340, 1180, 520),
-    "palette": (1260, 2340, 520, 200),
-    "notes": (1260, 2560, 1092, 300),
-    "footer": (48, 3080, 2304, 80),
+    # 22:37 待办：面部面板上方空带偏高——收矮 faces/expressions，下区上移
+    "faces": (48, 1780, 760, 400),
+    "expressions": (840, 1780, 980, 400),
+    "costume": (48, 2220, 1180, 520),
+    "palette": (1260, 2220, 520, 200),
+    "notes": (1260, 2440, 1092, 300),
+    "footer": (48, 2960, 2304, 80),
 }
 
 _STYLE_SUFFIX = {
@@ -897,7 +898,14 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
     return prompts
 
 
-def _fit(img: Image.Image, box: tuple[int, int, int, int], *, cover: bool = True):
+def _fit(
+    img: Image.Image,
+    box: tuple[int, int, int, int],
+    *,
+    cover: bool = True,
+    valign: str = "center",
+):
+    """contain 时 valign=top|center|bottom；cover 仍居中裁。"""
     x, y, w, h = box
     src = img.convert("RGBA")
     if cover:
@@ -912,7 +920,12 @@ def _fit(img: Image.Image, box: tuple[int, int, int, int], *, cover: bool = True
         src = src.crop((left, top, left + w, top + h))
         return src, (x, y)
     ox = x + (w - src.width) // 2
-    oy = y + (h - src.height) // 2
+    if valign == "top":
+        oy = y
+    elif valign == "bottom":
+        oy = y + (h - src.height)
+    else:
+        oy = y + (h - src.height) // 2
     return src, (ox, oy)
 
 
@@ -922,8 +935,9 @@ def _paste(
     box: tuple[int, int, int, int],
     *,
     cover: bool = True,
+    valign: str = "center",
 ) -> None:
-    fitted, pos = _fit(img, box, cover=cover)
+    fitted, pos = _fit(img, box, cover=cover, valign=valign)
     canvas.paste(fitted, pos, fitted if fitted.mode == "RGBA" else None)
 
 
@@ -1421,7 +1435,14 @@ def compose_character_sheet(
         [_fcx, _fcy, _fcx + _fcw, _fcy + _fch],
         fill=_fbg,
     )
-    _paste(canvas, _as_image("faces"), (_fcx, _fcy, _fcw, _fch), cover=False)
+    # 22:37：面部顶对齐，避免 240×320 三格在高面板里垂直居中留下上方空带
+    _paste(
+        canvas,
+        _as_image("faces"),
+        (_fcx, _fcy, _fcw, _fch),
+        cover=False,
+        valign="top",
+    )
 
     # 表情:优先用 expr_0..5 拼 2x3;兼容旧单图 expressions
     _draw_panel_frame(
