@@ -2,6 +2,10 @@
 
 状态机:draft → queued → rendering → rendered → voiced → (lipsynced) → done
 任何步骤异常落 error 并记录 shot.error,支持单镜重试。
+
+已有入选片时(video_url/final_clip_url 或 is_picked 候选,或 status 已是
+rendered/voiced/lipsynced/done 且有视频):重试失败只追加候选失败记录,
+不得把镜次 status 打成 error、不得清除入选 URL。
 """
 from __future__ import annotations
 
@@ -28,6 +32,77 @@ _TERMINAL_SKIP = {"rendered", "voiced", "lipsynced", "done"}
 def terminal_states() -> set[str]:
     """批量渲染跳过的状态集合(副本,防调用方改内部常量)。"""
     return set(_TERMINAL_SKIP)
+
+
+def _prior_has_selected_media(
+    *,
+    prior_status: str,
+    prior_video_url: str,
+    prior_final_clip_url: str,
+    prior_candidates_json: str,
+) -> bool:
+    """重试前是否已有可保留的入选片。"""
+    url = (prior_video_url or prior_final_clip_url or "").strip()
+    if url:
+        return True
+    try:
+        rows = json.loads(prior_candidates_json or "[]")
+    except (ValueError, TypeError):
+        rows = []
+    if not isinstance(rows, list):
+        return False
+    for c in rows:
+        if (
+            isinstance(c, dict)
+            and c.get("is_picked")
+            and c.get("status") == "done"
+            and str(c.get("url") or "").strip()
+        ):
+            return True
+    # voiced/lipsynced 且有 video_url 已在上方 url 分支覆盖
+    _ = prior_status
+    return False
+
+
+def _append_candidate_failures(
+    prior_candidates_json: str,
+    attempt: list[dict[str, Any]],
+    *,
+    err_msg: str,
+    video_model: str,
+) -> str:
+    """把本轮失败候选追加到已有 candidates,不覆盖入选项。"""
+    import uuid
+
+    try:
+        rows = json.loads(prior_candidates_json or "[]")
+    except (ValueError, TypeError):
+        rows = []
+    if not isinstance(rows, list):
+        rows = []
+    failed = [
+        c for c in attempt
+        if isinstance(c, dict) and c.get("status") == "error"
+    ]
+    if not failed:
+        failed = [
+            {
+                "id": uuid.uuid4().hex,
+                "url": "",
+                "seed": 0,
+                "status": "error",
+                "is_picked": False,
+                "error": str(err_msg)[:200],
+                "video_model": video_model,
+            }
+        ]
+    else:
+        for c in failed:
+            c["is_picked"] = False
+            if not c.get("error"):
+                c["error"] = str(err_msg)[:200]
+    rows.extend(failed)
+    return json.dumps(rows, ensure_ascii=False)
 
 
 def _cast_for(session: Session, shot: StudioShot) -> list[StudioCharacter]:
@@ -67,6 +142,18 @@ async def render_shot(
         from app.deps import get_pool
 
         pool = get_pool()
+    # 快照入选态:重试失败时用于恢复,避免把 voiced/lipsynced 覆盖成 error
+    prior_status = (shot.status or "").strip() or "draft"
+    prior_video_url = shot.video_url or ""
+    prior_final_clip_url = shot.final_clip_url or ""
+    prior_candidates_json = shot.candidates_json or "[]"
+    prior_error = shot.error or ""
+    preserve_selected = _prior_has_selected_media(
+        prior_status=prior_status,
+        prior_video_url=prior_video_url,
+        prior_final_clip_url=prior_final_clip_url,
+        prior_candidates_json=prior_candidates_json,
+    )
     shot.status = "rendering"
     shot.error = ""
     session.add(shot)
@@ -156,10 +243,11 @@ async def render_shot(
             kw["seed"] = seed
         return await renderer.render(shot, cast, pool, **kw)
 
+    candidates: list[dict[str, Any]] = []
     try:
         if shot.render_mode != "video" or n <= 1:
             result = await _once()
-            candidates: list[dict[str, Any]] = []
+            candidates = []
         else:
             # 多候选:不同 seed 串行提交(不并行,避免打爆 H3 单实例队列)
             seeds = [random.randint(0, 2**31 - 1) for _ in range(n)]
@@ -305,7 +393,7 @@ async def render_shot(
                         regression_ref_path=regression_ref_path,
                     )
                 except CandidatePickError as e:
-                    # 候选已出片但选优失败：写入 candidates 供 UI 标红，shot 走 error
+                    # 候选已出片但选优失败：先写入 candidates；外层按是否已有入选决定 error 或保留
                     shot.candidates_json = json.dumps(candidates, ensure_ascii=False)
                     raise RenderError(str(e)) from e
                 if win_id:
@@ -322,8 +410,35 @@ async def render_shot(
                             result = _R()
                             break
     except RenderError as e:
+        if preserve_selected:
+            # 已有入选片:失败只记候选,恢复镜次 status/URL,绝不打成 error
+            restore_status = prior_status
+            if restore_status not in ("rendered", "voiced", "lipsynced", "done"):
+                restore_status = "rendered"
+            shot.status = restore_status
+            shot.video_url = prior_video_url
+            shot.final_clip_url = prior_final_clip_url
+            shot.error = prior_error
+            shot.candidates_json = _append_candidate_failures(
+                prior_candidates_json,
+                candidates,
+                err_msg=str(e),
+                video_model=engine,
+            )
+            session.add(shot)
+            session.commit()
+            logger.warning(
+                "render_shot 重试失败但保留入选片: shot=%s status=%s err=%s",
+                shot.id,
+                restore_status,
+                str(e)[:160],
+            )
+            raise
         shot.status = "error"
         shot.error = str(e)
+        # 无入选时若本轮已有候选失败列表,一并落库供 UI 标红
+        if candidates:
+            shot.candidates_json = json.dumps(candidates, ensure_ascii=False)
         session.add(shot)
         session.commit()
         raise

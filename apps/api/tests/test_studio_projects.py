@@ -579,3 +579,162 @@ def test_render_no_body_stays_single_candidate(ctx, monkeypatch):
     assert r.status_code == 200, r.text
     assert calls["n"] == 1
     assert r.json()["video_model"] == "h3"
+
+
+# ── 重试失败不得覆盖已有入选片 ─────────────────────────────────────────────
+
+
+def test_render_retry_fail_preserves_selected_voiced(ctx, monkeypatch):
+    """已 voiced 且有入选视频时,重试超时/失败只追加候选失败,status/URL 不变。"""
+    from app.db import get_session
+    from app.main import app
+    from app.models import StudioShot
+    from app.services.studio import orchestrator as orch
+    from app.services.studio.renderers.base import RenderError, RenderResult
+    from sqlmodel import Session
+
+    client, token = ctx
+    H = _h(token)
+    pid = _mk_project(client, H)
+    sr = client.put(
+        f"/api/studio/projects/{pid}/shots",
+        headers=H,
+        json={"shots": [{"prompt": "rainy night", "render_mode": "video", "dialogue": "嗨"}]},
+    )
+    assert sr.status_code == 200, sr.text
+    sid = sr.json()["shots"][0]["id"]
+
+    class OkRenderer:
+        name = "video"
+
+        async def render(self, shot, cast, pool, **kw):
+            return RenderResult(kind="video", url="/api/studio/files/picked-keep.mp4")
+
+    monkeypatch.setattr(orch, "get_renderer", lambda shot: OkRenderer())
+    r = client.post(f"/api/studio/shots/{sid}/render", headers=H)
+    assert r.status_code == 200, r.text
+    assert r.json()["video_url"].endswith("picked-keep.mp4")
+
+    # 模拟已配音入选态(雨夜镜2 场景)
+    with Session(app.dependency_overrides[get_session]().__next__().bind) as s:
+        shot = s.get(StudioShot, sid)
+        assert shot is not None
+        shot.status = "voiced"
+        shot.voice_url = "/api/studio/files/voice.wav"
+        shot.final_clip_url = "/api/studio/files/picked-keep.mp4"
+        shot.error = "prior-note"
+        s.add(shot)
+        s.commit()
+
+    class BoomRenderer:
+        name = "video"
+
+        async def render(self, shot, cast, pool, **kw):
+            raise RenderError("等待视频超时(1800s)")
+
+    monkeypatch.setattr(orch, "get_renderer", lambda shot: BoomRenderer())
+    r = client.post(f"/api/studio/shots/{sid}/render", headers=H)
+    assert r.status_code == 502
+    assert "1800" in r.json()["detail"]
+
+    detail = client.get(f"/api/studio/projects/{pid}", headers=H).json()
+    shot = detail["shots"][0]
+    assert shot["status"] == "voiced", shot
+    assert shot["video_url"].endswith("picked-keep.mp4")
+    assert shot["final_clip_url"].endswith("picked-keep.mp4")
+    assert shot.get("error") == "prior-note"
+    cands = shot.get("candidates") or []
+    assert any(
+        isinstance(c, dict) and c.get("status") == "error" and "1800" in (c.get("error") or "")
+        for c in cands
+    ), cands
+    # 入选条目仍在且未丢
+    assert any(
+        isinstance(c, dict) and c.get("is_picked") and str(c.get("url") or "").endswith("picked-keep.mp4")
+        for c in cands
+    ), cands
+
+
+def test_render_retry_fail_preserves_lipsynced_selected(ctx, monkeypatch):
+    """lipsynced 有入选片时,多候选全失败不得把镜次打成 error。"""
+    from app.db import get_session
+    from app.main import app
+    from app.models import StudioShot
+    from app.services.studio import orchestrator as orch
+    from app.services.studio.renderers.base import RenderError, RenderResult
+    from sqlmodel import Session
+
+    client, token = ctx
+    H = _h(token)
+    pid = _mk_project(client, H)
+    sr = client.put(
+        f"/api/studio/projects/{pid}/shots",
+        headers=H,
+        json={"shots": [{"prompt": "doorway", "render_mode": "video"}]},
+    )
+    sid = sr.json()["shots"][0]["id"]
+
+    class OkRenderer:
+        name = "video"
+
+        async def render(self, shot, cast, pool, **kw):
+            return RenderResult(kind="video", url="/api/studio/files/ls-keep.mp4")
+
+    monkeypatch.setattr(orch, "get_renderer", lambda shot: OkRenderer())
+    assert client.post(f"/api/studio/shots/{sid}/render", headers=H).status_code == 200
+
+    with Session(app.dependency_overrides[get_session]().__next__().bind) as s:
+        shot = s.get(StudioShot, sid)
+        shot.status = "lipsynced"
+        shot.final_clip_url = "/api/studio/files/ls-keep.mp4"
+        s.add(shot)
+        s.commit()
+
+    class BoomRenderer:
+        name = "video"
+
+        async def render(self, shot, cast, pool, **kw):
+            raise RenderError("全部候选生成失败")
+
+    monkeypatch.setattr(orch, "get_renderer", lambda shot: BoomRenderer())
+    r = client.post(
+        f"/api/studio/shots/{sid}/render",
+        headers=H,
+        json={"video_model": "h3", "num_candidates": 2},
+    )
+    assert r.status_code == 502
+    shot = client.get(f"/api/studio/projects/{pid}", headers=H).json()["shots"][0]
+    assert shot["status"] == "lipsynced"
+    assert shot["video_url"].endswith("ls-keep.mp4")
+    assert shot["status"] != "error"
+    err_cands = [c for c in (shot.get("candidates") or []) if c.get("status") == "error"]
+    assert len(err_cands) >= 1
+
+
+def test_render_fail_without_selected_still_marks_error(ctx, monkeypatch):
+    """无入选片时失败仍落 status=error(回归保护,避免误吞失败)。"""
+    from app.services.studio import orchestrator as orch
+    from app.services.studio.renderers.base import RenderError
+
+    client, token = ctx
+    H = _h(token)
+    pid = _mk_project(client, H)
+    sr = client.put(
+        f"/api/studio/projects/{pid}/shots",
+        headers=H,
+        json={"shots": [{"prompt": "empty", "render_mode": "video"}]},
+    )
+    sid = sr.json()["shots"][0]["id"]
+
+    class BoomRenderer:
+        name = "video"
+
+        async def render(self, shot, cast, pool, **kw):
+            raise RenderError("worker 全忙")
+
+    monkeypatch.setattr(orch, "get_renderer", lambda shot: BoomRenderer())
+    r = client.post(f"/api/studio/shots/{sid}/render", headers=H)
+    assert r.status_code == 502
+    shot = client.get(f"/api/studio/projects/{pid}", headers=H).json()["shots"][0]
+    assert shot["status"] == "error"
+    assert "worker 全忙" in (shot.get("error") or "")
