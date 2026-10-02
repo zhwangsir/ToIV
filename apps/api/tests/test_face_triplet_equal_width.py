@@ -212,3 +212,68 @@ def test_cell_edges_clean_after_trim_cover():
                 panel, n=3, cell_w=240, cell_h=320, gap=12
             )
             assert info["geo"]["cell_w"] == 240
+
+
+def test_profile_r_lead_and_top_margin():
+    """19:42：R 侧脸鼻尖前方≥12% 格宽、头顶≥3%；L/M 仍走 cover。"""
+    faces = [
+        _face(300, 400, (200, 160, 140), face_box=(80, 40, 220, 200)),
+        _face(300, 400, (190, 150, 130), face_box=(70, 30, 230, 210)),
+        None,
+    ]
+    # R：左向侧脸贴在画布中部偏左，四周留灰底；trim 后仍应能被 profile fit 推出留白
+    rim = Image.new("RGB", (400, 480), (248, 248, 252))
+    d = ImageDraw.Draw(rim)
+    d.ellipse((40, 30, 220, 240), fill=(20, 20, 28))  # hair
+    d.ellipse((50, 80, 180, 230), fill=(210, 170, 150))  # face
+    d.rectangle((70, 220, 230, 420), fill=(40, 40, 50))
+    b = BytesIO()
+    rim.save(b, "PNG")
+    faces[2] = b.getvalue()
+
+    # L/M cover 路径用稳定假脸框；R 用真像素启发式（不 mock content/assert）
+    boxes = {
+        id(None): None,
+    }
+
+    def fake_bb(im_or_bytes):
+        if isinstance(im_or_bytes, (bytes, bytearray)):
+            im2 = Image.open(BytesIO(im_or_bytes)).convert("RGB")
+        else:
+            im2 = im_or_bytes
+        w, h = im2.size
+        if (w, h) == (300, 400):
+            # L or M by average color
+            px = list(im2.resize((8, 8)).getdata())
+            avg = sum(p[0] for p in px) / len(px)
+            if avg > 195:
+                return (80, 40, 220, 200)
+            return (70, 30, 230, 210)
+        # for R source / scaled: skin blob
+        px = im2.load()
+        xs, ys = [], []
+        for yy in range(h):
+            for xx in range(w):
+                r, g, b = px[xx, yy]
+                if r > 180 and 130 < g < 200 and 110 < b < 190 and r > g:
+                    xs.append(xx)
+                    ys.append(yy)
+        if len(xs) < 8:
+            return None
+        return (min(xs), min(ys), max(xs), max(ys))
+
+    with mock.patch.object(sheet_svc, "_face_bbox_for_center", side_effect=fake_bb):
+        with mock.patch.object(sheet_svc, "_insightface_face_bbox_xyxy", return_value=None):
+            panel = sheet_svc.collage_face_triplet_equal_width(
+                faces, cell_w=240, cell_h=320, gap=12
+            )
+            info = sheet_svc.assert_face_triplet_profile_lead_margin(
+                panel, cell_w=240, cell_h=320, gap=12, min_lead=0.12, min_top=0.03
+            )
+            assert info["ok"] is True
+            assert info["lead"] >= 0.12 - 1e-6
+            assert info["top"] >= 0.03 - 1e-6
+            geo = sheet_svc.assert_face_triplet_equal_width(
+                panel, n=3, cell_w=240, cell_h=320, gap=12
+            )
+            assert geo["geo"]["cell_w"] == 240

@@ -3433,6 +3433,128 @@ def _trim_panel_edge_strips(im: Image.Image, *, max_frac: float = 0.22) -> Image
     return trimmed if trimmed.size[0] >= 16 and trimmed.size[1] >= 16 else cropped
 
 
+def _content_head_bbox(im: Image.Image) -> tuple[int, int, int, int] | None:
+    """整头外轮廓（含发丝），跳过近白/近灰底；供侧脸格定位（19:42）。"""
+    rgb = im.convert("RGB")
+    w, h = rgb.size
+    if w < 8 or h < 8:
+        return None
+    # 中等分辨率采样，避免全图扫描过慢
+    tw, th = (min(160, w), min(160, h))
+    small = rgb.resize((tw, th), Image.Resampling.BILINEAR)
+    sp = small.load()
+    xs: list[int] = []
+    ys: list[int] = []
+    for y in range(th):
+        for x in range(tw):
+            r, g, b = sp[x, y]
+            mx, mn = max(r, g, b), min(r, g, b)
+            if r > 235 and g > 235 and b > 235:
+                continue
+            if mx - mn < 14 and 65 <= mx <= 210:
+                continue
+            if mx < 24 and mx - mn < 10:
+                continue
+            xs.append(x)
+            ys.append(y)
+    if len(xs) < 12:
+        return None
+    minx, maxx = min(xs), max(xs)
+    miny, maxy = min(ys), max(ys)
+    pad = 2
+    minx, miny = max(0, minx - pad), max(0, miny - pad)
+    maxx, maxy = min(tw - 1, maxx + pad), min(th - 1, maxy + pad)
+    x0 = int(minx * w / tw)
+    x1 = int((maxx + 1) * w / tw)
+    y0 = int(miny * h / th)
+    y1 = int((maxy + 1) * h / th)
+    if x1 - x0 < 8 or y1 - y0 < 8:
+        return None
+    return (x0, y0, x1, y1)
+
+
+def _fit_profile_head_cell(
+    img: Image.Image,
+    box: tuple[int, int, int, int],
+    *,
+    face_height_frac: float = 0.62,
+    lead_margin: float = 0.12,
+    top_margin: float = 0.03,
+    min_face_height_frac: float = 0.55,
+    max_face_height_frac: float = 0.75,
+) -> tuple[Image.Image, tuple[int, int]]:
+    """侧脸格：按整头外轮廓定位，鼻尖前方/头顶留白；可比 L/M 略小（19:42）。"""
+    x, y, w, h = box
+    src_rgb = img.convert("RGB")
+    # 侧脸留白必须用浅底；取边缘深色会把鼻前垫成实体（19:42 留白）
+    fill = (248, 248, 252)
+    head = _content_head_bbox(src_rgb)
+    face = _face_bbox_for_center(src_rgb)
+    if face is None and head is None:
+        return _fit_cover_keep_crown(src_rgb, box)
+    if face is None and head is not None:
+        hx0, hy0, hx1, hy1 = head
+        # 无脸框时取整头上半为脸
+        face = (hx0, hy0, hx1, hy0 + max(8, int((hy1 - hy0) * 0.55)))
+    assert face is not None
+    fx0, fy0, fx1, fy1 = face
+    if head is None:
+        pad_x = int((fx1 - fx0) * 0.45)
+        pad_y_top = int((fy1 - fy0) * 0.55)
+        pad_y_bot = int((fy1 - fy0) * 0.35)
+        head = (
+            max(0, fx0 - pad_x),
+            max(0, fy0 - pad_y_top),
+            min(src_rgb.width, fx1 + pad_x),
+            min(src_rgb.height, fy1 + pad_y_bot),
+        )
+    hx0, hy0, hx1, hy1 = head
+    # 侧向：脸相对整头更靠哪侧
+    facing_left = (fx0 - hx0) <= (hx1 - fx1)
+    nose_x = float(fx0 if facing_left else fx1)
+    # 整头最前缘（发丝/鼻尖）作留白锚点，避免发丝仍贴边
+    if facing_left:
+        nose_x = float(min(nose_x, hx0))
+    else:
+        nose_x = float(max(nose_x, hx1))
+    crown_y = float(hy0)
+    face_h = max(1.0, float(fy1 - fy0))
+    # 侧脸有效头宽≈脸宽*1.35（含后脑），勿用铺满全身的 content 宽去卡死缩放
+    head_w_eff = max(float(fx1 - fx0) * 1.35, float(hx1 - hx0) * 0.55, 8.0)
+    head_h_eff = max(float(hy1 - hy0) * 0.85, face_h * 1.35, 8.0)
+    target_frac = min(max(float(face_height_frac), min_face_height_frac), max_face_height_frac)
+    scale = (target_frac * h) / face_h
+    max_scale_h = (h * (1.0 - top_margin - 0.05)) / head_h_eff
+    max_scale_w = (w * (1.0 - lead_margin - 0.08)) / head_w_eff
+    scale = min(scale, max_scale_h, max_scale_w)
+    # 锚点在整头最前缘/顶时，放大只会向下向后长，鼻前/头顶留白仍由 paste 钉住
+    min_scale = (min_face_height_frac * h) / face_h
+    max_scale_face = (max_face_height_frac * h) / face_h
+    scale = min(max(scale, min_scale), max_scale_face)
+    scale = max(scale, 1e-6)
+    nw = max(1, int(round(src_rgb.width * scale)))
+    nh = max(1, int(round(src_rgb.height * scale)))
+    scaled = src_rgb.resize((nw, nh), Image.Resampling.LANCZOS)
+    nose_s = nose_x * scale
+    crown_s = crown_y * scale
+    if facing_left:
+        paste_x = int(round(lead_margin * w - nose_s))
+    else:
+        paste_x = int(round((1.0 - lead_margin) * w - nose_s))
+    paste_y = int(round(top_margin * h - crown_s))
+    # 硬约束：贴完后鼻尖/头顶留白（防止舍入吃掉）
+    if facing_left:
+        # 鼻尖在 scaled 中的 x = nose_s；屏幕位置 = paste_x + nose_s
+        need_x = int(round(lead_margin * w - nose_s))
+        paste_x = need_x
+    else:
+        paste_x = int(round((1.0 - lead_margin) * w - nose_s))
+    paste_y = int(round(top_margin * h - crown_s))
+    canvas = Image.new("RGB", (w, h), fill)
+    canvas.paste(scaled, (paste_x, paste_y))
+    return canvas.convert("RGBA"), (x, y)
+
+
 def collage_face_triplet_equal_width(
     faces: list[bytes],
     *,
@@ -3444,10 +3566,10 @@ def collage_face_triplet_equal_width(
     face_height_frac: float = 0.50,
     min_side_margin: float = 0.10,
 ) -> bytes:
-    """面部三格同宽同高横拼（19:20）。
+    """面部三格同宽同高横拼（19:20 / 19:42）。
 
-    先裁源图边缘杂条/近白分隔带；再按人脸 cover 铺满格并优先保头顶。
-    不再用「头窗+垫色」——侧脸源图头顶贴边时垫色会造成顶灰边。
+    L/M：裁边缘杂条后按人脸 cover 铺满并保头顶。
+    R（侧脸）：按整头外轮廓定位，鼻尖前方≥12% 格宽、头顶≥3%；脸高占比允许 0.55–0.75。
     face_* 参数保留签名兼容。
     """
     if len(faces) != 3:
@@ -3456,7 +3578,10 @@ def collage_face_triplet_equal_width(
     canvas = Image.new("RGB", (3 * cell_w + 2 * gap, cell_h), bg)
     for i, raw in enumerate(faces):
         im = _trim_panel_edge_strips(Image.open(BytesIO(raw)).convert("RGB"))
-        fitted, _pos = _fit_cover_keep_crown(im, (0, 0, cell_w, cell_h))
+        if i == 2:
+            fitted, _pos = _fit_profile_head_cell(im, (0, 0, cell_w, cell_h))
+        else:
+            fitted, _pos = _fit_cover_keep_crown(im, (0, 0, cell_w, cell_h))
         canvas.paste(fitted.convert("RGB"), (i * (cell_w + gap), 0))
     buf = BytesIO()
     canvas.save(buf, format="PNG")
@@ -3690,6 +3815,9 @@ def assert_face_triplet_cell_edges_clean(
                 (x0, max(0, cell_h - band * 3), x0 + cell_w, cell_h - band),
             ),
         ]
+        # 侧脸格故意留鼻前/头顶浅底，跳过 L/T 杂条判定（19:42）
+        if i == 2:
+            checks = [c for c in checks if c[0] not in ("L", "T")]
         for name, outer_box, inner_box in checks:
             omean, ovar = _stats(*outer_box)
             imean, _ivar = _stats(*inner_box)
@@ -3700,6 +3828,81 @@ def assert_face_triplet_cell_edges_clean(
         raise CharacterSheetError(f"face cell edge strips: {bad}")
     return {"ok": True, "band": band, "max_delta": max_delta, "max_band_var": max_band_var}
 
+
+
+def assert_face_triplet_profile_lead_margin(
+    faces_png: bytes,
+    *,
+    cell_w: int,
+    cell_h: int,
+    gap: int = 12,
+    min_lead: float = 0.12,
+    min_top: float = 0.03,
+    cell_index: int = 2,
+) -> dict:
+    """19:42：侧脸格（默认 R）鼻尖侧留白≥min_lead、头顶留白≥min_top。
+
+    用上半身前景外轮廓量：左向侧脸取最左前景列作鼻侧，最上前景行作头顶。
+    不依赖 InsightFace（垫色/灰底易干扰）。
+    """
+    im = Image.open(BytesIO(faces_png)).convert("RGB")
+    expect_w = 3 * cell_w + 2 * gap
+    if im.width != expect_w or im.height != cell_h:
+        raise CharacterSheetError(
+            f"faces geometry {im.size} != ({expect_w},{cell_h})"
+        )
+    x0 = cell_index * (cell_w + gap)
+    cell = im.crop((x0, 0, x0 + cell_w, cell_h))
+    w, h = cell.size
+    px = cell.load()
+
+    def _is_bg(r: int, g: int, b: int) -> bool:
+        if r > 230 and g > 230 and b > 235:
+            return True
+        mx, mn = max(r, g, b), min(r, g, b)
+        if mx - mn < 14 and 65 <= mx <= 252:
+            return True
+        return False
+
+    # 只看上 70%（头/肩以上），避免衣摆干扰
+    y_lim = max(8, int(h * 0.70))
+    xs: list[int] = []
+    ys: list[int] = []
+    for yy in range(y_lim):
+        for xx in range(w):
+            r, g, b = px[xx, yy]
+            if _is_bg(r, g, b):
+                continue
+            xs.append(xx)
+            ys.append(yy)
+    if len(xs) < 12:
+        raise CharacterSheetError(f"profile cell{cell_index}: no foreground for margin")
+    left_x, right_x = min(xs), max(xs)
+    top_y = min(ys)
+    # 侧向：留白更多的一侧是鼻前（左向侧脸常铺满右侧）
+    left_m = left_x / max(1, w)
+    right_m = (w - 1 - right_x) / max(1, w)
+    facing_left = left_m >= right_m
+    nose_x = left_x if facing_left else right_x
+    lead = (nose_x / w) if facing_left else ((w - nose_x) / w)
+    top = top_y / max(1, h)
+    if lead + 1e-9 < float(min_lead):
+        raise CharacterSheetError(
+            f"profile cell{cell_index} lead margin {lead:.3f} < {min_lead}"
+        )
+    if top + 1e-9 < float(min_top):
+        raise CharacterSheetError(
+            f"profile cell{cell_index} top margin {top:.3f} < {min_top}"
+        )
+    return {
+        "ok": True,
+        "cell_index": cell_index,
+        "facing_left": facing_left,
+        "lead": lead,
+        "top": top,
+        "nose_x": nose_x,
+        "top_y": top_y,
+    }
 
 
 def assert_sheet_faces_equal_width(
