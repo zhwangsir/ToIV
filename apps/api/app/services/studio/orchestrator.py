@@ -18,6 +18,11 @@ from sqlmodel import Session, select
 from app.harness import events as ev
 from app.models import StudioCharacter, StudioProject, StudioShot
 from app.services.studio.renderers.base import RenderError, get_renderer
+from app.services.studio.candidates_json import (
+    append_failure as _append_candidate_failures_helper,
+    dumps_candidates,
+    loads_candidates,
+)
 import asyncio
 
 if TYPE_CHECKING:
@@ -45,12 +50,7 @@ def _prior_has_selected_media(
     url = (prior_video_url or prior_final_clip_url or "").strip()
     if url:
         return True
-    try:
-        rows = json.loads(prior_candidates_json or "[]")
-    except (ValueError, TypeError):
-        rows = []
-    if not isinstance(rows, list):
-        return False
+    rows = loads_candidates(prior_candidates_json)
     for c in rows:
         if (
             isinstance(c, dict)
@@ -71,38 +71,14 @@ def _append_candidate_failures(
     err_msg: str,
     video_model: str,
 ) -> str:
-    """把本轮失败候选追加到已有 candidates,不覆盖入选项。"""
-    import uuid
+    """把本轮失败候选追加到已有 candidates,不覆盖入选项（VARCHAR JSON 字符串）。"""
+    return _append_candidate_failures_helper(
+        prior_candidates_json,
+        err_msg=err_msg,
+        video_model=video_model,
+        attempt=attempt,
+    )
 
-    try:
-        rows = json.loads(prior_candidates_json or "[]")
-    except (ValueError, TypeError):
-        rows = []
-    if not isinstance(rows, list):
-        rows = []
-    failed = [
-        c for c in attempt
-        if isinstance(c, dict) and c.get("status") == "error"
-    ]
-    if not failed:
-        failed = [
-            {
-                "id": uuid.uuid4().hex,
-                "url": "",
-                "seed": 0,
-                "status": "error",
-                "is_picked": False,
-                "error": str(err_msg)[:200],
-                "video_model": video_model,
-            }
-        ]
-    else:
-        for c in failed:
-            c["is_picked"] = False
-            if not c.get("error"):
-                c["error"] = str(err_msg)[:200]
-    rows.extend(failed)
-    return json.dumps(rows, ensure_ascii=False)
 
 
 def _cast_for(session: Session, shot: StudioShot) -> list[StudioCharacter]:
@@ -236,6 +212,10 @@ async def render_shot(
         render_kw["context_latent_path"] = ctx
     render_kw["clip_index"] = int(getattr(shot, "idx", 0) or 0) + 1
     renderer = get_renderer(shot)
+    # 提交渲染前读侧写入(video_model/ref_images)，结束事务后再 await。
+    # 否则 SQLAlchemy 隐式事务会在长轮询期间 idle in transaction 锁住镜次行。
+    session.add(shot)
+    session.commit()
 
     async def _once(seed: int | None = None) -> Any:
         kw = dict(render_kw)
@@ -394,7 +374,7 @@ async def render_shot(
                     )
                 except CandidatePickError as e:
                     # 候选已出片但选优失败：先写入 candidates；外层按是否已有入选决定 error 或保留
-                    shot.candidates_json = json.dumps(candidates, ensure_ascii=False)
+                    shot.candidates_json = dumps_candidates(candidates)
                     raise RenderError(str(e)) from e
                 if win_id:
                     for c in candidates:
@@ -438,7 +418,7 @@ async def render_shot(
         shot.error = str(e)
         # 无入选时若本轮已有候选失败列表,一并落库供 UI 标红
         if candidates:
-            shot.candidates_json = json.dumps(candidates, ensure_ascii=False)
+            shot.candidates_json = dumps_candidates(candidates)
         session.add(shot)
         session.commit()
         raise
@@ -458,11 +438,11 @@ async def render_shot(
         shot.video_url = result.url
         shot.final_clip_url = result.url
     if candidates:
-        shot.candidates_json = json.dumps(candidates, ensure_ascii=False)
+        shot.candidates_json = dumps_candidates(candidates)
     elif n <= 1 and shot.render_mode == "video":
         # 单候选也写一条,便于 UI 统一展示
         meta = getattr(result, "pipeline_meta", None) or {}
-        shot.candidates_json = json.dumps(
+        shot.candidates_json = dumps_candidates(
             [
                 {
                     "id": uuid.uuid4().hex,
@@ -475,8 +455,7 @@ async def render_shot(
                     "pipeline": ((meta.get("pipeline") if isinstance(meta, dict) else None) or (pipe if engine == "h3" else "")),
                     "context_latent": (meta.get("context_latent") if isinstance(meta, dict) else "") or "",
                 }
-            ],
-            ensure_ascii=False,
+            ]
         )
     shot.status = "rendered"
     session.add(shot)
@@ -487,11 +466,8 @@ async def render_shot(
 
 def pick_candidate(session: Session, shot: StudioShot, candidate_id: str) -> StudioShot:
     """将指定候选标为采用,回写 video_url/final_clip_url。"""
-    try:
-        rows = json.loads(shot.candidates_json or "[]")
-    except (ValueError, TypeError):
-        rows = []
-    if not isinstance(rows, list) or not rows:
+    rows = loads_candidates(shot.candidates_json)
+    if not rows:
         raise RenderError("无候选可挑选")
     found = None
     for c in rows:
@@ -508,7 +484,7 @@ def pick_candidate(session: Session, shot: StudioShot, candidate_id: str) -> Stu
         raise RenderError("候选未完成或无产物")
     shot.video_url = str(found["url"])
     shot.final_clip_url = str(found["url"])
-    shot.candidates_json = json.dumps(rows, ensure_ascii=False)
+    shot.candidates_json = dumps_candidates(rows)
     if found.get("video_model"):
         shot.video_model = str(found["video_model"])
     session.add(shot)
