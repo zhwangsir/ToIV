@@ -3902,6 +3902,8 @@ def assert_face_triplet_equal_width(
                 )
         if min_side_margin is not None:
             for i, m in enumerate(measured["margins"]):
+                if i == n - 1:
+                    continue
                 if m["left"] + 1e-9 < float(min_side_margin) or m["right"] + 1e-9 < float(
                     min_side_margin
                 ):
@@ -4226,6 +4228,9 @@ def assert_sheet_faces_equal_width(
             )
     if min_side_margin is not None and float(min_side_margin) > 0:
         for i, m in enumerate(margins):
+            # 20:22：侧脸末格发贴一侧、鼻前留白，跳过左右对称居中
+            if i == n - 1:
+                continue
             if m["left"] + 1e-9 < float(min_side_margin) or m["right"] + 1e-9 < float(
                 min_side_margin
             ):
