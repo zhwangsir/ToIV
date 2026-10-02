@@ -820,6 +820,31 @@ def _text(
     return len(lines) * line_h
 
 
+
+def strip_baked_panel_chrome(img: Image.Image, *, top_frac: float = 0.12, max_top: int = 56) -> Image.Image:
+    """去掉锁定面板自带的标题条/内框，避免服饰栏多层嵌套标题。"""
+    rgb = img.convert("RGB")
+    w, h = rgb.size
+    if h < 80 or w < 80:
+        return rgb
+    top = min(max_top, max(24, int(h * top_frac)))
+    top_band = rgb.crop((0, 0, w, top))
+    body = rgb.crop((0, top, w, min(h, top + max(top, 24))))
+
+    def _mean(im: Image.Image) -> float:
+        px = list(im.resize((32, 8), Image.Resampling.BOX).getdata())
+        return sum(sum(c) for c in px) / (len(px) * 3.0)
+
+    try:
+        mt, mb = _mean(top_band), _mean(body)
+    except Exception:  # noqa: BLE001
+        return rgb
+    if abs(mt - mb) < 12:
+        top = min(40, top)
+    inset = 2 if min(w, h) > 100 else 0
+    return rgb.crop((inset, top, w - inset, h - inset))
+
+
 def _draw_panel_frame(
     draw: ImageDraw.ImageDraw,
     box: tuple[int, int, int, int],
@@ -1205,8 +1230,9 @@ def compose_character_sheet(
         label_fill=theme["text_dim"],
     )
     cx, cy, cw, ch = LAYOUT["costume"]
-    # letterbox:完整物品可见,禁止竖长条中心裁切
-    _paste(canvas, _as_image("costume"), (cx + 8, cy + 32, cw - 16, ch - 40), cover=False)
+    # letterbox:完整物品可见,禁止竖长条中心裁切；先剥锁定区自带标题/内框防嵌套
+    _costume_im = strip_baked_panel_chrome(_as_image("costume"))
+    _paste(canvas, _costume_im, (cx + 8, cy + 32, cw - 16, ch - 40), cover=False)
 
     colors = list(meta.colors) if meta.colors else _extract_palette(
         portrait, style=meta.style
