@@ -3554,8 +3554,12 @@ def _feather_paste_rgb(
     xy: tuple[int, int],
     *,
     feather: int = 12,
+    sides: tuple[str, ...] | None = None,
 ) -> Image.Image:
-    """把 src 贴到 canvas，在接缝处做 feather px 线性羽化，消除硬边（20:22）。"""
+    """把 src 贴到 canvas，在接缝处做 feather px 线性羽化，消除硬边（20:22/20:38）。
+
+    sides: 限制羽化边；None=四边。fix45 侧脸只羽化鼻前侧（left/right），避免顶边羽化出浅底刀切线。
+    """
     out = canvas.convert("RGB")
     s = src.convert("RGB")
     px, py = xy
@@ -3563,13 +3567,24 @@ def _feather_paste_rgb(
     if fw <= 0:
         out.paste(s, (px, py))
         return out
-    # alpha 蒙版：内部 255，外扩方向在边缘线性降到 0（相对 src 自身边界）
     mask = Image.new("L", s.size, 255)
     mp = mask.load()
     sw, sh = s.size
+    use = set(sides) if sides is not None else {"left", "right", "top", "bottom"}
     for y in range(sh):
         for x in range(sw):
-            d = min(x, y, sw - 1 - x, sh - 1 - y)
+            dists: list[int] = []
+            if "left" in use:
+                dists.append(x)
+            if "right" in use:
+                dists.append(sw - 1 - x)
+            if "top" in use:
+                dists.append(y)
+            if "bottom" in use:
+                dists.append(sh - 1 - y)
+            if not dists:
+                continue
+            d = min(dists)
             if d < fw:
                 mp[x, y] = int(round(255 * (d + 1) / (fw + 1)))
     out.paste(s, (px, py), mask)
@@ -3582,16 +3597,16 @@ def _fit_profile_head_cell(
     *,
     face_height_frac: float = 0.62,
     lead_margin: float = 0.12,
-    top_margin: float = 0.03,
+    top_margin: float = 0.0,
     min_face_height_frac: float = 0.55,
     max_face_height_frac: float = 0.75,
 ) -> tuple[Image.Image, tuple[int, int]]:
-    """侧脸格：3:4 裁框含整头+鼻前/头顶留白，cover 铺满（20:03/20:22）。
+    """侧脸格：源图顶边对齐格顶（top_pad=0）；仅鼻前侧补背景色+12px羽化；贴底（20:38 fix45）。
 
     - 外框与 L/M 同为 box 尺寸
-    - 垫色取源图左/上背景中位色，接缝 12px 羽化
-    - 永不垫底（衣服贴格底）；保头顶≥top_margin、鼻前≥lead_margin
-    - 右侧发尽量不切
+    - 禁止顶边垫色（消除发顶约 19% 浅底刀切线）
+    - 鼻前留白 ≥ lead_margin；衣服贴格底（cover 无底垫 letterbox）
+    - L/M 路径不走本函数
     """
     x, y, w, h = box
     src_rgb = img.convert("RGB")
@@ -3625,119 +3640,66 @@ def _fit_profile_head_cell(
         nose_x = float(min(nose_x, hx0 + 0.02 * max(8.0, hx1 - hx0)))
     else:
         nose_x = float(max(nose_x, hx1 - 0.02 * max(8.0, hx1 - hx0)))
-    # 头顶用发丝外轮廓上沿；若整头框被拉到 0，改用脸顶上扩
-    crown_y = float(hy0)
-    if crown_y <= 1.0:
-        crown_y = float(max(0.0, fy0 - 0.35 * fh))
-    target_frac = min(max(float(face_height_frac), min_face_height_frac), max_face_height_frac)
-    aspect = w / float(h)
-    # 目标裁框：脸高约占 target_frac，并留出 lead/top
-    crop_h = fh / max(1e-6, target_frac)
-    head_w = max(8.0, float(hx1 - hx0))
-    head_h = max(8.0, float(max(hy1, fy1) - crown_y))
-    crop_w_lead = head_w / max(1e-6, (1.0 - lead_margin - 0.10))
-    crop_h_head = head_h / max(1e-6, (1.0 - top_margin - 0.12))
-    crop_h = max(crop_h, crop_h_head, crop_w_lead / aspect)
-    crop_w = crop_h * aspect
-    max_crop_h = fh / max(1e-6, min_face_height_frac)
-    if crop_h > max_crop_h:
-        crop_h = max_crop_h
-        crop_w = crop_h * aspect
-    min_crop_h = fh / max(1e-6, max_face_height_frac)
-    if crop_h < min_crop_h:
-        crop_h = min_crop_h
-        crop_w = crop_h * aspect
-    target_w = max(8, int(math.ceil(crop_w)))
-    target_h = max(8, int(math.ceil(crop_h)))
-    target_w = max(target_w, int(math.ceil(target_h * aspect)))
-    target_h = max(target_h, int(math.ceil(target_w / aspect)))
-    lead_e = float(lead_margin) + 0.02
-    top_e = float(top_margin) + 0.015
-    # 源图坐标系中的理想裁框（可越界）
+
+    # fix45: top_pad == 0 — 源图顶边直接对齐格顶；签名保留 top_margin 兼容
+    pad_t = 0
+    _ = (face_height_frac, top_margin, min_face_height_frac, max_face_height_frac, fh)
+
+    # 预估 cover scale，只在鼻前侧补背景色
+    scale0 = max(w / float(src_rgb.width), h / float(src_rgb.height))
+    # 羽化会让前景检测把接缝灰边算进内容，内部多留 ~5% 保证实测 lead≥门禁
+    place_lead = float(lead_margin) + 0.05
+    lead_src = (place_lead * w) / max(1e-6, scale0)
     if facing_left:
-        cx0 = int(round(nose_x - lead_e * target_w))
-        cx1 = cx0 + target_w
+        pad_l = max(0, int(math.ceil(lead_src - nose_x + 1e-6)))
+        pad_r = 0
+        feather_sides: tuple[str, ...] = ("left",)
     else:
-        cx1 = int(round(nose_x + lead_e * target_w))
-        cx0 = cx1 - target_w
-    cy0 = int(round(crown_y - top_e * target_h))
-    cy1 = cy0 + target_h
-    # 贴底：若超出源图底，整框上移；仍不够则只上垫
-    if cy1 > src_rgb.height:
-        shift = cy1 - src_rgb.height
-        cy0 -= shift
-        cy1 -= shift
-    pad_l = max(0, -cx0)
-    pad_r = max(0, cx1 - src_rgb.width)
-    pad_t = max(0, -cy0)
-    # 工作画布：源图 + 左/右/上垫（不垫底）
+        pad_l = 0
+        pad_r = max(0, int(math.ceil(lead_src - (src_rgb.width - nose_x) + 1e-6)))
+        feather_sides = ("right",)
+
     work_w = src_rgb.width + pad_l + pad_r
-    work_h = src_rgb.height + pad_t
+    work_h = src_rgb.height + pad_t  # pad_t 恒 0
     work = Image.new("RGB", (work_w, work_h), fill)
-    work = _feather_paste_rgb(work, src_rgb, (pad_l, pad_t), feather=12)
-    # 裁框映射到工作区；高度固定 target_h，底贴源图底（work 底）
-    wx0 = cx0 + pad_l
-    wx1 = wx0 + target_w
-    # 垂直：优先保头顶留白，其次贴底
-    # 理想 wy0 使 crown 在裁框内 top_e 处
-    crown_work = crown_y + pad_t
-    wy0_crown = int(round(crown_work - top_e * target_h))
-    wy0_bottom = work_h - target_h  # 贴底
-    # 在不破坏头顶的前提下尽量贴底
-    wy0 = min(max(wy0_crown, 0), max(0, wy0_bottom))
-    # 若贴底会吃掉头顶，退回 crown 锚
-    if crown_work - wy0 < top_e * target_h - 1:
-        wy0 = max(0, int(round(crown_work - top_e * target_h)))
-    wy1 = wy0 + target_h
-    if wy1 > work_h:
-        wy1 = work_h
-        wy0 = max(0, wy1 - target_h)
-    # 水平钳制
-    if wx0 < 0:
-        wx1 -= wx0
-        wx0 = 0
-    if wx1 > work_w:
-        wx0 = max(0, work_w - target_w)
-        wx1 = wx0 + target_w
-    wx0 = max(0, min(wx0, work_w - 2))
-    wy0 = max(0, min(wy0, work_h - 2))
-    wx1 = max(wx0 + 2, min(wx0 + target_w, work_w))
-    wy1 = max(wy0 + 2, min(wy0 + target_h, work_h))
-    crop = work.crop((wx0, wy0, wx1, wy1))
-    # 尺寸不足时垫到精确 target（只上/侧垫，底贴齐）
-    if crop.size != (target_w, target_h):
-        canvas = Image.new("RGB", (target_w, target_h), fill)
-        px = 0 if facing_left else max(0, target_w - crop.width)
-        py = max(0, target_h - crop.height)  # 贴底
-        canvas = _feather_paste_rgb(canvas, crop, (px, py), feather=12)
-        crop = canvas
-    # cover 到格子；水平保 lead，垂直保 top，其余贴底
-    scale = max(w / crop.width, h / crop.height)
-    nw = max(1, int(round(crop.width * scale)))
-    nh = max(1, int(round(crop.height * scale)))
-    scaled = crop.resize((nw, nh), Image.Resampling.LANCZOS)
-    # 鼻尖在 crop 内的 x
-    nose_in_crop = (nose_x + pad_l) - wx0
-    nose_scaled = nose_in_crop * scale
+    work = _feather_paste_rgb(
+        work, src_rgb, (pad_l, pad_t), feather=12, sides=feather_sides
+    )
+
+    # cover 铺满格；top=0（源顶→格顶）；水平保 lead；无底垫
+    scale = max(w / float(work_w), h / float(work_h))
+    nw = max(1, int(round(work_w * scale)))
+    nh = max(1, int(round(work_h * scale)))
+    scaled = work.resize((nw, nh), Image.Resampling.LANCZOS)
+    nose_scaled = (nose_x + pad_l) * scale
     if facing_left:
-        left = int(round(nose_scaled - lead_margin * w))
+        left = int(round(nose_scaled - place_lead * w))
     else:
-        left = int(round(nose_scaled - (1.0 - lead_margin) * w))
+        left = int(round(nose_scaled - (1.0 - place_lead) * w))
     left = max(0, min(left, max(0, nw - w)))
-    crown_in_crop = crown_work - wy0
-    crown_scaled = crown_in_crop * scale
-    top_max = int(math.floor(crown_scaled - top_margin * h + 1e-6))
-    top_bottom = max(0, nh - h)
-    top = min(top_bottom, max(0, top_max))
+    top = 0
     if top + h > nh:
         top = max(0, nh - h)
     if left + w > nw:
         left = max(0, nw - w)
     out = scaled.crop((left, top, left + w, top + h))
     if out.size != (w, h):
-        out = out.resize((w, h), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGB", (w, h), fill)
+        px = 0 if facing_left else max(0, w - out.width)
+        # 仍贴顶，禁止顶垫；高度不足时底边留 fill（极端回退）
+        canvas = _feather_paste_rgb(
+            canvas, out, (px, 0), feather=12, sides=feather_sides
+        )
+        out = canvas
+    # 记录本轮 pad 供单测/门禁读取（top_pad 必须为 0）
+    _fit_profile_head_cell.last_pad = {  # type: ignore[attr-defined]
+        "top_pad": int(pad_t),
+        "pad_l": int(pad_l),
+        "pad_r": int(pad_r),
+        "facing_left": bool(facing_left),
+        "lead_margin": float(lead_margin),
+    }
     return out.convert("RGBA"), (x, y)
-
 
 
 def collage_face_triplet_equal_width(
@@ -3751,10 +3713,10 @@ def collage_face_triplet_equal_width(
     face_height_frac: float = 0.50,
     min_side_margin: float = 0.10,
 ) -> bytes:
-    """面部三格同宽同高横拼（19:20 / 19:42）。
+    """面部三格同宽同高横拼（19:20 / 20:38）。
 
-    L/M：裁边缘杂条后按人脸 cover 铺满并保头顶。
-    R（侧脸）：3:4 大裁框含整头+鼻前≥12%+头顶≥3%，再 cover 铺满格（20:03，禁止缩格）。
+    L/M：裁边缘杂条后按人脸 cover 铺满并保头顶（像素路径不动）。
+    R（侧脸）：源图顶边对齐格顶（top_pad=0），仅鼻前≥12% 补背景色+羽化，贴底铺满 240×320。
     face_* 参数保留签名兼容。
     """
     if len(faces) != 3:
@@ -4024,7 +3986,7 @@ def assert_profile_cell_pad_delta_e(
     band: int = 10,
     max_delta_e: float = 6.0,
 ) -> dict:
-    """R 格左/上补边区与源图背景色 ΔE < max_delta_e（20:22）。"""
+    """R 格鼻前（左侧）补边区与源图背景色 ΔE < max_delta_e（20:38：不再验顶边）。"""
     import math
 
     cell = cell_rgb.convert("RGB")
@@ -4051,18 +4013,10 @@ def assert_profile_cell_pad_delta_e(
 
     fl = _to_lab(fill)
     px = cell.load()
-    # 左/上边缘取样：剔除深色内容后取中位色，与源背景比 ΔE
+    # 仅左侧鼻前补边取样（fix45 顶边不再垫色，验顶会误伤发丝）
     samples: list[tuple[int, int, int]] = []
     for y in range(ch):
         for x in range(b):
-            r, g, bb = px[x, y]
-            if (r + g + bb) / 3.0 < 150:
-                continue
-            if max(r, g, bb) - min(r, g, bb) > 40:
-                continue
-            samples.append((r, g, bb))
-    for y in range(b):
-        for x in range(cw):
             r, g, bb = px[x, y]
             if (r + g + bb) / 3.0 < 150:
                 continue
@@ -4090,13 +4044,15 @@ def assert_face_triplet_profile_lead_margin(
     cell_h: int,
     gap: int = 12,
     min_lead: float = 0.12,
-    min_top: float = 0.03,
+    min_top: float = 0.0,
+    max_top: float = 0.08,
     cell_index: int = 2,
+    require_top_pad_zero: bool = True,
 ) -> dict:
-    """19:42：侧脸格（默认 R）鼻尖侧留白≥min_lead、头顶留白≥min_top。
+    """20:38：侧脸格（默认 R）鼻尖侧留白≥min_lead；顶边 top_pad=0（发顶可贴齐/出框）。
 
     用上半身前景外轮廓量：左向侧脸取最左前景列作鼻侧，最上前景行作头顶。
-    不依赖 InsightFace（垫色/灰底易干扰）。
+    max_top 防止回归到 fix44 约 19% 浅底刀切；require_top_pad_zero 读取 last_pad。
     """
     im = Image.open(BytesIO(faces_png)).convert("RGB")
     expect_w = 3 * cell_w + 2 * gap
@@ -4147,12 +4103,27 @@ def assert_face_triplet_profile_lead_margin(
         raise CharacterSheetError(
             f"profile cell{cell_index} top margin {top:.3f} < {min_top}"
         )
+    if top - 1e-9 > float(max_top):
+        raise CharacterSheetError(
+            f"profile cell{cell_index} top margin {top:.3f} > {max_top} (top_pad must be 0)"
+        )
+    top_pad = None
+    last = getattr(_fit_profile_head_cell, "last_pad", None)
+    if require_top_pad_zero:
+        if not isinstance(last, dict) or int(last.get("top_pad", -1)) != 0:
+            raise CharacterSheetError(
+                f"profile cell{cell_index} top_pad!=0 (last_pad={last})"
+            )
+        top_pad = 0
+    elif isinstance(last, dict):
+        top_pad = int(last.get("top_pad", -1))
     return {
         "ok": True,
         "cell_index": cell_index,
         "facing_left": facing_left,
         "lead": lead,
         "top": top,
+        "top_pad": top_pad,
         "nose_x": nose_x,
         "top_y": top_y,
     }

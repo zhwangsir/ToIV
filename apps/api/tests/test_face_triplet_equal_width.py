@@ -215,26 +215,21 @@ def test_cell_edges_clean_after_trim_cover():
 
 
 def test_profile_r_lead_and_top_margin():
-    """19:42：R 侧脸鼻尖前方≥12% 格宽、头顶≥3%；L/M 仍走 cover。"""
+    """20:38：R 侧脸 top_pad==0、鼻前≥12%；L/M 仍走 cover。"""
     faces = [
         _face(300, 400, (200, 160, 140), face_box=(80, 40, 220, 200)),
         _face(300, 400, (190, 150, 130), face_box=(70, 30, 230, 210)),
         None,
     ]
-    # R：左向侧脸贴在画布中部偏左，四周留灰底；trim 后仍应能被 profile fit 推出留白
+    # R：左向侧脸；头发贴源顶，四周浅底；compose 后顶边不得再垫出浅底刀切
     rim = Image.new("RGB", (400, 480), (248, 248, 252))
     d = ImageDraw.Draw(rim)
-    d.ellipse((40, 30, 220, 240), fill=(20, 20, 28))  # hair
-    d.ellipse((50, 80, 180, 230), fill=(210, 170, 150))  # face
-    d.rectangle((70, 220, 230, 420), fill=(40, 40, 50))
+    d.ellipse((40, 0, 220, 220), fill=(20, 20, 28))  # hair touches top
+    d.ellipse((50, 60, 180, 210), fill=(210, 170, 150))  # face
+    d.rectangle((70, 200, 230, 420), fill=(40, 40, 50))
     b = BytesIO()
     rim.save(b, "PNG")
     faces[2] = b.getvalue()
-
-    # L/M cover 路径用稳定假脸框；R 用真像素启发式（不 mock content/assert）
-    boxes = {
-        id(None): None,
-    }
 
     def fake_bb(im_or_bytes):
         if isinstance(im_or_bytes, (bytes, bytearray)):
@@ -243,13 +238,11 @@ def test_profile_r_lead_and_top_margin():
             im2 = im_or_bytes
         w, h = im2.size
         if (w, h) == (300, 400):
-            # L or M by average color
             px = list(im2.resize((8, 8)).getdata())
             avg = sum(p[0] for p in px) / len(px)
             if avg > 195:
                 return (80, 40, 220, 200)
             return (70, 30, 230, 210)
-        # for R source / scaled: skin blob
         px = im2.load()
         xs, ys = [], []
         for yy in range(h):
@@ -268,11 +261,19 @@ def test_profile_r_lead_and_top_margin():
                 faces, cell_w=240, cell_h=320, gap=12
             )
             info = sheet_svc.assert_face_triplet_profile_lead_margin(
-                panel, cell_w=240, cell_h=320, gap=12, min_lead=0.12, min_top=0.03
+                panel,
+                cell_w=240,
+                cell_h=320,
+                gap=12,
+                min_lead=0.12,
+                min_top=0.0,
+                max_top=0.08,
+                require_top_pad_zero=True,
             )
             assert info["ok"] is True
             assert info["lead"] >= 0.12 - 1e-6
-            assert info["top"] >= 0.03 - 1e-6
+            assert info["top_pad"] == 0
+            assert info["top"] <= 0.08 + 1e-6
             geo = sheet_svc.assert_face_triplet_equal_width(
                 panel, n=3, cell_w=240, cell_h=320, gap=12
             )
@@ -369,7 +370,7 @@ def test_palette_hex_labels_no_overlap():
 
 
 def test_profile_cell_pad_delta_e_matches_source_bg():
-    """20:22：R 格补边区与源图左/上背景 ΔE<6；贴底且非深灰画中画。"""
+    """20:38：R 格鼻前补边区与源图背景 ΔE<6；top_pad=0；贴底且非深灰画中画。"""
     from PIL import Image, ImageDraw
     from io import BytesIO
 
@@ -406,6 +407,12 @@ def test_profile_cell_pad_delta_e_matches_source_bg():
     bot = list(cell.crop((0, 314, 240, 320)).getdata())
     dark = sum(1 for r, g, b in bot if (r + g + b) / 3 < 120)
     assert dark >= 30, f"bottom not stuck to clothes: dark={dark}"
+    last = getattr(sheet_svc._fit_profile_head_cell, "last_pad", None)
+    assert isinstance(last, dict) and last.get("top_pad") == 0, last
+    lead_info = sheet_svc.assert_face_triplet_profile_lead_margin(
+        panel, cell_w=240, cell_h=320, gap=12, min_lead=0.12, max_top=0.08
+    )
+    assert lead_info["top_pad"] == 0
     midgray = sum(
         1
         for r, g, b in cell.getdata()
