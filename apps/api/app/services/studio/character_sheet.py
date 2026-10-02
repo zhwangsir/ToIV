@@ -3770,13 +3770,14 @@ def assert_sheet_faces_equal_width(
                 f"sheet face height frac delta>{max_face_height_frac_delta}: "
                 f"{face_height_fracs} delta={fdelta:.3f}"
             )
-    for i, m in enumerate(margins):
-        if m["left"] + 1e-9 < float(min_side_margin) or m["right"] + 1e-9 < float(
-            min_side_margin
-        ):
-            raise CharacterSheetError(
-                f"sheet face cell{i} not centered: L={m['left']:.3f} R={m['right']:.3f}"
-            )
+    if min_side_margin is not None and float(min_side_margin) > 0:
+        for i, m in enumerate(margins):
+            if m["left"] + 1e-9 < float(min_side_margin) or m["right"] + 1e-9 < float(
+                min_side_margin
+            ):
+                raise CharacterSheetError(
+                    f"sheet face cell{i} not centered: L={m['left']:.3f} R={m['right']:.3f}"
+                )
     return {
         "cell_widths": cell_widths,
         "cell_heights": cell_heights,
