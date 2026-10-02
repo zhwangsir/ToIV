@@ -491,6 +491,10 @@ export interface ActiveJobProgress {
   total: number | null;
   queue_pos: number | null; // 0=生成中;N=排队第 N 位;null=未知
   updated_at: number | null;
+  /** queued | loading_model | generating | held */
+  phase?: string | null;
+  /** 用户可见短句:正在加载模型（约 2 分钟）/ 生成中 / 排队中 */
+  phase_label?: string | null;
 }
 
 /** 在跑作业条目(任务中心面板消费)。 */

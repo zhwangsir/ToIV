@@ -106,11 +106,14 @@ def write_progress(
     step: int | None = None,
     total: int | None = None,
     queue_pos: int | None = None,
+    phase: str | None = None,
+    saw_executing: bool | None = None,
     throttle: bool = False,
 ) -> None:
     """合并式更新 Job.progress(只覆盖显式给出的键);终态作业跳过。
 
     throttle=True(SSE 高频路径)时按 prompt_id 节流 2s;tracker 30s 低频路径直写。
+    phase / saw_executing 供排队文案区分「正在加载模型」与「生成中」(02:41)。
     """
     now = time.time()
     if throttle:
@@ -135,6 +138,14 @@ def write_progress(
                 snap["total"] = total
             if queue_pos is not None:
                 snap["queue_pos"] = queue_pos
+            if saw_executing is not None:
+                snap["saw_executing"] = bool(saw_executing)
+            if phase is not None:
+                snap["phase"] = phase
+            # 派生 phase_label(读方也可再算;这里落库避免前端漏逻辑)
+            from app.services.job_phase import enrich_progress_snap
+
+            snap = enrich_progress_snap(snap, status=job.status)
             snap["updated_at"] = now
             job.progress = json.dumps(snap)
             session.add(job)

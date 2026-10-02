@@ -53,6 +53,8 @@ export interface QualityWarning {
 export interface TrackJobOptions {
   /** 采样进度回调(SSE `progress` 事件;仅 max>0 时触发)。 */
   onProgress?: (p: JobProgress) => void;
+  /** 相位回调(SSE phase: 加载模型 / 生成中)。 */
+  onPhase?: (phase: { phase: string; label: string }) => void;
   /** 全局进度条任务文案(引擎显示名/操作名);缺省「生成」。 */
   label?: string;
   /**
@@ -430,6 +432,57 @@ export function trackJob(
         if (isReopen) snapshotUntil = Date.now() + SNAPSHOT_WINDOW_MS;
         armWatchdog();
       });
+
+      es.addEventListener("phase", (ev) => {
+
+
+        if (settled) return;
+
+
+        try {
+
+
+          const d = JSON.parse((ev as MessageEvent).data || "{}") as {
+
+
+            phase?: string;
+
+
+            label?: string;
+
+
+          };
+
+
+          const label = (d.label || "").trim();
+
+
+          const phase = (d.phase || "").trim();
+
+
+          if (label) {
+
+
+            busBegin(busId, label);
+
+
+            opts.onPhase?.({ phase: phase || "unknown", label });
+
+
+          }
+
+
+        } catch {
+
+
+          /* ignore malformed phase */
+
+
+        }
+
+
+      });
+
 
       es.addEventListener("progress", (e) => {
         armWatchdog();

@@ -19,6 +19,7 @@ from app.config import get_settings
 from app.deps import get_current_admin, get_current_user
 from app.models import User
 from app.services.gpu_smoke import lb_client, run_gpu_smoke, smoke_report_dir
+from app.services import worker_warmup as worker_warmup_svc
 
 router = APIRouter(tags=["system"])
 
@@ -172,4 +173,19 @@ async def harness_info(_: User = Depends(get_current_admin)) -> dict:
         "profile": settings.harness_profile,
         "plugins": plugins,
         "engines_disabled": sorted(get_disabled_engines()),
+    }
+
+
+@router.post("/system/worker-warmup")
+async def worker_warmup_trigger(
+    include_h3: bool = True,
+    _: User = Depends(get_current_admin),
+) -> dict:
+    """管理员手动触发一轮热门卡空闲预热(队列非空自动跳过,绝不 interrupt)。"""
+    settings = get_settings()
+    results = await worker_warmup_svc.warm_popular_idle(include_h3=include_h3)
+    return {
+        "enabled": bool(settings.worker_warmup_enabled),
+        "interval_sec": float(settings.worker_warmup_interval_sec),
+        "results": results,
     }

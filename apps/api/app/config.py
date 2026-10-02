@@ -269,6 +269,9 @@ class Settings(BaseSettings):
     # —— GPU 生成链路每日冒烟(txt2img 小图 + LTX 短视频)——
     # 每日定点自动执行,报告落 {content_dir}/smoke/;失败 POST 报警到 webhook(空=只记日志)。
     gpu_smoke_enabled: bool = True
+    # 热门卡空闲预热(02:41):空闲 worker 上常驻文生图/H3/音乐,缓解冷启动 ~110s
+    worker_warmup_enabled: bool = True
+    worker_warmup_interval_sec: float = 900.0
     gpu_smoke_hour: int = 4  # 每日定点(容器本地时区,0-23)
     smoke_alert_webhook: str = ""
 

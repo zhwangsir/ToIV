@@ -322,6 +322,9 @@ def list_active_jobs(
             eta_sec = max(0, int(typical * (100 - pct) / 100))
         else:
             eta_sec = typical
+        from app.services.job_phase import enrich_progress_snap
+
+        snap = enrich_progress_snap(snap, status=j.status)
         items.append(
             {
                 "id": j.id,
@@ -339,6 +342,8 @@ def list_active_jobs(
                     "total": snap.get("total"),
                     "queue_pos": queue_pos if isinstance(queue_pos, int) else None,
                     "updated_at": snap.get("updated_at"),
+                    "phase": snap.get("phase"),
+                    "phase_label": snap.get("phase_label"),
                 },
                 "hold_reason": j.hold_reason or "",
                 "nsfw": bool(j.nsfw),
@@ -1236,6 +1241,7 @@ async def job_events(
             # 网络代理(Clash 等会注入 SOCKS,导致 WS 握手走 SOCKS 失败)。worker
             # 是 Tailscale 内网地址,无需代理。
             async with websockets.connect(client.ws_url(client_id), max_size=None, proxy=None) as ws:
+                phase_generating_sent = False
                 async for raw in ws:
                     if await request.is_disconnected():
                         break
@@ -1244,7 +1250,27 @@ async def job_events(
                     msg = json.loads(raw)
                     mtype, data = msg.get("type"), msg.get("data", {})
 
-                    if mtype == "progress":
+                    if mtype == "executing" and data.get("node") is not None and data.get("prompt_id") == prompt_id:
+                        # 节点开始执行但尚无采样进度 → 冷载/图编译阶段
+                        if job and job.status == "queued":
+                            mark_status(prompt_id, "running")
+                        write_progress(
+                            prompt_id,
+                            phase="loading_model",
+                            saw_executing=True,
+                            throttle=False,
+                        )
+                        yield {
+                            "event": "phase",
+                            "data": json.dumps(
+                                {
+                                    "phase": "loading_model",
+                                    "label": "正在加载模型（约 2 分钟）",
+                                },
+                                ensure_ascii=False,
+                            ),
+                        }
+                    elif mtype == "progress":
                         # 首个进度到达时把 Job 从 queued 标为 running,让作品库状态更准确
                         if job and job.status == "queued":
                             mark_status(prompt_id, "running")
@@ -1256,8 +1282,18 @@ async def job_events(
                                 pct=int(value / total * 100),
                                 step=int(value),
                                 total=int(total),
+                                phase="generating",
                                 throttle=True,
                             )
+                        if not phase_generating_sent:
+                            phase_generating_sent = True
+                            yield {
+                                "event": "phase",
+                                "data": json.dumps(
+                                    {"phase": "generating", "label": "生成中"},
+                                    ensure_ascii=False,
+                                ),
+                            }
                         yield {"event": "progress", "data": json.dumps({"value": data.get("value"), "max": data.get("max")})}
                     elif mtype == "executing" and data.get("node") is None and data.get("prompt_id") == prompt_id:
                         done_event, urls = await _emit_done(client, prompt_id)

@@ -111,6 +111,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回" }: AppRunner
   const [submitting, setSubmitting] = useState(false);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
+  const [runPhaseLabel, setRunPhaseLabel] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [results, setResults] = useState<string[]>([]);
   /** 卸载/重跑时中止在途 trackJob(后端作业仍继续,产物落作品库) */
@@ -313,6 +314,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回" }: AppRunner
     setRunError(null);
     setResults([]);
     setProgress(null);
+    setRunPhaseLabel(null);
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     let receipt: Awaited<ReturnType<typeof runApp>>;
@@ -358,6 +360,7 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回" }: AppRunner
         label: app.name,
         signal: ctrl.signal,
         onProgress: (p) => setProgress(p.pct),
+        onPhase: (ph) => setRunPhaseLabel(ph.label),
       });
       setResults(paths);
       if (paths.length > 0) setPanelTab("history");
@@ -952,7 +955,9 @@ export function AppRunnerView({ appId, onBack, backLabel = "返回" }: AppRunner
               )}
               {running && (
                 <p className="apps-run-status" role="status">
-                  {progress != null ? `生成中 ${progress}%` : "排队中"}
+                  {progress != null
+                    ? `${runPhaseLabel ?? "生成中"} ${progress}%`
+                    : (runPhaseLabel ?? "排队中")}
                 </p>
               )}
             </div>

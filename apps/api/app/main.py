@@ -241,6 +241,13 @@ async def lifespan(app: FastAPI):
         if _settings.orch_sweep_enabled
         else None
     )
+    from app.services.worker_warmup import warmup_loop as _warmup_loop
+
+    warmup_task = (
+        asyncio.create_task(_warmup_loop())
+        if getattr(_settings, "worker_warmup_enabled", False)
+        else None
+    )
     try:
         yield
     finally:
@@ -252,6 +259,8 @@ async def lifespan(app: FastAPI):
         trash_task.cancel()
         if smoke_task is not None:
             smoke_task.cancel()
+        if warmup_task is not None:
+            warmup_task.cancel()
         # 统一关闭 ComfyUI HTTP 连接池缓存的 AsyncClient
         from app.comfy.client import close_clients
 
