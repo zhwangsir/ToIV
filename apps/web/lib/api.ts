@@ -4891,6 +4891,21 @@ export const replaceStudioCharacterSheetPanel = (
     longRequest: true,
   });
 
+export const recomposeStudioCharacterSheet = (
+  cid: string,
+  body: {
+    style: StudioCharacterSheetStyle;
+    height_cm?: number;
+    role?: string;
+    personality?: string;
+    design_notes?: string;
+    colors?: string[];
+    persist_description?: boolean;
+  },
+): Promise<StudioCharacterSheetResult> =>
+  studioReq(`/studio/characters/${cid}/character-sheet/recompose`, "POST", body);
+
+
 /** 分镜批量保存(无 id=新增,有 id=更新;生成方式变化会重置该镜媒体与状态)。 */
 export const saveStudioShots = (
   pid: string,

@@ -31,6 +31,8 @@ test("api.ts:设定卡契约", () => {
   assert.ok(api.includes("listStudioCharacterSheets"), "缺列表方法");
   assert.ok(api.includes("regenerateStudioCharacterSheetPanels"), "缺单格重生");
   assert.ok(api.includes("replaceStudioCharacterSheetPanel"), "缺单格替换");
+  assert.ok(api.includes("recomposeStudioCharacterSheet"), "缺资料重拼");
+  assert.ok(api.includes("/character-sheet/recompose"), "重拼路径不对");
   assert.ok(
     api.includes("/studio/characters/${cid}/character-sheet"),
     "路径不对",
@@ -47,6 +49,8 @@ test("CharacterSheetEditor:热区与失败重试", () => {
   assert.ok(src.includes('data-testid="sheet-editor-replace"'), "缺替换");
   assert.ok(src.includes('data-testid="sheet-editor-lock"'), "缺锁定");
   assert.ok(src.includes('data-testid="sheet-editor-export"'), "缺导出");
+  assert.ok(src.includes('data-testid="sheet-editor-save"'), "缺保存资料");
+  assert.ok(src.includes("recomposeStudioCharacterSheet"), "未接资料重拼 API");
   assert.ok(src.includes('data-testid="sheet-editor-retry"'), "缺重试");
   assert.ok(src.includes('data-testid="sheet-editor-role"'), "缺身份资料");
   assert.ok(src.includes('data-testid="sheet-editor-personality"'), "缺性格资料");

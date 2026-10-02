@@ -261,3 +261,19 @@ class CharacterSheetPanelsRequest(BaseModel):
     worker: str | None = Field(default=None, max_length=200)
     seed: int | None = None
 
+
+
+class CharacterSheetRecomposeRequest(BaseModel):
+    """Batch7:只改资料文字重拼整卡(锁全部图像格,不跑 Comfy,不写 refs)。"""
+
+    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    height_cm: int = Field(default=168, ge=120, le=220)
+    role: str = Field(default="", max_length=100)
+    personality: str = Field(default="", max_length=200)
+    design_notes: str = Field(default="", max_length=1000)
+    colors: list[str] | None = Field(default=None, max_length=8)
+    persist_description: bool = Field(
+        default=True,
+        description="True 时把身份/性格/设计说明写回角色 description",
+    )
+

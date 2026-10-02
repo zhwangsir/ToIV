@@ -7,6 +7,7 @@ import {
   listStudioCharacterSheets,
   regenerateStudioCharacterSheetPanels,
   replaceStudioCharacterSheetPanel,
+  recomposeStudioCharacterSheet,
   type StudioCharacter,
   type StudioCharacterSheetStyle,
   type StudioCharacterSheetResult,
@@ -213,18 +214,46 @@ export function CharacterSheetEditor({
     });
   };
 
-  const onExport = () => {
+  const onSaveMeta = () =>
+    runWithRetry("保存资料", async () => {
+      if (!cid) throw new Error("请先选角色");
+      if (!sheetUrl) throw new Error("暂无整卡,请先新建");
+      const res = await recomposeStudioCharacterSheet(cid, {
+        style,
+        role: role.trim() || undefined,
+        personality: personality.trim() || undefined,
+        design_notes: designNotes.trim() || undefined,
+        height_cm: Number(heightCm) > 0 ? Number(heightCm) : undefined,
+        persist_description: true,
+      });
+      setSheetUrl(res.sheet_url);
+      setPanelUrls(res.panel_urls || {});
+      toast.success("资料已保存并重拼");
+      await refreshList();
+      await onChanged?.();
+    });
+
+  const onExport = async () => {
     if (!sheetUrl) {
       setError("暂无整卡");
       return;
     }
-    const a = document.createElement("a");
-    a.href = imageUrl(sheetUrl);
-    a.download = `char_sheet_${character?.name || cid}_${style}.png`;
-    a.target = "_blank";
-    a.rel = "noreferrer";
-    a.click();
-    toast.success("已导出");
+    try {
+      const res = await fetch(imageUrl(sheetUrl));
+      if (!res.ok) throw new Error(`导出失败 ${res.status}`);
+      const blob = await res.blob();
+      const obj = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = obj;
+      a.download = `char_sheet_${character?.name || cid}_${style}.png`;
+      a.click();
+      URL.revokeObjectURL(obj);
+      toast.success("已导出");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "导出失败";
+      setError(msg);
+      toast.error(msg);
+    }
   };
 
   const toggleLock = () => {
@@ -367,8 +396,19 @@ export function CharacterSheetEditor({
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              disabled={!sheetUrl}
-              onClick={onExport}
+              disabled={!!busy || !sheetUrl || !cid}
+              onClick={() => void onSaveMeta()}
+              data-testid="sheet-editor-save"
+              title="只改资料重拼(不重跑出图)"
+            >
+              <Icon name={busy === "保存资料" ? "loading" : "check"} size={12} />
+              保存
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={!sheetUrl || !!busy}
+              onClick={() => void onExport()}
               data-testid="sheet-editor-export"
               title="导出 PNG"
             >

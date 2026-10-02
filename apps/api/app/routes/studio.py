@@ -29,6 +29,7 @@ from app.services.studio.schemas import (
     CharacterPatch,
     CharacterSheetRequest,
     CharacterSheetPanelsRequest,
+    CharacterSheetRecomposeRequest,
     ProjectCreate,
     ProjectPatch,
     ScriptParseRequest,
@@ -730,6 +731,96 @@ async def replace_character_sheet_panel(
         "apply_to_video_refs": False,
         "preserved_keys": sorted(k for k in locked if k != key and locked.get(k)),
     }
+
+
+
+@router.post("/studio/characters/{cid}/character-sheet/recompose")
+def recompose_character_sheet_meta(
+    cid: str,
+    body: CharacterSheetRecomposeRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """只改资料文字重拼整卡:锁全部图像格,不跑 Comfy,绝不写 reference_images。"""
+    from app.services.studio import character_sheet as sheet_svc
+    from app.storage import drama_output_root
+
+    c = session.get(StudioCharacter, cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="角色不存在")
+    _get_project(session, c.project_id, user)
+
+    style = body.style
+    if style not in sheet_svc.SHEET_STYLES:
+        raise HTTPException(status_code=422, detail="style 无效")
+
+    studio_dir = drama_output_root() / "studio"
+    studio_dir.mkdir(parents=True, exist_ok=True)
+    sheets = sorted(
+        studio_dir.glob(f"char_sheet_{cid[:8]}_{style}_*.png"),
+        key=lambda p: p.stat().st_mtime,
+    )
+    if not sheets:
+        raise HTTPException(status_code=404, detail="尚无该风格设定卡,请先新建")
+
+    prefix = f"char_panel_{cid[:8]}_{style}_"
+    locked: dict[str, bytes] = {}
+    for k in ("portrait", "front", "side", "back", "faces", "costume", *sheet_svc._EXPR_KEYS):
+        hits = sorted(studio_dir.glob(f"{prefix}{k}_*.png"), key=lambda p: p.stat().st_mtime)
+        if hits:
+            locked[k] = hits[-1].read_bytes()
+    locked = sheet_svc.extract_locked_panels_from_sheet(sheets[-1].read_bytes(), existing=locked)
+    if "portrait" not in locked or not locked.get("portrait"):
+        raise HTTPException(status_code=422, detail="无立绘,无法重拼")
+
+    meta = sheet_svc.SheetMeta(
+        name=(c.name or "").strip() or "角色",
+        style=style,
+        height_cm=body.height_cm,
+        role=(body.role or "").strip(),
+        personality=(body.personality or "").strip(),
+        design_notes=(body.design_notes or "").strip(),
+        colors=list(body.colors or []),
+        visual_prompt=(c.visual_prompt or "").strip(),
+        description=(c.description or "").strip(),
+    )
+    try:
+        png = sheet_svc.compose_character_sheet(locked, meta)
+    except sheet_svc.CharacterSheetError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+
+    sheet_name = f"char_sheet_{cid[:8]}_{style}_{_sheet_token()}.png"
+    (studio_dir / sheet_name).write_bytes(png)
+
+    if body.persist_description:
+        parts = [
+            part
+            for part in (
+                (body.role or "").strip(),
+                (body.personality or "").strip(),
+                (body.design_notes or "").strip(),
+            )
+            if part
+        ]
+        if parts:
+            c.description = "\n".join(parts)[:2000]
+            session.add(c)
+            session.commit()
+            session.refresh(c)
+
+    panel_urls: dict[str, str] = {}
+    for k in ("portrait", "front", "side", "back", "faces", "costume", *sheet_svc._EXPR_KEYS):
+        hits = sorted(studio_dir.glob(f"{prefix}{k}_*.png"), key=lambda p: p.stat().st_mtime)
+        if hits:
+            panel_urls[k] = f"/api/studio/files/{hits[-1].name}"
+
+    out = _character_out(c)
+    out["sheet_url"] = f"/api/studio/files/{sheet_name}"
+    out["sheet_style"] = style
+    out["panel_urls"] = panel_urls
+    out["apply_to_video_refs"] = False
+    return out
+
 
 
 def _sheet_token() -> str:
