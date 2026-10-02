@@ -821,6 +821,31 @@ def _text(
 
 
 
+
+def extract_turnaround_view(
+    sheet: Image.Image | bytes,
+    key: str,
+    *,
+    strip_chrome: bool = True,
+) -> bytes:
+    """从整卡截取正/侧/背格，避开左侧身高尺(110px)，避免锁定后再画尺导致双尺。"""
+    if key not in ("front", "side", "back"):
+        raise CharacterSheetError(f"turnaround key 须为 front/side/back, 得到 {key}", status_code=422)
+    im = sheet if isinstance(sheet, Image.Image) else Image.open(BytesIO(sheet))
+    im = im.convert("RGB")
+    tx, ty, tw, th = LAYOUT["turnaround"]
+    view_w = (tw - 140) // 3
+    idx = {"front": 0, "side": 1, "back": 2}[key]
+    x0 = tx + 110 + idx * view_w
+    y0 = ty + 50
+    cell = im.crop((x0, y0, x0 + view_w - 12, ty + th - 40))
+    if strip_chrome:
+        cell = strip_baked_panel_chrome(cell)
+    buf = BytesIO()
+    cell.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def strip_baked_panel_chrome(img: Image.Image, *, top_frac: float = 0.12, max_top: int = 56) -> Image.Image:
     """去掉锁定面板自带的标题条/内框，避免服饰栏多层嵌套标题。"""
     rgb = img.convert("RGB")
