@@ -1249,6 +1249,9 @@ async def render_one(
                 ref_style=rstyle,
             )
         )
+    except ValueError as e:
+        # 非法 ref_style 等参数错误 → 422 纯中文
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except RenderError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
 

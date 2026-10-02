@@ -158,3 +158,36 @@ def test_collect_without_style_uses_flat_when_both_buckets():
     refs = collect_cast_ref_images([C()], style=None)
     urls = [r.image_url for r in refs]
     assert urls == ["/api/studio/files/sample_linxia_front.png"]
+
+
+def test_resolve_ref_style_illegal_raises_chinese():
+    import pytest
+
+    with pytest.raises(ValueError) as ei:
+        resolve_ref_style("oil_painting")
+    msg = str(ei.value)
+    assert "设定卡风格无效" in msg
+    assert "oil_painting" in msg
+    assert "二次元" in msg or "古风" in msg
+
+
+def test_collect_missing_bucket_falls_back_to_sample(caplog):
+    import logging
+
+    class C:
+        name = "林夏"
+        reference_images = json.dumps(
+            ["/api/studio/files/sample_linxia_front.png"]
+        )
+        reference_images_by_style = {
+            "anime": [],
+            "ancient_realistic": [
+                "/api/studio/files/char_panel_aaaaaaaa_ancient_realistic_portrait_2.png"
+            ],
+        }
+
+    with caplog.at_level(logging.WARNING):
+        refs = collect_cast_ref_images([C()], style="anime")
+    urls = [r.image_url for r in refs]
+    assert urls == ["/api/studio/files/sample_linxia_front.png"]
+    assert any("回落扁平 sample" in r.message for r in caplog.records)

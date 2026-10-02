@@ -45,11 +45,9 @@ def resolve_ref_style(
 
     优先级：显式 ref_style → 项目画风文案推断 → 角色分桶里唯一有 panel 的风格。
     多桶并存且无法推断时返回 None（回落扁平 reference_images；雨夜样片保持 sample 兜底）。
+    显式传入非空但无法识别的风格 → ValueError（中文，由路由转 422）。
     """
     e = (explicit or "").strip()
-    el = e.lower()
-    if el in _SHEET_STYLES:
-        return el
     aliases = {
         "二次元": "anime",
         "动漫": "anime",
@@ -60,10 +58,17 @@ def resolve_ref_style(
         "ancient": "ancient_realistic",
         "汉服": "ancient_realistic",
     }
-    if e in aliases:
-        return aliases[e]
-    if el in aliases:
-        return aliases[el]
+    if e:
+        el = e.lower()
+        if el in _SHEET_STYLES:
+            return el
+        if e in aliases:
+            return aliases[e]
+        if el in aliases:
+            return aliases[el]
+        raise ValueError(
+            f"设定卡风格无效：「{e}」。请使用「二次元」或「古风」（或 anime / ancient_realistic）"
+        )
 
     raw = project_style or ""
     text = raw.lower()
@@ -133,6 +138,12 @@ def collect_cast_ref_images(
                 if u not in urls:
                     urls.append(u)
         else:
+            if style:
+                logger.warning(
+                    "设定卡风格桶 %s 无图，角色 %s 回落扁平 sample refs",
+                    style,
+                    name,
+                )
             urls = _parse_ref_list(getattr(c, "reference_images", None))
         views = [u for u in urls if "char_sheet_" not in u]
         for i, url in enumerate(views[:4]):
