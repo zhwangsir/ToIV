@@ -315,20 +315,25 @@ def test_triplet_outer_bbox_identical_and_full_cell():
         cells.append((x0, 0, x0 + 240, 320))
     assert cells[0][2] - cells[0][0] == cells[1][2] - cells[1][0] == cells[2][2] - cells[2][0] == 240
     assert cells[0][3] - cells[0][1] == cells[1][3] - cells[1][1] == cells[2][3] - cells[2][1] == 320
-    # R 内容应铺满：非近白像素覆盖宽高均 >= 0.92（允许源图底色）
+    # R 外框满格；允许鼻前浅底留白（lead≈12%），但不得深灰画中画缩格
     x0 = 2 * (240 + 12)
     cell = im.crop((x0, 0, x0 + 240, 320))
     px = cell.load()
     xs, ys = [], []
+    midgray = 0
     for yy in range(320):
         for xx in range(240):
             r, g, b = px[xx, yy]
+            if abs(r - 160) < 25 and abs(g - 160) < 25 and abs(b - 168) < 25:
+                midgray += 1
             if r < 245 or g < 245 or b < 245:
                 xs.append(xx); ys.append(yy)
     assert xs, "R cell empty"
     frac_w = (max(xs) - min(xs) + 1) / 240
     frac_h = (max(ys) - min(ys) + 1) / 320
-    assert frac_w >= 0.92 and frac_h >= 0.92, (frac_w, frac_h)
+    # 高度须铺满；宽度允许鼻前浅底，但前景跨度 >= 0.80
+    assert frac_h >= 0.92 and frac_w >= 0.80, (frac_w, frac_h)
+    assert midgray / (240 * 320) < 0.08, midgray / (240 * 320)
 
 
 def test_palette_hex_labels_no_overlap():
@@ -361,4 +366,50 @@ def test_palette_hex_labels_no_overlap():
     )
     png = sheet_svc.compose_character_sheet(locked, meta)
     assert isinstance(png, (bytes, bytearray)) and len(png) > 1000
+
+
+def test_profile_cell_pad_delta_e_matches_source_bg():
+    """20:22：R 格补边区与源图左/上背景 ΔE<6；贴底且非深灰画中画。"""
+    from PIL import Image, ImageDraw
+    from io import BytesIO
+
+    def _mk(kind: str) -> bytes:
+        if kind == "R":
+            im = Image.new("RGB", (400, 500), (228, 228, 234))
+            dr = ImageDraw.Draw(im)
+            dr.ellipse((40, 50, 220, 270), fill=(230, 190, 170))
+            dr.ellipse((160, 30, 320, 250), fill=(20, 20, 28))
+            dr.rectangle((90, 270, 220, 500), fill=(40, 40, 48))
+        else:
+            im = Image.new("RGB", (400, 500), (248, 248, 252))
+            dr = ImageDraw.Draw(im)
+            if kind == "L":
+                dr.ellipse((80, 40, 280, 280), fill=(230, 190, 170))
+                dr.rectangle((120, 280, 240, 500), fill=(40, 40, 48))
+            else:
+                dr.ellipse((90, 50, 290, 290), fill=(225, 185, 165))
+                dr.rectangle((130, 290, 250, 500), fill=(45, 45, 55))
+        buf = BytesIO()
+        im.save(buf, format="PNG")
+        return buf.getvalue()
+
+    raw_r = _mk("R")
+    panel = sheet_svc.collage_face_triplet_equal_width(
+        [_mk("L"), _mk("M"), raw_r], cell_w=240, cell_h=320, gap=12
+    )
+    full = Image.open(BytesIO(panel)).convert("RGB")
+    x0 = 2 * (240 + 12)
+    cell = full.crop((x0, 0, x0 + 240, 320))
+    src = Image.open(BytesIO(raw_r)).convert("RGB")
+    info = sheet_svc.assert_profile_cell_pad_delta_e(cell, src, band=10, max_delta_e=6.0)
+    assert info["ok"] is True
+    bot = list(cell.crop((0, 314, 240, 320)).getdata())
+    dark = sum(1 for r, g, b in bot if (r + g + b) / 3 < 120)
+    assert dark >= 30, f"bottom not stuck to clothes: dark={dark}"
+    midgray = sum(
+        1
+        for r, g, b in cell.getdata()
+        if abs(r - 160) < 25 and abs(g - 160) < 25 and abs(b - 168) < 25
+    )
+    assert midgray / (240 * 320) < 0.08, midgray / (240 * 320)
 

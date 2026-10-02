@@ -3516,23 +3516,64 @@ def _content_head_bbox(im: Image.Image) -> tuple[int, int, int, int] | None:
 
 
 def _sample_edge_bg(im: Image.Image) -> tuple[int, int, int]:
-    """取源图四角近边缘均色，作侧脸裁框外扩垫色（20:03）。"""
+    """兼容旧名：侧脸垫色改走左/上边缘背景中位色（20:22）。"""
+    return _sample_profile_bg(im)
+
+
+def _sample_profile_bg(im: Image.Image) -> tuple[int, int, int]:
+    """取 R 源图左/上边缘低彩度背景中位色（约浅灰紫），避免深发角把垫色拉黑（20:22）。"""
     rgb = im.convert("RGB")
     ww, hh = rgb.size
-    pts = [
-        (2, 2), (ww // 2, 2), (ww - 3, 2),
-        (2, hh // 2), (ww - 3, hh // 2),
-        (2, hh - 3), (ww // 2, hh - 3), (ww - 3, hh - 3),
-    ]
-    acc = [0, 0, 0]
-    n = 0
-    for px, py in pts:
-        r, g, b = rgb.getpixel((max(0, min(ww - 1, px)), max(0, min(hh - 1, py))))
-        acc[0] += r
-        acc[1] += g
-        acc[2] += b
-        n += 1
-    return (acc[0] // n, acc[1] // n, acc[2] // n)
+    band = max(6, min(16, ww // 48, hh // 48))
+    samples: list[tuple[int, int, int]] = []
+    px = rgb.load()
+    for y in range(hh):
+        for x in range(band):
+            samples.append(px[x, y])
+    for y in range(band):
+        for x in range(ww):
+            samples.append(px[x, y])
+    if not samples:
+        return (228, 228, 234)
+    # 低彩度 + 中高亮度 = 背景；剔除深发/肤色
+    bg: list[tuple[int, int, int]] = []
+    for r, g, b in samples:
+        mx, mn = max(r, g, b), min(r, g, b)
+        mean = (r + g + b) / 3.0
+        if mx - mn < 36 and 170 <= mean <= 245:
+            bg.append((r, g, b))
+    use = bg if len(bg) >= 24 else samples
+    use_sorted = sorted(use)
+    mid = use_sorted[len(use_sorted) // 2]
+    return (int(mid[0]), int(mid[1]), int(mid[2]))
+
+
+def _feather_paste_rgb(
+    canvas: Image.Image,
+    src: Image.Image,
+    xy: tuple[int, int],
+    *,
+    feather: int = 12,
+) -> Image.Image:
+    """把 src 贴到 canvas，在接缝处做 feather px 线性羽化，消除硬边（20:22）。"""
+    out = canvas.convert("RGB")
+    s = src.convert("RGB")
+    px, py = xy
+    fw = max(0, int(feather))
+    if fw <= 0:
+        out.paste(s, (px, py))
+        return out
+    # alpha 蒙版：内部 255，外扩方向在边缘线性降到 0（相对 src 自身边界）
+    mask = Image.new("L", s.size, 255)
+    mp = mask.load()
+    sw, sh = s.size
+    for y in range(sh):
+        for x in range(sw):
+            d = min(x, y, sw - 1 - x, sh - 1 - y)
+            if d < fw:
+                mp[x, y] = int(round(255 * (d + 1) / (fw + 1)))
+    out.paste(s, (px, py), mask)
+    return out
 
 
 def _fit_profile_head_cell(
@@ -3545,17 +3586,18 @@ def _fit_profile_head_cell(
     min_face_height_frac: float = 0.55,
     max_face_height_frac: float = 0.75,
 ) -> tuple[Image.Image, tuple[int, int]]:
-    """侧脸格：3:4 大裁框含整头+鼻前/头顶留白，再 cover 铺满格（20:03）。
+    """侧脸格：3:4 裁框含整头+鼻前/头顶留白，cover 铺满（20:03/20:22）。
 
-    外框必须与 L/M 同为 box 尺寸；禁止缩小格子或 letterbox 缩进。
-    源图不够时用源图边缘底色向外扩边补满。
+    - 外框与 L/M 同为 box 尺寸
+    - 垫色取源图左/上背景中位色，接缝 12px 羽化
+    - 永不垫底（衣服贴格底）；保头顶≥top_margin、鼻前≥lead_margin
+    - 右侧发尽量不切
     """
     x, y, w, h = box
     src_rgb = img.convert("RGB")
-    fill = _sample_edge_bg(src_rgb)
+    fill = _sample_profile_bg(src_rgb)
     face = _face_bbox_for_center(src_rgb)
     head = _content_head_bbox(src_rgb)
-    # 满幅/近满幅整头框在灰底二次元上不可信 → 改用脸框外扩
     if head is not None:
         hx0, hy0, hx1, hy1 = head
         if (hx1 - hx0) >= src_rgb.width * 0.92 or (hy1 - hy0) >= src_rgb.height * 0.92:
@@ -3577,47 +3619,41 @@ def _fit_profile_head_cell(
             int(min(src_rgb.height, fy1 + 0.90 * fh)),
         )
     hx0, hy0, hx1, hy1 = head
-    # 侧向：鼻尖侧 = 脸更靠整头的哪一侧
     facing_left = (fx0 - hx0) <= (hx1 - fx1)
     nose_x = float(fx0 if facing_left else fx1)
-    # 发丝可能比脸更靠前
     if facing_left:
         nose_x = float(min(nose_x, hx0 + 0.02 * max(8.0, hx1 - hx0)))
     else:
         nose_x = float(max(nose_x, hx1 - 0.02 * max(8.0, hx1 - hx0)))
-    crown_y = float(min(hy0, fy0))
-    # 目标：脸高约占格高 face_height_frac（夹在 0.55–0.75），同时鼻前/头顶留白
+    # 头顶用发丝外轮廓上沿；若整头框被拉到 0，改用脸顶上扩
+    crown_y = float(hy0)
+    if crown_y <= 1.0:
+        crown_y = float(max(0.0, fy0 - 0.35 * fh))
     target_frac = min(max(float(face_height_frac), min_face_height_frac), max_face_height_frac)
-    # 由脸高反推裁框高度：fh * scale = target_frac * h，且 crop 经 cover 后 scale_cov≈ cell/crop
-    # 取 crop 高 = fh / target_frac，宽 = 高 * aspect；再保证 lead/top 空间
     aspect = w / float(h)
-    crop_h_face = fh / max(1e-6, target_frac)
+    # 目标裁框：脸高约占 target_frac，并留出 lead/top
+    crop_h = fh / max(1e-6, target_frac)
     head_w = max(8.0, float(hx1 - hx0))
-    head_h = max(8.0, float(hy1 - hy0))
-    trail = 0.10
-    bot = 0.16
-    crop_w_lead = head_w / max(1e-6, (1.0 - lead_margin - trail))
-    crop_h_head = head_h / max(1e-6, (1.0 - top_margin - bot))
-    crop_h = max(crop_h_face, crop_h_head, crop_w_lead / aspect)
+    head_h = max(8.0, float(max(hy1, fy1) - crown_y))
+    crop_w_lead = head_w / max(1e-6, (1.0 - lead_margin - 0.10))
+    crop_h_head = head_h / max(1e-6, (1.0 - top_margin - 0.12))
+    crop_h = max(crop_h, crop_h_head, crop_w_lead / aspect)
     crop_w = crop_h * aspect
-    # 若脸高会被压到 <min，缩小裁框
     max_crop_h = fh / max(1e-6, min_face_height_frac)
     if crop_h > max_crop_h:
         crop_h = max_crop_h
         crop_w = crop_h * aspect
-    # 若脸高会 >max，放大裁框
     min_crop_h = fh / max(1e-6, max_face_height_frac)
     if crop_h < min_crop_h:
         crop_h = min_crop_h
         crop_w = crop_h * aspect
     target_w = max(8, int(math.ceil(crop_w)))
     target_h = max(8, int(math.ceil(crop_h)))
-    # 对齐到精确 aspect
     target_w = max(target_w, int(math.ceil(target_h * aspect)))
     target_h = max(target_h, int(math.ceil(target_w / aspect)))
-    # 略加大裁框留白，抵消 cover 舍入（门禁仍按 0.12/0.03 测）
     lead_e = float(lead_margin) + 0.02
-    top_e = float(top_margin) + 0.01
+    top_e = float(top_margin) + 0.015
+    # 源图坐标系中的理想裁框（可越界）
     if facing_left:
         cx0 = int(round(nose_x - lead_e * target_w))
         cx1 = cx0 + target_w
@@ -3626,53 +3662,77 @@ def _fit_profile_head_cell(
         cx0 = cx1 - target_w
     cy0 = int(round(crown_y - top_e * target_h))
     cy1 = cy0 + target_h
+    # 贴底：若超出源图底，整框上移；仍不够则只上垫
+    if cy1 > src_rgb.height:
+        shift = cy1 - src_rgb.height
+        cy0 -= shift
+        cy1 -= shift
     pad_l = max(0, -cx0)
-    pad_t = max(0, -cy0)
     pad_r = max(0, cx1 - src_rgb.width)
-    pad_b = max(0, cy1 - src_rgb.height)
-    work = src_rgb
-    if pad_l or pad_t or pad_r or pad_b:
-        work = Image.new(
-            "RGB",
-            (src_rgb.width + pad_l + pad_r, src_rgb.height + pad_t + pad_b),
-            fill,
-        )
-        work.paste(src_rgb, (pad_l, pad_t))
-        cx0 += pad_l
-        cx1 += pad_l
-        cy0 += pad_t
-        cy1 += pad_t
-    cx0 = max(0, min(cx0, work.width - 2))
-    cy0 = max(0, min(cy0, work.height - 2))
-    cx1 = max(cx0 + 2, min(cx1, work.width))
-    cy1 = max(cy0 + 2, min(cy1, work.height))
-    crop = work.crop((cx0, cy0, cx1, cy1))
-    # 若宽高比偏离，垫底色补成精确 3:4（锚鼻/顶）
-    if abs(crop.width / max(1, crop.height) - aspect) > 0.015:
+    pad_t = max(0, -cy0)
+    # 工作画布：源图 + 左/右/上垫（不垫底）
+    work_w = src_rgb.width + pad_l + pad_r
+    work_h = src_rgb.height + pad_t
+    work = Image.new("RGB", (work_w, work_h), fill)
+    work = _feather_paste_rgb(work, src_rgb, (pad_l, pad_t), feather=12)
+    # 裁框映射到工作区；高度固定 target_h，底贴源图底（work 底）
+    wx0 = cx0 + pad_l
+    wx1 = wx0 + target_w
+    # 垂直：优先保头顶留白，其次贴底
+    # 理想 wy0 使 crown 在裁框内 top_e 处
+    crown_work = crown_y + pad_t
+    wy0_crown = int(round(crown_work - top_e * target_h))
+    wy0_bottom = work_h - target_h  # 贴底
+    # 在不破坏头顶的前提下尽量贴底
+    wy0 = min(max(wy0_crown, 0), max(0, wy0_bottom))
+    # 若贴底会吃掉头顶，退回 crown 锚
+    if crown_work - wy0 < top_e * target_h - 1:
+        wy0 = max(0, int(round(crown_work - top_e * target_h)))
+    wy1 = wy0 + target_h
+    if wy1 > work_h:
+        wy1 = work_h
+        wy0 = max(0, wy1 - target_h)
+    # 水平钳制
+    if wx0 < 0:
+        wx1 -= wx0
+        wx0 = 0
+    if wx1 > work_w:
+        wx0 = max(0, work_w - target_w)
+        wx1 = wx0 + target_w
+    wx0 = max(0, min(wx0, work_w - 2))
+    wy0 = max(0, min(wy0, work_h - 2))
+    wx1 = max(wx0 + 2, min(wx0 + target_w, work_w))
+    wy1 = max(wy0 + 2, min(wy0 + target_h, work_h))
+    crop = work.crop((wx0, wy0, wx1, wy1))
+    # 尺寸不足时垫到精确 target（只上/侧垫，底贴齐）
+    if crop.size != (target_w, target_h):
         canvas = Image.new("RGB", (target_w, target_h), fill)
-        if facing_left:
-            paste_x = int(round(lead_e * target_w - (nose_x + pad_l - cx0)))
-        else:
-            paste_x = int(round((1.0 - lead_e) * target_w - (nose_x + pad_l - cx0)))
-        paste_y = int(round(top_e * target_h - (crown_y + pad_t - cy0)))
-        canvas.paste(crop, (paste_x, paste_y))
+        px = 0 if facing_left else max(0, target_w - crop.width)
+        py = max(0, target_h - crop.height)  # 贴底
+        canvas = _feather_paste_rgb(canvas, crop, (px, py), feather=12)
         crop = canvas
-    # cover 铺满（aspect 已对齐时即为精确填满）
+    # cover 到格子；水平保 lead，垂直保 top，其余贴底
     scale = max(w / crop.width, h / crop.height)
     nw = max(1, int(round(crop.width * scale)))
     nh = max(1, int(round(crop.height * scale)))
     scaled = crop.resize((nw, nh), Image.Resampling.LANCZOS)
+    # 鼻尖在 crop 内的 x
+    nose_in_crop = (nose_x + pad_l) - wx0
+    nose_scaled = nose_in_crop * scale
     if facing_left:
-        left = int(round(lead_margin * nw - lead_margin * w))
+        left = int(round(nose_scaled - lead_margin * w))
     else:
-        left = int(round((1.0 - lead_margin) * nw - (1.0 - lead_margin) * w))
-    top = int(round(top_margin * nh - top_margin * h))
+        left = int(round(nose_scaled - (1.0 - lead_margin) * w))
     left = max(0, min(left, max(0, nw - w)))
-    top = max(0, min(top, max(0, nh - h)))
-    if left + w > nw:
-        left = max(0, nw - w)
+    crown_in_crop = crown_work - wy0
+    crown_scaled = crown_in_crop * scale
+    top_max = int(math.floor(crown_scaled - top_margin * h + 1e-6))
+    top_bottom = max(0, nh - h)
+    top = min(top_bottom, max(0, top_max))
     if top + h > nh:
         top = max(0, nh - h)
+    if left + w > nw:
+        left = max(0, nw - w)
     out = scaled.crop((left, top, left + w, top + h))
     if out.size != (w, h):
         out = out.resize((w, h), Image.Resampling.LANCZOS)
@@ -3953,6 +4013,72 @@ def assert_face_triplet_cell_edges_clean(
         raise CharacterSheetError(f"face cell edge strips: {bad}")
     return {"ok": True, "band": band, "max_delta": max_delta, "max_band_var": max_band_var}
 
+
+
+def assert_profile_cell_pad_delta_e(
+    cell_rgb: Image.Image,
+    src_rgb: Image.Image,
+    *,
+    band: int = 10,
+    max_delta_e: float = 6.0,
+) -> dict:
+    """R 格左/上补边区与源图背景色 ΔE < max_delta_e（20:22）。"""
+    import math
+
+    cell = cell_rgb.convert("RGB")
+    src = src_rgb.convert("RGB")
+    fill = _sample_profile_bg(src)
+    cw, ch = cell.size
+    b = max(2, min(int(band), cw // 4, ch // 4))
+    # Lab-ish ΔE76 on sRGB (enough for near-neutral pads)
+    def _to_lab(rgb: tuple[int, int, int]) -> tuple[float, float, float]:
+        r, g, b_ = [x / 255.0 for x in rgb]
+        def _f(u: float) -> float:
+            return ((u + 0.055) / 1.055) ** 2.4 if u > 0.04045 else u / 12.92
+        r, g, b_ = _f(r), _f(g), _f(b_)
+        x = r * 0.4124 + g * 0.3576 + b_ * 0.1805
+        y = r * 0.2126 + g * 0.7152 + b_ * 0.0722
+        z = r * 0.0193 + g * 0.1192 + b_ * 0.9505
+        def _g(t: float) -> float:
+            return t ** (1 / 3) if t > 0.008856 else (7.787 * t + 16 / 116)
+        xr, yr, zr = _g(x / 0.95047), _g(y / 1.00000), _g(z / 1.08883)
+        L = 116 * yr - 16
+        a = 500 * (xr - yr)
+        bb = 200 * (yr - zr)
+        return (L, a, bb)
+
+    fl = _to_lab(fill)
+    px = cell.load()
+    # 左/上边缘取样：剔除深色内容后取中位色，与源背景比 ΔE
+    samples: list[tuple[int, int, int]] = []
+    for y in range(ch):
+        for x in range(b):
+            r, g, bb = px[x, y]
+            if (r + g + bb) / 3.0 < 150:
+                continue
+            if max(r, g, bb) - min(r, g, bb) > 40:
+                continue
+            samples.append((r, g, bb))
+    for y in range(b):
+        for x in range(cw):
+            r, g, bb = px[x, y]
+            if (r + g + bb) / 3.0 < 150:
+                continue
+            if max(r, g, bb) - min(r, g, bb) > 40:
+                continue
+            samples.append((r, g, bb))
+    if not samples:
+        return {"ok": True, "max_delta_e": 0.0, "n": 0, "fill": fill}
+    samples.sort()
+    med = samples[len(samples) // 2]
+    lab = _to_lab(med)
+    d = math.sqrt(sum((lab[i] - fl[i]) ** 2 for i in range(3)))
+    ok = d <= float(max_delta_e) + 1e-6
+    if not ok:
+        raise CharacterSheetError(
+            f"profile pad ΔE too high: median={d:.2f} sample={med} fill={fill} (limit {max_delta_e})"
+        )
+    return {"ok": True, "max_delta_e": d, "median_rgb": med, "n": len(samples), "fill": fill}
 
 
 def assert_face_triplet_profile_lead_margin(
