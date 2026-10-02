@@ -14,6 +14,8 @@ from app.workflows.h3_pipeline_c import H3PipelineCParams, build_h3_pipeline_c_g
 from app.services.studio.prompt_c import (
     build_c_visual_prompt, strip_dialogue, merge_negative,
     costume_lock_for_style, build_cast_visual_for_style,
+    pick_garment_colors, costume_color_phrases_from_palette,
+    hex_to_zh_en_color,
 )
 from app.services.studio.candidate_pick import pick_best_candidate
 
@@ -435,13 +437,14 @@ def test_costume_lock_for_style_ancient():
     s = costume_lock_for_style("ancient_realistic", visual_prompt="Lin Xia black raincoat hoodie", name="林夏")
     low = s.lower()
     assert "jiaoling" in low or "hanfu" in low
-    assert "gold" in low
-    assert "indigo" in low or "navy" in low
+    assert "gold" in low or "黑" in s or "棕" in s
     assert "no raincoat" in low and "no hoodie" in low
-    # 正向段不得再写雨衣/帽衫（仅允许 no- 否定）
+    assert "no purple" in low or "禁止紫" in s
+    # 正向段不得再写雨衣/帽衫/indigo/navy（否定里可写 no indigo）
     positive = low.split("no hood", 1)[0]
     assert "raincoat" not in positive
     assert "hoodie" not in positive
+    assert "indigo" not in positive and "navy" not in positive
 
 
 def test_costume_lock_for_style_anime():
@@ -472,6 +475,31 @@ def test_build_c_visual_prompt_with_costume_lock():
         cast_visual=lock,
         scene="古风雨夜庭院",
     )
-    assert "indigo" in p.lower() or "hanfu" in p.lower()
+    assert "hanfu" in p.lower() or "jiaoling" in p.lower() or "纯黑" in p
+    pos = p.lower().split("no hood", 1)[0]
+    assert "indigo" not in pos and "navy" not in pos
     assert "Avoid:" in p
+
+
+def test_palette_pick_and_zh_color_lock():
+    """06:4x：按面积序取服装色，中文色名进正向，紫蓝进反向。"""
+    colors = ["#E8C4A8", "#1A1A1E", "#8B7355", "#D4AF37", "#6A5ACD"]
+    picked = pick_garment_colors(colors, n=3)
+    assert picked[0] == "#1A1A1E"
+    assert "#E8C4A8" not in picked
+    pos, neg = costume_color_phrases_from_palette(colors)
+    assert "纯黑" in pos or "深棕" in pos or "棕色" in pos
+    assert "jet black" in pos.lower() or "deep brown" in pos.lower() or "brown" in pos.lower()
+    assert "purple" in neg.lower() or "紫" in neg
+    s = costume_lock_for_style(
+        "ancient_realistic",
+        visual_prompt="Lin Xia",
+        name="林夏",
+        colors=colors,
+    )
+    assert "纯黑" in s or "深棕" in s or "棕色" in s
+    pos = s.lower().split("no purple", 1)[0].split("禁止紫", 1)[0]
+    assert "indigo" not in pos and "navy" not in pos
+    zh, en = hex_to_zh_en_color("#1A1A1E")
+    assert zh == "纯黑" and "black" in en
 

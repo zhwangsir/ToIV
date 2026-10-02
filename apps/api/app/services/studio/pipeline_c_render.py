@@ -10,7 +10,12 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 
 from app.comfy.client import ComfyUIClient, ComfyUIError
-from app.services.studio.prompt_c import build_c_visual_prompt, build_cast_visual_for_style, merge_negative
+from app.services.studio.prompt_c import (
+    build_c_visual_prompt,
+    build_cast_visual_for_style,
+    extract_palette_swatches_from_sheet,
+    merge_negative,
+)
 from app.services.studio.renderers.base import RenderError
 from app.services.studio.renderers.image_motion import _save_output
 from app.services.studio.renderers.video import _wait_video_url
@@ -117,6 +122,132 @@ async def _upload_refs(client: ComfyUIClient, urls: list[str]) -> list[str]:
     return names
 
 
+
+def _studio_file_roots() -> list[Path]:
+    import os
+    from app.storage import drama_output_root
+    return [
+        drama_output_root() / "studio",
+        Path(os.environ.get("TOIV_DRAMA_VIDEO_DIR", "")) / "studio",
+        Path("/mnt/toiv-nas/toiv/outputs/drama/final/studio"),
+    ]
+
+
+def _read_studio_file(name: str) -> bytes | None:
+    if not name or name.startswith(".") or "/" in name or "\\" in name:
+        return None
+    for root in _studio_file_roots():
+        try:
+            path = root / name
+        except Exception:
+            continue
+        if path.is_file():
+            data = path.read_bytes()
+            if data:
+                return data
+    return None
+
+
+def _latest_sheet_name(cid8: str, style_key: str) -> str | None:
+    """磁盘上同角色同风格最新 char_sheet_*.png。"""
+    import os
+    prefix = f"char_sheet_{cid8}_{style_key}_"
+    cands: list[tuple[float, str]] = []
+    for root in _studio_file_roots():
+        try:
+            if not root.is_dir():
+                continue
+            for pth in root.glob(prefix + "*.png"):
+                try:
+                    cands.append((pth.stat().st_mtime, pth.name))
+                except OSError:
+                    continue
+        except Exception:
+            continue
+    if not cands:
+        return None
+    cands.sort(key=lambda x: x[0], reverse=True)
+    return cands[0][1]
+
+
+def _cid8_from_urls(urls: list[str]) -> str | None:
+    for u in urls:
+        name = Path(u.split("?")[0]).name
+        if name.startswith("char_panel_"):
+            parts = name[len("char_panel_"):].split("_")
+            if parts and len(parts[0]) >= 8:
+                return parts[0][:8]
+        if name.startswith("char_sheet_"):
+            parts = name[len("char_sheet_"):].split("_")
+            if parts and len(parts[0]) >= 8:
+                return parts[0][:8]
+    return None
+
+
+def _resolve_sheet_palette_colors(cast: list[Any], style: str | None) -> dict[str, list[str]]:
+    """从角色分桶/扁平 URL 或同 cid 最新设定卡抽配色色块（面积序）。"""
+    import json
+    out: dict[str, list[str]] = {}
+    st = (style or "").strip()
+    if st in ("古风", "ancient", "ancient_realistic"):
+        style_key = "ancient_realistic"
+        style_keys = ["ancient_realistic", "ancient", "古风"]
+    elif st in ("二次元", "anime"):
+        style_key = "anime"
+        style_keys = ["anime", "二次元"]
+    else:
+        return out
+    for c in cast or []:
+        nm = (getattr(c, "name", None) or "").strip()
+        if not nm:
+            continue
+        urls: list[str] = []
+        by = getattr(c, "reference_images_by_style", None) or "{}"
+        if isinstance(by, str):
+            try:
+                by = json.loads(by) if by.strip() else {}
+            except Exception:
+                by = {}
+        if isinstance(by, dict):
+            for k in style_keys:
+                for u in by.get(k) or []:
+                    if isinstance(u, str) and u.strip():
+                        urls.append(u.strip())
+        flat = getattr(c, "reference_images", None) or "[]"
+        if isinstance(flat, str):
+            try:
+                flat = json.loads(flat) if flat.strip() else []
+            except Exception:
+                flat = []
+        if isinstance(flat, list):
+            for u in flat:
+                if isinstance(u, str) and u.strip():
+                    urls.append(u.strip())
+        sheet_names: list[str] = []
+        for u in urls:
+            name = Path(u.split("/api/studio/files/")[-1].split("?")[0]).name
+            if name.startswith("char_sheet_") and style_key in name:
+                sheet_names.append(name)
+        cid8 = _cid8_from_urls(urls)
+        if not sheet_names and cid8:
+            latest = _latest_sheet_name(cid8, style_key)
+            if latest:
+                sheet_names.append(latest)
+        for name in sheet_names[:2]:
+            data = _read_studio_file(name)
+            if not data:
+                continue
+            sw = extract_palette_swatches_from_sheet(data)
+            if sw:
+                out[nm] = sw
+                logger.info(
+                    "costume palette from sheet %s style=%s file=%s colors=%s",
+                    nm, st, name, sw[:4],
+                )
+                break
+    return out
+
+
 async def render_pipeline_c(
     shot: Any,
     cast: list[Any],
@@ -151,7 +282,10 @@ async def render_pipeline_c(
     if not urls:
         raise RenderError("管线 C 需要角色三视图或场景参考图")
 
-    cast_visual = build_cast_visual_for_style(cast, style=style)
+    palette_map = _resolve_sheet_palette_colors(cast, style)
+    cast_visual = build_cast_visual_for_style(
+        cast, style=style, colors_by_name=palette_map or None
+    )
     # T8 无独立负向口：merge_negative 必须并进 Avoid，否则店招/乱码条款被丢弃
     positive = build_c_visual_prompt(
         shot_prompt=getattr(shot, "prompt", "") or "",
