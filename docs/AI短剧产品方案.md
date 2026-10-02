@@ -1,6 +1,6 @@
 # ToIV AI 短剧产品方案（正式）
 
-> 锁定日期：2026-10-01；修订：2026-10-03 01:20（INTENT e/f：速度分档落地 + 常用20事评分表复跑对比）。
+> 锁定日期：2026-10-01；修订：2026-10-03 04:50（视频步按风格取分桶 refs；雨夜 splice2 结项；seed/预热收线）。
 > 主体：一句话 → 分镜 → 角色设定卡 → 视频（管线 C）→ 配音 → pad 对口型 → 成片。
 
 ## 1. 视频默认管线 C
@@ -26,7 +26,7 @@
 - Ref2VA 只允许主立绘+三视图；整卡拼贴不得写入视频参考。
 - **参考图按风格分存**：`reference_images_by_style = {anime:[…], ancient_realistic:[…]}`；写入某一风格不覆盖另一风格。
 - 扁平 `reference_images` 留给写实/样片链（如雨夜 `sample_linxia`×3）；`apply_to_video_refs` 只更新分桶，不改扁平列。
-- 视频取参考：指定风格时优先读分桶，再附扁平列中的非 panel（sample）；未指定风格时回落扁平列。
+- 视频取参考：`ref_style` 显式 > 项目画风文案推断（二次元/古风）> 角色分桶里**唯一**有 panel 的风格；命中后优先读该分桶并附扁平列非 panel（sample）。双桶并存且无显式/推断时回落扁平列（雨夜林夏保持 sample×3 兜底）。
 - **产品 UI**：建卡 / 按风格列表 / 资料编辑（身份·性格·身高·设计说明）/ 单格重生与替换 / 格锁定 / PNG 导出；**保存资料**走 `POST …/character-sheet/recompose`（锁全部图像格只重拼文字，不跑 Comfy、不写 refs）。
 - **过审基线（2026-10-03）**：二次元 `char_sheet_803fb69b_anime_4f54ebedae5b`（21:00）；古风 `char_sheet_803fb69b_ancient_realistic_79fb925aacc1`（23:53 入卡，`final_review=true`）。
 
@@ -48,17 +48,14 @@
 ## 7. 雨夜样片（收线结论 · 2026-10-03）
 
 - 项目 `16e33f8b93dd45d9abca779816ede9b5`；默认成片 `final-v3-facev5-VO-rainbed-splice2-4252418024475267717-5a4fb68ab56f.mp4`（**26764530** bytes / **54.68s**，status=ready）。
-- 与 v1（`final-9b1f12e4…`，60.32s）并排比较后人脸/衔接择优，不默认替换历史成片；当前默认保持 splice2，未授权不重渲。
+- 与 v1（`final-9b1f12e4…`，60.32s）并排比较后人脸/衔接择优，不默认替换历史成片；当前默认保持 splice2；**2026-10-03 04:3x 父代理结项：后续雨夜不再动**。
 - 镜次状态口径：0=voiced / 1=lipsynced / 2=error / 3=lipsynced（以项目库为准）；新候选须 `face_mean≥0.45` 才允许级联。
 - Batch7：二次元 + 古风设定卡均已 `final_review=true` 落盘；古风按拍板不写入扁平 refs（进 `reference_images_by_style`）。
 
 ## 8. 下一优先
 
-- 设定卡完整 UI 已接资料重拼；继续压失败/边界（无卡保存 404、跨风格不互盖 refs）。
-- **INTENT e 已完成**（`e36d898`）：速度分档 `fast|quality` 已部署（BUILD_ID 含 e36d898f）。
-- **INTENT f 已完成**（2026-10-03）：评分表复跑与前后对比见
-  - core：`/home/merlin/toiv/tmp/intent_scorecard_20261003.{json,md}`
-  - core：`/home/merlin/toiv/tmp/intent_scorecard_compare_20260930_vs_20261003.md`
-  - 副本：`~/Desktop/ALLProject/toiv_report_intent_f/`
-  - 要点：公开卡 **86→85**；本窗 live 抠图 7.2s / 局部重绘 84.2s / 音乐 72.1s；视频类沿用 09-30 耗时。
-- 旧积压：`:8197` Motion Context 缺口、GitHub 推送偶发 443；INTENT d 少字清扫 / c 配音 TTS 仍待续。
+- 设定卡视觉+UI 已收线（建卡/资料重拼/单格重生/导出；panels 契约不改扁平 sample）。
+- 视频步已接 `ref_style` + 自动推断，把过审分桶 refs 送进管线 C（双桶并存仍回落 sample）。
+- **INTENT e/f 已完成**；热门卡预热禁 `:8196`；显式 seed A→B→A 可复现已结项。
+- H3 速度档：快速中位约快 15%、画质接近（档位文案已写）。
+- 旧积压：`:8197` Motion Context 缺口；INTENT d 少字清扫 / c 配音 TTS；一句话→成片产品路径压测。

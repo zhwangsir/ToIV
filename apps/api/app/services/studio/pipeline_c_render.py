@@ -129,20 +129,25 @@ async def render_pipeline_c(
     context_latent_path: str = "",
     clip_index: int = 1,
     request: Any = None,
+    style: str | None = None,
 ) -> dict[str, Any]:
     """执行管线 C，返回 {url, context_latent, seed, prompt, worker, job_id}。"""
     from fastapi import HTTPException
 
     from app.services import h3 as h3_service
 
-    # 参考 URL
+    # 参考 URL（style 有值时优先分桶 by_style）
     if ref_images is not None:
         urls = [u for u in ref_images if isinstance(u, str) and u.strip()]
-        prefix, _ = h3_ref_prefix(cast, engine="h3", ref_images=urls, scene_images=None)
+        prefix, _ = h3_ref_prefix(
+            cast, engine="h3", ref_images=urls, scene_images=None, style=style
+        )
     else:
-        refs = collect_cast_ref_images(cast, scene_images=scene_images)
+        refs = collect_cast_ref_images(cast, scene_images=scene_images, style=style)
         urls = ref_urls(refs)
-        prefix, _ = h3_ref_prefix(cast, engine="h3", scene_images=scene_images)
+        prefix, _ = h3_ref_prefix(
+            cast, engine="h3", scene_images=scene_images, style=style
+        )
     if not urls:
         raise RenderError("管线 C 需要角色三视图或场景参考图")
 

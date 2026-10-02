@@ -1207,6 +1207,11 @@ class RenderShotBody(BaseModel):
     num_candidates: int = Field(default=2, ge=1, le=4)
     ref_images: list[str] | None = Field(default=None, max_length=9)
     scene_images: list[str] | None = Field(default=None, max_length=4)
+    ref_style: str | None = Field(
+        default=None,
+        max_length=32,
+        description="anime|ancient_realistic；空则按项目画风/唯一分桶推断，多桶并存回落扁平 sample",
+    )
 
 
 @router.post("/studio/shots/{sid}/render")
@@ -1229,6 +1234,7 @@ async def render_one(
     refs = body.ref_images if body is not None else None
     scenes = body.scene_images if body is not None else None
     pipe = (body.pipeline if body is not None else "c") or "c"
+    rstyle = body.ref_style if body is not None else None
     try:
         return _shot_out(
             await orchestrator.render_shot(
@@ -1240,6 +1246,7 @@ async def render_one(
                 ref_images=refs,
                 scene_images=scenes,
                 pipeline=pipe,
+                ref_style=rstyle,
             )
         )
     except RenderError as e:

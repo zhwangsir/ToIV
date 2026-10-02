@@ -6,7 +6,7 @@ import json
 import pytest
 
 from app.services.studio import character_sheet as sheet_svc
-from app.services.studio.shot_refs import collect_cast_ref_images
+from app.services.studio.shot_refs import collect_cast_ref_images, resolve_ref_style
 
 
 def test_merge_by_style_keeps_other_style():
@@ -98,3 +98,63 @@ def test_parse_refs_by_style_ignores_unknown():
     )
     parsed = sheet_svc.parse_refs_by_style(raw)
     assert list(parsed.keys()) == ["anime"]
+
+
+def test_resolve_ref_style_explicit_and_aliases():
+    assert resolve_ref_style("anime") == "anime"
+    assert resolve_ref_style("ancient_realistic") == "ancient_realistic"
+    assert resolve_ref_style("二次元") == "anime"
+    assert resolve_ref_style("古风") == "ancient_realistic"
+
+
+def test_resolve_ref_style_from_project_text():
+    assert resolve_ref_style(None, project_style="二次元雨夜短剧") == "anime"
+    assert resolve_ref_style(None, project_style="古风仙侠竖屏") == "ancient_realistic"
+    # 雨夜样片文案无风格词 → None
+    assert (
+        resolve_ref_style(None, project_style="雨夜便利店冷白灯/霓虹积水，竖屏 9:16")
+        is None
+    )
+
+
+def test_resolve_ref_style_unique_bucket():
+    class C:
+        reference_images_by_style = {
+            "anime": [
+                "/api/studio/files/char_panel_aaaaaaaa_anime_portrait_1.png",
+            ],
+            "ancient_realistic": [],
+        }
+
+    assert resolve_ref_style(None, cast=[C()]) == "anime"
+
+
+def test_resolve_ref_style_both_buckets_stays_none():
+    class C:
+        reference_images_by_style = {
+            "anime": ["/api/studio/files/char_panel_aaaaaaaa_anime_portrait_1.png"],
+            "ancient_realistic": [
+                "/api/studio/files/char_panel_aaaaaaaa_ancient_realistic_portrait_2.png"
+            ],
+        }
+
+    # 双桶并存（雨夜林夏）→ 不擅自选，回落扁平 sample
+    assert resolve_ref_style(None, cast=[C()]) is None
+
+
+def test_collect_without_style_uses_flat_when_both_buckets():
+    class C:
+        name = "林夏"
+        reference_images = json.dumps(
+            ["/api/studio/files/sample_linxia_front.png"]
+        )
+        reference_images_by_style = {
+            "anime": ["/api/studio/files/char_panel_aaaaaaaa_anime_portrait_1.png"],
+            "ancient_realistic": [
+                "/api/studio/files/char_panel_aaaaaaaa_ancient_realistic_portrait_2.png"
+            ],
+        }
+
+    refs = collect_cast_ref_images([C()], style=None)
+    urls = [r.image_url for r in refs]
+    assert urls == ["/api/studio/files/sample_linxia_front.png"]

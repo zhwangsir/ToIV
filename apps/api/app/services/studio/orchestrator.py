@@ -103,6 +103,7 @@ async def render_shot(
     pipeline: str | None = None,
     context_latent_path: str | None = None,
     auto_pick: bool = True,
+    ref_style: str | None = None,
 ) -> StudioShot:
     """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。
 
@@ -154,6 +155,7 @@ async def render_shot(
     from app.services.studio.shot_refs import (
         collect_cast_ref_images,
         ref_urls,
+        resolve_ref_style,
         resolve_scene_images_for_shot,
     )
 
@@ -171,13 +173,23 @@ async def render_shot(
         )
         render_kw["scene_images"] = scene_images
 
+    sheet_style = resolve_ref_style(
+        ref_style,
+        project_style=getattr(project, "style", None) if project is not None else None,
+        cast=cast,
+    )
+    if sheet_style:
+        render_kw["ref_style"] = sheet_style
+
     if ref_images is not None:
         resolved_refs = [u for u in ref_images if isinstance(u, str) and u.strip()]
         # 显式列表:渲染器按该序编号(标签简化为参考图N)
         render_kw["ref_images"] = resolved_refs
     else:
         resolved_refs = ref_urls(
-            collect_cast_ref_images(cast, scene_images=scene_images)
+            collect_cast_ref_images(
+                cast, scene_images=scene_images, style=sheet_style
+            )
         )
         # 自动收集:留给渲染器从 cast 重建带角色名的 @图片N 标签
     shot.ref_images_json = json.dumps(resolved_refs, ensure_ascii=False)

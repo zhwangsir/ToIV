@@ -114,6 +114,8 @@ export function ShotCard({
   const [numCandidates, setNumCandidates] = useState(
     Math.min(4, Math.max(1, defaultNumCandidates || 2)),
   );
+  /** 空=自动推断；双桶并存时选风格才能吃到过审分桶 refs */
+  const [refStyle, setRefStyle] = useState<"" | "anime" | "ancient_realistic">("");
   const [sceneRefs, setSceneRefs] = useState<string[]>(() => {
     const bound = new Set((projectSceneImages || []).filter(Boolean));
     const autoChar = new Set(
@@ -190,6 +192,7 @@ export function ShotCard({
       pipeline: videoModel === "h3" ? "c" : undefined,
       num_candidates: numCandidates,
       ref_images: refUrls,
+      ...(refStyle ? { ref_style: refStyle } : {}),
     });
   };
 
@@ -459,6 +462,24 @@ export function ShotCard({
                       {n}
                     </option>
                   ))}
+                </select>
+              </label>
+              <label className="studio-video-refstyle" data-testid="studio-video-refstyle">
+                设定卡
+                <select
+                  value={refStyle}
+                  disabled={busy}
+                  aria-label="参考风格"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setRefStyle(
+                      v === "anime" || v === "ancient_realistic" ? v : "",
+                    );
+                  }}
+                >
+                  <option value="">自动</option>
+                  <option value="anime">二次元</option>
+                  <option value="ancient_realistic">古风</option>
                 </select>
               </label>
             </div>

@@ -4924,6 +4924,8 @@ export interface StudioRenderBody {
   num_candidates?: number;
   ref_images?: string[];
   scene_images?: string[];
+  /** Batch7: anime|ancient_realistic；省略则服务端按项目画风/唯一分桶推断 */
+  ref_style?: "anime" | "ancient_realistic";
 }
 
 /** 渲染单镜(同步等待 ComfyUI 产出,视频链可达数分钟)→ 放宽到 600s。

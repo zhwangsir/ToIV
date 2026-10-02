@@ -15,6 +15,77 @@ logger = logging.getLogger(__name__)
 
 _CHAR_SLOT_LABELS = ("正面", "侧面", "全身")
 
+_SHEET_STYLES = ("anime", "ancient_realistic")
+
+
+def _parse_by_style(raw: Any) -> dict[str, list[str]]:
+    if isinstance(raw, dict):
+        return {
+            str(k): [str(u).strip() for u in (v or []) if str(u).strip()]
+            for k, v in raw.items()
+            if isinstance(v, list) and str(k) in _SHEET_STYLES
+        }
+    if isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+        except (ValueError, TypeError):
+            return {}
+        if isinstance(parsed, dict):
+            return _parse_by_style(parsed)
+    return {}
+
+
+def resolve_ref_style(
+    explicit: str | None = None,
+    *,
+    project_style: str | None = None,
+    cast: list[Any] | None = None,
+) -> str | None:
+    """决定视频步读哪个 reference_images_by_style 桶。
+
+    优先级：显式 ref_style → 项目画风文案推断 → 角色分桶里唯一有 panel 的风格。
+    多桶并存且无法推断时返回 None（回落扁平 reference_images；雨夜样片保持 sample 兜底）。
+    """
+    e = (explicit or "").strip()
+    el = e.lower()
+    if el in _SHEET_STYLES:
+        return el
+    aliases = {
+        "二次元": "anime",
+        "动漫": "anime",
+        "卡通": "anime",
+        "cartoon": "anime",
+        "古风": "ancient_realistic",
+        "古风写实": "ancient_realistic",
+        "ancient": "ancient_realistic",
+        "汉服": "ancient_realistic",
+    }
+    if e in aliases:
+        return aliases[e]
+    if el in aliases:
+        return aliases[el]
+
+    raw = project_style or ""
+    text = raw.lower()
+    anime_keys = ("二次元", "anime", "动漫", "卡通", "cel")
+    ancient_keys = ("古风", "ancient", "汉服", "仙侠", "写实古")
+    anime_hit = any(k in raw or k in text for k in anime_keys)
+    ancient_hit = any(k in raw or k in text for k in ancient_keys)
+    if anime_hit and not ancient_hit:
+        return "anime"
+    if ancient_hit and not anime_hit:
+        return "ancient_realistic"
+
+    populated: set[str] = set()
+    for c in cast or []:
+        by_style = _parse_by_style(getattr(c, "reference_images_by_style", None))
+        for st, urls in by_style.items():
+            if any("char_panel_" in u for u in urls):
+                populated.add(st)
+    if len(populated) == 1:
+        return next(iter(populated))
+    return None
+
 
 def _parse_ref_list(raw: Any) -> list[str]:
     if isinstance(raw, list):
@@ -52,25 +123,7 @@ def collect_cast_ref_images(
     for c in cast:
         name = str(getattr(c, "name", "") or "").strip() or "角色"
         urls: list[str] = []
-        by_raw = getattr(c, "reference_images_by_style", None)
-        by_style: dict[str, list[str]] = {}
-        if isinstance(by_raw, dict):
-            by_style = {
-                str(k): [str(u).strip() for u in (v or []) if str(u).strip()]
-                for k, v in by_raw.items()
-                if isinstance(v, list)
-            }
-        elif isinstance(by_raw, str) and by_raw.strip():
-            try:
-                parsed = json.loads(by_raw)
-            except (ValueError, TypeError):
-                parsed = {}
-            if isinstance(parsed, dict):
-                by_style = {
-                    str(k): [str(u).strip() for u in (v or []) if str(u).strip()]
-                    for k, v in parsed.items()
-                    if isinstance(v, list)
-                }
+        by_style = _parse_by_style(getattr(c, "reference_images_by_style", None))
         if style and style in by_style and by_style[style]:
             urls = list(by_style[style])
             # 附加扁平列里的非 panel(sample_*)
@@ -144,11 +197,12 @@ def h3_ref_prefix(
     engine: str,
     ref_images: list[str] | None = None,
     scene_images: list[str] | None = None,
+    style: str | None = None,
 ) -> tuple[str, list[str]]:
     """返回 (引用行前缀, 实际使用的 URL 列表)。非 h3 → ("", [])。
 
     ref_images 显式给出时按该列表编号(调用方已排好序,可含场景);
-    否则从 cast 三视图 + scene_images 自动收集。
+    否则从 cast 三视图(+分桶风格) + scene_images 自动收集。
     """
     if engine != "h3":
         return "", []
@@ -159,7 +213,7 @@ def h3_ref_prefix(
             if isinstance(u, str) and u.strip()
         ][:9]
     else:
-        refs = collect_cast_ref_images(cast, scene_images=scene_images)
+        refs = collect_cast_ref_images(cast, scene_images=scene_images, style=style)
     prefix = build_ref_prefix(refs)
     urls = ref_urls(refs)
     if prefix:

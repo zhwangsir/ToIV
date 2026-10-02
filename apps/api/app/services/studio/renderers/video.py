@@ -132,6 +132,7 @@ class VideoRenderer:
                     context_latent_path=str(kw.get("context_latent_path") or ""),
                     clip_index=int(kw.get("clip_index") or 1),
                     request=kw.get("request"),
+                    style=kw.get("ref_style"),
                 )
             except RenderError:
                 raise
