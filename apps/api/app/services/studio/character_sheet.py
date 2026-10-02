@@ -1283,22 +1283,17 @@ def compose_character_sheet(
             box_w=ew - 16,
             box_h=eh - 40,
         )
-        _paste(canvas, grid, (ex + 8, ey + 32, ew - 16, eh - 40), cover=True)
+        # 12:34:表情格含真字体标签,禁止 cover 裁掉/撕边导致叠字残影
+        _paste(canvas, grid, (ex + 8, ey + 32, ew - 16, eh - 40), cover=False)
     else:
+        # 12:34: 只保留每格下方一行真字体标签;禁止栏底再叠 chip 排;禁 cover 撕标签
+        legacy = strip_baked_panel_chrome(_as_image("expressions"))
         _paste(
             canvas,
-            _as_image("expressions"),
-            (ex + 8, ey + 32, ew - 16, eh - 72),
-            cover=True,
+            legacy,
+            (ex + 8, ey + 32, ew - 16, eh - 40),
+            cover=False,
         )
-        chip_w = (ew - 24) // len(_EXPR_LABELS)
-        for i, lab in enumerate(_EXPR_LABELS):
-            draw.text(
-                (ex + 12 + i * chip_w, ey + eh - 36),
-                lab,
-                font=font_label,
-                fill=theme["text"],
-            )
 
     _draw_panel_frame(
         draw,
@@ -1449,6 +1444,60 @@ def crop_face_ref(portrait_bytes: bytes, size: int = 768) -> bytes:
     buf = BytesIO()
     crop.save(buf, format="PNG")
     return buf.getvalue()
+
+
+def crop_face_head_collarbone(
+    data: bytes,
+    *,
+    size: int = 768,
+    max_zoom: float = 1.5,
+) -> bytes:
+    """以脸为中心裁头顶略上到锁骨;放大不超过 max_zoom(父代理 12:34)。"""
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    bb = _insightface_face_bbox_xyxy(data)
+    if bb is None:
+        hbb = _heuristic_skin_face_bbox(img)
+        if hbb is not None:
+            bb = (float(hbb[0]), float(hbb[1]), float(hbb[2]), float(hbb[3]))
+    if bb is None:
+        # 回退:上半幅居中方裁
+        side = min(w, int(h * 0.55))
+        side = max(side, int(min(w, h) / max_zoom))
+        left = max(0, (w - side) // 2)
+        top = max(0, int(h * 0.02))
+        if top + side > h:
+            top = max(0, h - side)
+        crop = img.crop((left, top, left + side, top + side))
+    else:
+        x1, y1, x2, y2 = bb
+        fw = max(8.0, x2 - x1)
+        fh = max(8.0, y2 - y1)
+        cx = (x1 + x2) / 2.0
+        top = y1 - 0.35 * fh
+        bot = y2 + 0.55 * fh
+        side = max(bot - top, fw * 1.25)
+        # 放大上限:裁窗边长不得小于原图短边/max_zoom
+        min_side = min(w, h) / max(1.01, max_zoom)
+        side = max(side, min_side)
+        left = cx - side / 2.0
+        # clamp
+        if left < 0:
+            left = 0
+        if left + side > w:
+            left = max(0.0, w - side)
+        if top < 0:
+            top = 0
+        if top + side > h:
+            top = max(0.0, h - side)
+        # 若仍超界则缩边
+        side = min(side, w - left, h - top)
+        crop = img.crop((int(left), int(top), int(left + side), int(top + side)))
+    crop = crop.resize((size, size), Image.Resampling.LANCZOS)
+    buf = BytesIO()
+    crop.save(buf, format="PNG")
+    return buf.getvalue()
+
 
 
 def crop_head_from_figure(data: bytes, *, size: int = 768, top_frac: float = 0.34) -> bytes:

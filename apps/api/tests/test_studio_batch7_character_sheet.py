@@ -339,7 +339,13 @@ def test_api_success_writes_panel_refs_not_sheet(ctx):
         r = client.post(
             f"/api/studio/characters/{cid}/character-sheet",
             headers=H,
-            json={"style": "anime", "height_cm": 165, "role": "店员"},
+            json={
+                "style": "anime",
+                "height_cm": 165,
+                "role": "店员",
+                # 12:01:默认不写 reference_images;显式 true 才回写面板 refs
+                "apply_to_video_refs": True,
+            },
         )
     assert r.status_code == 200, r.text
     body = r.json()
@@ -349,6 +355,7 @@ def test_api_success_writes_panel_refs_not_sheet(ctx):
     assert body["panel_urls"]["portrait"]
     # 整卡不得置前进 reference_images
     assert all("char_sheet_" not in u for u in body["reference_images"])
+    assert body["reference_images"], "apply_to_video_refs=true 应写入面板 refs"
     assert "char_panel_" in body["reference_images"][0]
     assert "portrait" in body["reference_images"][0]
     name = body["sheet_url"].rsplit("/", 1)[-1]

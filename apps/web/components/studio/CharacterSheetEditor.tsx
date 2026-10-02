@@ -26,12 +26,22 @@ const PANEL_HOTSPOTS: {
   box: [number, number, number, number];
 }[] = [
   { key: "portrait", label: "立绘", box: [0.02, 0.015, 0.30, 0.37] },
-  { key: "front", label: "正", box: [0.38, 0.04, 0.18, 0.48] },
-  { key: "side", label: "侧", box: [0.57, 0.04, 0.18, 0.48] },
-  { key: "back", label: "背", box: [0.76, 0.04, 0.18, 0.48] },
+  { key: "front", label: "三视图·正", box: [0.38, 0.04, 0.18, 0.48] },
+  { key: "side", label: "三视图·侧", box: [0.57, 0.04, 0.18, 0.48] },
+  { key: "back", label: "三视图·背", box: [0.76, 0.04, 0.18, 0.48] },
   { key: "faces", label: "面部", box: [0.02, 0.56, 0.32, 0.16] },
+  { key: "expressions", label: "表情", box: [0.35, 0.56, 0.40, 0.16] },
   { key: "costume", label: "服饰", box: [0.02, 0.73, 0.49, 0.16] },
 ];
+
+const PANEL_LABEL: Record<string, string> = Object.fromEntries(
+  PANEL_HOTSPOTS.map((h) => [h.key, h.label]),
+);
+
+function panelLabel(key: string | null): string {
+  if (!key) return "未选";
+  return PANEL_LABEL[key] || key;
+}
 
 type Props = {
   open: boolean;
@@ -139,7 +149,7 @@ export function CharacterSheetEditor({
       });
       setSheetUrl(res.sheet_url);
       setPanelUrls(res.panel_urls || {});
-      toast.success(`${selectedKey} 已重生成`);
+      toast.success(`${panelLabel(selectedKey)} 已重生成`);
       await refreshList();
       await onChanged?.();
     });
@@ -170,7 +180,7 @@ export function CharacterSheetEditor({
       });
       setSheetUrl(res.sheet_url);
       setPanelUrls(res.panel_urls || {});
-      toast.success(`${selectedKey} 已替换`);
+      toast.success(`${panelLabel(selectedKey)} 已替换`);
       await refreshList();
       await onChanged?.();
     });
@@ -364,14 +374,14 @@ export function CharacterSheetEditor({
             </ul>
             <div className="studio-label">当前格</div>
             <div className="studio-muted" data-testid="sheet-editor-selected">
-              {selectedKey || "未选"}
-              {selectedKey && locked[selectedKey] ? " · 锁" : ""}
+              {panelLabel(selectedKey)}
+              {selectedKey && locked[selectedKey] ? " · 已锁" : ""}
             </div>
             {selectedKey && panelUrls[selectedKey] && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={imageUrl(panelUrls[selectedKey])}
-                alt={selectedKey}
+                alt={panelLabel(selectedKey)}
                 className="studio-sheet-cell-thumb"
               />
             )}

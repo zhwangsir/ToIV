@@ -36,6 +36,8 @@ test("api.ts:设定卡契约", () => {
 
 test("CharacterSheetEditor:热区与失败重试", () => {
   const src = readSrc("components/studio/CharacterSheetEditor.tsx");
+  assert.ok(src.includes("三视图·正"), "缺中文格名");
+  assert.ok(src.includes("PANEL_LABEL") || src.includes("panelLabel"), "缺中文映射");
   assert.ok(src.includes('data-testid="studio-sheet-editor"'), "缺编辑器根");
   assert.ok(src.includes('data-testid="sheet-editor-create"'), "缺新建");
   assert.ok(src.includes('data-testid="sheet-editor-regen"'), "缺重生");
