@@ -238,7 +238,7 @@ _COSTUME_ITEMS_ANCIENT: tuple[tuple[str, str], ...] = (
         "laid flat open on table, jet black silk with gold trim and gold embroidery, "
         "black-and-gold colorway only, long wide sleeves spread left and right, "
         "no body inside, empty garment shape, fills most of frame, "
-        "solid seamless dark gray background, studio softbox, "
+        "solid seamless medium light gray background (#C8C8CE), studio softbox, "
         "no person, no face, no hands, no mannequin, no model wearing clothes, "
         "no half body portrait, no raincoat, no modern jacket, "
         "no red, no crimson, no scarlet, no vermilion, no orange robe, no text",
@@ -248,27 +248,27 @@ _COSTUME_ITEMS_ANCIENT: tuple[tuple[str, str], ...] = (
         "e-commerce flat lay product photo, garment only, ONE traditional Chinese cross-collar "
         "jiaoling robe laid flat open like clothing catalog, dark silk, wide sleeves, "
         "no body inside, empty garment, fills most of frame, "
-        "solid seamless dark gray background, studio lighting, "
+        "solid seamless medium light gray background (#C8C8CE), studio lighting, "
         "no person, no face, no mannequin, no worn clothes, no hoodie, no zipper, no text",
     ),
     (
         "sash",
         "product still life flat lay, accessory only, ONE wide silk waist sash belt for hanfu, "
         "dark embroidered ribbon coiled neatly on table, no person wearing it, "
-        "solid seamless dark gray background, studio lighting, no person, no waist, no text",
+        "solid seamless medium light gray background (#C8C8CE), studio lighting, no person, no waist, no text",
     ),
     (
         "hairpin",
         "product still life, accessory only, ONE ornate Chinese hairpin zan with jade tip, "
         "metal and jade isolated on table, catalog photo, "
-        "solid seamless dark gray background, studio lighting, "
+        "solid seamless medium light gray background (#C8C8CE), studio lighting, "
         "no person, no hair, no head, no face, no text",
     ),
     (
         "fan",
         "product still life, accessory only, ONE round silk tuanshan hand fan, "
         "ink painting motif, wooden handle, isolated object, "
-        "solid seamless dark gray background, studio lighting, "
+        "solid seamless medium light gray background (#C8C8CE), studio lighting, "
         "no person, no hand holding, no umbrella, no plastic, no text",
     ),
 )
@@ -1124,8 +1124,14 @@ def _compose_expression_grid(
     draw_labels: bool = True,
     box_w: int | None = None,
     box_h: int | None = None,
+    grid_bg: tuple[int, ...] = (245, 245, 248, 255),
+    label_band_bg: tuple[int, ...] | None = None,
 ) -> Image.Image:
-    """2x3:每格=图片区+其下独立标签带;图片脸心 cover 保头顶;标签不与图重叠。"""
+    """2x3:每格=图片区+其下独立标签带;图片脸心 cover 保头顶;标签不与图重叠。
+
+    古风可传深底 grid_bg/label_band_bg + 金字 label_fill；二次元保持浅底默认。
+    单层面板：本函数不画「表情」标题（外框由 compose 画一次）。
+    """
     cols, rows = 3, 2
     label_h = 44 if draw_labels else 0
     if box_w is None or box_h is None:
@@ -1137,7 +1143,15 @@ def _compose_expression_grid(
     img_h = max(48, cell_h - label_h)
     # 硬隔离:图片区高度严格不含标签带
     assert label_h == 0 or img_h + label_h <= cell_h
-    grid = Image.new("RGBA", (cols * cell_w, rows * cell_h), (245, 245, 248, 255))
+    gbg = tuple(grid_bg) if len(grid_bg) == 4 else (*grid_bg[:3], 255)
+    lbg = (
+        tuple(label_band_bg)
+        if label_band_bg is not None
+        else gbg
+    )
+    if len(lbg) == 3:
+        lbg = (*lbg, 255)
+    grid = Image.new("RGBA", (cols * cell_w, rows * cell_h), gbg)
     draw = ImageDraw.Draw(grid)
     font = resolve_cjk_font(20) if draw_labels else None
     for i, key in enumerate(_EXPR_KEYS):
@@ -1159,12 +1173,12 @@ def _compose_expression_grid(
             fitted = fitted.crop((0, 0, fitted.width, ih))
         grid.paste(fitted, pos, fitted)
         if draw_labels and font is not None and i < len(_EXPR_LABELS):
-            # 标签带:独立矩形,与图片区零重叠
+            # 标签带:独立矩形,与图片区零重叠（古风深底金字 / 二次元浅底深字）
             band_y0 = cell_y0 + img_h
             band_y1 = cell_y0 + cell_h
             draw.rectangle(
                 [cell_x0, band_y0, cell_x0 + cell_w, band_y1],
-                fill=(245, 245, 248, 255),
+                fill=lbg,
             )
             lab = _EXPR_LABELS[i]
             tw = draw.textlength(lab, font=font)
@@ -1319,7 +1333,14 @@ def compose_character_sheet(
     )
     fx, fy, fw, fh = LAYOUT["faces"]
     # 18:10: faces 禁止 cover——cover 会按高放大后裁掉 L/R，导致中宽左右窄
-    _paste(canvas, _as_image("faces"), (fx + 8, fy + 32, fw - 16, fh - 40), cover=False)
+    # 21:38: 内容区先铺主题底色，避免 letterbox 露出扎眼白空带（古风尤其）
+    _fcx, _fcy, _fcw, _fch = fx + 8, fy + 32, fw - 16, fh - 40
+    _fbg = theme["bg"][:3] if len(theme["bg"]) >= 3 else (11, 14, 20)
+    draw.rectangle(
+        [_fcx, _fcy, _fcx + _fcw, _fcy + _fch],
+        fill=_fbg,
+    )
+    _paste(canvas, _as_image("faces"), (_fcx, _fcy, _fcw, _fch), cover=False)
 
     # 表情:优先用 expr_0..5 拼 2x3;兼容旧单图 expressions
     _draw_panel_frame(
@@ -1333,12 +1354,20 @@ def compose_character_sheet(
     ex, ey, ew, eh = LAYOUT["expressions"]
     expr_imgs = {k: _as_image(k) for k in _EXPR_KEYS if k in panels}
     if len(expr_imgs) == 6:
-        # 按内容区精确建格 + cover 贴入,表情必须填满格子
+        # 古风：深底金字标签带；二次元：浅底深字（默认）。单层外框标题，格内不再套「表情」。
+        if meta.style == "ancient_realistic":
+            expr_grid_bg = (16, 18, 24, 255)
+            expr_label_bg = (16, 18, 24, 255)
+        else:
+            expr_grid_bg = (245, 245, 248, 255)
+            expr_label_bg = (245, 245, 248, 255)
         grid = _compose_expression_grid(
             expr_imgs,
             label_fill=theme["text"],
             box_w=ew - 16,
             box_h=eh - 40,
+            grid_bg=expr_grid_bg,
+            label_band_bg=expr_label_bg,
         )
         # 12:34:表情格含真字体标签,禁止 cover 裁掉/撕边导致叠字残影
         _paste(canvas, grid, (ex + 8, ey + 32, ew - 16, eh - 40), cover=False)
@@ -4227,7 +4256,8 @@ def collage_costume_items(items: list[bytes], *, style: str) -> bytes:
     pad = 8
     w = n * cell + pad * 2
     h = cell + pad * 2
-    bg = (240, 240, 244) if style == "anime" else (30, 32, 38)
+    # 21:38 古风服饰：浅/中灰底（禁深黑底把物件糊成黑块）
+    bg = (240, 240, 244) if style == "anime" else (200, 200, 206)
     canvas = Image.new("RGB", (w, h), bg)
     for i, raw in enumerate(items):
         try:
@@ -4249,7 +4279,7 @@ def compose_boot_pair(single_boot: bytes, *, style: str, size: int = 768) -> byt
     except Exception:  # noqa: BLE001
         boot = Image.new("RGB", (size, size), (255, 255, 255))
     boot = _trim_object_bbox(boot, style=style, pad=8)
-    bg = (255, 255, 255) if style == "anime" else (30, 32, 38)
+    bg = (255, 255, 255) if style == "anime" else (200, 200, 206)
     canvas = Image.new("RGB", (size, size), bg)
     # 每只靴约占半宽
     target_h = int(size * 0.78)
@@ -4279,7 +4309,12 @@ def _trim_object_bbox(img: Image.Image, *, style: str, pad: int = 12) -> Image.I
             return not (r > 230 and g > 230 and b > 230)
     else:
         def _fg(r, g, b) -> bool:
-            return not (r < 45 and g < 45 and b < 50)
+            # 深黑旧底 + 浅/中灰新底都当背景
+            if r < 45 and g < 45 and b < 50:
+                return False
+            if abs(r - g) < 18 and abs(g - b) < 18 and 150 <= ((r + g + b) // 3) <= 230:
+                return False
+            return True
     min_x, min_y, max_x, max_y = w, h, 0, 0
     found = False
     for y in range(h):
