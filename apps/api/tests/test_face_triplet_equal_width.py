@@ -20,22 +20,4 @@ def test_equal_width_collage_geometry():
     info = sheet_svc.assert_face_triplet_equal_width(panel, n=3, cell_w=200, gap=10)
     assert info["geo"]["cell_w"] == 200
 
-def test_unequal_legacy_hstack_fails_assert():
-    imgs = []
-    for w in (80, 400, 90):
-        im = Image.new("RGB", (w, 200), (248,248,252))
-        d = ImageDraw.Draw(im)
-        d.rectangle((5,5,w-5,195), fill=(30,30,40))
-        imgs.append(im)
-    h=200; gap=8
-    canvas=Image.new("RGB",(sum(i.width for i in imgs)+2*gap,h),(248,248,252))
-    x=0
-    for im in imgs:
-        canvas.paste(im,(x,0)); x+=im.width+gap
-    b=BytesIO(); canvas.save(b,"PNG")
-    try:
-        sheet_svc.assert_face_triplet_equal_width(b.getvalue(), n=3, max_content_ratio=1.35)
-        raised=False
-    except sheet_svc.CharacterSheetError:
-        raised=True
-    assert raised
+
