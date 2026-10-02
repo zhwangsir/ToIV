@@ -1390,14 +1390,54 @@ def compose_character_sheet(
         outline=theme["outline"],
         label_fill=theme["text_dim"],
     )
-    sw = (plw - 24) // max(1, len(colors))
-    for i, hx in enumerate(colors[:8]):
+    n_colors = max(1, min(6, len(colors)))
+    colors = colors[:n_colors]
+    sw = (plw - 24) // n_colors
+    # 色号互不重叠：按格宽选字号，必要时缩写
+    swatch_font = font_label
+    try:
+        for sz in (18, 16, 14, 12, 11, 10):
+            cand = resolve_cjk_font(sz)
+            sample = "#E8C4A8"
+            if draw.textlength(sample, font=cand) <= max(24, sw - 10):
+                swatch_font = cand
+                break
+    except Exception:  # noqa: BLE001
+        swatch_font = font_label
+    label_boxes: list[tuple[int, int, int, int]] = []
+    for i, hx in enumerate(colors):
         rgb = tuple(int(hx[j : j + 2], 16) for j in (1, 3, 5))
         sx = plx + 12 + i * sw
         draw.rounded_rectangle(
             [sx, ply + 40, sx + sw - 8, ply + plh - 36], radius=6, fill=rgb
         )
-        draw.text((sx + 4, ply + plh - 30), hx, font=font_label, fill=theme["text_dim"])
+        label = hx
+        if draw.textlength(label, font=swatch_font) > sw - 8:
+            label = hx[1:]  # 去掉 # 再试
+        if draw.textlength(label, font=swatch_font) > sw - 8:
+            label = hx[1:4] + "…"
+        tw = int(draw.textlength(label, font=swatch_font))
+        tx = sx + max(2, (sw - 8 - tw) // 2)
+        ty = ply + plh - 30
+        # 硬推：与上一框重叠则右移到其右缘+2
+        box = (tx, ty, tx + tw, ty + 18)
+        if label_boxes:
+            prev = label_boxes[-1]
+            if box[0] < prev[2] + 2:
+                tx = prev[2] + 2
+                box = (tx, ty, tx + tw, ty + 18)
+        # 不画出右边界
+        if box[2] > plx + plw - 4:
+            tx = max(sx + 2, plx + plw - 4 - tw)
+            box = (tx, ty, tx + tw, ty + 18)
+        draw.text((tx, ty), label, font=swatch_font, fill=theme["text_dim"])
+        label_boxes.append(box)
+    # 单测/运行时断言：色号文字框互不重叠
+    for a, b in zip(label_boxes, label_boxes[1:]):
+        if a[2] > b[0]:
+            raise CharacterSheetError(
+                f"配色色号文字重叠: {a} vs {b}", status_code=500
+            )
 
     nx2, ny2, nw2, nh2 = LAYOUT["notes"]
     _draw_panel_frame(
@@ -1627,8 +1667,10 @@ def strip_internal_design_jargon(text: str) -> str:
     for ln in text.splitlines():
         s = bad.sub("", ln)
         s = re.sub(r"\s{2,}", " ", s).strip(" -|;,，、")
-        if s:
-            lines.append(s)
+        s = re.sub(r"[。.]{2,}", "。", s).strip()
+        if not s or s in {"。", ".", "…", "·"}:
+            continue
+        lines.append(s)
     return "\n".join(lines)
 
 
@@ -3473,6 +3515,26 @@ def _content_head_bbox(im: Image.Image) -> tuple[int, int, int, int] | None:
     return (x0, y0, x1, y1)
 
 
+def _sample_edge_bg(im: Image.Image) -> tuple[int, int, int]:
+    """取源图四角近边缘均色，作侧脸裁框外扩垫色（20:03）。"""
+    rgb = im.convert("RGB")
+    ww, hh = rgb.size
+    pts = [
+        (2, 2), (ww // 2, 2), (ww - 3, 2),
+        (2, hh // 2), (ww - 3, hh // 2),
+        (2, hh - 3), (ww // 2, hh - 3), (ww - 3, hh - 3),
+    ]
+    acc = [0, 0, 0]
+    n = 0
+    for px, py in pts:
+        r, g, b = rgb.getpixel((max(0, min(ww - 1, px)), max(0, min(hh - 1, py))))
+        acc[0] += r
+        acc[1] += g
+        acc[2] += b
+        n += 1
+    return (acc[0] // n, acc[1] // n, acc[2] // n)
+
+
 def _fit_profile_head_cell(
     img: Image.Image,
     box: tuple[int, int, int, int],
@@ -3483,76 +3545,139 @@ def _fit_profile_head_cell(
     min_face_height_frac: float = 0.55,
     max_face_height_frac: float = 0.75,
 ) -> tuple[Image.Image, tuple[int, int]]:
-    """侧脸格：按整头外轮廓定位，鼻尖前方/头顶留白；可比 L/M 略小（19:42）。"""
+    """侧脸格：3:4 大裁框含整头+鼻前/头顶留白，再 cover 铺满格（20:03）。
+
+    外框必须与 L/M 同为 box 尺寸；禁止缩小格子或 letterbox 缩进。
+    源图不够时用源图边缘底色向外扩边补满。
+    """
     x, y, w, h = box
     src_rgb = img.convert("RGB")
-    # 侧脸留白必须用浅底；取边缘深色会把鼻前垫成实体（19:42 留白）
-    fill = (248, 248, 252)
-    head = _content_head_bbox(src_rgb)
+    fill = _sample_edge_bg(src_rgb)
     face = _face_bbox_for_center(src_rgb)
+    head = _content_head_bbox(src_rgb)
+    # 满幅/近满幅整头框在灰底二次元上不可信 → 改用脸框外扩
+    if head is not None:
+        hx0, hy0, hx1, hy1 = head
+        if (hx1 - hx0) >= src_rgb.width * 0.92 or (hy1 - hy0) >= src_rgb.height * 0.92:
+            head = None
     if face is None and head is None:
         return _fit_cover_keep_crown(src_rgb, box)
     if face is None and head is not None:
         hx0, hy0, hx1, hy1 = head
-        # 无脸框时取整头上半为脸
         face = (hx0, hy0, hx1, hy0 + max(8, int((hy1 - hy0) * 0.55)))
     assert face is not None
     fx0, fy0, fx1, fy1 = face
+    fw = max(8.0, float(fx1 - fx0))
+    fh = max(8.0, float(fy1 - fy0))
     if head is None:
-        pad_x = int((fx1 - fx0) * 0.45)
-        pad_y_top = int((fy1 - fy0) * 0.55)
-        pad_y_bot = int((fy1 - fy0) * 0.35)
         head = (
-            max(0, fx0 - pad_x),
-            max(0, fy0 - pad_y_top),
-            min(src_rgb.width, fx1 + pad_x),
-            min(src_rgb.height, fy1 + pad_y_bot),
+            int(max(0, fx0 - 0.40 * fw)),
+            int(max(0, fy0 - 0.65 * fh)),
+            int(min(src_rgb.width, fx1 + 0.55 * fw)),
+            int(min(src_rgb.height, fy1 + 0.90 * fh)),
         )
     hx0, hy0, hx1, hy1 = head
-    # 侧向：脸相对整头更靠哪侧
+    # 侧向：鼻尖侧 = 脸更靠整头的哪一侧
     facing_left = (fx0 - hx0) <= (hx1 - fx1)
     nose_x = float(fx0 if facing_left else fx1)
-    # 整头最前缘（发丝/鼻尖）作留白锚点，避免发丝仍贴边
+    # 发丝可能比脸更靠前
     if facing_left:
-        nose_x = float(min(nose_x, hx0))
+        nose_x = float(min(nose_x, hx0 + 0.02 * max(8.0, hx1 - hx0)))
     else:
-        nose_x = float(max(nose_x, hx1))
-    crown_y = float(hy0)
-    face_h = max(1.0, float(fy1 - fy0))
-    # 侧脸有效头宽≈脸宽*1.35（含后脑），勿用铺满全身的 content 宽去卡死缩放
-    head_w_eff = max(float(fx1 - fx0) * 1.35, float(hx1 - hx0) * 0.55, 8.0)
-    head_h_eff = max(float(hy1 - hy0) * 0.85, face_h * 1.35, 8.0)
+        nose_x = float(max(nose_x, hx1 - 0.02 * max(8.0, hx1 - hx0)))
+    crown_y = float(min(hy0, fy0))
+    # 目标：脸高约占格高 face_height_frac（夹在 0.55–0.75），同时鼻前/头顶留白
     target_frac = min(max(float(face_height_frac), min_face_height_frac), max_face_height_frac)
-    scale = (target_frac * h) / face_h
-    max_scale_h = (h * (1.0 - top_margin - 0.05)) / head_h_eff
-    max_scale_w = (w * (1.0 - lead_margin - 0.08)) / head_w_eff
-    scale = min(scale, max_scale_h, max_scale_w)
-    # 锚点在整头最前缘/顶时，放大只会向下向后长，鼻前/头顶留白仍由 paste 钉住
-    min_scale = (min_face_height_frac * h) / face_h
-    max_scale_face = (max_face_height_frac * h) / face_h
-    scale = min(max(scale, min_scale), max_scale_face)
-    scale = max(scale, 1e-6)
-    nw = max(1, int(round(src_rgb.width * scale)))
-    nh = max(1, int(round(src_rgb.height * scale)))
-    scaled = src_rgb.resize((nw, nh), Image.Resampling.LANCZOS)
-    nose_s = nose_x * scale
-    crown_s = crown_y * scale
+    # 由脸高反推裁框高度：fh * scale = target_frac * h，且 crop 经 cover 后 scale_cov≈ cell/crop
+    # 取 crop 高 = fh / target_frac，宽 = 高 * aspect；再保证 lead/top 空间
+    aspect = w / float(h)
+    crop_h_face = fh / max(1e-6, target_frac)
+    head_w = max(8.0, float(hx1 - hx0))
+    head_h = max(8.0, float(hy1 - hy0))
+    trail = 0.10
+    bot = 0.16
+    crop_w_lead = head_w / max(1e-6, (1.0 - lead_margin - trail))
+    crop_h_head = head_h / max(1e-6, (1.0 - top_margin - bot))
+    crop_h = max(crop_h_face, crop_h_head, crop_w_lead / aspect)
+    crop_w = crop_h * aspect
+    # 若脸高会被压到 <min，缩小裁框
+    max_crop_h = fh / max(1e-6, min_face_height_frac)
+    if crop_h > max_crop_h:
+        crop_h = max_crop_h
+        crop_w = crop_h * aspect
+    # 若脸高会 >max，放大裁框
+    min_crop_h = fh / max(1e-6, max_face_height_frac)
+    if crop_h < min_crop_h:
+        crop_h = min_crop_h
+        crop_w = crop_h * aspect
+    target_w = max(8, int(math.ceil(crop_w)))
+    target_h = max(8, int(math.ceil(crop_h)))
+    # 对齐到精确 aspect
+    target_w = max(target_w, int(math.ceil(target_h * aspect)))
+    target_h = max(target_h, int(math.ceil(target_w / aspect)))
+    # 略加大裁框留白，抵消 cover 舍入（门禁仍按 0.12/0.03 测）
+    lead_e = float(lead_margin) + 0.02
+    top_e = float(top_margin) + 0.01
     if facing_left:
-        paste_x = int(round(lead_margin * w - nose_s))
+        cx0 = int(round(nose_x - lead_e * target_w))
+        cx1 = cx0 + target_w
     else:
-        paste_x = int(round((1.0 - lead_margin) * w - nose_s))
-    paste_y = int(round(top_margin * h - crown_s))
-    # 硬约束：贴完后鼻尖/头顶留白（防止舍入吃掉）
+        cx1 = int(round(nose_x + lead_e * target_w))
+        cx0 = cx1 - target_w
+    cy0 = int(round(crown_y - top_e * target_h))
+    cy1 = cy0 + target_h
+    pad_l = max(0, -cx0)
+    pad_t = max(0, -cy0)
+    pad_r = max(0, cx1 - src_rgb.width)
+    pad_b = max(0, cy1 - src_rgb.height)
+    work = src_rgb
+    if pad_l or pad_t or pad_r or pad_b:
+        work = Image.new(
+            "RGB",
+            (src_rgb.width + pad_l + pad_r, src_rgb.height + pad_t + pad_b),
+            fill,
+        )
+        work.paste(src_rgb, (pad_l, pad_t))
+        cx0 += pad_l
+        cx1 += pad_l
+        cy0 += pad_t
+        cy1 += pad_t
+    cx0 = max(0, min(cx0, work.width - 2))
+    cy0 = max(0, min(cy0, work.height - 2))
+    cx1 = max(cx0 + 2, min(cx1, work.width))
+    cy1 = max(cy0 + 2, min(cy1, work.height))
+    crop = work.crop((cx0, cy0, cx1, cy1))
+    # 若宽高比偏离，垫底色补成精确 3:4（锚鼻/顶）
+    if abs(crop.width / max(1, crop.height) - aspect) > 0.015:
+        canvas = Image.new("RGB", (target_w, target_h), fill)
+        if facing_left:
+            paste_x = int(round(lead_e * target_w - (nose_x + pad_l - cx0)))
+        else:
+            paste_x = int(round((1.0 - lead_e) * target_w - (nose_x + pad_l - cx0)))
+        paste_y = int(round(top_e * target_h - (crown_y + pad_t - cy0)))
+        canvas.paste(crop, (paste_x, paste_y))
+        crop = canvas
+    # cover 铺满（aspect 已对齐时即为精确填满）
+    scale = max(w / crop.width, h / crop.height)
+    nw = max(1, int(round(crop.width * scale)))
+    nh = max(1, int(round(crop.height * scale)))
+    scaled = crop.resize((nw, nh), Image.Resampling.LANCZOS)
     if facing_left:
-        # 鼻尖在 scaled 中的 x = nose_s；屏幕位置 = paste_x + nose_s
-        need_x = int(round(lead_margin * w - nose_s))
-        paste_x = need_x
+        left = int(round(lead_margin * nw - lead_margin * w))
     else:
-        paste_x = int(round((1.0 - lead_margin) * w - nose_s))
-    paste_y = int(round(top_margin * h - crown_s))
-    canvas = Image.new("RGB", (w, h), fill)
-    canvas.paste(scaled, (paste_x, paste_y))
-    return canvas.convert("RGBA"), (x, y)
+        left = int(round((1.0 - lead_margin) * nw - (1.0 - lead_margin) * w))
+    top = int(round(top_margin * nh - top_margin * h))
+    left = max(0, min(left, max(0, nw - w)))
+    top = max(0, min(top, max(0, nh - h)))
+    if left + w > nw:
+        left = max(0, nw - w)
+    if top + h > nh:
+        top = max(0, nh - h)
+    out = scaled.crop((left, top, left + w, top + h))
+    if out.size != (w, h):
+        out = out.resize((w, h), Image.Resampling.LANCZOS)
+    return out.convert("RGBA"), (x, y)
+
 
 
 def collage_face_triplet_equal_width(
@@ -3569,7 +3694,7 @@ def collage_face_triplet_equal_width(
     """面部三格同宽同高横拼（19:20 / 19:42）。
 
     L/M：裁边缘杂条后按人脸 cover 铺满并保头顶。
-    R（侧脸）：按整头外轮廓定位，鼻尖前方≥12% 格宽、头顶≥3%；脸高占比允许 0.55–0.75。
+    R（侧脸）：3:4 大裁框含整头+鼻前≥12%+头顶≥3%，再 cover 铺满格（20:03，禁止缩格）。
     face_* 参数保留签名兼容。
     """
     if len(faces) != 3:

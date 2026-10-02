@@ -277,3 +277,88 @@ def test_profile_r_lead_and_top_margin():
                 panel, n=3, cell_w=240, cell_h=320, gap=12
             )
             assert geo["geo"]["cell_w"] == 240
+
+
+def test_triplet_outer_bbox_identical_and_full_cell():
+    """20:03：三格外框 240x320 全等；R 不得 letterbox 缩成小方块。"""
+    from PIL import Image, ImageDraw
+    from io import BytesIO
+
+    def _mk(kind: str) -> bytes:
+        im = Image.new("RGB", (400, 500), (248, 248, 252))
+        dr = ImageDraw.Draw(im)
+        if kind == "L":
+            dr.ellipse((80, 40, 280, 280), fill=(230, 190, 170))
+            dr.rectangle((120, 280, 240, 460), fill=(40, 40, 48))
+        elif kind == "M":
+            dr.ellipse((90, 50, 290, 290), fill=(225, 185, 165))
+            dr.rectangle((130, 290, 250, 470), fill=(45, 45, 55))
+        else:  # R profile facing left
+            dr.ellipse((40, 60, 220, 280), fill=(230, 190, 170))
+            dr.rectangle((90, 280, 210, 470), fill=(40, 40, 48))
+            # dark hair blob on right of face
+            dr.ellipse((150, 40, 300, 260), fill=(20, 20, 28))
+        buf = BytesIO()
+        im.save(buf, format="PNG")
+        return buf.getvalue()
+
+    faces = [_mk("L"), _mk("M"), _mk("R")]
+    panel = sheet_svc.collage_face_triplet_equal_width(
+        faces, cell_w=240, cell_h=320, gap=12
+    )
+    im = Image.open(BytesIO(panel)).convert("RGB")
+    assert im.size == (3 * 240 + 2 * 12, 320)
+    # 外框几何全等
+    cells = []
+    for i in range(3):
+        x0 = i * (240 + 12)
+        cells.append((x0, 0, x0 + 240, 320))
+    assert cells[0][2] - cells[0][0] == cells[1][2] - cells[1][0] == cells[2][2] - cells[2][0] == 240
+    assert cells[0][3] - cells[0][1] == cells[1][3] - cells[1][1] == cells[2][3] - cells[2][1] == 320
+    # R 内容应铺满：非近白像素覆盖宽高均 >= 0.92（允许源图底色）
+    x0 = 2 * (240 + 12)
+    cell = im.crop((x0, 0, x0 + 240, 320))
+    px = cell.load()
+    xs, ys = [], []
+    for yy in range(320):
+        for xx in range(240):
+            r, g, b = px[xx, yy]
+            if r < 245 or g < 245 or b < 245:
+                xs.append(xx); ys.append(yy)
+    assert xs, "R cell empty"
+    frac_w = (max(xs) - min(xs) + 1) / 240
+    frac_h = (max(ys) - min(ys) + 1) / 320
+    assert frac_w >= 0.92 and frac_h >= 0.92, (frac_w, frac_h)
+
+
+def test_palette_hex_labels_no_overlap():
+    """20:03：配色色号文字框互不重叠。"""
+    from PIL import Image
+    from io import BytesIO
+
+    panels = {
+        "portrait": Image.new("RGB", (400, 600), (200, 180, 170)),
+        "front": Image.new("RGB", (200, 400), (190, 170, 160)),
+        "side": Image.new("RGB", (200, 400), (185, 165, 155)),
+        "back": Image.new("RGB", (200, 400), (180, 160, 150)),
+        "faces": Image.new("RGB", (744, 480), (248, 248, 252)),
+        "costume": Image.new("RGB", (400, 300), (30, 30, 36)),
+    }
+    for i in range(6):
+        panels[f"expr_{i}"] = Image.new("RGB", (200, 200), (210, 190, 180))
+    # convert to bytes locked style used by compose
+    locked = {}
+    for k, im in panels.items():
+        buf = BytesIO(); im.save(buf, format="PNG"); locked[k] = buf.getvalue()
+    meta = sheet_svc.SheetMeta(
+        name="林夏",
+        style="anime",
+        height_cm=168,
+        role="便利店员",
+        personality="温柔果断",
+        design_notes="雨夜便利店相遇的核心角色。\n黑色连帽雨衣与湿发贴额。\n三视图与表情同源同画风。",
+        colors=["#E8C4A8", "#C98A7A", "#1A1A1E", "#2C2C34", "#D4D3D8", "#5A6A7A"],
+    )
+    png = sheet_svc.compose_character_sheet(locked, meta)
+    assert isinstance(png, (bytes, bytearray)) and len(png) > 1000
+
