@@ -185,6 +185,10 @@ class CharacterPatch(BaseModel):
     voice_ref_url: str | None = Field(default=None, max_length=1024)
     # Batch2:三视图/参考图 URL 列表(落库 JSON 字符串;路由层 json.dumps)
     reference_images: list[str] | None = Field(default=None, max_length=8)
+    reference_images_by_style: dict[str, list[str]] | None = Field(
+        default=None,
+        description="按风格分存的 Ref2VA 参考图 {anime:[...], ancient_realistic:[...]}",
+    )
     allowed_panel_styles: list[str] | None = Field(
         default=None,
         description="写入 reference_images 含 char_panel_* 时必须显式列出允许的风格",

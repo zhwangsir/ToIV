@@ -51,8 +51,23 @@ def _get_project(session: Session, pid: str, user: User) -> StudioProject:
 
 
 def _character_out(c: StudioCharacter) -> dict:
-    """角色响应:reference_images 解析为 list(与 _project_detail 一致,避免泄漏 JSON 串)。"""
-    return {**c.model_dump(), "reference_images": json.loads(c.reference_images or "[]")}
+    """角色响应:扁平 reference_images + 按风格分存 reference_images_by_style。"""
+    from app.services.studio import character_sheet as sheet_svc
+
+    try:
+        refs = json.loads(c.reference_images or "[]")
+    except (ValueError, TypeError):
+        refs = []
+    if not isinstance(refs, list):
+        refs = []
+    by_style = sheet_svc.parse_refs_by_style(
+        getattr(c, "reference_images_by_style", None) or "{}"
+    )
+    data = c.model_dump()
+    data.pop("reference_images_by_style", None)
+    data["reference_images"] = refs
+    data["reference_images_by_style"] = by_style
+    return data
 
 
 def _parse_scene_images(raw: str | None) -> list[str]:
@@ -82,10 +97,7 @@ def _project_detail(session: Session, p: StudioProject) -> dict:
     ).all()
     return {
         **_project_out(p),
-        "characters": [
-            {**c.model_dump(), "reference_images": json.loads(c.reference_images or "[]")}
-            for c in chars
-        ],
+        "characters": [_character_out(c) for c in chars],
         "shots": [_shot_out(s) for s in shots],
     }
 
@@ -252,6 +264,21 @@ def patch_character(
         except sheet_svc.ReferenceImagesStyleError as e:
             raise HTTPException(status_code=e.status_code, detail=str(e)) from e
         data["reference_images"] = json.dumps(refs, ensure_ascii=False)
+    if "reference_images_by_style" in data:
+        from app.services.studio import character_sheet as sheet_svc
+        raw = data["reference_images_by_style"] or {}
+        if not isinstance(raw, dict):
+            raise HTTPException(status_code=400, detail="reference_images_by_style 须为对象")
+        by_style = sheet_svc.parse_refs_by_style(raw)
+        # 逐桶守卫
+        for st, urls in by_style.items():
+            try:
+                sheet_svc.assert_reference_images_panel_style(urls, allowed_styles={st})
+            except sheet_svc.ReferenceImagesStyleError as e:
+                raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+            if len(urls) > 8:
+                raise HTTPException(status_code=400, detail=f"reference_images_by_style[{st}] 最多 8 张")
+        data["reference_images_by_style"] = json.dumps(by_style, ensure_ascii=False)
     for k, v in data.items():
         setattr(c, k, v)
     session.add(c)
@@ -334,8 +361,9 @@ async def generate_character_sheet_route(
     except sheet_svc.CharacterSheetError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e)) from e
 
-    # 12:01:默认不写 reference_images;仅 apply_to_video_refs+风格匹配时写入立绘+三视图
+    # 12:01/22:31:默认不写视频参考;apply_to_video_refs 时按风格分桶写入,不互盖
     refs_out = None
+    by_style_out = None
     if getattr(body, "apply_to_video_refs", False):
         try:
             existing = json.loads(c.reference_images or "[]")
@@ -343,22 +371,28 @@ async def generate_character_sheet_route(
             existing = []
         if not isinstance(existing, list):
             existing = []
-        refs = sheet_svc.merge_video_refs(
-            [u for u in existing if isinstance(u, str)],
-            panel_urls=panel_urls,
-            sheet_url=url,
+        by_style = sheet_svc.parse_refs_by_style(
+            getattr(c, "reference_images_by_style", None) or "{}"
         )
         try:
-            sheet_svc.assert_reference_images_panel_style(
-                refs, allowed_styles={body.style}
+            by_style = sheet_svc.merge_video_refs_by_style(
+                by_style,
+                style=body.style,
+                panel_urls=panel_urls,
+                sheet_url=url,
             )
-        except sheet_svc.ReferenceImagesStyleError as e:
-            raise HTTPException(status_code=e.status_code, detail=str(e)) from e
-        c.reference_images = json.dumps(refs, ensure_ascii=False)
+        except (
+            sheet_svc.ReferenceImagesStyleError,
+            sheet_svc.CharacterSheetError,
+        ) as e:
+            raise HTTPException(status_code=getattr(e, "status_code", 422), detail=str(e)) from e
+        # 22:31:只写 by_style 分桶,不改扁平 reference_images(雨夜写实仍保留 sample_linxia×3)
+        c.reference_images_by_style = json.dumps(by_style, ensure_ascii=False)
         session.add(c)
         session.commit()
         session.refresh(c)
-        refs_out = refs
+        refs_out = [u for u in existing if isinstance(u, str)]
+        by_style_out = by_style
     out = _character_out(c)
     out["sheet_url"] = url
     out["sheet_style"] = body.style
@@ -366,6 +400,8 @@ async def generate_character_sheet_route(
     out["apply_to_video_refs"] = bool(getattr(body, "apply_to_video_refs", False))
     if refs_out is not None:
         out["reference_images"] = refs_out
+    if by_style_out is not None:
+        out["reference_images_by_style"] = by_style_out
     return out
 
 
@@ -457,6 +493,7 @@ async def regenerate_character_sheet_panels_route(
         raise HTTPException(status_code=e.status_code, detail=str(e)) from e
 
     refs_out = None
+    by_style_out = None
     if getattr(body, "apply_to_video_refs", False):
         try:
             existing = json.loads(c.reference_images or "[]")
@@ -464,22 +501,28 @@ async def regenerate_character_sheet_panels_route(
             existing = []
         if not isinstance(existing, list):
             existing = []
-        refs = sheet_svc.merge_video_refs(
-            [u for u in existing if isinstance(u, str)],
-            panel_urls=panel_urls,
-            sheet_url=url,
+        by_style = sheet_svc.parse_refs_by_style(
+            getattr(c, "reference_images_by_style", None) or "{}"
         )
         try:
-            sheet_svc.assert_reference_images_panel_style(
-                refs, allowed_styles={body.style}
+            by_style = sheet_svc.merge_video_refs_by_style(
+                by_style,
+                style=body.style,
+                panel_urls=panel_urls,
+                sheet_url=url,
             )
-        except sheet_svc.ReferenceImagesStyleError as e:
-            raise HTTPException(status_code=e.status_code, detail=str(e)) from e
-        c.reference_images = json.dumps(refs, ensure_ascii=False)
+        except (
+            sheet_svc.ReferenceImagesStyleError,
+            sheet_svc.CharacterSheetError,
+        ) as e:
+            raise HTTPException(status_code=getattr(e, "status_code", 422), detail=str(e)) from e
+        # 22:31:只写 by_style 分桶,不改扁平 reference_images(雨夜写实仍保留 sample_linxia×3)
+        c.reference_images_by_style = json.dumps(by_style, ensure_ascii=False)
         session.add(c)
         session.commit()
         session.refresh(c)
-        refs_out = refs
+        refs_out = [u for u in existing if isinstance(u, str)]
+        by_style_out = by_style
     out = _character_out(c)
     out["sheet_url"] = url
     out["sheet_style"] = body.style
@@ -488,6 +531,8 @@ async def regenerate_character_sheet_panels_route(
     out["apply_to_video_refs"] = bool(getattr(body, "apply_to_video_refs", False))
     if refs_out is not None:
         out["reference_images"] = refs_out
+    if by_style_out is not None:
+        out["reference_images_by_style"] = by_style_out
     return out
 
 

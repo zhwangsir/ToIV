@@ -20,6 +20,7 @@ from __future__ import annotations
 import math
 
 import asyncio
+import json
 import colorsys
 import logging
 import re
@@ -627,6 +628,86 @@ def merge_sheet_into_refs(
         if isinstance(u, str) and u.strip() and not is_sheet_url(u)
     ]
     return rest[:_MAX_REFS]
+
+
+
+def parse_refs_by_style(raw) -> dict[str, list[str]]:
+    """解析 reference_images_by_style JSON → {style: [url,...]}。"""
+    if isinstance(raw, dict):
+        data = raw
+    elif isinstance(raw, str) and raw.strip():
+        try:
+            data = json.loads(raw)
+        except (ValueError, TypeError):
+            return {}
+    else:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    out: dict[str, list[str]] = {}
+    for k, v in data.items():
+        st = str(k or "").strip()
+        if st not in SHEET_STYLES:
+            continue
+        if not isinstance(v, list):
+            continue
+        urls = [u.strip() for u in v if isinstance(u, str) and u.strip()]
+        if urls:
+            out[st] = urls[:_MAX_REFS]
+    return out
+
+
+def merge_video_refs_by_style(
+    existing_by_style: dict[str, list[str]] | None,
+    *,
+    style: str,
+    panel_urls: dict[str, str],
+    sheet_url: str | None = None,
+) -> dict[str, list[str]]:
+    """按风格分桶写入立绘+三视图;不覆盖其他风格分组。"""
+    if style not in SHEET_STYLES:
+        raise CharacterSheetError(f"style 须为 {'/'.join(SHEET_STYLES)}", status_code=422)
+    by_style = {
+        st: list(urls)
+        for st, urls in (existing_by_style or {}).items()
+        if st in SHEET_STYLES and isinstance(urls, list)
+    }
+    prev = [u for u in by_style.get(style, []) if isinstance(u, str)]
+    by_style[style] = merge_video_refs(prev, panel_urls=panel_urls, sheet_url=sheet_url)
+    # 写入守卫:该桶只允许本风格 panel
+    assert_reference_images_panel_style(by_style[style], allowed_styles={style})
+    return by_style
+
+
+def samples_from_refs(refs: list[str] | None) -> list[str]:
+    """扁平 reference_images 里非设定卡 URL(含 sample_*)。"""
+    out: list[str] = []
+    for u in refs or []:
+        if not isinstance(u, str) or not u.strip():
+            continue
+        if is_sheet_url(u) or is_panel_url(u):
+            continue
+        if u.strip() not in out:
+            out.append(u.strip())
+    return out
+
+
+def flatten_refs_for_style(
+    by_style: dict[str, list[str]] | None,
+    *,
+    style: str | None,
+    samples: list[str] | None = None,
+) -> list[str]:
+    """供视频链选用:指定风格分桶 + sample 等非 panel 参考。"""
+    ordered: list[str] = []
+    if style and style in SHEET_STYLES:
+        for u in (by_style or {}).get(style, []) or []:
+            if isinstance(u, str) and u.strip() and u not in ordered:
+                ordered.append(u.strip())
+    for u in samples or []:
+        if isinstance(u, str) and u.strip() and u not in ordered:
+            ordered.append(u.strip())
+    return ordered[:_MAX_REFS]
 
 
 def build_design_notes(meta: SheetMeta) -> str:

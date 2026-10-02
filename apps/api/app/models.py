@@ -683,7 +683,8 @@ class StudioCharacter(SQLModel, table=True):
     name: str = ""
     description: str = ""  # 中文角色描述
     visual_prompt: str = ""  # 英文视觉 token(注入分镜 prompt)
-    reference_images: str = "[]"  # JSON 数组:参考图 URL 列表
+    reference_images: str = "[]"  # JSON 数组:参考图 URL 列表(兼容扁平;视频默认读此列)
+    reference_images_by_style: str = "{}"  # JSON 对象:{anime:[...], ancient_realistic:[...]}
     voice_ref_url: str = ""  # 参考音 URL(TTS 音色克隆)
     created_at: datetime = Field(default_factory=_now)
 

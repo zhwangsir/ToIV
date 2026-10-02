@@ -124,6 +124,7 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("studioshot", "ref_images_json", "ref_images_json VARCHAR NOT NULL DEFAULT '[]'"),
     # Batch2 角色三视图:既有 studiocharacter 表幂等补列
     ("studiocharacter", "reference_images", "reference_images VARCHAR NOT NULL DEFAULT '[]'"),
+    ("studiocharacter", "reference_images_by_style", "reference_images_by_style VARCHAR NOT NULL DEFAULT '{}'"),
     # Batch3:项目级场景图绑定
     ("studioproject", "scene_images_json", "scene_images_json VARCHAR NOT NULL DEFAULT '[]'"),
 )

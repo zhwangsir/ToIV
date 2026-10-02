@@ -34,11 +34,13 @@ def collect_cast_ref_images(
     *,
     scene_images: list[str] | None = None,
     max_refs: int = 9,
+    style: str | None = None,
 ) -> list[RefImage]:
     """立绘+三视图(正/侧/背) + 场景图 → RefImage(最多 max_refs)。
 
     Batch7 v2(17:45#6):整卡 char_sheet_ 不进 Ref2VA 视频参考链;
     仅使用非设定卡 URL(优先 char_panel_ 立绘/三视图)。
+    22:31+:优先 reference_images_by_style[style];无分桶时回落扁平 reference_images。
     """
     refs: list[RefImage] = []
     _panel_slot = {
@@ -49,7 +51,36 @@ def collect_cast_ref_images(
     }
     for c in cast:
         name = str(getattr(c, "name", "") or "").strip() or "角色"
-        urls = _parse_ref_list(getattr(c, "reference_images", None))
+        urls: list[str] = []
+        by_raw = getattr(c, "reference_images_by_style", None)
+        by_style: dict[str, list[str]] = {}
+        if isinstance(by_raw, dict):
+            by_style = {
+                str(k): [str(u).strip() for u in (v or []) if str(u).strip()]
+                for k, v in by_raw.items()
+                if isinstance(v, list)
+            }
+        elif isinstance(by_raw, str) and by_raw.strip():
+            try:
+                parsed = json.loads(by_raw)
+            except (ValueError, TypeError):
+                parsed = {}
+            if isinstance(parsed, dict):
+                by_style = {
+                    str(k): [str(u).strip() for u in (v or []) if str(u).strip()]
+                    for k, v in parsed.items()
+                    if isinstance(v, list)
+                }
+        if style and style in by_style and by_style[style]:
+            urls = list(by_style[style])
+            # 附加扁平列里的非 panel(sample_*)
+            for u in _parse_ref_list(getattr(c, "reference_images", None)):
+                if "char_panel_" in u or "char_sheet_" in u:
+                    continue
+                if u not in urls:
+                    urls.append(u)
+        else:
+            urls = _parse_ref_list(getattr(c, "reference_images", None))
         views = [u for u in urls if "char_sheet_" not in u]
         for i, url in enumerate(views[:4]):
             slot = None
