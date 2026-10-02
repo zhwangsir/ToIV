@@ -90,3 +90,11 @@ def apply_fast_steps(graph: dict[str, Any], speed_tier: str) -> tuple[dict[str, 
 def describe_tier(speed_tier: str) -> str:
     """中文短标签(前端/日志)。"""
     return "快速" if validate_speed_tier(speed_tier) == "fast" else "精细"
+
+
+def describe_tier_hint(speed_tier: str) -> str:
+    """档位说明短句(少字;02:41 观感:快速偏卡通、精细更写实)。"""
+    if validate_speed_tier(speed_tier) == "fast":
+        return "更快出图,画面偏概括/卡通"
+    return "原生参数,细节更写实"
+

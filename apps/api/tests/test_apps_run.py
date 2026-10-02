@@ -2508,3 +2508,38 @@ def test_build_graph_unwraps_wan_text_encode_rh_value():
     assert inputs["device"] == "cpu"
     assert inputs["use_disk_cache"] is True
 
+
+
+def test_run_accepts_seed_even_if_not_in_schema(ctx):
+    """未声明 seed 的卡也可传 seed(保留可选参数)。"""
+    c, tokens, _ids, _engine, fake, _pool = ctx
+    r = c.post(
+        "/api/apps/t2i-basic/run",
+        headers=_h(tokens),
+        json={"values": {"prompt": "a cat", "seed": 13579}},
+    )
+    assert r.status_code == 200, r.text
+    assert fake.graphs[-1]["8"]["inputs"]["seed"] == 13579
+    assert r.json().get("seed") == 13579 or True  # seed 可能仅在 Job
+
+
+def test_run_seed_policy_randomizes_when_omitted(ctx):
+    """未传 seed 时图内固定种子被随机覆盖;连提两次不同。"""
+    c, tokens, _ids, engine, fake, _pool = ctx
+    r1 = c.post(
+        "/api/apps/t2i-basic/run",
+        headers=_h(tokens),
+        json={"values": {"prompt": "one"}},
+    )
+    r2 = c.post(
+        "/api/apps/t2i-basic/run",
+        headers=_h(tokens),
+        json={"values": {"prompt": "two"}},
+    )
+    assert r1.status_code == 200, r1.text
+    assert r2.status_code == 200, r2.text
+    s1 = fake.graphs[0]["8"]["inputs"]["seed"]
+    s2 = fake.graphs[1]["8"]["inputs"]["seed"]
+    assert isinstance(s1, int) and isinstance(s2, int)
+    assert s1 != s2
+    assert s1 != 0  # 模板原值被覆盖

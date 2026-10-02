@@ -84,6 +84,7 @@ from app.routes.video import _raise_from_comfy_error
 from app.services import app_covers as covers_svc
 from app.services.app_fingerprint import fingerprint as graph_fingerprint
 from app.services import h3_accel
+from app.services import seed_policy as seed_policy_svc
 from app.services import speed_tier as speed_tier_svc
 from app.services.app_content_modes import (
     SFW_NSFW_TWINS,
@@ -517,6 +518,8 @@ def _validate_params(schema: list[dict], values: dict) -> dict:
     if not isinstance(values, dict):
         raise HTTPException(status_code=422, detail="values 必须是对象")
     known = {p["key"] for p in schema}
+    # seed 为保留可选参数:即使用户卡未声明也可传,未传则 seed_policy 随机
+    known |= {"seed"}
     unknown = [k for k in values if k not in known]
     if unknown:
         raise HTTPException(status_code=422, detail=f"未知参数: {unknown[:5]}")
@@ -565,6 +568,9 @@ def _validate_params(schema: list[dict], values: dict) -> dict:
                         )
         # loras 等其余复合类型宽松透传
         out[key] = v
+    # 保留可选 seed(可不在 schema 内);供 seed_policy / Job.seed 使用
+    if "seed" in values and "seed" not in out:
+        out["seed"] = values.get("seed")
     return out
 
 
@@ -3319,7 +3325,13 @@ def _prompt_preview(a: App, values: dict) -> str:
 
 
 def _seed_of(values: dict) -> int:
-    """从表单值提取 seed(文本框允许填数字字符串);取不到为 0。"""
+    """从表单值提取 seed;优先 parse_user_seed,取不到为 0。
+
+    run_app 在建档前已把 seed_policy 结果写回 values["seed"],故正常路径非 0。
+    """
+    parsed = seed_policy_svc.parse_user_seed(values)
+    if parsed is not None:
+        return parsed
     v = values.get("seed")
     try:
         return int(v) if v not in (None, "") else 0
@@ -4210,6 +4222,9 @@ async def run_app(
     graph = _build_graph(run_app.workflow_json or {}, run_app.bindings or {}, values)
     if not graph:
         raise HTTPException(status_code=422, detail="应用未配置工作流图")
+    # 全卡种子策略:未指定则每次随机写满图内 seed/noise_seed(含未绑定的 TextEncodeAce 等)
+    seed_used = seed_policy_svc.apply_seed_policy(graph, values)
+    values = {**values, "seed": seed_used}
     # 模型依赖从写值后的图提取(绑定可能改写模型引用叶子);节点依赖空则从图自动取
     required = _extract_required(graph)
     nodes = set(run_app.required_nodes or a.required_nodes or []) or {
