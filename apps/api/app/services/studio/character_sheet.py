@@ -1493,14 +1493,19 @@ def assert_sheet_garment_consistency(
     p_hex = _panel_garment_dominant_hex(portrait)
     if not p_hex:
         raise CharacterSheetError("一致性门禁失败:主立绘无法取服装主色", status_code=422)
-    # anime 期望板岩灰中调，禁止主色近纯黑/近白；相对 #5A6A7A 色差门禁
+    # anime：禁止近纯黑/近白；绝对板岩灰仅在无三视图对照时强制（16:18 母版路线用相对色差）
     if style in ("anime", "二次元"):
         if _hex_luma(p_hex) < 35:
             raise CharacterSheetError(
                 f"一致性门禁失败:主立绘服装主色过黑({p_hex})，须板岩灰素面",
                 status_code=422,
             )
-        assert_garment_near_slate_gray(portrait, label="主立绘")
+        if _hex_luma(p_hex) > 175:
+            raise CharacterSheetError(
+                f"一致性门禁失败:主立绘服装主色过浅近白({p_hex})",
+                status_code=422,
+            )
+        # 有 front 时相对锁色已在生成路径完成；此处不再绝对 assert_garment_near_slate_gray
     for key in ("front", "side", "back"):
         data = panels.get(key)
         if not data:
@@ -3556,58 +3561,51 @@ async def generate_character_sheet(
                             "portrait face gate fail attempt=%s: %s", attempt, gate_e
                         )
                         continue
-                    try:
-                        assert_garment_near_slate_gray(
-                            panels["portrait"], label="主立绘"
-                        )
-                    except CharacterSheetError as color_e:
-                        # 颜色偏浅/偏色：img2img 重染到板岩灰 #5A6A7A
-                        logger.warning(
-                            "portrait slate gate fail attempt=%s: %s; recolor",
-                            attempt,
-                            color_e,
-                        )
-                        try:
-                            ref_c = await client.upload_image(
-                                panels["portrait"],
-                                f"sheet_portrait_recolor_{attempt}.png",
+                    # 16:03/16:18：有旧正面母版时，服装色锁旧正面（相对色差），禁绝对板岩灰硬门槛与程序重染
+                    if panels.get("front"):
+                        p_hex = _panel_garment_dominant_hex(panels["portrait"])
+                        f_hex = _panel_garment_dominant_hex(panels["front"])
+                        if not p_hex or not f_hex:
+                            last_err = CharacterSheetError(
+                                "颜色门禁失败:主立绘/旧正面无法取服装主色",
+                                status_code=422,
                             )
-                            recolored = await generate_panel_bytes(
-                                pool,
-                                prompts["portrait"]
-                                + ", recolor coat to exact mid-tone slate gray #5A6A7A nylon, "
-                                "long sleeves knee-length hooded raincoat, black pantyhose, "
-                                "black ankle boots, NOT light gray NOT near-white NOT jet black, "
-                                + bust,
-                                ckpt_name=ckpt,
-                                width=w,
-                                height=h,
-                                seed=(s or 0) + 404,
-                                worker=worker,
-                                filename_prefix=f"ToIV_char_sheet_portrait_recolor_a{attempt}",
-                                style=meta.style,
-                                client=client,
-                                ref_image=ref_c,
-                                ref_mode="img2img",
-                                denoise=0.42,
-                            )
-                            if portrait_has_chest_emblem(recolored):
-                                raise CharacterSheetError(
-                                    "主立绘重染后胸口徽标", status_code=422
-                                )
-                            assert_fullbody_portrait_face_ok(recolored)
-                            assert_garment_near_slate_gray(
-                                recolored, label="主立绘重染"
-                            )
-                            panels["portrait"] = recolored
-                            logger.info("portrait recolored to slate attempt=%s", attempt)
-                        except CharacterSheetError as re_e:
-                            # 16:18：禁用强制着色/矩形铺色；重染失败则换 seed 重出
-                            last_err = re_e
                             logger.warning(
-                                "portrait recolor fail attempt=%s: %s; no force tint",
+                                "portrait relative color fail attempt=%s: %s",
                                 attempt,
-                                re_e,
+                                last_err,
+                            )
+                            continue
+                        dist = _hex_dist(p_hex, f_hex)
+                        if dist > 110:
+                            last_err = CharacterSheetError(
+                                f"颜色门禁失败:主立绘({p_hex})与旧正面({f_hex})色差={dist}>110",
+                                status_code=422,
+                            )
+                            logger.warning(
+                                "portrait vs front color fail attempt=%s: %s",
+                                attempt,
+                                last_err,
+                            )
+                            continue
+                        logger.info(
+                            "portrait color locked to front override %s~%s dist=%s",
+                            p_hex,
+                            f_hex,
+                            dist,
+                        )
+                    else:
+                        try:
+                            assert_garment_near_slate_gray(
+                                panels["portrait"], label="主立绘"
+                            )
+                        except CharacterSheetError as color_e:
+                            # 无母版时仍要求板岩灰；禁程序着色，仅换 seed
+                            last_err = color_e
+                            logger.warning(
+                                "portrait slate gate fail attempt=%s: %s; retry seed (no tint)",
+                                attempt,
+                                color_e,
                             )
                             continue
                 break
