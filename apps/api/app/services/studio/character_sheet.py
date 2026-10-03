@@ -1076,6 +1076,14 @@ def _panel_garment_dominant_hex(data: bytes) -> str | None:
     except Exception:
         return None
     w, h = img.size
+    # 四角背景色：人物偏下半时中部 ROI 仍可能混入大面积浅灰底
+    corners = [
+        img.getpixel((2, 2)),
+        img.getpixel((w - 3, 2)),
+        img.getpixel((2, h - 3)),
+        img.getpixel((w - 3, h - 3)),
+    ]
+    bg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
     # 躯干：中部偏下（避开头脸）
     crop = img.crop((int(w * 0.22), int(h * 0.28), int(w * 0.78), int(h * 0.78)))
     small = crop.resize((48, 48), Image.Resampling.BOX)
@@ -1084,6 +1092,9 @@ def _panel_garment_dominant_hex(data: bytes) -> str | None:
     best = None
     best_cnt = 0
     for cnt, (r, g, b) in colors:
+        # 跳过近背景（人物未铺满时浅灰底会伪装成「服装主色」）
+        if abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) < 22:
+            continue
         if r + g + b < 40:  # 近纯黑记但不优先
             if best is None:
                 best, best_cnt = (r, g, b), cnt
@@ -1120,43 +1131,70 @@ def force_slate_garment_tint(
     data: bytes,
     *,
     target: str = SLATE_GRAY_TARGET,
-    strength: float = 0.62,
+    strength: float = 0.85,
 ) -> bytes:
-    """把躯干服装区主色拉向板岩灰（保留明暗结构）。img2img 重染失败时的硬兜底。"""
+    """把人物内容框内服装区主色拉向板岩灰（保留明暗结构）。img2img 重染失败时的硬兜底。"""
     tr, tg, tb = int(target[1:3], 16), int(target[3:5], 16), int(target[5:7], 16)
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
     px = img.load()
-    x0, x1 = int(w * 0.18), int(w * 0.82)
-    y0, y1 = int(h * 0.22), int(h * 0.92)
-    # 四角估背景
     corners = [px[2, 2], px[w - 3, 2], px[2, h - 3], px[w - 3, h - 3]]
     bg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
+    # 扫非背景行/列得到人物框（浅灰衣+浅灰底时用更严 bg 判定 + 行列密度）
+    small = img.resize((64, 64), Image.Resampling.BOX)
+    sp = list(small.getdata())
+
+    def _is_bg_s(r, g, b, tol=18):
+        return abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) < tol
+
+    rows = []
+    for y in range(64):
+        fg = sum(1 for x in range(64) if not _is_bg_s(*sp[y * 64 + x], 22))
+        rows.append(fg / 64.0)
+    cols = []
+    for x in range(64):
+        fg = sum(1 for y in range(64) if not _is_bg_s(*sp[y * 64 + x], 22))
+        cols.append(fg / 64.0)
+    top = next((i for i, v in enumerate(rows) if v > 0.06), 0)
+    bot = next((i for i, v in enumerate(reversed(rows)) if v > 0.06), 0)
+    left = next((i for i, v in enumerate(cols) if v > 0.06), 0)
+    right = next((i for i, v in enumerate(reversed(cols)) if v > 0.06), 0)
+    y0 = max(0, int(h * top / 64) - 2)
+    y1 = min(h, int(h * (64 - bot) / 64) + 2)
+    x0 = max(0, int(w * left / 64) - 2)
+    x1 = min(w, int(w * (64 - right) / 64) + 2)
+    if y1 - y0 < h * 0.2 or x1 - x0 < w * 0.15:
+        x0, x1, y0, y1 = int(w * 0.18), int(w * 0.82), int(h * 0.22), int(h * 0.92)
     s = max(0.0, min(1.0, float(strength)))
+    face_y1 = y0 + int((y1 - y0) * 0.28)
     for y in range(y0, y1):
         for x in range(x0, x1):
             r, g, b = px[x, y]
-            if abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) < 30:
+            # 严格背景跳过
+            if abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) < 14:
                 continue
-            # 跳过肤色
-            if 95 < r < 250 and 70 < g < 220 and 55 < b < 200 and r >= g - 8 and g >= b - 12:
-                if y < int(h * 0.42) and int(w * 0.30) < x < int(w * 0.70):
-                    continue
-            # 直接拉向板岩灰，并用原 luma 做轻微明暗（±18%），避免深色雨衣越染越黑
+            # 头脸肤色跳过
+            if y < face_y1 and 95 < r < 250 and 70 < g < 220 and 55 < b < 200 and r >= g - 8:
+                continue
             luma = (r + g + b) / 3.0
             mid = (tr + tg + tb) / 3.0
             delta = max(-0.18, min(0.18, (luma - mid) / 255.0))
             nr = int(max(0, min(255, tr * (1.0 + delta))))
             ng = int(max(0, min(255, tg * (1.0 + delta))))
             nb = int(max(0, min(255, tb * (1.0 + delta))))
+            # 对近白浅灰衣提高强度
+            local_s = s
+            if luma > 170:
+                local_s = min(1.0, s + 0.12)
             px[x, y] = (
-                int(r * (1 - s) + nr * s),
-                int(g * (1 - s) + ng * s),
-                int(b * (1 - s) + nb * s),
+                int(r * (1 - local_s) + nr * local_s),
+                int(g * (1 - local_s) + ng * local_s),
+                int(b * (1 - local_s) + nb * local_s),
             )
     buf = BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
+
 
 
 def assert_garment_near_slate_gray(
