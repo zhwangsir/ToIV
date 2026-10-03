@@ -209,8 +209,16 @@ def _cached_openclip(device: str, model_name: str, pretrained: str):
     import open_clip
 
     cache_dir = os.environ.get("TOIV_OPENCLIP_CACHE") or None
+    # 优先本地 NAS 权重（curl 落盘的 safetensors），避免每次打 HF
+    local_pre = os.environ.get("TOIV_OPENCLIP_PRETRAINED")
+    if not local_pre and cache_dir:
+        cand = Path(cache_dir) / "open_clip_vit_b32.safetensors"
+        if model_name.startswith("ViT-B-32") and cand.is_file() and cand.stat().st_size > 100_000_000:
+            local_pre = str(cand)
+    pre = local_pre or pretrained
+    kwargs = {"cache_dir": cache_dir} if (cache_dir and not local_pre) else {}
     model, _, preprocess = open_clip.create_model_and_transforms(
-        model_name, pretrained=pretrained, cache_dir=cache_dir
+        model_name, pretrained=pre, **kwargs
     )
     model = model.to(device).eval()
     tokenizer = open_clip.get_tokenizer(model_name)
