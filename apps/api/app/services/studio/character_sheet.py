@@ -5307,8 +5307,14 @@ async def generate_character_sheet(
                             denoise=denoise,
                             negative_extra=_neg_x,
                         )
-                        if _base_face is not None:
-                            st = 0.65 + 0.03 * (ci % 4)  # 0.65–0.74
+                        # 21:22c：遮罩合成与 Qwen 出图常不对齐→叠影；暂用整图编辑+4候选，
+                        # blend_face_local_edit 保留供对齐稳定后再开（TOIV_SHEET_FACE_BLEND=1）
+                        import os as _os
+                        if (
+                            _base_face is not None
+                            and _os.environ.get("TOIV_SHEET_FACE_BLEND", "").strip() == "1"
+                        ):
+                            st = 0.65 + 0.03 * (ci % 4)
                             edited = blend_face_local_edit(
                                 _base_face, edited, strength=st, size=768
                             )
