@@ -2682,6 +2682,7 @@ def enforce_head_shoulders_square(
     skip_reframe: bool = False,
     max_upscale: float = 1.5,
     check_coverage: bool = True,
+    face_closeup_gate: bool = False,
 ) -> bytes:
     """头肩正方形裁切(fix16):以**检测到的人脸框**为中心 cover 铺满。
 
@@ -2689,7 +2690,8 @@ def enforce_head_shoulders_square(
     - 裁切轴=脸中心;上边含完整发顶/发髻(脸顶再留约 12–16% 格高);下边到锁骨下(≈脸高×2.0–2.2)。
     - 放大上限 max_upscale(默认 1.5):源脸过小则外扩取景;仍不足则 cover 填满(禁深色垫边缩水)。
     - skip_reframe=True:锁定格走同一 cover 填满(头顶方裁→铺满),禁止小图贴大空白。
-    - check_coverage:输出前 assert_panel_coverage(>=0.90)。
+    - check_coverage:输出前 assert_panel_coverage(>=0.90)；全身格用。
+    - face_closeup_gate:16:45 近景脸格用「有人脸+脸高占格高 25%–70%」替代 coverage。
     """
     import math
 
@@ -2726,7 +2728,9 @@ def enforce_head_shoulders_square(
         buf = BytesIO()
         crop.save(buf, format="PNG")
         out = buf.getvalue()
-        if check_coverage:
+        if face_closeup_gate:
+            assert_face_closeup_framing(out)
+        elif check_coverage:
             assert_panel_coverage(out, min_ratio=0.90)
             assert_face_visible(out, min_face_area=0.04)
         return out
@@ -2778,7 +2782,9 @@ def enforce_head_shoulders_square(
     buf = BytesIO()
     crop.save(buf, format="PNG")
     out = buf.getvalue()
-    if check_coverage:
+    if face_closeup_gate:
+        assert_face_closeup_framing(out)
+    elif check_coverage:
         assert_panel_coverage(out, min_ratio=0.90)
         assert_face_visible(out, min_face_area=0.04)
     return out
@@ -2828,6 +2834,44 @@ def assert_face_visible(
             status_code=422,
         )
     return (x1, y1, x2, y2)
+
+
+def assert_face_closeup_framing(
+    data: bytes,
+    *,
+    min_face_height_frac: float = 0.25,
+    max_face_height_frac: float = 0.70,
+    min_face_area: float = 0.04,
+    face_key: str | None = None,
+) -> dict:
+    """16:45：近景脸格门禁——有人脸，且脸高占格高 25%–70%（替代 coverage 0.90）。
+
+    全身格仍走 assert_panel_coverage；本函数只用于 faces / expr_*。
+    """
+    img = Image.open(BytesIO(data)).convert("RGB")
+    _w, h = img.size
+    bb = assert_face_visible(
+        data, min_face_area=min_face_area, face_key=face_key
+    )
+    x1, y1, x2, y2 = bb
+    face_h = max(1.0, float(y2) - float(y1))
+    frac = face_h / float(max(1, h))
+    if frac + 1e-12 < float(min_face_height_frac):
+        raise CharacterSheetError(
+            f"face height frac {frac:.3f} < {min_face_height_frac:.2f} (face too small in cell)",
+            status_code=422,
+        )
+    if frac - 1e-12 > float(max_face_height_frac):
+        raise CharacterSheetError(
+            f"face height frac {frac:.3f} > {max_face_height_frac:.2f} (face too large / overcropped)",
+            status_code=422,
+        )
+    return {
+        "bbox": bb,
+        "face_height_frac": frac,
+        "min": float(min_face_height_frac),
+        "max": float(max_face_height_frac),
+    }
 
 
 def face_crop_looks_ok(data: bytes) -> bool:
@@ -3937,23 +3981,10 @@ async def generate_character_sheet(
                                     denoise=den,
                                     negative_extra=ang_neg,
                                 )
-                        try:
-                            tri[fk] = enforce_head_shoulders_square(fd, size=768)
-                        except CharacterSheetError as cov_e:
-                            logger.warning(
-                                "faces %s coverage: %s; retry cover without hard gate",
-                                fk,
-                                cov_e,
-                            )
-                            tri[fk] = enforce_head_shoulders_square(
-                                fd, size=768, check_coverage=False
-                            )
-                            # 仍近空则用主立绘头肩
-                            if panel_content_coverage(tri[fk]) < 0.20:
-                                head = crop_face_ref(panels["portrait"], size=768)
-                                tri[fk] = enforce_head_shoulders_square(
-                                    head, size=768, check_coverage=False
-                                )
+                        # 16:45：脸格用 face_closeup_gate，不再 soft 掉 coverage
+                        tri[fk] = enforce_head_shoulders_square(
+                            fd, size=768, face_closeup_gate=True
+                        )
                         last_face_err = None
                         break
                     except CharacterSheetError as e:
@@ -4004,22 +4035,10 @@ async def generate_character_sheet(
                     denoise=denoise,
                 )
                 if key.startswith("expr_"):
-                    try:
-                        raw = enforce_head_shoulders_square(raw, size=768)
-                    except CharacterSheetError as ee:
-                        logger.warning("expr %s enforce: %s; soft cover", key, ee)
-                        raw = enforce_head_shoulders_square(
-                            raw, size=768, check_coverage=False
-                        )
-                        if panel_content_coverage(raw) < 0.15 or (
-                            meta.style in ("anime", "二次元")
-                            and not face_crop_looks_ok(raw)
-                        ):
-                            raw = enforce_head_shoulders_square(
-                                crop_face_ref(panels["portrait"], size=768),
-                                size=768,
-                                check_coverage=False,
-                            )
+                    # 16:45：表情近景脸格用 face_closeup_gate，禁 soft coverage
+                    raw = enforce_head_shoulders_square(
+                        raw, size=768, face_closeup_gate=True
+                    )
                 if key in ("front", "side") and meta.style in ("anime", "二次元"):
                     if portrait_has_chest_emblem(raw):
                         raise CharacterSheetError(
