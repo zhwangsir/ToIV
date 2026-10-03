@@ -439,7 +439,7 @@ export function ShotCard({
             <div className="studio-video-row">
               <label className="studio-video-engine">
                 <Icon name="zap" size={12} />
-                <select
+                <Select
                   value={videoModel}
                   disabled={busy}
                   aria-label="视频引擎"
@@ -447,11 +447,11 @@ export function ShotCard({
                 >
                   <option value="h3">H3</option>
                   <option value="ltx">LTX</option>
-                </select>
+                </Select>
               </label>
               <label className="studio-video-cands">
                 候选
-                <select
+                <Select
                   value={numCandidates}
                   disabled={busy}
                   aria-label="候选数"
@@ -462,11 +462,11 @@ export function ShotCard({
                       {n}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="studio-video-refstyle" data-testid="studio-video-refstyle">
                 设定卡
-                <select
+                <Select
                   value={refStyle}
                   disabled={busy}
                   aria-label="参考风格"
@@ -480,7 +480,7 @@ export function ShotCard({
                   <option value="">自动</option>
                   <option value="anime">二次元</option>
                   <option value="ancient_realistic">古风</option>
-                </select>
+                </Select>
               </label>
             </div>
             <div className="studio-shot-refs" data-testid="studio-shot-refs">
@@ -513,7 +513,7 @@ export function ShotCard({
                 )}
                 <label className="studio-shot-ref-add" title="场景图">
                   <Icon name="plus" size={12} />
-                  <input
+                  <Input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     hidden

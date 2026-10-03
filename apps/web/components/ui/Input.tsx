@@ -53,11 +53,20 @@ export function Field({ label, hint, error, children }: FieldProps) {
   );
 }
 
-type InputProps = InputHTMLAttributes<HTMLInputElement>;
+type InputProps = InputHTMLAttributes<HTMLInputElement> & {
+  /** React 19 ref-as-prop:隐藏 file input 等需拿到底层节点。 */
+  ref?: Ref<HTMLInputElement>;
+};
 
 /** 文本输入:bg-surface-3 + focus accent 描边(样式在全局 .input)。 */
-export function Input({ className, ...rest }: InputProps) {
-  return <input className={["input", className ?? ""].filter(Boolean).join(" ")} {...rest} />;
+export function Input({ className, ref, ...rest }: InputProps) {
+  return (
+    <input
+      ref={ref}
+      className={["input", className ?? ""].filter(Boolean).join(" ")}
+      {...rest}
+    />
+  );
 }
 
 type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {

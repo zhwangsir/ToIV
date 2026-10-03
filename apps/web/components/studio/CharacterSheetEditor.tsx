@@ -15,7 +15,8 @@ import {
 } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/Icon"
+import { Input, Select, Textarea } from "@/components/ui/Input";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { useToast } from "@/components/ui/Toast";
 
@@ -289,7 +290,7 @@ export function CharacterSheetEditor({
         <div className="studio-sheet-editor-toolbar">
           <label className="studio-sheet-field">
             <span>角色</span>
-            <select
+            <Select
               value={cid}
               disabled={!!busy}
               onChange={(e) => setCid(e.target.value)}
@@ -300,11 +301,11 @@ export function CharacterSheetEditor({
                   {c.name || c.id.slice(0, 8)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="studio-sheet-field">
             <span>风格</span>
-            <select
+            <Select
               value={style}
               disabled={!!busy}
               onChange={(e) => setStyle(e.target.value as StudioCharacterSheetStyle)}
@@ -312,11 +313,11 @@ export function CharacterSheetEditor({
             >
               <option value="anime">二次元</option>
               <option value="ancient_realistic">古风</option>
-            </select>
+            </Select>
           </label>
           <label className="studio-sheet-field">
             <span>身高</span>
-            <input
+            <Input
               type="number"
               min={140}
               max={200}
@@ -328,7 +329,7 @@ export function CharacterSheetEditor({
           </label>
           <label className="studio-sheet-field studio-sheet-field-wide">
             <span>身份</span>
-            <input
+            <Input
               type="text"
               value={role}
               disabled={!!busy}
@@ -339,7 +340,7 @@ export function CharacterSheetEditor({
           </label>
           <label className="studio-sheet-field studio-sheet-field-wide">
             <span>性格</span>
-            <input
+            <Input
               type="text"
               value={personality}
               disabled={!!busy}
@@ -350,7 +351,7 @@ export function CharacterSheetEditor({
           </label>
           <label className="studio-sheet-field studio-sheet-field-notes">
             <span>设计说明</span>
-            <textarea
+            <Textarea
               rows={2}
               value={designNotes}
               disabled={!!busy}
@@ -500,7 +501,7 @@ export function CharacterSheetEditor({
           </aside>
         </div>
 
-        <input
+        <Input
           ref={fileRef}
           type="file"
           accept="image/png,image/jpeg,image/webp"

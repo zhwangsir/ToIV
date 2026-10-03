@@ -217,7 +217,7 @@ function RefSlots({
                   <Icon name={busy ? "loading" : "upload"} size={14} />
                 </button>
               )}
-              <input
+              <Input
                 ref={(el) => {
                   inputRefs.current[slot.key] = el;
                 }}
@@ -265,7 +265,7 @@ function RefSlots({
             应用
           </button>
         )}
-        <input
+        <Input
           ref={lookFileRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
@@ -530,7 +530,7 @@ function SceneBind({
           </>
         )}
       </div>
-      <input
+      <Input
         ref={fileRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
