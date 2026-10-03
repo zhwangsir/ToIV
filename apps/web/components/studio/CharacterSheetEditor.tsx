@@ -45,6 +45,22 @@ function panelLabel(key: string | null): string {
   return PANEL_LABEL[key] || key;
 }
 
+function countDesignNoteLines(text: string): number {
+  return text
+    .split(/\n/)
+    .map((l) => l.trim())
+    .filter(Boolean).length;
+}
+
+function assertDesignNotesOk(text: string): void {
+  const n = countDesignNoteLines(text);
+  if (n === 0) return; // 允许空：后端可自填；有内容则须 3–5 行
+  if (n < 3 || n > 5) {
+    throw new Error(`设计说明须 3–5 行（当前 ${n} 行）`);
+  }
+}
+
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -137,9 +153,12 @@ export function CharacterSheetEditor({
     }
   };
 
+  const noteLineCount = countDesignNoteLines(designNotes);
+
   const onCreate = () =>
     runWithRetry("生成", async () => {
       if (!cid) throw new Error("请先选角色");
+      assertDesignNotesOk(designNotes);
       const meta = {
         role: role.trim() || undefined,
         personality: personality.trim() || undefined,
@@ -163,6 +182,7 @@ export function CharacterSheetEditor({
     runWithRetry("单格重生", async () => {
       if (!cid || !selectedKey) throw new Error("先点一格");
       if (locked[selectedKey]) throw new Error("该格已锁定");
+      assertDesignNotesOk(designNotes);
       const meta = {
         role: role.trim() || undefined,
         personality: personality.trim() || undefined,
@@ -217,6 +237,7 @@ export function CharacterSheetEditor({
 
   const onSaveMeta = () =>
     runWithRetry("保存资料", async () => {
+      assertDesignNotesOk(designNotes);
       if (!cid) throw new Error("请先选角色");
       if (!sheetUrl) throw new Error("暂无整卡,请先新建");
       const res = await recomposeStudioCharacterSheet(cid, {
@@ -352,13 +373,23 @@ export function CharacterSheetEditor({
           <label className="studio-sheet-field studio-sheet-field-notes">
             <span>设计说明</span>
             <Textarea
-              rows={2}
+              rows={4}
               value={designNotes}
               disabled={!!busy}
-              placeholder="3–5 行，写入设定卡"
+              placeholder={"雨夜便利店相遇\n黑雨衣湿发贴额\n三视图同源\n表情分格独立\n服饰单品平铺"}
               onChange={(e) => setDesignNotes(e.target.value)}
               data-testid="sheet-editor-notes"
             />
+            <span
+              className={
+                noteLineCount === 0 || (noteLineCount >= 3 && noteLineCount <= 5)
+                  ? "studio-sheet-notes-hint"
+                  : "studio-sheet-notes-hint is-warn"
+              }
+              data-testid="sheet-editor-notes-hint"
+            >
+              {noteLineCount === 0 ? "可选；填写则须 3–5 行" : `${noteLineCount}/5 行`}
+            </span>
           </label>
           <div className="studio-look-actions">
             <button

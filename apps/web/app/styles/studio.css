@@ -1275,3 +1275,13 @@
 }
 .studio-sheet-editor-footer { display: flex; justify-content: flex-end; gap: var(--space-2); width: 100%; }
 .studio-muted { color: var(--text-dim, #888); font-size: 12px; }
+
+.studio-sheet-notes-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--muted, #8b8b9a);
+}
+.studio-sheet-notes-hint.is-warn {
+  color: var(--danger, #e06c75);
+}

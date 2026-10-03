@@ -55,6 +55,9 @@ test("CharacterSheetEditor:热区与失败重试", () => {
   assert.ok(src.includes('data-testid="sheet-editor-role"'), "缺身份资料");
   assert.ok(src.includes('data-testid="sheet-editor-personality"'), "缺性格资料");
   assert.ok(src.includes('data-testid="sheet-editor-notes"'), "缺设计说明");
+  assert.ok(src.includes('data-testid="sheet-editor-notes-hint"'), "缺设计说明行数提示");
+  assert.ok(src.includes("assertDesignNotesOk"), "缺设计说明 3–5 行校验");
+  assert.ok(src.includes("countDesignNoteLines"), "缺设计说明行数统计");
   assert.ok(src.includes('data-testid="sheet-editor-height"'), "缺身高");
   assert.ok(src.includes("apply_to_video_refs: false"), "编辑器生成须不写 refs");
   const applyFalseCount = (src.match(/apply_to_video_refs:\s*false/g) || []).length;
@@ -67,4 +70,5 @@ test("studio.css:设定卡样式", () => {
   assert.ok(css.includes(".studio-sheet-actions"), "缺设定卡样式");
   assert.ok(css.includes(".studio-sheet-editor"), "缺编辑器样式");
   assert.ok(css.includes(".studio-sheet-hotspot"), "缺热区样式");
+  assert.ok(css.includes(".studio-sheet-notes-hint"), "缺设计说明行数样式");
 });
