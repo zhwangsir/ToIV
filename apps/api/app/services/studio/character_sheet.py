@@ -3303,9 +3303,10 @@ def side_face_cleanup_accept(
     禁止脸罩叠影；整图 Qwen 清线结果用本门禁取舍。
     """
     src_frac = measure_face_height_frac(original_crop)
-    src_soft = src_frac is None or (src_frac + 1e-12 < 0.32)
-    mae_max = 52.0 if src_soft else 28.0
-    clip_min = 0.70 if src_soft else float(min_clip)
+    src_soft = src_frac is None or (src_frac + 1e-12 < 0.35)
+    # 23:05b：融化源修复常改五官几何，MAE/CLIP 再放宽；靠脸占比+身份参考兜底
+    mae_max = 78.0 if src_soft else 28.0
+    clip_min = 0.64 if src_soft else float(min_clip)
     try:
         ia = Image.open(BytesIO(cleaned)).convert("RGB").resize((128, 128))
         ib = Image.open(BytesIO(original_crop)).convert("RGB").resize((128, 128))
@@ -3321,9 +3322,10 @@ def side_face_cleanup_accept(
     # 清线后须更清晰，且脸占比不得更差（融化源允许从 None 升到有脸）
     out_frac = measure_face_height_frac(cleaned)
     if src_soft:
-        if out_frac is None or out_frac + 1e-12 < 0.28:
+        if out_frac is None or out_frac + 1e-12 < 0.22:
             return False
-        if _edge_sharpness_score(cleaned) + 0.4 < _edge_sharpness_score(original_crop):
+        # 清晰度：允许持平；仅当明显糊于原裁才拒
+        if _edge_sharpness_score(cleaned) + 1.5 < _edge_sharpness_score(original_crop):
             return False
     ref = master_side or original_crop
     sim = clip_image_cosine_sim(cleaned, ref)
@@ -3335,7 +3337,7 @@ def side_face_cleanup_accept(
     # 软源：与身份参考（正脸/立绘头）相似度过门也可接受（母版融化时 CLIP 对侧源不可靠）
     if src_soft and identity_ref is not None:
         sim_id = clip_image_cosine_sim(cleaned, identity_ref)
-        if sim_id is not None and sim_id + 1e-12 >= 0.62:
+        if sim_id is not None and sim_id + 1e-12 >= 0.58:
             return True
     return False
 
