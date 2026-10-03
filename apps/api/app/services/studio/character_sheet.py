@@ -17,6 +17,9 @@
 """
 from __future__ import annotations
 
+import os
+import contextvars
+
 import math
 
 import asyncio
@@ -476,12 +479,51 @@ def _costume_item_penalty(data: bytes, item_key: str) -> float:
 
 
 
+_SHEET_REJECT_CTX: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+    "toiv_sheet_reject_ctx", default=None
+)
+
+
 class CharacterSheetError(Exception):
     """设定卡业务错误;route 层映射 HTTP status。"""
 
     def __init__(self, message: str, *, status_code: int = 500):
         super().__init__(message)
         self.status_code = status_code
+        # 17:47：抛出时若在设定卡生成上下文中，落盘已有分格 + 错误元数据
+        ctx = _SHEET_REJECT_CTX.get()
+        if ctx and isinstance(ctx, dict):
+            dump_dir = ctx.get("dir")
+            seed = ctx.get("seed")
+            panels = ctx.get("panels") or {}
+            panel = ctx.get("current_key") or "unknown"
+            data = panels.get(panel) if isinstance(panels, dict) else None
+            if data is None and isinstance(panels, dict) and panels:
+                # 兜底：落最新一张
+                panel, data = list(panels.items())[-1]
+            try:
+                dump_rejected_panel(
+                    data if isinstance(data, (bytes, bytearray)) else None,
+                    seed=seed if isinstance(seed, int) or seed is None else None,
+                    panel=str(panel),
+                    gate="CharacterSheetError",
+                    detail=str(message),
+                    dump_dir=dump_dir,
+                )
+                # 也把当前所有分格落一份
+                if isinstance(panels, dict):
+                    for k, v in panels.items():
+                        if isinstance(v, (bytes, bytearray)) and k != panel:
+                            dump_rejected_panel(
+                                v,
+                                seed=seed if isinstance(seed, int) or seed is None else None,
+                                panel=f"all_{k}",
+                                gate="snapshot",
+                                detail=str(message),
+                                dump_dir=dump_dir,
+                            )
+            except Exception:
+                pass
 
 
 @dataclass
@@ -1293,6 +1335,62 @@ def assert_fullbody_portrait_face_ok(data: bytes) -> None:
     )
 
 
+
+def dump_rejected_panel(
+    data: bytes | None,
+    *,
+    seed: int | None,
+    panel: str,
+    gate: str,
+    detail: str,
+    dump_dir: str | Path | None = None,
+) -> Path | None:
+    """17:47：失败必须落盘拒图 + 门禁名/数值 JSON。"""
+    if not data:
+        return None
+    root = Path(dump_dir or os.environ.get("TOIV_SHEET_REJECT_DIR") or "/tmp/toiv_sheet_rejects")
+    root.mkdir(parents=True, exist_ok=True)
+    tag = f"rejected_{seed if seed is not None else 'noseed'}_{panel}"
+    png_path = root / f"{tag}.png"
+    json_path = root / f"{tag}.json"
+    try:
+        png_path.write_bytes(data)
+        # annotated box thumb
+        try:
+            img = Image.open(BytesIO(data)).convert("RGB")
+            w, h = img.size
+            draw = ImageDraw.Draw(img)
+            # chest ROI hint
+            draw.rectangle(
+                [int(w * 0.35), int(h * 0.32), int(w * 0.65), int(h * 0.52)],
+                outline=(255, 64, 64),
+                width=3,
+            )
+            thumb = img.copy()
+            thumb.thumbnail((512, 512))
+            thumb.save(root / f"{tag}_box.jpg", quality=85)
+        except Exception:
+            pass
+        json_path.write_text(
+            json.dumps(
+                {
+                    "seed": seed,
+                    "panel": panel,
+                    "gate": gate,
+                    "detail": detail,
+                    "bytes": len(data),
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        return png_path
+    except Exception as e:  # noqa: BLE001
+        logger.warning("dump_rejected_panel fail %s: %s", tag, e)
+        return None
+
+
 def _chest_emblem_scores(data: bytes) -> tuple[int, int, int]:
     """胸口 ROI 的 (bright, chroma, n)。失败返回 (0,0,0)。"""
     try:
@@ -1523,11 +1621,13 @@ def assert_sheet_garment_consistency(
     *,
     max_dist: int = 90,
     style: str = "anime",
+    skip_keys: set[str] | None = None,
 ) -> None:
     """13:16②：主立绘 vs 三视图服装主色差超阈或主立绘贴标 → 不得过审。
 
     16:18：禁止矩形铺色去标；检出贴标直接 422 重出。
     """
+    skip = set(skip_keys or ())
     portrait = panels.get("portrait")
     if not portrait:
         raise CharacterSheetError("一致性门禁失败:缺主立绘", status_code=422)
@@ -2879,14 +2979,13 @@ def assert_face_closeup_framing(
     data: bytes,
     *,
     min_face_height_frac: float = 0.25,
-    max_face_height_frac: float = 0.78,
+    max_face_height_frac: float = 0.80,
     min_face_area: float = 0.04,
     face_key: str | None = None,
 ) -> dict:
     """16:45：近景脸格门禁——有人脸，且脸高占格高约 25%–70%（替代 coverage 0.90）。
 
-    17:14：上限放宽到 0.78，吸收 reframe 后 insightface 框 ±数个点的测量余量
-    （曾见 0.703 被 0.70 误杀）；父代理意图仍是近景头肩而非贴脸裁切。
+    17:47：上限 0.80（父代理）；吸收 reframe 测量余量，近景头肩而非贴脸裁切。
 
     全身格仍走 assert_panel_coverage；本函数只用于 faces / expr_*。
     """
@@ -3551,7 +3650,24 @@ async def generate_character_sheet(
 
     prompts = build_panel_prompts(meta)
     panels: dict[str, bytes] = dict(panels_override or {})
+    override_keys: set[str] = set(panels.keys())  # 17:47：母版注入格跳过一切 panel 门禁
     panel_urls: dict[str, str] = {}
+    reject_dir = Path(
+        os.environ.get(
+            "TOIV_SHEET_REJECT_DIR",
+            f"/home/merlin/toiv/tmp/toiv_report_sheet_rejects_{int(seed or 0)}",
+        )
+    )
+    reject_dir.mkdir(parents=True, exist_ok=True)
+    for _ok, _ob in list(panels.items()):
+        try:
+            (reject_dir / f"override_{_ok}.png").write_bytes(_ob)
+        except Exception:
+            pass
+    _last_reject: dict[str, Any] = {"key": None, "data": None}
+    _reject_token = _SHEET_REJECT_CTX.set(
+        {"dir": reject_dir, "seed": seed, "panels": panels, "current_key": None}
+    )
 
     # 默认关闭复用;显式打开才吃旧三视图
     if allow_reuse_refs and reuse_ref_urls:
@@ -3843,7 +3959,9 @@ async def generate_character_sheet(
                                 f"img2img {key}服装色差过大({t_hex} vs {p_hex})，禁强制着色须重出",
                                 status_code=422,
                             )
-                        assert_panel_output_gates(raw, label=key, key=key)
+                        if key not in override_keys:
+
+                            assert_panel_output_gates(raw, label=key, key=key)
                         panels[key] = raw
                         last_err = None
                         break
@@ -4057,6 +4175,14 @@ async def generate_character_sheet(
                         except Exception as fe:  # noqa: BLE001
                             logger.warning("faces face_side master crop fail: %s", fe)
                     if last_face_err is not None:
+                        dump_rejected_panel(
+                            tri.get(fk),
+                            seed=seed,
+                            panel=str(fk),
+                            gate="faces",
+                            detail=str(last_face_err),
+                            dump_dir=reject_dir,
+                        )
                         raise last_face_err
             # 单候选也过 yaw 记录(多候选在 regenerate / fix11 脚本)
             for fk in list(tri.keys()):
@@ -4128,12 +4254,24 @@ async def generate_character_sheet(
             )
 
     # 13:16②：拼版前一致性门禁（主立绘↔三视图主色 + 贴标）
-    assert_sheet_garment_consistency(panels, style=meta.style)
+    try:
+        assert_sheet_garment_consistency(panels, style=meta.style, skip_keys=override_keys)
+    except CharacterSheetError as _ce:
+        dump_rejected_panel(
+            panels.get("portrait") or _last_reject.get("data"),
+            seed=seed,
+            panel=str(_last_reject.get("key") or "portrait"),
+            gate="assert_sheet_garment_consistency",
+            detail=str(_ce),
+            dump_dir=reject_dir,
+        )
+        raise
     # anime：强制色板 garment 主色含板岩灰优先
     if meta.style in ("anime", "二次元") and not meta.colors:
         meta.colors = ["#E8C4A8", "#5A6A7A", "#D4D3D8", "#C98A7A", "#2C2C34", "#1A1A1E"]
     png = compose_character_sheet(panels, meta)
     url = save_sheet_png(png, character_id=character_id, style=meta.style)
+    _SHEET_REJECT_CTX.reset(_reject_token)
     return url, png, panel_urls
 
 

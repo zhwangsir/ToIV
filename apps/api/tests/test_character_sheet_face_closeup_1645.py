@@ -34,7 +34,7 @@ def test_face_closeup_passes_mid_frac():
     # face height ~45% of cell
     good = _face_panel(face_top=0.12, face_bot=0.57)
     info = sheet_svc.assert_face_closeup_framing(good)
-    assert 0.25 <= info["face_height_frac"] <= 0.78
+    assert 0.25 <= info["face_height_frac"] <= 0.80
 
 
 def test_face_closeup_blocks_too_small():
