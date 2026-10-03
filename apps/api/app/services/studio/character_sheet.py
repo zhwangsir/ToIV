@@ -3810,7 +3810,23 @@ async def generate_character_sheet(
                                     denoise=den,
                                     negative_extra=ang_neg,
                                 )
-                        tri[fk] = enforce_head_shoulders_square(fd, size=768)
+                        try:
+                            tri[fk] = enforce_head_shoulders_square(fd, size=768)
+                        except CharacterSheetError as cov_e:
+                            logger.warning(
+                                "faces %s coverage: %s; retry cover without hard gate",
+                                fk,
+                                cov_e,
+                            )
+                            tri[fk] = enforce_head_shoulders_square(
+                                fd, size=768, check_coverage=False
+                            )
+                            # 仍近空则用主立绘头肩
+                            if panel_content_coverage(tri[fk]) < 0.20:
+                                head = crop_face_ref(panels["portrait"], size=768)
+                                tri[fk] = enforce_head_shoulders_square(
+                                    head, size=768, check_coverage=False
+                                )
                         last_face_err = None
                         break
                     except CharacterSheetError as e:
