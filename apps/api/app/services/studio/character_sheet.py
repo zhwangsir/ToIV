@@ -3905,6 +3905,30 @@ async def _wait_images(client: Any, prompt_id: str) -> list[dict]:
             images = []
         if images:
             return images
+        # 执行失败勿空等到超时（19:01 Qwen VRAM 等）
+        try:
+            hist = await client.get_history(prompt_id)
+            rec = (hist or {}).get(prompt_id) or {}
+            st = rec.get("status") or {}
+            if st.get("status_str") == "error" or st.get("completed") is False and any(
+                isinstance(m, list) and m and m[0] == "execution_error"
+                for m in (st.get("messages") or [])
+            ):
+                msg = "execution_error"
+                for m in st.get("messages") or []:
+                    if isinstance(m, list) and m and m[0] == "execution_error":
+                        detail = m[1] if len(m) > 1 else {}
+                        msg = str(
+                            (detail or {}).get("exception_message")
+                            or (detail or {}).get("exception_type")
+                            or msg
+                        )
+                        break
+                raise CharacterSheetError(f"出图失败:{msg}", status_code=502)
+        except CharacterSheetError:
+            raise
+        except Exception:  # noqa: BLE001
+            pass
         await asyncio.sleep(_POLL_INTERVAL)
         waited += _POLL_INTERVAL
     raise CharacterSheetError(f"出图超时({_POLL_TIMEOUT:.0f}s)", status_code=504)
