@@ -2627,7 +2627,7 @@ _ANIME_CASCADE = None  # cv2 CascadeClassifier cache
 def _anime_cascade_face_bbox_xyxy(
     data: bytes,
 ) -> tuple[float, float, float, float] | None:
-    """17:55：lbpcascade_animeface 兜底；insightface 对二次元常漏检。"""
+    """17:55：lbpcascade_animeface 兜底；OpenCV 5 无 CascadeClassifier 时返回 None（靠启发式）。"""
     try:
         import cv2
         import numpy as np
@@ -4259,26 +4259,51 @@ async def generate_character_sheet(
                         last_face_err = e
                         logger.warning("faces %s attempt=%s: %s", fk, fa, e)
                 if last_face_err is not None:
-                    # 17:14：侧脸格 insightface 常对真侧影无框；有过审 side 母版则裁头肩兜底
-                    if fk == "face_side" and panels.get("side"):
+                    # 17:14/17:55：侧/3-4 格检测失败时，从过审母版裁头肩兜底
+                    master_key = (
+                        "side"
+                        if fk == "face_side" and panels.get("side")
+                        else (
+                            "front"
+                            if fk == "face_three_quarter" and panels.get("front")
+                            else None
+                        )
+                    )
+                    if master_key:
                         try:
-                            side_img = Image.open(BytesIO(panels["side"])).convert("RGB")
-                            sw, sh = side_img.size
-                            # 上半身头肩：约顶 2%–55% 高，水平居中偏上
-                            crop = side_img.crop(
-                                (int(sw * 0.18), int(sh * 0.02), int(sw * 0.82), int(sh * 0.55))
-                            )
+                            m_img = Image.open(BytesIO(panels[master_key])).convert("RGB")
+                            sw, sh = m_img.size
+                            if fk == "face_side":
+                                box = (
+                                    int(sw * 0.18),
+                                    int(sh * 0.02),
+                                    int(sw * 0.82),
+                                    int(sh * 0.55),
+                                )
+                            else:
+                                # 3/4：略偏一侧的头肩
+                                box = (
+                                    int(sw * 0.12),
+                                    int(sh * 0.02),
+                                    int(sw * 0.78),
+                                    int(sh * 0.52),
+                                )
+                            crop = m_img.crop(box)
                             crop = crop.resize((768, 768), Image.Resampling.LANCZOS)
                             buf = BytesIO()
                             crop.save(buf, format="PNG")
                             tri[fk] = buf.getvalue()
                             logger.warning(
-                                "faces face_side fallback: crop from approved side master (%s)",
+                                "faces %s fallback: crop from approved %s master (%s)",
+                                fk,
+                                master_key,
                                 last_face_err,
                             )
                             last_face_err = None
                         except Exception as fe:  # noqa: BLE001
-                            logger.warning("faces face_side master crop fail: %s", fe)
+                            logger.warning(
+                                "faces %s master crop fail: %s", fk, fe
+                            )
                     if last_face_err is not None:
                         dump_rejected_panel(
                             tri.get(fk),
@@ -6114,11 +6139,14 @@ def compose_faces_triptych(
         if not raw:
             continue
         if key in skip:
-            filled = enforce_head_shoulders_square(raw, size=768, skip_reframe=True)
+            filled = enforce_head_shoulders_square(
+                raw, size=768, skip_reframe=True, face_closeup_gate=True
+            )
         else:
-            filled = enforce_head_shoulders_square(raw, size=768)
-        # fix16:拼版前再拦一次覆盖率(双重保险)
-        assert_panel_coverage(filled, min_ratio=0.90)
+            # 17:55：脸格用近景门禁，禁全身 coverage（浅灰底+动漫脸会被判成 0.03 邮票）
+            filled = enforce_head_shoulders_square(
+                raw, size=768, face_closeup_gate=True
+            )
         # 焦点:生成格用人脸中心;锁定格禁用 focus(防高格 cover 把头裁成半脸/空灰)
         focus = None
         if key not in skip:
