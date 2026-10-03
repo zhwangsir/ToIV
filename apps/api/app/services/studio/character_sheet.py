@@ -1842,7 +1842,7 @@ def _fit_cover_keep_crown(
     try:
         buf = BytesIO()
         src.convert("RGB").save(buf, format="PNG")
-        bb = _insightface_face_bbox_xyxy(buf.getvalue())
+        bb = _detect_face_bbox_xyxy(buf.getvalue())
     except Exception:  # noqa: BLE001
         bb = None
     if bb is not None:
@@ -2519,7 +2519,7 @@ def crop_face_head_collarbone(
     """以脸为中心裁头顶略上到锁骨;放大不超过 max_zoom(父代理 12:34)。"""
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
-    bb = _insightface_face_bbox_xyxy(data)
+    bb = _detect_face_bbox_xyxy(data)
     if bb is None:
         hbb = _heuristic_skin_face_bbox(img)
         if hbb is not None:
@@ -2619,6 +2619,52 @@ def _insightface_face_bbox_xyxy(data: bytes) -> tuple[float, float, float, float
         return float(bb[0]), float(bb[1]), float(bb[2]), float(bb[3])
     except Exception:  # noqa: BLE001
         return None
+
+
+_ANIME_CASCADE = None  # cv2 CascadeClassifier cache
+
+
+def _anime_cascade_face_bbox_xyxy(
+    data: bytes,
+) -> tuple[float, float, float, float] | None:
+    """17:55：lbpcascade_animeface 兜底；insightface 对二次元常漏检。"""
+    try:
+        import cv2
+        import numpy as np
+        from pathlib import Path as _P
+
+        global _ANIME_CASCADE
+        casc = _ANIME_CASCADE
+        if casc is None:
+            xml = _P(__file__).resolve().parents[2] / "assets" / "lbpcascade_animeface.xml"
+            if not xml.is_file():
+                return None
+            casc = cv2.CascadeClassifier(str(xml))
+            if casc.empty():
+                return None
+            _ANIME_CASCADE = casc
+        arr = np.frombuffer(data, dtype=np.uint8)
+        bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if bgr is None:
+            return None
+        gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+        faces = casc.detectMultiScale(
+            gray, scaleFactor=1.05, minNeighbors=3, minSize=(48, 48)
+        )
+        if faces is None or len(faces) == 0:
+            return None
+        x, y, fw, fh = max(faces, key=lambda t: int(t[2]) * int(t[3]))
+        return float(x), float(y), float(x + fw), float(y + fh)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _detect_face_bbox_xyxy(data: bytes) -> tuple[float, float, float, float] | None:
+    """insightface → 动漫级联 → None。"""
+    bb = _insightface_face_bbox_xyxy(data)
+    if bb is not None:
+        return bb
+    return _anime_cascade_face_bbox_xyxy(data)
 
 
 def _heuristic_skin_face_bbox(
@@ -2759,37 +2805,94 @@ def _panel_content_metrics(
     return area, stamp, fill_h, fill_w
 
 
+def panel_vertical_span(
+    img: Image.Image | bytes,
+    *,
+    bg_tol: int = 40,
+    uniform_frac: float = 0.92,
+    var_thresh: float = 8.0,
+) -> float:
+    """17:55：人物头顶→脚底占画高比例。
+
+    四角取背景色；横向均匀灰条（低方差且近背景）不算人物行。
+    """
+    import statistics as _stats
+
+    if isinstance(img, (bytes, bytearray)):
+        im = Image.open(BytesIO(img)).convert("RGB")
+    else:
+        im = img.convert("RGB")
+    w, h = im.size
+    if w < 8 or h < 8:
+        return 0.0
+    small = im.resize((64, 64), Image.Resampling.BOX)
+    sw, sh = small.size
+    px = list(small.getdata())
+
+    def _pix(x: int, y: int) -> tuple[int, int, int]:
+        return px[y * sw + x]
+
+    corners = [_pix(1, 1), _pix(sw - 2, 1), _pix(1, sh - 2), _pix(sw - 2, sh - 2)]
+    bg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
+
+    def _is_bg(r: int, g: int, b: int) -> bool:
+        dist = abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2])
+        luma = (r + g + b) / 3.0
+        tol = bg_tol
+        if 40 <= luma <= 190:
+            tol = max(12, bg_tol // 2)
+        if dist < tol:
+            return True
+        if r > 235 and g > 235 and b > 235:
+            return True
+        return False
+
+    person_rows: list[int] = []
+    for y in range(sh):
+        row = [_pix(x, y) for x in range(sw)]
+        non_bg = sum(1 for r, g, b in row if not _is_bg(r, g, b)) / float(sw)
+        lumas = [(r + g + b) / 3.0 for r, g, b in row]
+        diffs = [abs(lumas[i] - lumas[i + 1]) for i in range(sw - 1)]
+        mean_diff = sum(diffs) / float(len(diffs))
+        var = float(_stats.pstdev(lumas)) if len(lumas) > 1 else 0.0
+        # 灰条：近背景且低纹理 → 不算人物
+        if non_bg >= (1.0 - uniform_frac) or var >= var_thresh or mean_diff >= 4.0:
+            person_rows.append(y)
+    if not person_rows:
+        return 0.0
+    return float(person_rows[-1] - person_rows[0] + 1) / float(sh)
+
+
 def panel_content_coverage(
     img: Image.Image | bytes,
     *,
     bg_tol: int = 40,
     uniform_frac: float = 0.92,
 ) -> float:
-    """非背景内容占画面比例(0~1)。
-
-    邮票缩水(四边垫边)→返回真实内容框面积比。
-    非邮票且主轴铺满(真侧脸单侧留白)→抬到 >=0.90 以便过检。
-    """
+    """全身格以纵向跨度为主(17:55)；邮票缩水仍回落面积比。"""
     area, stamp, fill_h, fill_w = _panel_content_metrics(
         img, bg_tol=bg_tol, uniform_frac=uniform_frac
     )
+    vspan = panel_vertical_span(img, bg_tol=bg_tol, uniform_frac=uniform_frac)
+    if vspan >= 0.85:
+        return float(max(vspan, 0.90))
     if stamp:
         return area
     if fill_h >= 0.82 or fill_w >= 0.82:
         return float(max(area, 0.90))
-    return area
+    return float(max(area, vspan))
 
 
 def assert_panel_coverage(
     img: Image.Image | bytes,
     min_ratio: float = 0.90,
 ) -> float:
-    """每格输出前检查。
-
-    硬拦:邮票缩水(四边垫边)且内容框 < min_ratio。
-    软过:非邮票侧脸单侧留白(主轴已铺满)视为达标。
-    """
+    """17:55：全身格硬门槛=纵向跨度≥0.85；邮票缩水仍按面积拦。"""
     area, stamp, fill_h, fill_w = _panel_content_metrics(img)
+    vspan = panel_vertical_span(img)
+    # 纵向跨度达标 → 过（灰衣满画高不再被四角误判）
+    if vspan + 1e-9 >= 0.85:
+        return float(max(vspan, 0.90))
     if stamp:
         if area + 1e-9 < float(min_ratio):
             raise CharacterSheetError(
@@ -2797,7 +2900,6 @@ def assert_panel_coverage(
                 status_code=422,
             )
         return area
-    # 非邮票:主轴铺满或面积尚可
     if fill_h >= 0.82 or fill_w >= 0.82 or area >= float(min_ratio):
         return float(max(area, 0.90 if (fill_h >= 0.82 or fill_w >= 0.82) else area))
     if area + 1e-9 < 0.50:
@@ -2805,13 +2907,13 @@ def assert_panel_coverage(
             f"panel coverage {area:.3f} < 0.50 (empty/near-empty panel)",
             status_code=422,
         )
-    # 面积 0.50–0.90 非邮票:仍要求达到 min_ratio(头肩应 cover 填满)
-    if area + 1e-9 < float(min_ratio):
+    if vspan + 1e-9 < 0.85 and area + 1e-9 < float(min_ratio):
         raise CharacterSheetError(
-            f"panel coverage {area:.3f} < {min_ratio:.2f} (shrunk/padded panel)",
+            f"panel coverage vspan={vspan:.3f} area={area:.3f} < {min_ratio:.2f} "
+            f"(shrunk/padded panel)",
             status_code=422,
         )
-    return area
+    return float(max(area, vspan))
 
 
 def enforce_head_shoulders_square(
@@ -2844,7 +2946,7 @@ def enforce_head_shoulders_square(
         if h > w * 1.15:
             top = max(0, min(h - side, int(h * 0.02)))
         # 若有人脸,按脸中心/发顶~锁骨重取方裁(与生成格一致)
-        face_bb = _insightface_face_bbox_xyxy(data)
+        face_bb = _detect_face_bbox_xyxy(data)
         if face_bb is None:
             face_bb = _heuristic_skin_face_bbox(img)
         if face_bb is not None:
@@ -2874,7 +2976,7 @@ def enforce_head_shoulders_square(
             assert_face_visible(out, min_face_area=0.04)
         return out
 
-    face_bb = _insightface_face_bbox_xyxy(data)
+    face_bb = _detect_face_bbox_xyxy(data)
     if face_bb is None:
         face_bb = _heuristic_skin_face_bbox(img)
     if face_bb is not None:
@@ -2941,7 +3043,7 @@ def assert_face_visible(
     """
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
-    bb = _insightface_face_bbox_xyxy(data)
+    bb = _detect_face_bbox_xyxy(data)
     if bb is None:
         bb = _heuristic_skin_face_bbox(img)
     if bb is None:
@@ -3842,10 +3944,13 @@ async def generate_character_sheet(
                 logger.warning("portrait gen fail attempt=%s: %s", attempt, e)
         else:
             raise last_err or CharacterSheetError("主立绘生成失败", status_code=422)
-    assert_no_large_uniform_rect(panels["portrait"], label="主立绘", ref=panels.get("front"))
-    assert_skin_not_blue_gray(
-        panels["portrait"], label="主立绘", ref=panels.get("front")
-    )
+    if "portrait" not in override_keys:
+        assert_no_large_uniform_rect(
+            panels["portrait"], label="主立绘", ref=panels.get("front")
+        )
+        assert_skin_not_blue_gray(
+            panels["portrait"], label="主立绘", ref=panels.get("front")
+        )
     panel_urls["portrait"] = save_panel_png(
         panels["portrait"],
         character_id=character_id,
@@ -4556,7 +4661,7 @@ def assert_costume_cells_nonempty(
 
 def _face_bbox_for_center(im: Image.Image) -> tuple[int, int, int, int] | None:
     """拼版用人脸框：优先 InsightFace，其次肤色启发式。"""
-    bb = _insightface_face_bbox_xyxy(im)
+    bb = _detect_face_bbox_xyxy(im)
     if bb is not None:
         x0, y0, x1, y1 = (int(bb[0]), int(bb[1]), int(bb[2]), int(bb[3]))
         if x1 > x0 and y1 > y0:
@@ -6017,7 +6122,7 @@ def compose_faces_triptych(
         # 焦点:生成格用人脸中心;锁定格禁用 focus(防高格 cover 把头裁成半脸/空灰)
         focus = None
         if key not in skip:
-            bb = _insightface_face_bbox_xyxy(filled)
+            bb = _detect_face_bbox_xyxy(filled)
             if bb is not None:
                 focus = ((bb[0] + bb[2]) / 2.0, (bb[1] + bb[3]) / 2.0)
             else:
