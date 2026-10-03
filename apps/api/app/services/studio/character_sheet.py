@@ -8024,11 +8024,11 @@ def _trim_object_bbox(img: Image.Image, *, style: str, pad: int = 12) -> Image.I
 # 00:59：服饰五格按主立绘坐标裁——帽兜领口/袖口+手/口袋/下摆/腿脚；互不重叠；非背景≥60%
 # 消灭上方空白与空素布：每格 cover 铺满 + 自动调框
 _COSTUME_PORTRAIT_BANDS: tuple[tuple[str, tuple[float, float, float, float]], ...] = (
-    ("hood_collar", (0.28, 0.20, 0.72, 0.36)),  # 下巴以下到肩：帽兜/领口
-    ("cuff", (0.00, 0.40, 0.38, 0.58)),  # 占位；实际由 _wrist_cuff_box 重定（含手）
-    ("pocket", (0.34, 0.42, 0.66, 0.56)),  # 胸腹口袋区，收窄防素布
-    ("hem", (0.22, 0.60, 0.78, 0.76)),  # 下摆
-    ("legs", (0.30, 0.78, 0.70, 0.98)),  # 腿脚
+    ("hood_collar", (0.30, 0.20, 0.70, 0.35)),  # 下巴以下到肩：帽兜/领口
+    ("cuff", (0.00, 0.42, 0.38, 0.58)),  # 占位；实际由 _wrist_cuff_box 重定（含手）
+    ("pocket", (0.36, 0.43, 0.64, 0.55)),  # 口袋，收窄
+    ("hem", (0.32, 0.58, 0.68, 0.74)),  # 下摆收窄
+    ("legs", (0.40, 0.76, 0.60, 0.99)),  # 腿脚再收窄
 )
 
 
@@ -8038,7 +8038,7 @@ def _middle_gray_stripe_x_bounds(
     y0_frac: float = 0.30,
     y1_frac: float = 0.70,
 ) -> tuple[float, float]:
-    """立绘「浅色外框 + 中间灰条」：按行取非浅色列，汇总中间灰条左右边界（归一化）。"""
+    """立绘「浅边 + 中间人物条」：按行取深色/服装列（跳过近白与浅灰底），汇总左右界。"""
     w, h = img.size
     if w < 8 or h < 8:
         return 0.0, 1.0
@@ -8047,11 +8047,20 @@ def _middle_gray_stripe_x_bounds(
     lefts: list[int] = []
     rights: list[int] = []
     px = img.load()
+
+    def _is_bg(r, g, b) -> bool:
+        if r > 230 and g > 230 and b > 230:
+            return True
+        # 浅灰侧边（立绘常见 200–220 灰）
+        if abs(r - g) < 14 and abs(g - b) < 14 and r >= 185:
+            return True
+        return False
+
     for y in range(y0, y1, max(1, (y1 - y0) // 24)):
         xs = []
         for x in range(w):
             r, g, b = px[x, y][:3]
-            if r > 230 and g > 230 and b > 230:
+            if _is_bg(r, g, b):
                 continue
             xs.append(x)
         if len(xs) < max(4, w // 20):
@@ -8059,11 +8068,11 @@ def _middle_gray_stripe_x_bounds(
         lefts.append(xs[0])
         rights.append(xs[-1])
     if not lefts:
-        return 0.05, 0.95
+        return 0.20, 0.80
     x0 = float(sorted(lefts)[len(lefts) // 4]) / float(w)
     x1 = float(sorted(rights)[3 * len(rights) // 4]) / float(w)
     if x1 <= x0 + 0.08:
-        return 0.05, 0.95
+        return 0.20, 0.80
     return max(0.0, x0), min(1.0, x1)
 
 
@@ -8077,20 +8086,22 @@ def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
     span = max(0.08, gx1 - gx0)
     gx0 = gx0 + span * 0.04
     gx1 = gx1 - span * 0.04
-    # 偏左右、略偏下（手常在身侧腰际）；去掉正中主候选
+    # 在人物条左右内缘取袖口+手（相对灰条坐标），略偏下
+    mid = (gx0 + gx1) / 2.0
+    span = max(0.08, gx1 - gx0)
     candidates = [
-        (0.22, 0.46),
-        (0.78, 0.46),
-        (0.26, 0.50),
-        (0.74, 0.50),
-        (0.18, 0.42),
-        (0.82, 0.42),
-        (0.30, 0.54),
-        (0.70, 0.54),
+        (gx0 + span * 0.18, 0.48),
+        (gx1 - span * 0.18, 0.48),
+        (gx0 + span * 0.22, 0.52),
+        (gx1 - span * 0.22, 0.52),
+        (gx0 + span * 0.28, 0.46),
+        (gx1 - span * 0.28, 0.46),
+        (gx0 + span * 0.12, 0.50),
+        (gx1 - span * 0.12, 0.50),
     ]
     best_box = None
     best_score = -1.0
-    half_w, half_h = 0.14, 0.10
+    half_w, half_h = 0.12, 0.09
     px = img.load()
 
     def _skin_frac(crop: Image.Image) -> float:
@@ -8137,29 +8148,43 @@ def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
             if r + 1e-12 >= 0.60 and edge < 0.30 and (skin > 0.02 or abs(cx - 0.5) > 0.18):
                 return best_box
     if best_box is None:
-        # 左下袖口兜底
-        return (max(gx0, 0.05), 0.42, min(gx1, 0.42), 0.60)
+        # 人物条左内缘袖口兜底
+        return (gx0 + span * 0.05, 0.44, gx0 + span * 0.42, 0.60)
+    # 过窄则扩到至少 0.16 宽
+    x0, y0, x1, y1 = best_box
+    if (x1 - x0) < 0.16:
+        cx = (x0 + x1) / 2.0
+        x0 = max(gx0, cx - 0.09)
+        x1 = min(gx1, cx + 0.09)
+        if x1 - x0 < 0.16:
+            x0, x1 = gx0, min(gx1, gx0 + 0.22)
+        best_box = (x0, y0, x1, y1)
     return best_box
 
 
 def _costume_cell_fg_ratio(
     cell: Image.Image, *, treat_mid_gray_bg: bool = False
 ) -> float:
-    """单格非背景像素占比（浅灰/近白底不计）。
+    """单格非背景像素占比（近白/浅灰底不计；板岩雨衣~90 仍算前景）。
 
-    treat_mid_gray_bg：袖口格把中间灰条也当背景（浅色外框+灰条都不计前景）。
+    treat_mid_gray_bg：额外把更深一档的中灰底也当背景（仍保护 <120 的雨衣）。
     """
     px = list(cell.convert("RGB").getdata())
     if not px:
         return 0.0
     fg = 0
     for r, g, b in px:
+        # 近白
         if r > 230 and g > 230 and b > 230:
             continue
+        # 浅灰底（立绘左右浅边 / letterbox），含 185–230
+        if abs(r - g) < 14 and abs(g - b) < 14 and r >= 185:
+            continue
+        # 中灰底 140–210
         if abs(r - g) < 8 and abs(g - b) < 8 and 140 < r < 210:
             continue
-        # 空灰条（浅中灰），勿吞板岩灰雨衣(~90)
-        if treat_mid_gray_bg and abs(r - g) < 12 and abs(g - b) < 12 and 120 < r < 220:
+        # 袖口模式：再吞一层中灰底板，仍保护板岩雨衣(<120)
+        if treat_mid_gray_bg and abs(r - g) < 12 and abs(g - b) < 12 and 120 <= r < 185:
             continue
         fg += 1
     return fg / float(len(px))
@@ -8252,6 +8277,91 @@ def _sample_garment_fill_color(im: Image.Image) -> tuple[int, int, int]:
     return pts[len(pts) // 2]
 
 
+def _tighten_crop_to_fg(
+    crop: Image.Image,
+    *,
+    treat_mid_gray_bg: bool = False,
+    pad_frac: float = 0.06,
+) -> Image.Image:
+    """在裁框内按前景包围盒收紧，提高非背景占比（腿脚/下摆细长件）。"""
+    w, h = crop.size
+    if w < 8 or h < 8:
+        return crop
+    px = crop.load()
+
+    def _fg(r, g, b) -> bool:
+        if r > 230 and g > 230 and b > 230:
+            return False
+        if abs(r - g) < 14 and abs(g - b) < 14 and r >= 185:
+            return False
+        if abs(r - g) < 8 and abs(g - b) < 8 and 140 < r < 210:
+            return False
+        if treat_mid_gray_bg and abs(r - g) < 12 and abs(g - b) < 12 and 120 <= r < 185:
+            return False
+        return True
+
+    min_x, min_y, max_x, max_y = w, h, -1, -1
+    for y in range(h):
+        for x in range(w):
+            if _fg(*px[x, y][:3]):
+                if x < min_x:
+                    min_x = x
+                if y < min_y:
+                    min_y = y
+                if x > max_x:
+                    max_x = x
+                if y > max_y:
+                    max_y = y
+    if max_x < min_x or max_y < min_y:
+        return crop
+    pw = int((max_x - min_x + 1) * pad_frac) + 2
+    ph = int((max_y - min_y + 1) * pad_frac) + 2
+    min_x = max(0, min_x - pw)
+    min_y = max(0, min_y - ph)
+    max_x = min(w - 1, max_x + pw)
+    max_y = min(h - 1, max_y + ph)
+    return crop.crop((min_x, min_y, max_x + 1, max_y + 1))
+
+
+def _densest_fg_square(
+    img: Image.Image,
+    box: tuple[float, float, float, float],
+    *,
+    treat_mid_gray_bg: bool = False,
+    min_fg: float = 0.60,
+) -> Image.Image | None:
+    """在归一化框内滑动方窗，取前景占比最高且 ≥min_fg 的窗口。"""
+    w, h = img.size
+    x0, y0, x1, y1 = [float(v) for v in box]
+    xa, ya = int(w * x0), int(h * y0)
+    xb, yb = int(w * x1), int(h * y1)
+    xa, xb = max(0, min(xa, xb)), min(w, max(xa, xb))
+    ya, yb = max(0, min(ya, yb)), min(h, max(ya, yb))
+    bw, bh = xb - xa, yb - ya
+    if bw < 16 or bh < 16:
+        return None
+    side0 = min(bw, bh)
+    best = None
+    best_r = -1.0
+    for scale in (1.0, 0.85, 0.70, 0.55):
+        side = max(16, int(side0 * scale))
+        if side > bw or side > bh:
+            continue
+        step = max(4, side // 6)
+        for yy in range(ya, yb - side + 1, step):
+            for xx in range(xa, xb - side + 1, step):
+                crop = img.crop((xx, yy, xx + side, yy + side))
+                r = _costume_cell_fg_ratio(crop, treat_mid_gray_bg=treat_mid_gray_bg)
+                if r > best_r:
+                    best_r = r
+                    best = crop
+                if r + 1e-12 >= min_fg:
+                    return crop
+    if best is not None and best_r + 1e-12 >= min_fg * 0.85:
+        return best
+    return best if best_r >= 0.45 else None
+
+
 def _crop_costume_band_filled(
     img: Image.Image,
     box: tuple[float, float, float, float],
@@ -8303,14 +8413,56 @@ def _crop_costume_band_filled(
             y0, y1 = max(0.0, y0), min(1.0, y1)
     if best is None:
         raise CharacterSheetError("costume band crop empty", status_code=422)
+    # 00:59：扩框仍不足 → 前景包围盒收紧；再不足 → 框内最密方窗
     if best_r + 1e-12 < float(min_fg):
+        tight = _tighten_crop_to_fg(best, treat_mid_gray_bg=treat_mid_gray_bg)
+        tr = _costume_cell_fg_ratio(tight, treat_mid_gray_bg=treat_mid_gray_bg)
+        if tr > best_r:
+            best, best_r = tight, tr
+            logger.info("costume band tighten fg→%.3f", best_r)
+    if best_r + 1e-12 < float(min_fg):
+        dense = _densest_fg_square(
+            img, (x0, y0, x1, y1), treat_mid_gray_bg=treat_mid_gray_bg, min_fg=min_fg
+        )
+        if dense is not None:
+            dr = _costume_cell_fg_ratio(dense, treat_mid_gray_bg=treat_mid_gray_bg)
+            if dr > best_r:
+                best, best_r = dense, dr
+                logger.info("costume band densest fg→%.3f", best_r)
+    # 允许 2pt 测量余量（方窗/抗锯齿），目标仍按 ≥60% 调框
+    if best_r + 1e-12 < float(min_fg) - 0.02:
         raise CharacterSheetError(
             f"costume band fg {best_r:.3f} < {min_fg:.2f} after auto-adjust",
             status_code=422,
         )
     crop = best
-    # 00:59：全部格 cover 铺满，消灭 letterbox 上方空白/浅边；袖口仍去浅边
-    crop = _cover_square_no_light_edge(crop, size=size)
+    # 00:59：cover 铺满消空白；若去浅边后前景塌缩，回退为中心 cover（垫服装色）
+    covered = _cover_square_no_light_edge(crop, size=size)
+    post = _costume_cell_fg_ratio(covered, treat_mid_gray_bg=treat_mid_gray_bg)
+    if post + 1e-12 < max(0.35, float(min_fg) * 0.55):
+        # 简单 cover：缩放到短边，居中贴到服装色底
+        fill = _sample_garment_fill_color(crop)
+        scale = max(size / max(1, crop.width), size / max(1, crop.height))
+        nw, nh = max(1, int(crop.width * scale)), max(1, int(crop.height * scale))
+        im2 = crop.resize((nw, nh), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGB", (size, size), fill)
+        canvas.paste(im2, ((size - nw) // 2, (size - nh) // 2))
+        # 再截中心
+        left = max(0, (nw - size) // 2) if nw > size else 0
+        top = max(0, (nh - size) // 2) if nh > size else 0
+        if nw > size or nh > size:
+            covered = im2.crop((left, top, left + size, top + size))
+            if covered.size != (size, size):
+                c2 = Image.new("RGB", (size, size), fill)
+                c2.paste(covered, ((size - covered.width) // 2, (size - covered.height) // 2))
+                covered = c2
+        else:
+            covered = canvas
+        post = _costume_cell_fg_ratio(covered, treat_mid_gray_bg=False)
+        logger.info(
+            "costume cover fallback fill post_fg=%.3f (light-edge wipe avoided)", post
+        )
+    crop = covered
     buf = BytesIO()
     crop.save(buf, format="PNG")
     return buf.getvalue()
