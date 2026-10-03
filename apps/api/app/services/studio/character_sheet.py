@@ -2692,57 +2692,59 @@ def build_faces_tri_from_masters(
 
 
 def _hair_extent_below_face(data: bytes) -> dict[str, float]:
-    """相对脸框的发梢下探：hair_below_chin / hair_below_shoulder（0~1 占格高）。"""
+    """脸侧发带下探（不含脸下中央，避免雨衣深色当头发）。"""
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
     bb = _detect_face_bbox_xyxy(data)
     if bb is None:
         bb = _heuristic_skin_face_bbox(img)
     if bb is None:
-        # 无脸：用上 35% 当假脸框
         x1, y1, x2, y2 = w * 0.25, h * 0.08, w * 0.75, h * 0.38
     else:
         x1, y1, x2, y2 = [float(v) for v in bb]
+        # 启发式大脸框：收成上半脸，防整幅当脸
+        if (y2 - y1) / float(h) > 0.45:
+            y2 = y1 + 0.38 * h
+            x1, x2 = w * 0.30, w * 0.70
     fh = max(8.0, y2 - y1)
+    fw = max(8.0, x2 - x1)
     chin_y = y2
-    shoulder_y = min(h - 1.0, y2 + 0.55 * fh)
-    # 脸两侧发丝带
+    shoulder_y = min(h - 1.0, y2 + 0.70 * fh)
+    # 仅左右鬓角发带（从脸顶到画底）；不要脸下中央躯干
+    side_pad = max(6, int(0.42 * fw))
     bands = [
-        (max(0, int(x1 - 0.35 * (x2 - x1))), int(x1), int(chin_y), h),
-        (int(x2), min(w, int(x2 + 0.35 * (x2 - x1))), int(chin_y), h),
-        (int(x1), int(x2), int(chin_y), h),  # 脸下（刘海以外的下垂发）
+        (max(0, int(x1) - side_pad), max(0, int(x1) + 2), int(y1), h),
+        (min(w, int(x2) - 2), min(w, int(x2) + side_pad), int(y1), h),
     ]
     dark_chin = 0
     dark_shoulder = 0
-    tot_chin = 0
-    tot_shoulder = 0
     max_y_dark = chin_y
     px = img.load()
     for xa, xb, ya, yb in bands:
-        xa, xb = max(0, xa), min(w, xb)
+        xa, xb = max(0, min(xa, xb)), max(0, max(xa, xb))
+        xa, xb = min(xa, w), min(xb, w)
         ya, yb = max(0, ya), min(h, yb)
         for y in range(ya, yb):
+            row_dark = 0
             for x in range(xa, xb):
                 r, g, b = px[x, y]
-                # 近黑发；排除雨衣深灰大块（要求略偏冷且非高亮）
                 lum = (r + g + b) / 3.0
-                if lum < 55 and max(r, g, b) - min(r, g, b) < 35:
-                    if y <= shoulder_y:
-                        dark_chin += 1
-                        tot_chin += 1
-                    else:
-                        dark_shoulder += 1
-                        tot_shoulder += 1
-                    if y > max_y_dark:
-                        max_y_dark = float(y)
-                else:
-                    if y <= shoulder_y:
-                        tot_chin += 1
-                    else:
-                        tot_shoulder += 1
+                # 近黑发；排除板岩灰雨衣（偏亮且偏蓝灰）
+                if lum < 42 and max(r, g, b) - min(r, g, b) < 28 and b <= r + 8:
+                    row_dark += 1
+                    if y >= chin_y:
+                        if y <= shoulder_y:
+                            dark_chin += 1
+                        else:
+                            dark_shoulder += 1
+                        if y > max_y_dark:
+                            max_y_dark = float(y)
+            # 该行几乎无发丝则视为发梢断掉，停止该带下探累计 tip
+            if y > chin_y and row_dark == 0 and max_y_dark > chin_y + 2:
+                pass
     tip_frac = (max_y_dark - chin_y) / float(max(1, h))
     return {
-        "tip_frac": float(tip_frac),
+        "tip_frac": float(max(0.0, tip_frac)),
         "dark_below_chin": float(dark_chin),
         "dark_below_shoulder": float(dark_shoulder),
         "chin_y": float(chin_y),
@@ -2759,26 +2761,34 @@ def expression_hair_too_long(
 ) -> bool:
     """18:23 发长门禁：发梢相对主立绘不过肩；温柔(chin_only)须齐下巴短发。
 
-    tip_frac = (最深黑发 y - 下巴) / 格高。相对主立绘显著变长或绝对过线即拒。
+    只看脸侧发带；ref 建议传主立绘头肩裁切（同尺度）。
     """
     cur = _hair_extent_below_face(data)
-    # 绝对：温柔齐下巴；其它不过肩（tip 超过肩线附近）
-    abs_lim = 0.06 if chin_only else 0.18
-    abs_hit = cur["tip_frac"] > abs_lim and cur["dark_below_chin"] >= 40
-    if chin_only and cur["dark_below_shoulder"] >= 25:
+    # 绝对：温柔发梢过颈中线偏长；其它过肩
+    abs_lim = 0.14 if chin_only else 0.28
+    abs_hit = cur["tip_frac"] > abs_lim and (
+        cur["dark_below_chin"] + cur["dark_below_shoulder"]
+    ) >= 60
+    if chin_only and cur["dark_below_shoulder"] >= 80:
         abs_hit = True
-    if not chin_only and cur["dark_below_shoulder"] >= 80 and cur["tip_frac"] > 0.12:
+    if not chin_only and cur["dark_below_shoulder"] >= 120 and cur["tip_frac"] > 0.20:
         abs_hit = True
     if ref is None:
         return bool(abs_hit)
     base = _hair_extent_below_face(ref)
-    # 相对：比主立绘再下探 ≥0.05 格高，或肩下黑发明显增多
-    worse = (cur["tip_frac"] >= base["tip_frac"] + 0.05) or (
-        cur["dark_below_shoulder"] >= base["dark_below_shoulder"] + 40
+    worse = (cur["tip_frac"] >= base["tip_frac"] + 0.08) or (
+        cur["dark_below_shoulder"] >= base["dark_below_shoulder"] + 80
     )
     if chin_only:
-        worse = worse or (cur["tip_frac"] >= base["tip_frac"] + 0.03)
-    return bool(abs_hit and worse) if abs_hit else bool(worse and cur["tip_frac"] > abs_lim * 0.7)
+        worse = worse or (cur["tip_frac"] >= base["tip_frac"] + 0.06)
+    if abs_hit and worse:
+        return True
+    # 无绝对命中时，仅当肩下发丝显著且 tip 已过线才相对拒
+    return bool(
+        worse
+        and cur["tip_frac"] > abs_lim
+        and cur["dark_below_shoulder"] >= 80
+    )
 
 
 def assert_expression_identity_gates(
@@ -2790,6 +2800,7 @@ def assert_expression_identity_gates(
     """表情格：相对主立绘新徽标/字样 → 拒；发长过线 → 拒。
 
     徽标检测用 below_face ROI，避免近景五官误杀。
+    发长参照用主立绘头肩裁切，尺度与表情近景对齐。
     """
     if portrait_ref and portrait_has_chest_emblem(
         data, ref=portrait_ref, below_face=True
@@ -2798,14 +2809,19 @@ def assert_expression_identity_gates(
             f"{expr_key}胸口相对主立绘出现新徽标/字样",
             status_code=422,
         )
-    # 无 ref 时绝对徽标也拒（表情近景胸口贴标）
     if portrait_ref is None and portrait_has_chest_emblem(data, below_face=True):
         raise CharacterSheetError(
             f"{expr_key}胸口检出徽标/字样",
             status_code=422,
         )
     chin_only = expr_key == "expr_3"
-    if expression_hair_too_long(data, ref=portrait_ref, chin_only=chin_only):
+    hair_ref = None
+    if portrait_ref:
+        try:
+            hair_ref = crop_face_ref(portrait_ref, size=768)
+        except Exception:  # noqa: BLE001
+            hair_ref = portrait_ref
+    if expression_hair_too_long(data, ref=hair_ref, chin_only=chin_only):
         raise CharacterSheetError(
             f"{expr_key}发长相对主立绘过长（{'须齐下巴' if chin_only else '发梢不过肩'}）",
             status_code=422,
