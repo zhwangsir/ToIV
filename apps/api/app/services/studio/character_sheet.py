@@ -2723,18 +2723,21 @@ def crop_face_slot_from_master(
             frac,
             max_up,
         )
-    # 侧面卡在 2× 仍 <0.35：软过（像素少交给 Qwen），正/背仍硬拒
-    if (
-        slot == "face_three_quarter"
-        and frac is not None
-        and frac + 1e-12 < 0.35
-        and frac + 1e-12 >= 0.28
-    ):
-        logger.warning(
-            "faces %s hard-crop frac=%.3f <0.35 but ≥0.28 at 2× — soft ok for Qwen deblur",
-            slot,
-            frac,
-        )
+    # 20:23：侧面母版头像素少，2× 下头高常 <0.35——软过交给 Qwen 清线；正/背仍硬拒
+    if slot == "face_three_quarter":
+        if frac is None:
+            vspan = panel_vertical_span(out)
+            logger.warning(
+                "faces %s hard-crop no face frac vspan=%.3f at 2× — soft ok for Qwen",
+                slot,
+                vspan,
+            )
+        elif frac + 1e-12 < 0.35:
+            logger.warning(
+                "faces %s hard-crop frac=%.3f <0.35 at 2× — soft ok for Qwen deblur",
+                slot,
+                frac,
+            )
         return out
     if frac is None:
         vspan = panel_vertical_span(out)
