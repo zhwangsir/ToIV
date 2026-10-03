@@ -45,12 +45,13 @@ def test_normal_gradient_passes_rect_gate():
 
 
 def test_blue_gray_skin_rejected():
-    img = Image.new("RGB", (256, 384), (230, 230, 230))
-    d = ImageDraw.Draw(img)
-    # 头肩蓝灰色块
-    d.ellipse([80, 20, 176, 140], fill=(120, 130, 160))
+    # 相对参考：母版暖肤，出图显著更冷灰蓝 → 拒
+    warm = Image.new("RGB", (256, 384), (230, 230, 230))
+    ImageDraw.Draw(warm).rectangle([64, 20, 192, 140], fill=(210, 170, 145))
+    cold = Image.new("RGB", (256, 384), (230, 230, 230))
+    ImageDraw.Draw(cold).rectangle([64, 20, 192, 140], fill=(90, 110, 150))
     with pytest.raises(CharacterSheetError, match="蓝灰"):
-        assert_skin_not_blue_gray(_png(img), label="主立绘")
+        assert_skin_not_blue_gray(_png(cold), label="主立绘", ref=_png(warm))
 
 
 def test_warm_skin_passes():

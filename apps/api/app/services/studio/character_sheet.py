@@ -1373,34 +1373,55 @@ def assert_no_large_uniform_rect(data: bytes, *, label: str = "面板") -> None:
                 )
 
 
-def assert_skin_not_blue_gray(data: bytes, *, label: str = "面板") -> None:
-    """16:18②：脸部肤色偏蓝灰 → 拒（整图着色/染灰痕迹）。"""
+def _face_cool_metrics(data: bytes) -> tuple[float, float] | None:
+    """返回 (b-r, chroma)；不足样本则 None。"""
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
-    # 头肩上半
-    head = img.crop((int(w * 0.20), int(h * 0.05), int(w * 0.80), int(h * 0.42)))
+    head = img.crop((int(w * 0.25), int(h * 0.06), int(w * 0.75), int(h * 0.38)))
     small = head.resize((48, 48), Image.Resampling.BILINEAR)
     px = list(small.getdata())
-    skinish = []
+    cands = []
     for r, g, b in px:
-        # 略宽肤色带
-        if 70 < r < 245 and 50 < g < 220 and 40 < b < 210:
-            if r >= g - 15:  # 正常肤色 r 不低于 g 太多
-                skinish.append((r, g, b))
-    if len(skinish) < 12:
-        return  # 检不出肤色时不在此门禁误杀（人脸门禁另管）
-    blue_gray = 0
-    for r, g, b in skinish:
-        # 偏蓝：b 明显高于 r，或灰蓝（低饱和且 b>=r）
-        chroma = max(r, g, b) - min(r, g, b)
-        if b > r + 12 and b > g + 5:
-            blue_gray += 1
-        elif chroma < 22 and b >= r and (r + g + b) / 3 < 160:
-            blue_gray += 1
-    ratio = blue_gray / len(skinish)
-    if ratio >= 0.28:
+        luma = (r + g + b) / 3.0
+        if 90 <= luma <= 210:
+            cands.append((r, g, b))
+    if len(cands) < 20:
+        return None
+    mean_r = sum(c[0] for c in cands) / len(cands)
+    mean_b = sum(c[2] for c in cands) / len(cands)
+    mean_chroma = sum(max(c) - min(c) for c in cands) / len(cands)
+    return (mean_b - mean_r, mean_chroma)
+
+
+def assert_skin_not_blue_gray(
+    data: bytes,
+    *,
+    label: str = "面板",
+    ref: bytes | None = None,
+) -> None:
+    """16:18②：脸部被整图着色染成灰蓝 → 拒。
+
+    有参考图（旧正面）时只拦「比参考更冷」；无参考时用极端阈值，避免二次元冷调误杀。
+    """
+    cur = _face_cool_metrics(data)
+    if cur is None:
+        return
+    br, chroma = cur
+    if ref is not None:
+        base = _face_cool_metrics(ref)
+        if base is not None:
+            # 相对母版：明显更冷且更灰才拒
+            if (br - base[0]) >= 12 and chroma <= (base[1] + 4) and br >= 22:
+                raise CharacterSheetError(
+                    f"出图门禁失败:{label}脸部相对参考偏蓝灰"
+                    f"(b-r={br:.1f} vs {base[0]:.1f})",
+                    status_code=422,
+                )
+            return
+    # 无参考：只拦极端染灰（强制着色典型）
+    if br >= 32 and chroma <= 18:
         raise CharacterSheetError(
-            f"出图门禁失败:{label}脸部肤色偏蓝灰(ratio={ratio:.2f})",
+            f"出图门禁失败:{label}脸部肤色偏蓝灰(b-r={br:.1f},chroma={chroma:.1f})",
             status_code=422,
         )
 
@@ -1482,7 +1503,9 @@ def assert_sheet_garment_consistency(
                 )
     # 16:18 出图门禁：矩形色块 / 肤色偏蓝灰（侧背姿态在新生成时检查，复用旧三视图不因姿态误杀）
     assert_no_large_uniform_rect(portrait, label="主立绘")
-    assert_skin_not_blue_gray(portrait, label="主立绘")
+    assert_skin_not_blue_gray(
+        portrait, label="主立绘", ref=panels.get("front")
+    )
     for key in ("front", "side", "back"):
         data = panels.get(key)
         if not data:
@@ -3615,7 +3638,9 @@ async def generate_character_sheet(
         else:
             raise last_err or CharacterSheetError("主立绘生成失败", status_code=422)
     assert_no_large_uniform_rect(panels["portrait"], label="主立绘")
-    assert_skin_not_blue_gray(panels["portrait"], label="主立绘")
+    assert_skin_not_blue_gray(
+        panels["portrait"], label="主立绘", ref=panels.get("front")
+    )
     panel_urls["portrait"] = save_panel_png(
         panels["portrait"],
         character_id=character_id,
