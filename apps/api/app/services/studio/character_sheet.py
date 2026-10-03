@@ -1480,12 +1480,16 @@ def assert_sheet_garment_consistency(
                 raise CharacterSheetError(
                     f"一致性门禁失败:{key}胸口检出贴标/徽标", status_code=422
                 )
-    # 16:18 出图门禁：矩形色块 / 肤色偏蓝灰 / 侧背姿态
-    assert_panel_output_gates(portrait, label="主立绘", key="portrait")
+    # 16:18 出图门禁：矩形色块 / 肤色偏蓝灰（侧背姿态在新生成时检查，复用旧三视图不因姿态误杀）
+    assert_no_large_uniform_rect(portrait, label="主立绘")
+    assert_skin_not_blue_gray(portrait, label="主立绘")
     for key in ("front", "side", "back"):
         data = panels.get(key)
-        if data:
-            assert_panel_output_gates(data, label=key, key=key)
+        if not data:
+            continue
+        assert_no_large_uniform_rect(data, label=key)
+        if key != "back":
+            assert_skin_not_blue_gray(data, label=key)
     p_hex = _panel_garment_dominant_hex(portrait)
     if not p_hex:
         raise CharacterSheetError("一致性门禁失败:主立绘无法取服装主色", status_code=422)
@@ -3612,6 +3616,8 @@ async def generate_character_sheet(
                 logger.warning("portrait gen fail attempt=%s: %s", attempt, e)
         else:
             raise last_err or CharacterSheetError("主立绘生成失败", status_code=422)
+    assert_no_large_uniform_rect(panels["portrait"], label="主立绘")
+    assert_skin_not_blue_gray(panels["portrait"], label="主立绘")
     panel_urls["portrait"] = save_panel_png(
         panels["portrait"],
         character_id=character_id,
@@ -3725,6 +3731,7 @@ async def generate_character_sheet(
                                 f"img2img {key}服装色差过大({t_hex} vs {p_hex})，禁强制着色须重出",
                                 status_code=422,
                             )
+                        assert_panel_output_gates(raw, label=key, key=key)
                         panels[key] = raw
                         last_err = None
                         break
