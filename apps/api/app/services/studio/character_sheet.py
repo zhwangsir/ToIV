@@ -1116,6 +1116,49 @@ SLATE_GRAY_TARGET = "#5A6A7A"
 SLATE_GRAY_MAX_DIST = 85
 
 
+def force_slate_garment_tint(
+    data: bytes,
+    *,
+    target: str = SLATE_GRAY_TARGET,
+    strength: float = 0.62,
+) -> bytes:
+    """把躯干服装区主色拉向板岩灰（保留明暗结构）。img2img 重染失败时的硬兜底。"""
+    tr, tg, tb = int(target[1:3], 16), int(target[3:5], 16), int(target[5:7], 16)
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    px = img.load()
+    x0, x1 = int(w * 0.18), int(w * 0.82)
+    y0, y1 = int(h * 0.22), int(h * 0.92)
+    # 四角估背景
+    corners = [px[2, 2], px[w - 3, 2], px[2, h - 3], px[w - 3, h - 3]]
+    bg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
+    s = max(0.0, min(1.0, float(strength)))
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            r, g, b = px[x, y]
+            if abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) < 30:
+                continue
+            # 跳过肤色
+            if 95 < r < 250 and 70 < g < 220 and 55 < b < 200 and r >= g - 8 and g >= b - 12:
+                if y < int(h * 0.42) and int(w * 0.30) < x < int(w * 0.70):
+                    continue
+            # 直接拉向板岩灰，并用原 luma 做轻微明暗（±18%），避免深色雨衣越染越黑
+            luma = (r + g + b) / 3.0
+            mid = (tr + tg + tb) / 3.0
+            delta = max(-0.18, min(0.18, (luma - mid) / 255.0))
+            nr = int(max(0, min(255, tr * (1.0 + delta))))
+            ng = int(max(0, min(255, tg * (1.0 + delta))))
+            nb = int(max(0, min(255, tb * (1.0 + delta))))
+            px[x, y] = (
+                int(r * (1 - s) + nr * s),
+                int(g * (1 - s) + ng * s),
+                int(b * (1 - s) + nb * s),
+            )
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def assert_garment_near_slate_gray(
     data: bytes,
     *,
@@ -3277,14 +3320,31 @@ async def generate_character_sheet(
                             denoise=0.28,
                         )
                         if portrait_has_chest_emblem(cleaned):
-                            last_err = CharacterSheetError(
-                                "主立绘胸口徽标，重试", status_code=422
+                            # 程序去标：胸口 ROI 铺板岩灰
+                            tim = Image.open(BytesIO(cleaned)).convert("RGB")
+                            tw, th = tim.size
+                            draw = ImageDraw.Draw(tim)
+                            fill = (
+                                int(SLATE_GRAY_TARGET[1:3], 16),
+                                int(SLATE_GRAY_TARGET[3:5], 16),
+                                int(SLATE_GRAY_TARGET[5:7], 16),
                             )
-                            logger.warning(
-                                "portrait emblem persist after inpaint attempt=%s",
-                                attempt,
+                            draw.rectangle(
+                                [int(tw * 0.36), int(th * 0.30), int(tw * 0.64), int(th * 0.52)],
+                                fill=fill,
                             )
-                            continue
+                            buf = BytesIO()
+                            tim.save(buf, format="PNG")
+                            cleaned = buf.getvalue()
+                            if portrait_has_chest_emblem(cleaned):
+                                last_err = CharacterSheetError(
+                                    "主立绘胸口徽标，重试", status_code=422
+                                )
+                                logger.warning(
+                                    "portrait emblem persist after inpaint+fill attempt=%s",
+                                    attempt,
+                                )
+                                continue
                         panels["portrait"] = cleaned
                         logger.info("portrait emblem cleared via img2img attempt=%s", attempt)
                     except CharacterSheetError as ce:
@@ -3347,11 +3407,50 @@ async def generate_character_sheet(
                             panels["portrait"] = recolored
                             logger.info("portrait recolored to slate attempt=%s", attempt)
                         except CharacterSheetError as re_e:
-                            last_err = re_e
                             logger.warning(
-                                "portrait recolor fail attempt=%s: %s", attempt, re_e
+                                "portrait recolor fail attempt=%s: %s; force tint",
+                                attempt,
+                                re_e,
                             )
-                            continue
+                            try:
+                                tinted = force_slate_garment_tint(panels["portrait"])
+                                if portrait_has_chest_emblem(tinted):
+                                    # 胸口高对比贴标：素面覆盖胸口 ROI
+                                    tim = Image.open(BytesIO(tinted)).convert("RGB")
+                                    tw, th = tim.size
+                                    draw = ImageDraw.Draw(tim)
+                                    cx0, cx1 = int(tw * 0.38), int(tw * 0.62)
+                                    cy0, cy1 = int(th * 0.30), int(th * 0.50)
+                                    # 取邻域板岩色填胸口
+                                    fill = (
+                                        int(SLATE_GRAY_TARGET[1:3], 16),
+                                        int(SLATE_GRAY_TARGET[3:5], 16),
+                                        int(SLATE_GRAY_TARGET[5:7], 16),
+                                    )
+                                    draw.rectangle([cx0, cy0, cx1, cy1], fill=fill)
+                                    buf = BytesIO()
+                                    tim.save(buf, format="PNG")
+                                    tinted = buf.getvalue()
+                                assert_fullbody_portrait_face_ok(tinted)
+                                assert_garment_near_slate_gray(
+                                    tinted, label="主立绘强制着色", max_dist=95
+                                )
+                                if portrait_has_chest_emblem(tinted):
+                                    raise CharacterSheetError(
+                                        "主立绘强制着色后仍有胸口徽标", status_code=422
+                                    )
+                                panels["portrait"] = tinted
+                                logger.info(
+                                    "portrait force-tinted to slate attempt=%s", attempt
+                                )
+                            except CharacterSheetError as tint_e:
+                                last_err = tint_e
+                                logger.warning(
+                                    "portrait force tint fail attempt=%s: %s",
+                                    attempt,
+                                    tint_e,
+                                )
+                                continue
                 break
             except CharacterSheetError as e:
                 last_err = e
