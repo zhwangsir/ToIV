@@ -448,7 +448,11 @@ def build_c_visual_prompt(
     if visual:
         body_parts.append(visual)
     body = "，".join(body_parts) if body_parts else "竖屏短剧镜头，人物与场景清晰"
-    body += "。画面只有角色与场景，无任何文字、店招或乱码。"
+    body += (
+        "。画面只有角色与场景，无任何文字、店招或乱码。"
+        " blank glowing lightboxes without letters, 无字发光灯箱,"
+        " blank neon panels without text, empty glowing signs."
+    )
     # 室内货架镜：强制店内 + 可测正脸（雨夜镜1 v2 曾出门外侧写/手部无脸）
     blob = " ".join([shot_prompt or "", scene or "", camera or "", body]).lower()
     if any(k in blob for k in ("aisle", "货架", "冷柜", "fridge", "checkout", "收银", "店内")):

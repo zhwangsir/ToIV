@@ -602,6 +602,85 @@ def brand_text_hit(text: str) -> bool:
     return False
 
 
+
+def _scene_sign_roi_boxes(h: int, w: int) -> list[tuple[int, int, int, int]]:
+    """店招/霓虹 ROI：上半约 0–40% + 左右上角；刻意避开躯干服装 ROI。
+
+    返回若干 (y0, y1, x0, x1)。
+    """
+    gy0, _gy1, gx0, gx1 = _garment_roi_box(h, w)
+    top_y1 = max(1, int(h * 0.40))
+    boxes: list[tuple[int, int, int, int]] = []
+    # 服装上方顶条（通常含横幅/霓虹店招）
+    y_above = max(1, min(top_y1, gy0))
+    boxes.append((0, y_above, 0, w))
+    # 左上霓虹（服装左侧）
+    if gx0 > 1:
+        boxes.append((0, top_y1, 0, gx0))
+    # 右上霓虹（服装右侧）
+    if gx1 < w - 1:
+        boxes.append((0, top_y1, gx1, w))
+    return boxes
+
+
+def scene_sign_ocr_frame(image) -> dict[str, Any]:
+    """对单帧上半/霓虹区做店招乱码 OCR。
+
+    返回 {hit, text, error, rois}。pytesseract 不可用则 hit=False。
+    命中条件同 brand_text_hit（拉丁 run≥3/4 或品牌词）；极短噪声天然排除。
+    """
+    out: dict[str, Any] = {"hit": False, "text": "", "error": "", "rois": 0}
+    try:
+        import pytesseract
+        from PIL import Image
+        import numpy as np
+    except Exception as e:
+        out["error"] = f"ocr_unavailable:{type(e).__name__}"
+        return out
+
+    try:
+        if hasattr(image, "convert"):
+            im = image.convert("RGB")
+        else:
+            arr = np.asarray(image)
+            if arr.ndim == 3 and arr.shape[2] == 3:
+                try:
+                    import cv2
+                    rgb = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
+                except Exception:
+                    rgb = arr
+                im = Image.fromarray(rgb.astype("uint8"))
+            else:
+                out["error"] = "bad_frame"
+                return out
+        w, h = im.size
+        boxes = _scene_sign_roi_boxes(h, w)
+        out["rois"] = len(boxes)
+        texts: list[str] = []
+        for y0, y1, x0, x1 in boxes:
+            if y1 <= y0 or x1 <= x0:
+                continue
+            crop = im.crop((x0, y0, x1, y1))
+            cw, ch = crop.size
+            if cw < 8 or ch < 8:
+                continue
+            if max(cw, ch) < 320:
+                scale = max(2, 320 // max(cw, ch))
+                crop = crop.resize((cw * scale, ch * scale), Image.Resampling.LANCZOS)
+            text = (pytesseract.image_to_string(crop, lang="eng") or "").strip()
+            if text:
+                texts.append(text)
+            if brand_text_hit(text):
+                out["text"] = text[:200]
+                out["hit"] = True
+                return out
+        out["text"] = " | ".join(texts)[:200]
+        return out
+    except Exception as e:
+        out["error"] = f"{type(e).__name__}:{e}"
+        return out
+
+
 def garment_brand_ocr_frame(image) -> dict[str, Any]:
     """对单帧（PIL.Image 或 RGB/BGR ndarray）做衣物区 OCR。
 
@@ -657,16 +736,17 @@ def garment_brand_ocr_frame(image) -> dict[str, Any]:
 
 
 def garment_brand_ocr_hit(video_path: str | Path) -> dict[str, Any]:
-    """出片后衣物区品牌 OCR。hit True 时应换 seed 重跑。
+    """出片后衣物品牌 + 场景店招 OCR。hit True 时应换 seed 重跑。
 
-    返回 {hit: bool, text: str, frames_checked: int, error: str}。
-    pytesseract/cv2 不可用则 hit=False 不拦。
+    返回 {hit, text, frames_checked, error, kind?}；店招命中 text 带 sign: 前缀。
+    pytesseract/cv2 不可用则 hit=False 不拦。品牌与店招共用调用方 max_submits 配额。
     """
     out: dict[str, Any] = {
         "hit": False,
         "text": "",
         "frames_checked": 0,
         "error": "",
+        "kind": "",
     }
     path = Path(video_path) if video_path else None
     if path is None or not path.is_file():
@@ -710,8 +790,18 @@ def garment_brand_ocr_hit(video_path: str | Path) -> dict[str, Any]:
                 texts.append(str(fr["text"]))
             if fr.get("hit"):
                 out["hit"] = True
+                out["kind"] = "brand"
                 out["text"] = str(fr.get("text") or "chest_emblem_blob")[:200]
                 out["emblem"] = fr.get("emblem") or {}
+                return out
+            # 店招/霓虹乱码：与品牌共用同一换 seed 配额
+            sr = scene_sign_ocr_frame(frame)
+            if sr.get("text"):
+                texts.append("sign:" + str(sr["text"]))
+            if sr.get("hit"):
+                out["hit"] = True
+                out["kind"] = "sign"
+                out["text"] = ("sign:" + str(sr.get("text") or "sign_latin"))[:200]
                 return out
         out["text"] = " | ".join(texts)[:200]
         return out

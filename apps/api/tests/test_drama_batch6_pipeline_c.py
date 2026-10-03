@@ -22,6 +22,7 @@ from app.services.studio.candidate_pick import (
     garment_brand_ocr_hit,
     garment_brand_ocr_frame,
     brand_text_hit,
+    scene_sign_ocr_frame,
 )
 
 
@@ -665,3 +666,46 @@ def test_garment_brand_ocr_hit_video_roundtrip(tmp_path):
     assert r_brand.get("frames_checked", 0) >= 1
     if r_brand.get("text") and "north" in r_brand["text"].lower():
         assert r_brand.get("hit") is True
+
+
+def test_scene_sign_ocr_frame_north_check_vs_blank():
+    """上半帧有 NORTH/CHECK 类字 → hit；纯色无字 → 不 hit。与 emblem/brand 测共存。"""
+    from PIL import Image, ImageDraw, ImageFont
+
+    blank = Image.new("RGB", (400, 700), (20, 24, 30))
+    r0 = scene_sign_ocr_frame(blank)
+    assert r0.get("hit") is False, r0
+
+    img = Image.new("RGB", (400, 700), (20, 24, 30))
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 42)
+    except Exception:
+        try:
+            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 42)
+        except Exception:
+            font = ImageFont.load_default()
+    # 画在上半/霓虹区（y≈8%–18%，避开胸口服装 ROI y25%+）
+    draw.text((40, 40), "NORTH", fill=(255, 220, 80), font=font)
+    draw.text((220, 50), "CHECK", fill=(80, 220, 255), font=font)
+    r1 = scene_sign_ocr_frame(img)
+    if r1.get("error", "").startswith("ocr_unavailable"):
+        pytest.skip(r1["error"])
+    if r1.get("text") and any(c.isalpha() for c in r1["text"]):
+        assert r1.get("hit") is True, r1
+    else:
+        # tesseract 未识别时不硬挂；结构须完整
+        assert "hit" in r1 and r1.get("hit") is False
+
+
+def test_build_c_visual_prompt_blank_lightboxes():
+    """正向须含无字发光灯箱 / blank glowing lightboxes。"""
+    p = build_c_visual_prompt(
+        shot_prompt="便利店内景中景",
+        cast_visual="年轻女性雨衣",
+        scene="便利店",
+    )
+    low = p.lower()
+    assert "blank glowing lightboxes" in low or "无字发光灯箱" in p
+    assert "without letters" in low or "无字" in p
+

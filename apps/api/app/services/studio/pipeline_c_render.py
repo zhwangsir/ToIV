@@ -252,7 +252,7 @@ def _resolve_sheet_palette_colors(cast: list[Any], style: str | None) -> dict[st
 
 
 async def _brand_ocr_after_render(url: str) -> dict:
-    """出片 URL → 本地/临时 mp4 → garment_brand_ocr_hit。失败不拦。"""
+    """出片 URL → 本地/临时 mp4 → garment_brand_ocr_hit（含店招）。失败不拦。"""
     from app.services.studio.candidate_pick import garment_brand_ocr_hit
     from app.storage import drama_output_root
     import os
@@ -426,9 +426,15 @@ async def render_pipeline_c(
         if not ocr.get("hit"):
             break
         hit_text = str(ocr.get("text") or "")[:120]
-        brand_ocr_hits.append(hit_text)
+        kind = str(ocr.get("kind") or "").strip().lower()
+        if not kind:
+            kind = "sign" if hit_text.startswith("sign:") else "brand"
+        brand_ocr_hits.append(hit_text if kind == "brand" else (
+            hit_text if hit_text.startswith("sign:") else f"sign:{hit_text}"
+        ))
         logger.warning(
-            "brand_ocr_reseed shot=%s clip=%s attempt=%s seed=%s text=%r frames=%s",
+            "%s_ocr_reseed shot=%s clip=%s attempt=%s seed=%s text=%r frames=%s",
+            kind,
             getattr(shot, "id", "")[:8],
             clip_index,
             attempt,
