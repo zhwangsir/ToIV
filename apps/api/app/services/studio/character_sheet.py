@@ -958,13 +958,23 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
         "costume": f"{_COSTUME_FORCE}, {suf}",
     }
     for i, expr in enumerate(_EXPR_PROMPTS):
+        hair_bit = (
+            "chin-length short jet black hair, hair tips end at chin line, NOT past chin, NOT past shoulders, "
+            "no long hair, no shoulder-length hair, no hair lengthening"
+            if i == 3
+            else
+            "short jet black hair chin-length or above, hair tips NOT past shoulders, "
+            "no long hair, no hair lengthening beyond main portrait"
+        )
         prompts[f"expr_{i}"] = (
             f"{solo}, {base}, {expr} of {name}, single face only, one person, "
             f"EXTREME close-up head and shoulders portrait, face fills at least 40 percent of frame, "
             f"tight headshot, hood down, face fully visible, eyes nose mouth clear, "
-            f"jet black hair, same identity as main portrait, exaggerated distinct expression, "
+            f"{hair_bit}, same identity as main portrait, exaggerated distinct expression, "
+            f"plain flat chest unbranded, NO text NO letters NO chinese NO logo NO emblem NO badge "
+            f"NO chest patch NO circular mark NO star on chest, bare raincoat fabric only, "
             f"NO half body, NO full body, NO standing pose, NO waist, NO legs, NO hands props, "
-            f"NO second person, no text, no letters, no chinese characters, no caption, no labels, "
+            f"NO second person, no caption, no labels, "
             f"{solid}, {suf}"
         )
     return prompts
@@ -2578,6 +2588,280 @@ def crop_head_from_figure(data: bytes, *, size: int = 768, top_frac: float = 0.3
     return buf.getvalue()
 
 
+def crop_face_slot_from_master(
+    data: bytes,
+    *,
+    slot: str,
+    size: int = 768,
+) -> bytes:
+    """18:23：面部三格从母版裁头肩，禁止再文生/OpenPose/IPA。
+
+    slot: face_front | face_three_quarter | face_side
+    正：偏上头肩；侧：略宽头肩；背：后脑/发顶头肩。
+    优先 insightface/级联脸框；失败回退 crop_head_from_figure / crop_face_ref。
+    """
+    if not data:
+        raise CharacterSheetError(f"faces crop: empty master for {slot}", status_code=422)
+    # 背影母版通常无人脸框 → 直接上半身方裁
+    if slot == "face_side":
+        try:
+            return crop_head_from_figure(data, size=size, top_frac=0.42)
+        except Exception as e:  # noqa: BLE001
+            raise CharacterSheetError(
+                f"faces crop back/side fail: {e}", status_code=422
+            ) from e
+    # 正 / 侧：优先脸框紧裁头肩
+    try:
+        out = crop_face_head_collarbone(data, size=size, max_zoom=1.8)
+        # 轻量非空校验
+        im = Image.open(BytesIO(out)).convert("RGB")
+        if im.size[0] < 32 or im.size[1] < 32:
+            raise CharacterSheetError("faces crop too small", status_code=422)
+        return out
+    except CharacterSheetError:
+        raise
+    except Exception:
+        pass
+    try:
+        if slot == "face_front":
+            return crop_face_ref(data, size=size)
+        return crop_head_from_figure(data, size=size, top_frac=0.40)
+    except Exception as e:  # noqa: BLE001
+        raise CharacterSheetError(
+            f"faces crop {slot} fail: {e}", status_code=422
+        ) from e
+
+
+def build_faces_tri_from_masters(
+    *,
+    portrait: bytes | None,
+    front: bytes | None,
+    side: bytes | None,
+    back: bytes | None,
+    size: int = 768,
+) -> dict[str, bytes]:
+    """18:23 映射：正←portrait/front，侧←side，背←back → face_front/three_quarter/side。"""
+    src_front = portrait or front
+    if not src_front:
+        raise CharacterSheetError(
+            "faces crop: need portrait or front master", status_code=422
+        )
+    if not side:
+        raise CharacterSheetError("faces crop: need side master", status_code=422)
+    if not back:
+        raise CharacterSheetError("faces crop: need back master", status_code=422)
+    return {
+        "face_front": crop_face_slot_from_master(
+            src_front, slot="face_front", size=size
+        ),
+        "face_three_quarter": crop_face_slot_from_master(
+            side, slot="face_three_quarter", size=size
+        ),
+        "face_side": crop_face_slot_from_master(
+            back, slot="face_side", size=size
+        ),
+    }
+
+
+def _hair_extent_below_face(data: bytes) -> dict[str, float]:
+    """相对脸框的发梢下探：hair_below_chin / hair_below_shoulder（0~1 占格高）。"""
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    bb = _detect_face_bbox_xyxy(data)
+    if bb is None:
+        bb = _heuristic_skin_face_bbox(img)
+    if bb is None:
+        # 无脸：用上 35% 当假脸框
+        x1, y1, x2, y2 = w * 0.25, h * 0.08, w * 0.75, h * 0.38
+    else:
+        x1, y1, x2, y2 = [float(v) for v in bb]
+    fh = max(8.0, y2 - y1)
+    chin_y = y2
+    shoulder_y = min(h - 1.0, y2 + 0.55 * fh)
+    # 脸两侧发丝带
+    bands = [
+        (max(0, int(x1 - 0.35 * (x2 - x1))), int(x1), int(chin_y), h),
+        (int(x2), min(w, int(x2 + 0.35 * (x2 - x1))), int(chin_y), h),
+        (int(x1), int(x2), int(chin_y), h),  # 脸下（刘海以外的下垂发）
+    ]
+    dark_chin = 0
+    dark_shoulder = 0
+    tot_chin = 0
+    tot_shoulder = 0
+    max_y_dark = chin_y
+    px = img.load()
+    for xa, xb, ya, yb in bands:
+        xa, xb = max(0, xa), min(w, xb)
+        ya, yb = max(0, ya), min(h, yb)
+        for y in range(ya, yb):
+            for x in range(xa, xb):
+                r, g, b = px[x, y]
+                # 近黑发；排除雨衣深灰大块（要求略偏冷且非高亮）
+                lum = (r + g + b) / 3.0
+                if lum < 55 and max(r, g, b) - min(r, g, b) < 35:
+                    if y <= shoulder_y:
+                        dark_chin += 1
+                        tot_chin += 1
+                    else:
+                        dark_shoulder += 1
+                        tot_shoulder += 1
+                    if y > max_y_dark:
+                        max_y_dark = float(y)
+                else:
+                    if y <= shoulder_y:
+                        tot_chin += 1
+                    else:
+                        tot_shoulder += 1
+    tip_frac = (max_y_dark - chin_y) / float(max(1, h))
+    return {
+        "tip_frac": float(tip_frac),
+        "dark_below_chin": float(dark_chin),
+        "dark_below_shoulder": float(dark_shoulder),
+        "chin_y": float(chin_y),
+        "shoulder_y": float(shoulder_y),
+        "h": float(h),
+    }
+
+
+def expression_hair_too_long(
+    data: bytes,
+    *,
+    ref: bytes | None = None,
+    chin_only: bool = False,
+) -> bool:
+    """18:23 发长门禁：发梢相对主立绘不过肩；温柔(chin_only)须齐下巴短发。
+
+    tip_frac = (最深黑发 y - 下巴) / 格高。相对主立绘显著变长或绝对过线即拒。
+    """
+    cur = _hair_extent_below_face(data)
+    # 绝对：温柔齐下巴；其它不过肩（tip 超过肩线附近）
+    abs_lim = 0.06 if chin_only else 0.18
+    abs_hit = cur["tip_frac"] > abs_lim and cur["dark_below_chin"] >= 40
+    if chin_only and cur["dark_below_shoulder"] >= 25:
+        abs_hit = True
+    if not chin_only and cur["dark_below_shoulder"] >= 80 and cur["tip_frac"] > 0.12:
+        abs_hit = True
+    if ref is None:
+        return bool(abs_hit)
+    base = _hair_extent_below_face(ref)
+    # 相对：比主立绘再下探 ≥0.05 格高，或肩下黑发明显增多
+    worse = (cur["tip_frac"] >= base["tip_frac"] + 0.05) or (
+        cur["dark_below_shoulder"] >= base["dark_below_shoulder"] + 40
+    )
+    if chin_only:
+        worse = worse or (cur["tip_frac"] >= base["tip_frac"] + 0.03)
+    return bool(abs_hit and worse) if abs_hit else bool(worse and cur["tip_frac"] > abs_lim * 0.7)
+
+
+def assert_expression_identity_gates(
+    data: bytes,
+    *,
+    portrait_ref: bytes | None,
+    expr_key: str,
+) -> None:
+    """表情格：相对主立绘新徽标/字样 → 拒；发长过线 → 拒。"""
+    if portrait_ref and portrait_has_chest_emblem(data, ref=portrait_ref):
+        raise CharacterSheetError(
+            f"{expr_key}胸口相对主立绘出现新徽标/字样",
+            status_code=422,
+        )
+    # 无 ref 时绝对徽标也拒（表情近景胸口贴标）
+    if portrait_ref is None and portrait_has_chest_emblem(data):
+        raise CharacterSheetError(
+            f"{expr_key}胸口检出徽标/字样",
+            status_code=422,
+        )
+    chin_only = expr_key == "expr_3"
+    if expression_hair_too_long(data, ref=portrait_ref, chin_only=chin_only):
+        raise CharacterSheetError(
+            f"{expr_key}发长相对主立绘过长（{'须齐下巴' if chin_only else '发梢不过肩'}）",
+            status_code=422,
+        )
+
+
+def _expr_reject_cause(err: Exception | str) -> str:
+    msg = str(err)
+    if "徽标" in msg or "字样" in msg or "emblem" in msg.lower():
+        return "emblem"
+    if "发长" in msg or "齐下巴" in msg or "hair" in msg.lower():
+        return "hair"
+    if "face" in msg.lower() or "近景" in msg or "closeup" in msg.lower():
+        return "face"
+    return "other"
+
+
+def crop_raincoat_detail_from_figure(data: bytes, *, size: int = 768) -> bytes:
+    """从主立绘/正面裁雨衣躯干局部，供服饰首格空白兜底。"""
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    # 胸口~腰：避开头与腿
+    box = (
+        int(w * 0.18),
+        int(h * 0.28),
+        int(w * 0.82),
+        int(h * 0.62),
+    )
+    crop = img.crop(box)
+    side = max(crop.width, crop.height, 8)
+    canvas = Image.new("RGB", (side, side), (240, 240, 244))
+    canvas.paste(crop, ((side - crop.width) // 2, (side - crop.height) // 2))
+    canvas = canvas.resize((size, size), Image.Resampling.LANCZOS)
+    buf = BytesIO()
+    canvas.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def replace_costume_cell(
+    costume_png: bytes, cell_idx: int, cell_png: bytes, *, n: int = 5
+) -> bytes:
+    """替换服饰横排某一格。"""
+    im = Image.open(BytesIO(costume_png)).convert("RGB")
+    w, h = im.size
+    cell_w = max(1, w // max(1, n))
+    x0 = cell_idx * cell_w
+    x1 = w if cell_idx == n - 1 else (cell_idx + 1) * cell_w
+    cell = Image.open(BytesIO(cell_png)).convert("RGB")
+    # letterbox 进格
+    bw, bh = x1 - x0, h
+    scale = min(bw / cell.width, bh / cell.height)
+    nw, nh = max(1, int(cell.width * scale)), max(1, int(cell.height * scale))
+    cell = cell.resize((nw, nh), Image.Resampling.LANCZOS)
+    patch = Image.new("RGB", (bw, bh), (240, 240, 244))
+    patch.paste(cell, ((bw - nw) // 2, (bh - nh) // 2))
+    im.paste(patch, (x0, 0))
+    buf = BytesIO()
+    im.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def ensure_costume_first_cell_filled(
+    costume_png: bytes,
+    *,
+    portrait: bytes | None = None,
+    front: bytes | None = None,
+    min_ratio: float = 0.12,
+    n: int = 5,
+) -> bytes:
+    """18:23：服饰首格空白 → 用主立绘/正面雨衣局部替换，再 assert。"""
+    ratios = costume_cell_content_ratios(costume_png, n=n)
+    out = costume_png
+    if ratios and ratios[0] < min_ratio:
+        src = portrait or front
+        if not src:
+            raise CharacterSheetError(
+                f"costume cells empty/thin: idx=[0] ratios={[round(x, 3) for x in ratios]} "
+                "且无 portrait/front 可裁雨衣细节",
+                status_code=422,
+            )
+        detail = crop_raincoat_detail_from_figure(src)
+        out = replace_costume_cell(out, 0, detail, n=n)
+        logger.info(
+            "costume cell0 empty ratio=%.3f → raincoat detail crop", ratios[0]
+        )
+    assert_costume_cells_nonempty(out, min_ratio=min_ratio, n=n)
+    return out
+
+
 
 
 def _insightface_face_bbox_xyxy(data: bytes) -> tuple[float, float, float, float] | None:
@@ -3989,6 +4273,23 @@ async def generate_character_sheet(
                 client=client,
                 seed=seed,
             )
+            # 18:23：首格空白 → 雨衣细节裁图；assert 全格非空
+            try:
+                panels["costume"] = ensure_costume_first_cell_filled(
+                    panels["costume"],
+                    portrait=panels.get("portrait"),
+                    front=panels.get("front"),
+                )
+            except CharacterSheetError as ce:
+                dump_rejected_panel(
+                    panels.get("costume"),
+                    seed=seed,
+                    panel="costume",
+                    gate="costume_cells",
+                    detail=str(ce),
+                    dump_dir=reject_dir,
+                )
+                raise
             continue
         w, h = _panel_size(key, meta.style)
         use_ref = None
@@ -4135,189 +4436,57 @@ async def generate_character_sheet(
                 ref_mode = "ipa"
                 denoise = 0.65
         elif key == "faces":
-            face = face_ref_name or ref_name
-            tri: dict[str, bytes] = {}
-            use_op, _why = await _probe_openpose_available(client)
-            face_assets = ensure_openpose_face_assets() if use_op else {}
+            # 18:23：禁止再生成面部三格；从主立绘+三视图母版裁头肩
+            # face_front←portrait/front，face_three_quarter←side，face_side←back
+            try:
+                tri = build_faces_tri_from_masters(
+                    portrait=panels.get("portrait"),
+                    front=panels.get("front"),
+                    side=panels.get("side"),
+                    back=panels.get("back"),
+                    size=768,
+                )
+            except CharacterSheetError as fe:
+                dump_rejected_panel(
+                    None,
+                    seed=seed,
+                    panel="faces",
+                    gate="faces_master_crop",
+                    detail=str(fe),
+                    dump_dir=reject_dir,
+                )
+                raise
             for fk in ("face_front", "face_three_quarter", "face_side"):
-                ang_neg = _FACE_ANGLE_NEGATIVE.get(fk, "")
-                if use_op and fk in face_assets and face:
-                    # 角度靠头肩骨架;身份靠 IPA;禁止正脸 img2img 锁死姿态
-                    pose_name = await client.upload_image(
-                        face_assets[fk].read_bytes(),
-                        f"sheet_face_pose_{character_id[:8]}_{fk}.png",
+                # 18:23：裁切直接进 tri；仅校验非空。近景门禁失败不阻断（母版已过审）。
+                im = Image.open(BytesIO(tri[fk])).convert("RGB")
+                if im.size[0] < 64 or sum(im.convert("L").resize((32, 32)).getdata()) < 100:
+                    dump_rejected_panel(
+                        tri.get(fk),
+                        seed=seed,
+                        panel=str(fk),
+                        gate="faces_crop_empty",
+                        detail="empty crop",
+                        dump_dir=reject_dir,
                     )
-                    if fk == "face_front":
-                        cn_s, ipa_w, ipa_st = 0.88, 0.72, 0.0
-                    elif fk == "face_three_quarter":
-                        cn_s, ipa_w, ipa_st = 0.96, 0.48, 0.20
-                    else:
-                        cn_s, ipa_w, ipa_st = 0.98, 0.38, 0.30
-                    fd = await generate_panel_bytes_openpose(
-                        pool,
-                        prompts[fk],
-                        pose_image_name=pose_name,
-                        ckpt_name=ckpt,
-                        width=768,
-                        height=768,
-                        seed=None if seed is None else seed + (abs(hash(fk)) % 10000),
-                        worker=worker,
-                        filename_prefix=f"ToIV_char_sheet_{fk}_pose",
-                        style=meta.style,
-                        client=client,
-                        ref_image=face,
-                        skip_preprocess=True,
-                        strength=cn_s,
-                        ipa_weight=ipa_w,
-                        ipa_start=ipa_st,
-                        ipa_end=1.0,
-                        negative_extra=ang_neg,
+                    raise CharacterSheetError(
+                        f"faces {fk} master crop empty", status_code=422
                     )
-                else:
-                    # 回退:侧/3-4 用 IPA(不锁姿态);正面可 img2img
-                    if fk == "face_front" and meta.style == "anime" and face:
-                        mode, den = "img2img", 0.58
-                    else:
-                        mode, den = ("ipa" if face else "none"), 0.90
-                    fd = await generate_panel_bytes(
-                        pool,
-                        prompts[fk],
-                        ckpt_name=ckpt,
-                        width=768,
-                        height=768,
-                        seed=None if seed is None else seed + (abs(hash(fk)) % 10000),
-                        worker=worker,
-                        filename_prefix=f"ToIV_char_sheet_{fk}",
-                        style=meta.style,
-                        client=client,
-                        ref_image=face,
-                        ref_mode=mode,
-                        denoise=den,
-                        negative_extra=ang_neg,
-                    )
-                # 表情脸格：无人脸/缩水则本格换 seed 最多 6 次
-                last_face_err = None
-                for fa in range(6):
-                    try:
-                        if fa:
-                            # 重抽该角度
-                            s2 = (
-                                None
-                                if seed is None
-                                else seed + (abs(hash(fk)) % 10000) + fa * 9001
-                            )
-                            bust = f", unique face variant {fa}-{s2 or 0}"
-                            if use_op and fk in face_assets and face:
-                                fd = await generate_panel_bytes_openpose(
-                                    pool,
-                                    prompts[fk] + bust,
-                                    pose_image_name=pose_name,
-                                    ckpt_name=ckpt,
-                                    width=768,
-                                    height=768,
-                                    seed=s2,
-                                    worker=worker,
-                                    filename_prefix=f"ToIV_char_sheet_{fk}_pose_a{fa}",
-                                    style=meta.style,
-                                    client=client,
-                                    ref_image=face,
-                                    skip_preprocess=True,
-                                    strength=cn_s,
-                                    ipa_weight=ipa_w,
-                                    ipa_start=ipa_st,
-                                    ipa_end=1.0,
-                                    negative_extra=ang_neg,
-                                )
-                            else:
-                                if fk == "face_front" and meta.style == "anime" and face:
-                                    mode, den = "img2img", 0.58
-                                else:
-                                    mode, den = ("ipa" if face else "none"), 0.90
-                                fd = await generate_panel_bytes(
-                                    pool,
-                                    prompts[fk] + bust,
-                                    ckpt_name=ckpt,
-                                    width=768,
-                                    height=768,
-                                    seed=s2,
-                                    worker=worker,
-                                    filename_prefix=f"ToIV_char_sheet_{fk}_a{fa}",
-                                    style=meta.style,
-                                    client=client,
-                                    ref_image=face,
-                                    ref_mode=mode,
-                                    denoise=den,
-                                    negative_extra=ang_neg,
-                                )
-                        # 16:45：脸格用 face_closeup_gate，不再 soft 掉 coverage
+                try:
+                    if fk != "face_side":
                         tri[fk] = enforce_head_shoulders_square(
-                            fd, size=768, face_closeup_gate=True
+                            tri[fk], size=768, face_closeup_gate=True
                         )
-                        last_face_err = None
-                        break
-                    except CharacterSheetError as e:
-                        last_face_err = e
-                        logger.warning("faces %s attempt=%s: %s", fk, fa, e)
-                if last_face_err is not None:
-                    # 17:14/17:55：侧/3-4 格检测失败时，从过审母版裁头肩兜底
-                    master_key = (
-                        "side"
-                        if fk == "face_side" and panels.get("side")
-                        else (
-                            "front"
-                            if fk == "face_three_quarter" and panels.get("front")
-                            else None
-                        )
+                except CharacterSheetError as ge:
+                    logger.warning(
+                        "faces %s crop soft-gate skip: %s", fk, ge
                     )
-                    if master_key:
-                        try:
-                            m_img = Image.open(BytesIO(panels[master_key])).convert("RGB")
-                            sw, sh = m_img.size
-                            if fk == "face_side":
-                                box = (
-                                    int(sw * 0.18),
-                                    int(sh * 0.02),
-                                    int(sw * 0.82),
-                                    int(sh * 0.55),
-                                )
-                            else:
-                                # 3/4：略偏一侧的头肩
-                                box = (
-                                    int(sw * 0.12),
-                                    int(sh * 0.02),
-                                    int(sw * 0.78),
-                                    int(sh * 0.52),
-                                )
-                            crop = m_img.crop(box)
-                            crop = crop.resize((768, 768), Image.Resampling.LANCZOS)
-                            buf = BytesIO()
-                            crop.save(buf, format="PNG")
-                            tri[fk] = buf.getvalue()
-                            logger.warning(
-                                "faces %s fallback: crop from approved %s master (%s)",
-                                fk,
-                                master_key,
-                                last_face_err,
-                            )
-                            last_face_err = None
-                        except Exception as fe:  # noqa: BLE001
-                            logger.warning(
-                                "faces %s master crop fail: %s", fk, fe
-                            )
-                    if last_face_err is not None:
-                        dump_rejected_panel(
-                            tri.get(fk),
-                            seed=seed,
-                            panel=str(fk),
-                            gate="faces",
-                            detail=str(last_face_err),
-                            dump_dir=reject_dir,
-                        )
-                        raise last_face_err
-            # 单候选也过 yaw 记录(多候选在 regenerate / fix11 脚本)
-            for fk in list(tri.keys()):
                 _y = estimate_face_yaw_deg(tri[fk])
-                logger.info("faces %s yaw=%s ok=%s", fk, _y, yaw_ok_for_face_key(_y, fk))
+                logger.info(
+                    "faces %s crop-from-master yaw=%s ok=%s",
+                    fk,
+                    _y,
+                    yaw_ok_for_face_key(_y, fk),
+                )
             panels["faces"] = compose_faces_triptych(
                 tri, style=meta.style, size=_panel_size("faces", meta.style)
             )
@@ -4333,7 +4502,11 @@ async def generate_character_sheet(
                 use_ref = None
                 ref_mode = "none"
         last_err = None
-        for attempt in range(4):
+        same_cause = None
+        same_cause_n = 0
+        raw = None
+        max_attempts = 6 if key.startswith("expr_") else 4
+        for attempt in range(max_attempts):
             try:
                 s = (
                     None
@@ -4341,6 +4514,11 @@ async def generate_character_sheet(
                     else seed + (abs(hash(key)) % 10000) + attempt * 7919
                 )
                 bust = f", unique layout variant {attempt}-{s or 0}"
+                if key.startswith("expr_"):
+                    bust += (
+                        ", plain flat chest unbranded no logo no text no emblem, "
+                        "short chin-length black hair no lengthening"
+                    )
                 raw = await generate_panel_bytes(
                     pool,
                     prompts[key] + (bust if attempt else ""),
@@ -4361,6 +4539,12 @@ async def generate_character_sheet(
                     raw = enforce_head_shoulders_square(
                         raw, size=768, face_closeup_gate=True
                     )
+                    # 18:23：相对主立绘徽标/发长门禁
+                    assert_expression_identity_gates(
+                        raw,
+                        portrait_ref=panels.get("portrait"),
+                        expr_key=key,
+                    )
                 if key in ("front", "side") and meta.style in ("anime", "二次元"):
                     if portrait_has_chest_emblem(raw):
                         raise CharacterSheetError(
@@ -4372,6 +4556,26 @@ async def generate_character_sheet(
             except CharacterSheetError as e:
                 last_err = e
                 logger.warning("panel %s fail attempt=%s: %s", key, attempt, e)
+                if key.startswith("expr_"):
+                    dump_rejected_panel(
+                        raw,
+                        seed=seed,
+                        panel=str(key),
+                        gate=_expr_reject_cause(e),
+                        detail=str(e),
+                        dump_dir=reject_dir,
+                    )
+                    cause = _expr_reject_cause(e)
+                    if cause == same_cause:
+                        same_cause_n += 1
+                    else:
+                        same_cause = cause
+                        same_cause_n = 1
+                    if same_cause_n >= 3:
+                        raise CharacterSheetError(
+                            f"{key}同因连败3次({cause}): {e}；停下修根因",
+                            status_code=422,
+                        ) from e
         if last_err is not None:
             raise last_err
         if key in ("front", "side", "back"):
@@ -6621,6 +6825,11 @@ async def regenerate_sheet_panels(
                     best = compose_boot_pair(best, style=meta.style)
                 picked_items.append(best)
             panels["costume"] = collage_costume_items(picked_items, style=meta.style)
+            panels["costume"] = ensure_costume_first_cell_filled(
+                panels["costume"],
+                portrait=panels.get("portrait"),
+                front=panels.get("front"),
+            )
             debug["picks"]["costume"] = {
                 "items": [k for k, _ in costume_items],
                 "locked_items": locked_item_keys,
@@ -6629,87 +6838,29 @@ async def regenerate_sheet_panels(
             continue
 
         if key == "faces":
-            # fix10c/d: 优先用已锁定三视图裁头肩锚定正/侧;3/4 与严格侧脸走 IPA(禁正脸 img2img 塌角度)
-            face_keys = ("face_front", "face_three_quarter", "face_side")
-            tri: dict[str, bytes] = {}
-            face = face_ref_name or ref_name
-            score_dbg: dict[str, Any] = {}
-            head_front_name = None
-            head_side_name = None
-            if panels.get("front"):
-                try:
-                    head_front_name = await client.upload_image(
-                        crop_head_from_figure(panels["front"]),
-                        f"sheet_head_front_{character_id[:8]}.png",
-                    )
-                except Exception as e:  # noqa: BLE001
-                    logger.warning("faces: front headcrop upload fail: %s", e)
-            if panels.get("side"):
-                try:
-                    side_head = crop_head_from_figure(panels["side"])
-                    side_yaw = estimate_face_yaw_deg(side_head)
-                    # 三视图「侧」若是回头过肩(yaw 偏低),禁止硬裁入卡;改走真侧脸 IPA
-                    if side_yaw is not None and abs(float(side_yaw)) >= 55.0:
-                        head_side_name = await client.upload_image(
-                            side_head,
-                            f"sheet_head_side_{character_id[:8]}.png",
+            # 18:23：regenerate 同样只裁母版，禁止 IPA/OpenPose 再生成
+            tri = build_faces_tri_from_masters(
+                portrait=panels.get("portrait"),
+                front=panels.get("front"),
+                side=panels.get("side"),
+                back=panels.get("back"),
+                size=768,
+            )
+            for fk in ("face_front", "face_three_quarter", "face_side"):
+                if fk != "face_side":
+                    try:
+                        tri[fk] = enforce_head_shoulders_square(
+                            tri[fk], size=768, face_closeup_gate=True
                         )
-                    else:
-                        logger.warning(
-                            "faces: side turnaround yaw=%s not profile, skip headcrop anchor",
-                            side_yaw,
-                        )
-                        head_side_name = None
-                except Exception as e:  # noqa: BLE001
-                    logger.warning("faces: side headcrop upload fail: %s", e)
-            for fk in face_keys:
-                fk_cands: list[bytes] = []
-                ang_neg = _FACE_ANGLE_NEGATIVE.get(fk, "")
-                mode_used = "unknown"
-                for fj in range(max(1, min(n_candidates, 5))):
-                    fp = prompts.get(fk) or prompts["faces"]
-                    if fk == "face_front" and head_front_name:
-                        fd = await generate_panel_bytes(
-                            pool, fp, ckpt_name=ckpt, width=768, height=768,
-                            seed=None if seed is None else seed + (abs(hash(fk + str(fj))) % 10000),
-                            worker=worker, filename_prefix=f"ToIV_char_sheet_{fk}",
-                            style=meta.style, client=client, ref_image=head_front_name,
-                            ref_mode="img2img", denoise=0.42, negative_extra=ang_neg,
-                        )
-                        mode_used = "ta_headcrop_img2img"
-                    elif fk == "face_side" and head_side_name and fj < 2:
-                        # 先用侧身头肩底保角度,再混 IPA 候选
-                        fd = await generate_panel_bytes(
-                            pool, fp, ckpt_name=ckpt, width=768, height=768,
-                            seed=None if seed is None else seed + (abs(hash(fk + str(fj))) % 10000),
-                            worker=worker, filename_prefix=f"ToIV_char_sheet_{fk}",
-                            style=meta.style, client=client, ref_image=head_side_name,
-                            ref_mode="img2img", denoise=0.40, negative_extra=ang_neg,
-                        )
-                        mode_used = "ta_headcrop_img2img+ipa_mix"
-                    else:
-                        # 3/4 与严格侧脸追加候选:IPA 不锁正脸姿态
-                        fd = await generate_panel_bytes(
-                            pool, fp, ckpt_name=ckpt, width=768, height=768,
-                            seed=None if seed is None else seed + (abs(hash(fk + str(fj))) % 10000) + 91,
-                            worker=worker, filename_prefix=f"ToIV_char_sheet_{fk}",
-                            style=meta.style, client=client, ref_image=face,
-                            ref_mode="ipa" if face else "none", denoise=1.0,
-                            negative_extra=ang_neg,
-                        )
-                        mode_used = "ipa_angle" if face else "txt2img"
-                    fd = enforce_head_shoulders_square(fd, size=768)
-                    fk_cands.append(fd)
-                best, meta_yaw = _pick_best_face_with_yaw(fk_cands, fk)
-                tri[fk] = best
-                score_dbg[fk] = {**meta_yaw, "mode": mode_used}
+                    except CharacterSheetError:
+                        pass
             panels["faces"] = compose_faces_triptych(
                 tri, style=meta.style, size=_panel_size("faces", meta.style)
             )
             debug["picks"]["faces"] = {
-                "mode": "triptych_headcrop_ipa_yaw",
-                "keys": list(face_keys),
-                "scores": score_dbg,
+                "mode": "master_crop_1823",
+                "keys": ["face_front", "face_three_quarter", "face_side"],
+                "scores": {},
             }
             continue
 
@@ -6790,7 +6941,40 @@ async def regenerate_sheet_panels(
             cands.append(data)
         best = _pick_best_candidate(cands, key)
         if key.startswith("expr_"):
-            best = enforce_head_shoulders_square(best, size=768)
+            # 18:23：regenerate 表情同样过徽标/发长门禁；同因连败筛候选
+            gated: list[bytes] = []
+            last_ge = None
+            same_cause = None
+            same_cause_n = 0
+            for cand in cands:
+                try:
+                    g = enforce_head_shoulders_square(
+                        cand, size=768, face_closeup_gate=True
+                    )
+                    assert_expression_identity_gates(
+                        g,
+                        portrait_ref=panels.get("portrait"),
+                        expr_key=key,
+                    )
+                    gated.append(g)
+                except CharacterSheetError as ge:
+                    last_ge = ge
+                    cause = _expr_reject_cause(ge)
+                    if cause == same_cause:
+                        same_cause_n += 1
+                    else:
+                        same_cause = cause
+                        same_cause_n = 1
+                    if same_cause_n >= 3 and not gated:
+                        raise CharacterSheetError(
+                            f"{key}同因连败3次({cause}): {ge}；停下修根因",
+                            status_code=422,
+                        ) from ge
+            if not gated:
+                raise last_ge or CharacterSheetError(
+                    f"{key}表情门禁全拒", status_code=422
+                )
+            best = _pick_best_candidate(gated, key)
         if key in ("front", "side", "back"):
             best = normalize_turnaround_figure(best, out_w=w, out_h=h)
         panels[key] = best
