@@ -56,12 +56,13 @@ _EXPR_PROMPTS = (
 )
 # 19:01：表情只走图像编辑——中文指令仅改表情，锁身份/发型/服装/构图
 _EXPR_EDIT_INSTRUCTIONS = (
-    "只改变面部表情为威严：眉微压、双眼平视、嘴角平直。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要加徽章文字、不要加长发。",
-    "只改变面部表情为冷酷：眼神冷淡半眯、嘴角下压。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要加徽章文字、不要加长发。",
-    "只改变面部表情为沉思：目光略偏一侧、眉心轻蹙。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要加徽章文字、不要加长发。",
-    "只改变面部表情为温柔：轻微微笑、眼角柔和。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要加徽章文字、不要加长发。",
-    "只改变面部表情为惊恐：双眼睁大、小口微张。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要加徽章文字、不要加长发。",
-    "只改变面部表情为果断：眉压、目光坚定、嘴角绷紧。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要加徽章文字、不要加长发。",
+    # 19:47：威严 vs 果断拉开——威严皱眉抿嘴正面；果断眼神坚定 + 微侧头嘴角紧
+    "只改变面部表情为威严：明显皱眉、双眉下压、双眼正视镜头、双唇抿紧嘴角平直。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为冷酷：眼神冷淡半眯、嘴角明显下压。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为沉思：目光略偏下、眉心轻蹙、嘴放松。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为温柔：轻微微笑、眼角柔和。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为惊恐：双眼睁大、小口微张、眉毛上扬。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要裁太近。",
+    "只改变面部表情为果断：目光坚定略带锋利、嘴角绷紧、头部轻微侧转约10度（与威严的正面抿嘴区分）。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
 )
 _CHAR_SHEET_MARK = "char_sheet_"
 _CHAR_PANEL_MARK = "char_panel_"
@@ -2625,56 +2626,87 @@ def crop_head_from_figure(data: bytes, *, size: int = 768, top_frac: float = 0.3
     return buf.getvalue()
 
 
+def _hair_center_x(img: Image.Image, *, y0_frac: float, y1_frac: float) -> float:
+    """顶带内暗色发丝/轮廓的水平重心，作硬裁中心。"""
+    w, h = img.size
+    y0 = max(0, int(h * y0_frac))
+    y1 = min(h, max(y0 + 1, int(h * y1_frac)))
+    px = img.load()
+    sx = sw = 0.0
+    for y in range(y0, y1):
+        for x in range(w):
+            r, g, b = px[x, y]
+            lum = (r + g + b) / 3.0
+            # 近黑发或深灰轮廓；排除近白底与板岩灰雨衣中段
+            if lum < 55 and max(r, g, b) - min(r, g, b) < 40:
+                sx += float(x)
+                sw += 1.0
+            elif lum < 120 and abs(r - g) < 18 and abs(g - b) < 18 and b <= r + 12:
+                sx += float(x) * 0.35
+                sw += 0.35
+    if sw < 8:
+        return w * 0.5
+    return sx / sw
+
+
 def crop_face_slot_from_master(
     data: bytes,
     *,
     slot: str,
     size: int = 768,
 ) -> bytes:
-    """18:23：面部三格从母版裁头肩，禁止再文生/OpenPose/IPA。
+    """19:47：别再靠检测。母版固定比例硬裁头像，三格同尺寸。
 
-    slot: face_front | face_three_quarter | face_side
-    正：偏上头肩；侧：略宽头肩；背：后脑/发顶头肩。
-    优先 insightface/级联脸框；失败回退 crop_head_from_figure / crop_face_ref。
+    face_front ← 主立绘顶部到下巴下（约画高 0–22%）
+    face_three_quarter ← 侧母版顶部约 0–25%
+    face_side ← 背母版顶部约 0–25%
+    水平以头发轮廓中心为准；边长放大不超过 2×；出卡前头高占格高须 ≥35%。
     """
     if not data:
         raise CharacterSheetError(f"faces crop: empty master for {slot}", status_code=422)
-    # 背影母版通常无人脸框 → 直接上半身方裁
-    if slot == "face_side":
-        try:
-            out = crop_head_from_figure(data, size=size, top_frac=0.42)
-            # 背影可能无人脸：拉近失败则退回原裁（不硬杀）
-            try:
-                return auto_tighten_face_crop(out, size=size, face_key=slot)
-            except CharacterSheetError:
-                return out
-        except Exception as e:  # noqa: BLE001
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    if slot == "face_front":
+        band = 0.22
+    elif slot in ("face_three_quarter", "face_side"):
+        band = 0.25
+    else:
+        raise CharacterSheetError(f"faces crop: unknown slot {slot}", status_code=422)
+    # 裁窗边长 = band*h，但不得小于短边/2（放大≤2×）
+    side = float(band) * float(h)
+    min_side = float(min(w, h)) / 2.0
+    side = max(side, min_side)
+    side = min(side, float(w), float(h))
+    cx = _hair_center_x(img, y0_frac=0.0, y1_frac=min(0.35, band + 0.08))
+    left = cx - side / 2.0
+    top = 0.0
+    if left < 0:
+        left = 0.0
+    if left + side > w:
+        left = max(0.0, float(w) - side)
+    if top + side > h:
+        top = max(0.0, float(h) - side)
+    crop = img.crop((int(left), int(top), int(left + side), int(top + side)))
+    crop = crop.resize((size, size), Image.Resampling.LANCZOS)
+    buf = BytesIO()
+    crop.save(buf, format="PNG")
+    out = buf.getvalue()
+    # 出卡前断言头高占格高 ≥35%（背影无人脸 → 用非浅底纵向跨度）
+    frac = measure_face_height_frac(out)
+    if frac is None:
+        vspan = panel_vertical_span(out)
+        if vspan + 1e-12 < 0.35:
             raise CharacterSheetError(
-                f"faces crop back/side fail: {e}", status_code=422
-            ) from e
-    # 正 / 侧：优先脸框紧裁头肩，再 19:01 自动拉近到头高≥35%
-    try:
-        out = crop_face_head_collarbone(data, size=size, max_zoom=1.8)
-        im = Image.open(BytesIO(out)).convert("RGB")
-        if im.size[0] < 32 or im.size[1] < 32:
-            raise CharacterSheetError("faces crop too small", status_code=422)
-        return auto_tighten_face_crop(out, size=size, face_key=slot)
-    except CharacterSheetError:
-        raise
-    except Exception:
-        pass
-    try:
-        if slot == "face_front":
-            out = crop_face_ref(data, size=size)
-        else:
-            out = crop_head_from_figure(data, size=size, top_frac=0.40)
-        return auto_tighten_face_crop(out, size=size, face_key=slot)
-    except CharacterSheetError:
-        raise
-    except Exception as e:  # noqa: BLE001
+                f"faces {slot} hard-crop head/content frac {vspan:.3f} < 0.35",
+                status_code=422,
+            )
+    elif frac + 1e-12 < 0.35:
         raise CharacterSheetError(
-            f"faces crop {slot} fail: {e}", status_code=422
-        ) from e
+            f"faces {slot} hard-crop face height frac {frac:.3f} < 0.35",
+            status_code=422,
+        )
+    return out
+
 
 
 def build_faces_tri_from_masters(
@@ -4614,21 +4646,26 @@ async def generate_character_sheet(
         if key == "portrait" or key in panels:
             continue
         if key == "costume":
-            panels["costume"] = await _generate_costume_collage(
-                pool,
-                meta=meta,
-                ckpt=ckpt,
-                worker=worker,
-                client=client,
-                seed=seed,
-            )
-            # 18:23：首格空白 → 雨衣细节裁图；assert 全格非空
+            # 19:47 anime：服饰直接从主立绘裁五局部；古风仍走单品生成+坏格补
             try:
-                panels["costume"] = ensure_costume_bad_cells_replaced(
-                    panels["costume"],
-                    portrait=panels.get("portrait"),
-                    front=panels.get("front"),
-                )
+                if meta.style in ("anime", "二次元") and panels.get("portrait"):
+                    panels["costume"] = build_costume_collage_from_portrait(
+                        panels["portrait"], style=meta.style
+                    )
+                else:
+                    panels["costume"] = await _generate_costume_collage(
+                        pool,
+                        meta=meta,
+                        ckpt=ckpt,
+                        worker=worker,
+                        client=client,
+                        seed=seed,
+                    )
+                    panels["costume"] = ensure_costume_bad_cells_replaced(
+                        panels["costume"],
+                        portrait=panels.get("portrait"),
+                        front=panels.get("front"),
+                    )
             except CharacterSheetError as ce:
                 dump_rejected_panel(
                     panels.get("costume"),
@@ -4806,7 +4843,7 @@ async def generate_character_sheet(
                 )
                 raise
             for fk in ("face_front", "face_three_quarter", "face_side"):
-                # 18:23 裁自母版；19:01 头高≥35% 自动拉近，正/侧硬门禁，背影软过
+                # 19:47 硬裁已断言头高≥35%；此处只做空图检查，不再 detection 拉近
                 im = Image.open(BytesIO(tri[fk])).convert("RGB")
                 if im.size[0] < 64 or sum(im.convert("L").resize((32, 32)).getdata()) < 100:
                     dump_rejected_panel(
@@ -4820,25 +4857,10 @@ async def generate_character_sheet(
                     raise CharacterSheetError(
                         f"faces {fk} master crop empty", status_code=422
                     )
-                try:
-                    tri[fk] = auto_tighten_face_crop(
-                        tri[fk], size=768, face_key=fk
-                    )
-                except CharacterSheetError as ge:
-                    if fk == "face_side":
-                        logger.warning(
-                            "faces %s auto-tighten soft skip: %s", fk, ge
-                        )
-                    else:
-                        dump_rejected_panel(
-                            tri.get(fk),
-                            seed=seed,
-                            panel=str(fk),
-                            gate="faces_head_height",
-                            detail=str(ge),
-                            dump_dir=reject_dir,
-                        )
-                        raise
+                frac = measure_face_height_frac(tri[fk])
+                logger.info(
+                    "faces %s hard-crop face_height_frac=%s", fk, frac
+                )
                 _y = estimate_face_yaw_deg(tri[fk])
                 logger.info(
                     "faces %s crop-from-master yaw=%s ok=%s",
@@ -6288,6 +6310,41 @@ def _trim_object_bbox(img: Image.Image, *, style: str, pad: int = 12) -> Image.I
     max_x = min(w - 1, max_x + pad)
     max_y = min(h - 1, max_y + pad)
     return rgb.crop((min_x, min_y, max_x + 1, max_y + 1))
+
+
+# 19:47：服饰五格从主立绘裁不重复局部（帽兜领口/袖口/口袋/下摆/腿脚），禁错色生成单品
+_COSTUME_PORTRAIT_BANDS: tuple[tuple[str, tuple[float, float, float, float]], ...] = (
+    ("hood_collar", (0.20, 0.06, 0.80, 0.34)),
+    ("cuff", (0.02, 0.30, 0.40, 0.58)),
+    ("pocket", (0.28, 0.36, 0.72, 0.60)),
+    ("hem", (0.18, 0.55, 0.82, 0.82)),
+    ("legs", (0.26, 0.76, 0.74, 0.99)),
+)
+
+
+def build_costume_collage_from_portrait(
+    portrait: bytes,
+    *,
+    style: str = "anime",
+    size: int = 768,
+) -> bytes:
+    """从主立绘裁 5 个不重复局部拼服饰条，删除浅蓝错色外套等生成物。"""
+    if not portrait:
+        raise CharacterSheetError("costume portrait crops: empty portrait", status_code=422)
+    img = Image.open(BytesIO(portrait)).convert("RGB")
+    w, h = img.size
+    items: list[bytes] = []
+    for key, (x0, y0, x1, y1) in _COSTUME_PORTRAIT_BANDS:
+        crop = img.crop((int(w * x0), int(h * y0), int(w * x1), int(h * y1)))
+        side = max(crop.width, crop.height, 8)
+        canvas = Image.new("RGB", (side, side), (240, 240, 244))
+        canvas.paste(crop, ((side - crop.width) // 2, (side - crop.height) // 2))
+        canvas = canvas.resize((size, size), Image.Resampling.LANCZOS)
+        buf = BytesIO()
+        canvas.save(buf, format="PNG")
+        items.append(buf.getvalue())
+        logger.info("costume portrait crop %s box=%s", key, (x0, y0, x1, y1))
+    return collage_costume_items(items, style=style)
 
 
 async def _generate_costume_collage(
