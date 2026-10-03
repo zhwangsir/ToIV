@@ -2842,21 +2842,43 @@ def ensure_costume_first_cell_filled(
     min_ratio: float = 0.12,
     n: int = 5,
 ) -> bytes:
-    """18:23：服饰首格空白 → 用主立绘/正面雨衣局部替换，再 assert。"""
+    """18:23：服饰空格 → 主立绘/正面雨衣（或下装/靴）局部替换，再 assert。
+
+    父代理点名首格；其它空格同样用立绘分区裁切兜底，避免 assert 全格非空卡死。
+    """
     ratios = costume_cell_content_ratios(costume_png, n=n)
     out = costume_png
-    if ratios and ratios[0] < min_ratio:
-        src = portrait or front
+    src = portrait or front
+    # 各格偏好裁切带：0 雨衣胸口、1 下装、2 靴、3 中段、4 袋/袖
+    bands = (
+        (0.18, 0.28, 0.82, 0.62),
+        (0.28, 0.55, 0.72, 0.92),
+        (0.30, 0.78, 0.70, 0.98),
+        (0.20, 0.35, 0.80, 0.70),
+        (0.35, 0.40, 0.65, 0.72),
+    )
+    for idx, r in enumerate(ratios):
+        if r >= min_ratio:
+            continue
         if not src:
             raise CharacterSheetError(
-                f"costume cells empty/thin: idx=[0] ratios={[round(x, 3) for x in ratios]} "
-                "且无 portrait/front 可裁雨衣细节",
+                f"costume cells empty/thin: idx={[idx]} ratios={[round(x, 3) for x in ratios]} "
+                "且无 portrait/front 可裁细节",
                 status_code=422,
             )
-        detail = crop_raincoat_detail_from_figure(src)
-        out = replace_costume_cell(out, 0, detail, n=n)
+        img = Image.open(BytesIO(src)).convert("RGB")
+        w, h = img.size
+        x0, y0, x1, y1 = bands[idx % len(bands)]
+        crop = img.crop((int(w * x0), int(h * y0), int(w * x1), int(h * y1)))
+        side = max(crop.width, crop.height, 8)
+        canvas = Image.new("RGB", (side, side), (240, 240, 244))
+        canvas.paste(crop, ((side - crop.width) // 2, (side - crop.height) // 2))
+        canvas = canvas.resize((768, 768), Image.Resampling.LANCZOS)
+        buf = BytesIO()
+        canvas.save(buf, format="PNG")
+        out = replace_costume_cell(out, idx, buf.getvalue(), n=n)
         logger.info(
-            "costume cell0 empty ratio=%.3f → raincoat detail crop", ratios[0]
+            "costume cell%s empty ratio=%.3f → portrait band crop", idx, r
         )
     assert_costume_cells_nonempty(out, min_ratio=min_ratio, n=n)
     return out
