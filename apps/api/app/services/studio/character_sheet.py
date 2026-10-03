@@ -1351,11 +1351,8 @@ def portrait_has_chest_emblem(
 
 
 
-def assert_no_large_uniform_rect(data: bytes, *, label: str = "面板") -> None:
-    """16:18②：检测大块均匀矩形色块（程序铺色痕迹）→ 拒。
-
-    在胸口/躯干滑窗找低方差块；近板岩灰时阈值更严。
-    """
+def _uniform_rect_hit_stats(data: bytes) -> tuple[int, float]:
+    """返回 (hits, last_stdev)。hits>=2 表示绝对路径会拒。"""
     import statistics
 
     img = Image.open(BytesIO(data)).convert("RGB")
@@ -1365,12 +1362,12 @@ def assert_no_large_uniform_rect(data: bytes, *, label: str = "面板") -> None:
         int(SLATE_GRAY_TARGET[3:5], 16),
         int(SLATE_GRAY_TARGET[5:7], 16),
     )
-    # 胸口区域滑窗（约 18%×15% 画幅）
     win_w, win_h = max(24, int(w * 0.18)), max(20, int(h * 0.12))
     y_lo, y_hi = int(h * 0.22), int(h * 0.62)
     x_lo, x_hi = int(w * 0.22), int(w * 0.78)
     step_x, step_y = max(8, win_w // 3), max(8, win_h // 3)
     hits = 0
+    last_stdev = 99.0
     for y0 in range(y_lo, max(y_lo + 1, y_hi - win_h + 1), step_y):
         for x0 in range(x_lo, max(x_lo + 1, x_hi - win_w + 1), step_x):
             crop = img.crop((x0, y0, x0 + win_w, y0 + win_h))
@@ -1385,16 +1382,36 @@ def assert_no_large_uniform_rect(data: bytes, *, label: str = "面板") -> None:
                 continue
             mean_rgb = tuple(sum(c[i] for c in px) / len(px) for i in range(3))
             dist = sum(abs(mean_rgb[i] - slate[i]) for i in range(3))
-            # 近板岩灰的极匀块 = 典型程序铺色
             if stdev < 8.0 and dist < 45:
                 hits += 2
+                last_stdev = stdev
             elif stdev < 3.5:
                 hits += 1
+                last_stdev = stdev
             if hits >= 2:
-                raise CharacterSheetError(
-                    f"出图门禁失败:{label}检出大块均匀矩形色块(stdev={stdev:.1f})",
-                    status_code=422,
-                )
+                return hits, last_stdev
+    return hits, last_stdev
+
+
+def assert_no_large_uniform_rect(
+    data: bytes, *, label: str = "面板", ref: bytes | None = None
+) -> None:
+    """16:18②：检测大块均匀矩形色块（程序铺色痕迹）→ 拒。
+
+    17:14：若提供母版 ref 且母版本身也命中（二次元雨衣平涂），则放行，
+    只拦相对母版新出现的程序矩形铺色。
+    """
+    hits, stdev = _uniform_rect_hit_stats(data)
+    if hits < 2:
+        return
+    if ref is not None:
+        rh, _ = _uniform_rect_hit_stats(ref)
+        if rh >= 2:
+            return
+    raise CharacterSheetError(
+        f"出图门禁失败:{label}检出大块均匀矩形色块(stdev={stdev:.1f})",
+        status_code=422,
+    )
 
 
 def _face_cool_metrics(data: bytes) -> tuple[float, float] | None:
@@ -3705,7 +3722,7 @@ async def generate_character_sheet(
                 logger.warning("portrait gen fail attempt=%s: %s", attempt, e)
         else:
             raise last_err or CharacterSheetError("主立绘生成失败", status_code=422)
-    assert_no_large_uniform_rect(panels["portrait"], label="主立绘")
+    assert_no_large_uniform_rect(panels["portrait"], label="主立绘", ref=panels.get("front"))
     assert_skin_not_blue_gray(
         panels["portrait"], label="主立绘", ref=panels.get("front")
     )

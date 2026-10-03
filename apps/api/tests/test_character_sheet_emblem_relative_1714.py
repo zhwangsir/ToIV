@@ -57,3 +57,31 @@ def test_relative_rejects_new_color_logo():
     ref = _slate_portrait()
     portrait = _slate_portrait(color_logo=True)
     assert portrait_has_chest_emblem(portrait, ref=ref) is True
+
+
+def test_uniform_rect_relative_allows_anime_flat_like_master():
+    from app.services.studio.character_sheet import assert_no_large_uniform_rect
+
+    # large flat slate = would absolute-hit
+    h, w = 400, 300
+    arr = np.zeros((h, w, 3), dtype=np.uint8)
+    arr[:] = (90, 106, 122)
+    ref = _png(arr)
+    portrait = _png(arr.copy())
+    assert_no_large_uniform_rect(portrait, label="主立绘", ref=ref)
+
+
+def test_uniform_rect_still_rejects_without_ref():
+    from app.services.studio.character_sheet import (
+        CharacterSheetError,
+        assert_no_large_uniform_rect,
+    )
+
+    h, w = 400, 300
+    arr = np.zeros((h, w, 3), dtype=np.uint8)
+    arr[:] = (90, 106, 122)
+    try:
+        assert_no_large_uniform_rect(_png(arr), label="主立绘")
+        raise AssertionError("expected reject")
+    except CharacterSheetError:
+        pass
