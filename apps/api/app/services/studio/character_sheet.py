@@ -5252,10 +5252,9 @@ async def generate_character_sheet(
                     _y,
                     yaw_ok_for_face_key(_y, fk),
                 )
-            # 21:22：侧面两格硬裁 ≤2× 后 Qwen「只清线」；CLIP/像素不过则退回 2× 原裁
+            # 21:22/22:02：仅侧面¾走 Qwen 清线；face_side 已是背头，禁止清线（无五官会 422）
             for _side_fk, _seed_off in (
                 ("face_three_quarter", 2023),
-                ("face_side", 2122),
             ):
                 try:
                     side_crop = tri[_side_fk]
