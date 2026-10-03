@@ -3316,7 +3316,68 @@ async def generate_character_sheet(
                         denoise=den,
                         negative_extra=ang_neg,
                     )
-                tri[fk] = enforce_head_shoulders_square(fd, size=768)
+                # 表情脸格：无人脸/缩水则本格换 seed 最多 4 次
+                last_face_err = None
+                for fa in range(4):
+                    try:
+                        if fa:
+                            # 重抽该角度
+                            s2 = (
+                                None
+                                if seed is None
+                                else seed + (abs(hash(fk)) % 10000) + fa * 9001
+                            )
+                            bust = f", unique face variant {fa}-{s2 or 0}"
+                            if use_op and fk in face_assets and face:
+                                fd = await generate_panel_bytes_openpose(
+                                    pool,
+                                    prompts[fk] + bust,
+                                    pose_image_name=pose_name,
+                                    ckpt_name=ckpt,
+                                    width=768,
+                                    height=768,
+                                    seed=s2,
+                                    worker=worker,
+                                    filename_prefix=f"ToIV_char_sheet_{fk}_pose_a{fa}",
+                                    style=meta.style,
+                                    client=client,
+                                    ref_image=face,
+                                    skip_preprocess=True,
+                                    strength=cn_s,
+                                    ipa_weight=ipa_w,
+                                    ipa_start=ipa_st,
+                                    ipa_end=1.0,
+                                    negative_extra=ang_neg,
+                                )
+                            else:
+                                if fk == "face_front" and meta.style == "anime" and face:
+                                    mode, den = "img2img", 0.58
+                                else:
+                                    mode, den = ("ipa" if face else "none"), 0.90
+                                fd = await generate_panel_bytes(
+                                    pool,
+                                    prompts[fk] + bust,
+                                    ckpt_name=ckpt,
+                                    width=768,
+                                    height=768,
+                                    seed=s2,
+                                    worker=worker,
+                                    filename_prefix=f"ToIV_char_sheet_{fk}_a{fa}",
+                                    style=meta.style,
+                                    client=client,
+                                    ref_image=face,
+                                    ref_mode=mode,
+                                    denoise=den,
+                                    negative_extra=ang_neg,
+                                )
+                        tri[fk] = enforce_head_shoulders_square(fd, size=768)
+                        last_face_err = None
+                        break
+                    except CharacterSheetError as e:
+                        last_face_err = e
+                        logger.warning("faces %s attempt=%s: %s", fk, fa, e)
+                if last_face_err is not None:
+                    raise last_face_err
             # 单候选也过 yaw 记录(多候选在 regenerate / fix11 脚本)
             for fk in list(tri.keys()):
                 _y = estimate_face_yaw_deg(tri[fk])
