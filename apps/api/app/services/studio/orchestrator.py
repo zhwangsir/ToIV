@@ -10,6 +10,7 @@ rendered/voiced/lipsynced/done 且有视频):重试失败只追加候选失败�
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -293,21 +294,32 @@ async def render_shot(
                 from app.storage import drama_output_root
 
                 ref_path = None
+                neg_ref_paths = []
+                primary_cid = None
                 for c in cast:
                     urls = []
                     try:
                         urls = json.loads(getattr(c, "reference_images", None) or "[]")
                     except (ValueError, TypeError):
                         urls = []
-                    if urls:
-                        u = str(urls[0])
-                        marker = "/api/studio/files/"
-                        if marker in u:
-                            name = u.split(marker, 1)[1].split("?", 1)[0]
-                            candp = drama_output_root() / "studio" / name
-                            if candp.is_file():
-                                ref_path = candp
-                                break
+                    if not urls:
+                        continue
+                    u = str(urls[0])
+                    marker = "/api/studio/files/"
+                    resolved = None
+                    if marker in u:
+                        name = u.split(marker, 1)[1].split("?", 1)[0]
+                        candp = drama_output_root() / "studio" / name
+                        if candp.is_file():
+                            resolved = candp
+                    if resolved is None:
+                        continue
+                    cid = str(getattr(c, "id", "") or "")
+                    if ref_path is None:
+                        ref_path = resolved
+                        primary_cid = cid
+                    elif cid and cid != primary_cid:
+                        neg_ref_paths.append(resolved)
 
                 def _resolve_vid(url: str):
                     marker = "/api/studio/files/"
@@ -383,6 +395,35 @@ async def render_shot(
                     "anime", "二次元", "动漫", "cartoon",
                 )
                 try:
+                    # 动漫：相对身份门禁（本角色 vs 同项目其他角色/通用负样本 +0.03）
+                    if _anime:
+                        _generic_cands = [
+                            drama_output_root()
+                            / "studio"
+                            / "fixtures"
+                            / "anime_face_clip"
+                            / "neg_haokun.jpg",
+                            Path(__file__).resolve().parents[3]
+                            / "tests"
+                            / "fixtures"
+                            / "anime_face_clip"
+                            / "neg_haokun.jpg",
+                        ]
+                        for _generic_neg in _generic_cands:
+                            if _generic_neg.is_file():
+                                neg_ref_paths.append(_generic_neg)
+                                break
+                    # 去重且排除主参考
+                    _seen = set()
+                    _negs = []
+                    for p in neg_ref_paths:
+                        sp = str(p)
+                        if ref_path and sp == str(ref_path):
+                            continue
+                        if sp in _seen:
+                            continue
+                        _seen.add(sp)
+                        _negs.append(p)
                     win_id, candidates = await asyncio.to_thread(
                         pick_best_candidate,
                         candidates,
@@ -394,6 +435,9 @@ async def render_shot(
                         face_score_mode="clip" if _anime else "auto",
                         ref_style=sheet_style,
                         min_face_mean=0.60 if _anime else 0.45,
+                        negative_ref_paths=_negs if _anime else None,
+                        relative_margin=0.03,
+                        use_relative_identity=True if _anime else False,
                     )
                 except CandidatePickError as e:
                     # 候选已出片但选优失败：先写入 candidates；外层按是否已有入选决定 error 或保留

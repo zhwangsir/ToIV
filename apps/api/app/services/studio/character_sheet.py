@@ -112,7 +112,7 @@ _STYLE_NEGATIVE = {
         "beige cloak, brown cloak, red cloak, tan cape, khaki poncho, "
         "mannequin, human body in product shot, person wearing boots, "
         "white hoodie, white t-shirt, color-block hoodie, navy sleeves on white shirt, "
-        "baseball cap, hat on stand, ceiling lamp, dome light, opaque black dome, hard hat, helmet, bowl"
+        "baseball cap, hat on stand, ceiling lamp, dome light, opaque black dome, hard hat, helmet, bowl, chest badge, chest emblem, chest logo, circular chest pattern, spiral emblem, round emblem on chest, brand patch, red badge, graphic print on torso, cloak, cape, poncho, wide sleeves, kimono sleeves"
     ),
 }
 
@@ -835,19 +835,21 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
         head_bit = "hair ornaments optional, face fully visible"
         back_head = "ONLY back of head and hair bun, NO face NO eyes"
     else:
-        outfit = "same character same slate-gray hooded raincoat #5A6A7A, plain unbranded no logo no emblem, not jet black"
+        outfit = ("same character same slate-gray hooded raincoat #5A6A7A with hood, plain flat chest unbranded, no logo no emblem no badge no chest patch, no circular pattern no spiral design on chest, not jet black")
         head_bit = "hood DOWN face fully visible"
         back_head = "ONLY back of head and hood, NO face NO eyes"
     prompts: dict[str, str] = {
         "portrait": (
             f"{solo}, {base}, full body standing portrait of {name}, facing camera, "
             f"jet black hair, black hair, {outfit}, "
+            f"plain chest no badge no emblem no pattern, "
             f"no silver hair, {solid}, character design, {suf}"
         ),
         "front": (
             f"{solo}, {base}, ONE figure only, front view full body turnaround of {name}, orthographic, "
             f"adult woman 165cm proportions, long legs, {head_bit}, "
             f"jet black hair, {outfit}, standing straight, "
+            f"identical hooded raincoat style and color as main portrait, plain chest no badge no spiral, "
             f"feet on ground line, figure fills frame height, single person only, empty background, {solid}, {suf}"
         ),
         "side": (
@@ -1122,9 +1124,14 @@ def portrait_has_chest_emblem(data: bytes) -> bool:
     bright = sum(1 for v in lumas if v > med + 45)
     # 彩色斑（非灰）
     chroma = sum(1 for r, g, b in px if max(r, g, b) - min(r, g, b) > 40 and (r + g + b) / 3 > 40)
-    # 贴标通常是局部亮/彩斑，占比小但成团
+    # 贴标通常是局部亮/彩斑，占比小但成团；大圆螺旋图案 chroma/bright 占比更高
     n = len(px)
-    return (8 <= bright <= int(n * 0.22)) or (6 <= chroma <= int(n * 0.18))
+    if (8 <= bright <= int(n * 0.22)) or (6 <= chroma <= int(n * 0.18)):
+        return True
+    # 大面积非灰图案（螺旋/圆徽）
+    if chroma >= int(n * 0.12) and bright >= int(n * 0.08):
+        return True
+    return False
 
 
 def assert_sheet_garment_consistency(
@@ -1142,6 +1149,14 @@ def assert_sheet_garment_consistency(
             "一致性门禁失败:主立绘胸口检出贴标/徽标，须重出",
             status_code=422,
         )
+    if style in ("anime", "二次元"):
+        for key in ("front", "side", "back"):
+            data = panels.get(key)
+            if data and portrait_has_chest_emblem(data):
+                raise CharacterSheetError(
+                    f"一致性门禁失败:三视图{key}胸口检出徽标/图案，须重出",
+                    status_code=422,
+                )
     p_hex = _panel_garment_dominant_hex(portrait)
     if not p_hex:
         raise CharacterSheetError("一致性门禁失败:主立绘无法取服装主色", status_code=422)
@@ -3186,8 +3201,13 @@ async def generate_character_sheet(
                 continue
             if ref_name:
                 use_ref = ref_name
-                ref_mode = "ipa"
-                denoise = 0.65
+                # 15:12：三视图必须以主立绘为参考锁同款同色；anime 用 img2img 强锁服装
+                if meta.style in ("anime", "二次元"):
+                    ref_mode = "img2img"
+                    denoise = 0.52
+                else:
+                    ref_mode = "ipa"
+                    denoise = 0.65
         elif key == "faces":
             face = face_ref_name or ref_name
             tri: dict[str, bytes] = {}

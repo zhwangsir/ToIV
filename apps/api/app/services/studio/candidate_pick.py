@@ -339,6 +339,186 @@ def score_video_face_clip(
     return out
 
 
+
+def _identity_crop_bgr(frame_bgr):
+    """优先裁检测到的脸（扩边），否则上半身；供相对身份门禁用。"""
+    try:
+        if _try_import_face():
+            app = _get_face_app()
+            faces = app.get(frame_bgr)
+            if faces:
+                face = sorted(
+                    faces,
+                    key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]),
+                    reverse=True,
+                )[0]
+                x1, y1, x2, y2 = [int(v) for v in face.bbox]
+                h, w = frame_bgr.shape[:2]
+                bw, bh = x2 - x1, y2 - y1
+                # 扩到含上半身肩线
+                pad_x = int(bw * 0.35)
+                pad_y_top = int(bh * 0.45)
+                pad_y_bot = int(bh * 1.2)
+                xa = max(0, x1 - pad_x)
+                xb = min(w, x2 + pad_x)
+                ya = max(0, y1 - pad_y_top)
+                yb = min(h, y2 + pad_y_bot)
+                if xb > xa + 8 and yb > ya + 8:
+                    return frame_bgr[ya:yb, xa:xb]
+    except Exception:
+        pass
+    return _upper_body_crop_bgr(frame_bgr)
+
+
+def score_clip_identity_relative(
+    video_path: str | Path,
+    ref_image_path: str | Path,
+    negative_ref_paths: list[str | Path] | None = None,
+    *,
+    margin: float = 0.03,
+    embedder=None,
+) -> dict[str, Any]:
+    """相对身份门禁：对本角色参考的相似度须 ≥ 对负样本参考最高分 + margin。
+
+    先裁脸/上半身再算 CLIP；返回 face_mean（对本角色）、neg_max、margin、pass。
+    """
+    out: dict[str, Any] = {
+        "face_mean": None,
+        "neg_max": None,
+        "margin": float(margin),
+        "pass": False,
+        "sims": [],
+        "neg_scores": {},
+        "burnin_penalty": 0.0,
+        "ocr_penalty": 0.0,
+        "error": "",
+        "score_backend": "clip_relative",
+        "gate_status": "",
+    }
+    try:
+        import cv2
+        from PIL import Image
+    except Exception:
+        out["error"] = "cv2/PIL 不可用"
+        out["gate_status"] = GATE_NEEDS_REVIEW
+        return out
+
+    ref_p = Path(ref_image_path)
+    vid_p = Path(video_path)
+    if not ref_p.is_file() or not vid_p.is_file():
+        out["error"] = "参考图或视频不存在"
+        out["gate_status"] = GATE_NEEDS_REVIEW
+        return out
+
+    enc = embedder if embedder is not None else _openclip_image_embedder()
+    if enc is None:
+        out["error"] = "open_clip 不可用"
+        out["gate_status"] = GATE_NEEDS_REVIEW
+        out["pass"] = False
+        return out
+
+    def _emb_path(p: Path):
+        bgr = cv2.imread(str(p))
+        if bgr is None:
+            return None
+        crop = _identity_crop_bgr(bgr)
+        pil = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
+        return enc(pil)
+
+    try:
+        ref_emb = _emb_path(ref_p)
+    except Exception as e:
+        out["error"] = f"CLIP 参考编码失败:{e}"
+        out["gate_status"] = GATE_NEEDS_REVIEW
+        return out
+    if ref_emb is None:
+        out["error"] = "参考图读取失败"
+        out["gate_status"] = GATE_NEEDS_REVIEW
+        return out
+
+    neg_embs: dict[str, Any] = {}
+    for raw in negative_ref_paths or []:
+        npth = Path(raw)
+        if not npth.is_file():
+            continue
+        try:
+            e = _emb_path(npth)
+        except Exception:
+            continue
+        if e is not None:
+            neg_embs[str(npth)] = e
+
+    cap = cv2.VideoCapture(str(vid_p))
+    n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    if n <= 1:
+        idxs = [0]
+    else:
+        idxs = sorted(
+            {
+                max(0, min(n - 1, int(round(x))))
+                for x in [0, n * 0.15, n * 0.35, n // 2, n * 0.65, n * 0.85, n - 1]
+            }
+        )
+    self_sims: list[float] = []
+    neg_acc: dict[str, list[float]] = {k: [] for k in neg_embs}
+    burn = 0.0
+    ocr = 0.0
+    frames_ok = 0
+    for i in idxs:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            continue
+        frames_ok += 1
+        burn = max(burn, _burnin_penalty(frame))
+        ocr = max(ocr, _ocr_penalty(frame))
+        crop = _identity_crop_bgr(frame)
+        pil = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
+        try:
+            emb = enc(pil)
+        except Exception:
+            continue
+        self_sims.append(_cosine(ref_emb, emb))
+        for k, ne in neg_embs.items():
+            neg_acc[k].append(_cosine(ne, emb))
+    cap.release()
+
+    out["sims"] = self_sims
+    out["burnin_penalty"] = burn
+    out["ocr_penalty"] = ocr
+    out["frames_sampled"] = frames_ok
+    if not self_sims:
+        out["error"] = "CLIP 帧编码失败" if frames_ok else "视频帧读取失败"
+        out["gate_status"] = GATE_NEEDS_REVIEW
+        out["pass"] = False
+        return out
+
+    face_mean = float(sum(self_sims) / len(self_sims))
+    out["face_mean"] = face_mean
+    neg_means = {
+        k: float(sum(vs) / len(vs)) for k, vs in neg_acc.items() if vs
+    }
+    out["neg_scores"] = neg_means
+    neg_max = max(neg_means.values()) if neg_means else None
+    out["neg_max"] = neg_max
+    if neg_max is None:
+        # 无负样本时无法相对判定 → 需复核（禁止仅靠绝对阈值）
+        out["error"] = "无负样本参考，相对门禁无法判定"
+        out["gate_status"] = GATE_NEEDS_REVIEW
+        out["pass"] = False
+        return out
+    ok_rel = face_mean >= float(neg_max) + float(margin)
+    out["pass"] = bool(ok_rel)
+    out["relative_delta"] = float(face_mean - float(neg_max))
+    if not ok_rel:
+        out["gate_status"] = GATE_NEEDS_REVIEW
+        out["error"] = (
+            f"相对门禁未过:self={face_mean:.3f} neg_max={neg_max:.3f} "
+            f"需≥+{margin:.2f}"
+        )
+    return out
+
+
 def _want_clip_face(mode: str, ref_style: str | None) -> bool:
     m = (mode or "auto").strip().lower()
     if m == "clip":
@@ -483,6 +663,9 @@ def pick_best_candidate(
     face_score_mode: str = "auto",
     ref_style: str | None = None,
     clip_embedder=None,
+    negative_ref_paths: list[str | Path] | None = None,
+    relative_margin: float = 0.03,
+    use_relative_identity: bool | None = None,
 ) -> tuple[str | None, list[dict[str, Any]]]:
     """按 face_mean - burnin - ocr + 连贯加分 - 回退罚分 选优。
 
@@ -602,8 +785,59 @@ def pick_best_candidate(
                 c["is_picked"] = False
             raise CandidatePickError("选优失败:全部候选无法解析本地路径或评分")
 
-        # 人脸门禁：仅在 face_mean≥阈值 的候选中按 score 入选；全员未过则失败
-        if face_ok and float(min_face_mean) > 0:
+        # 人脸门禁：动漫/CLIP 优先相对身份（对本角色 − 负样本最高 ≥ margin）；
+        # 无负样本时回退绝对阈值（写实 insightface）。
+        _rel = use_relative_identity
+        if _rel is None:
+            _rel = bool(want_clip and negative_ref_paths)
+        if face_ok and _rel and negative_ref_paths:
+            for c in done:
+                path = _local(str(c["url"]))
+                if path is None or ref_image_path is None:
+                    c["relative_pass"] = False
+                    continue
+                rel = score_clip_identity_relative(
+                    path,
+                    ref_image_path,
+                    list(negative_ref_paths),
+                    margin=float(relative_margin),
+                    embedder=clip_embedder,
+                )
+                c["face_mean"] = rel.get("face_mean", c.get("face_mean"))
+                c["neg_max"] = rel.get("neg_max")
+                c["relative_delta"] = rel.get("relative_delta")
+                c["relative_pass"] = bool(rel.get("pass"))
+                c["face_score_backend"] = rel.get("score_backend")
+                note = str(c.get("pick_note") or "")
+                delta = rel.get("relative_delta")
+                tag = (
+                    f"rel_delta={delta:.3f}"
+                    if isinstance(delta, (int, float))
+                    else "rel_fail"
+                )
+                c["pick_note"] = (note + "+" if note else "") + tag
+                if not c["relative_pass"]:
+                    c["gate_status"] = GATE_NEEDS_REVIEW
+            gated = [
+                c
+                for c in done
+                if c.get("relative_pass") and c.get("pick_score") is not None
+            ]
+            if not gated:
+                for c in candidates:
+                    c["is_picked"] = False
+                    note = str(c.get("pick_note") or "")
+                    if "rel_gate" not in note:
+                        c["pick_note"] = (note + "+" if note else "") + (
+                            f"rel_gate<+{float(relative_margin):.2f}"
+                        )
+                    c["gate_status"] = GATE_NEEDS_REVIEW
+                raise CandidatePickError(
+                    f"选优失败:无人脸相对门禁达标(需 self≥neg_max+{float(relative_margin):.2f})，"
+                    f"{GATE_NEEDS_REVIEW}，禁止入选并应加候选重跑"
+                )
+            best_id = max(gated, key=lambda c: float(c["pick_score"])).get("id")
+        elif face_ok and float(min_face_mean) > 0:
             gated = [
                 c
                 for c in done
