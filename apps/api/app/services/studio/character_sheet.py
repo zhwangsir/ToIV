@@ -2761,34 +2761,32 @@ def expression_hair_too_long(
 ) -> bool:
     """18:23 发长门禁：发梢相对主立绘不过肩；温柔(chin_only)须齐下巴短发。
 
-    只看脸侧发带；ref 建议传主立绘头肩裁切（同尺度）。
+    非温柔：只看肩下侧发带（过肩才拒），避免齐下巴 bob 的 tip_frac 误杀。
+    温柔：下巴下侧发带 + 肩下发丝。
     """
     cur = _hair_extent_below_face(data)
-    # 绝对：温柔发梢过颈中线偏长；其它过肩
-    abs_lim = 0.14 if chin_only else 0.28
-    abs_hit = cur["tip_frac"] > abs_lim and (
-        cur["dark_below_chin"] + cur["dark_below_shoulder"]
-    ) >= 60
-    if chin_only and cur["dark_below_shoulder"] >= 80:
-        abs_hit = True
-    if not chin_only and cur["dark_below_shoulder"] >= 120 and cur["tip_frac"] > 0.20:
-        abs_hit = True
-    if ref is None:
-        return bool(abs_hit)
-    base = _hair_extent_below_face(ref)
-    worse = (cur["tip_frac"] >= base["tip_frac"] + 0.08) or (
-        cur["dark_below_shoulder"] >= base["dark_below_shoulder"] + 80
-    )
+    base = _hair_extent_below_face(ref) if ref else None
     if chin_only:
-        worse = worse or (cur["tip_frac"] >= base["tip_frac"] + 0.06)
-    if abs_hit and worse:
-        return True
-    # 无绝对命中时，仅当肩下发丝显著且 tip 已过线才相对拒
-    return bool(
-        worse
-        and cur["tip_frac"] > abs_lim
-        and cur["dark_below_shoulder"] >= 80
-    )
+        abs_hit = (
+            cur["dark_below_shoulder"] >= 80
+            or (
+                cur["tip_frac"] > 0.16
+                and (cur["dark_below_chin"] + cur["dark_below_shoulder"]) >= 80
+            )
+        )
+        if base is None:
+            return bool(abs_hit)
+        worse = (
+            cur["dark_below_shoulder"] >= base["dark_below_shoulder"] + 50
+            or cur["tip_frac"] >= base["tip_frac"] + 0.08
+        )
+        return bool(abs_hit and worse)
+    # 非温柔：过肩才拒
+    abs_hit = cur["dark_below_shoulder"] >= 100
+    if base is None:
+        return bool(abs_hit)
+    worse = cur["dark_below_shoulder"] >= base["dark_below_shoulder"] + 60
+    return bool(abs_hit and worse)
 
 
 def assert_expression_identity_gates(
@@ -4566,12 +4564,12 @@ async def generate_character_sheet(
             )
             continue
         elif key.startswith("expr_"):
-            # 表情:紧裁头肩 img2img;denoise 提高以拉开表情差异(禁半身站姿)
+            # 表情:紧裁头肩 img2img;18:23 denoise 略降锁短发，表情差靠提示词
             face = face_ref_name or ref_name
             if face:
                 use_ref = face
                 ref_mode = "img2img" if meta.style == "anime" else "ipa"
-                denoise = 0.68
+                denoise = 0.52 if meta.style == "anime" else 0.62
             else:
                 use_ref = None
                 ref_mode = "none"
@@ -4593,6 +4591,13 @@ async def generate_character_sheet(
                         ", plain flat chest unbranded no logo no text no emblem, "
                         "short chin-length black hair no lengthening"
                     )
+                _neg_x = ""
+                if key.startswith("expr_"):
+                    _neg_x = (
+                        "long hair, hair past shoulders, waist length hair, "
+                        "hair lengthening, flowing long locks, logo, emblem, badge, "
+                        "chest patch, text on clothes, chinese characters"
+                    )
                 raw = await generate_panel_bytes(
                     pool,
                     prompts[key] + (bust if attempt else ""),
@@ -4607,18 +4612,51 @@ async def generate_character_sheet(
                     ref_image=use_ref,
                     ref_mode=ref_mode,
                     denoise=denoise,
+                    negative_extra=_neg_x,
                 )
                 if key.startswith("expr_"):
                     # 16:45：表情近景脸格用 face_closeup_gate，禁 soft coverage
                     raw = enforce_head_shoulders_square(
                         raw, size=768, face_closeup_gate=True
                     )
-                    # 18:23：相对主立绘徽标/发长门禁
-                    assert_expression_identity_gates(
-                        raw,
-                        portrait_ref=panels.get("portrait"),
-                        expr_key=key,
-                    )
+                    # 18:23：相对主立绘徽标/发长门禁；发长拒则先紧裁去下缘再验一次
+                    try:
+                        assert_expression_identity_gates(
+                            raw,
+                            portrait_ref=panels.get("portrait"),
+                            expr_key=key,
+                        )
+                    except CharacterSheetError as ge:
+                        if _expr_reject_cause(ge) == "hair":
+                            try:
+                                im = Image.open(BytesIO(raw)).convert("RGB")
+                                w, h = im.size
+                                # 去掉底部 28%（过肩发常见落点），放大回方图
+                                cut = im.crop((0, 0, w, int(h * 0.72)))
+                                side = max(cut.width, cut.height, 8)
+                                canvas = Image.new("RGB", (side, side), (240, 240, 244))
+                                canvas.paste(
+                                    cut, ((side - cut.width) // 2, 0)
+                                )
+                                canvas = canvas.resize(
+                                    (768, 768), Image.Resampling.LANCZOS
+                                )
+                                buf = BytesIO()
+                                canvas.save(buf, format="PNG")
+                                raw2 = buf.getvalue()
+                                assert_expression_identity_gates(
+                                    raw2,
+                                    portrait_ref=panels.get("portrait"),
+                                    expr_key=key,
+                                )
+                                raw = raw2
+                                logger.info(
+                                    "%s hair recovery via bottom-crop ok", key
+                                )
+                            except CharacterSheetError:
+                                raise ge
+                        else:
+                            raise
                 if key in ("front", "side") and meta.style in ("anime", "二次元"):
                     if portrait_has_chest_emblem(raw):
                         raise CharacterSheetError(
