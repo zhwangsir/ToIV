@@ -45,18 +45,31 @@ def test_lanczos_native_downscale_on_hires_master():
     assert Image.open(BytesIO(out)).size == (768, 768)
     assert meta["native_side"] >= 768 - 1e-6
     assert meta["upscale"] <= 1.0 + 1e-6
-    assert meta.get("route") == "00:31_lanczos_native"
+    assert meta.get("route") in ("00:31_lanczos_native", "00:59_head_height_lanczos")
     assert meta["readable"] is True
 
 
 def test_lowres_master_marked_unreadable_needs_hires():
+    """00:59：头高扩框后低分母版可能变为缩小（readable）；仍须 framing 25–50%。
+
+    另造极小头区母版，确保仍会标 unreadable 以触发高分侧。
+    """
     master = _lowres_side_master()
     out, meta = sheet_svc.crop_face_slot_from_master_with_meta(
         master, slot="face_three_quarter", size=768
     )
     assert Image.open(BytesIO(out)).size == (768, 768)
-    assert meta["upscale"] > 1.08
-    assert meta["readable"] is False
+    frac = meta.get("face_frac")
+    if frac is not None:
+        assert 0.25 - 1e-6 <= float(frac) <= 0.50 + 1e-6, meta
+    # 极小画布：头区原生边长必然 <768/1.08
+    tiny = _hires_side_master(320, 480)
+    out2, meta2 = sheet_svc.crop_face_slot_from_master_with_meta(
+        tiny, slot="face_three_quarter", size=768
+    )
+    assert Image.open(BytesIO(out2)).size == (768, 768)
+    assert meta2["upscale"] > 1.08
+    assert meta2["readable"] is False
 
 
 def test_prepare_hires_side_head_init_square():
@@ -92,7 +105,7 @@ def test_expression_grid_local_feature_hard_mask():
 
 def test_source_has_0031_rules():
     src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
-    assert "00:31_lanczos_native" in src or "00:31：原分辨率裁头" in src
+    assert ("00:31_lanczos_native" in src or "00:59_head_height_lanczos" in src or "00:31：原分辨率裁头" in src or "00:59：按头高" in src)
     assert "regenerate_hires_side_head_master" in src
     assert "apply_expression_grid_local_features" in src
     assert "只改每一格的眉毛" in src
