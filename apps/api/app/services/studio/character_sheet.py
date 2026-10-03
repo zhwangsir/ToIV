@@ -2892,8 +2892,11 @@ def assert_face_closeup_framing(
     """
     img = Image.open(BytesIO(data)).convert("RGB")
     _w, h = img.size
+    area = float(min_face_area)
+    if face_key in ("face_three_quarter", "face_side"):
+        area = min(area, 0.02)
     bb = assert_face_visible(
-        data, min_face_area=min_face_area, face_key=face_key
+        data, min_face_area=area, face_key=face_key
     )
     x1, y1, x2, y2 = bb
     face_h = max(1.0, float(y2) - float(y1))
@@ -4033,7 +4036,28 @@ async def generate_character_sheet(
                         last_face_err = e
                         logger.warning("faces %s attempt=%s: %s", fk, fa, e)
                 if last_face_err is not None:
-                    raise last_face_err
+                    # 17:14：侧脸格 insightface 常对真侧影无框；有过审 side 母版则裁头肩兜底
+                    if fk == "face_side" and panels.get("side"):
+                        try:
+                            side_img = Image.open(BytesIO(panels["side"])).convert("RGB")
+                            sw, sh = side_img.size
+                            # 上半身头肩：约顶 2%–55% 高，水平居中偏上
+                            crop = side_img.crop(
+                                (int(sw * 0.18), int(sh * 0.02), int(sw * 0.82), int(sh * 0.55))
+                            )
+                            crop = crop.resize((768, 768), Image.Resampling.LANCZOS)
+                            buf = BytesIO()
+                            crop.save(buf, format="PNG")
+                            tri[fk] = buf.getvalue()
+                            logger.warning(
+                                "faces face_side fallback: crop from approved side master (%s)",
+                                last_face_err,
+                            )
+                            last_face_err = None
+                        except Exception as fe:  # noqa: BLE001
+                            logger.warning("faces face_side master crop fail: %s", fe)
+                    if last_face_err is not None:
+                        raise last_face_err
             # 单候选也过 yaw 记录(多候选在 regenerate / fix11 脚本)
             for fk in list(tri.keys()):
                 _y = estimate_face_yaw_deg(tri[fk])
