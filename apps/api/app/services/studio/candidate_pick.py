@@ -421,7 +421,8 @@ def score_clip_identity_relative(
         bgr = cv2.imread(str(p))
         if bgr is None:
             return None
-        crop = _identity_crop_bgr(bgr)
+        # 动漫 CLIP：统一上半身裁（insightface 裁脸会把 1052/立绘排序打乱）
+        crop = _upper_body_crop_bgr(bgr)
         pil = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
         return enc(pil)
 
@@ -472,7 +473,7 @@ def score_clip_identity_relative(
         frames_ok += 1
         burn = max(burn, _burnin_penalty(frame))
         ocr = max(ocr, _ocr_penalty(frame))
-        crop = _identity_crop_bgr(frame)
+        crop = _upper_body_crop_bgr(frame)
         pil = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
         try:
             emb = enc(pil)
