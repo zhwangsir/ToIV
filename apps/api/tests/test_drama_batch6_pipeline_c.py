@@ -482,11 +482,21 @@ def test_build_c_visual_prompt_with_costume_lock():
 
 
 def test_palette_pick_and_zh_color_lock():
-    """06:4x：按面积序取服装色，中文色名进正向，紫蓝进反向。"""
+    """07:3x：按面积序取服装色（不把最深色抬到灰前面）；中文色名进正向，紫蓝进反向。"""
+    # 面积序：肤色忽略 → 黑 → 棕 → 金；紫蓝过滤
     colors = ["#E8C4A8", "#1A1A1E", "#8B7355", "#D4AF37", "#6A5ACD"]
     picked = pick_garment_colors(colors, n=3)
     assert picked[0] == "#1A1A1E"
     assert "#E8C4A8" not in picked
+    assert "#6A5ACD" not in picked
+    # 板岩灰面积大于纯黑时，灰必须当首位主色（雨衣纠偏）
+    anime_area = ["#5A6A7A", "#1A1A1E", "#2C2C34"]
+    anime_picked = pick_garment_colors(anime_area, n=3)
+    assert anime_picked[0] == "#5A6A7A", anime_picked
+    assert anime_picked[1] == "#1A1A1E"
+    pos_a, _ = costume_color_phrases_from_palette(anime_area)
+    assert "板岩灰" in pos_a or "灰色" in pos_a
+    assert "slate gray" in pos_a.lower() or "gray" in pos_a.lower()
     pos, neg = costume_color_phrases_from_palette(colors)
     assert "纯黑" in pos or "深棕" in pos or "棕色" in pos
     assert "jet black" in pos.lower() or "deep brown" in pos.lower() or "brown" in pos.lower()
@@ -502,4 +512,6 @@ def test_palette_pick_and_zh_color_lock():
     assert "indigo" not in pos and "navy" not in pos
     zh, en = hex_to_zh_en_color("#1A1A1E")
     assert zh == "纯黑" and "black" in en
+    zh_g, en_g = hex_to_zh_en_color("#5A6A7A")
+    assert zh_g == "板岩灰" and "slate" in en_g.lower()
 

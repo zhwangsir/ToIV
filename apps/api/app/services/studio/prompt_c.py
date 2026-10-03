@@ -154,7 +154,7 @@ def hex_to_zh_en_color(hx: str) -> tuple[str, str]:
         "brown": ("棕色", "brown"),
         "gold": ("金色", "gold"),
         "charcoal": ("炭黑", "charcoal black"),
-        "gray": ("灰色", "gray"),
+        "gray": ("板岩灰", "slate gray"),
         "skin": ("肤色", "skin tone"),
         "purple": ("紫色", "purple"),
         "blue": ("蓝色", "blue"),
@@ -165,7 +165,7 @@ def hex_to_zh_en_color(hx: str) -> tuple[str, str]:
 
 def adjacent_wrong_color_terms(families: list[str]) -> str:
     """对黑/深棕主色，反向禁止相邻紫/蓝漂移。"""
-    garment = {f for f in families if f in ("black", "deep_brown", "brown", "charcoal", "gold")}
+    garment = {f for f in families if f in ("black", "deep_brown", "brown", "charcoal", "gray", "gold")}
     if not garment:
         return (
             "no purple clothing, no violet clothing, no blue clothing, "
@@ -180,7 +180,13 @@ def adjacent_wrong_color_terms(families: list[str]) -> str:
 
 
 def pick_garment_colors(colors: list[str] | None, n: int = 3) -> list[str]:
-    """按面积序收集服装色，再按服装主色优先级重排（黑/深棕优先于灰）。"""
+    """按面积序取服装色（调用方/抽色应已按像素面积降序）；不按「最深色」重排。
+
+    07:3x 纠偏：面积最大的衣料色优先（如板岩灰雨衣），禁止把纯黑抬到灰前面。
+    仅过滤底色/肤色/紫蓝漂移色；金色镶边若未进 top-n 则替换末位保留。
+    """
+    # 紫/蓝是漂移禁区，不当主衣料色；其余保持输入面积序
+    skip_fams = {"skin", "blue", "purple"}
     cands: list[str] = []
     for raw in colors or []:
         hx = _normalize_hex(raw)
@@ -189,34 +195,19 @@ def pick_garment_colors(colors: list[str] | None, n: int = 3) -> list[str]:
         if _is_bg_or_light_hex(hx):
             continue
         fam = _color_family(hx)
-        # 只用色族判肤色，避免棕/金被 _is_skin_hex 误伤
-        if fam == "skin":
+        if fam in skip_fams:
             continue
         if hx not in cands:
             cands.append(hx)
-    prio = {
-        "black": 0,
-        "deep_brown": 1,
-        "brown": 2,
-        "gold": 3,
-        "charcoal": 4,
-        "gray": 8,
-        "other": 9,
-        "blue": 10,
-        "purple": 11,
-    }
-    ranked = sorted(
-        enumerate(cands),
-        key=lambda it: (prio.get(_color_family(it[1]), 9), it[0]),
-    )
-    picked = [hx for _, hx in ranked[:n]]
-    # 色板有金则尽量保留镶边色
+    picked = cands[:n]
+    # 色板有金则尽量保留镶边色（不改变首位主色）
     golds = [hx for hx in cands if _color_family(hx) == "gold"]
     if golds and not any(_color_family(hx) == "gold" for hx in picked):
         if len(picked) < n:
             picked.append(golds[0])
-        else:
+        elif len(picked) >= 2:
             picked[-1] = golds[0]
+        # 若只有 1 格且主色非金，仍用主色，金不抢首位
     return picked
 
 
