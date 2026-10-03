@@ -1133,6 +1133,11 @@ def force_slate_garment_tint(
     target: str = SLATE_GRAY_TARGET,
     strength: float = 0.85,
 ) -> bytes:
+    """16:18：已禁用。整图着色/矩形铺色路径删除，不留开关。"""
+    raise CharacterSheetError(
+        "已禁用整图着色(force_slate_garment_tint)，须重出而非程序上色",
+        status_code=422,
+    )
     """把人物内容框内服装区主色拉向板岩灰（保留明暗结构）。img2img 重染失败时的硬兜底。"""
     tr, tg, tb = int(target[1:3], 16), int(target[3:5], 16), int(target[5:7], 16)
     img = Image.open(BytesIO(data)).convert("RGB")
@@ -1320,42 +1325,167 @@ def portrait_has_chest_emblem(data: bytes) -> bool:
     return False
 
 
+
+
+def assert_no_large_uniform_rect(data: bytes, *, label: str = "面板") -> None:
+    """16:18②：检测大块均匀矩形色块（程序铺色痕迹）→ 拒。
+
+    在胸口/躯干滑窗找低方差块；近板岩灰时阈值更严。
+    """
+    import statistics
+
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    slate = (
+        int(SLATE_GRAY_TARGET[1:3], 16),
+        int(SLATE_GRAY_TARGET[3:5], 16),
+        int(SLATE_GRAY_TARGET[5:7], 16),
+    )
+    # 胸口区域滑窗（约 18%×15% 画幅）
+    win_w, win_h = max(24, int(w * 0.18)), max(20, int(h * 0.12))
+    y_lo, y_hi = int(h * 0.22), int(h * 0.62)
+    x_lo, x_hi = int(w * 0.22), int(w * 0.78)
+    step_x, step_y = max(8, win_w // 3), max(8, win_h // 3)
+    hits = 0
+    for y0 in range(y_lo, max(y_lo + 1, y_hi - win_h + 1), step_y):
+        for x0 in range(x_lo, max(x_lo + 1, x_hi - win_w + 1), step_x):
+            crop = img.crop((x0, y0, x0 + win_w, y0 + win_h))
+            small = crop.resize((24, 18), Image.Resampling.BILINEAR)
+            px = list(small.getdata())
+            if len(px) < 10:
+                continue
+            lumas = [(r + g + b) / 3.0 for r, g, b in px]
+            try:
+                stdev = statistics.pstdev(lumas)
+            except statistics.StatisticsError:
+                continue
+            mean_rgb = tuple(sum(c[i] for c in px) / len(px) for i in range(3))
+            dist = sum(abs(mean_rgb[i] - slate[i]) for i in range(3))
+            # 近板岩灰的极匀块 = 典型程序铺色
+            if stdev < 8.0 and dist < 45:
+                hits += 2
+            elif stdev < 3.5:
+                hits += 1
+            if hits >= 2:
+                raise CharacterSheetError(
+                    f"出图门禁失败:{label}检出大块均匀矩形色块(stdev={stdev:.1f})",
+                    status_code=422,
+                )
+
+
+def assert_skin_not_blue_gray(data: bytes, *, label: str = "面板") -> None:
+    """16:18②：脸部肤色偏蓝灰 → 拒（整图着色/染灰痕迹）。"""
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    # 头肩上半
+    head = img.crop((int(w * 0.20), int(h * 0.05), int(w * 0.80), int(h * 0.42)))
+    small = head.resize((48, 48), Image.Resampling.BILINEAR)
+    px = list(small.getdata())
+    skinish = []
+    for r, g, b in px:
+        # 略宽肤色带
+        if 70 < r < 245 and 50 < g < 220 and 40 < b < 210:
+            if r >= g - 15:  # 正常肤色 r 不低于 g 太多
+                skinish.append((r, g, b))
+    if len(skinish) < 12:
+        return  # 检不出肤色时不在此门禁误杀（人脸门禁另管）
+    blue_gray = 0
+    for r, g, b in skinish:
+        # 偏蓝：b 明显高于 r，或灰蓝（低饱和且 b>=r）
+        chroma = max(r, g, b) - min(r, g, b)
+        if b > r + 12 and b > g + 5:
+            blue_gray += 1
+        elif chroma < 22 and b >= r and (r + g + b) / 3 < 160:
+            blue_gray += 1
+    ratio = blue_gray / len(skinish)
+    if ratio >= 0.28:
+        raise CharacterSheetError(
+            f"出图门禁失败:{label}脸部肤色偏蓝灰(ratio={ratio:.2f})",
+            status_code=422,
+        )
+
+
+def assert_turnaround_pose(data: bytes, key: str) -> None:
+    """16:18③：侧/背姿态门禁——侧须侧脸或高 yaw；背须无明显正脸。"""
+    if key not in ("side", "back"):
+        return
+    yaw = estimate_face_yaw_deg(data)
+    if key == "side":
+        # 侧脸：yaw 足够大；或检不出正脸（轮廓侧影）
+        if yaw is not None and abs(yaw) < 28:
+            raise CharacterSheetError(
+                f"姿态门禁失败:side 仍偏正面(yaw={yaw:.1f}<28)",
+                status_code=422,
+            )
+        # 若 yaw 检不出，用左右不对称启发式已在 estimate 内；仍 None 则看是否像正脸
+        if yaw is None:
+            try:
+                assert_face_visible(data, min_face_area=0.01)
+                # 能检到正脸且无 yaw → 多半仍是正面
+                raise CharacterSheetError(
+                    "姿态门禁失败:side 检出正脸且无有效 yaw",
+                    status_code=422,
+                )
+            except CharacterSheetError as e:
+                if "姿态门禁" in str(e):
+                    raise
+                # 无人脸更像真侧影，放行
+                return
+    if key == "back":
+        # 背影不应有清晰正脸
+        try:
+            assert_face_visible(data, min_face_area=0.012)
+        except CharacterSheetError:
+            return  # 无正脸 = 合格背影
+        # 有脸则 yaw 须极高（几乎侧/后）或拒绝
+        if yaw is None or abs(yaw) < 55:
+            raise CharacterSheetError(
+                f"姿态门禁失败:back 仍可见正脸(yaw={yaw})",
+                status_code=422,
+            )
+
+
+def assert_panel_output_gates(data: bytes, *, label: str, key: str | None = None) -> None:
+    """16:18 组合出图门禁：矩形色块 + 肤色 + 侧背姿态。"""
+    assert_no_large_uniform_rect(data, label=label)
+    if key in (None, "portrait", "front", "side") or (
+        key and key.startswith("expr_")
+    ):
+        assert_skin_not_blue_gray(data, label=label)
+    if key in ("side", "back"):
+        assert_turnaround_pose(data, key)
+
+
 def assert_sheet_garment_consistency(
     panels: dict[str, bytes],
     *,
     max_dist: int = 90,
     style: str = "anime",
 ) -> None:
-    """13:16②：主立绘 vs 三视图服装主色差超阈或主立绘贴标 → 不得过审。"""
+    """13:16②：主立绘 vs 三视图服装主色差超阈或主立绘贴标 → 不得过审。
+
+    16:18：禁止矩形铺色去标；检出贴标直接 422 重出。
+    """
     portrait = panels.get("portrait")
     if not portrait:
         raise CharacterSheetError("一致性门禁失败:缺主立绘", status_code=422)
-    def _cover_chest(data: bytes) -> bytes:
-        tim = Image.open(BytesIO(data)).convert("RGB")
-        tw, th = tim.size
-        draw = ImageDraw.Draw(tim)
-        fill = (
-            int(SLATE_GRAY_TARGET[1:3], 16),
-            int(SLATE_GRAY_TARGET[3:5], 16),
-            int(SLATE_GRAY_TARGET[5:7], 16),
-        )
-        draw.rectangle(
-            [int(tw * 0.36), int(th * 0.28), int(tw * 0.64), int(th * 0.52)],
-            fill=fill,
-        )
-        buf = BytesIO()
-        tim.save(buf, format="PNG")
-        return buf.getvalue()
-
     if style in ("anime", "二次元") and portrait_has_chest_emblem(portrait):
-        # 拼版前最后一次程序去标，避免生成路径已铺色仍被启发式误杀
-        portrait = _cover_chest(portrait)
-        panels["portrait"] = portrait
+        raise CharacterSheetError(
+            "一致性门禁失败:主立绘胸口检出贴标/徽标", status_code=422
+        )
     if style in ("anime", "二次元"):
         for key in ("front", "side", "back"):
             data = panels.get(key)
             if data and portrait_has_chest_emblem(data):
-                panels[key] = _cover_chest(data)
+                raise CharacterSheetError(
+                    f"一致性门禁失败:{key}胸口检出贴标/徽标", status_code=422
+                )
+    # 16:18 出图门禁：矩形色块 / 肤色偏蓝灰 / 侧背姿态
+    assert_panel_output_gates(portrait, label="主立绘", key="portrait")
+    for key in ("front", "side", "back"):
+        data = panels.get(key)
+        if data:
+            assert_panel_output_gates(data, label=key, key=key)
     p_hex = _panel_garment_dominant_hex(portrait)
     if not p_hex:
         raise CharacterSheetError("一致性门禁失败:主立绘无法取服装主色", status_code=422)
@@ -3320,10 +3450,20 @@ async def generate_character_sheet(
     ckpt = ckpt_name or _SHEET_CKPT.get(meta.style, _SHEET_CKPT["anime"])
     client = await _pick_sheet_client(worker)
 
-    # 1) 主立绘(无参考)；anime 胸口徽标则换 seed，失败再胸口局部 img2img 去标
+    # 1) 主立绘；16:03/16:18：若已注入旧正面，则以旧正面 img2img 编辑出主立绘（禁空白文生）
     if "portrait" not in panels:
         w, h = _panel_size("portrait", meta.style)
         last_err = None
+        front_ref_name = None
+        if panels.get("front"):
+            try:
+                front_ref_name = await client.upload_image(
+                    panels["front"],
+                    f"sheet_front_ref_{character_id[:8]}_{meta.style}.png",
+                )
+            except Exception as e:  # noqa: BLE001
+                logger.warning("upload front ref for portrait edit failed: %s", e)
+                front_ref_name = None
         for attempt in range(6):
             try:
                 s = None if seed is None else int(seed) + attempt * 9973
@@ -3332,18 +3472,38 @@ async def generate_character_sheet(
                     f", unique layout variant {attempt}-{s or 0}, "
                     "plain flat chest no badge no emblem no star patch"
                 )
-                panels["portrait"] = await generate_panel_bytes(
-                    pool,
-                    prompts["portrait"] + bust,
-                    ckpt_name=ckpt,
-                    width=w,
-                    height=h,
-                    seed=s,
-                    worker=worker,
-                    filename_prefix=f"ToIV_char_sheet_portrait_a{attempt}",
-                    style=meta.style,
-                    client=client,
-                )
+                if front_ref_name:
+                    panels["portrait"] = await generate_panel_bytes(
+                        pool,
+                        prompts["portrait"]
+                        + ", edit from reference front view into full-body main portrait, "
+                        "same character same outfit same colors, plain flat chest, "
+                        + bust,
+                        ckpt_name=ckpt,
+                        width=w,
+                        height=h,
+                        seed=s,
+                        worker=worker,
+                        filename_prefix=f"ToIV_char_sheet_portrait_fromfront_a{attempt}",
+                        style=meta.style,
+                        client=client,
+                        ref_image=front_ref_name,
+                        ref_mode="img2img",
+                        denoise=0.48,
+                    )
+                else:
+                    panels["portrait"] = await generate_panel_bytes(
+                        pool,
+                        prompts["portrait"] + bust,
+                        ckpt_name=ckpt,
+                        width=w,
+                        height=h,
+                        seed=s,
+                        worker=worker,
+                        filename_prefix=f"ToIV_char_sheet_portrait_a{attempt}",
+                        style=meta.style,
+                        client=client,
+                    )
                 if meta.style in ("anime", "二次元") and portrait_has_chest_emblem(
                     panels["portrait"]
                 ):
@@ -3371,26 +3531,10 @@ async def generate_character_sheet(
                             denoise=0.28,
                         )
                         if portrait_has_chest_emblem(cleaned):
-                            # 程序去标：胸口 ROI 铺板岩灰
-                            tim = Image.open(BytesIO(cleaned)).convert("RGB")
-                            tw, th = tim.size
-                            draw = ImageDraw.Draw(tim)
-                            fill = (
-                                int(SLATE_GRAY_TARGET[1:3], 16),
-                                int(SLATE_GRAY_TARGET[3:5], 16),
-                                int(SLATE_GRAY_TARGET[5:7], 16),
-                            )
-                            draw.rectangle(
-                                [int(tw * 0.36), int(th * 0.30), int(tw * 0.64), int(th * 0.52)],
-                                fill=fill,
-                            )
-                            buf = BytesIO()
-                            tim.save(buf, format="PNG")
-                            cleaned = buf.getvalue()
-                            # 程序铺色后不再用启发式复检（易把铺色边缘当贴标）
-                            logger.info(
-                                "portrait emblem covered by chest fill attempt=%s",
-                                attempt,
+                            # 16:18：禁用矩形铺色；img2img 去标失败则换 seed
+                            raise CharacterSheetError(
+                                "主立绘胸口徽标，img2img 去标失败禁铺色",
+                                status_code=422,
                             )
                         panels["portrait"] = cleaned
                         logger.info("portrait emblem cleared via img2img attempt=%s", attempt)
@@ -3454,50 +3598,14 @@ async def generate_character_sheet(
                             panels["portrait"] = recolored
                             logger.info("portrait recolored to slate attempt=%s", attempt)
                         except CharacterSheetError as re_e:
+                            # 16:18：禁用强制着色/矩形铺色；重染失败则换 seed 重出
+                            last_err = re_e
                             logger.warning(
-                                "portrait recolor fail attempt=%s: %s; force tint",
+                                "portrait recolor fail attempt=%s: %s; no force tint",
                                 attempt,
                                 re_e,
                             )
-                            try:
-                                tinted = force_slate_garment_tint(panels["portrait"])
-                                if portrait_has_chest_emblem(tinted):
-                                    tim = Image.open(BytesIO(tinted)).convert("RGB")
-                                    tw, th = tim.size
-                                    draw = ImageDraw.Draw(tim)
-                                    fill = (
-                                        int(SLATE_GRAY_TARGET[1:3], 16),
-                                        int(SLATE_GRAY_TARGET[3:5], 16),
-                                        int(SLATE_GRAY_TARGET[5:7], 16),
-                                    )
-                                    draw.rectangle(
-                                        [
-                                            int(tw * 0.36),
-                                            int(th * 0.28),
-                                            int(tw * 0.64),
-                                            int(th * 0.52),
-                                        ],
-                                        fill=fill,
-                                    )
-                                    buf = BytesIO()
-                                    tim.save(buf, format="PNG")
-                                    tinted = buf.getvalue()
-                                assert_fullbody_portrait_face_ok(tinted)
-                                assert_garment_near_slate_gray(
-                                    tinted, label="主立绘强制着色", max_dist=95
-                                )
-                                panels["portrait"] = tinted
-                                logger.info(
-                                    "portrait force-tinted to slate attempt=%s", attempt
-                                )
-                            except CharacterSheetError as tint_e:
-                                last_err = tint_e
-                                logger.warning(
-                                    "portrait force tint fail attempt=%s: %s",
-                                    attempt,
-                                    tint_e,
-                                )
-                                continue
+                            continue
                 break
             except CharacterSheetError as e:
                 last_err = e
@@ -3583,7 +3691,7 @@ async def generate_character_sheet(
                         )
                         raw = normalize_turnaround_figure(raw, out_w=w, out_h=h)
                         if key in ("front", "side") and portrait_has_chest_emblem(raw):
-                            # 胸口残留徽标：再 img2img 一次素面；仍失败则胸口 ROI 铺板岩灰
+                            # 胸口残留徽标：再 img2img 一次素面；仍失败则 422（16:18 禁铺色）
                             raw = await generate_panel_bytes(
                                 pool,
                                 prompts[key]
@@ -3605,42 +3713,18 @@ async def generate_character_sheet(
                             )
                             raw = normalize_turnaround_figure(raw, out_w=w, out_h=h)
                             if portrait_has_chest_emblem(raw):
-                                tim = Image.open(BytesIO(raw)).convert("RGB")
-                                tw, th = tim.size
-                                draw = ImageDraw.Draw(tim)
-                                fill = (
-                                    int(SLATE_GRAY_TARGET[1:3], 16),
-                                    int(SLATE_GRAY_TARGET[3:5], 16),
-                                    int(SLATE_GRAY_TARGET[5:7], 16),
-                                )
-                                draw.rectangle(
-                                    [
-                                        int(tw * 0.36),
-                                        int(th * 0.28),
-                                        int(tw * 0.64),
-                                        int(th * 0.52),
-                                    ],
-                                    fill=fill,
-                                )
-                                buf = BytesIO()
-                                tim.save(buf, format="PNG")
-                                raw = buf.getvalue()
-                                logger.info(
-                                    "img2img %s emblem covered by chest fill attempt=%s",
-                                    key,
-                                    attempt,
+                                raise CharacterSheetError(
+                                    f"img2img {key}胸口徽标残留，禁铺色须重出",
+                                    status_code=422,
                                 )
                         # 与主立绘服装色差；过大则强制着色对齐板岩灰后再比
                         p_hex = _panel_garment_dominant_hex(panels["portrait"])
                         t_hex = _panel_garment_dominant_hex(raw)
                         if p_hex and t_hex and _hex_dist(p_hex, t_hex) > 110:
-                            raw = force_slate_garment_tint(raw, strength=0.88)
-                            t_hex = _panel_garment_dominant_hex(raw)
-                            if p_hex and t_hex and _hex_dist(p_hex, t_hex) > 140:
-                                raise CharacterSheetError(
-                                    f"img2img {key}服装色差过大({t_hex} vs {p_hex})，重试",
-                                    status_code=422,
-                                )
+                            raise CharacterSheetError(
+                                f"img2img {key}服装色差过大({t_hex} vs {p_hex})，禁强制着色须重出",
+                                status_code=422,
+                            )
                         panels[key] = raw
                         last_err = None
                         break
