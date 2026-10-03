@@ -170,3 +170,42 @@ def test_source_has_0059_rules():
     assert "expression_mask_exterior_unchanged" in src
     assert "iris_hsv_consistent" in src
     assert "_expr_grid_fallback" in src
+
+
+def test_costume_real_portrait_0059_ratios():
+    """01:16：对真实 0059 portrait 断言五格 ratio≥0.25，袖口框在灰条内，腿脚贴底。"""
+    from pathlib import Path
+
+    portrait_path = (
+        Path(__file__).resolve().parents[3]
+        / "tmp"
+        / "toiv_report_sheet_anime_0059_portrait.png"
+    )
+    if not portrait_path.is_file():
+        import pytest
+
+        pytest.skip(f"missing real portrait {portrait_path}")
+    portrait = portrait_path.read_bytes()
+    img = Image.open(BytesIO(portrait)).convert("RGB")
+    gx0, gx1 = sheet_svc._middle_gray_stripe_x_bounds(img)
+    cuff = sheet_svc._wrist_cuff_box(img)
+    legs = sheet_svc._legs_box(img)
+    assert cuff[0] >= gx0 - 1e-6 and cuff[2] <= gx1 + 1e-6, (cuff, gx0, gx1)
+    assert legs[0] >= gx0 - 1e-6 and legs[2] <= gx1 + 1e-6, (legs, gx0, gx1)
+    assert legs[1] >= 0.75 and legs[3] >= 0.99, legs
+    # 袖口不得落到左外框（旧 FAIL：x0≈0）
+    assert cuff[0] >= 0.25, cuff
+    out = sheet_svc.build_costume_collage_from_portrait(
+        portrait, style="anime", size=256, min_fg=0.60
+    )
+    ratios = sheet_svc.costume_cell_content_ratios(out, n=5)
+    assert all(r >= 0.25 for r in ratios), ratios
+    # 无大片顶空白：每格顶 1/6 不全是浅/中灰
+    im = Image.open(BytesIO(out)).convert("RGB")
+    w, h = im.size
+    cell_w = w // 5
+    for i in range(5):
+        cell = im.crop((i * cell_w, 0, (i + 1) * cell_w if i < 4 else w, h))
+        top = cell.crop((0, 0, cell.size[0], max(1, cell.size[1] // 6)))
+        r = sheet_svc._costume_cell_fg_ratio(top)
+        assert r >= 0.08, (i, r, "large top blank")

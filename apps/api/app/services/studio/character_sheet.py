@@ -7989,7 +7989,14 @@ def _trim_object_bbox(img: Image.Image, *, style: str, pad: int = 12) -> Image.I
     # anime 白底 / 古风深底
     if style == "anime":
         def _fg(r, g, b) -> bool:
-            return not (r > 230 and g > 230 and b > 230)
+            # 01:16：浅外框+中灰条也当背景，避免袖口格 trim 保留大片空底
+            if r > 230 and g > 230 and b > 230:
+                return False
+            if abs(r - g) < 14 and abs(g - b) < 14 and r >= 185:
+                return False
+            if abs(r - g) < 8 and abs(g - b) < 8 and 140 < r < 210:
+                return False
+            return True
     else:
         def _fg(r, g, b) -> bool:
             # 深黑旧底 + 浅/中灰新底都当背景
@@ -8028,7 +8035,7 @@ _COSTUME_PORTRAIT_BANDS: tuple[tuple[str, tuple[float, float, float, float]], ..
     ("cuff", (0.00, 0.42, 0.38, 0.58)),  # 占位；实际由 _wrist_cuff_box 重定（含手）
     ("pocket", (0.36, 0.43, 0.64, 0.55)),  # 口袋，收窄
     ("hem", (0.32, 0.58, 0.68, 0.74)),  # 下摆收窄
-    ("legs", (0.40, 0.76, 0.60, 0.99)),  # 腿脚再收窄
+    ("legs", (0.38, 0.82, 0.62, 0.995)),  # 01:16：腿脚贴底，禁扩外框
 )
 
 
@@ -8077,31 +8084,34 @@ def _middle_gray_stripe_x_bounds(
 
 
 def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
-    """00:59：袖口+手——优先左右侧含肤色/袖缘的局部，禁止正中空素布。
+    """01:16 / 00:59：袖口+手——水平强制钳进中间灰条人物区，禁止浅色外框。
 
-    裁框横向限制在中间灰条内；非背景≥60%；奖励肤色像素与边缘对比。
+    在人物躯干左右侧找含袖缘/肤色的框；浅边占比高则丢弃；cover 前目标非背景≥0.25。
     """
     w, h = img.size
     gx0, gx1 = _middle_gray_stripe_x_bounds(img)
-    span = max(0.08, gx1 - gx0)
-    gx0 = gx0 + span * 0.04
-    gx1 = gx1 - span * 0.04
-    # 在人物条左右内缘取袖口+手（相对灰条坐标），略偏下
+    # 再内收 4%，彻底躲开浅外框/灰条边界
+    span = max(0.10, gx1 - gx0)
+    gx0 = min(0.48, gx0 + span * 0.04)
+    gx1 = max(gx0 + 0.12, gx1 - span * 0.04)
+    span = max(0.10, gx1 - gx0)
     mid = (gx0 + gx1) / 2.0
-    span = max(0.08, gx1 - gx0)
+    # 只在人物条左右侧采样（禁正中素布、禁外框）
     candidates = [
-        (gx0 + span * 0.18, 0.48),
-        (gx1 - span * 0.18, 0.48),
+        (gx0 + span * 0.16, 0.48),
+        (gx1 - span * 0.16, 0.48),
         (gx0 + span * 0.22, 0.52),
         (gx1 - span * 0.22, 0.52),
         (gx0 + span * 0.28, 0.46),
         (gx1 - span * 0.28, 0.46),
         (gx0 + span * 0.12, 0.50),
         (gx1 - span * 0.12, 0.50),
+        (gx0 + span * 0.20, 0.54),
+        (gx1 - span * 0.20, 0.54),
     ]
     best_box = None
     best_score = -1.0
-    half_w, half_h = 0.12, 0.09
+    half_w, half_h = 0.11, 0.085
     px = img.load()
 
     def _skin_frac(crop: Image.Image) -> float:
@@ -8116,20 +8126,27 @@ def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
                 n += 1
         return n / float(len(pts))
 
+    def _clamp_box(x0: float, y0: float, x1: float, y1: float) -> tuple[float, float, float, float]:
+        x0 = max(gx0, min(x0, gx1 - 0.06))
+        x1 = min(gx1, max(x1, gx0 + 0.06))
+        if x1 <= x0 + 0.06:
+            # 偏哪侧就贴哪侧内缘
+            if (x0 + x1) / 2.0 < mid:
+                x0, x1 = gx0, min(gx1, gx0 + max(0.18, half_w * 2))
+            else:
+                x1, x0 = gx1, max(gx0, gx1 - max(0.18, half_w * 2))
+        y0 = max(0.36, min(y0, 0.62))
+        y1 = min(0.66, max(y1, y0 + 0.08))
+        return (x0, y0, x1, y1)
+
     for cx, cy in candidates:
         for scale in (1.0, 1.15, 1.35, 1.55):
             hw, hh = half_w * scale, half_h * scale
-            x0 = max(gx0, cx - hw)
-            x1 = min(gx1, cx + hw)
-            # 若中心在灰条外，钳到灰条边内侧
-            if x1 <= x0 + 0.04:
-                if cx < 0.5:
-                    x0, x1 = gx0, min(gx1, gx0 + max(0.18, hw * 2))
-                else:
-                    x1, x0 = gx1, max(gx0, gx1 - max(0.18, hw * 2))
-            y0 = max(0.34, cy - hh)
-            y1 = min(0.68, cy + hh * 1.1)
-            if x1 <= x0 + 0.04 or y1 <= y0 + 0.04:
+            x0, y0, x1, y1 = _clamp_box(cx - hw, cy - hh, cx + hw, cy + hh * 1.1)
+            # 硬约束：整框必须在灰条内
+            if x0 < gx0 - 1e-6 or x1 > gx1 + 1e-6:
+                continue
+            if x1 <= x0 + 0.05 or y1 <= y0 + 0.05:
                 continue
             xa, ya = int(w * x0), int(h * y0)
             xb, yb = int(w * x1), int(h * y1)
@@ -8139,27 +8156,56 @@ def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
             r = _costume_cell_fg_ratio(crop, treat_mid_gray_bg=True)
             edge = _light_edge_frac(crop, edge=max(4, (xb - xa) // 12))
             skin = _skin_frac(crop)
-            # 奖励：前景 + 肤色（手） - 浅边；惩罚过于居中的素布
-            center_pen = 0.15 * (1.0 - abs(cx - 0.5) * 2.0)  # 越居中惩罚越大
-            score = r + 1.4 * skin - 0.55 * edge - center_pen
+            # 浅边过高 → 仍落在外框/灰条，直接丢弃
+            if edge > 0.35 and r < 0.35:
+                continue
+            if r < 0.12 and skin < 0.01:
+                continue
+            center_pen = 0.22 * (1.0 - abs(cx - mid) / max(0.05, span / 2.0))
+            score = r + 1.5 * skin - 0.75 * edge - max(0.0, center_pen)
             if score > best_score:
                 best_score = score
                 best_box = (x0, y0, x1, y1)
-            if r + 1e-12 >= 0.60 and edge < 0.30 and (skin > 0.02 or abs(cx - 0.5) > 0.18):
+            if r + 1e-12 >= 0.55 and edge < 0.28 and (skin > 0.015 or abs(cx - mid) > span * 0.18):
                 return best_box
     if best_box is None:
-        # 人物条左内缘袖口兜底
-        return (gx0 + span * 0.05, 0.44, gx0 + span * 0.42, 0.60)
-    # 过窄则扩到至少 0.16 宽
+        # 人物条左内缘袖口兜底（仍钳灰条）
+        best_box = (gx0 + span * 0.05, 0.44, gx0 + span * 0.40, 0.60)
     x0, y0, x1, y1 = best_box
+    x0, y0, x1, y1 = _clamp_box(x0, y0, x1, y1)
     if (x1 - x0) < 0.16:
         cx = (x0 + x1) / 2.0
         x0 = max(gx0, cx - 0.09)
         x1 = min(gx1, cx + 0.09)
         if x1 - x0 < 0.16:
-            x0, x1 = gx0, min(gx1, gx0 + 0.22)
-        best_box = (x0, y0, x1, y1)
-    return best_box
+            if cx < mid:
+                x0, x1 = gx0, min(gx1, gx0 + 0.22)
+            else:
+                x1, x0 = gx1, max(gx0, gx1 - 0.22)
+    return (x0, y0, x1, y1)
+
+
+def _legs_box(img: Image.Image) -> tuple[float, float, float, float]:
+    """01:16：腿脚贴底、水平居中人物条；禁扩到浅色外框。"""
+    gx0, gx1 = _middle_gray_stripe_x_bounds(img)
+    span = max(0.10, gx1 - gx0)
+    gx0 = gx0 + span * 0.08
+    gx1 = gx1 - span * 0.08
+    mid = (gx0 + gx1) / 2.0
+    half = max(0.10, min(0.16, (gx1 - gx0) * 0.28))
+    x0 = max(gx0, mid - half)
+    x1 = min(gx1, mid + half)
+    # 贴底：略上留到脚踝/鞋，下贴 0.995
+    y0, y1 = 0.82, 0.995
+    # 若该带前景过稀，略上扩但仍 ≥0.76、水平不越灰条
+    w, h = img.size
+    xa, ya = int(w * x0), int(h * y0)
+    xb, yb = int(w * x1), int(h * y1)
+    crop = img.crop((xa, ya, xb, max(ya + 8, yb)))
+    r = _costume_cell_fg_ratio(crop, treat_mid_gray_bg=False)
+    if r < 0.18:
+        y0 = 0.76
+    return (x0, y0, x1, y1)
 
 
 def _costume_cell_fg_ratio(
@@ -8373,12 +8419,12 @@ def _crop_costume_band_filled(
     """按归一化框裁切；前景 < min_fg 时自动扩/平移裁框直到达标或触边。"""
     w, h = img.size
     x0, y0, x1, y1 = [float(v) for v in box]
-    if treat_mid_gray_bg:
-        gx0, gx1 = _middle_gray_stripe_x_bounds(img)
-        x0 = max(x0, gx0)
-        x1 = min(x1, gx1)
-        if x1 <= x0 + 0.04:
-            x0, x1 = gx0, gx1
+    # 01:16：无论是否 treat_mid_gray，水平一律钳进人物灰条，禁裁浅外框
+    gx0, gx1 = _middle_gray_stripe_x_bounds(img)
+    x0 = max(x0, gx0)
+    x1 = min(x1, gx1)
+    if x1 <= x0 + 0.04:
+        x0, x1 = gx0, gx1
     best = None
     best_r = -1.0
     for step in range(8):
@@ -8480,20 +8526,37 @@ def build_costume_collage_from_portrait(
         raise CharacterSheetError("costume portrait crops: empty portrait", status_code=422)
     img = Image.open(BytesIO(portrait)).convert("RGB")
     items: list[bytes] = []
+    gx0, gx1 = _middle_gray_stripe_x_bounds(img)
     for key, box in _COSTUME_PORTRAIT_BANDS:
-        use_box = _wrist_cuff_box(img) if key == "cuff" else box
+        if key == "cuff":
+            use_box = _wrist_cuff_box(img)
+        elif key == "legs":
+            use_box = _legs_box(img)
+        else:
+            # 01:16：五格一律禁裁浅色外框——水平钳进人物灰条
+            x0, y0, x1, y1 = [float(v) for v in box]
+            x0 = max(x0, gx0)
+            x1 = min(x1, gx1)
+            if x1 <= x0 + 0.06:
+                mid = (gx0 + gx1) / 2.0
+                half = max(0.10, (gx1 - gx0) * 0.22)
+                x0, x1 = max(gx0, mid - half), min(gx1, mid + half)
+            use_box = (x0, y0, x1, y1)
         # ≥60% 在扩框裁切本体上保证；letterbox 进方格会稀释，拼版后只做非空兜底
-        # 袖口：浅色外框+中间灰条作背景
+        # 仅袖口把中灰条当背景（防浅外框）；腿脚/下摆用 plain，避免深色裤袜被吞
+        treat_bg = key == "cuff"
+        # 腿脚允许略低 min_fg（细长腿+灰底），拼版后再用 0.12 兜底
+        band_min = 0.45 if key == "legs" else min_fg
         cell = _crop_costume_band_filled(
             img,
             use_box,
             size=size,
-            min_fg=min_fg,
-            treat_mid_gray_bg=(key == "cuff"),
+            min_fg=band_min,
+            treat_mid_gray_bg=treat_bg,
         )
         r = _costume_cell_fg_ratio(
             Image.open(BytesIO(cell)).convert("RGB"),
-            treat_mid_gray_bg=(key == "cuff"),
+            treat_mid_gray_bg=treat_bg,
         )
         items.append(cell)
         logger.info(
