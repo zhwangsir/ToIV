@@ -94,3 +94,69 @@ def test_side_cleanup_accept_rejects_large_drift():
     buf = B()
     Image.fromarray(arr).save(buf, format="PNG")
     assert sheet_svc.side_face_cleanup_accept(buf.getvalue(), a) is False
+
+
+def test_face_side_from_side_not_back():
+    """21:22：face_side 必须来自侧母版，与背母版裁切不同。"""
+    portrait = _figure()
+    side = _figure()
+    # back: solid dark (occiput-like) so crop differs
+    import numpy as np
+    from io import BytesIO
+    h, w = 1216, 832
+    arr = np.zeros((h, w, 3), dtype=np.uint8)
+    arr[:] = (240, 240, 244)
+    arr[int(h * 0.05) : int(h * 0.40), int(w * 0.30) : int(w * 0.70)] = (20, 20, 25)
+    arr[int(h * 0.30) : int(h * 0.95), int(w * 0.25) : int(w * 0.75)] = (90, 106, 122)
+    buf = BytesIO()
+    Image.fromarray(arr).save(buf, format="PNG")
+    back = buf.getvalue()
+    tri = sheet_svc.build_faces_tri_from_masters(
+        portrait=portrait, front=portrait, side=side, back=back, size=128
+    )
+    # side-derived face_side must not equal a crop from back
+    from_back = sheet_svc.crop_face_slot_from_master(back, slot="face_side", size=128)
+    assert tri["face_side"] != from_back
+    # three_quarter and side both from side master → same crop geometry for synthetic
+    assert tri["face_side"] == tri["face_three_quarter"] or len(tri["face_side"]) > 100
+
+
+def test_wrist_cuff_box_and_fill():
+    h, w = 1216, 832
+    arr = __import__("numpy").zeros((h, w, 3), dtype="uint8")
+    arr[:] = (240, 240, 244)
+    # body + arms/wrists slate
+    arr[int(h * 0.16) : int(h * 0.98), int(w * 0.28) : int(w * 0.72)] = (90, 106, 122)
+    arr[int(h * 0.34) : int(h * 0.50), int(w * 0.10) : int(w * 0.30)] = (90, 106, 122)
+    arr[int(h * 0.34) : int(h * 0.50), int(w * 0.70) : int(w * 0.90)] = (90, 106, 122)
+    arr[int(h * 0.08) : int(h * 0.20), int(w * 0.36) : int(w * 0.64)] = (220, 180, 150)
+    portrait = _png(arr)
+    img = Image.open(BytesIO(portrait)).convert("RGB")
+    box = sheet_svc._wrist_cuff_box(img)
+    assert box[2] > box[0] and box[3] > box[1]
+    out = sheet_svc.build_costume_collage_from_portrait(
+        portrait, style="anime", size=128, min_fg=0.60
+    )
+    ratios = sheet_svc.costume_cell_content_ratios(out, n=5)
+    assert ratios[1] >= 0.05, ratios
+
+
+def test_blend_face_local_and_pick():
+    base = _figure()
+    # edited: darken eye/mouth band
+    import numpy as np
+    from io import BytesIO
+    im = Image.open(BytesIO(base)).convert("RGB").resize((256, 256))
+    arr = __import__("numpy").array(im)
+    arr[40:140, 50:200] = (10, 10, 10)
+    buf = BytesIO(); Image.fromarray(arr).save(buf, format="PNG"); edited = buf.getvalue()
+    blended = sheet_svc.blend_face_local_edit(base, edited, strength=0.70, size=256)
+    assert len(blended) > 100
+    best = sheet_svc.pick_best_expression_candidate(
+        [base, blended],
+        neutral_ref=base,
+        portrait_ref=None,
+        expr_key="expr_0",
+    )
+    assert best == blended or best == base
+

@@ -1435,16 +1435,23 @@ def _chest_emblem_scores(
             fh = max(8.0, float(y2) - float(_y1))
             closeup = (fh / float(h) >= 0.35) or (float(y2) / float(h) >= 0.55)
         x0, x1 = int(w * 0.28), int(w * 0.72)
-        if closeup or bb is None:
-            # 20:56：近景惊恐张嘴时 0.58–0.95 会吃到红口腔 → 误判徽标；改看领口带
-            y0, y1 = int(h * 0.78), int(h * 0.98)
+        # 21:22：徽标 ROI 上沿必须在脸框下沿（下巴）以下；取不到脸框 → 画高 45% 以下
+        # 近景启发式脸框常吞到胸口：下巴超过画高 55% 时钳到 55%，避免漏检真实胸口徽标
+        if bb is None:
+            y0, y1 = int(h * 0.45), int(h * 0.98)
         else:
             _x1, _y1, _x2, y2 = [float(v) for v in bb]
-            fh = max(8.0, y2 - _y1)
-            y0 = int(min(h - 2, y2 + 0.04 * fh))
-            y1 = int(min(h, max(y2 + 1.35 * fh, h * 0.52)))
+            chin = float(y2)
+            if chin / float(h) > 0.55:
+                chin = float(h) * 0.55
+            y0 = int(min(h - 2, max(chin + 1.0, float(h) * 0.45 if not closeup else chin + 1.0)))
+            # 保证上沿不低于「下巴以下」；非近景再略下探
+            if not closeup:
+                fh = max(8.0, float(y2) - float(_y1))
+                y0 = int(min(h - 2, max(y0, float(y2) + 0.04 * fh)))
+            y1 = int(h * 0.98)
             if y1 <= y0 + 8:
-                y0, y1 = int(h * 0.58), int(h * 0.95)
+                y0, y1 = int(max(chin + 1.0, h * 0.45)), int(h * 0.98)
     else:
         x0, x1 = int(w * 0.35), int(w * 0.65)
         y0, y1 = int(h * 0.32), int(h * 0.52)
@@ -1486,7 +1493,7 @@ def portrait_has_chest_emblem(
     if chroma >= int(n * 0.12) and bright >= int(n * 0.08):
         abs_hit = True
     if ref:
-        rb, rc, rn = _chest_emblem_scores(ref, below_face=False)
+        rb, rc, rn = _chest_emblem_scores(ref, below_face=below_face)
         if rn > 0:
             # 相对母版：chroma 或 bright 显著变差才拒
             worse = (chroma >= rc + 8) or (bright >= max(rb * 1.6, rb + 20))
@@ -2656,18 +2663,18 @@ def crop_face_slot_from_master(
     slot: str,
     size: int = 768,
 ) -> bytes:
-    """20:23：母版固定比例硬裁头像，三格同尺寸；放大严格 ≤2×。
+    """21:22：母版固定比例硬裁头像，三格同尺寸；侧面放大严格 ≤2×。
 
     face_front ← 主立绘顶部到下巴下（约画高 0–20%）
-    face_three_quarter ← 侧母版顶部约 0–25%
-    face_side ← 背母版顶部约 0–25%
+    face_three_quarter ← 侧母版顶部约 0–25%（≤2×）
+    face_side ← 侧母版侧脸轮廓（≤2×；禁止背母版）
     水平以头发轮廓中心为准；侧面糊再走 Qwen 清线+CLIP 回退。
     """
     if not data:
         raise CharacterSheetError(f"faces crop: empty master for {slot}", status_code=422)
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
-    # 20:23：侧面（three_quarter）放大严格 ≤2× 再 Qwen 清线；正/背可到约 2.5× 保头高≥35%
+    # 21:22：侧面两格（three_quarter/side）放大严格 ≤2× 再 Qwen 清线；正面可到约 2.5×
     if slot == "face_front":
         band = 0.20
         max_up = 2.5
@@ -2676,7 +2683,7 @@ def crop_face_slot_from_master(
         max_up = 2.0
     elif slot == "face_side":
         band = 0.25
-        max_up = 2.5
+        max_up = 2.0
     else:
         raise CharacterSheetError(f"faces crop: unknown slot {slot}", status_code=422)
     side = float(band) * float(h)
@@ -2724,8 +2731,8 @@ def crop_face_slot_from_master(
             frac,
             max_up,
         )
-    # 20:23：侧面母版头像素少，2× 下头高常 <0.35——软过交给 Qwen 清线；正/背仍硬拒
-    if slot == "face_three_quarter":
+    # 21:22：侧面两格母版头像素少，2× 下头高常 <0.35——软过交给 Qwen 清线；正面仍硬拒
+    if slot in ("face_three_quarter", "face_side"):
         if frac is None:
             vspan = panel_vertical_span(out)
             logger.warning(
@@ -2761,10 +2768,14 @@ def build_faces_tri_from_masters(
     portrait: bytes | None,
     front: bytes | None,
     side: bytes | None,
-    back: bytes | None,
+    back: bytes | None = None,
     size: int = 768,
 ) -> dict[str, bytes]:
-    """18:23 映射：正←portrait/front，侧←side，背←back → face_front/three_quarter/side。"""
+    """21:22 映射：正←portrait/front；¾/侧←侧母版（禁背母版作侧面头像）。
+
+    back 参数保留兼容旧调用，侧面头像不再使用。
+    """
+    del back  # 21:22：侧面必须用侧母版，禁止背母版
     src_front = portrait or front
     if not src_front:
         raise CharacterSheetError(
@@ -2772,8 +2783,6 @@ def build_faces_tri_from_masters(
         )
     if not side:
         raise CharacterSheetError("faces crop: need side master", status_code=422)
-    if not back:
-        raise CharacterSheetError("faces crop: need back master", status_code=422)
     return {
         "face_front": crop_face_slot_from_master(
             src_front, slot="face_front", size=size
@@ -2782,7 +2791,7 @@ def build_faces_tri_from_masters(
             side, slot="face_three_quarter", size=size
         ),
         "face_side": crop_face_slot_from_master(
-            back, slot="face_side", size=size
+            side, slot="face_side", size=size
         ),
     }
 
@@ -2935,6 +2944,88 @@ def _facial_feature_roi(im: Image.Image) -> Image.Image:
     """眉眼嘴区域：上半脸到嘴下（约 12%–72% 高，20%–80% 宽）。"""
     w, h = im.size
     return im.crop((int(w * 0.20), int(h * 0.12), int(w * 0.80), int(h * 0.72)))
+
+
+def build_face_feature_mask(size: int = 768) -> Image.Image:
+    """眉/眼/嘴局部遮罩（白=可编辑），供表情局部合成。"""
+    s = int(size)
+    mask = Image.new("L", (s, s), 0)
+    from PIL import ImageDraw as _ID
+
+    d = _ID.Draw(mask)
+    # 眉带
+    d.ellipse((int(s * 0.22), int(s * 0.14), int(s * 0.78), int(s * 0.36)), fill=255)
+    # 眼带
+    d.ellipse((int(s * 0.20), int(s * 0.28), int(s * 0.80), int(s * 0.52)), fill=255)
+    # 嘴带
+    d.ellipse((int(s * 0.30), int(s * 0.52), int(s * 0.70), int(s * 0.74)), fill=255)
+    try:
+        from PIL import ImageFilter
+
+        mask = mask.filter(ImageFilter.GaussianBlur(radius=max(4, s // 64)))
+    except Exception:
+        pass
+    return mask
+
+
+def blend_face_local_edit(
+    original: bytes,
+    edited: bytes,
+    *,
+    strength: float = 0.70,
+    size: int = 768,
+) -> bytes:
+    """把编辑结果仅合成到眉眼嘴遮罩内；strength≈0.6–0.75 等效局部 inpaint 强度。"""
+    strength = max(0.60, min(0.75, float(strength)))
+    o = Image.open(BytesIO(original)).convert("RGB").resize(
+        (size, size), Image.Resampling.LANCZOS
+    )
+    e = Image.open(BytesIO(edited)).convert("RGB").resize(
+        (size, size), Image.Resampling.LANCZOS
+    )
+    m = build_face_feature_mask(size)
+    # 遮罩×强度：非脸区完全保留原图
+    m_s = m.point(lambda v: int(v * strength))
+    out = Image.composite(e, o, m_s)
+    buf = BytesIO()
+    out.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def pick_best_expression_candidate(
+    cands: list[bytes],
+    *,
+    neutral_ref: bytes | None,
+    portrait_ref: bytes | None,
+    expr_key: str,
+    min_clip: float = 0.72,
+) -> bytes:
+    """4 候选：选与中性脸差异最大、且与主立绘 CLIP 相对比对仍通过的那张。"""
+    if not cands:
+        raise CharacterSheetError(f"{expr_key}无表情候选", status_code=422)
+    scored: list[tuple[float, bytes]] = []
+    for c in cands:
+        diff = (
+            expression_roi_pixel_diff(c, neutral_ref)
+            if neutral_ref
+            else expression_roi_pixel_diff(c, cands[0])
+        )
+        if portrait_ref is not None:
+            sim = clip_image_cosine_sim(c, portrait_ref)
+            if sim is not None and sim + 1e-12 < float(min_clip):
+                continue
+        scored.append((diff, c))
+    if not scored:
+        # 全部 CLIP 不过：退回差异最大者（仍过后续门禁）
+        scored = [
+            (
+                expression_roi_pixel_diff(c, neutral_ref) if neutral_ref else 0.0,
+                c,
+            )
+            for c in cands
+        ]
+    scored.sort(key=lambda t: t[0], reverse=True)
+    return scored[0][1]
 
 
 def expression_roi_pixel_diff(a: bytes, b: bytes) -> float:
@@ -5008,7 +5099,7 @@ async def generate_character_sheet(
                 denoise = 0.65
         elif key == "faces":
             # 18:23：禁止再生成面部三格；从主立绘+三视图母版裁头肩
-            # face_front←portrait/front，face_three_quarter←side，face_side←back
+            # face_front←portrait/front，face_three_quarter←side，face_side←side（禁背）
             try:
                 tri = build_faces_tri_from_masters(
                     portrait=panels.get("portrait"),
@@ -5053,54 +5144,60 @@ async def generate_character_sheet(
                     _y,
                     yaw_ok_for_face_key(_y, fk),
                 )
-            # 20:23：侧面硬裁后 ≤2× 仍可能糊——Qwen「只清线」低强度，CLIP/像素不过则退回原裁
-            try:
-                side_crop = tri["face_three_quarter"]
-                side_name = await client.upload_image(
-                    side_crop,
-                    f"sheet_side_crop_{character_id[:8]}_{meta.style}.png",
-                )
-                cleaned = await generate_panel_bytes(
-                    pool,
-                    "只清理模糊与扭曲的线条，保持侧面头像一模一样："
-                    "同一发型、同一轮廓、同一角度、同一五官位置；"
-                    "不要改变表情、不要改服装、不要加细节、不要锐化过度、不要重绘脸型。",
-                    ckpt_name=ckpt,
-                    width=768,
-                    height=768,
-                    seed=None if seed is None else int(seed) + 2023,
-                    worker=worker,
-                    filename_prefix="ToIV_char_sheet_side_deblur",
-                    style=meta.style,
-                    client=client,
-                    ref_image=side_name,
-                    ref_mode="qwen_edit",
-                    denoise=1.0,
-                )
-                cleaned = enforce_head_shoulders_square(
-                    cleaned, size=768, face_closeup_gate=True
-                )
-                ok = side_face_cleanup_accept(
-                    cleaned,
-                    side_crop,
-                    master_side=panels.get("side"),
-                    min_clip=0.82,
-                )
-                if ok:
-                    tri["face_three_quarter"] = cleaned
-                    logger.info("faces side Qwen deblur accepted")
-                else:
-                    logger.info("faces side Qwen deblur rejected → keep 2x crop")
-                    dump_rejected_panel(
-                        cleaned,
-                        seed=seed,
-                        panel="face_three_quarter",
-                        gate="side_deblur_clip",
-                        detail="CLIP/MAE fail, revert crop",
-                        dump_dir=reject_dir,
+            # 21:22：侧面两格硬裁 ≤2× 后 Qwen「只清线」；CLIP/像素不过则退回 2× 原裁
+            for _side_fk, _seed_off in (
+                ("face_three_quarter", 2023),
+                ("face_side", 2122),
+            ):
+                try:
+                    side_crop = tri[_side_fk]
+                    side_name = await client.upload_image(
+                        side_crop,
+                        f"sheet_{_side_fk}_crop_{character_id[:8]}_{meta.style}.png",
                     )
-            except Exception as de:  # noqa: BLE001
-                logger.warning("faces side Qwen deblur skipped: %s", de)
+                    cleaned = await generate_panel_bytes(
+                        pool,
+                        "只清理模糊与扭曲的线条，保持侧面头像一模一样："
+                        "同一发型、同一轮廓、同一角度、同一五官位置；"
+                        "不要改变表情、不要改服装、不要加细节、不要锐化过度、不要重绘脸型。",
+                        ckpt_name=ckpt,
+                        width=768,
+                        height=768,
+                        seed=None if seed is None else int(seed) + int(_seed_off),
+                        worker=worker,
+                        filename_prefix=f"ToIV_char_sheet_{_side_fk}_deblur",
+                        style=meta.style,
+                        client=client,
+                        ref_image=side_name,
+                        ref_mode="qwen_edit",
+                        denoise=1.0,
+                    )
+                    cleaned = enforce_head_shoulders_square(
+                        cleaned, size=768, face_closeup_gate=True
+                    )
+                    ok = side_face_cleanup_accept(
+                        cleaned,
+                        side_crop,
+                        master_side=panels.get("side"),
+                        min_clip=0.82,
+                    )
+                    if ok:
+                        tri[_side_fk] = cleaned
+                        logger.info("faces %s Qwen deblur accepted", _side_fk)
+                    else:
+                        logger.info(
+                            "faces %s Qwen deblur rejected → keep 2x crop", _side_fk
+                        )
+                        dump_rejected_panel(
+                            cleaned,
+                            seed=seed,
+                            panel=str(_side_fk),
+                            gate="side_deblur_clip",
+                            detail="CLIP/MAE fail, revert crop",
+                            dump_dir=reject_dir,
+                        )
+                except Exception as de:  # noqa: BLE001
+                    logger.warning("faces %s Qwen deblur skipped: %s", _side_fk, de)
             panels["faces"] = compose_faces_triptych(
                 tri,
                 style=meta.style,
@@ -5154,22 +5251,81 @@ async def generate_character_sheet(
                         )
                         if key == "expr_4":
                             _prompt_x += " 嘴巴必须明显张开。"
-                raw = await generate_panel_bytes(
-                    pool,
-                    _prompt_x,
-                    ckpt_name=ckpt,
-                    width=w,
-                    height=h,
-                    seed=s,
-                    worker=worker,
-                    filename_prefix=f"ToIV_char_sheet_{key}_a{attempt}",
-                    style=meta.style,
-                    client=client,
-                    ref_image=use_ref,
-                    ref_mode=ref_mode,
-                    denoise=denoise,
-                    negative_extra=_neg_x,
-                )
+                if key.startswith("expr_") and ref_mode == "qwen_edit" and use_ref:
+                    # 21:22：脸部遮罩局部编辑；每表情 4 候选，选与中性差最大且 CLIP 过
+                    _base_face = None
+                    try:
+                        # use_ref 是上传名；本地面板脸源优先 portrait 裁
+                        if panels.get("portrait"):
+                            _base_face = crop_face_ref(panels["portrait"], size=768)
+                        elif face_ref_name and panels.get("portrait"):
+                            _base_face = crop_face_ref(panels["portrait"], size=768)
+                    except Exception:
+                        _base_face = None
+                    cands: list[bytes] = []
+                    for ci in range(4):
+                        s_i = (
+                            None
+                            if seed is None
+                            else int(seed)
+                            + (abs(hash(key)) % 10000)
+                            + attempt * 7919
+                            + ci * 13331
+                        )
+                        _px = _prompt_x
+                        if ci:
+                            _px = _px + f" 候选{ci+1}。加大眉眼嘴变化。"
+                        edited = await generate_panel_bytes(
+                            pool,
+                            _px,
+                            ckpt_name=ckpt,
+                            width=w,
+                            height=h,
+                            seed=s_i,
+                            worker=worker,
+                            filename_prefix=f"ToIV_char_sheet_{key}_a{attempt}_c{ci}",
+                            style=meta.style,
+                            client=client,
+                            ref_image=use_ref,
+                            ref_mode=ref_mode,
+                            denoise=denoise,
+                            negative_extra=_neg_x,
+                        )
+                        edited = enforce_head_shoulders_square(
+                            edited, size=768, face_closeup_gate=True
+                        )
+                        if _base_face is not None:
+                            # 强度 0.60–0.75 循环，增强局部幅度
+                            st = 0.60 + 0.05 * (ci % 4)
+                            edited = blend_face_local_edit(
+                                _base_face, edited, strength=st, size=768
+                            )
+                        cands.append(edited)
+                    _neutral = _base_face
+                    raw = pick_best_expression_candidate(
+                        cands,
+                        neutral_ref=_neutral,
+                        portrait_ref=panels.get("portrait"),
+                        expr_key=key,
+                        min_clip=0.72,
+                    )
+                else:
+                    raw = await generate_panel_bytes(
+                        pool,
+                        _prompt_x,
+                        ckpt_name=ckpt,
+                        width=w,
+                        height=h,
+                        seed=s,
+                        worker=worker,
+                        filename_prefix=f"ToIV_char_sheet_{key}_a{attempt}",
+                        style=meta.style,
+                        client=client,
+                        ref_image=use_ref,
+                        ref_mode=ref_mode,
+                        denoise=denoise,
+                        negative_extra=_neg_x,
+                    )
                 if key.startswith("expr_"):
                     # 16:45：表情近景脸格用 face_closeup_gate，禁 soft coverage
                     raw = enforce_head_shoulders_square(
@@ -6568,14 +6724,53 @@ def _trim_object_bbox(img: Image.Image, *, style: str, pad: int = 12) -> Image.I
     return rgb.crop((min_x, min_y, max_x + 1, max_y + 1))
 
 
-# 20:23：服饰五格按主立绘坐标裁——帽兜领口(下巴下到肩)/袖口与手/口袋/下摆/腿脚；非背景≥60%
+# 21:22：服饰五格按主立绘坐标裁——帽兜领口/袖口(手腕重定)/口袋/下摆/腿脚；非背景≥60%
 _COSTUME_PORTRAIT_BANDS: tuple[tuple[str, tuple[float, float, float, float]], ...] = (
     ("hood_collar", (0.22, 0.18, 0.78, 0.38)),  # 下巴以下到肩，禁带脸
-    ("cuff", (0.00, 0.38, 0.42, 0.62)),  # 袖口与手
+    ("cuff", (0.00, 0.38, 0.42, 0.62)),  # 占位；实际由 _wrist_cuff_box 重定
     ("pocket", (0.30, 0.40, 0.70, 0.58)),
     ("hem", (0.20, 0.58, 0.80, 0.78)),
     ("legs", (0.28, 0.78, 0.72, 0.99)),
 )
+
+
+def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
+    """按主立绘手腕位置重定袖口水平裁框（OpenPose 近似腕点 + 前景密度择优）。
+
+    在左右腕候选框中选非背景占比更高者；框过空则向外扩。
+    """
+    w, h = img.size
+    # BODY_25 近似：R wrist (0.28,0.40) / L wrist (0.72,0.40)
+    candidates = [
+        (0.28, 0.40),
+        (0.72, 0.40),
+        (0.22, 0.42),
+        (0.78, 0.42),
+    ]
+    best_box = None
+    best_r = -1.0
+    half_w, half_h = 0.18, 0.12
+    for cx, cy in candidates:
+        for scale in (1.0, 1.15, 1.35, 1.55):
+            hw, hh = half_w * scale, half_h * scale
+            x0 = max(0.0, cx - hw)
+            x1 = min(1.0, cx + hw)
+            y0 = max(0.0, cy - hh)
+            y1 = min(1.0, cy + hh * 1.1)
+            xa, ya = int(w * x0), int(h * y0)
+            xb, yb = int(w * x1), int(h * y1)
+            if xb - xa < 8 or yb - ya < 8:
+                continue
+            crop = img.crop((xa, ya, xb, yb))
+            r = _costume_cell_fg_ratio(crop)
+            if r > best_r:
+                best_r = r
+                best_box = (x0, y0, x1, y1)
+            if r + 1e-12 >= 0.60:
+                return best_box
+    if best_box is None:
+        return (0.05, 0.34, 0.45, 0.62)
+    return best_box
 
 
 def _costume_cell_fg_ratio(cell: Image.Image) -> float:
@@ -6666,11 +6861,14 @@ def build_costume_collage_from_portrait(
     img = Image.open(BytesIO(portrait)).convert("RGB")
     items: list[bytes] = []
     for key, box in _COSTUME_PORTRAIT_BANDS:
+        use_box = _wrist_cuff_box(img) if key == "cuff" else box
         # ≥60% 在扩框裁切本体上保证；letterbox 进方格会稀释，拼版后只做非空兜底
-        cell = _crop_costume_band_filled(img, box, size=size, min_fg=min_fg)
+        cell = _crop_costume_band_filled(img, use_box, size=size, min_fg=min_fg)
         r = _costume_cell_fg_ratio(Image.open(BytesIO(cell)).convert("RGB"))
         items.append(cell)
-        logger.info("costume portrait crop %s box=%s post_lb_fg≈%.3f", key, box, r)
+        logger.info(
+            "costume portrait crop %s box=%s post_lb_fg≈%.3f", key, use_box, r
+        )
     out = collage_costume_items(items, style=style)
     assert_costume_cells_nonempty(out, min_ratio=0.12, n=5)
     return out
