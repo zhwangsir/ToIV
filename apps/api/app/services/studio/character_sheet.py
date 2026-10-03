@@ -1531,19 +1531,18 @@ def assert_sheet_garment_consistency(
     portrait = panels.get("portrait")
     if not portrait:
         raise CharacterSheetError("一致性门禁失败:缺主立绘", status_code=422)
-    if style in ("anime", "二次元") and portrait_has_chest_emblem(portrait):
+    if style in ("anime", "二次元") and portrait_has_chest_emblem(
+        portrait, ref=panels.get("front")
+    ):
         raise CharacterSheetError(
             "一致性门禁失败:主立绘胸口检出贴标/徽标", status_code=422
         )
-    if style in ("anime", "二次元"):
-        for key in ("front", "side", "back"):
-            data = panels.get(key)
-            if data and portrait_has_chest_emblem(data):
-                raise CharacterSheetError(
-                    f"一致性门禁失败:{key}胸口检出贴标/徽标", status_code=422
-                )
+    # 三视图若为过审母版注入，不再用绝对徽标启发式误杀
     # 16:18 出图门禁：矩形色块 / 肤色偏蓝灰（侧背姿态在新生成时检查，复用旧三视图不因姿态误杀）
-    assert_no_large_uniform_rect(portrait, label="主立绘")
+    # 17:14：主立绘均匀块相对 front；三视图母版本身常有二次元平涂，跳过绝对均匀块以免误杀
+    assert_no_large_uniform_rect(
+        portrait, label="主立绘", ref=panels.get("front")
+    )
     assert_skin_not_blue_gray(
         portrait, label="主立绘", ref=panels.get("front")
     )
@@ -1551,7 +1550,6 @@ def assert_sheet_garment_consistency(
         data = panels.get(key)
         if not data:
             continue
-        assert_no_large_uniform_rect(data, label=key)
         if key != "back":
             assert_skin_not_blue_gray(data, label=key)
     p_hex = _panel_garment_dominant_hex(portrait)

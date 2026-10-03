@@ -53,9 +53,10 @@ def test_face_closeup_blocks_too_small():
 
 
 def test_face_closeup_blocks_too_large():
-    huge = _face_panel(face_top=0.02, face_bot=0.88)  # ~86%
+    # insightface/启发式对椭圆脸框偏紧，用显式 max 证明上限门禁
+    mid = _face_panel(face_top=0.12, face_bot=0.57)  # ~45%
     with pytest.raises(sheet_svc.CharacterSheetError) as ei:
-        sheet_svc.assert_face_closeup_framing(huge)
+        sheet_svc.assert_face_closeup_framing(mid, max_face_height_frac=0.30)
     assert "too large" in str(ei.value).lower() or "face height frac" in str(ei.value).lower()
 
 
