@@ -1020,8 +1020,17 @@ def garment_main_color_miss(
         luma = 0.299 * r + 0.587 * g + 0.114 * b
         out["mean_bgr"] = [round(b, 1), round(g, 1), round(r, 1)]
         out["mean_luma"] = round(luma, 1)
-        # 过黑：远低于板岩灰（#5A6A7A luma≈100）
-        if luma <= black_luma_max:
+        gray_lumas = [
+            0.299 * rr + 0.587 * gg + 0.114 * bb
+            for rr, gg, bb in rgbs
+            if 40 <= (0.299 * rr + 0.587 * gg + 0.114 * bb) <= 160
+        ]
+        ref_luma = max(gray_lumas) if gray_lumas else 100.0
+        out["ref_luma"] = round(ref_luma, 1)
+        # 夜景相对亮度：低于参考灰×0.55 或绝对过黑 → 判 miss（压成纯黑）
+        rel_floor = max(float(black_luma_max), float(ref_luma) * 0.55)
+        out["rel_floor"] = round(rel_floor, 1)
+        if luma <= rel_floor:
             out["hit"] = True
         return out
     except Exception as e:

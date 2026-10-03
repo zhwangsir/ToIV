@@ -61,6 +61,8 @@ _ANCIENT_COSTUME_LOCK = (
 _ANIME_COSTUME_LOCK = (
     "wearing hooded raincoat, hood down off the head, wet black hair on forehead, "
     "same outfit as character sheet, cool white store light, "
+    "mid-tone slate gray fabric readable under store light not pitch black, "
+    "板岩灰中调可见勿纯黑, "
     f"{_PLAIN_UNBRANDED}, "
     "no hanfu, no white robe, no ancient costume, "
     "no purple raincoat, no blue raincoat, no indigo coat, "
@@ -429,6 +431,7 @@ def build_c_visual_prompt(
     camera: str = "",
     scene: str = "",
     negative: str = "",
+    style: str | None = None,
 ) -> str:
     """组装管线 C 正向提示：参考行 + 场景/运镜/角色外观 + 画面描述（无台词）+ Avoid。
 
@@ -448,6 +451,17 @@ def build_c_visual_prompt(
     if visual:
         body_parts.append(visual)
     body = "，".join(body_parts) if body_parts else "竖屏短剧镜头，人物与场景清晰"
+    st = (style or "").strip().lower()
+    if st in ("anime", "二次元"):
+        body = (
+            "anime style, 二次元 cel-shading, consistent anime character design, "
+            "not photorealistic, not live-action, not realistic skin pores, "
+        ) + body
+    elif st in ("ancient_realistic", "ancient", "古风", "古风写实"):
+        body = (
+            "ancient Chinese realistic portrait style, 古风写实, "
+            "not modern anime, not chibi, "
+        ) + body
     body += (
         "。画面只有角色与场景，无任何文字、店招或乱码。"
         " blank glowing lightboxes without letters, 无字发光灯箱,"

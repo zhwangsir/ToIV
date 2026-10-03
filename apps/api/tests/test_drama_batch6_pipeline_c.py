@@ -785,3 +785,30 @@ def test_build_c_visual_prompt_no_chain_fascia():
     )
     assert "非连锁品牌配色" in p or "not 7-Eleven" in p.lower() or "chain-store" in p.lower()
 
+
+def test_garment_main_color_miss_relative_to_slate():
+    """相对板岩灰参考：夜景压成纯黑要命中；中调灰不命中。"""
+    import numpy as np
+    from app.services.studio.candidate_pick import garment_main_color_miss
+
+    h, w = 1344, 768
+    expected = ["#5A6A7A", "#1A1A1E", "#2C2C34"]
+    black = np.full((h, w, 3), 18, dtype=np.uint8)
+    assert garment_main_color_miss(black, expected)["hit"] is True
+    slate = np.full((h, w, 3), (0x7A, 0x6A, 0x5A), dtype=np.uint8)  # BGR of #5A6A7A
+    # fill garment ROI-ish whole frame
+    r = garment_main_color_miss(slate, expected)
+    assert r["hit"] is False, r
+    # 相对过暗：luma≈45 < ref≈100*0.55
+    dark = np.full((h, w, 3), 45, dtype=np.uint8)
+    assert garment_main_color_miss(dark, expected)["hit"] is True
+
+
+def test_build_c_visual_prompt_style_lock_anime():
+    from app.services.studio.prompt_c import build_c_visual_prompt
+    pos = build_c_visual_prompt(shot_prompt="rainy night doorway", style="anime")
+    assert "anime style" in pos.lower() or "二次元" in pos
+    assert "not photorealistic" in pos.lower()
+    pos2 = build_c_visual_prompt(shot_prompt="rainy night doorway", style="ancient_realistic")
+    assert "古风写实" in pos2 or "ancient" in pos2.lower()
+

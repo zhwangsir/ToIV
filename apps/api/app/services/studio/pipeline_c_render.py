@@ -357,7 +357,8 @@ async def render_pipeline_c(
         dialogue=getattr(shot, "dialogue", "") or "",
         camera=getattr(shot, "camera", "") or "",
         scene=getattr(shot, "scene", "") or "",
-        negative=getattr(shot, "negative", "") or "",
+        negative=getattr(shot, "negative", "") or "",,
+        style=style
     )
 
     try:
