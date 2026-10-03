@@ -112,7 +112,7 @@ _STYLE_NEGATIVE = {
         "beige cloak, brown cloak, red cloak, tan cape, khaki poncho, "
         "mannequin, human body in product shot, person wearing boots, "
         "white hoodie, white t-shirt, color-block hoodie, navy sleeves on white shirt, "
-        "baseball cap, hat on stand, ceiling lamp, dome light, opaque black dome, hard hat, helmet, bowl, chest badge, chest emblem, chest logo, circular chest pattern, spiral emblem, round emblem on chest, brand patch, red badge, graphic print on torso, cloak, cape, poncho, wide sleeves, kimono sleeves"
+        "baseball cap, hat on stand, ceiling lamp, dome light, opaque black dome, hard hat, helmet, bowl, chest badge, chest emblem, chest logo, circular chest pattern, spiral emblem, five point star, star patch, white star on chest, embroidered star, round emblem on chest, brand patch, red badge, graphic print on torso, cloak, cape, poncho, wide sleeves, kimono sleeves"
     ),
 }
 
@@ -3113,21 +3113,39 @@ async def generate_character_sheet(
     ckpt = ckpt_name or _SHEET_CKPT.get(meta.style, _SHEET_CKPT["anime"])
     client = await _pick_sheet_client(worker)
 
-    # 1) 主立绘(无参考)
+    # 1) 主立绘(无参考)；anime 胸口徽标则换 seed 重试
     if "portrait" not in panels:
         w, h = _panel_size("portrait", meta.style)
-        panels["portrait"] = await generate_panel_bytes(
-            pool,
-            prompts["portrait"],
-            ckpt_name=ckpt,
-            width=w,
-            height=h,
-            seed=seed,
-            worker=worker,
-            filename_prefix="ToIV_char_sheet_portrait",
-            style=meta.style,
-            client=client,
-        )
+        last_err = None
+        for attempt in range(4):
+            try:
+                s = None if seed is None else int(seed) + attempt * 9973
+                panels["portrait"] = await generate_panel_bytes(
+                    pool,
+                    prompts["portrait"],
+                    ckpt_name=ckpt,
+                    width=w,
+                    height=h,
+                    seed=s,
+                    worker=worker,
+                    filename_prefix="ToIV_char_sheet_portrait",
+                    style=meta.style,
+                    client=client,
+                )
+                if meta.style in ("anime", "二次元") and portrait_has_chest_emblem(
+                    panels["portrait"]
+                ):
+                    last_err = CharacterSheetError(
+                        "主立绘胸口徽标，重试", status_code=422
+                    )
+                    logger.warning("portrait emblem hit attempt=%s", attempt)
+                    continue
+                break
+            except CharacterSheetError as e:
+                last_err = e
+                logger.warning("portrait gen fail attempt=%s: %s", attempt, e)
+        else:
+            raise last_err or CharacterSheetError("主立绘生成失败", status_code=422)
     panel_urls["portrait"] = save_panel_png(
         panels["portrait"],
         character_id=character_id,
@@ -3179,22 +3197,49 @@ async def generate_character_sheet(
                     assets[key].read_bytes(),
                     f"sheet_pose_{character_id[:8]}_{key}.png",
                 )
-                panels[key] = await generate_panel_bytes_openpose(
-                    pool,
-                    prompts[key],
-                    pose_image_name=pose_name,
-                    ckpt_name=ckpt,
-                    width=w,
-                    height=h,
-                    seed=None if seed is None else seed + (abs(hash(key)) % 10000),
-                    worker=worker,
-                    filename_prefix=f"ToIV_char_sheet_{key}_pose",
-                    style=meta.style,
-                    client=client,
-                    ref_image=ref_name,
-                    skip_preprocess=True,
-                )
-                panels[key] = normalize_turnaround_figure(panels[key], out_w=w, out_h=h)
+                last_err = None
+                for attempt in range(4):
+                    try:
+                        s = (
+                            None
+                            if seed is None
+                            else seed + (abs(hash(key)) % 10000) + attempt * 8111
+                        )
+                        raw = await generate_panel_bytes_openpose(
+                            pool,
+                            prompts[key],
+                            pose_image_name=pose_name,
+                            ckpt_name=ckpt,
+                            width=w,
+                            height=h,
+                            seed=s,
+                            worker=worker,
+                            filename_prefix=f"ToIV_char_sheet_{key}_pose",
+                            style=meta.style,
+                            client=client,
+                            ref_image=ref_name,
+                            skip_preprocess=True,
+                        )
+                        raw = normalize_turnaround_figure(raw, out_w=w, out_h=h)
+                        if meta.style in ("anime", "二次元") and key in (
+                            "front",
+                            "side",
+                        ):
+                            if portrait_has_chest_emblem(raw):
+                                raise CharacterSheetError(
+                                    f"openpose {key}胸口徽标，重试",
+                                    status_code=422,
+                                )
+                        panels[key] = raw
+                        last_err = None
+                        break
+                    except CharacterSheetError as e:
+                        last_err = e
+                        logger.warning(
+                            "openpose %s fail attempt=%s: %s", key, attempt, e
+                        )
+                if last_err is not None:
+                    raise last_err
                 panel_urls[key] = save_panel_png(
                     panels[key], character_id=character_id, style=meta.style, key=key
                 )
@@ -3288,23 +3333,44 @@ async def generate_character_sheet(
             else:
                 use_ref = None
                 ref_mode = "none"
-        panels[key] = await generate_panel_bytes(
-            pool,
-            prompts[key],
-            ckpt_name=ckpt,
-            width=w,
-            height=h,
-            seed=None if seed is None else seed + (abs(hash(key)) % 10000),
-            worker=worker,
-            filename_prefix=f"ToIV_char_sheet_{key}",
-            style=meta.style,
-            client=client,
-            ref_image=use_ref,
-            ref_mode=ref_mode,
-            denoise=denoise,
-        )
-        if key.startswith("expr_"):
-            panels[key] = enforce_head_shoulders_square(panels[key], size=768)
+        last_err = None
+        for attempt in range(4):
+            try:
+                s = (
+                    None
+                    if seed is None
+                    else seed + (abs(hash(key)) % 10000) + attempt * 7919
+                )
+                raw = await generate_panel_bytes(
+                    pool,
+                    prompts[key],
+                    ckpt_name=ckpt,
+                    width=w,
+                    height=h,
+                    seed=s,
+                    worker=worker,
+                    filename_prefix=f"ToIV_char_sheet_{key}",
+                    style=meta.style,
+                    client=client,
+                    ref_image=use_ref,
+                    ref_mode=ref_mode,
+                    denoise=denoise,
+                )
+                if key.startswith("expr_"):
+                    raw = enforce_head_shoulders_square(raw, size=768)
+                if key in ("front", "side") and meta.style in ("anime", "二次元"):
+                    if portrait_has_chest_emblem(raw):
+                        raise CharacterSheetError(
+                            f"{key}胸口徽标，重试", status_code=422
+                        )
+                panels[key] = raw
+                last_err = None
+                break
+            except CharacterSheetError as e:
+                last_err = e
+                logger.warning("panel %s fail attempt=%s: %s", key, attempt, e)
+        if last_err is not None:
+            raise last_err
         if key in ("front", "side", "back"):
             panels[key] = normalize_turnaround_figure(panels[key], out_w=w, out_h=h)
             panel_urls[key] = save_panel_png(
