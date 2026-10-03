@@ -38,11 +38,24 @@ def _figure(*, face_y0=0.08, face_y1=0.28, hair_long=False, emblem=False) -> byt
     return _png(arr)
 
 
+def _figure_variant(tag: int, **kw) -> bytes:
+    """同构图但改 1 像素，保证源 md5 互异。"""
+    from io import BytesIO
+    from PIL import Image as _I
+    im = _I.open(BytesIO(_figure(**kw))).convert("RGB")
+    px = im.load()
+    r, g, b = px[0, 0]
+    px[0, 0] = ((r + tag) % 256, g, b)
+    buf = BytesIO()
+    im.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def test_build_faces_tri_from_masters_nonempty_and_decoupled():
-    portrait = _figure()
-    front = _figure()
-    side = _figure()
-    back = _figure()
+    portrait = _figure_variant(1)
+    front = _figure_variant(2)
+    side = _figure_variant(3)
+    back = _figure_variant(4)
     tri = sheet_svc.build_faces_tri_from_masters(
         portrait=portrait, front=front, side=side, back=back, size=256
     )
@@ -63,10 +76,10 @@ def test_faces_crop_skips_generation_path(monkeypatch):
 
     monkeypatch.setattr(sheet_svc, "generate_panel_bytes", boom)
     tri = sheet_svc.build_faces_tri_from_masters(
-        portrait=_figure(),
-        front=_figure(),
-        side=_figure(),
-        back=_figure(),
+        portrait=_figure_variant(11),
+        front=_figure_variant(12),
+        side=_figure_variant(13),
+        back=_figure_variant(14),
         size=128,
     )
     assert len(tri) == 3

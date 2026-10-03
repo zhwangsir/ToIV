@@ -1418,6 +1418,7 @@ def _chest_emblem_scores(
 
     18:23 below_face=True：近景表情脸占上半幅时，ROI 改到脸框下方（下巴~锁骨），
     避免眼睛/嘴唇高 chroma 被误判成胸口徽标。
+    22:20：ROI 严格脸框下沿以下；检测器无脸框则画高 45% 以下（不用会吞胸口的肤色启发式）。
     """
     try:
         img = Image.open(BytesIO(data)).convert("RGB")
@@ -1425,33 +1426,22 @@ def _chest_emblem_scores(
         return 0, 0, 0
     w, h = img.size
     if below_face:
-        # 近景表情：脸常占上半幅，胸口看画面下部；避免启发式大脸框把胸口 ROI 推到画外。
+        # 22:20：只用可靠检测器脸框；取不到 → 画高 45% 以下（禁止启发式吞胸）
         bb = _detect_face_bbox_xyxy(data)
-        if bb is None:
-            bb = _heuristic_skin_face_bbox(img)
-        closeup = False
-        if bb is not None:
-            _x1, _y1, _x2, y2 = [float(v) for v in bb]
-            fh = max(8.0, float(y2) - float(_y1))
-            closeup = (fh / float(h) >= 0.35) or (float(y2) / float(h) >= 0.55)
         x0, x1 = int(w * 0.28), int(w * 0.72)
-        # 21:22：徽标 ROI 上沿必须在脸框下沿（下巴）以下；取不到脸框 → 画高 45% 以下
-        # 近景启发式脸框常吞到胸口：下巴超过画高 55% 时钳到 55%，避免漏检真实胸口徽标
         if bb is None:
             y0, y1 = int(h * 0.45), int(h * 0.98)
         else:
             _x1, _y1, _x2, y2 = [float(v) for v in bb]
             chin = float(y2)
-            if chin / float(h) > 0.55:
-                chin = float(h) * 0.55
-            y0 = int(min(h - 2, max(chin + 1.0, float(h) * 0.45 if not closeup else chin + 1.0)))
-            # 保证上沿不低于「下巴以下」；非近景再略下探
-            if not closeup:
-                fh = max(8.0, float(y2) - float(_y1))
-                y0 = int(min(h - 2, max(y0, float(y2) + 0.04 * fh)))
-            y1 = int(h * 0.98)
-            if y1 <= y0 + 8:
-                y0, y1 = int(max(chin + 1.0, h * 0.45)), int(h * 0.98)
+            # 下巴过低不可信（近景误扩）→ 退回 45%
+            if chin / float(h) > 0.62:
+                y0, y1 = int(h * 0.45), int(h * 0.98)
+            else:
+                y0 = int(min(h - 2, chin + max(2.0, 0.02 * float(h))))
+                y1 = int(h * 0.98)
+                if y1 <= y0 + 8:
+                    y0, y1 = int(h * 0.45), int(h * 0.98)
     else:
         x0, x1 = int(w * 0.35), int(w * 0.65)
         y0, y1 = int(h * 0.32), int(h * 0.52)
@@ -1472,6 +1462,51 @@ def _chest_emblem_scores(
     return bright, chroma, len(px)
 
 
+def _chest_emblem_chroma_peak(
+    data: bytes, *, below_face: bool = False, win: int = 12
+) -> int:
+    """below_face ROI 内最大局部 chroma 窗像素数（64x48 网格）。"""
+    try:
+        img = Image.open(BytesIO(data)).convert("RGB")
+    except Exception:
+        return 0
+    w, h = img.size
+    if below_face:
+        bb = _detect_face_bbox_xyxy(data)
+        x0, x1 = int(w * 0.28), int(w * 0.72)
+        if bb is None or (float(bb[3]) / float(h) > 0.62):
+            y0, y1 = int(h * 0.45), int(h * 0.98)
+        else:
+            y0 = int(min(h - 2, float(bb[3]) + max(2.0, 0.02 * float(h))))
+            y1 = int(h * 0.98)
+            if y1 <= y0 + 8:
+                y0, y1 = int(h * 0.45), int(h * 0.98)
+    else:
+        x0, x1 = int(w * 0.35), int(w * 0.65)
+        y0, y1 = int(h * 0.32), int(h * 0.52)
+    crop = img.crop((x0, y0, x1, y1)).resize((64, 48), Image.Resampling.BILINEAR)
+    px = list(crop.getdata())
+    if not px:
+        return 0
+    mask = [
+        1
+        if max(r, g, b) - min(r, g, b) > 40 and (r + g + b) / 3 > 40
+        else 0
+        for r, g, b in px
+    ]
+    # 64x48 row-major
+    peak = 0
+    for yy in range(0, 48 - win + 1, 2):
+        for xx in range(0, 64 - win + 1, 2):
+            s = 0
+            for dy in range(win):
+                row = (yy + dy) * 64
+                s += sum(mask[row + xx : row + xx + win])
+            if s > peak:
+                peak = s
+    return int(peak)
+
+
 def portrait_has_chest_emblem(
     data: bytes, *, ref: bytes | None = None, below_face: bool = False
 ) -> bool:
@@ -1480,23 +1515,51 @@ def portrait_has_chest_emblem(
     17:14：若提供已过目检母版正面 ref，则仅当立绘明显比母版更「花」才判命中，
     避免板岩灰雨衣高光/拉链把合格母版与同款编辑立绘误杀。
     18:23 below_face：表情近景用脸下 ROI。
+    22:20 below_face：只认「局部色斑」；禁止几乎整 ROI 高 chroma 的漫布皮肤误杀；
+    禁用宽条件 chroma≥12% and bright≥8%。
     """
     bright, chroma, n = _chest_emblem_scores(data, below_face=below_face)
     if n <= 0:
         return False
     abs_hit = False
-    # 贴标需彩色斑；纯亮无彩多为雨衣高光（母版 front bright≈39 chroma=0）
-    if chroma >= 6 and (
-        (8 <= bright <= int(n * 0.22)) or (6 <= chroma <= int(n * 0.18))
-    ):
-        abs_hit = True
-    if chroma >= int(n * 0.12) and bright >= int(n * 0.08):
-        abs_hit = True
+    if below_face:
+        # 漫布皮肤：chroma 占比过高 → 非贴标
+        if chroma > int(n * 0.40):
+            abs_hit = False
+        else:
+            peak = _chest_emblem_chroma_peak(data, below_face=True)
+            # 局部色斑：有限亮团 + 有限 chroma 窗
+            if (
+                chroma >= 8
+                and (10 <= bright <= int(n * 0.18))
+                and (8 <= chroma <= int(n * 0.28))
+            ):
+                abs_hit = True
+            # 真贴标常无高亮（红标 luma≈灰衣）：靠高密度局部 chroma 峰
+            # peak≥100/144 ≈窗内几乎整块色斑；排除 expr_4 口腔中等扩散 chroma
+            elif (
+                20 <= chroma <= int(n * 0.22)
+                and peak >= 100
+                and peak <= int(n * 0.18)
+                and bright <= int(n * 0.12)
+            ):
+                abs_hit = True
+    else:
+        # 贴标需彩色斑；纯亮无彩多为雨衣高光（母版 front bright≈39 chroma=0）
+        if chroma >= 6 and (
+            (8 <= bright <= int(n * 0.22)) or (6 <= chroma <= int(n * 0.18))
+        ):
+            abs_hit = True
+        if chroma >= int(n * 0.12) and bright >= int(n * 0.08):
+            abs_hit = True
     if ref:
         rb, rc, rn = _chest_emblem_scores(ref, below_face=below_face)
         if rn > 0:
             # 相对母版：chroma 或 bright 显著变差才拒
             worse = (chroma >= rc + 8) or (bright >= max(rb * 1.6, rb + 20))
+            if below_face:
+                # 相对路径也禁止漫布皮肤：须绝对命中局部色斑且相对更花
+                return bool(abs_hit and worse)
             return bool(abs_hit and worse) if abs_hit else worse and (
                 chroma >= 6 or bright >= int(n * 0.05)
             )
@@ -2663,11 +2726,11 @@ def crop_face_slot_from_master(
     slot: str,
     size: int = 768,
 ) -> bytes:
-    """21:22：母版固定比例硬裁头像，三格同尺寸；侧面放大严格 ≤2×。
+    """22:02：母版固定比例硬裁头像，三格同尺寸；侧/背放大严格 ≤2×。
 
     face_front ← 主立绘顶部到下巴下（约画高 0–20%）
     face_three_quarter ← 侧母版顶部约 0–25%（≤2×）
-    face_side ← 侧母版侧脸轮廓（≤2×；禁止背母版）
+    face_side ← 背母版后脑勺顶部约 0–25%（≤2×；禁止再裁侧脸）
     水平以头发轮廓中心为准；侧面糊再走 Qwen 清线+CLIP 回退。
     """
     if not data:
@@ -2771,11 +2834,12 @@ def build_faces_tri_from_masters(
     back: bytes | None = None,
     size: int = 768,
 ) -> dict[str, bytes]:
-    """21:22 映射：正←portrait/front；¾/侧←侧母版（禁背母版作侧面头像）。
+    """22:02 映射：正←portrait/front；侧/¾←侧母版；背头←背母版。
 
-    back 参数保留兼容旧调用，侧面头像不再使用。
+    三格源文件 md5 必须互异，否则 compose 前 422（禁止侧脸重复占第三格）。
     """
-    del back  # 21:22：侧面必须用侧母版，禁止背母版
+    import hashlib as _hl
+
     src_front = portrait or front
     if not src_front:
         raise CharacterSheetError(
@@ -2783,6 +2847,19 @@ def build_faces_tri_from_masters(
         )
     if not side:
         raise CharacterSheetError("faces crop: need side master", status_code=422)
+    if not back:
+        raise CharacterSheetError(
+            "faces crop: need back master for back-of-head slot", status_code=422
+        )
+    md_f = _hl.md5(src_front).hexdigest()
+    md_s = _hl.md5(side).hexdigest()
+    md_b = _hl.md5(back).hexdigest()
+    if len({md_f, md_s, md_b}) < 3:
+        raise CharacterSheetError(
+            f"faces crop: source masters not distinct "
+            f"(front={md_f[:12]} side={md_s[:12]} back={md_b[:12]})",
+            status_code=422,
+        )
     return {
         "face_front": crop_face_slot_from_master(
             src_front, slot="face_front", size=size
@@ -2790,8 +2867,9 @@ def build_faces_tri_from_masters(
         "face_three_quarter": crop_face_slot_from_master(
             side, slot="face_three_quarter", size=size
         ),
+        # 第三格：背面头像（后脑勺），不再复用侧母版
         "face_side": crop_face_slot_from_master(
-            side, slot="face_side", size=size
+            back, slot="face_side", size=size
         ),
     }
 
@@ -4525,8 +4603,12 @@ def _build_sheet_qwen_edit_graph(
     image_name: str,
     seed: int | None,
     filename_prefix: str,
+    fast: bool = False,
 ) -> dict:
-    """设定卡表情编辑：在 :8262/:8264 本地跑 Qwen-Image-Edit（不走 :8194 专用实例）。"""
+    """设定卡表情编辑：在 :8262/:8195 本地跑 Qwen-Image-Edit（不走 :8194/:8196）。
+
+    22:02：默认 fast=False（约 20 步 / 更高 CFG），整图编辑、不加遮罩。
+    """
     from app.workflows.qwen_edit import QwenEditParams, build_qwen_edit_graph
 
     # :8262 上的文件名与 workflows 常量不完全一致，优先用本机可见名
@@ -4534,7 +4616,7 @@ def _build_sheet_qwen_edit_graph(
     params = QwenEditParams(
         image=image_name,
         positive=prompt,
-        fast=True,
+        fast=bool(fast),
         filename_prefix=filename_prefix,
         **({"seed": seed} if seed is not None else {}),
     )
@@ -4694,6 +4776,7 @@ async def generate_character_sheet(
     panels_override: dict[str, bytes] | None = None,
     reuse_ref_urls: list[str] | None = None,
     allow_reuse_refs: bool = False,
+    expr_base_panels: dict[str, bytes] | None = None,
 ) -> tuple[str, bytes, dict[str, str]]:
     """出齐分格 → 拼版 → 落盘。返回 (sheet_url, png_bytes, panel_urls)。
 
@@ -4713,6 +4796,12 @@ async def generate_character_sheet(
     prompts = build_panel_prompts(meta)
     panels: dict[str, bytes] = dict(panels_override or {})
     override_keys: set[str] = set(panels.keys())  # 17:47：母版注入格跳过一切 panel 门禁
+    # 22:02：表情整图 Qwen 底版（2023b 同人干净格）；键 expr_0..expr_5
+    _expr_bases: dict[str, bytes] = {
+        k: v
+        for k, v in dict(expr_base_panels or {}).items()
+        if k.startswith("expr_") and v
+    }
     panel_urls: dict[str, str] = {}
     reject_dir = Path(
         os.environ.get(
@@ -5118,7 +5207,7 @@ async def generate_character_sheet(
                 denoise = 0.65
         elif key == "faces":
             # 18:23：禁止再生成面部三格；从主立绘+三视图母版裁头肩
-            # face_front←portrait/front，face_three_quarter←side，face_side←side（禁背）
+            # face_front←portrait/front，face_three_quarter←side，face_side←back（背头）
             try:
                 tri = build_faces_tri_from_masters(
                     portrait=panels.get("portrait"),
@@ -5225,10 +5314,10 @@ async def generate_character_sheet(
             )
             continue
         elif key.startswith("expr_"):
-            # 19:01：表情只走图像编辑（Qwen-Image-Edit），禁止 img2img 重绘身份
+            # 22:02：表情整图 Qwen（不加遮罩）；底版优先 2023b 对应表情，其次中性脸
             face = face_ref_name or ref_name
-            if face:
-                use_ref = face
+            if face or key in _expr_bases:
+                use_ref = face  # 上传名稍后若有 base 会替换为上传后的 base 名
                 ref_mode = "qwen_edit"
                 denoise = 1.0
             else:
@@ -5270,14 +5359,39 @@ async def generate_character_sheet(
                         )
                         if key == "expr_4":
                             _prompt_x += " 嘴巴必须明显张开。"
-                if key.startswith("expr_") and ref_mode == "qwen_edit" and use_ref:
-                    # 21:22b：脸部遮罩局部编辑；先 blend 再 enforce，避免重框叠影
+                if key.startswith("expr_") and ref_mode == "qwen_edit" and (
+                    use_ref or key in _expr_bases
+                ):
+                    # 22:02：整图 Qwen 编辑（永不走脸罩 blend_face_local_edit）
+                    # use_ref 优先 2023b 对应表情底图，否则中性脸 crop
                     _base_face = None
                     try:
                         if panels.get("portrait"):
                             _base_face = crop_face_ref(panels["portrait"], size=768)
                     except Exception:
                         _base_face = None
+                    _edit_ref_name = use_ref
+                    if key in _expr_bases:
+                        try:
+                            _edit_ref_name = await client.upload_image(
+                                _expr_bases[key],
+                                f"sheet_expr_base_{character_id[:8]}_{key}.png",
+                            )
+                            logger.info(
+                                "%s Qwen use_ref=expr_base_%s (2023b-class)",
+                                key,
+                                key,
+                            )
+                        except Exception as ue:  # noqa: BLE001
+                            logger.warning(
+                                "%s upload expr_base failed: %s; fall back face ref",
+                                key,
+                                ue,
+                            )
+                    if not _edit_ref_name:
+                        raise CharacterSheetError(
+                            f"{key} missing Qwen edit ref", status_code=422
+                        )
                     cands: list[bytes] = []
                     for ci in range(4):
                         s_i = (
@@ -5290,7 +5404,7 @@ async def generate_character_sheet(
                         )
                         _px = _prompt_x
                         if ci:
-                            _px = _px + f" 候选{ci+1}。加大眉眼嘴变化。"
+                            _px = _px + f" 候选{ci+1}。加大眉眼嘴变化，五官差异必须非常明显。"
                         edited = await generate_panel_bytes(
                             pool,
                             _px,
@@ -5302,22 +5416,12 @@ async def generate_character_sheet(
                             filename_prefix=f"ToIV_char_sheet_{key}_a{attempt}_c{ci}",
                             style=meta.style,
                             client=client,
-                            ref_image=use_ref,
+                            ref_image=_edit_ref_name,
                             ref_mode=ref_mode,
                             denoise=denoise,
                             negative_extra=_neg_x,
                         )
-                        # 21:22c：遮罩合成与 Qwen 出图常不对齐→叠影；暂用整图编辑+4候选，
-                        # blend_face_local_edit 保留供对齐稳定后再开（TOIV_SHEET_FACE_BLEND=1）
-                        import os as _os
-                        if (
-                            _base_face is not None
-                            and _os.environ.get("TOIV_SHEET_FACE_BLEND", "").strip() == "1"
-                        ):
-                            st = 0.65 + 0.03 * (ci % 4)
-                            edited = blend_face_local_edit(
-                                _base_face, edited, strength=st, size=768
-                            )
+                        # 22:02：脸罩路线终止——禁止 blend_face_local_edit / TOIV_SHEET_FACE_BLEND
                         edited = enforce_head_shoulders_square(
                             edited, size=768, face_closeup_gate=True
                         )
@@ -6755,13 +6859,48 @@ _COSTUME_PORTRAIT_BANDS: tuple[tuple[str, tuple[float, float, float, float]], ..
 )
 
 
+def _middle_gray_stripe_x_bounds(
+    img: Image.Image,
+    *,
+    y0_frac: float = 0.30,
+    y1_frac: float = 0.70,
+) -> tuple[float, float]:
+    """立绘「浅色外框 + 中间灰条」：按行取非浅色列，汇总中间灰条左右边界（归一化）。"""
+    w, h = img.size
+    if w < 8 or h < 8:
+        return 0.0, 1.0
+    y0, y1 = int(h * y0_frac), int(h * y1_frac)
+    y0, y1 = max(0, y0), min(h, max(y0 + 1, y1))
+    lefts: list[int] = []
+    rights: list[int] = []
+    px = img.load()
+    for y in range(y0, y1, max(1, (y1 - y0) // 24)):
+        xs = []
+        for x in range(w):
+            r, g, b = px[x, y][:3]
+            if r > 230 and g > 230 and b > 230:
+                continue
+            xs.append(x)
+        if len(xs) < max(4, w // 20):
+            continue
+        lefts.append(xs[0])
+        rights.append(xs[-1])
+    if not lefts:
+        return 0.05, 0.95
+    x0 = float(sorted(lefts)[len(lefts) // 4]) / float(w)
+    x1 = float(sorted(rights)[3 * len(rights) // 4]) / float(w)
+    if x1 <= x0 + 0.08:
+        return 0.05, 0.95
+    return max(0.0, x0), min(1.0, x1)
+
+
 def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
     """按主立绘手腕位置重定袖口水平裁框（OpenPose 近似腕点 + 前景密度择优）。
 
-    在左右腕候选框中选非背景占比更高者；框过空则向外扩。
+    22:02：裁框横向限制在中间灰条左右边界内；浅色外框与灰条均作背景计非背景占比。
     """
     w, h = img.size
-    # BODY_25 近似：R wrist (0.28,0.40) / L wrist (0.72,0.40)
+    gx0, gx1 = _middle_gray_stripe_x_bounds(img)
     candidates = [
         (0.28, 0.40),
         (0.72, 0.40),
@@ -6774,28 +6913,37 @@ def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
     for cx, cy in candidates:
         for scale in (1.0, 1.15, 1.35, 1.55):
             hw, hh = half_w * scale, half_h * scale
-            x0 = max(0.0, cx - hw)
-            x1 = min(1.0, cx + hw)
+            x0 = max(gx0, cx - hw)
+            x1 = min(gx1, cx + hw)
             y0 = max(0.0, cy - hh)
             y1 = min(1.0, cy + hh * 1.1)
+            if x1 <= x0 + 0.04:
+                continue
             xa, ya = int(w * x0), int(h * y0)
             xb, yb = int(w * x1), int(h * y1)
             if xb - xa < 8 or yb - ya < 8:
                 continue
             crop = img.crop((xa, ya, xb, yb))
-            r = _costume_cell_fg_ratio(crop)
+            r = _costume_cell_fg_ratio(crop, treat_mid_gray_bg=True)
             if r > best_r:
                 best_r = r
                 best_box = (x0, y0, x1, y1)
             if r + 1e-12 >= 0.60:
                 return best_box
     if best_box is None:
-        return (0.05, 0.34, 0.45, 0.62)
+        mid = (gx0 + gx1) / 2.0
+        half = max(0.12, (gx1 - gx0) * 0.35)
+        return (max(gx0, mid - half), 0.34, min(gx1, mid + half), 0.62)
     return best_box
 
 
-def _costume_cell_fg_ratio(cell: Image.Image) -> float:
-    """单格非背景像素占比（浅灰/近白底不计）。"""
+def _costume_cell_fg_ratio(
+    cell: Image.Image, *, treat_mid_gray_bg: bool = False
+) -> float:
+    """单格非背景像素占比（浅灰/近白底不计）。
+
+    treat_mid_gray_bg：袖口格把中间灰条也当背景（浅色外框+灰条都不计前景）。
+    """
     px = list(cell.convert("RGB").getdata())
     if not px:
         return 0.0
@@ -6804,6 +6952,9 @@ def _costume_cell_fg_ratio(cell: Image.Image) -> float:
         if r > 230 and g > 230 and b > 230:
             continue
         if abs(r - g) < 8 and abs(g - b) < 8 and 140 < r < 210:
+            continue
+        # 空灰条（浅中灰），勿吞板岩灰雨衣(~90)
+        if treat_mid_gray_bg and abs(r - g) < 12 and abs(g - b) < 12 and 120 < r < 220:
             continue
         fg += 1
     return fg / float(len(px))
@@ -6815,10 +6966,17 @@ def _crop_costume_band_filled(
     *,
     size: int = 768,
     min_fg: float = 0.60,
+    treat_mid_gray_bg: bool = False,
 ) -> bytes:
     """按归一化框裁切；前景 < min_fg 时自动扩/平移裁框直到达标或触边。"""
     w, h = img.size
     x0, y0, x1, y1 = [float(v) for v in box]
+    if treat_mid_gray_bg:
+        gx0, gx1 = _middle_gray_stripe_x_bounds(img)
+        x0 = max(x0, gx0)
+        x1 = min(x1, gx1)
+        if x1 <= x0 + 0.04:
+            x0, x1 = gx0, gx1
     best = None
     best_r = -1.0
     for step in range(8):
@@ -6829,7 +6987,7 @@ def _crop_costume_band_filled(
         if xb - xa < 8 or yb - ya < 8:
             break
         crop = img.crop((xa, ya, xb, yb))
-        r = _costume_cell_fg_ratio(crop)
+        r = _costume_cell_fg_ratio(crop, treat_mid_gray_bg=treat_mid_gray_bg)
         if r > best_r:
             best_r = r
             best = crop
@@ -6884,8 +7042,18 @@ def build_costume_collage_from_portrait(
     for key, box in _COSTUME_PORTRAIT_BANDS:
         use_box = _wrist_cuff_box(img) if key == "cuff" else box
         # ≥60% 在扩框裁切本体上保证；letterbox 进方格会稀释，拼版后只做非空兜底
-        cell = _crop_costume_band_filled(img, use_box, size=size, min_fg=min_fg)
-        r = _costume_cell_fg_ratio(Image.open(BytesIO(cell)).convert("RGB"))
+        # 袖口：浅色外框+中间灰条作背景
+        cell = _crop_costume_band_filled(
+            img,
+            use_box,
+            size=size,
+            min_fg=min_fg,
+            treat_mid_gray_bg=(key == "cuff"),
+        )
+        r = _costume_cell_fg_ratio(
+            Image.open(BytesIO(cell)).convert("RGB"),
+            treat_mid_gray_bg=(key == "cuff"),
+        )
         items.append(cell)
         logger.info(
             "costume portrait crop %s box=%s post_lb_fg≈%.3f", key, use_box, r

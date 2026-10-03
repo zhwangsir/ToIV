@@ -27,10 +27,24 @@ def _figure() -> bytes:
     return _png(arr)
 
 
+def _tweak(data: bytes, tag: int) -> bytes:
+    im = Image.open(BytesIO(data)).convert("RGB")
+    px = im.load()
+    r, g, b = px[1, 1]
+    px[1, 1] = ((r + tag) % 256, g, b)
+    buf = BytesIO()
+    im.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def test_hard_crop_same_size_and_min_head():
     portrait = _figure()
     tri = sheet_svc.build_faces_tri_from_masters(
-        portrait=portrait, front=portrait, side=_figure(), back=_figure(), size=256
+        portrait=portrait,
+        front=portrait,
+        side=_tweak(_figure(), 3),
+        back=_tweak(_figure(), 7),
+        size=256,
     )
     for k, b in tri.items():
         im = Image.open(BytesIO(b))

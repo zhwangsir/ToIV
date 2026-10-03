@@ -9,6 +9,16 @@ from PIL import Image
 from app.services.studio import character_sheet as sheet_svc
 
 
+def _tweak(data: bytes, tag: int) -> bytes:
+    im = Image.open(BytesIO(data)).convert("RGB")
+    px = im.load()
+    r, g, b = px[2, 2]
+    px[2, 2] = ((r + tag) % 256, g, b)
+    buf = BytesIO()
+    im.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def _png(arr: np.ndarray) -> bytes:
     buf = BytesIO()
     Image.fromarray(arr.astype(np.uint8), mode="RGB").save(buf, format="PNG")
@@ -32,7 +42,7 @@ def _figure() -> bytes:
 def test_hard_crop_max_upscale_2x():
     portrait = _figure()
     tri = sheet_svc.build_faces_tri_from_masters(
-        portrait=portrait, front=portrait, side=_figure(), back=_figure(), size=256
+        portrait=portrait, front=portrait, side=_tweak(_figure(), 3), back=_tweak(_figure(), 9), size=256
     )
     for k, b in tri.items():
         im = Image.open(BytesIO(b))
@@ -96,10 +106,10 @@ def test_side_cleanup_accept_rejects_large_drift():
     assert sheet_svc.side_face_cleanup_accept(buf.getvalue(), a) is False
 
 
-def test_face_side_from_side_not_back():
-    """21:22：face_side 必须来自侧母版，与背母版裁切不同。"""
-    portrait = _figure()
-    side = _figure()
+def test_face_side_from_back_not_side():
+    """22:02：face_side（第三格）必须来自背母版后脑勺，不得再裁侧脸。"""
+    portrait = _tweak(_figure(), 1)
+    side = _tweak(_figure(), 2)
     # back: solid dark (occiput-like) so crop differs
     import numpy as np
     from io import BytesIO
@@ -114,11 +124,13 @@ def test_face_side_from_side_not_back():
     tri = sheet_svc.build_faces_tri_from_masters(
         portrait=portrait, front=portrait, side=side, back=back, size=128
     )
-    # side-derived face_side must not equal a crop from back
     from_back = sheet_svc.crop_face_slot_from_master(back, slot="face_side", size=128)
-    assert tri["face_side"] != from_back
-    # three_quarter and side both from side master → same crop geometry for synthetic
-    assert tri["face_side"] == tri["face_three_quarter"] or len(tri["face_side"]) > 100
+    from_side = sheet_svc.crop_face_slot_from_master(side, slot="face_side", size=128)
+    assert tri["face_side"] == from_back
+    assert tri["face_side"] != from_side
+    assert tri["face_three_quarter"] == sheet_svc.crop_face_slot_from_master(
+        side, slot="face_three_quarter", size=128
+    )
 
 
 def test_wrist_cuff_box_and_fill():
