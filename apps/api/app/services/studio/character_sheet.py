@@ -1401,15 +1401,42 @@ def dump_rejected_panel(
         return None
 
 
-def _chest_emblem_scores(data: bytes) -> tuple[int, int, int]:
-    """胸口 ROI 的 (bright, chroma, n)。失败返回 (0,0,0)。"""
+def _chest_emblem_scores(
+    data: bytes, *, below_face: bool = False
+) -> tuple[int, int, int]:
+    """胸口 ROI 的 (bright, chroma, n)。失败返回 (0,0,0)。
+
+    18:23 below_face=True：近景表情脸占上半幅时，ROI 改到脸框下方（下巴~锁骨），
+    避免眼睛/嘴唇高 chroma 被误判成胸口徽标。
+    """
     try:
         img = Image.open(BytesIO(data)).convert("RGB")
     except Exception:
         return 0, 0, 0
     w, h = img.size
-    x0, x1 = int(w * 0.35), int(w * 0.65)
-    y0, y1 = int(h * 0.32), int(h * 0.52)
+    if below_face:
+        # 近景表情：脸常占上半幅，胸口看画面下部；避免启发式大脸框把胸口 ROI 推到画外。
+        bb = _detect_face_bbox_xyxy(data)
+        if bb is None:
+            bb = _heuristic_skin_face_bbox(img)
+        closeup = False
+        if bb is not None:
+            _x1, _y1, _x2, y2 = [float(v) for v in bb]
+            fh = max(8.0, float(y2) - float(_y1))
+            closeup = (fh / float(h) >= 0.35) or (float(y2) / float(h) >= 0.55)
+        x0, x1 = int(w * 0.28), int(w * 0.72)
+        if closeup or bb is None:
+            y0, y1 = int(h * 0.58), int(h * 0.95)
+        else:
+            _x1, _y1, _x2, y2 = [float(v) for v in bb]
+            fh = max(8.0, y2 - _y1)
+            y0 = int(min(h - 2, y2 + 0.04 * fh))
+            y1 = int(min(h, max(y2 + 1.35 * fh, h * 0.52)))
+            if y1 <= y0 + 8:
+                y0, y1 = int(h * 0.58), int(h * 0.95)
+    else:
+        x0, x1 = int(w * 0.35), int(w * 0.65)
+        y0, y1 = int(h * 0.32), int(h * 0.52)
     crop = img.crop((x0, y0, x1, y1)).resize((64, 48), Image.Resampling.BILINEAR)
     px = list(crop.getdata())
     if not px:
@@ -1428,14 +1455,15 @@ def _chest_emblem_scores(data: bytes) -> tuple[int, int, int]:
 
 
 def portrait_has_chest_emblem(
-    data: bytes, *, ref: bytes | None = None
+    data: bytes, *, ref: bytes | None = None, below_face: bool = False
 ) -> bool:
     """主立绘胸口贴标/徽标启发式：中上躯干高对比小团块。
 
     17:14：若提供已过目检母版正面 ref，则仅当立绘明显比母版更「花」才判命中，
     避免板岩灰雨衣高光/拉链把合格母版与同款编辑立绘误杀。
+    18:23 below_face：表情近景用脸下 ROI。
     """
-    bright, chroma, n = _chest_emblem_scores(data)
+    bright, chroma, n = _chest_emblem_scores(data, below_face=below_face)
     if n <= 0:
         return False
     abs_hit = False
@@ -1447,7 +1475,7 @@ def portrait_has_chest_emblem(
     if chroma >= int(n * 0.12) and bright >= int(n * 0.08):
         abs_hit = True
     if ref:
-        rb, rc, rn = _chest_emblem_scores(ref)
+        rb, rc, rn = _chest_emblem_scores(ref, below_face=False)
         if rn > 0:
             # 相对母版：chroma 或 bright 显著变差才拒
             worse = (chroma >= rc + 8) or (bright >= max(rb * 1.6, rb + 20))
@@ -2759,14 +2787,19 @@ def assert_expression_identity_gates(
     portrait_ref: bytes | None,
     expr_key: str,
 ) -> None:
-    """表情格：相对主立绘新徽标/字样 → 拒；发长过线 → 拒。"""
-    if portrait_ref and portrait_has_chest_emblem(data, ref=portrait_ref):
+    """表情格：相对主立绘新徽标/字样 → 拒；发长过线 → 拒。
+
+    徽标检测用 below_face ROI，避免近景五官误杀。
+    """
+    if portrait_ref and portrait_has_chest_emblem(
+        data, ref=portrait_ref, below_face=True
+    ):
         raise CharacterSheetError(
             f"{expr_key}胸口相对主立绘出现新徽标/字样",
             status_code=422,
         )
     # 无 ref 时绝对徽标也拒（表情近景胸口贴标）
-    if portrait_ref is None and portrait_has_chest_emblem(data):
+    if portrait_ref is None and portrait_has_chest_emblem(data, below_face=True):
         raise CharacterSheetError(
             f"{expr_key}胸口检出徽标/字样",
             status_code=422,

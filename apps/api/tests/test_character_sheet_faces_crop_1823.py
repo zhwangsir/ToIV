@@ -73,10 +73,23 @@ def test_faces_crop_skips_generation_path(monkeypatch):
     assert calls == []
 
 
+def _closeup(*, badge=False) -> bytes:
+    """近景头肩合成图：脸在上半，胸口在下 40%。"""
+    h, w = 768, 768
+    arr = np.zeros((h, w, 3), dtype=np.uint8)
+    arr[:] = (90, 106, 122)
+    arr[int(h * 0.08) : int(h * 0.42), int(w * 0.28) : int(w * 0.72)] = (220, 180, 150)
+    arr[int(h * 0.18) : int(h * 0.24), int(w * 0.38) : int(w * 0.44)] = (50, 90, 210)
+    arr[int(h * 0.18) : int(h * 0.24), int(w * 0.56) : int(w * 0.62)] = (50, 90, 210)
+    if badge:
+        arr[int(h * 0.68) : int(h * 0.80), int(w * 0.40) : int(w * 0.60)] = (220, 40, 40)
+    return _png(arr)
+
+
 def test_expression_new_emblem_rejected_relative():
     ref = _figure(emblem=False)
-    bad = _figure(emblem=True)
-    assert sheet_svc.portrait_has_chest_emblem(bad, ref=ref) is True
+    bad = _closeup(badge=True)
+    assert sheet_svc.portrait_has_chest_emblem(bad, ref=ref, below_face=True) is True
     with pytest.raises(sheet_svc.CharacterSheetError, match="徽标"):
         sheet_svc.assert_expression_identity_gates(
             bad, portrait_ref=ref, expr_key="expr_0"
@@ -126,3 +139,32 @@ def test_costume_first_cell_empty_replaced():
 def test_expr_reject_cause_bucket():
     assert sheet_svc._expr_reject_cause("expr_0胸口相对主立绘出现新徽标/字样") == "emblem"
     assert sheet_svc._expr_reject_cause("expr_3发长相对主立绘过长（须齐下巴）") == "hair"
+
+
+def test_expr_closeup_eyes_not_emblem_below_face():
+    """近景五官不得被 below_face=False 的旧 ROI 思路误杀；below_face 应过。"""
+    h, w = 768, 768
+    arr = np.zeros((h, w, 3), dtype=np.uint8)
+    arr[:] = (90, 106, 122)
+    # face upper half with blue eyes (high chroma mid frame)
+    arr[int(h * 0.12) : int(h * 0.45), int(w * 0.30) : int(w * 0.70)] = (220, 180, 150)
+    arr[int(h * 0.22) : int(h * 0.28), int(w * 0.38) : int(w * 0.44)] = (40, 80, 220)
+    arr[int(h * 0.22) : int(h * 0.28), int(w * 0.56) : int(w * 0.62)] = (40, 80, 220)
+    # plain chest lower
+    arr[int(h * 0.55) : int(h * 0.95), int(w * 0.25) : int(w * 0.75)] = (90, 106, 122)
+    data = _png(arr)
+    ref = _figure(emblem=False)
+    assert sheet_svc.portrait_has_chest_emblem(data, ref=ref, below_face=True) is False
+    sheet_svc.assert_expression_identity_gates(
+        data, portrait_ref=ref, expr_key="expr_0"
+    )
+
+
+def test_expr_real_chest_badge_below_face_still_rejects():
+    data = _closeup(badge=True)
+    ref = _figure(emblem=False)
+    assert sheet_svc.portrait_has_chest_emblem(data, ref=ref, below_face=True) is True
+    with pytest.raises(sheet_svc.CharacterSheetError, match="徽标"):
+        sheet_svc.assert_expression_identity_gates(
+            data, portrait_ref=ref, expr_key="expr_1"
+        )
