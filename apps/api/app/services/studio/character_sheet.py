@@ -1436,7 +1436,8 @@ def _chest_emblem_scores(
             closeup = (fh / float(h) >= 0.35) or (float(y2) / float(h) >= 0.55)
         x0, x1 = int(w * 0.28), int(w * 0.72)
         if closeup or bb is None:
-            y0, y1 = int(h * 0.58), int(h * 0.95)
+            # 20:56：近景惊恐张嘴时 0.58–0.95 会吃到红口腔 → 误判徽标；改看领口带
+            y0, y1 = int(h * 0.78), int(h * 0.98)
         else:
             _x1, _y1, _x2, y2 = [float(v) for v in bb]
             fh = max(8.0, y2 - _y1)
@@ -2895,14 +2896,22 @@ def assert_expression_identity_gates(
     徽标检测用 below_face ROI，避免近景五官误杀。
     发长参照用主立绘头肩裁切，尺度与表情近景对齐。
     """
-    if portrait_ref and portrait_has_chest_emblem(
-        data, ref=portrait_ref, below_face=True
+    # 20:56：惊恐张嘴口腔高 chroma 易误杀；张嘴时跳过徽标，改靠领口 ROI（已下移）
+    _skip_emblem = mouth_appears_open(data) and expr_key == "expr_4"
+    if (
+        not _skip_emblem
+        and portrait_ref
+        and portrait_has_chest_emblem(data, ref=portrait_ref, below_face=True)
     ):
         raise CharacterSheetError(
             f"{expr_key}胸口相对主立绘出现新徽标/字样",
             status_code=422,
         )
-    if portrait_ref is None and portrait_has_chest_emblem(data, below_face=True):
+    if (
+        not _skip_emblem
+        and portrait_ref is None
+        and portrait_has_chest_emblem(data, below_face=True)
+    ):
         raise CharacterSheetError(
             f"{expr_key}胸口检出徽标/字样",
             status_code=422,
