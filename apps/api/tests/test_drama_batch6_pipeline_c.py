@@ -313,7 +313,7 @@ def test_pick_score_includes_continuity_bonus(tmp_path, monkeypatch):
     b.write_bytes(b"2")
     monkeypatch.setattr(cp, "_try_import_face", lambda: True)
 
-    def fake_face(path, ref_image_path):
+    def fake_face(path, ref_image_path, **kwargs):
         # 两人脸分相同，连贯分应决出胜负
         return {
             "face_mean": 0.5,
@@ -381,7 +381,7 @@ def test_face_gate_rejects_low_face_mean(tmp_path, monkeypatch):
     b = tmp_path / "b.mp4"; b.write_bytes(b"y")
     ref = tmp_path / "ref.png"; ref.write_bytes(b"z")
 
-    def fake_face(path, ref_image_path):
+    def fake_face(path, ref_image_path, **kwargs):
         # a=负脸分；b=无人脸
         if str(path).endswith("a.mp4"):
             return {"face_mean": -0.03, "burnin_penalty": 0, "ocr_penalty": 0, "error": ""}
@@ -415,7 +415,7 @@ def test_face_gate_allows_passing_face(tmp_path, monkeypatch):
     b = tmp_path / "b.mp4"; b.write_bytes(b"y")
     ref = tmp_path / "ref.png"; ref.write_bytes(b"z")
 
-    def fake_face(path, ref_image_path):
+    def fake_face(path, ref_image_path, **kwargs):
         if str(path).endswith("b.mp4"):
             return {"face_mean": 0.62, "burnin_penalty": 0, "ocr_penalty": 0, "error": ""}
         return {"face_mean": 0.2, "burnin_penalty": 0, "ocr_penalty": 0, "error": ""}

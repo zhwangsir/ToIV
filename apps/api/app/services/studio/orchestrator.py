@@ -378,6 +378,10 @@ async def render_shot(
                             regression_ref_path = _resolve_vid(s0_url)
 
                 # insightface/cv2 同步且重：单 worker 下会堵死事件循环（雨夜镜1 API 挂死）
+                # 动漫镜：CLIP 图相似，门禁 0.60；参考图无脸禁止空分放行（12:48）
+                _anime = (sheet_style or "").strip().lower() in (
+                    "anime", "二次元", "动漫", "cartoon",
+                )
                 try:
                     win_id, candidates = await asyncio.to_thread(
                         pick_best_candidate,
@@ -387,6 +391,9 @@ async def render_shot(
                         prev_video_path=prev_video_path,
                         scene_ref_path=scene_ref_path,
                         regression_ref_path=regression_ref_path,
+                        face_score_mode="clip" if _anime else "auto",
+                        ref_style=sheet_style,
+                        min_face_mean=0.60 if _anime else 0.45,
                     )
                 except CandidatePickError as e:
                     # 候选已出片但选优失败：先写入 candidates；外层按是否已有入选决定 error 或保留

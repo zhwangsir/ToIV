@@ -159,19 +159,218 @@ def score_scene_continuity(
     return out
 
 
-def score_video_face(
+def _upper_body_crop_bgr(frame_bgr):
+    """上半身/头肩裁剪：顶部 60% × 水平居中 80%，供动漫 CLIP 相似度。"""
+    h, w = frame_bgr.shape[:2]
+    y2 = max(1, int(h * 0.60))
+    x1 = int(w * 0.10)
+    x2 = max(x1 + 1, int(w * 0.90))
+    return frame_bgr[0:y2, x1:x2]
+
+
+def _cosine(a, b) -> float:
+    import numpy as np
+
+    aa = np.asarray(a, dtype=np.float32).reshape(-1)
+    bb = np.asarray(b, dtype=np.float32).reshape(-1)
+    denom = float(np.linalg.norm(aa) * np.linalg.norm(bb) + 1e-9)
+    return float(np.dot(aa, bb) / denom)
+
+
+def _openclip_image_embedder():
+    """懒加载 CLIP 图像编码器：优先 open_clip（scene_gate 缓存），否则 transformers。"""
+    try:
+        import os
+        import torch
+        from PIL import Image
+        from app.services.studio.scene_gate import _cached_openclip
+
+        device = os.environ.get("TOIV_SCENE_GATE_DEVICE") or (
+            "cuda:0" if torch.cuda.is_available() else "cpu"
+        )
+        if str(device).endswith(":3"):
+            device = "cpu"
+        model, preprocess, _tokenizer, device = _cached_openclip(
+            device, "ViT-L-14", "openai"
+        )
+
+        def _embed_oc(pil_img: "Image.Image"):
+            import torch as _torch
+
+            t = preprocess(pil_img.convert("RGB")).unsqueeze(0).to(device)
+            with _torch.no_grad():
+                feat = model.encode_image(t)
+                feat = feat / feat.norm(dim=-1, keepdim=True)
+            return feat.squeeze(0).detach().float().cpu().numpy()
+
+        return _embed_oc
+    except Exception as e:
+        logger.info("open_clip 不可用，尝试 transformers CLIP: %s", e)
+
+    try:
+        import torch
+        from transformers import CLIPModel, CLIPProcessor
+
+        name = "openai/clip-vit-base-patch32"
+        model = CLIPModel.from_pretrained(name)
+        proc = CLIPProcessor.from_pretrained(name)
+        model.eval()
+
+        def _embed_hf(pil_img: "Image.Image"):
+            import torch as _torch
+
+            inputs = proc(images=pil_img.convert("RGB"), return_tensors="pt")
+            with _torch.no_grad():
+                vision = model.vision_model(pixel_values=inputs["pixel_values"])
+                feat = model.visual_projection(vision.pooler_output)
+                feat = feat / feat.norm(dim=-1, keepdim=True)
+            return feat.squeeze(0).detach().float().cpu().numpy()
+
+        return _embed_hf
+    except Exception as e:
+        logger.info("transformers CLIP 不可用，动漫脸 CLIP 跳过: %s", e)
+        return None
+
+
+def score_video_face_clip(
     video_path: str | Path,
     ref_image_path: str | Path,
+    *,
+    embedder=None,
 ) -> dict[str, Any]:
-    """对视频首/中/尾帧与参考脸算余弦相似度均值；失败返回 face_mean=None。"""
+    """动漫镜人脸分：CLIP 图像相似度（参考图上半身 vs 出片上半身裁剪均值）。
+
+    参考图 insightface 检不出脸时必须走此路径，禁止空分放行。
+    embedder: 可选 (PIL.Image)->1d vector，单测注入；默认 open_clip ViT-L/14。
+    """
     out: dict[str, Any] = {
         "face_mean": None,
         "sims": [],
         "burnin_penalty": 0.0,
         "ocr_penalty": 0.0,
         "error": "",
+        "score_backend": "clip",
+    }
+    try:
+        import cv2
+        import numpy as np
+        from PIL import Image
+    except Exception:
+        out["error"] = "cv2/PIL 不可用"
+        return out
+
+    ref_p = Path(ref_image_path)
+    vid_p = Path(video_path)
+    if not ref_p.is_file() or not vid_p.is_file():
+        out["error"] = "参考图或视频不存在"
+        return out
+
+    enc = embedder if embedder is not None else _openclip_image_embedder()
+    if enc is None:
+        out["error"] = "open_clip 不可用"
+        return out
+
+    ref_bgr = cv2.imread(str(ref_p))
+    if ref_bgr is None:
+        out["error"] = "参考图读取失败"
+        return out
+    ref_crop = _upper_body_crop_bgr(ref_bgr)
+    ref_pil = Image.fromarray(cv2.cvtColor(ref_crop, cv2.COLOR_BGR2RGB))
+    try:
+        ref_emb = enc(ref_pil)
+    except Exception as e:
+        out["error"] = f"CLIP 参考编码失败:{e}"
+        return out
+
+    cap = cv2.VideoCapture(str(vid_p))
+    n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    if n <= 1:
+        idxs = [0]
+    else:
+        idxs = sorted(
+            {
+                max(0, min(n - 1, int(round(x))))
+                for x in [0, n * 0.15, n * 0.35, n // 2, n * 0.65, n * 0.85, n - 1]
+            }
+        )
+    sims: list[float] = []
+    burn = 0.0
+    ocr = 0.0
+    frames_ok = 0
+    for i in idxs:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            continue
+        frames_ok += 1
+        burn = max(burn, _burnin_penalty(frame))
+        ocr = max(ocr, _ocr_penalty(frame))
+        crop = _upper_body_crop_bgr(frame)
+        pil = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
+        try:
+            emb = enc(pil)
+            sims.append(_cosine(ref_emb, emb))
+        except Exception:
+            continue
+    cap.release()
+    out["sims"] = sims
+    out["burnin_penalty"] = burn
+    out["ocr_penalty"] = ocr
+    out["frames_sampled"] = frames_ok
+    if sims:
+        out["face_mean"] = float(sum(sims) / len(sims))
+    elif frames_ok > 0:
+        out["error"] = "CLIP 帧编码失败"
+    else:
+        out["error"] = "视频帧读取失败"
+    return out
+
+
+def _want_clip_face(mode: str, ref_style: str | None) -> bool:
+    m = (mode or "auto").strip().lower()
+    if m == "clip":
+        return True
+    if m == "insightface":
+        return False
+    st = (ref_style or "").strip().lower()
+    return st in ("anime", "二次元", "动漫", "cartoon")
+
+
+def score_video_face(
+    video_path: str | Path,
+    ref_image_path: str | Path,
+    *,
+    mode: str = "auto",
+    ref_style: str | None = None,
+    clip_embedder=None,
+) -> dict[str, Any]:
+    """对视频帧与参考脸算相似度均值；失败返回 face_mean=None。
+
+    mode:
+      - insightface：仅 InsightFace（写实）
+      - clip：仅 CLIP 上半身图相似（动漫）
+      - auto：动漫风格走 CLIP；否则 InsightFace，参考图无脸时回退 CLIP（禁止空分放行）
+    """
+    if _want_clip_face(mode, ref_style):
+        return score_video_face_clip(
+            video_path, ref_image_path, embedder=clip_embedder
+        )
+
+    out: dict[str, Any] = {
+        "face_mean": None,
+        "sims": [],
+        "burnin_penalty": 0.0,
+        "ocr_penalty": 0.0,
+        "error": "",
+        "score_backend": "insightface",
     }
     if not _try_import_face():
+        # 无 insightface 时仍尝试 CLIP，避免空分
+        clip_out = score_video_face_clip(
+            video_path, ref_image_path, embedder=clip_embedder
+        )
+        if clip_out.get("face_mean") is not None:
+            return clip_out
         out["error"] = "insightface/cv2 不可用"
         return out
     import cv2
@@ -194,6 +393,14 @@ def score_video_face(
         return out
     faces = app.get(ref_img)
     if not faces:
+        # 12:48：参考图检不出脸不得空分放行 → CLIP
+        clip_out = score_video_face_clip(
+            video_path, ref_image_path, embedder=clip_embedder
+        )
+        if clip_out.get("face_mean") is not None or clip_out.get("error"):
+            clip_out.setdefault("score_backend", "clip")
+            clip_out["fallback_from"] = "insightface_no_ref_face"
+            return clip_out
         out["error"] = "参考图未检测到脸"
         return out
     ref_emb = sorted(
@@ -260,12 +467,16 @@ def pick_best_candidate(
     scene_positive: str | None = None,
     scene_negatives: list[str] | None = None,
     scene_gate_fn=None,
+    face_score_mode: str = "auto",
+    ref_style: str | None = None,
+    clip_embedder=None,
 ) -> tuple[str | None, list[dict[str, Any]]]:
     """按 face_mean - burnin - ocr + 连贯加分 - 回退罚分 选优。
 
     选优失败抛 CandidatePickError（禁止静默回落首候选）。
     regression_ref_path：通常为镜0成片，扣「与开场过像」的回退候选。
-    min_face_mean：人脸门禁（默认 0.45）；face_mean 为空或低于门禁的候选不得入选。
+    min_face_mean：人脸门禁（默认 0.45；动漫 CLIP 建议 0.60）；face_mean 为空或低于门禁的候选不得入选。
+    face_score_mode / ref_style：动漫走 CLIP 图相似，参考图无脸禁止空分放行。
     """
     done = [c for c in candidates if c.get("status") == "done" and c.get("url")]
     if not done:
@@ -282,8 +493,12 @@ def pick_best_candidate(
         p = Path(url)
         return p if p.is_file() else None
 
+    want_clip = _want_clip_face(face_score_mode, ref_style)
+    # CLIP 路径不依赖 insightface；insightface 路径仍可在无脸时回退 CLIP
     face_ok = bool(
-        ref_image_path and Path(ref_image_path).is_file() and _try_import_face()
+        ref_image_path
+        and Path(ref_image_path).is_file()
+        and (want_clip or _try_import_face() or clip_embedder is not None)
     )
     have_cont_material = bool(prev_video_path or scene_ref_path)
 
@@ -311,13 +526,22 @@ def pick_best_candidate(
             pen = 0.0
             note_parts: list[str] = []
             if face_ok:
-                m = score_video_face(path, ref_image_path)
+                m = score_video_face(
+                    path,
+                    ref_image_path,
+                    mode=face_score_mode,
+                    ref_style=ref_style,
+                    clip_embedder=clip_embedder,
+                )
                 face = m.get("face_mean")
                 pen = float(m.get("burnin_penalty") or 0) + float(m.get("ocr_penalty") or 0)
                 c["face_mean"] = face
                 c["burnin_penalty"] = m.get("burnin_penalty")
                 c["ocr_penalty"] = m.get("ocr_penalty")
-                note_parts.append(m.get("error") or "facecrop")
+                c["face_score_backend"] = m.get("score_backend")
+                note_parts.append(
+                    (m.get("error") or m.get("score_backend") or "facecrop")
+                )
             else:
                 c["face_mean"] = None
                 note_parts.append("continuity_only")

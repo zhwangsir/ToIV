@@ -106,7 +106,7 @@ def test_pick_best_requires_scene_gate(tmp_path, monkeypatch):
     ref = tmp_path / "ref.jpg"
     ref.write_bytes(b"r")
 
-    def fake_face(path, ref_image_path):
+    def fake_face(path, ref_image_path, **kwargs):
         # 都过人脸
         return {"face_mean": 0.62, "burnin_penalty": 0, "ocr_penalty": 0, "error": ""}
 
