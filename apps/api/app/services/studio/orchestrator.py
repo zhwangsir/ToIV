@@ -104,6 +104,7 @@ async def render_shot(
     context_latent_path: str | None = None,
     auto_pick: bool = True,
     ref_style: str | None = None,
+    seed: int | None = None,
 ) -> StudioShot:
     """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。
 
@@ -229,20 +230,23 @@ async def render_shot(
     session.add(shot)
     session.commit()
 
-    async def _once(seed: int | None = None) -> Any:
+    async def _once(seed_arg: int | None = None) -> Any:
         kw = dict(render_kw)
-        if seed is not None:
-            kw["seed"] = seed
+        if seed_arg is not None:
+            kw["seed"] = seed_arg
         return await renderer.render(shot, cast, pool, **kw)
 
     candidates: list[dict[str, Any]] = []
     try:
         if shot.render_mode != "video" or n <= 1:
-            result = await _once()
+            result = await _once(seed)
             candidates = []
         else:
             # 多候选:不同 seed 串行提交(不并行,避免打爆 H3 单实例队列)
-            seeds = [random.randint(0, 2**31 - 1) for _ in range(n)]
+            if seed is not None:
+                seeds = [int(seed) + i for i in range(n)]
+            else:
+                seeds = [random.randint(0, 2**31 - 1) for _ in range(n)]
             candidates = []
             result = None
             first_err: Exception | None = None
@@ -459,7 +463,7 @@ async def render_shot(
                 {
                     "id": uuid.uuid4().hex,
                     "url": result.url if result.kind == "video" else "",
-                    "seed": 0,
+                    "seed": int((meta.get("seed") if isinstance(meta, dict) else None) or seed or 0),
                     "status": "done",
                     "is_picked": True,
                     "error": "",

@@ -9,6 +9,9 @@ C_AVOID_TEXT = (
     "storefront sign, shop sign, store signboard, neon sign text, "
     "garbled text, gibberish english, random letters, burned-in text, "
     "readable english words on signs, billboard text, "
+    "brand logo, clothing brand logo, chest logo, emblem on jacket, "
+    "The North Face logo, Nike logo, Adidas logo, fashion brand mark, "
+    "品牌标, 服装品牌logo, 胸口logo, 品牌文字, "
     "烧录字幕, 字幕, 台词文字, 水印, 台标, 花字, 标题文字, "
     "店招, 招牌, 乱码英文, 乱码文字, logo文字"
 )
@@ -26,6 +29,7 @@ _DIALOGUE_PATTERNS = (
 # 判定「已含文字屏蔽」的关键词；缺店招/乱码时仍追加
 _TEXT_BLOCK_MARKERS = ("字幕", "subtitle", "caption", "watermark", "水印")
 _SIGN_BLOCK_MARKERS = ("店招", "招牌", "storefront", "signboard", "garbled", "乱码")
+_BRAND_BLOCK_MARKERS = ("brand logo", "clothing brand", "品牌标", "胸口logo", "The North Face")
 
 
 def strip_dialogue(text: str) -> str:
@@ -46,14 +50,14 @@ _ANCIENT_COSTUME_LOCK = (
     "on collar and cuffs, charcoal black robe, traditional Chinese ancient costume, jet black hair, "
     "主色纯黑与深棕、金色镶边, "
     "no hood, no hoodie, no raincoat, no windbreaker, no sweatshirt, no modern clothing, "
-    "no purple robe, no violet robe, no blue robe, no indigo robe, no navy robe, no lavender"
+    "no purple robe, no violet robe, no blue robe, no indigo robe, no navy robe, no lavender, no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes"
 )
 _ANIME_COSTUME_LOCK = (
     "wearing jet-black hooded raincoat, hood down off the head, wet black hair on forehead, "
     "same black raincoat outfit as character sheet, cool white store light, "
     "主色纯黑雨衣, "
     "no hanfu, no white robe, no ancient costume, "
-    "no purple raincoat, no blue raincoat, no indigo coat"
+    "no purple raincoat, no blue raincoat, no indigo coat, no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes, no The North Face logo"
 )
 _ANCIENT_STRIP = (
     "hoodie", "hood down", "hood up", "raincoat", "windbreaker", "sweatshirt",
@@ -330,14 +334,14 @@ def costume_lock_for_style(
             lock = (
                 f"wearing cross-collar jiaoling hanfu with {pos_c}, "
                 "traditional Chinese ancient costume, jet black hair, "
-                "no hood, no hoodie, no raincoat, no windbreaker, no sweatshirt, no modern clothing, "
+                "no hood, no hoodie, no raincoat, no windbreaker, no sweatshirt, no modern clothing, no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes, "
                 f"{neg_c}"
             )
         else:
             lock = (
                 f"wearing hooded raincoat with {pos_c}, hood down off the head, "
                 "wet black hair on forehead, same outfit as character sheet, cool white store light, "
-                "no hanfu, no white robe, no ancient costume, "
+                "no hanfu, no white robe, no ancient costume, no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes, no The North Face logo, "
                 f"{neg_c}"
             )
     base = (visual_prompt or "").strip()
@@ -453,14 +457,15 @@ def build_c_visual_prompt(
 
 
 def merge_negative(existing: str = "") -> str:
-    """合并镜头原有 negative 与 C 默认文字/店招屏蔽（缺项才追加，不丢弃）。"""
+    """合并镜头原有 negative 与 C 默认文字/店招/品牌标屏蔽（缺项才追加，不丢弃）。"""
     base = (existing or "").strip()
     if not base:
         return C_AVOID_TEXT
     low = base.lower()
     need_text = not any(m in base or m in low for m in _TEXT_BLOCK_MARKERS)
     need_sign = not any(m in base or m in low for m in _SIGN_BLOCK_MARKERS)
-    if not need_text and not need_sign:
+    need_brand = not any(m in base or m in low for m in _BRAND_BLOCK_MARKERS)
+    if not need_text and not need_sign and not need_brand:
         return base
-    # 已有部分屏蔽时仍并入完整默认，保证店招/乱码条款到位
+    # 已有部分屏蔽时仍并入完整默认，保证店招/乱码/品牌条款到位
     return f"{base}, {C_AVOID_TEXT}"

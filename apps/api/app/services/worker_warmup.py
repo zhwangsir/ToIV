@@ -3,7 +3,7 @@
 目标:文生图 / H3 / 音乐在空闲 worker 上常驻,避免用户首枪冷启动 ~110s。
 约束:
 - **禁止**向 :8196 生产口与 :8205 提交预热(03:20 硬性)
-- 预热只走 :8195 / :8261–:8263 空闲口
+- 预热只走 :8195 / :8262 / :8264 空闲口（禁 :8261 已停、:8263 cuda:3）
 - 不清 :8196 缓存、不 interrupt 生产任务、不开 :8205、不用 cuda:3
 - 目标 worker 队列非空则跳过
 - 预热作业标记 filename_prefix=ToIV_warmup/*,产物可丢
@@ -25,9 +25,9 @@ from app.config import get_settings
 log = logging.getLogger("toiv.worker_warmup")
 
 # 生产口 / 禁开端口:预热绝不提交
-_FORBIDDEN_WARMUP_PORTS = frozenset({8196, 8205})
+_FORBIDDEN_WARMUP_PORTS = frozenset({8196, 8205, 8261, 8263})
 # 允许预热的端口(父代理 03:20)
-_ALLOWED_WARMUP_PORTS = frozenset({8195, 8261, 8262, 8263})
+_ALLOWED_WARMUP_PORTS = frozenset({8195, 8262, 8264})
 
 
 def _port_of(url: str) -> int | None:
@@ -41,7 +41,7 @@ def _port_of(url: str) -> int | None:
 
 
 def is_warmup_allowed_url(url: str) -> bool:
-    """预热目标是否允许(禁 :8196/:8205;仅 :8195/:8261-8263)。"""
+    """预热目标是否允许(禁 :8196/:8205/:8261/:8263;仅 :8195/:8262/:8264)。"""
     port = _port_of((url or "").strip())
     if port is None:
         return False
@@ -51,7 +51,7 @@ def is_warmup_allowed_url(url: str) -> bool:
 
 
 def warmup_pool_urls(settings: Any | None = None) -> list[str]:
-    """文生图/音乐预热候选:优先超分口 :8261-8263,再 :8195;永不含 :8196。"""
+    """文生图/音乐预热候选:优先 :8262/:8264,再 :8195;永不含 :8196/:8261/:8263。"""
     s = settings or get_settings()
     out: list[str] = []
     seen: set[str] = set()
@@ -204,7 +204,7 @@ async def warm_one(worker_url: str, kind: str, seed: int) -> dict[str, Any]:
 
 
 async def warm_popular_idle(*, seed: int | None = None, include_h3: bool = True) -> list[dict[str, Any]]:
-    """一轮空闲预热:仅 :8195/:8261-8263;H3 枪走 h3_base(须为允许口)。
+    """一轮空闲预热:仅 :8195/:8262/:8264;H3 枪走 h3_base(须为允许口)。
 
     绝不 interrupt / clear。busy 跳过。绝不打 :8196。
     """

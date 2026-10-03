@@ -56,7 +56,8 @@ _CHAR_PANEL_MARK = "char_panel_"
 _POLL_INTERVAL = 2.0
 _POLL_TIMEOUT = 420.0
 _MAX_REFS = 8
-_FORBIDDEN_WORKER_PORTS = {8195, 8196, 8197, 8205}
+_FORBIDDEN_WORKER_PORTS = {8195, 8196, 8197, 8205, 8261, 8263}
+_SHEET_ALLOWED_PORTS = frozenset({8262, 8264})
 
 # 固定几何(像素):拼版单测锁定这些矩形
 LAYOUT = {
@@ -2712,15 +2713,15 @@ def _build_img2img_graph(
 
 def _assert_sheet_worker_allowed(url: str) -> None:
     port = urlsplit(url).port
-    if port in _FORBIDDEN_WORKER_PORTS:
+    if port in _FORBIDDEN_WORKER_PORTS or port not in _SHEET_ALLOWED_PORTS:
         raise CharacterSheetError(
-            f"禁止使用生产/视频端口 :{port},设定卡仅允许 :8261-:8263",
+            f"禁止使用端口 :{port},设定卡仅允许 :8262/:8264",
             status_code=400,
         )
 
 
 async def _pick_sheet_client(worker: str | None = None) -> Any:
-    """仅从超分 fleet :8261-:8263 取客户端;禁止 pool/:8195/:8196/:8197/:8205。"""
+    """仅从 :8262/:8264 取客户端;禁止 pool/:8195/:8196/:8197/:8205/:8261/:8263。"""
     from app.comfy.client import ComfyUIClient, ComfyUIError
     from app.config import get_settings
     from app.services.video_upscale import healthy_upscale_workers, upscale_worker_urls
@@ -2735,9 +2736,9 @@ async def _pick_sheet_client(worker: str | None = None) -> Any:
         # 兼容 Tailscale / 内网同机
         if u not in allowed:
             port = urlsplit(u).port
-            if port not in {8261, 8262, 8263}:
+            if port not in _SHEET_ALLOWED_PORTS:
                 raise CharacterSheetError(
-                    f"worker 不在设定卡允许列表(:8261-:8263):{u}",
+                    f"worker 不在设定卡允许列表(:8262/:8264):{u}",
                     status_code=400,
                 )
         return ComfyUIClient(u, timeout=timeout)
@@ -2756,7 +2757,7 @@ async def _pick_sheet_client(worker: str | None = None) -> Any:
         remapped = []
         for u in upscale_worker_urls():
             p = urlsplit(u)
-            if p.port not in {8261, 8262, 8263}:
+            if p.port not in _SHEET_ALLOWED_PORTS:
                 continue
             for host in ("100.68.100.90", "192.168.71.127"):
                 cand = f"{p.scheme}://{host}:{p.port}"
@@ -2771,12 +2772,12 @@ async def _pick_sheet_client(worker: str | None = None) -> Any:
         safe = await healthy_upscale_workers(uniq)
     if not safe:
         raise CharacterSheetError(
-            "出图 fleet :8261-:8263 不可用", status_code=503
+            "出图 fleet :8262/:8264 不可用", status_code=503
         )
-    # 优先 8263(常更空闲),其次 8261,8262
+    # 优先 8262(超分/文生图),其次 8264(H3 gpu1)
     def _rank(u: str) -> int:
         port = urlsplit(u).port or 0
-        return {8263: 0, 8261: 1, 8262: 2}.get(port, 9)
+        return {8262: 0, 8264: 1}.get(port, 9)
 
     safe.sort(key=_rank)
     try:
@@ -2809,7 +2810,7 @@ async def generate_panel_bytes(
     ref_mode: auto|ipa|img2img|none
       - anime 默认 img2img(规避 hassaku/IPA glitch)
       - ancient 默认 ipa
-    注意:忽略 pool.pick,强制 :8261-:8263。
+    注意:忽略 pool.pick,强制 :8262/:8264。
     """
     del pool  # 设定卡不走通用 WorkerPool
     from app.comfy.client import ComfyUIError

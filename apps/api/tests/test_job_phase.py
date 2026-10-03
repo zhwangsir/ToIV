@@ -85,20 +85,25 @@ def test_warmup_forbids_production_8196():
     assert is_warmup_allowed_url("http://100.68.100.90:8196") is False
     assert is_warmup_allowed_url("http://100.68.100.90:8205") is False
     assert is_warmup_allowed_url("http://100.68.100.90:8195") is True
-    assert is_warmup_allowed_url("http://100.68.100.90:8261") is True
-    assert is_warmup_allowed_url("http://100.68.100.90:8263") is True
+    assert is_warmup_allowed_url("http://100.68.100.90:8261") is False  # 已停
+    assert is_warmup_allowed_url("http://100.68.100.90:8263") is False  # cuda:3
+    assert is_warmup_allowed_url("http://100.68.100.90:8262") is True
+    assert is_warmup_allowed_url("http://100.68.100.90:8264") is True
 
 
 def test_warmup_pool_urls_never_include_8196(monkeypatch):
     class S:
-        upscale_workers = "http://100.68.100.90:8261,http://100.68.100.90:8262"
-        h3_base_url = "http://100.68.100.90:8195"
+        upscale_workers = "http://100.68.100.90:8262,http://100.68.100.90:8264"
+        h3_base_url = "http://100.68.100.90:8264"
         @property
         def worker_urls(self):
-            return ["http://100.68.100.90:8196", "http://100.68.100.90:8263"]
+            return ["http://100.68.100.90:8196", "http://100.68.100.90:8263", "http://100.68.100.90:8195"]
 
     urls = warmup_pool_urls(S())
     assert urls
     assert all(":8196" not in u for u in urls)
-    assert any(u.endswith(":8261") for u in urls)
+    assert all(":8261" not in u for u in urls)
+    assert all(":8263" not in u for u in urls)
+    assert any(u.endswith(":8262") for u in urls)
+    assert any(u.endswith(":8264") for u in urls)
     assert any(u.endswith(":8195") for u in urls)

@@ -455,6 +455,7 @@ def test_costume_lock_for_style_anime():
     assert "no hanfu" in low
     positive = low.split("no hanfu", 1)[0]
     assert "hanfu" not in positive
+    assert "no brand logo" in low or "brand" in low
 
 
 def test_build_cast_visual_for_style_injects():
@@ -515,3 +516,12 @@ def test_palette_pick_and_zh_color_lock():
     zh_g, en_g = hex_to_zh_en_color("#5A6A7A")
     assert zh_g == "板岩灰" and "slate" in en_g.lower()
 
+
+
+def test_merge_negative_includes_brand():
+    from app.services.studio.prompt_c import merge_negative, C_AVOID_TEXT
+    out = merge_negative("blurry")
+    low = out.lower()
+    assert "brand logo" in low or "品牌标" in out
+    assert "storefront" in low or "店招" in out
+    assert "brand logo" in C_AVOID_TEXT.lower() or "品牌标" in C_AVOID_TEXT

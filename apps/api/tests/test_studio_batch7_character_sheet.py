@@ -239,7 +239,12 @@ def test_forbidden_worker_ports():
     assert ei.value.status_code == 400
     with pytest.raises(sheet_svc.CharacterSheetError):
         sheet_svc._assert_sheet_worker_allowed("http://100.68.100.90:8196")
-    sheet_svc._assert_sheet_worker_allowed("http://100.68.100.90:8261")
+    with pytest.raises(sheet_svc.CharacterSheetError):
+        sheet_svc._assert_sheet_worker_allowed("http://100.68.100.90:8261")
+    with pytest.raises(sheet_svc.CharacterSheetError):
+        sheet_svc._assert_sheet_worker_allowed("http://100.68.100.90:8263")
+    sheet_svc._assert_sheet_worker_allowed("http://100.68.100.90:8262")
+    sheet_svc._assert_sheet_worker_allowed("http://100.68.100.90:8264")
 
 
 def test_api_missing_visual_422(ctx):

@@ -1205,6 +1205,7 @@ class RenderShotBody(BaseModel):
     video_model: str = Field(default="h3", max_length=16)
     pipeline: str = Field(default="c", max_length=16)  # c | legacy
     num_candidates: int = Field(default=2, ge=1, le=4)
+    seed: int | None = Field(default=None, ge=0, description="固定种子；同 seed 跨 worker 对比用")
     ref_images: list[str] | None = Field(default=None, max_length=9)
     scene_images: list[str] | None = Field(default=None, max_length=4)
     ref_style: str | None = Field(
@@ -1235,6 +1236,7 @@ async def render_one(
     scenes = body.scene_images if body is not None else None
     pipe = (body.pipeline if body is not None else "c") or "c"
     rstyle = body.ref_style if body is not None else None
+    fixed_seed = body.seed if body is not None else None
     try:
         return _shot_out(
             await orchestrator.render_shot(
@@ -1247,6 +1249,7 @@ async def render_one(
                 scene_images=scenes,
                 pipeline=pipe,
                 ref_style=rstyle,
+                seed=fixed_seed,
             )
         )
     except ValueError as e:
