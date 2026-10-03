@@ -804,8 +804,10 @@ def _character_base(meta: SheetMeta) -> str:
         return base
 
     extra = (
-        "jet black hair, black hair, slate gray hooded raincoat #5A6A7A, "
-        "plain unbranded no logo no chest emblem, mid-tone slate gray fabric not jet black, "
+        "jet black hair, black hair, "
+        "slate gray #5A6A7A long knee-length hooded raincoat with long sleeves, "
+        "black pantyhose, black ankle boots, "
+        "plain unbranded no logo no chest emblem, mid-tone slate gray fabric not jet black not near-white, "
         "wet black hair on forehead, young East Asian woman, convenience store clerk vibe"
     )
     if "raincoat" not in low and "雨衣" not in base and "windbreaker" not in low:
@@ -835,7 +837,13 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
         head_bit = "hair ornaments optional, face fully visible"
         back_head = "ONLY back of head and hair bun, NO face NO eyes"
     else:
-        outfit = ("same character same slate-gray hooded raincoat #5A6A7A with hood, plain flat chest unbranded, no logo no emblem no badge no chest patch, no circular pattern no spiral design on chest, not jet black")
+        outfit = (
+            "same character same slate-gray #5A6A7A long knee-length hooded raincoat with long sleeves and hood, "
+            "black pantyhose, black ankle boots, fully clothed legs and feet, "
+            "plain flat chest unbranded, no logo no emblem no badge no chest patch, "
+            "no circular pattern no spiral design on chest, not jet black, not near-white light gray, "
+            "NOT short skirt, NOT bare legs, NOT short sleeves, NOT barefoot"
+        )
         head_bit = "hood DOWN face fully visible"
         back_head = "ONLY back of head and hood, NO face NO eyes"
     prompts: dict[str, str] = {
@@ -1103,6 +1111,40 @@ def _hex_dist(a: str, b: str) -> float:
     return abs(ar - br) + abs(ag - bg) + abs(ab - bb)
 
 
+SLATE_GRAY_TARGET = "#5A6A7A"
+# L1 距离阈值：过近白浅灰 / 过偏色则重出（15:40）
+SLATE_GRAY_MAX_DIST = 85
+
+
+def assert_garment_near_slate_gray(
+    data: bytes,
+    *,
+    target: str = SLATE_GRAY_TARGET,
+    max_dist: float = SLATE_GRAY_MAX_DIST,
+    label: str = "主立绘",
+) -> str:
+    """衣服区域主色须贴近板岩灰 #5A6A7A，否则 422 重出。"""
+    hx = _panel_garment_dominant_hex(data)
+    if not hx:
+        raise CharacterSheetError(
+            f"颜色门禁失败:{label}无法取服装主色", status_code=422
+        )
+    dist = _hex_dist(hx, target)
+    luma = _hex_luma(hx)
+    # 近白浅灰（父代理 15:40 不过）
+    if luma > 175:
+        raise CharacterSheetError(
+            f"颜色门禁失败:{label}服装主色过浅近白({hx} luma={luma:.0f})，须板岩灰{target}",
+            status_code=422,
+        )
+    if dist > float(max_dist):
+        raise CharacterSheetError(
+            f"颜色门禁失败:{label}服装主色{hx}距{target}={dist:.0f}>{max_dist}，须重出",
+            status_code=422,
+        )
+    return hx
+
+
 def portrait_has_chest_emblem(data: bytes) -> bool:
     """主立绘胸口贴标/徽标启发式：中上躯干高对比小团块。"""
     try:
@@ -1160,12 +1202,14 @@ def assert_sheet_garment_consistency(
     p_hex = _panel_garment_dominant_hex(portrait)
     if not p_hex:
         raise CharacterSheetError("一致性门禁失败:主立绘无法取服装主色", status_code=422)
-    # anime 期望板岩灰中调，禁止主色近纯黑
-    if style in ("anime", "二次元") and _hex_luma(p_hex) < 35:
-        raise CharacterSheetError(
-            f"一致性门禁失败:主立绘服装主色过黑({p_hex})，须板岩灰素面",
-            status_code=422,
-        )
+    # anime 期望板岩灰中调，禁止主色近纯黑/近白；相对 #5A6A7A 色差门禁
+    if style in ("anime", "二次元"):
+        if _hex_luma(p_hex) < 35:
+            raise CharacterSheetError(
+                f"一致性门禁失败:主立绘服装主色过黑({p_hex})，须板岩灰素面",
+                status_code=422,
+            )
+        assert_garment_near_slate_gray(portrait, label="主立绘")
     for key in ("front", "side", "back"):
         data = panels.get(key)
         if not data:
@@ -2217,7 +2261,13 @@ def _panel_content_metrics(
     bg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
 
     def _is_bg(r: int, g: int, b: int) -> bool:
-        if abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) < bg_tol:
+        # 15:36：板岩灰衣服易被当成浅灰背景；中调灰要求更严的色差
+        dist = abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2])
+        luma = (r + g + b) / 3.0
+        tol = bg_tol
+        if 40 <= luma <= 190:
+            tol = max(12, bg_tol // 2)
+        if dist < tol:
             return True
         if r > 235 and g > 235 and b > 235:
             return True
@@ -3142,6 +3192,19 @@ async def generate_character_sheet(
                     )
                     logger.warning("portrait emblem hit attempt=%s", attempt)
                     continue
+                # 15:36：主立绘过人脸 + 板岩灰色差门禁后，才允许出三视图
+                if meta.style in ("anime", "二次元"):
+                    try:
+                        assert_face_visible(panels["portrait"], min_face_area=0.02)
+                        assert_garment_near_slate_gray(
+                            panels["portrait"], label="主立绘"
+                        )
+                    except CharacterSheetError as gate_e:
+                        last_err = gate_e
+                        logger.warning(
+                            "portrait gate fail attempt=%s: %s", attempt, gate_e
+                        )
+                        continue
                 break
             except CharacterSheetError as e:
                 last_err = e
@@ -3192,6 +3255,93 @@ async def generate_character_sheet(
         ref_mode = "none"
         denoise = 0.62
         if key in ("front", "side", "back"):
+            # 15:36/15:40：anime 三视图禁止各自文生图/OpenPose 老路；
+            # 必须以过门禁主立绘做 img2img 参考锁同款同色。
+            if meta.style in ("anime", "二次元"):
+                if not ref_name:
+                    raise CharacterSheetError(
+                        "三视图缺主立绘参考，无法 img2img", status_code=422
+                    )
+                last_err = None
+                for attempt in range(4):
+                    try:
+                        s = (
+                            None
+                            if seed is None
+                            else seed + (abs(hash(key)) % 10000) + attempt * 8111
+                        )
+                        bust = f", keep exact same raincoat color #5A6A7A long sleeves pantyhose boots as reference portrait, unique view {attempt}-{s or 0}"
+                        # denoise 偏低锁服装；逐步略升仅用于姿态
+                        den = 0.42 + 0.04 * attempt
+                        raw = await generate_panel_bytes(
+                            pool,
+                            prompts[key] + bust,
+                            ckpt_name=ckpt,
+                            width=w,
+                            height=h,
+                            seed=s,
+                            worker=worker,
+                            filename_prefix=f"ToIV_char_sheet_{key}_i2i_a{attempt}",
+                            style=meta.style,
+                            client=client,
+                            ref_image=ref_name,
+                            ref_mode="img2img",
+                            denoise=den,
+                        )
+                        raw = normalize_turnaround_figure(raw, out_w=w, out_h=h)
+                        if key in ("front", "side") and portrait_has_chest_emblem(raw):
+                            # 胸口残留徽标：再 img2img 一次素面指令
+                            raw = await generate_panel_bytes(
+                                pool,
+                                prompts[key]
+                                + ", plain flat chest no badge no emblem no star, "
+                                + bust,
+                                ckpt_name=ckpt,
+                                width=w,
+                                height=h,
+                                seed=(s or 0) + 333,
+                                worker=worker,
+                                filename_prefix=f"ToIV_char_sheet_{key}_plain_a{attempt}",
+                                style=meta.style,
+                                client=client,
+                                ref_image=await client.upload_image(
+                                    raw, f"sheet_{key}_emblem_{attempt}.png"
+                                ),
+                                ref_mode="img2img",
+                                denoise=0.35,
+                            )
+                            raw = normalize_turnaround_figure(raw, out_w=w, out_h=h)
+                            if portrait_has_chest_emblem(raw):
+                                raise CharacterSheetError(
+                                    f"img2img {key}胸口徽标，重试",
+                                    status_code=422,
+                                )
+                        # 与主立绘服装色差（相对主立绘，不强制绝对板岩——主立绘已过）
+                        p_hex = _panel_garment_dominant_hex(panels["portrait"])
+                        t_hex = _panel_garment_dominant_hex(raw)
+                        if p_hex and t_hex and _hex_dist(p_hex, t_hex) > 110:
+                            raise CharacterSheetError(
+                                f"img2img {key}服装色差过大({t_hex} vs {p_hex})，重试",
+                                status_code=422,
+                            )
+                        panels[key] = raw
+                        last_err = None
+                        break
+                    except CharacterSheetError as e:
+                        last_err = e
+                        logger.warning(
+                            "img2img turnaround %s fail attempt=%s: %s",
+                            key,
+                            attempt,
+                            e,
+                        )
+                if last_err is not None:
+                    raise last_err
+                panel_urls[key] = save_panel_png(
+                    panels[key], character_id=character_id, style=meta.style, key=key
+                )
+                continue
+            # 古风仍可用 OpenPose + IPA
             use_op, _why = await _probe_openpose_available(client)
             if use_op and ref_name:
                 assets = ensure_openpose_assets(height_cm=meta.height_cm or 165)
@@ -3223,15 +3373,6 @@ async def generate_character_sheet(
                             skip_preprocess=True,
                         )
                         raw = normalize_turnaround_figure(raw, out_w=w, out_h=h)
-                        if meta.style in ("anime", "二次元") and key in (
-                            "front",
-                            "side",
-                        ):
-                            if portrait_has_chest_emblem(raw):
-                                raise CharacterSheetError(
-                                    f"openpose {key}胸口徽标，重试",
-                                    status_code=422,
-                                )
                         panels[key] = raw
                         last_err = None
                         break
@@ -3248,13 +3389,8 @@ async def generate_character_sheet(
                 continue
             if ref_name:
                 use_ref = ref_name
-                # 15:12：三视图必须以主立绘为参考锁同款同色；anime 用 img2img 强锁服装
-                if meta.style in ("anime", "二次元"):
-                    ref_mode = "img2img"
-                    denoise = 0.52
-                else:
-                    ref_mode = "ipa"
-                    denoise = 0.65
+                ref_mode = "ipa"
+                denoise = 0.65
         elif key == "faces":
             face = face_ref_name or ref_name
             tri: dict[str, bytes] = {}
