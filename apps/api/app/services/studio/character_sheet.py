@@ -4488,7 +4488,10 @@ async def generate_character_sheet(
                     yaw_ok_for_face_key(_y, fk),
                 )
             panels["faces"] = compose_faces_triptych(
-                tri, style=meta.style, size=_panel_size("faces", meta.style)
+                tri,
+                style=meta.style,
+                size=_panel_size("faces", meta.style),
+                master_crop=True,
             )
             continue
         elif key.startswith("expr_"):
@@ -6326,12 +6329,14 @@ def compose_faces_triptych(
     style: str = "anime",
     size: tuple[int, int] = (1024, 640),
     skip_enforce_keys: set[str] | frozenset[str] | None = None,
+    master_crop: bool = False,
 ) -> bytes:
     """正/3-4/侧 三个头部特写横拼为 faces 面板。
 
     fix16:锁定格与生成格同一 face-center cover(禁垫边缩水);每格 assert_panel_coverage>=0.90。
     入格 cover 按人脸焦点裁(高格水平居中会砍掉侧脸五官)。
     二次元浅底:已正方形铺满源谨慎 trim,避免 cel 线/浅底被当灰边。
+    18:23 master_crop=True：母版裁切直接拼，近景门禁失败则原图 LANCZOS 铺满，不 422。
     """
     bg = (248, 248, 252) if style == "anime" else (20, 22, 28)
     canvas = Image.new("RGB", size, bg)
@@ -6342,15 +6347,30 @@ def compose_faces_triptych(
         raw = faces.get(key)
         if not raw:
             continue
-        if key in skip:
-            filled = enforce_head_shoulders_square(
-                raw, size=768, skip_reframe=True, face_closeup_gate=True
+        try:
+            if master_crop or key in skip:
+                filled = enforce_head_shoulders_square(
+                    raw,
+                    size=768,
+                    skip_reframe=True,
+                    face_closeup_gate=not master_crop,
+                    check_coverage=False,
+                )
+            else:
+                # 17:55：脸格用近景门禁，禁全身 coverage（浅灰底+动漫脸会被判成 0.03 邮票）
+                filled = enforce_head_shoulders_square(
+                    raw, size=768, face_closeup_gate=True
+                )
+        except CharacterSheetError as ge:
+            if not master_crop:
+                raise
+            logger.warning("compose_faces master_crop soft skip %s: %s", key, ge)
+            im = Image.open(BytesIO(raw)).convert("RGB").resize(
+                (768, 768), Image.Resampling.LANCZOS
             )
-        else:
-            # 17:55：脸格用近景门禁，禁全身 coverage（浅灰底+动漫脸会被判成 0.03 邮票）
-            filled = enforce_head_shoulders_square(
-                raw, size=768, face_closeup_gate=True
-            )
+            buf = BytesIO()
+            im.save(buf, format="PNG")
+            filled = buf.getvalue()
         # 焦点:生成格用人脸中心;锁定格禁用 focus(防高格 cover 把头裁成半脸/空灰)
         focus = None
         if key not in skip:
@@ -6855,7 +6875,10 @@ async def regenerate_sheet_panels(
                     except CharacterSheetError:
                         pass
             panels["faces"] = compose_faces_triptych(
-                tri, style=meta.style, size=_panel_size("faces", meta.style)
+                tri,
+                style=meta.style,
+                size=_panel_size("faces", meta.style),
+                master_crop=True,
             )
             debug["picks"]["faces"] = {
                 "mode": "master_crop_1823",
