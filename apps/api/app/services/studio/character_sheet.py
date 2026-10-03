@@ -3877,7 +3877,22 @@ async def generate_character_sheet(
                     denoise=denoise,
                 )
                 if key.startswith("expr_"):
-                    raw = enforce_head_shoulders_square(raw, size=768)
+                    try:
+                        raw = enforce_head_shoulders_square(raw, size=768)
+                    except CharacterSheetError as ee:
+                        logger.warning("expr %s enforce: %s; soft cover", key, ee)
+                        raw = enforce_head_shoulders_square(
+                            raw, size=768, check_coverage=False
+                        )
+                        if panel_content_coverage(raw) < 0.15 or (
+                            meta.style in ("anime", "二次元")
+                            and not face_crop_looks_ok(raw)
+                        ):
+                            raw = enforce_head_shoulders_square(
+                                crop_face_ref(panels["portrait"], size=768),
+                                size=768,
+                                check_coverage=False,
+                            )
                 if key in ("front", "side") and meta.style in ("anime", "二次元"):
                     if portrait_has_chest_emblem(raw):
                         raise CharacterSheetError(
