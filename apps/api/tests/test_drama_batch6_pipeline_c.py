@@ -565,6 +565,30 @@ def test_brand_text_hit_helpers():
     assert brand_text_hit("雨") is False
 
 
+
+def test_garment_chest_emblem_hit_logo_vs_raindrops():
+    """胸口图标型 logo 要命中；纯雨滴/纯暗底不得误报。"""
+    import numpy as np
+    from app.services.studio.candidate_pick import garment_chest_emblem_hit
+
+    h, w = 1344, 768
+    dark = np.full((h, w, 3), 22, dtype=np.uint8)
+    assert garment_chest_emblem_hit(dark)["hit"] is False
+
+    logo = dark.copy()
+    y0, x0 = int(h * 0.38), int(w * 0.38)
+    logo[y0 : y0 + 24, x0 : x0 + 28] = (235, 235, 235)
+    assert garment_chest_emblem_hit(logo)["hit"] is True
+
+    rain = dark.copy()
+    rng = np.random.default_rng(1)
+    for _ in range(150):
+        yy = int(rng.integers(int(h * 0.30), int(h * 0.55)))
+        xx = int(rng.integers(int(w * 0.25), int(w * 0.60)))
+        rain[yy : yy + 2, xx : xx + 2] = (220, 220, 220)
+    assert garment_chest_emblem_hit(rain)["hit"] is False
+
+
 def test_garment_brand_ocr_frame_north_face():
     """合成帧画上 THE NORTH FACE 应 hit；空白应不 hit。"""
     from PIL import Image, ImageDraw, ImageFont

@@ -491,6 +491,93 @@ def _garment_roi_box(h: int, w: int) -> tuple[int, int, int, int]:
     return y0, max(y0 + 1, y1), x0, max(x0 + 1, x1)
 
 
+
+def _chest_emblem_roi_box(h: int, w: int) -> tuple[int, int, int, int]:
+    """胸口偏左徽标区（竖屏人物中景）：约占躯干左上 1/4。"""
+    y0 = int(h * 0.32)
+    y1 = int(h * 0.52)
+    x0 = int(w * 0.28)
+    x1 = int(w * 0.55)
+    return y0, max(y0 + 1, y1), x0, max(x0 + 1, x1)
+
+
+def garment_chest_emblem_hit(image) -> dict[str, Any]:
+    """检测深色雨衣胸口的小块高对比亮色徽标（图标型 logo，OCR 读不出）。
+
+    启发式：胸口 ROI 内相对暗底的孤立亮斑，面积约占 ROI 0.15%–4%，近似方形。
+    返回 {hit, area_ratio, blobs, error}。
+    """
+    out: dict[str, Any] = {"hit": False, "area_ratio": 0.0, "blobs": 0, "error": ""}
+    try:
+        import cv2
+        import numpy as np
+    except Exception as e:
+        out["error"] = f"cv2_unavailable:{type(e).__name__}"
+        return out
+    try:
+        if hasattr(image, "convert"):
+            import numpy as np
+            arr = np.asarray(image.convert("RGB"))
+            bgr = arr[:, :, ::-1].copy()
+        else:
+            import numpy as np
+            arr = np.asarray(image)
+            if arr.ndim != 3 or arr.shape[2] < 3:
+                out["error"] = "bad_frame"
+                return out
+            # 假定 OpenCV BGR
+            bgr = arr[:, :, :3].copy()
+        h, w = bgr.shape[:2]
+        y0, y1, x0, x1 = _chest_emblem_roi_box(h, w)
+        roi = bgr[y0:y1, x0:x1]
+        if roi.size == 0:
+            return out
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        # 相对亮斑：高于 ROI 中位 + 45，且绝对不太暗
+        med = float(np.median(gray))
+        # 雨滴也亮；徽标通常是胸口一块明显更亮的紧凑斑，阈值抬高压雨滴
+        thr = max(int(med + 70), 170)
+        _, bw = cv2.threshold(gray, thr, 255, cv2.THRESH_BINARY)
+        bw = cv2.morphologyEx(bw, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+        bw = cv2.morphologyEx(bw, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+        cnts, _ = cv2.findContours(bw, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        rh, rw = gray.shape[:2]
+        roi_area = float(rh * rw) or 1.0
+        hits = 0
+        best = 0.0
+        for c in cnts:
+            area = float(cv2.contourArea(c))
+            ratio = area / roi_area
+            # 雨滴 << 0.4%；TNF 山标约 0.5%–3%
+            if ratio < 0.004 or ratio > 0.035:
+                continue
+            x, y, cw, ch = cv2.boundingRect(c)
+            if cw < 10 or ch < 10:
+                continue
+            aspect = cw / max(ch, 1)
+            if aspect < 0.55 or aspect > 2.2:
+                continue
+            fill = area / float(max(cw * ch, 1))
+            if fill < 0.30:
+                continue
+            # 斑块均值须明显高于整 ROI 中位（再压湿点高光）
+            mask = np.zeros(gray.shape, dtype=np.uint8)
+            cv2.drawContours(mask, [c], -1, 255, -1)
+            mean_blob = float(cv2.mean(gray, mask=mask)[0])
+            if mean_blob < med + 55:
+                continue
+            hits += 1
+            best = max(best, ratio)
+        out["blobs"] = hits
+        out["area_ratio"] = best
+        # 只认 1–3 个候选斑；漫天雨点会被阈值滤掉
+        out["hit"] = 1 <= hits <= 3
+        return out
+    except Exception as e:
+        out["error"] = f"{type(e).__name__}:{e}"
+        return out
+
+
 def brand_text_hit(text: str) -> bool:
     """OCR 文本是否含品牌词或明显拉丁字母串（衣物印花）。"""
     t = (text or "").strip()
@@ -553,6 +640,13 @@ def garment_brand_ocr_frame(image) -> dict[str, Any]:
         text = (pytesseract.image_to_string(crop, lang="eng") or "").strip()
         out["text"] = text[:200]
         out["hit"] = brand_text_hit(text)
+        if not out["hit"]:
+            emb = garment_chest_emblem_hit(image)
+            out["emblem"] = {k: emb.get(k) for k in ("hit", "area_ratio", "blobs", "error")}
+            if emb.get("hit"):
+                out["hit"] = True
+                if not out["text"]:
+                    out["text"] = "chest_emblem_blob"
         return out
     except Exception as e:
         out["error"] = f"{type(e).__name__}:{e}"
@@ -611,7 +705,8 @@ def garment_brand_ocr_hit(video_path: str | Path) -> dict[str, Any]:
                 texts.append(str(fr["text"]))
             if fr.get("hit"):
                 out["hit"] = True
-                out["text"] = str(fr.get("text") or "")[:200]
+                out["text"] = str(fr.get("text") or "chest_emblem_blob")[:200]
+                out["emblem"] = fr.get("emblem") or {}
                 return out
         out["text"] = " | ".join(texts)[:200]
         return out
