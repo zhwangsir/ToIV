@@ -493,11 +493,14 @@ def _garment_roi_box(h: int, w: int) -> tuple[int, int, int, int]:
 
 
 def _chest_emblem_roi_box(h: int, w: int) -> tuple[int, int, int, int]:
-    """胸口偏左徽标区（竖屏人物中景）：约占躯干左上 1/4。"""
-    y0 = int(h * 0.32)
-    y1 = int(h * 0.52)
-    x0 = int(w * 0.28)
-    x1 = int(w * 0.55)
+    """胸口偏左徽标区（竖屏人物中景）。
+
+    只取上半胸口，避开帽绳抽绳扣/拉链下段高光误报。
+    """
+    y0 = int(h * 0.34)
+    y1 = int(h * 0.46)  # 上胸口；0.46 以下常是抽绳扣
+    x0 = int(w * 0.30)
+    x1 = int(w * 0.52)
     return y0, max(y0 + 1, y1), x0, max(x0 + 1, x1)
 
 
@@ -692,7 +695,9 @@ def garment_brand_ocr_hit(video_path: str | Path) -> dict[str, Any]:
         elif n == 1:
             idxs = [0]
         else:
-            idxs = sorted({0, max(0, n // 2), max(0, n - 1)})
+            # 密采样：图标型 logo 常只在若干秒可见；3 点会漏检
+            step = max(1, n // 8)
+            idxs = sorted({0, max(0, n - 1), *range(0, n, step)})
         texts: list[str] = []
         for i in idxs:
             cap.set(cv2.CAP_PROP_POS_FRAMES, i)
