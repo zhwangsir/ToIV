@@ -3574,7 +3574,7 @@ async def generate_character_sheet(
                         )
                         raw = normalize_turnaround_figure(raw, out_w=w, out_h=h)
                         if key in ("front", "side") and portrait_has_chest_emblem(raw):
-                            # 胸口残留徽标：再 img2img 一次素面指令
+                            # 胸口残留徽标：再 img2img 一次素面；仍失败则胸口 ROI 铺板岩灰
                             raw = await generate_panel_bytes(
                                 pool,
                                 prompts[key]
@@ -3596,18 +3596,42 @@ async def generate_character_sheet(
                             )
                             raw = normalize_turnaround_figure(raw, out_w=w, out_h=h)
                             if portrait_has_chest_emblem(raw):
-                                raise CharacterSheetError(
-                                    f"img2img {key}胸口徽标，重试",
-                                    status_code=422,
+                                tim = Image.open(BytesIO(raw)).convert("RGB")
+                                tw, th = tim.size
+                                draw = ImageDraw.Draw(tim)
+                                fill = (
+                                    int(SLATE_GRAY_TARGET[1:3], 16),
+                                    int(SLATE_GRAY_TARGET[3:5], 16),
+                                    int(SLATE_GRAY_TARGET[5:7], 16),
                                 )
-                        # 与主立绘服装色差（相对主立绘，不强制绝对板岩——主立绘已过）
+                                draw.rectangle(
+                                    [
+                                        int(tw * 0.36),
+                                        int(th * 0.28),
+                                        int(tw * 0.64),
+                                        int(th * 0.52),
+                                    ],
+                                    fill=fill,
+                                )
+                                buf = BytesIO()
+                                tim.save(buf, format="PNG")
+                                raw = buf.getvalue()
+                                if portrait_has_chest_emblem(raw):
+                                    raise CharacterSheetError(
+                                        f"img2img {key}胸口徽标，重试",
+                                        status_code=422,
+                                    )
+                        # 与主立绘服装色差；过大则强制着色对齐板岩灰后再比
                         p_hex = _panel_garment_dominant_hex(panels["portrait"])
                         t_hex = _panel_garment_dominant_hex(raw)
                         if p_hex and t_hex and _hex_dist(p_hex, t_hex) > 110:
-                            raise CharacterSheetError(
-                                f"img2img {key}服装色差过大({t_hex} vs {p_hex})，重试",
-                                status_code=422,
-                            )
+                            raw = force_slate_garment_tint(raw, strength=0.88)
+                            t_hex = _panel_garment_dominant_hex(raw)
+                            if p_hex and t_hex and _hex_dist(p_hex, t_hex) > 140:
+                                raise CharacterSheetError(
+                                    f"img2img {key}服装色差过大({t_hex} vs {p_hex})，重试",
+                                    status_code=422,
+                                )
                         panels[key] = raw
                         last_err = None
                         break
