@@ -584,7 +584,7 @@ def garment_chest_emblem_hit(image) -> dict[str, Any]:
             if mean_blob < med + 40:
                 continue
             _accept_contour(
-                c, mode="bright", min_ratio=0.0015, max_ratio=0.04,
+                c, mode="bright", min_ratio=0.0025, max_ratio=0.03,
                 aspect_lo=0.4, aspect_hi=2.6, fill_lo=0.22,
             )
 
@@ -633,7 +633,23 @@ def garment_chest_emblem_hit(image) -> dict[str, Any]:
         out["blobs"] = hits
         out["area_ratio"] = best
         out["modes"] = modes[:6]
-        out["hit"] = hits >= 1
+        # 雨滴/湿反光：多枚小亮斑或彩噪，无主导贴标/大图标 → 不命中
+        # 真徽标：少量（≤3）且有足够大的一块，或含 rect 贴标模式
+        n_rect = sum(1 for m in modes if m == "rect")
+        n_bright = sum(1 for m in modes if m == "bright")
+        n_color = sum(1 for m in modes if m == "color")
+        cluster = (n_bright + n_color) >= 4
+        # 孤立贴标/清晰小图标才算；与雨滴簇并存的 rect 多半是湿反光外框
+        if n_rect >= 1 and best >= 0.002 and not cluster and hits <= 3:
+            out["hit"] = True
+        elif hits >= 1 and hits <= 3 and best >= 0.008 and not cluster:
+            out["hit"] = True
+        elif hits >= 1 and best >= 0.015 and hits <= 2:
+            out["hit"] = True
+        else:
+            out["hit"] = False
+            if hits:
+                out["reject_reason"] = "rain_or_specular_cluster"
         return out
     except Exception as e:
         out["error"] = f"{type(e).__name__}:{e}"

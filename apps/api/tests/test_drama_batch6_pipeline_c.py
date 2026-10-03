@@ -592,6 +592,30 @@ def test_garment_chest_emblem_hit_logo_vs_raindrops():
     assert garment_chest_emblem_hit(rain)["hit"] is False
 
 
+
+
+def test_garment_chest_emblem_rejects_wet_coat_specular():
+    """多枚湿反光/雨滴簇不得当徽标；单块清晰亮标仍命中。"""
+    import numpy as np
+    from app.services.studio.candidate_pick import garment_chest_emblem_hit
+
+    h, w = 1344, 768
+    coat = np.full((h, w, 3), 28, dtype=np.uint8)
+    rng = np.random.default_rng(7)
+    # 胸口区密雨滴 + 一道横向湿高光（面积大但细长，应被 aspect/簇规则挡）
+    for _ in range(220):
+        yy = int(rng.integers(int(h * 0.32), int(h * 0.48)))
+        xx = int(rng.integers(int(w * 0.26), int(w * 0.74)))
+        coat[yy : yy + 2, xx : xx + 2] = (210, 210, 215)
+    yb = int(h * 0.40)
+    coat[yb : yb + 4, int(w * 0.30) : int(w * 0.70)] = (200, 200, 205)
+    assert garment_chest_emblem_hit(coat)["hit"] is False
+
+    logo = np.full((h, w, 3), 28, dtype=np.uint8)
+    y0, x0 = int(h * 0.38), int(w * 0.40)
+    logo[y0 : y0 + 28, x0 : x0 + 32] = (240, 240, 240)
+    assert garment_chest_emblem_hit(logo)["hit"] is True
+
 def test_garment_brand_ocr_frame_north_face():
     """合成帧画上 THE NORTH FACE 应 hit；空白应不 hit。"""
     from PIL import Image, ImageDraw, ImageFont
