@@ -1293,36 +1293,60 @@ def assert_fullbody_portrait_face_ok(data: bytes) -> None:
     )
 
 
-def portrait_has_chest_emblem(data: bytes) -> bool:
-
-    """主立绘胸口贴标/徽标启发式：中上躯干高对比小团块。"""
+def _chest_emblem_scores(data: bytes) -> tuple[int, int, int]:
+    """胸口 ROI 的 (bright, chroma, n)。失败返回 (0,0,0)。"""
     try:
         img = Image.open(BytesIO(data)).convert("RGB")
     except Exception:
-        return False
+        return 0, 0, 0
     w, h = img.size
-    # 胸口 ROI
     x0, x1 = int(w * 0.35), int(w * 0.65)
     y0, y1 = int(h * 0.32), int(h * 0.52)
     crop = img.crop((x0, y0, x1, y1)).resize((64, 48), Image.Resampling.BILINEAR)
     px = list(crop.getdata())
     if not px:
-        return False
-    # 相对邻域的亮/饱和斑
+        return 0, 0, 0
     import statistics
+
     lumas = [(r + g + b) / 3 for r, g, b in px]
     med = statistics.median(lumas)
     bright = sum(1 for v in lumas if v > med + 45)
-    # 彩色斑（非灰）
-    chroma = sum(1 for r, g, b in px if max(r, g, b) - min(r, g, b) > 40 and (r + g + b) / 3 > 40)
-    # 贴标通常是局部亮/彩斑，占比小但成团；大圆螺旋图案 chroma/bright 占比更高
-    n = len(px)
-    if (8 <= bright <= int(n * 0.22)) or (6 <= chroma <= int(n * 0.18)):
-        return True
-    # 大面积非灰图案（螺旋/圆徽）
+    chroma = sum(
+        1
+        for r, g, b in px
+        if max(r, g, b) - min(r, g, b) > 40 and (r + g + b) / 3 > 40
+    )
+    return bright, chroma, len(px)
+
+
+def portrait_has_chest_emblem(
+    data: bytes, *, ref: bytes | None = None
+) -> bool:
+    """主立绘胸口贴标/徽标启发式：中上躯干高对比小团块。
+
+    17:14：若提供已过目检母版正面 ref，则仅当立绘明显比母版更「花」才判命中，
+    避免板岩灰雨衣高光/拉链把合格母版与同款编辑立绘误杀。
+    """
+    bright, chroma, n = _chest_emblem_scores(data)
+    if n <= 0:
+        return False
+    abs_hit = False
+    # 贴标需彩色斑；纯亮无彩多为雨衣高光（母版 front bright≈39 chroma=0）
+    if chroma >= 6 and (
+        (8 <= bright <= int(n * 0.22)) or (6 <= chroma <= int(n * 0.18))
+    ):
+        abs_hit = True
     if chroma >= int(n * 0.12) and bright >= int(n * 0.08):
-        return True
-    return False
+        abs_hit = True
+    if ref:
+        rb, rc, rn = _chest_emblem_scores(ref)
+        if rn > 0:
+            # 相对母版：chroma 或 bright 显著变差才拒
+            worse = (chroma >= rc + 8) or (bright >= max(rb * 1.6, rb + 20))
+            return bool(abs_hit and worse) if abs_hit else worse and (
+                chroma >= 6 or bright >= int(n * 0.05)
+            )
+    return abs_hit
 
 
 
@@ -3581,7 +3605,7 @@ async def generate_character_sheet(
                         client=client,
                     )
                 if meta.style in ("anime", "二次元") and portrait_has_chest_emblem(
-                    panels["portrait"]
+                    panels["portrait"], ref=panels.get("front")
                 ):
                     # 15:36：徽标残留 → 以当前立绘为参考低 denoise 重绘胸口素面
                     try:
@@ -3606,7 +3630,7 @@ async def generate_character_sheet(
                             ref_mode="img2img",
                             denoise=0.28,
                         )
-                        if portrait_has_chest_emblem(cleaned):
+                        if portrait_has_chest_emblem(cleaned, ref=panels.get("front")):
                             # 16:18：禁用矩形铺色；img2img 去标失败则换 seed
                             raise CharacterSheetError(
                                 "主立绘胸口徽标，img2img 去标失败禁铺色",
