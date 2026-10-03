@@ -6009,12 +6009,19 @@ async def generate_character_sheet(
                             reject_dir=reject_dir,
                         )
                         if _hires:
-                            panels["side"] = _hires
+                            # 00:31：高分侧母版仅供头格裁切，禁止覆盖全身 side（否则服饰色差门禁炸）
                             tri["face_three_quarter"] = crop_face_slot_from_master(
                                 _hires, slot="face_three_quarter", size=768
                             )
+                            try:
+                                if reject_dir is not None:
+                                    (reject_dir / f"hires_side_used_{int(seed or 0)}.png").write_bytes(
+                                        _hires
+                                    )
+                            except Exception:
+                                pass
                             logger.info(
-                                "faces face_three_quarter replaced from hires side master"
+                                "faces face_three_quarter replaced from hires side master (side body untouched)"
                             )
                         else:
                             logger.warning(
