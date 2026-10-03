@@ -198,6 +198,30 @@ async def lifespan(app: FastAPI):
     from app.services import keyframe_chain as keyframe_chain_svc
 
     keyframe_chain_svc.reconcile_interrupted()
+    # 13:20：启动时预热 CPU open_clip（ViT-B-32），失败只打日志不拦启动
+    async def _warmup_openclip():
+        try:
+            import asyncio
+            import os
+
+            def _load():
+                os.environ.setdefault(
+                    "TOIV_OPENCLIP_CACHE",
+                    "/mnt/toiv-nas/toiv/models/open_clip",
+                )
+                os.environ.setdefault("TOIV_OPENCLIP_MODEL", "ViT-B-32")
+                os.environ.setdefault("TOIV_SCENE_GATE_DEVICE", "cpu")
+                from app.services.studio.scene_gate import _cached_openclip
+
+                _cached_openclip("cpu", os.environ["TOIV_OPENCLIP_MODEL"], "openai")
+                return True
+
+            ok = await asyncio.to_thread(_load)
+            logging.getLogger("toiv.clip").info("open_clip warmup ok=%s", ok)
+        except Exception as e:
+            logging.getLogger("toiv.clip").warning("open_clip warmup skipped: %s", e)
+
+    asyncio.create_task(_warmup_openclip())
     # 分镜板一键成片收口:未终态 board_film 作业按 params 快照重挂后台管线(幂等续跑)
     from app.services import board_film as board_film_svc
 

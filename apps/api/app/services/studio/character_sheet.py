@@ -187,13 +187,14 @@ _CJK_FONT_CANDIDATES = (
 _COSTUME_ITEMS: tuple[tuple[str, str], ...] = (
     (
         "raincoat",
-        "product still life, single object only, one complete matte jet-black hooded raincoat "
+        "product still life, single object only, one complete matte slate-gray hooded raincoat "
         "garment laid flat open on table like e-commerce flat lay, attached hood at collar, "
         "two long sleeves spread left and right, full torso, front zipper, "
-        "entire garment pure jet black nylon, no white panels, no navy panels, no grey panels, "
+        "entire garment mid-tone slate gray nylon #5A6A7A, plain unbranded no logo no emblem no chest patch, "
+        "no jet black, no pure black panels, no white panels, no navy panels, "
         "fills most of frame, solid seamless pure white background, studio lighting, "
         "no person, no face, no mannequin, no worn clothes, no white t-shirt, no hoodie, "
-        "no cloak, no cape, no poncho, no beige, no brown, no tan, no khaki, no red, no text",
+        "no cloak, no cape, no poncho, no beige, no brown, no tan, no khaki, no red, no text, no brand",
     ),
     (
         "pants",
@@ -278,9 +279,9 @@ _COSTUME_ITEMS_ANCIENT: tuple[tuple[str, str], ...] = (
 
 _COSTUME_FORCE = (
     "overhead flat lay product photography, garments and props laid flat on table, "
-    "ONLY these five items: ONE black hooded raincoat, ONE pair full-length black long pants (not shorts), "
+    "ONLY these five items: ONE slate-gray hooded raincoat, ONE pair full-length black long pants (not shorts), "
     "ONE pair black rain boots, ONE clear transparent rain umbrella with shaft and handle (not a lamp, not a hat), ONE white plastic shopping bag, "
-    "black garments only, clothing pieces arranged neatly as product shots, "
+    "slate gray raincoat plus black pants/boots, clothing pieces arranged neatly as product shots, "
     "isolated on solid seamless background, no person, no face, no mannequin, "
     "no model wearing clothes, no hanging rack display, no color variants, "
     "no hanfu, no ancient costume, no white robe, no white jacket, no white coat, "
@@ -312,11 +313,12 @@ def _costume_template_bytes(item_key: str, size: int = 768) -> bytes:
     d = ImageDraw.Draw(im)
     m = size // 10
     if item_key == "raincoat":
-        # 张开的黑雨衣:帽兜+双袖+躯干
+        # 张开的板岩灰雨衣:帽兜+双袖+躯干（#5A6A7A）
+        slate = (0x5A, 0x6A, 0x7A)
         body = [m * 3, m * 3, size - m * 3, size - m * 2]
-        d.rectangle(body, fill=(12, 12, 14))
+        d.rectangle(body, fill=slate)
         # hood
-        d.ellipse([size // 2 - m * 2, m, size // 2 + m * 2, m * 4], fill=(12, 12, 14))
+        d.ellipse([size // 2 - m * 2, m, size // 2 + m * 2, m * 4], fill=slate)
         # sleeves
         d.rectangle([m, m * 4, m * 3, m * 7], fill=(12, 12, 14))
         d.rectangle([size - m * 3, m * 4, size - m, m * 7], fill=(12, 12, 14))
@@ -751,9 +753,9 @@ def build_design_notes(meta: SheetMeta) -> str:
     else:
         auto = [
             f"{name}：雨夜便利店相遇的核心角色，身份为{role}，性格{personality}。",
-            "视觉主轴为黑色连帽雨衣/冲锋衣、湿发贴额与冷白灯光，辅以白色塑料袋道具。",
-            "三视图与表情均以主立绘为同一人参考，统一服装与纯色底，保证 Ref2VA 跨镜一致。",
-            f"本卡风格滤镜为{style_zh}；服饰拆解对齐现代雨夜设定，禁止汉服等错位单品。",
+            "视觉主轴为板岩灰(#5A6A7A)素面无标连帽雨衣、湿发贴额与冷白灯光，辅以白色塑料袋道具。",
+            "三视图与表情均以主立绘为同一人参考，主立绘/三视图/服饰统一板岩灰素面，保证 Ref2VA 跨镜一致。",
+            f"本卡风格滤镜为{style_zh}；服饰拆解对齐现代雨夜设定，禁止汉服、纯黑雨衣与胸口贴标。",
         ]
     if desc and desc not in auto[0]:
         auto.insert(1, desc[:80])
@@ -802,7 +804,8 @@ def _character_base(meta: SheetMeta) -> str:
         return base
 
     extra = (
-        "jet black hair, black hair, black hooded raincoat, black windbreaker, "
+        "jet black hair, black hair, slate gray hooded raincoat #5A6A7A, "
+        "plain unbranded no logo no chest emblem, mid-tone slate gray fabric not jet black, "
         "wet black hair on forehead, young East Asian woman, convenience store clerk vibe"
     )
     if "raincoat" not in low and "雨衣" not in base and "windbreaker" not in low:
@@ -832,7 +835,7 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
         head_bit = "hair ornaments optional, face fully visible"
         back_head = "ONLY back of head and hair bun, NO face NO eyes"
     else:
-        outfit = "same character same black hooded raincoat"
+        outfit = "same character same slate-gray hooded raincoat #5A6A7A, plain unbranded no logo no emblem, not jet black"
         head_bit = "hood DOWN face fully visible"
         back_head = "ONLY back of head and hood, NO face NO eyes"
     prompts: dict[str, str] = {
@@ -1055,6 +1058,117 @@ def _draw_panel_frame(
         draw.text((x + 10, y + 8), label, font=font, fill=label_fill)
 
 
+
+def _panel_garment_dominant_hex(data: bytes) -> str | None:
+    """从立绘/三视图躯干 ROI 按面积取服装主色（跳过肤色/近背景）。"""
+    try:
+        img = Image.open(BytesIO(data)).convert("RGB")
+    except Exception:
+        return None
+    w, h = img.size
+    # 躯干：中部偏下（避开头脸）
+    crop = img.crop((int(w * 0.22), int(h * 0.28), int(w * 0.78), int(h * 0.78)))
+    small = crop.resize((48, 48), Image.Resampling.BOX)
+    colors = small.getcolors(48 * 48) or []
+    colors.sort(key=lambda c: c[0], reverse=True)
+    best = None
+    best_cnt = 0
+    for cnt, (r, g, b) in colors:
+        if r + g + b < 40:  # 近纯黑记但不优先
+            if best is None:
+                best, best_cnt = (r, g, b), cnt
+            continue
+        if min(r, g, b) > 235:
+            continue
+        # 跳过肤色
+        if 90 < r < 245 and 60 < g < 210 and 45 < b < 190 and r >= g - 5 and g >= b - 15:
+            continue
+        if cnt > best_cnt:
+            best, best_cnt = (r, g, b), cnt
+    if best is None:
+        return None
+    r, g, b = best
+    return f"#{r:02X}{g:02X}{b:02X}"
+
+
+def _hex_luma(hx: str) -> float:
+    return (int(hx[1:3], 16) + int(hx[3:5], 16) + int(hx[5:7], 16)) / 3.0
+
+
+def _hex_dist(a: str, b: str) -> float:
+    ar, ag, ab = int(a[1:3], 16), int(a[3:5], 16), int(a[5:7], 16)
+    br, bg, bb = int(b[1:3], 16), int(b[3:5], 16), int(b[5:7], 16)
+    return abs(ar - br) + abs(ag - bg) + abs(ab - bb)
+
+
+def portrait_has_chest_emblem(data: bytes) -> bool:
+    """主立绘胸口贴标/徽标启发式：中上躯干高对比小团块。"""
+    try:
+        img = Image.open(BytesIO(data)).convert("RGB")
+    except Exception:
+        return False
+    w, h = img.size
+    # 胸口 ROI
+    x0, x1 = int(w * 0.35), int(w * 0.65)
+    y0, y1 = int(h * 0.32), int(h * 0.52)
+    crop = img.crop((x0, y0, x1, y1)).resize((64, 48), Image.Resampling.BILINEAR)
+    px = list(crop.getdata())
+    if not px:
+        return False
+    # 相对邻域的亮/饱和斑
+    import statistics
+    lumas = [(r + g + b) / 3 for r, g, b in px]
+    med = statistics.median(lumas)
+    bright = sum(1 for v in lumas if v > med + 45)
+    # 彩色斑（非灰）
+    chroma = sum(1 for r, g, b in px if max(r, g, b) - min(r, g, b) > 40 and (r + g + b) / 3 > 40)
+    # 贴标通常是局部亮/彩斑，占比小但成团
+    n = len(px)
+    return (8 <= bright <= int(n * 0.22)) or (6 <= chroma <= int(n * 0.18))
+
+
+def assert_sheet_garment_consistency(
+    panels: dict[str, bytes],
+    *,
+    max_dist: int = 90,
+    style: str = "anime",
+) -> None:
+    """13:16②：主立绘 vs 三视图服装主色差超阈或主立绘贴标 → 不得过审。"""
+    portrait = panels.get("portrait")
+    if not portrait:
+        raise CharacterSheetError("一致性门禁失败:缺主立绘", status_code=422)
+    if style in ("anime", "二次元") and portrait_has_chest_emblem(portrait):
+        raise CharacterSheetError(
+            "一致性门禁失败:主立绘胸口检出贴标/徽标，须重出",
+            status_code=422,
+        )
+    p_hex = _panel_garment_dominant_hex(portrait)
+    if not p_hex:
+        raise CharacterSheetError("一致性门禁失败:主立绘无法取服装主色", status_code=422)
+    # anime 期望板岩灰中调，禁止主色近纯黑
+    if style in ("anime", "二次元") and _hex_luma(p_hex) < 35:
+        raise CharacterSheetError(
+            f"一致性门禁失败:主立绘服装主色过黑({p_hex})，须板岩灰素面",
+            status_code=422,
+        )
+    for key in ("front", "side", "back"):
+        data = panels.get(key)
+        if not data:
+            continue
+        t_hex = _panel_garment_dominant_hex(data)
+        if not t_hex:
+            raise CharacterSheetError(
+                f"一致性门禁失败:三视图 {key} 无法取服装主色",
+                status_code=422,
+            )
+        dist = _hex_dist(p_hex, t_hex)
+        if dist > max_dist:
+            raise CharacterSheetError(
+                f"一致性门禁失败:主立绘({p_hex})与{key}({t_hex})色差={dist}>{max_dist}",
+                status_code=422,
+            )
+
+
 def _extract_palette(
     img: Image.Image, n: int = 6, *, style: str = "anime"
 ) -> list[str]:
@@ -1100,7 +1214,8 @@ def _extract_palette(
     if style == "ancient_realistic":
         fallback = ["#E8C4A8", "#D4AF37", "#1A1A1E", "#2C2C34", "#C9A227", "#8B7355"]
     else:
-        fallback = ["#E8C4A8", "#C98A7A", "#1A1A1E", "#2C2C34", "#D4D3D8", "#5A6A7A"]
+        # 13:16③：板岩灰主色排第一（肤色之后），纯黑只作辅色
+        fallback = ["#E8C4A8", "#5A6A7A", "#D4D3D8", "#C98A7A", "#2C2C34", "#1A1A1E"]
     if skin_cands:
         sr, sg, sb = skin_cands[0][1]
         skin_hx = f"#{sr:02X}{sg:02X}{sb:02X}"
@@ -3179,6 +3294,11 @@ async def generate_character_sheet(
                 key=key,
             )
 
+    # 13:16②：拼版前一致性门禁（主立绘↔三视图主色 + 贴标）
+    assert_sheet_garment_consistency(panels, style=meta.style)
+    # anime：强制色板 garment 主色含板岩灰优先
+    if meta.style in ("anime", "二次元") and not meta.colors:
+        meta.colors = ["#E8C4A8", "#5A6A7A", "#D4D3D8", "#C98A7A", "#2C2C34", "#1A1A1E"]
     png = compose_character_sheet(panels, meta)
     url = save_sheet_png(png, character_id=character_id, style=meta.style)
     return url, png, panel_urls
@@ -4506,7 +4626,8 @@ async def _generate_costume_collage(
             )
         elif item_key == "raincoat":
             prompt = (
-                "flat lay complete black hooded raincoat only, hood and sleeves visible, "
+                "flat lay complete slate-gray hooded raincoat #5A6A7A only, plain unbranded no logo, "
+                "hood and sleeves visible, mid-tone gray not jet black, "
                 "product shot, no person, no mannequin, garment fills frame, "
                 + prompt
                 + ", clothing only, not empty white frame"

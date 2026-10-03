@@ -208,8 +208,9 @@ def _cached_openclip(device: str, model_name: str, pretrained: str):
         return _CLIP_CACHE[key]
     import open_clip
 
+    cache_dir = os.environ.get("TOIV_OPENCLIP_CACHE") or None
     model, _, preprocess = open_clip.create_model_and_transforms(
-        model_name, pretrained=pretrained
+        model_name, pretrained=pretrained, cache_dir=cache_dir
     )
     model = model.to(device).eval()
     tokenizer = open_clip.get_tokenizer(model_name)
@@ -233,7 +234,7 @@ def score_frames_clip(
         import torch
         from PIL import Image  # noqa: F401
     except Exception as e:
-        raise SceneGateError(f"open_clip/torch 不可用: {e}") from e
+        raise SceneGateError(f"open_clip/torch 不可用（未通过-需复核）: {e}") from e
 
     device = os.environ.get("TOIV_SCENE_GATE_DEVICE")
     if not device:

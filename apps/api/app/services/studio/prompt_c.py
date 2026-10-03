@@ -9,11 +9,14 @@ C_AVOID_TEXT = (
     "storefront sign, shop sign, store signboard, neon sign text, "
     "garbled text, gibberish english, random letters, burned-in text, "
     "readable english words on signs, billboard text, "
+    "digits on signs, number 7 on sign, red digit 7, 7-Eleven logo, "
+    "chain-store fascia, orange green red stripes, FamilyMart bands, "
     "brand logo, clothing brand logo, chest logo, emblem on jacket, "
     "The North Face logo, Nike logo, Adidas logo, fashion brand mark, "
     "品牌标, 服装品牌logo, 胸口logo, 品牌文字, "
     "烧录字幕, 字幕, 台词文字, 水印, 台标, 花字, 标题文字, "
-    "店招, 招牌, 乱码英文, 乱码文字, logo文字"
+    "店招, 招牌, 乱码英文, 乱码文字, logo文字, "
+    "店招数字, 红色数字7, 连锁品牌条纹, 橙绿红条纹"
 )
 
 _DIALOGUE_PATTERNS = (
@@ -467,7 +470,9 @@ def build_c_visual_prompt(
         " blank glowing lightboxes without letters, 无字发光灯箱,"
         " blank neon panels without text, empty glowing signs,"
         " 非连锁品牌配色, not chain-store fascia colors, not 7-Eleven stripes,"
-        " not FamilyMart green-blue bands, not branded convenience store signage."
+        " not FamilyMart green-blue bands, not branded convenience store signage,"
+        " 不出现任何数字字母与连锁品牌配色, no digits letters on signs,"
+        " no red numeral 7, no orange-green-red stripe fascia."
     )
     # 室内货架镜：强制店内 + 可测正脸（雨夜镜1 v2 曾出门外侧写/手部无脸）
     blob = " ".join([shot_prompt or "", scene or "", camera or "", body]).lower()

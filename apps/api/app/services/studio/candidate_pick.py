@@ -13,6 +13,10 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# 13:20：CLIP/人脸门禁缺依赖或不出分 → 一律「未通过-需复核」，禁止空分放行
+GATE_NEEDS_REVIEW = "未通过-需复核"
+
+
 from app.services.studio.scene_gate import SceneGateError, gate_video
 
 
@@ -190,8 +194,9 @@ def _openclip_image_embedder():
         )
         if str(device).endswith(":3"):
             device = "cpu"
+        model_name = os.environ.get("TOIV_OPENCLIP_MODEL") or "ViT-B-32"
         model, preprocess, _tokenizer, device = _cached_openclip(
-            device, "ViT-L-14", "openai"
+            device, model_name, "openai"
         )
 
         def _embed_oc(pil_img: "Image.Image"):
@@ -211,9 +216,15 @@ def _openclip_image_embedder():
         import torch
         from transformers import CLIPModel, CLIPProcessor
 
-        name = "openai/clip-vit-base-patch32"
-        model = CLIPModel.from_pretrained(name)
-        proc = CLIPProcessor.from_pretrained(name)
+        name = os.environ.get("TOIV_TRANSFORMERS_CLIP") or (
+            "/mnt/toiv-nas/toiv/comfyui-code/models/clip/clip-vit-large-patch14"
+            if __import__("pathlib").Path(
+                "/mnt/toiv-nas/toiv/comfyui-code/models/clip/clip-vit-large-patch14"
+            ).is_dir()
+            else "openai/clip-vit-base-patch32"
+        )
+        model = CLIPModel.from_pretrained(name, local_files_only=("openai/" not in str(name)))
+        proc = CLIPProcessor.from_pretrained(name, local_files_only=("openai/" not in str(name)))
         model.eval()
 
         def _embed_hf(pil_img: "Image.Image"):
@@ -268,6 +279,8 @@ def score_video_face_clip(
     enc = embedder if embedder is not None else _openclip_image_embedder()
     if enc is None:
         out["error"] = "open_clip 不可用"
+        out["gate_status"] = GATE_NEEDS_REVIEW
+        out["pass"] = False
         return out
 
     ref_bgr = cv2.imread(str(ref_p))
@@ -507,8 +520,10 @@ def pick_best_candidate(
             c["is_picked"] = False
             c.setdefault("pick_score", None)
             c["pick_note"] = "face_scorer_unavailable"
+        for c in candidates:
+            c["gate_status"] = GATE_NEEDS_REVIEW
         raise CandidatePickError(
-            "选优失败:人脸评分不可用且无连贯材料，禁止静默回落首候选"
+            f"选优失败:人脸评分不可用且无连贯材料，{GATE_NEEDS_REVIEW}，禁止静默回落首候选"
         )
 
     try:
@@ -610,9 +625,11 @@ def pick_best_candidate(
                         c["pick_note"] = (note + "+" if note else "") + (
                             f"face_gate<{min_face_mean:.2f}"
                         )
+                for c in candidates:
+                    c["gate_status"] = GATE_NEEDS_REVIEW
                 raise CandidatePickError(
                     f"选优失败:无人脸达标(需 face_mean≥{min_face_mean:.2f}，"
-                    f"最佳={face_best!r})，禁止入选并应加候选重跑"
+                    f"最佳={face_best!r})，{GATE_NEEDS_REVIEW}，禁止入选并应加候选重跑"
                 )
             best_id = max(gated, key=lambda c: float(c["pick_score"])).get("id")
         else:
