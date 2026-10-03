@@ -3163,18 +3163,21 @@ async def generate_character_sheet(
     ckpt = ckpt_name or _SHEET_CKPT.get(meta.style, _SHEET_CKPT["anime"])
     client = await _pick_sheet_client(worker)
 
-    # 1) 主立绘(无参考)；anime 胸口徽标则换 seed 重试
+    # 1) 主立绘(无参考)；anime 胸口徽标则换 seed，失败再胸口局部 img2img 去标
     if "portrait" not in panels:
         w, h = _panel_size("portrait", meta.style)
         last_err = None
-        for attempt in range(4):
+        for attempt in range(6):
             try:
                 s = None if seed is None else int(seed) + attempt * 9973
                 # 换 seed 仍可能整图缓存：扰动正向提示破缓存
-                bust = f", unique layout variant {attempt}-{s or 0}"
+                bust = (
+                    f", unique layout variant {attempt}-{s or 0}, "
+                    "plain flat chest no badge no emblem no star patch"
+                )
                 panels["portrait"] = await generate_panel_bytes(
                     pool,
-                    prompts["portrait"] + (bust if attempt else ""),
+                    prompts["portrait"] + bust,
                     ckpt_name=ckpt,
                     width=w,
                     height=h,
@@ -3187,11 +3190,44 @@ async def generate_character_sheet(
                 if meta.style in ("anime", "二次元") and portrait_has_chest_emblem(
                     panels["portrait"]
                 ):
-                    last_err = CharacterSheetError(
-                        "主立绘胸口徽标，重试", status_code=422
-                    )
-                    logger.warning("portrait emblem hit attempt=%s", attempt)
-                    continue
+                    # 15:36：徽标残留 → 以当前立绘为参考低 denoise 重绘胸口素面
+                    try:
+                        ref_p = await client.upload_image(
+                            panels["portrait"],
+                            f"sheet_portrait_emblem_{attempt}.png",
+                        )
+                        cleaned = await generate_panel_bytes(
+                            pool,
+                            prompts["portrait"]
+                            + ", plain flat chest only, remove chest badge emblem star logo patch, "
+                            + bust,
+                            ckpt_name=ckpt,
+                            width=w,
+                            height=h,
+                            seed=(s or 0) + 171,
+                            worker=worker,
+                            filename_prefix=f"ToIV_char_sheet_portrait_plain_a{attempt}",
+                            style=meta.style,
+                            client=client,
+                            ref_image=ref_p,
+                            ref_mode="img2img",
+                            denoise=0.28,
+                        )
+                        if portrait_has_chest_emblem(cleaned):
+                            last_err = CharacterSheetError(
+                                "主立绘胸口徽标，重试", status_code=422
+                            )
+                            logger.warning(
+                                "portrait emblem persist after inpaint attempt=%s",
+                                attempt,
+                            )
+                            continue
+                        panels["portrait"] = cleaned
+                        logger.info("portrait emblem cleared via img2img attempt=%s", attempt)
+                    except CharacterSheetError as ce:
+                        last_err = ce
+                        logger.warning("portrait emblem inpaint fail attempt=%s: %s", attempt, ce)
+                        continue
                 # 15:36：主立绘过人脸 + 板岩灰色差门禁后，才允许出三视图
                 if meta.style in ("anime", "二次元"):
                     try:
