@@ -1145,7 +1145,70 @@ def assert_garment_near_slate_gray(
     return hx
 
 
+def assert_fullbody_portrait_face_ok(data: bytes) -> None:
+    """全身主立绘人脸门禁。
+
+    二次元立绘 insightface 常检不出；人物又常偏画幅下半。
+    策略：能检出脸更好；否则按内容框上半裁头肩做启发式；再退到
+    「非空白 + 内容框上缘有肤色/五官色块」。
+    """
+    if _panel_is_blank_or_glitch(data):
+        raise CharacterSheetError("主立绘人脸门禁失败:空白/花屏", status_code=422)
+    try:
+        assert_face_visible(data, min_face_area=0.003)
+        return
+    except CharacterSheetError:
+        pass
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    area, stamp, fill_h, fill_w = _panel_content_metrics(img)
+    # 从内容框估算人物顶：若邮票缩水用未贴边区域；否则扫非背景行
+    small = img.resize((64, 64), Image.Resampling.BOX)
+    px = list(small.getdata())
+    corners = [px[1 * 64 + 1], px[1 * 64 + 62], px[62 * 64 + 1], px[62 * 64 + 62]]
+    bg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
+
+    def _bg(r, g, b):
+        return abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) < 28
+
+    top_row = 0
+    for y in range(64):
+        if sum(1 for x in range(64) if not _bg(*px[y * 64 + x])) / 64.0 > 0.08:
+            top_row = y
+            break
+    # 头肩：内容顶往下约 45% 画幅
+    y0 = max(0, int(h * (top_row / 64.0) - 0.02 * h))
+    y1 = min(h, y0 + int(h * 0.45))
+    x0, x1 = int(w * 0.15), int(w * 0.85)
+    head = img.crop((x0, y0, x1, y1))
+    buf = BytesIO()
+    head.save(buf, format="PNG")
+    head_b = buf.getvalue()
+    try:
+        assert_face_visible(head_b, min_face_area=0.02)
+        return
+    except CharacterSheetError:
+        pass
+    if face_crop_looks_ok(head_b):
+        return
+    # 最后：内容上半肤色/灰阶脸块占比
+    hs = head.resize((48, 48), Image.Resampling.BILINEAR)
+    hp = list(hs.getdata())
+    faceish = 0
+    for r, g, b in hp:
+        if 90 < r < 250 and 70 < g < 230 and 60 < b < 210 and r >= g - 10:
+            faceish += 1
+        elif abs(r - g) < 18 and abs(g - b) < 18 and 70 < r < 230:
+            faceish += 0.5
+    if faceish / max(1, len(hp)) >= 0.06 and fill_h >= 0.25:
+        return
+    raise CharacterSheetError(
+        "主立绘人脸门禁失败:无可辨识人脸/头肩", status_code=422
+    )
+
+
 def portrait_has_chest_emblem(data: bytes) -> bool:
+
     """主立绘胸口贴标/徽标启发式：中上躯干高对比小团块。"""
     try:
         img = Image.open(BytesIO(data)).convert("RGB")
@@ -3228,19 +3291,67 @@ async def generate_character_sheet(
                         last_err = ce
                         logger.warning("portrait emblem inpaint fail attempt=%s: %s", attempt, ce)
                         continue
-                # 15:36：主立绘过人脸 + 板岩灰色差门禁后，才允许出三视图
+                # 15:36/15:40：主立绘过人脸 + 板岩灰色差门禁后，才允许出三视图
                 if meta.style in ("anime", "二次元"):
                     try:
-                        assert_face_visible(panels["portrait"], min_face_area=0.02)
-                        assert_garment_near_slate_gray(
-                            panels["portrait"], label="主立绘"
-                        )
+                        assert_fullbody_portrait_face_ok(panels["portrait"])
                     except CharacterSheetError as gate_e:
                         last_err = gate_e
                         logger.warning(
-                            "portrait gate fail attempt=%s: %s", attempt, gate_e
+                            "portrait face gate fail attempt=%s: %s", attempt, gate_e
                         )
                         continue
+                    try:
+                        assert_garment_near_slate_gray(
+                            panels["portrait"], label="主立绘"
+                        )
+                    except CharacterSheetError as color_e:
+                        # 颜色偏浅/偏色：img2img 重染到板岩灰 #5A6A7A
+                        logger.warning(
+                            "portrait slate gate fail attempt=%s: %s; recolor",
+                            attempt,
+                            color_e,
+                        )
+                        try:
+                            ref_c = await client.upload_image(
+                                panels["portrait"],
+                                f"sheet_portrait_recolor_{attempt}.png",
+                            )
+                            recolored = await generate_panel_bytes(
+                                pool,
+                                prompts["portrait"]
+                                + ", recolor coat to exact mid-tone slate gray #5A6A7A nylon, "
+                                "long sleeves knee-length hooded raincoat, black pantyhose, "
+                                "black ankle boots, NOT light gray NOT near-white NOT jet black, "
+                                + bust,
+                                ckpt_name=ckpt,
+                                width=w,
+                                height=h,
+                                seed=(s or 0) + 404,
+                                worker=worker,
+                                filename_prefix=f"ToIV_char_sheet_portrait_recolor_a{attempt}",
+                                style=meta.style,
+                                client=client,
+                                ref_image=ref_c,
+                                ref_mode="img2img",
+                                denoise=0.42,
+                            )
+                            if portrait_has_chest_emblem(recolored):
+                                raise CharacterSheetError(
+                                    "主立绘重染后胸口徽标", status_code=422
+                                )
+                            assert_fullbody_portrait_face_ok(recolored)
+                            assert_garment_near_slate_gray(
+                                recolored, label="主立绘重染"
+                            )
+                            panels["portrait"] = recolored
+                            logger.info("portrait recolored to slate attempt=%s", attempt)
+                        except CharacterSheetError as re_e:
+                            last_err = re_e
+                            logger.warning(
+                                "portrait recolor fail attempt=%s: %s", attempt, re_e
+                            )
+                            continue
                 break
             except CharacterSheetError as e:
                 last_err = e
