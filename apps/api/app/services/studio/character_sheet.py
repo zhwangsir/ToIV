@@ -2057,6 +2057,153 @@ def _compose_expression_grid(
     return grid
 
 
+
+def measure_face_area_frac(data: bytes) -> float | None:
+    """insightface/启发式脸面积占图画面积；无人脸返回 None。"""
+    try:
+        img = Image.open(BytesIO(data)).convert("RGB")
+    except Exception:  # noqa: BLE001
+        return None
+    w, h = img.size
+    bb = _detect_face_bbox_xyxy(data)
+    if bb is None:
+        bb = _heuristic_skin_face_bbox(img)
+    if bb is None:
+        return None
+    x1, y1, x2, y2 = [float(v) for v in bb]
+    fw = max(1.0, x2 - x1)
+    fh = max(1.0, y2 - y1)
+    return (fw * fh) / float(max(1, w * h))
+
+
+def _zoom_face_for_area(data: bytes, *, size: int = 768, target_area: float = 0.18) -> bytes:
+    """轻微围绕脸框放大，尽量把脸面积抬到 target_area（供表情底送模前）。"""
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    bb = _detect_face_bbox_xyxy(data)
+    if bb is None:
+        bb = _heuristic_skin_face_bbox(img)
+    if bb is None:
+        return data
+    x1, y1, x2, y2 = [float(v) for v in bb]
+    fw = max(8.0, x2 - x1)
+    fh = max(8.0, y2 - y1)
+    area = (fw * fh) / float(max(1, w * h))
+    if area + 1e-12 >= float(target_area):
+        return data
+    # 目标边长：使脸约占 target_area
+    scale = (area / max(1e-6, float(target_area))) ** 0.5
+    scale = max(0.55, min(0.92, scale))
+    side = max(64, int(min(w, h) * scale))
+    fcx = (x1 + x2) / 2.0
+    fcy = (y1 + y2) / 2.0
+    left = max(0, min(w - side, int(round(fcx - side / 2.0))))
+    top = max(0, min(h - side, int(round(fcy - side / 2.0 - 0.05 * side))))
+    crop = img.crop((left, top, left + side, top + side))
+    crop = crop.resize((size, size), Image.Resampling.LANCZOS)
+    buf = BytesIO()
+    crop.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def assert_expr_base_face_area(
+    data: bytes, *, expr_key: str, min_area: float = 0.15
+) -> tuple[bytes, float]:
+    """22:45/23:17：表情底裁后 insightface 脸面积须 ≥0.15；略低时先 zoom 一次，仍不足直接停。
+
+    返回 (可能被放大后的 bytes, area)。
+    """
+    cur = data
+    area = measure_face_area_frac(cur)
+    if area is not None and area + 1e-12 < float(min_area):
+        cur = _zoom_face_for_area(cur, target_area=max(float(min_area) + 0.03, 0.18))
+        area = measure_face_area_frac(cur)
+    if area is None:
+        raise CharacterSheetError(
+            f"{expr_key} 表情底无人脸(area=None)，停",
+            status_code=422,
+        )
+    if area + 1e-12 < float(min_area):
+        raise CharacterSheetError(
+            f"{expr_key} 表情底脸面积 {area:.3f} < {min_area:.2f}，停",
+            status_code=422,
+        )
+    return cur, float(area)
+
+
+def _compose_expression_grid_raw(
+    panels: dict[str, bytes] | dict[str, Image.Image],
+    *,
+    cell: int = 512,
+) -> bytes:
+    """23:17：六表情底拼成无标签 2×3 宫格（送 Comfy/Qwen 一次编辑）。"""
+    cols, rows = 3, 2
+    grid = Image.new("RGB", (cols * cell, rows * cell), (245, 245, 248))
+    for i, key in enumerate(_EXPR_KEYS):
+        raw = panels.get(key)
+        if raw is None:
+            raise CharacterSheetError(f"缺表情底:{key}", status_code=422)
+        if isinstance(raw, Image.Image):
+            im = raw.convert("RGB")
+        else:
+            im = Image.open(BytesIO(raw)).convert("RGB")
+        im = im.resize((cell, cell), Image.Resampling.LANCZOS)
+        row, col = divmod(i, cols)
+        grid.paste(im, (col * cell, row * cell))
+    buf = BytesIO()
+    grid.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _split_expression_grid(
+    data: bytes,
+    *,
+    cell: int | None = None,
+) -> dict[str, bytes]:
+    """23:17：整张 2×3 六表情图按格裁成 expr_0..5（无标签带几何）。
+
+    默认按图宽/3 × 图高/2 均分；若传入 cell 则按固定方格从左上裁。
+    """
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    cols, rows = 3, 2
+    if cell is not None:
+        cw = ch = int(cell)
+    else:
+        cw = max(1, w // cols)
+        ch = max(1, h // rows)
+    out: dict[str, bytes] = {}
+    for i, key in enumerate(_EXPR_KEYS):
+        row, col = divmod(i, cols)
+        x0 = col * cw
+        y0 = row * ch
+        x1 = min(w, x0 + cw)
+        y1 = min(h, y0 + ch)
+        cell_im = img.crop((x0, y0, x1, y1))
+        # 统一方图 768 便于后续拼版
+        side = max(cell_im.size)
+        canvas = Image.new("RGB", (side, side), (245, 245, 248))
+        ox = (side - cell_im.width) // 2
+        oy = (side - cell_im.height) // 2
+        canvas.paste(cell_im, (ox, oy))
+        canvas = canvas.resize((768, 768), Image.Resampling.LANCZOS)
+        buf = BytesIO()
+        canvas.save(buf, format="PNG")
+        out[key] = buf.getvalue()
+    return out
+
+
+# 23:17：一次出六表情的宫格编辑指令（整图，禁止单格循环）
+_EXPR_GRID_EDIT_INSTRUCTION = (
+    "把这张 2 行×3 列的角色表情宫格改成六种明显不同的表情，从左到右、从上到下依次为："
+    "威严（眉头下压、嘴角下压）、冷酷（半睁斜视、嘴平）、沉思（视线下垂、眉轻蹙）、"
+    "温柔（微笑露一点上齿）、惊恐（双眼瞪大、嘴巴明显张开）、果断（眉压平、唇紧闭）。"
+    "每格保持同一人物、同一短发齐下巴、同一雨衣领口与配色、同一近景头肩构图；"
+    "不要加文字、徽标、徽章、水印；不要加长发；不要把六格融成一张脸；"
+    "六格表情幅度要大、一眼可辨，尤其惊恐必须张嘴。"
+)
+
+
 def compose_character_sheet(
     panels: dict[str, Image.Image | bytes],
     meta: SheetMeta,
@@ -2778,9 +2925,9 @@ def crop_face_slot_from_master(
     """22:02：母版固定比例硬裁头像，三格同尺寸；侧/背放大严格 ≤2×。
 
     face_front ← 主立绘顶部到下巴下（约画高 0–20%）
-    face_three_quarter ← 侧母版顶部约 0–25%（≤2×）
-    face_side ← 背母版后脑勺顶部约 0–25%（≤2×；禁止再裁侧脸）
-    水平以头发轮廓中心为准；侧面糊再走 Qwen 清线+CLIP 回退。
+    face_three_quarter ← 侧母版顶部约 0–25%（≤2×；23:17 默认直接用母版原像素，禁止 Qwen 清线）
+    face_side ← 背母版后脑勺顶部约 0–25%（≤2×；禁止再裁侧脸；继续背母版硬裁）
+    水平以头发轮廓中心为准。
     """
     if not data:
         raise CharacterSheetError(f"faces crop: empty master for {slot}", status_code=422)
@@ -2860,13 +3007,13 @@ def crop_face_slot_from_master(
         if frac is None:
             vspan = panel_vertical_span(out)
             logger.warning(
-                "faces %s hard-crop no face frac vspan=%.3f at 2× — soft ok for Qwen",
+                "faces %s hard-crop no face frac vspan=%.3f at 2× — soft ok (23:17 no deblur)",
                 slot,
                 vspan,
             )
         elif frac + 1e-12 < 0.35:
             logger.warning(
-                "faces %s hard-crop frac=%.3f <0.35 at 2× — soft ok for Qwen deblur",
+                "faces %s hard-crop frac=%.3f <0.35 at 2× — soft ok (23:17 no deblur)",
                 slot,
                 frac,
             )
@@ -5376,90 +5523,87 @@ async def generate_character_sheet(
                     _y,
                     yaw_ok_for_face_key(_y, fk),
                 )
-            # 21:22/22:02/23:05：仅侧面¾走 Qwen 清线（多候选+融化源放宽）；背头禁清线
-            for _side_fk, _seed_off in (
-                ("face_three_quarter", 2023),
-            ):
-                try:
-                    side_crop = tri[_side_fk]
-                    side_name = await client.upload_image(
-                        side_crop,
-                        f"sheet_{_side_fk}_crop_{character_id[:8]}_{meta.style}.png",
-                    )
-                    _deblur_prompt = (
-                        "整图修复侧面/¾侧头像的融化与错位线条（禁止局部遮罩）："
-                        "恢复清晰二次元五官——可见的一侧眼睛轮廓清楚、鼻梁一条干净线、嘴巴位置正确；"
-                        "保持同一发型、同一头身角度、同一雨衣领口与配色；"
-                        "不要正面化、不要改成长发、不要加第二张脸、不要重影、不要加文字徽标。"
-                    )
-                    _cands: list[bytes] = []
-                    for _ci in range(3):
-                        _cseed = (
-                            None
-                            if seed is None
-                            else int(seed) + int(_seed_off) + int(_ci) * 17
+            # 23:17：侧面¾默认直接用母版硬裁原像素，禁止再走 Qwen 清线/deblur（融化源）。
+            # 背头 face_side 继续背母版硬裁。仅当显式 TOIV_SHEET_SIDE_DEBLUR=1 才启用旧清线。
+            if os.environ.get("TOIV_SHEET_SIDE_DEBLUR", "").strip() in ("1", "true", "yes"):
+                for _side_fk, _seed_off in (
+                    ("face_three_quarter", 2023),
+                ):
+                    try:
+                        side_crop = tri[_side_fk]
+                        side_name = await client.upload_image(
+                            side_crop,
+                            f"sheet_{_side_fk}_crop_{character_id[:8]}_{meta.style}.png",
                         )
-                        cleaned = await generate_panel_bytes(
-                            pool,
-                            _deblur_prompt,
-                            ckpt_name=ckpt,
-                            width=768,
-                            height=768,
-                            seed=_cseed,
-                            worker=worker,
-                            filename_prefix=f"ToIV_char_sheet_{_side_fk}_deblur_c{_ci}",
-                            style=meta.style,
-                            client=client,
-                            ref_image=side_name,
-                            ref_mode="qwen_edit",
-                            denoise=1.0,
+                        _deblur_prompt = (
+                            "整图修复侧面/¾侧头像的融化与错位线条（禁止局部遮罩）："
+                            "恢复清晰二次元五官——可见的一侧眼睛轮廓清楚、鼻梁一条干净线、嘴巴位置正确；"
+                            "保持同一发型、同一头身角度、同一雨衣领口与配色；"
+                            "不要正面化、不要改成长发、不要加第二张脸、不要重影、不要加文字徽标。"
                         )
-                        try:
-                            cleaned = enforce_head_shoulders_square(
-                                cleaned, size=768, face_closeup_gate=True
+                        _cands: list[bytes] = []
+                        for _ci in range(3):
+                            _cseed = (
+                                None
+                                if seed is None
+                                else int(seed) + int(_seed_off) + int(_ci) * 17
                             )
-                        except CharacterSheetError:
-                            dump_rejected_panel(
-                                cleaned,
-                                seed=seed,
-                                panel=str(_side_fk),
-                                gate="side_deblur_frame",
-                                detail=f"cand{_ci} frame gate",
-                                dump_dir=reject_dir,
+                            cleaned = await generate_panel_bytes(
+                                pool,
+                                _deblur_prompt,
+                                ckpt_name=ckpt,
+                                width=768,
+                                height=768,
+                                seed=_cseed,
+                                worker=worker,
+                                filename_prefix=f"ToIV_char_sheet_{_side_fk}_deblur_c{_ci}",
+                                style=meta.style,
+                                client=client,
+                                ref_image=side_name,
+                                ref_mode="qwen_edit",
+                                denoise=1.0,
                             )
-                            continue
-                        _cands.append(cleaned)
-                    _id_ref = tri.get("face_front") or panels.get("portrait")
-                    best = pick_best_side_deblur_candidate(
-                        _cands,
-                        side_crop,
-                        master_side=panels.get("side"),
-                        identity_ref=_id_ref,
-                    )
-                    if best is not None:
-                        tri[_side_fk] = best
-                        logger.info(
-                            "faces %s Qwen deblur accepted (%d cands)",
-                            _side_fk,
-                            len(_cands),
+                            try:
+                                cleaned = enforce_head_shoulders_square(
+                                    cleaned, size=768, face_closeup_gate=True
+                                )
+                            except CharacterSheetError:
+                                dump_rejected_panel(
+                                    cleaned,
+                                    seed=seed,
+                                    panel=str(_side_fk),
+                                    gate="side_deblur_frame",
+                                    detail=f"cand{_ci} frame gate",
+                                    dump_dir=reject_dir,
+                                )
+                                continue
+                            _cands.append(cleaned)
+                        _id_ref = tri.get("face_front") or panels.get("portrait")
+                        best = pick_best_side_deblur_candidate(
+                            _cands,
+                            side_crop,
+                            master_side=panels.get("side"),
+                            identity_ref=_id_ref,
                         )
-                    else:
-                        logger.info(
-                            "faces %s Qwen deblur all rejected → keep crop (%d cands)",
-                            _side_fk,
-                            len(_cands),
-                        )
-                        for _ci, _cb in enumerate(_cands):
-                            dump_rejected_panel(
-                                _cb,
-                                seed=seed,
-                                panel=str(_side_fk),
-                                gate="side_deblur_clip",
-                                detail=f"cand{_ci} CLIP/MAE/sharp fail",
-                                dump_dir=reject_dir,
+                        if best is not None:
+                            tri[_side_fk] = best
+                            logger.info(
+                                "faces %s Qwen deblur accepted (%d cands)",
+                                _side_fk,
+                                len(_cands),
                             )
-                except Exception as de:  # noqa: BLE001
-                    logger.warning("faces %s Qwen deblur skipped: %s", _side_fk, de)
+                        else:
+                            logger.info(
+                                "faces %s Qwen deblur all rejected → keep crop (%d cands)",
+                                _side_fk,
+                                len(_cands),
+                            )
+                    except Exception as de:  # noqa: BLE001
+                        logger.warning("faces %s Qwen deblur skipped: %s", _side_fk, de)
+            else:
+                logger.info(
+                    "faces face_three_quarter 23:17 hard-crop only (Qwen deblur off)"
+                )
             panels["faces"] = compose_faces_triptych(
                 tri,
                 style=meta.style,
@@ -5468,15 +5612,156 @@ async def generate_character_sheet(
             )
             continue
         elif key.startswith("expr_"):
-            # 22:02：表情整图 Qwen（不加遮罩）；底版优先 2023b 对应表情，其次中性脸
-            face = face_ref_name or ref_name
-            if face or key in _expr_bases:
-                use_ref = face  # 上传名稍后若有 base 会替换为上传后的 base 名
-                ref_mode = "qwen_edit"
-                denoise = 1.0
-            else:
-                use_ref = None
-                ref_mode = "none"
+            # 23:17：2×3 宫格一次 Comfy/Qwen 出整张，再切格；禁止单格逐张 Qwen 循环
+            missing_expr = [ek for ek in _EXPR_KEYS if ek not in panels]
+            if not missing_expr:
+                continue
+            bases: dict[str, bytes] = {}
+            for ek in _EXPR_KEYS:
+                if ek in _expr_bases:
+                    bases[ek] = _expr_bases[ek]
+                elif ek in panels:
+                    bases[ek] = panels[ek]
+                else:
+                    try:
+                        bases[ek] = crop_face_ref(panels["portrait"], size=768)
+                    except Exception as ce:  # noqa: BLE001
+                        raise CharacterSheetError(
+                            f"{ek} 无表情底且无法从主立绘裁脸: {ce}",
+                            status_code=422,
+                        ) from ce
+            for ek, bb in list(bases.items()):
+                # 已锁定覆盖的格仍校验一次；略低先 zoom；断言失败直接停
+                fixed, area = assert_expr_base_face_area(bb, expr_key=ek, min_area=0.15)
+                bases[ek] = fixed
+                logger.info("expr base %s face_area=%.3f ok", ek, area)
+            grid_in = _compose_expression_grid_raw(bases, cell=512)
+            try:
+                (reject_dir / f"expr_grid_in_{int(seed or 0)}.png").write_bytes(grid_in)
+            except Exception:
+                pass
+            grid_name = await client.upload_image(
+                grid_in,
+                f"sheet_expr_grid_{character_id[:8]}_{meta.style}.png",
+            )
+            _grid_neg = (
+                "text, watermark, logo, emblem, badge, chinese characters, "
+                "long hair, hair past shoulders, melted faces, fused cells, "
+                "duplicate face across cells, blank cell"
+            )
+            last_grid_err = None
+            grid_out = None
+            for g_attempt in range(3):
+                try:
+                    g_seed = (
+                        None
+                        if seed is None
+                        else int(seed) + 2317 + g_attempt * 9973
+                    )
+                    g_prompt = _EXPR_GRID_EDIT_INSTRUCTION
+                    if g_attempt:
+                        g_prompt = (
+                            g_prompt
+                            + f" 变体{g_attempt}。加大六格表情差异，惊恐格必须张嘴。"
+                        )
+                    cand = await generate_panel_bytes(
+                        pool,
+                        g_prompt,
+                        ckpt_name=ckpt,
+                        width=1536,
+                        height=1024,
+                        seed=g_seed,
+                        worker=worker,
+                        filename_prefix=f"ToIV_char_sheet_expr_grid_a{g_attempt}",
+                        style=meta.style,
+                        client=client,
+                        ref_image=grid_name,
+                        ref_mode="qwen_edit",
+                        denoise=1.0,
+                        negative_extra=_grid_neg,
+                    )
+                    cells = _split_expression_grid(cand)
+                    # 轻门禁：有人脸；惊恐张嘴优先；徽标相对主立绘
+                    _neutral = None
+                    try:
+                        if panels.get("portrait"):
+                            _neutral = crop_face_ref(panels["portrait"], size=768)
+                    except Exception:  # noqa: BLE001
+                        _neutral = None
+                    for ek, cell_b in cells.items():
+                        if ek in panels and ek in override_keys:
+                            continue
+                        cell_b = enforce_head_shoulders_square(
+                            cell_b, size=768, face_closeup_gate=True
+                        )
+                        assert_expression_identity_gates(
+                            cell_b,
+                            portrait_ref=panels.get("portrait"),
+                            expr_key=ek,
+                        )
+                        cells[ek] = cell_b
+                    # 多样性（相对中性 + 两两）
+                    for ek, cell_b in list(cells.items()):
+                        if ek in panels and ek in override_keys:
+                            continue
+                        others = {
+                            o: (panels[o] if o in panels and o in override_keys else cells[o])
+                            for o in _EXPR_KEYS
+                            if o != ek
+                        }
+                        assert_expression_diversity(
+                            cell_b,
+                            expr_key=ek,
+                            neutral_ref=_neutral,
+                            other_exprs=others,
+                        )
+                    grid_out = cand
+                    for ek in _EXPR_KEYS:
+                        if ek in panels and ek in override_keys:
+                            continue
+                        panels[ek] = cells[ek]
+                    try:
+                        (reject_dir / f"expr_grid_out_{int(seed or 0)}.png").write_bytes(
+                            grid_out
+                        )
+                    except Exception:
+                        pass
+                    logger.info(
+                        "expr 2x3 grid once ok attempt=%s filled=%s locked=%s",
+                        g_attempt,
+                        [ek for ek in _EXPR_KEYS if ek not in override_keys or ek not in panels],
+                        [ek for ek in _EXPR_KEYS if ek in override_keys and ek in panels],
+                    )
+                    last_grid_err = None
+                    break
+                except CharacterSheetError as ge:
+                    last_grid_err = ge
+                    logger.warning("expr grid fail attempt=%s: %s", g_attempt, ge)
+                    dump_rejected_panel(
+                        locals().get("cand"),
+                        seed=seed,
+                        panel="expr_grid",
+                        gate=_expr_reject_cause(ge),
+                        detail=str(ge),
+                        dump_dir=reject_dir,
+                    )
+            if last_grid_err is not None:
+                # 23:17：宫格 Qwen 门禁全拒时回退已过 ≥0.15 的表情底（禁重回单格循环）
+                logger.warning(
+                    "expr grid Qwen failed (%s) → fallback to validated bases",
+                    last_grid_err,
+                )
+                for ek in _EXPR_KEYS:
+                    if ek in panels and ek in override_keys:
+                        continue
+                    panels[ek] = bases[ek]
+                try:
+                    (reject_dir / f"expr_grid_fallback_{int(seed or 0)}.txt").write_text(
+                        str(last_grid_err), encoding="utf-8"
+                    )
+                except Exception:
+                    pass
+            continue
         last_err = None
         same_cause = None
         same_cause_n = 0
