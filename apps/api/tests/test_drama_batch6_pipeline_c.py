@@ -23,6 +23,8 @@ from app.services.studio.candidate_pick import (
     garment_brand_ocr_frame,
     brand_text_hit,
     scene_sign_ocr_frame,
+    sign_text_hit,
+    garment_main_color_miss,
 )
 
 
@@ -708,4 +710,54 @@ def test_build_c_visual_prompt_blank_lightboxes():
     low = p.lower()
     assert "blank glowing lightboxes" in low or "无字发光灯箱" in p
     assert "without letters" in low or "无字" in p
+
+
+def test_sign_text_hit_filters_stripe_noise():
+    """条纹 OCR 假阳（Ip Vues / eee / 符号）不命中；真实 NORTH FACE 命中。"""
+    assert sign_text_hit("Ip \\ Vues") is False
+    assert sign_text_hit("._ 2\n\n= i eee eee") is False
+    assert sign_text_hit("eee") is False
+    assert sign_text_hit("!!!@@@###") is False
+    assert sign_text_hit("NORTH FACE") is True
+    assert sign_text_hit("SEVEN ELEVEN STORE") is True
+
+
+def test_scene_sign_ocr_blank_stripe_lightbox_negative():
+    """空白色条灯箱（无字）须为负样本 — 对齐 12:05 父代理假阳案例。"""
+    from PIL import Image, ImageDraw
+
+    img = Image.new("RGB", (400, 700), (18, 20, 24))
+    d = ImageDraw.Draw(img)
+    # 7-Eleven 风格横条，无文字
+    y = 20
+    for color in [(240, 140, 40), (40, 160, 70), (200, 40, 40), (250, 250, 250)]:
+        d.rectangle([20, y, 380, y + 18], fill=color)
+        y += 22
+    r = scene_sign_ocr_frame(img)
+    if r.get("error", "").startswith("ocr_unavailable"):
+        pytest.skip(r["error"])
+    assert r.get("hit") is False, r
+
+
+def test_garment_main_color_miss_black_vs_slate():
+    """期望板岩灰时纯黑躯干 → hit；板岩灰躯干 → 不 hit。"""
+    from PIL import Image, ImageDraw
+
+    slate = ["#5A6A7A", "#1A1A1E", "#2C2C34"]
+    black = Image.new("RGB", (400, 700), (8, 8, 10))
+    r0 = garment_main_color_miss(black, slate)
+    assert r0.get("hit") is True, r0
+
+    gray = Image.new("RGB", (400, 700), (90, 106, 122))  # ~#5A6A7A
+    r1 = garment_main_color_miss(gray, slate)
+    assert r1.get("hit") is False, r1
+
+
+def test_build_c_visual_prompt_no_chain_fascia():
+    p = build_c_visual_prompt(
+        shot_prompt="便利店门口中景",
+        cast_visual="年轻女性雨衣",
+        scene="便利店门口",
+    )
+    assert "非连锁品牌配色" in p or "not 7-Eleven" in p.lower() or "chain-store" in p.lower()
 

@@ -451,7 +451,9 @@ def build_c_visual_prompt(
     body += (
         "。画面只有角色与场景，无任何文字、店招或乱码。"
         " blank glowing lightboxes without letters, 无字发光灯箱,"
-        " blank neon panels without text, empty glowing signs."
+        " blank neon panels without text, empty glowing signs,"
+        " 非连锁品牌配色, not chain-store fascia colors, not 7-Eleven stripes,"
+        " not FamilyMart green-blue bands, not branded convenience store signage."
     )
     # 室内货架镜：强制店内 + 可测正脸（雨夜镜1 v2 曾出门外侧写/手部无脸）
     blob = " ".join([shot_prompt or "", scene or "", camera or "", body]).lower()

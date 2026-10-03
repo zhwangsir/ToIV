@@ -423,25 +423,62 @@ async def render_pipeline_c(
         url = await _wait_video_url(client.base_url, prompt_id, request=request)
 
         ocr = await _brand_ocr_after_render(url)
-        if not ocr.get("hit"):
+        color_hit = False
+        color_info: dict = {}
+        # 服装主色：期望板岩灰等时出片过黑 → 换 seed
+        try:
+            from app.services.studio.candidate_pick import garment_main_color_miss_video
+            expect_colors: list[str] = []
+            for _name, cols in (palette_map or {}).items():
+                if isinstance(cols, list):
+                    expect_colors.extend([c for c in cols if isinstance(c, str)])
+            # 取前角角色色板即可
+            if expect_colors:
+                # 复用 OCR 的本地解析
+                from pathlib import Path as _P
+                local = None
+                u = (url or "").strip()
+                if u.startswith("/api/studio/files/"):
+                    local = _P("/mnt/toiv-nas/toiv/outputs/drama/final/studio") / u.rsplit("/", 1)[-1]
+                if local and local.is_file():
+                    color_info = garment_main_color_miss_video(local, expect_colors)
+                    color_hit = bool(color_info.get("hit"))
+        except Exception as e:
+            logger.warning("garment_color_check failed: %s", e)
+
+        if not ocr.get("hit") and not color_hit:
             break
-        hit_text = str(ocr.get("text") or "")[:120]
-        kind = str(ocr.get("kind") or "").strip().lower()
-        if not kind:
-            kind = "sign" if hit_text.startswith("sign:") else "brand"
-        brand_ocr_hits.append(hit_text if kind == "brand" else (
-            hit_text if hit_text.startswith("sign:") else f"sign:{hit_text}"
-        ))
-        logger.warning(
-            "%s_ocr_reseed shot=%s clip=%s attempt=%s seed=%s text=%r frames=%s",
-            kind,
-            getattr(shot, "id", "")[:8],
-            clip_index,
-            attempt,
-            seed_used,
-            hit_text,
-            ocr.get("frames_checked"),
-        )
+        if ocr.get("hit"):
+            hit_text = str(ocr.get("text") or "")[:120]
+            kind = str(ocr.get("kind") or "").strip().lower()
+            if not kind:
+                kind = "sign" if hit_text.startswith("sign:") else "brand"
+            brand_ocr_hits.append(hit_text if kind == "brand" else (
+                hit_text if hit_text.startswith("sign:") else f"sign:{hit_text}"
+            ))
+            logger.warning(
+                "%s_ocr_reseed shot=%s clip=%s attempt=%s seed=%s text=%r frames=%s",
+                kind,
+                getattr(shot, "id", "")[:8],
+                clip_index,
+                attempt,
+                seed_used,
+                hit_text,
+                ocr.get("frames_checked"),
+            )
+        if color_hit:
+            brand_ocr_hits.append(
+                f"color_black:luma={color_info.get('mean_luma')} expected={expect_colors[:4]}"
+            )
+            logger.warning(
+                "color_ocr_reseed shot=%s clip=%s attempt=%s seed=%s luma=%s expected=%s",
+                getattr(shot, "id", "")[:8],
+                clip_index,
+                attempt,
+                seed_used,
+                color_info.get("mean_luma"),
+                expect_colors[:4],
+            )
         if attempt >= max_submits - 1:
             break
 

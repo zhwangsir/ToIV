@@ -493,24 +493,33 @@ def _garment_roi_box(h: int, w: int) -> tuple[int, int, int, int]:
 
 
 def _chest_emblem_roi_box(h: int, w: int) -> tuple[int, int, int, int]:
-    """胸口偏左徽标区（竖屏人物中景）。
+    """上胸口徽标区（竖屏中景）：覆盖左胸小图标 + 右胸方形贴标。
 
-    只取上半胸口，避开帽绳抽绳扣/拉链下段高光误报。
+    避开帽绳抽绳扣/拉链下段高光误报。
     """
-    y0 = int(h * 0.34)
-    y1 = int(h * 0.46)  # 上胸口；0.46 以下常是抽绳扣
-    x0 = int(w * 0.30)
-    x1 = int(w * 0.52)
+    y0 = int(h * 0.32)
+    y1 = int(h * 0.48)
+    x0 = int(w * 0.26)
+    x1 = int(w * 0.74)
     return y0, max(y0 + 1, y1), x0, max(x0 + 1, x1)
 
 
 def garment_chest_emblem_hit(image) -> dict[str, Any]:
-    """检测深色雨衣胸口的小块高对比亮色徽标（图标型 logo，OCR 读不出）。
+    """检测深色雨衣胸口徽标：高对比亮斑 + 小尺寸彩色图标 + 矩形贴标。
 
-    启发式：胸口 ROI 内相对暗底的孤立亮斑，面积约占 ROI 0.15%–4%，近似方形。
-    返回 {hit, area_ratio, blobs, error}。
+    启发式（任一命中）：
+    1) 亮斑：相对暗底孤立亮块，面积约占 ROI 0.15%–4%
+    2) 彩标：HSV 饱和度高的紧凑色块（山形折线小图标）
+    3) 贴标：近矩形、填充高、亮度/色相对衣身有差的方块
+    返回 {hit, area_ratio, blobs, error, modes}。
     """
-    out: dict[str, Any] = {"hit": False, "area_ratio": 0.0, "blobs": 0, "error": ""}
+    out: dict[str, Any] = {
+        "hit": False,
+        "area_ratio": 0.0,
+        "blobs": 0,
+        "error": "",
+        "modes": [],
+    }
     try:
         import cv2
         import numpy as np
@@ -519,16 +528,13 @@ def garment_chest_emblem_hit(image) -> dict[str, Any]:
         return out
     try:
         if hasattr(image, "convert"):
-            import numpy as np
             arr = np.asarray(image.convert("RGB"))
             bgr = arr[:, :, ::-1].copy()
         else:
-            import numpy as np
             arr = np.asarray(image)
             if arr.ndim != 3 or arr.shape[2] < 3:
                 out["error"] = "bad_frame"
                 return out
-            # 假定 OpenCV BGR
             bgr = arr[:, :, :3].copy()
         h, w = bgr.shape[:2]
         y0, y1, x0, x1 = _chest_emblem_roi_box(h, w)
@@ -536,45 +542,98 @@ def garment_chest_emblem_hit(image) -> dict[str, Any]:
         if roi.size == 0:
             return out
         gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-        # 相对亮斑：高于 ROI 中位 + 45，且绝对不太暗
+        hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
         med = float(np.median(gray))
-        # 雨滴也亮；徽标通常是胸口一块明显更亮的紧凑斑，阈值抬高压雨滴
-        thr = max(int(med + 70), 170)
-        _, bw = cv2.threshold(gray, thr, 255, cv2.THRESH_BINARY)
-        bw = cv2.morphologyEx(bw, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
-        bw = cv2.morphologyEx(bw, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
-        cnts, _ = cv2.findContours(bw, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         rh, rw = gray.shape[:2]
         roi_area = float(rh * rw) or 1.0
         hits = 0
         best = 0.0
-        for c in cnts:
+        modes: list[str] = []
+
+        def _accept_contour(c, *, mode: str, min_ratio: float, max_ratio: float,
+                            aspect_lo: float, aspect_hi: float, fill_lo: float) -> bool:
+            nonlocal hits, best
             area = float(cv2.contourArea(c))
             ratio = area / roi_area
-            # 雨滴 << 0.4%；TNF 山标约 0.5%–3%
-            if ratio < 0.004 or ratio > 0.035:
-                continue
+            if ratio < min_ratio or ratio > max_ratio:
+                return False
             x, y, cw, ch = cv2.boundingRect(c)
-            if cw < 10 or ch < 10:
-                continue
+            if cw < 6 or ch < 6:
+                return False
             aspect = cw / max(ch, 1)
-            if aspect < 0.55 or aspect > 2.2:
-                continue
+            if aspect < aspect_lo or aspect > aspect_hi:
+                return False
             fill = area / float(max(cw * ch, 1))
-            if fill < 0.30:
-                continue
-            # 斑块均值须明显高于整 ROI 中位（再压湿点高光）
+            if fill < fill_lo:
+                return False
+            hits += 1
+            best = max(best, ratio)
+            modes.append(mode)
+            return True
+
+        # --- 1) 亮斑（原路径，阈值略降以接小图标）---
+        thr = max(int(med + 55), 150)
+        _, bw = cv2.threshold(gray, thr, 255, cv2.THRESH_BINARY)
+        bw = cv2.morphologyEx(bw, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8))
+        bw = cv2.morphologyEx(bw, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+        cnts, _ = cv2.findContours(bw, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for c in cnts:
             mask = np.zeros(gray.shape, dtype=np.uint8)
             cv2.drawContours(mask, [c], -1, 255, -1)
             mean_blob = float(cv2.mean(gray, mask=mask)[0])
-            if mean_blob < med + 55:
+            if mean_blob < med + 40:
+                continue
+            _accept_contour(
+                c, mode="bright", min_ratio=0.0015, max_ratio=0.04,
+                aspect_lo=0.4, aspect_hi=2.6, fill_lo=0.22,
+            )
+
+        # --- 2) 高饱和彩色小图标 ---
+        sat = hsv[:, :, 1]
+        val = hsv[:, :, 2]
+        color_mask = ((sat > 60) & (val > 40) & (val < 245)).astype("uint8") * 255
+        color_mask = cv2.morphologyEx(color_mask, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8))
+        color_mask = cv2.morphologyEx(color_mask, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+        cnts2, _ = cv2.findContours(color_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for c in cnts2:
+            _accept_contour(
+                c, mode="color", min_ratio=0.0012, max_ratio=0.035,
+                aspect_lo=0.35, aspect_hi=2.8, fill_lo=0.18,
+            )
+
+        # --- 3) 矩形贴标（边缘+近似矩形）---
+        edges = cv2.Canny(gray, 60, 140)
+        edges = cv2.dilate(edges, np.ones((2, 2), np.uint8), iterations=1)
+        cnts3, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for c in cnts3:
+            peri = cv2.arcLength(c, True)
+            approx = cv2.approxPolyDP(c, 0.06 * peri, True)
+            if len(approx) < 4 or len(approx) > 6:
+                continue
+            x, y, cw, ch = cv2.boundingRect(c)
+            if cw < 8 or ch < 8:
+                continue
+            aspect = cw / max(ch, 1)
+            if aspect < 0.6 or aspect > 2.4:
+                continue
+            area = float(cw * ch)
+            ratio = area / roi_area
+            if ratio < 0.002 or ratio > 0.05:
+                continue
+            patch = gray[y : y + ch, x : x + cw]
+            if patch.size == 0:
+                continue
+            # 贴标相对衣身有亮度差
+            if abs(float(np.mean(patch)) - med) < 18:
                 continue
             hits += 1
             best = max(best, ratio)
+            modes.append("rect")
+
         out["blobs"] = hits
         out["area_ratio"] = best
-        # 只认 1–3 个候选斑；漫天雨点会被阈值滤掉
-        out["hit"] = 1 <= hits <= 3
+        out["modes"] = modes[:6]
+        out["hit"] = hits >= 1
         return out
     except Exception as e:
         out["error"] = f"{type(e).__name__}:{e}"
@@ -602,6 +661,73 @@ def brand_text_hit(text: str) -> bool:
     return False
 
 
+_SIGN_LATIN_RUN = re.compile(r"[A-Za-z]{4,}")
+_SIGN_MIN_CONF = 55.0
+
+
+def sign_text_hit(text: str) -> bool:
+    """店招乱码判定：严于 brand_text_hit，滤条纹噪声假阳。
+
+    - 品牌词仍命中
+    - 至少 6 个拉丁字母，且元音≥2（拒绝 eee/符号噪声）
+    - 至少一段连续拉丁 ≥5，或合格段合计 ≥8
+    """
+    t = (text or "").strip()
+    if not t:
+        return False
+    low = t.lower()
+    for w in _BRAND_WORDS:
+        if w in low:
+            return True
+    letters = re.findall(r"[A-Za-z]", t)
+    if len(letters) < 6:
+        return False
+    joined_all = "".join(letters).lower()
+    vowels = sum(1 for c in joined_all if c in "aeiou")
+    if vowels < 2:
+        return False
+    runs = _SIGN_LATIN_RUN.findall(t)
+    if not runs:
+        return False
+    joined = "".join(runs)
+    if any(len(r) >= 5 for r in runs):
+        return True
+    if len(joined) >= 8:
+        return True
+    return False
+
+
+def _tesseract_words_confident(crop, *, min_conf: float = _SIGN_MIN_CONF) -> tuple[str, list[float]]:
+    """返回高置信度英文词拼接文本 + 置信度列表。失败则回落空。"""
+    try:
+        import pytesseract
+    except Exception:
+        return "", []
+    try:
+        data = pytesseract.image_to_data(crop, lang="eng", output_type=pytesseract.Output.DICT)
+    except Exception:
+        return "", []
+    words: list[str] = []
+    confs: list[float] = []
+    texts = data.get("text") or []
+    conf_raw = data.get("conf") or []
+    for txt, conf in zip(texts, conf_raw):
+        raw = (txt or "").strip()
+        if not raw:
+            continue
+        try:
+            c = float(conf)
+        except (TypeError, ValueError):
+            continue
+        if c < min_conf:
+            continue
+        if not re.search(r"[A-Za-z]{3,}", raw):
+            continue
+        words.append(raw)
+        confs.append(c)
+    return " ".join(words), confs
+
+
 
 def _scene_sign_roi_boxes(h: int, w: int) -> list[tuple[int, int, int, int]]:
     """店招/霓虹 ROI：上半约 0–40% + 左右上角；刻意避开躯干服装 ROI。
@@ -627,7 +753,7 @@ def scene_sign_ocr_frame(image) -> dict[str, Any]:
     """对单帧上半/霓虹区做店招乱码 OCR。
 
     返回 {hit, text, error, rois}。pytesseract 不可用则 hit=False。
-    命中条件同 brand_text_hit（拉丁 run≥3/4 或品牌词）；极短噪声天然排除。
+    命中条件用 sign_text_hit + tesseract 置信度≥55；滤条纹短噪声假阳。
     """
     out: dict[str, Any] = {"hit": False, "text": "", "error": "", "rois": 0}
     try:
@@ -667,12 +793,18 @@ def scene_sign_ocr_frame(image) -> dict[str, Any]:
             if max(cw, ch) < 320:
                 scale = max(2, 320 // max(cw, ch))
                 crop = crop.resize((cw * scale, ch * scale), Image.Resampling.LANCZOS)
-            text = (pytesseract.image_to_string(crop, lang="eng") or "").strip()
-            if text:
-                texts.append(text)
-            if brand_text_hit(text):
-                out["text"] = text[:200]
+            conf_text, confs = _tesseract_words_confident(crop)
+            # 回落：无高置信词时仍收全量文本供日志，但不用于 hit
+            raw = (pytesseract.image_to_string(crop, lang="eng") or "").strip()
+            text = conf_text or ""
+            if conf_text:
+                texts.append(conf_text)
+            elif raw:
+                texts.append("~" + raw[:80])
+            if conf_text and sign_text_hit(conf_text):
+                out["text"] = conf_text[:200]
                 out["hit"] = True
+                out["conf_mean"] = round(sum(confs) / max(len(confs), 1), 1)
                 return out
         out["text"] = " | ".join(texts)[:200]
         return out
@@ -810,3 +942,127 @@ def garment_brand_ocr_hit(video_path: str | Path) -> dict[str, Any]:
         return out
     finally:
         cap.release()
+
+
+def _hex_to_rgb(h: str) -> tuple[int, int, int]:
+    s = (h or "").strip().lstrip("#")
+    if len(s) != 6:
+        return (0, 0, 0)
+    return int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16)
+
+
+def garment_main_color_miss(
+    image,
+    expected_hexes: list[str] | None,
+    *,
+    black_luma_max: float = 35.0,
+) -> dict[str, Any]:
+    """出片主色校验：期望板岩灰等非黑时，躯干 ROI 过黑则 hit（应换 seed）。
+
+    expected_hexes 来自设定卡服装色；含 slate/灰 且不含「仅纯黑」时启用。
+    """
+    out: dict[str, Any] = {
+        "hit": False,
+        "mean_luma": 0.0,
+        "mean_bgr": [],
+        "expected": list(expected_hexes or []),
+        "error": "",
+    }
+    ex = [e for e in (expected_hexes or []) if isinstance(e, str) and e.strip()]
+    if not ex:
+        return out
+    # 是否期望非黑灰调
+    rgbs = [_hex_to_rgb(e) for e in ex]
+    has_grayish = any(40 <= (0.299 * r + 0.587 * g + 0.114 * b) <= 160 for r, g, b in rgbs)
+    only_near_black = all((0.299 * r + 0.587 * g + 0.114 * b) < 35 for r, g, b in rgbs)
+    if not has_grayish or only_near_black:
+        return out
+    try:
+        import cv2
+        import numpy as np
+    except Exception as e:
+        out["error"] = f"cv2_unavailable:{type(e).__name__}"
+        return out
+    try:
+        if hasattr(image, "convert"):
+            arr = np.asarray(image.convert("RGB"))
+            bgr = arr[:, :, ::-1].copy()
+        else:
+            arr = np.asarray(image)
+            if arr.ndim != 3 or arr.shape[2] < 3:
+                out["error"] = "bad_frame"
+                return out
+            bgr = arr[:, :, :3].copy()
+        h, w = bgr.shape[:2]
+        y0, y1, x0, x1 = _garment_roi_box(h, w)
+        roi = bgr[y0:y1, x0:x1]
+        if roi.size == 0:
+            return out
+        mean = [float(x) for x in cv2.mean(roi)[:3]]
+        # OpenCV BGR
+        b, g, r = mean
+        luma = 0.299 * r + 0.587 * g + 0.114 * b
+        out["mean_bgr"] = [round(b, 1), round(g, 1), round(r, 1)]
+        out["mean_luma"] = round(luma, 1)
+        # 过黑：远低于板岩灰（#5A6A7A luma≈100）
+        if luma <= black_luma_max:
+            out["hit"] = True
+        return out
+    except Exception as e:
+        out["error"] = f"{type(e).__name__}:{e}"
+        return out
+
+
+def garment_main_color_miss_video(
+    video_path: str | Path,
+    expected_hexes: list[str] | None,
+) -> dict[str, Any]:
+    """对视频抽中段帧做主色校验。"""
+    out: dict[str, Any] = {
+        "hit": False,
+        "mean_luma": 0.0,
+        "frames_checked": 0,
+        "error": "",
+        "expected": list(expected_hexes or []),
+    }
+    path = Path(video_path) if video_path else None
+    if path is None or not path.is_file():
+        out["error"] = "missing_video"
+        return out
+    try:
+        import cv2
+    except Exception as e:
+        out["error"] = f"cv2_unavailable:{type(e).__name__}"
+        return out
+    cap = cv2.VideoCapture(str(path))
+    if not cap.isOpened():
+        out["error"] = "open_failed"
+        return out
+    try:
+        n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        idxs = [max(0, n // 2)] if n > 0 else [0]
+        if n >= 5:
+            idxs = [n // 4, n // 2, (3 * n) // 4]
+        lumas = []
+        for i in idxs:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                continue
+            out["frames_checked"] += 1
+            r = garment_main_color_miss(frame, expected_hexes)
+            if r.get("error"):
+                out["error"] = r["error"]
+                continue
+            lumas.append(float(r.get("mean_luma") or 0))
+            if r.get("hit"):
+                out["hit"] = True
+                out["mean_luma"] = r.get("mean_luma")
+                out["mean_bgr"] = r.get("mean_bgr")
+                return out
+        if lumas:
+            out["mean_luma"] = round(sum(lumas) / len(lumas), 1)
+        return out
+    finally:
+        cap.release()
+
