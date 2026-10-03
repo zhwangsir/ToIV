@@ -2666,16 +2666,20 @@ def crop_face_slot_from_master(
         raise CharacterSheetError(f"faces crop: empty master for {slot}", status_code=422)
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
-    # 20:23：正≈0–20%；侧/背≈0–25%；放大严格 ≤2×（短边/2），糊了交给 Qwen 清线
+    # 20:23：侧面（three_quarter）放大严格 ≤2× 再 Qwen 清线；正/背可到约 2.5× 保头高≥35%
     if slot == "face_front":
         band = 0.20
-    elif slot in ("face_three_quarter", "face_side"):
+        max_up = 2.5
+    elif slot == "face_three_quarter":
         band = 0.25
+        max_up = 2.0
+    elif slot == "face_side":
+        band = 0.25
+        max_up = 2.5
     else:
         raise CharacterSheetError(f"faces crop: unknown slot {slot}", status_code=422)
-    # 裁窗边长 = band*h；放大上限 2×（短边/2）
     side = float(band) * float(h)
-    min_side = float(min(w, h)) / 2.0
+    min_side = float(min(w, h)) / float(max_up)
     side = max(side, min_side)
     side = min(side, float(w), float(h))
     cx = _hair_center_x(img, y0_frac=0.0, y1_frac=min(0.35, band + 0.08))
@@ -2697,11 +2701,11 @@ def crop_face_slot_from_master(
 
     out = _emit(left, top, side)
     frac = measure_face_height_frac(out)
-    # 头高仍不足：同中心几何再收紧，仍不超过 2× 放大下限
+    # 头高仍不足：同中心几何再收紧，不超过该槽 max_up
     if frac is not None and frac + 1e-12 < 0.35:
         target = 0.42
         shrink = max(0.55, min(0.92, float(frac) / target))
-        floor = float(min(w, h)) / 2.0
+        floor = float(min(w, h)) / float(max_up)
         new_side = max(floor, side * shrink)
         new_side = min(new_side, float(w), float(h), side)
         left2 = cx - new_side / 2.0
@@ -2712,12 +2716,26 @@ def crop_face_slot_from_master(
         out = _emit(left2, 0.0, new_side)
         frac = measure_face_height_frac(out)
         logger.info(
-            "faces %s hard-crop tighten side %.1f→%.1f frac→%s",
+            "faces %s hard-crop tighten side %.1f→%.1f frac→%s max_up=%.1f",
             slot,
             side,
             new_side,
             frac,
+            max_up,
         )
+    # 侧面卡在 2× 仍 <0.35：软过（像素少交给 Qwen），正/背仍硬拒
+    if (
+        slot == "face_three_quarter"
+        and frac is not None
+        and frac + 1e-12 < 0.35
+        and frac + 1e-12 >= 0.28
+    ):
+        logger.warning(
+            "faces %s hard-crop frac=%.3f <0.35 but ≥0.28 at 2× — soft ok for Qwen deblur",
+            slot,
+            frac,
+        )
+        return out
     if frac is None:
         vspan = panel_vertical_span(out)
         if vspan + 1e-12 < 0.35:
