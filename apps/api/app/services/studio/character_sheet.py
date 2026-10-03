@@ -2975,7 +2975,11 @@ def blend_face_local_edit(
     strength: float = 0.70,
     size: int = 768,
 ) -> bytes:
-    """把编辑结果仅合成到眉眼嘴遮罩内；strength≈0.6–0.75 等效局部 inpaint 强度。"""
+    """把编辑结果仅合成到眉眼嘴遮罩内；strength≈0.6–0.75 等效局部 inpaint 强度。
+
+    须在 enforce_head_shoulders_square 之前调用，且 original 与 edited 同构图参考，
+    否则重框后会对不齐 → 叠影。
+    """
     strength = max(0.60, min(0.75, float(strength)))
     o = Image.open(BytesIO(original)).convert("RGB").resize(
         (size, size), Image.Resampling.LANCZOS
@@ -2983,8 +2987,23 @@ def blend_face_local_edit(
     e = Image.open(BytesIO(edited)).convert("RGB").resize(
         (size, size), Image.Resampling.LANCZOS
     )
+    # 对齐门禁：全局 MAE 过大说明被重框/漂移，直接用编辑图避免叠影
+    try:
+        pa = list(o.resize((64, 64)).getdata())
+        pb = list(e.resize((64, 64)).getdata())
+        mae = sum(
+            (abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2])) / 3.0
+            for a, b in zip(pa, pb)
+        ) / float(len(pa))
+        if mae > 45.0:
+            buf = BytesIO()
+            e.save(buf, format="PNG")
+            return buf.getvalue()
+    except Exception:
+        pass
     m = build_face_feature_mask(size)
-    # 遮罩×强度：非脸区完全保留原图
+    # 硬一点的遮罩：减少半透明叠影
+    m = m.point(lambda v: 255 if v >= 96 else int(v * 0.35))
     m_s = m.point(lambda v: int(v * strength))
     out = Image.composite(e, o, m_s)
     buf = BytesIO()
@@ -5252,13 +5271,10 @@ async def generate_character_sheet(
                         if key == "expr_4":
                             _prompt_x += " 嘴巴必须明显张开。"
                 if key.startswith("expr_") and ref_mode == "qwen_edit" and use_ref:
-                    # 21:22：脸部遮罩局部编辑；每表情 4 候选，选与中性差最大且 CLIP 过
+                    # 21:22b：脸部遮罩局部编辑；先 blend 再 enforce，避免重框叠影
                     _base_face = None
                     try:
-                        # use_ref 是上传名；本地面板脸源优先 portrait 裁
                         if panels.get("portrait"):
-                            _base_face = crop_face_ref(panels["portrait"], size=768)
-                        elif face_ref_name and panels.get("portrait"):
                             _base_face = crop_face_ref(panels["portrait"], size=768)
                     except Exception:
                         _base_face = None
@@ -5291,15 +5307,14 @@ async def generate_character_sheet(
                             denoise=denoise,
                             negative_extra=_neg_x,
                         )
-                        edited = enforce_head_shoulders_square(
-                            edited, size=768, face_closeup_gate=True
-                        )
                         if _base_face is not None:
-                            # 强度 0.60–0.75 循环，增强局部幅度
-                            st = 0.60 + 0.05 * (ci % 4)
+                            st = 0.65 + 0.03 * (ci % 4)  # 0.65–0.74
                             edited = blend_face_local_edit(
                                 _base_face, edited, strength=st, size=768
                             )
+                        edited = enforce_head_shoulders_square(
+                            edited, size=768, face_closeup_gate=True
+                        )
                         cands.append(edited)
                     _neutral = _base_face
                     raw = pick_best_expression_candidate(
