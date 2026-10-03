@@ -2720,6 +2720,55 @@ def _hair_center_x(img: Image.Image, *, y0_frac: float, y1_frac: float) -> float
     return sx / sw
 
 
+
+def _densify_three_quarter_head_crop(
+    img: Image.Image,
+    *,
+    size: int = 768,
+    max_up: float = 2.0,
+) -> bytes | None:
+    """侧母版头顶内容密裁：按上半身非浅色列取发顶~肩，提高脸占比（仍 ≤max_up）。"""
+    w, h = img.size
+    if w < 32 or h < 32:
+        return None
+    px = img.load()
+    # 自上扫描首个非浅色行作为发顶
+    y_top = None
+    for y in range(0, int(h * 0.45), max(1, h // 200)):
+        dark = 0
+        for x in range(0, w, max(1, w // 64)):
+            r, g, b = px[x, y][:3]
+            if r < 220 or g < 220 or b < 220:
+                dark += 1
+        if dark >= 3:
+            y_top = y
+            break
+    if y_top is None:
+        y_top = int(h * 0.02)
+    # 水平：上带非浅色列中位数
+    xs: list[int] = []
+    y1 = min(h, y_top + max(16, int(h * 0.22)))
+    for y in range(y_top, y1, max(1, (y1 - y_top) // 16)):
+        for x in range(w):
+            r, g, b = px[x, y][:3]
+            if r < 220 or g < 220 or b < 220:
+                xs.append(x)
+    if len(xs) < 8:
+        return None
+    xs.sort()
+    cx = float(xs[len(xs) // 2])
+    # 目标：头顶以下约 0.22*h 的方框，且边长 ≥ min(w,h)/max_up
+    side = max(float(min(w, h)) / float(max_up), float(h) * 0.22)
+    side = min(side, float(w), float(h))
+    left = max(0.0, min(float(w) - side, cx - side / 2.0))
+    top = max(0.0, min(float(h) - side, float(y_top) - side * 0.06))
+    crop = img.crop((int(left), int(top), int(left + side), int(top + side)))
+    crop = crop.resize((size, size), Image.Resampling.LANCZOS)
+    buf = BytesIO()
+    crop.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def crop_face_slot_from_master(
     data: bytes,
     *,
@@ -2794,8 +2843,20 @@ def crop_face_slot_from_master(
             frac,
             max_up,
         )
-    # 21:22：侧面两格母版头像素少，2× 下头高常 <0.35——软过交给 Qwen 清线；正面仍硬拒
+    # 21:22/23:05：侧面两格母版头像素少——¾ 先试头顶内容密裁再软过交 Qwen；背头软过
     if slot in ("face_three_quarter", "face_side"):
+        if slot == "face_three_quarter" and (frac is None or frac + 1e-12 < 0.35):
+            denser = _densify_three_quarter_head_crop(img, size=size, max_up=max_up)
+            if denser is not None:
+                dfrac = measure_face_height_frac(denser)
+                if dfrac is not None and (frac is None or dfrac > frac + 0.04):
+                    logger.info(
+                        "faces %s densify head frac %s→%s",
+                        slot,
+                        frac,
+                        dfrac,
+                    )
+                    return denser
         if frac is None:
             vspan = panel_vertical_span(out)
             logger.warning(
@@ -3217,15 +3278,34 @@ def clip_image_cosine_sim(a: bytes, b: bytes) -> float | None:
         return None
 
 
+def _edge_sharpness_score(data: bytes, size: int = 256) -> float:
+    """边缘能量：侧面融化/糊图偏低，清线成功后应升高。"""
+    try:
+        from PIL import ImageFilter, ImageStat
+
+        im = Image.open(BytesIO(data)).convert("L").resize((size, size))
+        e = im.filter(ImageFilter.FIND_EDGES)
+        return float(ImageStat.Stat(e).mean[0])
+    except Exception:
+        return 0.0
+
+
 def side_face_cleanup_accept(
     cleaned: bytes,
     original_crop: bytes,
     *,
     master_side: bytes | None = None,
     min_clip: float = 0.82,
+    identity_ref: bytes | None = None,
 ) -> bool:
-    """20:23：清线结果须仍像侧面裁/母版；CLIP 不过或像素漂太远 → 退回原裁。"""
-    # 像素：清线应接近原裁（低强度），差异过大视为改崩
+    """20:23/23:05：清线须像侧面；母版融化时放宽 MAE/CLIP，要求更清晰且有脸。
+
+    禁止脸罩叠影；整图 Qwen 清线结果用本门禁取舍。
+    """
+    src_frac = measure_face_height_frac(original_crop)
+    src_soft = src_frac is None or (src_frac + 1e-12 < 0.32)
+    mae_max = 52.0 if src_soft else 28.0
+    clip_min = 0.70 if src_soft else float(min_clip)
     try:
         ia = Image.open(BytesIO(cleaned)).convert("RGB").resize((128, 128))
         ib = Image.open(BytesIO(original_crop)).convert("RGB").resize((128, 128))
@@ -3234,16 +3314,58 @@ def side_face_cleanup_accept(
             (abs(r1 - r2) + abs(g1 - g2) + abs(b1 - b2)) / 3.0
             for (r1, g1, b1), (r2, g2, b2) in zip(pa, pb)
         ) / float(len(pa))
-        if mae > 28.0:
+        if mae > mae_max:
             return False
     except Exception:
         return False
+    # 清线后须更清晰，且脸占比不得更差（融化源允许从 None 升到有脸）
+    out_frac = measure_face_height_frac(cleaned)
+    if src_soft:
+        if out_frac is None or out_frac + 1e-12 < 0.28:
+            return False
+        if _edge_sharpness_score(cleaned) + 0.4 < _edge_sharpness_score(original_crop):
+            return False
     ref = master_side or original_crop
     sim = clip_image_cosine_sim(cleaned, ref)
     if sim is None:
-        # 无 CLIP：仅靠 MAE 已过则接受
+        # 无 CLIP：软源靠清晰度+脸；硬源靠 MAE
         return True
-    return sim + 1e-12 >= float(min_clip)
+    if sim + 1e-12 >= clip_min:
+        return True
+    # 软源：与身份参考（正脸/立绘头）相似度过门也可接受（母版融化时 CLIP 对侧源不可靠）
+    if src_soft and identity_ref is not None:
+        sim_id = clip_image_cosine_sim(cleaned, identity_ref)
+        if sim_id is not None and sim_id + 1e-12 >= 0.62:
+            return True
+    return False
+
+
+def pick_best_side_deblur_candidate(
+    candidates: list[bytes],
+    original_crop: bytes,
+    *,
+    master_side: bytes | None = None,
+    identity_ref: bytes | None = None,
+) -> bytes | None:
+    """多候选清线：先过 accept，再按清晰度+脸占比择优；全拒返回 None。"""
+    accepted: list[tuple[float, bytes]] = []
+    for c in candidates:
+        if not c:
+            continue
+        if not side_face_cleanup_accept(
+            c,
+            original_crop,
+            master_side=master_side,
+            identity_ref=identity_ref,
+        ):
+            continue
+        frac = measure_face_height_frac(c) or 0.0
+        sharp = _edge_sharpness_score(c)
+        accepted.append((sharp + 40.0 * float(frac), c))
+    if not accepted:
+        return None
+    accepted.sort(key=lambda t: t[0], reverse=True)
+    return accepted[0][1]
 
 
 def _expr_reject_cause(err: Exception | str) -> str:
@@ -5252,7 +5374,7 @@ async def generate_character_sheet(
                     _y,
                     yaw_ok_for_face_key(_y, fk),
                 )
-            # 21:22/22:02：仅侧面¾走 Qwen 清线；face_side 已是背头，禁止清线（无五官会 422）
+            # 21:22/22:02/23:05：仅侧面¾走 Qwen 清线（多候选+融化源放宽）；背头禁清线
             for _side_fk, _seed_off in (
                 ("face_three_quarter", 2023),
             ):
@@ -5262,47 +5384,78 @@ async def generate_character_sheet(
                         side_crop,
                         f"sheet_{_side_fk}_crop_{character_id[:8]}_{meta.style}.png",
                     )
-                    cleaned = await generate_panel_bytes(
-                        pool,
-                        "只清理模糊与扭曲的线条，保持侧面头像一模一样："
-                        "同一发型、同一轮廓、同一角度、同一五官位置；"
-                        "不要改变表情、不要改服装、不要加细节、不要锐化过度、不要重绘脸型。",
-                        ckpt_name=ckpt,
-                        width=768,
-                        height=768,
-                        seed=None if seed is None else int(seed) + int(_seed_off),
-                        worker=worker,
-                        filename_prefix=f"ToIV_char_sheet_{_side_fk}_deblur",
-                        style=meta.style,
-                        client=client,
-                        ref_image=side_name,
-                        ref_mode="qwen_edit",
-                        denoise=1.0,
+                    _deblur_prompt = (
+                        "整图修复侧面/¾侧头像的融化与错位线条（禁止局部遮罩）："
+                        "恢复清晰二次元五官——可见的一侧眼睛轮廓清楚、鼻梁一条干净线、嘴巴位置正确；"
+                        "保持同一发型、同一头身角度、同一雨衣领口与配色；"
+                        "不要正面化、不要改成长发、不要加第二张脸、不要重影、不要加文字徽标。"
                     )
-                    cleaned = enforce_head_shoulders_square(
-                        cleaned, size=768, face_closeup_gate=True
-                    )
-                    ok = side_face_cleanup_accept(
-                        cleaned,
+                    _cands: list[bytes] = []
+                    for _ci in range(3):
+                        _cseed = (
+                            None
+                            if seed is None
+                            else int(seed) + int(_seed_off) + int(_ci) * 17
+                        )
+                        cleaned = await generate_panel_bytes(
+                            pool,
+                            _deblur_prompt,
+                            ckpt_name=ckpt,
+                            width=768,
+                            height=768,
+                            seed=_cseed,
+                            worker=worker,
+                            filename_prefix=f"ToIV_char_sheet_{_side_fk}_deblur_c{_ci}",
+                            style=meta.style,
+                            client=client,
+                            ref_image=side_name,
+                            ref_mode="qwen_edit",
+                            denoise=1.0,
+                        )
+                        try:
+                            cleaned = enforce_head_shoulders_square(
+                                cleaned, size=768, face_closeup_gate=True
+                            )
+                        except CharacterSheetError:
+                            dump_rejected_panel(
+                                cleaned,
+                                seed=seed,
+                                panel=str(_side_fk),
+                                gate="side_deblur_frame",
+                                detail=f"cand{_ci} frame gate",
+                                dump_dir=reject_dir,
+                            )
+                            continue
+                        _cands.append(cleaned)
+                    _id_ref = tri.get("face_front") or panels.get("portrait")
+                    best = pick_best_side_deblur_candidate(
+                        _cands,
                         side_crop,
                         master_side=panels.get("side"),
-                        min_clip=0.82,
+                        identity_ref=_id_ref,
                     )
-                    if ok:
-                        tri[_side_fk] = cleaned
-                        logger.info("faces %s Qwen deblur accepted", _side_fk)
+                    if best is not None:
+                        tri[_side_fk] = best
+                        logger.info(
+                            "faces %s Qwen deblur accepted (%d cands)",
+                            _side_fk,
+                            len(_cands),
+                        )
                     else:
                         logger.info(
-                            "faces %s Qwen deblur rejected → keep 2x crop", _side_fk
+                            "faces %s Qwen deblur all rejected → keep crop (%d cands)",
+                            _side_fk,
+                            len(_cands),
                         )
-                        dump_rejected_panel(
-                            cleaned,
-                            seed=seed,
-                            panel=str(_side_fk),
-                            gate="side_deblur_clip",
-                            detail="CLIP/MAE fail, revert crop",
-                            dump_dir=reject_dir,
-                        )
+                        for _ci, _cb in enumerate(_cands):
+                            dump_rejected_panel(
+                                _cb,
+                                seed=seed,
+                                panel=str(_side_fk),
+                                gate="side_deblur_clip",
+                                detail=f"cand{_ci} CLIP/MAE/sharp fail",
+                                dump_dir=reject_dir,
+                            )
                 except Exception as de:  # noqa: BLE001
                     logger.warning("faces %s Qwen deblur skipped: %s", _side_fk, de)
             panels["faces"] = compose_faces_triptych(
@@ -6776,7 +6929,8 @@ def collage_costume_items(items: list[bytes], *, style: str) -> bytes:
             continue
         im = _trim_object_bbox(im, style=style)
         box = (pad + i * cell + 4, pad + 4, cell - 8, cell - 8)
-        _paste(canvas, im, box, cover=False)
+        # 23:05：anime 服饰格 cover 铺满，避免二次 letterbox 浅边
+        _paste(canvas, im, box, cover=(style in ("anime", "二次元")))
     buf = BytesIO()
     canvas.save(buf, format="PNG")
     return buf.getvalue()
@@ -6896,26 +7050,31 @@ def _middle_gray_stripe_x_bounds(
 def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
     """按主立绘手腕位置重定袖口水平裁框（OpenPose 近似腕点 + 前景密度择优）。
 
-    22:02：裁框横向限制在中间灰条左右边界内；浅色外框与灰条均作背景计非背景占比。
+    22:02/23:05：裁框横向限制在中间灰条内；优先非背景≥60% 且左右浅边少。
     """
     w, h = img.size
     gx0, gx1 = _middle_gray_stripe_x_bounds(img)
+    # 灰条再内收 4%，避免吃到浅色外框
+    span = max(0.08, gx1 - gx0)
+    gx0 = gx0 + span * 0.04
+    gx1 = gx1 - span * 0.04
     candidates = [
-        (0.28, 0.40),
-        (0.72, 0.40),
-        (0.22, 0.42),
-        (0.78, 0.42),
+        (0.30, 0.40),
+        (0.70, 0.40),
+        (0.34, 0.42),
+        (0.66, 0.42),
+        (0.50, 0.44),
     ]
     best_box = None
-    best_r = -1.0
-    half_w, half_h = 0.18, 0.12
+    best_score = -1.0
+    half_w, half_h = 0.16, 0.11
     for cx, cy in candidates:
-        for scale in (1.0, 1.15, 1.35, 1.55):
+        for scale in (1.0, 1.12, 1.28, 1.45):
             hw, hh = half_w * scale, half_h * scale
             x0 = max(gx0, cx - hw)
             x1 = min(gx1, cx + hw)
             y0 = max(0.0, cy - hh)
-            y1 = min(1.0, cy + hh * 1.1)
+            y1 = min(1.0, cy + hh * 1.05)
             if x1 <= x0 + 0.04:
                 continue
             xa, ya = int(w * x0), int(h * y0)
@@ -6924,15 +7083,17 @@ def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
                 continue
             crop = img.crop((xa, ya, xb, yb))
             r = _costume_cell_fg_ratio(crop, treat_mid_gray_bg=True)
-            if r > best_r:
-                best_r = r
+            edge = _light_edge_frac(crop, edge=max(4, (xb - xa) // 12))
+            score = r - 0.55 * edge
+            if score > best_score:
+                best_score = score
                 best_box = (x0, y0, x1, y1)
-            if r + 1e-12 >= 0.60:
+            if r + 1e-12 >= 0.60 and edge < 0.25:
                 return best_box
     if best_box is None:
         mid = (gx0 + gx1) / 2.0
-        half = max(0.12, (gx1 - gx0) * 0.35)
-        return (max(gx0, mid - half), 0.34, min(gx1, mid + half), 0.62)
+        half = max(0.10, (gx1 - gx0) * 0.32)
+        return (max(gx0, mid - half), 0.36, min(gx1, mid + half), 0.58)
     return best_box
 
 
@@ -6957,6 +7118,93 @@ def _costume_cell_fg_ratio(
             continue
         fg += 1
     return fg / float(len(px))
+
+
+
+def _light_edge_frac(cell: Image.Image, edge: int = 12) -> float:
+    """左右边缘浅色（近白/浅灰）占比，袖口浅边检测用。"""
+    w, h = cell.size
+    if w < edge * 2 + 2 or h < 4:
+        return 1.0
+    px = cell.convert("RGB").load()
+    n = 0
+    light = 0
+    for y in range(h):
+        for x in list(range(edge)) + list(range(w - edge, w)):
+            r, g, b = px[x, y]
+            n += 1
+            if r > 220 and g > 220 and b > 220:
+                light += 1
+            elif abs(r - g) < 12 and abs(g - b) < 12 and r > 180:
+                light += 1
+    return light / float(max(1, n))
+
+
+def _cover_square_no_light_edge(crop: Image.Image, *, size: int = 768) -> Image.Image:
+    """内容 cover 铺满方格；先去浅边再放大，缝隙用服饰边缘色填（禁浅灰垫边）。"""
+    im = crop.convert("RGB")
+    # 裁掉四周浅色条
+    w, h = im.size
+    px = im.load()
+
+    def _row_light(y: int) -> bool:
+        lit = 0
+        for x in range(0, w, max(1, w // 48)):
+            r, g, b = px[x, y]
+            if r > 220 and g > 220 and b > 220:
+                lit += 1
+            elif abs(r - g) < 12 and abs(g - b) < 12 and r > 185:
+                lit += 1
+        return lit >= max(2, (w // max(1, w // 48)) // 2)
+
+    def _col_light(x: int) -> bool:
+        lit = 0
+        for y in range(0, h, max(1, h // 48)):
+            r, g, b = px[x, y]
+            if r > 220 and g > 220 and b > 220:
+                lit += 1
+            elif abs(r - g) < 12 and abs(g - b) < 12 and r > 185:
+                lit += 1
+        return lit >= max(2, (h // max(1, h // 48)) // 2)
+
+    x0, y0, x1, y1 = 0, 0, w, h
+    while x0 < x1 - 8 and _col_light(x0):
+        x0 += 1
+    while x1 > x0 + 8 and _col_light(x1 - 1):
+        x1 -= 1
+    while y0 < y1 - 8 and _row_light(y0):
+        y0 += 1
+    while y1 > y0 + 8 and _row_light(y1 - 1):
+        y1 -= 1
+    im = im.crop((x0, y0, x1, y1))
+    # cover 到 size×size
+    scale = max(size / im.width, size / im.height)
+    nw, nh = max(1, int(im.width * scale)), max(1, int(im.height * scale))
+    im = im.resize((nw, nh), Image.Resampling.LANCZOS)
+    left = max(0, (nw - size) // 2)
+    top = max(0, (nh - size) // 2)
+    im = im.crop((left, top, left + size, top + size))
+    if im.size != (size, size):
+        # 极端：用服饰色垫（取中位非浅色）
+        fill = _sample_garment_fill_color(crop)
+        canvas = Image.new("RGB", (size, size), fill)
+        canvas.paste(im, ((size - im.width) // 2, (size - im.height) // 2))
+        im = canvas
+    return im
+
+
+def _sample_garment_fill_color(im: Image.Image) -> tuple[int, int, int]:
+    px = list(im.convert("RGB").getdata())
+    pts = [
+        (r, g, b)
+        for r, g, b in px
+        if not (r > 220 and g > 220 and b > 220)
+        and not (abs(r - g) < 12 and abs(g - b) < 12 and r > 180)
+    ]
+    if not pts:
+        return (90, 106, 122)
+    pts.sort(key=lambda t: t[0] + t[1] + t[2])
+    return pts[len(pts) // 2]
 
 
 def _crop_costume_band_filled(
@@ -7016,13 +7264,16 @@ def _crop_costume_band_filled(
             status_code=422,
         )
     crop = best
-    side = max(crop.width, crop.height, 8)
-    canvas = Image.new("RGB", (side, side), (240, 240, 244))
-    canvas.paste(crop, ((side - crop.width) // 2, (side - crop.height) // 2))
-    canvas = canvas.resize((size, size), Image.Resampling.LANCZOS)
-    # letterbox 后仍可能被浅底稀释；以裁切本体 ratio 为准，拼后再 assert
+    # 23:05：袖口等格用 cover 铺满，禁止浅灰 letterbox 留浅边
+    if treat_mid_gray_bg:
+        crop = _cover_square_no_light_edge(crop, size=size)
+    else:
+        side = max(crop.width, crop.height, 8)
+        canvas = Image.new("RGB", (side, side), (240, 240, 244))
+        canvas.paste(crop, ((side - crop.width) // 2, (side - crop.height) // 2))
+        crop = canvas.resize((size, size), Image.Resampling.LANCZOS)
     buf = BytesIO()
-    canvas.save(buf, format="PNG")
+    crop.save(buf, format="PNG")
     return buf.getvalue()
 
 

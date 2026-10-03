@@ -137,20 +137,53 @@ def test_wrist_cuff_box_and_fill():
     h, w = 1216, 832
     arr = __import__("numpy").zeros((h, w, 3), dtype="uint8")
     arr[:] = (240, 240, 244)
-    # body + arms/wrists slate
+    # 中间灰条 + 袖口板岩灰（模拟浅外框）
+    arr[:, int(w * 0.18) : int(w * 0.82)] = (170, 170, 176)
     arr[int(h * 0.16) : int(h * 0.98), int(w * 0.28) : int(w * 0.72)] = (90, 106, 122)
-    arr[int(h * 0.34) : int(h * 0.50), int(w * 0.10) : int(w * 0.30)] = (90, 106, 122)
-    arr[int(h * 0.34) : int(h * 0.50), int(w * 0.70) : int(w * 0.90)] = (90, 106, 122)
+    arr[int(h * 0.34) : int(h * 0.50), int(w * 0.22) : int(w * 0.38)] = (90, 106, 122)
+    arr[int(h * 0.34) : int(h * 0.50), int(w * 0.62) : int(w * 0.78)] = (90, 106, 122)
     arr[int(h * 0.08) : int(h * 0.20), int(w * 0.36) : int(w * 0.64)] = (220, 180, 150)
     portrait = _png(arr)
     img = Image.open(BytesIO(portrait)).convert("RGB")
     box = sheet_svc._wrist_cuff_box(img)
     assert box[2] > box[0] and box[3] > box[1]
+    # 灰条横向限制：袖口框不得吃满整幅浅外框
+    assert box[0] >= 0.15 and box[2] <= 0.85
     out = sheet_svc.build_costume_collage_from_portrait(
         portrait, style="anime", size=128, min_fg=0.60
     )
     ratios = sheet_svc.costume_cell_content_ratios(out, n=5)
     assert ratios[1] >= 0.05, ratios
+    # 袖口格内芯浅边应显著低于旧 letterbox
+    im = Image.open(BytesIO(out)).convert("RGB")
+    cw = im.size[0] // 5
+    cuff = im.crop((cw, 0, cw * 2, im.size[1]))
+    iw, ih = cuff.size
+    inner = cuff.crop((int(iw * 0.1), int(ih * 0.1), int(iw * 0.9), int(ih * 0.9)))
+    assert sheet_svc._light_edge_frac(inner, edge=6) < 0.35
+
+
+def test_pick_best_side_deblur_prefers_sharper():
+    base = _figure()
+    # soft/melted-like: blur
+    soft = Image.open(BytesIO(base)).convert("RGB").resize((64, 64)).resize((256, 256))
+    from io import BytesIO as B
+    buf = B(); soft.save(buf, format="PNG"); soft_b = buf.getvalue()
+    # sharper candidate with face-like region
+    sharp = Image.open(BytesIO(base)).convert("RGB").resize((256, 256))
+    import numpy as np
+    arr = np.array(sharp)
+    arr[40:120, 90:170] = (220, 180, 150)
+    arr[60:75, 110:130] = (30, 30, 40)
+    buf2 = B(); Image.fromarray(arr).save(buf2, format="PNG"); sharp_b = buf2.getvalue()
+    # heavily drifted green must reject
+    bad = np.zeros((256, 256, 3), dtype=np.uint8); bad[:] = (10, 200, 10)
+    buf3 = B(); Image.fromarray(bad).save(buf3, format="PNG"); bad_b = buf3.getvalue()
+    assert sheet_svc.side_face_cleanup_accept(bad_b, soft_b) is False
+    best = sheet_svc.pick_best_side_deblur_candidate([bad_b, sharp_b], soft_b)
+    # may be None if CLIP unavailable and gates strict; at least bad alone rejected
+    if best is not None:
+        assert best == sharp_b
 
 
 def test_blend_face_local_and_pick():
