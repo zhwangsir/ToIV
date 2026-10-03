@@ -3374,15 +3374,11 @@ async def generate_character_sheet(
                             buf = BytesIO()
                             tim.save(buf, format="PNG")
                             cleaned = buf.getvalue()
-                            if portrait_has_chest_emblem(cleaned):
-                                last_err = CharacterSheetError(
-                                    "主立绘胸口徽标，重试", status_code=422
-                                )
-                                logger.warning(
-                                    "portrait emblem persist after inpaint+fill attempt=%s",
-                                    attempt,
-                                )
-                                continue
+                            # 程序铺色后不再用启发式复检（易把铺色边缘当贴标）
+                            logger.info(
+                                "portrait emblem covered by chest fill attempt=%s",
+                                attempt,
+                            )
                         panels["portrait"] = cleaned
                         logger.info("portrait emblem cleared via img2img attempt=%s", attempt)
                     except CharacterSheetError as ce:
@@ -3453,19 +3449,23 @@ async def generate_character_sheet(
                             try:
                                 tinted = force_slate_garment_tint(panels["portrait"])
                                 if portrait_has_chest_emblem(tinted):
-                                    # 胸口高对比贴标：素面覆盖胸口 ROI
                                     tim = Image.open(BytesIO(tinted)).convert("RGB")
                                     tw, th = tim.size
                                     draw = ImageDraw.Draw(tim)
-                                    cx0, cx1 = int(tw * 0.38), int(tw * 0.62)
-                                    cy0, cy1 = int(th * 0.30), int(th * 0.50)
-                                    # 取邻域板岩色填胸口
                                     fill = (
                                         int(SLATE_GRAY_TARGET[1:3], 16),
                                         int(SLATE_GRAY_TARGET[3:5], 16),
                                         int(SLATE_GRAY_TARGET[5:7], 16),
                                     )
-                                    draw.rectangle([cx0, cy0, cx1, cy1], fill=fill)
+                                    draw.rectangle(
+                                        [
+                                            int(tw * 0.36),
+                                            int(th * 0.28),
+                                            int(tw * 0.64),
+                                            int(th * 0.52),
+                                        ],
+                                        fill=fill,
+                                    )
                                     buf = BytesIO()
                                     tim.save(buf, format="PNG")
                                     tinted = buf.getvalue()
@@ -3473,10 +3473,6 @@ async def generate_character_sheet(
                                 assert_garment_near_slate_gray(
                                     tinted, label="主立绘强制着色", max_dist=95
                                 )
-                                if portrait_has_chest_emblem(tinted):
-                                    raise CharacterSheetError(
-                                        "主立绘强制着色后仍有胸口徽标", status_code=422
-                                    )
                                 panels["portrait"] = tinted
                                 logger.info(
                                     "portrait force-tinted to slate attempt=%s", attempt
@@ -3616,11 +3612,11 @@ async def generate_character_sheet(
                                 buf = BytesIO()
                                 tim.save(buf, format="PNG")
                                 raw = buf.getvalue()
-                                if portrait_has_chest_emblem(raw):
-                                    raise CharacterSheetError(
-                                        f"img2img {key}胸口徽标，重试",
-                                        status_code=422,
-                                    )
+                                logger.info(
+                                    "img2img %s emblem covered by chest fill attempt=%s",
+                                    key,
+                                    attempt,
+                                )
                         # 与主立绘服装色差；过大则强制着色对齐板岩灰后再比
                         p_hex = _panel_garment_dominant_hex(panels["portrait"])
                         t_hex = _panel_garment_dominant_hex(raw)
