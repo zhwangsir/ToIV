@@ -337,6 +337,11 @@ async def generate_character_sheet_route(
     if not visual and not (c.description or "").strip():
         raise HTTPException(status_code=422, detail="角色缺少视觉描述")
 
+    try:
+        sheet_svc.assert_design_notes_ok((body.design_notes or "").strip())
+    except sheet_svc.CharacterSheetError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+
     meta = sheet_svc.SheetMeta(
         name=name,
         style=body.style,
@@ -437,6 +442,11 @@ async def regenerate_character_sheet_panels_route(
     visual = (body.visual_prompt_override or c.visual_prompt or "").strip()
     if not visual and not (c.description or "").strip():
         raise HTTPException(status_code=422, detail="角色缺少视觉描述")
+
+    try:
+        sheet_svc.assert_design_notes_ok((body.design_notes or "").strip())
+    except sheet_svc.CharacterSheetError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
 
     meta = sheet_svc.SheetMeta(
         name=name,
@@ -777,6 +787,11 @@ def recompose_character_sheet_meta(
     locked = sheet_svc.extract_locked_panels_from_sheet(sheets[-1].read_bytes(), existing=locked)
     if "portrait" not in locked or not locked.get("portrait"):
         raise HTTPException(status_code=422, detail="无立绘,无法重拼")
+
+    try:
+        sheet_svc.assert_design_notes_ok((body.design_notes or "").strip())
+    except sheet_svc.CharacterSheetError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
 
     meta = sheet_svc.SheetMeta(
         name=(c.name or "").strip() or "角色",

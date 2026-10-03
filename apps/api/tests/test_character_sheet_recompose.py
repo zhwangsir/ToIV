@@ -195,3 +195,35 @@ def test_recompose_never_writes_refs_or_by_style(ctx):
         assert c is not None
         assert json.loads(c.reference_images or "[]") == samples
         assert json.loads(c.reference_images_by_style or "{}") == by_style
+
+
+def test_recompose_rejects_design_notes_out_of_range(ctx):
+    """非空设计说明须 3–5 行；过短/过长 422，不改卡。"""
+    cid = ctx["cid"]
+    before = ctx["sheet_name"]
+    r = ctx["client"].post(
+        f"/api/studio/characters/{cid}/character-sheet/recompose",
+        headers=ctx["headers"],
+        json={
+            "style": ctx["style"],
+            "role": "雨夜店员",
+            "personality": "温柔果断",
+            "design_notes": "只有一行不合法",
+            "height_cm": 168,
+            "persist_description": False,
+        },
+    )
+    assert r.status_code == 422, r.text
+    assert "3–5" in (r.json().get("detail") or "")
+    assert (ctx["studio"] / before).is_file()
+    r2 = ctx["client"].post(
+        f"/api/studio/characters/{cid}/character-sheet/recompose",
+        headers=ctx["headers"],
+        json={
+            "style": ctx["style"],
+            "design_notes": "1\n2\n3\n4\n5\n6",
+            "persist_description": False,
+        },
+    )
+    assert r2.status_code == 422, r2.text
+

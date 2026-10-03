@@ -712,6 +712,22 @@ def flatten_refs_for_style(
     return ordered[:_MAX_REFS]
 
 
+def count_design_note_lines(text: str) -> int:
+    return len([ln.strip() for ln in (text or "").splitlines() if ln.strip()])
+
+
+def assert_design_notes_ok(text: str) -> None:
+    """非空设计说明必须 3–5 行（与前端 CharacterSheetEditor 一致）；空则允许后端自填。"""
+    n = count_design_note_lines(text)
+    if n == 0:
+        return
+    if n < 3 or n > 5:
+        raise CharacterSheetError(
+            f"设计说明须 3–5 行（当前 {n} 行）",
+            status_code=422,
+        )
+
+
 def build_design_notes(meta: SheetMeta) -> str:
     """生成 3–5 行中文设计说明;已有足够行数则沿用。"""
     raw = (meta.design_notes or "").strip()

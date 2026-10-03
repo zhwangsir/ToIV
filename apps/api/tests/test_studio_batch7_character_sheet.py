@@ -157,6 +157,23 @@ def test_build_design_notes_min_3_lines():
     assert len([ln for ln in notes.splitlines() if ln.strip()]) >= 3
 
 
+
+def test_assert_design_notes_ok_empty_and_range():
+    sheet_svc.assert_design_notes_ok("")
+    sheet_svc.assert_design_notes_ok("a\nb\nc")
+    sheet_svc.assert_design_notes_ok("1\n2\n3\n4\n5")
+    with pytest.raises(sheet_svc.CharacterSheetError) as ei:
+        sheet_svc.assert_design_notes_ok("只有一行")
+    assert ei.value.status_code == 422
+    with pytest.raises(sheet_svc.CharacterSheetError) as ei2:
+        sheet_svc.assert_design_notes_ok("a\nb")
+    assert ei2.value.status_code == 422
+    with pytest.raises(sheet_svc.CharacterSheetError) as ei3:
+        sheet_svc.assert_design_notes_ok("1\n2\n3\n4\n5\n6")
+    assert ei3.value.status_code == 422
+
+
+
 def test_compose_rejects_empty_name():
     meta = sheet_svc.SheetMeta(name="  ", style="anime")
     panels = _placeholder_panels()
