@@ -3120,15 +3120,17 @@ async def generate_character_sheet(
         for attempt in range(4):
             try:
                 s = None if seed is None else int(seed) + attempt * 9973
+                # 换 seed 仍可能整图缓存：扰动正向提示破缓存
+                bust = f", unique layout variant {attempt}-{s or 0}"
                 panels["portrait"] = await generate_panel_bytes(
                     pool,
-                    prompts["portrait"],
+                    prompts["portrait"] + (bust if attempt else ""),
                     ckpt_name=ckpt,
                     width=w,
                     height=h,
                     seed=s,
                     worker=worker,
-                    filename_prefix="ToIV_char_sheet_portrait",
+                    filename_prefix=f"ToIV_char_sheet_portrait_a{attempt}",
                     style=meta.style,
                     client=client,
                 )
@@ -3341,15 +3343,16 @@ async def generate_character_sheet(
                     if seed is None
                     else seed + (abs(hash(key)) % 10000) + attempt * 7919
                 )
+                bust = f", unique layout variant {attempt}-{s or 0}"
                 raw = await generate_panel_bytes(
                     pool,
-                    prompts[key],
+                    prompts[key] + (bust if attempt else ""),
                     ckpt_name=ckpt,
                     width=w,
                     height=h,
                     seed=s,
                     worker=worker,
-                    filename_prefix=f"ToIV_char_sheet_{key}",
+                    filename_prefix=f"ToIV_char_sheet_{key}_a{attempt}",
                     style=meta.style,
                     client=client,
                     ref_image=use_ref,
