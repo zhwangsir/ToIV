@@ -63,8 +63,9 @@ def test_assert_expr_base_face_area_zoom_and_fail():
 def test_source_has_2317_hard_rules():
     src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
     assert "TOIV_SHEET_SIDE_DEBLUR" in src
-    assert "23:17 hard-crop only" in src
+    assert ("23:17 hard-crop only" in src) or ("00:31 Lanczos native" in src)
     assert "_EXPR_GRID_EDIT_INSTRUCTION" in src
+    assert "apply_expression_grid_local_features" in src
     assert "2×3 宫格一次" in src
     assert "def _split_expression_grid" in src
 

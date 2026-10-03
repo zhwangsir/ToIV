@@ -2193,14 +2193,79 @@ def _split_expression_grid(
     return out
 
 
-# 23:17：一次出六表情的宫格编辑指令（整图，禁止单格循环）
+def _compose_expression_feature_mask_grid(*, cell: int = 512) -> Image.Image:
+    """2×3 宫格眉眼嘴硬遮罩（白=可编辑）。每格复用 build_face_feature_mask，二值化防叠影。"""
+    cols, rows = 3, 2
+    mask = Image.new("L", (cols * int(cell), rows * int(cell)), 0)
+    cell_m = build_face_feature_mask(int(cell)).point(lambda v: 255 if v >= 96 else 0)
+    for i in range(cols * rows):
+        row, col = divmod(i, cols)
+        mask.paste(cell_m, (col * int(cell), row * int(cell)))
+    return mask
+
+
+def apply_expression_grid_local_features(
+    base_grid: bytes,
+    edited_grid: bytes,
+    *,
+    cell: int = 512,
+    max_cell_mae: float = 55.0,
+) -> bytes:
+    """00:31：宫格局部五官重绘合成。
+
+    在编辑结果上按硬遮罩只把眉眼嘴贴回底图；不对齐的格整格回退底图，
+    避免 22:02 脸罩软羽化叠影路线（非 soft blend_face_local_edit）。
+    """
+    base = Image.open(BytesIO(base_grid)).convert("RGB")
+    edit = Image.open(BytesIO(edited_grid)).convert("RGB")
+    if edit.size != base.size:
+        edit = edit.resize(base.size, Image.Resampling.LANCZOS)
+    cols, rows = 3, 2
+    cw = max(1, base.size[0] // cols)
+    ch = max(1, base.size[1] // rows)
+    # 按实际格尺寸重建遮罩，避免缩放错位
+    mask = Image.new("L", base.size, 0)
+    for i in range(cols * rows):
+        row, col = divmod(i, cols)
+        cm = build_face_feature_mask(max(cw, ch)).point(lambda v: 255 if v >= 96 else 0)
+        cm = cm.resize((cw, ch), Image.Resampling.NEAREST)
+        mask.paste(cm, (col * cw, row * ch))
+    out = base.copy()
+    for i in range(cols * rows):
+        row, col = divmod(i, cols)
+        box = (col * cw, row * ch, col * cw + cw, row * ch + ch)
+        bc = base.crop(box)
+        ec = edit.crop(box)
+        try:
+            pa = list(bc.resize((48, 48)).getdata())
+            pb = list(ec.resize((48, 48)).getdata())
+            mae = sum(
+                (abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2])) / 3.0
+                for a, b in zip(pa, pb)
+            ) / float(max(1, len(pa)))
+        except Exception:
+            mae = 999.0
+        if mae > float(max_cell_mae):
+            continue
+        mc = mask.crop(box)
+        composited = Image.composite(ec, bc, mc)
+        out.paste(composited, (box[0], box[1]))
+    buf = BytesIO()
+    out.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+# 00:31：2×3 宫格眉眼嘴局部重绘（禁止整图弱编辑；禁止已废弃脸罩软贴回叠影）
 _EXPR_GRID_EDIT_INSTRUCTION = (
-    "把这张 2 行×3 列的角色表情宫格改成六种明显不同的表情，从左到右、从上到下依次为："
+    "这是一张 2 行×3 列的角色近景头像宫格。"
+    "只改每一格的眉毛、眼睛、嘴巴，做出六种明显不同的表情；"
+    "不要改发型、脸型、肤色、领口、肩线、构图与背景；"
+    "从左到右、从上到下依次为："
     "威严（眉头下压、嘴角下压）、冷酷（半睁斜视、嘴平）、沉思（视线下垂、眉轻蹙）、"
     "温柔（微笑露一点上齿）、惊恐（双眼瞪大、嘴巴明显张开）、果断（眉压平、唇紧闭）。"
-    "每格保持同一人物、同一短发齐下巴、同一雨衣领口与配色、同一近景头肩构图；"
+    "每格保持同一人物、同一短发齐下巴、同一雨衣领口与配色；"
     "不要加文字、徽标、徽章、水印；不要加长发；不要把六格融成一张脸；"
-    "六格表情幅度要大、一眼可辨，尤其惊恐必须张嘴。"
+    "六格眉眼嘴变化要大、一眼可辨，尤其惊恐必须张嘴。"
 )
 
 
@@ -2875,11 +2940,29 @@ def _densify_three_quarter_head_crop(
     max_up: float = 2.0,
 ) -> bytes | None:
     """侧母版头顶内容密裁：按上半身非浅色列取发顶~肩，提高脸占比（仍 ≤max_up）。"""
+    box = _native_three_quarter_crop_box(img, max_up=max_up)
+    if box is None:
+        return None
+    left, top, side = box
+    crop = img.crop((int(left), int(top), int(left + side), int(top + side)))
+    # 00:31：仅 Lanczos；优先缩、避免无意义的先缩后放
+    crop = _lanczos_to_square(crop, size)
+    buf = BytesIO()
+    crop.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _native_three_quarter_crop_box(
+    img: Image.Image,
+    *,
+    max_up: float | None = 2.0,
+    prefer_tight: bool = True,
+) -> tuple[float, float, float] | None:
+    """00:31：在母版原分辨率上取¾侧头肩方框 (left, top, side)，不先缩小母版。"""
     w, h = img.size
     if w < 32 or h < 32:
         return None
     px = img.load()
-    # 自上扫描首个非浅色行作为发顶
     y_top = None
     for y in range(0, int(h * 0.45), max(1, h // 200)):
         dark = 0
@@ -2892,7 +2975,6 @@ def _densify_three_quarter_head_crop(
             break
     if y_top is None:
         y_top = int(h * 0.02)
-    # 水平：上带非浅色列中位数
     xs: list[int] = []
     y1 = min(h, y_top + max(16, int(h * 0.22)))
     for y in range(y_top, y1, max(1, (y1 - y_top) // 16)):
@@ -2901,19 +2983,68 @@ def _densify_three_quarter_head_crop(
             if r < 220 or g < 220 or b < 220:
                 xs.append(x)
     if len(xs) < 8:
-        return None
+        # 回退：顶部 band
+        band = 0.25
+        side = float(band) * float(h)
+        if max_up is not None and max_up > 1e-6:
+            side = max(side, float(min(w, h)) / float(max_up))
+        side = min(side, float(w), float(h))
+        cx = _hair_center_x(img, y0_frac=0.0, y1_frac=min(0.35, band + 0.08))
+        left = max(0.0, min(float(w) - side, cx - side / 2.0))
+        return left, 0.0, side
     xs.sort()
     cx = float(xs[len(xs) // 2])
-    # 目标：头顶以下约 0.22*h 的方框，且边长 ≥ min(w,h)/max_up
-    side = max(float(min(w, h)) / float(max_up), float(h) * 0.22)
+    # 紧裁：头顶以下约 0.22*h；若需限制放大则抬 floor
+    side = float(h) * (0.22 if prefer_tight else 0.28)
+    if max_up is not None and max_up > 1e-6:
+        side = max(side, float(min(w, h)) / float(max_up))
     side = min(side, float(w), float(h))
     left = max(0.0, min(float(w) - side, cx - side / 2.0))
     top = max(0.0, min(float(h) - side, float(y_top) - side * 0.06))
-    crop = img.crop((int(left), int(top), int(left + side), int(top + side)))
-    crop = crop.resize((size, size), Image.Resampling.LANCZOS)
-    buf = BytesIO()
-    crop.save(buf, format="PNG")
-    return buf.getvalue()
+    return left, top, side
+
+
+def _lanczos_to_square(crop: Image.Image, size: int) -> Image.Image:
+    """00:31：Lanczos 到方格。native≥size 时为缩小；native<size 时不可避免放大（应走高分侧母版）。"""
+    if crop.size == (size, size):
+        return crop
+    return crop.resize((size, size), Image.Resampling.LANCZOS)
+
+
+def side_crop_upscale_factor(native_side: float, size: int = 768) -> float:
+    """格尺寸 / 母版原裁边长；>1 表示需要放大（糊风险）。"""
+    ns = max(1.0, float(native_side))
+    return float(size) / ns
+
+
+def side_face_slot_readable(
+    data: bytes,
+    *,
+    native_side: float | None = None,
+    size: int = 768,
+    max_upscale: float = 1.08,
+    min_sharp: float = 8.0,
+    min_face_frac: float = 0.22,
+) -> bool:
+    """00:31：侧面格是否可读。需放大过多 / 边缘能量过低 / 无人脸 → 不可读，应重出高分侧母版。"""
+    up = (
+        side_crop_upscale_factor(native_side, size)
+        if native_side is not None
+        else 1.0
+    )
+    if up > float(max_upscale):
+        return False
+    frac = measure_face_height_frac(data)
+    if frac is None or frac + 1e-12 < float(min_face_frac):
+        area = measure_face_area_frac(data)
+        if area is None or area + 1e-12 < 0.04:
+            return False
+    # 仅当需要放大时才用边缘能量卡糊；原分辨率缩小路径像素已够，不因平底合成图误杀
+    if up > 1.0 + 1e-6:
+        sharp = _edge_sharpness_score(data)
+        if sharp + 1e-12 < float(min_sharp):
+            return False
+    return True
 
 
 def crop_face_slot_from_master(
@@ -2922,116 +3053,223 @@ def crop_face_slot_from_master(
     slot: str,
     size: int = 768,
 ) -> bytes:
-    """22:02：母版固定比例硬裁头像，三格同尺寸；侧/背放大严格 ≤2×。
+    """00:31 / 22:02：母版固定比例硬裁头像。
 
     face_front ← 主立绘顶部到下巴下（约画高 0–20%）
-    face_three_quarter ← 侧母版顶部约 0–25%（≤2×；23:17 默认直接用母版原像素，禁止 Qwen 清线）
-    face_side ← 背母版后脑勺顶部约 0–25%（≤2×；禁止再裁侧脸；继续背母版硬裁）
+    face_three_quarter ← 侧母版原分辨率裁头 → Lanczos 到格尺寸（禁止改脸超分；默认无 Qwen 清线）
+    face_side ← 背母版后脑勺顶部约 0–25%（≤2×；继续背母版硬裁）
     水平以头发轮廓中心为准。
     """
+    out, _meta = crop_face_slot_from_master_with_meta(data, slot=slot, size=size)
+    return out
+
+
+def crop_face_slot_from_master_with_meta(
+    data: bytes,
+    *,
+    slot: str,
+    size: int = 768,
+) -> tuple[bytes, dict]:
+    """同 crop_face_slot_from_master，额外返回 meta（native_side / upscale / readable）。"""
     if not data:
         raise CharacterSheetError(f"faces crop: empty master for {slot}", status_code=422)
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
-    # 21:22：侧面两格（three_quarter/side）放大严格 ≤2× 再 Qwen 清线；正面可到约 2.5×
+    meta: dict = {"slot": slot, "master_size": (w, h), "target": int(size)}
+
     if slot == "face_front":
         band = 0.20
         max_up = 2.5
-    elif slot == "face_three_quarter":
-        band = 0.25
-        max_up = 2.0
-    elif slot == "face_side":
-        band = 0.25
-        max_up = 2.0
-    else:
-        raise CharacterSheetError(f"faces crop: unknown slot {slot}", status_code=422)
-    side = float(band) * float(h)
-    min_side = float(min(w, h)) / float(max_up)
-    side = max(side, min_side)
-    side = min(side, float(w), float(h))
-    cx = _hair_center_x(img, y0_frac=0.0, y1_frac=min(0.35, band + 0.08))
-    left = cx - side / 2.0
-    top = 0.0
-    if left < 0:
-        left = 0.0
-    if left + side > w:
-        left = max(0.0, float(w) - side)
-    if top + side > h:
-        top = max(0.0, float(h) - side)
-
-    def _emit(l: float, t: float, s: float) -> bytes:
-        c = img.crop((int(l), int(t), int(l + s), int(t + s)))
-        c = c.resize((size, size), Image.Resampling.LANCZOS)
-        b = BytesIO()
-        c.save(b, format="PNG")
-        return b.getvalue()
-
-    out = _emit(left, top, side)
-    frac = measure_face_height_frac(out)
-    # 头高仍不足：同中心几何再收紧，不超过该槽 max_up
-    if frac is not None and frac + 1e-12 < 0.35:
-        target = 0.42
-        shrink = max(0.55, min(0.92, float(frac) / target))
-        floor = float(min(w, h)) / float(max_up)
-        new_side = max(floor, side * shrink)
-        new_side = min(new_side, float(w), float(h), side)
-        left2 = cx - new_side / 2.0
-        if left2 < 0:
-            left2 = 0.0
-        if left2 + new_side > w:
-            left2 = max(0.0, float(w) - new_side)
-        out = _emit(left2, 0.0, new_side)
+        side = float(band) * float(h)
+        min_side = float(min(w, h)) / float(max_up)
+        side = max(side, min_side)
+        side = min(side, float(w), float(h))
+        cx = _hair_center_x(img, y0_frac=0.0, y1_frac=min(0.35, band + 0.08))
+        left = cx - side / 2.0
+        top = 0.0
+        if left < 0:
+            left = 0.0
+        if left + side > w:
+            left = max(0.0, float(w) - side)
+        if top + side > h:
+            top = max(0.0, float(h) - side)
+        crop = img.crop((int(left), int(top), int(left + side), int(top + side)))
+        out_im = _lanczos_to_square(crop, size)
+        buf = BytesIO()
+        out_im.save(buf, format="PNG")
+        out = buf.getvalue()
         frac = measure_face_height_frac(out)
-        logger.info(
-            "faces %s hard-crop tighten side %.1f→%.1f frac→%s max_up=%.1f",
-            slot,
-            side,
-            new_side,
-            frac,
-            max_up,
+        if frac is not None and frac + 1e-12 < 0.35:
+            target = 0.42
+            shrink = max(0.55, min(0.92, float(frac) / target))
+            floor = float(min(w, h)) / float(max_up)
+            new_side = max(floor, side * shrink)
+            new_side = min(new_side, float(w), float(h), side)
+            left2 = cx - new_side / 2.0
+            if left2 < 0:
+                left2 = 0.0
+            if left2 + new_side > w:
+                left2 = max(0.0, float(w) - new_side)
+            crop = img.crop((int(left2), int(0.0), int(left2 + new_side), int(new_side)))
+            out_im = _lanczos_to_square(crop, size)
+            buf = BytesIO()
+            out_im.save(buf, format="PNG")
+            out = buf.getvalue()
+            side = new_side
+            frac = measure_face_height_frac(out)
+        meta.update(
+            {
+                "native_side": float(side),
+                "upscale": side_crop_upscale_factor(side, size),
+                "face_frac": frac,
+            }
         )
-    # 21:22/23:05：侧面两格母版头像素少——¾ 先试头顶内容密裁再软过交 Qwen；背头软过
-    if slot in ("face_three_quarter", "face_side"):
-        if slot == "face_three_quarter" and (frac is None or frac + 1e-12 < 0.35):
-            denser = _densify_three_quarter_head_crop(img, size=size, max_up=max_up)
+        if frac is None:
+            vspan = panel_vertical_span(out)
+            if vspan + 1e-12 < 0.35:
+                raise CharacterSheetError(
+                    f"faces {slot} hard-crop head/content frac {vspan:.3f} < 0.35",
+                    status_code=422,
+                )
+        elif frac + 1e-12 < 0.35:
+            raise CharacterSheetError(
+                f"faces {slot} hard-crop face height frac {frac:.3f} < 0.35",
+                status_code=422,
+            )
+        meta["readable"] = True
+        return out, meta
+
+    if slot == "face_three_quarter":
+        # 00:31：原分辨率裁头（密裁优先），Lanczos 到格；不做改脸超分
+        box = _native_three_quarter_crop_box(img, max_up=2.0, prefer_tight=True)
+        if box is None:
+            raise CharacterSheetError(
+                "faces face_three_quarter: cannot locate head box", status_code=422
+            )
+        left, top, side = box
+        crop = img.crop((int(left), int(top), int(left + side), int(top + side)))
+        out_im = _lanczos_to_square(crop, size)
+        buf = BytesIO()
+        out_im.save(buf, format="PNG")
+        out = buf.getvalue()
+        frac = measure_face_height_frac(out)
+        # 头高不足再收紧一次（仍在原分辨率上取框，再 Lanczos）
+        if frac is None or frac + 1e-12 < 0.35:
+            denser = _densify_three_quarter_head_crop(img, size=size, max_up=2.0)
             if denser is not None:
                 dfrac = measure_face_height_frac(denser)
                 if dfrac is not None and (frac is None or dfrac > frac + 0.04):
+                    # densify 内已 Lanczos；估算 native_side
+                    box2 = _native_three_quarter_crop_box(img, max_up=2.0, prefer_tight=True)
+                    out = denser
+                    frac = dfrac
+                    if box2 is not None:
+                        side = box2[2]
                     logger.info(
-                        "faces %s densify head frac %s→%s",
+                        "faces %s densify head frac→%s native_side=%.1f",
                         slot,
                         frac,
-                        dfrac,
+                        side,
                     )
-                    return denser
+        up = side_crop_upscale_factor(side, size)
+        readable = side_face_slot_readable(
+            out, native_side=side, size=size, max_upscale=1.08
+        )
+        meta.update(
+            {
+                "native_side": float(side),
+                "upscale": float(up),
+                "face_frac": frac,
+                "readable": bool(readable),
+                "route": "00:31_lanczos_native",
+            }
+        )
         if frac is None:
-            vspan = panel_vertical_span(out)
             logger.warning(
-                "faces %s hard-crop no face frac vspan=%.3f at 2× — soft ok (23:17 no deblur)",
+                "faces %s hard-crop no face frac upscale=%.2f — soft ok (00:31 no deblur)",
                 slot,
-                vspan,
+                up,
             )
         elif frac + 1e-12 < 0.35:
             logger.warning(
-                "faces %s hard-crop frac=%.3f <0.35 at 2× — soft ok (23:17 no deblur)",
+                "faces %s hard-crop frac=%.3f upscale=%.2f — soft ok (00:31 no deblur)",
+                slot,
+                frac,
+                up,
+            )
+        return out, meta
+
+    if slot == "face_side":
+        band = 0.25
+        max_up = 2.0
+        side = float(band) * float(h)
+        min_side = float(min(w, h)) / float(max_up)
+        side = max(side, min_side)
+        side = min(side, float(w), float(h))
+        cx = _hair_center_x(img, y0_frac=0.0, y1_frac=min(0.35, band + 0.08))
+        left = cx - side / 2.0
+        top = 0.0
+        if left < 0:
+            left = 0.0
+        if left + side > w:
+            left = max(0.0, float(w) - side)
+        if top + side > h:
+            top = max(0.0, float(h) - side)
+        crop = img.crop((int(left), int(top), int(left + side), int(top + side)))
+        out_im = _lanczos_to_square(crop, size)
+        buf = BytesIO()
+        out_im.save(buf, format="PNG")
+        out = buf.getvalue()
+        frac = measure_face_height_frac(out)
+        meta.update(
+            {
+                "native_side": float(side),
+                "upscale": side_crop_upscale_factor(side, size),
+                "face_frac": frac,
+                "readable": True,
+            }
+        )
+        if frac is None:
+            logger.warning(
+                "faces %s hard-crop no face frac — soft ok (23:17/00:31 no deblur)",
+                slot,
+            )
+        elif frac + 1e-12 < 0.35:
+            logger.warning(
+                "faces %s hard-crop frac=%.3f <0.35 — soft ok (23:17/00:31 no deblur)",
                 slot,
                 frac,
             )
-        return out
-    if frac is None:
-        vspan = panel_vertical_span(out)
-        if vspan + 1e-12 < 0.35:
-            raise CharacterSheetError(
-                f"faces {slot} hard-crop head/content frac {vspan:.3f} < 0.35",
-                status_code=422,
-            )
-    elif frac + 1e-12 < 0.35:
-        raise CharacterSheetError(
-            f"faces {slot} hard-crop face height frac {frac:.3f} < 0.35",
-            status_code=422,
-        )
-    return out
+        return out, meta
 
+    raise CharacterSheetError(f"faces crop: unknown slot {slot}", status_code=422)
+
+
+def prepare_hires_side_head_init(
+    side_master: bytes,
+    *,
+    out_size: int = 1280,
+) -> bytes:
+    """从侧母版原分辨率裁头肩，再 Lanczos 到 out_size，作高分侧母版 img2img 初值。
+
+    注意：此处放大仅作生成初值，真正清晰度靠模型重出，不是改脸超分。
+    """
+    img = Image.open(BytesIO(side_master)).convert("RGB")
+    box = _native_three_quarter_crop_box(img, max_up=None, prefer_tight=False)
+    if box is None:
+        w, h = img.size
+        side = min(float(w), float(h) * 0.35, float(h))
+        box = (max(0.0, (w - side) / 2.0), 0.0, side)
+    left, top, side = box
+    # 略放宽为头肩
+    side2 = min(float(img.size[0]), float(img.size[1]), side * 1.15)
+    left = max(0.0, min(float(img.size[0]) - side2, left - (side2 - side) / 2.0))
+    top = max(0.0, min(float(img.size[1]) - side2, top))
+    crop = img.crop((int(left), int(top), int(left + side2), int(top + side2)))
+    out = _lanczos_to_square(crop, int(out_size))
+    buf = BytesIO()
+    out.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 def build_faces_tri_from_masters(
@@ -4899,6 +5137,146 @@ def _build_sheet_qwen_edit_graph(
     return graph
 
 
+async def regenerate_hires_side_head_master(
+    pool: "WorkerPool",
+    *,
+    client: Any,
+    side_master: bytes,
+    front_face: bytes | None,
+    ckpt: str,
+    seed: int | None,
+    worker: str | None,
+    style: str,
+    prompt: str,
+    reject_dir: Path | None = None,
+    out_size: int = 1280,
+    min_clip: float = 0.58,
+) -> bytes | None:
+    """00:31：侧母版头肩高分辨率重出（同参数族），CLIP 对正脸门禁后再裁入卡。
+
+    禁止改脸超分模型；用 img2img/Qwen 在放大后的头肩初值上重绘清晰线条，保持脸型发型。
+    """
+    init = prepare_hires_side_head_init(side_master, out_size=out_size)
+    try:
+        if reject_dir is not None:
+            (reject_dir / f"hires_side_init_{int(seed or 0)}.png").write_bytes(init)
+    except Exception:
+        pass
+    init_name = await client.upload_image(
+        init, f"sheet_hires_side_init_{int(seed or 0)}.png"
+    )
+    hires_prompt = (
+        (prompt or "").strip()
+        + " sharp clean anime lineart, high resolution head and shoulders only, "
+        "same face shape same hairstyle, three-quarter view, NO face morphing, "
+        "NO front facing, NO full body"
+    )
+    _neg = (
+        "blurry, melted face, deformed eyes, front face, symmetrical frontal, "
+        "full body, text, watermark, logo, long hair past shoulders"
+    )
+    cands: list[bytes] = []
+    for ci in range(2):
+        cseed = None if seed is None else int(seed) + 0x230C + ci * 97
+        try:
+            # 优先 Qwen 编辑（语义保持身份）；失败再 img2img
+            raw = await generate_panel_bytes(
+                pool,
+                (
+                    "在保持同一人物、同一发型、同一¾侧脸角度与雨衣领口的前提下，"
+                    "输出更清晰的头肩特写；不要改脸型发型，不要正面化，不要全身。"
+                ),
+                ckpt_name=ckpt,
+                width=out_size,
+                height=out_size,
+                seed=cseed,
+                worker=worker,
+                filename_prefix=f"ToIV_char_sheet_hires_side_q{ci}",
+                style=style,
+                client=client,
+                ref_image=init_name,
+                ref_mode="qwen_edit",
+                denoise=1.0,
+                negative_extra=_neg,
+            )
+        except Exception as qe:  # noqa: BLE001
+            logger.warning("hires side qwen fail cand%s: %s", ci, qe)
+            try:
+                raw = await generate_panel_bytes(
+                    pool,
+                    hires_prompt,
+                    ckpt_name=ckpt,
+                    width=out_size,
+                    height=out_size,
+                    seed=cseed,
+                    worker=worker,
+                    filename_prefix=f"ToIV_char_sheet_hires_side_i{ci}",
+                    style=style,
+                    client=client,
+                    ref_image=init_name,
+                    ref_mode="img2img",
+                    denoise=0.48,
+                    negative_extra=_neg,
+                )
+            except Exception as ie:  # noqa: BLE001
+                logger.warning("hires side img2img fail cand%s: %s", ci, ie)
+                continue
+        try:
+            raw = enforce_head_shoulders_square(raw, size=out_size, face_closeup_gate=True)
+        except CharacterSheetError as fe:
+            dump_rejected_panel(
+                raw,
+                seed=seed,
+                panel="face_three_quarter",
+                gate="hires_side_frame",
+                detail=str(fe),
+                dump_dir=reject_dir,
+            )
+            continue
+        # CLIP 对正面头
+        if front_face is not None:
+            sim = clip_image_cosine_sim(raw, front_face)
+            if sim is not None and sim + 1e-12 < float(min_clip):
+                dump_rejected_panel(
+                    raw,
+                    seed=seed,
+                    panel="face_three_quarter",
+                    gate="hires_side_clip",
+                    detail=f"clip={sim:.4f}<{min_clip}",
+                    dump_dir=reject_dir,
+                )
+                continue
+        # 相对原侧裁：应更清晰
+        try:
+            base_crop = crop_face_slot_from_master(
+                side_master, slot="face_three_quarter", size=768
+            )
+            if _edge_sharpness_score(raw) + 0.5 < _edge_sharpness_score(base_crop):
+                dump_rejected_panel(
+                    raw,
+                    seed=seed,
+                    panel="face_three_quarter",
+                    gate="hires_side_sharp",
+                    detail="not sharper",
+                    dump_dir=reject_dir,
+                )
+                continue
+        except Exception:
+            pass
+        cands.append(raw)
+    if not cands:
+        return None
+    # 择清晰度最高
+    cands.sort(key=lambda b: _edge_sharpness_score(b), reverse=True)
+    best = cands[0]
+    try:
+        if reject_dir is not None:
+            (reject_dir / f"hires_side_best_{int(seed or 0)}.png").write_bytes(best)
+    except Exception:
+        pass
+    return best
+
+
 async def generate_panel_bytes(
     pool: "WorkerPool",
     prompt: str,
@@ -5602,8 +5980,51 @@ async def generate_character_sheet(
                         logger.warning("faces %s Qwen deblur skipped: %s", _side_fk, de)
             else:
                 logger.info(
-                    "faces face_three_quarter 23:17 hard-crop only (Qwen deblur off)"
+                    "faces face_three_quarter 00:31 Lanczos native (Qwen deblur off)"
                 )
+            # 00:31：硬裁后若侧面不可读（需放大/糊），同 seed 重出高分侧头肩母版再裁入
+            try:
+                side_src = panels.get("side")
+                if side_src:
+                    _tq, _tq_meta = crop_face_slot_from_master_with_meta(
+                        side_src, slot="face_three_quarter", size=768
+                    )
+                    if not _tq_meta.get("readable", True):
+                        logger.info(
+                            "faces face_three_quarter unreadable meta=%s → hires side master",
+                            {k: _tq_meta.get(k) for k in ("native_side", "upscale", "face_frac")},
+                        )
+                        _hires = await regenerate_hires_side_head_master(
+                            pool,
+                            client=client,
+                            side_master=side_src,
+                            front_face=tri.get("face_front") or panels.get("portrait"),
+                            ckpt=ckpt,
+                            seed=seed,
+                            worker=worker,
+                            style=meta.style,
+                            prompt=prompts.get("face_three_quarter")
+                            or prompts.get("side")
+                            or "",
+                            reject_dir=reject_dir,
+                        )
+                        if _hires:
+                            panels["side"] = _hires
+                            tri["face_three_quarter"] = crop_face_slot_from_master(
+                                _hires, slot="face_three_quarter", size=768
+                            )
+                            logger.info(
+                                "faces face_three_quarter replaced from hires side master"
+                            )
+                        else:
+                            logger.warning(
+                                "faces hires side master rejected/failed → keep Lanczos crop"
+                            )
+                            tri["face_three_quarter"] = _tq
+            except CharacterSheetError:
+                raise
+            except Exception as he:  # noqa: BLE001
+                logger.warning("faces hires side master skipped: %s", he)
             panels["faces"] = compose_faces_triptych(
                 tri,
                 style=meta.style,
@@ -5680,6 +6101,13 @@ async def generate_character_sheet(
                         denoise=1.0,
                         negative_extra=_grid_neg,
                     )
+                    # 00:31：眉眼嘴局部重绘合成（硬遮罩，非整图弱编辑、非软脸罩叠影）
+                    try:
+                        cand = apply_expression_grid_local_features(
+                            grid_in, cand, cell=512
+                        )
+                    except Exception as le:  # noqa: BLE001
+                        logger.warning("expr grid local feature composite skipped: %s", le)
                     cells = _split_expression_grid(cand)
                     # 轻门禁：有人脸；惊恐张嘴优先；徽标相对主立绘
                     _neutral = None
