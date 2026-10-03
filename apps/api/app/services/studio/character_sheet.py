@@ -54,6 +54,15 @@ _EXPR_PROMPTS = (
     "terrified shocked expression, wide eyes open mouth, fear, extreme face closeup head and shoulders",
     "resolute determined expression, firm gaze, extreme face closeup head and shoulders",
 )
+# 19:01：表情只走图像编辑——中文指令仅改表情，锁身份/发型/服装/构图
+_EXPR_EDIT_INSTRUCTIONS = (
+    "只改变面部表情为威严：眉微压、双眼平视、嘴角平直。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要加徽章文字、不要加长发。",
+    "只改变面部表情为冷酷：眼神冷淡半眯、嘴角下压。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要加徽章文字、不要加长发。",
+    "只改变面部表情为沉思：目光略偏一侧、眉心轻蹙。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要加徽章文字、不要加长发。",
+    "只改变面部表情为温柔：轻微微笑、眼角柔和。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要加徽章文字、不要加长发。",
+    "只改变面部表情为惊恐：双眼睁大、小口微张。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要加徽章文字、不要加长发。",
+    "只改变面部表情为果断：眉压、目光坚定、嘴角绷紧。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要加徽章文字、不要加长发。",
+)
 _CHAR_SHEET_MARK = "char_sheet_"
 _CHAR_PANEL_MARK = "char_panel_"
 _POLL_INTERVAL = 2.0
@@ -2633,27 +2642,35 @@ def crop_face_slot_from_master(
     # 背影母版通常无人脸框 → 直接上半身方裁
     if slot == "face_side":
         try:
-            return crop_head_from_figure(data, size=size, top_frac=0.42)
+            out = crop_head_from_figure(data, size=size, top_frac=0.42)
+            # 背影可能无人脸：拉近失败则退回原裁（不硬杀）
+            try:
+                return auto_tighten_face_crop(out, size=size, face_key=slot)
+            except CharacterSheetError:
+                return out
         except Exception as e:  # noqa: BLE001
             raise CharacterSheetError(
                 f"faces crop back/side fail: {e}", status_code=422
             ) from e
-    # 正 / 侧：优先脸框紧裁头肩
+    # 正 / 侧：优先脸框紧裁头肩，再 19:01 自动拉近到头高≥35%
     try:
         out = crop_face_head_collarbone(data, size=size, max_zoom=1.8)
-        # 轻量非空校验
         im = Image.open(BytesIO(out)).convert("RGB")
         if im.size[0] < 32 or im.size[1] < 32:
             raise CharacterSheetError("faces crop too small", status_code=422)
-        return out
+        return auto_tighten_face_crop(out, size=size, face_key=slot)
     except CharacterSheetError:
         raise
     except Exception:
         pass
     try:
         if slot == "face_front":
-            return crop_face_ref(data, size=size)
-        return crop_head_from_figure(data, size=size, top_frac=0.40)
+            out = crop_face_ref(data, size=size)
+        else:
+            out = crop_head_from_figure(data, size=size, top_frac=0.40)
+        return auto_tighten_face_crop(out, size=size, face_key=slot)
+    except CharacterSheetError:
+        raise
     except Exception as e:  # noqa: BLE001
         raise CharacterSheetError(
             f"faces crop {slot} fail: {e}", status_code=422
@@ -3433,7 +3450,7 @@ def assert_face_visible(
 def assert_face_closeup_framing(
     data: bytes,
     *,
-    min_face_height_frac: float = 0.25,
+    min_face_height_frac: float = 0.35,
     max_face_height_frac: float = 0.80,
     min_face_area: float = 0.04,
     face_key: str | None = None,
@@ -3441,6 +3458,7 @@ def assert_face_closeup_framing(
     """16:45：近景脸格门禁——有人脸，且脸高占格高约 25%–70%（替代 coverage 0.90）。
 
     17:47：上限 0.80（父代理）；吸收 reframe 测量余量，近景头肩而非贴脸裁切。
+    19:01：下限改为 0.35（脸格头高≥35%）；过小则先 auto_tighten 再验。
 
     全身格仍走 assert_panel_coverage；本函数只用于 faces / expr_*。
     """
@@ -3471,6 +3489,210 @@ def assert_face_closeup_framing(
         "min": float(min_face_height_frac),
         "max": float(max_face_height_frac),
     }
+
+
+
+def measure_face_height_frac(data: bytes) -> float | None:
+    """脸高占格高；无人脸返回 None。"""
+    bb = _detect_face_bbox_xyxy(data)
+    if bb is None:
+        try:
+            img = Image.open(BytesIO(data)).convert("RGB")
+            bb = _heuristic_skin_face_bbox(img)
+        except Exception:  # noqa: BLE001
+            bb = None
+    if bb is None:
+        return None
+    img = Image.open(BytesIO(data))
+    _w, h = img.size
+    x1, y1, x2, y2 = bb
+    return max(1.0, float(y2) - float(y1)) / float(max(1, h))
+
+
+def auto_tighten_face_crop(
+    data: bytes,
+    *,
+    size: int = 768,
+    min_face_height_frac: float = 0.35,
+    max_face_height_frac: float = 0.80,
+    face_key: str | None = None,
+    max_rounds: int = 6,
+) -> bytes:
+    """19:01：脸格头高自动拉近——不足 35% 则围绕脸框逐步缩小取景再 cover。"""
+    base = data
+    last_err: Exception | None = None
+    tight = data
+    for round_i in range(max_rounds):
+        try:
+            # 先头肩方裁，再按 round 围绕脸框缩小边长
+            candidate = enforce_head_shoulders_square(
+                base,
+                size=size,
+                max_upscale=min(2.4, 1.5 + 0.2 * round_i),
+                check_coverage=False,
+                face_closeup_gate=False,
+            )
+            if round_i > 0:
+                img = Image.open(BytesIO(candidate)).convert("RGB")
+                w, h = img.size
+                bb = _detect_face_bbox_xyxy(candidate)
+                if bb is None:
+                    bb = _heuristic_skin_face_bbox(img)
+                if bb is not None:
+                    fx1, fy1, fx2, fy2 = [float(v) for v in bb]
+                    fh = max(8.0, fy2 - fy1)
+                    fw = max(8.0, fx2 - fx1)
+                    fcx = (fx1 + fx2) / 2.0
+                    side = int(
+                        max(
+                            fh / max(0.40, min_face_height_frac + 0.08),
+                            fw * 1.4,
+                            64,
+                        )
+                        / (1.0 + 0.22 * round_i)
+                    )
+                    side = max(64, min(side, w, h))
+                    left = max(0, min(w - side, int(round(fcx - side / 2.0))))
+                    top = max(0, min(h - side, int(round(fy1 - 0.12 * side))))
+                    crop = img.crop((left, top, left + side, top + side))
+                    crop = crop.resize((size, size), Image.Resampling.LANCZOS)
+                    buf = BytesIO()
+                    crop.save(buf, format="PNG")
+                    candidate = buf.getvalue()
+            assert_face_closeup_framing(
+                candidate,
+                min_face_height_frac=min_face_height_frac,
+                max_face_height_frac=max_face_height_frac,
+                face_key=face_key,
+            )
+            return candidate
+        except CharacterSheetError as e:
+            last_err = e
+            tight = candidate if "candidate" in locals() else tight
+            continue
+    if last_err is not None:
+        raise last_err
+    raise CharacterSheetError(
+        f"face auto-tighten failed (<{min_face_height_frac:.2f})", status_code=422
+    )
+
+
+def costume_cell_is_bad(cell_png: bytes, *, item_key: str = "") -> bool:
+    """19:01：服饰坏格——空/细条/多件重复/瓦片网格 → 删格补裁。
+
+    不用整格均色判坏（单件雨衣大色块会误杀）；靠暗色 blob + 4×4 前景格计数。
+    """
+    try:
+        ratios = costume_cell_content_ratios(cell_png, n=1)
+        if ratios and ratios[0] < 0.12:
+            return True
+    except Exception:  # noqa: BLE001
+        return True
+    img = Image.open(BytesIO(cell_png)).convert("RGB").resize((64, 64))
+    px = list(img.getdata())
+    blobs = _count_dark_blobs(px)
+    if item_key == "boots" and blobs >= 4:
+        return True
+    if item_key == "pants" and blobs >= 4:
+        return True
+    if blobs >= 8:
+        return True
+    if item_key in ("raincoat", "umbrella", "bag") and blobs >= 6:
+        return True
+    # 浅色瓦片：4×4 多格有前景，且格缝多为背景（与整块单品区分）
+    def _is_bg(r, g, b) -> bool:
+        if r > 230 and g > 230 and b > 230:
+            return True
+        if abs(r - g) < 8 and abs(g - b) < 8 and 140 < r < 210:
+            return True
+        return False
+
+    filled = 0
+    for ty in range(4):
+        for tx in range(4):
+            fg = 0
+            for y in range(ty * 16, ty * 16 + 16):
+                for x in range(tx * 16, tx * 16 + 16):
+                    r, g, b = px[y * 64 + x]
+                    if not _is_bg(r, g, b):
+                        fg += 1
+            if fg > 40:
+                filled += 1
+    gap_bg = gap_n = 0
+    for x in (15, 16, 31, 32, 47, 48):
+        for y in range(64):
+            gap_n += 1
+            if _is_bg(*px[y * 64 + x]):
+                gap_bg += 1
+    for y in (15, 16, 31, 32, 47, 48):
+        for x in range(64):
+            gap_n += 1
+            if _is_bg(*px[y * 64 + x]):
+                gap_bg += 1
+    gap_ratio = gap_bg / max(1, gap_n)
+    if filled >= 10 and gap_ratio >= 0.35:
+        return True
+    if item_key:
+        try:
+            if _costume_item_penalty(cell_png, item_key) >= 12.0:
+                return True
+        except Exception:  # noqa: BLE001
+            pass
+    return False
+
+
+def ensure_costume_bad_cells_replaced(
+    costume_png: bytes,
+    *,
+    portrait: bytes | None = None,
+    front: bytes | None = None,
+    min_ratio: float = 0.12,
+    n: int = 5,
+    item_keys: tuple[str, ...] | None = None,
+) -> bytes:
+    """19:01：删坏格并用主立绘分区裁切补上（先空格兜底，再坏格）。"""
+    keys = item_keys or tuple(k for k, _ in _COSTUME_ITEMS)
+    out = ensure_costume_first_cell_filled(
+        costume_png, portrait=portrait, front=front, min_ratio=min_ratio, n=n
+    )
+    src = portrait or front
+    if not src:
+        return out
+    im = Image.open(BytesIO(out)).convert("RGB")
+    w, h = im.size
+    cell_w = max(1, w // max(1, n))
+    bands = (
+        (0.18, 0.28, 0.82, 0.62),
+        (0.28, 0.55, 0.72, 0.92),
+        (0.30, 0.78, 0.70, 0.98),
+        (0.20, 0.35, 0.80, 0.70),
+        (0.35, 0.40, 0.65, 0.72),
+    )
+    for idx in range(n):
+        x0 = idx * cell_w
+        x1 = w if idx == n - 1 else (idx + 1) * cell_w
+        cell = im.crop((x0, 0, x1, h))
+        buf = BytesIO()
+        cell.save(buf, format="PNG")
+        key = keys[idx] if idx < len(keys) else ""
+        if not costume_cell_is_bad(buf.getvalue(), item_key=key):
+            continue
+        pimg = Image.open(BytesIO(src)).convert("RGB")
+        pw, ph = pimg.size
+        bx0, by0, bx1, by1 = bands[idx % len(bands)]
+        crop = pimg.crop((int(pw * bx0), int(ph * by0), int(pw * bx1), int(ph * by1)))
+        side = max(crop.width, crop.height, 8)
+        canvas = Image.new("RGB", (side, side), (240, 240, 244))
+        canvas.paste(crop, ((side - crop.width) // 2, (side - crop.height) // 2))
+        canvas = canvas.resize((768, 768), Image.Resampling.LANCZOS)
+        cbuf = BytesIO()
+        canvas.save(cbuf, format="PNG")
+        out = replace_costume_cell(out, idx, cbuf.getvalue(), n=n)
+        im = Image.open(BytesIO(out)).convert("RGB")
+        logger.info("costume cell%s bad(%s) → portrait band crop", idx, key or "?")
+    assert_costume_cells_nonempty(out, min_ratio=min_ratio, n=n)
+    return out
+
 
 
 def face_crop_looks_ok(data: bytes) -> bool:
@@ -3946,6 +4168,33 @@ async def _pick_sheet_client(worker: str | None = None) -> Any:
         raise CharacterSheetError(f"出图后端不可用:{e}", status_code=503) from e
 
 
+def _build_sheet_qwen_edit_graph(
+    prompt: str,
+    *,
+    image_name: str,
+    seed: int | None,
+    filename_prefix: str,
+) -> dict:
+    """设定卡表情编辑：在 :8262/:8264 本地跑 Qwen-Image-Edit（不走 :8194 专用实例）。"""
+    from app.workflows.qwen_edit import QwenEditParams, build_qwen_edit_graph
+
+    # :8262 上的文件名与 workflows 常量不完全一致，优先用本机可见名
+    unet = "Qwen-Image-Edit-2509_fp8_e4m3fn.safetensors"
+    params = QwenEditParams(
+        image=image_name,
+        positive=prompt,
+        fast=True,
+        filename_prefix=filename_prefix,
+        **({"seed": seed} if seed is not None else {}),
+    )
+    graph = build_qwen_edit_graph(params)
+    # 覆盖 UNET 文件名为设定卡 worker 上的实际名
+    if "1" in graph and isinstance(graph["1"], dict):
+        inputs = graph["1"].setdefault("inputs", {})
+        inputs["unet_name"] = unet
+    return graph
+
+
 async def generate_panel_bytes(
     pool: "WorkerPool",
     prompt: str,
@@ -3965,8 +4214,8 @@ async def generate_panel_bytes(
 ) -> bytes:
     """单格出图 → PNG bytes。
 
-    ref_mode: auto|ipa|img2img|none
-      - anime 默认 img2img(规避 hassaku/IPA glitch)
+    ref_mode: auto|ipa|img2img|qwen_edit|none
+      - anime 默认 img2img(规避 hassaku/IPA glitch)；表情格强制 qwen_edit
       - ancient 默认 ipa
     注意:忽略 pool.pick,强制 :8262/:8264。
     """
@@ -3983,7 +4232,14 @@ async def generate_panel_bytes(
         else:
             mode = "ipa"
     try:
-        if ref_image and mode == "img2img":
+        if ref_image and mode == "qwen_edit":
+            graph = _build_sheet_qwen_edit_graph(
+                prompt,
+                image_name=ref_image,
+                seed=seed,
+                filename_prefix=filename_prefix,
+            )
+        elif ref_image and mode == "img2img":
             graph = _build_img2img_graph(
                 prompt,
                 image_name=ref_image,
@@ -4344,7 +4600,7 @@ async def generate_character_sheet(
             )
             # 18:23：首格空白 → 雨衣细节裁图；assert 全格非空
             try:
-                panels["costume"] = ensure_costume_first_cell_filled(
+                panels["costume"] = ensure_costume_bad_cells_replaced(
                     panels["costume"],
                     portrait=panels.get("portrait"),
                     front=panels.get("front"),
@@ -4526,7 +4782,7 @@ async def generate_character_sheet(
                 )
                 raise
             for fk in ("face_front", "face_three_quarter", "face_side"):
-                # 18:23：裁切直接进 tri；仅校验非空。近景门禁失败不阻断（母版已过审）。
+                # 18:23 裁自母版；19:01 头高≥35% 自动拉近，正/侧硬门禁，背影软过
                 im = Image.open(BytesIO(tri[fk])).convert("RGB")
                 if im.size[0] < 64 or sum(im.convert("L").resize((32, 32)).getdata()) < 100:
                     dump_rejected_panel(
@@ -4541,14 +4797,24 @@ async def generate_character_sheet(
                         f"faces {fk} master crop empty", status_code=422
                     )
                 try:
-                    if fk != "face_side":
-                        tri[fk] = enforce_head_shoulders_square(
-                            tri[fk], size=768, face_closeup_gate=True
-                        )
-                except CharacterSheetError as ge:
-                    logger.warning(
-                        "faces %s crop soft-gate skip: %s", fk, ge
+                    tri[fk] = auto_tighten_face_crop(
+                        tri[fk], size=768, face_key=fk
                     )
+                except CharacterSheetError as ge:
+                    if fk == "face_side":
+                        logger.warning(
+                            "faces %s auto-tighten soft skip: %s", fk, ge
+                        )
+                    else:
+                        dump_rejected_panel(
+                            tri.get(fk),
+                            seed=seed,
+                            panel=str(fk),
+                            gate="faces_head_height",
+                            detail=str(ge),
+                            dump_dir=reject_dir,
+                        )
+                        raise
                 _y = estimate_face_yaw_deg(tri[fk])
                 logger.info(
                     "faces %s crop-from-master yaw=%s ok=%s",
@@ -4564,12 +4830,12 @@ async def generate_character_sheet(
             )
             continue
         elif key.startswith("expr_"):
-            # 表情:紧裁头肩 img2img;18:23 denoise 略降锁短发，表情差靠提示词
+            # 19:01：表情只走图像编辑（Qwen-Image-Edit），禁止 img2img 重绘身份
             face = face_ref_name or ref_name
             if face:
                 use_ref = face
-                ref_mode = "img2img" if meta.style == "anime" else "ipa"
-                denoise = 0.52 if meta.style == "anime" else 0.62
+                ref_mode = "qwen_edit"
+                denoise = 1.0
             else:
                 use_ref = None
                 ref_mode = "none"
@@ -4598,9 +4864,15 @@ async def generate_character_sheet(
                         "hair lengthening, flowing long locks, logo, emblem, badge, "
                         "chest patch, text on clothes, chinese characters"
                     )
+                _prompt_x = prompts[key] + (bust if attempt else "")
+                if key.startswith("expr_") and ref_mode == "qwen_edit":
+                    _ei = _EXPR_KEYS.index(key) if key in _EXPR_KEYS else 0
+                    _prompt_x = _EXPR_EDIT_INSTRUCTIONS[_ei]
+                    if attempt:
+                        _prompt_x = _prompt_x + f" 变体{attempt}"
                 raw = await generate_panel_bytes(
                     pool,
-                    prompts[key] + (bust if attempt else ""),
+                    _prompt_x,
                     ckpt_name=ckpt,
                     width=w,
                     height=h,
@@ -6954,7 +7226,7 @@ async def regenerate_sheet_panels(
                     best = compose_boot_pair(best, style=meta.style)
                 picked_items.append(best)
             panels["costume"] = collage_costume_items(picked_items, style=meta.style)
-            panels["costume"] = ensure_costume_first_cell_filled(
+            panels["costume"] = ensure_costume_bad_cells_replaced(
                 panels["costume"],
                 portrait=panels.get("portrait"),
                 front=panels.get("front"),
@@ -6967,7 +7239,7 @@ async def regenerate_sheet_panels(
             continue
 
         if key == "faces":
-            # 18:23：regenerate 同样只裁母版，禁止 IPA/OpenPose 再生成
+            # 18:23 裁母版；19:01 头高≥35% 自动拉近（正/侧硬门禁）
             tri = build_faces_tri_from_masters(
                 portrait=panels.get("portrait"),
                 front=panels.get("front"),
@@ -6976,13 +7248,11 @@ async def regenerate_sheet_panels(
                 size=768,
             )
             for fk in ("face_front", "face_three_quarter", "face_side"):
-                if fk != "face_side":
-                    try:
-                        tri[fk] = enforce_head_shoulders_square(
-                            tri[fk], size=768, face_closeup_gate=True
-                        )
-                    except CharacterSheetError:
-                        pass
+                try:
+                    tri[fk] = auto_tighten_face_crop(tri[fk], size=768, face_key=fk)
+                except CharacterSheetError:
+                    if fk != "face_side":
+                        raise
             panels["faces"] = compose_faces_triptych(
                 tri,
                 style=meta.style,
@@ -6990,7 +7260,7 @@ async def regenerate_sheet_panels(
                 master_crop=True,
             )
             debug["picks"]["faces"] = {
-                "mode": "master_crop_1823",
+                "mode": "master_crop_1901_head35",
                 "keys": ["face_front", "face_three_quarter", "face_side"],
                 "scores": {},
             }
@@ -7053,8 +7323,10 @@ async def regenerate_sheet_panels(
                 face = face_ref_name or ref_name
                 if face:
                     use_ref = face
-                    ref_mode = "img2img" if meta.style == "anime" else "ipa"
-                    denoise = 0.68
+                    ref_mode = "qwen_edit"
+                    denoise = 1.0
+                    _ei = _EXPR_KEYS.index(key) if key in _EXPR_KEYS else 0
+                    prompt = _EXPR_EDIT_INSTRUCTIONS[_ei]
             data = await generate_panel_bytes(
                 pool,
                 prompt,
