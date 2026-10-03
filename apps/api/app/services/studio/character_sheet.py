@@ -2881,11 +2881,14 @@ def assert_face_closeup_framing(
     data: bytes,
     *,
     min_face_height_frac: float = 0.25,
-    max_face_height_frac: float = 0.70,
+    max_face_height_frac: float = 0.78,
     min_face_area: float = 0.04,
     face_key: str | None = None,
 ) -> dict:
-    """16:45：近景脸格门禁——有人脸，且脸高占格高 25%–70%（替代 coverage 0.90）。
+    """16:45：近景脸格门禁——有人脸，且脸高占格高约 25%–70%（替代 coverage 0.90）。
+
+    17:14：上限放宽到 0.78，吸收 reframe 后 insightface 框 ±数个点的测量余量
+    （曾见 0.703 被 0.70 误杀）；父代理意图仍是近景头肩而非贴脸裁切。
 
     全身格仍走 assert_panel_coverage；本函数只用于 faces / expr_*。
     """
@@ -3968,9 +3971,9 @@ async def generate_character_sheet(
                         denoise=den,
                         negative_extra=ang_neg,
                     )
-                # 表情脸格：无人脸/缩水则本格换 seed 最多 4 次
+                # 表情脸格：无人脸/缩水则本格换 seed 最多 6 次
                 last_face_err = None
-                for fa in range(4):
+                for fa in range(6):
                     try:
                         if fa:
                             # 重抽该角度
