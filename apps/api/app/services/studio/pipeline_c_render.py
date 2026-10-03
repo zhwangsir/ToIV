@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import logging
+import secrets
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Any
@@ -248,6 +250,67 @@ def _resolve_sheet_palette_colors(cast: list[Any], style: str | None) -> dict[st
     return out
 
 
+
+async def _brand_ocr_after_render(url: str) -> dict:
+    """出片 URL → 本地/临时 mp4 → garment_brand_ocr_hit。失败不拦。"""
+    from app.services.studio.candidate_pick import garment_brand_ocr_hit
+    from app.storage import drama_output_root
+    import os
+
+    u = (url or "").strip()
+    if not u:
+        return {"hit": False, "text": "", "frames_checked": 0, "error": "empty_url"}
+
+    # /api/studio/files/… 直读磁盘
+    marker = "/api/studio/files/"
+    if marker in u:
+        name = Path(u.split(marker, 1)[1].split("?", 1)[0]).name
+        roots = [
+            drama_output_root() / "studio",
+            Path(os.environ.get("TOIV_DRAMA_VIDEO_DIR", "")) / "studio",
+            Path("/mnt/toiv-nas/toiv/outputs/drama/final/studio"),
+        ]
+        for root in roots:
+            path = root / name
+            if path.is_file():
+                return garment_brand_ocr_hit(path)
+        # 磁盘尚无：尝试拉字节
+        try:
+            data = await _fetch_bytes(u)
+        except Exception as e:
+            return {"hit": False, "text": "", "frames_checked": 0, "error": f"fetch:{e}"}
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tf:
+            tf.write(data)
+            tmp = tf.name
+        try:
+            return garment_brand_ocr_hit(tmp)
+        finally:
+            try:
+                Path(tmp).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+    if u.startswith("/") and Path(u).is_file():
+        return garment_brand_ocr_hit(u)
+
+    # Comfy http(s) 或其它：拉字节写临时文件再 OCR
+    try:
+        data = await _fetch_bytes(u)
+    except Exception as e:
+        logger.warning("brand_ocr fetch failed url=%s err=%s", u[:80], e)
+        return {"hit": False, "text": "", "frames_checked": 0, "error": f"fetch:{e}"}
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tf:
+        tf.write(data)
+        tmp = tf.name
+    try:
+        return garment_brand_ocr_hit(tmp)
+    finally:
+        try:
+            Path(tmp).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
 async def render_pipeline_c(
     shot: Any,
     cast: list[Any],
@@ -320,33 +383,62 @@ async def render_pipeline_c(
         w, h = h, w
     length = _h3_length(getattr(shot, "duration_sec", 6) or 6)
     seed_used = int(seed) if seed is not None else H3PipelineCParams(positive="x").seed
-    prefix_vid = f"ToIV_drama_c/{shot.id[:8]}_{clip_index}_{seed_used % 100000}"
-    prefix_ctx = f"toiv_drama_c/context/{shot.id[:8]}_{clip_index}_{seed_used % 100000}"
+    brand_ocr_reseeds = 0
+    brand_ocr_hits: list[str] = []
+    url = ""
+    prompt_id = ""
+    prefix_ctx = ""
+    max_submits = 3  # 首次 + 最多额外 2 次换 seed
 
-    params = H3PipelineCParams(
-        positive=positive,
-        images=tuple(image_names),
-        width=w,
-        height=h,
-        length=length,
-        seed=seed_used,
-        filename_prefix=prefix_vid,
-        context_prefix=prefix_ctx,
-        clip_index=clip_index,
-        context_latent_path=(context_latent_path or "").strip(),
-    )
-    try:
-        graph = build_h3_pipeline_c_graph(params)
-    except ValueError as e:
-        raise RenderError(str(e)) from e
+    for attempt in range(max_submits):
+        if attempt > 0:
+            seed_used = secrets.randbelow(2**31 - 1) or 1
+            brand_ocr_reseeds += 1
+        prefix_vid = f"ToIV_drama_c/{shot.id[:8]}_{clip_index}_{seed_used % 100000}"
+        prefix_ctx = f"toiv_drama_c/context/{shot.id[:8]}_{clip_index}_{seed_used % 100000}"
 
-    client_id = uuid.uuid4().hex
-    try:
-        prompt_id = await client.queue_prompt(graph, client_id)
-    except ComfyUIError as e:
-        raise RenderError(f"管线 C 提交失败:{e}") from e
+        params = H3PipelineCParams(
+            positive=positive,
+            images=tuple(image_names),
+            width=w,
+            height=h,
+            length=length,
+            seed=seed_used,
+            filename_prefix=prefix_vid,
+            context_prefix=prefix_ctx,
+            clip_index=clip_index,
+            context_latent_path=(context_latent_path or "").strip(),
+        )
+        try:
+            graph = build_h3_pipeline_c_graph(params)
+        except ValueError as e:
+            raise RenderError(str(e)) from e
 
-    url = await _wait_video_url(client.base_url, prompt_id, request=request)
+        client_id = uuid.uuid4().hex
+        try:
+            prompt_id = await client.queue_prompt(graph, client_id)
+        except ComfyUIError as e:
+            raise RenderError(f"管线 C 提交失败:{e}") from e
+
+        url = await _wait_video_url(client.base_url, prompt_id, request=request)
+
+        ocr = await _brand_ocr_after_render(url)
+        if not ocr.get("hit"):
+            break
+        hit_text = str(ocr.get("text") or "")[:120]
+        brand_ocr_hits.append(hit_text)
+        logger.warning(
+            "brand_ocr_reseed shot=%s clip=%s attempt=%s seed=%s text=%r frames=%s",
+            getattr(shot, "id", "")[:8],
+            clip_index,
+            attempt,
+            seed_used,
+            hit_text,
+            ocr.get("frames_checked"),
+        )
+        if attempt >= max_submits - 1:
+            break
+
     # 约定 context 产物名（与 SaveLatent filename_prefix 对齐）
     # SaveLatent 序号与 clip_index 对齐（镜0→00001、镜1→00002…）；写死 00001 会导致续写 FileNotFound
     context_latent = f"{prefix_ctx}_{int(clip_index):05d}.safetensors"
@@ -359,4 +451,6 @@ async def render_pipeline_c(
         "job_id": prompt_id,
         "pipeline": "c",
         "ref_images": urls,
+        "brand_ocr_reseeds": brand_ocr_reseeds,
+        "brand_ocr_hits": brand_ocr_hits,
     }

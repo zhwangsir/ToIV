@@ -44,20 +44,27 @@ def strip_dialogue(text: str) -> str:
 
 
 # 设定卡风格服装锁：按 ref_style 注入配色/服装，抑制跨风格漂移（06:1x 藏青/兜帽）
-# 06:4x：主色从设定卡配色色块抽（黑/深棕），禁止再写 indigo/navy 致紫漂
+# 10/03：无配色时禁止硬编码 jet-black/主色纯黑；必须从设定卡色块取色，取不到则不写颜色。
+# 正向加素面无标（plain unbranded / no logo / no text / no print）。
+_PLAIN_UNBRANDED = (
+    "plain unbranded clothes, 素面无标无文字无印花, "
+    "no logo, no text, no print on clothes, no brand mark, no chest emblem"
+)
 _ANCIENT_COSTUME_LOCK = (
-    "wearing jet-black cross-collar jiaoling hanfu with deep brown silk layers and gold trim "
-    "on collar and cuffs, charcoal black robe, traditional Chinese ancient costume, jet black hair, "
-    "主色纯黑与深棕、金色镶边, "
+    "wearing cross-collar jiaoling hanfu with layered silk and trim "
+    "on collar and cuffs, traditional Chinese ancient costume, black hair, "
+    f"{_PLAIN_UNBRANDED}, "
     "no hood, no hoodie, no raincoat, no windbreaker, no sweatshirt, no modern clothing, "
-    "no purple robe, no violet robe, no blue robe, no indigo robe, no navy robe, no lavender, no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes"
+    "no purple robe, no violet robe, no blue robe, no indigo robe, no navy robe, no lavender, "
+    "no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes"
 )
 _ANIME_COSTUME_LOCK = (
-    "wearing jet-black hooded raincoat, hood down off the head, wet black hair on forehead, "
-    "same black raincoat outfit as character sheet, cool white store light, "
-    "主色纯黑雨衣, "
+    "wearing hooded raincoat, hood down off the head, wet black hair on forehead, "
+    "same outfit as character sheet, cool white store light, "
+    f"{_PLAIN_UNBRANDED}, "
     "no hanfu, no white robe, no ancient costume, "
-    "no purple raincoat, no blue raincoat, no indigo coat, no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes, no The North Face logo"
+    "no purple raincoat, no blue raincoat, no indigo coat, "
+    "no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes, no The North Face logo"
 )
 _ANCIENT_STRIP = (
     "hoodie", "hood down", "hood up", "raincoat", "windbreaker", "sweatshirt",
@@ -314,9 +321,9 @@ def costume_lock_for_style(
 ) -> str:
     """按设定卡风格返回服装配色锁；无风格则空串。
 
-    古风：交领汉服 + 设定卡主色（默认纯黑/深棕金边），禁止兜帽/雨衣与紫蓝漂。
-    二次元：黑连帽雨衣、帽兜放下；主色可被配色色块覆盖。
-    colors: 设定卡配色 hex 列表（面积序）；有则注入中文色名并写相邻偏色反向。
+    古风：交领汉服 + 设定卡主色（有色块才写颜色；无色块不写 jet-black/主色纯黑），禁止兜帽/雨衣与紫蓝漂。
+    二次元：连帽雨衣、帽兜放下；主色仅来自配色色块。
+    colors: 设定卡配色 hex 列表（面积序）；有则注入中文色名并写相邻偏色反向；无则用无颜色版型锁。
     """
     st = (style or "").strip()
     if st in ("古风", "ancient", "ancient_realistic"):
@@ -329,21 +336,26 @@ def costume_lock_for_style(
         return ""
     pos_c, neg_c = costume_color_phrases_from_palette(colors)
     if pos_c:
-        # 用抽色段替换锁里的硬编码主色描述，保留版型与禁止项
+        # 用抽色段写主色；保留版型、素面正向与禁止项（禁止回落 jet-black 常量）
         if st in ("古风", "ancient", "ancient_realistic"):
             lock = (
                 f"wearing cross-collar jiaoling hanfu with {pos_c}, "
-                "traditional Chinese ancient costume, jet black hair, "
-                "no hood, no hoodie, no raincoat, no windbreaker, no sweatshirt, no modern clothing, no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes, "
+                "traditional Chinese ancient costume, black hair, "
+                f"{_PLAIN_UNBRANDED}, "
+                "no hood, no hoodie, no raincoat, no windbreaker, no sweatshirt, no modern clothing, "
+                "no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes, "
                 f"{neg_c}"
             )
         else:
             lock = (
                 f"wearing hooded raincoat with {pos_c}, hood down off the head, "
                 "wet black hair on forehead, same outfit as character sheet, cool white store light, "
-                "no hanfu, no white robe, no ancient costume, no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes, no The North Face logo, "
+                f"{_PLAIN_UNBRANDED}, "
+                "no hanfu, no white robe, no ancient costume, "
+                "no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes, no The North Face logo, "
                 f"{neg_c}"
             )
+    # 无 pos_c：沿用无颜色常量锁（已无 jet-black/主色纯黑），禁止再回落含硬编码主色的旧常量
     base = (visual_prompt or "").strip()
     if base:
         low = base.lower()

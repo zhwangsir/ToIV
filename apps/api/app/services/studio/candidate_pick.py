@@ -7,6 +7,7 @@ insightface / cv2 可用时走真评分。选优失败必须抛 CandidatePickErr
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -457,3 +458,165 @@ def pick_best_candidate(
             c.setdefault("pick_score", None)
             c["pick_note"] = f"face_scorer_error:{type(e).__name__}"
         raise CandidatePickError(f"选优失败:{type(e).__name__}: {e}") from e
+
+
+# --- 衣物区域品牌 OCR（管线 C 出片后自动换 seed 重跑用）---
+# 躯干 ROI：高 25%–70%、宽中 20%–80%；拉丁字母/品牌词命中则 hit。
+# pytesseract / cv2 可选；不可用则 hit=False 不拦。
+
+_BRAND_WORDS = (
+    "north face",
+    "the north face",
+    "nike",
+    "adidas",
+    "gucci",
+    "supreme",
+    "puma",
+    "reebok",
+    "under armour",
+    "columbia",
+    "patagonia",
+    "logo",
+)
+
+_LATIN_RUN = re.compile(r"[A-Za-z]{3,}")
+
+
+def _garment_roi_box(h: int, w: int) -> tuple[int, int, int, int]:
+    """返回 (y0, y1, x0, x1) 上半身躯干裁剪。"""
+    y0 = int(h * 0.25)
+    y1 = int(h * 0.70)
+    x0 = int(w * 0.20)
+    x1 = int(w * 0.80)
+    return y0, max(y0 + 1, y1), x0, max(x0 + 1, x1)
+
+
+def brand_text_hit(text: str) -> bool:
+    """OCR 文本是否含品牌词或明显拉丁字母串（衣物印花）。"""
+    t = (text or "").strip()
+    if not t:
+        return False
+    low = t.lower()
+    for w in _BRAND_WORDS:
+        if w in low:
+            return True
+    # 连续拉丁字母 ≥3 且总拉丁字母较长 → 疑似胸口英文标
+    runs = _LATIN_RUN.findall(t)
+    if not runs:
+        return False
+    joined = "".join(runs)
+    if len(joined) >= 6:
+        return True
+    if any(len(r) >= 4 for r in runs) and len(joined) >= 4:
+        return True
+    return False
+
+
+def garment_brand_ocr_frame(image) -> dict[str, Any]:
+    """对单帧（PIL.Image 或 RGB/BGR ndarray）做衣物区 OCR。
+
+    返回 {hit, text, error}。pytesseract 不可用则 hit=False。
+    """
+    out: dict[str, Any] = {"hit": False, "text": "", "error": ""}
+    try:
+        import pytesseract
+        from PIL import Image
+        import numpy as np
+    except Exception as e:
+        out["error"] = f"ocr_unavailable:{type(e).__name__}"
+        return out
+
+    try:
+        if hasattr(image, "convert"):
+            im = image.convert("RGB")
+        else:
+            arr = np.asarray(image)
+            if arr.ndim == 3 and arr.shape[2] == 3:
+                # 启发式：OpenCV BGR 常见；若已是 RGB 也大致可 OCR
+                try:
+                    import cv2
+                    rgb = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
+                except Exception:
+                    rgb = arr
+                im = Image.fromarray(rgb.astype("uint8"))
+            else:
+                out["error"] = "bad_frame"
+                return out
+        w, h = im.size
+        y0, y1, x0, x1 = _garment_roi_box(h, w)
+        crop = im.crop((x0, y0, x1, y1))
+        # 放大一点利于小 logo
+        cw, ch = crop.size
+        if max(cw, ch) < 400:
+            scale = max(2, 400 // max(cw, ch))
+            crop = crop.resize((cw * scale, ch * scale), Image.Resampling.LANCZOS)
+        text = (pytesseract.image_to_string(crop, lang="eng") or "").strip()
+        out["text"] = text[:200]
+        out["hit"] = brand_text_hit(text)
+        return out
+    except Exception as e:
+        out["error"] = f"{type(e).__name__}:{e}"
+        return out
+
+
+def garment_brand_ocr_hit(video_path: str | Path) -> dict[str, Any]:
+    """出片后衣物区品牌 OCR。hit True 时应换 seed 重跑。
+
+    返回 {hit: bool, text: str, frames_checked: int, error: str}。
+    pytesseract/cv2 不可用则 hit=False 不拦。
+    """
+    out: dict[str, Any] = {
+        "hit": False,
+        "text": "",
+        "frames_checked": 0,
+        "error": "",
+    }
+    path = Path(video_path) if video_path else None
+    if path is None or not path.is_file():
+        out["error"] = "missing_video"
+        return out
+    try:
+        import cv2
+    except Exception as e:
+        out["error"] = f"cv2_unavailable:{type(e).__name__}"
+        return out
+    try:
+        import pytesseract  # noqa: F401
+    except Exception as e:
+        out["error"] = f"ocr_unavailable:{type(e).__name__}"
+        return out
+
+    cap = cv2.VideoCapture(str(path))
+    if not cap.isOpened():
+        out["error"] = "open_failed"
+        return out
+    try:
+        n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        # 采前/中/后三帧（竖屏胸口常在中前段可见）
+        if n <= 0:
+            idxs = [0]
+        elif n == 1:
+            idxs = [0]
+        else:
+            idxs = sorted({0, max(0, n // 2), max(0, n - 1)})
+        texts: list[str] = []
+        for i in idxs:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                continue
+            out["frames_checked"] += 1
+            fr = garment_brand_ocr_frame(frame)
+            if fr.get("text"):
+                texts.append(str(fr["text"]))
+            if fr.get("hit"):
+                out["hit"] = True
+                out["text"] = str(fr.get("text") or "")[:200]
+                return out
+        out["text"] = " | ".join(texts)[:200]
+        return out
+    except Exception as e:
+        out["error"] = f"{type(e).__name__}:{e}"
+        return out
+    finally:
+        cap.release()

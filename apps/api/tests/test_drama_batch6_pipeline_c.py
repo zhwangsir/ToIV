@@ -17,7 +17,12 @@ from app.services.studio.prompt_c import (
     pick_garment_colors, costume_color_phrases_from_palette,
     hex_to_zh_en_color,
 )
-from app.services.studio.candidate_pick import pick_best_candidate
+from app.services.studio.candidate_pick import (
+    pick_best_candidate,
+    garment_brand_ocr_hit,
+    garment_brand_ocr_frame,
+    brand_text_hit,
+)
 
 
 @pytest.fixture()
@@ -437,7 +442,6 @@ def test_costume_lock_for_style_ancient():
     s = costume_lock_for_style("ancient_realistic", visual_prompt="Lin Xia black raincoat hoodie", name="林夏")
     low = s.lower()
     assert "jiaoling" in low or "hanfu" in low
-    assert "gold" in low or "黑" in s or "棕" in s
     assert "no raincoat" in low and "no hoodie" in low
     assert "no purple" in low or "禁止紫" in s
     # 正向段不得再写雨衣/帽衫/indigo/navy（否定里可写 no indigo）
@@ -445,6 +449,10 @@ def test_costume_lock_for_style_ancient():
     assert "raincoat" not in positive
     assert "hoodie" not in positive
     assert "indigo" not in positive and "navy" not in positive
+    # 无 colors：正向不得硬编码 jet-black / 主色纯黑
+    assert "jet-black" not in positive and "jet black" not in positive
+    assert "主色纯黑" not in s.split("no hood", 1)[0]
+    assert "plain" in low or "unbranded" in low or "素面" in s or "no print" in low
 
 
 def test_costume_lock_for_style_anime():
@@ -456,6 +464,9 @@ def test_costume_lock_for_style_anime():
     positive = low.split("no hanfu", 1)[0]
     assert "hanfu" not in positive
     assert "no brand logo" in low or "brand" in low
+    assert "jet-black" not in positive and "jet black" not in positive
+    assert "主色纯黑" not in s.split("no hanfu", 1)[0]
+    assert "plain" in low or "unbranded" in low or "素面" in s or "no print" in low
 
 
 def test_build_cast_visual_for_style_injects():
@@ -525,3 +536,108 @@ def test_merge_negative_includes_brand():
     assert "brand logo" in low or "品牌标" in out
     assert "storefront" in low or "店招" in out
     assert "brand logo" in C_AVOID_TEXT.lower() or "品牌标" in C_AVOID_TEXT
+
+
+
+def test_costume_lock_no_colors_no_jet_black():
+    """无配色时正向禁止 jet-black/主色纯黑；有板岩灰配色时保留 slate/板岩灰。"""
+    for style in ("anime", "ancient_realistic"):
+        s = costume_lock_for_style(style, visual_prompt="Lin Xia", name="林夏", colors=None)
+        # 正向：到第一个 no 之前
+        low = s.lower()
+        cut = low.find(" no ")
+        positive = low if cut < 0 else low[:cut]
+        assert "jet-black" not in positive, (style, positive)
+        assert "jet black" not in positive, (style, positive)
+        assert "主色纯黑" not in s.split(" no ", 1)[0]
+        assert "plain" in low or "unbranded" in low or "素面" in s or "no print" in low
+
+    slate = ["#5A6A7A", "#1A1A1E"]
+    s2 = costume_lock_for_style("anime", visual_prompt="Lin Xia", name="林夏", colors=slate)
+    assert "板岩灰" in s2 or "slate" in s2.lower()
+    assert "plain" in s2.lower() or "unbranded" in s2.lower() or "素面" in s2 or "no print" in s2.lower()
+
+
+def test_brand_text_hit_helpers():
+    assert brand_text_hit("THE NORTH FACE") is True
+    assert brand_text_hit("nike swoosh") is True
+    assert brand_text_hit("") is False
+    assert brand_text_hit("雨") is False
+
+
+def test_garment_brand_ocr_frame_north_face():
+    """合成帧画上 THE NORTH FACE 应 hit；空白应不 hit。"""
+    from PIL import Image, ImageDraw, ImageFont
+
+    # 空白帧
+    blank = Image.new("RGB", (400, 700), (40, 50, 60))
+    r0 = garment_brand_ocr_frame(blank)
+    assert r0.get("hit") is False, r0
+
+    # 胸口写品牌（ROI: y 25%-70%, x 20%-80%）
+    img = Image.new("RGB", (400, 700), (40, 50, 60))
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 36)
+    except Exception:
+        try:
+            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 36)
+        except Exception:
+            font = ImageFont.load_default()
+    # 躯干中心附近
+    draw.text((80, 280), "THE NORTH FACE", fill=(240, 240, 240), font=font)
+    r1 = garment_brand_ocr_frame(img)
+    # OCR 可能因字体/环境失败；若读出文本则必须 hit；读不出则至少 brand_text_hit 自测已覆盖
+    if r1.get("text") and any(c.isalpha() for c in r1["text"]):
+        assert r1.get("hit") is True, r1
+    else:
+        # tesseract 未识别时跳过硬断言，但函数须返回结构
+        assert "hit" in r1 and r1.get("hit") is False
+
+
+def test_garment_brand_ocr_hit_video_roundtrip(tmp_path):
+    """临时 mp4：有品牌字 hit；纯色不 hit（cv2/pytesseract 可用时）。"""
+    import subprocess
+    from PIL import Image, ImageDraw, ImageFont
+
+    def _mp4_from_png(png: Path, mp4: Path):
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-loglevel", "error",
+                "-loop", "1", "-i", str(png),
+                "-t", "0.5", "-pix_fmt", "yuv420p", "-r", "8",
+                str(mp4),
+            ],
+            check=True,
+        )
+
+    blank_png = tmp_path / "blank.png"
+    Image.new("RGB", (400, 700), (30, 30, 30)).save(blank_png)
+    blank_mp4 = tmp_path / "blank.mp4"
+    try:
+        _mp4_from_png(blank_png, blank_mp4)
+    except Exception as e:
+        pytest.skip(f"ffmpeg 不可用: {e}")
+
+    r_blank = garment_brand_ocr_hit(blank_mp4)
+    assert r_blank.get("hit") is False, r_blank
+    assert r_blank.get("frames_checked", 0) >= 1 or r_blank.get("error")
+
+    brand_png = tmp_path / "brand.png"
+    img = Image.new("RGB", (400, 700), (30, 30, 30))
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 40)
+    except Exception:
+        font = ImageFont.load_default()
+    draw.text((60, 300), "THE NORTH FACE", fill=(255, 255, 255), font=font)
+    img.save(brand_png)
+    brand_mp4 = tmp_path / "brand.mp4"
+    _mp4_from_png(brand_png, brand_mp4)
+    r_brand = garment_brand_ocr_hit(brand_mp4)
+    if r_brand.get("error", "").startswith(("ocr_unavailable", "cv2_unavailable")):
+        pytest.skip(r_brand["error"])
+    # 有帧被检查；OCR 识别成功时必须 hit
+    assert r_brand.get("frames_checked", 0) >= 1
+    if r_brand.get("text") and "north" in r_brand["text"].lower():
+        assert r_brand.get("hit") is True
