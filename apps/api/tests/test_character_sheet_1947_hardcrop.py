@@ -19,7 +19,7 @@ def _figure() -> bytes:
     h, w = 1216, 832
     arr = np.zeros((h, w, 3), dtype=np.uint8)
     arr[:] = (240, 240, 244)
-    arr[int(h * 0.30) : int(h * 0.95), int(w * 0.25) : int(w * 0.75)] = (90, 106, 122)
+    arr[int(h * 0.16) : int(h * 0.98), int(w * 0.18) : int(w * 0.82)] = (90, 106, 122)
     fy0, fy1 = int(h * 0.08), int(h * 0.22)
     fx0, fx1 = int(w * 0.38), int(w * 0.62)
     arr[fy0:fy1, fx0:fx1] = (220, 180, 150)

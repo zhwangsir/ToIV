@@ -56,13 +56,13 @@ _EXPR_PROMPTS = (
 )
 # 19:01：表情只走图像编辑——中文指令仅改表情，锁身份/发型/服装/构图
 _EXPR_EDIT_INSTRUCTIONS = (
-    # 19:47：威严 vs 果断拉开——威严皱眉抿嘴正面；果断眼神坚定 + 微侧头嘴角紧
-    "只改变面部表情为威严：明显皱眉、双眉下压、双眼正视镜头、双唇抿紧嘴角平直。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "只改变面部表情为冷酷：眼神冷淡半眯、嘴角明显下压。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "只改变面部表情为沉思：目光略偏下、眉心轻蹙、嘴放松。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "只改变面部表情为温柔：轻微微笑、眼角柔和。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "只改变面部表情为惊恐：双眼睁大、小口微张、眉毛上扬。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要裁太近。",
-    "只改变面部表情为果断：目光坚定略带锋利、嘴角绷紧、头部轻微侧转约10度（与威严的正面抿嘴区分）。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    # 20:23：五官写清、改动加强；发型/衣服门禁照旧
+    "只改变面部表情为威严：眉头明显下压聚拢、双眼正视、嘴角明显向下、双唇抿紧。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为冷酷：双眼半睁、面无表情、目光明显斜视一侧、嘴角平直下压。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为沉思：视线明显下垂看向斜下方、眉心轻蹙、嘴唇微闭放松，可微侧头。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为温柔：明显微笑露一点上齿、眼角弯起柔和。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为惊恐：双眼瞪大、嘴巴明显张开可见口腔、眉毛高高上扬、眉心分开。必须张嘴。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要裁太近。",
+    "只改变面部表情为果断：眉毛压平、眼神直视镜头坚定、嘴唇紧闭成一条线、下颌微绷（正面，勿侧头）。与威严的皱眉下嘴角区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
 )
 _CHAR_SHEET_MARK = "char_sheet_"
 _CHAR_PANEL_MARK = "char_panel_"
@@ -2655,27 +2655,27 @@ def crop_face_slot_from_master(
     slot: str,
     size: int = 768,
 ) -> bytes:
-    """19:47：别再靠检测。母版固定比例硬裁头像，三格同尺寸。
+    """20:23：母版固定比例硬裁头像，三格同尺寸；放大严格 ≤2×。
 
-    face_front ← 主立绘顶部到下巴下（约画高 0–22%）
+    face_front ← 主立绘顶部到下巴下（约画高 0–20%）
     face_three_quarter ← 侧母版顶部约 0–25%
     face_side ← 背母版顶部约 0–25%
-    水平以头发轮廓中心为准；边长放大不超过 2×；出卡前头高占格高须 ≥35%。
+    水平以头发轮廓中心为准；侧面糊再走 Qwen 清线+CLIP 回退。
     """
     if not data:
         raise CharacterSheetError(f"faces crop: empty master for {slot}", status_code=422)
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
-    # 19:47 比例：正≈0–20%（略紧于原文 22%，保证头高≥35%）；侧/背≈0–22%
+    # 20:23：正≈0–20%；侧/背≈0–25%；放大严格 ≤2×（短边/2），糊了交给 Qwen 清线
     if slot == "face_front":
         band = 0.20
     elif slot in ("face_three_quarter", "face_side"):
-        band = 0.22
+        band = 0.25
     else:
         raise CharacterSheetError(f"faces crop: unknown slot {slot}", status_code=422)
-    # 裁窗边长 = band*h；放大上限约 2.5×（短边/2.5），优先满足头高≥35%
+    # 裁窗边长 = band*h；放大上限 2×（短边/2）
     side = float(band) * float(h)
-    min_side = float(min(w, h)) / 2.5
+    min_side = float(min(w, h)) / 2.0
     side = max(side, min_side)
     side = min(side, float(w), float(h))
     cx = _hair_center_x(img, y0_frac=0.0, y1_frac=min(0.35, band + 0.08))
@@ -2697,12 +2697,11 @@ def crop_face_slot_from_master(
 
     out = _emit(left, top, side)
     frac = measure_face_height_frac(out)
-    # 头高仍不足时：同中心几何再收紧（仍不靠检测找脸），不超过 2× 放大下限
+    # 头高仍不足：同中心几何再收紧，仍不超过 2× 放大下限
     if frac is not None and frac + 1e-12 < 0.35:
-        # 几何收紧：新边长 = 旧边长 * (frac/0.42)，下限短边/2.8（约 2.8×）
         target = 0.42
         shrink = max(0.55, min(0.92, float(frac) / target))
-        floor = float(min(w, h)) / 2.8
+        floor = float(min(w, h)) / 2.0
         new_side = max(floor, side * shrink)
         new_side = min(new_side, float(w), float(h), side)
         left2 = cx - new_side / 2.0
@@ -2901,12 +2900,142 @@ def assert_expression_identity_gates(
         )
 
 
+
+def _facial_feature_roi(im: Image.Image) -> Image.Image:
+    """眉眼嘴区域：上半脸到嘴下（约 12%–72% 高，20%–80% 宽）。"""
+    w, h = im.size
+    return im.crop((int(w * 0.20), int(h * 0.12), int(w * 0.80), int(h * 0.72)))
+
+
+def expression_roi_pixel_diff(a: bytes, b: bytes) -> float:
+    """两图眉眼嘴 ROI 的平均绝对像素差（0–255）。"""
+    ia = _facial_feature_roi(Image.open(BytesIO(a)).convert("RGB").resize((256, 256), Image.Resampling.BILINEAR))
+    ib = _facial_feature_roi(Image.open(BytesIO(b)).convert("RGB").resize((256, 256), Image.Resampling.BILINEAR))
+    pa = list(ia.getdata())
+    pb = list(ib.getdata())
+    if not pa or len(pa) != len(pb):
+        return 0.0
+    acc = 0.0
+    for (r1, g1, b1), (r2, g2, b2) in zip(pa, pb):
+        acc += (abs(r1 - r2) + abs(g1 - g2) + abs(b1 - b2)) / 3.0
+    return acc / float(len(pa))
+
+
+def mouth_appears_open(data: bytes) -> bool:
+    """惊恐门禁：下半脸中央出现明显深色张嘴区域。"""
+    im = Image.open(BytesIO(data)).convert("RGB")
+    w, h = im.size
+    # 嘴区：水平中部、垂直约 55%–78%
+    box = (int(w * 0.32), int(h * 0.55), int(w * 0.68), int(h * 0.78))
+    crop = im.crop(box)
+    px = list(crop.getdata())
+    if not px:
+        return False
+    dark = 0
+    for r, g, b in px:
+        lum = (r + g + b) / 3.0
+        if lum < 70:
+            dark += 1
+    ratio = dark / float(len(px))
+    # 闭嘴几乎无深色洞；张嘴通常 ≥8% 深色
+    return ratio >= 0.08
+
+
+def assert_expression_diversity(
+    data: bytes,
+    *,
+    expr_key: str,
+    neutral_ref: bytes | None,
+    other_exprs: dict[str, bytes] | None = None,
+    min_vs_neutral: float = 6.0,
+    min_pairwise: float = 4.0,
+) -> None:
+    """20:23：与中性脸眉眼嘴 ROI 像素差 ≥ 阈值；两两也 ≥ 阈值；惊恐须张嘴。"""
+    if expr_key == "expr_4" and not mouth_appears_open(data):
+        raise CharacterSheetError(
+            f"{expr_key}惊恐未检测到张嘴",
+            status_code=422,
+        )
+    if neutral_ref:
+        d = expression_roi_pixel_diff(data, neutral_ref)
+        if d + 1e-12 < float(min_vs_neutral):
+            raise CharacterSheetError(
+                f"{expr_key}相对中性脸表情差过弱 diff={d:.2f}<{min_vs_neutral}",
+                status_code=422,
+            )
+    if other_exprs:
+        for ok, ob in other_exprs.items():
+            if ok == expr_key or not ob:
+                continue
+            d2 = expression_roi_pixel_diff(data, ob)
+            if d2 + 1e-12 < float(min_pairwise):
+                raise CharacterSheetError(
+                    f"{expr_key}与{ok}表情过于相似 diff={d2:.2f}<{min_pairwise}",
+                    status_code=422,
+                )
+
+
+def clip_image_cosine_sim(a: bytes, b: bytes) -> float | None:
+    """可选 open_clip 图相似度；不可用则 None。"""
+    try:
+        from app.services.studio.candidate_pick import (
+            _cosine,
+            _openclip_image_embedder,
+        )
+    except Exception:
+        return None
+    enc = _openclip_image_embedder()
+    if enc is None:
+        return None
+    try:
+        ia = Image.open(BytesIO(a)).convert("RGB")
+        ib = Image.open(BytesIO(b)).convert("RGB")
+        ea = enc(ia)
+        eb = enc(ib)
+        if ea is None or eb is None:
+            return None
+        return float(_cosine(ea, eb))
+    except Exception:
+        return None
+
+
+def side_face_cleanup_accept(
+    cleaned: bytes,
+    original_crop: bytes,
+    *,
+    master_side: bytes | None = None,
+    min_clip: float = 0.82,
+) -> bool:
+    """20:23：清线结果须仍像侧面裁/母版；CLIP 不过或像素漂太远 → 退回原裁。"""
+    # 像素：清线应接近原裁（低强度），差异过大视为改崩
+    try:
+        ia = Image.open(BytesIO(cleaned)).convert("RGB").resize((128, 128))
+        ib = Image.open(BytesIO(original_crop)).convert("RGB").resize((128, 128))
+        pa, pb = list(ia.getdata()), list(ib.getdata())
+        mae = sum(
+            (abs(r1 - r2) + abs(g1 - g2) + abs(b1 - b2)) / 3.0
+            for (r1, g1, b1), (r2, g2, b2) in zip(pa, pb)
+        ) / float(len(pa))
+        if mae > 28.0:
+            return False
+    except Exception:
+        return False
+    ref = master_side or original_crop
+    sim = clip_image_cosine_sim(cleaned, ref)
+    if sim is None:
+        # 无 CLIP：仅靠 MAE 已过则接受
+        return True
+    return sim + 1e-12 >= float(min_clip)
+
+
 def _expr_reject_cause(err: Exception | str) -> str:
     msg = str(err)
     if "徽标" in msg or "字样" in msg or "emblem" in msg.lower():
         return "emblem"
     if "发长" in msg or "齐下巴" in msg or "hair" in msg.lower():
         return "hair"
+    if "张嘴" in msg or "表情差过弱" in msg or "过于相似" in msg or "diversity" in msg.lower():
+        return "expr_weak"
     if "face" in msg.lower() or "近景" in msg or "closeup" in msg.lower():
         return "face"
     return "other"
@@ -4869,7 +4998,7 @@ async def generate_character_sheet(
                 )
                 raise
             for fk in ("face_front", "face_three_quarter", "face_side"):
-                # 19:47 硬裁已断言头高≥35%；此处只做空图检查，不再 detection 拉近
+                # 20:23 硬裁 ≤2×；此处只做空图检查，侧面再走 Qwen 清线
                 im = Image.open(BytesIO(tri[fk])).convert("RGB")
                 if im.size[0] < 64 or sum(im.convert("L").resize((32, 32)).getdata()) < 100:
                     dump_rejected_panel(
@@ -4894,6 +5023,54 @@ async def generate_character_sheet(
                     _y,
                     yaw_ok_for_face_key(_y, fk),
                 )
+            # 20:23：侧面硬裁后 ≤2× 仍可能糊——Qwen「只清线」低强度，CLIP/像素不过则退回原裁
+            try:
+                side_crop = tri["face_three_quarter"]
+                side_name = await client.upload_image(
+                    side_crop,
+                    f"sheet_side_crop_{character_id[:8]}_{meta.style}.png",
+                )
+                cleaned = await generate_panel_bytes(
+                    pool,
+                    "只清理模糊与扭曲的线条，保持侧面头像一模一样："
+                    "同一发型、同一轮廓、同一角度、同一五官位置；"
+                    "不要改变表情、不要改服装、不要加细节、不要锐化过度、不要重绘脸型。",
+                    ckpt_name=ckpt,
+                    width=768,
+                    height=768,
+                    seed=None if seed is None else int(seed) + 2023,
+                    worker=worker,
+                    filename_prefix="ToIV_char_sheet_side_deblur",
+                    style=meta.style,
+                    client=client,
+                    ref_image=side_name,
+                    ref_mode="qwen_edit",
+                    denoise=1.0,
+                )
+                cleaned = enforce_head_shoulders_square(
+                    cleaned, size=768, face_closeup_gate=True
+                )
+                ok = side_face_cleanup_accept(
+                    cleaned,
+                    side_crop,
+                    master_side=panels.get("side"),
+                    min_clip=0.82,
+                )
+                if ok:
+                    tri["face_three_quarter"] = cleaned
+                    logger.info("faces side Qwen deblur accepted")
+                else:
+                    logger.info("faces side Qwen deblur rejected → keep 2x crop")
+                    dump_rejected_panel(
+                        cleaned,
+                        seed=seed,
+                        panel="face_three_quarter",
+                        gate="side_deblur_clip",
+                        detail="CLIP/MAE fail, revert crop",
+                        dump_dir=reject_dir,
+                    )
+            except Exception as de:  # noqa: BLE001
+                logger.warning("faces side Qwen deblur skipped: %s", de)
             panels["faces"] = compose_faces_triptych(
                 tri,
                 style=meta.style,
@@ -4941,7 +5118,12 @@ async def generate_character_sheet(
                     _ei = _EXPR_KEYS.index(key) if key in _EXPR_KEYS else 0
                     _prompt_x = _EXPR_EDIT_INSTRUCTIONS[_ei]
                     if attempt:
-                        _prompt_x = _prompt_x + f" 变体{attempt}"
+                        _prompt_x = (
+                            _prompt_x
+                            + f" 变体{attempt}。务必加大五官表情幅度，眉眼嘴变化必须非常明显。"
+                        )
+                        if key == "expr_4":
+                            _prompt_x += " 嘴巴必须明显张开。"
                 raw = await generate_panel_bytes(
                     pool,
                     _prompt_x,
@@ -5001,6 +5183,24 @@ async def generate_character_sheet(
                                 raise ge
                         else:
                             raise
+                    # 20:23：表情幅度门禁（相对中性 + 两两差；惊恐须张嘴）
+                    _neutral = None
+                    try:
+                        if panels.get("portrait"):
+                            _neutral = crop_face_ref(panels["portrait"], size=768)
+                    except Exception:  # noqa: BLE001
+                        _neutral = None
+                    _others = {
+                        ek: panels[ek]
+                        for ek in _EXPR_KEYS
+                        if ek in panels and ek != key and panels.get(ek)
+                    }
+                    assert_expression_diversity(
+                        raw,
+                        expr_key=key,
+                        neutral_ref=_neutral,
+                        other_exprs=_others,
+                    )
                 if key in ("front", "side") and meta.style in ("anime", "二次元"):
                     if portrait_has_chest_emblem(raw):
                         raise CharacterSheetError(
@@ -6338,14 +6538,89 @@ def _trim_object_bbox(img: Image.Image, *, style: str, pad: int = 12) -> Image.I
     return rgb.crop((min_x, min_y, max_x + 1, max_y + 1))
 
 
-# 19:47：服饰五格从主立绘裁不重复局部（帽兜领口/袖口/口袋/下摆/腿脚），禁错色生成单品
+# 20:23：服饰五格按主立绘坐标裁——帽兜领口(下巴下到肩)/袖口与手/口袋/下摆/腿脚；非背景≥60%
 _COSTUME_PORTRAIT_BANDS: tuple[tuple[str, tuple[float, float, float, float]], ...] = (
-    ("hood_collar", (0.20, 0.06, 0.80, 0.34)),
-    ("cuff", (0.02, 0.30, 0.40, 0.58)),
-    ("pocket", (0.28, 0.36, 0.72, 0.60)),
-    ("hem", (0.18, 0.55, 0.82, 0.82)),
-    ("legs", (0.26, 0.76, 0.74, 0.99)),
+    ("hood_collar", (0.22, 0.18, 0.78, 0.38)),  # 下巴以下到肩，禁带脸
+    ("cuff", (0.00, 0.38, 0.42, 0.62)),  # 袖口与手
+    ("pocket", (0.30, 0.40, 0.70, 0.58)),
+    ("hem", (0.20, 0.58, 0.80, 0.78)),
+    ("legs", (0.28, 0.78, 0.72, 0.99)),
 )
+
+
+def _costume_cell_fg_ratio(cell: Image.Image) -> float:
+    """单格非背景像素占比（浅灰/近白底不计）。"""
+    px = list(cell.convert("RGB").getdata())
+    if not px:
+        return 0.0
+    fg = 0
+    for r, g, b in px:
+        if r > 230 and g > 230 and b > 230:
+            continue
+        if abs(r - g) < 8 and abs(g - b) < 8 and 140 < r < 210:
+            continue
+        fg += 1
+    return fg / float(len(px))
+
+
+def _crop_costume_band_filled(
+    img: Image.Image,
+    box: tuple[float, float, float, float],
+    *,
+    size: int = 768,
+    min_fg: float = 0.60,
+) -> bytes:
+    """按归一化框裁切；前景 < min_fg 时自动扩/平移裁框直到达标或触边。"""
+    w, h = img.size
+    x0, y0, x1, y1 = [float(v) for v in box]
+    best = None
+    best_r = -1.0
+    for step in range(8):
+        xa, ya = int(w * x0), int(h * y0)
+        xb, yb = int(w * x1), int(h * y1)
+        xa, xb = max(0, min(xa, xb)), min(w, max(xa, xb))
+        ya, yb = max(0, min(ya, yb)), min(h, max(ya, yb))
+        if xb - xa < 8 or yb - ya < 8:
+            break
+        crop = img.crop((xa, ya, xb, yb))
+        r = _costume_cell_fg_ratio(crop)
+        if r > best_r:
+            best_r = r
+            best = crop
+        if r + 1e-12 >= min_fg:
+            break
+        # 扩框：向中心外扩约 6%，袖口格同时略向右/下移以吃进袖与手
+        pad = 0.06
+        x0 = max(0.0, x0 - pad)
+        y0 = max(0.0, y0 - pad * 0.5)
+        x1 = min(1.0, x1 + pad)
+        y1 = min(1.0, y1 + pad)
+        if step >= 3:
+            # 平移：若整框仍空，向画面中心挪
+            cx = (x0 + x1) / 2.0
+            cy = (y0 + y1) / 2.0
+            dx = (0.5 - cx) * 0.08
+            dy = (0.55 - cy) * 0.08
+            x0, x1 = x0 + dx, x1 + dx
+            y0, y1 = y0 + dy, y1 + dy
+            x0, x1 = max(0.0, x0), min(1.0, x1)
+            y0, y1 = max(0.0, y0), min(1.0, y1)
+    if best is None:
+        raise CharacterSheetError("costume band crop empty", status_code=422)
+    if best_r + 1e-12 < float(min_fg):
+        raise CharacterSheetError(
+            f"costume band fg {best_r:.3f} < {min_fg:.2f} after auto-adjust",
+            status_code=422,
+        )
+    crop = best
+    side = max(crop.width, crop.height, 8)
+    canvas = Image.new("RGB", (side, side), (240, 240, 244))
+    canvas.paste(crop, ((side - crop.width) // 2, (side - crop.height) // 2))
+    canvas = canvas.resize((size, size), Image.Resampling.LANCZOS)
+    # letterbox 后仍可能被浅底稀释；以裁切本体 ratio 为准，拼后再 assert
+    buf = BytesIO()
+    canvas.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 def build_costume_collage_from_portrait(
@@ -6353,24 +6628,22 @@ def build_costume_collage_from_portrait(
     *,
     style: str = "anime",
     size: int = 768,
+    min_fg: float = 0.60,
 ) -> bytes:
-    """从主立绘裁 5 个不重复局部拼服饰条，删除浅蓝错色外套等生成物。"""
+    """20:23：从主立绘按坐标裁 5 局部；每格非背景 ≥60%，否则自动调框。"""
     if not portrait:
         raise CharacterSheetError("costume portrait crops: empty portrait", status_code=422)
     img = Image.open(BytesIO(portrait)).convert("RGB")
-    w, h = img.size
     items: list[bytes] = []
-    for key, (x0, y0, x1, y1) in _COSTUME_PORTRAIT_BANDS:
-        crop = img.crop((int(w * x0), int(h * y0), int(w * x1), int(h * y1)))
-        side = max(crop.width, crop.height, 8)
-        canvas = Image.new("RGB", (side, side), (240, 240, 244))
-        canvas.paste(crop, ((side - crop.width) // 2, (side - crop.height) // 2))
-        canvas = canvas.resize((size, size), Image.Resampling.LANCZOS)
-        buf = BytesIO()
-        canvas.save(buf, format="PNG")
-        items.append(buf.getvalue())
-        logger.info("costume portrait crop %s box=%s", key, (x0, y0, x1, y1))
-    return collage_costume_items(items, style=style)
+    for key, box in _COSTUME_PORTRAIT_BANDS:
+        # ≥60% 在扩框裁切本体上保证；letterbox 进方格会稀释，拼版后只做非空兜底
+        cell = _crop_costume_band_filled(img, box, size=size, min_fg=min_fg)
+        r = _costume_cell_fg_ratio(Image.open(BytesIO(cell)).convert("RGB"))
+        items.append(cell)
+        logger.info("costume portrait crop %s box=%s post_lb_fg≈%.3f", key, box, r)
+    out = collage_costume_items(items, style=style)
+    assert_costume_cells_nonempty(out, min_ratio=0.12, n=5)
+    return out
 
 
 async def _generate_costume_collage(
@@ -7466,6 +7739,22 @@ async def regenerate_sheet_panels(
                         g,
                         portrait_ref=panels.get("portrait"),
                         expr_key=key,
+                    )
+                    _neutral = None
+                    try:
+                        if panels.get("portrait"):
+                            _neutral = crop_face_ref(panels["portrait"], size=768)
+                    except Exception:  # noqa: BLE001
+                        _neutral = None
+                    assert_expression_diversity(
+                        g,
+                        expr_key=key,
+                        neutral_ref=_neutral,
+                        other_exprs={
+                            ek: panels[ek]
+                            for ek in _EXPR_KEYS
+                            if ek in panels and ek != key and panels.get(ek)
+                        },
                     )
                     gated.append(g)
                 except CharacterSheetError as ge:
