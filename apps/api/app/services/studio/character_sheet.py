@@ -2666,15 +2666,16 @@ def crop_face_slot_from_master(
         raise CharacterSheetError(f"faces crop: empty master for {slot}", status_code=422)
     img = Image.open(BytesIO(data)).convert("RGB")
     w, h = img.size
+    # 19:47 比例：正≈0–20%（略紧于原文 22%，保证头高≥35%）；侧/背≈0–22%
     if slot == "face_front":
-        band = 0.22
+        band = 0.20
     elif slot in ("face_three_quarter", "face_side"):
-        band = 0.25
+        band = 0.22
     else:
         raise CharacterSheetError(f"faces crop: unknown slot {slot}", status_code=422)
-    # 裁窗边长 = band*h，但不得小于短边/2（放大≤2×）
+    # 裁窗边长 = band*h；放大上限约 2.5×（短边/2.5），优先满足头高≥35%
     side = float(band) * float(h)
-    min_side = float(min(w, h)) / 2.0
+    min_side = float(min(w, h)) / 2.5
     side = max(side, min_side)
     side = min(side, float(w), float(h))
     cx = _hair_center_x(img, y0_frac=0.0, y1_frac=min(0.35, band + 0.08))
@@ -2686,13 +2687,38 @@ def crop_face_slot_from_master(
         left = max(0.0, float(w) - side)
     if top + side > h:
         top = max(0.0, float(h) - side)
-    crop = img.crop((int(left), int(top), int(left + side), int(top + side)))
-    crop = crop.resize((size, size), Image.Resampling.LANCZOS)
-    buf = BytesIO()
-    crop.save(buf, format="PNG")
-    out = buf.getvalue()
-    # 出卡前断言头高占格高 ≥35%（背影无人脸 → 用非浅底纵向跨度）
+
+    def _emit(l: float, t: float, s: float) -> bytes:
+        c = img.crop((int(l), int(t), int(l + s), int(t + s)))
+        c = c.resize((size, size), Image.Resampling.LANCZOS)
+        b = BytesIO()
+        c.save(b, format="PNG")
+        return b.getvalue()
+
+    out = _emit(left, top, side)
     frac = measure_face_height_frac(out)
+    # 头高仍不足时：同中心几何再收紧（仍不靠检测找脸），不超过 2× 放大下限
+    if frac is not None and frac + 1e-12 < 0.35:
+        # 几何收紧：新边长 = 旧边长 * (frac/0.42)，下限短边/2.8（约 2.8×）
+        target = 0.42
+        shrink = max(0.55, min(0.92, float(frac) / target))
+        floor = float(min(w, h)) / 2.8
+        new_side = max(floor, side * shrink)
+        new_side = min(new_side, float(w), float(h), side)
+        left2 = cx - new_side / 2.0
+        if left2 < 0:
+            left2 = 0.0
+        if left2 + new_side > w:
+            left2 = max(0.0, float(w) - new_side)
+        out = _emit(left2, 0.0, new_side)
+        frac = measure_face_height_frac(out)
+        logger.info(
+            "faces %s hard-crop tighten side %.1f→%.1f frac→%s",
+            slot,
+            side,
+            new_side,
+            frac,
+        )
     if frac is None:
         vspan = panel_vertical_span(out)
         if vspan + 1e-12 < 0.35:
