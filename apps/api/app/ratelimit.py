@@ -31,6 +31,7 @@ _DEFAULT_SCOPES: dict[str, tuple[float, int]] = {
     "reverse": (60.0, 5),      # 反推:每分钟 5 次(50MB 视频反推重资源)
     "download": (60.0, 10),    # NAS 下载:每分钟 10 次
     "opentalking": (60.0, 10),  # 数字人写操作:每分钟 10 次(占 GPU3 50GB 实时资源)
+    "llm": (60.0, 30),         # LLM 代理 /api/llm/v1:每分钟 30 次(助手多轮工具调用)
     "default": (60.0, 20),     # 默认
 }
 
