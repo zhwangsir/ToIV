@@ -25,6 +25,10 @@ type ManifestOperation struct {
 	Body                any                `json:"body,omitempty"`
 	Fields              map[string]string  `json:"fields,omitempty"`
 	Files               []ManifestFilePart `json:"files,omitempty"`
+	// Fallback (poll only) is retried once when the primary poll request is
+	// rejected with HTTP 400/422, e.g. an upstream that does not yet accept a
+	// newer lookup parameter. ToIV patch.
+	Fallback *ManifestOperation `json:"fallback,omitempty"`
 }
 
 type ManifestFilePart struct {
@@ -546,7 +550,16 @@ func (a manifestAdapter) BuildPoll(_ context.Context, c PollContext) (RequestSpe
 	}
 	request := c.Request
 	request.Model = c.Model
-	return buildManifestOperation(*a.manifest.Poll, a.manifest.Auth, request, c.TaskID)
+	spec, err := buildManifestOperation(*a.manifest.Poll, a.manifest.Auth, request, c.TaskID)
+	if err != nil || a.manifest.Poll.Fallback == nil {
+		return spec, err
+	}
+	fallback, err := buildManifestOperation(*a.manifest.Poll.Fallback, a.manifest.Auth, request, c.TaskID)
+	if err != nil {
+		return RequestSpec{}, fmt.Errorf("build poll fallback: %w", err)
+	}
+	spec.Fallback = &fallback
+	return spec, nil
 }
 func (a manifestAdapter) ParsePoll(_ context.Context, c PollContext, body []byte) (PollResult, error) {
 	payload, err := decodeObject(body)

@@ -121,6 +121,8 @@ type RequestSpec struct {
 	Body        any                 `json:"body,omitempty"`
 	Files       []RequestFilePart   `json:"files,omitempty"`
 	Auth        ManifestAuth        `json:"auth,omitempty"`
+	// Fallback is an alternative request tried once on HTTP 400/422 (poll only).
+	Fallback *RequestSpec `json:"-"`
 }
 
 type RequestFilePart struct {

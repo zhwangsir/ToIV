@@ -112,12 +112,13 @@ func RunProtocolAdapterTaskWithPolicy(ctx context.Context, input Input, adapter 
 		}
 	}
 
+	preferFallback := false
 	return RunVideoPollLoop(ctx, taskID, policy, func(ctx context.Context) (VideoPollOutcome, error) {
 		spec, err := adapter.BuildPoll(ctx, protocol.PollContext{BaseURL: input.Config.BaseURL, Model: request.Model, Request: request, TaskID: taskID})
 		if err != nil {
 			return VideoPollOutcome{}, err
 		}
-		body, err := ExecuteProtocolRequest(WithRequestKind(ctx, "poll"), input.Config, spec)
+		body, err := executeProtocolPollRequest(pollCallContext(ctx, taskID), input.Config, spec, &preferFallback)
 		if err != nil {
 			return VideoPollOutcome{}, err
 		}
@@ -169,7 +170,8 @@ func QueryProtocolAdapterVideoTask(ctx context.Context, input Input, adapter pro
 	if err != nil {
 		return nil, "", err
 	}
-	body, err := ExecuteProtocolRequest(WithRequestKind(ctx, "poll"), input.Config, spec)
+	preferFallback := false
+	body, err := executeProtocolPollRequest(pollCallContext(ctx, taskID), input.Config, spec, &preferFallback)
 	if err != nil {
 		return nil, "", err
 	}
@@ -1120,4 +1122,50 @@ func ProtocolCapabilityMatches(metadata protocol.Metadata, capability protocol.C
 		}
 	}
 	return false
+}
+
+// pollCallContext marks a declarative poll and records the declarative task ID
+// as the provider request ID, so the persisted resume key is the adapter's own
+// taskId (which may be a composite such as "<jobId>~<promptId>") rather than a
+// generic "id" field scraped from the poll response. ToIV patch.
+func pollCallContext(ctx context.Context, taskID string) context.Context {
+	ctx = WithRequestKind(ctx, "poll")
+	if strings.TrimSpace(taskID) == "" {
+		return ctx
+	}
+	runtime, ok := RuntimeFromContext(ctx)
+	if !ok {
+		return ctx
+	}
+	runtime.Call.ProviderRequestID = strings.TrimSpace(taskID)
+	return WithRuntime(ctx, runtime)
+}
+
+// executeProtocolPollRequest runs the poll spec; when the upstream rejects it
+// with HTTP 400/422 and the manifest declared a fallback, the fallback is tried
+// and remembered for the rest of this poll loop. ToIV patch.
+func executeProtocolPollRequest(ctx context.Context, config Config, spec protocol.RequestSpec, preferFallback *bool) ([]byte, error) {
+	if spec.Fallback == nil {
+		return ExecuteProtocolRequest(ctx, config, spec)
+	}
+	fallback := *spec.Fallback
+	if preferFallback != nil && *preferFallback {
+		return ExecuteProtocolRequest(ctx, config, fallback)
+	}
+	body, err := ExecuteProtocolRequest(ctx, config, spec)
+	if err == nil {
+		return body, nil
+	}
+	var httpErr HTTPError
+	if !errors.As(err, &httpErr) || (httpErr.StatusCode != http.StatusBadRequest && httpErr.StatusCode != http.StatusUnprocessableEntity) {
+		return nil, err
+	}
+	body, fallbackErr := ExecuteProtocolRequest(ctx, config, fallback)
+	if fallbackErr != nil {
+		return nil, fallbackErr
+	}
+	if preferFallback != nil {
+		*preferFallback = true
+	}
+	return body, nil
 }

@@ -104,7 +104,10 @@ func (s *Service) enrichAPICallLogPayload(log *model.ApiCallLog, payload map[str
 		}
 		log.CachedTokens = firstInt64(usage, "cachedContentTokenCount")
 	}
-	if extracted, err := firstJSONString(payload, "task_id", "id", "request_id", "name"); err == nil {
+	if (log.RequestKind == "poll" || log.RequestKind == "cancel") && strings.TrimSpace(log.ProviderRequestID) != "" {
+		// ToIV patch: a poll already carries the adapter's authoritative task ID
+		// (the resume key); do not replace it with a scraped generic "id".
+	} else if extracted, err := firstJSONString(payload, "task_id", "id", "request_id", "name"); err == nil {
 		log.ProviderRequestID = firstNonEmpty(nestedTaskID, extracted, log.ProviderRequestID)
 	} else {
 		log.ProviderRequestID = firstNonEmpty(nestedTaskID, log.ProviderRequestID)
