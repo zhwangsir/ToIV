@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import re
 import secrets
 from dataclasses import dataclass, field
 from typing import Any
@@ -24,6 +25,23 @@ C_AUDIO_CONTEXT_FRAMES = 24
 _CLIP = "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
 _VAE_V = "minimax_h3_video_vae_fp16.safetensors"
 _VAE_A = "minimax_h3_audio_vae_fp32.safetensors"
+
+
+# T8 Hybrid：first_frame 作为 <Picture 1> 排在参考图之前（conditioning.py picture_labels /
+# text_encoders/minimax.py "<Picture i>: "），参考图依次为 Picture 2..N+1。
+FIRST_FRAME_PICTURE_LABEL = "首帧画面（第0帧构图锚定）"
+_PIC_REF = re.compile(r"@图片(\d+)")
+
+
+def shift_picture_refs_for_first_frame(prompt: str) -> str:
+    """有 first_frame 时把 @图片N 整体 +1，并在绝对开头补 @图片1 作为首帧的引用。
+
+    参考图前缀由 shot_refs/h3_refs 按 ref_images 槽序从 1 编号；Hybrid 下首帧占 Picture 1，
+    不平移则「@图片1=正面」实指首帧、最后一张参考图（常为场景）无人引用。
+    """
+    text = prompt or ""
+    shifted = _PIC_REF.sub(lambda m: f"@图片{int(m.group(1)) + 1}", text)
+    return f"@图片1作为{FIRST_FRAME_PICTURE_LABEL}" + shifted
 
 
 @dataclass(frozen=True)
@@ -82,11 +100,12 @@ def build_h3_pipeline_c_graph(params: H3PipelineCParams) -> dict[str, Any]:
     # 写死 Hybrid 且无 first_frame 会在执行时报 HYBRID requires first_frame。
     ff = (params.first_frame or "").strip()
     task_type = "Hybrid" if ff else "Ref2VA"
+    prompt_text = shift_picture_refs_for_first_frame(params.positive) if ff else params.positive
     h3_inputs: dict[str, Any] = {
         "clip": ["10", 0],
         "video_vae": ["11", 0],
         "audio_vae": ["12", 0],
-        "prompt": params.positive,
+        "prompt": prompt_text,
         "width": int(params.width),
         "height": int(params.height),
         "length": int(params.length),

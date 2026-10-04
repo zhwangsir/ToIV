@@ -93,7 +93,7 @@ def _patch_pcr(monkeypatch, client: _FakeClient, picked: dict):
     async def _wait(base, pid, request=None):
         return "/api/studio/files/out.mp4"
 
-    async def _ocr(url):
+    async def _ocr(url, skip_until_frame=0):
         return {"hit": False, "text": "", "frames_checked": 1}
 
     monkeypatch.setattr(h3s, "ensure_h3_enabled", lambda: None)
@@ -530,3 +530,92 @@ def test_full_body_none_when_only_portrait_panel():
     pre = "/api/studio/files/char_panel_1c790086_ancient_realistic_"
     c = _char(reference_images_by_style=json.dumps({"ancient_realistic": [pre + "portrait_aa.png"]}))
     assert orch._full_body_ref_url([c], "ancient_realistic") is None
+
+
+# ───────────────────── 2026-10-05 文字门禁 / @图片 平移 ─────────────────────
+
+
+def test_shift_picture_refs_for_first_frame():
+    from app.workflows.h3_pipeline_c import (
+        FIRST_FRAME_PICTURE_LABEL,
+        shift_picture_refs_for_first_frame,
+    )
+
+    src = "@图片1作为林夏正面身份与服装参考@图片2作为场景1场景与光影参考\n林夏(@图片1)推门，背景(@图片2)"
+    out = shift_picture_refs_for_first_frame(src)
+    assert out.startswith(f"@图片1作为{FIRST_FRAME_PICTURE_LABEL}@图片2作为林夏正面")
+    assert "@图片3作为场景1场景与光影参考" in out
+    assert out.endswith("林夏(@图片2)推门，背景(@图片3)")
+    assert "@图片10" in shift_picture_refs_for_first_frame("@图片9作为x")
+
+
+def test_graph_shifts_picture_refs_only_with_first_frame():
+    p = "@图片1作为A@图片2作为B@图片3作为C@图片4作为场景\nbody"
+    imgs = ("a.png", "b.png", "c.png", "s.png")
+    g_ff = build_h3_pipeline_c_graph(H3PipelineCParams(positive=p, images=imgs, first_frame="ff.png"))
+    prompt = g_ff["9"]["inputs"]["prompt"]
+    # Picture 1=first_frame(7)，Picture 2..5 = ref_image_0..3(7a..7d)
+    assert prompt.startswith("@图片1作为首帧")
+    assert "@图片5作为场景" in prompt and "@图片4作为C" in prompt
+    assert g_ff["9"]["inputs"]["ref_images.ref_image_3"] == ["7d", 0]
+    g_ref = build_h3_pipeline_c_graph(H3PipelineCParams(positive=p, images=imgs))
+    assert g_ref["9"]["inputs"]["prompt"] == p
+
+
+def test_render_pipeline_c_hybrid_skips_anchor_frames_and_shifts_refs(monkeypatch):
+    from app.services.studio.candidate_pick import ANCHORED_FIRST_FRAME_SKIP_FRAMES
+
+    client = _FakeClient()
+    pcr = _patch_pcr(monkeypatch, client, {})
+    seen: list = []
+
+    async def _ocr(url, skip_until_frame=0):
+        seen.append(skip_until_frame)
+        return {"hit": False, "text": "", "frames_checked": 1}
+
+    monkeypatch.setattr(pcr, "_brand_ocr_after_render", _ocr)
+    shot, cast = _shot_cast()
+    asyncio.run(
+        pcr.render_pipeline_c(
+            shot, cast, seed=5, first_frame_url="/api/studio/files/sample_linxia_full.png",
+            worker_url=W8195, pipeline_name="c_hybrid",
+        )
+    )
+    assert seen == [ANCHORED_FIRST_FRAME_SKIP_FRAMES]
+    prompt = client.graphs[0]["9"]["inputs"]["prompt"]
+    assert prompt.startswith("@图片1作为首帧")
+    # 3 张参考图 → @图片2..4；不得残留未平移的 @图片1作为林夏
+    assert "@图片2作为林夏" in prompt and "@图片4作为" in prompt
+    assert "@图片1作为林夏" not in prompt
+
+    client2 = _FakeClient()
+    pcr = _patch_pcr(monkeypatch, client2, {})
+    seen.clear()
+    monkeypatch.setattr(pcr, "_brand_ocr_after_render", _ocr)
+    asyncio.run(pcr.render_pipeline_c(shot, cast, seed=5))
+    assert seen == [0]
+    assert client2.graphs[0]["9"]["inputs"]["prompt"].startswith("@图片1作为林夏")
+
+
+def test_render_pipeline_c_subtitle_hit_reseeds(monkeypatch):
+    client = _FakeClient()
+    pcr = _patch_pcr(monkeypatch, client, {})
+    calls = {"n": 0}
+
+    async def _ocr(url, skip_until_frame=0):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return {"hit": True, "kind": "subtitle", "text": "subtitle:我们今晚就在这里", "frames_checked": 3}
+        return {"hit": False, "text": "", "frames_checked": 3}
+
+    monkeypatch.setattr(pcr, "_brand_ocr_after_render", _ocr)
+    shot, cast = _shot_cast()
+    out = asyncio.run(
+        pcr.render_pipeline_c(
+            shot, cast, seed=5, first_frame_url="/api/studio/files/sample_linxia_full.png",
+            worker_url=W8195, pipeline_name="c_hybrid",
+        )
+    )
+    assert len(client.graphs) == 2
+    assert out["brand_ocr_reseeds"] == 1
+    assert out["brand_ocr_hits"] == ["subtitle:我们今晚就在这里"]
