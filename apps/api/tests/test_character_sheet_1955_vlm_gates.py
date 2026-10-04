@@ -217,7 +217,7 @@ def test_squareize_defaults_to_expr_scale():
 
 def test_gentle_determined_prompt_strings():
     assert "gentle closed-eye smile" in sheet_svc._EXPR_PROMPTS[3]
-    assert "soft smile" in sheet_svc._EXPR_PROMPTS[3]
+    assert ("soft smile" in sheet_svc._EXPR_PROMPTS[3] or "soft closed-eye smile" in sheet_svc._EXPR_PROMPTS[3])
     assert "relaxed eyebrows" in sheet_svc._EXPR_PROMPTS[3] or "relaxed" in sheet_svc._EXPR_PROMPTS[3]
     assert "determined" in sheet_svc._EXPR_PROMPTS[5].lower()
     assert "firm closed mouth" in sheet_svc._EXPR_PROMPTS[5]

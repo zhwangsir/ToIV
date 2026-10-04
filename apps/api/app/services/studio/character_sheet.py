@@ -51,7 +51,7 @@ _EXPR_PROMPTS = (
     "stern majestic expression, extreme face closeup head and shoulders",
     "cold aloof expression, icy gaze, extreme face closeup head and shoulders",
     "thoughtful contemplative expression, looking slightly down, extreme face closeup head and shoulders",
-    "gentle closed-eye smile soft smile, relaxed eyebrows, warm kind eyes, extreme face closeup head and shoulders",
+    "soft closed-eye smile gentle closed-eye smile, eyes closed smiling, relaxed eyebrows, extreme face closeup head and shoulders",
     "terrified shocked expression, wide eyes open mouth, fear, extreme face closeup head and shoulders",
     "determined, firm closed mouth, focused eyes, eyebrows slightly lowered, extreme face closeup head and shoulders",
 )
@@ -61,7 +61,7 @@ _EXPR_EDIT_INSTRUCTIONS = (
     "只改变面部表情为威严：下巴微抬（chin raised）、俯视镜头（looking down at viewer）、双眼锐利眯窄（sharp narrowed eyes，禁止 wide eyes/blank）、眉毛明显压低聚拢（eyebrows lowered，眉峰下压）、双唇抿紧紧闭（tight closed mouth，禁止微笑/张嘴）。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光。",
     "只改变面部表情为冷酷：面无表情（expressionless）、眼神冷、双眼半睁半阖（half-lidded eyes）、眉毛中性不皱不抬（eyebrows neutral）、闭嘴嘴角平直（flat mouth，禁止 frown/smile）、目光冷淡可略偏一侧。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
     "只改变面部表情为沉思：双眼看向斜下方（eyes looking down and to the side）、头轻微侧倾（head slightly tilted）、眉毛放松舒展（relaxed brows，禁止 frown/furrowed/眉心轻蹙）、双唇轻抿微闭（lips slightly pressed，闭嘴）、目光放空远望（faraway gaze）。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "只改变面部表情为温柔：眉毛舒展放松（禁止皱眉/眉压低/frown/furrowed brows）、双眼柔和、蓝紫虹膜保持不变、温柔闭眼微笑或轻柔微笑（gentle closed-eye smile / soft smile），禁止嘟嘴/撇嘴（frown, pout）。与威严的压眉闭嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光、不要皱眉下垂嘴角。",
+    "只改变面部表情为温柔：眉毛舒展放松（禁止皱眉/眉压低/frown/furrowed brows）、温柔闭眼微笑 soft closed-eye smile / gentle closed-eye smile（双眼闭合）、蓝紫虹膜在闭眼前保持不变、禁止睁眼中性/略愁、禁止嘟嘴/撇嘴（frown, pout, open eyes neutral）。与威严的压眉闭嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光、不要皱眉下垂嘴角。",
     "只改变面部表情为惊恐：双眼瞪大、嘴巴明显张开可见口腔、眉毛高高上扬、眉心分开。必须张嘴。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要裁太近。",
     "只改变面部表情为果断：determined，firm closed mouth，focused eyes，eyebrows slightly lowered；双唇抿紧闭嘴（坚定，禁止张嘴/喊叫/surprised/open mouth）、禁止挑眉。下颌微绷（正面，勿侧头）。与威严的皱眉下垂嘴角区分，与惊恐张嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
 )
@@ -71,7 +71,7 @@ _EXPR_INPAINT_PROMPTS = (
     "same character anime closeup, stern majestic expression, chin raised looking down at viewer, sharp narrowed eyes, eyebrows lowered, tight closed mouth lips pressed, no smile no wide eyes no blank stare, blue-violet iris unchanged, only change eyebrows eyes mouth jaw tilt, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
     "same character anime closeup, cold expressionless face, half-lidded eyes, flat mouth, eyebrows neutral, no frown no smile, closed mouth, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
     "same character anime closeup, thoughtful contemplative expression, eyes looking down and to the side, head slightly tilted, relaxed brows no frown no furrowed, lips slightly pressed, faraway gaze, only change eyebrows eyes mouth head tilt, keep identical hair face shape skin tone collar composition",
-    "same character anime closeup, gentle warm expression, gentle closed-eye smile or soft smile, relaxed eyebrows no frown no pout no furrowed brows, soft eyes, blue-violet iris unchanged, only change eyebrows eyes mouth shape, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
+    "same character anime closeup, gentle warm soft closed-eye smile gentle closed-eye smile, eyes closed smiling, relaxed eyebrows no frown no pout no furrowed brows, no open eyes, no neutral face, blue-violet lids, only change eyebrows eyes mouth shape, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
     "same character anime closeup, terrified expression, eyes wide open, mouth wide open showing interior, eyebrows raised high, must open mouth, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
     "same character anime closeup, determined expression, firm closed mouth, focused eyes, eyebrows slightly lowered, no surprised open mouth, no raised brows, jaw slightly tense, front facing, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
 )
@@ -81,7 +81,7 @@ _EXPR_INPAINT_NEGATIVES = (
     "wide eyes, blank stare, blank expression, smile, grinning, open mouth, raised brows, soft smile",
     "frown, smiling, smile, grinning, furrowed brows, angry brows, downturned angry mouth",
     "frown, furrowed brows, knit brows, scowling, angry brows, raised brows, wide eyes, big smile",
-    "frown, pout, scowling, furrowed brows, downturned mouth, angry brows",
+    "frown, pout, scowling, furrowed brows, downturned mouth, angry brows, open eyes, neutral expression, blank stare, eyes open looking aside",
     "closed mouth, smile, calm face, sleepy eyes",
     "surprised, open mouth, raised brows, screaming, shouting, wide open mouth",
 )
@@ -1932,20 +1932,40 @@ def sanitize_portrait_panel(img: Image.Image) -> Image.Image:
 
 
 def _strip_expr_label_band(img: Image.Image) -> Image.Image:
-    """去掉表情格底部已烘焙标签带,改由后端真字体重绘。"""
+    """去掉表情格底部已烘焙标签带,改由后端真字体重绘。
+
+    21:30：仅在检测到底部门禁标签带时裁切；干净方图（无烘焙标签）原样返回，
+    禁止一律裁掉底 30%（会切掉嘴/下巴）或涂近白底条（白边门禁根因）。
+    """
     rgba = img.convert("RGBA")
     w, h = rgba.size
     if h < 64:
         return rgba
-    # 更狠:旧拼版标签可占底 25%+,留头肩
-    cut = int(h * 0.70)
-    out = rgba.crop((0, 0, w, max(48, cut)))
-    # 底缘再抹一条浅色,防残留描边进 cover
-    from PIL import ImageDraw as _ID
-    d = _ID.Draw(out)
-    bh = max(2, out.size[1] // 40)
-    d.rectangle([0, out.size[1] - bh, out.size[0], out.size[1]], fill=(245, 245, 248, 255))
-    return out
+    rgb = rgba.convert("RGB")
+    # 扫底部 18%：若出现「浅底+深色横排文字」则视为烘焙标签带
+    band0 = int(h * 0.82)
+    sample = rgb.resize((min(64, w), max(8, h - band0)), Image.Resampling.BILINEAR)
+    sw, sh = sample.size
+    cut_ratio = None
+    for yi in range(sh):
+        row = [sample.getpixel((xi, yi)) for xi in range(sw)]
+        dark = sum(1 for r, g, b in row if r + g + b < 140)
+        light = sum(
+            1
+            for r, g, b in row
+            if (r + g + b) / 3.0 >= 220
+            and abs(r - g) < 18
+            and abs(g - b) < 18
+        )
+        if dark >= int(sw * 0.35) and light >= int(sw * 0.25):
+            cut_ratio = (band0 + yi * (h - band0) / float(max(1, sh))) / float(h)
+            break
+    if cut_ratio is None or cut_ratio < 0.72 or cut_ratio > 0.97:
+        return rgba
+    cut_y = max(int(h * 0.72), int(h * cut_ratio * 0.98))
+    if cut_y >= h - 8:
+        return rgba
+    return rgba.crop((0, 0, w, cut_y))
 
 
 def _draw_height_scale(
@@ -2004,6 +2024,161 @@ def _fit_cover_keep_crown(
     return src, (x, y)
 
 
+def _expr_face_bbox_of(img: Image.Image) -> tuple[float, float, float, float] | None:
+    """表情贴格用脸框：insightface → 启发式。"""
+    rgb = img.convert("RGB")
+    buf = BytesIO()
+    rgb.save(buf, format="PNG")
+    data = buf.getvalue()
+    bb = _detect_face_bbox_xyxy(data)
+    if bb is not None:
+        return (float(bb[0]), float(bb[1]), float(bb[2]), float(bb[3]))
+    try:
+        hbb = _heuristic_skin_face_bbox(rgb)
+    except Exception:  # noqa: BLE001
+        hbb = None
+    if hbb is None:
+        return None
+    return (float(hbb[0]), float(hbb[1]), float(hbb[2]), float(hbb[3]))
+
+
+def _fit_expr_cell_face_fill(
+    img: Image.Image,
+    box: tuple[int, int, int, int],
+    *,
+    target_face_height_frac: float = 0.58,
+) -> tuple[Image.Image, tuple[int, int]]:
+    """21:30：表情格按脸框统一尺度 cover 铺满。
+
+    相对目标格纵横比裁窗（含嘴+下巴），再缩放到恰好 iw×ih；禁止贴顶 cover 把嘴裁出格外。
+    返回 (fitted_rgba, (x,y))，fitted 尺寸正好等于 (iw,ih)，四边无垫边露白。
+    """
+    x, y, tw, th = [int(v) for v in box]
+    tw = max(8, tw)
+    th = max(8, th)
+    src = img.convert("RGBA")
+    sw, sh = src.size
+    aspect = tw / float(th)
+    bb = _expr_face_bbox_of(src)
+    tgt = max(0.50, min(0.70, float(target_face_height_frac)))
+
+    def _pad_canvas(im: Image.Image, pad: int, fill=(220, 220, 224, 255)) -> Image.Image:
+        if pad <= 0:
+            return im
+        canvas = Image.new("RGBA", (im.width + 2 * pad, im.height + 2 * pad), fill)
+        canvas.paste(im, (pad, pad), im)
+        return canvas
+
+    if bb is None:
+        # 无脸：按目标纵横比中心偏上裁满
+        if sw / float(sh) > aspect:
+            ch = sh
+            cw = max(8, int(round(ch * aspect)))
+        else:
+            cw = sw
+            ch = max(8, int(round(cw / aspect)))
+        left = max(0, (sw - cw) // 2)
+        top = max(0, min(sh - ch, int(sh * 0.08)))
+        crop = src.crop((left, top, left + cw, top + ch))
+        crop = crop.resize((tw, th), Image.Resampling.LANCZOS)
+        return crop, (x, y)
+
+    fx1, fy1, fx2, fy2 = bb
+    fw = max(8.0, fx2 - fx1)
+    fh = max(8.0, fy2 - fy1)
+    fcx = (fx1 + fx2) / 2.0
+    chin_y = fy2 + 0.12 * fh
+    mouth_y = fy1 + 0.72 * fh
+    # 裁窗高度：使脸高约占格高 tgt；宽度按格纵横比
+    crop_h = max(fh / tgt, fw * 1.15 / max(aspect, 0.5), 64.0)
+    crop_w = crop_h * aspect
+    # 竖直：脸顶约 12%；嘴与下巴必须落入窗内
+    top = fy1 - 0.12 * crop_h
+    if chin_y > top + crop_h * 0.96:
+        top = chin_y - crop_h * 0.96
+    if mouth_y > top + crop_h * 0.90:
+        top = mouth_y - crop_h * 0.90
+    left = fcx - crop_w / 2.0
+    # 不足则垫棚灰（非近白 245），保证能裁满
+    need_pad = 0
+    if left < 0 or top < 0 or left + crop_w > sw or top + crop_h > sh:
+        need_pad = int(
+            math.ceil(
+                max(
+                    -left,
+                    -top,
+                    left + crop_w - sw,
+                    top + crop_h - sh,
+                    0,
+                )
+            )
+        ) + 8
+    if need_pad > 0:
+        src = _pad_canvas(src, need_pad)
+        sw, sh = src.size
+        left += need_pad
+        top += need_pad
+        fx1 += need_pad
+        fy1 += need_pad
+        fx2 += need_pad
+        fy2 += need_pad
+        fcx += need_pad
+        chin_y += need_pad
+        mouth_y += need_pad
+    # 再夹紧
+    left = max(0.0, min(float(sw) - crop_w, left))
+    top = max(0.0, min(float(sh) - crop_h, top))
+    # 若仍不够大，缩小 crop 到画布
+    if crop_w > sw or crop_h > sh:
+        scale = min(sw / crop_w, sh / crop_h)
+        crop_w *= scale
+        crop_h *= scale
+        left = max(0.0, min(float(sw) - crop_w, fcx - crop_w / 2.0))
+        top = max(0.0, min(float(sh) - crop_h, fy1 - 0.12 * crop_h))
+    x0 = int(round(left))
+    y0 = int(round(top))
+    x1 = int(round(left + crop_w))
+    y1 = int(round(top + crop_h))
+    x0 = max(0, min(sw - 2, x0))
+    y0 = max(0, min(sh - 2, y0))
+    x1 = max(x0 + 2, min(sw, x1))
+    y1 = max(y0 + 2, min(sh, y1))
+    crop = src.crop((x0, y0, x1, y1)).resize((tw, th), Image.Resampling.LANCZOS)
+    # 强制不透明，避免贴格时露出 grid 近白底
+    if crop.mode == "RGBA":
+        bg = Image.new("RGBA", crop.size, (220, 220, 224, 255))
+        bg.paste(crop, (0, 0), crop)
+        crop = bg
+    return crop, (x, y)
+
+
+def _compose_expression_grid_unified_face_scales(
+    panels: dict[str, Image.Image],
+) -> float:
+    """六格脸高占比中位数 → 统一 target_face_height_frac（约 0.55–0.62）。"""
+    fracs: list[float] = []
+    for key in _EXPR_KEYS:
+        im = panels.get(key)
+        if im is None:
+            continue
+        bb = _expr_face_bbox_of(im)
+        if bb is None:
+            continue
+        _x1, y1, _x2, y2 = bb
+        fh = max(1.0, float(y2) - float(y1))
+        fracs.append(fh / float(max(1, im.size[1])))
+    if not fracs:
+        return 0.58
+    fracs.sort()
+    mid = fracs[len(fracs) // 2]
+    # 源图已偏大时略降目标，避免贴格再放大；偏小则抬到 0.58
+    if mid >= 0.62:
+        return 0.56
+    if mid <= 0.45:
+        return 0.60
+    return 0.58
+
+
 def _compose_expression_grid(
     panels: dict[str, Image.Image],
     *,
@@ -2041,10 +2216,16 @@ def _compose_expression_grid(
     grid = Image.new("RGBA", (cols * cell_w, rows * cell_h), gbg)
     draw = ImageDraw.Draw(grid)
     font = resolve_cjk_font(20) if draw_labels else None
+    # 21:30：先统一脸框尺度，再按格纵横比脸心裁满（含嘴下巴）；禁贴顶 cover 裁嘴
+    _clean_panels: dict[str, Image.Image] = {}
+    for _k in _EXPR_KEYS:
+        _im = panels.get(_k)
+        if _im is None:
+            raise CharacterSheetError(f"缺面板:{_k}", status_code=500)
+        _clean_panels[_k] = _strip_expr_label_band(_im.convert("RGBA"))
+    _tgt_face = _compose_expression_grid_unified_face_scales(_clean_panels)
     for i, key in enumerate(_EXPR_KEYS):
-        img = panels.get(key)
-        if img is None:
-            raise CharacterSheetError(f"缺面板:{key}", status_code=500)
+        img = _clean_panels[key]
         row, col = divmod(i, cols)
         cell_x0 = col * cell_w
         cell_y0 = row * cell_h
@@ -2053,12 +2234,14 @@ def _compose_expression_grid(
         oy = cell_y0 + 3
         iw = cell_w - 6
         ih = img_h - 6
-        clean = _strip_expr_label_band(img.convert("RGBA"))
-        fitted, pos = _fit_cover_keep_crown(clean, (ox, oy, iw, ih))
-        # 再抹一层底,防贴图溢出标签带
-        if fitted.height > ih:
-            fitted = fitted.crop((0, 0, fitted.width, ih))
-        grid.paste(fitted, pos, fitted)
+        # 格底先铺棚灰（非近白），杜绝贴不满露 245 白边
+        draw.rectangle([ox, oy, ox + iw - 1, oy + ih - 1], fill=(220, 220, 224, 255))
+        fitted, pos = _fit_expr_cell_face_fill(
+            img, (ox, oy, iw, ih), target_face_height_frac=_tgt_face
+        )
+        if fitted.height != ih or fitted.width != iw:
+            fitted = fitted.resize((iw, ih), Image.Resampling.LANCZOS)
+        grid.paste(fitted, pos, fitted if fitted.mode == "RGBA" else None)
         if draw_labels and font is not None and i < len(_EXPR_LABELS):
             # 标签带:独立矩形,与图片区零重叠（古风深底金字 / 二次元浅底深字）
             band_y0 = cell_y0 + img_h
@@ -2970,10 +3153,14 @@ def assert_expr_cell_no_white_border(
     expr_key: str = "expr",
     max_strip_frac: float = 0.08,
     white_lum: float = 232.0,
+    edge_px: int = 3,
+    max_edge_near_white_frac: float = 0.35,
 ) -> float:
     """表情格不得含整条近白 letterbox（格外白底）；棚灰人物边不算。
 
     测四边：若某边连续条带（厚≈4%边长）行/列近白占比≥92%，计入 strip 厚度占比。
+    21:30 硬检查：四边 edge_px（默认 3px）内近白像素占比不得超过 max_edge_near_white_frac；
+    棚灰(~220)不算近白（阈值 white_lum 默认 232）。
     """
     im = Image.open(BytesIO(data)).convert("RGB")
     w, h = im.size
@@ -2981,24 +3168,20 @@ def assert_expr_cell_no_white_border(
     # 最多扫到短边 30%，才能抓住 1830 底白条约 1/3 画幅的 letterbox
     band = max(8, int(min(w, h) * 0.30))
 
-    def _row_white(y: int) -> bool:
-        n = sum(
-            1
-            for x in range(w)
-            if (px[x, y][0] + px[x, y][1] + px[x, y][2]) / 3.0 >= white_lum
-            and abs(px[x, y][0] - px[x, y][1]) < 14
-            and abs(px[x, y][1] - px[x, y][2]) < 14
+    def _near_white(rgb: tuple[int, int, int]) -> bool:
+        r, g, b = rgb
+        return (
+            (r + g + b) / 3.0 >= float(white_lum)
+            and abs(r - g) < 14
+            and abs(g - b) < 14
         )
+
+    def _row_white(y: int) -> bool:
+        n = sum(1 for x in range(w) if _near_white(px[x, y]))
         return n / float(max(1, w)) >= 0.92
 
     def _col_white(x: int) -> bool:
-        n = sum(
-            1
-            for y in range(h)
-            if (px[x, y][0] + px[x, y][1] + px[x, y][2]) / 3.0 >= white_lum
-            and abs(px[x, y][0] - px[x, y][1]) < 14
-            and abs(px[x, y][1] - px[x, y][2]) < 14
-        )
+        n = sum(1 for y in range(h) if _near_white(px[x, y]))
         return n / float(max(1, h)) >= 0.92
 
     top = 0
@@ -3020,7 +3203,36 @@ def assert_expr_cell_no_white_border(
             f"(T{top}B{bot}L{left}R{right})",
             status_code=422,
         )
-    return strip
+    # 21:30：3px 近白边硬门禁（像素条，非整行 92% 才算）
+    ep = max(1, int(edge_px))
+    edge_stats: dict[str, float] = {}
+    # top / bottom bands
+    for name, ys in (("T", range(0, min(ep, h))), ("B", range(max(0, h - ep), h))):
+        n = 0
+        tot = 0
+        for yy in ys:
+            for xx in range(w):
+                tot += 1
+                if _near_white(px[xx, yy]):
+                    n += 1
+        edge_stats[name] = n / float(max(1, tot))
+    for name, xs in (("L", range(0, min(ep, w))), ("R", range(max(0, w - ep), w))):
+        n = 0
+        tot = 0
+        for xx in xs:
+            for yy in range(h):
+                tot += 1
+                if _near_white(px[xx, yy]):
+                    n += 1
+        edge_stats[name] = n / float(max(1, tot))
+    worst = max(edge_stats.values()) if edge_stats else 0.0
+    if worst > float(max_edge_near_white_frac):
+        raise CharacterSheetError(
+            f"{expr_key}表情格{ep}px近白边超标 edge_near_white={worst:.3f}"
+            f">{max_edge_near_white_frac} stats={{{', '.join(f'{k}:{v:.2f}' for k,v in edge_stats.items())}}}",
+            status_code=422,
+        )
+    return max(strip, worst)
 
 
 def crop_face_ref(portrait_bytes: bytes, size: int = 768) -> bytes:
@@ -4013,7 +4225,7 @@ _EXPR_VLM_PROMPT = (
     "(reject if frown or smile); "
     "沉思=eyes looking down and to the side + head slightly tilted + relaxed brows + lips slightly pressed + faraway gaze "
     "(reject if frown or furrowed brows); "
-    "温柔=relaxed brows + soft/closed-eye smile; "
+    "温柔=relaxed brows + soft closed-eye smile (eyes closed); reject if eyes open neutral; "
     "惊恐=wide eyes + open mouth; "
     "果断=focused eyes + firm closed mouth + brows slightly lowered."
 )
@@ -6226,6 +6438,25 @@ def build_face_feature_mask_hard(size: int = 768) -> Image.Image:
     return build_face_feature_mask(int(size)).point(lambda v: 255 if v >= 96 else 0)
 
 
+def build_eyes_only_mask_hard(size: int = 768) -> Image.Image:
+    """21:30 / 21:25：沉思只重画眼部——更紧眼+眉遮罩，不含嘴，挖掉瞳孔中心。"""
+    s = int(size)
+    mask = Image.new("L", (s, s), 0)
+    from PIL import ImageDraw as _ID
+
+    d = _ID.Draw(mask)
+    # 紧眉带
+    d.ellipse((int(s * 0.26), int(s * 0.16), int(s * 0.74), int(s * 0.34)), fill=255)
+    # 更紧眼带（相对全脸遮罩再收）
+    d.ellipse((int(s * 0.26), int(s * 0.30), int(s * 0.74), int(s * 0.46)), fill=255)
+    # 挖瞳孔
+    pr = max(4, int(s * 0.035))
+    for cx in (int(s * 0.38), int(s * 0.62)):
+        cy = int(s * 0.38)
+        d.ellipse((cx - pr, cy - pr, cx + pr, cy + pr), fill=0)
+    return mask.point(lambda v: 255 if v >= 96 else 0)
+
+
 def measure_face_height_frac(data: bytes) -> float | None:
     """脸高占格高；无人脸返回 None。"""
     bb = _detect_face_bbox_xyxy(data)
@@ -8164,7 +8395,24 @@ async def generate_character_sheet(
             for ek in _EXPR_KEYS:
                 if ek in panels and ek in override_keys:
                     # 20:58：过检格锁定——跳过 inpaint/VLM；落盘来源与 approved_by_parent
+                    # 21:30：锁定源图仍须同尺度方化+3px近白边门禁（贴格 bug 不靠错误放大）
                     _lm = dict(_expr_lock_meta.get(ek) or {})
+                    _locked_b = panels[ek]
+                    try:
+                        _locked_b = squareize_face_center_crop(_locked_b, size=768)
+                        _locked_b = _trim_letterbox_bars(_locked_b)
+                        # 再方化一次，确保 trim 后仍同尺度
+                        try:
+                            _locked_b = squareize_face_center_crop(_locked_b, size=768)
+                        except CharacterSheetError:
+                            pass
+                        assert_expr_cell_no_white_border(_locked_b, expr_key=ek)
+                        assert_mouth_in_frame(_locked_b)
+                        panels[ek] = _locked_b
+                    except CharacterSheetError as _le:
+                        logger.warning(
+                            "expr %s locked normalize soft-fail (keep raw): %s", ek, _le
+                        )
                     _rec = {
                         "expr_key": ek,
                         "locked": True,
@@ -8174,6 +8422,7 @@ async def generate_character_sheet(
                         "source": _lm.get("source"),
                         "note": _lm.get("note") or "panels_override lock",
                         "md5": hashlib.md5(panels[ek]).hexdigest(),
+                        "normalized_2130": True,
                     }
                     try:
                         (reject_dir / f"{ek}_locked_{int(seed or 0)}.json").write_text(
@@ -8211,7 +8460,11 @@ async def generate_character_sheet(
                 bases[ek] = base_b
                 base_im = Image.open(BytesIO(base_b)).convert("RGB")
                 side = min(base_im.size)  # 已是方图
-                hard_mask = build_face_feature_mask_hard(side)
+                # 21:30/21:25：沉思只重画眼部（更紧眼遮罩）；其它表情仍用眉眼嘴
+                if ek == "expr_2":
+                    hard_mask = build_eyes_only_mask_hard(side)
+                else:
+                    hard_mask = build_face_feature_mask_hard(side)
                 # mask 上传为 RGB 白/黑（ImageToMask red）
                 m_rgb = Image.merge("RGB", (hard_mask, hard_mask, hard_mask))
                 mbuf = BytesIO()
@@ -8239,13 +8492,13 @@ async def generate_character_sheet(
                 elif ek == "expr_2":
                     prompt_x += (
                         ", eyes looking down and to the side, head slightly tilted, "
-                        "relaxed brows, lips slightly pressed, faraway gaze, "
-                        "no frown, no furrowed brows"
+                        "relaxed brows, faraway gaze, only edit eyes and brows, "
+                        "keep mouth unchanged, no frown, no furrowed brows"
                     )
                 elif ek == "expr_3":
                     prompt_x += (
-                        ", gentle closed-eye smile or soft smile, relaxed eyebrows, "
-                        "no frown no pout no furrowed brows"
+                        ", soft closed-eye smile, eyes closed smiling, relaxed eyebrows, "
+                        "no open eyes, no neutral face, no frown no pout no furrowed brows"
                     )
                 elif ek == "expr_5":
                     prompt_x += (
