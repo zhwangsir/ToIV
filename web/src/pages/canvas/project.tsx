@@ -1312,6 +1312,28 @@ function InfiniteCanvasPage() {
         };
     }, [containerRef, createNode, fitCanvasSelection, nodesRef, projectLoaded, searchParams, setSearchParams]);
 
+    // ToIV mobile (M4-2): on narrow viewports open each canvas fitted to its content,
+    // otherwise nodes placed for a desktop viewport start off-screen.
+    const narrowFitProjectRef = useRef<string | null>(null);
+    const fitCanvasContentRef = useRef(fitCanvasContent);
+    fitCanvasContentRef.current = fitCanvasContent; // latest closure (canvas size settles after load)
+    useEffect(() => {
+        if (!projectLoaded || narrowFitProjectRef.current === projectId) return;
+        if (window.innerWidth >= 768) return;
+        narrowFitProjectRef.current = projectId ?? "";
+        // Nodes and the stored viewport arrive after projectLoaded; wait until nodes exist
+        // and the viewport restore has settled, then fit once.
+        let tries = 0;
+        let timer = 0;
+        const attempt = () => {
+            tries += 1;
+            if (nodesRef.current.length && tries >= 3) { fitCanvasContentRef.current(); return; }
+            if (tries < 40) timer = window.setTimeout(attempt, 250);
+        };
+        timer = window.setTimeout(attempt, 250);
+        return () => window.clearTimeout(timer);
+    }, [nodesRef, projectId, projectLoaded]);
+
     const handleReplaceNodeReference = useCallback(
         (targetNodeId: string, oldReference: { id: string; nodeId?: string; label?: string; title?: string }, sourceNodeId: string) => {
             const sourceNode = nodesRef.current.find((n) => n.id === sourceNodeId);
@@ -2705,6 +2727,7 @@ function InfiniteCanvasPage() {
                                         onZoomIn={zoomCanvasIn}
                                         onZoomOut={zoomCanvasOut}
                                         onFit={fitCanvasContent}
+                                        onOpenAssistant={readOnly ? undefined : openAssistant}
                                     />
                                 ) : null}
 

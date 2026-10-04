@@ -1,0 +1,19 @@
+/* ToIV M4-2: phone-width (≤640px) usability. Layout only; colours/fonts stay on BeefTV tokens. */
+@media (max-width: 640px) {
+    /* Assets: keep the header clear of the floating sidebar button and let controls wrap. */
+    .app-user-workspace.app-product-workspace .assets-library-hero { padding-top: 60px; }
+    .assets-kind-row { flex-wrap: wrap; row-gap: 8px; }
+    .assets-kind-actions { min-width: 0; flex-wrap: wrap; }
+    .assets-sort-control { min-width: 0; max-width: 150px; }
+
+    /* Canvas assistant: full-screen sheet instead of a fixed-width dock. */
+    .canvas-assistant-sidebar {
+        position: fixed;
+        inset: 0;
+        z-index: var(--z-modal, 1000);
+        width: 100% !important;
+        flex-basis: auto !important;
+        border-left: 0;
+    }
+    .canvas-assistant-resize { display: none; }
+}

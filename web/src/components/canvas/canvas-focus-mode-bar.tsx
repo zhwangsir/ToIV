@@ -1,7 +1,7 @@
 import { Tooltip } from "@/components/ui/base/tooltip";
 import type { ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { History, PanelBottom, X, ZoomIn, ZoomOut } from "lucide-react";
+import { History, PanelBottom, Sparkles, X, ZoomIn, ZoomOut } from "lucide-react";
 
 
 import { aceternityMotion } from "@/lib/aceternity-motion";
@@ -19,9 +19,11 @@ type CanvasFocusModeBarProps = {
     onZoomIn: () => void;
     onZoomOut: () => void;
     onFit: () => void;
+    /** ToIV mobile: open the assistant (leaves focus mode). */
+    onOpenAssistant?: () => void;
 };
 
-export function CanvasFocusModeBar({ versionsOpen, onToggleVersions, syncStatus, dockRevealed, zoomPercent, onToggleDock, onExit, onZoomIn, onZoomOut, onFit }: CanvasFocusModeBarProps) {
+export function CanvasFocusModeBar({ versionsOpen, onToggleVersions, syncStatus, dockRevealed, zoomPercent, onToggleDock, onExit, onZoomIn, onZoomOut, onFit, onOpenAssistant }: CanvasFocusModeBarProps) {
     const theme = canvasThemes[useActiveTheme()];
     const reducedMotion = useReducedMotion();
 
@@ -52,6 +54,13 @@ export function CanvasFocusModeBar({ versionsOpen, onToggleVersions, syncStatus,
                         <History className="size-4" />
                     </button>
                 </Tooltip>
+                {onOpenAssistant ? (
+                    <Tooltip title="助手">
+                        <button type="button" onClick={onOpenAssistant} className="grid size-8 place-items-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10" style={{ color: theme.node.text }} aria-label="助手">
+                            <Sparkles className="size-4" />
+                        </button>
+                    </Tooltip>
+                ) : null}
                 <span className="mx-0.5 h-4 w-px" style={{ background: theme.toolbar.border }} />
                 <Tooltip title={dockRevealed ? "收起工具" : "工具"}>
                     <button
