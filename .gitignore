@@ -109,6 +109,7 @@ agent_host_token
 gate_cookies*
 local-model-config.json
 model-config.template.json
+llm-upstream.json
 *.beeftv-plugin
 *.pem
 *.key
