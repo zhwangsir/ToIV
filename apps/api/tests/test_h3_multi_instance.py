@@ -179,14 +179,16 @@ async def test_submit_uses_picked_instance(monkeypatch):
             user=user, session=s,
         )
         assert result["worker"] == "http://b:8196"
-        job = s.exec(
-            __import__("sqlmodel").select(Job).where(Job.prompt_id == "pid-multi-1")
-        ).first()
+        # 提交即返回 job_id(客户端重启后按 job_id 续跟,不依赖 prompt_id);
+        # 按主键取,避免共享测试库里同 prompt_id 的旧行干扰
+        job = s.get(Job, result["job_id"])
         assert job is not None and job.worker == "http://b:8196"
+        assert job.prompt_id == result["prompt_id"] == "pid-multi-1"
+        assert job.user_id == user.id and job.status == "queued"
         # 清理
         s.delete(job)
         s.delete(user)
-        s.commit
+        s.commit()
 
 
 # ── h3_worker_status(:8198 未就绪优雅降级 + 队列深度暴露)──────────────────

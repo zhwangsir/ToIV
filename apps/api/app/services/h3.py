@@ -449,26 +449,27 @@ async def submit_h3_job(
             raise HTTPException(status_code=503, detail=f"H3 实例不可达({client.base_url}): {e}") from e
         _raise_from_comfy_error(e)
 
-    session.add(
-        Job(
-            tenant_id=user.tenant_id,
-            user_id=user.id,
-            prompt_id=prompt_id,
-            worker=client.base_url,
-            kind=kind,
-            status="queued",
-            prompt=positive,
-            seed=seed,
-            nsfw=nsfw,
-            params=params_snapshot(req, seed=seed, **(snapshot_extra or {})),
-        )
+    job = Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id=prompt_id,
+        worker=client.base_url,
+        kind=kind,
+        status="queued",
+        prompt=positive,
+        seed=seed,
+        nsfw=nsfw,
+        params=params_snapshot(req, seed=seed, **(snapshot_extra or {})),
     )
+    job_id = job.id  # 主键在构造时生成;提交后对象过期,先取出
+    session.add(job)
     session.commit()
 
     # 服务端后台追踪:前端 SSE 断开后仍可把结果落库(与 ltx2 同一机制)
     spawn_tracker(client, prompt_id)
 
     return {
+        "job_id": job_id,  # 客户端按 job_id 续跟(/api/jobs/lookup?job_id=),重启后也稳定
         "prompt_id": prompt_id,
         "client_id": client_id,
         "worker": client.base_url,
