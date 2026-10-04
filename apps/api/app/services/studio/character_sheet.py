@@ -5340,7 +5340,64 @@ _EXPR_QA_PROMPTS: dict[str, str] = {
         "no frown, no blank stare? "
         "Judge only from visible face features."
     ),
+    # 05:30：嘴部放大复判——0505 expr_2 整格问答判「闭嘴」但目检是小 O 形张嘴（暗红口腔可见）。
+    # 4B VLM 在 768 头肩格上看不清小嘴，放大嘴部后单独再问一次。
+    "mouth_zoom": (
+        "This image is a ZOOMED crop of the mouth area of an anime character. "
+        "Answer TWO yes/no questions. Output ONLY one JSON object, no markdown: "
+        '{"q1":true,"q2":true}. '
+        "q1: Are the lips FULLY CLOSED, drawn as a single line or a closed curve, with NO opening? "
+        "Answer false if there is ANY visible gap, small oval or round opening, dark or red mouth "
+        "interior, tongue or teeth, however small. "
+        "q2: Is a mouth clearly visible in this crop? "
+        "Judge only from what is visible."
+    ),
 }
+
+
+def crop_mouth_zoom(data: bytes, *, out_w: int = 512) -> bytes:
+    """05:30：按脸框裁嘴部（脸框 0.40→1.15 高、中间 70% 宽，容检测框偏差）并放大，供 VLM 复判是否闭嘴。"""
+    bb = _detect_face_bbox_xyxy(data)
+    im = Image.open(BytesIO(data)).convert("RGB")
+    if bb is None:
+        try:
+            bb = _heuristic_skin_face_bbox(im)
+        except Exception:  # noqa: BLE001
+            bb = None
+    if bb is None:
+        raise CharacterSheetError("嘴部放大: 测不到脸", status_code=422)
+    w, h = im.size
+    fx1, fy1, fx2, fy2 = [float(v) for v in bb]
+    fw = max(8.0, fx2 - fx1)
+    fh = max(8.0, fy2 - fy1)
+    x1 = int(max(0, round(fx1 + 0.15 * fw)))
+    x2 = int(min(w, round(fx2 - 0.15 * fw)))
+    y1 = int(max(0, round(fy1 + 0.40 * fh)))
+    y2 = int(min(h, round(fy2 + 0.15 * fh)))
+    if x2 - x1 < 16 or y2 - y1 < 12:
+        raise CharacterSheetError(
+            f"嘴部放大: 裁区过小 {x2 - x1}x{y2 - y1}", status_code=422
+        )
+    crop = im.crop((x1, y1, x2, y2))
+    oh = max(1, int(round(out_w * crop.height / float(crop.width))))
+    crop = crop.resize((int(out_w), oh), Image.Resampling.LANCZOS)
+    buf = BytesIO()
+    crop.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def assert_mouth_zoom_closed(expr_key: str, qa: dict) -> dict:
+    """05:30：嘴部放大复判两问皆须为是（闭嘴且看得到嘴），否则 FAIL 换 seed。"""
+    q1 = qa.get("q1")
+    q2 = qa.get("q2")
+    info = {"expr_key": expr_key, "q1": q1, "q2": q2, "pass": False}
+    if q1 is not True or q2 is not True:
+        raise CharacterSheetError(
+            f"{expr_key}嘴部放大复判未过: 闭嘴={q1!r} 可见={q2!r}（张嘴/小O形/口腔可见一律拒）",
+            status_code=422,
+        )
+    info["pass"] = True
+    return info
 
 
 def _parse_expr_qa_json(raw: str) -> dict:
@@ -10217,6 +10274,31 @@ async def generate_character_sheet(
                                 seed=int(e_seed or 42) + attempt,
                             )
                             assert_expression_qa_match(ek, qa_result)
+                            # 05:30：嘴部放大复判（整格问答漏判小 O 形嘴）
+                            _mz = crop_mouth_zoom(cell_b)
+                            try:
+                                (reject_dir / f"{ek}_mouthzoom_{int(seed or 0)}_a{attempt}.png").write_bytes(_mz)
+                            except Exception:
+                                pass
+                            mz_result = await classify_expression_qa(
+                                _mz,
+                                expr_key="mouth_zoom",
+                                worker_url=getattr(client, "base_url", None) or worker,
+                                seed=int(e_seed or 42) + attempt,
+                            )
+                            try:
+                                (reject_dir / f"{ek}_mouthzoom_qa_{int(seed or 0)}_a{attempt}.json").write_text(
+                                    json.dumps(mz_result, ensure_ascii=False, indent=2),
+                                    encoding="utf-8",
+                                )
+                            except Exception:
+                                pass
+                            assert_mouth_zoom_closed(ek, mz_result)
+                            qa_result["mouth_zoom"] = {
+                                "q1": mz_result.get("q1"),
+                                "q2": mz_result.get("q2"),
+                                "model": mz_result.get("model"),
+                            }
                             try:
                                 (reject_dir / f"{ek}_qa_{int(seed or 0)}_a{attempt}.json").write_text(
                                     json.dumps(qa_result, ensure_ascii=False, indent=2),
