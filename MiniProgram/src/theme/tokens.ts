@@ -1,6 +1,6 @@
 /**
  * 设计 Token —— MiniProgram 视觉事实源（P4 2026-09-07 对齐 web 主题系统 v9）
- * - 五套预设：beeftv（默认，对齐 BeefTV --user-* token）/ minimal / cinema / paper / graphite
+ * - 五套预设：toiv（默认，色值对齐 ToIV 桌面/Web 的 --user-* token）/ minimal / cinema / paper / graphite
  * - 亮基底（minimal/paper）有 light/dark；暗基底（cinema/graphite）恒暗，mode 切换不改色
  * - 颜色只允许引用本文件（或经 useAppTheme 注入的 CSS 变量），组件禁裸写装饰 hex
  * - 尺寸单位：cssVarsFromPalette 统一 ×2 换算（4pt 网格 → 8rpx 起步）
@@ -35,7 +35,7 @@ export const typography = {
   mono: { fontSize: 14, lineHeight: 20 },
 } as const;
 
-export type ThemePresetId = 'beeftv' | 'minimal' | 'cinema' | 'paper' | 'graphite';
+export type ThemePresetId = 'toiv' | 'minimal' | 'cinema' | 'paper' | 'graphite';
 
 export interface Palette {
   bg: string;
@@ -84,13 +84,13 @@ const STATUS_PAPER = {
 } as const;
 
 /**
- * 五套预设 —— beeftv 为默认（对齐 BeefTV/ToIV-canvas web/src/styles/globals.css 的 --user-* 变量，
+ * 五套预设 —— toiv 为默认（色值对齐 ToIV 桌面/Web（ToIV-canvas web/src/styles/globals.css）的 --user-* 变量，
  * border 为 rgba 边框叠在 bg 上的不透明近似值）；其余四套色值对齐 apps/web/app/globals.css 主题块
  */
 export const THEME_PRESETS: ThemePresetEntry[] = [
   {
-    id: 'beeftv',
-    name: 'BeefTV',
+    id: 'toiv',
+    name: 'ToIV',
     darkBased: false,
     swatchBg: '#F8F8FA',
     swatchAccent: '#242426',
@@ -233,7 +233,10 @@ export const THEME_PRESETS: ThemePresetEntry[] = [
 /** 兼容旧名：与 THEME_PRESETS 同一引用 */
 export const palettes = THEME_PRESETS;
 
-export const DEFAULT_THEME_ID: ThemePresetId = 'beeftv';
+/** 「实测可用」徽标：固定荧光绿底，字色按底色亮度计算（明暗主题都不变，不能跟随 --color-text） */
+export const PASS_BADGE_BG = '#C9F24F';
+
+export const DEFAULT_THEME_ID: ThemePresetId = 'toiv';
 /** @deprecated 用 DEFAULT_THEME_ID */
 export const DEFAULT_PALETTE_ID = DEFAULT_THEME_ID;
 
@@ -241,12 +244,14 @@ const PRESET_IDS = new Set<string>(THEME_PRESETS.map((p) => p.id));
 
 /** 旧五色板 / 实验 id → v9 预设 */
 const LEGACY_THEME_MAP: Record<string, ThemePresetId> = {
-  'palette-01': 'beeftv',
-  'palette-02': 'beeftv',
-  'palette-03': 'beeftv',
+  'palette-01': 'toiv',
+  'palette-02': 'toiv',
+  'palette-03': 'toiv',
   'palette-04': 'graphite',
   'palette-05': 'paper',
-  atelier: 'beeftv',
+  atelier: 'toiv',
+  // 早期分支的 beeftv 预设（设置里显示 BeefTV）：已存储的值迁移到 toiv
+  beeftv: 'toiv',
 };
 
 export function normalizeThemeId(id: string | null | undefined): ThemePresetId {

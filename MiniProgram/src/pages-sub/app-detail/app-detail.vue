@@ -561,8 +561,8 @@ onUnload(() => {
   border: 1rpx solid var(--color-border);
 
   &.is-pass {
-    color: var(--color-text);
-    background: rgba(201, 242, 79, 0.92);
+    color: var(--color-on-pass);
+    background: var(--color-pass-bg);
     border-color: transparent;
   }
 }
