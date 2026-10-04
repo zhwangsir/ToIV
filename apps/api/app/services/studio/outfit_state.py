@@ -232,6 +232,33 @@ OUTFIT_VLM_QUESTIONS: tuple[tuple[str, str, tuple[str, ...], str], ...] = (
 )
 
 
+# 05:48 方案D（全场戴帽）：第四问改为「发型与镜0一致，或被帽兜遮住」；其余三问与脸分阈值不变
+HOOD_UP_HAIR_QUESTION = (
+    "hairstyle",
+    "图中人物的发型是否与参考一致：黑色湿发，戴着帽兜时头发大部分被帽兜遮住（只露出脸侧或帽兜下的发丝），"
+    "或可见一条低马尾？出现麻花辫、盘发、短发、染色头发都不算。只答 是/否",
+    ("是", "否"),
+    "是",
+)
+
+
+def vlm_questions(hood: str = "down") -> tuple[tuple[str, str, tuple[str, ...], str], ...]:
+    """hood=down：原四问；hood=up：第一问期望「是」，第四问换成「与镜0一致或被帽兜遮住」。"""
+    if hood not in ("down", "up"):
+        raise ValueError(f"hood 只能是 down/up：{hood!r}")
+    if hood == "down":
+        return OUTFIT_VLM_QUESTIONS
+    out = []
+    for key, q, choices, want in OUTFIT_VLM_QUESTIONS:
+        if key == "hood_on_head":
+            out.append((key, q, choices, "是"))
+        elif key == "hairstyle":
+            out.append(HOOD_UP_HAIR_QUESTION)
+        else:
+            out.append((key, q, choices, want))
+    return tuple(out)
+
+
 def parse_vlm_choice(raw: str, choices: tuple[str, ...]) -> str | None:
     """把 VLM 原始回答归一到 choices 之一；无法判定 → None（按不通过处理）。"""
     import re as _re
@@ -288,14 +315,10 @@ def parse_vlm_choice(raw: str, choices: tuple[str, ...]) -> str | None:
 def outfit_vlm_verdict(answers: dict[str, str], face_sim: float | None, *, hood: str = "down") -> dict[str, Any]:
     """四问 + 脸分 → {pass, checks:[{key,question,raw,parsed,want,ok}], face_sim, face_ok, failed, hood}。
 
-    hood="down"（默认）：帽兜须放下；hood="up"（ToIV 开发 05:19 方案1：镜1–3 全程戴帽）：帽兜须盖在头上。
-    其余三问（同款风衣/无饰品/马尾）与脸分阈值不变。"""
-    if hood not in ("down", "up"):
-        raise ValueError(f"hood 只能是 down/up：{hood!r}")
+    hood="down"（默认）：帽兜须放下；hood="up"（ToIV 开发 05:48 方案D：全场戴帽）：帽兜须盖在头上，
+    第四问改为「发型与镜0一致或被帽兜遮住」（vlm_questions）。同款风衣/无饰品与脸分阈值不变。"""
     checks = []
-    for key, q, choices, want in OUTFIT_VLM_QUESTIONS:
-        if key == "hood_on_head" and hood == "up":
-            want = "是"
+    for key, q, choices, want in vlm_questions(hood):
         raw = answers.get(key)
         parsed = parse_vlm_choice(raw or "", choices)
         checks.append({"key": key, "question": q, "raw": raw, "parsed": parsed, "want": want,
@@ -376,9 +399,98 @@ async def ask_outfit_vlm(
     timeout_s: float = 600.0,
     seed: int = 42,
     batch_kw: dict | None = None,
+    hood: str = "down",
 ) -> dict[str, str]:
     """四问各提交一次 Comfy Qwen2_VQA（排队，不打断他人）；返回 {key: 原始回答}。仅允许 :8262/:8264。"""
     import asyncio
+
+    from app.comfy.client import ComfyUIClient
+    from app.services.studio.character_sheet import _assert_sheet_worker_allowed
+
+    qs = vlm_questions(hood)
+    url = str(worker_url).rstrip("/")
+    _assert_sheet_worker_allowed(url)
+    client = ComfyUIClient(url, timeout=180.0)
+    lock = _QE_LOCKS.setdefault(url, asyncio.Lock())
+    async with lock:  # 同进程内逐图串行：一图一批（4 问 ≤ 8）
+        await wait_qe_batch_slot(client, len(qs), **(batch_kw or {}))
+        return await _ask_outfit_vlm_batch(client, image_bytes, model=model, seed=seed, timeout_s=timeout_s, questions=qs)
+
+
+async def _vlm_ask_many(client, items: list[tuple[str, str]], *, model: str, seed: int, timeout_s: float) -> list[str]:
+    """items=[(已上传文件名, 问题)] 一批提交（调用方保证 ≤8 且已等过批次空位）；返回同序原始回答，失败/超时为 ""。
+    超时撤回我方仍在排队的任务（不打断正在跑的）。"""
+    import asyncio
+    import uuid
+
+    from app.services.studio.character_sheet import _extract_history_text, build_expression_vlm_graph
+
+    if len(items) > QE_BATCH_MAX:
+        raise ValueError(f":8262 每批最多 {QE_BATCH_MAX} 个任务，本批 {len(items)}")
+    pids: list[str] = []
+    for fname, q in items:
+        g = build_expression_vlm_graph(fname, prompt=q, model=model, seed=seed, backend="Qwen2_VQA")
+        g["2"]["inputs"]["max_new_tokens"] = 128  # 节点下限 128
+        g["2"]["inputs"]["temperature"] = 0.1
+        pids.append(await client.queue_prompt(g, client_id=f"outfit_qa_{uuid.uuid4().hex[:8]}"))
+    out: dict[int, str] = {}
+    waited = 0.0
+    while len(out) < len(pids) and waited < timeout_s:
+        for k, pid in enumerate(pids):
+            if k in out:
+                continue
+            hist = await client.get_history(pid)
+            entry = (hist or {}).get(pid) or {}
+            st = (entry.get("status") or {}).get("status_str")
+            if entry.get("outputs"):
+                txt = _extract_history_text(entry)
+                if txt:
+                    out[k] = txt
+            elif st == "error":
+                out[k] = ""
+        if len(out) < len(pids):
+            await asyncio.sleep(2.0)
+            waited += 2.0
+    left = [pids[k] for k in range(len(pids)) if k not in out]
+    if left:
+        try:
+            await client.delete_from_queue(left)
+        except Exception:  # noqa: BLE001
+            pass
+    return [out.get(k, "") for k in range(len(pids))]
+
+
+async def _ask_outfit_vlm_batch(client, image_bytes: bytes, *, model: str, seed: int, timeout_s: float,
+                                questions=None) -> dict[str, str]:
+    import uuid
+
+    qs = questions or OUTFIT_VLM_QUESTIONS
+    fname = await client.upload_image(image_bytes, f"outfit_qa_{uuid.uuid4().hex[:10]}.png")
+    raws = await _vlm_ask_many(client, [(fname, q) for _k, q, _c, _w in qs], model=model, seed=seed, timeout_s=timeout_s)
+    return {k: r for (k, _q, _c, _w), r in zip(qs, raws)}
+
+
+# ---- 05:48 方案D：视频级帽兜门禁（戴帽镜头里帽兜不得中途滑落/放下） ----
+HOOD_VIDEO_SAMPLES = 8  # 一个候选一批（≤8）
+HOOD_GATE_EXPECT: str | None = None  # 驱动 --hood-expect 设置；None = 不启用（默认行为不变）
+HOOD_VIDEO_QUESTION = "图中人物头上是否戴着帽兜（帽兜盖在头顶上）？只答 是/否"
+
+
+def hood_frame_indices(n_frames: int, skip_until_frame: int = 0, samples: int = HOOD_VIDEO_SAMPLES) -> list[int]:
+    """在 [skip, n-1] 均匀取 samples 帧（含首尾）。"""
+    if n_frames <= 0:
+        return []
+    start = min(max(0, int(skip_until_frame or 0)), n_frames - 1)
+    k = max(2, min(int(samples), QE_BATCH_MAX))
+    return sorted({start + int(round(j * (n_frames - 1 - start) / (k - 1))) for j in range(k)})
+
+
+async def ask_hood_frames_vlm(frames_png: list[bytes], *, worker_url: str = "http://100.68.100.90:8262",
+                              model: str = OUTFIT_VLM_MODEL, timeout_s: float = 3600.0, seed: int = 42,
+                              batch_kw: dict | None = None) -> list[str]:
+    """抽样帧一批（≤8）问「帽兜是否戴着」；遵守 :8262 批次规则（角色卡优先）。"""
+    import asyncio
+    import uuid
 
     from app.comfy.client import ComfyUIClient
     from app.services.studio.character_sheet import _assert_sheet_worker_allowed
@@ -387,50 +499,76 @@ async def ask_outfit_vlm(
     _assert_sheet_worker_allowed(url)
     client = ComfyUIClient(url, timeout=180.0)
     lock = _QE_LOCKS.setdefault(url, asyncio.Lock())
-    async with lock:  # 同进程内逐图串行：一图一批（4 问 ≤ 8）
-        await wait_qe_batch_slot(client, len(OUTFIT_VLM_QUESTIONS), **(batch_kw or {}))
-        return await _ask_outfit_vlm_batch(client, image_bytes, model=model, seed=seed, timeout_s=timeout_s)
+    async with lock:
+        await wait_qe_batch_slot(client, len(frames_png), **(batch_kw or {}))
+        names = []
+        for b in frames_png:
+            names.append(await client.upload_image(b, f"outfit_qa_hood_{uuid.uuid4().hex[:10]}.png"))
+        return await _vlm_ask_many(client, [(n, HOOD_VIDEO_QUESTION) for n in names],
+                                   model=model, seed=seed, timeout_s=timeout_s)
 
 
-async def _ask_outfit_vlm_batch(client, image_bytes: bytes, *, model: str, seed: int, timeout_s: float) -> dict[str, str]:
+def hood_video_gate(
+    video_path: str | Path,
+    *,
+    expect: str = "up",
+    skip_until_frame: int = 0,
+    samples: int = HOOD_VIDEO_SAMPLES,
+    ask_fn=None,
+) -> dict[str, Any]:
+    """视频级帽兜门禁：抽 ≤8 帧问 VLM「帽兜是否戴着」。expect=up 时任一帧答「否」或无法判定（含超时）→ blocked
+    （fail-closed：戴帽镜头里帽兜中途滑落/放下的候选不得入选）。ask_fn(list[png bytes]) -> list[raw]（同步或异步）。"""
     import asyncio
-    import uuid
+    import inspect
 
-    from app.services.studio.character_sheet import _extract_history_text, build_expression_vlm_graph
+    want = "是" if expect == "up" else "否"
+    out: dict[str, Any] = {"expect": expect, "frames": [], "n_ok": 0, "n_bad": 0, "n_unknown": 0,
+                           "blocked": True, "error": ""}
+    p = Path(video_path)
+    if not p.is_file():
+        out["error"] = "missing_video"
+        return out
+    try:
+        import cv2
 
-    fname = await client.upload_image(image_bytes, f"outfit_qa_{uuid.uuid4().hex[:10]}.png")
-    pids: dict[str, str] = {}
-    for key, q, _choices, _want in OUTFIT_VLM_QUESTIONS:
-        g = build_expression_vlm_graph(fname, prompt=q, model=model, seed=seed, backend="Qwen2_VQA")
-        g["2"]["inputs"]["max_new_tokens"] = 128  # 节点下限 128
-        g["2"]["inputs"]["temperature"] = 0.1
-        pids[key] = await client.queue_prompt(g, client_id=f"outfit_qa_{uuid.uuid4().hex[:8]}")
-    out: dict[str, str] = {}
-    waited = 0.0
-    while len(out) < len(pids) and waited < timeout_s:
-        for key, pid in pids.items():
-            if key in out:
+        cap = cv2.VideoCapture(str(p))
+        n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        idxs = hood_frame_indices(n, skip_until_frame, samples)
+        pngs, used = [], []
+        for i in idxs:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            ok, fr = cap.read()
+            if not ok or fr is None:
                 continue
-            hist = await client.get_history(pid)
-            entry = (hist or {}).get(pid) or {}
-            st = (entry.get("status") or {}).get("status_str")
-            if entry.get("outputs"):
-                txt = _extract_history_text(entry)
-                if txt:
-                    out[key] = txt
-            elif st == "error":
-                out[key] = ""
-        if len(out) < len(pids):
-            await asyncio.sleep(2.0)
-            waited += 2.0
-    left = [pids[k] for k in pids if k not in out]
-    if left:  # 超时：撤掉我方仍在排队的任务，不留孤儿占 :8262（不打断正在跑的）
-        try:
-            await client.delete_from_queue(left)
-        except Exception:  # noqa: BLE001
-            pass
-    for key in pids:
-        out.setdefault(key, "")
+            h, w = fr.shape[:2]
+            if max(h, w) > 768:
+                sc = 768 / max(h, w)
+                fr = cv2.resize(fr, (int(w * sc), int(h * sc)), interpolation=cv2.INTER_AREA)
+            okp, enc = cv2.imencode(".png", fr)
+            if okp:
+                pngs.append(enc.tobytes())
+                used.append(i)
+        cap.release()
+        if not pngs:
+            out["error"] = "no_frames"
+            return out
+        fn = ask_fn or ask_hood_frames_vlm
+        res = fn(pngs)
+        raws = asyncio.run(res) if inspect.isawaitable(res) else res
+        for i, raw in zip(used, raws):
+            parsed = parse_vlm_choice(raw or "", ("是", "否"))
+            ok = parsed == want
+            out["frames"].append({"frame": i, "raw": raw, "parsed": parsed, "ok": ok})
+            if ok:
+                out["n_ok"] += 1
+            elif parsed is None:
+                out["n_unknown"] += 1
+            else:
+                out["n_bad"] += 1
+        out["blocked"] = not out["frames"] or out["n_ok"] != len(out["frames"])
+    except Exception as e:  # noqa: BLE001  fail-closed
+        out["error"] = f"{type(e).__name__}:{e}"[:200]
+        out["blocked"] = True
     return out
 
 
@@ -471,7 +609,7 @@ async def scene_ref_gate(
     img = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
     ref = cv2.imdecode(np.frombuffer(original_bytes, np.uint8), cv2.IMREAD_COLOR)
     sim = (face_fn or face_similarity)(img, ref)
-    answers = await (ask_fn or ask_outfit_vlm)(image_bytes)
+    answers = await (ask_fn(image_bytes) if ask_fn else ask_outfit_vlm(image_bytes, hood=hood))
     v = outfit_vlm_verdict(answers, sim, hood=hood)
     v["answers"] = answers
     return v

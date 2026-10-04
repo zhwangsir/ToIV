@@ -799,6 +799,8 @@ def pick_best_candidate(
     hard_cut_rule: bool = True,
     text_gate: bool = True,
     hood_log: bool = True,
+    hood_expect: str | None = None,
+    hood_gate_fn=None,
 ) -> tuple[str | None, list[dict[str, Any]]]:
     """按 face_mean - burnin - ocr + 连贯加分 - 回退罚分 选优。
 
@@ -816,6 +818,9 @@ def pick_best_candidate(
     hood_log（默认开，仅记录）：帽兜状态逐帧与上一镜尾帧对比写 hood_log，不拦不扣分。
     硬切门禁（随 hard_cut_rule）：裁片头后仍有 ≥HARD_CUT_INELIGIBLE_MIN(2) 处镜内硬切的候选
     写 cut_gate.blocked，不得入选；全部被拦（文字/硬切）则抛 CandidatePickError。
+    hood_expect（05:48 方案D；None 时读 outfit_state.HOOD_GATE_EXPECT，默认不启用）：视频级帽兜门禁，
+    抽 ≤8 帧 VLM 判帽兜，expect=up 时任一帧帽兜不在头上/无法判定 → hood_gate.blocked，不得入选。
+    已被文字/硬切拦下的候选不再问 VLM（省 :8262）。
     """
     done = [c for c in candidates if c.get("status") == "done" and c.get("url")]
     if not done:
@@ -858,8 +863,19 @@ def pick_best_candidate(
     def _cut_blocked(c: dict[str, Any]) -> bool:
         return bool((c.get("cut_gate") or {}).get("blocked"))
 
+    def _hood_blocked(c: dict[str, Any]) -> bool:
+        return bool((c.get("hood_gate") or {}).get("blocked"))
+
     def _blocked(c: dict[str, Any]) -> bool:
-        return _text_blocked(c) or _cut_blocked(c)
+        return _text_blocked(c) or _cut_blocked(c) or _hood_blocked(c)
+
+    if hood_expect is None:
+        try:
+            from app.services.studio import outfit_state as _ost
+
+            hood_expect = _ost.HOOD_GATE_EXPECT
+        except Exception:  # noqa: BLE001
+            hood_expect = None
 
     try:
         best_id = None
@@ -922,6 +938,14 @@ def pick_best_candidate(
                 if tg.get("hit"):
                     c["gate_status"] = GATE_NEEDS_REVIEW
                     note_parts.append(f"text_gate={tg.get('kind') or 'hit'}")
+            if hood_expect in ("up", "down") and not (_text_blocked(c) or _cut_blocked(c)):
+                from app.services.studio.outfit_state import hood_video_gate
+
+                hg = (hood_gate_fn or hood_video_gate)(path, expect=hood_expect, skip_until_frame=skip_frames)
+                c["hood_gate"] = hg
+                if hg.get("blocked"):
+                    c["gate_status"] = GATE_NEEDS_REVIEW
+                    note_parts.append(f"hood_gate=bad{hg.get('n_bad')}/unk{hg.get('n_unknown')}")
             if hood_log:
                 try:
                     from app.services.studio.outfit_state import hood_state_log
@@ -1007,6 +1031,13 @@ def pick_best_candidate(
                 c["is_picked"] = False
             hits = [f"{c.get('id')}:{(c.get('text_gate') or {}).get('text', '')[:40]}" for c in done if _text_blocked(c)]
             cuts = [f"{c.get('id')}:{(c.get('cut_gate') or {}).get('late_cuts')}处" for c in done if _cut_blocked(c)]
+            hoods = [f"{c.get('id')}:bad{(c.get('hood_gate') or {}).get('n_bad')}/unk{(c.get('hood_gate') or {}).get('n_unknown')}"
+                     for c in done if _hood_blocked(c)]
+            if hoods:
+                raise CandidatePickError(
+                    f"选优失败:全部候选未过门禁 文字门禁={hits} 镜内硬切≥2={cuts} 帽兜中途滑落/放下={hoods}，"
+                    f"{GATE_NEEDS_REVIEW}，禁止入选并应改提示词重跑"
+                )
             if hits and not cuts:
                 raise CandidatePickError(
                     f"选优失败:全部候选未过文字门禁(衣物品牌字/字幕) {hits}，{GATE_NEEDS_REVIEW}，禁止入选并应改提示词重跑"

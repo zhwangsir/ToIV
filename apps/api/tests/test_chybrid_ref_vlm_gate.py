@@ -229,14 +229,22 @@ def test_gate_script_submits_sequentially():
 
 # ---- 05:19 方案1：戴帽参考（第一问期望反转，其余不变） ----
 
-def test_verdict_hood_up_flips_only_first_question():
-    ans = {"hood_on_head": "是", "same_jacket": "是", "accessories": "否", "hairstyle": "马尾"}
+def test_verdict_hood_up_q1_and_q4_change_only():
+    # 05:48 方案D：Q1 期望「是」；Q4 改为「与镜0一致或被帽兜遮住」（是/否）；Q2/Q3/脸分不变
+    ans = {"hood_on_head": "是", "same_jacket": "是", "accessories": "否", "hairstyle": "是"}
     v = ost.outfit_vlm_verdict(ans, 0.8, hood="up")
     assert v["pass"] and v["hood"] == "up"
-    assert not ost.outfit_vlm_verdict(ans, 0.8)["pass"]
-    v2 = ost.outfit_vlm_verdict({**ans, "hairstyle": "披发"}, 0.8, hood="up")
-    assert v2["failed"] == ["hairstyle"]
+    q4 = next(c for c in v["checks"] if c["key"] == "hairstyle")
+    assert "被帽兜遮住" in q4["question"] and q4["want"] == "是"
+    assert ost.outfit_vlm_verdict({**ans, "hairstyle": "否"}, 0.8, hood="up")["failed"] == ["hairstyle"]
+    assert ost.outfit_vlm_verdict({**ans, "same_jacket": "否"}, 0.8, hood="up")["failed"] == ["same_jacket"]
+    assert ost.outfit_vlm_verdict({**ans, "accessories": "是"}, 0.8, hood="up")["failed"] == ["accessories"]
     assert ost.outfit_vlm_verdict(ans, 0.74, hood="up")["failed"] == ["face_sim"]
+    # hood=down 口径不变
+    down = ost.outfit_vlm_verdict({"hood_on_head": "否", "same_jacket": "是", "accessories": "否", "hairstyle": "马尾"}, 0.8)
+    assert down["pass"]
+    assert [q[0] for q in ost.vlm_questions("up")] == [q[0] for q in ost.OUTFIT_VLM_QUESTIONS]
+    assert ost.vlm_questions("down") is ost.OUTFIT_VLM_QUESTIONS
 
 
 def test_verdict_hood_invalid():
@@ -250,7 +258,7 @@ def test_scene_ref_gate_passes_hood():
     ok, enc = cv2.imencode(".png", np.zeros((8, 8, 3), np.uint8))
 
     async def ask(b):
-        return {"hood_on_head": "是", "same_jacket": "是", "accessories": "否", "hairstyle": "马尾"}
+        return {"hood_on_head": "是", "same_jacket": "是", "accessories": "否", "hairstyle": "是"}
 
     v = asyncio.run(ost.scene_ref_gate(enc.tobytes(), enc.tobytes(), ask_fn=ask, face_fn=lambda a, b: 0.9, hood="up"))
     assert v["pass"] and v["hood"] == "up"
@@ -265,3 +273,120 @@ def test_wait_slot_running_char_sheet_does_not_starve():
 
     c = asyncio.run(ost.wait_qe_batch_slot(_FakeQ([run_cs, run_cs]), 4, gap_s=15, poll_s=5, sleep=sl))
     assert slept == [15] and c["char_sheet"] == 1 and c["char_sheet_pending"] == 0
+
+
+# ---- 05:48 视频级帽兜门禁 ----
+
+def _mk_video(path, n=40):
+    import cv2
+    import numpy as np
+    vw = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), 24, (64, 112))
+    for i in range(n):
+        vw.write(np.full((112, 64, 3), i * 5 % 255, np.uint8))
+    vw.release()
+    return path
+
+
+def test_hood_frame_indices_le8_and_skip():
+    idx = ost.hood_frame_indices(353, skip_until_frame=12)
+    assert len(idx) == 8 and idx[0] == 12 and idx[-1] == 352
+    assert len(ost.hood_frame_indices(353, samples=20)) == 8  # 一批 ≤8
+    assert ost.hood_frame_indices(0) == []
+
+
+def test_hood_video_gate_all_up_passes(tmp_path):
+    v = _mk_video(tmp_path / "a.mp4")
+    seen = {}
+
+    def ask(pngs):
+        seen["n"] = len(pngs)
+        return ['[\n "\\u662f"\n]'] * len(pngs)  # PreviewAny 转义「是」
+
+    g = ost.hood_video_gate(v, expect="up", skip_until_frame=3, ask_fn=ask)
+    assert seen["n"] <= 8 and g["blocked"] is False and g["n_ok"] == len(g["frames"])
+
+
+def test_hood_video_gate_hood_falls_off_blocked(tmp_path):
+    v = _mk_video(tmp_path / "b.mp4")
+
+    async def ask(pngs):  # 异步也支持；第 6 帧起帽兜放下
+        return ["是"] * 5 + ["否"] * (len(pngs) - 5)
+
+    g = ost.hood_video_gate(v, expect="up", ask_fn=ask)
+    assert g["blocked"] is True and g["n_bad"] == len(g["frames"]) - 5
+
+
+def test_hood_video_gate_unknown_or_error_fail_closed(tmp_path):
+    v = _mk_video(tmp_path / "c.mp4")
+    g = ost.hood_video_gate(v, ask_fn=lambda p: ["是"] * (len(p) - 1) + [""])
+    assert g["blocked"] and g["n_unknown"] == 1
+
+    def boom(p):
+        raise RuntimeError("8262 down")
+
+    g2 = ost.hood_video_gate(v, ask_fn=boom)
+    assert g2["blocked"] and "8262 down" in g2["error"]
+    assert ost.hood_video_gate(tmp_path / "missing.mp4", ask_fn=boom)["blocked"]
+
+
+def test_pick_hood_gate_blocks_and_raises(monkeypatch, tmp_path):
+    from app.services.studio import candidate_pick as cp
+    from app.services.studio import hard_cut as hcm
+
+    ref = tmp_path / "ref.png"
+    ref.write_bytes(b"x")
+    cands = []
+    for k in ("fall", "keep"):
+        p = tmp_path / f"{k}.mp4"
+        p.write_bytes(b"v")
+        cands.append({"id": k, "status": "done", "url": str(p), "first_frame": "ff.png"})
+    faces = {"fall": 0.8, "keep": 0.6}
+    monkeypatch.setattr(cp, "_try_import_face", lambda: True)
+    monkeypatch.setattr(cp, "score_video_face", lambda path, ref_image_path, **kw: {
+        "face_mean": faces[Path(path).stem], "facecrop_mean": faces[Path(path).stem],
+        "burnin_penalty": 0.0, "ocr_penalty": 0.0, "error": "", "score_backend": "insightface"})
+    monkeypatch.setattr(cp, "score_scene_continuity", lambda *a, **k: {"continuity": None, "regression": None, "error": "skip"})
+    monkeypatch.setattr(cp, "garment_brand_ocr_hit", lambda path, **kw: {"hit": False, "kind": "", "text": "", "frames_checked": 1, "error": ""})
+    monkeypatch.setattr(hcm, "detect_hard_cuts", lambda path: {"cuts": [], "fps": 24.0, "n_frames": 362, "error": ""})
+    calls = []
+
+    def hg(path, expect, skip_until_frame):
+        calls.append((Path(path).stem, expect))
+        bad = Path(path).stem == "fall"
+        return {"blocked": bad, "n_bad": 3 if bad else 0, "n_unknown": 0, "frames": []}
+
+    win, out = cp.pick_best_candidate([dict(c) for c in cands], ref_image_path=ref, hood_log=False,
+                                      hood_expect="up", hood_gate_fn=hg)
+    assert win == "keep" and ("fall", "up") in calls
+    assert next(c for c in out if c["id"] == "fall")["hood_gate"]["blocked"]
+    with pytest.raises(cp.CandidatePickError, match="帽兜中途滑落"):
+        cp.pick_best_candidate([dict(c) for c in cands], ref_image_path=ref, hood_log=False,
+                               hood_expect="up", hood_gate_fn=lambda p, expect, skip_until_frame: {"blocked": True, "n_bad": 1, "n_unknown": 0})
+    # 默认不启用：不调用门禁
+    calls.clear()
+    monkeypatch.setattr(ost, "HOOD_GATE_EXPECT", None)
+    cp.pick_best_candidate([dict(c) for c in cands], ref_image_path=ref, hood_log=False, hood_gate_fn=hg)
+    assert calls == []
+    # 驱动设置全局后生效
+    monkeypatch.setattr(ost, "HOOD_GATE_EXPECT", "up")
+    win2, _ = cp.pick_best_candidate([dict(c) for c in cands], ref_image_path=ref, hood_log=False, hood_gate_fn=hg)
+    assert win2 == "keep"
+
+
+def test_prompt_hood_up_has_no_hood_down_clause():
+    from app.services.studio import prompt_c
+
+    p = prompt_c.build_c_visual_prompt(
+        shot_prompt="Lin Xia at the store entrance, black windbreaker hood UP covering the top of her head",
+        outfit_desc="纯黑无 logo 无字的连帽风衣")
+    body = p.split("Avoid:")[0]
+    assert prompt_c.C_HOOD_STAYS_UP in body and "never lower or remove the hood" in body and "帽兜不滑落不放下" in body
+    assert "单一连续镜头、无切镜" in body and body.count(prompt_c.C_HOOD_STAYS_UP) == 1
+    p2 = prompt_c.build_c_visual_prompt(shot_prompt="aisle, hood down")
+    assert prompt_c.C_HOOD_STAYS_UP not in p2
+
+
+def test_driver_has_hood_and_first_frame_flags():
+    src = (Path(__file__).resolve().parents[1] / "scripts" / "chybrid_rain_cmp_driver.py").read_text()
+    for flag in ("--hood-expect", "--first-frame-override", "--rerender-from", "HOOD_GATE_EXPECT", "reset_backup"):
+        assert flag in src
