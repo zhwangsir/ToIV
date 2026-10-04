@@ -251,10 +251,18 @@ async def main_async(args) -> int:
         shots = session.exec(
             select(StudioShot).where(StudioShot.project_id == pid).order_by(StudioShot.idx)
         ).all()
+        note = (args.shot_note or "").strip()
         for shot in shots[: args.shots]:
             if shot.status in ("rendered", "voiced", "lipsynced", "done") and shot.video_url:
                 prog.event("skip_rendered", idx=shot.idx)
                 continue
+            if note and note not in (shot.prompt or ""):
+                # 只改对比副本项目的镜头（源项目只读）
+                assert shot.project_id != args.src
+                shot.prompt = f"{(shot.prompt or '').rstrip('，, ')}，{note}"
+                session.add(shot)
+                session.commit()
+                prog.event("shot_note_applied", idx=shot.idx, note=note)
             current.update(shot_id=shot.id, idx=shot.idx)
             t0 = time.time()
             prog.event("render_start", idx=shot.idx, shot_id=shot.id)
@@ -303,6 +311,9 @@ def main() -> int:
     ap.add_argument("--worker", default="http://100.68.100.90:8195")
     ap.add_argument("--out", default=str(DEPLOY_ROOT / "tmp/chybrid_rain_cmp"))
     ap.add_argument("--resume", default="", help="copy_project_id; continue an interrupted chain")
+    ap.add_argument("--shot-note", default="",
+                    help="text appended once to every not-yet-rendered shot prompt of the copy project, "
+                         "e.g. '外套无 logo、全程戴帽'")
     ap.add_argument("--recover-only", action="store_true",
                     help="no new submissions: only recover not-yet-written-back shots from progress.json prompt_ids")
     args = ap.parse_args()
