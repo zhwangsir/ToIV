@@ -299,6 +299,66 @@ def outfit_vlm_verdict(answers: dict[str, str], face_sim: float | None) -> dict[
             "face_min": REF_FACE_SIM_MIN, "failed": failed}
 
 
+
+# ---- :8262 排队规则（ToIV 开发 04:30）：角色卡优先；其余任务每批 ≤8，上一批排空 + 间隔后再提交下一批 ----
+QE_BATCH_MAX = 8
+QE_BATCH_GAP_S = 15.0
+QE_OUR_CLIENT_PREFIXES = ("outfit_qa_", "toiv-rain-")
+_QE_LOCKS: dict = {}
+
+
+def _is_char_sheet_job(q) -> bool:
+    """队列项是否角色卡任务（filename_prefix 含 char_sheet，或输入图为 sheet_*）。"""
+    wf = q[2] if len(q) > 2 and isinstance(q[2], dict) else {}
+    for n in wf.values():
+        inp = (n or {}).get("inputs") or {}
+        if "char_sheet" in str(inp.get("filename_prefix", "")) or str(inp.get("image", "")).startswith("sheet_"):
+            return True
+    return False
+
+
+def qe_queue_census(queue: dict, our_prefixes=QE_OUR_CLIENT_PREFIXES) -> dict:
+    """/queue → {char_sheet: 角色卡在队数, ours: 我方在队数(running+pending), ours_pending_ids: [...]}。"""
+    cs = ours = 0
+    ours_pending: list[str] = []
+    for k in ("queue_running", "queue_pending"):
+        for q in queue.get(k) or []:
+            cid = str(((q[3] if len(q) > 3 else None) or {}).get("client_id") or "")
+            if _is_char_sheet_job(q):
+                cs += 1
+            elif cid.startswith(tuple(our_prefixes)):
+                ours += 1
+                if k == "queue_pending":
+                    ours_pending.append(q[1])
+    return {"char_sheet": cs, "ours": ours, "ours_pending_ids": ours_pending}
+
+
+async def wait_qe_batch_slot(client, n_new: int, *, gap_s: float = QE_BATCH_GAP_S,
+                             poll_s: float = 5.0, max_wait_s: float = 3600.0, sleep=None) -> dict:
+    """提交一批前阻塞：n_new ≤ 8；等我方上一批全部排空且无角色卡在队，再隔 gap_s 复核一次。"""
+    import asyncio
+
+    if n_new > QE_BATCH_MAX:
+        raise ValueError(f":8262 每批最多 {QE_BATCH_MAX} 个任务，本批 {n_new}")
+    sleep = sleep or asyncio.sleep
+    waited = 0.0
+    gap_done = False
+    while True:
+        c = qe_queue_census(await client._get_json("/queue"))
+        if c["ours"] == 0 and c["char_sheet"] == 0:
+            if gap_done:
+                return c
+            await sleep(gap_s)
+            waited += gap_s
+            gap_done = True
+            continue
+        gap_done = False
+        if waited >= max_wait_s:
+            raise TimeoutError(f":8262 等待批次空位超时 {max_wait_s}s：{c}")
+        await sleep(poll_s)
+        waited += poll_s
+
+
 async def ask_outfit_vlm(
     image_bytes: bytes,
     *,
@@ -306,21 +366,29 @@ async def ask_outfit_vlm(
     model: str = OUTFIT_VLM_MODEL,
     timeout_s: float = 600.0,
     seed: int = 42,
+    batch_kw: dict | None = None,
 ) -> dict[str, str]:
     """四问各提交一次 Comfy Qwen2_VQA（排队，不打断他人）；返回 {key: 原始回答}。仅允许 :8262/:8264。"""
     import asyncio
-    import uuid
 
     from app.comfy.client import ComfyUIClient
-    from app.services.studio.character_sheet import (
-        _assert_sheet_worker_allowed,
-        _extract_history_text,
-        build_expression_vlm_graph,
-    )
+    from app.services.studio.character_sheet import _assert_sheet_worker_allowed
 
     url = str(worker_url).rstrip("/")
     _assert_sheet_worker_allowed(url)
     client = ComfyUIClient(url, timeout=180.0)
+    lock = _QE_LOCKS.setdefault(url, asyncio.Lock())
+    async with lock:  # 同进程内逐图串行：一图一批（4 问 ≤ 8）
+        await wait_qe_batch_slot(client, len(OUTFIT_VLM_QUESTIONS), **(batch_kw or {}))
+        return await _ask_outfit_vlm_batch(client, image_bytes, model=model, seed=seed, timeout_s=timeout_s)
+
+
+async def _ask_outfit_vlm_batch(client, image_bytes: bytes, *, model: str, seed: int, timeout_s: float) -> dict[str, str]:
+    import asyncio
+    import uuid
+
+    from app.services.studio.character_sheet import _extract_history_text, build_expression_vlm_graph
+
     fname = await client.upload_image(image_bytes, f"outfit_qa_{uuid.uuid4().hex[:10]}.png")
     pids: dict[str, str] = {}
     for key, q, _choices, _want in OUTFIT_VLM_QUESTIONS:
@@ -346,6 +414,12 @@ async def ask_outfit_vlm(
         if len(out) < len(pids):
             await asyncio.sleep(2.0)
             waited += 2.0
+    left = [pids[k] for k in pids if k not in out]
+    if left:  # 超时：撤掉我方仍在排队的任务，不留孤儿占 :8262（不打断正在跑的）
+        try:
+            await client.delete_from_queue(left)
+        except Exception:  # noqa: BLE001
+            pass
     for key in pids:
         out.setdefault(key, "")
     return out

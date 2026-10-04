@@ -5,6 +5,7 @@
   CODE_ROOT=... python scripts/chybrid_ref_gate.py OUT.json NAME=IMAGE@ORIGINAL[@URL] ...
 OUT.json 追加写，供驱动 --ref-gate-json 核对；IMAGE 为候选图本地路径，ORIGINAL 为同角度原参考图（算脸分）。
 CLIP 不参与验收（仅 hood_state_log 告警）。
+:8262 排队规则：逐图提交（每批 4 问 ≤8），提交前等我方上一批排空、无角色卡在队，再隔 15s。
 """
 from __future__ import annotations
 
@@ -40,7 +41,8 @@ async def _main(argv: list[str]) -> int:
               {c["key"]: c["parsed"] for c in v["checks"]}, flush=True)
         out.write_text(json.dumps(res, ensure_ascii=False, indent=1))
 
-    await asyncio.gather(*[one(s) for s in argv[1:]])
+    for s in argv[1:]:  # 逐图串行：每图一批 4 问（≤8），批间等排空+角色卡优先
+        await one(s)
     return 0
 
 
