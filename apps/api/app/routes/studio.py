@@ -371,7 +371,13 @@ async def generate_character_sheet_route(
     # 12:01/22:31:默认不写视频参考;apply_to_video_refs 时按风格分桶写入,不互盖
     refs_out = None
     by_style_out = None
-    if getattr(body, "apply_to_video_refs", False):
+    # 10/05:首次定妆(本风格分桶为空)自动写入视频参考,否则新角色进视频步 C/c_hybrid 无参考直接失败;
+    # 已有分桶时仍尊重 apply_to_video_refs=False,不覆盖已确认的参考。
+    _bucket_empty = not sheet_svc.parse_refs_by_style(
+        getattr(c, "reference_images_by_style", None) or "{}"
+    ).get(body.style)
+    _apply_refs = bool(getattr(body, "apply_to_video_refs", False)) or _bucket_empty
+    if _apply_refs:
         try:
             existing = json.loads(c.reference_images or "[]")
         except (ValueError, TypeError):
@@ -404,7 +410,7 @@ async def generate_character_sheet_route(
     out["sheet_url"] = url
     out["sheet_style"] = body.style
     out["panel_urls"] = panel_urls
-    out["apply_to_video_refs"] = bool(getattr(body, "apply_to_video_refs", False))
+    out["apply_to_video_refs"] = _apply_refs
     if refs_out is not None:
         out["reference_images"] = refs_out
     if by_style_out is not None:
@@ -511,7 +517,13 @@ async def regenerate_character_sheet_panels_route(
 
     refs_out = None
     by_style_out = None
-    if getattr(body, "apply_to_video_refs", False):
+    # 10/05:首次定妆(本风格分桶为空)自动写入视频参考,否则新角色进视频步 C/c_hybrid 无参考直接失败;
+    # 已有分桶时仍尊重 apply_to_video_refs=False,不覆盖已确认的参考。
+    _bucket_empty = not sheet_svc.parse_refs_by_style(
+        getattr(c, "reference_images_by_style", None) or "{}"
+    ).get(body.style)
+    _apply_refs = bool(getattr(body, "apply_to_video_refs", False)) or _bucket_empty
+    if _apply_refs:
         try:
             existing = json.loads(c.reference_images or "[]")
         except (ValueError, TypeError):
@@ -545,7 +557,7 @@ async def regenerate_character_sheet_panels_route(
     out["sheet_style"] = body.style
     out["panel_urls"] = panel_urls
     out["debug"] = debug
-    out["apply_to_video_refs"] = bool(getattr(body, "apply_to_video_refs", False))
+    out["apply_to_video_refs"] = _apply_refs
     if refs_out is not None:
         out["reference_images"] = refs_out
     if by_style_out is not None:
