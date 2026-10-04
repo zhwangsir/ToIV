@@ -72,7 +72,7 @@ func RunProtocolAdapterTaskWithPolicy(ctx context.Context, input Input, adapter 
 			key = uuid.NewString()
 		}
 		request.Extra["idempotencyKey"] = key
-		spec, err := adapter.BuildCreate(ctx, protocol.RequestContext{BaseURL: input.Config.BaseURL, Request: request})
+		spec, err := buildProtocolCreateSpec(ctx, input, adapter, request)
 		if err != nil {
 			return nil, err
 		}
@@ -138,6 +138,52 @@ func RunProtocolAdapterTaskWithPolicy(ctx context.Context, input Input, adapter 
 		}
 		return VideoPollOutcome{}, nil
 	})
+}
+
+// buildProtocolCreateSpec runs declarative prepare steps (ToIV patch), e.g.
+// reference uploads that return upstream handles, then builds create with
+// their results. Nothing has been submitted yet when a prepare step fails, so
+// the error is returned as-is (not an uncertain submission).
+func buildProtocolCreateSpec(ctx context.Context, input Input, adapter protocol.Adapter, request protocol.GenerationRequest) (protocol.RequestSpec, error) {
+	requestContext := protocol.RequestContext{BaseURL: input.Config.BaseURL, Request: request}
+	preparer, ok := adapter.(protocol.PrepareAdapter)
+	if !ok || preparer.PrepareStepCount() == 0 {
+		return adapter.BuildCreate(ctx, requestContext)
+	}
+	prepared := map[string]any{}
+	for index := 0; index < preparer.PrepareStepCount(); index++ {
+		step, err := preparer.BuildPrepare(ctx, requestContext, index, prepared)
+		if err != nil {
+			return protocol.RequestSpec{}, err
+		}
+		if step.Skip {
+			continue
+		}
+		if step.HasValue {
+			prepared[step.ID] = step.Value
+			continue
+		}
+		results := make([]any, 0, len(step.Specs))
+		for _, spec := range step.Specs {
+			body, err := ExecuteProtocolRequest(WithRequestKind(ctx, "prepare"), input.Config, spec)
+			if err != nil {
+				return protocol.RequestSpec{}, fmt.Errorf("参考素材上传失败：%w", err)
+			}
+			var decoded any
+			if len(bytes.TrimSpace(body)) > 0 {
+				if err := json.Unmarshal(body, &decoded); err != nil {
+					return protocol.RequestSpec{}, fmt.Errorf("参考素材上传响应无法解析：%w", err)
+				}
+			}
+			results = append(results, decoded)
+		}
+		if step.Each {
+			prepared[step.ID] = results
+		} else if len(results) > 0 {
+			prepared[step.ID] = results[0]
+		}
+	}
+	return preparer.BuildCreatePrepared(ctx, requestContext, prepared)
 }
 
 func ExtractProviderTaskID(body []byte) (string, error) {
@@ -526,6 +572,7 @@ func ProtocolRequestBody(ctx context.Context, config Config, spec protocol.Reque
 			if mimeType == "" {
 				mimeType = detectedMIME
 			}
+			filename = protocolFilenameWithExtension(filename, defaultString(detectedMIME, mimeType))
 			header := make(textproto.MIMEHeader)
 			header.Set("Content-Disposition", fmt.Sprintf(`form-data; name=%q; filename=%q`, file.Name, filename))
 			header.Set("Content-Type", defaultString(mimeType, "application/octet-stream"))
@@ -594,6 +641,47 @@ func ProtocolFormValues(value any) []string {
 		}
 		return []string{string(data)}
 	}
+}
+
+// protocolFilenameWithExtension appends an extension derived from the sniffed
+// media type when a multipart filename has none. Upstreams such as ToIV
+// /api/upload whitelist by extension and reject extension-less names.
+func protocolFilenameWithExtension(filename, mimeType string) string {
+	base := filename
+	if index := strings.LastIndexAny(base, `/\\`); index >= 0 {
+		base = base[index+1:]
+	}
+	if strings.Contains(base, ".") {
+		return filename
+	}
+	ext := ""
+	switch strings.ToLower(strings.TrimSpace(strings.Split(mimeType, ";")[0])) {
+	case "image/png":
+		ext = ".png"
+	case "image/jpeg", "image/jpg":
+		ext = ".jpg"
+	case "image/webp":
+		ext = ".webp"
+	case "image/gif":
+		ext = ".gif"
+	case "video/mp4":
+		ext = ".mp4"
+	case "video/quicktime":
+		ext = ".mov"
+	case "video/webm":
+		ext = ".webm"
+	case "audio/mpeg", "audio/mp3":
+		ext = ".mp3"
+	case "audio/wav", "audio/x-wav", "audio/wave":
+		ext = ".wav"
+	case "audio/mp4", "audio/x-m4a":
+		ext = ".m4a"
+	case "audio/ogg":
+		ext = ".ogg"
+	case "audio/flac":
+		ext = ".flac"
+	}
+	return filename + ext
 }
 
 func SafeProtocolFilename(value string) string {

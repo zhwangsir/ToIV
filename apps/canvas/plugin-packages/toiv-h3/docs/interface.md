@@ -28,9 +28,9 @@
   "apiVersion": "beeftv.plugin/v2",
   "id": "toiv-h3",
   "name": "ToIV H3 视频",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": "ToIV",
-  "description": "通过 ToIV 平台 API (/api/h3/*) 调用 H3 视频管线；凭据为 ToIV 用户 JWT (Bearer)，产物按用户隔离。 v0.3: 提交响应带 job_id 时（ToIV ≥472d69b）任务键直接为 <job_id>~<prompt_id>，从第一次轮询起按 job_id 续跟；旧部署没有 job_id 时回退 prompt_id（首个 lookup 响应补上 id）。",
+  "description": "通过 ToIV 平台 API (/api/h3/*) 调用 H3 视频管线；凭据为 ToIV 用户 JWT (Bearer)，产物按用户隔离。 v0.4: 按输入自动选择 t2v / i2v（首帧）/ fl2v（首尾帧）/ r2v（多参考，Ref2VA），参考图先经 ToIV /api/upload 上传（宿主 prepare 步骤，同一 worker），再提交；任务键与续跑、取消同 v0.3（<job_id>~<prompt_id>）。",
   "permissions": [
     "generation.run",
     "media.read"
@@ -50,7 +50,7 @@
     "providers": [
       {
         "id": "toiv-h3",
-        "label": "ToIV H3 文生视频",
+        "label": "ToIV H3 视频",
         "capabilities": [
           "video"
         ],
@@ -72,8 +72,8 @@
             "name": "model",
             "type": "string",
             "required": true,
-            "mapping": "(固定) h3-t2v",
-            "description": "渠道模型 ID，填 h3-t2v。"
+            "mapping": "h3（自动）或 h3-t2v（兼容）",
+            "description": "渠道模型 ID：h3 按输入自动选择 t2v/i2v/fl2v/r2v；h3-t2v 为旧配置，行为相同。"
           },
           {
             "name": "prompt",
@@ -81,6 +81,13 @@
             "required": true,
             "mapping": "positive",
             "description": "视频提示词（≤4000 字）。"
+          },
+          {
+            "name": "images",
+            "type": "array",
+            "required": false,
+            "mapping": "prepare → /api/upload(kind=h3_i2v) → image / last_frame / images[] + worker",
+            "description": "0 张：文生；1 张或指定首帧：图生；首帧+尾帧（或 2 张未指定角色）：首尾帧；全模态参考或 ≥3 张：多参考 r2v（≤9）。"
           },
           {
             "name": "duration",
@@ -114,16 +121,58 @@
         "validations": [
           {
             "assert": {
-              "$eq": [
+              "$lte": [
                 {
                   "$len": {
                     "$ref": "request.images"
                   }
                 },
-                0
+                9
               ]
             },
-            "message": "ToIV H3 插件 v0.1 仅支持文生视频：图生/首尾帧/多参考需要先经 ToIV /api/upload 取得上传句柄，当前声明式插件无法两步提交，请移除参考图。"
+            "message": "ToIV H3 最多支持 9 张参考图。"
+          },
+          {
+            "assert": {
+              "$not": {
+                "$and": [
+                  {
+                    "$gt": [
+                      {
+                        "$len": {
+                          "$filter": {
+                            "from": {
+                              "$ref": "request.images"
+                            },
+                            "as": "im",
+                            "where": {
+                              "$eq": [
+                                {
+                                  "$ref": "im.role"
+                                },
+                                "last_frame"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      0
+                    ]
+                  },
+                  {
+                    "$eq": [
+                      {
+                        "$len": {
+                          "$ref": "request.images"
+                        }
+                      },
+                      1
+                    ]
+                  }
+                ]
+              }
+            },
+            "message": "ToIV H3 首尾帧需要同时指定首帧。"
           },
           {
             "assert": {
@@ -136,7 +185,20 @@
                 0
               ]
             },
-            "message": "ToIV H3 文生视频不接受参考视频。"
+            "message": "ToIV H3 暂不接受参考视频。"
+          },
+          {
+            "assert": {
+              "$eq": [
+                {
+                  "$len": {
+                    "$ref": "request.audios"
+                  }
+                },
+                0
+              ]
+            },
+            "message": "ToIV H3 暂不接受参考音频。"
           }
         ],
         "create": {
@@ -722,11 +784,105 @@
                 }
               },
               {
+                "$switch": {
+                  "cases": [
+                    {
+                      "when": {
+                        "$eq": [
+                          {
+                            "$ref": "prepared.mode"
+                          },
+                          "i2v"
+                        ]
+                      },
+                      "then": {
+                        "image": {
+                          "$ref": "prepared.first.filename"
+                        },
+                        "worker": {
+                          "$ref": "prepared.first.worker"
+                        }
+                      }
+                    },
+                    {
+                      "when": {
+                        "$eq": [
+                          {
+                            "$ref": "prepared.mode"
+                          },
+                          "fl2v"
+                        ]
+                      },
+                      "then": {
+                        "image": {
+                          "$ref": "prepared.first.filename"
+                        },
+                        "last_frame": {
+                          "$ref": "prepared.last.filename"
+                        },
+                        "worker": {
+                          "$ref": "prepared.first.worker"
+                        }
+                      }
+                    },
+                    {
+                      "when": {
+                        "$eq": [
+                          {
+                            "$ref": "prepared.mode"
+                          },
+                          "r2v"
+                        ]
+                      },
+                      "then": {
+                        "images": {
+                          "$concatArrays": [
+                            [
+                              {
+                                "$ref": "prepared.first.filename"
+                              }
+                            ],
+                            {
+                              "$map": {
+                                "from": {
+                                  "$ref": "prepared.refs"
+                                },
+                                "as": "u",
+                                "in": {
+                                  "$ref": "u.filename"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "worker": {
+                          "$ref": "prepared.first.worker"
+                        }
+                      }
+                    }
+                  ],
+                  "default": {}
+                }
+              },
+              {
                 "$coalesce": [
                   {
                     "$ref": "request.providerOptions.toiv-h3.body"
                   },
                   {}
+                ]
+              }
+            ]
+          },
+          "pathTemplate": {
+            "$concat": [
+              "/api/h3/",
+              {
+                "$coalesce": [
+                  {
+                    "$ref": "prepared.mode"
+                  },
+                  "t2v"
                 ]
               }
             ]
@@ -1196,7 +1352,356 @@
             }
           },
           "resultEphemeral": true
-        }
+        },
+        "prepare": [
+          {
+            "id": "mode",
+            "value": {
+              "$if": {
+                "condition": {
+                  "$eq": [
+                    {
+                      "$len": {
+                        "$ref": "request.images"
+                      }
+                    },
+                    0
+                  ]
+                },
+                "then": "t2v",
+                "else": {
+                  "$if": {
+                    "condition": {
+                      "$eq": [
+                        {
+                          "$ref": "request.operation"
+                        },
+                        "reference_to_video"
+                      ]
+                    },
+                    "then": "r2v",
+                    "else": {
+                      "$if": {
+                        "condition": {
+                          "$gt": [
+                            {
+                              "$len": {
+                                "$filter": {
+                                  "from": {
+                                    "$ref": "request.images"
+                                  },
+                                  "as": "im",
+                                  "where": {
+                                    "$eq": [
+                                      {
+                                        "$ref": "im.role"
+                                      },
+                                      "last_frame"
+                                    ]
+                                  }
+                                }
+                              }
+                            },
+                            0
+                          ]
+                        },
+                        "then": "fl2v",
+                        "else": {
+                          "$if": {
+                            "condition": {
+                              "$gt": [
+                                {
+                                  "$len": {
+                                    "$filter": {
+                                      "from": {
+                                        "$ref": "request.images"
+                                      },
+                                      "as": "im",
+                                      "where": {
+                                        "$eq": [
+                                          {
+                                            "$ref": "im.role"
+                                          },
+                                          "first_frame"
+                                        ]
+                                      }
+                                    }
+                                  }
+                                },
+                                0
+                              ]
+                            },
+                            "then": "i2v",
+                            "else": {
+                              "$switch": {
+                                "cases": [
+                                  {
+                                    "when": {
+                                      "$eq": [
+                                        {
+                                          "$len": {
+                                            "$ref": "request.images"
+                                          }
+                                        },
+                                        1
+                                      ]
+                                    },
+                                    "then": "i2v"
+                                  },
+                                  {
+                                    "when": {
+                                      "$eq": [
+                                        {
+                                          "$len": {
+                                            "$ref": "request.images"
+                                          }
+                                        },
+                                        2
+                                      ]
+                                    },
+                                    "then": "fl2v"
+                                  }
+                                ],
+                                "default": "r2v"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "id": "first_image",
+            "when": {
+              "$gt": [
+                {
+                  "$len": {
+                    "$ref": "request.images"
+                  }
+                },
+                0
+              ]
+            },
+            "value": {
+              "$if": {
+                "condition": {
+                  "$eq": [
+                    {
+                      "$ref": "prepared.mode"
+                    },
+                    "r2v"
+                  ]
+                },
+                "then": {
+                  "$first": {
+                    "$ref": "request.images"
+                  }
+                },
+                "else": {
+                  "$coalesce": [
+                    {
+                      "$first": {
+                        "$filter": {
+                          "from": {
+                            "$ref": "request.images"
+                          },
+                          "as": "im",
+                          "where": {
+                            "$eq": [
+                              {
+                                "$ref": "im.role"
+                              },
+                              "first_frame"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "$first": {
+                        "$filter": {
+                          "from": {
+                            "$ref": "request.images"
+                          },
+                          "as": "im",
+                          "where": {
+                            "$ne": [
+                              {
+                                "$ref": "im.role"
+                              },
+                              "last_frame"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": "last_image",
+            "when": {
+              "$eq": [
+                {
+                  "$ref": "prepared.mode"
+                },
+                "fl2v"
+              ]
+            },
+            "value": {
+              "$coalesce": [
+                {
+                  "$first": {
+                    "$filter": {
+                      "from": {
+                        "$ref": "request.images"
+                      },
+                      "as": "im",
+                      "where": {
+                        "$eq": [
+                          {
+                            "$ref": "im.role"
+                          },
+                          "last_frame"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "$at": [
+                    {
+                      "$ref": "request.images"
+                    },
+                    1
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "ref_images",
+            "when": {
+              "$eq": [
+                {
+                  "$ref": "prepared.mode"
+                },
+                "r2v"
+              ]
+            },
+            "value": {
+              "$filter": {
+                "from": {
+                  "$ref": "request.images"
+                },
+                "as": "im",
+                "where": {
+                  "$gt": [
+                    {
+                      "$ref": "imIndex"
+                    },
+                    0
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": "first",
+            "when": {
+              "$ne": [
+                {
+                  "$ref": "prepared.first_image"
+                },
+                null
+              ]
+            },
+            "operation": {
+              "method": "POST",
+              "path": "/api/upload",
+              "originPath": true,
+              "contentType": "multipart/form-data",
+              "query": {
+                "kind": "h3_i2v"
+              },
+              "files": [
+                {
+                  "name": "image",
+                  "source": {
+                    "$ref": "prepared.first_image"
+                  },
+                  "filename": "toiv-ref"
+                }
+              ]
+            }
+          },
+          {
+            "id": "last",
+            "when": {
+              "$ne": [
+                {
+                  "$ref": "prepared.last_image"
+                },
+                null
+              ]
+            },
+            "operation": {
+              "method": "POST",
+              "path": "/api/upload",
+              "originPath": true,
+              "contentType": "multipart/form-data",
+              "query": {
+                "kind": "h3_i2v",
+                "worker": {
+                  "$ref": "prepared.first.worker"
+                }
+              },
+              "files": [
+                {
+                  "name": "image",
+                  "source": {
+                    "$ref": "prepared.last_image"
+                  },
+                  "filename": "toiv-ref"
+                }
+              ]
+            }
+          },
+          {
+            "id": "refs",
+            "forEach": {
+              "$ref": "prepared.ref_images"
+            },
+            "as": "ref",
+            "operation": {
+              "method": "POST",
+              "path": "/api/upload",
+              "originPath": true,
+              "contentType": "multipart/form-data",
+              "query": {
+                "kind": "h3_i2v",
+                "worker": {
+                  "$ref": "prepared.first.worker"
+                }
+              },
+              "files": [
+                {
+                  "name": "image",
+                  "source": {
+                    "$ref": "ref"
+                  },
+                  "filename": "toiv-ref"
+                }
+              ]
+            }
+          }
+        ]
       }
     ]
   },

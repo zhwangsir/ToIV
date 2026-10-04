@@ -177,6 +177,27 @@ func (a metadataAdapter) ResultAvailable() bool {
 func (a metadataAdapter) BuildCreate(ctx context.Context, c RequestContext) (RequestSpec, error) {
 	return a.delegate.BuildCreate(ctx, c)
 }
+func (a metadataAdapter) PrepareStepCount() int {
+	adapter, ok := a.delegate.(PrepareAdapter)
+	if !ok {
+		return 0
+	}
+	return adapter.PrepareStepCount()
+}
+func (a metadataAdapter) BuildPrepare(ctx context.Context, c RequestContext, index int, prepared map[string]any) (PrepareStepSpec, error) {
+	adapter, ok := a.delegate.(PrepareAdapter)
+	if !ok {
+		return PrepareStepSpec{Skip: true}, nil
+	}
+	return adapter.BuildPrepare(ctx, c, index, prepared)
+}
+func (a metadataAdapter) BuildCreatePrepared(ctx context.Context, c RequestContext, prepared map[string]any) (RequestSpec, error) {
+	adapter, ok := a.delegate.(PrepareAdapter)
+	if !ok {
+		return a.delegate.BuildCreate(ctx, c)
+	}
+	return adapter.BuildCreatePrepared(ctx, c, prepared)
+}
 func (a metadataAdapter) ParseCreate(ctx context.Context, body []byte) (CreateResult, error) {
 	return a.delegate.ParseCreate(ctx, body)
 }
@@ -321,6 +342,9 @@ func ValidateManifest(manifest Manifest) error {
 				return fmt.Errorf("provider %q result operation: %w", provider.ID, err)
 			}
 		}
+		if err := validateManifestPrepare(provider.Prepare); err != nil {
+			return fmt.Errorf("provider %q prepare: %w", provider.ID, err)
+		}
 		for ruleIndex, rule := range provider.Validations {
 			if rule.Assert == nil || strings.TrimSpace(rule.Message) == "" {
 				return fmt.Errorf("provider %q validation %d requires assert and message", provider.ID, ruleIndex)
@@ -370,6 +394,7 @@ func normalizeManifestForProvider(manifest *Manifest, index int) error {
 	manifest.AgentResponse = provider.AgentResponse
 	manifest.Auth = provider.Auth
 	manifest.Validations = provider.Validations
+	manifest.Prepare = provider.Prepare
 	return nil
 }
 
@@ -423,6 +448,10 @@ func (a manifestAdapter) AgentAvailable() bool {
 }
 func (a manifestAdapter) ResultAvailable() bool { return a.manifest.ResultOperation != nil }
 func (a manifestAdapter) BuildCreate(_ context.Context, c RequestContext) (RequestSpec, error) {
+	return a.buildCreate(c, nil)
+}
+
+func (a manifestAdapter) buildCreate(c RequestContext, extra map[string]any) (RequestSpec, error) {
 	if a.manifest.Metadata.ID == "volcengine-ark-seedance" || a.manifest.Metadata.ID == "volcengine-ark-video" || a.manifest.Metadata.ID == "volcengine-ark-agent-plan-video" || a.manifest.Metadata.ID == "seedance-videos-compatible" {
 		c.Request = NormalizeSeedanceTaskOptions(c.Request)
 	}
@@ -432,7 +461,7 @@ func (a manifestAdapter) BuildCreate(_ context.Context, c RequestContext) (Reque
 	if err := validateManifestRequest(a.manifest.Validations, c.Request); err != nil {
 		return RequestSpec{}, err
 	}
-	spec, err := buildManifestOperation(a.manifest.Create, a.manifest.Auth, c.Request, "")
+	spec, err := buildManifestOperationWithEnv(a.manifest.Create, a.manifest.Auth, c.Request, "", extra)
 	if err != nil {
 		return RequestSpec{}, err
 	}
@@ -848,8 +877,17 @@ func mediaPathValues(payload map[string]any, path string) []string {
 }
 
 func buildManifestOperation(operation ManifestOperation, auth ManifestAuth, request GenerationRequest, taskID string) (RequestSpec, error) {
+	return buildManifestOperationWithEnv(operation, auth, request, taskID, nil)
+}
+
+func buildManifestOperationWithEnv(operation ManifestOperation, auth ManifestAuth, request GenerationRequest, taskID string, extra map[string]any) (RequestSpec, error) {
 	requestValues := manifestRequestValues(request)
 	env := map[string]any{"request": requestValues, "taskId": taskID}
+	for key, value := range extra {
+		if key != "request" && key != "taskId" {
+			env[key] = value
+		}
+	}
 	var body any
 	if operation.Body != nil {
 		value, err := evaluateManifestValue(operation.Body, env)

@@ -211,6 +211,7 @@ type Manifest struct {
 	AgentResponse   *ManifestAgentResponse `json:"-"`
 	Auth            ManifestAuth           `json:"-"`
 	Validations     []ManifestValidation   `json:"-"`
+	Prepare         []ManifestPrepareStep  `json:"-"`
 }
 
 // Manifest JSON is the public plugin contract. Metadata is an internal
@@ -302,22 +303,25 @@ type ManifestContributions struct {
 }
 
 type ManifestProvider struct {
-	ID                      string                 `json:"id"`
-	Label                   string                 `json:"label"`
-	Capabilities            []Capability           `json:"capabilities"`
-	Scopes                  []Surface              `json:"scopes"`
-	BaseURL                 string                 `json:"baseUrl,omitempty"`
-	RequiresPublicMediaURLs bool                   `json:"requiresPublicMediaUrls,omitempty"`
-	Auth                    ManifestAuth           `json:"auth,omitempty"`
-	Parameters              []Parameter            `json:"parameters,omitempty"`
-	Validations             []ManifestValidation   `json:"validations,omitempty"`
-	Create                  ManifestOperation      `json:"create"`
-	Agent                   *ManifestOperation     `json:"agent,omitempty"`
-	Poll                    *ManifestOperation     `json:"poll,omitempty"`
-	Cancel                  *ManifestOperation     `json:"cancel,omitempty"`
-	Result                  *ManifestOperation     `json:"result,omitempty"`
-	Response                ManifestResponse       `json:"response"`
-	AgentResponse           *ManifestAgentResponse `json:"agentResponse,omitempty"`
+	ID                      string               `json:"id"`
+	Label                   string               `json:"label"`
+	Capabilities            []Capability         `json:"capabilities"`
+	Scopes                  []Surface            `json:"scopes"`
+	BaseURL                 string               `json:"baseUrl,omitempty"`
+	RequiresPublicMediaURLs bool                 `json:"requiresPublicMediaUrls,omitempty"`
+	Auth                    ManifestAuth         `json:"auth,omitempty"`
+	Parameters              []Parameter          `json:"parameters,omitempty"`
+	Validations             []ManifestValidation `json:"validations,omitempty"`
+	// Prepare (ToIV patch) declares host-executed steps that run before create,
+	// e.g. uploading reference media to obtain upstream handles. See manifest_prepare.go.
+	Prepare       []ManifestPrepareStep  `json:"prepare,omitempty"`
+	Create        ManifestOperation      `json:"create"`
+	Agent         *ManifestOperation     `json:"agent,omitempty"`
+	Poll          *ManifestOperation     `json:"poll,omitempty"`
+	Cancel        *ManifestOperation     `json:"cancel,omitempty"`
+	Result        *ManifestOperation     `json:"result,omitempty"`
+	Response      ManifestResponse       `json:"response"`
+	AgentResponse *ManifestAgentResponse `json:"agentResponse,omitempty"`
 }
 
 type ManifestAuth struct {
