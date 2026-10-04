@@ -67,7 +67,9 @@ jobs:
         shell: pwsh
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\assert-windows-dwarf5-cgo.ps1
 
+      # Windows: build-beeftv-windows-release.ps1 builds the packages itself (Git Bash has no zip).
       - name: Build official plugin packages (incl. toiv-h3)
+        if: runner.os != 'Windows'
         shell: bash
         run: sh plugin-packages/build-packages.sh
 
