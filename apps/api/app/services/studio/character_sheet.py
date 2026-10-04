@@ -4741,9 +4741,23 @@ def _hair_coat_region_masks(im: Image.Image) -> tuple[list[bool], list[bool]]:
     return hair, coat
 
 
+def side_hist_match_enabled() -> bool:
+    """18:02：侧头直方图匹配默认关（恢复 1618 干净 Lanczos/母版裁）；仅 TOIV_SHEET_SIDE_HIST_MATCH=1 才启用。"""
+    return os.environ.get("TOIV_SHEET_SIDE_HIST_MATCH", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+
 def match_side_head_coat_hair_to_front(side: bytes, front: bytes) -> bytes:
-    """15:52 / 16:18：侧头外套+头发直方图匹配；排除脸区、羽化边界、半透明混合，避免接缝与 face_frac 膨胀。"""
+    """15:52 / 16:18：侧头外套+头发直方图匹配；排除脸区、羽化边界、半透明混合，避免接缝与 face_frac 膨胀。
+
+    18:02：默认跳过（见 side_hist_match_enabled）；anime 整卡走 1618 干净路径，消除 1738 彩噪。
+    """
     if not side or not front:
+        return side
+    if not side_hist_match_enabled():
         return side
     try:
         s_im = Image.open(BytesIO(side)).convert("RGB")
@@ -6903,8 +6917,15 @@ async def generate_character_sheet(
             except Exception as he:  # noqa: BLE001
                 logger.warning("faces hires side master skipped: %s", he)
             # 15:52 / 16:18：侧头直方图匹配；匹配后必须再过 00:59 门禁，不过 → 三视图侧面格同比例裁
+            # 18:02：默认跳过 hist-match（TOIV_SHEET_SIDE_HIST_MATCH off）→ 1618 干净 Lanczos/母版裁
             try:
-                _front_ref_hm = tri.get("face_front") or panels.get("portrait")
+                if not side_hist_match_enabled():
+                    logger.info(
+                        "faces hist-match skipped (TOIV_SHEET_SIDE_HIST_MATCH off, default 18:02 → 1618 path)"
+                    )
+                    _front_ref_hm = None  # skip body
+                else:
+                    _front_ref_hm = tri.get("face_front") or panels.get("portrait")
                 _side_src_fb = panels.get("side")
                 if _front_ref_hm and tri.get("face_three_quarter"):
                     _before = tri["face_three_quarter"]
@@ -10683,9 +10704,17 @@ async def regenerate_sheet_panels(
                         raise
             try:
                 _fr = tri.get("face_front") or panels.get("portrait")
-                if _fr and tri.get("face_three_quarter"):
+                if (
+                    side_hist_match_enabled()
+                    and _fr
+                    and tri.get("face_three_quarter")
+                ):
                     tri["face_three_quarter"] = match_side_head_coat_hair_to_front(
                         tri["face_three_quarter"], _fr
+                    )
+                elif not side_hist_match_enabled():
+                    logger.info(
+                        "regen faces hist-match skipped (TOIV_SHEET_SIDE_HIST_MATCH off)"
                     )
             except Exception as hme:  # noqa: BLE001
                 logger.warning("regen faces hist-match skipped: %s", hme)
@@ -10696,7 +10725,11 @@ async def regenerate_sheet_panels(
                 master_crop=True,
             )
             debug["picks"]["faces"] = {
-                "mode": "master_crop_1901_head35+1552_hist",
+                "mode": (
+                    "master_crop_1901_head35+1552_hist"
+                    if side_hist_match_enabled()
+                    else "master_crop_1901_head35+1822_no_hist"
+                ),
                 "keys": ["face_front", "face_three_quarter", "face_side"],
                 "scores": {},
             }

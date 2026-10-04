@@ -36,7 +36,9 @@ def _head(side_tint=(90, 106, 122), hair=(25, 25, 30), size=256) -> bytes:
     return _png(arr)
 
 
-def test_hist_match_does_not_inflate_face_frac_beyond_gate():
+def test_hist_match_does_not_inflate_face_frac_beyond_gate(monkeypatch):
+    # 18:02：显式打开 hist 以测 face_frac 门禁；生产默认关
+    monkeypatch.setenv("TOIV_SHEET_SIDE_HIST_MATCH", "1")
     front = _head(side_tint=(90, 106, 122), hair=(20, 20, 25), size=768)
     side = _head(side_tint=(70, 120, 200), hair=(80, 90, 120), size=768)
     before = sheet_svc.measure_face_height_frac(side)

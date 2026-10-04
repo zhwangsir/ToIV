@@ -33,7 +33,9 @@ def _head(side_tint=(90, 106, 122), hair=(25, 25, 30), size=256) -> bytes:
     return _png(arr)
 
 
-def test_match_side_head_coat_hair_to_front_shifts_tint():
+def test_match_side_head_coat_hair_to_front_shifts_tint(monkeypatch):
+    # 18:02：函数默认关 hist；本测显式打开以验证匹配算法本身
+    monkeypatch.setenv("TOIV_SHEET_SIDE_HIST_MATCH", "1")
     front = _head(side_tint=(90, 106, 122), hair=(20, 20, 25))  # slate + near-black
     # side too blue/bright coat + brighter hair highlights
     side = _head(side_tint=(70, 120, 200), hair=(80, 90, 120))
