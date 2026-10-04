@@ -85,4 +85,5 @@ def test_0030_source_contract():
     assert "_EXPR_QA_PROMPTS" in src
     assert "00:30" in src
     assert "half-closed" in src.lower() or "眼睛向下看且眼皮半闭" in src
-    assert "closed-eye smile" in src.lower() or "闭眼微笑" in src
+    # 01:50：温柔不再强制闭眼；旧贴回函数仍保留兼容
+    assert "gentle smile" in src.lower() or "closed-eye smile" in src.lower() or "闭眼微笑" in src or "弯月眼" in src

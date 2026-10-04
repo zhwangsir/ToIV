@@ -51,7 +51,7 @@ _EXPR_PROMPTS = (
     "stern majestic expression, extreme face closeup head and shoulders",
     "cold aloof expression, icy gaze, extreme face closeup head and shoulders",
     "thoughtful contemplative expression, looking slightly down, extreme face closeup head and shoulders",
-    "soft closed-eye smile gentle closed-eye smile, eyes closed smiling, relaxed eyebrows, extreme face closeup head and shoulders",
+    "gentle smile, mouth corners up, soft relaxed brows, eyes softly curved, extreme face closeup head only no chest",
     "terrified shocked expression, wide eyes open mouth, fear, extreme face closeup head and shoulders",
     "determined, firm closed mouth, focused eyes, eyebrows slightly lowered, extreme face closeup head and shoulders",
 )
@@ -61,7 +61,7 @@ _EXPR_EDIT_INSTRUCTIONS = (
     "只改变面部表情为威严：下巴微抬（chin raised）、俯视镜头（looking down at viewer）、双眼锐利眯窄（sharp narrowed eyes，禁止 wide eyes/blank）、眉毛明显压低聚拢（eyebrows lowered，眉峰下压）、双唇抿紧紧闭（tight closed mouth，禁止微笑/张嘴）。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光。",
     "只改变面部表情为冷酷：面无表情（expressionless）、眼神冷、双眼半睁半阖（half-lidded eyes）、眉毛中性不皱不抬（eyebrows neutral）、闭嘴嘴角平直（flat mouth，禁止 frown/smile）、目光冷淡可略偏一侧。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
     "同一角色、同发型同服装、头肩构图，只改变面部表情为沉思：eyes looking down, eyelids half closed, calm closed mouth；眉毛放松舒展（relaxed brows，禁止 frown/furrowed），双唇平静闭合，目光低垂沉思。禁止侧面化、禁止改发型服装构图、不要戴帽、不要加徽章文字、不要加长发。",
-    "同一角色、同发型同服装、头肩构图，只改变面部表情为温柔：gentle closed-eye smile, mouth corners up；眉毛舒展放松（禁止 frown/furrowed），双眼闭合微笑、嘴角上扬。禁止睁眼中性、禁止嘟嘴撇嘴、禁止改发型服装构图、不要戴帽、不要加徽章文字、不要加长发、不要心形瞳孔。",
+    "同一角色、同发型同服装、头部特写构图，只改变面部表情为温柔：gentle smile, mouth corners up, soft relaxed brows, eyes softly curved（睁眼弯月眼或柔和睁眼均可，不要求闭眼）；眉毛舒展放松（禁止 frown/furrowed），嘴角上扬微笑。禁止嘟嘴撇嘴、禁止改发型服装构图、不要戴帽、不要加徽章文字、不要加长发、不要心形瞳孔、胸口不要入画。",
     "只改变面部表情为惊恐：双眼瞪大、嘴巴明显张开可见口腔、眉毛高高上扬、眉心分开。必须张嘴。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要裁太近。",
     "只改变面部表情为果断：determined，firm closed mouth，focused eyes，eyebrows slightly lowered；双唇抿紧闭嘴（坚定，禁止张嘴/喊叫/surprised/open mouth）、禁止挑眉。下颌微绷（正面，勿侧头）。与威严的皱眉下垂嘴角区分，与惊恐张嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
 )
@@ -71,7 +71,7 @@ _EXPR_INPAINT_PROMPTS = (
     "same character anime closeup, stern majestic expression, chin raised looking down at viewer, sharp narrowed eyes, eyebrows lowered, tight closed mouth lips pressed, no smile no wide eyes no blank stare, blue-violet iris unchanged, only change eyebrows eyes mouth jaw tilt, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
     "same character anime closeup, cold expressionless face, half-lidded eyes, flat mouth, eyebrows neutral, no frown no smile, closed mouth, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
     "same character anime closeup head and shoulders, thoughtful contemplative expression, eyes looking down, eyelids half closed, calm closed mouth, relaxed brows no frown, only change expression, keep identical hair face shape skin tone clothing composition, front facing no side view",
-    "same character anime closeup head and shoulders, gentle closed-eye smile, mouth corners up, eyes closed smiling, relaxed eyebrows no frown no pout, only change expression, keep identical hair face shape skin tone clothing composition",
+    "same character anime head closeup, gentle smile, mouth corners up, soft relaxed brows, eyes softly curved, no frown no pout, only change expression, keep identical hair face shape skin tone, no chest in frame",
     "same character anime closeup, terrified expression, eyes wide open, mouth wide open showing interior, eyebrows raised high, must open mouth, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
     "same character anime closeup, determined expression, firm closed mouth, focused eyes, eyebrows slightly lowered, no surprised open mouth, no raised brows, jaw slightly tense, front facing, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
 )
@@ -81,7 +81,7 @@ _EXPR_INPAINT_NEGATIVES = (
     "wide eyes, blank stare, blank expression, smile, grinning, open mouth, raised brows, soft smile",
     "frown, smiling, smile, grinning, furrowed brows, angry brows, downturned angry mouth",
     "frown, furrowed brows, knit brows, scowling, angry brows, raised brows, wide eyes, big smile",
-    "frown, pout, scowling, furrowed brows, downturned mouth, angry brows, open eyes, neutral expression, blank stare, eyes open looking aside",
+    "frown, pout, scowling, furrowed brows, downturned mouth, angry brows, neutral expression no smile, blank stare, wide terrified eyes, open mouth scream",
     "closed mouth, smile, calm face, sleepy eyes",
     "surprised, open mouth, raised brows, screaming, shouting, wide open mouth",
 )
@@ -4277,6 +4277,301 @@ def paste_qedit_face_onto_portrait(
     return buf.getvalue()
 
 
+
+def crop_expr_head_closeup(
+    data: bytes,
+    *,
+    size: int = 768,
+    chin_margin_face_frac: float = 0.15,
+) -> bytes:
+    """01:50：表情格头部特写裁剪。
+
+    发顶到下巴下沿约 ``chin_margin_face_frac`` 脸高；胸口不进画面。
+    输出正方形 ``size``，铺满、无棚灰垫边。
+    """
+    im0 = Image.open(BytesIO(data)).convert("RGB")
+    w0, h0 = im0.size
+    bb = _detect_face_bbox_xyxy(data)
+    if bb is None:
+        try:
+            bb = _heuristic_skin_face_bbox(im0)
+        except Exception:  # noqa: BLE001
+            bb = None
+    if bb is None:
+        # 无人脸：中上 70% 方裁兜底
+        side = min(w0, h0)
+        left = (w0 - side) // 2
+        top = max(0, int(h0 * 0.02))
+        if top + side > h0:
+            top = max(0, h0 - side)
+        crop = im0.crop((left, top, left + side, top + side)).resize(
+            (int(size), int(size)), Image.Resampling.LANCZOS
+        )
+        buf = BytesIO()
+        crop.save(buf, format="PNG")
+        return buf.getvalue()
+    fx1, fy1, fx2, fy2 = [float(v) for v in bb]
+    fw = max(8.0, fx2 - fx1)
+    fh = max(8.0, fy2 - fy1)
+    fcx = (fx1 + fx2) / 2.0
+    # 发顶：脸顶上约 0.45 脸高（二次元齐刘海/发冠）
+    hair_top = fy1 - 0.45 * fh
+    chin_bottom = fy2 + float(chin_margin_face_frac) * fh
+    # 竖直跨度；水平略宽于脸
+    span_h = max(64.0, chin_bottom - hair_top)
+    span_w = max(span_h, fw * 1.25)
+    side = int(math.ceil(max(span_h, span_w)))
+    # 若源不够，先垫边（用角点色，非棚灰戳记）再裁
+    need_pad = 0
+    if side > min(w0, h0) - 2 or hair_top < 0 or chin_bottom > h0:
+        need_pad = int(
+            math.ceil(
+                max(
+                    0.0,
+                    -hair_top,
+                    chin_bottom - h0,
+                    (side - w0) / 2.0,
+                    (side - h0) / 2.0,
+                )
+            )
+        ) + 8
+    img = im0
+    pad = 0
+    if need_pad > 0:
+        corner = im0.getpixel((min(2, w0 - 1), min(2, h0 - 1)))
+        canvas = Image.new("RGB", (w0 + 2 * need_pad, h0 + 2 * need_pad), corner)
+        canvas.paste(im0, (need_pad, need_pad))
+        img = canvas
+        pad = need_pad
+        fx1 += pad
+        fy1 += pad
+        fx2 += pad
+        fy2 += pad
+        fcx += pad
+        hair_top += pad
+        chin_bottom += pad
+        fh = max(8.0, fy2 - fy1)
+    w, h = img.size
+    side = int(min(max(side, 64), w, h))
+    left = int(round(fcx - side / 2.0))
+    top = int(round(hair_top))
+    # 钳制：下巴须落在裁底附近（胸口不进）
+    if chin_bottom - top > side * 0.98:
+        top = int(round(chin_bottom - side * 0.96))
+    if chin_bottom - top < side * 0.85:
+        # 裁太松：上移使下巴靠近底
+        top = int(round(chin_bottom - side * 0.92))
+    left = max(0, min(w - side, left))
+    top = max(0, min(h - side, top))
+    crop = img.crop((left, top, left + side, top + side)).resize(
+        (int(size), int(size)), Image.Resampling.LANCZOS
+    )
+    buf = BytesIO()
+    crop.save(buf, format="PNG")
+    out = buf.getvalue()
+    # 胸口门禁：脸框下沿应靠近画幅底部（>0.78），否则仍含过多肩胸
+    bb2 = _detect_face_bbox_xyxy(out)
+    if bb2 is not None:
+        _x1, _y1, _x2, _y2 = [float(v) for v in bb2]
+        if _y2 / float(size) < 0.72:
+            # 再收紧一次：按脸框重裁
+            fh2 = max(8.0, _y2 - _y1)
+            hair2 = _y1 - 0.40 * fh2
+            chin2 = _y2 + float(chin_margin_face_frac) * fh2
+            side2 = int(max(64, chin2 - hair2, (_x2 - _x1) * 1.2))
+            im2 = Image.open(BytesIO(out)).convert("RGB")
+            # 若 side2 > size，无法再扩；否则从当前图画取
+            if side2 <= size:
+                cx2 = (_x1 + _x2) / 2.0
+                left2 = int(round(cx2 - side2 / 2.0))
+                top2 = int(round(hair2))
+                if chin2 - top2 > side2 * 0.98:
+                    top2 = int(round(chin2 - side2 * 0.96))
+                left2 = max(0, min(size - side2, left2))
+                top2 = max(0, min(size - side2, top2))
+                c2 = im2.crop((left2, top2, left2 + side2, top2 + side2)).resize(
+                    (int(size), int(size)), Image.Resampling.LANCZOS
+                )
+                buf2 = BytesIO()
+                c2.save(buf2, format="PNG")
+                out = buf2.getvalue()
+    return out
+
+
+def measure_hard_seam_contour(data: bytes, *, size: int = 768) -> dict:
+    """01:50：检测椭圆/矩形硬边接缝（边缘梯度沿闭合轮廓突变）。
+
+    主信号：沿脸部羽化贴回遮罩边界的颜色跳变（专拦 0104 碎脸贴回伪影）；
+    辅信号：轴对齐长边围成的矩形框；强闭合椭圆突变。
+    """
+    import cv2  # local: core/MateBook api venv 均有
+
+    im0 = Image.open(BytesIO(data)).convert("RGB")
+    bb = _detect_face_bbox_xyxy(data)
+    if bb is None:
+        try:
+            bb = _heuristic_skin_face_bbox(im0)
+        except Exception:  # noqa: BLE001
+            bb = None
+    im = im0.resize((size, size), Image.Resampling.LANCZOS)
+    if bb is not None:
+        sx = size / float(max(1, im0.width))
+        sy = size / float(max(1, im0.height))
+        bb_s = (bb[0] * sx, bb[1] * sy, bb[2] * sx, bb[3] * sy)
+    else:
+        bb_s = None
+    import numpy as np
+
+    arr = np.asarray(im, dtype=np.float32)
+    gray = arr.mean(axis=2).astype(np.float32)
+    m = build_face_paste_mask(size, face_bbox=bb_s)
+    marr = np.asarray(m, dtype=np.float32)
+    try:
+        from PIL import ImageFilter as _IF
+
+        soft = np.asarray(
+            m.filter(_IF.GaussianBlur(radius=max(2, size // 256))),
+            dtype=np.float32,
+        )
+    except Exception:  # noqa: BLE001
+        soft = marr
+    ring = np.abs(marr - soft) > 6
+    mk = np.ones((5, 5), np.uint8)
+    dil = cv2.dilate(marr, mk)
+    ero = cv2.erode(marr, mk)
+    ring = ring | ((dil - ero) > 15)
+    gy, gx = np.gradient(marr)
+    ys, xs = np.where(ring)
+    jumps: list[float] = []
+    if len(xs) > 30:
+        idx = np.linspace(0, len(xs) - 1, min(400, len(xs))).astype(int)
+        for i in idx:
+            x, y = int(xs[i]), int(ys[i])
+            gxv, gyv = float(gx[y, x]), float(gy[y, x])
+            nrm = (gxv * gxv + gyv * gyv) ** 0.5 + 1e-6
+            gxv /= nrm
+            gyv /= nrm
+            xin = int(round(x - 5 * gxv))
+            yin = int(round(y - 5 * gyv))
+            xout = int(round(x + 5 * gxv))
+            yout = int(round(y + 5 * gyv))
+            if 0 <= xin < size and 0 <= yin < size and 0 <= xout < size and 0 <= yout < size:
+                jumps.append(float(np.abs(arr[yin, xin] - arr[yout, xout]).mean()))
+    if jumps:
+        ja = np.asarray(jumps, dtype=np.float32)
+        mask_p75 = float(np.percentile(ja, 75))
+        mask_mean = float(ja.mean())
+        mask_strong = float((ja > 32).mean())
+    else:
+        mask_p75 = mask_mean = mask_strong = 0.0
+
+    edges = cv2.Canny(np.clip(gray, 0, 255).astype(np.uint8), 60, 160)
+    margin = int(size * 0.12)
+    roi = edges[margin : size - margin, margin : size - margin]
+    lines = cv2.HoughLinesP(
+        roi,
+        1,
+        np.pi / 180,
+        threshold=40,
+        minLineLength=int(size * 0.18),
+        maxLineGap=8,
+    )
+    h_seg = v_seg = 0
+    if lines is not None:
+        for ln in lines:
+            pts = ln[0] if getattr(ln, "ndim", 1) > 1 or len(ln) == 1 else ln
+            try:
+                x1, y1, x2, y2 = [int(v) for v in (pts if len(pts) == 4 else ln.reshape(-1)[:4])]
+            except Exception:  # noqa: BLE001
+                continue
+            dx, dy = abs(x2 - x1), abs(y2 - y1)
+            if dy <= 3 and dx >= int(size * 0.18):
+                h_seg += 1
+            if dx <= 3 and dy >= int(size * 0.18):
+                v_seg += 1
+    rectish = bool(h_seg >= 2 and v_seg >= 2)
+
+    mag = cv2.magnitude(
+        cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3),
+        cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3),
+    )
+    if bb_s is not None:
+        cx = int((bb_s[0] + bb_s[2]) / 2)
+        cy = int((bb_s[1] + bb_s[3]) / 2)
+    else:
+        cx, cy = size // 2, int(size * 0.40)
+    best_ell = 0.0
+    best_frac = 0.0
+    for ry in range(int(size * 0.12), int(size * 0.28), 4):
+        for rx in range(int(size * 0.10), int(size * 0.26), 4):
+            n = 48
+            strong = 0
+            js: list[float] = []
+            for i in range(n):
+                a = 2 * math.pi * i / n
+                x = int(round(cx + rx * math.cos(a)))
+                y = int(round(cy + ry * math.sin(a)))
+                if not (6 <= x < size - 6 and 6 <= y < size - 6):
+                    continue
+                nx, ny = math.cos(a), math.sin(a)
+                xin = int(round(x - 4 * nx))
+                yin = int(round(y - 4 * ny))
+                xout = int(round(x + 4 * nx))
+                yout = int(round(y + 4 * ny))
+                j = float(np.abs(arr[yin, xin] - arr[yout, xout]).mean())
+                m0 = float(mag[y, x])
+                ms = 0.5 * (float(mag[yin, xin]) + float(mag[yout, xout]))
+                thin = m0 / max(ms, 1.0)
+                js.append(j)
+                if j > 32 and thin > 1.7:
+                    strong += 1
+            if len(js) < 30:
+                continue
+            frac = strong / float(n)
+            score = float(sum(js) / len(js)) * frac * 2.0
+            if score > best_ell:
+                best_ell = score
+                best_frac = frac
+
+    # 校准：0104 沉思过门禁碎脸 / 温柔 a5 必须拒；锁定好格放行
+    reject = bool(
+        (mask_p75 >= 26.0 and mask_strong >= 0.20)
+        or rectish
+        or (best_ell >= 70.0 and best_frac >= 0.35)
+    )
+    return {
+        "mask_p75": mask_p75,
+        "mask_mean": mask_mean,
+        "mask_strong": mask_strong,
+        "rectish": rectish,
+        "h_seg": h_seg,
+        "v_seg": v_seg,
+        "ell_score": best_ell,
+        "ell_frac": best_frac,
+        "reject": reject,
+    }
+
+
+def assert_no_hard_seam_contour(
+    data: bytes,
+    *,
+    expr_key: str = "expr",
+    size: int = 768,
+) -> dict:
+    """01:50：接缝门禁——椭圆/矩形硬边（闭合轮廓梯度突变）即拒。"""
+    info = measure_hard_seam_contour(data, size=size)
+    info["expr_key"] = expr_key
+    if info.get("reject"):
+        raise CharacterSheetError(
+            f"{expr_key}接缝门禁: 检测到椭圆/矩形硬边 "
+            f"(mask_p75={info['mask_p75']:.1f} strong={info['mask_strong']:.2f} "
+            f"ell={info['ell_score']:.1f}/{info['ell_frac']:.2f} "
+            f"rect={info['rectish']})",
+            status_code=422,
+        )
+    return info
+
+
 def _parse_yes_no_token(raw) -> bool | None:
     if isinstance(raw, bool):
         return raw
@@ -4305,10 +4600,11 @@ _EXPR_QA_PROMPTS: dict[str, str] = {
         "You are inspecting an anime character face closeup for a gentle expression. "
         "Answer TWO yes/no questions. Output ONLY one JSON object, no markdown: "
         '{"q1":true,"q2":true}. '
-        "q1: Is this a closed-eye smile (闭眼微笑：双眼闭合且嘴角上扬/微笑)? "
-        "true only if eyes are closed AND there is a smile. "
-        "q2: Is the mouth NOT wide open (嘴不张大)? true if mouth is closed or only slightly open; "
-        "false if mouth is wide open. "
+        "q1: Is this a gentle smile with mouth corners up AND soft relaxed brows "
+        "(温柔微笑：嘴角上扬 + 眉毛放松舒展)? true if BOTH smile and relaxed brows are visible. "
+        "Eyes may be open OR softly curved crescent (弯月眼); closed eyes are OK but NOT required. "
+        "q2: Is the mouth NOT wide open (嘴不张大)? true if mouth is closed or only slightly open in a smile; "
+        "false if mouth is wide open / screaming. "
         "Judge only from visible face features."
     ),
 }
@@ -4540,7 +4836,7 @@ _EXPR_VLM_PROMPT = (
     "Output ONLY one JSON object, no markdown, no extra text. Schema: "
     '{"label":"<one of six>","scores":{"威严":0,"冷酷":0,"沉思":0,"温柔":0,"惊恐":0,"果断":0},'
     '"smiling":true}. '
-    "smiling must be a boolean: true if mouth corners raised or closed-eye smile, else false. "
+    "smiling must be a boolean: true if mouth corners raised or soft smile / crescent eyes, else false. "
     "Fill scores with your confidences (0~1, roughly normalized). "
     "Do NOT copy any example; judge from the actual face in the image. "
     "Visible-feature definitions (must match what you see, not just the name): "
@@ -4550,7 +4846,7 @@ _EXPR_VLM_PROMPT = (
     "(reject if frown or smile); "
     "沉思=eyes looking down and to the side + head slightly tilted + relaxed brows + lips slightly pressed + faraway gaze "
     "(reject if frown or furrowed brows); "
-    "温柔=relaxed brows + soft closed-eye smile (eyes closed); reject if eyes open neutral; "
+    "温柔=relaxed brows + gentle smile with mouth corners up + eyes softly curved (open or crescent OK, closed OK); reject if no smile / frown; "
     "for 温柔, smiling MUST be true; "
     "惊恐=wide eyes + open mouth; "
     "果断=focused eyes + firm closed mouth + brows slightly lowered."
@@ -5421,10 +5717,16 @@ def pick_best_side_deblur_candidate(
 
 def _expr_reject_cause(err: Exception | str) -> str:
     msg = str(err)
+    if "接缝" in msg or "硬边" in msg or "seam" in msg.lower():
+        return "seam"
     if "徽标" in msg or "字样" in msg or "emblem" in msg.lower():
         return "emblem"
     if "发长" in msg or "齐下巴" in msg or "hair" in msg.lower():
         return "hair"
+    if "专项问答" in msg or "qa" in msg.lower():
+        return "qa"
+    if "CLIP" in msg or "clip" in msg.lower():
+        return "clip"
     if "张嘴" in msg or "表情差过弱" in msg or "过于相似" in msg or "diversity" in msg.lower():
         return "expr_weak"
     if "face" in msg.lower() or "近景" in msg or "closeup" in msg.lower():
@@ -8921,8 +9223,8 @@ async def generate_character_sheet(
                         _rec.get("source"),
                     )
                     continue
-                # 00:30：沉思/温柔走 Qwen-Image-Edit-2509 + 脸部羽化贴回 + 专项问答；
-                # edit 图构造不可用时显式报错，禁止静默回落 inpaint；各最多 6 次。
+                # 01:50：沉思/温柔走 Qwen-Image-Edit-2509 **完整输出**（不贴回底图）
+                # + 头部特写裁剪 + 接缝门禁 + 专项问答；各最多 6 次。
                 if ek in ("expr_2", "expr_3"):
                     ei = _EXPR_KEYS.index(ek)
                     try:
@@ -8966,12 +9268,14 @@ async def generate_character_sheet(
                     if ek == "expr_2":
                         prompt_x += (
                             " eyes looking down, eyelids half closed, calm closed mouth, "
-                            "front facing head and shoulders, same hair same clothes"
+                            "front facing head closeup, hair top to chin, no chest in frame, "
+                            "same hair same clothes"
                         )
                     else:
                         prompt_x += (
-                            " gentle closed-eye smile, mouth corners up, "
-                            "front facing head and shoulders, same hair same clothes"
+                            " gentle smile, mouth corners up, soft relaxed brows, "
+                            "eyes softly curved, front facing head closeup, "
+                            "hair top to chin, no chest in frame, same hair same clothes"
                         )
                     picked: bytes | None = None
                     pick_err: Exception | None = None
@@ -9007,32 +9311,25 @@ async def generate_character_sheet(
                                 ref_image=ref_name,
                                 ref_mode="qwen_edit",
                             )
-                            # 00:30：只取脸部（眉眼口鼻羽化，下边界≤下巴）贴回 approved_portrait
-                            # 胸口/衣服一律保留原图像素，消除新徽标/字样
-                            pasted = paste_qedit_face_onto_portrait(
-                                edit_base, raw, size=768
-                            )
+                            # 01:50：直接用 Qwen 完整输出，禁止羽化贴回 approved_portrait
                             try:
-                                (reject_dir / f"{ek}_qedit_pasted_{int(seed or 0)}_a{attempt}.png").write_bytes(
-                                    pasted
-                                )
                                 (reject_dir / f"{ek}_qedit_raw_{int(seed or 0)}_a{attempt}.png").write_bytes(
                                     raw
                                 )
                             except Exception:
                                 pass
-                            # 贴回后再按格裁剪到脸高 0.55–0.65 铺满（coverage 100%，禁灰垫边）
-                            _pim = Image.open(BytesIO(pasted)).convert("RGB")
-                            _fitted, _ = _fit_expr_cell_face_fill(
-                                _pim,
-                                (0, 0, 768, 768),
-                                target_face_height_frac=0.58,
-                                min_face_height_frac=0.55,
-                                max_face_height_frac=0.65,
-                            )
-                            _fbuf = BytesIO()
-                            _fitted.convert("RGB").save(_fbuf, format="PNG")
-                            cell_b = _fbuf.getvalue()
+                            # 接缝门禁：Qwen 原始输出即验
+                            assert_no_hard_seam_contour(raw, expr_key=ek, size=768)
+                            # 头部特写裁剪：发顶→下巴+0.15脸高，胸口不进
+                            cell_b = crop_expr_head_closeup(raw, size=768)
+                            try:
+                                (reject_dir / f"{ek}_qedit_headcrop_{int(seed or 0)}_a{attempt}.png").write_bytes(
+                                    cell_b
+                                )
+                            except Exception:
+                                pass
+                            # 裁剪区内再验接缝
+                            assert_no_hard_seam_contour(cell_b, expr_key=ek, size=768)
                             try:
                                 cell_b = squareize_face_center_crop(cell_b, size=768)
                             except CharacterSheetError:
@@ -9041,12 +9338,14 @@ async def generate_character_sheet(
                             assert_expr_cell_content_coverage(
                                 cell_b, expr_key=ek, min_coverage=1.0
                             )
+                            # 头部特写脸高窗略宽于旧头肩窗
                             assert_expr_cell_face_height_frac(
                                 cell_b,
                                 expr_key=ek,
-                                min_face_height_frac=0.55,
-                                max_face_height_frac=0.65,
+                                min_face_height_frac=0.50,
+                                max_face_height_frac=0.85,
                             )
+                            assert_mouth_in_frame(cell_b)
                             # 身份 CLIP≥0.72（对照 approved_portrait 脸底）
                             _face_id = edit_base
                             _sim = clip_image_cosine_sim(cell_b, _face_id)
@@ -9062,7 +9361,7 @@ async def generate_character_sheet(
                                             "sim": _sim,
                                             "min": 0.72,
                                             "ref": "edit_base_face",
-                                            "route": "face_paste_qa",
+                                            "route": "qwen_full_headcrop_qa",
                                         },
                                         ensure_ascii=False,
                                     ),
@@ -9070,16 +9369,16 @@ async def generate_character_sheet(
                                 )
                             except Exception:
                                 pass
-                            # 00:30：胸口已强制原图像素；相对徽标验 pasted vs edit_base
-                            # （禁止用贴格后 cell_b vs portrait——裁切尺度会误杀）
+                            # 01:50：徽标只在最终裁剪格内验（相对 edit_base 同裁）
+                            _emblem_ref = crop_expr_head_closeup(edit_base, size=768)
                             if portrait_has_chest_emblem(
-                                pasted, ref=edit_base, below_face=True
+                                cell_b, ref=_emblem_ref, below_face=True
                             ):
                                 raise CharacterSheetError(
-                                    f"{ek}脸部贴回后胸口相对 edit_base 仍出现新徽标/字样",
+                                    f"{ek}头部特写裁剪内相对 edit_base 出现新徽标/字样",
                                     status_code=422,
                                 )
-                            # 00:30：专项问答（非六分类）
+                            # 专项问答（非六分类）
                             qa_result = await classify_expression_qa(
                                 cell_b,
                                 expr_key=ek,
@@ -9101,13 +9400,15 @@ async def generate_character_sheet(
                                 (reject_dir / f"{ek}_qedit_meta_{int(seed or 0)}.json").write_text(
                                     json.dumps(
                                         {
-                                            "route": "qwen_image_edit_2509_face_paste",
+                                            "route": "qwen_image_edit_2509_full_headcrop",
                                             "input": "approved_portrait",
                                             "attempt": attempt,
                                             "expr_key": ek,
                                             "max_attempts": 6,
                                             "judge": "specialized_qa",
-                                            "note": "00:30 face-only paste + QA; no silent inpaint fallback",
+                                            "paste_back": False,
+                                            "seam_gate": True,
+                                            "note": "01:50 full Qwen output + head closeup + seam gate; no face paste",
                                         },
                                         ensure_ascii=False,
                                         indent=2,
@@ -9133,7 +9434,7 @@ async def generate_character_sheet(
                                     raise
                                 logger.warning("expr %s diversity soft: %s", ek, de)
                             logger.info(
-                                "expr %s qwen_edit face_paste+qa ok attempt=%s", ek, attempt
+                                "expr %s qwen_edit full_headcrop+qa ok attempt=%s", ek, attempt
                             )
                             picked = cell_b
                             pick_err = None
@@ -9174,6 +9475,7 @@ async def generate_character_sheet(
                     else:
                         panels[ek] = picked
                     continue
+
 
                 base_b = bases[ek]
                 # 18:30：以人脸框中心方裁，禁止浅灰 pad（格外白底根因）
@@ -9228,8 +9530,9 @@ async def generate_character_sheet(
                     )
                 elif ek == "expr_3":
                     prompt_x += (
-                        ", soft closed-eye smile, eyes closed smiling, relaxed eyebrows, "
-                        "no open eyes, no neutral face, no frown no pout no furrowed brows"
+                        ", gentle smile, mouth corners up, soft relaxed brows, "
+                        "eyes softly curved, no neutral face without smile, "
+                        "no frown no pout no furrowed brows"
                     )
                 elif ek == "expr_5":
                     prompt_x += (
