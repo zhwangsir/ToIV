@@ -2526,6 +2526,7 @@ function InfiniteCanvasPage() {
                                 versionsOpen={versions.open}
                                 onToggleVersions={toggleVersions}
                                 assistantOpen={rightPanel === "assistant"}
+                                activeTasks={<CanvasActiveTaskPanel tasks={activeTasks} onCancelTask={cancelCanvasTask} />}
                                 onToggleAssistant={toggleAssistant}
                                 // LibTV 的画布工作区使用“未命名工作区”作为首屏默认标题；
                                 // 项目库仍保留“未命名项目”，因此只在画布顶栏做显示层映射。
@@ -2713,8 +2714,7 @@ function InfiniteCanvasPage() {
                                     </CanvasNodeActionContext.Provider>
                                 </InfiniteCanvas>
 
-                                <CanvasActiveTaskPanel tasks={activeTasks} onCancelTask={cancelCanvasTask} topInset={focusMode ? "var(--space-3)" : "var(--canvas-topbar-offset)"} />
-
+                                
                                 {focusMode ? (
                                     <CanvasFocusModeBar
                                         syncStatus={<CanvasSyncStatus projectId={projectId} onLoadLatest={reloadLatestCanvasProject} onOpenVersions={openVersions} />}
@@ -2728,6 +2728,7 @@ function InfiniteCanvasPage() {
                                         onZoomOut={zoomCanvasOut}
                                         onFit={fitCanvasContent}
                                         onOpenAssistant={readOnly ? undefined : openAssistant}
+                                        activeTasks={<CanvasActiveTaskPanel tasks={activeTasks} placement="focusbar" onCancelTask={cancelCanvasTask} />}
                                     />
                                 ) : null}
 

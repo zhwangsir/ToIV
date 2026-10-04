@@ -1,5 +1,5 @@
 import { Button, Dropdown, Tooltip } from "antd";
-import { History, MessageSquarePlus, X, Clapperboard, ArrowUpRight } from "lucide-react";
+import { History, MessageSquarePlus, X, Clapperboard, ArrowUpRight, LoaderCircle } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { AppDrawer } from "@/components/ui/product/app-drawer";
@@ -108,7 +108,7 @@ export function CanvasAssistantSidebar(props: Props) {
             ) : null}
 
             <div ref={logRef} className="canvas-assistant-log" onScroll={() => { const node = logRef.current; if (node) followLatestRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 48; }}>
-                {assistant.historyError ? <div className="canvas-assistant-notice" role="status"><span>{assistant.historyError}</span><Button size="small" onClick={() => void assistant.reloadHistory()}>重新读取</Button></div> : !assistant.historyLoaded ? <p className="canvas-assistant-meta" role="status">正在读取对话…</p> : null}
+                {assistant.historyError ? <div className="canvas-assistant-notice" role="status"><span>{assistant.historyError}</span><Button size="small" onClick={() => void assistant.reloadHistory()}>重新读取</Button></div> : !assistant.historyLoaded ? <p className="canvas-assistant-meta canvas-assistant-loading" role="status"><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />{!assistant.status || assistant.status.reason === "host_starting" ? "助手正在启动…" : "正在读取对话…"}</p> : null}
                 {assistant.historyLoaded && turnCount === 0 && !assistant.pendingUserText ? (
                     <div className="canvas-assistant-empty">
                         <Clapperboard className="canvas-assistant-empty-icon" aria-hidden="true" />

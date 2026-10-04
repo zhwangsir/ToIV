@@ -57,6 +57,8 @@ type CanvasTopBarProps = {
     readOnly?: boolean;
     onDuplicateProject?: () => void | Promise<void>;
     libtvReadonlyChrome?: boolean;
+    /** 生成任务入口（顶栏按钮），不再浮在画布内容上。 */
+    activeTasks?: ReactNode;
 };
 
 export function CanvasTopBar({
@@ -102,6 +104,7 @@ export function CanvasTopBar({
     readOnly = false,
     onDuplicateProject,
     libtvReadonlyChrome = false,
+    activeTasks,
 }: CanvasTopBarProps) {
     const theme = canvasThemes[useCanvasThemeStore((state) => state.theme)];
     const dockStyle = canvasDockStyle(theme, theme.node.text);
@@ -348,6 +351,7 @@ export function CanvasTopBar({
                 ) : null}
 
                 <div className="canvas-topbar-cluster canvas-topbar-local-cluster pointer-events-auto hidden items-center gap-1 lg:flex" style={dockStyle}>
+                    {activeTasks}
                     {onToggleAssistant ? (
                         <CanvasTopBarTooltip label="助手（Ctrl/Cmd + J）">
                             <Button
@@ -367,6 +371,7 @@ export function CanvasTopBar({
                 </div>
 
                 <div className="canvas-topbar-cluster canvas-topbar-tools-cluster pointer-events-auto flex items-center gap-1.5 lg:hidden" style={dockStyle}>
+                    {activeTasks}
                     <CanvasTopBarTooltip label="搜索画布节点">
                         <Button
                             type="text"

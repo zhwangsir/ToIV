@@ -315,7 +315,12 @@ func (a *DesktopApp) activateToIVUser(ctx context.Context, s *toivSession) error
 	if err := a.start(ctx); err != nil { // start() resolves the per-user data dir from the session
 		return err
 	}
-	return a.provisionToIVChannels(ctx, s)
+	if err := a.provisionToIVChannels(ctx, s); err != nil {
+		return err
+	}
+	// Warm the assistant host in the background: the first panel open should find it ready.
+	go a.warmAssistant(2 * time.Minute)
+	return nil
 }
 
 // provisionToIVChannels merges the bundled ToIV model template into the user's workspace once

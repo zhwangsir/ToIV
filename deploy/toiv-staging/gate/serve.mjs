@@ -185,6 +185,7 @@ function spawn(uid, token) {
     if (!(await waitHealthy(e.port))) throw new Error("instance not healthy");
     if (e.token) await syncChannelToken(uid, e.port, e.token);
     e.synced = !!e.token; e.state = "ready"; e.lastActive = Date.now(); failedAt.delete(uid);
+    warmAssistant(uid, e);
     log("spawned", uid.slice(0, 8), "port", e.port, "in", Date.now() - t0, "ms", `(${slotsUsed()}/${MAX_INSTANCES})`);
   })().catch(async (err) => {
     log("spawn failed", uid.slice(0, 8), String(err.message));
@@ -199,7 +200,7 @@ function kickSync(uid, e) {
   if (syncing.has(uid) || (e.syncFailAt && Date.now() - e.syncFailAt < 30_000)) return;
   const tok = e.token;
   syncing.set(uid, syncChannelToken(uid, e.port, tok)
-    .then(() => { if (e.token === tok) e.synced = true; })
+    .then(() => { if (e.token === tok) e.synced = true; warmAssistant(uid, e); })
     .catch((err) => { e.syncFailAt = Date.now(); log("sync failed", uid.slice(0, 8), String(err.message)); })
     .finally(() => syncing.delete(uid)));
 }
@@ -226,6 +227,26 @@ async function syncChannelToken(uid, port, token) {
   if (r.status !== 200) throw new Error(`model-config update failed (${r.status})`);
   writePrivate(stFile, JSON.stringify({ provisioned: true, tokenHash: th, llmv: 2, h3Channels: hit, updatedAt: new Date().toISOString() }));
   log("provisioned/synced instance", uid.slice(0, 8), "port", port, "h3Channels", hit);
+}
+// M5: keep the assistant host warm while a workspace is up. GET /api/assistant/status (loopback only)
+// launches the host when it is not running, so opening the panel never meets a cold host. After a
+// (re)start it polls until the host reports available; reasons other than host_starting (e.g. model
+// not configured yet) end the attempt and the panel shows its own notice.
+const WARM_EVERY_MS = Number(process.env.GATE_ASSISTANT_WARM_MS || 10_000);
+async function warmAssistant(uid, e, loop = true) {
+  if (!e || e.warming || e.state !== "ready" || !e.port) return;
+  e.warming = true; e.warmAt = Date.now();
+  const t0 = Date.now(), end = t0 + (loop ? 90_000 : 0);
+  try {
+    do {
+      const r = await backendGet(e.port, "/api/assistant/status");
+      const d = r.json && r.json.data;
+      if (d && d.available) { if (!e.warm) log("assistant warm", uid.slice(0, 8), "port", e.port, "in", Date.now() - t0, "ms"); e.warm = true; return; }
+      e.warm = false;
+      if (!d || d.reason !== "host_starting") return;
+      await new Promise((r) => setTimeout(r, 1000));
+    } while (Date.now() < end && e.state === "ready");
+  } finally { e.warming = false; }
 }
 async function inflightTasks(uid, port) {
   const owner = ownerToken(uid);
@@ -256,7 +277,7 @@ setInterval(async () => {
 setInterval(async () => {
   for (const [uid, e] of inst) {
     if (e.state !== "ready" || e.recovering) continue;
-    if (await healthy(e.port)) { e.misses = 0; continue; }
+    if (await healthy(e.port)) { e.misses = 0; if (Date.now() - (e.warmAt || 0) > WARM_EVERY_MS) warmAssistant(uid, e); continue; }
     if (++e.misses < 2) continue;
     e.recovering = true; e.state = "starting";
     log("instance down, recovering", uid.slice(0, 8), "port", e.port);
@@ -267,7 +288,7 @@ setInterval(async () => {
         else log("unit state", uid.slice(0, 8), st, "-> waiting for systemd");
         if (!(await waitHealthy(e.port, 120000))) throw new Error("respawn failed");
       }
-      e.state = "ready"; e.misses = 0; log("instance recovered", uid.slice(0, 8));
+      e.state = "ready"; e.misses = 0; log("instance recovered", uid.slice(0, 8)); e.warm = false; warmAssistant(uid, e);
     })().catch(async (err) => { log("recover failed", uid.slice(0, 8), String(err.message)); await systemctl("stop", unitOf(uid)); inst.delete(uid); failedAt.set(uid, Date.now()); pumpQueue(); })
       .finally(() => { e.recovering = false; });
   }
@@ -282,7 +303,7 @@ setInterval(async () => {
     const port = m && Number(m[1]);
     if (port && await waitHealthy(port, 20000)) {
       inst.set(uid, { port, state: "ready", lastActive: Date.now(), startedAt: Date.now(), token: null, tokenHash: "", synced: false, misses: 0 });
-      log("adopted running instance", uid.slice(0, 8), "port", port);
+      log("adopted running instance", uid.slice(0, 8), "port", port); warmAssistant(uid, inst.get(uid));
     } else { await systemctl("stop", unitOf(uid)); log("stopped unhealthy leftover", uid.slice(0, 8)); }
   }
   log(`instance manager: max=${MAX_INSTANCES} idle=${IDLE_MS}ms sweep=${SWEEP_MS}ms pool=${PORT_BASE}-${PORT_MAX} adopted=${inst.size}`);

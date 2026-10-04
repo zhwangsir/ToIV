@@ -123,6 +123,26 @@ function readStoredProposals(): Set<string> {
     }
 }
 
+/** 打开面板后这段时间内取不到状态（工作区还在起）按“正在启动”处理。 */
+const ASSISTANT_WARMUP_MS = 60_000;
+/** 正在启动时的状态复查间隔。 */
+const ASSISTANT_STARTING_POLL_MS = 1_000;
+
+/** 读取类请求的静默重试：最多 3 次、间隔递增；被新的读取取代时立刻放弃。 */
+export async function retryAssistantRead<T>(read: () => Promise<T>, superseded: () => boolean = () => false, attempts = 3, delayMs = 800): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+        try {
+            return await read();
+        } catch (error) {
+            lastError = error;
+            if (superseded() || attempt === attempts - 1) break;
+            await new Promise((resolve) => setTimeout(resolve, delayMs * (attempt + 1)));
+        }
+    }
+    throw lastError;
+}
+
 /**
  * 画布内助手的全部状态。
  *
@@ -166,18 +186,23 @@ export function useCanvasAssistant({ canvasId, onCanvasChanged }: Options) {
         scopedLocalStorage.setItem(WIDTH_STORAGE_KEY, String(clamped));
     }, []);
 
-    // 状态只在面板打开时复查：关着的面板不该一直问后端。正在启动时节奏更快。
-    const starting = status?.reason === "host_starting";
+    // 状态只在面板打开时复查：关着的面板不该一直问后端。
+    // 还没拿到状态或助手正在启动时每秒复查一次，首开只显示“正在启动”，不闪错误；
+    // 刚打开的一分钟内连状态都取不到（工作区还在起），也按“正在启动”处理。
+    const starting = !status || status.reason === "host_starting";
     useEffect(() => {
         if (!open) return;
         let cancelled = false;
+        const openedAt = Date.now();
         const refresh = () => {
             getAgentHostStatus()
                 .then((value) => { if (!cancelled) setStatus(value); })
-                .catch(() => { if (!cancelled) setStatus({ available: false }); });
+                .catch(() => {
+                    if (!cancelled) setStatus(Date.now() - openedAt < ASSISTANT_WARMUP_MS ? { available: false, reason: "host_starting" } : { available: false });
+                });
         };
         refresh();
-        const timer = setInterval(refresh, starting ? 2000 : 15000);
+        const timer = setInterval(refresh, starting ? ASSISTANT_STARTING_POLL_MS : 15000);
         return () => { cancelled = true; clearInterval(timer); };
     }, [open, starting]);
 
@@ -185,10 +210,11 @@ export function useCanvasAssistant({ canvasId, onCanvasChanged }: Options) {
         const run = runFor(targetCanvas);
         const request = ++run.historyRequest;
         try {
-            const [sessionList, history] = await Promise.all([
+            // 助手刚就绪的一两秒里读取可能还会被拒；静默重试几次再提示。
+            const [sessionList, history] = await retryAssistantRead(() => Promise.all([
                 listAssistantSessions(targetCanvas),
                 getAssistantHistory(targetCanvas, sessionId),
-            ]);
+            ]), () => request !== run.historyRequest);
             if (request !== run.historyRequest) return false;
             const nextSession = sessionId || history.sessionId || sessionList.currentSessionId || null;
             const known = new Set(history.turns.map((turn) => turn.turnId));
@@ -219,10 +245,12 @@ export function useCanvasAssistant({ canvasId, onCanvasChanged }: Options) {
     // 打开面板或切画布时补齐这条画布的历史；已经载入过就不重复拉。
     useEffect(() => {
         if (!open) return;
+        // 助手还在启动时不读历史：那时读取必然被拒，只会闪一下错误。就绪后这里会再跑一次。
+        if (!status || status.reason === "host_starting") return;
         const run = runFor(canvasId);
         if (run.historyLoaded || run.streaming || run.sessionBusy) return;
         void loadHistory(canvasId);
-    }, [canvasId, loadHistory, open, runFor, status?.available]);
+    }, [canvasId, loadHistory, open, runFor, status]);
 
     const send = useCallback(async (text: string, selectedNodeIds: string[], references: AgentChatReference[] = []) => {
         const message = text.trim();

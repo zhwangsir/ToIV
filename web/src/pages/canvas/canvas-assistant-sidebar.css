@@ -190,6 +190,11 @@
     color: var(--muted-foreground);
     line-height: 1.7;
 }
+.canvas-assistant-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
 .canvas-assistant-failed {
     color: var(--destructive);
     line-height: 1.75;

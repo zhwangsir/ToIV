@@ -32,15 +32,18 @@ func smokeReportPath(args []string) (string, bool) {
 }
 
 type smokeReport struct {
-	OK             bool              `json:"ok"`
-	Backend        bool              `json:"backend"`
-	AgentHost      bool              `json:"agentHost"`
-	AgentHostState string            `json:"agentHostState,omitempty"`
-	LoginPage      bool              `json:"loginPage"`
-	LoginEndpoint  int               `json:"loginEndpoint"`
-	APIBase        string            `json:"apiBase"`
-	Errors         []string          `json:"errors,omitempty"`
-	Timings        map[string]string `json:"timings"`
+	OK             bool   `json:"ok"`
+	Backend        bool   `json:"backend"`
+	AgentHost      bool   `json:"agentHost"`
+	AgentHostState string `json:"agentHostState,omitempty"`
+	// AssistantWarm: the login-time prewarm (same call activateToIVUser makes) brought the host up
+	// before anything opened the panel.
+	AssistantWarm bool              `json:"assistantWarm"`
+	LoginPage     bool              `json:"loginPage"`
+	LoginEndpoint int               `json:"loginEndpoint"`
+	APIBase       string            `json:"apiBase"`
+	Errors        []string          `json:"errors,omitempty"`
+	Timings       map[string]string `json:"timings"`
 }
 
 func runToIVSmoke(dataDir, out string) int {
@@ -101,6 +104,10 @@ func runToIVSmoke(dataDir, out string) int {
 		fail("backend health: %v", err)
 	}
 
+	// 4a) prewarm exactly as activateToIVUser does after login.
+	warmStart := time.Now()
+	rep.AssistantWarm = app.warmAssistant(150 * time.Second)
+	rep.Timings["assistantWarm"] = time.Since(warmStart).Round(time.Millisecond).String()
 	// 4) agent-host: /assistant/status launches it and reports available once its health probe passes.
 	deadline := time.Now().Add(150 * time.Second)
 	for time.Now().Before(deadline) {

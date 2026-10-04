@@ -21,9 +21,11 @@ type CanvasFocusModeBarProps = {
     onFit: () => void;
     /** ToIV mobile: open the assistant (leaves focus mode). */
     onOpenAssistant?: () => void;
+    /** 生成任务入口（专注栏按钮）。 */
+    activeTasks?: ReactNode;
 };
 
-export function CanvasFocusModeBar({ versionsOpen, onToggleVersions, syncStatus, dockRevealed, zoomPercent, onToggleDock, onExit, onZoomIn, onZoomOut, onFit, onOpenAssistant }: CanvasFocusModeBarProps) {
+export function CanvasFocusModeBar({ versionsOpen, onToggleVersions, syncStatus, dockRevealed, zoomPercent, onToggleDock, onExit, onZoomIn, onZoomOut, onFit, onOpenAssistant, activeTasks }: CanvasFocusModeBarProps) {
     const theme = canvasThemes[useActiveTheme()];
     const reducedMotion = useReducedMotion();
 
@@ -61,6 +63,7 @@ export function CanvasFocusModeBar({ versionsOpen, onToggleVersions, syncStatus,
                         </button>
                     </Tooltip>
                 ) : null}
+                {activeTasks}
                 <span className="mx-0.5 h-4 w-px" style={{ background: theme.toolbar.border }} />
                 <Tooltip title={dockRevealed ? "收起工具" : "工具"}>
                     <button
