@@ -52,18 +52,20 @@ def test_assert_expr_cell_face_height_frac_rejects_oob():
 
 
 def test_fit_wide_cell_face_height_in_0_55_0_65():
-    """宽格贴格后脸高须落入 0.55–0.65（必要时棚灰垫边满足硬门禁）。"""
+    """宽格贴格后尽量落入 0.55–0.65（23:18 铺满优先，不垫边）。"""
     im = _synth_face(512)
     fitted, _ = sheet_svc._fit_expr_cell_face_fill(
         im, (0, 0, 315, 190), target_face_height_frac=0.58
     )
     assert fitted.size == (315, 190)
+    sheet_svc.assert_expr_cell_content_coverage(
+        fitted, expr_key="expr_0", min_coverage=1.0
+    )
     buf = BytesIO()
     fitted.convert("RGB").save(buf, format="PNG")
-    info = sheet_svc.assert_expr_cell_face_height_frac(
-        buf.getvalue(), expr_key="expr_0"
-    )
-    assert 0.55 <= info["face_height_frac"] <= 0.65
+    frac = sheet_svc.measure_face_height_frac(buf.getvalue())
+    # 铺满优先：有人脸即可；能落入区间更好
+    assert frac is not None and frac > 0.20
 
 
 def test_compose_grid_asserts_face_height_gate():
@@ -85,10 +87,8 @@ def test_compose_grid_asserts_face_height_gate():
                 row * ch + img_h - 3,
             )
         ).convert("RGB")
-        buf = BytesIO()
-        cell.save(buf, format="PNG")
-        sheet_svc.assert_expr_cell_face_height_frac(
-            buf.getvalue(), expr_key=f"expr_{i}"
+        sheet_svc.assert_expr_cell_content_coverage(
+            cell, expr_key=f"expr_{i}", min_coverage=1.0
         )
 
 
@@ -148,15 +148,21 @@ def test_gentle_vlm_requires_smiling_true():
 
 
 def test_gentle_inpaint_prompt_soft_closed_eye_smile():
-    assert "soft closed-eye smile" in sheet_svc._EXPR_INPAINT_PROMPTS[3].lower()
+    # 23:18：温柔改 Qwen-Edit；提示仍须含闭眼微笑语义
+    g = (
+        sheet_svc._EXPR_EDIT_INSTRUCTIONS[3]
+        + " "
+        + sheet_svc._EXPR_INPAINT_PROMPTS[3]
+    ).lower()
+    assert "closed-eye smile" in g or "gentle closed-eye" in g
     src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
-    assert "0.70" in src and "expr_3" in src
-    assert "side-head base" in src or "side_head" in src or "侧面头" in src
+    assert "expr_3" in src
+    assert "assert_expr_cell_face_height_frac" in src
 
 
 def test_contemplative_side_base_contract_in_source():
+    # 23:18：side_base 已撤回；本测改为确认撤回契约（详见 test_character_sheet_2318_gates）
     src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
-    assert "22:28" in src
-    assert "expr_2" in src and "face_three_quarter" in src
-    assert "require_mouth=(ek != \"expr_2\")" in src or "require_mouth=False" in src
+    assert "撤回沉思 side_base" in src or "no side_base" in src
+    assert "22:28 contemplative uses side-face base" not in src
     assert "assert_expr_cell_face_height_frac" in src

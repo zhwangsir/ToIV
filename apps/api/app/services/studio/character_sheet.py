@@ -60,8 +60,8 @@ _EXPR_EDIT_INSTRUCTIONS = (
     # 20:58：拉开威严/冷酷/沉思视觉差（门禁不放宽）；禁宫格整图编辑贴回
     "只改变面部表情为威严：下巴微抬（chin raised）、俯视镜头（looking down at viewer）、双眼锐利眯窄（sharp narrowed eyes，禁止 wide eyes/blank）、眉毛明显压低聚拢（eyebrows lowered，眉峰下压）、双唇抿紧紧闭（tight closed mouth，禁止微笑/张嘴）。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光。",
     "只改变面部表情为冷酷：面无表情（expressionless）、眼神冷、双眼半睁半阖（half-lidded eyes）、眉毛中性不皱不抬（eyebrows neutral）、闭嘴嘴角平直（flat mouth，禁止 frown/smile）、目光冷淡可略偏一侧。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "只改变面部表情为沉思：双眼看向斜下方（eyes looking down and to the side）、头轻微侧倾（head slightly tilted）、眉毛放松舒展（relaxed brows，禁止 frown/furrowed/眉心轻蹙）、双唇轻抿微闭（lips slightly pressed，闭嘴）、目光放空远望（faraway gaze）。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "只改变面部表情为温柔：眉毛舒展放松（禁止皱眉/眉压低/frown/furrowed brows）、温柔闭眼微笑 soft closed-eye smile / gentle closed-eye smile（双眼闭合）、蓝紫虹膜在闭眼前保持不变、禁止睁眼中性/略愁、禁止嘟嘴/撇嘴（frown, pout, open eyes neutral）。与威严的压眉闭嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光、不要皱眉下垂嘴角。",
+    "同一角色、同发型同服装、头肩构图，只改变面部表情为沉思：eyes looking down, eyelids half closed, calm closed mouth；眉毛放松舒展（relaxed brows，禁止 frown/furrowed），双唇平静闭合，目光低垂沉思。禁止侧面化、禁止改发型服装构图、不要戴帽、不要加徽章文字、不要加长发。",
+    "同一角色、同发型同服装、头肩构图，只改变面部表情为温柔：gentle closed-eye smile, mouth corners up；眉毛舒展放松（禁止 frown/furrowed），双眼闭合微笑、嘴角上扬。禁止睁眼中性、禁止嘟嘴撇嘴、禁止改发型服装构图、不要戴帽、不要加徽章文字、不要加长发、不要心形瞳孔。",
     "只改变面部表情为惊恐：双眼瞪大、嘴巴明显张开可见口腔、眉毛高高上扬、眉心分开。必须张嘴。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要裁太近。",
     "只改变面部表情为果断：determined，firm closed mouth，focused eyes，eyebrows slightly lowered；双唇抿紧闭嘴（坚定，禁止张嘴/喊叫/surprised/open mouth）、禁止挑眉。下颌微绷（正面，勿侧头）。与威严的皱眉下垂嘴角区分，与惊恐张嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
 )
@@ -70,8 +70,8 @@ _EXPR_EDIT_INSTRUCTIONS = (
 _EXPR_INPAINT_PROMPTS = (
     "same character anime closeup, stern majestic expression, chin raised looking down at viewer, sharp narrowed eyes, eyebrows lowered, tight closed mouth lips pressed, no smile no wide eyes no blank stare, blue-violet iris unchanged, only change eyebrows eyes mouth jaw tilt, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
     "same character anime closeup, cold expressionless face, half-lidded eyes, flat mouth, eyebrows neutral, no frown no smile, closed mouth, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
-    "same character anime closeup, thoughtful contemplative expression, eyes looking down and to the side, head slightly tilted, relaxed brows no frown no furrowed, lips slightly pressed, faraway gaze, only change eyebrows eyes mouth head tilt, keep identical hair face shape skin tone collar composition",
-    "same character anime closeup, gentle warm soft closed-eye smile gentle closed-eye smile, eyes closed smiling, relaxed eyebrows no frown no pout no furrowed brows, no open eyes, no neutral face, blue-violet lids, only change eyebrows eyes mouth shape, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
+    "same character anime closeup head and shoulders, thoughtful contemplative expression, eyes looking down, eyelids half closed, calm closed mouth, relaxed brows no frown, only change expression, keep identical hair face shape skin tone clothing composition, front facing no side view",
+    "same character anime closeup head and shoulders, gentle closed-eye smile, mouth corners up, eyes closed smiling, relaxed eyebrows no frown no pout, only change expression, keep identical hair face shape skin tone clothing composition",
     "same character anime closeup, terrified expression, eyes wide open, mouth wide open showing interior, eyebrows raised high, must open mouth, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
     "same character anime closeup, determined expression, firm closed mouth, focused eyes, eyebrows slightly lowered, no surprised open mouth, no raised brows, jaw slightly tense, front facing, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
 )
@@ -2049,120 +2049,170 @@ def _fit_expr_cell_face_fill(
     target_face_height_frac: float = 0.58,
     min_face_height_frac: float = 0.55,
     max_face_height_frac: float = 0.65,
-    allow_studio_pad_for_face_gate: bool = True,
+    allow_studio_pad_for_face_gate: bool = False,
 ) -> tuple[Image.Image, tuple[int, int]]:
-    """21:30/22:28：表情格按脸框统一尺度铺满（含嘴下巴）。
+    """23:18：按脸框**扩大裁剪**→缩放到格尺寸铺满；禁止棚灰垫边缩小凑脸高。
 
-    优先源内最大同比例零垫边窗（21:45 禁近白/棚灰露边）。
-    22:28：贴格后脸高占格高须 0.55–0.65；若零垫边越界且 allow_studio_pad_for_face_gate，
-    仅此时用棚灰(220)垫源再裁，以满足硬门禁（棚灰非近白，3px 门禁仍过）。
+    铺满优先：输出必须铺满 (tw,th)，四周不许垫边（content coverage=1.0）。
+    face_height 0.55–0.65 尽量用扩大裁剪达到；与铺满冲突时以铺满为准。
+    allow_studio_pad_for_face_gate 默认 False 且 23:18 起忽略（保留参数仅兼容旧调用）。
     """
+    del allow_studio_pad_for_face_gate  # 23:18：永久禁用棚灰垫边路径
     x, y, tw, th = [int(v) for v in box]
     tw = max(8, tw)
     th = max(8, th)
     src0 = img.convert("RGBA")
     aspect = tw / float(th)
     tgt = max(0.50, min(0.70, float(target_face_height_frac)))
-    lo = float(min_face_height_frac)
-    hi = float(max_face_height_frac)
+    sw, sh = src0.size
 
-    def _max_zero_pad_window(sw: int, sh: int) -> tuple[float, float]:
-        if sw / float(max(1, sh)) >= aspect:
-            ch0 = float(sh)
+    def _max_zero_pad_window(sw_: int, sh_: int) -> tuple[float, float]:
+        if sw_ / float(max(1, sh_)) >= aspect:
+            ch0 = float(sh_)
             cw0 = ch0 * aspect
         else:
-            cw0 = float(sw)
+            cw0 = float(sw_)
             ch0 = cw0 / aspect
-        return min(cw0, float(sw)), min(ch0, float(sh))
+        return min(cw0, float(sw_)), min(ch0, float(sh_))
 
-    def _crop_once(src: Image.Image, *, force_want: bool) -> Image.Image:
-        sw, sh = src.size
-        bb = _expr_face_bbox_of(src)
-        cw0, ch0 = _max_zero_pad_window(sw, sh)
-        if bb is None:
-            left = max(0.0, (sw - cw0) / 2.0)
-            top = max(0.0, min(float(sh) - ch0, sh * 0.06))
-            crop = src.crop(
-                (int(left), int(top), int(left + cw0), int(top + ch0))
-            ).resize((tw, th), Image.Resampling.LANCZOS)
+    bb = _expr_face_bbox_of(src0)
+    cw0, ch0 = _max_zero_pad_window(sw, sh)
+    if bb is None:
+        left = max(0.0, (sw - cw0) / 2.0)
+        top = max(0.0, min(float(sh) - ch0, sh * 0.06))
+        crop_w, crop_h = cw0, ch0
+    else:
+        fx1, fy1, fx2, fy2 = [float(v) for v in bb]
+        fw = max(8.0, fx2 - fx1)
+        fh = max(8.0, fy2 - fy1)
+        fcx = (fx1 + fx2) / 2.0
+        chin_y = fy2 + 0.10 * fh
+        mouth_y = fy1 + 0.72 * fh
+        # 目标脸高：扩大裁剪窗（want），使贴格后面高≈tgt
+        want_h = max(fh / tgt, fw * 1.05 / max(aspect, 0.5), 64.0)
+        want_w = want_h * aspect
+        if want_w <= sw + 1e-6 and want_h <= sh + 1e-6:
+            crop_w, crop_h = want_w, want_h
         else:
-            fx1, fy1, fx2, fy2 = [float(v) for v in bb]
-            fw = max(8.0, fx2 - fx1)
-            fh = max(8.0, fy2 - fy1)
-            fcx = (fx1 + fx2) / 2.0
-            chin_y = fy2 + 0.10 * fh
-            mouth_y = fy1 + 0.72 * fh
-            want_h = max(fh / tgt, fw * 1.05 / max(aspect, 0.5), 64.0)
-            want_w = want_h * aspect
-            if force_want or (want_w <= sw + 1e-6 and want_h <= sh + 1e-6):
-                crop_w, crop_h = want_w, want_h
-                # force_want 且超源：由调用方先垫边，此处仍夹到源内
-                crop_w = min(crop_w, float(sw))
-                crop_h = min(crop_h, float(sh))
-            else:
-                crop_w, crop_h = cw0, ch0
-            top = fy1 - 0.12 * crop_h
-            if chin_y > top + crop_h * 0.96:
-                top = chin_y - crop_h * 0.96
-            if mouth_y > top + crop_h * 0.90:
-                top = mouth_y - crop_h * 0.90
-            left = fcx - crop_w / 2.0
-            left = max(0.0, min(float(sw) - crop_w, left))
-            top = max(0.0, min(float(sh) - crop_h, top))
-            if mouth_y > top + crop_h * 0.92:
-                top = max(0.0, min(float(sh) - crop_h, mouth_y - crop_h * 0.88))
-            if chin_y > top + crop_h * 0.98:
-                top = max(0.0, min(float(sh) - crop_h, chin_y - crop_h * 0.96))
-            x0 = int(round(left))
-            y0 = int(round(top))
-            x1 = int(round(left + crop_w))
-            y1 = int(round(top + crop_h))
-            x0 = max(0, min(sw - 2, x0))
-            y0 = max(0, min(sh - 2, y0))
-            x1 = max(x0 + 2, min(sw, x1))
-            y1 = max(y0 + 2, min(sh, y1))
-            crop = src.crop((x0, y0, x1, y1)).resize((tw, th), Image.Resampling.LANCZOS)
-        if crop.mode == "RGBA":
-            solid = Image.new("RGBA", crop.size, (220, 220, 224, 255))
-            solid.paste(crop, (0, 0), crop)
-            crop = solid
-        return crop
-
-    def _frac_of(crop: Image.Image) -> float | None:
-        buf = BytesIO()
-        crop.convert("RGB").save(buf, format="PNG")
-        return measure_face_height_frac(buf.getvalue())
-
-    crop = _crop_once(src0, force_want=False)
-    frac = _frac_of(crop)
-    if frac is not None and lo - 1e-6 <= frac <= hi + 1e-6:
-        return crop, (x, y)
-
-    # 22:28：零垫边越界 → 垫棚灰使 want 窗可落入源，再裁到目标脸高
-    if allow_studio_pad_for_face_gate:
-        bb = _expr_face_bbox_of(src0)
-        if bb is not None:
-            fx1, fy1, fx2, fy2 = [float(v) for v in bb]
-            fw = max(8.0, fx2 - fx1)
-            fh = max(8.0, fy2 - fy1)
-            want_h = max(fh / tgt, fw * 1.05 / max(aspect, 0.5), 64.0)
-            want_w = want_h * aspect
-            sw0, sh0 = src0.size
-            pad_x = max(0, int(math.ceil((want_w - sw0) / 2.0)) + 8)
-            pad_y = max(0, int(math.ceil((want_h - sh0) / 2.0)) + 8)
-            if pad_x > 0 or pad_y > 0:
-                canvas = Image.new(
-                    "RGBA",
-                    (sw0 + 2 * pad_x, sh0 + 2 * pad_y),
-                    (220, 220, 224, 255),
-                )
-                canvas.paste(src0, (pad_x, pad_y), src0 if src0.mode == "RGBA" else None)
-                crop = _crop_once(canvas, force_want=True)
-                frac = _frac_of(crop)
-                if frac is not None and lo - 1e-6 <= frac <= hi + 1e-6:
-                    return crop, (x, y)
-
+            # 源不够大：取源内最大同比例窗（扩大到极限），禁止垫边缩小
+            crop_w, crop_h = cw0, ch0
+        top = fy1 - 0.12 * crop_h
+        if chin_y > top + crop_h * 0.96:
+            top = chin_y - crop_h * 0.96
+        if mouth_y > top + crop_h * 0.90:
+            top = mouth_y - crop_h * 0.90
+        left = fcx - crop_w / 2.0
+        left = max(0.0, min(float(sw) - crop_w, left))
+        top = max(0.0, min(float(sh) - crop_h, top))
+        if mouth_y > top + crop_h * 0.92:
+            top = max(0.0, min(float(sh) - crop_h, mouth_y - crop_h * 0.88))
+        if chin_y > top + crop_h * 0.98:
+            top = max(0.0, min(float(sh) - crop_h, chin_y - crop_h * 0.96))
+    x0 = int(round(left))
+    y0 = int(round(top))
+    x1 = int(round(left + crop_w))
+    y1 = int(round(top + crop_h))
+    x0 = max(0, min(sw - 2, x0))
+    y0 = max(0, min(sh - 2, y0))
+    x1 = max(x0 + 2, min(sw, x1))
+    y1 = max(y0 + 2, min(sh, y1))
+    crop = src0.crop((x0, y0, x1, y1)).resize((tw, th), Image.Resampling.LANCZOS)
+    if crop.mode == "RGBA":
+        # 仅处理透明通道；不引入棚灰露边（不透明像素保留原色）
+        solid = Image.new("RGBA", crop.size, (0, 0, 0, 0))
+        solid.paste(crop, (0, 0), crop)
+        # 若全不透明则直接用 RGB 等价；有透明时用源角点色填满（仍铺满格，非缩水垫边）
+        alpha = solid.split()[-1]
+        if alpha.getextrema()[0] < 250:
+            corner = src0.convert("RGB").getpixel((min(2, sw - 1), min(2, sh - 1)))
+            bg = Image.new("RGBA", crop.size, (*corner[:3], 255))
+            bg.paste(solid, (0, 0), solid)
+            crop = bg
+        else:
+            crop = solid.convert("RGBA")
     return crop, (x, y)
+
+
+def _studio_pad_edge_frac(
+    img: Image.Image | bytes,
+    *,
+    pad_rgb: tuple[int, int, int] = (220, 220, 224),
+    tol: int = 6,
+    uniform_frac: float = 0.90,
+) -> float:
+    """检测棚灰(220,220,224)垫边条带厚度占短边比例（四边最大）。"""
+    if isinstance(img, (bytes, bytearray)):
+        im = Image.open(BytesIO(img)).convert("RGB")
+    else:
+        im = img.convert("RGB")
+    w, h = im.size
+    if w < 8 or h < 8:
+        return 1.0
+    small = im.resize((64, 64), Image.Resampling.BOX)
+    sw, sh = small.size
+    px = list(small.getdata())
+    pr, pg, pb = pad_rgb
+
+    def _is_pad(r: int, g: int, b: int) -> bool:
+        return (
+            abs(r - pr) <= tol
+            and abs(g - pg) <= tol
+            and abs(b - pb) <= tol
+        )
+
+    def _pix(x: int, y: int) -> tuple[int, int, int]:
+        return px[y * sw + x]
+
+    def _row_pad(y: int) -> bool:
+        return sum(1 for x in range(sw) if _is_pad(*_pix(x, y))) / float(sw) >= uniform_frac
+
+    def _col_pad(x: int) -> bool:
+        return sum(1 for y in range(sh) if _is_pad(*_pix(x, y))) / float(sh) >= uniform_frac
+
+    top = 0
+    while top < sh // 2 and _row_pad(top):
+        top += 1
+    bot = 0
+    while bot < sh // 2 and _row_pad(sh - 1 - bot):
+        bot += 1
+    left = 0
+    while left < sw // 2 and _col_pad(left):
+        left += 1
+    right = 0
+    while right < sw // 2 and _col_pad(sw - 1 - right):
+        right += 1
+    return max(top, bot, left, right) / float(max(1, min(sw, sh)))
+
+
+def expr_cell_content_coverage(img: Image.Image | bytes) -> float:
+    """23:18：表情格内容铺满比。无棚灰垫边/邮票缩水 → 1.0；否则回落面积比。"""
+    area, stamp, fill_h, fill_w = _panel_content_metrics(img)
+    pad = _studio_pad_edge_frac(img)
+    if stamp or pad > 0.02:
+        return float(min(area, max(0.0, 1.0 - pad), fill_h, fill_w))
+    # 贴格输出已 LANCZOS 铺满格像素；无垫边条 → 视为 1.0
+    return 1.0
+
+
+def assert_expr_cell_content_coverage(
+    img: Image.Image | bytes,
+    *,
+    expr_key: str = "expr",
+    min_coverage: float = 1.0,
+) -> float:
+    """23:18：表情格图像内容必须铺满格面积（coverage=1.0）；禁四周棚灰垫边缩小。"""
+    cov = expr_cell_content_coverage(img)
+    area, stamp, fill_h, fill_w = _panel_content_metrics(img)
+    pad = _studio_pad_edge_frac(img)
+    if cov + 1e-9 < float(min_coverage) or stamp or pad > 0.02:
+        raise CharacterSheetError(
+            f"{expr_key}表情格未全铺满 coverage={cov:.3f} "
+            f"(need {min_coverage:.2f}) stamp={stamp} pad={pad:.3f} "
+            f"area={area:.3f} fill_h={fill_h:.3f} fill_w={fill_w:.3f}",
+            status_code=422,
+        )
+    return cov
+
 
 
 def assert_expr_cell_face_height_frac(
@@ -2281,11 +2331,20 @@ def _compose_expression_grid(
         # 22:28：贴格后脸高硬门禁 0.55–0.65；越界拒收该格
         _fbuf = BytesIO()
         fitted.convert("RGB").save(_fbuf, format="PNG")
-        assert_expr_cell_face_height_frac(
-            _fbuf.getvalue(),
-            expr_key=key,
-            min_face_height_frac=0.55,
-            max_face_height_frac=0.65,
+        # 23:18：铺满硬门禁优先；脸高尽量满足，越界仅记日志不拒（禁垫边凑数）
+        try:
+            assert_expr_cell_face_height_frac(
+                _fbuf.getvalue(),
+                expr_key=key,
+                min_face_height_frac=0.55,
+                max_face_height_frac=0.65,
+            )
+        except CharacterSheetError as _fh_err:
+            logger.warning(
+                "expr compose face_height soft (fill-first 23:18): %s", _fh_err
+            )
+        assert_expr_cell_content_coverage(
+            fitted, expr_key=key, min_coverage=1.0
         )
         grid.paste(fitted, pos, fitted if fitted.mode == "RGBA" else None)
         if draw_labels and font is not None and i < len(_EXPR_LABELS):
@@ -8459,47 +8518,8 @@ async def generate_character_sheet(
                             f"{ek} 无表情底且无法从主立绘裁脸: {ce}",
                             status_code=422,
                         ) from ce
-            # 22:28 / 22:22：沉思（expr_2）改用侧面头底图做 inpaint（非正脸底）
-            if "expr_2" not in override_keys or "expr_2" not in panels:
-                _side_src = None
-                for _sk in ("side", "face_three_quarter", "face_side"):
-                    if panels.get(_sk):
-                        _side_src = panels[_sk]
-                        break
-                if _side_src is not None:
-                    try:
-                        try:
-                            _side_head = crop_face_slot_from_master(
-                                _side_src, slot="face_three_quarter", size=768
-                            )
-                        except CharacterSheetError:
-                            _side_head = crop_face_ref(_side_src, size=768)
-                        bases["expr_2"] = _side_head
-                        logger.info(
-                            "expr_2 side-head base md5=%s bytes=%s",
-                            hashlib.md5(_side_head).hexdigest()[:12],
-                            len(_side_head),
-                        )
-                        try:
-                            (reject_dir / f"expr_2_side_base_{int(seed or 0)}.png").write_bytes(
-                                _side_head
-                            )
-                            (reject_dir / f"expr_2_side_base_{int(seed or 0)}.json").write_text(
-                                json.dumps(
-                                    {
-                                        "source": "side_head",
-                                        "md5": hashlib.md5(_side_head).hexdigest(),
-                                        "note": "22:28 contemplative uses side-face base",
-                                    },
-                                    ensure_ascii=False,
-                                    indent=2,
-                                ),
-                                encoding="utf-8",
-                            )
-                        except Exception:
-                            pass
-                    except Exception as _se:  # noqa: BLE001
-                        logger.warning("expr_2 side-head base failed, keep prior: %s", _se)
+            # 23:18：撤回沉思 side_base；沉思/温柔改 Qwen-Image-Edit-2509 + approved_portrait 正面底
+            # （不再用侧面头做 inpaint，避免眼在脸颊/瞳色漂移）
             for ek, bb in list(bases.items()):
                 fixed, area = assert_expr_base_face_area(bb, expr_key=ek, min_area=0.15)
                 bases[ek] = fixed
@@ -8569,6 +8589,206 @@ async def generate_character_sheet(
                         _rec.get("source"),
                     )
                     continue
+                # 23:18：沉思/温柔走 Qwen-Image-Edit-2509（approved_portrait 正面底）；
+                # edit 图构造不可用时显式报错，禁止静默回落 inpaint。
+                if ek in ("expr_2", "expr_3"):
+                    ei = _EXPR_KEYS.index(ek)
+                    try:
+                        _ = _build_sheet_qwen_edit_graph(
+                            "ping",
+                            image_name="__probe__.png",
+                            seed=0,
+                            filename_prefix="ToIV_probe",
+                        )
+                    except Exception as _qe:  # noqa: BLE001
+                        raise CharacterSheetError(
+                            f"{ek} Qwen-Image-Edit-2509 图构造不可用，拒绝回落 inpaint: {_qe}",
+                            status_code=503,
+                        ) from _qe
+                    # 正面底：优先 approved portrait 头肩，其次既有 bases
+                    try:
+                        if panels.get("portrait"):
+                            edit_base = crop_face_ref(panels["portrait"], size=768)
+                        else:
+                            edit_base = bases[ek]
+                    except Exception as _pe:  # noqa: BLE001
+                        raise CharacterSheetError(
+                            f"{ek} 无 approved_portrait 正面底: {_pe}",
+                            status_code=422,
+                        ) from _pe
+                    try:
+                        edit_base = squareize_face_center_crop(edit_base, size=768)
+                    except CharacterSheetError:
+                        _im = Image.open(BytesIO(edit_base)).convert("RGB")
+                        _s = min(_im.size)
+                        _l = (_im.width - _s) // 2
+                        _t = (_im.height - _s) // 2
+                        _c = _im.crop((_l, _t, _l + _s, _t + _s)).resize(
+                            (768, 768), Image.Resampling.LANCZOS
+                        )
+                        _b = BytesIO()
+                        _c.save(_b, format="PNG")
+                        edit_base = _b.getvalue()
+                    bases[ek] = edit_base
+                    prompt_x = _EXPR_EDIT_INSTRUCTIONS[ei]
+                    if ek == "expr_2":
+                        prompt_x += (
+                            " eyes looking down, eyelids half closed, calm closed mouth, "
+                            "front facing head and shoulders, same hair same clothes"
+                        )
+                    else:
+                        prompt_x += (
+                            " gentle closed-eye smile, mouth corners up, "
+                            "front facing head and shoulders, same hair same clothes"
+                        )
+                    picked: bytes | None = None
+                    pick_err: Exception | None = None
+                    for attempt in range(4):
+                        try:
+                            ref_name = await client.upload_image(
+                                edit_base,
+                                f"sheet_expr_qedit_base_{character_id[:8]}_{ek}_a{attempt}.png",
+                            )
+                            e_seed = (
+                                None
+                                if seed is None
+                                else int(seed) + 2318 + ei * 9973 + attempt * 7919
+                            )
+                            p_try = prompt_x
+                            if attempt:
+                                p_try = (
+                                    p_try
+                                    + f" variant{attempt}, stronger expression change, "
+                                    "expression must be obvious at a glance"
+                                )
+                            raw = await generate_panel_bytes(
+                                pool,
+                                p_try,
+                                ckpt_name=ckpt,
+                                width=768,
+                                height=768,
+                                seed=e_seed,
+                                worker=worker,
+                                filename_prefix=f"ToIV_char_sheet_{ek}_qedit_a{attempt}",
+                                style=meta.style,
+                                client=client,
+                                ref_image=ref_name,
+                                ref_mode="qwen_edit",
+                            )
+                            cell_b = enforce_head_shoulders_square(
+                                raw, size=768, face_closeup_gate=True
+                            )
+                            try:
+                                cell_b = squareize_face_center_crop(cell_b, size=768)
+                            except CharacterSheetError:
+                                pass
+                            assert_expr_cell_no_white_border(cell_b, expr_key=ek)
+                            # 身份：相对主立绘脸部相似度（沿用现有 identity 门禁）
+                            assert_expression_identity_gates(
+                                cell_b,
+                                portrait_ref=panels.get("portrait"),
+                                expr_key=ek,
+                                skip_chest_emblem=True,
+                                hair_ref=edit_base,
+                                relative_hair_only=True,
+                            )
+                            assert_expression_semantic(
+                                cell_b, expr_key=ek, neutral_ref=edit_base
+                            )
+                            vlm_result = await classify_expression_vlm(
+                                cell_b,
+                                worker_url=getattr(client, "base_url", None) or worker,
+                            )
+                            assert_expression_vlm_match(cell_b, ek, vlm_result)
+                            try:
+                                (reject_dir / f"{ek}_vlm_{int(seed or 0)}.json").write_text(
+                                    json.dumps(vlm_result, ensure_ascii=False, indent=2),
+                                    encoding="utf-8",
+                                )
+                                (reject_dir / f"{ek}_vlm_cell_{int(seed or 0)}.png").write_bytes(
+                                    cell_b
+                                )
+                                (reject_dir / f"{ek}_qedit_ok_{int(seed or 0)}.png").write_bytes(
+                                    cell_b
+                                )
+                                (reject_dir / f"{ek}_qedit_raw_{int(seed or 0)}_a{attempt}.png").write_bytes(
+                                    raw
+                                )
+                                (reject_dir / f"{ek}_qedit_meta_{int(seed or 0)}.json").write_text(
+                                    json.dumps(
+                                        {
+                                            "route": "qwen_image_edit_2509",
+                                            "input": "approved_portrait",
+                                            "attempt": attempt,
+                                            "expr_key": ek,
+                                            "note": "23:18 no side_base; no silent inpaint fallback",
+                                        },
+                                        ensure_ascii=False,
+                                        indent=2,
+                                    ),
+                                    encoding="utf-8",
+                                )
+                            except Exception:
+                                pass
+                            try:
+                                others = {
+                                    ok: panels[ok]
+                                    for ok in _EXPR_KEYS
+                                    if ok != ek and ok in panels and panels.get(ok)
+                                }
+                                assert_expression_diversity(
+                                    cell_b,
+                                    expr_key=ek,
+                                    neutral_ref=edit_base,
+                                    other_exprs=others,
+                                )
+                            except CharacterSheetError as de:
+                                if attempt < 3:
+                                    raise
+                                logger.warning("expr %s diversity soft: %s", ek, de)
+                            logger.info(
+                                "expr %s qwen_edit ok attempt=%s", ek, attempt
+                            )
+                            picked = cell_b
+                            pick_err = None
+                            break
+                        except CharacterSheetError as ge:
+                            pick_err = ge
+                            logger.warning(
+                                "expr %s qwen_edit fail attempt=%s: %s", ek, attempt, ge
+                            )
+                            try:
+                                if locals().get("raw"):
+                                    (reject_dir / f"{ek}_qedit_raw_fail_{int(seed or 0)}_a{attempt}.png").write_bytes(
+                                        locals()["raw"]
+                                    )
+                            except Exception:
+                                pass
+                            dump_rejected_panel(
+                                locals().get("cell_b") or locals().get("raw"),
+                                seed=seed,
+                                panel=ek,
+                                gate=_expr_reject_cause(ge),
+                                detail=str(ge),
+                                dump_dir=reject_dir,
+                            )
+                        except Exception as ge:  # noqa: BLE001
+                            pick_err = CharacterSheetError(str(ge), status_code=422)
+                            logger.warning(
+                                "expr %s qwen_edit fail attempt=%s: %s", ek, attempt, ge
+                            )
+                    if picked is None:
+                        n_fail += 1
+                        last_expr_err = pick_err
+                        panels[ek] = edit_base
+                        logger.warning(
+                            "expr %s qwen_edit all attempts failed → portrait fallback FAIL",
+                            ek,
+                        )
+                    else:
+                        panels[ek] = picked
+                    continue
+
                 base_b = bases[ek]
                 # 18:30：以人脸框中心方裁，禁止浅灰 pad（格外白底根因）
                 try:
@@ -8588,11 +8808,8 @@ async def generate_character_sheet(
                 bases[ek] = base_b
                 base_im = Image.open(BytesIO(base_b)).convert("RGB")
                 side = min(base_im.size)  # 已是方图
-                # 21:30/21:25：沉思只重画眼部（更紧眼遮罩）；其它表情仍用眉眼嘴
-                if ek == "expr_2":
-                    hard_mask = build_eyes_only_mask_hard(side)
-                else:
-                    hard_mask = build_face_feature_mask_hard(side)
+                # 23:18：沉思/温柔已走 qwen_edit；其余表情眉眼嘴 inpaint
+                hard_mask = build_face_feature_mask_hard(side)
                 # mask 上传为 RGB 白/黑（ImageToMask red）
                 m_rgb = Image.merge("RGB", (hard_mask, hard_mask, hard_mask))
                 mbuf = BytesIO()
@@ -8835,7 +9052,7 @@ async def generate_character_sheet(
                     )
                     (reject_dir / f"expr_grid_fallback_flag_{int(seed or 0)}.json").write_text(
                         '{"expr_grid_fallback": true, "final_review": false, "deliver": false, '
-                        '"route": "1955_vlm6class+same_scale_mouth"}',
+                        '"route": "2318_qwen_edit_2509+fill_first"}',
                         encoding="utf-8",
                     )
                 except Exception:
