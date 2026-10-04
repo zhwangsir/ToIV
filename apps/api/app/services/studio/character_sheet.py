@@ -3440,14 +3440,27 @@ def expression_hair_too_long(
     *,
     ref: bytes | None = None,
     chin_only: bool = False,
+    relative_only: bool = False,
 ) -> bool:
-    """18:23 发长门禁：发梢相对主立绘不过肩；温柔(chin_only)须齐下巴短发。
+    """18:23 / 16:18 发长门禁：相对底图/主立绘测 delta，不是绝对长。
 
-    非温柔：只看肩下侧发带（过肩才拒），避免齐下巴 bob 的 tip_frac 误杀。
-    温柔：下巴下侧发带 + 肩下发丝。
+    relative_only=True（遮罩外已贴回底图）：只比相对 delta，不做绝对过肩拒。
+    非温柔：肩下侧发带相对加长才拒；温柔：下巴下 + 肩下。
     """
     cur = _hair_extent_below_face(data)
     base = _hair_extent_below_face(ref) if ref else None
+    if relative_only:
+        if base is None:
+            return False  # 无参照且已贴回 → 不因绝对发长拒
+        if chin_only:
+            return bool(
+                cur["dark_below_shoulder"] >= base["dark_below_shoulder"] + 80
+                or cur["tip_frac"] >= base["tip_frac"] + 0.12
+            )
+        return bool(
+            cur["dark_below_shoulder"] >= base["dark_below_shoulder"] + 90
+            or cur["tip_frac"] >= base["tip_frac"] + 0.14
+        )
     if chin_only:
         abs_hit = (
             cur["dark_below_shoulder"] >= 80
@@ -3477,12 +3490,14 @@ def assert_expression_identity_gates(
     portrait_ref: bytes | None,
     expr_key: str,
     skip_chest_emblem: bool = False,
+    hair_ref: bytes | None = None,
+    relative_hair_only: bool | None = None,
 ) -> None:
     """表情格：相对主立绘新徽标/字样 → 拒；发长过线 → 拒。
 
     徽标检测用 below_face ROI，避免近景五官误杀。
-    发长参照用主立绘头肩裁切，尺度与表情近景对齐。
-    00:59：若局部重绘后遮罩外与原图逐像素一致，调用方可传 skip_chest_emblem=True 跳过徽标检。
+    发长优先用同构图表情底（hair_ref）；否则主立绘头肩裁。
+    00:59：遮罩外与底图一致 → skip_chest_emblem；16:18：此时发长只比相对 delta。
     """
     # 20:56：惊恐张嘴口腔高 chroma 易误杀；张嘴时跳过徽标，改靠领口 ROI（已下移）
     # 00:59：遮罩外未改 → 跳过胸口徽标（防贴回后误杀）
@@ -3508,13 +3523,21 @@ def assert_expression_identity_gates(
             status_code=422,
         )
     chin_only = expr_key == "expr_3"
-    hair_ref = None
-    if portrait_ref:
+    href = hair_ref
+    if href is None and portrait_ref:
         try:
-            hair_ref = crop_face_ref(portrait_ref, size=768)
+            href = crop_face_ref(portrait_ref, size=768)
         except Exception:  # noqa: BLE001
-            hair_ref = portrait_ref
-    if expression_hair_too_long(data, ref=hair_ref, chin_only=chin_only):
+            href = portrait_ref
+    # 遮罩外已贴回 → 发长相对底图测 delta（禁止用绝对长误杀 bob）
+    rel_only = (
+        bool(skip_chest_emblem)
+        if relative_hair_only is None
+        else bool(relative_hair_only)
+    )
+    if expression_hair_too_long(
+        data, ref=href, chin_only=chin_only, relative_only=rel_only
+    ):
         raise CharacterSheetError(
             f"{expr_key}发长相对主立绘过长（{'须齐下巴' if chin_only else '发梢不过肩'}）",
             status_code=422,
@@ -4572,6 +4595,53 @@ def side_three_quarter_accept(
     return True, info
 
 
+def side_three_quarter_accept_in_panel_cell(
+    data: bytes,
+    *,
+    front_face: bytes | None = None,
+    panel_size: tuple[int, int] | None = None,
+    min_frac: float = 0.25,
+    max_frac: float = 0.50,
+) -> tuple[bool, dict]:
+    """16:18：模拟 faces 高格 cover 后的 face_frac（与 runner 裁 cell 同口径）。"""
+    ok0, info0 = side_three_quarter_accept(
+        data, front_face=front_face, min_frac=min_frac, max_frac=max_frac
+    )
+    info = dict(info0)
+    info["square_ok"] = bool(ok0)
+    try:
+        fw, fh = panel_size or (LAYOUT["faces"][2], LAYOUT["faces"][3])
+        cell_w = max(8, int(fw) // 3)
+        tri = {
+            "face_front": data,
+            "face_three_quarter": data,
+            "face_side": data,
+        }
+        panel = compose_faces_triptych(
+            tri, style="anime", size=(int(fw), int(fh)), master_crop=True
+        )
+        pim = Image.open(BytesIO(panel)).convert("RGB")
+        cell = pim.crop((cell_w, 0, cell_w * 2, int(fh)))
+        buf = BytesIO()
+        cell.save(buf, format="PNG")
+        cell_b = buf.getvalue()
+        ok1, info1 = side_three_quarter_accept(
+            cell_b, front_face=front_face, min_frac=min_frac, max_frac=max_frac
+        )
+        info["cell_face_frac"] = info1.get("face_frac")
+        info["cell_ok"] = bool(ok1)
+        info["cell_reason"] = info1.get("reason")
+        if not ok1:
+            info["reason"] = f"panel_cell:{info1.get('reason')}"
+            return False, info
+        if not ok0:
+            info["reason"] = f"square:{info0.get('reason')}"
+            return False, info
+        info["reason"] = "ok"
+        return True, info
+    except Exception as e:  # noqa: BLE001
+        info["cell_error"] = str(e)
+        return ok0, info
 
 
 def _channel_cdf_lut(src_vals: list[int], ref_vals: list[int]) -> list[int]:
@@ -4629,7 +4699,7 @@ def _hair_coat_region_masks(im: Image.Image) -> tuple[list[bool], list[bool]]:
 
 
 def match_side_head_coat_hair_to_front(side: bytes, front: bytes) -> bytes:
-    """15:52：侧头裁完后，按正面头对外套和头发做颜色直方图匹配（抑过蓝过亮高光）。"""
+    """15:52 / 16:18：侧头外套+头发直方图匹配；排除脸区、羽化边界、半透明混合，避免接缝与 face_frac 膨胀。"""
     if not side or not front:
         return side
     try:
@@ -4639,21 +4709,44 @@ def match_side_head_coat_hair_to_front(side: bytes, front: bytes) -> bytes:
         return side
     if f_im.size != s_im.size:
         f_im = f_im.resize(s_im.size, Image.Resampling.LANCZOS)
+    w, h = s_im.size
     s_hair, s_coat = _hair_coat_region_masks(s_im)
     f_hair, f_coat = _hair_coat_region_masks(f_im)
+    # 排除脸/肤色区，避免 CDF 改脸导致检测框膨胀与接缝
+    face_mask = [False] * (w * h)
+    try:
+        bb = _detect_face_bbox_xyxy(side)
+        if bb is None:
+            bb = _heuristic_skin_face_bbox(s_im)
+        if bb is not None:
+            x1, y1, x2, y2 = [float(v) for v in bb]
+            pad_x = max(4.0, (x2 - x1) * 0.12)
+            pad_y = max(4.0, (y2 - y1) * 0.10)
+            xa = max(0, int(x1 - pad_x))
+            xb = min(w, int(x2 + pad_x))
+            ya = max(0, int(y1 - pad_y))
+            yb = min(h, int(y2 + pad_y * 1.15))
+            for y in range(ya, yb):
+                for x in range(xa, xb):
+                    face_mask[y * w + x] = True
+    except Exception:  # noqa: BLE001
+        pass
     sp = list(s_im.getdata())
     fp = list(f_im.getdata())
+    out_px = list(sp)
 
-    def _apply_region(mask_s: list[bool], mask_f: list[bool]) -> None:
+    def _apply_region(mask_s: list[bool], mask_f: list[bool], *, blend: float = 0.55) -> None:
         src_ch = [[], [], []]
         ref_ch = [[], [], []]
+        idxs: list[int] = []
         for i, m in enumerate(mask_s):
-            if not m:
+            if not m or face_mask[i]:
                 continue
             r, g, b = sp[i]
             src_ch[0].append(r)
             src_ch[1].append(g)
             src_ch[2].append(b)
+            idxs.append(i)
         for i, m in enumerate(mask_f):
             if not m:
                 continue
@@ -4664,19 +4757,65 @@ def match_side_head_coat_hair_to_front(side: bytes, front: bytes) -> bytes:
         if len(src_ch[0]) < 32 or len(ref_ch[0]) < 32:
             return
         luts = [_channel_cdf_lut(src_ch[c], ref_ch[c]) for c in range(3)]
-        for i, m in enumerate(mask_s):
-            if not m:
-                continue
+        a = max(0.0, min(1.0, float(blend)))
+        for i in idxs:
             r, g, b = sp[i]
-            sp[i] = (luts[0][r], luts[1][g], luts[2][b])
+            mr, mg, mb = luts[0][r], luts[1][g], luts[2][b]
+            out_px[i] = (
+                int(r * (1.0 - a) + mr * a + 0.5),
+                int(g * (1.0 - a) + mg * a + 0.5),
+                int(b * (1.0 - a) + mb * a + 0.5),
+            )
 
-    _apply_region(s_hair, f_hair)
-    _apply_region(s_coat, f_coat)
+    _apply_region(s_hair, f_hair, blend=0.50)
+    _apply_region(s_coat, f_coat, blend=0.55)
     out = Image.new("RGB", s_im.size)
-    out.putdata(sp)
+    out.putdata(out_px)
+    # 轻度羽化：3×3 仅在 hair/coat 且非脸边界平滑，抑硬接缝
+    try:
+        from PIL import ImageFilter
+
+        soft = out.filter(ImageFilter.GaussianBlur(radius=0.6))
+        spx = list(out.getdata())
+        soft_px = list(soft.getdata())
+        for i, (mh, mc) in enumerate(zip(s_hair, s_coat)):
+            if face_mask[i] or not (mh or mc):
+                continue
+            # 边界像素（邻域有非 mask）才混一点 blur
+            y, x = divmod(i, w) if False else (i // w, i % w)
+            border = False
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    xx, yy = x + dx, y + dy
+                    if xx < 0 or yy < 0 or xx >= w or yy >= h:
+                        continue
+                    j = yy * w + xx
+                    if face_mask[j] or not (s_hair[j] or s_coat[j]):
+                        border = True
+                        break
+                if border:
+                    break
+            if border:
+                r, g, b = spx[i]
+                sr, sg, sb = soft_px[i]
+                spx[i] = ((r * 2 + sr) // 3, (g * 2 + sg) // 3, (b * 2 + sb) // 3)
+        out.putdata(spx)
+    except Exception:  # noqa: BLE001
+        pass
     buf = BytesIO()
     out.save(buf, format="PNG")
-    return buf.getvalue()
+    matched = buf.getvalue()
+    # 16:18：仅当匹配后 face_frac 越出 [0.25,0.5] 而原图在门内时回退（避免误杀正常调色）
+    try:
+        frac_m = measure_face_height_frac(matched)
+        frac_s = measure_face_height_frac(side)
+        def _in(f):
+            return f is not None and 0.25 - 1e-9 <= float(f) <= 0.50 + 1e-9
+        if (not _in(frac_m)) and _in(frac_s):
+            return side
+    except Exception:  # noqa: BLE001
+        pass
+    return matched
 
 
 def score_expression_grid_candidate(
@@ -4686,7 +4825,7 @@ def score_expression_grid_candidate(
     portrait_ref: bytes | None = None,
     skip_chest_emblem: bool = False,
 ) -> tuple[float, str | None]:
-    """15:52：宫格候选打分；过门禁者按表情多样性加分，失败返回负分+原因。"""
+    """15:52 / 16:18：宫格候选打分；发长相对表情底测 delta；遮罩外贴回后不因绝对发长拒。"""
     try:
         cells = _split_expression_grid(grid)
     except Exception as e:  # noqa: BLE001
@@ -4697,11 +4836,16 @@ def score_expression_grid_candidate(
             cell_b = enforce_head_shoulders_square(
                 cell_b, size=768, face_closeup_gate=True
             )
+            href = None
+            if bases and bases.get(ek):
+                href = bases[ek]
             assert_expression_identity_gates(
                 cell_b,
                 portrait_ref=portrait_ref,
                 expr_key=ek,
                 skip_chest_emblem=skip_chest_emblem,
+                hair_ref=href,
+                relative_hair_only=bool(skip_chest_emblem) or href is not None,
             )
             cells[ek] = cell_b
         except CharacterSheetError as ge:
@@ -6454,19 +6598,107 @@ async def generate_character_sheet(
                 raise
             except Exception as he:  # noqa: BLE001
                 logger.warning("faces hires side master skipped: %s", he)
-            # 15:52：侧头裁完后按正面头对外套+头发做直方图匹配
+            # 15:52 / 16:18：侧头直方图匹配；匹配后必须再过 00:59 门禁，不过 → 三视图侧面格同比例裁
             try:
                 _front_ref_hm = tri.get("face_front") or panels.get("portrait")
+                _side_src_fb = panels.get("side")
                 if _front_ref_hm and tri.get("face_three_quarter"):
                     _before = tri["face_three_quarter"]
-                    tri["face_three_quarter"] = match_side_head_coat_hair_to_front(
+                    _matched = match_side_head_coat_hair_to_front(
                         _before, _front_ref_hm
                     )
-                    logger.info(
-                        "faces face_three_quarter hist-match coat+hair applied"
+                    _mok, _minfo = side_three_quarter_accept(
+                        _matched, front_face=_front_ref_hm
                     )
+                    if _mok:
+                        tri["face_three_quarter"] = _matched
+                        logger.info(
+                            "faces face_three_quarter hist-match accepted %s",
+                            _minfo,
+                        )
+                    else:
+                        _bok0, _binfo0 = side_three_quarter_accept(
+                            _before, front_face=_front_ref_hm
+                        )
+                        if _bok0:
+                            tri["face_three_quarter"] = _before
+                            logger.warning(
+                                "faces hist-match reject %s → keep pre-match",
+                                _minfo,
+                            )
+                        elif _side_src_fb:
+                            _body = crop_face_slot_from_master(
+                                _side_src_fb, slot="face_three_quarter", size=768
+                            )
+                            # 可选轻量匹配；失败则纯三视图裁
+                            try:
+                                _body_m = match_side_head_coat_hair_to_front(
+                                    _body, _front_ref_hm
+                                )
+                                _bmok, _bminfo = side_three_quarter_accept(
+                                    _body_m, front_face=_front_ref_hm
+                                )
+                                if _bmok:
+                                    _body = _body_m
+                                    logger.info(
+                                        "faces body-side hist ok %s", _bminfo
+                                    )
+                                else:
+                                    logger.warning(
+                                        "faces body-side hist reject %s → plain crop",
+                                        _bminfo,
+                                    )
+                            except Exception as _bhe:  # noqa: BLE001
+                                logger.warning("faces body hist skipped: %s", _bhe)
+                            _bok, _binfo = side_three_quarter_accept(
+                                _body, front_face=_front_ref_hm
+                            )
+                            tri["face_three_quarter"] = _body
+                            logger.warning(
+                                "faces hist/hires fail → body-side fallback accept=%s info=%s (was %s)",
+                                _bok,
+                                _binfo,
+                                _minfo,
+                            )
+                            try:
+                                if reject_dir is not None:
+                                    (reject_dir / f"side_body_fallback_{int(seed or 0)}.txt").write_text(
+                                        f"hist_or_hires_reject {_minfo} → body {_binfo}",
+                                        encoding="utf-8",
+                                    )
+                            except Exception:
+                                pass
+                        else:
+                            tri["face_three_quarter"] = _before
+                            logger.warning(
+                                "faces hist reject %s and no side master", _minfo
+                            )
             except Exception as hme:  # noqa: BLE001
                 logger.warning("faces hist-match skipped: %s", hme)
+            # 最终侧头再验：方图 + 拼格 cell 模拟；不过则强制三视图侧面裁（00:59/16:18）
+            try:
+                _front_final = tri.get("face_front") or panels.get("portrait")
+                _side_final = panels.get("side")
+                if tri.get("face_three_quarter") and _side_final:
+                    _fok, _finfo = side_three_quarter_accept_in_panel_cell(
+                        tri["face_three_quarter"], front_face=_front_final
+                    )
+                    if not _fok:
+                        _body2 = crop_face_slot_from_master(
+                            _side_final, slot="face_three_quarter", size=768
+                        )
+                        tri["face_three_quarter"] = _body2
+                        _fok2, _finfo2 = side_three_quarter_accept_in_panel_cell(
+                            _body2, front_face=_front_final
+                        )
+                        logger.warning(
+                            "faces final accept fail %s → forced body-side accept=%s %s",
+                            _finfo,
+                            _fok2,
+                            _finfo2,
+                        )
+            except Exception as fae:  # noqa: BLE001
+                logger.warning("faces final accept skipped: %s", fae)
             panels["faces"] = compose_faces_triptych(
                 tri,
                 style=meta.style,
@@ -6633,6 +6865,8 @@ async def generate_character_sheet(
                         portrait_ref=panels.get("portrait"),
                         expr_key=ek,
                         skip_chest_emblem=_skip_emblem_grid,
+                        hair_ref=bases.get(ek),
+                        relative_hair_only=bool(_skip_emblem_grid) or bases.get(ek) is not None,
                     )
                     cells[ek] = cell_b
                 for ek in _EXPR_KEYS:
@@ -8210,12 +8444,12 @@ def _trim_object_bbox(img: Image.Image, *, style: str, pad: int = 12) -> Image.I
     return rgb.crop((min_x, min_y, max_x + 1, max_y + 1))
 
 
-# 15:52：服饰四格——领口(脖子下方)/袖口(手腕)/下摆/靴子；互不重叠；边缘密度拒纯色布
-# 消灭素布空格：每格 cover 铺满 + 边缘密度门禁
+# 15:52 / 16:18：服饰四格——领口/袖口/下摆/靴子；互不重叠；边缘密度拒纯色布
+# 领口/袖口/下摆由专用框函数重定，消灭肩布+手插袋错位
 _COSTUME_PORTRAIT_BANDS: tuple[tuple[str, tuple[float, float, float, float]], ...] = (
-    ("collar", (0.28, 0.16, 0.72, 0.38)),  # 领口：脖子下方到肩/拉链区
-    ("cuff", (0.00, 0.42, 0.38, 0.58)),  # 占位；实际由 _wrist_cuff_box 重定（手腕）
-    ("hem", (0.32, 0.58, 0.68, 0.74)),  # 下摆
+    ("collar", (0.34, 0.18, 0.66, 0.34)),  # 占位；实际由 _collar_box 重定
+    ("cuff", (0.00, 0.42, 0.38, 0.58)),  # 占位；实际由 _wrist_cuff_box 重定
+    ("hem", (0.30, 0.62, 0.70, 0.78)),  # 占位；实际由 _hem_box 重定
     ("boots", (0.38, 0.82, 0.62, 0.995)),  # 靴子贴底；实际由 _boots_box 重定
 )
 _COSTUME_PORTRAIT_N = 4
@@ -8266,36 +8500,122 @@ def _middle_gray_stripe_x_bounds(
     return max(0.0, x0), min(1.0, x1)
 
 
-def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
-    """01:16 / 00:59：袖口+手——水平强制钳进中间灰条人物区，禁止浅色外框。
+def _collar_box(img: Image.Image) -> tuple[float, float, float, float]:
+    """16:18：领口——真脖子/帽檐区；大脸框（全身误检）时改用头顶下 12–28% 带。"""
+    w, h = img.size
+    gx0, gx1 = _middle_gray_stripe_x_bounds(img)
+    mid = (gx0 + gx1) / 2.0
+    span = max(0.12, gx1 - gx0)
+    y_face = 0.18
+    try:
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        bb = _detect_face_bbox_xyxy(buf.getvalue())
+        if bb is None:
+            bb = _heuristic_skin_face_bbox(img)
+        if bb is not None:
+            fy1, fy2 = float(bb[1]) / float(h), float(bb[3]) / float(h)
+            fh = max(0.02, fy2 - fy1)
+            if fh > 0.35:
+                # 全身误检成脸：领口取画高 14%–30%（头下肩上）
+                y_face = 0.20
+            else:
+                y_face = max(0.12, min(0.26, fy2))
+    except Exception:  # noqa: BLE001
+        pass
+    y0 = max(0.12, y_face - 0.04)
+    y1 = min(0.34, y_face + 0.12)
+    half = max(0.12, span * 0.28)
+    x0 = max(gx0 + span * 0.08, mid - half)
+    x1 = min(gx1 - span * 0.08, mid + half)
+    best = (x0, y0, x1, y1)
+    best_ed = -1.0
+    for scale in (1.0, 0.85, 0.70):
+        sw = max(0.14, (x1 - x0) * scale)
+        sh = max(0.10, (y1 - y0) * scale)
+        step_x = max(0.02, sw * 0.25)
+        step_y = max(0.02, sh * 0.25)
+        xx = x0
+        while xx + sw <= x1 + 1e-6:
+            yy = y0
+            while yy + sh <= y1 + 1e-6:
+                xa, ya = int(w * xx), int(h * yy)
+                xb, yb = int(w * (xx + sw)), int(h * (yy + sh))
+                if xb - xa >= 12 and yb - ya >= 12:
+                    crop = img.crop((xa, ya, xb, yb))
+                    r = _costume_cell_fg_ratio(crop, treat_mid_gray_bg=False)
+                    if r >= 0.40:
+                        ed = costume_cell_edge_density(crop)
+                        center_bonus = 0.002 * (
+                            1.0 - abs((xx + sw / 2) - mid) / max(0.05, span / 2)
+                        )
+                        score = ed + center_bonus
+                        if score > best_ed:
+                            best_ed = score
+                            best = (xx, yy, xx + sw, yy + sh)
+                yy += step_y
+            xx += step_x
+    return best
 
-    在人物躯干左右侧找含袖缘/肤色的框；浅边占比高则丢弃；cover 前目标非背景≥0.25。
+
+def _hem_box(img: Image.Image) -> tuple[float, float, float, float]:
+    """16:18：下摆——衣摆水平缝线带，钳人物灰条。"""
+    w, h = img.size
+    gx0, gx1 = _middle_gray_stripe_x_bounds(img)
+    span = max(0.12, gx1 - gx0)
+    mid = (gx0 + gx1) / 2.0
+    half = max(0.14, span * 0.36)
+    x0 = max(gx0 + span * 0.05, mid - half)
+    x1 = min(gx1 - span * 0.05, mid + half)
+    best = (x0, 0.64, x1, 0.78)
+    best_ed = -1.0
+    for y0 in (0.58, 0.60, 0.62, 0.64, 0.66, 0.68):
+        y1 = min(0.84, y0 + 0.14)
+        xa, ya = int(w * x0), int(h * y0)
+        xb, yb = int(w * x1), int(h * y1)
+        if xb - xa < 12 or yb - ya < 12:
+            continue
+        crop = img.crop((xa, ya, xb, yb))
+        r = _costume_cell_fg_ratio(crop, treat_mid_gray_bg=False)
+        if r < 0.25:
+            continue
+        ed = costume_cell_edge_density(crop)
+        if ed > best_ed:
+            best_ed = ed
+            best = (x0, y0, x1, y1)
+    return best
+
+
+def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
+    """16:18：袖口——人物条左右外缘袖端；重罚手插袋（中部大块肤色）。
+
+    水平强制钳进中间灰条；浅边过高丢弃；偏好袖缘高边缘密度、肤色占比适中。
     """
     w, h = img.size
     gx0, gx1 = _middle_gray_stripe_x_bounds(img)
-    # 再内收 4%，彻底躲开浅外框/灰条边界
     span = max(0.10, gx1 - gx0)
-    gx0 = min(0.48, gx0 + span * 0.04)
-    gx1 = max(gx0 + 0.12, gx1 - span * 0.04)
+    gx0 = min(0.48, gx0 + span * 0.03)
+    gx1 = max(gx0 + 0.12, gx1 - span * 0.03)
     span = max(0.10, gx1 - gx0)
     mid = (gx0 + gx1) / 2.0
-    # 只在人物条左右侧采样（禁正中素布、禁外框）
+    # 优先上外缘袖筒（肩下），避开腰侧口袋 y≈0.48–0.55
     candidates = [
-        (gx0 + span * 0.16, 0.48),
-        (gx1 - span * 0.16, 0.48),
-        (gx0 + span * 0.22, 0.52),
-        (gx1 - span * 0.22, 0.52),
-        (gx0 + span * 0.28, 0.46),
-        (gx1 - span * 0.28, 0.46),
-        (gx0 + span * 0.12, 0.50),
-        (gx1 - span * 0.12, 0.50),
-        (gx0 + span * 0.20, 0.54),
-        (gx1 - span * 0.20, 0.54),
+        (gx0 + span * 0.08, 0.36),
+        (gx1 - span * 0.08, 0.36),
+        (gx0 + span * 0.12, 0.38),
+        (gx1 - span * 0.12, 0.38),
+        (gx0 + span * 0.06, 0.40),
+        (gx1 - span * 0.06, 0.40),
+        (gx0 + span * 0.16, 0.34),
+        (gx1 - span * 0.16, 0.34),
+        (gx0 + span * 0.10, 0.42),
+        (gx1 - span * 0.10, 0.42),
+        (gx0 + span * 0.14, 0.44),
+        (gx1 - span * 0.14, 0.44),
     ]
     best_box = None
-    best_score = -1.0
-    half_w, half_h = 0.11, 0.085
-    px = img.load()
+    best_score = -1e9
+    half_w, half_h = 0.09, 0.075
 
     def _skin_frac(crop: Image.Image) -> float:
         pts = list(crop.convert("RGB").getdata())
@@ -8309,27 +8629,33 @@ def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
                 n += 1
         return n / float(len(pts))
 
-    def _clamp_box(x0: float, y0: float, x1: float, y1: float) -> tuple[float, float, float, float]:
+    def _clamp_box(
+        x0: float, y0: float, x1: float, y1: float
+    ) -> tuple[float, float, float, float]:
         x0 = max(gx0, min(x0, gx1 - 0.06))
         x1 = min(gx1, max(x1, gx0 + 0.06))
         if x1 <= x0 + 0.06:
-            # 偏哪侧就贴哪侧内缘
             if (x0 + x1) / 2.0 < mid:
-                x0, x1 = gx0, min(gx1, gx0 + max(0.18, half_w * 2))
+                x0, x1 = gx0, min(gx1, gx0 + max(0.16, half_w * 2))
             else:
-                x1, x0 = gx1, max(gx0, gx1 - max(0.18, half_w * 2))
-        y0 = max(0.36, min(y0, 0.62))
-        y1 = min(0.66, max(y1, y0 + 0.08))
+                x1, x0 = gx1, max(gx0, gx1 - max(0.16, half_w * 2))
+        y0 = max(0.30, min(y0, 0.48))
+        y1 = min(0.54, max(y1, y0 + 0.08))
         return (x0, y0, x1, y1)
 
     for cx, cy in candidates:
-        for scale in (1.0, 1.15, 1.35, 1.55):
+        for scale in (1.0, 1.15, 1.30, 1.50):
             hw, hh = half_w * scale, half_h * scale
-            x0, y0, x1, y1 = _clamp_box(cx - hw, cy - hh, cx + hw, cy + hh * 1.1)
-            # 硬约束：整框必须在灰条内
+            x0, y0, x1, y1 = _clamp_box(cx - hw, cy - hh, cx + hw, cy + hh * 1.05)
             if x0 < gx0 - 1e-6 or x1 > gx1 + 1e-6:
                 continue
             if x1 <= x0 + 0.05 or y1 <= y0 + 0.05:
+                continue
+            # 硬拒腰侧口袋带
+            if y0 >= 0.46:
+                continue
+            cx_box = (x0 + x1) / 2.0
+            if abs(cx_box - mid) < span * 0.22:
                 continue
             xa, ya = int(w * x0), int(h * y0)
             xb, yb = int(w * x1), int(h * y1)
@@ -8339,32 +8665,42 @@ def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
             r = _costume_cell_fg_ratio(crop, treat_mid_gray_bg=True)
             edge = _light_edge_frac(crop, edge=max(4, (xb - xa) // 12))
             skin = _skin_frac(crop)
-            # 浅边过高 → 仍落在外框/灰条，直接丢弃
+            ed = costume_cell_edge_density(crop)
             if edge > 0.35 and r < 0.35:
                 continue
-            if r < 0.12 and skin < 0.01:
+            if r < 0.12:
                 continue
-            center_pen = 0.22 * (1.0 - abs(cx - mid) / max(0.05, span / 2.0))
-            score = r + 1.5 * skin - 0.75 * edge - max(0.0, center_pen)
+            # 手插袋：仅对偏中的框重罚高肤色；外缘袖口允许手露出
+            pocket_pen = 0.0
+            inward = abs(cx_box - mid) < span * 0.28
+            if inward and skin > 0.10:
+                pocket_pen += 1.5 * (skin - 0.10)
+            if inward and skin > 0.18:
+                pocket_pen += 2.5
+            outer_bonus = abs(cx_box - mid) / max(0.05, span / 2.0)
+            # 偏好更靠上的外缘袖筒；y 越低（越靠上）越好
+            upper_bonus = max(0.0, 0.48 - ((y0 + y1) / 2.0)) * 2.0
+            score = (
+                r
+                + 2.5 * ed
+                + 0.55 * outer_bonus
+                + upper_bonus
+                + 0.15 * min(skin, 0.06)
+                - 0.85 * edge
+                - pocket_pen
+            )
             if score > best_score:
                 best_score = score
                 best_box = (x0, y0, x1, y1)
-            if r + 1e-12 >= 0.55 and edge < 0.28 and (skin > 0.015 or abs(cx - mid) > span * 0.18):
-                return best_box
     if best_box is None:
-        # 人物条左内缘袖口兜底（仍钳灰条）
-        best_box = (gx0 + span * 0.05, 0.44, gx0 + span * 0.40, 0.60)
-    x0, y0, x1, y1 = best_box
-    x0, y0, x1, y1 = _clamp_box(x0, y0, x1, y1)
-    if (x1 - x0) < 0.16:
+        best_box = (gx0 + span * 0.02, 0.34, gx0 + span * 0.32, 0.50)
+    x0, y0, x1, y1 = _clamp_box(*best_box)
+    if (x1 - x0) < 0.14:
         cx = (x0 + x1) / 2.0
-        x0 = max(gx0, cx - 0.09)
-        x1 = min(gx1, cx + 0.09)
-        if x1 - x0 < 0.16:
-            if cx < mid:
-                x0, x1 = gx0, min(gx1, gx0 + 0.22)
-            else:
-                x1, x0 = gx1, max(gx0, gx1 - 0.22)
+        if cx < mid:
+            x0, x1 = gx0, min(gx1, gx0 + 0.20)
+        else:
+            x1, x0 = gx1, max(gx0, gx1 - 0.20)
     return (x0, y0, x1, y1)
 
 
@@ -8394,8 +8730,29 @@ def _legs_box(img: Image.Image) -> tuple[float, float, float, float]:
 
 
 def _boots_box(img: Image.Image) -> tuple[float, float, float, float]:
-    """15:52：靴子格——复用腿脚贴底框（脚踝/靴）。"""
-    return _legs_box(img)
+    """16:18：靴子格——脚踝到鞋底贴底；水平收紧脚部，优先含靴形前景。"""
+    base = _legs_box(img)
+    w, h = img.size
+    x0, y0, x1, y1 = [float(v) for v in base]
+    y1 = 0.995
+    y0 = max(0.74, min(y0, 0.78))
+    best = (x0, y0, x1, y1)
+    best_r = -1.0
+    mid = (x0 + x1) / 2.0
+    gx0, gx1 = _middle_gray_stripe_x_bounds(img)
+    for half in (0.10, 0.12, 0.14, 0.16):
+        xa = max(gx0, mid - half)
+        xb = min(gx1, mid + half)
+        if xb <= xa + 0.06:
+            continue
+        crop = img.crop((int(w * xa), int(h * y0), int(w * xb), int(h * y1)))
+        r = _costume_cell_fg_ratio(crop, treat_mid_gray_bg=False)
+        ed = costume_cell_edge_density(crop)
+        score = r + 0.5 * ed
+        if score > best_r:
+            best_r = score
+            best = (xa, y0, xb, y1)
+    return best
 
 
 def costume_cell_edge_density(cell: Image.Image | bytes) -> float:
@@ -8807,7 +9164,7 @@ def build_costume_collage_from_portrait(
     min_fg: float = 0.60,
     min_edge_density: float | None = None,
 ) -> bytes:
-    """15:52：从主立绘裁 4 格（领口/袖口/下摆/靴子）；非背景≥60%；边缘密度拒纯色布。"""
+    """15:52 / 16:18：从主立绘裁 4 格（领口/袖口/下摆/靴子）；ROI 对齐真部位；边缘密度拒纯色。"""
     if not portrait:
         raise CharacterSheetError("costume portrait crops: empty portrait", status_code=422)
     img = Image.open(BytesIO(portrait)).convert("RGB")
@@ -8815,8 +9172,12 @@ def build_costume_collage_from_portrait(
     gx0, gx1 = _middle_gray_stripe_x_bounds(img)
     md = float(_COSTUME_MIN_EDGE_DENSITY if min_edge_density is None else min_edge_density)
     for key, box in _COSTUME_PORTRAIT_BANDS:
-        if key == "cuff":
+        if key == "collar":
+            use_box = _collar_box(img)
+        elif key == "cuff":
             use_box = _wrist_cuff_box(img)
+        elif key == "hem":
+            use_box = _hem_box(img)
         elif key in ("boots", "legs"):
             use_box = _boots_box(img)
         else:
@@ -8842,23 +9203,52 @@ def build_costume_collage_from_portrait(
             Image.open(BytesIO(cell)).convert("RGB"),
             treat_mid_gray_bg=treat_bg,
         )
-        # 15:52：优先换边缘更密的方窗，抑纯色布；仍过低则拒
+        # 15:52：优先换边缘更密的方窗，抑纯色布；领口保持颈带中心（禁止滑到肩素布）
         ed = costume_cell_edge_density(cell)
-        edge_win = _highest_edge_square(
-            img, use_box, treat_mid_gray_bg=treat_bg, min_fg=max(0.30, band_min * 0.70)
-        )
-        if edge_win is not None:
-            buf2 = BytesIO()
-            covered2 = _cover_square_no_light_edge(edge_win, size=size)
-            covered2.save(buf2, format="PNG")
-            alt = buf2.getvalue()
-            ed2 = costume_cell_edge_density(alt)
-            if ed2 > ed + 1e-6:
-                cell, ed = alt, ed2
-                r = _costume_cell_fg_ratio(
-                    Image.open(BytesIO(cell)).convert("RGB"),
-                    treat_mid_gray_bg=treat_bg,
-                )
+        if key != "collar":
+            edge_win = _highest_edge_square(
+                img, use_box, treat_mid_gray_bg=treat_bg, min_fg=max(0.30, band_min * 0.70)
+            )
+            if edge_win is not None:
+                buf2 = BytesIO()
+                covered2 = _cover_square_no_light_edge(edge_win, size=size)
+                covered2.save(buf2, format="PNG")
+                alt = buf2.getvalue()
+                ed2 = costume_cell_edge_density(alt)
+                if ed2 > ed + 1e-6:
+                    cell, ed = alt, ed2
+                    r = _costume_cell_fg_ratio(
+                        Image.open(BytesIO(cell)).convert("RGB"),
+                        treat_mid_gray_bg=treat_bg,
+                    )
+        if ed + 1e-12 < md and key == "cuff":
+            # 16:18：袖口过素 → 换对侧外缘再裁一次
+            gx0b, gx1b = gx0, gx1
+            spanb = max(0.10, gx1b - gx0b)
+            midb = (gx0b + gx1b) / 2.0
+            cx_cur = (use_box[0] + use_box[2]) / 2.0
+            if cx_cur < midb:
+                alt_box = (gx1b - spanb * 0.34, 0.42, gx1b - spanb * 0.02, 0.58)
+            else:
+                alt_box = (gx0b + spanb * 0.02, 0.42, gx0b + spanb * 0.34, 0.58)
+            alt_cell = _crop_costume_band_filled(
+                img, alt_box, size=size, min_fg=band_min, treat_mid_gray_bg=True
+            )
+            ed_alt = costume_cell_edge_density(alt_cell)
+            edge_win2 = _highest_edge_square(
+                img, alt_box, treat_mid_gray_bg=True, min_fg=max(0.30, band_min * 0.70)
+            )
+            if edge_win2 is not None:
+                buf3 = BytesIO()
+                _cover_square_no_light_edge(edge_win2, size=size).save(buf3, format="PNG")
+                alt2 = buf3.getvalue()
+                ed2 = costume_cell_edge_density(alt2)
+                if ed2 > ed_alt:
+                    alt_cell, ed_alt = alt2, ed2
+            if ed_alt > ed:
+                cell, ed = alt_cell, ed_alt
+                use_box = alt_box
+                logger.info("costume cuff alt-side edge=%.4f", ed)
         if ed + 1e-12 < md:
             raise CharacterSheetError(
                 f"costume {key} solid-fabric edge_density={ed:.4f} < {md}",
@@ -9342,13 +9732,22 @@ def compose_faces_triptych(
             continue
         try:
             if master_crop or key in skip:
-                filled = enforce_head_shoulders_square(
-                    raw,
-                    size=768,
-                    skip_reframe=True,
-                    face_closeup_gate=not master_crop,
-                    check_coverage=False,
-                )
+                if master_crop and key == "face_three_quarter":
+                    # 16:18：侧面¾ 母版硬裁禁止 enforce 再拉近（否则 0.27→0.47、hires 0.38→0.52）
+                    im = Image.open(BytesIO(raw)).convert("RGB")
+                    if im.size != (768, 768):
+                        im = im.resize((768, 768), Image.Resampling.LANCZOS)
+                    buf = BytesIO()
+                    im.save(buf, format="PNG")
+                    filled = buf.getvalue()
+                else:
+                    filled = enforce_head_shoulders_square(
+                        raw,
+                        size=768,
+                        skip_reframe=True,
+                        face_closeup_gate=not master_crop,
+                        check_coverage=False,
+                    )
             else:
                 # 17:55：脸格用近景门禁，禁全身 coverage（浅灰底+动漫脸会被判成 0.03 邮票）
                 filled = enforce_head_shoulders_square(
@@ -9365,8 +9764,10 @@ def compose_faces_triptych(
             im.save(buf, format="PNG")
             filled = buf.getvalue()
         # 焦点:生成格用人脸中心;锁定格禁用 focus(防高格 cover 把头裁成半脸/空灰)
+        # 16:18：master_crop 侧面¾ 禁止 face-zoom + 禁 trim（否则 tall 格 face_frac 从 0.37→0.73）
         focus = None
-        if key not in skip:
+        _preserve_side_frac = bool(master_crop and key == "face_three_quarter")
+        if key not in skip and not _preserve_side_frac:
             bb = _detect_face_bbox_xyxy(filled)
             if bb is not None:
                 focus = ((bb[0] + bb[2]) / 2.0, (bb[1] + bb[3]) / 2.0)
@@ -9377,7 +9778,24 @@ def compose_faces_triptych(
                     focus = ((hbb[0] + hbb[2]) / 2.0, (hbb[1] + hbb[3]) / 2.0)
         img = Image.open(BytesIO(filled)).convert("RGBA")
         iw, ih = img.size
-        if iw != ih or min(iw, ih) < 200:
+        if _preserve_side_frac:
+            # 若方图 face_frac 已偏高，先垫边稀释到 ~0.38，再 cover 进高格仍落在 25–50%
+            try:
+                frac0 = measure_face_height_frac(filled)
+                if frac0 is not None and float(frac0) > 0.42:
+                    target = 0.38
+                    pad_scale = float(frac0) / target
+                    side_n = max(img.width, img.height)
+                    canvas_n = int(round(side_n * pad_scale))
+                    canvas_n = max(canvas_n, side_n + 8)
+                    bg_rgb = (248, 248, 252) if style == "anime" else (20, 22, 28)
+                    pad = Image.new("RGBA", (canvas_n, canvas_n), bg_rgb + (255,))
+                    pad.paste(img, ((canvas_n - img.width) // 2, (canvas_n - img.height) // 2))
+                    img = pad
+                    iw, ih = img.size
+            except Exception:  # noqa: BLE001
+                pass
+        elif iw != ih or min(iw, ih) < 200:
             img = _trim_letterbox_rgb(img).convert("RGBA")
         else:
             sample = img.convert("RGB").resize((32, 32), Image.Resampling.BILINEAR)
