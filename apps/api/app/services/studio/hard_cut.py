@@ -126,6 +126,17 @@ def detect_hard_cuts(video_path: str | Path) -> dict[str, Any]:
         cap.release()
 
 
+# 2026-10-05 雨夜 shot1：931f 镜内 3 处、3c40 镜内 6 处硬切仍入选/候选。
+# 裁片头处理后仍有 ≥2 处镜内硬切 → 候选不得入选（选优门禁），出片后同条件换 seed。
+HARD_CUT_INELIGIBLE_MIN = 2
+
+
+def late_cut_count(cuts: list[dict[str, Any]], fps: float, anchor_frames: int = 0) -> int:
+    """裁片头后剩余的镜内硬切数（=classify_cuts 的 late 数；片头切点会被裁掉不计）。"""
+    _head, late = classify_cuts(cuts, fps, anchor_frames)
+    return len(late)
+
+
 def classify_cuts(
     cuts: list[dict[str, Any]], fps: float, anchor_frames: int = 0
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:

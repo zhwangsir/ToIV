@@ -83,6 +83,57 @@ def _state(p: float | None) -> str:
     return "unsure"
 
 
+def check_refs_vs_first_frame(
+    first_frame_bgr,
+    refs: list[dict[str, Any]],
+    *,
+    expected_text: str | None = None,
+    prob_fn=None,
+) -> dict[str, Any]:
+    """参考图 vs 首帧 帽兜状态一致性（c_hybrid 提交前）。只告警，不拦、不自动换图。
+
+    refs: [{label, url, image(bgr), overridden(bool)}]（场景图可不传）。
+    目标状态 target = 首帧状态（有脸可判时），否则回落文字口径 expected_text（prompt 的 hood up/down）。
+    参考图状态可判且 ≠ target → mismatches，action="warn"；已被镜头级覆盖（overridden）的参考图记
+    overridden_ok。prob_fn 默认人脸锚定头部 CLIP（余量小、背影无脸=unknown，故 reliable=False）。
+    """
+    out: dict[str, Any] = {
+        "first_frame": None, "expected_text": expected_text, "target": None,
+        "refs": [], "mismatches": [], "action": "ok", "reliable": False, "error": "",
+    }
+    try:
+        if prob_fn is None:
+            from app.services.studio.candidate_pick import _get_face_app
+
+            fa = _get_face_app()
+            prob_fn = lambda fr: hood_up_prob(fr, fa)  # noqa: E731
+        ff_p = prob_fn(first_frame_bgr) if first_frame_bgr is not None else None
+        ff_state = _state(ff_p)
+        out["first_frame"] = {"p_up": None if ff_p is None else round(ff_p, 3), "state": ff_state}
+        target = ff_state if ff_state in ("up", "down") else (expected_text if expected_text in ("up", "down") else None)
+        out["target"] = target
+        for r in refs:
+            img = r.get("image")
+            p = prob_fn(img) if img is not None else None
+            st = _state(p)
+            item = {"label": r.get("label", ""), "url": r.get("url", ""),
+                    "p_up": None if p is None else round(p, 3), "state": st,
+                    "overridden": bool(r.get("overridden"))}
+            out["refs"].append(item)
+            if target and st in ("up", "down") and st != target:
+                out["mismatches"].append(item["label"] or item["url"])
+        if out["mismatches"]:
+            out["action"] = "warn"
+            logger.warning(
+                "outfit_state 参考图与首帧帽兜状态不一致 target=%s first_frame=%s mismatches=%s；"
+                "建议用镜头级参考覆盖（ref_overrides）换成与首帧一致的版本",
+                target, out["first_frame"], out["mismatches"],
+            )
+    except Exception as e:  # noqa: BLE001
+        out["error"] = f"{type(e).__name__}:{e}"[:200]
+    return out
+
+
 def hood_state_log(
     video_path: str | Path,
     *,

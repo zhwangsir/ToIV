@@ -240,6 +240,8 @@ async def render_shot(
     ref_style: str | None = None,
     seed: int | None = None,
     worker_url: str | None = None,
+    ref_overrides: dict[str, str] | None = None,
+    outfit_desc: str | None = None,
 ) -> StudioShot:
     """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。
 
@@ -332,9 +334,14 @@ async def render_shot(
         # 显式列表:渲染器按该序编号(标签简化为参考图N)
         render_kw["ref_images"] = resolved_refs
     else:
+        from app.services.studio.shot_refs import apply_ref_overrides
+
         resolved_refs = ref_urls(
-            collect_cast_ref_images(
-                cast, scene_images=scene_images, style=sheet_style
+            apply_ref_overrides(
+                collect_cast_ref_images(
+                    cast, scene_images=scene_images, style=sheet_style
+                ),
+                ref_overrides,
             )
         )
         # 自动收集:留给渲染器从 cast 重建带角色名的 @图片N 标签
@@ -346,6 +353,11 @@ async def render_shot(
     if pipe not in C_PIPELINES + ("legacy",):
         pipe = "c"
     render_kw["pipeline"] = pipe
+    if pipe in C_PIPELINES:
+        if ref_overrides:
+            render_kw["ref_overrides"] = dict(ref_overrides)
+        if (outfit_desc or "").strip():
+            render_kw["outfit_desc"] = outfit_desc.strip()
     if pinned_worker:
         render_kw["worker_url"] = pinned_worker
     # 续写：显式 context > 同项目上一镜 picked 的 context_latent（c / c_hybrid 均续写）
@@ -432,6 +444,15 @@ async def render_shot(
                             entry["job_id"] = str(meta["job_id"])
                         if meta.get("prompt"):
                             entry["prompt"] = str(meta["prompt"])[:500]
+                        if meta.get("outfit_check"):
+                            oc_ = meta["outfit_check"]
+                            entry["outfit_check"] = {
+                                k: oc_.get(k) for k in ("action", "target", "first_frame", "mismatches", "error")
+                            }
+                        if meta.get("hard_cut_reseed_hits"):
+                            entry["hard_cut_reseed_hits"] = list(meta["hard_cut_reseed_hits"])
+                        if meta.get("ref_overrides"):
+                            entry["ref_overrides"] = dict(meta["ref_overrides"])
                     if result is None:
                         result = r
                         entry["is_picked"] = True
