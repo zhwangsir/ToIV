@@ -153,3 +153,4 @@ langgraph-checkpoint-postgres==3.1.2
 # 注意:这部分不在 uv export 自动生成范围,手动维护。下次 uv export --extra transcription 可合并。
 faster-whisper==1.1.1
 requests>=2.31
+rapidocr_onnxruntime==1.2.3  # c_hybrid 衣物文字门禁(candidate_pick)
