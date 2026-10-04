@@ -8692,16 +8692,24 @@ async def generate_character_sheet(
                             except CharacterSheetError:
                                 pass
                             assert_expr_cell_no_white_border(cell_b, expr_key=ek)
-                            # 23:18：身份=与主立绘/正面底 CLIP 脸相似（≥0.72）；
-                            # 整图 edit 不走 inpaint 同裁发长相对门禁（易误杀）
-                            _pref = panels.get("portrait") or edit_base
-                            _sim = clip_image_cosine_sim(cell_b, _pref)
+                            # 23:18：身份=与主立绘**脸部**（approved_portrait 头肩底）CLIP≥0.72
+                            # 禁止拿全身立绘做参照（尺度不同会系统性偏低）
+                            _face_id = edit_base
+                            _sim = clip_image_cosine_sim(cell_b, _face_id)
                             if _sim is not None and _sim + 1e-12 < 0.72:
                                 raise CharacterSheetError(
-                                    f"{ek}身份CLIP不足 sim={_sim:.3f}<0.72",
+                                    f"{ek}身份CLIP不足 sim={_sim:.3f}<0.72 (vs approved_portrait face)",
                                     status_code=422,
                                 )
+                            try:
+                                (reject_dir / f"{ek}_qedit_clip_{int(seed or 0)}_a{attempt}.json").write_text(
+                                    json.dumps({"sim": _sim, "min": 0.72, "ref": "edit_base_face"}, ensure_ascii=False),
+                                    encoding="utf-8",
+                                )
+                            except Exception:
+                                pass
                             # 徽标仍拦（相对主立绘）
+                            _pref = panels.get("portrait") or edit_base
                             if _pref and portrait_has_chest_emblem(
                                 cell_b, ref=_pref, below_face=True
                             ):
