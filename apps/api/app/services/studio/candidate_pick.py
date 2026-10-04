@@ -797,6 +797,8 @@ def pick_best_candidate(
     use_relative_identity: bool | None = None,
     min_face_rank: float = FACE_RANK_MIN_DEFAULT,
     hard_cut_rule: bool = True,
+    text_gate: bool = True,
+    hood_log: bool = True,
 ) -> tuple[str | None, list[dict[str, Any]]]:
     """按 face_mean - burnin - ocr + 连贯加分 - 回退罚分 选优。
 
@@ -809,6 +811,9 @@ def pick_best_candidate(
     hard_cut_rule（默认开，见 hard_cut.py）：锚定区内/首 1 秒内硬切 → 自动裁片头（音频同步裁），
     候选 url 换成裁后文件并写 head_trim；1 秒后硬切按 hard_cut_penalty 扣分。
     店招/连锁色带只记录不扣分。
+    text_gate（默认开）：选优也跑出片文字门禁 garment_brand_ocr_hit（字幕 / 衣物品牌字，RapidOCR+tesseract），
+    命中的候选不得入选（此前只在出片后换 seed 路径跑，选优/重选时不查）。
+    hood_log（默认开，仅记录）：帽兜状态逐帧与上一镜尾帧对比写 hood_log，不拦不扣分。
     """
     done = [c for c in candidates if c.get("status") == "done" and c.get("url")]
     if not done:
@@ -845,6 +850,9 @@ def pick_best_candidate(
             f"选优失败:人脸评分不可用且无连贯材料，{GATE_NEEDS_REVIEW}，禁止静默回落首候选"
         )
 
+    def _text_blocked(c: dict[str, Any]) -> bool:
+        return bool((c.get("text_gate") or {}).get("hit"))
+
     try:
         best_id = None
         best_score = float("-inf")
@@ -877,6 +885,33 @@ def pick_best_candidate(
                         note_parts.append(f"head_trim={c['head_trim']['frames']}f")
                     if cut_pen:
                         note_parts.append(f"late_cuts={len(c.get('hard_cut_late') or [])}")
+            if text_gate:
+                try:
+                    tg = garment_brand_ocr_hit(path, skip_until_frame=skip_frames)
+                except Exception as e:  # noqa: BLE001
+                    tg = {"hit": False, "error": f"{type(e).__name__}:{e}"[:200]}
+                c["text_gate"] = {k: tg.get(k) for k in ("hit", "kind", "text", "frames_checked", "error")}
+                if tg.get("brand_run"):
+                    c["text_gate"]["brand_run"] = [
+                        {"frame": r.get("frame"), "words": [w.get("text") for w in r.get("words") or []]}
+                        for r in tg["brand_run"]
+                    ]
+                if tg.get("subtitle_run"):
+                    c["text_gate"]["subtitle_run"] = [
+                        {"frame": r.get("frame"), "text": r.get("text")} for r in tg["subtitle_run"]
+                    ]
+                if tg.get("hit"):
+                    c["gate_status"] = GATE_NEEDS_REVIEW
+                    note_parts.append(f"text_gate={tg.get('kind') or 'hit'}")
+            if hood_log:
+                try:
+                    from app.services.studio.outfit_state import hood_state_log
+
+                    c["hood_log"] = hood_state_log(
+                        path, prev_video_path=prev_video_path, skip_until_frame=skip_frames
+                    )
+                except Exception as e:  # noqa: BLE001
+                    c["hood_log"] = {"error": f"{type(e).__name__}:{e}"[:200], "log_only": True}
             if face_ok:
                 m = score_video_face(
                     path,
@@ -944,10 +979,17 @@ def pick_best_candidate(
                 note_parts.append(f"regression={reg:.3f}")
             c["pick_note"] = "+".join(note_parts) if note_parts else "scored"
             scored_any = True
-            if score > best_score:
+            if score > best_score and not _text_blocked(c):
                 best_score = score
                 best_id = c.get("id")
 
+        if scored_any and best_id is None and any(_text_blocked(c) for c in done):
+            for c in candidates:
+                c["is_picked"] = False
+            hits = [f"{c.get('id')}:{(c.get('text_gate') or {}).get('text', '')[:40]}" for c in done if _text_blocked(c)]
+            raise CandidatePickError(
+                f"选优失败:全部候选未过文字门禁(衣物品牌字/字幕) {hits}，{GATE_NEEDS_REVIEW}，禁止入选并应改提示词重跑"
+            )
         if not scored_any or best_id is None:
             for c in candidates:
                 c["is_picked"] = False
@@ -989,7 +1031,7 @@ def pick_best_candidate(
             gated = [
                 c
                 for c in done
-                if c.get("relative_pass") and c.get("pick_score") is not None
+                if c.get("relative_pass") and c.get("pick_score") is not None and not _text_blocked(c)
             ]
             if not gated:
                 for c in candidates:
@@ -1012,7 +1054,10 @@ def pick_best_candidate(
                     return r is not None and float(r) >= float(min_face_rank)
                 return c.get("face_mean") is not None and float(c["face_mean"]) >= float(min_face_mean)
 
-            gated = [c for c in done if _face_gate_ok(c) and c.get("pick_score") is not None]
+            gated = [
+                c for c in done
+                if _face_gate_ok(c) and c.get("pick_score") is not None and not _text_blocked(c)
+            ]
             if not gated:
                 faces = [
                     float(c["face_mean"])
@@ -1030,10 +1075,12 @@ def pick_best_candidate(
                 for c in candidates:
                     c["gate_status"] = GATE_NEEDS_REVIEW
                 ranks = [c.get("face_rank") for c in done if "face_rank" in c]
+                blocked = [c.get("id") for c in done if _text_blocked(c)]
                 raise CandidatePickError(
                     f"选优失败:无人脸达标(需 face_mean≥{min_face_mean:.2f}"
                     f"{'；写实 min(online,facecrop)≥%.2f' % float(min_face_rank) if ranks else ''}，"
-                    f"最佳={face_best!r}，face_rank={ranks!r})，{GATE_NEEDS_REVIEW}，禁止入选并应加候选重跑"
+                    f"最佳={face_best!r}，face_rank={ranks!r}，文字门禁未过={blocked!r})，"
+                    f"{GATE_NEEDS_REVIEW}，禁止入选并应加候选重跑"
                 )
             best_id = max(gated, key=lambda c: float(c["pick_score"])).get("id")
         else:
@@ -1049,6 +1096,7 @@ def pick_best_candidate(
                 c
                 for c in done
                 if c.get("pick_score") is not None
+                and not _text_blocked(c)
                 and (
                     not face_ok
                     or float(min_face_mean) <= 0
@@ -1661,6 +1709,25 @@ BRAND_TEXT_MIN_CONF = 60.0
 BRAND_TEXT_MIN_LETTERS = 3
 BRAND_TEXT_MIN_CONSECUTIVE = 2
 BRAND_TEXT_OCR_PASSES = ((1.5, 6), (1.0, 11))  # (缩放, tesseract psm)
+# RapidOCR（PaddleOCR DB 检测 + CRNN，onnxruntime CPU）：斜体/小字号 logo 字 tesseract 读不出
+# （雨夜 shot1 931f3b96 胸口「PEB NORTH FACE」约 11px 字高，tesseract 紧裁×4 仍为乱码），
+# RapidOCR 在同帧读出 NORTH 0.71–0.75 / FACE 0.77–0.79。分数≥此值且含≥3 连续字母才算。
+BRAND_RAPID_MIN_SCORE = 0.50
+_RAPID_OCR = None
+_RAPID_OCR_FAILED = False
+
+
+def _get_rapid_ocr():
+    global _RAPID_OCR, _RAPID_OCR_FAILED
+    if _RAPID_OCR is None and not _RAPID_OCR_FAILED:
+        try:
+            from rapidocr_onnxruntime import RapidOCR
+
+            _RAPID_OCR = RapidOCR()
+        except Exception as e:  # noqa: BLE001
+            _RAPID_OCR_FAILED = True
+            logger.warning("rapidocr unavailable, brand gate falls back to tesseract only: %s", e)
+    return _RAPID_OCR
 _BRAND_WORD_RUN = re.compile(r"[A-Za-z]{3,}")
 
 
@@ -1716,8 +1783,39 @@ def garment_brand_text_words(frame_bgr) -> dict[str, Any]:
         if tx1 - tx0 < 16 or ty1 - ty0 < 16:
             out["error"] = "torso_too_small"
             return out
-        crop = _to_pil_rgb(arr).crop((tx0, ty0, tx1, ty1)).convert("L")
         seen: set[tuple] = set()
+        out["engines"] = []
+        eng = _get_rapid_ocr()
+        if eng is not None:
+            out["engines"].append("rapidocr")
+            out["rapid_raw"] = []
+            try:
+                res, _el = eng(np.ascontiguousarray(arr[ty0:ty1, tx0:tx1]))
+            except Exception as e:  # noqa: BLE001
+                res = None
+                out["rapid_error"] = f"{type(e).__name__}:{e}"[:120]
+            for r in res or []:
+                try:
+                    box, t, sc = r[0], str(r[1] or "").strip(), float(r[2])
+                except (TypeError, ValueError, IndexError):
+                    continue
+                out["rapid_raw"].append({"text": t[:40], "score": round(sc, 3)})
+                if sc < BRAND_RAPID_MIN_SCORE:
+                    continue
+                if not any(len(x) >= BRAND_TEXT_MIN_LETTERS for x in _BRAND_WORD_RUN.findall(t)):
+                    continue
+                xs = [float(pt[0]) for pt in box]
+                ys = [float(pt[1]) for pt in box]
+                bx, by = int(min(xs)) + tx0, int(min(ys)) + ty0
+                key = (t.upper(), bx // 24, by // 24)
+                if key in seen:
+                    continue
+                seen.add(key)
+                out["words"].append({"text": t[:40], "conf": round(sc * 100.0, 1),
+                                     "box": [bx, by, int(max(xs) - min(xs)), int(max(ys) - min(ys))],
+                                     "in_torso": True, "engine": "rapidocr"})
+        out["engines"].append("tesseract")
+        crop = _to_pil_rgb(arr).crop((tx0, ty0, tx1, ty1)).convert("L")
         for scale, psm in BRAND_TEXT_OCR_PASSES:
             cc = crop
             if scale != 1.0:
@@ -1747,7 +1845,7 @@ def garment_brand_text_words(frame_bgr) -> dict[str, Any]:
                     continue
                 seen.add(key)
                 out["words"].append({"text": t[:40], "conf": conf, "box": [bx, by, bw, bh],
-                                     "in_torso": True, "psm": psm})
+                                     "in_torso": True, "psm": psm, "engine": "tesseract"})
         out["hit"] = bool(out["words"])
         return out
     except Exception as e:

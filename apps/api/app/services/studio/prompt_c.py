@@ -12,7 +12,9 @@ C_AVOID_TEXT = (
     "digits on signs, number 7 on sign, red digit 7, 7-Eleven logo, "
     "chain-store fascia, orange green red stripes, FamilyMart bands, "
     "brand logo, clothing brand logo, chest logo, emblem on jacket, "
-    "The North Face logo, Nike logo, Adidas logo, fashion brand mark, "
+    # 10/05：H3 无独立负向口，Avoid 折进正向 prompt；写出具体品牌名（The North Face 等）
+    # 反而把品牌词送进条件（雨夜 shot1 两个候选都出了乱码 NORTH FACE 胸标）→ 只写通用词
+    "fashion brand mark, sportswear chest emblem, "
     "品牌标, 服装品牌logo, 胸口logo, 品牌文字, "
     "烧录字幕, 字幕, 台词文字, 水印, 台标, 花字, 标题文字, "
     "店招, 招牌, 乱码英文, 乱码文字, logo文字, "
@@ -69,7 +71,7 @@ _ANIME_COSTUME_LOCK = (
     f"{_PLAIN_UNBRANDED}, "
     "no hanfu, no white robe, no ancient costume, "
     "no purple raincoat, no blue raincoat, no indigo coat, "
-    "no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes, no The North Face logo"
+    "no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes"
 )
 _ANCIENT_STRIP = (
     "hoodie", "hood down", "hood up", "raincoat", "windbreaker", "sweatshirt",
@@ -357,7 +359,7 @@ def costume_lock_for_style(
                 "wet black hair on forehead, same outfit as character sheet, cool white store light, "
                 f"{_PLAIN_UNBRANDED}, "
                 "no hanfu, no white robe, no ancient costume, "
-                "no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes, no The North Face logo, "
+                "no brand logo, no clothing brand, no chest logo, no emblem, no text on clothes, "
                 f"{neg_c}"
             )
     # 无 pos_c：沿用无颜色常量锁（已无 jet-black/主色纯黑），禁止再回落含硬编码主色的旧常量
@@ -425,6 +427,29 @@ def build_cast_visual_for_style(
     return ", ".join(parts)
 
 
+# 外套无标（中英正向，固定附加）
+C_JACKET_PLAIN = "外套无 logo、无品牌字样, plain unbranded jacket with blank chest"
+_HOOD_UP_RE = re.compile(r"(全程戴帽|戴帽|帽兜戴上|帽子戴上|hood\s+up|hood\s+on\b)", re.I)
+_HOOD_DOWN_PHRASES = re.compile(
+    r"(hoodie\s+hood\s+(?:completely\s+)?down(?:\s+off\s+the\s+head)?|"
+    r"hood\s+(?:completely\s+)?down(?:\s+off\s+the\s+head|\s+resting\s+on\s+her\s+back)?|"
+    r"帽兜放下|帽子放下)",
+    re.I,
+)
+
+
+def wants_hood_up(*texts: str) -> bool:
+    """镜头描述要求戴帽（全程戴帽 / hood up）。"""
+    return any(_HOOD_UP_RE.search(t or "") for t in texts)
+
+
+def apply_hood_state(text: str, hood_up: bool) -> str:
+    """hood_up 时把文中「帽兜放下」类短语改成戴帽，避免同一 prompt 自相矛盾。"""
+    if not hood_up or not text:
+        return text
+    return _HOOD_DOWN_PHRASES.sub("hood up over the head", text)
+
+
 def build_c_visual_prompt(
     *,
     shot_prompt: str,
@@ -454,6 +479,8 @@ def build_c_visual_prompt(
     if visual:
         body_parts.append(visual)
     body = "，".join(body_parts) if body_parts else "竖屏短剧镜头，人物与场景清晰"
+    hood_up = wants_hood_up(shot_prompt or "", camera or "", cast_visual or "")
+    body = apply_hood_state(body, hood_up)
     st = (style or "").strip().lower()
     if st in ("anime", "二次元"):
         body = (
@@ -466,7 +493,7 @@ def build_c_visual_prompt(
             "not modern anime, not chibi, "
         ) + body
     body += (
-        "。画面只有角色与场景，无任何文字、店招或乱码。"
+        f"。画面只有角色与场景，无任何文字、店招或乱码。{C_JACKET_PLAIN}。"
         " blank glowing lightboxes without letters, 无字发光灯箱,"
         " blank neon panels without text, empty glowing signs,"
         " 非连锁品牌配色, not chain-store fascia colors, not 7-Eleven stripes,"
@@ -478,9 +505,14 @@ def build_c_visual_prompt(
     blob = " ".join([shot_prompt or "", scene or "", camera or "", body]).lower()
     if any(k in blob for k in ("aisle", "货架", "冷柜", "fridge", "checkout", "收银", "店内")):
         # 19:30/v6：强制中景正脸，抑制手特写/帽兜挡脸
+        hood_clause = (
+            "hood up over the head the whole shot, same hood state in every frame, "
+            if hood_up
+            else "hoodie hood down, "
+        )
         body += (
             " Medium shot inside the convenience store interior between shelves, "
-            "hoodie hood down, face fully visible facing camera, "
+            f"{hood_clause}face fully visible facing camera, "
             "eyes and nose clearly readable, upper body in frame, "
             "not outside on the wet sidewalk, "
             "not close-up of hands, not hands-only close-up, "
