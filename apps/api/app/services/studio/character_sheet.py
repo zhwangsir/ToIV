@@ -9070,13 +9070,13 @@ async def generate_character_sheet(
                                 )
                             except Exception:
                                 pass
-                            # 贴回后胸口应与原图一致；仍拦相对新徽标（双保险）
-                            _pref = panels.get("portrait") or edit_base
-                            if _pref and portrait_has_chest_emblem(
-                                cell_b, ref=_pref, below_face=True
+                            # 00:30：胸口已强制原图像素；相对徽标验 pasted vs edit_base
+                            # （禁止用贴格后 cell_b vs portrait——裁切尺度会误杀）
+                            if portrait_has_chest_emblem(
+                                pasted, ref=edit_base, below_face=True
                             ):
                                 raise CharacterSheetError(
-                                    f"{ek}胸口相对主立绘出现新徽标/字样",
+                                    f"{ek}脸部贴回后胸口相对 edit_base 仍出现新徽标/字样",
                                     status_code=422,
                                 )
                             # 00:30：专项问答（非六分类）
