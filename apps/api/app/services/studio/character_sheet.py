@@ -50,7 +50,7 @@ _EXPR_LABELS = ("威严", "冷酷", "沉思", "温柔", "惊恐", "果断")
 _EXPR_PROMPTS = (
     "stern majestic expression, extreme face closeup head and shoulders",
     "cold aloof expression, icy gaze, extreme face closeup head and shoulders",
-    "thoughtful contemplative expression, looking slightly down, extreme face closeup head and shoulders",
+    "thoughtful contemplative expression, eyes looking down and to one side, brows slightly furrowed, lips closed, extreme face closeup head and shoulders",
     "gentle smile, mouth corners up, soft relaxed brows, eyes softly curved, extreme face closeup head only no chest",
     "terrified shocked expression, wide eyes open mouth, fear, extreme face closeup head and shoulders",
     "determined, firm closed mouth, focused eyes, eyebrows slightly lowered, extreme face closeup head and shoulders",
@@ -60,7 +60,7 @@ _EXPR_EDIT_INSTRUCTIONS = (
     # 20:58：拉开威严/冷酷/沉思视觉差（门禁不放宽）；禁宫格整图编辑贴回
     "只改变面部表情为威严：下巴微抬（chin raised）、俯视镜头（looking down at viewer）、双眼锐利眯窄（sharp narrowed eyes，禁止 wide eyes/blank）、眉毛明显压低聚拢（eyebrows lowered，眉峰下压）、双唇抿紧紧闭（tight closed mouth，禁止微笑/张嘴）。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光。",
     "只改变面部表情为冷酷：面无表情（expressionless）、眼神冷、双眼半睁半阖（half-lidded eyes）、眉毛中性不皱不抬（eyebrows neutral）、闭嘴嘴角平直（flat mouth，禁止 frown/smile）、目光冷淡可略偏一侧。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "同一角色、同发型同服装、头肩构图，只改变面部表情为沉思：eyes looking down, eyelids half closed, calm closed mouth；眉毛放松舒展（relaxed brows，禁止 frown/furrowed），双唇平静闭合，目光低垂沉思。禁止侧面化、禁止改发型服装构图、不要戴帽、不要加徽章文字、不要加长发。",
+    "同一角色、同发型同服装、头肩构图，只改变面部表情为沉思：视线下垂偏一侧（eyes looking down and to one side）、眉头微蹙（brows slightly furrowed / soft knit brows）、嘴唇闭合（lips closed，禁止张嘴）；目光低垂偏侧沉思，不要微笑。禁止侧面化、禁止改发型服装构图、不要戴帽、不要加徽章文字、不要加长发。",
     "同一角色、同发型同服装、头部特写构图，只改变面部表情为温柔：gentle smile, mouth corners up, soft relaxed brows, eyes softly curved（睁眼弯月眼或柔和睁眼均可，不要求闭眼）；眉毛舒展放松（禁止 frown/furrowed），嘴角上扬微笑。禁止嘟嘴撇嘴、禁止改发型服装构图、不要戴帽、不要加徽章文字、不要加长发、不要心形瞳孔、胸口不要入画。",
     "只改变面部表情为惊恐：双眼瞪大、嘴巴明显张开可见口腔、眉毛高高上扬、眉心分开。必须张嘴。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要裁太近。",
     "只改变面部表情为果断：determined，firm closed mouth，focused eyes，eyebrows slightly lowered；双唇抿紧闭嘴（坚定，禁止张嘴/喊叫/surprised/open mouth）、禁止挑眉。下颌微绷（正面，勿侧头）。与威严的皱眉下垂嘴角区分，与惊恐张嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
@@ -70,7 +70,7 @@ _EXPR_EDIT_INSTRUCTIONS = (
 _EXPR_INPAINT_PROMPTS = (
     "same character anime closeup, stern majestic expression, chin raised looking down at viewer, sharp narrowed eyes, eyebrows lowered, tight closed mouth lips pressed, no smile no wide eyes no blank stare, blue-violet iris unchanged, only change eyebrows eyes mouth jaw tilt, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
     "same character anime closeup, cold expressionless face, half-lidded eyes, flat mouth, eyebrows neutral, no frown no smile, closed mouth, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
-    "same character anime closeup head and shoulders, thoughtful contemplative expression, eyes looking down, eyelids half closed, calm closed mouth, relaxed brows no frown, only change expression, keep identical hair face shape skin tone clothing composition, front facing no side view",
+    "same character anime closeup head and shoulders, thoughtful contemplative expression, eyes looking down and to one side, brows slightly furrowed, lips closed no smile, only change expression, keep identical hair face shape skin tone clothing composition, front facing no side view",
     "same character anime head closeup, gentle smile, mouth corners up, soft relaxed brows, eyes softly curved, no frown no pout, only change expression, keep identical hair face shape skin tone, no chest in frame",
     "same character anime closeup, terrified expression, eyes wide open, mouth wide open showing interior, eyebrows raised high, must open mouth, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
     "same character anime closeup, determined expression, firm closed mouth, focused eyes, eyebrows slightly lowered, no surprised open mouth, no raised brows, jaw slightly tense, front facing, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
@@ -80,7 +80,7 @@ _EXPR_INPAINT_PROMPTS = (
 _EXPR_INPAINT_NEGATIVES = (
     "wide eyes, blank stare, blank expression, smile, grinning, open mouth, raised brows, soft smile",
     "frown, smiling, smile, grinning, furrowed brows, angry brows, downturned angry mouth",
-    "frown, furrowed brows, knit brows, scowling, angry brows, raised brows, wide eyes, big smile",
+    "big smile, grinning, wide eyes, raised brows, open mouth, laughing, angry deep scowl, looking straight at camera alert",
     "frown, pout, scowling, furrowed brows, downturned mouth, angry brows, neutral expression no smile, blank stare, wide terrified eyes, open mouth scream",
     "closed mouth, smile, calm face, sleepy eyes",
     "surprised, open mouth, raised brows, screaming, shouting, wide open mouth",
@@ -4697,12 +4697,18 @@ def crop_expr_head_closeup(
     data: bytes,
     *,
     size: int = 768,
-    chin_margin_face_frac: float = 0.15,
+    chin_margin_face_frac: float = 0.40,
+    hair_above_face_frac: float = 0.60,
+    target_face_height_frac: float = 0.45,
+    top_margin_frac: float = 0.10,
 ) -> bytes:
-    """01:50：表情格头部特写裁剪。
+    """02:42：表情格头部特写裁剪。
 
-    发顶到下巴下沿约 ``chin_margin_face_frac`` 脸高；胸口不进画面。
-    输出正方形 ``size``，铺满、无棚灰垫边。
+    - 脸框上沿以上至少 ``hair_above_face_frac``(默认 0.6) 倍脸高，盖住整个发顶；
+    - 成品脸高约占画面 ``target_face_height_frac``(≈0.45)；
+    - 头顶留白约 ``top_margin_frac``(8–12%，默认 0.10)；
+    - 下沿到锁骨附近（``chin_margin_face_frac``≈0.40 脸高）；
+    - 源图发顶空间不足时 **禁止** 灰底垫高；贴顶实裁，由发顶平切门禁拒灰底平切；上游可换全身/立绘或让 Qwen 补发顶。
     """
     im0 = Image.open(BytesIO(data)).convert("RGB")
     w0, h0 = im0.size
@@ -4729,27 +4735,38 @@ def crop_expr_head_closeup(
     fw = max(8.0, fx2 - fx1)
     fh = max(8.0, fy2 - fy1)
     fcx = (fx1 + fx2) / 2.0
-    # 发顶：脸顶上约 0.45 脸高（二次元齐刘海/发冠）
-    hair_top = fy1 - 0.45 * fh
+    hair_pad = max(0.50, float(hair_above_face_frac)) * fh
+    hair_top = fy1 - hair_pad
     chin_bottom = fy2 + float(chin_margin_face_frac) * fh
-    # 竖直跨度；水平略宽于脸
-    span_h = max(64.0, chin_bottom - hair_top)
-    span_w = max(span_h, fw * 1.25)
-    side = int(math.ceil(max(span_h, span_w)))
-    # 若源不够，先垫边（用角点色，非棚灰戳记）再裁
-    need_pad = 0
-    if side > min(w0, h0) - 2 or hair_top < 0 or chin_bottom > h0:
-        need_pad = int(
-            math.ceil(
-                max(
-                    0.0,
-                    -hair_top,
-                    chin_bottom - h0,
-                    (side - w0) / 2.0,
-                    (side - h0) / 2.0,
-                )
-            )
-        ) + 8
+    tgt_face = max(0.38, min(0.55, float(target_face_height_frac)))
+    top_m = max(0.08, min(0.12, float(top_margin_frac)))
+    # 目标边长：脸约占 45%
+    side_f = fh / tgt_face
+    # 水平略宽于脸
+    side_f = max(side_f, fw * 1.35)
+    # 竖直至少覆盖 发顶pad + 脸 + 锁骨
+    span_need = (hair_pad + fh + float(chin_margin_face_frac) * fh) + top_m * side_f
+    side_f = max(side_f, span_need)
+    side = int(math.ceil(side_f))
+    # 裁顶：发顶之上再留 top_margin
+    top_f = hair_top - top_m * side
+    left_f = fcx - side / 2.0
+    # 发顶空间不足：禁止灰底垫高（会制造发顶平切）。
+    # 改为贴源图顶实裁，保留已有发丝；平切门禁再拒「灰底+水平发际」。
+    # 上游可换全身/立绘或让 Qwen 补发顶后重试。
+    short_headroom = False
+    if hair_top < 0.0:
+        short_headroom = True
+        hair_top = 0.0
+        top_f = hair_top - top_m * side
+    if top_f < 0.0:
+        short_headroom = True
+        top_f = 0.0
+    # 仅允许左右/下沿少量角点色垫边（绝不向上垫灰底）
+    need_pad_l = max(0.0, -left_f)
+    need_pad_r = max(0.0, left_f + side - w0)
+    need_pad_b = max(0.0, top_f + side - h0)
+    need_pad = int(math.ceil(max(need_pad_l, need_pad_r, need_pad_b))) + 4
     img = im0
     pad = 0
     if need_pad > 0:
@@ -4765,43 +4782,49 @@ def crop_expr_head_closeup(
         fcx += pad
         hair_top += pad
         chin_bottom += pad
+        top_f += pad
+        left_f += pad
         fh = max(8.0, fy2 - fy1)
     w, h = img.size
     side = int(min(max(side, 64), w, h))
-    left = int(round(fcx - side / 2.0))
-    top = int(round(hair_top))
-    # 钳制：下巴须落在裁底附近（胸口不进）
+    left = int(round(left_f))
+    top = int(round(top_f))
+    # 钳制：下巴/锁骨落在裁底附近
     if chin_bottom - top > side * 0.98:
         top = int(round(chin_bottom - side * 0.96))
-    if chin_bottom - top < side * 0.85:
-        # 裁太松：上移使下巴靠近底
-        top = int(round(chin_bottom - side * 0.92))
     left = max(0, min(w - side, left))
     top = max(0, min(h - side, top))
+    # 二次确认：在未 short_headroom 时要求裁窗内发顶空间；不足则贴顶实裁（已禁止上垫灰）
+    face_top_in_crop = fy1 - top
+    if (not short_headroom) and face_top_in_crop + 1e-6 < 0.55 * fh:
+        # 尽量上移裁窗（仍不越界到负）
+        want_top = fy1 - 0.60 * fh - top_m * side
+        top = max(0, int(round(want_top)))
+        face_top_in_crop = fy1 - top
     crop = img.crop((left, top, left + side, top + side)).resize(
         (int(size), int(size)), Image.Resampling.LANCZOS
     )
     buf = BytesIO()
     crop.save(buf, format="PNG")
     out = buf.getvalue()
-    # 胸口门禁：脸框下沿应靠近画幅底部（>0.78），否则仍含过多肩胸
+    # 成品构图复核：脸高 ~45%，头顶留白不过度
     bb2 = _detect_face_bbox_xyxy(out)
     if bb2 is not None:
         _x1, _y1, _x2, _y2 = [float(v) for v in bb2]
-        if _y2 / float(size) < 0.72:
-            # 再收紧一次：按脸框重裁
+        face_frac = (_y2 - _y1) / float(size)
+        top_blank = _y1 / float(size)
+        # 脸过高/过低或顶留白过大（常见灰底平切）时再按目标重裁一次
+        if face_frac > 0.55 or face_frac < 0.36 or top_blank > 0.18:
             fh2 = max(8.0, _y2 - _y1)
-            hair2 = _y1 - 0.40 * fh2
+            hair2 = _y1 - 0.60 * fh2
             chin2 = _y2 + float(chin_margin_face_frac) * fh2
-            side2 = int(max(64, chin2 - hair2, (_x2 - _x1) * 1.2))
+            side2 = int(max(64, fh2 / 0.45, (_x2 - _x1) * 1.3, chin2 - hair2 + 0.10 * (fh2 / 0.45)))
             im2 = Image.open(BytesIO(out)).convert("RGB")
-            # 若 side2 > size，无法再扩；否则从当前图画取
-            if side2 <= size:
+            if side2 <= size and hair2 >= -1.0:
                 cx2 = (_x1 + _x2) / 2.0
+                top2 = int(round(hair2 - 0.10 * side2))
                 left2 = int(round(cx2 - side2 / 2.0))
-                top2 = int(round(hair2))
-                if chin2 - top2 > side2 * 0.98:
-                    top2 = int(round(chin2 - side2 * 0.96))
+                # 二次裁也不上垫灰底
                 left2 = max(0, min(size - side2, left2))
                 top2 = max(0, min(size - side2, top2))
                 c2 = im2.crop((left2, top2, left2 + side2, top2 + side2)).resize(
@@ -4990,6 +5013,100 @@ def measure_hard_seam_contour(
     }
 
 
+def measure_flat_hairline_cut(
+    data: bytes,
+    *,
+    min_run_px: int = 40,
+    bg_tol: float = 18.0,
+    min_flat_y_frac: float = 0.05,
+) -> dict:
+    """02:42：发顶平切检测——顶部发际轮廓出现 ≥min_run_px 水平直线且其上为均匀灰底即拒。
+
+    用每列最上方前景 y 构成发际轮廓；连续同 y（容差 0）的水平段长度即平切 run。
+    发顶紧贴画布上沿（无灰底垫高）不判为平切，避免误杀自然顶裁。
+    """
+    import numpy as np
+
+    im = np.asarray(Image.open(BytesIO(data)).convert("RGB"), dtype=np.float32)
+    h, w, _ = im.shape
+    corners = np.concatenate(
+        [im[:12, :12].reshape(-1, 3), im[:12, -12:].reshape(-1, 3)],
+        axis=0,
+    )
+    bg = np.median(corners, axis=0)
+    dist = np.linalg.norm(im - bg[None, None, :], axis=2)
+    gray = im.mean(axis=2)
+    fg = (dist > float(bg_tol)) & (gray < float(bg.mean()) - 6.0)
+    top_y = np.full(w, -1, dtype=np.int32)
+    for x in range(w):
+        ys = np.where(fg[:, x])[0]
+        if len(ys):
+            top_y[x] = int(ys[0])
+    best = 0
+    best_y = -1
+    best_x0 = -1
+    cur = 0
+    cur_y = -1
+    cur_x0 = -1
+    for x in range(w):
+        y = int(top_y[x])
+        if y < 0:
+            cur = 0
+            cur_y = -1
+            continue
+        if cur > 0 and y == cur_y:
+            cur += 1
+            if cur > best:
+                best = cur
+                best_y = cur_y
+                best_x0 = cur_x0
+        else:
+            cur = 1
+            cur_y = y
+            cur_x0 = x
+            if cur > best:
+                best = cur
+                best_y = y
+                best_x0 = x
+    gray_above = False
+    y_floor = int(float(min_flat_y_frac) * h)
+    if best_y >= y_floor:
+        band = im[max(0, best_y - min(best_y, 24)) : best_y]
+        if band.size:
+            d = np.linalg.norm(band - bg[None, None, :], axis=2)
+            gray_above = float(np.median(d)) < float(bg_tol) and float(d.std()) < 12.0
+    reject = bool(best >= int(min_run_px) and best_y >= y_floor and gray_above)
+    return {
+        "max_flat_run": int(best),
+        "flat_y": int(best_y),
+        "flat_x0": int(best_x0),
+        "flat_y_frac": (float(best_y) / float(h) if best_y >= 0 else None),
+        "gray_above": bool(gray_above),
+        "min_run_px": int(min_run_px),
+        "reject": reject,
+    }
+
+
+def assert_no_flat_hairline_cut(
+    data: bytes,
+    *,
+    expr_key: str = "expr",
+    min_run_px: int = 40,
+) -> dict:
+    """02:42：发顶平切门禁——顶部发际 ≥40px 水平直线（其上灰底）即 FAIL。"""
+    info = measure_flat_hairline_cut(data, min_run_px=min_run_px)
+    info["expr_key"] = expr_key
+    if info.get("reject"):
+        raise CharacterSheetError(
+            f"{expr_key}发顶平切门禁: 发际水平直线 "
+            f"run={info['max_flat_run']}px≥{min_run_px} "
+            f"y={info['flat_y']}({info.get('flat_y_frac')})",
+            status_code=422,
+        )
+    return info
+
+
+
 def assert_no_hard_seam_contour(
     data: bytes,
     *,
@@ -5031,9 +5148,10 @@ _EXPR_QA_PROMPTS: dict[str, str] = {
         "You are inspecting an anime character face closeup for a contemplative expression. "
         "Answer TWO yes/no questions. Output ONLY one JSON object, no markdown: "
         '{"q1":true,"q2":true}. '
-        "q1: Are the eyes looking downward AND the eyelids half-closed "
-        "(眼睛向下看且眼皮半闭)? true only if BOTH downward gaze AND half-closed lids are visible. "
-        "q2: Is the mouth closed (嘴闭合，嘴唇合拢、不张嘴)? true only if mouth is closed. "
+        "q1: Are the eyes looking downward AND biased to one side "
+        "(视线下垂偏一侧：eyes looking down and to one side)? true only if BOTH downward gaze AND side bias are visible. "
+        "q2: Are the brows slightly furrowed AND the lips closed "
+        "(眉头微蹙 + 嘴唇闭合)? true only if BOTH soft knit/furrowed brows AND closed lips are visible; reject smile or open mouth. "
         "Judge only from visible face features."
     ),
     "expr_3": (
@@ -5284,8 +5402,8 @@ _EXPR_VLM_PROMPT = (
     "(reject if wide eyes or blank stare); "
     "冷酷=expressionless + half-lidded eyes + flat mouth + eyebrows neutral "
     "(reject if frown or smile); "
-    "沉思=eyes looking down and to the side + head slightly tilted + relaxed brows + lips slightly pressed + faraway gaze "
-    "(reject if frown or furrowed brows); "
+    "沉思=eyes looking down and to one side + brows slightly furrowed (soft knit) + lips closed + faraway gaze "
+    "(reject if smile or open mouth or looking straight alert); "
     "温柔=relaxed brows + gentle smile with mouth corners up + eyes softly curved (open or crescent OK, closed OK); reject if no smile / frown; "
     "for 温柔, smiling MUST be true; "
     "惊恐=wide eyes + open mouth; "
@@ -9779,7 +9897,7 @@ async def generate_character_sheet(
                                 pass
                             # 接缝门禁：Qwen 原始输出即验
                             assert_no_hard_seam_contour(raw, expr_key=ek, size=768, stage="raw")
-                            # 头部特写裁剪：发顶→下巴+0.15脸高，胸口不进
+                            # 头部特写裁剪：发顶≥0.6×脸高、脸≈45%、顶留白8–12%、下沿锁骨
                             cell_b = crop_expr_head_closeup(raw, size=768)
                             try:
                                 (reject_dir / f"{ek}_qedit_headcrop_{int(seed or 0)}_a{attempt}.png").write_bytes(
@@ -9789,6 +9907,8 @@ async def generate_character_sheet(
                                 pass
                             # 裁剪区内再验接缝
                             assert_no_hard_seam_contour(cell_b, expr_key=ek, size=768, stage="crop")
+                            # 02:42：发顶平切门禁（≥40px 水平发际线）
+                            assert_no_flat_hairline_cut(cell_b, expr_key=ek, min_run_px=40)
                             try:
                                 cell_b = squareize_face_center_crop(cell_b, size=768)
                             except CharacterSheetError:
@@ -9801,8 +9921,8 @@ async def generate_character_sheet(
                             assert_expr_cell_face_height_frac(
                                 cell_b,
                                 expr_key=ek,
-                                min_face_height_frac=0.50,
-                                max_face_height_frac=0.85,
+                                min_face_height_frac=0.38,
+                                max_face_height_frac=0.55,
                             )
                             assert_mouth_in_frame(cell_b)
                             # 身份 CLIP≥0.72（对照 approved_portrait 脸底）

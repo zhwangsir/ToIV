@@ -83,15 +83,17 @@ def test_0150_source_no_paste_in_qedit_route():
 
 
 def test_0150_head_closeup_excludes_chest():
-    # 构造头肩图：脸在上半，胸口色块在下
+    # 构造头肩图：圆润发顶 + 脸居中偏上（满足≥0.6×fh 发顶），胸口红块在下
     size = 768
     im = Image.new("RGB", (size, size), (200, 200, 205))
     d = ImageDraw.Draw(im)
-    d.ellipse((size * 0.25, size * 0.08, size * 0.75, size * 0.55), fill=(220, 180, 150))
-    d.ellipse((size * 0.35, size * 0.25, size * 0.43, size * 0.33), fill=(40, 50, 140))
-    d.ellipse((size * 0.57, size * 0.25, size * 0.65, size * 0.33), fill=(40, 50, 140))
-    d.rectangle((size * 0.20, size * 0.70, size * 0.80, size), fill=(70, 90, 110))
-    d.rectangle((size * 0.40, size * 0.78, size * 0.60, size * 0.92), fill=(220, 40, 40))
+    # hair crown (round) leaving room above face
+    d.ellipse((size * 0.22, size * 0.02, size * 0.78, size * 0.42), fill=(30, 30, 40))
+    d.ellipse((size * 0.28, size * 0.22, size * 0.72, size * 0.62), fill=(220, 180, 150))
+    d.ellipse((size * 0.36, size * 0.36, size * 0.44, size * 0.44), fill=(40, 50, 140))
+    d.ellipse((size * 0.56, size * 0.36, size * 0.64, size * 0.44), fill=(40, 50, 140))
+    d.rectangle((size * 0.20, size * 0.72, size * 0.80, size), fill=(70, 90, 110))
+    d.rectangle((size * 0.40, size * 0.80, size * 0.60, size * 0.95), fill=(220, 40, 40))
     raw = _png(im)
     out = sheet_svc.crop_expr_head_closeup(raw, size=768)
     o = Image.open(BytesIO(out)).convert("RGB")
