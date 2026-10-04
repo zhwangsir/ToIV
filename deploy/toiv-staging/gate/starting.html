@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN" class="dark font-sans" style="color-scheme: dark">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>启动中 · ToIV</title><link rel="icon" href="/favicon.svg">
+<!--SPA_CSS-->
+<!--GATE_STYLE-->
+</head>
+<body class="bg-background text-foreground antialiased">
+<div class="app-user-workspace app-product-workspace toiv-gate">
+ <div class="toiv-gate-card">
+  <div class="toiv-gate-brand"><img src="/logo.svg" alt=""><b>ToIV</b></div>
+  <div class="toiv-gate-status" role="status" aria-live="polite"><span class="toiv-gate-spin"></span><span id="m">工作区启动中…</span></div>
+ </div>
+</div>
+<script>
+const m=document.getElementById("m");
+const next=(()=>{const n=new URLSearchParams(location.search).get("next")||"/";return n.startsWith("/")&&!n.startsWith("//")?n:"/"})();
+async function tick(){
+ try{const r=await fetch("/auth/status",{credentials:"same-origin",cache:"no-store"});
+  if(r.status===401){location.replace("/login?next="+encodeURIComponent(next));return}
+  const d=await r.json();
+  if(d.state==="ready"){location.replace(next);return}
+  m.textContent=d.message||"工作区启动中…";
+ }catch(e){m.textContent="连接中断，正在重试…"}
+ setTimeout(tick,1500)}
+tick();
+</script></body></html>

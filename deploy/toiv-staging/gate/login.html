@@ -1,28 +1,26 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>登录 · ToIV 画布</title><link rel="icon" href="/favicon.svg">
-<style>
-:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 600px at 30% 20%,#1b2340 0,#0b0d14 60%);font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:#e7e9f0}
-.card{width:min(380px,92vw);background:rgba(20,23,34,.92);border:1px solid #2a2f45;border-radius:16px;padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
-.brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}.brand img{width:40px;height:40px}.brand b{font-size:20px;letter-spacing:.5px}.brand span{display:block;font-size:12px;color:#8f96ad}
-label{display:block;font-size:12px;color:#a3a9bd;margin:14px 0 6px}input{width:100%;padding:11px 12px;border-radius:10px;border:1px solid #333a55;background:#0f121c;color:#fff;font-size:14px;outline:none}input:focus{border-color:#6b7cff}
-button{margin-top:22px;width:100%;padding:11px;border:0;border-radius:10px;background:linear-gradient(90deg,#5b6cff,#8b5cff);color:#fff;font-size:15px;font-weight:600;cursor:pointer}button:disabled{opacity:.6;cursor:default}
-.err{min-height:20px;margin-top:12px;color:#ff8a8a;font-size:13px}.foot{margin-top:18px;font-size:12px;color:#6f7690;text-align:center}
-</style></head><body>
-<form class="card" id="f" autocomplete="on">
- <div class="brand"><img src="/toiv-mark.svg" alt="ToIV"><div><b>ToIV 画布</b><span>使用 ToIV 账号登录</span></div></div>
- <label for="email">账号（邮箱）</label><input id="email" name="email" type="text" autocomplete="username" required autofocus>
- <label for="password">密码</label><input id="password" name="password" type="password" autocomplete="current-password" required>
- <button id="b" type="submit">登录</button>
- <div class="err" id="e" role="alert"></div>
- <div class="foot">每个账号拥有独立的画布、任务与素材空间</div>
+<html lang="zh-CN" class="dark font-sans" style="color-scheme: dark">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>登录 · ToIV</title><link rel="icon" href="/favicon.svg">
+<!--SPA_CSS-->
+<!--GATE_STYLE--></head>
+<body class="bg-background text-foreground antialiased">
+<div class="app-user-workspace app-product-workspace toiv-gate">
+<form class="toiv-gate-card" id="f" autocomplete="on">
+ <div class="toiv-gate-brand"><img src="/logo.svg" alt=""><b>ToIV</b></div>
+ <div><label for="email">账号</label><input id="email" name="email" type="text" autocomplete="username" required autofocus></div>
+ <div><label for="password">密码</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+ <button class="toiv-gate-primary" id="b" type="submit">登录</button>
+ <div class="toiv-gate-err" id="e" role="alert"></div>
 </form>
+</div>
 <script>
 const f=document.getElementById("f"),b=document.getElementById("b"),e=document.getElementById("e");
+const next=()=>{const n=new URLSearchParams(location.search).get("next")||"/";return n.startsWith("/")&&!n.startsWith("//")?n:"/"};
 f.addEventListener("submit",async(ev)=>{ev.preventDefault();e.textContent="";b.disabled=true;b.textContent="登录中…";
  try{const r=await fetch("/auth/login",{method:"POST",headers:{"content-type":"application/json"},credentials:"same-origin",body:JSON.stringify({email:f.email.value.trim(),password:f.password.value})});
   const d=await r.json().catch(()=>({}));
-  if(r.ok){const n=new URLSearchParams(location.search).get("next")||"/";location.replace(n.startsWith("/")&&!n.startsWith("//")?n:"/");return}
+  if(r.ok){location.replace("/__toiv/starting?next="+encodeURIComponent(next()));return}
   e.textContent=d.message||"登录失败（"+r.status+"）";
  }catch(x){e.textContent="网络错误，请重试"}
  b.disabled=false;b.textContent="登录"});
