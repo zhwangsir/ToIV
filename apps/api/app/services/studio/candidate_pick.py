@@ -1347,23 +1347,161 @@ def garment_brand_ocr_frame(image) -> dict[str, Any]:
         out["text"] = text[:200]
         out["hit"] = brand_text_hit(text)
         if not out["hit"]:
+            # 胸口徽标 blob 仅记录不拦：雨夜湿反光/袖口褶皱/店内霓虹大量误报，
+            # 且 c_hybrid 锚定首帧（定妆图本身）即命中（2026-10-05 雨夜 shot0）。
             emb = garment_chest_emblem_hit(image)
             out["emblem"] = {k: emb.get(k) for k in ("hit", "area_ratio", "blobs", "error")}
-            if emb.get("hit"):
-                out["hit"] = True
-                if not out["text"]:
-                    out["text"] = "chest_emblem_blob"
+            out["emblem_log_only"] = True
         return out
     except Exception as e:
         out["error"] = f"{type(e).__name__}:{e}"
         return out
 
 
-def garment_brand_ocr_hit(video_path: str | Path) -> dict[str, Any]:
-    """出片后衣物品牌 + 场景店招 OCR。hit True 时应换 seed 重跑。
+# ───────────── 出片文字门禁（2026-10-05 c_hybrid 雨夜误报修复）─────────────
+# 只拦「字幕/对白式」横排中文：底部带、居中、够宽、连续多采样帧出现。
+# 胸口徽标 blob（garment_chest_emblem_hit）与店招 OCR（scene_sign_ocr_frame）降为仅记录：
+# 二者在雨夜湿反光/霓虹/锚定首帧上大量误报（首帧定妆图本身即命中 emblem）。
 
-    返回 {hit, text, frames_checked, error, kind?}；店招命中 text 带 sign: 前缀。
-    pytesseract/cv2 不可用则 hit=False 不拦。品牌与店招共用调用方 max_submits 配额。
+# c_hybrid 首帧锚定：第 0..N 帧被 first_frame 关键帧钉住，门禁跳过（含第 N 帧）
+ANCHORED_FIRST_FRAME_SKIP_FRAMES = 12
+
+SUBTITLE_BAND_Y0 = 0.70
+SUBTITLE_BAND_Y1 = 0.95
+SUBTITLE_MIN_CJK = 4
+SUBTITLE_MIN_CONF = 60.0
+SUBTITLE_MIN_WIDTH_RATIO = 0.30
+SUBTITLE_CENTER_TOL = 0.15  # |行中心x - w/2| ≤ tol·w
+SUBTITLE_MIN_CONSECUTIVE = 2
+SUBTITLE_SAMPLE_DIVISOR = 16  # 字幕密采样：约每 n/16 帧一采
+
+_CJK_CHAR = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
+
+
+def _to_pil_rgb(image):
+    from PIL import Image
+    import numpy as np
+
+    if hasattr(image, "convert"):
+        return image.convert("RGB")
+    arr = np.asarray(image)
+    if arr.ndim != 3 or arr.shape[2] < 3:
+        raise ValueError("bad_frame")
+    try:
+        import cv2
+
+        rgb = cv2.cvtColor(arr[:, :, :3], cv2.COLOR_BGR2RGB)
+    except Exception:
+        rgb = arr[:, :, :3]
+    return Image.fromarray(rgb.astype("uint8"))
+
+
+def _subtitle_lines_from_data(data: dict, *, scale: float, x_off: int, y_off: int) -> list[dict]:
+    """image_to_data → 按 (block, par, line) 聚合；只用 conf≥阈值 的词。"""
+    groups: dict[tuple, dict] = {}
+    n = len(data.get("text") or [])
+    for j in range(n):
+        raw = str((data["text"][j] or "")).strip()
+        if not raw:
+            continue
+        try:
+            conf = float(data["conf"][j])
+        except (TypeError, ValueError):
+            continue
+        if conf < SUBTITLE_MIN_CONF:
+            continue
+        key = (data["block_num"][j], data["par_num"][j], data["line_num"][j])
+        g = groups.setdefault(key, {"words": [], "confs": [], "x0": 10**9, "y0": 10**9, "x1": -1, "y1": -1})
+        g["words"].append(raw)
+        g["confs"].append(conf)
+        l, t = int(data["left"][j]), int(data["top"][j])
+        r, b = l + int(data["width"][j]), t + int(data["height"][j])
+        g["x0"], g["y0"] = min(g["x0"], l), min(g["y0"], t)
+        g["x1"], g["y1"] = max(g["x1"], r), max(g["y1"], b)
+    lines: list[dict] = []
+    for g in groups.values():
+        text = "".join(g["words"])
+        x0 = int(g["x0"] / scale) + x_off
+        x1 = int(g["x1"] / scale) + x_off
+        y0 = int(g["y0"] / scale) + y_off
+        y1 = int(g["y1"] / scale) + y_off
+        lines.append(
+            {
+                "text": text[:80],
+                "cjk": len(_CJK_CHAR.findall(text)),
+                "conf_mean": round(sum(g["confs"]) / max(len(g["confs"]), 1), 1),
+                "box": [x0, y0, x1 - x0, y1 - y0],
+            }
+        )
+    return lines
+
+
+def subtitle_ocr_frame(image) -> dict[str, Any]:
+    """单帧字幕检测：底部带 y∈[0.70,0.95]h，tesseract chi_sim+eng image_to_data。
+
+    行命中：conf≥60 的词合计 ≥4 个 CJK 字、行宽 ≥0.3w、行中心水平居中（±0.15w）。
+    返回 {hit, lines, hit_lines, error}；pytesseract 不可用 → hit=False。
+    """
+    out: dict[str, Any] = {"hit": False, "lines": [], "hit_lines": [], "error": ""}
+    try:
+        import pytesseract
+        from PIL import Image, ImageOps
+    except Exception as e:
+        out["error"] = f"ocr_unavailable:{type(e).__name__}"
+        return out
+    try:
+        im = _to_pil_rgb(image)
+    except Exception:
+        out["error"] = "bad_frame"
+        return out
+    try:
+        w, h = im.size
+        y0 = int(h * SUBTITLE_BAND_Y0)
+        y1 = max(y0 + 1, int(h * SUBTITLE_BAND_Y1))
+        band = im.crop((0, y0, w, y1)).convert("L")
+        scale = 1.0
+        if w < 1000:
+            scale = 1000.0 / float(w)
+            band = band.resize((int(w * scale), int((y1 - y0) * scale)), Image.Resampling.LANCZOS)
+        lines: list[dict] = []
+        # 白字黑边/黑字白底两种极性各跑一次
+        for variant in (band, ImageOps.invert(band)):
+            data = pytesseract.image_to_data(
+                variant, lang="chi_sim+eng", config="--psm 6",
+                output_type=pytesseract.Output.DICT,
+            )
+            lines.extend(_subtitle_lines_from_data(data, scale=scale, x_off=0, y_off=y0))
+        out["lines"] = lines
+        for ln in lines:
+            bx, _by, bw, _bh = ln["box"]
+            cx = bx + bw / 2.0
+            if (
+                ln["cjk"] >= SUBTITLE_MIN_CJK
+                and bw >= SUBTITLE_MIN_WIDTH_RATIO * w
+                and abs(cx - w / 2.0) <= SUBTITLE_CENTER_TOL * w
+            ):
+                out["hit_lines"].append(ln)
+        out["hit"] = bool(out["hit_lines"])
+        return out
+    except Exception as e:
+        out["error"] = f"{type(e).__name__}:{e}"
+        return out
+
+
+def garment_brand_ocr_hit(
+    video_path: str | Path,
+    *,
+    skip_until_frame: int = 0,
+) -> dict[str, Any]:
+    """出片后文字门禁。hit True 时应换 seed 重跑。
+
+    拦截（hit）：
+      · subtitle：底部带横排中文字幕在 ≥2 个连续采样帧出现（kind=subtitle）
+      · brand：衣物躯干 OCR 读出品牌词/长拉丁串（kind=brand，原逻辑）
+    仅记录（不拦）：
+      · 胸口徽标 blob（emblem_log）、店招 OCR（sign_log）
+    skip_until_frame>0（c_hybrid 首帧锚定）：第 0..skip_until_frame 帧不检。
+    返回 {hit, text, frames_checked, error, kind, ...}。
     """
     out: dict[str, Any] = {
         "hit": False,
@@ -1371,6 +1509,10 @@ def garment_brand_ocr_hit(video_path: str | Path) -> dict[str, Any]:
         "frames_checked": 0,
         "error": "",
         "kind": "",
+        "skip_until_frame": int(skip_until_frame or 0),
+        "emblem_log": [],
+        "sign_log": [],
+        "subtitle_frames": [],
     }
     path = Path(video_path) if video_path else None
     if path is None or not path.is_file():
@@ -1393,40 +1535,70 @@ def garment_brand_ocr_hit(video_path: str | Path) -> dict[str, Any]:
         return out
     try:
         n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-        # 采前/中/后三帧（竖屏胸口常在中前段可见）
-        if n <= 0:
-            idxs = [0]
-        elif n == 1:
-            idxs = [0]
+        skip = max(0, int(skip_until_frame or 0))
+        if n <= 1:
+            brand_idxs = {0}
+            sub_idxs = [0]
         else:
-            # 密采样：图标型 logo 常只在若干秒可见；3 点会漏检
             step = max(1, n // 8)
-            idxs = sorted({0, max(0, n - 1), *range(0, n, step)})
+            brand_idxs = {0, n - 1, *range(0, n, step)}
+            sub_step = max(1, n // SUBTITLE_SAMPLE_DIVISOR)
+            sub_idxs = sorted({n - 1, *range(0, n, sub_step)})
+        if skip > 0:
+            brand_idxs = {i for i in brand_idxs if i > skip}
+            sub_idxs = [i for i in sub_idxs if i > skip]
+        idxs = sorted(set(sub_idxs) | brand_idxs)
+        sub_set = set(sub_idxs)
         texts: list[str] = []
+        consecutive = 0
+        run: list[dict] = []
         for i in idxs:
             cap.set(cv2.CAP_PROP_POS_FRAMES, i)
             ok, frame = cap.read()
             if not ok or frame is None:
                 continue
             out["frames_checked"] += 1
-            fr = garment_brand_ocr_frame(frame)
-            if fr.get("text"):
-                texts.append(str(fr["text"]))
-            if fr.get("hit"):
-                out["hit"] = True
-                out["kind"] = "brand"
-                out["text"] = str(fr.get("text") or "chest_emblem_blob")[:200]
-                out["emblem"] = fr.get("emblem") or {}
-                return out
-            # 店招/霓虹乱码：与品牌共用同一换 seed 配额
-            sr = scene_sign_ocr_frame(frame)
-            if sr.get("text"):
-                texts.append("sign:" + str(sr["text"]))
-            if sr.get("hit"):
-                out["hit"] = True
-                out["kind"] = "sign"
-                out["text"] = ("sign:" + str(sr.get("text") or "sign_latin"))[:200]
-                return out
+            if i in sub_set:
+                sr = subtitle_ocr_frame(frame)
+                if sr.get("hit"):
+                    consecutive += 1
+                    best = max(sr["hit_lines"], key=lambda ln: ln["cjk"])
+                    run.append({"frame": i, "text": best["text"], "box": best["box"],
+                                "conf_mean": best["conf_mean"]})
+                    out["subtitle_frames"].append(run[-1])
+                    if consecutive >= SUBTITLE_MIN_CONSECUTIVE:
+                        out["hit"] = True
+                        out["kind"] = "subtitle"
+                        out["text"] = ("subtitle:" + run[-1]["text"])[:200]
+                        out["subtitle_run"] = run[-consecutive:]
+                        return out
+                else:
+                    consecutive = 0
+                    run = []
+            if i in brand_idxs:
+                fr = garment_brand_ocr_frame(frame)
+                if fr.get("text"):
+                    texts.append(str(fr["text"]))
+                emb = fr.get("emblem") or {}
+                if emb.get("hit"):
+                    out["emblem_log"].append({"frame": i, **emb})
+                if fr.get("hit"):
+                    out["hit"] = True
+                    out["kind"] = "brand"
+                    out["text"] = str(fr.get("text") or "")[:200]
+                    return out
+                sg = scene_sign_ocr_frame(frame)
+                if sg.get("text"):
+                    texts.append("sign:" + str(sg["text"]))
+                if sg.get("hit"):
+                    out["sign_log"].append({"frame": i, "text": str(sg.get("text") or "")[:120]})
+        if out["emblem_log"] or out["sign_log"]:
+            logger.info(
+                "text_gate log-only path=%s emblem_frames=%s sign=%s",
+                path.name,
+                [e["frame"] for e in out["emblem_log"]],
+                out["sign_log"][:3],
+            )
         out["text"] = " | ".join(texts)[:200]
         return out
     except Exception as e:

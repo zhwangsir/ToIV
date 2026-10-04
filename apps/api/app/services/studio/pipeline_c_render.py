@@ -251,8 +251,11 @@ def _resolve_sheet_palette_colors(cast: list[Any], style: str | None) -> dict[st
 
 
 
-async def _brand_ocr_after_render(url: str) -> dict:
-    """出片 URL → 本地/临时 mp4 → garment_brand_ocr_hit（含店招）。失败不拦。"""
+async def _brand_ocr_after_render(url: str, skip_until_frame: int = 0) -> dict:
+    """出片 URL → 本地/临时 mp4 → garment_brand_ocr_hit（字幕/衣物品牌字拦；徽标/店招仅记录）。失败不拦。
+
+    skip_until_frame：c_hybrid 首帧锚定时跳过第 0..N 帧（见 ANCHORED_FIRST_FRAME_SKIP_FRAMES）。
+    """
     from app.services.studio.candidate_pick import garment_brand_ocr_hit
     from app.storage import drama_output_root
     import os
@@ -273,7 +276,7 @@ async def _brand_ocr_after_render(url: str) -> dict:
         for root in roots:
             path = root / name
             if path.is_file():
-                return garment_brand_ocr_hit(path)
+                return garment_brand_ocr_hit(path, skip_until_frame=skip_until_frame)
         # 磁盘尚无：尝试拉字节
         try:
             data = await _fetch_bytes(u)
@@ -283,7 +286,7 @@ async def _brand_ocr_after_render(url: str) -> dict:
             tf.write(data)
             tmp = tf.name
         try:
-            return garment_brand_ocr_hit(tmp)
+            return garment_brand_ocr_hit(tmp, skip_until_frame=skip_until_frame)
         finally:
             try:
                 Path(tmp).unlink(missing_ok=True)
@@ -291,7 +294,7 @@ async def _brand_ocr_after_render(url: str) -> dict:
                 pass
 
     if u.startswith("/") and Path(u).is_file():
-        return garment_brand_ocr_hit(u)
+        return garment_brand_ocr_hit(u, skip_until_frame=skip_until_frame)
 
     # Comfy http(s) 或其它：拉字节写临时文件再 OCR
     try:
@@ -303,7 +306,7 @@ async def _brand_ocr_after_render(url: str) -> dict:
         tf.write(data)
         tmp = tf.name
     try:
-        return garment_brand_ocr_hit(tmp)
+        return garment_brand_ocr_hit(tmp, skip_until_frame=skip_until_frame)
     finally:
         try:
             Path(tmp).unlink(missing_ok=True)
@@ -454,7 +457,12 @@ async def render_pipeline_c(
 
         url = await _wait_video_url(client.base_url, prompt_id, request=request)
 
-        ocr = await _brand_ocr_after_render(url)
+        # 首帧锚定段（第 0..N 帧 = first_frame 定妆图/上一镜尾帧）不参与文字门禁
+        from app.services.studio.candidate_pick import ANCHORED_FIRST_FRAME_SKIP_FRAMES
+
+        ocr = await _brand_ocr_after_render(
+            url, skip_until_frame=ANCHORED_FIRST_FRAME_SKIP_FRAMES if ff_name else 0
+        )
         color_hit = False
         color_info: dict = {}
         # 服装主色：期望板岩灰等时出片过黑 → 换 seed
@@ -484,10 +492,16 @@ async def render_pipeline_c(
             hit_text = str(ocr.get("text") or "")[:120]
             kind = str(ocr.get("kind") or "").strip().lower()
             if not kind:
-                kind = "sign" if hit_text.startswith("sign:") else "brand"
-            brand_ocr_hits.append(hit_text if kind == "brand" else (
-                hit_text if hit_text.startswith("sign:") else f"sign:{hit_text}"
-            ))
+                if hit_text.startswith("subtitle:"):
+                    kind = "subtitle"
+                elif hit_text.startswith("sign:"):
+                    kind = "sign"
+                else:
+                    kind = "brand"
+            if kind in ("brand", "subtitle"):
+                brand_ocr_hits.append(hit_text)
+            else:
+                brand_ocr_hits.append(hit_text if hit_text.startswith("sign:") else f"sign:{hit_text}")
             logger.warning(
                 "%s_ocr_reseed shot=%s clip=%s attempt=%s seed=%s text=%r frames=%s",
                 kind,
