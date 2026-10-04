@@ -105,6 +105,28 @@ def test_gray_smear_fails_gate():
         )
 
 
+def test_anime_cel_smooth_not_false_gray():
+    """二次元 cel 平滑压低方差但仍有结构 → 不得误杀。"""
+    base, mask = _synth_face(256)
+    im = Image.open(BytesIO(base)).convert("RGB")
+    edit = im.copy()
+    px = edit.load(); mp = mask.load()
+    w, h = edit.size
+    for y in range(h):
+        for x in range(w):
+            if mp[x, y] >= 96:
+                r, g, b = px[x, y]
+                # 轻度平滑但保留色相与结构
+                px[x, y] = (
+                    int(0.65 * r + 0.35 * 210),
+                    int(0.65 * g + 0.35 * 175),
+                    int(0.65 * b + 0.35 * 150),
+                )
+    buf = BytesIO(); edit.save(buf, format="PNG")
+    info = sheet_svc.assert_expression_no_gray_smear(base, buf.getvalue(), mask, expr_key="expr_0")
+    assert info["edit_var"] >= 80.0, info
+
+
 def test_expr_prompts_match_parent_semantics():
     src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
     assert "真局部 inpaint" in src or "true-inpaint" in src or "VAEEncodeForInpaint" in src

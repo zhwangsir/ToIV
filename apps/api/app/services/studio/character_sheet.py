@@ -5072,11 +5072,17 @@ def assert_expression_no_gray_smear(
     edited: bytes,
     mask: Image.Image | None = None,
     *,
-    min_var_ratio: float = 0.45,
-    min_sat_ratio: float = 0.45,
+    min_var_ratio: float = 0.12,
+    min_sat_ratio: float = 0.25,
+    min_abs_var: float = 80.0,
+    min_abs_sat: float = 0.025,
     expr_key: str = "expr",
 ) -> dict[str, float]:
-    """门禁2：脸部区域无灰色涂抹——局部亮度方差/饱和度不低于底图比例阈值。"""
+    """门禁2：脸部区域无灰色涂抹。
+
+    17:38b：二次元 cel 平滑会压低相对方差，改「绝对低方差/低饱和 + 相对骤降」双条件；
+    均匀灰涂 (var≈0/sat≈0) 仍必拒，正常 anime inpaint 不误杀。
+    """
     bv, bs = _face_region_var_sat(original, mask)
     ev, es = _face_region_var_sat(edited, mask)
     info = {
@@ -5087,12 +5093,19 @@ def assert_expression_no_gray_smear(
         "var_ratio": (ev / bv) if bv > 1e-6 else 1.0,
         "sat_ratio": (es / bs) if bs > 1e-6 else 1.0,
     }
-    if bv > 8.0 and ev + 1e-9 < bv * float(min_var_ratio):
+    # 真灰涂抹：绝对平坦，或相对骤降且绝对值也偏低
+    gray_var = ev < float(min_abs_var) or (
+        bv > 8.0 and ev + 1e-9 < bv * float(min_var_ratio) and ev < 200.0
+    )
+    if gray_var:
         raise CharacterSheetError(
             f"{expr_key}脸部灰涂抹(方差过低) var={ev:.1f}/{bv:.1f} ratio={info['var_ratio']:.2f}",
             status_code=422,
         )
-    if bs > 0.04 and es + 1e-9 < bs * float(min_sat_ratio):
+    gray_sat = es < float(min_abs_sat) or (
+        bs > 0.04 and es + 1e-9 < bs * float(min_sat_ratio) and es < 0.04
+    )
+    if gray_sat:
         raise CharacterSheetError(
             f"{expr_key}脸部灰涂抹(饱和度过低) sat={es:.3f}/{bs:.3f} ratio={info['sat_ratio']:.2f}",
             status_code=422,
@@ -7091,7 +7104,7 @@ async def generate_character_sheet(
                             client=client,
                             ref_image=ref_name,
                             ref_mode="inpaint",
-                            denoise=0.70 if attempt < 2 else 0.78,
+                            denoise=0.55 if attempt < 2 else 0.65,
                             negative_extra=_expr_neg,
                             mask_image=mask_name,
                             grow_mask_by=4,
@@ -7165,8 +7178,19 @@ async def generate_character_sheet(
                     except CharacterSheetError as ge:
                         pick_err = ge
                         logger.warning("expr %s inpaint fail attempt=%s: %s", ek, attempt, ge)
+                        try:
+                            if locals().get("raw"):
+                                (reject_dir / f"{ek}_inpaint_raw_fail_{int(seed or 0)}_a{attempt}.png").write_bytes(
+                                    locals()["raw"]
+                                )
+                            if locals().get("blended"):
+                                (reject_dir / f"{ek}_inpaint_blend_fail_{int(seed or 0)}_a{attempt}.png").write_bytes(
+                                    locals()["blended"]
+                                )
+                        except Exception:
+                            pass
                         dump_rejected_panel(
-                            locals().get("raw") or locals().get("blended"),
+                            locals().get("blended") or locals().get("raw"),
                             seed=seed,
                             panel=ek,
                             gate=_expr_reject_cause(ge),
