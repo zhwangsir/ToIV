@@ -3989,13 +3989,18 @@ _EXPR_VLM_LABEL_TO_KEY = {
 _EXPR_KEY_TO_VLM_LABEL = {v: k for k, v in _EXPR_VLM_LABEL_TO_KEY.items()}
 
 _EXPR_VLM_PROMPT = (
-    "你是表情分类器。看图，把角色面部表情判为下列 6 类之一："
-    "威严、冷酷、沉思、温柔、惊恐、果断。"
-    "只输出一个 JSON 对象，不要 Markdown，不要其它文字。格式："
-    '{"label":"温柔","scores":{"威严":0.05,"冷酷":0.05,"沉思":0.10,"温柔":0.70,"惊恐":0.05,"果断":0.05}}。'
-    "要求：label 必须是 6 类之一；scores 覆盖全部 6 类且为 0~1 浮点，尽量归一。"
-    "温柔=轻柔微笑/闭眼微笑、眉舒展；果断=抿嘴、眼神专注、眉略压；威严=压眉闭嘴；"
-    "冷酷=冷漠斜视；沉思=目光偏下；惊恐=瞪眼张嘴。"
+    "You are an expression classifier for anime character closeups. "
+    "Choose exactly ONE label from: 威严, 冷酷, 沉思, 温柔, 惊恐, 果断. "
+    "Output ONLY one JSON object, no markdown, no extra text. Schema: "
+    '{"label":"<one of six>","scores":{"威严":0,"冷酷":0,"沉思":0,"温柔":0,"惊恐":0,"果断":0}}. '
+    "Fill scores with your confidences (0~1, roughly normalized). "
+    "Do NOT copy any example; judge from the actual face in the image. "
+    "Guide: 威严=lowered/furrowed brows + closed firm mouth; "
+    "冷酷=cold half-lidded eyes looking aside + flat mouth; "
+    "沉思=gaze down + lightly knit brows + closed mouth; "
+    "温柔=relaxed brows + soft/closed-eye smile; "
+    "惊恐=wide eyes + open mouth; "
+    "果断=focused eyes + firm closed mouth + brows slightly lowered."
 )
 
 
@@ -4345,11 +4350,14 @@ async def classify_expression_vlm(
     fname = await client.upload_image(
         image_bytes, f"sheet_expr_vlm_{uuid.uuid4().hex[:10]}.png"
     )
+    # 优先非 FP8：:8262 FP8 需 kernels 包，缺则 execution_error
     backends = (
-        ("Qwen2_VQA", "Qwen3-VL-4B-Instruct-FP8"),
-        ("Qwen2_VQA", "Qwen3-VL-8B-Instruct-FP8"),
-        ("AILab_QwenVL", "Qwen3-VL-4B-Instruct-FP8"),
+        ("Qwen2_VQA", "Qwen3-VL-4B-Instruct"),
+        ("Qwen2_VQA", "Qwen2-VL-7B-Instruct"),
         ("AILab_QwenVL", "Qwen3-VL-4B-Instruct"),
+        ("Qwen2_VQA", "Qwen3-VL-8B-Instruct"),
+        ("AILab_QwenVL", "Qwen3-VL-4B-Instruct-FP8"),
+        ("Qwen2_VQA", "Qwen3-VL-4B-Instruct-FP8"),
     )
     last_err: Exception | None = None
     for backend, model in backends:
