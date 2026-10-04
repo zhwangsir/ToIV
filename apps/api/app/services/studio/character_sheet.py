@@ -2048,10 +2048,11 @@ def _fit_expr_cell_face_fill(
     *,
     target_face_height_frac: float = 0.58,
 ) -> tuple[Image.Image, tuple[int, int]]:
-    """21:30：表情格按脸框统一尺度 cover 铺满。
+    """21:30：表情格按脸框统一尺度 cover 铺满（含嘴下巴）。
 
-    相对目标格纵横比裁窗（含嘴+下巴），再缩放到恰好 iw×ih；禁止贴顶 cover 把嘴裁出格外。
-    返回 (fitted_rgba, (x,y))，fitted 尺寸正好等于 (iw,ih)，四边无垫边露白。
+    相对目标格纵横比在**源图内**取最大同比例窗并缩放到 iw×ih。
+    禁止垫棚灰 letterbox（21:45：宽格按脸高算窗超源图边会左右露灰条）。
+    脸偏大时宁可 face_frac 略高，也不垫边。
     """
     x, y, tw, th = [int(v) for v in box]
     tw = max(8, tw)
@@ -2062,79 +2063,59 @@ def _fit_expr_cell_face_fill(
     bb = _expr_face_bbox_of(src)
     tgt = max(0.50, min(0.70, float(target_face_height_frac)))
 
-    def _pad_canvas(im: Image.Image, pad: int, fill=(220, 220, 224, 255)) -> Image.Image:
-        if pad <= 0:
-            return im
-        canvas = Image.new("RGBA", (im.width + 2 * pad, im.height + 2 * pad), fill)
-        canvas.paste(im, (pad, pad), im)
-        return canvas
+    # 源图内最大同纵横比窗（零垫边）
+    if sw / float(max(1, sh)) >= aspect:
+        ch0 = float(sh)
+        cw0 = ch0 * aspect
+    else:
+        cw0 = float(sw)
+        ch0 = cw0 / aspect
+    cw0 = min(cw0, float(sw))
+    ch0 = min(ch0, float(sh))
 
     if bb is None:
-        # 无脸：按目标纵横比中心偏上裁满
-        if sw / float(sh) > aspect:
-            ch = sh
-            cw = max(8, int(round(ch * aspect)))
-        else:
-            cw = sw
-            ch = max(8, int(round(cw / aspect)))
-        left = max(0, (sw - cw) // 2)
-        top = max(0, min(sh - ch, int(sh * 0.08)))
-        crop = src.crop((left, top, left + cw, top + ch))
-        crop = crop.resize((tw, th), Image.Resampling.LANCZOS)
+        left = max(0.0, (sw - cw0) / 2.0)
+        top = max(0.0, min(float(sh) - ch0, sh * 0.06))
+        crop = src.crop(
+            (int(left), int(top), int(left + cw0), int(top + ch0))
+        ).resize((tw, th), Image.Resampling.LANCZOS)
+        if crop.mode == "RGBA":
+            solid = Image.new("RGBA", crop.size, (220, 220, 224, 255))
+            solid.paste(crop, (0, 0), crop)
+            crop = solid
         return crop, (x, y)
 
-    fx1, fy1, fx2, fy2 = bb
+    fx1, fy1, fx2, fy2 = [float(v) for v in bb]
     fw = max(8.0, fx2 - fx1)
     fh = max(8.0, fy2 - fy1)
     fcx = (fx1 + fx2) / 2.0
-    chin_y = fy2 + 0.12 * fh
+    chin_y = fy2 + 0.10 * fh
     mouth_y = fy1 + 0.72 * fh
-    # 裁窗高度：使脸高约占格高 tgt；宽度按格纵横比
-    crop_h = max(fh / tgt, fw * 1.15 / max(aspect, 0.5), 64.0)
-    crop_w = crop_h * aspect
-    # 竖直：脸顶约 12%；嘴与下巴必须落入窗内
+
+    # 期望窗：脸高≈tgt；若超源图能力则退回最大零垫边窗
+    want_h = max(fh / tgt, fw * 1.05 / max(aspect, 0.5), 64.0)
+    want_w = want_h * aspect
+    if want_w <= sw + 1e-6 and want_h <= sh + 1e-6:
+        crop_w, crop_h = want_w, want_h
+    else:
+        # 不能垫边：用最大窗；face_frac 可能 > tgt
+        crop_w, crop_h = cw0, ch0
+
+    # 放置：脸顶约 10–14%；嘴/下巴必须进窗
     top = fy1 - 0.12 * crop_h
     if chin_y > top + crop_h * 0.96:
         top = chin_y - crop_h * 0.96
     if mouth_y > top + crop_h * 0.90:
         top = mouth_y - crop_h * 0.90
     left = fcx - crop_w / 2.0
-    # 不足则垫棚灰（非近白 245），保证能裁满
-    need_pad = 0
-    if left < 0 or top < 0 or left + crop_w > sw or top + crop_h > sh:
-        need_pad = int(
-            math.ceil(
-                max(
-                    -left,
-                    -top,
-                    left + crop_w - sw,
-                    top + crop_h - sh,
-                    0,
-                )
-            )
-        ) + 8
-    if need_pad > 0:
-        src = _pad_canvas(src, need_pad)
-        sw, sh = src.size
-        left += need_pad
-        top += need_pad
-        fx1 += need_pad
-        fy1 += need_pad
-        fx2 += need_pad
-        fy2 += need_pad
-        fcx += need_pad
-        chin_y += need_pad
-        mouth_y += need_pad
-    # 再夹紧
     left = max(0.0, min(float(sw) - crop_w, left))
     top = max(0.0, min(float(sh) - crop_h, top))
-    # 若仍不够大，缩小 crop 到画布
-    if crop_w > sw or crop_h > sh:
-        scale = min(sw / crop_w, sh / crop_h)
-        crop_w *= scale
-        crop_h *= scale
-        left = max(0.0, min(float(sw) - crop_w, fcx - crop_w / 2.0))
-        top = max(0.0, min(float(sh) - crop_h, fy1 - 0.12 * crop_h))
+    # 若仍因夹紧导致嘴出界，尽量上移/下移已夹紧范围
+    if mouth_y > top + crop_h * 0.92:
+        top = max(0.0, min(float(sh) - crop_h, mouth_y - crop_h * 0.88))
+    if chin_y > top + crop_h * 0.98:
+        top = max(0.0, min(float(sh) - crop_h, chin_y - crop_h * 0.96))
+
     x0 = int(round(left))
     y0 = int(round(top))
     x1 = int(round(left + crop_w))
@@ -2144,11 +2125,10 @@ def _fit_expr_cell_face_fill(
     x1 = max(x0 + 2, min(sw, x1))
     y1 = max(y0 + 2, min(sh, y1))
     crop = src.crop((x0, y0, x1, y1)).resize((tw, th), Image.Resampling.LANCZOS)
-    # 强制不透明，避免贴格时露出 grid 近白底
     if crop.mode == "RGBA":
-        bg = Image.new("RGBA", crop.size, (220, 220, 224, 255))
-        bg.paste(crop, (0, 0), crop)
-        crop = bg
+        solid = Image.new("RGBA", crop.size, (220, 220, 224, 255))
+        solid.paste(crop, (0, 0), crop)
+        crop = solid
     return crop, (x, y)
 
 
