@@ -803,6 +803,368 @@ def assert_design_notes_ok(text: str) -> None:
         )
 
 
+# ---------------------------------------------------------------------------
+# 古风(ancient_realistic)服装规格:中文 spec → 加权英文 tag(DreamShaper SD1.5 读不懂中文)
+# 仅供 ancient_realistic 分支使用;无颜色 spec 时不加负向、不加色门禁。
+# ---------------------------------------------------------------------------
+# (中文关键字, 英文色名, 拼音, 次级英文色名, 目标 hex);长词在前,先匹配先占位
+_ANCIENT_COLOR_MAP: tuple[tuple[str, str, str, str, str], ...] = (
+    ("藏青", "navy blue", "zangqing", "dark navy", "#233A5E"),
+    ("天青", "celadon sky blue", "tianqing", "pale blue celadon", "#8FBCC8"),
+    ("竹青", "bamboo green teal", "zhuqing", "teal green", "#3C8C78"),
+    ("青绿", "teal green", "qinglv", "teal green", "#3C8C78"),
+    ("月白", "pale moon white", "yuebai", "very pale blue white", "#D6E4EA"),
+    ("鹅黄", "pale goose yellow", "ehuang", "light yellow", "#F0DC82"),
+    ("胭脂", "rouge red", "yanzhi", "carmine red", "#B03A48"),
+    ("朱红", "vermilion red", "zhuhong", "vermilion", "#C83C23"),
+    ("绯", "crimson red", "feise", "crimson", "#B83A3A"),
+    ("青", "teal", "qingse", "cyan teal", "#3A8C8C"),
+    ("碧", "jade green", "bise", "jade green", "#3FA58A"),
+    ("绿", "green", "lvse", "soft green", "#4A8A4A"),
+    ("蓝", "blue", "lanse", "soft blue", "#3A5F9A"),
+    ("红", "red", "hongse", "red", "#B03030"),
+    ("粉", "pink", "fense", "soft pink", "#E8A0B0"),
+    ("紫", "purple", "zise", "lavender purple", "#7A4E9A"),
+    ("黄", "yellow", "huangse", "yellow", "#E0C050"),
+    ("橙", "orange", "chengse", "orange", "#D8823A"),
+    ("褐", "brown", "hese", "brown", "#7A5434"),
+    ("棕", "brown", "zongse", "brown", "#7A5434"),
+    ("灰", "gray", "huise", "gray", "#8A8A8E"),
+    ("白", "white", "baise", "white", "#EDEDE8"),
+    ("玄", "black", "xuanse", "black", "#1A1A1E"),
+    ("黑", "black", "heise", "black", "#1A1A1E"),
+    ("金", "gold", "jinse", "golden", "#D4AF37"),
+)
+# 服装名词:颜色词后 0–3 字内须出现其一,才算「衣服颜色」(排除 黑发/青丝/金簪)
+_ANCIENT_GARMENT_NOUNS = "衣裙袍衫襦袄裳褂服纱罗绸锦缎帔氅装褙"
+# (中文, 英文名词);先匹配先占位
+_ANCIENT_GARMENT_EN: tuple[tuple[str, str], ...] = (
+    ("襦裙", "ruqun dress"),
+    ("衣裙", "ruqun dress"),
+    ("褙子", "beizi robe"),
+    ("长袍", "robe"),
+    ("袍", "robe"),
+    ("裙", "ruqun dress"),
+    ("衫", "shan blouse"),
+    ("袄", "ao jacket"),
+)
+# (中文, 加权英文 tag, 是否发饰)
+_ANCIENT_ACCESSORY_MAP: tuple[tuple[str, str, bool], ...] = (
+    ("木簪", "(wooden hairpin:1.2)", True),
+    ("玉簪", "(jade hairpin:1.2)", True),
+    ("银簪", "(silver hairpin:1.2)", True),
+    ("金簪", "(gold hairpin:1.2)", True),
+    ("步摇", "(buyao dangling hairpin:1.1)", True),
+    ("簪", "(simple hairpin:1.1)", True),
+    ("发带", "(ribbon hair band:1.1)", True),
+    ("油纸伞", "(oil-paper umbrella:1.2), chinese paper parasol", False),
+    ("纸伞", "(oil-paper umbrella:1.2), chinese paper parasol", False),
+    ("伞", "(chinese paper umbrella:1.1)", False),
+    ("团扇", "(round silk fan:1.1)", False),
+    ("折扇", "(folding fan:1.1)", False),
+    ("药箱", "(wooden medicine box:1.1)", False),
+    ("药篓", "(bamboo herb basket:1.1)", False),
+    ("玉佩", "(jade pendant:1.1)", False),
+    ("香囊", "(embroidered sachet:1.1)", False),
+    ("面纱", "(thin face veil:1.1)", False),
+    ("斗笠", "(bamboo hat:1.1)", False),
+)
+_ANCIENT_HAIR_MAP: tuple[tuple[str, str], ...] = (
+    ("双髻", "double hair buns"),
+    ("低髻", "low hair bun"),
+    ("发髻", "hair bun"),
+    ("髻", "hair bun"),
+    ("马尾", "long ponytail"),
+    ("披发", "loose long black hair"),
+    ("垂鬟", "half-up hairstyle"),
+    ("长发", "long black hair"),
+    ("短发", "short black hair"),
+)
+_ANCIENT_ROLE_MAP: tuple[tuple[str, str], ...] = (
+    ("医女", "herbalist physician girl"),
+    ("大夫", "herbalist physician"),
+    ("江南", "jiangnan water town maiden"),
+)
+_ANCIENT_BLACK_GOLD_NEGATIVE = (
+    "black robe, black clothing, black hanfu, gold trim, gold embroidery, "
+    "gold hair ornament, gold headdress, golden crown, ornate gold hairpin"
+)
+_CJK_RUN_RE = re.compile(r"[\u3000-\u303f\u3400-\u9fff\uff00-\uffef]+")
+
+
+def _ancient_spec_text(meta: SheetMeta) -> str:
+    """古风 spec 原文(不含自动设计说明,避免「深底金字」等卡面文案被当成服装色)。"""
+    return " ".join(
+        s for s in ((meta.visual_prompt or ""), (meta.description or ""), (meta.role or "")) if s
+    )
+
+
+def extract_ancient_costume_spec(meta: SheetMeta) -> dict[str, Any]:
+    """确定性抽取古风 spec:衣服颜色/服装名词/饰品/发型/身份 → 英文 tag。"""
+    text = _ancient_spec_text(meta)
+    garment_re = f"[{_ANCIENT_GARMENT_NOUNS}]"
+    colors: list[dict[str, str]] = []
+    taken: list[tuple[int, int]] = []
+    for zh, en, py, alt, hx in _ANCIENT_COLOR_MAP:
+        for m in re.finditer(re.escape(zh) + r"色?[^\s,，。;；、]{0,3}?" + garment_re, text):
+            if any(a <= m.start() < b for a, b in taken):
+                continue
+            taken.append((m.start(), m.start() + len(zh)))
+            if all(c["zh"] != zh for c in colors):
+                colors.append({"zh": zh, "en": en, "pinyin": py, "alt": alt, "hex": hx})
+    garment_zh, garment_en = "", "hanfu dress"
+    for zh, en in _ANCIENT_GARMENT_EN:
+        if zh in text:
+            garment_zh, garment_en = zh, en
+            break
+    acc_tags: list[str] = []
+    hair_acc: list[str] = []
+    acc_zh: list[str] = []
+    rest = text
+    for zh, tag, is_hair in _ANCIENT_ACCESSORY_MAP:
+        if zh in rest:
+            rest = rest.replace(zh, " ")
+            acc_zh.append(zh)
+            acc_tags.append(tag)
+            if is_hair:
+                hair_acc.append(tag)
+    hair = ""
+    for zh, en in _ANCIENT_HAIR_MAP:
+        if zh in text:
+            hair = en
+            break
+    if not hair and hair_acc:
+        hair = "simple low hair bun"
+    roles = [en for zh, en in _ANCIENT_ROLE_MAP if zh in text]
+    age = ""
+    m_age = re.search(r"(?:约|~|～)?\s*(\d{2})\s*(?:岁|years)", text) or re.search(r"[~～约](\d{2})\b", text)
+    if m_age:
+        age = f"{m_age.group(1)} years old young woman"
+    black_gold = any(c["en"] in ("black", "gold") for c in colors) or any(
+        ("金" in z or "玄" in z) for z in acc_zh
+    )
+    tags: list[str] = []
+    if colors:
+        c0 = colors[0]
+        tags.append(f"({c0['en']} {c0['pinyin']} {garment_en}:1.3)")
+        tags.append(f"({c0['alt']} colored hanfu:1.2)")
+        for c in colors[1:3]:
+            tags.append(f"({c['en']} accents:1.1)")
+    tags.extend(acc_tags)
+    if hair:
+        tags.append(hair)
+    tags.extend(roles)
+    if age:
+        tags.append(age)
+    return {
+        "colors": colors,
+        "garment_zh": garment_zh,
+        "garment_en": garment_en,
+        "accessories_zh": acc_zh,
+        "accessory_tags": acc_tags,
+        "hair_accessory_tags": hair_acc,
+        "hair": hair,
+        "tags": tags,
+        "has_any": bool(tags),
+        "black_gold": black_gold,
+    }
+
+
+def ancient_spec_negative(meta: SheetMeta) -> str:
+    """spec 有衣服颜色且非黑/金 → 负向压黑袍金边金发饰;否则空。"""
+    if meta.style != "ancient_realistic":
+        return ""
+    spec = extract_ancient_costume_spec(meta)
+    if not spec["colors"] or spec["black_gold"]:
+        return ""
+    return _ANCIENT_BLACK_GOLD_NEGATIVE
+
+
+def ancient_spec_target_hex(meta: SheetMeta) -> str | None:
+    """古风色门禁目标色;spec 无衣服颜色 → None(不门禁)。"""
+    if meta.style != "ancient_realistic":
+        return None
+    spec = extract_ancient_costume_spec(meta)
+    return spec["colors"][0]["hex"] if spec["colors"] else None
+
+
+# 当前出卡的古风 spec 负向;仅 ancient_realistic 的图构建读取(costume 单品走 anime ckpt 不受影响)
+_ANCIENT_SPEC_NEG_CTX: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "toiv_ancient_spec_neg", default=""
+)
+
+
+def _with_ancient_spec_negative(neg: str, style: str) -> str:
+    extra = _ANCIENT_SPEC_NEG_CTX.get() if style == "ancient_realistic" else ""
+    return f"{neg}, {extra}" if extra and extra not in neg else neg
+
+
+def ancient_costume_force(meta: SheetMeta) -> str:
+    """古风服饰格总述(替代现代雨夜 _COSTUME_FORCE)。"""
+    spec = extract_ancient_costume_spec(meta)
+    c0 = spec["colors"][0] if spec["colors"] else None
+    col = f"{c0['en']} " if c0 else ""
+    parts = [f"ONE {col}{spec['garment_en']}", f"ONE {col}silk waist sash"]
+    parts.append(
+        "ONE " + (spec["hair_accessory_tags"][0].strip("()").split(":")[0] if spec["hair_accessory_tags"] else "simple hairpin")
+    )
+    if any("umbrella" in t for t in spec["accessory_tags"]):
+        parts.append("ONE chinese oil-paper umbrella")
+    else:
+        parts.append("ONE round silk hand fan")
+    neg = "" if spec["black_gold"] or not c0 else ", no black robe, no gold trim, no gold ornament"
+    return (
+        "overhead flat lay product photography, traditional Chinese costume pieces laid flat, "
+        "ONLY these items: " + ", ".join(parts)
+        + ", no person, no face, no mannequin, no raincoat, no modern clothing" + neg
+    )
+
+
+def ancient_spec_palette(meta: SheetMeta, colors: list[str]) -> list[str]:
+    """古风色板:肤色 + spec 衣色在前;spec 非黑金时剔除近金色。无 spec 色原样返回。"""
+    sp = extract_ancient_costume_spec(meta)
+    if not sp["colors"]:
+        return list(colors)
+    spec_hex = [c["hex"] for c in sp["colors"]]
+    rest = [
+        c for c in colors
+        if c not in spec_hex and c != "#E8C4A8"
+        and (sp["black_gold"] or _hex_dist(c, "#D4AF37") >= 90)
+    ]
+    return ["#E8C4A8"] + spec_hex + rest
+
+
+def _strip_cjk_for_sd(text: str) -> str:
+    out = _CJK_RUN_RE.sub(", ", text or "")
+    # 去掉中文剥离后残留的纯数字/标点碎片(如「约20岁」→「20」)
+    frags = [f.strip() for f in out.split(",")]
+    frags = [f for f in frags if f and not re.fullmatch(r"[\d\s~～.\-+]+", f)]
+    return ", ".join(frags)
+
+
+def ancient_costume_items(meta: SheetMeta) -> tuple[tuple[str, str], ...]:
+    """古风服饰单品:spec 有颜色/饰品时按 spec 改写(键名不变,沿用单品惩罚/ckpt 路由)。"""
+    spec = extract_ancient_costume_spec(meta)
+    if not spec["colors"] and not spec["accessory_tags"]:
+        return _COSTUME_ITEMS_ANCIENT
+    bg = "solid seamless medium light gray background (#C8C8CE), studio lighting"
+    no_p = "no person, no face, no hands, no mannequin, no model wearing clothes, no text"
+    c0 = spec["colors"][0] if spec["colors"] else None
+    col = f"{c0['en']} {c0['alt']}" if c0 else "soft muted"
+    neg_bg = "" if spec["black_gold"] or not c0 else ", no black fabric, no gold trim, no gold embroidery"
+    items: dict[str, str] = dict(_COSTUME_ITEMS_ANCIENT)
+    if c0:
+        items["beizi"] = (
+            f"e-commerce flat lay product photo, garment only, ONE traditional Chinese {spec['garment_en']} "
+            f"laid flat open on table, {col} silk, entire garment {c0['en']} colorway, "
+            f"long wide sleeves spread left and right, no body inside, empty garment shape, "
+            f"fills most of frame, {bg}, {no_p}, no raincoat, no modern jacket{neg_bg}"
+        )
+        items["jiaoling"] = (
+            f"e-commerce flat lay product photo, garment only, ONE traditional Chinese cross-collar "
+            f"jiaoling top laid flat open like clothing catalog, {col} silk, wide sleeves, "
+            f"no body inside, empty garment, fills most of frame, {bg}, {no_p}, no hoodie, no zipper{neg_bg}"
+        )
+        items["sash"] = (
+            f"product still life flat lay, accessory only, ONE silk waist sash belt for hanfu, "
+            f"{col} ribbon coiled neatly on table, no person wearing it, {bg}, no person, no waist, no text{neg_bg}"
+        )
+    hair_tag = next((t for t in spec["hair_accessory_tags"]), "")
+    if hair_tag:
+        items["hairpin"] = (
+            f"product still life, accessory only, ONE {hair_tag.strip('()').split(':')[0]} "
+            f"isolated on table, catalog photo, {bg}, no person, no hair, no head, no face, no text"
+            + ("" if "gold" in hair_tag else ", no gold ornament")
+        )
+    if any("umbrella" in t for t in spec["accessory_tags"]):
+        # 键名仍为 fan(单品惩罚/路由沿用),内容按 spec 改为油纸伞
+        items["fan"] = (
+            "product still life, accessory only, ONE open chinese oil-paper umbrella, "
+            "bamboo ribs and wooden handle, painted paper canopy, isolated object, "
+            f"{bg}, no person, no hand holding, no plastic, no transparent vinyl, no text"
+        )
+    return tuple((k, items[k]) for k, _ in _COSTUME_ITEMS_ANCIENT)
+
+
+# 古风 spec 色门禁阈值(主立绘 + 三视图躯干 ROI)
+SPEC_COLOR_MAX_HUE_DEG = 40.0  # 彩色目标:像素色相距目标 ≤40° 视为贴近
+SPEC_COLOR_MIN_NEAR_FRAC = 0.25  # 服装像素中贴近目标色的占比下限
+SPEC_COLOR_MAX_DARK_FRAC = 0.45  # 近黑像素(V<0.20)占比上限(防黑袍)
+SPEC_COLOR_ACHROMATIC_MAX_DIST = 110  # 白/灰/黑目标:主色 L1 距离上限
+
+
+def _garment_roi_pixels(data: bytes) -> list[tuple[int, int, int]]:
+    """与 _panel_garment_dominant_hex 同 ROI/背景/肤色规则取服装像素。"""
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    corners = [img.getpixel((2, 2)), img.getpixel((w - 3, 2)), img.getpixel((2, h - 3)), img.getpixel((w - 3, h - 3))]
+    bg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
+    crop = img.crop((int(w * 0.22), int(h * 0.28), int(w * 0.78), int(h * 0.78)))
+    small = crop.resize((48, 48), Image.Resampling.BOX)
+    out: list[tuple[int, int, int]] = []
+    for r, g, b in small.getdata():
+        if abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) < 22:
+            continue
+        if min(r, g, b) > 235:
+            continue
+        if 90 < r < 245 and 60 < g < 210 and 45 < b < 190 and r >= g - 5 and g >= b - 15:
+            continue
+        out.append((r, g, b))
+    return out
+
+
+def garment_spec_color_stats(data: bytes, target: str) -> dict[str, Any]:
+    px = _garment_roi_pixels(data)
+    tr, tg, tb = (int(target[i : i + 2], 16) / 255.0 for i in (1, 3, 5))
+    th, ts, _tv = colorsys.rgb_to_hsv(tr, tg, tb)
+    n = len(px)
+    dark = near = 0
+    for r, g, b in px:
+        hh, ss, vv = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+        if vv < 0.20:
+            dark += 1
+            continue
+        if ss >= 0.15 and vv >= 0.18:
+            d = abs(hh - th) * 360.0
+            if min(d, 360.0 - d) <= SPEC_COLOR_MAX_HUE_DEG:
+                near += 1
+    return {
+        "n": n,
+        "dark_frac": (dark / n) if n else 1.0,
+        "near_frac": (near / n) if n else 0.0,
+        "dominant": _panel_garment_dominant_hex(data),
+        "chromatic": ts >= 0.2,
+    }
+
+
+def assert_garment_near_spec_color(data: bytes, target: str, *, label: str = "主立绘") -> dict[str, Any]:
+    """古风:服装主色须贴近 spec 颜色(参照 anime 板岩灰门禁);不过 → 422 重出(不着色)。"""
+    st = garment_spec_color_stats(data, target)
+    if st["n"] < 40:
+        raise CharacterSheetError(f"颜色门禁失败:{label}无法取服装像素", status_code=422)
+    if st["chromatic"]:
+        if st["dark_frac"] > SPEC_COLOR_MAX_DARK_FRAC:
+            raise CharacterSheetError(
+                f"颜色门禁失败:{label}服装近黑占比{st['dark_frac']:.2f}>{SPEC_COLOR_MAX_DARK_FRAC}"
+                f"(主色{st['dominant']}),须 spec 色{target},重出",
+                status_code=422,
+            )
+        if st["near_frac"] < SPEC_COLOR_MIN_NEAR_FRAC:
+            raise CharacterSheetError(
+                f"颜色门禁失败:{label}服装贴近 spec 色{target}占比{st['near_frac']:.2f}<"
+                f"{SPEC_COLOR_MIN_NEAR_FRAC}(主色{st['dominant']}),重出",
+                status_code=422,
+            )
+        return st
+    hx = st["dominant"]
+    if not hx or _hex_dist(hx, target) > SPEC_COLOR_ACHROMATIC_MAX_DIST:
+        raise CharacterSheetError(
+            f"颜色门禁失败:{label}服装主色{hx}距 spec 色{target}>{SPEC_COLOR_ACHROMATIC_MAX_DIST},重出",
+            status_code=422,
+        )
+    return st
+
+
 def build_design_notes(meta: SheetMeta) -> str:
     """生成 3–5 行中文设计说明;已有足够行数则沿用。"""
     raw = (meta.design_notes or "").strip()
@@ -820,9 +1182,24 @@ def build_design_notes(meta: SheetMeta) -> str:
     desc = (meta.description or "").strip()
     style_zh = "古风写实" if meta.style == "ancient_realistic" else "二次元"
     if meta.style == "ancient_realistic":
+        if not (meta.role or _guess_field(meta.description, "身份")):
+            # 古风不沿用现代默认身份「便利店员」
+            _txt = _ancient_spec_text(meta)
+            role = next((z for z in ("医女", "大夫") if z in _txt), "古风角色")
+        _sp = extract_ancient_costume_spec(meta)
+        if _sp["colors"] or _sp["accessories_zh"]:
+            _col = "/".join(c["zh"] for c in _sp["colors"]) or "主立绘同色"
+            _acc = "、".join(_sp["accessories_zh"])
+            _axis = (
+                f"视觉主轴为{_col}色{_sp['garment_zh'] or '古装'}"
+                + (f"，配{_acc}" if _acc else "")
+                + "，黑发；服装配色以角色设定为准。"
+            )
+        else:
+            _axis = "视觉主轴为交领汉服/齐胸襦裙或水墨写实古装，黑发；服装配色以主立绘为准。"
         auto = [
             f"{name}：同一人古风写实变体，身份为{role}，性格{personality}。",
-            "视觉主轴为交领汉服/齐胸襦裙或水墨写实古装，黑发，深底金字设定卡。",
+            _axis,
             "三视图与表情均以主立绘为同一人参考，统一古装与纯色深底，保证跨镜一致。",
             f"本卡风格滤镜为{style_zh}；服饰拆解为古风单品，禁止雨衣/卫衣/便利店等现代装。",
         ]
@@ -869,6 +1246,14 @@ def _character_base(meta: SheetMeta) -> str:
                 low = base.lower()
         base = _re.sub(r",\s*,", ", ", base).strip(" ,")
         low = base.lower()
+        _spec = extract_ancient_costume_spec(meta)
+        if _spec["has_any"]:
+            # DreamShaper(SD1.5) 读不懂中文:spec 已确定性映射为加权英文 tag,去掉中文残留
+            _en = _strip_cjk_for_sd(base) or "young East Asian woman"
+            return (
+                f"{', '.join(_spec['tags'])}, {_en}, traditional Chinese hanfu, "
+                "silk wide sleeves, no raincoat, no modern clothing"
+            )
         if "hanfu" not in low and "古装" not in base and "襦裙" not in base:
             base = (
                 f"{base}, traditional Chinese hanfu, cross-collar jiaoling robe, "
@@ -906,11 +1291,28 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
     )
     solo = "1girl, solo, single female only, alone, no other people, no male"
     if style == "ancient_realistic":
-        outfit = (
-            "same traditional Chinese hanfu, cross-collar robe, qi-xiong ruqun, "
-            "silk wide sleeves, no raincoat, no modern jacket"
-        )
-        head_bit = "hair ornaments optional, face fully visible"
+        _spec = extract_ancient_costume_spec(meta)
+        if _spec["colors"]:
+            _c0 = _spec["colors"][0]
+            outfit = (
+                f"same ({_c0['en']} {_c0['pinyin']} {_spec['garment_en']}:1.3), "
+                f"{_c0['alt']} traditional Chinese hanfu, silk wide sleeves, "
+                "no raincoat, no modern jacket"
+            )
+            same_outfit = f"identical {_c0['en']} {_spec['garment_en']} style and color as main portrait"
+        else:
+            outfit = (
+                "same traditional Chinese hanfu, cross-collar robe, qi-xiong ruqun, "
+                "silk wide sleeves, no raincoat, no modern jacket"
+            )
+            same_outfit = "identical hanfu outfit style and color as main portrait"
+        if _spec["hair"] or _spec["hair_accessory_tags"]:
+            head_bit = ", ".join(
+                [t for t in [_spec["hair"], *_spec["hair_accessory_tags"]] if t]
+                + ["no other hair ornaments", "face fully visible"]
+            )
+        else:
+            head_bit = "simple black hair bun, minimal plain hair accessories, face fully visible"
         back_head = "ONLY back of head and hair bun, NO face NO eyes"
     else:
         outfit = (
@@ -922,6 +1324,7 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
         )
         head_bit = "hood DOWN face fully visible"
         back_head = "ONLY back of head and hood, NO face NO eyes"
+        same_outfit = "identical hooded raincoat style and color as main portrait"
     prompts: dict[str, str] = {
         "portrait": (
             f"{solo}, {base}, full body standing portrait of {name}, facing camera, "
@@ -933,7 +1336,7 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
             f"{solo}, {base}, ONE figure only, front view full body turnaround of {name}, orthographic, "
             f"adult woman 165cm proportions, long legs, {head_bit}, "
             f"jet black hair, {outfit}, standing straight, "
-            f"identical hooded raincoat style and color as main portrait, plain chest no badge no spiral, "
+            f"{same_outfit}, plain chest no badge no spiral, "
             f"feet on ground line, figure fills frame height, single person only, empty background, {solid}, {suf}"
         ),
         "side": (
@@ -991,6 +1394,9 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
         ),
         "costume": f"{_COSTUME_FORCE}, {suf}",
     }
+    if style == "ancient_realistic":
+        # 古风:服饰格按 spec 单品(禁现代雨夜五件);表情格去掉雨衣措辞
+        prompts["costume"] = f"{ancient_costume_force(meta)}, {suf}"
     for i, expr in enumerate(_EXPR_PROMPTS):
         hair_bit = (
             "chin-length short jet black hair, hair tips end at chin line, NOT past chin, NOT past shoulders, "
@@ -1011,6 +1417,11 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
             f"NO second person, no caption, no labels, "
             f"{solid}, {suf}"
         )
+    if style == "ancient_realistic":
+        for _k in [k for k in prompts if k.startswith("expr_")]:
+            prompts[_k] = prompts[_k].replace(
+                "bare raincoat fabric only", "bare garment fabric only"
+            )
     return prompts
 
 
@@ -2820,9 +3231,13 @@ def compose_character_sheet(
         colors = _extract_palette(portrait, style=meta.style)
     # 古风强制含肤色+金色;二次元强制含肤色+浅灰(防全黑)
     if meta.style == "ancient_realistic":
-        for must in ("#E8C4A8", "#D4AF37"):
-            if must not in colors:
-                colors = [must] + [c for c in colors if c != must]
+        if extract_ancient_costume_spec(meta)["colors"]:
+            # 色板跟 spec 衣色走;非黑金 spec 剔除近金色(卡面深底金字主题不变)
+            colors = ancient_spec_palette(meta, colors)
+        else:
+            for must in ("#E8C4A8", "#D4AF37"):
+                if must not in colors:
+                    colors = [must] + [c for c in colors if c != must]
     else:
         for must in ("#E8C4A8", "#D4D3D8"):
             if must not in colors:
@@ -7703,6 +8118,7 @@ def _build_sheet_graph(
     from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 
     neg = negative or _STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"])
+    neg = _with_ancient_spec_negative(neg, style)
     pl = prompt.lower()
     if (
         "product still life" in pl
@@ -7785,7 +8201,7 @@ def _build_ipa_graph(
 ) -> dict:
     from app.workflows.ipadapter import IPAdapterTxt2ImgParams, build_ipadapter_txt2img_graph
 
-    neg = _STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"])
+    neg = _with_ancient_spec_negative(_STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"]), style)
     kw: dict[str, Any] = dict(
         positive=prompt,
         ref_image=ref_image,
@@ -7915,7 +8331,7 @@ def _build_img2img_graph(
 ) -> dict:
     from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 
-    neg = _STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"])
+    neg = _with_ancient_spec_negative(_STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"]), style)
     if negative_extra:
         neg = f"{neg}, {negative_extra}"
     pl = prompt.lower()
@@ -8388,6 +8804,7 @@ async def generate_character_sheet(
     meta.design_notes = build_design_notes(meta)
 
     prompts = build_panel_prompts(meta)
+    _ANCIENT_SPEC_NEG_CTX.set(ancient_spec_negative(meta))
     panels: dict[str, bytes] = dict(panels_override or {})
     override_keys: set[str] = set(panels.keys())  # 17:47：母版注入格跳过一切 panel 门禁
     _expr_lock_meta: dict[str, dict] = {
@@ -8586,6 +9003,19 @@ async def generate_character_sheet(
                                 color_e,
                             )
                             continue
+                elif meta.style == "ancient_realistic" and ancient_spec_target_hex(meta):
+                    try:
+                        assert_garment_near_spec_color(
+                            panels["portrait"], ancient_spec_target_hex(meta), label="主立绘"
+                        )
+                    except CharacterSheetError as color_e:
+                        last_err = color_e
+                        logger.warning(
+                            "portrait ancient spec color gate fail attempt=%s: %s; retry seed",
+                            attempt,
+                            color_e,
+                        )
+                        continue
                 break
             except CharacterSheetError as e:
                 last_err = e
@@ -8648,7 +9078,7 @@ async def generate_character_sheet(
                         panels["costume"],
                         portrait=panels.get("portrait"),
                         front=panels.get("front"),
-                        n=len(_COSTUME_ITEMS_ANCIENT if meta.style == "ancient_realistic" else _COSTUME_ITEMS),
+                        n=len(ancient_costume_items(meta) if meta.style == "ancient_realistic" else _COSTUME_ITEMS),
                     )
             except CharacterSheetError as ce:
                 dump_rejected_panel(
@@ -8787,6 +9217,10 @@ async def generate_character_sheet(
                             skip_preprocess=True,
                         )
                         raw = normalize_turnaround_figure(raw, out_w=w, out_h=h)
+                        if ancient_spec_target_hex(meta) and key not in override_keys:
+                            assert_garment_near_spec_color(
+                                raw, ancient_spec_target_hex(meta), label=key
+                            )
                         panels[key] = raw
                         last_err = None
                         break
@@ -9946,6 +10380,16 @@ async def generate_character_sheet(
                         raise CharacterSheetError(
                             f"{key}胸口徽标，重试", status_code=422
                         )
+                if (
+                    key in ("front", "side", "back")
+                    and meta.style == "ancient_realistic"
+                    and ancient_spec_target_hex(meta)
+                ):
+                    assert_garment_near_spec_color(
+                        normalize_turnaround_figure(raw, out_w=w, out_h=h),
+                        ancient_spec_target_hex(meta),
+                        label=key,
+                    )
                 panels[key] = raw
                 last_err = None
                 break
@@ -12130,7 +12574,7 @@ async def _generate_costume_collage(
     suf = _STYLE_SUFFIX.get(meta.style, _STYLE_SUFFIX["anime"])
     item_bytes: list[bytes] = []
     items = (
-        _COSTUME_ITEMS_ANCIENT
+        ancient_costume_items(meta)
         if meta.style == "ancient_realistic"
         else _COSTUME_ITEMS
     )
@@ -12902,7 +13346,7 @@ async def generate_panel_bytes_openpose(
     from app.workflows.controlnet import ControlNetParams, build_controlnet_graph
 
     cli = client or await _pick_sheet_client(worker)
-    neg = _STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"])
+    neg = _with_ancient_spec_negative(_STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"]), style)
     if negative_extra:
         neg = f"{neg}, {negative_extra}"
     kw: dict[str, Any] = dict(
@@ -12998,6 +13442,7 @@ async def regenerate_sheet_panels(
     resolve_cjk_font(24)
     meta.design_notes = build_design_notes(meta)
     prompts = build_panel_prompts(meta)
+    _ANCIENT_SPEC_NEG_CTX.set(ancient_spec_negative(meta))
     panels: dict[str, bytes] = dict(locked_panels or {})
     panel_urls: dict[str, str] = {}
     debug: dict[str, Any] = {
@@ -13056,7 +13501,7 @@ async def regenerate_sheet_panels(
             locked_item_keys: list[str] = []
             regen_item_keys: list[str] = []
             costume_items = (
-                _COSTUME_ITEMS_ANCIENT
+                ancient_costume_items(meta)
                 if meta.style == "ancient_realistic"
                 else _COSTUME_ITEMS
             )
@@ -13312,6 +13757,22 @@ async def regenerate_sheet_panels(
                 denoise=denoise,
             )
             cands.append(data)
+        if (
+            key in ("front", "side", "back")
+            and meta.style == "ancient_realistic"
+            and ancient_spec_target_hex(meta)
+        ):
+            # 古风 spec 色门禁:只在过门禁候选里挑;全拒 → 422(候选数即重试上限)
+            _ok, _last_ce = [], None
+            for _c in cands:
+                try:
+                    assert_garment_near_spec_color(_c, ancient_spec_target_hex(meta), label=key)
+                    _ok.append(_c)
+                except CharacterSheetError as _ce:
+                    _last_ce = _ce
+            if not _ok:
+                raise _last_ce or CharacterSheetError(f"{key}颜色门禁全拒", status_code=422)
+            cands = _ok
         best = _pick_best_candidate(cands, key)
         if key.startswith("expr_"):
             # 18:23：regenerate 表情同样过徽标/发长门禁；同因连败筛候选
