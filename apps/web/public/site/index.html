@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN" class="dark">
+<head>
+<meta charset="utf-8">
+<script>
+  /* ToIV 登录凭证只存 localStorage["toiv_token"]（web/lib/api.ts TOKEN_KEY），服务端看不到；
+     已登录用户在首帧前隐藏本页并直接进入产品，避免闪官网。 */
+  try { if (localStorage.getItem("toiv_token")) { document.documentElement.style.visibility = "hidden"; location.replace("/?view=home"); } } catch (e) {}
+</script>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ToIV · 一句话出短剧</title>
+<meta name="description" content="ToIV：输入一句话，自动生成剧本、角色一致的分镜视频和配音配乐。">
+<link rel="stylesheet" href="/site/styles.css">
+</head>
+<body>
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="logo" href="/" aria-label="ToIV 首页"><span class="logo-mark" aria-hidden="true"></span>ToIV</a>
+    <a class="btn btn-ghost btn-sm" href="/?view=home">登录</a>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <div class="hero-copy">
+      <h1>一句话，<br>出一部短剧。</h1>
+      <div class="cta">
+        <a class="btn btn-primary btn-lg" href="/?view=home">开始创作<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg></a>
+        <a class="btn btn-ghost btn-lg" href="/?view=home">登录</a>
+      </div>
+    </div>
+
+    <div class="demo" aria-label="ToIV 样片《雨夜便利店·林夏》：一句话生成的分镜与成片音轨">
+      <div class="composer">
+        <div class="composer-text">雨夜便利店短剧样片。林夏进店→冷柜→结账→出门四拍。<span class="caret"></span></div>
+        <div class="composer-bar">
+          <span class="chip">竖屏 9:16</span><span class="chip">768p</span><span class="chip hide-sm">4 拍</span>
+          <span class="send" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M8 12.5V3.5M4.5 7 8 3.5 11.5 7"/></svg></span>
+        </div>
+      </div>
+
+      <div class="flow" aria-hidden="true"><span></span>剧本 · 分镜 · 成片<span></span></div>
+
+      <div class="shots">
+        <figure class="shot"><div class="frame"><img src="/site/assets/shot-01.webp" alt="林夏在雨中撑伞，便利店门口" width="480" height="840" loading="eager"></div><figcaption><b>01</b>进店</figcaption></figure>
+        <figure class="shot"><div class="frame"><img src="/site/assets/shot-02.webp" alt="林夏在冷柜前取水" width="480" height="840"></div><figcaption><b>02</b>冷柜</figcaption></figure>
+        <figure class="shot"><div class="frame"><img src="/site/assets/shot-03.webp" alt="林夏在收银台结账" width="480" height="840"></div><figcaption><b>03</b>结账</figcaption></figure>
+        <figure class="shot hide-sm"><div class="frame"><img src="/site/assets/shot-04.webp" alt="林夏戴上帽兜撑伞出门" width="480" height="840"></div><figcaption><b>04</b>出门</figcaption></figure>
+      </div>
+
+      <div class="track">
+        <span class="track-label">音轨</span><img class="wave" src="/site/assets/waveform.svg" alt="成片音轨波形（对白与雨声）"><span class="track-time">0:54</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="features wrap" aria-label="核心能力">
+    <article class="card">
+      <span class="ico ico-script"><svg viewBox="0 0 20 20"><path d="M5 3.5h7l3 3v10H5z M12 3.5v3h3 M7.5 10h5 M7.5 13h5"/></svg></span>
+      <h3>一句话成剧本</h3>
+    </article>
+    <article class="card">
+      <span class="ico ico-video"><svg viewBox="0 0 20 20"><rect x="3" y="5" width="10" height="10" rx="2"/><path d="m13 9 4-2.5v7L13 11"/></svg></span>
+      <h3>角色一致的分镜视频</h3>
+    </article>
+    <article class="card">
+      <span class="ico ico-audio"><svg viewBox="0 0 20 20"><path d="M4 8v4 M7 5.5v9 M10 3.5v13 M13 6.5v7 M16 8.5v3"/></svg></span>
+      <h3>原生配音配乐</h3>
+    </article>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <span class="logo logo-sm"><span class="logo-mark" aria-hidden="true"></span>ToIV</span>
+    <span class="muted">样片《雨夜便利店·林夏》由 <span class="brand">ToIV</span> 生成 · © 2026</span>
+  </div>
+</footer>
+</body>
+</html>
