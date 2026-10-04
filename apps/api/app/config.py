@@ -155,6 +155,17 @@ class Settings(BaseSettings):
     # 顶栏展示用真实模型名（llm_model 为 served-model-name 别名，展示不够直观）
     # 2026-08-23 spark02 已换 Qwen3.8-27B-Uncensored-FP8(别名 qwen3.6-uncensored 未变)
     llm_display_name: str = "Qwen3.8-27B-Uncensored (spark02 FP8)"
+    # OpenAI 兼容 LLM 代理 /api/llm/v1（routes/llm_proxy.py）：BeefTV 助手等客户端用 ToIV JWT 调用，
+    # 不暴露内网 LLM 地址。base_url/api_key 留空 = 复用 llm_base_url/llm_api_key。
+    llm_proxy_base_url: str = ""
+    llm_proxy_api_key: str = ""
+    # 对外可用的模型 ID（逗号分隔，第一个为默认）；须是上游 vLLM 的 served-model-name。
+    llm_proxy_models: str = "qwen3.8-27b,qwen3.6-uncensored"
+    llm_proxy_connect_timeout: float = 10.0
+    llm_proxy_read_timeout: float = 180.0
+    llm_proxy_max_body_bytes: int = 2_000_000
+    llm_proxy_max_tokens: int = 16384
+    llm_proxy_max_concurrency: int = 2
     # 备用 LLM 大脑(主模型重试失败后自动切换;EXO 单端点多模型场景下 base_url/api_key 留空即复用主)。
     # 典型:主=GLM-5.2-fp8(思考型,长 ctx),备=Kimi-K2.7-Code-4bit(代码型,主掉线时兜底)。
     llm_fallback_base_url: str = ""

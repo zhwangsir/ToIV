@@ -92,6 +92,7 @@ from app.routes import (
     safety,
     workflows,
     opentalking,
+    llm_proxy,
 )
 
 
@@ -518,6 +519,7 @@ def create_app() -> FastAPI:
         wan_studio,
         scope,
         safety,
+        llm_proxy,
     ):
         app.include_router(module.router, prefix="/api")
 
