@@ -3984,7 +3984,9 @@ def assert_expression_semantic(
                 status_code=422,
             )
     elif expr_key == "expr_3":
-        # 温柔：禁大张嘴（允许轻露上齿）+ 眉舒展；嘴角微扬
+        # 温柔：禁大张嘴（允许轻露上齿）+ 眉舒展。
+        # 19:30：anime 唇线质心 lift 不可靠（1922 目检微笑却 lift=-0.47），
+        # 微笑靠提示词+多样性门禁；此处不做 lift 硬拒。
         wide = mouth_appears_wide_open(data)
         info["mouth_wide_open"] = wide
         info["mouth_dark"] = float(mouth_dark_ratio(data))
@@ -3996,11 +3998,6 @@ def assert_expression_semantic(
         if press is not None and press > 0.05:
             raise CharacterSheetError(
                 f"{expr_key}温柔语义失败：眉须舒展，禁皱眉/压眉 press={press:.3f}",
-                status_code=422,
-            )
-        if lift < 0.02:
-            raise CharacterSheetError(
-                f"{expr_key}温柔语义失败：须嘴角微扬 lift={lift:.3f}",
                 status_code=422,
             )
     return info

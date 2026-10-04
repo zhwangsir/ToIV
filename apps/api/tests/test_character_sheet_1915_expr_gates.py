@@ -164,8 +164,8 @@ def test_semantic_stern_fails_smile_and_open_mouth():
 def test_semantic_gentle_fails_frown_no_smile():
     base = _synth_closeup(256, smile=False, brows_low=False)
     stern = _synth_closeup(256, smile=False, brows_low=True)
-    # no smile lift → fail gentle
-    with pytest.raises(sheet_svc.CharacterSheetError, match="温柔|嘴角"):
+    # 压眉 → 温柔失败
+    with pytest.raises(sheet_svc.CharacterSheetError, match="温柔|眉|皱眉|压眉"):
         sheet_svc.assert_expression_semantic(
             stern, expr_key="expr_3", neutral_ref=base
         )
@@ -173,7 +173,7 @@ def test_semantic_gentle_fails_frown_no_smile():
     info = sheet_svc.assert_expression_semantic(
         gentle, expr_key="expr_3", neutral_ref=base
     )
-    assert info["mouth_lift"] >= 0.015
+    assert info.get("mouth_wide_open") is False
 
 
 def test_expr_prompts_have_1915_negatives_and_eye_lock():
