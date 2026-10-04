@@ -61,6 +61,16 @@ func (a *DesktopApp) start(ctx context.Context) error {
 	if a.runtime() != nil {
 		return nil
 	}
+	if g := a.gate(); g != nil {
+		session := g.current()
+		if session == nil {
+			return errToIVNotLoggedIn
+		}
+		a.dataDir = g.userDataDir(session.User.ID)
+		if err := os.MkdirAll(a.dataDir, 0o700); err != nil {
+			return err
+		}
+	}
 	listenAddr := strings.TrimSpace(os.Getenv("CANVAS_DESKTOP_BACKEND_ADDR"))
 	if listenAddr == "" {
 		listenAddr = "127.0.0.1:0"
@@ -203,6 +213,9 @@ func (a *DesktopApp) startup(ctx context.Context) {
 	a.wailsCtx = ctx
 	a.mu.Unlock()
 	if err := a.start(ctx); err != nil {
+		if errors.Is(err, errToIVNotLoggedIn) {
+			return // the login page starts the workspace after sign-in
+		}
 		log.Printf("启动本地后端失败: %v", err)
 		wailsruntime.LogErrorf(ctx, "启动本地后端失败: %v", err)
 		wailsruntime.Quit(ctx)

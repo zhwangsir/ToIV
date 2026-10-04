@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"infinite-canvas/backend/internal/desktopupdate"
 
@@ -34,6 +35,11 @@ func main() {
 		log.Fatal(err)
 	}
 	app := newDesktopApp(dataDir)
+	gate := app.enableToIV(dataDir)
+	toivAllowPrivateUpstream(gate.apiBase())
+	if os.Getenv("ENABLE_PROVIDER_PLUGINS") == "" {
+		_ = os.Setenv("ENABLE_PROVIDER_PLUGINS", "true") // bundled toiv-h3 is a provider plugin
+	}
 	startupErrorPath := filepath.Join(dataDir, "startup-error.log")
 	if err := prepareDesktopApp(app); err != nil {
 		_ = os.MkdirAll(dataDir, 0o755)
@@ -43,13 +49,14 @@ func main() {
 	_ = os.Remove(startupErrorPath)
 
 	err = wails.Run(&options.App{
-		Title:  "BeefTV",
+		Title:  "ToIV",
 		Width:  1440,
 		Height: 960,
 		Mac:    &mac.Options{},
 		AssetServer: &assetserver.Options{
 			Assets:  assets,
-			Handler: desktopAssetHandler{app: app},
+			Handler:    desktopAssetHandler{app: app},
+			Middleware: toivGateMiddleware(app),
 		},
 		OnStartup:  app.startup,
 		OnShutdown: app.shutdown,
@@ -61,6 +68,16 @@ func main() {
 }
 
 func prepareDesktopApp(app *DesktopApp) error {
+	if g := app.gate(); g != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		if s := g.loadSession(ctx); s != nil {
+			if err := app.activateToIVUser(ctx, s); err != nil {
+				log.Printf("ToIV 工作区启动失败（将回到登录页）: %v", err)
+			}
+		}
+		return nil // signed out: the WebView shows the ToIV login page first
+	}
 	return app.start(context.Background())
 }
 
@@ -72,5 +89,5 @@ func defaultDataDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("定位用户应用数据目录: %w", err)
 	}
-	return filepath.Join(root, "BeefTV"), nil
+	return filepath.Join(root, "ToIV"), nil
 }
