@@ -2848,13 +2848,65 @@ def placeholder_panel(
     return img
 
 
+def _trim_letterbox_bars(
+    data: bytes,
+    *,
+    white_lum: float = 232.0,
+    min_strip_frac: float = 0.92,
+) -> bytes:
+    """去掉上下左右整条近白 letterbox（1822/1830 底白条根因），保留棚灰中的人物。"""
+    im = Image.open(BytesIO(data)).convert("RGB")
+    w, h = im.size
+    px = im.load()
+
+    def _row_white(y: int) -> bool:
+        n = sum(
+            1
+            for x in range(w)
+            if (px[x, y][0] + px[x, y][1] + px[x, y][2]) / 3.0 >= white_lum
+            and abs(px[x, y][0] - px[x, y][1]) < 14
+            and abs(px[x, y][1] - px[x, y][2]) < 14
+        )
+        return n / float(max(1, w)) >= float(min_strip_frac)
+
+    def _col_white(x: int) -> bool:
+        n = sum(
+            1
+            for y in range(h)
+            if (px[x, y][0] + px[x, y][1] + px[x, y][2]) / 3.0 >= white_lum
+            and abs(px[x, y][0] - px[x, y][1]) < 14
+            and abs(px[x, y][1] - px[x, y][2]) < 14
+        )
+        return n / float(max(1, h)) >= float(min_strip_frac)
+
+    top = 0
+    while top < h - 8 and _row_white(top):
+        top += 1
+    bot = h - 1
+    while bot > top + 8 and _row_white(bot):
+        bot -= 1
+    left = 0
+    while left < w - 8 and _col_white(left):
+        left += 1
+    right = w - 1
+    while right > left + 8 and _col_white(right):
+        right -= 1
+    if top == 0 and bot == h - 1 and left == 0 and right == w - 1:
+        return data
+    crop = im.crop((left, top, right + 1, bot + 1))
+    buf = BytesIO()
+    crop.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def squareize_face_center_crop(data: bytes, size: int = 768) -> bytes:
-    """18:30：表情格方化 —— 以人脸框中心 cover 裁切，禁止白底/浅灰垫边。
+    """18:30：表情格方化 —— 先去 letterbox 白条，再以人脸框中心 cover 裁切。
 
     替代「非方图居中 pad 浅灰」：垫边会进格外白底，且灰块失败时裁切落到下巴/衣领。
     """
+    trimmed = _trim_letterbox_bars(data)
     return enforce_head_shoulders_square(
-        data,
+        trimmed,
         size=int(size),
         max_upscale=2.2,
         check_coverage=False,
@@ -2866,30 +2918,59 @@ def assert_expr_cell_no_white_border(
     data: bytes,
     *,
     expr_key: str = "expr",
-    max_border_frac: float = 0.08,
-    white_lum: float = 235.0,
+    max_strip_frac: float = 0.08,
+    white_lum: float = 232.0,
 ) -> float:
-    """表情格四边不得大片近白底（格外白底漏检）。"""
+    """表情格不得含整条近白 letterbox（格外白底）；棚灰人物边不算。
+
+    测四边：若某边连续条带（厚≈4%边长）行/列近白占比≥92%，计入 strip 厚度占比。
+    """
     im = Image.open(BytesIO(data)).convert("RGB")
     w, h = im.size
     px = im.load()
-    edge = max(2, int(min(w, h) * 0.04))
-    white = total = 0
-    for y in range(h):
-        for x in range(w):
-            if x >= edge and y >= edge and x < w - edge and y < h - edge:
-                continue
-            r, g, b = px[x, y]
-            total += 1
-            if (r + g + b) / 3.0 >= float(white_lum) and abs(r - g) < 12 and abs(g - b) < 12:
-                white += 1
-    frac = white / float(max(1, total))
-    if frac > float(max_border_frac):
+    # 最多扫到短边 30%，才能抓住 1830 底白条约 1/3 画幅的 letterbox
+    band = max(8, int(min(w, h) * 0.30))
+
+    def _row_white(y: int) -> bool:
+        n = sum(
+            1
+            for x in range(w)
+            if (px[x, y][0] + px[x, y][1] + px[x, y][2]) / 3.0 >= white_lum
+            and abs(px[x, y][0] - px[x, y][1]) < 14
+            and abs(px[x, y][1] - px[x, y][2]) < 14
+        )
+        return n / float(max(1, w)) >= 0.92
+
+    def _col_white(x: int) -> bool:
+        n = sum(
+            1
+            for y in range(h)
+            if (px[x, y][0] + px[x, y][1] + px[x, y][2]) / 3.0 >= white_lum
+            and abs(px[x, y][0] - px[x, y][1]) < 14
+            and abs(px[x, y][1] - px[x, y][2]) < 14
+        )
+        return n / float(max(1, h)) >= 0.92
+
+    top = 0
+    while top < band and _row_white(top):
+        top += 1
+    bot = 0
+    while bot < band and _row_white(h - 1 - bot):
+        bot += 1
+    left = 0
+    while left < band and _col_white(left):
+        left += 1
+    right = 0
+    while right < band and _col_white(w - 1 - right):
+        right += 1
+    strip = max(top, bot, left, right) / float(max(1, min(w, h)))
+    if strip > float(max_strip_frac):
         raise CharacterSheetError(
-            f"{expr_key}表情格含格外白底 border_white={frac:.3f}>{max_border_frac}",
+            f"{expr_key}表情格含格外白底 letterbox_strip={strip:.3f}>{max_strip_frac} "
+            f"(T{top}B{bot}L{left}R{right})",
             status_code=422,
         )
-    return frac
+    return strip
 
 
 def crop_face_ref(portrait_bytes: bytes, size: int = 768) -> bytes:

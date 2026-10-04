@@ -91,9 +91,8 @@ def test_no_eyes_mouth_fails_gate():
 
 
 def test_face_center_crop_no_white_border():
-    """脸框居中裁切后无格外白底；白底垫边原图直接门禁 FAIL。"""
+    """脸框居中裁切后无 letterbox 白条；整条底白条原图直接门禁 FAIL。"""
     size = 400
-    # 深灰底 + 居中充实人脸（避免启发式框过大仍带白边）
     arr = np.full((size, size, 3), 90, dtype=np.uint8)
     arr[30:280, 80:320] = (220, 185, 160)
     arr[90:120, 120:160] = (30, 70, 160)
@@ -102,18 +101,32 @@ def test_face_center_crop_no_white_border():
     arr[10:40, 70:330] = (20, 22, 30)
     data = _png(arr)
     cropped = sheet_svc.squareize_face_center_crop(data, size=256)
-    frac = sheet_svc.assert_expr_cell_no_white_border(
-        cropped, expr_key="expr_0", max_border_frac=0.12
-    )
-    assert frac <= 0.12, frac
-    # 显式白底垫边图 → 门禁 FAIL（模拟旧 pad 路径）
-    padded = np.full((300, 300, 3), 248, dtype=np.uint8)
-    face = np.array(Image.open(BytesIO(cropped)).resize((180, 180)))
-    padded[60:240, 60:240] = face
-    with pytest.raises(sheet_svc.CharacterSheetError, match="白底"):
-        sheet_svc.assert_expr_cell_no_white_border(
-            _png(padded), expr_key="expr_0", max_border_frac=0.08
-        )
+    frac = sheet_svc.assert_expr_cell_no_white_border(cropped, expr_key="expr_0")
+    assert frac <= 0.08, frac
+    # 底部整条白 letterbox → FAIL
+    letter = np.full((300, 300, 3), 160, dtype=np.uint8)
+    letter[0:220, :, :] = (200, 180, 160)
+    letter[220:300, :, :] = (248, 248, 248)  # 底白条
+    with pytest.raises(sheet_svc.CharacterSheetError, match="白底|letterbox"):
+        sheet_svc.assert_expr_cell_no_white_border(_png(letter), expr_key="expr_0")
+    # trim 应去掉底白条
+    trimmed = sheet_svc._trim_letterbox_bars(_png(letter))
+    tim = Image.open(BytesIO(trimmed))
+    assert tim.size[1] < 300
+
+
+def test_trim_letterbox_then_squareize():
+    """含底白条的底图经 squareize 后不再带 letterbox。"""
+    size = 320
+    arr = np.full((size, size, 3), 200, dtype=np.uint8)
+    arr[20:200, 60:260] = (220, 185, 160)
+    arr[70:95, 100:130] = (30, 70, 160)
+    arr[70:95, 190:220] = (30, 70, 160)
+    arr[140:155, 140:180] = (150, 80, 80)
+    arr[10:30, 50:270] = (20, 22, 30)
+    arr[250:320, :, :] = (248, 248, 248)
+    out = sheet_svc.squareize_face_center_crop(_png(arr), size=256)
+    sheet_svc.assert_expr_cell_no_white_border(out, expr_key="expr_3")
 
 
 def test_heuristic_eyes_mouth_pass_on_synth():
