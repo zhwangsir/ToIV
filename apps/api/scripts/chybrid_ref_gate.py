@@ -2,7 +2,8 @@
 """镜头级参考图验收（c_hybrid 雨夜对比等）：VLM 四问（Comfy Qwen3-VL，仅 :8262/:8264 排队）+ InsightFace 脸分 ≥0.75。
 
 用法：
-  CODE_ROOT=... python scripts/chybrid_ref_gate.py OUT.json NAME=IMAGE@ORIGINAL[@URL] ...
+  CODE_ROOT=... python scripts/chybrid_ref_gate.py [--hood=down|up] OUT.json NAME=IMAGE@ORIGINAL[@URL] ...
+--hood=up：镜1–3 全程戴帽方案，第一问期望「是」，其余三问与脸分阈值不变。
 OUT.json 追加写，供驱动 --ref-gate-json 核对；IMAGE 为候选图本地路径，ORIGINAL 为同角度原参考图（算脸分）。
 CLIP 不参与验收（仅 hood_state_log 告警）。
 :8262 排队规则：逐图提交（每批 4 问 ≤8），提交前等我方上一批排空、无角色卡在队，再隔 15s。
@@ -21,6 +22,9 @@ from app.services.studio import outfit_state as ost  # noqa: E402
 
 
 async def _main(argv: list[str]) -> int:
+    hood = "down"
+    if argv and argv[0].startswith("--hood="):
+        hood = argv.pop(0).split("=", 1)[1]
     out = Path(argv[0])
     res = json.loads(out.read_text()) if out.exists() else {}
 
@@ -30,7 +34,7 @@ async def _main(argv: list[str]) -> int:
         img, orig = parts[0], parts[1]
         url = parts[2] if len(parts) > 2 else ""
         try:
-            v = await ost.scene_ref_gate(Path(img).read_bytes(), Path(orig).read_bytes())
+            v = await ost.scene_ref_gate(Path(img).read_bytes(), Path(orig).read_bytes(), hood=hood)
         except Exception as e:  # noqa: BLE001
             print(name, "ERROR", type(e).__name__, str(e)[:300], flush=True)
             return

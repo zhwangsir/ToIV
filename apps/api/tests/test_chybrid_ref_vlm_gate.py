@@ -130,7 +130,7 @@ def test_qe_census_counts_char_sheet_and_ours():
                            _q(4, "cs", "6e44", prefix="ToIV_char_sheet_expr_3"),
                            _q(5, "cs2", "ba95", image="sheet_pose_1c_front.png"), _q(6, "o", "someone")]}
     c = ost.qe_queue_census(q)
-    assert c["char_sheet"] == 2 and c["ours"] == 3 and c["ours_pending_ids"] == ["p1", "p2"]
+    assert c["char_sheet"] == 2 and c["char_sheet_pending"] == 2 and c["ours"] == 3 and c["ours_pending_ids"] == ["p1", "p2"]
 
 
 class _FakeQ:
@@ -163,7 +163,7 @@ def test_wait_slot_waits_for_our_batch_and_char_sheet_then_gap():
 
     fq = _FakeQ([busy, cs, empty, empty])
     c = _run(ost.wait_qe_batch_slot(fq, 4, gap_s=15, poll_s=5, sleep=sl))
-    assert c["ours"] == 0 and c["char_sheet"] == 0
+    assert c["ours"] == 0 and c["char_sheet_pending"] == 0
     assert slept == [5, 5, 15] and fq.calls == 4
 
 
@@ -225,3 +225,43 @@ def test_vlm_batch_timeout_deletes_our_leftover_pending(monkeypatch):
 def test_gate_script_submits_sequentially():
     src = (Path(__file__).resolve().parents[1] / "scripts" / "chybrid_ref_gate.py").read_text()
     assert "asyncio.gather" not in src and "await one(s)" in src
+
+
+# ---- 05:19 方案1：戴帽参考（第一问期望反转，其余不变） ----
+
+def test_verdict_hood_up_flips_only_first_question():
+    ans = {"hood_on_head": "是", "same_jacket": "是", "accessories": "否", "hairstyle": "马尾"}
+    v = ost.outfit_vlm_verdict(ans, 0.8, hood="up")
+    assert v["pass"] and v["hood"] == "up"
+    assert not ost.outfit_vlm_verdict(ans, 0.8)["pass"]
+    v2 = ost.outfit_vlm_verdict({**ans, "hairstyle": "披发"}, 0.8, hood="up")
+    assert v2["failed"] == ["hairstyle"]
+    assert ost.outfit_vlm_verdict(ans, 0.74, hood="up")["failed"] == ["face_sim"]
+
+
+def test_verdict_hood_invalid():
+    with pytest.raises(ValueError):
+        ost.outfit_vlm_verdict({}, 0.8, hood="half")
+
+
+def test_scene_ref_gate_passes_hood():
+    import cv2
+    import numpy as np
+    ok, enc = cv2.imencode(".png", np.zeros((8, 8, 3), np.uint8))
+
+    async def ask(b):
+        return {"hood_on_head": "是", "same_jacket": "是", "accessories": "否", "hairstyle": "马尾"}
+
+    v = asyncio.run(ost.scene_ref_gate(enc.tobytes(), enc.tobytes(), ask_fn=ask, face_fn=lambda a, b: 0.9, hood="up"))
+    assert v["pass"] and v["hood"] == "up"
+
+
+def test_wait_slot_running_char_sheet_does_not_starve():
+    run_cs = {"queue_running": [_q(1, "c", "u", prefix="ToIV_char_sheet_front")], "queue_pending": []}
+    slept = []
+
+    async def sl(s):
+        slept.append(s)
+
+    c = asyncio.run(ost.wait_qe_batch_slot(_FakeQ([run_cs, run_cs]), 4, gap_s=15, poll_s=5, sleep=sl))
+    assert slept == [15] and c["char_sheet"] == 1 and c["char_sheet_pending"] == 0

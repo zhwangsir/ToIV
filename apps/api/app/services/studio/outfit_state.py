@@ -285,10 +285,17 @@ def parse_vlm_choice(raw: str, choices: tuple[str, ...]) -> str | None:
     return None
 
 
-def outfit_vlm_verdict(answers: dict[str, str], face_sim: float | None) -> dict[str, Any]:
-    """四问 + 脸分 → {pass, checks:[{key,question,raw,parsed,want,ok}], face_sim, face_ok, failed}。"""
+def outfit_vlm_verdict(answers: dict[str, str], face_sim: float | None, *, hood: str = "down") -> dict[str, Any]:
+    """四问 + 脸分 → {pass, checks:[{key,question,raw,parsed,want,ok}], face_sim, face_ok, failed, hood}。
+
+    hood="down"（默认）：帽兜须放下；hood="up"（ToIV 开发 05:19 方案1：镜1–3 全程戴帽）：帽兜须盖在头上。
+    其余三问（同款风衣/无饰品/马尾）与脸分阈值不变。"""
+    if hood not in ("down", "up"):
+        raise ValueError(f"hood 只能是 down/up：{hood!r}")
     checks = []
     for key, q, choices, want in OUTFIT_VLM_QUESTIONS:
+        if key == "hood_on_head" and hood == "up":
+            want = "是"
         raw = answers.get(key)
         parsed = parse_vlm_choice(raw or "", choices)
         checks.append({"key": key, "question": q, "raw": raw, "parsed": parsed, "want": want,
@@ -296,7 +303,7 @@ def outfit_vlm_verdict(answers: dict[str, str], face_sim: float | None) -> dict[
     face_ok = face_sim is not None and float(face_sim) >= REF_FACE_SIM_MIN
     failed = [c["key"] for c in checks if not c["ok"]] + ([] if face_ok else ["face_sim"])
     return {"pass": not failed, "checks": checks, "face_sim": face_sim, "face_ok": face_ok,
-            "face_min": REF_FACE_SIM_MIN, "failed": failed}
+            "face_min": REF_FACE_SIM_MIN, "failed": failed, "hood": hood}
 
 
 
@@ -318,24 +325,26 @@ def _is_char_sheet_job(q) -> bool:
 
 
 def qe_queue_census(queue: dict, our_prefixes=QE_OUR_CLIENT_PREFIXES) -> dict:
-    """/queue → {char_sheet: 角色卡在队数, ours: 我方在队数(running+pending), ours_pending_ids: [...]}。"""
-    cs = ours = 0
+    """/queue → {char_sheet: 角色卡在队数, char_sheet_pending: 角色卡排队数, ours: 我方在队数(running+pending), ours_pending_ids}。"""
+    cs = csp = ours = 0
     ours_pending: list[str] = []
     for k in ("queue_running", "queue_pending"):
         for q in queue.get(k) or []:
             cid = str(((q[3] if len(q) > 3 else None) or {}).get("client_id") or "")
             if _is_char_sheet_job(q):
                 cs += 1
+                csp += k == "queue_pending"
             elif cid.startswith(tuple(our_prefixes)):
                 ours += 1
                 if k == "queue_pending":
                     ours_pending.append(q[1])
-    return {"char_sheet": cs, "ours": ours, "ours_pending_ids": ours_pending}
+    return {"char_sheet": cs, "char_sheet_pending": csp, "ours": ours, "ours_pending_ids": ours_pending}
 
 
 async def wait_qe_batch_slot(client, n_new: int, *, gap_s: float = QE_BATCH_GAP_S,
                              poll_s: float = 5.0, max_wait_s: float = 3600.0, sleep=None) -> dict:
-    """提交一批前阻塞：n_new ≤ 8；等我方上一批全部排空且无角色卡在队，再隔 gap_s 复核一次。"""
+    """提交一批前阻塞：n_new ≤ 8；等我方上一批全部排空且无角色卡在排队（正在跑的那个不算，
+    否则角色卡连续串行提交时会永久饿死），再隔 gap_s 复核一次。"""
     import asyncio
 
     if n_new > QE_BATCH_MAX:
@@ -345,7 +354,7 @@ async def wait_qe_batch_slot(client, n_new: int, *, gap_s: float = QE_BATCH_GAP_
     gap_done = False
     while True:
         c = qe_queue_census(await client._get_json("/queue"))
-        if c["ours"] == 0 and c["char_sheet"] == 0:
+        if c["ours"] == 0 and c["char_sheet_pending"] == 0:
             if gap_done:
                 return c
             await sleep(gap_s)
@@ -453,6 +462,7 @@ async def scene_ref_gate(
     *,
     ask_fn=None,
     face_fn=None,
+    hood: str = "down",
 ) -> dict[str, Any]:
     """镜头级参考图验收：VLM 四问 + 脸分（vs 原参考）≥0.75。CLIP 不参与（仍只在 hood_state_log 告警）。"""
     import cv2
@@ -462,7 +472,7 @@ async def scene_ref_gate(
     ref = cv2.imdecode(np.frombuffer(original_bytes, np.uint8), cv2.IMREAD_COLOR)
     sim = (face_fn or face_similarity)(img, ref)
     answers = await (ask_fn or ask_outfit_vlm)(image_bytes)
-    v = outfit_vlm_verdict(answers, sim)
+    v = outfit_vlm_verdict(answers, sim, hood=hood)
     v["answers"] = answers
     return v
 
