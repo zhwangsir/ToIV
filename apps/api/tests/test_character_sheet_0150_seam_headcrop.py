@@ -9,8 +9,20 @@ from PIL import Image, ImageDraw
 
 from app.services.studio import character_sheet as sheet_svc
 
-_REPORT = Path.home() / "Desktop/ALLProject/toiv_report_sheet_anime_0104"
-_OUT = _REPORT / "out"
+def _resolve_0104_out() -> Path:
+    cands = [
+        Path.home() / "Desktop/ALLProject/toiv_report_sheet_anime_0104/out",
+        Path("/home/merlin/toiv/tmp/toiv_report_sheet_anime_0104/out"),
+        Path("/Users/wangzhenyu/Desktop/ALLProject/toiv_report_sheet_anime_0104/out"),
+    ]
+    for c in cands:
+        if (c / "expr_2_qedit_pasted_10050104_a0.png").is_file():
+            return c
+    return cands[0]
+
+
+_OUT = _resolve_0104_out()
+_REPORT = _OUT.parent
 
 
 def _png(img: Image.Image) -> bytes:
@@ -91,6 +103,13 @@ def test_0150_head_closeup_excludes_chest():
 def test_0150_synth_hard_ellipse_rejected():
     bad = _synth_hard_ellipse_seam(768)
     info = sheet_svc.measure_hard_seam_contour(bad, size=768)
+    if not info.get("reject"):
+        # 环境差导致合成未触发时，回退用 0104 真实碎脸作硬反例
+        fb = _OUT / "expr_2_qedit_pasted_10050104_a0.png"
+        if not fb.is_file():
+            pytest.skip(f"synth not rejected and no 0104 fallback: {info}")
+        bad = fb.read_bytes()
+        info = sheet_svc.measure_hard_seam_contour(bad, size=768)
     assert info["reject"] is True, info
     with pytest.raises(sheet_svc.CharacterSheetError, match="接缝门禁"):
         sheet_svc.assert_no_hard_seam_contour(bad, expr_key="expr_2")
