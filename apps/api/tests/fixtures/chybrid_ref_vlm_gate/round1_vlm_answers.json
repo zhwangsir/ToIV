@@ -1,0 +1,229 @@
+{
+ "shot0_c2_f252_side": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u5426\"\n]",
+   "same_jacket": "[\n    \"\\u5426\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u62ab\\u53d1\"\n]"
+  },
+  "face_sim": 0.2509559392929077,
+  "image": "c2_f252.png",
+  "failed_expected": [
+   "same_jacket",
+   "hairstyle",
+   "face_sim"
+  ]
+ },
+ "neg_front_20261005": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u662f\"\n]",
+   "same_jacket": "[\n    \"\\u662f\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u9ebb\\u82b1\\u8fab\"\n]"
+  },
+  "face_sim": 0.8502910137176514,
+  "image": "hooddown_front_20261005.png",
+  "failed_expected": [
+   "hood_on_head",
+   "hairstyle"
+  ]
+ },
+ "neg_front_2509_31337": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u5426\"\n]",
+   "same_jacket": "[\n    \"\\u5426\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u9ebb\\u82b1\\u8fab\"\n]"
+  },
+  "face_sim": 0.8185798525810242,
+  "image": "hooddown_front_2509_31337.png",
+  "failed_expected": [
+   "same_jacket",
+   "hairstyle"
+  ]
+ },
+ "neg_side_20261005": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u5426\"\n]",
+   "same_jacket": "[\n    \"\\u5426\"\n]",
+   "accessories": "[\n    \"\\u662f\"\n]",
+   "hairstyle": "[\n    \"\\u9a6c\\u5c3e\"\n]"
+  },
+  "face_sim": 0.7526963949203491,
+  "image": "hooddown_side_20261005.png",
+  "failed_expected": [
+   "same_jacket",
+   "accessories"
+  ]
+ },
+ "neg_front_2511_4242": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u662f\"\n]",
+   "same_jacket": "[\n    \"\\u662f\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u62ab\\u53d1\"\n]"
+  },
+  "face_sim": 0.7057399749755859,
+  "image": "hooddown_front_2511_4242.png",
+  "failed_expected": [
+   "hood_on_head",
+   "hairstyle",
+   "face_sim"
+  ]
+ },
+ "orig_side": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u662f\"\n]",
+   "same_jacket": "[\n    \"\\u662f\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u62ab\\u53d1\"\n]"
+  },
+  "face_sim": 1.0,
+  "image": "sample_linxia_side.png",
+  "failed_expected": [
+   "hood_on_head",
+   "hairstyle"
+  ]
+ },
+ "neg_side_2511_4242": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u662f\"\n]",
+   "same_jacket": "[\n    \"\\u662f\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u62ab\\u53d1\"\n]"
+  },
+  "face_sim": 0.6660985350608826,
+  "image": "hooddown_side_2511_4242.png",
+  "failed_expected": [
+   "hood_on_head",
+   "hairstyle",
+   "face_sim"
+  ]
+ },
+ "shot0_c2_f258_side": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u5426\"\n]",
+   "same_jacket": "[\n    \"\\u5426\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u62ab\\u53d1\"\n]"
+  },
+  "face_sim": 0.20527370274066925,
+  "image": "c2_f258.png",
+  "failed_expected": [
+   "same_jacket",
+   "hairstyle",
+   "face_sim"
+  ]
+ },
+ "shot0_c2_f246": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u5426\"\n]",
+   "same_jacket": "[\n    \"\\u5426\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u62ab\\u53d1\"\n]"
+  },
+  "face_sim": 0.7512207627296448,
+  "image": "c2_f246.png",
+  "failed_expected": [
+   "same_jacket",
+   "hairstyle"
+  ]
+ },
+ "neg_front_777013": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u662f\"\n]",
+   "same_jacket": "[\n    \"\\u662f\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u62ab\\u53d1\"\n]"
+  },
+  "face_sim": 0.7704343795776367,
+  "image": "hooddown_front_777013.png",
+  "failed_expected": [
+   "hood_on_head",
+   "hairstyle"
+  ]
+ },
+ "shot0_c2_f219": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u5426\"\n]",
+   "same_jacket": "[\n    \"\\u662f\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u62ab\\u53d1\"\n]"
+  },
+  "face_sim": 0.7776614427566528,
+  "image": "c2_f219.png",
+  "failed_expected": [
+   "hairstyle"
+  ]
+ },
+ "shot0_c2_f228": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u5426\"\n]",
+   "same_jacket": "[\n    \"\\u662f\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u62ab\\u53d1\"\n]"
+  },
+  "face_sim": 0.7860785126686096,
+  "image": "c2_f228.png",
+  "failed_expected": [
+   "hairstyle"
+  ]
+ },
+ "neg_side_777013": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u662f\"\n]",
+   "same_jacket": "[\n    \"\\u662f\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u62ab\\u53d1\"\n]"
+  },
+  "face_sim": 0.875840961933136,
+  "image": "hooddown_side_777013.png",
+  "failed_expected": [
+   "hood_on_head",
+   "hairstyle"
+  ]
+ },
+ "shot0_c2_f261_side": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u5426\"\n]",
+   "same_jacket": "[\n    \"\\u5426\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u9a6c\\u5c3e\"\n]"
+  },
+  "face_sim": 0.18715542554855347,
+  "image": "c2_f261.png",
+  "failed_expected": [
+   "same_jacket",
+   "face_sim"
+  ]
+ },
+ "neg_side_2509_31337": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u662f\"\n]",
+   "same_jacket": "[\n    \"\\u662f\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u62ab\\u53d1\"\n]"
+  },
+  "face_sim": 0.501926064491272,
+  "image": "hooddown_side_2509_31337.png",
+  "failed_expected": [
+   "hood_on_head",
+   "hairstyle",
+   "face_sim"
+  ]
+ },
+ "orig_front": {
+  "answers": {
+   "hood_on_head": "[\n    \"\\u662f\"\n]",
+   "same_jacket": "[\n    \"\\u662f\"\n]",
+   "accessories": "[\n    \"\\u5426\"\n]",
+   "hairstyle": "[\n    \"\\u62ab\\u53d1\"\n]"
+  },
+  "face_sim": 1.0,
+  "image": "sample_linxia_front.png",
+  "failed_expected": [
+   "hood_on_head",
+   "hairstyle"
+  ]
+ }
+}

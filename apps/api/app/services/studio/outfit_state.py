@@ -208,3 +208,215 @@ def hood_state_log(
         return out
     finally:
         cap.release()
+
+
+# ───────────────── 镜头级参考图验收门禁（VLM 问答，2026-10-05 04:09 决策）─────────────────
+# 背景：雨夜 shot1–3 帽兜放下版参考（Qwen-Edit）被人工驳回：帽兜仍在头上/成麻花辫/外套被改成衬衫领、
+# 铆钉高领皮夹克/多出耳环。脸分（0.75–0.88）只能证明脸没变，CLIP 帽兜概率不可靠（仅告警）。
+# 验收 = 四问全过 + 与原参考图脸相似度 ≥ REF_FACE_SIM_MIN。VLM 复用设定卡表情专项问答同一路径
+# （Comfy Qwen2_VQA / Qwen3-VL，仅 :8262/:8264）。
+
+REF_FACE_SIM_MIN = 0.75
+OUTFIT_VLM_MODEL = "Qwen3-VL-8B-Instruct"
+OUTFIT_VLM_QUESTIONS: tuple[tuple[str, str, tuple[str, ...], str], ...] = (
+    ("hood_on_head", "图中人物的帽兜是否盖在头顶上？只答 是/否", ("是", "否"), "否"),
+    (
+        "same_jacket",
+        "图中人物穿的是否是纯黑色、无 logo、无字的连帽风衣（带帽兜的防风外套；衬衫、衬衫领、"
+        "皮夹克、铆钉夹克、高领夹克都不算）？只答 是/否",
+        ("是", "否"),
+        "是",
+    ),
+    ("accessories", "图中人物是否戴有耳环、项链、发饰等任何饰品？只答 是/否", ("是", "否"), "否"),
+    ("hairstyle", "图中人物的发型是 马尾/麻花辫/披发 中的哪一种？只答其中一个词", ("马尾", "麻花辫", "披发"), "马尾"),
+)
+
+
+def parse_vlm_choice(raw: str, choices: tuple[str, ...]) -> str | None:
+    """把 VLM 原始回答归一到 choices 之一；无法判定 → None（按不通过处理）。"""
+    import re as _re
+
+    t = _re.sub(r"<think>.*?</think>", "", str(raw or ""), flags=_re.S).strip()
+    # Comfy PreviewAny 常把 STRING 列表序列化成 JSON（含 \\uXXXX 转义）：'[\n "\\u5426"\n]'
+    if t.startswith("[") or "\\u" in t:
+        import json as _json
+
+        try:
+            v = _json.loads(t)
+            if isinstance(v, list):
+                t = " ".join(str(x) for x in v)
+            elif isinstance(v, str):
+                t = v
+        except ValueError:
+            try:
+                t = t.encode("utf-8").decode("unicode_escape").encode("latin-1").decode("utf-8")
+            except Exception:  # noqa: BLE001
+                pass
+        t = t.strip().strip("[]").strip()
+    t = t.strip(" \n\t：:。.!！\"'“”`*")
+    if not t:
+        return None
+    low = t.lower()
+    if set(choices) == {"是", "否"}:
+        head = t[:8]
+        if head.startswith(("不确定", "无法", "不清楚", "看不清", "不能确定")) or low.startswith(("unsure", "uncertain", "can't", "cannot")):
+            return None  # 不确定按不通过处理（不能让「帽兜是否在头上=不确定」被当成「否」放行）
+        if head.startswith(("否", "不是", "没有", "无", "不")) or low.startswith("no"):
+            return "否"
+        if head.startswith(("是", "有")) or low.startswith("yes"):
+            return "是"
+        if "否" in head or "不是" in head:
+            return "否"
+        if "是" in head:
+            return "是"
+        return None
+    if set(choices) == {"马尾", "麻花辫", "披发"}:
+        hits = []
+        for key, lab in (("麻花", "麻花辫"), ("辫", "麻花辫"), ("braid", "麻花辫"),
+                         ("马尾", "马尾"), ("ponytail", "马尾"),
+                         ("披", "披发"), ("loose", "披发")):
+            i = low.find(key)
+            if i >= 0:
+                hits.append((i, lab))
+        return min(hits)[1] if hits else None
+    for c in choices:
+        if c in t:
+            return c
+    return None
+
+
+def outfit_vlm_verdict(answers: dict[str, str], face_sim: float | None) -> dict[str, Any]:
+    """四问 + 脸分 → {pass, checks:[{key,question,raw,parsed,want,ok}], face_sim, face_ok, failed}。"""
+    checks = []
+    for key, q, choices, want in OUTFIT_VLM_QUESTIONS:
+        raw = answers.get(key)
+        parsed = parse_vlm_choice(raw or "", choices)
+        checks.append({"key": key, "question": q, "raw": raw, "parsed": parsed, "want": want,
+                       "ok": parsed == want})
+    face_ok = face_sim is not None and float(face_sim) >= REF_FACE_SIM_MIN
+    failed = [c["key"] for c in checks if not c["ok"]] + ([] if face_ok else ["face_sim"])
+    return {"pass": not failed, "checks": checks, "face_sim": face_sim, "face_ok": face_ok,
+            "face_min": REF_FACE_SIM_MIN, "failed": failed}
+
+
+async def ask_outfit_vlm(
+    image_bytes: bytes,
+    *,
+    worker_url: str = "http://100.68.100.90:8262",
+    model: str = OUTFIT_VLM_MODEL,
+    timeout_s: float = 600.0,
+    seed: int = 42,
+) -> dict[str, str]:
+    """四问各提交一次 Comfy Qwen2_VQA（排队，不打断他人）；返回 {key: 原始回答}。仅允许 :8262/:8264。"""
+    import asyncio
+    import uuid
+
+    from app.comfy.client import ComfyUIClient
+    from app.services.studio.character_sheet import (
+        _assert_sheet_worker_allowed,
+        _extract_history_text,
+        build_expression_vlm_graph,
+    )
+
+    url = str(worker_url).rstrip("/")
+    _assert_sheet_worker_allowed(url)
+    client = ComfyUIClient(url, timeout=180.0)
+    fname = await client.upload_image(image_bytes, f"outfit_qa_{uuid.uuid4().hex[:10]}.png")
+    pids: dict[str, str] = {}
+    for key, q, _choices, _want in OUTFIT_VLM_QUESTIONS:
+        g = build_expression_vlm_graph(fname, prompt=q, model=model, seed=seed, backend="Qwen2_VQA")
+        g["2"]["inputs"]["max_new_tokens"] = 128  # 节点下限 128
+        g["2"]["inputs"]["temperature"] = 0.1
+        pids[key] = await client.queue_prompt(g, client_id=f"outfit_qa_{uuid.uuid4().hex[:8]}")
+    out: dict[str, str] = {}
+    waited = 0.0
+    while len(out) < len(pids) and waited < timeout_s:
+        for key, pid in pids.items():
+            if key in out:
+                continue
+            hist = await client.get_history(pid)
+            entry = (hist or {}).get(pid) or {}
+            st = (entry.get("status") or {}).get("status_str")
+            if entry.get("outputs"):
+                txt = _extract_history_text(entry)
+                if txt:
+                    out[key] = txt
+            elif st == "error":
+                out[key] = ""
+        if len(out) < len(pids):
+            await asyncio.sleep(2.0)
+            waited += 2.0
+    for key in pids:
+        out.setdefault(key, "")
+    return out
+
+
+def face_similarity(img_bgr, ref_bgr) -> float | None:
+    """与选优门禁同一 InsightFace（最大脸 normed_embedding 余弦）。"""
+    import numpy as np
+
+    from app.services.studio.candidate_pick import _get_face_app
+
+    fa = _get_face_app()
+
+    def _emb(im):
+        fs = fa.get(im)
+        if not fs:
+            return None
+        f = max(fs, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+        e = f.normed_embedding
+        return e / np.linalg.norm(e)
+
+    a, b = _emb(img_bgr), _emb(ref_bgr)
+    if a is None or b is None:
+        return None
+    return float(np.dot(a, b))
+
+
+async def scene_ref_gate(
+    image_bytes: bytes,
+    original_bytes: bytes,
+    *,
+    ask_fn=None,
+    face_fn=None,
+) -> dict[str, Any]:
+    """镜头级参考图验收：VLM 四问 + 脸分（vs 原参考）≥0.75。CLIP 不参与（仍只在 hood_state_log 告警）。"""
+    import cv2
+    import numpy as np
+
+    img = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
+    ref = cv2.imdecode(np.frombuffer(original_bytes, np.uint8), cv2.IMREAD_COLOR)
+    sim = (face_fn or face_similarity)(img, ref)
+    answers = await (ask_fn or ask_outfit_vlm)(image_bytes)
+    v = outfit_vlm_verdict(answers, sim)
+    v["answers"] = answers
+    return v
+
+
+def ref_overrides_gate_check(overrides: dict[str, str] | None, gate_record: dict[str, Any] | None) -> dict[str, Any]:
+    """镜头级参考覆盖启用前的验收核对：每个替换图（按文件名）都必须在验收记录里且 pass=True。
+
+    gate_record 为 scripts/chybrid_ref_gate.py 输出（{name: verdict{image, url?, pass, failed, ...}}）。
+    返回 {ok, passed:[文件名], missing:[文件名], failed:{文件名: failed_keys}}。
+    """
+    out: dict[str, Any] = {"ok": True, "passed": [], "missing": [], "failed": {}}
+    if not overrides:
+        return out
+    by_name: dict[str, dict[str, Any]] = {}
+    for v in (gate_record or {}).values():
+        if not isinstance(v, dict):
+            continue
+        for k in ("url", "image"):
+            if v.get(k):
+                by_name[str(v[k]).rsplit("/", 1)[-1]] = v
+    for new in overrides.values():
+        name = str(new).rsplit("/", 1)[-1]
+        v = by_name.get(name)
+        if v is None:
+            out["missing"].append(name)
+        elif not v.get("pass"):
+            out["failed"][name] = list(v.get("failed") or ["not_pass"])
+        else:
+            out["passed"].append(name)
+    out["ok"] = not out["missing"] and not out["failed"]
+    return out

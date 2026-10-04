@@ -273,6 +273,17 @@ async def main_async(args) -> int:
             if not sep or not k.strip() or not v.strip():
                 raise SystemExit(f"--ref-override 需 ORIG=NEW: {item!r}")
             ref_overrides[k.strip()] = v.strip()
+        if ref_overrides:
+            # 2026-10-05 04:09：镜头级参考必须先过 VLM 四问 + 脸分≥0.75 验收（scripts/chybrid_ref_gate.py）
+            from app.services.studio.outfit_state import ref_overrides_gate_check
+
+            rec = {}
+            if args.ref_gate_json:
+                rec = json.loads(Path(args.ref_gate_json).read_text())
+            chk = ref_overrides_gate_check(ref_overrides, rec)
+            prog.event("ref_gate_check", gate_json=args.ref_gate_json, **chk)
+            if not chk["ok"]:
+                raise SystemExit(f"镜头级参考未过 VLM 验收，禁止渲染: missing={chk['missing']} failed={chk['failed']}")
         outfit_desc = (args.outfit_desc or "").strip()
         if ref_overrides or outfit_desc:
             prog.event("scene_overrides", ref_overrides=ref_overrides, outfit_desc=outfit_desc)
@@ -354,6 +365,8 @@ def main() -> int:
     ap.add_argument("--ref-override", action="append", default=[],
                     help="scene-level ref override ORIG=NEW (orig URL or file name -> replacement URL); "
                          "keeps @图片 labels/order, character originals untouched. Repeatable.")
+    ap.add_argument("--ref-gate-json", default="",
+                    help="VLM acceptance record from scripts/chybrid_ref_gate.py; every --ref-override image must pass")
     ap.add_argument("--outfit-desc", default="",
                     help="single outfit description replacing jacket/raincoat wording, "
                          "e.g. '纯黑无 logo 无字的连帽风衣'")
