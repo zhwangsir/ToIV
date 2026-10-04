@@ -49,7 +49,7 @@ def test_parse_vlm_json_list_wrapped_preview_any():
 
 
 def test_parse_vlm_json_and_aliases():
-    raw = '{"label":"温柔","scores":{"威严":0.05,"冷酷":0.05,"沉思":0.1,"温柔":0.7,"惊恐":0.05,"果断":0.05}}'
+    raw = '{"label":"温柔","scores":{"威严":0.05,"冷酷":0.05,"沉思":0.1,"温柔":0.7,"惊恐":0.05,"果断":0.05},"smiling":true}'
     parsed = sheet_svc._parse_vlm_expression_json(raw)
     assert parsed["label"] == "温柔"
     assert abs(sum(parsed["scores"].values()) - 1.0) < 1e-6
@@ -157,7 +157,7 @@ async def test_classify_expression_vlm_mock_pass(monkeypatch):
                     "outputs": {
                         "3": {
                             "text": [
-                                '{"label":"温柔","scores":{"威严":0.05,"冷酷":0.05,"沉思":0.1,"温柔":0.7,"惊恐":0.05,"果断":0.05}}'
+                                '{"label":"温柔","scores":{"威严":0.05,"冷酷":0.05,"沉思":0.1,"温柔":0.7,"惊恐":0.05,"果断":0.05},"smiling":true}'
                             ]
                         }
                     },

@@ -2047,89 +2047,146 @@ def _fit_expr_cell_face_fill(
     box: tuple[int, int, int, int],
     *,
     target_face_height_frac: float = 0.58,
+    min_face_height_frac: float = 0.55,
+    max_face_height_frac: float = 0.65,
+    allow_studio_pad_for_face_gate: bool = True,
 ) -> tuple[Image.Image, tuple[int, int]]:
-    """21:30：表情格按脸框统一尺度 cover 铺满（含嘴下巴）。
+    """21:30/22:28：表情格按脸框统一尺度铺满（含嘴下巴）。
 
-    相对目标格纵横比在**源图内**取最大同比例窗并缩放到 iw×ih。
-    禁止垫棚灰 letterbox（21:45：宽格按脸高算窗超源图边会左右露灰条）。
-    脸偏大时宁可 face_frac 略高，也不垫边。
+    优先源内最大同比例零垫边窗（21:45 禁近白/棚灰露边）。
+    22:28：贴格后脸高占格高须 0.55–0.65；若零垫边越界且 allow_studio_pad_for_face_gate，
+    仅此时用棚灰(220)垫源再裁，以满足硬门禁（棚灰非近白，3px 门禁仍过）。
     """
     x, y, tw, th = [int(v) for v in box]
     tw = max(8, tw)
     th = max(8, th)
-    src = img.convert("RGBA")
-    sw, sh = src.size
+    src0 = img.convert("RGBA")
     aspect = tw / float(th)
-    bb = _expr_face_bbox_of(src)
     tgt = max(0.50, min(0.70, float(target_face_height_frac)))
+    lo = float(min_face_height_frac)
+    hi = float(max_face_height_frac)
 
-    # 源图内最大同纵横比窗（零垫边）
-    if sw / float(max(1, sh)) >= aspect:
-        ch0 = float(sh)
-        cw0 = ch0 * aspect
-    else:
-        cw0 = float(sw)
-        ch0 = cw0 / aspect
-    cw0 = min(cw0, float(sw))
-    ch0 = min(ch0, float(sh))
+    def _max_zero_pad_window(sw: int, sh: int) -> tuple[float, float]:
+        if sw / float(max(1, sh)) >= aspect:
+            ch0 = float(sh)
+            cw0 = ch0 * aspect
+        else:
+            cw0 = float(sw)
+            ch0 = cw0 / aspect
+        return min(cw0, float(sw)), min(ch0, float(sh))
 
-    if bb is None:
-        left = max(0.0, (sw - cw0) / 2.0)
-        top = max(0.0, min(float(sh) - ch0, sh * 0.06))
-        crop = src.crop(
-            (int(left), int(top), int(left + cw0), int(top + ch0))
-        ).resize((tw, th), Image.Resampling.LANCZOS)
+    def _crop_once(src: Image.Image, *, force_want: bool) -> Image.Image:
+        sw, sh = src.size
+        bb = _expr_face_bbox_of(src)
+        cw0, ch0 = _max_zero_pad_window(sw, sh)
+        if bb is None:
+            left = max(0.0, (sw - cw0) / 2.0)
+            top = max(0.0, min(float(sh) - ch0, sh * 0.06))
+            crop = src.crop(
+                (int(left), int(top), int(left + cw0), int(top + ch0))
+            ).resize((tw, th), Image.Resampling.LANCZOS)
+        else:
+            fx1, fy1, fx2, fy2 = [float(v) for v in bb]
+            fw = max(8.0, fx2 - fx1)
+            fh = max(8.0, fy2 - fy1)
+            fcx = (fx1 + fx2) / 2.0
+            chin_y = fy2 + 0.10 * fh
+            mouth_y = fy1 + 0.72 * fh
+            want_h = max(fh / tgt, fw * 1.05 / max(aspect, 0.5), 64.0)
+            want_w = want_h * aspect
+            if force_want or (want_w <= sw + 1e-6 and want_h <= sh + 1e-6):
+                crop_w, crop_h = want_w, want_h
+                # force_want 且超源：由调用方先垫边，此处仍夹到源内
+                crop_w = min(crop_w, float(sw))
+                crop_h = min(crop_h, float(sh))
+            else:
+                crop_w, crop_h = cw0, ch0
+            top = fy1 - 0.12 * crop_h
+            if chin_y > top + crop_h * 0.96:
+                top = chin_y - crop_h * 0.96
+            if mouth_y > top + crop_h * 0.90:
+                top = mouth_y - crop_h * 0.90
+            left = fcx - crop_w / 2.0
+            left = max(0.0, min(float(sw) - crop_w, left))
+            top = max(0.0, min(float(sh) - crop_h, top))
+            if mouth_y > top + crop_h * 0.92:
+                top = max(0.0, min(float(sh) - crop_h, mouth_y - crop_h * 0.88))
+            if chin_y > top + crop_h * 0.98:
+                top = max(0.0, min(float(sh) - crop_h, chin_y - crop_h * 0.96))
+            x0 = int(round(left))
+            y0 = int(round(top))
+            x1 = int(round(left + crop_w))
+            y1 = int(round(top + crop_h))
+            x0 = max(0, min(sw - 2, x0))
+            y0 = max(0, min(sh - 2, y0))
+            x1 = max(x0 + 2, min(sw, x1))
+            y1 = max(y0 + 2, min(sh, y1))
+            crop = src.crop((x0, y0, x1, y1)).resize((tw, th), Image.Resampling.LANCZOS)
         if crop.mode == "RGBA":
             solid = Image.new("RGBA", crop.size, (220, 220, 224, 255))
             solid.paste(crop, (0, 0), crop)
             crop = solid
+        return crop
+
+    def _frac_of(crop: Image.Image) -> float | None:
+        buf = BytesIO()
+        crop.convert("RGB").save(buf, format="PNG")
+        return measure_face_height_frac(buf.getvalue())
+
+    crop = _crop_once(src0, force_want=False)
+    frac = _frac_of(crop)
+    if frac is not None and lo - 1e-6 <= frac <= hi + 1e-6:
         return crop, (x, y)
 
-    fx1, fy1, fx2, fy2 = [float(v) for v in bb]
-    fw = max(8.0, fx2 - fx1)
-    fh = max(8.0, fy2 - fy1)
-    fcx = (fx1 + fx2) / 2.0
-    chin_y = fy2 + 0.10 * fh
-    mouth_y = fy1 + 0.72 * fh
+    # 22:28：零垫边越界 → 垫棚灰使 want 窗可落入源，再裁到目标脸高
+    if allow_studio_pad_for_face_gate:
+        bb = _expr_face_bbox_of(src0)
+        if bb is not None:
+            fx1, fy1, fx2, fy2 = [float(v) for v in bb]
+            fw = max(8.0, fx2 - fx1)
+            fh = max(8.0, fy2 - fy1)
+            want_h = max(fh / tgt, fw * 1.05 / max(aspect, 0.5), 64.0)
+            want_w = want_h * aspect
+            sw0, sh0 = src0.size
+            pad_x = max(0, int(math.ceil((want_w - sw0) / 2.0)) + 8)
+            pad_y = max(0, int(math.ceil((want_h - sh0) / 2.0)) + 8)
+            if pad_x > 0 or pad_y > 0:
+                canvas = Image.new(
+                    "RGBA",
+                    (sw0 + 2 * pad_x, sh0 + 2 * pad_y),
+                    (220, 220, 224, 255),
+                )
+                canvas.paste(src0, (pad_x, pad_y), src0 if src0.mode == "RGBA" else None)
+                crop = _crop_once(canvas, force_want=True)
+                frac = _frac_of(crop)
+                if frac is not None and lo - 1e-6 <= frac <= hi + 1e-6:
+                    return crop, (x, y)
 
-    # 期望窗：脸高≈tgt；若超源图能力则退回最大零垫边窗
-    want_h = max(fh / tgt, fw * 1.05 / max(aspect, 0.5), 64.0)
-    want_w = want_h * aspect
-    if want_w <= sw + 1e-6 and want_h <= sh + 1e-6:
-        crop_w, crop_h = want_w, want_h
-    else:
-        # 不能垫边：用最大窗；face_frac 可能 > tgt
-        crop_w, crop_h = cw0, ch0
-
-    # 放置：脸顶约 10–14%；嘴/下巴必须进窗
-    top = fy1 - 0.12 * crop_h
-    if chin_y > top + crop_h * 0.96:
-        top = chin_y - crop_h * 0.96
-    if mouth_y > top + crop_h * 0.90:
-        top = mouth_y - crop_h * 0.90
-    left = fcx - crop_w / 2.0
-    left = max(0.0, min(float(sw) - crop_w, left))
-    top = max(0.0, min(float(sh) - crop_h, top))
-    # 若仍因夹紧导致嘴出界，尽量上移/下移已夹紧范围
-    if mouth_y > top + crop_h * 0.92:
-        top = max(0.0, min(float(sh) - crop_h, mouth_y - crop_h * 0.88))
-    if chin_y > top + crop_h * 0.98:
-        top = max(0.0, min(float(sh) - crop_h, chin_y - crop_h * 0.96))
-
-    x0 = int(round(left))
-    y0 = int(round(top))
-    x1 = int(round(left + crop_w))
-    y1 = int(round(top + crop_h))
-    x0 = max(0, min(sw - 2, x0))
-    y0 = max(0, min(sh - 2, y0))
-    x1 = max(x0 + 2, min(sw, x1))
-    y1 = max(y0 + 2, min(sh, y1))
-    crop = src.crop((x0, y0, x1, y1)).resize((tw, th), Image.Resampling.LANCZOS)
-    if crop.mode == "RGBA":
-        solid = Image.new("RGBA", crop.size, (220, 220, 224, 255))
-        solid.paste(crop, (0, 0), crop)
-        crop = solid
     return crop, (x, y)
+
+
+def assert_expr_cell_face_height_frac(
+    data: bytes,
+    *,
+    expr_key: str = "expr",
+    min_face_height_frac: float = 0.55,
+    max_face_height_frac: float = 0.65,
+) -> dict:
+    """22:28：贴格/方化后脸高占格高硬门禁 0.55–0.65；越界拒收该格。"""
+    frac = measure_face_height_frac(data)
+    if frac is None:
+        raise CharacterSheetError(
+            f"{expr_key}贴格脸高门禁失败：无人脸",
+            status_code=422,
+        )
+    lo = float(min_face_height_frac)
+    hi = float(max_face_height_frac)
+    if frac + 1e-12 < lo or frac - 1e-12 > hi:
+        raise CharacterSheetError(
+            f"{expr_key}贴格脸高越界 face_height_frac={frac:.3f} not in [{lo:.2f},{hi:.2f}]",
+            status_code=422,
+        )
+    return {"expr_key": expr_key, "face_height_frac": float(frac), "min": lo, "max": hi}
 
 
 def _compose_expression_grid_unified_face_scales(
@@ -2221,6 +2278,15 @@ def _compose_expression_grid(
         )
         if fitted.height != ih or fitted.width != iw:
             fitted = fitted.resize((iw, ih), Image.Resampling.LANCZOS)
+        # 22:28：贴格后脸高硬门禁 0.55–0.65；越界拒收该格
+        _fbuf = BytesIO()
+        fitted.convert("RGB").save(_fbuf, format="PNG")
+        assert_expr_cell_face_height_frac(
+            _fbuf.getvalue(),
+            expr_key=key,
+            min_face_height_frac=0.55,
+            max_face_height_frac=0.65,
+        )
         grid.paste(fitted, pos, fitted if fitted.mode == "RGBA" else None)
         if draw_labels and font is not None and i < len(_EXPR_LABELS):
             # 标签带:独立矩形,与图片区零重叠（古风深底金字 / 二次元浅底深字）
@@ -4194,8 +4260,12 @@ _EXPR_KEY_TO_VLM_LABEL = {v: k for k, v in _EXPR_VLM_LABEL_TO_KEY.items()}
 _EXPR_VLM_PROMPT = (
     "You are an expression classifier for anime character closeups. "
     "Choose exactly ONE label from: 威严, 冷酷, 沉思, 温柔, 惊恐, 果断. "
+    "Also answer the yes/no second question: is the face smiling "
+    "(mouth corners up OR soft closed-eye smile)? "
     "Output ONLY one JSON object, no markdown, no extra text. Schema: "
-    '{"label":"<one of six>","scores":{"威严":0,"冷酷":0,"沉思":0,"温柔":0,"惊恐":0,"果断":0}}. '
+    '{"label":"<one of six>","scores":{"威严":0,"冷酷":0,"沉思":0,"温柔":0,"惊恐":0,"果断":0},'
+    '"smiling":true}. '
+    "smiling must be a boolean: true if mouth corners raised or closed-eye smile, else false. "
     "Fill scores with your confidences (0~1, roughly normalized). "
     "Do NOT copy any example; judge from the actual face in the image. "
     "Visible-feature definitions (must match what you see, not just the name): "
@@ -4206,6 +4276,7 @@ _EXPR_VLM_PROMPT = (
     "沉思=eyes looking down and to the side + head slightly tilted + relaxed brows + lips slightly pressed + faraway gaze "
     "(reject if frown or furrowed brows); "
     "温柔=relaxed brows + soft closed-eye smile (eyes closed); reject if eyes open neutral; "
+    "for 温柔, smiling MUST be true; "
     "惊恐=wide eyes + open mouth; "
     "果断=focused eyes + firm closed mouth + brows slightly lowered."
 )
@@ -4463,7 +4534,20 @@ def _parse_vlm_expression_json(raw: str, labels: tuple[str, ...] = _EXPR_LABELS)
     # 归一（容错）
     ssum = sum(max(0.0, float(v)) for v in scores.values()) or 1.0
     scores = {lab: max(0.0, float(scores.get(lab, 0.0))) / ssum for lab in labels}
-    return {"label": label, "scores": scores, "raw": raw}
+    # 22:28：温柔第二问 — smiling 是/否
+    smiling_raw = obj.get("smiling", obj.get("is_smiling", obj.get("smile")))
+    smiling: bool | None = None
+    if isinstance(smiling_raw, bool):
+        smiling = smiling_raw
+    elif isinstance(smiling_raw, (int, float)):
+        smiling = bool(smiling_raw)
+    elif isinstance(smiling_raw, str):
+        s = smiling_raw.strip().lower()
+        if s in ("true", "yes", "y", "1", "是", "微笑", "smile", "smiling"):
+            smiling = True
+        elif s in ("false", "no", "n", "0", "否", "不", "not smiling"):
+            smiling = False
+    return {"label": label, "scores": scores, "raw": raw, "smiling": smiling}
 
 
 def build_expression_vlm_graph(
@@ -4734,6 +4818,15 @@ def assert_expression_vlm_match(
             f"{expr_key} VLM argmax 非目标: want={want} argmax={argmax} scores={scores}",
             status_code=422,
         )
+    # 22:28：温柔必须第二问 smiling=true（嘴角上扬或闭眼笑）
+    if expr_key == "expr_3":
+        smiling = vlm_result.get("smiling")
+        info["smiling"] = smiling
+        if smiling is not True:
+            raise CharacterSheetError(
+                f"{expr_key}温柔第二问未通过: smiling={smiling!r}（须为是/true）",
+                status_code=422,
+            )
     return info
 
 
@@ -8366,6 +8459,47 @@ async def generate_character_sheet(
                             f"{ek} 无表情底且无法从主立绘裁脸: {ce}",
                             status_code=422,
                         ) from ce
+            # 22:28 / 22:22：沉思（expr_2）改用侧面头底图做 inpaint（非正脸底）
+            if "expr_2" not in override_keys or "expr_2" not in panels:
+                _side_src = None
+                for _sk in ("side", "face_three_quarter", "face_side"):
+                    if panels.get(_sk):
+                        _side_src = panels[_sk]
+                        break
+                if _side_src is not None:
+                    try:
+                        try:
+                            _side_head = crop_face_slot_from_master(
+                                _side_src, slot="face_three_quarter", size=768
+                            )
+                        except CharacterSheetError:
+                            _side_head = crop_face_ref(_side_src, size=768)
+                        bases["expr_2"] = _side_head
+                        logger.info(
+                            "expr_2 side-head base md5=%s bytes=%s",
+                            hashlib.md5(_side_head).hexdigest()[:12],
+                            len(_side_head),
+                        )
+                        try:
+                            (reject_dir / f"expr_2_side_base_{int(seed or 0)}.png").write_bytes(
+                                _side_head
+                            )
+                            (reject_dir / f"expr_2_side_base_{int(seed or 0)}.json").write_text(
+                                json.dumps(
+                                    {
+                                        "source": "side_head",
+                                        "md5": hashlib.md5(_side_head).hexdigest(),
+                                        "note": "22:28 contemplative uses side-face base",
+                                    },
+                                    ensure_ascii=False,
+                                    indent=2,
+                                ),
+                                encoding="utf-8",
+                            )
+                        except Exception:
+                            pass
+                    except Exception as _se:  # noqa: BLE001
+                        logger.warning("expr_2 side-head base failed, keep prior: %s", _se)
             for ek, bb in list(bases.items()):
                 fixed, area = assert_expr_base_face_area(bb, expr_key=ek, min_area=0.15)
                 bases[ek] = fixed
@@ -8396,6 +8530,12 @@ async def generate_character_sheet(
                             pass
                         assert_expr_cell_no_white_border(_locked_b, expr_key=ek)
                         assert_mouth_in_frame(_locked_b)
+                        assert_expr_cell_face_height_frac(
+                            _locked_b,
+                            expr_key=ek,
+                            min_face_height_frac=0.55,
+                            max_face_height_frac=0.65,
+                        )
                         panels[ek] = _locked_b
                     except CharacterSheetError as _le:
                         logger.warning(
@@ -8541,7 +8681,12 @@ async def generate_character_sheet(
                             client=client,
                             ref_image=ref_name,
                             ref_mode="inpaint",
-                            denoise=0.58 if attempt < 2 else 0.68,
+                            # 22:28：温柔 inpaint denoise 可到 0.7；其它仍 0.58→0.68
+                            denoise=(
+                                (0.62 if attempt < 2 else 0.70)
+                                if ek == "expr_3"
+                                else (0.58 if attempt < 2 else 0.68)
+                            ),
                             negative_extra=_neg_try,
                             mask_image=mask_name,
                             grow_mask_by=4,
@@ -8582,6 +8727,13 @@ async def generate_character_sheet(
                         # 18:30：再以脸框中心裁切，禁格外白底
                         cell_b = squareize_face_center_crop(blended, size=768)
                         assert_expr_cell_no_white_border(cell_b, expr_key=ek)
+                        # 22:28：方化后脸高硬门禁 0.55–0.65
+                        assert_expr_cell_face_height_frac(
+                            cell_b,
+                            expr_key=ek,
+                            min_face_height_frac=0.55,
+                            max_face_height_frac=0.65,
+                        )
                         # 19:15：威严/温柔几何语义（辅助）；19:55：VLM 六类判官为硬门禁
                         assert_expression_semantic(
                             cell_b, expr_key=ek, neutral_ref=base_b
