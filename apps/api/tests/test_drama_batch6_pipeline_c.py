@@ -690,8 +690,10 @@ def test_garment_brand_ocr_hit_video_roundtrip(tmp_path):
         pytest.skip(r_brand["error"])
     # 有帧被检查；OCR 识别成功时必须 hit
     assert r_brand.get("frames_checked", 0) >= 1
+    # 2026-10-05：无人物（无脸 → 无躯干框）的纯字卡不再拦；旧 image_to_string 判定只进 brand_log
+    assert r_brand.get("hit") is False, r_brand
     if r_brand.get("text") and "north" in r_brand["text"].lower():
-        assert r_brand.get("hit") is True
+        assert r_brand.get("brand_log"), r_brand
 
 
 def test_scene_sign_ocr_frame_north_check_vs_blank():

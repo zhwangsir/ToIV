@@ -648,6 +648,43 @@ async def render_shot(
         session.commit()
         raise
 
+    # 硬切规则（C 管线视频）：pick_best_candidate 未跑时（单候选/关闭选优）在此执行，
+    # 锚定区/首 1 秒硬切 → 裁片头（音频同步裁），片尾不变，续写 latent 仍有效。
+    single_trim: dict[str, Any] | None = None
+    if (
+        result.kind == "video"
+        and pipe in C_PIPELINES
+        and not any(isinstance(c, dict) and "hard_cuts" in c for c in candidates)
+    ):
+        from app.services.studio.candidate_pick import ANCHORED_FIRST_FRAME_SKIP_FRAMES
+        from app.services.studio.hard_cut import apply_hard_cut_rule
+
+        _meta0 = getattr(result, "pipeline_meta", None) or {}
+        _anchor = ANCHORED_FIRST_FRAME_SKIP_FRAMES if (
+            isinstance(_meta0, dict) and _meta0.get("first_frame")
+        ) else 0
+        targets = [c for c in candidates if isinstance(c, dict) and c.get("status") == "done" and c.get("url")]
+        if not targets:
+            single_trim = {"url": result.url}
+            targets = [single_trim]
+        for c in targets:
+            lp = _studio_local_path(str(c["url"]))
+            if lp is None:
+                continue
+            try:
+                await asyncio.to_thread(apply_hard_cut_rule, c, lp, anchor_frames=_anchor)
+            except Exception:  # noqa: BLE001
+                logger.warning("hard_cut rule failed shot=%s", shot.id, exc_info=True)
+        picked_url = next(
+            (str(c["url"]) for c in targets if c is single_trim or c.get("is_picked")), ""
+        )
+        if picked_url and picked_url != result.url:
+            class _RT:
+                kind = "video"
+                url = picked_url
+                pipeline_meta = _meta0
+            result = _RT()
+
     if result.kind == "image":
         shot.image_url = result.url
         try:
@@ -680,6 +717,7 @@ async def render_shot(
                     "pipeline": ((meta.get("pipeline") if isinstance(meta, dict) else None) or (pipe if engine == "h3" else "")),
                     "context_latent": (meta.get("context_latent") if isinstance(meta, dict) else "") or "",
                     "first_frame": (meta.get("first_frame") if isinstance(meta, dict) else "") or "",
+                    **{k: v for k, v in (single_trim or {}).items() if k != "url"},
                 }
             ]
         )
