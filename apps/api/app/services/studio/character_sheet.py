@@ -4813,11 +4813,20 @@ def crop_expr_head_closeup(
     return out
 
 
-def measure_hard_seam_contour(data: bytes, *, size: int = 768) -> dict:
+def measure_hard_seam_contour(
+    data: bytes,
+    *,
+    size: int = 768,
+    stage: str = "raw",
+) -> dict:
     """01:50：检测椭圆/矩形硬边接缝（边缘梯度沿闭合轮廓突变）。
 
     主信号：沿脸部羽化贴回遮罩边界的颜色跳变（专拦 0104 碎脸贴回伪影）；
     辅信号：轴对齐长边围成的矩形框；强闭合椭圆突变。
+
+    stage:
+      - raw：完整 Qwen 输出，mask_p75 阈值按 0104 碎脸校准
+      - crop：头部特写裁剪后，mask 边界易与发际线重合 → 提高阈值，主靠 rect/ell
     """
     import cv2  # local: core/MateBook api venv 均有
 
@@ -4906,6 +4915,11 @@ def measure_hard_seam_contour(data: bytes, *, size: int = 768) -> dict:
                 v_seg += 1
     rectish = bool(h_seg >= 2 and v_seg >= 2)
 
+    # 顶部水平硬切（头特写常见矩形硬边：发顶被平切）
+    top_band = edges[int(size * 0.04) : int(size * 0.18), int(size * 0.15) : int(size * 0.85)]
+    top_row_frac = float((top_band > 0).mean(axis=1).max()) if top_band.size else 0.0
+    top_hard_cut = bool(top_row_frac >= 0.55)
+
     mag = cv2.magnitude(
         cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3),
         cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3),
@@ -4948,12 +4962,19 @@ def measure_hard_seam_contour(data: bytes, *, size: int = 768) -> dict:
                 best_ell = score
                 best_frac = frac
 
-    # 校准：0104 沉思过门禁碎脸 / 温柔 a5 必须拒；锁定好格放行
-    reject = bool(
-        (mask_p75 >= 26.0 and mask_strong >= 0.20)
-        or rectish
-        or (best_ell >= 70.0 and best_frac >= 0.35)
-    )
+    # 校准：0104 沉思过门禁碎脸 / 温柔 a5（raw）必须拒；锁定好格放行
+    # crop 阶段：头特写使 paste-mask 边界贴发际线，易误杀 → 提高 mask 阈值
+    st = (stage or "raw").strip().lower()
+    if st == "crop":
+        mask_hit = mask_p75 >= 40.0 and mask_strong >= 0.27
+        ell_hit = best_ell >= 80.0 and best_frac >= 0.38
+        # crop 额外拦发顶水平硬切
+        extra = top_hard_cut
+    else:
+        mask_hit = mask_p75 >= 26.0 and mask_strong >= 0.20
+        ell_hit = best_ell >= 70.0 and best_frac >= 0.35
+        extra = False
+    reject = bool(mask_hit or rectish or ell_hit or extra)
     return {
         "mask_p75": mask_p75,
         "mask_mean": mask_mean,
@@ -4963,6 +4984,8 @@ def measure_hard_seam_contour(data: bytes, *, size: int = 768) -> dict:
         "v_seg": v_seg,
         "ell_score": best_ell,
         "ell_frac": best_frac,
+        "top_hard_cut": top_hard_cut,
+        "stage": st,
         "reject": reject,
     }
 
@@ -4972,14 +4995,16 @@ def assert_no_hard_seam_contour(
     *,
     expr_key: str = "expr",
     size: int = 768,
+    stage: str = "raw",
 ) -> dict:
     """01:50：接缝门禁——椭圆/矩形硬边（闭合轮廓梯度突变）即拒。"""
-    info = measure_hard_seam_contour(data, size=size)
+    info = measure_hard_seam_contour(data, size=size, stage=stage)
     info["expr_key"] = expr_key
     if info.get("reject"):
         raise CharacterSheetError(
             f"{expr_key}接缝门禁: 检测到椭圆/矩形硬边 "
-            f"(mask_p75={info['mask_p75']:.1f} strong={info['mask_strong']:.2f} "
+            f"(stage={info.get('stage')} mask_p75={info['mask_p75']:.1f} "
+            f"strong={info['mask_strong']:.2f} "
             f"ell={info['ell_score']:.1f}/{info['ell_frac']:.2f} "
             f"rect={info['rectish']})",
             status_code=422,
@@ -9753,7 +9778,7 @@ async def generate_character_sheet(
                             except Exception:
                                 pass
                             # 接缝门禁：Qwen 原始输出即验
-                            assert_no_hard_seam_contour(raw, expr_key=ek, size=768)
+                            assert_no_hard_seam_contour(raw, expr_key=ek, size=768, stage="raw")
                             # 头部特写裁剪：发顶→下巴+0.15脸高，胸口不进
                             cell_b = crop_expr_head_closeup(raw, size=768)
                             try:
@@ -9763,7 +9788,7 @@ async def generate_character_sheet(
                             except Exception:
                                 pass
                             # 裁剪区内再验接缝
-                            assert_no_hard_seam_contour(cell_b, expr_key=ek, size=768)
+                            assert_no_hard_seam_contour(cell_b, expr_key=ek, size=768, stage="crop")
                             try:
                                 cell_b = squareize_face_center_crop(cell_b, size=768)
                             except CharacterSheetError:
