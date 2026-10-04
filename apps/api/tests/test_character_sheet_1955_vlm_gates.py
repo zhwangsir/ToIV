@@ -39,6 +39,15 @@ def _face_cell(*, face_top: float, face_bot: float, size: int = 256) -> bytes:
     return _png(out)
 
 
+def test_parse_vlm_json_list_wrapped_preview_any():
+    raw = """[
+    "{\"label\":\"冷酷\",\"scores\":{\"威严\":0,\"冷酷\":0.8,\"沉思\":0,\"温柔\":0,\"惊恐\":0,\"果断\":0}}"
+]"""
+    parsed = sheet_svc._parse_vlm_expression_json(raw)
+    assert parsed["label"] == "冷酷"
+    assert parsed["scores"]["冷酷"] == max(parsed["scores"].values())
+
+
 def test_parse_vlm_json_and_aliases():
     raw = '{"label":"温柔","scores":{"威严":0.05,"冷酷":0.05,"沉思":0.1,"温柔":0.7,"惊恐":0.05,"果断":0.05}}'
     parsed = sheet_svc._parse_vlm_expression_json(raw)

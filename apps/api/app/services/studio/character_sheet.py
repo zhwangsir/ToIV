@@ -4163,24 +4163,42 @@ def assert_mouth_in_frame(
 
 def _parse_vlm_expression_json(raw: str, labels: tuple[str, ...] = _EXPR_LABELS) -> dict:
     """从 VLM 原始文本解析 label + scores；失败抛 CharacterSheetError。"""
+    import ast
+
     text = (raw or "").strip()
     if not text:
         raise CharacterSheetError("VLM 表情判官返回空文本", status_code=502)
+    # PreviewAny / Qwen2_VQA 偶发返回 Python list 字面量：['{"label":...}']
+    if text.startswith("["):
+        try:
+            lit = ast.literal_eval(text)
+            if isinstance(lit, list) and lit:
+                first = lit[0]
+                text = (
+                    first
+                    if isinstance(first, str)
+                    else json.dumps(first, ensure_ascii=False)
+                )
+            elif isinstance(lit, str):
+                text = lit
+        except (SyntaxError, ValueError):
+            pass
     # 剥 markdown fence
     fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
     if fence:
         text = fence.group(1).strip()
-    # 取第一个 JSON 对象
+    text = text.strip().lstrip("\ufeff")
     m = re.search(r"\{[\s\S]*\}", text)
     if not m:
         raise CharacterSheetError(
             f"VLM 表情判官无 JSON: {raw[:200]}", status_code=502
         )
+    blob = m.group(0)
     try:
-        obj = json.loads(m.group(0))
+        obj = json.loads(blob)
     except json.JSONDecodeError as e:
         raise CharacterSheetError(
-            f"VLM 表情判官 JSON 解析失败: {e}; raw={raw[:200]}",
+            f"VLM 表情判官 JSON 解析失败: {e}; raw={raw[:240]}",
             status_code=502,
         ) from e
     if not isinstance(obj, dict):
