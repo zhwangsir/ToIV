@@ -141,7 +141,7 @@ def test_source_has_1618_rules():
     assert "relative_only" in src
     assert "forced body-side" in src
     assert "def _collar_box" in src
-    assert "重罚手插袋" in src
+    assert ("袖口+手" in src) or ("_wrist_cuff_box" in src)
     assert "羽化边界" in src or "半透明混合" in src
 
 

@@ -50,9 +50,9 @@ _EXPR_PROMPTS = (
     "stern majestic expression, extreme face closeup head and shoulders",
     "cold aloof expression, icy gaze, extreme face closeup head and shoulders",
     "thoughtful contemplative expression, looking slightly down, extreme face closeup head and shoulders",
-    "gentle soft smile, warm kind eyes, extreme face closeup head and shoulders",
+    "gentle relaxed brows soft smile, warm kind eyes, extreme face closeup head and shoulders",
     "terrified shocked expression, wide eyes open mouth, fear, extreme face closeup head and shoulders",
-    "resolute determined expression, firm gaze, extreme face closeup head and shoulders",
+    "resolute determined expression, brows lowered, lips pressed closed (no open mouth), firm gaze, extreme face closeup head and shoulders",
 )
 # 19:01：表情只走图像编辑——中文指令仅改表情，锁身份/发型/服装/构图
 _EXPR_EDIT_INSTRUCTIONS = (
@@ -60,9 +60,9 @@ _EXPR_EDIT_INSTRUCTIONS = (
     "只改变面部表情为威严：眉头明显下压聚拢、双眼正视、嘴角明显向下、双唇抿紧。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
     "只改变面部表情为冷酷：双眼半睁、面无表情、目光明显斜视一侧、嘴角平直下压。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
     "只改变面部表情为沉思：视线明显下垂看向斜下方、眉心轻蹙、嘴唇微闭放松，可微侧头。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "只改变面部表情为温柔：明显微笑露一点上齿、眼角弯起柔和。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为温柔：眉毛放松不上扬不皱眉、双眼柔和、嘴角上扬带自然微笑（可轻露一点上齿），与威严的压眉区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
     "只改变面部表情为惊恐：双眼瞪大、嘴巴明显张开可见口腔、眉毛高高上扬、眉心分开。必须张嘴。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要裁太近。",
-    "只改变面部表情为果断：眉毛压平、眼神直视镜头坚定、嘴唇紧闭成一条线、下颌微绷（正面，勿侧头）。与威严的皱眉下嘴角区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为果断：眉毛明显压低、眼神直视坚定、双唇抿紧闭嘴（禁止张嘴/喊叫）、下颌微绷（正面，勿侧头）。与威严的皱眉下垂嘴角区分，与惊恐张嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
 )
 _CHAR_SHEET_MARK = "char_sheet_"
 _CHAR_PANEL_MARK = "char_panel_"
@@ -2210,12 +2210,15 @@ def apply_expression_grid_local_features(
     *,
     cell: int = 512,
     max_cell_mae: float = 55.0,
+    feather: int = 10,
 ) -> bytes:
-    """00:31 / 15:52：宫格局部五官重绘合成。
+    """16:53：宫格局部五官重绘合成。
 
-    硬遮罩只保留眉眼嘴编辑；遮罩外（含全部头发与胸口）强制用底图像素贴回。
-    不对齐的格整格回退底图。发长/徽标门禁须在本函数合成结果上判定。
+    遮罩边高斯羽化（内缩后模糊，羽化落在五官区内），消除头发外沿半透明重影；
+    贴回必须用同一张底图同尺寸；遮罩外（含全部头发与胸口）强制用底图像素贴回；硬遮罩外强制底图像素逐点一致。
     """
+    from PIL import ImageFilter
+
     base = Image.open(BytesIO(base_grid)).convert("RGB")
     edit = Image.open(BytesIO(edited_grid)).convert("RGB")
     if edit.size != base.size:
@@ -2223,14 +2226,27 @@ def apply_expression_grid_local_features(
     cols, rows = 3, 2
     cw = max(1, base.size[0] // cols)
     ch = max(1, base.size[1] // rows)
-    # 按实际格尺寸重建遮罩，避免缩放错位
-    mask = Image.new("L", base.size, 0)
+    fw = max(2, int(feather))
+    hard = Image.new("L", base.size, 0)
+    soft = Image.new("L", base.size, 0)
     for i in range(cols * rows):
         row, col = divmod(i, cols)
         cm = build_face_feature_mask(max(cw, ch)).point(lambda v: 255 if v >= 96 else 0)
         cm = cm.resize((cw, ch), Image.Resampling.NEAREST)
-        mask.paste(cm, (col * cw, row * ch))
-    out = base.copy()
+        hard.paste(cm, (col * cw, row * ch))
+        try:
+            # 内缩 ≥ 羽化半径，再模糊 → 渐变不溢出硬核外
+            erode_r = fw
+            cm_e = cm.filter(ImageFilter.MinFilter(size=erode_r * 2 + 1))
+            cm_s = cm_e.filter(ImageFilter.GaussianBlur(radius=fw))
+        except Exception:
+            cm_s = cm
+        soft.paste(cm_s, (col * cw, row * ch))
+    # 合成后硬外强制底图：先 soft 羽化贴，再 hard 外用底图盖回
+    blended = Image.composite(edit, base, soft)
+    # hard==0 → 底图；hard>0 → 保留 blended（含羽化环，环在硬核内）
+    out = Image.composite(blended, base, hard)
+    # 格级 MAE 门禁：漂移过大的格整格回退底图
     for i in range(cols * rows):
         row, col = divmod(i, cols)
         box = (col * cw, row * ch, col * cw + cw, row * ch + ch)
@@ -2246,10 +2262,9 @@ def apply_expression_grid_local_features(
         except Exception:
             mae = 999.0
         if mae > float(max_cell_mae):
-            continue
-        mc = mask.crop(box)
-        composited = Image.composite(ec, bc, mc)
-        out.paste(composited, (box[0], box[1]))
+            out.paste(bc, (box[0], box[1]))
+    if out.size != base.size:
+        out = out.resize(base.size, Image.Resampling.LANCZOS)
     buf = BytesIO()
     out.save(buf, format="PNG")
     return buf.getvalue()
@@ -2262,7 +2277,7 @@ _EXPR_GRID_EDIT_INSTRUCTION = (
     "不要改发型、脸型、肤色、领口、肩线、构图与背景；"
     "从左到右、从上到下依次为："
     "威严（眉头下压、嘴角下压）、冷酷（半睁斜视、嘴平）、沉思（视线下垂、眉轻蹙）、"
-    "温柔（微笑露一点上齿）、惊恐（双眼瞪大、嘴巴明显张开）、果断（眉压平、唇紧闭）。"
+    "温柔（眉放松带微笑）、惊恐（双眼瞪大、嘴巴明显张开）、果断（眉压低、双唇抿紧闭嘴）。"
     "每格保持同一人物、同一短发齐下巴、同一雨衣领口与配色；"
     "不要加文字、徽标、徽章、水印；不要加长发；不要把六格融成一张脸；"
     "六格眉眼嘴变化要大、一眼可辨，尤其惊恐必须张嘴。"
@@ -3201,26 +3216,38 @@ def crop_face_slot_from_master_with_meta(
             logger.info(
                 "faces %s expand overcrop frac→%s native_side=%.1f", slot, frac, side
             )
-        elif frac is None or frac + 1e-12 < 0.25:
+        elif frac is None or frac + 1e-12 < 0.28:
+            # 16:53：低于 ≈0.28 则收紧裁框到 face_frac≈0.3（几何，不重出母版）
             denser = _densify_three_quarter_head_crop(img, size=size, max_up=2.0)
-            if denser is not None:
-                dfrac = measure_face_height_frac(denser)
-                if dfrac is not None and (
-                    frac is None or (dfrac > (frac or 0) + 0.03 and dfrac <= 0.50 + 1e-9)
+            tightened = None
+            if frac is not None and float(frac) + 1e-12 < 0.28:
+                try:
+                    tightened = tighten_side_square_to_face_frac(
+                        out, target=0.30, min_frac=0.28, max_frac=0.35, size=size
+                    )
+                except Exception:  # noqa: BLE001
+                    tightened = None
+            chosen = None
+            chosen_frac = frac
+            for cand in (tightened, denser):
+                if not cand:
+                    continue
+                dfrac = measure_face_height_frac(cand)
+                if dfrac is None:
+                    continue
+                if float(dfrac) <= 0.50 + 1e-9 and (
+                    chosen_frac is None or float(dfrac) > float(chosen_frac) + 0.01
                 ):
-                    box2 = _native_three_quarter_crop_box(
-                        img, max_up=2.0, prefer_tight=False
-                    )
-                    out = denser
-                    frac = dfrac
-                    if box2 is not None:
-                        side = box2[2]
-                    logger.info(
-                        "faces %s densify head frac→%s native_side=%.1f",
-                        slot,
-                        frac,
-                        side,
-                    )
+                    chosen, chosen_frac = cand, dfrac
+            if chosen is not None:
+                out = chosen
+                frac = chosen_frac
+                logger.info(
+                    "faces %s tighten/densify head frac→%s native_side=%.1f",
+                    slot,
+                    frac,
+                    side,
+                )
         up = side_crop_upscale_factor(side, size)
         readable = side_face_slot_readable(
             out, native_side=side, size=size, max_upscale=1.08
@@ -3607,9 +3634,15 @@ def blend_face_local_edit(
     except Exception:
         pass
     m = build_face_feature_mask(size)
-    # 硬一点的遮罩：减少半透明叠影
-    m = m.point(lambda v: 255 if v >= 96 else int(v * 0.35))
+    # 16:53：硬核区 + 边羽化；遮罩外强制底图，消头发外沿半透明重影
+    m = m.point(lambda v: 255 if v >= 96 else 0)
+    try:
+        from PIL import ImageFilter
+        m = m.filter(ImageFilter.GaussianBlur(radius=max(6, size // 64)))
+    except Exception:
+        pass
     m_s = m.point(lambda v: int(v * strength))
+    # 贴回必须与底同尺寸（上文已 resize）
     out = Image.composite(e, o, m_s)
     buf = BytesIO()
     out.save(buf, format="PNG")
@@ -8587,35 +8620,35 @@ def _hem_box(img: Image.Image) -> tuple[float, float, float, float]:
 
 
 def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
-    """16:18：袖口——人物条左右外缘袖端；重罚手插袋（中部大块肤色）。
+    """16:53 / 15:52：袖口+手——回到 1552 裁框；水平强制钳进中间灰条人物区，禁止浅色外框。
 
-    水平强制钳进中间灰条；浅边过高丢弃；偏好袖缘高边缘密度、肤色占比适中。
+    在人物躯干左右侧找含袖缘/肤色的框；浅边占比高则丢弃；cover 前目标非背景≥0.25。
     """
     w, h = img.size
     gx0, gx1 = _middle_gray_stripe_x_bounds(img)
+    # 再内收 4%，彻底躲开浅外框/灰条边界
     span = max(0.10, gx1 - gx0)
-    gx0 = min(0.48, gx0 + span * 0.03)
-    gx1 = max(gx0 + 0.12, gx1 - span * 0.03)
+    gx0 = min(0.48, gx0 + span * 0.04)
+    gx1 = max(gx0 + 0.12, gx1 - span * 0.04)
     span = max(0.10, gx1 - gx0)
     mid = (gx0 + gx1) / 2.0
-    # 优先上外缘袖筒（肩下），避开腰侧口袋 y≈0.48–0.55
+    # 只在人物条左右侧采样（禁正中素布、禁外框）
     candidates = [
-        (gx0 + span * 0.08, 0.36),
-        (gx1 - span * 0.08, 0.36),
-        (gx0 + span * 0.12, 0.38),
-        (gx1 - span * 0.12, 0.38),
-        (gx0 + span * 0.06, 0.40),
-        (gx1 - span * 0.06, 0.40),
-        (gx0 + span * 0.16, 0.34),
-        (gx1 - span * 0.16, 0.34),
-        (gx0 + span * 0.10, 0.42),
-        (gx1 - span * 0.10, 0.42),
-        (gx0 + span * 0.14, 0.44),
-        (gx1 - span * 0.14, 0.44),
+        (gx0 + span * 0.16, 0.48),
+        (gx1 - span * 0.16, 0.48),
+        (gx0 + span * 0.22, 0.52),
+        (gx1 - span * 0.22, 0.52),
+        (gx0 + span * 0.28, 0.46),
+        (gx1 - span * 0.28, 0.46),
+        (gx0 + span * 0.12, 0.50),
+        (gx1 - span * 0.12, 0.50),
+        (gx0 + span * 0.20, 0.54),
+        (gx1 - span * 0.20, 0.54),
     ]
     best_box = None
-    best_score = -1e9
-    half_w, half_h = 0.09, 0.075
+    best_score = -1.0
+    half_w, half_h = 0.11, 0.085
+    px = img.load()
 
     def _skin_frac(crop: Image.Image) -> float:
         pts = list(crop.convert("RGB").getdata())
@@ -8629,33 +8662,27 @@ def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
                 n += 1
         return n / float(len(pts))
 
-    def _clamp_box(
-        x0: float, y0: float, x1: float, y1: float
-    ) -> tuple[float, float, float, float]:
+    def _clamp_box(x0: float, y0: float, x1: float, y1: float) -> tuple[float, float, float, float]:
         x0 = max(gx0, min(x0, gx1 - 0.06))
         x1 = min(gx1, max(x1, gx0 + 0.06))
         if x1 <= x0 + 0.06:
+            # 偏哪侧就贴哪侧内缘
             if (x0 + x1) / 2.0 < mid:
-                x0, x1 = gx0, min(gx1, gx0 + max(0.16, half_w * 2))
+                x0, x1 = gx0, min(gx1, gx0 + max(0.18, half_w * 2))
             else:
-                x1, x0 = gx1, max(gx0, gx1 - max(0.16, half_w * 2))
-        y0 = max(0.30, min(y0, 0.48))
-        y1 = min(0.54, max(y1, y0 + 0.08))
+                x1, x0 = gx1, max(gx0, gx1 - max(0.18, half_w * 2))
+        y0 = max(0.36, min(y0, 0.62))
+        y1 = min(0.66, max(y1, y0 + 0.08))
         return (x0, y0, x1, y1)
 
     for cx, cy in candidates:
-        for scale in (1.0, 1.15, 1.30, 1.50):
+        for scale in (1.0, 1.15, 1.35, 1.55):
             hw, hh = half_w * scale, half_h * scale
-            x0, y0, x1, y1 = _clamp_box(cx - hw, cy - hh, cx + hw, cy + hh * 1.05)
+            x0, y0, x1, y1 = _clamp_box(cx - hw, cy - hh, cx + hw, cy + hh * 1.1)
+            # 硬约束：整框必须在灰条内
             if x0 < gx0 - 1e-6 or x1 > gx1 + 1e-6:
                 continue
             if x1 <= x0 + 0.05 or y1 <= y0 + 0.05:
-                continue
-            # 硬拒腰侧口袋带
-            if y0 >= 0.46:
-                continue
-            cx_box = (x0 + x1) / 2.0
-            if abs(cx_box - mid) < span * 0.22:
                 continue
             xa, ya = int(w * x0), int(h * y0)
             xb, yb = int(w * x1), int(h * y1)
@@ -8665,42 +8692,32 @@ def _wrist_cuff_box(img: Image.Image) -> tuple[float, float, float, float]:
             r = _costume_cell_fg_ratio(crop, treat_mid_gray_bg=True)
             edge = _light_edge_frac(crop, edge=max(4, (xb - xa) // 12))
             skin = _skin_frac(crop)
-            ed = costume_cell_edge_density(crop)
+            # 浅边过高 → 仍落在外框/灰条，直接丢弃
             if edge > 0.35 and r < 0.35:
                 continue
-            if r < 0.12:
+            if r < 0.12 and skin < 0.01:
                 continue
-            # 手插袋：仅对偏中的框重罚高肤色；外缘袖口允许手露出
-            pocket_pen = 0.0
-            inward = abs(cx_box - mid) < span * 0.28
-            if inward and skin > 0.10:
-                pocket_pen += 1.5 * (skin - 0.10)
-            if inward and skin > 0.18:
-                pocket_pen += 2.5
-            outer_bonus = abs(cx_box - mid) / max(0.05, span / 2.0)
-            # 偏好更靠上的外缘袖筒；y 越低（越靠上）越好
-            upper_bonus = max(0.0, 0.48 - ((y0 + y1) / 2.0)) * 2.0
-            score = (
-                r
-                + 2.5 * ed
-                + 0.55 * outer_bonus
-                + upper_bonus
-                + 0.15 * min(skin, 0.06)
-                - 0.85 * edge
-                - pocket_pen
-            )
+            center_pen = 0.22 * (1.0 - abs(cx - mid) / max(0.05, span / 2.0))
+            score = r + 1.5 * skin - 0.75 * edge - max(0.0, center_pen)
             if score > best_score:
                 best_score = score
                 best_box = (x0, y0, x1, y1)
+            if r + 1e-12 >= 0.55 and edge < 0.28 and (skin > 0.015 or abs(cx - mid) > span * 0.18):
+                return best_box
     if best_box is None:
-        best_box = (gx0 + span * 0.02, 0.34, gx0 + span * 0.32, 0.50)
-    x0, y0, x1, y1 = _clamp_box(*best_box)
-    if (x1 - x0) < 0.14:
+        # 人物条左内缘袖口兜底（仍钳灰条）
+        best_box = (gx0 + span * 0.05, 0.44, gx0 + span * 0.40, 0.60)
+    x0, y0, x1, y1 = best_box
+    x0, y0, x1, y1 = _clamp_box(x0, y0, x1, y1)
+    if (x1 - x0) < 0.16:
         cx = (x0 + x1) / 2.0
-        if cx < mid:
-            x0, x1 = gx0, min(gx1, gx0 + 0.20)
-        else:
-            x1, x0 = gx1, max(gx0, gx1 - 0.20)
+        x0 = max(gx0, cx - 0.09)
+        x1 = min(gx1, cx + 0.09)
+        if x1 - x0 < 0.16:
+            if cx < mid:
+                x0, x1 = gx0, min(gx1, gx0 + 0.22)
+            else:
+                x1, x0 = gx1, max(gx0, gx1 - 0.22)
     return (x0, y0, x1, y1)
 
 
@@ -9712,6 +9729,69 @@ def _fit_cover_focus(
     return src, (x, y)
 
 
+
+def tighten_side_square_to_face_frac(
+    data: bytes,
+    *,
+    target: float = 0.30,
+    min_frac: float = 0.28,
+    max_frac: float = 0.35,
+    size: int = 768,
+) -> bytes:
+    """16:53：侧头方图裁框收紧到 face_frac≈0.3（只调几何，不重出侧母版）。
+
+    face_frac 已在 [min_frac, max_frac] 则原样返回；过小则围绕脸框缩小取景。
+    """
+    frac = measure_face_height_frac(data)
+    if frac is None:
+        return data
+    f = float(frac)
+    if f + 1e-12 >= float(min_frac) and f - 1e-12 <= float(max_frac):
+        return data
+    if f + 1e-12 >= float(min_frac) and abs(f - float(target)) < 0.02:
+        return data
+    # 过大：本函数不稀释（compose 既有 pad 路径）
+    if f > float(max_frac) + 1e-12:
+        return data
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w, h = img.size
+    bb = _detect_face_bbox_xyxy(data)
+    if bb is None:
+        bb = _heuristic_skin_face_bbox(img)
+    if bb is None:
+        return data
+    fx1, fy1, fx2, fy2 = [float(v) for v in bb]
+    face_h = max(8.0, fy2 - fy1)
+    face_w = max(8.0, fx2 - fx1)
+    fcx = (fx1 + fx2) / 2.0
+    fcy = (fy1 + fy2) / 2.0
+    # 目标边长 ≈ face_h / target
+    tgt = max(0.26, min(0.40, float(target)))
+    side = face_h / tgt
+    side = max(side, face_w * 1.15, face_h * 1.45)
+    side = min(side, float(w), float(h))
+    # 若仍过小则再略收
+    for _ in range(4):
+        left = max(0.0, min(float(w) - side, fcx - side / 2.0))
+        top = max(0.0, min(float(h) - side, fy1 - side * 0.18))
+        crop = img.crop((int(left), int(top), int(left + side), int(top + side)))
+        out_im = crop.resize((size, size), Image.Resampling.LANCZOS)
+        buf = BytesIO()
+        out_im.save(buf, format="PNG")
+        out = buf.getvalue()
+        nf = measure_face_height_frac(out)
+        if nf is None:
+            return out
+        if float(nf) + 1e-12 >= float(min_frac):
+            if float(nf) - 1e-12 <= 0.50:
+                return out
+            # 过紧：放大 side
+            side = min(float(w), float(h), side * (float(nf) / tgt))
+        else:
+            side = max(64.0, side * 0.92)
+    return out
+
+
 def compose_faces_triptych(
     faces: dict[str, bytes],
     *,
@@ -9785,9 +9865,17 @@ def compose_faces_triptych(
         img = Image.open(BytesIO(filled)).convert("RGBA")
         iw, ih = img.size
         if _preserve_side_frac:
-            # 若方图 face_frac 已偏高，先垫边稀释到 ~0.38，再 cover 进高格仍落在 25–50%
+            # 16:53：过小则收紧到 face_frac≈0.3；过高仍垫边稀释到 ~0.38
             try:
                 frac0 = measure_face_height_frac(filled)
+                if frac0 is not None and float(frac0) + 1e-12 < 0.30:
+                    tight = tighten_side_square_to_face_frac(
+                        filled, target=0.32, min_frac=0.28, max_frac=0.38, size=768
+                    )
+                    filled = tight
+                    img = Image.open(BytesIO(filled)).convert("RGBA")
+                    iw, ih = img.size
+                    frac0 = measure_face_height_frac(filled)
                 if frac0 is not None and float(frac0) > 0.42:
                     target = 0.38
                     pad_scale = float(frac0) / target
