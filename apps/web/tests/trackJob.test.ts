@@ -685,5 +685,5 @@ test("⑮ apiFetch 401 统一处理广播 SESSION_EXPIRED_EVENT(关流信号源)
   const res = await apiFetch("/api/jobs", {});
   assert.equal(res.status, 401);
   assert.equal(fired, 1, "401 触发会话失效广播(trackJob 据此关流)");
-  assert.deepEqual(win.assignedUrls, ["/"], "401 仍跳转登录入口(既有行为不变)");
+  assert.deepEqual(win.assignedUrls, ["/?view=home"], "401 跳转登录入口 /?view=home(裸 / 已是官网落地页)");
 });

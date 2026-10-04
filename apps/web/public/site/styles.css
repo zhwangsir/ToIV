@@ -152,12 +152,12 @@ h1 { text-wrap: balance; margin-top: 0; font-size: 64px; line-height: 1.08; font
   .hero { padding-block: var(--space-10) var(--space-10); gap: var(--space-10); }
   h1 { font-size: 40px; line-height: 1.12; margin-top: var(--space-5); }
     .cta { margin-top: var(--space-8); }
-  .cta .btn { flex: 1; }
+  .cta .btn { width: 100%; }
   .demo { padding: var(--space-4); border-radius: var(--r-2xl); }
   .composer { padding: var(--space-4) var(--space-4) var(--space-3); }
   .composer-text { font-size: 15px; min-height: 0; }
   .hide-sm { display: none; }
-  .shots { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+  .shots { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4) var(--space-3); }
   .flow { margin-block: var(--space-4); }
   .track { padding: var(--space-3); }
   .card { padding: var(--space-4) var(--space-5); }
