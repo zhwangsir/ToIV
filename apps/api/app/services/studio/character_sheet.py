@@ -3859,24 +3859,28 @@ def expression_roi_pixel_diff(a: bytes, b: bytes) -> float:
     return acc / float(len(pa))
 
 
-def mouth_appears_open(data: bytes) -> bool:
-    """惊恐门禁：下半脸中央出现明显深色张嘴区域。"""
+def mouth_dark_ratio(data: bytes) -> float:
+    """嘴区深色占比（张嘴口腔）；供语义门禁复用。"""
     im = Image.open(BytesIO(data)).convert("RGB")
     w, h = im.size
-    # 嘴区：水平中部、垂直约 55%–78%
     box = (int(w * 0.32), int(h * 0.55), int(w * 0.68), int(h * 0.78))
     crop = im.crop(box)
     px = list(crop.getdata())
     if not px:
-        return False
-    dark = 0
-    for r, g, b in px:
-        lum = (r + g + b) / 3.0
-        if lum < 70:
-            dark += 1
-    ratio = dark / float(len(px))
+        return 0.0
+    dark = sum(1 for r, g, b in px if (r + g + b) / 3.0 < 70)
+    return dark / float(len(px))
+
+
+def mouth_appears_open(data: bytes) -> bool:
+    """惊恐门禁：下半脸中央出现明显深色张嘴区域。"""
     # 闭嘴几乎无深色洞；张嘴通常 ≥8% 深色
-    return ratio >= 0.08
+    return mouth_dark_ratio(data) >= 0.08
+
+
+def mouth_appears_wide_open(data: bytes) -> bool:
+    """大张嘴（惊恐级）；温柔轻露上齿不应触发（1915 误杀根因：0.09≈露齿）。"""
+    return mouth_dark_ratio(data) >= 0.16
 
 
 
@@ -3980,10 +3984,13 @@ def assert_expression_semantic(
                 status_code=422,
             )
     elif expr_key == "expr_3":
-        # 温柔：禁大张嘴 + 眉舒展；嘴角微扬（低阈值，配合多样性门禁）
-        if open_m:
+        # 温柔：禁大张嘴（允许轻露上齿）+ 眉舒展；嘴角微扬
+        wide = mouth_appears_wide_open(data)
+        info["mouth_wide_open"] = wide
+        info["mouth_dark"] = float(mouth_dark_ratio(data))
+        if wide:
             raise CharacterSheetError(
-                f"{expr_key}温柔语义失败：禁大张嘴",
+                f"{expr_key}温柔语义失败：禁大张嘴 dark={info['mouth_dark']:.3f}",
                 status_code=422,
             )
         if press is not None and press > 0.05:

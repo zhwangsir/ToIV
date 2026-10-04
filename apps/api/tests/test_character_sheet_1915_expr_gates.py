@@ -198,3 +198,23 @@ def test_eye_mask_punches_pupil_centers():
     # brow / mouth still editable
     assert m.getpixel((128, int(256 * 0.25))) >= 96
     assert m.getpixel((128, int(256 * 0.62))) >= 96
+
+
+def test_gentle_allows_slight_teeth_rejects_wide_open():
+    """轻露上齿（dark≈0.09）可过；大张嘴（dark≥0.16）拒。"""
+    base = _synth_closeup(256, smile=True, brows_low=False)
+    # slight teeth: small dark patch
+    slight = np.array(Image.open(BytesIO(base)).convert("RGB"))
+    slight[155:162, 120:136] = (40, 25, 25)
+    # should pass gentle (not wide open)
+    info = sheet_svc.assert_expression_semantic(
+        _png(slight), expr_key="expr_3", neutral_ref=base
+    )
+    assert info.get("mouth_wide_open") is False
+    # wide open cavity
+    wide = np.array(Image.open(BytesIO(base)).convert("RGB"))
+    wide[148:175, 105:150] = (25, 15, 15)
+    with pytest.raises(sheet_svc.CharacterSheetError, match="大张嘴"):
+        sheet_svc.assert_expression_semantic(
+            _png(wide), expr_key="expr_3", neutral_ref=base
+        )
