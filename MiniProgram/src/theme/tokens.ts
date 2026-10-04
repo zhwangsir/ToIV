@@ -1,6 +1,6 @@
 /**
  * 设计 Token —— MiniProgram 视觉事实源（P4 2026-09-07 对齐 web 主题系统 v9）
- * - 四套预设：minimal / cinema / paper / graphite（与 apps/web/lib/theme.ts + globals.css 同口径）
+ * - 五套预设：beeftv（默认，对齐 BeefTV --user-* token）/ minimal / cinema / paper / graphite
  * - 亮基底（minimal/paper）有 light/dark；暗基底（cinema/graphite）恒暗，mode 切换不改色
  * - 颜色只允许引用本文件（或经 useAppTheme 注入的 CSS 变量），组件禁裸写装饰 hex
  * - 尺寸单位：cssVarsFromPalette 统一 ×2 换算（4pt 网格 → 8rpx 起步）
@@ -20,7 +20,7 @@ export const spacing = {
 
 export const radius = {
   sm: 6,
-  md: 10,
+  md: 12,
   lg: 16,
   xl: 24,
   full: 999,
@@ -35,7 +35,7 @@ export const typography = {
   mono: { fontSize: 14, lineHeight: 20 },
 } as const;
 
-export type ThemePresetId = 'minimal' | 'cinema' | 'paper' | 'graphite';
+export type ThemePresetId = 'beeftv' | 'minimal' | 'cinema' | 'paper' | 'graphite';
 
 export interface Palette {
   bg: string;
@@ -83,8 +83,42 @@ const STATUS_PAPER = {
   danger: '#A31515',
 } as const;
 
-/** 四套预设 —— 色值对齐 apps/web/app/globals.css 主题块 */
+/**
+ * 五套预设 —— beeftv 为默认（对齐 BeefTV/ToIV-canvas web/src/styles/globals.css 的 --user-* 变量，
+ * border 为 rgba 边框叠在 bg 上的不透明近似值）；其余四套色值对齐 apps/web/app/globals.css 主题块
+ */
 export const THEME_PRESETS: ThemePresetEntry[] = [
+  {
+    id: 'beeftv',
+    name: 'BeefTV',
+    darkBased: false,
+    swatchBg: '#F8F8FA',
+    swatchAccent: '#242426',
+    light: {
+      bg: '#F8F8FA',
+      surface: '#FFFFFF',
+      border: '#E4E4E7',
+      text: '#1D1D21',
+      textSecondary: '#686872',
+      accent: '#242426',
+      accentSoft: '#E8E8EA',
+      success: '#0C6B34',
+      warning: '#8A4A06',
+      danger: '#DC2626',
+    },
+    dark: {
+      bg: '#101010',
+      surface: '#161616',
+      border: '#272727',
+      text: '#F3F3F5',
+      textSecondary: '#B4B4BC',
+      accent: '#3B3B3E',
+      accentSoft: '#2A2A2A',
+      success: '#46BE7E',
+      warning: '#E5A34B',
+      danger: '#FF4D4D',
+    },
+  },
   {
     id: 'minimal',
     name: '极简白',
@@ -199,7 +233,7 @@ export const THEME_PRESETS: ThemePresetEntry[] = [
 /** 兼容旧名：与 THEME_PRESETS 同一引用 */
 export const palettes = THEME_PRESETS;
 
-export const DEFAULT_THEME_ID: ThemePresetId = 'minimal';
+export const DEFAULT_THEME_ID: ThemePresetId = 'beeftv';
 /** @deprecated 用 DEFAULT_THEME_ID */
 export const DEFAULT_PALETTE_ID = DEFAULT_THEME_ID;
 
@@ -207,12 +241,12 @@ const PRESET_IDS = new Set<string>(THEME_PRESETS.map((p) => p.id));
 
 /** 旧五色板 / 实验 id → v9 预设 */
 const LEGACY_THEME_MAP: Record<string, ThemePresetId> = {
-  'palette-01': 'minimal',
-  'palette-02': 'minimal',
-  'palette-03': 'minimal',
+  'palette-01': 'beeftv',
+  'palette-02': 'beeftv',
+  'palette-03': 'beeftv',
   'palette-04': 'graphite',
   'palette-05': 'paper',
-  atelier: 'minimal',
+  atelier: 'beeftv',
 };
 
 export function normalizeThemeId(id: string | null | undefined): ThemePresetId {

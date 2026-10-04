@@ -12,9 +12,10 @@ import {
 } from '@/theme/tokens';
 
 describe('设计 token（P4 / web v9）', () => {
-  it('四套预设 × 双变体，10 个语义角色齐全', () => {
-    expect(THEME_PRESETS).toHaveLength(4);
+  it('五套预设 × 双变体，10 个语义角色齐全', () => {
+    expect(THEME_PRESETS).toHaveLength(5);
     expect(THEME_PRESETS.map((p) => p.id)).toEqual([
+      'beeftv',
       'minimal',
       'cinema',
       'paper',
@@ -56,16 +57,26 @@ describe('设计 token（P4 / web v9）', () => {
     expect(getPalette('graphite', 'light')).toEqual(getPalette('graphite', 'dark'));
   });
 
-  it('默认主题是 minimal（浅色优先）', () => {
-    expect(DEFAULT_THEME_ID).toBe('minimal');
+  it('默认主题是 beeftv（浅色优先）', () => {
+    expect(DEFAULT_THEME_ID).toBe('beeftv');
+    expect(THEME_PRESETS.find((p) => p.id === 'beeftv')?.darkBased).toBe(false);
+  });
+
+  it('beeftv 预设对齐 BeefTV --user-* token', () => {
+    expect(getPalette('beeftv', 'light')).toMatchObject({ bg: '#F8F8FA', surface: '#FFFFFF', text: '#1D1D21', accent: '#242426' });
+    expect(getPalette('beeftv', 'dark')).toMatchObject({ bg: '#101010', surface: '#161616', text: '#F3F3F5', accent: '#3B3B3E' });
+    expect(accentOnColor(getPalette('beeftv', 'light').accent)).toBe('#FFFFFF');
+    expect(accentOnColor(getPalette('beeftv', 'dark').accent)).toBe('#FFFFFF');
   });
 
   it('未知 / 旧色板 id 回落或迁移', () => {
-    expect(normalizeThemeId('nope')).toBe('minimal');
-    expect(normalizeThemeId('palette-01')).toBe('minimal');
+    expect(normalizeThemeId('nope')).toBe('beeftv');
+    expect(normalizeThemeId('palette-01')).toBe('beeftv');
+    expect(normalizeThemeId('atelier')).toBe('beeftv');
+    expect(normalizeThemeId('minimal')).toBe('minimal');
     expect(normalizeThemeId('palette-04')).toBe('graphite');
     expect(normalizeThemeId('palette-05')).toBe('paper');
-    expect(getPalette('nope', 'light')).toEqual(getPalette('minimal', 'light'));
+    expect(getPalette('nope', 'light')).toEqual(getPalette('beeftv', 'light'));
   });
 
   it('cinema accent 为 RunningHub 荧光绿', () => {

@@ -22,9 +22,10 @@ onLaunch(() => {
 <style lang="scss">
 /* 全局基础样式：页面根节点由各页 :style="themeVars" 注入变量 */
 page {
+  /* 与 BeefTV --font-sans 同序；小程序不打包 Inter，系统有时才生效 */
   font-family:
-    -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC',
-    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 </style>

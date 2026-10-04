@@ -88,10 +88,10 @@ async function handleWechatLogin() {
   >
     <view class="login__hero">
       <view class="login__logo">
-        <Icon
-          name="sparkles"
-          :size="72"
-          color="var(--color-accent)"
+        <image
+          class="login__logo-img"
+          src="/static/logo.png"
+          mode="aspectFit"
         />
       </view>
       <text class="login__title">
@@ -225,11 +225,14 @@ async function handleWechatLogin() {
     width: 128rpx;
     height: 128rpx;
     border-radius: var(--radius-xl);
-    background: var(--color-accent-soft);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    overflow: hidden;
     margin-bottom: var(--space-4);
+  }
+
+  &__logo-img {
+    width: 128rpx;
+    height: 128rpx;
+    display: block;
   }
 
   &__title {

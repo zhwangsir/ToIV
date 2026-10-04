@@ -10,6 +10,7 @@ import { computed } from 'vue';
 
 import { useSettingsStore } from '@/stores/settings';
 import {
+  accentOnColor,
   accentSoftFrom,
   getPalette,
   getThemePreset,
@@ -66,6 +67,7 @@ export function useAppTheme() {
     '--color-success': palette.value.success,
     '--color-warning': palette.value.warning,
     '--color-danger': palette.value.danger,
+    '--color-on-accent': accentOnColor(palette.value.accent),
     '--space-1': toRpx(spacing[1]),
     '--space-2': toRpx(spacing[2]),
     '--space-3': toRpx(spacing[3]),

@@ -289,7 +289,7 @@ function confirmRemove() {
 
   &__cancel-text {
     font-size: var(--font-caption);
-    color: #c44;
+    color: var(--color-danger);
     font-weight: 500;
   }
 

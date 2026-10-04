@@ -95,7 +95,7 @@
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "ToIV",
-    "navigationBarBackgroundColor": "#FAF9F7",
-    "backgroundColor": "#FAF9F7"
+    "navigationBarBackgroundColor": "#F8F8FA",
+    "backgroundColor": "#F8F8FA"
   }
 }
