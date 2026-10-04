@@ -129,3 +129,63 @@ def test_hairpin_gate_gold_fails_wood_passes(monkeypatch):
     assert cs.assert_hairpin_not_gold(_head((212, 175, 55)), _meta("青色衣裙，金簪")).get("skipped")
     monkeypatch.setattr(cs, "_face_bbox_for_center", lambda im: None)
     assert cs.assert_hairpin_not_gold(_head((212, 175, 55)), _meta())["frac"] is None
+
+
+# ---------------------------------------------------------------------------
+# run3:饰品 VLM 是/否判官(复用表情专项问答的 Qwen-VL 图与 JSON 解析)
+# ---------------------------------------------------------------------------
+
+
+def test_accessory_qa_prompt_only_for_applicable_spec():
+    p = cs.build_ancient_accessory_qa_prompt(_meta())
+    assert p and "WOODEN" in p and "floating" in p and '"q1"' in p
+    assert cs.build_ancient_accessory_qa_prompt(_meta(style="anime")) is None
+    assert cs.build_ancient_accessory_qa_prompt(_meta("青色衣裙，素净")) is None
+    only_hairpin = cs.build_ancient_accessory_qa_prompt(_meta("青色衣裙，木簪"))
+    assert "q2: Always answer true." in only_hairpin
+
+
+def test_accessory_qa_verdict_reasons():
+    m = _meta()
+    assert cs.ancient_accessory_qa_verdict({"q1": True, "q2": True}, m) == []
+    rs = cs.ancient_accessory_qa_verdict({"q1": False, "q2": False}, m)
+    assert any("hairpin_not_wooden" in r for r in rs)
+    assert any("umbrella_not_held" in r for r in rs)
+    # 金簪 spec 不判木质
+    assert cs.ancient_accessory_qa_verdict({"q1": False, "q2": True}, _meta("青色衣裙，金簪，油纸伞")) == []
+
+
+def test_classify_accessory_qa_parses_vlm_and_flags_floating_umbrella(monkeypatch):
+    import asyncio
+
+    calls: dict = {}
+
+    class FakeClient:
+        def __init__(self, url, timeout=0):
+            calls["url"] = url
+
+        async def upload_image(self, data, name):
+            return name
+
+        async def queue_prompt(self, graph, client_id=None):
+            calls["prompt"] = graph["2"]["inputs"].get("text") or graph["2"]["inputs"].get("custom_prompt")
+            return "pid1"
+
+        async def get_history(self, pid):
+            return {pid: {"outputs": {"3": {"text": ['{"q1": true, "q2": false}']}}, "status": {}}}
+
+    import app.comfy.client as cc
+
+    monkeypatch.setattr(cc, "ComfyUIClient", FakeClient)
+    monkeypatch.setattr(cs, "_assert_sheet_worker_allowed", lambda u: None)
+    monkeypatch.setattr(cs, "_VLM_STICKY_BACKEND", None)
+    out = asyncio.run(
+        cs.classify_ancient_accessory_qa(b"png", meta=_meta(), worker_url="http://w:8262")
+    )
+    assert out["q1"] is True and out["q2"] is False
+    assert out["reasons"] == ["umbrella_not_held(伞漂浮头后/未握在手)"]
+    assert "WOODEN" in calls["prompt"]
+    skipped = asyncio.run(
+        cs.classify_ancient_accessory_qa(b"png", meta=_meta(style="anime"), worker_url="http://w:8262")
+    )
+    assert skipped["skipped"] is True

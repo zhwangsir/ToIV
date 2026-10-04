@@ -1238,6 +1238,114 @@ def assert_hairpin_not_gold(data: bytes, meta: SheetMeta, *, label: str = "主�
     return st
 
 
+# ---------------------------------------------------------------------------
+# 10/05 run3:古风饰品 VLM 是/否判官(复用表情专项问答同一套 Qwen-VL 图/解析/粘性后端,
+# 不改表情函数本身)。q1=木簪为木质(非金/铜/金属/珠宝);q2=伞握在手中或不出现(禁漂浮在头后)。
+# ---------------------------------------------------------------------------
+ACCESSORY_QA_HARD_ATTEMPTS = 4  # 主立绘前 4 次不过即换 seed;之后仅记日志放行(防整卡失败)
+
+
+def build_ancient_accessory_qa_prompt(meta: SheetMeta) -> str | None:
+    """按 spec 生成两问 prompt;spec 无木簪且无伞 → None。不适用的一问注明恒答 true。"""
+    fix = ancient_accessory_prompt_fix(meta)
+    if not (fix["wooden_hairpin"] or fix["umbrella_in_hand"]):
+        return None
+    if fix["wooden_hairpin"]:
+        q1 = (
+            "q1: Look at the hair ornament / hairpin in her hair bun. Is it a plain brown WOODEN hair stick "
+            "(木簪) and NOT gold, brass, bronze, silver, metal or jeweled? "
+            "true if wooden or if no metal/gold ornament is visible in the hair; false if any gold, brass, "
+            "metal ring, crown or jeweled ornament is in the hair."
+        )
+    else:
+        q1 = "q1: Always answer true."
+    if fix["umbrella_in_hand"]:
+        q2 = (
+            "q2: Is the umbrella either held in her hand by its handle, or not present at all? "
+            "true if the umbrella is gripped in a hand or absent; false if an umbrella / parasol "
+            "appears behind or above her head without being held by a hand (floating, like a halo or backdrop)."
+        )
+    else:
+        q2 = "q2: Always answer true."
+    return (
+        "You are inspecting a full-body portrait of a historical Chinese woman. "
+        "Answer TWO yes/no questions. Output ONLY one JSON object, no markdown: "
+        '{"q1":true,"q2":true}. ' + q1 + " " + q2 + " Judge only from what is visible."
+    )
+
+
+def ancient_accessory_qa_verdict(parsed: dict, meta: SheetMeta) -> list[str]:
+    """VLM 两问结果 → 失败原因列表(空=通过)。"""
+    fix = ancient_accessory_prompt_fix(meta)
+    reasons: list[str] = []
+    if fix["wooden_hairpin"] and parsed.get("q1") is False:
+        reasons.append("hairpin_not_wooden(木簪非木质/金属金饰)")
+    if fix["umbrella_in_hand"] and parsed.get("q2") is False:
+        reasons.append("umbrella_not_held(伞漂浮头后/未握在手)")
+    return reasons
+
+
+async def classify_ancient_accessory_qa(
+    image_bytes: bytes, *, meta: SheetMeta, worker_url: str | None, seed: int = 42
+) -> dict:
+    """调 Comfy Qwen-VL 判古风饰品两问;返回 {q1,q2,raw,model,reasons}。无适用问题 → {skipped:True}。"""
+    from app.comfy.client import ComfyUIClient, ComfyUIError
+
+    global _VLM_STICKY_BACKEND
+    prompt = build_ancient_accessory_qa_prompt(meta)
+    if not prompt:
+        return {"skipped": True, "reasons": []}
+    if not worker_url:
+        raise CharacterSheetError("饰品问答缺少 worker_url", status_code=502)
+    url = str(worker_url).rstrip("/")
+    _assert_sheet_worker_allowed(url)
+    client = ComfyUIClient(url, timeout=180.0)
+    fname = await client.upload_image(image_bytes, f"sheet_acc_qa_{uuid.uuid4().hex[:10]}.png")
+    default_backends = (
+        ("Qwen2_VQA", "Qwen3-VL-4B-Instruct"),
+        ("Qwen2_VQA", "Qwen2-VL-7B-Instruct"),
+        ("AILab_QwenVL", "Qwen3-VL-4B-Instruct"),
+        ("AILab_QwenVL", "Qwen3-VL-4B-Instruct-FP8"),
+    )
+    sticky = _VLM_STICKY_BACKEND
+    backends = ((sticky,) + tuple(b for b in default_backends if b != sticky)) if sticky else default_backends
+    last_err: Exception | None = None
+    for backend, model in backends:
+        try:
+            graph = build_expression_vlm_graph(fname, prompt=prompt, model=model, seed=seed, backend=backend)
+            prompt_id = await client.queue_prompt(graph, client_id=f"sheet_accqa_{uuid.uuid4().hex[:8]}")
+            waited = 0.0
+            raw_text = ""
+            while waited < 180.0:
+                hist = await client.get_history(prompt_id)
+                entry = (hist or {}).get(prompt_id) or {}
+                st = entry.get("status") or {}
+                if entry.get("outputs"):
+                    raw_text = _extract_history_text(entry)
+                    if raw_text:
+                        break
+                if st.get("status_str") == "error":
+                    raise CharacterSheetError("饰品问答执行失败", status_code=502)
+                await asyncio.sleep(1.5)
+                waited += 1.5
+            if not raw_text:
+                raise CharacterSheetError(f"饰品问答超时无文本 {backend}/{model}", status_code=504)
+            parsed = _parse_expr_qa_json(raw_text)
+            parsed["model"] = f"{backend}:{model}"
+            parsed["reasons"] = ancient_accessory_qa_verdict(parsed, meta)
+            _VLM_STICKY_BACKEND = (backend, model)
+            return parsed
+        except (CharacterSheetError, ComfyUIError) as e:
+            last_err = e
+            logger.warning("classify_ancient_accessory_qa %s/%s fail: %s", backend, model, e)
+            continue
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            logger.warning("classify_ancient_accessory_qa exc %s/%s: %s", backend, model, e)
+            continue
+    raise CharacterSheetError(f"饰品问答全部后端失败: {last_err}", status_code=502) from last_err
+
+
 def _strip_cjk_for_sd(text: str) -> str:
     out = _CJK_RUN_RE.sub(", ", text or "")
     # 去掉中文剥离后残留的纯数字/标点碎片(如「约20岁」→「20」)
@@ -9391,6 +9499,30 @@ async def generate_character_sheet(
                             )
                     except Exception as acc_e:  # noqa: BLE001
                         logger.warning("portrait ancient hairpin soft check error: %s", acc_e)
+                if meta.style == "ancient_realistic" and build_ancient_accessory_qa_prompt(meta):
+                    # run3:VLM 是/否判官(木簪木质 / 伞握手或不出现);前 N 次不过换 seed,VLM 不可用则放行
+                    try:
+                        _qa = await classify_ancient_accessory_qa(
+                            panels["portrait"], meta=meta, worker_url=worker, seed=42 + attempt
+                        )
+                    except CharacterSheetError as qa_e:
+                        _qa = {"reasons": [], "error": str(qa_e)}
+                        logger.warning("portrait ancient accessory VLM unavailable attempt=%s: %s; pass", attempt, qa_e)
+                    _rs = _qa.get("reasons") or []
+                    if _rs and attempt < ACCESSORY_QA_HARD_ATTEMPTS:
+                        last_err = CharacterSheetError(
+                            f"饰品门禁失败:主立绘 {';'.join(_rs)},重出", status_code=422
+                        )
+                        logger.warning(
+                            "portrait ancient accessory VLM gate fail attempt=%s reasons=%s q1=%s q2=%s model=%s; retry seed",
+                            attempt, _rs, _qa.get("q1"), _qa.get("q2"), _qa.get("model"),
+                        )
+                        continue
+                    logger.info(
+                        "portrait ancient accessory VLM gate %s attempt=%s q1=%s q2=%s model=%s reasons=%s",
+                        "ok" if not _rs else "exhausted(accept, log only)",
+                        attempt, _qa.get("q1"), _qa.get("q2"), _qa.get("model"), _rs,
+                    )
                 break
             except CharacterSheetError as e:
                 last_err = e
