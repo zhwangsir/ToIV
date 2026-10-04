@@ -2185,12 +2185,18 @@ def _studio_pad_edge_frac(
 
 
 def expr_cell_content_coverage(img: Image.Image | bytes) -> float:
-    """23:18：表情格内容铺满比。无棚灰垫边/邮票缩水 → 1.0；否则回落面积比。"""
+    """23:18：表情格内容铺满比。
+
+    贴格路径已 LANCZOS 输出满格像素；本门禁专拦「小图+四周棚灰(220)垫边」邮票缩水。
+    源图自带浅底/噪声边不算未铺满（避免 fill_w 误杀）。
+    """
     area, stamp, fill_h, fill_w = _panel_content_metrics(img)
     pad = _studio_pad_edge_frac(img)
-    if stamp or pad > 0.02:
+    # 四边棚灰垫边 + 邮票缩水 → 未铺满
+    if stamp and pad > 0.04:
         return float(min(area, max(0.0, 1.0 - pad), fill_h, fill_w))
-    # 贴格输出已 LANCZOS 铺满格像素；无垫边条 → 视为 1.0
+    if pad > 0.10:
+        return float(max(0.0, 1.0 - pad))
     return 1.0
 
 
@@ -2200,11 +2206,11 @@ def assert_expr_cell_content_coverage(
     expr_key: str = "expr",
     min_coverage: float = 1.0,
 ) -> float:
-    """23:18：表情格图像内容必须铺满格面积（coverage=1.0）；禁四周棚灰垫边缩小。"""
+    """23:18：表情格须全铺满（coverage=1.0）；禁四周棚灰垫边缩小塞格。"""
     cov = expr_cell_content_coverage(img)
     area, stamp, fill_h, fill_w = _panel_content_metrics(img)
     pad = _studio_pad_edge_frac(img)
-    if cov + 1e-9 < float(min_coverage) or stamp or pad > 0.02:
+    if cov + 1e-9 < float(min_coverage):
         raise CharacterSheetError(
             f"{expr_key}表情格未全铺满 coverage={cov:.3f} "
             f"(need {min_coverage:.2f}) stamp={stamp} pad={pad:.3f} "
@@ -2346,7 +2352,10 @@ def _compose_expression_grid(
         assert_expr_cell_content_coverage(
             fitted, expr_key=key, min_coverage=1.0
         )
-        grid.paste(fitted, pos, fitted if fitted.mode == "RGBA" else None)
+        # 23:18：贴格强制不透明 RGB，杜绝底层棚灰透出被当成垫边
+        _paste_im = fitted.convert("RGB").convert("RGBA")
+        grid.paste(_paste_im, pos)
+
         if draw_labels and font is not None and i < len(_EXPR_LABELS):
             # 标签带:独立矩形,与图片区零重叠（古风深底金字 / 二次元浅底深字）
             band_y0 = cell_y0 + img_h
@@ -8683,15 +8692,23 @@ async def generate_character_sheet(
                             except CharacterSheetError:
                                 pass
                             assert_expr_cell_no_white_border(cell_b, expr_key=ek)
-                            # 身份：相对主立绘脸部相似度（沿用现有 identity 门禁）
-                            assert_expression_identity_gates(
-                                cell_b,
-                                portrait_ref=panels.get("portrait"),
-                                expr_key=ek,
-                                skip_chest_emblem=True,
-                                hair_ref=edit_base,
-                                relative_hair_only=True,
-                            )
+                            # 23:18：身份=与主立绘/正面底 CLIP 脸相似（≥0.72）；
+                            # 整图 edit 不走 inpaint 同裁发长相对门禁（易误杀）
+                            _pref = panels.get("portrait") or edit_base
+                            _sim = clip_image_cosine_sim(cell_b, _pref)
+                            if _sim is not None and _sim + 1e-12 < 0.72:
+                                raise CharacterSheetError(
+                                    f"{ek}身份CLIP不足 sim={_sim:.3f}<0.72",
+                                    status_code=422,
+                                )
+                            # 徽标仍拦（相对主立绘）
+                            if _pref and portrait_has_chest_emblem(
+                                cell_b, ref=_pref, below_face=True
+                            ):
+                                raise CharacterSheetError(
+                                    f"{ek}胸口相对主立绘出现新徽标/字样",
+                                    status_code=422,
+                                )
                             assert_expression_semantic(
                                 cell_b, expr_key=ek, neutral_ref=edit_base
                             )

@@ -107,6 +107,7 @@ def test_2318_contemplative_gentle_qwen_edit_contract():
     assert 'ref_mode="qwen_edit"' in src
     assert "qwen_image_edit_2509" in src
     assert "approved_portrait" in src
+    assert "clip_image_cosine_sim" in src or "身份CLIP" in src
     assert "拒绝回落 inpaint" in src or "禁止静默回落" in src or "no silent inpaint" in src
     # 指令含 23:18 关键词
     assert "eyes looking down" in sheet_svc._EXPR_EDIT_INSTRUCTIONS[2].lower()
