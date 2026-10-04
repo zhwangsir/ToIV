@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"infinite-canvas/backend/internal/model"
+	"infinite-canvas/backend/internal/protocol"
 	"infinite-canvas/backend/internal/repository"
 )
 
@@ -78,6 +79,29 @@ func (s *Service) requestProviderCancellation(ctx context.Context, task *model.T
 	if err != nil {
 		return s.markProviderCancellationUncertain(task, providerCancellationUncertainMessage("读取上游取消配置失败")+"："+err.Error())
 	}
+	// Declarative (plugin manifest) protocols declare their own cancel operation.
+	ctx = ensureOfficialProtocolAdapter(withProtocolRegistry(ctx, s.protocolRegistry()), input.Config.InterfaceType)
+	if declarativeCancellationSupported(ctx, input.Config.InterfaceType) {
+		requestCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		requestTask := *task
+		requestTask.InputJSON = mustJSON(input)
+		requestCtx = withProviderRequestKind(withProviderAnalytics(requestCtx, s, requestTask), "cancel")
+		status, err := cancelDeclarativeProviderTask(requestCtx, input, task.ProviderRequestID)
+		if err != nil {
+			return s.markProviderCancellationUncertain(task, providerCancellationUncertainMessage("上游取消请求结果不明确")+"："+safeProviderLogError(err))
+		}
+		if status == protocol.StatusCancelled {
+			now := time.Now()
+			if err := s.repo.UpdateTaskProviderCancellation(task.ID, model.ProviderCancelStatusRequested, model.ProviderCancelStatusConfirmed, "", nil, &now); err != nil {
+				return err
+			}
+			_ = s.log(task.UserID, task.ID, "info", "上游已确认取消", task.ProviderRequestID)
+			return nil
+		}
+		_ = s.log(task.UserID, task.ID, "info", "已请求上游取消，等待供应商确认", task.ProviderRequestID)
+		return nil
+	}
 	if !supportsProviderCancellation(input.Config.InterfaceType) {
 		return s.markProviderCancellationUncertain(task, providerCancellationUncertainMessage("当前上游协议不支持取消"))
 	}
@@ -104,8 +128,15 @@ func (s *Service) reconcileProviderCancellation(ctx context.Context, task *model
 	}
 	queryTask := *task
 	queryTask.InputJSON = mustJSON(input)
+	ctx = ensureOfficialProtocolAdapter(withProtocolRegistry(ctx, s.protocolRegistry()), input.Config.InterfaceType)
 	queryCtx := withProviderRequestKind(withProviderAnalytics(ctx, s, queryTask), "cancel-query")
-	outcome, providerStatus, err := queryProviderCancellation(queryCtx, input.Config, task.ProviderRequestID)
+	var outcome providerCancellationOutcome
+	var providerStatus string
+	if declarativeCancellationSupported(ctx, input.Config.InterfaceType) {
+		outcome, providerStatus, err = queryDeclarativeProviderCancellation(queryCtx, input, task.ProviderRequestID)
+	} else {
+		outcome, providerStatus, err = queryProviderCancellation(queryCtx, input.Config, task.ProviderRequestID)
+	}
 	if err != nil {
 		if task.ProviderCancelAttempts >= providerCancellationMaxAttempts-1 {
 			return s.markProviderCancellationUncertain(task, providerCancellationUncertainMessage("连续查询上游取消状态失败")+"："+safeProviderLogError(err))
@@ -259,4 +290,73 @@ func queryProviderCancellation(ctx context.Context, config providerConfig, provi
 func mustJSON(value any) string {
 	data, _ := json.Marshal(value)
 	return string(data)
+}
+
+// declarativeCancellationSupported reports whether the channel protocol is a
+// declarative plugin manifest that declares a cancel operation.
+func declarativeCancellationSupported(ctx context.Context, interfaceType string) bool {
+	if supportsProviderCancellation(interfaceType) {
+		return false
+	}
+	adapter, ok := declarativeProtocolAdapterForContext(ctx, interfaceType)
+	if !ok || adapter == nil {
+		return false
+	}
+	_, err := adapter.BuildCancel(ctx, protocol.PollContext{TaskID: "probe"})
+	return err == nil
+}
+
+// cancelDeclarativeProviderTask sends the manifest cancel operation and parses the
+// response with the manifest response mapping (so {"status":"canceled"} confirms).
+func cancelDeclarativeProviderTask(ctx context.Context, input canvasGenerationInput, providerRequestID string) (protocol.Status, error) {
+	adapter, ok := declarativeProtocolAdapterForContext(ctx, input.Config.InterfaceType)
+	if !ok || adapter == nil {
+		return "", errors.New("当前上游协议不支持取消")
+	}
+	request := protocolRequestFromInput(input)
+	pollContext := protocol.PollContext{BaseURL: input.Config.BaseURL, Model: request.Model, Request: request, TaskID: providerRequestID}
+	spec, err := adapter.BuildCancel(ctx, pollContext)
+	if err != nil {
+		return "", err
+	}
+	body, err := executeProtocolRequest(ctx, input.Config, spec)
+	if err != nil {
+		return "", err
+	}
+	state, parseErr := adapter.ParsePoll(ctx, pollContext, body)
+	if parseErr != nil {
+		return protocol.StatusPending, nil
+	}
+	return state.Status, nil
+}
+
+func queryDeclarativeProviderCancellation(ctx context.Context, input canvasGenerationInput, providerRequestID string) (providerCancellationOutcome, string, error) {
+	adapter, ok := declarativeProtocolAdapterForContext(ctx, input.Config.InterfaceType)
+	if !ok || adapter == nil {
+		return "", "", errors.New("当前上游协议不支持取消状态查询")
+	}
+	request := protocolRequestFromInput(input)
+	pollContext := protocol.PollContext{BaseURL: input.Config.BaseURL, Model: request.Model, Request: request, TaskID: providerRequestID}
+	spec, err := adapter.BuildPoll(ctx, pollContext)
+	if err != nil {
+		return "", "", err
+	}
+	body, err := executeProtocolRequest(ctx, input.Config, spec)
+	if err != nil {
+		return "", "", err
+	}
+	state, err := adapter.ParsePoll(ctx, pollContext, body)
+	if err != nil {
+		return "", "", err
+	}
+	switch state.Status {
+	case protocol.StatusCancelled:
+		return providerCancellationConfirmed, string(state.Status), nil
+	case protocol.StatusSucceeded:
+		return providerCancellationSucceeded, string(state.Status), nil
+	case protocol.StatusFailed:
+		return providerCancellationFailed, string(state.Status), nil
+	default:
+		return providerCancellationPending, string(state.Status), nil
+	}
 }

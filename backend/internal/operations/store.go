@@ -109,13 +109,27 @@ func (s *Store) Run(ctx context.Context, req RunRequest, fn func(tx *gorm.DB) ([
 	err := db.Transaction(func(tx *gorm.DB) error {
 		record := model.AgentOpRecord{OpID: req.OpID, UserID: req.UserID, Op: req.Op,
 			PayloadHash: req.PayloadHash, Status: "running", TurnID: strings.TrimSpace(req.TurnID)}
-		if err := tx.Create(&record).Error; err != nil {
-			if !isDuplicateKey(err) {
-				return AsError(err)
+		// Idempotent replays (e.g. the canvas binding recovery sweep re-executing an
+		// already-applied attach-node op every few seconds) must not rely on a failing
+		// INSERT: GORM logs every UNIQUE violation as an error, flooding the log.
+		// Look the record up first; the INSERT path below still handles races.
+		var prior []model.AgentOpRecord
+		if err := tx.Where("user_id = ? AND op_id = ?", req.UserID, req.OpID).Limit(1).Find(&prior).Error; err != nil {
+			return AsError(err)
+		}
+		createErr := error(nil)
+		if len(prior) == 0 {
+			createErr = tx.Create(&record).Error
+		}
+		if len(prior) > 0 || createErr != nil {
+			if createErr != nil && !isDuplicateKey(createErr) {
+				return AsError(createErr)
 			}
 			var existing model.AgentOpRecord
-			if findErr := tx.Where("user_id = ? AND op_id = ?", req.UserID, req.OpID).First(&existing).Error; findErr != nil {
-				return AsError(err)
+			if len(prior) > 0 {
+				existing = prior[0]
+			} else if findErr := tx.Where("user_id = ? AND op_id = ?", req.UserID, req.OpID).First(&existing).Error; findErr != nil {
+				return AsError(createErr)
 			}
 			if existing.Status != "succeeded" {
 				return Conflict("operation_in_progress",
