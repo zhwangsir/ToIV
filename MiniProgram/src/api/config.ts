@@ -2,7 +2,8 @@
  * API 基址运行时解析（对齐 Mobile lib/config.ts）
  * 优先级：用户覆盖（设置页） > 环境变量 VITE_API_BASE > 默认生产值
  */
-export const DEFAULT_API_BASE = 'http://192.168.71.47:8090';
+// 唯一合法域名（微信要求 https + 已备案合法域名）；不得写内网地址
+export const DEFAULT_API_BASE = 'https://toiv.wineryz.top';
 
 let apiBaseOverride: string | null = null;
 

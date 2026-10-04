@@ -298,8 +298,8 @@ onPullDownRefresh(async () => {
   border-radius: 999rpx;
   font-size: 20rpx;
   line-height: 1.2;
-  color: #17181a;
-  background: rgba(201, 242, 79, 0.92);
+  color: var(--color-on-pass);
+  background: var(--color-pass-bg);
 }
 
 .mkt__mode {

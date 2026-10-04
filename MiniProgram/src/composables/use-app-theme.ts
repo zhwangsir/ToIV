@@ -10,9 +10,11 @@ import { computed } from 'vue';
 
 import { useSettingsStore } from '@/stores/settings';
 import {
+  accentOnColor,
   accentSoftFrom,
   getPalette,
   getThemePreset,
+  PASS_BADGE_BG,
   radius,
   spacing,
   toRpx,
@@ -66,6 +68,9 @@ export function useAppTheme() {
     '--color-success': palette.value.success,
     '--color-warning': palette.value.warning,
     '--color-danger': palette.value.danger,
+    '--color-on-accent': accentOnColor(palette.value.accent),
+    '--color-pass-bg': PASS_BADGE_BG,
+    '--color-on-pass': accentOnColor(PASS_BADGE_BG),
     '--space-1': toRpx(spacing[1]),
     '--space-2': toRpx(spacing[2]),
     '--space-3': toRpx(spacing[3]),

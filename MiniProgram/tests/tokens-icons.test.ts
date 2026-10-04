@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ICON_PATHS } from '@/components/ui/icons.generated';
 import {
   DEFAULT_THEME_ID,
+  PASS_BADGE_BG,
   THEME_PRESETS,
   accentOnColor,
   accentSoftFrom,
@@ -12,9 +13,10 @@ import {
 } from '@/theme/tokens';
 
 describe('设计 token（P4 / web v9）', () => {
-  it('四套预设 × 双变体，10 个语义角色齐全', () => {
-    expect(THEME_PRESETS).toHaveLength(4);
+  it('五套预设 × 双变体，10 个语义角色齐全', () => {
+    expect(THEME_PRESETS).toHaveLength(5);
     expect(THEME_PRESETS.map((p) => p.id)).toEqual([
+      'toiv',
       'minimal',
       'cinema',
       'paper',
@@ -56,20 +58,36 @@ describe('设计 token（P4 / web v9）', () => {
     expect(getPalette('graphite', 'light')).toEqual(getPalette('graphite', 'dark'));
   });
 
-  it('默认主题是 minimal（浅色优先）', () => {
-    expect(DEFAULT_THEME_ID).toBe('minimal');
+  it('默认主题是 toiv（浅色优先）', () => {
+    expect(DEFAULT_THEME_ID).toBe('toiv');
+    expect(THEME_PRESETS.find((p) => p.id === 'toiv')?.darkBased).toBe(false);
+  });
+
+  it('toiv 预设对齐桌面/Web --user-* token', () => {
+    expect(getPalette('toiv', 'light')).toMatchObject({ bg: '#F8F8FA', surface: '#FFFFFF', text: '#1D1D21', accent: '#242426' });
+    expect(getPalette('toiv', 'dark')).toMatchObject({ bg: '#101010', surface: '#161616', text: '#F3F3F5', accent: '#3B3B3E' });
+    expect(accentOnColor(getPalette('toiv', 'light').accent)).toBe('#FFFFFF');
+    expect(accentOnColor(getPalette('toiv', 'dark').accent)).toBe('#FFFFFF');
   });
 
   it('未知 / 旧色板 id 回落或迁移', () => {
-    expect(normalizeThemeId('nope')).toBe('minimal');
-    expect(normalizeThemeId('palette-01')).toBe('minimal');
+    expect(normalizeThemeId('nope')).toBe('toiv');
+    expect(normalizeThemeId('palette-01')).toBe('toiv');
+    expect(normalizeThemeId('atelier')).toBe('toiv');
+    expect(normalizeThemeId('beeftv')).toBe('toiv');
+    expect(THEME_PRESETS.find((p) => p.id === 'toiv')?.name).toBe('ToIV');
+    expect(normalizeThemeId('minimal')).toBe('minimal');
     expect(normalizeThemeId('palette-04')).toBe('graphite');
     expect(normalizeThemeId('palette-05')).toBe('paper');
-    expect(getPalette('nope', 'light')).toEqual(getPalette('minimal', 'light'));
+    expect(getPalette('nope', 'light')).toEqual(getPalette('toiv', 'light'));
   });
 
   it('cinema accent 为 RunningHub 荧光绿', () => {
     expect(getPalette('cinema', 'dark').accent).toBe('#C9F24F');
+  });
+
+  it('实测可用徽标字色固定为深色（荧光绿底）', () => {
+    expect(accentOnColor(PASS_BADGE_BG)).toBe('#17181A');
   });
 
   it('accentOnColor / accentSoftFrom 工具', () => {

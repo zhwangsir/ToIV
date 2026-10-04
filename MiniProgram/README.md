@@ -24,7 +24,7 @@ STATE.json：MP1–MP32 均已标记 done（更新于 2026-08-16）。交付收�
 
 ## 访问的后端
 
-开发与生产环境文件当前都把 API 基址设为 core `http://192.168.71.47:8090`。本机只跑小程序 / H5，不在小程序里起 FastAPI。微信登录需要 core 侧 AppId；未配置时该接口不可用。不要把密钥写进本文件。集群见 [`../AGENTS.md`](../AGENTS.md)。
+开发与生产环境文件都把 API 基址设为唯一合法域名 `https://toiv.wineryz.top`（微信要求 https + 合法域名，不新增其他域名）；联调内网后端时在未跟踪的 `.env.development.local` 中覆盖。本机只跑小程序 / H5，不在小程序里起 FastAPI。微信登录需要 core 侧 AppId；未配置时该接口不可用。不要把密钥写进本文件。集群见 [`../AGENTS.md`](../AGENTS.md)。
 
 ## 技术栈与布局
 
