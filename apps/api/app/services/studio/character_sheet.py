@@ -9191,7 +9191,13 @@ def build_costume_collage_from_portrait(
                 x0, x1 = max(gx0, mid - half), min(gx1, mid + half)
             use_box = (x0, y0, x1, y1)
         treat_bg = key == "cuff"
-        band_min = 0.45 if key in ("boots", "legs") else min_fg
+        # 16:18：领口/袖口/下摆允许略低于 60%（窄 ROI），靴仍 0.45
+        if key in ("boots", "legs"):
+            band_min = 0.45
+        elif key in ("collar", "cuff", "hem"):
+            band_min = min(float(min_fg), 0.55)
+        else:
+            band_min = min_fg
         cell = _crop_costume_band_filled(
             img,
             use_box,
