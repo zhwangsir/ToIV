@@ -123,10 +123,12 @@ fi
 # 本地构建产物前置检查:toiv-web 是 next start 跑预构建产物,没有 .next 部署上去
 # 就是「没有前端的 web 服务」,直接失败而不是仅警告(可用 --skip-web 显式跳过)
 HAS_WEB_BUILD=false
-if [ -f apps/web/.next/BUILD_ID ]; then
+if [ "$SKIP_WEB" = true ]; then
+  # --skip-web 只部署后端:不推 web 源码/.next、不重启 toiv-web。
+  # 2026-10-05 事故:旧逻辑本地有 .next 就照推,把旧构建盖掉了线上官网 v3。
+  echo "⚠ --skip-web:不动前端(web 源码/.next/toiv-web 均保留远端现状)"
+elif [ -f apps/web/.next/BUILD_ID ]; then
   HAS_WEB_BUILD=true
-elif [ "$SKIP_WEB" = true ]; then
-  echo "⚠ --skip-web:本地无 apps/web/.next 构建产物,前端保留远端旧构建"
 else
   echo "✖ 本地无 apps/web/.next 构建产物,拒绝部署(避免上线没有前端的服务)" >&2
   echo "  请先 cd apps/web && npm run build;确认要沿用远端旧前端时加 --skip-web" >&2
@@ -184,8 +186,10 @@ else
   # 如需修改生产配置请直接编辑 /home/merlin/toiv/deploy/.env 并重启 toiv-api。
   rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
     apps/api/ "${REMOTE}:${REMOTE_DIR}/api/"
-  rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
-    apps/web/ "${REMOTE}:${REMOTE_DIR}/web/"
+  if [ "$SKIP_WEB" != true ]; then
+    rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
+      apps/web/ "${REMOTE}:${REMOTE_DIR}/web/"
+  fi
   rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
     deploy/ "${REMOTE}:${REMOTE_DIR}/deploy/"
   echo "  rsync 完成"
@@ -221,8 +225,10 @@ else
     # 健康探测用 /api/health 而非 /openapi.json:后者自 QA-FULL-2026-08-11 起
     # 按 TOIV_EXPOSE_API_DOCS 门控(默认关闭),探测它会误判服务未就绪
     remote_wait_health "toiv-api" "http://localhost:8090/api/health"
-    remote_restart toiv-web
-    remote_wait_health "toiv-web" "http://localhost:3100"
+    if [ "$SKIP_WEB" != true ]; then
+      remote_restart toiv-web
+      remote_wait_health "toiv-web" "http://localhost:3100"
+    fi
   fi
 fi
 
