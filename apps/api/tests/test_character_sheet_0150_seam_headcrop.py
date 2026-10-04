@@ -83,17 +83,29 @@ def test_0150_source_no_paste_in_qedit_route():
 
 
 def test_0150_head_closeup_excludes_chest():
-    # 构造头肩图：圆润发顶 + 脸居中偏上（满足≥0.6×fh 发顶），胸口红块在下
+    # 构造头肩图：发顶 + 脸居中偏上，胸口红块在下方
+    # 04:30：禁止灰垫后源图须留足肩下身体（人物缩到 0.7、衣服铺到底）
     size = 768
+    sc = 0.7
     im = Image.new("RGB", (size, size), (200, 200, 205))
     d = ImageDraw.Draw(im)
-    # hair crown (round) leaving room above face
-    d.ellipse((size * 0.22, size * 0.02, size * 0.78, size * 0.42), fill=(30, 30, 40))
-    d.ellipse((size * 0.28, size * 0.22, size * 0.72, size * 0.62), fill=(220, 180, 150))
-    d.ellipse((size * 0.36, size * 0.36, size * 0.44, size * 0.44), fill=(40, 50, 140))
-    d.ellipse((size * 0.56, size * 0.36, size * 0.64, size * 0.44), fill=(40, 50, 140))
-    d.rectangle((size * 0.20, size * 0.72, size * 0.80, size), fill=(70, 90, 110))
-    d.rectangle((size * 0.40, size * 0.80, size * 0.60, size * 0.95), fill=(220, 40, 40))
+
+    def bx(x1, y1, x2, y2):
+        cx, cy = 0.5, 0.30
+        return (
+            size * (cx + (x1 - cx) * sc),
+            size * (cy + (y1 - cy) * sc),
+            size * (cx + (x2 - cx) * sc),
+            size * (cy + (y2 - cy) * sc),
+        )
+
+    d.ellipse(bx(0.32, 0.10, 0.68, 0.34), fill=(30, 30, 40))
+    d.ellipse(bx(0.36, 0.22, 0.64, 0.46), fill=(220, 180, 150))
+    d.ellipse(bx(0.41, 0.30, 0.46, 0.35), fill=(40, 50, 140))
+    d.ellipse(bx(0.54, 0.30, 0.59, 0.35), fill=(40, 50, 140))
+    x1, y1, x2, _ = bx(0.20, 0.52, 0.80, 0.52)
+    d.rectangle((x1, y1, x2, size), fill=(70, 90, 110))
+    d.rectangle((size * 0.40, size * 0.78, size * 0.60, size * 0.95), fill=(220, 40, 40))
     raw = _png(im)
     out = sheet_svc.crop_expr_head_closeup(raw, size=768)
     o = Image.open(BytesIO(out)).convert("RGB")

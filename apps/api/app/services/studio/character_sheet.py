@@ -60,8 +60,8 @@ _EXPR_EDIT_INSTRUCTIONS = (
     # 20:58：拉开威严/冷酷/沉思视觉差（门禁不放宽）；禁宫格整图编辑贴回
     "只改变面部表情为威严：下巴微抬（chin raised）、俯视镜头（looking down at viewer）、双眼锐利眯窄（sharp narrowed eyes，禁止 wide eyes/blank）、眉毛明显压低聚拢（eyebrows lowered，眉峰下压）、双唇抿紧紧闭（tight closed mouth，禁止微笑/张嘴）。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光。",
     "只改变面部表情为冷酷：面无表情（expressionless）、眼神冷、双眼半睁半阖（half-lidded eyes）、眉毛中性不皱不抬（eyebrows neutral）、闭嘴嘴角平直（flat mouth，禁止 frown/smile）、目光冷淡可略偏一侧。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "同一角色、同发型同服装、头肩构图，只改变面部表情为沉思：视线下垂偏一侧（eyes looking down and to one side）、眉头微蹙（brows slightly furrowed / soft knit brows）、嘴唇闭合（lips closed，禁止张嘴）；目光低垂偏侧沉思，不要微笑。禁止侧面化、禁止改发型服装构图、不要戴帽、不要加徽章文字、不要加长发。",
-    "同一角色、同发型同服装、头部特写构图，只改变面部表情为温柔：gentle smile, mouth corners up, soft relaxed brows, eyes softly curved（睁眼弯月眼或柔和睁眼均可，不要求闭眼）；眉毛舒展放松（禁止 frown/furrowed），嘴角上扬微笑。禁止嘟嘴撇嘴、禁止改发型服装构图、不要戴帽、不要加徽章文字、不要加长发、不要心形瞳孔、胸口不要入画。",
+    "同一角色、同发型同服装、头肩构图，只改变面部表情为沉思：视线下垂偏一侧（eyes looking down and to one side, not at viewer）、眉头微蹙（brows slightly furrowed / soft knit brows）、嘴唇闭合（lips closed，禁止张嘴、禁止 O 形嘴）；目光低垂偏侧沉思，不要微笑。禁止侧面化、禁止改发型服装构图、不要戴帽、不要加徽章文字、不要加长发。",
+    "同一角色、同发型同服装、头部特写构图，只改变面部表情为温柔：closed-mouth gentle smile, lips together, mouth corners up, soft warm eyes, soft relaxed brows（闭嘴浅笑、抿嘴微笑、眼神柔和，睁眼或弯月眼均可）；眉毛舒展放松（禁止 frown/furrowed），嘴角上扬但双唇闭合、禁止张嘴露齿。禁止嘟嘴撇嘴、禁止改发型服装构图、不要戴帽、不要加徽章文字、不要加长发、不要心形瞳孔、胸口不要入画。",
     "只改变面部表情为惊恐：双眼瞪大、嘴巴明显张开可见口腔、眉毛高高上扬、眉心分开。必须张嘴。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要裁太近。",
     "只改变面部表情为果断：determined，firm closed mouth，focused eyes，eyebrows slightly lowered；双唇抿紧闭嘴（坚定，禁止张嘴/喊叫/surprised/open mouth）、禁止挑眉。下颌微绷（正面，勿侧头）。与威严的皱眉下垂嘴角区分，与惊恐张嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
 )
@@ -88,7 +88,9 @@ _EXPR_INPAINT_NEGATIVES = (
 _CHAR_SHEET_MARK = "char_sheet_"
 _CHAR_PANEL_MARK = "char_panel_"
 _POLL_INTERVAL = 2.0
-_POLL_TIMEOUT = 420.0
+_POLL_TIMEOUT = 420.0  # 04:30：只计 Comfy 开始执行后的时间
+_QUEUE_WAIT_MAX = 1200.0  # 04:30：排队超 20 分钟只记 queue_wait，不算失败次数
+_QUEUE_WAIT_RETRY_MAX = 3  # 单格 queue_wait 重排上限（超出如实报 FAIL）
 _MAX_REFS = 8
 _FORBIDDEN_WORKER_PORTS = {8195, 8196, 8197, 8205, 8261, 8263}
 _SHEET_ALLOWED_PORTS = frozenset({8262, 8264})
@@ -555,6 +557,31 @@ class CharacterSheetError(Exception):
                             )
             except Exception:
                 pass
+
+
+class CharacterSheetQueueWait(CharacterSheetError):
+    """04:30：作业在 Comfy 队列里排队超过上限（未开始执行）。
+
+    不是出图失败：调用方记 queue_wait、不消耗重试次数；本作业已从 pending 撤下。
+    """
+
+    def __init__(self, message: str, *, queue_wait: float, prompt_id: str = ""):
+        super().__init__(message, status_code=503)
+        self.queue_wait = float(queue_wait)
+        self.prompt_id = prompt_id
+
+
+async def _comfy_prompt_state(client: Any, prompt_id: str) -> str:
+    """pending / running / gone / unknown（/queue 查不到时 unknown，按执行计时更保守）。"""
+    try:
+        running, pending = await client.get_queue_detail()
+    except Exception:  # noqa: BLE001
+        return "unknown"
+    if prompt_id in pending:
+        return "pending"
+    if prompt_id in running:
+        return "running"
+    return "gone"
 
 
 @dataclass
@@ -4693,6 +4720,150 @@ def paste_qedit_face_onto_portrait(
 
 
 
+class HeadcropSourceShort(CharacterSheetError):
+    """04:30：头特写源图不够（下方/侧边），禁止灰垫；调用方换更宽源或 outpaint。"""
+
+    def __init__(self, message: str):
+        super().__init__(message, status_code=422)
+
+
+def _expr_frame_bbox(data: bytes) -> tuple[float, float, float, float] | None:
+    """表情格构图测量用脸框：与 crop_expr_head_closeup 同一检测链（insightface→动漫级联→启发式）。"""
+    bb = _detect_face_bbox_xyxy(data)
+    if bb is None:
+        try:
+            bb = _heuristic_skin_face_bbox(Image.open(BytesIO(data)).convert("RGB"))
+        except Exception:  # noqa: BLE001
+            bb = None
+    if bb is None:
+        return None
+    return tuple(float(v) for v in bb)  # type: ignore[return-value]
+
+
+def measure_expr_frame(data: bytes) -> dict | None:
+    """04:30：测表情格构图 {face_frac, face_top_frac, face_cx_frac}（相对画面边长）。"""
+    im = Image.open(BytesIO(data)).convert("RGB")
+    w, h = im.size
+    bb = _expr_frame_bbox(data)
+    if bb is None:
+        return None
+    x1, y1, x2, y2 = bb
+    if y2 - y1 < 8 or x2 - x1 < 8:
+        return None
+    return {
+        "face_frac": (y2 - y1) / float(h),
+        "face_top_frac": y1 / float(h),
+        "face_cx_frac": (x1 + x2) / 2.0 / float(w),
+    }
+
+
+def locked_expr_frame(cells: list[bytes]) -> dict | None:
+    """04:30：已锁表情格构图中位数；可测格 <2 返回 None（回退默认头特写规则）。"""
+    ms = [m for m in (measure_expr_frame(c) for c in cells if c) if m]
+    if len(ms) < 2:
+        return None
+    import statistics as _st
+
+    out = {k: float(_st.median([m[k] for m in ms])) for k in ("face_frac", "face_top_frac", "face_cx_frac")}
+    out["n"] = len(ms)
+    return out
+
+
+def _crop_expr_to_frame(
+    im0: Image.Image,
+    bb: tuple[float, float, float, float],
+    frame: dict,
+    *,
+    size: int = 768,
+) -> bytes:
+    """04:30：按锁定格比例裁（同检测器），越界只允许小幅平移；不够则抛 HeadcropSourceShort。"""
+    w0, h0 = im0.size
+    fx1, fy1, fx2, fy2 = bb
+    fh = max(8.0, fy2 - fy1)
+    ff = max(0.20, min(0.85, float(frame["face_frac"])))
+    side = fh / ff
+    top = fy1 - float(frame["face_top_frac"]) * side
+    left = (fx1 + fx2) / 2.0 - float(frame["face_cx_frac"]) * side
+    mn = float(min(w0, h0))
+    if side > mn * 1.03:
+        raise HeadcropSourceShort(
+            f"头特写源图不足: 需 side={side:.0f}px > 源 {w0}x{h0}（禁止灰垫，需更宽源/outpaint）"
+        )
+    side = min(side, mn)
+    over_b = top + side - h0
+    if over_b > 0.04 * side:
+        raise HeadcropSourceShort(
+            f"头特写源图下方不足: 缺 {over_b:.0f}px（{over_b / side:.2f}×side，禁止灰垫，需更宽源/outpaint）"
+        )
+    if -top > 0.06 * side:
+        raise HeadcropSourceShort(f"头特写源图上方不足: 缺 {-top:.0f}px（禁止灰垫）")
+    over_l = max(0.0, -left)
+    over_r = max(0.0, left + side - w0)
+    if over_l + over_r > 0.15 * side:
+        raise HeadcropSourceShort(
+            f"头特写源图侧边不足: 左缺 {over_l:.0f}px 右缺 {over_r:.0f}px（禁止灰垫）"
+        )
+    s_i = int(round(side))
+    top_i = int(round(max(0.0, min(h0 - side, top))))
+    left_i = int(round(max(0.0, min(w0 - side, left))))
+    crop = im0.crop((left_i, top_i, left_i + s_i, top_i + s_i)).resize(
+        (int(size), int(size)), Image.Resampling.LANCZOS
+    )
+    buf = BytesIO()
+    crop.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def uniform_bottom_band_frac(data: bytes, *, std_thr: float = 4.0) -> float:
+    """04:30：底部整行近乎纯色（行内灰度标准差 < std_thr）的连续行数占高比例。"""
+    import numpy as np
+
+    a = np.asarray(Image.open(BytesIO(data)).convert("L"), dtype=np.float32)
+    h = a.shape[0]
+    rs = a.std(axis=1)
+    n = 0
+    for y in range(h - 1, -1, -1):
+        if rs[y] < std_thr:
+            n += 1
+        else:
+            break
+    return n / float(h)
+
+
+def assert_no_uniform_bottom_band(data: bytes, *, expr_key: str, max_frac: float = 0.06) -> float:
+    """04:30：头肩格底部不得有整条纯色垫块（灰垫/白条）；头肩构图底行必穿过衣服。"""
+    frac = uniform_bottom_band_frac(data)
+    if frac > max_frac:
+        raise CharacterSheetError(
+            f"{expr_key}底部纯色垫块门禁: band={frac:.3f}>{max_frac:.2f}（禁止灰色填充）",
+            status_code=422,
+        )
+    return frac
+
+
+def assert_expr_frame_match(
+    data: bytes,
+    frame: dict,
+    *,
+    expr_key: str,
+    tol_face: float = 0.07,
+    tol_top: float = 0.07,
+) -> dict:
+    """04:30：新表情格构图须与锁定格同比例（脸高、头顶留白）。"""
+    m = measure_expr_frame(data)
+    if m is None:
+        raise CharacterSheetError(f"{expr_key}构图门禁: 测不到脸", status_code=422)
+    d_face = abs(m["face_frac"] - float(frame["face_frac"]))
+    d_top = abs(m["face_top_frac"] - float(frame["face_top_frac"]))
+    if d_face > tol_face or d_top > tol_top:
+        raise CharacterSheetError(
+            f"{expr_key}构图门禁: 与锁定格不同比例 face={m['face_frac']:.3f} vs {frame['face_frac']:.3f}, "
+            f"top={m['face_top_frac']:.3f} vs {frame['face_top_frac']:.3f}",
+            status_code=422,
+        )
+    return {**m, "d_face": d_face, "d_top": d_top}
+
+
 def crop_expr_head_closeup(
     data: bytes,
     *,
@@ -4701,8 +4872,14 @@ def crop_expr_head_closeup(
     hair_above_face_frac: float = 0.60,
     target_face_height_frac: float = 0.45,
     top_margin_frac: float = 0.10,
+    frame: dict | None = None,
 ) -> bytes:
     """02:42：表情格头部特写裁剪。
+
+    04:30：**禁止任何色块/灰垫填充**。源图下方/侧边不够时抛
+    ``HeadcropSourceShort``（调用方换更宽的源再裁），不再用角点色垫边。
+    ``frame``（来自已锁表情格的 face_frac/face_top_frac/face_cx_frac 中位数）给定时，
+    按同一检测器同比例裁，保证与锁定格头顶留白、肩线一致。
 
     - 脸框上沿以上至少 ``hair_above_face_frac``(默认 0.6) 倍脸高，盖住整个发顶；
     - 成品脸高约占画面 ``target_face_height_frac``(≈0.45)；
@@ -4735,6 +4912,8 @@ def crop_expr_head_closeup(
     fw = max(8.0, fx2 - fx1)
     fh = max(8.0, fy2 - fy1)
     fcx = (fx1 + fx2) / 2.0
+    if frame:
+        return _crop_expr_to_frame(im0, (fx1, fy1, fx2, fy2), frame, size=int(size))
     hair_pad = max(0.50, float(hair_above_face_frac)) * fh
     hair_top = fy1 - hair_pad
     chin_bottom = fy2 + float(chin_margin_face_frac) * fh
@@ -4762,29 +4941,23 @@ def crop_expr_head_closeup(
     if top_f < 0.0:
         short_headroom = True
         top_f = 0.0
-    # 仅允许左右/下沿少量角点色垫边（绝不向上垫灰底）
-    need_pad_l = max(0.0, -left_f)
-    need_pad_r = max(0.0, left_f + side - w0)
-    need_pad_b = max(0.0, top_f + side - h0)
-    need_pad = int(math.ceil(max(need_pad_l, need_pad_r, need_pad_b))) + 4
+    # 04:30：禁止角点色垫边（0305 a1 底部大块灰垫根因）。只允许极小越界时平移窗口。
     img = im0
-    pad = 0
-    if need_pad > 0:
-        corner = im0.getpixel((min(2, w0 - 1), min(2, h0 - 1)))
-        canvas = Image.new("RGB", (w0 + 2 * need_pad, h0 + 2 * need_pad), corner)
-        canvas.paste(im0, (need_pad, need_pad))
-        img = canvas
-        pad = need_pad
-        fx1 += pad
-        fy1 += pad
-        fx2 += pad
-        fy2 += pad
-        fcx += pad
-        hair_top += pad
-        chin_bottom += pad
-        top_f += pad
-        left_f += pad
-        fh = max(8.0, fy2 - fy1)
+    over_l = max(0.0, -left_f)
+    over_r = max(0.0, left_f + side - w0)
+    over_b = max(0.0, top_f + side - h0)
+    if side > min(w0, h0) * 1.03:
+        raise HeadcropSourceShort(
+            f"头特写源图不足: 需 side={side}px > 源 {w0}x{h0}（禁止灰垫，需更宽源/outpaint）"
+        )
+    if over_b > 0.04 * side:
+        raise HeadcropSourceShort(
+            f"头特写源图下方不足: 缺 {over_b:.0f}px（{over_b / side:.2f}×side，禁止灰垫，需更宽源/outpaint）"
+        )
+    if (over_l + over_r) > 0.15 * side:
+        raise HeadcropSourceShort(
+            f"头特写源图侧边不足: 左缺 {over_l:.0f}px 右缺 {over_r:.0f}px（禁止灰垫）"
+        )
     w, h = img.size
     side = int(min(max(side, 64), w, h))
     left = int(round(left_f))
@@ -5144,25 +5317,27 @@ def _parse_yes_no_token(raw) -> bool | None:
 
 
 _EXPR_QA_PROMPTS: dict[str, str] = {
+    # 04:30：q1 判是否闭嘴（张嘴/O 形嘴一律否），q2 判是否符合该情绪；两问皆是才过
     "expr_2": (
-        "You are inspecting an anime character face closeup for a contemplative expression. "
+        "You are inspecting an anime character head closeup for a CONTEMPLATIVE (沉思) expression. "
         "Answer TWO yes/no questions. Output ONLY one JSON object, no markdown: "
         '{"q1":true,"q2":true}. '
-        "q1: Are the eyes looking downward AND biased to one side "
-        "(视线下垂偏一侧：eyes looking down and to one side)? true only if BOTH downward gaze AND side bias are visible. "
-        "q2: Are the brows slightly furrowed AND the lips closed "
-        "(眉头微蹙 + 嘴唇闭合)? true only if BOTH soft knit/furrowed brows AND closed lips are visible; reject smile or open mouth. "
+        "q1: Is the mouth CLOSED (lips together)? Answer false if the mouth is open at all, "
+        "including an O-shaped or round open mouth, visible teeth or a gap between the lips. "
+        "q2: Does the face read as contemplative: gaze directed DOWNWARD or down-to-the-side "
+        "(视线下垂偏一侧 / looking down and to one side) "
+        "(not staring blankly at the viewer), brows slightly knit/furrowed, no smile? "
+        "Answer false for a blank empty stare, surprise, or smiling. "
         "Judge only from visible face features."
     ),
     "expr_3": (
-        "You are inspecting an anime character face closeup for a gentle expression. "
+        "You are inspecting an anime character head closeup for a GENTLE (温柔) expression. "
         "Answer TWO yes/no questions. Output ONLY one JSON object, no markdown: "
         '{"q1":true,"q2":true}. '
-        "q1: Is this a gentle smile with mouth corners up AND soft relaxed brows "
-        "(温柔微笑：嘴角上扬 + 眉毛放松舒展)? true if BOTH smile and relaxed brows are visible. "
-        "Eyes may be open OR softly curved crescent (弯月眼); closed eyes are OK but NOT required. "
-        "q2: Is the mouth NOT wide open (嘴不张大)? true if mouth is closed or only slightly open in a smile; "
-        "false if mouth is wide open / screaming. "
+        "q1: Is the mouth CLOSED with a slight smile (lips together, mouth corners up)? "
+        "Answer false if the mouth is open, O-shaped, showing teeth, or not smiling. "
+        "q2: Does the face read as gentle: soft warm eyes (open eyes or 弯月眼 crescent eyes both OK; closed eyes NOT required), relaxed brows, "
+        "no frown, no blank stare? "
         "Judge only from visible face features."
     ),
 }
@@ -5954,6 +6129,7 @@ async def classify_expression_qa(
                 graph, client_id=f"sheet_qa_{uuid.uuid4().hex[:8]}"
             )
             waited = 0.0
+            _qa_queue_wait = 0.0
             raw_text = ""
             while waited < 180.0:
                 hist = await client.get_history(prompt_id)
@@ -5981,7 +6157,21 @@ async def classify_expression_qa(
                             )
                             break
                     raise CharacterSheetError(f"专项问答执行失败:{msg}", status_code=502)
+                _qs = await _comfy_prompt_state(client, prompt_id)
                 await asyncio.sleep(1.5)
+                if _qs == "pending":
+                    _qa_queue_wait += 1.5
+                    if _qa_queue_wait >= _QUEUE_WAIT_MAX:
+                        try:
+                            await client.delete_from_queue([prompt_id])
+                        except Exception:  # noqa: BLE001
+                            pass
+                        raise CharacterSheetQueueWait(
+                            f"专项问答排队超时 queue_wait={_qa_queue_wait:.0f}s(不计失败)",
+                            queue_wait=_qa_queue_wait,
+                            prompt_id=prompt_id,
+                        )
+                    continue
                 waited += 1.5
             if not raw_text:
                 raise CharacterSheetError(
@@ -5999,6 +6189,8 @@ async def classify_expression_qa(
             parsed["vlm_sticky"] = True
             parsed["keep_model_loaded"] = True
             return parsed
+        except CharacterSheetQueueWait:
+            raise
         except CharacterSheetError as e:
             last_err = e
             logger.warning("classify_expression_qa %s/%s fail: %s", backend, model, e)
@@ -8192,11 +8384,24 @@ def _pick_best_face_with_yaw(cands: list[bytes], face_key: str) -> tuple[bytes, 
 
 
 
-async def _wait_images(client: Any, prompt_id: str) -> list[dict]:
-    waited = 0.0
+async def _wait_images(
+    client: Any,
+    prompt_id: str,
+    *,
+    exec_timeout: float | None = None,
+    queue_wait_max: float | None = None,
+) -> list[dict]:
+    """04:30：超时只从 Comfy 开始执行计时；排队时间不计入。
+
+    排队超过 ``queue_wait_max``(默认 20min) → 撤下本作业并抛 CharacterSheetQueueWait。
+    """
+    exec_to = float(_POLL_TIMEOUT if exec_timeout is None else exec_timeout)
+    q_max = float(_QUEUE_WAIT_MAX if queue_wait_max is None else queue_wait_max)
+    waited = 0.0  # 执行计时
+    queue_wait = 0.0
     from app.comfy.client import ComfyUIError
 
-    while waited < _POLL_TIMEOUT:
+    while waited < exec_to:
         try:
             images = await client.get_images(prompt_id)
         except ComfyUIError:
@@ -8227,9 +8432,25 @@ async def _wait_images(client: Any, prompt_id: str) -> list[dict]:
             raise
         except Exception:  # noqa: BLE001
             pass
+        state = await _comfy_prompt_state(client, prompt_id)
         await asyncio.sleep(_POLL_INTERVAL)
+        if state == "pending":
+            queue_wait += _POLL_INTERVAL
+            if queue_wait >= q_max:
+                try:
+                    await client.delete_from_queue([prompt_id])
+                except Exception:  # noqa: BLE001
+                    pass
+                raise CharacterSheetQueueWait(
+                    f"排队超时 queue_wait={queue_wait:.0f}s(>{q_max:.0f}s 未开始执行，不计失败)",
+                    queue_wait=queue_wait,
+                    prompt_id=prompt_id,
+                )
+            continue
         waited += _POLL_INTERVAL
-    raise CharacterSheetError(f"出图超时({_POLL_TIMEOUT:.0f}s)", status_code=504)
+    raise CharacterSheetError(
+        f"出图超时({exec_to:.0f}s 执行计时, queue_wait={queue_wait:.0f}s)", status_code=504
+    )
 
 
 def _panel_size(key: str, style: str) -> tuple[int, int]:
@@ -9816,47 +10037,78 @@ async def generate_character_sheet(
                             f"{ek} Qwen-Image-Edit-2509 图构造不可用，拒绝回落 inpaint: {_qe}",
                             status_code=503,
                         ) from _qe
-                    # 正面底：优先 approved portrait 头肩，其次既有 bases
-                    try:
-                        if panels.get("portrait"):
-                            edit_base = crop_face_ref(panels["portrait"], size=768)
-                        else:
-                            edit_base = bases[ek]
-                    except Exception as _pe:  # noqa: BLE001
+                    # 04:30：编辑底用**宽头肩源**（bases[ek]：与锁定格同源同构图、肩下有身体），
+                    # 不再 crop_face_ref+squareize 紧裁（0305 a1 下方不够→灰垫根因）。
+                    _locked_cells = [
+                        panels[_k]
+                        for _k in ("expr_0", "expr_1", "expr_4", "expr_5")
+                        if panels.get(_k) and _k in override_keys
+                    ]
+                    expr_frame = locked_expr_frame(_locked_cells)
+                    # 候选宽源依次试：本格 base → 另一格(沉思/温柔) base → 主立绘头肩；
+                    # 编辑底按锁定比例必须裁得出且无底部纯色垫块（否则 Qwen 同构图输出必继承）。
+                    _eb_cands: list[tuple[str, bytes]] = []
+                    for _bk in (ek, "expr_2", "expr_3"):
+                        if bases.get(_bk) and all(_bk != c[0][6:] for c in _eb_cands):
+                            _eb_cands.append((f"bases_{_bk}", bases[_bk]))
+                    if panels.get("portrait"):
+                        try:
+                            _eb_cands.append(
+                                ("portrait_face_ref", crop_face_ref(panels["portrait"], size=768))
+                            )
+                        except Exception:  # noqa: BLE001
+                            pass
+                    edit_base = None
+                    _id_ref = None
+                    _eb_src = ""
+                    _eb_why: list[str] = []
+                    for _src, _cand in _eb_cands:
+                        try:
+                            _ref = crop_expr_head_closeup(_cand, size=768, frame=expr_frame)
+                            assert_no_uniform_bottom_band(_ref, expr_key=f"{ek}_edit_base")
+                        except CharacterSheetError as _ce:
+                            _eb_why.append(f"{_src}: {_ce}")
+                            continue
+                        edit_base, _id_ref, _eb_src = _cand, _ref, _src
+                        break
+                    if edit_base is None:
                         raise CharacterSheetError(
-                            f"{ek} 无 approved_portrait 正面底: {_pe}",
+                            f"{ek} 无可用宽头肩编辑底（禁止灰垫）: {' | '.join(_eb_why) or '无候选'}",
                             status_code=422,
-                        ) from _pe
-                    try:
-                        edit_base = squareize_face_center_crop(edit_base, size=768)
-                    except CharacterSheetError:
-                        _im = Image.open(BytesIO(edit_base)).convert("RGB")
-                        _s = min(_im.size)
-                        _l = (_im.width - _s) // 2
-                        _t = (_im.height - _s) // 2
-                        _c = _im.crop((_l, _t, _l + _s, _t + _s)).resize(
-                            (768, 768), Image.Resampling.LANCZOS
                         )
-                        _b = BytesIO()
-                        _c.save(_b, format="PNG")
-                        edit_base = _b.getvalue()
-                    bases[ek] = edit_base
+                    try:
+                        (reject_dir / f"{ek}_edit_base_{int(seed or 0)}.json").write_text(
+                            json.dumps(
+                                {"src": _eb_src, "frame": expr_frame, "route": "0430_wide_base"},
+                                ensure_ascii=False,
+                                indent=2,
+                            ),
+                            encoding="utf-8",
+                        )
+                    except Exception:
+                        pass
                     prompt_x = _EXPR_EDIT_INSTRUCTIONS[ei]
                     if ek == "expr_2":
                         prompt_x += (
-                            " eyes looking down, eyelids half closed, calm closed mouth, "
-                            "front facing head closeup, hair top to chin, no chest in frame, "
+                            " eyes looking down to one side, slightly knit brows, lips closed, "
+                            "mouth closed not open, no O-shaped mouth, same framing head and shoulders, "
                             "same hair same clothes"
                         )
                     else:
                         prompt_x += (
-                            " gentle smile, mouth corners up, soft relaxed brows, "
-                            "eyes softly curved, front facing head closeup, "
-                            "hair top to chin, no chest in frame, same hair same clothes"
+                            " closed-mouth gentle smile, lips together, mouth corners up, "
+                            "soft warm eyes, soft relaxed brows, no open mouth no teeth, "
+                            "same framing head and shoulders, same hair same clothes"
                         )
                     picked: bytes | None = None
                     pick_err: Exception | None = None
-                    for attempt in range(6):
+                    _qwaits = 0
+                    _qwait_log: list[float] = []
+                    attempt = -1
+                    while attempt < 5:
+                        attempt += 1
+                        raw = None
+                        cell_b = None
                         try:
                             ref_name = await client.upload_image(
                                 edit_base,
@@ -9897,8 +10149,8 @@ async def generate_character_sheet(
                                 pass
                             # 接缝门禁：Qwen 原始输出即验
                             assert_no_hard_seam_contour(raw, expr_key=ek, size=768, stage="raw")
-                            # 头部特写裁剪：发顶≥0.6×脸高、脸≈45%、顶留白8–12%、下沿锁骨
-                            cell_b = crop_expr_head_closeup(raw, size=768)
+                            # 04:30：按锁定格比例裁头肩（禁止灰垫；源不够抛 HeadcropSourceShort）
+                            cell_b = crop_expr_head_closeup(raw, size=768, frame=expr_frame)
                             try:
                                 (reject_dir / f"{ek}_qedit_headcrop_{int(seed or 0)}_a{attempt}.png").write_bytes(
                                     cell_b
@@ -9909,24 +10161,24 @@ async def generate_character_sheet(
                             assert_no_hard_seam_contour(cell_b, expr_key=ek, size=768, stage="crop")
                             # 02:42：发顶平切门禁（≥40px 水平发际线）
                             assert_no_flat_hairline_cut(cell_b, expr_key=ek, min_run_px=40)
-                            try:
-                                cell_b = squareize_face_center_crop(cell_b, size=768)
-                            except CharacterSheetError:
-                                pass
+                            # 04:30：底部纯色垫块门禁 + 与锁定格同比例
+                            assert_no_uniform_bottom_band(cell_b, expr_key=ek)
                             assert_expr_cell_no_white_border(cell_b, expr_key=ek)
                             assert_expr_cell_content_coverage(
                                 cell_b, expr_key=ek, min_coverage=1.0
                             )
-                            # 头部特写脸高窗略宽于旧头肩窗
-                            assert_expr_cell_face_height_frac(
-                                cell_b,
-                                expr_key=ek,
-                                min_face_height_frac=0.38,
-                                max_face_height_frac=0.55,
-                            )
+                            if expr_frame:
+                                assert_expr_frame_match(cell_b, expr_frame, expr_key=ek)
+                            else:
+                                assert_expr_cell_face_height_frac(
+                                    cell_b,
+                                    expr_key=ek,
+                                    min_face_height_frac=0.38,
+                                    max_face_height_frac=0.55,
+                                )
                             assert_mouth_in_frame(cell_b)
-                            # 身份 CLIP≥0.72（对照 approved_portrait 脸底）
-                            _face_id = edit_base
+                            # 身份 CLIP≥0.72（对照编辑底同比例裁剪）
+                            _face_id = _id_ref
                             _sim = clip_image_cosine_sim(cell_b, _face_id)
                             if _sim is not None and _sim + 1e-12 < 0.72:
                                 raise CharacterSheetError(
@@ -9949,7 +10201,7 @@ async def generate_character_sheet(
                             except Exception:
                                 pass
                             # 01:50：徽标只在最终裁剪格内验（相对 edit_base 同裁）
-                            _emblem_ref = crop_expr_head_closeup(edit_base, size=768)
+                            _emblem_ref = _id_ref
                             if portrait_has_chest_emblem(
                                 cell_b, ref=_emblem_ref, below_face=True
                             ):
@@ -10018,6 +10270,31 @@ async def generate_character_sheet(
                             picked = cell_b
                             pick_err = None
                             break
+                        except CharacterSheetQueueWait as qw:
+                            # 04:30：排队超 20 分钟只记 queue_wait，不算失败次数
+                            _qwaits += 1
+                            _qwait_log.append(qw.queue_wait)
+                            logger.warning(
+                                "expr %s queue_wait attempt=%s n=%s: %s", ek, attempt, _qwaits, qw
+                            )
+                            try:
+                                (reject_dir / f"{ek}_queue_wait_{int(seed or 0)}.json").write_text(
+                                    json.dumps(
+                                        {"n": _qwaits, "waits": _qwait_log, "attempt_not_counted": attempt},
+                                        ensure_ascii=False,
+                                    ),
+                                    encoding="utf-8",
+                                )
+                            except Exception:
+                                pass
+                            if _qwaits > _QUEUE_WAIT_RETRY_MAX:
+                                pick_err = CharacterSheetError(
+                                    f"{ek} 队列持续拥堵 queue_wait×{_qwaits}（非出图失败，未完成）",
+                                    status_code=503,
+                                )
+                                break
+                            attempt -= 1
+                            continue
                         except CharacterSheetError as ge:
                             pick_err = ge
                             logger.warning(
