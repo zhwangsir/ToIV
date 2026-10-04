@@ -23,6 +23,7 @@ import contextvars
 import math
 
 import asyncio
+import hashlib
 import json
 import colorsys
 import logging
@@ -56,23 +57,33 @@ _EXPR_PROMPTS = (
 )
 # 19:01：表情只走图像编辑——中文指令仅改表情，锁身份/发型/服装/构图
 _EXPR_EDIT_INSTRUCTIONS = (
-    # 17:38：单张真 inpaint 提示（眉压低/闭嘴/微笑等硬语义）；禁宫格整图编辑贴回
-    "只改变面部表情为威严：眉毛明显压低聚拢（眉峰下压）、双眼正视、蓝紫虹膜保持不变、嘴角紧、双唇抿紧闭嘴（禁止微笑/张嘴）。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光。",
-    "只改变面部表情为冷酷：闭嘴、眼神冷、双眼半睁、面无表情、目光明显斜视一侧、嘴角平直下压。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "只改变面部表情为沉思：视线明显偏下看向斜下方、闭嘴、眉心轻蹙、嘴唇微闭放松。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    # 20:58：拉开威严/冷酷/沉思视觉差（门禁不放宽）；禁宫格整图编辑贴回
+    "只改变面部表情为威严：下巴微抬（chin raised）、俯视镜头（looking down at viewer）、双眼锐利眯窄（sharp narrowed eyes，禁止 wide eyes/blank）、眉毛明显压低聚拢（eyebrows lowered，眉峰下压）、双唇抿紧紧闭（tight closed mouth，禁止微笑/张嘴）。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光。",
+    "只改变面部表情为冷酷：面无表情（expressionless）、眼神冷、双眼半睁半阖（half-lidded eyes）、眉毛中性不皱不抬（eyebrows neutral）、闭嘴嘴角平直（flat mouth，禁止 frown/smile）、目光冷淡可略偏一侧。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为沉思：双眼看向斜下方（eyes looking down and to the side）、头轻微侧倾（head slightly tilted）、眉毛放松舒展（relaxed brows，禁止 frown/furrowed/眉心轻蹙）、双唇轻抿微闭（lips slightly pressed，闭嘴）、目光放空远望（faraway gaze）。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
     "只改变面部表情为温柔：眉毛舒展放松（禁止皱眉/眉压低/frown/furrowed brows）、双眼柔和、蓝紫虹膜保持不变、温柔闭眼微笑或轻柔微笑（gentle closed-eye smile / soft smile），禁止嘟嘴/撇嘴（frown, pout）。与威严的压眉闭嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光、不要皱眉下垂嘴角。",
     "只改变面部表情为惊恐：双眼瞪大、嘴巴明显张开可见口腔、眉毛高高上扬、眉心分开。必须张嘴。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要裁太近。",
-    "只改变面部表情为果断：determined，firm closed mouth，focused eyes，eyebrows slightly lowered；双唇抿紧闭嘴（禁止张嘴/喊叫/surprised/open mouth）、禁止挑眉。下颌微绷（正面，勿侧头）。与威严的皱眉下垂嘴角区分，与惊恐张嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为果断：determined，firm closed mouth，focused eyes，eyebrows slightly lowered；双唇抿紧闭嘴（坚定，禁止张嘴/喊叫/surprised/open mouth）、禁止挑眉。下颌微绷（正面，勿侧头）。与威严的皱眉下垂嘴角区分，与惊恐张嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
 )
 
 # 17:38：SDXL 真 inpaint 正向（英文）；顺序同 _EXPR_LABELS
 _EXPR_INPAINT_PROMPTS = (
-    "same character anime closeup, stern majestic expression, brows lowered pressed down furrowed, mouth tightly closed lips pressed no smile, firm direct gaze, blue-violet iris unchanged, only change eyebrows eyes mouth shape, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
-    "same character anime closeup, cold expression, closed mouth, cold eyes half-lidded, blank face, gaze looking sideways, flat downturned lips, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
-    "same character anime closeup, thoughtful expression, gaze looking down, closed mouth, slightly furrowed brows, lips gently closed, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
+    "same character anime closeup, stern majestic expression, chin raised looking down at viewer, sharp narrowed eyes, eyebrows lowered, tight closed mouth lips pressed, no smile no wide eyes no blank stare, blue-violet iris unchanged, only change eyebrows eyes mouth jaw tilt, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
+    "same character anime closeup, cold expressionless face, half-lidded eyes, flat mouth, eyebrows neutral, no frown no smile, closed mouth, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
+    "same character anime closeup, thoughtful contemplative expression, eyes looking down and to the side, head slightly tilted, relaxed brows no frown no furrowed, lips slightly pressed, faraway gaze, only change eyebrows eyes mouth head tilt, keep identical hair face shape skin tone collar composition",
     "same character anime closeup, gentle warm expression, gentle closed-eye smile or soft smile, relaxed eyebrows no frown no pout no furrowed brows, soft eyes, blue-violet iris unchanged, only change eyebrows eyes mouth shape, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
     "same character anime closeup, terrified expression, eyes wide open, mouth wide open showing interior, eyebrows raised high, must open mouth, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
     "same character anime closeup, determined expression, firm closed mouth, focused eyes, eyebrows slightly lowered, no surprised open mouth, no raised brows, jaw slightly tense, front facing, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
+)
+
+# 20:58：威严/冷酷/沉思互斥负向（追加到通用 _expr_neg）
+_EXPR_INPAINT_NEGATIVES = (
+    "wide eyes, blank stare, blank expression, smile, grinning, open mouth, raised brows, soft smile",
+    "frown, smiling, smile, grinning, furrowed brows, angry brows, downturned angry mouth",
+    "frown, furrowed brows, knit brows, scowling, angry brows, raised brows, wide eyes, big smile",
+    "frown, pout, scowling, furrowed brows, downturned mouth, angry brows",
+    "closed mouth, smile, calm face, sleepy eyes",
+    "surprised, open mouth, raised brows, screaming, shouting, wide open mouth",
 )
 _CHAR_SHEET_MARK = "char_sheet_"
 _CHAR_PANEL_MARK = "char_panel_"
@@ -3995,9 +4006,13 @@ _EXPR_VLM_PROMPT = (
     '{"label":"<one of six>","scores":{"威严":0,"冷酷":0,"沉思":0,"温柔":0,"惊恐":0,"果断":0}}. '
     "Fill scores with your confidences (0~1, roughly normalized). "
     "Do NOT copy any example; judge from the actual face in the image. "
-    "Guide: 威严=lowered/furrowed brows + closed firm mouth; "
-    "冷酷=cold half-lidded eyes looking aside + flat mouth; "
-    "沉思=gaze down + lightly knit brows + closed mouth; "
+    "Visible-feature definitions (must match what you see, not just the name): "
+    "威严=chin raised + looking down at viewer + sharp narrowed eyes + eyebrows lowered + tight closed mouth "
+    "(reject if wide eyes or blank stare); "
+    "冷酷=expressionless + half-lidded eyes + flat mouth + eyebrows neutral "
+    "(reject if frown or smile); "
+    "沉思=eyes looking down and to the side + head slightly tilted + relaxed brows + lips slightly pressed + faraway gaze "
+    "(reject if frown or furrowed brows); "
     "温柔=relaxed brows + soft/closed-eye smile; "
     "惊恐=wide eyes + open mouth; "
     "果断=focused eyes + firm closed mouth + brows slightly lowered."
@@ -4347,6 +4362,28 @@ def _extract_history_text(entry: dict) -> str:
     return "\n".join(chunks).strip()
 
 
+# 20:58：进程内粘性 VLM 后端——首次成功后优先复用，避免每表情轮询多模型反复加载
+_VLM_STICKY_BACKEND: tuple[str, str] | None = None
+_VLM_STICKY_EVIDENCE: dict[str, Any] = {
+    "keep_model_loaded": True,
+    "sticky_hits": 0,
+    "sticky_misses": 0,
+    "last_backend": None,
+    "last_model": None,
+}
+
+
+def vlm_sticky_evidence() -> dict[str, Any]:
+    """供 gate_summary / 进展记录：VLM 常驻与粘性命中证据。"""
+    return {
+        **dict(_VLM_STICKY_EVIDENCE),
+        "sticky_backend": (
+            list(_VLM_STICKY_BACKEND) if _VLM_STICKY_BACKEND else None
+        ),
+        "graph_keep_model_loaded": True,
+    }
+
+
 async def classify_expression_vlm(
     image_bytes: bytes,
     *,
@@ -4357,9 +4394,11 @@ async def classify_expression_vlm(
     """调 Comfy Qwen VL 对表情做 6 选 1；返回 {label, scores, raw, model}。
 
     失败抛 CharacterSheetError（不许静默跳过判官伪过检）。
+    图节点 keep_model_loaded=True；同进程粘性后端避免每表情重试多模型。
     """
     from app.comfy.client import ComfyUIClient, ComfyUIError
 
+    global _VLM_STICKY_BACKEND
     if not worker_url:
         raise CharacterSheetError("VLM 判官缺少 worker_url", status_code=502)
     url = str(worker_url).rstrip("/")
@@ -4369,7 +4408,7 @@ async def classify_expression_vlm(
         image_bytes, f"sheet_expr_vlm_{uuid.uuid4().hex[:10]}.png"
     )
     # 优先非 FP8：:8262 FP8 需 kernels 包，缺则 execution_error
-    backends = (
+    default_backends = (
         ("Qwen2_VQA", "Qwen3-VL-4B-Instruct"),
         ("Qwen2_VQA", "Qwen2-VL-7B-Instruct"),
         ("AILab_QwenVL", "Qwen3-VL-4B-Instruct"),
@@ -4377,6 +4416,17 @@ async def classify_expression_vlm(
         ("AILab_QwenVL", "Qwen3-VL-4B-Instruct-FP8"),
         ("Qwen2_VQA", "Qwen3-VL-4B-Instruct-FP8"),
     )
+    if _VLM_STICKY_BACKEND is not None:
+        sticky = _VLM_STICKY_BACKEND
+        backends = (sticky,) + tuple(b for b in default_backends if b != sticky)
+        _VLM_STICKY_EVIDENCE["sticky_hits"] = int(
+            _VLM_STICKY_EVIDENCE.get("sticky_hits") or 0
+        ) + 1
+    else:
+        backends = default_backends
+        _VLM_STICKY_EVIDENCE["sticky_misses"] = int(
+            _VLM_STICKY_EVIDENCE.get("sticky_misses") or 0
+        ) + 1
     last_err: Exception | None = None
     for backend, model in backends:
         try:
@@ -4422,6 +4472,12 @@ async def classify_expression_vlm(
             parsed = _parse_vlm_expression_json(raw_text, labels=labels)
             parsed["model"] = f"{backend}:{model}"
             parsed["worker"] = url
+            _VLM_STICKY_BACKEND = (backend, model)
+            _VLM_STICKY_EVIDENCE["last_backend"] = backend
+            _VLM_STICKY_EVIDENCE["last_model"] = model
+            _VLM_STICKY_EVIDENCE["keep_model_loaded"] = True
+            parsed["vlm_sticky"] = True
+            parsed["keep_model_loaded"] = True
             return parsed
         except CharacterSheetError as e:
             last_err = e
@@ -7309,6 +7365,7 @@ async def generate_character_sheet(
     reuse_ref_urls: list[str] | None = None,
     allow_reuse_refs: bool = False,
     expr_base_panels: dict[str, bytes] | None = None,
+    expr_lock_meta: dict[str, dict] | None = None,
 ) -> tuple[str, bytes, dict[str, str]]:
     """出齐分格 → 拼版 → 落盘。返回 (sheet_url, png_bytes, panel_urls)。
 
@@ -7328,6 +7385,11 @@ async def generate_character_sheet(
     prompts = build_panel_prompts(meta)
     panels: dict[str, bytes] = dict(panels_override or {})
     override_keys: set[str] = set(panels.keys())  # 17:47：母版注入格跳过一切 panel 门禁
+    _expr_lock_meta: dict[str, dict] = {
+        str(k): dict(v)
+        for k, v in dict(expr_lock_meta or {}).items()
+        if str(k).startswith("expr_") and isinstance(v, dict)
+    }
     # 22:02：表情整图 Qwen 底版（2023b 同人干净格）；键 expr_0..expr_5
     _expr_bases: dict[str, bytes] = {
         k: v
@@ -8101,7 +8163,34 @@ async def generate_character_sheet(
             n_fail = 0
             for ek in _EXPR_KEYS:
                 if ek in panels and ek in override_keys:
-                    # 锁定格（如惊恐 md5）直接保留
+                    # 20:58：过检格锁定——跳过 inpaint/VLM；落盘来源与 approved_by_parent
+                    _lm = dict(_expr_lock_meta.get(ek) or {})
+                    _rec = {
+                        "expr_key": ek,
+                        "locked": True,
+                        "skipped_inpaint": True,
+                        "skipped_vlm": True,
+                        "approved_by_parent": bool(_lm.get("approved_by_parent")),
+                        "source": _lm.get("source"),
+                        "note": _lm.get("note") or "panels_override lock",
+                        "md5": hashlib.md5(panels[ek]).hexdigest(),
+                    }
+                    try:
+                        (reject_dir / f"{ek}_locked_{int(seed or 0)}.json").write_text(
+                            json.dumps(_rec, ensure_ascii=False, indent=2),
+                            encoding="utf-8",
+                        )
+                        (reject_dir / f"{ek}_locked_{int(seed or 0)}.png").write_bytes(
+                            panels[ek]
+                        )
+                    except Exception:
+                        pass
+                    logger.info(
+                        "expr %s locked skip inpaint/vlm approved_by_parent=%s source=%s",
+                        ek,
+                        _rec["approved_by_parent"],
+                        _rec.get("source"),
+                    )
                     continue
                 base_b = bases[ek]
                 # 18:30：以人脸框中心方裁，禁止浅灰 pad（格外白底根因）
@@ -8139,7 +8228,19 @@ async def generate_character_sheet(
                 )
                 if ek == "expr_0":
                     prompt_x += (
-                        ", stern lowered brows, tightly closed mouth, no smile, no frown smile"
+                        ", chin raised looking down at viewer, sharp narrowed eyes, "
+                        "eyebrows lowered, tight closed mouth, no wide eyes, no blank stare, no smile"
+                    )
+                elif ek == "expr_1":
+                    prompt_x += (
+                        ", expressionless, half-lidded eyes, flat mouth, eyebrows neutral, "
+                        "no frown, no smile"
+                    )
+                elif ek == "expr_2":
+                    prompt_x += (
+                        ", eyes looking down and to the side, head slightly tilted, "
+                        "relaxed brows, lips slightly pressed, faraway gaze, "
+                        "no frown, no furrowed brows"
                     )
                 elif ek == "expr_3":
                     prompt_x += (
@@ -8176,21 +8277,16 @@ async def generate_character_sheet(
                                 "expression must be obvious at a glance"
                             )
                         _neg_try = _expr_neg
-                        if ek == "expr_3":
+                        # 20:58：六类互斥负向（威严/冷酷/沉思拉开）
+                        try:
+                            _ei_neg = _EXPR_KEYS.index(ek)
                             _neg_try = (
-                                _neg_try
-                                + ", frown, pout, scowling, furrowed brows, downturned mouth, angry brows"
+                                _neg_try + ", " + _EXPR_INPAINT_NEGATIVES[_ei_neg]
                             )
-                        if ek == "expr_5":
-                            _neg_try = (
-                                _neg_try
-                                + ", surprised, open mouth, raised brows, screaming, shouting, wide open mouth"
-                            )
+                        except Exception:
+                            pass
                         if ek == "expr_0":
-                            _neg_try = (
-                                _neg_try
-                                + ", smile, grinning, open mouth, raised brows, heart pupils"
-                            )
+                            _neg_try = _neg_try + ", heart pupils"
                         raw = await generate_panel_bytes(
                             pool,
                             p_try,
