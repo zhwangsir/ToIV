@@ -41,9 +41,6 @@ var toivGateFS embed.FS
 // defaultToIVAPIBase is the public ToIV API (the only legal domain); a var so tests can point it at a stub.
 var defaultToIVAPIBase = "https://toiv.wineryz.top"
 
-// interimToIVLLMBase: the BeefTV staging gate serves the /api/llm/v1 contract until ToIV deploys it.
-const interimToIVLLMBase = "http://100.77.80.100:8271/__toiv/llm/v1"
-
 var (
 	errToIVNotLoggedIn = errors.New("请先登录 ToIV 账号")
 	toivUIDPattern     = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
@@ -68,9 +65,6 @@ type toivGate struct {
 
 	mu      sync.RWMutex
 	session *toivSession
-
-	llmProbeMu sync.Mutex
-	llmProbe   map[string]bool // apiBase -> ToIV serves /api/llm/v1 (probed once per process)
 }
 
 func newToIVGate(root string) *toivGate {
@@ -94,8 +88,9 @@ func (g *toivGate) apiBase() string {
 
 // llmBase is the OpenAI-compatible LLM endpoint the assistant channel ("toiv-llm") uses, authenticated
 // with the user's ToIV JWT. The internal LLM address is never configured on the client.
-//   TOIV_LLM_BASE > toiv.json "llmBase" > <apiBase>/api/llm/v1 when ToIV serves it
-//   > interim staging gate proxy (default API base only, until ToIV deploys feat/llm-proxy).
+//
+//	TOIV_LLM_BASE > toiv.json "llmBase" > <apiBase>/api/llm/v1 (ToIV main 202dc565; default
+//	https://toiv.wineryz.top/api/llm/v1).
 func (g *toivGate) llmBase() string {
 	if v := strings.TrimRight(strings.TrimSpace(os.Getenv("TOIV_LLM_BASE")), "/"); v != "" {
 		return v
@@ -108,34 +103,7 @@ func (g *toivGate) llmBase() string {
 			return v
 		}
 	}
-	base := g.apiBase()
-	if base == defaultToIVAPIBase && !g.servesLLM(base) {
-		// Until ToIV deploys /api/llm/v1 (branch feat/llm-proxy), the staging gate serves the same contract.
-		return interimToIVLLMBase
-	}
-	return base + "/api/llm/v1"
-}
-
-// servesLLM reports whether <base>/api/llm/v1 exists (any answer but 404, e.g. 401 without a token).
-// Unreachable counts as "no" so the interim proxy keeps the assistant usable.
-func (g *toivGate) servesLLM(base string) bool {
-	g.llmProbeMu.Lock()
-	defer g.llmProbeMu.Unlock()
-	if v, ok := g.llmProbe[base]; ok {
-		return v
-	}
-	ok := false
-	client := &http.Client{Timeout: 4 * time.Second}
-	if resp, err := client.Get(base + "/api/llm/v1/models"); err == nil {
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
-		_ = resp.Body.Close()
-		ok = resp.StatusCode != http.StatusNotFound && resp.StatusCode < 500
-	}
-	if g.llmProbe == nil {
-		g.llmProbe = map[string]bool{}
-	}
-	g.llmProbe[base] = ok
-	return ok
+	return g.apiBase() + "/api/llm/v1"
 }
 
 func (g *toivGate) sessionPath() string { return filepath.Join(g.root, "session.json") }

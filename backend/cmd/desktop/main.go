@@ -58,7 +58,7 @@ func main() {
 		Height: 960,
 		Mac:    &mac.Options{},
 		AssetServer: &assetserver.Options{
-			Assets:  assets,
+			Assets:     assets,
 			Handler:    desktopAssetHandler{app: app},
 			Middleware: toivGateMiddleware(app),
 		},

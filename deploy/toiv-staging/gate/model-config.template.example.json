@@ -180,7 +180,7 @@
   {
    "apiFormat": "openai",
    "apiKey": "",
-   "baseUrl": "http://127.0.0.1:8271/__toiv/llm/v1",
+   "baseUrl": "http://127.0.0.1:8090/api/llm/v1",
    "enabled": true,
    "headers": [],
    "id": "toiv-llm",

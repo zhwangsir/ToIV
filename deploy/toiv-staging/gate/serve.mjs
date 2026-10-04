@@ -25,6 +25,8 @@ const ROOT = path.resolve(process.env.WEB_ROOT || "./dist");
 const STAGING = process.env.STAGING_DIR || "/home/merlin/beeftv-staging";
 const USERS = path.join(STAGING, "users");
 const TOIV = new URL(process.env.TOIV_API || "http://127.0.0.1:8090");
+// Assistant channel (toiv-llm): ToIV OpenAI-compatible proxy /api/llm/v1 (ToIV main 202dc565), auth = user JWT.
+const LLM_CHANNEL_BASE = process.env.GATE_LLM_CHANNEL_BASE || `${TOIV.origin}/api/llm/v1`;
 const PORT_BASE = Number(process.env.USER_PORT_BASE || 8300);
 const PORT_MAX = Number(process.env.USER_PORT_MAX || 8399);
 const COOKIE = "toiv_session";
@@ -207,7 +209,7 @@ async function syncChannelToken(uid, port, token) {
   const stFile = path.join(USERS, uid, "gate_state.json");
   const st = readJSON(stFile, {});
   const th = hashTok(token);
-  if (st.provisioned && st.tokenHash === th && st.llmv === 1) return;
+  if (st.provisioned && st.tokenHash === th && st.llmv === 2) return;
   const cur = await backendGet(port, "/api/workspace/model-config");
   if (cur.status !== 200 || !cur.json?.data?.config) throw new Error("model-config unavailable");
   let cfg = cur.json.data.config;
@@ -222,7 +224,7 @@ async function syncChannelToken(uid, port, token) {
   }
   const r = await backendPut(port, "/api/workspace/model-config", { config: cfg, expectedRevision: cur.json.data.revision });
   if (r.status !== 200) throw new Error(`model-config update failed (${r.status})`);
-  writePrivate(stFile, JSON.stringify({ provisioned: true, tokenHash: th, llmv: 1, h3Channels: hit, updatedAt: new Date().toISOString() }));
+  writePrivate(stFile, JSON.stringify({ provisioned: true, tokenHash: th, llmv: 2, h3Channels: hit, updatedAt: new Date().toISOString() }));
   log("provisioned/synced instance", uid.slice(0, 8), "port", port, "h3Channels", hit);
 }
 async function inflightTasks(uid, port) {
@@ -365,63 +367,6 @@ function proxy(req, res, uid, port) {
   p.on("error", (e) => { const ie = inst.get(uid); if (ie && ie.state === "ready") ie.misses = 9; if (!res.headersSent) res.writeHead(502, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "bad_gateway" })); });
   req.pipe(p);
 }
-// ---------- Interim LLM proxy for desktop clients: /__toiv/llm/v1/{models,chat/completions} ----------
-// Same contract as the ToIV API proxy /api/llm/v1 (branch feat/llm-proxy, pending ToIV deploy): the
-// caller authenticates with its own ToIV JWT (Authorization: Bearer), the internal LLM address and key
-// come from the sanitized channel template on core and never reach the client. Per-user 30 req/min,
-// 2 concurrent, 2 MB body, model whitelist, SSE relayed as-is, upstream errors/timeouts -> 502/504.
-const LLM_RPM = Number(process.env.GATE_LLM_RPM || 30);
-const LLM_CONCURRENCY = Number(process.env.GATE_LLM_CONCURRENCY || 2);
-const LLM_READ_MS = Number(process.env.GATE_LLM_READ_MS || 180_000);
-// Upstream lives in gate/llm-upstream.json (0600, core only): {"baseUrl","apiKey","models":[...]}.
-const LLM_CHANNEL_BASE = process.env.GATE_LLM_CHANNEL_BASE || `http://127.0.0.1:${PORT}/__toiv/llm/v1`;
-function llmUpstream() {
-  const cfg = readJSON(path.join(GATE_DIR, "llm-upstream.json"), null);
-  if (!cfg?.baseUrl) return null;
-  return { base: new URL(cfg.baseUrl.replace(/\/+$/, "") + "/"), key: cfg.apiKey || "", models: (cfg.models || []).filter(Boolean) };
-}
-const llmHits = new Map(); const llmInflight = new Map();
-function llmError(res, status, message, type, extra = {}) { json(res, status, { error: { message, type } }, extra); }
-async function handleLLM(req, res, url) {
-  const auth = req.headers.authorization || "";
-  const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
-  const user = await validate(token);
-  if (!user) return llmError(res, 401, "请先登录 ToIV 账号", "unauthenticated");
-  const up = llmUpstream();
-  if (!up) return llmError(res, 503, "LLM 未配置", "upstream_error");
-  const sub = url.pathname.slice("/__toiv/llm/v1".length);
-  if (sub === "/models" && req.method === "GET") return json(res, 200, { object: "list", data: up.models.map((id) => ({ id, object: "model", owned_by: "toiv" })) });
-  if (sub !== "/chat/completions" || req.method !== "POST") return llmError(res, 404, "not found", "invalid_request_error");
-  const now = Date.now(); const hits = (llmHits.get(user.id) || []).filter((t) => now - t < 60_000);
-  if (hits.length >= LLM_RPM) return llmError(res, 429, "请求过于频繁", "rate_limited", { "retry-after": String(Math.ceil((60_000 - (now - hits[0])) / 1000)) });
-  if ((llmInflight.get(user.id) || 0) >= LLM_CONCURRENCY) return llmError(res, 429, `同时进行的对话请求过多（上限 ${LLM_CONCURRENCY}）`, "rate_limited", { "retry-after": "2" });
-  let body;
-  try { body = JSON.parse(await readBody(req, 2_000_000)); } catch { return llmError(res, 400, "请求体无效或过大", "invalid_request_error"); }
-  if (!body || !Array.isArray(body.messages) || !body.messages.length) return llmError(res, 400, "messages 不能为空", "invalid_request_error");
-  body.model = body.model || up.models[0];
-  if (!up.models.includes(body.model)) return llmError(res, 400, `不支持的模型：${body.model}`, "invalid_request_error");
-  hits.push(now); llmHits.set(user.id, hits);
-  llmInflight.set(user.id, (llmInflight.get(user.id) || 0) + 1);
-  let released = false;
-  const release = () => { if (released) return; released = true; const n = (llmInflight.get(user.id) || 1) - 1; if (n > 0) llmInflight.set(user.id, n); else llmInflight.delete(user.id); };
-  const data = Buffer.from(JSON.stringify(body));
-  const target = new URL("chat/completions", up.base);
-  const headers = { "content-type": "application/json", "content-length": data.length, accept: body.stream ? "text/event-stream" : "application/json" };
-  if (up.key) headers.authorization = `Bearer ${up.key}`;
-  const upReq = http.request({ hostname: target.hostname, port: target.port || 80, path: target.pathname, method: "POST", headers, timeout: LLM_READ_MS }, (upRes) => {
-    const status = upRes.statusCode || 502;
-    if (status >= 500) { upRes.resume(); release(); return llmError(res, 502, "LLM 上游错误", "upstream_error"); }
-    res.writeHead(status, { "content-type": upRes.headers["content-type"] || "application/json", "cache-control": "no-cache", "x-accel-buffering": "no" });
-    upRes.pipe(res);
-    upRes.on("end", release); upRes.on("error", () => { release(); res.end(); });
-  });
-  upReq.on("timeout", () => upReq.destroy(Object.assign(new Error("timeout"), { code: "ETIMEDOUT" })));
-  upReq.on("error", (e) => { release(); if (!res.headersSent) llmError(res, e.code === "ETIMEDOUT" ? 504 : 502, e.code === "ETIMEDOUT" ? "LLM 上游超时" : "LLM 上游不可达", "upstream_error"); else res.end(); });
-  res.on("close", () => { if (!res.writableEnded) upReq.destroy(); release(); });
-  upReq.end(data);
-  log("llm", user.id.slice(0, 8), body.stream ? "stream" : "json");
-}
-
 function sendFile(res, file, cache) {
   const ext = path.extname(file).toLowerCase();
   res.writeHead(200, { "content-type": TYPES[ext] || "application/octet-stream", "cache-control": cache ? "public, max-age=31536000, immutable" : "no-cache", "referrer-policy": "no-referrer" });
@@ -453,7 +398,6 @@ http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://x");
     if (url.pathname.startsWith("/auth/")) return await handleAuth(req, res, url);
     if (url.pathname === "/login") return sendGatePage(res, "login.html");
-    if (url.pathname.startsWith("/__toiv/llm/v1/")) return await handleLLM(req, res, url);
     let rel; try { rel = decodeURIComponent(url.pathname); } catch { res.writeHead(400); return res.end(); }
     const isStatic = rel.startsWith("/assets/") || rel.startsWith("/static/") || PUBLIC_FILES.has(rel);
     if (isStatic) {

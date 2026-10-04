@@ -82,7 +82,8 @@ func TestToIVJWTExpiry(t *testing.T) {
 
 // TestToIVDesktopServe exposes the exact desktop asset chain on a loopback
 // port so the WebView flow can be driven with a real browser. Manual only:
-//   TOIV_DESKTOP_SERVE=127.0.0.1:8395 go test -run TestToIVDesktopServe -timeout 60m
+//
+//	TOIV_DESKTOP_SERVE=127.0.0.1:8395 go test -run TestToIVDesktopServe -timeout 60m
 func TestToIVDesktopServe(t *testing.T) {
 	addr := os.Getenv("TOIV_DESKTOP_SERVE")
 	if addr == "" {
@@ -120,29 +121,10 @@ func TestToIVLLMBase(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("TOIV_API_BASE", "")
 	t.Setenv("TOIV_LLM_BASE", "")
-	// Default API base without /api/llm/v1 (404) -> interim proxy; once ToIV serves it (401) -> derived.
-	missing := httptest.NewServer(http.NotFoundHandler())
-	defer missing.Close()
-	served := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/llm/v1/models" {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-		http.NotFound(w, r)
-	}))
-	defer served.Close()
-	orig := defaultToIVAPIBase
-	defer func() { defaultToIVAPIBase = orig }()
-	defaultToIVAPIBase = missing.URL
 	g := newToIVGate(root)
-	if got := g.llmBase(); got != interimToIVLLMBase {
-		t.Fatalf("default llmBase without ToIV endpoint = %q", got)
+	if got := g.llmBase(); got != "https://toiv.wineryz.top/api/llm/v1" {
+		t.Fatalf("default llmBase = %q", got)
 	}
-	defaultToIVAPIBase = served.URL
-	if got := g.llmBase(); got != served.URL+"/api/llm/v1" {
-		t.Fatalf("default llmBase with ToIV endpoint = %q", got)
-	}
-	defaultToIVAPIBase = orig
 	t.Setenv("TOIV_API_BASE", "https://toiv.example.test")
 	if got := g.llmBase(); got != "https://toiv.example.test/api/llm/v1" {
 		t.Fatalf("derived llmBase = %q", got)
