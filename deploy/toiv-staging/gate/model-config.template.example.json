@@ -1,0 +1,216 @@
+{
+ "assistantModel": "toiv-llm::qwen3.8-27b",
+ "textModel": "toiv-llm::qwen3.8-27b",
+ "textModels": [
+  "toiv-llm::qwen3.8-27b"
+ ],
+ "videoModel": "MZt9ON1JvbabJ2GS-PvXR::h3-t2v",
+ "videoModels": [
+  "MZt9ON1JvbabJ2GS-PvXR::h3-t2v"
+ ],
+ "models": [
+  "MZt9ON1JvbabJ2GS-PvXR::h3-t2v"
+ ],
+ "videoSeconds": "6",
+ "videoGenerateAudio": "true",
+ "videoWatermark": "false",
+ "vquality": "720",
+ "channels": [
+  {
+   "apiFormat": "openai",
+   "apiKey": "",
+   "baseUrl": "http://127.0.0.1:8090",
+   "enabled": true,
+   "headers": [],
+   "id": "MZt9ON1JvbabJ2GS-PvXR",
+   "modelProfiles": [
+    {
+     "capability": "video",
+     "capabilityConfig": {
+      "image": {
+       "maxOutputs": 15,
+       "outputFormat": {
+        "supported": true
+       },
+       "quality": {
+        "default": "auto",
+        "supported": true,
+        "values": [
+         "auto",
+         "low",
+         "medium",
+         "high"
+        ]
+       },
+       "references": {
+        "maskSupported": true,
+        "maxImageBytes": 31457280,
+        "maxImages": 16,
+        "promptMaxChars": 32000
+       },
+       "responseFormat": {
+        "supported": true
+       },
+       "size": {
+        "allowCustom": true,
+        "default": "1:1",
+        "parameter": "size",
+        "values": [
+         "auto",
+         "1:1",
+         "3:2",
+         "2:3",
+         "4:3",
+         "3:4",
+         "16:9",
+         "21:9",
+         "9:16",
+         "1024x1024",
+         "1360x1024",
+         "1024x1360",
+         "1536x1024",
+         "1024x1536",
+         "1024x1280",
+         "1280x1024",
+         "2048x878",
+         "1824x1024",
+         "1024x1824",
+         "2048x2048",
+         "2304x1728",
+         "1728x2304",
+         "2496x1664",
+         "1664x2496",
+         "1792x2240",
+         "2240x1792",
+         "3136x1344",
+         "2752x1536",
+         "1536x2752",
+         "2880x2880",
+         "3264x2448",
+         "2448x3264",
+         "3504x2336",
+         "2336x3504",
+         "2560x3200",
+         "3200x2560",
+         "3808x1632",
+         "3840x2160",
+         "2160x3840"
+        ]
+       },
+       "transparentBackground": {
+        "default": false,
+        "supported": true
+       }
+      },
+      "text": {
+       "references": {
+        "maxImageBytes": 0,
+        "maxImages": 0,
+        "maxVideoBytes": 0,
+        "maxVideos": 0,
+        "promptMaxChars": 32000
+       },
+       "streaming": true
+      },
+      "version": 1,
+      "video": {
+       "defaultOperation": "text_to_video",
+       "defaultRatio": "16:9",
+       "defaultResolution": "720p",
+       "duration": {
+        "default": 6,
+        "max": 15,
+        "min": 1,
+        "selection": "range",
+        "step": 1
+       },
+       "generateAudio": {
+        "default": false,
+        "supported": false
+       },
+       "operations": [
+        "text_to_video",
+        "image_to_video"
+       ],
+       "ratios": [
+        "16:9",
+        "9:16",
+        "1:1",
+        "4:3",
+        "3:4",
+        "21:9"
+       ],
+       "references": {
+        "maxAudioBytes": 0,
+        "maxAudioDurationSeconds": 0,
+        "maxAudios": 0,
+        "maxImageBytes": 31457280,
+        "maxImages": 9,
+        "maxVideoBytes": 0,
+        "maxVideoDurationSeconds": 0,
+        "maxVideos": 0,
+        "minImages": 0,
+        "promptMaxChars": 8000
+       },
+       "resolutions": [
+        "480p",
+        "720p",
+        "1080p",
+        "1440p",
+        "2160p"
+       ],
+       "watermark": {
+        "default": false,
+        "supported": false
+       }
+      }
+     },
+     "model": "h3-t2v",
+     "protocol": "toiv-h3"
+    }
+   ],
+   "models": [
+    "h3-t2v"
+   ],
+   "name": "ToIV H3",
+   "pinned": false,
+   "scope": "user",
+   "sortOrder": 0
+  },
+  {
+   "apiFormat": "openai",
+   "apiKey": "lm-studio",
+   "baseUrl": "http://192.168.71.84:8000/v1",
+   "enabled": true,
+   "headers": [],
+   "id": "toiv-llm",
+   "modelProfiles": [
+    {
+     "capability": "text",
+     "capabilityConfig": {
+      "text": {
+       "references": {
+        "maxImageBytes": 0,
+        "maxImages": 0,
+        "maxVideoBytes": 0,
+        "maxVideos": 0,
+        "promptMaxChars": 32000
+       },
+       "streaming": true
+      },
+      "version": 1
+     },
+     "model": "qwen3.8-27b",
+     "protocol": "chat-completion"
+    }
+   ],
+   "models": [
+    "qwen3.8-27b"
+   ],
+   "name": "ToIV LLM",
+   "pinned": false,
+   "scope": "user",
+   "sortOrder": 1
+  }
+ ]
+}
