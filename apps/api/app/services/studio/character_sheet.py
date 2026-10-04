@@ -56,13 +56,23 @@ _EXPR_PROMPTS = (
 )
 # 19:01：表情只走图像编辑——中文指令仅改表情，锁身份/发型/服装/构图
 _EXPR_EDIT_INSTRUCTIONS = (
-    # 20:23：五官写清、改动加强；发型/衣服门禁照旧
-    "只改变面部表情为威严：眉头明显下压聚拢、双眼正视、嘴角明显向下、双唇抿紧。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "只改变面部表情为冷酷：双眼半睁、面无表情、目光明显斜视一侧、嘴角平直下压。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "只改变面部表情为沉思：视线明显下垂看向斜下方、眉心轻蹙、嘴唇微闭放松，可微侧头。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    # 17:38：单张真 inpaint 提示（眉压低/闭嘴/微笑等硬语义）；禁宫格整图编辑贴回
+    "只改变面部表情为威严：眉头明显压低聚拢、双眼正视、嘴角紧、双唇抿紧闭嘴。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为冷酷：闭嘴、眼神冷、双眼半睁、面无表情、目光明显斜视一侧、嘴角平直下压。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为沉思：视线明显偏下看向斜下方、闭嘴、眉心轻蹙、嘴唇微闭放松。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
     "只改变面部表情为温柔：眉毛放松不上扬不皱眉、双眼柔和、嘴角上扬带自然微笑（可轻露一点上齿），与威严的压眉区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
     "只改变面部表情为惊恐：双眼瞪大、嘴巴明显张开可见口腔、眉毛高高上扬、眉心分开。必须张嘴。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要裁太近。",
-    "只改变面部表情为果断：眉毛明显压低、眼神直视坚定、双唇抿紧闭嘴（禁止张嘴/喊叫）、下颌微绷（正面，勿侧头）。与威严的皱眉下垂嘴角区分，与惊恐张嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为果断：抿嘴、眼神坚定、眉毛明显压低、双唇抿紧闭嘴（禁止张嘴/喊叫）、下颌微绷（正面，勿侧头）。与威严的皱眉下垂嘴角区分，与惊恐张嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+)
+
+# 17:38：SDXL 真 inpaint 正向（英文）；顺序同 _EXPR_LABELS
+_EXPR_INPAINT_PROMPTS = (
+    "same character anime closeup, stern majestic expression, brows lowered pressed down, mouth tightly closed lips pressed, firm direct gaze, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
+    "same character anime closeup, cold expression, closed mouth, cold eyes half-lidded, blank face, gaze looking sideways, flat downturned lips, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
+    "same character anime closeup, thoughtful expression, gaze looking down, closed mouth, slightly furrowed brows, lips gently closed, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
+    "same character anime closeup, gentle warm expression, relaxed brows no frown, soft eyes, natural smile mouth corners up, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
+    "same character anime closeup, terrified expression, eyes wide open, mouth wide open showing interior, eyebrows raised high, must open mouth, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
+    "same character anime closeup, resolute determined expression, lips pressed closed no open mouth, firm determined gaze, brows lowered, jaw slightly tense, front facing, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
 )
 _CHAR_SHEET_MARK = "char_sheet_"
 _CHAR_PANEL_MARK = "char_panel_"
@@ -4968,6 +4978,155 @@ def expression_mask_exterior_unchanged(
     return True
 
 
+
+def expression_mask_exterior_mae(
+    original: bytes,
+    edited: bytes,
+    mask: Image.Image | None = None,
+    *,
+    size: int | None = None,
+) -> float:
+    """遮罩外（mp<96）平均绝对像素差；真 inpaint 应近 0，位移贴回会明显偏大。"""
+    try:
+        o = Image.open(BytesIO(original)).convert("RGB")
+        e = Image.open(BytesIO(edited)).convert("RGB")
+    except Exception:
+        return 999.0
+    if size is not None:
+        o = o.resize((size, size), Image.Resampling.LANCZOS)
+        e = e.resize((size, size), Image.Resampling.LANCZOS)
+    if e.size != o.size:
+        e = e.resize(o.size, Image.Resampling.LANCZOS)
+    if mask is None:
+        side = min(o.size)
+        mask = build_face_feature_mask(side).point(lambda v: 255 if v >= 96 else 0)
+    if mask.size != o.size:
+        mask = mask.resize(o.size, Image.Resampling.NEAREST)
+    op = o.load(); ep = e.load(); mp = mask.load()
+    w, h = o.size
+    total = 0.0
+    n = 0
+    step = 1 if w * h <= 768 * 768 else 2
+    for y in range(0, h, step):
+        for x in range(0, w, step):
+            if mp[x, y] >= 96:
+                continue
+            a = op[x, y]; b = ep[x, y]
+            total += (abs(int(a[0]) - int(b[0])) + abs(int(a[1]) - int(b[1])) + abs(int(a[2]) - int(b[2]))) / 3.0
+            n += 1
+    return total / float(max(1, n))
+
+
+def assert_expression_inpaint_exterior(
+    original: bytes,
+    edited: bytes,
+    mask: Image.Image | None = None,
+    *,
+    max_mae: float = 2.5,
+    expr_key: str = "expr",
+) -> float:
+    """门禁1：遮罩外与底图差值近 0（真 inpaint 天然对齐；位移贴回必 fail）。"""
+    mae = expression_mask_exterior_mae(original, edited, mask)
+    if mae > float(max_mae):
+        raise CharacterSheetError(
+            f"{expr_key} inpaint 遮罩外差过大 mae={mae:.2f}>{max_mae}",
+            status_code=422,
+        )
+    return mae
+
+
+def _face_region_var_sat(
+    data: bytes, mask: Image.Image | None = None, *, size: int | None = None
+) -> tuple[float, float]:
+    """眉眼嘴遮罩内局部亮度方差 + 平均饱和度（HSV S）。"""
+    im = Image.open(BytesIO(data)).convert("RGB")
+    if size is not None:
+        im = im.resize((size, size), Image.Resampling.LANCZOS)
+    if mask is None:
+        mask = build_face_feature_mask(min(im.size)).point(lambda v: 255 if v >= 96 else 0)
+    if mask.size != im.size:
+        mask = mask.resize(im.size, Image.Resampling.NEAREST)
+    px = im.load(); mp = mask.load()
+    w, h = im.size
+    lumas: list[float] = []
+    sats: list[float] = []
+    step = 1 if w * h <= 768 * 768 else 2
+    for y in range(0, h, step):
+        for x in range(0, w, step):
+            if mp[x, y] < 96:
+                continue
+            r, g, b = px[x, y]
+            lumas.append((int(r) + int(g) + int(b)) / 3.0)
+            mx = max(r, g, b); mn = min(r, g, b)
+            sats.append(0.0 if mx <= 0 else (mx - mn) / float(mx))
+    if not lumas:
+        return 0.0, 0.0
+    mean = sum(lumas) / len(lumas)
+    var = sum((v - mean) ** 2 for v in lumas) / len(lumas)
+    sat = sum(sats) / len(sats)
+    return float(var), float(sat)
+
+
+def assert_expression_no_gray_smear(
+    original: bytes,
+    edited: bytes,
+    mask: Image.Image | None = None,
+    *,
+    min_var_ratio: float = 0.45,
+    min_sat_ratio: float = 0.45,
+    expr_key: str = "expr",
+) -> dict[str, float]:
+    """门禁2：脸部区域无灰色涂抹——局部亮度方差/饱和度不低于底图比例阈值。"""
+    bv, bs = _face_region_var_sat(original, mask)
+    ev, es = _face_region_var_sat(edited, mask)
+    info = {
+        "base_var": bv,
+        "edit_var": ev,
+        "base_sat": bs,
+        "edit_sat": es,
+        "var_ratio": (ev / bv) if bv > 1e-6 else 1.0,
+        "sat_ratio": (es / bs) if bs > 1e-6 else 1.0,
+    }
+    if bv > 8.0 and ev + 1e-9 < bv * float(min_var_ratio):
+        raise CharacterSheetError(
+            f"{expr_key}脸部灰涂抹(方差过低) var={ev:.1f}/{bv:.1f} ratio={info['var_ratio']:.2f}",
+            status_code=422,
+        )
+    if bs > 0.04 and es + 1e-9 < bs * float(min_sat_ratio):
+        raise CharacterSheetError(
+            f"{expr_key}脸部灰涂抹(饱和度过低) sat={es:.3f}/{bs:.3f} ratio={info['sat_ratio']:.2f}",
+            status_code=422,
+        )
+    return info
+
+
+def force_expression_mask_exterior(
+    original: bytes,
+    edited: bytes,
+    mask: Image.Image | None = None,
+) -> bytes:
+    """真 inpaint 同几何后：遮罩外强制底图像素（抑 VAE 轻微渗色，非位移贴回）。"""
+    o = Image.open(BytesIO(original)).convert("RGB")
+    e = Image.open(BytesIO(edited)).convert("RGB")
+    if e.size != o.size:
+        e = e.resize(o.size, Image.Resampling.LANCZOS)
+    if mask is None:
+        mask = build_face_feature_mask(min(o.size)).point(lambda v: 255 if v >= 96 else 0)
+    if mask.size != o.size:
+        mask = mask.resize(o.size, Image.Resampling.NEAREST)
+    # 硬核：遮罩内用编辑，外用底图
+    hard = mask.point(lambda v: 255 if v >= 96 else 0)
+    out = Image.composite(e, o, hard)
+    buf = BytesIO()
+    out.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def build_face_feature_mask_hard(size: int = 768) -> Image.Image:
+    """眉/眼/嘴硬遮罩（白=可编辑），供真 inpaint；无羽化渗到发丝。"""
+    return build_face_feature_mask(int(size)).point(lambda v: 255 if v >= 96 else 0)
+
+
 def measure_face_height_frac(data: bytes) -> float | None:
     """脸高占格高；无人脸返回 None。"""
     bb = _detect_face_bbox_xyxy(data)
@@ -5541,6 +5700,85 @@ def _build_ipa_graph(
     return build_ipadapter_txt2img_graph(IPAdapterTxt2ImgParams(**kw))
 
 
+def _build_sheet_mask_inpaint_graph(
+    prompt: str,
+    *,
+    image_name: str,
+    mask_name: str,
+    ckpt_name: str,
+    seed: int | None,
+    filename_prefix: str,
+    style: str = "anime",
+    denoise: float = 0.72,
+    grow_mask_by: int = 4,
+    negative_extra: str = "",
+) -> dict:
+    """17:38：真局部 inpaint（VAEEncodeForInpaint）；遮罩外像素由模型原样保留，天然对齐。"""
+    neg = _STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"])
+    if negative_extra:
+        neg = f"{neg}, {negative_extra}"
+    neg = (
+        neg
+        + ", gray smear, flat gray face, muddy skin, melted face, double face, "
+        "ghosting, misaligned features, watermark, text, logo, emblem, badge"
+    )
+    s = int(seed) if seed is not None else int(uuid.uuid4().int % (2**31 - 1))
+    steps = 28 if style == "anime" else 22
+    cfg = 6.5 if style == "anime" else 7.0
+    return {
+        "4": {
+            "class_type": "CheckpointLoaderSimple",
+            "inputs": {"ckpt_name": ckpt_name},
+        },
+        "6": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {"text": prompt, "clip": ["4", 1]},
+        },
+        "7": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {"text": neg, "clip": ["4", 1]},
+        },
+        "11": {"class_type": "LoadImage", "inputs": {"image": image_name}},
+        "12": {"class_type": "LoadImage", "inputs": {"image": mask_name}},
+        "13": {
+            "class_type": "ImageToMask",
+            "inputs": {"image": ["12", 0], "channel": "red"},
+        },
+        "32": {
+            "class_type": "VAEEncodeForInpaint",
+            "inputs": {
+                "pixels": ["11", 0],
+                "vae": ["4", 2],
+                "mask": ["13", 0],
+                "grow_mask_by": int(grow_mask_by),
+            },
+        },
+        "3": {
+            "class_type": "KSampler",
+            "inputs": {
+                "model": ["4", 0],
+                "seed": s,
+                "steps": steps,
+                "cfg": cfg,
+                "sampler_name": "euler_ancestral",
+                "scheduler": "normal",
+                "positive": ["6", 0],
+                "negative": ["7", 0],
+                "latent_image": ["32", 0],
+                "denoise": float(denoise),
+            },
+        },
+        "8": {
+            "class_type": "VAEDecode",
+            "inputs": {"samples": ["3", 0], "vae": ["4", 2]},
+        },
+        "9": {
+            "class_type": "SaveImage",
+            "inputs": {"images": ["8", 0], "filename_prefix": filename_prefix},
+        },
+    }
+
+
 def _build_img2img_graph(
     prompt: str,
     *,
@@ -5856,11 +6094,14 @@ async def generate_panel_bytes(
     ref_mode: str = "auto",
     denoise: float = 0.62,
     negative_extra: str = "",
+    mask_image: str | None = None,
+    grow_mask_by: int = 4,
 ) -> bytes:
     """单格出图 → PNG bytes。
 
-    ref_mode: auto|ipa|img2img|qwen_edit|none
-      - anime 默认 img2img(规避 hassaku/IPA glitch)；表情格强制 qwen_edit
+    ref_mode: auto|ipa|img2img|qwen_edit|inpaint|none
+      - anime 默认 img2img(规避 hassaku/IPA glitch)
+      - 17:38 表情改真局部 inpaint（mask_image + VAEEncodeForInpaint）
       - ancient 默认 ipa
     注意:忽略 pool.pick,强制 :8262/:8264。
     """
@@ -5877,7 +6118,24 @@ async def generate_panel_bytes(
         else:
             mode = "ipa"
     try:
-        if ref_image and mode == "qwen_edit":
+        if ref_image and mode == "inpaint":
+            if not mask_image:
+                raise CharacterSheetError(
+                    "inpaint 模式需要 mask_image", status_code=422
+                )
+            graph = _build_sheet_mask_inpaint_graph(
+                prompt,
+                image_name=ref_image,
+                mask_name=mask_image,
+                ckpt_name=ckpt_name,
+                seed=seed,
+                filename_prefix=filename_prefix,
+                style=style,
+                denoise=denoise,
+                grow_mask_by=grow_mask_by,
+                negative_extra=negative_extra,
+            )
+        elif ref_image and mode == "qwen_edit":
             graph = _build_sheet_qwen_edit_graph(
                 prompt,
                 image_name=ref_image,
@@ -6740,7 +6998,7 @@ async def generate_character_sheet(
             )
             continue
         elif key.startswith("expr_"):
-            # 23:17：2×3 宫格一次 Comfy/Qwen 出整张，再切格；禁止单格逐张 Qwen 循环
+            # 17:38：放弃宫格整图编辑+贴回；改中性正面头原分辨率单张真局部 inpaint（眉眼嘴遮罩）
             missing_expr = [ek for ek in _EXPR_KEYS if ek not in panels]
             if not missing_expr:
                 continue
@@ -6759,189 +7017,195 @@ async def generate_character_sheet(
                             status_code=422,
                         ) from ce
             for ek, bb in list(bases.items()):
-                # 已锁定覆盖的格仍校验一次；略低先 zoom；断言失败直接停
                 fixed, area = assert_expr_base_face_area(bb, expr_key=ek, min_area=0.15)
                 bases[ek] = fixed
                 logger.info("expr base %s face_area=%.3f ok", ek, area)
-            grid_in = _compose_expression_grid_raw(bases, cell=512)
-            try:
-                (reject_dir / f"expr_grid_in_{int(seed or 0)}.png").write_bytes(grid_in)
-            except Exception:
-                pass
-            grid_name = await client.upload_image(
-                grid_in,
-                f"sheet_expr_grid_{character_id[:8]}_{meta.style}.png",
-            )
-            _grid_neg = (
+            _expr_neg = (
                 "text, watermark, logo, emblem, badge, chinese characters, "
-                "long hair, hair past shoulders, melted faces, fused cells, "
-                "duplicate face across cells, blank cell"
+                "long hair, hair past shoulders, gray smear, muddy skin, "
+                "melted face, double face, ghosting, misaligned features"
             )
-            last_grid_err = None
-            grid_out = None
-            # 15:52：最多 4 张宫格候选，合成遮罩外贴回后择优；全拒才 fallback
-            _grid_scored: list[tuple[float, bytes, bool]] = []
-            for g_attempt in range(4):
-                try:
-                    g_seed = (
-                        None
-                        if seed is None
-                        else int(seed) + 2317 + g_attempt * 9973
-                    )
-                    g_prompt = _EXPR_GRID_EDIT_INSTRUCTION
-                    if g_attempt:
-                        g_prompt = (
-                            g_prompt
-                            + f" 变体{g_attempt}。加大六格表情差异，惊恐格必须张嘴。"
-                        )
-                    cand = await generate_panel_bytes(
-                        pool,
-                        g_prompt,
-                        ckpt_name=ckpt,
-                        width=1536,
-                        height=1024,
-                        seed=g_seed,
-                        worker=worker,
-                        filename_prefix=f"ToIV_char_sheet_expr_grid_a{g_attempt}",
-                        style=meta.style,
-                        client=client,
-                        ref_image=grid_name,
-                        ref_mode="qwen_edit",
-                        denoise=1.0,
-                        negative_extra=_grid_neg,
-                    )
-                    # 15:52：眉眼嘴局部合成；遮罩外（头发+胸口）强制贴回底图
-                    _local_ok = False
+            last_expr_err: Exception | None = None
+            n_fail = 0
+            for ek in _EXPR_KEYS:
+                if ek in panels and ek in override_keys:
+                    # 锁定格（如惊恐 md5）直接保留
+                    continue
+                base_b = bases[ek]
+                # 原分辨率：不强制缩放到固定边，跟底同尺寸做 inpaint
+                base_im = Image.open(BytesIO(base_b)).convert("RGB")
+                bw, bh = base_im.size
+                side = max(bw, bh)
+                # 正方形化（居中 pad）再 inpaint，避免非方图遮罩错位
+                if bw != bh:
+                    sq = Image.new("RGB", (side, side), (245, 245, 248))
+                    sq.paste(base_im, ((side - bw) // 2, (side - bh) // 2))
+                    base_im = sq
+                    buf0 = BytesIO()
+                    base_im.save(buf0, format="PNG")
+                    base_b = buf0.getvalue()
+                hard_mask = build_face_feature_mask_hard(side)
+                # mask 上传为 RGB 白/黑（ImageToMask red）
+                m_rgb = Image.merge("RGB", (hard_mask, hard_mask, hard_mask))
+                mbuf = BytesIO()
+                m_rgb.save(mbuf, format="PNG")
+                mask_bytes = mbuf.getvalue()
+                ei = _EXPR_KEYS.index(ek)
+                prompt_x = _EXPR_INPAINT_PROMPTS[ei]
+                # 中文语义也写入（部分 ckpt 对中英混合友好）；主靠英文
+                prompt_x = prompt_x + "。 " + _EXPR_EDIT_INSTRUCTIONS[ei]
+                picked: bytes | None = None
+                pick_err: Exception | None = None
+                for attempt in range(4):
                     try:
-                        cand = apply_expression_grid_local_features(
-                            grid_in, cand, cell=512
+                        ref_name = await client.upload_image(
+                            base_b,
+                            f"sheet_expr_inpaint_base_{character_id[:8]}_{ek}_a{attempt}.png",
                         )
-                        _local_ok = True
-                    except Exception as le:  # noqa: BLE001
-                        logger.warning("expr grid local feature composite skipped: %s", le)
-                        last_grid_err = CharacterSheetError(
-                            f"expr grid composite failed: {le}", status_code=422
+                        mask_name = await client.upload_image(
+                            mask_bytes,
+                            f"sheet_expr_inpaint_mask_{character_id[:8]}_{ek}_a{attempt}.png",
                         )
-                        dump_rejected_panel(
-                            locals().get("cand"),
-                            seed=seed,
-                            panel="expr_grid",
-                            gate="composite",
-                            detail=str(le),
-                            dump_dir=reject_dir,
+                        e_seed = (
+                            None
+                            if seed is None
+                            else int(seed) + 1738 + ei * 9973 + attempt * 7919
                         )
-                        continue
-                    _skip_emblem_grid = False
-                    if _local_ok:
-                        try:
-                            _skip_emblem_grid = expression_mask_exterior_unchanged(
-                                grid_in, cand, max_diff=0, grid_cell=512
+                        p_try = prompt_x
+                        if attempt:
+                            p_try = (
+                                p_try
+                                + f" variant{attempt}, stronger eyebrow eye mouth change, "
+                                "expression must be obvious at a glance"
                             )
-                        except Exception as ee:  # noqa: BLE001
-                            logger.warning("expr exterior check failed: %s", ee)
-                            _skip_emblem_grid = False
-                    # 门禁只看合成后结果
-                    sc, reason = score_expression_grid_candidate(
-                        cand,
-                        bases=bases,
-                        portrait_ref=panels.get("portrait"),
-                        skip_chest_emblem=_skip_emblem_grid,
-                    )
-                    logger.info(
-                        "expr grid cand=%s local_ok=%s skip_emblem=%s score=%.3f reason=%s",
-                        g_attempt,
-                        _local_ok,
-                        _skip_emblem_grid,
-                        sc,
-                        reason,
-                    )
-                    if sc < 0:
-                        last_grid_err = CharacterSheetError(
-                            reason or "expr grid gate fail", status_code=422
+                        raw = await generate_panel_bytes(
+                            pool,
+                            p_try,
+                            ckpt_name=ckpt,
+                            width=side,
+                            height=side,
+                            seed=e_seed,
+                            worker=worker,
+                            filename_prefix=f"ToIV_char_sheet_{ek}_inpaint_a{attempt}",
+                            style=meta.style,
+                            client=client,
+                            ref_image=ref_name,
+                            ref_mode="inpaint",
+                            denoise=0.70 if attempt < 2 else 0.78,
+                            negative_extra=_expr_neg,
+                            mask_image=mask_name,
+                            grow_mask_by=4,
                         )
+                        # 同几何：先测遮罩外差，再强制外=底（抑 VAE 渗色，非位移贴回）
+                        mae_raw = expression_mask_exterior_mae(base_b, raw, hard_mask)
+                        logger.info(
+                            "expr %s attempt=%s raw_exterior_mae=%.3f", ek, attempt, mae_raw
+                        )
+                        # 若 raw 外差过大，说明模型未守住遮罩 → 拒（禁位移贴回挽救）
+                        if mae_raw > 12.0:
+                            raise CharacterSheetError(
+                                f"{ek} inpaint 遮罩外漂移过大 mae={mae_raw:.2f}",
+                                status_code=422,
+                            )
+                        blended = force_expression_mask_exterior(base_b, raw, hard_mask)
+                        mae = assert_expression_inpaint_exterior(
+                            base_b, blended, hard_mask, max_mae=0.5, expr_key=ek
+                        )
+                        smear = assert_expression_no_gray_smear(
+                            base_b, blended, hard_mask, expr_key=ek
+                        )
+                        cell_b = enforce_head_shoulders_square(
+                            blended, size=768, face_closeup_gate=True
+                        )
+                        assert_expression_identity_gates(
+                            cell_b,
+                            portrait_ref=panels.get("portrait"),
+                            expr_key=ek,
+                            skip_chest_emblem=True,  # 遮罩外=底，胸口必一致
+                            hair_ref=bases.get(ek),
+                            relative_hair_only=True,
+                        )
+                        # 多样性：相对中性底 + 已完成的其它表情格
+                        try:
+                            others = {
+                                ok: panels[ok]
+                                for ok in _EXPR_KEYS
+                                if ok != ek and ok in panels and panels.get(ok)
+                            }
+                            assert_expression_diversity(
+                                cell_b,
+                                expr_key=ek,
+                                neutral_ref=bases.get(ek),
+                                other_exprs=others,
+                            )
+                        except CharacterSheetError as de:
+                            # 弱表情可重试；最后一次放宽到只记日志
+                            if attempt < 3:
+                                raise
+                            logger.warning("expr %s diversity soft: %s", ek, de)
+                        logger.info(
+                            "expr %s inpaint ok attempt=%s mae=%.3f smear=%s",
+                            ek,
+                            attempt,
+                            mae,
+                            {k: round(v, 3) for k, v in smear.items()},
+                        )
+                        try:
+                            (reject_dir / f"{ek}_inpaint_ok_{int(seed or 0)}.png").write_bytes(
+                                cell_b
+                            )
+                            (reject_dir / f"{ek}_inpaint_raw_{int(seed or 0)}_a{attempt}.png").write_bytes(
+                                raw
+                            )
+                        except Exception:
+                            pass
+                        picked = cell_b
+                        pick_err = None
+                        break
+                    except CharacterSheetError as ge:
+                        pick_err = ge
+                        logger.warning("expr %s inpaint fail attempt=%s: %s", ek, attempt, ge)
                         dump_rejected_panel(
-                            cand,
+                            locals().get("raw") or locals().get("blended"),
                             seed=seed,
-                            panel="expr_grid",
-                            gate=_expr_reject_cause(last_grid_err),
-                            detail=str(last_grid_err),
+                            panel=ek,
+                            gate=_expr_reject_cause(ge),
+                            detail=str(ge),
                             dump_dir=reject_dir,
                         )
-                        continue
-                    _grid_scored.append((sc, cand, _skip_emblem_grid))
-                except CharacterSheetError as ge:
-                    last_grid_err = ge
-                    logger.warning("expr grid fail attempt=%s: %s", g_attempt, ge)
-                    dump_rejected_panel(
-                        locals().get("cand"),
-                        seed=seed,
-                        panel="expr_grid",
-                        gate=_expr_reject_cause(ge),
-                        detail=str(ge),
-                        dump_dir=reject_dir,
-                    )
-                except Exception as ge:  # noqa: BLE001
-                    last_grid_err = CharacterSheetError(str(ge), status_code=422)
-                    logger.warning("expr grid fail attempt=%s: %s", g_attempt, ge)
-            if _grid_scored:
-                _grid_scored.sort(key=lambda t: t[0], reverse=True)
-                _best_sc, grid_out, _skip_emblem_grid = _grid_scored[0]
-                cells = _split_expression_grid(grid_out)
-                for ek, cell_b in cells.items():
-                    if ek in panels and ek in override_keys:
-                        continue
-                    cell_b = enforce_head_shoulders_square(
-                        cell_b, size=768, face_closeup_gate=True
-                    )
-                    assert_expression_identity_gates(
-                        cell_b,
-                        portrait_ref=panels.get("portrait"),
-                        expr_key=ek,
-                        skip_chest_emblem=_skip_emblem_grid,
-                        hair_ref=bases.get(ek),
-                        relative_hair_only=bool(_skip_emblem_grid) or bases.get(ek) is not None,
-                    )
-                    cells[ek] = cell_b
-                for ek in _EXPR_KEYS:
-                    if ek in panels and ek in override_keys:
-                        continue
-                    panels[ek] = cells[ek]
-                try:
-                    (reject_dir / f"expr_grid_out_{int(seed or 0)}.png").write_bytes(
-                        grid_out
-                    )
-                except Exception:
-                    pass
-                logger.info(
-                    "expr 2x3 grid pick-best score=%.3f from %d/4 cands locked=%s",
-                    _best_sc,
-                    len(_grid_scored),
-                    [ek for ek in _EXPR_KEYS if ek in override_keys and ek in panels],
-                )
-                last_grid_err = None
-            if last_grid_err is not None:
-                # 23:17：宫格 Qwen 门禁全拒时回退已过 ≥0.15 的表情底（禁重回单格循环）
-                # 00:59：回退旧底 → 标记失败态，调用方不得报成功 / 不得交用户
-                logger.warning(
-                    "expr grid Qwen failed (%s) → fallback to validated bases (FAIL mark)",
-                    last_grid_err,
-                )
-                for ek in _EXPR_KEYS:
-                    if ek in panels and ek in override_keys:
-                        continue
+                    except Exception as ge:  # noqa: BLE001
+                        pick_err = CharacterSheetError(str(ge), status_code=422)
+                        logger.warning("expr %s inpaint fail attempt=%s: %s", ek, attempt, ge)
+                if picked is None:
+                    n_fail += 1
+                    last_expr_err = pick_err
+                    # 回退底图并打失败标（不得交付）
                     panels[ek] = bases[ek]
+                    logger.warning(
+                        "expr %s inpaint all attempts failed → base fallback FAIL", ek
+                    )
+                else:
+                    panels[ek] = picked
+            if n_fail > 0:
                 panels["_expr_grid_fallback"] = b"1"
                 try:
                     (reject_dir / f"expr_grid_fallback_{int(seed or 0)}.txt").write_text(
-                        "FAIL final_review=false do_not_deliver\n" + str(last_grid_err),
+                        "FAIL final_review=false do_not_deliver\n"
+                        + f"inpaint_fail_n={n_fail} last={last_expr_err}",
                         encoding="utf-8",
                     )
                     (reject_dir / f"expr_grid_fallback_flag_{int(seed or 0)}.json").write_text(
-                        '{"expr_grid_fallback": true, "final_review": false, "deliver": false}',
+                        '{"expr_grid_fallback": true, "final_review": false, "deliver": false, '
+                        '"route": "1738_true_inpaint"}',
                         encoding="utf-8",
                     )
                 except Exception:
                     pass
+            else:
+                logger.info(
+                    "expr true-inpaint all ok locked=%s",
+                    [ek for ek in _EXPR_KEYS if ek in override_keys and ek in panels],
+                )
             continue
         last_err = None
         same_cause = None
@@ -8534,61 +8798,76 @@ def _middle_gray_stripe_x_bounds(
 
 
 def _collar_box(img: Image.Image) -> tuple[float, float, float, float]:
-    """16:18：领口——真脖子/帽檐区；大脸框（全身误检）时改用头顶下 12–28% 带。"""
+    """17:38：领口——下巴到锁骨含帽口；禁止裁到肩部素布。
+
+    优先 insightface/级联脸框下巴；全身误检或无人脸时，用上半身中心亮肤/头肩几何估下巴。
+    """
     w, h = img.size
     gx0, gx1 = _middle_gray_stripe_x_bounds(img)
     mid = (gx0 + gx1) / 2.0
     span = max(0.12, gx1 - gx0)
-    y_face = 0.18
+    chin_y: float | None = None
+    face_x0 = mid - span * 0.20
+    face_x1 = mid + span * 0.20
     try:
         buf = BytesIO()
         img.save(buf, format="PNG")
         bb = _detect_face_bbox_xyxy(buf.getvalue())
-        if bb is None:
-            bb = _heuristic_skin_face_bbox(img)
         if bb is not None:
             fy1, fy2 = float(bb[1]) / float(h), float(bb[3]) / float(h)
             fh = max(0.02, fy2 - fy1)
-            if fh > 0.35:
-                # 全身误检成脸：领口取画高 14%–30%（头下肩上）
-                y_face = 0.20
-            else:
-                y_face = max(0.12, min(0.26, fy2))
+            if fh <= 0.35:
+                chin_y = fy2
+                face_x0 = float(bb[0]) / float(w)
+                face_x1 = float(bb[2]) / float(w)
     except Exception:  # noqa: BLE001
         pass
-    y0 = max(0.12, y_face - 0.04)
-    y1 = min(0.34, y_face + 0.12)
-    half = max(0.12, span * 0.28)
-    x0 = max(gx0 + span * 0.08, mid - half)
-    x1 = min(gx1 - span * 0.08, mid + half)
-    best = (x0, y0, x1, y1)
-    best_ed = -1.0
-    for scale in (1.0, 0.85, 0.70):
-        sw = max(0.14, (x1 - x0) * scale)
-        sh = max(0.10, (y1 - y0) * scale)
-        step_x = max(0.02, sw * 0.25)
-        step_y = max(0.02, sh * 0.25)
-        xx = x0
-        while xx + sw <= x1 + 1e-6:
-            yy = y0
-            while yy + sh <= y1 + 1e-6:
-                xa, ya = int(w * xx), int(h * yy)
-                xb, yb = int(w * (xx + sw)), int(h * (yy + sh))
-                if xb - xa >= 12 and yb - ya >= 12:
-                    crop = img.crop((xa, ya, xb, yb))
-                    r = _costume_cell_fg_ratio(crop, treat_mid_gray_bg=False)
-                    if r >= 0.40:
-                        ed = costume_cell_edge_density(crop)
-                        center_bonus = 0.002 * (
-                            1.0 - abs((xx + sw / 2) - mid) / max(0.05, span / 2)
-                        )
-                        score = ed + center_bonus
-                        if score > best_ed:
-                            best_ed = score
-                            best = (xx, yy, xx + sw, yy + sh)
-                yy += step_y
-            xx += step_x
-    return best
+    if chin_y is None:
+        # 上 35% 中心条：找暖亮肤最底行作下巴近似
+        try:
+            import numpy as np
+
+            arr = np.asarray(img.convert("RGB"))
+            y1 = max(8, int(h * 0.02))
+            y2 = max(y1 + 8, int(h * 0.38))
+            x1 = max(0, int(w * max(0.25, gx0 + span * 0.15)))
+            x2 = min(w, int(w * min(0.75, gx1 - span * 0.15)))
+            roi = arr[y1:y2, x1:x2]
+            r = roi[:, :, 0].astype("int16")
+            g = roi[:, :, 1].astype("int16")
+            b = roi[:, :, 2].astype("int16")
+            warm = (r > 150) & (g > 120) & (b > 100) & ((r - b) > 6)
+            row_frac = warm.mean(axis=1) if warm.size else None
+            if row_frac is not None and len(row_frac):
+                hits = [i for i, v in enumerate(row_frac) if float(v) >= 0.04]
+                if hits:
+                    chin_y = (y1 + hits[-1]) / float(h)
+                    # 水平：肤色列范围
+                    col_frac = warm.mean(axis=0)
+                    cols = [i for i, v in enumerate(col_frac) if float(v) >= 0.04]
+                    if cols:
+                        face_x0 = (x1 + cols[0]) / float(w)
+                        face_x1 = (x1 + cols[-1]) / float(w)
+        except Exception:  # noqa: BLE001
+            chin_y = None
+    if chin_y is None:
+        # 头肩几何：与 crop_face_ref 同族，下巴约在头肩方窗 72% 高
+        side = min(int(w * 0.72), int(h * 0.38), w, h)
+        top = max(0, int(h * 0.01))
+        chin_y = (top + side * 0.72) / float(h)
+    # 下巴略上 → 锁骨/帽口下：覆盖帽口结构，勿滑到肩素布
+    y0 = max(0.05, float(chin_y) - 0.025)
+    y1 = min(0.40, float(chin_y) + max(0.09, 0.11))
+    if y1 <= y0 + 0.06:
+        y1 = min(0.42, y0 + 0.10)
+    cx = (float(face_x0) + float(face_x1)) / 2.0
+    half = max(0.14, (float(face_x1) - float(face_x0)) * 0.90, span * 0.26)
+    x0 = max(gx0 + span * 0.04, cx - half)
+    x1 = min(gx1 - span * 0.04, cx + half)
+    if x1 <= x0 + 0.08:
+        x0 = max(gx0, mid - 0.16)
+        x1 = min(gx1, mid + 0.16)
+    return (float(x0), float(y0), float(x1), float(y1))
 
 
 def _hem_box(img: Image.Image) -> tuple[float, float, float, float]:
