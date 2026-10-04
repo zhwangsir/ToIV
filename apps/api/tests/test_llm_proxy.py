@@ -1,11 +1,13 @@
-"""OpenAI 兼容 LLM 代理 /api/llm/v1 —— 鉴权、模型白名单、透传、SSE 流式、超时/不可达、限流、并发。"""
+"""OpenAI 兼容 LLM 代理 /api/llm/v1 —— 鉴权、模型白名单、透传、SSE 流式、超时/不可达、限流、并发。
+
+上游用 httpx.MockTransport 替身（不依赖 respx，CI 最小依赖集即可跑）。
+"""
 from __future__ import annotations
 
 import json
 
 import httpx
 import pytest
-import respx
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
@@ -18,6 +20,61 @@ from app.routes import llm_proxy
 from app.security import create_token, hash_password
 
 UPSTREAM = "http://llm.internal.test:8000/v1"
+
+
+class _LiveStream(httpx.AsyncByteStream):
+    """未预读的异步响应体：Response(content=bytes) 会被立即读完，代理的 aiter_raw() 就会 StreamConsumed。"""
+
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = chunks
+
+    async def __aiter__(self):
+        for chunk in self._chunks:
+            yield chunk
+
+
+class FakeUpstream:
+    """记录发往上游的请求；按 mock(return_value=… | side_effect=…) 应答，只认 POST {UPSTREAM}/chat/completions。"""
+
+    def __init__(self) -> None:
+        self.calls: list[httpx.Request] = []
+        self._reply = None
+
+    def mock(self, return_value: httpx.Response | None = None, side_effect: Exception | None = None) -> "FakeUpstream":
+        if side_effect is not None:
+            def reply():
+                raise side_effect
+        else:
+            proto = return_value
+            body = proto.read()
+
+            def reply():  # 每次请求返回新的 Response，按真实网络响应以流的形式交付
+                return httpx.Response(proto.status_code, headers=proto.headers, stream=_LiveStream([body]))
+        self._reply = reply
+        return self
+
+    @property
+    def last(self) -> httpx.Request:
+        return self.calls[-1]
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST" and str(request.url) == f"{UPSTREAM}/chat/completions", request.url
+        self.calls.append(request)
+        assert self._reply is not None, "upstream not mocked"
+        return self._reply()
+
+
+@pytest.fixture
+def upstream(monkeypatch):
+    fake = FakeUpstream()
+    real_async_client = httpx.AsyncClient
+
+    def client_factory(*args, **kwargs):
+        kwargs["transport"] = httpx.MockTransport(fake.handler)
+        return real_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(llm_proxy.httpx, "AsyncClient", client_factory)
+    return fake
 
 
 @pytest.fixture
@@ -71,44 +128,41 @@ def test_models_lists_only_public_ids(env):
     assert "llm.internal.test" not in r.text
 
 
-@respx.mock
-def test_non_stream_passthrough_with_upstream_key_and_sanitized_body(env):
+def test_non_stream_passthrough_with_upstream_key_and_sanitized_body(env, upstream):
     client, auth = env
-    route = respx.post(f"{UPSTREAM}/chat/completions").mock(
+    route = upstream.mock(
         return_value=httpx.Response(200, json={"id": "c1", "choices": [{"message": {"role": "assistant", "content": "你好！"}}]})
     )
     r = client.post("/api/llm/v1/chat/completions", headers=auth,
                     json=_chat(max_tokens=99999, evil_field="x", temperature=0.2))
     assert r.status_code == 200
     assert r.json()["choices"][0]["message"]["content"] == "你好！"
-    sent = route.calls.last.request
+    sent = route.last
     assert sent.headers["authorization"] == "Bearer upstream-key"  # 用户 JWT 不会被转发
     body = json.loads(sent.content)
     assert body["max_tokens"] == 1000 and "evil_field" not in body and body["temperature"] == 0.2
 
 
-@respx.mock
-def test_default_model_and_unknown_model(env):
+def test_default_model_and_unknown_model(env, upstream):
     client, auth = env
-    route = respx.post(f"{UPSTREAM}/chat/completions").mock(return_value=httpx.Response(200, json={"choices": []}))
+    route = upstream.mock(return_value=httpx.Response(200, json={"choices": []}))
     r = client.post("/api/llm/v1/chat/completions", headers=auth, json={"messages": [{"role": "user", "content": "x"}]})
-    assert r.status_code == 200 and json.loads(route.calls.last.request.content)["model"] == "qwen3.8-27b"
+    assert r.status_code == 200 and json.loads(route.last.content)["model"] == "qwen3.8-27b"
     r = client.post("/api/llm/v1/chat/completions", headers=auth, json=_chat(model="gpt-4o"))
     assert r.status_code == 400 and r.json()["error"]["type"] == "invalid_request_error"
     r = client.post("/api/llm/v1/chat/completions", headers=auth, json={"model": "qwen3.8-27b", "messages": []})
     assert r.status_code == 400
 
 
-@respx.mock
-def test_stream_relays_sse(env):
+def test_stream_relays_sse(env, upstream):
     client, auth = env
     chunks = [
         b'data: {"choices":[{"delta":{"content":"\xe4\xbd\xa0"}}]}\n\n',
         b'data: {"choices":[{"delta":{"content":"\xe5\xa5\xbd"}}]}\n\n',
         b"data: [DONE]\n\n",
     ]
-    respx.post(f"{UPSTREAM}/chat/completions").mock(
-        return_value=httpx.Response(200, headers={"content-type": "text/event-stream"}, stream=httpx.ByteStream(b"".join(chunks)))
+    upstream.mock(
+        return_value=httpx.Response(200, headers={"content-type": "text/event-stream"}, content=b"".join(chunks))
     )
     with client.stream("POST", "/api/llm/v1/chat/completions", headers=auth, json=_chat(stream=True)) as r:
         assert r.status_code == 200
@@ -118,13 +172,12 @@ def test_stream_relays_sse(env):
     assert llm_proxy._inflight == {}  # 并发槽已释放
 
 
-@respx.mock
-def test_upstream_unreachable_and_timeout_hide_internal_address(env):
+def test_upstream_unreachable_and_timeout_hide_internal_address(env, upstream):
     client, auth = env
-    respx.post(f"{UPSTREAM}/chat/completions").mock(side_effect=httpx.ConnectError("boom"))
+    upstream.mock(side_effect=httpx.ConnectError("boom"))
     r = client.post("/api/llm/v1/chat/completions", headers=auth, json=_chat())
     assert r.status_code == 502 and "llm.internal.test" not in r.text
-    respx.post(f"{UPSTREAM}/chat/completions").mock(side_effect=httpx.ReadTimeout("slow"))
+    upstream.mock(side_effect=httpx.ReadTimeout("slow"))
     r = client.post("/api/llm/v1/chat/completions", headers=auth, json=_chat())
     assert r.status_code == 504
     r = client.post("/api/llm/v1/chat/completions", headers=auth, json=_chat(stream=True))
@@ -132,23 +185,21 @@ def test_upstream_unreachable_and_timeout_hide_internal_address(env):
     assert llm_proxy._inflight == {}
 
 
-@respx.mock
-def test_upstream_errors(env):
+def test_upstream_errors(env, upstream):
     client, auth = env
-    respx.post(f"{UPSTREAM}/chat/completions").mock(return_value=httpx.Response(400, json={"error": {"message": "context too long"}}))
+    upstream.mock(return_value=httpx.Response(400, json={"error": {"message": "context too long"}}))
     r = client.post("/api/llm/v1/chat/completions", headers=auth, json=_chat())
     assert r.status_code == 400 and r.json()["error"]["message"] == "context too long"
-    respx.post(f"{UPSTREAM}/chat/completions").mock(return_value=httpx.Response(500, text="internal trace at 10.9.8.7"))
+    upstream.mock(return_value=httpx.Response(500, text="internal trace at 10.9.8.7"))
     r = client.post("/api/llm/v1/chat/completions", headers=auth, json=_chat())
     assert r.status_code == 502 and "10.9.8.7" not in r.text
 
 
-@respx.mock
-def test_per_user_rate_limit(env, monkeypatch):
+def test_per_user_rate_limit(env, upstream, monkeypatch):
     client, auth = env
     from app import ratelimit
     monkeypatch.setitem(ratelimit._DEFAULT_SCOPES, "llm", (60.0, 2))
-    respx.post(f"{UPSTREAM}/chat/completions").mock(return_value=httpx.Response(200, json={"choices": []}))
+    upstream.mock(return_value=httpx.Response(200, json={"choices": []}))
     assert client.post("/api/llm/v1/chat/completions", headers=auth, json=_chat()).status_code == 200
     assert client.post("/api/llm/v1/chat/completions", headers=auth, json=_chat()).status_code == 200
     r = client.post("/api/llm/v1/chat/completions", headers=auth, json=_chat())
