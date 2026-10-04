@@ -6288,8 +6288,12 @@ def assert_expression_eyes_mouth_in_mask(
     mask: Image.Image | None = None,
     *,
     expr_key: str = "expr",
+    require_mouth: bool = True,
 ) -> dict[str, float | bool | str]:
-    """18:30 门禁：遮罩区内必须检出眼睛和嘴（landmark 优先，启发式兜底）。"""
+    """18:30 门禁：遮罩区内必须检出眼睛和嘴（landmark 优先，启发式兜底）。
+
+    21:30：沉思眼部-only 遮罩可设 require_mouth=False（嘴不在可编辑区内属预期）。
+    """
     im = Image.open(BytesIO(data)).convert("RGB")
     if mask is None:
         mask = build_face_feature_mask_hard(min(im.size))
@@ -6302,7 +6306,9 @@ def assert_expression_eyes_mouth_in_mask(
     if kps is not None:
         le, re, _nose, lm, rm = kps
         mouth = ((lm[0] + rm[0]) / 2.0, (lm[1] + rm[1]) / 2.0)
-        checks = [("left_eye", le), ("right_eye", re), ("mouth", mouth)]
+        checks = [("left_eye", le), ("right_eye", re)]
+        if require_mouth:
+            checks.append(("mouth", mouth))
         missing: list[str] = []
         for name, (x, y) in checks:
             xi = int(round(x)); yi = int(round(y))
@@ -6313,6 +6319,7 @@ def assert_expression_eyes_mouth_in_mask(
                 1.0 if (0 <= xi < w and 0 <= yi < h and mp[xi, yi] >= 96) else 0.0
             )
         info["route"] = "insightface_kps"
+        info["require_mouth"] = bool(require_mouth)
         if missing:
             raise CharacterSheetError(
                 f"{expr_key}遮罩区内未检出{'/'.join(missing)}",
@@ -6324,7 +6331,7 @@ def assert_expression_eyes_mouth_in_mask(
                 f"{expr_key}遮罩区内未检出眼睛",
                 status_code=422,
             )
-        if float(info.get("mouth_in", 0)) < 0.5:
+        if require_mouth and float(info.get("mouth_in", 0)) < 0.5:
             raise CharacterSheetError(
                 f"{expr_key}遮罩区内未检出嘴",
                 status_code=422,
@@ -6335,12 +6342,13 @@ def assert_expression_eyes_mouth_in_mask(
     info["route"] = "heuristic"
     info["eyes_ok"] = eyes_ok
     info["mouth_ok"] = mouth_ok
+    info["require_mouth"] = bool(require_mouth)
     if not eyes_ok:
         raise CharacterSheetError(
             f"{expr_key}遮罩区内未检出眼睛",
             status_code=422,
         )
-    if not mouth_ok:
+    if require_mouth and not mouth_ok:
         raise CharacterSheetError(
             f"{expr_key}遮罩区内未检出嘴",
             status_code=422,
@@ -8577,7 +8585,10 @@ async def generate_character_sheet(
                             base_b, blended, hard_mask, expr_key=ek
                         )
                         assert_expression_eyes_mouth_in_mask(
-                            blended, hard_mask, expr_key=ek
+                            blended,
+                            hard_mask,
+                            expr_key=ek,
+                            require_mouth=(ek != "expr_2"),
                         )
                         # 19:15：发长门禁在同几何（blended vs base_b）上比，禁止近景 vs 全身
                         assert_expression_identity_gates(

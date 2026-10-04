@@ -121,3 +121,19 @@ def test_locked_normalize_contract_in_source():
     assert "build_eyes_only_mask_hard" in src
     assert "_fit_expr_cell_face_fill" in src
     assert "3px近白边" in src or "edge_px" in src
+
+
+def test_eyes_only_mask_gate_skips_mouth():
+    """沉思眼遮罩：require_mouth=False 时嘴不在遮罩内不拒。"""
+    base = _synth_face(256)
+    buf = BytesIO()
+    base.save(buf, format="PNG")
+    data = buf.getvalue()
+    mask = sheet_svc.build_eyes_only_mask_hard(256)
+    # mouth not in mask → would fail if require_mouth True
+    with pytest.raises(sheet_svc.CharacterSheetError, match="嘴"):
+        sheet_svc.assert_expression_eyes_mouth_in_mask(data, mask, expr_key="expr_2")
+    info = sheet_svc.assert_expression_eyes_mouth_in_mask(
+        data, mask, expr_key="expr_2", require_mouth=False
+    )
+    assert info.get("require_mouth") is False
