@@ -493,3 +493,40 @@ def test_orchestrator_rejects_bad_worker_before_status_change(ctx, monkeypatch):
         )
     session.refresh(shot)
     assert shot.status == before
+
+
+# ───────────────────── 全身定妆图选择（设定卡分桶） ─────────────────────
+
+
+def _char(**kw):
+    from app.models import StudioCharacter
+
+    base = dict(project_id="p", name="沈青禾", visual_prompt="girl", reference_images="[]",
+                reference_images_by_style="{}")
+    base.update(kw)
+    return StudioCharacter(**base)
+
+
+def test_full_body_prefers_explicit_full_sample():
+    from app.services.studio import orchestrator as orch
+
+    c = _char(reference_images=json.dumps(REFS))
+    assert orch._full_body_ref_url([c], None) == "/api/studio/files/sample_linxia_full.png"
+
+
+def test_full_body_from_sheet_bucket_uses_front_panel_not_side():
+    """设定卡分桶 portrait/front/side/back：全身首帧取 front 格；portrait 半身、side 被槽标签误标「全身」。"""
+    from app.services.studio import orchestrator as orch
+
+    pre = "/api/studio/files/char_panel_1c790086_ancient_realistic_"
+    bucket = [pre + "portrait_aa.png", pre + "front_bb.png", pre + "side_cc.png", pre + "back_dd.png"]
+    c = _char(reference_images_by_style=json.dumps({"ancient_realistic": bucket}))
+    assert orch._full_body_ref_url([c], "ancient_realistic") == pre + "front_bb.png"
+
+
+def test_full_body_none_when_only_portrait_panel():
+    from app.services.studio import orchestrator as orch
+
+    pre = "/api/studio/files/char_panel_1c790086_ancient_realistic_"
+    c = _char(reference_images_by_style=json.dumps({"ancient_realistic": [pre + "portrait_aa.png"]}))
+    assert orch._full_body_ref_url([c], "ancient_realistic") is None

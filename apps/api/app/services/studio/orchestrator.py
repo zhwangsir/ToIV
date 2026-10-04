@@ -150,15 +150,33 @@ def _extract_last_frame(src: Path, dst: Path) -> None:
 
 
 def _full_body_ref_url(cast: list[StudioCharacter], style: str | None) -> str | None:
-    """角色全身定妆图：文件名含 full/全身 优先，其次三视图槽标签「全身」。"""
+    """角色全身定妆图（c_hybrid 首镜首帧）。
+
+    优先级：
+      1. 文件名含 full/全身（sample_*_full.png 等显式全身图）；
+      2. 设定卡三视图正面格 char_panel_{cid8}_{style}_front_*（全身正面站姿）；
+         设定卡分桶顺序为 portrait/front/side/back，portrait 是半身立绘，不能当全身首帧；
+      3. 非设定卡参考图的槽标签「全身」（扁平三视图 正/侧/全身 约定）。
+    设定卡 panel 不走槽标签兜底：分桶顺序与 正/侧/全身 槽位不对应（第 3 张是 side）。
+    """
     from app.services.studio.shot_refs import collect_cast_ref_images
 
     refs = [r for r in collect_cast_ref_images(cast, style=style) if r.role != "scene"]
+
+    def _name(u: str | None) -> str:
+        return (u or "").split("?", 1)[0].rsplit("/", 1)[-1].lower()
+
     for r in refs:
-        name = (r.image_url or "").split("?", 1)[0].rsplit("/", 1)[-1].lower()
+        name = _name(r.image_url)
         if "full" in name or "全身" in name:
             return r.image_url
     for r in refs:
+        name = _name(r.image_url)
+        if "char_panel_" in name and "_front_" in name:
+            return r.image_url
+    for r in refs:
+        if "char_panel_" in _name(r.image_url):
+            continue
         if "全身" in (r.label or ""):
             return r.image_url
     return None
