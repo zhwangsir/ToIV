@@ -35,6 +35,10 @@ def upgrade(cfg):
             profiles.insert(0, auto)
             ch["modelProfiles"] = profiles
             changed += 1
+        models = ch.get("models") or []
+        if "h3" not in models:
+            ch["models"] = ["h3"] + models
+            changed += 1
         key = f'{ch["id"]}::h3'
         for field in ("videoModels", "models"):
             values = cfg.get(field) or []

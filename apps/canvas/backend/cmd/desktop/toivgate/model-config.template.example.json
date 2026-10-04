@@ -318,6 +318,7 @@
     }
    ],
    "models": [
+    "h3",
     "h3-t2v"
    ],
    "name": "ToIV H3",
