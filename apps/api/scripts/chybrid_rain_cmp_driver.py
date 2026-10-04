@@ -252,6 +252,21 @@ async def main_async(args) -> int:
             select(StudioShot).where(StudioShot.project_id == pid).order_by(StudioShot.idx)
         ).all()
         note = (args.shot_note or "").strip()
+        neg_add = [t.strip() for t in (args.shot_negative or "").split(",") if t.strip()]
+        if neg_add:
+            # StudioShot 无 negative 列、H3 无独立负向口：包装 merge_negative，把附加负向词并进 Avoid 段
+            from app.services.studio import prompt_c as _pc
+
+            _orig_merge = _pc.merge_negative
+
+            def _merge_with_extra(existing: str = "", _o=_orig_merge, _add=tuple(neg_add)) -> str:
+                base = _o(existing)
+                items = {x.strip().lower() for x in base.split(",")}
+                miss = [t for t in _add if t.lower() not in items]
+                return base + ", " + ", ".join(miss) if miss else base
+
+            _pc.merge_negative = _merge_with_extra
+            prog.event("shot_negative_applied", added=neg_add)
         for shot in shots[: args.shots]:
             if shot.status in ("rendered", "voiced", "lipsynced", "done") and shot.video_url:
                 prog.event("skip_rendered", idx=shot.idx)
@@ -314,6 +329,9 @@ def main() -> int:
     ap.add_argument("--shot-note", default="",
                     help="text appended once to every not-yet-rendered shot prompt of the copy project, "
                          "e.g. '外套无 logo、全程戴帽'")
+    ap.add_argument("--shot-negative", default="",
+                    help="comma list appended to the Avoid section (H3 has no separate negative input), "
+                         "e.g. logo, text, letters, brand")
     ap.add_argument("--recover-only", action="store_true",
                     help="no new submissions: only recover not-yet-written-back shots from progress.json prompt_ids")
     args = ap.parse_args()
