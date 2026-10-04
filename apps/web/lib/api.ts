@@ -116,7 +116,8 @@ export function emitSessionExpired(): void {
 
 /**
  * 401 统一处理:清除本地 token(复用 setToken 清理路径)、广播会话失效事件
- * (供 SSE 长连接关流)并跳转登录入口(登录态在 "/",app/login 只是 redirect("/"))。
+ * (供 SSE 长连接关流)并跳转登录入口 "/?view=home"(裸 "/" 已由 middleware 交给官网落地页,
+ * 带查询串的 "/" 才是产品页:未登录渲染登录表单)。
  * 仅浏览器环境执行,且幂等。
  */
 function handleUnauthorized(): void {
@@ -125,7 +126,7 @@ function handleUnauthorized(): void {
   authRedirectPending = true;
   setToken(null);
   emitSessionExpired();
-  window.location.assign("/");
+  window.location.assign("/?view=home");
 }
 
 /**
