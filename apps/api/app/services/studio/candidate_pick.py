@@ -71,21 +71,16 @@ def _burnin_penalty(frame_bgr) -> float:
 
 
 def _ocr_penalty(frame_bgr) -> float:
+    """选优用字幕罚分：与出片字幕门禁同口径（subtitle_ocr_frame：底部带、conf≥60、CJK≥4、够宽、居中）。
+
+    旧实现对底部带 image_to_string 任意 ≥2 字符即罚 0.5，雨夜湿地反光/霓虹噪声常被读成乱码
+    （shot0 候选3 因此 pick_score -0.07）。现仅真实字幕行才罚 0.5。
+    """
     try:
-        import pytesseract
-        from PIL import Image
-        import cv2
+        r = subtitle_ocr_frame(frame_bgr)
     except Exception:
         return 0.0
-    h, w = frame_bgr.shape[:2]
-    band = frame_bgr[int(h * 0.7) : h, :]
-    rgb = cv2.cvtColor(band, cv2.COLOR_BGR2RGB)
-    text = (pytesseract.image_to_string(Image.fromarray(rgb), lang="chi_sim+eng") or "").strip()
-    if not text:
-        return 0.0
-    # 有可识别文字 → 重罚
-    return 0.5 if len(text) >= 2 else 0.2
-
+    return 0.5 if r.get("hit") else 0.0
 
 
 def score_scene_continuity(
@@ -520,6 +515,47 @@ def score_clip_identity_relative(
     return out
 
 
+# 写实选优：线上 face 与 facecrop（实验口径：pad0.35→放大≥512→重嵌入，仅正/3/4 侧）取 min 排序与门禁。
+# 单看线上均值会被「少量大脸特写帧」抬高（雨夜 shot0 候选2：online 0.563 / facecrop 0.129）。
+FACE_RANK_MIN_DEFAULT = 0.40
+
+
+def _yaw_from_kps(kps) -> float | None:
+    import numpy as np
+
+    if kps is None or len(kps) < 3:
+        return None
+    le, re_, nose = kps[0], kps[1], kps[2]
+    off = (nose[0] - 0.5 * (le[0] + re_[0])) / (abs(re_[0] - le[0]) + 1e-6)
+    return float(np.clip(off, -1.5, 1.5) * 60.0)
+
+
+def _pose_label(yaw: float | None) -> str:
+    if yaw is None:
+        return "unknown"
+    a = abs(yaw)
+    return "front" if a <= 25 else "three_quarter" if a <= 55 else "side" if a <= 80 else "backish"
+
+
+def _crop_up(img, bbox, min_side: int = 512, pad: float = 0.35):
+    import cv2
+
+    h, w = img.shape[:2]
+    x1, y1, x2, y2 = [float(v) for v in bbox]
+    side = max(x2 - x1, y2 - y1) * (1 + pad)
+    cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+    c = img[max(0, int(cy - side / 2)):min(h, int(cy + side / 2)),
+            max(0, int(cx - side / 2)):min(w, int(cx + side / 2))]
+    if c.size == 0:
+        return None
+    ch, cw = c.shape[:2]
+    if min(ch, cw) < min_side:
+        sc = min_side / max(1, min(ch, cw))
+        c = cv2.resize(c, (max(min_side, int(cw * sc)), max(min_side, int(ch * sc))),
+                       interpolation=cv2.INTER_CUBIC)
+    return c
+
+
 def _want_clip_face(mode: str, ref_style: str | None) -> bool:
     m = (mode or "auto").strip().lower()
     if m == "clip":
@@ -537,8 +573,13 @@ def score_video_face(
     mode: str = "auto",
     ref_style: str | None = None,
     clip_embedder=None,
+    skip_until_frame: int = 0,
+    with_facecrop: bool = False,
 ) -> dict[str, Any]:
     """对视频帧与参考脸算相似度均值；失败返回 face_mean=None。
+
+    skip_until_frame>0：首帧锚定（c_hybrid）第 0..N 帧不评分（那是 first_frame 本身）。
+    with_facecrop（仅 InsightFace）：同采样帧再算 facecrop_mean（实验口径，正/3/4 侧才计分）。
 
     mode:
       - insightface：仅 InsightFace（写实）
@@ -610,6 +651,12 @@ def score_video_face(
         idxs = sorted({max(0, min(n - 1, int(round(x)))) for x in [
             0, n * 0.15, n * 0.35, n // 2, n * 0.65, n * 0.85, n - 1
         ]})
+    skip = max(0, int(skip_until_frame or 0))
+    if skip > 0:
+        idxs = [i for i in idxs if i > skip] or [max(0, n - 1)]
+        out["skip_until_frame"] = skip
+    fc_sims: list[float] = []
+    fc_poses: list[str] = []
     sims: list[float] = []
     burn = 0.0
     ocr = 0.0
@@ -632,7 +679,27 @@ def score_video_face(
         r = ref_emb.astype(np.float32)
         sim = float(np.dot(r, emb) / (np.linalg.norm(r) * np.linalg.norm(emb) + 1e-9))
         sims.append(sim)
+        if with_facecrop:
+            pose = _pose_label(_yaw_from_kps(getattr(face, "kps", None)))
+            fc_poses.append(pose)
+            if pose in ("front", "three_quarter"):
+                emb2 = emb
+                crop = _crop_up(frame, face.bbox)
+                if crop is not None:
+                    cf = app.get(crop)
+                    if cf:
+                        emb2 = sorted(
+                            cf, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]),
+                            reverse=True,
+                        )[0].normed_embedding.astype(np.float32)
+                fc_sims.append(
+                    float(np.dot(r, emb2) / (np.linalg.norm(r) * np.linalg.norm(emb2) + 1e-9))
+                )
     cap.release()
+    if with_facecrop:
+        out["facecrop_sims"] = fc_sims
+        out["facecrop_poses"] = fc_poses
+        out["facecrop_mean"] = float(sum(fc_sims) / len(fc_sims)) if fc_sims else None
     out["sims"] = sims
     out["burnin_penalty"] = burn
     out["ocr_penalty"] = ocr
@@ -667,6 +734,7 @@ def pick_best_candidate(
     negative_ref_paths: list[str | Path] | None = None,
     relative_margin: float = 0.03,
     use_relative_identity: bool | None = None,
+    min_face_rank: float = FACE_RANK_MIN_DEFAULT,
 ) -> tuple[str | None, list[dict[str, Any]]]:
     """按 face_mean - burnin - ocr + 连贯加分 - 回退罚分 选优。
 
@@ -674,6 +742,8 @@ def pick_best_candidate(
     regression_ref_path：通常为镜0成片，扣「与开场过像」的回退候选。
     min_face_mean：人脸门禁（默认 0.45；动漫 CLIP 建议 0.60）；face_mean 为空或低于门禁的候选不得入选。
     face_score_mode / ref_style：动漫走 CLIP 图相似，参考图无脸禁止空分放行。
+    写实 InsightFace：face_rank=min(线上 face_mean, facecrop_mean) 参与打分与门禁（≥min_face_rank），
+    不单看线上均值；候选带 first_frame（c_hybrid 锚定）时第 0..ANCHORED_FIRST_FRAME_SKIP_FRAMES 帧不评分。
     """
     done = [c for c in candidates if c.get("status") == "done" and c.get("url")]
     if not done:
@@ -725,16 +795,30 @@ def pick_best_candidate(
             pen = 0.0
             note_parts: list[str] = []
             if face_ok:
+                anchored = bool(str(c.get("first_frame") or "").strip())
                 m = score_video_face(
                     path,
                     ref_image_path,
                     mode=face_score_mode,
                     ref_style=ref_style,
                     clip_embedder=clip_embedder,
+                    skip_until_frame=ANCHORED_FIRST_FRAME_SKIP_FRAMES if anchored else 0,
+                    with_facecrop=not want_clip,
                 )
                 face = m.get("face_mean")
+                if anchored:
+                    c["face_skip_until_frame"] = ANCHORED_FIRST_FRAME_SKIP_FRAMES
+                if "facecrop_mean" in m and m.get("score_backend", "insightface") == "insightface":
+                    # 写实：线上分与 facecrop 取 min，二者都须过线
+                    fc = m.get("facecrop_mean")
+                    c["online_face"] = face
+                    c["facecrop_mean"] = fc
+                    face_rank = min(float(face), float(fc)) if (face is not None and fc is not None) else None
+                    c["face_rank"] = face_rank
+                    c["face_rank_rule"] = "min(online,facecrop)"
+                    face = face_rank
                 pen = float(m.get("burnin_penalty") or 0) + float(m.get("ocr_penalty") or 0)
-                c["face_mean"] = face
+                c["face_mean"] = m.get("face_mean")
                 c["burnin_penalty"] = m.get("burnin_penalty")
                 c["ocr_penalty"] = m.get("ocr_penalty")
                 c["face_score_backend"] = m.get("score_backend")
@@ -839,13 +923,13 @@ def pick_best_candidate(
                 )
             best_id = max(gated, key=lambda c: float(c["pick_score"])).get("id")
         elif face_ok and float(min_face_mean) > 0:
-            gated = [
-                c
-                for c in done
-                if c.get("face_mean") is not None
-                and float(c["face_mean"]) >= float(min_face_mean)
-                and c.get("pick_score") is not None
-            ]
+            def _face_gate_ok(c: dict[str, Any]) -> bool:
+                if "face_rank" in c:
+                    r = c.get("face_rank")
+                    return r is not None and float(r) >= float(min_face_rank)
+                return c.get("face_mean") is not None and float(c["face_mean"]) >= float(min_face_mean)
+
+            gated = [c for c in done if _face_gate_ok(c) and c.get("pick_score") is not None]
             if not gated:
                 faces = [
                     float(c["face_mean"])
@@ -862,9 +946,11 @@ def pick_best_candidate(
                         )
                 for c in candidates:
                     c["gate_status"] = GATE_NEEDS_REVIEW
+                ranks = [c.get("face_rank") for c in done if "face_rank" in c]
                 raise CandidatePickError(
-                    f"选优失败:无人脸达标(需 face_mean≥{min_face_mean:.2f}，"
-                    f"最佳={face_best!r})，{GATE_NEEDS_REVIEW}，禁止入选并应加候选重跑"
+                    f"选优失败:无人脸达标(需 face_mean≥{min_face_mean:.2f}"
+                    f"{'；写实 min(online,facecrop)≥%.2f' % float(min_face_rank) if ranks else ''}，"
+                    f"最佳={face_best!r}，face_rank={ranks!r})，{GATE_NEEDS_REVIEW}，禁止入选并应加候选重跑"
                 )
             best_id = max(gated, key=lambda c: float(c["pick_score"])).get("id")
         else:
@@ -1488,6 +1574,104 @@ def subtitle_ocr_frame(image) -> dict[str, Any]:
         return out
 
 
+BRAND_TEXT_MIN_CONF = 60.0
+BRAND_TEXT_MIN_LETTERS = 3
+BRAND_TEXT_MIN_CONSECUTIVE = 2
+BRAND_TEXT_OCR_PASSES = ((1.5, 6), (1.0, 11))  # (缩放, tesseract psm)
+_BRAND_WORD_RUN = re.compile(r"[A-Za-z]{3,}")
+
+
+def _person_torso_box(frame_bgr) -> tuple[int, int, int, int] | None:
+    """由最大人脸推人物躯干框 (x0,y0,x1,y1)：脸下沿起约 3.5 脸高、左右各 1.6 脸宽。无脸/无 insightface → None。"""
+    if not _try_import_face():
+        return None
+    try:
+        app = _get_face_app()
+        faces = app.get(frame_bgr)
+    except Exception:
+        return None
+    if not faces:
+        return None
+    f = sorted(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]), reverse=True)[0]
+    x1, y1, x2, y2 = [float(v) for v in f.bbox]
+    fw, fh = max(1.0, x2 - x1), max(1.0, y2 - y1)
+    cx = (x1 + x2) / 2.0
+    h, w = frame_bgr.shape[:2]
+    return (
+        max(0, int(cx - 1.6 * fw)),
+        min(h - 1, int(y2)),
+        min(w - 1, int(cx + 1.6 * fw)),
+        min(h - 1, int(y2 + 3.5 * fh)),
+    )
+
+
+def garment_brand_text_words(frame_bgr) -> dict[str, Any]:
+    """衣物英文字严格检测（单帧）：先由最大人脸推人物躯干框，只对躯干框做 tesseract eng image_to_data
+    （psm6@1.5x + psm11@1.0x 取并集；整幅杂景 OCR 对 JPEG 压缩极不稳定），
+    词 conf≥60 且含 ≥3 连续拉丁字母才算。无人物 → 不判（error=no_person）。
+    返回 {hit, words, torso, error}。
+    """
+    out: dict[str, Any] = {"hit": False, "words": [], "torso": None, "error": ""}
+    try:
+        import pytesseract
+        from PIL import Image
+        import numpy as np
+    except Exception as e:
+        out["error"] = f"ocr_unavailable:{type(e).__name__}"
+        return out
+    try:
+        if hasattr(frame_bgr, "convert"):
+            arr = np.asarray(frame_bgr.convert("RGB"))[:, :, ::-1].copy()
+        else:
+            arr = np.asarray(frame_bgr)
+        torso = _person_torso_box(arr)
+        if torso is None:
+            out["error"] = "no_person"
+            return out
+        out["torso"] = list(torso)
+        tx0, ty0, tx1, ty1 = torso
+        if tx1 - tx0 < 16 or ty1 - ty0 < 16:
+            out["error"] = "torso_too_small"
+            return out
+        crop = _to_pil_rgb(arr).crop((tx0, ty0, tx1, ty1)).convert("L")
+        seen: set[tuple] = set()
+        for scale, psm in BRAND_TEXT_OCR_PASSES:
+            cc = crop
+            if scale != 1.0:
+                cc = crop.resize((int(crop.size[0] * scale), int(crop.size[1] * scale)),
+                                 Image.Resampling.LANCZOS)
+            data = pytesseract.image_to_data(
+                cc, lang="eng", config=f"--psm {psm}", output_type=pytesseract.Output.DICT
+            )
+            for j, raw in enumerate(data.get("text") or []):
+                t = str(raw or "").strip()
+                if not t:
+                    continue
+                try:
+                    conf = float(data["conf"][j])
+                except (TypeError, ValueError):
+                    continue
+                if conf < BRAND_TEXT_MIN_CONF:
+                    continue
+                if not any(len(r) >= BRAND_TEXT_MIN_LETTERS for r in _BRAND_WORD_RUN.findall(t)):
+                    continue
+                bx = int(data["left"][j] / scale) + tx0
+                by = int(data["top"][j] / scale) + ty0
+                bw = int(data["width"][j] / scale)
+                bh = int(data["height"][j] / scale)
+                key = (t.upper(), bx // 24, by // 24)
+                if key in seen:
+                    continue
+                seen.add(key)
+                out["words"].append({"text": t[:40], "conf": conf, "box": [bx, by, bw, bh],
+                                     "in_torso": True, "psm": psm})
+        out["hit"] = bool(out["words"])
+        return out
+    except Exception as e:
+        out["error"] = f"{type(e).__name__}:{e}"
+        return out
+
+
 def garment_brand_ocr_hit(
     video_path: str | Path,
     *,
@@ -1497,9 +1681,11 @@ def garment_brand_ocr_hit(
 
     拦截（hit）：
       · subtitle：底部带横排中文字幕在 ≥2 个连续采样帧出现（kind=subtitle）
-      · brand：衣物躯干 OCR 读出品牌词/长拉丁串（kind=brand，原逻辑）
+      · brand：衣物英文字（tesseract 词 conf≥60、≥3 连续字母、框在人物躯干框内）
+        在 ≥2 个连续采样帧出现（kind=brand）
     仅记录（不拦）：
       · 胸口徽标 blob（emblem_log）、店招 OCR（sign_log）
+      · 旧版衣物 OCR（image_to_string 无置信度/空识别占位，brand_log）
     skip_until_frame>0（c_hybrid 首帧锚定）：第 0..skip_until_frame 帧不检。
     返回 {hit, text, frames_checked, error, kind, ...}。
     """
@@ -1513,6 +1699,8 @@ def garment_brand_ocr_hit(
         "emblem_log": [],
         "sign_log": [],
         "subtitle_frames": [],
+        "brand_log": [],
+        "brand_frames": [],
     }
     path = Path(video_path) if video_path else None
     if path is None or not path.is_file():
@@ -1552,6 +1740,8 @@ def garment_brand_ocr_hit(
         texts: list[str] = []
         consecutive = 0
         run: list[dict] = []
+        b_consecutive = 0
+        b_run: list[dict] = []
         for i in idxs:
             cap.set(cv2.CAP_PROP_POS_FRAMES, i)
             ok, frame = cap.read()
@@ -1575,6 +1765,21 @@ def garment_brand_ocr_hit(
                 else:
                     consecutive = 0
                     run = []
+                bw = garment_brand_text_words(frame)
+                if bw.get("hit"):
+                    b_consecutive += 1
+                    words = [x for x in bw["words"] if x.get("in_torso")]
+                    b_run.append({"frame": i, "words": words, "torso": bw.get("torso")})
+                    out["brand_frames"].append(b_run[-1])
+                    if b_consecutive >= BRAND_TEXT_MIN_CONSECUTIVE:
+                        out["hit"] = True
+                        out["kind"] = "brand"
+                        out["text"] = " ".join(x["text"] for x in words)[:200]
+                        out["brand_run"] = b_run[-b_consecutive:]
+                        return out
+                else:
+                    b_consecutive = 0
+                    b_run = []
             if i in brand_idxs:
                 fr = garment_brand_ocr_frame(frame)
                 if fr.get("text"):
@@ -1583,21 +1788,20 @@ def garment_brand_ocr_hit(
                 if emb.get("hit"):
                     out["emblem_log"].append({"frame": i, **emb})
                 if fr.get("hit"):
-                    out["hit"] = True
-                    out["kind"] = "brand"
-                    out["text"] = str(fr.get("text") or "")[:200]
-                    return out
+                    # 旧单帧 image_to_string 判定：无置信度/无人物框 → 仅记录
+                    out["brand_log"].append({"frame": i, "text": str(fr.get("text") or "")[:120]})
                 sg = scene_sign_ocr_frame(frame)
                 if sg.get("text"):
                     texts.append("sign:" + str(sg["text"]))
                 if sg.get("hit"):
                     out["sign_log"].append({"frame": i, "text": str(sg.get("text") or "")[:120]})
-        if out["emblem_log"] or out["sign_log"]:
+        if out["emblem_log"] or out["sign_log"] or out["brand_log"]:
             logger.info(
-                "text_gate log-only path=%s emblem_frames=%s sign=%s",
+                "text_gate log-only path=%s emblem_frames=%s sign=%s brand=%s",
                 path.name,
                 [e["frame"] for e in out["emblem_log"]],
                 out["sign_log"][:3],
+                out["brand_log"][:3],
             )
         out["text"] = " | ".join(texts)[:200]
         return out
