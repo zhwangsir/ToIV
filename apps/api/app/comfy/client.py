@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import asyncio
+
 import time
 from urllib.parse import urlencode, urlsplit
 
@@ -101,6 +103,17 @@ _MODEL_FOLDERS = (
     "LLM",
 )
 _MODELS_TTL = 120.0
+# 全量 /object_info:NAS 大模型目录实例(:8197 实测 60–105s)扫描与 HTTP 同在主线程,
+# 30s 默认超时 → 永远拉不完、反复重发把实例拖死(2026-10-05 03:53)。
+# 全量拉取单独给长超时;节点集合按 base_url 进程级缓存(客户端实例常是短命的);
+# 失败后指数退避,退避期内直接失败、不再发请求;有旧集合则先用旧的。
+_FULL_OBJECT_INFO_TIMEOUT = 240.0
+_NODES_TTL = 600.0
+_NODES_FAIL_BACKOFF_MIN = 300.0
+_NODES_FAIL_BACKOFF_MAX = 1800.0
+_nodes_shared: dict[str, tuple[float, set[str]]] = {}
+_nodes_fail: dict[str, tuple[float, float]] = {}  # base_url -> (下次可重试时刻, 当前退避秒)
+_nodes_inflight: dict[str, "asyncio.Future"] = {}
 
 # 模块级 httpx.AsyncClient 连接池缓存:(base_url, timeout) → AsyncClient。
 # AsyncClient 本身是连接池且线程安全,复用可避免每次调用新建 TCP 连接
@@ -318,7 +331,7 @@ class ComfyUIClient:
         """GET /object_info 或 /object_info/{node};供 openpose 等能力探测。"""
         if node:
             return await self._get_json(f"/object_info/{node}")
-        return await self._get_json("/object_info")
+        return await self._get_json("/object_info", timeout=_FULL_OBJECT_INFO_TIMEOUT)
 
     async def model_names(self) -> set[str]:
         """该 worker 实际拥有的所有模型文件名(跨类型汇总,缓存 120s)。"""
@@ -364,16 +377,49 @@ class ComfyUIClient:
         return names
 
     async def node_names(self) -> set[str]:
-        """该 worker 已安装的所有节点 class_type(缓存 120s)。用于按"必需节点"路由:
+        """该 worker 已安装的所有节点 class_type。用于按"必需节点"路由:
         某 worker 有模型但缺自定义节点(如 PC01 缺 VHS_VideoCombine)→ 视频图会 400,
-        据此把视频只路由到装了对应节点的 worker。"""
+        据此把视频只路由到装了对应节点的 worker。
+
+        进程级缓存 _NODES_TTL;同 url 单飞;失败指数退避(退避期内有旧集合返回旧集合,
+        没有则立即抛 ComfyUIError,不发请求)。"""
         now = time.monotonic()
-        if self._nodes_cache is not None and now - self._nodes_ts < _MODELS_TTL:
-            return self._nodes_cache
-        info = await self._get_json("/object_info")
-        names = set(info.keys()) if isinstance(info, dict) else set()
-        self._nodes_cache = names
-        self._nodes_ts = now
+        url = self.base_url
+        ent = _nodes_shared.get(url)
+        if ent is not None and now - ent[0] < _NODES_TTL:
+            return ent[1]
+        fail = _nodes_fail.get(url)
+        if fail is not None and now < fail[0]:
+            if ent is not None:
+                return ent[1]  # 退避期:旧集合继续用
+            raise ComfyUIError(f"请求 /object_info 退避中(还剩 {fail[0] - now:.0f}s)")
+        fut = _nodes_inflight.get(url)
+        if fut is None:
+            fut = asyncio.get_running_loop().create_future()
+            _nodes_inflight[url] = fut
+            try:
+                info = await self._get_json("/object_info", timeout=_FULL_OBJECT_INFO_TIMEOUT)
+                names = set(info.keys()) if isinstance(info, dict) else set()
+                _nodes_shared[url] = (time.monotonic(), names)
+                _nodes_fail.pop(url, None)
+                fut.set_result(names)
+            except BaseException as e:
+                prev = _nodes_fail.get(url)
+                backoff = (
+                    _NODES_FAIL_BACKOFF_MIN if prev is None
+                    else min(prev[1] * 2, _NODES_FAIL_BACKOFF_MAX)
+                )
+                _nodes_fail[url] = (time.monotonic() + backoff, backoff)
+                fut.set_exception(e if isinstance(e, Exception) else ComfyUIError(str(e)))
+                fut.exception()  # 已检索,防 never retrieved
+                if ent is not None and isinstance(e, Exception):
+                    return ent[1]
+                raise
+            finally:
+                _nodes_inflight.pop(url, None)
+            self._nodes_cache, self._nodes_ts = names, time.monotonic()
+            return names
+        names = await asyncio.shield(fut)
         return names
 
     def ws_url(self, client_id: str) -> str:
