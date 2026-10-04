@@ -173,6 +173,7 @@ def test_collar_box_chin_to_collarbone():
 
 
 def test_inpaint_graph_has_vae_encode_for_inpaint():
+    """18:30：图须用 VAEEncode+SetLatentNoiseMask；禁止 VAEEncodeForInpaint。"""
     g = sheet_svc._build_sheet_mask_inpaint_graph(
         "test expression",
         image_name="base.png",
@@ -181,11 +182,17 @@ def test_inpaint_graph_has_vae_encode_for_inpaint():
         seed=1,
         filename_prefix="t",
         style="anime",
+        denoise=0.62,
     )
-    assert any(
-        isinstance(n, dict) and n.get("class_type") == "VAEEncodeForInpaint"
+    cts = {
+        n.get("class_type")
         for n in g.values()
-    )
-    assert any(
-        isinstance(n, dict) and n.get("class_type") == "ImageToMask" for n in g.values()
-    )
+        if isinstance(n, dict)
+    }
+    assert "VAEEncode" in cts
+    assert "SetLatentNoiseMask" in cts
+    assert "VAEEncodeForInpaint" not in cts
+    assert "ImageToMask" in cts
+    # denoise 落在 0.55–0.7
+    d = g["3"]["inputs"]["denoise"]
+    assert 0.55 - 1e-9 <= float(d) <= 0.70 + 1e-9, d

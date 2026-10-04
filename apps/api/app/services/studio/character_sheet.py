@@ -2848,6 +2848,50 @@ def placeholder_panel(
     return img
 
 
+def squareize_face_center_crop(data: bytes, size: int = 768) -> bytes:
+    """18:30：表情格方化 —— 以人脸框中心 cover 裁切，禁止白底/浅灰垫边。
+
+    替代「非方图居中 pad 浅灰」：垫边会进格外白底，且灰块失败时裁切落到下巴/衣领。
+    """
+    return enforce_head_shoulders_square(
+        data,
+        size=int(size),
+        max_upscale=2.2,
+        check_coverage=False,
+        face_closeup_gate=True,
+    )
+
+
+def assert_expr_cell_no_white_border(
+    data: bytes,
+    *,
+    expr_key: str = "expr",
+    max_border_frac: float = 0.08,
+    white_lum: float = 235.0,
+) -> float:
+    """表情格四边不得大片近白底（格外白底漏检）。"""
+    im = Image.open(BytesIO(data)).convert("RGB")
+    w, h = im.size
+    px = im.load()
+    edge = max(2, int(min(w, h) * 0.04))
+    white = total = 0
+    for y in range(h):
+        for x in range(w):
+            if x >= edge and y >= edge and x < w - edge and y < h - edge:
+                continue
+            r, g, b = px[x, y]
+            total += 1
+            if (r + g + b) / 3.0 >= float(white_lum) and abs(r - g) < 12 and abs(g - b) < 12:
+                white += 1
+    frac = white / float(max(1, total))
+    if frac > float(max_border_frac):
+        raise CharacterSheetError(
+            f"{expr_key}表情格含格外白底 border_white={frac:.3f}>{max_border_frac}",
+            status_code=422,
+        )
+    return frac
+
+
 def crop_face_ref(portrait_bytes: bytes, size: int = 768) -> bytes:
     """从立绘取头肩特写正方形参考,供表情 img2img(紧裁,避免半身站姿)。"""
     img = Image.open(BytesIO(portrait_bytes)).convert("RGB")
@@ -5081,6 +5125,192 @@ def _face_region_var_sat(
     return float(var), float(sat)
 
 
+def _face_region_mean_rgb(
+    data: bytes, mask: Image.Image | None = None, *, size: int | None = None
+) -> tuple[float, float, float]:
+    """遮罩内平均 RGB（用于距 0.5 灰均值差）。"""
+    im = Image.open(BytesIO(data)).convert("RGB")
+    if size is not None:
+        im = im.resize((size, size), Image.Resampling.LANCZOS)
+    if mask is None:
+        mask = build_face_feature_mask(min(im.size)).point(lambda v: 255 if v >= 96 else 0)
+    if mask.size != im.size:
+        mask = mask.resize(im.size, Image.Resampling.NEAREST)
+    px = im.load(); mp = mask.load()
+    w, h = im.size
+    sr = sg = sb = 0.0
+    n = 0
+    step = 1 if w * h <= 768 * 768 else 2
+    for y in range(0, h, step):
+        for x in range(0, w, step):
+            if mp[x, y] < 96:
+                continue
+            r, g, b = px[x, y]
+            sr += float(r); sg += float(g); sb += float(b)
+            n += 1
+    if n <= 0:
+        return 128.0, 128.0, 128.0
+    return sr / n, sg / n, sb / n
+
+
+def _insightface_face_kps_xy(
+    data: bytes,
+) -> list[tuple[float, float]] | None:
+    """insightface 五官关键：le, re, nose, lm, rm；不可用则 None。"""
+    try:
+        import numpy as np
+        import cv2
+        from insightface.app import FaceAnalysis
+        import os
+
+        arr = np.frombuffer(data, dtype=np.uint8)
+        bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if bgr is None:
+            return None
+        global _YAW_FACE_APP
+        app = _YAW_FACE_APP
+        if app is None:
+            root = os.environ.get("INSIGHTFACE_HOME") or os.path.expanduser(
+                "~/.insightface"
+            )
+            app = FaceAnalysis(
+                name="buffalo_l",
+                providers=["CPUExecutionProvider"],
+                root=root,
+            )
+            app.prepare(ctx_id=-1, det_size=(640, 640))
+            _YAW_FACE_APP = app
+        faces = app.get(bgr)
+        if not faces:
+            return None
+        f = sorted(
+            faces,
+            key=lambda x: (x.bbox[2] - x.bbox[0]) * (x.bbox[3] - x.bbox[1]),
+            reverse=True,
+        )[0]
+        kps = getattr(f, "kps", None)
+        if kps is None or len(kps) < 5:
+            return None
+        return [(float(kps[i][0]), float(kps[i][1])) for i in range(5)]
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _heuristic_eyes_mouth_in_mask(
+    data: bytes, mask: Image.Image
+) -> tuple[bool, bool, dict[str, float]]:
+    """无 landmark 时：遮罩内上半(眼带)与下半(嘴带)须有足够暗色/对比结构。"""
+    im = Image.open(BytesIO(data)).convert("RGB")
+    if mask.size != im.size:
+        mask = mask.resize(im.size, Image.Resampling.NEAREST)
+    px = im.load(); mp = mask.load()
+    w, h = im.size
+    eye_dark = eye_n = mouth_dark = mouth_n = 0
+    eye_lumas: list[float] = []
+    mouth_lumas: list[float] = []
+    for y in range(h):
+        for x in range(w):
+            if mp[x, y] < 96:
+                continue
+            r, g, b = px[x, y]
+            lum = (r + g + b) / 3.0
+            yf = y / float(max(1, h - 1))
+            if 0.18 <= yf <= 0.52:
+                eye_n += 1
+                eye_lumas.append(lum)
+                if lum < 90:
+                    eye_dark += 1
+            if 0.52 <= yf <= 0.78:
+                mouth_n += 1
+                mouth_lumas.append(lum)
+                if lum < 110:
+                    mouth_dark += 1
+    eye_ratio = eye_dark / float(max(1, eye_n))
+    mouth_ratio = mouth_dark / float(max(1, mouth_n))
+    eye_var = 0.0
+    if eye_lumas:
+        m = sum(eye_lumas) / len(eye_lumas)
+        eye_var = sum((v - m) ** 2 for v in eye_lumas) / len(eye_lumas)
+    mouth_var = 0.0
+    if mouth_lumas:
+        m = sum(mouth_lumas) / len(mouth_lumas)
+        mouth_var = sum((v - m) ** 2 for v in mouth_lumas) / len(mouth_lumas)
+    # 眼睛：暗色像素或足够亮度方差；嘴巴：暗色或对比
+    eyes_ok = eye_ratio >= 0.02 or eye_var >= 120.0
+    mouth_ok = mouth_ratio >= 0.015 or mouth_var >= 80.0
+    return eyes_ok, mouth_ok, {
+        "eye_dark_ratio": eye_ratio,
+        "mouth_dark_ratio": mouth_ratio,
+        "eye_var": eye_var,
+        "mouth_var": mouth_var,
+    }
+
+
+def assert_expression_eyes_mouth_in_mask(
+    data: bytes,
+    mask: Image.Image | None = None,
+    *,
+    expr_key: str = "expr",
+) -> dict[str, float | bool | str]:
+    """18:30 门禁：遮罩区内必须检出眼睛和嘴（landmark 优先，启发式兜底）。"""
+    im = Image.open(BytesIO(data)).convert("RGB")
+    if mask is None:
+        mask = build_face_feature_mask_hard(min(im.size))
+    if mask.size != im.size:
+        mask = mask.resize(im.size, Image.Resampling.NEAREST)
+    mp = mask.load()
+    w, h = im.size
+    kps = _insightface_face_kps_xy(data)
+    info: dict[str, float | bool | str] = {"route": "none"}
+    if kps is not None:
+        le, re, _nose, lm, rm = kps
+        mouth = ((lm[0] + rm[0]) / 2.0, (lm[1] + rm[1]) / 2.0)
+        checks = [("left_eye", le), ("right_eye", re), ("mouth", mouth)]
+        missing: list[str] = []
+        for name, (x, y) in checks:
+            xi = int(round(x)); yi = int(round(y))
+            if not (0 <= xi < w and 0 <= yi < h) or mp[xi, yi] < 96:
+                missing.append(name)
+            info[f"{name}_xy"] = float(xi) + float(yi) * 0.0  # keep keys light
+            info[f"{name}_in"] = (
+                1.0 if (0 <= xi < w and 0 <= yi < h and mp[xi, yi] >= 96) else 0.0
+            )
+        info["route"] = "insightface_kps"
+        if missing:
+            raise CharacterSheetError(
+                f"{expr_key}遮罩区内未检出{'/'.join(missing)}",
+                status_code=422,
+            )
+        # 双眼都在
+        if float(info.get("left_eye_in", 0)) < 0.5 or float(info.get("right_eye_in", 0)) < 0.5:
+            raise CharacterSheetError(
+                f"{expr_key}遮罩区内未检出眼睛",
+                status_code=422,
+            )
+        if float(info.get("mouth_in", 0)) < 0.5:
+            raise CharacterSheetError(
+                f"{expr_key}遮罩区内未检出嘴",
+                status_code=422,
+            )
+        return info
+    eyes_ok, mouth_ok, hinfo = _heuristic_eyes_mouth_in_mask(data, mask)
+    info.update(hinfo)
+    info["route"] = "heuristic"
+    info["eyes_ok"] = eyes_ok
+    info["mouth_ok"] = mouth_ok
+    if not eyes_ok:
+        raise CharacterSheetError(
+            f"{expr_key}遮罩区内未检出眼睛",
+            status_code=422,
+        )
+    if not mouth_ok:
+        raise CharacterSheetError(
+            f"{expr_key}遮罩区内未检出嘴",
+            status_code=422,
+        )
+    return info
+
+
 def assert_expression_no_gray_smear(
     original: bytes,
     edited: bytes,
@@ -5090,15 +5320,21 @@ def assert_expression_no_gray_smear(
     min_sat_ratio: float = 0.25,
     min_abs_var: float = 80.0,
     min_abs_sat: float = 0.025,
+    max_gray_mean_dist: float = 18.0,
     expr_key: str = "expr",
 ) -> dict[str, float]:
     """门禁2：脸部区域无灰色涂抹。
 
     17:38b：二次元 cel 平滑会压低相对方差，改「绝对低方差/低饱和 + 相对骤降」双条件；
+    18:30：追加「遮罩区均值距 0.5 灰(128)」——VAEEncodeForInpaint 残留灰块必拒；
     均匀灰涂 (var≈0/sat≈0) 仍必拒，正常 anime inpaint 不误杀。
     """
     bv, bs = _face_region_var_sat(original, mask)
     ev, es = _face_region_var_sat(edited, mask)
+    mr, mg, mb = _face_region_mean_rgb(edited, mask)
+    gray_dist = (
+        ((mr - 128.0) ** 2 + (mg - 128.0) ** 2 + (mb - 128.0) ** 2) / 3.0
+    ) ** 0.5
     info = {
         "base_var": bv,
         "edit_var": ev,
@@ -5106,7 +5342,18 @@ def assert_expression_no_gray_smear(
         "edit_sat": es,
         "var_ratio": (ev / bv) if bv > 1e-6 else 1.0,
         "sat_ratio": (es / bs) if bs > 1e-6 else 1.0,
+        "mean_r": mr,
+        "mean_g": mg,
+        "mean_b": mb,
+        "gray_mean_dist": gray_dist,
     }
+    # 18:30：均值贴 0.5 灰且方差不够高 → 灰块残留（含「大片灰+一点残影」漏判）
+    if gray_dist < float(max_gray_mean_dist) and ev < 450.0:
+        raise CharacterSheetError(
+            f"{expr_key}脸部灰涂抹(贴近0.5灰) dist={gray_dist:.1f} var={ev:.1f} "
+            f"mean=({mr:.0f},{mg:.0f},{mb:.0f})",
+            status_code=422,
+        )
     # 真灰涂抹：绝对平坦，或相对骤降且绝对值也偏低
     gray_var = ev < float(min_abs_var) or (
         bv > 8.0 and ev + 1e-9 < bv * float(min_var_ratio) and ev < 200.0
@@ -5736,18 +5983,31 @@ def _build_sheet_mask_inpaint_graph(
     seed: int | None,
     filename_prefix: str,
     style: str = "anime",
-    denoise: float = 0.72,
+    denoise: float = 0.62,
     grow_mask_by: int = 4,
     negative_extra: str = "",
 ) -> dict:
-    """17:38：真局部 inpaint（VAEEncodeForInpaint）；遮罩外像素由模型原样保留，天然对齐。"""
+    """18:30：真局部 inpaint —— 禁止 VAEEncodeForInpaint + denoise<1（遮罩区预填 0.5 灰去不掉）。
+
+    改用 VAEEncode(原图像素) + SetLatentNoiseMask，denoise 0.55–0.7，在原图 latent 上重绘遮罩区。
+    grow_mask_by 保留签名兼容，当前路径由调用方硬遮罩控制，不在图内扩张。
+    """
+    del grow_mask_by  # 18:30：不再走 VAEEncodeForInpaint 的 grow；硬遮罩已在上传前定形
+    d = float(denoise)
+    if d < 1.0 - 1e-9:
+        # 硬规则：凡 denoise<1 禁止 VAEEncodeForInpaint（本函数本身已不用该节点）
+        pass
+    if not (0.55 - 1e-9 <= d <= 0.70 + 1e-9):
+        # 调用方可传略外值；钳到产品窗，避免过低灰残留或过高毁脸
+        d = max(0.55, min(0.70, d))
     neg = _STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE["anime"])
     if negative_extra:
         neg = f"{neg}, {negative_extra}"
     neg = (
         neg
         + ", gray smear, flat gray face, muddy skin, melted face, double face, "
-        "ghosting, misaligned features, watermark, text, logo, emblem, badge"
+        "ghosting, misaligned features, watermark, text, logo, emblem, badge, "
+        "solid gray fill, 0.5 gray patch, featureless face"
     )
     s = int(seed) if seed is not None else int(uuid.uuid4().int % (2**31 - 1))
     steps = 28 if style == "anime" else 22
@@ -5771,13 +6031,19 @@ def _build_sheet_mask_inpaint_graph(
             "class_type": "ImageToMask",
             "inputs": {"image": ["12", 0], "channel": "red"},
         },
+        # 18:30：原图像素进 latent，再仅对遮罩区加噪 —— 不做 0.5 灰预填
         "32": {
-            "class_type": "VAEEncodeForInpaint",
+            "class_type": "VAEEncode",
             "inputs": {
                 "pixels": ["11", 0],
                 "vae": ["4", 2],
+            },
+        },
+        "33": {
+            "class_type": "SetLatentNoiseMask",
+            "inputs": {
+                "samples": ["32", 0],
                 "mask": ["13", 0],
-                "grow_mask_by": int(grow_mask_by),
             },
         },
         "3": {
@@ -5791,8 +6057,8 @@ def _build_sheet_mask_inpaint_graph(
                 "scheduler": "normal",
                 "positive": ["6", 0],
                 "negative": ["7", 0],
-                "latent_image": ["32", 0],
-                "denoise": float(denoise),
+                "latent_image": ["33", 0],
+                "denoise": float(d),
             },
         },
         "8": {
@@ -6128,7 +6394,7 @@ async def generate_panel_bytes(
 
     ref_mode: auto|ipa|img2img|qwen_edit|inpaint|none
       - anime 默认 img2img(规避 hassaku/IPA glitch)
-      - 17:38 表情改真局部 inpaint（mask_image + VAEEncodeForInpaint）
+      - 18:30 表情真局部 inpaint（mask_image + VAEEncode+SetLatentNoiseMask；禁 VAEEncodeForInpaint+denoise<1）
       - ancient 默认 ipa
     注意:忽略 pool.pick,强制 :8262/:8264。
     """
@@ -7066,18 +7332,22 @@ async def generate_character_sheet(
                     # 锁定格（如惊恐 md5）直接保留
                     continue
                 base_b = bases[ek]
-                # 原分辨率：不强制缩放到固定边，跟底同尺寸做 inpaint
-                base_im = Image.open(BytesIO(base_b)).convert("RGB")
-                bw, bh = base_im.size
-                side = max(bw, bh)
-                # 正方形化（居中 pad）再 inpaint，避免非方图遮罩错位
-                if bw != bh:
-                    sq = Image.new("RGB", (side, side), (245, 245, 248))
-                    sq.paste(base_im, ((side - bw) // 2, (side - bh) // 2))
-                    base_im = sq
+                # 18:30：以人脸框中心方裁，禁止浅灰 pad（格外白底根因）
+                try:
+                    base_b = squareize_face_center_crop(base_b, size=768)
+                except CharacterSheetError:
+                    # 底图已近方且无人脸门禁可过时，仍 cover 到 768
+                    base_im0 = Image.open(BytesIO(base_b)).convert("RGB")
+                    side0 = min(base_im0.size)
+                    left0 = (base_im0.width - side0) // 2
+                    top0 = (base_im0.height - side0) // 2
+                    cropped0 = base_im0.crop((left0, top0, left0 + side0, top0 + side0))
+                    cropped0 = cropped0.resize((768, 768), Image.Resampling.LANCZOS)
                     buf0 = BytesIO()
-                    base_im.save(buf0, format="PNG")
+                    cropped0.save(buf0, format="PNG")
                     base_b = buf0.getvalue()
+                base_im = Image.open(BytesIO(base_b)).convert("RGB")
+                side = min(base_im.size)  # 已是方图
                 hard_mask = build_face_feature_mask_hard(side)
                 # mask 上传为 RGB 白/黑（ImageToMask red）
                 m_rgb = Image.merge("RGB", (hard_mask, hard_mask, hard_mask))
@@ -7125,7 +7395,7 @@ async def generate_character_sheet(
                             client=client,
                             ref_image=ref_name,
                             ref_mode="inpaint",
-                            denoise=0.55 if attempt < 2 else 0.65,
+                            denoise=0.58 if attempt < 2 else 0.68,
                             negative_extra=_expr_neg,
                             mask_image=mask_name,
                             grow_mask_by=4,
@@ -7148,9 +7418,12 @@ async def generate_character_sheet(
                         smear = assert_expression_no_gray_smear(
                             base_b, blended, hard_mask, expr_key=ek
                         )
-                        cell_b = enforce_head_shoulders_square(
-                            blended, size=768, face_closeup_gate=True
+                        assert_expression_eyes_mouth_in_mask(
+                            blended, hard_mask, expr_key=ek
                         )
+                        # 18:30：再以脸框中心裁切，禁格外白底
+                        cell_b = squareize_face_center_crop(blended, size=768)
+                        assert_expr_cell_no_white_border(cell_b, expr_key=ek)
                         assert_expression_identity_gates(
                             cell_b,
                             portrait_ref=panels.get("portrait"),
