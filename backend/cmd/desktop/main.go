@@ -34,9 +34,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if out, ok := smokeReportPath(os.Args[1:]); ok {
+		os.Exit(runToIVSmoke(dataDir, out)) // CI launch smoke: headless, see toiv_smoke.go
+	}
 	app := newDesktopApp(dataDir)
 	gate := app.enableToIV(dataDir)
 	toivAllowPrivateUpstream(gate.apiBase())
+	toivAllowPrivateUpstream(gate.llmBase())
 	if os.Getenv("ENABLE_PROVIDER_PLUGINS") == "" {
 		_ = os.Setenv("ENABLE_PROVIDER_PLUGINS", "true") // bundled toiv-h3 is a provider plugin
 	}

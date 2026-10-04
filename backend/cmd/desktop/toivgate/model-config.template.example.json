@@ -179,8 +179,8 @@
   },
   {
    "apiFormat": "openai",
-   "apiKey": "lm-studio",
-   "baseUrl": "http://192.168.71.84:8000/v1",
+   "apiKey": "",
+   "baseUrl": "https://toiv.wineryz.top/api/llm/v1",
    "enabled": true,
    "headers": [],
    "id": "toiv-llm",

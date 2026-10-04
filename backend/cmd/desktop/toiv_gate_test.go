@@ -95,6 +95,7 @@ func TestToIVDesktopServe(t *testing.T) {
 	app := newDesktopApp(root)
 	g := app.enableToIV(root)
 	toivAllowPrivateUpstream(g.apiBase())
+	toivAllowPrivateUpstream(g.llmBase())
 	t.Setenv("ENABLE_PROVIDER_PLUGINS", "true")
 	if err := prepareDesktopApp(app); err != nil {
 		t.Fatal(err)
@@ -113,4 +114,45 @@ func TestToIVDesktopServe(t *testing.T) {
 		chain.ServeHTTP(w, r)
 	})}
 	_ = srv.Serve(ln)
+}
+
+func TestToIVLLMBase(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("TOIV_API_BASE", "")
+	t.Setenv("TOIV_LLM_BASE", "")
+	// Default API base without /api/llm/v1 (404) -> interim proxy; once ToIV serves it (401) -> derived.
+	missing := httptest.NewServer(http.NotFoundHandler())
+	defer missing.Close()
+	served := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/llm/v1/models" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer served.Close()
+	orig := defaultToIVAPIBase
+	defer func() { defaultToIVAPIBase = orig }()
+	defaultToIVAPIBase = missing.URL
+	g := newToIVGate(root)
+	if got := g.llmBase(); got != interimToIVLLMBase {
+		t.Fatalf("default llmBase without ToIV endpoint = %q", got)
+	}
+	defaultToIVAPIBase = served.URL
+	if got := g.llmBase(); got != served.URL+"/api/llm/v1" {
+		t.Fatalf("default llmBase with ToIV endpoint = %q", got)
+	}
+	defaultToIVAPIBase = orig
+	t.Setenv("TOIV_API_BASE", "https://toiv.example.test")
+	if got := g.llmBase(); got != "https://toiv.example.test/api/llm/v1" {
+		t.Fatalf("derived llmBase = %q", got)
+	}
+	t.Setenv("TOIV_LLM_BASE", "https://x.example/v1/")
+	if got := g.llmBase(); got != "https://x.example/v1" {
+		t.Fatalf("env llmBase = %q", got)
+	}
+	raw, _ := toivGateFS.ReadFile("toivgate/model-config.template.example.json")
+	if strings.Contains(string(raw), "192.168.") {
+		t.Fatal("embedded template must not carry an internal LLM address")
+	}
 }

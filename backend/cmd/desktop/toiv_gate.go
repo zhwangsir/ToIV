@@ -3,7 +3,7 @@ package main
 // ToIV desktop login (M4-1).
 //
 // The desktop app is a ToIV client: before the canvas UI loads the user signs in with their
-// ToIV account (proxied to the ToIV API, default http://100.77.80.100:8090, override with
+// ToIV account (proxied to the ToIV API, default https://toiv.wineryz.top, override with
 // TOIV_API_BASE or <root>/toiv.json {"apiBase": "..."}). Each ToIV user gets an isolated
 // local workspace (<root>/users/<uid>), the bundled toiv-h3 plugin channel is provisioned
 // with that user's JWT so H3 jobs run as them in ToIV, and the session token is stored at
@@ -38,7 +38,11 @@ import (
 //go:embed toivgate/*.html toivgate/*.json
 var toivGateFS embed.FS
 
-const defaultToIVAPIBase = "http://100.77.80.100:8090"
+// defaultToIVAPIBase is the public ToIV API (the only legal domain); a var so tests can point it at a stub.
+var defaultToIVAPIBase = "https://toiv.wineryz.top"
+
+// interimToIVLLMBase: the BeefTV staging gate serves the /api/llm/v1 contract until ToIV deploys it.
+const interimToIVLLMBase = "http://100.77.80.100:8271/__toiv/llm/v1"
 
 var (
 	errToIVNotLoggedIn = errors.New("请先登录 ToIV 账号")
@@ -64,6 +68,9 @@ type toivGate struct {
 
 	mu      sync.RWMutex
 	session *toivSession
+
+	llmProbeMu sync.Mutex
+	llmProbe   map[string]bool // apiBase -> ToIV serves /api/llm/v1 (probed once per process)
 }
 
 func newToIVGate(root string) *toivGate {
@@ -83,6 +90,52 @@ func (g *toivGate) apiBase() string {
 		}
 	}
 	return defaultToIVAPIBase
+}
+
+// llmBase is the OpenAI-compatible LLM endpoint the assistant channel ("toiv-llm") uses, authenticated
+// with the user's ToIV JWT. The internal LLM address is never configured on the client.
+//   TOIV_LLM_BASE > toiv.json "llmBase" > <apiBase>/api/llm/v1 when ToIV serves it
+//   > interim staging gate proxy (default API base only, until ToIV deploys feat/llm-proxy).
+func (g *toivGate) llmBase() string {
+	if v := strings.TrimRight(strings.TrimSpace(os.Getenv("TOIV_LLM_BASE")), "/"); v != "" {
+		return v
+	}
+	var cfg struct {
+		LLMBase string `json:"llmBase"`
+	}
+	if raw, err := os.ReadFile(filepath.Join(g.root, "toiv.json")); err == nil && json.Unmarshal(raw, &cfg) == nil {
+		if v := strings.TrimRight(strings.TrimSpace(cfg.LLMBase), "/"); v != "" {
+			return v
+		}
+	}
+	base := g.apiBase()
+	if base == defaultToIVAPIBase && !g.servesLLM(base) {
+		// Until ToIV deploys /api/llm/v1 (branch feat/llm-proxy), the staging gate serves the same contract.
+		return interimToIVLLMBase
+	}
+	return base + "/api/llm/v1"
+}
+
+// servesLLM reports whether <base>/api/llm/v1 exists (any answer but 404, e.g. 401 without a token).
+// Unreachable counts as "no" so the interim proxy keeps the assistant usable.
+func (g *toivGate) servesLLM(base string) bool {
+	g.llmProbeMu.Lock()
+	defer g.llmProbeMu.Unlock()
+	if v, ok := g.llmProbe[base]; ok {
+		return v
+	}
+	ok := false
+	client := &http.Client{Timeout: 4 * time.Second}
+	if resp, err := client.Get(base + "/api/llm/v1/models"); err == nil {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		_ = resp.Body.Close()
+		ok = resp.StatusCode != http.StatusNotFound && resp.StatusCode < 500
+	}
+	if g.llmProbe == nil {
+		g.llmProbe = map[string]bool{}
+	}
+	g.llmProbe[base] = ok
+	return ok
 }
 
 func (g *toivGate) sessionPath() string { return filepath.Join(g.root, "session.json") }
@@ -305,12 +358,14 @@ func (a *DesktopApp) provisionToIVChannels(ctx context.Context, s *toivSession) 
 		Provisioned bool   `json:"provisioned"`
 		TokenHash   string `json:"tokenHash"`
 		APIBase     string `json:"apiBase"`
+		LLMBase     string `json:"llmBase"`
 	}
 	if raw, err := os.ReadFile(stateFile); err == nil {
 		_ = json.Unmarshal(raw, &st)
 	}
 	base := a.gate().apiBase()
-	if st.Provisioned && st.TokenHash == tokenHash(s.Token) && st.APIBase == base {
+	llm := a.gate().llmBase()
+	if st.Provisioned && st.TokenHash == tokenHash(s.Token) && st.APIBase == base && st.LLMBase == llm {
 		return nil
 	}
 	status, raw := a.localAPI(ctx, http.MethodGet, "/api/workspace/model-config", nil)
@@ -363,6 +418,11 @@ func (a *DesktopApp) provisionToIVChannels(ctx context.Context, s *toivSession) 
 		if !ok {
 			continue
 		}
+		if m["id"] == "toiv-llm" {
+			m["apiKey"] = s.Token // the ToIV LLM proxy authenticates the user's own JWT
+			m["baseUrl"] = llm
+			continue
+		}
 		profiles, _ := m["modelProfiles"].([]any)
 		for _, p := range profiles {
 			pm, _ := p.(map[string]any)
@@ -377,7 +437,7 @@ func (a *DesktopApp) provisionToIVChannels(ctx context.Context, s *toivSession) 
 	if status != http.StatusOK {
 		return fmt.Errorf("写入 ToIV 渠道失败（%d）：%s", status, strings.TrimSpace(string(raw)))
 	}
-	st.Provisioned, st.TokenHash, st.APIBase = true, tokenHash(s.Token), base
+	st.Provisioned, st.TokenHash, st.APIBase, st.LLMBase = true, tokenHash(s.Token), base, llm
 	out, _ := json.Marshal(st)
 	return os.WriteFile(stateFile, out, 0o600)
 }
