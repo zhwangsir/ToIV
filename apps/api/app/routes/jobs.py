@@ -539,17 +539,23 @@ def bulk_delete_jobs(
 
 @router.get("/jobs/lookup")
 def lookup_job(
-    prompt_id: str = Query(min_length=1),
+    prompt_id: str | None = Query(default=None, min_length=1),
+    job_id: str | None = Query(default=None, min_length=1),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """按 prompt_id 精确查单条作业(2026-08-29 性能:编辑器轮询从全量 200 条降到 1 条)。
+    """按 prompt_id 或 job_id 精确查单条作业(二选一;外部画布后端重启后凭 job_id 续跟踪)(2026-08-29 性能:编辑器轮询从全量 200 条降到 1 条)。
 
     仅本人可见(404 不泄露存在性);R18 门控与 /jobs 列表同口径。
     路由顺序:本端点注册先于 /jobs/{prompt_id}/events 等参数化路由,
     静态段 lookup 优先命中,无遮蔽。
     """
-    job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+    if bool(prompt_id) == bool(job_id):
+        raise HTTPException(status_code=422, detail="prompt_id 与 job_id 须且只能传一个")
+    if job_id:
+        job = session.exec(select(Job).where(Job.id == job_id)).first()
+    else:
+        job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
     if not job or job.user_id != user.id or job.deleted_at is not None:
         raise HTTPException(status_code=404, detail="作业不存在")
     if job.nsfw and not nsfw_allowed(user):

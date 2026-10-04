@@ -531,3 +531,23 @@ def test_cancel_first_segment_propagates_to_extend_segments(ctx, monkeypatch):
     with Session(engine) as s:
         seg = s.exec(select(Job).where(Job.prompt_id == "h3-ext-1")).first()
         assert seg.status == "canceled"
+
+
+def test_lookup_by_job_id_owner_only_and_param_rules(ctx):
+    """/jobs/lookup 接受 job_id(外部画布后端重启续跟踪);非本人 404;两参数都传/都不传 422。"""
+    client, token, *_rest = ctx
+    engine = ctx[-1]
+    with Session(engine) as s:
+        j = _mk_job(s, "alice@toiv.ai", "lookup-jobid-1", status="queued")
+        other = _mk_job(s, "bob@toiv.ai", "lookup-jobid-2", status="queued")
+        jid, oid = j.id, other.id
+    r = client.get(f"/api/jobs/lookup?job_id={jid}", headers=_h(token))
+    assert r.status_code == 200, r.text
+    assert r.json()["prompt_id"] == "lookup-jobid-1"
+    assert client.get(f"/api/jobs/lookup?job_id={oid}", headers=_h(token)).status_code == 404
+    assert client.get("/api/jobs/lookup?job_id=nope", headers=_h(token)).status_code == 404
+    assert client.get("/api/jobs/lookup", headers=_h(token)).status_code == 422
+    assert client.get(
+        f"/api/jobs/lookup?job_id={jid}&prompt_id=lookup-jobid-1", headers=_h(token)
+    ).status_code == 422
+    assert client.get("/api/jobs/lookup?prompt_id=lookup-jobid-1", headers=_h(token)).status_code == 200
