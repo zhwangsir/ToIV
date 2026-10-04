@@ -975,9 +975,10 @@ def ancient_spec_negative(meta: SheetMeta) -> str:
     if meta.style != "ancient_realistic":
         return ""
     spec = extract_ancient_costume_spec(meta)
+    acc_neg = ancient_accessory_prompt_fix(meta)["neg"]
     if not spec["colors"] or spec["black_gold"]:
-        return ""
-    return _ANCIENT_BLACK_GOLD_NEGATIVE
+        return acc_neg
+    return f"{_ANCIENT_BLACK_GOLD_NEGATIVE}, {acc_neg}" if acc_neg else _ANCIENT_BLACK_GOLD_NEGATIVE
 
 
 def ancient_spec_target_hex(meta: SheetMeta) -> str | None:
@@ -1032,6 +1033,209 @@ def ancient_spec_palette(meta: SheetMeta, colors: list[str]) -> list[str]:
         and (sp["black_gold"] or _hex_dist(c, "#D4AF37") >= 90)
     ]
     return ["#E8C4A8"] + spec_hex + rest
+
+
+# ---------------------------------------------------------------------------
+# 10/05 沈青禾:存量色板(黑金)与 spec 明确衣色(青)冲突 → 以 spec 为准重生成并记日志
+# ---------------------------------------------------------------------------
+ANCIENT_SKIN_HEX = "#E8C4A8"
+ANCIENT_HAIR_HEX = "#3B2F2A"  # 墨褐发色(非纯黑,避免被当成黑袍色)
+_ANCIENT_GOLD_HEX = "#D4AF37"
+# (中文关键字, 色板 hex);先匹配先占位
+_ANCIENT_ACCESSORY_HEX: tuple[tuple[str, str], ...] = (
+    ("木簪", "#A0764A"),
+    ("玉簪", "#9FC8A8"),
+    ("银簪", "#C0C0C8"),
+    ("金簪", "#D4AF37"),
+    ("油纸伞", "#E6D8B8"),
+    ("纸伞", "#E6D8B8"),
+    ("药箱", "#8B6A44"),
+    ("药篓", "#B89A6A"),
+)
+
+
+def _hex_hsv(hx: str) -> tuple[float, float, float]:
+    r, g, b = (int(hx[i : i + 2], 16) / 255.0 for i in (1, 3, 5))
+    return colorsys.rgb_to_hsv(r, g, b)
+
+
+def _hsv_hex(h: float, s: float, v: float) -> str:
+    r, g, b = colorsys.hsv_to_rgb(h % 1.0, max(0.0, min(1.0, s)), max(0.0, min(1.0, v)))
+    return f"#{round(r * 255):02X}{round(g * 255):02X}{round(b * 255):02X}"
+
+
+def _is_near_black_hex(hx: str) -> bool:
+    return max(int(hx[1:3], 16), int(hx[3:5], 16), int(hx[5:7], 16)) < 40
+
+
+def _is_near_gold_hex(hx: str) -> bool:
+    return _hex_dist(hx, _ANCIENT_GOLD_HEX) < 90
+
+
+def _near_spec_hue(hx: str, target: str, max_deg: float | None = None) -> bool:
+    if max_deg is None:
+        max_deg = SPEC_COLOR_MAX_HUE_DEG
+    h, s, v = _hex_hsv(hx)
+    th, _ts, _tv = _hex_hsv(target)
+    if s < 0.15 or v < 0.18:
+        return False
+    d = abs(h - th) * 360.0
+    return min(d, 360.0 - d) <= max_deg
+
+
+def ancient_palette_from_spec(meta: SheetMeta) -> list[str]:
+    """按 spec 衣色/饰品生成古风色板:肤色 + 衣色(主/浅/深) + 饰品色 + 发色;≤6。spec 无衣色 → []。"""
+    sp = extract_ancient_costume_spec(meta)
+    if not sp["colors"]:
+        return []
+    out: list[str] = [ANCIENT_SKIN_HEX]
+    main = sp["colors"][0]["hex"]
+    out.append(main)
+    h, s, v = _hex_hsv(main)
+    if s >= 0.15:
+        out.append(_hsv_hex(h, s * 0.55, min(1.0, v + 0.25)))  # 浅衣色(衬里/腰带)
+    for c in sp["colors"][1:3]:
+        if c["hex"] not in out:
+            out.append(c["hex"])
+    text = _ancient_spec_text(meta)
+    rest = text
+    for zh, hx in _ANCIENT_ACCESSORY_HEX:
+        if zh in rest:
+            rest = rest.replace(zh, " ")
+            if hx not in out and (sp["black_gold"] or not _is_near_gold_hex(hx)):
+                out.append(hx)
+    if ANCIENT_HAIR_HEX not in out:
+        out.append(ANCIENT_HAIR_HEX)
+    return out[:6]
+
+
+def ancient_palette_conflict_reasons(meta: SheetMeta, colors: list[str]) -> list[str]:
+    """存量色板与 spec 明确衣色冲突的原因;无冲突/无 spec 衣色/spec 本身黑金 → []。"""
+    if meta.style != "ancient_realistic":
+        return []
+    sp = extract_ancient_costume_spec(meta)
+    if not sp["colors"] or sp["black_gold"]:
+        return []
+    cols = [c for c in (_normalize_hex(x) for x in colors or []) if c]
+    if not cols:
+        return []
+    target = sp["colors"][0]["hex"]
+    reasons: list[str] = []
+    blacks = [c for c in cols if _is_near_black_hex(c)]
+    golds = [c for c in cols if _is_near_gold_hex(c)]
+    if blacks:
+        reasons.append(f"near_black={blacks}")
+    if golds:
+        reasons.append(f"near_gold={golds}")
+    if _hex_hsv(target)[1] >= 0.2 and not any(_near_spec_hue(c, target) for c in cols):
+        reasons.append(f"no_color_near_spec={target}")
+    return reasons
+
+
+def resolve_ancient_palette(
+    meta: SheetMeta, colors: list[str], *, source: str = "sheet"
+) -> list[str]:
+    """古风色板裁决:存量色板与 spec 衣色冲突 → spec 胜出,按 spec 重生成并 WARNING;否则沿用 ancient_spec_palette。"""
+    if meta.style != "ancient_realistic":
+        return list(colors)
+    reasons = ancient_palette_conflict_reasons(meta, colors)
+    if reasons:
+        regen = ancient_palette_from_spec(meta)
+        if regen:
+            logger.warning(
+                "ancient palette conflict source=%s name=%s stored=%s spec=%s reasons=%s → regenerated from spec %s",
+                source,
+                meta.name,
+                list(colors)[:6],
+                [c["zh"] for c in extract_ancient_costume_spec(meta)["colors"]],
+                "; ".join(reasons),
+                regen,
+            )
+            return regen
+    return ancient_spec_palette(meta, list(colors))
+
+
+# 古风饰品:木簪须木质(非金/铜/金属);油纸伞须握在手中(主立绘禁漂浮在头后)
+_ANCIENT_WOOD_HAIRPIN_POS = "(plain brown wooden hair stick, matte wood grain hairpin:1.2)"
+_ANCIENT_WOOD_HAIRPIN_NEG = (
+    "gold hairpin, golden hair ornament, metal hairpin, brass hair ring, "
+    "bronze hair crown, gold headdress, jeweled hairpin"
+)
+_ANCIENT_UMBRELLA_HELD_POS = (
+    "(closed oil-paper umbrella held in her hand by the bamboo handle:1.2), "
+    "umbrella handle gripped in hand"
+)
+_ANCIENT_UMBRELLA_HELD_NEG = (
+    "floating umbrella, umbrella floating behind head, umbrella as halo, "
+    "detached umbrella, umbrella not held, umbrella attached to hair"
+)
+
+
+def ancient_accessory_prompt_fix(meta: SheetMeta) -> dict[str, Any]:
+    """spec 含 木簪/油纸伞 → 加正向(木质/握在手中)与负向(金属发饰/漂浮伞);仅 ancient_realistic。"""
+    out: dict[str, Any] = {"pos": "", "neg": "", "wooden_hairpin": False, "umbrella_in_hand": False}
+    if meta.style != "ancient_realistic":
+        return out
+    sp = extract_ancient_costume_spec(meta)
+    pos: list[str] = []
+    neg: list[str] = []
+    if "(wooden hairpin:1.2)" in sp["hair_accessory_tags"]:
+        out["wooden_hairpin"] = True
+        pos.append(_ANCIENT_WOOD_HAIRPIN_POS)
+        neg.append(_ANCIENT_WOOD_HAIRPIN_NEG)
+    if any("umbrella" in t for t in sp["accessory_tags"]):
+        out["umbrella_in_hand"] = True
+        pos.append(_ANCIENT_UMBRELLA_HELD_POS)
+        neg.append(_ANCIENT_UMBRELLA_HELD_NEG)
+    out["pos"] = ", ".join(pos)
+    out["neg"] = ", ".join(neg)
+    return out
+
+
+# 主立绘发饰区金色占比上限(木簪 spec);超过视为金属/金发饰 → 换 seed
+HAIRPIN_GOLD_MAX_FRAC = 0.06
+
+
+def hair_ornament_gold_frac(data: bytes) -> dict[str, Any]:
+    """主立绘头顶发饰区(脸框上方)金色/黄铜色像素占比;找不到脸 → frac=None(不门禁)。"""
+    im = Image.open(BytesIO(data)).convert("RGB")
+    bb = _face_bbox_for_center(im)
+    if bb is None:
+        return {"frac": None, "box": None}
+    x0, y0, x1, y1 = bb
+    fw, fh = max(1, x1 - x0), max(1, y1 - y0)
+    w, h = im.size
+    box = (
+        max(0, int(x0 - 0.35 * fw)),
+        max(0, int(y0 - 0.75 * fh)),
+        min(w, int(x1 + 0.35 * fw)),
+        min(h, int(y0 + 0.20 * fh)),
+    )
+    if box[2] <= box[0] or box[3] <= box[1]:
+        return {"frac": None, "box": box}
+    reg = im.crop(box)
+    reg.thumbnail((128, 128))
+    n = gold = 0
+    for r, g, b in list(reg.getdata()):
+        n += 1
+        hh, ss, vv = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+        if 36.0 <= hh * 360.0 <= 60.0 and ss >= 0.40 and vv >= 0.50:
+            gold += 1
+    return {"frac": (gold / n) if n else 0.0, "box": box}
+
+
+def assert_hairpin_not_gold(data: bytes, meta: SheetMeta, *, label: str = "主立绘") -> dict[str, Any]:
+    """木簪 spec:发饰区金色占比 > 上限 → CharacterSheetError(422)。非木簪/无脸 → 放行。"""
+    if not ancient_accessory_prompt_fix(meta)["wooden_hairpin"]:
+        return {"frac": None, "skipped": True}
+    st = hair_ornament_gold_frac(data)
+    frac = st.get("frac")
+    if frac is not None and frac > HAIRPIN_GOLD_MAX_FRAC:
+        raise CharacterSheetError(
+            f"饰品门禁失败:{label}发饰区金色占比{frac:.3f}>{HAIRPIN_GOLD_MAX_FRAC}(spec 木簪),重出",
+            status_code=422,
+        )
+    return st
 
 
 def _strip_cjk_for_sd(text: str) -> str:
@@ -1314,6 +1518,10 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
         else:
             head_bit = "simple black hair bun, minimal plain hair accessories, face fully visible"
         back_head = "ONLY back of head and hair bun, NO face NO eyes"
+        _acc = ancient_accessory_prompt_fix(meta)
+        if _acc["pos"]:
+            head_bit = f"{head_bit}, {_acc['pos']}"
+            outfit = f"{outfit}, {_acc['pos']}"
     else:
         outfit = (
             "same character same slate-gray #5A6A7A long knee-length hooded raincoat with long sleeves and hood, "
@@ -3233,7 +3441,7 @@ def compose_character_sheet(
     if meta.style == "ancient_realistic":
         if extract_ancient_costume_spec(meta)["colors"]:
             # 色板跟 spec 衣色走;非黑金 spec 剔除近金色(卡面深底金字主题不变)
-            colors = ancient_spec_palette(meta, colors)
+            colors = resolve_ancient_palette(meta, colors, source="sheet_compose")
         else:
             for must in ("#E8C4A8", "#D4AF37"):
                 if must not in colors:
@@ -8948,6 +9156,12 @@ async def generate_character_sheet(
 
     prompts = build_panel_prompts(meta)
     _ANCIENT_SPEC_NEG_CTX.set(ancient_spec_negative(meta))
+    _acc_fix = ancient_accessory_prompt_fix(meta)
+    if _acc_fix["pos"]:
+        logger.info(
+            "ancient accessory prompt fix name=%s wooden_hairpin=%s umbrella_in_hand=%s",
+            meta.name, _acc_fix["wooden_hairpin"], _acc_fix["umbrella_in_hand"],
+        )
     panels: dict[str, bytes] = dict(panels_override or {})
     override_keys: set[str] = set(panels.keys())  # 17:47：母版注入格跳过一切 panel 门禁
     _expr_lock_meta: dict[str, dict] = {
@@ -9159,6 +9373,24 @@ async def generate_character_sheet(
                             color_e,
                         )
                         continue
+                if meta.style == "ancient_realistic" and ancient_accessory_prompt_fix(meta)["wooden_hairpin"]:
+                    # 软检(仅日志):实测黄铜环与木色色相重叠(≈31–34°)且线上无 InsightFace 时脸框不可靠,
+                    # 不据此换 seed;木簪/持伞靠正负向提示词加固(ancient_accessory_prompt_fix)。
+                    try:
+                        _hp = hair_ornament_gold_frac(panels["portrait"])
+                        _f = _hp.get("frac")
+                        if _f is not None and _f > HAIRPIN_GOLD_MAX_FRAC:
+                            logger.warning(
+                                "portrait ancient hairpin soft check: gold_frac=%.3f>%s (spec 木簪) attempt=%s box=%s; log only",
+                                _f, HAIRPIN_GOLD_MAX_FRAC, attempt, _hp.get("box"),
+                            )
+                        else:
+                            logger.info(
+                                "portrait ancient hairpin soft check ok attempt=%s gold_frac=%s",
+                                attempt, _f,
+                            )
+                    except Exception as acc_e:  # noqa: BLE001
+                        logger.warning("portrait ancient hairpin soft check error: %s", acc_e)
                 break
             except CharacterSheetError as e:
                 last_err = e
@@ -13588,6 +13820,12 @@ async def regenerate_sheet_panels(
     meta.design_notes = build_design_notes(meta)
     prompts = build_panel_prompts(meta)
     _ANCIENT_SPEC_NEG_CTX.set(ancient_spec_negative(meta))
+    _acc_fix = ancient_accessory_prompt_fix(meta)
+    if _acc_fix["pos"]:
+        logger.info(
+            "ancient accessory prompt fix name=%s wooden_hairpin=%s umbrella_in_hand=%s",
+            meta.name, _acc_fix["wooden_hairpin"], _acc_fix["umbrella_in_hand"],
+        )
     panels: dict[str, bytes] = dict(locked_panels or {})
     panel_urls: dict[str, str] = {}
     debug: dict[str, Any] = {
