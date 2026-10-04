@@ -4169,6 +4169,213 @@ def blend_face_local_edit(
     return buf.getvalue()
 
 
+
+def build_face_paste_mask(
+    size: int = 768,
+    *,
+    face_bbox: tuple[float, float, float, float] | None = None,
+) -> Image.Image:
+    """00:30：眉眼口鼻区羽化遮罩，下边界不超过下巴。
+
+    用于 Qwen-Edit 结果贴回 approved_portrait：遮罩外（胸口/衣服）强制原图像素，
+    消除新徽标/字样。相对脸框比例；无人脸时回退头肩经验比例。
+    """
+    s = int(size)
+    mask = Image.new("L", (s, s), 0)
+    from PIL import ImageDraw as _ID
+
+    d = _ID.Draw(mask)
+    if face_bbox is not None:
+        x1, y1, x2, y2 = [float(v) for v in face_bbox]
+        fw = max(8.0, x2 - x1)
+        fh = max(8.0, y2 - y1)
+        d.ellipse(
+            (
+                int(x1 + 0.05 * fw),
+                int(y1 + 0.02 * fh),
+                int(x2 - 0.05 * fw),
+                int(y1 + 0.38 * fh),
+            ),
+            fill=255,
+        )
+        d.ellipse(
+            (
+                int(x1 + 0.06 * fw),
+                int(y1 + 0.22 * fh),
+                int(x2 - 0.06 * fw),
+                int(y1 + 0.52 * fh),
+            ),
+            fill=255,
+        )
+        d.ellipse(
+            (
+                int(x1 + 0.32 * fw),
+                int(y1 + 0.40 * fh),
+                int(x2 - 0.32 * fw),
+                int(y1 + 0.68 * fh),
+            ),
+            fill=255,
+        )
+        mouth_bottom = min(float(y2), y1 + 0.92 * fh)
+        d.ellipse(
+            (
+                int(x1 + 0.18 * fw),
+                int(y1 + 0.58 * fh),
+                int(x2 - 0.18 * fw),
+                int(mouth_bottom),
+            ),
+            fill=255,
+        )
+        if int(y2) < s - 1:
+            d.rectangle((0, int(y2) + 1, s, s), fill=0)
+    else:
+        d.ellipse((int(s * 0.22), int(s * 0.12), int(s * 0.78), int(s * 0.36)), fill=255)
+        d.ellipse((int(s * 0.22), int(s * 0.28), int(s * 0.78), int(s * 0.48)), fill=255)
+        d.ellipse((int(s * 0.38), int(s * 0.40), int(s * 0.62), int(s * 0.62)), fill=255)
+        d.ellipse((int(s * 0.30), int(s * 0.52), int(s * 0.70), int(s * 0.70)), fill=255)
+        d.rectangle((0, int(s * 0.72), s, s), fill=0)
+    try:
+        from PIL import ImageFilter
+
+        mask = mask.filter(ImageFilter.GaussianBlur(radius=max(6, s // 48)))
+    except Exception:
+        pass
+    return mask
+
+
+def paste_qedit_face_onto_portrait(
+    original: bytes,
+    edited: bytes,
+    *,
+    size: int = 768,
+) -> bytes:
+    """00:30：Qwen-Edit 结果只取眉眼口鼻贴回 approved_portrait；胸口衣服保留原像素。"""
+    o = Image.open(BytesIO(original)).convert("RGB").resize(
+        (size, size), Image.Resampling.LANCZOS
+    )
+    e = Image.open(BytesIO(edited)).convert("RGB").resize(
+        (size, size), Image.Resampling.LANCZOS
+    )
+    bb = _detect_face_bbox_xyxy(original)
+    if bb is None:
+        try:
+            bb = _heuristic_skin_face_bbox(o)
+        except Exception:  # noqa: BLE001
+            bb = None
+    m = build_face_paste_mask(size, face_bbox=bb)
+    m_hard = m.point(lambda v: 255 if v >= 64 else 0)
+    try:
+        from PIL import ImageFilter
+
+        m_soft = m_hard.filter(ImageFilter.GaussianBlur(radius=max(6, size // 48)))
+    except Exception:
+        m_soft = m
+    out = Image.composite(e, o, m_soft)
+    out = Image.composite(out, o, m_hard)
+    buf = BytesIO()
+    out.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _parse_yes_no_token(raw) -> bool | None:
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, (int, float)):
+        return bool(raw)
+    if isinstance(raw, str):
+        s = raw.strip().lower()
+        if s in ("true", "yes", "y", "1", "是", "对", "有"):
+            return True
+        if s in ("false", "no", "n", "0", "否", "不", "没有", "无"):
+            return False
+    return None
+
+
+_EXPR_QA_PROMPTS: dict[str, str] = {
+    "expr_2": (
+        "You are inspecting an anime character face closeup for a contemplative expression. "
+        "Answer TWO yes/no questions. Output ONLY one JSON object, no markdown: "
+        '{"q1":true,"q2":true}. '
+        "q1: Are the eyes looking downward AND the eyelids half-closed "
+        "(眼睛向下看且眼皮半闭)? true only if BOTH downward gaze AND half-closed lids are visible. "
+        "q2: Is the mouth closed (嘴闭合，嘴唇合拢、不张嘴)? true only if mouth is closed. "
+        "Judge only from visible face features."
+    ),
+    "expr_3": (
+        "You are inspecting an anime character face closeup for a gentle expression. "
+        "Answer TWO yes/no questions. Output ONLY one JSON object, no markdown: "
+        '{"q1":true,"q2":true}. '
+        "q1: Is this a closed-eye smile (闭眼微笑：双眼闭合且嘴角上扬/微笑)? "
+        "true only if eyes are closed AND there is a smile. "
+        "q2: Is the mouth NOT wide open (嘴不张大)? true if mouth is closed or only slightly open; "
+        "false if mouth is wide open. "
+        "Judge only from visible face features."
+    ),
+}
+
+
+def _parse_expr_qa_json(raw: str) -> dict:
+    """解析专项问答 JSON：须含 q1/q2 布尔。"""
+    import ast
+
+    text = (raw or "").strip()
+    if not text:
+        raise CharacterSheetError("专项问答返回空文本", status_code=502)
+    if text.startswith("["):
+        try:
+            lit = ast.literal_eval(text)
+            if isinstance(lit, list) and lit:
+                first = lit[0]
+                text = (
+                    first
+                    if isinstance(first, str)
+                    else json.dumps(first, ensure_ascii=False)
+                )
+        except (SyntaxError, ValueError):
+            pass
+    fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if fence:
+        text = fence.group(1).strip()
+    m = re.search(r"\{[\s\S]*\}", text)
+    if not m:
+        raise CharacterSheetError(f"专项问答无 JSON: {raw[:200]}", status_code=502)
+    try:
+        obj = json.loads(m.group(0))
+    except json.JSONDecodeError as e:
+        raise CharacterSheetError(
+            f"专项问答 JSON 解析失败: {e}; raw={raw[:240]}",
+            status_code=502,
+        ) from e
+    if not isinstance(obj, dict):
+        raise CharacterSheetError("专项问答 JSON 非对象", status_code=502)
+    q1 = _parse_yes_no_token(obj.get("q1", obj.get("Q1")))
+    q2 = _parse_yes_no_token(obj.get("q2", obj.get("Q2")))
+    if q1 is None or q2 is None:
+        raise CharacterSheetError(
+            f"专项问答缺 q1/q2 布尔: {obj!r}",
+            status_code=502,
+        )
+    return {"q1": q1, "q2": q2, "raw": raw, "obj": obj}
+
+
+def assert_expression_qa_match(expr_key: str, qa: dict) -> dict:
+    """沉思/温柔专项两问皆须为是。"""
+    if expr_key not in ("expr_2", "expr_3"):
+        raise CharacterSheetError(f"专项问答不支持 {expr_key}", status_code=422)
+    q1 = qa.get("q1")
+    q2 = qa.get("q2")
+    want = _EXPR_KEY_TO_VLM_LABEL.get(expr_key, expr_key)
+    info = {"expr_key": expr_key, "want": want, "q1": q1, "q2": q2, "pass": False}
+    if q1 is not True or q2 is not True:
+        raise CharacterSheetError(
+            f"{expr_key}{want}专项问答未过: q1={q1!r} q2={q2!r}（两问皆须是）",
+            status_code=422,
+        )
+    info["pass"] = True
+    return info
+
+
+
 def pick_best_expression_candidate(
     cands: list[bytes],
     *,
@@ -4839,6 +5046,122 @@ async def classify_expression_vlm(
         f"VLM 表情判官全部后端失败: {last_err}",
         status_code=502,
     ) from last_err
+
+
+
+async def classify_expression_qa(
+    image_bytes: bytes,
+    *,
+    expr_key: str,
+    worker_url: str | None,
+    seed: int = 42,
+) -> dict:
+    """00:30：沉思/温柔专项两问（非六分类）。返回 {q1,q2,raw,model,...}。"""
+    from app.comfy.client import ComfyUIClient, ComfyUIError
+
+    global _VLM_STICKY_BACKEND
+    if expr_key not in _EXPR_QA_PROMPTS:
+        raise CharacterSheetError(f"专项问答无 prompt: {expr_key}", status_code=422)
+    if not worker_url:
+        raise CharacterSheetError("专项问答缺少 worker_url", status_code=502)
+    url = str(worker_url).rstrip("/")
+    _assert_sheet_worker_allowed(url)
+    client = ComfyUIClient(url, timeout=180.0)
+    fname = await client.upload_image(
+        image_bytes, f"sheet_expr_qa_{uuid.uuid4().hex[:10]}.png"
+    )
+    prompt = _EXPR_QA_PROMPTS[expr_key]
+    default_backends = (
+        ("Qwen2_VQA", "Qwen3-VL-4B-Instruct"),
+        ("Qwen2_VQA", "Qwen2-VL-7B-Instruct"),
+        ("AILab_QwenVL", "Qwen3-VL-4B-Instruct"),
+        ("Qwen2_VQA", "Qwen3-VL-8B-Instruct"),
+        ("AILab_QwenVL", "Qwen3-VL-4B-Instruct-FP8"),
+        ("Qwen2_VQA", "Qwen3-VL-4B-Instruct-FP8"),
+    )
+    if _VLM_STICKY_BACKEND is not None:
+        sticky = _VLM_STICKY_BACKEND
+        backends = (sticky,) + tuple(b for b in default_backends if b != sticky)
+        _VLM_STICKY_EVIDENCE["sticky_hits"] = int(
+            _VLM_STICKY_EVIDENCE.get("sticky_hits") or 0
+        ) + 1
+    else:
+        backends = default_backends
+        _VLM_STICKY_EVIDENCE["sticky_misses"] = int(
+            _VLM_STICKY_EVIDENCE.get("sticky_misses") or 0
+        ) + 1
+    last_err: Exception | None = None
+    for backend, model in backends:
+        try:
+            graph = build_expression_vlm_graph(
+                fname, prompt=prompt, model=model, seed=seed, backend=backend
+            )
+            prompt_id = await client.queue_prompt(
+                graph, client_id=f"sheet_qa_{uuid.uuid4().hex[:8]}"
+            )
+            waited = 0.0
+            raw_text = ""
+            while waited < 180.0:
+                hist = await client.get_history(prompt_id)
+                entry = (hist or {}).get(prompt_id) or {}
+                st = entry.get("status") or {}
+                if entry.get("outputs"):
+                    raw_text = _extract_history_text(entry)
+                    if raw_text:
+                        break
+                if st.get("status_str") == "error" or (
+                    st.get("completed") is False
+                    and any(
+                        isinstance(m, list) and m and m[0] == "execution_error"
+                        for m in (st.get("messages") or [])
+                    )
+                ):
+                    msg = "execution_error"
+                    for m in st.get("messages") or []:
+                        if isinstance(m, list) and m and m[0] == "execution_error":
+                            detail = m[1] if len(m) > 1 else {}
+                            msg = str(
+                                (detail or {}).get("exception_message")
+                                or (detail or {}).get("exception_type")
+                                or msg
+                            )
+                            break
+                    raise CharacterSheetError(f"专项问答执行失败:{msg}", status_code=502)
+                await asyncio.sleep(1.5)
+                waited += 1.5
+            if not raw_text:
+                raise CharacterSheetError(
+                    f"专项问答超时无文本 backend={backend} model={model}",
+                    status_code=504,
+                )
+            parsed = _parse_expr_qa_json(raw_text)
+            parsed["model"] = f"{backend}:{model}"
+            parsed["worker"] = url
+            parsed["expr_key"] = expr_key
+            _VLM_STICKY_BACKEND = (backend, model)
+            _VLM_STICKY_EVIDENCE["last_backend"] = backend
+            _VLM_STICKY_EVIDENCE["last_model"] = model
+            _VLM_STICKY_EVIDENCE["keep_model_loaded"] = True
+            parsed["vlm_sticky"] = True
+            parsed["keep_model_loaded"] = True
+            return parsed
+        except CharacterSheetError as e:
+            last_err = e
+            logger.warning("classify_expression_qa %s/%s fail: %s", backend, model, e)
+            continue
+        except ComfyUIError as e:
+            last_err = CharacterSheetError(f"专项问答 Comfy 错误:{e}", status_code=502)
+            logger.warning("classify_expression_qa comfy %s/%s: %s", backend, model, e)
+            continue
+        except Exception as e:  # noqa: BLE001
+            last_err = CharacterSheetError(f"专项问答异常:{e}", status_code=502)
+            logger.warning("classify_expression_qa exc %s/%s: %s", backend, model, e)
+            continue
+    raise CharacterSheetError(
+        f"专项问答全部后端失败: {last_err}",
+        status_code=502,
+    ) from last_err
+
 
 
 def assert_expression_vlm_match(
@@ -8598,8 +8921,8 @@ async def generate_character_sheet(
                         _rec.get("source"),
                     )
                     continue
-                # 23:18：沉思/温柔走 Qwen-Image-Edit-2509（approved_portrait 正面底）；
-                # edit 图构造不可用时显式报错，禁止静默回落 inpaint。
+                # 00:30：沉思/温柔走 Qwen-Image-Edit-2509 + 脸部羽化贴回 + 专项问答；
+                # edit 图构造不可用时显式报错，禁止静默回落 inpaint；各最多 6 次。
                 if ek in ("expr_2", "expr_3"):
                     ei = _EXPR_KEYS.index(ek)
                     try:
@@ -8652,7 +8975,7 @@ async def generate_character_sheet(
                         )
                     picked: bytes | None = None
                     pick_err: Exception | None = None
-                    for attempt in range(4):
+                    for attempt in range(6):
                         try:
                             ref_name = await client.upload_image(
                                 edit_base,
@@ -8684,16 +9007,47 @@ async def generate_character_sheet(
                                 ref_image=ref_name,
                                 ref_mode="qwen_edit",
                             )
-                            cell_b = enforce_head_shoulders_square(
-                                raw, size=768, face_closeup_gate=True
+                            # 00:30：只取脸部（眉眼口鼻羽化，下边界≤下巴）贴回 approved_portrait
+                            # 胸口/衣服一律保留原图像素，消除新徽标/字样
+                            pasted = paste_qedit_face_onto_portrait(
+                                edit_base, raw, size=768
                             )
+                            try:
+                                (reject_dir / f"{ek}_qedit_pasted_{int(seed or 0)}_a{attempt}.png").write_bytes(
+                                    pasted
+                                )
+                                (reject_dir / f"{ek}_qedit_raw_{int(seed or 0)}_a{attempt}.png").write_bytes(
+                                    raw
+                                )
+                            except Exception:
+                                pass
+                            # 贴回后再按格裁剪到脸高 0.55–0.65 铺满（coverage 100%，禁灰垫边）
+                            _pim = Image.open(BytesIO(pasted)).convert("RGB")
+                            _fitted, _ = _fit_expr_cell_face_fill(
+                                _pim,
+                                (0, 0, 768, 768),
+                                target_face_height_frac=0.58,
+                                min_face_height_frac=0.55,
+                                max_face_height_frac=0.65,
+                            )
+                            _fbuf = BytesIO()
+                            _fitted.convert("RGB").save(_fbuf, format="PNG")
+                            cell_b = _fbuf.getvalue()
                             try:
                                 cell_b = squareize_face_center_crop(cell_b, size=768)
                             except CharacterSheetError:
                                 pass
                             assert_expr_cell_no_white_border(cell_b, expr_key=ek)
-                            # 23:18：身份=与主立绘**脸部**（approved_portrait 头肩底）CLIP≥0.72
-                            # 禁止拿全身立绘做参照（尺度不同会系统性偏低）
+                            assert_expr_cell_content_coverage(
+                                cell_b, expr_key=ek, min_coverage=1.0
+                            )
+                            assert_expr_cell_face_height_frac(
+                                cell_b,
+                                expr_key=ek,
+                                min_face_height_frac=0.55,
+                                max_face_height_frac=0.65,
+                            )
+                            # 身份 CLIP≥0.72（对照 approved_portrait 脸底）
                             _face_id = edit_base
                             _sim = clip_image_cosine_sim(cell_b, _face_id)
                             if _sim is not None and _sim + 1e-12 < 0.72:
@@ -8703,12 +9057,20 @@ async def generate_character_sheet(
                                 )
                             try:
                                 (reject_dir / f"{ek}_qedit_clip_{int(seed or 0)}_a{attempt}.json").write_text(
-                                    json.dumps({"sim": _sim, "min": 0.72, "ref": "edit_base_face"}, ensure_ascii=False),
+                                    json.dumps(
+                                        {
+                                            "sim": _sim,
+                                            "min": 0.72,
+                                            "ref": "edit_base_face",
+                                            "route": "face_paste_qa",
+                                        },
+                                        ensure_ascii=False,
+                                    ),
                                     encoding="utf-8",
                                 )
                             except Exception:
                                 pass
-                            # 徽标仍拦（相对主立绘）
+                            # 贴回后胸口应与原图一致；仍拦相对新徽标（双保险）
                             _pref = panels.get("portrait") or edit_base
                             if _pref and portrait_has_chest_emblem(
                                 cell_b, ref=_pref, below_face=True
@@ -8717,36 +9079,35 @@ async def generate_character_sheet(
                                     f"{ek}胸口相对主立绘出现新徽标/字样",
                                     status_code=422,
                                 )
-                            assert_expression_semantic(
-                                cell_b, expr_key=ek, neutral_ref=edit_base
-                            )
-                            vlm_result = await classify_expression_vlm(
+                            # 00:30：专项问答（非六分类）
+                            qa_result = await classify_expression_qa(
                                 cell_b,
+                                expr_key=ek,
                                 worker_url=getattr(client, "base_url", None) or worker,
+                                seed=int(e_seed or 42) + attempt,
                             )
-                            assert_expression_vlm_match(cell_b, ek, vlm_result)
+                            assert_expression_qa_match(ek, qa_result)
                             try:
-                                (reject_dir / f"{ek}_vlm_{int(seed or 0)}.json").write_text(
-                                    json.dumps(vlm_result, ensure_ascii=False, indent=2),
+                                (reject_dir / f"{ek}_qa_{int(seed or 0)}_a{attempt}.json").write_text(
+                                    json.dumps(qa_result, ensure_ascii=False, indent=2),
                                     encoding="utf-8",
                                 )
-                                (reject_dir / f"{ek}_vlm_cell_{int(seed or 0)}.png").write_bytes(
+                                (reject_dir / f"{ek}_qa_cell_{int(seed or 0)}_a{attempt}.png").write_bytes(
                                     cell_b
                                 )
                                 (reject_dir / f"{ek}_qedit_ok_{int(seed or 0)}.png").write_bytes(
                                     cell_b
                                 )
-                                (reject_dir / f"{ek}_qedit_raw_{int(seed or 0)}_a{attempt}.png").write_bytes(
-                                    raw
-                                )
                                 (reject_dir / f"{ek}_qedit_meta_{int(seed or 0)}.json").write_text(
                                     json.dumps(
                                         {
-                                            "route": "qwen_image_edit_2509",
+                                            "route": "qwen_image_edit_2509_face_paste",
                                             "input": "approved_portrait",
                                             "attempt": attempt,
                                             "expr_key": ek,
-                                            "note": "23:18 no side_base; no silent inpaint fallback",
+                                            "max_attempts": 6,
+                                            "judge": "specialized_qa",
+                                            "note": "00:30 face-only paste + QA; no silent inpaint fallback",
                                         },
                                         ensure_ascii=False,
                                         indent=2,
@@ -8768,11 +9129,11 @@ async def generate_character_sheet(
                                     other_exprs=others,
                                 )
                             except CharacterSheetError as de:
-                                if attempt < 3:
+                                if attempt < 5:
                                     raise
                                 logger.warning("expr %s diversity soft: %s", ek, de)
                             logger.info(
-                                "expr %s qwen_edit ok attempt=%s", ek, attempt
+                                "expr %s qwen_edit face_paste+qa ok attempt=%s", ek, attempt
                             )
                             picked = cell_b
                             pick_err = None
