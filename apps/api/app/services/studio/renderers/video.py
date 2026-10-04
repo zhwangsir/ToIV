@@ -116,7 +116,7 @@ class VideoRenderer:
             kw["_used_ref_images"] = used_refs  # 供编排层回写 shot.ref_images_json
         # Batch6: H3 默认管线 C（Ref2VA+Motion Context+原生音频）；显式 pipeline=legacy 回退旧 t2v
         pipeline = (kw.get("pipeline") or "c").strip().lower()
-        if video_model == "h3" and pipeline == "c":
+        if video_model == "h3" and pipeline in ("c", "c_hybrid"):
             from app.services.studio.pipeline_c_render import render_pipeline_c
             from app.services.studio.renderers.base import RenderResult as _RR
 
@@ -133,6 +133,11 @@ class VideoRenderer:
                     clip_index=int(kw.get("clip_index") or 1),
                     request=kw.get("request"),
                     style=kw.get("ref_style"),
+                    first_frame_url=(
+                        str(kw.get("first_frame_url") or "") if pipeline == "c_hybrid" else ""
+                    ),
+                    worker_url=kw.get("worker_url"),
+                    pipeline_name=pipeline,
                 )
             except RenderError:
                 raise

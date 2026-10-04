@@ -82,6 +82,121 @@ def _append_candidate_failures(
 
 
 
+# H3 管线 C 家族：c = Ref2VA+MotionContext（默认）；c_hybrid = 实验 C（Hybrid 首帧锚定）
+C_PIPELINES = ("c", "c_hybrid")
+_STUDIO_MARKER = "/api/studio/files/"
+
+
+def _picked_video_url(s: StudioShot) -> str:
+    """镜次入选的原始视频：is_picked 候选 url 优先，回落 video_url。"""
+    for c in loads_candidates(s.candidates_json or "[]"):
+        if (
+            isinstance(c, dict)
+            and c.get("is_picked")
+            and (c.get("status") or "done") == "done"
+            and str(c.get("url") or "").strip()
+        ):
+            return str(c["url"]).strip()
+    return (s.video_url or "").strip()
+
+
+def _studio_local_path(url: str) -> Path | None:
+    """/api/studio/files/<name> → 本地文件（Studio 输出根 / NAS），不存在 → None。"""
+    import os
+    from app.storage import drama_output_root
+
+    u = (url or "").strip()
+    if _STUDIO_MARKER not in u:
+        p = Path(u)
+        return p if u.startswith("/") and p.is_file() else None
+    name = Path(u.split(_STUDIO_MARKER, 1)[1].split("?", 1)[0]).name
+    if not name or name.startswith("."):
+        return None
+    roots = [drama_output_root() / "studio"]
+    extra = os.environ.get("TOIV_DRAMA_VIDEO_DIR", "")
+    if extra:
+        roots.append(Path(extra) / "studio")
+    roots.append(Path("/mnt/toiv-nas/toiv/outputs/drama/final/studio"))
+    for root in roots:
+        p = root / name
+        if p.is_file():
+            return p
+    return None
+
+
+def _first_frame_out_dir() -> Path:
+    from app.storage import drama_output_root
+
+    d = drama_output_root() / "studio"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _extract_last_frame(src: Path, dst: Path) -> None:
+    """ffmpeg 抽视频最后一帧为 PNG（-sseof 定位尾部 + -update 覆盖写出最后一帧）。"""
+    import subprocess
+
+    cmd = [
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-sseof", "-1.0", "-i", str(src),
+        "-update", "1", str(dst),
+    ]
+    try:
+        subprocess.run(cmd, check=True, timeout=60, capture_output=True)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
+        raise RenderError(f"c_hybrid 抽上一镜尾帧失败:{e}") from e
+    if not dst.is_file() or dst.stat().st_size == 0:
+        raise RenderError("c_hybrid 抽上一镜尾帧失败:输出为空")
+
+
+def _full_body_ref_url(cast: list[StudioCharacter], style: str | None) -> str | None:
+    """角色全身定妆图：文件名含 full/全身 优先，其次三视图槽标签「全身」。"""
+    from app.services.studio.shot_refs import collect_cast_ref_images
+
+    refs = [r for r in collect_cast_ref_images(cast, style=style) if r.role != "scene"]
+    for r in refs:
+        name = (r.image_url or "").split("?", 1)[0].rsplit("/", 1)[-1].lower()
+        if "full" in name or "全身" in name:
+            return r.image_url
+    for r in refs:
+        if "全身" in (r.label or ""):
+            return r.image_url
+    return None
+
+
+async def _resolve_hybrid_first_frame(
+    session: Session,
+    shot: StudioShot,
+    cast: list[StudioCharacter],
+    style: str | None,
+) -> str:
+    """c_hybrid 首帧：上一镜入选视频尾帧；无上一镜 → 角色全身定妆图。失败 RenderError。"""
+    import uuid
+
+    siblings = session.exec(
+        select(StudioShot).where(StudioShot.project_id == shot.project_id)
+    ).all()
+    prev = None
+    for s in siblings:
+        if s.idx < shot.idx and (prev is None or s.idx > prev.idx):
+            prev = s
+    if prev is None:
+        url = _full_body_ref_url(cast, style)
+        if not url:
+            raise RenderError("c_hybrid 首镜需要角色全身定妆图（参考图含 full/全身）")
+        return url
+    vurl = _picked_video_url(prev)
+    if not vurl:
+        raise RenderError(f"c_hybrid 需要上一镜(idx={prev.idx})入选视频")
+    src = _studio_local_path(vurl)
+    if src is None:
+        raise RenderError(f"c_hybrid 上一镜视频不在本地:{vurl[:80]}")
+    name = f"chybrid_ff_{str(shot.id)[:8]}_{uuid.uuid4().hex[:8]}.png"
+    dst = _first_frame_out_dir() / name
+    await asyncio.to_thread(_extract_last_frame, src, dst)
+    return f"{_STUDIO_MARKER}{name}"
+
+
 def _cast_for(session: Session, shot: StudioShot) -> list[StudioCharacter]:
     """按 shot.characters(角色名 JSON)取角色卡。"""
     names = set(json.loads(shot.characters or "[]"))
@@ -106,6 +221,7 @@ async def render_shot(
     auto_pick: bool = True,
     ref_style: str | None = None,
     seed: int | None = None,
+    worker_url: str | None = None,
 ) -> StudioShot:
     """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。
 
@@ -116,6 +232,16 @@ async def render_shot(
     """
     import random
     import uuid
+
+    # 管理员 worker 覆盖：白名单校验前置（在改镜次状态之前）
+    pinned_worker = None
+    if worker_url:
+        from app.services.h3 import validate_worker_override
+
+        try:
+            pinned_worker = validate_worker_override(worker_url)
+        except ValueError as e:
+            raise RenderError(str(e)) from e
 
     if pool is None:
         from app.deps import get_pool
@@ -199,12 +325,14 @@ async def render_shot(
         render_kw["request"] = request
     render_kw["video_model"] = engine
     pipe = (pipeline or "c").strip().lower() if engine == "h3" else "legacy"
-    if pipe not in ("c", "legacy"):
+    if pipe not in C_PIPELINES + ("legacy",):
         pipe = "c"
     render_kw["pipeline"] = pipe
-    # 续写：显式 context > 同项目上一镜 picked 的 context_latent
+    if pinned_worker:
+        render_kw["worker_url"] = pinned_worker
+    # 续写：显式 context > 同项目上一镜 picked 的 context_latent（c / c_hybrid 均续写）
     ctx = (context_latent_path or "").strip()
-    if not ctx and pipe == "c" and shot.render_mode == "video":
+    if not ctx and pipe in C_PIPELINES and shot.render_mode == "video":
         siblings = session.exec(
             select(StudioShot).where(StudioShot.project_id == shot.project_id)
         ).all()
@@ -239,6 +367,11 @@ async def render_shot(
 
     candidates: list[dict[str, Any]] = []
     try:
+        # c_hybrid：首帧 = 上一镜入选尾帧 / 首镜全身定妆图（失败走下方统一错误处理）
+        if pipe == "c_hybrid" and shot.render_mode == "video":
+            render_kw["first_frame_url"] = await _resolve_hybrid_first_frame(
+                session, shot, cast, sheet_style
+            )
         if shot.render_mode != "video" or n <= 1:
             result = await _once(seed)
             candidates = []
@@ -261,6 +394,7 @@ async def render_shot(
                     "is_picked": False,
                     "error": "",
                     "video_model": engine,
+                    "pipeline": pipe if engine == "h3" else "",
                 }
                 try:
                     r = await _once(seed)
@@ -272,6 +406,12 @@ async def render_shot(
                             entry["context_latent"] = meta["context_latent"]
                         if meta.get("pipeline"):
                             entry["pipeline"] = meta["pipeline"]
+                        if meta.get("first_frame"):
+                            entry["first_frame"] = str(meta["first_frame"])
+                        if meta.get("worker"):
+                            entry["worker"] = str(meta["worker"])
+                        if meta.get("job_id"):
+                            entry["job_id"] = str(meta["job_id"])
                         if meta.get("prompt"):
                             entry["prompt"] = str(meta["prompt"])[:500]
                     if result is None:
@@ -521,6 +661,7 @@ async def render_shot(
                     "video_model": engine,
                     "pipeline": ((meta.get("pipeline") if isinstance(meta, dict) else None) or (pipe if engine == "h3" else "")),
                     "context_latent": (meta.get("context_latent") if isinstance(meta, dict) else "") or "",
+                    "first_frame": (meta.get("first_frame") if isinstance(meta, dict) else "") or "",
                 }
             ]
         )

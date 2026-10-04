@@ -10,7 +10,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from pydantic_core import PydanticCustomError
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -1218,7 +1219,12 @@ class RenderShotBody(BaseModel):
     """Batch6 视频步:引擎 / 管线 C / 多候选 / 多参考(均可选;缺省兼容旧客户端)。"""
 
     video_model: str = Field(default="h3", max_length=16)
-    pipeline: str = Field(default="c", max_length=16)  # c | legacy
+    pipeline: str = Field(default="c", max_length=16)  # c | c_hybrid | legacy
+    worker_url: str | None = Field(
+        default=None,
+        max_length=64,
+        description="仅管理员：单次指定 H3 worker（白名单 :8195 / :8264）",
+    )
     num_candidates: int = Field(default=2, ge=1, le=4)
     seed: int | None = Field(default=None, ge=0, description="固定种子；同 seed 跨 worker 对比用")
     ref_images: list[str] | None = Field(default=None, max_length=9)
@@ -1228,6 +1234,15 @@ class RenderShotBody(BaseModel):
         max_length=32,
         description="anime|ancient_realistic；空则按项目画风/唯一分桶推断，多桶并存回落扁平 sample",
     )
+
+    @field_validator("pipeline")
+    @classmethod
+    def _check_pipeline(cls, v: str) -> str:
+        p = (v or "c").strip().lower() or "c"
+        if p not in ("c", "c_hybrid", "legacy"):
+            # PydanticCustomError：ctx 不含异常对象，main 的 422 处理器可 JSON 序列化
+            raise PydanticCustomError("pipeline_invalid", "pipeline 仅支持 c | c_hybrid | legacy")
+        return p
 
 
 @router.post("/studio/shots/{sid}/render")
@@ -1252,6 +1267,16 @@ async def render_one(
     pipe = (body.pipeline if body is not None else "c") or "c"
     rstyle = body.ref_style if body is not None else None
     fixed_seed = body.seed if body is not None else None
+    worker_url = None
+    if body is not None and (body.worker_url or "").strip():
+        if (getattr(user, "role", "") or "") != "admin":
+            raise HTTPException(status_code=403, detail="worker_url 仅管理员可用")
+        from app.services.h3 import validate_worker_override
+
+        try:
+            worker_url = validate_worker_override(body.worker_url)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
     try:
         return _shot_out(
             await orchestrator.render_shot(
@@ -1265,6 +1290,7 @@ async def render_one(
                 pipeline=pipe,
                 ref_style=rstyle,
                 seed=fixed_seed,
+                worker_url=worker_url,
             )
         )
     except ValueError as e:

@@ -324,11 +324,25 @@ async def render_pipeline_c(
     clip_index: int = 1,
     request: Any = None,
     style: str | None = None,
+    first_frame_url: str = "",
+    worker_url: str | None = None,
+    pipeline_name: str = "c",
 ) -> dict[str, Any]:
-    """执行管线 C，返回 {url, context_latent, seed, prompt, worker, job_id}。"""
+    """执行管线 C，返回 {url, context_latent, seed, prompt, worker, job_id, pipeline, first_frame}。
+
+    pipeline_name="c_hybrid"：必须带 first_frame_url（上一镜尾帧/首镜全身定妆图），
+    图走 Hybrid（对齐实验 C：tmp/h3_long_exp/workflows/C_zh_seg*_c*.json）。
+    提示词与 c 相同（英文视觉提示、台词不进画面、Avoid 屏蔽字幕/店招文字）。
+    worker_url：管理员白名单覆盖（:8195/:8264），空则走 H3 池调度。
+    """
     from fastapi import HTTPException
 
     from app.services import h3 as h3_service
+
+    pipe_name = (pipeline_name or "c").strip().lower() or "c"
+    ff_url = (first_frame_url or "").strip()
+    if pipe_name == "c_hybrid" and not ff_url:
+        raise RenderError("c_hybrid 需要首帧（上一镜尾帧或全身定妆图）")
 
     # 参考 URL（style 有值时优先分桶 by_style）
     if ref_images is not None:
@@ -363,7 +377,10 @@ async def render_pipeline_c(
 
     try:
         h3_service.ensure_h3_enabled()
-        client = await h3_service.pick_h3_client()
+        if worker_url:
+            client = await h3_service.pick_h3_client(worker_url=worker_url)
+        else:
+            client = await h3_service.pick_h3_client()
         await h3_service.ensure_h3_ready(client, node=_C_NODE)
         # Motion Context 仅续写需要；首段可不强制
         if (context_latent_path or "").strip():
@@ -371,11 +388,24 @@ async def render_pipeline_c(
         await h3_service.ensure_h3_vram(client)
     except HTTPException as e:
         raise RenderError(str(e.detail)) from e
+    except ValueError as e:  # worker_url 白名单
+        raise RenderError(str(e)) from e
 
     try:
         image_names = await _upload_refs(client, urls)
     except Exception as e:
         raise RenderError(f"参考图上传失败:{e}") from e
+
+    ff_name = ""
+    if ff_url:
+        try:
+            ff_data = await _fetch_bytes(ff_url)
+            ff_ext = ".jpg" if ff_url.lower().split("?", 1)[0].endswith((".jpg", ".jpeg")) else ".png"
+            ff_name = await client.upload_image(
+                ff_data, f"toiv_c_ff_{uuid.uuid4().hex[:12]}{ff_ext}"
+            )
+        except Exception as e:
+            raise RenderError(f"首帧上传失败:{e}") from e
 
     w = _snap32(width or 768)
     h = _snap32(height or 1344)
@@ -409,6 +439,7 @@ async def render_pipeline_c(
             context_prefix=prefix_ctx,
             clip_index=clip_index,
             context_latent_path=(context_latent_path or "").strip(),
+            first_frame=ff_name,
         )
         try:
             graph = build_h3_pipeline_c_graph(params)
@@ -493,7 +524,9 @@ async def render_pipeline_c(
         "prompt": positive,
         "worker": client.base_url,
         "job_id": prompt_id,
-        "pipeline": "c",
+        "pipeline": pipe_name,
+        "first_frame": ff_url,
+        "first_frame_name": ff_name,
         "ref_images": urls,
         "brand_ocr_reseeds": brand_ocr_reseeds,
         "brand_ocr_hits": brand_ocr_hits,

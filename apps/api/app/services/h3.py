@@ -65,6 +65,28 @@ def is_h3_nsfw_lora(name: str) -> bool:
 _GIB = 1 << 30
 
 
+# 单次请求指定 H3 worker 的白名单（仅管理员；对比实验固定实例用，不改全局池）
+H3_WORKER_OVERRIDE_WHITELIST: frozenset[str] = frozenset(
+    {
+        "http://100.68.100.90:8195",
+        "http://100.68.100.90:8264",
+    }
+)
+
+
+def validate_worker_override(url: str | None) -> str | None:
+    """校验 worker_url 覆盖：空 → None；不在白名单 → ValueError（调用方转 422/RenderError）。"""
+    if url is None:
+        return None
+    u = str(url).strip().rstrip("/")
+    if not u:
+        return None
+    if u not in H3_WORKER_OVERRIDE_WHITELIST:
+        allowed = ", ".join(sorted(H3_WORKER_OVERRIDE_WHITELIST))
+        raise ValueError(f"worker_url 不在白名单:{u}（仅允许 {allowed}）")
+    return u
+
+
 def get_h3_client() -> ComfyUIClient:
     """单实例客户端(h3_base_url);探测/回放等非提交路径与单实例部署继续用它。"""
     settings = get_settings()
@@ -87,7 +109,7 @@ def h3_instances() -> list[str]:
 _PICK_PROBE_TIMEOUT = 3.0
 
 
-async def pick_h3_client() -> ComfyUIClient:
+async def pick_h3_client(worker_url: str | None = None) -> ComfyUIClient:
     """多实例最少负载调度(2026-08-25):并发探各实例 queue_len,队列最短者优先。
 
     单实例部署(默认)直接按 h3_instances() 构造客户端,零行为变化。
@@ -96,6 +118,10 @@ async def pick_h3_client() -> ComfyUIClient:
     时长链/duration chain 等粘性场景由调用方持同一 client(参考图已转运到该实例)。
     """
     settings = get_settings()
+    # 管理员单次覆盖（白名单校验，非法 → ValueError）；命中则不走调度
+    pinned = validate_worker_override(worker_url)
+    if pinned:
+        return ComfyUIClient(pinned, timeout=settings.request_timeout)
     urls = h3_instances()
     if len(urls) <= 1:
         # 单实例:走 get_h3_client(与其余调用点/既有测试桩同一入口,零行为变化)
