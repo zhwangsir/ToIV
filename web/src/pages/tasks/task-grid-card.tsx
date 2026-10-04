@@ -6,19 +6,20 @@ import { Eye, FileText, Image as ImageIcon, RotateCcw, Video } from "lucide-reac
 import { MediaPreview } from "@/components/media-preview";
 import { statusLabel } from "@/lib/generation-task-display";
 import type { GenerationTask } from "@/services/api/task-center";
-import { isTaskFailed, statusDotClassName, taskAttentionReason, TaskDate, taskRetryBlocked } from "./task-shared";
+import { TaskDate, isTaskCancelled, isTaskFailed, statusDotClassName, taskAttentionReason, taskRetryBlocked, taskStatusToneClass } from "./task-shared";
 import { TaskVideoThumbnail } from "./task-video-thumbnail";
 
 export function TaskGridCard({ task, actingId, onOpen, onRetry }: { task: GenerationTask; actingId: string; onOpen: () => void; onRetry: () => void }) {
     const isActive = task.status === "queued" || task.status === "running";
     const isFailed = isTaskFailed(task);
+    const isCancelled = isTaskCancelled(task);
     const retryDisabled = taskRetryBlocked(task);
     const isVideo = task.previewKind === "video";
     const thumbnailUrl = isVideo ? task.previewPosterUrl : task.previewUrl;
     const fallbackVideo = task.type.includes("video");
     const Icon = fallbackVideo ? Video : task.type.includes("image") ? ImageIcon : FileText;
     return (
-        <article className={`product-collection-card task-grid-card${isFailed ? " is-attention" : ""}`}>
+        <article className={`product-collection-card task-grid-card${isCancelled ? " is-cancelled" : isFailed ? " is-attention" : ""}`}>
             <div className="task-grid-thumb">
                 {thumbnailUrl ? (
                     <MediaPreview src={thumbnailUrl} kind="image" loading="lazy" className="h-full w-full object-cover" />
@@ -51,7 +52,7 @@ export function TaskGridCard({ task, actingId, onOpen, onRetry }: { task: Genera
                     {task.prompt || "未命名任务"}
                 </button>
                 <div className="task-grid-meta">
-                    <span className={`task-grid-status ${isFailed ? "is-failed" : isActive ? "is-active" : task.status === "succeeded" ? "is-success" : ""}`}>
+                    <span className={`task-grid-status ${taskStatusToneClass(task)}`}>
                         <i className={statusDotClassName(task.status)} />
                         {statusLabel[task.status]}
                     </span>
@@ -66,7 +67,7 @@ export function TaskGridCard({ task, actingId, onOpen, onRetry }: { task: Genera
                         <i><b style={{ width: `${task.progress || 0}%` }} /></i>
                     </div>
                 ) : null}
-                {isFailed ? <p className="task-grid-error" title={taskAttentionReason(task)}>{taskAttentionReason(task)}</p> : null}
+                {isFailed ? <p className={`task-grid-error${isCancelled ? " is-cancelled" : ""}`} title={taskAttentionReason(task)}>{taskAttentionReason(task)}</p> : null}
             </div>
         </article>
     );

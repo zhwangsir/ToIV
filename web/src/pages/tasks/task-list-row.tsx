@@ -8,7 +8,7 @@ import { MediaPreview } from "@/components/media-preview";
 import { formatTaskKind, statusLabel } from "@/lib/generation-task-display";
 import type { GenerationTask } from "@/services/api/task-center";
 import type { AiConfig } from "@/stores/use-config-store";
-import { formatModelName, getTaskCanvasContext, isTaskFailed, statusDotClassName, taskAttentionReason, TaskDate, taskRetryBlocked } from "./task-shared";
+import { formatModelName, getTaskCanvasContext, isTaskCancelled, isTaskFailed, statusDotClassName, taskStatusToneClass, taskAttentionReason, TaskDate, taskRetryBlocked } from "./task-shared";
 import { TaskVideoThumbnail } from "./task-video-thumbnail";
 
 export function TaskListRow({
@@ -33,13 +33,14 @@ export function TaskListRow({
     const context = getTaskCanvasContext(task, canvasById, projectNameById);
     const isActive = task.status === "queued" || task.status === "running";
     const isFailed = isTaskFailed(task);
+    const isCancelled = isTaskCancelled(task);
     const retryDisabled = taskRetryBlocked(task);
     return (
-        <article className={`product-collection-card task-record-row group${isFailed ? " is-attention" : ""}`}>
+        <article className={`product-collection-card task-record-row group${isCancelled ? " is-cancelled" : isFailed ? " is-attention" : ""}`}>
             <TaskPreviewThumbnail task={task} onOpen={onPreview} />
             <div className="task-record-main">
                 <div className="task-record-heading">
-                    <span className={`task-record-status ${isFailed ? "is-failed" : isActive ? "is-active" : "is-success"}`}>
+                    <span className={`task-record-status ${taskStatusToneClass(task) || "is-success"}`}>
                         <i className={statusDotClassName(task.status)} />
                         {statusLabel[task.status]}
                     </span>
@@ -67,7 +68,7 @@ export function TaskListRow({
                     </div>
                 ) : null}
                 {isFailed ? (
-                    <p className="task-record-error" title={taskAttentionReason(task)}>
+                    <p className={`task-record-error${isCancelled ? " is-cancelled" : ""}`} title={taskAttentionReason(task)}>
                         {taskAttentionReason(task)}
                     </p>
                 ) : null}

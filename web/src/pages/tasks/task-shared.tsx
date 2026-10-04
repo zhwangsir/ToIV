@@ -14,6 +14,18 @@ export function isTaskFailed(task: GenerationTask) {
     return task.status === "failed" || task.status === "cancelled";
 }
 
+// 已取消是用户主动结束的中性终态，不按失败（红色）呈现。
+export function isTaskCancelled(task: Pick<GenerationTask, "status">) {
+    return task.status === "cancelled";
+}
+
+export function taskStatusToneClass(task: GenerationTask) {
+    if (task.status === "cancelled") return "is-cancelled";
+    if (task.status === "failed") return "is-failed";
+    if (task.status === "queued" || task.status === "running") return "is-active";
+    return task.status === "succeeded" ? "is-success" : "";
+}
+
 export function taskAttentionReason(task: GenerationTask) {
     if (task.status === "cancelled") return providerCancelStatusLabel(task);
     const explanation = explainGenerationError({ code: task.errorCode, message: task.error }, { taskId: task.id, providerRequestId: task.providerRequestId, model: task.model, createdAt: task.createdAt, stage: task.stage });
@@ -42,6 +54,7 @@ export function statusDotClassName(status: TaskStatus) {
     if (status === "running") return "task-record-dot is-active is-pulsing";
     if (status === "queued") return "task-record-dot is-queued";
     if (status === "failed") return "task-record-dot is-failed";
+    if (status === "cancelled") return "task-record-dot is-cancelled";
     return "task-record-dot is-idle";
 }
 

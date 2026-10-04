@@ -2823,7 +2823,7 @@
     }
 
     .full-screen-loader-logo-image { width: 38px; height: 38px; }
-    .full-screen-loader-logo-fallback { display: block; width: 36px; height: 36px; background: currentColor; mask: url('/beef-logo.png') center / contain no-repeat; -webkit-mask: url('/beef-logo.png') center / contain no-repeat; }
+    .full-screen-loader-logo-fallback { display: block; width: 36px; height: 36px; background: currentColor; mask: url('/toiv-mark.svg') center / contain no-repeat; -webkit-mask: url('/toiv-mark.svg') center / contain no-repeat; }
     .workspace-route-loader-logo .full-screen-loader-logo-fallback { width: 16px; height: 16px; }
 
     .full-screen-loader-orbit {
@@ -2946,8 +2946,8 @@
         background: linear-gradient(105deg, #c9c9c9 0%, #e4e4e4 43%, #fff 49%, #fff 52%, #e4e4e4 58%, #c9c9c9 100%);
         background-size: 240% 100%;
         background-position: 100% 0;
-        -webkit-mask: url('/beef-logo.png') center / contain no-repeat;
-        mask: url('/beef-logo.png') center / contain no-repeat;
+        -webkit-mask: url('/toiv-mark.svg') center / contain no-repeat;
+        mask: url('/toiv-mark.svg') center / contain no-repeat;
         animation: appearance-bootstrap-shimmer 2.6s ease-in-out infinite;
     }
 
@@ -6281,6 +6281,11 @@ html:not(.dark) .creation-studio-control:hover,
     .task-record-dot.is-active { background: var(--palette-status-warning); }
     .task-record-dot.is-queued { background: var(--palette-status-loading); }
     .task-record-dot.is-failed { background: var(--palette-status-error); }
+    /* ToIV: 已取消 = 中性终态（灰），与失败（红）区分 */
+    .task-record-dot.is-cancelled { background: color-mix(in srgb, var(--foreground) 38%, transparent); }
+    .task-record-status.is-cancelled, .task-grid-status.is-cancelled { color: color-mix(in srgb, var(--foreground) 58%, transparent); }
+    .task-record-error.is-cancelled, .task-grid-error.is-cancelled { color: color-mix(in srgb, var(--foreground) 52%, transparent); }
+    .task-record-row.is-cancelled { background: transparent; }
     .task-record-dot.is-idle { background: color-mix(in srgb, var(--foreground) 30%, transparent); }
     .task-record-thumb { position: relative; display: grid; width: 84px; height: 60px; flex: 0 0 auto; place-items: center; overflow: hidden; border: 0; border-radius: var(--r-md); background: color-mix(in srgb, var(--foreground) 4%, transparent); padding: 0; color: color-mix(in srgb, var(--foreground) 28%, transparent); }
     /* 媒体脱离 Grid 固有尺寸计算，避免竖图按原始宽高比把固定缩略图撑出任务行。 */

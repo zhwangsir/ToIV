@@ -264,6 +264,7 @@ function ErrorContent({ node, theme, onRetry, onReloadResource, onOpenTaskDetail
         errorCode: node.metadata?.taskErrorCode || node.metadata?.generationErrorCode,
     };
     const submissionUncertain = isGenerationTaskSubmissionUncertain(errorDisplayTask) || explanation.uncertain;
+    const cancelled = errorDisplayTask.status === "cancelled" || explanation.category === "cancelled";
     return (
         <div
             data-canvas-no-zoom
@@ -277,7 +278,7 @@ function ErrorContent({ node, theme, onRetry, onReloadResource, onOpenTaskDetail
                 transformOrigin: "center center",
             }}
         >
-            <div className="w-full" style={{ color: submissionUncertain ? theme.node.text : theme.accent.danger }}>
+            <div className={`w-full${cancelled ? " is-cancelled" : ""}`} style={{ color: submissionUncertain || cancelled ? theme.node.muted : theme.accent.danger }}>
                 <GenerationFailureNotice
                     compact
                     explanation={explanation}

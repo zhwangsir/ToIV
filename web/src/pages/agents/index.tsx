@@ -65,7 +65,7 @@ export default function AgentsPage() {
                                 </div>
                             ))}
                         </div>
-                        {cli && !cli.available ? <p role="alert" className="mt-3 text-xs leading-5 text-foreground/60">安装文件不完整，无法连接外部工具。请重新下载并完整解压 BeefTV。</p> : null}
+                        {cli && !cli.available ? <p role="alert" className="mt-3 text-xs leading-5 text-foreground/60">安装文件不完整，无法连接外部工具。请重新下载并完整解压 ToIV。</p> : null}
                     </section>
 
                     <section aria-labelledby="agent-connected-title">

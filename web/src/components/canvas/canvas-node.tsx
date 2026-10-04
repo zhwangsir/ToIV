@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { AlertCircle, BookOpenCheck, CheckCircle2, ChevronRight, Clapperboard, Copy, Download, FileText, GripVertical, Image as ImageIcon, Lock, Maximize2, Move3d, Music2, Pencil, RefreshCw, ScanSearch, Settings2, Star, Trash2, Video, WandSparkles } from "lucide-react";
+import { AlertCircle, Ban, BookOpenCheck, CheckCircle2, ChevronRight, Clapperboard, Copy, Download, FileText, GripVertical, Image as ImageIcon, Lock, Maximize2, Move3d, Music2, Pencil, RefreshCw, ScanSearch, Settings2, Star, Trash2, Video, WandSparkles } from "lucide-react";
 
 import { useCanvasNodeActions } from "./canvas-node-action-context";
 import { shouldBlockAutomaticRetry } from "@/lib/generation-error";
@@ -431,7 +431,7 @@ export const CanvasNode = React.memo(function CanvasNode({
                 >
                     {/* 仅在执行中或异常时显示状态；成功来源由内部元数据保留，不占用卡片视觉层。 */}
                     {data.metadata?.status && data.metadata.status !== "idle" && data.metadata.status !== "success" && data.type !== CanvasNodeType.Frame ? (
-                        <NodeStatusBadge status={data.metadata.status} />
+                        <NodeStatusBadge status={data.metadata.status} cancelled={data.metadata.taskStatus === "cancelled"} />
                     ) : null}
                     <CanvasNodeContent
                         node={data}
@@ -818,7 +818,20 @@ function nodeTypeIcon(type: CanvasNodeTypeId) {
 }
 
 // 节点状态徽章（对应 #97 决策2：左上角状态指示，loading/success/error）
-function NodeStatusBadge({ status }: { status: "loading" | "success" | "error" }) {
+function NodeStatusBadge({ status, cancelled = false }: { status: "loading" | "success" | "error"; cancelled?: boolean }) {
+    if (status === "error" && cancelled) {
+        // 用户主动取消：中性灰色「已取消」，不与失败（红色）混淆。
+        return (
+            <div
+                className="pointer-events-none absolute left-2 top-2 z-20 flex items-center gap-1 rounded-full px-2 py-0.5 backdrop-blur-sm"
+                style={{ background: "color-mix(in oklch, var(--foreground) 12%, transparent)", color: "color-mix(in oklch, var(--foreground) 62%, transparent)" }}
+                aria-label="已取消"
+            >
+                <Ban className="size-3" strokeWidth={2} />
+                <span className="text-[var(--fs-micro)] font-medium leading-none">已取消</span>
+            </div>
+        );
+    }
     if (status === "loading") {
         return (
             <div

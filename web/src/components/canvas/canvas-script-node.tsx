@@ -595,7 +595,8 @@ function generationBatchItemLabel(item: CanvasGenerationBatchItem) {
 function batchItemTone(item?: CanvasGenerationBatchItem): CanvasNodeStatus | undefined {
     if (!item) return undefined;
     if (item.status === "succeeded") return "success";
-    if (item.status === "failed" || item.status === "cancelled") return "error";
+    if (item.status === "failed") return "error";
+    if (item.status === "cancelled") return "idle";
     if (item.status === "waiting") return "idle";
     return "loading";
 }

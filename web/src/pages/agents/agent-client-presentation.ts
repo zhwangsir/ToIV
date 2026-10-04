@@ -51,12 +51,12 @@ export type AgentClientSetupBlock = {
     instruction: string;
 };
 
-const COMMAND_INSTRUCTION = "粘贴到终端运行；Windows 请使用 PowerShell。连接时请保持 BeefTV 开启。";
+const COMMAND_INSTRUCTION = "粘贴到终端运行；Windows 请使用 PowerShell。连接时请保持 ToIV 开启。";
 
 const configInstructions: Record<AgentClientKind, string> = {
     codex: "粘贴到你使用的工具的 MCP 配置文件里。",
     claude: "粘贴到你使用的工具的 MCP 配置文件里。",
-    "claude-desktop": "打开 Claude Desktop 的设置 → 开发者 → 编辑配置，将 beeftv 项合并到 mcpServers，保留已有服务，然后完全退出并重新打开 Claude。连接时请保持 BeefTV 开启。",
+    "claude-desktop": "打开 Claude Desktop 的设置 → 开发者 → 编辑配置，将 beeftv 项合并到 mcpServers，保留已有服务，然后完全退出并重新打开 Claude。连接时请保持 ToIV 开启。",
     cursor: "粘贴到 ~/.cursor/mcp.json。",
     other: "粘贴到你使用的工具的 MCP 配置文件里。",
 };
