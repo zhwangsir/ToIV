@@ -236,7 +236,8 @@ setInterval(async () => {
   for (const [uid, e] of inst) {
     if (e.state !== "ready" || now - e.lastActive < IDLE_MS) continue;
     const n = await inflightTasks(uid, e.port);
-    if (n !== 0) { log("idle but busy, keep", uid.slice(0, 8), "inflight", n); continue; }
+    if (n !== 0) { if (!e.busyLogged) log("idle but busy, keep", uid.slice(0, 8), "inflight", n); e.busyLogged = true; continue; }
+    e.busyLogged = false;
     if (Date.now() - e.lastActive < IDLE_MS) continue; // became active meanwhile
     e.state = "stopping";
     await systemctl("stop", unitOf(uid));
@@ -258,10 +259,10 @@ setInterval(async () => {
     log("instance down, recovering", uid.slice(0, 8), "port", e.port);
     (async () => {
       if (!(await waitHealthy(e.port, 15000))) {
-        const st = await systemctl("is-active", unitOf(uid));
-        log("unit state", uid.slice(0, 8), st.out.split("\n")[0], "-> restart");
-        await systemctl("restart", unitOf(uid));
-        if (!(await waitHealthy(e.port))) throw new Error("respawn failed");
+        const st = (await systemctl("is-active", unitOf(uid))).out.split("\n")[0];
+        if (["failed", "inactive"].includes(st)) { log("unit state", uid.slice(0, 8), st, "-> restart"); await systemctl("restart", unitOf(uid)); }
+        else log("unit state", uid.slice(0, 8), st, "-> waiting for systemd");
+        if (!(await waitHealthy(e.port, 120000))) throw new Error("respawn failed");
       }
       e.state = "ready"; e.misses = 0; log("instance recovered", uid.slice(0, 8));
     })().catch(async (err) => { log("recover failed", uid.slice(0, 8), String(err.message)); await systemctl("stop", unitOf(uid)); inst.delete(uid); failedAt.set(uid, Date.now()); pumpQueue(); })
@@ -382,8 +383,8 @@ let indexCache = { mtime: 0, html: "" };
 function sendIndex(res) {
   const f = path.join(ROOT, "index.html"); const st = fs.statSync(f);
   if (st.mtimeMs !== indexCache.mtime) {
-    const chip = fs.existsSync(path.join(GATE_DIR, "session-chip.html")) ? fs.readFileSync(path.join(GATE_DIR, "session-chip.html"), "utf8") : "";
-    indexCache = { mtime: st.mtimeMs, html: fs.readFileSync(f, "utf8").replace("</body>", chip + "</body>") };
+    // M4: the floating session chip is gone; account + 退出 live in the sidebar avatar menu (SPA).
+    indexCache = { mtime: st.mtimeMs, html: fs.readFileSync(f, "utf8") };
   }
   res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache", "referrer-policy": "no-referrer" });
   res.end(indexCache.html);

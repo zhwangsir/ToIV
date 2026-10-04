@@ -1,0 +1,36 @@
+/* Account menu (ToIV gate). Tokens only: --user-*, --r-*, --fs-*. */
+.app-workspace-account { position: relative; flex: none; }
+.app-workspace-account-trigger {
+    display: inline-flex; width: 36px; height: 36px; align-items: center; justify-content: center;
+    border: 0; border-radius: var(--r-md); padding: 0; background: transparent; cursor: pointer;
+}
+.app-workspace-account-trigger:hover,
+.app-workspace-account-trigger:focus-visible,
+.app-workspace-account-trigger[aria-expanded="true"] { background: var(--user-surface-hover, color-mix(in srgb, var(--foreground) 8%, transparent)); }
+.app-workspace-account-trigger:focus-visible { outline: 2px solid var(--user-accent, var(--ring)); outline-offset: 2px; }
+.app-workspace-account-avatar {
+    display: inline-flex; width: 26px; height: 26px; flex: none; align-items: center; justify-content: center;
+    border: 1px solid var(--user-border-strong, var(--border)); border-radius: var(--r-full);
+    background: var(--user-surface-raised, var(--card)); color: var(--user-ink, var(--foreground));
+    font-size: var(--fs-caption); font-weight: 600; line-height: 1;
+}
+.app-workspace-account-menu {
+    position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 60;
+    width: max-content; min-width: 200px; max-width: min(280px, calc(100vw - 24px));
+    display: flex; flex-direction: column; gap: 2px; padding: 6px;
+    border: 1px solid var(--user-border, var(--border)); border-radius: var(--user-radius-control, 12px);
+    background: var(--user-surface-raised, var(--popover)); color: var(--user-ink, var(--foreground));
+    box-shadow: var(--shadow-lg);
+}
+.app-workspace-account.is-collapsed .app-workspace-account-menu { left: 0; }
+.app-workspace-account-identity { display: flex; min-width: 0; align-items: center; gap: 8px; padding: 6px 8px 8px; border-bottom: 1px solid var(--user-border, var(--border)); margin-bottom: 2px; }
+.app-workspace-account-text { display: flex; min-width: 0; flex-direction: column; }
+.app-workspace-account-name { overflow: hidden; font-size: var(--fs-body); text-overflow: ellipsis; white-space: nowrap; }
+.app-workspace-account-email { overflow: hidden; color: var(--user-ink-muted, var(--muted-foreground)); font-size: var(--fs-caption); text-overflow: ellipsis; white-space: nowrap; }
+.app-workspace-account-item {
+    display: flex; min-height: 34px; align-items: center; gap: 8px; padding: 0 8px;
+    border: 0; border-radius: var(--r-md); background: transparent; color: var(--user-ink, var(--foreground));
+    font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer;
+}
+.app-workspace-account-item:hover,
+.app-workspace-account-item:focus-visible { background: var(--user-surface-hover, color-mix(in srgb, var(--foreground) 8%, transparent)); outline: none; }

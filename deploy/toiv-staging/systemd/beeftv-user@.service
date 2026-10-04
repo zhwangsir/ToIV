@@ -7,5 +7,6 @@ EnvironmentFile=/home/merlin/beeftv-staging/users/%i/backend.env
 ExecStart=/home/merlin/beeftv-staging/beeftv-server
 Restart=always
 RestartSec=3
+TimeoutStopSec=20
 StandardOutput=append:/home/merlin/beeftv-staging/users/%i/backend.log
 StandardError=append:/home/merlin/beeftv-staging/users/%i/backend.log
