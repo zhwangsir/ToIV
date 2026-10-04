@@ -61,3 +61,13 @@ def _pref_dataset_tmp(monkeypatch, tmp_path):
     monkeypatch.setattr(
         get_settings(), "pref_dataset_dir", str(tmp_path / "preference_dataset")
     )
+
+
+@pytest.fixture(autouse=True)
+def _reset_comfy_queue_cache():
+    """/queue 单飞短缓存跨测试隔离（app.comfy.client._QUEUE_TTL）。"""
+    from app.comfy import client as _cc
+
+    _cc._reset_queue_cache()
+    yield
+    _cc._reset_queue_cache()

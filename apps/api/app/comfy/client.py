@@ -45,6 +45,19 @@ async def get_image_bytes_any(client, filename: str, subfolder: str = "") -> tup
 
 
 # 各类模型加载器的 (节点, 字段),用于汇总该 worker 实际拥有的模型文件名
+
+# /queue 读取单飞 + 短缓存（2026-10-05 :8197）：worker 主线程被 /object_info 扫描卡住约 90s 时，
+# 调度/追踪/任务中心各自 4s 短超时并发轮询，曾在 :8197 堆出 48 条半开连接。
+# 同一 base_url 同一时刻只发 1 条 /queue；结果（含失败）缓存 _QUEUE_TTL 秒供并发调用方共享。
+_QUEUE_TTL = 2.0
+_queue_cache: dict[tuple[int, str], tuple[float, dict | None, BaseException | None]] = {}
+_queue_inflight: dict[tuple[int, str], "asyncio.Future[dict]"] = {}
+
+
+def _reset_queue_cache() -> None:
+    _queue_cache.clear()
+    _queue_inflight.clear()
+
 _MODEL_LOADERS = [
     ("CheckpointLoaderSimple", "ckpt_name"),
     ("UNETLoader", "unet_name"),
@@ -242,14 +255,44 @@ class ComfyUIClient:
             raise ComfyUIError(f"读取图片失败: {e}") from e
 
     # ---------- 调度与元信息 ----------
+    async def _queue_json(self) -> dict:
+        """/queue 单飞读取（见 _QUEUE_TTL 注释）。失败抛 ComfyUIError，并发调用方共享同一结果。"""
+        loop = asyncio.get_running_loop()
+        key = (id(loop), self.base_url)
+        hit = _queue_cache.get(key)
+        now = time.monotonic()
+        if hit and now - hit[0] < _QUEUE_TTL:
+            if hit[2] is not None:
+                raise ComfyUIError(str(hit[2]))
+            return hit[1] or {}
+        fut = _queue_inflight.get(key)
+        if fut is None:
+            fut = loop.create_future()
+            _queue_inflight[key] = fut
+            try:
+                data = await self._get_json("/queue", timeout=4.0)
+            except BaseException as e:  # noqa: BLE001
+                if isinstance(e, ComfyUIError):
+                    _queue_cache[key] = (time.monotonic(), None, e)
+                _queue_inflight.pop(key, None)
+                if not fut.done():
+                    fut.set_exception(e if isinstance(e, Exception) else ComfyUIError("请求 /queue 被取消"))
+                    fut.exception()  # 标记已取，避免无人等待时告警
+                raise
+            _queue_cache[key] = (time.monotonic(), data, None)
+            _queue_inflight.pop(key, None)
+            fut.set_result(data)
+            return data
+        return await asyncio.shield(fut)
+
     async def queue_len(self) -> int:
         # 短超时:死/挂起的 worker 快速降级,避免拖慢 pick 调度
-        data = await self._get_json("/queue", timeout=4.0)
+        data = await self._queue_json()
         return len(data.get("queue_running", [])) + len(data.get("queue_pending", []))
 
     async def queue_counts(self) -> tuple[int, int]:
         """(running, pending) 队列计数;提交侧排队位次提示用。短超时同 queue_len。"""
-        data = await self._get_json("/queue", timeout=4.0)
+        data = await self._queue_json()
         return len(data.get("queue_running", [])), len(data.get("queue_pending", []))
 
     async def get_queue(self) -> set[str]:
@@ -258,7 +301,7 @@ class ComfyUIClient:
         ComfyUI 队列条目结构: [number, prompt_id, prompt, extra_data, outputs_to_execute]。
         短超时:死 worker 快速判不可达(调用方据此区分「网络抖动」与「作业丢失」)。
         """
-        data = await self._get_json("/queue", timeout=4.0)
+        data = await self._queue_json()
         ids: set[str] = set()
         for section in ("queue_running", "queue_pending"):
             for entry in data.get(section, []):
@@ -272,7 +315,7 @@ class ComfyUIClient:
         pending_pos[prompt_id] = 1 表示排第 1 位(下一个执行);running 中的作业
         不在映射里(前端显示「生成中」而非排队位)。全量进度体系任务中心用。
         """
-        data = await self._get_json("/queue", timeout=4.0)
+        data = await self._queue_json()
         running: set[str] = set()
         for entry in data.get("queue_running", []):
             if isinstance(entry, (list, tuple)) and len(entry) > 1:
