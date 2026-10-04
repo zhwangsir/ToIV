@@ -138,6 +138,8 @@ class VideoRenderer:
                     ),
                     worker_url=kw.get("worker_url"),
                     pipeline_name=pipeline,
+                    ref_overrides=kw.get("ref_overrides"),
+                    outfit_desc=str(kw.get("outfit_desc") or ""),
                 )
             except RenderError:
                 raise

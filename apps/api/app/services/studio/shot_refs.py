@@ -198,6 +198,25 @@ def resolve_scene_images_for_shot(
     i = max(0, min(int(shot_idx or 0), len(scenes) - 1))
     return [scenes[i]]
 
+def apply_ref_overrides(refs: list[RefImage], overrides: dict[str, str] | None) -> list[RefImage]:
+    """镜头级参考覆盖：原 URL（全等或同文件名）→ 替换 URL，保留标签与 @图片 顺序。
+
+    用于本次渲染临时替换角色参考（如帽兜放下版正/侧面），不改角色原图。
+    """
+    if not overrides:
+        return refs
+    by_name = {str(k).rsplit("/", 1)[-1]: v for k, v in overrides.items() if k and v}
+    out: list[RefImage] = []
+    for r in refs:
+        u = r.image_url or ""
+        new = overrides.get(u) or by_name.get(u.rsplit("/", 1)[-1])
+        if new:
+            out.append(RefImage(label=r.label, role=r.role, image_url=str(new)))
+        else:
+            out.append(r)
+    return out
+
+
 def ref_urls(refs: list[RefImage]) -> list[str]:
     return [r.image_url for r in refs if r.image_url]
 

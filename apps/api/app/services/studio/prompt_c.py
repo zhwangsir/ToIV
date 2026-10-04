@@ -438,6 +438,44 @@ _HOOD_DOWN_PHRASES = re.compile(
 )
 
 
+# 单一连续镜头（2026-10-05：931f/3c40 镜内多处硬切）
+C_SINGLE_TAKE = "单一连续镜头、无切镜, one continuous take, no cuts, no scene change"
+
+# 服装单一描述替换：cast_visual / 镜头描述里的外套名词短语 → outfit_desc（避免 风衣/雨衣/jacket 并存）
+_GARMENT_EN = re.compile(
+    r"(?:\b(?:jet\s+|pure\s+|plain\s+)?(?:black|dark)\s+)?(?:\bhooded\s+)?"
+    r"\b(?:windbreaker|raincoat|rain\s+jacket|rain\s+coat|parka|anorak|jacket|coat)s?\b",
+    re.I,
+)
+_GARMENT_ZH = re.compile(r"(?:纯黑|黑色|深色|黑)?(?:无\s*logo\s*无字的)?(?:连帽)?(?:风衣|雨衣|雨披|外套|夹克)")
+_OUTFIT_SLOT = "\x00OUTFIT\x00"
+
+
+def text_hood_state(*texts: str) -> str | None:
+    """文字口径帽兜状态：up（全程戴帽/hood up）/ down（hood down/帽兜放下）/ None。"""
+    if wants_hood_up(*texts):
+        return "up"
+    if any(_HOOD_DOWN_PHRASES.search(t or "") for t in texts):
+        return "down"
+    return None
+
+
+def apply_outfit_desc(text: str, desc: str) -> str:
+    """把外套名词短语统一成 desc，全文只保留第一次出现（其余删去）。desc 为空则原样返回。"""
+    desc = (desc or "").strip()
+    if not desc or not text:
+        return text
+    t = _GARMENT_ZH.sub(_OUTFIT_SLOT, _GARMENT_EN.sub(_OUTFIT_SLOT, text))
+    if _OUTFIT_SLOT not in t:
+        return text
+    head, _, tail = t.partition(_OUTFIT_SLOT)
+    tail = tail.replace(_OUTFIT_SLOT, "")
+    out = head + desc + tail
+    out = re.sub(r"(\s*[,，]\s*){2,}", ", ", out)
+    out = re.sub(r"\s{2,}", " ", out)
+    return out
+
+
 def wants_hood_up(*texts: str) -> bool:
     """镜头描述要求戴帽（全程戴帽 / hood up）。"""
     return any(_HOOD_UP_RE.search(t or "") for t in texts)
@@ -460,10 +498,14 @@ def build_c_visual_prompt(
     scene: str = "",
     negative: str = "",
     style: str | None = None,
+    outfit_desc: str = "",
 ) -> str:
     """组装管线 C 正向提示：参考行 + 场景/运镜/角色外观 + 画面描述（无台词）+ Avoid。
 
     Avoid 必须含 merge_negative 结果（店招/乱码/字幕），经 Comfy prompt 生效。
+    outfit_desc：服装单一描述（如「纯黑无 logo 无字的连帽风衣」）；给出时外套名词短语统一替换、
+    只保留一次，外套无 logo 固定句也改用该描述。
+    正文固定含 C_SINGLE_TAKE（单一连续镜头、无切镜）。
     """
     body_parts: list[str] = []
     if scene.strip():
@@ -479,6 +521,9 @@ def build_c_visual_prompt(
     if visual:
         body_parts.append(visual)
     body = "，".join(body_parts) if body_parts else "竖屏短剧镜头，人物与场景清晰"
+    od = (outfit_desc or "").strip()
+    if od:
+        body = apply_outfit_desc(body, od)
     hood_up = wants_hood_up(shot_prompt or "", camera or "", cast_visual or "")
     body = apply_hood_state(body, hood_up)
     st = (style or "").strip().lower()
@@ -493,7 +538,8 @@ def build_c_visual_prompt(
             "not modern anime, not chibi, "
         ) + body
     body += (
-        f"。画面只有角色与场景，无任何文字、店招或乱码。{C_JACKET_PLAIN}。"
+        f"。{C_SINGLE_TAKE}。画面只有角色与场景，无任何文字、店招或乱码。"
+        f"{(od + '，胸口空白无字, blank chest') if od else C_JACKET_PLAIN}。"
         " blank glowing lightboxes without letters, 无字发光灯箱,"
         " blank neon panels without text, empty glowing signs,"
         " 非连锁品牌配色, not chain-store fascia colors, not 7-Eleven stripes,"
@@ -508,7 +554,7 @@ def build_c_visual_prompt(
         hood_clause = (
             "hood up over the head the whole shot, same hood state in every frame, "
             if hood_up
-            else "hoodie hood down, "
+            else ("hood down resting behind the neck, hair visible, " if od else "hoodie hood down, ")
         )
         body += (
             " Medium shot inside the convenience store interior between shelves, "

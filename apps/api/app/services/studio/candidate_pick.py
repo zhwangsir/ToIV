@@ -814,6 +814,8 @@ def pick_best_candidate(
     text_gate（默认开）：选优也跑出片文字门禁 garment_brand_ocr_hit（字幕 / 衣物品牌字，RapidOCR+tesseract），
     命中的候选不得入选（此前只在出片后换 seed 路径跑，选优/重选时不查）。
     hood_log（默认开，仅记录）：帽兜状态逐帧与上一镜尾帧对比写 hood_log，不拦不扣分。
+    硬切门禁（随 hard_cut_rule）：裁片头后仍有 ≥HARD_CUT_INELIGIBLE_MIN(2) 处镜内硬切的候选
+    写 cut_gate.blocked，不得入选；全部被拦（文字/硬切）则抛 CandidatePickError。
     """
     done = [c for c in candidates if c.get("status") == "done" and c.get("url")]
     if not done:
@@ -853,6 +855,12 @@ def pick_best_candidate(
     def _text_blocked(c: dict[str, Any]) -> bool:
         return bool((c.get("text_gate") or {}).get("hit"))
 
+    def _cut_blocked(c: dict[str, Any]) -> bool:
+        return bool((c.get("cut_gate") or {}).get("blocked"))
+
+    def _blocked(c: dict[str, Any]) -> bool:
+        return _text_blocked(c) or _cut_blocked(c)
+
     try:
         best_id = None
         best_score = float("-inf")
@@ -885,6 +893,17 @@ def pick_best_candidate(
                         note_parts.append(f"head_trim={c['head_trim']['frames']}f")
                     if cut_pen:
                         note_parts.append(f"late_cuts={len(c.get('hard_cut_late') or [])}")
+                    from app.services.studio.hard_cut import HARD_CUT_INELIGIBLE_MIN
+
+                    n_late = len(c.get("hard_cut_late") or [])
+                    c["cut_gate"] = {
+                        "blocked": n_late >= HARD_CUT_INELIGIBLE_MIN,
+                        "late_cuts": n_late,
+                        "min": HARD_CUT_INELIGIBLE_MIN,
+                    }
+                    if n_late >= HARD_CUT_INELIGIBLE_MIN:
+                        c["gate_status"] = GATE_NEEDS_REVIEW
+                        note_parts.append(f"cut_gate={n_late}cuts")
             if text_gate:
                 try:
                     tg = garment_brand_ocr_hit(path, skip_until_frame=skip_frames)
@@ -979,16 +998,21 @@ def pick_best_candidate(
                 note_parts.append(f"regression={reg:.3f}")
             c["pick_note"] = "+".join(note_parts) if note_parts else "scored"
             scored_any = True
-            if score > best_score and not _text_blocked(c):
+            if score > best_score and not _blocked(c):
                 best_score = score
                 best_id = c.get("id")
 
-        if scored_any and best_id is None and any(_text_blocked(c) for c in done):
+        if scored_any and best_id is None and any(_blocked(c) for c in done):
             for c in candidates:
                 c["is_picked"] = False
             hits = [f"{c.get('id')}:{(c.get('text_gate') or {}).get('text', '')[:40]}" for c in done if _text_blocked(c)]
+            cuts = [f"{c.get('id')}:{(c.get('cut_gate') or {}).get('late_cuts')}处" for c in done if _cut_blocked(c)]
+            if hits and not cuts:
+                raise CandidatePickError(
+                    f"选优失败:全部候选未过文字门禁(衣物品牌字/字幕) {hits}，{GATE_NEEDS_REVIEW}，禁止入选并应改提示词重跑"
+                )
             raise CandidatePickError(
-                f"选优失败:全部候选未过文字门禁(衣物品牌字/字幕) {hits}，{GATE_NEEDS_REVIEW}，禁止入选并应改提示词重跑"
+                f"选优失败:全部候选未过门禁 文字门禁={hits} 镜内硬切≥2={cuts}，{GATE_NEEDS_REVIEW}，禁止入选并应改提示词重跑"
             )
         if not scored_any or best_id is None:
             for c in candidates:
@@ -1031,7 +1055,7 @@ def pick_best_candidate(
             gated = [
                 c
                 for c in done
-                if c.get("relative_pass") and c.get("pick_score") is not None and not _text_blocked(c)
+                if c.get("relative_pass") and c.get("pick_score") is not None and not _blocked(c)
             ]
             if not gated:
                 for c in candidates:
@@ -1056,7 +1080,7 @@ def pick_best_candidate(
 
             gated = [
                 c for c in done
-                if _face_gate_ok(c) and c.get("pick_score") is not None and not _text_blocked(c)
+                if _face_gate_ok(c) and c.get("pick_score") is not None and not _blocked(c)
             ]
             if not gated:
                 faces = [
@@ -1075,7 +1099,7 @@ def pick_best_candidate(
                 for c in candidates:
                     c["gate_status"] = GATE_NEEDS_REVIEW
                 ranks = [c.get("face_rank") for c in done if "face_rank" in c]
-                blocked = [c.get("id") for c in done if _text_blocked(c)]
+                blocked = [c.get("id") for c in done if _blocked(c)]
                 raise CandidatePickError(
                     f"选优失败:无人脸达标(需 face_mean≥{min_face_mean:.2f}"
                     f"{'；写实 min(online,facecrop)≥%.2f' % float(min_face_rank) if ranks else ''}，"
@@ -1096,7 +1120,7 @@ def pick_best_candidate(
                 c
                 for c in done
                 if c.get("pick_score") is not None
-                and not _text_blocked(c)
+                and not _blocked(c)
                 and (
                     not face_ok
                     or float(min_face_mean) <= 0

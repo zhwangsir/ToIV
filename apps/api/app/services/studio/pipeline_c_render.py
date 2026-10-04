@@ -1,6 +1,8 @@
 """Studio 视频步默认管线 C：上传参考 → 构图 → 提交 h3-eval → 落盘。"""
 from __future__ import annotations
 
+import asyncio
+
 import logging
 import secrets
 import tempfile
@@ -17,11 +19,17 @@ from app.services.studio.prompt_c import (
     build_cast_visual_for_style,
     extract_palette_swatches_from_sheet,
     merge_negative,
+    text_hood_state,
 )
 from app.services.studio.renderers.base import RenderError
 from app.services.studio.renderers.image_motion import _save_output
 from app.services.studio.renderers.video import _wait_video_url
-from app.services.studio.shot_refs import collect_cast_ref_images, h3_ref_prefix, ref_urls
+from app.services.studio.shot_refs import (
+    apply_ref_overrides,
+    collect_cast_ref_images,
+    h3_ref_prefix,
+    ref_urls,
+)
 from app.workflows.h3_pipeline_c import H3PipelineCParams, build_h3_pipeline_c_graph
 from app.workflows.h3_video import H3_R2V_UNET  # noqa: F401 — 文档锚点
 
@@ -330,6 +338,8 @@ async def render_pipeline_c(
     first_frame_url: str = "",
     worker_url: str | None = None,
     pipeline_name: str = "c",
+    ref_overrides: dict[str, str] | None = None,
+    outfit_desc: str = "",
 ) -> dict[str, Any]:
     """执行管线 C，返回 {url, context_latent, seed, prompt, worker, job_id, pipeline, first_frame}。
 
@@ -337,6 +347,10 @@ async def render_pipeline_c(
     图走 Hybrid（对齐实验 C：tmp/h3_long_exp/workflows/C_zh_seg*_c*.json）。
     提示词与 c 相同（英文视觉提示、台词不进画面、Avoid 屏蔽字幕/店招文字）。
     worker_url：管理员白名单覆盖（:8195/:8264），空则走 H3 池调度。
+    ref_overrides：镜头级参考覆盖 {原URL或文件名: 替换URL}，保留 @图片 标签与顺序，不改角色原图。
+    outfit_desc：服装单一描述（见 build_c_visual_prompt）。
+    c_hybrid 提交前做参考图 vs 首帧帽兜一致性检查（outfit_check，仅告警）；
+    出片后裁片头仍有 ≥2 处镜内硬切 → 与文字门禁同样换 seed（共用 max_submits）。
     """
     from fastapi import HTTPException
 
@@ -355,6 +369,7 @@ async def render_pipeline_c(
         )
     else:
         refs = collect_cast_ref_images(cast, scene_images=scene_images, style=style)
+        refs = apply_ref_overrides(refs, ref_overrides)
         urls = ref_urls(refs)
         prefix, _ = h3_ref_prefix(
             cast, engine="h3", scene_images=scene_images, style=style
@@ -376,6 +391,7 @@ async def render_pipeline_c(
         scene=getattr(shot, "scene", "") or "",
         negative=getattr(shot, "negative", "") or "",
         style=style,
+        outfit_desc=outfit_desc or "",
     )
 
     try:
@@ -410,6 +426,15 @@ async def render_pipeline_c(
         except Exception as e:
             raise RenderError(f"首帧上传失败:{e}") from e
 
+    outfit_check: dict[str, Any] = {}
+    if pipe_name == "c_hybrid" and ff_url:
+        outfit_check = await _outfit_ref_check(
+            ff_data, cast, urls, scene_images, style, ref_overrides,
+            expected_text=text_hood_state(
+                getattr(shot, "prompt", "") or "", getattr(shot, "camera", "") or ""
+            ),
+        )
+
     w = _snap32(width or 768)
     h = _snap32(height or 1344)
     # 竖屏短剧：若宽>高则对调（样片 768×1360）
@@ -419,6 +444,7 @@ async def render_pipeline_c(
     seed_used = int(seed) if seed is not None else H3PipelineCParams(positive="x").seed
     brand_ocr_reseeds = 0
     brand_ocr_hits: list[str] = []
+    hard_cut_reseed_hits: list[int] = []
     url = ""
     prompt_id = ""
     prefix_ctx = ""
@@ -459,6 +485,7 @@ async def render_pipeline_c(
 
         # 首帧锚定段（第 0..N 帧 = first_frame 定妆图/上一镜尾帧）不参与文字门禁
         from app.services.studio.candidate_pick import ANCHORED_FIRST_FRAME_SKIP_FRAMES
+        from app.services.studio.hard_cut import HARD_CUT_INELIGIBLE_MIN
 
         ocr = await _brand_ocr_after_render(
             url, skip_until_frame=ANCHORED_FIRST_FRAME_SKIP_FRAMES if ff_name else 0
@@ -486,7 +513,17 @@ async def render_pipeline_c(
         except Exception as e:
             logger.warning("garment_color_check failed: %s", e)
 
-        if not ocr.get("hit") and not color_hit:
+        n_late_cuts = await asyncio.to_thread(
+            _late_cuts_for_url, url, ANCHORED_FIRST_FRAME_SKIP_FRAMES if ff_name else 0
+        )
+        cut_hit = n_late_cuts >= HARD_CUT_INELIGIBLE_MIN
+        if cut_hit:
+            hard_cut_reseed_hits.append(n_late_cuts)
+            logger.warning(
+                "hard_cut_reseed shot=%s clip=%s attempt=%s seed=%s late_cuts=%s",
+                getattr(shot, "id", "")[:8], clip_index, attempt, seed_used, n_late_cuts,
+            )
+        if not ocr.get("hit") and not color_hit and not cut_hit:
             break
         if ocr.get("hit"):
             hit_text = str(ocr.get("text") or "")[:120]
@@ -544,4 +581,71 @@ async def render_pipeline_c(
         "ref_images": urls,
         "brand_ocr_reseeds": brand_ocr_reseeds,
         "brand_ocr_hits": brand_ocr_hits,
+        "hard_cut_reseed_hits": hard_cut_reseed_hits,
+        "outfit_check": outfit_check,
+        "ref_overrides": dict(ref_overrides or {}),
     }
+
+
+def _studio_local_path(url: str):
+    from pathlib import Path as _P
+
+    u = (url or "").strip()
+    if u.startswith("/api/studio/files/"):
+        return _P("/mnt/toiv-nas/toiv/outputs/drama/final/studio") / u.rsplit("/", 1)[-1]
+    p = _P(u)
+    return p if u and p.is_file() else None
+
+
+def _late_cuts_for_url(url: str, anchor_frames: int = 0) -> int:
+    """出片裁片头后镜内硬切数；检测失败 → 0（不拦）。"""
+    try:
+        from app.services.studio.hard_cut import detect_hard_cuts, late_cut_count
+
+        local = _studio_local_path(url)
+        if local is None or not local.is_file():
+            return 0
+        det = detect_hard_cuts(local)
+        if det.get("error"):
+            return 0
+        return late_cut_count(det.get("cuts") or [], float(det.get("fps") or 24.0), anchor_frames)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("late cut check failed %s: %s", url, e)
+        return 0
+
+
+async def _outfit_ref_check(ff_data, cast, urls, scene_images, style, ref_overrides, *, expected_text=None):
+    """参考图 vs 首帧帽兜一致性（仅告警）。失败不影响渲染。"""
+    try:
+        import cv2
+        import numpy as np
+
+        from app.services.studio.outfit_state import check_refs_vs_first_frame
+
+        scene_set = {str(u).strip() for u in (scene_images or [])}
+        try:
+            labeled = apply_ref_overrides(
+                collect_cast_ref_images(cast, scene_images=None, style=style), ref_overrides
+            )
+            label_by_url = {r.image_url: r.label for r in labeled}
+        except Exception:  # noqa: BLE001
+            label_by_url = {}
+        over_vals = {str(v) for v in (ref_overrides or {}).values()}
+        items = []
+        for u in urls:
+            if u in scene_set:
+                continue
+            try:
+                b = await _fetch_bytes(u)
+                img = cv2.imdecode(np.frombuffer(b, np.uint8), cv2.IMREAD_COLOR)
+            except Exception:  # noqa: BLE001
+                img = None
+            items.append({"label": label_by_url.get(u, ""), "url": u, "image": img,
+                          "overridden": u in over_vals})
+        ff = cv2.imdecode(np.frombuffer(ff_data, np.uint8), cv2.IMREAD_COLOR)
+        return await asyncio.to_thread(
+            check_refs_vs_first_frame, ff, items, expected_text=expected_text
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning("outfit ref check failed: %s", e)
+        return {"error": f"{type(e).__name__}:{e}"[:200], "action": "ok"}

@@ -267,10 +267,27 @@ async def main_async(args) -> int:
 
             _pc.merge_negative = _merge_with_extra
             prog.event("shot_negative_applied", added=neg_add)
+        ref_overrides: dict[str, str] = {}
+        for item in args.ref_override or []:
+            k, sep, v = item.partition("=")
+            if not sep or not k.strip() or not v.strip():
+                raise SystemExit(f"--ref-override 需 ORIG=NEW: {item!r}")
+            ref_overrides[k.strip()] = v.strip()
+        outfit_desc = (args.outfit_desc or "").strip()
+        if ref_overrides or outfit_desc:
+            prog.event("scene_overrides", ref_overrides=ref_overrides, outfit_desc=outfit_desc)
+        strip_notes = [t.strip() for t in (args.strip_note or []) if t.strip()]
         for shot in shots[: args.shots]:
             if shot.status in ("rendered", "voiced", "lipsynced", "done") and shot.video_url:
                 prog.event("skip_rendered", idx=shot.idx)
                 continue
+            for sn in strip_notes:
+                if sn in (shot.prompt or ""):
+                    assert shot.project_id != args.src
+                    shot.prompt = (shot.prompt or "").replace(f"，{sn}", "").replace(sn, "").rstrip("，, ")
+                    session.add(shot)
+                    session.commit()
+                    prog.event("shot_note_stripped", idx=shot.idx, note=sn)
             if note and note not in (shot.prompt or ""):
                 # 只改对比副本项目的镜头（源项目只读）
                 assert shot.project_id != args.src
@@ -289,6 +306,8 @@ async def main_async(args) -> int:
                     num_candidates=args.cands,
                     worker_url=worker,
                     auto_pick=True,
+                    ref_overrides=ref_overrides or None,
+                    outfit_desc=outfit_desc or None,
                 )
                 session.refresh(shot)
                 ok = bool(shot.video_url) and shot.status != "error"
@@ -332,6 +351,14 @@ def main() -> int:
     ap.add_argument("--shot-negative", default="",
                     help="comma list appended to the Avoid section (H3 has no separate negative input), "
                          "e.g. logo, text, letters, brand")
+    ap.add_argument("--ref-override", action="append", default=[],
+                    help="scene-level ref override ORIG=NEW (orig URL or file name -> replacement URL); "
+                         "keeps @图片 labels/order, character originals untouched. Repeatable.")
+    ap.add_argument("--outfit-desc", default="",
+                    help="single outfit description replacing jacket/raincoat wording, "
+                         "e.g. '纯黑无 logo 无字的连帽风衣'")
+    ap.add_argument("--strip-note", action="append", default=[],
+                    help="remove a previously appended note from not-yet-rendered copy-project shot prompts")
     ap.add_argument("--recover-only", action="store_true",
                     help="no new submissions: only recover not-yet-written-back shots from progress.json prompt_ids")
     args = ap.parse_args()
