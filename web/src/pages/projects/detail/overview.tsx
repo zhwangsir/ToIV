@@ -119,7 +119,7 @@ export default function ProjectOverviewView({ detail, overview }: ProjectDetailV
                             </Link>
                         ))}
                     </div>
-                ) : <div className="project-pipeline-surface p-2"><WorkspaceState icon="projects" compact title="还没有剧情章节" description="添加章节后，这里会显示内容、资产、分镜和画布的制作进度。" /></div>}
+                ) : <div className="project-pipeline-surface p-2"><WorkspaceState icon="projects" compact title="还没有剧情章节" /></div>}
             </section>
         </div>
     );

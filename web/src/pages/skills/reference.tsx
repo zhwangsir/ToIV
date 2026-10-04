@@ -51,7 +51,6 @@ export default function SkillsReferencePage() {
                             <Sparkles className="size-3.5" /> 创作灵感空间
                         </div>
                         <h1 className="text-balance text-3xl font-medium tracking-[-.05em] text-white sm:text-4xl lg:text-[42px]">一个 Skill，一部作品</h1>
-                        <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/40">把灵感交给 Skill，让复杂的创作流程变成一条清晰的作品路径。</p>
 
                         <div className="mx-auto mt-9 overflow-hidden rounded-[22px] border border-white/[.12] bg-[#202020] text-left shadow-[0_20px_60px_rgba(0,0,0,.22)]">
                             <textarea

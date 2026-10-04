@@ -58,7 +58,7 @@ export default function ProjectCanvasesView({ detail, refreshProject }: ProjectD
 
     return (
         <div>
-            {canvasesQuery.isLoading ? <WorkspaceState icon="canvas" title="正在读取项目画布" description="按页加载画布摘要与章节关联。" /> : canvases.length ? (
+            {canvasesQuery.isLoading ? <WorkspaceState icon="canvas" title="正在读取项目画布" /> : canvases.length ? (
                 <>
                 <div className="project-library-grid library-grid">
                     {canvases.map((canvas) => {
@@ -94,7 +94,7 @@ export default function ProjectCanvasesView({ detail, refreshProject }: ProjectD
                 </div>
                 <PaginationBar current={page} pageSize={pageSize} total={canvasesQuery.data?.total || 0} itemLabel="张" pageSizeOptions={[20, 40, 80]} onChange={(nextPage, nextPageSize) => { setPage(nextPageSize !== pageSize ? 1 : nextPage); setPageSize(nextPageSize); }} />
                 </>
-            ) : <WorkspaceState icon="canvas" title="还没有项目画布" description="使用右上角的新建画布开始创作。" />}
+            ) : <WorkspaceState icon="canvas" title="还没有项目画布" />}
         </div>
     );
 }

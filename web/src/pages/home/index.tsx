@@ -19,7 +19,9 @@ export default function HomePage() {
     const query = useQuery({
         queryKey: ["beeftv-home-canvases", userId],
         queryFn: () => listWorkspaceCanvasProjectsPage({ page: 1, pageSize: 4, sort: "updated" }),
-        enabled: !localMode && Boolean(userId) && sessionHydrated,
+        // The local workspace store only holds projects that were opened this session, so the
+        // home list always asks the workspace API (local backend or hosted) for the latest four.
+        enabled: sessionHydrated && (localMode || Boolean(userId)),
     });
     const localSummaries = useMemo<CanvasLibrarySummary[]>(() => listCanvasWorkspaceProjectRoots(localProjects)
         .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
@@ -29,7 +31,8 @@ export default function HomePage() {
             nodeCount: project.nodes.length,
             previewNodes: previewNodesForWorkspaceProject(localProjects, project.id),
         })), [localProjects]);
-    const projects = localMode ? localSummaries : query.data?.projects || [];
+    const remote = query.data?.projects || [];
+    const projects = remote.length || !localMode ? remote : localSummaries;
 
-    return <HomeDashboard projects={projects} loading={!sessionHydrated || !localHydrated || (!localMode && Boolean(userId) && query.isPending)} error={!localMode && query.isError} onRetry={() => void query.refetch()} />;
+    return <HomeDashboard projects={projects} loading={!sessionHydrated || !localHydrated || (query.isLoading && !localSummaries.length)} error={!localMode && query.isError} onRetry={() => void query.refetch()} />;
 }

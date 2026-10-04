@@ -38,7 +38,6 @@ export function CanvasShortDramaEmptyState({ onCreatePipeline, onStartFreeform, 
             <div className="pointer-events-auto w-full max-w-[760px]" data-canvas-no-zoom>
                 <div className="mb-4 text-center">
                     <h2 className="text-lg font-semibold">从哪里开始？</h2>
-                    <p className="mt-1 text-sm" style={{ color: theme.node.muted }}>选择一条主路径，之后仍可随时切换。</p>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
                     <PathCard

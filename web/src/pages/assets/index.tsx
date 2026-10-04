@@ -1074,7 +1074,7 @@ function AssetsPageSession() {
                             ) : (
                                 <>
                                     {visibleAssets.length === 0 ? (
-                                        <WorkspaceState icon="assets" compact title="没有匹配的素材" description="调整关键词或左侧分类后再试。" />
+                                        <WorkspaceState icon="assets" compact title="没有匹配的素材" />
                                     ) : (
                                         <CollectionGrid className={cn("library-grid", "assets-library-grid", assetViewMode === "list" && "is-list-view")}>
                                             {orderedVisibleAssets.map((asset) => (
@@ -1649,7 +1649,7 @@ function GenerationHistorySurface({
                             ))}
                         </div>
                     </section>
-                )) : <WorkspaceState icon="assets" compact title={historyAssets.length ? "没有匹配的生成结果" : "暂无生成历史"} description={historyAssets.length ? "切换类型后再试。" : "本地生成结果会自动出现在这里。"} />}
+                )) : <WorkspaceState icon="assets" compact title={historyAssets.length ? "没有匹配的生成结果" : "暂无生成历史"} />}
                 {visibleGroups.length ? (
                     hasMore ? (
                         <div className="generation-history-more">

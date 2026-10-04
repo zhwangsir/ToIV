@@ -112,8 +112,6 @@ export function CanvasAssistantSidebar(props: Props) {
                 {assistant.historyLoaded && turnCount === 0 && !assistant.pendingUserText ? (
                     <div className="canvas-assistant-empty">
                         <Clapperboard className="canvas-assistant-empty-icon" aria-hidden="true" />
-                        <h3>让想法成为画面</h3>
-                        <p>从一句灵感开始，一起完善这张画布。</p>
                         {ASSISTANT_STARTER_PROMPTS.map((prompt) => (
                             <button key={prompt} type="button" className="canvas-assistant-starter" onClick={() => setDraft(prompt)}>
                                 <span>{prompt}</span><ArrowUpRight size={14} aria-hidden="true" />

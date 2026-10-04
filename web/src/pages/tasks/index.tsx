@@ -676,10 +676,10 @@ function groupTasksByCanvas(tasks: GenerationTask[], canvasById: Map<string, { t
 }
 
 function taskEmptyState(status: TaskStatusFilter) {
-    if (status === "all") return { title: "还没有任务", description: "新提交的生成会在这里显示状态和实时进度。" };
-    if (status === "active") return { title: "没有运行中的任务", description: "新提交的生成会在这里显示排队状态和实时进度。" };
-    if (status === "succeeded") return { title: "还没有已完成任务", description: "生成成功后，结果预览和执行记录会保留在这里。" };
-    return { title: "没有失败或取消的任务", description: "失败或取消的生成会出现在这里，并提供原因和可用操作。" };
+    if (status === "all") return { title: "还没有任务", description: undefined };
+    if (status === "active") return { title: "没有运行中的任务", description: undefined };
+    if (status === "succeeded") return { title: "还没有已完成任务", description: undefined };
+    return { title: "没有失败或取消的任务", description: undefined };
 }
 
 function formatDate(value?: string) {

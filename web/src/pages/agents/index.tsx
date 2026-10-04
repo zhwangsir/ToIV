@@ -101,7 +101,7 @@ export default function AgentsPage() {
                                 ))}
                             </ul>
                         ) : (
-                            <EmptyState size="compact" icon={Plug} title="还没有连接任何工具" description="从上面选一个工具，连接后会出现在这里。" />
+                            <EmptyState size="compact" icon={Plug} title="还没有连接任何工具" />
                         )}
                     </section>
 

@@ -268,7 +268,7 @@ export function CanvasProjectEditorDialogs({
                 <Suspense
                     fallback={
                         <div className="fixed inset-0 z-[var(--z-toast)] grid place-items-center px-5" style={{ background: theme.canvas.background, color: theme.node.text }}>
-                            <WorkspaceState icon="loading" title="正在加载绘图编辑器" description="正在准备绘图画布。" />
+                            <WorkspaceState icon="loading" title="正在加载绘图编辑器" />
                         </div>
                     }
                 >
@@ -308,7 +308,7 @@ export function CanvasProjectEditorDialogs({
                 <Suspense
                     fallback={
                         <div className="fixed inset-0 z-[var(--z-toast)] grid place-items-center px-5" style={{ background: theme.canvas.background, color: theme.node.text }}>
-                            <WorkspaceState icon="loading" title="正在加载 3D 导演台" description="准备场景、镜头与空间控制。" />
+                            <WorkspaceState icon="loading" title="正在加载 3D 导演台" />
                         </div>
                     }
                 >

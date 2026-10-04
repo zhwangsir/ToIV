@@ -688,7 +688,7 @@ export default function ProjectChaptersView({ detail, refreshProject }: ProjectD
                             })}
                         </div> : <div className="px-3 py-8 text-center text-xs text-foreground/40">没有匹配的章节</div>}
                     </div>
-                ) : <WorkspaceState icon="projects" compact className="flex-1 px-4" title="还没有章节" description="添加章节后可继续编写正文和关联画布。" action={<Button size="small" type="primary" icon={<Plus className="size-3.5" />} onClick={() => setCreateOpen(true)}>添加章节</Button>} />}
+                ) : <WorkspaceState icon="projects" compact className="flex-1 px-4" title="还没有章节" action={<Button size="small" type="primary" icon={<Plus className="size-3.5" />} onClick={() => setCreateOpen(true)}>添加章节</Button>} />}
             </aside>
 
             <section className="min-h-0 min-w-0 w-full bg-background/18 p-2.5 sm:p-3.5">
@@ -722,7 +722,7 @@ export default function ProjectChaptersView({ detail, refreshProject }: ProjectD
                             <div className="project-chapter-editor-wrap min-h-full"><EditorContent editor={editor} /></div>
                         </div>
                     </div>
-                ) : <WorkspaceState icon="projects" compact className="h-full" title="请选择章节" description="从左侧章节列表选择一章开始编辑。" />}
+                ) : <WorkspaceState icon="projects" compact className="h-full" title="请选择章节" />}
             </section>
             <CreateChapterModal open={createOpen} onClose={() => setCreateOpen(false)} loading={createMutation.isPending} onSubmit={(values) => createMutation.mutate(values)} />
             <ImportNovelModal open={importOpen} loading={importMutation.isPending} onClose={() => setImportOpen(false)} onImport={(chapters) => importMutation.mutate(chapters)} />

@@ -335,7 +335,7 @@ export function CanvasVersionHistory({ history }: { history: CanvasVersionHistor
                                 <Spin size="small" />
                             </div>
                         ) : !entries.length && !error ? (
-                            <EmptyState size="compact" description="暂无历史版本，后续保存时会自动保留" />
+                            <EmptyState size="compact" description="暂无历史版本" />
                         ) : null}
                         {[...groups].map(([day, items]) => (
                             <details className="canvas-version-group" key={day} open>

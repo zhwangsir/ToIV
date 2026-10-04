@@ -476,7 +476,6 @@ export default function PluginsPage() {
                                 className="min-h-[260px] rounded-[var(--plugins-card-radius)] bg-foreground/[0.03]"
                                 icon={SlidersHorizontal}
                                 title="没有匹配的插件"
-                                description="试试清空搜索词，或放宽筛选条件。"
                                 action={
                                     <Button
                                         onClick={() => {

@@ -575,7 +575,6 @@ function InactiveVideoPreview({ node, theme, onPlay, hoverEnabled = true, showPl
     const { updateMetadata } = useCanvasNodeActions();
     const updateMetadataRef = useRef(updateMetadata);
     const [hydrating, setHydrating] = useState(false);
-
     useEffect(() => {
         if (!hoverEnabled) return;
         const element = previewRef.current;
@@ -609,12 +608,14 @@ function InactiveVideoPreview({ node, theme, onPlay, hoverEnabled = true, showPl
 
     if (previewUrl) {
         return <div ref={previewRef} className="group/video-preview relative size-full overflow-hidden rounded-[var(--node-radius)] bg-black">
-            <CachedResourceImage storageKey={node.metadata?.videoPreview?.storageKey} src={previewUrl} alt={`${node.title || "视频"} 静态预览`} loading="lazy" decoding="async" draggable={false} className="pointer-events-none size-full select-none object-contain" fallback={<InactiveMediaCard icon={<Video className="size-7" />} title={node.title || "视频"} hint="首帧暂不可用，点击播放视频" theme={theme} />} loadingFallback={<InactiveMediaCard icon={<Video className="size-7" />} title={node.title || "视频"} hint="正在读取首帧" theme={theme} />} />
+            <CachedResourceImage storageKey={node.metadata?.videoPreview?.storageKey} src={previewUrl} alt={`${node.title || "视频"} 静态预览`} loading="lazy" decoding="async" draggable={false} className="pointer-events-none size-full select-none object-contain" fallback={<FirstFrameVideo node={node} theme={theme} />} loadingFallback={<InactiveMediaCard icon={<Video className="size-7" />} title={node.title || "视频"} hint="正在读取首帧" theme={theme} />} />
             {showPlayButton ? <VideoPreviewPlayButton title={node.title || "视频"} onPlay={onPlay} /> : null}
         </div>;
     }
-    return <div ref={previewRef} className="group/video-preview relative size-full">
-        <InactiveMediaCard icon={<Video className="size-7" />} title={node.title || "视频"} hint={hydrating ? "正在生成首帧" : nearViewport ? "点击播放视频" : "进入视口后加载首帧"} theme={theme} />
+    // No usable stored poster (older nodes, or capture/upload failed): let the browser decode the first
+    // frame natively so finished videos never show an empty card.
+    return <div ref={previewRef} className="group/video-preview relative size-full overflow-hidden rounded-[var(--node-radius)]">
+        {nearViewport ? <FirstFrameVideo node={node} theme={theme} busy={hydrating} /> : <InactiveMediaCard icon={<Video className="size-7" />} title={node.title || "视频"} hint="" theme={theme} />}
         {showPlayButton ? <VideoPreviewPlayButton title={node.title || "视频"} onPlay={onPlay} /> : null}
     </div>;
 }
@@ -648,8 +649,26 @@ function useVideoPlaybackUrl(node: CanvasNodeData, active: boolean) {
     return { url, loading };
 }
 
+function FirstFrameVideo({ node, theme, busy = false }: Pick<CanvasNodeContentProps, "node" | "theme"> & { busy?: boolean }) {
+    const [url, setUrl] = useState("");
+    const [failed, setFailed] = useState(false);
+    const content = node.metadata?.content || "";
+    const storageKey = node.metadata?.storageKey;
+    const provider = node.metadata?.importSource?.provider;
+    useEffect(() => {
+        if (!content && !storageKey) return;
+        let cancelled = false;
+        const fallback = provider === "libtv" ? buildLibTVVideoSourceUrl(content) : content;
+        void resolveMediaUrl(storageKey, fallback).then((resolved) => { if (!cancelled && resolved) setUrl(resolved); }).catch(() => undefined);
+        return () => { cancelled = true; };
+    }, [content, storageKey, provider]);
+    if (!url || failed) return <InactiveMediaCard icon={<Video className="size-7" />} title={node.title || "视频"} hint={busy ? "正在生成首帧" : ""} theme={theme} />;
+    // #t=0.1 makes iOS Safari paint the first frame with preload=metadata.
+    return <video src={url.includes("#") ? url : `${url}#t=0.1`} muted playsInline preload="metadata" aria-hidden tabIndex={-1} onError={() => setFailed(true)} className="pointer-events-none size-full select-none bg-black object-contain" />;
+}
+
 function InactiveMediaCard({ icon, title, hint, theme }: { icon: ReactNode; title: string; hint: string; theme: CanvasTheme }) {
-    return <div className="flex size-full flex-col items-center justify-center gap-2 rounded-[var(--node-radius)] px-4 text-center" style={{ background: theme.node.fill, color: theme.node.muted }}><span className="opacity-40">{icon}</span><span className="max-w-full truncate text-xs font-medium" title={title}>{title}</span><span className="text-[var(--fs-tiny)] opacity-50">{hint}</span></div>;
+    return <div role="img" aria-label={hint ? `${title}：${hint}` : title} className="flex size-full items-center justify-center rounded-[var(--node-radius)]" style={{ background: theme.node.fill, color: theme.node.muted }}><span className="opacity-40">{icon}</span></div>;
 }
 
 function MediaLoadingState({ icon, label }: { icon: ReactNode; label: string }) {

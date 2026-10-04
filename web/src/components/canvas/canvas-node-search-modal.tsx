@@ -73,7 +73,7 @@ export function CanvasNodeSearchModal({ open, nodes, onClose, onFocus }: { open:
                         onActivate={() => setActiveIndex(index)}
                         onSelect={() => focusNode(node)}
                     />
-                )) : <WorkspaceState icon="canvas" compact title="没有匹配节点" description="换一个节点、章节、镜头、模型或标签继续搜索。" />}
+                )) : <WorkspaceState icon="canvas" compact title="没有匹配节点" />}
             </div>
         </Modal>
     );
