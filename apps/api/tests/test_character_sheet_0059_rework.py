@@ -120,41 +120,41 @@ def test_expression_exterior_unchanged_skips_emblem_gate():
 
 
 def test_costume_five_cells_nonempty_and_fg():
+    """15:52 起改为四格；保留函数名兼容旧引用。"""
     h, w = 1216, 832
     arr = np.zeros((h, w, 3), dtype=np.uint8)
     arr[:] = (240, 240, 244)
-    # slate body with structure
     arr[int(h * 0.18) : int(h * 0.98), int(w * 0.22) : int(w * 0.78)] = (90, 106, 122)
-    # face
     arr[int(h * 0.06) : int(h * 0.18), int(w * 0.36) : int(w * 0.64)] = (220, 180, 150)
     arr[int(h * 0.03) : int(h * 0.08), int(w * 0.34) : int(w * 0.66)] = (20, 20, 25)
-    # hood/collar darker rim
     arr[int(h * 0.18) : int(h * 0.28), int(w * 0.30) : int(w * 0.70)] = (70, 82, 96)
-    # pocket patch
-    arr[int(h * 0.44) : int(h * 0.52), int(w * 0.40) : int(w * 0.58)] = (60, 70, 80)
-    # hands at sides
+    arr[int(h * 0.20) : int(h * 0.32), int(w * 0.49) : int(w * 0.51)] = (40, 40, 48)
     arr[int(h * 0.48) : int(h * 0.56), int(w * 0.18) : int(w * 0.26)] = (220, 180, 150)
-    arr[int(h * 0.48) : int(h * 0.56), int(w * 0.74) : int(w * 0.82)] = (220, 180, 150)
-    # hem / legs
+    arr[int(h * 0.46) : int(h * 0.58), int(w * 0.16) : int(w * 0.22)] = (60, 70, 80)
     arr[int(h * 0.70) : int(h * 0.78), int(w * 0.28) : int(w * 0.72)] = (75, 88, 100)
+    arr[int(h * 0.70) : int(h * 0.72), int(w * 0.30) : int(w * 0.70)] = (45, 45, 50)
+
+    # 褶皱/缝线纹理（抬边缘密度）
+    for yy in range(int(h * 0.60), int(h * 0.78), 6):
+        arr[yy : yy + 2, int(w * 0.32) : int(w * 0.68)] = (55, 65, 75)
+    for xx in range(int(w * 0.34), int(w * 0.66), 10):
+        arr[int(h * 0.62) : int(h * 0.76), xx : xx + 2] = (50, 58, 68)
     arr[int(h * 0.78) : int(h * 0.96), int(w * 0.36) : int(w * 0.48)] = (40, 40, 45)
     arr[int(h * 0.78) : int(h * 0.96), int(w * 0.52) : int(w * 0.64)] = (40, 40, 45)
     portrait = _png(arr)
     out = sheet_svc.build_costume_collage_from_portrait(
-        portrait, style="anime", size=128, min_fg=0.60
+        portrait, style="anime", size=128, min_fg=0.45, min_edge_density=0.01
     )
-    ratios = sheet_svc.costume_cell_content_ratios(out, n=5)
-    assert len(ratios) == 5
+    ratios = sheet_svc.costume_cell_content_ratios(out, n=4)
+    assert len(ratios) == 4
     assert all(r >= 0.12 for r in ratios), ratios
-    # bands non-overlapping in y for adjacent structural parts
     bands = dict(sheet_svc._COSTUME_PORTRAIT_BANDS)
-    assert bands["hood_collar"][1] >= 0.15
-    assert bands["hood_collar"][3] <= bands["hem"][1] + 1e-9
-    assert bands["pocket"][3] <= bands["hem"][1] + 1e-9
-    # post-cover cells should not be mostly letterbox gray
+    assert bands["collar"][1] >= 0.15
+    assert bands["collar"][3] <= bands["hem"][1] + 1e-9
+    assert set(bands) == {"collar", "cuff", "hem", "boots"}
     im = Image.open(BytesIO(out)).convert("RGB")
-    cell_w = im.size[0] // 5
-    for i in range(5):
+    cell_w = im.size[0] // 4
+    for i in range(4):
         cell = im.crop((i * cell_w, 0, (i + 1) * cell_w, im.size[1]))
         r = sheet_svc._costume_cell_fg_ratio(cell)
         assert r >= 0.20, (i, r)
@@ -196,16 +196,16 @@ def test_costume_real_portrait_0059_ratios():
     # 袖口不得落到左外框（旧 FAIL：x0≈0）
     assert cuff[0] >= 0.25, cuff
     out = sheet_svc.build_costume_collage_from_portrait(
-        portrait, style="anime", size=256, min_fg=0.60
+        portrait, style="anime", size=256, min_fg=0.50, min_edge_density=0.01
     )
-    ratios = sheet_svc.costume_cell_content_ratios(out, n=5)
+    ratios = sheet_svc.costume_cell_content_ratios(out, n=4)
+    assert len(ratios) == 4
     assert all(r >= 0.25 for r in ratios), ratios
-    # 无大片顶空白：每格顶 1/6 不全是浅/中灰
     im = Image.open(BytesIO(out)).convert("RGB")
     w, h = im.size
-    cell_w = w // 5
-    for i in range(5):
-        cell = im.crop((i * cell_w, 0, (i + 1) * cell_w if i < 4 else w, h))
+    cell_w = w // 4
+    for i in range(4):
+        cell = im.crop((i * cell_w, 0, (i + 1) * cell_w if i < 3 else w, h))
         top = cell.crop((0, 0, cell.size[0], max(1, cell.size[1] // 6)))
         r = sheet_svc._costume_cell_fg_ratio(top)
         assert r >= 0.08, (i, r, "large top blank")
