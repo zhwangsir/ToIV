@@ -57,20 +57,20 @@ _EXPR_PROMPTS = (
 # 19:01：表情只走图像编辑——中文指令仅改表情，锁身份/发型/服装/构图
 _EXPR_EDIT_INSTRUCTIONS = (
     # 17:38：单张真 inpaint 提示（眉压低/闭嘴/微笑等硬语义）；禁宫格整图编辑贴回
-    "只改变面部表情为威严：眉头明显压低聚拢、双眼正视、嘴角紧、双唇抿紧闭嘴。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为威严：眉毛明显压低聚拢（眉峰下压）、双眼正视、蓝紫虹膜保持不变、嘴角紧、双唇抿紧闭嘴（禁止微笑/张嘴）。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光。",
     "只改变面部表情为冷酷：闭嘴、眼神冷、双眼半睁、面无表情、目光明显斜视一侧、嘴角平直下压。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
     "只改变面部表情为沉思：视线明显偏下看向斜下方、闭嘴、眉心轻蹙、嘴唇微闭放松。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "只改变面部表情为温柔：眉毛放松不上扬不皱眉、双眼柔和、嘴角上扬带自然微笑（可轻露一点上齿），与威严的压眉区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为温柔：眉毛舒展放松（禁止皱眉/眉压低/frown）、双眼柔和、蓝紫虹膜保持不变、嘴角微微上扬带自然微笑（可轻露一点上齿），与威严的压眉闭嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光、不要皱眉下垂嘴角。",
     "只改变面部表情为惊恐：双眼瞪大、嘴巴明显张开可见口腔、眉毛高高上扬、眉心分开。必须张嘴。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要裁太近。",
     "只改变面部表情为果断：抿嘴、眼神坚定、眉毛明显压低、双唇抿紧闭嘴（禁止张嘴/喊叫）、下颌微绷（正面，勿侧头）。与威严的皱眉下垂嘴角区分，与惊恐张嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
 )
 
 # 17:38：SDXL 真 inpaint 正向（英文）；顺序同 _EXPR_LABELS
 _EXPR_INPAINT_PROMPTS = (
-    "same character anime closeup, stern majestic expression, brows lowered pressed down, mouth tightly closed lips pressed, firm direct gaze, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
+    "same character anime closeup, stern majestic expression, brows lowered pressed down furrowed, mouth tightly closed lips pressed no smile, firm direct gaze, blue-violet iris unchanged, only change eyebrows eyes mouth shape, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
     "same character anime closeup, cold expression, closed mouth, cold eyes half-lidded, blank face, gaze looking sideways, flat downturned lips, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
     "same character anime closeup, thoughtful expression, gaze looking down, closed mouth, slightly furrowed brows, lips gently closed, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
-    "same character anime closeup, gentle warm expression, relaxed brows no frown, soft eyes, natural smile mouth corners up, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
+    "same character anime closeup, gentle warm expression, relaxed open brows no frown no furrowed brows, soft eyes, slight natural smile mouth corners gently up, blue-violet iris unchanged, only change eyebrows eyes mouth shape, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
     "same character anime closeup, terrified expression, eyes wide open, mouth wide open showing interior, eyebrows raised high, must open mouth, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
     "same character anime closeup, resolute determined expression, lips pressed closed no open mouth, firm determined gaze, brows lowered, jaw slightly tense, front facing, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
 )
@@ -797,7 +797,10 @@ def build_design_notes(meta: SheetMeta) -> str:
     raw = (meta.design_notes or "").strip()
     lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
     if len(lines) >= 3:
-        return "\n".join(lines[:5])
+        cleaned = strip_internal_design_jargon("\n".join(lines[:5]))
+        if count_design_note_lines(cleaned) >= 3:
+            return cleaned
+        # 用户稿被剥成调试残渣后不足 3 行 → 走自动设定文案
     name = (meta.name or "角色").strip()
     role = (meta.role or _guess_field(meta.description, "身份") or "便利店员").strip()
     personality = (
@@ -809,14 +812,14 @@ def build_design_notes(meta: SheetMeta) -> str:
         auto = [
             f"{name}：同一人古风写实变体，身份为{role}，性格{personality}。",
             "视觉主轴为交领汉服/齐胸襦裙或水墨写实古装，黑发，深底金字设定卡。",
-            "三视图与表情均以主立绘为同一人参考，统一古装与纯色深底，保证 Ref2VA 跨镜一致。",
+            "三视图与表情均以主立绘为同一人参考，统一古装与纯色深底，保证跨镜一致。",
             f"本卡风格滤镜为{style_zh}；服饰拆解为古风单品，禁止雨衣/卫衣/便利店等现代装。",
         ]
     else:
         auto = [
             f"{name}：雨夜便利店相遇的核心角色，身份为{role}，性格{personality}。",
             "视觉主轴为板岩灰(#5A6A7A)长款过膝连帽雨衣（长袖）、黑色裤袜与黑色短靴、胸前素面无标，湿发贴额与冷白灯光，辅以白色塑料袋道具。",
-            "三视图与表情均以主立绘为同一人参考，主立绘/三视图/服饰统一板岩灰素面，保证 Ref2VA 跨镜一致。",
+            "三视图与表情均以主立绘为同一人参考，主立绘/三视图/服饰统一板岩灰素面，保证跨镜一致。",
             f"本卡风格滤镜为{style_zh}；服饰拆解对齐现代雨夜设定，禁止汉服、纯黑雨衣与胸口贴标。",
         ]
     if desc and desc not in auto[0]:
@@ -2791,20 +2794,33 @@ def style_ok_for_face(
 
 
 def strip_internal_design_jargon(text: str) -> str:
-    """卡面设计说明去掉 fix/LoRA/az45/硬门禁等内部字样。"""
+    """卡面设计说明去掉 fix/LoRA/调试路由/版本备注等内部字样；成品卡只留角色设定。"""
     if not text:
         return text
     bad = re.compile(
         r"(fix\d+[a-z]?|LoRA|lora|az\s*45|az45|硬门禁|yaw\s*门禁|CLIP\s*门禁|"
-        r"final_review|Qwen-Edit|batch7|openpose|IPA\b)",
+        r"final_review|deliver\b|Qwen-Edit|batch7|openpose|IPA\b|"
+        r"SetLatentNoiseMask|VAEEncode(?:ForInpaint)?|letterbox|inpaint|"
+        r"Ref2VA|md5|seed\s*=?\s*\d+|commit\s*[:=]?\s*[0-9a-f]{7,}|"
+        r"route\s*[:=]|\b826[0-9]\b|\b819[0-9]\b|"
+        r"\d{1,2}:\d{2}[a-z]?\b|侧头锁定(?:不改)?|锁定不改|领口下巴到锁骨|"
+        r"门禁|调试|版本说明|开发备注|fallback|hist[_ ]?match|"
+        r"果断抿嘴\s*/\s*温柔微笑|温柔微笑\s*/\s*果断抿嘴)",
         re.I,
     )
     lines = []
     for ln in text.splitlines():
         s = bad.sub("", ln)
-        s = re.sub(r"\s{2,}", " ", s).strip(" -|;,，、")
+        s = re.sub(r"[；;]{2,}", "；", s)
+        s = re.sub(r"\s{2,}", " ", s).strip(" -|;,，、；")
         s = re.sub(r"[。.]{2,}", "。", s).strip()
-        if not s or s in {"。", ".", "…", "·"}:
+        if not s or s in {"。", ".", "…", "·", "；", ";", "不改"}:
+            continue
+        # 无汉字/字母的残渣行丢弃
+        if not re.search(r"[\u4e00-\u9fffA-Za-z]", s):
+            continue
+        # 过短残句（剥完后 <4 字）丢弃
+        if len(re.sub(r"\W+", "", s)) < 4:
             continue
         lines.append(s)
     return "\n".join(lines)
@@ -3604,9 +3620,10 @@ def expression_hair_too_long(
     chin_only: bool = False,
     relative_only: bool = False,
 ) -> bool:
-    """18:23 / 16:18 发长门禁：相对底图/主立绘测 delta，不是绝对长。
+    """18:23 / 16:18 / 19:15 发长门禁：只与同格表情底同裁同尺度比 delta。
 
     relative_only=True（遮罩外已贴回底图）：只比相对 delta，不做绝对过肩拒。
+    禁止拿表情近景去比主立绘全身比例。
     非温柔：肩下侧发带相对加长才拒；温柔：下巴下 + 肩下。
     """
     cur = _hair_extent_below_face(data)
@@ -3658,7 +3675,7 @@ def assert_expression_identity_gates(
     """表情格：相对主立绘新徽标/字样 → 拒；发长过线 → 拒。
 
     徽标检测用 below_face ROI，避免近景五官误杀。
-    发长优先用同构图表情底（hair_ref）；否则主立绘头肩裁。
+    19:15：发长只和同格 base_expr（hair_ref，同裁同尺度）比；禁止用主立绘全身比例。
     00:59：遮罩外与底图一致 → skip_chest_emblem；16:18：此时发长只比相对 delta。
     """
     # 20:56：惊恐张嘴口腔高 chroma 易误杀；张嘴时跳过徽标，改靠领口 ROI（已下移）
@@ -3686,22 +3703,22 @@ def assert_expression_identity_gates(
         )
     chin_only = expr_key == "expr_3"
     href = hair_ref
-    if href is None and portrait_ref:
-        try:
-            href = crop_face_ref(portrait_ref, size=768)
-        except Exception:  # noqa: BLE001
-            href = portrait_ref
-    # 遮罩外已贴回 → 发长相对底图测 delta（禁止用绝对长误杀 bob）
     rel_only = (
         bool(skip_chest_emblem)
         if relative_hair_only is None
         else bool(relative_hair_only)
     )
+    # 19:15：相对发长门禁必须用同格表情底；禁止回退主立绘头肩（尺度不同会误杀）
+    if href is None and (not rel_only) and portrait_ref:
+        try:
+            href = crop_face_ref(portrait_ref, size=768)
+        except Exception:  # noqa: BLE001
+            href = portrait_ref
     if expression_hair_too_long(
         data, ref=href, chin_only=chin_only, relative_only=rel_only
     ):
         raise CharacterSheetError(
-            f"{expr_key}发长相对主立绘过长（{'须齐下巴' if chin_only else '发梢不过肩'}）",
+            f"{expr_key}发长相对同格表情底过长（{'须齐下巴' if chin_only else '发梢不过肩'}；须同裁同尺度）",
             status_code=422,
         )
 
@@ -3714,7 +3731,10 @@ def _facial_feature_roi(im: Image.Image) -> Image.Image:
 
 
 def build_face_feature_mask(size: int = 768) -> Image.Image:
-    """眉/眼/嘴局部遮罩（白=可编辑），供表情局部合成。"""
+    """眉/眼/嘴局部遮罩（白=可编辑），供表情局部合成。
+
+    19:15：眼带收紧，并挖掉左右瞳孔中心，避免重画瞳孔高光/心形瞳。
+    """
     s = int(size)
     mask = Image.new("L", (s, s), 0)
     from PIL import ImageDraw as _ID
@@ -3722,10 +3742,15 @@ def build_face_feature_mask(size: int = 768) -> Image.Image:
     d = _ID.Draw(mask)
     # 眉带
     d.ellipse((int(s * 0.22), int(s * 0.14), int(s * 0.78), int(s * 0.36)), fill=255)
-    # 眼带
-    d.ellipse((int(s * 0.20), int(s * 0.28), int(s * 0.80), int(s * 0.52)), fill=255)
+    # 眼带（相对旧版上下各收 ~4%，减少发丝/颧骨渗入）
+    d.ellipse((int(s * 0.22), int(s * 0.30), int(s * 0.78), int(s * 0.48)), fill=255)
     # 嘴带
     d.ellipse((int(s * 0.30), int(s * 0.52), int(s * 0.70), int(s * 0.74)), fill=255)
+    # 挖掉瞳孔高光区（黑=不可编辑）
+    pr = max(4, int(s * 0.035))
+    for cx in (int(s * 0.38), int(s * 0.62)):
+        cy = int(s * 0.38)
+        d.ellipse((cx - pr, cy - pr, cx + pr, cy + pr), fill=0)
     try:
         from PIL import ImageFilter
 
@@ -3852,6 +3877,126 @@ def mouth_appears_open(data: bytes) -> bool:
     ratio = dark / float(len(px))
     # 闭嘴几乎无深色洞；张嘴通常 ≥8% 深色
     return ratio >= 0.08
+
+
+
+
+def _mouth_corner_lift(data: bytes) -> float:
+    """嘴角相对嘴中的上扬：正=微笑（角高于中），≈0=平，负=下垂。
+
+    只看唇线深色行质心几何，不用肤色亮度（anime 平嘴易被亮度误判）。
+    """
+    im = Image.open(BytesIO(data)).convert("RGB")
+    w, h = im.size
+    y0, y1 = int(h * 0.56), int(h * 0.74)
+    bands = {
+        "mid": (int(w * 0.44), y0, int(w * 0.56), y1),
+        "left": (int(w * 0.30), y0, int(w * 0.40), y1),
+        "right": (int(w * 0.60), y0, int(w * 0.70), y1),
+    }
+
+    def _lip_y_frac(box: tuple[int, int, int, int]) -> float:
+        crop = im.crop(box)
+        cw, ch = crop.size
+        if ch < 2:
+            return 0.5
+        px = crop.load()
+        best_y, best_n = ch // 2, -1
+        for y in range(ch):
+            n = 0
+            for x in range(cw):
+                r, g, b = px[x, y]
+                lum = (r + g + b) / 3.0
+                # 唇色：偏暗红/褐，排除近黑发与近白肤
+                if 40 <= lum <= 165 and r >= g - 5 and r >= b - 5 and max(r, g, b) - min(r, g, b) >= 12:
+                    n += 1
+                elif lum < 95 and max(r, g, b) - min(r, g, b) < 28:
+                    n += 1
+            if n > best_n:
+                best_n, best_y = n, y
+        return best_y / float(max(1, ch - 1))
+
+    y_mid = _lip_y_frac(bands["mid"])
+    y_side = (_lip_y_frac(bands["left"]) + _lip_y_frac(bands["right"])) / 2.0
+    # 角更靠上 → y_side < y_mid → 正值
+    return float(y_mid - y_side)
+
+
+def _brow_press_delta(data: bytes, neutral: bytes | None) -> float | None:
+    """相对中性脸：眉带深色质心下移为正（压眉）；上移为负（舒展/挑眉）。"""
+    if not neutral:
+        return None
+    im = Image.open(BytesIO(data)).convert("RGB")
+    neu = Image.open(BytesIO(neutral)).convert("RGB").resize(im.size, Image.Resampling.LANCZOS)
+    w, h = im.size
+    box = (int(w * 0.22), int(h * 0.16), int(w * 0.78), int(h * 0.36))
+
+    def _centroid(img: Image.Image) -> float:
+        crop = img.crop(box)
+        cw, ch = crop.size
+        px = list(crop.getdata())
+        weights = []
+        for y in range(ch):
+            row = px[y * cw : (y + 1) * cw]
+            dark = sum(
+                1
+                for r, g, b in row
+                if (r + g + b) / 3.0 < 90 and max(r, g, b) - min(r, g, b) < 40
+            )
+            weights.append(dark)
+        tot = sum(weights) or 1
+        return sum(i * ww for i, ww in enumerate(weights)) / float(tot * max(1, ch - 1))
+
+    return float(_centroid(im) - _centroid(neu))
+
+
+def assert_expression_semantic(
+    data: bytes,
+    *,
+    expr_key: str,
+    neutral_ref: bytes | None = None,
+) -> dict:
+    """19:15：表情语义硬校验。威严=眉压低+嘴闭紧；温柔=眉舒展+嘴角微扬。"""
+    info: dict = {"expr_key": expr_key}
+    open_m = mouth_appears_open(data)
+    lift = _mouth_corner_lift(data)
+    press = _brow_press_delta(data, neutral_ref)
+    info.update({"mouth_open": open_m, "mouth_lift": float(lift), "brow_press": press})
+    if expr_key == "expr_0":
+        # 威严：闭嘴 + 眉压低；微笑只用高阈值（anime 唇线易误报上扬）
+        if open_m:
+            raise CharacterSheetError(
+                f"{expr_key}威严语义失败：须闭嘴（检测到张嘴）",
+                status_code=422,
+            )
+        if press is not None and press < -0.04:
+            raise CharacterSheetError(
+                f"{expr_key}威严语义失败：眉须压低，检测到上挑 press={press:.3f}",
+                status_code=422,
+            )
+        if lift > 0.35 and (press is None or press < 0.02):
+            raise CharacterSheetError(
+                f"{expr_key}威严语义失败：嘴须闭紧，禁微笑上扬 lift={lift:.3f}",
+                status_code=422,
+            )
+    elif expr_key == "expr_3":
+        # 温柔：禁大张嘴 + 眉舒展；嘴角微扬（低阈值，配合多样性门禁）
+        if open_m:
+            raise CharacterSheetError(
+                f"{expr_key}温柔语义失败：禁大张嘴",
+                status_code=422,
+            )
+        if press is not None and press > 0.05:
+            raise CharacterSheetError(
+                f"{expr_key}温柔语义失败：眉须舒展，禁皱眉/压眉 press={press:.3f}",
+                status_code=422,
+            )
+        if lift < 0.02:
+            raise CharacterSheetError(
+                f"{expr_key}温柔语义失败：须嘴角微扬 lift={lift:.3f}",
+                status_code=422,
+            )
+    return info
 
 
 def assert_expression_diversity(
@@ -7404,7 +7549,10 @@ async def generate_character_sheet(
             _expr_neg = (
                 "text, watermark, logo, emblem, badge, chinese characters, "
                 "long hair, hair past shoulders, gray smear, muddy skin, "
-                "melted face, double face, ghosting, misaligned features"
+                "melted face, double face, ghosting, misaligned features, "
+                "heart pupils, heart-shaped pupils, extra eyes, third eye, "
+                "heterochromia, brown iris, red iris, glowing pupils, "
+                "redrawn pupil highlight, sparkling star eyes"
             )
             last_expr_err: Exception | None = None
             n_fail = 0
@@ -7427,6 +7575,8 @@ async def generate_character_sheet(
                     buf0 = BytesIO()
                     cropped0.save(buf0, format="PNG")
                     base_b = buf0.getvalue()
+                # 19:15：发长门禁必须用同裁同尺度表情底（同步写回 bases）
+                bases[ek] = base_b
                 base_im = Image.open(BytesIO(base_b)).convert("RGB")
                 side = min(base_im.size)  # 已是方图
                 hard_mask = build_face_feature_mask_hard(side)
@@ -7439,6 +7589,19 @@ async def generate_character_sheet(
                 prompt_x = _EXPR_INPAINT_PROMPTS[ei]
                 # 中文语义也写入（部分 ckpt 对中英混合友好）；主靠英文
                 prompt_x = prompt_x + "。 " + _EXPR_EDIT_INSTRUCTIONS[ei]
+                # 19:15：锁蓝紫虹膜；威严/温柔附加语义强化
+                prompt_x = (
+                    prompt_x
+                    + ", blue-violet iris eyes identical to reference, short chin-length black hair"
+                )
+                if ek == "expr_0":
+                    prompt_x += (
+                        ", stern lowered brows, tightly closed mouth, no smile, no frown smile"
+                    )
+                elif ek == "expr_3":
+                    prompt_x += (
+                        ", relaxed brows no frown, gentle smile mouth corners up, no scowl"
+                    )
                 picked: bytes | None = None
                 pick_err: Exception | None = None
                 for attempt in range(4):
@@ -7463,6 +7626,17 @@ async def generate_character_sheet(
                                 + f" variant{attempt}, stronger eyebrow eye mouth change, "
                                 "expression must be obvious at a glance"
                             )
+                        _neg_try = _expr_neg
+                        if ek == "expr_3":
+                            _neg_try = (
+                                _neg_try
+                                + ", frown, scowling, furrowed brows, downturned mouth, angry brows"
+                            )
+                        if ek == "expr_0":
+                            _neg_try = (
+                                _neg_try
+                                + ", smile, grinning, open mouth, raised brows, heart pupils"
+                            )
                         raw = await generate_panel_bytes(
                             pool,
                             p_try,
@@ -7477,7 +7651,7 @@ async def generate_character_sheet(
                             ref_image=ref_name,
                             ref_mode="inpaint",
                             denoise=0.58 if attempt < 2 else 0.68,
-                            negative_extra=_expr_neg,
+                            negative_extra=_neg_try,
                             mask_image=mask_name,
                             grow_mask_by=4,
                         )
@@ -7502,16 +7676,21 @@ async def generate_character_sheet(
                         assert_expression_eyes_mouth_in_mask(
                             blended, hard_mask, expr_key=ek
                         )
-                        # 18:30：再以脸框中心裁切，禁格外白底
-                        cell_b = squareize_face_center_crop(blended, size=768)
-                        assert_expr_cell_no_white_border(cell_b, expr_key=ek)
+                        # 19:15：发长门禁在同几何（blended vs base_b）上比，禁止近景 vs 全身
                         assert_expression_identity_gates(
-                            cell_b,
+                            blended,
                             portrait_ref=panels.get("portrait"),
                             expr_key=ek,
                             skip_chest_emblem=True,  # 遮罩外=底，胸口必一致
-                            hair_ref=bases.get(ek),
+                            hair_ref=base_b,
                             relative_hair_only=True,
+                        )
+                        # 18:30：再以脸框中心裁切，禁格外白底
+                        cell_b = squareize_face_center_crop(blended, size=768)
+                        assert_expr_cell_no_white_border(cell_b, expr_key=ek)
+                        # 19:15：威严/温柔语义硬校验
+                        assert_expression_semantic(
+                            cell_b, expr_key=ek, neutral_ref=base_b
                         )
                         # 多样性：相对中性底 + 已完成的其它表情格
                         try:
@@ -7595,7 +7774,7 @@ async def generate_character_sheet(
                     )
                     (reject_dir / f"expr_grid_fallback_flag_{int(seed or 0)}.json").write_text(
                         '{"expr_grid_fallback": true, "final_review": false, "deliver": false, '
-                        '"route": "1738_true_inpaint"}',
+                        '"route": "1915_same_scale_hair+semantic"}',
                         encoding="utf-8",
                     )
                 except Exception:
