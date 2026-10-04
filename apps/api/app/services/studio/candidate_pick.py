@@ -63,11 +63,72 @@ def _burnin_penalty(frame_bgr) -> float:
         return 0.0
     gray = cv2.cvtColor(band, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 80, 160)
+    # 7-Eleven 类橙/绿/红横色带：只记录不扣分 → 色带行(±2)边缘不计入烧录字密度
+    rows = _color_band_rows(band)
+    if rows:
+        keep = np.ones(edges.shape[0], dtype=bool)
+        for r in rows:
+            keep[max(0, r - 2) : r + 3] = False
+        edges = edges[keep] if keep.any() else edges[:0]
+        if edges.size == 0:
+            return 0.0
     density = float(edges.mean()) / 255.0
     # 经验：正常画面下方 edge 均值通常 <0.08；字幕带常 >0.12
     if density < 0.08:
         return 0.0
     return min(0.3, (density - 0.08) * 2.0)
+
+
+# 连锁店招横色带（7-Eleven 橙/绿/红条）：仅记录，任何门禁/打分都不扣分
+CHAIN_BAND_MIN_ROW_FRAC = 0.35  # 该行该色相饱和像素占比
+CHAIN_BAND_MIN_COLORS = 2  # 至少两种色相条纹相邻出现
+_CHAIN_BAND_HUES = {
+    "red": ((0, 6), (170, 180)),
+    "orange": ((7, 22),),
+    "green": ((40, 90),),
+}
+
+
+def _color_band_rows_by_hue(frame_bgr) -> dict[str, list[int]]:
+    try:
+        import cv2
+        import numpy as np
+    except Exception:
+        return {}
+    if frame_bgr is None or getattr(frame_bgr, "size", 0) == 0:
+        return {}
+    hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
+    hch, sch, vch = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    sat = (sch >= 120) & (vch >= 90)
+    out: dict[str, list[int]] = {}
+    for name, ranges in _CHAIN_BAND_HUES.items():
+        m = np.zeros(hch.shape, dtype=bool)
+        for lo, hi in ranges:
+            m |= (hch >= lo) & (hch <= hi)
+        frac = (m & sat).mean(axis=1)
+        rows = [int(i) for i in np.nonzero(frac >= CHAIN_BAND_MIN_ROW_FRAC)[0]]
+        if rows:
+            out[name] = rows
+    return out
+
+
+def _color_band_rows(frame_bgr) -> list[int]:
+    by = _color_band_rows_by_hue(frame_bgr)
+    if len(by) < CHAIN_BAND_MIN_COLORS:
+        return []
+    return sorted({r for rows in by.values() for r in rows})
+
+
+def chain_color_band_frame(frame_bgr) -> dict[str, Any]:
+    """检测连锁店横色带（橙/绿/红条，7-Eleven 型）。仅用于日志：hit 不拦、不扣分。"""
+    by = _color_band_rows_by_hue(frame_bgr)
+    hit = len(by) >= CHAIN_BAND_MIN_COLORS
+    return {
+        "hit": hit,
+        "colors": sorted(by),
+        "rows": {k: [min(v), max(v)] for k, v in by.items()},
+        "penalty": 0.0,
+    }
 
 
 def _ocr_penalty(frame_bgr) -> float:
@@ -735,6 +796,7 @@ def pick_best_candidate(
     relative_margin: float = 0.03,
     use_relative_identity: bool | None = None,
     min_face_rank: float = FACE_RANK_MIN_DEFAULT,
+    hard_cut_rule: bool = True,
 ) -> tuple[str | None, list[dict[str, Any]]]:
     """按 face_mean - burnin - ocr + 连贯加分 - 回退罚分 选优。
 
@@ -744,6 +806,9 @@ def pick_best_candidate(
     face_score_mode / ref_style：动漫走 CLIP 图相似，参考图无脸禁止空分放行。
     写实 InsightFace：face_rank=min(线上 face_mean, facecrop_mean) 参与打分与门禁（≥min_face_rank），
     不单看线上均值；候选带 first_frame（c_hybrid 锚定）时第 0..ANCHORED_FIRST_FRAME_SKIP_FRAMES 帧不评分。
+    hard_cut_rule（默认开，见 hard_cut.py）：锚定区内/首 1 秒内硬切 → 自动裁片头（音频同步裁），
+    候选 url 换成裁后文件并写 head_trim；1 秒后硬切按 hard_cut_penalty 扣分。
+    店招/连锁色带只记录不扣分。
     """
     done = [c for c in candidates if c.get("status") == "done" and c.get("url")]
     if not done:
@@ -794,20 +859,37 @@ def pick_best_candidate(
             face = None
             pen = 0.0
             note_parts: list[str] = []
+            anchored = bool(str(c.get("first_frame") or "").strip())
+            skip_frames = ANCHORED_FIRST_FRAME_SKIP_FRAMES if anchored else 0
+            cut_pen = 0.0
+            if hard_cut_rule:
+                from app.services.studio.hard_cut import apply_hard_cut_rule
+
+                try:
+                    hc = apply_hard_cut_rule(c, path, anchor_frames=skip_frames)
+                except Exception as e:  # noqa: BLE001  规则异常不拦选优，只记
+                    c["hard_cut_detect"] = {"error": f"{type(e).__name__}:{e}"[:200]}
+                else:
+                    path = Path(hc["path"])
+                    cut_pen = float(hc["penalty"] or 0.0)
+                    skip_frames = int(hc["skip_until_frame"])
+                    if c.get("head_trim"):
+                        note_parts.append(f"head_trim={c['head_trim']['frames']}f")
+                    if cut_pen:
+                        note_parts.append(f"late_cuts={len(c.get('hard_cut_late') or [])}")
             if face_ok:
-                anchored = bool(str(c.get("first_frame") or "").strip())
                 m = score_video_face(
                     path,
                     ref_image_path,
                     mode=face_score_mode,
                     ref_style=ref_style,
                     clip_embedder=clip_embedder,
-                    skip_until_frame=ANCHORED_FIRST_FRAME_SKIP_FRAMES if anchored else 0,
+                    skip_until_frame=skip_frames,
                     with_facecrop=not want_clip,
                 )
                 face = m.get("face_mean")
                 if anchored:
-                    c["face_skip_until_frame"] = ANCHORED_FIRST_FRAME_SKIP_FRAMES
+                    c["face_skip_until_frame"] = skip_frames
                 if "facecrop_mean" in m and m.get("score_backend", "insightface") == "insightface":
                     # 写实：线上分与 facecrop 取 min，二者都须过线
                     fc = m.get("facecrop_mean")
@@ -849,6 +931,7 @@ def pick_best_candidate(
                     score = -2.0 - pen + cont_bonus - reg_pen
             else:
                 score = (float(cont) if cont is not None else -1.0) - reg_pen
+            score -= cut_pen
 
             c["continuity"] = cont
             c["regression"] = reg
@@ -1701,6 +1784,7 @@ def garment_brand_ocr_hit(
         "subtitle_frames": [],
         "brand_log": [],
         "brand_frames": [],
+        "band_log": [],
     }
     path = Path(video_path) if video_path else None
     if path is None or not path.is_file():
@@ -1795,13 +1879,20 @@ def garment_brand_ocr_hit(
                     texts.append("sign:" + str(sg["text"]))
                 if sg.get("hit"):
                     out["sign_log"].append({"frame": i, "text": str(sg.get("text") or "")[:120]})
-        if out["emblem_log"] or out["sign_log"] or out["brand_log"]:
+                try:
+                    cb = chain_color_band_frame(frame)
+                except Exception:
+                    cb = {}
+                if cb.get("hit"):
+                    out["band_log"].append({"frame": i, "colors": cb["colors"], "rows": cb["rows"]})
+        if out["emblem_log"] or out["sign_log"] or out["brand_log"] or out["band_log"]:
             logger.info(
-                "text_gate log-only path=%s emblem_frames=%s sign=%s brand=%s",
+                "text_gate log-only path=%s emblem_frames=%s sign=%s brand=%s band_frames=%s",
                 path.name,
                 [e["frame"] for e in out["emblem_log"]],
                 out["sign_log"][:3],
                 out["brand_log"][:3],
+                [b["frame"] for b in out["band_log"]],
             )
         out["text"] = " | ".join(texts)[:200]
         return out
