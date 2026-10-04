@@ -50,9 +50,9 @@ _EXPR_PROMPTS = (
     "stern majestic expression, extreme face closeup head and shoulders",
     "cold aloof expression, icy gaze, extreme face closeup head and shoulders",
     "thoughtful contemplative expression, looking slightly down, extreme face closeup head and shoulders",
-    "gentle relaxed brows soft smile, warm kind eyes, extreme face closeup head and shoulders",
+    "gentle closed-eye smile soft smile, relaxed eyebrows, warm kind eyes, extreme face closeup head and shoulders",
     "terrified shocked expression, wide eyes open mouth, fear, extreme face closeup head and shoulders",
-    "resolute determined expression, brows lowered, lips pressed closed (no open mouth), firm gaze, extreme face closeup head and shoulders",
+    "determined, firm closed mouth, focused eyes, eyebrows slightly lowered, extreme face closeup head and shoulders",
 )
 # 19:01：表情只走图像编辑——中文指令仅改表情，锁身份/发型/服装/构图
 _EXPR_EDIT_INSTRUCTIONS = (
@@ -60,9 +60,9 @@ _EXPR_EDIT_INSTRUCTIONS = (
     "只改变面部表情为威严：眉毛明显压低聚拢（眉峰下压）、双眼正视、蓝紫虹膜保持不变、嘴角紧、双唇抿紧闭嘴（禁止微笑/张嘴）。表情幅度要大、一眼可辨。保持同一人物、同一短发齐下巴、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光。",
     "只改变面部表情为冷酷：闭嘴、眼神冷、双眼半睁、面无表情、目光明显斜视一侧、嘴角平直下压。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
     "只改变面部表情为沉思：视线明显偏下看向斜下方、闭嘴、眉心轻蹙、嘴唇微闭放松。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
-    "只改变面部表情为温柔：眉毛舒展放松（禁止皱眉/眉压低/frown）、双眼柔和、蓝紫虹膜保持不变、嘴角微微上扬带自然微笑（可轻露一点上齿），与威严的压眉闭嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光、不要皱眉下垂嘴角。",
+    "只改变面部表情为温柔：眉毛舒展放松（禁止皱眉/眉压低/frown/furrowed brows）、双眼柔和、蓝紫虹膜保持不变、温柔闭眼微笑或轻柔微笑（gentle closed-eye smile / soft smile），禁止嘟嘴/撇嘴（frown, pout）。与威严的压眉闭嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要心形瞳孔、不要多眼睛、不要重画瞳孔高光、不要皱眉下垂嘴角。",
     "只改变面部表情为惊恐：双眼瞪大、嘴巴明显张开可见口腔、眉毛高高上扬、眉心分开。必须张嘴。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切、不要裁太近。",
-    "只改变面部表情为果断：抿嘴、眼神坚定、眉毛明显压低、双唇抿紧闭嘴（禁止张嘴/喊叫）、下颌微绷（正面，勿侧头）。与威严的皱眉下垂嘴角区分，与惊恐张嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
+    "只改变面部表情为果断：determined，firm closed mouth，focused eyes，eyebrows slightly lowered；双唇抿紧闭嘴（禁止张嘴/喊叫/surprised/open mouth）、禁止挑眉。下颌微绷（正面，勿侧头）。与威严的皱眉下垂嘴角区分，与惊恐张嘴区分。表情幅度要大。保持同一人物、同一短发、同一雨衣与构图，不要改衣服、不要戴帽、不要加徽章文字、不要加长发、不要改裁切。",
 )
 
 # 17:38：SDXL 真 inpaint 正向（英文）；顺序同 _EXPR_LABELS
@@ -70,9 +70,9 @@ _EXPR_INPAINT_PROMPTS = (
     "same character anime closeup, stern majestic expression, brows lowered pressed down furrowed, mouth tightly closed lips pressed no smile, firm direct gaze, blue-violet iris unchanged, only change eyebrows eyes mouth shape, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
     "same character anime closeup, cold expression, closed mouth, cold eyes half-lidded, blank face, gaze looking sideways, flat downturned lips, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
     "same character anime closeup, thoughtful expression, gaze looking down, closed mouth, slightly furrowed brows, lips gently closed, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
-    "same character anime closeup, gentle warm expression, relaxed open brows no frown no furrowed brows, soft eyes, slight natural smile mouth corners gently up, blue-violet iris unchanged, only change eyebrows eyes mouth shape, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
+    "same character anime closeup, gentle warm expression, gentle closed-eye smile or soft smile, relaxed eyebrows no frown no pout no furrowed brows, soft eyes, blue-violet iris unchanged, only change eyebrows eyes mouth shape, keep identical hair length face shape skin tone collar composition, do not redraw pupil highlights",
     "same character anime closeup, terrified expression, eyes wide open, mouth wide open showing interior, eyebrows raised high, must open mouth, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
-    "same character anime closeup, resolute determined expression, lips pressed closed no open mouth, firm determined gaze, brows lowered, jaw slightly tense, front facing, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
+    "same character anime closeup, determined expression, firm closed mouth, focused eyes, eyebrows slightly lowered, no surprised open mouth, no raised brows, jaw slightly tense, front facing, only change eyebrows eyes mouth, keep identical hair face shape skin tone collar composition",
 )
 _CHAR_SHEET_MARK = "char_sheet_"
 _CHAR_PANEL_MARK = "char_panel_"
@@ -2915,19 +2915,42 @@ def _trim_letterbox_bars(
     return buf.getvalue()
 
 
-def squareize_face_center_crop(data: bytes, size: int = 768) -> bytes:
-    """18:30：表情格方化 —— 先去 letterbox 白条，再以人脸框中心 cover 裁切。
+def squareize_face_center_crop(
+    data: bytes,
+    size: int = 768,
+    *,
+    min_face_height_frac: float = 0.55,
+    max_face_height_frac: float = 0.65,
+    require_mouth_in_frame: bool = True,
+) -> bytes:
+    """18:30 / 19:55：表情格方化 —— 去 letterbox 后按同尺度脸高约 0.55–0.65 裁切，嘴须在格内。
 
-    替代「非方图居中 pad 浅灰」：垫边会进格外白底，且灰块失败时裁切落到下巴/衣领。
+    1930 威严裁太近只剩眼睛=失败；目标头肩近景含嘴，非贴眼特写。
     """
     trimmed = _trim_letterbox_bars(data)
-    return enforce_head_shoulders_square(
-        trimmed,
-        size=int(size),
-        max_upscale=2.2,
-        check_coverage=False,
-        face_closeup_gate=True,
-    )
+    last_err: Exception | None = None
+    for tgt in (0.60, 0.58, 0.56, 0.62, 0.54):
+        try:
+            cropped = _crop_expr_face_same_scale(
+                trimmed,
+                size=int(size),
+                target_face_height_frac=float(tgt),
+                min_face_height_frac=float(min_face_height_frac),
+                max_face_height_frac=float(max_face_height_frac),
+            )
+            assert_face_closeup_framing(
+                cropped,
+                min_face_height_frac=float(min_face_height_frac),
+                max_face_height_frac=float(max_face_height_frac),
+                require_mouth_in_frame=bool(require_mouth_in_frame),
+            )
+            return cropped
+        except CharacterSheetError as e:
+            last_err = e
+            continue
+    if last_err is not None:
+        raise last_err
+    raise CharacterSheetError("expr same-scale crop failed", status_code=422)
 
 
 def assert_expr_cell_no_white_border(
@@ -3954,6 +3977,492 @@ def _brow_press_delta(data: bytes, neutral: bytes | None) -> float | None:
     return float(_centroid(im) - _centroid(neu))
 
 
+
+_EXPR_VLM_LABEL_TO_KEY = {
+    "威严": "expr_0",
+    "冷酷": "expr_1",
+    "沉思": "expr_2",
+    "温柔": "expr_3",
+    "惊恐": "expr_4",
+    "果断": "expr_5",
+}
+_EXPR_KEY_TO_VLM_LABEL = {v: k for k, v in _EXPR_VLM_LABEL_TO_KEY.items()}
+
+_EXPR_VLM_PROMPT = (
+    "你是表情分类器。看图，把角色面部表情判为下列 6 类之一："
+    "威严、冷酷、沉思、温柔、惊恐、果断。"
+    "只输出一个 JSON 对象，不要 Markdown，不要其它文字。格式："
+    '{"label":"温柔","scores":{"威严":0.05,"冷酷":0.05,"沉思":0.10,"温柔":0.70,"惊恐":0.05,"果断":0.05}}。'
+    "要求：label 必须是 6 类之一；scores 覆盖全部 6 类且为 0~1 浮点，尽量归一。"
+    "温柔=轻柔微笑/闭眼微笑、眉舒展；果断=抿嘴、眼神专注、眉略压；威严=压眉闭嘴；"
+    "冷酷=冷漠斜视；沉思=目光偏下；惊恐=瞪眼张嘴。"
+)
+
+
+def _crop_expr_face_same_scale(
+    data: bytes,
+    *,
+    size: int = 768,
+    target_face_height_frac: float = 0.60,
+    min_face_height_frac: float = 0.55,
+    max_face_height_frac: float = 0.65,
+) -> bytes:
+    """表情格同尺度裁剪：脸高约占格高 0.55–0.65，保留嘴与少许下颌，禁贴眼特写。
+
+    源图已贴脸过近时先垫棚灰再拉远，保证能落到目标窗。
+    """
+    img = Image.open(BytesIO(data)).convert("RGB")
+    w0, h0 = img.size
+    bb = _detect_face_bbox_xyxy(data)
+    if bb is None:
+        try:
+            bb = _heuristic_skin_face_bbox(img)
+        except Exception:  # noqa: BLE001
+            bb = None
+    if bb is None:
+        return enforce_head_shoulders_square(
+            data,
+            size=int(size),
+            max_upscale=2.2,
+            check_coverage=False,
+            face_closeup_gate=False,
+        )
+    fx1, fy1, fx2, fy2 = [float(v) for v in bb]
+    fw = max(8.0, fx2 - fx1)
+    fh = max(8.0, fy2 - fy1)
+    fcx = (fx1 + fx2) / 2.0
+    fcy = (fy1 + fy2) / 2.0
+    tgt = max(0.52, min(0.68, float(target_face_height_frac)))
+    # 需要的裁边：脸高 / tgt；水平略宽
+    need = int(max(fh / tgt, fw * 1.70, 64))
+    # 若源图不够大，垫棚灰（与 anime 底接近）
+    pad = 0
+    if need > min(w0, h0) - 2:
+        pad = int(math.ceil((need - min(w0, h0)) / 2.0)) + 16
+    if pad > 0:
+        canvas = Image.new("RGB", (w0 + 2 * pad, h0 + 2 * pad), (220, 220, 224))
+        canvas.paste(img, (pad, pad))
+        img = canvas
+        fx1 += pad
+        fy1 += pad
+        fx2 += pad
+        fy2 += pad
+        fcx += pad
+        fcy += pad
+    w, h = img.size
+    mouth_y = fy1 + 0.72 * fh
+    chin_y = fy2 + 0.10 * fh
+    side = int(max(fh / tgt, fw * 1.70, 64))
+    out = data
+    for _round in range(12):
+        side = max(64, min(side, w, h))
+        # 竖直：脸顶约 12%；若嘴贴底则整体上移或放大
+        top = int(round(fy1 - 0.12 * side))
+        left = int(round(fcx - side / 2.0))
+        for _ in range(5):
+            left = max(0, min(w - side, left))
+            top = max(0, min(h - side, top))
+            if (mouth_y - top) <= side * 0.90 and (chin_y - top) <= side * 0.95:
+                break
+            side = int(min(max(w, h), max(side + 8, int(side * 1.08))))
+            side = min(side, w, h)
+            top = int(round(fy1 - 0.12 * side))
+            left = int(round(fcx - side / 2.0))
+        left = max(0, min(w - side, left))
+        top = max(0, min(h - side, top))
+        crop = img.crop((left, top, left + side, top + side))
+        crop = crop.resize((int(size), int(size)), Image.Resampling.LANCZOS)
+        buf = BytesIO()
+        crop.save(buf, format="PNG")
+        out = buf.getvalue()
+        frac = measure_face_height_frac(out)
+        if frac is None:
+            break
+        lo = float(min_face_height_frac)
+        hi = float(max_face_height_frac)
+        mid = 0.5 * (lo + hi)
+        if lo - 1e-6 <= frac <= hi + 1e-6:
+            try:
+                assert_mouth_in_frame(out)
+                return out
+            except CharacterSheetError:
+                side = int(min(max(w, h), side * 1.10))
+                continue
+        if frac > hi:
+            side = int(max(side + 4, side * (frac / max(mid, 0.58))))
+            # 仍可能顶到画布：继续垫边
+            if side > min(w, h):
+                extra = int(math.ceil((side - min(w, h)) / 2.0)) + 8
+                canvas = Image.new(
+                    "RGB", (w + 2 * extra, h + 2 * extra), (220, 220, 224)
+                )
+                canvas.paste(img, (extra, extra))
+                img = canvas
+                fx1 += extra
+                fy1 += extra
+                fx2 += extra
+                fy2 += extra
+                fcx += extra
+                fcy += extra
+                mouth_y += extra
+                chin_y += extra
+                w, h = img.size
+        else:
+            side = int(max(64, side * (frac / max(mid, 0.58))))
+    return out
+
+
+def assert_mouth_in_frame(
+    data: bytes,
+    *,
+    face_bbox: tuple[float, float, float, float] | None = None,
+    margin_frac: float = 0.04,
+) -> dict:
+    """嘴须在格内：估算嘴部 y 不得贴/出底；脸框下沿也不得贴底（禁只剩眼睛）。"""
+    img = Image.open(BytesIO(data)).convert("RGB")
+    _w, h = img.size
+    bb = face_bbox
+    if bb is None:
+        bb = _detect_face_bbox_xyxy(data)
+        if bb is None:
+            bb = _heuristic_skin_face_bbox(img)
+    if bb is None:
+        raise CharacterSheetError("mouth-in-frame: no face", status_code=422)
+    x1, y1, x2, y2 = [float(v) for v in bb]
+    fh = max(1.0, y2 - y1)
+    mouth_y = y1 + 0.72 * fh
+    chin_y = y2
+    bottom_lim = float(h) * (1.0 - float(margin_frac))
+    if mouth_y >= bottom_lim:
+        raise CharacterSheetError(
+            f"mouth near/below bottom mouth_y={mouth_y:.1f} h={h} (overcropped eyes-only)",
+            status_code=422,
+        )
+    if chin_y >= float(h) * (1.0 - float(margin_frac) * 0.5):
+        raise CharacterSheetError(
+            f"face/chin clipped at bottom chin_y={chin_y:.1f} h={h}",
+            status_code=422,
+        )
+    # 脸下沿须明显低于半格，否则多半是贴眼特写
+    if y2 / float(max(1, h)) < 0.48:
+        raise CharacterSheetError(
+            f"face bottom too high y2/h={y2 / float(h):.3f} (eyes-only crop)",
+            status_code=422,
+        )
+    return {
+        "mouth_y": float(mouth_y),
+        "chin_y": float(chin_y),
+        "mouth_in_frame": True,
+    }
+
+
+def _parse_vlm_expression_json(raw: str, labels: tuple[str, ...] = _EXPR_LABELS) -> dict:
+    """从 VLM 原始文本解析 label + scores；失败抛 CharacterSheetError。"""
+    text = (raw or "").strip()
+    if not text:
+        raise CharacterSheetError("VLM 表情判官返回空文本", status_code=502)
+    # 剥 markdown fence
+    fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if fence:
+        text = fence.group(1).strip()
+    # 取第一个 JSON 对象
+    m = re.search(r"\{[\s\S]*\}", text)
+    if not m:
+        raise CharacterSheetError(
+            f"VLM 表情判官无 JSON: {raw[:200]}", status_code=502
+        )
+    try:
+        obj = json.loads(m.group(0))
+    except json.JSONDecodeError as e:
+        raise CharacterSheetError(
+            f"VLM 表情判官 JSON 解析失败: {e}; raw={raw[:200]}",
+            status_code=502,
+        ) from e
+    if not isinstance(obj, dict):
+        raise CharacterSheetError("VLM 表情判官 JSON 非对象", status_code=502)
+    label = str(obj.get("label") or obj.get("expression") or "").strip()
+    # 容错英文/别名
+    aliases = {
+        "stern": "威严",
+        "majestic": "威严",
+        "cold": "冷酷",
+        "aloof": "冷酷",
+        "thoughtful": "沉思",
+        "contemplative": "沉思",
+        "gentle": "温柔",
+        "tender": "温柔",
+        "warm": "温柔",
+        "terrified": "惊恐",
+        "fear": "惊恐",
+        "shocked": "惊恐",
+        "determined": "果断",
+        "resolute": "果断",
+    }
+    if label not in labels:
+        low = label.lower()
+        label = aliases.get(low, label)
+    scores_in = obj.get("scores") or obj.get("probs") or obj.get("probabilities") or {}
+    scores: dict[str, float] = {}
+    if isinstance(scores_in, dict):
+        for lab in labels:
+            v = scores_in.get(lab)
+            if v is None:
+                # try english key
+                for en, zh in aliases.items():
+                    if zh == lab and en in scores_in:
+                        v = scores_in[en]
+                        break
+            try:
+                scores[lab] = float(v) if v is not None else 0.0
+            except (TypeError, ValueError):
+                scores[lab] = 0.0
+    else:
+        scores = {lab: 0.0 for lab in labels}
+    if label not in labels:
+        # 若 scores 有 argmax，用它
+        if any(scores.values()):
+            label = max(scores.items(), key=lambda kv: kv[1])[0]
+        else:
+            raise CharacterSheetError(
+                f"VLM 表情判官 label 非法: {obj.get('label')!r}",
+                status_code=502,
+            )
+    # 若 scores 全 0，把 label 置 1
+    if not any(scores.values()):
+        scores = {lab: (1.0 if lab == label else 0.0) for lab in labels}
+    # 归一（容错）
+    ssum = sum(max(0.0, float(v)) for v in scores.values()) or 1.0
+    scores = {lab: max(0.0, float(scores.get(lab, 0.0))) / ssum for lab in labels}
+    return {"label": label, "scores": scores, "raw": raw}
+
+
+def build_expression_vlm_graph(
+    image_name: str,
+    *,
+    prompt: str = _EXPR_VLM_PROMPT,
+    model: str = "Qwen3-VL-4B-Instruct-FP8",
+    seed: int = 42,
+    backend: str = "Qwen2_VQA",
+) -> dict:
+    """构建 Comfy 表情六类分类图：LoadImage → Qwen2_VQA/AILab_QwenVL → PreviewAny。"""
+    if backend == "AILab_QwenVL":
+        return {
+            "1": {"class_type": "LoadImage", "inputs": {"image": image_name}},
+            "2": {
+                "class_type": "AILab_QwenVL",
+                "inputs": {
+                    "model_name": model if model.startswith("Qwen") else "Qwen3-VL-4B-Instruct-FP8",
+                    "quantization": "None (FP16)",
+                    "attention_mode": "sdpa",
+                    "preset_prompt": "🖼️ Detailed Description",
+                    "custom_prompt": prompt,
+                    "max_tokens": 512,
+                    "keep_model_loaded": True,
+                    "seed": max(1, int(seed)),
+                    "image": ["1", 0],
+                },
+            },
+            "3": {
+                "class_type": "PreviewAny",
+                "inputs": {"source": ["2", 0]},
+            },
+        }
+    # 默认 Qwen2_VQA（节点清单含 Qwen3-VL-*FP8）
+    return {
+        "1": {"class_type": "LoadImage", "inputs": {"image": image_name}},
+        "2": {
+            "class_type": "Qwen2_VQA",
+            "inputs": {
+                "text": prompt,
+                "model": model,
+                "quantization": "none",
+                "keep_model_loaded": True,
+                "temperature": 0.2,
+                "max_new_tokens": 512,
+                "min_pixels": 200704,
+                "max_pixels": 1003520,
+                "seed": int(seed),
+                "attention": "sdpa",
+                "image": ["1", 0],
+            },
+        },
+        "3": {
+            "class_type": "PreviewAny",
+            "inputs": {"source": ["2", 0]},
+        },
+    }
+
+
+def _extract_history_text(entry: dict) -> str:
+    """从 Comfy history entry 抽 STRING/text。"""
+    outputs = (entry or {}).get("outputs") or {}
+    chunks: list[str] = []
+    for node_out in outputs.values():
+        if not isinstance(node_out, dict):
+            continue
+        for key in ("text", "STRING", "string", "response", "RESPONSE", "result"):
+            val = node_out.get(key)
+            if isinstance(val, list):
+                for item in val:
+                    if isinstance(item, str) and item.strip():
+                        chunks.append(item)
+                    elif isinstance(item, dict):
+                        for kk in ("text", "string", "content"):
+                            if isinstance(item.get(kk), str) and item[kk].strip():
+                                chunks.append(item[kk])
+            elif isinstance(val, str) and val.strip():
+                chunks.append(val)
+        # PreviewAny 偶发 ui / 其它键
+        for val in node_out.values():
+            if isinstance(val, str) and val.strip() and val not in chunks:
+                if len(val) < 4000:
+                    chunks.append(val)
+            elif isinstance(val, list):
+                for item in val:
+                    if isinstance(item, str) and item.strip() and item not in chunks:
+                        chunks.append(item)
+    return "\n".join(chunks).strip()
+
+
+async def classify_expression_vlm(
+    image_bytes: bytes,
+    *,
+    worker_url: str | None,
+    labels: tuple[str, ...] = _EXPR_LABELS,
+    seed: int = 42,
+) -> dict:
+    """调 Comfy Qwen VL 对表情做 6 选 1；返回 {label, scores, raw, model}。
+
+    失败抛 CharacterSheetError（不许静默跳过判官伪过检）。
+    """
+    from app.comfy.client import ComfyUIClient, ComfyUIError
+
+    if not worker_url:
+        raise CharacterSheetError("VLM 判官缺少 worker_url", status_code=502)
+    url = str(worker_url).rstrip("/")
+    _assert_sheet_worker_allowed(url)
+    client = ComfyUIClient(url, timeout=180.0)
+    fname = await client.upload_image(
+        image_bytes, f"sheet_expr_vlm_{uuid.uuid4().hex[:10]}.png"
+    )
+    backends = (
+        ("Qwen2_VQA", "Qwen3-VL-4B-Instruct-FP8"),
+        ("Qwen2_VQA", "Qwen3-VL-8B-Instruct-FP8"),
+        ("AILab_QwenVL", "Qwen3-VL-4B-Instruct-FP8"),
+        ("AILab_QwenVL", "Qwen3-VL-4B-Instruct"),
+    )
+    last_err: Exception | None = None
+    for backend, model in backends:
+        try:
+            graph = build_expression_vlm_graph(
+                fname, prompt=_EXPR_VLM_PROMPT, model=model, seed=seed, backend=backend
+            )
+            prompt_id = await client.queue_prompt(graph, client_id=f"sheet_vlm_{uuid.uuid4().hex[:8]}")
+            waited = 0.0
+            raw_text = ""
+            while waited < 180.0:
+                hist = await client.get_history(prompt_id)
+                entry = (hist or {}).get(prompt_id) or {}
+                st = entry.get("status") or {}
+                if entry.get("outputs"):
+                    raw_text = _extract_history_text(entry)
+                    if raw_text:
+                        break
+                if st.get("status_str") == "error" or (
+                    st.get("completed") is False
+                    and any(
+                        isinstance(m, list) and m and m[0] == "execution_error"
+                        for m in (st.get("messages") or [])
+                    )
+                ):
+                    msg = "execution_error"
+                    for m in st.get("messages") or []:
+                        if isinstance(m, list) and m and m[0] == "execution_error":
+                            detail = m[1] if len(m) > 1 else {}
+                            msg = str(
+                                (detail or {}).get("exception_message")
+                                or (detail or {}).get("exception_type")
+                                or msg
+                            )
+                            break
+                    raise CharacterSheetError(f"VLM 判官执行失败:{msg}", status_code=502)
+                await asyncio.sleep(1.5)
+                waited += 1.5
+            if not raw_text:
+                raise CharacterSheetError(
+                    f"VLM 判官超时无文本 backend={backend} model={model}",
+                    status_code=504,
+                )
+            parsed = _parse_vlm_expression_json(raw_text, labels=labels)
+            parsed["model"] = f"{backend}:{model}"
+            parsed["worker"] = url
+            return parsed
+        except CharacterSheetError as e:
+            last_err = e
+            logger.warning("classify_expression_vlm %s/%s fail: %s", backend, model, e)
+            continue
+        except ComfyUIError as e:
+            last_err = CharacterSheetError(f"VLM Comfy 错误:{e}", status_code=502)
+            logger.warning("classify_expression_vlm comfy %s/%s: %s", backend, model, e)
+            continue
+        except Exception as e:  # noqa: BLE001
+            last_err = CharacterSheetError(f"VLM 判官异常:{e}", status_code=502)
+            logger.warning("classify_expression_vlm exc %s/%s: %s", backend, model, e)
+            continue
+    raise CharacterSheetError(
+        f"VLM 表情判官全部后端失败: {last_err}",
+        status_code=502,
+    ) from last_err
+
+
+def assert_expression_vlm_match(
+    cell_bytes: bytes,
+    expr_key: str,
+    vlm_result: dict,
+) -> dict:
+    """目标标签必须是 scores argmax 且 label 命中；否则 CharacterSheetError。"""
+    del cell_bytes  # 裁图已由调用方落盘；此处只验分类结果
+    want = _EXPR_KEY_TO_VLM_LABEL.get(expr_key)
+    if not want:
+        raise CharacterSheetError(f"未知表情键 {expr_key}", status_code=422)
+    if not isinstance(vlm_result, dict):
+        raise CharacterSheetError("VLM 结果非 dict", status_code=502)
+    label = str(vlm_result.get("label") or "").strip()
+    scores = vlm_result.get("scores") or {}
+    if not isinstance(scores, dict) or not scores:
+        raise CharacterSheetError(
+            f"{expr_key} VLM 无 scores: {vlm_result!r}",
+            status_code=502,
+        )
+    # argmax
+    try:
+        argmax = max(scores.items(), key=lambda kv: float(kv[1]))[0]
+    except Exception as e:  # noqa: BLE001
+        raise CharacterSheetError(
+            f"{expr_key} VLM scores 不可比: {e}",
+            status_code=502,
+        ) from e
+    info = {
+        "expr_key": expr_key,
+        "want": want,
+        "label": label,
+        "argmax": argmax,
+        "scores": scores,
+        "model": vlm_result.get("model"),
+    }
+    if label != want:
+        raise CharacterSheetError(
+            f"{expr_key} VLM 判错: want={want} got={label} scores={scores}",
+            status_code=422,
+        )
+    if argmax != want:
+        raise CharacterSheetError(
+            f"{expr_key} VLM argmax 非目标: want={want} argmax={argmax} scores={scores}",
+            status_code=422,
+        )
+    return info
+
+
 def assert_expression_semantic(
     data: bytes,
     *,
@@ -3985,8 +4494,7 @@ def assert_expression_semantic(
             )
     elif expr_key == "expr_3":
         # 温柔：禁大张嘴（允许轻露上齿）+ 眉舒展。
-        # 19:30：anime 唇线质心 lift 不可靠（1922 目检微笑却 lift=-0.47），
-        # 微笑靠提示词+多样性门禁；此处不做 lift 硬拒。
+        # 19:55：几何 lift 不可靠 → 撤回 lift 硬拒；微笑由 VLM 六类判官硬门禁判定。
         wide = mouth_appears_wide_open(data)
         info["mouth_wide_open"] = wide
         info["mouth_dark"] = float(mouth_dark_ratio(data))
@@ -4765,11 +5273,13 @@ def assert_face_closeup_framing(
     max_face_height_frac: float = 0.80,
     min_face_area: float = 0.04,
     face_key: str | None = None,
+    require_mouth_in_frame: bool = False,
 ) -> dict:
     """16:45：近景脸格门禁——有人脸，且脸高占格高约 25%–70%（替代 coverage 0.90）。
 
     17:47：上限 0.80（父代理）；吸收 reframe 测量余量，近景头肩而非贴脸裁切。
     19:01：下限改为 0.35（脸格头高≥35%）；过小则先 auto_tighten 再验。
+    19:55：表情格可收紧到 0.55–0.65，并可选要求嘴在框内（禁贴/出底）。
 
     全身格仍走 assert_panel_coverage；本函数只用于 faces / expr_*。
     """
@@ -4794,12 +5304,15 @@ def assert_face_closeup_framing(
             f"face height frac {frac:.3f} > {max_face_height_frac:.2f} (face too large / overcropped)",
             status_code=422,
         )
-    return {
+    info = {
         "bbox": bb,
         "face_height_frac": frac,
         "min": float(min_face_height_frac),
         "max": float(max_face_height_frac),
     }
+    if require_mouth_in_frame:
+        info.update(assert_mouth_in_frame(data, face_bbox=bb))
+    return info
 
 
 
@@ -7604,7 +8117,13 @@ async def generate_character_sheet(
                     )
                 elif ek == "expr_3":
                     prompt_x += (
-                        ", relaxed brows no frown, gentle smile mouth corners up, no scowl"
+                        ", gentle closed-eye smile or soft smile, relaxed eyebrows, "
+                        "no frown no pout no furrowed brows"
+                    )
+                elif ek == "expr_5":
+                    prompt_x += (
+                        ", determined firm closed mouth, focused eyes, "
+                        "eyebrows slightly lowered, no open mouth, no surprised, no raised brows"
                     )
                 picked: bytes | None = None
                 pick_err: Exception | None = None
@@ -7634,7 +8153,12 @@ async def generate_character_sheet(
                         if ek == "expr_3":
                             _neg_try = (
                                 _neg_try
-                                + ", frown, scowling, furrowed brows, downturned mouth, angry brows"
+                                + ", frown, pout, scowling, furrowed brows, downturned mouth, angry brows"
+                            )
+                        if ek == "expr_5":
+                            _neg_try = (
+                                _neg_try
+                                + ", surprised, open mouth, raised brows, screaming, shouting, wide open mouth"
                             )
                         if ek == "expr_0":
                             _neg_try = (
@@ -7692,10 +8216,25 @@ async def generate_character_sheet(
                         # 18:30：再以脸框中心裁切，禁格外白底
                         cell_b = squareize_face_center_crop(blended, size=768)
                         assert_expr_cell_no_white_border(cell_b, expr_key=ek)
-                        # 19:15：威严/温柔语义硬校验
+                        # 19:15：威严/温柔几何语义（辅助）；19:55：VLM 六类判官为硬门禁
                         assert_expression_semantic(
                             cell_b, expr_key=ek, neutral_ref=base_b
                         )
+                        vlm_result = await classify_expression_vlm(
+                            cell_b,
+                            worker_url=getattr(client, "base_url", None) or worker,
+                        )
+                        assert_expression_vlm_match(cell_b, ek, vlm_result)
+                        try:
+                            (reject_dir / f"{ek}_vlm_{int(seed or 0)}.json").write_text(
+                                json.dumps(vlm_result, ensure_ascii=False, indent=2),
+                                encoding="utf-8",
+                            )
+                            (reject_dir / f"{ek}_vlm_cell_{int(seed or 0)}.png").write_bytes(
+                                cell_b
+                            )
+                        except Exception:
+                            pass
                         # 多样性：相对中性底 + 已完成的其它表情格
                         try:
                             others = {
@@ -7778,7 +8317,7 @@ async def generate_character_sheet(
                     )
                     (reject_dir / f"expr_grid_fallback_flag_{int(seed or 0)}.json").write_text(
                         '{"expr_grid_fallback": true, "final_review": false, "deliver": false, '
-                        '"route": "1915_same_scale_hair+semantic"}',
+                        '"route": "1955_vlm6class+same_scale_mouth"}',
                         encoding="utf-8",
                     )
                 except Exception:
