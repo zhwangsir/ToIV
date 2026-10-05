@@ -6008,3 +6008,9 @@ beeftv、:8196 生产、cuda:3、:8205、新 seed、MODEL_SOURCES/ops git 提交
 - **代码合并账面**：ToIV main 已合 `feat/llm-proxy`(202dc565)+`chore/llm-proxy-test-deps`(186bba1b)+`feat/miniprogram-beeftv-tokens`(af3aa2f7)；融合仓 **ToIV-canvas**（GitHub zhwangsir/ToIV-canvas）main=`26bda4b`（含 58a9232 toiv-h3 v0.3 job_id / d619985 assistant via /api/llm/v1）。
 - **未完（P1 收尾余量）**：①**Cutover PLAN ONLY 未执行**——`m5/CUTOVER_PLAN.md`：/studio/ 前缀经 toiv-web Next rewrite → 127.0.0.1:8281 prod gate（per-user 8400-8499），kill switch=ENTRY_ON 文件，回滚 R0-R3；需 toiv-web 重部署（现 BUILD_ID 仍 09-23）；②prod gate `beeftv-prod` 已预置 **inactive**（:8281/目录/env/secrets 齐）；③M6b 目录空无笔记；④blocker：Gitee 镜像仓创建权限、C 场景 live 重启测试待排期；⑤可选：ToIV 产物 sig 绑 user_id（M2b 记录泄漏签名 URL 任意登录用户可取）。
 - 运行态：beeftv-staging :8271（gate+per-user 8300-8399）active；beeftv-server :8272 sqlite；本日各窗「未碰 BeefTV」约束至此解除口径=只读巡检仍可，改动待父排期 cutover 批。
+
+### 2026-10-05 23:45 CST — 1815 结案 + c_hybrid d1 复盘/d2 重发
+- **1815 局**（18:17→18:35，seed 10051815，新底图首局）：fallback=true。**reframe 修好 2 类拒因**：源不足 1→0、构图 1→0 ✅；但 **expr_3 接缝拒 1→5 爆涨**——flat-fill 重排底的合成贴回边界被 Qwen 复刻进输出（目检 a1 实证：上侧头发区平直边界），接缝门禁正确拦截；expr_2 嘴未闭×3+新徽标×2（嘴部 DNA 未解）。**结论：flat-fill 重排非终案，底图需真 outpaint（生成式扩边）**；expr_2 嘴仍需生成侧解法。证据 MateBook/core `toiv_report_sheet_anime_1815/`。
+- **c_hybrid d1 复盘（17:57–23:05，pid 2115929 已杀）**：镜0 两候选 23min/个 **渲成功但选优门禁全拦**——候选 2a5fc8dd=「THE NORTH FACE」文字+4 处硬切、候选 9b357562=帽兜中途滑落 bad2（门禁体系按设计工作）；根因 1=镜0 首帧戴帽定妆图 vs prompt 全程戴帽的矛盾诱发硬切/滑落；根因 2=driver recover_shot 对死 prompt_id 串行 1800s 空等（设计缺陷，5h 空转）。progress 归档 `progress.hoodup_d1.json`。
+- **d2 重发（23:28，pid 2195344）**：`--first-frame-override 0=rainref_d_front_s0c3_f340（戴帽帧解矛盾）+ --shot-note "single continuous take…no text no logos" + negative 补 print,pattern`，fresh progress；镜0 判定预计 ~00:20。
+- 若 d2 镜0 仍全拒：结论=**管线 C 当前生成力过不了 fb10f4be 门禁线（硬切/文字/帽兜三关）**，作为对比实验的正式结果入账，cutover/成片留待生成侧迭代。
