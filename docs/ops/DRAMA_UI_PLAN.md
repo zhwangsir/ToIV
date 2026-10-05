@@ -6048,3 +6048,11 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **expr_3 outpaint v2 在跑**：v1 三连败根因=粘贴偏移 bug（黑条盖住头顶致 face 0.703/top 0 假读数），v2 修正内容下移后 frame 精确落位（0.609/0.109/cx 0.5），Qwen 补顶+换底带进行中。
 - **c_hybrid d2 动向**：镜0 未卡，在 `hard_cut_reseed` 自动抗切循环（attempt 2+，晚切 3→自动换 seed 重渲，fb10f4be 机制按设计工作）；首帧覆盖后 outfit_state target=up 生效。驱动 pid 2195344。
 - **driver recover 死等缺陷已修**：`recover_shot` 对 dead prompt（不在队列也不在 history）即时跳过（`recover_skip_dead` 事件），不再 1800s/个空转；语法验证过，下局生效。
+
+### 2026-10-06 01:45 CST — 破冰与补漏：expr_2 首过全门禁（随即发现红瞳假通过）→ 瞳色门禁上线
+- **0110 局重大进展**：expr_2 沉思格**首次通过全部门禁链**（`expr_2_qedit_ok` 落盘；嘴部拒 0 次——像素闭合底图生效）。但父级式目检发现**假通过：眼睛变成红色**（林夏=蓝瞳；CLIP/问答/徽标门禁均拦不住瞳色）。
+- **瞳色漂移门禁上线（63bd29aa，已部署 core，md5 双端 30c79a29 一致）**：`measure_iris_hue`（眼带=脸框 28%-52% 高/cx±35%fh，饱和像素圆均值色相）+ `assert_iris_hue_match`（vs 编辑底，diff>40° 拒）接入 qedit 徽标检查之后。真图验证：蓝系互差 ≤2°，红瞳差 **127°**；7 单测全绿（含真图回归）；character_sheet 相关套件 14 失败为 main 既有基线（stash 对照实证），本改动 +7 过 0 破坏。
+- **expr_3 决策入账**：outpaint v1（粘贴偏移 bug）/v2（补底边界触接缝）失败后**回退原底**——1224 原底失败面（徽标3/QA1/接缝1/构图1）优于任何改版（reframe 底接缝 5）。
+- **0150 局**（01:40 发射，seed 10060150）：瞳色门禁生效后首局，expr_2 像素闭合底+expr_3 原底。
+- **d2**：镜0 `hard_cut_reseed` 自动抗切循环持续（attempt 2+），机制按设计工作，收敛即出选优判定。
+- 提交链：`63bd29aa`（瞳色门禁）双端已推；uv.lock 噪音还原。
