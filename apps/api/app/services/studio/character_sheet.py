@@ -10227,8 +10227,9 @@ async def generate_character_sheet(
                         )
                     else:
                         prompt_x += (
-                            " closed-mouth gentle smile, lips together, mouth corners up, "
-                            "soft warm eyes, soft relaxed brows, no open mouth no teeth, "
+                            " warm gentle smile, lips together, mouth corners clearly upturned, "
+                            "soft warm friendly eyes, soft relaxed brows, visibly tender kind "
+                            "expression, no open mouth no teeth, "
                             "same framing head and shoulders, same hair same clothes"
                         )
                     picked: bytes | None = None
