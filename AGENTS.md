@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-09-23（项目管家：助手门户 cinematic 空态）：在线空态去场景宫格/最近作品，仅问候+composer+ambient/入场动效；离线 alert+工作台 chips 保留；`@` SKILL_ENTRIES 不变；产品主干仍仅 **main**；已上 core-ts web BUILD_ID=`20260923-101036-nogit`（覆盖 `20260923-100246-nogit`；api/web health 200）；产品 tip=`cdac9e4`（含 docs `41c08d1`）；STATE `assistant_portal_cinematic_empty_2026_09_23`；`updated_at` 2026-09-23T18:15:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-10-05（项目管家：设定卡 1224 结案 + 全设备 TS 普查）：嘴部放大复判 `c78f4542` 验证过（mz_real_0600 回归+1224 局实弹）；沉思/温柔 fallback 根因=**编辑底图缺陷**（重做底图待拍板）；设备普查翻案——openclaw02/03/04 经 TS 全通（9310/9305 四节点 OPEN，旧「僵死」记录撤销）、pc01 **offline 1 天**且 TS IP 变 **100.86.169.64**（旧值作废）、WS **:8264=H3 worker#2**（10-03 上线替换 :8261 超分 GPU1）；LB 池现仅 gpu0 单后端；主干 main 三端 tip=`6d2f38ff`；STATE `sheet_1224_closed_device_audit_2026_10_05`；`updated_at` 2026-10-05T14:05:00+08:00；via 项目管家（ToIV 开发）；
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -19,11 +19,11 @@
 | 设备 | 角色 | LAN IP | Tailscale IP | SSH 用户 |
 |---|---|---|---|---|
 | ~~studio01-04~~ | 2026-08-29 全线下线退役（fleet_registry 已移除） | .109-.113 | — | — |
-| openclaw01-04 | **whisper ASR 集群 :9310**（core env 四址故障转移）+JoyCaption :9305；⚠️ 02-04 tailscaled 僵死（**机活服务活 LAN 全通**，仅 TS 离线无远程通道，恢复需现场 `tailscale down && up`） | .86/.75/.81/.85 | **100.115.23.67** / ~~100.76.35.7~~ / ~~100.76.140.121~~ / ~~100.125.217.11~~ | dgmt-openclaw01-04 |
+| openclaw01-04 | **whisper ASR 集群 :9310**（core env 四址故障转移）+JoyCaption :9305；**10-05 翻案：四节点 9310/9305 经 TS 全 OPEN**（旧「02-04 tailscaled 僵死」记录撤销）；⚠️ openclaw01 SSH 拒连（服务不受影响） | .86/.75/.81/.85 | **100.115.23.67 / 100.76.35.7 / 100.76.140.121 / 100.125.217.11** | dgmt-openclaw01-04（01 SSH 拒连） |
 | spark01 | DSv4 TP2 **worker**（rank1，`dsv4_60` 容器；旧 vllm_glm53 stop 留存回滚） | .82 | 100.81.235.124 | dgmt-spark |
 | spark02 | **现网 LLM/VLM API** DSv4 TP2 **head** :8000（启动 `~/dsv4-serve.sh 1`(01)→`0`(02)，restart=no 重启需手动；guard cron 双侧已在） | .84 | 100.86.42.89 | dgmt-spark |
 | workstation | 算力+全部后端服务（见三） | 192.168.71.127 | **100.68.100.90** | merlin |
-| pc01 | ComfyUI worker :8188 + H3 第二实例 :8198（NSSM 服务化） | **192.168.71.116** | 100.69.134.27 | home |
+| pc01 | ComfyUI worker :8188 + H3 第二实例 :8198（NSSM 服务化）；**10-05 offline 1 天**（:8188/:8198 失联，LB 池剩 WS 单后端） | **192.168.71.116** | **100.86.169.64**（~~100.69.134.27~~ 作废） | home |
 | ~~pc02~~ | 2026-09-13 下线（LB 池已移除） | ~~.114~~ | 100.107.94.26 | w |
 | NAS | SMB 存储 44T | 192.168.71.7 | 100.80.237.96 | dgmt-nas |
 | 小米路由器 | BE10000 Pro AP/有线中继，管理页 .42 | 192.168.71.42 | — | — |
@@ -51,12 +51,13 @@
 
 | 服务 | 端口 | 卡 | systemd |
 |---|---|---|---|
-| ComfyUI-LB（池：本地 :8196 + pc01 :8188；`/admin/backends`） | :8188 | — | comfyui-lb |
+| ComfyUI-LB（池：本地 :8196 + pc01 :8188；`/admin/backends`；**10-05 pc01 掉线，实测仅 gpu0 单后端**） | :8188 | — | comfyui-lb |
 | gpu0-alt（cache-lru 8） | :8196 | GPU0 | comfyui-gpu0-alt |
 | LongCat（cache-lru 3） | :8197 | GPU0 | comfyui-longcat |
 | MiniMax H3（**UUID 钉卡 GPU-0e6e9149**；+pc01:8198 双池 `TOIV_H3_BASE_URLS`） | :8195 | GPU2 | toiv-comfyui-h3 |
+| **MiniMax H3 worker #2**（ComfyUI-h3-eval，**UUID 8a63d89c GPU1**；10-03 上线**替换 :8261 超分 GPU1**） | :8264 | GPU1 | toiv-comfyui-h3-gpu1 |
 | Wan-Animate-2 | :8199 | GPU3 | comfyui-wan-animate-2 |
-| 超分 fleet（4x-UltraSharp 帧超分） | :8261/:8262/:8263 | GPU0/1/3 | comfyui-upscale-gpu1/2/3 |
+| 超分 fleet（4x-UltraSharp 帧超分；**:8261 已撤**） | :8262/:8263 | — | comfyui-upscale-gpu2/3 |
 | Qwen3-Embedding-4B | :9302 | — | qwen3-embedding |
 | IndexTTS 2.5（配音主路，勿再停） | :9200 | GPU0 | toiv-indextts |
 | 音频分离 / comfy-mcp / fan_guard（脚本 `/opt/fan_guard.py`） | :9220/:9100/— | — | toiv-audio-sep / toiv-comfy-mcp / fan_guard |
@@ -130,6 +131,13 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-05（项目管家：设定卡 1224 结案 + 全设备 TS 普查）
+- **设定卡**：嘴部放大复判 `c78f4542` 端到端验证过（mz_real_0600 回归 + 1224 局实弹 a0/a3 正拒）；1224 局 fallback 根因=**编辑底图缺陷**（base_expr_2 嘴微张小 O / base_expr_3 底部灰带+构图 top=0 vs 锁定格 0.117）——**重做两张编辑底待父拍板**，换 seed 无效。
+- **c_hybrid 对比克隆 8f652c7d 仍 HOLD**：06:08 参考门禁终稿**双候选 PASS**（front s0c3 face 0.949 / side s0c1 face 0.951 四问全过）；首帧方案 A/B 待拍板 → `hoodup_storyboard.py --variant A|B --apply` → 解 HOLD 续跑镜2入库+镜3+成片。
+- **设备普查（真机核实）**：openclaw02/03/04 whisper:9310/JoyCaption:9305 经 TS 全 OPEN（旧僵死记录撤销）；pc01 offline 1 天、TS IP 变 100.86.169.64；WS :8264=H3 worker#2（GPU1 UUID 8a63d89c，10-03 替换 :8261）；LB 池仅 gpu0 单后端；:8197 已自愈 UP；NAS 445 经 TS 通；cloud TS 仍僵死（走公网）。
+- **主干**：main 三端 tip=`6d2f38ff`；core `character_sheet.py` md5 `eded9b43` 与本地一致；docs/ops 日志已补齐未提交。
+- Status：`sheet_1224_closed_device_audit_2026_10_05`；STATE 同名；`updated_at` 2026-10-05T14:05:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-09-23（项目管家：助手门户 cinematic 空态）
 - 在线空态去场景宫格与最近作品轨；仅 Fraunces 问候 + portal composer + ambient/入场；离线 alert+OFFLINE chips 保留；`@` SKILL_ENTRIES 不变。
