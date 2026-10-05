@@ -6042,3 +6042,9 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - :8262=设定卡/古风互斥；:8195=c_hybrid 专用（HOLD 已解）；:8196=生产勿扰（rh-acc 复测须空闲窗）；cuda:3/:8205 不碰。
 - 门禁红线不放松：宁拒勿放（镜0 两候选被拦即门禁按设计工作的实证）。
 - 底图类修复一律生成式扩边，禁 flat-fill/灰垫。
+
+### 2026-10-06 00:55 CST — 深夜执行窗：expr_2 嘴部问题解决（像素级闭合 VLM 过审）
+- **expr_2 嘴部终案**：嘴部真局部 inpaint R1/R2 六连败后（低 denoise 嘴不闭/高 denoise 补丁线触接缝），转**确定性像素编辑**——用紧窗口（325,330-405,400）锁定小 O 椭圆（340,359-363,376，23×17px），周边肤色填充+2px 唇线（深=肤×0.62）。**VLM 终审 q1=true q2=true PASS**，frame 零漂移（0.5625/0.156 不变），`sheet_bases_v2/expr_2.png` 已装。此前两次失败教训入账：搜索窗过低（face bbox 含颈胸致 0.62 分位落到衣领）+ 主立绘脸部检测假框（全身像 150px 脸不可放大用）。
+- **expr_3 outpaint v2 在跑**：v1 三连败根因=粘贴偏移 bug（黑条盖住头顶致 face 0.703/top 0 假读数），v2 修正内容下移后 frame 精确落位（0.609/0.109/cx 0.5），Qwen 补顶+换底带进行中。
+- **c_hybrid d2 动向**：镜0 未卡，在 `hard_cut_reseed` 自动抗切循环（attempt 2+，晚切 3→自动换 seed 重渲，fb10f4be 机制按设计工作）；首帧覆盖后 outfit_state target=up 生效。驱动 pid 2195344。
+- **driver recover 死等缺陷已修**：`recover_shot` 对 dead prompt（不在队列也不在 history）即时跳过（`recover_skip_dead` 事件），不再 1800s/个空转；语法验证过，下局生效。
