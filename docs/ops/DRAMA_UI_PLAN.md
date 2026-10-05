@@ -5994,3 +5994,11 @@ beeftv、:8196 生产、cuda:3、:8205、新 seed、MODEL_SOURCES/ops git 提交
   3. expr_5 锁定格贴格 0.732 越界为**合成期软门禁**（23:18 fill-first 改软，raise-被 catch 仅记日志+落盘钩子写 rejected json）——非本局 fallback 原因，勿误读。
 - **证据**：core `tmp/toiv_report_sheet_anime_1224/`；MateBook `ToIV/tmp/toiv_report_sheet_anime_1224/`（SUMMARY/gate_summary_1224.json/rejects 全量 120 件已拉回）。
 - **建议**：下一步在「重做两张编辑底」（沉思闭嘴版 / 温柔对齐锁定格构图+去底带），非继续换 seed；是否如此推进待父拍板。
+
+### 2026-10-05 18:20 CST — 收尾窗：c_hybrid 方案D 开跑 + 设定卡底图重做 + 双诊断完结
+- **c_hybrid 解 HOLD（父代理整体收尾指令）**：storyboard 05:59 已 apply（四镜 hood_up）；镜1 被驳 rainref_hooddown 参考已还原 baseline（refs_restore_backup.json）；CURRENT_DRIVER 转 RELEASED；**17:57 发射方案D 全场戴帽含镜0**：`--rerender-from 0 --hood-expect up --ref-override sample_linxia_{front,side}=rainref_d_*（ref_gate_final 双 PASS）--outfit-desc 纯黑无logo连帽风衣`，:8195 pid 2115929，四镜串行 2 候选。首帧 hood-down vs 侧参考 hood-up 有 outfit_state WARNING（方案D 固有），镜0 若被帽兜视频门禁拒则补 `--first-frame-override 0=rainref_d_front`。
+- **设定卡底图重做**：几何拉远重排（face 0.6016/top 0.1172/cx 0.5 对齐锁定帧，flat-bg 填充+羽化）两底本地过 crop+frame（d≈0.008）；expr_2 叠加 Qwen 闭嘴编辑 6 attempts 全败（构图漂移×2/嘴未闭×3/接缝×1——Qwen 对小 O 嘴 DNA 过强），二次重排兜底亦嘴拒；expr_0 嘴区移植版目检伪影弃用。**终案：两底装几何拉远版**（expr_2 嘴交生成提示词+6 seed 轮换+嘴部门禁），`sheet_bases_v2/` 留证。
+- **1815 验证局**：18:17 发射（:8262 pid 2121531，seed 10051815，锁四格只重跑 expr_2/3，expr_bases 改从 sheet_bases_v2 装入）。
+- **rh-acc 诊断完结**：:8196 unit `hf-mirror.conf` drop-in **在位**；venv kernels=0.16.2，与 Z-Image finegrained-fp8 要求 `0.15.2≤v<0.16` 冲突属实；全盘搜证该内核 repo 定义在**模型 repo 侧**（transformers quantizer_finegrained_fp8 路径），非本地代码。**裁处建议**：①产品侧换 kernels-0.16 兼容 revision（零设备风险）或 ②设备侧为 Z-Image 起专用 venv 实例（ kernels 0.15.2 钉版）；舰队降级否决。转对应窗口执行。
+- **古风诊断完结**：makeup7（06:07）422 根因=**同款宽底 768px 不足**（需 867px，bases_expr_2/3+portrait_face_ref 三候选全拒）；makeup2 曾 200 成功（03:29 出卡），3-7 为色板迭代；e2e 驱动 try1 死于 ensure_front_full_body 断言，driver.log 停 01:30（H3 显存驱逐+color_ocr_reseed 循环中进程亡）；palette worktree（toiv_wt_palette_base_fb10）05:25 有测试活动——**不并行混改**，下一窗口对 沈青禾 套用 reframe 修法（模式已在二次元实证）。
+- 未碰 :8196/:8205/cuda:3/BeefTV/官网；rain 默认冻结口径不变。
