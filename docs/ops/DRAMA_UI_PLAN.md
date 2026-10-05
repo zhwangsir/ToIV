@@ -6014,3 +6014,31 @@ beeftv、:8196 生产、cuda:3、:8205、新 seed、MODEL_SOURCES/ops git 提交
 - **c_hybrid d1 复盘（17:57–23:05，pid 2115929 已杀）**：镜0 两候选 23min/个 **渲成功但选优门禁全拦**——候选 2a5fc8dd=「THE NORTH FACE」文字+4 处硬切、候选 9b357562=帽兜中途滑落 bad2（门禁体系按设计工作）；根因 1=镜0 首帧戴帽定妆图 vs prompt 全程戴帽的矛盾诱发硬切/滑落；根因 2=driver recover_shot 对死 prompt_id 串行 1800s 空等（设计缺陷，5h 空转）。progress 归档 `progress.hoodup_d1.json`。
 - **d2 重发（23:28，pid 2195344）**：`--first-frame-override 0=rainref_d_front_s0c3_f340（戴帽帧解矛盾）+ --shot-note "single continuous take…no text no logos" + negative 补 print,pattern`，fresh progress；镜0 判定预计 ~00:20。
 - 若 d2 镜0 仍全拒：结论=**管线 C 当前生成力过不了 fb10f4be 门禁线（硬切/文字/帽兜三关）**，作为对比实验的正式结果入账，cutover/成片留待生成侧迭代。
+
+## 8. 执行计划（2026-10-05 23:55 CST 立版，按窗口推进）
+
+### W0 今晚收口（自动）
+- c_hybrid d2 镜0 判定（~00:25）：**过**→镜1–3 串行+候选选优+帽兜门禁，产出四镜对比素材后交成片评估；**拒**→「管线 C 生成力不过 fb10f4be 三关」作为对比实验正式结论入账，d2 日志+证据归档后停驱。
+- GitHub 补推 `1e311e58`（443 恢复后；Gitee/本地已齐）。
+
+### W1 下一执行窗（GPU 窗口，顺序有依赖）
+1. **设定卡底图真 outpaint**（:8262，~30min）：以 1224 原底为种子做生成式扩边（禁 flat-fill——1815 实证合成边界会被 Qwen 复刻触发接缝门禁），目标 face 0.60/top 0.117 帧对齐 + 无合成边界；expr_2 叠加闭嘴编辑。验收=新 seed 验证局 expr_2/3 至少一格 final_review 过检。
+2. **c_hybrid driver recover 缺陷修复**（core 脚本层，~15min，防御性）：`_wait_video_url` 前先查 /history 是否存在该 prompt（不存在即跳过不等 1800s）；d2 若走拒分支此项升级为必做。
+3. **古风沈青禾 reframe 套用**（:8262，与 1 串行）：对 bases_expr_2/3+portrait_face_ref 做同款 outpaint/重排 → makeup 单局收尾 → e2e 驱动 `ensure_front_full_body` 断言 bug 修复后续跑。
+
+### W2 资源/设备窗
+1. **rh-acc 裁处执行**：先产品侧查 finegrained-fp8 内核有无 kernels-0.16 兼容 revision（零风险）；无则 :8265 起专用 venv 实例（kernels 0.15.2 钉版，E-1 补 resolve_worker 匹配）→ 空闲窗终测。
+2. **pc01 恢复**（需现场/WOL）：开机后 LB 池回双后端、H3 :8198 复活、补 kernels 0.16.x。
+
+### W3 待拍板批（父代理定时间窗）
+- **BeefTV cutover**：toiv-web 重部署加 /studio/ rewrite → beeftv-prod gate 启用（8281/8400-8499）→ ENTRY_ON kill switch 演练 R0-R3 → M6b；前置=避开渲跑时段（deploy.sh 有渲跑 guard）。
+- **雨夜默认解冻条件**：c_hybrid 四镜若全过门禁，拼片与人脸/衔接分对比 splice2，胜出才换默认。
+- INTENT e/f、方案文档对外版。
+
+### 长期/持续（不占窗口，顺手做）
+sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证据归档；SeC 387721 上游跟踪；MODEL_SOURCES 追加；cloud tailscaled/core BIOS（现场）。
+
+### 资源约束（🔒）
+- :8262=设定卡/古风互斥；:8195=c_hybrid 专用（HOLD 已解）；:8196=生产勿扰（rh-acc 复测须空闲窗）；cuda:3/:8205 不碰。
+- 门禁红线不放松：宁拒勿放（镜0 两候选被拦即门禁按设计工作的实证）。
+- 底图类修复一律生成式扩边，禁 flat-fill/灰垫。
