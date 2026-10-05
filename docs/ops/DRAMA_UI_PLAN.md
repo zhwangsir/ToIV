@@ -6002,3 +6002,9 @@ beeftv、:8196 生产、cuda:3、:8205、新 seed、MODEL_SOURCES/ops git 提交
 - **rh-acc 诊断完结**：:8196 unit `hf-mirror.conf` drop-in **在位**；venv kernels=0.16.2，与 Z-Image finegrained-fp8 要求 `0.15.2≤v<0.16` 冲突属实；全盘搜证该内核 repo 定义在**模型 repo 侧**（transformers quantizer_finegrained_fp8 路径），非本地代码。**裁处建议**：①产品侧换 kernels-0.16 兼容 revision（零设备风险）或 ②设备侧为 Z-Image 起专用 venv 实例（ kernels 0.15.2 钉版）；舰队降级否决。转对应窗口执行。
 - **古风诊断完结**：makeup7（06:07）422 根因=**同款宽底 768px 不足**（需 867px，bases_expr_2/3+portrait_face_ref 三候选全拒）；makeup2 曾 200 成功（03:29 出卡），3-7 为色板迭代；e2e 驱动 try1 死于 ensure_front_full_body 断言，driver.log 停 01:30（H3 显存驱逐+color_ocr_reseed 循环中进程亡）；palette worktree（toiv_wt_palette_base_fb10）05:25 有测试活动——**不并行混改**，下一窗口对 沈青禾 套用 reframe 修法（模式已在二次元实证）。
 - 未碰 :8196/:8205/cuda:3/BeefTV/官网；rain 默认冻结口径不变。
+
+### 2026-10-05 18:45 CST — BeefTV 融合 P1 记账（此前主日志零记录，本条补全）
+- **进度**：M1–M5 全部完成（基建 staging :8271 / 双向隔离 20 例全过 / 品牌 M3·M3b / 助手链路 M4·M4b 切 ToIV /api/llm/v1 + 桌面 CI 双端绿 / M5 冷启动 503 消除+任务卡 chip+staging 重部署 05:14）。工作笔记 core `tmp/beeftv_p1/NOTES_M1~M5.md`，证据 box `/workspace/beeftv_p1/`。
+- **代码合并账面**：ToIV main 已合 `feat/llm-proxy`(202dc565)+`chore/llm-proxy-test-deps`(186bba1b)+`feat/miniprogram-beeftv-tokens`(af3aa2f7)；融合仓 **ToIV-canvas**（GitHub zhwangsir/ToIV-canvas）main=`26bda4b`（含 58a9232 toiv-h3 v0.3 job_id / d619985 assistant via /api/llm/v1）。
+- **未完（P1 收尾余量）**：①**Cutover PLAN ONLY 未执行**——`m5/CUTOVER_PLAN.md`：/studio/ 前缀经 toiv-web Next rewrite → 127.0.0.1:8281 prod gate（per-user 8400-8499），kill switch=ENTRY_ON 文件，回滚 R0-R3；需 toiv-web 重部署（现 BUILD_ID 仍 09-23）；②prod gate `beeftv-prod` 已预置 **inactive**（:8281/目录/env/secrets 齐）；③M6b 目录空无笔记；④blocker：Gitee 镜像仓创建权限、C 场景 live 重启测试待排期；⑤可选：ToIV 产物 sig 绑 user_id（M2b 记录泄漏签名 URL 任意登录用户可取）。
+- 运行态：beeftv-staging :8271（gate+per-user 8300-8399）active；beeftv-server :8272 sqlite；本日各窗「未碰 BeefTV」约束至此解除口径=只读巡检仍可，改动待父排期 cutover 批。
