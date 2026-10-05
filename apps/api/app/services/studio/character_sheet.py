@@ -5386,6 +5386,80 @@ def crop_mouth_zoom(data: bytes, *, out_w: int = 512) -> bytes:
     return buf.getvalue()
 
 
+def _iris_hue_in_band(
+    im: Image.Image,
+    band: tuple[int, int, int, int],
+) -> tuple[float, int] | None:
+    """01:45：眼带主色相（饱和像素圆均值）；饱和像素不足返回 None。"""
+    import numpy as np
+
+    ex0, ey0, ex1, ey1 = [int(v) for v in band]
+    if ex1 - ex0 < 8 or ey1 - ey0 < 8:
+        return None
+    eye = np.asarray(im.convert("RGB"), dtype=np.float32)[ey0:ey1, ex0:ex1] / 255.0
+    mx = np.max(eye, axis=2)
+    mn = np.min(eye, axis=2)
+    sat = np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-6), 0.0)
+    m = (sat > 0.45) & (mx > 0.35)
+    if int(m.sum()) < 30:
+        return None
+    px = eye[m]
+    step = max(1, len(px) // 2000)
+    sin_sum = 0.0
+    cos_sum = 0.0
+    n = 0
+    for p in px[::step]:
+        hh, _ss, _vv = colorsys.rgb_to_hsv(float(p[0]), float(p[1]), float(p[2]))
+        ang = hh * 360.0
+        sin_sum += math.sin(math.radians(ang))
+        cos_sum += math.cos(math.radians(ang))
+        n += 1
+    if n == 0:
+        return None
+    return (math.degrees(math.atan2(sin_sum / n, cos_sum / n)) % 360.0, n)
+
+
+def measure_iris_hue(data: bytes) -> tuple[float, int] | None:
+    """01:45：表情格眼带（脸框 28%-52% 高、cx±35%fh）主色相。"""
+    im = Image.open(BytesIO(data)).convert("RGB")
+    bb = _expr_face_bbox_of(im)
+    if bb is None:
+        return None
+    x1, y1, x2, y2 = bb
+    fh = max(8.0, y2 - y1)
+    cx = (x1 + x2) / 2.0
+    band = (
+        int(cx - 0.35 * fh),
+        int(y1 + 0.28 * fh),
+        int(cx + 0.35 * fh),
+        int(y1 + 0.52 * fh),
+    )
+    return _iris_hue_in_band(im, band)
+
+
+def assert_iris_hue_match(
+    cell_data: bytes,
+    ref_data: bytes,
+    *,
+    expr_key: str = "expr",
+    max_hue_diff: float = 40.0,
+) -> dict:
+    """01:45：瞳色漂移门禁——生成格眼带主色相须与编辑底一致（0110 实证红瞳假通过 hue 差 127°，蓝系互差≤2°）。"""
+    got = measure_iris_hue(cell_data)
+    ref = measure_iris_hue(ref_data)
+    if got is None or ref is None:
+        # 测不到（灰度/低饱和）不拦，交目检
+        return {"expr_key": expr_key, "skipped": True, "got": got, "ref": ref}
+    diff = abs(got[0] - ref[0]) % 360.0
+    diff = min(diff, 360.0 - diff)
+    if diff > float(max_hue_diff):
+        raise CharacterSheetError(
+            f"{expr_key}瞳色漂移门禁: 眼带色相 {got[0]:.0f}° vs 底 {ref[0]:.0f}° (diff {diff:.0f}°>{max_hue_diff:.0f}°)",
+            status_code=422,
+        )
+    return {"expr_key": expr_key, "hue": got[0], "ref_hue": ref[0], "diff": diff}
+
+
 def assert_mouth_zoom_closed(expr_key: str, qa: dict) -> dict:
     """05:30：嘴部放大复判两问皆须为是（闭嘴且看得到嘴），否则 FAIL 换 seed。"""
     q1 = qa.get("q1")
@@ -10266,6 +10340,8 @@ async def generate_character_sheet(
                                     f"{ek}头部特写裁剪内相对 edit_base 出现新徽标/字样",
                                     status_code=422,
                                 )
+                            # 01:45：瞳色漂移门禁（0110 红瞳假通过实证；对照编辑底同源）
+                            assert_iris_hue_match(cell_b, edit_base, expr_key=ek)
                             # 专项问答（非六分类）
                             qa_result = await classify_expression_qa(
                                 cell_b,
