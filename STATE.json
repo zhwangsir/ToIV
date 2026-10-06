@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-06T23:20:00+08:00",
+  "updated_at": "2026-10-06T23:58:00+08:00",
   "assistant_portal_cinematic_empty_2026_09_23": {
     "status": "assistant_portal_cinematic_empty_deployed",
     "date": "2026-09-23",
@@ -12508,9 +12508,10 @@
       "真浏览器终验(用户侧)",
       "四镜拼片对比"
     ],
-    "updated_at": "2026-10-06T23:20:00+08:00",
+    "updated_at": "2026-10-06T23:58:00+08:00",
     "m4_4_phase_a": "canvas-api 增量 ToIV JWT 直验上线(2abec89)：ToivJWTAuth 内省 /api/auth/me+60s 只缓存正判定；CANVAS_TOIV_AUTH_BASE 已武装 core；三态实弹裸401/HMAC200无回归/Bearer真JWT200；Phase B/C(SPA Bearer+Next rewrite+owner头审计)待M4-3浸泡+真浏览器验证",
     "m4_4_phase_b": "/studio/api 直连 canvas-api 上线(f14f656/b50d6f8d)：cookie 兜底+ui-session 第四信任源+SPA Bearer+Next rewrite；全链路实弹；回滚=next.config 删条重建；Phase C(gate 全面退役)待真浏览器复验后",
-    "m4_5_single_repo": "单仓合并完成(ToIV main fcc32f22 双推)：apps/canvas subtree 历史完整；GitHub ToIV-canvas 已归档只读；M4 五项全落地；剩 Phase C(gate 全面退役)/统一 CI/deploy 合一/C6 全平台"
+    "m4_5_single_repo": "单仓合并完成(ToIV main fcc32f22 双推)：apps/canvas subtree 历史完整；GitHub ToIV-canvas 已归档只读；M4 五项全落地；剩 Phase C(gate 全面退役)/统一 CI/deploy 合一/C6 全平台",
+    "m4_tail": "统一CI+部署合一完成(7ef6e886/4ff2f259/185132f3)：canvas.yml 双job首绿(run 37490622769)；deploy.sh --with-canvas/--canvas-only core-jump 实弹三轮；随航修 boundary/vet/antd Empty 三笔欠账；M4 仅剩 Phase C gate 全面退役(门槛=用户真浏览器复验/studio 直连)"
   }
 }
