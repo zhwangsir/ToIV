@@ -18,6 +18,13 @@
 //    process that can reach 127.0.0.1:<port> still cannot act as that user.
 //  * M6a (sub-path): GATE_PREFIX=/studio mounts everything under the prefix (ToIV Next proxies
 //    /studio/* here); GATE_LOGIN_URL hands login to ToIV (localStorage token -> /auth/exchange).
+//  * M4-3 (single-backend cutover): GATE_SINGLE_BACKEND=127.0.0.1:<port> routes ALL authenticated
+//    /api traffic to one fixed canvas-api instance (postgres mode, schema=canvas) instead of
+//    spawning per-user units. GATE_SINGLE_UID is the gate identity that instance enforces
+//    (BEEFTV_GATE_UID on the backend, key file shared with the per-user layout), and
+//    GATE_SINGLE_DATA_DIR is where its agent_owner_token lives. Channel credentials (toiv-h3 /
+//    toiv-llm) are synced with the CURRENT logged-in user's JWT; this deployment is single-admin,
+//    concurrent different users would race last-writer-wins on those channels.
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -44,6 +51,17 @@ const LOGIN_URL = String(process.env.GATE_LOGIN_URL || ""); // prod: "/?view=hom
 const ENTRY_FILE = process.env.GATE_ENTRY_FILE || path.join(STAGING, "ENTRY_ON");
 const SIGNING_KEY_FILE = process.env.GATE_SIGNING_KEY_FILE || "";
 const STREAM_PING_MS = Math.max(1000, Number(process.env.GATE_STREAM_PING_MS || 20_000));
+// M4-3 single-backend cutover: set GATE_SINGLE_BACKEND=127.0.0.1:8290 to stop spawning per-user
+// units and proxy everything to the fixed canvas-api instance (PG mode). Unset = legacy per-user mode.
+const SINGLE_BACKEND = String(process.env.GATE_SINGLE_BACKEND || "").trim();
+const SINGLE_UID = String(process.env.GATE_SINGLE_UID || "").trim();
+const SINGLE_DATA_DIR = path.resolve(process.env.GATE_SINGLE_DATA_DIR || path.join(STAGING, "canvas-api", "data"));
+const singleAddr = (() => {
+  if (!SINGLE_BACKEND) return null;
+  const m = /^127\.0\.0\.1:(\d+)$/.exec(SINGLE_BACKEND);
+  if (!m || !UID_RE.test(SINGLE_UID)) throw new Error("GATE_SINGLE_BACKEND must be 127.0.0.1:<port> and GATE_SINGLE_UID a 32-hex uid");
+  return { port: Number(m[1]) };
+})();
 const pub = (p) => PREFIX + p;
 if (PREFIX && !/^\/[a-z0-9-]+$/.test(PREFIX)) throw new Error("GATE_PREFIX must look like /studio");
 const GATE_DIR = path.join(STAGING, "gate");
@@ -174,7 +192,8 @@ async function allocPort() {
   throw new Error("port pool exhausted");
 }
 function ownerToken(uid) {
-  try { return fs.readFileSync(path.join(USERS, uid, "data", "agent_owner_token"), "utf8").trim() || null; } catch { return null; }
+  const dir = singleAddr ? SINGLE_DATA_DIR : path.join(USERS, uid, "data");
+  try { return fs.readFileSync(path.join(dir, "agent_owner_token"), "utf8").trim() || null; } catch { return null; }
 }
 
 const inst = new Map();   // uid -> {port, state:'starting'|'ready'|'stopping', lastActive, startedAt, token, tokenHash, synced, misses}
@@ -182,9 +201,26 @@ const queue = [];         // [{uid, lastPoll}]
 const failedAt = new Map(); // uid -> ts of last failed start (10 s backoff)
 const slotsUsed = () => inst.size;
 
+// M4-3 single-backend mode: one shared workspace behind the fixed instance. No spawn/reclaim;
+// channel tokens follow the current logged-in user (single-admin deployment), with the same
+// 30 s failure backoff as kickSync.
+const singleSync = { tokenHash: "", syncing: false, syncFailAt: 0 };
+const singleEntry = { port: singleAddr ? singleAddr.port : 0, state: "ready", warming: false, warm: false, warmAt: 0 };
+
 // Called on every authenticated hit. Returns {state, position?}.
 function want(uid, token) {
   if (!UID_RE.test(uid)) throw new Error("bad uid");
+  if (singleAddr) {
+    const th = token ? hashTok(token) : "";
+    if (token && singleSync.tokenHash !== th && !singleSync.syncing && Date.now() - singleSync.syncFailAt >= 30_000) {
+      singleSync.tokenHash = th; singleSync.syncing = true;
+      syncChannelToken(SINGLE_UID, singleAddr.port, token, path.join(SINGLE_DATA_DIR, "gate_state.json"))
+        .then(() => { warmAssistant(SINGLE_UID, singleEntry); })
+        .catch((err) => { singleSync.syncFailAt = Date.now(); singleSync.tokenHash = ""; log("single sync failed", String(err && err.message)); })
+        .finally(() => { singleSync.syncing = false; });
+    }
+    return { state: "ready" };
+  }
   const e = inst.get(uid);
   if (e) {
     e.lastActive = Date.now();
@@ -246,8 +282,8 @@ function kickSync(uid, e) {
 }
 // Provision the user's model config once from the sanitized template, and keep the ToIV H3
 // channel credential equal to the user's current ToIV JWT (re-synced whenever the token changes).
-async function syncChannelToken(uid, port, token) {
-  const stFile = path.join(USERS, uid, "gate_state.json");
+async function syncChannelToken(uid, port, token, stateFile) {
+  const stFile = stateFile || path.join(USERS, uid, "gate_state.json");
   const st = readJSON(stFile, {});
   const th = hashTok(token);
   if (st.provisioned && st.tokenHash === th && st.llmv === 2) return;
@@ -334,7 +370,10 @@ setInterval(async () => {
   }
 }, HEALTH_MS).unref();
 // Gate (re)start: adopt instances that are still running (their tasks keep going); nothing else is started.
+// M4-3 single-backend mode skips adoption entirely: the fixed instance is owned by systemd
+// (canvas-api-pg.service), and leftover per-user units must not be adopted into the inst map.
 (async () => {
+  if (singleAddr) { log(`instance manager: single-backend ${SINGLE_BACKEND} uid=${SINGLE_UID.slice(0, 8)}`); return; }
   for (const uid of Object.keys(readJSON(REG_FILE, {}))) {
     if (!UID_RE.test(uid)) continue;
     const act = await systemctl("is-active", unitOf(uid));
@@ -554,6 +593,7 @@ http.createServer(async (req, res) => {
     const st = want(user.id, token);
     if (isApi) {
       if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && !sameOrigin(req)) return json(res, 403, { error: "cross_origin" });
+      if (singleAddr) return proxy(req, res, SINGLE_UID, singleAddr.port);
       const e = inst.get(user.id);
       if (st.state !== "ready" || !e) return json(res, 503, { error: "workspace_starting", state: st.state, message: statusMessage(st) }, { "retry-after": "2" });
       return proxy(req, res, user.id, e.port);
@@ -573,4 +613,4 @@ http.createServer(async (req, res) => {
     log("error", String(e && e.message));
     if (!res.headersSent) json(res, 500, { error: "internal" }); else res.end();
   }
-}).listen(PORT, HOST, () => log(`beeftv gate on ${HOST}:${PORT} root=${ROOT} toiv=${TOIV.href}`));
+}).listen(PORT, HOST, () => log(`beeftv gate on ${HOST}:${PORT} root=${ROOT} toiv=${TOIV.href}${singleAddr ? ` single=${SINGLE_BACKEND} uid=${SINGLE_UID.slice(0, 8)}` : ""}`));
