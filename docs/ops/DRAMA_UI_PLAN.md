@@ -6260,3 +6260,10 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **Phase C ✅**（ToIV main `b9273463` 已双推）：gate 全面退役——①`app/studio/[[...slug]]` catch-all 服务 dist（STUDIO_DIST_DIR 与 deploy.sh 同目录零改）；②`/studio/auth/exchange|logout` 精确路由（契约同 gate：Bearer 内省→Set-Cookie）；③`/studio/entry.json`（STUDIO_ENTRY_FILE）；④next.config beforeFiles 重构（/studio/api 直连 ：8290）+删 gate rewrites；⑤page.tsx 跳转前 exchange 播种 cookie。**core 实弹**：gate disable --now、8281 关闭、公网 /studio 200、API 直连 2 proj；**真浏览器终验**：画布节点/助手「PhaseC 退役完成」往返/历史保留/任务中心全绿。回滚=恢复 gate rewrites+enable beeftv-gate（分钟级，config 级）。
 - 已知边界（入账）：深链直达且 cookie 缺失时 URL 型资产（img）首访 401（fetch 走 Bearer 不受影响）——主入口 ToIV 首页已播种 cookie，边缘场景待 SPA boot 自愈（后续小批）。
 - **M4 全项完成**：PG 驱动→单实例→gate 切流→JWT 直验→单仓合并→统一 CI→部署合一→gate 退役。剩余开口仅 C6 全平台（独立成批）与用户拍板项（expr_3 三选一/四镜拼片）。
+
+### 2026-10-07 00:45 CST — C6 全平台第一步：/studio PWA 基础件上线（`8987d860` 双推）
+- **交付**：manifest（standalone/scope=/studio//深链 shortcuts：新建画布·智能体对话·短剧工作台·任务中心/maskable 图标）+ sw.js 安装壳（导航 network-first 离线回退 SPA 壳、static/assets hash 产物 cache-first、**/studio/api 一律不缓存**）+ 三枚图标（sips 自 beef-mark 192/512/180）+ index.html PWA meta 三件套（顺手修 favicon 根路径→/studio 前缀）+ main.tsx 生产挂载注册 SW。
+- **真浏览器终验 ✅**：manifest link 解析至公网 URL、`serviceWorker.getRegistration` **active（scope=/studio/）**、壳缓存 5 条全落（index/manifest/根/双图标）。经 deploy.sh --canvas-only 一条命令上产（统一部署管线第二次实战）。
+- **深链路由**：PWA shortcuts 与 SPA router 的 /studio/canvas/:id 等深链由 Phase C catch-all fallback 天然承接，无需额外开发。
+- **小程序端需用户配合清单**（下一步开工前置）：①微信小程序 **AppID**（个人或企业主体注册 mp.weixin.qq.com，个人主体即可但类目选「工具>信息查询」或「教育」避开音视频资质）；②小程序后台「开发管理→服务器域名」把 **https://toiv.wineryz.top** 加入 request 合法域名（需 HTTPS 已就绪 ✓）；③若要「添加到桌面」引导图/截屏素材需提供或授权从现网截取；④发布审核由用户在 mp 后台操作（AI 生成内容类目可能要求承诺函）。
+- **C6 后续排期建议**：PWA 安装横幅/更新提示（SW VERSION 通知）→ 移动端触摸画布适配核查 → 小程序壳（webview 方案：合法域名承载 /studio，登录经 code2session 换 ToIV JWT——需 api 侧新增小程序登录端点）→ 桌面 PWA/Electron 包装按需。
