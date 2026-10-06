@@ -6166,3 +6166,8 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **渲染按钮原生 ✅**（ToIV-canvas `1e6c00ab` 已推 GitHub）：头部「渲染全部」（POST /studio/projects/{pid}/render）+ 分镜行「渲染」（POST /studio/shots/{sid}/render 单候选，terminal 态自动隐藏）；**fire-and-forget + 15s 轮询**形态（同步端点单镜 ~25min 不等响应，页面轮询 pipeline 状态自刷）。
 - **真机验证闭环**：点击 #2 镜「渲染」按钮 → 后端状态 draft→**rendering**（实证请求到达且开渲）；「在原工作台操作」深链保留为兜底。
 - M3 末项剩余：配音/对口型按钮、设定卡编辑原生化。
+
+### 2026-10-06 22:50 CST — M3 末项第二小项：配音操作原生化闭环
+- **配音按钮 ✅**（ToIV-canvas `cb673ddf` 已推 GitHub）：rendered 态且无音轨的分镜行显「配音」按钮（POST /studio/shots/{sid}/voice）；fire-and-forget + 轮询条件扩 voicing。
+- **真机闭环**：雨夜对比克隆 cd023e9b 镜点击 → **rendered→voiced、voice_url=Y**（IndexTTS 克隆约 40s 完成）。镜操作三态链 draft→rendering→rendered→voiced 已全原生可驱动。
+- M3 末项剩余：对口型按钮（lipsync）、设定卡编辑原生化。
