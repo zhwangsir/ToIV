@@ -29,7 +29,7 @@ func withProviderSubmissionKey(ctx context.Context, attempt *model.RouteAttempt)
 
 func (s *Service) createDirectTaskAttempt(task *model.Task) (*model.RouteAttempt, error) {
 	if task.Attempts > 1 && task.ProviderRequestID == "" {
-		return nil, routeDispatchUncertainError{"旧任务已尝试执行但缺少提交记录，为避免重复创建上游任务已停止自动重发"}
+		return nil, routeDispatchUncertainError{Message: "旧任务已尝试执行但缺少提交记录，为避免重复创建上游任务已停止自动重发"}
 	}
 	id, err := s.repo.NextPrefixedID("ATTEMPT")
 	if err != nil {

@@ -26,8 +26,11 @@ func TestDesktopDependencyBoundary(t *testing.T) {
 	}
 
 	dependencies := "\n" + string(output) + "\n"
+	// M4(2026-10-06): gorm.io/driver/postgres 不再列入禁携——服务档 PG 单实例模式
+	// (CANVAS_DATABASE_DRIVER=postgres)与桌面档共用 internal/database 的打开路径,驱动被
+	// 无条件链接。该驱动纯 Go、无云凭据语义,可接受;若未来要恢复隔离,做 build-tag 拆分
+	// (//go:build !beeftv_desktop 包 postgres 分支)后再放回本清单。
 	for _, forbidden := range []string{
-		"gorm.io/driver/postgres",
 		"github.com/redis/go-redis/v9",
 		"github.com/aws/aws-sdk-go/aws",
 		"github.com/qiniu/go-sdk/v7",

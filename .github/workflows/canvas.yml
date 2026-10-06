@@ -1,0 +1,83 @@
+# ToIV canvas CI —— apps/canvas（BeefTV 融合线）后端 Go + 前端 Web
+#
+# 背景（M4-5 单仓合并 2026-10-06）:ToIV-canvas 并入 apps/canvas 后,其自带
+# .github/workflows 因嵌套不再被 GitHub 执行;本文件承接 quality.yml 的核心
+# 两个 job(backend build+test / web install+lint+typecheck+build)。
+# 与原仓差异:
+#   · 浏览器 Playwright 用例未平移(重依赖 runner 浏览器,先保类型与产物构建闸);
+#   · web build 用生产挂载口径(VITE_CANVAS_BACKEND_URL=/studio/api --base=/studio/),
+#     与 core 部署同参,顺带守住 bundle 产物可构建。
+#   · Windows/macOS 平台矩阵与发布类 job 不平移(归原仓 archived 历史)。
+name: Canvas CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      canvas: ${{ steps.filter.outputs.canvas }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            canvas:
+              - "apps/canvas/**"
+              - ".github/workflows/canvas.yml"
+
+  backend:
+    name: Canvas backend (Go)
+    needs: changes
+    if: needs.changes.outputs.canvas == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/canvas/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/canvas/backend/go.mod
+          cache: true
+          cache-dependency-path: apps/canvas/backend/go.sum
+      - name: Build official protocol packages
+        run: sh ../plugin-packages/build-packages.sh
+      - name: Vet
+        run: go vet ./...
+      - name: Run Go tests
+        run: go test ./...
+
+  web:
+    name: Canvas web (bun)
+    needs: changes
+    if: needs.changes.outputs.canvas == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/canvas/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Lint
+        run: bun run lint
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Production mount build (/studio)
+        run: bunx vite build --base=/studio/
+        env:
+          VITE_CANVAS_BACKEND_URL: /studio/api
