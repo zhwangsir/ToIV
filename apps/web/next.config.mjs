@@ -73,10 +73,28 @@ const nextConfig = {
     const apiBase = process.env.INTERNAL_API_BASE
       || process.env.NEXT_PUBLIC_API_BASE
       || "http://localhost:8090";
+    // BeefTV studio(cutover 2026-10-06):/studio/* 代理 prod gate(gate 侧按 /studio 前缀服务,
+    // per-user 后端 8400-8499;入口重定向由 ENTRY_ON 开关文件控制,详见 docs/ops/UI_BEEFTV_RESKIN.md 同批记录)
+    const beeftvGate = process.env.BEEFTV_GATE_ORIGIN || "http://127.0.0.1:8281";
+    // M4-4 Phase B(2026-10-06):/studio/api/* 直连 canvas-api 单实例(:8290)——SPA 附着 toiv_token
+    // Bearer / gate 会话 cookie 在 canvas-api 前门内省直验;静态 SPA 与 /studio/auth/* 仍走 gate 直至 Phase C 退役。
+    const canvasApi = process.env.CANVAS_API_ORIGIN || "http://127.0.0.1:8290";
     return [
       {
         source: "/api/:path*",
         destination: `${apiBase}/api/:path*`,
+      },
+      {
+        source: "/studio/api/:path*",
+        destination: `${canvasApi}/api/:path*`,
+      },
+      {
+        source: "/studio",
+        destination: `${beeftvGate}/studio`,
+      },
+      {
+        source: "/studio/:path*",
+        destination: `${beeftvGate}/studio/:path*`,
       },
     ];
   },
