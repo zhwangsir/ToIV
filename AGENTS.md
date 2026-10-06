@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-06（项目管家：**角色资产协议 v1 落地并上 core**）：用户拍板按 `docs/ops/CHARACTER_ASSET_PROTOCOL.md` 执行（D1 协议产品级/D2 展示卡/D3 存量回填/**D4 编辑底图重做分开走舰队批次**）；新服务 `apps/api/app/services/studio/character_asset.py`（L2 schema/锚点数据化/覆盖登记/版本级联/展示卡渲染/M2 variant+补拍 builder）+ studio 路由 5 端点（GET 自动物化回填/PUT 白名单补丁/refresh 版本级联/card 展示卡/coverage-plan）+ 生成链钩子（整卡/面板重生成→version+1，不阻塞主链）；12 测试全绿+回归零新增（预存环境性失败 53/104 与 HEAD 基线一致）；**已部署 core-ts 并真机验证**（林夏 803fb69b 即 1224 案主角 GET 物化 v1+PUT 五条正典锚点+展示卡三迭代视觉过+coverage-plan 3 job）；⚠️ 本地 main 有本波未提交文件待 commit；⚠️ 本地 stash@{0}「wip-unrelated-before-0030」系早前会话遗留，勿误 pop；STATE `character_asset_protocol_m1_2026_10_06`；`updated_at` 2026-10-06T18:20:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-10-06（项目管家：**角色资产协议全四波收口上 core——M1 api/M1 web/M2 变体实跑/M2 变体展示**）：用户拍板按 `docs/ops/CHARACTER_ASSET_PROTOCOL.md` 执行完毕；交付=api（L2 schema/锚点/覆盖/版本级联/展示卡渲染/5 端点/生成链钩子，`a3fde180`）+ web（CharacterAssetPanel 面板：锚点编辑/覆盖缺口/展示卡，`c32baff8`）+ M2 实跑（style_variants 入 schema+PUT；林夏写实 majicMIX 0.68/水墨 flux2 0.72 两变体生产 img2img 生成并登记，`946e840b`）+ 变体展示（面板变体卡网格，`2e020824`）；api 测试 12 绿/web 4 绿均零新增失败（53/104 与 5 预存均与 HEAD 基线一致）；生产核验：林夏资产 v1 含 5 正典锚点+两变体+展示卡 `char_card_803fb69b_anime_b6f61fa4d4fa.png`；web BUILD_ID `20261006-120515-nogit`（四文件精确 scp 避让 BeefTV 在途改动）；口径：/api/images 的 sig 只免归属、token 仍必需；:8196 无 WAI（水墨走 flux2）；**D4 编辑底图重做归并行会话持有（base_expr_* mtime 佐证，勿双头驱动）**；M3 LoRA 后置；功能说明 `docs/CHARACTER_ASSET_GUIDE.md`；⚠️ 本地 stash@{0}「wip-unrelated-before-0030」系早前会话遗留，勿误 pop；STATE `character_asset_protocol_m1_2026_10_06`；`updated_at` 2026-10-06T20:40:00+08:00；via 项目管家（ToIV 开发）；
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -134,10 +134,11 @@
 
 ### 2026-10-06（项目管家：角色资产协议 v1 落地并上 core）
 - **拍板**：用户按 `docs/ops/CHARACTER_ASSET_PROTOCOL.md` 放行——D1 协议产品级/D2 展示卡/D3 存量回填执行、**D4 两张编辑底图重做分开走舰队批次**（重做完经 refresh 端点记版本级联）。
-- **交付**：新模块 `character_asset.py`（L2 Character Asset Definition：锚点/色板/覆盖/口型系列/版本溯源/锁定 + 展示卡 PIL 渲染 + M2 跨风格 variant 与覆盖补拍 builder，文件态 `char_asset_*.json`/`char_card_*.png`）；studio 路由 +5 端点；生成链版本钩子。12 新测试绿；回归对照 HEAD 基线**零新增失败**（本地环境存在 53/104 预存失败——FastAPI 错误路径 json.dumps(ValueError) 系环境漂移，与本波无关，勿记本波账）。
-- **生产**：api 三次部署 core（core-jump 双跳，LAN 不可达 Mac 在外地）；林夏（803fb69b=1224 案主角）**D3 回填真实执行**（GET 物化 v1→PUT 5 条正典锚点+负向约束）；展示卡 `char_card_803fb69b_anime_b6f61fa4d4fa.png` 经三迭代视觉验收（标签底衬/hex 间距/底部空带 345→150px）；coverage-plan 出 medium_closeup/day/night 3 job。
-- **开口**：web 前端资产卡 UI（下一波）；M2 variant 实际生成执行；M3 per-character LoRA；D4 编辑底图重做（待舰队批次）；本地 main 本波文件待 commit+推远端。
-- Status：`character_asset_protocol_m1`；STATE 同名；`updated_at` 2026-10-06T18:20:00+08:00。via 项目管家（ToIV 开发）。
+- **交付（四波，全上 core）**：①api `a3fde180`——`character_asset.py`（L2：锚点/色板/覆盖/口型系列/版本溯源/锁定+展示卡渲染+M2 variant/补拍 builder，文件态 `char_asset_*.json`/`char_card_*.png`）+5 端点+生成链钩子；②web `c32baff8`——CharacterAssetPanel（锚点行编辑/色板/覆盖缺口 chip/补拍计划/展示卡/版本溯源）；③M2 实跑 `946e840b`——style_variants 入 schema+PUT，林夏→写实（majicMIX 0.68）/水墨（flux2 0.72）生产 img2img 生成并登记；④变体展示 `2e020824`——面板变体卡网格。测试 api 12 绿/web 4 绿，**均与 HEAD 基线零新增失败**（53/104、5 例预存环境性失败勿记本线账）。
+- **生产核验**：林夏（803fb69b=1224 案主角）D3 回填 v1+5 正典锚点+负向约束+两变体+展示卡（三迭代视觉过，底部空带 345→150px）；coverage-plan 3 job；web BUILD_ID `20261006-120515-nogit`（四文件精确 scp，**避让并行会话 BeefTV 在途未提交改动**）。
+- **口径沉淀**：/api/images 的 sig 只免归属校验、认证 token 仍必需；:8196 无 WAI Illustrious（水墨走 flux2）；img2img 异步 prompt_id 模式取回走 jobs lookup `results` 字段；TS 大流量黑洞 rsync 走 core-jump 双跳。
+- **归属与开口**：**D4 编辑底图重做=并行会话持有**（base_expr_* mtime 2026-10-06 16:51 佐证，本线不碰防 P-5）；M3 per-character LoRA 后置；功能说明 `docs/CHARACTER_ASSET_GUIDE.md`。
+- Status：`character_asset_protocol_m1_m2_executed`；STATE 同名；`updated_at` 2026-10-06T20:40:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-10-05（项目管家：设定卡 1224 结案 + 全设备 TS 普查）
 - **设定卡**：嘴部放大复判 `c78f4542` 端到端验证过（mz_real_0600 回归 + 1224 局实弹 a0/a3 正拒）；1224 局 fallback 根因=**编辑底图缺陷**（base_expr_2 嘴微张小 O / base_expr_3 底部灰带+构图 top=0 vs 锁定格 0.117）——**重做两张编辑底待父拍板**，换 seed 无效。
