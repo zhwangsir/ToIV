@@ -6267,3 +6267,9 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **深链路由**：PWA shortcuts 与 SPA router 的 /studio/canvas/:id 等深链由 Phase C catch-all fallback 天然承接，无需额外开发。
 - **小程序端需用户配合清单**（下一步开工前置）：①微信小程序 **AppID**（个人或企业主体注册 mp.weixin.qq.com，个人主体即可但类目选「工具>信息查询」或「教育」避开音视频资质）；②小程序后台「开发管理→服务器域名」把 **https://toiv.wineryz.top** 加入 request 合法域名（需 HTTPS 已就绪 ✓）；③若要「添加到桌面」引导图/截屏素材需提供或授权从现网截取；④发布审核由用户在 mp 后台操作（AI 生成内容类目可能要求承诺函）。
 - **C6 后续排期建议**：PWA 安装横幅/更新提示（SW VERSION 通知）→ 移动端触摸画布适配核查 → 小程序壳（webview 方案：合法域名承载 /studio，登录经 code2session 换 ToIV JWT——需 api 侧新增小程序登录端点）→ 桌面 PWA/Electron 包装按需。
+
+### 2026-10-07 01:05 CST — C6 子项三件收口：安装横幅+更新提示+移动端核查（`033c55ab` 双推）
+- **PWA 提示组件 ✅**（`src/components/pwa/pwa-prompts.tsx`，application 根挂载）：安装条（beforeinstallprompt 捕获，「安装/暂不」会话级可关）+ 更新条（updatefound 与 reg.waiting 双路检测，点击发 SKIP_WAITING→controllerchange 自动刷新）。**sw.js v3 修设计矛盾**：install 里的无条件 skipWaiting 与「等用户确认再更新」互斥（v1/v2 因此从不 waiting）——去掉后走 message 触发。
+- **更新流三版滚动实证 ✅**（真浏览器 v1→v2→v3）：v3 部署后页面出现「新版本已就绪」→ 点击「刷新更新」→ v3 激活、页面受控 controlled=true、旧 v1/v2 缓存被 activate 清理。安装条经模拟 beforeinstallprompt 实证渲染。
+- **移动端触摸核查 ✅**（390×844 真浏览器冒烟）：首页卡片+最近项目正常渲染；**画布窄屏自动进「专注模式」**——BeefTV 现成适配（28% 全景缩放/「放大编辑」节点入口/连接点可交互/助手可达）；代码层三证：Leafer 触摸优先引擎+pointer 事件交互层+toiv-mobile.css ≤640px 断点（助手全屏 sheet 等）。
+- **C6 剩余**：小程序壳（等 AppID+合法域名+审核，配合清单在前条）；可选增强（安装引导图/触摸手势专项）按需。
