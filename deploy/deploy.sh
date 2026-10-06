@@ -9,6 +9,9 @@
 #   deploy/deploy.sh --skip-web      # 本地无 .next 构建产物时仍部署(前端保留远端旧构建)
 #   deploy/deploy.sh --web-only      # 仅前端:rsync web+.next,只重启 toiv-web(不碰 toiv-api,保护烟测)
 #   deploy/deploy.sh --rollback      # 回滚:恢复部署前快照(api/app + web/.next),重启并健康检查
+#   deploy/deploy.sh --with-canvas   # 追加画布件:rsync apps/canvas → core 构建(canvas-api-pg 二进制
+#                                    # + /studio SPA dist)换装重启(M4-5 后 canvas 部署合一入口)
+#   deploy/deploy.sh --canvas-only   # 仅画布件(不动 toiv-api/toiv-web)
 #
 # -E:ERR trap 在函数内失败时也生效(用于部署失败时打印回滚提示)
 set -eEuo pipefail
@@ -20,14 +23,18 @@ INSTALL=false
 SKIP_WEB=false
 WEB_ONLY=false
 ROLLBACK=false
+WITH_CANVAS=false
+CANVAS_ONLY=false
 
 for arg in "$@"; do
   case "$arg" in
-    --install)  INSTALL=true ;;
-    --skip-web) SKIP_WEB=true ;;
-    --web-only) WEB_ONLY=true ;;
-    --rollback) ROLLBACK=true ;;
-    *)          REMOTE="$arg" ;;
+    --install)     INSTALL=true ;;
+    --skip-web)    SKIP_WEB=true ;;
+    --web-only)    WEB_ONLY=true ;;
+    --rollback)    ROLLBACK=true ;;
+    --with-canvas) WITH_CANVAS=true ;;
+    --canvas-only) CANVAS_ONLY=true ;;
+    *)             REMOTE="$arg" ;;
   esac
 done
 
@@ -96,6 +103,17 @@ if [ -d .rollback-previous/web-next ]; then
   cp -al .rollback-previous/web-next web/.next
   echo "  已恢复 web/.next"
 fi
+if [ -f .rollback-previous/canvas-bin ]; then
+  systemctl --user stop canvas-api-pg || true
+  cp .rollback-previous/canvas-bin /home/merlin/beeftv-prod/canvas-api-pg
+  systemctl --user start canvas-api-pg || true
+  echo "  已恢复 canvas-api-pg 二进制"
+fi
+if [ -d .rollback-previous/canvas-dist ]; then
+  rm -rf /home/merlin/beeftv-prod/dist
+  cp -al .rollback-previous/canvas-dist /home/merlin/beeftv-prod/dist
+  echo "  已恢复 canvas /studio dist"
+fi
 REMOTE_EOF
   echo "▶ 远端重载配置 …"
   ssh "${SSH_OPTS[@]}" "${REMOTE}" "sudo systemctl daemon-reload"
@@ -108,6 +126,61 @@ REMOTE_EOF
 
 if [ "$ROLLBACK" = true ]; then
   do_rollback
+  exit 0
+fi
+
+# ---------- 画布件(canvas)部署:M4-5 部署合一 ----------
+# 目标链:apps/canvas 源码 rsync → ${REMOTE_DIR}/apps/canvas → core 本机构建
+#   · Go:   ~/sdk/go1.25.0 CGO 构建.canvas-api-pg.new,停服换装再启(运行中二进制 Text file busy)
+#   · Web:  node_modules 兜底(已有则沿用;缺则 bun install,无 bun 则硬链旧检出)后
+#           VITE_CANVAS_BACKEND_URL=/studio/api --base=/studio/ 生产口径出 dist → beeftv-prod/dist
+#   · 快照:.rollback-previous/canvas-{bin,dist}(与 api/web 快照同批,--rollback 一并恢复)
+deploy_canvas() {
+  echo "▶ [canvas] rsync apps/canvas → ${REMOTE}:${REMOTE_DIR}/apps/canvas …"
+  rsync -az --delete -e "ssh ${SSH_OPTS[*]}" \
+    --exclude=node_modules --exclude='.git' --exclude=dist \
+    apps/canvas/ "${REMOTE}:${REMOTE_DIR}/apps/canvas/"
+  echo "▶ [canvas] 远端快照 + 构建 + 换装(canvas-api-pg + /studio dist)…"
+  ssh "${SSH_OPTS[@]}" "${REMOTE}" bash -s -- "${REMOTE_DIR}" <<'REMOTE_EOF'
+set -euo pipefail
+TOIV="$1"
+CANVAS="$TOIV/apps/canvas"
+PROD="/home/merlin/beeftv-prod"
+GOROOT_BIN="$HOME/sdk/go1.25.0/bin"
+
+# 快照(与主部署同批回滚)
+mkdir -p "$TOIV/.rollback-previous"
+[ -f "$PROD/canvas-api-pg" ] && cp -al "$PROD/canvas-api-pg" "$TOIV/.rollback-previous/canvas-bin" 2>/dev/null || true
+[ -d "$PROD/dist" ] && rm -rf "$TOIV/.rollback-previous/canvas-dist" && cp -al "$PROD/dist" "$TOIV/.rollback-previous/canvas-dist" || true
+
+# Go 后端
+export PATH="$GOROOT_BIN:$PATH"
+cd "$CANVAS/backend"
+CGO_ENABLED=1 go build -trimpath -o "$PROD/canvas-api-pg.new" ./cmd/server
+systemctl --user stop canvas-api-pg
+mv "$PROD/canvas-api-pg.new" "$PROD/canvas-api-pg"
+systemctl --user start canvas-api-pg
+
+# Web dist(生产挂载口径)
+cd "$CANVAS/web"
+if [ ! -x node_modules/.bin/vite ]; then
+  if command -v bun >/dev/null 2>&1; then bun install --frozen-lockfile
+  elif [ -d /home/merlin/beeftv/web/node_modules ]; then cp -al /home/merlin/beeftv/web/node_modules ./node_modules
+  else echo "ERROR: canvas web 无 node_modules 且无 bun(先装 bun 或硬链旧检出)" >&2; exit 1; fi
+fi
+VITE_CANVAS_BACKEND_URL=/studio/api ./node_modules/.bin/vite build --base=/studio/ --outDir /tmp/canvas-dist-new --emptyOutDir >/dev/null
+rsync -a --delete /tmp/canvas-dist-new/ "$PROD/dist/"
+echo "  canvas 构建换装完成"
+REMOTE_EOF
+  remote_wait_health "canvas-api-pg" "http://127.0.0.1:8290/api/health/live"
+}
+
+if [ "$CANVAS_ONLY" = true ]; then
+  echo "▶ 部署目标: ${REMOTE} (canvas-only)"
+  trap 'echo "✖ canvas 部署失败。可执行 deploy/deploy.sh --rollback ${REMOTE} 回滚" >&2' ERR
+  deploy_canvas
+  trap - ERR
+  echo "✅ canvas 部署完成"
   exit 0
 fi
 
@@ -230,6 +303,11 @@ else
       remote_wait_health "toiv-web" "http://localhost:3100"
     fi
   fi
+fi
+
+# --with-canvas:主部署(api+web)完成后追加画布件
+if [ "$WITH_CANVAS" = true ]; then
+  deploy_canvas
 fi
 
 trap - ERR
