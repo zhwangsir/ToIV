@@ -6211,3 +6211,10 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **迁移脚本 v2 留档**：`/tmp/mig2.py`（schema=canvas 命名空间，旧 433 行可 typed-import 回填——切流批任务）。
 - 踩坑记录：env 键是 `DATABASE_URL` 非 CANVAS_DATABASE_URL；插件目录必填（CANVAS_OFFICIAL_PLUGIN_DIR 指 beeftv/plugin-packages）；v1-8→v9→v12 迁移链逐个 PRAGMA 排障推进。
 - M4 剩余：gate 切指单实例（双写校验窗口）→gate 退役+JWT 直验→单仓合并→全平台。
+
+### 2026-10-07 05:00 CST — 故障修复：TS 直连 http://100.77.80.100:3100/studio 认证死循环
+- **现象**（用户截图+认领 tab 实证）：SPA 骨架渲染但主内容空白，停在 handoff 桥接页「暂时无法进入」循环。
+- **根因双障碍**：① `GATE_COOKIE_SECURE=1` → 会话 cookie 带 Secure，浏览器在 **http://** 页面拒绝保存 → exchange 永远无效；② 同源白名单 PUBLIC_ORIGINS 不含 `http://100.77.80.100:3100` → exchange 403 `cross_origin`。
+- **修复**：gate.env `GATE_COOKIE_SECURE=0` + `GATE_PUBLIC_ORIGIN` 追加 TS 直连 origin，重启 gate。
+- **双路验证 ✅**：TS 直连完整进入 SPA（首页 9 卡+最近项目渲染）；公网 https://toiv.wineryz.top/studio 回归正常（同卡渲染）。
+- **安全权衡入账**：去 Secure 后公网实际链路仍全程加密（浏览器→beijing https→frp 隧道→core 本机）；TS 链路 wireguard 加密；cookie 保持 HttpOnly+SameSite=Strict+Path=/studio。若未来要求严格 Secure，可为 TS 直连单独配 https 或恢复按 X-Forwarded-Proto 判定（需 Next rewrite 透传该头）。
