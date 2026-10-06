@@ -6171,3 +6171,9 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **配音按钮 ✅**（ToIV-canvas `cb673ddf` 已推 GitHub）：rendered 态且无音轨的分镜行显「配音」按钮（POST /studio/shots/{sid}/voice）；fire-and-forget + 轮询条件扩 voicing。
 - **真机闭环**：雨夜对比克隆 cd023e9b 镜点击 → **rendered→voiced、voice_url=Y**（IndexTTS 克隆约 40s 完成）。镜操作三态链 draft→rendering→rendered→voiced 已全原生可驱动。
 - M3 末项剩余：对口型按钮（lipsync）、设定卡编辑原生化。
+
+### 2026-10-06 23:30 CST — M3 末项第三小项：对口型原生化闭环 + LatentSync 设备修复
+- **对口型按钮 ✅**（ToIV-canvas `8d98e5b5` 已推 GitHub）：voiced 态行显「对口型」（POST shots/{sid}/lipsync）+fire-and-forget+轮询扩 lipsyncing。
+- **附带设备修复（真因排查）**：初次触发 502 → 逐层排查（api 日志 lipsync pad 后断 → LatentSync 无进程 → 无 systemd 单元 → 全盘定位到 Docker 容器 `latentsync` **Exited 2 个月**、端口 **8289 非 9103**、env `TOIV_LIPSYNC_URL` 指错）→ `docker start` + env 矫正 9103→8289 + api 重启。model_ready=true 后复测。
+- **真机闭环**：cd023e9b voiced→**lipsynced**（final_clip_url=Y，mux 日志 5.4MB 成片）。
+- **镜操作四态链全原生贯通**：draft→rendering→rendered→voiced→lipsynced 全部按钮可驱动。M3 末项只剩设定卡编辑原生化。
