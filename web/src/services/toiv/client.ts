@@ -164,3 +164,8 @@ export async function triggerShotVoice(shotId: string): Promise<boolean> {
     try { await toivHttp.post(`/studio/shots/${shotId}/voice`, undefined, { timeout: 600_000 }); return true; }
     catch { return false; }
 }
+
+export async function triggerShotLipsync(shotId: string): Promise<boolean> {
+    try { await toivHttp.post(`/studio/shots/${shotId}/lipsync`, undefined, { timeout: 1800_000 }); return true; }
+    catch { return false; }
+}

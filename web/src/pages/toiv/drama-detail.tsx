@@ -1,10 +1,10 @@
 import { App as AntApp, Button, Empty, Spin, Tag, Typography } from "antd";
-import { AudioLines, PlayCircle } from "lucide-react";
+import { AudioLines, MessagesSquare, PlayCircle } from "lucide-react";
 import { ArrowLeft, Clapperboard, ExternalLink, Film, RefreshCw, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { fetchDramaProject, triggerBatchRender, triggerShotRender, triggerShotVoice, type ToivDramaDetail } from "@/services/toiv/client";
+import { fetchDramaProject, triggerBatchRender, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivDramaDetail } from "@/services/toiv/client";
 
 const SHOT_STATUS: Record<string, { color: string; text: string }> = {
     draft: { color: "default", text: "草稿" },
@@ -21,6 +21,7 @@ export default function DramaDetailPage() {
     const [loading, setLoading] = useState(true);
     const [renderingShots, setRenderingShots] = useState<Set<string>>(new Set());
     const [voicingShots, setVoicingShots] = useState<Set<string>>(new Set());
+    const [lipsyncingShots, setLipsyncingShots] = useState<Set<string>>(new Set());
     const [batchRendering, setBatchRendering] = useState(false);
 
     const load = useCallback(async () => {
@@ -33,7 +34,7 @@ export default function DramaDetailPage() {
 
     useEffect(() => { void load(); }, [load]);
     // 渲染轮询(M3 末项):本页存在渲染中(乐观或后端态)时 15s 拉一次项目
-    const busy = batchRendering || (detail?.shots ?? []).some((s) => renderingShots.has(s.id) || voicingShots.has(s.id) || s.status === "rendering" || s.status === "voicing");
+    const busy = batchRendering || (detail?.shots ?? []).some((s) => renderingShots.has(s.id) || voicingShots.has(s.id) || lipsyncingShots.has(s.id) || ["rendering", "voicing", "lipsyncing"].includes(s.status));
     useEffect(() => {
         if (!busy || !id) return;
         const t = window.setInterval(() => { void fetchDramaProject(id).then(setDetail).catch(() => {}); }, 15000);
@@ -113,6 +114,16 @@ export default function DramaDetailPage() {
                                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-semibold text-[var(--muted-foreground,#a8a8a8)]">#{Number(s.idx) + 1}</span>
+                                        {s.status === "voiced" && (
+                                            <Button size="small" type="text" icon={<MessagesSquare className="h-3 w-3" />}
+                                                loading={lipsyncingShots.has(s.id)}
+                                                onClick={() => {
+                                                    setLipsyncingShots((prev) => new Set(prev).add(s.id));
+                                                    void triggerShotLipsync(s.id).finally(() => setLipsyncingShots((prev) => { const n = new Set(prev); n.delete(s.id); return n; }));
+                                                }}>
+                                                对口型
+                                            </Button>
+                                        )}
                                         {s.status === "rendered" && !s.voice_url && (
                                             <Button size="small" type="text" icon={<AudioLines className="h-3 w-3" />}
                                                 loading={voicingShots.has(s.id)}
