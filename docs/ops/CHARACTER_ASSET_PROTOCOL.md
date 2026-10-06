@@ -17,7 +17,8 @@
 - **词表单一真源**：锚点 kind/enforce、覆盖 angles/framings/lightings、口型系列、六表情、跨风格 STYLE_VARIANTS 六档（古风写实/二次元/写实/水墨/赛博/3D）。
 - **测试**：`apps/api/tests/test_character_asset_protocol.py`（12 例：锚点抽取/校验规则/版本级联/回填/渲染/路由全链）；全量回归对照 HEAD 基线失败集完全一致（预存环境性失败 53/104，零新增）。
 - **生产交付（2026-10-06）**：api 经 `deploy.sh --skip-web core-jump` 上 core，健康 200；**D3 真实回填已执行**——林夏（803fb69b…，设定卡 1224 案主角）GET 即物化 v1（六面板/锚点/采样色板/覆盖登记），PUT 已补 5 条正典锚点+负向约束；展示卡三迭代（标签底衬→hex 间距→底部空带 345px→~150px 页底边距）经视觉验收；coverage-plan 出 3 个补拍 job（medium_closeup/day/night）且负向约束正确注入。生产卡样例：`char_card_803fb69b_anime_b6f61fa4d4fa.png`。
-- **未做（按分期）**：web 前端资产卡 UI（下一波）、跨风格 variant 实际生成执行（M2，计划器已就绪）、per-character LoRA/embedding（M3）、D4 编辑底图重做（舰队批次，完成后走 refresh 级联）。
+- **web 波（2026-10-06 同日第二波，已上 core）**：lib/api +4 客户端方法与类型；`components/studio/CharacterAssetPanel.tsx`（锚点行编辑/色板 swatch/覆盖+缺口 chip/补拍计划列表/展示卡渲染预览/版本溯源展示，materialized_now 回填提示）；CastStage 设定卡操作区挂「资产」入口；studio.css 追加 `.studio-asset-*` 前缀样式。测试 `tests/characterAssetPanel.test.ts` 4 例绿；web 全量失败集与 HEAD 基线差集为空（5 例预存失败与本波无关）。部署=5 文件精确 scp（避让 BeefTV 在途未提交改动，三跟踪文件 md5 先与 core 核对一致）+ core 本机 `rm -rf .next && pnpm build`，BUILD_ID `20261006-104220-nogit`，产物 grep 三重确认（testid/API 路径/CSS）。
+- **未做（按分期）**：跨风格 variant 实际生成执行（M2，计划器已就绪，待选引擎走舰队）、per-character LoRA/embedding（M3）、D4 编辑底图重做（舰队批次，完成后走 refresh 级联）。
 
 ---
 

@@ -15,6 +15,7 @@ import {
   type StudioCharacterSheetStyle,
 } from "@/lib/api";
 import { CharacterSheetEditor } from "@/components/studio/CharacterSheetEditor";
+import { CharacterAssetPanel } from "@/components/studio/CharacterAssetPanel";
 import { AssetPicker } from "@/components/generate/AssetPicker";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
@@ -307,6 +308,7 @@ function SheetActions({
 }) {
   const [busy, setBusy] = useState<StudioCharacterSheetStyle | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [assetOpen, setAssetOpen] = useState(false);
   const [sheets, setSheets] = useState<StudioCharacterSheetListItem[]>([]);
   const toast = useToast();
 
@@ -357,6 +359,17 @@ function SheetActions({
         >
           <Icon name="image" size={12} />
           编辑
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          data-testid="studio-asset-open"
+          disabled={!!busy}
+          title="角色资产(L2 锚点/覆盖/展示卡)"
+          onClick={() => setAssetOpen(true)}
+        >
+          <Icon name="library" size={12} />
+          资产
         </button>
         <button
           type="button"
@@ -412,6 +425,12 @@ function SheetActions({
           await onDone();
           await refreshSheets();
         }}
+      />
+      <CharacterAssetPanel
+        open={assetOpen}
+        onClose={() => setAssetOpen(false)}
+        characters={characters.length ? characters : [character]}
+        initialCharacterId={character.id}
       />
     </div>
   );

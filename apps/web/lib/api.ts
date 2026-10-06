@@ -4911,6 +4911,113 @@ export const recomposeStudioCharacterSheet = (
   studioReq(`/studio/characters/${cid}/character-sheet/recompose`, "POST", body);
 
 
+/** 角色资产协议 L2(docs/ops/CHARACTER_ASSET_PROTOCOL.md):结构化资产定义。 */
+export interface StudioCharacterAssetAnchor {
+  kind: string;
+  desc: string;
+  enforce: string;
+}
+export interface StudioCharacterAsset {
+  schema_version: number;
+  character_id: string;
+  style: { current: StudioCharacterSheetStyle; variants_allowed?: boolean };
+  version: number;
+  derived_from: { base_version: number; regen_reason: string } | null;
+  identity_anchors?: StudioCharacterAssetAnchor[];
+  color_palette?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+    extras?: string[];
+  };
+  expressions?: { emotions?: string[]; mouth_series?: string[] };
+  coverage?: {
+    angles?: string[];
+    framings?: string[];
+    lightings?: string[];
+    two_shot?: boolean;
+  };
+  profile?: {
+    name?: string;
+    role?: string;
+    personality?: string;
+    background?: string;
+    speech_style?: string;
+  };
+  canonical_prompt?: { positive?: string; negative_constraints?: string[] };
+  lock?: { base?: boolean; panels?: string[]; layout?: boolean };
+  panels?: Record<string, boolean>;
+  provenance?: unknown;
+  updated_at?: string;
+  materialized_now?: boolean;
+}
+export interface StudioCharacterAssetCoveragePlan {
+  character_id: string;
+  style: StudioCharacterSheetStyle;
+  coverage: NonNullable<StudioCharacterAsset["coverage"]>;
+  gaps: { angles: string[]; framings: string[]; lightings: string[] };
+  plan: { kind: string; key: string; positive: string; negative: string }[];
+}
+
+/** GET 读取 L2 资产;JSON 不存在时服务端从存量面板自动物化 v1(存量回填零人工)。 */
+export const getStudioCharacterAsset = (
+  cid: string,
+  style: StudioCharacterSheetStyle,
+): Promise<StudioCharacterAsset> =>
+  studioReq(
+    `/studio/characters/${cid}/character-asset?style=${encodeURIComponent(style)}`,
+    "GET",
+    undefined,
+    undefined,
+    "角色资产读取失败",
+  );
+
+/** PUT 白名单补丁:锚点/档案/负向约束/锁定/色板/覆盖/QA。 */
+export const putStudioCharacterAsset = (
+  cid: string,
+  body: {
+    style: StudioCharacterSheetStyle;
+    identity_anchors?: StudioCharacterAssetAnchor[];
+    profile?: NonNullable<StudioCharacterAsset["profile"]>;
+    canonical_prompt?: NonNullable<StudioCharacterAsset["canonical_prompt"]>;
+    lock?: NonNullable<StudioCharacterAsset["lock"]>;
+    variants_allowed?: boolean;
+  },
+): Promise<StudioCharacterAsset> =>
+  studioReq(`/studio/characters/${cid}/character-asset`, "PUT", body, undefined, "角色资产保存失败");
+
+/** 渲染对外展示卡(资产集的模板渲染视图,非一致性来源)。 */
+export const renderStudioCharacterAssetCard = (
+  cid: string,
+  style: StudioCharacterSheetStyle,
+): Promise<{
+  character_id: string;
+  style: string;
+  asset_version: number;
+  card_url: string;
+}> =>
+  studioReq(
+    `/studio/characters/${cid}/character-asset/card`,
+    "POST",
+    { style },
+    { timeoutMs: 120_000 },
+    "展示卡渲染失败",
+  );
+
+/** M2:短剧覆盖缺口登记 + 补拍计划(只出计划不执行)。 */
+export const studioCharacterAssetCoveragePlan = (
+  cid: string,
+  style: StudioCharacterSheetStyle,
+): Promise<StudioCharacterAssetCoveragePlan> =>
+  studioReq(
+    `/studio/characters/${cid}/character-asset/coverage-plan`,
+    "POST",
+    { style },
+    undefined,
+    "覆盖计划获取失败",
+  );
+
+
 /** 分镜批量保存(无 id=新增,有 id=更新;生成方式变化会重置该镜媒体与状态)。 */
 export const saveStudioShots = (
   pid: string,
