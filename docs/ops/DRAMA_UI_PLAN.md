@@ -6182,3 +6182,8 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **角色卡 Drawer ✅**（ToIV-canvas `26a71648` 已推 GitHub，443 间歇重试后成功）：卡片点击开抽屉——描述/visual_prompt、voice_ref_url **音色试听 audio**、`GET /studio/characters/{cid}/character-sheets` 各风格**设定卡大图 + panel 网格**（sheet_url/panel_urls/mtime）。真机验证：沈青禾卡（描述+英文 visual_prompt+ancient_realistic 设定卡图）完整渲染。
 - M3 末块剩余：设定卡**编辑**操作原生化（重生成/锁定等）。
 - ⏳ 用户终验提醒（持续）：真实浏览器 /studio/canvas?mode=new&add=lipsync 的 hydrated 自动建布链路。
+
+### 2026-10-07 00:40 CST — M3 末块：设定卡重生成按钮原生化
+- **重生成按钮 ✅**（ToIV-canvas 部署）：角色 Drawer 每风格卡头「重生成」+空态双风格生成入口（古风写实/二次元）——POST /studio/characters/{cid}/character-sheet {style}，fire-and-forget + 完成后自动刷新 sheets。真机验证：按钮渲染/loading 态出现。
+- **端点语义确认**：同步长阻塞（整卡生成 35-95 分钟，凌晨批次实证）→ uvicorn access log 请求完成才记录，「日志无 POST」≠「请求未达」；按钮 3600s timeout 挂飞行中为正确形态。后台 curl 长跑同参数验证产物落盘（/var/tmp/regen_code.txt 观察点）。
+- 注：401 files 告警为无签名直取 sheet 图（浏览器 img 无 Bearer）——列表页 img 同因，属已知 P-1 口径，图片经 signed URL 方案待后续统一。
