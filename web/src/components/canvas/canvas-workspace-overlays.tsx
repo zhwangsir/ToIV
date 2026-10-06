@@ -181,6 +181,10 @@ export function CanvasConnectionCreateMenu({ pending, viewport, viewportSize, co
             command("tpl-lipsync", "对口型(模板)", CanvasNodeType.Video, getNodeIcon(CanvasNodeType.Video), "node", getDisabledReason(CanvasNodeType.Video), () => {
                 onCreate(CanvasNodeType.Video); onCreate(CanvasNodeType.Audio); onClose();
             }),
+            // 编辑族(M3 尾部):局部重绘=图片节点+文本指令节点
+            command("tpl-inpaint", "局部重绘(模板)", CanvasNodeType.Image, getNodeIcon(CanvasNodeType.Image), "node", getDisabledReason(CanvasNodeType.Image), () => {
+                onCreate(CanvasNodeType.Image); onCreate(CanvasNodeType.Text); onClose();
+            }),
             command("director", "导演台", CanvasNodeType.Config, getNodeIcon(CanvasNodeType.Config), "node", "暂不可用"),
             command("script", "脚本", CanvasNodeType.Script, getNodeIcon(CanvasNodeType.Script), "node", "暂不可用"),
         ];
