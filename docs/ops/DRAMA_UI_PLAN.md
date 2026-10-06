@@ -6177,3 +6177,8 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **附带设备修复（真因排查）**：初次触发 502 → 逐层排查（api 日志 lipsync pad 后断 → LatentSync 无进程 → 无 systemd 单元 → 全盘定位到 Docker 容器 `latentsync` **Exited 2 个月**、端口 **8289 非 9103**、env `TOIV_LIPSYNC_URL` 指错）→ `docker start` + env 矫正 9103→8289 + api 重启。model_ready=true 后复测。
 - **真机闭环**：cd023e9b voiced→**lipsynced**（final_clip_url=Y，mux 日志 5.4MB 成片）。
 - **镜操作四态链全原生贯通**：draft→rendering→rendered→voiced→lipsynced 全部按钮可驱动。M3 末项只剩设定卡编辑原生化。
+
+### 2026-10-07 00:10 CST — M3 末块第一小项：角色卡查看原生化增强
+- **角色卡 Drawer ✅**（ToIV-canvas `26a71648` 已推 GitHub，443 间歇重试后成功）：卡片点击开抽屉——描述/visual_prompt、voice_ref_url **音色试听 audio**、`GET /studio/characters/{cid}/character-sheets` 各风格**设定卡大图 + panel 网格**（sheet_url/panel_urls/mtime）。真机验证：沈青禾卡（描述+英文 visual_prompt+ancient_realistic 设定卡图）完整渲染。
+- M3 末块剩余：设定卡**编辑**操作原生化（重生成/锁定等）。
+- ⏳ 用户终验提醒（持续）：真实浏览器 /studio/canvas?mode=new&add=lipsync 的 hydrated 自动建布链路。
