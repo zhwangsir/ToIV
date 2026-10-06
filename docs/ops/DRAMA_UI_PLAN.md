@@ -6249,3 +6249,8 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **归档 ✅**：GitHub zhwangsir/ToIV-canvas 已 archive 只读（归档仓仍可 fetch 不可 push）。后续 canvas 开发一律在 ToIV main `apps/canvas`；core 部署检出 `/home/merlin/beeftv` 当前=canvas main tip=与 apps/canvas 内容一致，后续变更走「Mac 改 → rsync 变更文件到 core 检出 → 按既定口径构建」。
 - **欠账补提**：page.tsx entry.json 探测+登出联动（已部署未入库）、uv.lock 锁刷新、STATE.json——cutover 波遗留的未提交文件全部落账（`f041ed2a`/`c4313a37`）。
 - **M4 收支盘点**：五项中 1(PG 驱动)✅ 2(单实例)✅ 3(gate 切流)✅ 4(JWT 直验 Phase A+B 直连)✅ 5(单仓合并+归档)✅；**仍开口**：Phase C（gate 全面退役：静态迁 Next+auth 职责移交）、统一 CI（canvas 自有 workflows 因嵌套失效）、deploy.sh 一条命令全站（部署合一）、C6 全平台（PWA/深链，方案本就排 M4 后）。
+
+### 2026-10-06 23:55 CST — M4 尾巴两件：统一 CI 首绿 + deploy.sh 部署合一
+- **统一 CI ✅**（`.github/workflows/canvas.yml`，`7ef6e886`/`4ff2f259`）：paths-filter 限 apps/canvas，backend（插件包构建+vet+`go test ./...`）与 web（bun install+lint+typecheck+/studio 生产口径 vite build）双 job；**首绿**=run 37490622769 全 success。随航修复两笔预存红：①TestDesktopDependencyBoundary 允 gorm.io/driver/postgres（M4 服务档 PG 共用打开路径，纯 Go 无凭据，build-tag 拆分留 TODO）；②routeDispatchUncertainError 两处字面量补键——`go vet ./...` 归零（core 实证）。首跑 lint 另抓出 M1 期 7 页 antd Empty 欠账——14 处机械迁移 EmptyState（PRESENTED_IMAGE_SIMPLE→size=compact），core tsc+eslint 0 退出。
+- **deploy.sh 部署合一 ✅**（`185132f3`）：`--with-canvas`（主部署追加）/`--canvas-only`（独立）——apps/canvas rsync→core 本机构建（Go `~/sdk/go1.25.0` CGO 停服换装+web `/studio` 生产口径 dist `--emptyOutDir`）→systemd --user 重启+health/live 等待；回滚快照并入 `.rollback-previous`（canvas-bin/canvas-dist）。**core-jump 双跳实弹三轮全绿**（含 EmptyState 迁移上产，换装后直连画布 2 proj/公网 302/四服务 active）。Mac 外地 LAN 不通走 `deploy/deploy.sh --canvas-only core-jump`。
+- **M4 至此仅剩 Phase C**（gate 全面退役：静态迁 Next+auth 职责移交）——门槛=用户真实浏览器复验 /studio 直连（助手面板发消息/任务列表/画布操作）；C6 全平台独立成批。
