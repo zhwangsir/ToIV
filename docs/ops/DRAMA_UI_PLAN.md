@@ -6203,3 +6203,11 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **连库冒烟实证 ✅**：pgconn_test.go 实连 ToIV PG（CANVAS_PG_DSN）→ postgres open+pool(16) **PASS**。
 - **sqlite→PG 迁移脚本+实证 ✅**：`/tmp/mig_canvas.py`——3 个 per-user sqlite（7a75/9c00/f659）全部迁入 ToIV PG `canvas_*` 命名空间（**433 行**，20+ 表，bytes→hex 文本，ON CONFLICT DO NOTHING 幂等）；PG 回读 canvas_canvas_projects=8。表结构全 text 兜底，正式切流前由 GORM AutoMigrate 校正类型（切流批任务）。
 - M4 剩余：canvas-api 单实例 systemd 化+双写校验、gate 退役/JWT 直验、单仓合并、全平台收口。
+
+### 2026-10-07 04:15 CST — M4 第二项：canvas-api 单实例 systemd 化跑通（PG 模式）
+- **canvas-api-pg.service ✅ active**（ToIV-canvas `74114bd0` 已推 GitHub）：core :8290 单实例，`CANVAS_DATABASE_DRIVER=postgres + DATABASE_URL(search_path=canvas)`，与现网 per-user 模式**双轨并行**（不动 gate/现网）。
+- **方言旁路五处**（sqlite 专属→PG 分支/跳过）：requireReconciledSchema 全跳过（PG 结构以 AutoMigrate 为准）、requireSQLitePrimaryKey/matchesSQLiteIndex 跳过、sqliteHasNamedIndex→pg_indexes、sqliteHasColumn→information_schema（dialectTableColumns）、backupBeforeDestructiveMigration 跳过、hasSchemaLedger→current_schema() 判断。
+- **实证链**：health 200 `ready:true, schema ready`；**AutoMigrate 在 canvas schema 建 69 张类型化表**（id=varchar/created_at=timestamptz 实证，替代迁移脚本 text 兜底）；PG 直写读删烟测（INSERT→count=1→DELETE）过。
+- **迁移脚本 v2 留档**：`/tmp/mig2.py`（schema=canvas 命名空间，旧 433 行可 typed-import 回填——切流批任务）。
+- 踩坑记录：env 键是 `DATABASE_URL` 非 CANVAS_DATABASE_URL；插件目录必填（CANVAS_OFFICIAL_PLUGIN_DIR 指 beeftv/plugin-packages）；v1-8→v9→v12 迁移链逐个 PRAGMA 排障推进。
+- M4 剩余：gate 切指单实例（双写校验窗口）→gate 退役+JWT 直验→单仓合并→全平台。
