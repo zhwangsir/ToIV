@@ -1,9 +1,10 @@
-import { App as AntApp, Button, Empty, Spin, Typography } from "antd";
+import { App as AntApp, Button, Spin, Typography } from "antd";
 import { ArrowLeft, FolderOpen, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
 import { fetchBoards, type ToivBoard } from "@/services/toiv/client";
+import { EmptyState } from "@/components/ui/product/empty-state";
 
 function formatTime(value: string): string {
     const d = new Date(value);
@@ -47,9 +48,9 @@ export default function LibraryPage() {
             {loading ? (
                 <div className="flex min-h-64 items-center justify-center"><Spin /></div>
             ) : error ? (
-                <Empty description="读取失败，请刷新重试" />
+                <EmptyState description="读取失败，请刷新重试" />
             ) : boards.length === 0 ? (
-                <Empty description="作品库还是空的；完成第一个短剧项目后会出现在这里" />
+                <EmptyState description="作品库还是空的；完成第一个短剧项目后会出现在这里" />
             ) : (
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
                     {boards.map((board) => (

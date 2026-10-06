@@ -1,9 +1,10 @@
-import { App as AntApp, Button, Empty, Progress, Spin, Tag, Typography } from "antd";
+import { App as AntApp, Button, Progress, Spin, Tag, Typography } from "antd";
 import { ArrowLeft, Clapperboard, Film, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
 import { fetchDramaProjects, type ToivDramaProject } from "@/services/toiv/client";
+import { EmptyState } from "@/components/ui/product/empty-state";
 
 const STATUS_META: Record<string, { color: string; text: string }> = {
     draft: { color: "default", text: "草稿" },
@@ -64,8 +65,8 @@ export default function DramaPage() {
             </header>
 
             {loading ? <div className="flex min-h-64 items-center justify-center"><Spin /></div>
-                : error ? <Empty description="读取失败，请刷新重试" />
-                : projects.length === 0 ? <Empty description="还没有短剧项目；对智能体说「帮我把这个剧本做成短剧」即可开工" />
+                : error ? <EmptyState description="读取失败，请刷新重试" />
+                : projects.length === 0 ? <EmptyState description="还没有短剧项目；对智能体说「帮我把这个剧本做成短剧」即可开工" />
                 : (
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
                         {projects.map((p) => {

@@ -1,10 +1,11 @@
-import { App as AntApp, Button, Drawer, Empty, Spin, Tag, Typography } from "antd";
+import { App as AntApp, Button, Drawer, Spin, Tag, Typography } from "antd";
 import { AudioLines, ChevronRight, IdCard, MessagesSquare, PlayCircle, Upload } from "lucide-react";
 import { ArrowLeft, Clapperboard, ExternalLink, Film, RefreshCw, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
 import { fetchCharacterSheets, fetchDramaProject, triggerBatchRender, triggerPanelReplace, triggerSheetRegen, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivCharacterSheet, type ToivDramaDetail } from "@/services/toiv/client";
+import { EmptyState } from "@/components/ui/product/empty-state";
 
 const SHOT_STATUS: Record<string, { color: string; text: string }> = {
     draft: { color: "default", text: "草稿" },
@@ -54,7 +55,7 @@ export default function DramaDetailPage() {
     }, [busy, id]);
 
     if (loading) return <main className="flex h-full items-center justify-center"><Spin /></main>;
-    if (!detail) return <main className="flex h-full items-center justify-center"><Empty description="项目不存在或读取失败" /></main>;
+    if (!detail) return <main className="flex h-full items-center justify-center"><EmptyState description="项目不存在或读取失败" /></main>;
 
     const shots = detail.shots ?? [];
     const chars = detail.characters ?? [];
@@ -89,7 +90,7 @@ export default function DramaDetailPage() {
 
             <section aria-label="角色与设定卡" className="flex flex-col gap-2">
                 <h2 className="flex items-center gap-2 text-sm font-semibold"><User className="h-4 w-4" />角色与设定卡（{chars.length}）</h2>
-                {chars.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无角色" /> : (
+                {chars.length === 0 ? <EmptyState size="compact" description="暂无角色" /> : (
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
                         {chars.map((c) => {
                             const refs = Object.values(c.reference_images_by_style ?? {}).flat().filter(Boolean) as string[];
@@ -195,7 +196,7 @@ export default function DramaDetailPage() {
                             <span className="text-xs font-medium">设定卡（{charDetail.sheets.length}）</span>
                             {sheetsLoading ? <Spin /> : charDetail.sheets.length === 0 ? (
                                 <div className="flex flex-col gap-2">
-                                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无设定卡,选择风格生成:" />
+                                    <EmptyState size="compact" description="暂无设定卡,选择风格生成:" />
                                     <div className="flex justify-center gap-2">
                                         {["ancient_realistic", "anime"].map((st) => (
                                             <Button key={st} size="small" icon={<IdCard className="h-3 w-3" />}

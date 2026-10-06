@@ -1,9 +1,10 @@
-import { App as AntApp, Button, Empty, Spin, Typography } from "antd";
+import { App as AntApp, Button, Spin, Typography } from "antd";
 import { ArrowLeft, History, Plus, Send, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { fetchAgentHistory, fetchAgentSessions, streamAgentChat, type ToivAgentSessionSummary, type ToivStreamEvent } from "@/services/toiv/agent-chat";
+import { EmptyState } from "@/components/ui/product/empty-state";
 
 type Turn = { kind: "text"; role: "user" | "assistant"; content: string } | { kind: "tool"; tool: string; status?: string; summary?: string };
 
@@ -105,7 +106,7 @@ export default function AgentPage() {
                 <div ref={scrollRef} className="flex-1 space-y-3 overflow-auto p-6">
                     {turns.length === 0 && (
                         <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-                            <Empty description="对智能体说点什么——生成图片/视频/音乐、查市场、做短剧、粗剪成片" />
+                            <EmptyState description="对智能体说点什么——生成图片/视频/音乐、查市场、做短剧、粗剪成片" />
                         </div>
                     )}
                     {turns.map((t, i) => t.kind === "tool" ? (

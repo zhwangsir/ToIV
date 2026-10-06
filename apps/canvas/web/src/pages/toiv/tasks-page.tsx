@@ -1,9 +1,10 @@
-import { App as AntApp, Badge, Button, Empty, Spin, Tag, Tooltip, Typography } from "antd";
+import { App as AntApp, Badge, Button, Spin, Tag, Tooltip, Typography } from "antd";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
 import { fetchAgentRuns, type ToivAgentRun } from "@/services/toiv/client";
+import { EmptyState } from "@/components/ui/product/empty-state";
 
 const STATUS_META: Record<string, { color: string; text: string }> = {
     running: { color: "processing", text: "运行中" },
@@ -57,9 +58,9 @@ export default function TasksPage() {
             {loading ? (
                 <div className="flex min-h-64 items-center justify-center"><Spin /></div>
             ) : error ? (
-                <Empty description="读取失败，请刷新重试" />
+                <EmptyState description="读取失败，请刷新重试" />
             ) : runs.length === 0 ? (
-                <Empty description="还没有智能体任务；去智能体对话发第一条指令吧" />
+                <EmptyState description="还没有智能体任务；去智能体对话发第一条指令吧" />
             ) : (
                 <ul className="flex flex-col gap-2">
                     {runs.map((run) => {

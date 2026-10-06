@@ -1,9 +1,10 @@
-import { App as AntApp, Badge, Button, Drawer, Empty, Input, Spin, Tag, Typography } from "antd";
+import { App as AntApp, Badge, Button, Drawer, Input, Spin, Tag, Typography } from "antd";
 import { ArrowLeft, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { fetchToivApps, type ToivApp } from "@/services/toiv/client";
+import { EmptyState } from "@/components/ui/product/empty-state";
 
 const CATEGORY_META: Record<string, string> = {
     video: "视频", image: "图像", audio: "音频", drama: "短剧", tool: "工具", "3d": "3D", other: "其他",
@@ -69,8 +70,8 @@ export default function MarketPage() {
             </div>
 
             {loading ? <div className="flex min-h-64 items-center justify-center"><Spin /></div>
-                : error ? <Empty description="读取失败，请刷新重试" />
-                : filtered.length === 0 ? <Empty description="没有匹配的应用" />
+                : error ? <EmptyState description="读取失败，请刷新重试" />
+                : filtered.length === 0 ? <EmptyState description="没有匹配的应用" />
                 : (
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
                         {filtered.map((app) => (

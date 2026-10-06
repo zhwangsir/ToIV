@@ -1,9 +1,10 @@
-import { App as AntApp, Button, Drawer, Empty, Modal, Spin, Tag, Typography } from "antd";
+import { App as AntApp, Button, Drawer, Modal, Spin, Tag, Typography } from "antd";
 import { ArrowLeft, Clapperboard, Film, Image as ImageIcon, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
 import { fetchBoardItems, toivHttp, type ToivBoardItem } from "@/services/toiv/client";
+import { EmptyState } from "@/components/ui/product/empty-state";
 
 function statusTag(s: string) {
     if (s === "done") return <Tag color="success" bordered={false}>已完成</Tag>;
@@ -74,8 +75,8 @@ export default function LibraryDetailPage() {
             </header>
 
             {loading ? <div className="flex min-h-64 items-center justify-center"><Spin /></div>
-                : error ? <Empty description="读取失败，请刷新重试" />
-                : items.length === 0 ? <Empty description="这个作品集还是空的" />
+                : error ? <EmptyState description="读取失败，请刷新重试" />
+                : items.length === 0 ? <EmptyState description="这个作品集还是空的" />
                 : (
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
                         {items.map((item) => {
