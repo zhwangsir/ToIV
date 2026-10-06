@@ -55,7 +55,7 @@ export default function LibraryPage() {
                     {boards.map((board) => (
                         <Link
                             key={board.id}
-                            to={`/?view=library&board=${board.id}&classic=1`}
+                            to={`/toiv/library/${board.id}`}
                             className="group flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] p-4 transition-colors hover:border-[var(--workspace-accent,#f5f5f5)]"
                         >
                             <div className="flex h-28 items-center justify-center rounded-xl bg-[var(--muted,rgba(255,255,255,0.06))]">

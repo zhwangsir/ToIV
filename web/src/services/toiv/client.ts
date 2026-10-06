@@ -46,9 +46,9 @@ export async function fetchBoards(): Promise<ToivBoard[]> {
     return Array.isArray(data) ? data : [];
 }
 
-export async function fetchBoardItems(boardId: string): Promise<unknown[]> {
+export async function fetchBoardItems(boardId: string): Promise<ToivBoardItem[]> {
     const { data } = await toivHttp.get(`/boards/${boardId}/items`);
-    return Array.isArray(data) ? data : ((data as { items?: unknown[] })?.items ?? []);
+    return Array.isArray(data) ? (data as ToivBoardItem[]) : ((data as { items?: ToivBoardItem[] })?.items ?? []);
 }
 
 export type ToivApp = {
@@ -72,3 +72,20 @@ export async function fetchToivApps(limit = 100): Promise<ToivApp[]> {
     const { data } = await toivHttp.get("/apps", { params: { limit } });
     return Array.isArray(data) ? data : ((data as { items?: ToivApp[] })?.items ?? []);
 }
+
+export type ToivBoardItem = {
+    id: number;
+    sort_order: number;
+    note?: string;
+    shot_text?: string;
+    shot_meta?: string;
+    job: {
+        id: string;
+        kind?: string;
+        status: string;
+        prompt?: string;
+        created_at: string;
+        results?: string[];
+        post_status?: string;
+    } | null;
+};
