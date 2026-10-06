@@ -6080,3 +6080,11 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **基建沉淀（可复用）**：瞳色漂移门禁（63bd29aa 已上线+实战首杀）；双修复底制作流程（像素闭合/inpaint 擦除+硬合成）与全套验证 harness 在 `sheet_bases_v2/`；driver recover dead-prompt 跳过修复。
 - **c_hybrid 方案D**：四镜整链完成（素材齐），对比评估/拼片待父代理窗口。
 - 提交链（本窗）：`4e54a5c6`→`160c894e`→`308f86d8`→`63bd29aa`→…全部双端推送。
+
+### 2026-10-06 07:50 CST — 🎨 BeefTV 换肤上线（token 级，185c43d7）
+- **用户裁决**：现有 UI 与 BeefTV 差距大，先按 BeefTV 设计后续再调。规范落档 `docs/ops/UI_BEEFTV_RESKIN.md`（含完整映射表）。
+- **已落地**：亮色 minimal（纯白画布 #FFFFFF/白卡 hairline rgba(17,17,17,.13)/neutral 文字阶梯/CTA #242426）、圆角 8·12·16、elevation 阴影、展示位去衬线（Fraunces→Inter）、暗色 #0F0F0F/#181818/#202020/#2A2A2A 纯中性系、themeColor 同步 #FFFFFF。其余预设（paper/cinema/graphite）与版型体系不动。
+- **质量关**：themeContrast+themeMode 108/108 全绿（muted 压 #66666B 保 AA；themeMode 源码契约随设计更新 #0F0F0F）；全量 1132 测试仅 1 失败=基线既有（stash 对照实证）。
+- **部署事故与纠正**：deploy.sh 推了本机残留 10-04 旧 .next（BUILD_ID dirty 未上线）→ 改 **core 本机构建** `rm -rf .next && pnpm build`，BUILD `20261006-052549-nogit`，web:200，构建产物 CSS 实证新值（--radius-control:12px/#242426 在线）。
+- **真机截图验证**（浏览器实测 wineryz.top）：暗色 #0F0F0F 生效；**发现本机 FOUC 脚本把缺失预设兜底为 cinema（暗基底）**——用户日常实为 cinema 主题，看 BeefTV 亮色需选择器切 minimal；亮色 minimal 截图确认白画布+12px 圆角+hairline。
+- **后续再调（用户明示分阶段）**：布局/组件结构级对齐、逐页打磨。
