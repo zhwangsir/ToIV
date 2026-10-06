@@ -176,6 +176,11 @@ export function CanvasConnectionCreateMenu({ pending, viewport, viewportSize, co
             command("video", "视频", CanvasNodeType.Video, getNodeIcon(CanvasNodeType.Video), "node", getDisabledReason(CanvasNodeType.Video)),
             command("audio", "音频", CanvasNodeType.Audio, getNodeIcon(CanvasNodeType.Audio), "node", getDisabledReason(CanvasNodeType.Audio)),
             command("smart-edit", "智能剪辑", CanvasNodeType.MediaConversion, getNodeIcon(CanvasNodeType.MediaConversion), "node", "暂不可用"),
+            // 工具箱四族模板(M3,2026-10-06):生成族/组合族先行——模板即预设节点组合
+            command("tpl-t2i", "文生图(模板)", CanvasNodeType.Image, getNodeIcon(CanvasNodeType.Image), "node", getDisabledReason(CanvasNodeType.Image)),
+            command("tpl-lipsync", "对口型(模板)", CanvasNodeType.Video, getNodeIcon(CanvasNodeType.Video), "node", getDisabledReason(CanvasNodeType.Video), () => {
+                onCreate(CanvasNodeType.Video); onCreate(CanvasNodeType.Audio); onClose();
+            }),
             command("director", "导演台", CanvasNodeType.Config, getNodeIcon(CanvasNodeType.Config), "node", "暂不可用"),
             command("script", "脚本", CanvasNodeType.Script, getNodeIcon(CanvasNodeType.Script), "node", "暂不可用"),
         ];

@@ -10,4 +10,5 @@ export const beefTVCapabilityItems = [
     // ToIV 本土化(2026-10-06):两张占位卡换成 ToIV 实模块,external=整页跳转到旧版视图
     { id: "drama", label: "短剧工作台", detail: "分镜 · 设定卡 · 成片", to: "/?view=studio&classic=1", icon: Clapperboard, disabled: false, external: true },
     { id: "agent", label: "智能体对话", detail: "对话驱动创作", to: "/?view=home&classic=1", icon: Bot, disabled: false, external: true },
+    { id: "lipsync", label: "对口型(模板)", detail: "视频+音频组合节点", to: "/canvas?mode=new&add=lipsync", icon: AudioLines, disabled: false, external: false },
 ] as const;
