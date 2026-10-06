@@ -233,14 +233,23 @@ func Open(_ context.Context, raw Config) (*Runtime, error) {
 			protected.ServeHTTP(w, r)
 		})
 	}
-	if launchToken == "" && cfg.GateIdentity != nil {
-		gate := *cfg.GateIdentity
-		dataDir := svc.DataDir()
-		// The built-in assistant host reaches only the ops entry, from loopback, with its own host credential.
-		gate.Exempt = func(r *http.Request) bool {
-			return isOpsEntryPath(r) && isLoopbackRemote(r.RemoteAddr) && agentops.HostTokenMatches(dataDir, strings.TrimSpace(r.Header.Get("X-Beeftv-Agent-Token")))
+	if launchToken == "" && (cfg.GateIdentity != nil || cfg.ToivAuth != nil) {
+		if cfg.GateIdentity == nil {
+			// M4-4 end state: the login gate is retired, ToIV bearer tokens are the only way in.
+			rootHandler = httptransport.RequireAlternativeAuth(cfg.ToivAuth.Authenticate)(rootHandler)
+		} else {
+			gate := *cfg.GateIdentity
+			dataDir := svc.DataDir()
+			// The built-in assistant host reaches only the ops entry, from loopback, with its own host credential.
+			gate.Exempt = func(r *http.Request) bool {
+				return isOpsEntryPath(r) && isLoopbackRemote(r.RemoteAddr) && agentops.HostTokenMatches(dataDir, strings.TrimSpace(r.Header.Get("X-Beeftv-Agent-Token")))
+			}
+			if cfg.ToivAuth != nil {
+				rootHandler = httptransport.RequireGateIdentityOr(gate, cfg.ToivAuth.Authenticate)(rootHandler)
+			} else {
+				rootHandler = httptransport.RequireGateIdentity(gate)(rootHandler)
+			}
 		}
-		rootHandler = httptransport.RequireGateIdentity(gate)(rootHandler)
 	}
 	return &Runtime{
 		cfg:              cfg,

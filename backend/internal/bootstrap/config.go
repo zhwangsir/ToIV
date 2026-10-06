@@ -28,6 +28,9 @@ type Config struct {
 	// GateIdentity (server profile, gate-managed pool): every request except health and the
 	// local assistant host's ops calls must carry an identity signed by the login gate.
 	GateIdentity *httptransport.GateIdentity
+	// ToivAuth (M4-4): accept ToIV bearer tokens (introspected against /api/auth/me) as an
+	// alternative way in; the only guard when GateIdentity is nil (gate-retired end state).
+	ToivAuth *httptransport.ToivJWTAuth
 }
 
 func (c Config) withDefaults() Config {
