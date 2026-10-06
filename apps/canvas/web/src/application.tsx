@@ -10,6 +10,7 @@ import "@/lib/plugins/builtin";
 import { RouterProvider } from "react-router";
 
 import { AppProviders } from "@/components/layout/app-providers";
+import { PwaPrompts } from "@/components/pwa/pwa-prompts";
 import { router } from "@/router";
 
 document.body.style.fontFamily = '"SF Pro Display","SF Pro Text","PingFang SC","Microsoft YaHei","Helvetica Neue",sans-serif';
@@ -18,6 +19,7 @@ createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
         <AppProviders>
             <RouterProvider router={router} />
+            <PwaPrompts />
         </AppProviders>
     </React.StrictMode>,
 );

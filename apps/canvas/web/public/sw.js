@@ -5,7 +5,7 @@
 //   · 导航请求（深链/刷新）network-first，离线回退到预缓存的 SPA 壳（index.html）；
 //   · /studio/static/** 与 /studio/assets/**（构建产物文件名带 hash，immutable）cache-first；
 //   · 版本号 bump 即旧缓存整体淘汰；更新流程：浏览器下次启动 activate 清旧 → 新壳在下个导航生效。
-const VERSION = "studio-v1";
+const VERSION = "studio-v3";
 const SHELL_CACHE = `studio-shell-${VERSION}`;
 const ASSET_CACHE = `studio-assets-${VERSION}`;
 const SHELL = ["/studio/", "/studio/index.html", "/studio/manifest.webmanifest", "/studio/icons/pwa-192.png", "/studio/icons/pwa-512.png"];
@@ -15,7 +15,8 @@ self.addEventListener("install", (event) => {
     (async () => {
       const cache = await caches.open(SHELL_CACHE);
       await Promise.allSettled(SHELL.map((url) => cache.add(new Request(url, { cache: "reload" }))));
-      await self.skipWaiting();
+      // 首次注册（无 controller）activate 自然接管；更新时停在 waiting 由页面
+      // 「刷新更新」按钮发 SKIP_WAITING 激活（C6 更新提示流）——这里不再无条件 skipWaiting。
     })(),
   );
 });
@@ -30,6 +31,10 @@ self.addEventListener("activate", (event) => {
       await self.clients.claim();
     })(),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("fetch", (event) => {
