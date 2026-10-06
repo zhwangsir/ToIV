@@ -59,6 +59,15 @@ const LIGHTING_LABELS: Record<string, string> = {
   indoor_warm: "室内暖光",
 };
 
+const VARIANT_LABELS: Record<string, string> = {
+  ancient_realistic: "古风写实",
+  anime: "二次元",
+  realistic: "写实",
+  ink_wash: "水墨",
+  cyberpunk: "赛博朋克",
+  three_d: "3D",
+};
+
 const KIND_OPTIONS = Object.keys(ANCHOR_KIND_LABELS);
 const ENFORCE_OPTIONS = ["prompt", "prompt+negative", "gate"];
 
@@ -415,6 +424,40 @@ export function CharacterAssetPanel({
                 </div>
               ) : (
                 <p className="studio-asset-empty">尚无色板(生成设定卡后自动采样)</p>
+              )}
+            </section>
+
+            <section className="studio-asset-section" data-testid="studio-asset-variants">
+              <h4>
+                跨风格变体 STYLE VARIANTS
+                <span className="studio-asset-hint">锚点不动、画风重绘;从 canonical 派生,非重造角色</span>
+              </h4>
+              {Object.keys(asset.style_variants || {}).length > 0 ? (
+                <div className="studio-asset-variant-grid">
+                  {Object.entries(asset.style_variants!).map(([key, v]) => (
+                    <a
+                      key={key}
+                      className="studio-asset-variant"
+                      href={imageUrl(v.url)}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={`${VARIANT_LABELS[key] || key} · seed=${v.seed ?? "—"} · denoise=${v.denoise ?? "—"}`}
+                      data-testid={`studio-asset-variant-${key}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={imageUrl(v.url)} alt={`变体 ${VARIANT_LABELS[key] || key}`} />
+                      <span className="studio-asset-variant-meta">
+                        <b>{VARIANT_LABELS[key] || key}</b>
+                        <i>
+                          {v.seed != null ? `seed ${v.seed}` : ""}
+                          {v.ckpt ? ` · ${v.ckpt.replace(".safetensors", "").slice(0, 18)}` : ""}
+                        </i>
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="studio-asset-empty">尚无变体(经批次/接口登记后此处展示)</p>
               )}
             </section>
 

@@ -50,6 +50,11 @@ test("CharacterAssetPanel:协议核心能力齐备", () => {
   // 展示卡
   assert.ok(src.includes('data-testid="studio-asset-card-btn"'), "缺展示卡按钮");
   assert.ok(src.includes("imageUrl(cardUrl)"), "展示卡须经 imageUrl 取图");
+  // 跨风格变体展示(M2)
+  assert.ok(src.includes("VARIANT_LABELS"), "缺变体风格词表");
+  assert.ok(src.includes("style_variants"), "未消费 style_variants");
+  assert.ok(src.includes('data-testid="studio-asset-variants"'), "缺变体展示区");
+  assert.ok(src.includes("锚点不动、画风重绘"), "缺变体协议提示");
   // 版本/溯源展示
   assert.ok(src.includes("derived_from"), "须展示版本溯源");
   assert.ok(src.includes("materialized_now"), "回填提示须消费 materialized_now");

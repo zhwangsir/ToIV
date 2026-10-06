@@ -4945,6 +4945,19 @@ export interface StudioCharacterAsset {
     speech_style?: string;
   };
   canonical_prompt?: { positive?: string; negative_constraints?: string[] };
+  /** M2 跨风格变体登记:{style_key: {url(带sig,长期有效), prompt, negative, seed, ckpt, denoise, at}} */
+  style_variants?: Record<
+    string,
+    {
+      url: string;
+      prompt?: string;
+      negative?: string;
+      seed?: number;
+      ckpt?: string;
+      denoise?: number;
+      at?: string;
+    }
+  >;
   lock?: { base?: boolean; panels?: string[]; layout?: boolean };
   panels?: Record<string, boolean>;
   provenance?: unknown;
