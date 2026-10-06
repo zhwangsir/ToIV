@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-06T20:15:00+08:00",
+  "updated_at": "2026-10-06T23:10:00+08:00",
   "assistant_portal_cinematic_empty_2026_09_23": {
     "status": "assistant_portal_cinematic_empty_deployed",
     "date": "2026-09-23",
@@ -12490,5 +12490,26 @@
       "M3 per-char LoRA",
       "D4 base_expr redo (parallel session owns)"
     ]
+  },
+  "m4_3_gate_cutover_2026_10_06": {
+    "status": "m4_3_gate_cutover",
+    "summary": "UI融合M4第三项：gate切流单实例上线。/studio全量流量 gate(:8281)→canvas-api-pg(:8290, PG schema=canvas)；typed-import终版(mig4.py 空schema先启动建69类型化表→停机按目标列类型灌f659 sqlite 127行/69表全等)；M6a gate identity并回main(eb94fab)；serve.mjs单实例模式三env(9cd6d03+23150be TDZ修复)；修M4-2 env笔误CANVAS_DATA_DIR→CANVAS_BACKEND_DATA_DIR；双写校验6/7端点全等(voice-profiles种子id无害)；实弹全绿；canvas-api-pg enabled；per-user f659停用sqlite冻结回滚快照",
+    "rollback": "gate.env删GATE_SINGLE_*三行重启gate=per-user模式；sqlite快照未动",
+    "commits": {
+      "ToIV-canvas": [
+        "eb94fab",
+        "9cd6d03",
+        "23150be"
+      ]
+    },
+    "open": [
+      "M4-4 gate退役+JWT直验",
+      "M4-5 单仓合并+C6全平台",
+      "真浏览器终验(用户侧)",
+      "四镜拼片对比"
+    ],
+    "updated_at": "2026-10-06T23:10:00+08:00",
+    "m4_4_phase_a": "canvas-api 增量 ToIV JWT 直验上线(2abec89)：ToivJWTAuth 内省 /api/auth/me+60s 只缓存正判定；CANVAS_TOIV_AUTH_BASE 已武装 core；三态实弹裸401/HMAC200无回归/Bearer真JWT200；Phase B/C(SPA Bearer+Next rewrite+owner头审计)待M4-3浸泡+真浏览器验证",
+    "m4_4_phase_b": "/studio/api 直连 canvas-api 上线(f14f656/b50d6f8d)：cookie 兜底+ui-session 第四信任源+SPA Bearer+Next rewrite；全链路实弹；回滚=next.config 删条重建；Phase C(gate 全面退役)待真浏览器复验后"
   }
 }
