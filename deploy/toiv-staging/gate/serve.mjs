@@ -454,7 +454,10 @@ function proxy(req, res, uid, port) {
   delete headers.cookie; delete headers["x-beeftv-owner"]; delete headers["x-beeftv-client"]; delete headers.authorization; delete headers.referer;
   delete headers["x-beeftv-gate-auth"]; delete headers["x-desktop-token"]; delete headers["x-beeftv-agent-token"];
   headers.host = `127.0.0.1:${port}`;
-  if (headers.origin) headers.origin = `http://127.0.0.1:${port}`;
+  // 2026-10-06 M3 前置修复:同源部署下公网 Origin(https://toiv.wineryz.top)改写成回环地址会被后端
+  // CANVAS_CORS_ORIGINS 白名单 403(画布创建/保存全断)。直接删 Origin:后端对非浏览器请求放行,
+  // 公网直连仍受白名单保护,浏览器侧仍受 gate sameOrigin + SameSite=Strict 双重约束。
+  delete headers.origin;
   headers["x-forwarded-for"] = clientIp(req);
   const owner = ownerToken(uid); if (owner) headers["x-beeftv-owner"] = owner;
   if (masterKey) headers["x-beeftv-gate-auth"] = gateAuth(uid, req.method, req.url);
