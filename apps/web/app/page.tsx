@@ -487,7 +487,13 @@ function HomeContent() {
     fetch("/studio/entry.json", { cache: "no-store", signal: ctl.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (j && j.enabled) window.location.replace("/studio/");
+        if (j && j.enabled) {
+          // M4-4 Phase C:跳转前把 ToIV JWT 换成 /studio 会话 cookie——URL 型访问
+          // (画布图片/下载/EventSource 无法带 Authorization)依赖它经 canvas-api 直验。
+          const t = getToken();
+          if (t) fetch("/studio/auth/exchange", { method: "POST", headers: { authorization: `Bearer ${t}` }, keepalive: true }).catch(() => {});
+          window.location.replace("/studio/");
+        }
       })
       .catch(() => {})
       .finally(() => clearTimeout(timer));
