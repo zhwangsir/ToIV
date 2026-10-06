@@ -6102,3 +6102,8 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **真机验证**（wineryz.top/studio）：SPA 完整渲染、侧栏 TOIV 创作组五项、首页双新卡、真实项目数据（未命名项目 2026-10-06）、应用市场跳转链路通（/?view=market&classic=1）。
 - **推送路线**：core 无 git 凭据 → bundle 路线（core 打包 → MateBook 推 GitHub）；凌晨积压 16 提交+本批一并上去（26bda4b→c43a673）。Gitee ToIV-canvas 仓仍建不了（凌晨 blocker 未解）。
 - **后续批次**：外部 Agent 页文案本土化、画布内 ToIV provider 展示名优化、ToIV 模块逐步原生化迁入 BeefTV（当前 external 直达为过渡态）。
+
+### 2026-10-06 17:05 CST — 自主执行窗：C4/C5/M2 市场三项交付
+- **C4 画布内真智能体 ✅**（ToIV-canvas `d4af76d1`）：画布页右下浮层面板（零侵入现有 assistant dock）——`services/toiv/agent-chat.ts` SSE 客户端 + `toiv-agent-float.tsx`（会话历史/流式正文/工具事件卡/中止）。**实弹验证**：对话流式正文 ✓、工具调用（list_smoke_failures start/ok 两帧+结果）✓。协议三坑入账：SSE **CRLF 换行**需归一、正文形态 `{"type":"text"}`、会话 id 走 X-Agent-Session-Id 响应头。
+- **C5 auto-editor 智能粗剪 ✅**（main `391d7259`）：`POST /video-edit/rough-cut`（共用 `_run_roughcut`）+ 智能体工具 `rough_cut_video`（P-9 四处同步：seam 尾位/SCHEMAS/SYSTEM 期望文本/窗口断言全绿，3 失败为基线既有）。**实弹**：雨夜成片 26.76MB/54.68s → 13.64MB（**-49%**），7.6s。踩坑链：pip 半截二进制×2（TaskStop 截断+运行时下载 core→github 慢）→ **ghfast.top 经 workstation 下 41MB 完整二进制传入**；29.x `--edit silence:`→`audio:` 语法迁移；studio files 取回改本地直读（环回无签名 401）。
+- **M2 市场原生页 ✅**：`/toiv/market`（分类 chips+搜索+卡片网格+详情抽屉+运行深链），6730 应用实时渲染；侧栏转内部路由。tsc 抓出 `3d:` 非法 key（vite 容忍但危险）已修。
