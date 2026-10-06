@@ -1,10 +1,10 @@
-import { App as AntApp, Button, Empty, Spin, Tag, Typography } from "antd";
-import { AudioLines, MessagesSquare, PlayCircle } from "lucide-react";
+import { App as AntApp, Button, Drawer, Empty, Spin, Tag, Typography } from "antd";
+import { AudioLines, ChevronRight, MessagesSquare, PlayCircle } from "lucide-react";
 import { ArrowLeft, Clapperboard, ExternalLink, Film, RefreshCw, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { fetchDramaProject, triggerBatchRender, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivDramaDetail } from "@/services/toiv/client";
+import { fetchCharacterSheets, fetchDramaProject, triggerBatchRender, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivCharacterSheet, type ToivDramaDetail } from "@/services/toiv/client";
 
 const SHOT_STATUS: Record<string, { color: string; text: string }> = {
     draft: { color: "default", text: "草稿" },
@@ -22,7 +22,17 @@ export default function DramaDetailPage() {
     const [renderingShots, setRenderingShots] = useState<Set<string>>(new Set());
     const [voicingShots, setVoicingShots] = useState<Set<string>>(new Set());
     const [lipsyncingShots, setLipsyncingShots] = useState<Set<string>>(new Set());
+    const [charDetail, setCharDetail] = useState<{ char: NonNullable<ToivDramaDetail["characters"]>[number]; sheets: ToivCharacterSheet[] } | null>(null);
+    const [sheetsLoading, setSheetsLoading] = useState(false);
     const [batchRendering, setBatchRendering] = useState(false);
+
+    const openCharacter = useCallback(async (char: NonNullable<ToivDramaDetail["characters"]>[number]) => {
+        setCharDetail({ char, sheets: [] });
+        setSheetsLoading(true);
+        try { setCharDetail({ char, sheets: await fetchCharacterSheets(char.id) }); }
+        catch { /* sheets 失败静默,基础信息仍展示 */ }
+        finally { setSheetsLoading(false); }
+    }, []);
 
     const load = useCallback(async () => {
         if (!id) return;
@@ -82,14 +92,18 @@ export default function DramaDetailPage() {
                         {chars.map((c) => {
                             const refs = Object.values(c.reference_images_by_style ?? {}).flat().filter(Boolean) as string[];
                             return (
-                                <div key={c.id} className="flex gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] p-3">
+                                <button key={c.id} type="button" onClick={() => void openCharacter(c)}
+                                    className="flex gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] p-3 text-left transition-colors hover:border-[var(--workspace-accent,#555)]">
                                     {refs[0] && <img src={refs[0]} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" loading="lazy" />}
-                                    <div className="flex min-w-0 flex-col gap-1">
-                                        <p className="truncate text-sm font-medium">{c.name || "未命名"}</p>
+                                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                        <div className="flex items-center gap-1">
+                                            <p className="truncate text-sm font-medium">{c.name || "未命名"}</p>
+                                            <ChevronRight className="h-3 w-3 shrink-0 text-[var(--muted-foreground,#a8a8a8)]" />
+                                        </div>
                                         <p className="line-clamp-3 text-xs text-[var(--muted-foreground,#a8a8a8)]">{c.description || c.visual_prompt}</p>
                                         {c.voice_ref_url && <Tag bordered={false} className="mt-auto self-start">已配音色</Tag>}
                                     </div>
-                                </div>
+                                </button>
                             );
                         })}
                     </div>
@@ -162,6 +176,38 @@ export default function DramaDetailPage() {
             <footer>
                 <Link to="/toiv/drama"><Button icon={<ArrowLeft className="h-3.5 w-3.5" />}>返回项目列表</Button></Link>
             </footer>
+        <Drawer open={!!charDetail} onClose={() => setCharDetail(null)} width={480} title={charDetail?.char?.name || "角色"}>
+                {charDetail && (
+                    <div className="flex flex-col gap-4">
+                        <p className="text-sm leading-relaxed">{charDetail.char.description || charDetail.char.visual_prompt}</p>
+                        {charDetail.char.visual_prompt && (
+                            <p className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs leading-relaxed text-[var(--muted-foreground,#a8a8a8)]">{charDetail.char.visual_prompt}</p>
+                        )}
+                        {charDetail.char.voice_ref_url && (
+                            <div className="flex flex-col gap-1">
+                                <span className="text-xs font-medium">音色试听</span>
+                                <audio controls src={charDetail.char.voice_ref_url} className="w-full" />
+                            </div>
+                        )}
+                        <div className="flex flex-col gap-2">
+                            <span className="text-xs font-medium">设定卡（{charDetail.sheets.length}）</span>
+                            {sheetsLoading ? <Spin /> : charDetail.sheets.length === 0 ? (
+                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无设定卡" />
+                            ) : charDetail.sheets.map((sh) => (
+                                <div key={sh.style} className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] p-2">
+                                    <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{sh.style}{sh.mtime ? ` · ${new Date(sh.mtime).toLocaleDateString("zh-CN")}` : ""}</span>
+                                    {sh.sheet_url && <img src={sh.sheet_url} alt="" className="w-full rounded-lg" loading="lazy" />}
+                                    {(sh.panel_urls ?? []).length > 0 && (
+                                        <div className="grid grid-cols-3 gap-1">
+                                            {sh.panel_urls!.slice(0, 9).map((p, i) => <img key={i} src={p} alt="" className="aspect-square w-full rounded-md object-cover" loading="lazy" />)}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </Drawer>
         </main>
     );
 }

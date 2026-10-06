@@ -169,3 +169,16 @@ export async function triggerShotLipsync(shotId: string): Promise<boolean> {
     try { await toivHttp.post(`/studio/shots/${shotId}/lipsync`, undefined, { timeout: 1800_000 }); return true; }
     catch { return false; }
 }
+
+export type ToivCharacterSheet = {
+    style: string;
+    sheet_url: string;
+    panel_urls?: string[];
+    mtime?: string;
+};
+
+export async function fetchCharacterSheets(cid: string): Promise<ToivCharacterSheet[]> {
+    const { data } = await toivHttp.get(`/studio/characters/${cid}/character-sheets`);
+    const list = (data as { sheets?: ToivCharacterSheet[] })?.sheets ?? [];
+    return Array.isArray(list) ? list : [];
+}
