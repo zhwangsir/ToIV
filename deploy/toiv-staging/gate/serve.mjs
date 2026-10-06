@@ -59,7 +59,7 @@ const SINGLE_DATA_DIR = path.resolve(process.env.GATE_SINGLE_DATA_DIR || path.jo
 const singleAddr = (() => {
   if (!SINGLE_BACKEND) return null;
   const m = /^127\.0\.0\.1:(\d+)$/.exec(SINGLE_BACKEND);
-  if (!m || !UID_RE.test(SINGLE_UID)) throw new Error("GATE_SINGLE_BACKEND must be 127.0.0.1:<port> and GATE_SINGLE_UID a 32-hex uid");
+  if (!m || !/^[a-f0-9]{32}$/.test(SINGLE_UID)) throw new Error("GATE_SINGLE_BACKEND must be 127.0.0.1:<port> and GATE_SINGLE_UID a 32-hex uid");
   return { port: Number(m[1]) };
 })();
 const pub = (p) => PREFIX + p;
