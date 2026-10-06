@@ -6151,3 +6151,8 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **Remotion 成片渲染器首片 ✅**：workstation `/home/merlin/remotion-studio`（4.0.400+react19，npmmirror 装）+ SubtitleCard 组件（768×1344 竖屏/渐变底/发言人/淡入上浮/词级样式位）→ **首渲染出片 212KB h264**（90f@30fps）。踩坑：.mjs JSX 不被 bundle 解析→.jsx；entry-point 须显式传参（config setEntryPoint 对 render 子命令不生效）。Chrome Headless Shell 109MB 首次下载慢（remotion.dev 直连，已缓存后续快）。
 - **接 ToIV 管线的设计锚点**（后续批）：drama 分镜的词锚定字幕/片头卡 → composition props（lines/speaker/timing 从 storyboard API 取）→ api 侧新增 /video-edit/remotion-render 端点 ssh workstation 调 npx remotion render（对齐 video_edit.py 的 ssh+NAS 模式）。
 - ⏳ 用户终验（持续）：真实浏览器 /studio/canvas?mode=new&add=lipsync。
+
+### 2026-10-06 21:20 CST — 🏁 M3 工具箱四族收齐（音频族配音模板上线）
+- **配音(模板) ✅**（ToIV-canvas `9dca9d9a` 已推 GitHub）：连线菜单项（Audio+Text 连建）+首页**第 9 卡**（真机验证 ✓）+`add=dub` 组合模板。**四族全落地：生成(文生图)/组合(对口型)/编辑(局部重绘)/音频(配音)**——每族=预设节点组合+双入口（首页卡+连线菜单）+add 直达。
+- C7 结论兑现：入口过载担忧未现（9 卡布局正常），模板即组合节点的模式成立。
+- ToIV main GitHub 补推仍间歇 443（dee24355 挂账，Gitee 已推）。
