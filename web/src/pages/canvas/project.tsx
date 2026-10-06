@@ -120,6 +120,7 @@ import { copyImageToSystemClipboard } from "./canvas-project-clipboard";
 import { canvasNodeRetryPlan } from "./canvas-generation-orchestration";
 import { linkedFolderPresentation } from "./canvas-resource-handoff-plan";
 import { useCanvasAssistantProposal } from "./use-canvas-assistant-proposal";
+import { ToivAgentFloat } from "./toiv-agent-float";
 import { useCanvasConnectedNodeVisibility } from "./use-canvas-connected-node-visibility";
 import { useCanvasGenerationOrchestration } from "./use-canvas-generation-orchestration";
 import { useCanvasMentionNormalize } from "./use-canvas-mention-normalize";
@@ -3338,6 +3339,7 @@ function InfiniteCanvasPage() {
                     />
                 ) : null}
                 <CanvasVersionHistory history={versions} />
+                <ToivAgentFloat />
             </main>
         </>
     );
