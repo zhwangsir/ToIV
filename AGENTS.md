@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-06（项目管家：**UI 融合 M4 五项全落地——gate 切流+JWT 直验+单仓合并**）：M4-3 gate 切流单实例（:8290 PG 承接全量 /studio，typed-import 终版 127 行/69 表全等，双写校验 6/7 端点全等）+ M4-4 Phase A（ToivJWTAuth 内省直验不共享密钥）+ Phase B（/studio/api 直连 canvas-api：cookie 兜底+ui-session 第四信任源+SPA Bearer+Next rewrite 四件套，全链路实弹）+ M4-5 单仓合并（ToIV main `apps/canvas` subtree 历史完整双推；**GitHub ToIV-canvas 已归档只读，后续 canvas 开发一律在 ToIV main apps/canvas，core 部署检出 /home/merlin/beeftv 内容一致，变更走 Mac 改→rsync→core 构建**）；修复 M4-2 env 笔误（CANVAS_DATA_DIR→CANVAS_BACKEND_DATA_DIR）；ToIV main tip `7725b988`（gitee+github）；⚠️ stash@{0}「wip-unrelated-before-0030」系早前遗留勿 pop；STATE `m4_3_gate_cutover_2026_10_06`（含 m4_4/m4_5 字段）；`updated_at` 2026-10-06T23:20:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-10-07（项目管家：**UI 融合 M4 全项完成——gate 全面退役**）：真浏览器复验过（IAB 公网链：画布/助手往返/任务中心，抓修 ui-session Origin 403→canvas-api `BEEFTV_ALLOWED_ORIGINS`）后 Phase C 落地——/studio 静态托管+auth/entry 移交 Next 四路由（`b9273463`），**gate 已 disable --now（8281 关闭，回滚=恢复 rewrites+enable）**；至此 M4 八件全齐（PG 驱动/单实例/gate 切流/JWT 直验 A+B/单仓合并/统一 CI/deploy 合一/gate 退役），ToIV main tip `7c1b7a39`（gitee+github）；剩余开口仅 C6 全平台（独立成批）+用户拍板项（expr_3 三选一/四镜拼片）；⚠️ stash@{0}「wip-unrelated-before-0030」系早前遗留勿 pop；STATE `m4_3_gate_cutover_2026_10_06`（含 phase_a/b/m4_5/m4_tail/m4_phase_c 字段）；`updated_at` 2026-10-07T00:28:00+08:00；via 项目管家（ToIV 开发）；
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
