@@ -6088,3 +6088,10 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **部署事故与纠正**：deploy.sh 推了本机残留 10-04 旧 .next（BUILD_ID dirty 未上线）→ 改 **core 本机构建** `rm -rf .next && pnpm build`，BUILD `20261006-052549-nogit`，web:200，构建产物 CSS 实证新值（--radius-control:12px/#242426 在线）。
 - **真机截图验证**（浏览器实测 wineryz.top）：暗色 #0F0F0F 生效；**发现本机 FOUC 脚本把缺失预设兜底为 cinema（暗基底）**——用户日常实为 cinema 主题，看 BeefTV 亮色需选择器切 minimal；亮色 minimal 截图确认白画布+12px 圆角+hairline。
 - **后续再调（用户明示分阶段）**：布局/组件结构级对齐、逐页打磨。
+
+### 2026-10-06 07:55 CST — 🏆 BeefTV UI 正式上线（cutover 完成，用户裁决"完全照抄全面修改"）
+- **C3 接线完成并部署**：next.config `/studio` + `/studio/:path*` → prod gate(:8281) rewrites；page.tsx 登录态 `?view=home` 探测 `entry.json`(1.5s fail-safe,?classic=1 绕过)自动切 /studio/；登出/401 联动 `POST /studio/auth/logout` 清 gate cookie。
+- **实战修复：斜杠规范化死环**——toiv-web 308(/studio/→/studio) 与 gate 308(/studio→/studio/) 互相对redirect成 ERR_TOO_MANY_REDIRECTS。修复：gate serve.mjs 对 `/studio`(无斜杠) 内部归一化为 `/` 直接服务 SPA，不再 30x。serve.mjs 部署副本已修（**ToIV-canvas 仓源码 serve.mjs 待同步此修复**）。
+- **全链真机验证**（浏览器 wineryz.top）：?view=home 自动落地 **/studio → BeefTV UI 完整渲染**（侧栏/新建画布/六能力卡/v1.7.7，ToIV 品牌）；token exchange 无缝登录（admin）；per-user 后端 :8400 自动供给；exchange 200 {ok:true,user:admin}。
+- **开关状态**：ENTRY_ON=ON（BeefTV 为登录用户的默认落地页）；匿名 / 仍为 marketing；R0 回滚=`rm -f /home/merlin/beeftv-prod/ENTRY_ON`（秒级、无重启）。
+- **待办移交**：①ToIV-canvas 仓同步 serve.mjs 斜杠修复；②四镜拼片对比 splice2；③canvas 数据为空（全新 prod 数据域）——staging 2 用户数据可选拷贝；④ToIV 旧版 UI 仍可达（/?view=home&classic=1 或 R0），未物理删除。
