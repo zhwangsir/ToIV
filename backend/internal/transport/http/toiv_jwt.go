@@ -23,6 +23,10 @@ type ToivJWTAuth struct {
 	Client   *http.Client  // defaults to a 5 s timeout client
 	CacheTTL time.Duration // defaults to 60 s
 	Now      func() time.Time
+	// CookieName lets URL-shaped accesses (img src, downloads, EventSource) authenticate with
+	// the login gate's HttpOnly session cookie when they cannot carry an Authorization header.
+	// The gate stores the raw ToIV JWT in that cookie, so it feeds the same introspection.
+	CookieName string // defaults to "toiv_session"; "" disables the cookie door
 
 	mu    sync.Mutex
 	cache map[string]time.Time // sha256(token) -> verdict valid until
@@ -51,13 +55,17 @@ func (a *ToivJWTAuth) client() *http.Client {
 	return &http.Client{Timeout: 5 * time.Second}
 }
 
-// Authenticate reports whether the request carries a currently-valid ToIV bearer token.
+// Authenticate reports whether the request carries a currently-valid ToIV token, either as an
+// Authorization bearer header or as the login gate's session cookie.
 func (a *ToivJWTAuth) Authenticate(r *http.Request) bool {
-	auth := r.Header.Get("Authorization")
-	if !strings.HasPrefix(auth, "Bearer ") {
-		return false
+	token := ""
+	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
+		token = strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
+	} else if cookie := a.CookieName; cookie != "" {
+		if c, err := r.Cookie(cookie); err == nil {
+			token = strings.TrimSpace(c.Value)
+		}
 	}
-	token := strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
 	if token == "" || len(token) > 4096 {
 		return false
 	}
@@ -108,6 +116,21 @@ func withGateAuthenticated(r *http.Request) context.Context {
 	return context.WithValue(r.Context(), gateIdentityKey{}, true)
 }
 
+type toivIdentityKey struct{}
+
+// ToivAuthenticated reports whether this request entered through the ToIV bearer-token door
+// (as opposed to the gate-signed identity). The assistant UI session treats a verified
+// product login as sufficient trust, so it needs to tell the two doors apart.
+func ToivAuthenticated(r *http.Request) bool {
+	ok, _ := r.Context().Value(toivIdentityKey{}).(bool)
+	return ok
+}
+
+func withToivAuthenticated(r *http.Request) context.Context {
+	ctx := context.WithValue(r.Context(), gateIdentityKey{}, true)
+	return context.WithValue(ctx, toivIdentityKey{}, true)
+}
+
 // RequireGateIdentityOr keeps the M6a gate-signed identity as the primary check and accepts
 // the alternative authenticator (ToIV bearer) as a second, independent way in. Either way in
 // marks the request GateAuthenticated, because downstream code only asks "did the front door
@@ -117,7 +140,7 @@ func RequireGateIdentityOr(gate GateIdentity, alt func(*http.Request) bool) func
 		gated := RequireGateIdentity(gate)(next)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/api/health/live" && alt != nil && alt(r) {
-				next.ServeHTTP(w, r.WithContext(withGateAuthenticated(r)))
+				next.ServeHTTP(w, r.WithContext(withToivAuthenticated(r)))
 				return
 			}
 			gated.ServeHTTP(w, r)
@@ -130,8 +153,12 @@ func RequireGateIdentityOr(gate GateIdentity, alt func(*http.Request) bool) func
 func RequireAlternativeAuth(alt func(*http.Request) bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/api/health/live" || (alt != nil && alt(r)) {
+			if r.URL.Path == "/api/health/live" {
 				next.ServeHTTP(w, r)
+				return
+			}
+			if alt != nil && alt(r) {
+				next.ServeHTTP(w, r.WithContext(withToivAuthenticated(r)))
 				return
 			}
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -153,5 +180,9 @@ func LoadToivJWTAuth(getenv func(string) string) (*ToivJWTAuth, error) {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return nil, errors.New("CANVAS_TOIV_AUTH_BASE 必须是 http(s)://host:port")
 	}
-	return &ToivJWTAuth{BaseURL: base}, nil
+	cookieName := strings.TrimSpace(getenv("CANVAS_TOIV_COOKIE"))
+	if cookieName == "" {
+		cookieName = "toiv_session"
+	}
+	return &ToivJWTAuth{BaseURL: base, CookieName: cookieName}, nil
 }

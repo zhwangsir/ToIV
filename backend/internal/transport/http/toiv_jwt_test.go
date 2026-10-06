@@ -76,12 +76,20 @@ func TestRequireGateIdentityOrAcceptsEither(t *testing.T) {
 	auth, toiv := newTestToivAuth(t, &hits)
 	defer toiv.Close()
 
+	gateSignedIsToiv := false
 	handler := RequireGateIdentityOr(gate, auth.Authenticate)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/health/live" && !GateAuthenticated(r) {
 			t.Error("authenticated request must carry the gate-authenticated context flag")
 		}
+		if r.URL.Path != "/api/health/live" && r.Header.Get("Authorization") == "" && ToivAuthenticated(r) {
+			t.Error("gate-signed request must not be marked as a ToIV login")
+		}
+		if r.Header.Get("Authorization") != "" && !ToivAuthenticated(r) {
+			t.Error("bearer request must be marked as a ToIV login")
+		}
 		w.WriteHeader(http.StatusOK)
 	}))
+	_ = gateSignedIsToiv
 
 	// Gate-signed request still passes.
 	signed := httptest.NewRequest(http.MethodPost, "/api/projects", nil)
@@ -138,5 +146,26 @@ func TestRequireAlternativeAuth(t *testing.T) {
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/health/live", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("health/live = %d, want 200", rec.Code)
+	}
+}
+
+func TestToivJWTAuthCookieFallback(t *testing.T) {
+	var hits int32
+	auth, toiv := newTestToivAuth(t, &hits)
+	auth.CookieName = "toiv_session"
+	defer toiv.Close()
+
+	byCookie := httptest.NewRequest(http.MethodGet, "/api/resources/x/file", nil)
+	byCookie.AddCookie(&http.Cookie{Name: "toiv_session", Value: "good-token"})
+	if !auth.Authenticate(byCookie) {
+		t.Fatal("session cookie should authenticate like a bearer header")
+	}
+	wrongCookie := httptest.NewRequest(http.MethodGet, "/api/resources/x/file", nil)
+	wrongCookie.AddCookie(&http.Cookie{Name: "other_cookie", Value: "good-token"})
+	if auth.Authenticate(wrongCookie) {
+		t.Fatal("a different cookie name must not authenticate")
+	}
+	if auth.Authenticate(httptest.NewRequest(http.MethodGet, "/api/projects", nil)) {
+		t.Fatal("no credentials must not authenticate")
 	}
 }

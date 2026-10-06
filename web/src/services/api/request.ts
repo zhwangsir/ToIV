@@ -137,8 +137,23 @@ function assertExpectedHttpScope(config?: { expectedScope?: CapturedUserScope })
 
 apiClient.interceptors.request.use((config) => {
     assertExpectedHttpScope(config as HttpRequestConfig);
+    // M4-4: 附着 ToIV 产品登录令牌（同源 /studio 下与 ToIV 主站共享 localStorage）。
+    // 经 gate 时该头会被 strip（零行为变化）；直连 canvas-api 时它是认证凭据（内省式直验）。
+    withToivAuth(config.headers as Record<string, string> | undefined, (h) => { config.headers = h as typeof config.headers; });
     return config;
 });
+
+/**
+ * 给裸 fetch / URL 型请求补 ToIV Bearer 的唯一出口。已有 Authorization 时不动；
+ * 桌面与本地预览没有 toiv_token，天然 no-op。
+ */
+export function withToivAuth(headers?: Record<string, string>, apply?: (merged: Record<string, string>) => void): Record<string, string> {
+    const merged: Record<string, string> = { ...(headers || {}) };
+    const token = typeof localStorage !== "undefined" ? localStorage.getItem("toiv_token") : "";
+    if (token && !merged.Authorization) merged.Authorization = `Bearer ${token}`;
+    apply?.(merged);
+    return merged;
+}
 
 async function send<T>(method: string, url: string, data?: unknown, config?: HttpRequestConfig) {
     assertExpectedHttpScope(config);

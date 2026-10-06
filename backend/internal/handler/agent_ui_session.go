@@ -14,6 +14,8 @@ import (
 
 	"infinite-canvas/backend/internal/agentops"
 	"infinite-canvas/backend/internal/app"
+
+	httptransport "infinite-canvas/backend/internal/transport/http"
 )
 
 // 内置 UI 会话：短期限、限定 scope 的独立凭据，由后端签发给可信 UI。
@@ -108,7 +110,11 @@ func RegisterAgentUISessionRoutes(r gin.IRouter, svc *app.Service, ui *uiSession
 		devBootstrap := strings.TrimSpace(os.Getenv("BEEFTV_UI_BOOTSTRAP")) == "1"
 		// The UI bootstrap secret comes through the Wails binding, separately from entry credentials.
 		desktopShell := desktopTrust != nil && desktopTrust(c.Request)
-		if !ownerOK && !devBootstrap && !desktopShell {
+		// M4-4: a verified ToIV product login (bearer token introspected at the front door) is the
+		// fourth trust source — strictly stronger than the SPA cookie the gate used to front, and it
+		// is what the direct toiv-web -> canvas-api path presents instead of the owner header.
+		toivLogin := httptransport.ToivAuthenticated(c.Request)
+		if !ownerOK && !devBootstrap && !desktopShell && !toivLogin {
 			fail(c, http.StatusForbidden, app.BadAuthRequest("签发内置 UI 会话需要 owner 凭据或显式本地引导"))
 			return
 		}
@@ -118,6 +124,6 @@ func RegisterAgentUISessionRoutes(r gin.IRouter, svc *app.Service, ui *uiSession
 			return
 		}
 		ok(c, gin.H{"token": session.Token, "expiresAt": session.ExpiresAt, "scope": "workspace:read-write",
-			"bootstrap": map[string]any{"ownerToken": ownerOK, "devBootstrap": devBootstrap, "desktopShell": desktopShell}})
+			"bootstrap": map[string]any{"ownerToken": ownerOK, "devBootstrap": devBootstrap, "desktopShell": desktopShell, "toivLogin": toivLogin}})
 	})
 }

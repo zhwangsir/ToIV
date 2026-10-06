@@ -1,6 +1,6 @@
 import { generationErrorMessage } from "@/lib/generation-error";
 import { assertUserScope, isUserScopeAbandonedError, type CapturedUserScope } from "@/lib/user-scope-guard";
-import { http, apiBaseURL, type BackendEnvelope, type HttpRequestConfig } from "@/services/api/request";
+import { http, apiBaseURL, withToivAuth, type BackendEnvelope, type HttpRequestConfig } from "@/services/api/request";
 import { consumeTaskTextStream, createTaskTextStreamParser, type TaskTextStreamEvent } from "@/services/api/task-text-stream";
 import { recordDiagnosticEvent } from "@/services/diagnostics/client-diagnostics";
 
@@ -454,7 +454,7 @@ async function waitForGenerationTaskTextEvents(id: string, options: WaitForGener
             const cursor = lastEventId > 0 ? `?after=${encodeURIComponent(String(lastEventId))}` : "";
             const path = `/tasks/${encodeURIComponent(id)}/text-events`;
             const response = await fetch(`${base}${path}${cursor}`, {
-                headers: { Accept: "text/event-stream" },
+                headers: withToivAuth({ Accept: "text/event-stream" }),
                 credentials: "include",
                 signal: options.signal,
             });
