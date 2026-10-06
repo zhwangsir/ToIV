@@ -6273,3 +6273,9 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **更新流三版滚动实证 ✅**（真浏览器 v1→v2→v3）：v3 部署后页面出现「新版本已就绪」→ 点击「刷新更新」→ v3 激活、页面受控 controlled=true、旧 v1/v2 缓存被 activate 清理。安装条经模拟 beforeinstallprompt 实证渲染。
 - **移动端触摸核查 ✅**（390×844 真浏览器冒烟）：首页卡片+最近项目正常渲染；**画布窄屏自动进「专注模式」**——BeefTV 现成适配（28% 全景缩放/「放大编辑」节点入口/连接点可交互/助手可达）；代码层三证：Leafer 触摸优先引擎+pointer 事件交互层+toiv-mobile.css ≤640px 断点（助手全屏 sheet 等）。
 - **C6 剩余**：小程序壳（等 AppID+合法域名+审核，配合清单在前条）；可选增强（安装引导图/触摸手势专项）按需。
+
+### 2026-10-07 01:20 CST — C6 小程序壳·可自主部分完成（`d1d41eb1` 双推）
+- **发现复用**：ToIV MiniProgram 模块（UniApp3+Vue3+TS）8 月已建全套登录链——`uni.login→code→POST /api/auth/wechat`（code2session+微信首登自动开户+dev bypass+限流），无需新端点。
+- **交付三件**：①`pages-sub/studio/studio.vue` web-view 壳页（登录态 token 经 URL 引导参数递 H5；未登录重定向登录页；MP-WEIXIN 条件编译）；②SPA `main.tsx` miniapp_token 引导（落 localStorage→exchange 播种 cookie→replaceState 清参数）；③toiv-web `app/[verifyFile]` 承载 mp 业务域名校验文件（`STUDIO_MP_VERIFY_DIR=/home/merlin/toiv/deploy/mp-verify/`，一级路径 `[a-z0-9]+\.txt` 白名单防穿越）。
+- **门禁/实证**：MiniProgram typecheck 绿+**625 测试全过**+新文件 lint 零告警（存量 114 与 clean-tree 基线一致）；SPA tsc 绿；core 实证校验文件路由 200+内容正确+路径穿越 404+存量路由无扰；manifest 链接与 bundle 内 miniapp_token bootstrap 在位；deploy.sh --canvas-only 上产。
+- **用户侧收尾四步**（做完即成品）：①`MiniProgram/src/manifest.json` mp-weixin `appid` 填入；②mp 后台「开发管理→业务域名」配置 `https://toiv.wineryz.top`，下载校验文件传 core `/home/merlin/toiv/deploy/mp-verify/`；③「request 合法域名」加同域（/api/auth/wechat 用）；④微信开发者工具导入 `MiniProgram/` 构建 `npm run build:mp-weixin` 上传送审。
