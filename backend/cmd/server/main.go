@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"infinite-canvas/backend/internal/bootstrap"
+	httptransport "infinite-canvas/backend/internal/transport/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -41,6 +42,16 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// CANVAS_STOP_DEADLINE (gate-managed pool, e.g. 1500ms): after SIGTERM/SIGINT the process is
+	// gone within this bound. Running tasks are persisted and resumed by the next start.
+	stopDeadline, err := envOptionalDuration("CANVAS_STOP_DEADLINE")
+	if err != nil {
+		return err
+	}
+	gateIdentity, err := httptransport.LoadGateIdentity(os.Getenv)
+	if err != nil {
+		return err
+	}
 	runtime, err := bootstrap.Open(ctx, bootstrap.Config{
 		Profile:          bootstrap.ProfileServer,
 		DataDir:          dataDir,
@@ -50,6 +61,7 @@ func run(ctx context.Context) error {
 		AutoMigrate:      autoMigrate,
 		ShutdownTimeout:  workerTimeout,
 		RouterMiddleware: []gin.HandlerFunc{corsMiddleware},
+		GateIdentity:     gateIdentity,
 	})
 	if err != nil {
 		return err
@@ -58,7 +70,7 @@ func run(ctx context.Context) error {
 		_ = runtime.Close(context.Background())
 		return err
 	}
-	log.Printf("backend listening on %s", env("CANVAS_BACKEND_ADDR", ":8080"))
+	log.Printf("backend listening on %s (gate identity %v, stop deadline %s)", env("CANVAS_BACKEND_ADDR", ":8080"), gateIdentity != nil, stopDeadline)
 
 	var serveFailure error
 	select {
@@ -69,13 +81,40 @@ func run(ctx context.Context) error {
 		}
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), workerTimeout+30*time.Second)
+	budget := workerTimeout + 30*time.Second
+	if stopDeadline > 0 {
+		armStopWatchdog(stopDeadline)
+		budget = stopDeadline * 4 / 5
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
 	if err := errors.Join(serveFailure, runtime.Close(shutdownCtx)); err != nil {
 		return err
 	}
 	log.Printf("backend stopped gracefully")
 	return nil
+}
+
+// armStopWatchdog bounds shutdown: whatever is still draining (SSE streams, workers, the
+// assistant host) when the deadline passes, the process exits.
+func armStopWatchdog(deadline time.Duration) {
+	start := time.Now()
+	time.AfterFunc(deadline, func() {
+		log.Printf("stop deadline %s reached after %s; exiting", deadline, time.Since(start).Round(time.Millisecond))
+		os.Exit(0)
+	})
+}
+
+func envOptionalDuration(key string) (time.Duration, error) {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return 0, nil
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil || parsed <= 0 {
+		return 0, fmt.Errorf("%s 必须是正数时长，例如 1500ms", key)
+	}
+	return parsed, nil
 }
 
 func env(key string, fallback string) string {

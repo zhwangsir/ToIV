@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	httptransport "infinite-canvas/backend/internal/transport/http"
 )
 
 type Profile string
@@ -23,6 +25,9 @@ type Config struct {
 	AutoMigrate      bool
 	ShutdownTimeout  time.Duration
 	RouterMiddleware []gin.HandlerFunc
+	// GateIdentity (server profile, gate-managed pool): every request except health and the
+	// local assistant host's ops calls must carry an identity signed by the login gate.
+	GateIdentity *httptransport.GateIdentity
 }
 
 func (c Config) withDefaults() Config {
