@@ -71,7 +71,7 @@ export default function DramaPage() {
                         {projects.map((p) => {
                             const meta = STATUS_META[p.status] ?? { color: "default", text: p.status };
                             return (
-                                <a key={p.id} href={`/drama/${p.id}?classic=1`}
+                                <a key={p.id} href={`/toiv/drama/${p.id}`}
                                     className="group flex flex-col gap-2.5 rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] p-4 transition-colors hover:border-[var(--workspace-accent,#555)]">
                                     <div className="flex items-center justify-between gap-2">
                                         <Tag color={meta.color} bordered={false}>{meta.text}</Tag>

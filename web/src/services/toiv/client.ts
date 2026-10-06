@@ -97,6 +97,7 @@ export type ToivDramaProject = {
     status: string;
     width?: number;
     height?: number;
+    fps?: number;
     render_mode_default?: string;
     final_url?: string;
     updated_at?: string;
@@ -110,4 +111,41 @@ export type ToivDramaProject = {
 export async function fetchDramaProjects(): Promise<ToivDramaProject[]> {
     const { data } = await toivHttp.get("/studio/projects");
     return Array.isArray(data) ? data : ((data as { items?: ToivDramaProject[] })?.items ?? []);
+}
+
+export type ToivDramaCharacter = {
+    id: string;
+    name?: string;
+    description?: string;
+    visual_prompt?: string;
+    voice_ref_url?: string;
+    reference_images_by_style?: Record<string, string[]>;
+};
+
+export type ToivDramaShot = {
+    id: string;
+    idx: string | number;
+    status: string;
+    scene?: string;
+    prompt?: string;
+    dialogue?: string;
+    speaker?: string;
+    camera?: string;
+    duration_sec?: number;
+    render_mode?: string;
+    image_url?: string;
+    video_url?: string;
+    voice_url?: string;
+    final_clip_url?: string;
+    error?: string;
+};
+
+export type ToivDramaDetail = ToivDramaProject & {
+    characters?: ToivDramaCharacter[];
+    shots?: ToivDramaShot[];
+};
+
+export async function fetchDramaProject(pid: string): Promise<ToivDramaDetail> {
+    const { data } = await toivHttp.get(`/studio/projects/${pid}`);
+    return data as ToivDramaDetail;
 }

@@ -23,6 +23,7 @@ const ToivMarketPage = lazy(() => import("@/pages/toiv/market-page"));
 const ToivAgentPage = lazy(() => import("@/pages/toiv/agent-page"));
 const ToivLibraryDetailPage = lazy(() => import("@/pages/toiv/library-detail"));
 const ToivDramaPage = lazy(() => import("@/pages/toiv/drama-page"));
+const ToivDramaDetailPage = lazy(() => import("@/pages/toiv/drama-detail"));
 const ProjectDetailPage = lazy(loadProjectDetailPage);
 const SettingsPage = lazy(() => import("@/pages/settings"));
 const TestVoiceRecording = lazy(() => import("@/pages/test-voice-recording"));
@@ -108,6 +109,7 @@ export const router = createWorkspaceRouter([
             { path: "/toiv/market", element: deferred(<ToivMarketPage />) },
             { path: "/toiv/agent", element: <ToivAgentPage /> },
             { path: "/toiv/drama", element: deferred(<ToivDramaPage />) },
+            { path: "/toiv/drama/:id", element: deferred(<ToivDramaDetailPage />) },
             { path: "/test-voice-recording", element: deferred(<TestVoiceRecording />) },
             {
                 path: "/projects",
