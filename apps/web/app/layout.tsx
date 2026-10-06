@@ -61,7 +61,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   // 预设主题 × 明暗 × 自定义强调色(2026-09-07 v9;默认 minimal 亮色,四 key localStorage 持久化)
   // themeColor 静态默认保持浅色画布色 --bg-canvas;首帧后由内联脚本按当前主题/模式计算值跟随更新
-  themeColor: "#FAFAF9",
+  themeColor: "#FFFFFF",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

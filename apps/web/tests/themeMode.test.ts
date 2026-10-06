@@ -271,7 +271,7 @@ test("layout.tsx 内联脚本:v9 四 key + dataset/内联 var 写入 + 旧值迁
   assert.ok(src.includes('d.dataset.theme="cinema"'), "非法预设值首帧兜底为 cinema(读取时 lib 侧清除)");
   assert.ok(src.includes('localStorage.setItem("toiv_accent_custom",o.accent)'), "旧 accent 应迁移");
   // 静态 themeColor 保持浅色默认
-  assert.ok(src.includes('themeColor: "#FAFAF9"'));
+  assert.ok(src.includes('themeColor: "#FFFFFF"'));
 });
 
 /* ── ⑥ globals.css 源码断言 ── */
@@ -312,7 +312,7 @@ test("globals.css:[data-mode=dark] 基础块完整(minimal 暗档 + 亮基底主
   assert.ok(iDark > 0, "dark 基础块缺失");
   const darkBlock = css.slice(iDark, css.indexOf("\n}", iDark));
   assert.match(darkBlock, /color-scheme: dark;/);
-  assert.match(darkBlock, /--bg-canvas: #101114;/);
+  assert.match(darkBlock, /--bg-canvas: #0F0F0F;/);
   assert.match(darkBlock, /--accent: #F5F5F4;/); // 近白 accent(黑白单色美学)
   assert.match(darkBlock, /--text-on-accent: #17181A;/);
   for (const k of ["--ok:", "--warn:", "--err:", "--glass-bg:", "--overlay-strong:", "--shadow-sm:"]) {
