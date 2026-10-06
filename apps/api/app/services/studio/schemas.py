@@ -290,6 +290,10 @@ class CharacterAssetPutRequest(BaseModel):
     coverage: dict | None = None
     qa: dict | None = None
     variants_allowed: bool | None = None
+    style_variants: dict | None = Field(
+        default=None,
+        description="M2 跨风格变体登记:{style_key: {url, prompt, negative, seed, ckpt, at}}",
+    )
 
 
 class CharacterAssetRefreshRequest(BaseModel):

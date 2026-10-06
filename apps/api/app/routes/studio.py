@@ -940,6 +940,7 @@ def put_character_asset(
         "color_palette",
         "coverage",
         "qa",
+        "style_variants",
     ):
         if field in patch:
             asset[field] = patch[field]

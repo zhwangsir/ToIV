@@ -465,6 +465,18 @@ def validate_asset(d: dict[str, Any]) -> list[str]:
     cp = d.get("canonical_prompt")
     if cp is not None and not isinstance(cp, dict):
         errs.append("canonical_prompt 须为对象")
+    sv = d.get("style_variants")
+    if sv is not None:
+        # M2 跨风格变体登记:{ink_wash: {url, prompt, negative, seed, ckpt, at}}
+        if not isinstance(sv, dict):
+            errs.append("style_variants 须为对象")
+        else:
+            for key, v in sv.items():
+                if not isinstance(key, str) or not key.strip():
+                    errs.append("style_variants 键须为非空字符串")
+                    continue
+                if not isinstance(v, dict) or not str(v.get("url") or "").strip():
+                    errs.append(f"style_variants.{key} 须含 url")
     return errs
 
 
@@ -515,6 +527,7 @@ def new_asset(
             "positive": (meta.visual_prompt or "").strip(),
             "negative_constraints": [],
         },
+        "style_variants": {},
         "panels": {k: True for k in (panel_keys or [])},
         "qa": {"face_gate": {"threshold": 0.94, "last": None}, "human_review": ""},
         "created_at": _now_iso(),

@@ -126,6 +126,19 @@ def test_validate_asset_rules():
     bad2 = json.loads(json.dumps(asset))
     bad2["coverage"] = {"angles": ["upside_down"]}
     assert any("angles" in e for e in asset_svc.validate_asset(bad2))
+    # style_variants(M2 登记):合法通过,缺 url 拒绝
+    ok_var = json.loads(json.dumps(asset))
+    ok_var["style_variants"] = {
+        "ink_wash": {
+            "url": "/api/studio/files/char_card_x.png",
+            "prompt": "same character, ink wash",
+            "seed": 7,
+        }
+    }
+    assert asset_svc.validate_asset(ok_var) == []
+    bad_var = json.loads(json.dumps(asset))
+    bad_var["style_variants"] = {"ink_wash": {"prompt": "no url"}}
+    assert any("url" in e for e in asset_svc.validate_asset(bad_var))
 
 
 def test_version_cascade_and_persistence(tmp_path, monkeypatch):
@@ -325,6 +338,20 @@ def test_asset_route_get_put_refresh_card_plan(ctx):
         json={"style": "anime", "identity_anchors": [{"kind": "nope", "desc": "x", "enforce": "prompt"}]},
     )
     assert r.status_code == 422
+
+    # PUT:style_variants 变体登记(M2)
+    r = client.put(
+        f"/api/studio/characters/{cid}/character-asset",
+        headers=H,
+        json={
+            "style": "anime",
+            "style_variants": {
+                "ink_wash": {"url": "/api/studio/files/x.png", "prompt": "same char", "seed": 3}
+            },
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["style_variants"]["ink_wash"]["url"].endswith("x.png")
 
     # refresh:版本级联
     r = client.post(

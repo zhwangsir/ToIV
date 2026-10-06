@@ -18,7 +18,8 @@
 - **测试**：`apps/api/tests/test_character_asset_protocol.py`（12 例：锚点抽取/校验规则/版本级联/回填/渲染/路由全链）；全量回归对照 HEAD 基线失败集完全一致（预存环境性失败 53/104，零新增）。
 - **生产交付（2026-10-06）**：api 经 `deploy.sh --skip-web core-jump` 上 core，健康 200；**D3 真实回填已执行**——林夏（803fb69b…，设定卡 1224 案主角）GET 即物化 v1（六面板/锚点/采样色板/覆盖登记），PUT 已补 5 条正典锚点+负向约束；展示卡三迭代（标签底衬→hex 间距→底部空带 345px→~150px 页底边距）经视觉验收；coverage-plan 出 3 个补拍 job（medium_closeup/day/night）且负向约束正确注入。生产卡样例：`char_card_803fb69b_anime_b6f61fa4d4fa.png`。
 - **web 波（2026-10-06 同日第二波，已上 core）**：lib/api +4 客户端方法与类型；`components/studio/CharacterAssetPanel.tsx`（锚点行编辑/色板 swatch/覆盖+缺口 chip/补拍计划列表/展示卡渲染预览/版本溯源展示，materialized_now 回填提示）；CastStage 设定卡操作区挂「资产」入口；studio.css 追加 `.studio-asset-*` 前缀样式。测试 `tests/characterAssetPanel.test.ts` 4 例绿；web 全量失败集与 HEAD 基线差集为空（5 例预存失败与本波无关）。部署=5 文件精确 scp（避让 BeefTV 在途未提交改动，三跟踪文件 md5 先与 core 核对一致）+ core 本机 `rm -rf .next && pnpm build`，BUILD_ID `20261006-104220-nogit`，产物 grep 三重确认（testid/API 路径/CSS）。
-- **未做（按分期）**：跨风格 variant 实际生成执行（M2，计划器已就绪，待选引擎走舰队）、per-character LoRA/embedding（M3）、D4 编辑底图重做（舰队批次，完成后走 refresh 级联）。
+- **M2 实际生成执行（2026-10-06 第三波，已完成）**：`style_variants` 入 L2 schema+PUT 白名单；驱动脚本 `tmp/run_asset_variants_linxa.py`（生产产品路：/api/upload → /api/generate/img2img → /api/jobs/lookup 轮询 → PUT 登记）。**林夏（anime）两变体已生成并登记生产资产**：realistic（majicMIX 麦橘写实 v7，denoise 0.68，seed 24680——五锚点全保，人像质感完整切换）与 ink_wash（flux2_dev，denoise 0.72，seed 97531——宣纸留白/皴染/题字印章形态，短发+雨衣+雨夜便利店构图锚点可辨）。引擎选型记录：:8196 无 WAI Illustrious，水墨走 flux2 通用底模；img2img 为异步 prompt_id 模式，结果取回走 jobs lookup `results` 字段。产物在 `tmp/asset_variants/`。
+- **未做（按分期）**：per-character LoRA/embedding（M3）、D4 编辑底图重做（**并行会话在打**——base_expr_* 产物 mtime 2026-10-06 16:51 + BeefTV 未提交改动可证，本线不碰防撞车，P-5）、变体图的 web 面板展示（style_variants 展示区，下轮小改）。
 
 ---
 

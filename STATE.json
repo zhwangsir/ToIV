@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-06T19:10:00+08:00",
+  "updated_at": "2026-10-06T19:30:00+08:00",
   "assistant_portal_cinematic_empty_2026_09_23": {
     "status": "assistant_portal_cinematic_empty_deployed",
     "date": "2026-09-23",
@@ -12464,14 +12464,14 @@
     "remaining": "现场项(tailscaled/BIOS/pc01 kernels)/SeC 上游边界/极闲窗口 rh-acc-9923136513 复核(可选)"
   },
   "character_asset_protocol_m1_2026_10_06": {
-    "status": "character_asset_protocol_m1_deployed_core",
+    "status": "character_asset_protocol_m1_m2_executed_core",
     "date": "2026-10-06",
     "source": [
       "ToIV 开发",
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "Character Asset Protocol v1 (docs/ops/CHARACTER_ASSET_PROTOCOL.md, D1-D3 executed, D4 separate fleet batch): new svc character_asset.py (L2 schema/anchors/coverage/version-cascade/card render/M2 variant+backfill builders) + 5 studio endpoints + generation hooks; 12 tests green, zero new regressions (53/104 pre-existing env failures match HEAD baseline); deployed core via core-jump; D3 real backfill on 林夏 803fb69b (1224 case) GET->v1 materialized + PUT 5 canonical anchors; card char_card_803fb69b_anime_b6f61fa4d4fa.png visual-accepted after 3 iterations; coverage-plan 3 jobs; web wave same day: lib/api +4 methods, CharacterAssetPanel (anchor editor/palette/coverage chips/card render/plan), CastStage entry, 4 tests green zero-new-failures, deployed via surgical scp + core build BUILD_ID=20261006-104220-nogit",
+    "summary": "Character Asset Protocol v1 (docs/ops/CHARACTER_ASSET_PROTOCOL.md, D1-D3 executed, D4 separate fleet batch): new svc character_asset.py (L2 schema/anchors/coverage/version-cascade/card render/M2 variant+backfill builders) + 5 studio endpoints + generation hooks; 12 tests green, zero new regressions (53/104 pre-existing env failures match HEAD baseline); deployed core via core-jump; D3 real backfill on 林夏 803fb69b (1224 case) GET->v1 materialized + PUT 5 canonical anchors; card char_card_803fb69b_anime_b6f61fa4d4fa.png visual-accepted after 3 iterations; coverage-plan 3 jobs; web wave same day: lib/api +4 methods, CharacterAssetPanel (anchor editor/palette/coverage chips/card render/plan), CastStage entry, 4 tests green zero-new-failures, deployed via surgical scp + core build BUILD_ID=20261006-104220-nogit; M2 executed: style_variants in schema+PUT; Lin Xia realistic(majicMIX 0.68/24680) & ink_wash(flux2 0.72/97531) generated via prod img2img and registered; D4 untouched (parallel session owns base_expr battlefield per artifacts mtime 16:51)",
     "product_trunk": "main_only",
     "files": [
       "apps/api/app/services/studio/character_asset.py",
@@ -12483,12 +12483,13 @@
       "apps/web/components/studio/CharacterAssetPanel.tsx",
       "apps/web/components/studio/stages/CastStage.tsx",
       "apps/web/app/styles/studio.css",
-      "apps/web/tests/characterAssetPanel.test.ts"
+      "apps/web/tests/characterAssetPanel.test.ts",
+      "tmp/run_asset_variants_linxa.py"
     ],
     "open": [
-      "M2 variant generation execution (engine pick + fleet)",
       "M3 per-char LoRA",
-      "D4 base_expr_2/3 redo fleet batch"
+      "D4 base_expr redo (parallel session owns)",
+      "web panel style_variants display"
     ]
   }
 }
