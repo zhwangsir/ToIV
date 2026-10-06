@@ -6107,3 +6107,9 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **C4 画布内真智能体 ✅**（ToIV-canvas `d4af76d1`）：画布页右下浮层面板（零侵入现有 assistant dock）——`services/toiv/agent-chat.ts` SSE 客户端 + `toiv-agent-float.tsx`（会话历史/流式正文/工具事件卡/中止）。**实弹验证**：对话流式正文 ✓、工具调用（list_smoke_failures start/ok 两帧+结果）✓。协议三坑入账：SSE **CRLF 换行**需归一、正文形态 `{"type":"text"}`、会话 id 走 X-Agent-Session-Id 响应头。
 - **C5 auto-editor 智能粗剪 ✅**（main `391d7259`）：`POST /video-edit/rough-cut`（共用 `_run_roughcut`）+ 智能体工具 `rough_cut_video`（P-9 四处同步：seam 尾位/SCHEMAS/SYSTEM 期望文本/窗口断言全绿，3 失败为基线既有）。**实弹**：雨夜成片 26.76MB/54.68s → 13.64MB（**-49%**），7.6s。踩坑链：pip 半截二进制×2（TaskStop 截断+运行时下载 core→github 慢）→ **ghfast.top 经 workstation 下 41MB 完整二进制传入**；29.x `--edit silence:`→`audio:` 语法迁移；studio files 取回改本地直读（环回无签名 401）。
 - **M2 市场原生页 ✅**：`/toiv/market`（分类 chips+搜索+卡片网格+详情抽屉+运行深链），6730 应用实时渲染；侧栏转内部路由。tsc 抓出 `3d:` 非法 key（vite 容忍但危险）已修。
+
+### 2026-10-06 17:40 CST — 自主执行窗第二轮：M2 对话/市场全页 + C7 Spike 收口
+- **M2 /toiv/agent 全页对话 ✅**（ToIV-canvas `0a1636a2`）：会话列表（与旧 UI 会话域完全互通）+ 流式对话 + 工具事件卡 + 多行输入；侧栏「智能体对话」转内部路由。C4 浮层（画布内）与本页共用 agent-chat 客户端。
+- **M2 /toiv/market 市场全页 ✅**：分类 chips+搜索+卡片网格+详情抽屉+运行深链；6730 应用实时。
+- **C7 Spike 收口（结论入账）**：lipsync 组合模板（add=lipsync→视频+音频双节点）代码就位并部署；**发现入口断点**——/canvas?mode=new 停在项目列表页不进编辑页，add 参数在本地空画布未被消费（现有 add=video/image 机制同样受影响）。结论：工具箱→节点模板技术可行，但需先修「首页卡→编辑页」直通链路（列为 M3 前置项）。
+- 融合进度对照附录 A：#1/2/4/5 ✅（任务中心/作品库/对话/市场），#3 作品库详情待做；剩余批次 M3（短剧台+入口链路修复+工具箱）/M4（服务仓合一）按计划。
