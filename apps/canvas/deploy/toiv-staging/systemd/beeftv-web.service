@@ -1,0 +1,14 @@
+[Unit]
+Description=BeefTV staging web (0.0.0.0:8271 -> backend 8272)
+After=beeftv-backend.service
+Wants=beeftv-backend.service
+[Service]
+WorkingDirectory=/home/merlin/beeftv-staging
+EnvironmentFile=/home/merlin/beeftv-staging/web.env
+ExecStart=/usr/bin/node /home/merlin/beeftv-staging/serve.mjs
+Restart=always
+RestartSec=3
+StandardOutput=append:/home/merlin/beeftv-staging/logs/web.log
+StandardError=append:/home/merlin/beeftv-staging/logs/web.log
+[Install]
+WantedBy=default.target

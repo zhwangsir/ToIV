@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ToIV brand: canvas #FAFAF9 + accent #17181A; T-bar + play triangle -->
+  <rect width="64" height="64" fill="#FAFAF9"/>
+  <rect x="16" y="16" width="32" height="9" rx="2" fill="#17181A"/>
+  <path d="M25 29 L39 37.5 L25 46 Z" fill="#17181A"/>
+</svg>

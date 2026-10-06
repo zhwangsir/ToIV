@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN" class="dark font-sans" style="color-scheme: dark">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>登录 · ToIV</title><link rel="icon" href="/favicon.svg">
+<!--SPA_CSS-->
+<!--GATE_STYLE--></head>
+<body class="bg-background text-foreground antialiased">
+<div class="app-user-workspace app-product-workspace toiv-gate">
+<form class="toiv-gate-card" id="f" autocomplete="on">
+ <div class="toiv-gate-brand"><img src="/logo.svg" alt=""><b>ToIV</b></div>
+ <div><label for="email">账号</label><input id="email" name="email" type="text" autocomplete="username" required autofocus></div>
+ <div><label for="password">密码</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+ <button class="toiv-gate-primary" id="b" type="submit">登录</button>
+ <div class="toiv-gate-err" id="e" role="alert"></div>
+</form>
+</div>
+<script>
+const f=document.getElementById("f"),b=document.getElementById("b"),e=document.getElementById("e");
+const next=()=>{const n=new URLSearchParams(location.search).get("next")||"/";return n.startsWith("/")&&!n.startsWith("//")?n:"/"};
+f.addEventListener("submit",async(ev)=>{ev.preventDefault();e.textContent="";b.disabled=true;b.textContent="登录中…";
+ try{const r=await fetch("/auth/login",{method:"POST",headers:{"content-type":"application/json"},credentials:"same-origin",body:JSON.stringify({email:f.email.value.trim(),password:f.password.value})});
+  const d=await r.json().catch(()=>({}));
+  if(r.ok){location.replace("/__toiv/starting?next="+encodeURIComponent(next()));return}
+  e.textContent=d.message||"登录失败（"+r.status+"）";
+ }catch(x){e.textContent="网络错误，请重试"}
+ b.disabled=false;b.textContent="登录"});
+</script></body></html>

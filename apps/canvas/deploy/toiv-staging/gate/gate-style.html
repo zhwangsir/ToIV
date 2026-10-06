@@ -1,0 +1,20 @@
+<style>
+/* Only BeefTV tokens (--user-*, --fs-*, --font-sans from the SPA stylesheet). The primary button copies
+   the home 「新建画布创作」 button (.beeftv-home-create-icon in pages/home/home-dashboard.css). */
+.toiv-gate{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--user-page-bg);color:var(--user-ink);font-family:var(--font-sans)}
+.toiv-gate-card{width:min(360px,100%);display:flex;flex-direction:column;gap:14px;padding:28px 24px;border:1px solid var(--user-border);border-radius:var(--user-radius-card);background:var(--user-surface)}
+.toiv-gate-brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.toiv-gate-brand img{width:34px;height:34px;border-radius:10px;display:block}
+.toiv-gate-brand b{font-size:var(--fs-body,15px);font-weight:600;line-height:1}
+.toiv-gate label{display:block;margin-bottom:6px;font-size:var(--fs-caption,12px);color:var(--user-ink-muted)}
+.toiv-gate input{width:100%;height:var(--user-control-height,38px);padding:0 12px;border:1px solid var(--user-border);border-radius:var(--user-radius-control,12px);background:var(--user-surface-muted);color:var(--user-ink);font:inherit;font-size:var(--fs-body,14px);outline:none;transition:border-color var(--user-motion)}
+.toiv-gate input:focus{border-color:var(--user-border-strong)}
+.toiv-gate-primary{margin-top:6px;height:44px;width:100%;border:1.35px solid #2c2c2c;border-radius:var(--user-radius-control,12px);color:#070707;background:linear-gradient(180deg,#fff 25.3%,rgba(255,255,255,.87) 89.7%);box-shadow:0 8px 20px rgba(0,0,0,.2);font:inherit;font-size:var(--fs-body,15px);font-weight:500;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease}
+.toiv-gate-primary:hover{transform:translateY(-1px);box-shadow:0 18px 38px rgba(0,0,0,.34)}
+.toiv-gate-primary:disabled{opacity:.6;cursor:default;transform:none}
+.toiv-gate-err:empty{display:none}
+.toiv-gate-err{min-height:18px;font-size:var(--fs-caption,12px);color:var(--status-error,var(--user-ink-muted))}
+.toiv-gate-status{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;color:var(--user-ink-muted);font-size:var(--fs-body,14px)}
+.toiv-gate-spin{width:22px;height:22px;border-radius:50%;border:2px solid var(--user-border-strong);border-top-color:var(--user-ink);animation:toivspin 1s linear infinite}
+@keyframes toivspin{to{transform:rotate(360deg)}}
+</style>

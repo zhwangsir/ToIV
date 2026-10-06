@@ -1,0 +1,1178 @@
+{
+  "apiVersion": "beeftv.plugin/v2",
+  "id": "toiv-h3",
+  "name": "ToIV H3 视频",
+  "version": "0.3.0",
+  "author": "ToIV",
+  "description": "通过 ToIV 平台 API (/api/h3/*) 调用 H3 视频管线；凭据为 ToIV 用户 JWT (Bearer)，产物按用户隔离。 v0.3: 提交响应带 job_id 时（ToIV ≥472d69b）任务键直接为 <job_id>~<prompt_id>，从第一次轮询起按 job_id 续跟；旧部署没有 job_id 时回退 prompt_id（首个 lookup 响应补上 id）。",
+  "permissions": [
+    "generation.run",
+    "media.read"
+  ],
+  "configuration": {
+    "fields": [
+      {
+        "name": "apiKey",
+        "type": "secret",
+        "label": "ToIV Token (JWT)",
+        "required": true,
+        "description": "ToIV 用户令牌：POST /api/auth/login 返回的 token。每个用户使用自己的令牌，作业与产物按令牌所属用户隔离。"
+      }
+    ]
+  },
+  "contributes": {
+    "providers": [
+      {
+        "id": "toiv-h3",
+        "label": "ToIV H3 文生视频",
+        "capabilities": [
+          "video"
+        ],
+        "scopes": [
+          "admin.system-channel",
+          "user.custom-channel",
+          "canvas",
+          "creation",
+          "agent"
+        ],
+        "baseUrl": "http://127.0.0.1:8090",
+        "requiresPublicMediaUrls": false,
+        "auth": {
+          "type": "bearer",
+          "field": "apiKey"
+        },
+        "parameters": [
+          {
+            "name": "model",
+            "type": "string",
+            "required": true,
+            "mapping": "(固定) h3-t2v",
+            "description": "渠道模型 ID，填 h3-t2v。"
+          },
+          {
+            "name": "prompt",
+            "type": "string",
+            "required": true,
+            "mapping": "positive",
+            "description": "视频提示词（≤4000 字）。"
+          },
+          {
+            "name": "duration",
+            "type": "integer",
+            "required": false,
+            "mapping": "duration_sec",
+            "description": "时长秒数，缺省 5；>单段上限由 ToIV 自动分段续写并裁切（≤600）。"
+          },
+          {
+            "name": "aspectRatio",
+            "type": "string",
+            "required": false,
+            "mapping": "width/height",
+            "description": "16:9 / 9:16 / 1:1 / 4:3 / 3:4 或自定义 WxH（原样透传，ToIV 校验 32 对齐、256~1344、9:16~16:9，越界返回 422）。"
+          },
+          {
+            "name": "resolution",
+            "type": "string",
+            "required": false,
+            "mapping": "width/height",
+            "description": "480p → 小尺寸（如 832x480）；其他 → ToIV 默认档（如 1344x768）。"
+          },
+          {
+            "name": "providerOptions",
+            "type": "object",
+            "required": false,
+            "mapping": "providerOptions.toiv-h3.{negative,seed,steps,speed_tier,acceleration,loras,width,height}",
+            "description": "ToIV H3 扩展字段（直接透传同名字段）。"
+          }
+        ],
+        "validations": [
+          {
+            "assert": {
+              "$eq": [
+                {
+                  "$len": {
+                    "$ref": "request.images"
+                  }
+                },
+                0
+              ]
+            },
+            "message": "ToIV H3 插件 v0.1 仅支持文生视频：图生/首尾帧/多参考需要先经 ToIV /api/upload 取得上传句柄，当前声明式插件无法两步提交，请移除参考图。"
+          },
+          {
+            "assert": {
+              "$eq": [
+                {
+                  "$len": {
+                    "$ref": "request.videos"
+                  }
+                },
+                0
+              ]
+            },
+            "message": "ToIV H3 文生视频不接受参考视频。"
+          }
+        ],
+        "create": {
+          "method": "POST",
+          "path": "/api/h3/t2v",
+          "originPath": true,
+          "contentType": "application/json",
+          "body": {
+            "$merge": [
+              {
+                "positive": {
+                  "$ref": "request.prompt"
+                },
+                "width": {
+                  "$coalesce": [
+                    {
+                      "$ref": "request.providerOptions.toiv-h3.width"
+                    },
+                    {
+                      "$if": {
+                        "condition": {
+                          "$gt": [
+                            {
+                              "$len": {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$coalesce": [
+                                        {
+                                          "$ref": "request.aspectRatio"
+                                        },
+                                        ""
+                                      ]
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              }
+                            },
+                            1
+                          ]
+                        },
+                        "then": {
+                          "$toInt": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$ref": "request.aspectRatio"
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              },
+                              0
+                            ]
+                          }
+                        },
+                        "else": {
+                          "$switch": {
+                            "cases": [
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "16:9"
+                                  ]
+                                },
+                                "then": {
+                                  "$if": {
+                                    "condition": {
+                                      "$in": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.resolution"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        [
+                                          "480p",
+                                          "360p",
+                                          "540p",
+                                          "sd"
+                                        ]
+                                      ]
+                                    },
+                                    "then": 832,
+                                    "else": 1344
+                                  }
+                                }
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "9:16"
+                                  ]
+                                },
+                                "then": {
+                                  "$if": {
+                                    "condition": {
+                                      "$in": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.resolution"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        [
+                                          "480p",
+                                          "360p",
+                                          "540p",
+                                          "sd"
+                                        ]
+                                      ]
+                                    },
+                                    "then": 480,
+                                    "else": 768
+                                  }
+                                }
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "1:1"
+                                  ]
+                                },
+                                "then": {
+                                  "$if": {
+                                    "condition": {
+                                      "$in": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.resolution"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        [
+                                          "480p",
+                                          "360p",
+                                          "540p",
+                                          "sd"
+                                        ]
+                                      ]
+                                    },
+                                    "then": 512,
+                                    "else": 1024
+                                  }
+                                }
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "4:3"
+                                  ]
+                                },
+                                "then": {
+                                  "$if": {
+                                    "condition": {
+                                      "$in": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.resolution"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        [
+                                          "480p",
+                                          "360p",
+                                          "540p",
+                                          "sd"
+                                        ]
+                                      ]
+                                    },
+                                    "then": 640,
+                                    "else": 1024
+                                  }
+                                }
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "3:4"
+                                  ]
+                                },
+                                "then": {
+                                  "$if": {
+                                    "condition": {
+                                      "$in": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.resolution"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        [
+                                          "480p",
+                                          "360p",
+                                          "540p",
+                                          "sd"
+                                        ]
+                                      ]
+                                    },
+                                    "then": 480,
+                                    "else": 768
+                                  }
+                                }
+                              }
+                            ],
+                            "default": {
+                              "$if": {
+                                "condition": {
+                                  "$in": [
+                                    {
+                                      "$lower": {
+                                        "$coalesce": [
+                                          {
+                                            "$ref": "request.resolution"
+                                          },
+                                          ""
+                                        ]
+                                      }
+                                    },
+                                    [
+                                      "480p",
+                                      "360p",
+                                      "540p",
+                                      "sd"
+                                    ]
+                                  ]
+                                },
+                                "then": 832,
+                                "else": 1344
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "height": {
+                  "$coalesce": [
+                    {
+                      "$ref": "request.providerOptions.toiv-h3.height"
+                    },
+                    {
+                      "$if": {
+                        "condition": {
+                          "$gt": [
+                            {
+                              "$len": {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$coalesce": [
+                                        {
+                                          "$ref": "request.aspectRatio"
+                                        },
+                                        ""
+                                      ]
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              }
+                            },
+                            1
+                          ]
+                        },
+                        "then": {
+                          "$toInt": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$ref": "request.aspectRatio"
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              },
+                              1
+                            ]
+                          }
+                        },
+                        "else": {
+                          "$switch": {
+                            "cases": [
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "16:9"
+                                  ]
+                                },
+                                "then": {
+                                  "$if": {
+                                    "condition": {
+                                      "$in": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.resolution"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        [
+                                          "480p",
+                                          "360p",
+                                          "540p",
+                                          "sd"
+                                        ]
+                                      ]
+                                    },
+                                    "then": 480,
+                                    "else": 768
+                                  }
+                                }
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "9:16"
+                                  ]
+                                },
+                                "then": {
+                                  "$if": {
+                                    "condition": {
+                                      "$in": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.resolution"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        [
+                                          "480p",
+                                          "360p",
+                                          "540p",
+                                          "sd"
+                                        ]
+                                      ]
+                                    },
+                                    "then": 832,
+                                    "else": 1344
+                                  }
+                                }
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "1:1"
+                                  ]
+                                },
+                                "then": {
+                                  "$if": {
+                                    "condition": {
+                                      "$in": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.resolution"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        [
+                                          "480p",
+                                          "360p",
+                                          "540p",
+                                          "sd"
+                                        ]
+                                      ]
+                                    },
+                                    "then": 512,
+                                    "else": 1024
+                                  }
+                                }
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "4:3"
+                                  ]
+                                },
+                                "then": {
+                                  "$if": {
+                                    "condition": {
+                                      "$in": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.resolution"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        [
+                                          "480p",
+                                          "360p",
+                                          "540p",
+                                          "sd"
+                                        ]
+                                      ]
+                                    },
+                                    "then": 480,
+                                    "else": 768
+                                  }
+                                }
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "3:4"
+                                  ]
+                                },
+                                "then": {
+                                  "$if": {
+                                    "condition": {
+                                      "$in": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.resolution"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        [
+                                          "480p",
+                                          "360p",
+                                          "540p",
+                                          "sd"
+                                        ]
+                                      ]
+                                    },
+                                    "then": 640,
+                                    "else": 1024
+                                  }
+                                }
+                              }
+                            ],
+                            "default": {
+                              "$if": {
+                                "condition": {
+                                  "$in": [
+                                    {
+                                      "$lower": {
+                                        "$coalesce": [
+                                          {
+                                            "$ref": "request.resolution"
+                                          },
+                                          ""
+                                        ]
+                                      }
+                                    },
+                                    [
+                                      "480p",
+                                      "360p",
+                                      "540p",
+                                      "sd"
+                                    ]
+                                  ]
+                                },
+                                "then": 480,
+                                "else": 768
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "duration_sec": {
+                  "$if": {
+                    "condition": {
+                      "$gt": [
+                        {
+                          "$ref": "request.duration"
+                        },
+                        0
+                      ]
+                    },
+                    "then": {
+                      "$ref": "request.duration"
+                    },
+                    "else": 5
+                  }
+                },
+                "negative": {
+                  "$omitEmpty": {
+                    "$ref": "request.providerOptions.toiv-h3.negative"
+                  }
+                },
+                "seed": {
+                  "$omitEmpty": {
+                    "$ref": "request.providerOptions.toiv-h3.seed"
+                  }
+                },
+                "steps": {
+                  "$omitEmpty": {
+                    "$ref": "request.providerOptions.toiv-h3.steps"
+                  }
+                },
+                "speed_tier": {
+                  "$omitEmpty": {
+                    "$ref": "request.providerOptions.toiv-h3.speed_tier"
+                  }
+                },
+                "acceleration": {
+                  "$omitEmpty": {
+                    "$ref": "request.providerOptions.toiv-h3.acceleration"
+                  }
+                },
+                "loras": {
+                  "$omitEmpty": {
+                    "$ref": "request.providerOptions.toiv-h3.loras"
+                  }
+                }
+              },
+              {
+                "$coalesce": [
+                  {
+                    "$ref": "request.providerOptions.toiv-h3.body"
+                  },
+                  {}
+                ]
+              }
+            ]
+          }
+        },
+        "poll": {
+          "method": "GET",
+          "path": "/api/jobs/lookup",
+          "originPath": true,
+          "query": {
+            "job_id": {
+              "$if": {
+                "condition": {
+                  "$gt": [
+                    {
+                      "$len": {
+                        "$split": [
+                          {
+                            "$ref": "taskId"
+                          },
+                          "~"
+                        ]
+                      }
+                    },
+                    1
+                  ]
+                },
+                "then": {
+                  "$at": [
+                    {
+                      "$split": [
+                        {
+                          "$ref": "taskId"
+                        },
+                        "~"
+                      ]
+                    },
+                    0
+                  ]
+                },
+                "else": {
+                  "$if": {
+                    "condition": {
+                      "$gt": [
+                        {
+                          "$len": {
+                            "$split": [
+                              {
+                                "$ref": "taskId"
+                              },
+                              "-"
+                            ]
+                          }
+                        },
+                        1
+                      ]
+                    },
+                    "then": null,
+                    "else": {
+                      "$ref": "taskId"
+                    }
+                  }
+                }
+              }
+            },
+            "prompt_id": {
+              "$if": {
+                "condition": {
+                  "$gt": [
+                    {
+                      "$len": {
+                        "$split": [
+                          {
+                            "$ref": "taskId"
+                          },
+                          "~"
+                        ]
+                      }
+                    },
+                    1
+                  ]
+                },
+                "then": null,
+                "else": {
+                  "$if": {
+                    "condition": {
+                      "$gt": [
+                        {
+                          "$len": {
+                            "$split": [
+                              {
+                                "$ref": "taskId"
+                              },
+                              "-"
+                            ]
+                          }
+                        },
+                        1
+                      ]
+                    },
+                    "then": {
+                      "$ref": "taskId"
+                    },
+                    "else": null
+                  }
+                }
+              }
+            }
+          },
+          "fallback": {
+            "method": "GET",
+            "path": "/api/jobs/lookup",
+            "originPath": true,
+            "query": {
+              "prompt_id": {
+                "$if": {
+                  "condition": {
+                    "$gt": [
+                      {
+                        "$len": {
+                          "$split": [
+                            {
+                              "$ref": "taskId"
+                            },
+                            "~"
+                          ]
+                        }
+                      },
+                      1
+                    ]
+                  },
+                  "then": {
+                    "$at": [
+                      {
+                        "$split": [
+                          {
+                            "$ref": "taskId"
+                          },
+                          "~"
+                        ]
+                      },
+                      1
+                    ]
+                  },
+                  "else": {
+                    "$ref": "taskId"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "cancel": {
+          "method": "POST",
+          "path": "/api/jobs/{{taskId}}/cancel",
+          "pathTemplate": {
+            "$concat": [
+              "/api/jobs/",
+              {
+                "$at": [
+                  {
+                    "$split": [
+                      {
+                        "$ref": "taskId"
+                      },
+                      "~"
+                    ]
+                  },
+                  0
+                ]
+              },
+              "/cancel"
+            ]
+          },
+          "originPath": true
+        },
+        "response": {
+          "taskId": {
+            "$if": {
+              "condition": {
+                "$and": [
+                  {
+                    "$gt": [
+                      {
+                        "$len": {
+                          "$coalesce": [
+                            {
+                              "$ref": "response.job_id"
+                            },
+                            {
+                              "$ref": "response.id"
+                            },
+                            ""
+                          ]
+                        }
+                      },
+                      0
+                    ]
+                  },
+                  {
+                    "$gt": [
+                      {
+                        "$len": {
+                          "$coalesce": [
+                            {
+                              "$ref": "response.prompt_id"
+                            },
+                            ""
+                          ]
+                        }
+                      },
+                      0
+                    ]
+                  }
+                ]
+              },
+              "then": {
+                "$concat": [
+                  {
+                    "$coalesce": [
+                      {
+                        "$ref": "response.job_id"
+                      },
+                      {
+                        "$ref": "response.id"
+                      },
+                      ""
+                    ]
+                  },
+                  "~",
+                  {
+                    "$ref": "response.prompt_id"
+                  }
+                ]
+              },
+              "else": {
+                "$coalesce": [
+                  {
+                    "$ref": "response.prompt_id"
+                  },
+                  {
+                    "$ref": "taskId"
+                  }
+                ]
+              }
+            }
+          },
+          "status": {
+            "$switch": {
+              "cases": [
+                {
+                  "when": {
+                    "$eq": [
+                      {
+                        "$ref": "response.status"
+                      },
+                      "error"
+                    ]
+                  },
+                  "then": "failed"
+                },
+                {
+                  "when": {
+                    "$in": [
+                      {
+                        "$ref": "response.status"
+                      },
+                      [
+                        "canceled",
+                        "cancelled"
+                      ]
+                    ]
+                  },
+                  "then": "canceled"
+                },
+                {
+                  "when": {
+                    "$and": [
+                      {
+                        "$eq": [
+                          {
+                            "$ref": "response.status"
+                          },
+                          "done"
+                        ]
+                      },
+                      {
+                        "$ne": [
+                          {
+                            "$ref": "response.post_status"
+                          },
+                          "processing"
+                        ]
+                      }
+                    ]
+                  },
+                  "then": "succeeded"
+                },
+                {
+                  "when": {
+                    "$eq": [
+                      {
+                        "$ref": "response.prompt_id"
+                      },
+                      null
+                    ]
+                  },
+                  "then": "failed"
+                }
+              ],
+              "default": "processing"
+            }
+          },
+          "message": {
+            "$coalesce": [
+              {
+                "$if": {
+                  "condition": {
+                    "$gt": [
+                      {
+                        "$len": {
+                          "$ref": "response.error"
+                        }
+                      },
+                      0
+                    ]
+                  },
+                  "then": {
+                    "$concat": [
+                      "ToIV 作业失败：",
+                      {
+                        "$ref": "response.error"
+                      }
+                    ]
+                  },
+                  "else": null
+                }
+              },
+              {
+                "$if": {
+                  "condition": {
+                    "$eq": [
+                      {
+                        "$ref": "response.post_status"
+                      },
+                      "processing"
+                    ]
+                  },
+                  "then": "ToIV 正在精确裁切/后处理",
+                  "else": null
+                }
+              },
+              {
+                "$if": {
+                  "condition": {
+                    "$gt": [
+                      {
+                        "$len": {
+                          "$ref": "response.hold_reason"
+                        }
+                      },
+                      0
+                    ]
+                  },
+                  "then": {
+                    "$concat": [
+                      "ToIV 排队：",
+                      {
+                        "$ref": "response.hold_reason"
+                      }
+                    ]
+                  },
+                  "else": null
+                }
+              },
+              {
+                "$ref": "response.detail"
+              }
+            ]
+          },
+          "videos": {
+            "$if": {
+              "condition": {
+                "$and": [
+                  {
+                    "$eq": [
+                      {
+                        "$ref": "response.status"
+                      },
+                      "done"
+                    ]
+                  },
+                  {
+                    "$ne": [
+                      {
+                        "$ref": "response.post_status"
+                      },
+                      "processing"
+                    ]
+                  }
+                ]
+              },
+              "then": {
+                "$filter": {
+                  "from": {
+                    "$ref": "response.results"
+                  },
+                  "as": "item",
+                  "where": {
+                    "$or": [
+                      {
+                        "$gt": [
+                          {
+                            "$len": {
+                              "$split": [
+                                {
+                                  "$lower": {
+                                    "$ref": "item"
+                                  }
+                                },
+                                ".mp4"
+                              ]
+                            }
+                          },
+                          1
+                        ]
+                      },
+                      {
+                        "$gt": [
+                          {
+                            "$len": {
+                              "$split": [
+                                {
+                                  "$lower": {
+                                    "$ref": "item"
+                                  }
+                                },
+                                ".webm"
+                              ]
+                            }
+                          },
+                          1
+                        ]
+                      },
+                      {
+                        "$gt": [
+                          {
+                            "$len": {
+                              "$split": [
+                                {
+                                  "$lower": {
+                                    "$ref": "item"
+                                  }
+                                },
+                                ".mov"
+                              ]
+                            }
+                          },
+                          1
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              "else": null
+            }
+          },
+          "resultEphemeral": true
+        }
+      }
+    ]
+  },
+  "documentation": "# ToIV H3 视频 (toiv-h3)\n\nBeefTV 声明式 provider 插件：把 BeefTV 统一视频请求转成 ToIV `POST /api/h3/t2v`，\nv0.2 起任务键为 `<job_id>~<prompt_id>`：优先 `GET /api/jobs/lookup?job_id=` 轮询（ToIV main 08554934 起支持），当前部署返回 422 时由宿主 `poll.fallback` 回退到 `?prompt_id=`；后端重启后按持久化的任务键续跑，结果为 ToIV 根相对 URL `/api/images?...&sig=...`\n（BeefTV 按 baseUrl 解析并在同源下载时附带 Bearer）。\n\n- 凭据：ToIV 用户 JWT（`POST /api/auth/login` → `token`），作为 Authorization: Bearer。\n- 状态：error→failed；canceled→canceled；done 且 post_status≠processing→succeeded；其余→processing。\n- 取消：`POST /api/jobs/{job_id}/cancel`（尚未拿到 job_id 时用 prompt_id；ToIV 同时接受二者）。\n- 宿主要求：需要 ToIV-canvas 后端的 `ManifestOperation.fallback` 与 poll/cancel 任务键保真补丁（见仓库 CHANGELOG-TOIV.md）。\n- 限制：v0.1 仅 t2v；i2v/fl2v/r2v 需要先 `/api/upload` 拿上传句柄（image+worker），声明式插件只有单次 create，无法两步。\n- 部署：base URL 为私网 http 时需 `CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS=127.0.0.1`。\n\n---\n\n# ToIV H3 文生视频接口字段\n\n## 协议身份\n\n- 插件 ID：`toiv-h3`；Provider ID：`toiv-h3`；能力：`video`。\n- 默认 Base URL：`http://127.0.0.1:8090`（渠道里填 ToIV API 地址）。\n- 鉴权：`bearer`，令牌为用户自己的 ToIV JWT（`POST /api/auth/login`）。\n- 创建：`POST /api/h3/t2v`。\n- 查询：`GET /api/jobs/lookup?job_id=`；旧部署返回 4xx 时回退 `?prompt_id=`。\n- 取消：`POST /api/jobs/{job_id}/cancel`。\n\n## 任务键\n\n- ToIV ≥ 472d69b 的提交响应带 `job_id`：任务键直接为 `<job_id>~<prompt_id>`，第一次轮询起就按 job_id 续跟，后端重启也能恢复。\n- 旧部署只返回 `prompt_id`：任务键先是 `prompt_id`，第一次 lookup 响应带回 `id` 后升级为 `<id>~<prompt_id>`。\n\n## 结果\n\n`status=done` 且 `post_status` 不为 `processing` 时成功；产物为 ToIV 返回的 mp4，宿主下载后持久化。`error` 映射为失败消息，`hold_reason` 显示为排队原因。\n\n<!-- BEEFTV_PLUGIN_MANIFEST_START -->\n## Manifest 完整接口定义\n\n以下 JSON 与插件包内实际 `manifest.json` 逐字段一致，覆盖插件身份、权限、配置、鉴权、参数、校验、创建、Agent、查询、取消、结果下载、响应和 Agent 响应映射。`documentation` 字段的值就是当前完整文档；为避免文档在自身内部无限递归，JSON 中仅用等义占位文本表示正文。\n\n```json\n{\n  \"apiVersion\": \"beeftv.plugin/v2\",\n  \"id\": \"toiv-h3\",\n  \"name\": \"ToIV H3 视频\",\n  \"version\": \"0.3.0\",\n  \"author\": \"ToIV\",\n  \"description\": \"通过 ToIV 平台 API (/api/h3/*) 调用 H3 视频管线；凭据为 ToIV 用户 JWT (Bearer)，产物按用户隔离。 v0.3: 提交响应带 job_id 时（ToIV ≥472d69b）任务键直接为 <job_id>~<prompt_id>，从第一次轮询起按 job_id 续跟；旧部署没有 job_id 时回退 prompt_id（首个 lookup 响应补上 id）。\",\n  \"permissions\": [\n    \"generation.run\",\n    \"media.read\"\n  ],\n  \"configuration\": {\n    \"fields\": [\n      {\n        \"name\": \"apiKey\",\n        \"type\": \"secret\",\n        \"label\": \"ToIV Token (JWT)\",\n        \"required\": true,\n        \"description\": \"ToIV 用户令牌：POST /api/auth/login 返回的 token。每个用户使用自己的令牌，作业与产物按令牌所属用户隔离。\"\n      }\n    ]\n  },\n  \"contributes\": {\n    \"providers\": [\n      {\n        \"id\": \"toiv-h3\",\n        \"label\": \"ToIV H3 文生视频\",\n        \"capabilities\": [\n          \"video\"\n        ],\n        \"scopes\": [\n          \"admin.system-channel\",\n          \"user.custom-channel\",\n          \"canvas\",\n          \"creation\",\n          \"agent\"\n        ],\n        \"baseUrl\": \"http://127.0.0.1:8090\",\n        \"requiresPublicMediaUrls\": false,\n        \"auth\": {\n          \"type\": \"bearer\",\n          \"field\": \"apiKey\"\n        },\n        \"parameters\": [\n          {\n            \"name\": \"model\",\n            \"type\": \"string\",\n            \"required\": true,\n            \"mapping\": \"(固定) h3-t2v\",\n            \"description\": \"渠道模型 ID，填 h3-t2v。\"\n          },\n          {\n            \"name\": \"prompt\",\n            \"type\": \"string\",\n            \"required\": true,\n            \"mapping\": \"positive\",\n            \"description\": \"视频提示词（≤4000 字）。\"\n          },\n          {\n            \"name\": \"duration\",\n            \"type\": \"integer\",\n            \"required\": false,\n            \"mapping\": \"duration_sec\",\n            \"description\": \"时长秒数，缺省 5；>单段上限由 ToIV 自动分段续写并裁切（≤600）。\"\n          },\n          {\n            \"name\": \"aspectRatio\",\n            \"type\": \"string\",\n            \"required\": false,\n            \"mapping\": \"width/height\",\n            \"description\": \"16:9 / 9:16 / 1:1 / 4:3 / 3:4 或自定义 WxH（原样透传，ToIV 校验 32 对齐、256~1344、9:16~16:9，越界返回 422）。\"\n          },\n          {\n            \"name\": \"resolution\",\n            \"type\": \"string\",\n            \"required\": false,\n            \"mapping\": \"width/height\",\n            \"description\": \"480p → 小尺寸（如 832x480）；其他 → ToIV 默认档（如 1344x768）。\"\n          },\n          {\n            \"name\": \"providerOptions\",\n            \"type\": \"object\",\n            \"required\": false,\n            \"mapping\": \"providerOptions.toiv-h3.{negative,seed,steps,speed_tier,acceleration,loras,width,height}\",\n            \"description\": \"ToIV H3 扩展字段（直接透传同名字段）。\"\n          }\n        ],\n        \"validations\": [\n          {\n            \"assert\": {\n              \"$eq\": [\n                {\n                  \"$len\": {\n                    \"$ref\": \"request.images\"\n                  }\n                },\n                0\n              ]\n            },\n            \"message\": \"ToIV H3 插件 v0.1 仅支持文生视频：图生/首尾帧/多参考需要先经 ToIV /api/upload 取得上传句柄，当前声明式插件无法两步提交，请移除参考图。\"\n          },\n          {\n            \"assert\": {\n              \"$eq\": [\n                {\n                  \"$len\": {\n                    \"$ref\": \"request.videos\"\n                  }\n                },\n                0\n              ]\n            },\n            \"message\": \"ToIV H3 文生视频不接受参考视频。\"\n          }\n        ],\n        \"create\": {\n          \"method\": \"POST\",\n          \"path\": \"/api/h3/t2v\",\n          \"originPath\": true,\n          \"contentType\": \"application/json\",\n          \"body\": {\n            \"$merge\": [\n              {\n                \"positive\": {\n                  \"$ref\": \"request.prompt\"\n                },\n                \"width\": {\n                  \"$coalesce\": [\n                    {\n                      \"$ref\": \"request.providerOptions.toiv-h3.width\"\n                    },\n                    {\n                      \"$if\": {\n                        \"condition\": {\n                          \"$gt\": [\n                            {\n                              \"$len\": {\n                                \"$split\": [\n                                  {\n                                    \"$lower\": {\n                                      \"$coalesce\": [\n                                        {\n                                          \"$ref\": \"request.aspectRatio\"\n                                        },\n                                        \"\"\n                                      ]\n                                    }\n                                  },\n                                  \"x\"\n                                ]\n                              }\n                            },\n                            1\n                          ]\n                        },\n                        \"then\": {\n                          \"$toInt\": {\n                            \"$at\": [\n                              {\n                                \"$split\": [\n                                  {\n                                    \"$lower\": {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    }\n                                  },\n                                  \"x\"\n                                ]\n                              },\n                              0\n                            ]\n                          }\n                        },\n                        \"else\": {\n                          \"$switch\": {\n                            \"cases\": [\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"16:9\"\n                                  ]\n                                },\n                                \"then\": {\n                                  \"$if\": {\n                                    \"condition\": {\n                                      \"$in\": [\n                                        {\n                                          \"$lower\": {\n                                            \"$coalesce\": [\n                                              {\n                                                \"$ref\": \"request.resolution\"\n                                              },\n                                              \"\"\n                                            ]\n                                          }\n                                        },\n                                        [\n                                          \"480p\",\n                                          \"360p\",\n                                          \"540p\",\n                                          \"sd\"\n                                        ]\n                                      ]\n                                    },\n                                    \"then\": 832,\n                                    \"else\": 1344\n                                  }\n                                }\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"9:16\"\n                                  ]\n                                },\n                                \"then\": {\n                                  \"$if\": {\n                                    \"condition\": {\n                                      \"$in\": [\n                                        {\n                                          \"$lower\": {\n                                            \"$coalesce\": [\n                                              {\n                                                \"$ref\": \"request.resolution\"\n                                              },\n                                              \"\"\n                                            ]\n                                          }\n                                        },\n                                        [\n                                          \"480p\",\n                                          \"360p\",\n                                          \"540p\",\n                                          \"sd\"\n                                        ]\n                                      ]\n                                    },\n                                    \"then\": 480,\n                                    \"else\": 768\n                                  }\n                                }\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"1:1\"\n                                  ]\n                                },\n                                \"then\": {\n                                  \"$if\": {\n                                    \"condition\": {\n                                      \"$in\": [\n                                        {\n                                          \"$lower\": {\n                                            \"$coalesce\": [\n                                              {\n                                                \"$ref\": \"request.resolution\"\n                                              },\n                                              \"\"\n                                            ]\n                                          }\n                                        },\n                                        [\n                                          \"480p\",\n                                          \"360p\",\n                                          \"540p\",\n                                          \"sd\"\n                                        ]\n                                      ]\n                                    },\n                                    \"then\": 512,\n                                    \"else\": 1024\n                                  }\n                                }\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"4:3\"\n                                  ]\n                                },\n                                \"then\": {\n                                  \"$if\": {\n                                    \"condition\": {\n                                      \"$in\": [\n                                        {\n                                          \"$lower\": {\n                                            \"$coalesce\": [\n                                              {\n                                                \"$ref\": \"request.resolution\"\n                                              },\n                                              \"\"\n                                            ]\n                                          }\n                                        },\n                                        [\n                                          \"480p\",\n                                          \"360p\",\n                                          \"540p\",\n                                          \"sd\"\n                                        ]\n                                      ]\n                                    },\n                                    \"then\": 640,\n                                    \"else\": 1024\n                                  }\n                                }\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"3:4\"\n                                  ]\n                                },\n                                \"then\": {\n                                  \"$if\": {\n                                    \"condition\": {\n                                      \"$in\": [\n                                        {\n                                          \"$lower\": {\n                                            \"$coalesce\": [\n                                              {\n                                                \"$ref\": \"request.resolution\"\n                                              },\n                                              \"\"\n                                            ]\n                                          }\n                                        },\n                                        [\n                                          \"480p\",\n                                          \"360p\",\n                                          \"540p\",\n                                          \"sd\"\n                                        ]\n                                      ]\n                                    },\n                                    \"then\": 480,\n                                    \"else\": 768\n                                  }\n                                }\n                              }\n                            ],\n                            \"default\": {\n                              \"$if\": {\n                                \"condition\": {\n                                  \"$in\": [\n                                    {\n                                      \"$lower\": {\n                                        \"$coalesce\": [\n                                          {\n                                            \"$ref\": \"request.resolution\"\n                                          },\n                                          \"\"\n                                        ]\n                                      }\n                                    },\n                                    [\n                                      \"480p\",\n                                      \"360p\",\n                                      \"540p\",\n                                      \"sd\"\n                                    ]\n                                  ]\n                                },\n                                \"then\": 832,\n                                \"else\": 1344\n                              }\n                            }\n                          }\n                        }\n                      }\n                    }\n                  ]\n                },\n                \"height\": {\n                  \"$coalesce\": [\n                    {\n                      \"$ref\": \"request.providerOptions.toiv-h3.height\"\n                    },\n                    {\n                      \"$if\": {\n                        \"condition\": {\n                          \"$gt\": [\n                            {\n                              \"$len\": {\n                                \"$split\": [\n                                  {\n                                    \"$lower\": {\n                                      \"$coalesce\": [\n                                        {\n                                          \"$ref\": \"request.aspectRatio\"\n                                        },\n                                        \"\"\n                                      ]\n                                    }\n                                  },\n                                  \"x\"\n                                ]\n                              }\n                            },\n                            1\n                          ]\n                        },\n                        \"then\": {\n                          \"$toInt\": {\n                            \"$at\": [\n                              {\n                                \"$split\": [\n                                  {\n                                    \"$lower\": {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    }\n                                  },\n                                  \"x\"\n                                ]\n                              },\n                              1\n                            ]\n                          }\n                        },\n                        \"else\": {\n                          \"$switch\": {\n                            \"cases\": [\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"16:9\"\n                                  ]\n                                },\n                                \"then\": {\n                                  \"$if\": {\n                                    \"condition\": {\n                                      \"$in\": [\n                                        {\n                                          \"$lower\": {\n                                            \"$coalesce\": [\n                                              {\n                                                \"$ref\": \"request.resolution\"\n                                              },\n                                              \"\"\n                                            ]\n                                          }\n                                        },\n                                        [\n                                          \"480p\",\n                                          \"360p\",\n                                          \"540p\",\n                                          \"sd\"\n                                        ]\n                                      ]\n                                    },\n                                    \"then\": 480,\n                                    \"else\": 768\n                                  }\n                                }\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"9:16\"\n                                  ]\n                                },\n                                \"then\": {\n                                  \"$if\": {\n                                    \"condition\": {\n                                      \"$in\": [\n                                        {\n                                          \"$lower\": {\n                                            \"$coalesce\": [\n                                              {\n                                                \"$ref\": \"request.resolution\"\n                                              },\n                                              \"\"\n                                            ]\n                                          }\n                                        },\n                                        [\n                                          \"480p\",\n                                          \"360p\",\n                                          \"540p\",\n                                          \"sd\"\n                                        ]\n                                      ]\n                                    },\n                                    \"then\": 832,\n                                    \"else\": 1344\n                                  }\n                                }\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"1:1\"\n                                  ]\n                                },\n                                \"then\": {\n                                  \"$if\": {\n                                    \"condition\": {\n                                      \"$in\": [\n                                        {\n                                          \"$lower\": {\n                                            \"$coalesce\": [\n                                              {\n                                                \"$ref\": \"request.resolution\"\n                                              },\n                                              \"\"\n                                            ]\n                                          }\n                                        },\n                                        [\n                                          \"480p\",\n                                          \"360p\",\n                                          \"540p\",\n                                          \"sd\"\n                                        ]\n                                      ]\n                                    },\n                                    \"then\": 512,\n                                    \"else\": 1024\n                                  }\n                                }\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"4:3\"\n                                  ]\n                                },\n                                \"then\": {\n                                  \"$if\": {\n                                    \"condition\": {\n                                      \"$in\": [\n                                        {\n                                          \"$lower\": {\n                                            \"$coalesce\": [\n                                              {\n                                                \"$ref\": \"request.resolution\"\n                                              },\n                                              \"\"\n                                            ]\n                                          }\n                                        },\n                                        [\n                                          \"480p\",\n                                          \"360p\",\n                                          \"540p\",\n                                          \"sd\"\n                                        ]\n                                      ]\n                                    },\n                                    \"then\": 480,\n                                    \"else\": 768\n                                  }\n                                }\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"3:4\"\n                                  ]\n                                },\n                                \"then\": {\n                                  \"$if\": {\n                                    \"condition\": {\n                                      \"$in\": [\n                                        {\n                                          \"$lower\": {\n                                            \"$coalesce\": [\n                                              {\n                                                \"$ref\": \"request.resolution\"\n                                              },\n                                              \"\"\n                                            ]\n                                          }\n                                        },\n                                        [\n                                          \"480p\",\n                                          \"360p\",\n                                          \"540p\",\n                                          \"sd\"\n                                        ]\n                                      ]\n                                    },\n                                    \"then\": 640,\n                                    \"else\": 1024\n                                  }\n                                }\n                              }\n                            ],\n                            \"default\": {\n                              \"$if\": {\n                                \"condition\": {\n                                  \"$in\": [\n                                    {\n                                      \"$lower\": {\n                                        \"$coalesce\": [\n                                          {\n                                            \"$ref\": \"request.resolution\"\n                                          },\n                                          \"\"\n                                        ]\n                                      }\n                                    },\n                                    [\n                                      \"480p\",\n                                      \"360p\",\n                                      \"540p\",\n                                      \"sd\"\n                                    ]\n                                  ]\n                                },\n                                \"then\": 480,\n                                \"else\": 768\n                              }\n                            }\n                          }\n                        }\n                      }\n                    }\n                  ]\n                },\n                \"duration_sec\": {\n                  \"$if\": {\n                    \"condition\": {\n                      \"$gt\": [\n                        {\n                          \"$ref\": \"request.duration\"\n                        },\n                        0\n                      ]\n                    },\n                    \"then\": {\n                      \"$ref\": \"request.duration\"\n                    },\n                    \"else\": 5\n                  }\n                },\n                \"negative\": {\n                  \"$omitEmpty\": {\n                    \"$ref\": \"request.providerOptions.toiv-h3.negative\"\n                  }\n                },\n                \"seed\": {\n                  \"$omitEmpty\": {\n                    \"$ref\": \"request.providerOptions.toiv-h3.seed\"\n                  }\n                },\n                \"steps\": {\n                  \"$omitEmpty\": {\n                    \"$ref\": \"request.providerOptions.toiv-h3.steps\"\n                  }\n                },\n                \"speed_tier\": {\n                  \"$omitEmpty\": {\n                    \"$ref\": \"request.providerOptions.toiv-h3.speed_tier\"\n                  }\n                },\n                \"acceleration\": {\n                  \"$omitEmpty\": {\n                    \"$ref\": \"request.providerOptions.toiv-h3.acceleration\"\n                  }\n                },\n                \"loras\": {\n                  \"$omitEmpty\": {\n                    \"$ref\": \"request.providerOptions.toiv-h3.loras\"\n                  }\n                }\n              },\n              {\n                \"$coalesce\": [\n                  {\n                    \"$ref\": \"request.providerOptions.toiv-h3.body\"\n                  },\n                  {}\n                ]\n              }\n            ]\n          }\n        },\n        \"poll\": {\n          \"method\": \"GET\",\n          \"path\": \"/api/jobs/lookup\",\n          \"originPath\": true,\n          \"query\": {\n            \"job_id\": {\n              \"$if\": {\n                \"condition\": {\n                  \"$gt\": [\n                    {\n                      \"$len\": {\n                        \"$split\": [\n                          {\n                            \"$ref\": \"taskId\"\n                          },\n                          \"~\"\n                        ]\n                      }\n                    },\n                    1\n                  ]\n                },\n                \"then\": {\n                  \"$at\": [\n                    {\n                      \"$split\": [\n                        {\n                          \"$ref\": \"taskId\"\n                        },\n                        \"~\"\n                      ]\n                    },\n                    0\n                  ]\n                },\n                \"else\": {\n                  \"$if\": {\n                    \"condition\": {\n                      \"$gt\": [\n                        {\n                          \"$len\": {\n                            \"$split\": [\n                              {\n                                \"$ref\": \"taskId\"\n                              },\n                              \"-\"\n                            ]\n                          }\n                        },\n                        1\n                      ]\n                    },\n                    \"then\": null,\n                    \"else\": {\n                      \"$ref\": \"taskId\"\n                    }\n                  }\n                }\n              }\n            },\n            \"prompt_id\": {\n              \"$if\": {\n                \"condition\": {\n                  \"$gt\": [\n                    {\n                      \"$len\": {\n                        \"$split\": [\n                          {\n                            \"$ref\": \"taskId\"\n                          },\n                          \"~\"\n                        ]\n                      }\n                    },\n                    1\n                  ]\n                },\n                \"then\": null,\n                \"else\": {\n                  \"$if\": {\n                    \"condition\": {\n                      \"$gt\": [\n                        {\n                          \"$len\": {\n                            \"$split\": [\n                              {\n                                \"$ref\": \"taskId\"\n                              },\n                              \"-\"\n                            ]\n                          }\n                        },\n                        1\n                      ]\n                    },\n                    \"then\": {\n                      \"$ref\": \"taskId\"\n                    },\n                    \"else\": null\n                  }\n                }\n              }\n            }\n          },\n          \"fallback\": {\n            \"method\": \"GET\",\n            \"path\": \"/api/jobs/lookup\",\n            \"originPath\": true,\n            \"query\": {\n              \"prompt_id\": {\n                \"$if\": {\n                  \"condition\": {\n                    \"$gt\": [\n                      {\n                        \"$len\": {\n                          \"$split\": [\n                            {\n                              \"$ref\": \"taskId\"\n                            },\n                            \"~\"\n                          ]\n                        }\n                      },\n                      1\n                    ]\n                  },\n                  \"then\": {\n                    \"$at\": [\n                      {\n                        \"$split\": [\n                          {\n                            \"$ref\": \"taskId\"\n                          },\n                          \"~\"\n                        ]\n                      },\n                      1\n                    ]\n                  },\n                  \"else\": {\n                    \"$ref\": \"taskId\"\n                  }\n                }\n              }\n            }\n          }\n        },\n        \"cancel\": {\n          \"method\": \"POST\",\n          \"path\": \"/api/jobs/{{taskId}}/cancel\",\n          \"pathTemplate\": {\n            \"$concat\": [\n              \"/api/jobs/\",\n              {\n                \"$at\": [\n                  {\n                    \"$split\": [\n                      {\n                        \"$ref\": \"taskId\"\n                      },\n                      \"~\"\n                    ]\n                  },\n                  0\n                ]\n              },\n              \"/cancel\"\n            ]\n          },\n          \"originPath\": true\n        },\n        \"response\": {\n          \"taskId\": {\n            \"$if\": {\n              \"condition\": {\n                \"$and\": [\n                  {\n                    \"$gt\": [\n                      {\n                        \"$len\": {\n                          \"$coalesce\": [\n                            {\n                              \"$ref\": \"response.job_id\"\n                            },\n                            {\n                              \"$ref\": \"response.id\"\n                            },\n                            \"\"\n                          ]\n                        }\n                      },\n                      0\n                    ]\n                  },\n                  {\n                    \"$gt\": [\n                      {\n                        \"$len\": {\n                          \"$coalesce\": [\n                            {\n                              \"$ref\": \"response.prompt_id\"\n                            },\n                            \"\"\n                          ]\n                        }\n                      },\n                      0\n                    ]\n                  }\n                ]\n              },\n              \"then\": {\n                \"$concat\": [\n                  {\n                    \"$coalesce\": [\n                      {\n                        \"$ref\": \"response.job_id\"\n                      },\n                      {\n                        \"$ref\": \"response.id\"\n                      },\n                      \"\"\n                    ]\n                  },\n                  \"~\",\n                  {\n                    \"$ref\": \"response.prompt_id\"\n                  }\n                ]\n              },\n              \"else\": {\n                \"$coalesce\": [\n                  {\n                    \"$ref\": \"response.prompt_id\"\n                  },\n                  {\n                    \"$ref\": \"taskId\"\n                  }\n                ]\n              }\n            }\n          },\n          \"status\": {\n            \"$switch\": {\n              \"cases\": [\n                {\n                  \"when\": {\n                    \"$eq\": [\n                      {\n                        \"$ref\": \"response.status\"\n                      },\n                      \"error\"\n                    ]\n                  },\n                  \"then\": \"failed\"\n                },\n                {\n                  \"when\": {\n                    \"$in\": [\n                      {\n                        \"$ref\": \"response.status\"\n                      },\n                      [\n                        \"canceled\",\n                        \"cancelled\"\n                      ]\n                    ]\n                  },\n                  \"then\": \"canceled\"\n                },\n                {\n                  \"when\": {\n                    \"$and\": [\n                      {\n                        \"$eq\": [\n                          {\n                            \"$ref\": \"response.status\"\n                          },\n                          \"done\"\n                        ]\n                      },\n                      {\n                        \"$ne\": [\n                          {\n                            \"$ref\": \"response.post_status\"\n                          },\n                          \"processing\"\n                        ]\n                      }\n                    ]\n                  },\n                  \"then\": \"succeeded\"\n                },\n                {\n                  \"when\": {\n                    \"$eq\": [\n                      {\n                        \"$ref\": \"response.prompt_id\"\n                      },\n                      null\n                    ]\n                  },\n                  \"then\": \"failed\"\n                }\n              ],\n              \"default\": \"processing\"\n            }\n          },\n          \"message\": {\n            \"$coalesce\": [\n              {\n                \"$if\": {\n                  \"condition\": {\n                    \"$gt\": [\n                      {\n                        \"$len\": {\n                          \"$ref\": \"response.error\"\n                        }\n                      },\n                      0\n                    ]\n                  },\n                  \"then\": {\n                    \"$concat\": [\n                      \"ToIV 作业失败：\",\n                      {\n                        \"$ref\": \"response.error\"\n                      }\n                    ]\n                  },\n                  \"else\": null\n                }\n              },\n              {\n                \"$if\": {\n                  \"condition\": {\n                    \"$eq\": [\n                      {\n                        \"$ref\": \"response.post_status\"\n                      },\n                      \"processing\"\n                    ]\n                  },\n                  \"then\": \"ToIV 正在精确裁切/后处理\",\n                  \"else\": null\n                }\n              },\n              {\n                \"$if\": {\n                  \"condition\": {\n                    \"$gt\": [\n                      {\n                        \"$len\": {\n                          \"$ref\": \"response.hold_reason\"\n                        }\n                      },\n                      0\n                    ]\n                  },\n                  \"then\": {\n                    \"$concat\": [\n                      \"ToIV 排队：\",\n                      {\n                        \"$ref\": \"response.hold_reason\"\n                      }\n                    ]\n                  },\n                  \"else\": null\n                }\n              },\n              {\n                \"$ref\": \"response.detail\"\n              }\n            ]\n          },\n          \"videos\": {\n            \"$if\": {\n              \"condition\": {\n                \"$and\": [\n                  {\n                    \"$eq\": [\n                      {\n                        \"$ref\": \"response.status\"\n                      },\n                      \"done\"\n                    ]\n                  },\n                  {\n                    \"$ne\": [\n                      {\n                        \"$ref\": \"response.post_status\"\n                      },\n                      \"processing\"\n                    ]\n                  }\n                ]\n              },\n              \"then\": {\n                \"$filter\": {\n                  \"from\": {\n                    \"$ref\": \"response.results\"\n                  },\n                  \"as\": \"item\",\n                  \"where\": {\n                    \"$or\": [\n                      {\n                        \"$gt\": [\n                          {\n                            \"$len\": {\n                              \"$split\": [\n                                {\n                                  \"$lower\": {\n                                    \"$ref\": \"item\"\n                                  }\n                                },\n                                \".mp4\"\n                              ]\n                            }\n                          },\n                          1\n                        ]\n                      },\n                      {\n                        \"$gt\": [\n                          {\n                            \"$len\": {\n                              \"$split\": [\n                                {\n                                  \"$lower\": {\n                                    \"$ref\": \"item\"\n                                  }\n                                },\n                                \".webm\"\n                              ]\n                            }\n                          },\n                          1\n                        ]\n                      },\n                      {\n                        \"$gt\": [\n                          {\n                            \"$len\": {\n                              \"$split\": [\n                                {\n                                  \"$lower\": {\n                                    \"$ref\": \"item\"\n                                  }\n                                },\n                                \".mov\"\n                              ]\n                            }\n                          },\n                          1\n                        ]\n                      }\n                    ]\n                  }\n                }\n              },\n              \"else\": null\n            }\n          },\n          \"resultEphemeral\": true\n        }\n      }\n    ]\n  },\n  \"documentation\": \"<当前插件的完整 documentation，由 README.md 与 docs/interface.md 拼接而成；为避免 JSON 递归，此处不重复展开正文。>\"\n}\n```\n<!-- BEEFTV_PLUGIN_MANIFEST_END -->\n"
+}

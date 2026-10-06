@@ -1,0 +1,205 @@
+name: ToIV desktop
+
+# Builds the ToIV desktop client (BeefTV Wails shell + ToIV login gate) natively on
+# Windows and macOS, bundles the assistant agent-host, and runs a launch smoke
+# (app starts, agent-host comes up, ToIV login page + login endpoint reachable).
+#
+# Signing is automatic when the secrets exist and skipped otherwise (ad-hoc on macOS):
+#   macOS:   APPLE_CERT_P12_BASE64, APPLE_CERT_PASSWORD, APPLE_SIGN_IDENTITY
+#            (+ APPLE_ID, APPLE_APP_PASSWORD, APPLE_TEAM_ID to notarize and staple)
+#   Windows: WINDOWS_CERT_PFX_BASE64, WINDOWS_CERT_PASSWORD
+on:
+  workflow_dispatch:
+  push:
+    tags: ['toiv-desktop-v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            platform: windows-amd64
+          - os: macos-latest
+            platform: darwin-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.15.0'
+
+      - name: Select bundled Node runtime
+        shell: bash
+        run: |
+          node -e 'const fs=require("fs"),p=require("path"); const bin=p.dirname(process.execPath); fs.appendFileSync(process.env.GITHUB_ENV, `BEEFTV_NODE_RUNTIME=${process.platform==="win32"?bin:p.dirname(bin)}\n`);'
+
+      - name: Install MSYS2 UCRT64 GCC
+        id: msys2
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          release: true
+          path-type: inherit
+          install: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-binutils
+
+      - name: Assert DWARF 5 CGO compiler
+        if: runner.os == 'Windows'
+        env:
+          MSYSTEM_PREFIX: ${{ steps.msys2.outputs.msys2-location }}\ucrt64
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\assert-windows-dwarf5-cgo.ps1
+
+      # Windows: build-beeftv-windows-release.ps1 builds the packages itself (Git Bash has no zip).
+      - name: Build official plugin packages (incl. toiv-h3)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: sh plugin-packages/build-packages.sh
+
+      - name: Build ToIV for Windows
+        if: runner.os == 'Windows'
+        env:
+          CGO_ENABLED: "1"
+          BEEFTV_APP_ICON: ${{ github.workspace }}\assets\toiv-app-icon.png
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-beeftv-windows-release.ps1
+
+      - name: Build ToIV for macOS
+        if: runner.os != 'Windows'
+        run: ./scripts/build-toiv-desktop.sh
+
+      - name: Desktop gate tests
+        working-directory: backend
+        shell: bash
+        run: go test ./cmd/desktop
+
+      - name: Sign + notarize (macOS, only when secrets exist)
+        id: macsign
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=backend/cmd/desktop/build/bin/ToIV.app
+          if [ -z "${APPLE_CERT_P12_BASE64:-}" ] || [ -z "${APPLE_SIGN_IDENTITY:-}" ]; then
+            echo "Apple signing secrets not set: keeping the ad-hoc signature"; echo "suffix=unsigned" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          KC="$RUNNER_TEMP/toiv-sign.keychain-db"; KCP="$(openssl rand -hex 16)"
+          echo "$APPLE_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KCP" "$KC"; security set-keychain-settings -lut 3600 "$KC"; security unlock-keychain -p "$KCP" "$KC"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KCP" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/cert.p12"
+          find "$APP/Contents/Resources/agent-host" -type f -perm -u+x -print0 | xargs -0 -I{} codesign --force --options runtime --timestamp --sign "$APPLE_SIGN_IDENTITY" "{}" || true
+          codesign --force --deep --options runtime --timestamp --sign "$APPLE_SIGN_IDENTITY" "$APP"
+          codesign --verify --deep --strict "$APP"
+          if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+            ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/notarize.zip"
+            xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+            xcrun stapler staple "$APP"
+            echo "suffix=notarized" >> "$GITHUB_OUTPUT"
+          else
+            echo "Notarization secrets not set: signed only"; echo "suffix=signed" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Sign (Windows, only when secrets exist)
+        id: winsign
+        if: runner.os == 'Windows'
+        env:
+          WINDOWS_CERT_PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        shell: pwsh
+        run: |
+          if (-not $env:WINDOWS_CERT_PFX_BASE64) { Write-Host "Windows signing secrets not set: unsigned"; "suffix=unsigned" >> $env:GITHUB_OUTPUT; exit 0 }
+          $pfx = Join-Path $env:RUNNER_TEMP "toiv-sign.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERT_PFX_BASE64))
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe | Where-Object { $_.FullName -match "x64" } | Select-Object -Last 1
+          $bin = "backend\cmd\desktop\build\bin"
+          $targets = @("$bin\ToIV.exe", "$bin\cli\beeftv.exe")
+          & $signtool.FullName sign /f $pfx /p $env:WINDOWS_CERT_PASSWORD /fd sha256 /tr http://timestamp.digicert.com /td sha256 $targets
+          if ($LASTEXITCODE -ne 0) { throw "signtool failed" }
+          Remove-Item $pfx -Force
+          "suffix=signed" >> $env:GITHUB_OUTPUT
+
+      - name: Launch smoke (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $bin = Resolve-Path "backend\cmd\desktop\build\bin"
+          $exe = Join-Path $bin "ToIV.exe"
+          if (-not (Test-Path (Join-Path $bin "agent-host\runtime\node.exe"))) { throw "agent-host is not bundled next to ToIV.exe" }
+          # 1) headless startup chain: backend, agent-host, login page, ToIV login endpoint
+          $d = Join-Path $env:RUNNER_TEMP "toiv-smoke"; New-Item -ItemType Directory -Force -Path $d | Out-Null
+          $env:CANVAS_DESKTOP_DATA_DIR = $d
+          $p = Start-Process -FilePath $exe -ArgumentList "--toiv-smoke=$d\report.json" -Wait -PassThru
+          Get-Content "$d\report.json"
+          if ($p.ExitCode -ne 0) { throw "launch smoke failed (exit $($p.ExitCode))" }
+          # 2) the real GUI process starts (WebView2) and stays up
+          $g = Join-Path $env:RUNNER_TEMP "toiv-gui"; New-Item -ItemType Directory -Force -Path $g | Out-Null
+          $env:CANVAS_DESKTOP_DATA_DIR = $g
+          $app = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 20
+          if ($app.HasExited) { if (Test-Path "$g\startup-error.log") { Get-Content "$g\startup-error.log" }; throw "ToIV.exe exited during launch (code $($app.ExitCode))" }
+          Write-Host "ToIV.exe running (pid $($app.Id))"
+          Stop-Process -Id $app.Id -Force
+
+      - name: Launch smoke (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$PWD/backend/cmd/desktop/build/bin/ToIV.app"
+          test -x "$APP/Contents/Resources/agent-host/runtime/bin/node" || { echo "agent-host is not bundled"; exit 1; }
+          D="$RUNNER_TEMP/toiv-smoke"; mkdir -p "$D"
+          CANVAS_DESKTOP_DATA_DIR="$D" "$APP/Contents/MacOS/ToIV" --toiv-smoke="$D/report.json"
+          G="$RUNNER_TEMP/toiv-gui"; mkdir -p "$G"
+          CANVAS_DESKTOP_DATA_DIR="$G" "$APP/Contents/MacOS/ToIV" & PID=$!
+          sleep 20
+          if ! kill -0 "$PID" 2>/dev/null; then cat "$G/startup-error.log" 2>/dev/null || true; echo "ToIV exited during launch"; exit 1; fi
+          echo "ToIV running (pid $PID)"; kill "$PID" || true
+
+      - name: Package
+        id: package
+        shell: bash
+        env:
+          SUFFIX: ${{ steps.macsign.outputs.suffix || steps.winsign.outputs.suffix || 'unsigned' }}
+        run: |
+          mkdir -p dist
+          NAME="ToIV-${{ matrix.platform }}-$SUFFIX"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          cd backend/cmd/desktop/build/bin
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            7z a -tzip "$GITHUB_WORKSPACE/dist/$NAME.zip" ToIV.exe plugin-packages agent-host cli
+          else
+            ditto -c -k --keepParent ToIV.app "$GITHUB_WORKSPACE/dist/$NAME.zip"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: dist/${{ steps.package.outputs.name }}.zip
+          if-no-files-found: error
