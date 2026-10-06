@@ -532,10 +532,17 @@ async def _run_roughcut(url: str, threshold: str, margin: str) -> dict[str, obje
     out_name = f"rc{job_id}.mp4"
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as hc:
-            r = await hc.get(f"http://127.0.0.1:8090{url}")
-            r.raise_for_status()
-            data = r.content
+        # studio files 先走本地直读(绕开 P-1 签名鉴权与环回开销);其余 /api 走内环回+签名透传
+        from app.services.studio.orchestrator import _studio_local_path
+
+        local = _studio_local_path(url)
+        if local is not None:
+            data = local.read_bytes()
+        else:
+            async with httpx.AsyncClient(timeout=120.0) as hc:
+                r = await hc.get(f"http://127.0.0.1:8090{url}")
+                r.raise_for_status()
+                data = r.content
         if not data:
             raise HTTPException(status_code=422, detail="视频取回为空")
         tmp_src.write_bytes(data)
