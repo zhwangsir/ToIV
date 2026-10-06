@@ -6140,3 +6140,8 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **双入口接入 ✅**（ToIV-canvas `50126bc3`）：①画布连线创建菜单（CanvasConnectionCreateMenu commands 表）新增「文生图(模板)」「对口型(模板)」两项——组合模板一次建视频+音频双节点；②首页能力区第 7 卡「对口型(模板)」（add=lipsync 直达新建画布流）。真机验证：首页卡渲染 ✓；连线菜单项部署 ✓（连线操作需画布编辑态，与 hydrated 终验同窗用户侧确认）。
 - 四族进度：生成族 ✅(t2i)、组合族 ✅(lipsync)；编辑族/音频族待后续（依赖前者验收）。
 - ⏳ 用户终验提醒（持续）：真实浏览器开 /studio/canvas?mode=new&add=lipsync 验 hydrated 自动建布→双节点落位（一并覆盖连线菜单模板项）。
+
+### 2026-10-06 20:25 CST — M3 尾部：编辑族模板落地 + Remotion 骨架开跑
+- **编辑族「局部重绘(模板)」✅**（ToIV-canvas 本地提交）：三处接入——连线创建菜单项（Image+Text 连建）、首页能力卡第 8 张、`add=inpaint` 组合模板（project.tsx）。真机验证首页 8 卡渲染。**四族进度：生成✅ 组合✅ 编辑✅**；音频族待验收后。
+- **Remotion 成片渲染器骨架开跑**：workstation `/home/merlin/remotion-studio`（npm 镜像装 4.0.400 + react19）；SubtitleCard 竖屏字幕卡组件（渐变底/发言人/淡入上浮）+ 90 帧@30fps 768×1344 demo；首渲染进行中（Chrome Headless Shell 109MB 下载中，remotion.dev 直连慢 ~40min，后台监控收尾）。
+- ⏳ 用户终验提醒（持续）：真实浏览器 /studio/canvas?mode=new&add=lipsync。
