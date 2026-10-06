@@ -100,3 +100,51 @@
 - `pages/toiv/tasks-page.tsx` / `library-page.tsx`：antd 风格原生页（加载/错误/空态/刷新）
 - router `/toiv/tasks` `/toiv/library`；侧栏两项 external→内部路由（**零跳转达成**）
 - 真机验证：两页均实时渲染 ToIV PG 数据（agent-runs 状态徽标/子任务进度；boards 网格）
+
+## 附录 B：BeefTV × ToIV 全功能点对比清单（2026-10-06，供保留决策）
+
+> 基底已拍板：**BeefTV**。本表列出两侧全部功能点；「决策」列留白待用户圈选。
+> 标记说明：独有=仅一侧存在；重叠=两侧都有功能等价物；◆=建议保留源。
+
+### A 组 · 画布创作核心（BeefTV 独有，ToIV 无对应物）
+| # | 功能点 | 说明 | 决策 |
+|---|---|---|---|
+| A1 | 自由画布节点编辑器 | 10+ 节点类型（图/视频/文/音/配置/脚本/绘图/帧/角色引用/技能），拖拽连线 | ☐ |
+| A2 | 导演模式 | director workbench+sequencer+dock，项目分镜化时间线编排 | ☐ |
+| A3 | 智能剪辑创作会话 | creation conversations+时间线转写（开发中 flag） | ☐ |
+| A4 | 生成任务中心 | provider 直连生成视频/图，重试/日志/失败查询 | ☐ |
+| A5 | 深度捕捉 | depthcapture 模块 | ☐ |
+| A6 | 语音转写 | transcription 模块 | ☐ |
+| A7 | 播放/编辑内核 | playback+editing 模块 | ☐ |
+| A8 | 提示词库/技能 | prompts+skills 模块（skills 页已重定向退役） | ☐ |
+| A9 | Eagle 资产插件 | 本地素材库直连 | ☐ |
+| A10 | 桌面端+CLI/MCP | Wails 桌面、命令行、自动更新 | ☐ |
+
+### B 组 · ToIV 业务域（ToIV 独有，BeefTV 无对应物）
+| # | 功能点 | 说明 | 决策 |
+|---|---|---|---|
+| B1 | 门户智能体对话 | SSE/思考时间线/工具卡6族/21意图chips/会话fork/文档挂载 | ☐ |
+| B2 | Agent Team | L0-L2 计划/审批/子任务编排 | ☐ |
+| B3 | 应用市场 | 6773 应用/烟测状态/说明卡/rh-acc | ☐ |
+| B4 | 作品库 | boards/变体分组/回收站/整组删除/导出 | ☐ |
+| B5 | 短剧工作台 | 项目/角色设定卡/分镜/管线C渲染/配音/对口型/成片/一键成片 | ☐ |
+| B6 | 工具箱 21 工具 | 换装…3D 全 intent | ☐ |
+| B7 | 数字人+音频编排 | tts/分离/拼接/混音/变体（sfx 未实现） | ☐ |
+| B8 | 资源中心 | 模型资产815/百科/知识图谱/引擎注册表 | ☐ |
+| B9 | 实体库 | entities | ☐ |
+| B10 | ComfyUI 二次编辑 | open-in-comfy / save-from-comfy | ☐ |
+| B11 | 管理系统 admin | 设备域/作业队列/审计/运营（:3200） | ☐ |
+| B12 | LLM 代理 | /api/llm/v1 OpenAI 兼容（BeefTV 助手已在用） | ☐ |
+| B13 | 微信小程序 | token 预设+H5 | ☐ |
+| B14 | 后端运营能力 | whisper 集群/视频评分器/封面 autorefire/自愈修复器 | ☐ |
+
+### C 组 · 重叠/冲突（两侧都有，需择一或融合）
+| # | 功能点 | BeefTV 形态 | ToIV 形态 | 融合建议 | 决策 |
+|---|---|---|---|---|---|
+| C1 | 任务概念 | 画布生成任务（provider 直连） | jobs+agent-runs 统一作业 | 双层保留：统一时间线（画布任务+业务任务一屏） | ☐ |
+| C2 | 资产/作品 | 画布 assets（sqlite） | 作品库 boards（PG） | M4 PG 化后合一，作品可直接入画布 | ☐ |
+| C3 | 模型管理 | 模型配置 channels+modelcatalog | 资源中心 MODEL_SOURCES+引擎注册表 | 合一视图：渠道配置(BeefTV)+资产百科(ToIV) | ☐ |
+| C4 | AI 助手 | 画布内 assistant（已接 ToIV LLM） | 门户智能体（工具/团队强） | ToIV 智能体为大脑，BeefTV 面板为载体 | ☐ |
+| C5 | 视频剪辑 | 智能剪辑（开发中） | 成片 assemble/一键成片 | BeefTV 时间线为编辑器，ToIV assemble 为成片管线 | ☐ |
+| C6 | 外部接入 | MCP 客户端+桌面端 | 小程序 | 各留各的通道 | ☐ |
+| C7 | 技能/工具 | skills 模块（半退役） | 工具箱 21 intents | 工具箱以画布节点模板+对话 chips 融入 | ☐ |
