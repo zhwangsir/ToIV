@@ -6145,3 +6145,9 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **编辑族「局部重绘(模板)」✅**（ToIV-canvas 本地提交）：三处接入——连线创建菜单项（Image+Text 连建）、首页能力卡第 8 张、`add=inpaint` 组合模板（project.tsx）。真机验证首页 8 卡渲染。**四族进度：生成✅ 组合✅ 编辑✅**；音频族待验收后。
 - **Remotion 成片渲染器骨架开跑**：workstation `/home/merlin/remotion-studio`（npm 镜像装 4.0.400 + react19）；SubtitleCard 竖屏字幕卡组件（渐变底/发言人/淡入上浮）+ 90 帧@30fps 768×1344 demo；首渲染进行中（Chrome Headless Shell 109MB 下载中，remotion.dev 直连慢 ~40min，后台监控收尾）。
 - ⏳ 用户终验提醒（持续）：真实浏览器 /studio/canvas?mode=new&add=lipsync。
+
+### 2026-10-06 20:55 CST — M3 尾部双交付：编辑族模板 + Remotion 渲染器出片
+- **编辑族「局部重绘(模板)」✅**（ToIV-canvas `f72ea2f0` 已推 GitHub）：连线菜单项（Image+Text 连建）+首页第 8 卡+`add=inpaint` 组合模板。四族进度：生成✅/组合✅/编辑✅，音频族待验收后。
+- **Remotion 成片渲染器首片 ✅**：workstation `/home/merlin/remotion-studio`（4.0.400+react19，npmmirror 装）+ SubtitleCard 组件（768×1344 竖屏/渐变底/发言人/淡入上浮/词级样式位）→ **首渲染出片 212KB h264**（90f@30fps）。踩坑：.mjs JSX 不被 bundle 解析→.jsx；entry-point 须显式传参（config setEntryPoint 对 render 子命令不生效）。Chrome Headless Shell 109MB 首次下载慢（remotion.dev 直连，已缓存后续快）。
+- **接 ToIV 管线的设计锚点**（后续批）：drama 分镜的词锚定字幕/片头卡 → composition props（lines/speaker/timing 从 storyboard API 取）→ api 侧新增 /video-edit/remotion-render 端点 ssh workstation 调 npx remotion render（对齐 video_edit.py 的 ssh+NAS 模式）。
+- ⏳ 用户终验（持续）：真实浏览器 /studio/canvas?mode=new&add=lipsync。
