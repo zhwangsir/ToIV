@@ -549,7 +549,7 @@ async def _run_roughcut(url: str, threshold: str, margin: str) -> dict[str, obje
         _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         proc = await asyncio.create_subprocess_exec(
             _AE_BIN, str(tmp_src), "-o", str(tmp_out),
-            "--edit", f"silence:threshold={threshold}", "--margin", margin,
+            "--edit", f"audio:threshold={threshold}", "--margin", margin,
             "--no-open",
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
         )
