@@ -185,6 +185,10 @@ export function CanvasConnectionCreateMenu({ pending, viewport, viewportSize, co
             command("tpl-inpaint", "局部重绘(模板)", CanvasNodeType.Image, getNodeIcon(CanvasNodeType.Image), "node", getDisabledReason(CanvasNodeType.Image), () => {
                 onCreate(CanvasNodeType.Image); onCreate(CanvasNodeType.Text); onClose();
             }),
+            // 音频族(M3 收尾,四族齐):配音=音频节点+文本台本节点
+            command("tpl-dub", "配音(模板)", CanvasNodeType.Audio, getNodeIcon(CanvasNodeType.Audio), "node", getDisabledReason(CanvasNodeType.Audio), () => {
+                onCreate(CanvasNodeType.Audio); onCreate(CanvasNodeType.Text); onClose();
+            }),
             command("director", "导演台", CanvasNodeType.Config, getNodeIcon(CanvasNodeType.Config), "node", "暂不可用"),
             command("script", "脚本", CanvasNodeType.Script, getNodeIcon(CanvasNodeType.Script), "node", "暂不可用"),
         ];

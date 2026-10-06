@@ -12,4 +12,5 @@ export const beefTVCapabilityItems = [
     { id: "agent", label: "智能体对话", detail: "对话驱动创作", to: "/?view=home&classic=1", icon: Bot, disabled: false, external: true },
     { id: "lipsync", label: "对口型(模板)", detail: "视频+音频组合节点", to: "/canvas?mode=new&add=lipsync", icon: AudioLines, disabled: false, external: false },
     { id: "inpaint", label: "局部重绘(模板)", detail: "图片+重绘指令组合", to: "/canvas?mode=new&add=inpaint", icon: Image, disabled: false, external: false },
+    { id: "dub", label: "配音(模板)", detail: "音频+台本文本组合", to: "/canvas?mode=new&add=dub", icon: AudioLines, disabled: false, external: false },
 ] as const;
