@@ -149,3 +149,13 @@ export async function fetchDramaProject(pid: string): Promise<ToivDramaDetail> {
     const { data } = await toivHttp.get(`/studio/projects/${pid}`);
     return data as ToivDramaDetail;
 }
+
+export async function triggerShotRender(shotId: string): Promise<boolean> {
+    try { await toivHttp.post(`/studio/shots/${shotId}/render`, undefined, { timeout: 3600_000 }); return true; }
+    catch { return false; }
+}
+
+export async function triggerBatchRender(pid: string): Promise<boolean> {
+    try { await toivHttp.post(`/studio/projects/${pid}/render`, undefined, { timeout: 3600_000 }); return true; }
+    catch { return false; }
+}

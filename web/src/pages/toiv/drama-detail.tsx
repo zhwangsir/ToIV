@@ -1,9 +1,10 @@
 import { App as AntApp, Button, Empty, Spin, Tag, Typography } from "antd";
+import { PlayCircle } from "lucide-react";
 import { ArrowLeft, Clapperboard, ExternalLink, Film, RefreshCw, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { fetchDramaProject, type ToivDramaDetail } from "@/services/toiv/client";
+import { fetchDramaProject, triggerBatchRender, triggerShotRender, type ToivDramaDetail } from "@/services/toiv/client";
 
 const SHOT_STATUS: Record<string, { color: string; text: string }> = {
     draft: { color: "default", text: "草稿" },
@@ -18,6 +19,8 @@ export default function DramaDetailPage() {
     const { message } = AntApp.useApp();
     const [detail, setDetail] = useState<ToivDramaDetail | null>(null);
     const [loading, setLoading] = useState(true);
+    const [renderingShots, setRenderingShots] = useState<Set<string>>(new Set());
+    const [batchRendering, setBatchRendering] = useState(false);
 
     const load = useCallback(async () => {
         if (!id) return;
@@ -28,6 +31,13 @@ export default function DramaDetailPage() {
     }, [id, message]);
 
     useEffect(() => { void load(); }, [load]);
+    // 渲染轮询(M3 末项):本页存在渲染中(乐观或后端态)时 15s 拉一次项目
+    const hasRendering = batchRendering || (detail?.shots ?? []).some((s) => renderingShots.has(s.id) || s.status === "rendering");
+    useEffect(() => {
+        if (!hasRendering || !id) return;
+        const t = window.setInterval(() => { void fetchDramaProject(id).then(setDetail).catch(() => {}); }, 15000);
+        return () => window.clearInterval(t);
+    }, [hasRendering, id]);
 
     if (loading) return <main className="flex h-full items-center justify-center"><Spin /></main>;
     if (!detail) return <main className="flex h-full items-center justify-center"><Empty description="项目不存在或读取失败" /></main>;
@@ -48,6 +58,10 @@ export default function DramaDetailPage() {
                     </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
+                    <Button type="primary" icon={<PlayCircle className="h-3.5 w-3.5" />} loading={batchRendering}
+                        onClick={() => { setBatchRendering(true); void triggerBatchRender(detail.id).finally(() => setBatchRendering(false)); }}>
+                        渲染全部
+                    </Button>
                     <Button icon={<RefreshCw className="h-3.5 w-3.5" />} onClick={() => void load()}>刷新</Button>
                     <a href={`/drama/${detail.id}?classic=1`}><Button type="primary" icon={<ExternalLink className="h-3.5 w-3.5" />}>在原工作台操作</Button></a>
                 </div>
@@ -98,6 +112,16 @@ export default function DramaDetailPage() {
                                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-semibold text-[var(--muted-foreground,#a8a8a8)]">#{Number(s.idx) + 1}</span>
+                                        {!["rendering", "rendered", "voiced", "lipsynced", "done"].includes(s.status) && (
+                                            <Button size="small" type="text" icon={<PlayCircle className="h-3 w-3" />}
+                                                loading={renderingShots.has(s.id)}
+                                                onClick={() => {
+                                                    setRenderingShots((prev) => new Set(prev).add(s.id));
+                                                    void triggerShotRender(s.id).finally(() => setRenderingShots((prev) => { const n = new Set(prev); n.delete(s.id); return n; }));
+                                                }}>
+                                                渲染
+                                            </Button>
+                                        )}
                                         <Tag color={meta.color} bordered={false}>{meta.text}</Tag>
                                         <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{s.duration_sec}s · {s.render_mode}</span>
                                         {s.speaker && <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">🗣 {s.speaker}</span>}
