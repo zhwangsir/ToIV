@@ -89,3 +89,25 @@ export type ToivBoardItem = {
         post_status?: string;
     } | null;
 };
+
+export type ToivDramaProject = {
+    id: string;
+    title?: string;
+    premise?: string;
+    status: string;
+    width?: number;
+    height?: number;
+    render_mode_default?: string;
+    final_url?: string;
+    updated_at?: string;
+    pipeline?: {
+        total_shots: number;
+        by_status: Record<string, number>;
+        next_step?: { step: string; label: string; todo: number };
+    } | null;
+};
+
+export async function fetchDramaProjects(): Promise<ToivDramaProject[]> {
+    const { data } = await toivHttp.get("/studio/projects");
+    return Array.isArray(data) ? data : ((data as { items?: ToivDramaProject[] })?.items ?? []);
+}

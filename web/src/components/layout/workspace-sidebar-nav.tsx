@@ -61,7 +61,7 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
             heading: "ToIV 创作",
             items: [
                 { id: "toiv:agent", title: "智能体对话", icon: Bot, to: "/toiv/agent" },
-                { id: "toiv:drama", title: "短剧工作台", icon: Clapperboard, to: "/?view=studio&classic=1", external: true },
+                { id: "toiv:drama", title: "短剧工作台", icon: Clapperboard, to: "/toiv/drama" },
                 { id: "toiv:market", title: "应用市场", icon: Store, to: "/toiv/market" },
                 { id: "toiv:library", title: "作品库", icon: Library, to: "/toiv/library" },
                 { id: "toiv:tasks", title: "任务中心", icon: ListChecks, to: "/toiv/tasks" },
