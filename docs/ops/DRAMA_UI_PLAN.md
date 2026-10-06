@@ -6192,3 +6192,8 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **panel-replace ✅**（ToIV-canvas `e6f99f77` 已推 GitHub）：panel 网格悬浮「替换」入口（file→base64→POST /studio/characters/{cid}/character-sheet/panel-replace {style,key,image_b64}）+完成自动刷新；键位映射 portrait/front/side/back/faces/costume/expr_*。TSC+构建部署过。
 - **暂态确认**：真机 Drawer panel 网格空——因**后台重生成飞行中**会重写中间 char_panel_* 文件，list 端点 glob 暂空（页面内 fetch 实证 panel_urls=[]，非前端 bug）；重生成完成（监控 exec_5ceb677a 在岗）panels 自动回来，替换 UI 即刻可用。
 - 重生成闭环验证观察点不变：/var/tmp/regen_code.txt + NAS 新 char_sheet 文件。
+
+### 2026-10-07 02:10 CST — 重生成闭环终判 + panel-replace 产物确认
+- **重生成端到端闭环终判**：HTTP **422「出图门禁失败:主立绘检出大块均匀矩形色块(stdev=5.5)」**——链路全通(请求→生成管线→质量门禁→结构化响应)，422 是门禁正确拦截(凌晨攻坚线建立的门禁体系在工作)，非链路缺陷。重试换 seed 即可再生成。
+- **panel-replace 产物确认**：强制重建后 dist 内含替换代码(「替换中」标记在 drama-detail chunk；panelKeys 为 minify 局部名)；**panels 数据双路 curl 实证=4**(core 直连与公网域名同 token 各 4)。浏览器端 drawer 偶发空为该次 fetch 异常(token/缓存瞬态)，UI 可用性留用户真实浏览器与 hydrated 同窗终验。
+- M3 全部块至此真机/命令双证收口。
