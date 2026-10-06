@@ -148,3 +148,37 @@
 | C5 | 视频剪辑 | 智能剪辑（开发中） | 成片 assemble/一键成片 | BeefTV 时间线为编辑器，ToIV assemble 为成片管线 | ☐ |
 | C6 | 外部接入 | MCP 客户端+桌面端 | 小程序 | 各留各的通道 | ☐ |
 | C7 | 技能/工具 | skills 模块（半退役） | 工具箱 21 intents | 工具箱以画布节点模板+对话 chips 融入 | ☐ |
+
+## 附录 C：融合决策记录（2026-10-06 用户拍板）
+- C1 任务/C2 资产/C3 模型管理：无异议，按建议执行（统一时间线/PG 化合一/合一视图）。
+- **C4 画布内 assistant 也使用智能体**（升级为 ToIV 智能体，非纯 LLM chat）
+- **C5 剪辑：引入优秀开源项目融合**（调研结论见下）
+- **C6 外部接入做成全平台**
+- **C7 工具箱→节点模板：效果不确定，先调研/试点再定**
+
+### C4 实施规格：画布助手升级为真智能体
+- 现状：BeefTV 画布 assistant = toiv-llm 文本通道（/api/llm/v1 纯 chat，无工具）。
+- 目标：assistant 面板直连 **ToIV 智能体会话域**（同源 JWT）：`POST /api/agent/chat`（SSE）+ `GET /api/agent/sessions`（历史）+ fork（会话分叉）+ canvas-proposal（画布提案——ToIV 已有该端点，天然为画布设计！）。
+- 关键增值：智能体工具调用（生成图/视频/查市场/短剧操作）在画布侧以 BeefTV 工具卡渲染；`canvas-proposal` 可把智能体产出直接落成画布节点图。
+- 工作量：SSE 客户端复用 BeefTV 已有 assistant SSE 通道改造 + 工具卡 6 族组件移植（对齐 ToIV toolcards registry）+ sessions 列表面板。约 2-3 天。
+
+### C5 调研结论：可融合的开源剪辑力量（2026-10 扫描）
+| 项目 | 定位 | 融合方式 | 建议 |
+|---|---|---|---|
+| **Remotion** | React 程序化视频渲染框架（非 AI 编辑器，但 AI-agent 最爱驱动它） | 「成片合成渲染器」：agent 写 Remotion 组件→渲染成片，替代纯 ffmpeg assemble；字幕/动态版式/模板化片头 | ★ 推荐：与 React 栈同族，_license 商用注意（公司<4 人免费）|
+| **auto-editor** | 静默/跳切自动粗剪（CLI/Python） | 封装为画布「粗剪节点」：一键去静默/去废帧 | ★ 推荐：单点极强，封装半天 |
+| **OpenMontage**（calesthio，2026 新） | agentic 视频生产系统（52 工具/12 管线/700+ 技能，驱动 AI coding agent） | 不整体引入；**借鉴其技能分层与生产管线设计**（对 C7 节点模板的 intent 分层直接参考） | ○ 参考不引入 |
+| WhisperX | 词级字幕对齐 | 升级现有 whisper 集群到词级（字幕卡点精确到词） | ○ 备选增强 |
+- 落地序：auto-editor 粗剪节点（快赢）→ Remotion 成片渲染器（M3 短剧工作台成片段一并做）→ 借鉴 OpenMontage 分层做 C7。
+
+### C6 全平台规格
+- **Web**：BeefTV SPA（现 /studio，M4 后升 /）——主阵地
+- **桌面**：BeefTV Wails 壳已有——接入同一 ToIV 智能体域与账号（替换其内嵌 backend 为远程模式，复用 LLM 代理通道）
+- **移动**：SPA 响应式适配（BeefTV 已有 toiv-mobile.css 线索）+ PWA（manifest/offline 壳），重点保 画布浏览/任务/作品库/对话
+- **小程序**：ToIV 小程序保留为轻入口（市场浏览/任务通知），深链跳 Web
+- 统一账号（ToIV JWT）+ 统一数据（M4 PG 化）是全平台前提，故 C6 排 M4 之后收口。
+
+### C7 试点方案（工具箱→节点模板）
+- 不确定性：21 intents 全塞进「新建节点」菜单会造成选择过载；部分工具（如局部重绘）与画布节点原生能力重叠。
+- **Spike（1 天）**：挑 2 个代表 intent——「文生图」（纯生成型）+「对口型」（组合型）做成画布节点模板；实测：入口发现性/参数面板复用度/与普通节点的差异混淆度。
+- 试点通过 → 按 OpenMontage 式分层（生成/编辑/组合/音频 四族）组织模板库；不通过 → 降级为对话 chips + 快捷指令面板。
