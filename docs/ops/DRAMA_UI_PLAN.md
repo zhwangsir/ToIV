@@ -6118,3 +6118,9 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **/toiv/library/:id 作品库详情原生页 ✅**（ToIV-canvas `369c98c5`）：items 网格（分镜占位卡/成品媒体卡）、Drawer 预览（视频播放/场景/prompt/状态）、回收站操作（DELETE /jobs/{id} 软删+确认弹窗+刷新）；列表页卡片转内部路由。真机验证：真实 board 两条分镜卡渲染（序号/占位标签/分镜文本/运镜 🎥）。
 - **入口链路断点复查**：mode=new 的自动建布逻辑与 forwardedQuery(add 参数透传)机制在源码中齐备，但实测 /canvas?mode=new 停列表页不流转（mode 变量/渲染守卫矛盾，需浏览器本地调试循环定位 hydrated 状态链）——维持 M3 前置项记录。
 - **M2 里程碑完成**：附录 A 清单 #1 任务中心/#2 作品库/#3 详情/#4 对话/#5 市场全部 ✅ 上线并真机验证。
+
+### 2026-10-06 18:45 CST — M3 前置项：画布入口断点根修（gate Origin 转发 403）
+- **根因链（浏览器调试循环定位）**：/canvas?mode=new 停列表 ← createLocalCanvasProject 的 PUT 被拒 ← Go 后端 CORS 403「不允许的跨域来源」← **gate proxy 把 Origin 改写为 http://127.0.0.1:{port}**（serve.mjs:457），不在 CANVAS_CORS_ORIGINS 白名单。CUTOVER_PLAN C2 风险表预言的 Host/Origin 陷阱实际形态。
+- **修复**（ToIV-canvas `71d46636`）：gate 转发时 `delete headers.origin`——后端对无 Origin 请求（非浏览器语义）放行；公网直连仍受白名单保护；浏览器侧 gate sameOrigin + SameSite=Strict 双约束不变。三副本同步（prod/gate/repo）+ gate 重启。
+- **实证**：403 toast 消失；浏览器内 PUT 探测到达**业务校验层**（428 缺画布版本=预期业务 4xx）；mode=new 守卫进入「正在打开画布...」等待态（此前直接掉列表）。
+- **遗留终验点**：本会话浏览器容器 IndexedDB 受限（曾现 storage SecurityError），store hydrated 可能因此不置位——**需用户真实浏览器一开 /studio/canvas?mode=new&add=lipsync 终验**（预期：自动建布→编辑页→视频+音频双节点模板落位）。
