@@ -6279,3 +6279,8 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **交付三件**：①`pages-sub/studio/studio.vue` web-view 壳页（登录态 token 经 URL 引导参数递 H5；未登录重定向登录页；MP-WEIXIN 条件编译）；②SPA `main.tsx` miniapp_token 引导（落 localStorage→exchange 播种 cookie→replaceState 清参数）；③toiv-web `app/[verifyFile]` 承载 mp 业务域名校验文件（`STUDIO_MP_VERIFY_DIR=/home/merlin/toiv/deploy/mp-verify/`，一级路径 `[a-z0-9]+\.txt` 白名单防穿越）。
 - **门禁/实证**：MiniProgram typecheck 绿+**625 测试全过**+新文件 lint 零告警（存量 114 与 clean-tree 基线一致）；SPA tsc 绿；core 实证校验文件路由 200+内容正确+路径穿越 404+存量路由无扰；manifest 链接与 bundle 内 miniapp_token bootstrap 在位；deploy.sh --canvas-only 上产。
 - **用户侧收尾四步**（做完即成品）：①`MiniProgram/src/manifest.json` mp-weixin `appid` 填入；②mp 后台「开发管理→业务域名」配置 `https://toiv.wineryz.top`，下载校验文件传 core `/home/merlin/toiv/deploy/mp-verify/`；③「request 合法域名」加同域（/api/auth/wechat 用）；④微信开发者工具导入 `MiniProgram/` 构建 `npm run build:mp-weixin` 上传送审。
+
+### 2026-10-07 01:35 CST — C6 收尾三实证 + 生产隐患抓修：wechat_dev_bypass 关闭
+- **mp-weixin 构建门禁 ✅**：`npm run build:mp-weixin` 产物完整——`pages-sub/studio/` 四件套（js/json/wxml/wxss）、app.json subPackages 注册在位、web-view 条件编译进 wxml；微信开发者工具导入 `dist/build/mp-weixin` 即可用（AppID 待填）。
+- **生产隐患抓修 ✅**：端点活性烟测意外发现 `deploy/.env:75 TOIV_WECHAT_DEV_BYPASS=true` 在生产开着——任意 code 直接换 JWT 并自动开户（8 月联调遗留，代码注释自标「生产必须 False」）。已改 false+重启 toiv-api+实证假 code → 503「微信登录未配置」；**清理 dev-bypass 时代脏用户 3 个**（wx-dev-*，PG 直删）；api 健康 200。
+- **用户配置落点精确化**（拿到 AppID 后）：core `/home/merlin/toiv/deploy/.env` 第 73/74 行填 `TOIV_WECHAT_APPID`/`TOIV_WECHAT_SECRET` → 重启 toiv-api；`MiniProgram/src/manifest.json` mp-weixin 段 `appid` 同步填入；业务域名校验文件传 `/home/merlin/toiv/deploy/mp-verify/`。
