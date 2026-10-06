@@ -1,4 +1,4 @@
-import { ChevronRight, Home, PanelLeftClose, PanelLeftOpen, Plug, Plus, Settings2, Sun, Moon } from "lucide-react";
+import { Bot, ChevronRight, Clapperboard, Home, Library, ListChecks, PanelLeftClose, PanelLeftOpen, Plug, Plus, Settings2, Store, Sun, Moon } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
@@ -24,6 +24,7 @@ export type WorkspaceNavItem = {
     shortcut?: string;
     badge?: string | number;
     disabled?: boolean;
+    external?: boolean; // 站外/旧版 ToIV 视图:整页跳转(不进 SPA 路由)
     action?: "search";
     children?: WorkspaceNavItem[];
 };
@@ -52,6 +53,18 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
                 { ...toolItem("assets", "/assets"), title: "资产" },
                 { id: "settings:channels", title: "模型配置", icon: Settings2, to: "/settings?section=channels" },
                 { id: "agents", title: "外部 Agent", icon: Plug, to: "/agents" },
+            ],
+        },
+        {
+            // ToIV 原生模块(2026-10-06 本土化):旧版视图仍在同源服务,按功能直达;
+            // classic=1 仅对 home 的 studio 探测生效(防回环),其余视图不受探测影响
+            heading: "ToIV 创作",
+            items: [
+                { id: "toiv:agent", title: "智能体对话", icon: Bot, to: "/?view=home&classic=1", external: true },
+                { id: "toiv:drama", title: "短剧工作台", icon: Clapperboard, to: "/?view=studio&classic=1", external: true },
+                { id: "toiv:market", title: "应用市场", icon: Store, to: "/?view=market&classic=1", external: true },
+                { id: "toiv:library", title: "作品库", icon: Library, to: "/?view=library&classic=1", external: true },
+                { id: "toiv:tasks", title: "任务中心", icon: ListChecks, to: "/agent-runs&classic=1", external: true },
             ],
         },
     ];
@@ -174,7 +187,20 @@ function NavItem({
 
     return (
         <div className="flex w-full flex-col">
-            {linkTo && !item.disabled ? (
+            {linkTo && item.external && !item.disabled ? (
+                <a
+                    href={linkTo}
+                    className={rowClassName}
+                    data-nav-id={item.id}
+                    style={rowStyle}
+                    aria-label={collapsed ? item.title : undefined}
+                    title={collapsed ? item.title : undefined}
+                    onClick={onSelect ? () => onSelect(item.id) : undefined}
+                >
+                    {activePill}
+                    {rowContent}
+                </a>
+            ) : linkTo && !item.disabled ? (
                 <Link
                     to={linkTo}
                     className={rowClassName}

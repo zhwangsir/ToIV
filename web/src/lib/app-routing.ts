@@ -49,7 +49,9 @@ export function createWorkspaceRouter(routes: RouteObject[], runtime: AppRouting
         if (rewritten) runtime.history?.replaceState(null, "", rewritten);
         return createHashRouter(routes);
     }
-    return createBrowserRouter(routes);
+    // 2026-10-06 cutover:vite --base=/studio/ 构建时路由须剥掉挂载前缀,否则 pathname=/studio 全 404
+    const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+    return createBrowserRouter(routes, base ? { basename: base } : undefined);
 }
 
 export function appPathname(runtime: AppRoutingRuntime = defaultAppRoutingRuntime()): string {

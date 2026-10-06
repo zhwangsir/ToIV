@@ -24,12 +24,17 @@ export function HomeDashboard({ projects, loading, error, onRetry }: { projects:
             </section>
 
             <nav className="beeftv-capabilities" aria-label="创作能力">
-                {beefTVCapabilityItems.map(({ id, label, detail, to, icon: Icon, disabled }) => (
+                {beefTVCapabilityItems.map(({ id, label, detail, to, icon: Icon, disabled, external }) => (
                     disabled ? (
                         <span key={id} className="beeftv-capability is-disabled" aria-disabled="true" title={`${label}：${detail}`}>
                             <span className="beeftv-capability-icon"><Icon /></span>
                             <strong>{label}</strong>
                         </span>
+                    ) : external ? (
+                        <a key={id} href={to} className="beeftv-capability">
+                            <span className="beeftv-capability-icon"><Icon /></span>
+                            <strong>{label}</strong>
+                        </a>
                     ) : (
                         <Link key={id} to={to} className="beeftv-capability">
                             <span className="beeftv-capability-icon"><Icon /></span>

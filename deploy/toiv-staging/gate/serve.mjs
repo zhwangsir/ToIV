@@ -12,6 +12,12 @@
 //  * The gate is the owner identity of the user's instance: after authentication it attaches that
 //    instance's owner token (read from its data dir on core) to proxied /api calls. The token
 //    never reaches the browser. No loopback/bootstrap shortcuts remain.
+//  * M6a (prod pool): with GATE_SIGNING_KEY_FILE every gate->backend request also carries
+//    X-Beeftv-Gate-Auth, an HMAC over uid/time/method/path with a per-user key derived from the
+//    gate master key. The backend (BEEFTV_GATE_UID/BEEFTV_GATE_KEY_FILE) rejects anything else, so a
+//    process that can reach 127.0.0.1:<port> still cannot act as that user.
+//  * M6a (sub-path): GATE_PREFIX=/studio mounts everything under the prefix (ToIV Next proxies
+//    /studio/* here); GATE_LOGIN_URL hands login to ToIV (localStorage token -> /auth/exchange).
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -30,6 +36,16 @@ const LLM_CHANNEL_BASE = process.env.GATE_LLM_CHANNEL_BASE || `${TOIV.origin}/ap
 const PORT_BASE = Number(process.env.USER_PORT_BASE || 8300);
 const PORT_MAX = Number(process.env.USER_PORT_MAX || 8399);
 const COOKIE = "toiv_session";
+const PREFIX = String(process.env.GATE_PREFIX || "").trim().replace(/\/+$/, ""); // "" (staging) | "/studio"
+const UNIT_TEMPLATE = process.env.GATE_UNIT_TEMPLATE || "beeftv-user@";
+const COOKIE_SECURE = String(process.env.GATE_COOKIE_SECURE || "auto"); // "1": always; "auto": X-Forwarded-Proto
+const PUBLIC_ORIGINS = String(process.env.GATE_PUBLIC_ORIGIN || "").split(",").map((v) => v.trim().replace(/\/+$/, "")).filter(Boolean);
+const LOGIN_URL = String(process.env.GATE_LOGIN_URL || ""); // prod: "/?view=home" (ToIV login); unset: own form
+const ENTRY_FILE = process.env.GATE_ENTRY_FILE || path.join(STAGING, "ENTRY_ON");
+const SIGNING_KEY_FILE = process.env.GATE_SIGNING_KEY_FILE || "";
+const STREAM_PING_MS = Math.max(1000, Number(process.env.GATE_STREAM_PING_MS || 20_000));
+const pub = (p) => PREFIX + p;
+if (PREFIX && !/^\/[a-z0-9-]+$/.test(PREFIX)) throw new Error("GATE_PREFIX must look like /studio");
 const GATE_DIR = path.join(STAGING, "gate");
 const TYPES = {".html":"text/html; charset=utf-8",".js":"text/javascript",".mjs":"text/javascript",".css":"text/css",".json":"application/json",".svg":"image/svg+xml",".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",".webp":"image/webp",".gif":"image/gif",".ico":"image/x-icon",".woff":"font/woff",".woff2":"font/woff2",".ttf":"font/ttf",".wasm":"application/wasm",".mp4":"video/mp4",".webm":"video/webm",".mp3":"audio/mpeg",".wav":"audio/wav",".txt":"text/plain",".glb":"model/gltf-binary",".task":"application/octet-stream"};
 const PUBLIC_FILES = new Set(["/logo.svg", "/favicon.svg", "/toiv-logo.svg", "/toiv-mark.svg", "/favicon.ico"]);
@@ -55,17 +71,20 @@ function toivRequest(method, p, { token, body } = {}) {
     if (data) r.write(data); r.end();
   });
 }
-async function validate(token) {
-  if (!token || token.length > 4096) return null;
+// Returns {user, status}: status is ToIV's answer (0 = ToIV unreachable), so callers can tell
+// "token rejected" (401/403) from "cannot check right now" (0/5xx).
+async function validateStatus(token) {
+  if (!token || token.length > 4096) return { user: null, status: 401 };
   const k = hashTok(token); const hit = meCache.get(k);
-  if (hit && hit.exp > Date.now()) return hit.user;
+  if (hit && hit.exp > Date.now()) return { user: hit.user, status: 200 };
   const { status, json } = await toivRequest("GET", "/api/auth/me", { token });
   const u = json && (json.user || json);
-  if (status !== 200 || !u || !UID_RE.test(String(u.id || ""))) { meCache.delete(k); return null; }
+  if (status !== 200 || !u || !UID_RE.test(String(u.id || ""))) { meCache.delete(k); return { user: null, status: status === 200 ? 401 : status }; }
   const user = { id: u.id, name: u.display_name || u.name || u.username || "", email: u.email || "", role: u.role || "" };
   meCache.set(k, { user, exp: Date.now() + 60_000 });
-  return user;
+  return { user, status };
 }
+async function validate(token) { return (await validateStatus(token)).user; }
 function cookieToken(req) {
   for (const part of String(req.headers.cookie || "").split(";")) {
     const i = part.indexOf("="); if (i < 0) continue;
@@ -99,17 +118,37 @@ function registryNote(uid, patch) {
 function systemctl(...args) {
   return new Promise((resolve) => execFile("systemctl", ["--user", ...args], { timeout: 30000 }, (err, stdout, stderr) => resolve({ ok: !err, out: String(stdout || "").trim() + String(stderr || "") })));
 }
-const unitOf = (uid) => `beeftv-user@${uid}.service`;
+const unitOf = (uid) => `${UNIT_TEMPLATE}${uid}.service`;
+// ---------- gate-signed identity (M6a) ----------
+let masterKey = "";
+if (SIGNING_KEY_FILE) {
+  if (!fs.existsSync(SIGNING_KEY_FILE)) {
+    fs.mkdirSync(path.dirname(SIGNING_KEY_FILE), { recursive: true, mode: 0o700 });
+    writePrivate(SIGNING_KEY_FILE, crypto.randomBytes(48).toString("hex"));
+  }
+  masterKey = fs.readFileSync(SIGNING_KEY_FILE, "utf8").trim();
+  if (masterKey.length < 32) throw new Error("gate signing key too short");
+}
+const userKey = (uid) => crypto.createHmac("sha256", masterKey).update(`beeftv-gate-user-key\n${uid}`).digest("hex");
+const gateKeyFile = (uid) => path.join(USERS, uid, "gate_key");
+function gateAuth(uid, method, reqPath) {
+  const ts = Math.floor(Date.now() / 1000);
+  const p = String(reqPath || "/").split("?")[0] || "/";
+  const sig = crypto.createHmac("sha256", userKey(uid)).update(`v1\n${uid}\n${ts}\n${String(method).toUpperCase()}\n${p}`).digest("hex");
+  return `v1.${uid}.${ts}.${sig}`;
+}
 function instanceEnv(uid, port) {
   const base = fs.readFileSync(path.join(STAGING, "backend.env"), "utf8").split("\n")
-    .filter((l) => l.trim() && !/^(CANVAS_BACKEND_ADDR|CANVAS_BACKEND_DATA_DIR|BEEFTV_UI_BOOTSTRAP)=/.test(l));
+    .filter((l) => l.trim() && !/^(CANVAS_BACKEND_ADDR|CANVAS_BACKEND_DATA_DIR|BEEFTV_UI_BOOTSTRAP|BEEFTV_GATE_UID|BEEFTV_GATE_KEY_FILE)=/.test(l));
   base.push(`CANVAS_BACKEND_ADDR=127.0.0.1:${port}`, `CANVAS_BACKEND_DATA_DIR=${path.join(USERS, uid, "data")}`);
+  if (masterKey) base.push(`BEEFTV_GATE_UID=${uid}`, `BEEFTV_GATE_KEY_FILE=${gateKeyFile(uid)}`);
   return base.join("\n") + "\n";
 }
-function backendReq(method, port, p, { body, headers = {}, timeout = 5000 } = {}) {
+function backendReq(method, port, p, { body, headers = {}, timeout = 5000, uid } = {}) {
   return new Promise((resolve) => {
     const data = body ? Buffer.from(JSON.stringify(body)) : null;
     const h = { host: `127.0.0.1:${port}`, ...headers };
+    if (masterKey && uid) h["x-beeftv-gate-auth"] = gateAuth(uid, method, p);
     if (data) { h["content-type"] = "application/json"; h["content-length"] = data.length; }
     const r = http.request({ hostname: "127.0.0.1", port, method, path: p, headers: h, timeout }, (res) => {
       const chunks = []; res.on("data", (c) => chunks.push(c)); res.on("end", () => { let json = null; try { json = JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch {} resolve({ status: res.statusCode || 0, json }); });
@@ -118,12 +157,12 @@ function backendReq(method, port, p, { body, headers = {}, timeout = 5000 } = {}
     if (data) r.write(data); r.end();
   });
 }
-const backendGet = (port, p, headers) => backendReq("GET", port, p, { headers });
-const backendPut = (port, p, body) => backendReq("PUT", port, p, { body, timeout: 15000 });
-const healthy = async (port) => (await backendGet(port, "/api/workspace/model-config")).status === 200;
-async function waitHealthy(port, ms = 90000) {
+const backendGet = (uid, port, p, headers) => backendReq("GET", port, p, { headers, uid });
+const backendPut = (uid, port, p, body) => backendReq("PUT", port, p, { body, timeout: 15000, uid });
+const healthy = async (uid, port) => (await backendGet(uid, port, "/api/workspace/model-config")).status === 200;
+async function waitHealthy(uid, port, ms = 90000) {
   const end = Date.now() + ms;
-  while (Date.now() < end) { if (await healthy(port)) return true; await new Promise((r) => setTimeout(r, 400)); }
+  while (Date.now() < end) { if (await healthy(uid, port)) return true; await new Promise((r) => setTimeout(r, 400)); }
   return false;
 }
 function portFree(port) {
@@ -175,6 +214,7 @@ function spawn(uid, token) {
     e.port = await allocPort();
     const dir = path.join(USERS, uid);
     fs.mkdirSync(path.join(dir, "data"), { recursive: true, mode: 0o700 });
+    if (masterKey) writePrivate(gateKeyFile(uid), userKey(uid));
     writePrivate(path.join(dir, "backend.env"), instanceEnv(uid, e.port));
     const agentCfg = path.join(dir, "data", "agent_config.json");
     const tpl = path.join(GATE_DIR, "agent_config.template.json");
@@ -182,7 +222,7 @@ function spawn(uid, token) {
     registryNote(uid, { lastPort: e.port, lastStart: new Date().toISOString() });
     const r = await systemctl("restart", unitOf(uid)); // restart: also picks up a fresh env/port
     if (!r.ok) throw new Error("unit start failed");
-    if (!(await waitHealthy(e.port))) throw new Error("instance not healthy");
+    if (!(await waitHealthy(uid, e.port))) throw new Error("instance not healthy");
     if (e.token) await syncChannelToken(uid, e.port, e.token);
     e.synced = !!e.token; e.state = "ready"; e.lastActive = Date.now(); failedAt.delete(uid);
     warmAssistant(uid, e);
@@ -211,7 +251,7 @@ async function syncChannelToken(uid, port, token) {
   const st = readJSON(stFile, {});
   const th = hashTok(token);
   if (st.provisioned && st.tokenHash === th && st.llmv === 2) return;
-  const cur = await backendGet(port, "/api/workspace/model-config");
+  const cur = await backendGet(uid, port, "/api/workspace/model-config");
   if (cur.status !== 200 || !cur.json?.data?.config) throw new Error("model-config unavailable");
   let cfg = cur.json.data.config;
   if (!st.provisioned) {
@@ -223,7 +263,7 @@ async function syncChannelToken(uid, port, token) {
     if ((c.modelProfiles || []).some((p) => p.protocol === "toiv-h3" || p.model === "h3-t2v")) { c.apiKey = token; hit++; }
     if (c.id === "toiv-llm") { c.baseUrl = LLM_CHANNEL_BASE; c.apiKey = token; } // never the internal LLM address
   }
-  const r = await backendPut(port, "/api/workspace/model-config", { config: cfg, expectedRevision: cur.json.data.revision });
+  const r = await backendPut(uid, port, "/api/workspace/model-config", { config: cfg, expectedRevision: cur.json.data.revision });
   if (r.status !== 200) throw new Error(`model-config update failed (${r.status})`);
   writePrivate(stFile, JSON.stringify({ provisioned: true, tokenHash: th, llmv: 2, h3Channels: hit, updatedAt: new Date().toISOString() }));
   log("provisioned/synced instance", uid.slice(0, 8), "port", port, "h3Channels", hit);
@@ -239,7 +279,7 @@ async function warmAssistant(uid, e, loop = true) {
   const t0 = Date.now(), end = t0 + (loop ? 90_000 : 0);
   try {
     do {
-      const r = await backendGet(e.port, "/api/assistant/status");
+      const r = await backendGet(uid, e.port, "/api/assistant/status");
       const d = r.json && r.json.data;
       if (d && d.available) { if (!e.warm) log("assistant warm", uid.slice(0, 8), "port", e.port, "in", Date.now() - t0, "ms"); e.warm = true; return; }
       e.warm = false;
@@ -250,7 +290,7 @@ async function warmAssistant(uid, e, loop = true) {
 }
 async function inflightTasks(uid, port) {
   const owner = ownerToken(uid);
-  const r = await backendGet(port, "/api/tasks", owner ? { "x-beeftv-owner": owner } : {});
+  const r = await backendGet(uid, port, "/api/tasks", owner ? { "x-beeftv-owner": owner } : {});
   if (r.status !== 200 || !Array.isArray(r.json?.data)) return -1; // unknown -> treat as busy
   return r.json.data.filter((t) => t.status === "queued" || t.status === "running").length;
 }
@@ -277,16 +317,16 @@ setInterval(async () => {
 setInterval(async () => {
   for (const [uid, e] of inst) {
     if (e.state !== "ready" || e.recovering) continue;
-    if (await healthy(e.port)) { e.misses = 0; if (Date.now() - (e.warmAt || 0) > WARM_EVERY_MS) warmAssistant(uid, e); continue; }
+    if (await healthy(uid, e.port)) { e.misses = 0; if (Date.now() - (e.warmAt || 0) > WARM_EVERY_MS) warmAssistant(uid, e); continue; }
     if (++e.misses < 2) continue;
     e.recovering = true; e.state = "starting";
     log("instance down, recovering", uid.slice(0, 8), "port", e.port);
     (async () => {
-      if (!(await waitHealthy(e.port, 15000))) {
+      if (!(await waitHealthy(uid, e.port, 15000))) {
         const st = (await systemctl("is-active", unitOf(uid))).out.split("\n")[0];
         if (["failed", "inactive"].includes(st)) { log("unit state", uid.slice(0, 8), st, "-> restart"); await systemctl("restart", unitOf(uid)); }
         else log("unit state", uid.slice(0, 8), st, "-> waiting for systemd");
-        if (!(await waitHealthy(e.port, 120000))) throw new Error("respawn failed");
+        if (!(await waitHealthy(uid, e.port, 120000))) throw new Error("respawn failed");
       }
       e.state = "ready"; e.misses = 0; log("instance recovered", uid.slice(0, 8)); e.warm = false; warmAssistant(uid, e);
     })().catch(async (err) => { log("recover failed", uid.slice(0, 8), String(err.message)); await systemctl("stop", unitOf(uid)); inst.delete(uid); failedAt.set(uid, Date.now()); pumpQueue(); })
@@ -301,7 +341,8 @@ setInterval(async () => {
     if (act.out.split("\n")[0] !== "active") continue;
     const m = /CANVAS_BACKEND_ADDR=127\.0\.0\.1:(\d+)/.exec(fs.readFileSync(path.join(USERS, uid, "backend.env"), "utf8"));
     const port = m && Number(m[1]);
-    if (port && await waitHealthy(port, 20000)) {
+    if (masterKey && !fs.existsSync(gateKeyFile(uid))) { await systemctl("stop", unitOf(uid)); log("stopped unsigned leftover", uid.slice(0, 8)); continue; }
+    if (port && await waitHealthy(uid, port, 20000)) {
       inst.set(uid, { port, state: "ready", lastActive: Date.now(), startedAt: Date.now(), token: null, tokenHash: "", synced: false, misses: 0 });
       log("adopted running instance", uid.slice(0, 8), "port", port); warmAssistant(uid, inst.get(uid));
     } else { await systemctl("stop", unitOf(uid)); log("stopped unhealthy leftover", uid.slice(0, 8)); }
@@ -316,10 +357,23 @@ function statusMessage(r) {
 }
 
 // ---------- HTTP helpers ----------
+// Behind ToIV Next the Host header may be the loopback target, so with GATE_PUBLIC_ORIGIN set the
+// browser Origin must be one of those origins; otherwise (staging) it must match Host/X-Forwarded-Host.
 function sameOrigin(req) {
   const src = req.headers.origin || req.headers.referer;
   if (!src) return true; // non-browser clients; cookie is SameSite=Strict anyway
-  try { return new URL(src).host === String(req.headers.host || ""); } catch { return false; }
+  let o; try { o = new URL(src); } catch { return false; }
+  if (PUBLIC_ORIGINS.length) return PUBLIC_ORIGINS.includes(o.origin);
+  const hosts = [req.headers.host, String(req.headers["x-forwarded-host"] || "").split(",")[0]]
+    .map((h) => String(h || "").trim().toLowerCase()).filter(Boolean);
+  return hosts.includes(o.host.toLowerCase());
+}
+// Behind a loopback proxy (ToIV Next / OpenResty) every peer is 127.0.0.1: rate-limit by the
+// forwarded client address instead.
+function clientIp(req) {
+  const peer = req.socket.remoteAddress || "";
+  const xff = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return xff && /^(127\.|::1$|::ffff:127\.)/.test(peer) ? xff : peer;
 }
 function json(res, status, body, headers = {}) {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers });
@@ -336,16 +390,20 @@ const attempts = new Map();
 function rateLimited(ip) {
   const now = Date.now(); const a = (attempts.get(ip) || []).filter((t) => now - t < 60_000); a.push(now); attempts.set(ip, a); return a.length > 10;
 }
+const COOKIE_PATH = PREFIX || "/";
+function cookieSecure(req) {
+  return COOKIE_SECURE === "1" || (COOKIE_SECURE === "auto" && String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim() === "https") ? "; Secure" : "";
+}
 function sessionCookie(token, req) {
   const exp = jwtExpSeconds(token); const maxAge = exp ? Math.max(60, exp - Math.floor(Date.now() / 1000)) : 7 * 86400;
-  const secure = req.headers["x-forwarded-proto"] === "https" ? "; Secure" : "";
-  return `${COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${secure}`;
+  return `${COOKIE}=${encodeURIComponent(token)}; Path=${COOKIE_PATH}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${cookieSecure(req)}`;
 }
+const clearCookie = (req) => `${COOKIE}=; Path=${COOKIE_PATH}; HttpOnly; SameSite=Strict; Max-Age=0${cookieSecure(req)}`;
 
 async function handleAuth(req, res, url) {
   if (url.pathname === "/auth/login" && req.method === "POST") {
     if (!sameOrigin(req)) return json(res, 403, { error: "cross_origin" });
-    const ip = req.socket.remoteAddress || "";
+    const ip = clientIp(req);
     if (rateLimited(ip)) return json(res, 429, { error: "too_many_attempts", message: "尝试过于频繁，请稍后再试" });
     let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { error: "bad_request" }); }
     const email = String(body.email || "").trim(), password = String(body.password || "");
@@ -359,9 +417,23 @@ async function handleAuth(req, res, url) {
     log("login", user.id.slice(0, 8));
     return json(res, 200, { ok: true, user: { id: user.id, name: user.name, email: user.email } }, { "set-cookie": sessionCookie(token, req) });
   }
+  // M6a: ToIV owns login on the product domain. The page holds the ToIV JWT in localStorage and
+  // trades it for this gate's HttpOnly cookie (same validation as /auth/login, no password here).
+  if (url.pathname === "/auth/exchange" && req.method === "POST") {
+    if (!sameOrigin(req)) return json(res, 403, { error: "cross_origin" });
+    if (rateLimited(clientIp(req))) return json(res, 429, { error: "too_many_attempts", message: "尝试过于频繁，请稍后再试" });
+    const auth = String(req.headers.authorization || "");
+    const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+    if (!token) return json(res, 400, { error: "bad_request" });
+    const { user, status } = await validateStatus(token);
+    if (!user) return status === 401 || status === 403 ? json(res, 401, { error: "unauthenticated", message: "ToIV 登录已失效" }) : json(res, 502, { error: "toiv_unavailable", message: "暂时无法校验登录，请稍后重试" });
+    try { want(user.id, token); } catch (e) { log("instance error", user.id.slice(0, 8), String(e.message)); }
+    log("exchange", user.id.slice(0, 8));
+    return json(res, 200, { ok: true, user: { id: user.id, name: user.name, email: user.email } }, { "set-cookie": sessionCookie(token, req) });
+  }
   if (url.pathname === "/auth/logout" && req.method === "POST") {
     if (!sameOrigin(req)) return json(res, 403, { error: "cross_origin" });
-    return json(res, 200, { ok: true }, { "set-cookie": `${COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0` });
+    return json(res, 200, { ok: true }, { "set-cookie": clearCookie(req) });
   }
   if (url.pathname === "/auth/status" && req.method === "GET") {
     const token = cookieToken(req); const user = await validate(token);
@@ -380,11 +452,28 @@ async function handleAuth(req, res, url) {
 function proxy(req, res, uid, port) {
   const headers = { ...req.headers };
   delete headers.cookie; delete headers["x-beeftv-owner"]; delete headers["x-beeftv-client"]; delete headers.authorization; delete headers.referer;
+  delete headers["x-beeftv-gate-auth"]; delete headers["x-desktop-token"]; delete headers["x-beeftv-agent-token"];
   headers.host = `127.0.0.1:${port}`;
   if (headers.origin) headers.origin = `http://127.0.0.1:${port}`;
-  headers["x-forwarded-for"] = req.socket.remoteAddress || "";
+  headers["x-forwarded-for"] = clientIp(req);
   const owner = ownerToken(uid); if (owner) headers["x-beeftv-owner"] = owner;
-  const p = http.request({ hostname: "127.0.0.1", port, method: req.method, path: req.url, headers }, (up) => { res.writeHead(up.statusCode || 502, up.headers); up.pipe(res); });
+  if (masterKey) headers["x-beeftv-gate-auth"] = gateAuth(uid, req.method, req.url);
+  const p = http.request({ hostname: "127.0.0.1", port, method: req.method, path: req.url, headers }, (up) => {
+    // Never let an edge proxy (OpenResty location /) buffer API answers; SSE also gets comment
+    // heartbeats between events so idle streams outlive a 300 s proxy_read_timeout.
+    const sse = String(up.headers["content-type"] || "").includes("text/event-stream");
+    const h = { ...up.headers, "x-accel-buffering": "no" };
+    if (!sse) { res.writeHead(up.statusCode || 502, h); return up.pipe(res); }
+    h["cache-control"] = "no-cache, no-transform"; delete h["content-length"];
+    res.writeHead(up.statusCode || 502, h); res.flushHeaders?.();
+    let tail = "\n\n", last = Date.now();
+    const ping = setInterval(() => { if (Date.now() - last >= STREAM_PING_MS && tail.endsWith("\n\n")) { res.write(": ping\n\n"); last = Date.now(); } }, Math.min(5000, STREAM_PING_MS));
+    const stop = () => clearInterval(ping);
+    up.on("data", (c) => { res.write(c); last = Date.now(); tail = (tail + c.toString("latin1")).slice(-2); });
+    up.on("end", () => { stop(); res.end(); });
+    up.on("error", () => { stop(); res.end(); });
+    res.on("close", () => { stop(); up.destroy(); });
+  });
   p.on("error", (e) => { const ie = inst.get(uid); if (ie && ie.state === "ready") ie.misses = 9; if (!res.headersSent) res.writeHead(502, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "bad_gateway" })); });
   req.pipe(p);
 }
@@ -393,13 +482,21 @@ function sendFile(res, file, cache) {
   res.writeHead(200, { "content-type": TYPES[ext] || "application/octet-stream", "cache-control": cache ? "public, max-age=31536000, immutable" : "no-cache", "referrer-policy": "no-referrer" });
   fs.createReadStream(file).pipe(res);
 }
+function prefixGateHtml(html) {
+  if (!PREFIX) return html;
+  return html.replace(/(["'`(])\/(favicon\.svg|logo\.svg|auth\/|__toiv\/|login\?|static\/)/g, `$1${PREFIX}/$2`)
+    .replace(/\|\|"\/"/g, `||"${PREFIX}/"`).replace(/\?n:"\/"/g, `?n:"${PREFIX}/"`);
+}
 function sendGatePage(res, name) {
   const idx = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   // index-*.css carries the Inter font faces; application-*.css carries globals.css (the --user-* / .dark tokens).
-  const app = fs.readdirSync(path.join(ROOT, "static")).filter((f) => /^application-[\w-]+\.css$/.test(f)).map((f) => `<link rel="stylesheet" href="/static/${f}">`);
+  const app = fs.readdirSync(path.join(ROOT, "static")).filter((f) => /^application-[\w-]+\.css$/.test(f)).map((f) => `<link rel="stylesheet" href="${pub("/static/")}${f}">`);
   const css = [...(idx.match(/<link rel="stylesheet"[^>]*>/g) || []), ...app].join("\n");
   const style = fs.readFileSync(path.join(GATE_DIR, "gate-style.html"), "utf8");
-  const html = fs.readFileSync(path.join(GATE_DIR, name), "utf8").replace("<!--SPA_CSS-->", css).replace("<!--GATE_STYLE-->", style);
+  const raw = fs.readFileSync(path.join(GATE_DIR, name), "utf8");
+  // handoff.html builds its URLs from __GATE_PREFIX__ itself; prefixing it again would double the prefix.
+  const html = (name === "handoff.html" ? raw : prefixGateHtml(raw)).replace("<!--SPA_CSS-->", css).replace("<!--GATE_STYLE-->", style)
+    .replace(/__GATE_PREFIX__/g, PREFIX).replace(/__GATE_LOGIN_URL__/g, LOGIN_URL.replace(/[<>"'\\]/g, ""));
   res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer" });
   res.end(html);
 }
@@ -416,9 +513,25 @@ function sendIndex(res) {
 
 http.createServer(async (req, res) => {
   try {
-    const url = new URL(req.url, "http://x");
+    res.setHeader("x-accel-buffering", "no"); // M6a: nothing under the mount is buffered by an edge proxy
+    let url = new URL(req.url, "http://x");
+    if (PREFIX) {
+      // 2026-10-06 cutover 修复:toiv-web 尾斜杠规范化(308 /studio/ → /studio)与本机 308(/studio → /studio/)
+      // 互相成环。/studio 与 /studio/ 一视同仁:内部归一化为 "/",直接继续服务(不再 30x)。
+      if (url.pathname === PREFIX) {
+        req.url = "/" + (url.search || "");
+        url = new URL(req.url, "http://x");
+      } else if (!url.pathname.startsWith(PREFIX + "/")) {
+        return json(res, 404, { error: "not_found" });
+      } else {
+        req.url = req.url.slice(PREFIX.length) || "/";
+        url = new URL(req.url, "http://x");
+      }
+    }
+    // Entry switch for ToIV's "/?view=home" redirect: file present = BeefTV is the product UI.
+    if (url.pathname === "/entry.json") return json(res, 200, { enabled: fs.existsSync(ENTRY_FILE) });
     if (url.pathname.startsWith("/auth/")) return await handleAuth(req, res, url);
-    if (url.pathname === "/login") return sendGatePage(res, "login.html");
+    if (url.pathname === "/login") return sendGatePage(res, LOGIN_URL ? "handoff.html" : "login.html");
     let rel; try { rel = decodeURIComponent(url.pathname); } catch { res.writeHead(400); return res.end(); }
     const isStatic = rel.startsWith("/assets/") || rel.startsWith("/static/") || PUBLIC_FILES.has(rel);
     if (isStatic) {
@@ -431,7 +544,8 @@ http.createServer(async (req, res) => {
     const isApi = url.pathname.startsWith("/api/") || url.pathname === "/oauth/linuxdo/callback";
     if (!user) {
       if (isApi) return json(res, 401, { error: "unauthenticated", message: "请先登录 ToIV 账号" });
-      res.writeHead(302, { location: "/login?next=" + encodeURIComponent(url.pathname + url.search), "cache-control": "no-store" });
+      if (LOGIN_URL && (req.headers.accept || "").includes("text/html")) return sendGatePage(res, "handoff.html");
+      res.writeHead(302, { location: pub("/login?next=") + encodeURIComponent(pub(url.pathname + url.search)), "cache-control": "no-store" });
       return res.end();
     }
     const st = want(user.id, token);
@@ -443,7 +557,7 @@ http.createServer(async (req, res) => {
     }
     if (url.pathname === "/__toiv/starting") return sendGatePage(res, "starting.html");
     if (st.state !== "ready" && (req.headers.accept || "").includes("text/html")) {
-      res.writeHead(302, { location: "/__toiv/starting?next=" + encodeURIComponent(url.pathname + url.search), "cache-control": "no-store" });
+      res.writeHead(302, { location: pub("/__toiv/starting?next=") + encodeURIComponent(pub(url.pathname + url.search)), "cache-control": "no-store", "x-accel-buffering": "no" });
       return res.end();
     }
     const file = path.join(ROOT, rel);
