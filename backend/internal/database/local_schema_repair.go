@@ -25,6 +25,9 @@ var reconciledIndexes = []sqliteIndexContract{
 // Names alone do not prove uniqueness, scope or column order. All names here
 // are compile-time schema identifiers, never user-provided SQL.
 func matchesSQLiteIndex(db *gorm.DB, expected sqliteIndexContract) (bool, error) {
+	if db.Dialector.Name() != "sqlite" {
+		return true, nil // M4:PG 由 AutoMigrate 管索引,跳过 sqlite 契约核对
+	}
 	var indexes []struct {
 		Name    string
 		Unique  int
@@ -111,6 +114,9 @@ func repairProductAgentContracts(tx *gorm.DB) error {
 }
 
 func requireSQLitePrimaryKey(db *gorm.DB, table string, expected []string) error {
+	if db.Dialector.Name() != "sqlite" {
+		return nil // M4:PG 主键由 AutoMigrate 定义
+	}
 	var columns []struct {
 		Name string
 		PK   int

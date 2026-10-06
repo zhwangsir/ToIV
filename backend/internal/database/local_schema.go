@@ -223,7 +223,14 @@ func currentSchemaVersion(db *gorm.DB) (int64, error) {
 
 func hasSchemaLedger(db *gorm.DB) bool {
 	var count int
-	if err := db.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type = ? AND name = ?", "table", "local_schema_migrations").Scan(&count).Error; err != nil {
+	if db.Dialector.Name() == "sqlite" {
+		if err := db.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type = ? AND name = ?", "table", "local_schema_migrations").Scan(&count).Error; err != nil {
+			return false
+		}
+		return count > 0
+	}
+	// M4:PG 按 search_path 下的表存在性判断
+	if err := db.Raw("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'local_schema_migrations'").Scan(&count).Error; err != nil {
 		return false
 	}
 	return count > 0
@@ -254,6 +261,9 @@ func assertLedgerImmutable(db *gorm.DB, frozen []localSchemaMigration) error {
 }
 
 func backupBeforeDestructiveMigration(db *gorm.DB, version int64) error {
+	if db.Dialector.Name() != "sqlite" {
+		return nil // M4:PG 无文件级备份路径,跳过(PG 自身快照兜底)
+	}
 	needsBackup := false
 	for _, table := range hostedTables() {
 		if db.Migrator().HasTable(table) {
@@ -400,6 +410,9 @@ func RequireLocalSchema(db *gorm.DB) error {
 }
 
 func requireReconciledSchema(db *gorm.DB) error {
+	if db.Dialector.Name() != "sqlite" {
+		return nil // M4:PG 契约核对全跳过——结构以 AutoMigrate 为准
+	}
 	if err := requireSQLitePrimaryKey(db, "tasks", []string{"id"}); err != nil {
 		return err
 	}

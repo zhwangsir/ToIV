@@ -7,12 +7,12 @@ import (
 )
 
 func sqliteHasColumn(db *gorm.DB, table, column string) (bool, error) {
-	var columns []struct{ Name string }
-	if err := db.Raw("PRAGMA table_info(" + table + ")").Scan(&columns).Error; err != nil {
+	columns, err := dialectTableColumns(db, table)
+	if err != nil {
 		return false, fmt.Errorf("读取本地表 %s 列: %w", table, err)
 	}
-	for _, item := range columns {
-		if item.Name == column {
+	for _, name := range columns {
+		if name == column {
 			return true, nil
 		}
 	}
@@ -21,7 +21,11 @@ func sqliteHasColumn(db *gorm.DB, table, column string) (bool, error) {
 
 func sqliteHasNamedIndex(db *gorm.DB, table, name string) (bool, error) {
 	var indexes []struct{ Name string }
-	if err := db.Raw("PRAGMA index_list(" + table + ")").Scan(&indexes).Error; err != nil {
+	if db.Dialector.Name() == "sqlite" {
+		if err := db.Raw("PRAGMA index_list(" + table + ")").Scan(&indexes).Error; err != nil {
+			return false, fmt.Errorf("读取本地表 %s 索引: %w", table, err)
+		}
+	} else if err := db.Raw("SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema() AND tablename = ?", table).Scan(&indexes).Error; err != nil {
 		return false, fmt.Errorf("读取本地表 %s 索引: %w", table, err)
 	}
 	for _, index := range indexes {
@@ -373,4 +377,24 @@ func requireAssistantTurnsSchema(db *gorm.DB) error {
 		return fmt.Errorf("本地数据库索引 idx_assistant_turns_user_canvas 定义不完整")
 	}
 	return nil
+}
+
+// M4(2026-10-07):表列探测按方言分叉(sqlite PRAGMA / PG information_schema)。
+func dialectTableColumns(db *gorm.DB, table string) ([]string, error) {
+	if db.Dialector.Name() == "sqlite" {
+		var cols []struct{ Name string }
+		if err := db.Raw("PRAGMA table_info(" + table + ")").Scan(&cols).Error; err != nil {
+			return nil, err
+		}
+		out := make([]string, 0, len(cols))
+		for _, c := range cols {
+			out = append(out, c.Name)
+		}
+		return out, nil
+	}
+	var cols []string
+	if err := db.Raw("SELECT column_name FROM information_schema.columns WHERE table_name = ?", table).Scan(&cols).Error; err != nil {
+		return nil, err
+	}
+	return cols, nil
 }
