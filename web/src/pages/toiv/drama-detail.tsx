@@ -1,10 +1,10 @@
 import { App as AntApp, Button, Empty, Spin, Tag, Typography } from "antd";
-import { PlayCircle } from "lucide-react";
+import { AudioLines, PlayCircle } from "lucide-react";
 import { ArrowLeft, Clapperboard, ExternalLink, Film, RefreshCw, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { fetchDramaProject, triggerBatchRender, triggerShotRender, type ToivDramaDetail } from "@/services/toiv/client";
+import { fetchDramaProject, triggerBatchRender, triggerShotRender, triggerShotVoice, type ToivDramaDetail } from "@/services/toiv/client";
 
 const SHOT_STATUS: Record<string, { color: string; text: string }> = {
     draft: { color: "default", text: "草稿" },
@@ -20,6 +20,7 @@ export default function DramaDetailPage() {
     const [detail, setDetail] = useState<ToivDramaDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [renderingShots, setRenderingShots] = useState<Set<string>>(new Set());
+    const [voicingShots, setVoicingShots] = useState<Set<string>>(new Set());
     const [batchRendering, setBatchRendering] = useState(false);
 
     const load = useCallback(async () => {
@@ -32,12 +33,12 @@ export default function DramaDetailPage() {
 
     useEffect(() => { void load(); }, [load]);
     // 渲染轮询(M3 末项):本页存在渲染中(乐观或后端态)时 15s 拉一次项目
-    const hasRendering = batchRendering || (detail?.shots ?? []).some((s) => renderingShots.has(s.id) || s.status === "rendering");
+    const busy = batchRendering || (detail?.shots ?? []).some((s) => renderingShots.has(s.id) || voicingShots.has(s.id) || s.status === "rendering" || s.status === "voicing");
     useEffect(() => {
-        if (!hasRendering || !id) return;
+        if (!busy || !id) return;
         const t = window.setInterval(() => { void fetchDramaProject(id).then(setDetail).catch(() => {}); }, 15000);
         return () => window.clearInterval(t);
-    }, [hasRendering, id]);
+    }, [busy, id]);
 
     if (loading) return <main className="flex h-full items-center justify-center"><Spin /></main>;
     if (!detail) return <main className="flex h-full items-center justify-center"><Empty description="项目不存在或读取失败" /></main>;
@@ -112,6 +113,16 @@ export default function DramaDetailPage() {
                                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-semibold text-[var(--muted-foreground,#a8a8a8)]">#{Number(s.idx) + 1}</span>
+                                        {s.status === "rendered" && !s.voice_url && (
+                                            <Button size="small" type="text" icon={<AudioLines className="h-3 w-3" />}
+                                                loading={voicingShots.has(s.id)}
+                                                onClick={() => {
+                                                    setVoicingShots((prev) => new Set(prev).add(s.id));
+                                                    void triggerShotVoice(s.id).finally(() => setVoicingShots((prev) => { const n = new Set(prev); n.delete(s.id); return n; }));
+                                                }}>
+                                                配音
+                                            </Button>
+                                        )}
                                         {!["rendering", "rendered", "voiced", "lipsynced", "done"].includes(s.status) && (
                                             <Button size="small" type="text" icon={<PlayCircle className="h-3 w-3" />}
                                                 loading={renderingShots.has(s.id)}

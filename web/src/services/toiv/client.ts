@@ -159,3 +159,8 @@ export async function triggerBatchRender(pid: string): Promise<boolean> {
     try { await toivHttp.post(`/studio/projects/${pid}/render`, undefined, { timeout: 3600_000 }); return true; }
     catch { return false; }
 }
+
+export async function triggerShotVoice(shotId: string): Promise<boolean> {
+    try { await toivHttp.post(`/studio/shots/${shotId}/voice`, undefined, { timeout: 600_000 }); return true; }
+    catch { return false; }
+}
