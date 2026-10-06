@@ -6243,3 +6243,9 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **全链路实弹**：Bearer 直连 200 / gate cookie 经 Next 转发 200（2 projects）/ 无认证 401 / 写路径 PUT+DELETE canvas-folder / ui-session `toivLogin:true` 签发 / `/studio/auth/status` 仍走 gate ready / SPA 200 / 公网 wineryz 302+401 正常 / Next 代理透明性实证（同端点直连与经 Next 同 status 同 body）。canvas-api-pg 日志实证请求直打 :8290。
 - **留真浏览器窗口复验**：助手面板发消息（真 SSE 流）、画布操作、资源图加载——传输层等价性已证，UI 侧留人工。
 - Phase C（gate 全面退役）：静态托管迁 Next + `/studio/auth/exchange` 职责移交（届时 Bearer 已是主凭据，cookie 兜底需 Next 侧设等价 cookie）。
+
+### 2026-10-06 23:15 CST — M4-5 单仓合并：ToIV-canvas 并入 main apps/canvas + 原仓归档
+- **subtree 合并 ✅**（ToIV main `fcc32f22` 已双推 gitee+github）：ToIV-canvas 全树（tip `f14f656`，3042 文件）历史完整保留（merge 第二父=canvas tip，`git log f14f656` 可达）；推公网前安全扫描零命中（PG 密码/tskey/admin123 均不在树内）。方案原文的 apps/canvas-web+services/canvas-api 两前缀拆分调整为**整树 apps/canvas**——canvas 自身是 monorepo（web/+backend/+deploy/），拆两半会打断其内部构建脚本引用， nesting 保完整。
+- **归档 ✅**：GitHub zhwangsir/ToIV-canvas 已 archive 只读（归档仓仍可 fetch 不可 push）。后续 canvas 开发一律在 ToIV main `apps/canvas`；core 部署检出 `/home/merlin/beeftv` 当前=canvas main tip=与 apps/canvas 内容一致，后续变更走「Mac 改 → rsync 变更文件到 core 检出 → 按既定口径构建」。
+- **欠账补提**：page.tsx entry.json 探测+登出联动（已部署未入库）、uv.lock 锁刷新、STATE.json——cutover 波遗留的未提交文件全部落账（`f041ed2a`/`c4313a37`）。
+- **M4 收支盘点**：五项中 1(PG 驱动)✅ 2(单实例)✅ 3(gate 切流)✅ 4(JWT 直验 Phase A+B 直连)✅ 5(单仓合并+归档)✅；**仍开口**：Phase C（gate 全面退役：静态迁 Next+auth 职责移交）、统一 CI（canvas 自有 workflows 因嵌套失效）、deploy.sh 一条命令全站（部署合一）、C6 全平台（PWA/深链，方案本就排 M4 后）。
