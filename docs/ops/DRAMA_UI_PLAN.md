@@ -6197,3 +6197,9 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **重生成端到端闭环终判**：HTTP **422「出图门禁失败:主立绘检出大块均匀矩形色块(stdev=5.5)」**——链路全通(请求→生成管线→质量门禁→结构化响应)，422 是门禁正确拦截(凌晨攻坚线建立的门禁体系在工作)，非链路缺陷。重试换 seed 即可再生成。
 - **panel-replace 产物确认**：强制重建后 dist 内含替换代码(「替换中」标记在 drama-detail chunk；panelKeys 为 minify 局部名)；**panels 数据双路 curl 实证=4**(core 直连与公网域名同 token 各 4)。浏览器端 drawer 偶发空为该次 fetch 异常(token/缓存瞬态)，UI 可用性留用户真实浏览器与 hydrated 同窗终验。
 - M3 全部块至此真机/命令双证收口。
+
+### 2026-10-07 03:05 CST — M4 第一项：Go 后端 PG 化落地（驱动+迁移+连库实证）
+- **postgres 驱动分支 ✅**（ToIV-canvas `7dd618fb` 已推 GitHub）：database.go 补 `postgres/postgresql` case（DSN 必填校验）；ConfigurePool 按驱动分叉（sqlite=1 连接串行 / PG=16+8 池）；go.mod 增 gorm.io/driver/postgres v1.5.11（goproxy.cn，Go 1.25.0 工具链在 ~/.local/beeftv-tools）。
+- **连库冒烟实证 ✅**：pgconn_test.go 实连 ToIV PG（CANVAS_PG_DSN）→ postgres open+pool(16) **PASS**。
+- **sqlite→PG 迁移脚本+实证 ✅**：`/tmp/mig_canvas.py`——3 个 per-user sqlite（7a75/9c00/f659）全部迁入 ToIV PG `canvas_*` 命名空间（**433 行**，20+ 表，bytes→hex 文本，ON CONFLICT DO NOTHING 幂等）；PG 回读 canvas_canvas_projects=8。表结构全 text 兜底，正式切流前由 GORM AutoMigrate 校正类型（切流批任务）。
+- M4 剩余：canvas-api 单实例 systemd 化+双写校验、gate 退役/JWT 直验、单仓合并、全平台收口。
