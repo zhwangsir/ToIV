@@ -6124,3 +6124,8 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **修复**（ToIV-canvas `71d46636`）：gate 转发时 `delete headers.origin`——后端对无 Origin 请求（非浏览器语义）放行；公网直连仍受白名单保护；浏览器侧 gate sameOrigin + SameSite=Strict 双约束不变。三副本同步（prod/gate/repo）+ gate 重启。
 - **实证**：403 toast 消失；浏览器内 PUT 探测到达**业务校验层**（428 缺画布版本=预期业务 4xx）；mode=new 守卫进入「正在打开画布...」等待态（此前直接掉列表）。
 - **遗留终验点**：本会话浏览器容器 IndexedDB 受限（曾现 storage SecurityError），store hydrated 可能因此不置位——**需用户真实浏览器一开 /studio/canvas?mode=new&add=lipsync 终验**（预期：自动建布→编辑页→视频+音频双节点模板落位）。
+
+### 2026-10-06 19:05 CST — M3 第一块：短剧工作台列表原生页上线
+- **/toiv/drama ✅**（ToIV-canvas `259ed2f1`）：项目卡片（标题/premise/状态徽标 draft|storyboard|rendering|done）、分镜进度条（done+ lipsynced / total + 状态分布）、next_step 提示（渲染分镜(待办 N)/分镜配音）、分辨率与管线标签、成片标记；详情深链旧工作台（/drama/{id}?classic=1）。侧栏「短剧工作台」转内部路由——**侧栏 TOIV 创作组七项全部原生路由，external 只余详情深链**。真机验证：真实项目（沈青禾 E2E 4镜/雨夜对比克隆 rendered4）完整渲染。
+- ⏳ 用户终验提醒：/studio/canvas?mode=new&add=lipsync 的 hydrated 自动建布最后一跳需真实浏览器确认（本会话容器 IndexedDB 受限）。
+- M3 剩余：drama 详情原生页（角色/设定卡/分镜板）、工具箱四族模板、Remotion 成片渲染器。
