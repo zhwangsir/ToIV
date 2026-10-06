@@ -38,6 +38,7 @@ const TYPES: Record<string, string> = {
   ".mp3": "audio/mpeg",
   ".wav": "audio/wav",
   ".txt": "text/plain",
+  ".webmanifest": "application/manifest+json",
   ".glb": "model/gltf-binary",
   ".task": "application/octet-stream",
 };

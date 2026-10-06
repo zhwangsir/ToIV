@@ -14,3 +14,19 @@ async function startApplication() {
 }
 
 void startApplication();
+
+// C6 全平台(2026-10-07)：/studio 生产挂载下注册 PWA service worker（安装壳+深链离线可达）。
+// 桌面(Wails)/本地预览/开发模式不注册；sw.js 由 public/ 原样进入 dist，scope=/studio/。
+if (
+    typeof navigator !== "undefined" &&
+    "serviceWorker" in navigator &&
+    import.meta.env.PROD &&
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/studio")
+) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/studio/sw.js", { scope: "/studio/" }).catch(() => {
+            // 注册失败不影响应用本身（离线壳是增强能力）
+        });
+    });
+}
