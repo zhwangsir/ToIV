@@ -50,3 +50,25 @@ export async function fetchBoardItems(boardId: string): Promise<unknown[]> {
     const { data } = await toivHttp.get(`/boards/${boardId}/items`);
     return Array.isArray(data) ? data : ((data as { items?: unknown[] })?.items ?? []);
 }
+
+export type ToivApp = {
+    id: string;
+    name: string;
+    description?: string;
+    cover_url?: string;
+    author?: string;
+    category?: string;
+    output_kind?: string;
+    use_case?: string;
+    usage_count?: number;
+    featured?: boolean;
+    is_builtin?: boolean;
+    smoke_status?: string;
+    guide_purpose?: string;
+    source_links?: Array<{ label: string; url: string }>;
+};
+
+export async function fetchToivApps(limit = 100): Promise<ToivApp[]> {
+    const { data } = await toivHttp.get("/apps", { params: { limit } });
+    return Array.isArray(data) ? data : ((data as { items?: ToivApp[] })?.items ?? []);
+}

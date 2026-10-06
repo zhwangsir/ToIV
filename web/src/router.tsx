@@ -19,6 +19,8 @@ const PluginsPage = lazy(() => import("@/pages/plugins"));
 const EagleLibraryPage = lazy(() => import("@/pages/plugins/eagle"));
 const ToivTasksPage = lazy(() => import("@/pages/toiv/tasks-page"));
 const ToivLibraryPage = lazy(() => import("@/pages/toiv/library-page"));
+const ToivMarketPage = lazy(() => import("@/pages/toiv/market-page"));
+const ToivAgentPage = lazy(() => import("@/pages/toiv/agent-page"));
 const ProjectDetailPage = lazy(loadProjectDetailPage);
 const SettingsPage = lazy(() => import("@/pages/settings"));
 const TestVoiceRecording = lazy(() => import("@/pages/test-voice-recording"));
@@ -100,6 +102,8 @@ export const router = createWorkspaceRouter([
             { path: "/agents", element: deferred(<AgentsPage />) },
             { path: "/toiv/tasks", element: deferred(<ToivTasksPage />) },
             { path: "/toiv/library", element: deferred(<ToivLibraryPage />) },
+            { path: "/toiv/market", element: deferred(<ToivMarketPage />) },
+            { path: "/toiv/agent", element: <ToivAgentPage /> },
             { path: "/test-voice-recording", element: deferred(<TestVoiceRecording />) },
             {
                 path: "/projects",

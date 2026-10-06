@@ -1284,6 +1284,21 @@ function InfiniteCanvasPage() {
     useEffect(() => {
         if (!projectLoaded) return;
         const requestedType = searchParams.get("add");
+        // C7 Spike(2026-10-06):intent 组合模板——lipsync=视频+音频双节点(对口型输入形态)
+        if (requestedType === "lipsync") {
+            let lf = 0;
+            const insertPair = () => {
+                const rect = containerRef.current?.getBoundingClientRect();
+                if (!rect || rect.width <= 0) { lf = requestAnimationFrame(insertPair); return; }
+                createNode(CanvasNodeType.Video, { x: 220, y: 260 });
+                createNode(CanvasNodeType.Audio, { x: 220, y: 520 });
+                const next = new URLSearchParams(searchParams);
+                next.delete("add");
+                setSearchParams(next, { replace: true });
+            };
+            lf = requestAnimationFrame(insertPair);
+            return () => cancelAnimationFrame(lf);
+        }
         const nodeType = requestedType === "video" ? CanvasNodeType.Video : requestedType === "image" ? CanvasNodeType.Image : requestedType === "audio" ? CanvasNodeType.Audio : null;
         if (!nodeType) return;
         let frame = 0;
