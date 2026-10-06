@@ -6161,3 +6161,8 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **POST /video-edit/remotion-render ✅**（main `243afef2` 已部署 core）：入参 lines(多行字幕)/speaker/duration_sec → build_remotion_props 契约对齐 workstation SubtitleCard → ssh workstation `npx remotion render --props` → NAS 产物回写 → URL 与 render/rough-cut 同形。参数校验(行数≤6/单行≤60字/时长1-30s)+8 单测全绿。
 - **实弹**：深夜工厂分镜两行字幕+旁白 → **1.8s 出片**（Chrome Headless 缓存后，首片 40min → 秒级）；768×1344 h264+aac。drama 分镜的 dialogue/speaker/duration_sec 可直喂本端点成片——词锚定字幕管线打通。
 - M3 收尾剩：drama 编辑操作原生化。
+
+### 2026-10-06 22:20 CST — M3 末项第一块：详情页渲染操作原生化
+- **渲染按钮原生 ✅**（ToIV-canvas `1e6c00ab` 已推 GitHub）：头部「渲染全部」（POST /studio/projects/{pid}/render）+ 分镜行「渲染」（POST /studio/shots/{sid}/render 单候选，terminal 态自动隐藏）；**fire-and-forget + 15s 轮询**形态（同步端点单镜 ~25min 不等响应，页面轮询 pipeline 状态自刷）。
+- **真机验证闭环**：点击 #2 镜「渲染」按钮 → 后端状态 draft→**rendering**（实证请求到达且开渲）；「在原工作台操作」深链保留为兜底。
+- M3 末项剩余：配音/对口型按钮、设定卡编辑原生化。
