@@ -136,7 +136,7 @@
 - **拍板回溯**：UI_FUSION_PLAN M4 第三项（gate 切指单实例→双写校验→切默认流量）按既定方案自主执行，无新决策点。
 - **交付**：① 统一二进制（PG 支持 + M6a gate identity 从 beeftv-m6a 工作树并回 main，裸请求 401 实证）；② typed-import 终版 `tmp/m43/mig4.py`（空 schema 先启动建 69 类型化表→停机按 information_schema 列类型灌 f659 sqlite，127 行/69 表全等；text 直迁在启动路径连环炸不可复制）；③ serve.mjs 单实例模式（`GATE_SINGLE_BACKEND/GATE_SINGLE_UID/GATE_SINGLE_DATA_DIR` 三 env，回滚=删三行重启 gate）；④ 修 M4-2 env 笔误（`CANVAS_DATA_DIR`→`CANVAS_BACKEND_DATA_DIR`，单实例此前跑 /home/merlin/data 已清理；状态文件 local-model-config.json/.settings-key/pi-agent/sessions/workspace/skill-packages 整体搬迁）。运维日志 `docs/ops/DRAMA_UI_PLAN.md` 末条。
 - **生产**：/studio 全量流量走 gate(:8281)→canvas-api-pg(:8290, PG schema=canvas)；实弹全绿（登录链/画布列表返回用户当日 2 项目/写路径 PUT+DELETE 落 PG 软删正确/h3 通道同步 h3Channels 1/助手预热/公网 302/401 行为正常）；canvas-api-pg.service 已 enable；per-user f659 单元停用、sqlite 冻结为回滚快照。
-- **开口**：M4-4 Phase B/C（SPA Bearer 附着+Next rewrite 直连+owner 头缺口审计，待 M4-3 浸泡+真浏览器验证；Phase A 直验中间件已上线武装）；M4-5 单仓合并+C6 全平台；真浏览器终验（用户侧）；四镜拼片对比。
+- **开口**：M4-4 Phase C（gate 全面退役：静态迁 Next+auth 职责移交，待真浏览器复验 Phase B 直连）；M4-5 单仓合并+C6 全平台（进行中）；真浏览器终验（用户侧）；四镜拼片对比。Phase B 直连已上线（`f14f656`/`b50d6f8d`：cookie 兜底+ui-session 第四信任源+SPA Bearer+Next rewrite 四件套，全链路实弹，回滚=next.config 删条重建）。
 - Status：`m4_3_gate_cutover`；STATE 同名；`updated_at` 2026-10-06T22:45:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-10-06（项目管家：角色资产协议 v1 落地并上 core）
