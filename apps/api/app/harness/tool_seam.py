@@ -218,6 +218,17 @@ def builtin_tool_specs() -> list[ToolSpec]:
                      "回滚一个 LLM 修复提案(补丁帮倒忙时;仅管理员)", rate_scope=""),
         ]
 
+    def _videoedit_specs() -> list[ToolSpec]:
+        from app.agent import tools_gen as tg
+
+        def vs(name: str) -> dict:
+            return next(s for s in tg.TOOL_SCHEMAS_GEN if s["function"]["name"] == name)
+
+        return [
+            ToolSpec("rough_cut_video", vs("rough_cut_video"), tools_gen.exec_rough_cut_video,
+                     "auto-editor 智能粗剪(去静默/废帧;输入本站视频地址)", rate_scope=""),
+        ]
+
     return [
         ToolSpec("generate_image", schema("generate_image"), _wrap(tools.exec_generate_image),
                  "文生图(海报/插画/照片/概念图等)"),
@@ -272,6 +283,7 @@ def builtin_tool_specs() -> list[ToolSpec]:
         *_drama_specs(),
         # ── 自愈闭环延伸工具(tools_selfheal.py;烟测失败归因/修复建议/重测/回滚)──
         *_selfheal_specs(),
+        *_videoedit_specs(),
     ]
 
 

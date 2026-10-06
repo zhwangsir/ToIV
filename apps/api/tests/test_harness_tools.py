@@ -76,6 +76,7 @@ LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作�
 - explain_app_failure:详解一个应用的烟测失败+修复建议+已有提案(仅管理员)
 - run_app_smoke:对应用现场重跑烟测(管线自动归因+修复重试;仅管理员)
 - reject_app_fix:回滚一个 LLM 修复提案(补丁帮倒忙时;仅管理员)
+- rough_cut_video:auto-editor 智能粗剪(去静默/废帧;输入本站视频地址)
 
 原则:
 1. 用户表达创作意图时,主动调用相应工具完成,而不是只给建议。
@@ -113,7 +114,7 @@ BUILTIN_ORDER = [
     "create_storyboard", "get_storyboard", "generate_shot",
     "assemble_storyboard", "check_film", "remix_storyboard",
     # 自愈闭环延伸工具(2026-09-21 A3:烟测失败归因/修复建议)
-    "list_smoke_failures", "explain_app_failure", "run_app_smoke", "reject_app_fix",
+    "list_smoke_failures", "explain_app_failure", "run_app_smoke", "reject_app_fix", "rough_cut_video",
 ]
 
 

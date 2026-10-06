@@ -46,6 +46,26 @@ TOOL_SCHEMAS_GEN = [
     {
         "type": "function",
         "function": {
+            "name": "rough_cut_video",
+            "description": (
+                "auto-editor 智能粗剪:对一段本站视频自动去除静默与废帧"
+                "(用户说「粗剪/去静默/剪掉没声音的段/自动剪辑」且给出本站视频时调用)。"
+                "输入视频 URL(须以 /api/ 开头),返回粗剪后的视频地址。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "本站视频地址(以 /api/ 开头,如成片或生成产物 URL)"},
+                    "threshold": {"type": "string", "description": "音量阈值,低于视为静默(默认 4%)", "default": "4%"},
+                    "margin": {"type": "string", "description": "切点前后保留余量(默认 0.2s)", "default": "0.2s"},
+                },
+                "required": ["url"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "submit_generation",
             "description": (
                 "异步提交一个生成作业到指定引擎(立即返回 job_id,不等待结果)。"
@@ -1629,3 +1649,26 @@ async def exec_open_asset(args: dict, ctx: dict) -> tuple[str, list[dict]]:
     return f"已在作品库定位该作品({job.kind or '产物'})。", [
         _ui_action("open_asset", job_id=job.id, kind=job.kind or "")
     ]
+
+
+async def exec_rough_cut_video(args: dict, ctx: dict) -> tuple[str, list[dict]]:
+    """智能体工具:委托 video_edit._run_roughcut(共用取回/执行/落盘链)。"""
+    from app.routes import video_edit as ve
+
+    url = str(args.get("url") or "").strip()
+    if not url:
+        return "url 不能为空;需本站以 /api/ 开头的视频地址。", []
+    threshold = str(args.get("threshold") or "4%")
+    margin = str(args.get("margin") or "0.2s")
+    try:
+        result = await ve._run_roughcut(url, threshold, margin)
+    except Exception as e:  # noqa: BLE001
+        detail = getattr(e, "detail", None) or str(e)
+        return f"粗剪失败:{detail}", []
+    out_url = str(result.get("url", ""))
+    shrink = ""
+    sb, ob = result.get("src_bytes"), result.get("out_bytes")
+    if isinstance(sb, int) and isinstance(ob, int) and sb:
+        shrink = f"(体积 {sb/1e6:.1f}MB→{ob/1e6:.1f}MB)"
+    text = f"粗剪完成{shrink}:{out_url}"
+    return text, [ok_tool_event("粗剪完成", {"url": out_url, **{k: v for k, v in result.items() if k != "url"}})]

@@ -489,3 +489,85 @@ async def video_edit_output(
         filename=filename,
         headers={"Cache-Control": "public, max-age=86400"},
     )
+
+
+# ── C5 粗剪(2026-10-06):auto-editor 静默/跳切自动粗剪 ──────────────────────
+# 融合方案 C5 快赢项。auto-editor 装在 core 的 api venv(音频能量分析为轻 CPU,
+# 不属"重转码压 core"范畴;如需迁移 workstation,改 _AE_SSH_TARGET 走同款 ssh 模式)。
+_AE_BIN = os.environ.get("TOIV_AUTO_EDITOR_BIN", "/home/merlin/toiv/api/.venv/bin/auto-editor")
+_AE_TIMEOUT = int(os.environ.get("TOIV_AUTO_EDITOR_TIMEOUT", "600"))
+
+
+def _roughcut_out_name() -> str:
+    return f"rc{uuid.uuid4().hex[:10]}.mp4"
+
+
+@router.post("/video-edit/rough-cut")
+async def rough_cut_video(
+    url: str = Form(...),
+    threshold: str = Form("4%"),
+    margin: str = Form("0.2s"),
+    user: User = Depends(get_current_user),
+) -> dict[str, object]:
+    """auto-editor 粗剪:输入本站视频 URL(产物/成片),输出去静默/废帧版本。
+
+    threshold: 音量阈值(如 4%);margin: 保留前后余量(如 0.2s)。
+    产物落 NAS outputs/video-edit,URL 形态与 render 一致。
+    """
+    enforce_generation_rate_limit(user)
+    return await _run_roughcut(url, threshold, margin)
+
+
+async def _run_roughcut(url: str, threshold: str, margin: str) -> dict[str, object]:
+    """auto-editor 粗剪核心(端点与智能体工具共用):取回→跑→落 NAS→回 URL。"""
+    import httpx
+
+    if not url.startswith(("/api/",)):
+        raise HTTPException(status_code=422, detail="仅支持本站 /api/ 视频地址")
+    if not re.fullmatch(r"[\d.%\w\s-]{1,12}", threshold) or not re.fullmatch(r"[\d.\w\s-]{1,12}", margin):
+        raise HTTPException(status_code=422, detail="threshold/margin 参数不合法")
+    job_id = uuid.uuid4().hex[:10]
+    tmp_src = Path(f"/var/tmp/rc_{job_id}_src.mp4")
+    tmp_out = Path(f"/var/tmp/rc_{job_id}.mp4")
+    out_name = f"rc{job_id}.mp4"
+
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as hc:
+            r = await hc.get(f"http://127.0.0.1:8090{url}")
+            r.raise_for_status()
+            data = r.content
+        if not data:
+            raise HTTPException(status_code=422, detail="视频取回为空")
+        tmp_src.write_bytes(data)
+        _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        proc = await asyncio.create_subprocess_exec(
+            _AE_BIN, str(tmp_src), "-o", str(tmp_out),
+            "--edit", f"silence:threshold={threshold}", "--margin", margin,
+            "--no-open",
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+        )
+        try:
+            out, _ = await asyncio.wait_for(proc.communicate(), timeout=_AE_TIMEOUT)
+        except asyncio.TimeoutError:
+            proc.kill()
+            raise HTTPException(status_code=504, detail=f"粗剪超时(>{_AE_TIMEOUT}s)")
+        if proc.returncode != 0 or not tmp_out.is_file():
+            tail = (out or b"")[-400:].decode("utf-8", "ignore")
+            raise HTTPException(status_code=502, detail=f"auto-editor 失败:{tail}")
+        dest = _OUTPUT_DIR / out_name
+        dest.write_bytes(tmp_out.read_bytes())
+        return {
+            "url": f"/api/video-edit/output/{out_name}",
+            "src_bytes": len(data),
+            "out_bytes": dest.stat().st_size,
+            "threshold": threshold,
+            "margin": margin,
+        }
+    except HTTPException:
+        raise
+    except OSError as e:
+        logger.warning("rough-cut 失败: %s", e)
+        raise HTTPException(status_code=502, detail=f"粗剪执行失败:{e}") from e
+    finally:
+        tmp_src.unlink(missing_ok=True)
+        tmp_out.unlink(missing_ok=True)
