@@ -6095,3 +6095,10 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **全链真机验证**（浏览器 wineryz.top）：?view=home 自动落地 **/studio → BeefTV UI 完整渲染**（侧栏/新建画布/六能力卡/v1.7.7，ToIV 品牌）；token exchange 无缝登录（admin）；per-user 后端 :8400 自动供给；exchange 200 {ok:true,user:admin}。
 - **开关状态**：ENTRY_ON=ON（BeefTV 为登录用户的默认落地页）；匿名 / 仍为 marketing；R0 回滚=`rm -f /home/merlin/beeftv-prod/ENTRY_ON`（秒级、无重启）。
 - **待办移交**：①ToIV-canvas 仓同步 serve.mjs 斜杠修复；②四镜拼片对比 splice2；③canvas 数据为空（全新 prod 数据域）——staging 2 用户数据可选拷贝；④ToIV 旧版 UI 仍可达（/?view=home&classic=1 或 R0），未物理删除。
+
+### 2026-10-06 14:25 CST — 🎨 BeefTV 本土化第一批上线（侧栏 ToIV 创作组 + 首页实模块卡）
+- **改动**（ToIV-canvas `c43a673`，已推 GitHub）：①侧栏新增「ToIV 创作」组——智能体对话/短剧工作台/应用市场/作品库/任务中心（external 整页直达旧版功能视图，classic=1 防 home 探测回环）；②首页两张「即将开放」废卡换成 短剧工作台/智能体对话 实卡；③router `basename=import.meta.env.BASE_URL`（/studio 挂载必备，缺则全路由 404）；④gate serve.mjs 斜杠 308 死环修复入库同步。
+- **构建口径固化**（关键教训）：`VITE_CANVAS_BACKEND_URL=/studio/api` + `--base=/studio/` **缺一不可**——漏 base → JS 内部 modulepreload 走根路径 404 白屏；漏 env → apiBase 回落 "/api" 打到 toiv-api 域 bootstrap 必败（「工作区暂时无法加载」）；漏 router basename → 全路由 404。凌晨 dist 无构建脚本记录导致本次三坑全踩，已用错误探针（onerror→title）逐个定位。
+- **真机验证**（wineryz.top/studio）：SPA 完整渲染、侧栏 TOIV 创作组五项、首页双新卡、真实项目数据（未命名项目 2026-10-06）、应用市场跳转链路通（/?view=market&classic=1）。
+- **推送路线**：core 无 git 凭据 → bundle 路线（core 打包 → MateBook 推 GitHub）；凌晨积压 16 提交+本批一并上去（26bda4b→c43a673）。Gitee ToIV-canvas 仓仍建不了（凌晨 blocker 未解）。
+- **后续批次**：外部 Agent 页文案本土化、画布内 ToIV provider 展示名优化、ToIV 模块逐步原生化迁入 BeefTV（当前 external 直达为过渡态）。
