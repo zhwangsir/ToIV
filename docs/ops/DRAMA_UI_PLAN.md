@@ -6218,3 +6218,13 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **修复**：gate.env `GATE_COOKIE_SECURE=0` + `GATE_PUBLIC_ORIGIN` 追加 TS 直连 origin，重启 gate。
 - **双路验证 ✅**：TS 直连完整进入 SPA（首页 9 卡+最近项目渲染）；公网 https://toiv.wineryz.top/studio 回归正常（同卡渲染）。
 - **安全权衡入账**：去 Secure 后公网实际链路仍全程加密（浏览器→beijing https→frp 隧道→core 本机）；TS 链路 wireguard 加密；cookie 保持 HttpOnly+SameSite=Strict+Path=/studio。若未来要求严格 Secure，可为 TS 直连单独配 https 或恢复按 X-Forwarded-Proto 判定（需 Next rewrite 透传该头）。
+
+### 2026-10-06 22:41 CST — M4 第三项：gate 切流单实例（双写校验→切默认流量）
+- **双写校验 ✅**：typed-import 重迁（仅 f659 真实用户，127 行/69 表与 sqlite 全等；旧 mig2 三用户先到先得并库弃用）后，对 per-user :8400（sqlite）与单实例 :8290（PG）发同组带 HMAC 签名的 GET——projects/project-folders/canvas-folders/tasks/model-config 全等（易变字段抹除后）；voice-profiles 唯一差异=builtin 种子 id 重生成（character_voice_bindings 两边均 0 行零引用，无害）。
+- **typed-import 终版路径**（`tmp/m43/mig4.py` 留档，替代旧 433 行 text 兜底回填）：空 schema 先完整启动一次（ledger v1-v13 全量 apply→AutoMigrate 建 69 张类型化表）→ 停机按 information_schema 目标列类型灌数（timestamptz/int/bool/jsonb 感知、纳秒截微秒）→ 再启动。text 直迁会在启动路径连环炸（COALESCE text/integer 42804、created_at Scan 错误）——首轮 20:08 能跑是崩溃循环期间 AutoMigrate 顺手定型了 ledger，不可复制。
+- **统一二进制 ✅**（ToIV-canvas `eb94fab`）：M6a gate identity 中间件从 beeftv-m6a 工作树并回 main（v1.uid.ts.sig HMAC、60s 偏差、豁免 /api/health/live+ops 宿主；BEEFTV_GATE_UID/KEY_FILE 双必填否则拒启）——单实例获得与 per-user 同级的 loopback 防护，裸请求 401 gate_identity_required 实证。
+- **M4-2 遗留配置笔误修复**：canvas-api.env 写的是 `CANVAS_DATA_DIR`，后端读 `CANVAS_BACKEND_DATA_DIR`——单实例一直跑在 /home/merlin/data（已清理）；修正后 local-model-config.json（enc:v1 AES-GCM，.settings-key 同步拷贝）才真正生效，model-config 三通道（beefapi/toiv-h3/toiv-llm）+assistantModel 与 per-user 全等。状态文件整体搬迁：agent_config/.settings-key/pi-agent/sessions/workspace/skill-packages/plugin-packages。
+- **gate 单实例模式 ✅**（ToIV-canvas `9cd6d03`+`23150be` TDZ 修复，已推 GitHub）：serve.mjs 增 GATE_SINGLE_BACKEND/GATE_SINGLE_UID/GATE_SINGLE_DATA_DIR 三 env——want() 短路 ready+通道凭据按当前登录用户同步（30s 退避）、proxy 固定打 :8290、owner token 读单实例 data 目录、收养循环跳过；不设 env=per-user 模式零变化（**回滚=删三行 env 重启 gate**）。
+- **切流实弹全绿**：登录→exchange→cookie→/studio/auth/status ready→/studio/api/projects 200→画布列表返回用户当日 2 项目→写路径 PUT+DELETE canvas-folder 落 PG（软删正确）→h3 通道同步（h3Channels 1）→助手预热 1752ms→公网 wineryz /studio 302/401 行为正常。canvas-api-pg.service 已 enable（重启自愈）；per-user f659 单元已停（sqlite 冻结为回滚快照）。
+- 踩坑：node --check 不查 TDZ（IIFE 引用后置 const 声明，实弹启动才炸）；psycopg2 在 toiv venv；gitee ToIV-canvas 仓 404 不存在（GitHub 为准）。
+- M4 剩余：gate 退役+JWT 直验（M4-4）→单仓合并+C6 全平台（M4-5）。

@@ -92,8 +92,8 @@
 | 7 | 短剧工作台 | `/toiv/drama` 全家 | 分镜板与画布镜头互转；设定卡资产进画布引用库 | M3 | 待做 |
 | 8 | 数字人/音频编排 | 画布音频节点增强 | tts/分离/拼接/混音变体编排在节点上完成 | M3 | 待做 |
 | 9 | 资源中心/实体库 | `/toiv/resources` | 模型资产与 BeefTV 模型配置页合一视图 | M3 | 待做 |
-| 10 | 画布后端 PG 化 | canvas-api 单实例 | 画布与业务单一数据平面，资产互引 | M4 | 待做 |
-| 11 | 认证/部署合一 | gate 退役 + 单仓 CI | ToIV JWT 直用；deploy.sh 一条命令全站 | M4 | 待做 |
+| 10 | 画布后端 PG 化 | canvas-api 单实例 | 画布与业务单一数据平面，资产互引 | M4 | ✅ 2026-10-06 切流上线（单实例 :8290 承接全量 /studio 流量，见 DRAMA_UI_PLAN M4-3） |
+| 11 | 认证/部署合一 | gate 退役 + 单仓 CI | ToIV JWT 直用；deploy.sh 一条命令全站 | M4 | 待做（gate 已切单实例模式瘦身，剩 JWT 直验+单仓合并） |
 
 ### M1 已落地明细（本批）
 - `services/toiv/client.ts`：ToIV API 客户端（同源 /api + toiv_token JWT；与画布 apiClient 两平面隔离）

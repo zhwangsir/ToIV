@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-06（项目管家：**角色资产协议全四波收口上 core——M1 api/M1 web/M2 变体实跑/M2 变体展示**）：用户拍板按 `docs/ops/CHARACTER_ASSET_PROTOCOL.md` 执行完毕；交付=api（L2 schema/锚点/覆盖/版本级联/展示卡渲染/5 端点/生成链钩子，`a3fde180`）+ web（CharacterAssetPanel 面板：锚点编辑/覆盖缺口/展示卡，`c32baff8`）+ M2 实跑（style_variants 入 schema+PUT；林夏写实 majicMIX 0.68/水墨 flux2 0.72 两变体生产 img2img 生成并登记，`946e840b`）+ 变体展示（面板变体卡网格，`2e020824`）；api 测试 12 绿/web 4 绿均零新增失败（53/104 与 5 预存均与 HEAD 基线一致）；生产核验：林夏资产 v1 含 5 正典锚点+两变体+展示卡 `char_card_803fb69b_anime_b6f61fa4d4fa.png`；web BUILD_ID `20261006-120515-nogit`（四文件精确 scp 避让 BeefTV 在途改动）；口径：/api/images 的 sig 只免归属、token 仍必需；:8196 无 WAI（水墨走 flux2）；**D4 编辑底图重做归并行会话持有（base_expr_* mtime 佐证，勿双头驱动）**；M3 LoRA 后置；功能说明 `docs/CHARACTER_ASSET_GUIDE.md`；⚠️ 本地 stash@{0}「wip-unrelated-before-0030」系早前会话遗留，勿误 pop；STATE `character_asset_protocol_m1_2026_10_06`；`updated_at` 2026-10-06T20:40:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-10-06（项目管家：**UI 融合 M4-3 gate 切流单实例上线**）：BeefTV×ToIV 融合 M4 第三项落地——单实例 canvas-api-pg :8290（PG schema=canvas）承接全量 /studio 流量，gate 切单实例模式（`GATE_SINGLE_BACKEND/UID/DATA_DIR` 三 env，回滚=删三行重启）；typed-import 终版路径（空 schema 先启动建类型化表→停机按目标列类型灌数，127 行/69 表与 f659 sqlite 全等，旧 mig2 三用户并库弃用）；M6a gate identity 中间件并回 main（裸请求 401 实证）；修复 M4-2 遗留 env 笔误（`CANVAS_DATA_DIR`→`CANVAS_BACKEND_DATA_DIR`，单实例此前跑在 /home/merlin/data 已清理）；双写校验 6/7 端点全等（voice-profiles 种子 id 无害差异）；实弹全绿=登录链/画布列表（用户当日 2 项目）/写路径 PUT+DELETE 落 PG/h3 通道同步/助手预热/公网 302/401 正常；canvas-api-pg 已 enable，per-user f659 单元停（sqlite 冻结为回滚快照）；ToIV-canvas `eb94fab/9cd6d03/23150be` 已推 GitHub（gitee 仓 404 不存在）；踩坑=node --check 不查 TDZ；STATE `m4_3_gate_cutover_2026_10_06`；`updated_at` 2026-10-06T22:45:00+08:00；via 项目管家（ToIV 开发）；
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -131,6 +131,13 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-06（项目管家：UI 融合 M4-3 gate 切流单实例上线）
+- **拍板回溯**：UI_FUSION_PLAN M4 第三项（gate 切指单实例→双写校验→切默认流量）按既定方案自主执行，无新决策点。
+- **交付**：① 统一二进制（PG 支持 + M6a gate identity 从 beeftv-m6a 工作树并回 main，裸请求 401 实证）；② typed-import 终版 `tmp/m43/mig4.py`（空 schema 先启动建 69 类型化表→停机按 information_schema 列类型灌 f659 sqlite，127 行/69 表全等；text 直迁在启动路径连环炸不可复制）；③ serve.mjs 单实例模式（`GATE_SINGLE_BACKEND/GATE_SINGLE_UID/GATE_SINGLE_DATA_DIR` 三 env，回滚=删三行重启 gate）；④ 修 M4-2 env 笔误（`CANVAS_DATA_DIR`→`CANVAS_BACKEND_DATA_DIR`，单实例此前跑 /home/merlin/data 已清理；状态文件 local-model-config.json/.settings-key/pi-agent/sessions/workspace/skill-packages 整体搬迁）。运维日志 `docs/ops/DRAMA_UI_PLAN.md` 末条。
+- **生产**：/studio 全量流量走 gate(:8281)→canvas-api-pg(:8290, PG schema=canvas)；实弹全绿（登录链/画布列表返回用户当日 2 项目/写路径 PUT+DELETE 落 PG 软删正确/h3 通道同步 h3Channels 1/助手预热/公网 302/401 行为正常）；canvas-api-pg.service 已 enable；per-user f659 单元停用、sqlite 冻结为回滚快照。
+- **开口**：M4-4 gate 退役+JWT 直验；M4-5 单仓合并+C6 全平台；真浏览器终验（用户侧）；四镜拼片对比。
+- Status：`m4_3_gate_cutover`；STATE 同名；`updated_at` 2026-10-06T22:45:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-10-06（项目管家：角色资产协议 v1 落地并上 core）
 - **拍板**：用户按 `docs/ops/CHARACTER_ASSET_PROTOCOL.md` 放行——D1 协议产品级/D2 展示卡/D3 存量回填执行、**D4 两张编辑底图重做分开走舰队批次**（重做完经 refresh 端点记版本级联）。
