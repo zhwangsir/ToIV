@@ -6236,3 +6236,10 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **Phase B/C 待做**（刻意缓一步：M4-3 刚切流需浸泡+真浏览器验证后再动）：① SPA request.ts 附着 Bearer（经 gate 会被 strip=加法安全）；② toiv-web next.config 增 `/studio/api/:path*` → 127.0.0.1:8290 rewrite（置于 `/studio/:path*` 之前）；③ **owner 头缺口**——gate 代理注入 `x-beeftv-owner`（agent ops/tasks 路由 loopback owner 凭据），直连路径没有等价物，切流前需逐路由审计（agent_ops 可选抬升/ui-session 走 desktop trust）+ 真浏览器过助手面板/任务列表/画布操作；④ SPA 静态与 /studio/auth/* 留 gate 直至全面退役。
 - 预存失败入账：`TestDesktopDependencyBoundary`（desktop 依赖图禁 hosted infra）自 M4-1 引入 postgres 驱动即红，clean HEAD 复现，与本波无关；后续需给 PG 模式开豁免或分 build tag。
 - **Phase B owner 头路由审计结果**（2026-10-06 22:58，只读分析）：`/api/tasks` 仅 currentUser 直连可用；`/api/assistant/ui-session` 需 ownerOK/devBootstrap/desktopShell 三选一（**唯一真缺口**——SPA 助手面板签 UI 会话走它；建议 Phase B 放行「ToIV JWT 已认证」作为第四信任源，语义上产品登录强于 gate cookie）；`/api/ops*`、`/api/agent-clients*` 为 owner 门控 CLI/MCP 面，SPA 不用直连不受影响。
+
+### 2026-10-06 23:06 CST — M4-4 Phase B：/studio/api 直连 canvas-api 上线（gate 仅剩静态+auth）
+- **直连三件套 ✅**（ToIV-canvas `f14f656` 已推 GitHub；ToIV main `b50d6f8d` 双推）：①`ToivJWTAuth` **cookie 兜底**——gate 会话 cookie（toiv_session，值即 ToIV JWT）与 Bearer 走同一内省（60s 只缓存正判定），URL 型访问（img src/下载链接/EventSource 无 header 能力）全解决；②`/api/assistant/ui-session` **第四信任源**——`ToivAuthenticated` 独立上下文章（仅 bearer 通道标记，gate-HMAC 语义零变化），产品登录即可签 UI 会话；③SPA `request.ts` 拦截器附着 `toiv_token` Bearer + `withToivAuth` 出口（assistant chat/cancel、task-center SSE 裸 fetch 补头）。
+- **切流**：toiv-web next.config 增 `/studio/api/:path*` → `127.0.0.1:8290/api/:path*`（`CANVAS_API_ORIGIN` 可覆写，置于 `/studio/:path*` 之前）；canvas-api CORS 补 TS 直连 origin；core 本机构建部署（web+SPA dist 均换新）。**回滚=next.config 删该条重建**（API 立即回 gate 路径，SPA 不用动）。
+- **全链路实弹**：Bearer 直连 200 / gate cookie 经 Next 转发 200（2 projects）/ 无认证 401 / 写路径 PUT+DELETE canvas-folder / ui-session `toivLogin:true` 签发 / `/studio/auth/status` 仍走 gate ready / SPA 200 / 公网 wineryz 302+401 正常 / Next 代理透明性实证（同端点直连与经 Next 同 status 同 body）。canvas-api-pg 日志实证请求直打 :8290。
+- **留真浏览器窗口复验**：助手面板发消息（真 SSE 流）、画布操作、资源图加载——传输层等价性已证，UI 侧留人工。
+- Phase C（gate 全面退役）：静态托管迁 Next + `/studio/auth/exchange` 职责移交（届时 Bearer 已是主凭据，cookie 兜底需 Next 侧设等价 cookie）。
