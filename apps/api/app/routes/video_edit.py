@@ -578,3 +578,73 @@ async def _run_roughcut(url: str, threshold: str, margin: str) -> dict[str, obje
     finally:
         tmp_src.unlink(missing_ok=True)
         tmp_out.unlink(missing_ok=True)
+
+
+# ── M3 收尾(2026-10-06):Remotion 成片渲染端点 ──────────────────────────────
+# C5 调研落地:Remotion(React 程序化视频)替代纯 ffmpeg 字幕拼接;算力边界同 render——
+# core 只组参数,渲染经 ssh 到 workstation(remotion-studio 项目 + Chrome Headless 已缓存)。
+_REMOTION_DIR = os.environ.get("TOIV_REMOTION_DIR", "/home/merlin/remotion-studio")
+_REMOTION_TIMEOUT = int(os.environ.get("TOIV_REMOTION_TIMEOUT", "600"))
+_WS_REMOTION_OUT = os.environ.get("TOIV_REMOTION_WS_OUT", "/home/merlin/nas_mount/toiv/outputs/video-edit")
+
+
+def _remotion_out_name() -> str:
+    return f"rm{uuid.uuid4().hex[:10]}.mp4"
+
+
+def build_remotion_props(lines: list[str], speaker: str, duration_sec: float) -> dict:
+    """SubtitleCard composition 的 props(与 workstation 侧 defaultProps 契约对齐)。"""
+    frames = max(30, int(round(duration_sec * 30)))
+    return {"lines": lines, "speaker": speaker, "durationInFrames": frames}
+
+
+async def _run_remotion_render(lines: list[str], speaker: str, duration_sec: float) -> dict[str, object]:
+    import json as _json
+
+    out_name = _remotion_out_name()
+    ws_out = f"{_WS_REMOTION_OUT}/{out_name}"
+    props = _json.dumps(build_remotion_props(lines, speaker, duration_sec), ensure_ascii=False)
+    remote = (
+        f"cd {_REMOTION_DIR} && "
+        f"npx remotion render src/index.jsx SubtitleCard '{ws_out}' "
+        f"--props='{props.replace(chr(39), chr(34))}'"
+    )
+    _run_ssh(remote, _REMOTION_TIMEOUT, "remotion 渲染")
+    dest = _OUTPUT_DIR / out_name
+    try:
+        if not dest.is_file():
+            raise HTTPException(status_code=502, detail="渲染产物未落 NAS")
+        return {
+            "url": f"/api/video-edit/output/{out_name}",
+            "lines": lines,
+            "speaker": speaker,
+            "out_bytes": dest.stat().st_size,
+        }
+    except OSError as e:
+        raise HTTPException(status_code=503, detail=f"NAS 存储不可达:{e}") from e
+
+
+@router.post("/video-edit/remotion-render")
+async def remotion_render(
+    lines: str = Form(...),
+    speaker: str = Form(""),
+    duration_sec: float = Form(3.0),
+    user: User = Depends(get_current_user),
+) -> dict[str, object]:
+    """Remotion 字幕卡渲染:lines 多行文本(每行一条字幕)、speaker 发言人、时长秒。
+
+    用途:短剧分镜词锚定字幕/片头卡(C5 结论的成片管线件);产物落 NAS,URL 形态与 render/rough-cut 一致。
+    """
+    enforce_generation_rate_limit(user)
+    clean = [l.strip() for l in lines.splitlines() if l.strip()]
+    if not clean:
+        raise HTTPException(status_code=422, detail="lines 不能为空(每行一条字幕)")
+    if len(clean) > 6:
+        raise HTTPException(status_code=422, detail="字幕行数 ≤6")
+    if any(len(l) > 60 for l in clean):
+        raise HTTPException(status_code=422, detail="单行字幕 ≤60 字")
+    if len(speaker) > 20:
+        raise HTTPException(status_code=422, detail="speaker ≤20 字")
+    if not 1.0 <= duration_sec <= 30.0:
+        raise HTTPException(status_code=422, detail="时长须在 1-30 秒")
+    return await _run_remotion_render(clean, speaker, duration_sec)

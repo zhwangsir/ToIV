@@ -52,3 +52,46 @@ async def test_roughcut_rejects_bad_threshold(monkeypatch):
 
 class SimpleUser:
     id = "u-roughcut"
+
+
+# ── M3 收尾:Remotion 渲染端点(2026-10-06) ─────────────────────────────────
+
+def test_remotion_route_registered():
+    from app.routes.video_edit import router
+
+    paths = {getattr(r, "path", "") for r in router.routes}
+    assert "/video-edit/remotion-render" in paths
+
+
+def test_remotion_out_name_whitelist():
+    from app.routes.video_edit import _OUT_RE, _remotion_out_name
+
+    name = _remotion_out_name()
+    assert _OUT_RE.match(name), f"{name} 不在产物白名单"
+
+
+def test_build_remotion_props_contract():
+    from app.routes.video_edit import build_remotion_props
+
+    p = build_remotion_props(["雨夜便利店", "林夏推门而入"], "旁白", 3.0)
+    assert p["lines"] == ["雨夜便利店", "林夏推门而入"]
+    assert p["speaker"] == "旁白"
+    assert p["durationInFrames"] == 90  # 3s @30fps
+    assert build_remotion_props(["x"], "", 0.2)["durationInFrames"] == 30  # 下限钳制
+
+
+@pytest.mark.asyncio
+async def test_remotion_rejects_empty_and_oversize(monkeypatch):
+    from fastapi import HTTPException
+
+    from app.routes import video_edit as ve
+
+    with pytest.raises(HTTPException) as e1:
+        await ve.remotion_render(lines="  \n  ", duration_sec=3.0, speaker="", user=SimpleUser())
+    assert e1.value.status_code == 422
+    with pytest.raises(HTTPException) as e2:
+        await ve.remotion_render(lines="行" * 61, duration_sec=3.0, speaker="", user=SimpleUser())
+    assert e2.value.status_code == 422
+    with pytest.raises(HTTPException) as e3:
+        await ve.remotion_render(lines="正常字幕", duration_sec=99.0, speaker="", user=SimpleUser())
+    assert e3.value.status_code == 422
