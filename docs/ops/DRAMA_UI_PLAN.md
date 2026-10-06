@@ -6129,3 +6129,9 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **/toiv/drama ✅**（ToIV-canvas `259ed2f1`）：项目卡片（标题/premise/状态徽标 draft|storyboard|rendering|done）、分镜进度条（done+ lipsynced / total + 状态分布）、next_step 提示（渲染分镜(待办 N)/分镜配音）、分辨率与管线标签、成片标记；详情深链旧工作台（/drama/{id}?classic=1）。侧栏「短剧工作台」转内部路由——**侧栏 TOIV 创作组七项全部原生路由，external 只余详情深链**。真机验证：真实项目（沈青禾 E2E 4镜/雨夜对比克隆 rendered4）完整渲染。
 - ⏳ 用户终验提醒：/studio/canvas?mode=new&add=lipsync 的 hydrated 自动建布最后一跳需真实浏览器确认（本会话容器 IndexedDB 受限）。
 - M3 剩余：drama 详情原生页（角色/设定卡/分镜板）、工具箱四族模板、Remotion 成片渲染器。
+
+### 2026-10-06 19:30 CST — M3 第二块：短剧详情原生页上线（GitHub 补推同步完成）
+- **/toiv/drama/:id ✅**（ToIV-canvas `24504705`）：角色与设定卡区（参考图缩略/描述/音色标记）+ 分镜板（状态徽标 draft|rendering|rendered、场景/台词「」/运镜 🎥/时长/媒体缩略 video|img）+ final_url 成片播放位 + 「在原工作台操作」深链（编辑/渲染/配音仍走旧台）。列表卡转内部路由。真机验证：沈青禾项目（1 角色+4 镜含台词运镜全文）完整渲染。
+- **GitHub main 补推 ✅**：b5977e0f 及之前积压已在位（本轮核实 up-to-date）。
+- 融合附录 A 状态更新：#7 短剧工作台——列表+详情只读视图已原生；编辑/管线操作仍深链（后续原生化批次）。
+- M3 剩余：工具箱四族模板、Remotion 成片渲染器、drama 编辑操作原生化。
