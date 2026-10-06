@@ -189,3 +189,10 @@ export async function triggerSheetRegen(cid: string, style: string): Promise<boo
         return true;
     } catch { return false; }
 }
+
+export async function triggerPanelReplace(cid: string, style: string, key: string, imageB64: string): Promise<boolean> {
+    try {
+        await toivHttp.post(`/studio/characters/${cid}/character-sheet/panel-replace`, { style, key, image_b64: imageB64 }, { timeout: 600_000 });
+        return true;
+    } catch { return false; }
+}

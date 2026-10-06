@@ -1,10 +1,10 @@
 import { App as AntApp, Button, Drawer, Empty, Spin, Tag, Typography } from "antd";
-import { AudioLines, ChevronRight, IdCard, MessagesSquare, PlayCircle } from "lucide-react";
+import { AudioLines, ChevronRight, IdCard, MessagesSquare, PlayCircle, Upload } from "lucide-react";
 import { ArrowLeft, Clapperboard, ExternalLink, Film, RefreshCw, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { fetchCharacterSheets, fetchDramaProject, triggerBatchRender, triggerSheetRegen, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivCharacterSheet, type ToivDramaDetail } from "@/services/toiv/client";
+import { fetchCharacterSheets, fetchDramaProject, triggerBatchRender, triggerPanelReplace, triggerSheetRegen, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivCharacterSheet, type ToivDramaDetail } from "@/services/toiv/client";
 
 const SHOT_STATUS: Record<string, { color: string; text: string }> = {
     draft: { color: "default", text: "草稿" },
@@ -25,6 +25,7 @@ export default function DramaDetailPage() {
     const [charDetail, setCharDetail] = useState<{ char: NonNullable<ToivDramaDetail["characters"]>[number]; sheets: ToivCharacterSheet[] } | null>(null);
     const [sheetsLoading, setSheetsLoading] = useState(false);
     const [regenStyle, setRegenStyle] = useState<string | null>(null);
+    const [replacingKey, setReplacingKey] = useState<string | null>(null);
     const [batchRendering, setBatchRendering] = useState(false);
 
     const openCharacter = useCallback(async (char: NonNullable<ToivDramaDetail["characters"]>[number]) => {
@@ -233,7 +234,37 @@ export default function DramaDetailPage() {
                                     {sh.sheet_url && <img src={sh.sheet_url} alt="" className="w-full rounded-lg" loading="lazy" />}
                                     {(sh.panel_urls ?? []).length > 0 && (
                                         <div className="grid grid-cols-3 gap-1">
-                                            {sh.panel_urls!.slice(0, 9).map((p, i) => <img key={i} src={p} alt="" className="aspect-square w-full rounded-md object-cover" loading="lazy" />)}
+                                            {sh.panel_urls!.slice(0, 9).map((p, i) => {
+                                                const panelKeys = ["portrait", "front", "side", "back", "faces", "costume", "expr_0", "expr_1", "expr_2"];
+                                                const pk = panelKeys[i] ?? `expr_${i - 6}`;
+                                                return (
+                                                    <div key={i} className="group relative">
+                                                        <img src={p} alt="" className="aspect-square w-full rounded-md object-cover" loading="lazy" />
+                                                        <label className="absolute inset-0 z-10 flex cursor-pointer items-center justify-center bg-black/60 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                                                            {replacingKey === pk ? "替换中…" : <><Upload className="mr-1 h-3 w-3" />替换</>}
+                                                            <input type="file" accept="image/*" className="hidden"
+                                                                disabled={replacingKey !== null}
+                                                                onChange={async (ev) => {
+                                                                    const file = ev.target.files?.[0];
+                                                                    ev.target.value = "";
+                                                                    if (!file || !charDetail) return;
+                                                                    const b64 = await new Promise<string>((res, rej) => {
+                                                                        const fr = new FileReader();
+                                                                        fr.onload = () => res(String(fr.result));
+                                                                        fr.onerror = rej;
+                                                                        fr.readAsDataURL(file);
+                                                                    });
+                                                                    setReplacingKey(pk);
+                                                                    const cid = charDetail.char.id;
+                                                                    void triggerPanelReplace(cid, sh.style, pk, b64).finally(() => {
+                                                                        setReplacingKey(null);
+                                                                        void fetchCharacterSheets(cid).then((sheets2) => setCharDetail((prev) => (prev ? { ...prev, sheets: sheets2 } : prev))).catch(() => {});
+                                                                    });
+                                                                }} />
+                                                        </label>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
