@@ -277,3 +277,39 @@ class CharacterSheetRecomposeRequest(BaseModel):
         description="True 时把身份/性格/设计说明写回角色 description",
     )
 
+
+class CharacterAssetPutRequest(BaseModel):
+    """角色资产协议 L2:白名单字段补丁(锚点/档案/锁定/负向约束/色板/覆盖)。"""
+
+    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    identity_anchors: list[dict] | None = Field(default=None, max_length=10)
+    profile: dict | None = None
+    canonical_prompt: dict | None = None
+    lock: dict | None = None
+    color_palette: dict | None = None
+    coverage: dict | None = None
+    qa: dict | None = None
+    variants_allowed: bool | None = None
+
+
+class CharacterAssetRefreshRequest(BaseModel):
+    """面板重生成后的版本级联:从最新面板文件刷新 coverage/panels 并 version+1。"""
+
+    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    reason: str = Field(..., min_length=1, max_length=200)
+
+
+class CharacterAssetCardRequest(BaseModel):
+    """D2:渲染对外展示卡(一张图全家桶)——资产集的视图,非一致性来源。"""
+
+    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+
+
+class CharacterAssetCoveragePlanRequest(BaseModel):
+    """M2:覆盖缺口登记 + 补拍计划(只出计划不执行)。"""
+
+    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    angles: list[str] | None = Field(default=None, max_length=8)
+    framings: list[str] | None = Field(default=None, max_length=8)
+    lightings: list[str] | None = Field(default=None, max_length=8)
+

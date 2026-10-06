@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-05（项目管家：设定卡 1224 结案 + 全设备 TS 普查）：嘴部放大复判 `c78f4542` 验证过（mz_real_0600 回归+1224 局实弹）；沉思/温柔 fallback 根因=**编辑底图缺陷**（重做底图待拍板）；设备普查翻案——openclaw02/03/04 经 TS 全通（9310/9305 四节点 OPEN，旧「僵死」记录撤销）、pc01 **offline 1 天**且 TS IP 变 **100.86.169.64**（旧值作废）、WS **:8264=H3 worker#2**（10-03 上线替换 :8261 超分 GPU1）；LB 池现仅 gpu0 单后端；主干 main 三端 tip=`6d2f38ff`；STATE `sheet_1224_closed_device_audit_2026_10_05`；`updated_at` 2026-10-05T14:05:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-10-06（项目管家：**角色资产协议 v1 落地并上 core**）：用户拍板按 `docs/ops/CHARACTER_ASSET_PROTOCOL.md` 执行（D1 协议产品级/D2 展示卡/D3 存量回填/**D4 编辑底图重做分开走舰队批次**）；新服务 `apps/api/app/services/studio/character_asset.py`（L2 schema/锚点数据化/覆盖登记/版本级联/展示卡渲染/M2 variant+补拍 builder）+ studio 路由 5 端点（GET 自动物化回填/PUT 白名单补丁/refresh 版本级联/card 展示卡/coverage-plan）+ 生成链钩子（整卡/面板重生成→version+1，不阻塞主链）；12 测试全绿+回归零新增（预存环境性失败 53/104 与 HEAD 基线一致）；**已部署 core-ts 并真机验证**（林夏 803fb69b 即 1224 案主角 GET 物化 v1+PUT 五条正典锚点+展示卡三迭代视觉过+coverage-plan 3 job）；⚠️ 本地 main 有本波未提交文件待 commit；⚠️ 本地 stash@{0}「wip-unrelated-before-0030」系早前会话遗留，勿误 pop；STATE `character_asset_protocol_m1_2026_10_06`；`updated_at` 2026-10-06T18:20:00+08:00；via 项目管家（ToIV 开发）；
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -131,6 +131,13 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-06（项目管家：角色资产协议 v1 落地并上 core）
+- **拍板**：用户按 `docs/ops/CHARACTER_ASSET_PROTOCOL.md` 放行——D1 协议产品级/D2 展示卡/D3 存量回填执行、**D4 两张编辑底图重做分开走舰队批次**（重做完经 refresh 端点记版本级联）。
+- **交付**：新模块 `character_asset.py`（L2 Character Asset Definition：锚点/色板/覆盖/口型系列/版本溯源/锁定 + 展示卡 PIL 渲染 + M2 跨风格 variant 与覆盖补拍 builder，文件态 `char_asset_*.json`/`char_card_*.png`）；studio 路由 +5 端点；生成链版本钩子。12 新测试绿；回归对照 HEAD 基线**零新增失败**（本地环境存在 53/104 预存失败——FastAPI 错误路径 json.dumps(ValueError) 系环境漂移，与本波无关，勿记本波账）。
+- **生产**：api 三次部署 core（core-jump 双跳，LAN 不可达 Mac 在外地）；林夏（803fb69b=1224 案主角）**D3 回填真实执行**（GET 物化 v1→PUT 5 条正典锚点+负向约束）；展示卡 `char_card_803fb69b_anime_b6f61fa4d4fa.png` 经三迭代视觉验收（标签底衬/hex 间距/底部空带 345→150px）；coverage-plan 出 medium_closeup/day/night 3 job。
+- **开口**：web 前端资产卡 UI（下一波）；M2 variant 实际生成执行；M3 per-character LoRA；D4 编辑底图重做（待舰队批次）；本地 main 本波文件待 commit+推远端。
+- Status：`character_asset_protocol_m1`；STATE 同名；`updated_at` 2026-10-06T18:20:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-10-05（项目管家：设定卡 1224 结案 + 全设备 TS 普查）
 - **设定卡**：嘴部放大复判 `c78f4542` 端到端验证过（mz_real_0600 回归 + 1224 局实弹 a0/a3 正拒）；1224 局 fallback 根因=**编辑底图缺陷**（base_expr_2 嘴微张小 O / base_expr_3 底部灰带+构图 top=0 vs 锁定格 0.117）——**重做两张编辑底待父拍板**，换 seed 无效。

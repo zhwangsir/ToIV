@@ -26,11 +26,15 @@ from app.services.studio.renderers.base import RenderError
 import uuid
 
 from app.services.studio.schemas import (
+    CharacterAssetCardRequest,
+    CharacterAssetCoveragePlanRequest,
+    CharacterAssetPutRequest,
+    CharacterAssetRefreshRequest,
     CharacterCreate,
     CharacterPatch,
-    CharacterSheetRequest,
     CharacterSheetPanelsRequest,
     CharacterSheetRecomposeRequest,
+    CharacterSheetRequest,
     ProjectCreate,
     ProjectPatch,
     ScriptParseRequest,
@@ -406,6 +410,9 @@ async def generate_character_sheet_route(
         session.refresh(c)
         refs_out = [u for u in existing if isinstance(u, str)]
         by_style_out = by_style
+    _note_asset_regeneration(
+        cid, body.style, reason="character-sheet 整卡生成"
+    )
     out = _character_out(c)
     out["sheet_url"] = url
     out["sheet_style"] = body.style
@@ -552,6 +559,9 @@ async def regenerate_character_sheet_panels_route(
         session.refresh(c)
         refs_out = [u for u in existing if isinstance(u, str)]
         by_style_out = by_style
+    _note_asset_regeneration(
+        cid, body.style, reason=f"面板重生成:{','.join(body.keys)}"
+    )
     out = _character_out(c)
     out["sheet_url"] = url
     out["sheet_style"] = body.style
@@ -858,6 +868,172 @@ def recompose_character_sheet_meta(
 
 def _sheet_token() -> str:
     return uuid.uuid4().hex[:12]
+
+
+# ── 角色资产协议 L2(Character Asset Definition) ──────────────────────────
+
+
+def _note_asset_regeneration(cid: str, style: str, *, reason: str) -> None:
+    """生成链钩子:已物化资产做版本级联;未物化跳过(首次 GET 落 v1)。不阻塞主链。"""
+    try:
+        from app.services.studio import character_asset as asset_svc
+
+        asset_svc.note_sheet_generated(cid, style, reason=reason)
+    except Exception:  # noqa: BLE001
+        logger.exception("character asset note_sheet_generated failed cid=%s", cid)
+
+
+def _ensure_character_asset(
+    session: Session, cid: str, style: str, user: User
+) -> tuple[StudioCharacter, dict, bool]:
+    from app.services.studio import character_asset as asset_svc
+
+    c = session.get(StudioCharacter, cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="角色不存在")
+    _get_project(session, c.project_id, user)
+    existed = asset_svc.load_asset(cid, style) is not None
+    try:
+        asset = asset_svc.ensure_asset(
+            character_id=cid,
+            style=style,
+            name=(c.name or "").strip(),
+            description=(c.description or "").strip(),
+            visual_prompt=(c.visual_prompt or "").strip(),
+        )
+    except asset_svc.CharacterSheetError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+    return c, asset, existed
+
+
+@router.get("/studio/characters/{cid}/character-asset")
+def get_character_asset(
+    cid: str,
+    style: str = "anime",
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """L2 资产定义;JSON 不存在时从存量面板文件+角色行自动物化 v1(D3 回填)。"""
+    _, asset, existed = _ensure_character_asset(session, cid, style, user)
+    out = dict(asset)
+    out["materialized_now"] = not existed
+    return out
+
+
+@router.put("/studio/characters/{cid}/character-asset")
+def put_character_asset(
+    cid: str,
+    body: CharacterAssetPutRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """白名单字段补丁:锚点/档案/负向约束/锁定/色板/覆盖/QA;校验失败 422。"""
+    from app.services.studio import character_asset as asset_svc
+
+    _, asset, _ = _ensure_character_asset(session, cid, body.style, user)
+    patch = body.model_dump(exclude={"style"}, exclude_none=True)
+    for field in (
+        "identity_anchors",
+        "profile",
+        "canonical_prompt",
+        "lock",
+        "color_palette",
+        "coverage",
+        "qa",
+    ):
+        if field in patch:
+            asset[field] = patch[field]
+    if "variants_allowed" in patch:
+        asset.setdefault("style", {})["variants_allowed"] = bool(
+            patch["variants_allowed"]
+        )
+    try:
+        asset_svc.save_asset(asset)
+    except asset_svc.CharacterSheetError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+    return asset
+
+
+@router.post("/studio/characters/{cid}/character-asset/refresh")
+def refresh_character_asset(
+    cid: str,
+    body: CharacterAssetRefreshRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """面板重生成后的版本级联:刷新 coverage/panels 登记 + version+1 + derived_from。"""
+    from app.services.studio import character_asset as asset_svc
+
+    _, asset, _ = _ensure_character_asset(session, cid, body.style, user)
+    panels = asset_svc.latest_panel_paths(cid, body.style)
+    if panels:
+        asset["panels"] = {k: True for k in panels}
+        asset["coverage"] = {
+            **asset_svc.default_coverage(list(panels.keys())),
+            "two_shot": bool((asset.get("coverage") or {}).get("two_shot")),
+        }
+    asset_svc.record_regeneration(
+        asset, reason=body.reason, workflow="asset-refresh"
+    )
+    try:
+        asset_svc.save_asset(asset)
+    except asset_svc.CharacterSheetError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+    return asset
+
+
+@router.post("/studio/characters/{cid}/character-asset/card")
+def render_character_asset_card(
+    cid: str,
+    body: CharacterAssetCardRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """D2 展示卡:资产集的模板渲染视图(对外传播形态),非一致性来源。"""
+    from app.services.studio import character_asset as asset_svc
+
+    _, asset, _ = _ensure_character_asset(session, cid, body.style, user)
+    try:
+        url, _png = asset_svc.render_character_card(
+            character_id=cid, style=body.style, asset=asset
+        )
+    except asset_svc.CharacterSheetError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+    return {
+        "character_id": cid,
+        "style": body.style,
+        "asset_version": asset.get("version"),
+        "card_url": url,
+    }
+
+
+@router.post("/studio/characters/{cid}/character-asset/coverage-plan")
+def character_asset_coverage_plan(
+    cid: str,
+    body: CharacterAssetCoveragePlanRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """M2:短剧覆盖缺口登记 + 补拍计划(只出计划,执行挂现有生成链)。"""
+    from app.services.studio import character_asset as asset_svc
+
+    _, asset, _ = _ensure_character_asset(session, cid, body.style, user)
+    profile = None
+    if body.angles or body.framings or body.lightings:
+        profile = {
+            "angles": body.angles or [],
+            "framings": body.framings or [],
+            "lightings": body.lightings or [],
+        }
+    gaps = asset_svc.coverage_gaps(asset.get("coverage") or {}, profile)
+    plan = asset_svc.coverage_backfill_plan(asset, profile)
+    return {
+        "character_id": cid,
+        "style": body.style,
+        "coverage": asset.get("coverage") or {},
+        "gaps": gaps,
+        "plan": plan,
+    }
 
 
 

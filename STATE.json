@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-23T18:15:00+08:00",
+  "updated_at": "2026-10-06T18:20:00+08:00",
   "assistant_portal_cinematic_empty_2026_09_23": {
     "status": "assistant_portal_cinematic_empty_deployed",
     "date": "2026-09-23",
@@ -12462,5 +12462,29 @@
     ],
     "ops_notes": "pc01 补装 kernels 待其 SSH 恢复;openclaw02-04/cloud tailscaled 仍现场项;超分 fleet HF_ENDPOINT drop-in 已落 WS systemd(daemon-reload+restart 实测三实例 200)",
     "remaining": "现场项(tailscaled/BIOS/pc01 kernels)/SeC 上游边界/极闲窗口 rh-acc-9923136513 复核(可选)"
+  },
+  "character_asset_protocol_m1_2026_10_06": {
+    "status": "character_asset_protocol_m1_deployed_core",
+    "date": "2026-10-06",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "Character Asset Protocol v1 (docs/ops/CHARACTER_ASSET_PROTOCOL.md, D1-D3 executed, D4 separate fleet batch): new svc character_asset.py (L2 schema/anchors/coverage/version-cascade/card render/M2 variant+backfill builders) + 5 studio endpoints + generation hooks; 12 tests green, zero new regressions (53/104 pre-existing env failures match HEAD baseline); deployed core via core-jump; D3 real backfill on 林夏 803fb69b (1224 case) GET->v1 materialized + PUT 5 canonical anchors; card char_card_803fb69b_anime_b6f61fa4d4fa.png visual-accepted after 3 iterations; coverage-plan 3 jobs",
+    "product_trunk": "main_only",
+    "files": [
+      "apps/api/app/services/studio/character_asset.py",
+      "apps/api/app/routes/studio.py",
+      "apps/api/app/services/studio/schemas.py",
+      "apps/api/tests/test_character_asset_protocol.py",
+      "docs/ops/CHARACTER_ASSET_PROTOCOL.md"
+    ],
+    "open": [
+      "web asset card UI",
+      "M2 variant generation execution",
+      "M3 per-char LoRA",
+      "D4 base_expr_2/3 redo fleet batch"
+    ]
   }
 }
