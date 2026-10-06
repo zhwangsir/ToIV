@@ -473,6 +473,26 @@ function HomeContent() {
     return () => cancelAnimationFrame(raf);
   }, [neonPlaying]);
 
+  // BeefTV studio 切换(2026-10-06 cutover C3):登录态落 ?view=home 时探测入口开关,
+  // enabled 则整体切到 /studio/(BeefTV UI);失败/超时/关闭一律留在 ToIV UI(fail-safe),?classic=1 可绕过
+  const studioProbeRef = useRef(false);
+  useEffect(() => {
+    if (auth !== "in" || view !== "home") return;
+    if (studioProbeRef.current) return;
+    if (typeof window === "undefined") return;
+    if (window.location.search.includes("classic=1")) return;
+    studioProbeRef.current = true;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 1500);
+    fetch("/studio/entry.json", { cache: "no-store", signal: ctl.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j && j.enabled) window.location.replace("/studio/");
+      })
+      .catch(() => {})
+      .finally(() => clearTimeout(timer));
+  }, [auth, view]);
+
   useEffect(() => {
     const raw = searchParams.get("view");
     // assistant 已底层化(W2:落对话首页,页即助手不再自动开浮层)
@@ -531,6 +551,7 @@ function HomeContent() {
           return;
         } catch (err) {
           if (isAuthErr(err)) {
+            fetch("/studio/auth/logout", { method: "POST", keepalive: true }).catch(() => {});
             setToken(null);
             setAuth("out");
             return;
@@ -546,6 +567,8 @@ function HomeContent() {
   }, []);
 
   const onLogout = useCallback(() => {
+    // BeefTV studio 会话联动(cutover C3):清 /studio 路径域的 gate cookie(发后即忘)
+    fetch("/studio/auth/logout", { method: "POST", keepalive: true }).catch(() => {});
     setToken(null);
     setAccount(null);
     setAuth("out");
