@@ -182,3 +182,10 @@ export async function fetchCharacterSheets(cid: string): Promise<ToivCharacterSh
     const list = (data as { sheets?: ToivCharacterSheet[] })?.sheets ?? [];
     return Array.isArray(list) ? list : [];
 }
+
+export async function triggerSheetRegen(cid: string, style: string): Promise<boolean> {
+    try {
+        await toivHttp.post(`/studio/characters/${cid}/character-sheet`, { style }, { timeout: 3600_000 });
+        return true;
+    } catch { return false; }
+}

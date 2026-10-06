@@ -1,10 +1,10 @@
 import { App as AntApp, Button, Drawer, Empty, Spin, Tag, Typography } from "antd";
-import { AudioLines, ChevronRight, MessagesSquare, PlayCircle } from "lucide-react";
+import { AudioLines, ChevronRight, IdCard, MessagesSquare, PlayCircle } from "lucide-react";
 import { ArrowLeft, Clapperboard, ExternalLink, Film, RefreshCw, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { fetchCharacterSheets, fetchDramaProject, triggerBatchRender, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivCharacterSheet, type ToivDramaDetail } from "@/services/toiv/client";
+import { fetchCharacterSheets, fetchDramaProject, triggerBatchRender, triggerSheetRegen, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivCharacterSheet, type ToivDramaDetail } from "@/services/toiv/client";
 
 const SHOT_STATUS: Record<string, { color: string; text: string }> = {
     draft: { color: "default", text: "草稿" },
@@ -24,6 +24,7 @@ export default function DramaDetailPage() {
     const [lipsyncingShots, setLipsyncingShots] = useState<Set<string>>(new Set());
     const [charDetail, setCharDetail] = useState<{ char: NonNullable<ToivDramaDetail["characters"]>[number]; sheets: ToivCharacterSheet[] } | null>(null);
     const [sheetsLoading, setSheetsLoading] = useState(false);
+    const [regenStyle, setRegenStyle] = useState<string | null>(null);
     const [batchRendering, setBatchRendering] = useState(false);
 
     const openCharacter = useCallback(async (char: NonNullable<ToivDramaDetail["characters"]>[number]) => {
@@ -192,10 +193,43 @@ export default function DramaDetailPage() {
                         <div className="flex flex-col gap-2">
                             <span className="text-xs font-medium">设定卡（{charDetail.sheets.length}）</span>
                             {sheetsLoading ? <Spin /> : charDetail.sheets.length === 0 ? (
-                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无设定卡" />
+                                <div className="flex flex-col gap-2">
+                                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无设定卡,选择风格生成:" />
+                                    <div className="flex justify-center gap-2">
+                                        {["ancient_realistic", "anime"].map((st) => (
+                                            <Button key={st} size="small" icon={<IdCard className="h-3 w-3" />}
+                                                loading={regenStyle === st}
+                                                onClick={() => {
+                                                    const cid = charDetail.char.id;
+                                                    setRegenStyle(st);
+                                                    void triggerSheetRegen(cid, st).finally(() => {
+                                                        setRegenStyle(null);
+                                                        void fetchCharacterSheets(cid).then((sheets) => setCharDetail((prev) => (prev ? { ...prev, sheets } : prev))).catch(() => {});
+                                                    });
+                                                }}>
+                                                {st === "ancient_realistic" ? "古风写实" : "二次元"}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </div>
                             ) : charDetail.sheets.map((sh) => (
                                 <div key={sh.style} className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] p-2">
-                                    <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{sh.style}{sh.mtime ? ` · ${new Date(sh.mtime).toLocaleDateString("zh-CN")}` : ""}</span>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{sh.style}{sh.mtime ? ` · ${new Date(sh.mtime).toLocaleDateString("zh-CN")}` : ""}</span>
+                                        <Button size="small" type="text" icon={<IdCard className="h-3 w-3" />}
+                                            loading={regenStyle === sh.style}
+                                            onClick={() => {
+                                                if (!charDetail) return;
+                                                setRegenStyle(sh.style);
+                                                const cid = charDetail.char.id;
+                                                void triggerSheetRegen(cid, sh.style).finally(() => {
+                                                    setRegenStyle(null);
+                                                    void fetchCharacterSheets(cid).then((sheets) => setCharDetail((prev) => (prev ? { ...prev, sheets } : prev))).catch(() => {});
+                                                });
+                                            }}>
+                                            重生成
+                                        </Button>
+                                    </div>
                                     {sh.sheet_url && <img src={sh.sheet_url} alt="" className="w-full rounded-lg" loading="lazy" />}
                                     {(sh.panel_urls ?? []).length > 0 && (
                                         <div className="grid grid-cols-3 gap-1">
