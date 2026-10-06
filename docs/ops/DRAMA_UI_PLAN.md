@@ -6156,3 +6156,8 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **配音(模板) ✅**（ToIV-canvas `9dca9d9a` 已推 GitHub）：连线菜单项（Audio+Text 连建）+首页**第 9 卡**（真机验证 ✓）+`add=dub` 组合模板。**四族全落地：生成(文生图)/组合(对口型)/编辑(局部重绘)/音频(配音)**——每族=预设节点组合+双入口（首页卡+连线菜单）+add 直达。
 - C7 结论兑现：入口过载担忧未现（9 卡布局正常），模板即组合节点的模式成立。
 - ToIV main GitHub 补推仍间歇 443（dee24355 挂账，Gitee 已推）。
+
+### 2026-10-06 21:50 CST — M3 收尾第一项：Remotion 字幕管线 api 端点闭环
+- **POST /video-edit/remotion-render ✅**（main `243afef2` 已部署 core）：入参 lines(多行字幕)/speaker/duration_sec → build_remotion_props 契约对齐 workstation SubtitleCard → ssh workstation `npx remotion render --props` → NAS 产物回写 → URL 与 render/rough-cut 同形。参数校验(行数≤6/单行≤60字/时长1-30s)+8 单测全绿。
+- **实弹**：深夜工厂分镜两行字幕+旁白 → **1.8s 出片**（Chrome Headless 缓存后，首片 40min → 秒级）；768×1344 h264+aac。drama 分镜的 dialogue/speaker/duration_sec 可直喂本端点成片——词锚定字幕管线打通。
+- M3 收尾剩：drama 编辑操作原生化。
