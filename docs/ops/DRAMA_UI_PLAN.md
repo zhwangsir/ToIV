@@ -6228,3 +6228,10 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **切流实弹全绿**：登录→exchange→cookie→/studio/auth/status ready→/studio/api/projects 200→画布列表返回用户当日 2 项目→写路径 PUT+DELETE canvas-folder 落 PG（软删正确）→h3 通道同步（h3Channels 1）→助手预热 1752ms→公网 wineryz /studio 302/401 行为正常。canvas-api-pg.service 已 enable（重启自愈）；per-user f659 单元已停（sqlite 冻结为回滚快照）。
 - 踩坑：node --check 不查 TDZ（IIFE 引用后置 const 声明，实弹启动才炸）；psycopg2 在 toiv venv；gitee ToIV-canvas 仓 404 不存在（GitHub 为准）。
 - M4 剩余：gate 退役+JWT 直验（M4-4）→单仓合并+C6 全平台（M4-5）。
+
+### 2026-10-06 22:52 CST — M4-4 Phase A：canvas-api 增量 ToIV JWT 直验（加法式，不动现网）
+- **ToivJWTAuth ✅**（ToIV-canvas `2abec89` 已推 GitHub）：`backend/internal/transport/http/toiv_jwt.go`——内省式验证 `Authorization: Bearer <ToIV JWT>` 打 ToIV `GET /api/auth/me`（与 gate M3b 起用的同一契约，**不共享签名密钥**）；sha256 缓存 60s **只缓存放行判定**（吊销即失效）；`CANVAS_TOIV_AUTH_BASE` env 驱动（未设=行为零变化）。
+- **组合中间件**：`RequireGateIdentityOr`（gate-auth HMAC 主判 + Bearer 二选一，两者都盖 GateAuthenticated 上下文章）与 `RequireAlternativeAuth`（gate 退役终态的独立门）；runtime.go 三态 wiring（仅 gate / 仅 ToIV / 双开）。测试 5 例绿（含内省缓存命中计数、负例不缓存、非 Bearer scheme 拒绝）。
+- **实弹三态**：裸 401 / HMAC 200（原路径零回归）/ **Bearer 真 admin JWT 200** / 伪 token 401 / health/live 豁免；现网 gate cookie 链路回归 200。core 已武装 `CANVAS_TOIV_AUTH_BASE=http://127.0.0.1:8090`。
+- **Phase B/C 待做**（刻意缓一步：M4-3 刚切流需浸泡+真浏览器验证后再动）：① SPA request.ts 附着 Bearer（经 gate 会被 strip=加法安全）；② toiv-web next.config 增 `/studio/api/:path*` → 127.0.0.1:8290 rewrite（置于 `/studio/:path*` 之前）；③ **owner 头缺口**——gate 代理注入 `x-beeftv-owner`（agent ops/tasks 路由 loopback owner 凭据），直连路径没有等价物，切流前需逐路由审计（agent_ops 可选抬升/ui-session 走 desktop trust）+ 真浏览器过助手面板/任务列表/画布操作；④ SPA 静态与 /studio/auth/* 留 gate 直至全面退役。
+- 预存失败入账：`TestDesktopDependencyBoundary`（desktop 依赖图禁 hosted infra）自 M4-1 引入 postgres 驱动即红，clean HEAD 复现，与本波无关；后续需给 PG 模式开豁免或分 build tag。
