@@ -24,11 +24,15 @@ from app.services.studio.prompt_c import (
 from app.services.studio.renderers.base import RenderError
 from app.services.studio.renderers.image_motion import _save_output
 from app.services.studio.renderers.video import _wait_video_url
+from app.services.h3_refs import build_ref_prefix
+from app.services.studio.pipelines import INDEP_PIPELINE, INDEP_REFS_PER_SHOT
 from app.services.studio.shot_refs import (
     apply_ref_overrides,
+    cast_missing_refs,
     collect_cast_ref_images,
     h3_ref_prefix,
     ref_urls,
+    select_indep_shot_refs,
 )
 from app.workflows.h3_pipeline_c import H3PipelineCParams, build_h3_pipeline_c_graph
 from app.workflows.h3_video import H3_R2V_UNET  # noqa: F401 — 文档锚点
@@ -357,9 +361,14 @@ async def render_pipeline_c(
     from app.services import h3 as h3_service
 
     pipe_name = (pipeline_name or "c").strip().lower() or "c"
+    indep = pipe_name == INDEP_PIPELINE
     ff_url = (first_frame_url or "").strip()
     if pipe_name == "c_hybrid" and not ff_url:
         raise RenderError("c_hybrid 需要首帧（上一镜尾帧或全身定妆图）")
+    if indep and (context_latent_path or "").strip():
+        raise RenderError("独立镜 Ref2VA 不续写上一镜 context_latent；需要续写请显式选 pipeline=c")
+    if indep and ff_url:
+        raise RenderError("独立镜 Ref2VA 不接首帧；首帧锚定请显式选 pipeline=c_hybrid")
 
     # 参考 URL（style 有值时优先分桶 by_style）
     if ref_images is not None:
@@ -367,6 +376,20 @@ async def render_pipeline_c(
         prefix, _ = h3_ref_prefix(
             cast, engine="h3", ref_images=urls, scene_images=None, style=style
         )
+    elif indep:
+        # 每镜 4 张定妆参考：先全量收集（不受 9 张截断丢后排角色），缺参考的出镜角色直接报错
+        refs = collect_cast_ref_images(
+            cast, scene_images=scene_images, style=style, max_refs=64
+        )
+        refs = apply_ref_overrides(refs, ref_overrides)
+        missing = cast_missing_refs(cast, refs)
+        if missing:
+            raise RenderError(
+                f"独立镜 Ref2VA 需要角色定妆参考图：{'、'.join(missing)} 无参考图"
+            )
+        refs = select_indep_shot_refs(refs, per_shot=INDEP_REFS_PER_SHOT)
+        urls = ref_urls(refs)
+        prefix = build_ref_prefix(refs)
     else:
         refs = collect_cast_ref_images(cast, scene_images=scene_images, style=style)
         refs = apply_ref_overrides(refs, ref_overrides)
@@ -375,6 +398,8 @@ async def render_pipeline_c(
             cast, engine="h3", scene_images=scene_images, style=style
         )
     if not urls:
+        if indep:
+            raise RenderError("独立镜 Ref2VA 需要角色定妆参考图或场景参考图")
         raise RenderError("管线 C 需要角色三视图或场景参考图")
 
     palette_map = _resolve_sheet_palette_colors(cast, style)
@@ -467,8 +492,9 @@ async def render_pipeline_c(
             filename_prefix=prefix_vid,
             context_prefix=prefix_ctx,
             clip_index=clip_index,
-            context_latent_path=(context_latent_path or "").strip(),
+            context_latent_path="" if indep else (context_latent_path or "").strip(),
             first_frame=ff_name,
+            save_context=not indep,
         )
         try:
             graph = build_h3_pipeline_c_graph(params)
@@ -479,7 +505,7 @@ async def render_pipeline_c(
         try:
             prompt_id = await client.queue_prompt(graph, client_id)
         except ComfyUIError as e:
-            raise RenderError(f"管线 C 提交失败:{e}") from e
+            raise RenderError(f"{'独立镜 Ref2VA' if indep else '管线 C'} 提交失败:{e}") from e
 
         url = await _wait_video_url(client.base_url, prompt_id, request=request)
 
@@ -567,7 +593,7 @@ async def render_pipeline_c(
 
     # 约定 context 产物名（与 SaveLatent filename_prefix 对齐）
     # SaveLatent 序号与 clip_index 对齐（镜0→00001、镜1→00002…）；写死 00001 会导致续写 FileNotFound
-    context_latent = f"{prefix_ctx}_{int(clip_index):05d}.safetensors"
+    context_latent = "" if indep else f"{prefix_ctx}_{int(clip_index):05d}.safetensors"
     return {
         "url": url,
         "context_latent": context_latent,

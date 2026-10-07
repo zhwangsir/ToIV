@@ -114,9 +114,11 @@ class VideoRenderer:
         if ref_prefix:
             prompt = ref_prefix + prompt
             kw["_used_ref_images"] = used_refs  # 供编排层回写 shot.ref_images_json
-        # Batch6: H3 默认管线 C（Ref2VA+Motion Context+原生音频）；显式 pipeline=legacy 回退旧 t2v
-        pipeline = (kw.get("pipeline") or "c").strip().lower()
-        if video_model == "h3" and pipeline in ("c", "c_hybrid"):
+        # 10-07 拍板：H3 默认逐镜独立 Ref2VA（ref2va）；c / c_hybrid 显式可选；legacy 回退旧 t2v
+        from app.services.studio.pipelines import DEFAULT_VIDEO_PIPELINE, VIDEO_PIPELINES
+
+        pipeline = (kw.get("pipeline") or DEFAULT_VIDEO_PIPELINE).strip().lower()
+        if video_model == "h3" and pipeline in VIDEO_PIPELINES:
             from app.services.studio.pipeline_c_render import render_pipeline_c
             from app.services.studio.renderers.base import RenderResult as _RR
 
@@ -144,7 +146,7 @@ class VideoRenderer:
             except RenderError:
                 raise
             except Exception as e:
-                raise RenderError(f"管线 C 失败:{e}") from e
+                raise RenderError(f"视频管线 {pipeline} 失败:{e}") from e
             return _RR(kind="video", url=out["url"], pipeline_meta=out)
         gen = get_generator(video_model, pool)
         try:

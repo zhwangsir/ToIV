@@ -60,6 +60,7 @@ class H3PipelineCParams:
     clip_index: int = 1  # Save 索引；续段 Load = clip_index-1 的文件
     context_latent_path: str = ""  # 非空则续写：Load 该 safetensors
     first_frame: str = ""  # 可选首帧（续写时常用上一段尾帧）
+    save_context: bool = True  # False=独立镜 Ref2VA：不写 MotionContextSaveLatent
 
 
 def build_h3_pipeline_c_graph(params: H3PipelineCParams) -> dict[str, Any]:
@@ -216,14 +217,15 @@ def build_h3_pipeline_c_graph(params: H3PipelineCParams) -> dict[str, Any]:
             "codec": "auto",
         },
     }
-    graph["19"] = {
-        "class_type": "MiniMaxH3MotionContextSaveLatent",
-        "inputs": {
-            "latent": ["14", 0],
-            "filename_prefix": params.context_prefix,
-            "clip_index": int(params.clip_index),
-        },
-    }
+    if params.save_context:
+        graph["19"] = {
+            "class_type": "MiniMaxH3MotionContextSaveLatent",
+            "inputs": {
+                "latent": ["14", 0],
+                "filename_prefix": params.context_prefix,
+                "clip_index": int(params.clip_index),
+            },
+        }
     return graph
 
 

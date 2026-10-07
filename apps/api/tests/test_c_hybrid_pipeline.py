@@ -413,7 +413,8 @@ def test_c_hybrid_first_shot_without_full_body_errors(ctx, monkeypatch):
     assert seen == []
 
 
-def test_default_c_unchanged_no_first_frame(ctx, monkeypatch):
+def test_default_ref2va_no_first_frame(ctx, monkeypatch):
+    """10-07 拍板后默认 = 逐镜独立 ref2va（不再是 c）；仍无首帧、无 worker 覆盖。"""
     client, token, _ = ctx
     H = {"Authorization": f"Bearer {token}"}
     _pid, sids = _make_project(client, H, 1)
@@ -421,10 +422,11 @@ def test_default_c_unchanged_no_first_frame(ctx, monkeypatch):
     _install_fake_renderer(monkeypatch, seen)
     r = client.post(f"/api/studio/shots/{sids[0]}/render", headers=H, json={"num_candidates": 1})
     assert r.status_code == 200, r.text
-    assert seen[0]["pipeline"] == "c"
+    assert seen[0]["pipeline"] == "ref2va"
     assert "first_frame_url" not in seen[0]
     assert "worker_url" not in seen[0]
-    assert r.json()["candidates"][0]["pipeline"] == "c"
+    assert "context_latent_path" not in seen[0]
+    assert r.json()["candidates"][0]["pipeline"] == "ref2va"
 
 
 def test_render_body_rejects_unknown_pipeline(ctx):

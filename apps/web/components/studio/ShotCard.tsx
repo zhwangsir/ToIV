@@ -189,9 +189,10 @@ export function ShotCard({
     }
     onRender({
       video_model: videoModel,
-      pipeline: videoModel === "h3" ? "c" : undefined,
+      pipeline: videoModel === "h3" ? "ref2va" : undefined,
       num_candidates: numCandidates,
-      ref_images: refUrls,
+      // ref2va：参考由服务端按画风分桶选每镜 4 张定妆图（缺图报错）；非 h3 仍带自动槽
+      ...(videoModel === "h3" ? {} : { ref_images: refUrls }),
       ...(refStyle ? { ref_style: refStyle } : {}),
     });
   };

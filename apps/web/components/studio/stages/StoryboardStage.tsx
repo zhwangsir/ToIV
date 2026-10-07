@@ -390,7 +390,7 @@ export function StoryboardStage({
                     s.id,
                     body ??
                       (focus === "video"
-                        ? { video_model: videoModel, pipeline: videoModel === "h3" ? "c" : undefined, num_candidates: numCandidates }
+                        ? { video_model: videoModel, pipeline: videoModel === "h3" ? "ref2va" : undefined, num_candidates: numCandidates }
                         : undefined),
                   )
                   .catch(() => {

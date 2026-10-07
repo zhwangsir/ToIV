@@ -5040,8 +5040,8 @@ export const saveStudioShots = (
 
 export interface StudioRenderBody {
   video_model?: "h3" | "ltx";
-  /** Batch6: c=Motion Context+Ref2VA+原生音频；legacy=旧 t2v */
-  pipeline?: "c" | "legacy";
+  /** ref2va=逐镜独立 Ref2VA（默认，每镜 4 张定妆参考、不续写）；c=Motion Context 续写；c_hybrid=首帧锚定续写；legacy=旧 t2v */
+  pipeline?: "ref2va" | "c" | "c_hybrid" | "legacy";
   num_candidates?: number;
   ref_images?: string[];
   scene_images?: string[];
@@ -5050,7 +5050,7 @@ export interface StudioRenderBody {
 }
 
 /** 渲染单镜(同步等待 ComfyUI 产出,视频链可达数分钟)→ 放宽到 600s。
- *  Batch6:可传 video_model(默认 h3)/pipeline(默认 c)/num_candidates(视频步默认 2)/ref_images。 */
+ *  Batch6:可传 video_model(默认 h3)/pipeline(默认 ref2va)/num_candidates(视频步默认 2)/ref_images。 */
 export const renderStudioShot = (
   sid: string,
   opts?: { signal?: AbortSignal; body?: StudioRenderBody },

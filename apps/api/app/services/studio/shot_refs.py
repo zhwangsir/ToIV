@@ -217,6 +217,53 @@ def apply_ref_overrides(refs: list[RefImage], overrides: dict[str, str] | None) 
     return out
 
 
+def select_indep_shot_refs(
+    refs: list[RefImage], *, per_shot: int = 4, max_scene: int = 1
+) -> list[RefImage]:
+    """独立镜 Ref2VA：每镜至多 per_shot 张角色定妆参考 + 至多 max_scene 张场景图。
+
+    多角色按槽位轮转取（每人先拿第 1 张，再拿第 2 张…），保证同镜每个角色都有参考；
+    输出仍按原顺序（同角色相邻），@图片N 编号与提交顺序一致。
+    """
+    chars = [r for r in refs if r.role != "scene"]
+    scenes = [r for r in refs if r.role == "scene"][: max(0, int(max_scene))]
+    by_role: dict[str, list[RefImage]] = {}
+    order: list[str] = []
+    for r in chars:
+        if r.role not in by_role:
+            by_role[r.role] = []
+            order.append(r.role)
+        by_role[r.role].append(r)
+    picked: list[int] = []
+    rank = 0
+    limit = max(0, int(per_shot))
+    while len(picked) < limit:
+        progressed = False
+        for role in order:
+            lst = by_role[role]
+            if rank < len(lst):
+                picked.append(id(lst[rank]))
+                progressed = True
+                if len(picked) >= limit:
+                    break
+        if not progressed:
+            break
+        rank += 1
+    keep = set(picked)
+    return [r for r in chars if id(r) in keep] + scenes
+
+
+def cast_missing_refs(cast: list[Any], refs: list[RefImage]) -> list[str]:
+    """出镜角色里没有任何定妆参考的角色名（独立镜 Ref2VA 不允许静默无参考）。"""
+    have = {r.role for r in refs if r.role != "scene"}
+    out: list[str] = []
+    for c in cast:
+        name = str(getattr(c, "name", "") or "").strip() or "角色"
+        if name not in have:
+            out.append(name)
+    return out
+
+
 def ref_urls(refs: list[RefImage]) -> list[str]:
     return [r.image_url for r in refs if r.image_url]
 

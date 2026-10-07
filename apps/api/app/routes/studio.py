@@ -1408,7 +1408,7 @@ class RenderShotBody(BaseModel):
     """Batch6 视频步:引擎 / 管线 C / 多候选 / 多参考(均可选;缺省兼容旧客户端)。"""
 
     video_model: str = Field(default="h3", max_length=16)
-    pipeline: str = Field(default="c", max_length=16)  # c | c_hybrid | legacy
+    pipeline: str = Field(default="ref2va", max_length=16)  # ref2va(默认) | c | c_hybrid | legacy
     worker_url: str | None = Field(
         default=None,
         max_length=64,
@@ -1427,10 +1427,12 @@ class RenderShotBody(BaseModel):
     @field_validator("pipeline")
     @classmethod
     def _check_pipeline(cls, v: str) -> str:
-        p = (v or "c").strip().lower() or "c"
-        if p not in ("c", "c_hybrid", "legacy"):
+        p = (v or "ref2va").strip().lower() or "ref2va"
+        if p not in ("ref2va", "c", "c_hybrid", "legacy"):
             # PydanticCustomError：ctx 不含异常对象，main 的 422 处理器可 JSON 序列化
-            raise PydanticCustomError("pipeline_invalid", "pipeline 仅支持 c | c_hybrid | legacy")
+            raise PydanticCustomError(
+                "pipeline_invalid", "pipeline 仅支持 ref2va | c | c_hybrid | legacy"
+            )
         return p
 
 
@@ -1453,7 +1455,7 @@ async def render_one(
     n = body.num_candidates if body is not None else 1
     refs = body.ref_images if body is not None else None
     scenes = body.scene_images if body is not None else None
-    pipe = (body.pipeline if body is not None else "c") or "c"
+    pipe = (body.pipeline if body is not None else "ref2va") or "ref2va"
     rstyle = body.ref_style if body is not None else None
     fixed_seed = body.seed if body is not None else None
     worker_url = None
@@ -1529,7 +1531,7 @@ async def render_batch(
                 request=request,
                 video_model="h3",
                 num_candidates=2,
-                pipeline="c",
+                pipeline="ref2va",
             )
             done += 1
         except RenderError:
@@ -1993,7 +1995,7 @@ async def step_group_rerun(
                     request=request,
                     video_model="h3",
                     num_candidates=2,
-                    pipeline="c",
+                    pipeline="ref2va",
                 )
             elif step == "voice":
                 if not (shot.dialogue or "").strip():

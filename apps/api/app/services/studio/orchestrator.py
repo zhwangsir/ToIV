@@ -82,8 +82,13 @@ def _append_candidate_failures(
 
 
 
-# H3 管线 C 家族：c = Ref2VA+MotionContext（默认）；c_hybrid = 实验 C（Hybrid 首帧锚定）
-C_PIPELINES = ("c", "c_hybrid")
+# H3 管线：默认 ref2va（逐镜独立）；C 家族 c / c_hybrid 为显式可选的续写路线
+from app.services.studio.pipelines import (  # noqa: E402
+    C_PIPELINES,
+    DEFAULT_VIDEO_PIPELINE,
+    INDEP_PIPELINE,
+    VIDEO_PIPELINES,
+)
 _STUDIO_MARKER = "/api/studio/files/"
 
 
@@ -245,13 +250,18 @@ async def render_shot(
 ) -> StudioShot:
     """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。
 
-    Batch6 视频步(默认管线 C):
-      · video_model 默认 h3;pipeline 默认 c(Motion Context+Ref2VA+原生音频);
-      · num_candidates>1 时串行多 seed,按裁脸相似度+无烧录字幕选优;
-      · 同项目上一镜的 context_latent 自动续写(也可显式传入)。
+    视频步(10-07 拍板默认逐镜独立 Ref2VA):
+      · video_model 默认 h3;pipeline 默认 ref2va(每镜 4 张定妆参考,不续写上一镜);
+      · 显式 pipeline=c / c_hybrid 才走 Motion Context,并自动续写上一镜 context_latent;
+      · num_candidates>1 时串行多 seed,按裁脸相似度+无烧录字幕选优。
     """
     import random
     import uuid
+
+    # 独立镜不接受续写参数：在改镜次状态之前拒绝，避免静默丢弃 context
+    _req_pipe = (pipeline or DEFAULT_VIDEO_PIPELINE).strip().lower() or DEFAULT_VIDEO_PIPELINE
+    if (context_latent_path or "").strip() and _req_pipe == INDEP_PIPELINE:
+        raise RenderError("独立镜 Ref2VA 不续写上一镜 context_latent；需要续写请显式选 pipeline=c")
 
     # 管理员 worker 覆盖：白名单校验前置（在改镜次状态之前）
     pinned_worker = None
@@ -349,18 +359,18 @@ async def render_shot(
     if request is not None:
         render_kw["request"] = request
     render_kw["video_model"] = engine
-    pipe = (pipeline or "c").strip().lower() if engine == "h3" else "legacy"
-    if pipe not in C_PIPELINES + ("legacy",):
-        pipe = "c"
+    pipe = (pipeline or DEFAULT_VIDEO_PIPELINE).strip().lower() if engine == "h3" else "legacy"
+    if pipe not in VIDEO_PIPELINES + ("legacy",):
+        pipe = DEFAULT_VIDEO_PIPELINE
     render_kw["pipeline"] = pipe
-    if pipe in C_PIPELINES:
+    if pipe in VIDEO_PIPELINES:
         if ref_overrides:
             render_kw["ref_overrides"] = dict(ref_overrides)
         if (outfit_desc or "").strip():
             render_kw["outfit_desc"] = outfit_desc.strip()
     if pinned_worker:
         render_kw["worker_url"] = pinned_worker
-    # 续写：显式 context > 同项目上一镜 picked 的 context_latent（c / c_hybrid 均续写）
+    # 续写（仅 c / c_hybrid）：显式 context > 同项目上一镜 picked 的 context_latent；ref2va 每镜独立不续写
     ctx = (context_latent_path or "").strip()
     if not ctx and pipe in C_PIPELINES and shot.render_mode == "video":
         siblings = session.exec(
@@ -674,7 +684,7 @@ async def render_shot(
     single_trim: dict[str, Any] | None = None
     if (
         result.kind == "video"
-        and pipe in C_PIPELINES
+        and pipe in VIDEO_PIPELINES
         and not any(isinstance(c, dict) and "hard_cuts" in c for c in candidates)
     ):
         from app.services.studio.candidate_pick import ANCHORED_FIRST_FRAME_SKIP_FRAMES
@@ -720,6 +730,10 @@ async def render_shot(
     else:
         shot.video_url = result.url
         shot.final_clip_url = result.url
+        # 独立镜：回显实际提交的定妆参考（每镜 4 张 + 场景），而非全量收集列表
+        _rm = getattr(result, "pipeline_meta", None) or {}
+        if pipe == INDEP_PIPELINE and isinstance(_rm, dict) and isinstance(_rm.get("ref_images"), list):
+            shot.ref_images_json = json.dumps(list(_rm["ref_images"]), ensure_ascii=False)
     if candidates:
         shot.candidates_json = dumps_candidates(candidates)
     elif n <= 1 and shot.render_mode == "video":
