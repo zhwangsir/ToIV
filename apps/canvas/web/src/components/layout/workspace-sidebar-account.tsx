@@ -26,7 +26,9 @@ export function WorkspaceSidebarAccount({ collapsed }: { collapsed?: boolean }) 
         fromGate
             .then((d) => {
                 if (d?.user?.id || !APP_BASE) return d?.user ?? null;
-                return fetch("/api/auth/me", { credentials: "same-origin", headers: withToivAuth() })
+                const headers = withToivAuth();
+                if (!headers.Authorization) return null; // signed out of ToIV: nothing to show
+                return fetch("/api/auth/me", { credentials: "same-origin", headers })
                     .then((r) => (r.ok ? r.json() : null))
                     .then((m) => { const u = m?.user ?? m; return u?.id ? { id: String(u.id), name: u.display_name || u.name || u.username || "", email: u.email || "" } : null; })
                     .catch(() => null);
