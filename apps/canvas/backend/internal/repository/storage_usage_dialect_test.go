@@ -75,3 +75,33 @@ func TestStorageUsagePostgres(t *testing.T) {
 	t.Cleanup(func() { db.Exec("DELETE FROM tasks WHERE user_id = ?", userID) })
 	assertUsage(t, repository.New(db), userID)
 }
+
+// 同一事故第二处:任务准入走 withImmediateTransaction,原实现发 "BEGIN IMMEDIATE"
+// (SQLite 专有),Postgres 报 syntax error(SQLSTATE 42601)。PG 下必须能建任务。
+func TestCreateTaskWithActiveLimitPostgres(t *testing.T) {
+	dsn := os.Getenv("CANVAS_PG_DSN")
+	if dsn == "" {
+		t.Skip("需要 CANVAS_PG_DSN")
+	}
+	db, err := database.Open(database.Config{Driver: "postgres", DSN: dsn})
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.Logger = logger.Discard
+	if err := database.MigrateLocalSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	userID := "user-admit-" + strings.ReplaceAll(time.Now().Format("150405.000000"), ".", "")
+	t.Cleanup(func() { db.Exec("DELETE FROM tasks WHERE user_id = ?", userID) })
+	r := repository.New(db)
+	now := time.Now()
+	task := &model.Task{ID: userID + "-t1", UserID: userID, Type: "canvas_video", Status: model.TaskStatusQueued, Prompt: "p", InputJSON: "{}", CreatedAt: now, UpdatedAt: now}
+	if err := r.CreateTaskWithActiveLimit(task, 5); err != nil {
+		t.Fatalf("CreateTaskWithActiveLimit(postgres): %v", err)
+	}
+	var count int64
+	db.Model(&model.Task{}).Where("user_id = ?", userID).Count(&count)
+	if count != 1 {
+		t.Fatalf("task rows = %d, want 1", count)
+	}
+}
