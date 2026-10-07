@@ -552,6 +552,13 @@ func withImmediateTransaction(db *gorm.DB, fn func(*gorm.DB) error) error {
 	if _, insideTransaction := db.Statement.ConnPool.(gorm.TxCommitter); insideTransaction {
 		return db.Transaction(fn)
 	}
+	// BEGIN IMMEDIATE is SQLite-only (Postgres: syntax error, SQLSTATE 42601). On
+	// Postgres a plain transaction is enough: the no-op UPDATEs inside fn
+	// (RequireReadyOwnedResourcesTx, lockOwnedRowTx) take row locks that block
+	// a concurrent delete/archive until commit.
+	if db.Dialector.Name() != "sqlite" {
+		return db.Transaction(fn)
+	}
 	return db.Connection(func(conn *gorm.DB) error {
 		tx := conn.Session(&gorm.Session{SkipDefaultTransaction: true, NewDB: true})
 		if err := tx.Exec("BEGIN IMMEDIATE").Error; err != nil {
