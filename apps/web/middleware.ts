@@ -33,8 +33,15 @@ async function guardStudio(req: NextRequest): Promise<NextResponse> {
       { status: d.status, headers: { "cache-control": "no-store" } },
     );
   }
-  // 相对 Location:反代后 req.url 的 host 可能是 127.0.0.1:3100,不能拼绝对地址
-  return new NextResponse(null, { status: 302, headers: { location: d.location, "cache-control": "no-store" } });
+  // 中间件响应的 Location 必须是绝对 URL(相对路径会 Invalid URL → 500)。基于 req.nextUrl 克隆,
+  // 同源跳转由 Next 适配层回写为相对路径,反代后 host 为 127.0.0.1:3100 也不会泄到浏览器。
+  const target = new URL(d.location, "http://studio.invalid");
+  const url = req.nextUrl.clone();
+  url.pathname = target.pathname;
+  url.search = target.search;
+  const res = NextResponse.redirect(url, 302);
+  res.headers.set("cache-control", "no-store");
+  return res;
 }
 
 export async function middleware(req: NextRequest) {
