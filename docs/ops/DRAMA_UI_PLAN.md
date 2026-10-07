@@ -6301,3 +6301,10 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **产物**：Mac `tmp/london_story/london_the_two_hours.mp4`（成片）+ `SCRIPT.md`（完整剧本）+ 关键帧/对照网格；core `/home/merlin/toiv/tmp/london_story/` 同存全量。
 - **质量目检**：镜1（橱窗 Beatles 海报→街头→会展入口跟拍）镜2（彩色黑胶墙触唱片）镜5（Abbey Road 斑马线婚纱照——点题彩蛋）镜6（大本钟黄昏亲吻拉远渐暗）均佳；Carolyn 展厅三镜一致性显著强（首尾帧拼接路线优势实证）。已知边界：镜3-4 H3 动戏自由发挥致 Peter 服装/面容漂移+出现次要人物（对白型 i2v 可控性边界），可按需锁 prompt 重渲该两镜。
 - 踩坑：CheckpointLoaderSimple 输出槽位（0=MODEL/1=CLIP/2=VAE）；:8264 input 是实例隔离 `instances/gpu1/input` 非仓库 input；driver 循环内 JSON 引号嵌套致 s6 400（手动提交绕过）。
+
+### 2026-10-07 16:20 CST — 《两小时的注定》v2 重制交付：定妆照→Ref2VA 身份锁定路线（用户质量指令闭环）
+- **用户反馈驱动重制**：v1（i2v+首尾帧）被判效果差——人声不可控/画面漂移/立绘改变；方法论指令=按平台顺序先角色卡定妆照锁人，再稳定提示词产出，要求高质量并监控。
+- **v2 管线 ✅**：①角色卡定妆照 12 张（Carolyn/Peter × front/side/full × 2 seed，:8262 RealVisXL，代理目检选角 Carolyn=front_b/side_b/full_a、Peter=front_b/side_b/full_b）；②**MiniMaxH3ReferenceToVideo（Ref2VA）**：每镜 4 张定妆参考（ref_images.ref_image_0..3 点号键、LoadImage 110-113、UNET 换 ref2va_pruned_int8_convrot、<Picture N> 1-based 提示词标签），length=124 默认最稳档，prompt 稳定结构（场景+锚定人物+小幅动作+镜头+环境音，**全片无对白人声**）；③串行 6 镜（每镜 252s）+ 无损 concat（31.03s，8.3MB）。
+- **产物**：Mac `tmp/london_story/london_the_two_hours_v2.mp4` + `v2_full_contact.png`；core `/home/merlin/toiv/tmp/london_story/v2/` 同存。关键帧级对照：定妆 12 张网格 `tmp/london_story/refshot_grid.png`。
+- **质量对比 v1→v2**：人物跨镜身份稳定（v1 Peter 三张脸→v2 全片锁定）；无诡异画面/陌生人乱入；无人声失控；31s 紧凑叙事。已知微瑕：帧级着色偶有大衣深蓝/灰漂移（单帧、动态不显眼）。
+- **平台方法论沉淀**：新角色短片标准序=角色卡定妆（多 seed 候选+目检选角）→ Ref2VA 参考锁定（每镜 4 参考图）→ 稳定提示词模板 → 逐镜目检 → concat。
