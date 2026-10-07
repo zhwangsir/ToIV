@@ -1,4 +1,5 @@
 import type { StyleProfileSnapshot } from "@/lib/canvas/style-profile";
+import { publicAsset } from "@/lib/app-base";
 
 export type ProjectStyleWorldId = "xianxia" | "urban" | "historical" | "suspense" | "science-fiction" | "pastoral";
 export type ProjectStyleToneId = "epic" | "dark" | "light-comedy" | "romantic" | "healing";
@@ -332,17 +333,17 @@ function styleSelectionId(selection: ProjectStyleSelection) {
 
 function stylePreviewImage(selection: ProjectStyleSelection) {
     if (selection.world === "xianxia") {
-        if (selection.medium === "live-action") return "/short-drama-styles/period-live-action.jpg";
-        if (selection.medium === "3d-cartoon") return "/short-drama-styles/three-d-cartoon.jpg";
-        if (selection.medium === "2d-guoman") return "/short-drama-styles/chinese-2d.jpg";
-        if (selection.medium === "ink") return "/short-drama-styles/ink-narrative.jpg";
-        return "/short-drama-styles/fantasy-3d.jpg";
+        if (selection.medium === "live-action") return publicAsset("/short-drama-styles/period-live-action.jpg");
+        if (selection.medium === "3d-cartoon") return publicAsset("/short-drama-styles/three-d-cartoon.jpg");
+        if (selection.medium === "2d-guoman") return publicAsset("/short-drama-styles/chinese-2d.jpg");
+        if (selection.medium === "ink") return publicAsset("/short-drama-styles/ink-narrative.jpg");
+        return publicAsset("/short-drama-styles/fantasy-3d.jpg");
     }
-    if (selection.world === "suspense") return "/short-drama-styles/suspense-noir.jpg";
-    if (selection.world === "science-fiction") return "/short-drama-styles/future-tech.jpg";
-    if (selection.world === "pastoral") return "/short-drama-styles/nature-healing.jpg";
-    if (selection.world === "historical") return selection.medium === "2d-guoman" ? "/short-drama-styles/chinese-2d.jpg" : "/short-drama-styles/period-live-action.jpg";
-    return selection.medium === "3d-cartoon" ? "/short-drama-styles/three-d-cartoon.jpg" : "/short-drama-styles/urban-live-action.jpg";
+    if (selection.world === "suspense") return publicAsset("/short-drama-styles/suspense-noir.jpg");
+    if (selection.world === "science-fiction") return publicAsset("/short-drama-styles/future-tech.jpg");
+    if (selection.world === "pastoral") return publicAsset("/short-drama-styles/nature-healing.jpg");
+    if (selection.world === "historical") return selection.medium === "2d-guoman" ? publicAsset("/short-drama-styles/chinese-2d.jpg") : publicAsset("/short-drama-styles/period-live-action.jpg");
+    return selection.medium === "3d-cartoon" ? publicAsset("/short-drama-styles/three-d-cartoon.jpg") : publicAsset("/short-drama-styles/urban-live-action.jpg");
 }
 
 function requiredOption<T extends string>(options: Array<StyleOption<T>>, id: T) {

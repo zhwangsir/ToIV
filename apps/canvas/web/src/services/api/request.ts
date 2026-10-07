@@ -1,5 +1,6 @@
 import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
 
+import { mapUrlStrings, redirectToGateLogin, toCanonicalUrl, toClientUrl, urlMappingActive } from "@/lib/app-base";
 import { assertUserScope, isUserScopeAbandonedError, type CapturedUserScope } from "@/lib/user-scope-guard";
 
 export type ApiParams = Record<string, string | string[] | number | number[] | undefined>;
@@ -140,7 +141,22 @@ apiClient.interceptors.request.use((config) => {
     // M4-4: 附着 ToIV 产品登录令牌（同源 /studio 下与 ToIV 主站共享 localStorage）。
     // 经 gate 时该头会被 strip（零行为变化）；直连 canvas-api 时它是认证凭据（内省式直验）。
     withToivAuth(config.headers as Record<string, string> | undefined, (h) => { config.headers = h as typeof config.headers; });
+    // Sub-path deployment: the backend only ever stores canonical "/api/…" URLs.
+    if (urlMappingActive(apiBaseURL) && config.data && typeof config.data === "object") {
+        config.data = mapUrlStrings(config.data, (value) => toCanonicalUrl(value, apiBaseURL));
+    }
     return config;
+});
+
+// Sub-path deployment: backend-emitted "/api/…" and public-file URLs become "/studio/…" for the browser.
+apiClient.interceptors.response.use((response) => {
+    if (urlMappingActive(apiBaseURL) && response.data && typeof response.data === "object") {
+        response.data = mapUrlStrings(response.data, (value) => toClientUrl(value, apiBaseURL));
+    }
+    return response;
+}, (error: unknown) => {
+    if (axios.isAxiosError(error)) redirectToGateLogin(error.response?.status, error.response?.data);
+    return Promise.reject(error);
 });
 
 /**

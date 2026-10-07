@@ -47,6 +47,7 @@ import { conversationTimestamp, isImageAttachment, isVideoAttachment } from "./c
 import { conversationTimeFormatter, countOptions, historyDayFormatter, messageTimeFormatter, modeLabels, qualityOptions, ratioOptions, resolutionOptions, shotScriptLabels, type CreationConversation, type CreationMessage, type CreationShotRailEntry, type CreationStatus } from "./creation-types";
 import "./creation-product.css";
 import { creationFeaturedWorks, inspirationSource } from "./creation-inspirations";
+import { publicAsset } from "@/lib/app-base";
 
 const CanvasPromptOptimizerDrawer = lazy(() => import("@/components/canvas/canvas-prompt-optimizer-drawer").then((module) => ({ default: module.CanvasPromptOptimizerDrawer })));
 
@@ -756,9 +757,9 @@ function DurationMenu({ profile, seconds, onChange }: { profile: VideoCapability
 }
 
 const creationEmptyBannerFrames = [
-    { src: "/short-drama-styles/cyberpunk-neon.jpg", caption: "镜头01 · 雨夜霓虹" },
-    { src: "/short-drama-styles/suspense-noir.jpg", caption: "镜头02 · 暗巷追逐" },
-    { src: "/short-drama-styles/retro-hong-kong.jpg", caption: "镜头03 · 天台重逢" },
+    { src: publicAsset("/short-drama-styles/cyberpunk-neon.jpg"), caption: "镜头01 · 雨夜霓虹" },
+    { src: publicAsset("/short-drama-styles/suspense-noir.jpg"), caption: "镜头02 · 暗巷追逐" },
+    { src: publicAsset("/short-drama-styles/retro-hong-kong.jpg"), caption: "镜头03 · 天台重逢" },
 ];
 
 export function CreationEmptyBanner() {
@@ -821,12 +822,12 @@ export function CreationEmptySuggest({ onStartPrompt, onOpenLibrary }: { onStart
 
 
 const creationSkillWorks = [
-    { title: "东方巨构美学短剧", description: "一站式生成东方巨构美学短剧", image: "/short-drama-styles/ink-narrative.jpg", prompt: "@xianxia-drama-planner 规划一个东方巨构美学短剧的第一幕", author: "鲍鱼chill", uses: "4.4k" },
-    { title: "仙侠氛围美学短片", description: "仙侠氛围美学短片", image: "/short-drama-styles/fantasy-3d.jpg", prompt: "@oriental-aesthetic-film 设计一段仙侠氛围美学短片", author: "鲍鱼chill", uses: "2.3k" },
-    { title: "梦核美学", description: "从概念到成片一体化创作梦核视觉短片", image: "/short-drama-styles/nature-healing.jpg", prompt: "@dreamcore-generator 创作一段梦核视觉短片", author: "鲍鱼chill", uses: "1.3k" },
-    { title: "A24电影美学", description: "高级怪诞电影美学，以作者视角，用粗粝真实的镜头语言", image: "/short-drama-styles/real-life.jpg", prompt: "@a24-cinematic-aesthetic 设计一段 A24 电影美学镜头", author: "鲍鱼chill", uses: "1.4k" },
-    { title: "POP MV", description: "一句话生成国际流行音乐 MV 创作方案", image: "/short-drama-styles/cyberpunk-neon.jpg", prompt: "@pop-music-video 设计一支 POP MV", author: "鲍鱼chill", uses: "2.6k" },
-    { title: "真实感美妆UGC产品种草", description: "把美妆卖点变成可见证据与自然口播", image: "/short-drama-styles/urban-live-action.jpg", prompt: "@beauty-blogger-reviewer 设计一支美妆 UGC", author: "刘不住Wa...", uses: "2.1k" },
+    { title: "东方巨构美学短剧", description: "一站式生成东方巨构美学短剧", image: publicAsset("/short-drama-styles/ink-narrative.jpg"), prompt: "@xianxia-drama-planner 规划一个东方巨构美学短剧的第一幕", author: "鲍鱼chill", uses: "4.4k" },
+    { title: "仙侠氛围美学短片", description: "仙侠氛围美学短片", image: publicAsset("/short-drama-styles/fantasy-3d.jpg"), prompt: "@oriental-aesthetic-film 设计一段仙侠氛围美学短片", author: "鲍鱼chill", uses: "2.3k" },
+    { title: "梦核美学", description: "从概念到成片一体化创作梦核视觉短片", image: publicAsset("/short-drama-styles/nature-healing.jpg"), prompt: "@dreamcore-generator 创作一段梦核视觉短片", author: "鲍鱼chill", uses: "1.3k" },
+    { title: "A24电影美学", description: "高级怪诞电影美学，以作者视角，用粗粝真实的镜头语言", image: publicAsset("/short-drama-styles/real-life.jpg"), prompt: "@a24-cinematic-aesthetic 设计一段 A24 电影美学镜头", author: "鲍鱼chill", uses: "1.4k" },
+    { title: "POP MV", description: "一句话生成国际流行音乐 MV 创作方案", image: publicAsset("/short-drama-styles/cyberpunk-neon.jpg"), prompt: "@pop-music-video 设计一支 POP MV", author: "鲍鱼chill", uses: "2.6k" },
+    { title: "真实感美妆UGC产品种草", description: "把美妆卖点变成可见证据与自然口播", image: publicAsset("/short-drama-styles/urban-live-action.jpg"), prompt: "@beauty-blogger-reviewer 设计一支美妆 UGC", author: "刘不住Wa...", uses: "2.1k" },
 ];
 export function CreationFeaturedWorks({ onStartPrompt }: { onStartPrompt: (mode: CreationMode, prompt: string) => void }) {
     const navigate = useNavigate();
@@ -850,7 +851,7 @@ export function CreationFeaturedWorks({ onStartPrompt }: { onStartPrompt: (mode:
     const installedSkillWorks = mySkills.map((skill) => ({
         title: skill.skillName,
         description: skill.description || "已安装到本地工作区",
-        image: skill.showcaseMedia[0]?.showcaseUrl || "/short-drama-styles/urban-live-action.jpg",
+        image: skill.showcaseMedia[0]?.showcaseUrl || publicAsset("/short-drama-styles/urban-live-action.jpg"),
         prompt: `@${skill.skillName} `,
         author: skill.effectiveUser?.name || "本地 Skill",
         uses: skill.version || "已安装",
