@@ -442,6 +442,10 @@ function classifyUnknown(error: unknown, context: GenerationFailureContext): Cla
     if (!error) return { category: "unknown", retryable: false };
     if (typeof error === "object" && error) {
     const record = error as Record<string, unknown>;
+        if (typeof record.message === "string") {
+            const invalidParamsDetail = persistedInvalidParamsDetail(record.message.trim());
+            if (invalidParamsDetail) return invalidParamsDetail;
+        }
         if (record.reason === "local_storage_failed") return { category: "local_storage", ...LOCAL_TASK_ADMISSION_FAILURE, fromCode: true, retryable: false };
         if (record.name === "ApiError" && record.reason === "quota_exceeded") {
             return { category: "quota_limit", reason: sanitizeProviderText(String(record.message || "工作区用量已达到上限")), action: "请清理不需要的任务记录或素材后重试", fromCode: true, retryable: false };
@@ -547,6 +551,8 @@ function classifyText(raw: string): Classified {
             retryable: false,
         };
     }
+    const invalidParamsDetail = persistedInvalidParamsDetail(text);
+    if (invalidParamsDetail) return invalidParamsDetail;
     if (HTML_BODY.test(text)) {
         const status = extractExplicitHttpStatus(text);
         if (status) return classifyHttp(status, "");
@@ -1032,6 +1038,26 @@ function isCanvasSaveConflictText(text: string) {
         text.includes("画布有未处理的外部改动") ||
         text.startsWith(CATEGORY_COPY.canvas_conflict.reason)
     );
+}
+
+// 后端把上游给出的中文参数错误短句落库为 "参数不被接受：…"(见 backend generation/invalid_params_detail.go),
+// 前端原样展示,不再退回泛化文案 "模型不接受当前参数"。
+const INVALID_PARAMS_DETAIL_PREFIX = "参数不被接受：";
+
+function persistedInvalidParamsDetail(text: string): Classified | undefined {
+    if (!text.startsWith(INVALID_PARAMS_DETAIL_PREFIX)) return undefined;
+    const index = text.indexOf("排查编号：");
+    const reason = sanitizeProviderText((index >= 0 ? text.slice(0, index) : text).trim().replace(/[。]+$/, ""));
+    if (!reason || reason === INVALID_PARAMS_DETAIL_PREFIX) return undefined;
+    const debug = index >= 0 ? text.slice(index) : "";
+    return {
+        category: "invalid_params",
+        reason,
+        action: "",
+        requestId: sanitizeDebugId(debug.match(/请求 ([A-Za-z0-9._:-]{6,127})/)?.[1]),
+        taskId: sanitizeDebugId(debug.match(/任务 ([A-Za-z0-9._:-]{6,127})/)?.[1]),
+        retryable: false,
+    };
 }
 
 function matchPersistedCategory(text: string): GenerationErrorCategory | "" {
