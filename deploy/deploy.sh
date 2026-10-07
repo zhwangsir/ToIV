@@ -103,6 +103,15 @@ if [ -d .rollback-previous/web-next ]; then
   cp -al .rollback-previous/web-next web/.next
   echo "  已恢复 web/.next"
 fi
+if [ -d .rollback-previous/canvas-plugins ]; then
+  rm -rf /home/merlin/beeftv-prod/plugin-packages
+  cp -al .rollback-previous/canvas-plugins /home/merlin/beeftv-prod/plugin-packages
+  echo "  已恢复 canvas 官方插件包"
+fi
+if [ -f .rollback-previous/canvas-api.env ]; then
+  cp -p .rollback-previous/canvas-api.env /home/merlin/beeftv-prod/canvas-api/canvas-api.env
+  echo "  已恢复 canvas-api.env"
+fi
 if [ -f .rollback-previous/canvas-bin ]; then
   systemctl --user stop canvas-api-pg || true
   cp .rollback-previous/canvas-bin /home/merlin/beeftv-prod/canvas-api-pg
@@ -134,7 +143,8 @@ fi
 #   · Go:   ~/sdk/go1.25.0 CGO 构建.canvas-api-pg.new,停服换装再启(运行中二进制 Text file busy)
 #   · Web:  node_modules 兜底(已有则沿用;缺则 bun install,无 bun 则硬链旧检出)后
 #           VITE_CANVAS_BACKEND_URL=/studio/api --base=/studio/ 生产口径出 dist → beeftv-prod/dist
-#   · 快照:.rollback-previous/canvas-{bin,dist}(与 api/web 快照同批,--rollback 一并恢复)
+#   · 插件: core 本机 build-packages.sh → beeftv-prod/plugin-packages(canvas-api.env 指向此处)
+#   · 快照:.rollback-previous/canvas-{bin,dist,plugins,api.env}(与 api/web 快照同批,--rollback 一并恢复)
 deploy_canvas() {
   echo "▶ [canvas] rsync apps/canvas → ${REMOTE}:${REMOTE_DIR}/apps/canvas …"
   rsync -az --delete -e "ssh ${SSH_OPTS[*]}" \
@@ -152,6 +162,30 @@ GOROOT_BIN="$HOME/sdk/go1.25.0/bin"
 mkdir -p "$TOIV/.rollback-previous"
 [ -f "$PROD/canvas-api-pg" ] && cp -al "$PROD/canvas-api-pg" "$TOIV/.rollback-previous/canvas-bin" 2>/dev/null || true
 [ -d "$PROD/dist" ] && rm -rf "$TOIV/.rollback-previous/canvas-dist" && cp -al "$PROD/dist" "$TOIV/.rollback-previous/canvas-dist" || true
+
+# 官方插件包(toiv-h3 等):core 本机打包 → beeftv-prod/plugin-packages(只放 *.beeftv-plugin),
+# canvas-api 启动时按该目录 reconcile 内置插件。此前 env 指向已归档的旧 BeefTV 检出
+# (/home/merlin/beeftv/plugin-packages,停在 toiv-h3 0.3.0),主仓插件改动部署不到生产。
+# 首次部署把 canvas-api.env 的 CANVAS_OFFICIAL_PLUGIN_DIR 切过来(先备份,--rollback 恢复)。
+PLUG="$PROD/plugin-packages"
+ENVF="$PROD/canvas-api/canvas-api.env"
+sh "$CANVAS/plugin-packages/build-packages.sh" >/dev/null
+rm -rf "$TOIV/.rollback-previous/canvas-plugins" "$TOIV/.rollback-previous/canvas-api.env"
+[ -d "$PLUG" ] && cp -al "$PLUG" "$TOIV/.rollback-previous/canvas-plugins" || true
+[ -f "$ENVF" ] && cp -p "$ENVF" "$TOIV/.rollback-previous/canvas-api.env" || true
+mkdir -p "$PLUG"
+rsync -a --delete --include='*.beeftv-plugin' --exclude='*' "$CANVAS/plugin-packages/" "$PLUG/"
+n_pk=$(ls "$PLUG"/*.beeftv-plugin | wc -l)
+[ "$n_pk" -gt 0 ] || { echo "ERROR: 官方插件包为空($PLUG)" >&2; exit 1; }
+if [ -f "$ENVF" ] && ! grep -qx "CANVAS_OFFICIAL_PLUGIN_DIR=$PLUG" "$ENVF"; then
+  if grep -q '^CANVAS_OFFICIAL_PLUGIN_DIR=' "$ENVF"; then
+    sed -i "s#^CANVAS_OFFICIAL_PLUGIN_DIR=.*#CANVAS_OFFICIAL_PLUGIN_DIR=$PLUG#" "$ENVF"
+  else
+    echo "CANVAS_OFFICIAL_PLUGIN_DIR=$PLUG" >> "$ENVF"
+  fi
+  echo "  canvas-api.env:CANVAS_OFFICIAL_PLUGIN_DIR → $PLUG"
+fi
+echo "  官方插件包 ${n_pk} 个 → $PLUG"
 
 # Go 后端
 export PATH="$GOROOT_BIN:$PATH"
