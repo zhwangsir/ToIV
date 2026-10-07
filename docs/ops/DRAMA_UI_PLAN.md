@@ -6284,3 +6284,8 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **mp-weixin 构建门禁 ✅**：`npm run build:mp-weixin` 产物完整——`pages-sub/studio/` 四件套（js/json/wxml/wxss）、app.json subPackages 注册在位、web-view 条件编译进 wxml；微信开发者工具导入 `dist/build/mp-weixin` 即可用（AppID 待填）。
 - **生产隐患抓修 ✅**：端点活性烟测意外发现 `deploy/.env:75 TOIV_WECHAT_DEV_BYPASS=true` 在生产开着——任意 code 直接换 JWT 并自动开户（8 月联调遗留，代码注释自标「生产必须 False」）。已改 false+重启 toiv-api+实证假 code → 503「微信登录未配置」；**清理 dev-bypass 时代脏用户 3 个**（wx-dev-*，PG 直删）；api 健康 200。
 - **用户配置落点精确化**（拿到 AppID 后）：core `/home/merlin/toiv/deploy/.env` 第 73/74 行填 `TOIV_WECHAT_APPID`/`TOIV_WECHAT_SECRET` → 重启 toiv-api；`MiniProgram/src/manifest.json` mp-weixin 段 `appid` 同步填入；业务域名校验文件传 `/home/merlin/toiv/deploy/mp-verify/`。
+
+### 2026-10-07 12:06 CST — 四镜拼片对比材料就绪 + expr_3 按 C 入账
+- **四镜拼片对比 ✅**：c_hybrid 8f652c7d 方案D（全场戴帽）四镜重渲早已完成（driver_hoodup_d2.log：rerender_reset n=4 + 06:40 done，镜0/1/2/3 = 9868d4ac/76c55294/2daa9de9/105d7863 各 render_end ok）——本次无损 concat（54.70s ≈ splice2 54.68s）+ 8 帧同时间点对照网格。产物：Mac `tmp/m43/chybrid_4shot_concat.mp4` + `tmp/m43/compare_grid_small.png`（core `/home/merlin/toiv/tmp/chybrid_rain_cmp/cutover_cmp/` 同存大图）。
+- **代理目检结论（供拍板参考）**：c_hybrid 人物一致性显著更强（同脸/同衣/同帽贯穿四镜，电影感光影好）；splice2 存在镜间漂移（戴帽/无帽/湿发/打伞混用）但亮度更高、实拍感强、镜0 店内空镜氛围更商业。**c_hybrid 换默认与否待用户目检两份材料后拍板**（口径：换默认=改雨夜项目成片指向，splice2 保留可回滚）。
+- **expr_3 入账**：按建议 **C（认可现状先交付）** 落定——0505 expr_2 整格问答判闭嘴但目检小 O 形张嘴属 Qwen 生成质量而非配置，613b77/63bd29aa 门禁体系已挡住劣化，不追加 seed 滚动/负向改造；后续模型迭代后可随时重开。
