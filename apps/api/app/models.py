@@ -651,6 +651,12 @@ class Entity(SQLModel, table=True):
 # ---------------------------------------------------------------------------
 
 
+# 短剧项目默认产出规格(单一来源:模型 / 建项 schema / Agent 建项共用)
+STUDIO_DEFAULT_WIDTH = 768
+STUDIO_DEFAULT_HEIGHT = 1344
+STUDIO_DEFAULT_FPS = 24
+
+
 class StudioProject(SQLModel, table=True):
     """创作项目:剧本 → 角色 → 分镜(视频/图像运镜混排)→ 合成。"""
 
@@ -663,9 +669,10 @@ class StudioProject(SQLModel, table=True):
     ckpt_name: str = ""  # 出图底模(图像运镜链用,保跨镜风格一致)
     render_mode_default: str = "video"  # 新分镜默认生成方式: video | image_motion
     # 产出规格:视频链/图像运镜链共用(合成同规格拼接的前提);8 对齐,LTX 预设 32 对齐
-    width: int = 768
-    height: int = 384
-    fps: int = 16
+    # 10/8 起默认竖屏短剧规格 768×1344@24(Ref2VA 竖屏;旧默认横屏 768×384@16 被对调后只出 384×768)
+    width: int = STUDIO_DEFAULT_WIDTH
+    height: int = STUDIO_DEFAULT_HEIGHT
+    fps: int = STUDIO_DEFAULT_FPS
     # Batch3:项目级场景图绑定(JSON URL 列表;视频多参考自动带入)
     scene_images_json: str = "[]"
     status: str = "draft"  # draft | storyboard | generating | ready | error

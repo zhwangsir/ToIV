@@ -241,14 +241,14 @@ def test_project_status_counts(ctx):
 
 
 def test_project_output_spec_create_patch(ctx):
-    """创建/更新项目规格:默认 768×384@16;非法值(非 8 对齐/超范围)→ 422。"""
+    """创建/更新项目规格:默认竖屏短剧 768×1344@24;非法值(非 8 对齐/超范围)→ 422。"""
     client, token = ctx
     H = _h(token)
     # 默认值
     r = client.post("/api/studio/projects", headers=H, json={"title": "规格"})
     assert r.status_code == 200, r.text
     p = r.json()
-    assert (p["width"], p["height"], p["fps"]) == (768, 384, 16)
+    assert (p["width"], p["height"], p["fps"]) == (768, 1344, 24)
     pid = p["id"]
     # 自定义创建
     r = client.post(
@@ -299,6 +299,63 @@ def test_render_shot_injects_project_spec(ctx, monkeypatch):
     assert r.status_code == 200, r.text
     assert seen["ckpt_name"] == "majicMIX.safetensors"
     assert (seen["width"], seen["height"], seen["fps"]) == (1024, 576, 12)
+
+
+def test_project_default_spec_is_portrait_short_drama(ctx):
+    """10/8:无规格建项=768×1344@24(单一来源 STUDIO_DEFAULT_*),显式横屏仍尊重;边界 1920 可、1928 拒。"""
+    from app.models import (
+        STUDIO_DEFAULT_FPS,
+        STUDIO_DEFAULT_HEIGHT,
+        STUDIO_DEFAULT_WIDTH,
+        StudioProject,
+    )
+
+    assert (STUDIO_DEFAULT_WIDTH, STUDIO_DEFAULT_HEIGHT, STUDIO_DEFAULT_FPS) == (768, 1344, 24)
+    orm = StudioProject(tenant_id="t", user_id="u")
+    assert (orm.width, orm.height, orm.fps) == (768, 1344, 24)
+
+    client, token = ctx
+    H = _h(token)
+    # 空 body(连 title 都不给)也走默认
+    r = client.post("/api/studio/projects", headers=H, json={})
+    assert r.status_code == 200, r.text
+    assert (r.json()["width"], r.json()["height"], r.json()["fps"]) == (768, 1344, 24)
+    # 显式横屏旧规格不被改写
+    r = client.post(
+        "/api/studio/projects", headers=H,
+        json={"title": "横屏", "width": 768, "height": 384, "fps": 16},
+    )
+    assert r.status_code == 200, r.text
+    assert (r.json()["width"], r.json()["height"], r.json()["fps"]) == (768, 384, 16)
+    # 边界:竖屏上限 1920 合法;1928 / 1340(非 8 对齐) / fps 3 → 422
+    r = client.post("/api/studio/projects", headers=H, json={"width": 1080, "height": 1920})
+    assert r.status_code == 200, r.text
+    for bad in ({"height": 1928}, {"height": 1340}, {"fps": 3}, {"width": 248}):
+        r = client.post("/api/studio/projects", headers=H, json=bad)
+        assert r.status_code == 422, bad
+
+
+def test_render_shot_default_project_injects_portrait(ctx, monkeypatch):
+    """默认建项后渲染:编排层下发 768×1344@24(此前默认 768×384 被管线对调成 384×768)。"""
+    from app.services.studio.renderers.base import RenderResult
+
+    client, token = ctx
+    H = _h(token)
+    pid = client.post("/api/studio/projects", headers=H, json={"title": "默认竖屏"}).json()["id"]
+    shots = _mk_shots(client, H, pid)
+    seen: dict[str, object] = {}
+
+    class FakeRenderer:
+        name = "video"
+
+        async def render(self, shot, cast, pool, **kw):
+            seen.update(kw)
+            return RenderResult(kind="video", url="/api/studio/files/fake.mp4")
+
+    monkeypatch.setattr(orch, "get_renderer", lambda shot: FakeRenderer())
+    r = client.post(f"/api/studio/shots/{shots[0]['id']}/render", headers=H)
+    assert r.status_code == 200, r.text
+    assert (seen["width"], seen["height"], seen["fps"]) == (768, 1344, 24)
 
 
 # ── L2 质量门接入(R1.3, advisory)───────────────────────────────────────────
