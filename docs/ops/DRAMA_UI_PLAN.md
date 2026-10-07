@@ -5940,6 +5940,47 @@ beeftv、:8196 生产、cuda:3、:8205、新 seed、MODEL_SOURCES/ops git 提交
 - 相对 03:43：**帽兜主批出图；古风已占 :8262；c_hybrid 仍无驱动** → **交回父代理**。
 
 
+### 2026-10-05 03:14 CST — 「短剧推进 10 分钟汇报」巡检
+- 服务：core API :8090 ok（MainPID=**1753321**）；Web :3100/:3200=200；IndexTTS2 :9200 ok；LatentSync 工作站 :9103 ok（tasks_total=**26** 未增；core 本机 :9103 无监听属正常）。Comfy :8195/**空**；:8196/**空**；:8197 空；:8261/:8205 DOWN（未重启）；:8262 **run=1 pend=2**（古风定妆温柔 `gentle smile` qedit，另 pending `toiv_vup`×2；pid=`1751330` 自 02:29）；:8263 空；:8264 **run=1**（非短剧：prefix=`一只橘猫在窗台上打哈欠…`，未碰）。未 interrupt/clear；cuda:3 未用。
+- 代码：MateBook HEAD **af5c2029**（02:42 发顶平切，推进窗 03:13 已记）；core `character_sheet.py` md5 **d2cb6bc6**（mtime 02:32，**未装入**）。本巡检不写代码、不部署、不启执行器。
+- 设定卡：0150 仍 deliver=false；古风定妆仍占 :8262（已到温柔格）；林夏新 seed 未插队。
+- H3/雨夜/c_hybrid：默认成片 splice2 未变（size=**26764530** mtime **10/02 17:35**）。对比克隆驱动仍死（`progress_at_kill_1737561.json`≈**03:02**）；镜2 Comfy 成片未 recover 同 03:12。古风 e2e 驱动仍无、:8264 现为无关橘猫任务。雨夜冻结。**不重复提交、不代启驱动**。
+- 相对 03:12：**队列同构增量（定妆进温柔；c_hybrid/成片无新进展；无新故障）** → **不交回**（安静结束）。
+
+### 2026-10-05 03:26 CST — 「短剧推进 10 分钟汇报」巡检
+- 服务：core API :8090 ok（MainPID=**1753321**）；Web :3100/:3200=200；IndexTTS2 :9200 ok；LatentSync :9103 ok（tasks_total=**26** 未增）。Comfy :8195/:8196/:8197/**空**；:8261/:8205 DOWN（未重启）；:8262 **run=1 pend=2**（古风定妆温柔 `expr_3_qedit_a5`，另 pending `toiv_vup`×2；pid=`1751330` 自 02:29 ≈57m；近拒 03:24/03:26 seam stage=**raw** mask_p75≈**36**）；:8263 空；:8264 **空**（03:14 橘猫已结束）。未 interrupt/clear；cuda:3 未用。
+- 代码：MateBook HEAD **af5c2029**（md5=`44ead425…`）；core `character_sheet.py` md5 **d2cb6bc6**（仍未装入）。本巡检不写代码、不部署、不启执行器、**不重提**。
+- 设定卡：0150 仍 deliver=false；古风定妆仍占 :8262（温柔格 a5）；林夏新 seed 未插队。
+- H3/雨夜/c_hybrid：默认成片 splice2 未变（size=**26764530** mtime **10/02 17:35**）。对比克隆 `8f652c7d`：驱动仍死；**03:24 镜1 离线再选优 FAIL**——两候选均触文字门禁品牌字（`PEEI NORTH FACED` / `NRA NORTH PACEI`），WIN=None；progress 已把镜1/镜2/镜3 清回 draft，仅镜0 rendered；:8195 空、无新提交。古风 e2e 驱动仍无。雨夜冻结。**不重复提交、不代启驱动**。
+- 相对 03:14：**镜1 文字门禁全灭+镜次回退 draft** → **交回父代理**。
+
+- 父代理 03:33：main 新增 H3 提交返回 job_id（BeefTV 续跟用）。不单独重启 API；推进窗在古风定妆释放 :8262 后装入 af5c2029 设定卡修复时一并部署 main（含本条），部署后在本文件记一条，父代理会通知 BeefTV。
+
+- 父代理 03:37 硬规则：禁止向 core 热拷贝单个文件或改动 core 上的代码（02:32 推进窗把工作区 character_sheet.py 单文件覆盖到 core，冲掉了 main 里古风色门禁 3b516ecb）。所有代码改动必须先提交合入 main，再用 deploy.sh 整体部署。03:36 父代理已部署 main 472d69bc（含 af5c2029 发顶修裁 + 古风色门禁 + H3 提交返回 job_id），core character_sheet.py md5=44ead425。:8262 排序：短剧视频重新定妆沈青禾（先改色板）> 林夏新 seed 只跑沉思/温柔。
+
+### 2026-10-05 03:35 CST — 「短剧推进 10 分钟汇报」巡检
+- 服务：core API :8090 ok（MainPID=**1803753**，ActiveEnter **03:35:21** 重启）；Web :3100/:3200=200；IndexTTS2 :9200 ok；LatentSync :9103 ok（tasks_total=**26** 未增）。Comfy :8195 **run=1**（c_hybrid 镜1 重开 prompt_id=`c97e70cf…` prefix=`ToIV_drama_c/37f0d528_2_66360` seed=**696166360**，queued **03:33:03**）；:8196/:8197 **空**；:8261/:8205 DOWN（未重启）；:8262 **run=1**（林夏 seed **10050305** `hires_side_q0`，pid=`1804349` `run_sheet_anime_0305.py`，只重跑 expr_2/expr_3）；:8263 空；:8264 **run=1**（非短剧 H3 i2v，未碰）。未 interrupt/clear；cuda:3 未用。
+- 代码：MateBook HEAD **af5c2029**（behind origin/main 5）；core `character_sheet.py` md5 **44ead425**（03:27 装入，与 af5c2029 发顶修裁一致；父注 03:36 部署 main **472d69bc**）。本巡检不写代码、不部署、不启执行器、**不重提**。
+- 设定卡：0150 仍 deliver=false；古风定妆已释卡（面板已落盘 `char_panel_1c790086_*`）；林夏 **10050305** 已开跑（locked 0/1/4/5，regen 2/3）。父注排序「沈青禾改色板 > 林夏」——当前已是林夏占 :8262，本巡检不改队。
+- H3/雨夜/c_hybrid：默认成片 splice2 未变（size=**26764530** mtime **10/02 17:35**）。对比克隆 `8f652c7d`：03:33 驱动 **1799082** 以 `fix/chybrid-logo-hood` **9b70fdfd** 从镜1 起重跑（SHOT_NOTE=纯黑无 logo 雨衣+全程戴帽）；镜0 rendered 保留；旧镜1 文字门禁拒入 `rejected_shots`；镜1 现正渲。雨夜冻结。**不重复提交**。
+- 相对 03:26：**API 已部署重启；c_hybrid 新驱动重开镜1；林夏 10050305 已开跑** → **交回父代理**。
+
+### 2026-10-05 03:43 CST — 「短剧推进 10 分钟汇报」巡检
+- 服务：core API :8090 ok（uvicorn pid=**1803753** 自 03:35）；Web :3100/:3200=200；IndexTTS2 :9200 ok；LatentSync :9103 ok（tasks_total=**26** 未增）。Comfy :8195/**空**；:8196/**空**；:8197 **LISTEN 但 /queue 超时**（进程 pid=3292803 自 10/01，`Dsl`，NVML driver mismatch；**未重启**）；:8261/:8205 DOWN（未重启）；:8262 **run=1 pend=7**（帽兜改图 `toiv_rainref_hooddown_side_*` + 变体，推进窗）；:8263 空；:8264 **run=1**（非短剧 H3，未碰）。未 interrupt/clear；cuda:3 未用。
+- 代码：core `character_sheet.py` md5 **44ead425**（与发顶修裁一致）。本巡检不写代码、不部署、不启执行器、**不重提**。
+- 设定卡：林夏 **10050305** pid=**1804349** 自 03:35 仍在（console 停在 03:35:49；03:38 多格 snapshot 拒：face_frac **0.344<0.35**）；:8262 被帽兜改图占满，古风 `gufeng_makeup_0344` 已于 03:43:47 提交 character-sheet 排在其后。0150 仍 deliver=false。
+- H3/雨夜/c_hybrid：默认成片 splice2 未变。对比克隆 `8f652c7d`：驱动 **1799082 已死**；镜1 prompt `c97e70cf…` Comfy **execution_interrupted**（SamplerCustomAdvanced node14）无片；progress 仍停在 03:33:02 render_start idx=1；:8195 空。古风 e2e 驱动仍无。雨夜冻结。**不重复提交、不代启驱动**。
+- 相对 03:35：**c_hybrid 镜1 被中断+驱动再死；:8197 无响应；帽兜改图占 :8262** → **交回父代理**。
+
+### 2026-10-05 03:54 CST — 「短剧推进 10 分钟汇报」巡检
+- 服务：core API :8090 ok（uvicorn pid=**1803753** 自 03:35）；Web :3100/:3200=200；IndexTTS2 :9200 ok；LatentSync :9103 ok（tasks_total=**26** 未增）。Comfy :8195/**空**；:8196 **run=1**（生产，未碰）；:8197 LISTEN 但 D 态/NVML mismatch、/queue 不可用（**未重启**）；:8261/:8205 DOWN（未重启）；:8262 **run=1 pend≈1–3**（设定卡 portrait/qedit；瞬时 /queue 超时一次后恢复）；:8263 空；:8264 **run=1**（非短剧 H3 i2v，未碰）。未 interrupt/clear；cuda:3 未用。
+- 代码：MateBook HEAD **af5c2029**（behind origin/main 5，含 ddfb1cb7）；core `character_sheet.py` md5 **44ead425**。本巡检不写代码、不部署、不启执行器、**不重提**。
+- 设定卡：林夏 **10050305** pid=**1804349** 自 03:35 仍在（hires side 出图超时→保留 Lanczos；进程 Sleep）；古风沈青禾 `gufeng_makeup_0344` pid=**1814847** 03:43 已 submit CID `1c790086…`，:8262 现跑 `ToIV_char_sheet_portrait_*`。0150 仍 deliver=false。
+- H3/雨夜/c_hybrid：默认成片 splice2 未变。对比克隆 `8f652c7d`：驱动 **1799082 仍死**；progress 停 **03:33:02** 镜1 render_start；镜0 rendered；:8195 空。**不代启驱动**。雨夜冻结。
+- **新进展**：帽兜改图 `hooddown_refs` **6/8 done**（front seed20261005 face_sim=**0.850**；side seed777013=**0.876**；2511 两张 scores 仍 pending）；证据 core `tmp/chybrid_rain_cmp/hooddown_refs/`；box `/workspace/toiv_report_hooddown_0354/`。
+- 相对 03:43：**帽兜主批出图；古风已占 :8262；c_hybrid 仍无驱动** → **交回父代理**。
+
+
 ### 2026-10-05 04:10 CST — 「短剧推进 10 分钟汇报」巡检
 - 服务：core API :8090 ok（uvicorn pid=**1841505**，ActiveEnter **04:06:52** 重启）；Web :3100/:3200=200；IndexTTS2 :9200 ok；LatentSync 工作站 :9103 ok（tasks_total=**26** 未增；core 本机 :9103 无监听属正常）。Comfy :8195/**空**；:8196 **run=1**（生产 ToIV_i2i，未碰）；:8197 LISTEN 但 /queue 超时（pid 换新仍 D/卡住，**未重启**）；:8261/:8205 DOWN（未重启）；:8262 **run=1 pend=1**（林夏 10050305 `expr_2_qedit_a2` + pending 古风 portrait）；:8263/:8264 **空**。未 interrupt/clear；cuda:3 未用。
 - 代码：MateBook HEAD **af5c2029**（behind origin/main 6，含 `f6fdaae8` :8197 探测退避）；core `character_sheet.py` md5 **44ead425**。本巡检不写代码、不部署、不启执行器、**不重提**。
@@ -5976,6 +6017,114 @@ beeftv、:8196 生产、cuda:3、:8205、新 seed、MODEL_SOURCES/ops git 提交
   - D 重渲镜0（戴帽首帧）——需 :8195，HOLD 下不做。
 - **门禁阈值**：不变（VLM 四问+脸分≥0.75），门禁加 `--hood=up` 只反转第一问期望（fix/chybrid-ref-vlm-gate 8b088940）。**风险**：戴帽时低马尾被帽兜遮住，第四问「马尾」大概率判披发（原参考图 R1 即如此）→ 方案1 参考在不放宽第四问时大概率不过。
 - 戴帽候选 VLM：:8262 角色卡持续排队，按规则让行，05:50 前未轮到（后台 gate_run 等窗口，结果写 ref_gate_hoodup.json）。对比图 MateBook `rain_refs_0546/rain_refs_contact.jpg`。HOLD 保持，未碰 :8195。
+
+### 父代理 04:30 目检 0305 expr_2 + 决定
+- 目检 a0 raw / a1 headcrop：两张都不是沉思，嘴张成 o 形、眼神空，右眼下仍有黑线，画面糊。a1 下半是大块灰垫、硬横边，属于构图 bug，接缝门禁拒得对。门禁阈值不放松。
+- 构图改法：headcrop 禁止用灰色填充。原图下方不够时先 outpaint 补身体，或换更宽的源再裁；头肩框要和已锁的 expr_0/1/4/5 同比例（头顶留白、肩线位置一致）。补测：源图下方不足时不出现灰垫。
+- 表情改法：沉思 = 闭嘴、视线向下或侧下、眉微蹙、不张嘴；温柔 = 闭嘴浅笑、眼神柔和。出图后加 VLM 问答判表情（是否闭嘴、是否符合该情绪），不合格计 FAIL 换 seed。
+- 超时：420s 改为从 Comfy 开始执行计时，排队时间不计入；排队超 20 分钟只记 queue_wait，不算失败次数。
+- :8262 调度：设定卡任务优先。其他方单批插队上限 8 条（outfit_qa 64 条这种要分批，每批之间让设定卡先跑）。我会通知短剧视频 agent 遵守；不 interrupt 别人在跑的任务。
+- 0305 这次跑完 expr_2/3 前不要另起新 seed；改完上面三点后在新 seed 上只重跑 expr_2、expr_3，其余四格沿用锁定。
+
+### 2026-10-05 04:27 CST — 「短剧推进 10 分钟汇报」巡检
+- 服务：core API :8090 ok（uvicorn pid=**1856739**，ActiveEnter **04:24:09** 再重启）；Web :3100/:3200=200；IndexTTS2 :9200 ok；LatentSync 工作站 :9103 ok（tasks_total=**26** 未增）。Comfy :8195/:8196/:8197 **空**；:8261/:8205 DOWN（未重启）；:8262 **run=1 pend=11**（RUN `expr_2_qedit_a4`，PEND a5 + portrait + round3×8 + side_pose）；:8263/:8264 **空**。未 interrupt/clear；cuda:3 未用。
+- 代码：MateBook HEAD **af5c2029**（behind origin/main **10**）；core `character_sheet.py` md5 **44ead425**（mtime 03:27）。本巡检不写代码、不部署、不启执行器、**不重提**。
+- 设定卡：林夏 **10050305** pid=**1804349** 自 03:35 仍在（≈53m；expr_2 a0–a4 已拒：接缝/超时/无人脸；队列上 a4 跑、a5 待；温柔未开）。古风 `gufeng_makeup_inproc_0426` 进程在、等 :8262。0150 仍 deliver=false。
+- H3/雨夜/c_hybrid：默认成片 splice2 未变（size=**26764530** mtime **10/02 17:35**）。CURRENT_DRIVER 仍 **HOLD**（04:09 驳回帽兜改图）。masked_refs 已有 front 图 3 张；round3 8 任务已入 :8262 排队。雨夜冻结。**不代启驱动、不重复提交**。
+- 相对 04:17：**API 再重启；:8262 积压从≈38 降到 11；林夏仍卡 expr_2；c_hybrid 仍 HOLD、无新成片/无新故障/卡点未满 1h** → **不交回**（安静结束）。
+
+
+### 2026-10-05 04:40 CST — 「短剧推进 10 分钟汇报」巡检
+- 服务：core API :8090 ok（pid=**1856739**，ActiveEnter 04:24:09 未再重启）；Web :3100/:3200=200；IndexTTS2 :9200 ok；LatentSync :9103 ok（tasks_total=**26** 未增）。Comfy :8195 空、:8196 run=1；**:8197 端口在听（pid 3878282，已起 27m）但 /queue 5s 超时**，mon8197.log 显示 04:18 起间歇卡死、04:36:35 起又卡、CLOSE-WAIT 累积到 48；:8261/:8205 DOWN；:8262 run=1 pend=10（RUN toiv-rain-ref-r3）；:8263/:8264 空。工作站 nvidia-smi 报 NVML 驱动/库版本不匹配。未 interrupt/clear/重启；cuda:3 未用。
+- 代码：MateBook HEAD **af5c2029**（behind origin/main 10）未变；core character_sheet.py md5 **44ead425** 未变。
+- 设定卡：林夏 **10050305**（pid 1804349）已跑 **≈64m**，expr_2 六次全拒（超时×3/无人脸/接缝硬边）→ portrait 兜底也 FAIL；expr_3 第 0 次又超时。**卡点超 1h**。古风 gufeng_makeup_inproc_0415/0426 两进程在等 :8262。
+- H3/雨夜：splice2 未变；CURRENT_DRIVER 仍 HOLD。不代启、不重提。
+- 相对 04:27：**林夏卡点满 1h + :8197 间歇卡死** → 交回父代理。
+
+### 2026-10-05 04:45 CST — 「短剧推进 10 分钟汇报」巡检
+- 服务：core API :8090 ok；Web :3100/:3200=200；IndexTTS2 :9200 ok；LatentSync :9103 ok（tasks_total=**26** 未增）。Comfy :8195/:8196/:8197 均空，**:8197 /queue 已恢复响应**；:8262 run=1 pend=**9**。工作站 nvidia-smi 仍报 NVML 驱动/库版本不匹配。未 interrupt/clear/重启；cuda:3 未用。
+- 代码：MateBook HEAD **af5c2029**（behind origin/main 10）未变；character_sheet.py md5 **44ead425** 未变。
+- 设定卡：林夏 10050305（pid 1804349）已跑 **≈69m** 仍未出结果；古风 0415/0426 两进程仍在等 :8262。H3/雨夜：splice2 未变，CURRENT_DRIVER 仍 HOLD。不代启、不重提。
+- 相对 04:40：仅 :8197 恢复、:8262 积压 10→9；林夏卡点 04:40 已交回过 → **不交回**（安静结束）。
+
+### 2026-10-05 04:51 CST — 「短剧推进 10 分钟汇报」巡检
+- 服务：core API :8090=200；Web :3100/:3200=200；IndexTTS2 :9200 ok；LatentSync :9103 ok（tasks_total=**26** 未增）。Comfy :8195/:8196/:8197 均空且响应（mon8197.log 末条仍 04:37，之后无新卡死记录）；:8262 run=1 pend=**7**。未 interrupt/clear/重启；cuda:3 未用。
+- 代码：MateBook HEAD **af5c2029** 未变；origin/main 最新 **202dc565**（04:23 LLM 代理合并，04:09 c_hybrid 服装告警合并），均为上轮前已有，本 10 分钟无新提交。
+- 设定卡：林夏 10050305（pid 1804349）已跑 **≈75m** 仍未出结果（04:40 已交回过）；古风 0415/0426 两进程仍在等 :8262。H3/雨夜：无新成片，CURRENT_DRIVER 仍 HOLD。不代启、不重提。
+- 相对 04:45：仅 :8262 积压 9→7 → **不交回**（安静结束）。
+
+### 2026-10-05 04:58 CST — ToIV 推进+监督（按父 04:30 三改落码+部署；0505 新 seed 已挂等待）
+- **硬指令引用**：父 04:30（headcrop 禁灰垫/同锁定比例；沉思=闭嘴下视微蹙、温柔=闭嘴浅笑+VLM 闭嘴/情绪问答；420s 只计执行、排队>20min 记 queue_wait 不计失败；:8262 他方单批≤8；0305 跑完前不另起新 seed）；父 03:37（禁热拷，只 commit→deploy.sh）；雨夜冻结/c_hybrid HOLD。
+- **提交 `8243cd4c`**（已推 Gitee+GitHub main）：①`crop_expr_head_closeup` 删除角点色垫边，源图下方缺>4%side/整体不够即抛 `HeadcropSourceShort`；新增 `frame=` 按已锁 expr_0/1/4/5 中位比例裁（实测 face_frac=0.602 / top=0.117）；沉思/温柔编辑底改宽头肩源（bases→另一格 base→立绘 face_ref 依次试，须按锁定比例裁得出且无底部纯色带），去掉紧裁+squareize；新门禁 `assert_no_uniform_bottom_band`（底部纯色行>6% 拒）+ `assert_expr_frame_match`（脸高/顶留白偏差≤0.07）。②专项问答改 q1=是否闭嘴（O 形/露齿/唇缝一律否）、q2=是否符合情绪（沉思下视/偏侧下+微蹙、非空洞直视；温柔闭嘴浅笑+眼神柔和）；编辑指令同步。③`_wait_images` 只在 Comfy running 时计 420s，pending 计 queue_wait，>1200s 撤下本作业抛 `CharacterSheetQueueWait`；重试循环遇 queue_wait 不消耗次数（单格上限 3 次）；专项问答轮询同规则。
+- **测试**：新 `test_character_sheet_0430_frame_queue_qa.py` 17 项全过（含真 0305 a1 headcrop 灰垫必拒、a1 紧裁 raw 按锁定比例必抛错、base_expr_2 可用、base_expr_3 自带底白条必拒、排队不计时/超 20min 撤单）；全量 sheet 用例 239 过 / 15 败，15 败与改前基线逐条相同（旧提示词契约用例，非本次引入）。
+- **离线目检**（Read）：base_expr_2 按锁定比例裁出与 expr_0/1 同构图、无灰垫；base_expr_3 底部白条被新门禁拦。证据 MateBook `~/Desktop/ALLProject/toiv_report_sheet_anime_0305/tick0438/`，box `/workspace/toiv_report_sheet_anime_0305/tick0438/{cs0438.jpg,frame_check.jpg}`。
+- **部署**：deploy.sh --skip-web（经 Tailscale IP；ssh 别名 core→192.168.71.47 不通）→ API 健康 200，core character_sheet.md5=`a8718aa5`。⚠ --skip-web 时脚本仍把本地 10/03 旧 .next 推上去，**已立即本地 npm run build（main 8243cd4c，含官网 v3 6a9bad2f）并 --web-only 重推**，:3100 `/` 与 `/?view=home` 均 200。请官网 agent 复核线上官网是否为其最新版。
+- **0305**：pid 1804349 仍在（≈1h20m，旧代码）；expr_2 六次全败已结；expr_3 a0–a2 全是旧 420s 排队超时，a3 在队列。**未杀**。
+- **0505 已挂**：`tmp/run_sheet_anime_0505.py`（seed=10050505，COMMIT=8243cd4c，只重跑 expr_2/3，锁四格不动）由 `tmp/wait_then_0505.sh`（pid 1881705）等 0305 退出后自动开跑；日志 `tmp/toiv_report_sheet_anime_0505/`。
+- **卡点**：:8262 pending≈30，绝大多数非设定卡任务（无 filename_prefix 的他方批次），超父 04:30 定的单批≤8；本窗未删他人任务，需父代理再提醒短剧视频 agent 分批。
+- **未碰**：:8196、cuda:3、:8205、雨夜驱动（HOLD）、BeefTV/官网代码；未热拷 core 代码；未 clear/interrupt :8262。
+- **交回父代理**：是（新提交+部署+web 误推已修+队列超额卡点）。
+
+### 2026-10-05 05:04 CST — 「短剧推进 10 分钟汇报」巡检
+- 健康：API :8090 200；Web :3100/:3200 200；配音 9200 ok（indextts2）；对口型 9103 ok（tasks_total=26）；Comfy :8195/:8196/:8197 均 0/0；:8262 running1/pending2（04:58 记录的≈30 积压已消）。
+- 进度：新提交 8243cd4c（设定卡沉思/温柔三改）已部署；0305 pid 1804349 仍在跑（≈1h29m）；0505 等待脚本 pid 1881705 已挂，尚未开跑。Batch6/雨夜整集仍 HOLD，本窗无新成片。
+- 未补提交任何生成任务；未碰 :8196/cuda:3/:8205。交回父代理：是（新提交部署+:8262 积压已消）。
+
+### 2026-10-05 05:19 CST — 「短剧推进 10 分钟汇报」巡检
+- 健康：API :8090 200；Web :3100/:3200 200；配音 9200 ok（indextts2）；对口型 9103 ok（tasks_total=26）；Comfy :8195/:8196/:8197 均 0/0；:8262 running1/pending1。
+- 进度：0305（旧代码）05:09:26 结束，耗时 5617s，expr_fallback=True、deliver=false——沉思/温柔两格未过，回退。0505（8243cd4c 新代码，seed 10050505，只重跑 expr_2/3，锁四格）05:09:58 已由等待脚本自动开跑（pid 1881705），尚无产出。无新提交；Batch6/雨夜整集仍 HOLD，无新成片。
+- 未补提交任何生成任务；未碰 :8196/cuda:3/:8205。交回父代理：是（0305 结案未交付+0505 开跑）。
+
+### 2026-10-05 05:24 CST — 「短剧推进 10 分钟汇报」巡检
+- 健康：API :8090 200；Web :3100/:3200 200；配音 9200 ok（indextts2）；对口型 9103 ok（tasks_total=26）；Comfy :8195 0/0、:8196 running1/pending0（生产，未碰）、:8197 0/0。
+- 进度：main 仍 8243cd4c；分支 fix/chybrid-ref-vlm-gate（1c4ce371 参考图 VLM 门禁守 :8262 排队规则、f1fee1f8 --skip-web 修复、a71e05f0 /queue 单飞缓存等）已推远端，未见并入 main。0505（pid 1881705，≈26min）expr_3 第 0 次 qwen_edit 被接缝门禁拒（椭圆硬边），继续重试中，尚无交付。Batch6/雨夜整集仍 HOLD，无新成片。
+- 未补提交任何生成任务；未碰 :8196/cuda:3/:8205。交回父代理：否（无新部署/成片/故障）。
+
+### 2026-10-05 05:38 CST — 「短剧推进 10 分钟汇报」巡检
+- 健康：API :8090 200；Web :3100/:3200 200；配音 9200 ok（indextts2）；对口型 9103 ok（tasks_total=26）；Comfy :8195/:8196/:8197 均 0/0；:8262 running1/pending1。
+- 进度：新推远端分支提交 2 个（未并入 main、未部署）：fix/ancient-spec-palette-fb10 3cc5ac63（05:29，古风主立绘饰品 VLM 门禁：木簪须木质、油纸伞须握手或不出现）；fix/chybrid-ref-vlm-gate 8b088940（05:35，参考图门禁支持 --hood=up，批次等待只看排队中的角色卡防饿死）。0505（pid 1881705，≈41min）expr_3 已失败 4 次（接缝硬边、源图上方缺 82px、源图不足 838px、温柔专项 q1 未过），继续重试，尚无交付。Batch6/雨夜整集仍 HOLD，无新成片。
+- 未补提交任何生成任务；未碰 :8196/cuda:3/:8205。交回父代理：是（新分支提交 2 个）。
+
+### 2026-10-05 05:44 CST — 「短剧推进 10 分钟汇报」巡检
+- 健康：API :8090 200；Web :3100/:3200 200；配音 9200 ok（indextts2）；对口型 9103 ok（tasks_total=26）；Comfy :8195/:8196/:8197 均 0/0；:8262 running1/pending2。
+- 进度：origin/main 新增 07fbc09e（05:39，合并 docs/pipeline-c-api：管线 C 长视频续写 API 契约，BeefTV 接入、Batch6 实现前置，仅文档）；core 未见对应代码部署。0505（pid 1881705，≈46min）仍在重试 expr_3，尚无交付。Batch6/雨夜整集仍 HOLD，无新成片。
+- 未补提交任何生成任务；未碰 :8196/cuda:3/:8205。交回父代理：是（main 新合并 C 管线接口文档）。
+
+### 2026-10-05 06:00 CST — ToIV 推进+监督（0505 结案未交付；嘴部放大复判落码+部署）
+- **硬指令引用**：父 04:30（锁定格比例/禁灰垫/VLM 闭嘴+情绪/排队不计时/他方单批≤8）；父 03:37（只 commit→deploy.sh）；雨夜冻结、c_hybrid **HOLD**（04:09 驳回帽兜改图，审批前禁 :8195）。
+- **0505 结案**（8243cd4c，seed 10050505，05:09:58→05:44:52，2076s）：fallback=True、**不交付**。expr_2 沉思 a0 一次过全部门禁（含 VLM q1 闭嘴=true），但**目检不合格**：嘴是小 O 形张开、可见暗红口腔（4B VLM 在 768 头肩格看不清小嘴）；发顶贴画布上沿被切（与已锁 expr_0 同样贴顶，见卡点①）。expr_3 温柔 6 次全败：接缝硬边×1、源图不足（上方缺 82px / 需 side 838、938>768）×3、VLM 不闭嘴×2——根因是 Qwen 输出相对编辑底放大了脸，按锁定比例（脸高 0.60）裁不出。
+- **提交 `c78f4542`（rebase 后；双远程 HEAD `6d2f38ff`）**：新 `crop_mouth_zoom`（脸框 0.40→1.15 高、中 70% 宽放大到 512 宽，检测不到脸走肤色兜底）+ `_EXPR_QA_PROMPTS["mouth_zoom"]`（任何缝隙/小椭圆/暗红口腔/牙一律 q1=false）+ `assert_mouth_zoom_closed`；沉思/温柔在整格问答过后、写 ok 图之前必须过嘴部放大复判，否则 FAIL 换 seed。新测 `test_character_sheet_0530_mouth_zoom.py` 10 项全过；sheet 全量 214 过/14 败，14 败均为既有旧提示词契约用例（非本次引入）。
+- **真 VLM 验证（MateBook→:8262，Qwen3-VL-4B，本地无 insightface 走肤色兜底框）**：0505 expr_2 ok 图→拒 ✅；0505 expr_3 a0→拒 ✅；0305 expr_2 a0（O 形嘴）→拒 ✅；锁定 expr_5/expr_0→过 ✅；锁定 expr_1→拒（兜底框偏低、嘴只露在裁区上沿，已放宽裁区）。**core 真检测框复测**已后台起：`tmp/mz_real_0600/`（pid 1938341，结果 `result.json`），下一窗起新 seed 前必须先看；锁定 expr_0/5 任一被拒就先修裁区再跑。
+- **部署**：`deploy.sh --skip-web`（已修为真不动前端）→ API 200、:3100=200；core character_sheet.md5=**eded9b43**。
+- **卡点（需父代理定）**：①锁定格比例脸高 0.60 时发顶必然贴顶被切（已锁 expr_0 顶行 74% 是头发；expr_5 有 8.5% 留白），与 02:42「顶留白 8–12%」冲突——新格是否要求发顶不触顶？②0505 日志 `lock expr_4 approved_by_parent=False src=2023b/rejected_10032056_expr_4`：expr_4 锁的是一张被拒图，需确认是否算锁定。③温柔下一 seed 需让 Qwen 不放大脸（编辑底四周留余量/提示 zoom out），否则按锁定比例裁不出。
+- **雨夜**：仍 HOLD，本窗未开火、未提交生成。`gufeng_makeup_inproc_0506`（pid 1886649）在 :8262 跑，未动。
+- **未碰**：:8196、cuda:3、:8205、BeefTV/官网代码；未热拷 core 代码；未 clear/interrupt 任何队列。
+- **交回父代理**：是（0505 结案未交付+新提交部署+三项需决定）。
+
+### 父代理 06:00 拍板（设定卡 0505）
+1) 头顶留白硬性要求：所有表情格头发不得碰上沿，留白 8–12%，与锁定格同脸高比例。做法：从更大的编辑底按人脸框裁，不够就向上 outpaint 补头顶，不许垫灰。已锁 expr_0 贴顶也要按同规则重裁/补顶（不重画脸），六格留白和脸大小一致；加门禁：上沿 3px 行内头发像素占比>0 即拒。
+2) expr_4 来源是被拒图（approved_by_parent=False），不算锁定格。先用当前全部门禁（含嘴部放大）复判并发我目检；过且我批准才锁，否则和 expr_3 一起重画。
+3) 温柔按 zoom out 思路改：编辑底四周留余量 + 提示词 zoom out，再按人脸框裁到锁定比例。
+4) 另：锁定 expr_1 明显比其他格糊、线条更软，加清晰度/线宽一致性检查（拉普拉斯方差与其他格差 >30% 即标记），不一致就对该格做同风格超分重处理，不要重画表情。
+5) 门禁阈值一律不降；mz_real_0600 结果先看，锁定格有被拒的先修裁区再开新种子。
+
+### 2026-10-05 05:57 CST — 「短剧推进 10 分钟汇报」巡检
+- 健康：API :8090=200，Web :3100/:3200=200；Comfy :8195/:8196/:8197 队列均 0 跑 0 排；配音 :9200 ok（indextts2）；对口型 :9103 ok（tasks_total 26）。未重启任何服务。
+- 进度：本窗新增 c78f4542（05:52，设定卡沉思/温柔嘴部放大 VLM 复判，已部署，双远程 HEAD 6d2f38ff）；0505 已结案未交付，父 06:00 已拍板五项。mz_real_0600（pid 1938341，≈3min）进行中，已出 1 项：0505 expr_2 ok 图 → 拒（符合预期，q1=false）；锁定格复测结果未出。gufeng_makeup_inproc_0506（pid 1886649，≈51min）仍在 :8262 跑。Batch6/雨夜整集仍 HOLD，无新成片。
+- 未碰：:8196、cuda:3、:8205；未动任何队列。
+
+### 2026-10-08 01:53 CST — 「短剧推进 10 分钟汇报」巡检
+- 健康：API :8090=200，Web :3100/:3200=200；Comfy :8195/:8196/:8197 均 0 跑 0 排；配音 :9200 ok（indextts2）。**对口型 :9103 掉线**：日志显示 10-06 13:30 正常 Shutdown 后无人拉起（约 36h）；本轮按 L194 方式在工作站 GPU1 重启（`CUDA_VISIBLE_DEVICES=1 nohup ~/latentsync-venv/bin/python serve_api.py --port 9103`，cwd ~/deploys/latentsync，日志 ~/latentsync-serve.log），pid 230551，01:52 /health=200 model_ready=true tasks_total=0。
+- 进度：本文件自 10-05 05:57 后无新条目；MateBook 仓库最新提交 097e1cea（10-07 16:46，伦敦故事 v2 交付入账），近 9 小时无新提交；Batch6/雨夜整集本窗无新成片记录。
+- 未碰：:8196、cuda:3、:8205；未动任何队列。
+
+### 2026-10-08 02:04 CST — 「短剧推进 10 分钟汇报」巡检
+- 健康：API :8090=200，Web :3100/:3200=200；Comfy :8195/:8196/:8197 均 0 跑 0 排；配音 :9200 ok（indextts2）；对口型 :9103 ok（model_ready=true，tasks_total=0，01:52 重启后稳定）。未重启任何服务。
+- 进度：MateBook 新增 1a3d70fb（10-08 02:03，docs：按 10-07 用户拍板修订短剧方案，默认路线改为逐镜独立 Ref2VA+拼接，Motion Context 续写降为可选；产品代码默认仍为 c，待切换）。Batch6/雨夜整集本窗无新成片。
+- 未碰：:8196、cuda:3、:8205；未动任何队列。
+
+### 父代理 10/8 02:05
+短剧默认路线文档已按 10/7 拍板改（1a3d70fb：每镜 Ref2VA 角色参考 + 拼接为默认，Motion Context 续写降为可选）。下一步必须把产品代码默认值对齐：studio 视频步/编排器默认走每镜 Ref2VA+拼接，C 续写只在显式选择时启用；补单测（默认路由、显式选 C、参数缺失报错）+ 全量 API 失败集对比基线 + 真跑一个 2 镜样例端到端（含目检帧）后整 main 部署。做完再向父代理交回，届时一起汇报用户。
 
 ### 2026-10-05 12:31 CST — 设定卡续会话：嘴部放大复判装入后首局验证发射
 - **断点恢复**：上会话止于 ~05:53–06:07（嘴部放大复判 `c78f4542` 提交+api 05:53:21 重启装入+mz_real_0600 真样本回归过：应拒 3 张全拒、锁定格全过；pipec latent 迁移试验 readback_ok）。**修复装入后未跑过完整验证局**——本窗续上。
@@ -6308,3 +6457,55 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **产物**：Mac `tmp/london_story/london_the_two_hours_v2.mp4` + `v2_full_contact.png`；core `/home/merlin/toiv/tmp/london_story/v2/` 同存。关键帧级对照：定妆 12 张网格 `tmp/london_story/refshot_grid.png`。
 - **质量对比 v1→v2**：人物跨镜身份稳定（v1 Peter 三张脸→v2 全片锁定）；无诡异画面/陌生人乱入；无人声失控；31s 紧凑叙事。已知微瑕：帧级着色偶有大衣深蓝/灰漂移（单帧、动态不显眼）。
 - **平台方法论沉淀**：新角色短片标准序=角色卡定妆（多 seed 候选+目检选角）→ Ref2VA 参考锁定（每镜 4 参考图）→ 稳定提示词模板 → 逐镜目检 → concat。
+
+### 2026-10-08 02:08 CST — ToIV 推进+监督（短剧方案修订；两条旧线已收口）
+- **核对**：本 routine 保存的两条线均已收口——设定卡 Batch7（二次元/古风 10-03 过审 final_review=true，UI 建卡/资料/单格重生/导出 10-03 真跑通过，expr_3 10-07 按 C 交付）；雨夜 v3/c_hybrid（10-07 12:15 用户拍板不换默认，splice2 保持）。最新用户方法论（10-07 16:20）=定妆→逐镜 Ref2VA 4 参考→稳定提示词→目检→concat。
+- **提交 `1a3d70fb`**：`docs/AI短剧产品方案.md` 按 10-07 拍板修订——§1 默认路线改逐镜独立 Ref2VA + 拼接，`c`/`c_hybrid` 降为可选；§8 重排下一优先。Gitee 已推；GitHub 推送网络慢、后台进行中。
+- **发现缺口**：产品视频步代码默认仍是管线 `c`（`orchestrator.py` `render_shot`：`pipe = (pipeline or "c")`，且对 c/c_hybrid 自动续写上一镜 context_latent），与用户拍板路线不一致；切默认（新独立镜管线+单测+部署+真跑一镜）列为下一项，本窗未改代码、未部署。
+- **注意**：core 上本文件自 10-05 05:57 后未同步 MateBook 版（MateBook 版有 10-05~10-07 全部条目）；本条两边都追加。
+- 未碰：:8196、cuda:3、:8205；未提交任何生成任务；未动队列。
+
+### 2026-10-08 02:22 CST — 「短剧推进 10 分钟汇报」巡检
+- 健康：API :8090=200，Web :3100/:3200=200；Comfy :8195/:8196/:8197 均 0 跑 0 排；配音 :9200 ok（indextts2）；对口型 :9103 ok（model_ready=true，tasks_total=0）。未重启任何服务。
+- 进度：MateBook 最新提交仍为 1a3d70fb（02:03），本窗无新提交/部署；产品视频步默认切「逐镜 Ref2VA+拼接」（父 02:05 指令）尚未开工落代码。Batch6/雨夜整集本窗无新成片。
+- 未碰：:8196、cuda:3、:8205；未提交生成任务；未动任何队列。
+
+### 2026-10-08 02:32 CST — 「短剧推进 10 分钟汇报」巡检
+- 健康：API :8090=200，Web :3100/:3200=200；Comfy :8195/:8196/:8197 均 0 跑 0 排；配音 :9200 ok；对口型 :9103 ok（model_ready=true）。未重启任何服务。
+- 进度：最新提交仍为 1a3d70fb（02:03），无新部署；MateBook 工作区已出现视频步默认切换的未提交改动（新增 services/studio/pipelines.py，改 orchestrator/video/shot_refs/h3_pipeline_c/studio 路由），「ToIV 推进+监督」02:26 一轮仍在进行，尚未提交/单测/部署/真跑。Batch6/雨夜整集无新成片。
+- 未碰：:8196、cuda:3、:8205；未提交生成任务；未动任何队列。
+
+### 2026-10-08 03:05 CST — ToIV 推进+监督：视频步默认切逐镜独立 Ref2VA（已上线 + 2 镜真跑）
+- **双份同步**：core 版缺 10-05~10-07 条目、MateBook 版缺 core 上 22 个 10-05 巡检块——按块合并（两边逐行无丢失）后两边一致。
+- **代码 `6cfb8f70`**（分支 `feat/ref2va-default-1008` ff 合 main，Gitee+GitHub 已推）：新 `studio/pipelines.py` 单一来源（默认 `ref2va`，`c`/`c_hybrid` 仅显式）；`render_pipeline_c(ref2va)` 多角色轮转选每镜 4 张定妆 + ≤1 场景、引用行按实际提交重编号、不写 SaveLatent、不加载 MotionContext；出镜角色缺参考 / 给 context_latent / 给首帧一律报错不静默回落；`render_shot` 默认 ref2va，自动续写只对 c/c_hybrid，显式 context+ref2va 在改镜次状态前拒绝；硬切规则覆盖 ref2va；回显实际提交 refs；`RenderShotBody`/批量渲染/分步重跑默认 ref2va；Web ShotCard/StoryboardStage 默认 ref2va 且 h3 不再下发前端 3 张扁平槽（交服务端按画风分桶选取）。
+- **测试**：新增 `test_ref2va_indep_pipeline.py` 20 例（默认路由、无 body 默认、显式 c 仍续写、未知管线 422、批量渲染、显式 context 拒绝且状态不变、缺参考/无参考/首帧报错、纯场景镜、多角色轮转、构图无 latent 节点）；旧 `test_default_c_unchanged` 改为断言 ref2va。全量 API **104 failed / 3862 passed**，104 个失败在 main 上逐个复跑均失败（既有，基线 106），**无新增**。Web dramaUiBatch6 4/4；tsc 8 错与 main 相同（均在 tests/），useStudioProject 失败 main 同样存在。
+- **部署**：`deploy/deploy.sh core-ts` 整 main（含 .next），api/web 健康通过；core 代码已含 pipelines.py 与 `default="ref2va"`。部署前 :8195/:8264 队列 0/0。
+- **真跑（HTTP API、请求体不带 pipeline，走默认）**：测试项目 `c86fd003cf2b47bca7e36a1b891979cf`「ref2va 独立镜验收 1008（测试）」，林夏 anime 过审 4 格（立绘/正/侧/背）；镜0 取雨夜镜0 文案+无字门面场景图，386.5s；镜1 取雨夜收银台文案、无场景图，413.6s；worker 为池内 :8264（未碰 :8196）。:8264 在跑图实证：`Ref2VA`、length 124、5 张参考（4 定妆+1 场景）、无任何 MotionContext/SaveLatent 节点。两镜候选 `pipeline=ref2va`、`context_latent=""`。`/assemble` 拼接成片 `final-c93b3ac262ca4068808a91c0223d7d39.mp4`（10.37s，384×768@24，有原生音轨 mean −28.5dB），1.6s 完成。
+- **目检（首/中/尾帧 + 拼接点）**：两镜同一张脸/同发型/同黑色连帽外套，身份一致；镜0 帽兜放下、脸全程可见、尾段推近特写；镜1 收银台+矿泉水符合文案，但**帽兜是戴上的**（文案要求放下）；两镜背景都有 7-11 式橙绿色条（旧问题）；无乱码字幕。
+- **发现的产品缺口（下一窗先修）**：新建项目默认 width=768/height=384/fps=16（横屏），管线对调后只出 **384×768**，远低于短剧标准 768×1344@24——「一句话到成片」新项目会全部低分辨率。
+- 证据：core `/home/merlin/toiv/tmp/ref2va_e2e_1008/`（result.json、drive.log、首中尾帧、contact_2shots.png、contact_final.png）；MateBook `tmp/toiv_report_ref2va_1008/`；box `/workspace/toiv_report_ref2va_1008/`。
+- 下一步：① 新项目默认规格改竖屏 768×1344@24（补测+部署）；② 帽兜状态跟文案（ref2va 也接入 hood 提示强化）；③ 开压「一句话到成片」全链路（雨夜林夏基准：剧本→资产→分镜→视频→配音→对口型→成片，逐步计时）。
+- 未碰：:8196、:8205、:8261、cuda:3；未热拷单文件；未强推。
+
+### 父代理 10/8 03:02 目检 ref2va 两镜（contact_2shots/contact_final）
+认可上线。我亲眼看到的问题，下一轮按此顺序修：
+1. 新项目默认竖屏 768x1344 / 24fps（同你计划），补测试后整 main 部署，用新默认把这 2 镜重跑一遍。
+2. 帽兜：按 D 决定，雨夜整场全程戴帽，所以是镜0 不对，不是镜1。服装状态要按场景锁死：场景级 wardrobe_state 写进每镜提示词并选对应参考格，同场景不允许变。
+3. 镜1 脸有漂移：瞳色由灰变棕，刘海变齐，脸型更成熟。拼接前加人脸一致性门禁（ArcFace 对定妆正脸，低于阈值就自动重抽，最多 2 轮），阈值参考 H3 实验数据，不准为过关调低。
+4. 背景 7-11 橙绿条：用场景参考图加负面词去掉，加一个品牌色条检测作为门禁。
+每项都要真跑出帧，交给父代理目检。
+
+### 10 分钟巡检 10/8 03:04
+- 健康：API :8090 / Web :3100 :3200 / 配音 9200 / 对口型 9103 均正常；Comfy :8195 :8196 :8197 队列均 0/0（空闲）。
+- 进度：MateBook 最近提交为 02:55 /studio 子路径合并，此后无新提交；ref2va 默认已上线并经父代理 03:02 目检，下一轮按其 4 项（竖屏默认、帽兜按场景锁定、人脸门禁、去品牌色条）修。雨夜整集真跑未开始。
+
+### 10 分钟巡检 10/8 03:14
+- 健康：API :8090 / Web :3100 :3200 / 配音 9200 / 对口型 9103 均正常；Comfy :8195 :8196 :8197 队列均 0/0（空闲）。
+- 进度：03:04 以来无新提交/部署；父代理 03:02 目检的 4 项（竖屏默认、帽兜按场景锁定、人脸门禁、去品牌色条）待下一推进窗开工；雨夜整集真跑未开始。
+
+### 2026-10-08 06:05 CST — 音频缺陷修复：《两小时的注定》v3 交付 + 平台音频设计缺陷定位与完善
+- **用户反馈**：v2 音频仍存在问题（人声呓语）。**whisper 集群转写实锤**：v2（H3 原生音频）转写出「我看她一下母下妆微笑…」——H3 音频联合生成不可控，prompt 不写对白也会呓语人声（爱情片场景先验）。
+- **平台设计缺陷定位（三条）**：①**正式管线音频必须走平台编排**（现网 splice2 后缀 VO=voiceover：H3 只出画面，IndexTTS :9200 配音+assemble 混音）——v2 直接采用 H3 原生音频=跳过编排层，属管线误用；②H3 prompt 写「音频：…」仅是生成先验提示，**不构成人声开关**（无「无人声」控制项）；③Ref2VA 工作流文档未警示原生音频需整体弃用——知识缺口已补（本条目）。
+- **完善落地（v3）**：v2 画面资产保留 → 剥离 H3 原生音轨 → **IndexTTS :9200 女声旁白六段**（对齐每镜 5.17s，0.3s 入点延迟，loudnorm -16LUFS 归一）→ concat。**whisper 回归验证 ✅**：六段旁白完整转写还原、零呓语。
+- **产物**：Mac `tmp/london_story/london_the_two_hours_v3.mp4`（31.2s，8.2MB，旁白版本）；core `…/v3/` 同存。旁白文本即剧本字幕句（「出发前，她就觉得这趟伦敦一定会遇见一个人……有些相遇，是出发前就注定的。」）。
+- **方法论补全**：新角色短片标准序 v2 = 定妆→Ref2VA 锁定→稳定提示词→**弃 H3 原生音频→IndexTTS 旁白/配音编排→whisper 转写回归验证**→concat。
