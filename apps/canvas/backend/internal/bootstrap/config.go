@@ -31,6 +31,13 @@ type Config struct {
 	// ToivAuth (M4-4): accept ToIV bearer tokens (introspected against /api/auth/me) as an
 	// alternative way in; the only guard when GateIdentity is nil (gate-retired end state).
 	ToivAuth *httptransport.ToivJWTAuth
+	// UserIdentity (M7 multi-tenant): when set, every request must carry an identity — the
+	// X-ToIV-User header signed by the trusted Next proxy, the gate-signed platform identity,
+	// or the assistant host's ops call — and is scoped to that identity's own workspace.
+	UserIdentity *httptransport.UserIdentity
+	// ToivDirect keeps the ToIV bearer/cookie door open in multi-tenant mode (off by default:
+	// browsers must come through the Next proxy).
+	ToivDirect bool
 }
 
 func (c Config) withDefaults() Config {

@@ -189,7 +189,11 @@ func Open(_ context.Context, raw Config) (*Runtime, error) {
 	if cfg.Profile == ProfileDesktop {
 		router.Use(desktopCORSMiddleware())
 	}
-	router.Use(canvasHandler.WorkspaceMiddleware(scope))
+	if cfg.UserIdentity != nil && launchToken == "" {
+		router.Use(canvasHandler.MultiTenantWorkspaceMiddleware(svc, cfg.DataDir))
+	} else {
+		router.Use(canvasHandler.WorkspaceMiddleware(scope))
+	}
 	// 本机可信凭据在组合根生成：owner 凭据与宿主凭据只在本机数据目录，0600。
 	agentops.EnsureAgentCredentials(svc.DataDir())
 	assistantHost := assistantruntime.New(assistantruntime.OptionsFromService(svc))
@@ -233,7 +237,20 @@ func Open(_ context.Context, raw Config) (*Runtime, error) {
 			protected.ServeHTTP(w, r)
 		})
 	}
-	if launchToken == "" && (cfg.GateIdentity != nil || cfg.ToivAuth != nil) {
+	if launchToken == "" && cfg.UserIdentity != nil {
+		dataDir := svc.DataDir()
+		policy := httptransport.IdentityPolicy{
+			User: cfg.UserIdentity,
+			Gate: cfg.GateIdentity,
+			HostExempt: func(r *http.Request) bool {
+				return isOpsEntryPath(r) && isLoopbackRemote(r.RemoteAddr) && agentops.HostTokenMatches(dataDir, strings.TrimSpace(r.Header.Get("X-Beeftv-Agent-Token")))
+			},
+		}
+		if cfg.ToivDirect && cfg.ToivAuth != nil {
+			policy.Toiv = cfg.ToivAuth.Identify
+		}
+		rootHandler = httptransport.RequireIdentity(policy)(rootHandler)
+	} else if launchToken == "" && (cfg.GateIdentity != nil || cfg.ToivAuth != nil) {
 		if cfg.GateIdentity == nil {
 			// M4-4 end state: the login gate is retired, ToIV bearer tokens are the only way in.
 			rootHandler = httptransport.RequireAlternativeAuth(cfg.ToivAuth.Authenticate)(rootHandler)

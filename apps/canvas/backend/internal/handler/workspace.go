@@ -28,7 +28,7 @@ func RegisterWorkspaceRoutes(r *gin.RouterGroup, svc *app.Service) {
 			failService(c, err)
 			return
 		}
-		publicUser := app.AuthUser{User: *user}
+		publicUser := app.AuthUser{User: *applyIdentityRole(c, user)}
 		// Desktop model configuration is persisted separately under the workspace
 		// data directory. The bootstrap contract contains no account metadata.
 		logicalModels := []app.PublicLogicalModel{}
@@ -133,12 +133,20 @@ func RegisterWorkspaceRoutes(r *gin.RouterGroup, svc *app.Service) {
 }
 
 func redactModelConfig(c *gin.Context, svc *app.Service, config map[string]any) map[string]any {
+	var redacted map[string]any
 	managed := false
 	if connection, err := requestBeefAPI(c, svc); err == nil && connection != nil {
-		managed = connection.HasManagedCredential()
-		return connection.RedactConfig(config)
+		redacted = connection.RedactConfig(config)
+	} else {
+		redacted = beefapi.RedactConfig(config, managed)
 	}
-	return beefapi.RedactConfig(config, managed)
+	if !platformSecretsVisible(c) {
+		// M7: channel credentials are platform-level. Tenants (admins included, when they come
+		// through the ToIV proxy) only see the redaction marker; the server injects the stored
+		// credential into their tasks and never sends it to a browser.
+		workspace.RedactSecrets(redacted)
+	}
+	return redacted
 }
 
 func preserveManagedModelConfig(c *gin.Context, svc *app.Service, raw json.RawMessage) json.RawMessage {
