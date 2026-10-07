@@ -187,7 +187,7 @@ func (r *Repository) UserCanvasProjectsPage(userID string, page int, pageSize in
 	if sort == "name" {
 		order = "title asc, id asc"
 	} else if sort == "nodes" {
-		order = "COALESCE(json_array_length(payload_json, '$.nodes'), 0) desc, id asc"
+		order = jsonArrayLengthSQL(query.Dialector.Name(), "payload_json", "nodes") + " desc, id asc"
 	}
 	err := query.Order(order).Offset((page - 1) * pageSize).Limit(pageSize).Find(&projects).Error
 	return projects, total, err
