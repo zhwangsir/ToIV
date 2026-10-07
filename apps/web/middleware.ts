@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { decideStudioAccess, extractStudioToken, introspectStudioUser, isStudioGuardExempt, isStudioPath, isStudioStaticFile } from "@/lib/studioGuard";
 
 /**
  * 官网落地页（2026-10 ToIV 官网）。
@@ -10,10 +11,35 @@ import { NextResponse, type NextRequest } from "next/server";
  *
  * 登录表单入口统一为 "/?view=home"（/login、401、未登录守卫都跳这里），不经过本中间件。
  * 不受影响：任何带查询串的 /（?view=…、?t=…、?testkey=…、_rsc 客户端导航）、
- * 其他所有路径、/api（matcher 只匹配 "/"）。
+ * 其他所有路径、/api（matcher 只匹配 "/" 与 /studio 管理员闸）。
  */
-export function middleware(req: NextRequest) {
+/**
+ * /studio 管理员闸(2026-10-08):用户隔离落地前只放行 role=admin(详见 lib/studioGuard.ts)。
+ * 中间件先于 next.config beforeFiles rewrite 执行,因此 /studio/api/* 在转发 canvas-api(:8290)
+ * 之前就被拦下:无/伪造/过期 token → 401,非管理员 → 403,toiv-api 不可达 → 503(失败即关闭)。
+ * SPA 页面:非管理员 → 经典界面(?classic=1),未登录 → ToIV 首页。
+ */
+async function guardStudio(req: NextRequest): Promise<NextResponse> {
+  const { pathname } = req.nextUrl;
+  if (isStudioGuardExempt(pathname) || isStudioStaticFile(pathname)) return NextResponse.next();
+  const token = extractStudioToken(req.headers.get("authorization"), req.headers.get("cookie"));
+  const base = process.env.INTERNAL_API_BASE || process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8090";
+  const verdict = token ? await introspectStudioUser(token, { base }) : null;
+  const d = decideStudioAccess(pathname, verdict);
+  if (d.action === "pass") return NextResponse.next();
+  if (d.action === "json") {
+    return NextResponse.json(
+      { code: d.status, data: null, msg: d.msg, reason: d.reason },
+      { status: d.status, headers: { "cache-control": "no-store" } },
+    );
+  }
+  // 相对 Location:反代后 req.url 的 host 可能是 127.0.0.1:3100,不能拼绝对地址
+  return new NextResponse(null, { status: 302, headers: { location: d.location, "cache-control": "no-store" } });
+}
+
+export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+  if (isStudioPath(pathname)) return guardStudio(req);
   if (pathname !== "/" || search) return NextResponse.next();
   if (req.method !== "GET" && req.method !== "HEAD") return NextResponse.next();
   if (req.headers.get("rsc") || req.headers.get("next-router-prefetch")) return NextResponse.next();
@@ -22,4 +48,4 @@ export function middleware(req: NextRequest) {
   return NextResponse.rewrite(url);
 }
 
-export const config = { matcher: ["/"] };
+export const config = { matcher: ["/", "/studio", "/studio/:path*"] };
