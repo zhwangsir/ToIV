@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 import "./workspace-sidebar-account.css";
+import { APP_BASE, gatePath } from "@/lib/app-base";
+import { withToivAuth } from "@/services/api/request";
 
 type GateUser = { id: string; name?: string; email?: string };
 
@@ -16,9 +18,20 @@ export function WorkspaceSidebarAccount({ collapsed }: { collapsed?: boolean }) 
 
     useEffect(() => {
         let alive = true;
-        fetch("/auth/me", { credentials: "same-origin" })
+        // Staging: the gate's /auth/me. /studio (gate retired): ToIV's own /api/auth/me with the
+        // shared toiv_token; Next answers /studio/auth/me with the SPA shell, so JSON parsing fails there.
+        const fromGate = fetch(gatePath("/auth/me"), { credentials: "same-origin" })
             .then((r) => (r.ok ? r.json() : null))
-            .then((d) => { if (alive && d?.user?.id) setUser(d.user); })
+            .catch(() => null);
+        fromGate
+            .then((d) => {
+                if (d?.user?.id || !APP_BASE) return d?.user ?? null;
+                return fetch("/api/auth/me", { credentials: "same-origin", headers: withToivAuth() })
+                    .then((r) => (r.ok ? r.json() : null))
+                    .then((m) => { const u = m?.user ?? m; return u?.id ? { id: String(u.id), name: u.display_name || u.name || u.username || "", email: u.email || "" } : null; })
+                    .catch(() => null);
+            })
+            .then((u) => { if (alive && u?.id) setUser(u); })
             .catch(() => {});
         return () => { alive = false; };
     }, []);
@@ -37,8 +50,12 @@ export function WorkspaceSidebarAccount({ collapsed }: { collapsed?: boolean }) 
     const initial = (user.name || user.email || "T").trim().charAt(0).toUpperCase();
 
     const logout = () => {
-        fetch("/auth/logout", { method: "POST", credentials: "same-origin" })
-            .finally(() => { window.location.href = "/login"; });
+        fetch(gatePath("/auth/logout"), { method: "POST", credentials: "same-origin" })
+            .finally(() => {
+                // Under /studio the ToIV app owns login: drop its token too, then go to its login entry.
+                if (APP_BASE) { try { window.localStorage.removeItem("toiv_token"); } catch { /* storage blocked */ } }
+                window.location.href = APP_BASE ? "/?view=home" : "/login";
+            });
     };
 
     return (

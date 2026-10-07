@@ -1,14 +1,15 @@
 import type { CanvasFolderTheme } from "@/types/canvas";
+import { publicAsset } from "@/lib/app-base";
 
 export const CANVAS_FOLDER_THEME_OPTIONS: ReadonlyArray<{
     key: CanvasFolderTheme;
     label: string;
     cover: string;
 }> = [
-    { key: "aurora", label: "赤蓝流光", cover: "/images/canvas/folder-default-cover.png" },
-    { key: "obsidian", label: "曜石银蓝", cover: "/images/canvas/folder-theme-obsidian.png" },
-    { key: "ember", label: "熔金赤焰", cover: "/images/canvas/folder-theme-ember.png" },
-    { key: "pearl", label: "珍珠薄雾", cover: "/images/canvas/folder-theme-pearl.png" },
+    { key: "aurora", label: "赤蓝流光", cover: publicAsset("/images/canvas/folder-default-cover.png") },
+    { key: "obsidian", label: "曜石银蓝", cover: publicAsset("/images/canvas/folder-theme-obsidian.png") },
+    { key: "ember", label: "熔金赤焰", cover: publicAsset("/images/canvas/folder-theme-ember.png") },
+    { key: "pearl", label: "珍珠薄雾", cover: publicAsset("/images/canvas/folder-theme-pearl.png") },
 ];
 
 export function resolveCanvasFolderTheme(value?: string): CanvasFolderTheme {

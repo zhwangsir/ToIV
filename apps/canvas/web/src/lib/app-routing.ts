@@ -1,5 +1,7 @@
 import { createBrowserRouter, createHashRouter, type RouteObject } from "react-router";
 
+import { APP_BASE } from "@/lib/app-base";
+
 export type AppRoutingLocation = {
     protocol?: string;
     hostname?: string;
@@ -49,9 +51,7 @@ export function createWorkspaceRouter(routes: RouteObject[], runtime: AppRouting
         if (rewritten) runtime.history?.replaceState(null, "", rewritten);
         return createHashRouter(routes);
     }
-    // 2026-10-06 cutover:vite --base=/studio/ 构建时路由须剥掉挂载前缀,否则 pathname=/studio 全 404
-    const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
-    return createBrowserRouter(routes, base ? { basename: base } : undefined);
+    return createBrowserRouter(routes, APP_BASE ? { basename: APP_BASE } : undefined);
 }
 
 export function appPathname(runtime: AppRoutingRuntime = defaultAppRoutingRuntime()): string {
@@ -75,7 +75,7 @@ export function appSearch(runtime: AppRoutingRuntime = defaultAppRoutingRuntime(
 export function appHref(pathWithSearch: string, runtime: AppRoutingRuntime = defaultAppRoutingRuntime()): string {
     const { pathname, search } = splitAppPath(pathWithSearch);
     if (!usesNativeHashRouting(runtime)) {
-        return new URL(`${pathname}${search}`, `${runtimeOrigin(runtime)}/`).toString();
+        return new URL(`${APP_BASE}${pathname}${search}`, `${runtimeOrigin(runtime)}/`).toString();
     }
     return nativeDocumentUrl(`${pathname}${search}`, runtime);
 }
@@ -126,7 +126,9 @@ function runtimeOrigin(runtime: AppRoutingRuntime): string {
 }
 
 function documentPathname(pathname: string | undefined): string {
-    const value = pathname || "/";
+    let value = pathname || "/";
+    // Sub-path deployments (/studio/…): app paths are always reported without the mount prefix.
+    if (APP_BASE && (value === APP_BASE || value.startsWith(`${APP_BASE}/`))) value = value.slice(APP_BASE.length) || "/";
     return value === "/index.html" ? "/" : value;
 }
 

@@ -19,6 +19,7 @@ import {
     type CanvasFaceBox,
 } from "@/lib/canvas/canvas-emotion";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
+import { publicAsset } from "@/lib/app-base";
 
 export type CanvasImageEmotionPayload = CanvasEmotionParams & {
     label: string;
@@ -210,8 +211,8 @@ function EmotionHeadPreview({ preset }: { preset: CanvasEmotionPreset }) {
 
 function EmotionFaceModel({ preset }: { preset: CanvasEmotionPreset }) {
     const renderer = useThree((state) => state.gl);
-    const gltf = useLoader(GLTFLoader, "/canvas/models/facecap.glb", (loader) => {
-        loader.setKTX2Loader(new KTX2Loader().setTranscoderPath("/three/basis/").detectSupport(renderer));
+    const gltf = useLoader(GLTFLoader, publicAsset("/canvas/models/facecap.glb"), (loader) => {
+        loader.setKTX2Loader(new KTX2Loader().setTranscoderPath(publicAsset("/three/basis/")).detectSupport(renderer));
         loader.setMeshoptDecoder(MeshoptDecoder);
     });
     const invalidate = useThree((state) => state.invalidate);

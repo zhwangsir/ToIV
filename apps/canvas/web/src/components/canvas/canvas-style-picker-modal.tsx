@@ -18,6 +18,7 @@ import {
 import { createStyleProfile, deleteStyleProfile, listStyleProfiles, setStyleProfileFavorite, touchStyleProfile, updateStyleProfile, type UserStyleProfile } from "@/services/api/style-profiles";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
 import { isLocalWorkspaceMode } from "@/services/workspace-mode";
+import { publicAsset } from "@/lib/app-base";
 
 export type { CanvasStylePreset } from "@/lib/canvas/canvas-style-system";
 
@@ -42,7 +43,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止欧美人物默认脸、塑料皮肤、强烈青橙滤镜、过饱和霓虹、廉价棚拍、错误中文、建筑地域漂移、服饰随机换色和同一资产在不同节点中改变材质。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/urban-live-action.jpg",
+        imageUrl: publicAsset("/short-drama-styles/urban-live-action.jpg"),
     },
     {
         id: "period-live-action",
@@ -61,7 +62,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止朝代混搭、现代拉链与家具、廉价化纤反光、塑料饰品、日式鸟居、欧洲城堡、现代偶像妆、随机花瓣滤镜和未经过时代归属的武器器物。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/period-live-action.jpg",
+        imageUrl: publicAsset("/short-drama-styles/period-live-action.jpg"),
     },
     {
         id: "suspense-noir",
@@ -80,7 +81,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止黑成不可读、赛博朋克灯海、无来源轮廓光、过量烟雾、反派脸谱化、血浆猎奇、错误警务与城市标识、同一地点地域漂移和关键资产随机变形。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/suspense-noir.jpg",
+        imageUrl: publicAsset("/short-drama-styles/suspense-noir.jpg"),
     },
     {
         id: "chinese-2d",
@@ -99,7 +100,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止 3D 塑料质感、手办摄影、欧美漫画肌肉模板、幼态大眼、角色随机换脸换发型、服饰纹样漂移、背景风格跳变、法术颜色失控和画面文字水印。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/chinese-2d.jpg",
+        imageUrl: publicAsset("/short-drama-styles/chinese-2d.jpg"),
     },
     {
         id: "ink-narrative",
@@ -118,7 +119,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止西式水彩插画、随机泼墨、全屏脏灰、角色五官消失、每个资产笔触风格不同、建筑结构融化、彩色过多、廉价纸纹滤镜和随机生成文字印章。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/ink-narrative.jpg",
+        imageUrl: publicAsset("/short-drama-styles/ink-narrative.jpg"),
     },
     {
         id: "three-d-cartoon",
@@ -137,7 +138,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止塑料公仔反光、僵硬 T Pose、所有角色同脸、过大玻璃眼、毛孔级写实皮肤、随机改变头身、背景贴图模糊、穿模、漂浮道具和不属于同一美术体系的写实资产。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/three-d-cartoon.jpg",
+        imageUrl: publicAsset("/short-drama-styles/three-d-cartoon.jpg"),
     },
     {
         id: "fantasy-3d",
@@ -156,7 +157,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止欧洲城堡、默认精灵脸、西式板甲混搭、塑料材质、彩虹粒子、全屏过曝特效、法术体系随机变化、角色无因换装换武器和建筑资产跨文化漂移。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/fantasy-3d.jpg",
+        imageUrl: publicAsset("/short-drama-styles/fantasy-3d.jpg"),
     },
     {
         id: "future-tech",
@@ -175,7 +176,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止无功能全息屏、满屏蓝色 HUD、随机发光线、霓虹城市套壳、塑料太空服、错误机械结构、设备尺寸漂移、英文乱码和把未来科技等同于赛博朋克。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/future-tech.jpg",
+        imageUrl: publicAsset("/short-drama-styles/future-tech.jpg"),
     },
     {
         id: "cyberpunk-neon",
@@ -194,7 +195,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止纯装饰霓虹、所有角色都装义体、无来源彩色轮廓光、日文城市替代中国语境、英文乱码、全屏雨雾、过曝招牌、随机机械纹身和未来设备无功能逻辑。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/cyberpunk-neon.jpg",
+        imageUrl: publicAsset("/short-drama-styles/cyberpunk-neon.jpg"),
     },
     {
         id: "retro-hong-kong",
@@ -213,7 +214,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止一键泛黄滤镜、现代手机与车辆、错误年代品牌、过量霓虹、日系昭和混用、具体明星换脸、影楼旗袍写真、干净到失真的街景和随机繁体乱码。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/retro-hong-kong.jpg",
+        imageUrl: publicAsset("/short-drama-styles/retro-hong-kong.jpg"),
     },
     {
         id: "clay-stop-motion",
@@ -232,7 +233,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止光滑 CGI、塑料玩具反光、真实人类皮肤、模型比例漂移、关节凭空变形、材质尺度错误、过度景深虚化、随机指纹污渍和布景看似无限真实空间。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/clay-stop-motion.jpg",
+        imageUrl: publicAsset("/short-drama-styles/clay-stop-motion.jpg"),
     },
     {
         id: "black-white-noir",
@@ -251,7 +252,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止随意套用棕色复古滤镜、画面全黑、现代彩色屏幕抢戏、过度烟雾、夸张舞台妆、无意义鱼眼变形、角色剪影混淆和字幕水印。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/black-white-noir.jpg",
+        imageUrl: publicAsset("/short-drama-styles/black-white-noir.jpg"),
     },
     {
         id: "space-opera",
@@ -270,7 +271,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止现实宇航服直接套用、星球大小失真、所有阵营同一颜色、无功能 HUD、魔法与科技规则混杂、舰船结构穿透、角色装备随机变化和版权品牌标识。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/space-opera.jpg",
+        imageUrl: publicAsset("/short-drama-styles/space-opera.jpg"),
     },
     {
         id: "comic-pop",
@@ -289,7 +290,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止写实照片与漫画角色混用、线条粗细随机、所有画面满屏速度线、复杂背景压住人物、拟声文字乱码、角色换脸、四肢结构错误和过度血腥猎奇。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/comic-pop.jpg",
+        imageUrl: publicAsset("/short-drama-styles/comic-pop.jpg"),
     },
     {
         id: "storybook-fantasy",
@@ -308,7 +309,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止塑料 3D、泛滥柔焦、角色同脸、过度糖果色、阴影方向漂移、复杂文字水印、细节密度失控、随机改发型和把儿童角色做成恐怖谷。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/storybook-fantasy.jpg",
+        imageUrl: publicAsset("/short-drama-styles/storybook-fantasy.jpg"),
     },
     {
         id: "surreal-dream",
@@ -327,7 +328,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止无因由的随机变形、全屏烟雾、过度镜面、所有空间都漂浮、梦境与现实没有区别、角色五官融化、符号含义漂移和用噪点掩盖生成错误。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/surreal-dream.jpg",
+        imageUrl: publicAsset("/short-drama-styles/surreal-dream.jpg"),
     },
     {
         id: "nature-healing",
@@ -346,7 +347,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止商业民宿广告感、过度航拍、饱和滤镜、欧美乡村替代中国在地生活、干净无人的自然空间、人物永远精致、随机换季和把疗愈做成空洞慢镜头。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/nature-healing.jpg",
+        imageUrl: publicAsset("/short-drama-styles/nature-healing.jpg"),
     },
     {
         id: "real-life-documentary",
@@ -365,7 +366,7 @@ const legacyCanvasStylePresets: CanvasStylePreset[] = [
             "【全局禁用】禁止商业广告布光、过度磨皮、精致样板房、欧美都市替代中国在地空间、强烈电影滤镜、摆拍式苦难、统一网红脸、无生活痕迹的道具和把纪实误做成低清脏画面。",
             PROJECT_STYLE_SCOPE,
         ].join("\n"),
-        imageUrl: "/short-drama-styles/real-life.jpg",
+        imageUrl: publicAsset("/short-drama-styles/real-life.jpg"),
     },
 ];
 
@@ -412,7 +413,7 @@ export function resolveProjectCanvasStyle(presetId?: string, profileJson?: strin
         description: profile.description,
         tags: [...profile.tags],
         prompt: profile.prompt,
-        imageUrl: profile.coverUrl || preset?.imageUrl || "/short-drama-styles/real-life.jpg",
+        imageUrl: profile.coverUrl || preset?.imageUrl || publicAsset("/short-drama-styles/real-life.jpg"),
         selection: preset?.selection,
         profile,
     };
@@ -730,7 +731,7 @@ function EmptyStyleCenter({ tab, loading, failed, color, onCreate, onBrowse }: {
 export function userStylePreset(entity: UserStyleProfile): CanvasStylePreset | null {
     const profile = parseStyleProfile(entity.profileJson);
     if (!profile) return null;
-    return { id: profile.presetId, title: profile.title, category: "我的风格", description: profile.description, tags: [...profile.tags], prompt: profile.prompt, imageUrl: profile.coverUrl || entity.coverUrl || "/short-drama-styles/real-life.jpg", profile };
+    return { id: profile.presetId, title: profile.title, category: "我的风格", description: profile.description, tags: [...profile.tags], prompt: profile.prompt, imageUrl: profile.coverUrl || entity.coverUrl || publicAsset("/short-drama-styles/real-life.jpg"), profile };
 }
 
 function blankUserStyle(): StyleProfileSnapshot {

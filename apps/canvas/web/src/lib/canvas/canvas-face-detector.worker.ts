@@ -3,6 +3,7 @@
 import { FaceDetector } from "@mediapipe/tasks-vision";
 
 import type { CanvasFaceBox } from "./canvas-emotion";
+import { publicAsset } from "@/lib/app-base";
 
 type DetectFaceRequest = {
     id: number;
@@ -42,11 +43,11 @@ function getDetector() {
     if (!detectorPromise) {
         detectorPromise = FaceDetector.createFromOptions(
             {
-                wasmLoaderPath: "/mediapipe/wasm/vision_wasm_module_internal.js",
-                wasmBinaryPath: "/mediapipe/wasm/vision_wasm_module_internal.wasm",
+                wasmLoaderPath: publicAsset("/mediapipe/wasm/vision_wasm_module_internal.js"),
+                wasmBinaryPath: publicAsset("/mediapipe/wasm/vision_wasm_module_internal.wasm"),
             },
             {
-                baseOptions: { modelAssetPath: "/canvas/models/blaze-face-full-range-sparse.tflite" },
+                baseOptions: { modelAssetPath: publicAsset("/canvas/models/blaze-face-full-range-sparse.tflite") },
                 runningMode: "IMAGE",
                 minDetectionConfidence: 0.25,
                 minSuppressionThreshold: 0.3,

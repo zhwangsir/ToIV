@@ -8,6 +8,7 @@ import type { CanvasFolderStyle, CanvasFolderTheme, CanvasNodeData } from "@/typ
 import { CanvasNodeType } from "@/types/canvas";
 
 import "./folder-preview-lab.css";
+import { publicAsset } from "@/lib/app-base";
 
 const STYLE_PRESETS: Array<{ style: CanvasFolderStyle; name: string; hint: string }> = [
     { style: "glass", name: "流光玻璃", hint: "复刻参考 · 加号入口" },
@@ -35,7 +36,7 @@ const PRESET_GROUPS = [
 
 const THEME_SEQUENCE: CanvasFolderTheme[] = ["aurora", "pearl", "ember", "obsidian", "aurora", "pearl"];
 
-const SAMPLE_MEDIA = ["/short-drama-styles/fantasy-3d.jpg", "/short-drama-styles/suspense-noir.jpg", "/short-drama-styles/cyberpunk-neon.jpg", "/short-drama-styles/ink-narrative.jpg", "/short-drama-styles/space-opera.jpg"];
+const SAMPLE_MEDIA = [publicAsset("/short-drama-styles/fantasy-3d.jpg"), publicAsset("/short-drama-styles/suspense-noir.jpg"), publicAsset("/short-drama-styles/cyberpunk-neon.jpg"), publicAsset("/short-drama-styles/ink-narrative.jpg"), publicAsset("/short-drama-styles/space-opera.jpg")];
 
 function makeMediaNode(id: string, title: string, content: string, index: number): CanvasNodeData {
     return {

@@ -33,7 +33,12 @@ function pruneOptionalMediaPlugin() {
     };
 }
 
+// Sub-path browser deployment (toiv.wineryz.top/studio/): BEEFTV_PUBLIC_BASE=/studio/ plus
+// VITE_CANVAS_BACKEND_URL=/studio/api. Default "/" keeps every other build unchanged.
+const publicBase = process.env.BEEFTV_PUBLIC_BASE?.trim() || "/";
+
 export default defineConfig({
+    base: publicBase,
     plugins: [react(), pruneOptionalMediaPlugin()],
     define: {
         __APP_VERSION__: JSON.stringify(appVersion),

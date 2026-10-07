@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { WorkspacePage } from "@/components/layout/workspace-page";
+import { publicAsset } from "@/lib/app-base";
 
 type ShowcaseCard = {
     slug: string;
@@ -15,12 +16,12 @@ type ShowcaseCard = {
 };
 
 const showcaseCards: ShowcaseCard[] = [
-    { slug: "xianxia-drama-planner", category: "短剧漫画", title: "东方巨构美学短剧", description: "一站式生成东方巨构美学短剧", image: "/short-drama-styles/ink-narrative.jpg", views: "4.4k", author: "鲍鱼chill" },
-    { slug: "oriental-aesthetic-film", category: "专业影视", title: "仙侠氛围美学短片", description: "仙侠氛围美学短片", image: "/short-drama-styles/fantasy-3d.jpg", views: "2.3k", author: "鲍鱼chill" },
-    { slug: "dreamcore-generator", category: "通用技能", title: "梦核美学", description: "从概念到成片一体化创作梦核视觉短片", image: "/short-drama-styles/nature-healing.jpg", views: "1.3k", author: "鲍鱼chill" },
-    { slug: "a24-cinematic-aesthetic", category: "专业影视", title: "A24电影美学", description: "高级怪诞电影美学，以作者视角，用粗粝真实的镜头语言", image: "/short-drama-styles/real-life.jpg", views: "1.4k", author: "鲍鱼chill" },
-    { slug: "pop-music-video", category: "音乐MV", title: "POP MV", description: "聚焦国际一线流行音乐MV创作体系，一句话自动生成", image: "/short-drama-styles/cyberpunk-neon.jpg", views: "2.6k", author: "鲍鱼chill" },
-    { slug: "beauty-blogger-reviewer", category: "自媒体创作", title: "真实感美妆UGC产品种草", description: "一键把美妆卖点变成可见证据与自然口播", image: "/short-drama-styles/urban-live-action.jpg", views: "2.1k", author: "刘不住Wa..." },
+    { slug: "xianxia-drama-planner", category: "短剧漫画", title: "东方巨构美学短剧", description: "一站式生成东方巨构美学短剧", image: publicAsset("/short-drama-styles/ink-narrative.jpg"), views: "4.4k", author: "鲍鱼chill" },
+    { slug: "oriental-aesthetic-film", category: "专业影视", title: "仙侠氛围美学短片", description: "仙侠氛围美学短片", image: publicAsset("/short-drama-styles/fantasy-3d.jpg"), views: "2.3k", author: "鲍鱼chill" },
+    { slug: "dreamcore-generator", category: "通用技能", title: "梦核美学", description: "从概念到成片一体化创作梦核视觉短片", image: publicAsset("/short-drama-styles/nature-healing.jpg"), views: "1.3k", author: "鲍鱼chill" },
+    { slug: "a24-cinematic-aesthetic", category: "专业影视", title: "A24电影美学", description: "高级怪诞电影美学，以作者视角，用粗粝真实的镜头语言", image: publicAsset("/short-drama-styles/real-life.jpg"), views: "1.4k", author: "鲍鱼chill" },
+    { slug: "pop-music-video", category: "音乐MV", title: "POP MV", description: "聚焦国际一线流行音乐MV创作体系，一句话自动生成", image: publicAsset("/short-drama-styles/cyberpunk-neon.jpg"), views: "2.6k", author: "鲍鱼chill" },
+    { slug: "beauty-blogger-reviewer", category: "自媒体创作", title: "真实感美妆UGC产品种草", description: "一键把美妆卖点变成可见证据与自然口播", image: publicAsset("/short-drama-styles/urban-live-action.jpg"), views: "2.1k", author: "刘不住Wa..." },
 ];
 
 const filters = ["推荐", "专业影视", "商业广告", "短剧漫画", "动漫游戏", "音乐MV", "自媒体创作", "通用技能", "发现"];

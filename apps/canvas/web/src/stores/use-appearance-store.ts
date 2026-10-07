@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import type { PublicAppearance } from "@/services/api/appearance";
 import { applySkinTheme, DEFAULT_CLASSIC_SKIN, normalizeSkinDefinition } from "@/lib/skin-themes";
+import { publicAsset } from "@/lib/app-base";
 
 export const DEFAULT_PUBLIC_APPEARANCE: PublicAppearance = {
     schemaVersion: 7,
@@ -9,8 +10,8 @@ export const DEFAULT_PUBLIC_APPEARANCE: PublicAppearance = {
     brandSlug: "toiv",
     authHeroTitle: "让一个故事，\n从文字走向银幕。",
     authHeroDescription: "",
-    logoUrl: "/logo.svg",
-    darkLogoUrl: "/logo.svg",
+    logoUrl: publicAsset("/logo.svg"),
+    darkLogoUrl: publicAsset("/logo.svg"),
     logoFrameEnabled: false,
     authVideoUrl: "https://boss-shjd.biliapi.net/updream/aniforge/video/video_bbcb00bd-650d-4249-9346-5cd21fd2484c_m1hc-u0-1pu13x-3v1s.mp4",
     authVideoPosterUrl: "https://i0.hdslb.com/bfs/aitool/aniforge/image/02933f26-5f1b-49ff-a811-b7f95ee5e5b8_m1hc-u0-sau.jpg",
