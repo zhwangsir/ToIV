@@ -15,6 +15,7 @@ import (
 	"infinite-canvas/backend/internal/model"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func RegisterUserDataRoutes(r *gin.RouterGroup, svc *app.Service) {
@@ -688,6 +689,15 @@ func registerUserDataRoutes(r *gin.RouterGroup, svc *app.Service) {
 			return
 		}
 		if err := svc.DeleteUserCanvasProject(user.ID, c.Param("id")); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				if multiTenantRequest(c) {
+					fail(c, http.StatusNotFound, app.BadAuthRequest("画布不存在或不属于当前工作区"))
+					return
+				}
+				// Single-workspace installs keep the idempotent delete the desktop UI relies on.
+				ok(c, gin.H{"id": c.Param("id")})
+				return
+			}
 			failService(c, err)
 			return
 		}
