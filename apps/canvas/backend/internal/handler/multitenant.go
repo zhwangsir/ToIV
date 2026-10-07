@@ -142,4 +142,3 @@ func PlatformAdminOnlyRoute(method, path string) bool {
 	}
 	return false
 }
-
