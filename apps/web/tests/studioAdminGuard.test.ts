@@ -115,6 +115,13 @@ test("中间件真实入口:/studio/api/* 与 /studio 页面按 admin 拦截", a
   const { middleware } = await import("../middleware");
   const req = (path: string, headers: Record<string, string> = {}) =>
     new NextRequest(new URL(path, "http://127.0.0.1:3100"), { headers });
+  // 中间件必须给绝对 Location(相对路径在 Next 运行时抛 Invalid URL → 500,2026-10-08 生产实测)
+  const loc = (r: Response) => {
+    const l = r.headers.get("location") || "";
+    assert.match(l, /^https?:\/\//, "Location 必须是绝对 URL");
+    const u = new URL(l);
+    return u.pathname + u.search;
+  };
 
   let r = await middleware(req("/studio/api/canvases", { authorization: "Bearer admin-token" }));
   assert.equal(r.status, 200);
@@ -142,11 +149,11 @@ test("中间件真实入口:/studio/api/* 与 /studio 页面按 admin 拦截", a
 
   r = await middleware(req("/studio/", { cookie: "toiv_session=user-token" }));
   assert.equal(r.status, 302);
-  assert.equal(r.headers.get("location"), CLASSIC_HOME);
+  assert.equal(loc(r), CLASSIC_HOME);
 
   r = await middleware(req("/studio/canvas/abc"));
   assert.equal(r.status, 302);
-  assert.equal(r.headers.get("location"), LOGIN_HOME);
+  assert.equal(loc(r), LOGIN_HOME);
 
   const before = calls.length;
   r = await middleware(req("/studio/assets/index.js"));
