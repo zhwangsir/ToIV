@@ -142,28 +142,55 @@ func (r *Repository) nextPrefixedID(db *gorm.DB, prefix string) (string, error) 
 	return fmt.Sprintf("%s_%06d", prefix, item.Value), nil
 }
 
+// byteLengthSQL is the byte length of COALESCE(column, ”) in the active dialect.
+// SQLite measures bytes via CAST(... AS BLOB); Postgres has no BLOB type (the
+// cast fails with SQLSTATE 42704) and uses octet_length instead.
+func byteLengthSQL(dialect, column string) string {
+	if dialect == "postgres" {
+		return "octet_length(COALESCE(" + column + ", ''))"
+	}
+	return "length(CAST(COALESCE(" + column + ", '') AS BLOB))"
+}
+
+// sumByteLengthSQL is COALESCE(SUM(len(c1) + len(c2) ...), 0) for the dialect.
+func sumByteLengthSQL(dialect string, columns ...string) string {
+	parts := make([]string, 0, len(columns))
+	for _, column := range columns {
+		parts = append(parts, byteLengthSQL(dialect, column))
+	}
+	return "COALESCE(SUM(" + strings.Join(parts, " + ") + "), 0)"
+}
+
 func (r *Repository) UserStorageUsage(userID string) (UserStorageUsage, error) {
 	var usage UserStorageUsage
-	canvasBytes := `(SELECT COALESCE(SUM(length(CAST(COALESCE(payload_json, '') AS BLOB))), 0) FROM canvas_projects WHERE user_id = ?)`
+	d := r.Dialect()
+	canvasBytes := `(SELECT ` + sumByteLengthSQL(d, "payload_json") + ` FROM canvas_projects WHERE user_id = ?)`
 	args := []any{userID, userID, userID, userID}
 	if r.db.Migrator().HasTable(&model.CanvasDrawing{}) {
-		canvasBytes += ` + (SELECT COALESCE(SUM(length(CAST(COALESCE(snapshot_json, '') AS BLOB))), 0) FROM canvas_drawings WHERE user_id = ? AND deleted_at IS NULL)`
+		canvasBytes += ` + (SELECT ` + sumByteLengthSQL(d, "snapshot_json") + ` FROM canvas_drawings WHERE user_id = ? AND deleted_at IS NULL)`
 		args = append(args, userID)
 	}
 	query := fmt.Sprintf(`
 		SELECT
 			(SELECT COUNT(*) FROM assets WHERE user_id = ?) AS asset_count,
-			(SELECT COALESCE(SUM(length(CAST(COALESCE(payload_json, '') AS BLOB))), 0) FROM assets WHERE user_id = ?) AS asset_bytes,
+			(SELECT %s FROM assets WHERE user_id = ?) AS asset_bytes,
 			(SELECT COUNT(*) FROM canvas_projects WHERE user_id = ?) AS canvas_count,
 			%s AS canvas_bytes,
 			(SELECT COUNT(*) FROM tasks WHERE user_id = ?) AS task_count,
-			(SELECT COALESCE(SUM(length(CAST(COALESCE(prompt, '') AS BLOB)) + length(CAST(COALESCE(input_json, '') AS BLOB)) + length(CAST(COALESCE(result_json, '') AS BLOB)) + length(CAST(COALESCE(text_draft, '') AS BLOB)) + length(CAST(COALESCE(error, '') AS BLOB))), 0) FROM tasks WHERE user_id = ?)
-			+ (SELECT COALESCE(SUM(length(CAST(COALESCE(message, '') AS BLOB)) + length(CAST(COALESCE(payload, '') AS BLOB))), 0) FROM task_logs WHERE user_id = ?)
-			+ (SELECT COALESCE(SUM(length(CAST(COALESCE(url, '') AS BLOB)) + length(CAST(COALESCE(payload, '') AS BLOB))), 0) FROM results WHERE user_id = ?)
+			(SELECT %s FROM tasks WHERE user_id = ?)
+			+ (SELECT %s FROM task_logs WHERE user_id = ?)
+			+ (SELECT %s FROM results WHERE user_id = ?)
 			+ (SELECT COALESCE(SUM(byte_count), 0) FROM task_text_delta WHERE user_id = ?)
-			+ (SELECT COALESCE(SUM(length(CAST(COALESCE(path, '') AS BLOB)) + length(CAST(COALESCE(model, '') AS BLOB)) + length(CAST(COALESCE(provider_request_id, '') AS BLOB)) + length(CAST(COALESCE(error_code, '') AS BLOB)) + length(CAST(COALESCE(error, '') AS BLOB)) + length(CAST(COALESCE(upstream_url, '') AS BLOB)) + length(CAST(COALESCE(request_body, '') AS BLOB)) + length(CAST(COALESCE(response_body, '') AS BLOB))), 0) FROM api_call_logs WHERE user_id = ?) AS task_bytes,
+			+ (SELECT %s FROM api_call_logs WHERE user_id = ?) AS task_bytes,
 			(SELECT COUNT(*) FROM api_call_logs WHERE user_id = ?) AS api_call_count
-	`, canvasBytes)
+	`,
+		sumByteLengthSQL(d, "payload_json"),
+		canvasBytes,
+		sumByteLengthSQL(d, "prompt", "input_json", "result_json", "text_draft", "error"),
+		sumByteLengthSQL(d, "message", "payload"),
+		sumByteLengthSQL(d, "url", "payload"),
+		sumByteLengthSQL(d, "path", "model", "provider_request_id", "error_code", "error", "upstream_url", "request_body", "response_body"),
+	)
 	args = append(args, userID, userID, userID, userID, userID, userID, userID)
 	err := r.db.Raw(query, args...).Scan(&usage).Error
 	return usage, err
