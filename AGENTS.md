@@ -132,6 +132,12 @@
 
 ## 七、当前焦点（活口径摘要）
 
+### 2026-10-07（项目管家：c_hybrid 线终局拍板 + 全自主工程收口）
+- **拍板**：用户目检四镜拼片对比（c_hybrid 方案D 54.70s vs splice2）后结论「作为长视频效果一般，短视频生成+首尾帧拼接效果更好」→ **c_hybrid（H3 多镜头连续生成路线）不换默认；雨夜成片维持 splice2，生产零变更**。A/B 归档：c_hybrid 一致性达标（同脸/同衣/同帽，face 0.949/0.951）但亮度/实拍感不及拼接路线；门禁体系保留（已并入设定卡线）。expr_3 按建议 C 入账（认可现状先交付）。
+- **本波全部交付**（详见 DRAMA_UI_PLAN 各条）：M4 八件全齐（PG 单实例/gate 切流/JWT 直验 Phase A+B/单仓 apps/canvas/统一 CI 首绿/deploy.sh --canvas-only/Phase C gate 全面退役）+ C6 全部自主部分（PWA 基础件/安装横幅/更新提示 v1→v3 实证/移动端专注模式/小程序壳 web-view+校验文件路由+构建门禁）+ 抓修生产隐患 wechat_dev_bypass true→false（任意 code 换 JWT）。ToIV main tip `baa96ca9` 双远端。
+- **开口（全部用户侧）**：小程序四步（注册 AppID→.env 73/74 行+manifest→业务域名/request 域名→微信工具送审，产物 dist/build/mp-weixin 与校验文件路由 deploy/mp-verify/ 均已备妥）。
+- Status：`chybrid_closed_prod_trunk_stable`；STATE `m4_3_gate_cutover_2026_10_06`（含全部波次字段）；`updated_at` 2026-10-07T12:16:00+08:00。via 项目管家（ToIV 开发）。
+
 ### 2026-10-06（项目管家：UI 融合 M4-3 gate 切流单实例上线）
 - **拍板回溯**：UI_FUSION_PLAN M4 第三项（gate 切指单实例→双写校验→切默认流量）按既定方案自主执行，无新决策点。
 - **交付**：① 统一二进制（PG 支持 + M6a gate identity 从 beeftv-m6a 工作树并回 main，裸请求 401 实证）；② typed-import 终版 `tmp/m43/mig4.py`（空 schema 先启动建 69 类型化表→停机按 information_schema 列类型灌 f659 sqlite，127 行/69 表全等；text 直迁在启动路径连环炸不可复制）；③ serve.mjs 单实例模式（`GATE_SINGLE_BACKEND/GATE_SINGLE_UID/GATE_SINGLE_DATA_DIR` 三 env，回滚=删三行重启 gate）；④ 修 M4-2 env 笔误（`CANVAS_DATA_DIR`→`CANVAS_BACKEND_DATA_DIR`，单实例此前跑 /home/merlin/data 已清理；状态文件 local-model-config.json/.settings-key/pi-agent/sessions/workspace/skill-packages 整体搬迁）。运维日志 `docs/ops/DRAMA_UI_PLAN.md` 末条。
