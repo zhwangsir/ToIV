@@ -29,7 +29,7 @@ func RegisterWorkspaceRoutes(r *gin.RouterGroup, svc *app.Service) {
 			failService(c, err)
 			return
 		}
-		publicUser := app.AuthUser{User: *user}
+		publicUser := app.AuthUser{User: *applyIdentityRole(c, user)}
 		// Desktop model configuration is persisted separately under the workspace
 		// data directory. The bootstrap contract contains no account metadata.
 		logicalModels := []app.PublicLogicalModel{}
@@ -141,10 +141,11 @@ func redactModelConfig(c *gin.Context, svc *app.Service, config map[string]any) 
 	} else {
 		redacted = beefapi.RedactConfig(config, managed)
 	}
-	if browserFacingRequest(c) {
-		// Channel credentials (e.g. the toiv-h3 service token) stay on the server: browsers only
-		// see the redaction marker, saving it back preserves the stored value, and the server
-		// injects the stored credential into tasks (app.resolvePlatformChannelSecrets).
+	if browserFacingRequest(c) || !platformSecretsVisible(c) {
+		// Channel credentials (e.g. the toiv-h3 service token) are platform-level and stay on the
+		// server: browsers and tenants (admins included, when they come through the ToIV proxy) only
+		// see the redaction marker, saving it back preserves the stored value, and the server injects
+		// the stored credential into tasks (app.resolvePlatformChannelSecrets).
 		workspace.RedactSecrets(redacted)
 	}
 	return redacted

@@ -115,13 +115,19 @@ export const CLASSIC_HOME = "/?view=home&classic=1";
 /** 未登录/会话失效:回 ToIV 首页(管理员会在首页换取会话后自动回到 /studio)。 */
 export const LOGIN_HOME = "/?view=home";
 
-export function decideStudioAccess(pathname: string, verdict: IntrospectResult | null): StudioDecision {
+export function decideStudioAccess(
+  pathname: string,
+  verdict: IntrospectResult | null,
+  opts: { multiTenant?: boolean } = {},
+): StudioDecision {
   if (!isStudioPath(pathname) || isStudioGuardExempt(pathname) || isStudioStaticFile(pathname)) {
     return { action: "pass" };
   }
   const isApi = pathname.startsWith("/studio/api/");
   const v: IntrospectResult = verdict ?? { kind: "invalid" };
   if (v.kind === "ok" && v.user.role === "admin") return { action: "pass" };
+  // M7:canvas-api 按用户隔离后(STUDIO_MULTITENANT=1),任何有效 ToIV 账号都可进入自己的工作区。
+  if (v.kind === "ok" && opts.multiTenant) return { action: "pass" };
   if (isApi) {
     if (v.kind === "error") {
       return { action: "json", status: 503, reason: "toiv_auth_unavailable", msg: "登录校验暂不可用,请稍后重试" };

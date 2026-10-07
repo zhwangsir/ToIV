@@ -56,6 +56,14 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	userIdentity, err := httptransport.LoadUserIdentity(os.Getenv)
+	if err != nil {
+		return err
+	}
+	toivDirect, err := envBool("CANVAS_TOIV_DIRECT_AUTH", false)
+	if err != nil {
+		return err
+	}
 	runtime, err := bootstrap.Open(ctx, bootstrap.Config{
 		Profile:          bootstrap.ProfileServer,
 		DataDir:          dataDir,
@@ -67,6 +75,8 @@ func run(ctx context.Context) error {
 		RouterMiddleware: []gin.HandlerFunc{corsMiddleware},
 		GateIdentity:     gateIdentity,
 		ToivAuth:         toivAuth,
+		UserIdentity:     userIdentity,
+		ToivDirect:       toivDirect,
 	})
 	if err != nil {
 		return err
@@ -75,7 +85,7 @@ func run(ctx context.Context) error {
 		_ = runtime.Close(context.Background())
 		return err
 	}
-	log.Printf("backend listening on %s (gate identity %v, toiv auth %v, stop deadline %s)", env("CANVAS_BACKEND_ADDR", ":8080"), gateIdentity != nil, toivAuth != nil, stopDeadline)
+	log.Printf("backend listening on %s (gate identity %v, toiv auth %v, multi-tenant %v, toiv direct %v, stop deadline %s)", env("CANVAS_BACKEND_ADDR", ":8080"), gateIdentity != nil, toivAuth != nil, userIdentity != nil, userIdentity != nil && toivDirect, stopDeadline)
 
 	var serveFailure error
 	select {

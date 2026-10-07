@@ -37,7 +37,8 @@ export async function POST(req: Request) {
   if (!user) return Response.json({ error: "unauthenticated", message: "ToIV 登录已失效" }, { status: 401, headers: NO_STORE });
   // 2026-10-08 止血:用户隔离落地前 /studio 只对管理员开放——非管理员不发会话 cookie,
   // 首页探测据此留在经典界面(中间件对 /studio 页面与 /studio/api/* 同样按 admin 拦截)。
-  if (user.role !== "admin") {
+  // M7:STUDIO_MULTITENANT=1(canvas-api 已按用户隔离)时所有有效账号都发会话。
+  if (user.role !== "admin" && (process.env.STUDIO_MULTITENANT || "").trim() !== "1") {
     return Response.json({ error: "forbidden", reason: "studio_admin_only", message: "画布暂只对管理员开放" }, { status: 403, headers: NO_STORE });
   }
   let maxAge = 7 * 86400;

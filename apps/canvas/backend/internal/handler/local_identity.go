@@ -15,7 +15,11 @@ func currentUser(c *gin.Context, svc *app.Service) (*model.User, error) {
 		if err != nil {
 			return nil, err
 		}
-		return svc.WorkspaceOwner(scope.ID)
+		user, err := svc.WorkspaceOwner(scope.ID)
+		if err != nil {
+			return nil, err
+		}
+		return applyIdentityRole(c, user), nil
 	}
 	return svc.LocalWorkspaceOwner()
 }
