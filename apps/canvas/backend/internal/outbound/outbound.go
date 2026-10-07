@@ -31,8 +31,8 @@ type OutboundHeader struct {
 }
 
 var (
-	outboundTransport          = newOutboundTransport(resolveOutboundHost)
-	customRelayTransport       = newOutboundTransport(resolveCustomRelayHost)
+	outboundTransport          = newOutboundTransport(resolveOutboundHostPort)
+	customRelayTransport       = newOutboundTransport(resolveCustomRelayHostPort)
 	blockedCustomRelayPrefixes = []netip.Prefix{
 		netip.MustParsePrefix("0.0.0.0/8"),
 		netip.MustParsePrefix("100.64.0.0/10"),
@@ -58,10 +58,21 @@ func ValidateOutboundURL(rawURL string) (*url.URL, error) {
 	if parsed.User != nil {
 		return nil, BadAuthRequest("外部服务地址不允许包含认证信息")
 	}
-	if err := ValidateOutboundHost(parsed.Hostname()); err != nil {
+	if _, err := resolveOutboundHostPort(context.Background(), parsed.Hostname(), effectivePort(parsed)); err != nil {
 		return nil, err
 	}
 	return parsed, nil
+}
+
+// effectivePort 返回 URL 的显式端口，缺省时按 scheme 取 80/443。
+func effectivePort(parsed *url.URL) string {
+	if port := parsed.Port(); port != "" {
+		return port
+	}
+	if strings.EqualFold(parsed.Scheme, "http") {
+		return "80"
+	}
+	return "443"
 }
 
 // 用户自定义渠道必须使用更严格的出口策略：不接受 URL 凭据，且仅部署者精确配置的
@@ -78,7 +89,8 @@ func ValidateCustomRelayURL(rawURL string) (*url.URL, error) {
 	if scheme != "https" && scheme != "http" {
 		return nil, BadAuthRequest("自定义渠道地址只支持 http/https")
 	}
-	if scheme == "http" && !AllowedPrivateUpstreamHost(parsed.Hostname()) {
+	port := effectivePort(parsed)
+	if scheme == "http" && !AllowedPrivateUpstream(parsed.Hostname(), port) {
 		return nil, BadAuthRequest("自定义渠道 HTTP 仅允许访问已配置的可信上游主机")
 	}
 	if parsed.User != nil {
@@ -87,7 +99,7 @@ func ValidateCustomRelayURL(rawURL string) (*url.URL, error) {
 	if parsed.Fragment != "" {
 		return nil, BadAuthRequest("自定义渠道地址不允许包含片段")
 	}
-	if err := validateCustomRelayHost(parsed.Hostname()); err != nil {
+	if _, err := resolveCustomRelayHostPort(context.Background(), parsed.Hostname(), port); err != nil {
 		return nil, err
 	}
 	return parsed, nil
@@ -247,7 +259,7 @@ func blockedOutboundHeader(name string) bool {
 	return strings.HasPrefix(name, "x-canvas-") || strings.HasPrefix(name, "x-forwarded-")
 }
 
-func newOutboundTransport(resolveHost func(context.Context, string) ([]net.IP, error)) *http.Transport {
+func newOutboundTransport(resolveHost func(context.Context, string, string) ([]net.IP, error)) *http.Transport {
 	dialer := &net.Dialer{Timeout: 15 * time.Second, KeepAlive: 30 * time.Second}
 	return &http.Transport{
 		Proxy: outboundProxyFromEnvironment,
@@ -260,7 +272,7 @@ func newOutboundTransport(resolveHost func(context.Context, string) ([]net.IP, e
 			if configuredProxyHost(host) {
 				return dialer.DialContext(ctx, network, address)
 			}
-			addresses, err := resolveHost(ctx, host)
+			addresses, err := resolveHost(ctx, host, port)
 			if err != nil {
 				return nil, err
 			}
@@ -300,24 +312,20 @@ func configuredProxyHost(host string) bool {
 	return false
 }
 
+// ValidateOutboundHost 校验不带端口的主机；只有不带端口的允许列表条目能放行私网。
 func ValidateOutboundHost(host string) error {
-	_, err := resolveOutboundHost(context.Background(), host)
+	_, err := resolveOutboundHostPort(context.Background(), host, "")
 	return err
 }
 
-func validateCustomRelayHost(host string) error {
-	_, err := resolveCustomRelayHost(context.Background(), host)
-	return err
+func resolveOutboundHostPort(ctx context.Context, host string, port string) ([]net.IP, error) {
+	host = normalizeOutboundHost(host)
+	return resolveOutboundHostWithPolicy(ctx, host, allowPrivateUpstreams() || AllowedPrivateUpstream(host, port))
 }
 
-func resolveOutboundHost(ctx context.Context, host string) ([]net.IP, error) {
+func resolveCustomRelayHostPort(ctx context.Context, host string, port string) ([]net.IP, error) {
 	host = normalizeOutboundHost(host)
-	return resolveOutboundHostWithPolicy(ctx, host, allowPrivateUpstreams() || AllowedPrivateUpstreamHost(host))
-}
-
-func resolveCustomRelayHost(ctx context.Context, host string) ([]net.IP, error) {
-	host = normalizeOutboundHost(host)
-	allowPrivateHost := AllowedPrivateUpstreamHost(host)
+	allowPrivateHost := AllowedPrivateUpstream(host, port)
 	addresses, err := resolveOutboundHostWithPolicy(ctx, host, allowPrivateHost)
 	if err != nil {
 		return nil, err
@@ -382,19 +390,44 @@ func allowPrivateUpstreams() bool {
 	return value == "1" || value == "true" || value == "yes"
 }
 
-// allowedPrivateUpstreamHost lets operators pin only explicitly trusted upstream
+// AllowedPrivateUpstreamHost lets operators pin only explicitly trusted upstream
 // hostnames to an internal route without disabling SSRF protection for every URL.
+// It only honours host-only entries (any port); see AllowedPrivateUpstream.
 func AllowedPrivateUpstreamHost(host string) bool {
-	host = normalizeOutboundHost(host)
+	return AllowedPrivateUpstream(host, "")
+}
+
+// AllowedPrivateUpstream reports whether host:port is explicitly trusted by
+// CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS. Entries are comma separated and may be
+// "host" (legacy: any port) or "host:port" / "[ipv6]:port" (that port only).
+// A port-qualified entry never matches when port is unknown ("").
+func AllowedPrivateUpstream(host string, port string) bool {
+	host = normalizeOutboundHost(strings.Trim(host, "[]"))
+	port = strings.TrimSpace(port)
 	if host == "" {
 		return false
 	}
 	for _, configured := range strings.Split(os.Getenv("CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS"), ",") {
-		if normalizeOutboundHost(configured) == host {
+		entryHost, entryPort := splitAllowlistEntry(configured)
+		if entryHost == "" || entryHost != host {
+			continue
+		}
+		if entryPort == "" || entryPort == port {
 			return true
 		}
 	}
 	return false
+}
+
+func splitAllowlistEntry(raw string) (string, string) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", ""
+	}
+	if h, p, err := net.SplitHostPort(raw); err == nil {
+		return normalizeOutboundHost(strings.Trim(h, "[]")), strings.TrimSpace(p)
+	}
+	return normalizeOutboundHost(strings.Trim(raw, "[]")), ""
 }
 
 func normalizeOutboundHost(host string) string {

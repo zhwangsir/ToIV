@@ -14,7 +14,7 @@ func TestOutboundTransportUsesEnvironmentProxyAndHonorsNoProxy(t *testing.T) {
 	t.Setenv("HTTP_PROXY", "http://172.24.176.1:10808")
 	t.Setenv("HTTPS_PROXY", "http://172.24.176.1:10808")
 	t.Setenv("NO_PROXY", ".se7endot.top,100.64.0.0/10")
-	transport := newOutboundTransport(resolveOutboundHost)
+	transport := newOutboundTransport(resolveOutboundHostPort)
 
 	proxiedRequest, _ := http.NewRequest(http.MethodGet, "https://api.mikoto.vip/v1/models", nil)
 	proxyURL, err := transport.Proxy(proxiedRequest)
