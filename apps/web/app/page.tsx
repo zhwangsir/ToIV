@@ -487,13 +487,16 @@ function HomeContent() {
     fetch("/studio/entry.json", { cache: "no-store", signal: ctl.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (j && j.enabled) {
-          // M4-4 Phase C:跳转前把 ToIV JWT 换成 /studio 会话 cookie——URL 型访问
-          // (画布图片/下载/EventSource 无法带 Authorization)依赖它经 canvas-api 直验。
-          const t = getToken();
-          if (t) fetch("/studio/auth/exchange", { method: "POST", headers: { authorization: `Bearer ${t}` }, keepalive: true }).catch(() => {});
-          window.location.replace("/studio/");
-        }
+        if (!j || !j.enabled) return;
+        // M4-4 Phase C:跳转前把 ToIV JWT 换成 /studio 会话 cookie——URL 型访问
+        // (画布图片/下载/EventSource 无法带 Authorization)依赖它经 canvas-api 直验。
+        // 2026-10-08 止血:交换成功(仅管理员,非管理员 403)才跳转;先等 cookie 落地,
+        // 否则 /studio 页面闸看不到会话会把人弹回首页。
+        const t = getToken();
+        if (!t) return;
+        return fetch("/studio/auth/exchange", { method: "POST", headers: { authorization: `Bearer ${t}` } }).then((r) => {
+          if (r.ok) window.location.replace("/studio/");
+        });
       })
       .catch(() => {})
       .finally(() => clearTimeout(timer));

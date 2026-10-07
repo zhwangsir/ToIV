@@ -38,6 +38,10 @@ export async function resolve(specifier, context, nextResolve) {
   if (specifier === "@/lib/api") {
     return { url: apiMock, shortCircuit: true };
   }
+  // next 子路径包无 exports 映射,ESM 下需显式 .js(中间件单测 import "next/server")
+  if (specifier === "next/server") {
+    return nextResolve("next/server.js", context);
+  }
   if (specifier.startsWith("@/")) {
     return {
       url: pathToFileURL(withExt(path.join(webRoot, specifier.slice(2)))).href,

@@ -13,7 +13,7 @@ function toivBase(): string {
   return process.env.INTERNAL_API_BASE || process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8090";
 }
 
-async function introspect(token: string): Promise<{ id: string; name: string; email: string } | null> {
+async function introspect(token: string): Promise<{ id: string; name: string; email: string; role: string } | null> {
   try {
     const r = await fetch(`${toivBase()}/api/auth/me`, {
       headers: { authorization: `Bearer ${token}` },
@@ -23,7 +23,7 @@ async function introspect(token: string): Promise<{ id: string; name: string; em
     const j = await r.json();
     const u = j && (j.user || j);
     if (!u || typeof u.id !== "string" || !/^[a-f0-9]{32}$/.test(u.id)) return null;
-    return { id: u.id, name: u.display_name || u.name || u.username || "", email: u.email || "" };
+    return { id: u.id, name: u.display_name || u.name || u.username || "", email: u.email || "", role: typeof u.role === "string" ? u.role : "" };
   } catch {
     return null;
   }
@@ -35,6 +35,11 @@ export async function POST(req: Request) {
   if (!token) return Response.json({ error: "bad_request" }, { status: 400, headers: NO_STORE });
   const user = await introspect(token);
   if (!user) return Response.json({ error: "unauthenticated", message: "ToIV 登录已失效" }, { status: 401, headers: NO_STORE });
+  // 2026-10-08 止血:用户隔离落地前 /studio 只对管理员开放——非管理员不发会话 cookie,
+  // 首页探测据此留在经典界面(中间件对 /studio 页面与 /studio/api/* 同样按 admin 拦截)。
+  if (user.role !== "admin") {
+    return Response.json({ error: "forbidden", reason: "studio_admin_only", message: "画布暂只对管理员开放" }, { status: 403, headers: NO_STORE });
+  }
   let maxAge = 7 * 86400;
   try {
     const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
