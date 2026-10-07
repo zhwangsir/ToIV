@@ -18,6 +18,9 @@ from datetime import datetime, timezone
 from sqlmodel import Session, select
 
 from app.models import (
+    STUDIO_DEFAULT_FPS,
+    STUDIO_DEFAULT_HEIGHT,
+    STUDIO_DEFAULT_WIDTH,
     AgentEvent,
     AgentRun,
     AgentTask,
@@ -108,9 +111,9 @@ def _setup_studio_project(run_id: str, bind) -> None:
             premise=run.goal,
             style=str(opts.get("style") or ""),
             render_mode_default=str(opts.get("render_mode_default") or "video"),
-            width=int(opts.get("width") or 768),
-            height=int(opts.get("height") or 384),
-            fps=int(opts.get("fps") or 16),
+            width=int(opts.get("width") or STUDIO_DEFAULT_WIDTH),
+            height=int(opts.get("height") or STUDIO_DEFAULT_HEIGHT),
+            fps=int(opts.get("fps") or STUDIO_DEFAULT_FPS),
             status="generating",
         )
         s.add(project)

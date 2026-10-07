@@ -5,6 +5,8 @@ import logging
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
+from app.models import STUDIO_DEFAULT_FPS, STUDIO_DEFAULT_HEIGHT, STUDIO_DEFAULT_WIDTH
+
 logger = logging.getLogger(__name__)
 
 _VALID_RENDER_MODES = {"video", "image_motion"}
@@ -153,9 +155,9 @@ class ProjectCreate(BaseModel):
     render_mode_default: str = Field(default="video", pattern="^(video|image_motion)$")
     # 产出规格:视频/图像运镜两链共用;8 对齐(前端预设均为 32 对齐,LTX 兼容)
     # 宽高上限对称 1920:竖屏短剧(如 720×1280)需要 height > 1080
-    width: int = Field(default=768, ge=256, le=1920, multiple_of=8)
-    height: int = Field(default=384, ge=256, le=1920, multiple_of=8)
-    fps: int = Field(default=16, ge=4, le=30)
+    width: int = Field(default=STUDIO_DEFAULT_WIDTH, ge=256, le=1920, multiple_of=8)
+    height: int = Field(default=STUDIO_DEFAULT_HEIGHT, ge=256, le=1920, multiple_of=8)
+    fps: int = Field(default=STUDIO_DEFAULT_FPS, ge=4, le=30)
 
 
 class ProjectPatch(BaseModel):
