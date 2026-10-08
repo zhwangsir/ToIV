@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-07（项目管家：**UI 融合 M4 全项完成——gate 全面退役**）：真浏览器复验过（IAB 公网链：画布/助手往返/任务中心，抓修 ui-session Origin 403→canvas-api `BEEFTV_ALLOWED_ORIGINS`）后 Phase C 落地——/studio 静态托管+auth/entry 移交 Next 四路由（`b9273463`），**gate 已 disable --now（8281 关闭，回滚=恢复 rewrites+enable）**；至此 M4 八件全齐（PG 驱动/单实例/gate 切流/JWT 直验 A+B/单仓合并/统一 CI/deploy 合一/gate 退役），ToIV main tip `7c1b7a39`（gitee+github）；剩余开口仅 C6 全平台（独立成批）+用户拍板项（expr_3 三选一/四镜拼片）；⚠️ stash@{0}「wip-unrelated-before-0030」系早前遗留勿 pop；STATE `m4_3_gate_cutover_2026_10_06`（含 phase_a/b/m4_5/m4_tail/m4_phase_c 字段）；`updated_at` 2026-10-07T00:28:00+08:00；via 项目管家（ToIV 开发）；
+> **最后更新**：2026-10-09（项目管家：**分支合入主尖端 `3d95a41f`，未部署**）：GitHub+Gitee main=`3d95a41f`（含 H3 令牌刷新 r3、古风色板 fb10、帽兜门禁、用户隔离 `44e1162f`、出站端口白名单、JSON 方言查询、参数错误短句）；隔离默认关，需密钥+`STUDIO_MULTITENANT=1`；staging 未跑真实刷新/多租户；**勿把 tip 写成已部署**。官网：合入 `a105720b`，线上构建号 `20261007-194448-7ce69c7f-dirty`，与 tip 分记。NAS：主库 `toiv/comfyui-models`≈5.2T，旧树 Windows≈1.5T；H3 生产 :8264。STATE `branch_integrate_2026_10_09`；`updated_at` 2026-10-09T06:30:00+08:00；via 项目管家（ToIV 开发/设备管家/BeefTV 融合）。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -69,9 +69,12 @@
 
 ## 四、NAS 模型路径与下载
 
-- 主库 `NAS/Windows/ComfyUI/ComfyUIModel/models`（WS `/opt/ComfyUI/models` symlink；524GB+）；ToIV 专用 `NAS/toiv/comfyui-models`（~260GB）。PC01/02 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（**不得含 custom_nodes 键**）。
-- H3 Ref2VA 权重四档齐（bf16/fp8/int8/pruned_bf16，均在 `h3/diffusion_models/`）。
-- **下载清单**：`docs/MODEL_SOURCES.md/.json`（带来源条目，持续追加；勿在仓库根新增 MODEL_SOURCES*）。**下载主路=workstation 直连 hf-mirror.com + aria2c -x16**（N-2）。
+- **两棵树**（同一台 Tailscale NAS；core=`/mnt/toiv-nas`，工作站=`/home/merlin/nas_mount`）：
+  - **主库（新下载只进这里）** `toiv/comfyui-models` ≈5.2T（扩散≈2.5T/249；checkpoint≈627G/46；h3≈518G/90；LLM≈355G/280；文本编码≈265G/61；LoRA≈237G/433 等）。`h3/diffusion_models` 内 **13** 个 safetensors（不等于整棵 NAS）。
+  - **旧库** `Windows/ComfyUI/ComfyUIModel/models` ≈1.5T / 1085 文件。两树合计约 6.7T **会把硬链算重**（已知一例 2026-09-28 lightx2v LoRA nlink=2；未全盘对 inode）。
+- **端口挂载（2026-10-09 设备管家真机）**：`:8196` 的 `/opt/ComfyUI/models`→旧 Windows 树软链，extra `toiv:` 再挂整棵 toiv→两棵都可见；`:8197` models 为本机目录，extra 挂整棵 toiv+`h3/`，本地 diffusion 仅两条软链→NAS fl2va/ref2va pruned int8；`:8195`/`:8264` 共用 ComfyUI-h3-eval，extra 只挂 `h3/`；多出的两个 FL2VA 名是本机软链→同份 32GB 本地文件（不在 NAS）。**H3 生产口=:8264**，`:8195` 试验。
+- **口径**：盘上有 ≠ 产品在用。代码写死且盘上确认的 H3/Qwen-Edit 文件名见 STATE/`branch_integrate_2026_10_09`；来源清单 ok575/blocked336（2026-09-28）**不是**盘上文件总数。PC01/02 extra 指向旧 Windows 树时 **不得含 custom_nodes 键**。
+- **下载清单**：`docs/MODEL_SOURCES.md/.json`（勿在仓库根新增 MODEL_SOURCES*）。**下载主路=workstation 直连 hf-mirror.com + aria2c -x16**（N-2）。
 
 ## 五、Core 生产状态（活口径）
 
@@ -131,6 +134,13 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-09（项目管家：分支合入 `3d95a41f`，未部署）
+- **tip**：origin(Gitee)/github/本地 main 均核=`3d95a41f`（README 同 tip）。**未部署** core；线上构建号仍可能是 `20261007-194448-7ce69c7f-dirty`，与 tip 分记。
+- **已合**：H3 令牌刷新 r3；古风色板 fb10；帽兜门禁；用户隔离 `44e1162f`（默认关，需密钥+`STUDIO_MULTITENANT=1`）；出站端口白名单 `6fe5d190`；JSON 方言查询 `2858d94c`；参数错误短句 `c74df3a6`。相关 Go 测过；staging 未跑真实刷新/多租户。
+- **未合**：r2；坏掉的多租户枝；旧色板 `fdbd82d5`；2026-06 PuLID。
+- **官网**：合入 `a105720b` 已在更早 main；静态落地未登录 `/`；不调模型。
+- Status：`branch_integrate_main_tip_undeployed`；STATE `branch_integrate_2026_10_09`；`updated_at` 2026-10-09T06:30:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-10-07（项目管家：c_hybrid 线终局拍板 + 全自主工程收口）
 - **拍板**：用户目检四镜拼片对比（c_hybrid 方案D 54.70s vs splice2）后结论「作为长视频效果一般，短视频生成+首尾帧拼接效果更好」→ **c_hybrid（H3 多镜头连续生成路线）不换默认；雨夜成片维持 splice2，生产零变更**。A/B 归档：c_hybrid 一致性达标（同脸/同衣/同帽，face 0.949/0.951）但亮度/实拍感不及拼接路线；门禁体系保留（已并入设定卡线）。expr_3 按建议 C 入账（认可现状先交付）。

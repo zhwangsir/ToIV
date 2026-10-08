@@ -1,3 +1,4 @@
+- 2026-10-09 分支合入 main tip `3d95a41f`（项目管家；ToIV 开发+BeefTV 融合+设备管家；docs）：Gitee/GitHub/本地 main 已核 tip=`3d95a41f`；含 H3 令牌刷新 r3、古风色板 fb10、帽兜门禁、用户隔离 `44e1162f`（默认关）、出站白名单/JSON 方言/参数错误短句；**未部署**；线上 BUILD_ID 与 tip 分记；官网合入 `a105720b` / 线上 `20261007-194448-7ce69c7f-dirty` 分记；NAS 主库 toiv≈5.2T、旧 Windows≈1.5T、H3 生产 :8264；来源清单 575/336 非盘上文件数；status=`branch_integrate_main_tip_undeployed`；STATE `branch_integrate_2026_10_09`；updated_at 2026-10-09T06:30:00+08:00；AGENTS §四/§七 已短注。
 ## 2026-09-29 14:28 CST — U10b MiniProgram 应用详情一键运行器
 
 - **范围**：`runApp` 客户端；`app-runner` 参数归一/必填/提交载荷；详情页参数区+预览区（手机端上下栈）；SFW/NSFW 双模式切换；images 选图上传；audio/video/mask/loras 降级提示。

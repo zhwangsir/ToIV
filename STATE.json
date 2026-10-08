@@ -1,5 +1,63 @@
 {
-  "updated_at": "2026-10-08T23:57:00+08:00",
+  "updated_at": "2026-10-09T06:30:00+08:00",
+  "branch_integrate_2026_10_09": {
+    "status": "branch_integrate_main_tip_undeployed",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV 开发",
+      "ToIV BeefTV 融合",
+      "设备管家",
+      "ToIV 官网",
+      "ToIV 模型下载",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "main tip 3d95a41f dual-remote; merged H3 token-refresh r3 + ancient palette fb10 + hood gate + multitenant 44e1162f (default off) + canvas allowlist/json/params; NOT deployed; NAS two-tree layout booked",
+    "product_trunk": "main_only",
+    "product_tip": "3d95a41f",
+    "deploy": {
+      "status": "not_deployed",
+      "note": "do not equate tip with live BUILD_ID; live may still be 20261007-194448-7ce69c7f-dirty"
+    },
+    "remotes": {
+      "origin_gitee_main": "3d95a41f",
+      "github_main": "3d95a41f",
+      "verified_both": true
+    },
+    "merged": [
+      "h3_token_refresh_r3",
+      "ancient_spec_palette_fb10",
+      "hood_gate_e3c796cc",
+      "canvas_multitenant_44e1162f",
+      "canvas_outbound_port_allowlist_6fe5d190",
+      "canvas_pg_json_sql_2858d94c",
+      "canvas_invalid_params_reason_c74df3a6"
+    ],
+    "not_merged": [
+      "h3_token_refresh_r2",
+      "bad_multitenant_branches",
+      "old_palette_fdbd82d5",
+      "pulid_2026_06"
+    ],
+    "multitenant": {
+      "default": "off",
+      "enable": "STUDIO_MULTITENANT=1 + signing key",
+      "staging_verified": false
+    },
+    "site": {
+      "merge_commit": "a105720b",
+      "live_build_id": "20261007-194448-7ce69c7f-dirty",
+      "note": "three ids separate from product tip"
+    },
+    "nas": {
+      "toiv_tree": "toiv/comfyui-models ~5.2T",
+      "windows_tree": "Windows/ComfyUI/ComfyUIModel/models ~1.5T",
+      "h3_diffusion_safetensors": 13,
+      "h3_prod_port": 8264,
+      "h3_eval_port": 8195,
+      "source_manifest_2026_09_28": "ok575/blocked336/total912 (not on-disk count)"
+    }
+  },
   "assistant_portal_cinematic_empty_2026_09_23": {
     "status": "assistant_portal_cinematic_empty_deployed",
     "date": "2026-09-23",
