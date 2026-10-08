@@ -6509,3 +6509,10 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **完善落地（v3）**：v2 画面资产保留 → 剥离 H3 原生音轨 → **IndexTTS :9200 女声旁白六段**（对齐每镜 5.17s，0.3s 入点延迟，loudnorm -16LUFS 归一）→ concat。**whisper 回归验证 ✅**：六段旁白完整转写还原、零呓语。
 - **产物**：Mac `tmp/london_story/london_the_two_hours_v3.mp4`（31.2s，8.2MB，旁白版本）；core `…/v3/` 同存。旁白文本即剧本字幕句（「出发前，她就觉得这趟伦敦一定会遇见一个人……有些相遇，是出发前就注定的。」）。
 - **方法论补全**：新角色短片标准序 v2 = 定妆→Ref2VA 锁定→稳定提示词→**弃 H3 原生音频→IndexTTS 旁白/配音编排→whisper 转写回归验证**→concat。
+
+### 2026-10-08 15:55 CST — 《两小时的注定》v4：旁白情感化交付 + 平台缺陷④定位
+- **用户反馈**：v3 旁白「一点感情都没有」。
+- **缺陷④定位**：IndexTTS2 原生支持 **emo_text（情感导演文本）+ emo_alpha（情感强度）** 参数（openapi 实证），但平台 voice.py 只透传 text/ref_audio/language——**情感参数从未接通**，所有配音默认平淡音色。代码级透传列入平台完善待办（需走正规 api 部署）。
+- **v4 落地 ✅**：脚本层全参数直调——六段旁白各配独立情感导演（S1 期待悸动/S2 好奇心动/S3 替他着急/S4 明快勇敢/S5 温暖娓娓/S6 深情圆满），emo_alpha=1.0 拉满；对齐拼接同 v3。**whisper 回归 ✅** 六段全还原。
+- **产物**：Mac `tmp/london_story/london_the_two_hours_v4.mp4`（31.2s）；core `…/v4/` 同存。
+- 对比通道：v3（平淡基线）与 v4（情感版）都在 Mac tmp/london_story/ 可 A/B 试听。
