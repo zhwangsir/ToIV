@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly validity check of the platform H3 credential (warns under 48 h)
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=2min
+Persistent=true
+Unit=toiv-h3-token-check.service
+
+[Install]
+WantedBy=timers.target

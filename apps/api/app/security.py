@@ -31,18 +31,35 @@ def verify_password(password: str, stored: str) -> bool:
         return False
 
 
-def create_token(user_id: str) -> str:
+def create_token(user_id: str, *, scope: str | None = None, expire_minutes: int | None = None) -> str:
+    """签发 JWT。scope 非空 = 受限服务令牌(只能访问 app.token_policy.SCOPES[scope] 列出的接口)。"""
     s = get_settings()
+    now = datetime.now(timezone.utc)
     payload = {
         "sub": user_id,
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=s.jwt_expire_minutes),
+        "iat": int(now.timestamp()),
+        "exp": now + timedelta(minutes=expire_minutes or s.jwt_expire_minutes),
     }
+    if scope:
+        payload["scope"] = scope
+        payload["typ"] = "service"
     return jwt.encode(payload, s.jwt_secret, algorithm="HS256")
 
 
-def decode_token(token: str) -> str | None:
+def decode_token_claims(token: str) -> dict | None:
+    """校验签名与过期并返回完整 claims;失败返回 None。"""
     try:
         payload = jwt.decode(token, get_settings().jwt_secret, algorithms=["HS256"])
-        return payload.get("sub")
     except jwt.PyJWTError:
         return None
+    return payload if isinstance(payload, dict) and payload.get("sub") else None
+
+
+def decode_token(token: str) -> str | None:
+    payload = decode_token_claims(token)
+    return payload.get("sub") if payload else None
+
+
+def token_sha256(token: str) -> str:
+    """令牌指纹(完整 sha256 hex):吊销清单只存指纹,不存令牌本身。"""
+    return hashlib.sha256(token.encode()).hexdigest()
