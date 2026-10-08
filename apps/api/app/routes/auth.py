@@ -21,6 +21,7 @@ from app.deps import get_current_user
 from app.models import Tenant, User
 from app.ratelimit import enforce_login_rate_limit, enforce_subject_rate_limit
 from app.security import create_token, hash_password, verify_password
+from app.token_policy import SCOPES
 from app.usage import user_usage
 
 
@@ -111,6 +112,44 @@ def login(
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="账号或密码错误")
     return {"token": create_token(user.id), "user": _user_dict(user)}
+
+
+class ServiceTokenRequest(LoginRequest):
+    scope: str
+
+
+@router.post("/auth/service-token")
+def service_token(
+    body: ServiceTokenRequest,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict:
+    """服务账号换取受限令牌(scope 见 app.token_policy.SCOPES)。
+
+    只给 TOIV_SERVICE_ACCOUNTS 白名单内的非管理员账号签发;令牌只能访问该 scope 的接口。
+    供服务端定时任务使用(如 canvas-api 的 H3 渠道凭据刷新),不面向浏览器。
+    """
+    s = get_settings()
+    allowed = {a.strip().lower() for a in (getattr(s, "service_accounts", "") or "").split(",") if a.strip()}
+    if not allowed:
+        raise HTTPException(status_code=404, detail="服务令牌未启用")
+    enforce_login_rate_limit(_client_ip(request), body.email)
+    user = session.exec(select(User).where(User.email == body.email)).first()
+    if not user or not verify_password(body.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="账号或密码错误")
+    if body.email not in allowed:
+        raise HTTPException(status_code=403, detail="该账号不是服务账号")
+    if user.role == "admin":
+        raise HTTPException(status_code=403, detail="服务账号不能是管理员")
+    if body.scope not in SCOPES:
+        raise HTTPException(status_code=400, detail="未知的令牌 scope")
+    minutes = int(getattr(s, "service_token_expire_minutes", 0) or s.jwt_expire_minutes)
+    return {
+        "token": create_token(user.id, scope=body.scope, expire_minutes=minutes),
+        "scope": body.scope,
+        "expires_in": minutes * 60,
+        "user": {"id": user.id, "role": user.role},
+    }
 
 
 class TestLoginRequest(BaseModel):
