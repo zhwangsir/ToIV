@@ -56,7 +56,9 @@
       "h3_prod_port": 8264,
       "h3_eval_port": 8195,
       "source_manifest_2026_09_28": "ok575/blocked336/total912 (not on-disk count)"
-    }
+    },
+    "superseded_by_tip": "e1672b8f",
+    "remotes_note": "main moved to e1672b8f after canvas UI fusion; this entry keeps merge inventory"
   },
   "assistant_portal_cinematic_empty_2026_09_23": {
     "status": "assistant_portal_cinematic_empty_deployed",
@@ -12583,5 +12585,63 @@
     "london_v4_emotion": "v4 旁白情感化交付(4b44e68c)：IndexTTS2 emo_text/emo_alpha 实证可用（六段独立情感导演，emo_alpha=1.0），whisper 回归过；缺陷④=平台 voice.py 未透传情感参数（代码级透传列平台完善待办）；产物 tmp/london_story/london_the_two_hours_v4.mp4",
     "london_v6_full": "完整版 v6 交付(f50bf526)：12 镜四幕 72.4s（游玩遇见→频繁偷看→主动出击→相知→求婚→婚礼）；Ref2VA 12 镜+IndexTTS 17 句对白（C 女声/P 男声克隆）+watcher 自动装配；whisper 12/14 句清晰（求婚句重合成修复）；已知瑕疵=AI 中文招牌/大衣色偶漂；待用户目检",
     "london_v7_final": "用户质询成立（抽样≠审片）→补全逐镜密集审片发现 5 镜问题（s4 硬切/s8 场景断裂/s2 乱码招牌/s5 潜艇变车/s9 大衣漂灰）→v7 重渲 5/5 复审通过→FINAL 77.3s 交付（d05bf975 双推，whisper 对白链全可辨）；审片四类缺陷清单沉淀为标准工序"
+  },
+  "canvas_ui_fusion_2026_10_09": {
+    "status": "canvas_ui_fusion_tip_undeployed",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV 开发",
+      "ToIV BeefTV 融合",
+      "设备管家",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "main tip e1672b8f dual-remote; ToIV 创作五页改用画布组件; brand ToIV only; adult stays classic; admin gate untouched; NOT deployed",
+    "product_trunk": "main_only",
+    "product_tip": "e1672b8f",
+    "commit_subject": "fix(canvas): ToIV 创作页改用画布组件",
+    "deploy": {
+      "status": "not_deployed",
+      "note": "do not equate tip with live BUILD_ID"
+    },
+    "remotes": {
+      "origin_gitee_main": "e1672b8f",
+      "github_main": "e1672b8f",
+      "verified_both": true
+    },
+    "scope": {
+      "pages": [
+        "drama",
+        "chat",
+        "market",
+        "library",
+        "tasks"
+      ],
+      "shell": "canvas_drawer_unchanged",
+      "brand": "ToIV_only",
+      "adult": "classic_not_studio",
+      "admin_gate": "unchanged_off",
+      "new_branch": false
+    },
+    "llm_routing": {
+      "workstation": "productivity_generation_only",
+      "spark": "deepseek-v4-flash TP2 two-node :8000",
+      "served_name": "deepseek-v4-flash-dspark",
+      "aliases_same_process": [
+        "qwen3.8-27b",
+        "qwen3.6-uncensored",
+        "glm-5.3-flash"
+      ]
+    },
+    "do_not_merge": [
+      "8c03b366",
+      "9e2e204f",
+      "30386e18",
+      "c6dfe4d6",
+      "44561d09",
+      "fdbd82d5"
+    ],
+    "prior_tip": "3d95a41f",
+    "updated_at": "2026-10-09T07:15:00+08:00"
   }
 }

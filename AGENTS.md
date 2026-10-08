@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**分支合入主尖端 `3d95a41f`，未部署**）：GitHub+Gitee main=`3d95a41f`（含 H3 令牌刷新 r3、古风色板 fb10、帽兜门禁、用户隔离 `44e1162f`、出站端口白名单、JSON 方言查询、参数错误短句）；隔离默认关，需密钥+`STUDIO_MULTITENANT=1`；staging 未跑真实刷新/多租户；**勿把 tip 写成已部署**。官网：合入 `a105720b`，线上构建号 `20261007-194448-7ce69c7f-dirty`，与 tip 分记。NAS：主库 `toiv/comfyui-models`≈5.2T，旧树 Windows≈1.5T；H3 生产 :8264。STATE `branch_integrate_2026_10_09`；`updated_at` 2026-10-09T06:30:00+08:00；via 项目管家（ToIV 开发/设备管家/BeefTV 融合）。
+> **最后更新**：2026-10-09（项目管家：**画布 UI 融合 tip `e1672b8f`，未部署**）：GitHub+Gitee+本地 main=`e1672b8f`（ToIV 创作五页改用画布组件：短剧/对话/市场/作品库/任务；署名只写 ToIV；抽屉仍画布壳；成人向不进 `/studio`；管理员闸未开）。**勿把 tip 写成已部署**。下层仍含分支合入 `3d95a41f`（隔离默认关）。Spark=DSv4 TP2@spark02:8000（别名同进程）。STATE `canvas_ui_fusion_2026_10_09`；`updated_at` 2026-10-09T07:15:00+08:00；via 项目管家（ToIV 开发/BeefTV 融合）。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -134,6 +134,13 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-09（项目管家：画布 UI 融合 `e1672b8f`，未部署）
+- **tip**：origin(Gitee)/github/本地 main 均核=`e1672b8f`（`fix(canvas): ToIV 创作页改用画布组件`）。**未部署** core。
+- **范围**：登录后画布内「ToIV 创作」五页（短剧/对话/市场/作品库/任务）收进画布组件；品牌只写 ToIV；抽屉仍画布原壳；成人向留经典界面，不进 `/studio`；管理员闸未开；不另开分支。
+- **设备**：Workstation 出片；LLM=两台 Spark vLLM TP2 :8000，对外 `deepseek-v4-flash-dspark`（别名同进程）；不调度到 workstation。
+- **不合/待删**：坏隔离 `8c03b366`/`9e2e204f`；截断刷新 `30386e18`/`c6dfe4d6`；旧 PuLID `44561d09`；旧色板 `fdbd82d5`（清 `toiv_wt_palette` 工作树后再删本地分支）。
+- Status：`canvas_ui_fusion_tip_undeployed`；STATE `canvas_ui_fusion_2026_10_09`；`updated_at` 2026-10-09T07:15:00+08:00。via 项目管家（ToIV 开发）。
 
 ### 2026-10-09（项目管家：分支合入 `3d95a41f`，未部署）
 - **tip**：origin(Gitee)/github/本地 main 均核=`3d95a41f`（README 同 tip）。**未部署** core；线上构建号仍可能是 `20261007-194448-7ce69c7f-dirty`，与 tip 分记。
