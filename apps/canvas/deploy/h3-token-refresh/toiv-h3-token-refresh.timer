@@ -1,0 +1,12 @@
+[Unit]
+Description=Refresh the platform H3 credential every 6 h (token lifetime is 7 days)
+
+[Timer]
+OnCalendar=*-*-* 00/6:17:00
+RandomizedDelaySec=5min
+# Runs missed while core was down are caught up at the next boot/login.
+Persistent=true
+Unit=toiv-h3-token-refresh.service
+
+[Install]
+WantedBy=timers.target

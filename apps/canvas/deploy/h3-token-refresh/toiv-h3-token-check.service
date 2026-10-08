@@ -1,0 +1,12 @@
+[Unit]
+Description=Warn when the platform H3 credential in canvas-api-pg has under 48 h left
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/home/merlin/beeftv-prod/h3-token-refresh/h3-token-refresh.env
+ExecStart=/usr/bin/python3 /home/merlin/beeftv-prod/h3-token-refresh/h3_token_refresh.py --check
+TimeoutStartSec=2min
+UMask=0077
+StandardOutput=append:/home/merlin/beeftv-prod/h3-token-refresh/check.log
+StandardError=append:/home/merlin/beeftv-prod/h3-token-refresh/check.log

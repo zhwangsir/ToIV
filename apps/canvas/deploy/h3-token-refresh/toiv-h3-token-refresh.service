@@ -1,0 +1,14 @@
+[Unit]
+Description=Refresh the platform H3 credential (ToIV JWT) in canvas-api-pg
+Documentation=file:///home/merlin/toiv/apps/canvas/deploy/h3-token-refresh/README.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/home/merlin/beeftv-prod/h3-token-refresh/h3-token-refresh.env
+ExecStart=/usr/bin/python3 /home/merlin/beeftv-prod/h3-token-refresh/h3_token_refresh.py
+# Worst case with REFRESH_ATTEMPTS=4 / RETRY_BASE_SECONDS=30: 30+60+120 s of backoff plus requests.
+TimeoutStartSec=10min
+UMask=0077
+StandardOutput=append:/home/merlin/beeftv-prod/h3-token-refresh/refresh.log
+StandardError=append:/home/merlin/beeftv-prod/h3-token-refresh/refresh.log
