@@ -1,120 +1,46 @@
 # ToIV
 
-以 AI 驱动的 ComfyUI 超级平台：把模型管理、图像/视频/音频生成、短剧与画布编排、3D、数字人、LoRA 训练串在同一条业务链路上。生产跑在 **core**（web `:3100` + api `:8090`），算力在 **Workstation**（4×RTX PRO 6000）；core 只做业务网关，不是 GPU 来源。
+AI 短剧和画布。公网入口是 [toiv.wineryz.top](https://toiv.wineryz.top)。未登录看到的是官网静态页，登录后进 `/studio` 画布。品牌名只用 ToIV。
 
-面向本机与局域网使用者（Winery 集群）。竞品对照是建设方向，不是完成声明。
+这份说明按 2026-10-09 的仓库和线上核对过的事实写。没在这次跑通的能力，不写成已经可用。
 
-最后更新：2026-08-30。
+## 仓库
 
-引擎文案（2026-08-28，本地 `0f6e723`/`f2885ee`，未推）：**H3=海螺 3.0，不是 Hailuo 2.3**（主路 `:8195`）。Wan2.2 与 LTX-2.3+10Eros 按 **R18** 写，不是 SFW 空镜默认。VACE 仅编辑/转场。没换模。
+两边 main 在这次推送前都停在 `398bd88a`（2026-10-08 23:48，上海时间）。
 
-LTX 竖版（本地 `859b60f`，未推）：height 上限 1080→1920，720×1280 不再 422。生产仍 le=1080。
+- GitHub：https://github.com/zhwangsir/ToIV.git
+- Gitee（origin）：https://gitee.com/Winery_z/ToIV.git
 
-LoRA 策划卡（本地 `93c275e`，未推）：提交时 AI 从策划卡选 LoRA，禁止 NAS 自由混。省略/null=auto，`[]`=off，非空=pin。生产仍无此能力。
+线上网页构建号是 `20261007-194448-7ce69c7f-dirty`。它不是 `398bd88a`，也不是官网合入记录 `a105720b`。这次只推代码，不部署。
 
-LTX R18 LoRA（本地 `e1f856e`，未推）：无概念卡时 auto 回退第一张 motion，不再空跑。H3/Wan 仍优先概念卡。
+## 这次合进来的
 
-助手超时回放（本地 `58cf643`，未推）：SSE 超时后 GET 会话回放已落库回复；小程序超时 180s→10min。生产还没有。
+从 `398bd88a` 起，只合了三条相对 main 还有独有提交、并且先前核对过的线：
 
-助手上下文（本地 `e833f33`/`a5e04ea`，未推）：帽 tool 正文 1800 字、去掉每轮 MCP schema；超长 400 半预算重试。长会话自动折叠，续聊只上传本轮 user；仍失败提示「这一条太长，请缩短本轮输入」，不再要求新开会话。32k GPU 硬顶仍在。生产还没有。
+- H3 服务令牌刷新 `feat/h3-token-refresh-r3`，尖端 `5bc8432c`。上传只允许 `kind=h3_i2v`。服务令牌不能读 workers，也不能读加速档。`CANVAS_API` 只能是 `127.0.0.1:8290`。说明在 `apps/canvas/deploy/h3-token-refresh/README.md`。代码在仓库里，没有部署，也没有在 staging 跑过一次真实刷新。线上管理员令牌大约 2026-10-13 13:29（上海时间）到期。
+- 古风色板和饰品门禁 `fix/ancient-spec-palette-fb10`，尖端 `3cc5ac63`。
+- 帽兜门禁 `fix/chybrid-ref-vlm-gate`，尖端 `e3c796cc`。
 
-Job.nsfw 合同（本地 `fb78872`，远程未推，**已上线 core**）：`X-NSFW` 只作成人页查看/创建门禁，不再给每条作品盖 18+。`Job.nsfw` / H3 换 10Eros 仅当请求体显式 `nsfw:true`（`h3-nsfw-*` / `wan-nsfw-*`）或钉了 R18 LoRA。pony/wai/illustrious 等两用底模不再整锅 18+。网页 `engines.ts` 已带 `nsfw:true`。生产库 3 条误标已改回 `nsfw=false`（4K 超分 `d79ca9cf…`、试穿 `t2v_00183_`/`t2v_00184_`）。本机远程未推。前端 BUILD_ID `20260829-185858-fb78872-dirty`。公网 `/api/health` 与 LAN `:8090`/`:3100` 200。
+## 这次没合的
 
-UX 体验包（本地 `eb51c86`，远程未推，**已上线 core**）：停止会 `cancelJob`/中止请求；主体封面走 i2v/img2img；时长 4–15s 加分段续写开关；作品库含 `h3_extend_i2v` 和 `cad_`/`drama_char_reference_` 前缀。远程未推。前端 BUILD_ID `20260829-213739-72a9c0f-dirty`（编网页时 HEAD 已是 docs `72a9c0f`；UX 代码仍是 `eb51c86`）。公网 `/api/health` 与 LAN `:8090`/`:3100` 200。
+- `feat/h3-token-refresh-r2`（`30386e18`）。`config.py` 曾经被截断，不要合。
+- `feat/canvas-multitenant`（`8c03b366`）和 `feat/canvas-multitenant-r2`（`9e2e204f`）。它们和令牌刷新改同一批 Go 文件。GitHub 上那份用户隔离此前是坏的，这次不并。
+- `fix/ancient-spec-palette`（`fdbd82d5`）。用上面的 `fb10`，不用这一条。
+- `claude/jovial-fermi-d7708a`（`44561d09`，2026-06-29）。上面还有 7 个不在 main 里的旧提交（PuLID、超分、批量转视频）。和现在的 main 差了一千五百多个提交，不直接合。
+- 其余远程分支相对 `398bd88a` 没有独有提交，已经在 main 里。`feat/h3-token-refresh-r4` 的指针就等于 `398bd88a`。
 
-补 SHA `f480ead`（远程未推，**已在 core**，不必重部署）：`fix(generate): fill UploadedRef previewUrl/name on entity-cover submit`。编生产包时漏的两行类型，当时未提交跟着 rsync 上去了。只动 `GenerateView.tsx`。
+## 运行口径
 
-## 这是什么 / 能做什么
+core 是 `merlin@100.77.80.100`，ToIV 在 `/home/merlin/toiv`，API `:8090`。重启前先 `compileall`，再 `sudo -n systemctl restart toiv-api`。
 
-Web 端（`apps/web`）当前真实模块（见 `app/page.tsx` 的 `VIEW_META`）：
+H3 生产是 `:8264`。`:8195` 只做试验。生图 `:8196`，LongCat / Wan / VACE `:8197`。不要碰 `:8205`、`:8261` 和 `cuda:3`。不要拿 `toiv.wineryz.top` 做测试。
 
-| 模块 | 做什么 |
-|------|--------|
-| 对话 | AI 助手（SSE 流式、工具调用、会话管理） |
-| 图片 / 视频 / 音频 | 多引擎生成（含 H3 文生/图生视频、LongCat、音乐等） |
-| 融合 | 多模态融合入口 |
-| 图片编辑 / 视频剪辑 | 语义编辑、Aleph 式视频编辑、Motion Brush、关键帧链式转场、多镜头协议 |
-| 动态分镜 / 创作 / 短剧 / 看板 | 短剧工作室、分镜与制片看板（`drama/` 为运行时素材，勿随意挪走） |
-| 数字人 | 形象库、TTS 直通对口型、直播助手、绿幕抠像；通用对口型走 workstation `:9103` |
-| 画布 | ComfyUI 画布（浏览器侧优先走 Tailscale 连 Workstation） |
-| 训练 | LoRA trainer（workstation `:9100`）+ i2L 风格 LoRA（`:9101`） |
-| 作品库 / 主体库 | 产物管理、主体/参考资产 |
-| 模型 / 资源 / Skill 市场 | 模型浏览、资源与 Skill |
-| 观测 / 设置 / 管理 | 集群舰队观测、账号与后台 |
+权重在 NAS 的 `toiv/comfyui-models`，不进 git。另一棵 `Windows/ComfyUI/ComfyUIModel/models` 是旧库，文件还在，不要把它的大小加进主库。
 
-后端（`apps/api`）是 FastAPI：作业编排、ComfyUI worker 池、鉴权、PostgreSQL 18 + Redis。视频评分器灰度走 spark01 上的 **Qwen3-VL-32B**；对话/编排用的 LLM 在 **spark02**。2026-08-26 起 core 对 Mac Studio 集群**零依赖**：反推 VLM 已迁 spark01，L2/L3 不在 Studio EXO 上。Studio 集群处于离线观察/退役，**不要假定它在为 ToIV 提供推理**。pc01 / pc02 作为 ComfyUI worker 经常不在线。
+## 文档
 
-数字人实时链路会调用兄弟目录的 OpenTalking 进程（默认 `http://127.0.0.1:4403`；生产在 Workstation `:4403`）。**`opentalking/` 已从本仓移出**，现位于 `ALLProject/opentalking`，禁止再 vendor 进 ToIV。
+- README.md：本文件
+- AGENTS.md、DEVELOPMENT.md、STATE.json、TEST_LOG.md：五件套里的另外四份。2026-10-09 还没按这次审计回写，不要拿里面的旧部署口径当现状。
+- `apps/canvas/README.md` 仍是上游画布的原文，这次没有改名。
 
-移动端只留一套：[`MiniProgram/`](MiniProgram/)（uni-app，微信为主；必要时再出 App）。原先的 Expo `Mobile/` 已于 2026-08-27 归档到 [`.archive/mobile-expo-20260827/`](.archive/mobile-expo-20260827/)，不再双轨维护。
-
-## 生产与访问
-
-业务进程在 **core**（LAN `192.168.71.47`，Tailscale `100.77.80.100`）：
-
-| 服务 | 端口 | 说明 |
-|------|------|------|
-| toiv-web | `:3100` | Next.js 生产，systemd `toiv-web` |
-| toiv-api | `:8090` | FastAPI 生产，systemd `toiv-api` |
-| PostgreSQL 18 / Redis | 本机回环 | 只 bind `127.0.0.1`，从 LAN IP 探测会误报 down |
-
-公网入口（经 frp / OpenResty，不含凭据）：
-
-- `toiv.dgmt.top`（香港 cloud）
-- `toiv.wineryz.top`（北京）
-
-跨地区浏览器访问优先 Tailscale，不要把 LAN 地址写进给外网用户的入口。算力与引擎（ComfyUI、H3 `:8195`、trainer `:9100`、i2L `:9101`、TTS、3D 纹理等）全部在 Workstation；**完整设备/端口/GPU 表只在 [AGENTS.md](AGENTS.md)**，本 README 不复制。
-
-部署：在本仓根执行 `bash deploy/deploy.sh`（rsync 到 core + 重启 + 健康等待）。前端变更必须干净重建 `apps/web/.next` 后再部署，并确认 `.next/BUILD_ID` 属于当次代码，否则会静默上线旧前端（见 DEVELOPMENT.md）。
-
-## 技术栈与仓库布局
-
-
-| 层 | 技术 |
-|----|------|
-| 后端 | FastAPI 0.115+ / Python 3.11+ / SQLModel / uvicorn |
-| 前端 | Next.js 15 / React 19 / TypeScript |
-| 数据 | PostgreSQL 18、Redis 7+（生产在 core） |
-| 工作流 | ComfyUI + MiniMax H3 + LongCat/VACE 等专用实例 |
-| 移动 | uni-app 3 + Vue 3 + Pinia + Vite 5（MiniProgram/，微信；App 必要时再出） |
-
-顶层目录：apps/api、apps/web、MiniProgram、deploy、scripts、drama、.archive，以及五件套。opentalking 在兄弟目录，不在本仓。
-
-## 本地开发
-
-命令以 [DEVELOPMENT.md](DEVELOPMENT.md) 第 1 节为准，2026-08-27 核验仍有效。
-
-### 后端（本机常听 :8080，不是生产的 :8090）
-
-在 `apps/api` 复制环境示例后同步依赖并启动（开发端口 8080）：
-
-    uv sync --extra dev
-    uv run uvicorn app.main:app --reload --port 8080
-    uv run pytest
-
-### 前端（与生产相同端口 :3100）
-
-在 `apps/web` 复制环境示例，安装依赖后启动开发服务器。浏览器打开 http://localhost:3100。
-
-没有本机引擎时生成会失败，这是预期。移动端见 MiniProgram/README.md。
-
-## 文档五件套
-
-- README.md：产品入口（本文件）
-- AGENTS.md：集群操作记忆（设备表只放这里）
-- DEVELOPMENT.md：架构、接口、部署、测试、仓库结构
-- STATE.json：状态快照，不要当产品说明读
-- TEST_LOG.md：测试与核验日志
-
-工作区总索引见上级 README 与项目登记册。
-
-## 远程
-
-双远程与工作区规则一致：
-
-- origin：Gitee 主远程，https://gitee.com/Winery_z/ToIV.git
-- github：GitHub，https://github.com/zhwangsir/ToIV.git
-
-两边都推。未要求不要提交。模型与产物放 NAS，不入库。
-
-2026-08-27 晚：Gitee main 25cdc6a；GitHub 仍 a8ac995（推送被拦，不强推）。ACE-Step 1.5（41ea514 / 997a387）已在 Gitee main，生产此前已部署过。作品库 Job.kind：chromakey 视频/抠像；wan_animate 视频/动作迁移；wan_animate2 视频/动作迁移2；i2l 图像/风格LoRA（POST /api/train/i2l 目前不建 Job）；motion_brush 图像/局部动效（目前只出 mask 文件名）。引擎 id wan-animate / wan-animate-2 仍进其他。不要把 Mobile/ 写成现役。
+本地开发命令以 DEVELOPMENT.md 为准。模型、成片和 `tmp/` 里的试片不要提交。
