@@ -43,7 +43,7 @@ type SchemaStatus struct {
 // and managed model catalogs are deliberately absent.
 func LocalModels() []any {
 	return []any{
-		&model.Workspace{}, &model.IDSequence{}, &model.SystemSetting{}, &model.UserDailyActivity{},
+		&model.Workspace{}, &model.WorkspaceIdentity{}, &model.IDSequence{}, &model.SystemSetting{}, &model.UserDailyActivity{},
 		&model.ModelChannel{}, &model.ChannelModel{}, &model.ChannelModelVariant{}, &model.ApiCallLog{},
 		&model.LogicalModel{}, &model.LogicalModelRevision{}, &model.LogicalModelRoute{}, &model.RouteAttempt{},
 		&model.ImageSubmission{},
