@@ -307,6 +307,11 @@ func (f Failure) displayCopy() (string, string) {
 	if strings.TrimSpace(f.Reason) != "" {
 		return strings.TrimSpace(f.Reason), strings.TrimSpace(f.Action)
 	}
+	if f.Category == CategoryInvalidParams {
+		if detail := invalidParamsDetail(f.ProviderMessage); detail != "" {
+			return invalidParamsDetailPrefix + detail, ""
+		}
+	}
 	copyText := categoryCopies[f.Category]
 	if copyText.Reason == "" {
 		copyText = categoryCopies[CategoryUnknown]
@@ -481,6 +486,9 @@ func ClassifyText(raw string) Failure {
 	text := strings.TrimSpace(raw)
 	if text == "" {
 		return normalizeFailure(failure)
+	}
+	if f, ok := persistedInvalidParamsDetail(text); ok {
+		return normalizeFailure(f)
 	}
 	if f, ok := persistedModerationCopy(text); ok {
 		f.RequestID, f.TaskID = persistedReferenceIDs(text)
