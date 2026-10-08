@@ -3,18 +3,19 @@
 
 Why: the retired BeefTV gate (serve.mjs syncChannelToken) wrote the logged-in user's ToIV JWT into
 the canvas-api channels whose model profiles use protocol "toiv-h3" (and the "toiv-llm" channel)
-on every login, via GET/PUT /api/workspace/model-config signed with the gate identity header.
-Since the gate retired nothing writes it, so H3 in /studio starts returning 401 once that JWT
-expires. This script does the same write on a timer, with a dedicated SERVICE ACCOUNT whose token
-is scope-limited by ToIV to the H3 endpoints (POST /api/auth/service-token, scope "h3"): it is not
-an admin JWT, it cannot call any other ToIV API, and canvas-api keeps it server-side (browsers only
-ever see the redaction marker; the server injects it into H3 tasks).
+on every login. Since the gate retired nothing writes it, so H3 in /studio starts returning 401
+once that JWT expires. This script replaces it on a timer with a dedicated SERVICE ACCOUNT token
+that ToIV scope-limits to the H3 endpoints (POST /api/auth/service-token, scope "h3"). It is not an
+admin JWT and it is not a login session: an unscoped login JWT is never written. canvas-api keeps
+the token server-side (browsers only see the redaction marker; the server injects it into H3 tasks).
+ToIV is contacted only at http://127.0.0.1:8090; any other TOIV_API is refused before the password
+is sent.
 
 Steps per run:
   1. Read the H3 credential that canvas-api currently holds and report its remaining validity.
-  2. POST {TOIV_API}/api/auth/service-token {scope: h3} with the service account -> scoped JWT;
+  2. POST http://127.0.0.1:8090/api/auth/service-token {scope: h3} -> scoped JWT;
      verify it: an H3 endpoint accepts it and /api/auth/me refuses it (403 = scope enforced).
-     (TOKEN_MODE=login keeps the legacy full-login token for a ToIV without the endpoint; it warns.)
+     There is no login-token mode.
   3. GET model-config, set apiKey on every toiv-h3 channel (and toiv-llm with an "llm"-scoped
      token when SYNC_LLM_CHANNEL=1), PUT it back with expectedRevision (409 -> re-read and retry).
   4. Read back and verify the stored credential is the new one; report the new expiry.
@@ -29,8 +30,7 @@ Modes: (default) refresh | --check (read-only: report + warn) | --dry-run (login
 Exit codes: 0 ok, 1 refresh failed or validity below the warning threshold, 2 bad configuration.
 
 Configuration (environment, usually from an EnvironmentFile; see README.md):
-  TOIV_API             default http://127.0.0.1:8090 (the only ToIV address used; outbound allowlist)
-  TOKEN_MODE           service (default: scoped service token) | login (legacy, warns)
+  TOIV_API             must be http://127.0.0.1:8090 (the only accepted value; default)
   CANVAS_API           default http://127.0.0.1:8290
   CANVAS_ENV_FILE      canvas-api EnvironmentFile; BEEFTV_GATE_UID / BEEFTV_GATE_KEY_FILE are read
                        from it unless CANVAS_GATE_UID / CANVAS_GATE_KEY_FILE are set
@@ -94,11 +94,11 @@ def describe(token):
 class Settings:
     def __init__(self, env):
         self.toiv = env.get("TOIV_API", "http://127.0.0.1:8090").rstrip("/")
+        require_local_toiv(self.toiv)
+        if env.get("TOKEN_MODE", "").strip():
+            raise ConfigError("TOKEN_MODE is removed; this script only stores a scoped service token")
         self.canvas = env.get("CANVAS_API", "http://127.0.0.1:8290").rstrip("/")
         self.sync_llm = env.get("SYNC_LLM_CHANNEL", "0") == "1"
-        self.token_mode = env.get("TOKEN_MODE", "service").strip().lower()
-        if self.token_mode not in ("service", "login"):
-            raise ConfigError("TOKEN_MODE must be service or login")
         self.retired_file = env.get("RETIRED_FILE", "")
         self.warn_hours = float(env.get("WARN_HOURS", "48"))
         self.attempts = max(1, int(env.get("REFRESH_ATTEMPTS", "4")))
@@ -232,17 +232,18 @@ def verify_scoped(s, token, scope):
         raise RuntimeError(f"fresh {scope} token is not scope-limited (/api/auth/me HTTP {status}, want 403)")
 
 
+def require_local_toiv(url):
+    """Password-bearing calls may only go to the local ToIV API. Checked before any request."""
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+    if parsed.scheme != "http" or host != "127.0.0.1" or parsed.port != 8090 or parsed.username or parsed.password:
+        raise ConfigError("TOIV_API must be http://127.0.0.1:8090; refusing to send the service password anywhere else")
+
+
 def login(s):
-    """Fresh credentials for this run: {"h3": token, "llm": token?}."""
-    if s.token_mode == "login":
-        log("WARNING", "TOKEN_MODE=login: storing a full (unscoped) ToIV session token; switch to TOKEN_MODE=service")
-        email, password = s.credentials()
-        status, j = http_json("POST", s.toiv + "/api/auth/login", body={"email": email, "password": password})
-        token = _token_from(status, j, "login")
-        status, _ = http_json("GET", s.toiv + "/api/auth/me", headers={"authorization": "Bearer " + token})
-        if status != 200:
-            raise RuntimeError(f"fresh token rejected by /api/auth/me (HTTP {status})")
-        return {"h3": token, "llm": token}
+    """Fresh scoped service tokens for this run: {"h3": token, "llm": token?}."""
+    require_local_toiv(s.toiv)
     tokens = {"h3": mint_service_token(s, "h3")}
     verify_scoped(s, tokens["h3"], "h3")
     if s.sync_llm:
@@ -349,7 +350,7 @@ def main(argv):
                 token = tokens["h3"]
                 fresh = describe(token)
                 fresh["scope"] = jwt_claims(token).get("scope")
-                log("INFO", f"attempt {attempt}: new ToIV token mode={s.token_mode} scope={fresh['scope']} "
+                log("INFO", f"attempt {attempt}: new ToIV service token scope={fresh['scope']} "
                             f"fp={fresh['fingerprint']} sub={fresh['sub']} exp={fresh['exp']}")
             if mode == "dry-run":
                 status.update(ok=True, fresh=fresh)
@@ -363,7 +364,7 @@ def main(argv):
             after = describe(got)
             after["scope"] = jwt_claims(got).get("scope")
             status.update(ok=True, after=after, channels=h3_ids, llmChannels=llm_ids, revision=rev, attempts=attempt,
-                          tokenMode=s.token_mode, retiredRecorded=retired)
+                          retiredRecorded=retired)
             log("INFO", f"refreshed: h3={h3_ids} llm={llm_ids} revision={rev} scope={after['scope']} fp={after['fingerprint']} "
                         f"exp={after['exp']} hoursLeft={after['hoursLeft']} retiredRecorded={retired}")
             if after["hoursLeft"] is not None and after["hoursLeft"] < s.warn_hours:

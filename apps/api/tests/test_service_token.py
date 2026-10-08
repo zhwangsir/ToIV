@@ -44,6 +44,7 @@ def env(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "service_accounts", "svc_canvas_h3, boss")
     monkeypatch.setattr(settings, "service_token_expire_minutes", 60)
     revoked = tmp_path / "revoked.json"
+    revoked.write_text('{"tokens": [], "users": {}}')
     monkeypatch.setattr(settings, "revoked_tokens_file", str(revoked))
     token_policy.reset_cache_for_tests()
     yield TestClient(app), ids, revoked
@@ -105,6 +106,10 @@ def test_h3_scope_allows_only_h3_endpoints(env):
         ("POST", "/api/h3/multishot", {"json": {}}),
         ("POST", "/api/llm/v1/chat/completions", {"json": {}}),
         ("GET", "/api/h3/t2v", {}),
+        ("GET", "/api/h3/workers", {}),
+        ("GET", "/api/h3/acceleration/profiles", {}),
+        ("POST", "/api/upload?kind=h3_fl2v", {}),
+        ("POST", "/api/upload?kind=h3_i2v_extra", {}),
     ):
         st = client.request(method, path, headers=h, **kw).status_code
         assert st in (403, 405), (method, path, st)
@@ -158,3 +163,49 @@ def test_revocation_by_fingerprint_and_by_user(env):
     # a corrupt file keeps the last good list instead of reopening revoked tokens
     revoked.write_text("{not json")
     assert client.get("/api/auth/me", headers=bearer(other)).status_code == 401
+
+
+def test_settings_load_service_token_fields_from_env(monkeypatch, tmp_path):
+    """Fields must be real Settings attributes. extra=ignore drops unknown env names,
+    and the endpoint/revocation code reads them directly, so a missing field is a bug
+    the monkeypatched tests above cannot see.
+    """
+    from app.config import Settings
+
+    revoked = tmp_path / "revoked.json"
+    monkeypatch.setenv("TOIV_SERVICE_ACCOUNTS", "svc_canvas_h3, other")
+    monkeypatch.setenv("TOIV_SERVICE_TOKEN_EXPIRE_MINUTES", "90")
+    monkeypatch.setenv("TOIV_REVOKED_TOKENS_FILE", str(revoked))
+    loaded = Settings()
+    assert loaded.service_accounts == "svc_canvas_h3, other"
+    assert loaded.service_token_expire_minutes == 90
+    assert loaded.revoked_tokens_file == str(revoked)
+    # the live route and the revocation check use these attributes, not getattr defaults
+    monkeypatch.setattr("app.routes.auth.get_settings", lambda: loaded)
+    monkeypatch.setattr("app.token_policy.get_settings", lambda: loaded)
+    monkeypatch.setattr("app.deps.get_settings", lambda: loaded)
+
+
+def test_revoked_token_stays_dead_after_file_deleted_and_same_second_cutoff(env):
+    client, ids, revoked = env
+    tok = create_token(ids["tester"])
+    claims = decode_token_claims(tok)
+    assert client.get("/api/auth/me", headers=bearer(tok)).status_code == 200
+    revoked.write_text(json.dumps({"tokens": [token_sha256(tok)], "users": {}}))
+    assert client.get("/api/auth/me", headers=bearer(tok)).status_code == 401
+    revoked.unlink()
+    again = client.get("/api/auth/me", headers=bearer(tok))
+    assert again.status_code == 401 and again.json()["detail"] == "令牌已吊销"
+    # a cutoff at exactly the token's iat must revoke it (same second)
+    other = create_token(ids["boss"])
+    other_iat = int(decode_token_claims(other)["iat"])
+    token_policy.reset_cache_for_tests()
+    revoked.write_text(json.dumps({"tokens": [], "users": {ids["boss"]: other_iat}}))
+    assert client.get("/api/auth/me", headers=bearer(other)).status_code == 401
+    # a configured path that was never readable fails closed (not "nothing revoked")
+    missing = revoked.parent / "never-created.json"
+    token_policy.reset_cache_for_tests()
+    from app.config import get_settings
+    get_settings().revoked_tokens_file = str(missing)
+    fresh = create_token(ids["tester"])
+    assert client.get("/api/auth/me", headers=bearer(fresh)).status_code == 401

@@ -460,6 +460,13 @@ func (s *ProviderConfig) rotateBackup() error {
 	return nil
 }
 
+// RedactSecrets replaces every credential-like field (apiKey, secretKey, *token, *secret,
+// header values) in a decoded config value with RedactedSecret, in place.
+func RedactSecrets(value any) { redactSecrets(value) }
+
+// IsRedactedSecret reports whether value is the redaction marker.
+func IsRedactedSecret(value any) bool { return isRedactedMarker(value) }
+
 func redactSecrets(value any) {
 	switch typed := value.(type) {
 	case map[string]any:

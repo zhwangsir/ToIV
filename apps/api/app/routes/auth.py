@@ -130,7 +130,7 @@ def service_token(
     供服务端定时任务使用(如 canvas-api 的 H3 渠道凭据刷新),不面向浏览器。
     """
     s = get_settings()
-    allowed = {a.strip().lower() for a in (getattr(s, "service_accounts", "") or "").split(",") if a.strip()}
+    allowed = {a.strip().lower() for a in (s.service_accounts or "").split(",") if a.strip()}
     if not allowed:
         raise HTTPException(status_code=404, detail="服务令牌未启用")
     enforce_login_rate_limit(_client_ip(request), body.email)
@@ -143,7 +143,7 @@ def service_token(
         raise HTTPException(status_code=403, detail="服务账号不能是管理员")
     if body.scope not in SCOPES:
         raise HTTPException(status_code=400, detail="未知的令牌 scope")
-    minutes = int(getattr(s, "service_token_expire_minutes", 0) or s.jwt_expire_minutes)
+    minutes = int(s.service_token_expire_minutes or s.jwt_expire_minutes)
     return {
         "token": create_token(user.id, scope=body.scope, expire_minutes=minutes),
         "scope": body.scope,

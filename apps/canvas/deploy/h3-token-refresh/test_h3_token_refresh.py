@@ -115,7 +115,7 @@ def server(fake):
             fake.config = body["config"]; fake.revision += 1
             self.send(200, {"data": {"saved": True, "revision": fake.revision}})
 
-    s = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    s = ThreadingHTTPServer(("127.0.0.1", 8090), H)
     threading.Thread(target=s.serve_forever, daemon=True).start()
     return s
 
@@ -124,7 +124,7 @@ class RefreshTests(unittest.TestCase):
     def setUp(self):
         self.fake = Fake()
         self.srv = server(self.fake)
-        base = f"http://127.0.0.1:{self.srv.server_address[1]}"
+        base = "http://127.0.0.1:8090"
         self.dir = tempfile.mkdtemp()
         key = os.path.join(self.dir, "gate_key"); write(key, KEY)
         cred = os.path.join(self.dir, "cred.env"); write(cred, "TOIV_H3_EMAIL=svc@x\nTOIV_H3_PASSWORD=pw\n", 0o600)
@@ -162,7 +162,7 @@ class RefreshTests(unittest.TestCase):
         self.assertEqual(ch["toiv-llm"], self.fake.old, "llm channel untouched by default")
         self.assertEqual(ch["other"], "keep-me")
         st = self.status()
-        self.assertTrue(st["ok"]); self.assertEqual(st["after"]["scope"], "h3"); self.assertEqual(st["tokenMode"], "service")
+        self.assertTrue(st["ok"]); self.assertEqual(st["after"]["scope"], "h3"); self.assertNotIn("tokenMode", st)
         self.assertGreater(st["after"]["hoursLeft"], 167); self.assertLess(st["before"]["hoursLeft"], 31)
         self.assertIsNone(st["before"]["scope"])
 
@@ -181,11 +181,36 @@ class RefreshTests(unittest.TestCase):
         self.assertIn("not scope-limited", text)
         self.assertEqual({c["id"]: c["apiKey"] for c in self.fake.config["channels"]}["h3"], self.fake.old)
 
-    def test_legacy_login_mode_still_works_and_warns(self):
+    def test_login_mode_is_refused_and_writes_nothing(self):
         code, text = self.run_main(TOKEN_MODE="login")
-        self.assertEqual(code, 0, text)
-        self.assertIn("TOKEN_MODE=login", text)
-        self.assertIsNone(r.jwt_claims({c["id"]: c["apiKey"] for c in self.fake.config["channels"]}["h3"]).get("scope"))
+        self.assertEqual(code, 2, text)
+        self.assertIn("TOKEN_MODE is removed", text)
+        self.assertEqual(self.fake.logins, 0)
+        self.assertEqual({c["id"]: c["apiKey"] for c in self.fake.config["channels"]}["h3"], self.fake.old)
+
+    def test_non_local_toiv_api_is_refused_before_the_password_is_sent(self):
+        hits = {"n": 0}
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                hits["n"] += 1
+                self.send_response(500); self.end_headers()
+
+            do_GET = do_PUT = do_POST
+
+        sink = ThreadingHTTPServer(("127.0.0.1", 8091), H)
+        threading.Thread(target=sink.serve_forever, daemon=True).start()
+        try:
+            code, text = self.run_main(TOIV_API="http://127.0.0.1:8091")
+        finally:
+            sink.shutdown(); sink.server_close()
+        self.assertEqual(code, 2, text)
+        self.assertIn("127.0.0.1:8090", text)
+        self.assertEqual(hits["n"], 0, "password was sent to a non-allowlisted address")
+        self.assertEqual({c["id"]: c["apiKey"] for c in self.fake.config["channels"]}["h3"], self.fake.old)
 
     def test_retired_credentials_recorded_as_fingerprints_only(self):
         retired = os.path.join(self.dir, "retired.sha256")

@@ -2,26 +2,30 @@
 
 ## Why
 `/studio` generates H3 video through the `toiv-h3` provider plugin. The plugin authenticates to
-ToIV (`127.0.0.1:8090/api/h3/*`, which forwards to the H3 service on :8264) with a **ToIV JWT**
-stored as the `apiKey` of the canvas-api channel(s) whose model profiles use protocol `toiv-h3`.
-The assistant's `toiv-llm` channel uses the same kind of key for `/api/llm/v1`.
+ToIV (`http://127.0.0.1:8090/api/h3/*`, which forwards to the H3 service on :8264) with a **scoped
+service token** stored as the `apiKey` of the canvas-api channel(s) whose model profiles use protocol
+`toiv-h3`. It is not a user's login JWT and not an admin JWT. The token is minted at
+`POST http://127.0.0.1:8090/api/auth/service-token` with `scope=h3` for a non-admin account listed in
+`TOIV_SERVICE_ACCOUNTS`. ToIV accepts it only on the H3 submit, `POST /api/upload?kind=h3_i2v`,
+job lookup, cancel and image-download endpoints. `/api/auth/me`, job lists, `/api/h3/workers` and
+`/api/h3/acceleration/profiles` answer 403. canvas-api never sends the token to a browser: model-config
+reads through the ToIV login door return `__BEEFTV_REDACTED__`, and the server injects the stored
+value into tasks (encrypted before the quote/create response).
 
-ToIV JWTs live 7 days (`jwt_expire_minutes=10080`). The retired BeefTV gate
-(`deploy/toiv-staging/gate/serve.mjs`, `syncChannelToken`) used to overwrite both keys with the
-logged-in user's JWT on every login: `GET /api/workspace/model-config` → set `apiKey` →
-`PUT /api/workspace/model-config {config, expectedRevision}`, signed with the gate identity header
-`X-Beeftv-Gate-Auth` (HMAC-SHA256 with the key in `BEEFTV_GATE_KEY_FILE`). Since the gate was
-retired (b9273463) nothing refreshes it. On 2026-10-08 the prod key belonged to the admin user and
-expired **2026-10-13 13:29 (UTC+8)**; after that H3 in `/studio` returns 401.
+The retired BeefTV gate used to overwrite the channel key with whoever had just logged in. That
+stopped when the gate was retired, and the key then in prod was an admin session JWT expiring
+**2026-10-13 13:29 (UTC+8)**. This script is the replacement, and it will not write a login JWT:
+`TOKEN_MODE` is rejected, and `TOIV_API` must be exactly `http://127.0.0.1:8090` or the run exits
+before the password is sent.
 
-`h3_token_refresh.py` does the same write on a timer, using a dedicated service account:
-1. reads the credential canvas-api holds now and logs its remaining validity;
-2. logs in to ToIV (`POST /api/auth/login`) → fresh 7-day JWT, verified with `/api/auth/me`;
-3. writes it into every `toiv-h3` channel (+ `toiv-llm`, `SYNC_LLM_CHANNEL=1`), 409 → re-read, retry;
-4. reads it back and checks it is the new one; logs the new expiry.
+`h3_token_refresh.py` on a timer:
+1. reads the credential canvas-api holds now (gate-signed internal identity) and logs its remaining validity;
+2. mints a fresh h3-scoped service token and checks that `/api/auth/me` answers 403;
+3. writes it into every `toiv-h3` channel (and, only if `SYNC_LLM_CHANNEL=1`, an llm-scoped token into `toiv-llm`), 409 → re-read, retry;
+4. reads it back and checks it is the new one; logs the new expiry and the sha256 of whatever it replaced.
 
 Failures are retried (`REFRESH_ATTEMPTS`, backoff 30 s / 60 s / 120 s; the ToIV login is done once
-per run because `/api/auth/login` is rate-limited to 5/min per IP+account). Every failure logs a
+per run because `/api/auth/service-token` shares the login rate limit, 5/min per IP+account). Every failure logs a
 `WARNING`; a final failure logs `ERROR … FAILED` and exits 1 (the unit shows `failed`). Validity
 under `WARN_HOURS` (48) logs `WARNING H3 credential expires in … h` and exits 1. Tokens are never
 logged — only an 8-hex sha256 fingerprint, the JWT subject prefix and the expiry. `STATUS_FILE`
@@ -129,8 +133,9 @@ the redaction/injection code ships with the canvas-api build of this branch.
 ## Tests
 `python3 -m unittest -v test_h3_token_refresh.py` — offline, fake ToIV + fake canvas-api on loopback:
 stores only a scoped `h3` token (refuses a token ToIV does not scope-limit), `llm`-scoped token for
-toiv-llm only when enabled, legacy `TOKEN_MODE=login` warns, replaced credentials recorded as sha256
-only (0600), leaves other channels alone, 409 retry, login failure → 3
+toiv-llm only when enabled, `TOKEN_MODE` and any TOIV_API other than http://127.0.0.1:8090 are refused
+before the password is sent, replaced credentials recorded as sha256
+only (0600), leaves other channels alone, 409 retry, mint failure → 3
 attempts + ERROR + 48 h warning + exit 1, canvas failure → retries without re-login, `--check` is
 read-only and warns under the threshold, wrong identity key → 401, readable credential file → exit 2,
 and no token ever appears in the output.
