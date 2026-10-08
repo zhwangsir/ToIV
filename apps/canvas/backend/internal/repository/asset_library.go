@@ -84,7 +84,7 @@ func (r *Repository) UserAssetQuickFilterCounts(userID string) (favorite int64, 
 }
 
 func (r *Repository) UserAssetProjectCounts(userID string) ([]UserAssetFacetRow, error) {
-	expr := userAssetProjectLabelSQL()
+	expr := userAssetProjectLabelSQL(r.Dialect())
 	var rows []UserAssetFacetRow
 	err := userAssetFilteredQuery(
 		r.db.Model(&model.Asset{}).Where("user_id = ? AND kind <> ?", userID, "entity"),
@@ -112,6 +112,7 @@ func (r *Repository) UserAssetGeneratedCounts(userID string) (total int64, kindR
 }
 
 func userAssetFilteredQuery(query *gorm.DB, filter UserAssetPageFilter, includeSearch bool) *gorm.DB {
+	dialect := query.Dialector.Name()
 	if value := strings.TrimSpace(filter.Kind); value != "" {
 		query = query.Where("kind = ?", value)
 	}
@@ -139,32 +140,33 @@ func userAssetFilteredQuery(query *gorm.DB, filter UserAssetPageFilter, includeS
 		}
 	}
 	if filter.Favorite {
-		query = query.Where("json_extract(payload_json, '$.metadata.favorite') IN (1, 'true', '1')")
+		query = query.Where(jsonTruthySQL(dialect, "payload_json", "metadata", "favorite"))
 	}
 	if filter.Recent {
 		query = query.Where("updated_at >= ?", time.Now().UTC().Add(-userAssetRecentDuration))
 	}
 	if value := strings.TrimSpace(filter.Project); value != "" {
-		query = query.Where(userAssetProjectLabelSQL()+" = ?", value)
+		query = query.Where(userAssetProjectLabelSQL(dialect)+" = ?", value)
 	}
 	if filter.Generated {
-		query = query.Where(userAssetGeneratedSQL())
+		query = query.Where(userAssetGeneratedSQL(dialect))
 	}
 	return query
 }
 
-func userAssetGeneratedSQL() string {
+func userAssetGeneratedSQL(dialect string) string {
 	return `(kind IN ('image','video','audio') AND (
-		json_extract(payload_json, '$.source') = '生成任务'
-		OR json_type(payload_json, '$.metadata.generationEffectKey') = 'text'
+		` + jsonTextSQL(dialect, "payload_json", "source") + ` = '生成任务'
+		OR ` + jsonIsStringSQL(dialect, "payload_json", "metadata", "generationEffectKey") + `
 	))`
 }
 
-func userAssetProjectLabelSQL() string {
+func userAssetProjectLabelSQL(dialect string) string {
+	projectName := jsonTextSQL(dialect, "payload_json", "metadata", "projectName")
 	return `CASE
-		WHEN TRIM(COALESCE(CAST(json_extract(payload_json, '$.metadata.projectName') AS TEXT), '')) != ''
-			THEN TRIM(CAST(json_extract(payload_json, '$.metadata.projectName') AS TEXT))
-		WHEN COALESCE(json_array_length(payload_json, '$.metadata.projectIds'), 0) > 0
+		WHEN TRIM(COALESCE(` + projectName + `, '')) != ''
+			THEN TRIM(` + projectName + `)
+		WHEN ` + jsonArrayLengthSQL(dialect, "payload_json", "metadata", "projectIds") + ` > 0
 			THEN '` + userAssetLinkedProjectLabel + `'
 		ELSE '` + userAssetUnlinkedProjectLabel + `'
 	END`
