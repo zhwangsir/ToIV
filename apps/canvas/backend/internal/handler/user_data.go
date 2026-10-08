@@ -1,1 +1,1 @@
-@agent-tools/m7_user_data.go.txt
+LOAD_FROM:/tmp/m7_push/create_user_data_args.json
