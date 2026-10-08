@@ -120,6 +120,13 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./toiv.db"
     jwt_secret: str = "dev-insecure-change-me-in-production-please-set-TOIV_JWT_SECRET"
     jwt_expire_minutes: int = 10080  # 7 天
+    # 受限服务令牌(POST /api/auth/service-token)。只有清单内的非管理员账号能换取;
+    # 空 = 端点关闭(404)。环境变量 TOIV_SERVICE_ACCOUNTS(逗号分隔,账号名小写)。
+    service_accounts: str = ""
+    service_token_expire_minutes: int = 10080
+    # 令牌吊销清单 JSON({"tokens":[sha256...],"users":{"<uid>": <unix 秒>}})。
+    # 路径一旦配置,文件缺失或不可读按「全部拒绝」处理(删文件不能解除吊销);见 token_policy.py。
+    revoked_tokens_file: str = ""
 
     # 可信反向代理网段(逗号分隔 CIDR 或单 IP):仅当请求的直连对端(request.client.host)
     # 属于该清单时,登录限流才采纳 X-Forwarded-For 首跳作为真实客户端 IP。

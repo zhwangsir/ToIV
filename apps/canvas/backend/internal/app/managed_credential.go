@@ -28,6 +28,7 @@ func (s *Service) resolveManagedBeefAPISecrets(input map[string]any) (map[string
 	if input == nil {
 		return input, nil
 	}
+	input = s.resolvePlatformChannelSecrets(input)
 	config, ok := input["config"].(map[string]any)
 	if !ok {
 		return input, nil
@@ -143,6 +144,7 @@ func (s *Service) ResolveCustomRelayAPIKey(targetURL, incoming string) (string, 
 }
 
 func (s *Service) resolveCustomRelayKey(targetURL, incoming string) (string, error) {
+	incoming = s.platformRelayKey(targetURL, incoming)
 	// An unrelated custom channel must remain usable even if the managed
 	// connection is revoked. Resolve its secret only for the bound origin.
 	if s.beefAPI != nil && s.beefAPI.HasManagedCredential() && !sameCredentialOrigin(targetURL, s.beefAPI.Origin()) {

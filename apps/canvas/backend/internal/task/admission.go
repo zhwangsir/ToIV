@@ -153,14 +153,9 @@ func (s *Service) admit(userID string, req CreateRequest) (*model.Task, error) {
 	if err := s.deps.Projects.EnsureActive(userID, req.ProjectID); err != nil {
 		return nil, err
 	}
-	if req.PrepareOnly {
-		encoded, encodeErr := encodeTaskInput(normalizedInput)
-		if encodeErr != nil {
-			return nil, encodeErr
-		}
-		task.InputJSON = encoded
-		return &task, nil
-	}
+	// Encrypt before the row is either returned (PrepareOnly / quote) or persisted.
+	// Quote reads task.InputJSON back into the prepared input; leaving the injected
+	// platform apiKey in plaintext here puts it on the quote-create response.
 	if err := s.deps.Secrets.Protect(normalizedInput); err != nil {
 		return nil, err
 	}
@@ -169,6 +164,9 @@ func (s *Service) admit(userID string, req CreateRequest) (*model.Task, error) {
 		return nil, err
 	}
 	task.InputJSON = inputJSON
+	if req.PrepareOnly {
+		return &task, nil
+	}
 	if s.deps.Persist == nil {
 		return nil, localStorageFailed(errors.New("task persistence is required"))
 	}
