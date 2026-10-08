@@ -1,1 +1,1 @@
-LOAD_FROM_FILE:/tmp/m7_push/_ud_content_only.txt
+{{FILE:/tmp/m7_push/_ud_content_only.txt}}
