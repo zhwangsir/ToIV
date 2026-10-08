@@ -29,7 +29,13 @@ type ToivJWTAuth struct {
 	CookieName string // defaults to "toiv_session"; "" disables the cookie door
 
 	mu    sync.Mutex
-	cache map[string]time.Time // sha256(token) -> verdict valid until
+	cache map[string]toivVerdict // sha256(token) -> verdict
+}
+
+type toivVerdict struct {
+	until time.Time
+	uid   string
+	role  string
 }
 
 const toivAuthCacheLimit = 256
@@ -58,6 +64,12 @@ func (a *ToivJWTAuth) client() *http.Client {
 // Authenticate reports whether the request carries a currently-valid ToIV token, either as an
 // Authorization bearer header or as the login gate's session cookie.
 func (a *ToivJWTAuth) Authenticate(r *http.Request) bool {
+	_, _, ok := a.Identify(r)
+	return ok
+}
+
+// Identify is Authenticate plus the introspected ToIV user id and role (M7 multi-tenant).
+func (a *ToivJWTAuth) Identify(r *http.Request) (string, string, bool) {
 	token := ""
 	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
 		token = strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
@@ -67,49 +79,54 @@ func (a *ToivJWTAuth) Authenticate(r *http.Request) bool {
 		}
 	}
 	if token == "" || len(token) > 4096 {
-		return false
+		return "", "", false
 	}
 	sum := sha256.Sum256([]byte(token))
 	key := hex.EncodeToString(sum[:])
 	now := a.now()
 	a.mu.Lock()
 	if a.cache == nil {
-		a.cache = make(map[string]time.Time)
+		a.cache = make(map[string]toivVerdict)
 	}
-	if exp, ok := a.cache[key]; ok && now.Before(exp) {
+	if verdict, ok := a.cache[key]; ok && now.Before(verdict.until) {
 		a.mu.Unlock()
-		return true
+		return verdict.uid, verdict.role, true
 	}
 	a.mu.Unlock()
 
 	req, err := http.NewRequest(http.MethodGet, strings.TrimRight(a.BaseURL, "/")+"/api/auth/me", nil)
 	if err != nil {
-		return false
+		return "", "", false
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := a.client().Do(req)
 	if err != nil {
-		return false
+		return "", "", false
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return false
+		return "", "", false
 	}
 	var body struct {
 		User struct {
-			ID string `json:"id"`
+			ID   string `json:"id"`
+			Role string `json:"role"`
 		} `json:"user"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil || body.User.ID == "" {
-		return false
+		return "", "", false
+	}
+	role := RoleUser
+	if body.User.Role == RoleAdmin {
+		role = RoleAdmin
 	}
 	a.mu.Lock()
 	if len(a.cache) >= toivAuthCacheLimit {
-		a.cache = make(map[string]time.Time) // single-admin deployment: a full reset is fine
+		a.cache = make(map[string]toivVerdict) // bounded memory: a full reset only costs re-introspection
 	}
-	a.cache[key] = now.Add(a.ttl())
+	a.cache[key] = toivVerdict{until: now.Add(a.ttl()), uid: body.User.ID, role: role}
 	a.mu.Unlock()
-	return true
+	return body.User.ID, role, true
 }
 
 func withGateAuthenticated(r *http.Request) context.Context {
