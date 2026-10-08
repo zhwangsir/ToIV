@@ -6525,3 +6525,9 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **产物**：Mac `tmp/london_story/`：london_the_two_hours_v5.mp4 + SCRIPT_DIALOGUE.md + sample_carolyn.wav/sample_peter.wav/peter_cloned.wav（角色样音）。
 - **平台缺陷⑤+⑥**：⑤IndexTTS 无内置男声 ref（只有女声 default_ref）——男声依赖外部参考音，建议平台收录男声 ref 库；⑥voice.py 未透传 emo_text/emo_alpha/ref_audio 的完整能力面（voice_ref 仅角色卡通道）。
 - 待用户试听：对白清晰度/男声自然度/每镜时序；可单句重合成微调。
+
+### 2026-10-08 20:45 CST — 《两小时的注定》完整版 v6 交付：12 镜四幕 72.4s（用户「不够完整」反馈闭环）
+- **用户反馈**：31s 版「不够完整」→ 重写完整剧本（SCRIPT_FULL.md：12 镜四幕——第一幕出发与遇见/第二幕两小时的偷看（频繁偷看①②③：唱片墙探头、黄潜艇分心、角落卡壳）/第三幕她发现与主动出击/第四幕散场夜谈→求婚→婚礼尾声），全片 72.4s。
+- **v6 管线 ✅**：Ref2VA 12 镜串行（定妆锁定，length=156=6.5s/镜，每镜 360-552s，总 ~75 分钟）+ IndexTTS 对白 17 句（C 女声/P 男声克隆）+ 每镜多轨定位混音 + concat；watcher 自动装配（R2V DONE→assemble 免值守）。v6_full.py 支持分阶段与单镜重渲。
+- **质量目检/回归 ✅**：whisper 全片转写 12/14 句清晰（镜11 求婚句首版语序含混→重合成短句版「嫁给我」强起清晰）；画面四幕全在、Carolyn 一致性极好、点题元素全命中（黑胶墙/黄潜艇/斑马线展品/大本钟）。已知瑕疵：两处 AI 中文招牌（「家藝相館」等，生成模型通病）、Peter 大衣色偶漂。
+- **产物**：Mac `tmp/london_story/london_the_two_hours_v6_full.mp4`（72.4s，22.4MB）+ SCRIPT_FULL.md + v6_full_contact.png；core `…/v6/` 同存分镜。
