@@ -45,9 +45,9 @@ The H3 channel key is no longer anybody's session JWT. It is a **scoped service 
 - ToIV issues it at `POST /api/auth/service-token {email, password, scope:"h3"}` only to accounts
   listed in `TOIV_SERVICE_ACCOUNTS`, never to an admin. The token carries `scope:"h3"`; ToIV
   (`apps/api/app/token_policy.py`) accepts it only on `POST /api/h3/{t2v,i2v,fl2v,r2v}`,
-  `POST /api/upload?kind=h3_*`, `GET /api/jobs/lookup`, `POST /api/jobs/{id}/cancel`, `GET /api/images`,
-  `GET /api/h3/{workers,acceleration/profiles}`; everything else (incl. `/api/auth/me`, job lists,
-  admin) answers 403. The script verifies both sides before storing it.
+  `POST /api/upload?kind=h3_i2v`, `GET /api/jobs/lookup`, `POST /api/jobs/{id}/cancel` and
+  `GET /api/images`; everything else (incl. `/api/auth/me`, job lists, admin) answers 403.
+  The script verifies both sides before storing it.
 - canvas-api keeps it server-side: model-config reads through the ToIV login door (browsers via
   `/studio/api`) return `__BEEFTV_REDACTED__`; saving the config back preserves the stored value; the
   task admission injects the stored key for tasks whose channel matches (by id or base-URL origin) right
@@ -134,7 +134,7 @@ the redaction/injection code ships with the canvas-api build of this branch.
 `python3 -m unittest -v test_h3_token_refresh.py` — offline, fake ToIV + fake canvas-api on loopback:
 stores only a scoped `h3` token (refuses a token ToIV does not scope-limit), `llm`-scoped token for
 toiv-llm only when enabled, `TOKEN_MODE` and any TOIV_API other than http://127.0.0.1:8090 are refused
-before the password is sent, replaced credentials recorded as sha256
+before the password is sent, any CANVAS_API other than http://127.0.0.1:8290 is refused before the token is sent, replaced credentials recorded as sha256
 only (0600), leaves other channels alone, 409 retry, mint failure → 3
 attempts + ERROR + 48 h warning + exit 1, canvas failure → retries without re-login, `--check` is
 read-only and warns under the threshold, wrong identity key → 401, readable credential file → exit 2,

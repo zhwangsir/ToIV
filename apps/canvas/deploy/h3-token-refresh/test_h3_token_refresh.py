@@ -115,25 +115,29 @@ def server(fake):
             fake.config = body["config"]; fake.revision += 1
             self.send(200, {"data": {"saved": True, "revision": fake.revision}})
 
-    s = ThreadingHTTPServer(("127.0.0.1", 8090), H)
-    threading.Thread(target=s.serve_forever, daemon=True).start()
-    return s
+    servers = []
+    for port in (8090, 8290):  # ToIV and canvas-api are different allowlisted ports
+        s = ThreadingHTTPServer(("127.0.0.1", port), H)
+        threading.Thread(target=s.serve_forever, daemon=True).start()
+        servers.append(s)
+    return servers
 
 
 class RefreshTests(unittest.TestCase):
     def setUp(self):
         self.fake = Fake()
-        self.srv = server(self.fake)
-        base = "http://127.0.0.1:8090"
+        self.srvs = server(self.fake)
         self.dir = tempfile.mkdtemp()
         key = os.path.join(self.dir, "gate_key"); write(key, KEY)
         cred = os.path.join(self.dir, "cred.env"); write(cred, "TOIV_H3_EMAIL=svc@x\nTOIV_H3_PASSWORD=pw\n", 0o600)
-        self.env = {"TOIV_API": base, "CANVAS_API": base, "CANVAS_GATE_UID": UID, "CANVAS_GATE_KEY_FILE": key,
+        self.env = {"TOIV_API": "http://127.0.0.1:8090", "CANVAS_API": "http://127.0.0.1:8290",
+                    "CANVAS_GATE_UID": UID, "CANVAS_GATE_KEY_FILE": key,
                     "H3_CRED_FILE": cred, "RETRY_BASE_SECONDS": "0", "REFRESH_ATTEMPTS": "3",
                     "STATUS_FILE": os.path.join(self.dir, "status.json")}
 
     def tearDown(self):
-        self.srv.shutdown(); self.srv.server_close()
+        for srv in self.srvs:
+            srv.shutdown(); srv.server_close()
 
     def run_main(self, *args, **env):
         out, err = io.StringIO(), io.StringIO()
@@ -210,6 +214,25 @@ class RefreshTests(unittest.TestCase):
         self.assertEqual(code, 2, text)
         self.assertIn("127.0.0.1:8090", text)
         self.assertEqual(hits["n"], 0, "password was sent to a non-allowlisted address")
+        self.assertEqual({c["id"]: c["apiKey"] for c in self.fake.config["channels"]}["h3"], self.fake.old)
+
+    def test_external_canvas_api_is_refused_before_the_token_is_sent(self):
+        hits = {"n": 0}
+        real = r.urllib.request.urlopen
+
+        def trap(req, *a, **k):
+            hits["n"] += 1
+            return real(req, *a, **k)
+
+        r.urllib.request.urlopen = trap
+        try:
+            code, text = self.run_main(CANVAS_API="http://192.0.2.1:8290")
+        finally:
+            r.urllib.request.urlopen = real
+        self.assertEqual(code, 2, text)
+        self.assertIn("127.0.0.1:8290", text)
+        self.assertEqual(hits["n"], 0, "a request was made to a non-allowlisted canvas address")
+        self.assertEqual(self.fake.logins, 0)
         self.assertEqual({c["id"]: c["apiKey"] for c in self.fake.config["channels"]}["h3"], self.fake.old)
 
     def test_retired_credentials_recorded_as_fingerprints_only(self):

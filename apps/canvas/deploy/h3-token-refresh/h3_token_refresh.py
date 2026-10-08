@@ -9,7 +9,8 @@ that ToIV scope-limits to the H3 endpoints (POST /api/auth/service-token, scope 
 admin JWT and it is not a login session: an unscoped login JWT is never written. canvas-api keeps
 the token server-side (browsers only see the redaction marker; the server injects it into H3 tasks).
 ToIV is contacted only at http://127.0.0.1:8090; any other TOIV_API is refused before the password
-is sent.
+is sent. The service token is written only to http://127.0.0.1:8290; any other CANVAS_API is refused
+before that write, and the token is not sent.
 
 Steps per run:
   1. Read the H3 credential that canvas-api currently holds and report its remaining validity.
@@ -31,7 +32,7 @@ Exit codes: 0 ok, 1 refresh failed or validity below the warning threshold, 2 ba
 
 Configuration (environment, usually from an EnvironmentFile; see README.md):
   TOIV_API             must be http://127.0.0.1:8090 (the only accepted value; default)
-  CANVAS_API           default http://127.0.0.1:8290
+  CANVAS_API           must be http://127.0.0.1:8290 (the only accepted value; default)
   CANVAS_ENV_FILE      canvas-api EnvironmentFile; BEEFTV_GATE_UID / BEEFTV_GATE_KEY_FILE are read
                        from it unless CANVAS_GATE_UID / CANVAS_GATE_KEY_FILE are set
   H3_CRED_FILE         0600 file with TOIV_H3_EMAIL=... and TOIV_H3_PASSWORD=... (service account)
@@ -98,6 +99,7 @@ class Settings:
         if env.get("TOKEN_MODE", "").strip():
             raise ConfigError("TOKEN_MODE is removed; this script only stores a scoped service token")
         self.canvas = env.get("CANVAS_API", "http://127.0.0.1:8290").rstrip("/")
+        require_local_canvas(self.canvas)
         self.sync_llm = env.get("SYNC_LLM_CHANNEL", "0") == "1"
         self.retired_file = env.get("RETIRED_FILE", "")
         self.warn_hours = float(env.get("WARN_HOURS", "48"))
@@ -232,13 +234,23 @@ def verify_scoped(s, token, scope):
         raise RuntimeError(f"fresh {scope} token is not scope-limited (/api/auth/me HTTP {status}, want 403)")
 
 
-def require_local_toiv(url):
-    """Password-bearing calls may only go to the local ToIV API. Checked before any request."""
+def _require_local(url, port, what):
+    """Only http://127.0.0.1:<port> with no userinfo. Checked before any request."""
     from urllib.parse import urlparse
     parsed = urlparse(url)
     host = parsed.hostname or ""
-    if parsed.scheme != "http" or host != "127.0.0.1" or parsed.port != 8090 or parsed.username or parsed.password:
-        raise ConfigError("TOIV_API must be http://127.0.0.1:8090; refusing to send the service password anywhere else")
+    if parsed.scheme != "http" or host != "127.0.0.1" or parsed.port != port or parsed.username or parsed.password:
+        raise ConfigError(what)
+
+
+def require_local_toiv(url):
+    """Password-bearing calls may only go to the local ToIV API. Checked before any request."""
+    _require_local(url, 8090, "TOIV_API must be http://127.0.0.1:8090; refusing to send the service password anywhere else")
+
+
+def require_local_canvas(url):
+    """The service token may only be written to the local canvas-api. Checked before any request."""
+    _require_local(url, 8290, "CANVAS_API must be http://127.0.0.1:8290; refusing to send the service token anywhere else")
 
 
 def login(s):
@@ -274,6 +286,7 @@ def record_retired(s, tokens):
 
 def write_token(canvas, tokens, sync_llm):
     """Returns (h3 ids, llm ids, revision, replaced credentials)."""
+    require_local_canvas(canvas.s.canvas)  # before the token is copied into the request
     for attempt in range(3):  # 409 = someone saved the config meanwhile: re-read and re-apply
         config, revision = canvas.get_config()
         h3, llm = target_channels(config, sync_llm)
