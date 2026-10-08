@@ -6516,3 +6516,12 @@ sfx 501 实现；:8197 补管线 C 节点（MotionContext/Ref2VA/T8）；tmp 证
 - **v4 落地 ✅**：脚本层全参数直调——六段旁白各配独立情感导演（S1 期待悸动/S2 好奇心动/S3 替他着急/S4 明快勇敢/S5 温暖娓娓/S6 深情圆满），emo_alpha=1.0 拉满；对齐拼接同 v3。**whisper 回归 ✅** 六段全还原。
 - **产物**：Mac `tmp/london_story/london_the_two_hours_v4.mp4`（31.2s）；core `…/v4/` 同存。
 - 对比通道：v3（平淡基线）与 v4（情感版）都在 Mac tmp/london_story/ 可 A/B 试听。
+
+### 2026-10-08 18:55 CST — 《两小时的注定》v5 对话剧交付：男女声配音 + 男声克隆突破
+- **用户指令**：不要旁白，要角色开口说话的完整故事——先写剧情。
+- **剧本 ✅**（`tmp/london_story/SCRIPT_DIALOGUE.md`）：对话驱动六镜，Carolyn/Peter 逐句台词（「这张，你看了很久了吧？」「嗯……一直没勇气。」「那分你一半。」「现在，值了。」「来了，my Carolyn。」）。
+- **男声克隆突破 ✅**：IndexTTS 默认音色为女声（default_ref.wav F0 实测+内容=平台女声欢迎语），平台历史 voice wav 亦全为女声（F0 204-294 六文件实测）——**平台无现成男声参考**。解法：Carolyn 样音 ffmpeg 降调（asetrate×0.62+atempo 补偿）造 F0≈185Hz 男声参考 → ref_audio 克隆 → **Peter 合成音 F0 170.9Hz（男声区间）**，whisper 逐字正确。
+- **v5 成片 ✅**：12 句对白（C 女声/P 男声克隆）按镜多轨混音（adelay 定位+loudnorm 归一）+ v2 画面资产 → 31.2s。**whisper 回归 ✅**：对白链逐句可辨（听/看展/打气/犹豫/搭话/没勇气/无聊/值了/交换一生/拍照啦）。
+- **产物**：Mac `tmp/london_story/`：london_the_two_hours_v5.mp4 + SCRIPT_DIALOGUE.md + sample_carolyn.wav/sample_peter.wav/peter_cloned.wav（角色样音）。
+- **平台缺陷⑤+⑥**：⑤IndexTTS 无内置男声 ref（只有女声 default_ref）——男声依赖外部参考音，建议平台收录男声 ref 库；⑥voice.py 未透传 emo_text/emo_alpha/ref_audio 的完整能力面（voice_ref 仅角色卡通道）。
+- 待用户试听：对白清晰度/男声自然度/每镜时序；可单句重合成微调。
