@@ -8,6 +8,7 @@ import (
 
 	"infinite-canvas/backend/internal/app"
 	"infinite-canvas/backend/internal/beefapi"
+	httptransport "infinite-canvas/backend/internal/transport/http"
 	"infinite-canvas/backend/internal/workspace"
 
 	"github.com/gin-gonic/gin"
@@ -133,12 +134,27 @@ func RegisterWorkspaceRoutes(r *gin.RouterGroup, svc *app.Service) {
 }
 
 func redactModelConfig(c *gin.Context, svc *app.Service, config map[string]any) map[string]any {
+	var redacted map[string]any
 	managed := false
 	if connection, err := requestBeefAPI(c, svc); err == nil && connection != nil {
-		managed = connection.HasManagedCredential()
-		return connection.RedactConfig(config)
+		redacted = connection.RedactConfig(config)
+	} else {
+		redacted = beefapi.RedactConfig(config, managed)
 	}
-	return beefapi.RedactConfig(config, managed)
+	if browserFacingRequest(c) {
+		// Channel credentials (e.g. the toiv-h3 service token) stay on the server: browsers only
+		// see the redaction marker, saving it back preserves the stored value, and the server
+		// injects the stored credential into tasks (app.resolvePlatformChannelSecrets).
+		workspace.RedactSecrets(redacted)
+	}
+	return redacted
+}
+
+// browserFacingRequest: the request came through the ToIV login door, i.e. from a browser via
+// the ToIV web proxy. Server-side callers (gate-signed platform scripts such as the H3 token
+// refresh, the loopback assistant host) and single-user desktop installs keep cleartext access.
+func browserFacingRequest(c *gin.Context) bool {
+	return httptransport.ToivAuthenticated(c.Request)
 }
 
 func preserveManagedModelConfig(c *gin.Context, svc *app.Service, raw json.RawMessage) json.RawMessage {
