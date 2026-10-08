@@ -198,6 +198,29 @@ def _cid8_from_urls(urls: list[str]) -> str | None:
     return None
 
 
+def _spec_wins_palette(character: Any, swatches: list[str]) -> list[str]:
+    """古风:设定卡色块与角色卡 spec 明确衣色冲突(如黑金 vs 青色衣裙)→ 按 spec 重生成(见 resolve_ancient_palette)。"""
+    try:
+        from app.services.studio.character_sheet import (
+            SheetMeta,
+            ancient_palette_conflict_reasons,
+            resolve_ancient_palette,
+        )
+
+        meta = SheetMeta(
+            name=(getattr(character, "name", None) or "").strip(),
+            style="ancient_realistic",
+            visual_prompt=getattr(character, "visual_prompt", None) or "",
+            description=getattr(character, "description", None) or "",
+        )
+        if not ancient_palette_conflict_reasons(meta, list(swatches)):
+            return list(swatches)  # 无冲突:色块原样(不改既有排序)
+        return resolve_ancient_palette(meta, list(swatches), source="video_palette") or list(swatches)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("spec palette resolve failed: %s", e)
+        return list(swatches)
+
+
 def _resolve_sheet_palette_colors(cast: list[Any], style: str | None) -> dict[str, list[str]]:
     """从角色分桶/扁平 URL 或同 cid 最新设定卡抽配色色块（面积序）。"""
     import json
@@ -252,6 +275,8 @@ def _resolve_sheet_palette_colors(cast: list[Any], style: str | None) -> dict[st
             if not data:
                 continue
             sw = extract_palette_swatches_from_sheet(data)
+            if sw and style_key == "ancient_realistic":
+                sw = _spec_wins_palette(c, sw)
             if sw:
                 out[nm] = sw
                 logger.info(
