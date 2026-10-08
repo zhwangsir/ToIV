@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { decideStudioAccess, extractStudioToken, introspectStudioUser, isStudioGuardExempt, isStudioPath, isStudioStaticFile } from "@/lib/studioGuard";
+import { buildCanvasRequestHeaders, STUDIO_INTERNAL_HEADERS, studioMultiTenantEnabled } from "@/lib/studioIdentity";
 
 /**
  * 官网落地页（2026-10 ToIV 官网）。
@@ -19,14 +20,38 @@ import { decideStudioAccess, extractStudioToken, introspectStudioUser, isStudioG
  * 之前就被拦下:无/伪造/过期 token → 401,非管理员 → 403,toiv-api 不可达 → 503(失败即关闭)。
  * SPA 页面:非管理员 → 经典界面(?classic=1),未登录 → ToIV 首页。
  */
+/** 豁免路径也不允许浏览器把内部身份头带进 canvas-api。 */
+function passStripped(req: NextRequest): NextResponse {
+  if (!STUDIO_INTERNAL_HEADERS.some((h) => req.headers.has(h))) return NextResponse.next();
+  const headers = new Headers(req.headers);
+  for (const h of STUDIO_INTERNAL_HEADERS) headers.delete(h);
+  return NextResponse.next({ request: { headers } });
+}
+
+/**
+ * M7 用户隔离:放行的 /studio/api/* 请求在转发 canvas-api 前注入签名身份头 X-ToIV-User
+ * (lib/studioIdentity.ts),canvas-api 据此把请求限定在该用户自己的工作区;
+ * STUDIO_MULTITENANT=1 时非管理员也放行(未开启时维持管理员止血闸)。
+ */
 async function guardStudio(req: NextRequest): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
-  if (isStudioGuardExempt(pathname) || isStudioStaticFile(pathname)) return NextResponse.next();
+  if (isStudioGuardExempt(pathname) || isStudioStaticFile(pathname)) return passStripped(req);
   const token = extractStudioToken(req.headers.get("authorization"), req.headers.get("cookie"));
   const base = process.env.INTERNAL_API_BASE || process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8090";
   const verdict = token ? await introspectStudioUser(token, { base }) : null;
-  const d = decideStudioAccess(pathname, verdict);
-  if (d.action === "pass") return NextResponse.next();
+  const env = { STUDIO_MULTITENANT: process.env.STUDIO_MULTITENANT, CANVAS_USER_IDENTITY_KEY: process.env.CANVAS_USER_IDENTITY_KEY };
+  const d = decideStudioAccess(pathname, verdict, { multiTenant: studioMultiTenantEnabled(env) });
+  if (d.action === "pass") {
+    if (!pathname.startsWith("/studio/api/") || verdict?.kind !== "ok") return passStripped(req);
+    const headers = await buildCanvasRequestHeaders(req.headers, verdict.user, { method: req.method, pathname }, env);
+    if (!headers) {
+      return NextResponse.json(
+        { code: 403, data: null, msg: "账号标识不受支持", reason: "studio_identity_invalid" },
+        { status: 403, headers: { "cache-control": "no-store" } },
+      );
+    }
+    return NextResponse.next({ request: { headers } });
+  }
   if (d.action === "json") {
     return NextResponse.json(
       { code: d.status, data: null, msg: d.msg, reason: d.reason },
