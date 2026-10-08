@@ -438,6 +438,8 @@ _HOOD_DOWN_PHRASES = re.compile(
 )
 
 
+# 全程戴帽（2026-10-05 05:48 方案D）：明确「不放下」，防帽兜中途滑落
+C_HOOD_STAYS_UP = "全程戴着帽兜、帽兜不滑落不放下, hood stays up over the head for the whole shot, never lower or remove the hood, the hood never falls off"
 # 单一连续镜头（2026-10-05：931f/3c40 镜内多处硬切）
 C_SINGLE_TAKE = "单一连续镜头、无切镜, one continuous take, no cuts, no scene change"
 
@@ -526,6 +528,8 @@ def build_c_visual_prompt(
         body = apply_outfit_desc(body, od)
     hood_up = wants_hood_up(shot_prompt or "", camera or "", cast_visual or "")
     body = apply_hood_state(body, hood_up)
+    if hood_up and C_HOOD_STAYS_UP not in body:
+        body += "，" + C_HOOD_STAYS_UP
     st = (style or "").strip().lower()
     if st in ("anime", "二次元"):
         body = (

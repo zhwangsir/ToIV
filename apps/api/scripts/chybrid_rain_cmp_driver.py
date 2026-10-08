@@ -273,9 +273,58 @@ async def main_async(args) -> int:
             if not sep or not k.strip() or not v.strip():
                 raise SystemExit(f"--ref-override 需 ORIG=NEW: {item!r}")
             ref_overrides[k.strip()] = v.strip()
+        if ref_overrides:
+            # 2026-10-05 04:09：镜头级参考必须先过 VLM 四问 + 脸分≥0.75 验收（scripts/chybrid_ref_gate.py）
+            from app.services.studio.outfit_state import ref_overrides_gate_check
+
+            rec = {}
+            if args.ref_gate_json:
+                rec = json.loads(Path(args.ref_gate_json).read_text())
+            chk = ref_overrides_gate_check(ref_overrides, rec)
+            prog.event("ref_gate_check", gate_json=args.ref_gate_json, **chk)
+            if not chk["ok"]:
+                raise SystemExit(f"镜头级参考未过 VLM 验收，禁止渲染: missing={chk['missing']} failed={chk['failed']}")
         outfit_desc = (args.outfit_desc or "").strip()
         if ref_overrides or outfit_desc:
             prog.event("scene_overrides", ref_overrides=ref_overrides, outfit_desc=outfit_desc)
+        if args.hood_expect:
+            # 05:48 方案D：视频级帽兜门禁（选优时抽 ≤8 帧 VLM，:8262 批次规则；帽兜中途滑落/放下 → 不得入选）
+            from app.services.studio import outfit_state as _ost
+
+            _ost.HOOD_GATE_EXPECT = args.hood_expect
+            prog.event("hood_gate_enabled", expect=args.hood_expect, samples=_ost.HOOD_VIDEO_SAMPLES)
+        ff_over: dict[int, str] = {}
+        for item in args.first_frame_override or []:
+            k, sep, v = item.partition("=")
+            if not sep or not k.strip().isdigit() or not v.strip():
+                raise SystemExit(f"--first-frame-override 需 IDX=URL: {item!r}")
+            ff_over[int(k)] = v.strip()
+        if ff_over:
+            _orig_ff = orchestrator._resolve_hybrid_first_frame
+
+            async def _ff(session_, shot_, cast_, style_, _o=_orig_ff, _m=dict(ff_over)):
+                if int(shot_.idx) in _m:
+                    return _m[int(shot_.idx)]
+                return await _o(session_, shot_, cast_, style_)
+
+            orchestrator._resolve_hybrid_first_frame = _ff
+            prog.event("first_frame_override", overrides={str(k): v for k, v in ff_over.items()})
+        if args.rerender_from is not None:
+            # 只重置对比克隆（源项目只读）idx≥N 的镜头；原行备份进 progress.reset_backup
+            bak = []
+            for shot in shots:
+                if shot.idx >= args.rerender_from:
+                    assert shot.project_id != args.src
+                    bak.append({"idx": shot.idx, "status": shot.status, "video_url": shot.video_url,
+                                "candidates_json": shot.candidates_json})
+                    shot.status = "pending"
+                    shot.video_url = ""
+                    shot.candidates_json = "[]"
+                    session.add(shot)
+                    prog.data["shots"].pop(str(shot.idx), None)
+            session.commit()
+            prog.data.setdefault("reset_backup", []).append({"t": time.strftime("%H:%M:%S"), "rows": bak})
+            prog.event("rerender_reset", from_idx=args.rerender_from, n=len(bak))
         strip_notes = [t.strip() for t in (args.strip_note or []) if t.strip()]
         for shot in shots[: args.shots]:
             if shot.status in ("rendered", "voiced", "lipsynced", "done") and shot.video_url:
@@ -354,11 +403,20 @@ def main() -> int:
     ap.add_argument("--ref-override", action="append", default=[],
                     help="scene-level ref override ORIG=NEW (orig URL or file name -> replacement URL); "
                          "keeps @图片 labels/order, character originals untouched. Repeatable.")
+    ap.add_argument("--ref-gate-json", default="",
+                    help="VLM acceptance record from scripts/chybrid_ref_gate.py; every --ref-override image must pass")
     ap.add_argument("--outfit-desc", default="",
                     help="single outfit description replacing jacket/raincoat wording, "
                          "e.g. '纯黑无 logo 无字的连帽风衣'")
     ap.add_argument("--strip-note", action="append", default=[],
                     help="remove a previously appended note from not-yet-rendered copy-project shot prompts")
+    ap.add_argument("--hood-expect", choices=["up", "down"], default="",
+                    help="video-level hood gate at pick time (VLM on sampled frames, :8262 batch rule); "
+                         "a clip whose hood state deviates (e.g. hood falls off) is ineligible")
+    ap.add_argument("--first-frame-override", action="append", default=[],
+                    help="IDX=URL: c_hybrid first frame for shot IDX (e.g. 0=/api/studio/files/x.png)")
+    ap.add_argument("--rerender-from", type=int, default=None,
+                    help="reset copy-project shots with idx>=N to pending before rendering (backup in progress.json)")
     ap.add_argument("--recover-only", action="store_true",
                     help="no new submissions: only recover not-yet-written-back shots from progress.json prompt_ids")
     args = ap.parse_args()
