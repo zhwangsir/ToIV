@@ -4,7 +4,7 @@ from __future__ import annotations
 from functools import lru_cache
 from urllib.parse import urlsplit
 
-from fastapi import Depends, Header, HTTPException, Query
+from fastapi import Depends, Header, HTTPException, Query, Request
 from sqlmodel import Session
 
 from app.comfy.client import ComfyUIClient
@@ -12,7 +12,8 @@ from app.comfy.pool import WorkerPool
 from app.config import get_settings
 from app.db import get_session
 from app.models import User
-from app.security import decode_token
+from app.security import decode_token_claims, token_sha256
+from app.token_policy import is_revoked, scope_allows
 
 
 @lru_cache
@@ -94,6 +95,7 @@ def resolve_worker(worker: str) -> ComfyUIClient:
 
 
 def get_current_user(
+    request: Request,
     authorization: str | None = Header(default=None),
     token: str | None = Query(default=None),
     session: Session = Depends(get_session),
@@ -102,6 +104,8 @@ def get_current_user(
 
     令牌优先取请求头 `Authorization: Bearer`,其次取 `?token=` 查询参数
     （<img>/原生 EventSource 无法附带请求头，只能走查询参数）。失败抛 401。
+    受限服务令牌(claims.scope)只能访问 token_policy.SCOPES 白名单接口,其余 403;
+    命中吊销清单(token_policy)的令牌按无效处理(401)。
     """
     raw: str | None = None
     if authorization and authorization.lower().startswith("bearer "):
@@ -110,12 +114,22 @@ def get_current_user(
         raw = token
     if not raw:
         raise HTTPException(status_code=401, detail="未认证")
-    user_id = decode_token(raw)
-    if not user_id:
+    claims = decode_token_claims(raw)
+    if not claims:
         raise HTTPException(status_code=401, detail="令牌无效或已过期")
-    user = session.get(User, user_id)
+    if is_revoked(token_sha256(raw), claims):
+        raise HTTPException(status_code=401, detail="令牌已吊销")
+    scope = claims.get("scope")
+    if scope is not None:
+        query = {k: v for k, v in request.query_params.items() if k != "token"}
+        if not isinstance(scope, str) or not scope_allows(scope, request.method, request.url.path, query):
+            raise HTTPException(status_code=403, detail="服务令牌无权访问该接口")
+    user = session.get(User, claims["sub"])
     if not user:
         raise HTTPException(status_code=401, detail="用户不存在")
+    if scope is not None and user.role == "admin":
+        # 服务令牌不得代表管理员账号(签发端已拒绝;此处兜底)
+        raise HTTPException(status_code=403, detail="服务令牌不能属于管理员账号")
     return user
 
 
