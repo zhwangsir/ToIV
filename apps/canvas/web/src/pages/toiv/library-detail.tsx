@@ -1,16 +1,19 @@
-import { App as AntApp, Button, Drawer, Modal, Spin, Tag, Typography } from "antd";
-import { ArrowLeft, Clapperboard, Film, Image as ImageIcon, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Clapperboard, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { fetchBoardItems, toivHttp, type ToivBoardItem } from "@/services/toiv/client";
+import { ToolButton } from "@/components/ui/base/buttons";
+import { StatusBadge } from "@/components/ui/base/badges";
+import { AppDrawer } from "@/components/ui/product/app-drawer";
+import { AppModal } from "@/components/ui/product/app-modal";
 import { EmptyState } from "@/components/ui/product/empty-state";
+import { fetchBoardItems, toivHttp, type ToivBoardItem } from "@/services/toiv/client";
 
 function statusTag(s: string) {
-    if (s === "done") return <Tag color="success" bordered={false}>已完成</Tag>;
-    if (s === "error") return <Tag color="error" bordered={false}>失败</Tag>;
-    if (s === "running") return <Tag color="processing" bordered={false}>生成中</Tag>;
-    return <Tag bordered={false}>{s}</Tag>;
+    if (s === "done") return <StatusBadge variant="filled" tone="success" label="已完成" size="sm" />;
+    if (s === "error") return <StatusBadge variant="filled" tone="error" label="失败" size="sm" />;
+    if (s === "running") return <StatusBadge variant="filled" tone="loading" label="生成中" size="sm" />;
+    return <StatusBadge variant="filled" tone="neutral" label={s} size="sm" />;
 }
 
 function metaOf(item: ToivBoardItem): { scene?: string; camera?: string; prompt?: string } {
@@ -25,56 +28,62 @@ function firstMedia(job: NonNullable<ToivBoardItem["job"]>): { url: string; vide
 
 export default function LibraryDetailPage() {
     const { id } = useParams<{ id: string }>();
-    const { message, modal } = AntApp.useApp();
     const [items, setItems] = useState<ToivBoardItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const [preview, setPreview] = useState<ToivBoardItem | null>(null);
+    const [recycleTarget, setRecycleTarget] = useState<ToivBoardItem | null>(null);
+    const [recycling, setRecycling] = useState(false);
+    const [notice, setNotice] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         if (!id) return;
         setLoading(true); setError(false);
         try { setItems(await fetchBoardItems(id)); }
-        catch { setError(true); message.error("作品列表读取失败"); }
+        catch { setError(true); }
         finally { setLoading(false); }
-    }, [id, message]);
+    }, [id]);
 
     useEffect(() => { void load(); }, [load]);
 
-    const recycle = useCallback((item: ToivBoardItem) => {
-        const job = item.job;
+    const confirmRecycle = useCallback(async () => {
+        const item = recycleTarget;
+        const job = item?.job;
         if (!job) return;
-        modal.confirm({
-            title: "移入回收站",
-            content: `该作品将从板中移除并进入回收站(可在回收站恢复)。`,
-            okText: "移入回收站",
-            okButtonProps: { danger: true },
-            onOk: async () => {
-                try {
-                    await toivHttp.delete(`/jobs/${job.id}`);
-                    message.success("已移入回收站");
-                    void load();
-                } catch {
-                    message.error("操作失败");
-                }
-            },
-        });
-    }, [load, message, modal]);
+        setRecycling(true);
+        try {
+            await toivHttp.delete(`/jobs/${job.id}`);
+            setNotice("已移入回收站");
+            setRecycleTarget(null);
+            void load();
+        } catch {
+            setNotice("操作失败");
+        } finally {
+            setRecycling(false);
+        }
+    }, [recycleTarget, load]);
 
     return (
         <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
-                    <Typography.Title level={3} className="!mb-0">作品集详情</Typography.Title>
-                    <Typography.Text type="secondary">{items.length} 个条目 · 分镜行与成品作品（实时域：/api/boards/{id?.slice(0, 8)}…/items）</Typography.Text>
+                    <h1 className="text-xl font-semibold leading-7 text-foreground">作品集详情</h1>
+                    <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">{items.length} 个条目 · 分镜行与成品作品（实时域：/api/boards/{id?.slice(0, 8)}…/items）</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button icon={<RefreshCw className="h-3.5 w-3.5" />} onClick={() => void load()} loading={loading}>刷新</Button>
-                    <Link to="/toiv/library"><Button icon={<ArrowLeft className="h-3.5 w-3.5" />}>返回作品库</Button></Link>
+                    <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
+                    <Link to="/toiv/library"><ToolButton variant="default" icon={<ArrowLeft />} label="返回作品库" /></Link>
                 </div>
             </header>
 
-            {loading ? <div className="flex min-h-64 items-center justify-center"><Spin /></div>
+            {notice ? (
+                <p role="status" className="rounded-lg border border-[var(--border)] bg-[var(--card,#181818)] px-3 py-2 text-xs text-foreground">
+                    {notice}
+                    <button type="button" className="ml-2 underline text-[var(--muted-foreground,#a8a8a8)]" onClick={() => setNotice(null)}>关闭</button>
+                </p>
+            ) : null}
+
+            {loading ? <div className="flex min-h-64 items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></div>
                 : error ? <EmptyState description="读取失败，请刷新重试" />
                 : items.length === 0 ? <EmptyState description="这个作品集还是空的" />
                 : (
@@ -95,9 +104,9 @@ export default function LibraryDetailPage() {
                                     <div className="flex flex-1 flex-col gap-1.5 p-3">
                                         <div className="flex items-center justify-between gap-2">
                                             <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">#{item.sort_order + 1}</span>
-                                            {job ? statusTag(job.status) : <Tag bordered={false}>分镜占位</Tag>}
+                                            {job ? statusTag(job.status) : <StatusBadge variant="filled" tone="neutral" label="分镜占位" size="sm" />}
                                             {job && (
-                                                <button type="button" onClick={() => recycle(item)} className="text-[var(--muted-foreground,#a8a8a8)] opacity-0 transition-opacity group-hover:opacity-100" aria-label="移入回收站">
+                                                <button type="button" onClick={() => setRecycleTarget(item)} className="text-[var(--muted-foreground,#a8a8a8)] opacity-0 transition-opacity group-hover:opacity-100" aria-label="移入回收站">
                                                     <Trash2 className="h-3.5 w-3.5" />
                                                 </button>
                                             )}
@@ -113,7 +122,7 @@ export default function LibraryDetailPage() {
                     </div>
                 )}
 
-            <Drawer open={!!preview} onClose={() => setPreview(null)} width={560} title={preview ? `条目 #${preview.sort_order + 1}` : ""}>
+            <AppDrawer open={!!preview} onClose={() => setPreview(null)} width={560} title={preview ? `条目 #${preview.sort_order + 1}` : ""}>
                 {preview && (() => {
                     const job = preview.job;
                     const media = job ? firstMedia(job) : null;
@@ -126,18 +135,52 @@ export default function LibraryDetailPage() {
                             {job ? (
                                 <div className="flex flex-wrap items-center gap-2">
                                     {statusTag(job.status)}
-                                    {job.kind && <Tag bordered={false}>{job.kind}</Tag>}
+                                    {job.kind && <StatusBadge variant="filled" tone="neutral" label={job.kind} size="sm" />}
                                     <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">{new Date(job.created_at).toLocaleString("zh-CN")}</span>
                                 </div>
-                            ) : <Tag bordered={false}>分镜占位行(尚未挂作品)</Tag>}
+                            ) : <StatusBadge variant="filled" tone="neutral" label="分镜占位行(尚未挂作品)" size="sm" />}
                             <p className="whitespace-pre-wrap text-sm leading-relaxed">{preview.shot_text || job?.prompt}</p>
                             {meta.scene && <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">场景:{meta.scene}</p>}
                             {meta.prompt && <p className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs text-[var(--muted-foreground,#a8a8a8)]">{meta.prompt}</p>}
-                            {job && <Button danger icon={<Trash2 className="h-3.5 w-3.5" />} onClick={() => { setPreview(null); recycle(preview); }}>移入回收站</Button>}
+                            {job && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setPreview(null); setRecycleTarget(preview); }}
+                                    className="inline-flex h-8 w-fit select-none items-center justify-center gap-1.5 rounded-md border border-border px-2.5 text-caption font-medium text-status-error transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4"
+                                >
+                                    <Trash2 aria-hidden />
+                                    <span>移入回收站</span>
+                                </button>
+                            )}
                         </div>
                     );
                 })()}
-            </Drawer>
+            </AppDrawer>
+
+            <AppModal
+                open={!!recycleTarget}
+                onCancel={() => { if (!recycling) setRecycleTarget(null); }}
+                title="移入回收站"
+                footer={null}
+                destroyOnHidden
+            >
+                <div className="flex flex-col gap-4">
+                    <p className="text-sm text-foreground/80">该作品将从板中移除并进入回收站(可在回收站恢复)。</p>
+                    <div className="flex justify-end gap-2">
+                        <ToolButton variant="default" label="取消" disabled={recycling} onClick={() => setRecycleTarget(null)} />
+                        <button
+                            type="button"
+                            disabled={recycling}
+                            aria-busy={recycling || undefined}
+                            onClick={() => void confirmRecycle()}
+                            className="inline-flex h-8 select-none items-center justify-center gap-1.5 rounded-md bg-status-error px-3 text-caption font-medium text-white transition-opacity hover:opacity-85 disabled:opacity-45"
+                        >
+                            {recycling ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+                            <span>移入回收站</span>
+                        </button>
+                    </div>
+                </div>
+            </AppModal>
         </main>
     );
 }

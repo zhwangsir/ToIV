@@ -1,10 +1,10 @@
-import { App as AntApp, Button, Spin, Typography } from "antd";
-import { ArrowLeft, FolderOpen, RefreshCw } from "lucide-react";
+import { ArrowLeft, FolderOpen, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
-import { fetchBoards, type ToivBoard } from "@/services/toiv/client";
+import { ToolButton } from "@/components/ui/base/buttons";
 import { EmptyState } from "@/components/ui/product/empty-state";
+import { fetchBoards, type ToivBoard } from "@/services/toiv/client";
 
 function formatTime(value: string): string {
     const d = new Date(value);
@@ -13,7 +13,6 @@ function formatTime(value: string): string {
 }
 
 export default function LibraryPage() {
-    const { message } = AntApp.useApp();
     const [boards, setBoards] = useState<ToivBoard[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -24,11 +23,10 @@ export default function LibraryPage() {
             setBoards(await fetchBoards());
         } catch {
             setError(true);
-            message.error("作品库读取失败");
         } finally {
             setLoading(false);
         }
-    }, [message]);
+    }, []);
 
     useEffect(() => { void load(); }, [load]);
 
@@ -36,17 +34,17 @@ export default function LibraryPage() {
         <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
-                    <Typography.Title level={3} className="!mb-0">作品库</Typography.Title>
-                    <Typography.Text type="secondary">ToIV 作品集与成片归档（实时域：/api/boards）</Typography.Text>
+                    <h1 className="text-xl font-semibold leading-7 text-foreground">作品库</h1>
+                    <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">ToIV 作品集与成片归档（实时域：/api/boards）</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button icon={<RefreshCw className="h-3.5 w-3.5" />} onClick={() => void load()} loading={loading}>刷新</Button>
-                    <Link to="/"><Button icon={<ArrowLeft className="h-3.5 w-3.5" />}>返回首页</Button></Link>
+                    <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
+                    <Link to="/"><ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" /></Link>
                 </div>
             </header>
 
             {loading ? (
-                <div className="flex min-h-64 items-center justify-center"><Spin /></div>
+                <div className="flex min-h-64 items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></div>
             ) : error ? (
                 <EmptyState description="读取失败，请刷新重试" />
             ) : boards.length === 0 ? (

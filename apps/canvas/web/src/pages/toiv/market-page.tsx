@@ -1,24 +1,25 @@
-import { App as AntApp, Badge, Button, Drawer, Input, Spin, Tag, Typography } from "antd";
-import { ArrowLeft, Search } from "lucide-react";
+import { ArrowLeft, Loader2, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
-import { fetchToivApps, type ToivApp } from "@/services/toiv/client";
+import { ToolButton } from "@/components/ui/base/buttons";
+import { StatusBadge } from "@/components/ui/base/badges";
+import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { EmptyState } from "@/components/ui/product/empty-state";
+import { fetchToivApps, type ToivApp } from "@/services/toiv/client";
 
 const CATEGORY_META: Record<string, string> = {
     video: "视频", image: "图像", audio: "音频", drama: "短剧", tool: "工具", "3d": "3D", other: "其他",
 };
 
 function smokeBadge(app: ToivApp) {
-    if (app.smoke_status === "pass") return <Tag color="success" bordered={false}>烟测通过</Tag>;
-    if (app.smoke_status === "fail") return <Tag color="error" bordered={false}>烟测失败</Tag>;
-    if (app.smoke_status) return <Tag bordered={false}>{app.smoke_status}</Tag>;
+    if (app.smoke_status === "pass") return <StatusBadge variant="filled" tone="success" label="烟测通过" size="sm" />;
+    if (app.smoke_status === "fail") return <StatusBadge variant="filled" tone="error" label="烟测失败" size="sm" />;
+    if (app.smoke_status) return <StatusBadge variant="filled" tone="neutral" label={app.smoke_status} size="sm" />;
     return null;
 }
 
 export default function MarketPage() {
-    const { message } = AntApp.useApp();
     const [apps, setApps] = useState<ToivApp[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -29,9 +30,9 @@ export default function MarketPage() {
     const load = useCallback(async () => {
         setLoading(true); setError(false);
         try { setApps(await fetchToivApps(200)); }
-        catch { setError(true); message.error("市场读取失败"); }
+        catch { setError(true); }
         finally { setLoading(false); }
-    }, [message]);
+    }, []);
 
     useEffect(() => { void load(); }, [load]);
 
@@ -52,10 +53,10 @@ export default function MarketPage() {
         <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
             <header className="flex items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
-                    <Typography.Title level={3} className="!mb-0">应用市场</Typography.Title>
-                    <Typography.Text type="secondary">ToIV 全部创作应用（实时域：/api/apps；运行跳转旧运行台）</Typography.Text>
+                    <h1 className="text-xl font-semibold leading-7 text-foreground">应用市场</h1>
+                    <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">ToIV 全部创作应用（实时域：/api/apps；运行跳转旧运行台）</p>
                 </div>
-                <Link to="/"><Button icon={<ArrowLeft className="h-3.5 w-3.5" />}>返回首页</Button></Link>
+                <Link to="/"><ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" /></Link>
             </header>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -66,10 +67,19 @@ export default function MarketPage() {
                         {key === "all" ? `全部 ${n}` : `${CATEGORY_META[key] ?? key} ${n}`}
                     </button>
                 ))}
-                <Input allowClear prefix={<Search className="h-3.5 w-3.5" />} placeholder="搜索应用" value={q} onChange={(e) => setQ(e.target.value)} className="!ml-auto !w-56" />
+                <label className="ml-auto flex w-56 items-center gap-2 rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-xs">
+                    <Search className="h-3.5 w-3.5 shrink-0 text-[var(--muted-foreground,#a8a8a8)]" aria-hidden />
+                    <input
+                        type="search"
+                        placeholder="搜索应用"
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[var(--muted-foreground,#a8a8a8)]"
+                    />
+                </label>
             </div>
 
-            {loading ? <div className="flex min-h-64 items-center justify-center"><Spin /></div>
+            {loading ? <div className="flex min-h-64 items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></div>
                 : error ? <EmptyState description="读取失败，请刷新重试" />
                 : filtered.length === 0 ? <EmptyState description="没有匹配的应用" />
                 : (
@@ -95,15 +105,15 @@ export default function MarketPage() {
                     </div>
                 )}
 
-            <Drawer open={!!detail} onClose={() => setDetail(null)} width={420} title={detail?.name}>
+            <AppDrawer open={!!detail} onClose={() => setDetail(null)} width={420} title={detail?.name}>
                 {detail && (
                     <div className="flex flex-col gap-3">
                         <div className="flex flex-wrap gap-2">
                             {smokeBadge(detail)}
-                            {detail.featured && <Tag color="gold" bordered={false}>精选</Tag>}
-                            {detail.is_builtin && <Tag bordered={false}>官方</Tag>}
-                            <Tag bordered={false}>{CATEGORY_META[detail.category || "other"] ?? detail.category}</Tag>
-                            {detail.use_case && <Tag bordered={false}>{detail.use_case}</Tag>}
+                            {detail.featured && <StatusBadge variant="filled" tone="warning" label="精选" size="sm" />}
+                            {detail.is_builtin && <StatusBadge variant="filled" tone="neutral" label="官方" size="sm" />}
+                            <StatusBadge variant="filled" tone="neutral" label={CATEGORY_META[detail.category || "other"] ?? detail.category} size="sm" />
+                            {detail.use_case && <StatusBadge variant="filled" tone="neutral" label={detail.use_case} size="sm" />}
                         </div>
                         <p className="text-sm leading-relaxed">{detail.description}</p>
                         {detail.guide_purpose && (
@@ -111,11 +121,16 @@ export default function MarketPage() {
                         )}
                         <div className="flex items-center justify-between pt-2">
                             <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">作者 {detail.author || "—"} · {detail.usage_count ?? 0} 次使用</span>
-                            <a href={`/?view=market&app=${detail.id}&classic=1`}><Button type="primary">运行此应用</Button></a>
+                            <a
+                                href={`/?view=market&app=${detail.id}&classic=1`}
+                                className="inline-flex h-8 select-none items-center justify-center rounded-md bg-foreground px-3 text-caption font-medium text-background transition-opacity hover:opacity-85"
+                            >
+                                运行此应用
+                            </a>
                         </div>
                     </div>
                 )}
-            </Drawer>
+            </AppDrawer>
         </main>
     );
 }

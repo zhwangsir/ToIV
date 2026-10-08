@@ -1,19 +1,21 @@
-import { App as AntApp, Badge, Button, Spin, Tag, Tooltip, Typography } from "antd";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
-import { fetchAgentRuns, type ToivAgentRun } from "@/services/toiv/client";
+import { ToolButton } from "@/components/ui/base/buttons";
+import { StatusBadge } from "@/components/ui/base/badges";
+import { Tooltip } from "@/components/ui/base/tooltip";
 import { EmptyState } from "@/components/ui/product/empty-state";
+import { fetchAgentRuns, type ToivAgentRun } from "@/services/toiv/client";
 
-const STATUS_META: Record<string, { color: string; text: string }> = {
-    running: { color: "processing", text: "运行中" },
-    awaiting_confirm: { color: "warning", text: "待确认" },
-    done: { color: "success", text: "已完成" },
-    completed: { color: "success", text: "已完成" },
-    error: { color: "error", text: "失败" },
-    canceled: { color: "default", text: "已取消" },
-    pending: { color: "default", text: "排队中" },
+const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
+    running: { tone: "loading", text: "运行中" },
+    awaiting_confirm: { tone: "warning", text: "待确认" },
+    done: { tone: "success", text: "已完成" },
+    completed: { tone: "success", text: "已完成" },
+    error: { tone: "error", text: "失败" },
+    canceled: { tone: "neutral", text: "已取消" },
+    pending: { tone: "neutral", text: "排队中" },
 };
 
 function formatTime(value: string): string {
@@ -23,7 +25,6 @@ function formatTime(value: string): string {
 }
 
 export default function TasksPage() {
-    const { message } = AntApp.useApp();
     const [runs, setRuns] = useState<ToivAgentRun[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -34,11 +35,10 @@ export default function TasksPage() {
             setRuns(await fetchAgentRuns());
         } catch {
             setError(true);
-            message.error("任务列表读取失败");
         } finally {
             setLoading(false);
         }
-    }, [message]);
+    }, []);
 
     useEffect(() => { void load(); }, [load]);
 
@@ -46,17 +46,17 @@ export default function TasksPage() {
         <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
-                    <Typography.Title level={3} className="!mb-0">任务中心</Typography.Title>
-                    <Typography.Text type="secondary">ToIV 智能体任务与运行记录（实时域：/api/agent-runs）</Typography.Text>
+                    <h1 className="text-xl font-semibold leading-7 text-foreground">任务中心</h1>
+                    <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">ToIV 智能体任务与运行记录（实时域：/api/agent-runs）</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button icon={<RefreshCw className="h-3.5 w-3.5" />} onClick={() => void load()} loading={loading}>刷新</Button>
-                    <Link to="/"><Button icon={<ArrowLeft className="h-3.5 w-3.5" />}>返回首页</Button></Link>
+                    <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
+                    <Link to="/"><ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" /></Link>
                 </div>
             </header>
 
             {loading ? (
-                <div className="flex min-h-64 items-center justify-center"><Spin /></div>
+                <div className="flex min-h-64 items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></div>
             ) : error ? (
                 <EmptyState description="读取失败，请刷新重试" />
             ) : runs.length === 0 ? (
@@ -64,11 +64,11 @@ export default function TasksPage() {
             ) : (
                 <ul className="flex flex-col gap-2">
                     {runs.map((run) => {
-                        const meta = STATUS_META[run.status] ?? { color: "default", text: run.status };
+                        const meta = STATUS_META[run.status] ?? { tone: "neutral" as const, text: run.status };
                         const counts = run.task_counts;
                         return (
                             <li key={run.id} className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card,#181818)] px-4 py-3">
-                                <Badge status={meta.color as never} text={<span className="text-sm">{meta.text}</span>} />
+                                <StatusBadge tone={meta.tone} label={meta.text} />
                                 <div className="min-w-0 flex-1">
                                     <Tooltip title={run.goal}>
                                         <p className="truncate text-sm font-medium">{run.goal || "(无目标摘要)"}</p>
@@ -79,7 +79,7 @@ export default function TasksPage() {
                                         {counts && counts.total > 0 ? ` · 子任务 ${counts.done}/${counts.total}${counts.error ? ` · 失败 ${counts.error}` : ""}` : ""}
                                     </p>
                                 </div>
-                                <Tag bordered={false}>{run.id.slice(0, 8)}</Tag>
+                                <StatusBadge variant="filled" tone="neutral" label={run.id.slice(0, 8)} size="sm" />
                             </li>
                         );
                     })}

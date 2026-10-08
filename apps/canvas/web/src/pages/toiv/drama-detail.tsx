@@ -1,25 +1,29 @@
-import { App as AntApp, Button, Drawer, Spin, Tag, Typography } from "antd";
 import { AudioLines, ChevronRight, IdCard, MessagesSquare, PlayCircle, Upload } from "lucide-react";
-import { ArrowLeft, Clapperboard, ExternalLink, Film, RefreshCw, User } from "lucide-react";
+import { ArrowLeft, Clapperboard, ExternalLink, Film, Loader2, RefreshCw, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { fetchCharacterSheets, fetchDramaProject, triggerBatchRender, triggerPanelReplace, triggerSheetRegen, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivCharacterSheet, type ToivDramaDetail } from "@/services/toiv/client";
+import { ToolButton } from "@/components/ui/base/buttons";
+import { StatusBadge } from "@/components/ui/base/badges";
+import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { EmptyState } from "@/components/ui/product/empty-state";
+import { fetchCharacterSheets, fetchDramaProject, triggerBatchRender, triggerPanelReplace, triggerSheetRegen, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivCharacterSheet, type ToivDramaDetail } from "@/services/toiv/client";
 
-const SHOT_STATUS: Record<string, { color: string; text: string }> = {
-    draft: { color: "default", text: "草稿" },
-    rendering: { color: "processing", text: "渲染中" },
-    rendered: { color: "cyan", text: "已出片" },
-    voiced: { color: "processing", text: "已配音" },
-    error: { color: "error", text: "失败" },
+const SHOT_STATUS: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
+    draft: { tone: "neutral", text: "草稿" },
+    rendering: { tone: "loading", text: "渲染中" },
+    rendered: { tone: "success", text: "已出片" },
+    voiced: { tone: "success", text: "已配音" },
+    error: { tone: "error", text: "失败" },
 };
+
+const primaryBtn = "inline-flex h-8 select-none items-center justify-center gap-1.5 rounded-md bg-foreground px-2.5 text-caption font-medium text-background transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45 [&_svg]:size-4";
 
 export default function DramaDetailPage() {
     const { id } = useParams<{ id: string }>();
-    const { message } = AntApp.useApp();
     const [detail, setDetail] = useState<ToivDramaDetail | null>(null);
     const [loading, setLoading] = useState(true);
+    const [loadFailed, setLoadFailed] = useState(false);
     const [renderingShots, setRenderingShots] = useState<Set<string>>(new Set());
     const [voicingShots, setVoicingShots] = useState<Set<string>>(new Set());
     const [lipsyncingShots, setLipsyncingShots] = useState<Set<string>>(new Set());
@@ -40,10 +44,11 @@ export default function DramaDetailPage() {
     const load = useCallback(async () => {
         if (!id) return;
         setLoading(true);
+        setLoadFailed(false);
         try { setDetail(await fetchDramaProject(id)); }
-        catch { message.error("项目详情读取失败"); }
+        catch { setLoadFailed(true); setDetail(null); }
         finally { setLoading(false); }
-    }, [id, message]);
+    }, [id]);
 
     useEffect(() => { void load(); }, [load]);
     // 渲染轮询(M3 末项):本页存在渲染中(乐观或后端态)时 15s 拉一次项目
@@ -54,8 +59,8 @@ export default function DramaDetailPage() {
         return () => window.clearInterval(t);
     }, [busy, id]);
 
-    if (loading) return <main className="flex h-full items-center justify-center"><Spin /></main>;
-    if (!detail) return <main className="flex h-full items-center justify-center"><EmptyState description="项目不存在或读取失败" /></main>;
+    if (loading) return <main className="flex h-full items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></main>;
+    if (!detail) return <main className="flex h-full items-center justify-center"><EmptyState description={loadFailed ? "项目不存在或读取失败" : "项目不存在或读取失败"} /></main>;
 
     const shots = detail.shots ?? [];
     const chars = detail.characters ?? [];
@@ -64,8 +69,8 @@ export default function DramaDetailPage() {
         <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-6">
             <header className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 flex-col gap-1">
-                    <Typography.Title level={3} className="!mb-0 truncate">{detail.title || detail.premise?.slice(0, 30) || "未命名项目"}</Typography.Title>
-                    <Typography.Text type="secondary" className="line-clamp-1">{detail.premise}</Typography.Text>
+                    <h1 className="truncate text-xl font-semibold leading-7 text-foreground">{detail.title || detail.premise?.slice(0, 30) || "未命名项目"}</h1>
+                    <p className="line-clamp-1 text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">{detail.premise}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
                         <span>{shots.length} 个分镜</span>
                         <span>· {detail.width}×{detail.height} @{detail.fps}fps</span>
@@ -73,12 +78,21 @@ export default function DramaDetailPage() {
                     </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                    <Button type="primary" icon={<PlayCircle className="h-3.5 w-3.5" />} loading={batchRendering}
-                        onClick={() => { setBatchRendering(true); void triggerBatchRender(detail.id).finally(() => setBatchRendering(false)); }}>
-                        渲染全部
-                    </Button>
-                    <Button icon={<RefreshCw className="h-3.5 w-3.5" />} onClick={() => void load()}>刷新</Button>
-                    <a href={`/drama/${detail.id}?classic=1`}><Button type="primary" icon={<ExternalLink className="h-3.5 w-3.5" />}>在原工作台操作</Button></a>
+                    <button
+                        type="button"
+                        className={primaryBtn}
+                        disabled={batchRendering}
+                        aria-busy={batchRendering || undefined}
+                        onClick={() => { setBatchRendering(true); void triggerBatchRender(detail.id).finally(() => setBatchRendering(false)); }}
+                    >
+                        {batchRendering ? <Loader2 className="animate-spin" aria-hidden /> : <PlayCircle aria-hidden />}
+                        <span>渲染全部</span>
+                    </button>
+                    <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} />
+                    <a href={`/drama/${detail.id}?classic=1`} className={primaryBtn}>
+                        <ExternalLink aria-hidden />
+                        <span>在原工作台操作</span>
+                    </a>
                 </div>
             </header>
 
@@ -104,7 +118,7 @@ export default function DramaDetailPage() {
                                             <ChevronRight className="h-3 w-3 shrink-0 text-[var(--muted-foreground,#a8a8a8)]" />
                                         </div>
                                         <p className="line-clamp-3 text-xs text-[var(--muted-foreground,#a8a8a8)]">{c.description || c.visual_prompt}</p>
-                                        {c.voice_ref_url && <Tag bordered={false} className="mt-auto self-start">已配音色</Tag>}
+                                        {c.voice_ref_url && <StatusBadge variant="filled" tone="neutral" label="已配音色" size="sm" className="mt-auto self-start" />}
                                     </div>
                                 </button>
                             );
@@ -117,7 +131,7 @@ export default function DramaDetailPage() {
                 <h2 className="flex items-center gap-2 text-sm font-semibold"><Clapperboard className="h-4 w-4" />分镜板（{shots.length}）</h2>
                 <div className="flex flex-col gap-2">
                     {shots.map((s) => {
-                        const meta = SHOT_STATUS[s.status] ?? { color: "default", text: s.status };
+                        const meta = SHOT_STATUS[s.status] ?? { tone: "neutral" as const, text: s.status };
                         const media = s.video_url || s.final_clip_url || s.image_url;
                         return (
                             <div key={s.id} className="flex items-stretch gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] p-3">
@@ -129,39 +143,30 @@ export default function DramaDetailPage() {
                                         : <Film className="h-6 w-6 text-[var(--muted-foreground,#a8a8a8)]" />}
                                 </div>
                                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <span className="text-xs font-semibold text-[var(--muted-foreground,#a8a8a8)]">#{Number(s.idx) + 1}</span>
                                         {s.status === "voiced" && (
-                                            <Button size="small" type="text" icon={<MessagesSquare className="h-3 w-3" />}
-                                                loading={lipsyncingShots.has(s.id)}
+                                            <ToolButton size="xs" icon={<MessagesSquare />} label="对口型" loading={lipsyncingShots.has(s.id)}
                                                 onClick={() => {
                                                     setLipsyncingShots((prev) => new Set(prev).add(s.id));
                                                     void triggerShotLipsync(s.id).finally(() => setLipsyncingShots((prev) => { const n = new Set(prev); n.delete(s.id); return n; }));
-                                                }}>
-                                                对口型
-                                            </Button>
+                                                }} />
                                         )}
                                         {s.status === "rendered" && !s.voice_url && (
-                                            <Button size="small" type="text" icon={<AudioLines className="h-3 w-3" />}
-                                                loading={voicingShots.has(s.id)}
+                                            <ToolButton size="xs" icon={<AudioLines />} label="配音" loading={voicingShots.has(s.id)}
                                                 onClick={() => {
                                                     setVoicingShots((prev) => new Set(prev).add(s.id));
                                                     void triggerShotVoice(s.id).finally(() => setVoicingShots((prev) => { const n = new Set(prev); n.delete(s.id); return n; }));
-                                                }}>
-                                                配音
-                                            </Button>
+                                                }} />
                                         )}
                                         {!["rendering", "rendered", "voiced", "lipsynced", "done"].includes(s.status) && (
-                                            <Button size="small" type="text" icon={<PlayCircle className="h-3 w-3" />}
-                                                loading={renderingShots.has(s.id)}
+                                            <ToolButton size="xs" icon={<PlayCircle />} label="渲染" loading={renderingShots.has(s.id)}
                                                 onClick={() => {
                                                     setRenderingShots((prev) => new Set(prev).add(s.id));
                                                     void triggerShotRender(s.id).finally(() => setRenderingShots((prev) => { const n = new Set(prev); n.delete(s.id); return n; }));
-                                                }}>
-                                                渲染
-                                            </Button>
+                                                }} />
                                         )}
-                                        <Tag color={meta.color} bordered={false}>{meta.text}</Tag>
+                                        <StatusBadge variant="filled" tone={meta.tone} label={meta.text} size="sm" />
                                         <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{s.duration_sec}s · {s.render_mode}</span>
                                         {s.speaker && <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">🗣 {s.speaker}</span>}
                                     </div>
@@ -177,9 +182,9 @@ export default function DramaDetailPage() {
             </section>
 
             <footer>
-                <Link to="/toiv/drama"><Button icon={<ArrowLeft className="h-3.5 w-3.5" />}>返回项目列表</Button></Link>
+                <Link to="/toiv/drama"><ToolButton variant="default" icon={<ArrowLeft />} label="返回项目列表" /></Link>
             </footer>
-        <Drawer open={!!charDetail} onClose={() => setCharDetail(null)} width={480} title={charDetail?.char?.name || "角色"}>
+            <AppDrawer open={!!charDetail} onClose={() => setCharDetail(null)} width={480} title={charDetail?.char?.name || "角色"}>
                 {charDetail && (
                     <div className="flex flex-col gap-4">
                         <p className="text-sm leading-relaxed">{charDetail.char.description || charDetail.char.visual_prompt}</p>
@@ -194,12 +199,12 @@ export default function DramaDetailPage() {
                         )}
                         <div className="flex flex-col gap-2">
                             <span className="text-xs font-medium">设定卡（{charDetail.sheets.length}）</span>
-                            {sheetsLoading ? <Spin /> : charDetail.sheets.length === 0 ? (
+                            {sheetsLoading ? <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="加载中" /> : charDetail.sheets.length === 0 ? (
                                 <div className="flex flex-col gap-2">
                                     <EmptyState size="compact" description="暂无设定卡,选择风格生成:" />
                                     <div className="flex justify-center gap-2">
                                         {["ancient_realistic", "anime"].map((st) => (
-                                            <Button key={st} size="small" icon={<IdCard className="h-3 w-3" />}
+                                            <ToolButton key={st} size="sm" variant="default" icon={<IdCard />} label={st === "ancient_realistic" ? "古风写实" : "二次元"}
                                                 loading={regenStyle === st}
                                                 onClick={() => {
                                                     const cid = charDetail.char.id;
@@ -208,9 +213,7 @@ export default function DramaDetailPage() {
                                                         setRegenStyle(null);
                                                         void fetchCharacterSheets(cid).then((sheets) => setCharDetail((prev) => (prev ? { ...prev, sheets } : prev))).catch(() => {});
                                                     });
-                                                }}>
-                                                {st === "ancient_realistic" ? "古风写实" : "二次元"}
-                                            </Button>
+                                                }} />
                                         ))}
                                     </div>
                                 </div>
@@ -218,8 +221,7 @@ export default function DramaDetailPage() {
                                 <div key={sh.style} className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] p-2">
                                     <div className="flex items-center justify-between">
                                         <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{sh.style}{sh.mtime ? ` · ${new Date(sh.mtime).toLocaleDateString("zh-CN")}` : ""}</span>
-                                        <Button size="small" type="text" icon={<IdCard className="h-3 w-3" />}
-                                            loading={regenStyle === sh.style}
+                                        <ToolButton size="xs" icon={<IdCard />} label="重生成" loading={regenStyle === sh.style}
                                             onClick={() => {
                                                 if (!charDetail) return;
                                                 setRegenStyle(sh.style);
@@ -228,9 +230,7 @@ export default function DramaDetailPage() {
                                                     setRegenStyle(null);
                                                     void fetchCharacterSheets(cid).then((sheets) => setCharDetail((prev) => (prev ? { ...prev, sheets } : prev))).catch(() => {});
                                                 });
-                                            }}>
-                                            重生成
-                                        </Button>
+                                            }} />
                                     </div>
                                     {sh.sheet_url && <img src={sh.sheet_url} alt="" className="w-full rounded-lg" loading="lazy" />}
                                     {(sh.panel_urls ?? []).length > 0 && (
@@ -273,7 +273,7 @@ export default function DramaDetailPage() {
                         </div>
                     </div>
                 )}
-            </Drawer>
+            </AppDrawer>
         </main>
     );
 }
