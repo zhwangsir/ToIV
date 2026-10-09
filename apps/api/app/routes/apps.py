@@ -1599,6 +1599,12 @@ _MODEL_FILE_ALIASES: dict[str, str] = {
     # H3 turbo 4 步 LoRA:RH 名为第三方转换版(无公开同名源),落盘官方 comfy 版
     # drbaph/MiniMax-H3-Turbo-Lora-ComfyUI@bb2bc49 同一 LoRA(2026-09-28 rh-acc-6680503297)
     "minimax_h3_turbo_4step-convertedByAIEverything.safetensors": "MiniMax-H3-Turbo-4step-Lora_ema_comfy.safetensors",
+    # H3 FL2VA:RH 图写 RH 存储名;NAS 无同名,但 pruned int8 + vae 已在 h3/
+    # (2026-10-10 feat/studio-h3-fl2va-alias;勿指 h3-eval 32GB 全量)
+    "MiniMax-H3-FL2VA-int8_convrot.safetensors": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+    "MiniMax-H3-FL2VA-int8-convrot.safetensors": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+    "MiniMax-H3-audio_vae.safetensors": "minimax_h3_audio_vae_fp32.safetensors",
+    "MiniMax-H3-video_vae.safetensors": "minimax_h3_video_vae_fp16.safetensors",
 }
 
 _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
@@ -1618,6 +1624,9 @@ _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
     "SeedVR2LoadVAEModel": ("model",),
     "MultiTalkModelLoader": ("model",),
     "LTXVGemmaCLIPModelLoader": ("gemma_path",),
+    # H3 FL2VA RH custom loaders (wf_218187 / wf_166561; 2026-10-10)
+    "RHMiniMaxH3FL2VAModelLoader": ("transformer_path",),
+    "RHMiniMaxH3FL2VAVAELoader": ("audio_vae_path", "video_vae_path"),
 }
 
 # 缺失字体 → fleet 在列替代(ComfyRoll fonts 目录,:8196/:8197 object_info 实证)。
