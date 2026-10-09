@@ -12,6 +12,7 @@ import (
 // Canvas-api has no full Comfy client; this is a best-effort GET only.
 const (
 	EnvImageComfyBase = "TOIV_IMAGE_COMFY_BASE_URL" // e.g. http://100.68.100.90:8196
+	EnvVideoComfyBase = "TOIV_VIDEO_COMFY_BASE_URL" // e.g. http://100.68.100.90:8197
 	EnvH3ComfyBase    = "TOIV_H3_BASE_URL"          // e.g. http://100.68.100.90:8264
 	EnvObjectInfoURL  = "TOIV_COMFY_OBJECT_INFO_URL" // full URL override
 )
@@ -48,6 +49,8 @@ func DefaultWorkerForGroup(group string) string {
 	switch strings.ToLower(strings.TrimSpace(group)) {
 	case "h3":
 		return DefaultH3Worker
+	case "video":
+		return DefaultVideoWorker
 	case "image", "main":
 		return DefaultImageWorker
 	default:
@@ -73,6 +76,12 @@ func ResolveWorkerLabel(group, requested string) (string, error) {
 		}
 		return w, nil
 	}
+	if group == "video" {
+		if w != DefaultVideoWorker {
+			return "", fmt.Errorf("出视频绑定仅允许 worker %s；收到 %s", DefaultVideoWorker, w)
+		}
+		return w, nil
+	}
 	if group == "h3" && w != DefaultH3Worker {
 		return "", fmt.Errorf("H3 绑定仅允许 worker %s；收到 %s", DefaultH3Worker, w)
 	}
@@ -86,6 +95,10 @@ func objectInfoBaseForWorker(group, worker string) string {
 	switch group {
 	case "h3":
 		if u := strings.TrimSpace(os.Getenv(EnvH3ComfyBase)); u != "" {
+			return strings.TrimRight(u, "/")
+		}
+	case "video":
+		if u := strings.TrimSpace(os.Getenv(EnvVideoComfyBase)); u != "" {
 			return strings.TrimRight(u, "/")
 		}
 	default:

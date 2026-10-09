@@ -8,20 +8,29 @@ import {
     LOCAL_IMAGE_CHANNEL_NAME,
     LOCAL_IMAGE_MODEL_REF,
     LOCAL_IMAGE_WORKER_LABEL,
+    LOCAL_VIDEO_CHANNEL_NAME,
+    LOCAL_VIDEO_WORKER_LABEL,
     MODEL_PICKER_EMPTY_CTA,
     filterH3PickerEntries,
     filterImagePickerEntries,
+    filterVideoPickerEntries,
     isCloudModelServicePreset,
     localComputeDefaults,
 } from "@/lib/local-model-defaults";
 
-describe("local model defaults (slice 1+2)", () => {
-    test("local defaults present with H3 :8264, image :8196, Spark chat alias", () => {
+describe("local model defaults (slice 1+2+3)", () => {
+    test("local defaults present with H3 :8264, image :8196, video :8197, Spark chat alias", () => {
         const d = localComputeDefaults();
         expect(d.videoChannelName).toBe(LOCAL_H3_CHANNEL_NAME);
         expect(d.h3Worker).toBe(LOCAL_H3_WORKER_LABEL);
         expect(d.h3Worker).toBe(":8264");
         expect(d.h3Worker).not.toBe(":8195");
+        expect(d.videoWanChannelName).toBe(LOCAL_VIDEO_CHANNEL_NAME);
+        expect(d.videoWanChannelName).toBe("本地·视频(Wan/LongCat)");
+        expect(d.videoWorker).toBe(LOCAL_VIDEO_WORKER_LABEL);
+        expect(d.videoWorker).toBe(":8197");
+        expect(d.videoWorker).not.toBe(":8205");
+        expect(d.videoWorker).not.toBe(":8195");
         expect(d.imageChannelName).toBe(LOCAL_IMAGE_CHANNEL_NAME);
         expect(d.imageChannelName).toBe("本地·生图");
         expect(d.imageWorker).toBe(LOCAL_IMAGE_WORKER_LABEL);
@@ -60,6 +69,23 @@ describe("local model defaults (slice 1+2)", () => {
         expect(filtered.map((e) => e.rel_path)).toEqual([
             "checkpoints/a.safetensors",
             "diffusion_models/b.safetensors",
+        ]);
+    });
+
+    test("video filter keeps 用途 containing 出视频 and excludes h3/", () => {
+        const filtered = filterVideoPickerEntries([
+            { rel_path: "checkpoints/a.safetensors", 用途: "出图主线·checkpoint" },
+            { rel_path: "diffusion_models/b.safetensors", 用途: "出图/出视频·diffusion" },
+            { rel_path: "loras/c.safetensors", 用途: "LoRA" },
+            { rel_path: "h3/diffusion_models/d.safetensors", 用途: "出视频·Wan Animate" },
+            { rel_path: "wan2.2-animate-2-14b/x.safetensors", 用途: "出视频·Wan Animate" },
+            { rel_path: "unet/Wan2.2-Animate-14B-Q4_K_M.gguf", 用途: "出图/出视频·unet" },
+            { rel_path: "视频修复/seedvr.safetensors", 用途: "视频修复 SEEDVR2" },
+        ]);
+        expect(filtered.map((e) => e.rel_path)).toEqual([
+            "diffusion_models/b.safetensors",
+            "wan2.2-animate-2-14b/x.safetensors",
+            "unet/Wan2.2-Animate-14B-Q4_K_M.gguf",
         ]);
     });
 

@@ -17,8 +17,10 @@ const (
 	DefaultNASRootRel   = "toiv/comfyui-models"
 	DefaultH3Worker     = ":8264"
 	DefaultImageWorker  = ":8196" // Workstation gpu0-alt；LB :8188 入口，非试验口
+	DefaultVideoWorker  = ":8197" // Workstation LongCat/Wan 出视频（非 H3）
 	DefaultChatAlias    = "deepseek-v4-flash-dspark"
 	DefaultImageChannel = "本地·生图"
+	DefaultVideoChannel = "本地·视频(Wan/LongCat)"
 	SwapHint            = "落盘后 refresh 列表；仍不见再重启该 worker"
 	EnvModelsRoot       = "TOIV_NAS_MODELS_ROOT"
 	EnvPickerPath       = "TOIV_NAS_PICKER_PATH"
@@ -39,6 +41,7 @@ type Inventory struct {
 	NASRootDefault string  `json:"nas_root_default"`
 	H3Worker       string  `json:"h3_worker"`
 	ImageWorker    string  `json:"image_worker"`
+	VideoWorker    string  `json:"video_worker"`
 	ChatAlias      string  `json:"chat_alias"`
 	Source         string  `json:"source"`
 	UpdatedAt      string  `json:"updated_at,omitempty"`
@@ -56,6 +59,7 @@ type Binding struct {
 type BindingsFile struct {
 	H3    *Binding `json:"h3,omitempty"`
 	Image *Binding `json:"image,omitempty"` // 出图 · worker :8196
+	Video *Binding `json:"video,omitempty"` // 出视频(非H3) · worker :8197
 }
 
 type BindJob struct {
@@ -179,7 +183,7 @@ func readPicker(path string) (*Inventory, error) {
 	}
 	return &Inventory{
 		H3: doc.H3, Main: doc.Main, NASRootDefault: root,
-		H3Worker: DefaultH3Worker, ImageWorker: DefaultImageWorker, ChatAlias: DefaultChatAlias,
+		H3Worker: DefaultH3Worker, ImageWorker: DefaultImageWorker, VideoWorker: DefaultVideoWorker, ChatAlias: DefaultChatAlias,
 		Source: path, UpdatedAt: doc.UpdatedAt,
 	}, nil
 }
@@ -205,6 +209,7 @@ func readSourcesAsPicker(path string) (*Inventory, error) {
 		NASRootDefault: DefaultNASRootRel,
 		H3Worker:       DefaultH3Worker,
 		ImageWorker:    DefaultImageWorker,
+		VideoWorker:    DefaultVideoWorker,
 		ChatAlias:      DefaultChatAlias,
 		Source:         path + "#h3/",
 		UpdatedAt:      doc.UpdatedAt,
@@ -279,10 +284,13 @@ func (s *Store) StartBind(relPath, group, workerLabel string) (*BindJob, error) 
 		}
 	}
 	if group == "main" {
-		group = "image" // main picker → 出图 binding slot
+		group = "image" // main picker → 出图 binding slot（出视频请显式 group=video）
 	}
 	if group == "h3" && !strings.HasPrefix(relPath, "h3/") {
 		return nil, errors.New("H3 绑定仅允许 h3/ 前缀")
+	}
+	if group == "video" && strings.HasPrefix(relPath, "h3/") {
+		return nil, errors.New("出视频绑定不使用 h3/（H3 栏走 :8264）")
 	}
 	worker, err := ResolveWorkerLabel(group, workerLabel)
 	if err != nil {
@@ -290,7 +298,7 @@ func (s *Store) StartBind(relPath, group, workerLabel string) (*BindJob, error) 
 	}
 
 	invGroup := group
-	if group == "image" {
+	if group == "image" || group == "video" {
 		invGroup = "main"
 	}
 	inv, err := s.Inventory(invGroup)
@@ -311,15 +319,21 @@ func (s *Store) StartBind(relPath, group, workerLabel string) (*BindJob, error) 
 	if match == nil {
 		return nil, errors.New("选模清单中未找到该 rel_path（或 status 非 ok）")
 	}
-	if group == "image" && !strings.Contains(match.Purpose, "出图") {
+	if group == "image" && !IsImagePurpose(match.Purpose) {
 		return nil, errors.New("生图绑定仅允许用途含「出图」的权重")
+	}
+	if group == "video" && !IsVideoPurpose(match.Purpose) {
+		return nil, errors.New("出视频绑定仅允许用途含「出视频」的权重")
 	}
 
 	stages := []string{"validate", "refresh/bind", "done"}
 	hint := SwapHint
-	if group == "h3" {
+	switch group {
+	case "h3":
 		hint = SwapHint + "（生产 H3=" + DefaultH3Worker + "）"
-	} else {
+	case "video":
+		hint = SwapHint + "（出视频 worker=" + DefaultVideoWorker + " · Wan/LongCat）"
+	default:
 		hint = SwapHint + "（生图 worker=" + DefaultImageWorker + " / LB :8188）"
 	}
 	job := &BindJob{
@@ -395,9 +409,12 @@ func (s *Store) runBind(id string, match *Entry, group, worker string) {
 	if cur == nil {
 		cur = &BindingsFile{}
 	}
-	if group == "h3" {
+	switch group {
+	case "h3":
 		cur.H3 = bind
-	} else {
+	case "video":
+		cur.Video = bind
+	default:
 		cur.Image = bind
 	}
 	err := s.writeBindingsLocked(cur)
@@ -421,12 +438,15 @@ func (s *Store) Job(id string) (*BindJob, bool) {
 	return &cp, true
 }
 
-// LocalDefaults returns local-first preset metadata for UI/tests (slice 1+2).
+// LocalDefaults returns local-first preset metadata for UI/tests (slice 1+2+3).
 func LocalDefaults() map[string]any {
 	return map[string]any{
 		"video_channel_name":         "本地·H3视频",
 		"video_protocol":             "toiv-h3",
 		"h3_worker":                  DefaultH3Worker,
+		"video_wan_channel_id":       "toiv-video-wan",
+		"video_wan_channel_name":     DefaultVideoChannel,
+		"video_worker":               DefaultVideoWorker,
 		"image_channel_name":         DefaultImageChannel,
 		"image_worker":               DefaultImageWorker,
 		"image_lb":                   ":8188",
@@ -441,4 +461,8 @@ func LocalDefaults() map[string]any {
 
 func IsImagePurpose(purpose string) bool {
 	return strings.Contains(purpose, "出图")
+}
+
+func IsVideoPurpose(purpose string) bool {
+	return strings.Contains(purpose, "出视频")
 }

@@ -11,6 +11,7 @@ describe("model-config template local-first", () => {
         const h3 = cfg.channels.find((c: any) => (c.modelProfiles || []).some((p: any) => p.protocol === "toiv-h3"));
         const llm = cfg.channels.find((c: any) => c.id === "toiv-llm");
         const image = cfg.channels.find((c: any) => c.id === "toiv-image" || c.name === "本地·生图");
+        const wan = cfg.channels.find((c: any) => c.id === "toiv-video-wan" || c.name === "本地·视频(Wan/LongCat)");
         expect(h3?.name).toBe("本地·H3视频");
         expect(String(h3?.publicAlias || "")).toContain(":8264");
         expect(String(h3?.publicAlias || "")).not.toContain(":8195");
@@ -28,5 +29,12 @@ describe("model-config template local-first", () => {
         expect(imgWorkers.every((v: string) => v === ":8196")).toBe(true);
         expect(cfg.imageModel).toBe("toiv-image::local-checkpoint");
         expect(cfg.imageModels || []).toContain("toiv-image::local-checkpoint");
+
+        expect(wan?.name).toBe("本地·视频(Wan/LongCat)");
+        expect(String(wan?.publicAlias || "")).toContain(":8197");
+        expect(String(wan?.publicAlias || "")).not.toContain(":8195");
+        const wanWorkers = (wan?.modelProfiles || []).map((p: any) => p?.defaultOptions?.toivWorkerLabel);
+        expect(wanWorkers.every((v: string) => v === ":8197")).toBe(true);
+        expect(cfg.videoModels || []).toContain("toiv-video-wan::local-wan");
     });
 });

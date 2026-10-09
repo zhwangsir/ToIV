@@ -14,8 +14,11 @@ import {
     LOCAL_IMAGE_MODEL_REF,
     LOCAL_IMAGE_WORKER_LABEL,
     LOCAL_NAS_ROOT_DEFAULT,
+    LOCAL_VIDEO_CHANNEL_NAME,
+    LOCAL_VIDEO_WORKER_LABEL,
     filterH3PickerEntries,
     filterImagePickerEntries,
+    filterVideoPickerEntries,
     localComputeDefaults,
 } from "@/lib/local-model-defaults";
 import {
@@ -36,13 +39,17 @@ export function LocalComputePane() {
     const defaults = localComputeDefaults();
     const [h3Entries, setH3Entries] = useState<NasModelEntry[]>([]);
     const [imageEntries, setImageEntries] = useState<NasModelEntry[]>([]);
+    const [videoEntries, setVideoEntries] = useState<NasModelEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [h3Selected, setH3Selected] = useState<string>();
     const [imageSelected, setImageSelected] = useState<string>();
+    const [videoSelected, setVideoSelected] = useState<string>();
     const [h3Bound, setH3Bound] = useState<string>();
     const [imageBound, setImageBound] = useState<string>();
+    const [videoBound, setVideoBound] = useState<string>();
     const [h3Progress, setH3Progress] = useState<BindProgress>(null);
     const [imageProgress, setImageProgress] = useState<BindProgress>(null);
+    const [videoProgress, setVideoProgress] = useState<BindProgress>(null);
     const [source, setSource] = useState<string>();
 
     const load = useCallback(async () => {
@@ -51,8 +58,10 @@ export function LocalComputePane() {
             const data = await getNasModels("all");
             const h3 = filterH3PickerEntries(data.inventory?.h3 || []);
             const images = filterImagePickerEntries(data.inventory?.main || []);
+            const videos = filterVideoPickerEntries(data.inventory?.main || []);
             setH3Entries(h3);
             setImageEntries(images);
+            setVideoEntries(videos);
             setSource(data.inventory?.source);
             if (data.bindings?.h3?.rel_path) {
                 setH3Bound(data.bindings.h3.rel_path);
@@ -62,10 +71,15 @@ export function LocalComputePane() {
                 setImageBound(data.bindings.image.rel_path);
                 setImageSelected(data.bindings.image.rel_path);
             }
+            if (data.bindings?.video?.rel_path) {
+                setVideoBound(data.bindings.video.rel_path);
+                setVideoSelected(data.bindings.video.rel_path);
+            }
         } catch (error) {
             message.warning(error instanceof Error ? error.message : "无法加载 NAS 选模清单（可稍后重试）");
             setH3Entries([]);
             setImageEntries([]);
+            setVideoEntries([]);
         } finally {
             setLoading(false);
         }
@@ -86,6 +100,13 @@ export function LocalComputePane() {
             label: `${e.basename}${e.用途 ? ` · ${e.用途}` : ""}`,
         })),
         [imageEntries],
+    );
+    const videoOptions = useMemo(
+        () => videoEntries.map((e) => ({
+            value: e.rel_path,
+            label: `${e.basename}${e.用途 ? ` · ${e.用途}` : ""}`,
+        })),
+        [videoEntries],
     );
 
     const applyLocalChannelLabels = () => {
@@ -206,7 +227,7 @@ export function LocalComputePane() {
                 <div className="min-w-0">
                     <h2 className="text-base font-semibold">模型与算力（本地优先）</h2>
                     <p className="mt-1 text-xs text-foreground/55">
-                        生图走 Workstation Comfy {LOCAL_IMAGE_WORKER_LABEL}（LB {LOCAL_IMAGE_LB_LABEL}）；视频走 H3 {LOCAL_H3_WORKER_LABEL}；对话走 Spark。NAS 根默认 <code>{LOCAL_NAS_ROOT_DEFAULT}</code>。
+                        生图走 Workstation Comfy {LOCAL_IMAGE_WORKER_LABEL}（LB {LOCAL_IMAGE_LB_LABEL}）；Wan/LongCat/VACE 走 {LOCAL_VIDEO_WORKER_LABEL}；H3 走 {LOCAL_H3_WORKER_LABEL}；对话走 Spark。NAS 根默认 <code>{LOCAL_NAS_ROOT_DEFAULT}</code>。
                     </p>
                 </div>
                 <Button size="small" icon={<RefreshCw className="size-3.5" />} loading={loading} onClick={() => void load()}>
@@ -261,6 +282,52 @@ export function LocalComputePane() {
                     ) : null}
                 </div>
 
+                <div className="rounded-lg border border-border/60 bg-background/40 p-3" data-testid="local-video-bind">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                        <Server className="size-4" />
+                        {LOCAL_VIDEO_CHANNEL_NAME}
+                        <Tag color="orange">worker {LOCAL_VIDEO_WORKER_LABEL}</Tag>
+                    </div>
+                    <p className="mb-2 text-xs text-foreground/55">
+                        列出 NAS main 中用途含「出视频」且非 <code>h3/</code> 的权重（含 出图/出视频·diffusion、出视频·Wan Animate 等）；绑定到 LongCat/Wan/VACE 口 {LOCAL_VIDEO_WORKER_LABEL}。H3 仍走 {LOCAL_H3_WORKER_LABEL}。落盘后 refresh object_info，仍不见再重启该 worker。
+                    </p>
+                    <Select
+                        className="w-full"
+                        showSearch
+                        allowClear
+                        loading={loading}
+                        placeholder={videoEntries.length ? "从 NAS 选择出视频权重" : "暂无出视频条目"}
+                        options={videoOptions}
+                        value={videoSelected}
+                        optionFilterProp="label"
+                        onChange={(v) => setVideoSelected(v)}
+                    />
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Button
+                            type="primary"
+                            disabled={!videoSelected || bindingBusy(videoProgress)}
+                            onClick={() => void runBind({
+                                selected: videoSelected,
+                                group: "video",
+                                worker: LOCAL_VIDEO_WORKER_LABEL,
+                                setProgress: setVideoProgress,
+                                setBound: setVideoBound,
+                                emptyMsg: "请先选择出视频权重",
+                                okMsg: "已绑定本地 Wan/LongCat 权重 → :8197",
+                            })}
+                        >
+                            替换并绑定
+                        </Button>
+                        {videoBound ? <span className="truncate text-xs text-foreground/55">当前：{videoBound}</span> : null}
+                    </div>
+                    {videoProgress ? (
+                        <div className="mt-3" data-testid="nas-video-bind-progress">
+                            <Progress percent={videoProgress.percent} size="small" status={videoProgress.stage === "done" ? "success" : "active"} />
+                            <div className="mt-1 text-xs text-foreground/55">阶段：{videoProgress.stage}{videoProgress.hint ? ` · ${videoProgress.hint}` : ""}</div>
+                        </div>
+                    ) : null}
+                </div>
+
                 <div className="rounded-lg border border-border/60 bg-background/40 p-3" data-testid="local-h3-bind">
                     <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
                         <Server className="size-4" />
@@ -305,13 +372,13 @@ export function LocalComputePane() {
                     ) : null}
                 </div>
 
-                <div className="rounded-lg border border-border/60 bg-background/40 p-3 lg:col-span-2">
+                <div className="rounded-lg border border-border/60 bg-background/40 p-3">
                     <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
                         <Server className="size-4" />
                         {LOCAL_CHAT_CHANNEL_NAME}
                         <Tag color="green">Spark</Tag>
                     </div>
-                    <p className="mb-2 text-xs text-foreground/55">对话别名固定走现有 <code>/api/llm/v1</code>，不浏览 NAS <code>LLM/</code>。</p>
+                    <p className="mb-2 text-xs text-foreground/55">对话别名固定走现有 <code>/api/llm/v1</code>，不浏览 NAS <code>LLM/</code>，不调度到 Workstation 显卡。</p>
                     <div className="text-sm">主别名：<code>{LOCAL_CHAT_ALIAS}</code></div>
                     <div className="mt-2 text-xs text-foreground/55">同进程别名：qwen3.8-27b / qwen3.6-uncensored / glm-5.3-flash · 默认：{defaults.chatModelRef}</div>
                     {source ? <div className="mt-2 truncate text-[11px] text-foreground/40">清单源：{source}</div> : null}

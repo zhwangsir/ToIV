@@ -5,7 +5,7 @@ export type NasModelEntry = {
     rel_path: string;
     用途?: string;
     bytes?: number | null;
-    group?: "h3" | "main" | "image" | string;
+    group?: "h3" | "main" | "image" | "video" | string;
 };
 
 export type NasModelInventory = {
@@ -14,6 +14,7 @@ export type NasModelInventory = {
     nas_root_default: string;
     h3_worker: string;
     image_worker?: string;
+    video_worker?: string;
     chat_alias: string;
     source?: string;
     updated_at?: string;
@@ -39,13 +40,15 @@ export type NasBindJob = {
     hint?: string;
 };
 
-export type NasBindGroup = "h3" | "main" | "image";
+export type NasBindGroup = "h3" | "main" | "image" | "video";
 
 export function getNasModels(group?: "h3" | "main" | "all") {
     const params = group && group !== "all" ? { group } : undefined;
-    return request<{ inventory: NasModelInventory; bindings: { h3?: NasBinding; image?: NasBinding }; defaults: Record<string, unknown> }>(
-        apiClient.get("/nas/models", { params }),
-    );
+    return request<{
+        inventory: NasModelInventory;
+        bindings: { h3?: NasBinding; image?: NasBinding; video?: NasBinding };
+        defaults: Record<string, unknown>;
+    }>(apiClient.get("/nas/models", { params }));
 }
 
 export function getNasModelDefaults() {

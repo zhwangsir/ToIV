@@ -4,6 +4,7 @@ import "testing"
 
 func TestTryObjectInfoRefreshWithoutBaseKeepsHint(t *testing.T) {
 	t.Setenv(EnvImageComfyBase, "")
+	t.Setenv(EnvVideoComfyBase, "")
 	t.Setenv(EnvH3ComfyBase, "")
 	t.Setenv(EnvObjectInfoURL, "")
 	ok, detail := tryObjectInfoRefresh("image", ":8196")
@@ -21,5 +22,8 @@ func TestDefaultWorkerForGroup(t *testing.T) {
 	}
 	if DefaultWorkerForGroup("image") != ":8196" {
 		t.Fatal(DefaultWorkerForGroup("image"))
+	}
+	if DefaultWorkerForGroup("video") != ":8197" {
+		t.Fatal(DefaultWorkerForGroup("video"))
 	}
 }

@@ -7,7 +7,8 @@
  "videoModel": "MZt9ON1JvbabJ2GS-PvXR::h3",
  "videoModels": [
   "MZt9ON1JvbabJ2GS-PvXR::h3",
-  "MZt9ON1JvbabJ2GS-PvXR::h3-t2v"
+  "MZt9ON1JvbabJ2GS-PvXR::h3-t2v",
+  "toiv-video-wan::local-wan"
  ],
  "models": [
   "MZt9ON1JvbabJ2GS-PvXR::h3",
@@ -433,6 +434,41 @@
    "scope": "user",
    "sortOrder": 1,
    "publicAlias": "Spark TP2 · deepseek-v4-flash-dspark"
+  },
+  {
+   "apiFormat": "openai",
+   "apiKey": "",
+   "baseUrl": "http://127.0.0.1:8090",
+   "enabled": true,
+   "headers": [],
+   "id": "toiv-video-wan",
+   "modelProfiles": [
+    {
+     "capability": "video",
+     "capabilityConfig": {
+      "version": 1,
+      "video": {
+       "maxDurationSeconds": 15,
+       "maxOutputs": 1
+      }
+     },
+     "model": "local-wan",
+     "protocol": "openai",
+     "displayName": "本地·视频(Wan/LongCat)",
+     "defaultOptions": {
+      "toivWorkerLabel": ":8197",
+      "toivNasRoot": "toiv/comfyui-models"
+     }
+    }
+   ],
+   "models": [
+    "local-wan"
+   ],
+   "name": "本地·视频(Wan/LongCat)",
+   "pinned": false,
+   "scope": "user",
+   "sortOrder": 1,
+   "publicAlias": "本地·视频(Wan/LongCat) · worker :8197"
   },
   {
    "apiFormat": "openai",

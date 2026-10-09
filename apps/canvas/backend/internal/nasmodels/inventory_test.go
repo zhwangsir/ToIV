@@ -28,6 +28,12 @@ func TestLocalDefaultsH3AndImageWorkers(t *testing.T) {
 	if d["video_channel_name"] != "本地·H3视频" {
 		t.Fatalf("video name=%v", d["video_channel_name"])
 	}
+	if d["video_worker"] != DefaultVideoWorker || DefaultVideoWorker != ":8197" {
+		t.Fatalf("video_worker=%v want :8197", d["video_worker"])
+	}
+	if d["video_wan_channel_name"] != "本地·视频(Wan/LongCat)" {
+		t.Fatalf("video wan name=%v", d["video_wan_channel_name"])
+	}
 	if d["swap_hint"] != SwapHint {
 		t.Fatalf("swap_hint=%v", d["swap_hint"])
 	}
@@ -64,6 +70,9 @@ func TestPickerH3Filter(t *testing.T) {
 	}
 	if inv.ImageWorker != ":8196" {
 		t.Fatalf("image worker=%s", inv.ImageWorker)
+	}
+	if inv.VideoWorker != ":8197" {
+		t.Fatalf("video worker=%s", inv.VideoWorker)
 	}
 	job, err := store.StartBind("h3/diffusion_models/a.safetensors", "h3", "")
 	if err != nil {
@@ -127,8 +136,63 @@ func TestResolveWorkerForbidden(t *testing.T) {
 	if !IsForbiddenWorker(":8205") || !IsForbiddenWorker(":8261") {
 		t.Fatal("forbidden list incomplete")
 	}
-	if IsForbiddenWorker(":8196") || IsForbiddenWorker(":8264") {
+	if IsForbiddenWorker(":8196") || IsForbiddenWorker(":8264") || IsForbiddenWorker(":8197") {
 		t.Fatal("production workers must not be forbidden")
+	}
+}
+
+func TestVideoBindRequiresChuShiPinPurposeAnd8197(t *testing.T) {
+	dir := t.TempDir()
+	picker := filepath.Join(dir, "p.json")
+	doc := map[string]any{
+		"h3": []map[string]any{
+			{"basename": "a.safetensors", "rel_path": "h3/diffusion_models/a.safetensors", "用途": "H3主模型"},
+		},
+		"main": []map[string]any{
+			{"basename": "wan.safetensors", "rel_path": "wan2.2-animate-2-14b/wan.safetensors", "用途": "出视频·Wan Animate"},
+			{"basename": "ckpt.safetensors", "rel_path": "checkpoints/b.safetensors", "用途": "出图主线·checkpoint"},
+			{"basename": "both.safetensors", "rel_path": "diffusion_models/both.safetensors", "用途": "出图/出视频·diffusion"},
+		},
+	}
+	raw, _ := json.Marshal(doc)
+	_ = os.WriteFile(picker, raw, 0o644)
+	t.Setenv(EnvPickerPath, picker)
+	store := NewStore(dir)
+
+	if _, err := store.StartBind("checkpoints/b.safetensors", "video", ":8197"); err == nil {
+		t.Fatal("expected reject non-出视频")
+	}
+	if _, err := store.StartBind("h3/diffusion_models/a.safetensors", "video", ":8197"); err == nil {
+		t.Fatal("expected reject h3/ into video")
+	}
+	if _, err := store.StartBind("wan2.2-animate-2-14b/wan.safetensors", "video", ":8205"); err == nil {
+		t.Fatal("expected reject forbidden worker")
+	}
+	if _, err := store.StartBind("wan2.2-animate-2-14b/wan.safetensors", "video", ":8196"); err == nil {
+		t.Fatal("expected reject image worker for video group")
+	}
+	job, err := store.StartBind("wan2.2-animate-2-14b/wan.safetensors", "video", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bind := waitDone(t, store, job.ID, "wan2.2-animate-2-14b/wan.safetensors", ":8197")
+	if bind.Group != "video" {
+		t.Fatalf("group=%s", bind.Group)
+	}
+	// dual-purpose 出图/出视频 also OK for video
+	job2, err := store.StartBind("diffusion_models/both.safetensors", "video", ":8197")
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitDone(t, store, job2.ID, "diffusion_models/both.safetensors", ":8197")
+}
+
+func TestIsVideoPurpose(t *testing.T) {
+	if !IsVideoPurpose("出视频·Wan Animate") || !IsVideoPurpose("出图/出视频·diffusion") {
+		t.Fatal("expected video purpose match")
+	}
+	if IsVideoPurpose("出图主线·checkpoint") || IsVideoPurpose("LoRA") {
+		t.Fatal("expected non-video reject")
 	}
 }
 

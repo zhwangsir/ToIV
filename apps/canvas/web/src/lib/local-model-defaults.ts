@@ -1,7 +1,12 @@
-/** Local-first model/compute defaults for Studio「模型与算力」(slice 1+2). */
+/** Local-first model/compute defaults for Studio「模型与算力」(slice 1+2+3). */
 
 export const LOCAL_H3_CHANNEL_NAME = "本地·H3视频";
 export const LOCAL_H3_WORKER_LABEL = ":8264";
+export const LOCAL_VIDEO_CHANNEL_ID = "toiv-video-wan";
+export const LOCAL_VIDEO_CHANNEL_NAME = "本地·视频(Wan/LongCat)";
+export const LOCAL_VIDEO_WORKER_LABEL = ":8197";
+export const LOCAL_VIDEO_MODEL = "local-wan";
+export const LOCAL_VIDEO_MODEL_REF = `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL}`;
 export const LOCAL_IMAGE_CHANNEL_ID = "toiv-image";
 export const LOCAL_IMAGE_CHANNEL_NAME = "本地·生图";
 export const LOCAL_IMAGE_WORKER_LABEL = ":8196";
@@ -28,6 +33,10 @@ export function localComputeDefaults() {
     return {
         videoChannelName: LOCAL_H3_CHANNEL_NAME,
         h3Worker: LOCAL_H3_WORKER_LABEL,
+        videoWanChannelId: LOCAL_VIDEO_CHANNEL_ID,
+        videoWanChannelName: LOCAL_VIDEO_CHANNEL_NAME,
+        videoWorker: LOCAL_VIDEO_WORKER_LABEL,
+        videoModelRef: LOCAL_VIDEO_MODEL_REF,
         imageChannelId: LOCAL_IMAGE_CHANNEL_ID,
         imageChannelName: LOCAL_IMAGE_CHANNEL_NAME,
         imageWorker: LOCAL_IMAGE_WORKER_LABEL,
@@ -59,5 +68,15 @@ export function filterImagePickerEntries<T extends { rel_path?: string; 用途?:
         const rel = String(e.rel_path || "");
         if (rel.startsWith("h3/")) return false;
         return purpose.includes("出图");
+    });
+}
+
+/** NAS main[] 出视频权重（非 H3）：用途含「出视频」且 rel_path 不在 h3/ 下 → worker :8197. */
+export function filterVideoPickerEntries<T extends { rel_path?: string; 用途?: string }>(entries: T[]): T[] {
+    return entries.filter((e) => {
+        const purpose = String(e.用途 || "");
+        const rel = String(e.rel_path || "");
+        if (rel.startsWith("h3/")) return false;
+        return purpose.includes("出视频");
     });
 }
