@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/product/empty-state";
 import { formatTaskKind, generationTaskStatusLabel } from "@/lib/generation-task-display";
 import { listGenerationTasks, type GenerationTask } from "@/services/api/task-center";
 import { cancelJob, fetchJobs, type ToivJob } from "@/services/toiv/client";
+import { WorkspacePage } from "@/components/layout/workspace-page";
 
 const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
     queued: { tone: "neutral", text: "排队中" },
@@ -178,7 +179,8 @@ export default function TasksPage() {
     const empty = !loading && !error && timeline.length === 0 && !canvasLoading;
 
     return (
-        <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
+        <WorkspacePage fluid className="toiv-tasks-page">
+            <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">任务中心</h1>
@@ -276,6 +278,7 @@ export default function TasksPage() {
                     )}
                 </section>
             )}
-        </main>
+        </div>
+        </WorkspacePage>
     );
 }

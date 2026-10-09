@@ -11,7 +11,12 @@ body .app-user-workspace .app-workspace-sidebar-nav { background: var(--user-pag
     --home-border: var(--user-border);
     --home-card: var(--user-surface);
     height: 100%; overflow: auto; color: var(--user-ink); background: var(--user-page-bg);
-    padding: 64px 40px 72px; scrollbar-color: var(--user-border-strong) transparent;
+    padding: 64px 40px 72px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--toiv-scroll-thumb, var(--user-border-strong)) var(--toiv-scroll-track, transparent);
+}
+.toiv-home:is(:hover, :focus-within) {
+    scrollbar-color: var(--toiv-scroll-thumb-hover, var(--user-border-strong)) var(--toiv-scroll-track, transparent);
 }
 .toiv-home-hero { position: relative; min-height: 160px; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--user-border-strong); border-radius: 12px; background: var(--user-surface-muted); }
 .toiv-home-dot-base,.toiv-home-dot-flow { position: absolute; inset: 8px 2px; pointer-events: none; background-size: 18px 18px; }

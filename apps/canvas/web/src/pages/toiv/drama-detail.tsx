@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/base/badges";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { appendCChainSegments, buildMakeupCChainFromDrama, cancelJob, createCChain, fetchCChain, fetchCharacterSheets, fetchDramaProject, pickCChainSegment, triggerBatchRender, triggerPanelReplace, triggerSheetRegen, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivCChainDetail, type ToivCharacterSheet, type ToivDramaDetail } from "@/services/toiv/client";
+import { WorkspacePage } from "@/components/layout/workspace-page";
 
 const SHOT_STATUS: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
     draft: { tone: "neutral", text: "草稿" },
@@ -95,14 +96,23 @@ export default function DramaDetailPage() {
         return () => window.clearInterval(timer);
     }, [chainBusy, chainJobId, id]);
 
-    if (loading) return <main className="flex h-full items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></main>;
-    if (!detail) return <main className="flex h-full items-center justify-center"><EmptyState description={loadFailed ? "项目不存在或读取失败" : "项目不存在或读取失败"} /></main>;
+    if (loading) return (
+        <WorkspacePage fluid className="toiv-drama-detail-page">
+            <div className="flex h-full items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></div>
+        </WorkspacePage>
+    );
+    if (!detail) return (
+        <WorkspacePage fluid className="toiv-drama-detail-page">
+            <div className="flex h-full items-center justify-center"><EmptyState description={loadFailed ? "项目不存在或读取失败" : "项目不存在或读取失败"} /></div>
+        </WorkspacePage>
+    );
 
     const shots = detail.shots ?? [];
     const chars = detail.characters ?? [];
 
     return (
-        <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-6">
+        <WorkspacePage fluid className="toiv-drama-detail-page">
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-6">
             <header className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 flex-col gap-1">
                     <h1 className="truncate text-xl font-semibold leading-7 text-foreground">{detail.title || detail.premise?.slice(0, 30) || "未命名项目"}</h1>
@@ -463,6 +473,7 @@ export default function DramaDetailPage() {
                     </div>
                 )}
             </AppDrawer>
-        </main>
+        </div>
+        </WorkspacePage>
     );
 }

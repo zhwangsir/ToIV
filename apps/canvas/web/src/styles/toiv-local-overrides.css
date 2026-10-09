@@ -17,7 +17,8 @@ body .app-user-workspace .app-workspace-brand-mark img {
    BeefTV thin scrollbar — feat/studio-scrollbar-beeftv
    细轨 + 低对比 track/thumb；hover 用 workspace/user accent（不用 RH lime）。
    标准属性优先（Chrome 121+ 祖先 scrollbar-color 会使 webkit 伪元素失效）。
-   故意隐藏的 .hide-scrollbar / .app-workspace-scroll 不改。
+   .hide-scrollbar 仍故意隐藏；产品路由 .app-product-workspace 下
+   .app-workspace-scroll 显示 6px 细轨（覆盖 spatial 盲藏）。
    ============================================================================= */
 :root {
     --toiv-scroll-size: 6px;
@@ -211,4 +212,38 @@ html.dark,
 
 .app-workspace-sidebar-scroll-area::-webkit-scrollbar-thumb {
     border-radius: 999px !important;
+}
+
+
+/* =============================================================================
+   feat/studio-scroll-unlock P1 — product routes show thin BeefTV track
+   Spatial still hides via globals; product (+spatial) restores visible 6px bar.
+   ============================================================================= */
+.app-product-workspace .app-workspace-scroll {
+    scrollbar-width: thin !important;
+    scrollbar-color: var(--toiv-scroll-thumb) var(--toiv-scroll-track) !important;
+}
+
+.app-product-workspace .app-workspace-scroll:is(:hover, :focus-within) {
+    scrollbar-color: var(--toiv-scroll-thumb-hover) var(--toiv-scroll-track) !important;
+}
+
+.app-product-workspace .app-workspace-scroll::-webkit-scrollbar {
+    display: block !important;
+    width: var(--toiv-scroll-size) !important;
+    height: var(--toiv-scroll-size) !important;
+}
+
+.app-product-workspace .app-workspace-scroll::-webkit-scrollbar-track,
+.app-product-workspace .app-workspace-scroll::-webkit-scrollbar-corner {
+    background: transparent !important;
+}
+
+.app-product-workspace .app-workspace-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--toiv-scroll-thumb) !important;
+    border-radius: 999px !important;
+}
+
+.app-product-workspace .app-workspace-scroll:is(:hover, :focus-within)::-webkit-scrollbar-thumb {
+    background-color: var(--toiv-scroll-thumb-hover) !important;
 }

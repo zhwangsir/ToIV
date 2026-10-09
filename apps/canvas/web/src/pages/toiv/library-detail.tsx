@@ -52,6 +52,7 @@ import {
     type LibraryMedia,
     type LibraryMediaKind,
 } from "@/services/toiv/library-group";
+import { WorkspacePage } from "@/components/layout/workspace-page";
 
 function statusTag(s: string) {
     if (s === "done") return <StatusBadge variant="filled" tone="success" label="已完成" size="sm" />;
@@ -481,7 +482,8 @@ export default function LibraryDetailPage() {
         previewMedias[Math.min(previewMediaIndex, Math.max(0, previewMedias.length - 1))] ?? null;
 
     return (
-        <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
+        <WorkspacePage fluid className="toiv-library-detail-page">
+            <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
             <header className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">
@@ -997,6 +999,7 @@ export default function LibraryDetailPage() {
                     </div>
                 </div>
             </AppModal>
-        </main>
+        </div>
+        </WorkspacePage>
     );
 }

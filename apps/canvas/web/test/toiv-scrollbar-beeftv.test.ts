@@ -43,9 +43,9 @@ describe("feat/studio-scrollbar-beeftv contracts", () => {
         ]) {
             expect(overrides).toContain(cls);
         }
-        // intentional hides must remain untouched here
+        // .hide-scrollbar stay untouched; product may restore .app-workspace-scroll (scroll-unlock P1)
         expect(overrides).not.toContain(".hide-scrollbar {");
-        expect(overrides).not.toContain(".app-workspace-scroll {");
+        expect(overrides).toContain(".app-product-workspace .app-workspace-scroll");
     });
 
     test("web details.css thin 6px and hover avoids cinema lime accent", () => {

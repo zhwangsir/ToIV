@@ -6,6 +6,7 @@ import { ToolButton } from "@/components/ui/base/buttons";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { fetchDramaProjects, type ToivDramaProject } from "@/services/toiv/client";
+import { WorkspacePage } from "@/components/layout/workspace-page";
 
 const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
     draft: { tone: "neutral", text: "草稿" },
@@ -55,7 +56,8 @@ export default function DramaPage() {
     useEffect(() => { void load(); }, [load]);
 
     return (
-        <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
+        <WorkspacePage fluid className="toiv-drama-page">
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">短剧工作台</h1>
@@ -97,6 +99,7 @@ export default function DramaPage() {
                         })}
                     </div>
                 )}
-        </main>
+        </div>
+        </WorkspacePage>
     );
 }

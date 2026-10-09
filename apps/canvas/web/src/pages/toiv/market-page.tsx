@@ -39,6 +39,7 @@ import {
     registerMarketCanvasProvider,
     unregisterMarketCanvasProvider,
 } from "@/services/toiv/market-providers";
+import { WorkspacePage } from "@/components/layout/workspace-page";
 
 const CATEGORY_META: Record<string, string> = {
     video: "视频",
@@ -546,7 +547,8 @@ export default function MarketPage() {
     };
 
     return (
-        <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
+        <WorkspacePage fluid className="toiv-market-page">
+            <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
             <header className="flex items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">应用市场</h1>
@@ -812,6 +814,7 @@ export default function MarketPage() {
                     </div>
                 )}
             </AppDrawer>
-        </main>
+        </div>
+        </WorkspacePage>
     );
 }
