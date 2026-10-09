@@ -16,6 +16,8 @@ describe("outboundHostAllowed defaults", () => {
     test("allows production and loopback defaults on any port", () => {
         expect(outboundHostAllowed("toiv.wineryz.top", "443")).toBe(true);
         expect(outboundHostAllowed("toiv.wineryz.top", "8090")).toBe(true);
+        expect(outboundHostAllowed("updates.beefapi.com", "443")).toBe(true);
+        expect(outboundHostAllowed("updates.beefapi.com", "80")).toBe(true);
         expect(outboundHostAllowed("localhost", "8090")).toBe(true);
         expect(outboundHostAllowed("127.0.0.1", "8090")).toBe(true);
         expect(outboundHostAllowed("::1", "8090")).toBe(true);
@@ -42,6 +44,7 @@ describe("appendOutboundHostAllowlist", () => {
 describe("assertAllowlistedOutboundUrl", () => {
     test("allows production https and relative paths", () => {
         expect(assertAllowlistedOutboundUrl("https://toiv.wineryz.top/api/auth/me")?.hostname).toBe("toiv.wineryz.top");
+        expect(assertAllowlistedOutboundUrl("https://updates.beefapi.com/desktop/latest.json")?.hostname).toBe("updates.beefapi.com");
         expect(assertAllowlistedOutboundUrl("/api/jobs")).toBeNull();
         expect(assertAllowlistedOutboundUrl("blob:http://localhost/abc")).toBeNull();
     });

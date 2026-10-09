@@ -8,8 +8,8 @@
 
 export const ENV_OUTBOUND_HOST_ALLOWLIST = "VITE_CANVAS_OUTBOUND_HOST_ALLOWLIST";
 
-/** Mirrors Go defaultOutboundHosts: production API + local loopback. */
-export const DEFAULT_OUTBOUND_HOSTS = ["toiv.wineryz.top", "localhost", "127.0.0.1", "::1"] as const;
+/** Mirrors Go defaultOutboundHosts: production API, desktop updater CDN, local loopback. */
+export const DEFAULT_OUTBOUND_HOSTS = ["toiv.wineryz.top", "updates.beefapi.com", "localhost", "127.0.0.1", "::1"] as const;
 
 let extraOutboundHosts: string[] = [];
 
