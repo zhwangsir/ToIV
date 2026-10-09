@@ -1,4 +1,4 @@
-/* Use the supplied left-side Beef lockup consistently in the workspace. */
+/* Local workspace brand-mark sizing overrides. */
 body .app-user-workspace .app-workspace-brand-mark {
     background: transparent !important;
     border: 0 !important;
