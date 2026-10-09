@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**pick-append 合入 tip `a68a9fe8`，未部署**）：origin/github/本地 main=`a68a9fe8`（merge `d7537c61`；parents 含 docs `0785dbd5`）。仅画布 drama-detail/client；同步 render 未改；客户端单测缺 localforage 未跑、静态审过。**未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T11:55:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家：**两端 tip `feac0433`；preload 单测分支未合**）：origin/github/本地 main=`feac0433`（pick-append 已合）。`feat/canvas-test-preload-optional`=`9cce3ed0`（缺 localforage 可跑，3 passed）**未合 main**。**未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:00:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -134,6 +134,11 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-09（项目管家：preload 单测分支 `9cce3ed0` 未合）
+- **tip**：origin/github/本地 main=`feac0433`。**未部署**；生产 c-chains 仍 404。
+- **单测**：`feat/canvas-test-preload-optional` tip=`9cce3ed0`（抽出纯模块，缺 localforage 也能跑，3 passed）；**未合 main**、未部署。
+- Status：`canvas_test_preload_optional_tip_unmerged`；闸不开。via 项目管家（BeefTV）。
 
 ### 2026-10-09（项目管家：pick-append 合入 `a68a9fe8`，未部署）
 - **tip**：origin/github/本地 main=`a68a9fe8`（no-ff merge `d7537c61`）。**未部署**；生产 c-chains 仍 404。
