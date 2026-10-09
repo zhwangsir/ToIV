@@ -33,6 +33,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"infinite-canvas/backend/internal/outbound"
 )
 
 //go:embed toivgate/*.html toivgate/*.json
@@ -68,7 +70,21 @@ type toivGate struct {
 }
 
 func newToIVGate(root string) *toivGate {
-	return &toivGate{root: root, client: &http.Client{Timeout: 20 * time.Second}}
+	return &toivGate{root: root, client: &http.Client{
+		Timeout: 20 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return errors.New("ToIV 重定向次数过多")
+			}
+			if req == nil || req.URL == nil {
+				return errors.New("ToIV 重定向地址无效")
+			}
+			if _, err := outbound.ValidateAllowlistedOutboundURL(req.URL.String()); err != nil {
+				return err
+			}
+			return nil
+		},
+	}}
 }
 
 func (g *toivGate) apiBase() string {
@@ -174,7 +190,11 @@ func (g *toivGate) do(ctx context.Context, method, p, token string, body any) (i
 		raw, _ := json.Marshal(body)
 		rd = bytes.NewReader(raw)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, g.apiBase()+p, rd)
+	target := g.apiBase() + p
+	if _, err := outbound.ValidateAllowlistedOutboundURL(target); err != nil {
+		return 0, nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, method, target, rd)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -438,15 +458,22 @@ func (a *DesktopApp) localAPI(ctx context.Context, method, p string, body any) (
 	return rec.Code, rec.Body.Bytes()
 }
 
-// toivAllowPrivateUpstream lets the backend reach a ToIV API on a private / tailnet address.
+// toivAllowPrivateUpstream lets the backend reach a ToIV API on a private / tailnet address
+// and registers the API host on the desktop outbound allowlist (positive host gate).
 func toivAllowPrivateUpstream(apiBase string) {
 	u, err := url.Parse(apiBase)
 	if err != nil || u.Hostname() == "" {
 		return
 	}
 	host := u.Hostname()
+	// Positive allowlist: production default covers toiv.wineryz.top; env/staging bases must be registered.
+	if port := u.Port(); port != "" {
+		outbound.AppendOutboundHostAllowlist(net.JoinHostPort(host, port))
+	} else {
+		outbound.AppendOutboundHostAllowlist(host)
+	}
 	if ip := net.ParseIP(host); ip == nil && host != "localhost" {
-		return // public DNS name: no exception needed
+		return // public DNS name: no private-upstream exception needed
 	}
 	cur := strings.TrimSpace(os.Getenv("CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS"))
 	for _, h := range strings.Split(cur, ",") {
