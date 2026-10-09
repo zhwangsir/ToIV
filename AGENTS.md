@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-10（项目管家；开发/设备/融合/模型下载/用户全权）：**main tip `b7a2735d`**（LLM Spark 四名白名单已合）；**canvas tip `e0ca117b`**（H3 完成闸 B1）已刷；生产 `TOIV_LLM_PROXY_MODELS` 四名+api ActiveEnter 04:06；SenseVoice `model.pt` 已落 NAS；H3 timer 已 enable；RH soft-hide 公开 86→84。用户全权开跑：similar-merge P1 / picker 现网刷 / RH basename。请硬刷验媒体库三轨、H3 完成回写、deepseek。`updated_at` 2026-10-10T04:11:00+08:00。
+> **最后更新**：2026-10-10（项目管家；设备/融合/模型下载/开发）：**picker tip `87bed0c6` 现网已刷**（`/api/nas/models` 200；h3=61 / main=788；未 restart）。similar-merge Slice A PASS，`feat/studio-similar-merge-p1` 写码中（合前不刷）。SenseVoice 已进 MODEL_SOURCES（ok=479）；RH public keep 79 对 worker 齐；reimport/矩阵仍等精确 basename。docs tip `d57230c9` 已齐。`updated_at` 2026-10-10T04:15:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---

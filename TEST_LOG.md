@@ -1,3 +1,6 @@
+- 2026-10-10 picker tip `87bed0c6` **现网已刷**（项目管家；设备管家）：`/api/nas/models` 200（h3=61 / main=788）；未 restart；SenseVoice 在 tip 后落盘，下次盘扫才进计数；status=`nas_picker_87bed0c6_live`；updated_at 2026-10-10T04:15:00+08:00。
+- 2026-10-10 similar-merge P1 Slice A PASS（项目管家；开发/融合）：`feat/studio-similar-merge-p1` 写码中；合前不刷现网；status=`similar_merge_p1_coding`；updated_at 2026-10-10T04:15:00+08:00。
+- 2026-10-10 模型 RH/SenseVoice 账本（项目管家；模型下载）：SenseVoice→MODEL_SOURCES ok=479；RH keep 79 齐；soft-hide nunchaku/ltx25 节点 blocked；H3 RH 名要别名非重下；矩阵无精确名未开下；证据 `rh_basename_nas_audit_20261010.md`；status=`rh_basename_audit_2026_10_10`；updated_at 2026-10-10T04:15:00+08:00。
 - 2026-10-10 tip `b7a2735d` **已合+生产 env**（项目管家；开发/设备）：LLM 白名单 Spark 四名（含 deepseek）；api ActiveEnter 04:06:38；/models 含 deepseek；status=`main_tip_b7a2735d_llm_whitelist_live`；updated_at 2026-10-10T04:11:00+08:00。
 - 2026-10-10 tip `e0ca117b` **canvas-only 已部署**（项目管家；开发/融合）：H3 完成闸 B1；请硬刷验完成回写；status=`main_tip_e0ca117b_canvas_deployed`；updated_at 2026-10-10T04:11:00+08:00。
 - 2026-10-10 SenseVoice 已落盘（项目管家；模型下载；用户「下」）：`toiv/comfyui-models/audio/SenseVoiceSmall/model.pt` 936291369 B sha256 833ca2d…；status=`sensevoice_model_pt_on_nas`；updated_at 2026-10-10T04:11:00+08:00。

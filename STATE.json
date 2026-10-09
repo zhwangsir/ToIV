@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T04:11:00+08:00",
+  "updated_at": "2026-10-10T04:15:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13985,19 +13985,25 @@
     "updated_at": "2026-10-09T23:04:00+08:00"
   },
   "nas_picker_87bed0c6_2026_10_09": {
-    "status": "nas_picker_87bed0c6_await_device_approve",
-    "date": "2026-10-09",
+    "status": "nas_picker_87bed0c6_live",
+    "date": "2026-10-10",
     "source": [
-      "ToIV开发",
       "设备管家",
       "ToIV 模型下载",
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "picker tip 87bed0c6 已合；现网刷等 1:1 审批",
+    "summary": "picker tip 87bed0c6 现网已刷",
     "tip": "87bed0c6",
-    "live": false,
-    "updated_at": "2026-10-09T23:04:00+08:00"
+    "live": true,
+    "api_nas_models": {
+      "http": 200,
+      "h3": 61,
+      "main": 788
+    },
+    "restart": false,
+    "sensevoice_in_count": "await_next_disk_scan",
+    "updated_at": "2026-10-10T04:15:00+08:00"
   },
   "market_cover_ui_2026_10_09": {
     "status": "market_cover_ui_canvas_deployed",
@@ -14298,12 +14304,36 @@
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "用户全权：未完成+薄弱项自主迭代",
-    "streams": [
-      "similar_merge_p1",
-      "picker_87bed0c6_live",
-      "rh_basename_scan"
+    "summary": "全权迭代推进中：picker 已现网；similar-merge 写码；RH 账本齐",
+    "picker_live": true,
+    "updated_at": "2026-10-10T04:15:00+08:00"
+  },
+  "similar_merge_p1_2026_10_10": {
+    "status": "similar_merge_p1_coding",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "项目管家"
     ],
-    "updated_at": "2026-10-10T04:11:00+08:00"
+    "steward": "项目管家",
+    "summary": "similar-merge P1 Slice A PASS，分支写码中",
+    "branch": "feat/studio-similar-merge-p1",
+    "slice_a": "PASS",
+    "deployed": false,
+    "updated_at": "2026-10-10T04:15:00+08:00"
+  },
+  "rh_basename_audit_2026_10_10": {
+    "status": "rh_basename_audit_logged",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV 模型下载",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "RH keep 79 齐；SenseVoice 进源；reimport/矩阵等精确名",
+    "sensevoice_model_sources_ok": 479,
+    "evidence": ".regen_tmp/rh_basename_nas_audit_20261010.md",
+    "updated_at": "2026-10-10T04:15:00+08:00"
   }
 }
