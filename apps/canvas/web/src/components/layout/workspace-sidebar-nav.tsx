@@ -50,7 +50,7 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
             items: [
                 { id: "home", title: "首页", icon: Home, to: "/" },
                 { ...toolItem("canvas", "/project"), title: "项目" },
-                { ...toolItem("assets", "/assets"), title: "资产" },
+                { id: "library", title: "媒体库", icon: Library, to: "/library" },
                 { id: "settings:channels", title: "模型配置", icon: Settings2, to: "/settings?section=channels" },
             ],
         },
@@ -61,7 +61,6 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
                 { id: "toiv:agent", title: "智能体对话", icon: Bot, to: "/toiv/agent" },
                 { id: "toiv:drama", title: "短剧工作台", icon: Clapperboard, to: "/toiv/drama" },
                 { id: "toiv:market", title: "应用市场", icon: Store, to: "/toiv/market" },
-                { id: "toiv:library", title: "作品库", icon: Library, to: "/toiv/library" },
                 { id: "toiv:tasks", title: "任务中心", icon: ListChecks, to: "/toiv/tasks" },
             ],
         },

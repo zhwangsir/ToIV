@@ -98,7 +98,7 @@ describe("library-detail page + client surface", () => {
         expect(src).toContain("变体已折叠");
         expect(src).toContain("移入回收站");
         expect(src).toContain("从作品集移除");
-        expect(src).toContain("/toiv/library");
+        expect(src).toContain("/library?source=works");
     });
 
     test("detail deepen: rename/export/download/canvas/audio preview/metadata", () => {
@@ -123,10 +123,12 @@ describe("library-detail page + client surface", () => {
         expect(src).toContain("/boards/${boardId}/export");
     });
 
-    test("router keeps /toiv/library/:id", () => {
+    test("router keeps /library/works/:id and legacy /toiv/library/:id redirect", () => {
         const src = read("src/router.tsx");
+        expect(src).toContain('path: "/library/works/:id"');
         expect(src).toContain('path: "/toiv/library/:id"');
         expect(src).toContain("library-detail");
+        expect(src).toContain("ToivLibraryDetailRedirect");
     });
 });
 

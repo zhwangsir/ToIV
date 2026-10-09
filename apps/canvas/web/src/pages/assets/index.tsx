@@ -1,9 +1,11 @@
-import { ArrowDownUp, AudioLines, Box, Check, CheckCheck, Clapperboard, Copy, Download, FileText, FileUp, FileX2, FolderOpen, FolderPlus, History, Image as ImageIcon, Images, LayoutGrid, List, Maximize2, MoreHorizontal, Pause, PencilLine, Play, Plus, RotateCcw, Search, SlidersHorizontal, Star, Trash2, Upload, Volume2, VolumeX, X, ZoomIn, ZoomOut, type LucideIcon } from "lucide-react";
+import { ArrowDownUp, AudioLines, Box, Check, CheckCheck, Clapperboard, Copy, Download, FileText, FileUp, FileX2, FolderOpen, FolderPlus, Image as ImageIcon, Images, LayoutGrid, List, Maximize2, MoreHorizontal, Pause, PencilLine, Play, Plus, RotateCcw, Search, SlidersHorizontal, Star, Trash2, Upload, Volume2, VolumeX, X, ZoomIn, ZoomOut, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Drawer, Dropdown, Form, Input, Modal, Progress, Select, Space, Tag, Typography } from "antd";
 import type { MenuProps } from "antd";
 import { useNavigate, useSearchParams } from "react-router";
+
+import { MediaLibrarySourceRail } from "@/components/library/media-library-source-rail";
 
 import { CollectionGrid, PageHeader, PaginationBar, WorkspacePage } from "@/components/layout/workspace-page";
 import { WorkspaceErrorState, WorkspaceLoadingState, WorkspaceState } from "@/components/layout/workspace-state";
@@ -111,7 +113,10 @@ function AssetsPageSession() {
     const { message } = App.useApp();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const sourceTab = searchParams.get("tab") === "history" ? "history" : "personal";
+    const sourceParam = searchParams.get("source");
+    const tabParam = searchParams.get("tab");
+    const sourceTab =
+        sourceParam === "history" || tabParam === "history" ? "history" : "personal";
     const queryClient = useQueryClient();
     const [entryScope] = useState(() => captureUserScope());
     const copyText = useCopyText();
@@ -824,7 +829,6 @@ function AssetsPageSession() {
                     if (historyQuery.isPlaceholderData) return;
                     setHistoryPage((current) => current + 1);
                 } : undefined}
-                onSelectPersonal={() => navigate("/assets?tab=personal")}
                 onDownload={downloadImage}
                 onDelete={deleteHistoryAsset}
             />
@@ -849,7 +853,7 @@ function AssetsPageSession() {
             <WorkspacePage grid className="library-page assets-library-page canvas-library-page">
                 <div className="studio-band assets-library-hero">
                     <PageHeader
-                        title="个人资产库"
+                        title="个人素材"
                         actions={
                             <div className="assets-header-actions">
                                 <div className="assets-header-action-buttons">
@@ -1111,20 +1115,11 @@ function AssetsPageSession() {
                         </section>
                     </div>
                 </div>
-                <aside className="assets-library-source-rail" aria-label="资产来源导航">
-                    <div className="assets-library-source-rail-inner">
-                        <button type="button" className="assets-library-source-rail-item" onClick={() => navigate("/assets?tab=history")}>
-                            <span className="assets-library-source-rail-icon"><History className="size-3.5" /></span>
-                            <span>生成历史</span>
-                            <span className="assets-filter-count">{generationHistoryCount}</span>
-                        </button>
-                        <button type="button" className="assets-library-source-rail-item is-active" aria-current="page">
-                            <span className="assets-library-source-rail-icon"><FolderOpen className="size-3.5" /></span>
-                            <span>个人资产库</span>
-                            <span className="assets-filter-count">{totalAssets}</span>
-                        </button>
-                    </div>
-                </aside>
+                <MediaLibrarySourceRail
+                    active="materials"
+                    materialsCount={totalAssets}
+                    historyCount={generationHistoryCount}
+                />
             </WorkspacePage>
 
             <Modal
@@ -1531,7 +1526,6 @@ function GenerationHistorySurface({
     loadMoreError = false,
     onKindChange,
     onLoadMore,
-    onSelectPersonal,
     onDownload,
     onDelete,
 }: {
@@ -1545,7 +1539,6 @@ function GenerationHistorySurface({
     loadMoreError?: boolean;
     onKindChange?: (kind: GenerationHistoryKind) => void;
     onLoadMore?: () => void;
-    onSelectPersonal: () => void;
     onDownload: (asset: LibraryAsset) => void;
     onDelete: (asset: LibraryAsset) => Promise<boolean | undefined>;
 }) {
@@ -1662,18 +1655,11 @@ function GenerationHistorySurface({
                     )
                 ) : null}
             </div>
-            <aside className="assets-library-source-rail" aria-label="资产来源导航">
-                <div className="assets-library-source-rail-inner">
-                    <button type="button" className="assets-library-source-rail-item is-active" aria-current="page">
-                        <span className="assets-library-source-rail-icon"><History className="size-3.5" /></span>
-                        <span>生成历史</span><span className="assets-filter-count">{counts.all}</span>
-                    </button>
-                    <button type="button" className="assets-library-source-rail-item" onClick={onSelectPersonal}>
-                        <span className="assets-library-source-rail-icon"><FolderOpen className="size-3.5" /></span>
-                        <span>个人资产库</span><span className="assets-filter-count">{libraryTotal}</span>
-                    </button>
-                </div>
-            </aside>
+            <MediaLibrarySourceRail
+                active="history"
+                materialsCount={libraryTotal}
+                historyCount={counts.all}
+            />
         </WorkspacePage>
         <Modal
             className="library-modal library-confirm-modal"

@@ -138,7 +138,7 @@ export function ToivAgentFloat() {
                 inputRef.current?.focus();
             },
             onOpenApp: (appId) => navigate(`/toiv/market?app=${encodeURIComponent(appId)}`),
-            onOpenBoard: (boardId) => navigate(`/toiv/library/${encodeURIComponent(boardId)}`),
+            onOpenBoard: (boardId) => navigate(`/library/works/${encodeURIComponent(boardId)}`),
             onApplyToCanvas: (payload) => {
                 void applyToCanvas(payload);
             },

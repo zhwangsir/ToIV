@@ -60,7 +60,7 @@ describe("workspace sidebar storage meter", () => {
         expect(meter).toContain("meter.usedLabel");
         expect(meter).toContain("meter.remainingLabel");
         expect(meter).toContain("meter.totalLabel");
-        expect(meter).toContain('to="/assets"');
+        expect(meter).toContain('to="/library?source=materials"');
         expect(css).toContain(".app-workspace-sidebar-storage-icon");
         expect(css).toMatch(/\.app-workspace-sidebar-storage-used\s*\{[^}]*font-variant-numeric:\s*tabular-nums/s);
         expect(css).toContain(".app-workspace-sidebar-storage.is-warn");

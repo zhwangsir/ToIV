@@ -6,8 +6,9 @@ async function source(path: string) {
 
 test("assets history keeps LibTV source tabs and local media filtering", async () => {
     const [page, styles, finalLock, shell] = await Promise.all([source("../src/pages/assets/index.tsx"), source("../src/styles/assets-frame-lock.css"), source("../src/styles/assets-final-lock.css"), source("../src/components/layout/app-top-nav.tsx")]);
-    expect(page).toContain('searchParams.get("tab") === "history"');
-    expect(page).toContain('navigate("/assets?tab=history")');
+    expect(page).toContain('tabParam === "history"');
+    expect(page).toContain("MediaLibrarySourceRail");
+    expect(page).toContain('active="history"');
     expect(page).toContain('"生成历史"');
     for (const label of ["全部", "图片", "视频", "音频"]) expect(page).toContain(label);
     for (const label of ["所有评级", "已评级", "未评级"]) expect(page).not.toContain(label);

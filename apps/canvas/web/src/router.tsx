@@ -1,15 +1,15 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { Navigate, Outlet, useLocation, useParams } from "react-router";
+import { Navigate, Outlet, useLocation, useParams, useSearchParams } from "react-router";
 
 import { createWorkspaceRouter } from "@/lib/app-routing";
 import { FullScreenLoader, WorkspaceRouteLoader } from "@/components/ui/aceternity/full-screen-loader";
-import { loadAgentsPage, loadAssetsPage, loadCanvasPage, loadCanvasProjectPage, loadCreatePage, loadHomePage, loadProjectDetailPage } from "@/lib/workspace-route-modules";
+import { loadAgentsPage, loadCanvasPage, loadCanvasProjectPage, loadCreatePage, loadHomePage, loadProjectDetailPage } from "@/lib/workspace-route-modules";
 import { CanvasRefreshShell } from "@/pages/canvas/canvas-refresh-shell";
 import RouteErrorPage from "@/pages/route-error";
 import { isLocalWorkspaceMode } from "@/services/workspace-mode";
 
 const AgentsPage = lazy(loadAgentsPage);
-const AssetsPage = lazy(loadAssetsPage);
+const MediaLibraryPage = lazy(() => import("@/pages/library/media-library-page"));
 const HomePage = lazy(loadHomePage);
 const CanvasPage = lazy(loadCanvasPage);
 const CanvasProjectPage = lazy(loadCanvasProjectPage);
@@ -18,7 +18,6 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 const PluginsPage = lazy(() => import("@/pages/plugins"));
 const EagleLibraryPage = lazy(() => import("@/pages/plugins/eagle"));
 const ToivTasksPage = lazy(() => import("@/pages/toiv/tasks-page"));
-const ToivLibraryPage = lazy(() => import("@/pages/toiv/library-page"));
 const ToivMarketPage = lazy(() => import("@/pages/toiv/market-page"));
 const ToivAgentPage = lazy(() => import("@/pages/toiv/agent-page"));
 const ToivLibraryDetailPage = lazy(() => import("@/pages/toiv/library-detail"));
@@ -57,6 +56,19 @@ function LegacyProjectAliasRoute() {
     return <Navigate to={`/projects/${projectId}${rest ? `/${rest}` : ""}`} replace />;
 }
 
+function AssetsLegacyRedirect() {
+    const [searchParams] = useSearchParams();
+    const tab = searchParams.get("tab");
+    if (tab === "history") return <Navigate to="/library?source=history" replace />;
+    return <Navigate to="/library?source=materials" replace />;
+}
+
+function ToivLibraryDetailRedirect() {
+    const { id } = useParams();
+    return <Navigate to={`/library/works/${id ?? ""}`} replace />;
+}
+
+
 /**
  * DEV 专用实验室路由。
  *
@@ -89,7 +101,11 @@ export const router = createWorkspaceRouter([
                 // 任务页暂不开放，保留路由以避免旧链接进入半成品界面。
                 element: <Navigate to="/" replace />,
             },
-            { path: "/assets", element: deferred(<AssetsPage />) },
+            { path: "/library", element: deferred(<MediaLibraryPage />) },
+            { path: "/library/works/:id", element: deferred(<ToivLibraryDetailPage />) },
+            { path: "/assets", element: <AssetsLegacyRedirect /> },
+            { path: "/toiv/library", element: <Navigate to="/library?source=works" replace /> },
+            { path: "/toiv/library/:id", element: <ToivLibraryDetailRedirect /> },
             { path: "/skills", element: <Navigate to="/" replace /> },
             { path: "/skill", element: <Navigate to="/" replace /> },
             { path: "/skills/reference", element: <Navigate to="/" replace /> },
@@ -104,8 +120,6 @@ export const router = createWorkspaceRouter([
             { path: "/settings", element: deferred(<SettingsPage />) },
             { path: "/agents", element: deferred(<AgentsPage />) },
             { path: "/toiv/tasks", element: deferred(<ToivTasksPage />) },
-            { path: "/toiv/library", element: deferred(<ToivLibraryPage />) },
-            { path: "/toiv/library/:id", element: deferred(<ToivLibraryDetailPage />) },
             { path: "/toiv/market", element: deferred(<ToivMarketPage />) },
             { path: "/toiv/agent", element: <ToivAgentPage /> },
             { path: "/toiv/drama", element: deferred(<ToivDramaPage />) },

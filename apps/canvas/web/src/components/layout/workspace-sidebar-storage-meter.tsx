@@ -63,7 +63,7 @@ export function WorkspaceSidebarStorageMeter({ collapsed }: { collapsed: boolean
 
     return (
         <Link
-            to="/assets"
+            to="/library?source=materials"
             className={cn(
                 "app-workspace-sidebar-storage",
                 collapsed && "is-collapsed",
@@ -75,8 +75,8 @@ export function WorkspaceSidebarStorageMeter({ collapsed }: { collapsed: boolean
             title={`${summary}。${localMode ? "统计浏览器本地素材" : "包含素材文件和创作会话附件"}`}
             aria-label={`${localMode ? "本地存储" : "账号容量"}，${summary}`}
             aria-busy={query.isPending && !query.data}
-            onFocus={() => preloadWorkspaceRoute("/assets")}
-            onPointerEnter={() => preloadWorkspaceRoute("/assets")}
+            onFocus={() => preloadWorkspaceRoute("/library")}
+            onPointerEnter={() => preloadWorkspaceRoute("/library")}
         >
             <StorageGlyph />
             {collapsed ? (

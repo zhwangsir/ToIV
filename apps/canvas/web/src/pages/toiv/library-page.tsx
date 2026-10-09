@@ -2,10 +2,12 @@ import { ArrowLeft, FolderOpen, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
+import { MediaLibrarySourceRail } from "@/components/library/media-library-source-rail";
 import { ToolButton } from "@/components/ui/base/buttons";
 import { EmptyState } from "@/components/ui/product/empty-state";
-import { fetchBoards, type ToivBoard } from "@/services/toiv/client";
 import { WorkspacePage } from "@/components/layout/workspace-page";
+import { mediaLibraryWorksDetailPath } from "@/lib/media-library-routes";
+import { fetchBoards, type ToivBoard } from "@/services/toiv/client";
 
 function formatTime(value: string): string {
     const d = new Date(value);
@@ -32,12 +34,12 @@ export default function LibraryPage() {
     useEffect(() => { void load(); }, [load]);
 
     return (
-        <WorkspacePage fluid className="toiv-library-page">
+        <WorkspacePage fluid className="toiv-library-page library-page assets-library-page">
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
-                    <h1 className="text-xl font-semibold leading-7 text-foreground">作品库</h1>
-                    <p className="text-xs leading-5 text-muted-foreground">ToIV 作品集与成片归档（实时域：/api/boards）</p>
+                    <h1 className="text-xl font-semibold leading-7 text-foreground">作品</h1>
+                    <p className="text-xs leading-5 text-muted-foreground">成片与分镜作品集（/api/boards）</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
@@ -56,7 +58,7 @@ export default function LibraryPage() {
                     {boards.map((board) => (
                         <Link
                             key={board.id}
-                            to={`/toiv/library/${board.id}`}
+                            to={mediaLibraryWorksDetailPath(board.id)}
                             className="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-[var(--workspace-accent,#f5f5f5)]"
                         >
                             <div className="flex h-28 items-center justify-center rounded-xl bg-[var(--muted,rgba(255,255,255,0.06))]">
@@ -74,7 +76,8 @@ export default function LibraryPage() {
                     ))}
                 </div>
             )}
-        </div>
+            </div>
+            <MediaLibrarySourceRail active="works" worksCount={boards.length} />
         </WorkspacePage>
     );
 }

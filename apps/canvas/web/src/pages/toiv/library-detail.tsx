@@ -291,7 +291,7 @@ export default function LibraryDetailPage() {
         setDeletingBoard(true);
         try {
             await deleteBoard(id);
-            navigate("/toiv/library");
+            navigate("/library?source=works");
         } catch {
             setNotice("删除作品集失败");
             setDeletingBoard(false);
@@ -538,7 +538,7 @@ export default function LibraryDetailPage() {
                         label="删除作品集"
                         onClick={() => setDeleteBoardOpen(true)}
                     />
-                    <Link to="/toiv/library">
+                    <Link to="/library?source=works">
                         <ToolButton variant="default" icon={<ArrowLeft />} label="返回作品库" />
                     </Link>
                 </div>

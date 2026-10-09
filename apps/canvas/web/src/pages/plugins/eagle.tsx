@@ -138,7 +138,7 @@ export default function EagleLibraryPage() {
                 <PageHeader
                     title="Eagle 素材库"
                     description={`把 Eagle 作为${brandName}的外部素材来源，直接浏览和管理 Eagle 原始文件。`}
-                    actions={<Button icon={<ArrowLeft className="size-3.5" />} onClick={() => navigate("/assets")}>返回{brandName}素材库</Button>}
+                    actions={<Button icon={<ArrowLeft className="size-3.5" />} onClick={() => navigate("/library?source=materials")}>返回{brandName}素材库</Button>}
                 />
                 <section className="mt-4 library-card-surface flex min-h-72 flex-col items-center justify-center rounded-[var(--r-xl)] px-6 py-10 text-center">
                     <span className="grid size-14 place-items-center rounded-[var(--r-lg)] bg-[var(--workspace-accent-soft)] text-[var(--workspace-accent)]"><FolderOpen className="size-7" aria-hidden="true" /></span>
@@ -162,7 +162,7 @@ export default function EagleLibraryPage() {
                             <div className="assets-header-actions">
                                 <div className="assets-header-action-buttons">
                                     <Button className="library-primary-action" type="primary" icon={<Upload className="size-3.5" />} onClick={() => fileInputRef.current?.click()} disabled={working}>写入素材</Button>
-                                    <Button icon={<ArrowLeft className="size-3.5" />} onClick={() => navigate("/assets")}>{brandName}素材库</Button>
+                                    <Button icon={<ArrowLeft className="size-3.5" />} onClick={() => navigate("/library?source=materials")}>{brandName}素材库</Button>
                                     <Button icon={<Settings2 className="size-3.5" />} onClick={() => navigate("/plugins")}>插件设置</Button>
                                 </div>
                             </div>

@@ -2,6 +2,7 @@ const workspaceRouteLoaders = {
     agents: () => import("@/pages/agents"),
     home: () => import("@/pages/home"),
     assets: () => import("@/pages/assets"),
+    library: () => import("@/pages/library/media-library-page"),
     canvas: () => import("@/pages/canvas"),
     create: () => import("@/pages/create"),
     projects: () => import("@/pages/projects"),
@@ -32,7 +33,7 @@ export function preloadWorkspaceRoute(pathnameOrSlug: string) {
     if (slug === "toiv") {
         const map = {
             tasks: workspaceRouteLoaders.toivTasks,
-            library: workspaceRouteLoaders.toivLibrary,
+            library: workspaceRouteLoaders.library,
             market: workspaceRouteLoaders.toivMarket,
             agent: workspaceRouteLoaders.toivAgent,
             drama: workspaceRouteLoaders.toivDrama,
@@ -40,6 +41,11 @@ export function preloadWorkspaceRoute(pathnameOrSlug: string) {
         const sub = segments[1] as keyof typeof map | undefined;
         const load = sub ? map[sub] : undefined;
         if (load) void load();
+        return;
+    }
+    // Legacy /assets bookmarks preload the unified media-library shell.
+    if (slug === "assets") {
+        void workspaceRouteLoaders.library();
         return;
     }
     const load = workspaceRouteLoaders[slug as keyof typeof workspaceRouteLoaders];
