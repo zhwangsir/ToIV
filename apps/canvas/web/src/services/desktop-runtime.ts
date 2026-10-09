@@ -1,3 +1,4 @@
+import { assertAllowlistedOutboundUrl, registerOutboundApiBase } from "@/lib/outbound-host-allowlist";
 import { configureApiRuntime } from "@/services/api/request";
 
 export type DesktopRuntimeConfig = {
@@ -57,11 +58,17 @@ function isDesktopRuntimeConfig(value: unknown): value is DesktopRuntimeConfig {
 
 export function configureDesktopRuntime(config: DesktopRuntimeConfig) {
     const baseURL = config.baseURL.replace(/\/+$/u, "");
+    registerOutboundApiBase(baseURL);
+    assertAllowlistedOutboundUrl(baseURL);
     configureApiRuntime(baseURL, config.launchToken, config.uiBootstrapToken);
     if (!nativeFetch) nativeFetch = globalThis.fetch.bind(globalThis);
     globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(input, init);
+        // Token injection for local API only. Positive host allowlist applies to
+        // absolute http(s) dials that hit the desktop API base; custom-channel
+        // upstreams stay on their own transport and are not gated here.
         if (request.url === baseURL || request.url.startsWith(`${baseURL}/`)) {
+            assertAllowlistedOutboundUrl(request.url);
             const headers = new Headers(request.headers);
             headers.set("X-Desktop-Token", config.launchToken);
             return nativeFetch!(new Request(request, { headers }));

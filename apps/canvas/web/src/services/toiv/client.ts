@@ -1,5 +1,7 @@
 import axios from "axios";
 
+import { assertAxiosOutboundAllowed } from "@/lib/outbound-host-allowlist";
+
 import {
     assertCChainMakeupOnly,
     buildMakeupCChainFromDrama,
@@ -32,6 +34,7 @@ const TOKEN_KEY = "toiv_token";
 export const toivHttp = axios.create({ baseURL: "/api", timeout: 15_000 });
 
 toivHttp.interceptors.request.use((config) => {
+    assertAxiosOutboundAllowed(config);
     if (typeof window !== "undefined") {
         const token = window.localStorage.getItem(TOKEN_KEY);
         if (token) config.headers.Authorization = `Bearer ${token}`;
