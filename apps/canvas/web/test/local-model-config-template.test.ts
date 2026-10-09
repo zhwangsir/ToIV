@@ -55,9 +55,13 @@ describe("model-config template local-first realign", () => {
             "toiv-video-wan::local-longcat",
             "toiv-video-wan::local-vace",
             "toiv-video-wan::local-wan-animate",
+            "toiv-video-wan::local-longcat-continue",
+            "toiv-video-wan::local-longcat-avatar",
         ]));
+        expect((wan?.models || []) as string[]).toEqual(expect.arrayContaining(["local-wan", "local-longcat", "local-vace", "local-wan-animate", "local-longcat-continue", "local-longcat-avatar"]));
 
         // Default video stays H3 production :8264 (protocol id h3, display = fl2va basename)
+
         expect(String(cfg.videoModel || "")).toContain("h3");
         expect(String(cfg.videoModel || "")).not.toContain("local-wan");
 

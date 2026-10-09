@@ -20,16 +20,40 @@ export const LOCAL_VIDEO_MODEL_REF = `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_M
 export const LOCAL_VIDEO_MODEL_LONGCAT = "local-longcat";
 export const LOCAL_VIDEO_MODEL_VACE = "local-vace";
 export const LOCAL_VIDEO_MODEL_ANIMATE = "local-wan-animate";
+export const LOCAL_VIDEO_MODEL_CONTINUE = "local-longcat-continue";
+export const LOCAL_VIDEO_MODEL_AVATAR = "local-longcat-avatar";
 export const LOCAL_VIDEO_ANIMATE_NAME = "本地·Wan Animate2";
 export const LOCAL_VIDEO_ANIMATE_WORKER_LABEL = ":8199";
 
-/** Route NAS video basename / alias → Wan | LongCat | VACE (:8197) | Animate (:8199). */
-export type LocalVideoEngine = "wan" | "longcat" | "vace" | "animate";
+/** Route NAS video basename / alias → Wan | LongCat | Continue | Avatar | VACE (:8197) | Animate (:8199). */
+export type LocalVideoEngine = "wan" | "longcat" | "continue" | "avatar" | "vace" | "animate";
 
 export function classifyLocalVideoEngine(modelOrBasename: string): LocalVideoEngine {
     const raw = String(modelOrBasename || "").trim();
     const lower = raw.toLowerCase();
     if (!lower) return "wan";
+    // continue/avatar before generic longcat (names contain "longcat")
+    if (
+        lower === LOCAL_VIDEO_MODEL_CONTINUE ||
+        lower === "longcat-continue" ||
+        lower.includes("longcat-continue") ||
+        lower.includes("longcat_continue")
+    ) {
+        return "continue";
+    }
+    if (
+        lower === LOCAL_VIDEO_MODEL_AVATAR ||
+        lower === "longcat-avatar" ||
+        lower === "local-avatar" ||
+        lower === "avatar-talk" ||
+        lower === "avatar" ||
+        lower.includes("longcat-avatar") ||
+        lower.includes("longcat_avatar") ||
+        lower.includes("avatar-talk") ||
+        lower.includes("avatar")
+    ) {
+        return "avatar";
+    }
     if (lower === LOCAL_VIDEO_MODEL_LONGCAT || lower === "longcat" || lower.includes("longcat")) {
         return "longcat";
     }

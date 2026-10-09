@@ -27,7 +27,7 @@
   "name": "ToIV 本地视频 Comfy",
   "version": "0.3.0",
   "author": "ToIV",
-  "description": "BeefTV 视频 → ToIV：Wan /api/generate/txt2video；LongCat /api/longcat/{t2v,i2v}；VACE /api/wan/vace；Wan Animate /api/wan/animate2 → Comfy :8197/:8199；轮询 /api/jobs/lookup。",
+  "description": "BeefTV 视频 → ToIV：Wan /api/generate/txt2video；LongCat /api/longcat/{t2v,i2v,continue}；Avatar /api/avatar/talk；VACE /api/wan/vace；Wan Animate /api/wan/animate2 → Comfy :8197/:8199；轮询 /api/jobs/lookup。",
   "permissions": [
     "generation.run",
     "media.read"

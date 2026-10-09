@@ -19,13 +19,17 @@ func loadToivComfyVideoPreparer(t *testing.T) PrepareAdapter {
 	}
 	preparer, ok := adapter.(PrepareAdapter)
 	if !ok || preparer.PrepareStepCount() == 0 {
-		t.Fatal("toiv-comfy-video must expose prepare steps for LongCat/VACE/Animate routing")
+		t.Fatal("toiv-comfy-video must expose prepare steps for LongCat/Continue/Avatar/VACE/Animate routing")
 	}
 	return preparer
 }
 
 func vid(id, role string) MediaReference {
 	return MediaReference{ID: id, URL: "/api/resources/" + id + ".mp4", Kind: "video", Role: role, MIMEType: "video/mp4"}
+}
+
+func aud(id, role string) MediaReference {
+	return MediaReference{ID: id, URL: "/api/resources/" + id + ".wav", Kind: "audio", Role: role, MIMEType: "audio/wav"}
 }
 
 func TestToivComfyVideoRoutesLongCatVaceWanAnimate(t *testing.T) {
@@ -36,6 +40,7 @@ func TestToivComfyVideoRoutesLongCatVaceWanAnimate(t *testing.T) {
 		engine     string
 		images     []MediaReference
 		videos     []MediaReference
+		audios     []MediaReference
 		path       string
 		uploads    int
 		uploadKind string
@@ -51,6 +56,11 @@ func TestToivComfyVideoRoutesLongCatVaceWanAnimate(t *testing.T) {
 		{name: "animate alias", model: "local-wan-animate", images: []MediaReference{img("a", "reference_image")}, videos: []MediaReference{vid("d", "drive_video")}, path: "/api/wan/animate2", uploads: 2, uploadKind: "wan_animate2"},
 		{name: "animate2 name", model: "wan2.2-animate-2-14b.safetensors", images: []MediaReference{img("a", "")}, videos: []MediaReference{vid("d", "")}, path: "/api/wan/animate2", uploads: 2, uploadKind: "wan_animate2"},
 		{name: "animate engine opt", model: "custom.safetensors", engine: "animate2", images: []MediaReference{img("a", "")}, videos: []MediaReference{vid("d", "")}, path: "/api/wan/animate2", uploads: 2, uploadKind: "wan_animate2"},
+		{name: "continue alias", model: "local-longcat-continue", videos: []MediaReference{vid("s", "drive_video")}, path: "/api/longcat/continue", uploads: 0},
+		{name: "continue engine opt", model: "custom.safetensors", engine: "continue", videos: []MediaReference{vid("s", "")}, path: "/api/longcat/continue", uploads: 0},
+		{name: "avatar alias", model: "local-longcat-avatar", images: []MediaReference{img("a", "reference_image")}, audios: []MediaReference{aud("w", "drive_audio")}, path: "/api/avatar/talk", uploads: 2, uploadKind: "avatar"},
+		{name: "avatar name", model: "LongCat-Avatar-15_comfy-Q8_0.gguf", images: []MediaReference{img("a", "")}, audios: []MediaReference{aud("w", "")}, path: "/api/avatar/talk", uploads: 2, uploadKind: "avatar"},
+		{name: "avatar engine opt", model: "custom.safetensors", engine: "avatar", images: []MediaReference{img("a", "")}, audios: []MediaReference{aud("w", "")}, path: "/api/avatar/talk", uploads: 2, uploadKind: "avatar"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -65,6 +75,7 @@ func TestToivComfyVideoRoutesLongCatVaceWanAnimate(t *testing.T) {
 				Prompt:          "p",
 				Images:          tc.images,
 				Videos:          tc.videos,
+				Audios:          tc.audios,
 				Duration:        3,
 				ProviderOptions: opts,
 			}, uploads)
@@ -91,6 +102,31 @@ func TestToivComfyVideoRoutesLongCatVaceWanAnimate(t *testing.T) {
 				t.Fatalf("positive=%v", body["positive"])
 			}
 			switch {
+			case tc.path == "/api/longcat/continue":
+				if _, ok := body["length"]; ok {
+					t.Fatal("continue must not send Wan length")
+				}
+				if _, ok := body["duration_sec"]; !ok {
+					t.Fatal("continue must send duration_sec")
+				}
+				// source video is product/resource URL — not /api/upload
+				if body["video"] == nil {
+					t.Fatalf("continue body=%v", body)
+				}
+				video, _ := body["video"].(string)
+				if !strings.Contains(video, "/api/") {
+					t.Fatalf("continue video want product/resource URL, got %q", video)
+				}
+			case tc.path == "/api/avatar/talk":
+				if _, ok := body["length"]; ok {
+					t.Fatal("avatar must not send Wan length")
+				}
+				if _, ok := body["duration_sec"]; !ok {
+					t.Fatal("avatar must send duration_sec")
+				}
+				if body["image"] == nil || body["audio"] == nil || body["worker"] == nil {
+					t.Fatalf("avatar body=%v", body)
+				}
 			case strings.HasPrefix(tc.path, "/api/longcat/"):
 				if _, ok := body["length"]; ok {
 					t.Fatal("longcat must not send Wan length")
@@ -132,7 +168,7 @@ func TestToivComfyVideoManifestMentionsLongCatVaceAnimateRoutes(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(raw)
-	for _, needle := range []string{"/api/longcat/t2v", "/api/longcat/i2v", "/api/wan/vace", "/api/wan/animate2", "/api/generate/txt2video", "wan_animate2"} {
+	for _, needle := range []string{"/api/longcat/t2v", "/api/longcat/i2v", "/api/longcat/continue", "/api/avatar/talk", "/api/wan/vace", "/api/wan/animate2", "/api/generate/txt2video", "wan_animate2", "avatar"} {
 		if !strings.Contains(s, needle) {
 			t.Fatalf("manifest missing %s", needle)
 		}
