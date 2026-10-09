@@ -102,6 +102,18 @@ export async function fetchBoardItems(boardId: string): Promise<ToivBoardItem[]>
     return Array.isArray(data) ? (data as ToivBoardItem[]) : ((data as { items?: ToivBoardItem[] })?.items ?? []);
 }
 
+export type {
+    ToivAppParam,
+    ToivAppParamType,
+} from "./market-run";
+export {
+    buildDefaultRunValues,
+    buildToivRunValues,
+    normalizeToivAppParam,
+    requiredToivParamLabel,
+} from "./market-run";
+import { normalizeToivAppParam, type ToivAppParam } from "./market-run";
+
 export type ToivApp = {
     id: string;
     name: string;
@@ -117,11 +129,55 @@ export type ToivApp = {
     smoke_status?: string;
     guide_purpose?: string;
     source_links?: Array<{ label: string; url: string }>;
+    /** 详情接口才完整；列表 slim 时常为空数组 */
+    params_schema?: ToivAppParam[];
 };
 
-export async function fetchToivApps(limit = 100): Promise<ToivApp[]> {
-    const { data } = await toivHttp.get("/apps", { params: { limit } });
-    return Array.isArray(data) ? data : ((data as { items?: ToivApp[] })?.items ?? []);
+export type ToivAppRunReceipt = {
+    job_id: string;
+    prompt_id: string;
+    client_id?: string;
+    worker?: string;
+};
+
+export async function fetchToivApps(
+    limitOrFilter: number | { limit?: number; category?: string; q?: string } = 100,
+): Promise<ToivApp[]> {
+    const filter = typeof limitOrFilter === "number" ? { limit: limitOrFilter } : limitOrFilter;
+    const params: Record<string, string | number> = { limit: filter.limit ?? 200 };
+    if (filter.category && filter.category !== "all") params.category = filter.category;
+    if (filter.q?.trim()) params.q = filter.q.trim();
+    const { data } = await toivHttp.get("/apps", { params });
+    const list = Array.isArray(data) ? data : ((data as { items?: ToivApp[] })?.items ?? []);
+    return list.map((raw) => {
+        const a = raw as ToivApp;
+        return {
+            ...a,
+            params_schema: Array.isArray(a.params_schema) ? a.params_schema.map(normalizeToivAppParam) : [],
+        };
+    });
+}
+
+/** 应用详情（含完整 params_schema；运行前必须拉详情） */
+export async function fetchToivApp(id: string): Promise<ToivApp> {
+    const { data } = await toivHttp.get(`/apps/${encodeURIComponent(id)}`);
+    const a = data as ToivApp;
+    return {
+        ...a,
+        params_schema: Array.isArray(a.params_schema) ? a.params_schema.map(normalizeToivAppParam) : [],
+    };
+}
+
+/** POST /apps/{id}/run → job 回执；成功后引导任务中心 */
+export async function runToivApp(id: string, values: Record<string, unknown>): Promise<ToivAppRunReceipt> {
+    const { data } = await toivHttp.post(`/apps/${encodeURIComponent(id)}/run`, { values }, { timeout: 60_000 });
+    const raw = (data ?? {}) as Record<string, unknown>;
+    return {
+        job_id: String(raw.job_id ?? ""),
+        prompt_id: String(raw.prompt_id ?? ""),
+        client_id: raw.client_id != null ? String(raw.client_id) : undefined,
+        worker: raw.worker != null ? String(raw.worker) : undefined,
+    };
 }
 
 export type ToivBoardItem = {
