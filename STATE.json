@@ -12762,7 +12762,7 @@
     "updated_at": "2026-10-09T10:20:00+08:00"
   },
   "pipeline_c_c_chains_2026_10_09": {
-    "status": "pipeline_c_c_chains_tip_undeployed",
+    "status": "pipeline_c_c_chains_merged_undeployed",
     "date": "2026-10-09",
     "steward": "项目管家",
     "source": [
@@ -12771,10 +12771,10 @@
       "设备管家",
       "项目管家"
     ],
-    "product_tip": "cd1ae748",
+    "product_tip": "72dcbe7e",
     "remotes": {
-      "origin_gitee_main": "cd1ae748",
-      "github_main": "cd1ae748",
+      "origin_gitee_main": "72dcbe7e",
+      "github_main": "72dcbe7e",
       "verified_both": true
     },
     "deploy": {
@@ -12797,10 +12797,11 @@
     "canvas_client": {
       "branch": "feat/canvas-c-chains-client",
       "tip": "fd108457",
-      "merged_main": false,
+      "merged_main": true,
+      "merge_commit": "72dcbe7e",
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T10:35:00+08:00"
+    "updated_at": "2026-10-09T10:40:00+08:00"
   }
 }
