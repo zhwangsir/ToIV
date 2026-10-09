@@ -320,3 +320,168 @@ def test_wait_false_path_still_present():
     assert RenderShotBody.model_fields["wait"].default is True
     sig = inspect.signature(render_pipeline_c)
     assert sig.parameters["wait"].default is True
+
+
+
+# ── 失败 / 边界 ─────────────────────────────────────────────────────────────
+
+
+async def _noop_run(_job_id: str):
+    return None
+
+
+def test_create_rejects_non_makeup_start(ctx, monkeypatch):
+    """首版硬限制：start.type 非 makeup → 422，文案明确。"""
+    engine = ctx["engine"]
+    pid = _seed_project(engine)
+    monkeypatch.setattr(c_chain_svc, "run_c_chain", _noop_run)
+
+    for bad in ("video", "job"):
+        r = ctx["client"].post(
+            "/api/studio/c-chains",
+            headers=ctx["headers"],
+            json={
+                "pipeline": "c_hybrid",
+                "project_id": pid,
+                "start": {"type": bad},
+                "segments": [{"prompt": "x", "duration_sec": 6}],
+            },
+        )
+        assert r.status_code == 422, (bad, r.text)
+        detail = str(r.json().get("detail") or r.text)
+        assert "makeup" in detail.lower() or "首版" in detail
+
+
+def test_create_rejects_empty_segments(ctx, monkeypatch):
+    """空 segments → 参数错 422。"""
+    engine = ctx["engine"]
+    pid = _seed_project(engine)
+    monkeypatch.setattr(c_chain_svc, "run_c_chain", _noop_run)
+
+    r = ctx["client"].post(
+        "/api/studio/c-chains",
+        headers=ctx["headers"],
+        json={
+            "pipeline": "c",
+            "project_id": pid,
+            "start": {"type": "makeup"},
+            "segments": [],
+        },
+    )
+    assert r.status_code == 422, r.text
+
+
+def test_create_rejects_missing_prompt(ctx, monkeypatch):
+    """缺 prompt / 空 prompt → 参数错 422。"""
+    engine = ctx["engine"]
+    pid = _seed_project(engine)
+    monkeypatch.setattr(c_chain_svc, "run_c_chain", _noop_run)
+
+    # 缺 prompt 字段
+    r = ctx["client"].post(
+        "/api/studio/c-chains",
+        headers=ctx["headers"],
+        json={
+            "pipeline": "c",
+            "project_id": pid,
+            "start": {"type": "makeup"},
+            "segments": [{"duration_sec": 6, "characters": ["林夏"]}],
+        },
+    )
+    assert r.status_code == 422, r.text
+
+    # 空字符串 prompt（min_length=1）
+    r = ctx["client"].post(
+        "/api/studio/c-chains",
+        headers=ctx["headers"],
+        json={
+            "pipeline": "c",
+            "project_id": pid,
+            "start": {"type": "makeup"},
+            "segments": [{"prompt": "", "duration_sec": 6}],
+        },
+    )
+    assert r.status_code == 422, r.text
+
+
+def test_create_then_immediate_cancel_stops_background(ctx, monkeypatch):
+    """创建后立即 cancel：Job=canceled；后台若再跑也不得继续重提/渲染。"""
+    engine = ctx["engine"]
+    pid = _seed_project(engine)
+    monkeypatch.setattr(c_chain_svc, "run_c_chain", _noop_run)
+
+    r = ctx["client"].post(
+        "/api/studio/c-chains",
+        headers=ctx["headers"],
+        json={
+            "pipeline": "c",
+            "project_id": pid,
+            "start": {"type": "makeup"},
+            "num_candidates": 1,
+            "auto_assemble": False,
+            "segments": [
+                {"prompt": "seg0", "duration_sec": 6, "characters": ["林夏"]},
+                {"prompt": "seg1", "duration_sec": 6, "characters": ["林夏"]},
+            ],
+        },
+    )
+    assert r.status_code == 202, r.text
+    job_id = r.json()["job_id"]
+
+    with Session(engine) as s:
+        job = s.get(Job, job_id)
+        assert job is not None
+        assert job.id == job_id
+        assert job.status in ("queued", "running")
+
+    cr = ctx["client"].post(f"/api/jobs/{job_id}/cancel", headers=ctx["headers"])
+    assert cr.status_code == 200, cr.text
+    assert cr.json()["status"] == "canceled"
+
+    with Session(engine) as s:
+        assert s.get(Job, job_id).status == "canceled"
+
+    renders: list[str] = []
+
+    async def _boom_render(session, shot, **kw):
+        renders.append(shot.id)
+        raise AssertionError("canceled 后不得继续 render_shot")
+
+    monkeypatch.setattr("app.services.studio.orchestrator.render_shot", _boom_render)
+    asyncio.run(c_chain_svc.run_c_chain(job_id))
+    assert renders == []
+
+    with Session(engine) as s:
+        assert s.get(Job, job_id).status == "canceled"
+
+
+def test_response_job_id_equals_db_job_id_regression(ctx, monkeypatch):
+    """回归：202 响应 job_id 必须等于 DB Job.id，且不等于 prompt_id。"""
+    engine = ctx["engine"]
+    pid = _seed_project(engine)
+    monkeypatch.setattr(c_chain_svc, "run_c_chain", _noop_run)
+
+    r = ctx["client"].post(
+        "/api/studio/c-chains",
+        headers=ctx["headers"],
+        json={
+            "pipeline": "c_hybrid",
+            "project_id": pid,
+            "start": {"type": "makeup"},
+            "auto_assemble": False,
+            "segments": [{"prompt": "hello world", "duration_sec": 6}],
+        },
+    )
+    assert r.status_code == 202, r.text
+    data = r.json()
+    jid = data["job_id"]
+    with Session(engine) as s:
+        row = s.get(Job, jid)
+        assert row is not None
+        assert row.id == jid
+        assert row.kind == "studio_c_chain"
+        assert data["prompt_id"] == f"chain-{row.id}"
+        assert data["job_id"] == row.id
+        assert data["job_id"] != data["prompt_id"]
+        assert not jid.startswith("pid-")
+        assert not jid.startswith("comfy-")
