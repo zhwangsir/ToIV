@@ -12771,11 +12771,11 @@
       "设备管家",
       "项目管家"
     ],
-    "product_tip": "238c3aa9",
+    "product_tip": "b5bf6ded",
     "remotes": {
-      "origin_gitee_main": "f90f86d5",
-      "github_main": "f90f86d5",
-      "verified_both": true
+      "origin_gitee_main": "b74840d9e76864a1250bfd25b2b4a61dd55cc3aa",
+      "github_main": "pending_push",
+      "verified_both": false
     },
     "deploy": {
       "status": "not_deployed",
@@ -12811,8 +12811,8 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T13:37:00+08:00",
-    "prior_product_tip": "a6a96717",
+    "updated_at": "2026-10-09T13:42:00+08:00",
+    "prior_product_tip": "238c3aa9",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
       "branch": "feat/canvas-c-chains-client-guards",
@@ -12826,8 +12826,8 @@
       ],
       "deployed": false
     },
-    "product_tip_gitee": "2483c74d",
-    "product_tip_github": "2483c74d",
+    "product_tip_gitee": "b5bf6ded",
+    "product_tip_github": "b5bf6ded",
     "remotes_synced": true,
     "docs_tip_on_gitee": "4575aaa9",
     "canvas_outbound_ua": {
@@ -12986,19 +12986,41 @@
       "no_delete_no_move": true,
       "ua_still": "BeefTV-Desktop-Updater",
       "cli_mcp_still": "beeftv",
-      "windows_runtime_still": ".beeftv/runtime",
+      "windows_runtime_still": "moved_to_P3_.toiv_runtime",
       "owner": "ToIV开发",
       "deployed": false,
       "data_moved": false
     },
     "desktop_windows_runtime_toiv": {
+      "status": "merged_undeployed",
       "branch": "feat/canvas-p3-windows-runtime-toiv",
-      "tip": "1b4709cd",
-      "merged_main": false,
-      "scope": "read_legacy_.beeftv_runtime_write_.toiv_runtime",
-      "owner": "BeefTV",
-      "deployed": false
-    }
+      "feat_tip": "9d9a76cb",
+      "fix_tip": "babb3f8b",
+      "merge_tip": "b5bf6ded",
+      "scope": "write_.toiv_runtime_read_legacy_.beeftv",
+      "remove": "primary_then_legacy_same_hash_only",
+      "no_appdata_shadow": true,
+      "ua_still": "BeefTV-Desktop-Updater",
+      "cli_mcp_still": "beeftv",
+      "tests": "go test runtimeinfo+desktopupdate+desktop ok on darwin; windows tests GOOS-gated",
+      "owner": "ToIV开发",
+      "deployed": false,
+      "data_moved": false
+    },
+    "desktop_path_migration_p0_p3": {
+      "status": "code_complete_undeployed",
+      "p0": "30c90025",
+      "p1": "da846867",
+      "p2": "37de0363",
+      "p3_updates": "a6a96717",
+      "p3_windows_runtime": "b5bf6ded",
+      "left_intentional": [
+        "UA BeefTV-Desktop-Updater",
+        "CLI/MCP beeftv",
+        ".beeftv-plugin"
+      ]
+    },
+    "docs_tip_after_p3_runtime": "b74840d9e76864a1250bfd25b2b4a61dd55cc3aa"
   },
   "deploy_stale_web_ua_brand_2026_10_09": {
     "status": "docs_synced_undeployed",
