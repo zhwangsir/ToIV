@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
+from app.services.app_content_modes import SIMILAR_MERGE_HIDE_IDS
+
 # 意图条本地 alt + 核心内置引擎 + AGENTS HOLD keepers（非 RH 不盲砍）。
 # 行缺失时仍留在白名单：种子复活 / revive 时继续受保护。
 KEEP_WHITELIST: frozenset[str] = frozenset(
@@ -29,7 +31,6 @@ KEEP_WHITELIST: frozenset[str] = frozenset(
         "removebg",
         "upscale",
         "ace-music",
-        "ace-music-legacy",
         "vace-edit",
         "h3-r2v-voice",
         # 核心 H3 族
@@ -50,7 +51,6 @@ KEEP_WHITELIST: frozenset[str] = frozenset(
         "img2img-basic",
         # 其他产品依赖引擎卡（种子 _EXPECTED_IDS 交集）
         "ovi-t2v",
-        "wan-animate",
         "wan-animate-2",
         "wan-vace",
         "phantom-s2v",
@@ -206,6 +206,13 @@ def classify_app(
             **base,
         )
 
+    if aid in SIMILAR_MERGE_HIDE_IDS and app.is_public:
+        return DelistDecision(
+            action="soft_hide",
+            reason="similar-merge P1 Slice A soft-hide (wan-animate|ace-music-legacy)",
+            **base,
+        )
+
     if aid in whitelist:
         if not app.is_public and aid == "avatar-talk":
             return DelistDecision(
@@ -219,7 +226,6 @@ def classify_app(
             "ovi-t2v",
             "h3-t2v-15s-fast",
             "h3-i2v-15s-fast",
-            "ace-music-legacy",
         }:
             return DelistDecision(
                 action="revive_candidate",

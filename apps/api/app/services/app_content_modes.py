@@ -29,6 +29,12 @@ NSFW_TO_SFW: dict[str, str] = {v: k for k, v in SFW_NSFW_TWINS.items()}
 # Soft-hide these twin cards from market (keep rows for runner swap)
 MERGE_HIDE_IDS: tuple[str, ...] = tuple(SFW_NSFW_TWINS.values())
 
+# Similar-merge P1 Slice A: legacy duplicates soft-hidden (rows kept for id deep-links)
+SIMILAR_MERGE_HIDE_IDS: tuple[str, ...] = (
+    "wan-animate",
+    "ace-music-legacy",
+)
+
 
 def content_modes_for(app_id: str, *, is_nsfw: bool, has_twin: bool) -> list[str]:
     """Return market/runner content mode tags for an app card."""

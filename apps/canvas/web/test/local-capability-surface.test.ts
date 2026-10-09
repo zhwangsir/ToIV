@@ -10,7 +10,9 @@ import {
     LOCAL_MARKET_FEATURED,
     localMarketFeaturedAppIds,
     resolveLocalCapabilityBadge,
+    sortAppsDemotingIds,
     sortAppsWithFeaturedIds,
+    sortMarketAppsDefault,
 } from "../src/services/toiv/local-capability-surface";
 import { LOCAL_IMAGE_MODEL_REF, LOCAL_VIDEO_CHANNEL_ID } from "../src/lib/local-model-defaults";
 import {
@@ -79,6 +81,42 @@ describe("local-capability-surface catalog", () => {
         const sorted = sortAppsWithFeaturedIds(apps, ["h3-t2v", "vace-edit"]);
         expect(sorted.map((a) => a.id)).toEqual(["h3-t2v", "vace-edit", "z", "a"]);
     });
+
+    test("sortAppsDemotingIds / sortMarketAppsDefault demote RH i2v/t2v only", () => {
+        const apps = [
+            { id: "rh-acc-1833790465-924e7f" },
+            { id: "h3-i2v" },
+            { id: "rh-acc-8490907650-9066b5" },
+            { id: "txt2img-basic" },
+        ];
+        const demoted = sortAppsDemotingIds(apps, [
+            "rh-acc-1833790465-924e7f",
+            "rh-acc-8490907650-9066b5",
+        ]);
+        expect(demoted.map((a) => a.id).slice(0, 2)).toEqual(["h3-i2v", "txt2img-basic"]);
+        const sorted = sortMarketAppsDefault([
+            { id: "rh-acc-1833790465-924e7f" },
+            { id: "plain" },
+            { id: "h3-t2v" },
+            { id: "rh-acc-8490907650-9066b5" },
+        ]);
+        expect(sorted[0].id).toBe("h3-t2v");
+        expect(sorted.map((a) => a.id).slice(-2).sort()).toEqual(
+            ["rh-acc-1833790465-924e7f", "rh-acc-8490907650-9066b5"].sort(),
+        );
+    });
+
+    test("home intent resolve: t2i→txt2img-basic; upscale→upscale (Slice A)", () => {
+        const t2i = INTENT_ENTRIES.find((e) => e.id === "t2i");
+        const upscale = INTENT_ENTRIES.find((e) => e.id === "upscale");
+        expect(t2i && resolveIntentAppId(t2i)).toBe("txt2img-basic");
+        expect(upscale && resolveIntentAppId(upscale)).toBe("upscale");
+        expect(upscale?.altAppId).toBeUndefined();
+        const homeT2i = HOME_INTENT_ENTRIES.find((e) => e.id === "t2i");
+        expect(homeT2i?.appId).toBe("txt2img-basic");
+        expect(homeT2i?.to).toContain("txt2img-basic");
+    });
+
 });
 
 describe("local-capability-surface wiring (source)", () => {

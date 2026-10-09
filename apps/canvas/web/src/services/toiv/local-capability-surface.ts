@@ -22,6 +22,7 @@ import {
 } from "@/lib/local-model-defaults";
 import {
     INTENT_ENTRIES as WEB_INTENT_ENTRIES,
+    INTENT_RH_DISPLAY_DEMOTE_IDS,
     intentMarketPath,
     resolveIntentAppId,
     type IntentKeeper,
@@ -383,6 +384,25 @@ export function sortAppsWithFeaturedIds<T extends { id: string }>(apps: T[], fea
         if (rb != null) return 1;
         return 0;
     });
+}
+
+/** RH 云备选展示降权（similar-merge P1 #1/#2）；不改 resolve 默认。 */
+export function sortAppsDemotingIds<T extends { id: string }>(apps: T[], demoteIds: readonly string[]): T[] {
+    if (!demoteIds.length) return apps;
+    const demote = new Set(demoteIds);
+    return [...apps].sort((a, b) => {
+        const da = demote.has(a.id) ? 1 : 0;
+        const db = demote.has(b.id) ? 1 : 0;
+        return da - db;
+    });
+}
+
+/** 市场默认列表：精选置顶 + RH i2v/t2v 展示降权。 */
+export function sortMarketAppsDefault<T extends { id: string }>(apps: T[]): T[] {
+    return sortAppsDemotingIds(
+        sortAppsWithFeaturedIds(apps, localMarketFeaturedAppIds()),
+        INTENT_RH_DISPLAY_DEMOTE_IDS,
+    );
 }
 
 export function localMarketFeaturedAppIds(): string[] {

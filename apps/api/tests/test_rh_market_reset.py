@@ -117,3 +117,22 @@ def test_p0_soft_hide_flux_and_ltx():
 def test_p0_ids_not_in_whitelist():
     from app.services.rh_market_reset import P0_SOFT_HIDE_IDS
     assert P0_SOFT_HIDE_IDS.isdisjoint(KEEP_WHITELIST)
+
+
+def test_similar_merge_hide_wan_animate_and_ace_legacy():
+    from app.services.app_content_modes import SIMILAR_MERGE_HIDE_IDS
+    from app.services.rh_market_reset import KEEP_WHITELIST
+
+    assert SIMILAR_MERGE_HIDE_IDS == ("wan-animate", "ace-music-legacy")
+    assert set(SIMILAR_MERGE_HIDE_IDS).isdisjoint(KEEP_WHITELIST)
+    for aid in SIMILAR_MERGE_HIDE_IDS:
+        d = classify_app(AppView(id=aid, is_public=True, smoke_status="pass"))
+        assert d.action == "soft_hide", aid
+        assert "similar-merge" in d.reason
+    # keepers 仍在白名单
+    assert "wan-animate-2" in KEEP_WHITELIST
+    assert "ace-music" in KEEP_WHITELIST
+    # soft-hidden similar-merge id 不再 revive
+    d2 = classify_app(AppView(id="ace-music-legacy", is_public=False, smoke_status=""))
+    assert d2.action == "already_hidden"
+

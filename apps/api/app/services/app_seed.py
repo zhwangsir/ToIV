@@ -28,7 +28,7 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.models import App, _now
 from app.services.workflow_convert import ui_to_api
-from app.services.app_content_modes import MERGE_HIDE_IDS
+from app.services.app_content_modes import MERGE_HIDE_IDS, SIMILAR_MERGE_HIDE_IDS
 from app.services.rh_h3_preset_seed import expand_rh_h3_presets
 from app.services.rh_family_preset_seed import expand_rh_family_presets
 from app.workflows.ace_step import AceStep15Params, AceStepParams, build_ace_step_15_graph, build_ace_step_graph
@@ -739,6 +739,7 @@ def _build_specs() -> list[dict]:
                 "seed": _b("13", "inputs.seed"),
             },
             is_nsfw=False, sort=81,
+            is_public=False,  # similar-merge P1: soft-hide; keep wan-animate-2
         ),
         _spec(
             "wan-animate-2", "Wan-Animate-2 动作迁移",
@@ -1034,6 +1035,7 @@ def _build_specs() -> list[dict]:
                 "seed": _b("5", "inputs.seed"),
             },
             is_nsfw=False, sort=121,
+            is_public=False,  # similar-merge P1: soft-hide; keep ace-music
         ),
         # ----- 其他可诚实成图的存量工作流 -----
         _spec(
@@ -1325,8 +1327,9 @@ def seed_builtin_apps(session: Session) -> int:
         )
         created += 1
     # SFW+NSFW 同卡:软隐藏 R18 孪生卡(仍保留行供 runner 切 twin 图 / RH base 克隆)
+    # + similar-merge P1: wan-animate / ace-music-legacy（行保留，市场不可见）
     hidden = 0
-    for hid in MERGE_HIDE_IDS:
+    for hid in (*MERGE_HIDE_IDS, *SIMILAR_MERGE_HIDE_IDS):
         row = rows.get(hid) or session.get(App, hid)
         if row is not None and row.is_public:
             row.is_public = False
@@ -1335,5 +1338,5 @@ def seed_builtin_apps(session: Session) -> int:
             hidden += 1
     session.commit()  # 更新路径也可能有写(内置规格漂移修复),统一提交
     if created or hidden:
-        logger.info("内置应用播种完成:新增 %d 个,软隐藏孪生 %d 个", created, hidden)
+        logger.info("内置应用播种完成:新增 %d 个,软隐藏孪生/合并 %d 个", created, hidden)
     return created

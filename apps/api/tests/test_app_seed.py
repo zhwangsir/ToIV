@@ -659,3 +659,29 @@ def test_h3_capability_preset_defaults():
     voice_nsfw = specs["h3-nsfw-r2v-voice"]
     assert "10Eros_Max_h3_TURBO_ref2va" in voice_nsfw["workflow_json"]["6"]["inputs"]["unet_name"]
 
+
+def test_similar_merge_slice_a_specs_soft_hide_defaults():
+    """Slice A: wan-animate / ace-music-legacy 规格默认 is_public=False；keepers 仍公开。"""
+    specs = {s["id"]: s for s in _build_specs()}
+    assert specs["wan-animate"]["is_public"] is False
+    assert specs["ace-music-legacy"]["is_public"] is False
+    assert specs["wan-animate-2"]["is_public"] is True
+    assert specs["ace-music"]["is_public"] is True
+
+
+def test_seed_applies_similar_merge_hide_on_existing_public_rows():
+    """存量公开行被 seed 强制 soft-hide（is_public 规格不覆盖更新路径，靠 hide 环）。"""
+    engine = _engine()
+    with Session(engine) as s:
+        seed_builtin_apps(s)
+        for hid in ("wan-animate", "ace-music-legacy"):
+            row = s.get(App, hid)
+            assert row is not None
+            row.is_public = True
+            s.add(row)
+        s.commit()
+        assert seed_builtin_apps(s) == 0
+        for hid in ("wan-animate", "ace-music-legacy"):
+            assert s.get(App, hid).is_public is False
+        assert s.get(App, "wan-animate-2").is_public is True
+        assert s.get(App, "ace-music").is_public is True
