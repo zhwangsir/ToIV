@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**两端 tip `6fc69a37` 已齐，未部署**）：origin/github/本地 main=`6fc69a37`（UA 合入 `3b6495aa` + 拒旧网页 `f5865a30`）。**未部署**；生产 c-chains 仍 404。闸不开。STATE `pipeline_c_c_chains_2026_10_09`/`deploy_stale_web_ua_brand_2026_10_09`；`updated_at` 2026-10-09T11:35:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家：**两端 tip `9b3be871` 已齐，未部署**）：origin/github/本地 main=`9b3be871`。**未部署**；生产 c-chains 仍 404。闸不开。STATE 同键；`updated_at` 2026-10-09T11:40:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
