@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家；ToIV开发核）：**main tip `09a9ab54` 已部署**（api/web 先 `cd9c1bb8`+`STUDIO_MULTITENANT=1`，canvas-only 已进 `09a9ab54`）；合入 realign `c9f9a99e` + continue/Avatar `94c66281` + URL fix。**H3 timer 仍缺** `h3_service_account.env`；设备禁口已放开（产品默认仍不用 `:8195`）。`updated_at` 2026-10-09T18:15:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家）：**main tip `09a9ab54` 已部署**（canvas 含 realign），但**模型配置页未验通**：NAS 三栏曾空（设备 18:22 落 `docs/NAS_MODEL_PICKER.json` + `TOIV_NAS_*` 已重启，硬刷新应有条目）；本地 Comfy 仍要 Key；默认仍见壳名 `h3`/`h3-t2v`、文本仍 `qwen3.8-27b`（应 `deepseek-v4-flash-dspark`）。**拍板**：生图 `Qwen-Rapid-AIO-SFW-v11`；视频默认改七件套 `minimax_h3_fl2va_pruned_int8_convrot`+`minimax_h3_ref2va_pruned_int8_convrot`（融合补丁进行中，基 docs tip `1b85a816`）；H3 timer 仍缺凭证。`updated_at` 2026-10-09T18:24:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---

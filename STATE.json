@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T18:15:00+08:00",
+  "updated_at": "2026-10-09T18:24:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13569,7 +13569,7 @@
     "superseded_by": "09a9ab54"
   },
   "canvas_model_config_realign_2026_10_09": {
-    "status": "canvas_model_config_realign_merged_deployed",
+    "status": "deployed_unverified",
     "date": "2026-10-09",
     "source": [
       "User",
@@ -13603,7 +13603,7 @@
     "deploy": {
       "status": "n/a_unmerged"
     },
-    "updated_at": "2026-10-09T18:15:00+08:00",
+    "updated_at": "2026-10-09T18:24:00+08:00",
     "merge": "c9f9a99e",
     "product_tip": "09a9ab54"
   },
@@ -13651,6 +13651,53 @@
       "github_main": "09a9ab54",
       "verified_both": true
     },
-    "updated_at": "2026-10-09T18:15:00+08:00"
+    "updated_at": "2026-10-09T18:24:00+08:00",
+    "ui_verify": "unverified_defaults_patch"
+  },
+  "canvas_model_config_verify_2026_10_09": {
+    "status": "canvas_model_config_unverified_defaults_patch",
+    "date": "2026-10-09",
+    "source": [
+      "User",
+      "ToIV BeefTV 融合",
+      "设备管家",
+      "ToIV 模型下载",
+      "ToIV开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "09a9ab54 realign 已部署未验通；picker 已补；默认绑定补丁中",
+    "product_tip_deployed": "09a9ab54",
+    "gaps": [
+      "NAS_list_was_empty_fixed_picker_18:22",
+      "comfy_still_asks_api_key",
+      "default_video_shell_h3_h3-t2v",
+      "default_text_still_qwen3.8-27b_should_be_deepseek-v4-flash-dspark",
+      "default_image_unset_in_ui"
+    ],
+    "decided_defaults": {
+      "image": "Qwen-Rapid-AIO-SFW-v11.safetensors",
+      "video_fl2va": "minimax_h3_fl2va_pruned_int8_convrot",
+      "video_ref2va": "minimax_h3_ref2va_pruned_int8_convrot",
+      "text": "deepseek-v4-flash-dspark"
+    },
+    "device": {
+      "NAS_MODEL_PICKER": "/home/merlin/toiv/docs/NAS_MODEL_PICKER.json",
+      "env": [
+        "TOIV_NAS_MODELS_ROOT",
+        "TOIV_NAS_PICKER_PATH"
+      ],
+      "canvas_restart": "2026-10-09T18:22+08:00"
+    },
+    "fusion_patch": {
+      "base": "1b85a816",
+      "status": "in_progress",
+      "tip": null
+    },
+    "h3_timer": {
+      "status": "blocked",
+      "missing": "h3_service_account.env"
+    },
+    "updated_at": "2026-10-09T18:24:00+08:00"
   }
 }
