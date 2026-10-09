@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**Gitee tip `bcba553f`；GitHub 滞后**）：origin/本地 main=`bcba553f`（storage-keys 未合入账）。github/main 仍停约 `a52c5bd4`（443 补推中，ToIV开发）。`feat/canvas-storage-keys-toiv`=`6d25357f` **仍未合**。**未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:20:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家：**storage-keys 已合 tip `0b038325`**）：origin/github/本地 main=`0b038325`（含 `6d25357f` 旧键可读写新键 + docs `e449e4ec`）。**未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:22:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -134,6 +134,11 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-09（项目管家：storage-keys 已合 `0b038325`）
+- **tip**：origin/github/本地 main=`0b038325`（merge：canvas storage keys beeftv→toiv，含 `6d25357f`）。**未部署**；生产 c-chains 仍 404。
+- **存储键**：已合；旧键可读、写新键。
+- Status：`canvas_storage_keys_toiv_merged_undeployed`；闸不开。via 项目管家（ToIV开发）。
 
 ### 2026-10-09（项目管家：storage-keys 分支 `6d25357f` 未合）
 - **tip**：origin/本地 main=`001f3fc2`（其上 CSS/文案已合）。**未部署**；生产 c-chains 仍 404。
