@@ -33,7 +33,7 @@ export interface ThemePresetMeta {
 }
 
 export const THEME_PRESETS: readonly ThemePresetMeta[] = [
-  { id: "minimal", name: "极简白", darkBased: false, swatchBg: "#FAFAF9", swatchAccent: "#17181A" },
+  { id: "minimal", name: "极简白", darkBased: false, swatchBg: "#FFFFFF", swatchAccent: "#242426" },
   { id: "cinema", name: "影院", darkBased: true, swatchBg: "#0B0D10", swatchAccent: "#C9F24F" },
   { id: "paper", name: "纸墨", darkBased: false, swatchBg: "#F5EFE3", swatchAccent: "#2B2318" },
   { id: "graphite", name: "石墨", darkBased: true, swatchBg: "#0A0B0D", swatchAccent: "#FFFFFF" },

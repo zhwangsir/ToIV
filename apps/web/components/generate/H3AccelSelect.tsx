@@ -89,7 +89,7 @@ export function H3AccelSelect({
           width: 100%;
           height: 34px;
           padding: 0 10px;
-          border-radius: 8px;
+          border-radius: var(--radius-control);
           border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
           background: var(--bg-secondary, rgba(255, 255, 255, 0.04));
           color: var(--text-primary, #e5e7eb);

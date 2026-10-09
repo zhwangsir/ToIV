@@ -347,7 +347,7 @@ export function AssetPicker({ open, onClose, assetType, kind, pinWorker, onPick 
           width: 100%;
           aspect-ratio: 1;
           object-fit: cover;
-          border-radius: 6px;
+          border-radius: var(--radius-badge);
           display: block;
         }
         .asset-picker-icon {

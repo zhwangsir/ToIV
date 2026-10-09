@@ -33,7 +33,7 @@ import { applyUiVersion, readUiVersion, UI_CHANGED_EVENT, type UiVersion } from 
 
 /** 快捷强调色板(预设 accent 定义本身,非装饰色,豁免硬编码纪律;
    第一枚 = cinema 荧光绿,最后一枚 = minimal 墨色) */
-const ACCENT_SWATCHES = ["#C9F24F", "#8B5CF6", "#3B82F6", "#F59E0B", "#EF4444", "#17181A"];
+const ACCENT_SWATCHES = ["#C9F24F", "#8B5CF6", "#3B82F6", "#F59E0B", "#EF4444", "#242426"];
 
 /**
  * 主题选择器 v9(2026-09-07 主题系统):
@@ -198,7 +198,7 @@ export function ThemePicker() {
           type="color"
           className="theme-accent-input"
           aria-label="自定义强调色"
-          value={accent ?? THEME_PRESETS.find((p) => p.id === theme)?.swatchAccent ?? "#17181A"}
+          value={accent ?? THEME_PRESETS.find((p) => p.id === theme)?.swatchAccent ?? "#242426"}
           onChange={(e) => {
             const v = e.target.value.toUpperCase();
             setAccent(v);

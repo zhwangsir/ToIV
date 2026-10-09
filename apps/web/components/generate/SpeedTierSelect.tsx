@@ -62,7 +62,7 @@ export function SpeedTierSelect({
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 0;
-          border-radius: 8px;
+          border-radius: var(--radius-control);
           border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
           overflow: hidden;
           background: var(--bg-secondary, rgba(255, 255, 255, 0.04));

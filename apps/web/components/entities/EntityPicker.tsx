@@ -160,7 +160,7 @@ export function EntityPicker({ open, onClose, selectedIds, onConfirm }: EntityPi
           width: 100%;
           aspect-ratio: 1;
           object-fit: cover;
-          border-radius: 6px;
+          border-radius: var(--radius-badge);
           display: block;
         }
         .entity-picker-icon {

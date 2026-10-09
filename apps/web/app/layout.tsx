@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Fraunces, Geist, Geist_Mono, Noto_Sans_SC } from "next/font/google";
+import { Inter, JetBrains_Mono, Geist, Geist_Mono, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import "./styles/glass.css";
 import "./styles/nav-account.css";
@@ -35,13 +35,7 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-/* Display 展示位衬线(2026-08-14 UI-A):落地大标题/empty-display 专用,正文仍 Inter */
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  variable: "--font-fraunces",
-  display: "swap",
-});
+/* Display 展示位:2026-10-06 BeefTV 换肤去衬线化,展示位消费 --font-display(=Inter),不再加载衬线字体 */
 
 /* v3 字体:Geist(拉丁/数字)+ 思源黑体(中文)+ Geist Mono;均 OFL,仅新界面引用 */
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
@@ -85,7 +79,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`${inter.variable} ${jetbrainsMono.variable} ${fraunces.variable} ${geist.variable} ${geistMono.variable} ${notoSansSC.variable}`}
+      className={`${inter.variable} ${jetbrainsMono.variable} ${geist.variable} ${geistMono.variable} ${notoSansSC.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />

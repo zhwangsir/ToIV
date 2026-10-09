@@ -16,46 +16,46 @@
   --abs-black: #000000;
   --abs-white: #FFFFFF;
 
-  /* ── 字体(next/font 注入;Inter 为正文字体;Fraunces 为展示位专用衬线) ── */
+  /* ── 字体(next/font 注入;Inter 为正文字体;BeefTV 换肤去衬线,展示位同 Inter) ── */
   --font-sans: var(--font-inter), "Inter", "PingFang SC", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "HarmonyOS Sans SC", sans-serif;
   --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  /* Display 展示位(落地大标题 / empty-display):Fraunces 衬线,中文回退 PingFang SC */
-  --font-display: var(--font-fraunces), "Fraunces", "PingFang SC", "Songti SC", serif;
+  /* Display 展示位(落地大标题 / empty-display):2026-10-06 BeefTV 换肤去衬线化,统一 Inter */
+  --font-display: var(--font-sans);
 
-  /* ── 色彩:画布/面板层级(T1 素白:近白画布 + 浅灰面板阶梯;
-     2026-08-14 UI-A:canvas 由纯白降为近白 #FAFAF9(微调不泛黄),配合 body::after 弱暗角) ── */
-  --bg-canvas: #FAFAF9;
-  --bg-surface-1: #FAFAFA;
-  --bg-surface-2: #F4F4F5;
-  --bg-surface-3: #EBEBEE;
+  /* ── 色彩:画布/面板层级(2026-10-06 BeefTV 换肤:纯白画布+白卡 hairline+neutral 阶梯,
+     规范见 docs/ops/UI_BEEFTV_RESKIN.md) ── */
+  --bg-canvas: #FFFFFF;
+  --bg-surface-1: #FFFFFF;
+  --bg-surface-2: #F7F7F8;
+  --bg-surface-3: #ECECEE;
 
   /* ── 描边 ── */
-  --border-subtle: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.16);
+  --border-subtle: rgba(17, 17, 17, 0.13);
+  --border-strong: rgba(17, 17, 17, 0.24);
 
   /* ── 文字(近黑阶梯;2026-08-16 基座对比度复核:muted #64666C 在 canvas 5.5:1、
      最深 surface-3 上 4.82:1,全场景过 AA 且留余量;旧值 #686A70 在 surface-3 仅 4.54 贴边) ── */
-  --text-primary: #17181A;
-  --text-secondary: #54565C;
-  --text-muted: #64666C;
+  --text-primary: #0A0A0A;
+  --text-secondary: #525252;
+  --text-muted: #66666B;
   /* --text-3(2026-08-31 新增):第三级文字,编排面板「已停止」徽标等弱化文本专用。
      别名 secondary 而非更浅新值——更浅会跌破 AA 对比度门禁(themeContrast.test.ts);
      各主题/暗色只覆盖 secondary,text-3 经 var 引用随主题解析,无需逐主题重复定义。 */
   --text-3: var(--text-secondary);
 
   /* ── 强调色(T1 素白:近黑 CTA) ── */
-  --accent: #17181A;
-  --accent-hover: #2C2E33;
-  --accent-soft: rgba(23, 24, 26, 0.07);
+  --accent: #242426;
+  --accent-hover: #333538;
+  --accent-soft: rgba(36, 36, 38, 0.08);
   /* 中性光晕(2026-09-04 更名,原 --accent-glow):近黑 accent 的柔光环/淡描边,
      供输入聚焦光晕、浮层淡边等中性场景;--accent-glow 之名让位给琥珀点睛色 */
-  --accent-halo: rgba(23, 24, 26, 0.18);
+  --accent-halo: rgba(36, 36, 38, 0.20);
   --text-on-accent: #FFFFFF;
   /* ── 点睛触点(2026-09-06 单色极简改造):琥珀色系退役,重定义为中性
      近黑(= 主文字色)。聚焦环/链接 hover/at-seg 激活指示/启动序列等最小触点
      全部自动黑白化,无需逐处改;主按钮 accent 近黑不变 ── */
   --accent-glow: var(--text-primary);
-  --accent-glow-soft: rgba(23, 24, 26, 0.07);
+  --accent-glow-soft: rgba(36, 36, 38, 0.08);
   /* 压深调(assistant 启动序列拖尾专用;单色化后与 accent 同值) */
   --accent-glow-deep: var(--accent);
 
@@ -97,7 +97,7 @@
   /* 玻璃材质:白玻璃(80% 白底 + 20px 高斯模糊,保证文字对比度;
      2026-08-16 灵动岛面板透字修复:0.72→0.80,display 大标题笔画不再透入浮层) */
   --glass-bg: rgba(255, 255, 255, 0.80);
-  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-border: rgba(17, 17, 17, 0.13);
   --glass-blur: blur(20px) saturate(1.4);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65); /* 高光内描边 */
   --accent-glow-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
@@ -149,20 +149,20 @@
   --space-10: 40px;
   --space-12: 48px;
 
-  /* ── 圆角:面板 12 · 控件 8 · 徽章 6(语义三档;数字档 --radius-xs~xl 已于
+  /* ── 圆角:面板 16 · 控件 12 · 徽章 8(2026-10-06 BeefTV 换肤对齐;语义三档;数字档 --radius-xs~xl 已于
      2026-09-04 美化 W0 删除,映射:xs/sm→badge · md→control · lg/xl→panel) ── */
-  --radius-badge: 6px;
-  --radius-control: 8px;
-  --radius-panel: 12px;
+  --radius-badge: 8px;
+  --radius-control: 12px;
+  --radius-panel: 16px;
   --radius-full: 9999px;
 
   /* ── 阴影:不用彩色阴影,浮层统一中性灰(浅色主题全面调软) ── */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   /* 控件 whisper 投影(2026-09-01 组件精修):输入框/按钮的纸感微浮,比 sm 更轻 */
   --shadow-xs: 0 1px 1.5px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.07);
-  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.09);
-  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.10);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 2px 5px rgba(0, 0, 0, 0.05), 0 10px 26px rgba(0, 0, 0, 0.10);
+  --shadow-xl: 0 3px 10px rgba(0, 0, 0, 0.09), 0 24px 60px rgba(0, 0, 0, 0.14);
   /* 浮层专用双层柔影(2026-09-04 W0 成文):柔和大半径投影 + 近距描边影两层,
      Modal/Popover/Toast/CommandPalette 等浮层统一消费;平卡(at-card/.card)不用阴影 */
   --shadow-pop: 0 4px 20px rgba(0, 0, 0, 0.10), 0 0 0 1px var(--border-subtle);
@@ -300,21 +300,21 @@
 [data-mode="dark"] {
   color-scheme: dark;
 
-  /* 画布/面板:中性深灰阶梯(纸感,不泛蓝不泛紫) */
-  --bg-canvas: #101114;
-  --bg-surface-1: #16181C;
-  --bg-surface-2: #1C1F24;
-  --bg-surface-3: #23262D;
+  /* 画布/面板:纯中性深灰阶梯(2026-10-06 BeefTV 换肤:#0F0F0F/#181818/#202020/#2A2A2A,去蓝调) */
+  --bg-canvas: #0F0F0F;
+  --bg-surface-1: #181818;
+  --bg-surface-2: #202020;
+  --bg-surface-3: #2A2A2A;
 
   /* 描边:亮侧双档 */
-  --border-subtle: rgba(255, 255, 255, 0.09);
+  --border-subtle: rgba(255, 255, 255, 0.10);
   --border-strong: rgba(255, 255, 255, 0.18);
 
   /* 文字:近白三级(muted #9A9EA6 在最浅 surface-3 上 ≈5.6:1、canvas 上 ≈7:1,全场景过 AA;
      2026-08-16 较上一档提亮,暗色辅助文字可读性审计修复) */
-  --text-primary: #F4F4F3;
-  --text-secondary: #A9ACB2;
-  --text-muted: #9A9EA6;
+  --text-primary: #FFFFFF;
+  --text-secondary: #B4B4BC;
+  --text-muted: #A8A8A8;
 
   /* 强调色(paper 暗色变体):近白 CTA,hover 向纯白提拉 */
   --accent: #F5F5F4;

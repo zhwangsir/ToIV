@@ -16,7 +16,7 @@
   --abs-black: #000000;
   --abs-white: #FFFFFF;
 
-  /* ── 字体(next/font 注入;Inter 为正文字体;Fraunces 为展示位专用衬线) ── */
+  /* ── 字体(next/font 注入;Inter 为正文字体;BeefTV 换肤去衬线,展示位同 Inter) ── */
   --font-sans: var(--font-inter), "Inter", "PingFang SC", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "HarmonyOS Sans SC", sans-serif;
   --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   /* Display 展示位(落地大标题 / empty-display):2026-10-06 BeefTV 换肤去衬线化,统一 Inter */
@@ -96,7 +96,7 @@
   /* 玻璃材质:白玻璃(80% 白底 + 20px 高斯模糊,保证文字对比度;
      2026-08-16 灵动岛面板透字修复:0.72→0.80,display 大标题笔画不再透入浮层) */
   --glass-bg: rgba(255, 255, 255, 0.80);
-  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-border: rgba(17, 17, 17, 0.13);
   --glass-blur: blur(20px) saturate(1.4);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65); /* 高光内描边 */
   --accent-glow-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);

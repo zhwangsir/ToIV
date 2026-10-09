@@ -128,7 +128,7 @@ export function RecentWorksRail({ onOpenLibrary }: { onOpenLibrary: () => void }
           flex: 0 0 auto;
           width: 128px;
           height: 76px;
-          border-radius: 10px;
+          border-radius: var(--radius-control);
           overflow: hidden;
           border: 1px solid var(--border-subtle);
           background: var(--bg-surface-2);

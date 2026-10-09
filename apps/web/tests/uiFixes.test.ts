@@ -68,7 +68,7 @@ g.document = {
   head: { appendChild: (): void => {} },
 };
 g.getComputedStyle = () => ({
-  getPropertyValue: (k: string): string => (k === "--bg-canvas" ? "#FAFAF9" : ""),
+  getPropertyValue: (k: string): string => (k === "--bg-canvas" ? "#FFFFFF" : ""),
 });
 g.addEventListener = (type: string, fn: Handler): void => {
   const set = bus.get(type) ?? new Set<Handler>();
@@ -270,15 +270,15 @@ test("app/error.tsx:路由级错误边界(err-* 面板 + 重试 + 返回首页,�
 
 /* ── ⑦ 暗色微调 ── */
 
-test("暗色 --text-muted 提亮一档 #9A9EA6(AA),global-error 内联镜像同步(源码断言)", () => {
+test("暗色 --text-muted BeefTV #A8A8A8(AA),global-error 内联镜像同步(源码断言)", () => {
   const css = readSrc("app/globals.css");
   const iDark = css.indexOf('[data-mode="dark"] {');
   const darkBlock = css.slice(iDark, css.indexOf("\n}", iDark));
-  assert.ok(darkBlock.includes("--text-muted: #9A9EA6;"), "暗色 muted 未提亮");
+  assert.ok(darkBlock.includes("--text-muted: #A8A8A8;"), "暗色 muted 未对齐 BeefTV");
   assert.ok(!css.includes("#8B8E95"), "旧 muted 值不得残留");
 
   const ge = readSrc("app/global-error.tsx");
-  assert.ok(ge.includes('"#9A9EA6"'), "global-error 暗色 muted 镜像未同步");
+  assert.ok(ge.includes('"#A8A8A8"'), "global-error 暗色 muted 镜像未同步");
   assert.ok(!ge.includes("#8B8E95"), "global-error 旧值残留");
 });
 

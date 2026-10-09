@@ -124,7 +124,7 @@ export function ParticleButton({ children, count = 120, className }: ParticleBut
     ctx.scale(dpr, dpr);
     // 单色跟随 accent(低饱和:全局透明度压到 0.5 以下)
     const accent =
-      getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#17181A";
+      getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#242426";
     const off = SPAWN_SPREAD;
     const particles = buildBurst(rect.width, rect.height, count).map((p) => ({
       ...p,
