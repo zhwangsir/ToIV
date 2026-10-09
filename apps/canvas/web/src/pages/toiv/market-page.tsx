@@ -19,6 +19,7 @@ import {
     firstPinWorker,
     requiredToivParamLabel,
     runToivApp,
+    toivCoverImageUrl,
     uploadToivMedia,
     type MarketMediaHandle,
     type ToivApp,
@@ -66,6 +67,36 @@ function smokeBadge(app: ToivApp) {
     if (app.smoke_status === "fail") return <StatusBadge variant="filled" tone="error" label="烟测失败" size="sm" />;
     if (app.smoke_status) return <StatusBadge variant="filled" tone="neutral" label={app.smoke_status} size="sm" />;
     return null;
+}
+
+/** 市场卡封面：走 toivCoverImageUrl(?token=)；失败 → BeefTV 空态（类别字），禁止 raw cover_url / 死灰大方块 */
+function CoverThumb({ coverUrl, category }: { coverUrl?: string; category?: string }) {
+    const [failed, setFailed] = useState(false);
+    const src = toivCoverImageUrl(coverUrl);
+    useEffect(() => {
+        setFailed(false);
+    }, [coverUrl]);
+    const showImg = Boolean(src) && !failed;
+    return (
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--muted,rgba(255,255,255,0.05))]">
+            {showImg ? (
+                <img
+                    src={src}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    onError={() => setFailed(true)}
+                />
+            ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-[var(--muted-foreground,#a8a8a8)]">
+                    <span className="text-2xl opacity-50" aria-hidden>
+                        {CATEGORY_META[category || "other"] ?? "应"}
+                    </span>
+                    <span className="text-[10px] opacity-60">暂无封面</span>
+                </div>
+            )}
+        </div>
+    );
 }
 
 const IMAGE_EXT = ["jpg", "jpeg", "png", "webp"];
@@ -622,13 +653,7 @@ export default function MarketPage() {
                                     onClick={() => void openDetail(app)}
                                     className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] text-left transition-colors hover:border-[var(--workspace-accent,#555)]"
                                 >
-                                    <div className="flex h-28 items-center justify-center bg-[var(--muted,rgba(255,255,255,0.05))]">
-                                        {app.cover_url ? (
-                                            <img src={app.cover_url} alt="" className="h-full w-full object-cover" loading="lazy" />
-                                        ) : (
-                                            <span className="text-2xl opacity-40">{CATEGORY_META[app.category || "other"] ?? "应"}</span>
-                                        )}
-                                    </div>
+                                    <CoverThumb coverUrl={app.cover_url} category={app.category} />
                                     <div className="flex flex-1 flex-col gap-1.5 p-3">
                                         <p className="truncate text-sm font-medium">{app.name}</p>
                                         <p className="line-clamp-2 min-h-8 text-xs text-[var(--muted-foreground,#a8a8a8)]">
