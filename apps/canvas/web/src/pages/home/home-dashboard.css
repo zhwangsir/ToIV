@@ -37,6 +37,12 @@ body .app-user-workspace .app-workspace-sidebar-nav { background: var(--user-pag
 .toiv-capability.is-disabled .toiv-capability-icon { background: var(--user-surface-muted); box-shadow: 0 0 0 1px rgba(255,255,255,.02); }
 .toiv-capability.is-disabled .toiv-capability-icon svg { color: var(--user-ink-soft); }
 .toiv-capability.is-disabled:hover .toiv-capability-icon { transform: none; border-color: transparent; background: var(--user-surface-muted); }
+.toiv-intent-bar { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 0; padding:0; }
+.toiv-intent-chip { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border-radius:999px; border:1px solid var(--user-border-strong); background:var(--user-surface-muted); color:var(--user-ink); text-decoration:none; font-size:13px; line-height:20px; font-weight:400; transition:transform .18s ease,background .18s ease,box-shadow .18s ease; }
+.toiv-intent-chip svg { width:14px; height:14px; stroke-width:1.7; flex:0 0 auto; }
+.toiv-intent-chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.toiv-intent-chip:hover { transform:translateY(-1px); background:var(--user-surface-hover); box-shadow:0 0 0 1px var(--user-border-strong); }
+.toiv-intent-chip:focus-visible { outline:2px solid var(--user-ink); outline-offset:2px; }
 .toiv-home-section { margin-top:28px; }
 .toiv-section-heading { display:flex; height:32px; align-items:center; justify-content:space-between; margin-bottom:12px; padding-inline:8px 0; }
 .toiv-section-heading h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 500; letter-spacing: -.01em; }

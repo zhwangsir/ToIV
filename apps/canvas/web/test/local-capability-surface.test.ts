@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+    HOME_INTENT_ENTRIES,
     HOME_INTENT_MARKET_LINKS,
     LOCAL_CREATE_PRESETS,
     LOCAL_H3_MODEL_REF,
@@ -46,10 +47,28 @@ describe("local-capability-surface catalog", () => {
         expect(LOCAL_CREATE_PRESETS.some((p) => p.modelRef.startsWith(LOCAL_VIDEO_CHANNEL_ID + "::"))).toBe(true);
     });
 
-    test("home intent deep-links go to /toiv/market?app=", () => {
+    test("home intent bar covers intentMap keepers → /toiv/market?app=", () => {
+        expect(HOME_INTENT_ENTRIES).toHaveLength(20);
+        for (const entry of HOME_INTENT_ENTRIES) {
+            expect(entry.to).toBe(`/toiv/market?app=${entry.appId}`);
+            expect(entry.appId.length).toBeGreaterThan(0);
+            expect(entry.label.length).toBeGreaterThan(0);
+        }
         expect(HOME_INTENT_MARKET_LINKS.lipsync.to).toStartWith("/toiv/market?app=");
         expect(HOME_INTENT_MARKET_LINKS.dub.to).toContain("h3-r2v-voice");
+        expect(HOME_INTENT_MARKET_LINKS.voice.appId).toBe("h3-r2v-voice");
         expect(HOME_INTENT_MARKET_LINKS.inpaint.to).toContain("rh-acc-1967241218-76fc32");
+        expect(HOME_INTENT_MARKET_LINKS.outfit.appId).toBe("rh-acc-3051342849-5d0a1c");
+        expect(HOME_INTENT_MARKET_LINKS["3d"].appId).toBe("rh-acc-1922543617-0d4e78");
+    });
+
+    test("home intent keepers align with apps/web intentMap.ts", () => {
+        const intentMap = readFileSync(join(import.meta.dir, "../../../web/lib/intentMap.ts"), "utf8");
+        for (const entry of HOME_INTENT_ENTRIES) {
+            expect(intentMap).toContain(`id: "${entry.id}"`);
+            expect(intentMap).toContain(`appId: "${entry.appId}"`);
+            expect(intentMap).toContain(`label: "${entry.label}"`);
+        }
     });
 
     test("sortAppsWithFeaturedIds pins known ids first", () => {
@@ -62,6 +81,7 @@ describe("local-capability-surface catalog", () => {
 describe("local-capability-surface wiring (source)", () => {
     const market = readFileSync(join(import.meta.dir, "../src/pages/toiv/market-page.tsx"), "utf8");
     const home = readFileSync(join(import.meta.dir, "../src/pages/home/home-data.ts"), "utf8");
+    const dashboard = readFileSync(join(import.meta.dir, "../src/pages/home/home-dashboard.tsx"), "utf8");
     const menu = readFileSync(join(import.meta.dir, "../src/lib/canvas/tool-registry/definitions/add-node-menu-tools.tsx"), "utf8");
     const client = readFileSync(join(import.meta.dir, "../src/services/toiv/client.ts"), "utf8");
 
@@ -73,14 +93,17 @@ describe("local-capability-surface wiring (source)", () => {
         expect(market).toContain("resolveLocalCapabilityBadge");
     });
 
-    test("home intents deep-link market keepers (no empty-shell add=)", () => {
-        expect(home).toContain("HOME_INTENT_MARKET_LINKS");
-        expect(home).toContain("HOME_INTENT_MARKET_LINKS.lipsync.to");
-        expect(home).toContain("HOME_INTENT_MARKET_LINKS.dub.to");
-        expect(home).toContain("HOME_INTENT_MARKET_LINKS.inpaint.to");
+    test("home intent bar deep-links market keepers (no empty-shell add=)", () => {
+        expect(home).toContain("HOME_INTENT_ENTRIES");
+        expect(home).toContain("homeIntentBarItems");
+        expect(dashboard).toContain("homeIntentBarItems");
+        expect(dashboard).toContain("toiv-intent-bar");
+        expect(dashboard).toContain("toiv-intent-chip");
         expect(home).not.toContain("add=lipsync");
         expect(home).not.toContain("add=inpaint");
         expect(home).not.toContain("add=dub");
+        // 意图已从核心能力卡拆出，避免与意图条重复
+        expect(home).not.toContain("HOME_INTENT_MARKET_LINKS.lipsync.to");
     });
 
     test("create-menu registers hardcoded local presets", () => {

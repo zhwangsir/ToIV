@@ -2,7 +2,7 @@ import { ArrowRight, Plus, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import type { CanvasLibrarySummary } from "@/services/api/workspace-data";
 import { ProjectPreview } from "@/components/canvas/canvas-project-card";
-import { beefTVCapabilityItems } from "./home-data";
+import { beefTVCapabilityItems, homeIntentBarItems } from "./home-data";
 function formatDate(value: string) {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "刚刚更新";
@@ -41,6 +41,15 @@ export function HomeDashboard({ projects, loading, error, onRetry }: { projects:
                             <strong>{label}</strong>
                         </Link>
                     )
+                ))}
+            </nav>
+
+            <nav className="toiv-intent-bar" aria-label="意图">
+                {homeIntentBarItems.map(({ id, label, detail, to, icon: Icon }) => (
+                    <Link key={id} to={to} className="toiv-intent-chip" title={detail}>
+                        <Icon aria-hidden />
+                        <span>{label}</span>
+                    </Link>
                 ))}
             </nav>
 
