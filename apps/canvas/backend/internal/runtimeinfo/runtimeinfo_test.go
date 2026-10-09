@@ -197,3 +197,50 @@ func deadPID(t *testing.T) int {
 	t.Helper()
 	return 987654321
 }
+
+func TestDefaultDataDirPrefersToIV(t *testing.T) {
+	t.Setenv("BEEFTV_DATA_DIR", "")
+	t.Setenv("CANVAS_DESKTOP_DATA_DIR", "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("APPDATA", home)
+	t.Setenv("XDG_CONFIG_HOME", home)
+	root, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// neither exists → ToIV
+	got, err := DefaultDataDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(root, "ToIV")
+	if got != want {
+		t.Fatalf("empty config dir should resolve ToIV, got %q want %q", got, want)
+	}
+	// only legacy → BeefTV
+	legacy := filepath.Join(root, "BeefTV")
+	if err := os.MkdirAll(legacy, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got, err = DefaultDataDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != legacy {
+		t.Fatalf("legacy-only should resolve BeefTV, got %q", got)
+	}
+	// both → ToIV
+	toiv := filepath.Join(root, "ToIV")
+	if err := os.MkdirAll(toiv, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got, err = DefaultDataDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != toiv {
+		t.Fatalf("when both exist prefer ToIV, got %q", got)
+	}
+}

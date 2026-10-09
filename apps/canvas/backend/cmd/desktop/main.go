@@ -6,10 +6,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"infinite-canvas/backend/internal/desktopupdate"
+	"infinite-canvas/backend/internal/runtimeinfo"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -86,12 +86,5 @@ func prepareDesktopApp(app *DesktopApp) error {
 }
 
 func defaultDataDir() (string, error) {
-	if override := strings.TrimSpace(os.Getenv("CANVAS_DESKTOP_DATA_DIR")); override != "" {
-		return override, nil
-	}
-	root, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("定位用户应用数据目录: %w", err)
-	}
-	return filepath.Join(root, "ToIV"), nil
+	return runtimeinfo.DefaultDataDir()
 }
