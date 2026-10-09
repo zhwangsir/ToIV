@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T16:53:00+08:00",
+  "updated_at": "2026-10-09T16:56:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13472,6 +13472,34 @@
       "github_main": "b9cfb65e",
       "verified_both": true
     },
-    "updated_at": "2026-10-09T16:53:00+08:00"
+    "updated_at": "2026-10-09T16:56:00+08:00",
+    "superseded_by": "63903968"
+  },
+  "main_tip_63903968_2026_10_09": {
+    "status": "main_tip_63903968_outbound_default_sync_undeployed",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "tip 63903968：前端 DEFAULT_OUTBOUND 对齐 Go；含 M2+本地化三刀；未部署",
+    "product_tip": "63903968",
+    "parent": "b9cfb65e",
+    "fix": "sync frontend DEFAULT_OUTBOUND_HOSTS with Go (updates.beefapi.com)",
+    "deploy": {
+      "status": "not_deployed",
+      "prod_still": "70521949"
+    },
+    "still_closed": [
+      "STUDIO_MULTITENANT",
+      "H3_refresh_timer"
+    ],
+    "remotes": {
+      "origin_gitee_main": "63903968",
+      "github_main": "63903968",
+      "verified_both": true
+    },
+    "updated_at": "2026-10-09T16:56:00+08:00"
   }
 }

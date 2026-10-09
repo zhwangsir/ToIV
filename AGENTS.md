@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家；ToIV开发：**main tip `b9cfb65e`**）：**M2 全线已合**（对话 `/toiv/agent` + 市场 `/toiv/market` + 作品详情 + UX 优化）；**本地化 slice1–3 已合**（H3/:8264 + Spark `deepseek-v4-flash-dspark` + 生图/:8196 + Wan·LongCat/:8197 + NAS bind）；出站白名单/拒旧网页/H3 r3 代码已在 main。**未部署**（生产仍≈`70521949`：health 200 / c-chains 401 / live 200 / studio 302）；**Studio 多租户闸与 H3 timer 仍关**。`updated_at` 2026-10-09T16:53:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家；ToIV开发：**main tip `63903968`**）：**M2 全线已合**（对话 `/toiv/agent` + 市场 `/toiv/market` + 作品详情 + UX 优化）；**本地化 slice1–3 已合**（H3/:8264 + Spark `deepseek-v4-flash-dspark` + 生图/:8196 + Wan·LongCat/:8197 + NAS bind）；出站白名单/拒旧网页/H3 r3 已在 main；另 `63903968` 前端 DEFAULT_OUTBOUND 对齐 Go（含 updates.beefapi.com）。**未部署**（生产仍≈`70521949`：health 200 / c-chains 401 / live 200 / studio 302）；**Studio 多租户闸与 H3 timer 仍关**。`updated_at` 2026-10-09T16:56:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
