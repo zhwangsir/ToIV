@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**tip `8d22d144`；桌面路径迁移方案未合**）：origin/本地 main=`8d22d144`（含 command_guard 品牌 `2483c74d` + storage-keys）。`feat/canvas-desktop-path-migration-plan`=`0fa9d20c`（默认 `ToIV`，runtimeinfo 仍 `BeefTV`；P1 搬数据待定 rename/junction）**未合**。CLI 协议 id 仍 beeftv。**未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:35:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家：**路径方案已合；P1=A rename；P0 未合**）：origin/本地 main=`f852f01f`（merge 方案 `0fa9d20c`）。P1 拍板 **A rename**（先合 P0 发现+旧目录回退；搬迁前备份+marker，禁静默删）；B junction 不做默认。`feat/canvas-runtimeinfo-data-dir-toiv`=`0d1b278e` **未合**。**未搬数据、未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:44:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
