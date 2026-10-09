@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T19:13:00+08:00",
+  "updated_at": "2026-10-09T22:01:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13904,7 +13904,12 @@
       "status": "blocked",
       "missing": "h3_service_account.env"
     },
-    "updated_at": "2026-10-09T19:11:00+08:00"
+    "updated_at": "2026-10-09T22:00:00+08:00",
+    "deploy_skew": {
+      "deployed_tip_file": "30357bfc",
+      "canvas_binary": "6d70c34a",
+      "api_web": "cd9c1bb8"
+    }
   },
   "home_intent_bar_2026_10_09": {
     "status": "home_intent_bar_hold",
@@ -13921,5 +13926,27 @@
       "or_named_go"
     ],
     "updated_at": "2026-10-09T19:13:00+08:00"
+  },
+  "fusion_completeness_2026_10_09": {
+    "status": "fusion_not_one_product_deploy_skew",
+    "date": "2026-10-09",
+    "source": [
+      "User",
+      "ToIV开发",
+      "设备管家",
+      "ToIV BeefTV 融合",
+      "ToIV 模型下载",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "未完美一体；canvas 6d70c34a；api/web 仍 cd9c1bb8；意图条 HOLD",
+    "product_canvas_tip": "6d70c34a",
+    "api_web_approx": "cd9c1bb8",
+    "hold": [
+      "home_intent_bar",
+      "similar_merge_stopped",
+      "h3_timer_no_cred"
+    ],
+    "updated_at": "2026-10-09T22:01:00+08:00"
   }
 }
