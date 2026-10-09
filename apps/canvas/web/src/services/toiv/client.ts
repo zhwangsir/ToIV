@@ -121,6 +121,10 @@ export {
 } from "./market-run";
 import { normalizeToivAppParam, type ToivAppParam } from "./market-run";
 
+
+export { toivCoverImageUrl } from "./cover-url";
+
+
 export type ToivApp = {
     id: string;
     name: string;
