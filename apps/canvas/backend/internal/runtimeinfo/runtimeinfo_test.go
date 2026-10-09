@@ -219,21 +219,37 @@ func TestDefaultDataDirPrefersToIV(t *testing.T) {
 	if got != want {
 		t.Fatalf("empty config dir should resolve ToIV, got %q want %q", got, want)
 	}
-	// only legacy → BeefTV
+	// only legacy → migrate to ToIV (backup kept)
 	legacy := filepath.Join(root, "BeefTV")
 	if err := os.MkdirAll(legacy, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(legacy, "probe.txt"), []byte("ok"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	got, err = DefaultDataDir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != legacy {
-		t.Fatalf("legacy-only should resolve BeefTV, got %q", got)
-	}
-	// both → ToIV
 	toiv := filepath.Join(root, "ToIV")
-	if err := os.MkdirAll(toiv, 0o755); err != nil {
+	if got != toiv {
+		t.Fatalf("legacy-only should migrate to ToIV, got %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(toiv, "probe.txt")); err != nil {
+		t.Fatalf("migrated data missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(toiv, migratedMarkerName)); err != nil {
+		t.Fatalf("migration marker missing: %v", err)
+	}
+	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
+		t.Fatalf("legacy path should be renamed away, stat=%v", err)
+	}
+	backups, _ := filepath.Glob(filepath.Join(root, "BeefTV.pre-toiv-*"))
+	if len(backups) != 1 {
+		t.Fatalf("expected one backup dir, got %v", backups)
+	}
+	// both → ToIV (no second migrate); recreate legacy beside existing toiv
+	if err := os.MkdirAll(legacy, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	got, err = DefaultDataDir()
