@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（ToIV开发：**main tip  loading-preview 元数据 ToIV；merge  / feat ；双端齐**）： title/desc BeefTV→ToIV；**文件名未改**；图形/wordmark/LICENSE/NOTICE/CLI/MCP/UA 未动；**未部署**。 2026-10-09T13:46:31+08:00；via ToIV开发。
+> **最后更新**：2026-10-09（ToIV开发：**main tip `77702941` loading-preview 元数据 ToIV；merge `77702941` / feat `5e0f867c`；双端齐**）：`beeftv-loading-preview.svg` title/desc BeefTV→ToIV；**文件名未改**；图形/wordmark/LICENSE/NOTICE/CLI/MCP/UA 未动；**未部署**。`updated_at` 2026-10-09T13:46:31+08:00；via ToIV开发。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
