@@ -41,6 +41,33 @@ export async function fetchAgentRuns(limit = 100): Promise<ToivAgentRun[]> {
     return Array.isArray(data) ? data : ((data as { items?: ToivAgentRun[] })?.items ?? []);
 }
 
+/** ToIV 生成作业（主站 /api/jobs，任务中心统一执行层） */
+export type ToivJob = {
+    id: string;
+    prompt_id?: string;
+    kind?: string;
+    status: string;
+    prompt?: string;
+    created_at: string;
+    error?: string;
+    hold_reason?: string;
+    nsfw?: boolean;
+};
+
+export async function fetchJobs(limit = 100): Promise<ToivJob[]> {
+    const { data } = await toivHttp.get("/jobs", { params: { limit } });
+    return Array.isArray(data) ? (data as ToivJob[]) : ((data as { items?: ToivJob[] })?.items ?? []);
+}
+
+export async function cancelJob(jobId: string): Promise<boolean> {
+    try {
+        await toivHttp.post(`/jobs/${jobId}/cancel`);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 export async function fetchBoards(): Promise<ToivBoard[]> {
     const { data } = await toivHttp.get("/boards");
     return Array.isArray(data) ? data : [];
