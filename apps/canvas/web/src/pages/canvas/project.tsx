@@ -121,6 +121,7 @@ import { canvasNodeRetryPlan } from "./canvas-generation-orchestration";
 import { linkedFolderPresentation } from "./canvas-resource-handoff-plan";
 import { useCanvasAssistantProposal } from "./use-canvas-assistant-proposal";
 import { ToivAgentFloat } from "./toiv-agent-float";
+import { draftFromCanvasNode, stashAgentDraft } from "@/services/toiv/agent-draft";
 import { useCanvasConnectedNodeVisibility } from "./use-canvas-connected-node-visibility";
 import { useCanvasGenerationOrchestration } from "./use-canvas-generation-orchestration";
 import { useCanvasMentionNormalize } from "./use-canvas-mention-normalize";
@@ -3119,6 +3120,10 @@ function InfiniteCanvasPage() {
                             onSpreadSelection={spreadSelectedNodes}
                             onCopySelection={copySelectedNodes}
                             onDeleteSelection={() => deleteNodes(selectedNodeIds)}
+                            onSendToAgent={(node) => {
+                                stashAgentDraft(draftFromCanvasNode(node));
+                                navigate("/toiv/agent");
+                            }}
                         />
 
                         <input ref={imageInputRef} type="file" accept="image/*,video/*,audio/mpeg,audio/wav,audio/x-wav,.mp3,.wav,.txt,.md,.markdown" multiple className="hidden" onChange={handleImageInputChange} />
