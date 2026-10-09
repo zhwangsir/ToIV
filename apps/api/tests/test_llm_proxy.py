@@ -100,7 +100,7 @@ def env(monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "llm_proxy_base_url", UPSTREAM)
     monkeypatch.setattr(settings, "llm_proxy_api_key", "upstream-key")
-    monkeypatch.setattr(settings, "llm_proxy_models", "qwen3.8-27b,qwen3.6-uncensored")
+    monkeypatch.setattr(settings, "llm_proxy_models", "deepseek-v4-flash-dspark,qwen3.8-27b,qwen3.6-uncensored,glm-5.3-flash")
     monkeypatch.setattr(settings, "llm_proxy_max_tokens", 1000)
     llm_proxy._inflight.clear()
     yield TestClient(app), {"Authorization": f"Bearer {create_token(uid)}"}
@@ -124,7 +124,7 @@ def test_models_lists_only_public_ids(env):
     client, auth = env
     r = client.get("/api/llm/v1/models", headers=auth)
     assert r.status_code == 200
-    assert [m["id"] for m in r.json()["data"]] == ["qwen3.8-27b", "qwen3.6-uncensored"]
+    assert [m["id"] for m in r.json()["data"]] == ["deepseek-v4-flash-dspark", "qwen3.8-27b", "qwen3.6-uncensored", "glm-5.3-flash"]
     assert "llm.internal.test" not in r.text
 
 
@@ -147,7 +147,7 @@ def test_default_model_and_unknown_model(env, upstream):
     client, auth = env
     route = upstream.mock(return_value=httpx.Response(200, json={"choices": []}))
     r = client.post("/api/llm/v1/chat/completions", headers=auth, json={"messages": [{"role": "user", "content": "x"}]})
-    assert r.status_code == 200 and json.loads(route.last.content)["model"] == "qwen3.8-27b"
+    assert r.status_code == 200 and json.loads(route.last.content)["model"] == "deepseek-v4-flash-dspark"
     r = client.post("/api/llm/v1/chat/completions", headers=auth, json=_chat(model="gpt-4o"))
     assert r.status_code == 400 and r.json()["error"]["type"] == "invalid_request_error"
     r = client.post("/api/llm/v1/chat/completions", headers=auth, json={"model": "qwen3.8-27b", "messages": []})
@@ -224,3 +224,20 @@ def test_body_limits(env, monkeypatch):
     monkeypatch.setattr(get_settings(), "llm_proxy_max_body_bytes", 2_000_000)
     r = client.post("/api/llm/v1/chat/completions", headers={**auth, "Content-Type": "application/json"}, content=b"{not json")
     assert r.status_code == 400
+
+
+def test_spark_aliases_deepseek_and_glm_allowed(env, upstream):
+    """Spark 四名白名单：deepseek / glm 放行；未知模型仍 400（回归样本 37726b14）。"""
+    client, auth = env
+    route = upstream.mock(return_value=httpx.Response(200, json={"choices": []}))
+    for model in ("deepseek-v4-flash-dspark", "glm-5.3-flash", "qwen3.8-27b", "qwen3.6-uncensored"):
+        r = client.post("/api/llm/v1/chat/completions", headers=auth, json=_chat(model=model))
+        assert r.status_code == 200, (model, r.status_code, r.text)
+        assert json.loads(route.last.content)["model"] == model
+    r = client.post("/api/llm/v1/chat/completions", headers=auth, json=_chat(model="not-a-served-model"))
+    assert r.status_code == 400
+    err = r.json()["error"]
+    assert err["type"] == "invalid_request_error"
+    assert "不支持的模型：not-a-served-model" in err["message"]
+    assert "deepseek-v4-flash-dspark" in err["message"]
+    assert "glm-5.3-flash" in err["message"]

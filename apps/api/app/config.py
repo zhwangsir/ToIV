@@ -167,7 +167,9 @@ class Settings(BaseSettings):
     llm_proxy_base_url: str = ""
     llm_proxy_api_key: str = ""
     # 对外可用的模型 ID（逗号分隔，第一个为默认）；须是上游 vLLM 的 served-model-name。
-    llm_proxy_models: str = "qwen3.8-27b,qwen3.6-uncensored"
+    # 对齐 Spark TP2 :8000 四名（primary deepseek + 三别名）；缺一则走 /api/llm/v1 的客户端会 400。
+    # 环境变量：TOIV_LLM_PROXY_MODELS
+    llm_proxy_models: str = "deepseek-v4-flash-dspark,qwen3.8-27b,qwen3.6-uncensored,glm-5.3-flash"
     llm_proxy_connect_timeout: float = 10.0
     llm_proxy_read_timeout: float = 180.0
     llm_proxy_max_body_bytes: int = 2_000_000
