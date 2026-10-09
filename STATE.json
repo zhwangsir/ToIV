@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T04:48:00+08:00",
+  "updated_at": "2026-10-10T07:08:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14281,7 +14281,7 @@
     "updated_at": "2026-10-10T04:11:00+08:00"
   },
   "h3_timer_2026_10_10": {
-    "status": "h3_timer_enabled",
+    "status": "h3_timer_refresh_pass",
     "date": "2026-10-10",
     "source": [
       "设备管家",
@@ -14290,7 +14290,8 @@
     ],
     "steward": "项目管家",
     "summary": "H3 timer enable--now（check/refresh）",
-    "updated_at": "2026-10-10T04:11:00+08:00"
+    "updated_at": "2026-10-10T07:08:00+08:00",
+    "note": "service-token 06:20 刷新 PASS；exp→2026-10-17"
   },
   "autonomy_iteration_2026_10_10": {
     "status": "autonomy_iteration_running",
@@ -14481,5 +14482,32 @@
     "deployed": true,
     "deploy_scope": "web",
     "updated_at": "2026-10-10T04:48:00+08:00"
+  },
+  "h3_service_token_refresh_2026_10_10": {
+    "status": "h3_service_token_refresh_pass",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV BeefTV 融合",
+      "设备管家",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "H3 service-token 自动刷新 PASS；exp→2026-10-17 06:20",
+    "refreshed_at": "2026-10-10T06:20:04+08:00",
+    "revision": {
+      "from": 50,
+      "to": 51
+    },
+    "exp": "2026-10-17T06:20:00+08:00",
+    "hours_left_approx": 168,
+    "check_ok_at": "2026-10-10T07:01:00+08:00",
+    "old_exp_note": "原 10-13 过期项可关",
+    "production_tips_unchanged": {
+      "toiv_web": "ae5e294b",
+      "canvas": "385be368",
+      "api": "d69ee564",
+      "docs": "cd5e5003"
+    },
+    "updated_at": "2026-10-10T07:08:00+08:00"
   }
 }

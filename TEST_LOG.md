@@ -1,3 +1,4 @@
+- 2026-10-10 H3 service-token **刷新 PASS**（项目管家；融合/设备管家）：timer 06:20:04；revision 50→51；exp 2026-10-17 06:20 CST；hoursLeft≈168；check 07:01 ok；status=`h3_service_token_refresh_2026_10_10`；updated_at 2026-10-10T07:08:00+08:00。
 - 2026-10-10 toiv-web **已刷**（项目管家；ToIV开发/设备管家）：ActiveEnter 04:47:19；BUILD `ae5e294b`；canvas `385be368`；api `d69ee564`；status=`toiv_web_385be368_deployed`；updated_at 2026-10-10T04:48:00+08:00。
 - 2026-10-10 tip `15f1816c` / canvas `385be368` **已部署**（项目管家；ToIV开发）：similar-merge Slice B；ActiveEnter 04:43:33；api 仍 d69ee564；status=`similar_merge_p1_slice_b_deployed`；updated_at 2026-10-10T04:44:30+08:00。
 - 2026-10-10 tip `15f1816c` **已合未部署**（项目管家；ToIV开发）：similar-merge Slice B merge `385be368` 已在 main；canvas 刷进行中；status=`similar_merge_p1_slice_b_merged_undeployed`；updated_at 2026-10-10T04:43:00+08:00。

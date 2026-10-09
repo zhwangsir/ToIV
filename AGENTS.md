@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-10（项目管家；ToIV开发）：**toiv-web 已刷**（ActiveEnter 04:47:19 CST；BUILD `ae5e294b`；canvas `385be368`；api 仍 `d69ee564`）。请硬刷验「工具箱」与「本地·」文案（web+canvas 齐）。`updated_at` 2026-10-10T04:48:00+08:00。
+> **最后更新**：2026-10-10（项目管家；融合/设备管家）：**H3 service-token 06:20 自动刷新 PASS**（revision 50→51；exp→2026-10-17 06:20 CST；hoursLeft≈168；原 10-13 过期项可关）。生产 tip 未变：toiv-web `ae5e294b` / canvas `385be368` / api `d69ee564`；docs `cd5e5003` 齐；仍等硬刷验工具箱/本地·。`updated_at` 2026-10-10T07:08:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
