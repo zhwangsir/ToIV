@@ -314,6 +314,9 @@ async def dub_voice_track_status(
     # 优先查 DB Job(api 重启后内存丢,DB 保终态);运行中且内存还在则用内存(实时进度)
     db_job = session.exec(select(Job).where(Job.prompt_id == job_id)).first()
     if db_job:
+        # 多租户最小切片:非本人与不存在一样 404(admin 放行)
+        if db_job.user_id != user.id and user.role != "admin":
+            raise HTTPException(status_code=404, detail="配音任务不存在(可能已过期或 api 重启)")
         mem = _voice_jobs.get(job_id)
         if db_job.status == "running" and mem:
             return {k: mem[k] for k in _VOICE_JOB_PUBLIC}

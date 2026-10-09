@@ -91,7 +91,8 @@ async def get_image(
 
     # 归属校验(IDOR 防护,顺序文件名可枚举他人产物):
     # - 有 sig:HMAC 覆盖全部定位参数,匹配即放行(签名即能力,无 DB 往返);
-    # - 无 sig(旧库 URL):回退 DB 归属查询,本人/同租户 Job 的产物才放行;admin 直接放行。
+    # - 无 sig(旧库 URL):回退 DB 归属查询,仅本人 Job 的产物放行;admin 直接放行。
+    #   同租户不再共享(多租户最小切片:产物强制 owner)。
     # 不通过统一 404,不泄露产物存在性。
     if sig:
         expected = image_sig(filename, subfolder, type_, worker)
@@ -101,7 +102,7 @@ async def get_image(
         owns = db.exec(
             select(Job.id)
             .where(Job.result.like(f"%filename={filename}%"))
-            .where((Job.user_id == user.id) | (Job.tenant_id == user.tenant_id))
+            .where(Job.user_id == user.id)
         ).first()
         if not owns:
             raise HTTPException(status_code=404, detail="产物不存在")
@@ -205,7 +206,7 @@ async def get_image_thumb(
     if not safe_filename:
         raise HTTPException(status_code=400, detail="filename 不能为空")
 
-    # 与 /images 完全同款的鉴权(sig 能力优先,DB 归属回退)
+    # 与 /images 完全同款的鉴权(sig 能力优先,DB 归属回退;无 sig 仅本人/admin)
     if sig:
         expected = image_sig(filename, subfolder, type_, worker)
         if not hmac.compare_digest(sig.encode(), expected.encode()):
@@ -214,7 +215,7 @@ async def get_image_thumb(
         owns = db.exec(
             select(Job.id)
             .where(Job.result.like(f"%filename={filename}%"))
-            .where((Job.user_id == user.id) | (Job.tenant_id == user.tenant_id))
+            .where(Job.user_id == user.id)
         ).first()
         if not owns:
             raise HTTPException(status_code=404, detail="产物不存在")

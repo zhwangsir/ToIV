@@ -163,11 +163,11 @@ class TestImageOwnership:
         r = client.get(_unsigned_url("own.png"), headers=_h(tokens["owner"]))
         assert r.status_code == 200
 
-    def test_unsigned_same_tenant_200(self, ctx):
-        """无 sig 旧 URL:同租户成员放行。"""
+    def test_unsigned_same_tenant_404(self, ctx):
+        """无 sig 旧 URL:同租户非本人 → 404(产物强制 owner,不再共享租户)。"""
         client, tokens = ctx
         r = client.get(_unsigned_url("own.png"), headers=_h(tokens["mate"]))
-        assert r.status_code == 200
+        assert r.status_code == 404
 
     def test_unsigned_other_tenant_404(self, ctx):
         """无 sig 旧 URL:他人(异租户)产物 → 404,不泄露存在性。"""
