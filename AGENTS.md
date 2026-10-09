@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家；ToIV开发：**main tip `d8caa518`**）：**M2 全线已合**；**本地化** slice1–3 + Comfy 协议（生图:8196 / 视频:8197）+ NAS 替换 UX；另 `d8caa518` LongCat t2v/i2v + VACE → :8197（Wan 仍默认；H3:8264 / Spark 未动）。出站白名单/拒旧网页/H3 r3 已在 main。**未部署**（生产仍≈`70521949`：health 200 / c-chains 401 / live 200 / studio 302）；**Studio 多租户闸与 H3 timer 仍关**。`updated_at` 2026-10-09T17:34:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家；ToIV开发核）：**main tip `09a9ab54` 已部署**（api/web 先 `cd9c1bb8`+`STUDIO_MULTITENANT=1`，canvas-only 已进 `09a9ab54`）；合入 realign `c9f9a99e` + continue/Avatar `94c66281` + URL fix。**H3 timer 仍缺** `h3_service_account.env`；设备禁口已放开（产品默认仍不用 `:8195`）。`updated_at` 2026-10-09T18:15:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---

@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T17:34:00+08:00",
+  "updated_at": "2026-10-09T18:15:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13500,8 +13500,8 @@
       "github_main": "63903968",
       "verified_both": true
     },
-    "updated_at": "2026-10-09T17:34:00+08:00",
-    "superseded_by": "d8caa518"
+    "updated_at": "2026-10-09T17:55:00+08:00",
+    "superseded_by": "cd9c1bb8"
   },
   "main_tip_d8caa518_2026_10_09": {
     "status": "main_tip_d8caa518_longcat_vace_undeployed",
@@ -13528,6 +13528,129 @@
       "github_main": "d8caa518",
       "verified_both": true
     },
-    "updated_at": "2026-10-09T17:34:00+08:00"
+    "updated_at": "2026-10-09T17:55:00+08:00",
+    "superseded_by": "cd9c1bb8"
+  },
+  "main_tip_cd9c1bb8_2026_10_09": {
+    "status": "superseded_by_09a9ab54_deployed",
+    "date": "2026-10-09",
+    "source": [
+      "User",
+      "ToIV开发",
+      "设备管家",
+      "ToIV BeefTV 融合",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "tip cd9c1bb8 Wan Animate2→:8199；用户点名部署中；Studio 闸/H3 timer 仍关",
+    "product_tip": "cd9c1bb8",
+    "includes_since_63903968": [
+      "1a06c9c0 Comfy protocol",
+      "22e61e0a NAS replace UX",
+      "d8caa518 LongCat/VACE :8197",
+      "cd9c1bb8 Wan Animate2 :8199"
+    ],
+    "deploy": {
+      "status": "api_web_deployed",
+      "tip": "cd9c1bb8",
+      "STUDIO_MULTITENANT": "1"
+    },
+    "remotes": {
+      "origin_gitee_main": "cd9c1bb8",
+      "github_main": "cd9c1bb8",
+      "verified_both": true
+    },
+    "updated_at": "2026-10-09T18:15:00+08:00",
+    "user_ordered": {
+      "studio_multitenant": "open",
+      "h3_timer": "open",
+      "awaiting": "restart evidence"
+    },
+    "superseded_by": "09a9ab54"
+  },
+  "canvas_model_config_realign_2026_10_09": {
+    "status": "canvas_model_config_realign_merged_deployed",
+    "date": "2026-10-09",
+    "source": [
+      "User",
+      "设备管家",
+      "ToIV BeefTV 融合",
+      "ToIV 模型下载",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "配置页按真机重设计；外部 Agent/BeefAPI 收高级可选；分支未合",
+    "branch": "feat/canvas-model-config-realign",
+    "channels": {
+      "image": ":8196 (LB :8188)",
+      "video_default": "H3 :8264 (not :8195)",
+      "video_longcat_vace": ":8197",
+      "video_animate2": ":8199",
+      "text_assistant": "Spark deepseek-v4-flash-dspark @ http://192.168.71.84:8000/v1",
+      "audio": "unwired → show 未接",
+      "beefapi_external_agent": "advanced/cloud optional, default off"
+    },
+    "defaults": {
+      "forbid_shell_names": [
+        "h3",
+        "h3-t2v"
+      ],
+      "video_real_names": "fl2va/ref2va pruned + qwen3vl + vae + 10Eros from NAS h3/",
+      "image": "real checkpoint from NAS_MODEL_PICKER 出图",
+      "text": "deepseek-v4-flash-dspark (aliases same process)",
+      "picker": "docs/NAS_MODEL_PICKER.json"
+    },
+    "deploy": {
+      "status": "n/a_unmerged"
+    },
+    "updated_at": "2026-10-09T18:15:00+08:00",
+    "merge": "c9f9a99e",
+    "product_tip": "09a9ab54"
+  },
+  "main_tip_09a9ab54_2026_10_09": {
+    "status": "main_tip_09a9ab54_deployed_mt_on_h3timer_blocked",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发",
+      "设备管家",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "tip 09a9ab54 已部署；多租户闸开；H3 timer 缺凭证",
+    "product_tip": "09a9ab54",
+    "merged": {
+      "realign": "c9f9a99e",
+      "continue_avatar": "94c66281",
+      "url_fix": "09a9ab54",
+      "wan_animate": "cd9c1bb8"
+    },
+    "deploy": {
+      "status": "deployed",
+      "api_web": {
+        "tip": "cd9c1bb8",
+        "then_canvas": "09a9ab54",
+        "STUDIO_MULTITENANT": "1"
+      },
+      "canvas": {
+        "tip": "09a9ab54",
+        "status": "deployed"
+      },
+      "h3_timer": {
+        "status": "blocked",
+        "missing": "h3_service_account.env"
+      }
+    },
+    "device_forbid_ports": {
+      "unlocked_by_user": true,
+      "product_still_avoids": [
+        ":8195"
+      ]
+    },
+    "remotes": {
+      "origin_gitee_main": "09a9ab54",
+      "github_main": "09a9ab54",
+      "verified_both": true
+    },
+    "updated_at": "2026-10-09T18:15:00+08:00"
   }
 }
