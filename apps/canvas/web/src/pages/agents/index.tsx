@@ -109,7 +109,7 @@ export default function AgentsPage() {
                         <section aria-labelledby="agent-cli-title">
                             <h2 id="agent-cli-title" className="text-sm font-semibold">命令行工具</h2>
                             <div className="mt-3 flex min-w-0 flex-col gap-3 rounded-[var(--r-md)] border border-border bg-surface px-4 py-4">
-                                <p className="text-xs leading-5 text-foreground/55">安装后可以在终端直接用 beeftv 命令。</p>
+                                <p className="text-xs leading-5 text-foreground/55">安装后可以在终端使用下方命令行工具。</p>
                                 <p className="min-w-0 break-all rounded-md bg-surface-active px-3.5 py-2.5 text-[12px] leading-5 font-mono text-foreground/80">{cli.path}</p>
                                 <Button className="self-start" size="small" icon={<Terminal className="size-3.5" />} onClick={() => copyText(cli.installCommand)}>复制安装命令</Button>
                             </div>
