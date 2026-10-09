@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T23:52:00+08:00",
+  "updated_at": "2026-10-10T00:28:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14000,26 +14000,90 @@
     "updated_at": "2026-10-09T23:04:00+08:00"
   },
   "market_cover_ui_2026_10_09": {
-    "status": "market_cover_ui_tip_await_merge",
+    "status": "market_cover_ui_canvas_deployed",
     "date": "2026-10-09",
     "source": [
-      "ToIV BeefTV 融合",
       "ToIV开发",
+      "ToIV BeefTV 融合",
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "市场封面 tip ebfb57e3 已双推分支，等审合",
-    "branch": "feat/studio-market-cover-ui",
-    "tip": "ebfb57e3",
-    "changes": [
-      "toivCoverImageUrl_token",
-      "onError",
-      "aspect_4_3"
+    "summary": "封面裂图修（token）+4:3 已合刷 canvas tip 8011bf6f",
+    "tip": "8011bf6f",
+    "branch_tip": "ebfb57e3",
+    "merged": true,
+    "deployed": true,
+    "deploy_scope": "canvas_only",
+    "updated_at": "2026-10-10T00:28:00+08:00"
+  },
+  "main_tip_8011bf6f_2026_10_09": {
+    "status": "main_tip_8011bf6f_canvas_deployed",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "项目管家"
     ],
-    "dual_pushed_branch": true,
-    "merged": false,
-    "deployed": false,
-    "docs_tip": "2188dea8",
-    "updated_at": "2026-10-09T23:52:00+08:00"
+    "steward": "项目管家",
+    "summary": "市场封面 tip 8011bf6f canvas-only 已部署",
+    "product_tip": "8011bf6f",
+    "includes": "ebfb57e3",
+    "deploy": {
+      "canvas": {
+        "tip": "8011bf6f",
+        "at": "2026-10-09T23:58:44+08:00",
+        "live": 200
+      },
+      "api_web": "unchanged_at_cover_deploy",
+      "status": "canvas_only_deployed"
+    },
+    "updated_at": "2026-10-10T00:28:00+08:00"
+  },
+  "main_tip_ed015749_2026_10_10": {
+    "status": "main_tip_ed015749_deployed",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV开发",
+      "设备管家",
+      "ToIV BeefTV 融合",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "BeefTV 细滚动条 tip ed015749 canvas+web 已部署",
+    "product_tip": "ed015749",
+    "branch": "feat/studio-scrollbar-beeftv",
+    "deploy": {
+      "canvas": {
+        "tip": "ed015749",
+        "at": "2026-10-10T00:17+08:00",
+        "live": 200
+      },
+      "web": {
+        "tip": "ed015749",
+        "at": "2026-10-10T00:27:57+08:00",
+        "port": 3100,
+        "http": 200
+      },
+      "api": "unchanged",
+      "status": "canvas_and_web_deployed"
+    },
+    "updated_at": "2026-10-10T00:28:00+08:00"
+  },
+  "studio_scrollbar_beeftv_2026_10_10": {
+    "status": "studio_scrollbar_deployed",
+    "date": "2026-10-10",
+    "source": [
+      "用户",
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "设备管家",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "全站细滚动条对齐 BeefTV；tip ed015749 已部署",
+    "tip": "ed015749",
+    "merged": true,
+    "deployed": true,
+    "updated_at": "2026-10-10T00:28:00+08:00"
   }
 }

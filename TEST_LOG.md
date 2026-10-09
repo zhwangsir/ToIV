@@ -1,3 +1,5 @@
+- 2026-10-10 tip `ed015749` **已部署**（项目管家；ToIV开发/设备/融合）：BeefTV 细滚动条全局 token；canvas 00:17 + web rebuild/restart 00:27:57（:3100 200）；api 未动；status=`main_tip_ed015749_deployed`；updated_at 2026-10-10T00:28:00+08:00。
+- 2026-10-09 tip `8011bf6f` **canvas-only 已部署**（项目管家；ToIV开发/融合）：市场封面刀合入（含 `ebfb57e3` toivCoverImageUrl?token=+onError+4:3）；ActiveEnter 23:58:44、`.deployed_tip`=`8011bf6f`、live 200；api/web 当时未动；status=`main_tip_8011bf6f_canvas_deployed`；updated_at 2026-10-10T00:28:00+08:00。
 - 2026-10-09 tip `ebfb57e3` 市场封面刀已双推分支（项目管家；ToIV BeefTV 融合）：`feat/studio-market-cover-ui`——toivCoverImageUrl(?token=)+onError+4:3；**未合/未部署**；交 ToIV开发审合；status=`market_cover_ui_tip_await_merge`；docs tip `2188dea8` 两端已齐；updated_at 2026-10-09T23:52:00+08:00。
 - 2026-10-09 市场封面根因（项目管家；ToIV BeefTV 融合摸底）：画布 `cover_url` 无 token → 自托管 401 裂图；经典市场已带 `?token=`；不依赖 picker；等开发 GO 推 `feat/studio-market-cover-ui`；status=`market_cover_ui_root_cause`；updated_at 2026-10-09T23:48:00+08:00。
 - 2026-10-09 市场封面/UI 开刀（项目管家；ToIV开发拍板）：`feat/studio-market-cover-ui`——先修封面加载，再 BeefTV 风格重排卡片；融合摸底证据过开发再推；status=`market_cover_ui_branch_open`；updated_at 2026-10-09T23:45:00+08:00。
