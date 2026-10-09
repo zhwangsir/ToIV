@@ -272,6 +272,15 @@ export type ToivCChainJobAck = {
     segments?: Array<{ index?: number; segment_id?: string; status?: string }>;
 };
 
+export type ToivCChainCandidate = {
+    id: string;
+    url?: string;
+    status?: string;
+    is_picked?: boolean;
+    first_frame?: string;
+    seed?: number;
+};
+
 export type ToivCChainSegmentOut = {
     index: number;
     segment_id: string;
@@ -281,7 +290,7 @@ export type ToivCChainSegmentOut = {
     duration_sec?: number;
     clip_url?: string;
     error?: string;
-    candidates?: unknown[];
+    candidates?: ToivCChainCandidate[];
 };
 
 export type ToivCChainDetail = {
