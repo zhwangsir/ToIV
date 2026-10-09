@@ -136,8 +136,8 @@ func Discover(dataDir string) (Info, bool) {
 
 // DefaultDataDir 与桌面应用的 defaultDataDir（backend/cmd/desktop/main.go）共用本函数：
 // BEEFTV_DATA_DIR / CANVAS_DESKTOP_DATA_DIR 覆盖优先，否则 UserConfigDir()/ToIV。
-// 若 ToIV 尚不存在而遗留的 BeefTV 目录存在，则回退到 BeefTV（只选路径，不搬数据）。
-// 两侧都不存在时仍返回 ToIV，供新安装创建。
+// 若 ToIV 尚不存在而遗留的 BeefTV 目录存在，则先备份再 rename 到 ToIV（P1=A）；
+// 迁移失败时仍返回 BeefTV，不删备份。两侧都不存在时返回 ToIV。
 func DefaultDataDir() (string, error) {
 	for _, name := range []string{"BEEFTV_DATA_DIR", "CANVAS_DESKTOP_DATA_DIR"} {
 		if override := strings.TrimSpace(os.Getenv(name)); override != "" {
@@ -154,7 +154,10 @@ func DefaultDataDir() (string, error) {
 		return toiv, nil
 	}
 	if info, err := os.Stat(legacy); err == nil && info.IsDir() {
-		return legacy, nil
+		if err := migrateBeefTVToToIV(root, legacy, toiv); err != nil {
+			return legacy, nil
+		}
+		return toiv, nil
 	}
 	return toiv, nil
 }
