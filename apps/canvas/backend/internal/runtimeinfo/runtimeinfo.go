@@ -134,11 +134,10 @@ func Discover(dataDir string) (Info, bool) {
 	return info, true
 }
 
-// DefaultDataDir 与桌面应用的 defaultDataDir（backend/cmd/desktop/main.go）保持同一套规则：
-// CANVAS_DESKTOP_DATA_DIR 覆盖优先，否则用户配置目录下的 BeefTV
-// （macOS ~/Library/Application Support/BeefTV，Windows %AppData%\BeefTV）。
-// 这里刻意重复这一小段路径逻辑，而不是让 CLI 依赖桌面 main 包。
-// BEEFTV_DATA_DIR 是 CLI 侧的显式指定，用来连非默认目录的工作区。
+// DefaultDataDir 与桌面应用的 defaultDataDir（backend/cmd/desktop/main.go）共用本函数：
+// BEEFTV_DATA_DIR / CANVAS_DESKTOP_DATA_DIR 覆盖优先，否则 UserConfigDir()/ToIV。
+// 若 ToIV 尚不存在而遗留的 BeefTV 目录存在，则回退到 BeefTV（只选路径，不搬数据）。
+// 两侧都不存在时仍返回 ToIV，供新安装创建。
 func DefaultDataDir() (string, error) {
 	for _, name := range []string{"BEEFTV_DATA_DIR", "CANVAS_DESKTOP_DATA_DIR"} {
 		if override := strings.TrimSpace(os.Getenv(name)); override != "" {
@@ -149,5 +148,13 @@ func DefaultDataDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("定位用户应用数据目录: %w", err)
 	}
-	return filepath.Join(root, "BeefTV"), nil
+	toiv := filepath.Join(root, "ToIV")
+	legacy := filepath.Join(root, "BeefTV")
+	if info, err := os.Stat(toiv); err == nil && info.IsDir() {
+		return toiv, nil
+	}
+	if info, err := os.Stat(legacy); err == nil && info.IsDir() {
+		return legacy, nil
+	}
+	return toiv, nil
 }
