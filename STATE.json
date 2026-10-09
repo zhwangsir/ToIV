@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T18:49:00+08:00",
+  "updated_at": "2026-10-09T18:53:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13796,21 +13796,24 @@
     "updated_at": "2026-10-09T18:48:00+08:00"
   },
   "fusion_market_gap_p1_2026_10_09": {
-    "status": "fusion_market_gap_p1_branch_open",
+    "status": "fusion_market_gap_p1_0c577ae1_await_merge",
     "date": "2026-10-09",
     "source": [
       "ToIV BeefTV 融合",
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "feat/studio-market-gap-p1 已开；tip 未出",
+    "summary": "tip 0c577ae1 已双推分支，待审合",
     "branch": "feat/studio-market-gap-p1",
+    "tip": "0c577ae1",
     "scope": [
       "media_upload",
       "audio_unwired_label",
       "task_timeline"
     ],
-    "tip": null,
-    "updated_at": "2026-10-09T18:49:00+08:00"
+    "merged_to_main": false,
+    "deployed": false,
+    "main_tip": "30357bfc",
+    "updated_at": "2026-10-09T18:53:00+08:00"
   }
 }
