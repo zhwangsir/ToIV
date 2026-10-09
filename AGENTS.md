@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**P1 rename 已合 tip `da846867`**）：origin/本地 main=`da846867`（备份+rename+marker；失败回退不删备份）。**未搬生产数据、未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:55:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家：**两端 tip `7deb9aea`；P2 打包改名已开工**）：origin/本地 main=`7deb9aea`（含路径方案/P0/P1 rename）。P2 已开工：ToIV.app/ToIV.exe + updater 双名认旧 BeefTV.app；未绿前勿发安装包；CLI/MCP 仍 beeftv。**未搬生产数据、未部署**；生产 c-chains 仍 404。闸不开。H3 约 10-13 13:29 到期。`updated_at` 2026-10-09T13:04:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
