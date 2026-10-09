@@ -1151,6 +1151,10 @@ func manifestRequestValues(request GenerationRequest) map[string]any {
 	output.GenerateAudio = output.GenerateAudio || request.GenerateAudio
 	output.Watermark = output.Watermark || request.Watermark
 	outputValue, _ := requestAsManifestValue(output)
+	// ProviderOptions is map[string]map[string]any; JSON-normalize so $ref paths
+	// like request.providerOptions.toiv-h3.width navigate map[string]any nodes.
+	providerOptions, _ := requestAsManifestValue(request.ProviderOptions)
+	extra, _ := requestAsManifestValue(request.Extra)
 
 	return map[string]any{
 		"capability":      request.Capability,
@@ -1171,8 +1175,8 @@ func manifestRequestValues(request GenerationRequest) map[string]any {
 		"watermark":       request.Watermark,
 		"operation":       request.Operation,
 		"output":          outputValue,
-		"providerOptions": request.ProviderOptions,
-		"extra":           request.Extra,
+		"providerOptions": providerOptions,
+		"extra":           extra,
 	}
 }
 
