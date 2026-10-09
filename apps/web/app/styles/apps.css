@@ -2416,7 +2416,7 @@
   width: 100%;
 }
 .apps-preset-card {
-  border-radius: 12px;
+  border-radius: var(--radius-panel);
   overflow: hidden;
   border: 1px solid var(--rh-border);
   background: var(--rh-surface-1);
