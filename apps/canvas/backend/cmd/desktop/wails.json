@@ -10,6 +10,6 @@
   "assetdir": "frontend/dist",
   "wailsjsdir": "frontend/wailsjs",
   "author": {
-    "name": "ToIV (based on BeefTV)"
+    "name": "ToIV"
   }
 }
