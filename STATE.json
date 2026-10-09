@@ -12643,5 +12643,62 @@
     ],
     "prior_tip": "3d95a41f",
     "updated_at": "2026-10-09T07:15:00+08:00"
+  },
+  "jobs_task_center_h3_registry_2026_10_09": {
+    "status": "jobs_task_center_h3_registry_draft_undeployed",
+    "date": "2026-10-09",
+    "steward": "项目管家",
+    "source": [
+      "ToIV 开发",
+      "ToIV BeefTV 融合",
+      "设备管家",
+      "ToIV 模型下载",
+      "项目管家"
+    ],
+    "product_tip": "5a8fa423",
+    "includes": [
+      "b08f97b9",
+      "5a8fa423"
+    ],
+    "deploy": {
+      "status": "not_deployed",
+      "toiv_api_process_started": "2026-10-08T03:43",
+      "note": "tip not on production process"
+    },
+    "remotes": {
+      "origin_gitee_main": "5a8fa423",
+      "github_main": "5a8fa423",
+      "verified_both": true
+    },
+    "task_center": {
+      "ui_reads": "/api/jobs",
+      "cancel_queued_running": true,
+      "fetchAgentRuns": "still_present_chat_side_only",
+      "live_verified": false
+    },
+    "pipeline_c": {
+      "code_change_this_tip": false,
+      "studio_default": "sync_wait_for_video",
+      "returned_job_id": "comfy_prompt_id_not_db_job",
+      "c_chains_route": false,
+      "stage_a_plan": "register_Job_after_queue_prompt_http_still_waits",
+      "status": "code_present_observation_only"
+    },
+    "h3_registry_draft": {
+      "path": "apps/api/app/data/model_registry_draft.json",
+      "kind": "disk_evidence_only_not_live_service",
+      "generation_verified": false,
+      "adult_not_in_studio": true,
+      "open_correction": "split_canvas_r2v_nvfp4_vs_pipeline_c_int8_do_not_bundle",
+      "modes": {
+        "t2v_multishot": "fl2va_pruned + nvfp4",
+        "canvas_r2v": "ref2va + nvfp4",
+        "pipeline_c": "ref2va + int8_convrot",
+        "prod_8264_fl2va_local": "nvme_~32GB MiniMax-H3-FL2VA-int8_convrot != NAS pruned"
+      },
+      "evidence_report": "/workspace/.regen_tmp/h3_weight_evidence_20261009.md"
+    },
+    "admin_gate": "off_unchanged",
+    "updated_at": "2026-10-09T09:55:00+08:00"
   }
 }

@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**画布 UI 融合 tip `e1672b8f`，未部署**）：GitHub+Gitee+本地 main=`e1672b8f`（ToIV 创作五页改用画布组件：短剧/对话/市场/作品库/任务；署名只写 ToIV；抽屉仍画布壳；成人向不进 `/studio`；管理员闸未开）。**勿把 tip 写成已部署**。下层仍含分支合入 `3d95a41f`（隔离默认关）。Spark=DSv4 TP2@spark02:8000（别名同进程）。STATE `canvas_ui_fusion_2026_10_09`；`updated_at` 2026-10-09T07:15:00+08:00；via 项目管家（ToIV 开发/BeefTV 融合）。
+> **最后更新**：2026-10-09（项目管家：**任务中心→`/api/jobs` + H3 Registry 草案 tip `5a8fa423`，未部署**）：两端+本地 main=`5a8fa423`（含 `b08f97b9` 任务页改接 Job；`5a8fa423` 盘面草案）。生产 toiv-api 仍是 10-08 进程，**勿把 tip 写成已部署**。闸不开。管线 C 仍同步等片/`prompt_id`，无 `c-chains`；阶段 A=queue 后登记 Job、HTTP 仍等片（未改代码）。H3 权重按模式拆记（R2V≠管线 C 文本）；盘面≠出片。STATE `jobs_task_center_h3_registry_2026_10_09`；`updated_at` 2026-10-09T09:55:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -134,6 +134,13 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-09（项目管家：任务中心 `/api/jobs` + H3 草案 `5a8fa423`，未部署）
+- **tip**：origin/github/本地 main=`5a8fa423`（其上 `b08f97b9` 任务页改接 `/api/jobs`+可取消；`5a8fa423`=`model_registry_draft.json` 盘面草案）。**未部署**；生产 toiv-api 仍 10-08 03:43 起那次。
+- **任务页**：改读 `/api/jobs`；`fetchAgentRuns` 仍在，仅对话侧。合入≠线上已换。
+- **管线 C（只读核，无代码）**：Studio 默认同步等片；返回 `job_id`=Comfy `prompt_id`，不建 DB Job；无 `c-chains`。阶段 A 计划：queue 后登记 Job、HTTP 仍等片；真异步另开。
+- **H3 盘面**：NAS `h3/` fl2va/ref2va pruned≈21GB；`:8264` 本机 32GB FL2VA≠NAS pruned。登记须拆：T2V/多镜 fl2va+nvfp4；画布 R2V ref2va+nvfp4；管线 C ref2va+int8。草案里 bundling 待拆。盘面≠出片；成人向权重≠进 `/studio`。
+- Status：`jobs_task_center_h3_registry_draft_undeployed`；STATE 同名键；闸不开。via 项目管家（ToIV 开发/BeefTV/设备/模型下载）。
 
 ### 2026-10-09（项目管家：画布 UI 融合 `e1672b8f`，未部署）
 - **tip**：origin(Gitee)/github/本地 main 均核=`e1672b8f`（`fix(canvas): ToIV 创作页改用画布组件`）。**未部署** core。
