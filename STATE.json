@@ -12760,5 +12760,47 @@
     },
     "admin_gate": "off_unchanged",
     "updated_at": "2026-10-09T10:20:00+08:00"
+  },
+  "pipeline_c_c_chains_2026_10_09": {
+    "status": "pipeline_c_c_chains_tip_undeployed",
+    "date": "2026-10-09",
+    "steward": "项目管家",
+    "source": [
+      "ToIV 开发",
+      "ToIV BeefTV 融合",
+      "设备管家",
+      "项目管家"
+    ],
+    "product_tip": "cd1ae748",
+    "remotes": {
+      "origin_gitee_main": "cd1ae748",
+      "github_main": "cd1ae748",
+      "verified_both": true
+    },
+    "deploy": {
+      "status": "not_deployed",
+      "live_c_chains": "404_on_production",
+      "toiv_api_process": "2026-10-08"
+    },
+    "api": {
+      "route": "POST /api/studio/c-chains",
+      "http": 202,
+      "job_id": "db_job_id_top_level",
+      "cancel": "/api/jobs/{id}/cancel",
+      "start_types": [
+        "makeup"
+      ],
+      "tests_passed": 33,
+      "sync_render_unchanged": true,
+      "wait_false_unchanged": true
+    },
+    "canvas_client": {
+      "branch": "feat/canvas-c-chains-client",
+      "tip": "fd108457",
+      "merged_main": false,
+      "deployed": false
+    },
+    "admin_gate": "off_unchanged",
+    "updated_at": "2026-10-09T10:35:00+08:00"
   }
 }
