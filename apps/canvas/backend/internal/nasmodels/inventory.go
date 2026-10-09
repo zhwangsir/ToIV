@@ -19,6 +19,9 @@ const (
 	DefaultImageWorker  = ":8196" // Workstation gpu0-alt；LB :8188 入口，非试验口
 	DefaultVideoWorker  = ":8197" // Workstation LongCat/Wan 出视频（非 H3）
 	DefaultChatAlias    = "deepseek-v4-flash-dspark"
+	DefaultH3Fl2vaBasename = "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+	DefaultH3Ref2vaBasename = "minimax_h3_ref2va_pruned_int8_convrot.safetensors"
+	DefaultImageCheckpoint = "Qwen-Rapid-AIO-SFW-v11.safetensors"
 	DefaultImageChannel = "本地·生图"
 	DefaultVideoChannel = "本地·视频(Wan/LongCat)"
 	SwapHint            = "落盘后 refresh 列表；仍不见再重启该 worker"
@@ -444,12 +447,15 @@ func LocalDefaults() map[string]any {
 		"video_channel_name":         "本地·H3视频",
 		"video_protocol":             "toiv-h3",
 		"h3_worker":                  DefaultH3Worker,
+		"h3_fl2va_basename":          DefaultH3Fl2vaBasename,
+		"h3_ref2va_basename":         DefaultH3Ref2vaBasename,
 		"video_wan_channel_id":       "toiv-video-wan",
 		"video_wan_channel_name":     DefaultVideoChannel,
 		"video_worker":               DefaultVideoWorker,
 		"image_channel_name":         DefaultImageChannel,
 		"image_worker":               DefaultImageWorker,
 		"image_lb":                   ":8188",
+		"image_checkpoint_basename":  DefaultImageCheckpoint,
 		"chat_channel_id":            "toiv-llm",
 		"chat_channel_name":          "本地·Spark对话",
 		"chat_alias":                 DefaultChatAlias,

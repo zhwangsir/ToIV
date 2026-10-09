@@ -1,8 +1,8 @@
 /** Local-first model/compute defaults for Studio「模型与算力」— aligned to真机. */
 
-/** NAS picker truth (docs/NAS_MODEL_PICKER.json). Protocol ids stay h3/h3-t2v; UI shows these. */
-export const LOCAL_H3_FL2VA_BASENAME = "minimax_h3_fl2va_fp8_e4m3fn.safetensors";
-export const LOCAL_H3_REF2VA_BASENAME = "minimax_h3_ref2va_pruned_fp8_scaled.safetensors";
+/** Product defaults (Pipeline C seven-piece int8). Protocol ids stay h3/h3-t2v; UI shows these basenames. */
+export const LOCAL_H3_FL2VA_BASENAME = "minimax_h3_fl2va_pruned_int8_convrot.safetensors";
+export const LOCAL_H3_REF2VA_BASENAME = "minimax_h3_ref2va_pruned_int8_convrot.safetensors";
 export const LOCAL_IMAGE_CHECKPOINT_BASENAME = "Qwen-Rapid-AIO-SFW-v11.safetensors";
 export const LOCAL_IMAGE_CHECKPOINT_REL = `checkpoints/${LOCAL_IMAGE_CHECKPOINT_BASENAME}`;
 

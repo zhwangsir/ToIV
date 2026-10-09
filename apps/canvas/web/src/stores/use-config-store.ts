@@ -10,6 +10,7 @@ import { normalizeVideoDuration, normalizeVideoResolution } from "@/lib/video-ge
 import { defaultModelCapabilityConfig, workflowFieldRole, workflowFieldSafeToOverride, workflowVideoFieldsFromJson, type ModelCapabilityConfig } from "@/lib/model-capabilities";
 import { useUserStore } from "@/stores/use-user-store";
 import type { CapabilitySpec } from "@/services/api/logical-models";
+import { isLocalToivChannelId } from "@/lib/local-model-defaults";
 
 export type ApiCallFormat = "openai" | "gemini" | "claude";
 export type ChannelInterfaceType = ModelProtocol;
@@ -610,6 +611,8 @@ export function channelHasManagedBeefAPICredential(channel: Pick<ModelChannel, "
 }
 
 export function channelHasGenerationCredential(channel: Pick<ModelChannel, "id" | "pinned" | "credentialRef" | "hasApiKey" | "apiKey">) {
+    // Local Comfy / H3 / Spark talk LAN workers — no cloud API Key.
+    if (isLocalToivChannelId(channel.id)) return true;
     return channelHasManagedBeefAPICredential(channel) || Boolean(channel.apiKey?.trim());
 }
 

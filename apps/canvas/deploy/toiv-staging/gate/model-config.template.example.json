@@ -176,11 +176,11 @@
           },
           "model": "h3",
           "protocol": "toiv-h3",
-          "displayName": "minimax_h3_fl2va_fp8_e4m3fn.safetensors",
+          "displayName": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
           "defaultOptions": {
             "toivWorkerLabel": ":8264",
             "toivNasRoot": "toiv/comfyui-models",
-            "toivNasWeight": "h3/diffusion_models/minimax_h3_fl2va_fp8_e4m3fn.safetensors",
+            "toivNasWeight": "h3/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
             "toivH3Variant": "fl2va"
           }
         },
@@ -328,11 +328,11 @@
           },
           "model": "h3-t2v",
           "protocol": "toiv-h3",
-          "displayName": "minimax_h3_ref2va_pruned_fp8_scaled.safetensors",
+          "displayName": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
           "defaultOptions": {
             "toivWorkerLabel": ":8264",
             "toivNasRoot": "toiv/comfyui-models",
-            "toivNasWeight": "h3/diffusion_models/minimax_h3_ref2va_pruned_fp8_scaled.safetensors",
+            "toivNasWeight": "h3/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
             "toivH3Variant": "ref2va"
           }
         }

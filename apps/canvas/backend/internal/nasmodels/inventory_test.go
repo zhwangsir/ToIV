@@ -22,6 +22,15 @@ func TestLocalDefaultsH3AndImageWorkers(t *testing.T) {
 	if d["chat_alias"] != "deepseek-v4-flash-dspark" {
 		t.Fatalf("chat_alias=%v", d["chat_alias"])
 	}
+	if d["h3_fl2va_basename"] != DefaultH3Fl2vaBasename || DefaultH3Fl2vaBasename != "minimax_h3_fl2va_pruned_int8_convrot.safetensors" {
+		t.Fatalf("h3_fl2va_basename=%v", d["h3_fl2va_basename"])
+	}
+	if d["h3_ref2va_basename"] != DefaultH3Ref2vaBasename || DefaultH3Ref2vaBasename != "minimax_h3_ref2va_pruned_int8_convrot.safetensors" {
+		t.Fatalf("h3_ref2va_basename=%v", d["h3_ref2va_basename"])
+	}
+	if d["image_checkpoint_basename"] != DefaultImageCheckpoint {
+		t.Fatalf("image_checkpoint_basename=%v", d["image_checkpoint_basename"])
+	}
 	if d["cloud_presets_default_open"] != false {
 		t.Fatalf("cloud presets must not default-open")
 	}

@@ -3,6 +3,7 @@ import { buildApiUrl } from "@/stores/use-config-store";
 import { defaultModelCapabilityConfig } from "@/lib/model-capabilities";
 import { inferProtocolCapabilityFromModel, type ModelProtocolDefinition } from "@/lib/model-protocols";
 import { catalogEndpointCapability, type ChannelModelCatalogItem } from "@/lib/channel-model-catalog";
+import { isLocalToivChannelId } from "@/lib/local-model-defaults";
 
 export const MODEL_SERVICE_PRESETS = [
     { id: "compatible", name: "自定义服务", subtitle: "OpenAI 兼容 API · 中转服务", icon: "OpenAI", baseUrl: "", apiFormat: "openai" },
@@ -58,7 +59,8 @@ export function serviceConnectionError(channel: ModelChannel): string {
         if (!["https:", "http:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) return "请填写不含账号、查询参数或片段的 HTTP(S) 服务地址";
         if (/\/(chat\/completions|responses|images\/generations|models)\/?$/i.test(url.pathname)) return "请填写服务的基础地址，不要包含模型或生成接口路径";
     } catch { return "请填写完整的服务地址，例如 https://api.example.com/v1"; }
-    if (!channel.apiKey.trim() && !channel.hasApiKey) return "请填写 API Key";
+    // 云端可选才要 Key；本地 ToIV 渠道跳过
+    if (!isLocalToivChannelId(channel.id) && !channel.apiKey.trim() && !channel.hasApiKey) return "请填写 API Key";
     return "";
 }
 

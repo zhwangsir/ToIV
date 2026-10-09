@@ -1,14 +1,27 @@
 {
   "updated_from": "docs/MODEL_SOURCES.json",
-  "updated_at": "2026-09-18",
+  "updated_at": "2026-10-09",
   "nas_root_default": "toiv/comfyui-models",
   "notes": [
+    "H3 产品默认：Pipeline C fl2va/ref2va pruned_int8_convrot（:8264）；fp8 仍可选。",
     "H3 section = only h3[]; filter main by 用途.",
     "对话主模型不在此清单——走 Spark deepseek-v4-flash-dspark。",
     "生产 H3 worker = :8264（勿默认 :8195）。",
     "生图口 = :8196；slice1 出图 bind 可占位。"
   ],
   "h3": [
+    {
+      "basename": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "rel_path": "h3/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "用途": "H3主模型",
+      "bytes": null
+    },
+    {
+      "basename": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "rel_path": "h3/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "用途": "H3主模型",
+      "bytes": null
+    },
     {
       "basename": "minimax_h3_fl2va_fp8_e4m3fn.safetensors",
       "rel_path": "h3/diffusion_models/minimax_h3_fl2va_fp8_e4m3fn.safetensors",

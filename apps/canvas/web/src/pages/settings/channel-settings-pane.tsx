@@ -863,7 +863,10 @@ function channelConnectionError(channel: ModelChannel, connection?: BeefAPIConne
         if (connection?.state === "connected" || channelHasManagedBeefAPICredential(channel)) return "";
         return "请先连接 BeefAPI";
     }
-    if (!channelHasGenerationCredential(channel)) return "请填写 API Key / Access Key";
+    // Local ToIV channels (Comfy/H3/Spark): skip API Key gate — Key is for 云端可选 only.
+    const localToiv = isLocalToivChannelId(channel.id)
+        || (channel.modelProfiles || []).some((p) => String(p.protocol || "").startsWith("toiv-"));
+    if (!localToiv && !channelHasGenerationCredential(channel)) return "请填写 API Key / Access Key";
     if (requiresSecretKey(channel) && !channel.secretKey?.trim()) return "当前协议需要填写 Secret Key";
     return "";
 }

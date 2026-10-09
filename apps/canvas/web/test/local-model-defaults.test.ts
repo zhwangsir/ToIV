@@ -39,9 +39,11 @@ describe("local model defaults (realign)", () => {
         expect(d.h3Worker).toBe(":8264");
         expect(d.h3Worker).not.toBe(LOCAL_H3_FORBIDDEN_DEFAULT_WORKER);
         expect(d.h3Fl2vaBasename).toBe(LOCAL_H3_FL2VA_BASENAME);
-        expect(d.h3Fl2vaBasename).toContain("fl2va");
+        expect(d.h3Fl2vaBasename).toBe("minimax_h3_fl2va_pruned_int8_convrot.safetensors");
+        expect(d.h3Fl2vaBasename).not.toContain("fp8");
         expect(d.h3Ref2vaBasename).toBe(LOCAL_H3_REF2VA_BASENAME);
-        expect(d.h3Ref2vaBasename).toContain("ref2va");
+        expect(d.h3Ref2vaBasename).toBe("minimax_h3_ref2va_pruned_int8_convrot.safetensors");
+        expect(d.h3Ref2vaBasename).not.toContain("fp8");
         expect(d.videoWanChannelName).toBe(LOCAL_VIDEO_CHANNEL_NAME);
         expect(d.videoWanChannelName).toBe("本地·出视频");
         expect(d.videoWorker).toBe(LOCAL_VIDEO_WORKER_LABEL);

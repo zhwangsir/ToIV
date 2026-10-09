@@ -19,8 +19,10 @@ describe("model-config template local-first realign", () => {
         const h3Profiles = h3?.modelProfiles || [];
         const fl2va = h3Profiles.find((p: any) => p.model === "h3");
         const ref2va = h3Profiles.find((p: any) => p.model === "h3-t2v");
-        expect(String(fl2va?.displayName || "")).toContain("fl2va");
-        expect(String(ref2va?.displayName || "")).toContain("ref2va");
+        expect(String(fl2va?.displayName || "")).toBe("minimax_h3_fl2va_pruned_int8_convrot.safetensors");
+        expect(String(ref2va?.displayName || "")).toBe("minimax_h3_ref2va_pruned_int8_convrot.safetensors");
+        expect(String(fl2va?.displayName || "")).not.toContain("fp8");
+        expect(String(ref2va?.displayName || "")).not.toContain("fp8");
         expect(String(fl2va?.displayName || "")).not.toBe("本地·H3视频");
         expect(String(ref2va?.displayName || "")).not.toBe("本地·H3文生视频");
         const workerHints = h3Profiles.map((p: any) => p?.defaultOptions?.toivWorkerLabel);
@@ -32,6 +34,7 @@ describe("model-config template local-first realign", () => {
         expect(String(llm?.publicAlias || "")).toContain(":8000");
         expect(cfg.assistantModel).toBe("toiv-llm::deepseek-v4-flash-dspark");
         expect(cfg.textModel).toBe("toiv-llm::deepseek-v4-flash-dspark");
+        expect(cfg.textModel).not.toContain("qwen3.8-27b");
         expect(llm?.models || []).toContain("deepseek-v4-flash-dspark");
 
         expect(image?.name).toBe("本地·出图 Comfy");

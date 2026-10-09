@@ -23,3 +23,7 @@
   - LongCat Avatar `local-longcat-avatar` / engine=avatar → `POST /api/avatar/talk` → **:8197**
   - 延后：Wan Animate v1 `/api/wan/animate`
 - H3 仍 `toiv-h3` → **:8264**；Spark 对话不变
+
+## canvas-only 部署（必做）
+
+`deploy/deploy.sh --canvas-only` 须同步本清单 `docs/NAS_MODEL_PICKER.json`，并在 `canvas-api.env` 设置 `TOIV_NAS_MODELS_ROOT=/mnt/toiv-nas/toiv/comfyui-models` 与 `TOIV_NAS_PICKER_PATH=<ToIV检出>/docs/NAS_MODEL_PICKER.json`。缺一则 Studio NAS 列表空。H3 产品默认：`minimax_h3_fl2va_pruned_int8_convrot` / `minimax_h3_ref2va_pruned_int8_convrot`；生图 `Qwen-Rapid-AIO-SFW-v11.safetensors`；对话 `deepseek-v4-flash-dspark`。
