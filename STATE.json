@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T13:46:00+08:00",
+  "updated_at": "2026-10-09T14:02:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13149,5 +13149,40 @@
       "verified_both": true
     },
     "updated_at": "2026-10-09T13:46:31+08:00"
+  },
+  "canvas_outbound_host_allowlist_2026_10_09": {
+    "status": "canvas_outbound_host_allowlist_merged_undeployed",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "桌面 toiv_gate 正向主机名单；自定义渠道未套；未部署",
+    "branch": "feat/canvas-outbound-allowlist",
+    "files": [
+      "apps/canvas/backend/cmd/desktop/toiv_gate.go",
+      "apps/canvas/backend/internal/outbound/host_allowlist.go",
+      "apps/canvas/backend/internal/outbound/host_allowlist_test.go"
+    ],
+    "defaults": [
+      "toiv.wineryz.top",
+      "loopback"
+    ],
+    "env": "CANVAS_OUTBOUND_HOST_ALLOWLIST",
+    "custom_channels": "ValidateOutboundURL only (no positive allowlist wrap this knife)",
+    "deploy": {
+      "status": "not_deployed"
+    },
+    "base_tip": "77d9185c",
+    "merge": "63dd8080",
+    "feat": "6cec83bb",
+    "product_tip": "63dd8080",
+    "remotes": {
+      "origin_gitee_main": "63dd8080",
+      "github_main": "63dd8080",
+      "verified_both": true
+    },
+    "updated_at": "2026-10-09T14:02:00+08:00"
   }
 }
