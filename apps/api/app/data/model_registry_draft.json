@@ -1,0 +1,162 @@
+{
+  "schema": "toiv.model_registry.draft/v0",
+  "as_of": "2026-10-09",
+  "notes": [
+    "工程草案，不是运行中注册表服务。",
+    "盘面证据来自 2026-10-09 H3 核验；sha256 大文件大多未算。",
+    "generation_verified 仅记历史口径，当前未复测出片。",
+    "成人向权重登记不等于进入 /studio。"
+  ],
+  "providers": [
+    {
+      "id": "minimax-h3-fl2va",
+      "display_name": "MiniMax H3 FL2VA (pruned int8)",
+      "modality": "video",
+      "provider": "comfyui",
+      "runtime": "local",
+      "worker_ports": [
+        8264
+      ],
+      "experiment_ports": [
+        8195
+      ],
+      "capabilities": [
+        "text_to_video",
+        "first_last_frame_to_video",
+        "native_audio"
+      ],
+      "graph_hints": [
+        "apps/api/app/workflows/h3/t2v_prompt.json",
+        "i2v/fl2v via i2v graph"
+      ],
+      "weights": {
+        "unet": {
+          "basename": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+          "path_nas": "toiv/comfyui-models/h3/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+          "size_bytes": 20970379616,
+          "truncate_check": "ok",
+          "sha256": null
+        },
+        "text_encoder": {
+          "basename": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "path_nas": "toiv/comfyui-models/h3/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "size_bytes": 15687142551,
+          "truncate_check": "ok",
+          "sha256": null
+        },
+        "video_vae": {
+          "basename": "minimax_h3_video_vae_fp16.safetensors",
+          "path_nas": "toiv/comfyui-models/h3/vae/minimax_h3_video_vae_fp16.safetensors",
+          "size_bytes": 5207808496,
+          "truncate_check": "ok",
+          "sha256": null
+        },
+        "audio_vae": {
+          "basename": "minimax_h3_audio_vae_fp32.safetensors",
+          "path_nas": "toiv/comfyui-models/h3/vae/minimax_h3_audio_vae_fp32.safetensors",
+          "size_bytes": 605254808,
+          "truncate_check": "ok",
+          "sha256": "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48"
+        }
+      },
+      "verification": {
+        "code_present": true,
+        "model_files_confirmed": true,
+        "worker_load_confirmed": false,
+        "live_generation_confirmed": false,
+        "historical_generation_note": "2026-10-08 canvas I2V/FL2V/R2V reported; not re-run 2026-10-09",
+        "disk_evidence_ref": "h3_weight_evidence_20261009.md"
+      },
+      "status": "configured"
+    },
+    {
+      "id": "minimax-h3-ref2va",
+      "display_name": "MiniMax H3 Ref2VA (pruned int8)",
+      "modality": "video",
+      "provider": "comfyui",
+      "runtime": "local",
+      "worker_ports": [
+        8264
+      ],
+      "experiment_ports": [
+        8195
+      ],
+      "capabilities": [
+        "reference_to_video",
+        "image_to_video",
+        "pipeline_c"
+      ],
+      "graph_hints": [
+        "r2v rewrites UNET to ref2va",
+        "pipeline_c uses ref2va + int8 text encoder"
+      ],
+      "weights": {
+        "unet": {
+          "basename": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+          "path_nas": "toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+          "size_bytes": 20970379616,
+          "truncate_check": "ok",
+          "sha256": null
+        },
+        "text_encoder": {
+          "basename": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "path_nas": "toiv/comfyui-models/h3/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "size_bytes": 27141342152,
+          "truncate_check": "ok",
+          "sha256": null,
+          "note": "pipeline C uses int8 text; t2v mainline uses nvfp4"
+        }
+      },
+      "verification": {
+        "code_present": true,
+        "model_files_confirmed": true,
+        "worker_load_confirmed": false,
+        "live_generation_confirmed": false,
+        "historical_generation_note": "2026-10-08 R2V reported; not re-run 2026-10-09"
+      },
+      "status": "configured"
+    },
+    {
+      "id": "minimax-h3-ref2va-nsfw-turbo",
+      "display_name": "10Eros Max H3 TURBO Ref2VA",
+      "modality": "video",
+      "provider": "comfyui",
+      "runtime": "local",
+      "content_rating": "r18",
+      "studio_allowed": false,
+      "capabilities": [
+        "reference_to_video"
+      ],
+      "weights": {
+        "unet": {
+          "basename": "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors",
+          "path_nas": "toiv/comfyui-models/h3/diffusion_models/10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors",
+          "size_bytes": 20973099200,
+          "truncate_check": "ok",
+          "sha256": null
+        }
+      },
+      "verification": {
+        "code_present": true,
+        "model_files_confirmed": true,
+        "worker_load_confirmed": false,
+        "live_generation_confirmed": false
+      },
+      "status": "configured",
+      "notes": [
+        "成人向；不进 /studio"
+      ]
+    }
+  ],
+  "local_only_aliases": [
+    {
+      "note": "ComfyUI-h3-eval 本机软链，目标不在 NAS",
+      "links": [
+        "MiniMax-H3-FL2VA-int8-convrot.safetensors",
+        "minimax_h3_fl2va_int8_convrot.safetensors"
+      ],
+      "target": "ComfyUI-h3-eval/models/MiniMax-H3/MiniMax-H3-FL2VA-int8_convrot.safetensors",
+      "size_bytes": 33982530325
+    }
+  ]
+}
