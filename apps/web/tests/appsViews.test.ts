@@ -213,7 +213,8 @@ test("page.tsx 注册 market 视图:importer/VALID_VIEWS/VIEW_META/渲染分支"
     "viewImporters 缺 market 懒加载",
   );
   assert.match(src, /\| "market"/, "View 联合类型缺 market");
-  assert.ok(src.includes('market:     { label: "工具箱" }'), "VIEW_META 缺中文名");
+  assert.ok(src.includes("NAV_LABELS"), "缺 NAV_LABELS 单源");
+  assert.ok(src.includes("market:     { label: NAV_LABELS.market }"), "VIEW_META 缺工具箱");
   assert.ok(src.includes('{view === "market" && <MarketView'), "缺渲染分支");
 });
 
@@ -235,19 +236,19 @@ test("page.tsx 导航入口:做短剧主入口 + 工具箱(原市场)", () => {
   const navBlock = src.slice(src.indexOf("const BOTTOM_NAV_ITEMS"), src.indexOf("const BOTTOM_NAV_MORE_ITEMS"));
   const moreBlock = src.slice(src.indexOf("const BOTTOM_NAV_MORE_ITEMS"));
   assert.ok(
-    railBlock.includes('{ key: "studio", label: "做短剧", icon: "clapperboard" }'),
+    railBlock.includes('{ key: "studio", label: NAV_LABELS.studio, icon: "clapperboard" }'),
     "左栏缺做短剧主入口",
   );
   assert.ok(
-    railBlock.includes('{ key: "market", label: "工具箱", icon: "store" }'),
+    railBlock.includes('{ key: "market", label: NAV_LABELS.market, icon: "store" }'),
     "左栏缺工具箱入口",
   );
   assert.ok(
-    navBlock.includes('{ key: "studio", label: "做短剧", icon: "clapperboard", isCta: true }'),
+    navBlock.includes('{ key: "studio", label: NAV_LABELS.studio, icon: "clapperboard", isCta: true }'),
     "底部 CTA 应为做短剧",
   );
   assert.ok(
-    navBlock.includes('{ key: "market", label: "工具箱", icon: "store" }'),
+    navBlock.includes('{ key: "market", label: NAV_LABELS.market, icon: "store" }'),
     "底部主导航缺工具箱",
   );
   assert.ok(!moreBlock.includes('key: "market"'), "工具箱已进主入口,「更多」抽屉不应重复");
@@ -345,7 +346,7 @@ test("W2:home 视图注册全链路(union/VALID/META/importer/渲染分支)", ()
   assert.ok(src.includes('| "home"'), "View union 缺 home");
   const validBlock = src.slice(src.indexOf("VALID_VIEWS"), src.indexOf("VIEW_META"));
   assert.ok(validBlock.includes('"home"'), "VALID_VIEWS 缺 home");
-  assert.ok(src.includes('home:      { label: "智能体" }'), "VIEW_META 缺 home");
+  assert.ok(src.includes("home:      { label: NAV_LABELS.home }"), "VIEW_META 缺 home");
   assert.ok(
     src.includes('home: () => import("@/components/assistant/AssistantView")'),
     "home 应与助手同 chunk",
@@ -364,16 +365,16 @@ test("W2:默认落地为对话首页(fusion 退为场景入口)", () => {
   assert.ok(src.includes('router.replace("/?view=home")'), "assistant 旧链接 URL 应规整为 home");
   // 2026-10-01:底部 CTA=做短剧;智能体仍在主栏;融合在更多
   const navBlock = src.slice(src.indexOf("BOTTOM_NAV_ITEMS"), src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
-  assert.ok(navBlock.includes('{ key: "studio", label: "做短剧", icon: "clapperboard", isCta: true }'), "CTA 应为做短剧");
+  assert.ok(navBlock.includes('{ key: "studio", label: NAV_LABELS.studio, icon: "clapperboard", isCta: true }'), "CTA 应为做短剧");
   const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
   assert.ok(moreBlock.includes('key: "fusion"'), "融合应在「更多」抽屉");
   const railBlock = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
   assert.ok(
-    railBlock.includes('{ key: "studio", label: "做短剧", icon: "clapperboard" }'),
+    railBlock.includes('{ key: "studio", label: NAV_LABELS.studio, icon: "clapperboard" }'),
     "左栏首项应为做短剧",
   );
   assert.ok(
-    railBlock.includes('{ key: "home", label: "智能体", icon: "bot" }'),
+    railBlock.includes('{ key: "home", label: NAV_LABELS.home, icon: "bot" }'),
     "左栏缺「智能体」入口",
   );
   assert.ok(
@@ -482,9 +483,11 @@ test("page.tsx:image/video 改挂 EngineStudioView 引擎工作台,KindCreateVie
   // 音频维持原状
   assert.ok(src.includes('{view === "audio" && <AudioView />}'), "audio 不应被这次改动波及");
   // 2026-10-01:VIEW_META 引擎名保留;左栏精简为做短剧/智能体/作品/工具箱
-  assert.ok(src.includes('image:     { label: "图片生成" }'), "VIEW_META image 应为图片生成");
-  assert.ok(src.includes('video:     { label: "视频生成" }'), "VIEW_META video 应为视频生成");
-  assert.ok(src.includes('studio:    { label: "做短剧" }'), "VIEW_META studio 应为做短剧");
+  assert.ok(src.includes("image:     { label: NAV_LABELS.image }"), "VIEW_META image 应为工具箱·图片引擎");
+  assert.ok(src.includes("video:     { label: NAV_LABELS.video }"), "VIEW_META video 应为工具箱·视频引擎");
+  assert.ok(readSrc("lib/navLabels.ts").includes('image: "工具箱·图片引擎"'), "navLabels 缺图片引擎文案");
+  assert.ok(readSrc("lib/navLabels.ts").includes('video: "工具箱·视频引擎"'), "navLabels 缺视频引擎文案");
+  assert.ok(src.includes("studio:    { label: NAV_LABELS.studio }"), "VIEW_META studio 应为做短剧");
   const railBlock = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
   const railOrder = ["studio", "home", "library", "market"];
   let last = -1;

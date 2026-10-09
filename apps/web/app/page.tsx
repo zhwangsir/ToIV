@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LandingPage } from "@/components/landing/LandingPage";
 import { SideRail, type RailItem } from "@/components/nav/SideRail";
 import { CommandPalette } from "@/components/nav/CommandPalette";
+import { NAV_LABELS } from "@/lib/navLabels";
 import { AccountButton } from "@/components/nav/AccountButton";
 import { TaskCenter } from "@/components/nav/TaskCenter";
 import { AssistantOverlay } from "@/components/assistant/AssistantOverlay";
@@ -236,22 +237,22 @@ const VALID_VIEWS = new Set<View>([
 
 const VIEW_META: Record<View, { label: string }> = {
   assistant: { label: "智能体" },
-  home:      { label: "智能体" },
-  image:     { label: "图片生成" },
-  video:     { label: "视频生成" },
-  audio:     { label: "音频" },
+  home:      { label: NAV_LABELS.home },
+  image:     { label: NAV_LABELS.image },
+  video:     { label: NAV_LABELS.video },
+  audio:     { label: NAV_LABELS.audio },
   fusion:    { label: "融合" },
   imageEdit: { label: "图片编辑" },
   videoEdit: { label: "视频剪辑" },
   animatic:  { label: "动态分镜" },
   avatartalk: { label: "数字人" },
   canvas:    { label: "画布" },
-  studio:    { label: "做短剧" },
+  studio:    { label: NAV_LABELS.studio },
   dub:       { label: "译制" },
-  library:    { label: "作品库" },
+  library:    { label: NAV_LABELS.library },
   entities:   { label: "主体库" },
-  resources:  { label: "资源" },
-  market:     { label: "工具箱" },
+  resources:  { label: NAV_LABELS.resources },
+  market:     { label: NAV_LABELS.market },
   settings:   { label: "设置" },
 };
 
@@ -264,34 +265,36 @@ const VIEW_META: Record<View, { label: string }> = {
  *  图片/视频/音频/资源下沉更多抽屉。 */
 const RAIL_ITEMS: RailItem[] = [
   // 2026-10-01:AI 短剧唯一主体 — 主入口「做短剧」;市场/生图/生视频/音频/资源收进工具箱(更多)
-  { key: "studio", label: "做短剧", icon: "clapperboard" },
-  { key: "home", label: "智能体", icon: "bot" },
-  { key: "library", label: "作品", icon: "library" },
-  { key: "market", label: "工具箱", icon: "store" },
+  // Slice B:文案单源 NAV_LABELS；canvas=主创作面；web Generate 下沉引擎台
+  { key: "studio", label: NAV_LABELS.studio, icon: "clapperboard" },
+  { key: "home", label: NAV_LABELS.home, icon: "bot" },
+  { key: "library", label: NAV_LABELS.libraryRail, icon: "library" },
+  { key: "market", label: NAV_LABELS.market, icon: "store" },
 ];
 
 /** 窄屏底部导航:主入口 5 个(含 CTA)+「更多」抽屉承载其余
  *  W2:CTA 由融合改为对话(首页即助手);融合场景卡入口下沉「更多」抽屉首位
  *  2026-09-12 引擎工作台:应用市场进主入口首位;audio 下沉「更多」抽屉首位(去重) */
 const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
-  { key: "studio", label: "做短剧", icon: "clapperboard", isCta: true },
-  { key: "home", label: "智能体", icon: "bot" },
-  { key: "library", label: "作品", icon: "library" },
-  { key: "market", label: "工具箱", icon: "store" },
+  { key: "studio", label: NAV_LABELS.studio, icon: "clapperboard", isCta: true },
+  { key: "home", label: NAV_LABELS.home, icon: "bot" },
+  { key: "library", label: NAV_LABELS.libraryRail, icon: "library" },
+  { key: "market", label: NAV_LABELS.market, icon: "store" },
 ];
 
 const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
   // 2026-10-01:工具箱二级 — 生图/生视频/音频/资源等从主栏下沉
-  { key: "image", label: "图片", icon: "image" },
-  { key: "video", label: "视频", icon: "video" },
-  { key: "audio", label: "音频", icon: "audio" },
-  { key: "resources", label: "资源", icon: "models" },
-  { key: "entities", label: "主体库", icon: "users" },
-  { key: "animatic", label: "动态分镜", icon: "film" },
-  { key: "canvas", label: "画布", icon: "workflow" },
-  { key: "fusion", label: "融合", icon: "sparkles" },
+  // Slice B #13: Generate 文案下沉「工具箱·引擎台」
+  { key: "image", label: NAV_LABELS.imageMore, icon: "image" },
+  { key: "video", label: NAV_LABELS.videoMore, icon: "video" },
+  { key: "audio", label: NAV_LABELS.audioMore, icon: "audio" },
+  { key: "resources", label: NAV_LABELS.resourcesMore, icon: "models" },
+  { key: "entities", label: NAV_LABELS.entities, icon: "users" },
+  { key: "animatic", label: NAV_LABELS.animatic, icon: "film" },
+  { key: "canvas", label: NAV_LABELS.canvas, icon: "workflow" },
+  { key: "fusion", label: NAV_LABELS.fusion, icon: "sparkles" },
   { key: "agent-runs", label: "任务", icon: "workflow" },
-  { key: "settings", label: "设置", icon: "settings" },
+  { key: "settings", label: NAV_LABELS.settings, icon: "settings" },
 ];
 
 /** WS5:视图切换走 View Transitions(主舞台 cross-fade,样式见 styles/motion.css)。

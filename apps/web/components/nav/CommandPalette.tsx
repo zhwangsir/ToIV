@@ -11,25 +11,27 @@ import {
 } from "@/lib/api";
 import type { JobItem } from "@/lib/types";
 import "@/app/styles/cmdk.css";
+import { NAV_LABELS } from "@/lib/navLabels";
 
 /** 命令面板页面条目:全量视图(含非左栏项),admin 项按权限注入。 */
 const CMDK_PAGES: { view: string; label: string; icon: IconName; admin?: boolean }[] = [
-  { view: "home", label: "对话", icon: "chat" },
-  { view: "image", label: "图片生成", icon: "image" },
-  { view: "video", label: "视频生成", icon: "video" },
-  { view: "audio", label: "音频", icon: "audio" },
-  { view: "studio", label: "做短剧", icon: "clapperboard" },
-  { view: "avatartalk", label: "数字人", icon: "user" },
-  { view: "dub", label: "译制", icon: "mic" },
-  { view: "imageEdit", label: "图片编辑", icon: "palette" },
-  { view: "videoEdit", label: "视频剪辑", icon: "film" },
-  { view: "animatic", label: "动态分镜", icon: "film" },
-  { view: "canvas", label: "画布", icon: "workflow" },
-  { view: "library", label: "作品库", icon: "library" },
-  { view: "entities", label: "主体库", icon: "users" },
-  { view: "market", label: "工具箱", icon: "store" },
-  { view: "resources", label: "资源中心", icon: "models" },
-  { view: "settings", label: "设置", icon: "settings" },
+  // Slice B #25: 与 SideRail / VIEW_META / MORE 对齐（NAV_LABELS）
+  { view: "home", label: NAV_LABELS.home, icon: "chat" },
+  { view: "image", label: NAV_LABELS.image, icon: "image" },
+  { view: "video", label: NAV_LABELS.video, icon: "video" },
+  { view: "audio", label: NAV_LABELS.audio, icon: "audio" },
+  { view: "studio", label: NAV_LABELS.studio, icon: "clapperboard" },
+  { view: "avatartalk", label: NAV_LABELS.avatartalk, icon: "user" },
+  { view: "dub", label: NAV_LABELS.dub, icon: "mic" },
+  { view: "imageEdit", label: NAV_LABELS.imageEdit, icon: "palette" },
+  { view: "videoEdit", label: NAV_LABELS.videoEdit, icon: "film" },
+  { view: "animatic", label: NAV_LABELS.animatic, icon: "film" },
+  { view: "canvas", label: NAV_LABELS.canvas, icon: "workflow" },
+  { view: "library", label: NAV_LABELS.library, icon: "library" },
+  { view: "entities", label: NAV_LABELS.entities, icon: "users" },
+  { view: "market", label: NAV_LABELS.market, icon: "store" },
+  { view: "resources", label: NAV_LABELS.resources, icon: "models" },
+  { view: "settings", label: NAV_LABELS.settings, icon: "settings" },
   { view: "observability", label: "观测", icon: "monitor", admin: true },
   { view: "admin", label: "管理", icon: "shield-check", admin: true },
 ];

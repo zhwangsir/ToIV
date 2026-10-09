@@ -31,11 +31,11 @@ test("MarketView 工具箱:六段 chips + aria-label + hub 标记", () => {
 
 test("page.tsx:做短剧主入口 + 工具箱 rail + MarketView 接线", () => {
   const src = readSrc("app/page.tsx");
-  assert.ok(src.includes('studio:    { label: "做短剧" }'), "VIEW_META 缺做短剧");
-  assert.ok(src.includes('market:     { label: "工具箱" }'), "VIEW_META 缺工具箱");
+  assert.ok(src.includes("studio:    { label: NAV_LABELS.studio }"), "VIEW_META 缺做短剧");
+  assert.ok(src.includes("market:     { label: NAV_LABELS.market }"), "VIEW_META 缺工具箱");
   const rail = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
-  assert.ok(rail.includes('{ key: "studio", label: "做短剧"'), "左栏缺做短剧");
-  assert.ok(rail.includes('{ key: "market", label: "工具箱"'), "左栏缺工具箱");
+  assert.ok(rail.includes('{ key: "studio", label: NAV_LABELS.studio'), "左栏缺做短剧");
+  assert.ok(rail.includes('{ key: "market", label: NAV_LABELS.market'), "左栏缺工具箱");
   assert.ok(src.includes("<MarketView onNavigate={handleFusionNavigate}"), "MarketView 未接 onNavigate");
   assert.ok(src.includes('{view === "image" && <EngineStudioView kind="image" />}'), "独立图片视图应保留");
   assert.ok(src.includes('{view === "video" && <EngineStudioView kind="video" />}'), "独立视频视图应保留");

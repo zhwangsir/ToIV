@@ -58,7 +58,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-image",
         kind: "image",
-        label: "本地出图",
+        label: "本地·出图",
         worker: LOCAL_IMAGE_WORKER_LABEL,
         engine: "Comfy",
         protocol: "toiv-comfy-image",
@@ -67,7 +67,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-h3",
         kind: "h3",
-        label: "H3",
+        label: "本地·H3",
         worker: LOCAL_H3_WORKER_LABEL,
         engine: "H3",
         protocol: "toiv-h3",
@@ -76,7 +76,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-longcat",
         kind: "longcat",
-        label: "LongCat",
+        label: "本地·LongCat",
         worker: LOCAL_VIDEO_WORKER_LABEL,
         engine: "LongCat",
         protocol: "toiv-comfy-video",
@@ -85,7 +85,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-vace",
         kind: "vace",
-        label: "VACE",
+        label: "本地·VACE",
         worker: LOCAL_VIDEO_WORKER_LABEL,
         engine: "VACE",
         protocol: "toiv-comfy-video",
@@ -94,7 +94,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-animate2",
         kind: "animate",
-        label: "Animate2",
+        label: "本地·Animate2",
         worker: LOCAL_VIDEO_ANIMATE_WORKER_LABEL,
         engine: "Animate2",
         protocol: "toiv-comfy-video",
@@ -103,7 +103,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-continue",
         kind: "continue",
-        label: "Continue",
+        label: "本地·Continue",
         worker: LOCAL_VIDEO_WORKER_LABEL,
         engine: "Continue",
         protocol: "toiv-comfy-video",
@@ -112,7 +112,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-avatar",
         kind: "avatar",
-        label: "Avatar",
+        label: "本地·Avatar",
         worker: LOCAL_VIDEO_WORKER_LABEL,
         engine: "Avatar",
         protocol: "toiv-comfy-video",
@@ -121,7 +121,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-wan",
         kind: "wan",
-        label: "Wan",
+        label: "本地·Wan",
         worker: LOCAL_VIDEO_WORKER_LABEL,
         engine: "Wan",
         protocol: "toiv-comfy-video",
@@ -293,7 +293,7 @@ export type LocalCreatePreset = {
 export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     {
         id: "local-preset-comfy-image",
-        label: "本地出图",
+        label: "本地·出图",
         badge: "本地",
         nodeType: "image",
         modelRef: LOCAL_IMAGE_MODEL_REF,
@@ -302,7 +302,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-h3",
-        label: "本地 H3",
+        label: "本地·H3",
         badge: "本地",
         nodeType: "video",
         modelRef: LOCAL_H3_MODEL_REF,
@@ -312,7 +312,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-wan",
-        label: "本地 Wan",
+        label: "本地·Wan",
         badge: "本地",
         nodeType: "video",
         modelRef: `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL}`,
@@ -322,7 +322,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-longcat",
-        label: "本地 LongCat",
+        label: "本地·LongCat",
         badge: "本地",
         nodeType: "video",
         modelRef: `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL_LONGCAT}`,
@@ -332,7 +332,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-vace",
-        label: "本地 VACE",
+        label: "本地·VACE",
         badge: "本地",
         nodeType: "video",
         modelRef: `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL_VACE}`,
@@ -342,7 +342,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-animate",
-        label: "本地 Animate2",
+        label: "本地·Animate2",
         badge: "本地",
         nodeType: "video",
         modelRef: `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL_ANIMATE}`,
@@ -352,7 +352,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-continue",
-        label: "本地 Continue",
+        label: "本地·Continue",
         badge: "本地",
         nodeType: "video",
         modelRef: `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL_CONTINUE}`,
@@ -362,7 +362,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-avatar",
-        label: "本地 Avatar",
+        label: "本地·Avatar",
         badge: "本地",
         nodeType: "video",
         modelRef: `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL_AVATAR}`,

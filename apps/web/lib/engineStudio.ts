@@ -14,6 +14,7 @@
  *   类型参数)抽成 submitEngineGeneration 契约的 refImage/refImages/refAudio/refVideo。
  */
 import type { EngineInfo, RefImageHandle } from "./engines";
+import { resolveEngineAppDisplayName } from "./engineAppAliases";
 
 export type StudioKind = "image" | "video";
 
@@ -37,6 +38,11 @@ export const STUDIO_MODES: Record<StudioKind, StudioModeDef[]> = {
     { id: "r2v", label: "参考生视频", engineIds: ["h3-r2v"] },
   ],
 };
+
+/** Slice B #20: 展示名（市场 *-basic 对齐）；引擎 registry id 不变。 */
+export function studioEngineDisplayName(engineId: string, fallback?: string): string {
+  return resolveEngineAppDisplayName(engineId) ?? fallback ?? engineId;
+}
 
 export interface StudioMode extends StudioModeDef {
   /** 目录解析后的引擎(保持 engineIds 顺序;离线引擎保留,卡片置灰)。 */
