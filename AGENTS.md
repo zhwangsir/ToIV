@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**画布守卫合入 tip `c4f68adf`，未部署**）：Gitee/本地 main=`c4f68adf`（含 `4575aaa9` docs + `43a51ce5` 守卫 + `da2dd223` 失败单测）。GitHub main 仍=`da2dd223`（443，待补推，未强推）。**未部署**；生产 c-chains 仍 404。闸不开。STATE `pipeline_c_c_chains_2026_10_09`；`updated_at` 2026-10-09T11:10:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（ToIV 开发：**拒旧网页+UA 品牌 tip `f5865a30`，未部署**）：两端将推 main=`f5865a30`（deploy.sh 拒 BUILD_ID 短 sha≠HEAD；画布 DEFAULT_USER_AGENT→ToIV/1.0；ALLOW_STALE_WEB=1 可绕过）。**未部署**；本地 .next 仍 `20261007-194448-7ce69c7f-dirty`。闸不开。STATE `deploy_stale_web_ua_brand_2026_10_09`；`updated_at` 2026-10-09T11:22:00+08:00；via ToIV 开发。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -134,6 +134,12 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-09（ToIV 开发：拒旧网页+UA 品牌 `f5865a30`，未部署）
+- **tip**：origin/github/本地 main=`f5865a30`（其上 docs `14f5f585` / 守卫合入 `c4f68adf`）。**未部署**。
+- **deploy**：`assert_web_build_matches_head`——BUILD_ID 短 sha 必须= `git rev-parse --short HEAD`；`--skip-web` 不查；`ALLOW_STALE_WEB=1` 警告绕过。旧 BUILD_ID `20261007-194448-7ce69c7f-dirty` 已手工核验会拒。
+- **UA**：`channel-headers-editor.tsx` DEFAULT_USER_AGENT→`ToIV/1.0 (+https://github.com/zhwangsir/ToIV)`；未改 beeftv.plugin / beeftv-* CSS / BeefAPI / LICENSE / Go outbound UA。
+- Status：`deploy_stale_web_ua_brand_undeployed`；STATE `deploy_stale_web_ua_brand_2026_10_09`；闸不开。via ToIV 开发。
 
 ### 2026-10-09（项目管家：画布守卫合入 `c4f68adf`，未部署）
 - **tip**：Gitee/本地 main=`c4f68adf`（merge `43a51ce5`）；其上含 docs `4575aaa9`、失败单测 `da2dd223`。**未部署**；生产 c-chains 仍 404。

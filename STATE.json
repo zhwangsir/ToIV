@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T11:10:00+08:00",
+  "updated_at": "2026-10-09T11:25:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12762,7 +12762,7 @@
     "updated_at": "2026-10-09T10:20:00+08:00"
   },
   "pipeline_c_c_chains_2026_10_09": {
-    "status": "pipeline_c_c_chains_guards_merged_gitee_only_undeployed",
+    "status": "pipeline_c_c_chains_synced_undeployed",
     "date": "2026-10-09",
     "steward": "项目管家",
     "source": [
@@ -12771,12 +12771,11 @@
       "设备管家",
       "项目管家"
     ],
-    "product_tip": "c4f68adf",
+    "product_tip": "14f5f585",
     "remotes": {
-      "origin_gitee_main": "c4f68adf",
-      "github_main": "da2dd223",
-      "verified_both": false,
-      "github_lag_note": "443_pending_ff_push_no_force"
+      "origin_gitee_main": "14f5f585",
+      "github_main": "14f5f585",
+      "verified_both": true
     },
     "deploy": {
       "status": "not_deployed",
@@ -12812,7 +12811,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T11:10:00+08:00",
+    "updated_at": "2026-10-09T11:25:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12827,9 +12826,17 @@
       ],
       "deployed": false
     },
-    "product_tip_gitee": "c4f68adf",
-    "product_tip_github": "da2dd223",
-    "remotes_synced": false,
-    "docs_tip_on_gitee": "4575aaa9"
+    "product_tip_gitee": "14f5f585",
+    "product_tip_github": "14f5f585",
+    "remotes_synced": true,
+    "docs_tip_on_gitee": "4575aaa9",
+    "canvas_outbound_ua": {
+      "branch": "feat/canvas-outbound-ua-toiv",
+      "tip": "1340c9f2",
+      "merged_main": false,
+      "default_ua": "ToIV/1.0",
+      "desktop_updater": "unchanged_upstream_beeftv_feed",
+      "deployed": false
+    }
   }
 }
