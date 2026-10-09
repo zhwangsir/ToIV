@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-10（项目管家；开发/设备/融合核）：**封面 tip `8011bf6f` + 滚动条 tip `ed015749` 已部署**。封面：merge `ebfb57e3`，canvas-only 23:58 ActiveEnter、`.deployed_tip`=`8011bf6f`、live 200；api/web 当时未动。滚动条：BeefTV 细条全局 token，canvas 00:17 + 经典站 web rebuild/restart 00:27:57（:3100 200）；api 未动。请硬刷 `/studio` 验封面与细滚动条。另仍卡：picker 1:1；SenseVoice「下」；H3 timer 凭证。`updated_at` 2026-10-10T00:28:00+08:00。
+> **最后更新**：2026-10-10（项目管家；用户点名）：**多页滑不动 + 滚动条再优 HOLD**（比丑条更急；融合摸 overflow/手势与 tip `ed015749` 覆盖面；待 @ToIV开发 拍板下一刀）。产品现：封面 `8011bf6f` + 滚动条 `ed015749` 已落稳；docs tip `073f3801` 已齐。另仍卡：硬刷验；picker 1:1；SenseVoice「下」；H3 timer。`updated_at` 2026-10-10T00:41:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---

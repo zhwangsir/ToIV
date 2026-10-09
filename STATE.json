@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T00:28:00+08:00",
+  "updated_at": "2026-10-10T00:41:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14085,5 +14085,21 @@
     "merged": true,
     "deployed": true,
     "updated_at": "2026-10-10T00:28:00+08:00"
+  },
+  "studio_scroll_unblock_2026_10_10": {
+    "status": "studio_scroll_unblock_hold",
+    "date": "2026-10-10",
+    "source": [
+      "用户",
+      "ToIV BeefTV 融合",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "多页滑不动优先；滚动条再优 HOLD",
+    "priority": "scroll_broken_over_aesthetics",
+    "baseline_tip": "ed015749",
+    "docs_tip_baseline": "073f3801",
+    "owner": "ToIV BeefTV 融合摸底 → ToIV开发 拍板",
+    "updated_at": "2026-10-10T00:41:00+08:00"
   }
 }

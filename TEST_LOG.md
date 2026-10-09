@@ -1,3 +1,4 @@
+- 2026-10-10 多页滑不动/滚动条再优 HOLD（项目管家；用户授权；融合摸底）：用户反馈多页无法滑动 + 细条仍丑；优先查 overflow/手势与 `ed015749` 覆盖面；等融合证据 + ToIV开发拍板开刀；status=`studio_scroll_unblock_hold`；updated_at 2026-10-10T00:41:00+08:00。
 - 2026-10-10 tip `ed015749` **已部署**（项目管家；ToIV开发/设备/融合）：BeefTV 细滚动条全局 token；canvas 00:17 + web rebuild/restart 00:27:57（:3100 200）；api 未动；status=`main_tip_ed015749_deployed`；updated_at 2026-10-10T00:28:00+08:00。
 - 2026-10-09 tip `8011bf6f` **canvas-only 已部署**（项目管家；ToIV开发/融合）：市场封面刀合入（含 `ebfb57e3` toivCoverImageUrl?token=+onError+4:3）；ActiveEnter 23:58:44、`.deployed_tip`=`8011bf6f`、live 200；api/web 当时未动；status=`main_tip_8011bf6f_canvas_deployed`；updated_at 2026-10-10T00:28:00+08:00。
 - 2026-10-09 tip `ebfb57e3` 市场封面刀已双推分支（项目管家；ToIV BeefTV 融合）：`feat/studio-market-cover-ui`——toivCoverImageUrl(?token=)+onError+4:3；**未合/未部署**；交 ToIV开发审合；status=`market_cover_ui_tip_await_merge`；docs tip `2188dea8` 两端已齐；updated_at 2026-10-09T23:52:00+08:00。
