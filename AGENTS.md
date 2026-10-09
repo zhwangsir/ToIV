@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-10（项目管家；ToIV开发）：**H3 FL2VA A tip `d69ee564` 已合+api 部署**（ActiveEnter 04:35:41 CST；B 软链 MiniMax-H3→NAS pruned 齐；canvas 仍 `16b56cfc`）。请硬刷验 FL2VA/RH MiniMax-H3 走 NAS pruned。docs tip `0aa6b061` 已齐。`updated_at` 2026-10-10T04:36:00+08:00。
+> **最后更新**：2026-10-10（项目管家；融合/模型下载）：**similar-merge Slice B tip `15f1816c` 待审合**（#12/#13/#17/#20/#25；合前不刷）。B 软链账本三行已齐（MiniMax-H3→NAS pruned；不重下）。api tip `d69ee564` / canvas `16b56cfc` / docs `c95ec33f` 已齐。`updated_at` 2026-10-10T04:41:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---

@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T04:36:00+08:00",
+  "updated_at": "2026-10-10T04:41:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14393,5 +14393,57 @@
     "summary": "tip d69ee564 H3 FL2VA A 已合+api 部署",
     "product_tip": "d69ee564",
     "updated_at": "2026-10-10T04:36:00+08:00"
+  },
+  "similar_merge_p1_slice_b_2026_10_10": {
+    "status": "similar_merge_p1_slice_b_await_merge",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV BeefTV 融合",
+      "ToIV开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "similar-merge Slice B tip 15f1816c 待审合；合前不刷",
+    "tip": "15f1816c",
+    "scope": [
+      "#12",
+      "#13",
+      "#17",
+      "#20",
+      "#25"
+    ],
+    "merged": false,
+    "deployed": false,
+    "updated_at": "2026-10-10T04:41:00+08:00"
+  },
+  "h3_fl2va_b_ledger_2026_10_10": {
+    "status": "h3_fl2va_b_ledger_ok",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV 模型下载",
+      "设备管家",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "B 软链账本三行 ls 齐；不重下",
+    "links": [
+      {
+        "rh": "MiniMax-H3-FL2VA-int8_convrot",
+        "nas": "minimax_h3_fl2va_pruned_int8_convrot",
+        "bytes": 20970379616
+      },
+      {
+        "rh": "MiniMax-H3-audio_vae",
+        "nas": "minimax_h3_audio_vae_fp32",
+        "bytes": 605254808
+      },
+      {
+        "rh": "MiniMax-H3-video_vae",
+        "nas": "minimax_h3_video_vae_fp16",
+        "bytes": 5207808496
+      }
+    ],
+    "evidence": ".regen_tmp/fl2va_alias_ledger_20261010.md",
+    "updated_at": "2026-10-10T04:41:00+08:00"
   }
 }
