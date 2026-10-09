@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T12:29:00+08:00",
+  "updated_at": "2026-10-09T12:32:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12762,7 +12762,7 @@
     "updated_at": "2026-10-09T10:20:00+08:00"
   },
   "pipeline_c_c_chains_2026_10_09": {
-    "status": "css_prefix_toiv_synced_undeployed",
+    "status": "canvas_desktop_guard_brand_toiv_merged_undeployed",
     "date": "2026-10-09",
     "steward": "项目管家",
     "source": [
@@ -12771,10 +12771,10 @@
       "设备管家",
       "项目管家"
     ],
-    "product_tip": "c5f048ce",
+    "product_tip": "2483c74d",
     "remotes": {
-      "origin_gitee_main": "a52c5bd4",
-      "github_main": "a52c5bd4",
+      "origin_gitee_main": "2483c74d",
+      "github_main": "2483c74d",
       "verified_both": true
     },
     "deploy": {
@@ -12811,7 +12811,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T12:29:00+08:00",
+    "updated_at": "2026-10-09T12:32:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12826,8 +12826,8 @@
       ],
       "deployed": false
     },
-    "product_tip_gitee": "a52c5bd4",
-    "product_tip_github": "a52c5bd4",
+    "product_tip_gitee": "2483c74d",
+    "product_tip_github": "2483c74d",
     "remotes_synced": true,
     "docs_tip_on_gitee": "4575aaa9",
     "canvas_outbound_ua": {
@@ -12906,13 +12906,28 @@
       "deployed": false,
       "merge_tip": "0b038325"
     },
-    "gitee_main": "c5f048ce",
+    "gitee_main": "2483c74d",
     "github_main_approx": "a52c5bd4",
     "github_lag": false,
-    "github_main": "c5f048ce",
+    "github_main": "2483c74d",
     "deployed": false,
     "prod_api_mtime_note": "2026-10-08 03:43:21 CST",
-    "prod_c_chains": 404
+    "prod_c_chains": 404,
+    "canvas_desktop_guard_brand_toiv": {
+      "branch": "feat/canvas-desktop-guard-brand-toiv",
+      "tip": "2483c74d",
+      "merged_main": true,
+      "scope": "command_guard_user_visible_errors_and_wails_author_name",
+      "cli_binary": "still_beeftv",
+      "not_touched": [
+        "Application Support/BeefTV",
+        "BeefTV.app",
+        "MCP/CLI protocol id",
+        "runtimeinfo path"
+      ],
+      "tests": "go test ./cmd/desktop/ -count=1 ok",
+      "deployed": false
+    }
   },
   "deploy_stale_web_ua_brand_2026_10_09": {
     "status": "docs_synced_undeployed",

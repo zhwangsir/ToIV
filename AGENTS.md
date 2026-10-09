@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**两端 tip `c5f048ce` 已齐**）：origin/github/本地 main=`c5f048ce`（storage-keys 已合 `0b038325` + docs）。**未部署**；生产 toiv-api 仍 2026-10-08，c-chains 404（设备管家核）。闸不开。`updated_at` 2026-10-09T12:29:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（ToIV 开发：**desktop command_guard 品牌合入 tip `2483c74d`，未部署**）：origin/github/本地 main=`2483c74d`（`feat/canvas-desktop-guard-brand-toiv`；报错 BeefTV→ToIV，CLI 仍 `beeftv`；wails author.name→ToIV）。**未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:32:00+08:00；via ToIV 开发。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -134,6 +134,11 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-09（ToIV 开发：desktop command_guard 品牌 `2483c74d`，未部署）
+- **tip**：origin/github/本地 main=`2483c74d`（分支 `feat/canvas-desktop-guard-brand-toiv`）。**未部署**；生产 c-chains 仍 404。
+- **范围**：`command_guard.go` 两处用户可见报错 BeefTV→ToIV；CLI 名仍 `beeftv`；`wails.json` author.name→ToIV；`go test ./cmd/desktop/` 通过。未动数据目录/BeefTV.app/MCP 协议。
+- Status：`canvas_desktop_guard_brand_toiv_merged_undeployed`；闸不开。via ToIV 开发。
 
 ### 2026-10-09（项目管家：storage-keys 已合 `0b038325`）
 - **tip**：origin/github/本地 main=`0b038325`（merge：canvas storage keys beeftv→toiv，含 `6d25357f`）。**未部署**；生产 c-chains 仍 404。
