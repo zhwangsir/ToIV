@@ -179,6 +179,12 @@ func resolveCaller(c *gin.Context, svc *app.Service, clients *agentops.ClientReg
 	if trustedDesktopUI(c) {
 		return agentops.Caller{Kind: agentops.CallerManual}, "desktop-ui", nil
 	}
+	// B1 (ProfileServer): DesktopTrust is unset; a workspace session that already
+	// passed layer A (ToIV/gate/user identity) is CallerManual — same hosted
+	// policy as requireTrustedDesktopWritePrincipal when DesktopTrust == nil.
+	if hostedWorkspaceSession(c) {
+		return agentops.Caller{Kind: agentops.CallerManual}, "hosted-workspace", nil
+	}
 	return agentops.Caller{}, "", errUnidentified
 }
 
@@ -191,6 +197,28 @@ func trustedDesktopUI(c *gin.Context) bool {
 		return false
 	}
 	return dependencies.DesktopTrust(c.Request)
+}
+
+// hostedWorkspaceSession reports ProfileServer / hosted ops callers that already
+// cleared layer A. Desktop profiles keep DesktopTrust set and never take this path.
+func hostedWorkspaceSession(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	dependencies, ok := runtimeDependencies(c)
+	if !ok || dependencies.DesktopTrust != nil {
+		return false
+	}
+	if multiTenantRequest(c) {
+		return true
+	}
+	if c.Request == nil {
+		return false
+	}
+	if _, ok := httptransport.IdentityFrom(c.Request); ok {
+		return true
+	}
+	return httptransport.ToivAuthenticated(c.Request) || httptransport.GateAuthenticated(c.Request)
 }
 
 // requireTrustedDesktopWritePrincipal is the creation.write principal check.
