@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T12:00:00+08:00",
+  "updated_at": "2026-10-09T12:10:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12810,7 +12810,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T12:00:00+08:00",
+    "updated_at": "2026-10-09T12:10:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12859,6 +12859,14 @@
       "note": "pure_c_chains_module_skip_without_localforage",
       "sync_render_unchanged": true,
       "deploy_unchanged": true,
+      "deployed": false
+    },
+    "canvas_product_copy_toiv": {
+      "branch": "feat/canvas-product-copy-toiv",
+      "tip": "f8ac0794",
+      "merged_main": false,
+      "scope": "user_visible_copy_only",
+      "mcp_cli_binary": "still_beeftv",
       "deployed": false
     }
   },
