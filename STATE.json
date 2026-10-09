@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T16:56:00+08:00",
+  "updated_at": "2026-10-09T17:34:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13500,6 +13500,34 @@
       "github_main": "63903968",
       "verified_both": true
     },
-    "updated_at": "2026-10-09T16:56:00+08:00"
+    "updated_at": "2026-10-09T17:34:00+08:00",
+    "superseded_by": "d8caa518"
+  },
+  "main_tip_d8caa518_2026_10_09": {
+    "status": "main_tip_d8caa518_longcat_vace_undeployed",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "tip d8caa518：LongCat/VACE→:8197 路由；含 Comfy 协议+NAS 替换 UX；未部署",
+    "product_tip": "d8caa518",
+    "parent": "22e61e0a",
+    "fix": "LongCat t2v/i2v + VACE Comfy routing on toiv-comfy-video (:8197); Wan default",
+    "deploy": {
+      "status": "not_deployed",
+      "prod_still": "70521949"
+    },
+    "still_closed": [
+      "STUDIO_MULTITENANT",
+      "H3_refresh_timer"
+    ],
+    "remotes": {
+      "origin_gitee_main": "d8caa518",
+      "github_main": "d8caa518",
+      "verified_both": true
+    },
+    "updated_at": "2026-10-09T17:34:00+08:00"
   }
 }
