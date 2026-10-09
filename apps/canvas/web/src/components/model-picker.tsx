@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { modelDisplayName, modelIcon, PUBLIC_MODEL_CATALOG_ID, resolveModelChannel, selectableModelsByCapability, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
 import { ModelLogo } from "@/components/model-logo";
+import { MODEL_PICKER_EMPTY_CTA } from "@/lib/local-model-defaults";
 
 type ModelPickerProps = {
     config: AiConfig;
@@ -277,7 +278,7 @@ export function ModelPicker({
 function emptyModelLabel(config: AiConfig, capability?: ModelCapability) {
     const label = capability === "image" ? "生图" : capability === "video" ? "视频" : capability === "text" ? "文本" : capability === "audio" ? "音频" : "";
     if (capability && config.models.length) return `暂无支持当前输入的${label}模型`;
-    return config.models.length ? `暂无匹配的${label}模型` : "当前没有可用模型，请联系管理员或检查模型配置";
+    return config.models.length ? `暂无匹配的${label}模型` : `当前没有可用模型，${MODEL_PICKER_EMPTY_CTA}`;
 }
 
 function ModelLabel({

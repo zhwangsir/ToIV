@@ -8,6 +8,7 @@ import { fetchChannelModels, type ChannelModelFetchResult } from "@/services/api
 import { fetchPluginProviderCatalog } from "@/services/api/plugin-catalog";
 import { mergeFetchedChannelModelProfiles, type ChannelModelCatalogItem } from "@/lib/channel-model-catalog";
 import { CAPABILITY_LABELS, MODEL_SERVICE_PRESETS, modelCatalogRequestURL, serviceConnectionError, serviceModelProfile, servicePresetFor, type ModelServicePresetId } from "@/lib/model-service-presets";
+import { isCloudModelServicePreset } from "@/lib/local-model-defaults";
 import type { ModelProtocolDefinition } from "@/lib/model-protocols";
 import { createModelChannel, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
 import { ChannelModelSettings } from "./channel-model-settings";
@@ -150,11 +151,21 @@ export function ModelServiceEditor({ initial, onClose, onSave }: { initial?: Mod
             {step === 0 ? <div className="model-service-connection">
                 <aside className="model-service-providers" aria-label="选择服务商">
                     <p className="model-service-label">选择服务商</p>
-                    {MODEL_SERVICE_PRESETS.map((preset) => <button key={preset.id} type="button" disabled={busy || Boolean(initial)} aria-pressed={presetId === preset.id} className="model-service-provider" onClick={() => choosePreset(preset.id)}>
+                    {MODEL_SERVICE_PRESETS.filter((preset) => !isCloudModelServicePreset(preset.id)).map((preset) => <button key={preset.id} type="button" disabled={busy || Boolean(initial)} aria-pressed={presetId === preset.id} className="model-service-provider" onClick={() => choosePreset(preset.id)}>
                         <ModelLogo icon={preset.icon} size={24} />
                         <span><strong>{preset.name}</strong><small>{preset.subtitle}</small></span>
                         {presetId === preset.id && <Check size={15} />}
                     </button>)}
+                    <details className="model-service-cloud-presets" data-testid="cloud-presets-collapsed" {...(isCloudModelServicePreset(presetId) ? { open: true } : {})}>
+                        <summary className="model-service-advanced" style={{ cursor: "pointer", listStyle: "none" }}>高级 / 云（OpenAI · Gemini · 火山，默认收起）</summary>
+                        <div className="mt-2 grid gap-2">
+                            {MODEL_SERVICE_PRESETS.filter((preset) => isCloudModelServicePreset(preset.id)).map((preset) => <button key={preset.id} type="button" disabled={busy || Boolean(initial)} aria-pressed={presetId === preset.id} className="model-service-provider" onClick={() => choosePreset(preset.id)}>
+                                <ModelLogo icon={preset.icon} size={24} />
+                                <span><strong>{preset.name}</strong><small>{preset.subtitle}</small></span>
+                                {presetId === preset.id && <Check size={15} />}
+                            </button>)}
+                        </div>
+                    </details>
                     <div className="model-service-note"><ShieldCheck size={16} /><p>密钥保存在这台设备上。生成费用由服务商结算。</p></div>
                 </aside>
                 <Form layout="vertical" requiredMark={false} className="model-service-fields" disabled={busy} onFinish={() => void fetchModels()}>

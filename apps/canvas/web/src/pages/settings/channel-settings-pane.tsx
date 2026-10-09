@@ -1,4 +1,4 @@
-import { App, Button, Form, Input, Popconfirm, Segmented, Select, Tooltip } from "antd";
+import { App, Button, Collapse, Form, Input, Popconfirm, Segmented, Select, Tooltip } from "antd";
 import { Pencil, Plus, RefreshCw, Trash2, Workflow } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
@@ -271,7 +271,7 @@ export function ChannelSettingsPane({ onOpenModels, onOpenRunningHub }: ChannelS
     return (
         <Form layout="vertical" requiredMark={false}>
             <PageHeader
-                title={localMode ? "本地模型渠道" : "个人渠道"}
+                title={localMode ? "模型与算力 · 渠道" : "模型与算力 · 渠道"}
                 actions={(
                     <div className="settings-pane-header-actions flex w-full gap-2 sm:w-auto sm:shrink-0">
                     <Button className="h-10 flex-1 sm:h-8 sm:flex-none" icon={<RefreshCw className="size-4" />} loading={loadingChannelIds.includes("all")} disabled={loadingChannelIds.some((id) => id !== "all")} onClick={() => void refreshAllModels()}>
@@ -284,23 +284,30 @@ export function ChannelSettingsPane({ onOpenModels, onOpenRunningHub }: ChannelS
                 )}
             />
             {onOpenRunningHub ? (
-                <section className="settings-section mb-3">
-                    <div className="mb-3">
-                        <h3 className="text-sm font-semibold">个人工作流渠道</h3>
-                        <p className="mt-1 text-xs text-foreground/55">RunningHub 使用独立的云端工作流参数与执行通道。</p>
-                    </div>
-                    <div className="grid gap-2 lg:grid-cols-2">
-                        {onOpenRunningHub ? (
-                            <WorkflowChannelEntry
-                                icon={<Workflow className="size-4" />}
-                                title="RunningHub"
-                                description="云端工作流和 RunningHub App"
-                                status={runningHubReady ? `${config.runningHub.workflows.length} 个工作流已配置` : config.runningHub.enabled ? "待完成连接和工作流配置" : "未启用"}
-                                ready={runningHubReady}
-                                onOpen={onOpenRunningHub}
-                            />
-                        ) : null}
-                    </div>
+                <section className="settings-section mb-3" data-testid="cloud-advanced-section">
+                    <Collapse
+                        ghost
+                        defaultActiveKey={[]}
+                        items={[{
+                            key: "cloud",
+                            label: <span className="text-sm font-semibold">高级 / 云（默认收起）</span>,
+                            children: (
+                                <div>
+                                    <p className="mb-3 text-xs text-foreground/55">RunningHub 与云厂商渠道默认不展开；本地算力优先。</p>
+                                    <div className="grid gap-2 lg:grid-cols-2">
+                                        <WorkflowChannelEntry
+                                            icon={<Workflow className="size-4" />}
+                                            title="RunningHub"
+                                            description="云端工作流和 RunningHub App"
+                                            status={runningHubReady ? `${config.runningHub.workflows.length} 个工作流已配置` : config.runningHub.enabled ? "待完成连接和工作流配置" : "未启用"}
+                                            ready={runningHubReady}
+                                            onOpen={onOpenRunningHub}
+                                        />
+                                    </div>
+                                </div>
+                            ),
+                        }]}
+                    />
                 </section>
             ) : null}
             {userChannels.length ? (

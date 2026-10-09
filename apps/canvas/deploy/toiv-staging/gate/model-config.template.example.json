@@ -1,8 +1,8 @@
 {
- "assistantModel": "toiv-llm::qwen3.8-27b",
- "textModel": "toiv-llm::qwen3.8-27b",
+ "assistantModel": "toiv-llm::deepseek-v4-flash-dspark",
+ "textModel": "toiv-llm::deepseek-v4-flash-dspark",
  "textModels": [
-  "toiv-llm::qwen3.8-27b"
+  "toiv-llm::deepseek-v4-flash-dspark"
  ],
  "videoModel": "MZt9ON1JvbabJ2GS-PvXR::h3",
  "videoModels": [
@@ -169,7 +169,12 @@
       }
      },
      "model": "h3",
-     "protocol": "toiv-h3"
+     "protocol": "toiv-h3",
+     "displayName": "本地·H3视频",
+     "defaultOptions": {
+      "toivWorkerLabel": ":8264",
+      "toivNasRoot": "toiv/comfyui-models"
+     }
     },
     {
      "capability": "video",
@@ -314,17 +319,23 @@
       }
      },
      "model": "h3-t2v",
-     "protocol": "toiv-h3"
+     "protocol": "toiv-h3",
+     "displayName": "本地·H3文生视频",
+     "defaultOptions": {
+      "toivWorkerLabel": ":8264",
+      "toivNasRoot": "toiv/comfyui-models"
+     }
     }
    ],
    "models": [
     "h3",
     "h3-t2v"
    ],
-   "name": "ToIV H3",
+   "name": "本地·H3视频",
    "pinned": false,
    "scope": "user",
-   "sortOrder": 0
+   "sortOrder": 0,
+   "publicAlias": "本地·H3视频 · worker :8264"
   },
   {
    "apiFormat": "openai",
@@ -349,17 +360,79 @@
       },
       "version": 1
      },
+     "model": "deepseek-v4-flash-dspark",
+     "protocol": "chat-completion",
+     "displayName": "本地·Spark对话"
+    },
+    {
+     "capability": "text",
      "model": "qwen3.8-27b",
-     "protocol": "chat-completion"
+     "protocol": "chat-completion",
+     "displayName": "Spark别名·qwen3.8-27b",
+     "capabilityConfig": {
+      "text": {
+       "references": {
+        "maxImageBytes": 0,
+        "maxImages": 0,
+        "maxVideoBytes": 0,
+        "maxVideos": 0,
+        "promptMaxChars": 32000
+       },
+       "streaming": true
+      },
+      "version": 1
+     }
+    },
+    {
+     "capability": "text",
+     "model": "qwen3.6-uncensored",
+     "protocol": "chat-completion",
+     "displayName": "Spark别名·qwen3.6-uncensored",
+     "capabilityConfig": {
+      "text": {
+       "references": {
+        "maxImageBytes": 0,
+        "maxImages": 0,
+        "maxVideoBytes": 0,
+        "maxVideos": 0,
+        "promptMaxChars": 32000
+       },
+       "streaming": true
+      },
+      "version": 1
+     }
+    },
+    {
+     "capability": "text",
+     "model": "glm-5.3-flash",
+     "protocol": "chat-completion",
+     "displayName": "Spark别名·glm-5.3-flash",
+     "capabilityConfig": {
+      "text": {
+       "references": {
+        "maxImageBytes": 0,
+        "maxImages": 0,
+        "maxVideoBytes": 0,
+        "maxVideos": 0,
+        "promptMaxChars": 32000
+       },
+       "streaming": true
+      },
+      "version": 1
+     }
     }
    ],
    "models": [
-    "qwen3.8-27b"
+    "deepseek-v4-flash-dspark",
+    "qwen3.8-27b",
+    "qwen3.6-uncensored",
+    "glm-5.3-flash"
    ],
-   "name": "ToIV LLM",
+   "name": "本地·Spark对话",
    "pinned": false,
    "scope": "user",
-   "sortOrder": 1
+   "sortOrder": 1,
+   "publicAlias": "Spark TP2 · deepseek-v4-flash-dspark"
   }
  ]
 }

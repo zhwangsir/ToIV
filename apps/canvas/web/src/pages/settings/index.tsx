@@ -7,11 +7,12 @@ import { useConfigStore, useEffectiveConfig } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
 import { ChannelSettingsPane, channelValidationError, focusInvalidChannelField, isChannelReady } from "./channel-settings-pane";
 import { ModelDefaultGrid } from "./model-default-grid";
+import { LocalComputePane } from "./local-compute-pane";
 
 type ConfigSectionKey = "channels" | "models";
 
 const configSections: Array<{ key: ConfigSectionKey; label: string; description: string; icon: ReactNode }> = [
-    { key: "channels", label: "个人渠道", description: "模型服务与个人工作流", icon: <RadioTower className="size-4" /> },
+    { key: "channels", label: "模型与算力", description: "本地算力、NAS 选模与渠道", icon: <RadioTower className="size-4" /> },
 ];
 
 export function isConfigSection(value: string | null): value is ConfigSectionKey {
@@ -75,6 +76,7 @@ export default function SettingsPage() {
     const panes: Record<ConfigSectionKey, ReactNode> = {
         channels: (
             <SettingsPane>
+                <LocalComputePane />
                 <ChannelSettingsPane />
                 <div className="settings-section mt-4">
                     <div className="settings-pane-header">
