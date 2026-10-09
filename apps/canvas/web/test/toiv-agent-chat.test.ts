@@ -46,6 +46,7 @@ describe("toiv agent-chat service surface", () => {
         expect(src).toContain('CANVAS_PROPOSAL_STASH_KEY = "toiv_agent_canvas_proposal"');
         expect(src).toContain("/api/agent/chat");
         expect(src).toContain("toiv_token");
+        expect(src).toContain("X-Agent-Session-Id");
     });
 
     test("agent page routes SSE tool/job/proposal and BeefTV shell copy", () => {
@@ -56,12 +57,23 @@ describe("toiv agent-chat service surface", () => {
         expect(src).toContain("renderProposalCard");
         expect(src).toContain("takeAgentDraft");
         expect(src).toContain("fetchAgentCanvasProposal");
+        expect(src).toContain("toolCardPayload");
+        expect(src).toContain("looksLikeProposal");
+        expect(src).not.toContain('navigate("/studio")');
         expect(src).not.toContain("BeefTV leftover");
         // BeefTV tokens / shell cues
         expect(src).toContain("var(--border)");
         expect(src).toContain("var(--card");
         expect(src).toContain("EmptyState");
         expect(src).toContain("ToolButton");
+    });
+
+    test("float shares toolcards registry with agent page", () => {
+        const src = read("src/pages/canvas/toiv-agent-float.tsx");
+        expect(src).toContain('from "@/components/toiv/toolcards/registry"');
+        expect(src).toContain("renderToolCard");
+        expect(src).toContain("renderProposalCard");
+        expect(src).toContain("toolCardPayload");
     });
 
     test("sidebar already points internal /toiv/agent", () => {

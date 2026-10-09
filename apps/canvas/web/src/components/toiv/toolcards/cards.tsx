@@ -1,5 +1,5 @@
 /**
- * ToIV 工具结果卡(M2 移植)：纯渲染、零 hooks；BeefTV token/Tailwind，不用 Next styled-jsx。
+ * ToIV 工具结果卡(M2 移植)：纯渲染、零 hooks；画布壳 token/Tailwind，不用 Next styled-jsx。
  */
 import type { ReactNode } from "react";
 import {

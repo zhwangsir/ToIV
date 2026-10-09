@@ -1,7 +1,7 @@
 /**
  * M2 智能体对话原生页(`/toiv/agent`,2026-10-09):
- * 移植 ToIV chat（SSE + 工具卡 + 会话管理）到 BeefTV 壳；加强点：
- * - 对话产物「一键入画布」(canvas-proposal API + stash)
+ * 移植 ToIV chat（SSE + 工具卡 + 会话管理）到画布壳；加强点：
+ * - 对话产物「一键入画布」(canvas-proposal API + stash，不强行改节点图)
  * - 画布节点「发到对话」草稿 take
  */
 import { ArrowLeft, GitBranch, History, Loader2, MessageSquarePlus, Plus, Send, Trash2, X } from "lucide-react";
@@ -19,6 +19,7 @@ import {
     forkAgentSession,
     stashCanvasProposal,
     streamAgentChat,
+    type ToivAgentCanvasProposal,
     type ToivAgentSessionSummary,
     type ToivStreamEvent,
 } from "@/services/toiv/agent-chat";
@@ -40,6 +41,41 @@ function parseMsg(data: Record<string, unknown>): { role: "user" | "assistant"; 
 
 function toolNameOf(data: Record<string, unknown>): string {
     return String(data.tool ?? data.name ?? data.tool_name ?? "工具");
+}
+
+/** A1 约定：ok 事件结构化字段在 data.payload；无内层则回退整包（作业事件本身即载荷）。 */
+function toolCardPayload(data: Record<string, unknown>): Record<string, unknown> {
+    const inner = data.payload;
+    if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+        return inner as Record<string, unknown>;
+    }
+    return data;
+}
+
+function looksLikeProposal(payload: Record<string, unknown>): boolean {
+    if (!payload || typeof payload !== "object") return false;
+    if (typeof payload.proposal_id === "string" && payload.proposal_id) return true;
+    if (payload.graph && typeof payload.graph === "object") return true;
+    return false;
+}
+
+function toCanvasProposal(payload: Record<string, unknown>): ToivAgentCanvasProposal {
+    const graphRaw = payload.graph;
+    const graph =
+        graphRaw && typeof graphRaw === "object" && !Array.isArray(graphRaw)
+            ? (graphRaw as ToivAgentCanvasProposal["graph"])
+            : {};
+    const warnings = Array.isArray(payload.warnings)
+        ? payload.warnings.map((w) => String(w))
+        : [];
+    return {
+        proposal_id: String(payload.proposal_id ?? `local-${Date.now()}`),
+        title: String(payload.title ?? ""),
+        body: String(payload.body ?? payload.summary ?? ""),
+        warnings,
+        status: String(payload.status ?? "pending"),
+        graph,
+    };
 }
 
 export default function AgentPage() {
@@ -89,7 +125,11 @@ export default function AgentPage() {
         abortRef.current?.abort();
         setSessionId(sid);
         try {
-            setTurns((await fetchAgentHistory(sid)).map((m) => ({ kind: "text" as const, role: m.role === "user" ? "user" : "assistant", content: m.content })));
+            setTurns(
+                (await fetchAgentHistory(sid))
+                    .filter((m) => m.role === "user" || m.role === "assistant")
+                    .map((m) => ({ kind: "text" as const, role: m.role as "user" | "assistant", content: m.content })),
+            );
         } catch {
             setNotice("会话历史读取失败");
         }
@@ -124,24 +164,27 @@ export default function AgentPage() {
     }, [sessionId, newSession, loadSessions]);
 
     const applyToCanvas = useCallback(async (payload: Record<string, unknown>) => {
-        if (!sessionId) {
-            setNotice("请先完成一轮对话以绑定会话，再入画布");
-            return;
-        }
         setApplyingProposal(true);
         try {
-            const proposal = await fetchAgentCanvasProposal(sessionId);
-            stashCanvasProposal(proposal, sessionId);
-            setNotice(`提案「${proposal.title || proposal.proposal_id}」已取回，正在打开画布（图结构落节点下一刀消费 stash）`);
-            // 优先回当前画布；无项目上下文时回工作室首页由用户选画布
-            navigate("/canvas");
-            void payload;
+            let proposal: ToivAgentCanvasProposal;
+            let sid = sessionId || "";
+            if (looksLikeProposal(payload)) {
+                proposal = toCanvasProposal(payload);
+            } else if (sessionId) {
+                proposal = await fetchAgentCanvasProposal(sessionId);
+                sid = sessionId;
+            } else {
+                setNotice("请先完成一轮对话以绑定会话，再入画布");
+                return;
+            }
+            stashCanvasProposal(proposal, sid);
+            setNotice(`提案「${proposal.title || proposal.proposal_id}」已暂存，打开画布后下一刀消费 stash（本切片不强行改节点图）`);
         } catch (err) {
             setNotice(err instanceof Error ? err.message : "取回画布提案失败");
         } finally {
             setApplyingProposal(false);
         }
-    }, [sessionId, navigate]);
+    }, [sessionId]);
 
     const toolCtx: ToolCardCtx = useMemo(
         () => ({
@@ -151,7 +194,9 @@ export default function AgentPage() {
             },
             onOpenApp: (appId) => navigate(`/toiv/market?app=${encodeURIComponent(appId)}`),
             onOpenBoard: (boardId) => navigate(`/toiv/library/${encodeURIComponent(boardId)}`),
-            onApplyToCanvas: (payload) => applyToCanvas(payload),
+            onApplyToCanvas: (payload) => {
+                void applyToCanvas(payload);
+            },
         }),
         [navigate, applyToCanvas],
     );
@@ -190,13 +235,23 @@ export default function AgentPage() {
                 }
             } else if (ev.kind === "proposal") {
                 setTurns((p) => [...p, { kind: "proposal", payload: ev.data }]);
-            } else if (ev.kind === "tool" || ev.kind === "job") {
+            } else if (ev.kind === "job") {
+                setTurns((p) => [
+                    ...p,
+                    {
+                        kind: "tool",
+                        name: "submit_generation",
+                        payload: ev.data,
+                        status: typeof ev.data.status === "string" ? ev.data.status : undefined,
+                    },
+                ]);
+            } else if (ev.kind === "tool") {
                 setTurns((p) => [
                     ...p,
                     {
                         kind: "tool",
                         name: toolNameOf(ev.data),
-                        payload: ev.data,
+                        payload: toolCardPayload(ev.data),
                         status: typeof ev.data.status === "string" ? ev.data.status : undefined,
                     },
                 ]);
@@ -218,23 +273,24 @@ export default function AgentPage() {
                     {card ?? (
                         <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
                             画布提案
-                            {sessionId ? (
-                                <button
-                                    type="button"
-                                    className="ml-2 underline"
-                                    disabled={applyingProposal}
-                                    onClick={() => void applyToCanvas(t.payload)}
-                                >
-                                    一键入画布
-                                </button>
-                            ) : null}
+                            <button
+                                type="button"
+                                className="ml-2 underline"
+                                disabled={applyingProposal}
+                                onClick={() => void applyToCanvas(t.payload)}
+                            >
+                                一键入画布
+                            </button>
                         </div>
                     )}
                 </div>
             );
         }
         if (t.kind === "tool") {
-            const card = renderToolCard(t.name, t.payload, toolCtx);
+            // 与主站一致：ok + 有载荷才出结果卡；start/error 仍用虚线 chip
+            const card = t.status === "ok" || t.status === undefined || t.payload.job_id
+                ? renderToolCard(t.name, t.payload, toolCtx)
+                : null;
             if (card) return <div key={i} className="max-w-[min(100%,520px)]">{card}</div>;
             return (
                 <div key={i} className="max-w-[70%] rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
@@ -300,7 +356,7 @@ export default function AgentPage() {
                 <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
                     <div className="flex items-center gap-2">
                         {!listOpen && <IconButton icon={History} size="sm" aria-label="展开会话列表" onClick={() => setListOpen(true)} />}
-                        <h1 className="text-lg font-semibold leading-7 tracking-tight text-foreground">智能体对话</h1>
+                        <h1 className="text-lg font-semibold leading-7 text-foreground">智能体对话</h1>
                         {sessionId ? (
                             <ToolButton size="sm" variant="ghost" icon={<GitBranch />} label="分叉" onClick={() => void onFork()} disabled={busy} />
                         ) : null}
@@ -322,7 +378,7 @@ export default function AgentPage() {
                     </div>
                 </header>
                 {notice ? (
-                    <p role="alert" className="border-b border-[var(--border)] bg-[var(--surface-hover,rgba(255,255,255,0.03))] px-4 py-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                    <p role="alert" className="border-b border-[var(--border)] px-4 py-2 text-xs text-status-error">
                         {notice}
                         <button type="button" className="ml-2 underline" onClick={() => setNotice(null)}>
                             关闭
