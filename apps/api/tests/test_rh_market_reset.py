@@ -103,3 +103,17 @@ def test_chunk_ids_bulk_limit():
     assert len(chunks) == 3
     assert len(chunks[0]) == 200
     assert len(chunks[2]) == 50
+
+
+def test_p0_soft_hide_flux_and_ltx():
+    from app.services.rh_market_reset import P0_SOFT_HIDE_IDS
+    assert P0_SOFT_HIDE_IDS == frozenset({"flux1-nunchaku", "ltx25-multishot"})
+    for aid in sorted(P0_SOFT_HIDE_IDS):
+        d = classify_app(AppView(id=aid, is_public=True, smoke_status="pass"))
+        assert d.action == "soft_hide", aid
+        assert "P0" in d.reason
+
+
+def test_p0_ids_not_in_whitelist():
+    from app.services.rh_market_reset import P0_SOFT_HIDE_IDS
+    assert P0_SOFT_HIDE_IDS.isdisjoint(KEEP_WHITELIST)

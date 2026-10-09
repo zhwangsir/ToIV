@@ -55,12 +55,10 @@ KEEP_WHITELIST: frozenset[str] = frozenset(
         "wan-vace",
         "phantom-s2v",
         "qwen-image-edit",
-        "flux1-nunchaku",
         "controlnet",
         "ipadapter",
         "inpaint",
         "pulid",
-        "ltx25-multishot",
         "ltx-txt2video",
         "ltx-img2video",
         "ltx-lipsync",
@@ -70,6 +68,15 @@ KEEP_WHITELIST: frozenset[str] = frozenset(
         "facedetailer",
         "hunyuan-i2v",
         "latentsync",
+    }
+)
+
+# 能力缺口 market-reset 扫描（2026-10-10）交叉：公开可本地 keep 外、且非意图 keepers。
+# 开发收口：本轮 dry-run 建议一键 soft-hide 仅此 2；不跑 smoke-fail 大批下架；RH re-import P0 延期。
+P0_SOFT_HIDE_IDS: frozenset[str] = frozenset(
+    {
+        "flux1-nunchaku",  # nodes_only: Nunchaku*
+        "ltx25-multishot",  # both: LTXVDualCFGGuider + LTX-2.5 权重
     }
 )
 
@@ -191,6 +198,13 @@ def classify_app(
         smoke_status=smoke or "untested",
         was_public=bool(app.is_public),
     )
+
+    if aid in P0_SOFT_HIDE_IDS and app.is_public:
+        return DelistDecision(
+            action="soft_hide",
+            reason="P0 capability-gap soft-hide (flux1-nunchaku|ltx25-multishot)",
+            **base,
+        )
 
     if aid in whitelist:
         if not app.is_public and aid == "avatar-talk":
@@ -320,6 +334,7 @@ def plan_market_reset(
         elif d.action == "revive_candidate":
             plan.revive_candidates.append(d)
 
+    plan.notes.append("建议一键 hide 这2: " + ", ".join(sorted(P0_SOFT_HIDE_IDS)))
     plan.notes.extend(
         [
             "soft-hide only (is_public=false); never hard-delete",
