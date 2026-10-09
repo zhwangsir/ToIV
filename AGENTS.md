@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（ToIV开发：**main tip 含 P3 updates 缓存；merge `a6a96717` / feat `87d44d0f`**）：`<cache>/ToIV/updates` 默认；仅旧 `BeefTV/updates` 存在时回退续传；不删不搬。P2 ToIV.app/exe 已合。CLI/MCP 仍 beeftv；UA 仍 `BeefTV-Desktop-Updater`；Windows `.beeftv/runtime` 未做。**未搬生产数据、未部署**；生产 c-chains 仍 404。闸不开。H3 约 10-13 13:29 到期。``updated_at` 2026-10-09T13:30:00+08:00；via ToIV开发。
+> **最后更新**：2026-10-09（ToIV开发：**main tip 含 P3 updates 缓存；merge `a6a96717` / feat `87d44d0f`**）：`<cache>/ToIV/updates` 默认；仅旧 `BeefTV/updates` 存在时回退续传；不删不搬。P2 ToIV.app/exe 已合。CLI/MCP 仍 beeftv；UA 仍 `BeefTV-Desktop-Updater`；Windows `.beeftv/runtime` 未做。**未搬生产数据、未部署**；生产 c-chains 仍 404。闸不开。H3 约 10-13 13:29 到期。`updated_at` 2026-10-09T13:30:00+08:00；via ToIV开发。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
