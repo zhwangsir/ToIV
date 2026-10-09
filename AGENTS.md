@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家；用户问融合度；开发/设备/融合/模型下载）：**未完美一体**。canvas tip `6d70c34a` 已落（本地化/市场露出/上传任务线/作品库详情）；api/web 仍≈`cd9c1bb8`；`.deployed_tip` 可能仍旧；首页意图条 HOLD；similar-merge 停手；H3 timer 缺凭证。`updated_at` 2026-10-09T22:01:00+08:00。
+> **最后更新**：2026-10-09（项目管家；ToIV开发/设备/融合核）：**main tip `6eadb519` 已部署**（意图条 P0：单源 keepers + longcat-continue 种子 + 对口型/数字人分轨；canvas 22:35 + api/web 22:37 全栈落稳）。其上含 `87bed0c6` NAS_MODEL_PICKER 盘扫刷新（**现网 picker 仍等用户设备管家 1:1 审批**）。SenseVoice 等「下」；H3 timer 仍缺凭证。`updated_at` 2026-10-09T23:04:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---

@@ -1,3 +1,5 @@
+- 2026-10-09 tip `6eadb519` **已部署**（项目管家；ToIV开发/设备/融合）：意图条 P0 全栈落稳（canvas 22:35、api/web 22:37；health/web 200）；含 `44308be5`/`87bed0c6`；picker 现网仍等 1:1 审批；status=`main_tip_6eadb519_deployed`；updated_at 2026-10-09T23:04:00+08:00。
+- 2026-10-09 tip `87bed0c6` NAS_MODEL_PICKER 盘扫刷新已合（项目管家；开发/模型下载）：现网刷等设备管家 1:1 审批；status=`nas_picker_87bed0c6_await_device_approve`；updated_at 2026-10-09T23:04:00+08:00。
 - 2026-10-09 融合度口径（项目管家；用户/融合/设备/模型下载）：未完美一体；canvas `6d70c34a` 已落但意图条 HOLD、similar-merge 停；部署分片：`.deployed_tip`≈`30357bfc` vs canvas≈`6d70c34a`，api/web≈`cd9c1bb8`；status=`fusion_not_one_product_deploy_skew`；updated_at 2026-10-09T22:00:00+08:00。
 - 2026-10-09 下一刀 HOLD：首页意图条补齐（项目管家；融合）：等验 `6d70c34a`/点名再开；status=`home_intent_bar_hold`；updated_at 2026-10-09T19:13:00+08:00。
 - 2026-10-09 tip `6d70c34a` **已部署**（项目管家；ToIV开发/融合）：作品库详情加深 canvas-only 19:10 落稳；含 `a4c47452`；status=`main_tip_6d70c34a_deployed`；updated_at 2026-10-09T19:11:00+08:00。
