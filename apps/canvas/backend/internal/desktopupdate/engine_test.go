@@ -47,6 +47,7 @@ func TestCheckDownloadInstallHappyPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	sum := sha256.Sum256(zipBytes)
+	allowLocalUpdaterHosts(t)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/latest":
@@ -195,6 +196,7 @@ func TestCheckRejectsDowngradeEqualWrongPlatformTimeoutAndHash(t *testing.T) {
 	})
 
 	t.Run("timeout", func(t *testing.T) {
+		allowLocalUpdaterHosts(t)
 		server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			<-r.Context().Done()
 		}))
@@ -255,6 +257,7 @@ func TestConcurrentCallsRejectedAndStatusReadableDuringDownload(t *testing.T) {
 	zipBytes, _ := os.ReadFile(zipPath)
 	sum := sha256.Sum256(zipBytes)
 	started := make(chan struct{})
+	allowLocalUpdaterHosts(t)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/desktop-update.json" {
 			select {
@@ -335,6 +338,7 @@ func TestConcurrentCallsRejectedAndStatusReadableDuringDownload(t *testing.T) {
 
 func signedFeedServer(t *testing.T, priv ed25519.PrivateKey, payload Payload, zipBytes []byte) *httptest.Server {
 	t.Helper()
+	allowLocalUpdaterHosts(t)
 	sum := sha256.Sum256(zipBytes)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -376,6 +380,7 @@ func rewriteArtifactURL(payload Payload, host string, zipBytes []byte, sum []byt
 
 func testEngine(t *testing.T, pub string, server *httptest.Server, current, platform string) *Engine {
 	t.Helper()
+	allowLocalUpdaterHosts(t)
 	return NewWithOptions(Options{
 		CurrentVersion: current,
 		FeedURL:        server.URL + "/desktop-update.json",

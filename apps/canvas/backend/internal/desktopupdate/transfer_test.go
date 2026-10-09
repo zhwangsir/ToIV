@@ -63,6 +63,7 @@ func newTransferFixture(t *testing.T, idle time.Duration, serve func(w http.Resp
 	digest := sha256.Sum256(zipBytes)
 	f := &transferFixture{zip: zipBytes, sum: hex.EncodeToString(digest[:]), root: t.TempDir(), dataDir: t.TempDir()}
 	calls := 0
+	allowLocalUpdaterHosts(t)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/desktop-update.json":
