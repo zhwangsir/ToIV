@@ -27,8 +27,8 @@ description: 签名清单、打包布局、密钥、发布工作流、回滚和�
 
 | 系统 | 更新包内容 | 数据目录（不会进包、不会被替换） |
 | --- | --- | --- |
-| macOS | `BeefTV.app` | `~/Library/Application Support/BeefTV` |
-| Windows | `BeefTV.exe` 与 `plugin-packages/*.beeftv-plugin` | `%AppData%\BeefTV` |
+| macOS | `ToIV.app` | `~/Library/Application Support/ToIV` |
+| Windows | `ToIV.exe` 与 `plugin-packages/*.beeftv-plugin` | `%AppData%\ToIV` |
 
 应用包身份和可执行文件路径保持稳定，前端 IndexedDB 可以继续用。官方插件随应用包更新；装在数据目录里的自定义插件会留下来。打包时遇到 `.env`、数据库或用户数据目录会失败。
 

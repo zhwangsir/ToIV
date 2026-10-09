@@ -134,7 +134,7 @@ func TestCheckDownloadInstallHappyPath(t *testing.T) {
 		t.Fatal("expected orderly quit after helper prepared")
 	}
 	time.Sleep(50 * time.Millisecond)
-	got, err := os.ReadFile(filepath.Join(oldRoot, appBundleName, "Contents", "MacOS", "BeefTV"))
+	got, err := os.ReadFile(filepath.Join(oldRoot, appBundleName, "Contents", "MacOS", darwinBinaryName))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -247,7 +247,7 @@ func TestConcurrentCallsRejectedAndStatusReadableDuringDownload(t *testing.T) {
 		t.Fatal(err)
 	}
 	files, execFiles := DarwinZipFiles("NEW")
-	files["BeefTV.app/Contents/Resources/padding.bin"] = []byte(strings.Repeat("p", 8*1024))
+	files[appBundleName+"/Contents/Resources/padding.bin"] = []byte(strings.Repeat("p", 8*1024))
 	zipPath := filepath.Join(t.TempDir(), "app.zip")
 	if err := WriteZip(zipPath, files, execFiles); err != nil {
 		t.Fatal(err)

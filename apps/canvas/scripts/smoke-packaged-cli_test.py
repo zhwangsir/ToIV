@@ -11,7 +11,7 @@ spec.loader.exec_module(module)
 
 class PackagedCLITest(unittest.TestCase):
     def test_rejects_unusable_cli_before_execution(self):
-        name = "BeefTV.app/Contents/MacOS/cli/beeftv"
+        name = "ToIV.app/Contents/MacOS/cli/beeftv"
         for defect in ("missing", "empty", "symlink", "not-executable"):
             with self.subTest(defect=defect), tempfile.TemporaryDirectory() as root:
                 archive = Path(root) / "package.zip"

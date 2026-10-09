@@ -97,7 +97,7 @@ cp "$ROOT_DIR/assets/app-icon.png" "$DESKTOP_DIR/build/appicon.png"
 
 # Official protocol packages are runtime dependencies. Finder launches use the
 # bundle Resources directory and must never depend on the caller's cwd.
-APP_BUNDLE="$DESKTOP_DIR/build/bin/BeefTV.app"
+APP_BUNDLE="$DESKTOP_DIR/build/bin/ToIV.app"
 PLUGIN_RESOURCE_DIR="$APP_BUNDLE/Contents/Resources/plugin-packages"
 mkdir -p "$PLUGIN_RESOURCE_DIR"
 cp "$ROOT_DIR/plugin-packages/"*.beeftv-plugin "$PLUGIN_RESOURCE_DIR/"
@@ -110,7 +110,7 @@ bun "$ROOT_DIR/scripts/package-agent-host.mjs" "$AGENT_TARGET" \
 # app must carry it -- PATH is not a prerequisite.
 #
 # It goes in Contents/MacOS/cli, not directly next to the app binary: macOS
-# volumes are case-insensitive by default, so a file named beeftv beside BeefTV
+# volumes are case-insensitive by default, so a file named beeftv beside ToIV
 # is the same file and would overwrite the app binary.
 CLI_BINARY="$APP_BUNDLE/Contents/MacOS/cli/beeftv"
 mkdir -p "$(dirname "$CLI_BINARY")"

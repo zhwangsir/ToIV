@@ -51,7 +51,7 @@ func newTransferFixture(t *testing.T, idle time.Duration, serve func(w http.Resp
 	files, execFiles := DarwinZipFiles("NEW")
 	padding := make([]byte, 384*1024)
 	rand.New(rand.NewSource(7)).Read(padding)
-	files["BeefTV.app/Contents/Resources/padding.bin"] = padding
+	files[appBundleName+"/Contents/Resources/padding.bin"] = padding
 	zipPath := filepath.Join(t.TempDir(), "app.zip")
 	if err := WriteZip(zipPath, files, execFiles); err != nil {
 		t.Fatal(err)

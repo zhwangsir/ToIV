@@ -29,14 +29,25 @@ func backupRoot(req HelperRequest) string {
 }
 
 func swapDarwin(req HelperRequest) error {
-	stagedApp := filepath.Join(req.StagedPath, appBundleName)
+	stagedApp, err := findStagedDarwinApp(req.StagedPath)
+	if err != nil {
+		return err
+	}
+	finalPath := desiredDarwinInstallPath(req.TargetPath, stagedApp)
 	if err := os.MkdirAll(filepath.Dir(req.BackupPath), 0o755); err != nil {
 		return err
+	}
+	if finalPath != req.TargetPath && pathExists(finalPath) {
+		conflictBackup := req.BackupPath + ".preexisting-toiv"
+		_ = os.RemoveAll(conflictBackup)
+		if err := retryIO(func() error { return renamePath(finalPath, conflictBackup) }); err != nil {
+			return err
+		}
 	}
 	if err := retryIO(func() error { return renamePath(req.TargetPath, req.BackupPath) }); err != nil {
 		return err
 	}
-	if err := retryIO(func() error { return renamePath(stagedApp, req.TargetPath) }); err != nil {
+	if err := retryIO(func() error { return renamePath(stagedApp, finalPath) }); err != nil {
 		_ = retryIO(func() error { return renamePath(req.BackupPath, req.TargetPath) })
 		return err
 	}
@@ -44,15 +55,30 @@ func swapDarwin(req HelperRequest) error {
 }
 
 func swapWindows(req HelperRequest) error {
-	targetDir := filepath.Dir(req.TargetPath)
-	stagedExe := filepath.Join(req.StagedPath, windowsExeName)
-	if err := validateWindowsLayout(req.StagedPath); err != nil {
+	stagedExe, err := findStagedWindowsExe(req.StagedPath)
+	if err != nil {
 		return err
 	}
+	if strings.EqualFold(filepath.Base(stagedExe), windowsExeName) {
+		if err := validateWindowsLayout(req.StagedPath); err != nil {
+			return err
+		}
+	} else if err := validateAgentHost(filepath.Join(req.StagedPath, "agent-host"), "runtime/node.exe", false); err != nil {
+		return err
+	}
+	finalPath := desiredWindowsInstallPath(req.TargetPath, stagedExe)
+	targetDir := filepath.Dir(finalPath)
 	if err := os.MkdirAll(req.BackupPath, 0o755); err != nil {
 		return err
 	}
-	backupExe := filepath.Join(req.BackupPath, windowsExeName)
+	if finalPath != req.TargetPath && pathExists(finalPath) {
+		conflictBackup := filepath.Join(req.BackupPath, filepath.Base(finalPath)+".preexisting")
+		_ = os.Remove(conflictBackup)
+		if err := retryIO(func() error { return renamePath(finalPath, conflictBackup) }); err != nil {
+			return err
+		}
+	}
+	backupExe := filepath.Join(req.BackupPath, filepath.Base(req.TargetPath))
 	if err := retryIO(func() error { return renamePath(req.TargetPath, backupExe) }); err != nil {
 		return err
 	}
@@ -69,7 +95,7 @@ func swapWindows(req HelperRequest) error {
 			}
 		}
 	}
-	if err := retryIO(func() error { return renamePath(stagedExe, req.TargetPath) }); err != nil {
+	if err := retryIO(func() error { return renamePath(stagedExe, finalPath) }); err != nil {
 		return errors.Join(err, restoreWindows(req))
 	}
 	for _, name := range windowsSidecarEntries {
@@ -80,13 +106,25 @@ func swapWindows(req HelperRequest) error {
 	return nil
 }
 
-// windowsSidecarEntries 是 BeefTV.exe 旁边随包发行的资源：升级要整组换，回滚要整组还原。
+// windowsSidecarEntries 是主程序旁边随包发行的资源：升级要整组换，回滚要整组还原。
 var windowsSidecarEntries = []string{pluginDirName, "agent-host", cliDirName}
 
 func restoreWindows(req HelperRequest) error {
 	targetDir := filepath.Dir(req.TargetPath)
-	backupExe := filepath.Join(req.BackupPath, windowsExeName)
+	backupExe := filepath.Join(req.BackupPath, filepath.Base(req.TargetPath))
+	finalPath := req.TargetPath
+	if staged, err := findStagedWindowsExe(req.StagedPath); err == nil {
+		finalPath = desiredWindowsInstallPath(req.TargetPath, staged)
+	} else if strings.EqualFold(filepath.Base(req.TargetPath), legacyWindowsExeName) {
+		sibling := filepath.Join(targetDir, windowsExeName)
+		if pathExists(sibling) {
+			finalPath = sibling
+		}
+	}
 	var failures []error
+	if finalPath != req.TargetPath && pathExists(finalPath) {
+		_ = os.Remove(finalPath)
+	}
 	if pathExists(backupExe) {
 		if err := retryIO(func() error {
 			if err := os.Remove(req.TargetPath); err != nil && !os.IsNotExist(err) {
@@ -123,6 +161,14 @@ func restoreWindows(req HelperRequest) error {
 func RestoreBackup(req HelperRequest) error {
 	switch {
 	case strings.HasPrefix(req.Platform, "darwin"):
+		if filepath.Base(req.TargetPath) == legacyAppBundleName {
+			sibling := filepath.Join(filepath.Dir(req.TargetPath), appBundleName)
+			if pathExists(sibling) {
+				failed := sibling + ".beeftv-failed"
+				_ = os.RemoveAll(failed)
+				_ = renamePath(sibling, failed)
+			}
+		}
 		if !pathExists(req.BackupPath) {
 			if pathExists(req.TargetPath) {
 				return nil
@@ -193,15 +239,17 @@ func retryIO(op func() error) error {
 func relaunchTarget(req HelperRequest) error {
 	switch {
 	case strings.HasPrefix(req.Platform, "darwin"):
-		cmd := exec.Command(filepath.Join(req.TargetPath, "Contents", "MacOS", "BeefTV"))
-		cmd.Dir = filepath.Dir(req.TargetPath)
+		bundle := activeInstallPath(req)
+		cmd := exec.Command(filepath.Join(bundle, "Contents", "MacOS", darwinBinaryForBundle(filepath.Base(bundle))))
+		cmd.Dir = filepath.Dir(bundle)
 		if err := cmd.Start(); err != nil {
 			return err
 		}
 		return cmd.Process.Release()
 	case strings.HasPrefix(req.Platform, "windows"):
-		cmd := exec.Command(req.TargetPath)
-		cmd.Dir = filepath.Dir(req.TargetPath)
+		exe := activeInstallPath(req)
+		cmd := exec.Command(exe)
+		cmd.Dir = filepath.Dir(exe)
 		if err := cmd.Start(); err != nil {
 			return err
 		}

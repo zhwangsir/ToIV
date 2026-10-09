@@ -103,10 +103,7 @@ func TestSpawnedHelperReplacesInstall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	helperPath := filepath.Join(work, "BeefTV-update-helper")
-	if runtime.GOOS == "windows" {
-		helperPath += ".exe"
-	}
+	helperPath := filepath.Join(work, helperFileName())
 	if err := copyFile(exe, helperPath); err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +116,7 @@ func TestSpawnedHelperReplacesInstall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("helper: %v\n%s", err, out)
 	}
-	installed := filepath.Join(req.TargetPath, "Contents", "MacOS", "BeefTV")
+	installed := filepath.Join(req.TargetPath, "Contents", "MacOS", darwinBinaryName)
 	if runtime.GOOS == "windows" {
 		installed = filepath.Join(oldDir, pluginDirName, "official.beeftv-plugin")
 	}
@@ -136,7 +133,7 @@ func TestSpawnedHelperReplacesInstall(t *testing.T) {
 	if err := cleanupCompletedUpdates(Target{Path: req.TargetPath, Platform: req.Platform}, ""); err != nil {
 		t.Fatal(err)
 	}
-	if pathExists(work) || (runtime.GOOS == "windows" && pathExists(filepath.Join(oldDir, ".BeefTV.update.lock"))) {
+	if pathExists(work) || (runtime.GOOS == "windows" && pathExists(updateLockPath(req.TargetPath))) {
 		t.Fatal("confirmed startup retained update files")
 	}
 }

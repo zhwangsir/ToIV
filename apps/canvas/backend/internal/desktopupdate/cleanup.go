@@ -38,7 +38,7 @@ func cleanupCompletedUpdates(target Target, dataDir string) error {
 	if err != nil {
 		return err
 	}
-	unlock, err := lockInstall(filepath.Join(parent, ".BeefTV.update.lock"))
+	unlock, err := lockInstall(updateLockPath(target.Path))
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func completedUpdateDirectory(dir string, target Target) bool {
 	}
 	installed, err := physicalPath(req.TargetPath)
 	current, currentErr := physicalPath(target.Path)
-	if err != nil || currentErr != nil || installed != current {
+	if err != nil || currentErr != nil || !sameInstallTarget(installed, current) {
 		return false
 	}
 	// Do not trust persisted paths as deletion targets. Only the updater's
@@ -115,7 +115,7 @@ func readCleanupRecord(path string, value any) error {
 func removeCompletedUpdate(dir string) error {
 	// Remove the helper first: Windows can still be executing it. Keep both
 	// records until payload cleanup succeeds so the next startup can retry.
-	names := []string{"BeefTV-update-helper", "BeefTV-update-helper.exe", "backup", "payload", "helper.log", "prepared", "result.json", "request.json"}
+	names := helperCleanupNames()
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err

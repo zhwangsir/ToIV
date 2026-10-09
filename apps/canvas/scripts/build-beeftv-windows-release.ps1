@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Builds the same desktop source as scripts/build-beeftv-release.sh, packages
-    official *.beeftv-plugin archives next to BeefTV.exe, and fails loudly when
+    official *.beeftv-plugin archives next to ToIV.exe, and fails loudly when
     CGO/go-sqlite3 compiler prerequisites are missing.
 
     This script does not install compilers, Bun, Go, Git, WebView2, or NSIS.
@@ -21,7 +21,7 @@
     - Go 1.25+ Windows CGO DWARF 5 / binutils 2.37+: https://go.dev/wiki/MinimumRequirements#cgo
 
 .OUTPUTS
-    backend\cmd\desktop\build\bin\BeefTV.exe
+    backend\cmd\desktop\build\bin\ToIV.exe
     backend\cmd\desktop\build\bin\plugin-packages\*.beeftv-plugin
 #>
 [CmdletBinding()]
@@ -42,7 +42,7 @@ $desktopDir = Join-Path $repoRoot "backend\cmd\desktop"
 $pluginSourceDir = Join-Path $repoRoot "plugin-packages"
 $binDir = Join-Path $desktopDir "build\bin"
 $wailsConfig = Get-Content -Raw -LiteralPath (Join-Path $desktopDir "wails.json") | ConvertFrom-Json
-$appName = if ([string]::IsNullOrWhiteSpace($wailsConfig.outputfilename)) { "BeefTV" } else { $wailsConfig.outputfilename }
+$appName = if ([string]::IsNullOrWhiteSpace($wailsConfig.outputfilename)) { "ToIV" } else { $wailsConfig.outputfilename }
 $exePath = Join-Path $binDir "$appName.exe"
 $pluginResourceDir = Join-Path $binDir "plugin-packages"
 $versionFile = Join-Path $repoRoot "VERSION"
@@ -444,7 +444,7 @@ Invoke-NativeExecutable -FilePath "bun" -ArgumentList @((Join-Path $repoRoot "sc
 # app must carry it; it is not expected on the user PATH.
 #
 # It goes in a cli subdirectory, not directly next to BeefTV.exe: Windows file
-# names are case-insensitive, so beeftv.exe beside BeefTV.exe is the same name.
+# names are case-insensitive, so beeftv.exe beside ToIV.exe is the same name.
 $cliDir = Join-Path $binDir "cli"
 New-Item -ItemType Directory -Force -Path $cliDir | Out-Null
 $cliPath = Join-Path $cliDir "beeftv.exe"
@@ -465,4 +465,4 @@ Write-Host "Official plugins: $pluginResourceDir ($($copied.Count) packages)"
 Write-Host "Launch data directory (unless CANVAS_DESKTOP_DATA_DIR is set): %AppData%\BeefTV"
 Write-Host "Official plugins are loaded from the executable directory, not from the process working directory."
 Write-Host "WebView2 is required at runtime; Windows 11 usually already has it. Missing runtimes use Wails -webview2 download. See https://wails.io/docs/guides/windows"
-Write-Host "This machine still has to launch BeefTV.exe before the Windows build is accepted. NSIS installer output is not produced."
+Write-Host "This machine still has to launch ToIV.exe before the Windows build is accepted. NSIS installer output is not produced."
