@@ -438,7 +438,15 @@ func (e *Engine) updatesRoot() (string, error) {
 		if err != nil {
 			cache = os.TempDir()
 		}
-		root = filepath.Join(cache, "BeefTV", "updates")
+		toiv := filepath.Join(cache, "ToIV", "updates")
+		legacy := filepath.Join(cache, "BeefTV", "updates")
+		root = toiv
+		if info, err := os.Stat(toiv); err != nil || !info.IsDir() {
+			if info, err := os.Stat(legacy); err == nil && info.IsDir() {
+				// Resume unfinished downloads from the legacy cache; do not move or delete it.
+				root = legacy
+			}
+		}
 	}
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return "", err
