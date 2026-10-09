@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T13:12:00+08:00",
+  "updated_at": "2026-10-09T13:30:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12771,10 +12771,10 @@
       "设备管家",
       "项目管家"
     ],
-    "product_tip": "f7f9287e",
+    "product_tip": "a6a96717",
     "remotes": {
-      "origin_gitee_main": "2483c74d",
-      "github_main": "2483c74d",
+      "origin_gitee_main": "a6a96717",
+      "github_main": "a6a96717",
       "verified_both": true
     },
     "deploy": {
@@ -12811,7 +12811,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T13:10:00+08:00",
+    "updated_at": "2026-10-09T13:30:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12972,7 +12972,21 @@
       "ship_installer": false,
       "cli_mcp_still": "beeftv",
       "ua_still": "BeefTV-Desktop-Updater",
-      "cache_dir_still": "BeefTV/updates",
+      "cache_dir_still": "moved_to_P3_ToIV_updates",
+      "owner": "ToIV开发",
+      "deployed": false,
+      "data_moved": false
+    },
+    "desktop_p3_updates_cache": {
+      "status": "merged_undeployed",
+      "scope": "ToIV/updates_with_BeefTV_updates_fallback",
+      "merged_main": true,
+      "merge_tip": "a6a96717",
+      "feat_tip": "87d44d0f",
+      "no_delete_no_move": true,
+      "ua_still": "BeefTV-Desktop-Updater",
+      "cli_mcp_still": "beeftv",
+      "windows_runtime_still": ".beeftv/runtime",
       "owner": "ToIV开发",
       "deployed": false,
       "data_moved": false
