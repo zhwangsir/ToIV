@@ -90,3 +90,28 @@ func TestBinaryPayloadCreateResultRejectsEmpty(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestManifestContainsOperator(t *testing.T) {
+	env := map[string]any{"request": map[string]any{"model": "LongCat_TI2V_comfy_fp8.safetensors"}}
+	ok, err := evaluateManifestValue(map[string]any{
+		"$contains": []any{
+			map[string]any{"$lower": map[string]any{"$ref": "request.model"}},
+			"longcat",
+		},
+	}, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok != true {
+		t.Fatalf("contains longcat = %v", ok)
+	}
+	no, err := evaluateManifestValue(map[string]any{
+		"$contains": []any{"wan2.2-t2v.safetensors", "vace"},
+	}, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if no != false {
+		t.Fatalf("contains vace = %v", no)
+	}
+}

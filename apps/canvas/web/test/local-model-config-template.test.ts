@@ -41,7 +41,12 @@ describe("model-config template local-first", () => {
         const wanProtocols = (wan?.modelProfiles || []).map((p: any) => p.protocol);
         expect(wanProtocols).toContain("toiv-comfy-video");
         expect(wanProtocols).not.toContain("openai-videos");
-        expect(cfg.videoModels || []).toContain("toiv-video-wan::local-wan");
+        expect(cfg.videoModels || []).toEqual(expect.arrayContaining([
+            "toiv-video-wan::local-wan",
+            "toiv-video-wan::local-longcat",
+            "toiv-video-wan::local-vace",
+        ]));
+        expect((wan?.models || []) as string[]).toEqual(expect.arrayContaining(["local-wan", "local-longcat", "local-vace"]));
         // Default video stays H3
         expect(String(cfg.videoModel || "")).toContain("h3");
     });

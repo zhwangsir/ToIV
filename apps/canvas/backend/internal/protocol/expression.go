@@ -432,7 +432,7 @@ func evaluateManifestOperator(operator string, operand any, env map[string]any) 
 			return nil, fmt.Errorf("$ceilStep step must be positive")
 		}
 		return normalizeManifestNumber(math.Ceil(manifestFloat(value)/stepValue) * stepValue), nil
-	case "$eq", "$ne", "$gt", "$gte", "$lt", "$lte", "$in", "$and", "$or":
+	case "$eq", "$ne", "$gt", "$gte", "$lt", "$lte", "$in", "$contains", "$and", "$or":
 		return evaluateManifestComparison(operator, operand, env)
 	case "$not":
 		value, err := evaluateManifestValue(operand, env)
@@ -496,6 +496,8 @@ func evaluateManifestComparison(operator string, operand any, env map[string]any
 			}
 		}
 		return false, nil
+	case "$contains":
+		return strings.Contains(manifestString(left), manifestString(right)), nil
 	}
 	return false, nil
 }

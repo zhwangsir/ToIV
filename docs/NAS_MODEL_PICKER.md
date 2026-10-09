@@ -14,5 +14,9 @@
 ## 画布协议（slice Comfy）
 
 - 生图渠道协议：`toiv-comfy-image` → `POST /api/generate/txt2img` → worker **:8196**（非 openai-images 占位）
-- 出视频渠道协议：`toiv-comfy-video` → `POST /api/generate/txt2video`（Wan）→ worker **:8197**；LongCat/VACE 路由后续扩展
+- 出视频渠道协议：`toiv-comfy-video` → worker **:8197**
+  - Wan `local-wan` → `POST /api/generate/txt2video`
+  - LongCat `local-longcat` / 名含 longcat → `POST /api/longcat/t2v`（有图 → `/api/longcat/i2v`）
+  - VACE `local-vace` / 名含 vace → `POST /api/wan/vace`
+  - 延后：LongCat continue / Avatar / Wan Animate
 - H3 仍 `toiv-h3` → **:8264**；Spark 对话不变

@@ -19,6 +19,7 @@ import {
     LOCAL_VIDEO_MODEL,
     LOCAL_VIDEO_MODEL_REF,
     LOCAL_VIDEO_WORKER_LABEL,
+    classifyLocalVideoEngine,
     filterH3PickerEntries,
     filterImagePickerEntries,
     filterVideoPickerEntries,
@@ -369,6 +370,9 @@ export function LocalComputePane() {
                                 toivWorkerLabel: opts.worker,
                                 toivNasRoot: LOCAL_NAS_ROOT_DEFAULT,
                                 ckpt_name: basename,
+                                ...(opts.group === "video"
+                                    ? { engine: classifyLocalVideoEngine(basename) }
+                                    : {}),
                             },
                         })),
                     };

@@ -8,7 +8,9 @@
  "videoModels": [
   "MZt9ON1JvbabJ2GS-PvXR::h3",
   "MZt9ON1JvbabJ2GS-PvXR::h3-t2v",
-  "toiv-video-wan::local-wan"
+  "toiv-video-wan::local-wan",
+  "toiv-video-wan::local-longcat",
+  "toiv-video-wan::local-vace"
  ],
  "models": [
   "MZt9ON1JvbabJ2GS-PvXR::h3",
@@ -541,12 +543,63 @@
      "displayName": "本地·视频(Wan/LongCat)",
      "defaultOptions": {
       "toivWorkerLabel": ":8197",
-      "toivNasRoot": "toiv/comfyui-models"
+      "toivNasRoot": "toiv/comfyui-models",
+      "engine": "wan"
+     }
+    },
+    {
+     "capability": "video",
+     "capabilityConfig": {
+      "version": 1,
+      "video": {
+       "defaultOperation": "text_to_video",
+       "defaultRatio": "16:9",
+       "maxDurationSec": 60,
+       "references": {
+        "maxImages": 1,
+        "maxVideos": 0,
+        "promptMaxChars": 4000
+       }
+      }
+     },
+     "model": "local-longcat",
+     "protocol": "toiv-comfy-video",
+     "displayName": "本地·LongCat",
+     "defaultOptions": {
+      "toivWorkerLabel": ":8197",
+      "toivNasRoot": "toiv/comfyui-models",
+      "engine": "longcat"
+     }
+    },
+    {
+     "capability": "video",
+     "capabilityConfig": {
+      "version": 1,
+      "video": {
+       "defaultOperation": "reference_to_video",
+       "defaultRatio": "16:9",
+       "maxDurationSec": 15,
+       "references": {
+        "maxImages": 4,
+        "maxVideos": 0,
+        "promptMaxChars": 4000
+       }
+      }
+     },
+     "model": "local-vace",
+     "protocol": "toiv-comfy-video",
+     "displayName": "本地·VACE",
+     "defaultOptions": {
+      "toivWorkerLabel": ":8197",
+      "toivNasRoot": "toiv/comfyui-models",
+      "engine": "vace"
      }
     }
    ],
    "models": [
-    "local-wan"
+    "local-wan",
+    "local-longcat",
+    "local-vace"
    ],
    "name": "本地·视频(Wan/LongCat)",
    "pinned": false,

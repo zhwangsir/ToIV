@@ -22,9 +22,9 @@
   "apiVersion": "beeftv.plugin/v2",
   "id": "toiv-comfy-video",
   "name": "ToIV 本地视频 Comfy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "ToIV",
-  "description": "BeefTV 视频 → ToIV POST /api/generate/txt2video（Wan T2V）→ Workstation Comfy :8197；轮询 /api/jobs/lookup。LongCat/VACE 路由后续扩展。",
+  "description": "BeefTV 视频 → ToIV：Wan /api/generate/txt2video；LongCat /api/longcat/{t2v,i2v}；VACE /api/wan/vace → Workstation Comfy :8197；轮询 /api/jobs/lookup。",
   "permissions": [
     "generation.run",
     "media.read"
@@ -44,7 +44,7 @@
     "providers": [
       {
         "id": "toiv-comfy-video",
-        "label": "ToIV 本地视频 (Comfy :8197 Wan)",
+        "label": "ToIV 本地视频 (Comfy :8197 Wan/LongCat/VACE)",
         "capabilities": [
           "video"
         ],
@@ -66,8 +66,8 @@
             "name": "model",
             "type": "string",
             "required": true,
-            "mapping": "Wan T2V（local-wan）",
-            "description": "本刀默认 Wan 文生视频；LongCat/VACE 路由后续扩展。"
+            "mapping": "engine 路由：local-wan|local-longcat|local-vace 或权重名含 longcat/vace",
+            "description": "local-wan / 默认 → Wan T2V；local-longcat 或名含 longcat → LongCat t2v/i2v；local-vace 或名含 vace → Wan VACE。亦可 providerOptions.toiv-comfy-video.engine。"
           },
           {
             "name": "prompt",
@@ -80,8 +80,8 @@
             "name": "images",
             "type": "media[]",
             "required": false,
-            "mapping": "暂未走 i2v",
-            "description": "参考图：本版忽略。"
+            "mapping": "LongCat i2v / VACE：prepare → /api/upload(kind=wan_vace)",
+            "description": "LongCat：0 张 t2v、≥1 张 i2v；VACE：≥1 张参考图（最多 4）。Wan T2V 忽略。"
           },
           {
             "name": "duration",
@@ -102,7 +102,7 @@
             "type": "object",
             "required": false,
             "mapping": "providerOptions.toiv-comfy-video.*",
-            "description": "negative/seed/length/fps/accel/width/height。"
+            "description": "engine/negative/seed/length/fps/accel/width/height/steps/duration_sec/cfg/shift。"
           }
         ],
         "create": {
@@ -110,6 +110,46 @@
           "path": "/api/generate/txt2video",
           "originPath": true,
           "contentType": "application/json",
+          "pathTemplate": {
+            "$switch": {
+              "cases": [
+                {
+                  "when": {
+                    "$eq": [
+                      {
+                        "$ref": "prepared.route"
+                      },
+                      "longcat/i2v"
+                    ]
+                  },
+                  "then": "/api/longcat/i2v"
+                },
+                {
+                  "when": {
+                    "$eq": [
+                      {
+                        "$ref": "prepared.route"
+                      },
+                      "longcat/t2v"
+                    ]
+                  },
+                  "then": "/api/longcat/t2v"
+                },
+                {
+                  "when": {
+                    "$eq": [
+                      {
+                        "$ref": "prepared.route"
+                      },
+                      "vace"
+                    ]
+                  },
+                  "then": "/api/wan/vace"
+                }
+              ],
+              "default": "/api/generate/txt2video"
+            }
+          },
           "body": {
             "$merge": [
               {
@@ -348,97 +388,6 @@
                     }
                   ]
                 },
-                "length": {
-                  "$coalesce": [
-                    {
-                      "$ref": "request.providerOptions.toiv-comfy-video.length"
-                    },
-                    {
-                      "$switch": {
-                        "cases": [
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.duration"
-                                },
-                                2
-                              ]
-                            },
-                            "then": 33
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.duration"
-                                },
-                                3
-                              ]
-                            },
-                            "then": 49
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.duration"
-                                },
-                                4
-                              ]
-                            },
-                            "then": 65
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.duration"
-                                },
-                                5
-                              ]
-                            },
-                            "then": 81
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.duration"
-                                },
-                                6
-                              ]
-                            },
-                            "then": 97
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.duration"
-                                },
-                                7
-                              ]
-                            },
-                            "then": 113
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.duration"
-                                },
-                                8
-                              ]
-                            },
-                            "then": 121
-                          }
-                        ],
-                        "default": 49
-                      }
-                    }
-                  ]
-                },
                 "fps": {
                   "$coalesce": [
                     {
@@ -449,10 +398,304 @@
                 },
                 "seed": {
                   "$ref": "request.providerOptions.toiv-comfy-video.seed"
-                },
-                "accel": {
-                  "$ref": "request.providerOptions.toiv-comfy-video.accel"
                 }
+              },
+              {
+                "$switch": {
+                  "cases": [
+                    {
+                      "when": {
+                        "$eq": [
+                          {
+                            "$ref": "prepared.route"
+                          },
+                          "longcat/i2v"
+                        ]
+                      },
+                      "then": {
+                        "duration_sec": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.duration_sec"
+                            },
+                            {
+                              "$ref": "request.duration"
+                            }
+                          ]
+                        },
+                        "steps": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.steps"
+                            },
+                            {
+                              "$if": {
+                                "condition": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "prepared.engine"
+                                    },
+                                    "longcat"
+                                  ]
+                                },
+                                "then": 10,
+                                "else": 20
+                              }
+                            }
+                          ]
+                        },
+                        "image": {
+                          "$ref": "prepared.first.filename"
+                        },
+                        "worker": {
+                          "$ref": "prepared.first.worker"
+                        }
+                      }
+                    },
+                    {
+                      "when": {
+                        "$eq": [
+                          {
+                            "$ref": "prepared.route"
+                          },
+                          "longcat/t2v"
+                        ]
+                      },
+                      "then": {
+                        "duration_sec": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.duration_sec"
+                            },
+                            {
+                              "$ref": "request.duration"
+                            }
+                          ]
+                        },
+                        "steps": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.steps"
+                            },
+                            {
+                              "$if": {
+                                "condition": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "prepared.engine"
+                                    },
+                                    "longcat"
+                                  ]
+                                },
+                                "then": 10,
+                                "else": 20
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "when": {
+                        "$eq": [
+                          {
+                            "$ref": "prepared.route"
+                          },
+                          "vace"
+                        ]
+                      },
+                      "then": {
+                        "duration_sec": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.duration_sec"
+                            },
+                            {
+                              "$ref": "request.duration"
+                            }
+                          ]
+                        },
+                        "steps": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.steps"
+                            },
+                            {
+                              "$if": {
+                                "condition": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "prepared.engine"
+                                    },
+                                    "longcat"
+                                  ]
+                                },
+                                "then": 10,
+                                "else": 20
+                              }
+                            }
+                          ]
+                        },
+                        "cfg": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.cfg"
+                            },
+                            5
+                          ]
+                        },
+                        "shift": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.shift"
+                            },
+                            8
+                          ]
+                        },
+                        "accel": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.accel"
+                            },
+                            "off"
+                          ]
+                        },
+                        "images": {
+                          "$concatArrays": [
+                            [
+                              {
+                                "$ref": "prepared.first.filename"
+                              }
+                            ],
+                            {
+                              "$map": {
+                                "from": {
+                                  "$coalesce": [
+                                    {
+                                      "$ref": "prepared.refs"
+                                    },
+                                    []
+                                  ]
+                                },
+                                "as": "u",
+                                "in": {
+                                  "$ref": "u.filename"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "worker": {
+                          "$ref": "prepared.first.worker"
+                        }
+                      }
+                    }
+                  ],
+                  "default": {
+                    "length": {
+                      "$coalesce": [
+                        {
+                          "$ref": "request.providerOptions.toiv-comfy-video.length"
+                        },
+                        {
+                          "$switch": {
+                            "cases": [
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.duration"
+                                    },
+                                    2
+                                  ]
+                                },
+                                "then": 33
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.duration"
+                                    },
+                                    3
+                                  ]
+                                },
+                                "then": 49
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.duration"
+                                    },
+                                    4
+                                  ]
+                                },
+                                "then": 65
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.duration"
+                                    },
+                                    5
+                                  ]
+                                },
+                                "then": 81
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.duration"
+                                    },
+                                    6
+                                  ]
+                                },
+                                "then": 97
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.duration"
+                                    },
+                                    7
+                                  ]
+                                },
+                                "then": 113
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.duration"
+                                    },
+                                    8
+                                  ]
+                                },
+                                "then": 121
+                              }
+                            ],
+                            "default": 49
+                          }
+                        }
+                      ]
+                    },
+                    "accel": {
+                      "$ref": "request.providerOptions.toiv-comfy-video.accel"
+                    }
+                  }
+                }
+              },
+              {
+                "$coalesce": [
+                  {
+                    "$ref": "request.providerOptions.toiv-comfy-video.body"
+                  },
+                  {}
+                ]
               }
             ]
           }
@@ -861,7 +1104,413 @@
             }
           },
           "resultEphemeral": true
-        }
+        },
+        "prepare": [
+          {
+            "id": "engine",
+            "value": {
+              "$if": {
+                "condition": {
+                  "$or": [
+                    {
+                      "$in": [
+                        {
+                          "$ref": "request.model"
+                        },
+                        [
+                          "local-longcat",
+                          "longcat"
+                        ]
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$lower": {
+                            "$coalesce": [
+                              {
+                                "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                              },
+                              ""
+                            ]
+                          }
+                        },
+                        "longcat"
+                      ]
+                    },
+                    {
+                      "$contains": [
+                        {
+                          "$lower": {
+                            "$coalesce": [
+                              {
+                                "$ref": "request.model"
+                              },
+                              ""
+                            ]
+                          }
+                        },
+                        "longcat"
+                      ]
+                    }
+                  ]
+                },
+                "then": "longcat",
+                "else": {
+                  "$if": {
+                    "condition": {
+                      "$or": [
+                        {
+                          "$in": [
+                            {
+                              "$ref": "request.model"
+                            },
+                            [
+                              "local-vace",
+                              "vace"
+                            ]
+                          ]
+                        },
+                        {
+                          "$eq": [
+                            {
+                              "$lower": {
+                                "$coalesce": [
+                                  {
+                                    "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                                  },
+                                  ""
+                                ]
+                              }
+                            },
+                            "vace"
+                          ]
+                        },
+                        {
+                          "$contains": [
+                            {
+                              "$lower": {
+                                "$coalesce": [
+                                  {
+                                    "$ref": "request.model"
+                                  },
+                                  ""
+                                ]
+                              }
+                            },
+                            "vace"
+                          ]
+                        }
+                      ]
+                    },
+                    "then": "vace",
+                    "else": "wan"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "id": "mode",
+            "value": {
+              "$if": {
+                "condition": {
+                  "$eq": [
+                    {
+                      "$ref": "prepared.engine"
+                    },
+                    "vace"
+                  ]
+                },
+                "then": "vace",
+                "else": {
+                  "$if": {
+                    "condition": {
+                      "$eq": [
+                        {
+                          "$ref": "prepared.engine"
+                        },
+                        "longcat"
+                      ]
+                    },
+                    "then": {
+                      "$if": {
+                        "condition": {
+                          "$gt": [
+                            {
+                              "$len": {
+                                "$ref": "request.images"
+                              }
+                            },
+                            0
+                          ]
+                        },
+                        "then": "i2v",
+                        "else": "t2v"
+                      }
+                    },
+                    "else": "t2v"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "id": "route",
+            "value": {
+              "$switch": {
+                "cases": [
+                  {
+                    "when": {
+                      "$and": [
+                        {
+                          "$eq": [
+                            {
+                              "$ref": "prepared.engine"
+                            },
+                            "longcat"
+                          ]
+                        },
+                        {
+                          "$eq": [
+                            {
+                              "$ref": "prepared.mode"
+                            },
+                            "i2v"
+                          ]
+                        }
+                      ]
+                    },
+                    "then": "longcat/i2v"
+                  },
+                  {
+                    "when": {
+                      "$eq": [
+                        {
+                          "$ref": "prepared.engine"
+                        },
+                        "longcat"
+                      ]
+                    },
+                    "then": "longcat/t2v"
+                  },
+                  {
+                    "when": {
+                      "$eq": [
+                        {
+                          "$ref": "prepared.engine"
+                        },
+                        "vace"
+                      ]
+                    },
+                    "then": "vace"
+                  }
+                ],
+                "default": "wan"
+              }
+            }
+          },
+          {
+            "id": "first_image",
+            "when": {
+              "$or": [
+                {
+                  "$eq": [
+                    {
+                      "$ref": "prepared.route"
+                    },
+                    "longcat/i2v"
+                  ]
+                },
+                {
+                  "$eq": [
+                    {
+                      "$ref": "prepared.route"
+                    },
+                    "vace"
+                  ]
+                }
+              ]
+            },
+            "value": {
+              "$coalesce": [
+                {
+                  "$first": {
+                    "$filter": {
+                      "from": {
+                        "$sortByOrder": {
+                          "$ref": "request.images"
+                        }
+                      },
+                      "as": "media",
+                      "where": {
+                        "$in": [
+                          {
+                            "$ref": "media.role"
+                          },
+                          [
+                            "first_frame"
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "$first": {
+                    "$filter": {
+                      "from": {
+                        "$sortByOrder": {
+                          "$ref": "request.images"
+                        }
+                      },
+                      "as": "media",
+                      "where": {
+                        "$in": [
+                          {
+                            "$ref": "media.role"
+                          },
+                          [
+                            "reference_image",
+                            "edit_source",
+                            ""
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "$first": {
+                    "$sortByOrder": {
+                      "$ref": "request.images"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "ref_images",
+            "when": {
+              "$eq": [
+                {
+                  "$ref": "prepared.route"
+                },
+                "vace"
+              ]
+            },
+            "value": {
+              "$filter": {
+                "from": {
+                  "$sortByOrder": {
+                    "$ref": "request.images"
+                  }
+                },
+                "as": "media",
+                "where": {
+                  "$ne": [
+                    {
+                      "$ref": "media"
+                    },
+                    {
+                      "$ref": "prepared.first_image"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": "first",
+            "when": {
+              "$and": [
+                {
+                  "$ne": [
+                    {
+                      "$ref": "prepared.first_image"
+                    },
+                    null
+                  ]
+                },
+                {
+                  "$or": [
+                    {
+                      "$eq": [
+                        {
+                          "$ref": "prepared.route"
+                        },
+                        "longcat/i2v"
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$ref": "prepared.route"
+                        },
+                        "vace"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "operation": {
+              "method": "POST",
+              "path": "/api/upload",
+              "originPath": true,
+              "contentType": "multipart/form-data",
+              "query": {
+                "kind": "wan_vace"
+              },
+              "files": [
+                {
+                  "name": "image",
+                  "source": {
+                    "$ref": "prepared.first_image"
+                  },
+                  "filename": "toiv-ref"
+                }
+              ]
+            }
+          },
+          {
+            "id": "refs",
+            "when": {
+              "$eq": [
+                {
+                  "$ref": "prepared.route"
+                },
+                "vace"
+              ]
+            },
+            "forEach": {
+              "$ref": "prepared.ref_images"
+            },
+            "as": "ref",
+            "operation": {
+              "method": "POST",
+              "path": "/api/upload",
+              "originPath": true,
+              "contentType": "multipart/form-data",
+              "query": {
+                "kind": "wan_vace",
+                "worker": {
+                  "$ref": "prepared.first.worker"
+                }
+              },
+              "files": [
+                {
+                  "name": "image",
+                  "source": {
+                    "$ref": "ref"
+                  },
+                  "filename": "toiv-ref"
+                }
+              ]
+            }
+          }
+        ]
       }
     ]
   },

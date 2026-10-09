@@ -15,6 +15,7 @@ import {
     filterImagePickerEntries,
     filterVideoPickerEntries,
     isCloudModelServicePreset,
+    classifyLocalVideoEngine,
     localComputeDefaults,
 } from "@/lib/local-model-defaults";
 
@@ -101,4 +102,14 @@ describe("local model defaults (slice 1+2+3)", () => {
         expect(MODEL_PICKER_EMPTY_CTA).not.toContain("管理员");
         expect(MODEL_PICKER_EMPTY_CTA).not.toMatch(/API Key/i);
     });
+
+    test("classifyLocalVideoEngine routes Wan/LongCat/VACE", () => {
+        expect(classifyLocalVideoEngine("local-wan")).toBe("wan");
+        expect(classifyLocalVideoEngine("Wan2_2-T2V.safetensors")).toBe("wan");
+        expect(classifyLocalVideoEngine("local-longcat")).toBe("longcat");
+        expect(classifyLocalVideoEngine("LongCat_TI2V_comfy.safetensors")).toBe("longcat");
+        expect(classifyLocalVideoEngine("local-vace")).toBe("vace");
+        expect(classifyLocalVideoEngine("Wan2_1-VACE_module_14B.safetensors")).toBe("vace");
+    });
+
 });

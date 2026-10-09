@@ -7,6 +7,26 @@ export const LOCAL_VIDEO_CHANNEL_NAME = "本地·视频(Wan/LongCat)";
 export const LOCAL_VIDEO_WORKER_LABEL = ":8197";
 export const LOCAL_VIDEO_MODEL = "local-wan";
 export const LOCAL_VIDEO_MODEL_REF = `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL}`;
+
+export const LOCAL_VIDEO_MODEL_LONGCAT = "local-longcat";
+export const LOCAL_VIDEO_MODEL_VACE = "local-vace";
+
+/** Route NAS video basename / alias → Wan | LongCat | VACE (Comfy :8197). */
+export type LocalVideoEngine = "wan" | "longcat" | "vace";
+
+export function classifyLocalVideoEngine(modelOrBasename: string): LocalVideoEngine {
+    const raw = String(modelOrBasename || "").trim();
+    const lower = raw.toLowerCase();
+    if (!lower) return "wan";
+    if (lower === LOCAL_VIDEO_MODEL_LONGCAT || lower === "longcat" || lower.includes("longcat")) {
+        return "longcat";
+    }
+    if (lower === LOCAL_VIDEO_MODEL_VACE || lower === "vace" || lower.includes("vace")) {
+        return "vace";
+    }
+    return "wan";
+}
+
 export const LOCAL_IMAGE_CHANNEL_ID = "toiv-image";
 export const LOCAL_IMAGE_CHANNEL_NAME = "本地·生图";
 export const LOCAL_IMAGE_WORKER_LABEL = ":8196";
