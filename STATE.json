@@ -12700,5 +12700,33 @@
     },
     "admin_gate": "off_unchanged",
     "updated_at": "2026-10-09T09:55:00+08:00"
+  },
+  "pipeline_c_stage_a_2026_10_09": {
+    "status": "pipeline_c_stage_a_gitee_only_undeployed",
+    "date": "2026-10-09",
+    "steward": "项目管家",
+    "source": [
+      "ToIV 开发",
+      "项目管家"
+    ],
+    "product_tip_gitee": "3c7a3eb4",
+    "product_tip_github": "5a8fa423",
+    "remotes_synced": false,
+    "deploy": {
+      "status": "not_deployed"
+    },
+    "stage_a": {
+      "register_job_after_queue_prompt": true,
+      "spawn_tracker": true,
+      "http_still_sync_wait": true,
+      "c_chains": false
+    },
+    "prior": {
+      "jobs_task_center": "b08f97b9",
+      "h3_registry_split": "f454bf12",
+      "docs_prior": "074d270d"
+    },
+    "admin_gate": "off_unchanged",
+    "updated_at": "2026-10-09T10:00:00+08:00"
   }
 }
