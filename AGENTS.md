@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-10（项目管家；ToIV开发核）：**媒体库壳 tip `cd7377f8` canvas-only 已部署**（`feat/studio-library-assets-unify` 单入口+三轨；api/web 仍 `6eadb519`）。RH 市场重扫 HOLD 仍摸底/dry-run（bulk 等另令）；deepseek 400=`llm_proxy` 白名单仅 qwen（扩 Spark 四名 PASS，合后改 env+restart api）；H3 出片 HTTP 200 后「缺可信身份」归设备核凭证/JWT。请硬刷 `/studio` 验侧栏「媒体库」。另仍卡：picker 1:1；SenseVoice「下」；H3 timer。`updated_at` 2026-10-10T03:47:00+08:00。
+> **最后更新**：2026-10-10（项目管家；开发/设备/融合/模型下载/用户全权）：**main tip `b7a2735d`**（LLM Spark 四名白名单已合）；**canvas tip `e0ca117b`**（H3 完成闸 B1）已刷；生产 `TOIV_LLM_PROXY_MODELS` 四名+api ActiveEnter 04:06；SenseVoice `model.pt` 已落 NAS；H3 timer 已 enable；RH soft-hide 公开 86→84。用户全权开跑：similar-merge P1 / picker 现网刷 / RH basename。请硬刷验媒体库三轨、H3 完成回写、deepseek。`updated_at` 2026-10-10T04:11:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---

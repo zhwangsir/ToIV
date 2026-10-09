@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T03:47:00+08:00",
+  "updated_at": "2026-10-10T04:11:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14201,21 +14201,16 @@
     "updated_at": "2026-10-10T03:47:00+08:00"
   },
   "llm_proxy_deepseek_400_2026_10_10": {
-    "status": "llm_proxy_whitelist_pass_await_env",
+    "status": "llm_proxy_whitelist_live",
     "date": "2026-10-10",
     "source": [
-      "ToIV BeefTV 融合",
       "ToIV开发",
       "设备管家",
-      "ToIV 模型下载",
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "deepseek 400=llm_proxy 白名单；扩 Spark 四名 PASS，等合后改 env",
-    "spark_aliases_ok": true,
-    "direct_8000": 200,
-    "fix": "expand_TOIV_LLM_PROXY_MODELS",
-    "updated_at": "2026-10-10T03:47:00+08:00"
+    "summary": "llm_proxy 四名白名单已进生产",
+    "updated_at": "2026-10-10T04:11:00+08:00"
   },
   "h3_trusted_identity_907f5f85_2026_10_10": {
     "status": "h3_missing_trusted_identity",
@@ -14232,5 +14227,83 @@
     "task_id": "907f5f85de2527ed53b91abecfcc2985",
     "owner": "设备管家",
     "updated_at": "2026-10-10T03:47:00+08:00"
+  },
+  "main_tip_b7a2735d_2026_10_10": {
+    "status": "main_tip_b7a2735d_llm_whitelist_live",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV开发",
+      "设备管家",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "LLM 白名单 tip b7a2735d 已合且生产 env 落稳",
+    "product_tip": "b7a2735d",
+    "includes": "6dcf00cc",
+    "env": {
+      "TOIV_LLM_PROXY_MODELS": "spark_four_names_incl_deepseek"
+    },
+    "api_restart": "2026-10-10T04:06:38+08:00",
+    "updated_at": "2026-10-10T04:11:00+08:00"
+  },
+  "main_tip_e0ca117b_2026_10_10": {
+    "status": "main_tip_e0ca117b_canvas_deployed",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "H3 完成闸 B1 tip e0ca117b canvas-only 已部署",
+    "product_tip": "e0ca117b",
+    "deploy_scope": "canvas_only",
+    "updated_at": "2026-10-10T04:11:00+08:00"
+  },
+  "sensevoice_2026_10_10": {
+    "status": "sensevoice_model_pt_on_nas",
+    "date": "2026-10-10",
+    "source": [
+      "用户",
+      "ToIV 模型下载",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "path": "toiv/comfyui-models/audio/SenseVoiceSmall/model.pt",
+    "bytes": 936291369,
+    "sha256": "833ca2dcfdf8ec91bd4f31cfac36d6124e0c459074d5e909aec9cabe6204a3ea",
+    "updated_at": "2026-10-10T04:11:00+08:00"
+  },
+  "h3_timer_2026_10_10": {
+    "status": "h3_timer_enabled",
+    "date": "2026-10-10",
+    "source": [
+      "设备管家",
+      "ToIV 盯梢",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "H3 timer enable--now（check/refresh）",
+    "updated_at": "2026-10-10T04:11:00+08:00"
+  },
+  "autonomy_iteration_2026_10_10": {
+    "status": "autonomy_iteration_running",
+    "date": "2026-10-10",
+    "source": [
+      "用户",
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "设备管家",
+      "ToIV 模型下载",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "用户全权：未完成+薄弱项自主迭代",
+    "streams": [
+      "similar_merge_p1",
+      "picker_87bed0c6_live",
+      "rh_basename_scan"
+    ],
+    "updated_at": "2026-10-10T04:11:00+08:00"
   }
 }

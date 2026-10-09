@@ -1,3 +1,8 @@
+- 2026-10-10 tip `b7a2735d` **已合+生产 env**（项目管家；开发/设备）：LLM 白名单 Spark 四名（含 deepseek）；api ActiveEnter 04:06:38；/models 含 deepseek；status=`main_tip_b7a2735d_llm_whitelist_live`；updated_at 2026-10-10T04:11:00+08:00。
+- 2026-10-10 tip `e0ca117b` **canvas-only 已部署**（项目管家；开发/融合）：H3 完成闸 B1；请硬刷验完成回写；status=`main_tip_e0ca117b_canvas_deployed`；updated_at 2026-10-10T04:11:00+08:00。
+- 2026-10-10 SenseVoice 已落盘（项目管家；模型下载；用户「下」）：`toiv/comfyui-models/audio/SenseVoiceSmall/model.pt` 936291369 B sha256 833ca2d…；status=`sensevoice_model_pt_on_nas`；updated_at 2026-10-10T04:11:00+08:00。
+- 2026-10-10 用户全权迭代开跑（项目管家）：similar-merge P1 摸底；picker `87bed0c6` 现网刷；RH keep/重导入 basename；status=`autonomy_iteration_2026_10_10`；updated_at 2026-10-10T04:11:00+08:00。
+- 2026-10-10 H3 timer 已 enable（项目管家；设备）：check/refresh 已起（非仅拍板）；status=`h3_timer_enabled`；updated_at 2026-10-10T04:11:00+08:00。
 - 2026-10-10 tip `cd7377f8` **canvas-only 已部署**（项目管家；ToIV开发）：媒体库壳单入口+三轨；api/web 仍 `6eadb519`；status=`main_tip_cd7377f8_canvas_deployed`；updated_at 2026-10-10T03:47:00+08:00。
 - 2026-10-10 deepseek 400 根因（项目管家；融合/开发/设备）：`llm_proxy` 白名单只放 qwen；Spark 别名齐直连 200；扩 `TOIV_LLM_PROXY_MODELS` 四名 PASS，合后改生产 env+restart api；status=`llm_proxy_whitelist_pass_await_env`；updated_at 2026-10-10T03:47:00+08:00。
 - 2026-10-10 H3 任务 `907f5f85…`（项目管家；用户/设备/模型下载）：出片 HTTP 200，完成阶段「缺可信身份」；非缺权重；等设备核 `h3_service_account`/JWT；status=`h3_missing_trusted_identity`；updated_at 2026-10-10T03:47:00+08:00。
