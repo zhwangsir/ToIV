@@ -1423,6 +1423,10 @@ class RenderShotBody(BaseModel):
         max_length=32,
         description="anime|ancient_realistic；空则按项目画风/唯一分桶推断，多桶并存回落扁平 sample",
     )
+    wait: bool = Field(
+        default=True,
+        description="True=同步等片（默认）；False=登记 Job 后立即返回 job_id，tracker 后台继续",
+    )
 
     @field_validator("pipeline")
     @classmethod
@@ -1444,9 +1448,9 @@ async def render_one(
     session: Session = Depends(get_session),
     request: Request = None  # FastAPI 注入;勿标 Optional 否则当 Pydantic 字段,
 ):
-    """渲染单镜(同步等待)。render_mode 决定走视频链还是图像运镜链。
+    """渲染单镜。默认同步等待；body.wait=false 时登记 Job 后立即返回 job_id。
 
-    body 缺省(旧客户端/批量):video_model=h3、num_candidates=1。
+    body 缺省(旧客户端/批量):video_model=h3、num_candidates=1、wait=true。
     视频步 UI 显式传 num_candidates(默认 2)与 ref_images。
     """
     shot = _get_shot(session, sid, user)
@@ -1458,6 +1462,7 @@ async def render_one(
     pipe = (body.pipeline if body is not None else "ref2va") or "ref2va"
     rstyle = body.ref_style if body is not None else None
     fixed_seed = body.seed if body is not None else None
+    do_wait = True if body is None else bool(body.wait)
     worker_url = None
     if body is not None and (body.worker_url or "").strip():
         if (getattr(user, "role", "") or "") != "admin":
@@ -1469,21 +1474,45 @@ async def render_one(
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
     try:
-        return _shot_out(
-            await orchestrator.render_shot(
-                session,
-                shot,
-                request=request,
-                video_model=vm,
-                num_candidates=n,
-                ref_images=refs,
-                scene_images=scenes,
-                pipeline=pipe,
-                ref_style=rstyle,
-                seed=fixed_seed,
-                worker_url=worker_url,
-            )
+        out_shot = await orchestrator.render_shot(
+            session,
+            shot,
+            request=request,
+            video_model=vm,
+            num_candidates=n,
+            ref_images=refs,
+            scene_images=scenes,
+            pipeline=pipe,
+            ref_style=rstyle,
+            seed=fixed_seed,
+            worker_url=worker_url,
+            wait=do_wait,
         )
+        if do_wait:
+            return _shot_out(out_shot)
+        import json as _json
+
+        db_job_id = ""
+        comfy_pid = ""
+        try:
+            cands = _json.loads(out_shot.candidates_json or "[]")
+        except (ValueError, TypeError):
+            cands = []
+        if isinstance(cands, list):
+            for c in cands:
+                if isinstance(c, dict) and (c.get("db_job_id") or c.get("job_id")):
+                    db_job_id = str(c.get("db_job_id") or "")
+                    comfy_pid = str(c.get("job_id") or "")
+                    break
+        if not db_job_id:
+            raise HTTPException(status_code=502, detail="异步渲染未登记到 Job")
+        return {
+            "job_id": db_job_id,
+            "prompt_id": comfy_pid,
+            "status": "queued",
+            "shot_id": out_shot.id,
+            "shot": _shot_out(out_shot),
+        }
     except ValueError as e:
         # 非法 ref_style 等参数错误 → 422 纯中文
         raise HTTPException(status_code=422, detail=str(e)) from e
@@ -1537,6 +1566,7 @@ async def render_batch(
         except RenderError:
             failed += 1
     return {"rendered": done, "failed": failed}
+
 
 
 @router.get("/studio/projects/{pid}/status")

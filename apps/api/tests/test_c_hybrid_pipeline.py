@@ -749,3 +749,87 @@ def test_job_kind_constant():
     from app.services.studio.pipeline_c_render import JOB_KIND_PIPELINE_C
 
     assert JOB_KIND_PIPELINE_C == "studio_pipeline_c"
+
+
+# ───────────────────── 阶段 B：wait=false 立即返回 db_job_id ─────────────────────
+
+
+def test_render_pipeline_c_wait_false_returns_job_without_waiting(monkeypatch):
+    """wait=false：queue+登记+spawn 后立即返回 db_job_id；不调用 _wait_video_url。"""
+    client = _FakeClient(base_url="http://fake-h3:8195")
+    pcr = _patch_pcr(monkeypatch, client, {})
+    spawned: list[str] = []
+    jobs: list[dict] = []
+    waited_calls = {"n": 0}
+
+    async def _wait_boom(base, pid, request=None):
+        waited_calls["n"] += 1
+        raise AssertionError("_wait_video_url must not be called when wait=false")
+
+    def _spawn(c, pid):
+        spawned.append(pid)
+
+    def _register(**kw):
+        jid = f"db-{kw['prompt_id']}"
+        jobs.append({**kw, "id": jid})
+        return jid
+
+    monkeypatch.setattr(pcr, "_wait_video_url", _wait_boom)
+    monkeypatch.setattr(pcr, "spawn_tracker", _spawn)
+    monkeypatch.setattr(pcr, "_register_pipeline_c_job", _register)
+    monkeypatch.setattr(
+        pcr, "_resolve_job_owner", lambda shot, tid, uid: ("ten-1", "user-1")
+    )
+
+    shot, cast = _shot_cast()
+    out = asyncio.run(
+        pcr.render_pipeline_c(
+            shot, cast, seed=7, tenant_id="ten-1", user_id="user-1", wait=False
+        )
+    )
+    assert out["waited"] is False
+    assert out["status"] == "queued"
+    assert out["url"] == ""
+    assert out["job_id"] == "pid-1"
+    assert out["db_job_id"] == "db-pid-1"
+    assert spawned == ["pid-1"]
+    assert len(jobs) == 1
+    assert jobs[0]["stage"] == "B"
+    assert jobs[0]["prompt_id"] == "pid-1"
+    assert waited_calls["n"] == 0
+    # 异步路径不做 OCR reseed
+    assert out["brand_ocr_reseeds"] == 0
+    assert client.graphs  # 已 queue
+
+
+def test_render_pipeline_c_wait_false_requires_owner(monkeypatch):
+    """wait=false 且无属主 → RenderError，不 queue。"""
+    from app.services.studio.renderers.base import RenderError
+
+    client = _FakeClient()
+    pcr = _patch_pcr(monkeypatch, client, {})
+    monkeypatch.setattr(pcr, "_resolve_job_owner", lambda *a, **k: None)
+    shot, cast = _shot_cast()
+    with pytest.raises(RenderError, match="wait=false"):
+        asyncio.run(pcr.render_pipeline_c(shot, cast, seed=1, wait=False))
+    assert client.graphs == []
+
+
+def test_render_pipeline_c_default_wait_still_awaits(monkeypatch):
+    """默认同步：仍调用 _wait_video_url，waited=True（阶段 A 不回归）。"""
+    client = _FakeClient()
+    pcr = _patch_pcr(monkeypatch, client, {})
+    wait_n = {"n": 0}
+
+    async def _wait(base, pid, request=None):
+        wait_n["n"] += 1
+        return "/api/studio/files/out.mp4"
+
+    monkeypatch.setattr(pcr, "_wait_video_url", _wait)
+    monkeypatch.setattr(pcr, "_resolve_job_owner", lambda *a, **k: None)
+    shot, cast = _shot_cast()
+    out = asyncio.run(pcr.render_pipeline_c(shot, cast, seed=1))
+    assert wait_n["n"] == 1
+    assert out.get("waited") is True
+    assert out.get("status") == "done"
+    assert out["url"] == "/api/studio/files/out.mp4"

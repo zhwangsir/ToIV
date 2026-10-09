@@ -247,6 +247,7 @@ async def render_shot(
     worker_url: str | None = None,
     ref_overrides: dict[str, str] | None = None,
     outfit_desc: str | None = None,
+    wait: bool = True,
 ) -> StudioShot:
     """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。
 
@@ -396,6 +397,11 @@ async def render_shot(
     if ctx:
         render_kw["context_latent_path"] = ctx
     render_kw["clip_index"] = int(getattr(shot, "idx", 0) or 0) + 1
+    do_wait = bool(wait)
+    render_kw["wait"] = do_wait
+    if not do_wait:
+        # 阶段 B 最小：异步只跑单候选，避免多 seed 串行堵在 HTTP
+        n = 1
     renderer = get_renderer(shot)
     # 提交渲染前读侧写入(video_model/ref_images)，结束事务后再 await。
     # 否则 SQLAlchemy 隐式事务会在长轮询期间 idle in transaction 锁住镜次行。
@@ -683,6 +689,42 @@ async def render_shot(
         session.add(shot)
         session.commit()
         raise
+
+    # 阶段 B 最小：wait=false → 已登记 Job + spawn_tracker，立即返回；不落成片 URL
+    _meta_async = getattr(result, "pipeline_meta", None) or {}
+    if (
+        not do_wait
+        and isinstance(_meta_async, dict)
+        and _meta_async.get("waited") is False
+        and (_meta_async.get("db_job_id") or "")
+    ):
+        import uuid as _uuid
+
+        shot.candidates_json = dumps_candidates(
+            [
+                {
+                    "id": _uuid.uuid4().hex,
+                    "url": "",
+                    "seed": int(_meta_async.get("seed") or seed or 0),
+                    "status": "queued",
+                    "is_picked": False,
+                    "error": "",
+                    "video_model": engine,
+                    "pipeline": str(_meta_async.get("pipeline") or pipe or ""),
+                    "job_id": str(_meta_async.get("job_id") or ""),
+                    "db_job_id": str(_meta_async.get("db_job_id") or ""),
+                    "worker": str(_meta_async.get("worker") or ""),
+                    "context_latent": str(_meta_async.get("context_latent") or ""),
+                }
+            ]
+        )
+        # 保持 rendering：成片由后续轮询/回收接上（本刀不写 URL）
+        shot.status = "rendering"
+        shot.error = ""
+        session.add(shot)
+        session.commit()
+        session.refresh(shot)
+        return shot
 
     # 硬切规则（C 管线视频）：pick_best_candidate 未跑时（单候选/关闭选优）在此执行，
     # 锚定区/首 1 秒硬切 → 裁片头（音频同步裁），片尾不变，续写 latent 仍有效。

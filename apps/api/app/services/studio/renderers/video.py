@@ -144,6 +144,7 @@ class VideoRenderer:
                     outfit_desc=str(kw.get("outfit_desc") or ""),
                     tenant_id=kw.get("tenant_id"),
                     user_id=kw.get("user_id"),
+                    wait=bool(kw.get("wait", True)),
                 )
             except RenderError:
                 raise

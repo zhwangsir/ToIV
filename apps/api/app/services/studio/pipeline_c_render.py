@@ -92,6 +92,7 @@ def _register_pipeline_c_job(
     clip_index: int,
     attempt: int,
     db_job_id: str | None,
+    stage: str = "A",
 ) -> str | None:
     """queue_prompt 后落/更新 DB Job；失败只打日志，返回已有或新建的 Job.id。"""
     import json
@@ -102,13 +103,14 @@ def _register_pipeline_c_job(
     from app.models import Job
 
     tenant_id, user_id = owner
+    st = (stage or "A").strip().upper() or "A"
     snap = {
         "shot_id": shot_id,
         "pipeline": pipeline,
         "clip_index": clip_index,
         "attempt": attempt,
         "seed": int(seed),
-        "stage": "A",  # 同步仍等出片；阶段 B 另议
+        "stage": st,  # A=同步等片；B=登记后立即返回，tracker 后台继续
     }
     try:
         with Session(engine) as s:
@@ -478,11 +480,14 @@ async def render_pipeline_c(
     outfit_desc: str = "",
     tenant_id: str | None = None,
     user_id: str | None = None,
+    wait: bool = True,
 ) -> dict[str, Any]:
     """执行管线 C，返回 {url, context_latent, seed, prompt, worker, job_id, db_job_id, pipeline, first_frame}。
 
-    阶段 A：queue_prompt 后落 DB Job + spawn_tracker；HTTP 仍 await 出片。
-    job_id ≡ Comfy prompt_id；db_job_id 为 Job.id（无属主时为空）。
+    阶段 A（wait=True，默认）：queue_prompt 后落 DB Job + spawn_tracker；HTTP 仍 await 出片。
+    阶段 B 最小（wait=False）：登记 Job + spawn_tracker 后立即返回 db_job_id；不 OCR/reseed；
+    tracker 后台把 Job 推到终态。无属主时 wait=False 直接报错。
+    job_id ≡ Comfy prompt_id；db_job_id 为 Job.id（同步无属主时为空）。
 
     pipeline_name="c_hybrid"：必须带 first_frame_url（上一镜尾帧/首镜全身定妆图），
     图走 Hybrid（对齐实验 C：tmp/h3_long_exp/workflows/C_zh_seg*_c*.json）。
@@ -613,7 +618,11 @@ async def render_pipeline_c(
     max_submits = 3  # 首次 + 最多额外 2 次换 seed
     db_job_id: str | None = None
     owner = _resolve_job_owner(shot, tenant_id, user_id)
+    do_wait = bool(wait)
+    job_stage = "A" if do_wait else "B"
     if owner is None:
+        if not do_wait:
+            raise RenderError("异步渲染（wait=false）需要属主（tenant/user）以登记 Job")
         logger.info(
             "pipeline_c 跳过 Job 登记：无 tenant/user（shot=%s）",
             str(getattr(shot, "id", "") or "")[:12],
@@ -651,7 +660,7 @@ async def render_pipeline_c(
         except ComfyUIError as e:
             raise RenderError(f"{'独立镜 Ref2VA' if indep else '管线 C'} 提交失败:{e}") from e
 
-        # 阶段 A：每次 queue 登记/更新 Job + spawn_tracker；HTTP 仍同步等出片
+        # 登记/更新 Job + spawn_tracker；wait=True 仍同步等出片，wait=False 立即返回
         if owner is not None:
             new_id = _register_pipeline_c_job(
                 owner=owner,
@@ -664,6 +673,7 @@ async def render_pipeline_c(
                 clip_index=int(clip_index),
                 attempt=attempt,
                 db_job_id=db_job_id,
+                stage=job_stage,
             )
             if new_id:
                 db_job_id = new_id
@@ -671,6 +681,31 @@ async def render_pipeline_c(
                 spawn_tracker(client, prompt_id)
             except Exception as e:  # noqa: BLE001 — tracker 挂不上不炸渲染
                 logger.warning("pipeline_c spawn_tracker 失败 prompt=%s: %s", prompt_id[:16], e)
+        if not do_wait:
+            # 阶段 B 最小：不 await 出片 / 不 OCR reseed；tracker 后台继续
+            if not db_job_id:
+                raise RenderError("异步渲染登记 Job 失败，无法返回 job_id")
+            context_latent = "" if indep else f"{prefix_ctx}_{int(clip_index):05d}.safetensors"
+            return {
+                "url": "",
+                "context_latent": context_latent,
+                "seed": seed_used,
+                "prompt": positive,
+                "worker": client.base_url,
+                "job_id": prompt_id,
+                "db_job_id": db_job_id,
+                "pipeline": pipe_name,
+                "first_frame": ff_url,
+                "first_frame_name": ff_name,
+                "ref_images": urls,
+                "brand_ocr_reseeds": 0,
+                "brand_ocr_hits": [],
+                "hard_cut_reseed_hits": [],
+                "outfit_check": outfit_check,
+                "ref_overrides": dict(ref_overrides or {}),
+                "waited": False,
+                "status": "queued",
+            }
 
         url = await _wait_video_url(client.base_url, prompt_id, request=request)
 
@@ -776,6 +811,8 @@ async def render_pipeline_c(
         "hard_cut_reseed_hits": hard_cut_reseed_hits,
         "outfit_check": outfit_check,
         "ref_overrides": dict(ref_overrides or {}),
+        "waited": True,
+        "status": "done",
     }
 
 
