@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T14:31:00+08:00",
+  "updated_at": "2026-10-09T14:36:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -45,8 +45,8 @@
       "staging_verified": false,
       "scout_2026_10_09": {
         "job_list": "ok",
-        "images_dub_idor": true,
-        "python_owner_fix": "planned_undeployed"
+        "images_dub_idor": "fixed_code_undeployed",
+        "python_owner_fix": "1816f320"
       }
     },
     "site": {
@@ -13268,7 +13268,7 @@
     "updated_at": "2026-10-09T14:13:00+08:00"
   },
   "multitenant_scout_2026_10_09": {
-    "status": "multitenant_scout_images_dub_idor_open",
+    "status": "multitenant_scout_idor_fixed_code_undeployed",
     "date": "2026-10-09",
     "source": [
       "ToIV开发",
@@ -13278,7 +13278,7 @@
     "summary": "Job 列表隔离到位；images/dub 缺强 owner 可串数据；Python owner 强制未合；不部署",
     "findings": {
       "job_list_isolation": "ok",
-      "images_dub": "missing strong owner — cross-tenant IDOR risk",
+      "images_dub": "fixed in tip 1816f320 (undeployed; gate closed)",
       "go_studio_m7": "on main; gate not opened"
     },
     "next_knife": "Python artifact/status force owner + unit tests",
@@ -13289,6 +13289,43 @@
     "product_tip": "770a2a77",
     "docs_tip": "90a97a0b",
     "related_merged": "canvas_multitenant_44e1162f (default off)",
-    "updated_at": "2026-10-09T14:31:00+08:00"
+    "updated_at": "2026-10-09T14:36:00+08:00",
+    "python_owner_fix": "1816f320"
+  },
+  "api_owner_scoped_assets_2026_10_09": {
+    "status": "api_owner_scoped_assets_merged_undeployed",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "images/dub 强制属主；56 passed；未开 STUDIO_MULTITENANT；未部署",
+    "branch": "feat/api-owner-scoped-assets",
+    "files": [
+      "apps/api/app/routes/images.py",
+      "apps/api/app/routes/dub.py",
+      "apps/api/app/routes/dub_anime.py",
+      "apps/api/app/routes/dub_text.py",
+      "apps/api/app/routes/dub_voice.py",
+      "apps/api/tests/test_owner_scoped_assets.py"
+    ],
+    "tests": "56 passed",
+    "studio_multitenant_gate": "closed",
+    "canvas_ui": "untouched",
+    "deploy": {
+      "status": "not_deployed"
+    },
+    "base_tip": "13edead6",
+    "merge": "1816f320",
+    "feat": "a44180fe",
+    "product_tip": "1816f320",
+    "remotes": {
+      "origin_gitee_main": "1816f320",
+      "github_main": "1816f320",
+      "verified_both": true
+    },
+    "closes_scout": "multitenant_scout_2026_10_09 images/dub IDOR (code-side)",
+    "updated_at": "2026-10-09T14:36:00+08:00"
   }
 }
