@@ -13805,11 +13805,11 @@
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "tip 0c577ae1 已合 main，canvas-only 刷生产中",
+    "summary": "tip 0c577ae1 已合 main，canvas-only 已部署落稳（ActiveEnter≈18:56:52，.deployed_tip≈18:57:04）",
     "tip": "0c577ae1",
     "merged_to_main": true,
     "deployed": true,
-    "updated_at": "2026-10-09T18:57:00+08:00"
+    "updated_at": "2026-10-09T19:00:00+08:00"
   },
   "main_tip_0c577ae1_2026_10_09": {
     "status": "main_tip_0c577ae1_deployed",
@@ -13821,7 +13821,7 @@
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "0c577ae1 已合 main；canvas-only 刷中",
+    "summary": "0c577ae1 已合 main；canvas-only 已部署落稳",
     "product_tip": "0c577ae1",
     "scope": [
       "media_upload",
@@ -13830,9 +13830,11 @@
     ],
     "deploy": {
       "canvas": {
-        "tip": "0c577ae1",
+        "tip": "0c577ae1aaedcae03b72067ac75bb0fdbd3876fc",
         "status": "deployed",
-        "ActiveEnter": "2026-10-09T18:56:52+08:00"
+        "ActiveEnter": "2026-10-09T18:56:52+08:00",
+        "mode": "canvas-only",
+        "deployed_tip_mtime": "2026-10-09T18:57:04+08:00"
       },
       "api_web": {
         "approx": "cd9c1bb8",
@@ -13841,8 +13843,9 @@
     },
     "h3_timer": {
       "status": "blocked",
-      "missing": "h3_service_account.env"
+      "missing": "h3_service_account.env",
+      "note": "仍缺凭证，勿 enable"
     },
-    "updated_at": "2026-10-09T18:57:00+08:00"
+    "updated_at": "2026-10-09T19:00:00+08:00"
   }
 }
