@@ -1,5 +1,26 @@
 import axios from "axios";
 
+import {
+    assertCChainMakeupOnly,
+    buildMakeupCChainFromDrama,
+    type ToivCChainCreateBody,
+    type ToivCChainDetail,
+    type ToivCChainJobAck,
+    type ToivCChainSegmentIn,
+} from "./c-chains";
+
+export {
+    assertCChainMakeupOnly,
+    buildMakeupCChainFromDrama,
+    type ToivCChainCandidate,
+    type ToivCChainCreateBody,
+    type ToivCChainDetail,
+    type ToivCChainJobAck,
+    type ToivCChainSegmentIn,
+    type ToivCChainSegmentOut,
+    type ToivCChainStart,
+} from "./c-chains";
+
 /**
  * ToIV 主站 API 客户端(融合 M1,2026-10-06):
  * 同源 /api 直连 ToIV FastAPI(PG 业务域:市场/作品/任务/智能体/短剧);
@@ -225,89 +246,9 @@ export async function triggerPanelReplace(cid: string, style: string, key: strin
 }
 
 
-/** 管线 C c-chains（tip cd1ae748）：顶层 job_id = DB Job.id；取消走 cancelJob */
-export type ToivCChainStart = {
-    type: "makeup" | "video" | "job";
-    video_url?: string;
-    job_id?: string;
-};
-
-export type ToivCChainSegmentIn = {
-    prompt: string;
-    duration_sec?: number;
-    dialogue?: string;
-    speaker?: string;
-    camera?: string;
-    scene?: string;
-    characters?: string[];
-    scene_images?: string[];
-    outfit_desc?: string;
-    num_candidates?: number;
-};
-
-export type ToivCChainCreateBody = {
-    pipeline?: "ref2va" | "c" | "c_hybrid";
-    project_id?: string;
-    start?: ToivCChainStart;
-    character_ids?: string[];
-    style?: string;
-    aspect_ratio?: "9:16";
-    resolution?: { width?: number; height?: number };
-    keep_audio?: boolean;
-    num_candidates?: number;
-    seed?: number;
-    ref_images?: string[];
-    scene_images?: string[];
-    outfit_desc?: string;
-    auto_assemble?: boolean;
-    worker_url?: string;
-    segments: ToivCChainSegmentIn[];
-};
-
-export type ToivCChainJobAck = {
-    job_id: string;
-    chain_id: string;
-    status: string;
-    prompt_id?: string;
-    segments?: Array<{ index?: number; segment_id?: string; status?: string }>;
-};
-
-export type ToivCChainCandidate = {
-    id: string;
-    url?: string;
-    status?: string;
-    is_picked?: boolean;
-    first_frame?: string;
-    seed?: number;
-};
-
-export type ToivCChainSegmentOut = {
-    index: number;
-    segment_id: string;
-    status: string;
-    shot_status?: string;
-    prompt?: string;
-    duration_sec?: number;
-    clip_url?: string;
-    error?: string;
-    candidates?: ToivCChainCandidate[];
-};
-
-export type ToivCChainDetail = {
-    chain_id: string;
-    jobs: string[];
-    active_job_id?: string | null;
-    final_url?: string;
-    keep_audio?: boolean;
-    segments: ToivCChainSegmentOut[];
-};
-
 /** POST /studio/c-chains → 202；首版仅 start.type=makeup */
 export async function createCChain(body: ToivCChainCreateBody): Promise<ToivCChainJobAck> {
-    const startType = body.start?.type ?? "makeup";
-    if (startType !== "makeup") {
-        throw new Error("首版 c-chains 仅支持 start.type=makeup");
-    }
+    assertCChainMakeupOnly(body.start);
     const payload: ToivCChainCreateBody = {
         pipeline: body.pipeline ?? "c_hybrid",
         aspect_ratio: "9:16",
@@ -358,43 +299,4 @@ export async function pickCChainSegment(
         { candidate_id: candidateId, rerender_after: rerenderAfter },
     );
     return data as ToivCChainDetail;
-}
-
-/** 从短剧分镜拼 makeup 链；取消用返回的 job_id 调 cancelJob */
-export function buildMakeupCChainFromDrama(
-    project: ToivDramaDetail,
-    opts?: { num_candidates?: number; auto_assemble?: boolean },
-): ToivCChainCreateBody {
-    const shots = project.shots ?? [];
-    const segments: ToivCChainSegmentIn[] = [];
-    for (const s of shots) {
-        const prompt = (s.prompt || s.scene || "").trim();
-        if (!prompt) continue;
-        segments.push({
-            prompt,
-            duration_sec: Math.min(15, Math.max(1, Number(s.duration_sec) || 6)),
-            dialogue: s.dialogue || "",
-            speaker: s.speaker || "",
-            camera: s.camera || "",
-            scene: s.scene || "",
-        });
-    }
-    if (!segments.length) {
-        throw new Error("没有可用分镜文案，无法启动 c-chains");
-    }
-    return {
-        pipeline: "c_hybrid",
-        project_id: project.id,
-        start: { type: "makeup" },
-        aspect_ratio: "9:16",
-        style: undefined,
-        resolution:
-            project.width && project.height
-                ? { width: project.width, height: project.height }
-                : undefined,
-        character_ids: (project.characters ?? []).map((c) => c.id).filter(Boolean),
-        num_candidates: opts?.num_candidates ?? 2,
-        auto_assemble: opts?.auto_assemble ?? true,
-        segments,
-    };
 }
