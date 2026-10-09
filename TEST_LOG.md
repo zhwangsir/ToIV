@@ -1,3 +1,5 @@
+- 2026-10-10 tip `16b56cfc` similar-merge P1 Slice A **已合未部署**（项目管家；开发/融合）：intent remap + soft-hide（`eba996b3`）；合前不刷现网；status=`similar_merge_p1_merged_undeployed`；updated_at 2026-10-10T04:18:00+08:00。
+- 2026-10-10 docs tip `e8e69873` 已双推齐（项目管家；ToIV开发核）：origin/github 含于 main `16b56cfc`；status=`docs_e8e69873_dual_pushed`；updated_at 2026-10-10T04:18:00+08:00。
 - 2026-10-10 picker tip `87bed0c6` **现网已刷**（项目管家；设备管家）：`/api/nas/models` 200（h3=61 / main=788）；未 restart；SenseVoice 在 tip 后落盘，下次盘扫才进计数；status=`nas_picker_87bed0c6_live`；updated_at 2026-10-10T04:15:00+08:00。
 - 2026-10-10 similar-merge P1 Slice A PASS（项目管家；开发/融合）：`feat/studio-similar-merge-p1` 写码中；合前不刷现网；status=`similar_merge_p1_coding`；updated_at 2026-10-10T04:15:00+08:00。
 - 2026-10-10 模型 RH/SenseVoice 账本（项目管家；模型下载）：SenseVoice→MODEL_SOURCES ok=479；RH keep 79 齐；soft-hide nunchaku/ltx25 节点 blocked；H3 RH 名要别名非重下；矩阵无精确名未开下；证据 `rh_basename_nas_audit_20261010.md`；status=`rh_basename_audit_2026_10_10`；updated_at 2026-10-10T04:15:00+08:00。

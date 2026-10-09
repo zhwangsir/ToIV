@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T04:15:00+08:00",
+  "updated_at": "2026-10-10T04:18:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14309,7 +14309,7 @@
     "updated_at": "2026-10-10T04:15:00+08:00"
   },
   "similar_merge_p1_2026_10_10": {
-    "status": "similar_merge_p1_coding",
+    "status": "similar_merge_p1_merged_undeployed",
     "date": "2026-10-10",
     "source": [
       "ToIV开发",
@@ -14317,11 +14317,12 @@
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "similar-merge P1 Slice A PASS，分支写码中",
-    "branch": "feat/studio-similar-merge-p1",
-    "slice_a": "PASS",
+    "summary": "similar-merge P1 Slice A 已合 main，未部署",
+    "tip": "16b56cfc",
+    "feat_tip": "eba996b3",
+    "merged": true,
     "deployed": false,
-    "updated_at": "2026-10-10T04:15:00+08:00"
+    "updated_at": "2026-10-10T04:18:00+08:00"
   },
   "rh_basename_audit_2026_10_10": {
     "status": "rh_basename_audit_logged",
