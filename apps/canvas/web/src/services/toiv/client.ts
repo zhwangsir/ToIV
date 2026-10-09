@@ -223,3 +223,169 @@ export async function triggerPanelReplace(cid: string, style: string, key: strin
         return true;
     } catch { return false; }
 }
+
+
+/** 管线 C c-chains（tip cd1ae748）：顶层 job_id = DB Job.id；取消走 cancelJob */
+export type ToivCChainStart = {
+    type: "makeup" | "video" | "job";
+    video_url?: string;
+    job_id?: string;
+};
+
+export type ToivCChainSegmentIn = {
+    prompt: string;
+    duration_sec?: number;
+    dialogue?: string;
+    speaker?: string;
+    camera?: string;
+    scene?: string;
+    characters?: string[];
+    scene_images?: string[];
+    outfit_desc?: string;
+    num_candidates?: number;
+};
+
+export type ToivCChainCreateBody = {
+    pipeline?: "ref2va" | "c" | "c_hybrid";
+    project_id?: string;
+    start?: ToivCChainStart;
+    character_ids?: string[];
+    style?: string;
+    aspect_ratio?: "9:16";
+    resolution?: { width?: number; height?: number };
+    keep_audio?: boolean;
+    num_candidates?: number;
+    seed?: number;
+    ref_images?: string[];
+    scene_images?: string[];
+    outfit_desc?: string;
+    auto_assemble?: boolean;
+    worker_url?: string;
+    segments: ToivCChainSegmentIn[];
+};
+
+export type ToivCChainJobAck = {
+    job_id: string;
+    chain_id: string;
+    status: string;
+    prompt_id?: string;
+    segments?: Array<{ index?: number; segment_id?: string; status?: string }>;
+};
+
+export type ToivCChainSegmentOut = {
+    index: number;
+    segment_id: string;
+    status: string;
+    shot_status?: string;
+    prompt?: string;
+    duration_sec?: number;
+    clip_url?: string;
+    error?: string;
+    candidates?: unknown[];
+};
+
+export type ToivCChainDetail = {
+    chain_id: string;
+    jobs: string[];
+    active_job_id?: string | null;
+    final_url?: string;
+    keep_audio?: boolean;
+    segments: ToivCChainSegmentOut[];
+};
+
+/** POST /studio/c-chains → 202；首版仅 start.type=makeup */
+export async function createCChain(body: ToivCChainCreateBody): Promise<ToivCChainJobAck> {
+    const startType = body.start?.type ?? "makeup";
+    if (startType !== "makeup") {
+        throw new Error("首版 c-chains 仅支持 start.type=makeup");
+    }
+    const payload: ToivCChainCreateBody = {
+        pipeline: body.pipeline ?? "c_hybrid",
+        aspect_ratio: "9:16",
+        ...body,
+        start: { type: "makeup", video_url: body.start?.video_url, job_id: body.start?.job_id },
+    };
+    const { data } = await toivHttp.post("/studio/c-chains", payload, {
+        timeout: 30_000,
+        validateStatus: (s) => s === 202 || (s >= 200 && s < 300),
+    });
+    return data as ToivCChainJobAck;
+}
+
+export async function appendCChainSegments(
+    chainId: string,
+    body: {
+        segments: ToivCChainSegmentIn[];
+        num_candidates?: number;
+        keep_audio?: boolean;
+        auto_assemble?: boolean;
+        seed?: number;
+        outfit_desc?: string;
+        worker_url?: string;
+        from_segment?: number;
+        confirm_discard?: boolean;
+    },
+): Promise<ToivCChainJobAck> {
+    const { data } = await toivHttp.post(`/studio/c-chains/${chainId}/segments`, body, {
+        timeout: 30_000,
+        validateStatus: (s) => s === 202 || (s >= 200 && s < 300),
+    });
+    return data as ToivCChainJobAck;
+}
+
+export async function fetchCChain(chainId: string): Promise<ToivCChainDetail> {
+    const { data } = await toivHttp.get(`/studio/c-chains/${chainId}`);
+    return data as ToivCChainDetail;
+}
+
+export async function pickCChainSegment(
+    chainId: string,
+    segIndex: number,
+    candidateId: string,
+    rerenderAfter = false,
+): Promise<ToivCChainDetail> {
+    const { data } = await toivHttp.post(
+        `/studio/c-chains/${chainId}/segments/${segIndex}/pick`,
+        { candidate_id: candidateId, rerender_after: rerenderAfter },
+    );
+    return data as ToivCChainDetail;
+}
+
+/** 从短剧分镜拼 makeup 链；取消用返回的 job_id 调 cancelJob */
+export function buildMakeupCChainFromDrama(
+    project: ToivDramaDetail,
+    opts?: { num_candidates?: number; auto_assemble?: boolean },
+): ToivCChainCreateBody {
+    const shots = project.shots ?? [];
+    const segments: ToivCChainSegmentIn[] = [];
+    for (const s of shots) {
+        const prompt = (s.prompt || s.scene || "").trim();
+        if (!prompt) continue;
+        segments.push({
+            prompt,
+            duration_sec: Math.min(15, Math.max(1, Number(s.duration_sec) || 6)),
+            dialogue: s.dialogue || "",
+            speaker: s.speaker || "",
+            camera: s.camera || "",
+            scene: s.scene || "",
+        });
+    }
+    if (!segments.length) {
+        throw new Error("没有可用分镜文案，无法启动 c-chains");
+    }
+    return {
+        pipeline: "c_hybrid",
+        project_id: project.id,
+        start: { type: "makeup" },
+        aspect_ratio: "9:16",
+        style: undefined,
+        resolution:
+            project.width && project.height
+                ? { width: project.width, height: project.height }
+                : undefined,
+        character_ids: (project.characters ?? []).map((c) => c.id).filter(Boolean),
+        num_candidates: opts?.num_candidates ?? 2,
+        auto_assemble: opts?.auto_assemble ?? true,
+        segments,
+    };
+}

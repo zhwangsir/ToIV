@@ -7,7 +7,7 @@ import { ToolButton } from "@/components/ui/base/buttons";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { EmptyState } from "@/components/ui/product/empty-state";
-import { fetchCharacterSheets, fetchDramaProject, triggerBatchRender, triggerPanelReplace, triggerSheetRegen, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivCharacterSheet, type ToivDramaDetail } from "@/services/toiv/client";
+import { buildMakeupCChainFromDrama, cancelJob, createCChain, fetchCChain, fetchCharacterSheets, fetchDramaProject, triggerBatchRender, triggerPanelReplace, triggerSheetRegen, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivCharacterSheet, type ToivDramaDetail } from "@/services/toiv/client";
 
 const SHOT_STATUS: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
     draft: { tone: "neutral", text: "草稿" },
@@ -32,6 +32,9 @@ export default function DramaDetailPage() {
     const [regenStyle, setRegenStyle] = useState<string | null>(null);
     const [replacingKey, setReplacingKey] = useState<string | null>(null);
     const [batchRendering, setBatchRendering] = useState(false);
+    const [chainJobId, setChainJobId] = useState<string | null>(null);
+    const [chainBusy, setChainBusy] = useState(false);
+    const [chainNote, setChainNote] = useState<string | null>(null);
 
     const openCharacter = useCallback(async (char: NonNullable<ToivDramaDetail["characters"]>[number]) => {
         setCharDetail({ char, sheets: [] });
@@ -52,12 +55,35 @@ export default function DramaDetailPage() {
 
     useEffect(() => { void load(); }, [load]);
     // 渲染轮询(M3 末项):本页存在渲染中(乐观或后端态)时 15s 拉一次项目
-    const busy = batchRendering || (detail?.shots ?? []).some((s) => renderingShots.has(s.id) || voicingShots.has(s.id) || lipsyncingShots.has(s.id) || ["rendering", "voicing", "lipsyncing"].includes(s.status));
+    const busy = batchRendering || chainBusy || (detail?.shots ?? []).some((s) => renderingShots.has(s.id) || voicingShots.has(s.id) || lipsyncingShots.has(s.id) || ["rendering", "voicing", "lipsyncing"].includes(s.status));
     useEffect(() => {
         if (!busy || !id) return;
         const t = window.setInterval(() => { void fetchDramaProject(id).then(setDetail).catch(() => {}); }, 15000);
         return () => window.clearInterval(t);
     }, [busy, id]);
+
+    useEffect(() => {
+        if (!chainBusy || !id || !chainJobId) return;
+        const tick = () => {
+            void fetchCChain(id)
+                .then((chain) => {
+                    const active = chain.active_job_id;
+                    if (!active || active !== chainJobId) {
+                        setChainBusy(false);
+                        setChainNote(chain.final_url ? "管线C已完成" : "管线C已结束");
+                        void fetchDramaProject(id).then(setDetail).catch(() => {});
+                        return;
+                    }
+                    const done = (chain.segments ?? []).filter((s) => s.status === "done" || s.shot_status === "rendered").length;
+                    const total = (chain.segments ?? []).length || 0;
+                    setChainNote(`管线C进行中 ${done}/${total} · job ${chainJobId.slice(0, 8)}`);
+                })
+                .catch(() => {});
+        };
+        tick();
+        const t = window.setInterval(tick, 8000);
+        return () => window.clearInterval(t);
+    }, [chainBusy, chainJobId, id]);
 
     if (loading) return <main className="flex h-full items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></main>;
     if (!detail) return <main className="flex h-full items-center justify-center"><EmptyState description={loadFailed ? "项目不存在或读取失败" : "项目不存在或读取失败"} /></main>;
@@ -77,22 +103,68 @@ export default function DramaDetailPage() {
                         <span>· 管线 {detail.render_mode_default ?? "video"}</span>
                     </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                    <button
-                        type="button"
-                        className={primaryBtn}
-                        disabled={batchRendering}
-                        aria-busy={batchRendering || undefined}
-                        onClick={() => { setBatchRendering(true); void triggerBatchRender(detail.id).finally(() => setBatchRendering(false)); }}
-                    >
-                        {batchRendering ? <Loader2 className="animate-spin" aria-hidden /> : <PlayCircle aria-hidden />}
-                        <span>渲染全部</span>
-                    </button>
-                    <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} />
-                    <a href={`/drama/${detail.id}?classic=1`} className={primaryBtn}>
-                        <ExternalLink aria-hidden />
-                        <span>在原工作台操作</span>
-                    </a>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                    <div className="flex shrink-0 items-center gap-2">
+                        <button
+                            type="button"
+                            className={primaryBtn}
+                            disabled={batchRendering || chainBusy}
+                            aria-busy={batchRendering || undefined}
+                            onClick={() => { setBatchRendering(true); void triggerBatchRender(detail.id).finally(() => setBatchRendering(false)); }}
+                        >
+                            {batchRendering ? <Loader2 className="animate-spin" aria-hidden /> : <PlayCircle aria-hidden />}
+                            <span>渲染全部</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={primaryBtn}
+                            disabled={batchRendering || chainBusy}
+                            aria-busy={chainBusy || undefined}
+                            title="异步 c-chains（makeup）；取消用顶层 job_id"
+                            onClick={() => {
+                                setChainNote(null);
+                                try {
+                                    const body = buildMakeupCChainFromDrama(detail, { num_candidates: 1, auto_assemble: true });
+                                    setChainBusy(true);
+                                    void createCChain(body)
+                                        .then((ack) => {
+                                            setChainJobId(ack.job_id);
+                                            setChainNote(`已排队 job ${ack.job_id.slice(0, 8)}（取消走顶层 job_id）`);
+                                        })
+                                        .catch((err: unknown) => {
+                                            setChainBusy(false);
+                                            setChainJobId(null);
+                                            setChainNote(err instanceof Error ? err.message : "管线C启动失败");
+                                        });
+                                } catch (err) {
+                                    setChainBusy(false);
+                                    setChainNote(err instanceof Error ? err.message : "无法启动管线C");
+                                }
+                            }}
+                        >
+                            {chainBusy ? <Loader2 className="animate-spin" aria-hidden /> : <Clapperboard aria-hidden />}
+                            <span>管线C</span>
+                        </button>
+                        {chainBusy && chainJobId ? (
+                            <ToolButton
+                                variant="default"
+                                icon={<Film />}
+                                label="取消管线C"
+                                onClick={() => {
+                                    void cancelJob(chainJobId).then((ok) => {
+                                        setChainBusy(false);
+                                        setChainNote(ok ? "已请求取消（顶层 job_id）" : "取消失败");
+                                    });
+                                }}
+                            />
+                        ) : null}
+                        <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} />
+                        <a href={`/drama/${detail.id}?classic=1`} className={primaryBtn}>
+                            <ExternalLink aria-hidden />
+                            <span>在原工作台操作</span>
+                        </a>
+                    </div>
+                    {chainNote ? <p className="max-w-md text-right text-xs text-[var(--muted-foreground,#a8a8a8)]">{chainNote}</p> : null}
                 </div>
             </header>
 
