@@ -385,11 +385,16 @@ _TRANSCRIBE_JOB_PUBLIC = (
 )
 
 
-def _resolve_transcribe_job(job_id: str, session: Session) -> dict:
-    """解析听写作业数据(优先 DB,运行中回退内存实时态;未命中 → 404)。"""
+def _resolve_transcribe_job(job_id: str, session: Session, user: User) -> dict:
+    """解析听写作业数据(优先 DB,运行中回退内存实时态;未命中 → 404)。
+
+    多租户最小切片:DB 命中时强制 job.user_id == user.id(admin 放行);非本人同不存在 404。
+    """
     # 优先查 DB Job(api 重启后内存丢,DB 保终态);运行中且内存还在则用内存(实时进度)
     db_job = session.exec(select(Job).where(Job.prompt_id == job_id)).first()
     if db_job:
+        if db_job.user_id != user.id and user.role != "admin":
+            raise HTTPException(status_code=404, detail="听写任务不存在(可能已过期或 api 重启)")
         mem = _transcribe_jobs.get(job_id)
         if db_job.status == "canceled":
             if mem:
@@ -417,7 +422,7 @@ async def dub_transcribe_status(
     session: Session = Depends(get_session),
 ):
     """format=json(默认)返回进度+片段;format=srt 导出 SRT 字幕附件(需已完成的听写)。"""
-    data = _resolve_transcribe_job(job_id, session)
+    data = _resolve_transcribe_job(job_id, session, user)
     if format == "srt":
         if data.get("status") != "done":
             raise HTTPException(status_code=409, detail="听写未完成,无法导出 SRT")

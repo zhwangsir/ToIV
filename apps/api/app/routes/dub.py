@@ -594,6 +594,9 @@ async def dub_lipsync_status(
     # 优先查 DB Job(api 重启后内存丢,DB 保终态);运行中且内存还在则用内存(实时进度)
     db_job = session.exec(select(Job).where(Job.prompt_id == job_id)).first()
     if db_job:
+        # 多租户最小切片:非本人与不存在一样 404(admin 放行)
+        if db_job.user_id != user.id and user.role != "admin":
+            raise HTTPException(status_code=404, detail="任务不存在(可能已过期或 api 重启)")
         # 运行中 + 内存还在:回内存的实时进度(completed/stage/gpu_seconds 等动态字段)
         # 否则回放 DB result 快照(终态或重启后恢复)
         mem = _lipsync_jobs.get(job_id)
@@ -615,15 +618,25 @@ async def dub_lipsync_status(
 async def dub_output(
     name: str,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> FileResponse:
     if not _LIPSYNC_OUT_RE.match(name):
         raise HTTPException(status_code=400, detail="非法文件名")
     path = _DUB_DIR / name
     if not path.is_file():
         raise HTTPException(status_code=404, detail="成片不存在")
+    # 多租户最小切片:成片绑定属主 Job(result 含 /api/dub/output/{name});admin 放行
+    if user.role != "admin":
+        owns = session.exec(
+            select(Job.id)
+            .where(Job.result.like(f"%/api/dub/output/{name}%"))
+            .where(Job.user_id == user.id)
+        ).first()
+        if not owns:
+            raise HTTPException(status_code=404, detail="成片不存在")
     return FileResponse(
         path,
         media_type="video/mp4",
         filename=name,
-        headers={"Cache-Control": "public, max-age=86400"},
+        headers={"Cache-Control": "private, max-age=86400"},
     )
