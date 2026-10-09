@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家；ToIV开发）：**main tip `0c577ae1` 已合未部署**（市场 gap-p1：媒体上传+音频未接标明+任务时间线）；**canvas-only 刷生产中**；生产 canvas 仍≈`30357bfc` 至落稳。H3 timer 仍缺凭证。`updated_at` 2026-10-09T18:55:00+08:00。
+> **最后更新**：2026-10-09（项目管家；ToIV开发核）：**main tip `0c577ae1` 已部署**（市场 gap-p1：媒体上传+音频未接标明+任务时间线；canvas-only ActiveEnter 18:56:52）。H3 timer 仍缺凭证。`updated_at` 2026-10-09T18:57:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---

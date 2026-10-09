@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T18:55:00+08:00",
+  "updated_at": "2026-10-09T18:57:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13797,7 +13797,7 @@
     "superseded_by": "0c577ae1"
   },
   "fusion_market_gap_p1_2026_10_09": {
-    "status": "fusion_market_gap_p1_merged_canvas_deploying",
+    "status": "fusion_market_gap_p1_deployed",
     "date": "2026-10-09",
     "source": [
       "ToIV开发",
@@ -13808,11 +13808,11 @@
     "summary": "tip 0c577ae1 已合 main，canvas-only 刷生产中",
     "tip": "0c577ae1",
     "merged_to_main": true,
-    "deployed": false,
-    "updated_at": "2026-10-09T18:55:00+08:00"
+    "deployed": true,
+    "updated_at": "2026-10-09T18:57:00+08:00"
   },
   "main_tip_0c577ae1_2026_10_09": {
-    "status": "main_tip_0c577ae1_merged_canvas_deploying",
+    "status": "main_tip_0c577ae1_deployed",
     "date": "2026-10-09",
     "source": [
       "ToIV开发",
@@ -13830,14 +13830,19 @@
     ],
     "deploy": {
       "canvas": {
-        "status": "deploying",
-        "live_approx": "30357bfc"
+        "tip": "0c577ae1",
+        "status": "deployed",
+        "ActiveEnter": "2026-10-09T18:56:52+08:00"
+      },
+      "api_web": {
+        "approx": "cd9c1bb8",
+        "STUDIO_MULTITENANT": "1"
       }
     },
     "h3_timer": {
       "status": "blocked",
       "missing": "h3_service_account.env"
     },
-    "updated_at": "2026-10-09T18:55:00+08:00"
+    "updated_at": "2026-10-09T18:57:00+08:00"
   }
 }
