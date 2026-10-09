@@ -20,6 +20,7 @@ import {
     Plus,
     Redo2,
     Tags,
+    MessageSquarePlus,
     Trash2,
     Undo2,
     Upload,
@@ -81,6 +82,8 @@ type CanvasNodeContextMenuProps = {
     onSpreadSelection?: () => void;
     onCopySelection?: () => void;
     onDeleteSelection?: () => void;
+    /** M2 加强点：画布节点「发到对话」 */
+    onSendToAgent?: () => void;
 };
 
 export function CanvasNodeContextMenu({
@@ -121,6 +124,7 @@ export function CanvasNodeContextMenu({
     onSpreadSelection,
     onCopySelection,
     onDeleteSelection,
+    onSendToAgent,
 }: CanvasNodeContextMenuProps) {
     const theme = canvasThemes[useActiveTheme()];
     const [addOpen, setAddOpen] = useState(false);
@@ -271,6 +275,7 @@ export function CanvasNodeContextMenu({
                                     {isText ? <MenuButton icon={<Maximize2 />} label="放大编辑" onClick={() => runAction(onEditText)} /> : null}
                                     {isDrawing ? <MenuButton icon={<Pencil />} label="打开绘图" onClick={() => runAction(onOpenDrawing)} /> : null}
                                     {isText ? <MenuButton icon={<ImageIcon />} label="用文本生图" disabled={!canGenerateFromText} onClick={() => runAction(onGenerateImage)} /> : null}
+                                    {onSendToAgent && (isText || isAudio || isDrawing) ? <MenuButton icon={<MessageSquarePlus />} label="发到对话" detail="带到智能体对话续创" onClick={() => runAction(onSendToAgent)} /> : null}
                                     <MenuDivider />
                                     <MenuSection label="副本与内容" />
                                             <MenuButton icon={<Copy />} label={isFrame ? `复制${isFolder ? "文件夹" : "背板"}及内容` : "复制节点"} shortcut="⌘C" onClick={() => runAction(onCopyNode)} />

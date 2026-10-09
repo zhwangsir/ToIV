@@ -43,6 +43,7 @@ type CanvasProjectContextMenuProps = {
     onSpreadSelection: () => void;
     onCopySelection: () => void;
     onDeleteSelection: () => void;
+    onSendToAgent?: (node: CanvasNodeData) => void;
 };
 
 export function CanvasProjectContextMenu({ menu, node, screenToCanvas, ...props }: CanvasProjectContextMenuProps) {
@@ -116,6 +117,7 @@ export function CanvasProjectContextMenu({ menu, node, screenToCanvas, ...props 
             onSpreadSelection={props.onSpreadSelection}
             onCopySelection={props.onCopySelection}
             onDeleteSelection={props.onDeleteSelection}
+            onSendToAgent={node && props.onSendToAgent ? () => props.onSendToAgent?.(node) : undefined}
         />
     );
 }
