@@ -2,48 +2,83 @@ import { describe, expect, test } from "bun:test";
 
 import {
     CLOUD_MODEL_SERVICE_PRESET_IDS,
+    CLOUD_OPTIONAL_CHANNEL_LABEL,
+    LOCAL_AUDIO_HAS_SENSEVOICE,
+    LOCAL_AUDIO_UNAVAILABLE_LABEL,
     LOCAL_CHAT_ALIAS,
+    LOCAL_CHAT_BASE_URL,
+    LOCAL_CHAT_WORKER_LABEL,
     LOCAL_H3_CHANNEL_NAME,
+    LOCAL_H3_FL2VA_BASENAME,
+    LOCAL_H3_FORBIDDEN_DEFAULT_WORKER,
+    LOCAL_H3_REF2VA_BASENAME,
     LOCAL_H3_WORKER_LABEL,
     LOCAL_IMAGE_CHANNEL_NAME,
+    LOCAL_IMAGE_CHECKPOINT_BASENAME,
     LOCAL_IMAGE_MODEL_REF,
     LOCAL_IMAGE_WORKER_LABEL,
+    LOCAL_VIDEO_ANIMATE_WORKER_LABEL,
     LOCAL_VIDEO_CHANNEL_NAME,
     LOCAL_VIDEO_WORKER_LABEL,
     MODEL_PICKER_EMPTY_CTA,
+    classifyLocalVideoEngine,
     filterH3PickerEntries,
     filterImagePickerEntries,
     filterVideoPickerEntries,
     isCloudModelServicePreset,
-    classifyLocalVideoEngine,
+    localChannelProtocolLabel,
     localComputeDefaults,
 } from "@/lib/local-model-defaults";
 
-describe("local model defaults (slice 1+2+3)", () => {
-    test("local defaults present with H3 :8264, image :8196, video :8197, Spark chat alias", () => {
+describe("local model defaults (realign)", () => {
+    test("local defaults: H3 :8264 + Spark :8000 + image/video workers; never :8195", () => {
         const d = localComputeDefaults();
         expect(d.videoChannelName).toBe(LOCAL_H3_CHANNEL_NAME);
+        expect(d.videoChannelName).toBe("本地·H3");
         expect(d.h3Worker).toBe(LOCAL_H3_WORKER_LABEL);
         expect(d.h3Worker).toBe(":8264");
-        expect(d.h3Worker).not.toBe(":8195");
+        expect(d.h3Worker).not.toBe(LOCAL_H3_FORBIDDEN_DEFAULT_WORKER);
+        expect(d.h3Fl2vaBasename).toBe(LOCAL_H3_FL2VA_BASENAME);
+        expect(d.h3Fl2vaBasename).toContain("fl2va");
+        expect(d.h3Ref2vaBasename).toBe(LOCAL_H3_REF2VA_BASENAME);
+        expect(d.h3Ref2vaBasename).toContain("ref2va");
         expect(d.videoWanChannelName).toBe(LOCAL_VIDEO_CHANNEL_NAME);
-        expect(d.videoWanChannelName).toBe("本地·视频(Wan/LongCat)");
+        expect(d.videoWanChannelName).toBe("本地·出视频");
         expect(d.videoWorker).toBe(LOCAL_VIDEO_WORKER_LABEL);
         expect(d.videoWorker).toBe(":8197");
-        expect(d.videoWorker).not.toBe(":8205");
-        expect(d.videoWorker).not.toBe(":8195");
+        expect(d.videoAnimateWorker).toBe(LOCAL_VIDEO_ANIMATE_WORKER_LABEL);
+        expect(d.videoAnimateWorker).toBe(":8199");
         expect(d.imageChannelName).toBe(LOCAL_IMAGE_CHANNEL_NAME);
-        expect(d.imageChannelName).toBe("本地·生图");
+        expect(d.imageChannelName).toBe("本地·出图 Comfy");
         expect(d.imageWorker).toBe(LOCAL_IMAGE_WORKER_LABEL);
         expect(d.imageWorker).toBe(":8196");
-        expect(d.imageWorker).not.toBe(":8205");
-        expect(d.imageWorker).not.toBe(":8261");
+        expect(d.imageCheckpointBasename).toBe(LOCAL_IMAGE_CHECKPOINT_BASENAME);
+        expect(d.imageCheckpointBasename).toContain("Qwen");
         expect(d.imageModelRef).toBe(LOCAL_IMAGE_MODEL_REF);
         expect(d.chatAlias).toBe(LOCAL_CHAT_ALIAS);
         expect(d.chatAlias).toBe("deepseek-v4-flash-dspark");
+        expect(d.chatBaseUrl).toBe(LOCAL_CHAT_BASE_URL);
+        expect(d.chatBaseUrl).toBe("http://192.168.71.84:8000/v1");
+        expect(d.chatWorker).toBe(LOCAL_CHAT_WORKER_LABEL);
         expect(d.cloudPresetsDefaultOpen).toBe(false);
+        expect(d.cloudOptionalLabel).toBe(CLOUD_OPTIONAL_CHANNEL_LABEL);
+        expect(d.audioHasSenseVoice).toBe(LOCAL_AUDIO_HAS_SENSEVOICE);
+        expect(d.audioHasSenseVoice).toBe(false);
+        expect(d.audioUnavailableLabel).toBe(LOCAL_AUDIO_UNAVAILABLE_LABEL);
+        expect(d.audioUnavailableLabel).toContain("未接");
         expect(d.nasRootDefault).toBe("toiv/comfyui-models");
-        expect(d.swapHint).toContain("落盘后 refresh");
+    });
+
+    test("localChannelProtocolLabel prefers worker ports over OpenAI-compat", () => {
+        expect(localChannelProtocolLabel({
+            id: "toiv-image",
+            modelProfiles: [{ protocol: "toiv-comfy-image", defaultOptions: { toivWorkerLabel: ":8196" } }],
+        })).toContain(":8196");
+        expect(localChannelProtocolLabel({
+            id: "MZt9ON1JvbabJ2GS-PvXR",
+            modelProfiles: [{ protocol: "toiv-h3", defaultOptions: { toivWorkerLabel: ":8264" } }],
+        })).toContain(":8264");
+        expect(localChannelProtocolLabel({ id: "toiv-llm", name: "本地·Spark对话" })).toContain(":8000");
     });
 
     test("h3/ filter keeps only h3 prefix", () => {
@@ -114,5 +149,4 @@ describe("local model defaults (slice 1+2+3)", () => {
         expect(classifyLocalVideoEngine("wan2.2-animate-2-14b.safetensors")).toBe("animate");
         expect(classifyLocalVideoEngine("Wan2.2-Animate-14B-Q4_K_M.gguf")).toBe("animate");
     });
-
 });

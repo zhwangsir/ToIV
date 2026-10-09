@@ -52,7 +52,6 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
                 { ...toolItem("canvas", "/project"), title: "项目" },
                 { ...toolItem("assets", "/assets"), title: "资产" },
                 { id: "settings:channels", title: "模型配置", icon: Settings2, to: "/settings?section=channels" },
-                { id: "agents", title: "外部 Agent", icon: Plug, to: "/agents" },
             ],
         },
         {
@@ -64,6 +63,13 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
                 { id: "toiv:market", title: "应用市场", icon: Store, to: "/toiv/market" },
                 { id: "toiv:library", title: "作品库", icon: Library, to: "/toiv/library" },
                 { id: "toiv:tasks", title: "任务中心", icon: ListChecks, to: "/toiv/tasks" },
+            ],
+        },
+        {
+            // BeefAPI / 外部 Agent 等不挡本地主路径；默认收起
+            heading: "高级 / 云端可选",
+            items: [
+                { id: "agents", title: "外部 Agent", icon: Plug, to: "/agents" },
             ],
         },
     ];
@@ -241,8 +247,9 @@ function NavItem({
 }
 
 function NavGroup({ group, activeId, onNavigate, onOpenSearch, collapsed }: { group: WorkspaceNavGroup; activeId: string; onNavigate: () => void; onOpenSearch: () => void; collapsed: boolean }) {
-    const [isOpen, setIsOpen] = useState(true);
-    const hasActive = group.items.some((item) => item.id === activeId || (item.id === "settings" && activeId.startsWith("settings:")));
+    const defaultOpen = group.heading !== "高级 / 云端可选";
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+    const hasActive = group.items.some((item) => item.id === activeId || (item.id === "settings" && activeId.startsWith("settings:")) || (item.id === "agents" && activeId === "agents"));
 
     // 激活项所在分组自动展开，保证当前位置可见。
     useEffect(() => {

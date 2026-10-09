@@ -13,6 +13,7 @@ import {
     type ModelCapability,
 } from "@/stores/use-config-store";
 import { workspaceCapabilities } from "@/services/workspace-mode";
+import { LOCAL_AUDIO_HAS_SENSEVOICE, LOCAL_AUDIO_UNAVAILABLE_LABEL } from "@/lib/local-model-defaults";
 
 export type DefaultModelKey = "imageModel" | "videoModel" | "textModel" | "audioModel" | "assistantModel";
 
@@ -89,8 +90,14 @@ export function ModelDefaultGrid({ config, onChange, onOpenChannels }: { config:
                             </div>
                         ) : (
                             <div className="px-1 py-3 text-xs text-foreground/45">
-                                <p>{localMode ? `尚未配置${capabilityLabel(row.capability)}模型` : `暂无${capabilityLabel(row.capability)}模型`}</p>
-                                {localMode && onOpenChannels ? <Button type="link" size="small" className="mt-1 h-auto p-0 text-xs" onClick={onOpenChannels}>前往添加本地模型渠道</Button> : null}
+                                <p>{
+                                    row.capability === "audio" && localMode && !LOCAL_AUDIO_HAS_SENSEVOICE
+                                        ? LOCAL_AUDIO_UNAVAILABLE_LABEL
+                                        : localMode
+                                            ? `尚未配置${capabilityLabel(row.capability)}模型`
+                                            : `暂无${capabilityLabel(row.capability)}模型`
+                                }</p>
+                                {localMode && row.capability !== "audio" && onOpenChannels ? <Button type="link" size="small" className="mt-1 h-auto p-0 text-xs" onClick={onOpenChannels}>前往添加本地模型渠道</Button> : null}
                             </div>
                         )}
                     </section>

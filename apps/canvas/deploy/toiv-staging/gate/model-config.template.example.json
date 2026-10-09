@@ -174,10 +174,12 @@
      },
      "model": "h3",
      "protocol": "toiv-h3",
-     "displayName": "本地·H3视频",
+     "displayName": "minimax_h3_fl2va_fp8_e4m3fn.safetensors",
      "defaultOptions": {
       "toivWorkerLabel": ":8264",
-      "toivNasRoot": "toiv/comfyui-models"
+      "toivNasRoot": "toiv/comfyui-models",
+      "toivNasWeight": "h3/diffusion_models/minimax_h3_fl2va_fp8_e4m3fn.safetensors",
+      "toivH3Variant": "fl2va"
      }
     },
     {
@@ -324,10 +326,12 @@
      },
      "model": "h3-t2v",
      "protocol": "toiv-h3",
-     "displayName": "本地·H3文生视频",
+     "displayName": "minimax_h3_ref2va_pruned_fp8_scaled.safetensors",
      "defaultOptions": {
       "toivWorkerLabel": ":8264",
-      "toivNasRoot": "toiv/comfyui-models"
+      "toivNasRoot": "toiv/comfyui-models",
+      "toivNasWeight": "h3/diffusion_models/minimax_h3_ref2va_pruned_fp8_scaled.safetensors",
+      "toivH3Variant": "ref2va"
      }
     }
    ],
@@ -335,16 +339,16 @@
     "h3",
     "h3-t2v"
    ],
-   "name": "本地·H3视频",
+   "name": "本地·H3",
    "pinned": false,
    "scope": "user",
    "sortOrder": 0,
-   "publicAlias": "本地·H3视频 · worker :8264"
+   "publicAlias": "本地·H3 · worker :8264"
   },
   {
    "apiFormat": "openai",
    "apiKey": "",
-   "baseUrl": "http://127.0.0.1:8090/api/llm/v1",
+   "baseUrl": "http://192.168.71.84:8000/v1",
    "enabled": true,
    "headers": [],
    "id": "toiv-llm",
@@ -366,7 +370,7 @@
      },
      "model": "deepseek-v4-flash-dspark",
      "protocol": "chat-completion",
-     "displayName": "本地·Spark对话"
+     "displayName": "deepseek-v4-flash-dspark"
     },
     {
      "capability": "text",
@@ -436,7 +440,7 @@
    "pinned": false,
    "scope": "user",
    "sortOrder": 1,
-   "publicAlias": "Spark TP2 · deepseek-v4-flash-dspark"
+   "publicAlias": "Spark · deepseek-v4-flash-dspark · :8000"
   },
   {
    "apiFormat": "openai",
@@ -500,21 +504,22 @@
      },
      "model": "local-checkpoint",
      "protocol": "toiv-comfy-image",
-     "displayName": "本地·生图",
+     "displayName": "Qwen-Rapid-AIO-SFW-v11.safetensors",
      "defaultOptions": {
       "toivWorkerLabel": ":8196",
-      "toivNasRoot": "toiv/comfyui-models"
+      "toivNasRoot": "toiv/comfyui-models",
+      "toivNasWeight": "checkpoints/Qwen-Rapid-AIO-SFW-v11.safetensors"
      }
     }
    ],
    "models": [
     "local-checkpoint"
    ],
-   "name": "本地·生图",
+   "name": "本地·出图 Comfy",
    "pinned": false,
    "scope": "user",
    "sortOrder": 2,
-   "publicAlias": "本地·生图 · worker :8196（LB :8188）"
+   "publicAlias": "本地·出图 Comfy · worker :8196（LB :8188）· Qwen-Rapid-AIO-SFW-v11.safetensors"
   },
   {
    "apiFormat": "openai",
@@ -541,7 +546,7 @@
      },
      "model": "local-wan",
      "protocol": "toiv-comfy-video",
-     "displayName": "本地·视频(Wan/LongCat)",
+     "displayName": "本地·Wan",
      "defaultOptions": {
       "toivWorkerLabel": ":8197",
       "toivNasRoot": "toiv/comfyui-models",
@@ -613,7 +618,7 @@
      },
      "model": "local-wan-animate",
      "protocol": "toiv-comfy-video",
-     "displayName": "本地·Wan Animate",
+     "displayName": "本地·Wan Animate2",
      "defaultOptions": {
       "toivWorkerLabel": ":8199",
       "toivNasRoot": "toiv/comfyui-models",
@@ -627,11 +632,11 @@
     "local-vace",
     "local-wan-animate"
    ],
-   "name": "本地·视频(Wan/LongCat)",
+   "name": "本地·出视频",
    "pinned": false,
    "scope": "user",
    "sortOrder": 3,
-   "publicAlias": "本地·视频(Wan/LongCat) · worker :8197"
+   "publicAlias": "本地·出视频 · Wan/LongCat/VACE :8197 · Animate2 :8199"
   }
  ],
  "imageModel": "toiv-image::local-checkpoint",

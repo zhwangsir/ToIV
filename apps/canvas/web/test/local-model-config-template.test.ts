@@ -4,51 +4,64 @@ import { describe, expect, test } from "bun:test";
 
 const templatePath = resolve(import.meta.dir, "../../deploy/toiv-staging/gate/model-config.template.example.json");
 
-describe("model-config template local-first", () => {
+describe("model-config template local-first realign", () => {
     const cfg = JSON.parse(readFileSync(templatePath, "utf8"));
 
-    test("video + chat + image local defaults use real Comfy protocols", () => {
+    test("channels + defaults match真机 ports and NAS basenames", () => {
         const h3 = cfg.channels.find((c: any) => (c.modelProfiles || []).some((p: any) => p.protocol === "toiv-h3"));
         const llm = cfg.channels.find((c: any) => c.id === "toiv-llm");
-        const image = cfg.channels.find((c: any) => c.id === "toiv-image" || c.name === "本地·生图");
-        const wan = cfg.channels.find((c: any) => c.id === "toiv-video-wan" || String(c.name || "").includes("Wan/LongCat"));
+        const image = cfg.channels.find((c: any) => c.id === "toiv-image");
+        const wan = cfg.channels.find((c: any) => c.id === "toiv-video-wan");
 
-        expect(h3?.name).toBe("本地·H3视频");
+        expect(h3?.name).toBe("本地·H3");
         expect(String(h3?.publicAlias || "")).toContain(":8264");
         expect(String(h3?.publicAlias || "")).not.toContain(":8195");
+        const h3Profiles = h3?.modelProfiles || [];
+        const fl2va = h3Profiles.find((p: any) => p.model === "h3");
+        const ref2va = h3Profiles.find((p: any) => p.model === "h3-t2v");
+        expect(String(fl2va?.displayName || "")).toContain("fl2va");
+        expect(String(ref2va?.displayName || "")).toContain("ref2va");
+        expect(String(fl2va?.displayName || "")).not.toBe("本地·H3视频");
+        expect(String(ref2va?.displayName || "")).not.toBe("本地·H3文生视频");
+        const workerHints = h3Profiles.map((p: any) => p?.defaultOptions?.toivWorkerLabel);
+        expect(workerHints.every((v: string) => v === ":8264")).toBe(true);
+        expect(workerHints).not.toContain(":8195");
+
         expect(llm?.name).toBe("本地·Spark对话");
+        expect(llm?.baseUrl).toBe("http://192.168.71.84:8000/v1");
+        expect(String(llm?.publicAlias || "")).toContain(":8000");
         expect(cfg.assistantModel).toBe("toiv-llm::deepseek-v4-flash-dspark");
         expect(cfg.textModel).toBe("toiv-llm::deepseek-v4-flash-dspark");
         expect(llm?.models || []).toContain("deepseek-v4-flash-dspark");
-        const workerHints = (h3?.modelProfiles || []).map((p: any) => p?.defaultOptions?.toivWorkerLabel);
-        expect(workerHints.every((v: string) => v === ":8264")).toBe(true);
 
-        expect(image?.name).toBe("本地·生图");
+        expect(image?.name).toBe("本地·出图 Comfy");
         expect(String(image?.publicAlias || "")).toContain(":8196");
-        expect(String(image?.publicAlias || "")).not.toContain(":8205");
-        const imgWorkers = (image?.modelProfiles || []).map((p: any) => p?.defaultOptions?.toivWorkerLabel);
-        expect(imgWorkers.every((v: string) => v === ":8196")).toBe(true);
+        expect(String(image?.publicAlias || "")).toContain("Qwen-Rapid-AIO-SFW-v11");
+        const imgProfile = (image?.modelProfiles || []).find((p: any) => p.model === "local-checkpoint");
+        expect(String(imgProfile?.displayName || "")).toBe("Qwen-Rapid-AIO-SFW-v11.safetensors");
+        expect(imgProfile?.defaultOptions?.toivWorkerLabel).toBe(":8196");
         expect(cfg.imageModel).toBe("toiv-image::local-checkpoint");
         expect(cfg.imageModels || []).toContain("toiv-image::local-checkpoint");
-        const imgProtocols = (image?.modelProfiles || []).map((p: any) => p.protocol);
-        expect(imgProtocols).toContain("toiv-comfy-image");
-        expect(imgProtocols).not.toContain("openai-images");
+        expect((image?.modelProfiles || []).map((p: any) => p.protocol)).toContain("toiv-comfy-image");
 
-        // Comfy protocol knife: Wan/LongCat channel uses toiv-comfy-video → :8197
-        expect(wan).toBeDefined();
-        expect(wan?.id).toBe("toiv-video-wan");
+        expect(wan?.name).toBe("本地·出视频");
         expect(String(wan?.publicAlias || "")).toContain(":8197");
-        const wanProtocols = (wan?.modelProfiles || []).map((p: any) => p.protocol);
-        expect(wanProtocols).toContain("toiv-comfy-video");
-        expect(wanProtocols).not.toContain("openai-videos");
+        expect(String(wan?.publicAlias || "")).toContain(":8199");
+        const animate = (wan?.modelProfiles || []).find((p: any) => p.model === "local-wan-animate");
+        expect(animate?.displayName).toBe("本地·Wan Animate2");
+        expect(animate?.defaultOptions?.toivWorkerLabel).toBe(":8199");
         expect(cfg.videoModels || []).toEqual(expect.arrayContaining([
             "toiv-video-wan::local-wan",
             "toiv-video-wan::local-longcat",
             "toiv-video-wan::local-vace",
             "toiv-video-wan::local-wan-animate",
         ]));
-        expect((wan?.models || []) as string[]).toEqual(expect.arrayContaining(["local-wan", "local-longcat", "local-vace", "local-wan-animate"]));
-        // Default video stays H3
+
+        // Default video stays H3 production :8264 (protocol id h3, display = fl2va basename)
         expect(String(cfg.videoModel || "")).toContain("h3");
+        expect(String(cfg.videoModel || "")).not.toContain("local-wan");
+
+        // No BeefAPI on local template path
+        expect(cfg.channels.some((c: any) => c.id === "beefapi")).toBe(false);
     });
 });
