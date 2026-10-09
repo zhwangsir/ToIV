@@ -268,7 +268,7 @@ export function StudioView({
       <div className="studio-home view-shell">
         <PageHeader
           title="做短剧"
-          desc="我的剧集"
+          desc="我的剧集 · 融合主路径见画布「短剧工作台」(/toiv/drama)"
           icon="clapperboard"
           onBack={onBack}
           backLabel="返回融合"

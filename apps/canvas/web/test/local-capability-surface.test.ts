@@ -23,7 +23,7 @@ import {
 describe("local-capability-surface catalog", () => {
     test("featured pack covers local 7 + Wan", () => {
         const labels = LOCAL_MARKET_FEATURED.map((e) => e.label);
-        for (const need of ["本地出图", "H3", "LongCat", "VACE", "Animate2", "Continue", "Avatar", "Wan"]) {
+        for (const need of ["本地·出图", "本地·H3", "本地·LongCat", "本地·VACE", "本地·Animate2", "本地·Continue", "本地·Avatar", "本地·Wan"]) {
             expect(labels).toContain(need);
         }
         expect(localMarketFeaturedAppIds()).toContain("h3-t2v");
@@ -172,5 +172,14 @@ describe("local-capability-surface wiring (source)", () => {
         expect(client).toContain("fetchToivAppVariants");
         expect(client).toContain("/variants");
         expect(client).toContain("submit_kind?");
+    });
+
+    test("similar-merge P1 Slice B: create/featured labels unify 本地·引擎名", () => {
+        for (const e of LOCAL_MARKET_FEATURED) {
+            expect(e.label.startsWith("本地·")).toBe(true);
+        }
+        for (const e of LOCAL_CREATE_PRESETS) {
+            expect(e.label.startsWith("本地·")).toBe(true);
+        }
     });
 });
