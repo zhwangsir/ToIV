@@ -132,15 +132,17 @@ func TestWindowsReadLegacyWriteNewRuntimeDescriptor(t *testing.T) {
 		t.Fatalf("Remove of primary must not delete legacy sibling: %v", err)
 	}
 
-	// Only legacy remains with our PID → Remove clears legacy.
-	if err := os.WriteFile(legacy, encoded, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	// Only legacy remains with our PID → still leave it (读旧写新：不删遗留).
 	if err := Remove(dataDir); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
-		t.Fatalf("Remove must clear legacy when primary missing: %v", err)
+	if _, err := os.Stat(legacy); err != nil {
+		t.Fatalf("Remove must leave legacy when primary already gone: %v", err)
+	}
+	// Dead-PID discovery still ignores stale legacy later; here PID is live so Discover finds it.
+	got, found = Discover(dataDir)
+	if !found || got.Version != "legacy-only" {
+		t.Fatalf("legacy-only after primary Remove should still discover: %+v found=%v", got, found)
 	}
 }
 

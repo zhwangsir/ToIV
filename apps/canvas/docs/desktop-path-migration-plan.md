@@ -1,6 +1,6 @@
 # 桌面路径迁移方案（BeefTV → ToIV）
 
-状态：P0+P1+P2 已合 tip `37de0363`（feat `040c2862`）。P3 updates 缓存已合 tip `a6a96717`（feat `87d44d0f`）：`ToIV/updates` + 遗留 `BeefTV/updates` 回退。P3 Windows runtime 描述符已合（读旧写新 `.toiv` / 遗留 `.beeftv`）。未搬生产数据、未部署。
+状态：P0+P1+P2 已合 tip `37de0363`（feat `040c2862`）。P3 updates 缓存已合 tip `a6a96717`（feat `87d44d0f`）：`ToIV/updates` + 遗留 `BeefTV/updates` 回退。P3 Windows runtime 描述符在分支 `feat/canvas-p3-windows-runtime-toiv`（读旧写新 `.toiv` / 遗留 `.beeftv`），待审合。未搬生产数据、未部署。
 基线 tip：`8d22d144`（含 command_guard 品牌文案）。CLI / MCP 协议 id 继续保留 `beeftv`。
 
 ## 1. 现状盘点（代码事实）
@@ -66,7 +66,7 @@
 
 ### P3 — 收尾（可选）
 
-- Windows `.beeftv/runtime` → `.toiv/runtime`（读旧写新）— **已做**：写一律 `.toiv/runtime/<hash>.json`；读先 `.toiv` 再遗留 `.beeftv`；Remove 优先新路径否则旧路径；不删目录、不搬文件、无 AppData 影子回退。
+- Windows `.beeftv/runtime` → `.toiv/runtime`（读旧写新）— **分支 `feat/canvas-p3-windows-runtime-toiv`**：写一律 `.toiv/runtime/<hash>.json`；读先 `.toiv` 再遗留 `.beeftv`；Remove 只清 `.toiv`（不删遗留文件）；不删目录、不搬文件、无 AppData 影子回退。
 - 更新缓存目录 `BeefTV/updates` → `ToIV/updates` — **已合 tip `a6a96717`（feat `87d44d0f`）**：优先 `ToIV/updates`；仅旧目录存在时回退续传；不删不搬；`stagingRoot` 显式覆盖仍优先生效。
 - 仍保留：CLI `beeftv`、插件后缀、UA `BeefTV-Desktop-Updater`（除非产品另行授权）。
 
