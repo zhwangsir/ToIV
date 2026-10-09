@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T18:53:00+08:00",
+  "updated_at": "2026-10-09T18:55:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13793,27 +13793,51 @@
     "remotes": {
       "origin_gitee_main": "30357bfc"
     },
-    "updated_at": "2026-10-09T18:48:00+08:00"
+    "updated_at": "2026-10-09T18:55:00+08:00",
+    "superseded_by": "0c577ae1"
   },
   "fusion_market_gap_p1_2026_10_09": {
-    "status": "fusion_market_gap_p1_0c577ae1_await_merge",
+    "status": "fusion_market_gap_p1_merged_canvas_deploying",
     "date": "2026-10-09",
     "source": [
+      "ToIV开发",
       "ToIV BeefTV 融合",
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "tip 0c577ae1 已双推分支，待审合",
-    "branch": "feat/studio-market-gap-p1",
+    "summary": "tip 0c577ae1 已合 main，canvas-only 刷生产中",
     "tip": "0c577ae1",
+    "merged_to_main": true,
+    "deployed": false,
+    "updated_at": "2026-10-09T18:55:00+08:00"
+  },
+  "main_tip_0c577ae1_2026_10_09": {
+    "status": "main_tip_0c577ae1_merged_canvas_deploying",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "ToIV 盯梢",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "0c577ae1 已合 main；canvas-only 刷中",
+    "product_tip": "0c577ae1",
     "scope": [
       "media_upload",
       "audio_unwired_label",
       "task_timeline"
     ],
-    "merged_to_main": false,
-    "deployed": false,
-    "main_tip": "30357bfc",
-    "updated_at": "2026-10-09T18:53:00+08:00"
+    "deploy": {
+      "canvas": {
+        "status": "deploying",
+        "live_approx": "30357bfc"
+      }
+    },
+    "h3_timer": {
+      "status": "blocked",
+      "missing": "h3_service_account.env"
+    },
+    "updated_at": "2026-10-09T18:55:00+08:00"
   }
 }

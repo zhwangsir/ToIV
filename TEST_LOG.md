@@ -1,4 +1,4 @@
-- 2026-10-09 tip `0c577ae1` **未合/未部署**（项目管家；融合）：分支 `feat/studio-market-gap-p1` 已双推；等 ToIV开发审合→canvas-only；status=`fusion_market_gap_p1_0c577ae1_await_merge`；updated_at 2026-10-09T18:53:00+08:00。
+- 2026-10-09 tip `0c577ae1` **已合未部署**（项目管家；ToIV开发/盯梢/融合）：gap-p1 已合 main；canvas-only 刷生产中；status=`main_tip_0c577ae1_merged_canvas_deploying`；updated_at 2026-10-09T18:55:00+08:00。
 - 2026-10-09 市场 gap-p1 分支已开（项目管家；融合）：`feat/studio-market-gap-p1`——媒体上传+音频未接标明+任务时间线；tip 未出、等交审；status=`fusion_market_gap_p1_branch_open`；updated_at 2026-10-09T18:49:00+08:00。
 - 2026-10-09 tip `30357bfc` **已部署**（项目管家；ToIV开发）：市场本地能力露出 canvas-only 落稳；status=`main_tip_30357bfc_deployed`；updated_at 2026-10-09T18:48:00+08:00。
 - 2026-10-09 tip `bbeab23e` **已部署**（项目管家；ToIV开发/盯梢/融合）：canvas-only 落稳，活模板含 int8；默认 Qwen/int8_convrot/deepseek + 本地跳过 Key；市场露出 tip 未出；status=`main_tip_bbeab23e_deployed`；updated_at 2026-10-09T18:35:00+08:00。
