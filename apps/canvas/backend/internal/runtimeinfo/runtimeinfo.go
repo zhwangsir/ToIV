@@ -75,8 +75,8 @@ func Write(dataDir, baseURL, version string) error {
 }
 
 // Remove 在干净退出时删掉描述文件：留着会让下一次发现连到一个已经不在的端口。
-// 只删本进程在规范路径（Windows 为 ~/.toiv/runtime）写下的那份；不删遗留
-// ~/.beeftv/runtime，不搬文件，避免把另一个还在跑的实例的地址抹掉。
+// 只删本进程写的、与本 dataDir hash 对应的那一个文件（优先新路径，否则遗留路径），
+// 不删整个目录、不搬文件，避免把另一个还在跑的实例的地址抹掉。
 func Remove(dataDir string) error {
 	info, err := Load(dataDir)
 	if os.IsNotExist(err) {
@@ -88,11 +88,17 @@ func Remove(dataDir string) error {
 	if info.PID != os.Getpid() {
 		return nil
 	}
-	primary, _, _, err := descriptorLocation(dataDir)
+	primary, legacy, _, err := descriptorLocation(dataDir)
 	if err != nil {
 		return err
 	}
-	if err := os.Remove(primary); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(primary); err == nil || !os.IsNotExist(err) {
+		return err
+	}
+	if legacy == "" {
+		return nil
+	}
+	if err := os.Remove(legacy); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil
