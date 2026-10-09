@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T18:35:00+08:00",
+  "updated_at": "2026-10-09T18:44:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13746,29 +13746,49 @@
       "origin_gitee_main": "bbeab23e",
       "github_main": "bbeab23e"
     },
-    "updated_at": "2026-10-09T18:35:00+08:00"
+    "updated_at": "2026-10-09T18:44:00+08:00",
+    "superseded_by": "30357bfc"
   },
   "fusion_market_expose_merge_2026_10_09": {
-    "status": "fusion_market_local_capability_branch_open",
+    "status": "fusion_market_30357bfc_merged_canvas_deploying",
     "date": "2026-10-09",
     "source": [
-      "User",
       "ToIV开发",
       "ToIV BeefTV 融合",
-      "ToIV 模型下载",
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "摸底交审；分支 feat/studio-market-local-capability-surface 已开，tip 未出",
-    "process": "inventory→dev_review→mapping+merge+market_cards",
-    "branch": "feat/studio-market-local-capability-surface",
-    "proposed_knife": [
-      "market_local_capability_surface",
-      "intent_deeplink",
-      "create_menu_preset_engines"
+    "summary": "tip 30357bfc 已合 main，canvas-only 刷生产中",
+    "tip": "30357bfc",
+    "merged_to_main": true,
+    "deployed": false,
+    "updated_at": "2026-10-09T18:44:00+08:00"
+  },
+  "main_tip_30357bfc_2026_10_09": {
+    "status": "main_tip_30357bfc_merged_canvas_deploying",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "ToIV 盯梢",
+      "项目管家"
     ],
-    "model_followup": "await_basename_map_then_NAS_picker_mark",
-    "tip": null,
-    "updated_at": "2026-10-09T18:34:00+08:00"
+    "steward": "项目管家",
+    "summary": "30357bfc 已合 main；canvas-only 刷中",
+    "product_tip": "30357bfc",
+    "deploy": {
+      "canvas": {
+        "status": "deploying",
+        "live_approx": "bbeab23e"
+      }
+    },
+    "h3_timer": {
+      "status": "blocked",
+      "missing": "h3_service_account.env"
+    },
+    "remotes": {
+      "origin_gitee_main": "30357bfc"
+    },
+    "updated_at": "2026-10-09T18:44:00+08:00"
   }
 }

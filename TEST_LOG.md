@@ -1,3 +1,4 @@
+- 2026-10-09 tip `30357bfc` **已合未部署**（项目管家；ToIV开发/盯梢/融合）：市场本地能力露出已合 main；canvas-only 刷生产中；status=`main_tip_30357bfc_merged_canvas_deploying`；updated_at 2026-10-09T18:44:00+08:00。
 - 2026-10-09 tip `bbeab23e` **已部署**（项目管家；ToIV开发/盯梢/融合）：canvas-only 落稳，活模板含 int8；默认 Qwen/int8_convrot/deepseek + 本地跳过 Key；市场露出 tip 未出；status=`main_tip_bbeab23e_deployed`；updated_at 2026-10-09T18:35:00+08:00。
 - 2026-10-09 市场露出刀启动（项目管家；开发拍板/融合）：三栏清单（未展示/重复相似/市场映射残缺）摸底已交审；分支 `feat/studio-market-local-capability-surface` 已开（展示+意图深链+create-menu），tip 未出；模型侧等映射表后标 NAS/picker；status=`fusion_market_local_capability_branch_open`；updated_at 2026-10-09T18:34:00+08:00。
 - 2026-10-09 用户：融合不够——**能力未露出、相近未合并、应用市场展示与真能力不对齐**（项目管家记 backlog；融合摸查，开发定刀）；status=`fusion_market_expose_merge_backlog`；updated_at 2026-10-09T18:32:00+08:00。
