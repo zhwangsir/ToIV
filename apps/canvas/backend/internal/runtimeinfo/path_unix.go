@@ -8,9 +8,9 @@ import (
 	"strings"
 )
 
-func descriptorLocation(dataDir string) (string, string, error) {
+func descriptorLocation(dataDir string) (primary, legacy, dataDirHash string, err error) {
 	if strings.TrimSpace(dataDir) == "" {
-		return "", "", errors.New("数据目录不能为空")
+		return "", "", "", errors.New("数据目录不能为空")
 	}
-	return filepath.Join(dataDir, FileName), "", nil
+	return filepath.Join(dataDir, FileName), "", "", nil
 }
