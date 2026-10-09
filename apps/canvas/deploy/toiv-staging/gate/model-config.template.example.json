@@ -433,6 +433,88 @@
    "scope": "user",
    "sortOrder": 1,
    "publicAlias": "Spark TP2 · deepseek-v4-flash-dspark"
+  },
+  {
+   "apiFormat": "openai",
+   "apiKey": "",
+   "baseUrl": "http://127.0.0.1:8090",
+   "enabled": true,
+   "headers": [],
+   "id": "toiv-image",
+   "modelProfiles": [
+    {
+     "capability": "image",
+     "capabilityConfig": {
+      "version": 1,
+      "image": {
+       "maxOutputs": 4,
+       "outputFormat": {
+        "supported": true
+       },
+       "quality": {
+        "default": "auto",
+        "supported": true,
+        "values": [
+         "auto",
+         "low",
+         "medium",
+         "high"
+        ]
+       },
+       "references": {
+        "maskSupported": true,
+        "maxImageBytes": 31457280,
+        "maxImages": 4,
+        "promptMaxChars": 32000
+       },
+       "responseFormat": {
+        "supported": true
+       },
+       "size": {
+        "allowCustom": true,
+        "default": "1:1",
+        "parameter": "size",
+        "values": [
+         "auto",
+         "1:1",
+         "3:2",
+         "2:3",
+         "4:3",
+         "3:4",
+         "16:9",
+         "9:16",
+         "1024x1024",
+         "1536x1024",
+         "1024x1536"
+        ]
+       },
+       "transparentBackground": {
+        "default": false,
+        "supported": false
+       }
+      }
+     },
+     "model": "local-checkpoint",
+     "protocol": "openai-images",
+     "displayName": "本地·生图",
+     "defaultOptions": {
+      "toivWorkerLabel": ":8196",
+      "toivNasRoot": "toiv/comfyui-models"
+     }
+    }
+   ],
+   "models": [
+    "local-checkpoint"
+   ],
+   "name": "本地·生图",
+   "pinned": false,
+   "scope": "user",
+   "sortOrder": 2,
+   "publicAlias": "本地·生图 · worker :8196（LB :8188）"
   }
+ ],
+ "imageModel": "toiv-image::local-checkpoint",
+ "imageModels": [
+  "toiv-image::local-checkpoint"
  ]
 }

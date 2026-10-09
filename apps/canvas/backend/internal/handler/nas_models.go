@@ -50,14 +50,15 @@ func RegisterNasModelRoutes(r *gin.RouterGroup, svc *app.Service) {
 	})
 	r.POST("/nas/models/bind", func(c *gin.Context) {
 		var body struct {
-			RelPath string `json:"rel_path"`
-			Group   string `json:"group"`
+			RelPath     string `json:"rel_path"`
+			Group       string `json:"group"`
+			WorkerLabel string `json:"worker_label"`
 		}
 		if err := c.ShouldBindJSON(&body); err != nil {
 			fail(c, http.StatusBadRequest, err)
 			return
 		}
-		job, err := store.StartBind(body.RelPath, body.Group)
+		job, err := store.StartBind(body.RelPath, body.Group, body.WorkerLabel)
 		if err != nil {
 			fail(c, http.StatusBadRequest, err)
 			return

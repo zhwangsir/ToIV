@@ -7,41 +7,65 @@ import {
     LOCAL_CHAT_CHANNEL_NAME,
     LOCAL_H3_CHANNEL_NAME,
     LOCAL_H3_WORKER_LABEL,
-    LOCAL_IMAGE_WORKER_PLACEHOLDER,
+    LOCAL_IMAGE_CHANNEL_ID,
+    LOCAL_IMAGE_CHANNEL_NAME,
+    LOCAL_IMAGE_LB_LABEL,
+    LOCAL_IMAGE_MODEL,
+    LOCAL_IMAGE_MODEL_REF,
+    LOCAL_IMAGE_WORKER_LABEL,
     LOCAL_NAS_ROOT_DEFAULT,
     filterH3PickerEntries,
+    filterImagePickerEntries,
     localComputeDefaults,
 } from "@/lib/local-model-defaults";
-import { getNasModels, pollNasModelBind, startNasModelBind, type NasModelEntry } from "@/services/api/nas-models";
+import {
+    getNasModels,
+    pollNasModelBind,
+    startNasModelBind,
+    type NasBindGroup,
+    type NasModelEntry,
+} from "@/services/api/nas-models";
 import { useConfigStore } from "@/stores/use-config-store";
+
+type BindProgress = { stage: string; percent: number; hint?: string } | null;
 
 export function LocalComputePane() {
     const { message } = App.useApp();
     const config = useConfigStore((s) => s.config);
     const replaceConfig = useConfigStore((s) => s.replaceConfig);
     const defaults = localComputeDefaults();
-    const [entries, setEntries] = useState<NasModelEntry[]>([]);
+    const [h3Entries, setH3Entries] = useState<NasModelEntry[]>([]);
+    const [imageEntries, setImageEntries] = useState<NasModelEntry[]>([]);
     const [loading, setLoading] = useState(false);
-    const [selected, setSelected] = useState<string>();
-    const [boundPath, setBoundPath] = useState<string>();
-    const [progress, setProgress] = useState<{ stage: string; percent: number; hint?: string } | null>(null);
+    const [h3Selected, setH3Selected] = useState<string>();
+    const [imageSelected, setImageSelected] = useState<string>();
+    const [h3Bound, setH3Bound] = useState<string>();
+    const [imageBound, setImageBound] = useState<string>();
+    const [h3Progress, setH3Progress] = useState<BindProgress>(null);
+    const [imageProgress, setImageProgress] = useState<BindProgress>(null);
     const [source, setSource] = useState<string>();
 
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await getNasModels("h3");
+            const data = await getNasModels("all");
             const h3 = filterH3PickerEntries(data.inventory?.h3 || []);
-            setEntries(h3);
+            const images = filterImagePickerEntries(data.inventory?.main || []);
+            setH3Entries(h3);
+            setImageEntries(images);
             setSource(data.inventory?.source);
-            const current = data.bindings?.h3?.rel_path;
-            if (current) {
-                setBoundPath(current);
-                setSelected(current);
+            if (data.bindings?.h3?.rel_path) {
+                setH3Bound(data.bindings.h3.rel_path);
+                setH3Selected(data.bindings.h3.rel_path);
+            }
+            if (data.bindings?.image?.rel_path) {
+                setImageBound(data.bindings.image.rel_path);
+                setImageSelected(data.bindings.image.rel_path);
             }
         } catch (error) {
-            message.warning(error instanceof Error ? error.message : "无法加载 NAS H3 清单（可稍后重试）");
-            setEntries([]);
+            message.warning(error instanceof Error ? error.message : "无法加载 NAS 选模清单（可稍后重试）");
+            setH3Entries([]);
+            setImageEntries([]);
         } finally {
             setLoading(false);
         }
@@ -49,22 +73,37 @@ export function LocalComputePane() {
 
     useEffect(() => { void load(); }, [load]);
 
-    const options = useMemo(
-        () => entries.map((e) => ({
+    const h3Options = useMemo(
+        () => h3Entries.map((e) => ({
             value: e.rel_path,
             label: `${e.basename}${e.用途 ? ` · ${e.用途}` : ""}`,
         })),
-        [entries],
+        [h3Entries],
+    );
+    const imageOptions = useMemo(
+        () => imageEntries.map((e) => ({
+            value: e.rel_path,
+            label: `${e.basename}${e.用途 ? ` · ${e.用途}` : ""}`,
+        })),
+        [imageEntries],
     );
 
     const applyLocalChannelLabels = () => {
-        const channels = config.channels.map((channel) => {
+        let channels = config.channels.map((channel) => {
             const isH3 = (channel.modelProfiles || []).some((p) => p.protocol === "toiv-h3" || p.model === "h3" || p.model === "h3-t2v");
             if (isH3) {
                 return {
                     ...channel,
                     name: LOCAL_H3_CHANNEL_NAME,
                     publicAlias: `${LOCAL_H3_CHANNEL_NAME} · worker ${LOCAL_H3_WORKER_LABEL}`,
+                };
+            }
+            if (channel.id === LOCAL_IMAGE_CHANNEL_ID || channel.name === LOCAL_IMAGE_CHANNEL_NAME) {
+                return {
+                    ...channel,
+                    id: LOCAL_IMAGE_CHANNEL_ID,
+                    name: LOCAL_IMAGE_CHANNEL_NAME,
+                    publicAlias: `${LOCAL_IMAGE_CHANNEL_NAME} · worker ${LOCAL_IMAGE_WORKER_LABEL}（LB ${LOCAL_IMAGE_LB_LABEL}）`,
                 };
             }
             if (channel.id === "toiv-llm") {
@@ -78,13 +117,48 @@ export function LocalComputePane() {
             }
             return channel;
         });
+
+        if (!channels.some((c) => c.id === LOCAL_IMAGE_CHANNEL_ID || c.name === LOCAL_IMAGE_CHANNEL_NAME)) {
+            channels = [
+                ...channels,
+                {
+                    id: LOCAL_IMAGE_CHANNEL_ID,
+                    name: LOCAL_IMAGE_CHANNEL_NAME,
+                    publicAlias: `${LOCAL_IMAGE_CHANNEL_NAME} · worker ${LOCAL_IMAGE_WORKER_LABEL}（LB ${LOCAL_IMAGE_LB_LABEL}）`,
+                    enabled: true,
+                    apiFormat: "openai",
+                    apiKey: "",
+                    baseUrl: "http://127.0.0.1:8090",
+                    headers: [],
+                    models: [LOCAL_IMAGE_MODEL],
+                    modelProfiles: [
+                        {
+                            capability: "image",
+                            model: LOCAL_IMAGE_MODEL,
+                            protocol: "openai-images",
+                            displayName: LOCAL_IMAGE_CHANNEL_NAME,
+                            defaultOptions: {
+                                toivWorkerLabel: LOCAL_IMAGE_WORKER_LABEL,
+                                toivNasRoot: LOCAL_NAS_ROOT_DEFAULT,
+                            },
+                        } as any,
+                    ],
+                    pinned: false,
+                    scope: "user",
+                    sortOrder: 2,
+                } as any,
+            ];
+        }
+
         replaceConfig({
             ...config,
             channels,
             assistantModel: config.assistantModel || `toiv-llm::${LOCAL_CHAT_ALIAS}`,
             textModel: config.textModel || `toiv-llm::${LOCAL_CHAT_ALIAS}`,
             textModels: config.textModels?.length ? config.textModels : [`toiv-llm::${LOCAL_CHAT_ALIAS}`],
-        });
+            imageModel: config.imageModel || LOCAL_IMAGE_MODEL_REF,
+            imageModels: config.imageModels?.length ? config.imageModels : [LOCAL_IMAGE_MODEL_REF],
+        } as any);
     };
 
     useEffect(() => {
@@ -92,29 +166,39 @@ export function LocalComputePane() {
         // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot label sync on mount
     }, []);
 
-    const onBind = async () => {
-        if (!selected) {
-            message.warning("请先选择 H3 权重");
+    const runBind = async (opts: {
+        selected?: string;
+        group: NasBindGroup;
+        worker: string;
+        setProgress: (p: BindProgress) => void;
+        setBound: (path: string) => void;
+        emptyMsg: string;
+        okMsg: string;
+    }) => {
+        if (!opts.selected) {
+            message.warning(opts.emptyMsg);
             return;
         }
-        setProgress({ stage: "validate", percent: 10 });
+        opts.setProgress({ stage: "validate", percent: 10 });
         try {
-            const job = await startNasModelBind(selected, "h3");
-            setProgress({ stage: job.stage, percent: job.progress, hint: job.hint });
+            const job = await startNasModelBind(opts.selected, opts.group, opts.worker);
+            opts.setProgress({ stage: job.stage, percent: job.progress, hint: job.hint });
             const done = await pollNasModelBind(job.id);
-            setProgress({ stage: done.stage, percent: done.progress, hint: done.hint });
+            opts.setProgress({ stage: done.stage, percent: done.progress, hint: done.hint });
             if (done.status === "error") {
                 message.error(done.error || "绑定失败");
                 return;
             }
-            setBoundPath(done.binding?.rel_path || selected);
+            opts.setBound(done.binding?.rel_path || opts.selected);
             applyLocalChannelLabels();
-            message.success("已绑定本地 H3 权重");
+            message.success(opts.okMsg);
         } catch (error) {
             message.error(error instanceof Error ? error.message : "绑定失败");
-            setProgress(null);
+            opts.setProgress(null);
         }
     };
+
+    const bindingBusy = (p: BindProgress) => Boolean(p && p.percent < 100 && p.stage !== "done");
 
     return (
         <section className="settings-section mb-4" data-testid="local-compute-pane">
@@ -122,7 +206,7 @@ export function LocalComputePane() {
                 <div className="min-w-0">
                     <h2 className="text-base font-semibold">模型与算力（本地优先）</h2>
                     <p className="mt-1 text-xs text-foreground/55">
-                        视频走 Workstation Comfy H3；对话走 Spark。NAS 根默认 <code>{LOCAL_NAS_ROOT_DEFAULT}</code>。
+                        生图走 Workstation Comfy {LOCAL_IMAGE_WORKER_LABEL}（LB {LOCAL_IMAGE_LB_LABEL}）；视频走 H3 {LOCAL_H3_WORKER_LABEL}；对话走 Spark。NAS 根默认 <code>{LOCAL_NAS_ROOT_DEFAULT}</code>。
                     </p>
                 </div>
                 <Button size="small" icon={<RefreshCw className="size-3.5" />} loading={loading} onClick={() => void load()}>
@@ -131,7 +215,53 @@ export function LocalComputePane() {
             </div>
 
             <div className="grid gap-3 lg:grid-cols-2">
-                <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+                <div className="rounded-lg border border-border/60 bg-background/40 p-3" data-testid="local-image-bind">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                        <Server className="size-4" />
+                        {LOCAL_IMAGE_CHANNEL_NAME}
+                        <Tag color="purple">worker {LOCAL_IMAGE_WORKER_LABEL}</Tag>
+                    </div>
+                    <p className="mb-2 text-xs text-foreground/55">
+                        列出 NAS main 中用途含「出图」的权重；绑定到生产生图口 {LOCAL_IMAGE_WORKER_LABEL}（非试验床，禁 :8205/:8261）。落盘后 refresh object_info，仍不见再重启该 worker。
+                    </p>
+                    <Select
+                        className="w-full"
+                        showSearch
+                        allowClear
+                        loading={loading}
+                        placeholder={imageEntries.length ? "从 NAS 选择出图权重" : "暂无出图条目"}
+                        options={imageOptions}
+                        value={imageSelected}
+                        optionFilterProp="label"
+                        onChange={(v) => setImageSelected(v)}
+                    />
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Button
+                            type="primary"
+                            disabled={!imageSelected || bindingBusy(imageProgress)}
+                            onClick={() => void runBind({
+                                selected: imageSelected,
+                                group: "image",
+                                worker: LOCAL_IMAGE_WORKER_LABEL,
+                                setProgress: setImageProgress,
+                                setBound: setImageBound,
+                                emptyMsg: "请先选择出图权重",
+                                okMsg: "已绑定本地生图权重 → :8196",
+                            })}
+                        >
+                            替换并绑定
+                        </Button>
+                        {imageBound ? <span className="truncate text-xs text-foreground/55">当前：{imageBound}</span> : null}
+                    </div>
+                    {imageProgress ? (
+                        <div className="mt-3" data-testid="nas-image-bind-progress">
+                            <Progress percent={imageProgress.percent} size="small" status={imageProgress.stage === "done" ? "success" : "active"} />
+                            <div className="mt-1 text-xs text-foreground/55">阶段：{imageProgress.stage}{imageProgress.hint ? ` · ${imageProgress.hint}` : ""}</div>
+                        </div>
+                    ) : null}
+                </div>
+
+                <div className="rounded-lg border border-border/60 bg-background/40 p-3" data-testid="local-h3-bind">
                     <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
                         <Server className="size-4" />
                         {LOCAL_H3_CHANNEL_NAME}
@@ -143,28 +273,39 @@ export function LocalComputePane() {
                         showSearch
                         allowClear
                         loading={loading}
-                        placeholder={entries.length ? "从 NAS h3/ 选择权重" : "暂无 h3/ 条目"}
-                        options={options}
-                        value={selected}
+                        placeholder={h3Entries.length ? "从 NAS h3/ 选择权重" : "暂无 h3/ 条目"}
+                        options={h3Options}
+                        value={h3Selected}
                         optionFilterProp="label"
-                        onChange={(v) => setSelected(v)}
+                        onChange={(v) => setH3Selected(v)}
                     />
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <Button type="primary" disabled={!selected || Boolean(progress && progress.percent < 100 && progress.stage !== "done")} onClick={() => void onBind()}>
+                        <Button
+                            type="primary"
+                            disabled={!h3Selected || bindingBusy(h3Progress)}
+                            onClick={() => void runBind({
+                                selected: h3Selected,
+                                group: "h3",
+                                worker: LOCAL_H3_WORKER_LABEL,
+                                setProgress: setH3Progress,
+                                setBound: setH3Bound,
+                                emptyMsg: "请先选择 H3 权重",
+                                okMsg: "已绑定本地 H3 权重",
+                            })}
+                        >
                             替换并绑定
                         </Button>
-                        {boundPath ? <span className="truncate text-xs text-foreground/55">当前：{boundPath}</span> : null}
+                        {h3Bound ? <span className="truncate text-xs text-foreground/55">当前：{h3Bound}</span> : null}
                     </div>
-                    {progress ? (
+                    {h3Progress ? (
                         <div className="mt-3" data-testid="nas-bind-progress">
-                            <Progress percent={progress.percent} size="small" status={progress.stage === "done" ? "success" : "active"} />
-                            <div className="mt-1 text-xs text-foreground/55">阶段：{progress.stage}{progress.hint ? ` · ${progress.hint}` : ""}</div>
+                            <Progress percent={h3Progress.percent} size="small" status={h3Progress.stage === "done" ? "success" : "active"} />
+                            <div className="mt-1 text-xs text-foreground/55">阶段：{h3Progress.stage}{h3Progress.hint ? ` · ${h3Progress.hint}` : ""}</div>
                         </div>
                     ) : null}
-                    {source ? <div className="mt-2 truncate text-[11px] text-foreground/40">清单源：{source}</div> : null}
                 </div>
 
-                <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+                <div className="rounded-lg border border-border/60 bg-background/40 p-3 lg:col-span-2">
                     <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
                         <Server className="size-4" />
                         {LOCAL_CHAT_CHANNEL_NAME}
@@ -172,10 +313,8 @@ export function LocalComputePane() {
                     </div>
                     <p className="mb-2 text-xs text-foreground/55">对话别名固定走现有 <code>/api/llm/v1</code>，不浏览 NAS <code>LLM/</code>。</p>
                     <div className="text-sm">主别名：<code>{LOCAL_CHAT_ALIAS}</code></div>
-                    <div className="mt-2 text-xs text-foreground/55">同进程别名：qwen3.8-27b / qwen3.6-uncensored / glm-5.3-flash</div>
-                    <div className="mt-3 rounded border border-dashed border-border/50 p-2 text-xs text-foreground/50">
-                        出图 NAS 绑定（worker {LOCAL_IMAGE_WORKER_PLACEHOLDER}）→ slice 2 占位；chat 默认：{defaults.chatModelRef}
-                    </div>
+                    <div className="mt-2 text-xs text-foreground/55">同进程别名：qwen3.8-27b / qwen3.6-uncensored / glm-5.3-flash · 默认：{defaults.chatModelRef}</div>
+                    {source ? <div className="mt-2 truncate text-[11px] text-foreground/40">清单源：{source}</div> : null}
                 </div>
             </div>
         </section>

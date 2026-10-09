@@ -14,12 +14,15 @@ import (
 )
 
 const (
-	DefaultNASRootRel = "toiv/comfyui-models"
-	DefaultH3Worker   = ":8264"
-	DefaultChatAlias  = "deepseek-v4-flash-dspark"
-	EnvModelsRoot     = "TOIV_NAS_MODELS_ROOT"
-	EnvPickerPath     = "TOIV_NAS_PICKER_PATH"
-	EnvSourcesPath    = "TOIV_MODEL_SOURCES_PATH"
+	DefaultNASRootRel   = "toiv/comfyui-models"
+	DefaultH3Worker     = ":8264"
+	DefaultImageWorker  = ":8196" // Workstation gpu0-alt；LB :8188 入口，非试验口
+	DefaultChatAlias    = "deepseek-v4-flash-dspark"
+	DefaultImageChannel = "本地·生图"
+	SwapHint            = "落盘后 refresh 列表；仍不见再重启该 worker"
+	EnvModelsRoot       = "TOIV_NAS_MODELS_ROOT"
+	EnvPickerPath       = "TOIV_NAS_PICKER_PATH"
+	EnvSourcesPath      = "TOIV_MODEL_SOURCES_PATH"
 )
 
 type Entry struct {
@@ -35,6 +38,7 @@ type Inventory struct {
 	Main           []Entry `json:"main"`
 	NASRootDefault string  `json:"nas_root_default"`
 	H3Worker       string  `json:"h3_worker"`
+	ImageWorker    string  `json:"image_worker"`
 	ChatAlias      string  `json:"chat_alias"`
 	Source         string  `json:"source"`
 	UpdatedAt      string  `json:"updated_at,omitempty"`
@@ -44,13 +48,14 @@ type Binding struct {
 	RelPath  string `json:"rel_path"`
 	Basename string `json:"basename"`
 	Group    string `json:"group"`
+	Worker   string `json:"worker,omitempty"`
 	BoundAt  string `json:"bound_at"`
 	Note     string `json:"note,omitempty"`
 }
 
 type BindingsFile struct {
 	H3    *Binding `json:"h3,omitempty"`
-	Image *Binding `json:"image,omitempty"` // slice2 placeholder
+	Image *Binding `json:"image,omitempty"` // 出图 · worker :8196
 }
 
 type BindJob struct {
@@ -174,7 +179,7 @@ func readPicker(path string) (*Inventory, error) {
 	}
 	return &Inventory{
 		H3: doc.H3, Main: doc.Main, NASRootDefault: root,
-		H3Worker: DefaultH3Worker, ChatAlias: DefaultChatAlias,
+		H3Worker: DefaultH3Worker, ImageWorker: DefaultImageWorker, ChatAlias: DefaultChatAlias,
 		Source: path, UpdatedAt: doc.UpdatedAt,
 	}, nil
 }
@@ -199,6 +204,7 @@ func readSourcesAsPicker(path string) (*Inventory, error) {
 	inv := &Inventory{
 		NASRootDefault: DefaultNASRootRel,
 		H3Worker:       DefaultH3Worker,
+		ImageWorker:    DefaultImageWorker,
 		ChatAlias:      DefaultChatAlias,
 		Source:         path + "#h3/",
 		UpdatedAt:      doc.UpdatedAt,
@@ -262,20 +268,32 @@ func (s *Store) writeBindingsLocked(b *BindingsFile) error {
 	return os.Rename(tmp, s.bindingsPath())
 }
 
-func (s *Store) StartBind(relPath, group string) (*BindJob, error) {
+func (s *Store) StartBind(relPath, group, workerLabel string) (*BindJob, error) {
 	relPath = strings.TrimSpace(relPath)
 	group = strings.ToLower(strings.TrimSpace(group))
 	if group == "" {
 		if strings.HasPrefix(relPath, "h3/") {
 			group = "h3"
 		} else {
-			group = "main"
+			group = "image"
 		}
+	}
+	if group == "main" {
+		group = "image" // main picker → 出图 binding slot
 	}
 	if group == "h3" && !strings.HasPrefix(relPath, "h3/") {
 		return nil, errors.New("H3 绑定仅允许 h3/ 前缀")
 	}
-	inv, err := s.Inventory(group)
+	worker, err := ResolveWorkerLabel(group, workerLabel)
+	if err != nil {
+		return nil, err
+	}
+
+	invGroup := group
+	if group == "image" {
+		invGroup = "main"
+	}
+	inv, err := s.Inventory(invGroup)
 	if err != nil {
 		return nil, err
 	}
@@ -293,26 +311,35 @@ func (s *Store) StartBind(relPath, group string) (*BindJob, error) {
 	if match == nil {
 		return nil, errors.New("选模清单中未找到该 rel_path（或 status 非 ok）")
 	}
+	if group == "image" && !strings.Contains(match.Purpose, "出图") {
+		return nil, errors.New("生图绑定仅允许用途含「出图」的权重")
+	}
 
 	stages := []string{"validate", "refresh/bind", "done"}
+	hint := SwapHint
+	if group == "h3" {
+		hint = SwapHint + "（生产 H3=" + DefaultH3Worker + "）"
+	} else {
+		hint = SwapHint + "（生图 worker=" + DefaultImageWorker + " / LB :8188）"
+	}
 	job := &BindJob{
 		ID:       strings.ReplaceAll(time.Now().Format("20060102150405.000"), ".", ""),
 		Status:   "running",
 		Stage:    stages[0],
 		Progress: 10,
 		Stages:   stages,
-		Hint:     "落盘后 refresh 列表；仍不见再重启该 worker（生产 H3=:8264）",
+		Hint:     hint,
 	}
 	s.mu.Lock()
 	s.jobs[job.ID] = job
 	s.mu.Unlock()
 
-	go s.runBind(job.ID, match, group)
+	go s.runBind(job.ID, match, group, worker)
 	return job, nil
 }
 
-func (s *Store) runBind(id string, match *Entry, group string) {
-	update := func(stage string, progress int, status string, bind *Binding, errMsg string) {
+func (s *Store) runBind(id string, match *Entry, group, worker string) {
+	update := func(stage string, progress int, status string, bind *Binding, errMsg, hint string) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		j := s.jobs[id]
@@ -324,19 +351,31 @@ func (s *Store) runBind(id string, match *Entry, group string) {
 		j.Status = status
 		j.Binding = bind
 		j.Error = errMsg
+		if hint != "" {
+			j.Hint = hint
+		}
 	}
 
 	time.Sleep(80 * time.Millisecond)
-	update("validate", 35, "running", nil, "")
+	update("validate", 35, "running", nil, "", "")
 	time.Sleep(80 * time.Millisecond)
-	update("refresh/bind", 70, "running", nil, "")
+	update("refresh/bind", 70, "running", nil, "", "")
+
+	refreshed, refreshDetail := tryObjectInfoRefresh(group, worker)
+	note := "config bind"
+	if refreshed {
+		note = "config bind + object_info refreshed"
+	} else {
+		note = "config bind + object_info refresh pending"
+	}
 
 	bind := &Binding{
 		RelPath:  match.RelPath,
 		Basename: match.Basename,
 		Group:    group,
+		Worker:   worker,
 		BoundAt:  time.Now().UTC().Format(time.RFC3339),
-		Note:     "config bind + object_info refresh hook (stub)",
+		Note:     note,
 	}
 	s.mu.Lock()
 	cur, _ := func() (*BindingsFile, error) {
@@ -364,11 +403,11 @@ func (s *Store) runBind(id string, match *Entry, group string) {
 	err := s.writeBindingsLocked(cur)
 	s.mu.Unlock()
 	if err != nil {
-		update("refresh/bind", 70, "error", nil, err.Error())
+		update("refresh/bind", 70, "error", nil, err.Error(), refreshDetail)
 		return
 	}
 	time.Sleep(60 * time.Millisecond)
-	update("done", 100, "done", bind, "")
+	update("done", 100, "done", bind, "", refreshDetail)
 }
 
 func (s *Store) Job(id string) (*BindJob, bool) {
@@ -382,17 +421,24 @@ func (s *Store) Job(id string) (*BindJob, bool) {
 	return &cp, true
 }
 
-// LocalDefaults returns the slice-1 local-first preset metadata for UI/tests.
+// LocalDefaults returns local-first preset metadata for UI/tests (slice 1+2).
 func LocalDefaults() map[string]any {
 	return map[string]any{
-		"video_channel_name": "本地·H3视频",
-		"video_protocol":     "toiv-h3",
-		"h3_worker":          DefaultH3Worker,
-		"chat_channel_id":    "toiv-llm",
-		"chat_channel_name":  "本地·Spark对话",
-		"chat_alias":         DefaultChatAlias,
-		"nas_root_default":   DefaultNASRootRel,
+		"video_channel_name":         "本地·H3视频",
+		"video_protocol":             "toiv-h3",
+		"h3_worker":                  DefaultH3Worker,
+		"image_channel_name":         DefaultImageChannel,
+		"image_worker":               DefaultImageWorker,
+		"image_lb":                   ":8188",
+		"chat_channel_id":            "toiv-llm",
+		"chat_channel_name":          "本地·Spark对话",
+		"chat_alias":                 DefaultChatAlias,
+		"nas_root_default":           DefaultNASRootRel,
 		"cloud_presets_default_open": false,
-		"image_worker_placeholder":   ":8196",
+		"swap_hint":                  SwapHint,
 	}
+}
+
+func IsImagePurpose(purpose string) bool {
+	return strings.Contains(purpose, "出图")
 }
