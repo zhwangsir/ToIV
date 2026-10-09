@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T19:11:00+08:00",
+  "updated_at": "2026-10-09T19:13:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13905,5 +13905,21 @@
       "missing": "h3_service_account.env"
     },
     "updated_at": "2026-10-09T19:11:00+08:00"
+  },
+  "home_intent_bar_2026_10_09": {
+    "status": "home_intent_bar_hold",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV BeefTV 融合",
+      "ToIV开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "下一刀首页意图条补齐；HOLD 等验/点名",
+    "blocked_on": [
+      "user_verify_library_6d70c34a",
+      "or_named_go"
+    ],
+    "updated_at": "2026-10-09T19:13:00+08:00"
   }
 }

@@ -1,3 +1,4 @@
+- 2026-10-09 下一刀 HOLD：首页意图条补齐（项目管家；融合）：等验 `6d70c34a`/点名再开；status=`home_intent_bar_hold`；updated_at 2026-10-09T19:13:00+08:00。
 - 2026-10-09 tip `6d70c34a` **已部署**（项目管家；ToIV开发/融合）：作品库详情加深 canvas-only 19:10 落稳；含 `a4c47452`；status=`main_tip_6d70c34a_deployed`；updated_at 2026-10-09T19:11:00+08:00。
 - 2026-10-09 作品库详情加深 backlog 已齐、本档无代码（ToIV开发）：对照 `library-detail.tsx`/`library-group.ts`——回收站 restore/permanent 已接 API（非占位）；变体折叠卡已有「变体/批次 · N」+ `folderCover` 代表图（M2 tip `98f56753` 已在 main）。未开分支、未部署、未真测。下一刀 backlog 跳过第 3 项。status=`library_detail_backlog_complete_no_code`；updated_at 2026-10-09T19:04:00+08:00。
 - 2026-10-09 similar-merge 停手 + 作品库详情加深开刀（项目管家；开发/融合）：无 BeefTV 相似折叠对标；作品库详情加深已开、tip 未出（并行验 `0c577ae1`）；status=`library_detail_deepen_branch_open_similar_merge_stopped`；updated_at 2026-10-09T19:02:00+08:00。
