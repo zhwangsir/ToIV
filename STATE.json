@@ -12771,11 +12771,11 @@
       "设备管家",
       "项目管家"
     ],
-    "product_tip": "b5bf6ded",
+    "product_tip": "b0e59cc8",
     "remotes": {
-      "origin_gitee_main": "b74840d9e76864a1250bfd25b2b4a61dd55cc3aa",
-      "github_main": "pending_push",
-      "verified_both": false
+      "origin_gitee_main": "b0e59cc8",
+      "github_main": "b0e59cc8",
+      "verified_both": true
     },
     "deploy": {
       "status": "not_deployed",
@@ -12826,8 +12826,8 @@
       ],
       "deployed": false
     },
-    "product_tip_gitee": "b5bf6ded",
-    "product_tip_github": "b5bf6ded",
+    "product_tip_gitee": "b0e59cc8",
+    "product_tip_github": "b0e59cc8",
     "remotes_synced": true,
     "docs_tip_on_gitee": "4575aaa9",
     "canvas_outbound_ua": {
@@ -13020,7 +13020,8 @@
         ".beeftv-plugin"
       ]
     },
-    "docs_tip_after_p3_runtime": "b74840d9e76864a1250bfd25b2b4a61dd55cc3aa"
+    "docs_tip_after_p3_runtime": "b0e59cc8",
+    "merge_tip_p3_windows_runtime": "b5bf6ded"
   },
   "deploy_stale_web_ua_brand_2026_10_09": {
     "status": "docs_synced_undeployed",
