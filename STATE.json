@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T04:44:30+08:00",
+  "updated_at": "2026-10-10T04:48:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14463,5 +14463,23 @@
     "product_tip": "385be368",
     "feat_tip": "15f1816c",
     "updated_at": "2026-10-10T04:44:30+08:00"
+  },
+  "toiv_web_refresh_2026_10_10": {
+    "status": "toiv_web_385be368_deployed",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV开发",
+      "设备管家",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "toiv-web rebuild+restart 已刷；BUILD ae5e294b（≥385be368）",
+    "build": "ae5e294b",
+    "canvas_tip": "385be368",
+    "api_tip": "d69ee564",
+    "active_enter": "2026-10-10T04:47:19+08:00",
+    "deployed": true,
+    "deploy_scope": "web",
+    "updated_at": "2026-10-10T04:48:00+08:00"
   }
 }

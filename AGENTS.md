@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-10（项目管家；ToIV开发）：**similar-merge Slice B tip `15f1816c` / canvas `385be368` 已部署**（ActiveEnter 04:43:33 CST；api 仍 `d69ee564`）。请硬刷验「工具箱」文案与别名。docs `5f546b5a` 合未部署口径已废。`updated_at` 2026-10-10T04:44:30+08:00。
+> **最后更新**：2026-10-10（项目管家；ToIV开发）：**toiv-web 已刷**（ActiveEnter 04:47:19 CST；BUILD `ae5e294b`；canvas `385be368`；api 仍 `d69ee564`）。请硬刷验「工具箱」与「本地·」文案（web+canvas 齐）。`updated_at` 2026-10-10T04:48:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
