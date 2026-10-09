@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T13:37:00+08:00",
+  "updated_at": "2026-10-09T13:45:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13082,5 +13082,29 @@
       "desktop_updater_unchanged": true
     },
     "remotes_synced": true
+  },
+  "canvas_brand_assets_toiv_2026_10_09": {
+    "status": "canvas_brand_assets_toiv_pending_merge",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发"
+    ],
+    "summary": "可见按钮 SVG/app-icon 文案 ToIV；wordmark 未动；未部署",
+    "branch": "feat/canvas-brand-assets-toiv",
+    "files": [
+      "apps/canvas/assets/readme/button-download.svg",
+      "apps/canvas/assets/readme/button-website.svg",
+      "apps/canvas/assets/readme/button-community.svg",
+      "apps/canvas/assets/readme/button-x.svg",
+      "apps/canvas/assets/app-icon.svg"
+    ],
+    "unchanged": [
+      "beeftv-wordmark.svg",
+      "beeftv-loading-preview.svg"
+    ],
+    "deploy": {
+      "status": "not_deployed"
+    },
+    "base_tip": "e851feec"
   }
 }
