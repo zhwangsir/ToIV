@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T04:41:00+08:00",
+  "updated_at": "2026-10-10T04:43:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14395,16 +14395,17 @@
     "updated_at": "2026-10-10T04:36:00+08:00"
   },
   "similar_merge_p1_slice_b_2026_10_10": {
-    "status": "similar_merge_p1_slice_b_await_merge",
+    "status": "similar_merge_p1_slice_b_merged_undeployed",
     "date": "2026-10-10",
     "source": [
-      "ToIV BeefTV 融合",
       "ToIV开发",
+      "ToIV BeefTV 融合",
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "similar-merge Slice B tip 15f1816c 待审合；合前不刷",
+    "summary": "similar-merge Slice B tip 15f1816c 已合未部署（merge 385be368）",
     "tip": "15f1816c",
+    "merge_tip": "385be368",
     "scope": [
       "#12",
       "#13",
@@ -14412,9 +14413,10 @@
       "#20",
       "#25"
     ],
-    "merged": false,
+    "merged": true,
     "deployed": false,
-    "updated_at": "2026-10-10T04:41:00+08:00"
+    "deploy_scope": "canvas",
+    "updated_at": "2026-10-10T04:43:00+08:00"
   },
   "h3_fl2va_b_ledger_2026_10_10": {
     "status": "h3_fl2va_b_ledger_ok",
@@ -14445,5 +14447,18 @@
     ],
     "evidence": ".regen_tmp/fl2va_alias_ledger_20261010.md",
     "updated_at": "2026-10-10T04:41:00+08:00"
+  },
+  "main_tip_385be368_2026_10_10": {
+    "status": "main_tip_385be368_merged_undeployed",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "merge tip 385be368 Slice B 已合；canvas 未刷齐",
+    "product_tip": "385be368",
+    "feat_tip": "15f1816c",
+    "updated_at": "2026-10-10T04:43:00+08:00"
   }
 }
