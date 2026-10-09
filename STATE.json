@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T12:10:00+08:00",
+  "updated_at": "2026-10-09T12:20:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12762,19 +12762,20 @@
     "updated_at": "2026-10-09T10:20:00+08:00"
   },
   "pipeline_c_c_chains_2026_10_09": {
-    "status": "canvas_css_prefix_toiv_merged_undeployed",
+    "status": "css_prefix_toiv_synced_undeployed",
     "date": "2026-10-09",
     "steward": "项目管家",
     "source": [
       "ToIV 开发",
       "ToIV BeefTV 融合",
+      "设备管家",
       "项目管家"
     ],
-    "product_tip": "3f41ee07",
+    "product_tip": "a52c5bd4",
     "remotes": {
-      "origin_gitee_main": "3f41ee07",
-      "github_main": "lag_443_or_timeout",
-      "verified_both": false
+      "origin_gitee_main": "a52c5bd4",
+      "github_main": "a52c5bd4",
+      "verified_both": true
     },
     "deploy": {
       "status": "not_deployed",
@@ -12810,7 +12811,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T12:15:00+08:00",
+    "updated_at": "2026-10-09T12:20:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12825,9 +12826,9 @@
       ],
       "deployed": false
     },
-    "product_tip_gitee": "3f41ee07",
-    "product_tip_github": "lag_443_or_timeout",
-    "remotes_synced": false,
+    "product_tip_gitee": "a52c5bd4",
+    "product_tip_github": "a52c5bd4",
+    "remotes_synced": true,
     "docs_tip_on_gitee": "4575aaa9",
     "canvas_outbound_ua": {
       "merged_main": true,
@@ -12883,6 +12884,18 @@
         "queryKey"
       ],
       "tests": "bun test home-dark-palette + toiv-c-chains: 5 passed",
+      "deployed": false
+    },
+    "css_prefix_toiv": {
+      "merge_commit": "3f41ee07",
+      "commit": "6a519cc1",
+      "web_class_prefix": "beeftv-_to_toiv-",
+      "unchanged": [
+        ".beeftv-plugin",
+        "mcp_cli_beeftv",
+        "localStorage_cover_key"
+      ],
+      "bun_test_passed": 5,
       "deployed": false
     }
   },
