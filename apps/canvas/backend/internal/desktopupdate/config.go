@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"infinite-canvas/backend/internal/outbound"
 )
 
 // Link-time variables. Release builds inject an HTTPS feed and a base64 raw
@@ -82,6 +84,12 @@ func normalizeFeedURL(raw string) (string, error) {
 	parsed, err := url.Parse(raw)
 	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
 		return "", ErrIncompleteConfig
+	}
+	// Positive host allowlist (same family as toiv_gate): defaults cover
+	// toiv.wineryz.top, updates.beefapi.com, and loopback; extra hosts via
+	// CANVAS_OUTBOUND_HOST_ALLOWLIST.
+	if _, err := outbound.ValidateAllowlistedOutboundURL(parsed.String()); err != nil {
+		return "", err
 	}
 	return parsed.String(), nil
 }

@@ -3,8 +3,11 @@ package desktopupdate
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
+
+	"infinite-canvas/backend/internal/outbound"
 )
 
 // Opt-in acceptance probe against the official signed feed. No private keys,
@@ -24,6 +27,10 @@ func TestLiveSystemProxyUpdateDownload(t *testing.T) {
 				os.Unsetenv(name)
 			}
 		})
+	}
+	// Live feed host must be on the positive outbound allowlist (defaults omit github.com).
+	if strings.TrimSpace(os.Getenv(outbound.EnvOutboundHostAllowlist)) == "" {
+		t.Setenv(outbound.EnvOutboundHostAllowlist, "github.com")
 	}
 	engine := NewWithOptions(Options{CurrentVersion: "v1.5.3", FeedURL: "https://github.com/glanderness/BeefTV/releases/latest/download/desktop-update.json", PublicKey: key, StagingRoot: t.TempDir()})
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)

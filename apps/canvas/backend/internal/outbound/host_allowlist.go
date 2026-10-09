@@ -13,10 +13,12 @@ import (
 // comma-separated "host" (any port) or "host:port" / "[ipv6]:port".
 const EnvOutboundHostAllowlist = "CANVAS_OUTBOUND_HOST_ALLOWLIST"
 
-// defaultOutboundHosts are always allowed. Production API plus local loopback
-// for TOIV_API_BASE overrides during development and desktop smoke tests.
+// defaultOutboundHosts are always allowed. Production API, desktop updater CDN
+// (updates.beefapi.com), plus local loopback for TOIV_API_BASE overrides during
+// development and desktop smoke tests.
 var defaultOutboundHosts = []string{
 	"toiv.wineryz.top",
+	"updates.beefapi.com",
 	"localhost",
 	"127.0.0.1",
 	"::1",

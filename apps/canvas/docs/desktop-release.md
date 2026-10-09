@@ -177,6 +177,8 @@ export BEEFTV_UPDATER_PUBLIC_KEY="$(tr -d '[:space:]' < /path/to/beeftv-updater.
 脚本会把下面两个链接期变量写进二进制：
 
 - `infinite-canvas/backend/internal/desktopupdate.FeedURL` = `https://updates.beefapi.com/beeftv/desktop-update.json`
+
+桌面更新器出站与 `toiv_gate` 共用正向主机白名单（`outbound.ValidateAllowlistedOutboundURL`）。默认放行 `toiv.wineryz.top`、现网 feed CDN `updates.beefapi.com` 与本机回环；未配 `CANVAS_OUTBOUND_HOST_ALLOWLIST` 时 updater 即可访问官方 feed。其他 CDN/staging 主机仍用该环境变量（逗号分隔）扩展，不要把无关公网域名写进代码默认名单。
 - `infinite-canvas/backend/internal/desktopupdate.PublicKey` = 公钥 Base64
 
 两个都为空时，应用里的更新器保持关闭，但仍显示当前版本。

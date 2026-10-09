@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"infinite-canvas/backend/internal/desktopnet"
+	"infinite-canvas/backend/internal/outbound"
 )
 
 func newHTTPClient() *http.Client {
@@ -35,6 +36,9 @@ func httpsRedirects(req *http.Request, via []*http.Request) error {
 	}
 	if req.URL == nil || req.URL.Scheme != "https" || req.URL.Host == "" {
 		return errInsecureUpdateURL
+	}
+	if _, err := outbound.ValidateAllowlistedOutboundURL(req.URL.String()); err != nil {
+		return err
 	}
 	return nil
 }
