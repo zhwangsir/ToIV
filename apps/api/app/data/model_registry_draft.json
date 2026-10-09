@@ -5,7 +5,8 @@
     "工程草案，不是运行中注册表服务。",
     "盘面证据来自 2026-10-09 H3 核验；sha256 大文件大多未算。",
     "generation_verified 仅记历史口径，当前未复测出片。",
-    "成人向权重登记不等于进入 /studio。"
+    "成人向权重登记不等于进入 /studio。",
+    "画布 R2V（minimax-h3-r2v）与管线 C（minimax-h3-pipeline-c）分条：同 UNET ref2va，文本分别为 nvfp4 与 int8。"
   ],
   "providers": [
     {
@@ -70,8 +71,8 @@
       "status": "configured"
     },
     {
-      "id": "minimax-h3-ref2va",
-      "display_name": "MiniMax H3 Ref2VA (pruned int8)",
+      "id": "minimax-h3-r2v",
+      "display_name": "MiniMax H3 Ref2VA canvas R2V (pruned int8 UNET + nvfp4 text)",
       "modality": "video",
       "provider": "comfyui",
       "runtime": "local",
@@ -83,12 +84,55 @@
       ],
       "capabilities": [
         "reference_to_video",
-        "image_to_video",
-        "pipeline_c"
+        "image_to_video"
       ],
       "graph_hints": [
-        "r2v rewrites UNET to ref2va",
-        "pipeline_c uses ref2va + int8 text encoder"
+        "canvas R2V: i2v graph then rewrite UNET to ref2va; text encoder stays nvfp4 like t2v/i2v"
+      ],
+      "weights": {
+        "unet": {
+          "basename": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+          "path_nas": "toiv/comfyui-models/h3/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+          "size_bytes": 20970379616,
+          "truncate_check": "ok",
+          "sha256": null
+        },
+        "text_encoder": {
+          "basename": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "path_nas": "toiv/comfyui-models/h3/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "size_bytes": 15687142551,
+          "truncate_check": "ok",
+          "sha256": null,
+          "note": "canvas R2V uses nvfp4 text, not int8"
+        }
+      },
+      "verification": {
+        "code_present": true,
+        "model_files_confirmed": true,
+        "worker_load_confirmed": false,
+        "live_generation_confirmed": false,
+        "historical_generation_note": "2026-10-08 R2V reported; not re-run 2026-10-09"
+      },
+      "status": "configured"
+    },
+    {
+      "id": "minimax-h3-pipeline-c",
+      "display_name": "MiniMax H3 Pipeline C (ref2va UNET + int8 text)",
+      "modality": "video",
+      "provider": "comfyui",
+      "runtime": "local",
+      "worker_ports": [
+        8264
+      ],
+      "experiment_ports": [
+        8195
+      ],
+      "capabilities": [
+        "pipeline_c",
+        "reference_to_video"
+      ],
+      "graph_hints": [
+        "apps/api/app/services/studio/pipeline_c_render.py / workflows/h3_pipeline_c.py; UNET ref2va pruned int8; text encoder int8_convrot"
       ],
       "weights": {
         "unet": {
@@ -104,15 +148,14 @@
           "size_bytes": 27141342152,
           "truncate_check": "ok",
           "sha256": null,
-          "note": "pipeline C uses int8 text; t2v mainline uses nvfp4"
+          "note": "pipeline C only; do not use for canvas R2V"
         }
       },
       "verification": {
         "code_present": true,
         "model_files_confirmed": true,
         "worker_load_confirmed": false,
-        "live_generation_confirmed": false,
-        "historical_generation_note": "2026-10-08 R2V reported; not re-run 2026-10-09"
+        "live_generation_confirmed": false
       },
       "status": "configured"
     },
