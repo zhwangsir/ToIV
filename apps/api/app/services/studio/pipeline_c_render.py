@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 
 from app.comfy.client import ComfyUIClient, ComfyUIError
+from app.comfy.tracker import spawn as spawn_tracker
 from app.services.studio.prompt_c import (
     build_c_visual_prompt,
     build_cast_visual_for_style,
@@ -42,6 +43,112 @@ logger = logging.getLogger(__name__)
 # 管线 C 所需节点（h3-eval :8195）
 _C_NODE = "MiniMaxH3AudioConditioningT8"
 _C_MOTION = "MiniMaxH3MotionContext"
+
+# 任务中心 Job.kind（阶段 A：同步路径也登记，便于取消/列表；非 Comfy 专页 h3_*）
+JOB_KIND_PIPELINE_C = "studio_pipeline_c"
+
+
+def _resolve_job_owner(
+    shot: Any,
+    tenant_id: str | None,
+    user_id: str | None,
+) -> tuple[str, str] | None:
+    """显式 tenant/user 优先；否则从 StudioProject 贯通。拿不到则 None（跳过建 Job）。"""
+    tid = (tenant_id or "").strip()
+    uid = (user_id or "").strip()
+    if tid and uid:
+        return tid, uid
+    project_id = (getattr(shot, "project_id", None) or "").strip()
+    if not project_id:
+        return None
+    try:
+        from sqlmodel import Session
+
+        from app.db import engine
+        from app.models import StudioProject
+
+        with Session(engine) as s:
+            p = s.get(StudioProject, project_id)
+            if p is None:
+                return None
+            pt = (p.tenant_id or "").strip()
+            pu = (p.user_id or "").strip()
+            if pt and pu:
+                return pt, pu
+    except Exception as e:  # noqa: BLE001 — 查主失败不拦渲染
+        logger.warning("pipeline_c 解析 Job 属主失败 project=%s: %s", project_id[:12], e)
+    return None
+
+
+def _register_pipeline_c_job(
+    *,
+    owner: tuple[str, str],
+    prompt_id: str,
+    worker: str,
+    seed: int,
+    prompt: str,
+    shot_id: str,
+    pipeline: str,
+    clip_index: int,
+    attempt: int,
+    db_job_id: str | None,
+) -> str | None:
+    """queue_prompt 后落/更新 DB Job；失败只打日志，返回已有或新建的 Job.id。"""
+    import json
+
+    from sqlmodel import Session
+
+    from app.db import engine
+    from app.models import Job
+
+    tenant_id, user_id = owner
+    snap = {
+        "shot_id": shot_id,
+        "pipeline": pipeline,
+        "clip_index": clip_index,
+        "attempt": attempt,
+        "seed": int(seed),
+        "stage": "A",  # 同步仍等出片；阶段 B 另议
+    }
+    try:
+        with Session(engine) as s:
+            job = s.get(Job, db_job_id) if db_job_id else None
+            if job is None:
+                job = Job(
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                    prompt_id=prompt_id,
+                    worker=worker,
+                    kind=JOB_KIND_PIPELINE_C,
+                    status="queued",
+                    prompt=(prompt or "")[:2000],
+                    seed=int(seed),
+                    params=json.dumps(snap, ensure_ascii=False),
+                )
+                s.add(job)
+                s.commit()
+                s.refresh(job)
+                return job.id
+            if job.status == "canceled":
+                # 用户已取消：不复活；仍返回 id 供上层透出
+                return job.id
+            job.prompt_id = prompt_id
+            job.worker = worker
+            job.status = "queued"
+            job.seed = int(seed)
+            job.prompt = (prompt or "")[:2000]
+            job.params = json.dumps(snap, ensure_ascii=False)
+            s.add(job)
+            s.commit()
+            return job.id
+    except Exception as e:  # noqa: BLE001 — 登记失败不炸渲染
+        logger.warning(
+            "pipeline_c Job 登记失败 prompt=%s attempt=%s: %s",
+            prompt_id[:16],
+            attempt,
+            e,
+        )
+        return db_job_id
 
 
 def _snap32(v: int) -> int:
@@ -369,8 +476,13 @@ async def render_pipeline_c(
     pipeline_name: str = "c",
     ref_overrides: dict[str, str] | None = None,
     outfit_desc: str = "",
+    tenant_id: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
-    """执行管线 C，返回 {url, context_latent, seed, prompt, worker, job_id, pipeline, first_frame}。
+    """执行管线 C，返回 {url, context_latent, seed, prompt, worker, job_id, db_job_id, pipeline, first_frame}。
+
+    阶段 A：queue_prompt 后落 DB Job + spawn_tracker；HTTP 仍 await 出片。
+    job_id ≡ Comfy prompt_id；db_job_id 为 Job.id（无属主时为空）。
 
     pipeline_name="c_hybrid"：必须带 first_frame_url（上一镜尾帧/首镜全身定妆图），
     图走 Hybrid（对齐实验 C：tmp/h3_long_exp/workflows/C_zh_seg*_c*.json）。
@@ -499,6 +611,13 @@ async def render_pipeline_c(
     prompt_id = ""
     prefix_ctx = ""
     max_submits = 3  # 首次 + 最多额外 2 次换 seed
+    db_job_id: str | None = None
+    owner = _resolve_job_owner(shot, tenant_id, user_id)
+    if owner is None:
+        logger.info(
+            "pipeline_c 跳过 Job 登记：无 tenant/user（shot=%s）",
+            str(getattr(shot, "id", "") or "")[:12],
+        )
 
     for attempt in range(max_submits):
         if attempt > 0:
@@ -531,6 +650,27 @@ async def render_pipeline_c(
             prompt_id = await client.queue_prompt(graph, client_id)
         except ComfyUIError as e:
             raise RenderError(f"{'独立镜 Ref2VA' if indep else '管线 C'} 提交失败:{e}") from e
+
+        # 阶段 A：每次 queue 登记/更新 Job + spawn_tracker；HTTP 仍同步等出片
+        if owner is not None:
+            new_id = _register_pipeline_c_job(
+                owner=owner,
+                prompt_id=prompt_id,
+                worker=client.base_url,
+                seed=seed_used,
+                prompt=positive,
+                shot_id=str(getattr(shot, "id", "") or ""),
+                pipeline=pipe_name,
+                clip_index=int(clip_index),
+                attempt=attempt,
+                db_job_id=db_job_id,
+            )
+            if new_id:
+                db_job_id = new_id
+            try:
+                spawn_tracker(client, prompt_id)
+            except Exception as e:  # noqa: BLE001 — tracker 挂不上不炸渲染
+                logger.warning("pipeline_c spawn_tracker 失败 prompt=%s: %s", prompt_id[:16], e)
 
         url = await _wait_video_url(client.base_url, prompt_id, request=request)
 
@@ -625,7 +765,8 @@ async def render_pipeline_c(
         "seed": seed_used,
         "prompt": positive,
         "worker": client.base_url,
-        "job_id": prompt_id,
+        "job_id": prompt_id,  # ≡ Comfy prompt_id（兼容既有候选/取消寻址）
+        "db_job_id": db_job_id or "",
         "pipeline": pipe_name,
         "first_frame": ff_url,
         "first_frame_name": ff_name,

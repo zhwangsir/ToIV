@@ -302,6 +302,9 @@ async def render_shot(
             "width": project.width,
             "height": project.height,
             "fps": project.fps,
+            # 管线 C 阶段 A：贯通属主，供 render_pipeline_c 落 Job
+            "tenant_id": project.tenant_id,
+            "user_id": project.user_id,
         }
     engine = (video_model or getattr(shot, "video_model", "") or "h3").strip() or "h3"
     if engine not in ("h3", "ltx"):
@@ -452,6 +455,8 @@ async def render_shot(
                             entry["worker"] = str(meta["worker"])
                         if meta.get("job_id"):
                             entry["job_id"] = str(meta["job_id"])
+                        if meta.get("db_job_id"):
+                            entry["db_job_id"] = str(meta["db_job_id"])
                         if meta.get("prompt"):
                             entry["prompt"] = str(meta["prompt"])[:500]
                         if meta.get("outfit_check"):

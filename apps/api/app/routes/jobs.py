@@ -251,6 +251,7 @@ def _video_duration(job: Job) -> float:
 _KIND_TYPICAL_SEC: tuple[tuple[str, int], ...] = (
     ("drama_char_reference", 120),
     ("studio_script_parse", 180),
+    ("studio_pipeline", 900),  # studio_pipeline_c（短剧管线 C / Ref2VA）
     ("h3_extend", 900),
     ("h3_", 900),
     ("longcat", 600),

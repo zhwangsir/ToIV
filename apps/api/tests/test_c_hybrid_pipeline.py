@@ -621,3 +621,131 @@ def test_render_pipeline_c_subtitle_hit_reseeds(monkeypatch):
     assert len(client.graphs) == 2
     assert out["brand_ocr_reseeds"] == 1
     assert out["brand_ocr_hits"] == ["subtitle:我们今晚就在这里"]
+
+
+# ───────────────────── 阶段 A：同步路径登记 Job ─────────────────────
+
+
+def test_render_pipeline_c_registers_job_and_spawns_tracker(monkeypatch):
+    """有属主时：queue 后落 Job(kind=studio_pipeline_c) + spawn_tracker；仍返回 job_id≡prompt_id。"""
+    client = _FakeClient(base_url="http://fake-h3:8195")
+    picked: dict = {}
+    pcr = _patch_pcr(monkeypatch, client, picked)
+    spawned: list[str] = []
+    jobs: list[dict] = []
+
+    def _spawn(c, pid):
+        spawned.append(pid)
+
+    def _register(**kw):
+        jid = f"db-{kw['prompt_id']}"
+        jobs.append({**kw, "id": jid})
+        return jid
+
+    monkeypatch.setattr(pcr, "spawn_tracker", _spawn)
+    monkeypatch.setattr(pcr, "_register_pipeline_c_job", _register)
+    monkeypatch.setattr(
+        pcr, "_resolve_job_owner", lambda shot, tid, uid: ("ten-1", "user-1")
+    )
+
+    shot, cast = _shot_cast()
+    out = asyncio.run(
+        pcr.render_pipeline_c(
+            shot, cast, seed=7, tenant_id="ten-1", user_id="user-1"
+        )
+    )
+    assert out["job_id"] == "pid-1"
+    assert out["db_job_id"] == "db-pid-1"
+    assert spawned == ["pid-1"]
+    assert len(jobs) == 1
+    assert jobs[0]["prompt_id"] == "pid-1"
+    assert jobs[0]["worker"] == "http://fake-h3:8195"
+    assert jobs[0]["attempt"] == 0
+    assert jobs[0]["pipeline"] == "c"
+
+
+def test_render_pipeline_c_skips_job_without_owner(monkeypatch):
+    """无属主：不建 Job、不 spawn；渲染仍成功，db_job_id 空。"""
+    client = _FakeClient()
+    pcr = _patch_pcr(monkeypatch, client, {})
+    spawned: list[str] = []
+    regs = {"n": 0}
+
+    def _spawn(c, pid):
+        spawned.append(pid)
+
+    def _register(**kw):
+        regs["n"] += 1
+        return "should-not"
+
+    monkeypatch.setattr(pcr, "spawn_tracker", _spawn)
+    monkeypatch.setattr(pcr, "_register_pipeline_c_job", _register)
+    monkeypatch.setattr(pcr, "_resolve_job_owner", lambda *a, **k: None)
+
+    shot, cast = _shot_cast()
+    out = asyncio.run(pcr.render_pipeline_c(shot, cast, seed=1))
+    assert out["job_id"] == "pid-1"
+    assert out["db_job_id"] == ""
+    assert spawned == []
+    assert regs["n"] == 0
+
+
+def test_render_pipeline_c_reseed_updates_same_job(monkeypatch):
+    """最多 3 次重提：每次 queue 都更新同一 db_job_id，并对新 prompt_id spawn。"""
+    client = _FakeClient()
+    pcr = _patch_pcr(monkeypatch, client, {})
+    n = {"i": 0}
+    spawned: list[str] = []
+    jobs: list[dict] = []
+
+    async def _queue(graph, client_id):
+        n["i"] += 1
+        client.graphs.append(graph)
+        return f"pid-{n['i']}"
+
+    async def _ocr(url, skip_until_frame=0):
+        # 前两次命中字幕 → 换 seed 再提；第三次放行
+        if n["i"] < 3:
+            return {
+                "hit": True,
+                "kind": "subtitle",
+                "text": f"subtitle:hit{n['i']}",
+                "frames_checked": 2,
+            }
+        return {"hit": False, "text": "", "frames_checked": 2}
+
+    def _spawn(c, pid):
+        spawned.append(pid)
+
+    def _register(**kw):
+        jid = kw.get("db_job_id") or "db-shared"
+        jobs.append({**kw, "id": jid})
+        return jid
+
+    client.queue_prompt = _queue  # type: ignore[method-assign]
+    monkeypatch.setattr(pcr, "_brand_ocr_after_render", _ocr)
+    monkeypatch.setattr(pcr, "spawn_tracker", _spawn)
+    monkeypatch.setattr(pcr, "_register_pipeline_c_job", _register)
+    monkeypatch.setattr(
+        pcr, "_resolve_job_owner", lambda *a, **k: ("ten-1", "user-1")
+    )
+
+    shot, cast = _shot_cast()
+    out = asyncio.run(
+        pcr.render_pipeline_c(shot, cast, seed=5, tenant_id="t", user_id="u")
+    )
+    assert out["job_id"] == "pid-3"
+    assert out["db_job_id"] == "db-shared"
+    assert spawned == ["pid-1", "pid-2", "pid-3"]
+    assert [j["prompt_id"] for j in jobs] == ["pid-1", "pid-2", "pid-3"]
+    assert [j["attempt"] for j in jobs] == [0, 1, 2]
+    assert all(j.get("db_job_id") in (None, "db-shared") or j["id"] == "db-shared" for j in jobs)
+    # 第二次起应带上已有 db_job_id
+    assert jobs[1]["db_job_id"] == "db-shared"
+    assert jobs[2]["db_job_id"] == "db-shared"
+
+
+def test_job_kind_constant():
+    from app.services.studio.pipeline_c_render import JOB_KIND_PIPELINE_C
+
+    assert JOB_KIND_PIPELINE_C == "studio_pipeline_c"
