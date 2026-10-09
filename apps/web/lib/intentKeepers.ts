@@ -56,12 +56,12 @@ export const INTENT_ENTRIES: IntentKeeper[] = [
   { id: "avatar", label: "数字人", appId: "avatar-talk", medianSec: 366, icon: "user" },
   { id: "voice", label: "配音", appId: "h3-r2v-voice", medianSec: 366, icon: "audio" },
   { id: "cutout", label: "抠图", appId: "removebg", medianSec: 7, icon: "scissors" },
-  { id: "upscale", label: "放大", appId: "upscale", altAppId: "rh-acc-3722891266-720f7b", medianSec: 223, icon: "maximize" },
+  { id: "upscale", label: "放大", appId: "upscale", medianSec: 223, icon: "maximize" },
   { id: "vfi", label: "补帧", appId: "rh-acc-8235642881-d2b7ba", medianSec: 257, icon: "play" },
   { id: "line", label: "线稿上色", appId: "rh-acc-4520427522-dfb012", medianSec: 142, icon: "pencil" },
   { id: "vace", label: "视频换装", appId: "vace-edit", medianSec: 470, icon: "clapperboard" },
   { id: "music", label: "音乐", appId: "ace-music", medianSec: 56, icon: "audio" },
-  { id: "t2i", label: "文生图", appId: "rh-acc-4888229889-d922f7", medianSec: 122, icon: "sparkles" },
+  { id: "t2i", label: "文生图", appId: "rh-acc-4888229889-d922f7", altAppId: "txt2img-basic", medianSec: 122, icon: "sparkles" },
   { id: "restore", label: "老照片修复", appId: "rh-acc-5353125890-0e3695", medianSec: 110, icon: "history" },
   { id: "inpaint", label: "局部重绘", appId: "rh-acc-1967241218-76fc32", medianSec: 84, icon: "brush" },
   { id: "portrait", label: "人像写真", appId: "rh-acc-6626592769-075f0c", medianSec: 146, icon: "user" },
@@ -70,3 +70,13 @@ export const INTENT_ENTRIES: IntentKeeper[] = [
   { id: "style", label: "风格化", appId: "rh-acc-0466103297-947a01", icon: "brush" },
   { id: "3d", label: "3D", appId: "rh-acc-1922543617-0d4e78", medianSec: 126, icon: "model3d" },
 ];
+
+/**
+ * Similar-merge P1 Slice A optional：RH i2v/t2v 仅展示降权（精选排序靠后）。
+ * resolveIntentAppId 仍默认 h3-*；勿 hard-delete 这些 RH 行。
+ */
+export const INTENT_RH_DISPLAY_DEMOTE_IDS: readonly string[] = [
+  "rh-acc-1833790465-924e7f", // i2v 云备选
+  "rh-acc-8490907650-9066b5", // t2v 云备选
+];
+

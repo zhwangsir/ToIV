@@ -32,6 +32,7 @@ import {
     localMarketFeaturedAppIds,
     resolveLocalCapabilityBadge,
     sortAppsWithFeaturedIds,
+    sortMarketAppsDefault,
     type LocalCapabilityBadge,
 } from "@/services/toiv/local-capability-surface";
 import {
@@ -486,7 +487,7 @@ export default function MarketPage() {
             );
         });
         if (category === "all" && !q.trim()) {
-            return sortAppsWithFeaturedIds(base, localMarketFeaturedAppIds());
+            return sortMarketAppsDefault(base);
         }
         return base;
     }, [apps, category, q]);
