@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家；ToIV开发）：**main tip `30357bfc` 已合未部署**（市场本地能力露出/徽章/七件套）；**canvas-only 刷生产中**；生产 canvas 仍≈`bbeab23e` 至落稳。H3 timer 仍缺凭证。`updated_at` 2026-10-09T18:44:00+08:00。
+> **最后更新**：2026-10-09（项目管家；开发/融合）：**main tip `30357bfc` 已部署**（市场本地能力露出）。下一刀分支 `feat/studio-market-gap-p1` 已开（媒体上传+音频未接标明+任务时间线），**tip 未出**。H3 timer 仍缺凭证。`updated_at` 2026-10-09T18:49:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---

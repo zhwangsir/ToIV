@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T18:44:00+08:00",
+  "updated_at": "2026-10-09T18:49:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13750,7 +13750,7 @@
     "superseded_by": "30357bfc"
   },
   "fusion_market_expose_merge_2026_10_09": {
-    "status": "fusion_market_30357bfc_merged_canvas_deploying",
+    "status": "fusion_market_30357bfc_deployed",
     "date": "2026-10-09",
     "source": [
       "ToIV开发",
@@ -13761,11 +13761,11 @@
     "summary": "tip 30357bfc 已合 main，canvas-only 刷生产中",
     "tip": "30357bfc",
     "merged_to_main": true,
-    "deployed": false,
-    "updated_at": "2026-10-09T18:44:00+08:00"
+    "deployed": true,
+    "updated_at": "2026-10-09T18:48:00+08:00"
   },
   "main_tip_30357bfc_2026_10_09": {
-    "status": "main_tip_30357bfc_merged_canvas_deploying",
+    "status": "main_tip_30357bfc_deployed",
     "date": "2026-10-09",
     "source": [
       "ToIV开发",
@@ -13778,8 +13778,12 @@
     "product_tip": "30357bfc",
     "deploy": {
       "canvas": {
-        "status": "deploying",
-        "live_approx": "bbeab23e"
+        "tip": "30357bfc",
+        "status": "deployed"
+      },
+      "api_web": {
+        "approx": "cd9c1bb8",
+        "STUDIO_MULTITENANT": "1"
       }
     },
     "h3_timer": {
@@ -13789,6 +13793,24 @@
     "remotes": {
       "origin_gitee_main": "30357bfc"
     },
-    "updated_at": "2026-10-09T18:44:00+08:00"
+    "updated_at": "2026-10-09T18:48:00+08:00"
+  },
+  "fusion_market_gap_p1_2026_10_09": {
+    "status": "fusion_market_gap_p1_branch_open",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV BeefTV 融合",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "feat/studio-market-gap-p1 已开；tip 未出",
+    "branch": "feat/studio-market-gap-p1",
+    "scope": [
+      "media_upload",
+      "audio_unwired_label",
+      "task_timeline"
+    ],
+    "tip": null,
+    "updated_at": "2026-10-09T18:49:00+08:00"
   }
 }
