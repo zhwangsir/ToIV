@@ -14,7 +14,10 @@ import {
     LOCAL_IMAGE_MODEL_REF,
     LOCAL_IMAGE_WORKER_LABEL,
     LOCAL_NAS_ROOT_DEFAULT,
+    LOCAL_VIDEO_CHANNEL_ID,
     LOCAL_VIDEO_CHANNEL_NAME,
+    LOCAL_VIDEO_MODEL,
+    LOCAL_VIDEO_MODEL_REF,
     LOCAL_VIDEO_WORKER_LABEL,
     filterH3PickerEntries,
     filterImagePickerEntries,
@@ -94,20 +97,18 @@ export function LocalComputePane() {
         })),
         [h3Entries],
     );
-    const imageOptions = useMemo(
-        () => imageEntries.map((e) => ({
-            value: e.rel_path,
-            label: `${e.basename}${e.用途 ? ` · ${e.用途}` : ""}`,
-        })),
-        [imageEntries],
-    );
-    const videoOptions = useMemo(
-        () => videoEntries.map((e) => ({
-            value: e.rel_path,
-            label: `${e.basename}${e.用途 ? ` · ${e.用途}` : ""}`,
-        })),
-        [videoEntries],
-    );
+    const groupByPurpose = (entries: NasModelEntry[]) => {
+        const groups = new Map<string, { value: string; label: string }[]>();
+        for (const e of entries) {
+            const purpose = String(e.用途 || "其他").trim() || "其他";
+            const list = groups.get(purpose) || [];
+            list.push({ value: e.rel_path, label: e.basename });
+            groups.set(purpose, list);
+        }
+        return Array.from(groups.entries()).map(([label, options]) => ({ label, options }));
+    };
+    const imageOptions = useMemo(() => groupByPurpose(imageEntries), [imageEntries]);
+    const videoOptions = useMemo(() => groupByPurpose(videoEntries), [videoEntries]);
 
     const applyLocalChannelLabels = () => {
         let channels = config.channels.map((channel) => {
@@ -125,8 +126,28 @@ export function LocalComputePane() {
                     id: LOCAL_IMAGE_CHANNEL_ID,
                     name: LOCAL_IMAGE_CHANNEL_NAME,
                     publicAlias: `${LOCAL_IMAGE_CHANNEL_NAME} · worker ${LOCAL_IMAGE_WORKER_LABEL}（LB ${LOCAL_IMAGE_LB_LABEL}）`,
+                    modelProfiles: (channel.modelProfiles || []).map((p) =>
+                        p.capability === "image" || p.model === LOCAL_IMAGE_MODEL || p.protocol === "openai-images"
+                            ? { ...p, protocol: "toiv-comfy-image", displayName: LOCAL_IMAGE_CHANNEL_NAME }
+                            : p,
+                    ),
                 };
             }
+
+            if (channel.id === LOCAL_VIDEO_CHANNEL_ID || channel.name === LOCAL_VIDEO_CHANNEL_NAME) {
+                return {
+                    ...channel,
+                    id: LOCAL_VIDEO_CHANNEL_ID,
+                    name: LOCAL_VIDEO_CHANNEL_NAME,
+                    publicAlias: `${LOCAL_VIDEO_CHANNEL_NAME} · worker ${LOCAL_VIDEO_WORKER_LABEL}`,
+                    modelProfiles: (channel.modelProfiles || []).map((p) =>
+                        p.capability === "video" || p.model === LOCAL_VIDEO_MODEL
+                            ? { ...p, protocol: "toiv-comfy-video", displayName: LOCAL_VIDEO_CHANNEL_NAME }
+                            : p,
+                    ),
+                };
+            }
+
             if (channel.id === "toiv-llm") {
                 const models = Array.from(new Set([LOCAL_CHAT_ALIAS, ...(channel.models || [])]));
                 return {
@@ -156,7 +177,7 @@ export function LocalComputePane() {
                         {
                             capability: "image",
                             model: LOCAL_IMAGE_MODEL,
-                            protocol: "openai-images",
+                            protocol: "toiv-comfy-image",
                             displayName: LOCAL_IMAGE_CHANNEL_NAME,
                             defaultOptions: {
                                 toivWorkerLabel: LOCAL_IMAGE_WORKER_LABEL,
@@ -171,6 +192,39 @@ export function LocalComputePane() {
             ];
         }
 
+        if (!channels.some((c) => c.id === LOCAL_VIDEO_CHANNEL_ID || c.name === LOCAL_VIDEO_CHANNEL_NAME)) {
+            channels = [
+                ...channels,
+                {
+                    id: LOCAL_VIDEO_CHANNEL_ID,
+                    name: LOCAL_VIDEO_CHANNEL_NAME,
+                    publicAlias: `${LOCAL_VIDEO_CHANNEL_NAME} · worker ${LOCAL_VIDEO_WORKER_LABEL}`,
+                    enabled: true,
+                    apiFormat: "openai",
+                    apiKey: "",
+                    baseUrl: "http://127.0.0.1:8090",
+                    headers: [],
+                    models: [LOCAL_VIDEO_MODEL],
+                    modelProfiles: [
+                        {
+                            capability: "video",
+                            model: LOCAL_VIDEO_MODEL,
+                            protocol: "toiv-comfy-video",
+                            displayName: LOCAL_VIDEO_CHANNEL_NAME,
+                            defaultOptions: {
+                                toivWorkerLabel: LOCAL_VIDEO_WORKER_LABEL,
+                                toivNasRoot: LOCAL_NAS_ROOT_DEFAULT,
+                            },
+                        } as any,
+                    ],
+                    pinned: false,
+                    scope: "user",
+                    sortOrder: 3,
+                } as any,
+            ];
+        }
+
+
         replaceConfig({
             ...config,
             channels,
@@ -179,6 +233,7 @@ export function LocalComputePane() {
             textModels: config.textModels?.length ? config.textModels : [`toiv-llm::${LOCAL_CHAT_ALIAS}`],
             imageModel: config.imageModel || LOCAL_IMAGE_MODEL_REF,
             imageModels: config.imageModels?.length ? config.imageModels : [LOCAL_IMAGE_MODEL_REF],
+            videoModels: Array.from(new Set([...(config.videoModels || []), LOCAL_VIDEO_MODEL_REF])),
         } as any);
     };
 
@@ -211,6 +266,41 @@ export function LocalComputePane() {
                 return;
             }
             opts.setBound(done.binding?.rel_path || opts.selected);
+            const basename = done.binding?.basename;
+            if (basename && (opts.group === "image" || opts.group === "video")) {
+                const channelId = opts.group === "image" ? LOCAL_IMAGE_CHANNEL_ID : LOCAL_VIDEO_CHANNEL_ID;
+                const protocol = opts.group === "image" ? "toiv-comfy-image" : "toiv-comfy-video";
+                const channels = config.channels.map((channel) => {
+                    if (channel.id !== channelId && channel.name !== (opts.group === "image" ? LOCAL_IMAGE_CHANNEL_NAME : LOCAL_VIDEO_CHANNEL_NAME)) {
+                        return channel;
+                    }
+                    const models = Array.from(new Set([basename, ...(channel.models || [])]));
+                    return {
+                        ...channel,
+                        id: channelId,
+                        models,
+                        modelProfiles: (channel.modelProfiles || []).map((prof) => ({
+                            ...prof,
+                            model: basename,
+                            protocol,
+                            defaultOptions: {
+                                ...(prof.defaultOptions || {}),
+                                toivWorkerLabel: opts.worker,
+                                toivNasRoot: LOCAL_NAS_ROOT_DEFAULT,
+                                ckpt_name: basename,
+                            },
+                        })),
+                    };
+                });
+                const next: any = { ...config, channels };
+                if (opts.group === "image") {
+                    next.imageModel = `${LOCAL_IMAGE_CHANNEL_ID}::${basename}`;
+                    next.imageModels = Array.from(new Set([...(config.imageModels || []), next.imageModel]));
+                } else {
+                    next.videoModels = Array.from(new Set([...(config.videoModels || []), `${LOCAL_VIDEO_CHANNEL_ID}::${basename}`]));
+                }
+                replaceConfig(next);
+            }
             applyLocalChannelLabels();
             message.success(opts.okMsg);
         } catch (error) {

@@ -10,3 +10,9 @@
 
 换模：落盘后 refresh object_info 列表；仍不见再重启该 worker。
 禁默认 :8195/:8205/:8261；不碰 cuda:3。
+
+## 画布协议（slice Comfy）
+
+- 生图渠道协议：`toiv-comfy-image` → `POST /api/generate/txt2img` → worker **:8196**（非 openai-images 占位）
+- 出视频渠道协议：`toiv-comfy-video` → `POST /api/generate/txt2video`（Wan）→ worker **:8197**；LongCat/VACE 路由后续扩展
+- H3 仍 `toiv-h3` → **:8264**；Spark 对话不变

@@ -7,10 +7,12 @@ const templatePath = resolve(import.meta.dir, "../../deploy/toiv-staging/gate/mo
 describe("model-config template local-first", () => {
     const cfg = JSON.parse(readFileSync(templatePath, "utf8"));
 
-    test("video + chat + image local defaults", () => {
+    test("video + chat + image local defaults use real Comfy protocols", () => {
         const h3 = cfg.channels.find((c: any) => (c.modelProfiles || []).some((p: any) => p.protocol === "toiv-h3"));
         const llm = cfg.channels.find((c: any) => c.id === "toiv-llm");
         const image = cfg.channels.find((c: any) => c.id === "toiv-image" || c.name === "本地·生图");
+        const wan = cfg.channels.find((c: any) => c.id === "toiv-video-wan" || String(c.name || "").includes("Wan/LongCat"));
+
         expect(h3?.name).toBe("本地·H3视频");
         expect(String(h3?.publicAlias || "")).toContain(":8264");
         expect(String(h3?.publicAlias || "")).not.toContain(":8195");
@@ -28,10 +30,19 @@ describe("model-config template local-first", () => {
         expect(imgWorkers.every((v: string) => v === ":8196")).toBe(true);
         expect(cfg.imageModel).toBe("toiv-image::local-checkpoint");
         expect(cfg.imageModels || []).toContain("toiv-image::local-checkpoint");
+        const imgProtocols = (image?.modelProfiles || []).map((p: any) => p.protocol);
+        expect(imgProtocols).toContain("toiv-comfy-image");
+        expect(imgProtocols).not.toContain("openai-images");
 
-        // Slice3: no invented Wan/LongCat channel id in template (bind UI + :8197 defaults only).
-        const wan = cfg.channels.find((c: any) => c.id === "toiv-video-wan" || String(c.name || "").includes("Wan/LongCat"));
-        expect(wan).toBeUndefined();
-        expect(cfg.videoModels || []).not.toContain("toiv-video-wan::local-wan");
+        // Comfy protocol knife: Wan/LongCat channel uses toiv-comfy-video → :8197
+        expect(wan).toBeDefined();
+        expect(wan?.id).toBe("toiv-video-wan");
+        expect(String(wan?.publicAlias || "")).toContain(":8197");
+        const wanProtocols = (wan?.modelProfiles || []).map((p: any) => p.protocol);
+        expect(wanProtocols).toContain("toiv-comfy-video");
+        expect(wanProtocols).not.toContain("openai-videos");
+        expect(cfg.videoModels || []).toContain("toiv-video-wan::local-wan");
+        // Default video stays H3
+        expect(String(cfg.videoModel || "")).toContain("h3");
     });
 });

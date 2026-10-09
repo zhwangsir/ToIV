@@ -7,7 +7,8 @@
  "videoModel": "MZt9ON1JvbabJ2GS-PvXR::h3",
  "videoModels": [
   "MZt9ON1JvbabJ2GS-PvXR::h3",
-  "MZt9ON1JvbabJ2GS-PvXR::h3-t2v"
+  "MZt9ON1JvbabJ2GS-PvXR::h3-t2v",
+  "toiv-video-wan::local-wan"
  ],
  "models": [
   "MZt9ON1JvbabJ2GS-PvXR::h3",
@@ -495,7 +496,7 @@
       }
      },
      "model": "local-checkpoint",
-     "protocol": "openai-images",
+     "protocol": "toiv-comfy-image",
      "displayName": "本地·生图",
      "defaultOptions": {
       "toivWorkerLabel": ":8196",
@@ -511,6 +512,47 @@
    "scope": "user",
    "sortOrder": 2,
    "publicAlias": "本地·生图 · worker :8196（LB :8188）"
+  },
+  {
+   "apiFormat": "openai",
+   "apiKey": "",
+   "baseUrl": "http://127.0.0.1:8090",
+   "enabled": true,
+   "headers": [],
+   "id": "toiv-video-wan",
+   "modelProfiles": [
+    {
+     "capability": "video",
+     "capabilityConfig": {
+      "version": 1,
+      "video": {
+       "defaultOperation": "text_to_video",
+       "defaultRatio": "16:9",
+       "maxDurationSec": 8,
+       "references": {
+        "maxImages": 0,
+        "maxVideos": 0,
+        "promptMaxChars": 2000
+       }
+      }
+     },
+     "model": "local-wan",
+     "protocol": "toiv-comfy-video",
+     "displayName": "本地·视频(Wan/LongCat)",
+     "defaultOptions": {
+      "toivWorkerLabel": ":8197",
+      "toivNasRoot": "toiv/comfyui-models"
+     }
+    }
+   ],
+   "models": [
+    "local-wan"
+   ],
+   "name": "本地·视频(Wan/LongCat)",
+   "pinned": false,
+   "scope": "user",
+   "sortOrder": 3,
+   "publicAlias": "本地·视频(Wan/LongCat) · worker :8197"
   }
  ],
  "imageModel": "toiv-image::local-checkpoint",
