@@ -12762,7 +12762,7 @@
     "updated_at": "2026-10-09T10:20:00+08:00"
   },
   "pipeline_c_c_chains_2026_10_09": {
-    "status": "canvas_pick_append_merged_undeployed",
+    "status": "canvas_test_preload_optional_merged_undeployed",
     "date": "2026-10-09",
     "steward": "项目管家",
     "source": [
@@ -12770,10 +12770,10 @@
       "ToIV BeefTV 融合",
       "项目管家"
     ],
-    "product_tip": "a68a9fe8",
+    "product_tip": "6134c2ef",
     "remotes": {
-      "origin_gitee_main": "a68a9fe8",
-      "github_main": "a68a9fe8",
+      "origin_gitee_main": "6134c2ef",
+      "github_main": "6134c2ef",
       "verified_both": true
     },
     "deploy": {
@@ -12825,8 +12825,8 @@
       ],
       "deployed": false
     },
-    "product_tip_gitee": "a68a9fe8",
-    "product_tip_github": "a68a9fe8",
+    "product_tip_gitee": "6134c2ef",
+    "product_tip_github": "6134c2ef",
     "remotes_synced": true,
     "docs_tip_on_gitee": "4575aaa9",
     "canvas_outbound_ua": {
@@ -12852,9 +12852,13 @@
     "canvas_test_preload_optional": {
       "branch": "feat/canvas-test-preload-optional",
       "tip": "9cce3ed0",
-      "merged_main": false,
+      "merged_main": true,
+      "merge_commit": "6134c2ef",
       "tests_passed": 3,
-      "note": "pure_module_runs_without_localforage",
+      "runner": "bun test",
+      "note": "pure_c_chains_module_skip_without_localforage",
+      "sync_render_unchanged": true,
+      "deploy_unchanged": true,
       "deployed": false
     }
   },
