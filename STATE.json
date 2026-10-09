@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T23:48:00+08:00",
+  "updated_at": "2026-10-09T23:52:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14000,7 +14000,7 @@
     "updated_at": "2026-10-09T23:04:00+08:00"
   },
   "market_cover_ui_2026_10_09": {
-    "status": "market_cover_ui_root_cause",
+    "status": "market_cover_ui_tip_await_merge",
     "date": "2026-10-09",
     "source": [
       "ToIV BeefTV 融合",
@@ -14008,21 +14008,18 @@
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "封面裂图=画布 cover_url 无 token→自托管 401；经典市场已带 token",
+    "summary": "市场封面 tip ebfb57e3 已双推分支，等审合",
     "branch": "feat/studio-market-cover-ui",
-    "root_cause": {
-      "canvas_cover_url": "missing_auth_token",
-      "self_hosted_covers": "HTTP_401",
-      "classic_market": "already_appends_?token=",
-      "depends_on_picker": false
-    },
-    "plan": [
-      "fix_cover_token",
-      "beef_tv_card_restyle"
+    "tip": "ebfb57e3",
+    "changes": [
+      "toivCoverImageUrl_token",
+      "onError",
+      "aspect_4_3"
     ],
-    "next": "ToIV开发 GO 后推分支",
+    "dual_pushed_branch": true,
     "merged": false,
     "deployed": false,
-    "updated_at": "2026-10-09T23:48:00+08:00"
+    "docs_tip": "2188dea8",
+    "updated_at": "2026-10-09T23:52:00+08:00"
   }
 }

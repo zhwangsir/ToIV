@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家；融合摸底）：**市场封面裂图根因**——画布 `cover_url` 无 token → 自托管封面 **401**；经典市场已带 `?token=`。证据交开发 GO 后推 `feat/studio-market-cover-ui`（不依赖 picker）。产品全栈仍 `6eadb519`。另仍卡：硬刷验；picker 1:1；SenseVoice「下」；H3 timer。`updated_at` 2026-10-09T23:48:00+08:00。
+> **最后更新**：2026-10-09（项目管家；融合双推）：**市场封面刀 tip `ebfb57e3` 已双推分支**`feat/studio-market-cover-ui`（`toivCoverImageUrl(?token=)` + onError + 4:3；**未合 main、未部署**）。交开发审合。docs tip `2188dea8` 已齐。产品全栈仍 `6eadb519`。另仍卡：硬刷验；picker 1:1；SenseVoice「下」；H3 timer。`updated_at` 2026-10-09T23:52:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
