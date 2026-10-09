@@ -1,3 +1,6 @@
+- 2026-10-09 市场封面根因（项目管家；ToIV BeefTV 融合摸底）：画布 `cover_url` 无 token → 自托管 401 裂图；经典市场已带 `?token=`；不依赖 picker；等开发 GO 推 `feat/studio-market-cover-ui`；status=`market_cover_ui_root_cause`；updated_at 2026-10-09T23:48:00+08:00。
+- 2026-10-09 市场封面/UI 开刀（项目管家；ToIV开发拍板）：`feat/studio-market-cover-ui`——先修封面加载，再 BeefTV 风格重排卡片；融合摸底证据过开发再推；status=`market_cover_ui_branch_open`；updated_at 2026-10-09T23:45:00+08:00。
+- 2026-10-09 市场封面/UI 重做 HOLD（项目管家；用户授权；融合摸底）：封面加载失败 + 按现网平台 UI 重设计；拟分支 `feat/studio-market-cover-ui`；等融合摸底 + ToIV开发拍板开刀；status=`market_cover_ui_hold`；updated_at 2026-10-09T23:43:00+08:00。
 - 2026-10-09 tip `6eadb519` **已部署**（项目管家；ToIV开发/设备/融合）：意图条 P0 全栈落稳（canvas 22:35、api/web 22:37；health/web 200）；含 `44308be5`/`87bed0c6`；picker 现网仍等 1:1 审批；status=`main_tip_6eadb519_deployed`；updated_at 2026-10-09T23:04:00+08:00。
 - 2026-10-09 tip `87bed0c6` NAS_MODEL_PICKER 盘扫刷新已合（项目管家；开发/模型下载）：现网刷等设备管家 1:1 审批；status=`nas_picker_87bed0c6_await_device_approve`；updated_at 2026-10-09T23:04:00+08:00。
 - 2026-10-09 融合度口径（项目管家；用户/融合/设备/模型下载）：未完美一体；canvas `6d70c34a` 已落但意图条 HOLD、similar-merge 停；部署分片：`.deployed_tip`≈`30357bfc` vs canvas≈`6d70c34a`，api/web≈`cd9c1bb8`；status=`fusion_not_one_product_deploy_skew`；updated_at 2026-10-09T22:00:00+08:00。
