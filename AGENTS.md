@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家；ToIV开发：**main tip `63dd8080` 桌面出站主机白名单；merge `63dd8080` / feat `6cec83bb`；双端齐**）：`ValidateAllowlistedOutboundURL` + `toiv_gate` 正向名单（默认 `toiv.wineryz.top`+loopback；`CANVAS_OUTBOUND_HOST_ALLOWLIST`）；自定义渠道仍仅 `ValidateOutboundURL`（本刀未套正向名单）；**未部署**。`updated_at` 2026-10-09T14:02:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家；ToIV开发/BeefTV：**main tip `770a2a77` 出站三刀齐**）：gate `63dd8080` + updater `6402fbfa`（默认含 `updates.beefapi.com`；feat `b8d32fc5`/fix `e249b7c9`） + fetch `770a2a77`（feat `7487ad98`；`VITE_CANVAS_OUTBOUND_HOST_ALLOWLIST`）；自定义渠道未套；**未部署**。`updated_at` 2026-10-09T14:13:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---

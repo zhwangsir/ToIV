@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T14:02:00+08:00",
+  "updated_at": "2026-10-09T14:13:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13184,5 +13184,82 @@
       "verified_both": true
     },
     "updated_at": "2026-10-09T14:02:00+08:00"
+  },
+  "canvas_updater_outbound_allowlist_2026_10_09": {
+    "status": "canvas_updater_outbound_allowlist_merged_undeployed",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "updater 正向名单；默认含 updates.beefapi.com；未部署",
+    "branch": "feat/canvas-updater-outbound-allowlist",
+    "defaults_include": [
+      "toiv.wineryz.top",
+      "updates.beefapi.com",
+      "loopback"
+    ],
+    "env": "CANVAS_OUTBOUND_HOST_ALLOWLIST",
+    "deploy": {
+      "status": "not_deployed"
+    },
+    "base_tip": "a8cf0b37",
+    "merge": "6402fbfa",
+    "feat": "b8d32fc5",
+    "fix": "e249b7c9",
+    "product_tip": "6402fbfa",
+    "remotes": {
+      "origin_gitee_main": "6402fbfa",
+      "github_main": "6402fbfa",
+      "verified_both": true
+    },
+    "updated_at": "2026-10-09T14:13:00+08:00"
+  },
+  "canvas_outbound_three_knives_2026_10_09": {
+    "status": "canvas_outbound_three_knives_merged_undeployed",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "出站三刀 gate/updater/fetch 代码侧齐；自定义渠道未套；未部署",
+    "knives": {
+      "gate": {
+        "merge": "63dd8080",
+        "feat": "6cec83bb"
+      },
+      "updater": {
+        "merge": "6402fbfa",
+        "feat": "b8d32fc5",
+        "fix": "e249b7c9"
+      },
+      "fetch": {
+        "merge": "770a2a77",
+        "feat": "7487ad98",
+        "branch": "feat/canvas-outbound-fetch-allowlist"
+      }
+    },
+    "fetch_files": [
+      "apps/canvas/web/src/lib/outbound-host-allowlist.ts",
+      "apps/canvas/web/src/services/api/request.ts",
+      "apps/canvas/web/src/services/desktop-runtime.ts",
+      "apps/canvas/web/src/services/toiv/client.ts",
+      "apps/canvas/web/test/outbound-host-allowlist.test.ts"
+    ],
+    "vite_env": "VITE_CANVAS_OUTBOUND_HOST_ALLOWLIST",
+    "custom_channels": "untouched",
+    "deploy": {
+      "status": "not_deployed"
+    },
+    "product_tip": "770a2a77",
+    "remotes": {
+      "origin_gitee_main": "770a2a77",
+      "github_main": "770a2a77",
+      "verified_both": true
+    },
+    "updated_at": "2026-10-09T14:13:00+08:00"
   }
 }
