@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T03:32:00+08:00",
+  "updated_at": "2026-10-10T03:47:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14142,7 +14142,7 @@
     "updated_at": "2026-10-10T00:52:00+08:00"
   },
   "market_rh_relist_2026_10_10": {
-    "status": "market_rh_relist_hold",
+    "status": "market_rh_relist_dry_run_pass",
     "date": "2026-10-10",
     "source": [
       "用户",
@@ -14168,6 +14168,69 @@
     "owner": "ToIV BeefTV 融合摸底 → ToIV开发 拍板；模型侧 basename 对齐",
     "product_tip_baseline": "0c62c939",
     "docs_tip_baseline": "2ba122d6",
-    "updated_at": "2026-10-10T03:32:00+08:00"
+    "updated_at": "2026-10-10T03:47:00+08:00",
+    "scout": {
+      "non_rh_public_candidates": 30,
+      "test_failed_approx": 248,
+      "untested_approx": 1308,
+      "public_live_baseline": 86,
+      "dry_run": "PASS",
+      "bulk": "await_user_order"
+    }
+  },
+  "main_tip_cd7377f8_2026_10_10": {
+    "status": "main_tip_cd7377f8_canvas_deployed",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "媒体库壳 tip cd7377f8 canvas-only 已部署",
+    "product_tip": "cd7377f8",
+    "branch": "feat/studio-library-assets-unify",
+    "deploy": {
+      "canvas": {
+        "tip": "cd7377f8",
+        "status": "deployed"
+      },
+      "api_web": "6eadb519",
+      "status": "canvas_only_deployed"
+    },
+    "updated_at": "2026-10-10T03:47:00+08:00"
+  },
+  "llm_proxy_deepseek_400_2026_10_10": {
+    "status": "llm_proxy_whitelist_pass_await_env",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV BeefTV 融合",
+      "ToIV开发",
+      "设备管家",
+      "ToIV 模型下载",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "deepseek 400=llm_proxy 白名单；扩 Spark 四名 PASS，等合后改 env",
+    "spark_aliases_ok": true,
+    "direct_8000": 200,
+    "fix": "expand_TOIV_LLM_PROXY_MODELS",
+    "updated_at": "2026-10-10T03:47:00+08:00"
+  },
+  "h3_trusted_identity_907f5f85_2026_10_10": {
+    "status": "h3_missing_trusted_identity",
+    "date": "2026-10-10",
+    "source": [
+      "用户",
+      "设备管家",
+      "ToIV 模型下载",
+      "ToIV开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "H3 出片 200 后缺可信身份；非缺权重",
+    "task_id": "907f5f85de2527ed53b91abecfcc2985",
+    "owner": "设备管家",
+    "updated_at": "2026-10-10T03:47:00+08:00"
   }
 }

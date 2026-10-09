@@ -1,3 +1,6 @@
+- 2026-10-10 tip `cd7377f8` **canvas-only 已部署**（项目管家；ToIV开发）：媒体库壳单入口+三轨；api/web 仍 `6eadb519`；status=`main_tip_cd7377f8_canvas_deployed`；updated_at 2026-10-10T03:47:00+08:00。
+- 2026-10-10 deepseek 400 根因（项目管家；融合/开发/设备）：`llm_proxy` 白名单只放 qwen；Spark 别名齐直连 200；扩 `TOIV_LLM_PROXY_MODELS` 四名 PASS，合后改生产 env+restart api；status=`llm_proxy_whitelist_pass_await_env`；updated_at 2026-10-10T03:47:00+08:00。
+- 2026-10-10 H3 任务 `907f5f85…`（项目管家；用户/设备/模型下载）：出片 HTTP 200，完成阶段「缺可信身份」；非缺权重；等设备核 `h3_service_account`/JWT；status=`h3_missing_trusted_identity`；updated_at 2026-10-10T03:47:00+08:00。
 - 2026-10-10 市场 RH 重扫 HOLD（项目管家；用户授权；融合/模型下载对齐）：只留 RH 可完全本地化+测过；非 RH/测挂下架；封面跟 RH 高清源；意图条 keepers 单独标；等融合清单 + ToIV开发拍板开刀；status=`market_rh_relist_hold`；updated_at 2026-10-10T03:32:00+08:00。
 - 2026-10-10 tip `0c62c939` **canvas-only 已部署**（项目管家；ToIV开发/融合）：滚动解锁 P0 六页可滑 + P1 细条；ActiveEnter 00:51、live 200；根因=壳 overflow:hidden + 六页未接 WorkspacePage（非 ed015749）；status=`main_tip_0c62c939_canvas_deployed`；updated_at 2026-10-10T00:52:00+08:00。
 - 2026-10-10 多页滑不动/滚动条再优 HOLD（项目管家；用户授权；融合摸底）：用户反馈多页无法滑动 + 细条仍丑；优先查 overflow/手势与 `ed015749` 覆盖面；等融合证据 + ToIV开发拍板开刀；status=`studio_scroll_unblock_hold`；updated_at 2026-10-10T00:41:00+08:00。

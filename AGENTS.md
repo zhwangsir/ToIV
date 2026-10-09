@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-10（项目管家；用户点名）：**市场 RH 重扫 HOLD**——只留 RunningHub 可完全本地化且测试通过的应用；非 RH / 测挂一律下架；可本地的从 RH 拉取并用 RH 封面。融合摸底中；意图条本地 keepers（longcat/ovi/avatar）单独标不盲砍；模型侧等精确 basename。产品 canvas 仍 `0c62c939`；docs tip `2ba122d6`。另仍卡：硬刷验滑动；picker 1:1；SenseVoice「下」；H3 timer。`updated_at` 2026-10-10T03:32:00+08:00。
+> **最后更新**：2026-10-10（项目管家；ToIV开发核）：**媒体库壳 tip `cd7377f8` canvas-only 已部署**（`feat/studio-library-assets-unify` 单入口+三轨；api/web 仍 `6eadb519`）。RH 市场重扫 HOLD 仍摸底/dry-run（bulk 等另令）；deepseek 400=`llm_proxy` 白名单仅 qwen（扩 Spark 四名 PASS，合后改 env+restart api）；H3 出片 HTTP 200 后「缺可信身份」归设备核凭证/JWT。请硬刷 `/studio` 验侧栏「媒体库」。另仍卡：picker 1:1；SenseVoice「下」；H3 timer。`updated_at` 2026-10-10T03:47:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
