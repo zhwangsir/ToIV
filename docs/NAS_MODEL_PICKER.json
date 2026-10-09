@@ -1,26 +1,224 @@
 {
-  "updated_from": "docs/MODEL_SOURCES.json",
-  "updated_at": "2026-10-09",
+  "updated_from": "NAS disk scan /mnt/toiv-nas/toiv/comfyui-models",
+  "updated_at": "2026-10-09 22:22 Asia/Shanghai",
   "nas_root_default": "toiv/comfyui-models",
   "notes": [
     "H3 产品默认：Pipeline C fl2va/ref2va pruned_int8_convrot（:8264）；fp8 仍可选。",
     "H3 section = only h3[]; filter main by 用途.",
     "对话主模型不在此清单——走 Spark deepseek-v4-flash-dspark。",
     "生产 H3 worker = :8264（勿默认 :8195）。",
-    "生图口 = :8196；slice1 出图 bind 可占位。"
+    "生图口 = :8196；slice1 出图 bind 可占位。",
+    "本版为 NAS 盘扫刷新（非 MODEL_SOURCES 派生）；SenseVoice 盘面缺，见 gaps。"
   ],
+  "counts": {
+    "h3_entries": 61,
+    "main_entries": 788,
+    "by_category": {
+      "H3": 61,
+      "工具/其它": 232,
+      "Comfy-LLM": 41,
+      "LoRA": 262,
+      "音频/工具": 14,
+      "出视频/兼用": 195,
+      "出图": 44
+    },
+    "files_by_top_dir": {
+      ".cache": 5,
+      ".staging": 0,
+      "FlashVSR": 4,
+      "FlashVSR-v1.1": 4,
+      "LLM": 280,
+      "LongCat-Video": 93,
+      "MelBandRoFormer_comfy": 1,
+      "RMBG": 7,
+      "SEEDVR2": 13,
+      "audio": 38,
+      "audio_encoders": 1,
+      "ben": 1,
+      "birefnet": 15,
+      "blip": 9,
+      "checkpoints": 46,
+      "clip": 24,
+      "clip_interrogator": 18,
+      "clip_vision": 11,
+      "controlnet": 13,
+      "detection": 16,
+      "diffusion_models": 249,
+      "embeddings": 1,
+      "facerestore_models": 1,
+      "facexlib": 2,
+      "frame_interpolation": 4,
+      "grounding-dino": 2,
+      "h3": 90,
+      "hunyuan3d": 47,
+      "insightface": 10,
+      "ipadapter": 12,
+      "latent_upscale_models": 8,
+      "loras": 433,
+      "model_patches": 2,
+      "nlf": 2,
+      "onnx": 2,
+      "pose": 3,
+      "prompt_generator": 42,
+      "pulid": 10,
+      "qwen-tts": 127,
+      "rife": 6,
+      "sams": 19,
+      "scope": 25,
+      "segformer": 2,
+      "segformer_b2_clothes": 4,
+      "segformer_b3_clothes": 4,
+      "style_models": 2,
+      "sulphur_prompt_enhancer": 17,
+      "text_encoders": 61,
+      "ultralytics": 1,
+      "unet": 7,
+      "unet_gguf": 4,
+      "upscale_models": 20,
+      "vae": 30,
+      "vocal_separator": 6,
+      "wan2.2-animate-2-14b": 18,
+      "yolo": 1,
+      "zimage_i2l": 4
+    },
+    "weight_units_by_top_dir": {
+      ".cache": 1,
+      "FlashVSR": 4,
+      "FlashVSR-v1.1": 4,
+      "LLM": 41,
+      "LongCat-Video": 4,
+      "MelBandRoFormer_comfy": 1,
+      "RMBG": 1,
+      "SEEDVR2": 13,
+      "audio": 5,
+      "audio_encoders": 1,
+      "ben": 1,
+      "birefnet": 15,
+      "blip": 1,
+      "checkpoints": 36,
+      "clip": 2,
+      "clip_interrogator": 7,
+      "clip_vision": 8,
+      "controlnet": 13,
+      "detection": 16,
+      "diffusion_models": 176,
+      "embeddings": 1,
+      "facerestore_models": 1,
+      "facexlib": 2,
+      "frame_interpolation": 4,
+      "grounding-dino": 1,
+      "h3": 61,
+      "hunyuan3d": 2,
+      "insightface": 10,
+      "ipadapter": 6,
+      "latent_upscale_models": 8,
+      "loras": 262,
+      "model_patches": 2,
+      "nlf": 1,
+      "onnx": 2,
+      "pose": 2,
+      "prompt_generator": 2,
+      "pulid": 3,
+      "qwen-tts": 4,
+      "rife": 2,
+      "sams": 9,
+      "scope": 14,
+      "segformer_b2_clothes": 1,
+      "segformer_b3_clothes": 1,
+      "style_models": 2,
+      "sulphur_prompt_enhancer": 1,
+      "text_encoders": 30,
+      "ultralytics": 1,
+      "unet": 7,
+      "unet_gguf": 4,
+      "upscale_models": 15,
+      "vae": 29,
+      "vocal_separator": 3,
+      "wan2.2-animate-2-14b": 4,
+      "yolo": 1,
+      "zimage_i2l": 1
+    }
+  },
+  "gaps": {
+    "SenseVoice": {
+      "status": "缺",
+      "exact_basename": "model.pt",
+      "repo_dirname": "SenseVoiceSmall",
+      "sources": [
+        "https://huggingface.co/FunAudioLLM/SenseVoiceSmall (model.pt ~936MB)",
+        "ModelScope iic/SenseVoiceSmall"
+      ],
+      "suggested_nas_dir": "audio/SenseVoiceSmall/",
+      "note": "正式权重为 HF/MS 仓库内 model.pt；GGUF 另有 sensevoice-small-*.gguf。本任务未开下载。",
+      "nas_present": false,
+      "nas_hits": []
+    },
+    "matrix_pending_exact_name": [
+      "SkyReels",
+      "HunyuanVideo(新矩阵)",
+      "FLUX.2"
+    ]
+  },
   "h3": [
     {
       "basename": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
       "rel_path": "h3/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
       "用途": "H3主模型",
-      "bytes": null
+      "bytes": 20970379616
     },
     {
       "basename": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
       "rel_path": "h3/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
       "用途": "H3主模型",
-      "bytes": null
+      "bytes": 20970379616
+    },
+    {
+      "basename": "ema_vae_fp16.safetensors",
+      "rel_path": "h3/vae/ema_vae_fp16.safetensors",
+      "用途": "H3-VAE",
+      "bytes": 501324814
+    },
+    {
+      "basename": "ema_vae_fp16.safetensors",
+      "rel_path": "h3/SEEDVR2/ema_vae_fp16.safetensors",
+      "用途": "H3-VAE",
+      "bytes": 501324814
+    },
+    {
+      "basename": "minimax_h3_audio_vae_fp32.safetensors",
+      "rel_path": "h3/vae/minimax_h3_audio_vae_fp32.safetensors",
+      "用途": "H3-VAE",
+      "bytes": 605254808
+    },
+    {
+      "basename": "minimax_h3_video_vae_fp16.safetensors",
+      "rel_path": "h3/vae/minimax_h3_video_vae_fp16.safetensors",
+      "用途": "H3-VAE",
+      "bytes": 5207808496
+    },
+    {
+      "basename": "minimax_h3_video_vae_int8_convrot.safetensors",
+      "rel_path": "h3/vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "用途": "H3-VAE",
+      "bytes": 3171670912
+    },
+    {
+      "basename": "10Eros_Max_h3_fl2va_beta2_pruned_int8_convrot.safetensors",
+      "rel_path": "h3/diffusion_models/10Eros_Max_h3_fl2va_beta2_pruned_int8_convrot.safetensors",
+      "用途": "H3主模型",
+      "bytes": 20197375168
+    },
+    {
+      "basename": "10Eros_Max_h3_ref2va_beta2_pruned_int8_convrot.safetensors",
+      "rel_path": "h3/diffusion_models/10Eros_Max_h3_ref2va_beta2_pruned_int8_convrot.safetensors",
+      "用途": "H3主模型",
+      "bytes": 20967588712
+    },
+    {
+      "basename": "minimax_h3_fl2va_bf16.safetensors",
+      "rel_path": "h3/diffusion_models/minimax_h3_fl2va_bf16.safetensors",
+      "用途": "H3主模型",
+      "bytes": 66280487368
     },
     {
       "basename": "minimax_h3_fl2va_fp8_e4m3fn.safetensors",
@@ -41,28 +239,190 @@
       "bytes": 66280487368
     },
     {
+      "basename": "minimax_h3_ref2va_int8_convrot.safetensors",
+      "rel_path": "h3/diffusion_models/minimax_h3_ref2va_int8_convrot.safetensors",
+      "用途": "H3主模型",
+      "bytes": 34038894550
+    },
+    {
+      "basename": "minimax_h3_ref2va_pruned_bf16.safetensors",
+      "rel_path": "h3/diffusion_models/minimax_h3_ref2va_pruned_bf16.safetensors",
+      "用途": "H3主模型",
+      "bytes": 40225724176
+    },
+    {
       "basename": "minimax_h3_ref2va_pruned_fp8_scaled.safetensors",
       "rel_path": "h3/diffusion_models/minimax_h3_ref2va_pruned_fp8_scaled.safetensors",
       "用途": "H3主模型",
       "bytes": 20958205608
     },
     {
-      "basename": "minimax_h3_latent_upscaler_3d_bf16.safetensors",
-      "rel_path": "h3/latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors",
-      "用途": "H3潜空间放大",
-      "bytes": 690592992
+      "basename": "qwen3vl_32b_minimax_h3_bf16.safetensors",
+      "rel_path": "h3/text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors",
+      "用途": "H3其它",
+      "bytes": 51506295256
     },
     {
-      "basename": "minimax_h3_latent_upscaler_3d_fp16.safetensors",
-      "rel_path": "h3/latent_upscale_models/minimax_h3_latent_upscaler_3d_fp16.safetensors",
-      "用途": "H3潜空间放大",
-      "bytes": 690592672
+      "basename": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "rel_path": "h3/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "用途": "H3其它",
+      "bytes": 27141342152
+    },
+    {
+      "basename": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "rel_path": "h3/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "用途": "H3其它",
+      "bytes": 15687142551
+    },
+    {
+      "basename": "seedvr2_ema_3b-Q8_0.gguf",
+      "rel_path": "h3/SEEDVR2/seedvr2_ema_3b-Q8_0.gguf",
+      "用途": "H3其它",
+      "bytes": 3660613984
+    },
+    {
+      "basename": "10Eros_Max_h3_TURBO-hybrid_beta3_int8_convrot.safetensors",
+      "rel_path": "h3/diffusion_models/10Eros_Max_h3_TURBO-hybrid_beta3_int8_convrot.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 20973147816
+    },
+    {
+      "basename": "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors",
+      "rel_path": "h3/diffusion_models/10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 20973099200
+    },
+    {
+      "basename": "AI_Girl_Fictional_Women_Series30_H3.safetensors",
+      "rel_path": "h3/loras/AI_Girl_Fictional_Women_Series30_H3.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 298260352
+    },
+    {
+      "basename": "AI_Girl_Fictional_Women_Series31_H3.safetensors",
+      "rel_path": "h3/loras/AI_Girl_Fictional_Women_Series31_H3.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 298260352
+    },
+    {
+      "basename": "H3_footjob_v0_step1000_fixed.safetensors",
+      "rel_path": "h3/loras/H3_footjob_v0_step1000_fixed.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 131229368
+    },
+    {
+      "basename": "HMNSFW_AIO_V2.safetensors",
+      "rel_path": "h3/loras/HMNSFW_AIO_V2.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 310168344
+    },
+    {
+      "basename": "MiniMax-H3-Turbo-4step-Lora_ema_comfy.safetensors",
+      "rel_path": "h3/loras/MiniMax-H3-Turbo-4step-Lora_ema_comfy.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 620285592
+    },
+    {
+      "basename": "MiniMax-H3_Futa_Transformations_LoRA_V5.1.safetensors",
+      "rel_path": "h3/loras/MiniMax-H3_Futa_Transformations_LoRA_V5.1.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 155110344
+    },
+    {
+      "basename": "MiniMax-H3_RemoteOrgasm_v1.safetensors",
+      "rel_path": "h3/loras/MiniMax-H3_RemoteOrgasm_v1.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 155110384
+    },
+    {
+      "basename": "MiniMax_H3_Combat_LoRA.safetensors",
+      "rel_path": "h3/loras/MiniMax_H3_Combat_LoRA.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 155110296
+    },
+    {
+      "basename": "PlagueKind-tiddies-realismslider.safetensors",
+      "rel_path": "h3/loras/PlagueKind-tiddies-realismslider.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 77580824
+    },
+    {
+      "basename": "SexGod-NaughtyTimes-lora-MINIMAXH3.safetensors",
+      "rel_path": "h3/loras/SexGod-NaughtyTimes-lora-MINIMAXH3.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 2479265096
+    },
+    {
+      "basename": "VBVR_H3_attn_only.safetensors",
+      "rel_path": "h3/loras/VBVR_H3_attn_only.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 32826752
+    },
+    {
+      "basename": "cxy_kiss_lora_h3_v01_step1500.safetensors",
+      "rel_path": "h3/loras/cxy_kiss_lora_h3_v01_step1500.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 619865152
+    },
+    {
+      "basename": "deepthroat_v1.safetensors",
+      "rel_path": "h3/loras/deepthroat_v1.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 1192829840
+    },
+    {
+      "basename": "epic_cumshots-MiniMaxH3-ALPHA-CUMSH0T.safetensors",
+      "rel_path": "h3/loras/epic_cumshots-MiniMaxH3-ALPHA-CUMSH0T.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 155110392
+    },
+    {
+      "basename": "h3_flywheel_smoke6_20260827.safetensors",
+      "rel_path": "h3/loras/h3_flywheel_smoke6_20260827/h3_flywheel_smoke6_20260827/h3_flywheel_smoke6_20260827.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 309964704
+    },
+    {
+      "basename": "h3_musubi_v4-000040.safetensors",
+      "rel_path": "h3/loras/h3_musubi_v4-000040.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 298261368
+    },
+    {
+      "basename": "hmpussy_v6_epoch30.safetensors",
+      "rel_path": "h3/loras/hmpussy_v6_epoch30.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 626294968
+    },
+    {
+      "basename": "minimax-h3-digicam.safetensors",
+      "rel_path": "h3/loras/minimax-h3-digicam.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 155110352
+    },
+    {
+      "basename": "minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors",
+      "rel_path": "h3/loras/minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 1956171984
+    },
+    {
+      "basename": "minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors",
+      "rel_path": "h3/loras/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 1956192992
     },
     {
       "basename": "minimax_h3_fl2v_turbo_8step_v1.0_10ErosMax_beta1_pruned_compat_v001_T8.safetensors",
       "rel_path": "h3/loras/minimax_h3_fl2v_turbo_8step_v1.0_10ErosMax_beta1_pruned_compat_v001_T8.safetensors",
       "用途": "H3加速/LoRA",
       "bytes": 1956194364
+    },
+    {
+      "basename": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+      "rel_path": "h3/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 1956193000
     },
     {
       "basename": "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
@@ -83,13 +443,139 @@
       "bytes": 779849872
     },
     {
-      "basename": "minimax_h3_video_vae_int8_convrot.safetensors",
-      "rel_path": "h3/vae/minimax_h3_video_vae_int8_convrot.safetensors",
-      "用途": "H3-VAE",
-      "bytes": 3171670912
+      "basename": "minimax_h3_turbo_4step_ema_ckpt850_pruned_comfyui.safetensors",
+      "rel_path": "h3/loras/minimax_h3_turbo_4step_ema_ckpt850_pruned_comfyui.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 620285592
+    },
+    {
+      "basename": "minimax_h3_turbo_4步加速_comfyui.safetensors",
+      "rel_path": "h3/loras/minimax_h3_turbo_4步加速_comfyui.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 779858752
+    },
+    {
+      "basename": "minimax_h3_turbo_v4_step600_ema.safetensors",
+      "rel_path": "h3/loras/minimax_h3_turbo_v4_step600_ema.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 779849816
+    },
+    {
+      "basename": "minimax_h3_turbo_v4_step600_ema_pruned_comfyui.safetensors",
+      "rel_path": "h3/loras/minimax_h3_turbo_v4_step600_ema_pruned_comfyui.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 620285592
+    },
+    {
+      "basename": "minimax_vag_000002500.safetensors",
+      "rel_path": "h3/loras/minimax_vag_000002500.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 155110336
+    },
+    {
+      "basename": "optimizer.pt",
+      "rel_path": "h3/loras/h3_flywheel_smoke6_20260827/h3_flywheel_smoke6_20260827/optimizer.pt",
+      "用途": "H3加速/LoRA",
+      "bytes": 157975205
+    },
+    {
+      "basename": "riding_pose_H3_i2v_v1.0.safetensors",
+      "rel_path": "h3/loras/riding_pose_H3_i2v_v1.0.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 203890840
+    },
+    {
+      "basename": "stomach_bulge_H3_i2v_v1.0.safetensors",
+      "rel_path": "h3/loras/stomach_bulge_H3_i2v_v1.0.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 202743952
+    },
+    {
+      "basename": "toiv_h3_smoke_v1_30steps.safetensors",
+      "rel_path": "h3/loras/toiv_h3_smoke_v1_30steps.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 309964696
+    },
+    {
+      "basename": "tutu-t8-minimax-h3-av-20to8-nfe-lora-step000300-bf16-comfyui.safetensors",
+      "rel_path": "h3/loras/tutu-t8-minimax-h3-av-20to8-nfe-lora-step000300-bf16-comfyui.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 773709596
+    },
+    {
+      "basename": "tutu_t8_minimax_h3_av_20to8_nfe_step300_comfyui.safetensors",
+      "rel_path": "h3/loras/tutu_t8_minimax_h3_av_20to8_nfe_step300_comfyui.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 773709596
+    },
+    {
+      "basename": "vagassist_e40.safetensors",
+      "rel_path": "h3/loras/vagassist_e40.safetensors",
+      "用途": "H3加速/LoRA",
+      "bytes": 310168344
+    },
+    {
+      "basename": "minimax_h3_latent_upscaler_3d_bf16.safetensors",
+      "rel_path": "h3/latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors",
+      "用途": "H3潜空间放大",
+      "bytes": 690592992
+    },
+    {
+      "basename": "minimax_h3_latent_upscaler_3d_fp16.safetensors",
+      "rel_path": "h3/latent_upscale_models/minimax_h3_latent_upscaler_3d_fp16.safetensors",
+      "用途": "H3潜空间放大",
+      "bytes": 690592672
     }
   ],
   "main": [
+    {
+      "basename": "EVA02_CLIP_L_336_psz14_s6B.pt",
+      "rel_path": "clip_vision/EVA02_CLIP_L_336_psz14_s6B.pt",
+      "用途": "CLIP Vision",
+      "bytes": 856461210
+    },
+    {
+      "basename": "clip_vision_h.pth",
+      "rel_path": "clip_vision/clip_vision_h.pth",
+      "用途": "CLIP Vision",
+      "bytes": 4772359047
+    },
+    {
+      "basename": "clip_vision_h.safetensors",
+      "rel_path": "clip_vision/clip_vision_h.safetensors",
+      "用途": "CLIP Vision",
+      "bytes": 2528373448
+    },
+    {
+      "basename": "clip_vision_h_Comfy-Org.safetensors",
+      "rel_path": "clip_vision/clip_vision_h_Comfy-Org.safetensors",
+      "用途": "CLIP Vision",
+      "bytes": 1264219396
+    },
+    {
+      "basename": "clip_vision_vit_h.safetensors",
+      "rel_path": "clip_vision/clip_vision_vit_h.safetensors",
+      "用途": "CLIP Vision",
+      "bytes": 1972298538
+    },
+    {
+      "basename": "open-clip-xlm-roberta-large-vit-huge-14_visual_fp32.safetensors",
+      "rel_path": "clip_vision/open-clip-xlm-roberta-large-vit-huge-14_visual_fp32.safetensors",
+      "用途": "CLIP Vision",
+      "bytes": 2528349548
+    },
+    {
+      "basename": "sigclip_vision_patch14_384.safetensors",
+      "rel_path": "clip_vision/sigclip_vision_patch14_384.safetensors",
+      "用途": "CLIP Vision",
+      "bytes": 856505640
+    },
+    {
+      "basename": "wan21NSFWClipVisionH_v10.safetensors",
+      "rel_path": "clip_vision/wan21NSFWClipVisionH_v10.safetensors",
+      "用途": "CLIP Vision",
+      "bytes": 3944517804
+    },
     {
       "basename": "BAGEL-7B-MoT",
       "rel_path": "LLM/BAGEL-7B-MoT",
@@ -106,19 +592,25 @@
       "basename": "Florence-2-base",
       "rel_path": "LLM/Florence-2-base",
       "用途": "Comfy侧LLM/VL(非对话主模型)",
-      "bytes": 16384
+      "bytes": 930317110
+    },
+    {
+      "basename": "Florence-2-base-PromptGen-v1.5",
+      "rel_path": "LLM/Florence-2-base-PromptGen-v1.5",
+      "用途": "Comfy侧LLM/VL(非对话主模型)",
+      "bytes": 1088029672
     },
     {
       "basename": "Florence-2-base-PromptGen-v2.0",
       "rel_path": "LLM/Florence-2-base-PromptGen-v2.0",
       "用途": "Comfy侧LLM/VL(非对话主模型)",
-      "bytes": 16384
+      "bytes": 1088035158
     },
     {
       "basename": "Florence-2-large-PromptGen-v2.0",
       "rel_path": "LLM/Florence-2-large-PromptGen-v2.0",
       "用途": "Comfy侧LLM/VL(非对话主模型)",
-      "bytes": 16384
+      "bytes": 3296858465
     },
     {
       "basename": "Huihui-Qwen3-VL-4B-Instruct-abliterated.Q8_0.gguf",
@@ -175,16 +667,40 @@
       "bytes": 4280404800
     },
     {
+      "basename": "Qwen3-VL-2B-Instruct",
+      "rel_path": "LLM/Qwen3-VL-2B-Instruct",
+      "用途": "Comfy侧LLM/VL(非对话主模型)",
+      "bytes": 4266647442
+    },
+    {
+      "basename": "Qwen3-VL-32B-Instruct-FP8",
+      "rel_path": "LLM/Qwen3-VL-32B-Instruct-FP8",
+      "用途": "Comfy侧LLM/VL(非对话主模型)",
+      "bytes": 35532288569
+    },
+    {
       "basename": "Qwen3-VL-4B-Instruct",
       "rel_path": "LLM/Qwen3-VL-4B-Instruct",
       "用途": "Comfy侧LLM/VL(非对话主模型)",
       "bytes": 8887291213
     },
     {
+      "basename": "Qwen3-VL-8B-Instruct-FP8",
+      "rel_path": "LLM/Qwen3-VL-8B-Instruct-FP8",
+      "用途": "Comfy侧LLM/VL(非对话主模型)",
+      "bytes": 10605571074
+    },
+    {
+      "basename": "Qwen3.5-27B-heretic-Q4_K_M.gguf",
+      "rel_path": "LLM/Qwen3.5-27B-heretic-Q4_K_M.gguf",
+      "用途": "Comfy侧LLM/VL(非对话主模型)",
+      "bytes": 16540272256
+    },
+    {
       "basename": "Qwen3.5-27B-heretic.Q4_K_M.gguf",
       "rel_path": "LLM/Qwen3.5-27B-heretic.Q4_K_M.gguf",
       "用途": "Comfy侧LLM/VL(非对话主模型)",
-      "bytes": 16540272256
+      "bytes": 16540272704
     },
     {
       "basename": "Qwen3.5-27B-heretic.mmproj-Q8_0.gguf",
@@ -289,6 +805,12 @@
       "bytes": 16977441375
     },
     {
+      "basename": "llava-llama-3-8b-v1_1-transformers",
+      "rel_path": "LLM/llava-llama-3-8b-v1_1-transformers",
+      "用途": "Comfy侧LLM/VL(非对话主模型)",
+      "bytes": 16761814332
+    },
+    {
       "basename": "mmproj-Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-BF16.gguf",
       "rel_path": "LLM/mmproj-Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-BF16.gguf",
       "用途": "Comfy侧LLM/VL(非对话主模型)",
@@ -299,276 +821,6 @@
       "rel_path": "LLM/promptgen_base_v1.5",
       "用途": "Comfy侧LLM/VL(非对话主模型)",
       "bytes": 1088029672
-    },
-    {
-      "basename": "seedvr2_ema_3b-Q4_K_M.gguf",
-      "rel_path": "SEEDVR2/seedvr2_ema_3b-Q4_K_M.gguf",
-      "用途": "视频修复 SEEDVR2",
-      "bytes": 1908931168
-    },
-    {
-      "basename": "seedvr2_ema_3b-Q4_K_M.gguf",
-      "rel_path": "SEEDVR2/seedvr2_ema_3b-Q4_K_M.gguf",
-      "用途": "视频修复 SEEDVR2",
-      "bytes": 1995344224
-    },
-    {
-      "basename": "seedvr2_ema_3b-Q8_0.gguf",
-      "rel_path": "SEEDVR2/seedvr2_ema_3b-Q8_0.gguf",
-      "用途": "视频修复 SEEDVR2",
-      "bytes": 3660613984
-    },
-    {
-      "basename": "seedvr2_ema_3b_fp16.safetensors",
-      "rel_path": "SEEDVR2/seedvr2_ema_3b_fp16.safetensors",
-      "用途": "视频修复 SEEDVR2",
-      "bytes": 6783018808
-    },
-    {
-      "basename": "seedvr2_ema_3b_fp8_e4m3fn.safetensors",
-      "rel_path": "SEEDVR2/seedvr2_ema_3b_fp8_e4m3fn.safetensors",
-      "用途": "视频修复 SEEDVR2",
-      "bytes": 3391544696
-    },
-    {
-      "basename": "seedvr2_ema_7b-Q3_K_M.gguf",
-      "rel_path": "SEEDVR2/seedvr2_ema_7b-Q3_K_M.gguf",
-      "用途": "视频修复 SEEDVR2",
-      "bytes": 3675389728
-    },
-    {
-      "basename": "seedvr2_ema_7b-Q4_K_M.gguf",
-      "rel_path": "SEEDVR2/seedvr2_ema_7b-Q4_K_M.gguf",
-      "用途": "视频修复 SEEDVR2",
-      "bytes": 4638795680
-    },
-    {
-      "basename": "seedvr2_ema_7b-Q8_0.gguf",
-      "rel_path": "SEEDVR2/seedvr2_ema_7b-Q8_0.gguf",
-      "用途": "视频修复 SEEDVR2",
-      "bytes": 8835170080
-    },
-    {
-      "basename": "seedvr2_ema_7b-Q8_K_M.gguf",
-      "rel_path": "SEEDVR2/seedvr2_ema_7b-Q8_K_M.gguf",
-      "用途": "视频修复 SEEDVR2",
-      "bytes": 8835170080
-    },
-    {
-      "basename": "seedvr2_ema_7b_fp16.safetensors",
-      "rel_path": "SEEDVR2/seedvr2_ema_7b_fp16.safetensors",
-      "用途": "视频修复 SEEDVR2",
-      "bytes": 16479334424
-    },
-    {
-      "basename": "seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors",
-      "rel_path": "SEEDVR2/seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors",
-      "用途": "视频修复 SEEDVR2",
-      "bytes": 8466296338
-    },
-    {
-      "basename": "seedvr2_ema_7b_sharp_fp16.safetensors",
-      "rel_path": "SEEDVR2/seedvr2_ema_7b_sharp_fp16.safetensors",
-      "用途": "视频修复 SEEDVR2",
-      "bytes": 16479334424
-    },
-    {
-      "basename": "seedvr2_ema_7b_sharp_fp8_e4m3fn.safetensors",
-      "rel_path": "SEEDVR2/seedvr2_ema_7b_sharp_fp8_e4m3fn.safetensors",
-      "用途": "视频修复 SEEDVR2",
-      "bytes": 8239729704
-    },
-    {
-      "basename": "MelBandRoformer_fp32.safetensors",
-      "rel_path": "audio/MelBandRoformer_fp32.safetensors",
-      "用途": "音频",
-      "bytes": 912885656
-    },
-    {
-      "basename": "chinese-wav2vec2-base",
-      "rel_path": "audio/chinese-wav2vec2-base",
-      "用途": "音频",
-      "bytes": 380263948
-    },
-    {
-      "basename": "whisper-large-v3.safetensors",
-      "rel_path": "audio_encoders/whisper-large-v3.safetensors",
-      "用途": "其它·audio_encoders",
-      "bytes": 3087130976
-    },
-    {
-      "basename": "BEN_Base.pth",
-      "rel_path": "ben/BEN_Base.pth",
-      "用途": "其它·ben",
-      "bytes": 1134588350
-    },
-    {
-      "basename": "FlashVSR-v1.1",
-      "rel_path": "checkpoints/FlashVSR-v1.1",
-      "用途": "出图主线·checkpoint",
-      "bytes": 6948403431
-    },
-    {
-      "basename": "Qwen-AIO-SFW-v18.safetensors",
-      "rel_path": "checkpoints/Qwen-AIO-SFW-v18.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 28431844111
-    },
-    {
-      "basename": "Qwen-Rapid-AIO-NSFW-v7.safetensors",
-      "rel_path": "checkpoints/Qwen-Rapid-AIO-NSFW-v7.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 28978666882
-    },
-    {
-      "basename": "Qwen-Rapid-AIO-SFW-v11.safetensors",
-      "rel_path": "checkpoints/Qwen-Rapid-AIO-SFW-v11.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 28431829223
-    },
-    {
-      "basename": "Qwen-Rapid-AIO-SFW-v5.safetensors",
-      "rel_path": "checkpoints/Qwen-Rapid-AIO-SFW-v5.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 28978619898
-    },
-    {
-      "basename": "Qwen-Rapid-AIO-SFW-v7.safetensors",
-      "rel_path": "checkpoints/Qwen-Rapid-AIO-SFW-v7.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 28978666882
-    },
-    {
-      "basename": "Qwen-Rapid-AIO-v4.safetensors",
-      "rel_path": "checkpoints/Qwen-Rapid-AIO-v4.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 28978619370
-    },
-    {
-      "basename": "SUPIR-v0F_fp16.safetensors",
-      "rel_path": "checkpoints/SUPIR-v0F_fp16.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 2664825592
-    },
-    {
-      "basename": "depth_anything_v2_vitl.pth",
-      "rel_path": "checkpoints/depth_anything_v2_vitl.pth",
-      "用途": "出图主线·checkpoint",
-      "bytes": 1341395338
-    },
-    {
-      "basename": "ltx-2.3-22b-dev-fp8.safetensors",
-      "rel_path": "checkpoints/ltx-2.3-22b-dev-fp8.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 20845690880
-    },
-    {
-      "basename": "ltx-2.3-22b-dev-fp8mixed.safetensors",
-      "rel_path": "checkpoints/ltx-2.3-22b-dev-fp8mixed.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 29145431166
-    },
-    {
-      "basename": "ltx-2.3-22b-distilled-fp8.safetensors",
-      "rel_path": "checkpoints/ltx-2.3-22b-distilled-fp8.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 29531884062
-    },
-    {
-      "basename": "ltxv-2b-0.9.6-dev-04-25-v1.safetensors",
-      "rel_path": "checkpoints/ltxv-2b-0.9.6-dev-04-25-v1.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 6340743924
-    },
-    {
-      "basename": "ltxv-2b-0.9.6-dev-04-25.safetensors",
-      "rel_path": "checkpoints/ltxv-2b-0.9.6-dev-04-25.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 6340743924
-    },
-    {
-      "basename": "majicmixRealistic_v7.safetensors",
-      "rel_path": "checkpoints/majicmixRealistic_v7.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 2132625894
-    },
-    {
-      "basename": "moodyRealMix_zitV5DPO.safetensors",
-      "rel_path": "checkpoints/moodyRealMix_zitV5DPO.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 12309879656
-    },
-    {
-      "basename": "new_Qwen-Rapid-AIO-NSFW-v19.safetensors",
-      "rel_path": "checkpoints/new_Qwen-Rapid-AIO-NSFW-v19.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 28431843583
-    },
-    {
-      "basename": "new_Qwen-Rapid-AIO-NSFW-v23.safetensors",
-      "rel_path": "checkpoints/new_Qwen-Rapid-AIO-NSFW-v23.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 28431840023
-    },
-    {
-      "basename": "realvisxlV50_v50Bakedvae.safetensors",
-      "rel_path": "checkpoints/realvisxlV50_v50Bakedvae.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 6938065488
-    },
-    {
-      "basename": "realvisxlV50_v50LightningBakedvae   .safetensors",
-      "rel_path": "checkpoints/realvisxlV50_v50LightningBakedvae   .safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 6938065512
-    },
-    {
-      "basename": "wan2.2-i2v-rapid-aio-nsfw-v7.safetensors",
-      "rel_path": "checkpoints/wan2.2-i2v-rapid-aio-nsfw-v7.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 23387004939
-    },
-    {
-      "basename": "z-image-turbo-bf16-aio.safetensors",
-      "rel_path": "checkpoints/z-image-turbo-bf16-aio.safetensors",
-      "用途": "出图主线·checkpoint",
-      "bytes": 20522566986
-    },
-    {
-      "basename": "clip_vision_h_Comfy-Org.safetensors",
-      "rel_path": "clip_vision/clip_vision_h_Comfy-Org.safetensors",
-      "用途": "CLIP Vision",
-      "bytes": 1264219396
-    },
-    {
-      "basename": "clip_vision_vit_h.safetensors",
-      "rel_path": "clip_vision/clip_vision_vit_h.safetensors",
-      "用途": "CLIP Vision",
-      "bytes": 1972298538
-    },
-    {
-      "basename": "open-clip-xlm-roberta-large-vit-huge-14_visual_fp32.safetensors",
-      "rel_path": "clip_vision/open-clip-xlm-roberta-large-vit-huge-14_visual_fp32.safetensors",
-      "用途": "CLIP Vision",
-      "bytes": 2528349548
-    },
-    {
-      "basename": "sigclip_vision_patch14_384.safetensors",
-      "rel_path": "clip_vision/sigclip_vision_patch14_384.safetensors",
-      "用途": "CLIP Vision",
-      "bytes": 856505640
-    },
-    {
-      "basename": "wan21NSFWClipVisionH_v10.safetensors",
-      "rel_path": "clip_vision/wan21NSFWClipVisionH_v10.safetensors",
-      "用途": "CLIP Vision",
-      "bytes": 3944517804
-    },
-    {
-      "basename": "RMBG-2.0",
-      "rel_path": "comfyui-models/RMBG/RMBG-2.0/model.safetensors",
-      "用途": "其它·comfyui-models",
-      "bytes": 884878856
     },
     {
       "basename": "InstantX_Qwen-Image-ControlNet-Inpainting.safetensors",
@@ -649,814 +901,16 @@
       "bytes": 2266838080
     },
     {
-      "basename": "depth_anything_v2_vitl_fp32.safetensors",
-      "rel_path": "depthanything/depth_anything_v2_vitl_fp32.safetensors",
-      "用途": "其它·depthanything",
-      "bytes": 1341306404
-    },
-    {
-      "basename": "SeC-4B-fp32.safetensors",
-      "rel_path": "detection/SeC-4B-fp32.safetensors",
-      "用途": "其它·detection",
-      "bytes": 15164519628
-    },
-    {
-      "basename": "dw-ll_ucoco_384_bs5.torchscript.pt",
-      "rel_path": "detection/dw-ll_ucoco_384_bs5.torchscript.pt",
-      "用途": "其它·detection",
-      "bytes": 135059124
-    },
-    {
-      "basename": "face_yolov8m.pt",
-      "rel_path": "detection/face_yolov8m.pt",
-      "用途": "其它·detection",
-      "bytes": 52026019
-    },
-    {
-      "basename": "face_yolov8s.pt",
-      "rel_path": "detection/face_yolov8s.pt",
-      "用途": "其它·detection",
-      "bytes": 22507707
-    },
-    {
-      "basename": "head_yolov8n.pt",
-      "rel_path": "detection/head_yolov8n.pt",
-      "用途": "其它·detection",
-      "bytes": 54879821
-    },
-    {
-      "basename": "person_yolov8m-seg.pt",
-      "rel_path": "detection/person_yolov8m-seg.pt",
-      "用途": "其它·detection",
-      "bytes": 54827683
-    },
-    {
-      "basename": "real_person_detection_v0_l_yv11.pt",
-      "rel_path": "detection/real_person_detection_v0_l_yv11.pt",
-      "用途": "其它·detection",
-      "bytes": 51259321
-    },
-    {
-      "basename": "sam2.1_hiera_base_plus.safetensors",
-      "rel_path": "detection/sam2.1_hiera_base_plus.safetensors",
-      "用途": "其它·detection",
-      "bytes": 323474320
-    },
-    {
-      "basename": "vitpose-l-wholebody.onnx",
-      "rel_path": "detection/vitpose-l-wholebody.onnx",
-      "用途": "其它·detection",
-      "bytes": 1234579166
-    },
-    {
-      "basename": "vitpose_h_wholebody_data.bin",
-      "rel_path": "detection/vitpose_h_wholebody_data.bin",
-      "用途": "其它·detection",
-      "bytes": 2548958740
-    },
-    {
-      "basename": "vitpose_h_wholebody_model.onnx",
-      "rel_path": "detection/vitpose_h_wholebody_model.onnx",
-      "用途": "其它·detection",
-      "bytes": 420252
-    },
-    {
-      "basename": "yolo11x-pose.pt",
-      "rel_path": "detection/yolo11x-pose.pt",
-      "用途": "其它·detection",
-      "bytes": 118481010
-    },
-    {
-      "basename": "yolo11x_640.onnx",
-      "rel_path": "detection/yolo11x_640.onnx",
-      "用途": "其它·detection",
-      "bytes": 228016347
-    },
-    {
-      "basename": "yolov10m.onnx",
-      "rel_path": "detection/yolov10m.onnx",
-      "用途": "其它·detection",
-      "bytes": 61659689
-    },
-    {
-      "basename": "yolox_l.onnx",
-      "rel_path": "detection/yolox_l.onnx",
-      "用途": "其它·detection",
-      "bytes": 216746733
-    },
-    {
-      "basename": "yolox_l.torchscript.pt",
-      "rel_path": "detection/yolox_l.torchscript.pt",
-      "用途": "其它·detection",
-      "bytes": 217697649
-    },
-    {
-      "basename": "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
-      "rel_path": "diffusion_models/BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12309881296
-    },
-    {
-      "basename": "Bernini_HIGH_fp8_e4m3fn_scaled.safetensors",
-      "rel_path": "diffusion_models/Bernini_HIGH_fp8_e4m3fn_scaled.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 15574833216
-    },
-    {
-      "basename": "Bernini_LOW_fp8_e4m3fn_scaled.safetensors",
-      "rel_path": "diffusion_models/Bernini_LOW_fp8_e4m3fn_scaled.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 15574833216
-    },
-    {
-      "basename": "DarkBeast-Klein9b-V2-BFS-BF16-ComfyUI.safetensors",
-      "rel_path": "diffusion_models/DarkBeast-Klein9b-V2-BFS-BF16-ComfyUI.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 18157191688
-    },
-    {
-      "basename": "F.1-Fill-fp16_Inpaint_Outpaint_1.0.safetensors",
-      "rel_path": "diffusion_models/F.1-Fill-fp16_Inpaint_Outpaint_1.0.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 23804922408
-    },
-    {
-      "basename": "FireRed-Image-Edit-1.0_bf16.safetensors",
-      "rel_path": "diffusion_models/FireRed-Image-Edit-1.0_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 40861031488
-    },
-    {
-      "basename": "FireRed-Image-Edit-1.0_fp8mixed_comfy.safetensors",
-      "rel_path": "diffusion_models/FireRed-Image-Edit-1.0_fp8mixed_comfy.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 21401015999
-    },
-    {
-      "basename": "FireRed-Image-Edit-1.1_bf16.safetensors",
-      "rel_path": "diffusion_models/FireRed-Image-Edit-1.1_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 40861031624
-    },
-    {
-      "basename": "FireRed-Image-Edit-1.1_fp8mixed_comfy.safetensors",
-      "rel_path": "diffusion_models/FireRed-Image-Edit-1.1_fp8mixed_comfy.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 21439550735
-    },
-    {
-      "basename": "Flux2-Klein-9B-True-bf16.safetensors",
-      "rel_path": "diffusion_models/Flux2-Klein-9B-True-bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 18157185168
-    },
-    {
-      "basename": "Flux2-Klein-9B-True-v2-bf16.safetensors",
-      "rel_path": "diffusion_models/Flux2-Klein-9B-True-v2-bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 18157185248
-    },
-    {
-      "basename": "Flux2-Klein-9B-True-v2-mxfp8mixed.safetensors",
-      "rel_path": "diffusion_models/Flux2-Klein-9B-True-v2-mxfp8mixed.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 9705714392
-    },
-    {
-      "basename": "Phantom-Wan-1_3B_fp32.safetensors",
-      "rel_path": "diffusion_models/Phantom-Wan-1_3B_fp32.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 5676070424
-    },
-    {
-      "basename": "QWEN_Image_Edit_2511_fp8mixed.safetensors",
-      "rel_path": "diffusion_models/QWEN_Image_Edit_2511_fp8mixed.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 20533762817
-    },
-    {
-      "basename": "Qwen-Image-Edit-2509_fp8_e4m3fn.safetensors",
-      "rel_path": "diffusion_models/Qwen-Image-Edit-2509_fp8_e4m3fn.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 20430698424
-    },
-    {
-      "basename": "Qwen-Image_2512.safetensors",
-      "rel_path": "diffusion_models/Qwen-Image_2512.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 20430679144
-    },
-    {
-      "basename": "VACE-Wan2.1-1.3B-Preview.safetensors",
-      "rel_path": "diffusion_models/VACE-Wan2.1-1.3B-Preview.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 7146067816
-    },
-    {
-      "basename": "WAN22.XX_Palingenesis_low_t2v.safetensors",
-      "rel_path": "diffusion_models/WAN22.XX_Palingenesis_low_t2v.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 15001361394
-    },
-    {
-      "basename": "Wan-AI_Wan2.1-VACE-1.3B.safetensors",
-      "rel_path": "diffusion_models/Wan-AI_Wan2.1-VACE-1.3B.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 4309519800
-    },
-    {
-      "basename": "Wan14BT2VFusioniX_fp16_.safetensors",
-      "rel_path": "diffusion_models/Wan14BT2VFusioniX_fp16_.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 28577792224
-    },
-    {
-      "basename": "Wan2.1_T2V_14B_FusionX_VACE-FP8.safetensors",
-      "rel_path": "diffusion_models/Wan2.1_T2V_14B_FusionX_VACE-FP8.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 20387834744
-    },
-    {
-      "basename": "Wan2.1_T2V_14B_FusionX_VACE-FP8_e4m3fn.safetensors",
-      "rel_path": "diffusion_models/Wan2.1_T2V_14B_FusionX_VACE-FP8_e4m3fn.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 17344651256
-    },
-    {
-      "basename": "Wan2.2-VACE-Fun-A14B-high-alibaba-pai.safetensors",
-      "rel_path": "diffusion_models/Wan2.2-VACE-Fun-A14B-high-alibaba-pai.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 34675325000
-    },
-    {
-      "basename": "Wan2.2-VACE-Fun-A14B-low-alibaba-pai.safetensors",
-      "rel_path": "diffusion_models/Wan2.2-VACE-Fun-A14B-low-alibaba-pai.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 34675325000
-    },
-    {
-      "basename": "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
-      "rel_path": "diffusion_models/Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 14291297968
-    },
-    {
-      "basename": "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
-      "rel_path": "diffusion_models/Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 14291297968
-    },
-    {
-      "basename": "Wan2.2_Remix_t2v_14b_high_lighting_v0.9_dyno.safetensors",
-      "rel_path": "diffusion_models/Wan2.2_Remix_t2v_14b_high_lighting_v0.9_dyno.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 14289668664
-    },
-    {
-      "basename": "Wan2.2_Remix_t2v_14b_low_lighting_v0.9.safetensors",
-      "rel_path": "diffusion_models/Wan2.2_Remix_t2v_14b_low_lighting_v0.9.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 14289668960
-    },
-    {
-      "basename": "Wan21-14B-SCAIL-preview_fp8_e4m3fn_scaled_KJ.safetensors",
-      "rel_path": "diffusion_models/Wan21-14B-SCAIL-preview_fp8_e4m3fn_scaled_KJ.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 16401525232
-    },
-    {
-      "basename": "Wan21_SteadyDancer_fp8_e4m3fn_scaled_KJ.safetensors",
-      "rel_path": "diffusion_models/Wan21_SteadyDancer_fp8_e4m3fn_scaled_KJ.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 16410198058
-    },
-    {
-      "basename": "Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors",
-      "rel_path": "diffusion_models/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 16993877896
-    },
-    {
-      "basename": "Wan2_1-I2V-14B-720p_fp8_e4m3fn_scaled_KJ.safetensors",
-      "rel_path": "diffusion_models/Wan2_1-I2V-14B-720p_fp8_e4m3fn_scaled_KJ.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 16643349018
-    },
-    {
-      "basename": "Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors",
-      "rel_path": "diffusion_models/Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 2713548210
-    },
-    {
-      "basename": "Wan2_1-T2V-14B-Lynx_full_ip_layers_fp16.safetensors",
-      "rel_path": "diffusion_models/Wan2_1-T2V-14B-Lynx_full_ip_layers_fp16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 4201700712
-    },
-    {
-      "basename": "Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors",
-      "rel_path": "diffusion_models/Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 4195142544
-    },
-    {
-      "basename": "Wan2_1-T2V-14B-Lynx_lite_ip_layers_fp16.safetensors",
-      "rel_path": "diffusion_models/Wan2_1-T2V-14B-Lynx_lite_ip_layers_fp16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 838865696
-    },
-    {
-      "basename": "Wan2_1-T2V-14B_fp8_e4m3fn.safetensors",
-      "rel_path": "diffusion_models/Wan2_1-T2V-14B_fp8_e4m3fn.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 14859762840
-    },
-    {
-      "basename": "Wan2_1-T2V-14B_fp8_e4m3fn_scaled_KJ.safetensors",
-      "rel_path": "diffusion_models/Wan2_1-T2V-14B_fp8_e4m3fn_scaled_KJ.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 14526876890
-    },
-    {
-      "basename": "Wan2_1-VACE_1_3B_bf16.safetensors",
-      "rel_path": "diffusion_models/Wan2_1-VACE_1_3B_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 4309519800
-    },
-    {
-      "basename": "Wan2_1-VACE_module_14B_bf16.safetensors",
-      "rel_path": "diffusion_models/Wan2_1-VACE_module_14B_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 6098227873
-    },
-    {
-      "basename": "Wan2_1-VACE_module_14B_fp8_e4m3fn.safetensors",
-      "rel_path": "diffusion_models/Wan2_1-VACE_module_14B_fp8_e4m3fn.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 3052113849
-    },
-    {
-      "basename": "Wan2_2-Animate-14B_fp8_scaled_e5m2_KJ_v2.safetensors",
-      "rel_path": "diffusion_models/Wan2_2-Animate-14B_fp8_scaled_e5m2_KJ_v2.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 17317143060
-    },
-    {
-      "basename": "Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
-      "rel_path": "diffusion_models/Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 15002999858
-    },
-    {
-      "basename": "Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
-      "rel_path": "diffusion_models/Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 15002999858
-    },
-    {
-      "basename": "Wan2_2-T2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
-      "rel_path": "diffusion_models/Wan2_2-T2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 15001361458
-    },
-    {
-      "basename": "Wan2_2-T2V-A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
-      "rel_path": "diffusion_models/Wan2_2-T2V-A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 15001361458
-    },
-    {
-      "basename": "Wan2_2_Fun_VACE_module_A14B_HIGH_bf16.safetensors",
-      "rel_path": "diffusion_models/Wan2_2_Fun_VACE_module_A14B_HIGH_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 6098227800
-    },
-    {
-      "basename": "Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
-      "rel_path": "diffusion_models/Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 3052123036
-    },
-    {
-      "basename": "Wan2_2_Fun_VACE_module_A14B_LOW_bf16.safetensors",
-      "rel_path": "diffusion_models/Wan2_2_Fun_VACE_module_A14B_LOW_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 6098227800
-    },
-    {
-      "basename": "Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors",
-      "rel_path": "diffusion_models/Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 3052123036
-    },
-    {
-      "basename": "WanVideo_2_1_Multitalk_14B_fp8_e4m3fn.safetensors",
-      "rel_path": "diffusion_models/WanVideo_2_1_Multitalk_14B_fp8_e4m3fn.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 2712714720
-    },
-    {
-      "basename": "Z-Image-Turbo fp16.safetensors",
-      "rel_path": "diffusion_models/Z-Image-Turbo fp16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12309865944
-    },
-    {
-      "basename": "Z-Image-Turbo_fp16.safetensors",
-      "rel_path": "diffusion_models/Z-Image-Turbo_fp16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12309865944
-    },
-    {
-      "basename": "Z-Image-base.safetensors",
-      "rel_path": "diffusion_models/Z-Image-base.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12309866400
-    },
-    {
-      "basename": "darkBeastMar0326Latest_dbkleinv2BFS.safetensors",
-      "rel_path": "diffusion_models/darkBeastMar0326Latest_dbkleinv2BFS.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 9078610848
-    },
-    {
-      "basename": "ernie-image-turbo.safetensors",
-      "rel_path": "diffusion_models/ernie-image-turbo.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 16067025480
-    },
-    {
-      "basename": "flux-2-klein-9b-fp8.safetensors",
-      "rel_path": "diffusion_models/flux-2-klein-9b-fp8.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 9433061528
-    },
-    {
-      "basename": "flux-2-klein-9b.safetensors",
-      "rel_path": "diffusion_models/flux-2-klein-9b.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 18157185168
-    },
-    {
-      "basename": "flux-2-klein-base-4b.safetensors",
-      "rel_path": "diffusion_models/flux-2-klein-base-4b.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 7751105712
-    },
-    {
-      "basename": "flux1-dev-fp8-Kijai.safetensors",
-      "rel_path": "diffusion_models/flux1-dev-fp8-Kijai.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 11901525888
-    },
-    {
-      "basename": "flux1-dev-kontext_fp8_scaled.safetensors",
-      "rel_path": "diffusion_models/flux1-dev-kontext_fp8_scaled.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 11904640136
-    },
-    {
-      "basename": "flux1-dev.sft",
-      "rel_path": "diffusion_models/flux1-dev.sft",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 23802932552
-    },
-    {
-      "basename": "flux1-fill-dev.safetensors",
-      "rel_path": "diffusion_models/flux1-fill-dev.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 23804922408
-    },
-    {
-      "basename": "flux1-kontext-dev_fp8_scaled.safetensors",
-      "rel_path": "diffusion_models/flux1-kontext-dev_fp8_scaled.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 11904640136
-    },
-    {
-      "basename": "fluxFillFP8_v10.safetensors",
-      "rel_path": "diffusion_models/fluxFillFP8_v10.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 11902532704
-    },
-    {
-      "basename": "turbo.safetensors",
-      "rel_path": "diffusion_models/krea2/turbo.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 26283332608
-    },
-    {
-      "basename": "krea2_turbo_fp8.safetensors",
-      "rel_path": "diffusion_models/krea2_turbo_fp8.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 13141730842
-    },
-    {
-      "basename": "krea2_turbo_fp8_scaled.safetensors",
-      "rel_path": "diffusion_models/krea2_turbo_fp8_scaled.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 13141730842
-    },
-    {
-      "basename": "ltx-2.3-22b-dev_transformer_only_bf16.safetensors",
-      "rel_path": "diffusion_models/ltx-2.3-22b-dev_transformer_only_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 42020149760
-    },
-    {
-      "basename": "ltx-2.3-22b-distilled-1.1_transformer_only_fp8_scaled.safetensors",
-      "rel_path": "diffusion_models/ltx-2.3-22b-distilled-1.1_transformer_only_fp8_scaled.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 25226571988
-    },
-    {
-      "basename": "ltx-2.3-22b-distilled-1.1_transformer_only_mxfp8_block32.safetensors",
-      "rel_path": "diffusion_models/ltx-2.3-22b-distilled-1.1_transformer_only_mxfp8_block32.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 24052755552
-    },
-    {
-      "basename": "ltx-2.3-22b-distilled_transformer_only_fp8_input_scaled.safetensors",
-      "rel_path": "diffusion_models/ltx-2.3-22b-distilled_transformer_only_fp8_input_scaled.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 23470602704
-    },
-    {
-      "basename": "ltx-2.3-22b-distilled_transformer_only_fp8_input_scaled_v3.safetensors",
-      "rel_path": "diffusion_models/ltx-2.3-22b-distilled_transformer_only_fp8_input_scaled_v3.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 25016398672
-    },
-    {
-      "basename": "lynx_lite_resampler_fp32.safetensors",
-      "rel_path": "diffusion_models/lynx_lite_resampler_fp32.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 327919184
-    },
-    {
-      "basename": "minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors",
-      "rel_path": "diffusion_models/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 20970379632
-    },
-    {
-      "basename": "qwen_image_2512_bf16.safetensors",
-      "rel_path": "diffusion_models/qwen_image_2512_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 40861031488
-    },
-    {
-      "basename": "qwen_image_2512_fp8_e4m3fn.safetensors",
-      "rel_path": "diffusion_models/qwen_image_2512_fp8_e4m3fn.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 20430679144
-    },
-    {
-      "basename": "qwen_image_bf16.safetensors",
-      "rel_path": "diffusion_models/qwen_image_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 40861031488
-    },
-    {
-      "basename": "qwen_image_distill_full_fp8_e4m3fn.safetensors",
-      "rel_path": "diffusion_models/qwen_image_distill_full_fp8_e4m3fn.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 20430635136
-    },
-    {
-      "basename": "qwen_image_edit_2509_bf16.safetensors",
-      "rel_path": "diffusion_models/qwen_image_edit_2509_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 40861031488
-    },
-    {
-      "basename": "qwen_image_edit_2511_bf16.safetensors",
-      "rel_path": "diffusion_models/qwen_image_edit_2511_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 40861031560
-    },
-    {
-      "basename": "qwen_image_edit_bf16.safetensors",
-      "rel_path": "diffusion_models/qwen_image_edit_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 40861031488
-    },
-    {
-      "basename": "qwen_image_edit_fp8_e4m3fn.safetensors",
-      "rel_path": "diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 20430635136
-    },
-    {
-      "basename": "qwen_image_layered_bf16.safetensors",
-      "rel_path": "diffusion_models/qwen_image_layered_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 40861043888
-    },
-    {
-      "basename": "smoothMixWan22I2V14B_i2vHigh.safetensors",
-      "rel_path": "diffusion_models/smoothMixWan22I2V14B_i2vHigh.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 21283564107
-    },
-    {
-      "basename": "smoothMixWan22I2V14B_i2vLow.safetensors",
-      "rel_path": "diffusion_models/smoothMixWan22I2V14B_i2vLow.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 21283564099
-    },
-    {
-      "basename": "svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
-      "rel_path": "diffusion_models/svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 13081386856
-    },
-    {
-      "basename": "svdq-fp4_r128-qwen-image-lightningv1.1-8steps.safetensors",
-      "rel_path": "diffusion_models/svdq-fp4_r128-qwen-image-lightningv1.1-8steps.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12720797660
-    },
-    {
-      "basename": "svdq-fp4_r32-qwen-image-edit-lightningv1.0-4steps.safetensors",
-      "rel_path": "diffusion_models/svdq-fp4_r32-qwen-image-edit-lightningv1.0-4steps.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 11948923656
-    },
-    {
-      "basename": "svdq-int4-flux.1-dev",
-      "rel_path": "diffusion_models/svdq-int4-flux.1-dev",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 6768310916
-    },
-    {
-      "basename": "svdq-int4-flux.1-fill-dev",
-      "rel_path": "diffusion_models/svdq-int4-flux.1-fill-dev",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 6770276841
-    },
-    {
-      "basename": "svdq-int4_r128-qwen-image-edit-2509-lightning-4steps-251115.safetensors",
-      "rel_path": "diffusion_models/svdq-int4_r128-qwen-image-edit-2509-lightning-4steps-251115.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12654443144
-    },
-    {
-      "basename": "svdq-int4_r128-qwen-image-edit-2509-lightningv2.0-8steps.safetensors",
-      "rel_path": "diffusion_models/svdq-int4_r128-qwen-image-edit-2509-lightningv2.0-8steps.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12654443144
-    },
-    {
-      "basename": "svdq-int4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
-      "rel_path": "diffusion_models/svdq-int4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12654443144
-    },
-    {
-      "basename": "svdq-int4_r128-qwen-image-lightningv1.1-8steps.safetensors",
-      "rel_path": "diffusion_models/svdq-int4_r128-qwen-image-lightningv1.1-8steps.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12654443144
-    },
-    {
-      "basename": "svdq-int4_r32-qwen-image-lightningv1.1-8steps.safetensors",
-      "rel_path": "diffusion_models/svdq-int4_r32-qwen-image-lightningv1.1-8steps.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 11521979944
-    },
-    {
-      "basename": "wan2.1_t2v_14B_bf16.safetensors",
-      "rel_path": "diffusion_models/wan2.1_t2v_14B_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 28577096680
-    },
-    {
-      "basename": "wan2.1_vace_1.3B_fp16.safetensors",
-      "rel_path": "diffusion_models/wan2.1_vace_1.3B_fp16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 4309519800
-    },
-    {
-      "basename": "wan2.2_fun_vace_low_noise_14B_fp8_scaled.safetensors",
-      "rel_path": "diffusion_models/wan2.2_fun_vace_low_noise_14B_fp8_scaled.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 17346056104
-    },
-    {
-      "basename": "wan2.2_t2v_high_noise_14B_fp16.safetensors",
-      "rel_path": "diffusion_models/wan2.2_t2v_high_noise_14B_fp16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 28577095592
-    },
-    {
-      "basename": "wan2.2_t2v_low_noise_14B_fp16.safetensors",
-      "rel_path": "diffusion_models/wan2.2_t2v_low_noise_14B_fp16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 28577095592
-    },
-    {
-      "basename": "z-image-turbo-fp8-e4m3fn.safetensors",
-      "rel_path": "diffusion_models/z-image-turbo-fp8-e4m3fn.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 6154958752
-    },
-    {
-      "basename": "z-image-turbo_fp8_scaled_KJ.safetensors",
-      "rel_path": "diffusion_models/z-image-turbo_fp8_scaled_KJ.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 6158115074
-    },
-    {
-      "basename": "z_image_base-bf16.safetensors",
-      "rel_path": "diffusion_models/z_image_base-bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12309866400
-    },
-    {
-      "basename": "z_image_base_bf16_official.safetensors",
-      "rel_path": "diffusion_models/z_image_base_bf16_official.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12309866400
-    },
-    {
-      "basename": "z_image_bf16_ttcosta.safetensors",
-      "rel_path": "diffusion_models/z_image_bf16_ttcosta.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12309866400
-    },
-    {
-      "basename": "z_image_turbo_bf16.safetensors",
-      "rel_path": "diffusion_models/z_image_turbo_bf16.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12309866400
-    },
-    {
-      "basename": "z_image_turbo_bf16_20260513.safetensors",
-      "rel_path": "diffusion_models/z_image_turbo_bf16_20260513.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 12309866400
-    },
-    {
-      "basename": "z_image_turbo_fp8_e4m3fn_unscaled.safetensors",
-      "rel_path": "diffusion_models/z_image_turbo_fp8_e4m3fn_unscaled.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 6154958752
-    },
-    {
-      "basename": "z_image_turbo_nvfp4.safetensors",
-      "rel_path": "diffusion_models/z_image_turbo_nvfp4.safetensors",
-      "用途": "出图/出视频·diffusion",
-      "bytes": 4509509600
-    },
-    {
       "basename": "negativeXL_D.safetensors",
       "rel_path": "embeddings/negativeXL_D.safetensors",
       "用途": "Embeddings",
       "bytes": 131224
     },
     {
-      "basename": "gimmvfi_r_arb_lpips_fp32.safetensors",
-      "rel_path": "frame_interpolation/gimmvfi_r_arb_lpips_fp32.safetensors",
-      "用途": "其它·frame_interpolation",
-      "bytes": 79204556
-    },
-    {
-      "basename": "ltx-2-spatial-upscaler-x2-1.0.safetensors",
-      "rel_path": "latent_upscale_models/ltx-2-spatial-upscaler-x2-1.0.safetensors",
-      "用途": "其它·latent_upscale_models",
-      "bytes": 442499072
-    },
-    {
-      "basename": "ltx-2.3-spatial-upscaler-x1.5-1.0.safetensors",
-      "rel_path": "latent_upscale_models/ltx-2.3-spatial-upscaler-x1.5-1.0.safetensors",
-      "用途": "其它·latent_upscale_models",
-      "bytes": 1090125794
-    },
-    {
-      "basename": "ltx-2.3-spatial-upscaler-x2-1.0.safetensors",
-      "rel_path": "latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.0.safetensors",
-      "用途": "其它·latent_upscale_models",
-      "bytes": 442499072
-    },
-    {
-      "basename": "ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
-      "rel_path": "latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
-      "用途": "其它·latent_upscale_models",
-      "bytes": 995743560
-    },
-    {
-      "basename": "ltx-2.3-temporal-upscaler-x2-1.0.safetensors",
-      "rel_path": "latent_upscale_models/ltx-2.3-temporal-upscaler-x2-1.0.safetensors",
-      "用途": "其它·latent_upscale_models",
-      "bytes": 261944000
-    },
-    {
-      "basename": "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
-      "rel_path": "latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
-      "用途": "其它·latent_upscale_models",
-      "bytes": 995778752
+      "basename": "1980s_horror_krea2.safetensors",
+      "rel_path": "loras/horror_thriller/1980s_horror_krea2.safetensors",
+      "用途": "LoRA",
+      "bytes": 459800928
     },
     {
       "basename": "2511-AnyPose-base-000006250.safetensors",
@@ -1469,6 +923,12 @@
       "rel_path": "loras/2511-AnyPose-helper-00006000.safetensors",
       "用途": "LoRA",
       "bytes": 295146216
+    },
+    {
+      "basename": "30-360-high.safetensors",
+      "rel_path": "loras/30-360-high.safetensors",
+      "用途": "LoRA",
+      "bytes": 306807976
     },
     {
       "basename": "AnythingtoRealCharacters2511_20.safetensors",
@@ -1539,6 +999,12 @@
     {
       "basename": "Flux2-Klein-9B-一致性V2.safetensors",
       "rel_path": "loras/Flux2-Klein-9B-一致性V2.safetensors",
+      "用途": "LoRA",
+      "bytes": 331379608
+    },
+    {
+      "basename": "Flux2-Klein-9B-一致性V2.safetensors",
+      "rel_path": "loras/klein/Flux2-Klein-9B-一致性V2.safetensors",
       "用途": "LoRA",
       "bytes": 331379608
     },
@@ -1639,6 +1105,12 @@
       "bytes": 616948520
     },
     {
+      "basename": "LTX2.3-22B_IC-LoRA-Cameraman_v2_14000.safetensors",
+      "rel_path": "loras/ltx2.3/LTX2.3-22B_IC-LoRA-Cameraman_v2_14000.safetensors",
+      "用途": "LoRA",
+      "bytes": 654443424
+    },
+    {
       "basename": "LTX2.3-IC-LORA-Dual-Character-Shot.safetensors",
       "rel_path": "loras/LTX2.3-IC-LORA-Dual-Character-Shot.safetensors",
       "用途": "LoRA",
@@ -1651,6 +1123,12 @@
       "bytes": 327287347
     },
     {
+      "basename": "LTX2.3-NSFWMOTION_00750.safetensors",
+      "rel_path": "loras/ltx2.3/LTX2.3-NSFWMOTION_00750.safetensors",
+      "用途": "LoRA",
+      "bytes": 1107655568
+    },
+    {
       "basename": "LTX2.3_Crisp_Enhance.safetensors",
       "rel_path": "loras/LTX2.3_Crisp_Enhance.safetensors",
       "用途": "LoRA",
@@ -1661,6 +1139,24 @@
       "rel_path": "loras/LTX2.3人像美学-Aesthetic of Asian Portraits.safetensors",
       "用途": "LoRA",
       "bytes": 402760760
+    },
+    {
+      "basename": "LongCat-Avatar-15_dmd_distill_lora_rank128_bf16.safetensors",
+      "rel_path": "loras/LongCat-Avatar-15_dmd_distill_lora_rank128_bf16.safetensors",
+      "用途": "LoRA",
+      "bytes": 1261613536
+    },
+    {
+      "basename": "LongCat_distill_lora_alpha64_bf16.safetensors",
+      "rel_path": "loras/LongCat_distill_lora_alpha64_bf16.safetensors",
+      "用途": "LoRA",
+      "bytes": 1261613528
+    },
+    {
+      "basename": "LongCat_refinement_lora_rank128_bf16.safetensors",
+      "rel_path": "loras/LongCat_refinement_lora_rank128_bf16.safetensors",
+      "用途": "LoRA",
+      "bytes": 2470645410
     },
     {
       "basename": "Ltx2.3-Licon-VBVR-I2V-240K-R32.safetensors",
@@ -1705,6 +1201,12 @@
       "bytes": 236117064
     },
     {
+      "basename": "Qwen-Edit-2509-Multiple-angles.safetensors",
+      "rel_path": "loras/Qwen-Edit-2509-Multiple-angles.safetensors",
+      "用途": "LoRA",
+      "bytes": 236117032
+    },
+    {
       "basename": "Qwen-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
       "rel_path": "loras/Qwen-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
       "用途": "LoRA",
@@ -1731,6 +1233,12 @@
     {
       "basename": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
       "rel_path": "loras/Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
+      "用途": "LoRA",
+      "bytes": 849608296
+    },
+    {
+      "basename": "Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors",
+      "rel_path": "loras/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors",
       "用途": "LoRA",
       "bytes": 849608296
     },
@@ -1903,8 +1411,20 @@
       "bytes": 1226934120
     },
     {
+      "basename": "SVI_v2_PRO_Wan2.2-I2V-A14B_HIGH_lora_rank_128_fp16.safetensors",
+      "rel_path": "loras/SVI_v2_PRO_Wan2.2-I2V-A14B_HIGH_lora_rank_128_fp16.safetensors",
+      "用途": "LoRA",
+      "bytes": 1226934120
+    },
+    {
       "basename": "SVI_v2_PRO_Wan2.2-I2V-A14B_LOW_lora_rank_(128)_fp16.safetensors",
       "rel_path": "loras/SVI_v2_PRO_Wan2.2-I2V-A14B_LOW_lora_rank_(128)_fp16.safetensors",
+      "用途": "LoRA",
+      "bytes": 1226934120
+    },
+    {
+      "basename": "SVI_v2_PRO_Wan2.2-I2V-A14B_LOW_lora_rank_128_fp16.safetensors",
+      "rel_path": "loras/SVI_v2_PRO_Wan2.2-I2V-A14B_LOW_lora_rank_128_fp16.safetensors",
       "用途": "LoRA",
       "bytes": 1226934120
     },
@@ -1969,6 +1489,12 @@
       "bytes": 314599696
     },
     {
+      "basename": "Sulphur_LTX2.3_better_NSFW_motion.safetensors",
+      "rel_path": "loras/ltx2.3/Sulphur_LTX2.3_better_NSFW_motion.safetensors",
+      "用途": "LoRA",
+      "bytes": 654446000
+    },
+    {
       "basename": "WAN2.1_SmartphoneSnapshotPhotoReality_v1_by-AI_Characters.safetensors",
       "rel_path": "loras/WAN2.1_SmartphoneSnapshotPhotoReality_v1_by-AI_Characters.safetensors",
       "用途": "LoRA",
@@ -1987,10 +1513,40 @@
       "bytes": 2873221376
     },
     {
+      "basename": "Wan2.1-Fun-1.3B-InP-MPS_reward_lora_comfy.safetensors",
+      "rel_path": "loras/Wan2.1-Fun-1.3B-InP-MPS_reward_lora_comfy.safetensors",
+      "用途": "LoRA",
+      "bytes": 405294056
+    },
+    {
       "basename": "Wan2.1-Fun-14B-InP-HPS2.1_reward_lora_comfy.safetensors",
       "rel_path": "loras/Wan2.1-Fun-14B-InP-HPS2.1_reward_lora_comfy.safetensors",
       "用途": "LoRA",
       "bytes": 1458497816
+    },
+    {
+      "basename": "Wan2.1-Fun-14B-InP-MPS.safetensors",
+      "rel_path": "loras/Wan2.1-Fun-14B-InP-MPS.safetensors",
+      "用途": "LoRA",
+      "bytes": 1458497816
+    },
+    {
+      "basename": "Wan2.1_I2V_14B_FusionX_LoRA.safetensors",
+      "rel_path": "loras/Wan2.1_I2V_14B_FusionX_LoRA.safetensors",
+      "用途": "LoRA",
+      "bytes": 371128616
+    },
+    {
+      "basename": "Wan2.1_T2V_14B_CineScale_ntk20_lora_rank16_fp16.safetensors",
+      "rel_path": "loras/Wan2.1_T2V_14B_CineScale_ntk20_lora_rank16_fp16.safetensors",
+      "用途": "LoRA",
+      "bytes": 153445960
+    },
+    {
+      "basename": "Wan2.1_T2V_14B_FusionX_LoRA.safetensors",
+      "rel_path": "loras/Wan2.1_T2V_14B_FusionX_LoRA.safetensors",
+      "用途": "LoRA",
+      "bytes": 316822496
     },
     {
       "basename": "Wan2.2-Fun-A14B-InP-Fusion-Elite.safetensors",
@@ -1999,10 +1555,28 @@
       "bytes": 858457612
     },
     {
+      "basename": "Wan2.2-Fun-A14B-InP-HIGH-MPS_resized_dynamic_avg_rank_21_bf16.safetensors",
+      "rel_path": "loras/Wan2.2-Fun-A14B-InP-HIGH-MPS_resized_dynamic_avg_rank_21_bf16.safetensors",
+      "用途": "LoRA",
+      "bytes": 140945036
+    },
+    {
       "basename": "Wan2.2-Fun-A14B-InP-LOW-HPS2.1_resized_dynamic_avg_rank_15_bf16.safetensors",
       "rel_path": "loras/Wan2.2-Fun-A14B-InP-LOW-HPS2.1_resized_dynamic_avg_rank_15_bf16.safetensors",
       "用途": "LoRA",
       "bytes": 101752852
+    },
+    {
+      "basename": "Wan2.2-Fun-A14B-InP-LOW-MPS_resized_dynamic_avg_rank_22_bf16.safetensors",
+      "rel_path": "loras/Wan2.2-Fun-A14B-InP-LOW-MPS_resized_dynamic_avg_rank_22_bf16.safetensors",
+      "用途": "LoRA",
+      "bytes": 150403180
+    },
+    {
+      "basename": "Wan2.2-Fun-A14B-InP-high-noise-HPS2.1.safetensors",
+      "rel_path": "loras/Wan2.2-Fun-A14B-InP-high-noise-HPS2.1.safetensors",
+      "用途": "LoRA",
+      "bytes": 858457300
     },
     {
       "basename": "Wan2.2-Fun-A14B-InP-high-noise-MPS.safetensors",
@@ -2041,6 +1615,18 @@
       "bytes": 613561776
     },
     {
+      "basename": "Wan2.2-Lightning_T2V-v1.1-A14B-4steps-lora_HIGH_fp16.safetensors",
+      "rel_path": "loras/Wan2.2-Lightning_T2V-v1.1-A14B-4steps-lora_HIGH_fp16.safetensors",
+      "用途": "LoRA",
+      "bytes": 613561776
+    },
+    {
+      "basename": "Wan2.2-Lightning_T2V-v1.1-A14B-4steps-lora_LOW_fp16.safetensors",
+      "rel_path": "loras/Wan2.2-Lightning_T2V-v1.1-A14B-4steps-lora_LOW_fp16.safetensors",
+      "用途": "LoRA",
+      "bytes": 613561776
+    },
+    {
       "basename": "Wan2.2-T2V-A14B-4steps-lora-rank64-Seko-V1.1-high_noise_model.safetensors",
       "rel_path": "loras/Wan2.2-T2V-A14B-4steps-lora-rank64-Seko-V1.1-high_noise_model.safetensors",
       "用途": "LoRA",
@@ -2053,10 +1639,22 @@
       "bytes": 1226977424
     },
     {
+      "basename": "Wan21_AccVid_T2V_14B_lora_rank32_fp16.safetensors",
+      "rel_path": "loras/Wan21_AccVid_T2V_14B_lora_rank32_fp16.safetensors",
+      "用途": "LoRA",
+      "bytes": 316822496
+    },
+    {
       "basename": "Wan21_CausVid_14B_T2V_lora_rank32.safetensors",
       "rel_path": "loras/Wan21_CausVid_14B_T2V_lora_rank32.safetensors",
       "用途": "LoRA",
       "bytes": 319116504
+    },
+    {
+      "basename": "Wan21_CausVid_bidirect2_T2V_1_3B_lora_rank32.safetensors",
+      "rel_path": "loras/Wan21_CausVid_bidirect2_T2V_1_3B_lora_rank32.safetensors",
+      "用途": "LoRA",
+      "bytes": 91233416
     },
     {
       "basename": "Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
@@ -2075,6 +1673,12 @@
       "rel_path": "loras/Wan21_PusaV1_LoRA_14B_rank512_bf16.safetensors",
       "用途": "LoRA",
       "bytes": 4907437824
+    },
+    {
+      "basename": "Wan21_T2V_14B_lightx2v_cfg_step_distill_lora_rank32.safetensors",
+      "rel_path": "loras/Wan21_T2V_14B_lightx2v_cfg_step_distill_lora_rank32.safetensors",
+      "用途": "LoRA",
+      "bytes": 316822496
     },
     {
       "basename": "Wan22_PusaV1_lora_HIGH_resized_dynamic_avg_rank_98_bf16.safetensors",
@@ -2101,6 +1705,24 @@
       "bytes": 419510896
     },
     {
+      "basename": "Wan2_1_Skyreels-v2-I2V-720P_LoRA_rank_adaptive_quantile_0.20_fp16.safetensors",
+      "rel_path": "loras/Wan2_1_Skyreels-v2-I2V-720P_LoRA_rank_adaptive_quantile_0.20_fp16.safetensors",
+      "用途": "LoRA",
+      "bytes": 1682934808
+    },
+    {
+      "basename": "Wan2_1_self_forcing_dmd_1_3B_lora_rank_32_fp16.safetensors",
+      "rel_path": "loras/Wan2_1_self_forcing_dmd_1_3B_lora_rank_32_fp16.safetensors",
+      "用途": "LoRA",
+      "bytes": 91233416
+    },
+    {
+      "basename": "WanAnimate_relight_lora.ckpt",
+      "rel_path": "loras/WanAnimate_relight_lora.ckpt",
+      "用途": "LoRA",
+      "bytes": 2873429974
+    },
+    {
       "basename": "WanAnimate_relight_lora_fp16-new.safetensors",
       "rel_path": "loras/WanAnimate_relight_lora_fp16-new.safetensors",
       "用途": "LoRA",
@@ -2119,10 +1741,22 @@
       "bytes": 1436672440
     },
     {
+      "basename": "Wan_2_1_T2V_14B_720p_rCM_lora_average_rank_94_bf16.safetensors",
+      "rel_path": "loras/Wan_2_1_T2V_14B_720p_rCM_lora_average_rank_94_bf16.safetensors",
+      "用途": "LoRA",
+      "bytes": 894935820
+    },
+    {
       "basename": "Wan_2_2_I2V_A14B_HIGH_lightx2v_4step_lora_v1030_rank_64_bf16(1).safetensors",
       "rel_path": "loras/Wan_2_2_I2V_A14B_HIGH_lightx2v_4step_lora_v1030_rank_64_bf16(1).safetensors",
       "用途": "LoRA",
       "bytes": 630697104
+    },
+    {
+      "basename": "Wan_2_2_I2V_A14B_LOW_lightx2v_4step_lora_260412_rank_256_fp16.safetensors",
+      "rel_path": "loras/Wan_2_2_I2V_A14B_LOW_lightx2v_4step_lora_260412_rank_256_fp16.safetensors",
+      "用途": "LoRA",
+      "bytes": 2498179664
     },
     {
       "basename": "Wuli-Qwen-Image-2512-Turbo-LoRA-2steps-V1.0-bf16.safetensors",
@@ -2161,6 +1795,12 @@
       "bytes": 568272096
     },
     {
+      "basename": "ZIT_Midjourney_Luneva_Cinematic_v1_r128.safetensors",
+      "rel_path": "loras/ZIT_Midjourney_Luneva_Cinematic_v1_r128.safetensors",
+      "用途": "LoRA",
+      "bytes": 680326960
+    },
+    {
       "basename": "bfs_head_v1_flux-klein_9b_step3500_rank128.safetensors",
       "rel_path": "loras/bfs_head_v1_flux-klein_9b_step3500_rank128.safetensors",
       "用途": "LoRA",
@@ -2171,6 +1811,18 @@
       "rel_path": "loras/bounce_test_HighNoise-000005.safetensors",
       "用途": "LoRA",
       "bytes": 306847584
+    },
+    {
+      "basename": "chronoedit_distill_lora.safetensors",
+      "rel_path": "loras/chronoedit_distill_lora.safetensors",
+      "用途": "LoRA",
+      "bytes": 375905424
+    },
+    {
+      "basename": "city_streets_at_night_flux.safetensors",
+      "rel_path": "loras/modern_urban/city_streets_at_night_flux.safetensors",
+      "用途": "LoRA",
+      "bytes": 699279272
     },
     {
       "basename": "comfyui_subject_lora16.safetensors",
@@ -2191,10 +1843,22 @@
       "bytes": 613580160
     },
     {
+      "basename": "cyberpunk_edgerunners_ltx.safetensors",
+      "rel_path": "loras/special_effects/cyberpunk_edgerunners_ltx.safetensors",
+      "用途": "LoRA",
+      "bytes": 705198728
+    },
+    {
       "basename": "edit_0928_lora_step40000.safetensors",
       "rel_path": "loras/edit_0928_lora_step40000.safetensors",
       "用途": "LoRA",
       "bytes": 472047184
+    },
+    {
+      "basename": "eternal_oath_wedding_flux.safetensors",
+      "rel_path": "loras/comedy_romantic/eternal_oath_wedding_flux.safetensors",
+      "用途": "LoRA",
+      "bytes": 153274192
     },
     {
       "basename": "extract-outfit_v3.safetensors",
@@ -2215,16 +1879,166 @@
       "bytes": 285246040
     },
     {
+      "basename": "flux_romanticism.safetensors",
+      "rel_path": "loras/comedy_romantic/flux_romanticism.safetensors",
+      "用途": "LoRA",
+      "bytes": 343805539
+    },
+    {
       "basename": "gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors",
       "rel_path": "loras/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors",
       "用途": "LoRA",
       "bytes": 628203616
     },
     {
+      "basename": "ghost_glitter_v1_flux.safetensors",
+      "rel_path": "loras/horror_thriller/ghost_glitter_v1_flux.safetensors",
+      "用途": "LoRA",
+      "bytes": 39759496
+    },
+    {
+      "basename": "ghost_glitter_v1_illustrious.safetensors",
+      "rel_path": "loras/horror_thriller/ghost_glitter_v1_illustrious.safetensors",
+      "用途": "LoRA",
+      "bytes": 24941520
+    },
+    {
+      "basename": "hanfu_chinese_girl_flux.safetensors",
+      "rel_path": "loras/ancient_chinese/hanfu_chinese_girl_flux.safetensors",
+      "用途": "LoRA",
+      "bytes": 612747504
+    },
+    {
+      "basename": "hanfu_flux_v2.safetensors",
+      "rel_path": "loras/ancient_chinese/hanfu_flux_v2.safetensors",
+      "用途": "LoRA",
+      "bytes": 19855856
+    },
+    {
+      "basename": "hunyuan_video_accvid_5_steps_lora_rank16_fp8_e4m3fn.safetensors",
+      "rel_path": "loras/hunyuan_video_accvid_5_steps_lora_rank16_fp8_e4m3fn.safetensors",
+      "用途": "LoRA",
+      "bytes": 174027016
+    },
+    {
+      "basename": "hyper_flux_8step_lora.safetensors",
+      "rel_path": "loras/luxury_business/hyper_flux_8step_lora.safetensors",
+      "用途": "LoRA",
+      "bytes": 1388026440
+    },
+    {
+      "basename": "hyper_sdxl_1step_lora.safetensors",
+      "rel_path": "loras/camera_movement/hyper_sdxl_1step_lora.safetensors",
+      "用途": "LoRA",
+      "bytes": 787359648
+    },
+    {
+      "basename": "hyper_sdxl_2step_lora.safetensors",
+      "rel_path": "loras/special_effects/hyper_sdxl_2step_lora.safetensors",
+      "用途": "LoRA",
+      "bytes": 787359648
+    },
+    {
+      "basename": "hyper_sdxl_4step_lora.safetensors",
+      "rel_path": "loras/special_effects/hyper_sdxl_4step_lora.safetensors",
+      "用途": "LoRA",
+      "bytes": 787359648
+    },
+    {
+      "basename": "hyper_sdxl_8step_lora.safetensors",
+      "rel_path": "loras/luxury_business/hyper_sdxl_8step_lora.safetensors",
+      "用途": "LoRA",
+      "bytes": 787359648
+    },
+    {
+      "basename": "hyvideo_FastVideo_LoRA-fp8.safetensors",
+      "rel_path": "loras/hyvideo_FastVideo_LoRA-fp8.safetensors",
+      "用途": "LoRA",
+      "bytes": 174027016
+    },
+    {
+      "basename": "i2l_smoke_20260827.safetensors",
+      "rel_path": "loras/i2l_smoke_20260827.safetensors",
+      "用途": "LoRA",
+      "bytes": 19905400
+    },
+    {
+      "basename": "ip-adapter-faceid-plusv2_sd15_lora.safetensors",
+      "rel_path": "loras/ip-adapter-faceid-plusv2_sd15_lora.safetensors",
+      "用途": "LoRA",
+      "bytes": 51059544
+    },
+    {
+      "basename": "ip-adapter-faceid-plusv2_sdxl_lora.safetensors",
+      "rel_path": "loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors",
+      "用途": "LoRA",
+      "bytes": 371842896
+    },
+    {
       "basename": "klein_9B_Turbo_r128.safetensors",
       "rel_path": "loras/klein_9B_Turbo_r128.safetensors",
       "用途": "LoRA",
       "bytes": 1388608880
+    },
+    {
+      "basename": "krea2_turbo_training_adapter.safetensors",
+      "rel_path": "loras/director_style/krea2_turbo_training_adapter.safetensors",
+      "用途": "LoRA",
+      "bytes": 228587504
+    },
+    {
+      "basename": "krea_crimson_dark_victorian.safetensors",
+      "rel_path": "loras/ancient_chinese/krea_crimson_dark_victorian.safetensors",
+      "用途": "LoRA",
+      "bytes": 234676792
+    },
+    {
+      "basename": "krea_crimson_dark_victorian_war.safetensors",
+      "rel_path": "loras/history_war/krea_crimson_dark_victorian_war.safetensors",
+      "用途": "LoRA",
+      "bytes": 234676792
+    },
+    {
+      "basename": "krea_foggy_gothic_fairytale.safetensors",
+      "rel_path": "loras/ancient_chinese/krea_foggy_gothic_fairytale.safetensors",
+      "用途": "LoRA",
+      "bytes": 234676792
+    },
+    {
+      "basename": "krea_foggy_gothic_fairytale_rom.safetensors",
+      "rel_path": "loras/comedy_romantic/krea_foggy_gothic_fairytale_rom.safetensors",
+      "用途": "LoRA",
+      "bytes": 234676792
+    },
+    {
+      "basename": "krea_hazy_desert_dreamscape.safetensors",
+      "rel_path": "loras/special_effects/krea_hazy_desert_dreamscape.safetensors",
+      "用途": "LoRA",
+      "bytes": 469287984
+    },
+    {
+      "basename": "krea_neon_drip.safetensors",
+      "rel_path": "loras/modern_urban/krea_neon_drip.safetensors",
+      "用途": "LoRA",
+      "bytes": 469291992
+    },
+    {
+      "basename": "krea_rainy_window.safetensors",
+      "rel_path": "loras/modern_urban/krea_rainy_window.safetensors",
+      "用途": "LoRA",
+      "bytes": 469291992
+    },
+    {
+      "basename": "lightning_sdxl_2step_lora.safetensors",
+      "rel_path": "loras/luxury_business/lightning_sdxl_2step_lora.safetensors",
+      "用途": "LoRA",
+      "bytes": 393854592
+    },
+    {
+      "basename": "lightning_sdxl_4step_lora.safetensors",
+      "rel_path": "loras/luxury_business/lightning_sdxl_4step_lora.safetensors",
+      "用途": "LoRA",
+      "bytes": 393854592
     },
     {
       "basename": "lightx2v_14B_T2V_cfg_step_distill_lora_adaptive_rank_quantile_0.15_bf16.safetensors",
@@ -2257,10 +2071,40 @@
       "bytes": 1253192432
     },
     {
+      "basename": "lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors",
+      "rel_path": "loras/lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors",
+      "用途": "LoRA",
+      "bytes": 630697104
+    },
+    {
       "basename": "lightx2v_elite_it2v_animate_face.safetensors",
       "rel_path": "loras/lightx2v_elite_it2v_animate_face.safetensors",
       "用途": "LoRA",
       "bytes": 3257907064
+    },
+    {
+      "basename": "linaqruf_anime_detailer.safetensors",
+      "rel_path": "loras/campus/linaqruf_anime_detailer.safetensors",
+      "用途": "LoRA",
+      "bytes": 43170124
+    },
+    {
+      "basename": "linaqruf_pastel_anime.safetensors",
+      "rel_path": "loras/campus/linaqruf_pastel_anime.safetensors",
+      "用途": "LoRA",
+      "bytes": 197087480
+    },
+    {
+      "basename": "linaqruf_sketch_style.safetensors",
+      "rel_path": "loras/campus/linaqruf_sketch_style.safetensors",
+      "用途": "LoRA",
+      "bytes": 47231344
+    },
+    {
+      "basename": "linaqruf_style_enhancer.safetensors",
+      "rel_path": "loras/campus/linaqruf_style_enhancer.safetensors",
+      "用途": "LoRA",
+      "bytes": 47061432
     },
     {
       "basename": "ltx-2-19b-ic-lora-detailer.safetensors",
@@ -2311,8 +2155,26 @@
       "bytes": 2741024390
     },
     {
+      "basename": "ltx-2.3-22b-distilled-lora-1.1_fro90_ceil72_condsafe.safetensors",
+      "rel_path": "loras/ltx2.3/distill_loras/ltx-2.3-22b-distilled-lora-1.1_fro90_ceil72_condsafe.safetensors",
+      "用途": "LoRA",
+      "bytes": 662072824
+    },
+    {
       "basename": "ltx-2.3-22b-distilled-lora-384-1.1-7.08G.safetensors",
       "rel_path": "loras/ltx-2.3-22b-distilled-lora-384-1.1-7.08G.safetensors",
+      "用途": "LoRA",
+      "bytes": 7605507256
+    },
+    {
+      "basename": "ltx-2.3-22b-distilled-lora-384-1.1.safetensors",
+      "rel_path": "loras/ltx-2.3-22b-distilled-lora-384-1.1.safetensors",
+      "用途": "LoRA",
+      "bytes": 7605507256
+    },
+    {
+      "basename": "ltx-2.3-22b-distilled-lora-384-1.1.safetensors",
+      "rel_path": "loras/ltx2.3/ltx-2.3-22b-distilled-lora-384-1.1.safetensors",
       "用途": "LoRA",
       "bytes": 7605507256
     },
@@ -2339,6 +2201,30 @@
       "rel_path": "loras/ltx-2.3-22b-distilled-lora-fro90_ceil72.safetensors",
       "用途": "LoRA",
       "bytes": 1396664432
+    },
+    {
+      "basename": "ltx-2.3-22b-ic-lora-lipdub-0.9.safetensors",
+      "rel_path": "loras/ltx2.3/ltx-2.3-22b-ic-lora-lipdub-0.9.safetensors",
+      "用途": "LoRA",
+      "bytes": 2466665072
+    },
+    {
+      "basename": "ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors",
+      "rel_path": "loras/ltx2.3/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors",
+      "用途": "LoRA",
+      "bytes": 327309314
+    },
+    {
+      "basename": "ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors",
+      "rel_path": "loras/ltx2.3/ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors",
+      "用途": "LoRA",
+      "bytes": 654465352
+    },
+    {
+      "basename": "ltx-2.3-22b-lora-foley-v2a-1.0.safetensors",
+      "rel_path": "loras/ltx2.3/ltx-2.3-22b-lora-foley-v2a-1.0.safetensors",
+      "用途": "LoRA",
+      "bytes": 226709270
     },
     {
       "basename": "ltx2.3-ic-subtitles-remove-general-lora.safetensors",
@@ -2383,6 +2269,42 @@
       "bytes": 100769608
     },
     {
+      "basename": "ltx_cinematic_sci_fi_cyberpunk.safetensors",
+      "rel_path": "loras/special_effects/ltx_cinematic_sci_fi_cyberpunk.safetensors",
+      "用途": "LoRA",
+      "bytes": 352679888
+    },
+    {
+      "basename": "ltx_cinematic_sci_fi_dir.safetensors",
+      "rel_path": "loras/director_style/ltx_cinematic_sci_fi_dir.safetensors",
+      "用途": "LoRA",
+      "bytes": 352679888
+    },
+    {
+      "basename": "ltx_post_apocalyptic.safetensors",
+      "rel_path": "loras/modern_urban/ltx_post_apocalyptic.safetensors",
+      "用途": "LoRA",
+      "bytes": 352679880
+    },
+    {
+      "basename": "ltx_post_apocalyptic_dir.safetensors",
+      "rel_path": "loras/director_style/ltx_post_apocalyptic_dir.safetensors",
+      "用途": "LoRA",
+      "bytes": 352679880
+    },
+    {
+      "basename": "medieval_knight_sdxl.safetensors",
+      "rel_path": "loras/history_war/medieval_knight_sdxl.safetensors",
+      "用途": "LoRA",
+      "bytes": 112793344
+    },
+    {
+      "basename": "military_artillery_k9_flux.safetensors",
+      "rel_path": "loras/history_war/military_artillery_k9_flux.safetensors",
+      "用途": "LoRA",
+      "bytes": 171969488
+    },
+    {
       "basename": "new_qwen-image-edit-2511-multiple-angles-lora.safetensors",
       "rel_path": "loras/new_qwen-image-edit-2511-multiple-angles-lora.safetensors",
       "用途": "LoRA",
@@ -2399,6 +2321,18 @@
       "rel_path": "loras/next-scene_lora_v1-3000.safetensors",
       "用途": "LoRA",
       "bytes": 295146184
+    },
+    {
+      "basename": "ntc_cinematic_lighting.safetensors",
+      "rel_path": "loras/camera_movement/ntc_cinematic_lighting.safetensors",
+      "用途": "LoRA",
+      "bytes": 8789076
+    },
+    {
+      "basename": "ostris_face_helper_sdxl.safetensors",
+      "rel_path": "loras/camera_movement/ostris_face_helper_sdxl.safetensors",
+      "用途": "LoRA",
+      "bytes": 223735220
     },
     {
       "basename": "qe2511_consis_alpha_patched.safetensors",
@@ -2419,6 +2353,12 @@
       "bytes": 472047184
     },
     {
+      "basename": "qwen-image-edit-2511-multiple-angles-lora.safetensors",
+      "rel_path": "loras/qwen-image-edit-2511-multiple-angles-lora.safetensors",
+      "用途": "LoRA",
+      "bytes": 295140688
+    },
+    {
       "basename": "qwen_edit_2509_ObjectRemovalAlpha.safetensors",
       "rel_path": "loras/qwen_edit_2509_ObjectRemovalAlpha.safetensors",
       "用途": "LoRA",
@@ -2431,16 +2371,40 @@
       "bytes": 343806464
     },
     {
+      "basename": "samurai_jack.safetensors",
+      "rel_path": "loras/history_war/samurai_jack.safetensors",
+      "用途": "LoRA",
+      "bytes": 590058880
+    },
+    {
       "basename": "sulphur_lora_rank_768.safetensors",
       "rel_path": "loras/sulphur_lora_rank_768.safetensors",
       "用途": "LoRA",
       "bytes": 10268001040
     },
     {
+      "basename": "vampire_slider.safetensors",
+      "rel_path": "loras/horror_thriller/vampire_slider.safetensors",
+      "用途": "LoRA",
+      "bytes": 8789076
+    },
+    {
+      "basename": "wan2.2_animate_14B_relight_lora_bf16.safetensors",
+      "rel_path": "loras/wan2.2_animate_14B_relight_lora_bf16.safetensors",
+      "用途": "LoRA",
+      "bytes": 1436673432
+    },
+    {
       "basename": "wan2.2_face_complete_distilled.safetensors",
       "rel_path": "loras/wan2.2_face_complete_distilled.safetensors",
       "用途": "LoRA",
       "bytes": 1713746616
+    },
+    {
+      "basename": "wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+      "rel_path": "loras/wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+      "用途": "LoRA",
+      "bytes": 634645944
     },
     {
       "basename": "wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step.safetensors",
@@ -2455,6 +2419,12 @@
       "bytes": 739472104
     },
     {
+      "basename": "wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022_modified.safetensors",
+      "rel_path": "loras/wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022_modified.safetensors",
+      "用途": "LoRA",
+      "bytes": 739472104
+    },
+    {
       "basename": "wan2.2_t2v_A14b_high_noise_lora_rank64_lightx2v_4step_v1217.safetensors",
       "rel_path": "loras/wan2.2_t2v_A14b_high_noise_lora_rank64_lightx2v_4step_v1217.safetensors",
       "用途": "LoRA",
@@ -2465,6 +2435,24 @@
       "rel_path": "loras/wan2.2_t2v_A14b_low_noise_lora_rank64_lightx2v_4step_v1217.safetensors",
       "用途": "LoRA",
       "bytes": 1226977424
+    },
+    {
+      "basename": "wan22_orbit_high_noise.safetensors",
+      "rel_path": "loras/camera_movement/wan22_orbit_high_noise.safetensors",
+      "用途": "LoRA",
+      "bytes": 153453568
+    },
+    {
+      "basename": "wan22_orbit_low_noise.safetensors",
+      "rel_path": "loras/camera_movement/wan22_orbit_low_noise.safetensors",
+      "用途": "LoRA",
+      "bytes": 153453568
+    },
+    {
+      "basename": "wedding_photo_slider.safetensors",
+      "rel_path": "loras/comedy_romantic/wedding_photo_slider.safetensors",
+      "用途": "LoRA",
+      "bytes": 8789076
     },
     {
       "basename": "xlab_flux_Realism2_lora.safetensors",
@@ -2485,6 +2473,678 @@
       "bytes": 158826336
     },
     {
+      "basename": "zimage_turbo_training_adapter_v2.safetensors",
+      "rel_path": "loras/director_style/zimage_turbo_training_adapter_v2.safetensors",
+      "用途": "LoRA",
+      "bytes": 340194488
+    },
+    {
+      "basename": "LTX23_audio_vae_bf16.safetensors",
+      "rel_path": "vae/LTX23_audio_vae_bf16.safetensors",
+      "用途": "VAE",
+      "bytes": 364855188
+    },
+    {
+      "basename": "LTX23_video_vae_bf16.safetensors",
+      "rel_path": "vae/LTX23_video_vae_bf16.safetensors",
+      "用途": "VAE",
+      "bytes": 1452258578
+    },
+    {
+      "basename": "LTX2_audio_vae_bf16.safetensors",
+      "rel_path": "vae/LTX2_audio_vae_bf16.safetensors",
+      "用途": "VAE",
+      "bytes": 217740136
+    },
+    {
+      "basename": "LTX2_video_vae_bf16.safetensors",
+      "rel_path": "vae/LTX2_video_vae_bf16.safetensors",
+      "用途": "VAE",
+      "bytes": 2445008522
+    },
+    {
+      "basename": "UltraFlux-v1_model.safetensors",
+      "rel_path": "vae/UltraFlux-v1_model.safetensors",
+      "用途": "VAE",
+      "bytes": 335306212
+    },
+    {
+      "basename": "Wan2.1_VAE.pth",
+      "rel_path": "vae/Wan2.1_VAE.pth",
+      "用途": "VAE",
+      "bytes": 507609928
+    },
+    {
+      "basename": "Wan2.1_VAE_upscale2x_imageonly_real_v1.safetensors",
+      "rel_path": "vae/Wan2.1_VAE_upscale2x_imageonly_real_v1.safetensors",
+      "用途": "VAE",
+      "bytes": 507684560
+    },
+    {
+      "basename": "Wan2_1_VAE_bf16.safetensors",
+      "rel_path": "vae/Wan2_1_VAE_bf16.safetensors",
+      "用途": "VAE",
+      "bytes": 253806278
+    },
+    {
+      "basename": "Wan2_1_VAE_fp32.safetensors",
+      "rel_path": "vae/Wan2_1_VAE_fp32.safetensors",
+      "用途": "VAE",
+      "bytes": 507591244
+    },
+    {
+      "basename": "Wan2_2_VAE_bf16.safetensors",
+      "rel_path": "vae/Wan2_2_VAE_bf16.safetensors",
+      "用途": "VAE",
+      "bytes": 1409401152
+    },
+    {
+      "basename": "ae.safetensors",
+      "rel_path": "vae/ae.safetensors",
+      "用途": "VAE",
+      "bytes": 335304388
+    },
+    {
+      "basename": "ae.sft",
+      "rel_path": "vae/ae.sft",
+      "用途": "VAE",
+      "bytes": 335304388
+    },
+    {
+      "basename": "ema_vae_fp16.safetensors",
+      "rel_path": "vae/ema_vae_fp16.safetensors",
+      "用途": "VAE",
+      "bytes": 501324814
+    },
+    {
+      "basename": "flux2-vae.safetensors",
+      "rel_path": "vae/flux2-vae.safetensors",
+      "用途": "VAE",
+      "bytes": 336213556
+    },
+    {
+      "basename": "hunyuan_video_vae_bf16.safetensors",
+      "rel_path": "vae/hunyuan_video_vae_bf16.safetensors",
+      "用途": "VAE",
+      "bytes": 492986478
+    },
+    {
+      "basename": "ltx-2.5-audio-vae-bf16.safetensors",
+      "rel_path": "vae/ltx-2.5-audio-vae-bf16.safetensors",
+      "用途": "VAE",
+      "bytes": 364866540
+    },
+    {
+      "basename": "ltx-2.5-video-vae-bf16.safetensors",
+      "rel_path": "vae/ltx-2.5-video-vae-bf16.safetensors",
+      "用途": "VAE",
+      "bytes": 1472223346
+    },
+    {
+      "basename": "ltx-2.5-video-vae-conv-bf16.safetensors",
+      "rel_path": "vae/ltx-2.5-video-vae-conv-bf16.safetensors",
+      "用途": "VAE",
+      "bytes": 1452269922
+    },
+    {
+      "basename": "ltx_vae.safetensors",
+      "rel_path": "vae/ltx_vae.safetensors",
+      "用途": "VAE",
+      "bytes": 1452258578
+    },
+    {
+      "basename": "mmaudio_vae_16k_bf16.safetensors",
+      "rel_path": "vae/mmaudio_vae_16k_bf16.safetensors",
+      "用途": "VAE",
+      "bytes": 343320940
+    },
+    {
+      "basename": "mmaudio_vocoder_bigvgan_best_netG_bf16.safetensors",
+      "rel_path": "vae/mmaudio_vocoder_bigvgan_best_netG_bf16.safetensors",
+      "用途": "VAE",
+      "bytes": 224551036
+    },
+    {
+      "basename": "qwen_image_layered_vae.safetensors",
+      "rel_path": "vae/qwen_image_layered_vae.safetensors",
+      "用途": "VAE",
+      "bytes": 253816616
+    },
+    {
+      "basename": "qwen_image_vae.safetensors",
+      "rel_path": "vae/qwen_image_vae.safetensors",
+      "用途": "VAE",
+      "bytes": 253806246
+    },
+    {
+      "basename": "sdxlVAE_sdxlVAE.safetensors",
+      "rel_path": "vae/sdxlVAE_sdxlVAE.safetensors",
+      "用途": "VAE",
+      "bytes": 334641164
+    },
+    {
+      "basename": "sdxl_vae.safetensors",
+      "rel_path": "vae/sdxl_vae.safetensors",
+      "用途": "VAE",
+      "bytes": 334641162
+    },
+    {
+      "basename": "taeh3.safetensors",
+      "rel_path": "vae/taeh3.safetensors",
+      "用途": "VAE",
+      "bytes": 22709752
+    },
+    {
+      "basename": "taeltx2_3.safetensors",
+      "rel_path": "vae/taeltx2_3.safetensors",
+      "用途": "VAE",
+      "bytes": 23531296
+    },
+    {
+      "basename": "wan_2.1_vae_Comfy-Org.safetensors",
+      "rel_path": "vae/wan_2.1_vae_Comfy-Org.safetensors",
+      "用途": "VAE",
+      "bytes": 253815318
+    },
+    {
+      "basename": "z_image_turbo-vae.safetensors",
+      "rel_path": "vae/z_image_turbo-vae.safetensors",
+      "用途": "VAE",
+      "bytes": 335304388
+    },
+    {
+      "basename": "pytorch_model.bin",
+      "rel_path": ".cache/huggingface/hub/models--openai--clip-vit-large-patch14/pytorch_model.bin",
+      "用途": "其它·.cache",
+      "bytes": 532990358
+    },
+    {
+      "basename": "RMBG-2.0",
+      "rel_path": "RMBG/RMBG-2.0",
+      "用途": "其它·RMBG",
+      "bytes": 884980744
+    },
+    {
+      "basename": "whisper-large-v3.safetensors",
+      "rel_path": "audio_encoders/whisper-large-v3.safetensors",
+      "用途": "其它·audio_encoders",
+      "bytes": 3087130976
+    },
+    {
+      "basename": "BEN_Base.pth",
+      "rel_path": "ben/BEN_Base.pth",
+      "用途": "其它·ben",
+      "bytes": 1134588350
+    },
+    {
+      "basename": "COD.safetensors",
+      "rel_path": "birefnet/COD.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 884878856
+    },
+    {
+      "basename": "DIS-TR_TEs.safetensors",
+      "rel_path": "birefnet/DIS-TR_TEs.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 884878856
+    },
+    {
+      "basename": "DIS.safetensors",
+      "rel_path": "birefnet/DIS.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 884878856
+    },
+    {
+      "basename": "General-HR.safetensors",
+      "rel_path": "birefnet/General-HR.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 444473596
+    },
+    {
+      "basename": "General-Lite-2K.safetensors",
+      "rel_path": "birefnet/General-Lite-2K.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 177634392
+    },
+    {
+      "basename": "General-Lite.safetensors",
+      "rel_path": "birefnet/General-Lite.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 177634392
+    },
+    {
+      "basename": "General-dynamic.safetensors",
+      "rel_path": "birefnet/General-dynamic.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 444473596
+    },
+    {
+      "basename": "General-legacy.safetensors",
+      "rel_path": "birefnet/General-legacy.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 884878856
+    },
+    {
+      "basename": "General-reso_512.safetensors",
+      "rel_path": "birefnet/General-reso_512.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 444473596
+    },
+    {
+      "basename": "General.safetensors",
+      "rel_path": "birefnet/General.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 884878856
+    },
+    {
+      "basename": "HRSOD.safetensors",
+      "rel_path": "birefnet/HRSOD.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 884878856
+    },
+    {
+      "basename": "Matting-HR.safetensors",
+      "rel_path": "birefnet/Matting-HR.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 444473596
+    },
+    {
+      "basename": "Matting-Lite.safetensors",
+      "rel_path": "birefnet/Matting-Lite.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 88965896
+    },
+    {
+      "basename": "Matting.safetensors",
+      "rel_path": "birefnet/Matting.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 884878856
+    },
+    {
+      "basename": "Portrait.safetensors",
+      "rel_path": "birefnet/Portrait.safetensors",
+      "用途": "其它·birefnet",
+      "bytes": 884878856
+    },
+    {
+      "basename": "Salesforce",
+      "rel_path": "blip/Salesforce",
+      "用途": "其它·blip",
+      "bytes": 990775634
+    },
+    {
+      "basename": "Salesforce",
+      "rel_path": "clip_interrogator/Salesforce",
+      "用途": "其它·clip_interrogator",
+      "bytes": 990775634
+    },
+    {
+      "basename": "ViT-L-14_openai_artists.safetensors",
+      "rel_path": "clip_interrogator/ViT-L-14_openai_artists.safetensors",
+      "用途": "其它·clip_interrogator",
+      "bytes": 16174296
+    },
+    {
+      "basename": "ViT-L-14_openai_flavors.safetensors",
+      "rel_path": "clip_interrogator/ViT-L-14_openai_flavors.safetensors",
+      "用途": "其它·clip_interrogator",
+      "bytes": 155090140
+    },
+    {
+      "basename": "ViT-L-14_openai_mediums.safetensors",
+      "rel_path": "clip_interrogator/ViT-L-14_openai_mediums.safetensors",
+      "用途": "其它·clip_interrogator",
+      "bytes": 146127
+    },
+    {
+      "basename": "ViT-L-14_openai_movements.safetensors",
+      "rel_path": "clip_interrogator/ViT-L-14_openai_movements.safetensors",
+      "用途": "其它·clip_interrogator",
+      "bytes": 307408
+    },
+    {
+      "basename": "ViT-L-14_openai_trendings.safetensors",
+      "rel_path": "clip_interrogator/ViT-L-14_openai_trendings.safetensors",
+      "用途": "其它·clip_interrogator",
+      "bytes": 110799
+    },
+    {
+      "basename": "models--timm--vit_large_patch14_clip_224.openai",
+      "rel_path": "clip_interrogator/models--timm--vit_large_patch14_clip_224.openai",
+      "用途": "其它·clip_interrogator",
+      "bytes": 1710517764
+    },
+    {
+      "basename": "GroundingDINO_SwinT_OGC.pth",
+      "rel_path": "grounding-dino/GroundingDINO_SwinT_OGC.pth",
+      "用途": "其它·detection",
+      "bytes": 693997677
+    },
+    {
+      "basename": "SeC-4B-fp32.safetensors",
+      "rel_path": "detection/SeC-4B-fp32.safetensors",
+      "用途": "其它·detection",
+      "bytes": 15164519628
+    },
+    {
+      "basename": "dw-ll_ucoco_384_bs5.torchscript.pt",
+      "rel_path": "detection/dw-ll_ucoco_384_bs5.torchscript.pt",
+      "用途": "其它·detection",
+      "bytes": 135059124
+    },
+    {
+      "basename": "face_yolov8m.pt",
+      "rel_path": "detection/face_yolov8m.pt",
+      "用途": "其它·detection",
+      "bytes": 52026019
+    },
+    {
+      "basename": "face_yolov8s.pt",
+      "rel_path": "detection/face_yolov8s.pt",
+      "用途": "其它·detection",
+      "bytes": 22507707
+    },
+    {
+      "basename": "head_yolov8n.pt",
+      "rel_path": "detection/head_yolov8n.pt",
+      "用途": "其它·detection",
+      "bytes": 54879821
+    },
+    {
+      "basename": "model.pt",
+      "rel_path": "ultralytics/face/YOLOv8-Face-Detection/model.pt",
+      "用途": "其它·detection",
+      "bytes": 6247065
+    },
+    {
+      "basename": "person_yolov8m-seg.pt",
+      "rel_path": "detection/person_yolov8m-seg.pt",
+      "用途": "其它·detection",
+      "bytes": 54827683
+    },
+    {
+      "basename": "person_yolov8m-seg.pt",
+      "rel_path": "yolo/person_yolov8m-seg.pt",
+      "用途": "其它·detection",
+      "bytes": 54827683
+    },
+    {
+      "basename": "real_person_detection_v0_l_yv11.pt",
+      "rel_path": "detection/real_person_detection_v0_l_yv11.pt",
+      "用途": "其它·detection",
+      "bytes": 51259321
+    },
+    {
+      "basename": "sam2.1_hiera_base_plus.safetensors",
+      "rel_path": "detection/sam2.1_hiera_base_plus.safetensors",
+      "用途": "其它·detection",
+      "bytes": 323474320
+    },
+    {
+      "basename": "vitpose-l-wholebody.onnx",
+      "rel_path": "detection/vitpose-l-wholebody.onnx",
+      "用途": "其它·detection",
+      "bytes": 1234579166
+    },
+    {
+      "basename": "vitpose_h_wholebody_data.bin",
+      "rel_path": "detection/vitpose_h_wholebody_data.bin",
+      "用途": "其它·detection",
+      "bytes": 2548958740
+    },
+    {
+      "basename": "vitpose_h_wholebody_model.onnx",
+      "rel_path": "detection/vitpose_h_wholebody_model.onnx",
+      "用途": "其它·detection",
+      "bytes": 420252
+    },
+    {
+      "basename": "yolo11x-pose.pt",
+      "rel_path": "detection/yolo11x-pose.pt",
+      "用途": "其它·detection",
+      "bytes": 118481010
+    },
+    {
+      "basename": "yolo11x_640.onnx",
+      "rel_path": "detection/yolo11x_640.onnx",
+      "用途": "其它·detection",
+      "bytes": 228016347
+    },
+    {
+      "basename": "yolov10m.onnx",
+      "rel_path": "detection/yolov10m.onnx",
+      "用途": "其它·detection",
+      "bytes": 61659689
+    },
+    {
+      "basename": "yolox_l.onnx",
+      "rel_path": "detection/yolox_l.onnx",
+      "用途": "其它·detection",
+      "bytes": 216746733
+    },
+    {
+      "basename": "yolox_l.torchscript.pt",
+      "rel_path": "detection/yolox_l.torchscript.pt",
+      "用途": "其它·detection",
+      "bytes": 217697649
+    },
+    {
+      "basename": "codeformer.pth",
+      "rel_path": "facerestore_models/codeformer.pth",
+      "用途": "其它·facerestore",
+      "bytes": 376637898
+    },
+    {
+      "basename": "parsing_bisenet.pth",
+      "rel_path": "facexlib/parsing_bisenet.pth",
+      "用途": "其它·facexlib",
+      "bytes": 53289463
+    },
+    {
+      "basename": "recognition_arcface_ir_se50.pth",
+      "rel_path": "facexlib/recognition_arcface_ir_se50.pth",
+      "用途": "其它·facexlib",
+      "bytes": 175367323
+    },
+    {
+      "basename": "gimmvfi_r_arb_lpips_fp32.safetensors",
+      "rel_path": "frame_interpolation/gimmvfi_r_arb_lpips_fp32.safetensors",
+      "用途": "其它·frame_interpolation",
+      "bytes": 79204556
+    },
+    {
+      "basename": "rife47.pth",
+      "rel_path": "frame_interpolation/rife47.pth",
+      "用途": "其它·frame_interpolation",
+      "bytes": 21344827
+    },
+    {
+      "basename": "rife47.pth",
+      "rel_path": "rife/rife47.pth",
+      "用途": "其它·frame_interpolation",
+      "bytes": 21344827
+    },
+    {
+      "basename": "rife49.pth",
+      "rel_path": "frame_interpolation/rife49.pth",
+      "用途": "其它·frame_interpolation",
+      "bytes": 21345274
+    },
+    {
+      "basename": "rife49.pth",
+      "rel_path": "rife/rife49.pth",
+      "用途": "其它·frame_interpolation",
+      "bytes": 21345274
+    },
+    {
+      "basename": "rife_v4.26.safetensors",
+      "rel_path": "frame_interpolation/rife_v4.26.safetensors",
+      "用途": "其它·frame_interpolation",
+      "bytes": 22674688
+    },
+    {
+      "basename": "Hunyuan3D-2",
+      "rel_path": "hunyuan3d/Hunyuan3D-2",
+      "用途": "其它·hunyuan3d",
+      "bytes": 9841478147
+    },
+    {
+      "basename": "Hunyuan3D-2.1",
+      "rel_path": "hunyuan3d/Hunyuan3D-2.1",
+      "用途": "其它·hunyuan3d",
+      "bytes": 6887587640
+    },
+    {
+      "basename": "1k3d68.onnx",
+      "rel_path": "insightface/models/antelopev2/1k3d68.onnx",
+      "用途": "其它·insightface",
+      "bytes": 143607619
+    },
+    {
+      "basename": "1k3d68.onnx",
+      "rel_path": "insightface/models/buffalo_l/1k3d68.onnx",
+      "用途": "其它·insightface",
+      "bytes": 143607619
+    },
+    {
+      "basename": "2d106det.onnx",
+      "rel_path": "insightface/models/antelopev2/2d106det.onnx",
+      "用途": "其它·insightface",
+      "bytes": 5030888
+    },
+    {
+      "basename": "2d106det.onnx",
+      "rel_path": "insightface/models/buffalo_l/2d106det.onnx",
+      "用途": "其它·insightface",
+      "bytes": 5030888
+    },
+    {
+      "basename": "det_10g.onnx",
+      "rel_path": "insightface/models/buffalo_l/det_10g.onnx",
+      "用途": "其它·insightface",
+      "bytes": 16923827
+    },
+    {
+      "basename": "genderage.onnx",
+      "rel_path": "insightface/models/antelopev2/genderage.onnx",
+      "用途": "其它·insightface",
+      "bytes": 1322532
+    },
+    {
+      "basename": "genderage.onnx",
+      "rel_path": "insightface/models/buffalo_l/genderage.onnx",
+      "用途": "其它·insightface",
+      "bytes": 1322532
+    },
+    {
+      "basename": "glintr100.onnx",
+      "rel_path": "insightface/models/antelopev2/glintr100.onnx",
+      "用途": "其它·insightface",
+      "bytes": 260665334
+    },
+    {
+      "basename": "scrfd_10g_bnkps.onnx",
+      "rel_path": "insightface/models/antelopev2/scrfd_10g_bnkps.onnx",
+      "用途": "其它·insightface",
+      "bytes": 16923827
+    },
+    {
+      "basename": "w600k_r50.onnx",
+      "rel_path": "insightface/models/buffalo_l/w600k_r50.onnx",
+      "用途": "其它·insightface",
+      "bytes": 174383860
+    },
+    {
+      "basename": "ip-adapter-faceid-plusv2_sd15.bin",
+      "rel_path": "ipadapter/ip-adapter-faceid-plusv2_sd15.bin",
+      "用途": "其它·ipadapter",
+      "bytes": 156558509
+    },
+    {
+      "basename": "ip-adapter-faceid-plusv2_sd15_lora.safetensors",
+      "rel_path": "ipadapter/ip-adapter-faceid-plusv2_sd15_lora.safetensors",
+      "用途": "其它·ipadapter",
+      "bytes": 51059544
+    },
+    {
+      "basename": "ip-adapter-faceid-plusv2_sdxl.bin",
+      "rel_path": "ipadapter/ip-adapter-faceid-plusv2_sdxl.bin",
+      "用途": "其它·ipadapter",
+      "bytes": 1487555181
+    },
+    {
+      "basename": "ip-adapter-faceid-plusv2_sdxl_lora.safetensors",
+      "rel_path": "ipadapter/ip-adapter-faceid-plusv2_sdxl_lora.safetensors",
+      "用途": "其它·ipadapter",
+      "bytes": 371842896
+    },
+    {
+      "basename": "ip-adapter-plus-face_sd15.safetensors",
+      "rel_path": "ipadapter/ip-adapter-plus-face_sd15.safetensors",
+      "用途": "其它·ipadapter",
+      "bytes": 98183288
+    },
+    {
+      "basename": "ip-adapter-plus-face_sdxl_vit-h.safetensors",
+      "rel_path": "ipadapter/ip-adapter-plus-face_sdxl_vit-h.safetensors",
+      "用途": "其它·ipadapter",
+      "bytes": 847517512
+    },
+    {
+      "basename": "ltx-2-spatial-upscaler-x2-1.0.safetensors",
+      "rel_path": "latent_upscale_models/ltx-2-spatial-upscaler-x2-1.0.safetensors",
+      "用途": "其它·latent_upscale_models",
+      "bytes": 442499072
+    },
+    {
+      "basename": "ltx-2.3-spatial-upscaler-x1.5-1.0.safetensors",
+      "rel_path": "latent_upscale_models/ltx-2.3-spatial-upscaler-x1.5-1.0.safetensors",
+      "用途": "其它·latent_upscale_models",
+      "bytes": 1090125794
+    },
+    {
+      "basename": "ltx-2.3-spatial-upscaler-x2-1.0.safetensors",
+      "rel_path": "latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.0.safetensors",
+      "用途": "其它·latent_upscale_models",
+      "bytes": 442499072
+    },
+    {
+      "basename": "ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
+      "rel_path": "latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
+      "用途": "其它·latent_upscale_models",
+      "bytes": 995743560
+    },
+    {
+      "basename": "ltx-2.3-temporal-upscaler-x2-1.0.safetensors",
+      "rel_path": "latent_upscale_models/ltx-2.3-temporal-upscaler-x2-1.0.safetensors",
+      "用途": "其它·latent_upscale_models",
+      "bytes": 261944000
+    },
+    {
+      "basename": "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
+      "rel_path": "latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
+      "用途": "其它·latent_upscale_models",
+      "bytes": 995778752
+    },
+    {
+      "basename": "ltx-2.5-latent-temporal-upscaler-x2-bf16-1.0.safetensors",
+      "rel_path": "latent_upscale_models/ltx-2.5-latent-temporal-upscaler-x2-bf16-1.0.safetensors",
+      "用途": "其它·latent_upscale_models",
+      "bytes": 261944000
+    },
+    {
+      "basename": "minimax_h3_latent_upscaler_3d_bf16.safetensors",
+      "rel_path": "latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors",
+      "用途": "其它·latent_upscale_models",
+      "bytes": 690592992
+    },
+    {
+      "basename": "ltx-2.5-duration-head-bf16.safetensors",
+      "rel_path": "model_patches/ltx-2.5-duration-head-bf16.safetensors",
+      "用途": "其它·model_patches",
+      "bytes": 3843690
+    },
+    {
       "basename": "lynx_full_resampler_fp32.safetensors",
       "rel_path": "model_patches/lynx_full_resampler_fp32.safetensors",
       "用途": "其它·model_patches",
@@ -2497,16 +3157,22 @@
       "bytes": 383029610
     },
     {
+      "basename": "vitpose-l-wholebody.onnx",
+      "rel_path": "onnx/vitpose-l-wholebody.onnx",
+      "用途": "其它·onnx",
+      "bytes": 1234579166
+    },
+    {
+      "basename": "yolov10m.onnx",
+      "rel_path": "onnx/yolov10m.onnx",
+      "用途": "其它·onnx",
+      "bytes": 61659689
+    },
+    {
       "basename": "dw-ll_ucoco_384.onnx",
       "rel_path": "pose/dw-ll_ucoco_384.onnx",
       "用途": "其它·pose",
       "bytes": 134399116
-    },
-    {
-      "basename": "nlf_l_multi_0.3.2.torchscript",
-      "rel_path": "pose/nlf_l_multi_0.3.2.torchscript",
-      "用途": "其它·pose",
-      "bytes": 493117974
     },
     {
       "basename": "sdpose_wholebody_fp16.safetensors",
@@ -2515,46 +3181,136 @@
       "bytes": 1916645792
     },
     {
-      "basename": "Qwen3-VL-4B-Instruct-FP8",
-      "rel_path": "prompt_generator/Qwen3-VL-4B-Instruct-FP8/",
+      "basename": "Qwen3-VL-4B-Instruct",
+      "rel_path": "prompt_generator/Qwen3-VL-4B-Instruct",
       "用途": "其它·prompt_generator",
-      "bytes": 5726600000
+      "bytes": 8887291213
     },
     {
-      "basename": "SeC-4B-bf16.safetensors",
-      "rel_path": "sams/SeC-4B-bf16.safetensors",
-      "用途": "分割 SAM",
-      "bytes": 7895701052
+      "basename": "Qwen3-VL-4B-Instruct-FP8",
+      "rel_path": "prompt_generator/Qwen3-VL-4B-Instruct-FP8",
+      "用途": "其它·prompt_generator",
+      "bytes": 6036508961
     },
     {
-      "basename": "SeC-4B-fp16.safetensors",
-      "rel_path": "sams/SeC-4B-fp16.safetensors",
-      "用途": "分割 SAM",
-      "bytes": 7895698676
+      "basename": "prompt_enhancer_uncensored",
+      "rel_path": "sulphur_prompt_enhancer/prompt_enhancer_uncensored",
+      "用途": "其它·prompt_generator",
+      "bytes": 10727776884
     },
     {
-      "basename": "sam2_hiera_base_plus.safetensors",
-      "rel_path": "sams/sam2_hiera_base_plus.safetensors",
-      "用途": "分割 SAM",
-      "bytes": 323407992
+      "basename": "ip-adapter_pulid_sdxl_fp16.safetensors",
+      "rel_path": "pulid/ip-adapter_pulid_sdxl_fp16.safetensors",
+      "用途": "其它·pulid",
+      "bytes": 791372856
     },
     {
-      "basename": "sam3.pt",
-      "rel_path": "sams/sam3.pt",
-      "用途": "分割 SAM",
-      "bytes": 3450062241
+      "basename": "pulid_flux_v0.9.0.safetensors",
+      "rel_path": "pulid/pulid_flux_v0.9.0.safetensors",
+      "用途": "其它·pulid",
+      "bytes": 1142099520
     },
     {
-      "basename": "segformer_b2_clothes",
-      "rel_path": "segformer_b2_clothes",
+      "basename": "pulid_flux_v0.9.1.safetensors",
+      "rel_path": "pulid/pulid_flux_v0.9.1.safetensors",
+      "用途": "其它·pulid",
+      "bytes": 1142099520
+    },
+    {
+      "basename": "Wan2.1_VAE.pth",
+      "rel_path": "scope/Wan2.1_VAE.pth",
+      "用途": "其它·scope",
+      "bytes": 507609880
+    },
+    {
+      "basename": "diffusion_pytorch_model-00001-of-00006.safetensors",
+      "rel_path": "scope/low_noise_model/diffusion_pytorch_model-00001-of-00006.safetensors",
+      "用途": "其它·scope",
+      "bytes": 4960746208
+    },
+    {
+      "basename": "diffusion_pytorch_model-00001-of-00006.safetensors",
+      "rel_path": "scope/high_noise_model/diffusion_pytorch_model-00001-of-00006.safetensors",
+      "用途": "其它·scope",
+      "bytes": 4960746208
+    },
+    {
+      "basename": "diffusion_pytorch_model-00002-of-00006.safetensors",
+      "rel_path": "scope/low_noise_model/diffusion_pytorch_model-00002-of-00006.safetensors",
+      "用途": "其它·scope",
+      "bytes": 4875418664
+    },
+    {
+      "basename": "diffusion_pytorch_model-00002-of-00006.safetensors",
+      "rel_path": "scope/high_noise_model/diffusion_pytorch_model-00002-of-00006.safetensors",
+      "用途": "其它·scope",
+      "bytes": 4875418664
+    },
+    {
+      "basename": "diffusion_pytorch_model-00003-of-00006.safetensors",
+      "rel_path": "scope/low_noise_model/diffusion_pytorch_model-00003-of-00006.safetensors",
+      "用途": "其它·scope",
+      "bytes": 4980341440
+    },
+    {
+      "basename": "diffusion_pytorch_model-00003-of-00006.safetensors",
+      "rel_path": "scope/high_noise_model/diffusion_pytorch_model-00003-of-00006.safetensors",
+      "用途": "其它·scope",
+      "bytes": 4980341440
+    },
+    {
+      "basename": "diffusion_pytorch_model-00004-of-00006.safetensors",
+      "rel_path": "scope/low_noise_model/diffusion_pytorch_model-00004-of-00006.safetensors",
+      "用途": "其它·scope",
+      "bytes": 4964567944
+    },
+    {
+      "basename": "diffusion_pytorch_model-00004-of-00006.safetensors",
+      "rel_path": "scope/high_noise_model/diffusion_pytorch_model-00004-of-00006.safetensors",
+      "用途": "其它·scope",
+      "bytes": 4964567944
+    },
+    {
+      "basename": "diffusion_pytorch_model-00005-of-00006.safetensors",
+      "rel_path": "scope/low_noise_model/diffusion_pytorch_model-00005-of-00006.safetensors",
+      "用途": "其它·scope",
+      "bytes": 4988115352
+    },
+    {
+      "basename": "diffusion_pytorch_model-00005-of-00006.safetensors",
+      "rel_path": "scope/high_noise_model/diffusion_pytorch_model-00005-of-00006.safetensors",
+      "用途": "其它·scope",
+      "bytes": 4988115352
+    },
+    {
+      "basename": "diffusion_pytorch_model-00006-of-00006.safetensors",
+      "rel_path": "scope/low_noise_model/diffusion_pytorch_model-00006-of-00006.safetensors",
+      "用途": "其它·scope",
+      "bytes": 4965224000
+    },
+    {
+      "basename": "diffusion_pytorch_model-00006-of-00006.safetensors",
+      "rel_path": "scope/high_noise_model/diffusion_pytorch_model-00006-of-00006.safetensors",
+      "用途": "其它·scope",
+      "bytes": 4965224000
+    },
+    {
+      "basename": "models_t5_umt5-xxl-enc-bf16.pth",
+      "rel_path": "scope/models_t5_umt5-xxl-enc-bf16.pth",
+      "用途": "其它·scope",
+      "bytes": 11361920418
+    },
+    {
+      "basename": "model.safetensors",
+      "rel_path": "segformer_b2_clothes/model.safetensors",
       "用途": "其它·segformer_b2_clothes",
-      "bytes": 109499625
+      "bytes": 109493236
     },
     {
-      "basename": "segformer_b3_clothes",
-      "rel_path": "segformer_b3_clothes",
+      "basename": "model.safetensors",
+      "rel_path": "segformer_b3_clothes/model.safetensors",
       "用途": "其它·segformer_b3_clothes",
-      "bytes": 189035723
+      "bytes": 189029000
     },
     {
       "basename": "flex1_redux_siglip2_512.safetensors",
@@ -2569,10 +3325,1624 @@
       "bytes": 129063232
     },
     {
+      "basename": "Kim_Vocal_2.onnx",
+      "rel_path": "vocal_separator/Kim_Vocal_2.onnx",
+      "用途": "其它·vocal_separator",
+      "bytes": 66759214
+    },
+    {
+      "basename": "MelBandRoformer_fp16.safetensors",
+      "rel_path": "vocal_separator/MelBandRoformer_fp16.safetensors",
+      "用途": "其它·vocal_separator",
+      "bytes": 456479072
+    },
+    {
+      "basename": "MelBandRoformer_fp16.safetensors",
+      "rel_path": "vocal_separator/MelBandRoFormer_comfy/MelBandRoformer_fp16.safetensors",
+      "用途": "其它·vocal_separator",
+      "bytes": 456479072
+    },
+    {
+      "basename": "model.safetensors",
+      "rel_path": "zimage_i2l/model.safetensors",
+      "用途": "其它·zimage_i2l",
+      "bytes": 3769302216
+    },
+    {
+      "basename": "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
+      "rel_path": "diffusion_models/BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12309881296
+    },
+    {
+      "basename": "Bernini_HIGH_fp8_e4m3fn_scaled.safetensors",
+      "rel_path": "diffusion_models/Bernini_HIGH_fp8_e4m3fn_scaled.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 15574833216
+    },
+    {
+      "basename": "Bernini_LOW_fp8_e4m3fn_scaled.safetensors",
+      "rel_path": "diffusion_models/Bernini_LOW_fp8_e4m3fn_scaled.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 15574833216
+    },
+    {
+      "basename": "DarkBeast-Klein9b-V2-BFS-BF16-ComfyUI.safetensors",
+      "rel_path": "diffusion_models/DarkBeast-Klein9b-V2-BFS-BF16-ComfyUI.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 18157191688
+    },
+    {
+      "basename": "F.1-Fill-fp16_Inpaint_Outpaint_1.0.safetensors",
+      "rel_path": "diffusion_models/F.1-Fill-fp16_Inpaint_Outpaint_1.0.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 23804922408
+    },
+    {
+      "basename": "FireRed-Image-Edit-1.0_bf16.safetensors",
+      "rel_path": "diffusion_models/FireRed-Image-Edit-1.0_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 40861031488
+    },
+    {
+      "basename": "FireRed-Image-Edit-1.0_fp8mixed_comfy.safetensors",
+      "rel_path": "diffusion_models/FireRed-Image-Edit-1.0_fp8mixed_comfy.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 21401015999
+    },
+    {
+      "basename": "FireRed-Image-Edit-1.1_bf16.safetensors",
+      "rel_path": "diffusion_models/FireRed-Image-Edit-1.1_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 40861031624
+    },
+    {
+      "basename": "FireRed-Image-Edit-1.1_fp8mixed_comfy.safetensors",
+      "rel_path": "diffusion_models/FireRed-Image-Edit-1.1_fp8mixed_comfy.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 21439550735
+    },
+    {
+      "basename": "Flux2-Klein-9B-True-bf16.safetensors",
+      "rel_path": "diffusion_models/Flux2-Klein-9B-True-bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 18157185168
+    },
+    {
+      "basename": "Flux2-Klein-9B-True-v2-bf16.safetensors",
+      "rel_path": "diffusion_models/Flux2-Klein-9B-True-v2-bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 18157185248
+    },
+    {
+      "basename": "Flux2-Klein-9B-True-v2-mxfp8mixed.safetensors",
+      "rel_path": "diffusion_models/Flux2-Klein-9B-True-v2-mxfp8mixed.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 9705714392
+    },
+    {
+      "basename": "LongCat-Avatar-15_comfy-Q8_0.gguf",
+      "rel_path": "diffusion_models/LongCat-Avatar/LongCat-Avatar-15_comfy-Q8_0.gguf",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 19081405440
+    },
+    {
+      "basename": "LongCat_TI2V_comfy_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/LongCat/LongCat_TI2V_comfy_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 15515107698
+    },
+    {
+      "basename": "Phantom-Wan-14B_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/Phantom-Wan-14B_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 15001320640
+    },
+    {
+      "basename": "Phantom-Wan-1_3B_fp32.safetensors",
+      "rel_path": "diffusion_models/Phantom-Wan-1_3B_fp32.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 5676070424
+    },
+    {
+      "basename": "Qwen-Image-Edit-2509_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image-Edit-2509_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 20430698424
+    },
+    {
+      "basename": "Qwen-Image_2512.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image_2512.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 20430679144
+    },
+    {
+      "basename": "VACE-Wan2.1-1.3B-Preview.safetensors",
+      "rel_path": "diffusion_models/VACE-Wan2.1-1.3B-Preview.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 7146067816
+    },
+    {
+      "basename": "WAN22.XX_Palingenesis_low_t2v.safetensors",
+      "rel_path": "diffusion_models/WAN22.XX_Palingenesis_low_t2v.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 15001361394
+    },
+    {
+      "basename": "Wan-AI_Wan2.1-VACE-1.3B.safetensors",
+      "rel_path": "diffusion_models/Wan-AI_Wan2.1-VACE-1.3B.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4309519800
+    },
+    {
+      "basename": "Wan14BT2VFusioniX_fp16_.safetensors",
+      "rel_path": "diffusion_models/Wan14BT2VFusioniX_fp16_.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 28577792224
+    },
+    {
+      "basename": "Wan2.1_T2V_14B_FusionX_VACE-FP8.safetensors",
+      "rel_path": "diffusion_models/Wan2.1_T2V_14B_FusionX_VACE-FP8.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 20387834744
+    },
+    {
+      "basename": "Wan2.1_T2V_14B_FusionX_VACE-FP8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/Wan2.1_T2V_14B_FusionX_VACE-FP8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 17344651256
+    },
+    {
+      "basename": "Wan2.1_VAE.pth",
+      "rel_path": "diffusion_models/wan2.2-animate-14b/Wan2.1_VAE.pth",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 507609928
+    },
+    {
+      "basename": "Wan2.2-Animate-14B-Q4_K_S.gguf",
+      "rel_path": "diffusion_models/Wan2.2-Animate-14B-Q4_K_S.gguf",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 10592753472
+    },
+    {
+      "basename": "Wan2.2-VACE-Fun-A14B-high-alibaba-pai.safetensors",
+      "rel_path": "diffusion_models/Wan2.2-VACE-Fun-A14B-high-alibaba-pai.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 34675325000
+    },
+    {
+      "basename": "Wan2.2-VACE-Fun-A14B-high-alibaba-pai.safetensors",
+      "rel_path": "diffusion_models/VACE/Wan2.2-VACE-Fun-A14B-high-alibaba-pai.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 34675325000
+    },
+    {
+      "basename": "Wan2.2-VACE-Fun-A14B-low-alibaba-pai.safetensors",
+      "rel_path": "diffusion_models/Wan2.2-VACE-Fun-A14B-low-alibaba-pai.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 34675325000
+    },
+    {
+      "basename": "Wan2.2-VACE-Fun-A14B-low-alibaba-pai.safetensors",
+      "rel_path": "diffusion_models/VACE/Wan2.2-VACE-Fun-A14B-low-alibaba-pai.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 34675325000
+    },
+    {
+      "basename": "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "rel_path": "diffusion_models/Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 14291297968
+    },
+    {
+      "basename": "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_v2.0.safetensors",
+      "rel_path": "diffusion_models/Wan2.2_Remix_NSFW_i2v_14b_high_lighting_v2.0.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 14291272136
+    },
+    {
+      "basename": "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "rel_path": "diffusion_models/Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 14291297968
+    },
+    {
+      "basename": "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_v2.0.safetensors",
+      "rel_path": "diffusion_models/Wan2.2_Remix_NSFW_i2v_14b_low_lighting_v2.0.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 14291272136
+    },
+    {
+      "basename": "Wan2.2_Remix_t2v_14b_high_lighting_v0.9_dyno.safetensors",
+      "rel_path": "diffusion_models/Wan2.2_Remix_t2v_14b_high_lighting_v0.9_dyno.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 14289668664
+    },
+    {
+      "basename": "Wan2.2_Remix_t2v_14b_low_lighting_v0.9.safetensors",
+      "rel_path": "diffusion_models/Wan2.2_Remix_t2v_14b_low_lighting_v0.9.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 14289668960
+    },
+    {
+      "basename": "Wan21-14B-SCAIL-preview_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan21-14B-SCAIL-preview_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 16401525232
+    },
+    {
+      "basename": "Wan21_SteadyDancer_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan21_SteadyDancer_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 16410198058
+    },
+    {
+      "basename": "Wan2_1-14B-I2V_ChronoEdit_fp8_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-14B-I2V_ChronoEdit_fp8_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 17135485178
+    },
+    {
+      "basename": "Wan2_1-AccVideo-T2V-14B_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-AccVideo-T2V-14B_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 15001320648
+    },
+    {
+      "basename": "Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 16993877896
+    },
+    {
+      "basename": "Wan2_1-I2V-14B-720p_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-I2V-14B-720p_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 16643349018
+    },
+    {
+      "basename": "Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 2713548210
+    },
+    {
+      "basename": "Wan2_1-MoviiGen1_1_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-MoviiGen1_1_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 15001320737
+    },
+    {
+      "basename": "Wan2_1-T2V-1-3B-EchoShot_fp16.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-T2V-1-3B-EchoShot_fp16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 2838276200
+    },
+    {
+      "basename": "Wan2_1-T2V-14B-Lynx_full_ip_layers_fp16.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-T2V-14B-Lynx_full_ip_layers_fp16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4201700712
+    },
+    {
+      "basename": "Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4195142544
+    },
+    {
+      "basename": "Wan2_1-T2V-14B-Lynx_lite_ip_layers_fp16.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-T2V-14B-Lynx_lite_ip_layers_fp16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 838865696
+    },
+    {
+      "basename": "Wan2_1-T2V-14B_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-T2V-14B_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 14859762840
+    },
+    {
+      "basename": "Wan2_1-T2V-14B_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-T2V-14B_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 14526876890
+    },
+    {
+      "basename": "Wan2_1-VACE_1_3B_bf16.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-VACE_1_3B_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4309519800
+    },
+    {
+      "basename": "Wan2_1-VACE_module_14B_bf16.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-VACE_module_14B_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 6098227873
+    },
+    {
+      "basename": "Wan2_1-VACE_module_14B_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-VACE_module_14B_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 3052113849
+    },
+    {
+      "basename": "Wan2_1-VACE_module_1_3B_bf16.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-VACE_module_1_3B_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 1469996897
+    },
+    {
+      "basename": "Wan2_1-Wan-I2V-MAGREF-14B_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/Wan2_1-Wan-I2V-MAGREF-14B_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 17135435696
+    },
+    {
+      "basename": "Wan2_2-5B-Ovi_960x960_10s_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan2_2-5B-Ovi_960x960_10s_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12374673976
+    },
+    {
+      "basename": "Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 18401760586
+    },
+    {
+      "basename": "Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan22Animate/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 18401760586
+    },
+    {
+      "basename": "Wan2_2-Animate-14B_fp8_scaled_e5m2_KJ_v2.safetensors",
+      "rel_path": "diffusion_models/Wan2_2-Animate-14B_fp8_scaled_e5m2_KJ_v2.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 17317143060
+    },
+    {
+      "basename": "Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 15002999858
+    },
+    {
+      "basename": "Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 15002999858
+    },
+    {
+      "basename": "Wan2_2-T2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan2_2-T2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 15001361458
+    },
+    {
+      "basename": "Wan2_2-T2V-A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan2_2-T2V-A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 15001361458
+    },
+    {
+      "basename": "Wan2_2_Fun_VACE_module_A14B_HIGH_bf16.safetensors",
+      "rel_path": "diffusion_models/Wan2_2_Fun_VACE_module_A14B_HIGH_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 6098227800
+    },
+    {
+      "basename": "Wan2_2_Fun_VACE_module_A14B_HIGH_bf16.safetensors",
+      "rel_path": "diffusion_models/VACE/Wan2_2_Fun_VACE_module_A14B_HIGH_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 6098227800
+    },
+    {
+      "basename": "Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 3052123036
+    },
+    {
+      "basename": "Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/VACE/Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 3052123036
+    },
+    {
+      "basename": "Wan2_2_Fun_VACE_module_A14B_LOW_bf16.safetensors",
+      "rel_path": "diffusion_models/Wan2_2_Fun_VACE_module_A14B_LOW_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 6098227800
+    },
+    {
+      "basename": "Wan2_2_Fun_VACE_module_A14B_LOW_bf16.safetensors",
+      "rel_path": "diffusion_models/VACE/Wan2_2_Fun_VACE_module_A14B_LOW_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 6098227800
+    },
+    {
+      "basename": "Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 3052123036
+    },
+    {
+      "basename": "Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/VACE/Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 3052123036
+    },
+    {
+      "basename": "WanVideo_2_1_Multitalk_14B_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/WanVideo_2_1_Multitalk_14B_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 2712714720
+    },
+    {
+      "basename": "Z-Image-Turbo fp16.safetensors",
+      "rel_path": "diffusion_models/Z-Image-Turbo fp16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12309865944
+    },
+    {
+      "basename": "Z-Image-Turbo_fp16.safetensors",
+      "rel_path": "diffusion_models/Z-Image-Turbo_fp16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12309865944
+    },
+    {
+      "basename": "Z-Image-base.safetensors",
+      "rel_path": "diffusion_models/Z-Image-base.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12309866400
+    },
+    {
+      "basename": "adapter_model.safetensors",
+      "rel_path": "diffusion_models/wan2.2-animate-14b/relighting_lora/adapter_model.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 2873221376
+    },
+    {
+      "basename": "darkBeastMar0326Latest_dbkleinv2BFS.safetensors",
+      "rel_path": "diffusion_models/darkBeastMar0326Latest_dbkleinv2BFS.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 9078610848
+    },
+    {
+      "basename": "diffusion_pytorch_model-00001-of-00004.safetensors",
+      "rel_path": "diffusion_models/wan2.2-animate-14b/diffusion_pytorch_model-00001-of-00004.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 9875257880
+    },
+    {
+      "basename": "diffusion_pytorch_model-00001-of-00009.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/transformer/diffusion_pytorch_model-00001-of-00009.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4989364312
+    },
+    {
+      "basename": "diffusion_pytorch_model-00002-of-00004.safetensors",
+      "rel_path": "diffusion_models/wan2.2-animate-14b/diffusion_pytorch_model-00002-of-00004.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 9975378288
+    },
+    {
+      "basename": "diffusion_pytorch_model-00002-of-00009.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/transformer/diffusion_pytorch_model-00002-of-00009.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4984214160
+    },
+    {
+      "basename": "diffusion_pytorch_model-00003-of-00004.safetensors",
+      "rel_path": "diffusion_models/wan2.2-animate-14b/diffusion_pytorch_model-00003-of-00004.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 9954400528
+    },
+    {
+      "basename": "diffusion_pytorch_model-00003-of-00009.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/transformer/diffusion_pytorch_model-00003-of-00009.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4946470000
+    },
+    {
+      "basename": "diffusion_pytorch_model-00004-of-00004.safetensors",
+      "rel_path": "diffusion_models/wan2.2-animate-14b/diffusion_pytorch_model-00004-of-00004.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4744748472
+    },
+    {
+      "basename": "diffusion_pytorch_model-00004-of-00009.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/transformer/diffusion_pytorch_model-00004-of-00009.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4984213736
+    },
+    {
+      "basename": "diffusion_pytorch_model-00005-of-00009.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/transformer/diffusion_pytorch_model-00005-of-00009.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4946471896
+    },
+    {
+      "basename": "diffusion_pytorch_model-00006-of-00009.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/transformer/diffusion_pytorch_model-00006-of-00009.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4946451560
+    },
+    {
+      "basename": "diffusion_pytorch_model-00007-of-00009.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/transformer/diffusion_pytorch_model-00007-of-00009.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4908690520
+    },
+    {
+      "basename": "diffusion_pytorch_model-00008-of-00009.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/transformer/diffusion_pytorch_model-00008-of-00009.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4984232856
+    },
+    {
+      "basename": "diffusion_pytorch_model-00009-of-00009.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/transformer/diffusion_pytorch_model-00009-of-00009.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 1170918840
+    },
+    {
+      "basename": "diffusion_pytorch_model.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/vae/diffusion_pytorch_model.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 253806966
+    },
+    {
+      "basename": "ernie-image-turbo.safetensors",
+      "rel_path": "diffusion_models/ernie-image-turbo.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 16067025480
+    },
+    {
+      "basename": "flux-2-klein-9b-fp8.safetensors",
+      "rel_path": "diffusion_models/flux-2-klein-9b-fp8.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 9433061528
+    },
+    {
+      "basename": "flux-2-klein-9b.safetensors",
+      "rel_path": "diffusion_models/flux-2-klein-9b.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 18157185168
+    },
+    {
+      "basename": "flux-2-klein-base-4b.safetensors",
+      "rel_path": "diffusion_models/flux-2-klein-base-4b.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 7751105712
+    },
+    {
+      "basename": "flux1-dev-fp8-Kijai.safetensors",
+      "rel_path": "diffusion_models/flux1-dev-fp8-Kijai.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 11901525888
+    },
+    {
+      "basename": "flux1-dev-kontext_fp8_scaled.safetensors",
+      "rel_path": "diffusion_models/flux1-dev-kontext_fp8_scaled.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 11904640136
+    },
+    {
+      "basename": "flux1-dev.sft",
+      "rel_path": "diffusion_models/flux1-dev.sft",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 23802932552
+    },
+    {
+      "basename": "flux1-fill-dev.safetensors",
+      "rel_path": "diffusion_models/flux1-fill-dev.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 23804922408
+    },
+    {
+      "basename": "flux1-kontext-dev_fp8_scaled.safetensors",
+      "rel_path": "diffusion_models/flux1-kontext-dev_fp8_scaled.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 11904640136
+    },
+    {
+      "basename": "flux2_dev_fp8mixed.safetensors",
+      "rel_path": "diffusion_models/flux2_dev_fp8mixed.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 35455599592
+    },
+    {
+      "basename": "fluxFillFP8_v10.safetensors",
+      "rel_path": "diffusion_models/fluxFillFP8_v10.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 11902532704
+    },
+    {
+      "basename": "hunyuan_video_I2V_720_fixed_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/hunyuan_video_I2V_720_fixed_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 13185035336
+    },
+    {
+      "basename": "krea2_turbo_fp8.safetensors",
+      "rel_path": "diffusion_models/krea2_turbo_fp8.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 13141730842
+    },
+    {
+      "basename": "krea2_turbo_fp8_scaled.safetensors",
+      "rel_path": "diffusion_models/krea2_turbo_fp8_scaled.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 13141730842
+    },
+    {
+      "basename": "ltx-2.3-22b-dev-fp8.safetensors",
+      "rel_path": "diffusion_models/ltx-2.3-22b-dev-fp8.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 10565451776
+    },
+    {
+      "basename": "ltx-2.3-22b-dev.safetensors",
+      "rel_path": "diffusion_models/ltx-2.3-22b-dev.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 46149344974
+    },
+    {
+      "basename": "ltx-2.3-22b-dev_transformer_only_bf16.safetensors",
+      "rel_path": "diffusion_models/ltx-2.3-22b-dev_transformer_only_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 42020149760
+    },
+    {
+      "basename": "ltx-2.3-22b-distilled-1.1.safetensors",
+      "rel_path": "diffusion_models/ltx-2.3-22b-distilled-1.1.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 46149345334
+    },
+    {
+      "basename": "ltx-2.3-22b-distilled-1.1_transformer_only_fp8_scaled.safetensors",
+      "rel_path": "diffusion_models/ltx-2.3-22b-distilled-1.1_transformer_only_fp8_scaled.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 25226571988
+    },
+    {
+      "basename": "ltx-2.3-22b-distilled-1.1_transformer_only_mxfp8_block32.safetensors",
+      "rel_path": "diffusion_models/ltx-2.3-22b-distilled-1.1_transformer_only_mxfp8_block32.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 24052755552
+    },
+    {
+      "basename": "ltx-2.3-22b-distilled_transformer_only_fp8_input_scaled.safetensors",
+      "rel_path": "diffusion_models/ltx-2.3-22b-distilled_transformer_only_fp8_input_scaled.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 23470602704
+    },
+    {
+      "basename": "ltx-2.3-22b-distilled_transformer_only_fp8_input_scaled_v3.safetensors",
+      "rel_path": "diffusion_models/ltx-2.3-22b-distilled_transformer_only_fp8_input_scaled_v3.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 25016398672
+    },
+    {
+      "basename": "ltx-2.5-22b-distilled-transformer-nvfp4.safetensors",
+      "rel_path": "diffusion_models/ltx-2.5-22b-distilled-transformer-nvfp4.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 18721732720
+    },
+    {
+      "basename": "lynx_lite_resampler_fp32.safetensors",
+      "rel_path": "diffusion_models/lynx_lite_resampler_fp32.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 327919184
+    },
+    {
+      "basename": "minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors",
+      "rel_path": "diffusion_models/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 20970379632
+    },
+    {
+      "basename": "model-00001-of-00004.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/text_encoder/model-00001-of-00004.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4968243304
+    },
+    {
+      "basename": "model-00002-of-00004.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/text_encoder/model-00002-of-00004.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4991495816
+    },
+    {
+      "basename": "model-00003-of-00004.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/text_encoder/model-00003-of-00004.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4932751040
+    },
+    {
+      "basename": "model-00004-of-00004.safetensors",
+      "rel_path": "diffusion_models/Qwen-Image/text_encoder/model-00004-of-00004.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 1691924384
+    },
+    {
+      "basename": "models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth",
+      "rel_path": "diffusion_models/wan2.2-animate-14b/models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4772359047
+    },
+    {
+      "basename": "models_t5_umt5-xxl-enc-bf16.pth",
+      "rel_path": "diffusion_models/wan2.2-animate-14b/models_t5_umt5-xxl-enc-bf16.pth",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 11361920418
+    },
+    {
+      "basename": "qwen_image_2512_bf16.safetensors",
+      "rel_path": "diffusion_models/qwen_image_2512_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 40861031488
+    },
+    {
+      "basename": "qwen_image_2512_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/qwen_image_2512_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 20430679144
+    },
+    {
+      "basename": "qwen_image_bf16.safetensors",
+      "rel_path": "diffusion_models/qwen_image_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 40861031488
+    },
+    {
+      "basename": "qwen_image_distill_full_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/qwen_image_distill_full_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 20430635136
+    },
+    {
+      "basename": "qwen_image_edit_2509_bf16.safetensors",
+      "rel_path": "diffusion_models/qwen_image_edit_2509_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 40861031488
+    },
+    {
+      "basename": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 20430698424
+    },
+    {
+      "basename": "qwen_image_edit_2511_bf16.safetensors",
+      "rel_path": "diffusion_models/qwen_image_edit_2511_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 40861031560
+    },
+    {
+      "basename": "qwen_image_edit_2511_fp8mixed.safetensors",
+      "rel_path": "diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 20533762817
+    },
+    {
+      "basename": "qwen_image_edit_bf16.safetensors",
+      "rel_path": "diffusion_models/qwen_image_edit_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 40861031488
+    },
+    {
+      "basename": "qwen_image_edit_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 20430635136
+    },
+    {
+      "basename": "qwen_image_fp8_e4m3fn.safetensors",
+      "rel_path": "diffusion_models/qwen_image_fp8_e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 20430635136
+    },
+    {
+      "basename": "qwen_image_layered_bf16.safetensors",
+      "rel_path": "diffusion_models/qwen_image_layered_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 40861043888
+    },
+    {
+      "basename": "qwen_image_layered_fp8mixed.safetensors",
+      "rel_path": "diffusion_models/qwen_image_layered_fp8mixed.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 20533591821
+    },
+    {
+      "basename": "relighting_lora.ckpt",
+      "rel_path": "diffusion_models/wan2.2-animate-14b/relighting_lora.ckpt",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 2873429974
+    },
+    {
+      "basename": "smoothMixWan22I2V14B_i2vHigh.safetensors",
+      "rel_path": "diffusion_models/smoothMixWan22I2V14B_i2vHigh.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 21283564107
+    },
+    {
+      "basename": "smoothMixWan22I2V14B_i2vLow.safetensors",
+      "rel_path": "diffusion_models/smoothMixWan22I2V14B_i2vLow.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 21283564099
+    },
+    {
+      "basename": "svdq-fp4_r128-qwen-image-edit-2509-lightningv2.0-8steps.safetensors",
+      "rel_path": "diffusion_models/svdq-fp4_r128-qwen-image-edit-2509-lightningv2.0-8steps.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 13081386856
+    },
+    {
+      "basename": "svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
+      "rel_path": "diffusion_models/svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 13081386856
+    },
+    {
+      "basename": "svdq-fp4_r128-qwen-image-lightningv1.1-8steps.safetensors",
+      "rel_path": "diffusion_models/svdq-fp4_r128-qwen-image-lightningv1.1-8steps.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 13081386856
+    },
+    {
+      "basename": "svdq-fp4_r32-qwen-image-edit-lightningv1.0-4steps.safetensors",
+      "rel_path": "diffusion_models/svdq-fp4_r32-qwen-image-edit-lightningv1.0-4steps.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 11948923656
+    },
+    {
+      "basename": "svdq-fp4_r32-qwen-image-lightningv1.1-8steps.safetensors",
+      "rel_path": "diffusion_models/svdq-fp4_r32-qwen-image-lightningv1.1-8steps.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 11948923656
+    },
+    {
+      "basename": "svdq-int4_r128-qwen-image-edit-2509-lightning-4steps-251115.safetensors",
+      "rel_path": "diffusion_models/svdq-int4_r128-qwen-image-edit-2509-lightning-4steps-251115.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12654443144
+    },
+    {
+      "basename": "svdq-int4_r128-qwen-image-edit-2509-lightningv2.0-8steps.safetensors",
+      "rel_path": "diffusion_models/svdq-int4_r128-qwen-image-edit-2509-lightningv2.0-8steps.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12654443144
+    },
+    {
+      "basename": "svdq-int4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
+      "rel_path": "diffusion_models/svdq-int4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12654443144
+    },
+    {
+      "basename": "svdq-int4_r128-qwen-image-lightningv1.1-8steps.safetensors",
+      "rel_path": "diffusion_models/svdq-int4_r128-qwen-image-lightningv1.1-8steps.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12654443144
+    },
+    {
+      "basename": "svdq-int4_r32-qwen-image-lightningv1.1-8steps.safetensors",
+      "rel_path": "diffusion_models/svdq-int4_r32-qwen-image-lightningv1.1-8steps.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 11521979944
+    },
+    {
+      "basename": "transformer_blocks.safetensors",
+      "rel_path": "diffusion_models/svdq-int4-flux.1-dev/transformer_blocks.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 6640056352
+    },
+    {
+      "basename": "transformer_blocks.safetensors",
+      "rel_path": "diffusion_models/svdq-int4-flux.1-fill-dev/transformer_blocks.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 6640056352
+    },
+    {
+      "basename": "turbo.safetensors",
+      "rel_path": "diffusion_models/krea2/turbo.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 26283332608
+    },
+    {
+      "basename": "unquantized_layers.safetensors",
+      "rel_path": "diffusion_models/svdq-int4-flux.1-dev/unquantized_layers.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 128252144
+    },
+    {
+      "basename": "unquantized_layers.safetensors",
+      "rel_path": "diffusion_models/svdq-int4-flux.1-fill-dev/unquantized_layers.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 130218224
+    },
+    {
+      "basename": "wan2.1_t2v_14B_bf16.safetensors",
+      "rel_path": "diffusion_models/wan2.1_t2v_14B_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 28577096680
+    },
+    {
+      "basename": "wan2.1_vace_1.3B_fp16.safetensors",
+      "rel_path": "diffusion_models/wan2.1_vace_1.3B_fp16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4309519800
+    },
+    {
+      "basename": "wan2.1_vace_14B_fp16.safetensors",
+      "rel_path": "diffusion_models/wan2.1_vace_14B_fp16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 34675323640
+    },
+    {
+      "basename": "wan2.2_animate_14B_bf16.safetensors",
+      "rel_path": "diffusion_models/wan2.2_animate_14B_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 34549799680
+    },
+    {
+      "basename": "wan2.2_fun_vace_low_noise_14B_fp8_scaled.safetensors",
+      "rel_path": "diffusion_models/wan2.2_fun_vace_low_noise_14B_fp8_scaled.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 17346056104
+    },
+    {
+      "basename": "wan2.2_i2v_A14b_high_noise_scaled_fp8_e4m3_lightx2v_4step_comfyui.safetensors",
+      "rel_path": "diffusion_models/wan2.2_i2v_A14b_high_noise_scaled_fp8_e4m3_lightx2v_4step_comfyui.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 15003000250
+    },
+    {
+      "basename": "wan2.2_i2v_A14b_low_noise_scaled_fp8_e4m3_lightx2v_4step_comfyui.safetensors",
+      "rel_path": "diffusion_models/wan2.2_i2v_A14b_low_noise_scaled_fp8_e4m3_lightx2v_4step_comfyui.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 15003000250
+    },
+    {
+      "basename": "wan2.2_i2v_high_noise_14B_fp16.safetensors",
+      "rel_path": "diffusion_models/wan2.2_i2v_high_noise_14B_fp16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 28577914792
+    },
+    {
+      "basename": "wan2.2_i2v_low_noise_14B_fp16.safetensors",
+      "rel_path": "diffusion_models/wan2.2_i2v_low_noise_14B_fp16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 28577914792
+    },
+    {
+      "basename": "wan2.2_t2v_high_noise_14B_fp16.safetensors",
+      "rel_path": "diffusion_models/wan2.2_t2v_high_noise_14B_fp16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 28577095592
+    },
+    {
+      "basename": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
+      "rel_path": "diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 14293923632
+    },
+    {
+      "basename": "wan2.2_t2v_low_noise_14B_fp16.safetensors",
+      "rel_path": "diffusion_models/wan2.2_t2v_low_noise_14B_fp16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 28577095592
+    },
+    {
+      "basename": "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
+      "rel_path": "diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 14293923632
+    },
+    {
+      "basename": "z-image-turbo-fp8-e4m3fn.safetensors",
+      "rel_path": "diffusion_models/z-image-turbo-fp8-e4m3fn.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 6154958752
+    },
+    {
+      "basename": "z-image-turbo_fp8_scaled_KJ.safetensors",
+      "rel_path": "diffusion_models/z-image-turbo_fp8_scaled_KJ.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 6158115074
+    },
+    {
+      "basename": "z_image_base-bf16.safetensors",
+      "rel_path": "diffusion_models/z_image_base-bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12309866400
+    },
+    {
+      "basename": "z_image_base_bf16_official.safetensors",
+      "rel_path": "diffusion_models/z_image_base_bf16_official.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12309866400
+    },
+    {
+      "basename": "z_image_bf16.safetensors",
+      "rel_path": "diffusion_models/z_image_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12309866400
+    },
+    {
+      "basename": "z_image_bf16_ttcosta.safetensors",
+      "rel_path": "diffusion_models/z_image_bf16_ttcosta.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12309866400
+    },
+    {
+      "basename": "z_image_turbo_bf16.safetensors",
+      "rel_path": "diffusion_models/z_image_turbo_bf16.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12309866400
+    },
+    {
+      "basename": "z_image_turbo_bf16_20260513.safetensors",
+      "rel_path": "diffusion_models/z_image_turbo_bf16_20260513.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 12309866400
+    },
+    {
+      "basename": "z_image_turbo_fp8_e4m3fn_unscaled.safetensors",
+      "rel_path": "diffusion_models/z_image_turbo_fp8_e4m3fn_unscaled.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 6154958752
+    },
+    {
+      "basename": "z_image_turbo_nvfp4.safetensors",
+      "rel_path": "diffusion_models/z_image_turbo_nvfp4.safetensors",
+      "用途": "出图/出视频·diffusion",
+      "bytes": 4509509600
+    },
+    {
+      "basename": "Wan2.2-Animate-14B-Q4_K_M.gguf",
+      "rel_path": "unet/Wan2.2-Animate-14B-Q4_K_M.gguf",
+      "用途": "出图/出视频·unet",
+      "bytes": 11496331072
+    },
+    {
+      "basename": "Wan2.2-Animate-14B-Q4_K_S.gguf",
+      "rel_path": "unet/Wan2.2-Animate-14B-Q4_K_S.gguf",
+      "用途": "出图/出视频·unet",
+      "bytes": 10592753472
+    },
+    {
+      "basename": "Wan2.2_T2V_High_Noise_14B_VACE-Q6_K.gguf",
+      "rel_path": "unet_gguf/Wan2.2_T2V_High_Noise_14B_VACE-Q6_K.gguf",
+      "用途": "出图/出视频·unet",
+      "bytes": 14512746272
+    },
+    {
+      "basename": "Wan2.2_T2V_High_Noise_14B_VACE-Q8_0.gguf",
+      "rel_path": "unet/Wan2.2_T2V_High_Noise_14B_VACE-Q8_0.gguf",
+      "用途": "出图/出视频·unet",
+      "bytes": 18653433632
+    },
+    {
+      "basename": "Wan2.2_T2V_High_Noise_14B_VACE-Q8_0.gguf",
+      "rel_path": "unet_gguf/Wan2.2_T2V_High_Noise_14B_VACE-Q8_0.gguf",
+      "用途": "出图/出视频·unet",
+      "bytes": 18653433632
+    },
+    {
+      "basename": "Wan2.2_T2V_Low_Noise_14B_VACE-Q6_K.gguf",
+      "rel_path": "unet_gguf/Wan2.2_T2V_Low_Noise_14B_VACE-Q6_K.gguf",
+      "用途": "出图/出视频·unet",
+      "bytes": 14512746272
+    },
+    {
+      "basename": "Wan2.2_T2V_Low_Noise_14B_VACE-Q8_0.gguf",
+      "rel_path": "unet/Wan2.2_T2V_Low_Noise_14B_VACE-Q8_0.gguf",
+      "用途": "出图/出视频·unet",
+      "bytes": 18653433632
+    },
+    {
+      "basename": "Wan2.2_T2V_Low_Noise_14B_VACE-Q8_0.gguf",
+      "rel_path": "unet_gguf/Wan2.2_T2V_Low_Noise_14B_VACE-Q8_0.gguf",
+      "用途": "出图/出视频·unet",
+      "bytes": 18653433632
+    },
+    {
+      "basename": "Z-Image-Engineer-V6-F16.gguf",
+      "rel_path": "unet/Z-Image-Engineer-V6-F16.gguf",
+      "用途": "出图/出视频·unet",
+      "bytes": 8051284960
+    },
+    {
+      "basename": "qwen-image-Q8_0.gguf",
+      "rel_path": "unet/qwen-image-Q8_0.gguf",
+      "用途": "出图/出视频·unet",
+      "bytes": 21761817120
+    },
+    {
+      "basename": "z_image-Q8_0.gguf",
+      "rel_path": "unet/z_image-Q8_0.gguf",
+      "用途": "出图/出视频·unet",
+      "bytes": 7224707136
+    },
+    {
+      "basename": "DreamShaper_8_pruned.safetensors",
+      "rel_path": "checkpoints/DreamShaper_8_pruned.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 2132625894
+    },
+    {
+      "basename": "LQ_proj_in.ckpt",
+      "rel_path": "FlashVSR/LQ_proj_in.ckpt",
+      "用途": "出图主线·checkpoint",
+      "bytes": 575695268
+    },
+    {
+      "basename": "LQ_proj_in.ckpt",
+      "rel_path": "FlashVSR-v1.1/LQ_proj_in.ckpt",
+      "用途": "出图主线·checkpoint",
+      "bytes": 575694948
+    },
+    {
+      "basename": "LQ_proj_in.ckpt",
+      "rel_path": "checkpoints/FlashVSR-v1.1/LQ_proj_in.ckpt",
+      "用途": "出图主线·checkpoint",
+      "bytes": 575694948
+    },
+    {
+      "basename": "Qwen-AIO-SFW-v18.safetensors",
+      "rel_path": "checkpoints/Qwen-AIO-SFW-v18.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 28431844111
+    },
+    {
+      "basename": "Qwen-Rapid-AIO-NSFW-v20.safetensors",
+      "rel_path": "checkpoints/Qwen-Rapid-AIO-NSFW-v20.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 28431840903
+    },
+    {
+      "basename": "Qwen-Rapid-AIO-NSFW-v7.safetensors",
+      "rel_path": "checkpoints/Qwen-Rapid-AIO-NSFW-v7.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 28978666882
+    },
+    {
+      "basename": "Qwen-Rapid-AIO-SFW-v11.safetensors",
+      "rel_path": "checkpoints/Qwen-Rapid-AIO-SFW-v11.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 28431829223
+    },
+    {
+      "basename": "Qwen-Rapid-AIO-SFW-v5.safetensors",
+      "rel_path": "checkpoints/Qwen-Rapid-AIO-SFW-v5.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 28978619898
+    },
+    {
+      "basename": "Qwen-Rapid-AIO-SFW-v7.safetensors",
+      "rel_path": "checkpoints/Qwen-Rapid-AIO-SFW-v7.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 28978666882
+    },
+    {
+      "basename": "Qwen-Rapid-AIO-v4.safetensors",
+      "rel_path": "checkpoints/Qwen-Rapid-AIO-v4.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 28978619370
+    },
+    {
+      "basename": "SUPIR-v0F_fp16.safetensors",
+      "rel_path": "checkpoints/SUPIR-v0F_fp16.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 2664825592
+    },
+    {
+      "basename": "SUPIR-v0Q_fp16.safetensors",
+      "rel_path": "checkpoints/SUPIR-v0Q_fp16.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 2664858464
+    },
+    {
+      "basename": "TCDecoder.ckpt",
+      "rel_path": "FlashVSR/TCDecoder.ckpt",
+      "用途": "出图主线·checkpoint",
+      "bytes": 189018333
+    },
+    {
+      "basename": "TCDecoder.ckpt",
+      "rel_path": "FlashVSR-v1.1/TCDecoder.ckpt",
+      "用途": "出图主线·checkpoint",
+      "bytes": 189018333
+    },
+    {
+      "basename": "TCDecoder.ckpt",
+      "rel_path": "checkpoints/FlashVSR-v1.1/TCDecoder.ckpt",
+      "用途": "出图主线·checkpoint",
+      "bytes": 189018333
+    },
+    {
+      "basename": "Wan2.1_VAE.pth",
+      "rel_path": "FlashVSR/Wan2.1_VAE.pth",
+      "用途": "出图主线·checkpoint",
+      "bytes": 507609928
+    },
+    {
+      "basename": "Wan2.1_VAE.pth",
+      "rel_path": "FlashVSR-v1.1/Wan2.1_VAE.pth",
+      "用途": "出图主线·checkpoint",
+      "bytes": 507609880
+    },
+    {
+      "basename": "Wan2.1_VAE.pth",
+      "rel_path": "checkpoints/FlashVSR-v1.1/Wan2.1_VAE.pth",
+      "用途": "出图主线·checkpoint",
+      "bytes": 507609880
+    },
+    {
+      "basename": "depth_anything_v2_vitl.pth",
+      "rel_path": "checkpoints/depth_anything_v2_vitl.pth",
+      "用途": "出图主线·checkpoint",
+      "bytes": 1341395338
+    },
+    {
+      "basename": "diffusion_pytorch_model_streaming_dmd.safetensors",
+      "rel_path": "FlashVSR/diffusion_pytorch_model_streaming_dmd.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 5676070392
+    },
+    {
+      "basename": "diffusion_pytorch_model_streaming_dmd.safetensors",
+      "rel_path": "FlashVSR-v1.1/diffusion_pytorch_model_streaming_dmd.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 5676070392
+    },
+    {
+      "basename": "diffusion_pytorch_model_streaming_dmd.safetensors",
+      "rel_path": "checkpoints/FlashVSR-v1.1/diffusion_pytorch_model_streaming_dmd.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 5676070392
+    },
+    {
+      "basename": "flux1-dev-fp8.safetensors",
+      "rel_path": "checkpoints/flux1-dev-fp8.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 17246524772
+    },
+    {
+      "basename": "ltx-2.3-22b-dev-fp8.safetensors",
+      "rel_path": "checkpoints/ltx-2.3-22b-dev-fp8.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 29145431166
+    },
+    {
+      "basename": "ltx-2.3-22b-dev-fp8mixed.safetensors",
+      "rel_path": "checkpoints/ltx-2.3-22b-dev-fp8mixed.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 29145431166
+    },
+    {
+      "basename": "ltx-2.3-22b-dev.safetensors",
+      "rel_path": "checkpoints/ltx-2.3-22b-dev.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 46149344974
+    },
+    {
+      "basename": "ltx-2.3-22b-distilled-1.1.safetensors",
+      "rel_path": "checkpoints/ltx-2.3-22b-distilled-1.1.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 46149345334
+    },
+    {
+      "basename": "ltx-2.3-22b-distilled-fp8.safetensors",
+      "rel_path": "checkpoints/ltx-2.3-22b-distilled-fp8.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 29531884062
+    },
+    {
+      "basename": "ltxv-2b-0.9.6-dev-04-25-v1.safetensors",
+      "rel_path": "checkpoints/ltxv-2b-0.9.6-dev-04-25-v1.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 6340743924
+    },
+    {
+      "basename": "ltxv-2b-0.9.6-dev-04-25.safetensors",
+      "rel_path": "checkpoints/ltxv-2b-0.9.6-dev-04-25.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 6340743924
+    },
+    {
+      "basename": "majicmixRealistic_v7.safetensors",
+      "rel_path": "checkpoints/majicmixRealistic_v7.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 2132625894
+    },
+    {
+      "basename": "moodyRealMix_zitV5DPO.safetensors",
+      "rel_path": "checkpoints/moodyRealMix_zitV5DPO.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 12309879656
+    },
+    {
+      "basename": "new_Qwen-Rapid-AIO-NSFW-v19.safetensors",
+      "rel_path": "checkpoints/new_Qwen-Rapid-AIO-NSFW-v19.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 28431843583
+    },
+    {
+      "basename": "new_Qwen-Rapid-AIO-NSFW-v23.safetensors",
+      "rel_path": "checkpoints/new_Qwen-Rapid-AIO-NSFW-v23.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 28431840023
+    },
+    {
+      "basename": "realvisxlV50_v50Bakedvae.safetensors",
+      "rel_path": "checkpoints/realvisxlV50_v50Bakedvae.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 6938065488
+    },
+    {
+      "basename": "realvisxlV50_v50LightningBakedvae   .safetensors",
+      "rel_path": "checkpoints/realvisxlV50_v50LightningBakedvae   .safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 6938065512
+    },
+    {
+      "basename": "sulphur_dev_fp8mixed.safetensors",
+      "rel_path": "checkpoints/sulphur_dev_fp8mixed.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 29161842846
+    },
+    {
+      "basename": "wan2.2-i2v-rapid-aio-nsfw-v7.safetensors",
+      "rel_path": "checkpoints/wan2.2-i2v-rapid-aio-nsfw-v7.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 23387004939
+    },
+    {
+      "basename": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+      "rel_path": "checkpoints/wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 23387046339
+    },
+    {
+      "basename": "wan2.2-i2v-rapid-aio-v10.safetensors",
+      "rel_path": "checkpoints/wan2.2-i2v-rapid-aio-v10.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 23387046451
+    },
+    {
+      "basename": "wan2.2-rapid-mega-aio-v1.safetensors",
+      "rel_path": "checkpoints/wan2.2-rapid-mega-aio-v1.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 24334481079
+    },
+    {
+      "basename": "wan2114BFusionx_fusionxImage2video.safetensors",
+      "rel_path": "checkpoints/wan2114BFusionx_fusionxImage2video.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 16397285160
+    },
+    {
+      "basename": "z-image-turbo-bf16-aio.safetensors",
+      "rel_path": "checkpoints/z-image-turbo-bf16-aio.safetensors",
+      "用途": "出图主线·checkpoint",
+      "bytes": 20522566986
+    },
+    {
+      "basename": "dit",
+      "rel_path": "LongCat-Video/dit",
+      "用途": "出视频·LongCat",
+      "bytes": 54324487213
+    },
+    {
+      "basename": "lora",
+      "rel_path": "LongCat-Video/lora",
+      "用途": "出视频·LongCat",
+      "bytes": 5732556064
+    },
+    {
+      "basename": "text_encoder",
+      "rel_path": "LongCat-Video/text_encoder",
+      "用途": "出视频·LongCat",
+      "bytes": 22723695074
+    },
+    {
+      "basename": "vae",
+      "rel_path": "LongCat-Video/vae",
+      "用途": "出视频·LongCat",
+      "bytes": 507592616
+    },
+    {
+      "basename": "Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
+      "rel_path": "wan2.2-animate-2-14b/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
+      "用途": "出视频·Wan Animate",
+      "bytes": 18401760586
+    },
+    {
+      "basename": "Wan2_2-Animate-14B_fp8_scaled_e4m3fn_KJ_v2.safetensors",
+      "rel_path": "wan2.2-animate-2-14b/Wan2_2-Animate-14B_fp8_scaled_e4m3fn_KJ_v2.safetensors",
+      "用途": "出视频·Wan Animate",
+      "bytes": 17317143060
+    },
+    {
+      "basename": "videomodel",
+      "rel_path": "wan2.2-animate-2-14b/videomodel",
+      "用途": "出视频·Wan Animate",
+      "bytes": 16961692121
+    },
+    {
+      "basename": "wan_animate_2",
+      "rel_path": "wan2.2-animate-2-14b/wan_animate_2",
+      "用途": "出视频·Wan Animate",
+      "bytes": 115022873040
+    },
+    {
+      "basename": "SeC-4B-bf16.safetensors",
+      "rel_path": "sams/SeC-4B-bf16.safetensors",
+      "用途": "分割 SAM",
+      "bytes": 7895701052
+    },
+    {
+      "basename": "SeC-4B-fp16.safetensors",
+      "rel_path": "sams/SeC-4B-fp16.safetensors",
+      "用途": "分割 SAM",
+      "bytes": 7895698676
+    },
+    {
+      "basename": "SeC-4B-fp32.safetensors",
+      "rel_path": "sams/SeC-4B-fp32.safetensors",
+      "用途": "分割 SAM",
+      "bytes": 15164519628
+    },
+    {
+      "basename": "model-00001-of-00004.safetensors",
+      "rel_path": "sams/SeC-4B/model-00001-of-00004.safetensors",
+      "用途": "分割 SAM",
+      "bytes": 4971441192
+    },
+    {
+      "basename": "model-00002-of-00004.safetensors",
+      "rel_path": "sams/SeC-4B/model-00002-of-00004.safetensors",
+      "用途": "分割 SAM",
+      "bytes": 4932952216
+    },
+    {
+      "basename": "model-00003-of-00004.safetensors",
+      "rel_path": "sams/SeC-4B/model-00003-of-00004.safetensors",
+      "用途": "分割 SAM",
+      "bytes": 4995653488
+    },
+    {
+      "basename": "model-00004-of-00004.safetensors",
+      "rel_path": "sams/SeC-4B/model-00004-of-00004.safetensors",
+      "用途": "分割 SAM",
+      "bytes": 283093936
+    },
+    {
+      "basename": "sam2_hiera_base_plus.safetensors",
+      "rel_path": "sams/sam2_hiera_base_plus.safetensors",
+      "用途": "分割 SAM",
+      "bytes": 323407992
+    },
+    {
+      "basename": "sam3.pt",
+      "rel_path": "sams/sam3.pt",
+      "用途": "分割 SAM",
+      "bytes": 3450062241
+    },
+    {
+      "basename": "1x-ITF-SkinDiffDetail-Lite-v1.pth",
+      "rel_path": "upscale_models/1x-ITF-SkinDiffDetail-Lite-v1.pth",
+      "用途": "放大",
+      "bytes": 20099337
+    },
+    {
+      "basename": "2xNomosUni_span_multijpg_ldl.pth",
+      "rel_path": "upscale_models/2xNomosUni_span_multijpg_ldl.pth",
+      "用途": "放大",
+      "bytes": 8960986
+    },
+    {
+      "basename": "4x-ClearRealityV1.pth",
+      "rel_path": "upscale_models/4x-ClearRealityV1.pth",
+      "用途": "放大",
+      "bytes": 9016074
+    },
+    {
+      "basename": "4x-ClearRealityV1_Soft.pth",
+      "rel_path": "upscale_models/4x-ClearRealityV1_Soft.pth",
+      "用途": "放大",
+      "bytes": 9016074
+    },
+    {
+      "basename": "4x-UltraSharp.pth",
+      "rel_path": "upscale_models/4x-UltraSharp.pth",
+      "用途": "放大",
+      "bytes": 66961958
+    },
+    {
+      "basename": "4xNomos8kDAT.pth",
+      "rel_path": "upscale_models/4xNomos8kDAT.pth",
+      "用途": "放大",
+      "bytes": 309317507
+    },
+    {
+      "basename": "4xNomos8kDAT.safetensors",
+      "rel_path": "upscale_models/4xNomos8kDAT.safetensors",
+      "用途": "放大",
+      "bytes": 154152604
+    },
+    {
+      "basename": "4xNomos8kSCHAT-L.pth",
+      "rel_path": "upscale_models/4xNomos8kSCHAT-L.pth",
+      "用途": "放大",
+      "bytes": 331564661
+    },
+    {
+      "basename": "4xPurePhoto-RealPLSKR.pth",
+      "rel_path": "upscale_models/4xPurePhoto-RealPLSKR.pth",
+      "用途": "放大",
+      "bytes": 29663426
+    },
+    {
+      "basename": "4x_NMKD-Siax_200k.pth",
+      "rel_path": "upscale_models/4x_NMKD-Siax_200k.pth",
+      "用途": "放大",
+      "bytes": 66957746
+    },
+    {
+      "basename": "OmniSR_X2_DIV2K.safetensors",
+      "rel_path": "upscale_models/OmniSR_X2_DIV2K.safetensors",
+      "用途": "放大",
+      "bytes": 1655992
+    },
+    {
+      "basename": "RealESRGAN_x2.pth",
+      "rel_path": "upscale_models/RealESRGAN_x2.pth",
+      "用途": "放大",
+      "bytes": 67061725
+    },
+    {
+      "basename": "RealESRGAN_x2plus.pth",
+      "rel_path": "upscale_models/RealESRGAN_x2plus.pth",
+      "用途": "放大",
+      "bytes": 67061725
+    },
+    {
+      "basename": "RealESRGAN_x4plus.pth",
+      "rel_path": "upscale_models/RealESRGAN_x4plus.pth",
+      "用途": "放大",
+      "bytes": 67040989
+    },
+    {
+      "basename": "nvidia_video_super_resolution.safetensors",
+      "rel_path": "upscale_models/nvidia_video_super_resolution.safetensors",
+      "用途": "放大",
+      "bytes": 66961958
+    },
+    {
+      "basename": "clip_l.safetensors",
+      "rel_path": "clip/clip_l.safetensors",
+      "用途": "文本编码",
+      "bytes": 246144152
+    },
+    {
       "basename": "clip_l_hidream.safetensors",
       "rel_path": "text_encoders/clip_l_hidream.safetensors",
       "用途": "文本编码",
       "bytes": 247586528
+    },
+    {
+      "basename": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "rel_path": "text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "用途": "文本编码",
+      "bytes": 15372971786
     },
     {
       "basename": "gemma_3_12B_it.safetensors",
@@ -2605,10 +4975,46 @@
       "bytes": 2862983400
     },
     {
+      "basename": "mistral_3_small_flux2_fp8.safetensors",
+      "rel_path": "text_encoders/mistral_3_small_flux2_fp8.safetensors",
+      "用途": "文本编码",
+      "bytes": 18034640095
+    },
+    {
       "basename": "mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf",
       "rel_path": "text_encoders/mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf",
       "用途": "文本编码",
       "bytes": 899283072
+    },
+    {
+      "basename": "model-00001-of-00004.safetensors",
+      "rel_path": "text_encoders/qwen_3_vl_8b_instruct/model-00001-of-00004.safetensors",
+      "用途": "文本编码",
+      "bytes": 4902275944
+    },
+    {
+      "basename": "model-00002-of-00004.safetensors",
+      "rel_path": "text_encoders/qwen_3_vl_8b_instruct/model-00002-of-00004.safetensors",
+      "用途": "文本编码",
+      "bytes": 4915962496
+    },
+    {
+      "basename": "model-00003-of-00004.safetensors",
+      "rel_path": "text_encoders/qwen_3_vl_8b_instruct/model-00003-of-00004.safetensors",
+      "用途": "文本编码",
+      "bytes": 4999831048
+    },
+    {
+      "basename": "model-00004-of-00004.safetensors",
+      "rel_path": "text_encoders/qwen_3_vl_8b_instruct/model-00004-of-00004.safetensors",
+      "用途": "文本编码",
+      "bytes": 2716270024
+    },
+    {
+      "basename": "model.safetensors",
+      "rel_path": "clip/clip-vit-large-patch14/model.safetensors",
+      "用途": "文本编码",
+      "bytes": 1710540580
     },
     {
       "basename": "models_t5_umt5-xxl-enc-bf16_fully_uncensored.safetensors",
@@ -2659,16 +5065,16 @@
       "bytes": 8044982048
     },
     {
-      "basename": "qwen_3_8b.safetensors",
-      "rel_path": "text_encoders/qwen_3_8b.safetensors",
+      "basename": "qwen_3_8b.1.safetensors",
+      "rel_path": "text_encoders/qwen_3_8b.1.safetensors",
       "用途": "文本编码",
       "bytes": 16381517176
     },
     {
-      "basename": "t5xxl_fp16.safetensors (sd3 子目录)",
-      "rel_path": "text_encoders/sd3/t5xxl_fp16.safetensors",
+      "basename": "qwen_3_8b.safetensors",
+      "rel_path": "text_encoders/qwen_3_8b.safetensors",
       "用途": "文本编码",
-      "bytes": 9787841024
+      "bytes": 16381517176
     },
     {
       "basename": "t5xxl_fp16.safetensors",
@@ -2677,10 +5083,28 @@
       "bytes": 9787841024
     },
     {
+      "basename": "t5xxl_fp8_e4m3fn.safetensors",
+      "rel_path": "text_encoders/t5xxl_fp8_e4m3fn.safetensors",
+      "用途": "文本编码",
+      "bytes": 4893934904
+    },
+    {
       "basename": "t5xxl_fp8_e4m3fn_scaled.safetensors",
       "rel_path": "text_encoders/t5xxl_fp8_e4m3fn_scaled.safetensors",
       "用途": "文本编码",
       "bytes": 5157348688
+    },
+    {
+      "basename": "umt5-xxl-enc-bf16.safetensors",
+      "rel_path": "text_encoders/umt5-xxl-enc-bf16.safetensors",
+      "用途": "文本编码",
+      "bytes": 11361845464
+    },
+    {
+      "basename": "umt5-xxl-enc-fp8_e4m3fn.safetensors",
+      "rel_path": "text_encoders/umt5-xxl-enc-fp8_e4m3fn.safetensors",
+      "用途": "文本编码",
+      "bytes": 6731333792
     },
     {
       "basename": "umt5_xxl_fp16.safetensors",
@@ -2695,202 +5119,142 @@
       "bytes": 6735906897
     },
     {
-      "basename": "Wan2.2-Animate-14B-Q4_K_M.gguf",
-      "rel_path": "unet/Wan2.2-Animate-14B-Q4_K_M.gguf",
-      "用途": "出图/出视频·unet",
-      "bytes": 11496331072
-    },
-    {
-      "basename": "Wan2.2-Animate-14B-Q4_K_S.gguf",
-      "rel_path": "unet/Wan2.2-Animate-14B-Q4_K_S.gguf",
-      "用途": "出图/出视频·unet",
-      "bytes": 10592753472
-    },
-    {
-      "basename": "Z-Image-Engineer-V6-F16.gguf",
-      "rel_path": "unet/Z-Image-Engineer-V6-F16.gguf",
-      "用途": "出图/出视频·unet",
-      "bytes": 8051284960
-    },
-    {
-      "basename": "qwen-image-Q8_0.gguf",
-      "rel_path": "unet/qwen-image-Q8_0.gguf",
-      "用途": "出图/出视频·unet",
-      "bytes": 21761817120
-    },
-    {
-      "basename": "z_image-Q8_0.gguf",
-      "rel_path": "unet/z_image-Q8_0.gguf",
-      "用途": "出图/出视频·unet",
-      "bytes": 7224707136
-    },
-    {
-      "basename": "1x-ITF-SkinDiffDetail-Lite-v1.pth",
-      "rel_path": "upscale_models/1x-ITF-SkinDiffDetail-Lite-v1.pth",
-      "用途": "放大",
-      "bytes": 20099337
-    },
-    {
-      "basename": "2xNomosUni_span_multijpg_ldl.pth",
-      "rel_path": "upscale_models/2xNomosUni_span_multijpg_ldl.pth",
-      "用途": "放大",
-      "bytes": 8960986
-    },
-    {
-      "basename": "4x-ClearRealityV1.pth",
-      "rel_path": "upscale_models/4x-ClearRealityV1.pth",
-      "用途": "放大",
-      "bytes": 9016074
-    },
-    {
-      "basename": "4xNomos8kDAT.pth",
-      "rel_path": "upscale_models/4xNomos8kDAT.pth",
-      "用途": "放大",
-      "bytes": 309317507
-    },
-    {
-      "basename": "4xNomos8kDAT.safetensors",
-      "rel_path": "upscale_models/4xNomos8kDAT.safetensors",
-      "用途": "放大",
-      "bytes": 154152604
-    },
-    {
-      "basename": "4xNomos8kSCHAT-L.pth",
-      "rel_path": "upscale_models/4xNomos8kSCHAT-L.pth",
-      "用途": "放大",
-      "bytes": 331564661
-    },
-    {
-      "basename": "4xPurePhoto-RealPLSKR.pth",
-      "rel_path": "upscale_models/4xPurePhoto-RealPLSKR.pth",
-      "用途": "放大",
-      "bytes": 29663426
-    },
-    {
-      "basename": "OmniSR_X2_DIV2K.safetensors",
-      "rel_path": "upscale_models/OmniSR_X2_DIV2K.safetensors",
-      "用途": "放大",
-      "bytes": 1655992
-    },
-    {
-      "basename": "RealESRGAN_x2.pth",
-      "rel_path": "upscale_models/RealESRGAN_x2.pth",
-      "用途": "放大",
-      "bytes": 67061725
-    },
-    {
-      "basename": "LTX23_audio_vae_bf16.safetensors",
-      "rel_path": "vae/LTX23_audio_vae_bf16.safetensors",
-      "用途": "VAE",
-      "bytes": 364855188
-    },
-    {
-      "basename": "LTX23_video_vae_bf16.safetensors",
-      "rel_path": "vae/LTX23_video_vae_bf16.safetensors",
-      "用途": "VAE",
-      "bytes": 1452258578
-    },
-    {
-      "basename": "LTX2_audio_vae_bf16.safetensors",
-      "rel_path": "vae/LTX2_audio_vae_bf16.safetensors",
-      "用途": "VAE",
-      "bytes": 217740136
-    },
-    {
-      "basename": "LTX2_video_vae_bf16.safetensors",
-      "rel_path": "vae/LTX2_video_vae_bf16.safetensors",
-      "用途": "VAE",
-      "bytes": 2445008522
-    },
-    {
-      "basename": "UltraFlux-v1_model.safetensors",
-      "rel_path": "vae/UltraFlux-v1_model.safetensors",
-      "用途": "VAE",
-      "bytes": 335306212
-    },
-    {
-      "basename": "Wan2_1_VAE_fp32.safetensors",
-      "rel_path": "vae/Wan2_1_VAE_fp32.safetensors",
-      "用途": "VAE",
-      "bytes": 507591244
-    },
-    {
-      "basename": "ae.sft",
-      "rel_path": "vae/ae.sft",
-      "用途": "VAE",
-      "bytes": 335304388
-    },
-    {
       "basename": "ema_vae_fp16.safetensors",
-      "rel_path": "vae/ema_vae_fp16.safetensors",
-      "用途": "VAE",
+      "rel_path": "SEEDVR2/ema_vae_fp16.safetensors",
+      "用途": "视频修复 SEEDVR2",
       "bytes": 501324814
     },
     {
-      "basename": "qwen_image_layered_vae.safetensors",
-      "rel_path": "vae/qwen_image_layered_vae.safetensors",
-      "用途": "VAE",
-      "bytes": 253816616
+      "basename": "seedvr2_ema_3b-Q4_K_M.gguf",
+      "rel_path": "SEEDVR2/seedvr2_ema_3b-Q4_K_M.gguf",
+      "用途": "视频修复 SEEDVR2",
+      "bytes": 1995344224
     },
     {
-      "basename": "qwen_image_vae.safetensors",
-      "rel_path": "vae/qwen_image_vae.safetensors",
-      "用途": "VAE",
-      "bytes": 253806246
+      "basename": "seedvr2_ema_3b-Q8_0.gguf",
+      "rel_path": "SEEDVR2/seedvr2_ema_3b-Q8_0.gguf",
+      "用途": "视频修复 SEEDVR2",
+      "bytes": 3660613984
     },
     {
-      "basename": "sdxlVAE_sdxlVAE.safetensors",
-      "rel_path": "vae/sdxlVAE_sdxlVAE.safetensors",
-      "用途": "VAE",
-      "bytes": 334641164
+      "basename": "seedvr2_ema_3b_fp16.safetensors",
+      "rel_path": "SEEDVR2/seedvr2_ema_3b_fp16.safetensors",
+      "用途": "视频修复 SEEDVR2",
+      "bytes": 6783018808
     },
     {
-      "basename": "taeh3.safetensors",
-      "rel_path": "vae/taeh3.safetensors",
-      "用途": "VAE",
-      "bytes": 22709752
+      "basename": "seedvr2_ema_3b_fp8_e4m3fn.safetensors",
+      "rel_path": "SEEDVR2/seedvr2_ema_3b_fp8_e4m3fn.safetensors",
+      "用途": "视频修复 SEEDVR2",
+      "bytes": 3391544696
     },
     {
-      "basename": "taeltx2_3.safetensors",
-      "rel_path": "vae/taeltx2_3.safetensors",
-      "用途": "VAE",
-      "bytes": 23531296
+      "basename": "seedvr2_ema_7b-Q3_K_M.gguf",
+      "rel_path": "SEEDVR2/seedvr2_ema_7b-Q3_K_M.gguf",
+      "用途": "视频修复 SEEDVR2",
+      "bytes": 3675389728
     },
     {
-      "basename": "wan_2.1_vae_Comfy-Org.safetensors",
-      "rel_path": "vae/wan_2.1_vae_Comfy-Org.safetensors",
-      "用途": "VAE",
-      "bytes": 253815318
+      "basename": "seedvr2_ema_7b-Q4_K_M.gguf",
+      "rel_path": "SEEDVR2/seedvr2_ema_7b-Q4_K_M.gguf",
+      "用途": "视频修复 SEEDVR2",
+      "bytes": 4758306592
     },
     {
-      "basename": "z_image_turbo-vae.safetensors",
-      "rel_path": "vae/z_image_turbo-vae.safetensors",
-      "用途": "VAE",
-      "bytes": 335304388
+      "basename": "seedvr2_ema_7b-Q8_0.gguf",
+      "rel_path": "SEEDVR2/seedvr2_ema_7b-Q8_0.gguf",
+      "用途": "视频修复 SEEDVR2",
+      "bytes": 8835170080
     },
     {
-      "basename": "MelBandRoformer_fp16.safetensors",
-      "rel_path": "vocal_separator/MelBandRoformer_fp16.safetensors",
-      "用途": "其它·vocal_separator",
+      "basename": "seedvr2_ema_7b-Q8_K_M.gguf",
+      "rel_path": "SEEDVR2/seedvr2_ema_7b-Q8_K_M.gguf",
+      "用途": "视频修复 SEEDVR2",
+      "bytes": 8835170080
+    },
+    {
+      "basename": "seedvr2_ema_7b_fp16.safetensors",
+      "rel_path": "SEEDVR2/seedvr2_ema_7b_fp16.safetensors",
+      "用途": "视频修复 SEEDVR2",
+      "bytes": 16479334424
+    },
+    {
+      "basename": "seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors",
+      "rel_path": "SEEDVR2/seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors",
+      "用途": "视频修复 SEEDVR2",
+      "bytes": 8466296338
+    },
+    {
+      "basename": "seedvr2_ema_7b_sharp_fp16.safetensors",
+      "rel_path": "SEEDVR2/seedvr2_ema_7b_sharp_fp16.safetensors",
+      "用途": "视频修复 SEEDVR2",
+      "bytes": 16479334424
+    },
+    {
+      "basename": "seedvr2_ema_7b_sharp_fp8_e4m3fn.safetensors",
+      "rel_path": "SEEDVR2/seedvr2_ema_7b_sharp_fp8_e4m3fn.safetensors",
+      "用途": "视频修复 SEEDVR2",
+      "bytes": 8239729704
+    },
+    {
+      "basename": "Ace-Step1.5",
+      "rel_path": "audio/Ace-Step1.5",
+      "用途": "音频",
+      "bytes": 10092103888
+    },
+    {
+      "basename": "MelBandRoFormer_comfy",
+      "rel_path": "audio/MelBandRoFormer_comfy",
+      "用途": "音频",
       "bytes": 456479072
     },
     {
-      "basename": "Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
-      "rel_path": "wan2.2-animate-2-14b/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
-      "用途": "出视频·Wan Animate",
-      "bytes": 18401760586
+      "basename": "MelBandRoformer_fp16.safetensors",
+      "rel_path": "MelBandRoFormer_comfy/MelBandRoformer_fp16.safetensors",
+      "用途": "音频",
+      "bytes": 456479072
     },
     {
-      "basename": "Wan2_2-Animate-14B_fp8_scaled_e4m3fn_KJ_v2.safetensors",
-      "rel_path": "wan2.2-animate-2-14b/Wan2_2-Animate-14B_fp8_scaled_e4m3fn_KJ_v2.safetensors",
-      "用途": "出视频·Wan Animate",
-      "bytes": 17317143060
+      "basename": "MelBandRoformer_fp32.safetensors",
+      "rel_path": "audio/MelBandRoformer_fp32.safetensors",
+      "用途": "音频",
+      "bytes": 912885656
     },
     {
-      "basename": "wan_animate_2_distill_int8_convrot.safetensors",
-      "rel_path": "wan2.2-animate-2-14b/wan_animate_2/comfyui/wan_animate_2_distill_int8_convrot.safetensors",
-      "用途": "出视频·Wan Animate",
-      "bytes": 16653175528
+      "basename": "Qwen3-TTS-12Hz-1.7B-Base",
+      "rel_path": "qwen-tts/Qwen3-TTS-12Hz-1.7B-Base",
+      "用途": "音频",
+      "bytes": 4544233097
+    },
+    {
+      "basename": "Qwen3-TTS-12Hz-1.7B-CustomVoice",
+      "rel_path": "qwen-tts/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+      "用途": "音频",
+      "bytes": 4520222096
+    },
+    {
+      "basename": "Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+      "rel_path": "qwen-tts/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+      "用途": "音频",
+      "bytes": 4520166978
+    },
+    {
+      "basename": "Qwen3-TTS-Tokenizer-12Hz",
+      "rel_path": "qwen-tts/Qwen3-TTS-Tokenizer-12Hz",
+      "用途": "音频",
+      "bytes": 682299220
+    },
+    {
+      "basename": "chinese-wav2vec2-base",
+      "rel_path": "audio/chinese-wav2vec2-base",
+      "用途": "音频",
+      "bytes": 380263948
+    },
+    {
+      "basename": "uvr5_models",
+      "rel_path": "audio/uvr5_models",
+      "用途": "音频",
+      "bytes": 483951404
     }
   ]
 }
