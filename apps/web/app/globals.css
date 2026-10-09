@@ -33,7 +33,8 @@
   --border-subtle: rgba(17, 17, 17, 0.13);
   --border-strong: rgba(17, 17, 17, 0.24);
 
-  /* ── 文字(neutral-950/600/500 系;-muted 在 surface-3 #ECECEE 上 ~4.9:1 过 AA) ── */
+  /* ── 文字(neutral-950/600/500 系;BeefTV 示意 muted=#6E6E73,但 surface-3 上仅 4.30,
+     门禁要求 ≥4.5,故亮色保留 #66666B ~4.9:1) ── */
   --text-primary: #0A0A0A;
   --text-secondary: #525252;
   --text-muted: #66666B;
