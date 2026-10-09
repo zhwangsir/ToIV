@@ -76,9 +76,10 @@ export default function TasksPage() {
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">任务中心</h1>
-                    <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">ToIV 生成作业（统一执行层：/api/jobs）</p>
+                    <p className="text-xs leading-5 text-muted-foreground">ToIV 生成作业（/api/jobs）。画布进行中任务见顶栏 chip；完整画布历史见「任务」页。</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Link to="/tasks"><ToolButton variant="default" icon={<ListChecks />} label="画布任务" /></Link>
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
                     <Link to="/"><ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" /></Link>
                 </div>
@@ -96,13 +97,13 @@ export default function TasksPage() {
                         const meta = STATUS_META[job.status] ?? { tone: "neutral" as const, text: job.status };
                         const canCancel = CANCELABLE.has(job.status);
                         return (
-                            <li key={job.id} className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card,#181818)] px-4 py-3">
+                            <li key={job.id} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
                                 <StatusBadge tone={meta.tone} label={meta.text} />
                                 <div className="min-w-0 flex-1">
                                     <Tooltip title={job.prompt || ""}>
                                         <p className="truncate text-sm font-medium">{promptSummary(job.prompt)}</p>
                                     </Tooltip>
-                                    <p className="mt-0.5 text-xs text-[var(--muted-foreground,#a8a8a8)]">{detailLine(job)}</p>
+                                    <p className="mt-0.5 text-xs text-muted-foreground">{detailLine(job)}</p>
                                 </div>
                                 {canCancel ? (
                                     <ToolButton

@@ -35,7 +35,7 @@ export default function LibraryPage() {
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">作品库</h1>
-                    <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">ToIV 作品集与成片归档（实时域：/api/boards）</p>
+                    <p className="text-xs leading-5 text-muted-foreground">ToIV 作品集与成片归档（实时域：/api/boards）</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
@@ -55,16 +55,16 @@ export default function LibraryPage() {
                         <Link
                             key={board.id}
                             to={`/toiv/library/${board.id}`}
-                            className="group flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] p-4 transition-colors hover:border-[var(--workspace-accent,#f5f5f5)]"
+                            className="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-[var(--workspace-accent,#f5f5f5)]"
                         >
                             <div className="flex h-28 items-center justify-center rounded-xl bg-[var(--muted,rgba(255,255,255,0.06))]">
                                 {board.cover_url
                                     ? <img src={board.cover_url} alt="" className="h-full w-full rounded-xl object-cover" />
-                                    : <FolderOpen className="h-8 w-8 text-[var(--muted-foreground,#a8a8a8)]" />}
+                                    : <FolderOpen className="h-8 w-8 text-muted-foreground" />}
                             </div>
                             <div className="flex flex-col gap-1">
                                 <p className="truncate text-sm font-medium" title={board.name}>{board.name}</p>
-                                <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                <p className="text-xs text-muted-foreground">
                                     {board.item_count} 件作品 · {formatTime(board.created_at)}
                                 </p>
                             </div>

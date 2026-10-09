@@ -106,8 +106,8 @@ export default function DramaDetailPage() {
             <header className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 flex-col gap-1">
                     <h1 className="truncate text-xl font-semibold leading-7 text-foreground">{detail.title || detail.premise?.slice(0, 30) || "未命名项目"}</h1>
-                    <p className="line-clamp-1 text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">{detail.premise}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                    <p className="line-clamp-1 text-xs leading-5 text-muted-foreground">{detail.premise}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span>{shots.length} 个分镜</span>
                         <span>· {detail.width}×{detail.height} @{detail.fps}fps</span>
                         <span>· 管线 {detail.render_mode_default ?? "video"}</span>
@@ -170,17 +170,21 @@ export default function DramaDetailPage() {
                             />
                         ) : null}
                         <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} />
-                        <a href={`/drama/${detail.id}?classic=1`} className={primaryBtn}>
+                        <a
+                            href={`/drama/${detail.id}?classic=1`}
+                            className="inline-flex h-8 select-none items-center justify-center gap-1.5 rounded-[var(--r-md,12px)] border border-border px-2.5 text-caption font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            title="完整分镜编辑仍在旧工作台；本页已支持管线C与出片预览"
+                        >
                             <ExternalLink aria-hidden />
-                            <span>在原工作台操作</span>
+                            <span>完整编辑（迁移中）</span>
                         </a>
                     </div>
-                    {chainNote ? <p className="max-w-md text-right text-xs text-[var(--muted-foreground,#a8a8a8)]">{chainNote}</p> : null}
+                    {chainNote ? <p className="max-w-md text-right text-xs text-muted-foreground">{chainNote}</p> : null}
                 </div>
             </header>
 
             {detail.final_url && (
-                <section className="overflow-hidden rounded-2xl border border-[var(--border)]">
+                <section className="overflow-hidden rounded-2xl border border-border">
                     <video src={detail.final_url} controls className="max-h-[60vh] w-full bg-black" />
                 </section>
             )}
@@ -193,20 +197,20 @@ export default function DramaDetailPage() {
                 const canAppend = !chainBusy && !appending;
                 if (!chainDetail && !cands.length) return null;
                 return (
-                    <section aria-label="管线C候选与续段" className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] p-4">
+                    <section aria-label="管线C候选与续段" className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
                         <div className="flex items-center justify-between gap-2">
                             <h2 className="text-sm font-semibold">管线C · 链尾候选</h2>
-                            <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                            <span className="text-xs text-muted-foreground">
                                 {segs.length ? `共 ${segs.length} 段` : "尚无链"}
                                 {chainDetail?.active_job_id ? " · 作业中" : ""}
                             </span>
                         </div>
                         {cands.length === 0 ? (
-                            <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">链尾暂无候选；出片后可在此改选（仅尾段）。</p>
+                            <p className="text-xs text-muted-foreground">链尾暂无候选；出片后可在此改选（仅尾段）。</p>
                         ) : (
                             <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
                                 {cands.map((c) => (
-                                    <div key={c.id} className="flex flex-col gap-2 rounded-xl border border-[var(--border)] p-2">
+                                    <div key={c.id} className="flex flex-col gap-2 rounded-xl border border-border p-2">
                                         {c.url || c.first_frame ? (
                                             c.url ? (
                                                 <video src={c.url} className="aspect-[9/16] w-full rounded-lg bg-black object-cover" muted playsInline controls={false} />
@@ -214,7 +218,7 @@ export default function DramaDetailPage() {
                                                 <img src={c.first_frame} alt="" className="aspect-[9/16] w-full rounded-lg object-cover" loading="lazy" />
                                             )
                                         ) : (
-                                            <div className="flex aspect-[9/16] items-center justify-center rounded-lg bg-black/40 text-xs text-[var(--muted-foreground,#a8a8a8)]">{c.id.slice(0, 8)}</div>
+                                            <div className="flex aspect-[9/16] items-center justify-center rounded-lg bg-black/40 text-xs text-muted-foreground">{c.id.slice(0, 8)}</div>
                                         )}
                                         <div className="flex items-center justify-between gap-1">
                                             {c.is_picked ? <StatusBadge variant="filled" tone="success" label="已选" size="sm" /> : <StatusBadge variant="filled" tone="neutral" label={c.status || "候选"} size="sm" />}
@@ -243,15 +247,15 @@ export default function DramaDetailPage() {
                                 ))}
                             </div>
                         )}
-                        <div className="flex flex-wrap items-end gap-2 border-t border-[var(--border)] pt-3">
-                            <label className="flex min-w-[240px] flex-1 flex-col gap-1 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                        <div className="flex flex-wrap items-end gap-2 border-t border-border pt-3">
+                            <label className="flex min-w-[240px] flex-1 flex-col gap-1 text-xs text-muted-foreground">
                                 续段文案
                                 <input
                                     value={appendPrompt}
                                     onChange={(e) => setAppendPrompt(e.target.value)}
                                     disabled={!canAppend}
                                     placeholder="追加一段 prompt（makeup）"
-                                    className="h-8 rounded-md border border-[var(--border)] bg-transparent px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-45"
+                                    className="h-8 rounded-md border border-border bg-transparent px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-45"
                                 />
                             </label>
                             <button
@@ -295,14 +299,14 @@ export default function DramaDetailPage() {
                             const refs = Object.values(c.reference_images_by_style ?? {}).flat().filter(Boolean) as string[];
                             return (
                                 <button key={c.id} type="button" onClick={() => void openCharacter(c)}
-                                    className="flex gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] p-3 text-left transition-colors hover:border-[var(--workspace-accent,#555)]">
+                                    className="flex gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:border-[var(--workspace-accent,#555)]">
                                     {refs[0] && <img src={refs[0]} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" loading="lazy" />}
                                     <div className="flex min-w-0 flex-1 flex-col gap-1">
                                         <div className="flex items-center gap-1">
                                             <p className="truncate text-sm font-medium">{c.name || "未命名"}</p>
-                                            <ChevronRight className="h-3 w-3 shrink-0 text-[var(--muted-foreground,#a8a8a8)]" />
+                                            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
                                         </div>
-                                        <p className="line-clamp-3 text-xs text-[var(--muted-foreground,#a8a8a8)]">{c.description || c.visual_prompt}</p>
+                                        <p className="line-clamp-3 text-xs text-muted-foreground">{c.description || c.visual_prompt}</p>
                                         {c.voice_ref_url && <StatusBadge variant="filled" tone="neutral" label="已配音色" size="sm" className="mt-auto self-start" />}
                                     </div>
                                 </button>
@@ -319,17 +323,17 @@ export default function DramaDetailPage() {
                         const meta = SHOT_STATUS[s.status] ?? { tone: "neutral" as const, text: s.status };
                         const media = s.video_url || s.final_clip_url || s.image_url;
                         return (
-                            <div key={s.id} className="flex items-stretch gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] p-3">
+                            <div key={s.id} className="flex items-stretch gap-3 rounded-2xl border border-border bg-card p-3">
                                 <div className="flex w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))]">
                                     {media
                                         ? (s.video_url || s.final_clip_url
                                             ? <video src={s.video_url || s.final_clip_url} className="h-full w-full object-cover" muted preload="metadata" />
                                             : <img src={s.image_url} alt="" className="h-full w-full object-cover" loading="lazy" />)
-                                        : <Film className="h-6 w-6 text-[var(--muted-foreground,#a8a8a8)]" />}
+                                        : <Film className="h-6 w-6 text-muted-foreground" />}
                                 </div>
                                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-xs font-semibold text-[var(--muted-foreground,#a8a8a8)]">#{Number(s.idx) + 1}</span>
+                                        <span className="text-xs font-semibold text-muted-foreground">#{Number(s.idx) + 1}</span>
                                         {s.status === "voiced" && (
                                             <ToolButton size="xs" icon={<MessagesSquare />} label="对口型" loading={lipsyncingShots.has(s.id)}
                                                 onClick={() => {
@@ -352,12 +356,12 @@ export default function DramaDetailPage() {
                                                 }} />
                                         )}
                                         <StatusBadge variant="filled" tone={meta.tone} label={meta.text} size="sm" />
-                                        <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{s.duration_sec}s · {s.render_mode}</span>
-                                        {s.speaker && <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">🗣 {s.speaker}</span>}
+                                        <span className="text-[11px] text-muted-foreground">{s.duration_sec}s · {s.render_mode}</span>
+                                        {s.speaker && <span className="text-[11px] text-muted-foreground">🗣 {s.speaker}</span>}
                                     </div>
                                     <p className="line-clamp-2 text-xs leading-relaxed">{s.scene || s.prompt}</p>
-                                    {s.dialogue && <p className="truncate text-xs italic text-[var(--muted-foreground,#a8a8a8)]">「{s.dialogue}」</p>}
-                                    {s.camera && <p className="truncate text-[11px] text-[var(--muted-foreground,#a8a8a8)]">🎥 {s.camera}</p>}
+                                    {s.dialogue && <p className="truncate text-xs italic text-muted-foreground">「{s.dialogue}」</p>}
+                                    {s.camera && <p className="truncate text-[11px] text-muted-foreground">🎥 {s.camera}</p>}
                                     {s.error && <p className="text-[11px] text-red-400">{s.error}</p>}
                                 </div>
                             </div>
@@ -374,7 +378,7 @@ export default function DramaDetailPage() {
                     <div className="flex flex-col gap-4">
                         <p className="text-sm leading-relaxed">{charDetail.char.description || charDetail.char.visual_prompt}</p>
                         {charDetail.char.visual_prompt && (
-                            <p className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs leading-relaxed text-[var(--muted-foreground,#a8a8a8)]">{charDetail.char.visual_prompt}</p>
+                            <p className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs leading-relaxed text-muted-foreground">{charDetail.char.visual_prompt}</p>
                         )}
                         {charDetail.char.voice_ref_url && (
                             <div className="flex flex-col gap-1">
@@ -403,9 +407,9 @@ export default function DramaDetailPage() {
                                     </div>
                                 </div>
                             ) : charDetail.sheets.map((sh) => (
-                                <div key={sh.style} className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] p-2">
+                                <div key={sh.style} className="flex flex-col gap-1.5 rounded-xl border border-border p-2">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{sh.style}{sh.mtime ? ` · ${new Date(sh.mtime).toLocaleDateString("zh-CN")}` : ""}</span>
+                                        <span className="text-[11px] text-muted-foreground">{sh.style}{sh.mtime ? ` · ${new Date(sh.mtime).toLocaleDateString("zh-CN")}` : ""}</span>
                                         <ToolButton size="xs" icon={<IdCard />} label="重生成" loading={regenStyle === sh.style}
                                             onClick={() => {
                                                 if (!charDetail) return;

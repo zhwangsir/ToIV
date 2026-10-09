@@ -315,7 +315,7 @@ export default function AgentPage() {
     return (
         <main className="flex h-full w-full overflow-hidden">
             {listOpen && (
-                <aside className="flex w-60 shrink-0 flex-col border-r border-[var(--border)]">
+                <aside className="flex w-60 shrink-0 flex-col border-r border-border">
                     <div className="flex items-center justify-between px-3 py-3">
                         <IconButton icon={X} size="sm" aria-label="收起会话列表" onClick={() => setListOpen(false)} />
                         <ToolButton size="sm" variant="default" icon={<Plus />} label="新会话" onClick={newSession} />
@@ -353,7 +353,7 @@ export default function AgentPage() {
                 </aside>
             )}
             <section className="flex min-w-0 flex-1 flex-col">
-                <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+                <header className="flex items-center justify-between border-b border-border px-4 py-3">
                     <div className="flex items-center gap-2">
                         {!listOpen && <IconButton icon={History} size="sm" aria-label="展开会话列表" onClick={() => setListOpen(true)} />}
                         <h1 className="text-lg font-semibold leading-7 text-foreground">智能体对话</h1>
@@ -378,7 +378,7 @@ export default function AgentPage() {
                     </div>
                 </header>
                 {notice ? (
-                    <p role="alert" className="border-b border-[var(--border)] px-4 py-2 text-xs text-status-error">
+                    <p role="alert" className="border-b border-border px-4 py-2 text-xs text-status-error">
                         {notice}
                         <button type="button" className="ml-2 underline" onClick={() => setNotice(null)}>
                             关闭
@@ -399,7 +399,7 @@ export default function AgentPage() {
                         </div>
                     )}
                 </div>
-                <footer className="flex items-center gap-2 border-t border-[var(--border)] p-4">
+                <footer className="flex items-center gap-2 border-t border-border p-4">
                     <textarea
                         ref={inputRef}
                         value={input}
@@ -412,7 +412,7 @@ export default function AgentPage() {
                         }}
                         placeholder="输入指令，Enter 发送 / Shift+Enter 换行"
                         rows={2}
-                        className="min-w-0 flex-1 resize-none rounded-xl border border-[var(--border)] bg-transparent px-4 py-2.5 text-sm outline-none focus:border-[var(--workspace-accent,#3a3a3a)]"
+                        className="min-w-0 flex-1 resize-none rounded-xl border border-border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-[var(--workspace-accent,#3a3a3a)]"
                         disabled={busy}
                     />
                     <button

@@ -68,7 +68,7 @@ export default function LibraryDetailPage() {
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">作品集详情</h1>
-                    <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">{items.length} 个条目 · 分镜行与成品作品（实时域：/api/boards/{id?.slice(0, 8)}…/items）</p>
+                    <p className="text-xs leading-5 text-muted-foreground">{items.length} 个条目 · 分镜行与成品作品（实时域：/api/boards/{id?.slice(0, 8)}…/items）</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
@@ -77,9 +77,9 @@ export default function LibraryDetailPage() {
             </header>
 
             {notice ? (
-                <p role="status" className="rounded-lg border border-[var(--border)] bg-[var(--card,#181818)] px-3 py-2 text-xs text-foreground">
+                <p role="status" className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground">
                     {notice}
-                    <button type="button" className="ml-2 underline text-[var(--muted-foreground,#a8a8a8)]" onClick={() => setNotice(null)}>关闭</button>
+                    <button type="button" className="ml-2 underline text-muted-foreground" onClick={() => setNotice(null)}>关闭</button>
                 </p>
             ) : null}
 
@@ -93,28 +93,28 @@ export default function LibraryDetailPage() {
                             const media = job ? firstMedia(job) : null;
                             const meta = metaOf(item);
                             return (
-                                <div key={item.id} className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)]">
+                                <div key={item.id} className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card">
                                     <button type="button" className="flex h-36 items-center justify-center bg-[var(--muted,rgba(255,255,255,0.05))]" onClick={() => setPreview(item)} aria-label="预览">
                                         {media
                                             ? (media.video
                                                 ? <video src={media.url} className="h-full w-full object-cover" muted preload="metadata" />
                                                 : <img src={media.url} alt="" className="h-full w-full object-cover" loading="lazy" />)
-                                            : <Clapperboard className="h-7 w-7 text-[var(--muted-foreground,#a8a8a8)]" />}
+                                            : <Clapperboard className="h-7 w-7 text-muted-foreground" />}
                                     </button>
                                     <div className="flex flex-1 flex-col gap-1.5 p-3">
                                         <div className="flex items-center justify-between gap-2">
-                                            <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">#{item.sort_order + 1}</span>
+                                            <span className="text-[11px] text-muted-foreground">#{item.sort_order + 1}</span>
                                             {job ? statusTag(job.status) : <StatusBadge variant="filled" tone="neutral" label="分镜占位" size="sm" />}
                                             {job && (
-                                                <button type="button" onClick={() => setRecycleTarget(item)} className="text-[var(--muted-foreground,#a8a8a8)] opacity-0 transition-opacity group-hover:opacity-100" aria-label="移入回收站">
+                                                <button type="button" onClick={() => setRecycleTarget(item)} className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" aria-label="移入回收站">
                                                     <Trash2 className="h-3.5 w-3.5" />
                                                 </button>
                                             )}
                                         </div>
-                                        <p className="line-clamp-3 min-h-10 text-xs leading-relaxed text-[var(--muted-foreground,#a8a8a8)]" title={item.shot_text}>
+                                        <p className="line-clamp-3 min-h-10 text-xs leading-relaxed text-muted-foreground" title={item.shot_text}>
                                             {item.shot_text || (job?.prompt || "").slice(0, 90) || "—"}
                                         </p>
-                                        {meta.camera && <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">🎥 {meta.camera}</span>}
+                                        {meta.camera && <span className="text-[11px] text-muted-foreground">🎥 {meta.camera}</span>}
                                     </div>
                                 </div>
                             );
@@ -136,12 +136,12 @@ export default function LibraryDetailPage() {
                                 <div className="flex flex-wrap items-center gap-2">
                                     {statusTag(job.status)}
                                     {job.kind && <StatusBadge variant="filled" tone="neutral" label={job.kind} size="sm" />}
-                                    <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">{new Date(job.created_at).toLocaleString("zh-CN")}</span>
+                                    <span className="text-xs text-muted-foreground">{new Date(job.created_at).toLocaleString("zh-CN")}</span>
                                 </div>
                             ) : <StatusBadge variant="filled" tone="neutral" label="分镜占位行(尚未挂作品)" size="sm" />}
                             <p className="whitespace-pre-wrap text-sm leading-relaxed">{preview.shot_text || job?.prompt}</p>
-                            {meta.scene && <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">场景:{meta.scene}</p>}
-                            {meta.prompt && <p className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs text-[var(--muted-foreground,#a8a8a8)]">{meta.prompt}</p>}
+                            {meta.scene && <p className="text-xs text-muted-foreground">场景:{meta.scene}</p>}
+                            {meta.prompt && <p className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs text-muted-foreground">{meta.prompt}</p>}
                             {job && (
                                 <button
                                     type="button"
