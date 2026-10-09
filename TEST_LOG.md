@@ -1,3 +1,4 @@
+- 2026-10-09 两端 tip `c5f048ce` 已齐（项目管家；ToIV开发/BeefTV/设备管家）：origin/github/本地=`c5f048ce`；**未部署**；生产 toiv-api 仍 2026-10-08、c-chains 404；闸不开；status=`docs_tip_dual_synced_undeployed`；updated_at 2026-10-09T12:29:00+08:00。
 - 2026-10-09 storage-keys 已合 tip `0b038325`（项目管家；ToIV开发）：merge `feat/canvas-storage-keys-toiv`=`6d25357f`；两端 tip=`0b038325`（含 docs `e449e4ec`）；**未部署**；闸不开；status=`canvas_storage_keys_toiv_merged_undeployed`；updated_at 2026-10-09T12:22:00+08:00。
 - 2026-10-09 Gitee tip `bcba553f` / GitHub 滞后（项目管家；ToIV开发）：origin/本地=`bcba553f`；github/main 仍停约 `a52c5bd4`（443 后台补推）；storage-keys `6d25357f` 仍未合；**未部署**；闸不开；status=`docs_tip_gitee_ahead_github_lag`；updated_at 2026-10-09T12:20:00+08:00。
 - 2026-10-09 storage-keys 分支 tip `6d25357f`（项目管家；BeefTV）：分支 `feat/canvas-storage-keys-toiv`=`6d25357f`（localStorage/queryKey 旧键兼容迁移）；**未合 main**；main tip=`001f3fc2`；**未部署**；闸不开；status=`canvas_storage_keys_toiv_tip_unmerged`；updated_at 2026-10-09T12:25:00+08:00；AGENTS 头+§七已短注。

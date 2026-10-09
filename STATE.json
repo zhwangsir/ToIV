@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T12:22:00+08:00",
+  "updated_at": "2026-10-09T12:29:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12771,7 +12771,7 @@
       "设备管家",
       "项目管家"
     ],
-    "product_tip": "0b038325",
+    "product_tip": "c5f048ce",
     "remotes": {
       "origin_gitee_main": "a52c5bd4",
       "github_main": "a52c5bd4",
@@ -12811,7 +12811,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T12:22:00+08:00",
+    "updated_at": "2026-10-09T12:29:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12906,10 +12906,13 @@
       "deployed": false,
       "merge_tip": "0b038325"
     },
-    "gitee_main": "0b038325",
+    "gitee_main": "c5f048ce",
     "github_main_approx": "a52c5bd4",
     "github_lag": false,
-    "github_main": "0b038325"
+    "github_main": "c5f048ce",
+    "deployed": false,
+    "prod_api_mtime_note": "2026-10-08 03:43:21 CST",
+    "prod_c_chains": 404
   },
   "deploy_stale_web_ua_brand_2026_10_09": {
     "status": "docs_synced_undeployed",

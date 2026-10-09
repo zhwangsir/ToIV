@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**storage-keys 已合 tip `0b038325`**）：origin/github/本地 main=`0b038325`（含 `6d25357f` 旧键可读写新键 + docs `e449e4ec`）。**未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:22:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家：**两端 tip `c5f048ce` 已齐**）：origin/github/本地 main=`c5f048ce`（storage-keys 已合 `0b038325` + docs）。**未部署**；生产 toiv-api 仍 2026-10-08，c-chains 404（设备管家核）。闸不开。`updated_at` 2026-10-09T12:29:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
