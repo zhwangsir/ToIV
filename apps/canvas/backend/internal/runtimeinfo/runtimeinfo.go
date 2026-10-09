@@ -2,7 +2,8 @@
 //
 // 桌面后端监听的是动态端口，外部客户端没法猜。桌面运行时在开始监听后把地址写进
 // 描述文件（0600），干净退出时删掉；CLI 在没有显式 BEEFTV_BASE_URL 时读它。
-// Windows 使用用户目录下、AppData 之外的唯一位置，避免 MSIX 的 AppData 影子文件。
+// Windows 使用用户目录下、AppData 之外的唯一规范位置（~/.toiv/runtime），避免
+// MSIX 的 AppData 影子文件；读时可回退遗留 ~/.beeftv/runtime，写只落新路径。
 // 其他平台保留数据目录里的 runtime.json。已退出进程的描述文件视为过期。
 //
 // 这个包被桌面后端与 beeftv CLI 共用，所以只依赖标准库：CLI 不该因为读一个地址
@@ -31,15 +32,17 @@ type Info struct {
 	DataDirHash string    `json:"dataDirHash,omitempty"`
 }
 
-// Path 给出唯一的运行时描述文件路径。定位失败时不回退到数据目录或相对路径。
+// Path 给出规范写出路径（Windows 为 ~/.toiv/runtime/<hash>.json）。
+// 定位失败时不回退到数据目录、AppData 影子或相对路径。
 func Path(dataDir string) (string, error) {
-	path, _, err := descriptorLocation(dataDir)
-	return path, err
+	primary, _, _, err := descriptorLocation(dataDir)
+	return primary, err
 }
 
 // Write 在后端开始监听后记录地址。只对本机用户可读（0600）。
+// Windows 一律写到 ~/.toiv/runtime，不再写入遗留 ~/.beeftv/runtime。
 func Write(dataDir, baseURL, version string) error {
-	path, dataDirHash, err := descriptorLocation(dataDir)
+	path, _, dataDirHash, err := descriptorLocation(dataDir)
 	if err != nil {
 		return err
 	}
@@ -72,7 +75,8 @@ func Write(dataDir, baseURL, version string) error {
 }
 
 // Remove 在干净退出时删掉描述文件：留着会让下一次发现连到一个已经不在的端口。
-// 只删本进程写的那份，避免把另一个还在跑的实例的地址抹掉。
+// 只删本进程写的、与本 dataDir hash 对应的那一个文件（优先新路径，否则遗留路径），
+// 不删整个目录、不搬文件，避免把另一个还在跑的实例的地址抹掉。
 func Remove(dataDir string) error {
 	info, err := Load(dataDir)
 	if os.IsNotExist(err) {
@@ -84,25 +88,38 @@ func Remove(dataDir string) error {
 	if info.PID != os.Getpid() {
 		return nil
 	}
-	path, err := Path(dataDir)
+	primary, legacy, _, err := descriptorLocation(dataDir)
 	if err != nil {
 		return err
 	}
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(primary); err == nil || !os.IsNotExist(err) {
+		return err
+	}
+	if legacy == "" {
+		return nil
+	}
+	if err := os.Remove(legacy); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil
 }
 
 // Load 读出描述文件，不判断进程是否还活着。
+// Windows：先读 ~/.toiv/runtime；若不存在再读遗留 ~/.beeftv/runtime。
 func Load(dataDir string) (Info, error) {
-	path, dataDirHash, err := descriptorLocation(dataDir)
+	primary, legacy, dataDirHash, err := descriptorLocation(dataDir)
 	if err != nil {
 		return Info{}, err
 	}
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(primary)
 	if err != nil {
-		return Info{}, err
+		if !os.IsNotExist(err) || legacy == "" {
+			return Info{}, err
+		}
+		raw, err = os.ReadFile(legacy)
+		if err != nil {
+			return Info{}, err
+		}
 	}
 	var info Info
 	if err := json.Unmarshal(raw, &info); err != nil {

@@ -363,8 +363,8 @@ func usage() {
   beeftv mcp serve [--read-only]
 
 连接哪个工作区：不设 BEEFTV_BASE_URL 时自动连正在运行的 BeefTV 桌面应用，端口是动态的。
-BEEFTV_DATA_DIR 可以指向非默认数据目录。Windows 从用户目录下 .beeftv/runtime 读取对应
-工作区的运行信息，其他平台读取数据目录里的 runtime.json。升级后请重新打开 BeefTV。
+BEEFTV_DATA_DIR 可以指向非默认数据目录。Windows 从用户目录下 .toiv/runtime 读取对应
+工作区的运行信息（若无则回退 .beeftv/runtime），其他平台读取数据目录里的 runtime.json。升级后请重新打开 ToIV。
 
 凭据：在 BeefTV 的设置里新建一个客户端，把它给出的 BEEFTV_CLIENT_ID 与 BEEFTV_CLIENT_TOKEN
 填进环境变量即可，不需要桌面令牌。读写权限在新建时就定下来，客户端自己改不了。

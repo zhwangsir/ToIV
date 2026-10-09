@@ -1,6 +1,6 @@
 # 桌面路径迁移方案（BeefTV → ToIV）
 
-状态：P0+P1+P2 已合 tip `37de0363`（feat `040c2862`）。P3 updates 缓存已合 tip `a6a96717`（feat `87d44d0f`）：`ToIV/updates` + 遗留 `BeefTV/updates` 回退。Windows `.beeftv/runtime` 仍未做。未搬生产数据、未部署。
+状态：P0+P1+P2 已合 tip `37de0363`（feat `040c2862`）。P3 updates 缓存已合 tip `a6a96717`（feat `87d44d0f`）：`ToIV/updates` + 遗留 `BeefTV/updates` 回退。P3 Windows runtime 描述符已合（读旧写新 `.toiv` / 遗留 `.beeftv`）。未搬生产数据、未部署。
 基线 tip：`8d22d144`（含 command_guard 品牌文案）。CLI / MCP 协议 id 继续保留 `beeftv`。
 
 ## 1. 现状盘点（代码事实）
@@ -14,7 +14,7 @@
 | 更新锁 / helper | `.ToIV.update.lock` / `ToIV-update-helper`（仍清遗留 BeefTV 前缀） | `desktopupdate/cleanup.go` `helper.go` |
 | 更新缓存 | `<cache>/ToIV/updates`（遗留 `BeefTV/updates` 回退） | `desktopupdate/engine.go` `updatesRoot` |
 | 更新器 UA | `BeefTV-Desktop-Updater/…` | `desktopupdate/http.go`（有意保留，不在本方案） |
-| Windows 运行描述符 | `%USERPROFILE%/.beeftv/runtime/<hash>.json` | `runtimeinfo/path_windows.go` |
+| Windows 运行描述符 | `%USERPROFILE%/.toiv/runtime/<hash>.json`（读遗留 `.beeftv`） | `runtimeinfo/path_windows.go` |
 | 插件后缀 | `.beeftv-plugin` | 协议，本方案不改 |
 | MCP / CLI 二进制 | `beeftv` / `beeftv.exe` | 协议，本方案不改 |
 | env 覆盖 | `CANVAS_DESKTOP_DATA_DIR`；另认 `BEEFTV_DATA_DIR` | runtimeinfo + desktop |
@@ -32,7 +32,7 @@
 1. 默认数据目录统一为 `ToIV`（桌面与 runtimeinfo 一致）。
 2. 安装产物对外名逐步变为 `ToIV.app` / `ToIV.exe`（需与 updater、本地脚本、文档同批）。
 3. 旧路径可读：首次启动若新目录空、旧目录有数据，则迁移或挂载旧目录（见阶段）。
-4. 不改：MCP server id、CLI 命令名、`.beeftv-plugin`、更新器对外 UA、Windows `.beeftv/runtime` 描述符根（可另开刀）。
+4. 不改：MCP server id、CLI 命令名、`.beeftv-plugin`、更新器对外 UA（Windows runtime 已在 P3 迁到 `.toiv`，读旧写新）。
 
 ## 3. 阶段（先方案，再按阶段合代码）
 
@@ -66,7 +66,7 @@
 
 ### P3 — 收尾（可选）
 
-- Windows `.beeftv/runtime` → `.toiv/runtime`（读旧写新）— **未做**。
+- Windows `.beeftv/runtime` → `.toiv/runtime`（读旧写新）— **已做**：写一律 `.toiv/runtime/<hash>.json`；读先 `.toiv` 再遗留 `.beeftv`；Remove 优先新路径否则旧路径；不删目录、不搬文件、无 AppData 影子回退。
 - 更新缓存目录 `BeefTV/updates` → `ToIV/updates` — **已合 tip `a6a96717`（feat `87d44d0f`）**：优先 `ToIV/updates`；仅旧目录存在时回退续传；不删不搬；`stagingRoot` 显式覆盖仍优先生效。
 - 仍保留：CLI `beeftv`、插件后缀、UA `BeefTV-Desktop-Updater`（除非产品另行授权）。
 

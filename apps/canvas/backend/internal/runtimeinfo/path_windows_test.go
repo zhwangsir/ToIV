@@ -11,8 +11,8 @@ import (
 func TestWindowsCanonicalDescriptorIgnoresAppDataShadows(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("USERPROFILE", home)
-	dataDir := filepath.Join(home, "AppData", "Roaming", "BeefTV")
-	shadowDir := filepath.Join(home, "AppData", "Local", "Packages", "fixture", "LocalCache", "Roaming", "BeefTV")
+	dataDir := filepath.Join(home, "AppData", "Roaming", "ToIV")
+	shadowDir := filepath.Join(home, "AppData", "Local", "Packages", "fixture", "LocalCache", "Roaming", "ToIV")
 	t.Setenv("APPDATA", filepath.Dir(shadowDir))
 	t.Setenv("BEEFTV_DATA_DIR", dataDir)
 	for _, dir := range []string{dataDir, shadowDir} {
@@ -34,8 +34,11 @@ func TestWindowsCanonicalDescriptorIgnoresAppDataShadows(t *testing.T) {
 			t.Fatal(err)
 		}
 		path := testPath(t, dataDir)
-		if !strings.HasPrefix(path, filepath.Join(home, ".beeftv", "runtime")+string(os.PathSeparator)) {
-			t.Fatalf("descriptor remained inside AppData: %s", path)
+		if !strings.HasPrefix(path, filepath.Join(home, ".toiv", "runtime")+string(os.PathSeparator)) {
+			t.Fatalf("descriptor remained inside AppData or legacy root: %s", path)
+		}
+		if _, err := os.Stat(filepath.Join(home, ".beeftv", "runtime", filepath.Base(path))); !os.IsNotExist(err) {
+			t.Fatalf("Write must not create legacy .beeftv path, stat=%v", err)
 		}
 		info, found := Discover("")
 		if !found || info.Version != "canonical" || info.BaseURL != "http://127.0.0.1:53211/api" {
@@ -60,6 +63,84 @@ func TestWindowsCanonicalDescriptorIgnoresAppDataShadows(t *testing.T) {
 				t.Fatalf("legacy shadow was modified: %v", err)
 			}
 		}
+	}
+}
+
+func TestWindowsReadLegacyWriteNewRuntimeDescriptor(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("USERPROFILE", home)
+	dataDir := filepath.Join(home, "AppData", "Roaming", "BeefTV")
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	primary, legacy, hash := windowsRuntimeDescriptorPaths(home, mustAbs(t, dataDir))
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	legacyInfo := Info{
+		BaseURL:     "http://127.0.0.1:53210/api",
+		PID:         os.Getpid(),
+		Version:     "legacy-only",
+		DataDirHash: hash,
+	}
+	encoded, err := json.Marshal(legacyInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacy, encoded, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := Load(dataDir)
+	if err != nil || info.Version != "legacy-only" {
+		t.Fatalf("Load must read legacy-only file: %+v, %v", info, err)
+	}
+	got, found := Discover(dataDir)
+	if !found || got.Version != "legacy-only" {
+		t.Fatalf("Discover must find legacy-only file: %+v, found=%v", got, found)
+	}
+	if _, err := os.Stat(primary); !os.IsNotExist(err) {
+		t.Fatalf("legacy read must not create primary path, stat=%v", err)
+	}
+
+	if err := Write(dataDir, "http://127.0.0.1:53211/api", "fresh"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(primary); err != nil {
+		t.Fatalf("Write must land on .toiv path: %v", err)
+	}
+	if raw, err := os.ReadFile(legacy); err != nil || !strings.Contains(string(raw), "legacy-only") {
+		t.Fatalf("Write must leave legacy file untouched: %v", err)
+	}
+	path, err := Path(dataDir)
+	if err != nil || path != primary {
+		t.Fatalf("Path must return primary write path: %q, %v", path, err)
+	}
+	info, found = Discover(dataDir)
+	if !found || info.Version != "fresh" {
+		t.Fatalf("after Write, Discover must prefer primary: %+v", info)
+	}
+
+	if err := Remove(dataDir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(primary); !os.IsNotExist(err) {
+		t.Fatalf("Remove must clear primary: %v", err)
+	}
+	if _, err := os.Stat(legacy); err != nil {
+		t.Fatalf("Remove of primary must not delete legacy sibling: %v", err)
+	}
+
+	// Only legacy remains with our PID → Remove clears legacy.
+	if err := os.WriteFile(legacy, encoded, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := Remove(dataDir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
+		t.Fatalf("Remove must clear legacy when primary missing: %v", err)
 	}
 }
 
@@ -124,4 +205,13 @@ func TestWindowsCanonicalPathFailsClosedWithoutAbsoluteHome(t *testing.T) {
 			t.Fatal("Remove must fail with no canonical root")
 		}
 	}
+}
+
+func mustAbs(t *testing.T, p string) string {
+	t.Helper()
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return abs
 }

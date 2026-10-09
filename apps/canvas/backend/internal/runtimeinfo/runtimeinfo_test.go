@@ -38,7 +38,7 @@ func testPath(t *testing.T, dataDir string) string {
 
 func writeTestInfo(t *testing.T, dataDir string, info Info) {
 	t.Helper()
-	_, hash, err := descriptorLocation(dataDir)
+	_, _, hash, err := descriptorLocation(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
