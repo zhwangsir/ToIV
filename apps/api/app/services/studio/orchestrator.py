@@ -248,6 +248,7 @@ async def render_shot(
     ref_overrides: dict[str, str] | None = None,
     outfit_desc: str | None = None,
     wait: bool = True,
+    parent_chain_job_id: str | None = None,
 ) -> StudioShot:
     """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。
 
@@ -399,6 +400,8 @@ async def render_shot(
     render_kw["clip_index"] = int(getattr(shot, "idx", 0) or 0) + 1
     do_wait = bool(wait)
     render_kw["wait"] = do_wait
+    if parent_chain_job_id:
+        render_kw["parent_chain_job_id"] = parent_chain_job_id
     if not do_wait:
         # 阶段 B 最小：异步只跑单候选，避免多 seed 串行堵在 HTTP
         n = 1

@@ -481,6 +481,7 @@ async def render_pipeline_c(
     tenant_id: str | None = None,
     user_id: str | None = None,
     wait: bool = True,
+    parent_chain_job_id: str | None = None,
 ) -> dict[str, Any]:
     """执行管线 C，返回 {url, context_latent, seed, prompt, worker, job_id, db_job_id, pipeline, first_frame}。
 
@@ -681,6 +682,25 @@ async def render_pipeline_c(
                 spawn_tracker(client, prompt_id)
             except Exception as e:  # noqa: BLE001 — tracker 挂不上不炸渲染
                 logger.warning("pipeline_c spawn_tracker 失败 prompt=%s: %s", prompt_id[:16], e)
+            if parent_chain_job_id:
+                try:
+                    from app.services.studio.c_chain import append_segment_prompt_id
+
+                    append_segment_prompt_id(str(parent_chain_job_id), prompt_id)
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(
+                        "pipeline_c 登记 chain segment_prompt_id 失败: %s", e
+                    )
+        elif parent_chain_job_id:
+            # 无属主仍尽量挂到链 Job，便于 cancel 传播
+            try:
+                from app.services.studio.c_chain import append_segment_prompt_id
+
+                append_segment_prompt_id(str(parent_chain_job_id), prompt_id)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "pipeline_c 登记 chain segment_prompt_id 失败: %s", e
+                )
         if not do_wait:
             # 阶段 B 最小：不 await 出片 / 不 OCR reseed；tracker 后台继续
             if not db_job_id:

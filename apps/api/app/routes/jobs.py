@@ -252,6 +252,7 @@ _KIND_TYPICAL_SEC: tuple[tuple[str, int], ...] = (
     ("drama_char_reference", 120),
     ("studio_script_parse", 180),
     ("studio_pipeline", 900),  # studio_pipeline_c（短剧管线 C / Ref2VA）
+    ("studio_c_chain", 3600),  # 多段异步链
     ("h3_extend", 900),
     ("h3_", 900),
     ("longcat", 600),
@@ -566,6 +567,15 @@ def lookup_job(
         dur = _video_duration(job)
         if dur > 0:
             out["duration"] = round(dur, 2)
+    if job.kind == "studio_c_chain":
+        try:
+            from app.services.studio.c_chain import chain_lookup_extra
+
+            chain = chain_lookup_extra(job)
+            if chain:
+                out["chain"] = chain
+        except Exception:  # noqa: BLE001
+            pass
     return out
 
 

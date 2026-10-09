@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core import PydanticCustomError
 from sqlmodel import Session, select
@@ -1567,6 +1567,135 @@ async def render_batch(
             failed += 1
     return {"rendered": done, "failed": failed}
 
+
+
+
+# ── 管线 C 异步链（阶段 B / BeefTV；不改 sync render / wait=false 语义）────────
+
+
+@router.post("/studio/c-chains")
+async def create_c_chain_endpoint(
+    body: dict,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """新建续写链并开跑；202，job_id=DB Job.id（绝非 Comfy prompt_id）。"""
+    import asyncio as _asyncio
+
+    from app.services.studio import c_chain as c_chain_svc
+
+    try:
+        parsed = c_chain_svc.CChainCreateBody.model_validate(body)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    worker_url = None
+    if (parsed.worker_url or "").strip():
+        if (getattr(user, "role", "") or "") != "admin":
+            raise HTTPException(status_code=403, detail="worker_url 仅管理员可用")
+        from app.services.h3 import validate_worker_override
+
+        try:
+            worker_url = validate_worker_override(parsed.worker_url)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+
+    try:
+        out = c_chain_svc.create_c_chain(session, user, parsed, worker_url=worker_url)
+    except RenderError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    _asyncio.create_task(c_chain_svc.run_c_chain(out["job_id"]))
+    return JSONResponse(status_code=202, content=out)
+
+
+@router.post("/studio/c-chains/{chain_id}/segments")
+async def append_c_chain_segments(
+    chain_id: str,
+    body: dict,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """向已结束的链追加段；202，job_id=DB Job.id。"""
+    import asyncio as _asyncio
+
+    from app.services.studio import c_chain as c_chain_svc
+
+    try:
+        parsed = c_chain_svc.CChainAppendBody.model_validate(body)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    worker_url = None
+    if (parsed.worker_url or "").strip():
+        if (getattr(user, "role", "") or "") != "admin":
+            raise HTTPException(status_code=403, detail="worker_url 仅管理员可用")
+        from app.services.h3 import validate_worker_override
+
+        try:
+            worker_url = validate_worker_override(parsed.worker_url)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+
+    try:
+        out = c_chain_svc.create_append_job(
+            session, user, chain_id, parsed, worker_url=worker_url
+        )
+    except RenderError as e:
+        detail = str(e)
+        code = 422
+        if "不存在" in detail:
+            code = 404
+        elif "进行中" in detail:
+            code = 409
+        raise HTTPException(status_code=code, detail=detail) from e
+
+    _asyncio.create_task(c_chain_svc.run_c_chain(out["job_id"]))
+    return JSONResponse(status_code=202, content=out)
+
+
+@router.get("/studio/c-chains/{chain_id}")
+def get_c_chain_endpoint(
+    chain_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """链详情：段/候选/成片。"""
+    from app.services.studio import c_chain as c_chain_svc
+
+    try:
+        return c_chain_svc.get_c_chain(session, user, chain_id)
+    except RenderError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.post("/studio/c-chains/{chain_id}/segments/{seg_index}/pick")
+def pick_c_chain_segment(
+    chain_id: str,
+    seg_index: int,
+    body: dict,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """人工改选链尾段候选。"""
+    from app.services.studio import c_chain as c_chain_svc
+
+    try:
+        parsed = c_chain_svc.CChainPickBody.model_validate(body)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    try:
+        return c_chain_svc.pick_segment_candidate(
+            session, user, chain_id, int(seg_index), parsed.candidate_id
+        )
+    except RenderError as e:
+        detail = str(e)
+        code = 400
+        if "不存在" in detail:
+            code = 404
+        elif "进行中" in detail:
+            code = 409
+        raise HTTPException(status_code=code, detail=detail) from e
 
 
 @router.get("/studio/projects/{pid}/status")
