@@ -1,6 +1,6 @@
 # 桌面路径迁移方案（BeefTV → ToIV）
 
-状态：P0+P1+P2 已合 tip `37de0363`（feat `040c2862`）。未搬生产数据、未部署。P3（`.beeftv/runtime`、updates 缓存）未做。
+状态：P0+P1+P2 已合 tip `37de0363`（feat `040c2862`）。P3 updates 缓存（`ToIV/updates` + 遗留 `BeefTV/updates` 回退）已实现，合入 tip 待填。Windows `.beeftv/runtime` 仍未做。未搬生产数据、未部署。
 基线 tip：`8d22d144`（含 command_guard 品牌文案）。CLI / MCP 协议 id 继续保留 `beeftv`。
 
 ## 1. 现状盘点（代码事实）
@@ -12,7 +12,7 @@
 | macOS 安装包名 | `ToIV.app`（认遗留 `BeefTV.app`） | `desktopupdate/config.go`；`/Applications/ToIV.app` |
 | Windows 主程序 | `ToIV.exe`（认遗留 `BeefTV.exe`） | updater layout / replace / harness |
 | 更新锁 / helper | `.ToIV.update.lock` / `ToIV-update-helper`（仍清遗留 BeefTV 前缀） | `desktopupdate/cleanup.go` `helper.go` |
-| 更新缓存 | `<cache>/BeefTV/updates` | `desktopupdate/engine.go` |
+| 更新缓存 | `<cache>/ToIV/updates`（遗留 `BeefTV/updates` 回退） | `desktopupdate/engine.go` `updatesRoot` |
 | 更新器 UA | `BeefTV-Desktop-Updater/…` | `desktopupdate/http.go`（有意保留，不在本方案） |
 | Windows 运行描述符 | `%USERPROFILE%/.beeftv/runtime/<hash>.json` | `runtimeinfo/path_windows.go` |
 | 插件后缀 | `.beeftv-plugin` | 协议，本方案不改 |
@@ -66,8 +66,8 @@
 
 ### P3 — 收尾（可选）
 
-- Windows `.beeftv/runtime` → `.toiv/runtime`（读旧写新）。
-- 更新缓存目录 `BeefTV/updates` → `ToIV/updates`。
+- Windows `.beeftv/runtime` → `.toiv/runtime`（读旧写新）— **未做**。
+- 更新缓存目录 `BeefTV/updates` → `ToIV/updates` — **已做**：优先 `ToIV/updates`；仅旧目录存在时回退续传；不删不搬；`stagingRoot` 显式覆盖仍优先生效。合入 tip 待填。
 - 仍保留：CLI `beeftv`、插件后缀、UA `BeefTV-Desktop-Updater`（除非产品另行授权）。
 
 ## 4. 风险与闸门
