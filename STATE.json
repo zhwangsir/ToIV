@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T13:04:00+08:00",
+  "updated_at": "2026-10-09T13:10:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12771,7 +12771,7 @@
       "设备管家",
       "项目管家"
     ],
-    "product_tip": "7deb9aea",
+    "product_tip": "9e62d9e0",
     "remotes": {
       "origin_gitee_main": "2483c74d",
       "github_main": "2483c74d",
@@ -12811,7 +12811,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T13:04:00+08:00",
+    "updated_at": "2026-10-09T13:10:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12964,13 +12964,18 @@
       "merge_tip": "da846867"
     },
     "desktop_p2_packaging_rename": {
-      "status": "in_progress",
+      "status": "merged_undeployed",
       "scope": "ToIV.app_ToIV.exe_updater_dual_recognize_BeefTV.app",
-      "merged_main": false,
+      "merged_main": true,
+      "merge_tip": "37de0363",
+      "feat_tip": "040c2862",
       "ship_installer": false,
       "cli_mcp_still": "beeftv",
+      "ua_still": "BeefTV-Desktop-Updater",
+      "cache_dir_still": "BeefTV/updates",
       "owner": "ToIV开发",
-      "deployed": false
+      "deployed": false,
+      "data_moved": false
     }
   },
   "deploy_stale_web_ua_brand_2026_10_09": {

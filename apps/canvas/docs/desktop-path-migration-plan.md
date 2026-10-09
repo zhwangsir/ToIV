@@ -1,6 +1,6 @@
 # 桌面路径迁移方案（BeefTV → ToIV）
 
-状态：P0+P1 已合；P2 安装包/updater 改名实现中（本分支）。不动生产、不部署。
+状态：P0+P1+P2 已合 tip `37de0363`（feat `040c2862`）。未搬生产数据、未部署。P3（`.beeftv/runtime`、updates 缓存）未做。
 基线 tip：`8d22d144`（含 command_guard 品牌文案）。CLI / MCP 协议 id 继续保留 `beeftv`。
 
 ## 1. 现状盘点（代码事实）
@@ -8,7 +8,7 @@
 | 类别 | 当前值 | 位置 |
 | --- | --- | --- |
 | 桌面默认数据目录 | `…/ToIV`（已改） | `backend/cmd/desktop/main.go` `defaultDataDir` |
-| runtimeinfo 默认数据目录 | 仍 `…/BeefTV` | `backend/internal/runtimeinfo/runtimeinfo.go` `DefaultDataDir` |
+| runtimeinfo 默认数据目录 | `…/ToIV`（遗留 `BeefTV` 回退） | `backend/internal/runtimeinfo/runtimeinfo.go` `DefaultDataDir` |
 | macOS 安装包名 | `ToIV.app`（认遗留 `BeefTV.app`） | `desktopupdate/config.go`；`/Applications/ToIV.app` |
 | Windows 主程序 | `ToIV.exe`（认遗留 `BeefTV.exe`） | updater layout / replace / harness |
 | 更新锁 / helper | `.ToIV.update.lock` / `ToIV-update-helper`（仍清遗留 BeefTV 前缀） | `desktopupdate/cleanup.go` `helper.go` |
@@ -57,7 +57,7 @@
 - `CANVAS_DESKTOP_DATA_DIR` 显式设置时跳过迁移。
 - 迁移 marker（如 `ToIV/.migrated-from-beeftv`）防止反复搬。
 
-### P2 — 安装包 / updater 改名
+### P2 — 安装包 / updater 改名（已合 tip `37de0363`）
 
 - `appBundleName` → `ToIV.app`；Windows 主文件 → `ToIV.exe`；helper / lock 前缀同步。
 - `scripts/update-local-beeftv-app.sh` 与 release 脚本改目标路径（可保留旧脚本名一版兼容）。
