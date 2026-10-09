@@ -17,7 +17,7 @@ export default function HomePage() {
     const localHydrated = useCanvasStore((state) => state.hydrated);
     const localMode = isLocalWorkspaceMode() || storageMode === "local";
     const query = useQuery({
-        queryKey: ["beeftv-home-canvases", userId],
+        queryKey: ["toiv-home-canvases", userId],
         queryFn: () => listWorkspaceCanvasProjectsPage({ page: 1, pageSize: 4, sort: "updated" }),
         // The local workspace store only holds projects that were opened this session, so the
         // home list always asks the workspace API (local backend or hosted) for the latest four.

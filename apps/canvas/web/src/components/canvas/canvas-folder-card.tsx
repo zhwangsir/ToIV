@@ -40,7 +40,11 @@ export function CanvasFolderCard({ project, projectName, folders = [], onMoveToF
     const [coverUrl, setCoverUrl] = useState<string>();
 
     useEffect(() => {
-        try { setCoverUrl(localStorage.getItem(`beeftv-project-cover:${project.id}`) || undefined); } catch { /* private browsing */ }
+        try {
+            const next = localStorage.getItem(`toiv-project-cover:${project.id}`);
+            const prev = localStorage.getItem(`beeftv-project-cover:${project.id}`);
+            setCoverUrl(next || prev || undefined);
+        } catch { /* private browsing */ }
     }, [project.id]);
 
     const changeCover = (event: ChangeEvent<HTMLInputElement>) => {
@@ -60,7 +64,10 @@ export function CanvasFolderCard({ project, projectName, folders = [], onMoveToF
                 canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
                 const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
                 setCoverUrl(dataUrl);
-                try { localStorage.setItem(`beeftv-project-cover:${project.id}`, dataUrl); } catch { /* quota */ }
+                try {
+                    localStorage.setItem(`toiv-project-cover:${project.id}`, dataUrl);
+                    localStorage.removeItem(`beeftv-project-cover:${project.id}`);
+                } catch { /* quota */ }
                 message.success("项目封面已更新");
             };
             image.src = String(reader.result);
