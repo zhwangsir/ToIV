@@ -115,6 +115,19 @@ export function CanvasActiveTaskPanel({ tasks, placement = "topbar", onCancelTas
                                 />
                             ))}
                         </div>
+                        <div className="border-t px-2.5 py-2" style={{ borderColor: theme.toolbar.border }}>
+                            <button
+                                type="button"
+                                className="flex w-full items-center justify-center rounded-lg px-2 py-1.5 text-[var(--fs-label)] font-medium transition hover:bg-black/5 dark:hover:bg-white/10"
+                                style={{ color: theme.accent.primary }}
+                                onClick={() => {
+                                    setOpen(false);
+                                    window.dispatchEvent(new CustomEvent("workspace:navigate", { detail: { to: "/toiv/tasks" } }));
+                                }}
+                            >
+                                打开任务中心
+                            </button>
+                        </div>
                     </LayoutGroup>
                 </motion.section>
             ) : null}

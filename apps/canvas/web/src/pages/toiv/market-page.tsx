@@ -54,7 +54,7 @@ export default function MarketPage() {
             <header className="flex items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">应用市场</h1>
-                    <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">ToIV 全部创作应用（实时域：/api/apps；运行跳转旧运行台）</p>
+                    <p className="text-xs leading-5 text-muted-foreground">ToIV 全部创作应用（实时域：/api/apps）</p>
                 </div>
                 <Link to="/"><ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" /></Link>
             </header>
@@ -63,18 +63,18 @@ export default function MarketPage() {
                 {categories.map(([key, n]) => (
                     <button key={key} type="button"
                         onClick={() => setCategory(key)}
-                        className={`rounded-full border px-3 py-1 text-xs transition-colors ${category === key ? "border-[var(--workspace-accent,#f5f5f5)] bg-[var(--surface-active,rgba(255,255,255,0.1))]" : "border-[var(--border)] text-[var(--muted-foreground,#a8a8a8)] hover:border-[var(--workspace-accent,#666)]"}`}>
+                        className={`rounded-full border px-3 py-1 text-xs transition-colors ${category === key ? "border-[var(--workspace-accent,#f5f5f5)] bg-[var(--surface-active,rgba(255,255,255,0.1))]" : "border-border text-muted-foreground hover:border-[var(--workspace-accent,#666)]"}`}>
                         {key === "all" ? `全部 ${n}` : `${CATEGORY_META[key] ?? key} ${n}`}
                     </button>
                 ))}
-                <label className="ml-auto flex w-56 items-center gap-2 rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-xs">
-                    <Search className="h-3.5 w-3.5 shrink-0 text-[var(--muted-foreground,#a8a8a8)]" aria-hidden />
+                <label className="ml-auto flex w-56 items-center gap-2 rounded-md border border-border bg-transparent px-3 py-1.5 text-xs">
+                    <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                     <input
                         type="search"
                         placeholder="搜索应用"
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[var(--muted-foreground,#a8a8a8)]"
+                        className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
                     />
                 </label>
             </div>
@@ -86,7 +86,7 @@ export default function MarketPage() {
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
                         {filtered.map((app) => (
                             <button key={app.id} type="button" onClick={() => setDetail(app)}
-                                className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] text-left transition-colors hover:border-[var(--workspace-accent,#555)]">
+                                className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card text-left transition-colors hover:border-[var(--workspace-accent,#555)]">
                                 <div className="flex h-28 items-center justify-center bg-[var(--muted,rgba(255,255,255,0.05))]">
                                     {app.cover_url
                                         ? <img src={app.cover_url} alt="" className="h-full w-full object-cover" loading="lazy" />
@@ -94,10 +94,10 @@ export default function MarketPage() {
                                 </div>
                                 <div className="flex flex-1 flex-col gap-1.5 p-3">
                                     <p className="truncate text-sm font-medium">{app.name}</p>
-                                    <p className="line-clamp-2 min-h-8 text-xs text-[var(--muted-foreground,#a8a8a8)]">{app.description}</p>
+                                    <p className="line-clamp-2 min-h-8 text-xs text-muted-foreground">{app.description}</p>
                                     <div className="mt-auto flex items-center justify-between pt-1">
                                         {smokeBadge(app)}
-                                        <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{app.usage_count ?? 0} 次使用</span>
+                                        <span className="text-[11px] text-muted-foreground">{app.usage_count ?? 0} 次使用</span>
                                     </div>
                                 </div>
                             </button>
@@ -117,16 +117,21 @@ export default function MarketPage() {
                         </div>
                         <p className="text-sm leading-relaxed">{detail.description}</p>
                         {detail.guide_purpose && (
-                            <div className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs leading-relaxed text-[var(--muted-foreground,#a8a8a8)]">{detail.guide_purpose}</div>
+                            <div className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs leading-relaxed text-muted-foreground">{detail.guide_purpose}</div>
                         )}
-                        <div className="flex items-center justify-between pt-2">
-                            <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">作者 {detail.author || "—"} · {detail.usage_count ?? 0} 次使用</span>
-                            <a
-                                href={`/?view=market&app=${detail.id}&classic=1`}
-                                className="inline-flex h-8 select-none items-center justify-center rounded-md bg-foreground px-3 text-caption font-medium text-background transition-opacity hover:opacity-85"
-                            >
-                                运行此应用
-                            </a>
+                        <div className="flex flex-col gap-2 pt-2">
+                            <span className="text-xs text-muted-foreground">作者 {detail.author || "—"} · {detail.usage_count ?? 0} 次使用</span>
+                            <p className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                                应用运行台迁移中：本壳内先浏览说明；作业进度请在任务中心查看。
+                            </p>
+                            <div className="flex justify-end gap-2">
+                                <Link
+                                    to="/toiv/tasks"
+                                    className="inline-flex h-8 select-none items-center justify-center rounded-[var(--r-md,12px)] bg-foreground px-3 text-caption font-medium text-background transition-opacity hover:opacity-85"
+                                >
+                                    前往任务中心
+                                </Link>
+                            </div>
                         </div>
                     </div>
                 )}

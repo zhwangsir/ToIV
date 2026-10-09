@@ -5,7 +5,7 @@ import { ReactNode } from "react";
 import { Icon, type IconName } from "./Icon";
 
 /** 空态档位(2026-09-04 美化 W1 三档共享空态,样式见 globals.css at 系):
- *  stage  = 舞台/主内容区大卡:线稿感图标(28px 琥珀描边)+ Fraunces 斜体一句 + 主行动槽;
+ *  stage  = 舞台/主内容区大卡:线稿感图标(28px 琥珀描边)+ 展示档斜体一句 + 主行动槽;
  *  section= 段落/面板内:图标 + 一行标题(+可选描述);
  *  inline = 列表内(默认):纯一行 muted 文案,兼容旧调用不破坏现有视图。 */
 export type EmptySize = "stage" | "section" | "inline";

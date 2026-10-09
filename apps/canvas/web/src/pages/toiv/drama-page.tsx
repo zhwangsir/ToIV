@@ -28,14 +28,14 @@ function ShotProgress({ p }: { p: NonNullable<ToivDramaProject["pipeline"]> }) {
     const pct = total ? Math.round((done / total) * 100) : 0;
     return (
         <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                 <span>{total} 个分镜 · {done}/{total} 完成</span>
                 <span>{Object.entries(p.by_status ?? {}).map(([k, n]) => `${STATUS_META[k]?.text ?? k}${n}`).join(" ")}</span>
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--muted,rgba(255,255,255,0.08))]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
                 <div className="h-full rounded-full bg-[var(--workspace-accent,#888)] transition-[width]" style={{ width: `${pct}%` }} />
             </div>
-            {p.next_step && <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">下一步:{p.next_step.label}(待办 {p.next_step.todo})</span>}
+            {p.next_step && <span className="text-[11px] text-muted-foreground">下一步:{p.next_step.label}(待办 {p.next_step.todo})</span>}
         </div>
     );
 }
@@ -59,7 +59,7 @@ export default function DramaPage() {
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">短剧工作台</h1>
-                    <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">ToIV 短剧项目与分镜管线（实时域：/api/studio/projects；详情在原工作台打开）</p>
+                    <p className="text-xs leading-5 text-muted-foreground">ToIV 短剧项目与分镜管线（实时域：/api/studio/projects；详情在原工作台打开）</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
@@ -76,21 +76,21 @@ export default function DramaPage() {
                             const meta = STATUS_META[p.status] ?? { tone: "neutral" as const, text: p.status };
                             return (
                                 <a key={p.id} href={`/toiv/drama/${p.id}`}
-                                    className="group flex flex-col gap-2.5 rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] p-4 transition-colors hover:border-[var(--workspace-accent,#555)]">
+                                    className="group flex flex-col gap-2.5 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-[var(--workspace-accent,#555)]">
                                     <div className="flex items-center justify-between gap-2">
                                         <StatusBadge variant="filled" tone={meta.tone} label={meta.text} size="sm" />
-                                        <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{fmt(p.updated_at)}</span>
+                                        <span className="text-[11px] text-muted-foreground">{fmt(p.updated_at)}</span>
                                     </div>
                                     <p className="line-clamp-1 text-sm font-medium" title={p.title || p.premise}>
                                         {p.title || p.premise?.slice(0, 24) || "未命名项目"}
                                     </p>
-                                    <p className="line-clamp-2 min-h-8 text-xs leading-relaxed text-[var(--muted-foreground,#a8a8a8)]">{p.premise}</p>
+                                    <p className="line-clamp-2 min-h-8 text-xs leading-relaxed text-muted-foreground">{p.premise}</p>
                                     {p.pipeline && <ShotProgress p={p.pipeline} />}
                                     <div className="mt-auto flex items-center justify-between pt-1">
-                                        <span className="flex items-center gap-1 text-[11px] text-[var(--muted-foreground,#a8a8a8)]"><Film className="h-3 w-3" />{p.width}×{p.height} · {p.render_mode_default ?? "video"}</span>
+                                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Film className="h-3 w-3" />{p.width}×{p.height} · {p.render_mode_default ?? "video"}</span>
                                         {p.final_url
                                             ? <StatusBadge variant="filled" tone="success" label="有成片" size="sm" />
-                                            : <span className="flex items-center gap-1 text-[11px] text-[var(--muted-foreground,#a8a8a8)]"><Clapperboard className="h-3 w-3" />打开工作台 →</span>}
+                                            : <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Clapperboard className="h-3 w-3" />打开工作台 →</span>}
                                     </div>
                                 </a>
                             );

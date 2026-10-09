@@ -125,19 +125,19 @@ export function getCurrentMode(): Mode {
 }
 
 /** 读取当前预设主题(SSR 安全;非法值——含 v7 旧色板名——读取时清除)。
- *  缺省主题 = cinema(2026-09-16 用户拍板:全站默认影院暗色);
- *  用户显式选择 minimal 会写入 key("minimal"),与"从未设置"可区分。 */
+ *  缺省主题 = minimal(BeefTV 换肤:全站默认极简白);
+ *  用户显式选择 cinema 等会写入 key,与"从未设置"可区分。 */
 export function getCurrentTheme(): ThemePreset {
-  if (typeof window === "undefined") return "cinema";
+  if (typeof window === "undefined") return "minimal";
   try {
     migrateLegacyKeys();
     const raw = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (!raw) return "cinema";
+    if (!raw) return "minimal";
     if (THEME_PRESET_IDS.has(raw)) return raw as ThemePreset;
     window.localStorage.removeItem(THEME_STORAGE_KEY);
-    return "cinema";
+    return "minimal";
   } catch {
-    return "cinema";
+    return "minimal";
   }
 }
 

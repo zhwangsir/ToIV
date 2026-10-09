@@ -56,8 +56,7 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
             ],
         },
         {
-            // ToIV 原生模块(2026-10-06 本土化):旧版视图仍在同源服务,按功能直达;
-            // classic=1 仅对 home 的 studio 探测生效(防回环),其余视图不受探测影响
+            // ToIV 原生模块：全部内部路由，零整页跳转
             heading: "ToIV 创作",
             items: [
                 { id: "toiv:agent", title: "智能体对话", icon: Bot, to: "/toiv/agent" },
@@ -284,11 +283,18 @@ export function WorkspaceSidebarNav({ collapsed, onNavigate, onOpenSearch, onExp
     const features = useUserStore((state) => state.features);
     const { groups, footer } = useMemo(() => buildNav(features), [features]);
 
-    const rawSlug = pathname.split("/").filter(Boolean)[0] || "home";
+    const pathParts = pathname.split("/").filter(Boolean);
+    const rawSlug = pathParts[0] || "home";
     // `/project` is the LibTV-compatible alias for the existing canvas library route.
     const slug = rawSlug === "project" ? "canvas" : rawSlug;
     const section = searchParams.get("section");
-    const activeId = slug === "settings" && section ? `settings:${section}` : slug;
+    // /toiv/agent|drama|market|library|tasks → toiv:agent 等，侧栏高亮对齐
+    const activeId =
+        rawSlug === "toiv" && pathParts[1]
+            ? `toiv:${pathParts[1]}`
+            : slug === "settings" && section
+              ? `settings:${section}`
+              : slug;
 
     const scrollRef = useRef<HTMLDivElement>(null);
     const [scrollState, setScrollState] = useState({ hasTopFade: false, hasBottomFade: false });
