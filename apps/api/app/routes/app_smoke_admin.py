@@ -151,6 +151,48 @@ class BulkPublicRequest(BaseModel):
     is_public: bool
 
 
+
+@router.get("/admin/rh-market-reset/dry-run")
+def rh_market_reset_dry_run(
+    scope: str = "public_only",
+    pass_index: int = 1,
+    admin: User = Depends(get_current_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    """市场 RH 重置 dry-run：只算 soft-hide/keep/defer，**不写库、不调 bulk-public**。
+
+    scope: public_only | all
+    pass_index: 1=未测 RH 保留；2=未测也可列入 soft_hide（须先 keep-scan/smoke）
+    """
+    from sqlmodel import select
+    from app.services import rh_market_reset as reset_svc
+
+    if scope not in ("public_only", "all"):
+        raise HTTPException(status_code=400, detail="scope 须为 public_only|all")
+    if pass_index not in (1, 2):
+        raise HTTPException(status_code=400, detail="pass_index 须为 1|2")
+    rows = session.exec(select(App)).all()
+    payload = [
+        {
+            "id": a.id,
+            "is_public": bool(a.is_public),
+            "smoke_status": a.smoke_status or "",
+            "is_builtin": bool(a.is_builtin),
+            "rh_webapp_id": getattr(a, "rh_webapp_id", "") or "",
+            "cover_url": a.cover_url or "",
+        }
+        for a in rows
+    ]
+    plan = reset_svc.plan_market_reset(
+        payload, scope=scope, pass_index=pass_index
+    )
+    out = plan.to_dict(include_ids=True, id_limit=500)
+    out["whitelist_size"] = len(reset_svc.KEEP_WHITELIST)
+    out["applied"] = False
+    out["note"] = "dry-run only; bulk-public requires explicit user order"
+    return out
+
+
 @router.get("/admin/closeout-summary")
 def closeout_summary(
     admin: User = Depends(get_current_admin),
