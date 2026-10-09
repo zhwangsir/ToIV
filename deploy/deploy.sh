@@ -151,6 +151,9 @@ deploy_canvas() {
   rsync -az --delete -e "ssh ${SSH_OPTS[*]}" \
     --exclude=node_modules --exclude='.git' --exclude=dist \
     apps/canvas/ "${REMOTE}:${REMOTE_DIR}/apps/canvas/"
+  echo "▶ [canvas] sync docs/NAS_MODEL_PICKER.json …"
+  ssh "${SSH_OPTS[@]}" "${REMOTE}" "mkdir -p '${REMOTE_DIR}/docs'"
+  rsync -az -e "ssh ${SSH_OPTS[*]}" docs/NAS_MODEL_PICKER.json "${REMOTE}:${REMOTE_DIR}/docs/NAS_MODEL_PICKER.json"
   echo "▶ [canvas] 远端快照 + 构建 + 换装(canvas-api-pg + /studio dist)…"
   ssh "${SSH_OPTS[@]}" "${REMOTE}" bash -s -- "${REMOTE_DIR}" <<'REMOTE_EOF'
 set -euo pipefail
@@ -187,6 +190,31 @@ if [ -f "$ENVF" ] && ! grep -qx "CANVAS_OFFICIAL_PLUGIN_DIR=$PLUG" "$ENVF"; then
   echo "  canvas-api.env:CANVAS_OFFICIAL_PLUGIN_DIR → $PLUG"
 fi
 echo "  官方插件包 ${n_pk} 个 → $PLUG"
+
+# Live gate model-config template（prod 读 beeftv-prod/gate/model-config.template.json，勿只留 .example）
+GATE_PROD="$PROD/gate"
+mkdir -p "$GATE_PROD"
+SRC_LIVE="$CANVAS/deploy/toiv-staging/gate/model-config.template.json"
+SRC_EX="$CANVAS/deploy/toiv-staging/gate/model-config.template.example.json"
+if [ -f "$SRC_LIVE" ]; then
+  cp -f "$SRC_LIVE" "$GATE_PROD/model-config.template.json"
+elif [ -f "$SRC_EX" ]; then
+  cp -f "$SRC_EX" "$GATE_PROD/model-config.template.json"
+else
+  echo "ERROR: missing model-config.template(.example).json under deploy/toiv-staging/gate" >&2
+  exit 1
+fi
+echo "  gate template → $GATE_PROD/model-config.template.json"
+
+# NAS picker env（缺则 Studio NAS 列表空）
+PICKER="$TOIV/docs/NAS_MODEL_PICKER.json"
+NAS_ROOT="/mnt/toiv-nas/toiv/comfyui-models"
+if [ -f "$PICKER" ] && [ -f "$ENVF" ]; then
+  ensure_env_kv() { local key="$1" val="$2"; if grep -q "^${key}=" "$ENVF"; then sed -i "s#^${key}=.*#${key}=${val}#" "$ENVF"; else echo "${key}=${val}" >> "$ENVF"; fi; }
+  ensure_env_kv TOIV_NAS_MODELS_ROOT "$NAS_ROOT"
+  ensure_env_kv TOIV_NAS_PICKER_PATH "$PICKER"
+  echo "  canvas-api.env: TOIV_NAS_MODELS_ROOT + TOIV_NAS_PICKER_PATH"
+fi
 
 # Go 后端
 export PATH="$GOROOT_BIN:$PATH"

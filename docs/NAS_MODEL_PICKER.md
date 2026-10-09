@@ -27,3 +27,10 @@
 ## canvas-only 部署（必做）
 
 `deploy/deploy.sh --canvas-only` 须同步本清单 `docs/NAS_MODEL_PICKER.json`，并在 `canvas-api.env` 设置 `TOIV_NAS_MODELS_ROOT=/mnt/toiv-nas/toiv/comfyui-models` 与 `TOIV_NAS_PICKER_PATH=<ToIV检出>/docs/NAS_MODEL_PICKER.json`。缺一则 Studio NAS 列表空。H3 产品默认：`minimax_h3_fl2va_pruned_int8_convrot` / `minimax_h3_ref2va_pruned_int8_convrot`；生图 `Qwen-Rapid-AIO-SFW-v11.safetensors`；对话 `deepseek-v4-flash-dspark`。
+
+## Live gate template（必做）
+
+生产读 `beeftv-prod/gate/model-config.template.json`（**不是** `.example.json`）。
+- 仓库内 live 与 example 须同内容：`apps/canvas/deploy/toiv-staging/gate/model-config.template.json` ↔ `*.example.json`。
+- `deploy/deploy.sh --canvas-only` 会把该 live 模板拷到 `$PROD/gate/model-config.template.json`，并建议设置 `TOIV_NAS_MODELS_ROOT` / `TOIV_NAS_PICKER_PATH`。
+- 默认：生图 `Qwen-Rapid-AIO-SFW-v11`；H3 `minimax_h3_fl2va_pruned_int8_convrot` + `minimax_h3_ref2va_pruned_int8_convrot`；文本 `deepseek-v4-flash-dspark`。

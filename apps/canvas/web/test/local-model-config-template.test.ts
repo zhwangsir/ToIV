@@ -2,10 +2,20 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 
-const templatePath = resolve(import.meta.dir, "../../deploy/toiv-staging/gate/model-config.template.example.json");
+const examplePath = resolve(import.meta.dir, "../../deploy/toiv-staging/gate/model-config.template.example.json");
+const livePath = resolve(import.meta.dir, "../../deploy/toiv-staging/gate/model-config.template.json");
+const templatePath = livePath; // live is source of truth for prod gate; example must match
 
 describe("model-config template local-first realign", () => {
     const cfg = JSON.parse(readFileSync(templatePath, "utf8"));
+    const exampleCfg = JSON.parse(readFileSync(examplePath, "utf8"));
+
+    test("live template matches example (prod gate uses live)", () => {
+        expect(cfg.textModel).toBe(exampleCfg.textModel);
+        expect(cfg.imageModel).toBe(exampleCfg.imageModel);
+        expect(cfg.videoModel).toBe(exampleCfg.videoModel);
+        expect(cfg.assistantModel).toBe(exampleCfg.assistantModel);
+    });
 
     test("channels + defaults match真机 ports and NAS basenames", () => {
         const h3 = cfg.channels.find((c: any) => (c.modelProfiles || []).some((p: any) => p.protocol === "toiv-h3"));

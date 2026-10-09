@@ -376,7 +376,10 @@ func (a *DesktopApp) provisionToIVChannels(ctx context.Context, s *toivSession) 
 	}
 	cfg := cur.Data.Config
 	if !st.Provisioned {
-		tplRaw, err := toivGateFS.ReadFile("toivgate/model-config.template.example.json")
+		tplRaw, err := toivGateFS.ReadFile("toivgate/model-config.template.json")
+		if err != nil {
+			tplRaw, err = toivGateFS.ReadFile("toivgate/model-config.template.example.json")
+		}
 		if err != nil {
 			return err
 		}

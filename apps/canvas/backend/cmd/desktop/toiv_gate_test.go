@@ -133,8 +133,13 @@ func TestToIVLLMBase(t *testing.T) {
 	if got := g.llmBase(); got != "https://x.example/v1" {
 		t.Fatalf("env llmBase = %q", got)
 	}
-	raw, _ := toivGateFS.ReadFile("toivgate/model-config.template.example.json")
-	if strings.Contains(string(raw), "192.168.") {
-		t.Fatal("embedded template must not carry an internal LLM address")
+	for _, name := range []string{"toivgate/model-config.template.json", "toivgate/model-config.template.example.json"} {
+		raw, err := toivGateFS.ReadFile(name)
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		if strings.Contains(string(raw), "192.168.") {
+			t.Fatalf("embedded %s must not carry an internal LLM address", name)
+		}
 	}
 }
