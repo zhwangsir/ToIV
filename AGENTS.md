@@ -79,7 +79,7 @@
 ## 五、Core 生产状态（活口径）
 
 - **服务**：toiv-api :8090 / toiv-web :3100 / toiv-admin :3200 systemd 常驻；PG 18+Redis 仅 bind 127.0.0.1。**域名双入口**：toiv.dgmt.top（香港 frp）+ **toiv.wineryz.top（CN 主入口，验证一律走此）**。
-- **LLM/VLM（DSv4 无审查 TP2 LIVE）**：core `TOIV_LLM_*` 指 spark02 `http://192.168.71.84:8000/v1`；served `deepseek-v4-flash-dspark`+别名 `qwen3.8-27b`/`qwen3.6-uncensored`/`glm-5.3-flash`（core 零改动）；1M ctx、实测 70.5 tok/s；启动/回滚见第一节与归档。
+- **LLM/VLM（DSv4 无审查 TP2 LIVE）**：core `TOIV_LLM_*` 指 spark02 `http://192.168.71.84:8000/v1`；served `deepseek-v4-flash-dspark`+别名 `qwen3.8-27b`/`qwen3.6-uncensored`/`glm-5.3-flash`（core 零改动）；1M ctx、实测 70.5 tok/s；启动/回滚见第一节与归档。 `/api/llm/v1` 白名单 `TOIV_LLM_PROXY_MODELS` 须含上述四名（默认 `deepseek-v4-flash-dspark,qwen3.8-27b,qwen3.6-uncensored,glm-5.3-flash`），否则助手发 deepseek id 会本地 400。
 - **whisper ASR 集群**：`TOIV_WHISPER_URL`=openclaw 四址（.86/.75/.81/.85:9310，OpenAI 兼容契约；`Settings.whisper_endpoint_list` 多址故障转移，5xx/连接错换节点、4xx/中止不转移）；env 备份 `.env.bak-whisper-cluster-20260921`。
 - **Embedding**：workstation :9302（core `TOIV_EMBED_BASE_URL=http://192.168.71.127:9302/v1`）。
 - **部署口径（拍板）**：web/admin 一律 **core 本机构建**（外地 .next 不可传）——web=`cd /home/merlin/toiv/web && rm -rf .next && pnpm build && sudo systemctl restart toiv-web`；admin 构建前 core 必须全量 `npm install`（生产装 --omit=dev 缺 typescript 会报 `@/components` 假线索）；api=`deploy/deploy.sh --skip-web core-jump`（重试循环）。生产 PG 直查：`export PGPASSWORD=68799b59242beeccfd54963902a35006; psql -h 127.0.0.1 -U toiv -d toiv`（core 的 toiv/api/toiv.db 是废弃 SQLite 勿用）。
