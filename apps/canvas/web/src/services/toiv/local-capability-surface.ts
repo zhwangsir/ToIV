@@ -3,6 +3,8 @@
  * 硬编码本地 7 件套 + Canvas 预置引擎；不接线任意 RH 应用。
  */
 import {
+    LOCAL_AUDIO_HAS_SENSEVOICE,
+    LOCAL_AUDIO_UNAVAILABLE_LABEL,
     LOCAL_H3_WORKER_LABEL,
     LOCAL_IMAGE_CHANNEL_ID,
     LOCAL_IMAGE_MODEL,
@@ -346,3 +348,27 @@ export function localMarketFeaturedAppIds(): string[] {
 
 // re-export channel ids used by tests / UI
 export { LOCAL_IMAGE_CHANNEL_ID, LOCAL_IMAGE_MODEL, LOCAL_VIDEO_CHANNEL_ID };
+
+/** SenseVoice / 音频反推相关市场应用：本地未接时标明不可用，勿假入口。 */
+const AUDIO_UNAVAILABLE_ID_RE = /(sensevoice|sense-voice|asr|stt|whisper|audio-reverse|reverse-audio|反推)/i;
+const AUDIO_UNAVAILABLE_NAME_RE = /(sensevoice|音频反推|语音识别|听写|asr|stt)/i;
+
+export function isMarketAudioUnavailableApp(app: {
+    id?: string;
+    name?: string;
+    category?: string;
+    description?: string;
+    guide_purpose?: string;
+}): boolean {
+    if (LOCAL_AUDIO_HAS_SENSEVOICE) return false;
+    const id = String(app.id || "");
+    const name = String(app.name || "");
+    const blob = `${name} ${app.description || ""} ${app.guide_purpose || ""}`;
+    if (AUDIO_UNAVAILABLE_ID_RE.test(id) || AUDIO_UNAVAILABLE_NAME_RE.test(blob)) return true;
+    if ((app.category || "") === "audio" && /(反推|识别|听写|转写)/.test(blob)) return true;
+    return false;
+}
+
+export function marketAudioUnavailableLabel(): string {
+    return LOCAL_AUDIO_UNAVAILABLE_LABEL;
+}

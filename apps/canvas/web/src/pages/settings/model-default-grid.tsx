@@ -65,7 +65,12 @@ export function ModelDefaultGrid({ config, onChange, onOpenChannels }: { config:
                                 {isAssistant ? <p className="mt-1 text-xs leading-5 text-foreground/50">{row.helper}</p> : null}
                             </div>
                         </div>
-                        {models.length || isAssistant ? (
+                        {row.kind === "capability" && row.capability === "audio" && localMode && !LOCAL_AUDIO_HAS_SENSEVOICE ? (
+                            <div className="rounded-md border border-dashed border-border/70 bg-surface-secondary/40 px-3 py-3 text-xs text-foreground/55" role="status" data-testid="audio-unavailable-notice">
+                                <p className="font-medium text-foreground/80">{LOCAL_AUDIO_UNAVAILABLE_LABEL}</p>
+                                <p className="mt-1 leading-relaxed">SenseVoice 未接线，本地音频模型不可选；勿把云端音频渠道当作本地已配置。</p>
+                            </div>
+                        ) : models.length || isAssistant ? (
                             <div role="radiogroup" aria-label={row.title} className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                                 {isAssistant ? (
                                     <ModelOptionButton
@@ -90,14 +95,8 @@ export function ModelDefaultGrid({ config, onChange, onOpenChannels }: { config:
                             </div>
                         ) : (
                             <div className="px-1 py-3 text-xs text-foreground/45">
-                                <p>{
-                                    row.capability === "audio" && localMode && !LOCAL_AUDIO_HAS_SENSEVOICE
-                                        ? LOCAL_AUDIO_UNAVAILABLE_LABEL
-                                        : localMode
-                                            ? `尚未配置${capabilityLabel(row.capability)}模型`
-                                            : `暂无${capabilityLabel(row.capability)}模型`
-                                }</p>
-                                {localMode && row.capability !== "audio" && onOpenChannels ? <Button type="link" size="small" className="mt-1 h-auto p-0 text-xs" onClick={onOpenChannels}>前往添加本地模型渠道</Button> : null}
+                                <p>{localMode ? `尚未配置${capabilityLabel(row.capability)}模型` : `暂无${capabilityLabel(row.capability)}模型`}</p>
+                                {localMode && onOpenChannels ? <Button type="link" size="small" className="mt-1 h-auto p-0 text-xs" onClick={onOpenChannels}>前往添加本地模型渠道</Button> : null}
                             </div>
                         )}
                     </section>

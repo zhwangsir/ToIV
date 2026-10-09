@@ -1,25 +1,33 @@
-import { ArrowLeft, Loader2, Play, Plus, RefreshCw, Search, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Play, Plus, RefreshCw, Search, Sparkles, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { ToolButton } from "@/components/ui/base/buttons";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
+import { Callout } from "@/components/ui/product/callout";
 import { EmptyState } from "@/components/ui/product/empty-state";
+import { LOCAL_AUDIO_HAS_SENSEVOICE, LOCAL_AUDIO_UNAVAILABLE_LABEL } from "@/lib/local-model-defaults";
 import {
+    appUploadKind,
+    asMarketMediaList,
     buildDefaultRunValues,
     buildToivRunValues,
     fetchToivApp,
     fetchToivAppVariants,
     fetchToivApps,
+    firstPinWorker,
     requiredToivParamLabel,
     runToivApp,
+    uploadToivMedia,
+    type MarketMediaHandle,
     type ToivApp,
     type ToivAppModeItem,
     type ToivAppParam,
 } from "@/services/toiv/client";
 import {
     LOCAL_MARKET_FEATURED,
+    isMarketAudioUnavailableApp,
     localMarketFeaturedAppIds,
     resolveLocalCapabilityBadge,
     sortAppsWithFeaturedIds,
@@ -60,14 +68,183 @@ function smokeBadge(app: ToivApp) {
     return null;
 }
 
-function ParamField({
+const IMAGE_EXT = ["jpg", "jpeg", "png", "webp"];
+const AUDIO_EXT = ["wav", "mp3", "m4a", "ogg", "flac"];
+const VIDEO_EXT = ["mp4", "mov", "webm", "mkv"];
+const IMAGE_MAX = 20 * 1024 * 1024;
+const AUDIO_MAX = 20 * 1024 * 1024;
+const VIDEO_MAX = 200 * 1024 * 1024;
+
+function fileExt(name: string): string {
+    const i = name.lastIndexOf(".");
+    return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+
+function MarketMediaField({
     param,
     value,
     onChange,
+    uploadKind,
+    pinWorker,
+    disabled,
 }: {
     param: ToivAppParam;
     value: unknown;
     onChange: (key: string, next: unknown) => void;
+    uploadKind: string;
+    pinWorker?: string | null;
+    disabled?: boolean;
+}) {
+    const inputRef = useRef<HTMLInputElement | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [progress, setProgress] = useState<number | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const list = asMarketMediaList(value);
+    const multi = param.type === "images" && (param.max ?? 4) > 1;
+    const max = param.type === "images" ? (param.max ?? 4) : 1;
+    const accept =
+        param.type === "audio"
+            ? "audio/*,.wav,.mp3,.m4a,.ogg,.flac"
+            : param.type === "video"
+              ? "video/*,.mp4,.mov,.webm,.mkv"
+              : "image/*,.jpg,.jpeg,.png,.webp";
+    const kindLabel = param.type === "audio" ? "音频" : param.type === "video" ? "视频" : "图片";
+
+    const setList = (next: MarketMediaHandle[]) => {
+        onChange(param.key, multi || param.type === "images" ? next : next);
+    };
+
+    const onFile = async (file: File | undefined) => {
+        if (!file || disabled) return;
+        setError(null);
+        if (list.length >= max) {
+            setError(`${kindLabel}最多 ${max} 项`);
+            return;
+        }
+        const ext = fileExt(file.name);
+        if (param.type === "images" && !IMAGE_EXT.includes(ext)) {
+            setError("仅支持 jpg / png / webp 图片");
+            return;
+        }
+        if (param.type === "audio" && !AUDIO_EXT.includes(ext)) {
+            setError("仅支持 wav / mp3 / m4a / ogg / flac 音频");
+            return;
+        }
+        if (param.type === "video" && !VIDEO_EXT.includes(ext)) {
+            setError("仅支持 mp4 / mov / webm / mkv 视频");
+            return;
+        }
+        const limit = param.type === "video" ? VIDEO_MAX : param.type === "audio" ? AUDIO_MAX : IMAGE_MAX;
+        if (file.size > limit) {
+            setError(`${kindLabel}超过 ${Math.round(limit / (1024 * 1024))}MB 上限`);
+            return;
+        }
+        setUploading(true);
+        setProgress(0);
+        try {
+            const r = await uploadToivMedia(file, uploadKind, pinWorker || undefined, {
+                onProgress: (pct) => setProgress(pct),
+            });
+            const handle: MarketMediaHandle = {
+                filename: r.filename,
+                worker: r.worker,
+                name: file.name,
+                previewUrl: URL.createObjectURL(file),
+            };
+            setList([...list, handle]);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "上传失败");
+        } finally {
+            setUploading(false);
+            setProgress(null);
+            if (inputRef.current) inputRef.current.value = "";
+        }
+    };
+
+    const removeAt = (idx: number) => {
+        const next = list.filter((_, i) => i !== idx);
+        setList(next);
+    };
+
+    return (
+        <div className="flex flex-col gap-1.5 text-xs">
+            <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-foreground">{param.label}</span>
+                <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
+                    {list.length}/{max}
+                </span>
+            </div>
+            {list.length > 0 && (
+                <ul className="flex flex-col gap-1.5">
+                    {list.map((item, idx) => (
+                        <li
+                            key={`${item.filename}-${idx}`}
+                            className="flex items-center gap-2 rounded-md border border-[var(--border)] px-2 py-1.5"
+                        >
+                            {item.previewUrl && param.type === "images" ? (
+                                <img src={item.previewUrl} alt="" className="h-8 w-8 rounded object-cover" />
+                            ) : (
+                                <span className="grid h-8 w-8 place-items-center rounded bg-[var(--muted,rgba(255,255,255,0.06))] text-[10px]">
+                                    {kindLabel[0]}
+                                </span>
+                            )}
+                            <span className="min-w-0 flex-1 truncate" title={item.name || item.filename}>
+                                {item.name || item.filename}
+                            </span>
+                            <button
+                                type="button"
+                                className="rounded p-1 text-[var(--muted-foreground,#a8a8a8)] hover:text-foreground"
+                                aria-label="移除"
+                                disabled={disabled || uploading}
+                                onClick={() => removeAt(idx)}
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {list.length < max && (
+                <button
+                    type="button"
+                    disabled={disabled || uploading}
+                    onClick={() => inputRef.current?.click()}
+                    className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-[var(--muted-foreground,#a8a8a8)] transition-colors hover:border-[var(--workspace-accent,#666)] hover:text-foreground disabled:opacity-50"
+                >
+                    {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                    {uploading ? `上传中${progress != null ? ` ${progress}%` : ""}` : `上传${kindLabel}`}
+                </button>
+            )}
+            <input
+                ref={inputRef}
+                type="file"
+                accept={accept}
+                className="hidden"
+                disabled={disabled || uploading}
+                onChange={(e) => void onFile(e.target.files?.[0])}
+            />
+            {param.hint && !error && (
+                <p className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{param.hint}</p>
+            )}
+            {error && <p className="text-[11px] text-[var(--destructive,#f87171)]">{error}</p>}
+        </div>
+    );
+}
+
+function ParamField({
+    param,
+    value,
+    onChange,
+    uploadKind,
+    pinWorker,
+    disabled,
+}: {
+    param: ToivAppParam;
+    value: unknown;
+    onChange: (key: string, next: unknown) => void;
+    uploadKind: string;
+    pinWorker?: string | null;
+    disabled?: boolean;
 }) {
     const id = `mkt-param-${param.key}`;
     const common =
@@ -125,14 +302,15 @@ function ParamField({
     }
 
     if (param.type === "images" || param.type === "audio" || param.type === "video") {
-        const count = Array.isArray(value) ? value.length : 0;
         return (
-            <div className="rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
-                <p className="font-medium text-foreground">{param.label}</p>
-                <p className="mt-1">
-                    本页暂不支持上传媒体（已填 {count} 项）。若该参数必填，请先在旧运行台补齐，或等待后续切片。
-                </p>
-            </div>
+            <MarketMediaField
+                param={param}
+                value={value}
+                onChange={onChange}
+                uploadKind={uploadKind}
+                pinWorker={pinWorker}
+                disabled={disabled}
+            />
         );
     }
 
@@ -295,13 +473,14 @@ export default function MarketPage() {
         () => (detail ? isMarketCanvasProvider(detail.id) : false),
         [detail, providerTick],
     );
+    const audioBlocked = Boolean(detail && isMarketAudioUnavailableApp(detail) && !LOCAL_AUDIO_HAS_SENSEVOICE);
 
     const onParamChange = (key: string, next: unknown) => {
         setValues((prev) => ({ ...prev, [key]: next }));
     };
 
     const onRun = async () => {
-        if (!detail?.id || missing) return;
+        if (!detail?.id || missing || audioBlocked) return;
         setRunning(true);
         setRunMsg(null);
         try {
@@ -389,6 +568,11 @@ export default function MarketPage() {
                 <EmptyState description="没有匹配的应用" />
             ) : (
                 <>
+                    {category === "audio" && !LOCAL_AUDIO_HAS_SENSEVOICE && (
+                        <Callout tone="warning" title={LOCAL_AUDIO_UNAVAILABLE_LABEL}>
+                            本地音频反推 / SenseVoice 未接线；市场内相关入口已标明不可用，不会伪装成可运行。
+                        </Callout>
+                    )}
                     {category === "all" && !q.trim() && (
                         <section className="flex flex-col gap-2" aria-label="本地精选">
                             <div className="flex items-baseline justify-between">
@@ -451,6 +635,9 @@ export default function MarketPage() {
                                             {app.guide_purpose || app.description}
                                         </p>
                                         {local && <LocalBadges badge={local} />}
+                                        {isMarketAudioUnavailableApp(app) && !LOCAL_AUDIO_HAS_SENSEVOICE && (
+                                            <StatusBadge variant="filled" tone="warning" label="音频未接" size="sm" />
+                                        )}
                                         <div className="mt-auto flex items-center justify-between pt-1">
                                             {smokeBadge(app)}
                                             <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
@@ -496,7 +683,15 @@ export default function MarketPage() {
                                         const local = resolveLocalCapabilityBadge(detail);
                                         return local ? <LocalBadges badge={local} /> : null;
                                     })()}
+                                    {isMarketAudioUnavailableApp(detail) && !LOCAL_AUDIO_HAS_SENSEVOICE && (
+                                        <StatusBadge variant="filled" tone="warning" label={LOCAL_AUDIO_UNAVAILABLE_LABEL} size="sm" />
+                                    )}
                                 </div>
+                                {audioBlocked && (
+                                    <Callout tone="warning" title="本地音频能力未接">
+                                        SenseVoice 未接线，本应用不可在此页运行（勿当已配置）。音乐生成等非 SenseVoice 应用不受影响。
+                                    </Callout>
+                                )}
                                 {(modesLoading || modes.length > 0) && (
                                     <div className="flex flex-col gap-2">
                                         <p className="text-xs font-medium">模式</p>
@@ -539,7 +734,15 @@ export default function MarketPage() {
                                     <div className="flex flex-col gap-2 border-t border-[var(--border)] pt-3">
                                         <p className="text-xs font-medium">运行参数</p>
                                         {schema.map((p) => (
-                                            <ParamField key={p.key} param={p} value={values[p.key]} onChange={onParamChange} />
+                                            <ParamField
+                                                key={p.key}
+                                                param={p}
+                                                value={values[p.key]}
+                                                onChange={onParamChange}
+                                                uploadKind={detail ? appUploadKind(detail.id) : "img2img"}
+                                                pinWorker={firstPinWorker(values)}
+                                                disabled={audioBlocked || running}
+                                            />
                                         ))}
                                     </div>
                                 )}
@@ -569,15 +772,15 @@ export default function MarketPage() {
                                             variant="default"
                                             size="sm"
                                             icon={<Play />}
-                                            label="运行此应用"
+                                            label={audioBlocked ? "音频未接" : "运行此应用"}
                                             loading={running}
-                                            disabled={!!missing || detailLoading}
+                                            disabled={!!missing || detailLoading || audioBlocked}
                                             onClick={() => void onRun()}
                                         />
                                     </div>
                                 </div>
                                 <p className="text-[11px] leading-relaxed text-[var(--muted-foreground,#a8a8a8)]">
-                                    运行将创建 ToIV 作业并跳转任务中心；「注册到画布」写入本地 provider 清单（节点接线后续切片）。
+                                    媒体参数经 /api/upload 上传后随运行提交；作业进任务中心。「注册到画布」写入本地 provider 清单（节点接线后续切片）。
                                 </p>
                             </>
                         )}

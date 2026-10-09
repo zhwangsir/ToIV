@@ -3,6 +3,8 @@ import { ArrowRight, RefreshCw, Server } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+    LOCAL_AUDIO_HAS_SENSEVOICE,
+    LOCAL_AUDIO_UNAVAILABLE_LABEL,
     LOCAL_CHAT_ALIAS,
     LOCAL_CHAT_CHANNEL_NAME,
     LOCAL_H3_CHANNEL_NAME,
@@ -569,6 +571,24 @@ export function LocalComputePane() {
                     <div className="text-sm">主别名：<code>{LOCAL_CHAT_ALIAS}</code></div>
                     <div className="mt-2 text-xs text-foreground/55">同进程别名：qwen3.8-27b / qwen3.6-uncensored / glm-5.3-flash · 默认：{defaults.chatModelRef}</div>
                     {source ? <div className="mt-2 truncate text-[11px] text-foreground/40">清单源：{source}</div> : null}
+                </div>
+
+                <div className="rounded-lg border border-dashed border-border/70 bg-background/30 p-3" data-testid="local-audio-unavailable">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                        <Server className="size-4" />
+                        本地音频
+                        <Tag color="default">未接</Tag>
+                    </div>
+                    {!LOCAL_AUDIO_HAS_SENSEVOICE ? (
+                        <>
+                            <p className="text-xs text-foreground/70 font-medium">{LOCAL_AUDIO_UNAVAILABLE_LABEL}</p>
+                            <p className="mt-1 text-xs text-foreground/55 leading-relaxed">
+                                SenseVoice 未接入 NAS 选模与运行路径；配置页与市场均标明不可用，不提供假入口。
+                            </p>
+                        </>
+                    ) : (
+                        <p className="text-xs text-foreground/55">SenseVoice 已接，可在默认音频模型中选择。</p>
+                    )}
                 </div>
             </div>
         </section>

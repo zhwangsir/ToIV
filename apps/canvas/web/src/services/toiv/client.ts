@@ -103,12 +103,19 @@ export async function fetchBoardItems(boardId: string): Promise<ToivBoardItem[]>
 }
 
 export type {
+    MarketMediaHandle,
+    MediaFilenamesOpts,
     ToivAppParam,
     ToivAppParamType,
 } from "./market-run";
 export {
+    appUploadKind,
+    asMarketMediaList,
     buildDefaultRunValues,
     buildToivRunValues,
+    firstPinWorker,
+    isRemoteDemoMedia,
+    mediaFilenames,
     normalizeToivAppParam,
     requiredToivParamLabel,
 } from "./market-run";
@@ -220,6 +227,66 @@ export async function fetchToivAppVariants(id: string): Promise<ToivAppVariantsI
 }
 
 /** POST /apps/{id}/run → job 回执；成功后引导任务中心 */
+
+export type ToivUploadResult = { filename: string; worker: string; workers?: string[]; all_workers?: boolean };
+
+function uploadTimeoutMs(file: File): number {
+    const isVideo = /\.(mp4|mov|webm|mkv|avi)$/i.test(file.name) || file.type.startsWith("video/");
+    const floor = isVideo || file.size > 50 * 1024 * 1024 ? 600_000 : 60_000;
+    const bySize = Math.ceil(file.size / (2 * 1024 * 1024)) * 1000;
+    return Math.min(20 * 60_000, Math.max(floor, bySize));
+}
+
+/**
+ * 市场/能力媒体上传：POST /api/upload（multipart 字段 image）。
+ * 返回 {filename, worker} 句柄，供 params images/audio/video 与画布/run 同机接线。
+ */
+export function uploadToivMedia(
+    file: File,
+    kind: string = "img2img",
+    worker?: string,
+    opts?: { onProgress?: (pct: number) => void },
+): Promise<ToivUploadResult> {
+    return new Promise((resolve, reject) => {
+        let qs = `kind=${encodeURIComponent(kind)}`;
+        if (worker) qs += `&worker=${encodeURIComponent(worker)}`;
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `/api/upload?${qs}`);
+        xhr.timeout = uploadTimeoutMs(file);
+        if (typeof window !== "undefined") {
+            const token = window.localStorage.getItem(TOKEN_KEY);
+            if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        }
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) opts?.onProgress?.(Math.round((e.loaded / e.total) * 100));
+        };
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    resolve(JSON.parse(xhr.responseText) as ToivUploadResult);
+                } catch {
+                    reject(new Error("上传响应解析失败"));
+                }
+            } else {
+                let msg = `上传失败 (${xhr.status})`;
+                try {
+                    const detail = JSON.parse(xhr.responseText)?.detail;
+                    if (typeof detail === "string" && detail) msg = detail;
+                } catch {
+                    /* non-JSON */
+                }
+                reject(new Error(msg));
+            }
+        };
+        xhr.onerror = () => reject(new Error("上传网络错误"));
+        xhr.ontimeout = () =>
+            reject(new Error(`上传超时(${Math.round(xhr.timeout / 1000)}s)，请检查网络后重试`));
+        const fd = new FormData();
+        fd.append("image", file);
+        xhr.send(fd);
+    });
+}
+
 export async function runToivApp(id: string, values: Record<string, unknown>): Promise<ToivAppRunReceipt> {
     const { data } = await toivHttp.post(`/apps/${encodeURIComponent(id)}/run`, { values }, { timeout: 60_000 });
     const raw = (data ?? {}) as Record<string, unknown>;
