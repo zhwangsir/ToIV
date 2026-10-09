@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"net/url"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -16,13 +17,23 @@ var (
 )
 
 const (
-	helperFlag     = "--beeftv-update-helper"
-	appBundleName  = "BeefTV.app"
-	windowsExeName = "BeefTV.exe"
-	pluginDirName  = "plugin-packages"
+	helperFlag = "--beeftv-update-helper"
+	// Primary install names (P2 cutover). New builds produce ToIV.app / ToIV.exe.
+	appBundleName    = "ToIV.app"
+	windowsExeName   = "ToIV.exe"
+	darwinBinaryName = "ToIV"
+	// Legacy installs the updater must still locate and upgrade.
+	legacyAppBundleName    = "BeefTV.app"
+	legacyWindowsExeName   = "BeefTV.exe"
+	legacyDarwinBinaryName = "BeefTV"
+	installLockName        = ".ToIV.update.lock"
+	legacyInstallLockName  = ".BeefTV.update.lock"
+	helperBaseName         = "ToIV-update-helper"
+	legacyHelperBaseName   = "BeefTV-update-helper"
+	pluginDirName          = "plugin-packages"
 	// 随包 CLI：外部 Agent 的接入入口，升级包里必须带上，否则升级一次就断了接入。
 	// 它必须待在自己的 cli 目录里：macOS 与 Windows 的文件名都不分大小写，
-	// beeftv 直接放在主程序旁边会和 BeefTV / BeefTV.exe 撞成同一个文件。
+	// beeftv 直接放在主程序旁边会和 ToIV / ToIV.exe 撞成同一个文件。
 	cliDirName      = "cli"
 	darwinCLIName   = "beeftv"
 	windowsCLIName  = "beeftv.exe"
@@ -93,4 +104,64 @@ func configFromVars() (feed string, key ed25519.PublicKey, enabled bool, reason 
 		return "", nil, false, "更新配置无效。"
 	}
 	return feed, key, true, ""
+}
+
+func isKnownAppBundle(name string) bool {
+	return name == appBundleName || name == legacyAppBundleName
+}
+
+func isKnownWindowsExe(name string) bool {
+	return strings.EqualFold(name, windowsExeName) || strings.EqualFold(name, legacyWindowsExeName)
+}
+
+func darwinBinaryForBundle(bundleBase string) string {
+	if bundleBase == legacyAppBundleName {
+		return legacyDarwinBinaryName
+	}
+	return darwinBinaryName
+}
+
+func updateLockPath(targetPath string) string {
+	parent := filepath.Dir(targetPath)
+	base := filepath.Base(targetPath)
+	if base == legacyAppBundleName || strings.EqualFold(base, legacyWindowsExeName) {
+		return filepath.Join(parent, legacyInstallLockName)
+	}
+	return filepath.Join(parent, installLockName)
+}
+
+func helperFileName() string {
+	if runtime.GOOS == "windows" {
+		return helperBaseName + ".exe"
+	}
+	return helperBaseName
+}
+
+func helperCleanupNames() []string {
+	return []string{
+		helperBaseName,
+		helperBaseName + ".exe",
+		legacyHelperBaseName,
+		legacyHelperBaseName + ".exe",
+		"backup", "payload", "helper.log", "prepared", "result.json", "request.json",
+	}
+}
+
+// sameInstallTarget reports whether a persisted helper TargetPath matches the
+// currently running install, including BeefTV.* → ToIV.* migration.
+func sameInstallTarget(recorded, current string) bool {
+	if recorded == current {
+		return true
+	}
+	if filepath.Dir(recorded) != filepath.Dir(current) {
+		return false
+	}
+	rb, cb := filepath.Base(recorded), filepath.Base(current)
+	if rb == legacyAppBundleName && cb == appBundleName {
+		return true
+	}
+	if strings.EqualFold(rb, legacyWindowsExeName) && strings.EqualFold(cb, windowsExeName) {
+		return true
+	}
+	return false
 }

@@ -27,9 +27,9 @@ func validateDarwinLayout(root string) error {
 	bundle := filepath.Join(root, appBundleName)
 	info, err := os.Lstat(bundle)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("更新包缺少 BeefTV.app")
+		return fmt.Errorf("更新包缺少 ToIV.app")
 	}
-	exe := filepath.Join(bundle, "Contents", "MacOS", "BeefTV")
+	exe := filepath.Join(bundle, "Contents", "MacOS", darwinBinaryName)
 	if err := requireRegularFile(exe, true); err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func validateWindowsLayout(root string) error {
 	}
 	exe := filepath.Join(root, windowsExeName)
 	if err := requireRegularFile(exe, false); err != nil {
-		return fmt.Errorf("更新包缺少 BeefTV.exe")
+		return fmt.Errorf("更新包缺少 ToIV.exe")
 	}
 	if err := requireRegularFile(filepath.Join(root, cliDirName, windowsCLIName), false); err != nil {
 		return fmt.Errorf("更新包缺少随包 beeftv CLI: %w", err)
@@ -139,4 +139,62 @@ func walkAllowed(root string, fn func(rel string, entry fs.DirEntry) error) erro
 		}
 		return fn(rel, entry)
 	})
+}
+
+func findStagedDarwinApp(stagedPath string) (string, error) {
+	for _, name := range []string{appBundleName, legacyAppBundleName} {
+		candidate := filepath.Join(stagedPath, name)
+		info, err := os.Lstat(candidate)
+		if err == nil && info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("更新包缺少 ToIV.app")
+}
+
+func findStagedWindowsExe(stagedPath string) (string, error) {
+	for _, name := range []string{windowsExeName, legacyWindowsExeName} {
+		candidate := filepath.Join(stagedPath, name)
+		if err := requireRegularFile(candidate, false); err == nil {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("更新包缺少 ToIV.exe")
+}
+
+func desiredDarwinInstallPath(targetPath, stagedApp string) string {
+	if filepath.Base(stagedApp) == appBundleName && filepath.Base(targetPath) == legacyAppBundleName {
+		return filepath.Join(filepath.Dir(targetPath), appBundleName)
+	}
+	return targetPath
+}
+
+func desiredWindowsInstallPath(targetPath, stagedExe string) string {
+	if strings.EqualFold(filepath.Base(stagedExe), windowsExeName) && strings.EqualFold(filepath.Base(targetPath), legacyWindowsExeName) {
+		return filepath.Join(filepath.Dir(targetPath), windowsExeName)
+	}
+	return targetPath
+}
+
+func activeInstallPath(req HelperRequest) string {
+	switch {
+	case strings.HasPrefix(req.Platform, "darwin"):
+		if filepath.Base(req.TargetPath) == legacyAppBundleName {
+			sibling := filepath.Join(filepath.Dir(req.TargetPath), appBundleName)
+			if pathExists(sibling) {
+				return sibling
+			}
+		}
+		return req.TargetPath
+	case strings.HasPrefix(req.Platform, "windows"):
+		if strings.EqualFold(filepath.Base(req.TargetPath), legacyWindowsExeName) {
+			sibling := filepath.Join(filepath.Dir(req.TargetPath), windowsExeName)
+			if pathExists(sibling) {
+				return sibling
+			}
+		}
+		return req.TargetPath
+	default:
+		return req.TargetPath
+	}
 }

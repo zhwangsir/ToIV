@@ -4,9 +4,9 @@ BeefTV 桌面版是无需登录的本地优先工作区。项目、画布、素�
 
 ## 下载与首次打开
 
-从 [官方发布页](https://github.com/glanderness/BeefTV/releases/latest) 下载对应系统的安装包。Mac 的 Apple 芯片选择 `darwin-arm64`，Intel 芯片选择 `darwin-amd64`；解压后将 `BeefTV.app` 放入「应用程序」。
+从 [官方发布页](https://github.com/glanderness/BeefTV/releases/latest) 下载对应系统的安装包。Mac 的 Apple 芯片选择 `darwin-arm64`，Intel 芯片选择 `darwin-amd64`；解压后将 `ToIV.app` 放入「应用程序」（旧版安装可能仍是 `BeefTV.app`，自动更新会迁到 ToIV.app）。
 
-目前 Mac 版本尚未完成 Apple 开发者签名和公证。首次打开时，如果提示「Apple 无法验证 BeefTV.app 是否包含恶意软件」，请先确认安装包来自官方发布页，再打开「系统设置 → 隐私与安全性」，找到 BeefTV 并点击「仍要打开」，按系统提示确认。受组织管理的 Mac 可能需要联系管理员。
+目前 Mac 版本尚未完成 Apple 开发者签名和公证。首次打开时，如果提示「Apple 无法验证 ToIV.app 是否包含恶意软件」，请先确认安装包来自官方发布页，再打开「系统设置 → 隐私与安全性」，找到 ToIV 并点击「仍要打开」，按系统提示确认。受组织管理的 Mac 可能需要联系管理员。
 
 这是 macOS 对未公证应用的检查，换一个下载地址不会消除它。无需关闭整个系统的安全检查。具体操作见 [Apple 的打开应用说明](https://support.apple.com/zh-cn/102445)。
 
@@ -22,7 +22,7 @@ BeefTV 桌面版是无需登录的本地优先工作区。项目、画布、素�
 BEEFTV_GO_DIR=/path/to/go ./scripts/build-beeftv-release.sh
 ```
 
-macOS 应用输出到 `backend/cmd/desktop/build/bin/BeefTV.app`。
+macOS 应用输出到 `backend/cmd/desktop/build/bin/ToIV.app`。
 
 Windows amd64 必须在 Windows 本机构建（需要 PATH 中的 Go、Bun，以及编译 go-sqlite3 的 GCC）：
 
@@ -30,7 +30,7 @@ Windows amd64 必须在 Windows 本机构建（需要 PATH 中的 Go、Bun，以
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-beeftv-windows-release.ps1
 ```
 
-输出为 `backend\cmd\desktop\build\bin\BeefTV.exe`，官方插件在旁边的 `plugin-packages\`。前提与数据目录见 `docs/desktop-release.md`。
+输出为 `backend\cmd\desktop\build\bin\ToIV.exe`，官方插件在旁边的 `plugin-packages\`。前提与数据目录见 `docs/desktop-release.md`。
 
 首次打开后直接进入本地工作区，不需要注册或登录。
 

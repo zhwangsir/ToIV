@@ -100,7 +100,7 @@ func RunHelperRequest(req HelperRequest) error {
 		result.Error = err.Error()
 		return err
 	}
-	unlock, err := lockInstall(filepath.Join(filepath.Dir(req.TargetPath), ".BeefTV.update.lock"))
+	unlock, err := lockInstall(updateLockPath(req.TargetPath))
 	if err != nil {
 		result.Error = "已有更新正在安装"
 		return err
@@ -170,11 +170,11 @@ func validateHelperRequest(req HelperRequest) error {
 	}
 	switch {
 	case strings.HasPrefix(req.Platform, "darwin"):
-		if filepath.Base(req.TargetPath) != appBundleName {
+		if !isKnownAppBundle(filepath.Base(req.TargetPath)) {
 			return fmt.Errorf("当前应用包名称不支持自动更新")
 		}
 	case strings.HasPrefix(req.Platform, "windows"):
-		if filepath.Base(req.TargetPath) != windowsExeName {
+		if !isKnownWindowsExe(filepath.Base(req.TargetPath)) {
 			return fmt.Errorf("当前应用名称不支持自动更新")
 		}
 	default:
@@ -326,13 +326,6 @@ func physicalPath(path string) (string, error) {
 		return "", err
 	}
 	return filepath.Join(resolved, filepath.Base(abs)), nil
-}
-
-func helperFileName() string {
-	if runtime.GOOS == "windows" {
-		return "BeefTV-update-helper.exe"
-	}
-	return "BeefTV-update-helper"
 }
 
 func waitForPrepared(ctx context.Context, path string, timeout time.Duration) error {

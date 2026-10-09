@@ -34,7 +34,7 @@ func TestSwapInstallRollbackWhenStagedMissing(t *testing.T) {
 	if err := SwapInstall(req); err == nil {
 		t.Fatal("expected swap failure")
 	}
-	got, err := os.ReadFile(filepath.Join(target, "Contents", "MacOS", "BeefTV"))
+	got, err := os.ReadFile(filepath.Join(target, "Contents", "MacOS", darwinBinaryName))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestLaunchFailureRestoresPreviousInstall(t *testing.T) {
 	if err := RunHelperRequest(req); err == nil {
 		t.Fatal("expected launch failure")
 	}
-	got, err := os.ReadFile(filepath.Join(req.TargetPath, "Contents", "MacOS", "BeefTV"))
+	got, err := os.ReadFile(filepath.Join(req.TargetPath, "Contents", "MacOS", darwinBinaryName))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,11 +243,125 @@ func TestUnicodeAndSpacesPathsRoundTrip(t *testing.T) {
 	if err := SwapInstall(req); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(req.TargetPath, "Contents", "MacOS", "BeefTV"))
+	got, err := os.ReadFile(filepath.Join(req.TargetPath, "Contents", "MacOS", darwinBinaryName))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(got), "NEW") {
 		t.Fatalf("installed = %q", got)
+	}
+}
+
+
+func TestSwapDarwinMigratesLegacyBeefTVBundle(t *testing.T) {
+	root := t.TempDir()
+	oldDir := filepath.Join(root, "Applications")
+	staged := filepath.Join(root, "staged")
+	if err := os.MkdirAll(oldDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	legacyRoot := filepath.Join(root, "legacy-layout")
+	if err := WriteDarwinLayout(legacyRoot, "OLD"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(legacyRoot, appBundleName), filepath.Join(oldDir, legacyAppBundleName)); err != nil {
+		t.Fatal(err)
+	}
+	// Rewrite legacy binary name inside BeefTV.app
+	legacyExe := filepath.Join(oldDir, legacyAppBundleName, "Contents", "MacOS", darwinBinaryName)
+	newLegacyExe := filepath.Join(oldDir, legacyAppBundleName, "Contents", "MacOS", legacyDarwinBinaryName)
+	if err := os.Rename(legacyExe, newLegacyExe); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteDarwinLayout(staged, "NEW"); err != nil {
+		t.Fatal(err)
+	}
+	req := HelperRequest{
+		Schema:     1,
+		ParentPID:  unusedPID(t),
+		Platform:   "darwin-arm64",
+		TargetPath: filepath.Join(oldDir, legacyAppBundleName),
+		StagedPath: staged,
+		BackupPath: filepath.Join(root, "backup", legacyAppBundleName),
+	}
+	if err := SwapInstall(req); err != nil {
+		t.Fatal(err)
+	}
+	final := filepath.Join(oldDir, appBundleName)
+	if !pathExists(final) {
+		t.Fatal("expected ToIV.app after migration")
+	}
+	if pathExists(req.TargetPath) {
+		t.Fatal("legacy BeefTV.app should have been moved to backup")
+	}
+	got, err := os.ReadFile(filepath.Join(final, "Contents", "MacOS", darwinBinaryName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "NEW") {
+		t.Fatalf("migrated content = %q", got)
+	}
+	backupGot, err := os.ReadFile(filepath.Join(req.BackupPath, "Contents", "MacOS", legacyDarwinBinaryName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(backupGot), "OLD") {
+		t.Fatalf("backup = %q", backupGot)
+	}
+}
+
+func TestSwapWindowsMigratesLegacyBeefTVExe(t *testing.T) {
+	root := t.TempDir()
+	targetDir := filepath.Join(root, "install")
+	staged := filepath.Join(root, "staged")
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteWindowsLayout(targetDir, "OLD"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(targetDir, windowsExeName), filepath.Join(targetDir, legacyWindowsExeName)); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteWindowsLayout(staged, "NEW"); err != nil {
+		t.Fatal(err)
+	}
+	req := HelperRequest{
+		Platform:   "windows-amd64",
+		TargetPath: filepath.Join(targetDir, legacyWindowsExeName),
+		StagedPath: staged,
+		BackupPath: filepath.Join(root, "backup"),
+	}
+	if err := SwapInstall(req); err != nil {
+		t.Fatal(err)
+	}
+	final := filepath.Join(targetDir, windowsExeName)
+	if !pathExists(final) {
+		t.Fatal("expected ToIV.exe after migration")
+	}
+	if pathExists(req.TargetPath) {
+		t.Fatal("legacy BeefTV.exe should be backed up")
+	}
+	got, err := os.ReadFile(final)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "NEW") {
+		t.Fatalf("migrated = %q", got)
+	}
+}
+
+func TestLocateTargetAcceptsLegacyNames(t *testing.T) {
+	if !isKnownAppBundle(legacyAppBundleName) || !isKnownAppBundle(appBundleName) {
+		t.Fatal("bundle names")
+	}
+	if !isKnownWindowsExe(legacyWindowsExeName) || !isKnownWindowsExe(windowsExeName) {
+		t.Fatal("exe names")
+	}
+	if sameInstallTarget("/Applications/BeefTV.app", "/Applications/ToIV.app") != true {
+		t.Fatal("expected migration path match")
+	}
+	if sameInstallTarget("/Applications/ToIV.app", "/Applications/Other.app") {
+		t.Fatal("unexpected match")
 	}
 }

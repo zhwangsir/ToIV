@@ -67,7 +67,7 @@ def stop_installed(executable):
 
 def install_tree(root):
     result = {}
-    for name in ['BeefTV.exe', 'cli', 'agent-host', 'plugin-packages']:
+    for name in ['ToIV.exe', 'cli', 'agent-host', 'plugin-packages']:
         path = root/name
         paths = [path] if path.is_file() else sorted(path.rglob('*')) if path.is_dir() else []
         for item in paths:
@@ -109,11 +109,11 @@ def exercise(source, candidate, version, directory, rollback=False):
     shutil.copytree(candidate, staged)
     if rollback:
         # Structurally valid archive, but CreateProcess must reject its program.
-        (staged/'BeefTV.exe').write_bytes(b'not a Windows executable')
+        (staged/'ToIV.exe').write_bytes(b'not a Windows executable')
     data.mkdir()
     db = data/'open_ai_canvas.db'
-    helper = directory/'BeefTV-update-helper.exe'
-    shutil.copy2(install/'BeefTV.exe', helper)
+    helper = directory/'ToIV-update-helper.exe'
+    shutil.copy2(install/'ToIV.exe', helper)
     token = secrets.token_hex(32)
     with socket.socket() as listener:
         listener.bind(('127.0.0.1', 0))
@@ -121,10 +121,10 @@ def exercise(source, candidate, version, directory, rollback=False):
     env = dict(os.environ, CANVAS_DESKTOP_DATA_DIR=str(data),
                CANVAS_DESKTOP_BACKEND_ADDR=f'127.0.0.1:{port}',
                CANVAS_DESKTOP_LAUNCH_TOKEN=token)
-    parent = subprocess.Popen([str(install/'BeefTV.exe')], env=env)
+    parent = subprocess.Popen([str(install/'ToIV.exe')], env=env)
     request = directory/'request.json'
     request.write_text(json.dumps(dict(schema=1, parentPid=parent.pid, platform='windows-amd64',
-        targetPath=str(install/'BeefTV.exe'), stagedPath=str(staged), backupPath=str(directory/'backup'),
+        targetPath=str(install/'ToIV.exe'), stagedPath=str(staged), backupPath=str(directory/'backup'),
         preparedPath=str(directory/'prepared'), resultPath=str(directory/'result.json'), waitTimeoutSec=180)), encoding='utf-8')
     process = None
     try:
@@ -171,7 +171,7 @@ def exercise(source, candidate, version, directory, rollback=False):
             process.wait(timeout=10)
         primary_error = sys.exc_info()[1]
         try:
-            stop_installed(install/'BeefTV.exe')
+            stop_installed(install/'ToIV.exe')
             parent.wait(timeout=10)
         except Exception as cleanup_error:
             if primary_error is not None:

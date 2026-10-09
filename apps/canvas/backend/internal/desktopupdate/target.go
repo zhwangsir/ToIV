@@ -49,7 +49,7 @@ func locateDarwin(platform, executable string) (Target, error) {
 	if !strings.EqualFold(filepath.Base(macosDir), "MacOS") || !strings.EqualFold(filepath.Base(contentsDir), "Contents") || !strings.HasSuffix(bundle, ".app") {
 		return Target{}, fmt.Errorf("当前运行方式不支持自动安装更新")
 	}
-	if filepath.Base(bundle) != appBundleName {
+	if !isKnownAppBundle(filepath.Base(bundle)) {
 		return Target{}, fmt.Errorf("当前应用包名称不支持自动更新")
 	}
 	if err := requireRegularFile(executable, true); err != nil {
@@ -65,7 +65,7 @@ func locateDarwin(platform, executable string) (Target, error) {
 }
 
 func locateWindows(platform, executable string) (Target, error) {
-	if !strings.EqualFold(filepath.Base(executable), windowsExeName) {
+	if !isKnownWindowsExe(filepath.Base(executable)) {
 		return Target{}, fmt.Errorf("当前运行方式不支持自动安装更新")
 	}
 	info, err := os.Lstat(executable)

@@ -1,6 +1,6 @@
 # 桌面路径迁移方案（BeefTV → ToIV）
 
-状态：方案 only。不动用户数据、不改生产、不部署。
+状态：P0+P1 已合；P2 安装包/updater 改名实现中（本分支）。不动生产、不部署。
 基线 tip：`8d22d144`（含 command_guard 品牌文案）。CLI / MCP 协议 id 继续保留 `beeftv`。
 
 ## 1. 现状盘点（代码事实）
@@ -9,9 +9,9 @@
 | --- | --- | --- |
 | 桌面默认数据目录 | `…/ToIV`（已改） | `backend/cmd/desktop/main.go` `defaultDataDir` |
 | runtimeinfo 默认数据目录 | 仍 `…/BeefTV` | `backend/internal/runtimeinfo/runtimeinfo.go` `DefaultDataDir` |
-| macOS 安装包名 | `BeefTV.app` | `desktopupdate/config.go` `appBundleName`；`/Applications/BeefTV.app` |
-| Windows 主程序 | `BeefTV.exe` | updater layout / replace / harness |
-| 更新锁 / helper | `.BeefTV.update.lock`、`BeefTV-update-helper` | `desktopupdate/cleanup.go` `helper.go` |
+| macOS 安装包名 | `ToIV.app`（认遗留 `BeefTV.app`） | `desktopupdate/config.go`；`/Applications/ToIV.app` |
+| Windows 主程序 | `ToIV.exe`（认遗留 `BeefTV.exe`） | updater layout / replace / harness |
+| 更新锁 / helper | `.ToIV.update.lock` / `ToIV-update-helper`（仍清遗留 BeefTV 前缀） | `desktopupdate/cleanup.go` `helper.go` |
 | 更新缓存 | `<cache>/BeefTV/updates` | `desktopupdate/engine.go` |
 | 更新器 UA | `BeefTV-Desktop-Updater/…` | `desktopupdate/http.go`（有意保留，不在本方案） |
 | Windows 运行描述符 | `%USERPROFILE%/.beeftv/runtime/<hash>.json` | `runtimeinfo/path_windows.go` |
