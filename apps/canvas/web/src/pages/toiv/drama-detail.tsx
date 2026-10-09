@@ -7,7 +7,7 @@ import { ToolButton } from "@/components/ui/base/buttons";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { EmptyState } from "@/components/ui/product/empty-state";
-import { buildMakeupCChainFromDrama, cancelJob, createCChain, fetchCChain, fetchCharacterSheets, fetchDramaProject, triggerBatchRender, triggerPanelReplace, triggerSheetRegen, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivCharacterSheet, type ToivDramaDetail } from "@/services/toiv/client";
+import { appendCChainSegments, buildMakeupCChainFromDrama, cancelJob, createCChain, fetchCChain, fetchCharacterSheets, fetchDramaProject, pickCChainSegment, triggerBatchRender, triggerPanelReplace, triggerSheetRegen, triggerShotLipsync, triggerShotRender, triggerShotVoice, type ToivCChainDetail, type ToivCharacterSheet, type ToivDramaDetail } from "@/services/toiv/client";
 
 const SHOT_STATUS: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
     draft: { tone: "neutral", text: "草稿" },
@@ -35,6 +35,10 @@ export default function DramaDetailPage() {
     const [chainJobId, setChainJobId] = useState<string | null>(null);
     const [chainBusy, setChainBusy] = useState(false);
     const [chainNote, setChainNote] = useState<string | null>(null);
+    const [chainDetail, setChainDetail] = useState<ToivCChainDetail | null>(null);
+    const [appendPrompt, setAppendPrompt] = useState("");
+    const [pickingId, setPickingId] = useState<string | null>(null);
+    const [appending, setAppending] = useState(false);
 
     const openCharacter = useCallback(async (char: NonNullable<ToivDramaDetail["characters"]>[number]) => {
         setCharDetail({ char, sheets: [] });
@@ -63,10 +67,16 @@ export default function DramaDetailPage() {
     }, [busy, id]);
 
     useEffect(() => {
+        if (!id) return;
+        void fetchCChain(id).then(setChainDetail).catch(() => setChainDetail(null));
+    }, [id, detail?.updated_at]);
+
+    useEffect(() => {
         if (!chainBusy || !id || !chainJobId) return;
         const tick = () => {
             void fetchCChain(id)
                 .then((chain) => {
+                    setChainDetail(chain);
                     const active = chain.active_job_id;
                     if (!active || active !== chainJobId) {
                         setChainBusy(false);
@@ -81,8 +91,8 @@ export default function DramaDetailPage() {
                 .catch(() => {});
         };
         tick();
-        const t = window.setInterval(tick, 8000);
-        return () => window.clearInterval(t);
+        const timer = window.setInterval(tick, 8000);
+        return () => window.clearInterval(timer);
     }, [chainBusy, chainJobId, id]);
 
     if (loading) return <main className="flex h-full items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></main>;
@@ -124,12 +134,13 @@ export default function DramaDetailPage() {
                             onClick={() => {
                                 setChainNote(null);
                                 try {
-                                    const body = buildMakeupCChainFromDrama(detail, { num_candidates: 1, auto_assemble: true });
+                                    const body = buildMakeupCChainFromDrama(detail, { num_candidates: 2, auto_assemble: true });
                                     setChainBusy(true);
                                     void createCChain(body)
                                         .then((ack) => {
                                             setChainJobId(ack.job_id);
                                             setChainNote(`已排队 job ${ack.job_id.slice(0, 8)}（取消走顶层 job_id）`);
+                                            void fetchCChain(detail.id).then(setChainDetail).catch(() => {});
                                         })
                                         .catch((err: unknown) => {
                                             setChainBusy(false);
@@ -173,6 +184,108 @@ export default function DramaDetailPage() {
                     <video src={detail.final_url} controls className="max-h-[60vh] w-full bg-black" />
                 </section>
             )}
+
+            {(() => {
+                const segs = chainDetail?.segments ?? [];
+                const tail = segs.length ? segs[segs.length - 1] : null;
+                const cands = (tail?.candidates ?? []).filter((c) => c && typeof c.id === "string");
+                const canPick = !chainBusy && !pickingId && cands.length > 0;
+                const canAppend = !chainBusy && !appending;
+                if (!chainDetail && !cands.length) return null;
+                return (
+                    <section aria-label="管线C候选与续段" className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] p-4">
+                        <div className="flex items-center justify-between gap-2">
+                            <h2 className="text-sm font-semibold">管线C · 链尾候选</h2>
+                            <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                {segs.length ? `共 ${segs.length} 段` : "尚无链"}
+                                {chainDetail?.active_job_id ? " · 作业中" : ""}
+                            </span>
+                        </div>
+                        {cands.length === 0 ? (
+                            <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">链尾暂无候选；出片后可在此改选（仅尾段）。</p>
+                        ) : (
+                            <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
+                                {cands.map((c) => (
+                                    <div key={c.id} className="flex flex-col gap-2 rounded-xl border border-[var(--border)] p-2">
+                                        {c.url || c.first_frame ? (
+                                            c.url ? (
+                                                <video src={c.url} className="aspect-[9/16] w-full rounded-lg bg-black object-cover" muted playsInline controls={false} />
+                                            ) : (
+                                                <img src={c.first_frame} alt="" className="aspect-[9/16] w-full rounded-lg object-cover" loading="lazy" />
+                                            )
+                                        ) : (
+                                            <div className="flex aspect-[9/16] items-center justify-center rounded-lg bg-black/40 text-xs text-[var(--muted-foreground,#a8a8a8)]">{c.id.slice(0, 8)}</div>
+                                        )}
+                                        <div className="flex items-center justify-between gap-1">
+                                            {c.is_picked ? <StatusBadge variant="filled" tone="success" label="已选" size="sm" /> : <StatusBadge variant="filled" tone="neutral" label={c.status || "候选"} size="sm" />}
+                                            <button
+                                                type="button"
+                                                className={primaryBtn}
+                                                disabled={!canPick || !!c.is_picked}
+                                                onClick={() => {
+                                                    if (!id || tail == null) return;
+                                                    setPickingId(c.id);
+                                                    void pickCChainSegment(id, tail.index, c.id)
+                                                        .then((next) => {
+                                                            setChainDetail(next);
+                                                            setChainNote(`已选候选 ${c.id.slice(0, 8)}`);
+                                                            void fetchDramaProject(id).then(setDetail).catch(() => {});
+                                                        })
+                                                        .catch((err: unknown) => setChainNote(err instanceof Error ? err.message : "改选失败"))
+                                                        .finally(() => setPickingId(null));
+                                                }}
+                                            >
+                                                {pickingId === c.id ? <Loader2 className="animate-spin" aria-hidden /> : null}
+                                                <span>{c.is_picked ? "当前" : "选用"}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <div className="flex flex-wrap items-end gap-2 border-t border-[var(--border)] pt-3">
+                            <label className="flex min-w-[240px] flex-1 flex-col gap-1 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                续段文案
+                                <input
+                                    value={appendPrompt}
+                                    onChange={(e) => setAppendPrompt(e.target.value)}
+                                    disabled={!canAppend}
+                                    placeholder="追加一段 prompt（makeup）"
+                                    className="h-8 rounded-md border border-[var(--border)] bg-transparent px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-45"
+                                />
+                            </label>
+                            <button
+                                type="button"
+                                className={primaryBtn}
+                                disabled={!canAppend || !appendPrompt.trim()}
+                                onClick={() => {
+                                    if (!id) return;
+                                    const prompt = appendPrompt.trim();
+                                    if (!prompt) return;
+                                    setAppending(true);
+                                    void appendCChainSegments(id, {
+                                        segments: [{ prompt, duration_sec: 6 }],
+                                        num_candidates: 2,
+                                        auto_assemble: true,
+                                    })
+                                        .then((ack) => {
+                                            setChainJobId(ack.job_id);
+                                            setChainBusy(true);
+                                            setAppendPrompt("");
+                                            setChainNote(`续段已排队 job ${ack.job_id.slice(0, 8)}`);
+                                            void fetchCChain(id).then(setChainDetail).catch(() => {});
+                                        })
+                                        .catch((err: unknown) => setChainNote(err instanceof Error ? err.message : "续段失败"))
+                                        .finally(() => setAppending(false));
+                                }}
+                            >
+                                {appending ? <Loader2 className="animate-spin" aria-hidden /> : <Clapperboard aria-hidden />}
+                                <span>续段</span>
+                            </button>
+                        </div>
+                    </section>
+                );
+            })()}
 
             <section aria-label="角色与设定卡" className="flex flex-col gap-2">
                 <h2 className="flex items-center gap-2 text-sm font-semibold"><User className="h-4 w-4" />角色与设定卡（{chars.length}）</h2>
