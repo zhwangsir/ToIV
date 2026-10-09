@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**c-chains+画布客户端 tip `72dcbe7e`，未部署**）：两端+本地 main=`72dcbe7e`（合入 `feat/canvas-c-chains-client`=`fd108457`；API tip `cd1ae748`）。生产仍 10-08，`POST /api/studio/c-chains` 线上 404。**勿把 tip 写成已部署**。闸不开。STATE `pipeline_c_c_chains_2026_10_09` 已改 merged_main；`updated_at` 2026-10-09T10:40:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家：**c-chains 失败单测 tip `da2dd223`，未部署**）：两端+本地 main=`da2dd223`（其上 `95a80bb2` docs / `72dcbe7e` 画布合入）。失败路径单测 11 passed（非 makeup→422、空 segments、缺 prompt、创建后立即 cancel、`job_id`=DB Job.id）；不真跑 H3。画布守卫分支 `feat/canvas-c-chains-client-guards`=`43a51ce5` **未合 main**、未部署。生产仍 10-08，c-chains 线上 404。**勿把 tip 写成已部署**。闸不开。STATE `pipeline_c_c_chains_2026_10_09`；`updated_at` 2026-10-09T11:00:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -134,6 +134,12 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-09（项目管家：c-chains 失败单测 `da2dd223`，未部署）
+- **tip**：origin/github/本地 main=`da2dd223`。**未部署**；生产 c-chains 仍 404。
+- **单测**：非 makeup→422、空 segments、缺 prompt、创建后立即 cancel 停后台、`job_id`=DB Job.id；整文件 11 passed；不真跑 H3。
+- **画布守卫**：`feat/canvas-c-chains-client-guards` tip=`43a51ce5`（两端已推）；空分镜/非 makeup 在 POST 前拒，3 passed；**未合 main**、未部署。
+- Status：`pipeline_c_c_chains_failtests_undeployed`；STATE 同键已更新；闸不开。via 项目管家（ToIV 开发/BeefTV）。
 
 ### 2026-10-09（项目管家：画布 c-chains 已合 main `72dcbe7e`，未部署）
 - **tip**：origin/github/本地 main=`72dcbe7e`（merge `fd108457`）。**未部署**；生产 c-chains 仍 404。
