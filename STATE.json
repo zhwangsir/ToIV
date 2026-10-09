@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T12:25:00+08:00",
+  "updated_at": "2026-10-09T12:20:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12771,7 +12771,7 @@
       "设备管家",
       "项目管家"
     ],
-    "product_tip": "a52c5bd4",
+    "product_tip": "bcba553f",
     "remotes": {
       "origin_gitee_main": "a52c5bd4",
       "github_main": "a52c5bd4",
@@ -12811,7 +12811,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T12:25:00+08:00",
+    "updated_at": "2026-10-09T12:20:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12904,7 +12904,10 @@
       "merged_main": false,
       "scope": "localStorage_queryKey_beeftv_to_toiv_with_legacy_read",
       "deployed": false
-    }
+    },
+    "gitee_main": "bcba553f",
+    "github_main_approx": "a52c5bd4",
+    "github_lag": true
   },
   "deploy_stale_web_ua_brand_2026_10_09": {
     "status": "docs_synced_undeployed",

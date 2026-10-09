@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**两端 tip `001f3fc2`；storage-keys 分支未合**）：origin/github/本地 main=`001f3fc2`。`feat/canvas-storage-keys-toiv`=`6d25357f`（localStorage/queryKey `beeftv-*`→`toiv-*`，旧键可读写新键）**未合 main**。**未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:25:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家：**Gitee tip `bcba553f`；GitHub 滞后**）：origin/本地 main=`bcba553f`（storage-keys 未合入账）。github/main 仍停约 `a52c5bd4`（443 补推中，ToIV开发）。`feat/canvas-storage-keys-toiv`=`6d25357f` **仍未合**。**未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:20:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
