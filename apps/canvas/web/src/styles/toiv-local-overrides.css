@@ -12,3 +12,203 @@ body .app-user-workspace .app-workspace-brand-mark img {
     object-fit: contain !important;
     object-position: center !important;
 }
+
+/* =============================================================================
+   BeefTV thin scrollbar — feat/studio-scrollbar-beeftv
+   细轨 + 低对比 track/thumb；hover 用 workspace/user accent（不用 RH lime）。
+   标准属性优先（Chrome 121+ 祖先 scrollbar-color 会使 webkit 伪元素失效）。
+   故意隐藏的 .hide-scrollbar / .app-workspace-scroll 不改。
+   ============================================================================= */
+:root {
+    --toiv-scroll-size: 6px;
+    --toiv-scroll-thumb: color-mix(
+        in srgb,
+        var(--user-border-strong, var(--workspace-border, var(--border, rgba(25, 25, 30, 0.15)))) 88%,
+        transparent
+    );
+    --toiv-scroll-thumb-hover: color-mix(
+        in srgb,
+        var(--user-accent, var(--workspace-accent, #57575b)) 52%,
+        transparent
+    );
+    --toiv-scroll-track: transparent;
+}
+
+html.dark,
+.dark {
+    --toiv-scroll-thumb: color-mix(
+        in srgb,
+        var(--user-border-strong, rgba(255, 255, 255, 0.18)) 82%,
+        transparent
+    );
+    --toiv-scroll-thumb-hover: color-mix(
+        in srgb,
+        var(--user-accent, var(--workspace-accent, #c1c1c5)) 58%,
+        transparent
+    );
+}
+
+@supports (scrollbar-color: auto) {
+    html {
+        scrollbar-width: thin;
+        scrollbar-color: var(--toiv-scroll-thumb) var(--toiv-scroll-track);
+    }
+
+    :where(
+            .thin-scrollbar,
+            .creation-scrollbar,
+            .hover-scrollbar,
+            .app-workspace-sidebar-scroll-area,
+            .ant-drawer-body,
+            .ant-modal-body,
+            .ant-popover-inner-content,
+            [data-radix-scroll-area-viewport]
+        ):is(:hover, :focus-within) {
+        scrollbar-color: var(--toiv-scroll-thumb-hover) var(--toiv-scroll-track);
+    }
+}
+
+@supports not (scrollbar-color: auto) {
+    ::-webkit-scrollbar {
+        width: var(--toiv-scroll-size);
+        height: var(--toiv-scroll-size);
+    }
+
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-corner {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background-color: var(--toiv-scroll-thumb);
+        border: 1px solid transparent;
+        border-radius: 999px;
+        background-clip: padding-box;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: var(--toiv-scroll-thumb-hover);
+    }
+}
+
+/* Retoken utility classes (override stone/slate hardcodes in globals.css) */
+.thin-scrollbar {
+    scrollbar-width: thin !important;
+    scrollbar-color: var(--toiv-scroll-thumb) transparent !important;
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+    width: var(--toiv-scroll-size) !important;
+    height: var(--toiv-scroll-size) !important;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--toiv-scroll-thumb) !important;
+    border-radius: 999px !important;
+}
+
+.thin-scrollbar:hover::-webkit-scrollbar-thumb,
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--toiv-scroll-thumb-hover) !important;
+}
+
+.hover-scrollbar {
+    scrollbar-width: thin !important;
+    scrollbar-color: transparent transparent !important;
+}
+
+.hover-scrollbar:hover {
+    scrollbar-color: var(--toiv-scroll-thumb) transparent !important;
+}
+
+.hover-scrollbar::-webkit-scrollbar {
+    width: var(--toiv-scroll-size) !important;
+    height: var(--toiv-scroll-size) !important;
+}
+
+.hover-scrollbar::-webkit-scrollbar-thumb {
+    background: transparent !important;
+    border-radius: 999px !important;
+}
+
+.hover-scrollbar:hover::-webkit-scrollbar-track {
+    background: color-mix(in srgb, var(--user-border, rgba(25, 25, 30, 0.1)) 70%, transparent) !important;
+    border-radius: 999px !important;
+}
+
+.hover-scrollbar:hover::-webkit-scrollbar-thumb {
+    background: var(--toiv-scroll-thumb) !important;
+}
+
+.creation-scrollbar {
+    scrollbar-width: thin !important;
+    scrollbar-color: var(--toiv-scroll-thumb) transparent !important;
+}
+
+.creation-scrollbar::-webkit-scrollbar {
+    width: var(--toiv-scroll-size) !important;
+    height: var(--toiv-scroll-size) !important;
+}
+
+.creation-scrollbar::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.creation-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--toiv-scroll-thumb) !important;
+    border-radius: 999px !important;
+}
+
+.creation-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--toiv-scroll-thumb-hover) !important;
+}
+
+/* Storyboard: keep 12px gutter for column align; retoken colors only */
+.storyboard-scrollbar {
+    scrollbar-color: var(--toiv-scroll-thumb-hover)
+        color-mix(in srgb, var(--user-border, rgba(25, 25, 30, 0.12)) 100%, transparent) !important;
+}
+
+.storyboard-scrollbar::-webkit-scrollbar-track {
+    background: color-mix(in srgb, var(--user-border, rgba(25, 25, 30, 0.12)) 100%, transparent) !important;
+    border-left: 1px solid color-mix(in srgb, var(--user-border-strong, rgba(25, 25, 30, 0.15)) 100%, transparent) !important;
+}
+
+.storyboard-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--toiv-scroll-thumb-hover) !important;
+    background-clip: content-box !important;
+}
+
+.storyboard-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--user-accent, var(--workspace-accent, #57575b)) 72%, transparent) !important;
+    background-clip: content-box !important;
+}
+
+/* Sidebar scroll area: drop hardcoded white rgba */
+.app-workspace-sidebar-scroll-area {
+    scrollbar-width: thin !important;
+}
+
+.app-workspace-sidebar:hover .app-workspace-sidebar-scroll-area,
+.app-workspace-sidebar-scroll-area:hover {
+    scrollbar-color: var(--toiv-scroll-thumb) transparent !important;
+}
+
+.app-workspace-sidebar:hover .app-workspace-sidebar-scroll-area::-webkit-scrollbar-thumb,
+.app-workspace-sidebar-scroll-area:hover::-webkit-scrollbar-thumb,
+.dark .app-workspace-sidebar:hover .app-workspace-sidebar-scroll-area::-webkit-scrollbar-thumb,
+.dark .app-workspace-sidebar-scroll-area:hover::-webkit-scrollbar-thumb {
+    background: var(--toiv-scroll-thumb) !important;
+}
+
+.app-workspace-sidebar-scroll-area::-webkit-scrollbar {
+    width: var(--toiv-scroll-size) !important;
+}
+
+.app-workspace-sidebar-scroll-area::-webkit-scrollbar-thumb {
+    border-radius: 999px !important;
+}

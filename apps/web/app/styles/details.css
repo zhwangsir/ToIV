@@ -17,8 +17,9 @@
   --duration-sheen: calc(var(--duration-loop) * 1.5);
   --ui-progress-track: color-mix(in oklab, var(--text-muted) 18%, transparent);
   --ui-progress-fill: var(--accent);
-  --ui-scroll-thumb: color-mix(in oklab, var(--text-muted) 38%, transparent);
-  --ui-scroll-thumb-hover: color-mix(in oklab, var(--text-muted) 64%, transparent);
+  /* BeefTV: 低对比 thumb；hover 走 border-strong，不用 cinema lime --accent */
+  --ui-scroll-thumb: color-mix(in oklab, var(--border-strong, var(--text-muted)) 42%, transparent);
+  --ui-scroll-thumb-hover: color-mix(in oklab, var(--border-strong, var(--text-secondary)) 72%, transparent);
 }
 
 /* ── 1. 统一进度条 ──────────────────────────────────────────────── */
@@ -158,24 +159,26 @@
   /* 悬停到可滚动区时滑块加深一档,提示「这里能滚」 */
   :where(
     .generate-params-body, .av-chat-wrap, .ob-list, .lib-source-pop,
-    .stage-scroll, .apps-scroll, .modal-body
+    .stage-scroll, .apps-scroll, .modal-body, .apps-grid, .lib-grid,
+    .settings-scroll, .studio-scroll
   ):hover {
     scrollbar-color: var(--ui-scroll-thumb-hover) transparent;
   }
 }
 @supports not (scrollbar-color: auto) {
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  /* 6px 细轨（BeefTV / feat/studio-scrollbar-beeftv）；border 内嵌避免贴边 */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track,
   ::-webkit-scrollbar-corner { background: transparent; }
   ::-webkit-scrollbar-thumb {
     background-color: var(--ui-scroll-thumb);
-    border: 3px solid transparent; /* 10px 盒 / 4px 可见滑块:内嵌不贴边 */
+    border: 1px solid transparent;
     background-clip: padding-box;
     border-radius: var(--radius-full);
   }
   ::-webkit-scrollbar-thumb:hover {
     background-color: var(--ui-scroll-thumb-hover);
-    border-width: 2px;
+    border-width: 0;
   }
 }
 /* 密集面板(参数浮板、对话流、下拉列表):鼠标不在时隐藏滑块,移入/聚焦时出现;
