@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T12:20:00+08:00",
+  "updated_at": "2026-10-09T12:25:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12811,7 +12811,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T12:20:00+08:00",
+    "updated_at": "2026-10-09T12:25:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12896,6 +12896,13 @@
         "localStorage_cover_key"
       ],
       "bun_test_passed": 5,
+      "deployed": false
+    },
+    "canvas_storage_keys_toiv": {
+      "branch": "feat/canvas-storage-keys-toiv",
+      "tip": "6d25357f",
+      "merged_main": false,
+      "scope": "localStorage_queryKey_beeftv_to_toiv_with_legacy_read",
       "deployed": false
     }
   },
