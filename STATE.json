@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T11:28:00+08:00",
+  "updated_at": "2026-10-09T11:30:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12762,20 +12762,20 @@
     "updated_at": "2026-10-09T10:20:00+08:00"
   },
   "pipeline_c_c_chains_2026_10_09": {
-    "status": "pipeline_c_c_chains_synced_undeployed",
+    "status": "canvas_ua_toiv_merged_gitee_only_undeployed",
     "date": "2026-10-09",
     "steward": "项目管家",
     "source": [
       "ToIV 开发",
       "ToIV BeefTV 融合",
-      "设备管家",
       "项目管家"
     ],
-    "product_tip": "14f5f585",
+    "product_tip": "3b6495aa",
     "remotes": {
-      "origin_gitee_main": "14f5f585",
+      "origin_gitee_main": "3b6495aa",
       "github_main": "14f5f585",
-      "verified_both": true
+      "verified_both": false,
+      "github_lag_note": "pending_ff_push_no_force"
     },
     "deploy": {
       "status": "not_deployed",
@@ -12811,7 +12811,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T11:25:00+08:00",
+    "updated_at": "2026-10-09T11:30:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12826,25 +12826,29 @@
       ],
       "deployed": false
     },
-    "product_tip_gitee": "14f5f585",
+    "product_tip_gitee": "3b6495aa",
     "product_tip_github": "14f5f585",
-    "remotes_synced": true,
+    "remotes_synced": false,
     "docs_tip_on_gitee": "4575aaa9",
     "canvas_outbound_ua": {
       "branch": "feat/canvas-outbound-ua-toiv",
       "tip": "1340c9f2",
-      "merged_main": false,
+      "merged_main": true,
+      "merge_commit": "3b6495aa",
       "default_ua": "ToIV/1.0",
+      "go_default_outbound_user_agent": "ToIV",
       "desktop_updater": "unchanged_upstream_beeftv_feed",
       "deployed": false
     }
   },
   "deploy_stale_web_ua_brand_2026_10_09": {
-    "status": "deploy_stale_web_ua_brand_undeployed",
+    "status": "deploy_stale_web_ua_brand_merged_gitee_only_undeployed",
     "date": "2026-10-09",
-    "steward": "ToIV 开发",
+    "steward": "项目管家",
     "source": [
-      "ToIV 开发"
+      "ToIV 开发",
+      "ToIV BeefTV 融合",
+      "项目管家"
     ],
     "product_tip": "f5865a30",
     "summary": "deploy.sh reject stale .next BUILD_ID sha≠HEAD; canvas DEFAULT_USER_AGENT→ToIV/1.0; ALLOW_STALE_WEB=1 optional; NOT deployed; Go outbound UA still BeefTV (see feat/canvas-outbound-ua-toiv)",
@@ -12854,21 +12858,12 @@
       "verified_both": false
     },
     "deploy": {
-      "status": "not_deployed",
-      "note": "do not run deploy; local BUILD_ID still 20261007-194448-7ce69c7f-dirty"
+      "status": "not_deployed"
     },
     "deploy_sh": {
-      "check": "assert_web_build_matches_head",
-      "format": "YYYYMMDD-HHmmss-<git短sha>[-dirty]",
-      "skip_web": "no_check",
-      "allow_stale_env": "ALLOW_STALE_WEB=1",
-      "verified": {
-        "stale_reject": true,
-        "match_pass": true,
-        "allow_stale_warn": true,
-        "local_build_id": "20261007-194448-7ce69c7f-dirty",
-        "expected_sha_at_verify": "14f5f585"
-      }
+      "assert_web_build_matches_head": true,
+      "allow_stale": "ALLOW_STALE_WEB=1",
+      "skip_web": "--skip-web"
     },
     "ua_brand": {
       "file": "apps/canvas/web/src/components/channel-headers-editor.tsx",
@@ -12889,6 +12884,19 @@
     "admin_gate": "off_unchanged",
     "prior_tip": "14f5f585",
     "race_note": "96892c80 was concurrent steward docs on top of product tip; this key books the real change",
-    "updated_at": "2026-10-09T11:28:00+08:00"
+    "updated_at": "2026-10-09T11:30:00+08:00",
+    "product_tip_gitee": "3b6495aa",
+    "product_tip_github": "14f5f585",
+    "commits": {
+      "deploy_and_channel_ua": "f5865a30",
+      "go_ua_merge": "3b6495aa",
+      "docs_prior": "3dbfbb0f"
+    },
+    "ua": {
+      "default": "ToIV/1.0",
+      "go_outbound_merged": true,
+      "desktop_updater_unchanged": true
+    },
+    "remotes_synced": false
   }
 }

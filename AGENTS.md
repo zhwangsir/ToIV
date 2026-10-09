@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（ToIV 开发：**拒旧网页+UA 品牌 tip `f5865a30`，未部署**）：产品 tip=`f5865a30`（deploy 拒旧 .next；画布 DEFAULT_USER_AGENT→ToIV/1.0）。**未部署**；本地 .next 仍 `20261007-194448-7ce69c7f-dirty`；Go outbound UA 仍 BeefTV（分支 `feat/canvas-outbound-ua-toiv`=`1340c9f2` 未合）。闸不开。STATE `deploy_stale_web_ua_brand_2026_10_09`；`updated_at` 2026-10-09T11:28:00+08:00；via ToIV 开发。
+> **最后更新**：2026-10-09（项目管家：**UA 合入 tip `3b6495aa`，未部署**）：Gitee/本地 main=`3b6495aa`（merge Go `DefaultOutboundUserAgent`→ToIV；其上 `f5865a30` 拒旧网页+渠道 UA、docs `3dbfbb0f`/`96892c80`）。GitHub main 仍=`14f5f585`（后台补，禁强推）。**未部署**；生产 c-chains 仍 404。闸不开。STATE `pipeline_c_c_chains_2026_10_09` + `deploy_stale_web_ua_brand_2026_10_09`；`updated_at` 2026-10-09T11:30:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
