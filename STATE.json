@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T13:34:00+08:00",
+  "updated_at": "2026-10-09T13:37:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12771,7 +12771,7 @@
       "设备管家",
       "项目管家"
     ],
-    "product_tip": "34284c7e",
+    "product_tip": "238c3aa9",
     "remotes": {
       "origin_gitee_main": "f90f86d5",
       "github_main": "f90f86d5",
@@ -12811,7 +12811,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T13:34:00+08:00",
+    "updated_at": "2026-10-09T13:37:00+08:00",
     "prior_product_tip": "a6a96717",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12993,7 +12993,7 @@
     },
     "desktop_windows_runtime_toiv": {
       "branch": "feat/canvas-p3-windows-runtime-toiv",
-      "tip": "9d9a76cb",
+      "tip": "1b4709cd",
       "merged_main": false,
       "scope": "read_legacy_.beeftv_runtime_write_.toiv_runtime",
       "owner": "BeefTV",
