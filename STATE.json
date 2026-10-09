@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T04:24:00+08:00",
+  "updated_at": "2026-10-10T04:36:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14360,5 +14360,38 @@
     "summary": "tip 16b56cfc similar-merge Slice A 已部署",
     "product_tip": "16b56cfc",
     "updated_at": "2026-10-10T04:24:00+08:00"
+  },
+  "h3_fl2va_alias_2026_10_10": {
+    "status": "h3_fl2va_alias_deployed",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "设备管家",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "H3 FL2VA A tip d69ee564 已合+api 部署；B 软链齐",
+    "tip": "d69ee564",
+    "pass_a": "aliases+loader",
+    "pass_b": "MiniMax-H3→NAS pruned softlinks",
+    "active_enter": "2026-10-10T04:35:41+08:00",
+    "canvas_tip": "16b56cfc",
+    "deploy_scope": "api",
+    "merged": true,
+    "deployed": true,
+    "updated_at": "2026-10-10T04:36:00+08:00"
+  },
+  "main_tip_d69ee564_2026_10_10": {
+    "status": "main_tip_d69ee564_deployed",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "tip d69ee564 H3 FL2VA A 已合+api 部署",
+    "product_tip": "d69ee564",
+    "updated_at": "2026-10-10T04:36:00+08:00"
   }
 }

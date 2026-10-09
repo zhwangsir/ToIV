@@ -1,3 +1,4 @@
+- 2026-10-10 tip `d69ee564` **已合+api 部署**（项目管家；ToIV开发）：H3 FL2VA A aliases+loader；B 软链齐；ActiveEnter 04:35:41；canvas 仍 16b56cfc；status=`h3_fl2va_alias_deployed`；updated_at 2026-10-10T04:36:00+08:00。
 - 2026-10-10 tip `16b56cfc` **已部署**（项目管家；ToIV开发/融合）：similar-merge Slice A canvas 落稳；soft-hide wan-animate+ace-music-legacy（public 83）；status=`similar_merge_p1_slice_a_deployed`；updated_at 2026-10-10T04:24:00+08:00。
 - 2026-10-10 tip `16b56cfc` similar-merge P1 Slice A **已合未部署**（项目管家；开发/融合）：intent remap + soft-hide（`eba996b3`）；合前不刷现网；status=`similar_merge_p1_merged_undeployed`；updated_at 2026-10-10T04:18:00+08:00。
 - 2026-10-10 docs tip `e8e69873` 已双推齐（项目管家；ToIV开发核）：origin/github 含于 main `16b56cfc`；status=`docs_e8e69873_dual_pushed`；updated_at 2026-10-10T04:18:00+08:00。
