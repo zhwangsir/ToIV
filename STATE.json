@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T12:32:00+08:00",
+  "updated_at": "2026-10-09T12:35:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12771,7 +12771,7 @@
       "设备管家",
       "项目管家"
     ],
-    "product_tip": "2483c74d",
+    "product_tip": "8d22d144",
     "remotes": {
       "origin_gitee_main": "2483c74d",
       "github_main": "2483c74d",
@@ -12811,7 +12811,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T12:32:00+08:00",
+    "updated_at": "2026-10-09T12:35:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12906,7 +12906,7 @@
       "deployed": false,
       "merge_tip": "0b038325"
     },
-    "gitee_main": "2483c74d",
+    "gitee_main": "8d22d144",
     "github_main_approx": "a52c5bd4",
     "github_lag": false,
     "github_main": "2483c74d",
@@ -12926,6 +12926,18 @@
         "runtimeinfo path"
       ],
       "tests": "go test ./cmd/desktop/ -count=1 ok",
+      "deployed": false
+    },
+    "desktop_command_guard_brand": {
+      "tip": "2483c74d",
+      "merged_main": true,
+      "cli_id_still": "beeftv"
+    },
+    "desktop_path_migration_plan": {
+      "branch": "feat/canvas-desktop-path-migration-plan",
+      "tip": "0fa9d20c",
+      "merged_main": false,
+      "note": "default_ToIV_runtimeinfo_still_BeefTV_P1_rename_or_junction",
       "deployed": false
     }
   },
