@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**产品文案合入 tip `12499686`，未部署**）：origin/github/本地 main=`12499686`（merge `f8ac0794`；含 docs `9d713a81`）。仅 4 处可见文案/下载名；MCP/CLI 仍 `beeftv`。**未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:10:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（ToIV 开发：**CSS 前缀合入 tip `3f41ee07`，未部署**）：origin/本地 main=`3f41ee07`（merge `6a519cc1`；含 docs `971b387f`）。画布 web 类名/样式文件 `beeftv-`→`toiv-`；PUBLIC_FILES 去掉未引用 beef-logo/mark；`.beeftv-plugin`/MCP/CLI/localStorage cover key 未改。**未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:15:00+08:00；via ToIV 开发。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -134,6 +134,11 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-09（ToIV 开发：CSS 前缀合入 `3f41ee07`，未部署）
+- **tip**：origin/本地 main=`3f41ee07`（merge `6a519cc1`）。GitHub 若滞后另报。**未部署**；生产 c-chains 仍 404。
+- **范围**：`apps/canvas/web` 类名/keyframes/`toiv-local-overrides.css`；home-dashboard/loader/globals；bun test 5 passed。
+- Status：`canvas_css_prefix_toiv_merged_undeployed`；闸不开。via ToIV 开发。
 
 ### 2026-10-09（项目管家：产品文案合入 `12499686`，未部署）
 - **tip**：origin/github/本地 main=`12499686`（merge `f8ac0794`）。**未部署**；生产 c-chains 仍 404。

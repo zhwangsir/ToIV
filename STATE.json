@@ -12762,7 +12762,7 @@
     "updated_at": "2026-10-09T10:20:00+08:00"
   },
   "pipeline_c_c_chains_2026_10_09": {
-    "status": "canvas_product_copy_toiv_merged_undeployed",
+    "status": "canvas_css_prefix_toiv_merged_undeployed",
     "date": "2026-10-09",
     "steward": "项目管家",
     "source": [
@@ -12770,11 +12770,11 @@
       "ToIV BeefTV 融合",
       "项目管家"
     ],
-    "product_tip": "12499686",
+    "product_tip": "3f41ee07",
     "remotes": {
-      "origin_gitee_main": "12499686",
-      "github_main": "12499686",
-      "verified_both": true
+      "origin_gitee_main": "3f41ee07",
+      "github_main": "lag_443_or_timeout",
+      "verified_both": false
     },
     "deploy": {
       "status": "not_deployed",
@@ -12810,7 +12810,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T12:10:00+08:00",
+    "updated_at": "2026-10-09T12:15:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12825,9 +12825,9 @@
       ],
       "deployed": false
     },
-    "product_tip_gitee": "12499686",
-    "product_tip_github": "12499686",
-    "remotes_synced": true,
+    "product_tip_gitee": "3f41ee07",
+    "product_tip_github": "lag_443_or_timeout",
+    "remotes_synced": false,
     "docs_tip_on_gitee": "4575aaa9",
     "canvas_outbound_ua": {
       "merged_main": true,
@@ -12868,6 +12868,21 @@
       "merge_commit": "12499686",
       "scope": "4_user_visible_copy_or_download_name_sites",
       "mcp_cli_binary": "still_beeftv",
+      "deployed": false
+    },
+    "canvas_css_prefix_toiv": {
+      "branch": "feat/canvas-css-prefix-toiv",
+      "tip": "6a519cc1",
+      "merged_main": true,
+      "merge_commit": "3f41ee07",
+      "scope": "css_class_prefix_and_overrides_file",
+      "left_unchanged": [
+        ".beeftv-plugin",
+        "mcp_cli",
+        "localStorage_cover_key",
+        "queryKey"
+      ],
+      "tests": "bun test home-dark-palette + toiv-c-chains: 5 passed",
       "deployed": false
     }
   },
