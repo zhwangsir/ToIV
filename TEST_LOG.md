@@ -1,3 +1,4 @@
+- 2026-10-10 tip `15f1816c` / canvas `385be368` **已部署**（项目管家；ToIV开发）：similar-merge Slice B；ActiveEnter 04:43:33；api 仍 d69ee564；status=`similar_merge_p1_slice_b_deployed`；updated_at 2026-10-10T04:44:30+08:00。
 - 2026-10-10 tip `15f1816c` **已合未部署**（项目管家；ToIV开发）：similar-merge Slice B merge `385be368` 已在 main；canvas 刷进行中；status=`similar_merge_p1_slice_b_merged_undeployed`；updated_at 2026-10-10T04:43:00+08:00。
 - 2026-10-10 tip `15f1816c` **待审合**（项目管家；融合）：similar-merge Slice B（#12/#13/#17/#20/#25）；合前不刷；status=`similar_merge_p1_slice_b_await_merge`。另：B 软链账本三行齐（模型下载 ls；MiniMax-H3-FL2VA-int8_convrot/audio_vae/video_vae→NAS pruned）；status=`h3_fl2va_b_ledger_ok`；updated_at 2026-10-10T04:41:00+08:00。
 - 2026-10-10 tip `d69ee564` **已合+api 部署**（项目管家；ToIV开发）：H3 FL2VA A aliases+loader；B 软链齐；ActiveEnter 04:35:41；canvas 仍 16b56cfc；status=`h3_fl2va_alias_deployed`；updated_at 2026-10-10T04:36:00+08:00。
