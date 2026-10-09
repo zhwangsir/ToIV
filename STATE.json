@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T18:32:00+08:00",
+  "updated_at": "2026-10-09T18:35:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13656,7 +13656,7 @@
     "superseded_by": "bbeab23e"
   },
   "canvas_model_config_verify_2026_10_09": {
-    "status": "defaults_patch_merged_awaiting_canvas_deploy",
+    "status": "defaults_deployed_await_user_hard_refresh",
     "date": "2026-10-09",
     "source": [
       "User",
@@ -13699,11 +13699,11 @@
       "status": "blocked",
       "missing": "h3_service_account.env"
     },
-    "updated_at": "2026-10-09T18:32:00+08:00",
+    "updated_at": "2026-10-09T18:35:00+08:00",
     "product_tip": "bbeab23e"
   },
   "main_tip_bbeab23e_2026_10_09": {
-    "status": "main_tip_bbeab23e_merged_canvas_deploying",
+    "status": "main_tip_bbeab23e_deployed",
     "date": "2026-10-09",
     "source": [
       "ToIV开发",
@@ -13729,14 +13729,14 @@
     },
     "deploy": {
       "canvas": {
-        "status": "deploying_to_bbeab23e",
-        "live_approx": "09a9ab54"
+        "tip": "bbeab23e",
+        "status": "deployed",
+        "live_template_int8": true
       },
       "api_web": {
         "approx": "cd9c1bb8",
         "STUDIO_MULTITENANT": "1"
-      },
-      "live_template_int8": false
+      }
     },
     "h3_timer": {
       "status": "blocked",
@@ -13746,25 +13746,29 @@
       "origin_gitee_main": "bbeab23e",
       "github_main": "bbeab23e"
     },
-    "updated_at": "2026-10-09T18:32:00+08:00"
+    "updated_at": "2026-10-09T18:35:00+08:00"
   },
   "fusion_market_expose_merge_2026_10_09": {
-    "status": "fusion_market_expose_merge_backlog",
+    "status": "fusion_market_local_capability_branch_open",
     "date": "2026-10-09",
     "source": [
       "User",
+      "ToIV开发",
       "ToIV BeefTV 融合",
       "ToIV 模型下载",
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "用户：能力未露出/相近未合并/市场展示≠真能力；融合摸查，开发定刀；模型侧剔空壳绑真名",
-    "scope": [
-      "capability_expose",
-      "similar_feature_merge",
-      "app_market_display_vs_capability"
+    "summary": "摸底交审；分支 feat/studio-market-local-capability-surface 已开，tip 未出",
+    "process": "inventory→dev_review→mapping+merge+market_cards",
+    "branch": "feat/studio-market-local-capability-surface",
+    "proposed_knife": [
+      "market_local_capability_surface",
+      "intent_deeplink",
+      "create_menu_preset_engines"
     ],
-    "owner": "ToIV BeefTV 融合 (scout) → ToIV开发 (knife)",
-    "updated_at": "2026-10-09T18:32:00+08:00"
+    "model_followup": "await_basename_map_then_NAS_picker_mark",
+    "tip": null,
+    "updated_at": "2026-10-09T18:34:00+08:00"
   }
 }

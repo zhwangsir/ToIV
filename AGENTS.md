@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家；盯梢/融合/开发/设备）：**main tip `bbeab23e`**（`771e7761` H3 默认 int8_convrot + 本地跳过 Key + 默认 Qwen/deepseek；`bbeab23e` 活 template 同步）**已合未刷**——canvas-only 刷进行中，生产仍≈`09a9ab54`（活模板尚无 int8）。用户另提：**能力未露出 / 相近功能未合并 / 应用市场展示≠真能力**（融合摸查中，未定刀）。H3 timer 仍缺凭证。`updated_at` 2026-10-09T18:32:00+08:00。
+> **最后更新**：2026-10-09（项目管家；ToIV开发核）：**main tip `bbeab23e` 已部署**（canvas-only 落稳，活模板含 int8_convrot 默认；请硬刷新验配置页）。市场露出分支 `feat/studio-market-local-capability-surface` tip 未出、审中。H3 timer 仍缺凭证。`updated_at` 2026-10-09T18:35:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
