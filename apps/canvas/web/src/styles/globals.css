@@ -2939,7 +2939,7 @@
 
     .full-screen-loader::before { display: none; }
 
-    .beeftv-loading-logo {
+    .toiv-loading-logo {
         display: block;
         width: min(240px, 42vw);
         aspect-ratio: 17 / 10;
@@ -2951,13 +2951,13 @@
         animation: appearance-bootstrap-shimmer 2.6s ease-in-out infinite;
     }
 
-    .beeftv-loading-logo.is-compact { width: 48px; }
+    .toiv-loading-logo.is-compact { width: 48px; }
 
     .workspace-route-loader { background: #090909; color: #fff; }
     .workspace-route-loader-content { gap: var(--space-2); color: inherit; }
 
     @media (prefers-reduced-motion: reduce) {
-        .beeftv-loading-logo {
+        .toiv-loading-logo {
             animation: none;
             background: #f2f2f2;
         }

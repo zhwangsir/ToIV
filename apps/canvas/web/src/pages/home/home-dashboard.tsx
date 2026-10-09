@@ -12,51 +12,51 @@ function formatDate(value: string) {
 export function HomeDashboard({ projects, loading, error, onRetry }: { projects: CanvasLibrarySummary[]; loading: boolean; error: boolean; onRetry: () => void }) {
     const navigate = useNavigate();
     return (
-        <main className="beeftv-home" aria-label="ToIV 首页">
-            <section className="beeftv-home-hero" aria-label="新建画布">
-                <span className="beeftv-home-dot-base" aria-hidden />
-                <span className="beeftv-home-dot-flow" aria-hidden />
-                <span className="beeftv-home-dot-flow beeftv-home-dot-flow-delay" aria-hidden />
-                <button type="button" className="beeftv-home-create" onClick={() => navigate("/canvas?mode=new")}>
-                    <span className="beeftv-home-create-icon"><Plus /></span>
-                    <span className="beeftv-home-create-title">新建画布创作</span>
+        <main className="toiv-home" aria-label="ToIV 首页">
+            <section className="toiv-home-hero" aria-label="新建画布">
+                <span className="toiv-home-dot-base" aria-hidden />
+                <span className="toiv-home-dot-flow" aria-hidden />
+                <span className="toiv-home-dot-flow toiv-home-dot-flow-delay" aria-hidden />
+                <button type="button" className="toiv-home-create" onClick={() => navigate("/canvas?mode=new")}>
+                    <span className="toiv-home-create-icon"><Plus /></span>
+                    <span className="toiv-home-create-title">新建画布创作</span>
                 </button>
             </section>
 
-            <nav className="beeftv-capabilities" aria-label="创作能力">
+            <nav className="toiv-capabilities" aria-label="创作能力">
                 {beefTVCapabilityItems.map(({ id, label, detail, to, icon: Icon, disabled, external }) => (
                     disabled ? (
-                        <span key={id} className="beeftv-capability is-disabled" aria-disabled="true" title={`${label}：${detail}`}>
-                            <span className="beeftv-capability-icon"><Icon /></span>
+                        <span key={id} className="toiv-capability is-disabled" aria-disabled="true" title={`${label}：${detail}`}>
+                            <span className="toiv-capability-icon"><Icon /></span>
                             <strong>{label}</strong>
                         </span>
                     ) : external ? (
-                        <a key={id} href={to} className="beeftv-capability">
-                            <span className="beeftv-capability-icon"><Icon /></span>
+                        <a key={id} href={to} className="toiv-capability">
+                            <span className="toiv-capability-icon"><Icon /></span>
                             <strong>{label}</strong>
                         </a>
                     ) : (
-                        <Link key={id} to={to} className="beeftv-capability">
-                            <span className="beeftv-capability-icon"><Icon /></span>
+                        <Link key={id} to={to} className="toiv-capability">
+                            <span className="toiv-capability-icon"><Icon /></span>
                             <strong>{label}</strong>
                         </Link>
                     )
                 ))}
             </nav>
 
-            <section className="beeftv-home-section beeftv-recents">
-                <header className="beeftv-section-heading"><h2>最近项目</h2><Link to="/project">查看全部 <ArrowRight /></Link></header>
+            <section className="toiv-home-section toiv-recents">
+                <header className="toiv-section-heading"><h2>最近项目</h2><Link to="/project">查看全部 <ArrowRight /></Link></header>
                 {error ? (
-                    <button className="beeftv-home-error" type="button" onClick={onRetry}><RefreshCw />画布读取失败，点击重试</button>
+                    <button className="toiv-home-error" type="button" onClick={onRetry}><RefreshCw />画布读取失败，点击重试</button>
                 ) : (
-                    <div className="beeftv-recent-grid">
-                        {loading ? Array.from({ length: 4 }, (_, index) => <div className="beeftv-recent-card is-loading" key={index} />) : projects.length ? projects.map((project) => {
-                            return <Link to={`/canvas/${project.id}`} className="beeftv-recent-card" key={project.id}>
-                                <span className="beeftv-recent-preview"><ProjectPreview project={{ id: project.id, nodes: project.previewNodes }} emptyVariant="libtv" /></span>
-                                <span className="beeftv-recent-copy"><strong>{project.title || "未命名"}</strong><small>{formatDate(project.updatedAt)}</small></span>
-                                <ArrowRight className="beeftv-recent-arrow" />
+                    <div className="toiv-recent-grid">
+                        {loading ? Array.from({ length: 4 }, (_, index) => <div className="toiv-recent-card is-loading" key={index} />) : projects.length ? projects.map((project) => {
+                            return <Link to={`/canvas/${project.id}`} className="toiv-recent-card" key={project.id}>
+                                <span className="toiv-recent-preview"><ProjectPreview project={{ id: project.id, nodes: project.previewNodes }} emptyVariant="libtv" /></span>
+                                <span className="toiv-recent-copy"><strong>{project.title || "未命名"}</strong><small>{formatDate(project.updatedAt)}</small></span>
+                                <ArrowRight className="toiv-recent-arrow" />
                             </Link>;
-                        }) : <button type="button" className="beeftv-recent-card is-empty" onClick={() => navigate("/canvas?mode=new")}><span className="beeftv-recent-preview"><Plus /></span><span className="beeftv-recent-copy"><strong>创建第一个画布</strong></span></button>}
+                        }) : <button type="button" className="toiv-recent-card is-empty" onClick={() => navigate("/canvas?mode=new")}><span className="toiv-recent-preview"><Plus /></span><span className="toiv-recent-copy"><strong>创建第一个画布</strong></span></button>}
                     </div>
                 )}
             </section>

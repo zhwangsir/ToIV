@@ -7,7 +7,7 @@
 // prefixed form; requests are mapped back before they reach the backend.
 
 const PUBLIC_DIRS = ["short-drama-styles", "lighting-presets", "images", "canvas/models", "three", "mediapipe", "icons", "welcome"];
-const PUBLIC_FILES = ["logo.svg", "favicon.svg", "toiv-logo.svg", "toiv-mark.svg", "beef-logo.png", "beef-mark.png"];
+const PUBLIC_FILES = ["logo.svg", "favicon.svg", "toiv-logo.svg", "toiv-mark.svg"];
 
 function normalizeBase(raw: string | undefined) {
     const value = String(raw || "/").trim();

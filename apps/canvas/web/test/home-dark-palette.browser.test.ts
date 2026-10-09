@@ -26,8 +26,8 @@ async function readPalette({ dark, home, width = 1440 }: { dark: boolean; home: 
         <body><div class="app-user-workspace app-product-workspace ${home ? "app-home-route" : ""}">
             <div class="app-workspace-shell">
                 <aside class="app-workspace-sidebar"><div class="app-workspace-sidebar-nav"></div><div class="app-workspace-sidebar-footer"></div></aside>
-                <div class="app-workspace-stage"><main class="beeftv-home">
-                    <div class="beeftv-home-hero"></div><div class="beeftv-capability-icon"></div><div class="beeftv-recent-card"></div>
+                <div class="app-workspace-stage"><main class="toiv-home">
+                    <div class="toiv-home-hero"></div><div class="toiv-capability-icon"></div><div class="toiv-recent-card"></div>
                     <div class="project-library-card"></div><div class="libtv-create-project-card"></div><div class="libtv-folder-card-cover"></div>
                     <div class="assets-library-page"><div class="canvas-library-frame"></div><div class="assets-inline-search"></div></div>
                     <div class="settings-page"><div class="settings-library-frame"><div class="settings-channel"></div></div></div>
@@ -42,9 +42,9 @@ async function readPalette({ dark, home, width = 1440 }: { dark: boolean; home: 
             sidebar: background(".app-workspace-sidebar"),
             sidebarNav: background(".app-workspace-sidebar-nav"),
             sidebarFooter: background(".app-workspace-sidebar-footer"),
-            hero: background(".beeftv-home-hero"),
-            capability: background(".beeftv-capability-icon"),
-            recent: background(".beeftv-recent-card"),
+            hero: background(".toiv-home-hero"),
+            capability: background(".toiv-capability-icon"),
+            recent: background(".toiv-recent-card"),
             projectCard: background(".project-library-card"),
             projectCreateCard: background(".libtv-create-project-card"),
             assetFrame: background(".assets-library-page .canvas-library-frame"),
