@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T00:41:00+08:00",
+  "updated_at": "2026-10-10T00:52:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14087,19 +14087,58 @@
     "updated_at": "2026-10-10T00:28:00+08:00"
   },
   "studio_scroll_unblock_2026_10_10": {
-    "status": "studio_scroll_unblock_hold",
+    "status": "studio_scroll_unblock_canvas_deployed",
     "date": "2026-10-10",
     "source": [
       "用户",
+      "ToIV开发",
       "ToIV BeefTV 融合",
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "多页滑不动优先；滚动条再优 HOLD",
-    "priority": "scroll_broken_over_aesthetics",
-    "baseline_tip": "ed015749",
-    "docs_tip_baseline": "073f3801",
-    "owner": "ToIV BeefTV 融合摸底 → ToIV开发 拍板",
-    "updated_at": "2026-10-10T00:41:00+08:00"
+    "summary": "多页滑不动已修；tip 0c62c939 canvas 已刷",
+    "tip": "0c62c939",
+    "scout": "SCROLL_CANT_SCOUT.md",
+    "merged": true,
+    "deployed": true,
+    "deploy_scope": "canvas_only",
+    "updated_at": "2026-10-10T00:52:00+08:00"
+  },
+  "main_tip_0c62c939_2026_10_10": {
+    "status": "main_tip_0c62c939_canvas_deployed",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "滚动解锁 tip 0c62c939 canvas-only 已部署",
+    "product_tip": "0c62c939",
+    "branch": "feat/studio-scroll-unlock",
+    "root_cause": {
+      "not": "ed015749_thin_scrollbar",
+      "shell": "html/body/#root+stage overflow:hidden",
+      "pages": [
+        "market",
+        "library",
+        "library-detail",
+        "drama",
+        "drama-detail",
+        "tasks"
+      ],
+      "fix": "wrap_WorkspacePage_or_overflow-y-auto"
+    },
+    "deploy": {
+      "canvas": {
+        "tip": "0c62c939",
+        "at": "2026-10-10T00:51+08:00",
+        "live": 200
+      },
+      "api_web": "unchanged_at_unlock_deploy",
+      "status": "canvas_only_deployed"
+    },
+    "tests": "8_green",
+    "updated_at": "2026-10-10T00:52:00+08:00"
   }
 }
