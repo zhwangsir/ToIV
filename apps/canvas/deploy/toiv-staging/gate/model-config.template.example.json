@@ -10,7 +10,8 @@
   "MZt9ON1JvbabJ2GS-PvXR::h3-t2v",
   "toiv-video-wan::local-wan",
   "toiv-video-wan::local-longcat",
-  "toiv-video-wan::local-vace"
+  "toiv-video-wan::local-vace",
+  "toiv-video-wan::local-wan-animate"
  ],
  "models": [
   "MZt9ON1JvbabJ2GS-PvXR::h3",
@@ -594,12 +595,37 @@
       "toivNasRoot": "toiv/comfyui-models",
       "engine": "vace"
      }
+    },
+    {
+     "capability": "video",
+     "capabilityConfig": {
+      "version": 1,
+      "video": {
+       "defaultOperation": "reference_to_video",
+       "defaultRatio": "16:9",
+       "maxDurationSec": 31,
+       "references": {
+        "maxImages": 1,
+        "maxVideos": 1,
+        "promptMaxChars": 4000
+       }
+      }
+     },
+     "model": "local-wan-animate",
+     "protocol": "toiv-comfy-video",
+     "displayName": "本地·Wan Animate",
+     "defaultOptions": {
+      "toivWorkerLabel": ":8199",
+      "toivNasRoot": "toiv/comfyui-models",
+      "engine": "animate"
+     }
     }
    ],
    "models": [
     "local-wan",
     "local-longcat",
-    "local-vace"
+    "local-vace",
+    "local-wan-animate"
    ],
    "name": "本地·视频(Wan/LongCat)",
    "pinned": false,

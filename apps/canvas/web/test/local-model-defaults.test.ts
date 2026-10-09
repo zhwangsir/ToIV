@@ -103,13 +103,16 @@ describe("local model defaults (slice 1+2+3)", () => {
         expect(MODEL_PICKER_EMPTY_CTA).not.toMatch(/API Key/i);
     });
 
-    test("classifyLocalVideoEngine routes Wan/LongCat/VACE", () => {
+    test("classifyLocalVideoEngine routes Wan/LongCat/VACE/Animate", () => {
         expect(classifyLocalVideoEngine("local-wan")).toBe("wan");
         expect(classifyLocalVideoEngine("Wan2_2-T2V.safetensors")).toBe("wan");
         expect(classifyLocalVideoEngine("local-longcat")).toBe("longcat");
         expect(classifyLocalVideoEngine("LongCat_TI2V_comfy.safetensors")).toBe("longcat");
         expect(classifyLocalVideoEngine("local-vace")).toBe("vace");
         expect(classifyLocalVideoEngine("Wan2_1-VACE_module_14B.safetensors")).toBe("vace");
+        expect(classifyLocalVideoEngine("local-wan-animate")).toBe("animate");
+        expect(classifyLocalVideoEngine("wan2.2-animate-2-14b.safetensors")).toBe("animate");
+        expect(classifyLocalVideoEngine("Wan2.2-Animate-14B-Q4_K_M.gguf")).toBe("animate");
     });
 
 });

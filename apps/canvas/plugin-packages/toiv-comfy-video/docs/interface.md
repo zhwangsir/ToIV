@@ -2,7 +2,8 @@
 
 ## 创建
 
-`POST /api/generate/txt2video`（相对 ToIV API baseUrl，默认 `http://127.0.0.1:8090`）。
+默认 `POST /api/generate/txt2video`（相对 ToIV API baseUrl，默认 `http://127.0.0.1:8090`）。
+`pathTemplate` 按 prepare.route 切换 LongCat / VACE / Wan Animate2。
 
 ## 轮询
 
@@ -10,7 +11,9 @@
 
 ## Worker
 
-出视频默认 Comfy **:8197**（由 ToIV WorkerPool + NAS 绑定模型可达性选机；禁试验口 :8195/:8205/:8261）。
+- Wan T2V / LongCat / VACE → Comfy **:8197**
+- Wan Animate2 → Comfy **:8199**（`POST /api/wan/animate2`；upload kind=`wan_animate2`）
+- 禁试验口 :8195/:8205/:8261
 
 <!-- BEEFTV_PLUGIN_MANIFEST_START -->
 ## Manifest 完整接口定义
@@ -22,9 +25,9 @@
   "apiVersion": "beeftv.plugin/v2",
   "id": "toiv-comfy-video",
   "name": "ToIV 本地视频 Comfy",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "ToIV",
-  "description": "BeefTV 视频 → ToIV：Wan /api/generate/txt2video；LongCat /api/longcat/{t2v,i2v}；VACE /api/wan/vace → Workstation Comfy :8197；轮询 /api/jobs/lookup。",
+  "description": "BeefTV 视频 → ToIV：Wan /api/generate/txt2video；LongCat /api/longcat/{t2v,i2v}；VACE /api/wan/vace；Wan Animate /api/wan/animate2 → Comfy :8197/:8199；轮询 /api/jobs/lookup。",
   "permissions": [
     "generation.run",
     "media.read"
@@ -44,7 +47,7 @@
     "providers": [
       {
         "id": "toiv-comfy-video",
-        "label": "ToIV 本地视频 (Comfy :8197 Wan/LongCat/VACE)",
+        "label": "ToIV 本地视频 (Comfy Wan/LongCat/VACE/Animate)",
         "capabilities": [
           "video"
         ],
@@ -66,8 +69,8 @@
             "name": "model",
             "type": "string",
             "required": true,
-            "mapping": "engine 路由：local-wan|local-longcat|local-vace 或权重名含 longcat/vace",
-            "description": "local-wan / 默认 → Wan T2V；local-longcat 或名含 longcat → LongCat t2v/i2v；local-vace 或名含 vace → Wan VACE。亦可 providerOptions.toiv-comfy-video.engine。"
+            "mapping": "engine 路由：local-wan|local-longcat|local-vace|local-wan-animate 或权重名含 longcat/vace/animate",
+            "description": "local-wan / 默认 → Wan T2V；local-longcat 或名含 longcat → LongCat t2v/i2v；local-vace 或名含 vace → Wan VACE；local-wan-animate 或名含 animate → Wan Animate2 :8199。亦可 providerOptions.toiv-comfy-video.engine。"
           },
           {
             "name": "prompt",
@@ -80,8 +83,15 @@
             "name": "images",
             "type": "media[]",
             "required": false,
-            "mapping": "LongCat i2v / VACE：prepare → /api/upload(kind=wan_vace)",
-            "description": "LongCat：0 张 t2v、≥1 张 i2v；VACE：≥1 张参考图（最多 4）。Wan T2V 忽略。"
+            "mapping": "LongCat i2v / VACE / Animate：prepare → /api/upload",
+            "description": "LongCat：0 张 t2v、≥1 张 i2v；VACE：≥1 张参考图（最多 4）；Animate：1 张参考图（upload kind=`wan_animate2`）。Wan T2V 忽略。"
+          },
+          {
+            "name": "videos",
+            "type": "media[]",
+            "required": false,
+            "mapping": "Animate：prepare → /api/upload(kind=wan_animate2) → body.video",
+            "description": "Wan Animate：1 条驱动视频（与参考图互钉同 worker）。其余引擎忽略。"
           },
           {
             "name": "duration",
@@ -145,6 +155,17 @@
                     ]
                   },
                   "then": "/api/wan/vace"
+                },
+                {
+                  "when": {
+                    "$eq": [
+                      {
+                        "$ref": "prepared.route"
+                      },
+                      "animate"
+                    ]
+                  },
+                  "then": "/api/wan/animate2"
                 }
               ],
               "default": "/api/generate/txt2video"
@@ -584,6 +605,45 @@
                               }
                             }
                           ]
+                        },
+                        "worker": {
+                          "$ref": "prepared.first.worker"
+                        }
+                      }
+                    },
+                    {
+                      "when": {
+                        "$eq": [
+                          {
+                            "$ref": "prepared.route"
+                          },
+                          "animate"
+                        ]
+                      },
+                      "then": {
+                        "duration_sec": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.duration_sec"
+                            },
+                            {
+                              "$ref": "request.duration"
+                            }
+                          ]
+                        },
+                        "steps": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.steps"
+                            },
+                            10
+                          ]
+                        },
+                        "image": {
+                          "$ref": "prepared.first.filename"
+                        },
+                        "video": {
+                          "$ref": "prepared.drive.filename"
                         },
                         "worker": {
                           "$ref": "prepared.first.worker"
@@ -1204,7 +1264,106 @@
                       ]
                     },
                     "then": "vace",
-                    "else": "wan"
+                    "else": {
+                      "$if": {
+                        "condition": {
+                          "$or": [
+                            {
+                              "$in": [
+                                {
+                                  "$ref": "request.model"
+                                },
+                                [
+                                  "local-wan-animate",
+                                  "wan-animate",
+                                  "local-wan-animate-2",
+                                  "wan-animate-2",
+                                  "animate2",
+                                  "local-animate2"
+                                ]
+                              ]
+                            },
+                            {
+                              "$eq": [
+                                {
+                                  "$lower": {
+                                    "$coalesce": [
+                                      {
+                                        "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                                      },
+                                      ""
+                                    ]
+                                  }
+                                },
+                                "animate"
+                              ]
+                            },
+                            {
+                              "$eq": [
+                                {
+                                  "$lower": {
+                                    "$coalesce": [
+                                      {
+                                        "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                                      },
+                                      ""
+                                    ]
+                                  }
+                                },
+                                "wan-animate"
+                              ]
+                            },
+                            {
+                              "$eq": [
+                                {
+                                  "$lower": {
+                                    "$coalesce": [
+                                      {
+                                        "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                                      },
+                                      ""
+                                    ]
+                                  }
+                                },
+                                "animate2"
+                              ]
+                            },
+                            {
+                              "$eq": [
+                                {
+                                  "$lower": {
+                                    "$coalesce": [
+                                      {
+                                        "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                                      },
+                                      ""
+                                    ]
+                                  }
+                                },
+                                "wan-animate-2"
+                              ]
+                            },
+                            {
+                              "$contains": [
+                                {
+                                  "$lower": {
+                                    "$coalesce": [
+                                      {
+                                        "$ref": "request.model"
+                                      },
+                                      ""
+                                    ]
+                                  }
+                                },
+                                "animate"
+                              ]
+                            }
+                          ]
+                        },
+                        "then": "animate",
+                        "else": "wan"
+                      }
+                    }
                   }
                 }
               }
@@ -1230,26 +1389,39 @@
                         {
                           "$ref": "prepared.engine"
                         },
-                        "longcat"
+                        "animate"
                       ]
                     },
-                    "then": {
+                    "then": "animate",
+                    "else": {
                       "$if": {
                         "condition": {
-                          "$gt": [
+                          "$eq": [
                             {
-                              "$len": {
-                                "$ref": "request.images"
-                              }
+                              "$ref": "prepared.engine"
                             },
-                            0
+                            "longcat"
                           ]
                         },
-                        "then": "i2v",
+                        "then": {
+                          "$if": {
+                            "condition": {
+                              "$gt": [
+                                {
+                                  "$len": {
+                                    "$ref": "request.images"
+                                  }
+                                },
+                                0
+                              ]
+                            },
+                            "then": "i2v",
+                            "else": "t2v"
+                          }
+                        },
                         "else": "t2v"
                       }
-                    },
-                    "else": "t2v"
+                    }
                   }
                 }
               }
@@ -1304,6 +1476,17 @@
                       ]
                     },
                     "then": "vace"
+                  },
+                  {
+                    "when": {
+                      "$eq": [
+                        {
+                          "$ref": "prepared.engine"
+                        },
+                        "animate"
+                      ]
+                    },
+                    "then": "animate"
                   }
                 ],
                 "default": "wan"
@@ -1328,6 +1511,14 @@
                       "$ref": "prepared.route"
                     },
                     "vace"
+                  ]
+                },
+                {
+                  "$eq": [
+                    {
+                      "$ref": "prepared.route"
+                    },
+                    "animate"
                   ]
                 }
               ]
@@ -1384,6 +1575,52 @@
                   "$first": {
                     "$sortByOrder": {
                       "$ref": "request.images"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "drive_video",
+            "when": {
+              "$eq": [
+                {
+                  "$ref": "prepared.route"
+                },
+                "animate"
+              ]
+            },
+            "value": {
+              "$coalesce": [
+                {
+                  "$first": {
+                    "$filter": {
+                      "from": {
+                        "$sortByOrder": {
+                          "$ref": "request.videos"
+                        }
+                      },
+                      "as": "media",
+                      "where": {
+                        "$in": [
+                          {
+                            "$ref": "media.role"
+                          },
+                          [
+                            "drive_video",
+                            "reference_video",
+                            ""
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "$first": {
+                    "$sortByOrder": {
+                      "$ref": "request.videos"
                     }
                   }
                 }
@@ -1450,6 +1687,14 @@
                         },
                         "vace"
                       ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$ref": "prepared.route"
+                        },
+                        "animate"
+                      ]
                     }
                   ]
                 }
@@ -1461,7 +1706,20 @@
               "originPath": true,
               "contentType": "multipart/form-data",
               "query": {
-                "kind": "wan_vace"
+                "kind": {
+                  "$if": {
+                    "condition": {
+                      "$eq": [
+                        {
+                          "$ref": "prepared.route"
+                        },
+                        "animate"
+                      ]
+                    },
+                    "then": "wan_animate2",
+                    "else": "wan_vace"
+                  }
+                }
               },
               "files": [
                 {
@@ -1470,6 +1728,50 @@
                     "$ref": "prepared.first_image"
                   },
                   "filename": "toiv-ref"
+                }
+              ]
+            }
+          },
+          {
+            "id": "drive",
+            "when": {
+              "$and": [
+                {
+                  "$eq": [
+                    {
+                      "$ref": "prepared.route"
+                    },
+                    "animate"
+                  ]
+                },
+                {
+                  "$ne": [
+                    {
+                      "$ref": "prepared.drive_video"
+                    },
+                    null
+                  ]
+                }
+              ]
+            },
+            "operation": {
+              "method": "POST",
+              "path": "/api/upload",
+              "originPath": true,
+              "contentType": "multipart/form-data",
+              "query": {
+                "kind": "wan_animate2",
+                "worker": {
+                  "$ref": "prepared.first.worker"
+                }
+              },
+              "files": [
+                {
+                  "name": "image",
+                  "source": {
+                    "$ref": "prepared.drive_video"
+                  },
+                  "filename": "toiv-drive"
                 }
               ]
             }

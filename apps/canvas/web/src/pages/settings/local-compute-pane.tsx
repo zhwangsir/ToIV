@@ -14,6 +14,7 @@ import {
     LOCAL_IMAGE_MODEL_REF,
     LOCAL_IMAGE_WORKER_LABEL,
     LOCAL_NAS_ROOT_DEFAULT,
+    LOCAL_VIDEO_ANIMATE_WORKER_LABEL,
     LOCAL_VIDEO_CHANNEL_ID,
     LOCAL_VIDEO_CHANNEL_NAME,
     LOCAL_VIDEO_MODEL,
@@ -367,7 +368,10 @@ export function LocalComputePane() {
                             protocol,
                             defaultOptions: {
                                 ...(prof.defaultOptions || {}),
-                                toivWorkerLabel: opts.worker,
+                                toivWorkerLabel:
+                                    opts.group === "video" && classifyLocalVideoEngine(basename) === "animate"
+                                        ? LOCAL_VIDEO_ANIMATE_WORKER_LABEL
+                                        : opts.worker,
                                 toivNasRoot: LOCAL_NAS_ROOT_DEFAULT,
                                 ckpt_name: basename,
                                 ...(opts.group === "video"
@@ -404,7 +408,7 @@ export function LocalComputePane() {
                 <div className="min-w-0">
                     <h2 className="text-base font-semibold">模型与算力（本地优先）</h2>
                     <p className="mt-1 text-xs text-foreground/55">
-                        生图走 Workstation Comfy {LOCAL_IMAGE_WORKER_LABEL}（LB {LOCAL_IMAGE_LB_LABEL}）；Wan/LongCat/VACE 走 {LOCAL_VIDEO_WORKER_LABEL}；H3 走 {LOCAL_H3_WORKER_LABEL}；对话走 Spark。NAS 根默认 <code>{LOCAL_NAS_ROOT_DEFAULT}</code>。
+                        生图走 Workstation Comfy {LOCAL_IMAGE_WORKER_LABEL}（LB {LOCAL_IMAGE_LB_LABEL}）；Wan/LongCat/VACE 走 {LOCAL_VIDEO_WORKER_LABEL}；Wan Animate 走 {LOCAL_VIDEO_ANIMATE_WORKER_LABEL}；H3 走 {LOCAL_H3_WORKER_LABEL}；对话走 Spark。NAS 根默认 <code>{LOCAL_NAS_ROOT_DEFAULT}</code>。
                     </p>
                 </div>
                 <Button size="small" icon={<RefreshCw className="size-3.5" />} loading={loading} onClick={() => void load()}>
@@ -468,7 +472,7 @@ export function LocalComputePane() {
                         <Tag color="orange">worker {LOCAL_VIDEO_WORKER_LABEL}</Tag>
                     </div>
                     <p className="mb-2 text-xs text-foreground/55">
-                        列出 NAS main 中用途含「出视频」且非 <code>h3/</code> 的权重（含 出图/出视频·diffusion、出视频·Wan Animate 等）；绑定到 LongCat/Wan/VACE 口 {LOCAL_VIDEO_WORKER_LABEL}。H3 仍走 {LOCAL_H3_WORKER_LABEL}。落盘后 refresh object_info，仍不见再重启该 worker。
+                        列出 NAS main 中用途含「出视频」且非 <code>h3/</code> 的权重（含 出图/出视频·diffusion、出视频·Wan Animate 等）；Wan/LongCat/VACE 绑 {LOCAL_VIDEO_WORKER_LABEL}，名含 animate 自动绑 {LOCAL_VIDEO_ANIMATE_WORKER_LABEL}。H3 仍走 {LOCAL_H3_WORKER_LABEL}。落盘后 refresh object_info，仍不见再重启该 worker。
                     </p>
                     <Select
                         className="w-full"

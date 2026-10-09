@@ -10,9 +10,11 @@ export const LOCAL_VIDEO_MODEL_REF = `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_M
 
 export const LOCAL_VIDEO_MODEL_LONGCAT = "local-longcat";
 export const LOCAL_VIDEO_MODEL_VACE = "local-vace";
+export const LOCAL_VIDEO_MODEL_ANIMATE = "local-wan-animate";
+export const LOCAL_VIDEO_ANIMATE_WORKER_LABEL = ":8199";
 
-/** Route NAS video basename / alias → Wan | LongCat | VACE (Comfy :8197). */
-export type LocalVideoEngine = "wan" | "longcat" | "vace";
+/** Route NAS video basename / alias → Wan | LongCat | VACE (:8197) | Animate (:8199). */
+export type LocalVideoEngine = "wan" | "longcat" | "vace" | "animate";
 
 export function classifyLocalVideoEngine(modelOrBasename: string): LocalVideoEngine {
     const raw = String(modelOrBasename || "").trim();
@@ -23,6 +25,17 @@ export function classifyLocalVideoEngine(modelOrBasename: string): LocalVideoEng
     }
     if (lower === LOCAL_VIDEO_MODEL_VACE || lower === "vace" || lower.includes("vace")) {
         return "vace";
+    }
+    if (
+        lower === LOCAL_VIDEO_MODEL_ANIMATE ||
+        lower === "wan-animate" ||
+        lower === "wan-animate-2" ||
+        lower === "local-wan-animate-2" ||
+        lower === "animate2" ||
+        lower === "local-animate2" ||
+        lower.includes("animate")
+    ) {
+        return "animate";
     }
     return "wan";
 }

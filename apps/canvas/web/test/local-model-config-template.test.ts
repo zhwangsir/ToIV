@@ -45,8 +45,9 @@ describe("model-config template local-first", () => {
             "toiv-video-wan::local-wan",
             "toiv-video-wan::local-longcat",
             "toiv-video-wan::local-vace",
+            "toiv-video-wan::local-wan-animate",
         ]));
-        expect((wan?.models || []) as string[]).toEqual(expect.arrayContaining(["local-wan", "local-longcat", "local-vace"]));
+        expect((wan?.models || []) as string[]).toEqual(expect.arrayContaining(["local-wan", "local-longcat", "local-vace", "local-wan-animate"]));
         // Default video stays H3
         expect(String(cfg.videoModel || "")).toContain("h3");
     });
