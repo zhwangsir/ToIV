@@ -1,3 +1,4 @@
+- 2026-10-09 P1 rename 已合 tip `da846867`（项目管家；ToIV开发）：merge `9d96ceed`（备份+rename+marker；失败回退不删备份）；**未搬生产数据、未部署**；闸不开；status=`desktop_data_dir_p1_rename_merged_undeployed`；updated_at 2026-10-09T12:55:00+08:00。
 - 2026-10-09 P0 已合 tip `30c90025`；P1 rename 分支 tip `9d96ceed` 未合（项目管家；ToIV开发/BeefTV）：DefaultDataDir→ToIV+遗留回退已合；备份+rename+marker **未合**；**未搬数据、未部署**；闸不开；status=`desktop_data_dir_p0_merged_p1_rename_unmerged`；updated_at 2026-10-09T12:53:00+08:00。
 - 2026-10-09 桌面路径 P1=A rename；方案已合 `f852f01f`；P0 tip `0d1b278e` 未合（项目管家；ToIV开发/BeefTV）：merge 方案 `0fa9d20c`；B junction 不做默认；**未搬数据、未部署**；闸不开；status=`desktop_path_p1_a_rename_p0_unmerged`；updated_at 2026-10-09T12:44:00+08:00。
 - 2026-10-09 桌面路径迁移方案 tip `0fa9d20c` 未合（项目管家；BeefTV）：分支 `feat/canvas-desktop-path-migration-plan`；main tip=`8d22d144`（含 command_guard `2483c74d`）；**未合**、**未部署**；闸不开；status=`desktop_path_migration_plan_unmerged`；updated_at 2026-10-09T12:35:00+08:00。

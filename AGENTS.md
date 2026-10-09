@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**P0 已合；P1 rename 分支未合**）：origin/本地 main=`30c90025`（DefaultDataDir→ToIV，遗留 BeefTV 目录才回退）。`feat/canvas-data-dir-rename-p1`=`9d96ceed`（备份+rename+marker，失败回退）**未合**。**未搬数据、未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:53:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家：**P1 rename 已合 tip `da846867`**）：origin/本地 main=`da846867`（备份+rename+marker；失败回退不删备份）。**未搬生产数据、未部署**；生产 c-chains 仍 404。闸不开。`updated_at` 2026-10-09T12:55:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---

@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T12:53:00+08:00",
+  "updated_at": "2026-10-09T12:55:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12771,7 +12771,7 @@
       "设备管家",
       "项目管家"
     ],
-    "product_tip": "30c90025",
+    "product_tip": "da846867",
     "remotes": {
       "origin_gitee_main": "2483c74d",
       "github_main": "2483c74d",
@@ -12811,7 +12811,7 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T12:53:00+08:00",
+    "updated_at": "2026-10-09T12:55:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
@@ -12906,7 +12906,7 @@
       "deployed": false,
       "merge_tip": "0b038325"
     },
-    "gitee_main": "30c90025",
+    "gitee_main": "da846867",
     "github_main_approx": "a52c5bd4",
     "github_lag": false,
     "github_main": "2483c74d",
@@ -12957,10 +12957,11 @@
     "desktop_data_dir_rename_p1": {
       "branch": "feat/canvas-data-dir-rename-p1",
       "tip": "9d96ceed",
-      "merged_main": false,
+      "merged_main": true,
       "scope": "backup_rename_marker_fail_fallback",
       "data_moved": false,
-      "deployed": false
+      "deployed": false,
+      "merge_tip": "da846867"
     }
   },
   "deploy_stale_web_ua_brand_2026_10_09": {
