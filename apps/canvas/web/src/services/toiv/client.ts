@@ -180,22 +180,89 @@ export async function runToivApp(id: string, values: Record<string, unknown>): P
     };
 }
 
+export type ToivBoardItemJob = {
+    id: string;
+    kind?: string;
+    status: string;
+    prompt?: string;
+    created_at: string;
+    results?: string[];
+    post_status?: string;
+    /** 变体折叠键（主站 _job_dict）；缺省不参与变体组 */
+    seed?: number | null;
+    /** 内容分组（360° 等同批）；空串=无 */
+    batch_id?: string;
+    parent_id?: string;
+    root_id?: string;
+    error?: string;
+};
+
 export type ToivBoardItem = {
     id: number;
     sort_order: number;
     note?: string;
     shot_text?: string;
     shot_meta?: string;
-    job: {
-        id: string;
-        kind?: string;
-        status: string;
-        prompt?: string;
-        created_at: string;
-        results?: string[];
-        post_status?: string;
-    } | null;
+    job: ToivBoardItemJob | null;
 };
+
+export type ToivDeleteJobResult = {
+    undo_token?: string;
+    undo_ttl?: number;
+};
+
+export type ToivTrashJob = ToivBoardItemJob & {
+    deleted_at: string;
+    restore_expires_at: string;
+    restore_remaining_seconds: number;
+};
+
+/** 删板（级联成员行；不删成员作业本身）。 */
+export async function deleteBoard(boardId: string): Promise<void> {
+    await toivHttp.delete(`/boards/${boardId}`);
+}
+
+/** 整组替换板成员（增删+重排；job_id 空=占位行）。返回成员数。 */
+export async function putBoardItems(
+    boardId: string,
+    items: Array<{ job_id?: string; note?: string; shot_text?: string; shot_meta?: string }>,
+): Promise<number> {
+    const { data } = await toivHttp.put(`/boards/${boardId}/items`, { items });
+    return Number((data as { item_count?: number })?.item_count ?? items.length);
+}
+
+/** 软删作业入回收站（72h 可恢复）。 */
+export async function deleteJob(jobId: string): Promise<ToivDeleteJobResult> {
+    const { data } = await toivHttp.delete(`/jobs/${jobId}`);
+    return (data ?? {}) as ToivDeleteJobResult;
+}
+
+export async function undoDeleteJob(undoToken: string): Promise<void> {
+    await toivHttp.post(`/undo/${undoToken}`);
+}
+
+export async function fetchTrash(offset = 0, limit = 200): Promise<ToivTrashJob[]> {
+    const { data } = await toivHttp.get("/jobs/trash", { params: { offset, limit } });
+    return Array.isArray(data) ? (data as ToivTrashJob[]) : ((data as { items?: ToivTrashJob[] })?.items ?? []);
+}
+
+export async function restoreJob(jobId: string): Promise<void> {
+    await toivHttp.post(`/jobs/${jobId}/restore`);
+}
+
+export async function permanentDeleteJob(jobId: string): Promise<void> {
+    await toivHttp.delete(`/jobs/${jobId}/permanent`);
+}
+
+/** 批量软删（变体组整组移入回收站）。 */
+export async function bulkDeleteJobs(ids: readonly string[]): Promise<{
+    ok: boolean;
+    done: Array<{ id: string; undo_token?: string }>;
+    failed: string[];
+}> {
+    const { data } = await toivHttp.post("/jobs/bulk-delete", { ids: [...ids] });
+    return data as { ok: boolean; done: Array<{ id: string; undo_token?: string }>; failed: string[] };
+}
 
 export type ToivDramaProject = {
     id: string;
