@@ -1,3 +1,4 @@
+- 2026-10-10 市场 RH 重扫 HOLD（项目管家；用户授权；融合/模型下载对齐）：只留 RH 可完全本地化+测过；非 RH/测挂下架；封面跟 RH 高清源；意图条 keepers 单独标；等融合清单 + ToIV开发拍板开刀；status=`market_rh_relist_hold`；updated_at 2026-10-10T03:32:00+08:00。
 - 2026-10-10 tip `0c62c939` **canvas-only 已部署**（项目管家；ToIV开发/融合）：滚动解锁 P0 六页可滑 + P1 细条；ActiveEnter 00:51、live 200；根因=壳 overflow:hidden + 六页未接 WorkspacePage（非 ed015749）；status=`main_tip_0c62c939_canvas_deployed`；updated_at 2026-10-10T00:52:00+08:00。
 - 2026-10-10 多页滑不动/滚动条再优 HOLD（项目管家；用户授权；融合摸底）：用户反馈多页无法滑动 + 细条仍丑；优先查 overflow/手势与 `ed015749` 覆盖面；等融合证据 + ToIV开发拍板开刀；status=`studio_scroll_unblock_hold`；updated_at 2026-10-10T00:41:00+08:00。
 - 2026-10-10 tip `ed015749` **已部署**（项目管家；ToIV开发/设备/融合）：BeefTV 细滚动条全局 token；canvas 00:17 + web rebuild/restart 00:27:57（:3100 200）；api 未动；status=`main_tip_ed015749_deployed`；updated_at 2026-10-10T00:28:00+08:00。

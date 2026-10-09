@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T00:52:00+08:00",
+  "updated_at": "2026-10-10T03:32:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14140,5 +14140,34 @@
     },
     "tests": "8_green",
     "updated_at": "2026-10-10T00:52:00+08:00"
+  },
+  "market_rh_relist_2026_10_10": {
+    "status": "market_rh_relist_hold",
+    "date": "2026-10-10",
+    "source": [
+      "用户",
+      "ToIV BeefTV 融合",
+      "ToIV 模型下载",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "市场只留 RH 可完全本地化且测过的应用；非 RH/测挂下架；封面跟 RH",
+    "rules": {
+      "keep": "runninghub_fully_local_and_test_pass",
+      "delist": [
+        "non_runninghub",
+        "test_failed"
+      ],
+      "cover": "runninghub_hq_source",
+      "keepers_exempt_blind_cut": [
+        "longcat",
+        "ovi",
+        "avatar"
+      ]
+    },
+    "owner": "ToIV BeefTV 融合摸底 → ToIV开发 拍板；模型侧 basename 对齐",
+    "product_tip_baseline": "0c62c939",
+    "docs_tip_baseline": "2ba122d6",
+    "updated_at": "2026-10-10T03:32:00+08:00"
   }
 }

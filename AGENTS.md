@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-10（项目管家；开发/融合核）：**滚动解锁 tip `0c62c939` canvas-only 已部署**（ActiveEnter 00:51，live 200）。根因非细条 `ed015749`：壳 overflow:hidden + 六页裸 `<main>` 未接 WorkspacePage（market/library/library-detail/drama/drama-detail/tasks）。P0 包滚动容器；P1 细条可见+home token；不拆壳 overflow:hidden。请硬刷 `/studio` 验滑动。封面 `8011bf6f`/细条 `ed015749` 祖先已含。另仍卡：picker 1:1；SenseVoice「下」；H3 timer。`updated_at` 2026-10-10T00:52:00+08:00。
+> **最后更新**：2026-10-10（项目管家；用户点名）：**市场 RH 重扫 HOLD**——只留 RunningHub 可完全本地化且测试通过的应用；非 RH / 测挂一律下架；可本地的从 RH 拉取并用 RH 封面。融合摸底中；意图条本地 keepers（longcat/ovi/avatar）单独标不盲砍；模型侧等精确 basename。产品 canvas 仍 `0c62c939`；docs tip `2ba122d6`。另仍卡：硬刷验滑动；picker 1:1；SenseVoice「下」；H3 timer。`updated_at` 2026-10-10T03:32:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
