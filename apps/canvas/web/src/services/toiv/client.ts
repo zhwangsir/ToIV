@@ -335,6 +335,31 @@ export type ToivTrashJob = ToivBoardItemJob & {
     restore_remaining_seconds: number;
 };
 
+/** 改名/描述/封面（PATCH /boards/{id}）。 */
+export async function patchBoard(
+    boardId: string,
+    body: { name?: string; description?: string; cover_job_id?: string; sort?: number },
+): Promise<ToivBoard> {
+    const { data } = await toivHttp.patch(`/boards/${boardId}`, body);
+    return data as ToivBoard;
+}
+
+/** 整板导出 drama_studio JSON（供本机下载）。 */
+export async function exportBoardJson(boardId: string): Promise<{ filename: string; doc: unknown }> {
+    const { data, headers } = await toivHttp.get(`/boards/${boardId}/export`);
+    const cd = String(headers?.["content-disposition"] ?? headers?.["Content-Disposition"] ?? "");
+    const m = /filename\*=UTF-8''([^;]+)|filename=([^;]+)/i.exec(cd);
+    let filename = "board.drama_studio.json";
+    if (m) {
+        try {
+            filename = decodeURIComponent((m[1] || m[2] || filename).replace(/"/g, "").trim());
+        } catch {
+            filename = (m[1] || m[2] || filename).replace(/"/g, "").trim() || filename;
+        }
+    }
+    return { filename, doc: data };
+}
+
 /** 删板（级联成员行；不删成员作业本身）。 */
 export async function deleteBoard(boardId: string): Promise<void> {
     await toivHttp.delete(`/boards/${boardId}`);

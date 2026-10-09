@@ -6,8 +6,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+    canvasAddPathForMedia,
+    classifyMediaUrl,
+    filenameFromMediaUrl,
     formatRetention,
     groupBoardEntries,
+    listJobMedia,
+    primaryMedia,
     variantKeyOf,
     type BoardEntry,
 } from "../src/services/toiv/library-group";
@@ -96,9 +101,63 @@ describe("library-detail page + client surface", () => {
         expect(src).toContain("/toiv/library");
     });
 
+    test("detail deepen: rename/export/download/canvas/audio preview/metadata", () => {
+        const src = read("src/pages/toiv/library-detail.tsx");
+        expect(src).toContain("patchBoard");
+        expect(src).toContain("exportBoardJson");
+        expect(src).toContain("listJobMedia");
+        expect(src).toContain("primaryMedia");
+        expect(src).toContain("canvasAddPathForMedia");
+        expect(src).toContain("改名作品集");
+        expect(src).toContain("导出 JSON");
+        expect(src).toContain("在画布打开");
+        expect(src).toContain("<audio");
+        expect(src).toContain("作业 id");
+        expect(src).toContain("triggerBrowserDownload");
+    });
+
+    test("client exports patchBoard and exportBoardJson", () => {
+        const src = read("src/services/toiv/client.ts");
+        expect(src).toContain("export async function patchBoard");
+        expect(src).toContain("export async function exportBoardJson");
+        expect(src).toContain("/boards/${boardId}/export");
+    });
+
     test("router keeps /toiv/library/:id", () => {
         const src = read("src/router.tsx");
         expect(src).toContain('path: "/toiv/library/:id"');
         expect(src).toContain("library-detail");
+    });
+});
+
+describe("library media classify / canvas path", () => {
+    test("classifyMediaUrl by extension and kind", () => {
+        expect(classifyMediaUrl("https://x/a.mp4")).toBe("video");
+        expect(classifyMediaUrl("https://x/a.wav")).toBe("audio");
+        expect(classifyMediaUrl("https://x/a.png")).toBe("image");
+        expect(classifyMediaUrl("/api/jobs/1/result", "t2v")).toBe("video");
+        expect(classifyMediaUrl("/api/jobs/1/result", "tts")).toBe("audio");
+        expect(classifyMediaUrl("/api/jobs/1/result", "t2i")).toBe("image");
+        expect(classifyMediaUrl("")).toBe("unknown");
+    });
+
+    test("listJobMedia dedupes and primaryMedia picks first", () => {
+        const medias = listJobMedia({
+            kind: "t2v",
+            results: ["https://x/a.mp4", "https://x/a.mp4", "https://x/b.png"],
+        });
+        expect(medias).toHaveLength(2);
+        expect(medias[0]?.kind).toBe("video");
+        expect(medias[1]?.kind).toBe("image");
+        expect(primaryMedia({ results: [], kind: "t2v" })).toBeNull();
+        expect(primaryMedia({ results: ["https://x/c.wav"], kind: "tts" })?.kind).toBe("audio");
+    });
+
+    test("canvasAddPathForMedia and filenameFromMediaUrl", () => {
+        expect(canvasAddPathForMedia("image")).toBe("/canvas?mode=new&add=image");
+        expect(canvasAddPathForMedia("video")).toBe("/canvas?mode=new&add=video");
+        expect(canvasAddPathForMedia("audio")).toBe("/canvas?mode=new&add=audio");
+        expect(filenameFromMediaUrl("https://cdn/x/foo.mp4?sig=1")).toBe("foo.mp4");
+        expect(filenameFromMediaUrl("/api/noext", "fallback.bin")).toBe("fallback.bin");
     });
 });
