@@ -28,6 +28,11 @@ func TestNormalizeFeedURLAllowlist(t *testing.T) {
 	} else if !strings.Contains(got, "127.0.0.1:8443") {
 		t.Fatalf("unexpected normalize result %q", got)
 	}
+	if got, err := normalizeFeedURL("https://updates.beefapi.com/beeftv/desktop-update.json"); err != nil {
+		t.Fatalf("default CDN feed must pass without CANVAS_OUTBOUND_HOST_ALLOWLIST: %v", err)
+	} else if !strings.Contains(got, "updates.beefapi.com") {
+		t.Fatalf("unexpected normalize result %q", got)
+	}
 
 	for _, raw := range []string{"", "   ", "not-a-url", "http://127.0.0.1:8443/feed", "ftp://toiv.wineryz.top/feed"} {
 		if _, err := normalizeFeedURL(raw); err == nil {

@@ -16,6 +16,8 @@ func TestOutboundHostAllowedDefaultsAndEnv(t *testing.T) {
 	}{
 		{"toiv.wineryz.top", "443", true},
 		{"toiv.wineryz.top", "8090", true}, // host-only default: any port
+		{"updates.beefapi.com", "443", true},
+		{"updates.beefapi.com", "8443", true}, // host-only default: any port
 		{"localhost", "8090", true},
 		{"127.0.0.1", "8090", true},
 		{"::1", "8090", true},
@@ -63,6 +65,9 @@ func TestValidateAllowlistedOutboundURL(t *testing.T) {
 
 	if _, err := ValidateAllowlistedOutboundURL("https://toiv.wineryz.top/api/auth/me"); err != nil {
 		t.Fatalf("production API should be allowed: %v", err)
+	}
+	if _, err := ValidateAllowlistedOutboundURL("https://updates.beefapi.com/beeftv/desktop-update.json"); err != nil {
+		t.Fatalf("default updater CDN feed should be allowed: %v", err)
 	}
 	if _, err := ValidateAllowlistedOutboundURL("http://127.0.0.1:8090/api/h3/i2v"); err != nil {
 		t.Fatalf("allowlisted loopback ToIV API should pass: %v", err)

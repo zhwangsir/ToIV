@@ -86,7 +86,8 @@ func normalizeFeedURL(raw string) (string, error) {
 		return "", ErrIncompleteConfig
 	}
 	// Positive host allowlist (same family as toiv_gate): defaults cover
-	// toiv.wineryz.top + loopback; CDN/feed hosts go via CANVAS_OUTBOUND_HOST_ALLOWLIST.
+	// toiv.wineryz.top, updates.beefapi.com, and loopback; extra hosts via
+	// CANVAS_OUTBOUND_HOST_ALLOWLIST.
 	if _, err := outbound.ValidateAllowlistedOutboundURL(parsed.String()); err != nil {
 		return "", err
 	}

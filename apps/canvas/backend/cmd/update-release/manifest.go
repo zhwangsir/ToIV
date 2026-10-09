@@ -14,11 +14,9 @@ import (
 
 const (
 	payloadSchema       = 1
-	// Runtime desktop updater gates these hosts with outbound.ValidateAllowlistedOutboundURL
-	// (defaults: toiv.wineryz.top + loopback). Release CDN hosts must be listed in
-	// CANVAS_OUTBOUND_HOST_ALLOWLIST (e.g. updates.beefapi.com) or the feed URL moved
-	// onto an already-allowlisted host — do not bake unrelated public hosts into the
-	// default allowlist.
+	// Runtime desktop updater gates these hosts with outbound.ValidateAllowlistedOutboundURL.
+	// updates.beefapi.com is on the default positive host list (with toiv.wineryz.top +
+	// loopback). Extra CDN/staging hosts still go via CANVAS_OUTBOUND_HOST_ALLOWLIST.
 	defaultFeedURL      = "https://updates.beefapi.com/beeftv/desktop-update.json"
 	defaultDownloadHost = "https://updates.beefapi.com/beeftv"
 	updaterImportPath   = "infinite-canvas/backend/internal/desktopupdate"
