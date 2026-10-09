@@ -69,11 +69,15 @@ export function getNasModelBindJob(jobId: string) {
     return request<NasBindJob>(apiClient.get(`/nas/models/bind/${encodeURIComponent(jobId)}`));
 }
 
-export async function pollNasModelBind(jobId: string, opts?: { signal?: AbortSignal; intervalMs?: number }) {
+export async function pollNasModelBind(
+    jobId: string,
+    opts?: { signal?: AbortSignal; intervalMs?: number; onProgress?: (job: NasBindJob) => void },
+) {
     const interval = opts?.intervalMs ?? 120;
     for (;;) {
         if (opts?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
         const job = await getNasModelBindJob(jobId);
+        opts?.onProgress?.(job);
         if (job.status === "done" || job.status === "error") return job;
         await new Promise((r) => setTimeout(r, interval));
     }

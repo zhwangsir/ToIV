@@ -1,5 +1,5 @@
 import { App, Button, Progress, Select, Tag } from "antd";
-import { RefreshCw, Server } from "lucide-react";
+import { ArrowRight, RefreshCw, Server } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -25,6 +25,14 @@ import {
     localComputeDefaults,
 } from "@/lib/local-model-defaults";
 import {
+    NAS_BIND_STAGE_ORDER,
+    basenameFromRel,
+    isNasSwapPending,
+    nasBindProgressStatus,
+    nasBindStageLabel,
+    nasBindStepState,
+} from "@/lib/nas-bind-ux";
+import {
     getNasModels,
     pollNasModelBind,
     startNasModelBind,
@@ -33,7 +41,71 @@ import {
 } from "@/services/api/nas-models";
 import { useConfigStore } from "@/stores/use-config-store";
 
-type BindProgress = { stage: string; percent: number; hint?: string } | null;
+import "./local-compute-pane.css";
+
+type BindProgress = { stage: string; percent: number; hint?: string; status?: string } | null;
+
+function NasBindProgressBlock(props: {
+    testId: string;
+    progress: BindProgress;
+    fromRel?: string;
+    toRel?: string;
+    showSwap: boolean;
+    swapping: boolean;
+}) {
+    const { progress, fromRel, toRel, showSwap, swapping, testId } = props;
+    if (!progress && !showSwap) return null;
+    const fromName = basenameFromRel(fromRel);
+    const toName = basenameFromRel(toRel);
+    const status = nasBindProgressStatus({
+        stage: progress?.stage,
+        status: progress?.status,
+        percent: progress?.percent,
+    });
+    return (
+        <div className="nas-bind-progress" data-testid={testId}>
+            {showSwap && (fromName || toName) ? (
+                <div
+                    className={`nas-swap-strip${swapping ? " is-swapping" : ""}`}
+                    data-testid={`${testId}-swap`}
+                    aria-live="polite"
+                >
+                    {fromName ? <span className="nas-swap-chip is-from" title={fromRel}>{fromName}</span> : (
+                        <span className="nas-swap-chip is-from" data-empty>未绑定</span>
+                    )}
+                    <ArrowRight className="nas-swap-arrow size-3.5" aria-hidden />
+                    {toName ? <span className="nas-swap-chip is-to" title={toRel}>{toName}</span> : null}
+                    <span className="nas-swap-label">{swapping ? "替换中…" : "待替换"}</span>
+                </div>
+            ) : null}
+            {progress ? (
+                <>
+                    <ol className="nas-bind-steps" data-testid={`${testId}-steps`}>
+                        {NAS_BIND_STAGE_ORDER.map((step, idx) => {
+                            const state = nasBindStepState(step, { stage: progress.stage, status: progress.status });
+                            return (
+                                <li key={step} data-state={state} data-stage={step}>
+                                    <span aria-hidden>{idx + 1}</span>
+                                    {nasBindStageLabel(step)}
+                                </li>
+                            );
+                        })}
+                    </ol>
+                    <Progress
+                        percent={Math.max(0, Math.min(100, progress.percent || 0))}
+                        size="small"
+                        status={status === "normal" ? undefined : status}
+                        showInfo
+                    />
+                    <div className="nas-bind-hint">
+                        阶段：{nasBindStageLabel(progress.stage)}
+                        {progress.hint ? ` · ${progress.hint}` : ""}
+                    </div>
+                </>
+            ) : null}
+        </div>
+    );
+}
 
 export function LocalComputePane() {
     const { message } = App.useApp();
@@ -255,12 +327,21 @@ export function LocalComputePane() {
             message.warning(opts.emptyMsg);
             return;
         }
-        opts.setProgress({ stage: "validate", percent: 10 });
+        opts.setProgress({ stage: "validate", percent: 10, status: "running" });
         try {
             const job = await startNasModelBind(opts.selected, opts.group, opts.worker);
-            opts.setProgress({ stage: job.stage, percent: job.progress, hint: job.hint });
-            const done = await pollNasModelBind(job.id);
-            opts.setProgress({ stage: done.stage, percent: done.progress, hint: done.hint });
+            opts.setProgress({ stage: job.stage, percent: job.progress, hint: job.hint, status: job.status });
+            const done = await pollNasModelBind(job.id, {
+                onProgress: (live) => {
+                    opts.setProgress({
+                        stage: live.stage,
+                        percent: live.progress,
+                        hint: live.hint,
+                        status: live.status,
+                    });
+                },
+            });
+            opts.setProgress({ stage: done.stage, percent: done.progress, hint: done.hint, status: done.status });
             if (done.status === "error") {
                 message.error(done.error || "绑定失败");
                 return;
@@ -309,7 +390,9 @@ export function LocalComputePane() {
         }
     };
 
-    const bindingBusy = (p: BindProgress) => Boolean(p && p.percent < 100 && p.stage !== "done");
+    const bindingBusy = (p: BindProgress) => Boolean(
+        p && p.status !== "error" && p.stage !== "error" && p.stage !== "done" && (p.percent ?? 0) < 100,
+    );
 
     return (
         <section className="settings-section mb-4" data-testid="local-compute-pane">
@@ -364,12 +447,14 @@ export function LocalComputePane() {
                         </Button>
                         {imageBound ? <span className="truncate text-xs text-foreground/55">当前：{imageBound}</span> : null}
                     </div>
-                    {imageProgress ? (
-                        <div className="mt-3" data-testid="nas-image-bind-progress">
-                            <Progress percent={imageProgress.percent} size="small" status={imageProgress.stage === "done" ? "success" : "active"} />
-                            <div className="mt-1 text-xs text-foreground/55">阶段：{imageProgress.stage}{imageProgress.hint ? ` · ${imageProgress.hint}` : ""}</div>
-                        </div>
-                    ) : null}
+                    <NasBindProgressBlock
+                        testId="nas-image-bind-progress"
+                        progress={imageProgress}
+                        fromRel={imageBound}
+                        toRel={imageSelected}
+                        showSwap={isNasSwapPending(imageSelected, imageBound) || bindingBusy(imageProgress)}
+                        swapping={bindingBusy(imageProgress)}
+                    />
                 </div>
 
                 <div className="rounded-lg border border-border/60 bg-background/40 p-3" data-testid="local-video-bind">
@@ -410,12 +495,14 @@ export function LocalComputePane() {
                         </Button>
                         {videoBound ? <span className="truncate text-xs text-foreground/55">当前：{videoBound}</span> : null}
                     </div>
-                    {videoProgress ? (
-                        <div className="mt-3" data-testid="nas-video-bind-progress">
-                            <Progress percent={videoProgress.percent} size="small" status={videoProgress.stage === "done" ? "success" : "active"} />
-                            <div className="mt-1 text-xs text-foreground/55">阶段：{videoProgress.stage}{videoProgress.hint ? ` · ${videoProgress.hint}` : ""}</div>
-                        </div>
-                    ) : null}
+                    <NasBindProgressBlock
+                        testId="nas-video-bind-progress"
+                        progress={videoProgress}
+                        fromRel={videoBound}
+                        toRel={videoSelected}
+                        showSwap={isNasSwapPending(videoSelected, videoBound) || bindingBusy(videoProgress)}
+                        swapping={bindingBusy(videoProgress)}
+                    />
                 </div>
 
                 <div className="rounded-lg border border-border/60 bg-background/40 p-3" data-testid="local-h3-bind">
@@ -454,12 +541,14 @@ export function LocalComputePane() {
                         </Button>
                         {h3Bound ? <span className="truncate text-xs text-foreground/55">当前：{h3Bound}</span> : null}
                     </div>
-                    {h3Progress ? (
-                        <div className="mt-3" data-testid="nas-bind-progress">
-                            <Progress percent={h3Progress.percent} size="small" status={h3Progress.stage === "done" ? "success" : "active"} />
-                            <div className="mt-1 text-xs text-foreground/55">阶段：{h3Progress.stage}{h3Progress.hint ? ` · ${h3Progress.hint}` : ""}</div>
-                        </div>
-                    ) : null}
+                    <NasBindProgressBlock
+                        testId="nas-bind-progress"
+                        progress={h3Progress}
+                        fromRel={h3Bound}
+                        toRel={h3Selected}
+                        showSwap={isNasSwapPending(h3Selected, h3Bound) || bindingBusy(h3Progress)}
+                        swapping={bindingBusy(h3Progress)}
+                    />
                 </div>
 
                 <div className="rounded-lg border border-border/60 bg-background/40 p-3">
