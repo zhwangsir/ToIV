@@ -13114,5 +13114,40 @@
       "github_main": "9abbfa8c",
       "verified_both": true
     }
+  },
+  "canvas_loading_preview_brand_toiv_2026_10_09": {
+    "status": "canvas_loading_preview_brand_toiv_merged_undeployed",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发"
+    ],
+    "summary": "loading-preview title/desc ToIV；文件名未改；未部署",
+    "branch": "feat/canvas-loading-preview-brand-toiv",
+    "files": [
+      "apps/canvas/assets/beeftv-loading-preview.svg"
+    ],
+    "filename_unchanged": true,
+    "unchanged": [
+      "graphics",
+      "beeftv-wordmark.svg",
+      "LICENSE",
+      "NOTICE",
+      "CLI",
+      "MCP",
+      "UA"
+    ],
+    "deploy": {
+      "status": "not_deployed"
+    },
+    "base_tip": "c41ad82e",
+    "merge": "77702941",
+    "feat": "5e0f867c",
+    "product_tip": "77702941",
+    "remotes": {
+      "origin_gitee_main": "77702941",
+      "github_main": "77702941",
+      "verified_both": true
+    },
+    "updated_at": "2026-10-09T13:46:31+08:00"
   }
 }
