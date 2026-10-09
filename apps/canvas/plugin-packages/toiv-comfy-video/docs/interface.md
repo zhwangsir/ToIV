@@ -3,7 +3,7 @@
 ## 创建
 
 默认 `POST /api/generate/txt2video`（相对 ToIV API baseUrl，默认 `http://127.0.0.1:8090`）。
-`pathTemplate` 按 prepare.route 切换 LongCat / VACE / Wan Animate2。
+`pathTemplate` 按 prepare.route 切换 LongCat（t2v/i2v/continue）/ Avatar / VACE / Wan Animate2。
 
 ## 轮询
 
@@ -11,7 +11,9 @@
 
 ## Worker
 
-- Wan T2V / LongCat / VACE → Comfy **:8197**
+- Wan T2V / LongCat t2v·i2v·continue / Avatar / VACE → Comfy **:8197**
+- LongCat Continue → `POST /api/longcat/continue`（源视频产物 URL，不经 upload）
+- Avatar → `POST /api/avatar/talk`（人像+音频；upload kind=`avatar`）
 - Wan Animate2 → Comfy **:8199**（`POST /api/wan/animate2`；upload kind=`wan_animate2`）
 - 禁试验口 :8195/:8205/:8261
 
@@ -47,7 +49,7 @@
     "providers": [
       {
         "id": "toiv-comfy-video",
-        "label": "ToIV 本地视频 (Comfy Wan/LongCat/VACE/Animate)",
+        "label": "ToIV 本地视频 (Comfy Wan/LongCat/VACE/Animate/Continue/Avatar)",
         "capabilities": [
           "video"
         ],
@@ -69,8 +71,8 @@
             "name": "model",
             "type": "string",
             "required": true,
-            "mapping": "engine 路由：local-wan|local-longcat|local-vace|local-wan-animate 或权重名含 longcat/vace/animate",
-            "description": "local-wan / 默认 → Wan T2V；local-longcat 或名含 longcat → LongCat t2v/i2v；local-vace 或名含 vace → Wan VACE；local-wan-animate 或名含 animate → Wan Animate2 :8199。亦可 providerOptions.toiv-comfy-video.engine。"
+            "mapping": "engine 路由：local-wan|local-longcat|local-longcat-continue|local-longcat-avatar|local-vace|local-wan-animate 或权重名含 longcat/vace/animate/avatar",
+            "description": "local-wan / 默认 → Wan T2V；local-longcat 或名含 longcat → LongCat t2v/i2v；local-longcat-continue / engine=continue → LongCat continue；local-longcat-avatar / engine=avatar 或名含 avatar → LongCat-Avatar talk；local-vace 或名含 vace → Wan VACE；local-wan-animate 或名含 animate → Wan Animate2 :8199。亦可 providerOptions.toiv-comfy-video.engine。"
           },
           {
             "name": "prompt",
@@ -83,15 +85,21 @@
             "name": "images",
             "type": "media[]",
             "required": false,
-            "mapping": "LongCat i2v / VACE / Animate：prepare → /api/upload",
-            "description": "LongCat：0 张 t2v、≥1 张 i2v；VACE：≥1 张参考图（最多 4）；Animate：1 张参考图（upload kind=`wan_animate2`）。Wan T2V 忽略。"
+            "mapping": "LongCat i2v / VACE / Animate / Avatar：prepare → /api/upload",
+            "description": "LongCat：0 张 t2v、≥1 张 i2v；VACE：≥1 张参考图（最多 4）；Animate：1 张参考图（upload kind=`wan_animate2`）；Avatar：1 张人像首帧（upload kind=`avatar`）。Wan T2V / Continue 忽略。"
           },
           {
             "name": "videos",
             "type": "media[]",
             "required": false,
-            "mapping": "Animate：prepare → /api/upload(kind=wan_animate2) → body.video",
-            "description": "Wan Animate：1 条驱动视频（与参考图互钉同 worker）。其余引擎忽略。"
+            "mapping": "Animate：prepare → /api/upload(kind=wan_animate2) → body.video；Continue：prepare 取源视频 URL → body.video（不经 upload）",
+            "description": "Wan Animate：1 条驱动视频（kind=`wan_animate2`）；LongCat Continue：1 条源视频产物 URL（`/api/images?...`，不经 upload）。其余引擎忽略。"
+          },
+          {
+            "name": "audios",
+            "type": "media[]",
+            "mapping": "Avatar：prepare → /api/upload(kind=avatar) → body.audio",
+            "description": "LongCat-Avatar：1 条驱动音频（与人像互钉同 worker）。亦可 providerOptions.drive_text 走 TTS。其余引擎忽略。"
           },
           {
             "name": "duration",
@@ -123,6 +131,28 @@
           "pathTemplate": {
             "$switch": {
               "cases": [
+                {
+                  "when": {
+                    "$eq": [
+                      {
+                        "$ref": "prepared.route"
+                      },
+                      "continue"
+                    ]
+                  },
+                  "then": "/api/longcat/continue"
+                },
+                {
+                  "when": {
+                    "$eq": [
+                      {
+                        "$ref": "prepared.route"
+                      },
+                      "avatar"
+                    ]
+                  },
+                  "then": "/api/avatar/talk"
+                },
                 {
                   "when": {
                     "$eq": [
@@ -424,6 +454,105 @@
               {
                 "$switch": {
                   "cases": [
+                    {
+                      "when": {
+                        "$eq": [
+                          {
+                            "$ref": "prepared.route"
+                          },
+                          "continue"
+                        ]
+                      },
+                      "then": {
+                        "duration_sec": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.duration_sec"
+                            },
+                            {
+                              "$ref": "request.duration"
+                            }
+                          ]
+                        },
+                        "steps": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.steps"
+                            },
+                            10
+                          ]
+                        },
+                        "video": {
+                          "$coalesce": [
+                            {
+                              "$ref": "prepared.drive_video.url"
+                            },
+                            {
+                              "$ref": "prepared.drive_video.value"
+                            }
+                          ]
+                        },
+                        "worker": {
+                          "$ref": "request.providerOptions.toiv-comfy-video.worker"
+                        },
+                        "source_job_id": {
+                          "$ref": "request.providerOptions.toiv-comfy-video.source_job_id"
+                        },
+                        "fps": {
+                          "$ref": "request.providerOptions.toiv-comfy-video.fps"
+                        }
+                      }
+                    },
+                    {
+                      "when": {
+                        "$eq": [
+                          {
+                            "$ref": "prepared.route"
+                          },
+                          "avatar"
+                        ]
+                      },
+                      "then": {
+                        "duration_sec": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.duration_sec"
+                            },
+                            {
+                              "$ref": "request.duration"
+                            }
+                          ]
+                        },
+                        "steps": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.steps"
+                            },
+                            8
+                          ]
+                        },
+                        "image": {
+                          "$ref": "prepared.first.filename"
+                        },
+                        "audio": {
+                          "$ref": "prepared.audio.filename"
+                        },
+                        "worker": {
+                          "$ref": "prepared.first.worker"
+                        },
+                        "drive_text": {
+                          "$ref": "request.providerOptions.toiv-comfy-video.drive_text"
+                        },
+                        "fps": {
+                          "$coalesce": [
+                            {
+                              "$ref": "request.providerOptions.toiv-comfy-video.fps"
+                            },
+                            25
+                          ]
+                        }
+                      }
+                    },
                     {
                       "when": {
                         "$eq": [
@@ -1178,8 +1307,8 @@
                           "$ref": "request.model"
                         },
                         [
-                          "local-longcat",
-                          "longcat"
+                          "local-longcat-continue",
+                          "longcat-continue"
                         ]
                       ]
                     },
@@ -1195,7 +1324,22 @@
                             ]
                           }
                         },
-                        "longcat"
+                        "continue"
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$lower": {
+                            "$coalesce": [
+                              {
+                                "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                              },
+                              ""
+                            ]
+                          }
+                        },
+                        "longcat-continue"
                       ]
                     },
                     {
@@ -1210,12 +1354,27 @@
                             ]
                           }
                         },
-                        "longcat"
+                        "longcat-continue"
+                      ]
+                    },
+                    {
+                      "$contains": [
+                        {
+                          "$lower": {
+                            "$coalesce": [
+                              {
+                                "$ref": "request.model"
+                              },
+                              ""
+                            ]
+                          }
+                        },
+                        "longcat_continue"
                       ]
                     }
                   ]
                 },
-                "then": "longcat",
+                "then": "continue",
                 "else": {
                   "$if": {
                     "condition": {
@@ -1226,8 +1385,10 @@
                               "$ref": "request.model"
                             },
                             [
-                              "local-vace",
-                              "vace"
+                              "local-longcat-avatar",
+                              "longcat-avatar",
+                              "local-avatar",
+                              "avatar-talk"
                             ]
                           ]
                         },
@@ -1243,7 +1404,37 @@
                                 ]
                               }
                             },
-                            "vace"
+                            "avatar"
+                          ]
+                        },
+                        {
+                          "$eq": [
+                            {
+                              "$lower": {
+                                "$coalesce": [
+                                  {
+                                    "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                                  },
+                                  ""
+                                ]
+                              }
+                            },
+                            "longcat-avatar"
+                          ]
+                        },
+                        {
+                          "$eq": [
+                            {
+                              "$lower": {
+                                "$coalesce": [
+                                  {
+                                    "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                                  },
+                                  ""
+                                ]
+                              }
+                            },
+                            "avatar-talk"
                           ]
                         },
                         {
@@ -1258,12 +1449,57 @@
                                 ]
                               }
                             },
-                            "vace"
+                            "longcat-avatar"
+                          ]
+                        },
+                        {
+                          "$contains": [
+                            {
+                              "$lower": {
+                                "$coalesce": [
+                                  {
+                                    "$ref": "request.model"
+                                  },
+                                  ""
+                                ]
+                              }
+                            },
+                            "longcat_avatar"
+                          ]
+                        },
+                        {
+                          "$contains": [
+                            {
+                              "$lower": {
+                                "$coalesce": [
+                                  {
+                                    "$ref": "request.model"
+                                  },
+                                  ""
+                                ]
+                              }
+                            },
+                            "avatar-talk"
+                          ]
+                        },
+                        {
+                          "$contains": [
+                            {
+                              "$lower": {
+                                "$coalesce": [
+                                  {
+                                    "$ref": "request.model"
+                                  },
+                                  ""
+                                ]
+                              }
+                            },
+                            "avatar"
                           ]
                         }
                       ]
                     },
-                    "then": "vace",
+                    "then": "avatar",
                     "else": {
                       "$if": {
                         "condition": {
@@ -1274,12 +1510,8 @@
                                   "$ref": "request.model"
                                 },
                                 [
-                                  "local-wan-animate",
-                                  "wan-animate",
-                                  "local-wan-animate-2",
-                                  "wan-animate-2",
-                                  "animate2",
-                                  "local-animate2"
+                                  "local-longcat",
+                                  "longcat"
                                 ]
                               ]
                             },
@@ -1295,52 +1527,7 @@
                                     ]
                                   }
                                 },
-                                "animate"
-                              ]
-                            },
-                            {
-                              "$eq": [
-                                {
-                                  "$lower": {
-                                    "$coalesce": [
-                                      {
-                                        "$ref": "request.providerOptions.toiv-comfy-video.engine"
-                                      },
-                                      ""
-                                    ]
-                                  }
-                                },
-                                "wan-animate"
-                              ]
-                            },
-                            {
-                              "$eq": [
-                                {
-                                  "$lower": {
-                                    "$coalesce": [
-                                      {
-                                        "$ref": "request.providerOptions.toiv-comfy-video.engine"
-                                      },
-                                      ""
-                                    ]
-                                  }
-                                },
-                                "animate2"
-                              ]
-                            },
-                            {
-                              "$eq": [
-                                {
-                                  "$lower": {
-                                    "$coalesce": [
-                                      {
-                                        "$ref": "request.providerOptions.toiv-comfy-video.engine"
-                                      },
-                                      ""
-                                    ]
-                                  }
-                                },
-                                "wan-animate-2"
+                                "longcat"
                               ]
                             },
                             {
@@ -1355,13 +1542,162 @@
                                     ]
                                   }
                                 },
-                                "animate"
+                                "longcat"
                               ]
                             }
                           ]
                         },
-                        "then": "animate",
-                        "else": "wan"
+                        "then": "longcat",
+                        "else": {
+                          "$if": {
+                            "condition": {
+                              "$or": [
+                                {
+                                  "$in": [
+                                    {
+                                      "$ref": "request.model"
+                                    },
+                                    [
+                                      "local-vace",
+                                      "vace"
+                                    ]
+                                  ]
+                                },
+                                {
+                                  "$eq": [
+                                    {
+                                      "$lower": {
+                                        "$coalesce": [
+                                          {
+                                            "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                                          },
+                                          ""
+                                        ]
+                                      }
+                                    },
+                                    "vace"
+                                  ]
+                                },
+                                {
+                                  "$contains": [
+                                    {
+                                      "$lower": {
+                                        "$coalesce": [
+                                          {
+                                            "$ref": "request.model"
+                                          },
+                                          ""
+                                        ]
+                                      }
+                                    },
+                                    "vace"
+                                  ]
+                                }
+                              ]
+                            },
+                            "then": "vace",
+                            "else": {
+                              "$if": {
+                                "condition": {
+                                  "$or": [
+                                    {
+                                      "$in": [
+                                        {
+                                          "$ref": "request.model"
+                                        },
+                                        [
+                                          "local-wan-animate",
+                                          "wan-animate",
+                                          "local-wan-animate-2",
+                                          "wan-animate-2",
+                                          "animate2",
+                                          "local-animate2"
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "$eq": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        "animate"
+                                      ]
+                                    },
+                                    {
+                                      "$eq": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        "wan-animate"
+                                      ]
+                                    },
+                                    {
+                                      "$eq": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        "animate2"
+                                      ]
+                                    },
+                                    {
+                                      "$eq": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.providerOptions.toiv-comfy-video.engine"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        "wan-animate-2"
+                                      ]
+                                    },
+                                    {
+                                      "$contains": [
+                                        {
+                                          "$lower": {
+                                            "$coalesce": [
+                                              {
+                                                "$ref": "request.model"
+                                              },
+                                              ""
+                                            ]
+                                          }
+                                        },
+                                        "animate"
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "then": "animate",
+                                "else": "wan"
+                              }
+                            }
+                          }
+                        }
                       }
                     }
                   }
@@ -1378,10 +1714,10 @@
                     {
                       "$ref": "prepared.engine"
                     },
-                    "vace"
+                    "continue"
                   ]
                 },
-                "then": "vace",
+                "then": "continue",
                 "else": {
                   "$if": {
                     "condition": {
@@ -1389,10 +1725,10 @@
                         {
                           "$ref": "prepared.engine"
                         },
-                        "animate"
+                        "avatar"
                       ]
                     },
-                    "then": "animate",
+                    "then": "avatar",
                     "else": {
                       "$if": {
                         "condition": {
@@ -1400,26 +1736,52 @@
                             {
                               "$ref": "prepared.engine"
                             },
-                            "longcat"
+                            "vace"
                           ]
                         },
-                        "then": {
+                        "then": "vace",
+                        "else": {
                           "$if": {
                             "condition": {
-                              "$gt": [
+                              "$eq": [
                                 {
-                                  "$len": {
-                                    "$ref": "request.images"
-                                  }
+                                  "$ref": "prepared.engine"
                                 },
-                                0
+                                "animate"
                               ]
                             },
-                            "then": "i2v",
-                            "else": "t2v"
+                            "then": "animate",
+                            "else": {
+                              "$if": {
+                                "condition": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "prepared.engine"
+                                    },
+                                    "longcat"
+                                  ]
+                                },
+                                "then": {
+                                  "$if": {
+                                    "condition": {
+                                      "$gt": [
+                                        {
+                                          "$len": {
+                                            "$ref": "request.images"
+                                          }
+                                        },
+                                        0
+                                      ]
+                                    },
+                                    "then": "i2v",
+                                    "else": "t2v"
+                                  }
+                                },
+                                "else": "t2v"
+                              }
+                            }
                           }
-                        },
-                        "else": "t2v"
+                        }
                       }
                     }
                   }
@@ -1465,6 +1827,28 @@
                       ]
                     },
                     "then": "longcat/t2v"
+                  },
+                  {
+                    "when": {
+                      "$eq": [
+                        {
+                          "$ref": "prepared.engine"
+                        },
+                        "continue"
+                      ]
+                    },
+                    "then": "continue"
+                  },
+                  {
+                    "when": {
+                      "$eq": [
+                        {
+                          "$ref": "prepared.engine"
+                        },
+                        "avatar"
+                      ]
+                    },
+                    "then": "avatar"
                   },
                   {
                     "when": {
@@ -1519,6 +1903,14 @@
                       "$ref": "prepared.route"
                     },
                     "animate"
+                  ]
+                },
+                {
+                  "$eq": [
+                    {
+                      "$ref": "prepared.route"
+                    },
+                    "avatar"
                   ]
                 }
               ]
@@ -1584,11 +1976,23 @@
           {
             "id": "drive_video",
             "when": {
-              "$eq": [
+              "$or": [
                 {
-                  "$ref": "prepared.route"
+                  "$eq": [
+                    {
+                      "$ref": "prepared.route"
+                    },
+                    "animate"
+                  ]
                 },
-                "animate"
+                {
+                  "$eq": [
+                    {
+                      "$ref": "prepared.route"
+                    },
+                    "continue"
+                  ]
+                }
               ]
             },
             "value": {
@@ -1621,6 +2025,52 @@
                   "$first": {
                     "$sortByOrder": {
                       "$ref": "request.videos"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "drive_audio",
+            "when": {
+              "$eq": [
+                {
+                  "$ref": "prepared.route"
+                },
+                "avatar"
+              ]
+            },
+            "value": {
+              "$coalesce": [
+                {
+                  "$first": {
+                    "$filter": {
+                      "from": {
+                        "$sortByOrder": {
+                          "$ref": "request.audios"
+                        }
+                      },
+                      "as": "media",
+                      "where": {
+                        "$in": [
+                          {
+                            "$ref": "media.role"
+                          },
+                          [
+                            "drive_audio",
+                            "reference_audio",
+                            ""
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "$first": {
+                    "$sortByOrder": {
+                      "$ref": "request.audios"
                     }
                   }
                 }
@@ -1695,6 +2145,14 @@
                         },
                         "animate"
                       ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$ref": "prepared.route"
+                        },
+                        "avatar"
+                      ]
                     }
                   ]
                 }
@@ -1717,7 +2175,20 @@
                       ]
                     },
                     "then": "wan_animate2",
-                    "else": "wan_vace"
+                    "else": {
+                      "$if": {
+                        "condition": {
+                          "$eq": [
+                            {
+                              "$ref": "prepared.route"
+                            },
+                            "avatar"
+                          ]
+                        },
+                        "then": "avatar",
+                        "else": "wan_vace"
+                      }
+                    }
                   }
                 }
               },
@@ -1728,6 +2199,50 @@
                     "$ref": "prepared.first_image"
                   },
                   "filename": "toiv-ref"
+                }
+              ]
+            }
+          },
+          {
+            "id": "audio",
+            "when": {
+              "$and": [
+                {
+                  "$eq": [
+                    {
+                      "$ref": "prepared.route"
+                    },
+                    "avatar"
+                  ]
+                },
+                {
+                  "$ne": [
+                    {
+                      "$ref": "prepared.drive_audio"
+                    },
+                    null
+                  ]
+                }
+              ]
+            },
+            "operation": {
+              "method": "POST",
+              "path": "/api/upload",
+              "originPath": true,
+              "contentType": "multipart/form-data",
+              "query": {
+                "kind": "avatar",
+                "worker": {
+                  "$ref": "prepared.first.worker"
+                }
+              },
+              "files": [
+                {
+                  "name": "image",
+                  "source": {
+                    "$ref": "prepared.drive_audio"
+                  },
+                  "filename": "toiv-audio"
                 }
               ]
             }
