@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（ToIV开发）：**main tip `0c577ae1` 已 canvas-only 部署落稳**（市场 gap-p1：媒体上传+音频未接标明+任务时间线；ActiveEnter≈18:56:52，`.deployed_tip`≈18:57:04）。H3 timer 仍缺凭证（勿 enable）。`updated_at` 2026-10-09T19:00:00+08:00。
+> **最后更新**：2026-10-09（项目管家；开发/融合）：**main tip `0c577ae1` 已部署**（docs tip `f3342922`）。similar-merge **停手**（BeefTV 无市场列表相似折叠可对标）。下一刀：**作品库详情加深** 已开（与验 `0c577ae1` 并行），tip 未出。H3 timer 仍缺凭证。`updated_at` 2026-10-09T19:02:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
