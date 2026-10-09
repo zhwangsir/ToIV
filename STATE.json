@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T11:00:00+08:00",
+  "updated_at": "2026-10-09T11:10:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12762,7 +12762,7 @@
     "updated_at": "2026-10-09T10:20:00+08:00"
   },
   "pipeline_c_c_chains_2026_10_09": {
-    "status": "pipeline_c_c_chains_failtests_undeployed",
+    "status": "pipeline_c_c_chains_guards_merged_gitee_only_undeployed",
     "date": "2026-10-09",
     "steward": "项目管家",
     "source": [
@@ -12771,11 +12771,12 @@
       "设备管家",
       "项目管家"
     ],
-    "product_tip": "da2dd223",
+    "product_tip": "c4f68adf",
     "remotes": {
-      "origin_gitee_main": "da2dd223",
+      "origin_gitee_main": "c4f68adf",
       "github_main": "da2dd223",
-      "verified_both": true
+      "verified_both": false,
+      "github_lag_note": "443_pending_ff_push_no_force"
     },
     "deploy": {
       "status": "not_deployed",
@@ -12811,19 +12812,24 @@
       "deployed": false
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T11:00:00+08:00",
+    "updated_at": "2026-10-09T11:10:00+08:00",
     "prior_product_tip": "72dcbe7e",
     "docs_prior_tip": "95a80bb2",
     "canvas_client_guards": {
       "branch": "feat/canvas-c-chains-client-guards",
       "tip": "43a51ce5",
-      "merged_main": false,
+      "merged_main": true,
+      "merge_commit": "c4f68adf",
       "tests_passed": 3,
       "guards": [
         "empty_storyboard_reject_before_post",
         "non_makeup_reject_before_post"
       ],
       "deployed": false
-    }
+    },
+    "product_tip_gitee": "c4f68adf",
+    "product_tip_github": "da2dd223",
+    "remotes_synced": false,
+    "docs_tip_on_gitee": "4575aaa9"
   }
 }
