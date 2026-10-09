@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T13:45:00+08:00",
+  "updated_at": "2026-10-09T13:46:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13084,7 +13084,7 @@
     "remotes_synced": true
   },
   "canvas_brand_assets_toiv_2026_10_09": {
-    "status": "canvas_brand_assets_toiv_pending_merge",
+    "status": "canvas_brand_assets_toiv_merged_undeployed",
     "date": "2026-10-09",
     "source": [
       "ToIV开发"
@@ -13105,6 +13105,14 @@
     "deploy": {
       "status": "not_deployed"
     },
-    "base_tip": "e851feec"
+    "base_tip": "e851feec",
+    "merge": "9abbfa8c",
+    "feat": "6c451fed",
+    "product_tip": "9abbfa8c",
+    "remotes": {
+      "origin_gitee_main": "9abbfa8c",
+      "github_main": "9abbfa8c",
+      "verified_both": true
+    }
   }
 }
