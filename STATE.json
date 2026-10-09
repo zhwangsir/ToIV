@@ -12727,6 +12727,38 @@
       "docs_prior": "074d270d"
     },
     "admin_gate": "off_unchanged",
-    "updated_at": "2026-10-09T10:00:00+08:00"
+    "updated_at": "2026-10-09T10:00:00+08:00",
+    "superseded_by_tip": "6959868b"
+  },
+  "pipeline_c_stage_b_2026_10_09": {
+    "status": "pipeline_c_stage_b_tip_undeployed",
+    "date": "2026-10-09",
+    "steward": "项目管家",
+    "source": [
+      "ToIV 开发",
+      "ToIV BeefTV 融合",
+      "设备管家",
+      "项目管家"
+    ],
+    "product_tip": "6959868b",
+    "remotes": {
+      "origin_gitee_main": "6959868b",
+      "github_main": "6959868b",
+      "verified_both": true
+    },
+    "deploy": {
+      "status": "not_deployed",
+      "toiv_api_process": "2026-10-08"
+    },
+    "stage_b": {
+      "wait_false_returns_db_job_id": true,
+      "default_wait_true_unchanged": true,
+      "tests_passed": 28,
+      "c_chains_full": false,
+      "cancel_use_top_level_db_id_only": true,
+      "nested_job_id_may_be_comfy_prompt_id": true
+    },
+    "admin_gate": "off_unchanged",
+    "updated_at": "2026-10-09T10:20:00+08:00"
   }
 }

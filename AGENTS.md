@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家：**管线 C 阶段 A tip `3c7a3eb4`，未部署**）：Gitee/本地 main=`3c7a3eb4`（`queue_prompt` 后登记 Job+spawn_tracker，HTTP 仍同步等片）；GitHub 仍停 `5a8fa423`（443，未强推）。**勿把 tip 写成已部署**。闸不开。其上含任务中心 `/api/jobs`、H3 草案拆条 r2v/pipeline-c。STATE `pipeline_c_stage_a_2026_10_09`；`updated_at` 2026-10-09T10:00:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家：**管线 C 阶段 B tip `6959868b`，未部署**）：两端+本地 main=`6959868b`（`wait=false` 立即回 DB `job_id`，默认仍同步 `wait=true`；28 passed）。**勿把 tip 写成已部署**；生产 toiv-api 仍 10-08。闸不开。取消只用顶层 DB Job.id，嵌套可能仍是 Comfy `prompt_id`。未开 c-chains 全量。STATE `pipeline_c_stage_b_2026_10_09`；`updated_at` 2026-10-09T10:20:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -134,6 +134,12 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-09（项目管家：管线 C 阶段 B `6959868b`，未部署）
+- **tip**：origin/github/本地 main=`6959868b`。**未部署**（生产 API 仍 10-08 进程）。
+- **阶段 B**：`wait=false` 立即回顶层 DB Job.id；默认 `wait=true` 同步未改；28 passed。未开 c-chains 全量。
+- **契约**：取消走 `/api/jobs/{id}/cancel` 只用顶层 DB id；嵌套 `job_id` 可能仍是 Comfy `prompt_id`。画布默认可暂不改编排。
+- Status：`pipeline_c_stage_b_tip_undeployed`；STATE `pipeline_c_stage_b_2026_10_09`；闸不开。via 项目管家（ToIV 开发/BeefTV/设备）。
 
 ### 2026-10-09（项目管家：管线 C 阶段 A `3c7a3eb4`，未部署）
 - **tip**：Gitee/本地=`3c7a3eb4`；GitHub 仍=`5a8fa423`（443，未强推）。**未部署**。
