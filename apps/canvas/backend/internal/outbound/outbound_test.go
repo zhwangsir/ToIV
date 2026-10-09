@@ -1,6 +1,7 @@
 package outbound
 
 import (
+	"strings"
 	"encoding/base64"
 	"net"
 	"net/http"
@@ -43,6 +44,15 @@ func TestConfiguredProxyHostIsTrustedAsDeploymentEgress(t *testing.T) {
 	}
 	if configuredProxyHost("172.24.176.2") {
 		t.Fatal("configuredProxyHost() accepted an unrelated private host")
+	}
+}
+
+func TestDefaultOutboundUserAgentIsToIV(t *testing.T) {
+	if !strings.HasPrefix(DefaultOutboundUserAgent, "ToIV/") {
+		t.Fatalf("DefaultOutboundUserAgent = %q, want ToIV/ prefix", DefaultOutboundUserAgent)
+	}
+	if strings.Contains(DefaultOutboundUserAgent, "BeefTV") {
+		t.Fatalf("DefaultOutboundUserAgent still mentions BeefTV: %q", DefaultOutboundUserAgent)
 	}
 }
 
