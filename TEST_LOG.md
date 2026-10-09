@@ -1,3 +1,5 @@
+- 2026-10-09 作品库详情加深 backlog 已齐、本档无代码（ToIV开发）：对照 `library-detail.tsx`/`library-group.ts`——回收站 restore/permanent 已接 API（非占位）；变体折叠卡已有「变体/批次 · N」+ `folderCover` 代表图（M2 tip `98f56753` 已在 main）。未开分支、未部署、未真测。下一刀 backlog 跳过第 3 项。status=`library_detail_backlog_complete_no_code`；updated_at 2026-10-09T19:04:00+08:00。
+- 2026-10-09 similar-merge 停手 + 作品库详情加深开刀（项目管家；开发/融合）：无 BeefTV 相似折叠对标；作品库详情加深已开、tip 未出（并行验 `0c577ae1`）；status=`library_detail_deepen_branch_open_similar_merge_stopped`；updated_at 2026-10-09T19:02:00+08:00。
 - 2026-10-09 tip `0c577ae1` **已部署落稳**（ToIV开发）：gap-p1 canvas-only；ActiveEnter≈18:56:52，`.deployed_tip`≈18:57:04；H3 timer 仍缺凭证；status=`main_tip_0c577ae1_deployed`；updated_at 2026-10-09T19:00:00+08:00。
 - 2026-10-09 市场 gap-p1 分支已开（项目管家；融合）：`feat/studio-market-gap-p1`——媒体上传+音频未接标明+任务时间线；tip 未出、等交审；status=`fusion_market_gap_p1_branch_open`；updated_at 2026-10-09T18:49:00+08:00。
 - 2026-10-09 tip `30357bfc` **已部署**（项目管家；ToIV开发）：市场本地能力露出 canvas-only 落稳；status=`main_tip_30357bfc_deployed`；updated_at 2026-10-09T18:48:00+08:00。

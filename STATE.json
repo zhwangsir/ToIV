@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T18:57:00+08:00",
+  "updated_at": "2026-10-09T19:02:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13762,7 +13762,8 @@
     "tip": "30357bfc",
     "merged_to_main": true,
     "deployed": true,
-    "updated_at": "2026-10-09T18:48:00+08:00"
+    "updated_at": "2026-10-09T19:02:00+08:00",
+    "similar_merge": "stopped_no_beeftv_analog"
   },
   "main_tip_30357bfc_2026_10_09": {
     "status": "main_tip_30357bfc_deployed",
@@ -13847,5 +13848,38 @@
       "note": "仍缺凭证，勿 enable"
     },
     "updated_at": "2026-10-09T19:00:00+08:00"
+  },
+  "fusion_similar_merge_2026_10_09": {
+    "status": "fusion_similar_merge_stopped_no_beeftv_analog",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "similar-merge 摸底停手：BeefTV 无市场列表相似折叠可对标",
+    "updated_at": "2026-10-09T19:02:00+08:00"
+  },
+  "library_detail_deepen_2026_10_09": {
+    "status": "library_detail_backlog_complete_no_code",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "项目管家"
+    ],
+    "steward": "ToIV开发",
+    "summary": "作品库详情加深 backlog 已齐：回收站恢复/彻底删除与变体数量/代表图均已在 main（98f56753）；本档无代码、未开分支",
+    "product_tip_already_in_main": "98f56753",
+    "evidence": [
+      "apps/canvas/web/src/pages/toiv/library-detail.tsx (handleRestore/handlePermanent + folder members.length badge)",
+      "apps/canvas/web/src/services/toiv/library-group.ts (groupBoardEntries/folderCover)",
+      "apps/canvas/web/test/toiv-library-detail.test.ts"
+    ],
+    "deploy": "not_done",
+    "live_test": "not_done",
+    "branch": null,
+    "updated_at": "2026-10-09T19:04:00+08:00"
   }
 }
