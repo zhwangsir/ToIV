@@ -7,6 +7,7 @@
 #   deploy/deploy.sh --install       # 首次部署:rsync 后执行远端 install.sh(需 sudo)
 #   deploy/deploy.sh workstation     # 部署到 workstation(默认 core)
 #   deploy/deploy.sh --skip-web      # 本地无 .next 构建产物时仍部署(前端保留远端旧构建)
+#   ALLOW_STALE_WEB=1 deploy/deploy.sh  # 显式允许推与当前 HEAD 短 sha 不一致的旧 .next(默认拒)
 #   deploy/deploy.sh --web-only      # 仅前端:rsync web+.next,只重启 toiv-web(不碰 toiv-api,保护烟测)
 #   deploy/deploy.sh --rollback      # 回滚:恢复部署前快照(api/app + web/.next),重启并健康检查
 #   deploy/deploy.sh --with-canvas   # 追加画布件:rsync apps/canvas → core 构建(canvas-api-pg 二进制
@@ -227,6 +228,31 @@ if [ "$WEB_ONLY" = true ] && [ "$INSTALL" = true ]; then
   exit 1
 fi
 
+
+# 拒旧网页:本地 .next/BUILD_ID 内 git 短 sha 必须等于当前 HEAD。
+# 格式见 apps/web/next.config.mjs:YYYYMMDD-HHmmss-<git短sha>[-dirty]
+# --skip-web 不走此检查(本来就不推 web)。ALLOW_STALE_WEB=1 可显式绕过(打警告)。
+assert_web_build_matches_head() {
+  local build_id expected_sha build_sha
+  build_id="$(tr -d '\n\r' < apps/web/.next/BUILD_ID)"
+  expected_sha="$(git rev-parse --short HEAD)"
+  build_sha=""
+  if [[ "$build_id" =~ ^[0-9]{8}-[0-9]{6}-([0-9a-fA-F]+)(-dirty)?$ ]]; then
+    build_sha="${BASH_REMATCH[1]}"
+  fi
+  if [ "$build_sha" = "$expected_sha" ]; then
+    return 0
+  fi
+  if [ "${ALLOW_STALE_WEB:-}" = "1" ]; then
+    echo "⚠ ALLOW_STALE_WEB=1:本地 .next 是旧构建(BUILD_ID=$build_id,期望 sha=$expected_sha),仍继续推前端" >&2
+    return 0
+  fi
+  echo "✖ 本地 .next 是旧构建,请先 cd apps/web && npm run build" >&2
+  echo "  本地 BUILD_ID=$build_id" >&2
+  echo "  期望 sha=$expected_sha" >&2
+  return 1
+}
+
 # 本地构建产物前置检查:toiv-web 是 next start 跑预构建产物,没有 .next 部署上去
 # 就是「没有前端的 web 服务」,直接失败而不是仅警告(可用 --skip-web 显式跳过)
 HAS_WEB_BUILD=false
@@ -240,6 +266,11 @@ else
   echo "✖ 本地无 apps/web/.next 构建产物,拒绝部署(避免上线没有前端的服务)" >&2
   echo "  请先 cd apps/web && npm run build;确认要沿用远端旧前端时加 --skip-web" >&2
   exit 1
+fi
+
+# HAS_WEB_BUILD=true 即将推前端:拒与当前 HEAD 短 sha 不一致的旧 .next
+if [ "$HAS_WEB_BUILD" = true ]; then
+  assert_web_build_matches_head || exit 1
 fi
 
 if [ "$WEB_ONLY" = true ]; then
