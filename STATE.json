@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T19:02:00+08:00",
+  "updated_at": "2026-10-09T19:11:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13847,7 +13847,8 @@
       "missing": "h3_service_account.env",
       "note": "仍缺凭证，勿 enable"
     },
-    "updated_at": "2026-10-09T19:00:00+08:00"
+    "updated_at": "2026-10-09T19:11:00+08:00",
+    "superseded_by": "6d70c34a"
   },
   "fusion_similar_merge_2026_10_09": {
     "status": "fusion_similar_merge_stopped_no_beeftv_analog",
@@ -13862,24 +13863,47 @@
     "updated_at": "2026-10-09T19:02:00+08:00"
   },
   "library_detail_deepen_2026_10_09": {
-    "status": "library_detail_backlog_complete_no_code",
+    "status": "library_detail_6d70c34a_deployed",
     "date": "2026-10-09",
     "source": [
       "ToIV开发",
       "ToIV BeefTV 融合",
       "项目管家"
     ],
-    "steward": "ToIV开发",
-    "summary": "作品库详情加深 backlog 已齐：回收站恢复/彻底删除与变体数量/代表图均已在 main（98f56753）；本档无代码、未开分支",
-    "product_tip_already_in_main": "98f56753",
-    "evidence": [
-      "apps/canvas/web/src/pages/toiv/library-detail.tsx (handleRestore/handlePermanent + folder members.length badge)",
-      "apps/canvas/web/src/services/toiv/library-group.ts (groupBoardEntries/folderCover)",
-      "apps/canvas/web/test/toiv-library-detail.test.ts"
+    "steward": "项目管家",
+    "summary": "作品库详情加深已合并部署 tip 6d70c34a",
+    "tip": "6d70c34a",
+    "feature_tip": "a4c47452",
+    "merged_to_main": true,
+    "deployed": true,
+    "updated_at": "2026-10-09T19:11:00+08:00"
+  },
+  "main_tip_6d70c34a_2026_10_09": {
+    "status": "main_tip_6d70c34a_deployed",
+    "date": "2026-10-09",
+    "source": [
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "项目管家"
     ],
-    "deploy": "not_done",
-    "live_test": "not_done",
-    "branch": null,
-    "updated_at": "2026-10-09T19:04:00+08:00"
+    "steward": "项目管家",
+    "summary": "6d70c34a 已部署；作品库详情加深",
+    "product_tip": "6d70c34a",
+    "merged": {
+      "library_detail": "a4c47452"
+    },
+    "deploy": {
+      "canvas": {
+        "tip": "6d70c34a",
+        "status": "deployed",
+        "at": "2026-10-09T19:10+08:00"
+      },
+      "verify_path": "/toiv/library"
+    },
+    "h3_timer": {
+      "status": "blocked",
+      "missing": "h3_service_account.env"
+    },
+    "updated_at": "2026-10-09T19:11:00+08:00"
   }
 }

@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（ToIV开发）：**作品库详情加深 backlog 已齐、本档无代码**（M2 tip `98f56753`：回收站恢复/彻底删除已接 API；变体折叠已有数量角标+代表图）。similar-merge 仍停手。main 仍 `0c577ae1` 已部署。H3 timer 仍缺凭证。docs tip 见本 commit。`updated_at` 2026-10-09T19:04:00+08:00。
+> **最后更新**：2026-10-09（项目管家；ToIV开发/融合核）：**main tip `6d70c34a` 已部署**（作品库详情加深，含 `a4c47452`；canvas-only 19:10 落稳；看 `/toiv/library`）。similar-merge 已停手；下一刀 HOLD 等用户验。H3 timer 仍缺凭证。`updated_at` 2026-10-09T19:11:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
