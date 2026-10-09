@@ -141,12 +141,20 @@ export function useCanvasNodeOperations({
         setSelectedConnectionId(null);
     }, [selectedNodeIdsRef, setSelectedConnectionId, setSelectedNodeIds]);
 
-    const createNode = useCallback((type: CanvasNodeTypeId, position?: Position, workflowProvider?: "runninghub") => {
+    const createNode = useCallback((
+        type: CanvasNodeTypeId,
+        position?: Position,
+        workflowProviderOrOptions?: "runninghub" | { workflowProvider?: "runninghub"; model?: string; title?: string },
+    ) => {
         const disabledReason = getCanvasNodeCreationDisabledReason(type);
         if (disabledReason) {
             message.info(disabledReason);
             return;
         }
+        const options = typeof workflowProviderOrOptions === "string"
+            ? { workflowProvider: workflowProviderOrOptions as "runninghub" }
+            : (workflowProviderOrOptions || {});
+        const workflowProvider = options.workflowProvider;
         const selectedWorkflowProvider = type === CanvasNodeType.Config
             ? workflowProvider || (workflowProviderPluginEnabled(runtimeStatuses, "runninghub") ? "runninghub" : undefined)
             : undefined;
@@ -155,12 +163,16 @@ export function useCanvasNodeOperations({
             return;
         }
         const workflowTitle = type === CanvasNodeType.Config && selectedWorkflowProvider === "runninghub" ? "RunningHub 工作流" : undefined;
+        const generationMode = type === CanvasNodeType.Image ? "image" as const : type === CanvasNodeType.Video ? "video" as const : type === CanvasNodeType.Audio ? "audio" as const : undefined;
         const metadata: CanvasNodeMetadata | undefined = type === CanvasNodeType.Drawing
             ? { drawingEngine: defaultDrawingEngine }
             : type === CanvasNodeType.Config
                 ? { generationMode: "image", workflowProvider: selectedWorkflowProvider || "model" }
-                : type === CanvasNodeType.Image || type === CanvasNodeType.Video || type === CanvasNodeType.Audio
-                    ? mediaGeneratorMetadata({ generationMode: type === CanvasNodeType.Image ? "image" : type === CanvasNodeType.Video ? "video" : "audio" })
+                : generationMode
+                    ? mediaGeneratorMetadata({
+                        generationMode,
+                        ...(options.model ? { model: options.model } : {}),
+                    })
                 : undefined;
         const center = position || getCanvasCenter();
         // Only menu-created nodes use the implicit canvas center; explicit
@@ -172,9 +184,13 @@ export function useCanvasNodeOperations({
             node.title = `文本节点 ${nextNumber}`;
         }
         if (type === CanvasNodeType.Image || type === CanvasNodeType.Video || type === CanvasNodeType.Audio) {
-            const nextNumber = nodesRef.current.filter((item) => item.type === type).length + 1;
-            const label = type === CanvasNodeType.Image ? "图片节点" : type === CanvasNodeType.Video ? "视频节点" : "音频节点";
-            node.title = `${label} ${nextNumber}`;
+            if (options.title) {
+                node.title = options.title;
+            } else {
+                const nextNumber = nodesRef.current.filter((item) => item.type === type).length + 1;
+                const label = type === CanvasNodeType.Image ? "图片节点" : type === CanvasNodeType.Video ? "视频节点" : "音频节点";
+                node.title = `${label} ${nextNumber}`;
+            }
         }
         if (type === CanvasNodeType.MediaConversion) node.title = "智能剪辑";
         if (workflowTitle) node.title = workflowTitle;

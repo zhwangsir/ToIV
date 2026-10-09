@@ -39,6 +39,7 @@ export function CanvasToolbar({
     onAddFolder,
     onAddDrawing,
     onAddExtensionNode,
+    onAddLocalGenerator,
     onAddWorkflow,
     onOpenDirector,
     onUndo,
@@ -82,6 +83,7 @@ export function CanvasToolbar({
     onAddFolder: () => void;
     onAddDrawing: () => void;
     onAddExtensionNode: (type: CanvasNodeTypeId) => void;
+    onAddLocalGenerator?: (opts: { type: "image" | "video"; model: string; title: string }) => void;
     onAddWorkflow: () => void;
     onOpenDirector: () => void;
     onUndo: () => void;
@@ -182,6 +184,7 @@ export function CanvasToolbar({
         onAddFolder,
         onAddDrawing,
         onAddExtensionNode,
+        onAddLocalGenerator,
         onAddWorkflow,
         onChooseStyle,
         onOpenDirector,

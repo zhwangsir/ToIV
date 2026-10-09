@@ -10,12 +10,21 @@ import {
     buildDefaultRunValues,
     buildToivRunValues,
     fetchToivApp,
+    fetchToivAppVariants,
     fetchToivApps,
     requiredToivParamLabel,
     runToivApp,
     type ToivApp,
+    type ToivAppModeItem,
     type ToivAppParam,
 } from "@/services/toiv/client";
+import {
+    LOCAL_MARKET_FEATURED,
+    localMarketFeaturedAppIds,
+    resolveLocalCapabilityBadge,
+    sortAppsWithFeaturedIds,
+    type LocalCapabilityBadge,
+} from "@/services/toiv/local-capability-surface";
 import {
     isMarketCanvasProvider,
     registerMarketCanvasProvider,
@@ -32,6 +41,17 @@ const CATEGORY_META: Record<string, string> = {
     "3d": "3D",
     other: "其他",
 };
+
+
+function LocalBadges({ badge }: { badge: LocalCapabilityBadge }) {
+    return (
+        <span className="flex flex-wrap items-center gap-1">
+            <StatusBadge variant="filled" tone="success" label={badge.label} size="sm" />
+            <StatusBadge variant="filled" tone="neutral" label={badge.worker} size="sm" />
+            <StatusBadge variant="filled" tone="neutral" label={badge.engine} size="sm" />
+        </span>
+    );
+}
 
 function smokeBadge(app: ToivApp) {
     if (app.smoke_status === "pass") return <StatusBadge variant="filled" tone="success" label="烟测通过" size="sm" />;
@@ -155,6 +175,8 @@ export default function MarketPage() {
     const [running, setRunning] = useState(false);
     const [runMsg, setRunMsg] = useState<string | null>(null);
     const [providerTick, setProviderTick] = useState(0);
+    const [modes, setModes] = useState<ToivAppModeItem[]>([]);
+    const [modesLoading, setModesLoading] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -181,6 +203,7 @@ export default function MarketPage() {
             setDetailError(null);
             setRunMsg(null);
             setValues({});
+            setModes([]);
             try {
                 const full = await fetchToivApp(id);
                 setDetail(full);
@@ -193,6 +216,15 @@ export default function MarketPage() {
                     },
                     { replace: true },
                 );
+                setModesLoading(true);
+                try {
+                    const v = await fetchToivAppVariants(id);
+                    setModes(v.modes);
+                } catch {
+                    setModes([]);
+                } finally {
+                    setModesLoading(false);
+                }
             } catch {
                 setDetailError("加载应用详情失败");
             } finally {
@@ -207,6 +239,7 @@ export default function MarketPage() {
         setDetail(null);
         setDetailError(null);
         setRunMsg(null);
+        setModes([]);
         setSearchParams(
             (prev) => {
                 const next = new URLSearchParams(prev);
@@ -230,20 +263,31 @@ export default function MarketPage() {
         return [["all", apps.length], ...Array.from(set.entries())] as Array<[string, number]>;
     }, [apps]);
 
-    const filtered = useMemo(
-        () =>
-            apps.filter((a) => {
-                if (category !== "all" && (a.category || "other") !== category) return false;
-                if (!q.trim()) return true;
-                const needle = q.trim().toLowerCase();
-                return (
-                    (a.name ?? "").toLowerCase().includes(needle) ||
-                    (a.description ?? "").toLowerCase().includes(needle) ||
-                    (a.guide_purpose ?? "").toLowerCase().includes(needle)
-                );
-            }),
-        [apps, category, q],
-    );
+    const filtered = useMemo(() => {
+        const base = apps.filter((a) => {
+            if (category !== "all" && (a.category || "other") !== category) return false;
+            if (!q.trim()) return true;
+            const needle = q.trim().toLowerCase();
+            return (
+                (a.name ?? "").toLowerCase().includes(needle) ||
+                (a.description ?? "").toLowerCase().includes(needle) ||
+                (a.guide_purpose ?? "").toLowerCase().includes(needle) ||
+                a.id.toLowerCase().includes(needle)
+            );
+        });
+        if (category === "all" && !q.trim()) {
+            return sortAppsWithFeaturedIds(base, localMarketFeaturedAppIds());
+        }
+        return base;
+    }, [apps, category, q]);
+
+    const featuredLocal = useMemo(() => {
+        const byId = new Map(apps.map((a) => [a.id, a]));
+        return LOCAL_MARKET_FEATURED.map((entry) => ({
+            entry,
+            app: entry.appId ? byId.get(entry.appId) : undefined,
+        }));
+    }, [apps]);
 
     const schema = detail?.params_schema ?? [];
     const missing = detail ? requiredToivParamLabel(schema, values) : null;
@@ -344,36 +388,81 @@ export default function MarketPage() {
             ) : filtered.length === 0 ? (
                 <EmptyState description="没有匹配的应用" />
             ) : (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
-                    {filtered.map((app) => (
-                        <button
-                            key={app.id}
-                            type="button"
-                            onClick={() => void openDetail(app)}
-                            className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] text-left transition-colors hover:border-[var(--workspace-accent,#555)]"
-                        >
-                            <div className="flex h-28 items-center justify-center bg-[var(--muted,rgba(255,255,255,0.05))]">
-                                {app.cover_url ? (
-                                    <img src={app.cover_url} alt="" className="h-full w-full object-cover" loading="lazy" />
-                                ) : (
-                                    <span className="text-2xl opacity-40">{CATEGORY_META[app.category || "other"] ?? "应"}</span>
-                                )}
+                <>
+                    {category === "all" && !q.trim() && (
+                        <section className="flex flex-col gap-2" aria-label="本地精选">
+                            <div className="flex items-baseline justify-between">
+                                <h2 className="text-sm font-medium text-foreground">本地精选</h2>
+                                <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
+                                    生图 · H3 · LongCat · VACE · Animate2 · Continue · Avatar · Wan
+                                </span>
                             </div>
-                            <div className="flex flex-1 flex-col gap-1.5 p-3">
-                                <p className="truncate text-sm font-medium">{app.name}</p>
-                                <p className="line-clamp-2 min-h-8 text-xs text-[var(--muted-foreground,#a8a8a8)]">
-                                    {app.guide_purpose || app.description}
-                                </p>
-                                <div className="mt-auto flex items-center justify-between pt-1">
-                                    {smokeBadge(app)}
-                                    <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
-                                        {app.usage_count ?? 0} 次使用
-                                    </span>
-                                </div>
+                            <div className="flex gap-3 overflow-x-auto pb-1">
+                                {featuredLocal.map(({ entry, app }) => {
+                                    const badge = {
+                                        kind: entry.kind,
+                                        label: "本地",
+                                        worker: entry.worker,
+                                        engine: entry.engine,
+                                        protocol: entry.protocol,
+                                    };
+                                    return (
+                                        <button
+                                            key={entry.id}
+                                            type="button"
+                                            onClick={() => {
+                                                if (app) void openDetail(app);
+                                                else if (entry.appId) void openDetail(entry.appId);
+                                                else if (entry.canvasTo) navigate(entry.canvasTo);
+                                            }}
+                                            className="flex w-44 shrink-0 flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--card,#181818)] p-3 text-left transition-colors hover:border-[var(--workspace-accent,#555)]"
+                                        >
+                                            <p className="truncate text-sm font-medium">{app?.name || entry.label}</p>
+                                            <LocalBadges badge={badge} />
+                                            <p className="line-clamp-2 text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
+                                                {app?.guide_purpose || app?.description || `本地 worker ${entry.worker}`}
+                                            </p>
+                                        </button>
+                                    );
+                                })}
                             </div>
-                        </button>
-                    ))}
-                </div>
+                        </section>
+                    )}
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+                        {filtered.map((app) => {
+                            const local = resolveLocalCapabilityBadge(app);
+                            return (
+                                <button
+                                    key={app.id}
+                                    type="button"
+                                    onClick={() => void openDetail(app)}
+                                    className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] text-left transition-colors hover:border-[var(--workspace-accent,#555)]"
+                                >
+                                    <div className="flex h-28 items-center justify-center bg-[var(--muted,rgba(255,255,255,0.05))]">
+                                        {app.cover_url ? (
+                                            <img src={app.cover_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                                        ) : (
+                                            <span className="text-2xl opacity-40">{CATEGORY_META[app.category || "other"] ?? "应"}</span>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-1 flex-col gap-1.5 p-3">
+                                        <p className="truncate text-sm font-medium">{app.name}</p>
+                                        <p className="line-clamp-2 min-h-8 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                            {app.guide_purpose || app.description}
+                                        </p>
+                                        {local && <LocalBadges badge={local} />}
+                                        <div className="mt-auto flex items-center justify-between pt-1">
+                                            {smokeBadge(app)}
+                                            <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
+                                                {app.usage_count ?? 0} 次使用
+                                            </span>
+                                        </div>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </>
             )}
 
             <AppDrawer open={!!detail} onClose={closeDetail} width={440} title={detail?.name}>
@@ -403,7 +492,42 @@ export default function MarketPage() {
                                     {registered && (
                                         <StatusBadge variant="filled" tone="success" label="已注册画布" size="sm" />
                                     )}
+                                    {(() => {
+                                        const local = resolveLocalCapabilityBadge(detail);
+                                        return local ? <LocalBadges badge={local} /> : null;
+                                    })()}
                                 </div>
+                                {(modesLoading || modes.length > 0) && (
+                                    <div className="flex flex-col gap-2">
+                                        <p className="text-xs font-medium">模式</p>
+                                        {modesLoading ? (
+                                            <p className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">加载模式…</p>
+                                        ) : (
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {modes.map((m) => {
+                                                    const active = m.app_id === detail.id;
+                                                    return (
+                                                        <button
+                                                            key={m.app_id}
+                                                            type="button"
+                                                            title={m.desc || m.label}
+                                                            onClick={() => {
+                                                                if (!active) void openDetail(m.app_id);
+                                                            }}
+                                                            className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+                                                                active
+                                                                    ? "border-[var(--workspace-accent,#f5f5f5)] bg-[var(--surface-active,rgba(255,255,255,0.1))]"
+                                                                    : "border-[var(--border)] text-[var(--muted-foreground,#a8a8a8)] hover:border-[var(--workspace-accent,#666)]"
+                                                            }`}
+                                                        >
+                                                            {m.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 <p className="text-sm leading-relaxed">{detail.description}</p>
                                 {detail.guide_purpose && (
                                     <div className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs leading-relaxed text-[var(--muted-foreground,#a8a8a8)]">

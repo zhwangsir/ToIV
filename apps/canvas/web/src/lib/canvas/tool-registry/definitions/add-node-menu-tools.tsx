@@ -1,9 +1,10 @@
-import { Clock3, Folder, FolderOpen, Layers3, Palette, UploadCloud, UserRound, Workflow } from "lucide-react";
+import { Clock3, Folder, FolderOpen, Layers3, Palette, Sparkles, UploadCloud, UserRound, Workflow } from "lucide-react";
 
 import { getNodeIcon, getNodeLabel } from "@/lib/canvas/node-registry";
 import { CANVAS_DEVELOPING_LABEL, getCanvasNodeCreationDisabledReason } from "@/lib/canvas/canvas-feature-availability";
 import { registerAddNodeMenuCommands, type AddNodeMenuCommand } from "@/lib/canvas/tool-registry";
 import { CanvasNodeType } from "@/types/canvas";
+import { LOCAL_CREATE_PRESETS } from "@/services/toiv/local-capability-surface";
 
 /** 真正创建节点的命令，文案与图标统一取自节点注册表。 */
 function nodeCommand(type: CanvasNodeType, rest: Omit<AddNodeMenuCommand, "id" | "label" | "icon" | "section">): AddNodeMenuCommand {
@@ -17,6 +18,24 @@ export const addNodeMenuCommands: AddNodeMenuCommand[] = [
     nodeCommand(CanvasNodeType.Text, { defaultOrder: 10, run: (ctx) => ctx.handlers.onAddText() }),
     nodeCommand(CanvasNodeType.Image, { defaultOrder: 20, run: (ctx) => ctx.handlers.onAddImage() }),
     nodeCommand(CanvasNodeType.Video, { defaultOrder: 30, run: (ctx) => ctx.handlers.onAddVideo() }),
+
+    // 本地预置引擎（toiv-comfy-image / toiv-h3 / toiv-comfy-video×6）——硬编码，不接线 RH 应用
+    ...LOCAL_CREATE_PRESETS.map((preset) => ({
+        id: preset.id,
+        label: preset.label,
+        icon: <Sparkles />,
+        badge: preset.badge,
+        section: "node" as const,
+        defaultOrder: preset.defaultOrder,
+        applicable: (ctx: Parameters<NonNullable<AddNodeMenuCommand["applicable"]>>[0]) => Boolean(ctx.handlers.onAddLocalGenerator),
+        run: (ctx: Parameters<AddNodeMenuCommand["run"]>[0]) => {
+            ctx.handlers.onAddLocalGenerator?.({
+                type: preset.nodeType,
+                model: preset.modelRef,
+                title: preset.label,
+            });
+        },
+    })),
     nodeCommand(CanvasNodeType.Audio, { defaultOrder: 40, applicable: (ctx) => ctx.workspaceMode !== "simple", run: (ctx) => ctx.handlers.onAddAudio() }),
     { ...nodeCommand(CanvasNodeType.MediaConversion, { defaultOrder: 50, run: (ctx) => ctx.handlers.onAddExtensionNode(CanvasNodeType.MediaConversion) }), label: "智能剪辑", badge: CANVAS_DEVELOPING_LABEL, disabledReason: getCanvasNodeCreationDisabledReason(CanvasNodeType.MediaConversion) },
     // 导演台落在节点分区，但它开的是导演工作台、不是某种画布节点，故不走注册表。

@@ -2481,6 +2481,10 @@ function InfiniteCanvasPage() {
             onAddDrawing: () => createNode(CanvasNodeType.Drawing),
             onAddWorkflow: () => createNode(CanvasNodeType.Config),
             onAddExtensionNode: (type) => createNode(type),
+            onAddLocalGenerator: ({ type, model, title }) => {
+                const nodeType = type === "image" ? CanvasNodeType.Image : CanvasNodeType.Video;
+                createNode(nodeType, undefined, { model, title });
+            },
             onChooseStyle: () => setStylePickerOpen(true),
             onOpenDirector: () => createDirectorShot(),
             onUpload: () => handleUploadRequest(),
@@ -2804,6 +2808,10 @@ function InfiniteCanvasPage() {
                                         onAddFolder={createFolder}
                                         onAddDrawing={() => createNode(CanvasNodeType.Drawing)}
                                         onAddExtensionNode={(type) => createNode(type)}
+                                        onAddLocalGenerator={({ type, model, title }) => {
+                                            const nodeType = type === "image" ? CanvasNodeType.Image : CanvasNodeType.Video;
+                                            createNode(nodeType, undefined, { model, title });
+                                        }}
                                         onAddWorkflow={() => createNode(CanvasNodeType.Config)}
                                         onOpenDirector={() => createDirectorShot()}
                                         onUndo={undoCanvas}
@@ -3086,6 +3094,10 @@ function InfiniteCanvasPage() {
                             screenToCanvas={screenToCanvas}
                             onClose={() => setContextMenu(null)}
                             onAddNode={(type, position) => createNode(type, position)}
+                            onAddLocalGenerator={({ type, model, title, position }) => {
+                                const nodeType = type === "image" ? CanvasNodeType.Image : CanvasNodeType.Video;
+                                createNode(nodeType, position, { model, title });
+                            }}
                             onAddFolder={createFolder}
                             onChooseStyle={() => setStylePickerOpen(true)}
                             onOpenDirector={(position) => createDirectorShot(position)}

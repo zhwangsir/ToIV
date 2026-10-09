@@ -1,5 +1,7 @@
 import { AudioLines, Bot, Clapperboard, Image, Layers3, Library, ListChecks, Store, Video } from "lucide-react";
 
+import { HOME_INTENT_MARKET_LINKS } from "@/services/toiv/local-capability-surface";
+
 export const beefTVCapabilityItems = [
     { id: "canvas", label: "自由画布", detail: "组织镜头与素材", to: "/canvas?mode=new", icon: Layers3, disabled: false, external: false },
     { id: "video", label: "视频生成", detail: "在画布中创建视频节点", to: "/canvas?mode=new&add=video", icon: Video, disabled: false, external: false },
@@ -13,7 +15,32 @@ export const beefTVCapabilityItems = [
     { id: "market", label: "应用市场", detail: "创作应用一站浏览", to: "/toiv/market", icon: Store, disabled: false, external: false },
     { id: "library", label: "作品库", detail: "成片与分镜作品", to: "/toiv/library", icon: Library, disabled: false, external: false },
     { id: "tasks", label: "任务中心", detail: "作业进度统一查看", to: "/toiv/tasks", icon: ListChecks, disabled: false, external: false },
-    { id: "lipsync", label: "对口型(模板)", detail: "视频+音频组合节点", to: "/canvas?mode=new&add=lipsync", icon: AudioLines, disabled: false, external: false },
-    { id: "inpaint", label: "局部重绘(模板)", detail: "图片+重绘指令组合", to: "/canvas?mode=new&add=inpaint", icon: Image, disabled: false, external: false },
-    { id: "dub", label: "配音(模板)", detail: "音频+台本文本组合", to: "/canvas?mode=new&add=dub", icon: AudioLines, disabled: false, external: false },
+    // 意图条：深链市场 keeper（不再落空壳 Video+Audio / Image+Text）
+    {
+        id: "lipsync",
+        label: HOME_INTENT_MARKET_LINKS.lipsync.label,
+        detail: HOME_INTENT_MARKET_LINKS.lipsync.detail,
+        to: HOME_INTENT_MARKET_LINKS.lipsync.to,
+        icon: AudioLines,
+        disabled: false,
+        external: false,
+    },
+    {
+        id: "inpaint",
+        label: HOME_INTENT_MARKET_LINKS.inpaint.label,
+        detail: HOME_INTENT_MARKET_LINKS.inpaint.detail,
+        to: HOME_INTENT_MARKET_LINKS.inpaint.to,
+        icon: Image,
+        disabled: false,
+        external: false,
+    },
+    {
+        id: "dub",
+        label: HOME_INTENT_MARKET_LINKS.dub.label,
+        detail: HOME_INTENT_MARKET_LINKS.dub.detail,
+        to: HOME_INTENT_MARKET_LINKS.dub.to,
+        icon: AudioLines,
+        disabled: false,
+        external: false,
+    },
 ] as const;

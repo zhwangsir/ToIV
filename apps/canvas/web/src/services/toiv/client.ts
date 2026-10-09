@@ -129,8 +129,23 @@ export type ToivApp = {
     smoke_status?: string;
     guide_purpose?: string;
     source_links?: Array<{ label: string; url: string }>;
+    /** 列表/详情均可能下发；本地能力徽标用 */
+    submit_kind?: string;
     /** 详情接口才完整；列表 slim 时常为空数组 */
     params_schema?: ToivAppParam[];
+};
+
+export type ToivAppModeItem = {
+    label: string;
+    desc: string;
+    app_id: string;
+};
+
+export type ToivAppVariantsInfo = {
+    keeper_id: string;
+    keeper_name: string;
+    modes: ToivAppModeItem[];
+    presets: Array<{ label: string; values: Record<string, unknown> }>;
 };
 
 export type ToivAppRunReceipt = {
@@ -166,6 +181,42 @@ export async function fetchToivApp(id: string): Promise<ToivApp> {
         ...a,
         params_schema: Array.isArray(a.params_schema) ? a.params_schema.map(normalizeToivAppParam) : [],
     };
+}
+
+/** GET /apps/{id}/variants → 模式切换（app_variants.json）；失败返回空 modes */
+export async function fetchToivAppVariants(id: string): Promise<ToivAppVariantsInfo> {
+    try {
+        const { data } = await toivHttp.get(`/apps/${encodeURIComponent(id)}/variants`);
+        const raw = (data ?? {}) as Partial<ToivAppVariantsInfo>;
+        const modes = Array.isArray(raw.modes)
+            ? raw.modes
+                .map((m) => ({
+                    label: String((m as ToivAppModeItem)?.label ?? "").trim(),
+                    desc: String((m as ToivAppModeItem)?.desc ?? ""),
+                    app_id: String((m as ToivAppModeItem)?.app_id ?? "").trim(),
+                }))
+                .filter((m) => m.app_id && m.label)
+            : [];
+        const presets = Array.isArray(raw.presets)
+            ? raw.presets
+                .map((p) => {
+                    const r = (p ?? {}) as { label?: string; values?: Record<string, unknown> };
+                    return {
+                        label: String(r.label ?? "").trim(),
+                        values: r.values && typeof r.values === "object" ? r.values : {},
+                    };
+                })
+                .filter((p) => p.label)
+            : [];
+        return {
+            keeper_id: String(raw.keeper_id || id),
+            keeper_name: String(raw.keeper_name || ""),
+            modes,
+            presets,
+        };
+    } catch {
+        return { keeper_id: id, keeper_name: "", modes: [], presets: [] };
+    }
 }
 
 /** POST /apps/{id}/run → job 回执；成功后引导任务中心 */

@@ -55,6 +55,7 @@ type CanvasNodeContextMenuProps = {
     selectedCount?: number;
     onClose: () => void;
     onAddNode: (type: CanvasNodeTypeId, position?: Position) => void;
+    onAddLocalGenerator?: (opts: { type: "image" | "video"; model: string; title: string; position?: Position }) => void;
     onAddFolder: () => void;
     onChooseStyle: () => void;
     onOpenDirector: (position: Position) => void;
@@ -97,6 +98,7 @@ export function CanvasNodeContextMenu({
     selectedCount = 0,
     onClose,
     onAddNode,
+    onAddLocalGenerator,
     onAddFolder,
     onChooseStyle,
     onOpenDirector,
@@ -310,6 +312,7 @@ export function CanvasNodeContextMenu({
                         onOpenAssets={() => runAction(onOpenAssets)}
                         onOpenProjectCharacters={() => runAction(onOpenProjectCharacters)}
                         onOpenGenerationHistory={() => runAction(onOpenGenerationHistory)}
+                        onAddLocalGenerator={onAddLocalGenerator ? (opts) => runAction(() => onAddLocalGenerator(opts)) : undefined}
                     />
                 ) : null}
             </AnimatePresence>
@@ -330,6 +333,7 @@ function AddNodeContextMenu({
     onOpenAssets,
     onOpenProjectCharacters,
     onOpenGenerationHistory,
+    onAddLocalGenerator,
 }: {
     parentPosition: { left: number; top: number };
     createPosition: Position;
@@ -343,7 +347,9 @@ function AddNodeContextMenu({
     onOpenAssets: () => void;
     onOpenProjectCharacters: () => void;
     onOpenGenerationHistory: () => void;
+    onAddLocalGenerator?: (opts: { type: "image" | "video"; model: string; title: string; position?: { x: number; y: number } }) => void;
 }) {
+
     const theme = canvasThemes[useActiveTheme()];
     const installations = usePluginStore((state) => state.installations);
     const pluginStates = usePluginStore((state) => state.pluginStates);
@@ -363,6 +369,16 @@ function AddNodeContextMenu({
             onAddDrawing: () => onAddNode(CanvasNodeType.Drawing, createPosition),
             onAddExtensionNode: (type) => onAddNode(type, createPosition),
             onAddWorkflow: () => onAddNode(CanvasNodeType.Config, createPosition),
+            onAddLocalGenerator: ({ type, model, title }) => {
+                const nodeType = type === "image" ? CanvasNodeType.Image : CanvasNodeType.Video;
+                // Context menu only has onAddNode(type, pos); model/title need createNode options —
+                // use optional callback when parent provides it.
+                if (onAddLocalGenerator) {
+                    onAddLocalGenerator({ type, model, title, position: createPosition });
+                } else {
+                    onAddNode(nodeType, createPosition);
+                }
+            },
             onChooseStyle,
             onOpenDirector,
             onUpload,

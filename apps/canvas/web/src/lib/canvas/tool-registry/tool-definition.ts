@@ -46,6 +46,11 @@ export type ToolbarHandlers = {
      * 而它们的创建逻辑完全一致（都只是 createNode(type)）。
      */
     onAddExtensionNode: (type: CanvasNodeTypeId) => void;
+    /**
+     * 本地预置生成节点（toiv-comfy-image / toiv-comfy-video×6 / toiv-h3）。
+     * create-menu 硬编码入口；未接线时命令 applicable=false。
+     */
+    onAddLocalGenerator?: (opts: { type: "image" | "video"; model: string; title: string }) => void;
     onChooseStyle: () => void;
     onOpenDirector: () => void;
     // 主工具栏——资源
@@ -152,6 +157,7 @@ export type AddNodeMenuContext = {
         | "onAddDrawing"
         | "onAddWorkflow"
         | "onAddExtensionNode"
+        | "onAddLocalGenerator"
         | "onChooseStyle"
         | "onOpenDirector"
         | "onUpload"
