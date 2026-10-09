@@ -13,7 +13,7 @@
 ## 下一刀 backlog（不在本 PR 强塞）
 1. **M2 市场运行闭环**：`POST` 创建 job → 引导 `/toiv/tasks`（现仅占位文案）。
 2. **M2 智能体**：`feat/canvas-m2-agent` 组件移植（本分支不碰 agent 逻辑）。
-3. **M2 作品库详情加强**：变体分组/回收站交互深化（详情页已有骨架）。
+3. ~~**M2 作品库详情加强**~~：✅ 已齐（main `98f56753`：回收站恢复/彻底删除已接 API；变体折叠数量角标+代表图）；2026-10-09 摸底本档无代码。
 4. **统一时间线**：画布 GenerationTask + ToIV jobs 一屏（chip 已双向入口）。
 5. **Next 视图 CSS**：apps/library/assistant 等仍有局部硬编码色/圆角，按视图分批换 token。
 6. **ui-v3 紫强调**：与 BeefTV 中性 accent 仍两套；开 v3 开关才生效，暂不动。

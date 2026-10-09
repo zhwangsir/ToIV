@@ -13862,17 +13862,24 @@
     "updated_at": "2026-10-09T19:02:00+08:00"
   },
   "library_detail_deepen_2026_10_09": {
-    "status": "library_detail_deepen_branch_open",
+    "status": "library_detail_backlog_complete_no_code",
     "date": "2026-10-09",
     "source": [
       "ToIV开发",
       "ToIV BeefTV 融合",
       "项目管家"
     ],
-    "steward": "项目管家",
-    "summary": "作品库详情加深已开，tip 未出；与验 0c577ae1 并行",
-    "tip": null,
-    "parallel_with": "user_verify_0c577ae1",
-    "updated_at": "2026-10-09T19:02:00+08:00"
+    "steward": "ToIV开发",
+    "summary": "作品库详情加深 backlog 已齐：回收站恢复/彻底删除与变体数量/代表图均已在 main（98f56753）；本档无代码、未开分支",
+    "product_tip_already_in_main": "98f56753",
+    "evidence": [
+      "apps/canvas/web/src/pages/toiv/library-detail.tsx (handleRestore/handlePermanent + folder members.length badge)",
+      "apps/canvas/web/src/services/toiv/library-group.ts (groupBoardEntries/folderCover)",
+      "apps/canvas/web/test/toiv-library-detail.test.ts"
+    ],
+    "deploy": "not_done",
+    "live_test": "not_done",
+    "branch": null,
+    "updated_at": "2026-10-09T19:04:00+08:00"
   }
 }
