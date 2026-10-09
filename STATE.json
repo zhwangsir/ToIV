@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T11:25:00+08:00",
+  "updated_at": "2026-10-09T11:28:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -12838,5 +12838,57 @@
       "desktop_updater": "unchanged_upstream_beeftv_feed",
       "deployed": false
     }
+  },
+  "deploy_stale_web_ua_brand_2026_10_09": {
+    "status": "deploy_stale_web_ua_brand_undeployed",
+    "date": "2026-10-09",
+    "steward": "ToIV 开发",
+    "source": [
+      "ToIV 开发"
+    ],
+    "product_tip": "f5865a30",
+    "summary": "deploy.sh reject stale .next BUILD_ID sha≠HEAD; canvas DEFAULT_USER_AGENT→ToIV/1.0; ALLOW_STALE_WEB=1 optional; NOT deployed; Go outbound UA still BeefTV (see feat/canvas-outbound-ua-toiv)",
+    "remotes": {
+      "origin_gitee_main": "push_pending",
+      "github_main": "push_pending",
+      "verified_both": false
+    },
+    "deploy": {
+      "status": "not_deployed",
+      "note": "do not run deploy; local BUILD_ID still 20261007-194448-7ce69c7f-dirty"
+    },
+    "deploy_sh": {
+      "check": "assert_web_build_matches_head",
+      "format": "YYYYMMDD-HHmmss-<git短sha>[-dirty]",
+      "skip_web": "no_check",
+      "allow_stale_env": "ALLOW_STALE_WEB=1",
+      "verified": {
+        "stale_reject": true,
+        "match_pass": true,
+        "allow_stale_warn": true,
+        "local_build_id": "20261007-194448-7ce69c7f-dirty",
+        "expected_sha_at_verify": "14f5f585"
+      }
+    },
+    "ua_brand": {
+      "file": "apps/canvas/web/src/components/channel-headers-editor.tsx",
+      "DEFAULT_USER_AGENT": "ToIV/1.0 (+https://github.com/zhwangsir/ToIV)",
+      "untouched_on_main": [
+        "beeftv.plugin apiVersion",
+        "beeftv-* CSS",
+        "BeefAPI channel name",
+        "LICENSE Infinite Canvas",
+        "backend DefaultOutboundUserAgent (still BeefTV on main)"
+      ],
+      "parallel_branch": {
+        "name": "feat/canvas-outbound-ua-toiv",
+        "tip": "1340c9f2",
+        "note": "also flips Go DefaultOutboundUserAgent + unit test; not merged this knife"
+      }
+    },
+    "admin_gate": "off_unchanged",
+    "prior_tip": "14f5f585",
+    "race_note": "96892c80 was concurrent steward docs on top of product tip; this key books the real change",
+    "updated_at": "2026-10-09T11:28:00+08:00"
   }
 }
