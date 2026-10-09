@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T04:18:00+08:00",
+  "updated_at": "2026-10-10T04:24:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14309,7 +14309,7 @@
     "updated_at": "2026-10-10T04:15:00+08:00"
   },
   "similar_merge_p1_2026_10_10": {
-    "status": "similar_merge_p1_merged_undeployed",
+    "status": "similar_merge_p1_slice_a_deployed",
     "date": "2026-10-10",
     "source": [
       "ToIV开发",
@@ -14317,12 +14317,23 @@
       "项目管家"
     ],
     "steward": "项目管家",
-    "summary": "similar-merge P1 Slice A 已合 main，未部署",
+    "summary": "similar-merge Slice A tip 16b56cfc canvas 已部署",
     "tip": "16b56cfc",
     "feat_tip": "eba996b3",
+    "soft_hide": [
+      "wan-animate",
+      "ace-music-legacy"
+    ],
+    "public_count": 83,
     "merged": true,
-    "deployed": false,
-    "updated_at": "2026-10-10T04:18:00+08:00"
+    "deployed": true,
+    "deploy_scope": "canvas",
+    "next": [
+      "slice_b",
+      "h3_alias",
+      "rh"
+    ],
+    "updated_at": "2026-10-10T04:24:00+08:00"
   },
   "rh_basename_audit_2026_10_10": {
     "status": "rh_basename_audit_logged",
@@ -14336,5 +14347,18 @@
     "sensevoice_model_sources_ok": 479,
     "evidence": ".regen_tmp/rh_basename_nas_audit_20261010.md",
     "updated_at": "2026-10-10T04:15:00+08:00"
+  },
+  "main_tip_16b56cfc_2026_10_10": {
+    "status": "main_tip_16b56cfc_deployed",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV开发",
+      "ToIV BeefTV 融合",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "tip 16b56cfc similar-merge Slice A 已部署",
+    "product_tip": "16b56cfc",
+    "updated_at": "2026-10-10T04:24:00+08:00"
   }
 }

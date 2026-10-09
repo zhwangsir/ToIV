@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-10（项目管家；开发/融合核）：**similar-merge P1 Slice A tip `16b56cfc` 已合 main（含 `eba996b3`；intent remap + soft-hide）——未部署**。docs tip `e8e69873` 已双推齐（其上）。picker `87bed0c6` 现网齐。合前不刷现网；等审刷授权。`updated_at` 2026-10-10T04:18:00+08:00。
+> **最后更新**：2026-10-10（项目管家；开发/融合核）：**similar-merge Slice A tip `16b56cfc` 已部署**（canvas；soft-hide wan-animate+ace-music-legacy；public 83）。请硬刷市场验 upscale/t2i 本地优先、两卡下架。下一刀等拍（Slice B / H3 别名 / RH）。docs tip `256a78d0` 已齐。`updated_at` 2026-10-10T04:24:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
