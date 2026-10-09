@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T14:36:00+08:00",
+  "updated_at": "2026-10-09T16:00:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -13156,7 +13156,7 @@
     "updated_at": "2026-10-09T13:46:31+08:00"
   },
   "canvas_outbound_host_allowlist_2026_10_09": {
-    "status": "canvas_outbound_host_allowlist_merged_undeployed",
+    "status": "canvas_outbound_host_allowlist_merged_deployed",
     "date": "2026-10-09",
     "source": [
       "ToIV开发",
@@ -13177,7 +13177,8 @@
     "env": "CANVAS_OUTBOUND_HOST_ALLOWLIST",
     "custom_channels": "ValidateOutboundURL only (no positive allowlist wrap this knife)",
     "deploy": {
-      "status": "not_deployed"
+      "status": "deployed_with_70521949",
+      "note": "bundled in prod deploy 2026-10-09; Studio MT gate still closed"
     },
     "base_tip": "77d9185c",
     "merge": "63dd8080",
@@ -13188,10 +13189,10 @@
       "github_main": "63dd8080",
       "verified_both": true
     },
-    "updated_at": "2026-10-09T14:02:00+08:00"
+    "updated_at": "2026-10-09T16:00:00+08:00"
   },
   "canvas_updater_outbound_allowlist_2026_10_09": {
-    "status": "canvas_updater_outbound_allowlist_merged_undeployed",
+    "status": "canvas_updater_outbound_allowlist_merged_deployed",
     "date": "2026-10-09",
     "source": [
       "ToIV开发",
@@ -13207,7 +13208,8 @@
     ],
     "env": "CANVAS_OUTBOUND_HOST_ALLOWLIST",
     "deploy": {
-      "status": "not_deployed"
+      "status": "deployed_with_70521949",
+      "note": "bundled in prod deploy 2026-10-09; Studio MT gate still closed"
     },
     "base_tip": "a8cf0b37",
     "merge": "6402fbfa",
@@ -13219,10 +13221,10 @@
       "github_main": "6402fbfa",
       "verified_both": true
     },
-    "updated_at": "2026-10-09T14:13:00+08:00"
+    "updated_at": "2026-10-09T16:00:00+08:00"
   },
   "canvas_outbound_three_knives_2026_10_09": {
-    "status": "canvas_outbound_three_knives_merged_undeployed",
+    "status": "canvas_outbound_three_knives_merged_deployed",
     "date": "2026-10-09",
     "source": [
       "ToIV开发",
@@ -13257,7 +13259,8 @@
     "vite_env": "VITE_CANVAS_OUTBOUND_HOST_ALLOWLIST",
     "custom_channels": "untouched",
     "deploy": {
-      "status": "not_deployed"
+      "status": "deployed_with_70521949",
+      "note": "bundled in prod deploy 2026-10-09; Studio MT gate still closed"
     },
     "product_tip": "770a2a77",
     "remotes": {
@@ -13265,10 +13268,10 @@
       "github_main": "770a2a77",
       "verified_both": true
     },
-    "updated_at": "2026-10-09T14:13:00+08:00"
+    "updated_at": "2026-10-09T16:00:00+08:00"
   },
   "multitenant_scout_2026_10_09": {
-    "status": "multitenant_scout_idor_fixed_code_undeployed",
+    "status": "multitenant_scout_idor_fixed_deployed_gate_closed",
     "date": "2026-10-09",
     "source": [
       "ToIV开发",
@@ -13284,16 +13287,16 @@
     "next_knife": "Python artifact/status force owner + unit tests",
     "ui": "no canvas UI change until conclusion",
     "deploy": {
-      "status": "not_deployed"
+      "status": "owner_fix_deployed_gate_closed"
     },
     "product_tip": "770a2a77",
     "docs_tip": "90a97a0b",
     "related_merged": "canvas_multitenant_44e1162f (default off)",
-    "updated_at": "2026-10-09T14:36:00+08:00",
+    "updated_at": "2026-10-09T16:00:00+08:00",
     "python_owner_fix": "1816f320"
   },
   "api_owner_scoped_assets_2026_10_09": {
-    "status": "api_owner_scoped_assets_merged_undeployed",
+    "status": "api_owner_scoped_assets_merged_deployed",
     "date": "2026-10-09",
     "source": [
       "ToIV开发",
@@ -13314,7 +13317,8 @@
     "studio_multitenant_gate": "closed",
     "canvas_ui": "untouched",
     "deploy": {
-      "status": "not_deployed"
+      "status": "deployed_with_70521949",
+      "note": "bundled in prod deploy 2026-10-09; Studio MT gate still closed"
     },
     "base_tip": "13edead6",
     "merge": "1816f320",
@@ -13326,6 +13330,72 @@
       "verified_both": true
     },
     "closes_scout": "multitenant_scout_2026_10_09 images/dub IDOR (code-side)",
-    "updated_at": "2026-10-09T14:36:00+08:00"
+    "updated_at": "2026-10-09T16:00:00+08:00"
+  },
+  "prod_deploy_70521949_2026_10_09": {
+    "status": "prod_deploy_70521949_api_web_canvas",
+    "date": "2026-10-09",
+    "source": [
+      "User",
+      "ToIV开发",
+      "设备管家",
+      "ToIV BeefTV 融合",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "用户开闸；api+web+canvas 刷 tip 70521949；c-chains 401；画布 live 200；Studio 闸/H3 timer 仍关",
+    "gate_opened_by": "user",
+    "product_tip": "1816f320",
+    "docs_tip": "70521949",
+    "deploy": {
+      "status": "deployed",
+      "components": [
+        "toiv-api",
+        "toiv-web",
+        "canvas-api-pg"
+      ],
+      "evidence": {
+        "api_health": 200,
+        "c_chains": "401 unauthenticated (was 404)",
+        "canvas_live": 200,
+        "studio_html": "302 to home"
+      },
+      "core": "100.77.80.100",
+      "note": "tip SHA may differ from runtime build path; live 200 is source of truth"
+    },
+    "still_closed": [
+      "STUDIO_MULTITENANT",
+      "H3_refresh_timer"
+    ],
+    "remotes": {
+      "origin_gitee_main": "70521949",
+      "github_main": "70521949",
+      "verified_both": true
+    },
+    "updated_at": "2026-10-09T16:00:00+08:00"
+  },
+  "fusion_m2_2026_10_09": {
+    "status": "fusion_m2_agent_in_progress_unmerged",
+    "date": "2026-10-09",
+    "source": [
+      "User",
+      "ToIV BeefTV 融合",
+      "ToIV开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "用户要求优先融合；M2 对话→市场→作品详情；feat/canvas-m2-agent 开中未合",
+    "order": [
+      "agent /toiv/agent",
+      "market /toiv/market",
+      "library detail"
+    ],
+    "branch": "feat/canvas-m2-agent",
+    "also": "optimization quick wins (sidebar/M1 strengthen/token residue)",
+    "fusion_plan_pct": "~36% (4/11 M1+M4; M2+M3 pending)",
+    "deploy": {
+      "status": "n/a_code_unmerged"
+    },
+    "updated_at": "2026-10-09T16:00:00+08:00"
   }
 }

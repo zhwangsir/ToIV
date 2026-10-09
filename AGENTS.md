@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-09（项目管家；ToIV开发：**main tip `1816f320` 产物/状态强制 owner**）：merge `1816f320` / feat `a44180fe`；images 去 tenant OR；dub status/output 强制 `user_id`；admin/sig 仍通；56 pytest 绿；**未开 `STUDIO_MULTITENANT`、未部署**；画布 UI 不动。出站三刀仍等发版闸。`updated_at` 2026-10-09T14:36:00+08:00；via 项目管家。
+> **最后更新**：2026-10-09（项目管家；用户开闸；ToIV开发/设备/BeefTV：**生产已刷 tip `70521949`**）：api+web+canvas 部署齐；c-chains **401**（未认证，非 404）；画布 `/studio/api/health/live` **200**；`/studio` 仍 302 回首页；**Studio 多租户闸不开**；**H3 refresh timer 仍关**等点名。下一刀 **M2**（对话→市场→作品详情，`feat/canvas-m2-agent` 开中未合）。`updated_at` 2026-10-09T16:00:00+08:00；via 项目管家。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
