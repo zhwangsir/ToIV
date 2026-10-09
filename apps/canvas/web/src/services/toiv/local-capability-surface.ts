@@ -20,6 +20,12 @@ import {
     LOCAL_VIDEO_MODEL_VACE,
     LOCAL_VIDEO_WORKER_LABEL,
 } from "@/lib/local-model-defaults";
+import {
+    INTENT_ENTRIES as WEB_INTENT_ENTRIES,
+    intentMarketPath,
+    resolveIntentAppId,
+    type IntentKeeper,
+} from "@toiv-web/lib/intentKeepers";
 
 /** Gate template 稳定 id（与 model-config.template.json 一致）。 */
 export const LOCAL_H3_CHANNEL_ID = "MZt9ON1JvbabJ2GS-PvXR";
@@ -211,7 +217,7 @@ export function resolveLocalCapabilityBadge(app: {
     return null;
 }
 
-/** 首页意图条条目（对齐 apps/web/lib/intentMap.ts INTENT_ENTRIES keepers）。 */
+/** 首页意图条：从 apps/web/lib/intentKeepers 单源灌入（优先本地 altAppId）。 */
 export type HomeIntentMarketLink = {
     id: string;
     appId: string;
@@ -220,63 +226,54 @@ export type HomeIntentMarketLink = {
     to: string;
 };
 
-function homeIntentLink(id: string, appId: string, label: string, detail: string): HomeIntentMarketLink {
-    return { id, appId, label, detail, to: `/toiv/market?app=${appId}` };
+function toHomeLink(entry: IntentKeeper): HomeIntentMarketLink {
+    const appId = resolveIntentAppId(entry);
+    return {
+        id: entry.id,
+        appId,
+        label: entry.label,
+        detail: `打开市场「${entry.label}」应用`,
+        to: intentMarketPath(entry),
+    };
+}
+
+/** 顺序/id 与 intentKeepers INTENT_ENTRIES 一致；深链已解析本地优先。 */
+export const HOME_INTENT_ENTRIES: readonly HomeIntentMarketLink[] = WEB_INTENT_ENTRIES.map(toHomeLink);
+
+function linkById(id: string): HomeIntentMarketLink {
+    const hit = HOME_INTENT_ENTRIES.find((e) => e.id === id);
+    if (!hit) throw new Error(`missing home intent: ${id}`);
+    return hit;
 }
 
 /**
- * 首页意图条完整 keepers（顺序/id/appId 与 intentMap INTENT_ENTRIES 一致）。
- * 点击 → `/toiv/market?app=<keeperId>`（市场页已支持 ?app= 深链）。
- */
-export const HOME_INTENT_ENTRIES: readonly HomeIntentMarketLink[] = [
-    homeIntentLink("outfit", "rh-acc-3051342849-5d0a1c", "换装", "打开市场最佳换装应用"),
-    homeIntentLink("bg", "rh-acc-0017330178-cb700a", "换背景", "打开市场最佳换背景应用"),
-    homeIntentLink("i2v", "rh-acc-1833790465-924e7f", "图生视频", "打开市场最佳图生视频应用"),
-    homeIntentLink("t2v", "rh-acc-8490907650-9066b5", "文生视频", "打开市场最佳文生视频应用"),
-    homeIntentLink("lipsync", "rh-acc-0520274945-8fa1b4", "对口型", "打开市场最佳对口型应用"),
-    homeIntentLink("voice", "h3-r2v-voice", "配音", "打开市场 H3 声音参考应用"),
-    homeIntentLink("cutout", "removebg", "抠图", "打开市场抠图应用"),
-    homeIntentLink("upscale", "upscale", "放大", "打开市场放大应用"),
-    homeIntentLink("vfi", "rh-acc-8235642881-d2b7ba", "补帧", "打开市场补帧应用"),
-    homeIntentLink("line", "rh-acc-4520427522-dfb012", "线稿上色", "打开市场线稿上色应用"),
-    homeIntentLink("vace", "vace-edit", "视频换装", "打开市场视频换装应用"),
-    homeIntentLink("music", "ace-music", "音乐", "打开市场音乐应用"),
-    homeIntentLink("t2i", "rh-acc-4888229889-d922f7", "文生图", "打开市场文生图应用"),
-    homeIntentLink("restore", "rh-acc-5353125890-0e3695", "老照片修复", "打开市场老照片修复应用"),
-    homeIntentLink("inpaint", "rh-acc-1967241218-76fc32", "局部重绘", "打开市场局部重绘应用"),
-    homeIntentLink("portrait", "rh-acc-6626592769-075f0c", "人像写真", "打开市场人像写真应用"),
-    homeIntentLink("product", "rh-acc-5532266497-a8b665", "产品图", "打开市场产品图应用"),
-    homeIntentLink("edit", "rh-acc-3722891266-720f7b", "图像编辑", "打开市场图像编辑应用"),
-    homeIntentLink("style", "rh-acc-0466103297-947a01", "风格化", "打开市场风格化应用"),
-    homeIntentLink("3d", "rh-acc-1922543617-0d4e78", "3D", "打开市场 3D 应用"),
-];
-
-/**
  * 按 id 索引；`dub` 为 `voice`（配音）别名，兼容 tip 30357bfc 旧接线。
+ * lipsync → ovi-i2v；avatar → avatar-talk（与对口型分轨）。
  */
 export const HOME_INTENT_MARKET_LINKS = {
-    outfit: HOME_INTENT_ENTRIES[0],
-    bg: HOME_INTENT_ENTRIES[1],
-    i2v: HOME_INTENT_ENTRIES[2],
-    t2v: HOME_INTENT_ENTRIES[3],
-    lipsync: HOME_INTENT_ENTRIES[4],
-    voice: HOME_INTENT_ENTRIES[5],
+    outfit: linkById("outfit"),
+    bg: linkById("bg"),
+    i2v: linkById("i2v"),
+    t2v: linkById("t2v"),
+    lipsync: linkById("lipsync"),
+    avatar: linkById("avatar"),
+    voice: linkById("voice"),
     /** @deprecated 用 voice；保留给旧 home 接线 */
-    dub: HOME_INTENT_ENTRIES[5],
-    cutout: HOME_INTENT_ENTRIES[6],
-    upscale: HOME_INTENT_ENTRIES[7],
-    vfi: HOME_INTENT_ENTRIES[8],
-    line: HOME_INTENT_ENTRIES[9],
-    vace: HOME_INTENT_ENTRIES[10],
-    music: HOME_INTENT_ENTRIES[11],
-    t2i: HOME_INTENT_ENTRIES[12],
-    restore: HOME_INTENT_ENTRIES[13],
-    inpaint: HOME_INTENT_ENTRIES[14],
-    portrait: HOME_INTENT_ENTRIES[15],
-    product: HOME_INTENT_ENTRIES[16],
-    edit: HOME_INTENT_ENTRIES[17],
-    style: HOME_INTENT_ENTRIES[18],
-    "3d": HOME_INTENT_ENTRIES[19],
+    dub: linkById("voice"),
+    cutout: linkById("cutout"),
+    upscale: linkById("upscale"),
+    vfi: linkById("vfi"),
+    line: linkById("line"),
+    vace: linkById("vace"),
+    music: linkById("music"),
+    t2i: linkById("t2i"),
+    restore: linkById("restore"),
+    inpaint: linkById("inpaint"),
+    portrait: linkById("portrait"),
+    product: linkById("product"),
+    edit: linkById("edit"),
+    style: linkById("style"),
+    "3d": linkById("3d"),
 } as const;
 
 export type LocalCreatePreset = {

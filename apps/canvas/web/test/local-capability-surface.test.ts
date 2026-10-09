@@ -13,6 +13,10 @@ import {
     sortAppsWithFeaturedIds,
 } from "../src/services/toiv/local-capability-surface";
 import { LOCAL_IMAGE_MODEL_REF, LOCAL_VIDEO_CHANNEL_ID } from "../src/lib/local-model-defaults";
+import {
+    INTENT_ENTRIES,
+    resolveIntentAppId,
+} from "../../../web/lib/intentKeepers";
 
 describe("local-capability-surface catalog", () => {
     test("featured pack covers local 7 + Wan", () => {
@@ -23,6 +27,7 @@ describe("local-capability-surface catalog", () => {
         expect(localMarketFeaturedAppIds()).toContain("h3-t2v");
         expect(localMarketFeaturedAppIds()).toContain("vace-edit");
         expect(localMarketFeaturedAppIds()).toContain("avatar-talk");
+        expect(localMarketFeaturedAppIds()).toContain("longcat-continue");
     });
 
     test("resolveLocalCapabilityBadge maps keepers to worker/engine", () => {
@@ -47,28 +52,26 @@ describe("local-capability-surface catalog", () => {
         expect(LOCAL_CREATE_PRESETS.some((p) => p.modelRef.startsWith(LOCAL_VIDEO_CHANNEL_ID + "::"))).toBe(true);
     });
 
-    test("home intent bar covers intentMap keepers → /toiv/market?app=", () => {
-        expect(HOME_INTENT_ENTRIES).toHaveLength(20);
-        for (const entry of HOME_INTENT_ENTRIES) {
-            expect(entry.to).toBe(`/toiv/market?app=${entry.appId}`);
-            expect(entry.appId.length).toBeGreaterThan(0);
-            expect(entry.label.length).toBeGreaterThan(0);
+    test("home intent bar is single-sourced from intentKeepers with local-first app ids", () => {
+        expect(HOME_INTENT_ENTRIES).toHaveLength(INTENT_ENTRIES.length);
+        expect(HOME_INTENT_ENTRIES.length).toBeGreaterThanOrEqual(21);
+        for (let i = 0; i < INTENT_ENTRIES.length; i++) {
+            const src = INTENT_ENTRIES[i];
+            const home = HOME_INTENT_ENTRIES[i];
+            expect(home.id).toBe(src.id);
+            expect(home.label).toBe(src.label);
+            expect(home.appId).toBe(resolveIntentAppId(src));
+            expect(home.to).toBe(`/toiv/market?app=${encodeURIComponent(resolveIntentAppId(src))}`);
         }
-        expect(HOME_INTENT_MARKET_LINKS.lipsync.to).toStartWith("/toiv/market?app=");
-        expect(HOME_INTENT_MARKET_LINKS.dub.to).toContain("h3-r2v-voice");
-        expect(HOME_INTENT_MARKET_LINKS.voice.appId).toBe("h3-r2v-voice");
+        // 对口型 / 数字人分轨
+        expect(HOME_INTENT_MARKET_LINKS.lipsync.appId).toBe("ovi-i2v");
+        expect(HOME_INTENT_MARKET_LINKS.avatar.appId).toBe("avatar-talk");
+        expect(HOME_INTENT_MARKET_LINKS.i2v.appId).toBe("h3-i2v");
+        expect(HOME_INTENT_MARKET_LINKS.t2v.appId).toBe("h3-t2v");
+        // 放大：alt 是 RH，应保留本地 upscale
+        expect(HOME_INTENT_MARKET_LINKS.upscale.appId).toBe("upscale");
+        expect(HOME_INTENT_MARKET_LINKS.dub.appId).toBe("h3-r2v-voice");
         expect(HOME_INTENT_MARKET_LINKS.inpaint.to).toContain("rh-acc-1967241218-76fc32");
-        expect(HOME_INTENT_MARKET_LINKS.outfit.appId).toBe("rh-acc-3051342849-5d0a1c");
-        expect(HOME_INTENT_MARKET_LINKS["3d"].appId).toBe("rh-acc-1922543617-0d4e78");
-    });
-
-    test("home intent keepers align with apps/web intentMap.ts", () => {
-        const intentMap = readFileSync(join(import.meta.dir, "../../../web/lib/intentMap.ts"), "utf8");
-        for (const entry of HOME_INTENT_ENTRIES) {
-            expect(intentMap).toContain(`id: "${entry.id}"`);
-            expect(intentMap).toContain(`appId: "${entry.appId}"`);
-            expect(intentMap).toContain(`label: "${entry.label}"`);
-        }
     });
 
     test("sortAppsWithFeaturedIds pins known ids first", () => {
@@ -82,8 +85,11 @@ describe("local-capability-surface wiring (source)", () => {
     const market = readFileSync(join(import.meta.dir, "../src/pages/toiv/market-page.tsx"), "utf8");
     const home = readFileSync(join(import.meta.dir, "../src/pages/home/home-data.ts"), "utf8");
     const dashboard = readFileSync(join(import.meta.dir, "../src/pages/home/home-dashboard.tsx"), "utf8");
+    const surface = readFileSync(join(import.meta.dir, "../src/services/toiv/local-capability-surface.ts"), "utf8");
     const menu = readFileSync(join(import.meta.dir, "../src/lib/canvas/tool-registry/definitions/add-node-menu-tools.tsx"), "utf8");
     const client = readFileSync(join(import.meta.dir, "../src/services/toiv/client.ts"), "utf8");
+    const avatarTalk = readFileSync(join(import.meta.dir, "../../../web/components/avatartalk/AvatarTalkView.tsx"), "utf8");
+    const seed = readFileSync(join(import.meta.dir, "../../../api/app/services/app_seed.py"), "utf8");
 
     test("market page shows local badges, featured strip, and variants modes", () => {
         expect(market).toContain("LOCAL_MARKET_FEATURED");
@@ -93,17 +99,28 @@ describe("local-capability-surface wiring (source)", () => {
         expect(market).toContain("resolveLocalCapabilityBadge");
     });
 
-    test("home intent bar deep-links market keepers (no empty-shell add=)", () => {
+    test("home intent bar deep-links market keepers from intentKeepers (no empty-shell add=)", () => {
+        expect(surface).toContain("@toiv-web/lib/intentKeepers");
+        expect(surface).toContain("resolveIntentAppId");
         expect(home).toContain("HOME_INTENT_ENTRIES");
         expect(home).toContain("homeIntentBarItems");
         expect(dashboard).toContain("homeIntentBarItems");
         expect(dashboard).toContain("toiv-intent-bar");
-        expect(dashboard).toContain("toiv-intent-chip");
         expect(home).not.toContain("add=lipsync");
         expect(home).not.toContain("add=inpaint");
         expect(home).not.toContain("add=dub");
-        // 意图已从核心能力卡拆出，避免与意图条重复
-        expect(home).not.toContain("HOME_INTENT_MARKET_LINKS.lipsync.to");
+    });
+
+    test("P0-1 longcat-continue is seeded builtin (no ghost featured)", () => {
+        expect(seed).toContain('"longcat-continue"');
+        expect(seed).toContain("LongCat 视频续写");
+        expect(LOCAL_MARKET_FEATURED.find((e) => e.id === "local-continue")?.appId).toBe("longcat-continue");
+    });
+
+    test("P0-3 AvatarTalkView gen deep-links avatar-talk (split from lipsync)", () => {
+        expect(avatarTalk).toContain('market?app=avatar-talk');
+        expect(avatarTalk).toContain("打开数字人应用");
+        expect(avatarTalk).toContain("与对口型分轨");
     });
 
     test("create-menu registers hardcoded local presets", () => {

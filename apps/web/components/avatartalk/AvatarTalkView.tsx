@@ -575,7 +575,31 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
     />
   );
 
+  // 数字人生成与对口型分轨:默认深链市场 keeper avatar-talk（非 ovi-i2v）。
   if (mode === "gen") {
+    if (onNavigate) {
+      return (
+        <div className="at-view">
+          {pageHeader}
+          <div className="at-body">
+            <Empty
+              size="section"
+              icon="user"
+              title="数字人视频生成"
+              desc="已与对口型分轨。默认打开市场内置应用 avatar-talk（人像首帧 + 驱动音频）。"
+              action={
+                <Button
+                  variant="primary"
+                  onClick={() => onNavigate("market?app=avatar-talk")}
+                >
+                  打开数字人应用
+                </Button>
+              }
+            />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="at-view">
         {pageHeader}

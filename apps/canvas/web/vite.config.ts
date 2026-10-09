@@ -59,6 +59,8 @@ export default defineConfig({
     resolve: {
         alias: {
             "@": resolve(webDir, "src"),
+            // 意图 keepers 单源（apps/web/lib/intentKeepers.ts）
+            "@toiv-web": resolve(webDir, "../../web"),
         },
     },
     build: {

@@ -34,7 +34,7 @@ _EXPECTED_IDS = {
     "h3-nsfw-t2v-15s-fast", "h3-nsfw-i2v-15s-fast", "h3-nsfw-r2v-voice",
     "nsfw-txt2img", "nsfw-img2img", "qwen-image-edit", "flux1-nunchaku",
     "wan-nsfw-i2v", "wan-animate", "wan-animate-2", "wan-vace", "vace-edit",
-    "longcat-t2v", "longcat-i2v", "avatar-talk",
+    "longcat-t2v", "longcat-i2v", "longcat-continue", "avatar-talk",
     "ovi-t2v", "ovi-i2v", "phantom-s2v",
     "ace-music", "ace-music-legacy",
     # 其他可诚实成图的存量工作流

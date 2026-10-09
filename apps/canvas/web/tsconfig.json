@@ -14,7 +14,8 @@
         "jsx": "react-jsx",
         "incremental": true,
         "paths": {
-            "@/*": ["./src/*"]
+            "@/*": ["./src/*"],
+            "@toiv-web/*": ["../../web/*"]
         }
     },
     "include": ["vite.config.ts", "src/**/*.ts", "src/**/*.tsx"],

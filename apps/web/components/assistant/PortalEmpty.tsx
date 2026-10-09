@@ -8,7 +8,7 @@
  */
 import { type ReactNode } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { INTENT_ENTRIES } from "@/lib/intentMap";
+import { INTENT_ENTRIES, intentMarketQuery } from "@/lib/intentMap";
 import { RecentWorksRail } from "@/components/assistant/RecentWorksRail";
 
 // ───── @ 技能面板入口数据(对话内 prompt chips;非门户宫格) ─────
@@ -174,7 +174,7 @@ export function PortalEmpty({
                 role="listitem"
                 className="av-intent-chip"
                 title={e.label}
-                onClick={() => goView(`market?app=${e.appId}`)}
+                onClick={() => goView(intentMarketQuery(e))}
               >
                 <Icon name={e.icon} size={14} strokeWidth={1.8} />
                 <span>{e.label}</span>

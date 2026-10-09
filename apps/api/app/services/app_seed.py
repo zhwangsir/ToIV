@@ -866,6 +866,36 @@ def _build_specs() -> list[dict]:
             },
             is_nsfw=False, sort=91,
         ),
+        # longcat-continue:引擎已有(/api/longcat/continue 抽末帧→i2v)。
+        # 市场内置卡复用 i2v 图;表单收「源视频末帧」图(自动抽帧仍走引擎/画布 Continue)。
+        _spec(
+            "longcat-continue", "LongCat 视频续写",
+            "LongCat-Video 续写:上传源视频末帧作首帧,续写下一段长镜头(完整自动抽帧请用画布 Continue 预置或引擎 /api/longcat/continue)",
+            icon="film", category="video", output_kind="video",
+            workflow_json=build_longcat_i2v_graph(LongCatI2VParams(
+                positive="", image="", filename_prefix="ToIV_longcat/continue",
+            )),
+            params_schema=[
+                _images(
+                    label="源视频末帧",
+                    hint="jpg / png / webp;请截取源视频最后一帧。完整自动抽帧请用画布 Continue 或引擎续写接口",
+                ),
+                _positive("紧接末帧续写动作与场景"),
+                _negative(),
+                _num("frames", "帧数", 121, min_=17, max_=241),
+                _num("steps", "采样步数", 10, min_=1, max_=50),
+                _seed(),
+            ],
+            bindings={
+                "images": _b("11", "inputs.image"),
+                "positive": _b("5", "inputs.positive_prompt"),
+                "negative": _b("5", "inputs.negative_prompt"),
+                "frames": _b("6", "inputs.num_frames"),
+                "steps": _b("7", "inputs.steps"),
+                "seed": _b("7", "inputs.seed"),
+            },
+            is_nsfw=False, sort=91,
+        ),
         _spec(
             "avatar-talk", "数字人口播",
             "LongCat-Avatar:人像首帧 + 驱动音频 → 口型同步数字人视频",

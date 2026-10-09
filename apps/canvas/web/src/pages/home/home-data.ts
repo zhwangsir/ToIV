@@ -49,6 +49,7 @@ const INTENT_ICONS: Record<string, LucideIcon> = {
     i2v: Video,
     t2v: Film,
     lipsync: Mic,
+    avatar: User,
     voice: AudioLines,
     cutout: Scissors,
     upscale: Maximize2,
