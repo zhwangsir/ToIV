@@ -1,5 +1,5 @@
 import { ArrowLeft, ListChecks, Loader2, RefreshCw, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import { ToolButton } from "@/components/ui/base/buttons";
@@ -9,7 +9,7 @@ import { Callout } from "@/components/ui/product/callout";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { formatTaskKind, generationTaskStatusLabel } from "@/lib/generation-task-display";
 import { listGenerationTasks, type GenerationTask } from "@/services/api/task-center";
-import { cancelJob, fetchJobs, type ToivJob } from "@/services/toiv/client";
+import { cancelJob, fetchAgentRuns, fetchJobs, type ToivAgentRun, type ToivJob } from "@/services/toiv/client";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 
 const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
@@ -25,7 +25,7 @@ const CANCELABLE = new Set(["queued", "held", "running"]);
 
 type TimelineItem = {
     id: string;
-    source: "toiv-job" | "canvas-task";
+    source: "toiv-job" | "canvas-task" | "agent-run";
     createdAt: string;
     title: string;
     detail: string;
@@ -34,6 +34,17 @@ type TimelineItem = {
     canCancel?: boolean;
     highlight?: boolean;
 };
+
+type SourceFilter = "all" | "toiv-job" | "canvas-task" | "agent-run";
+type StatusFilter = "all" | "active" | "done" | "error";
+
+const SOURCE_LABEL: Record<TimelineItem["source"], string> = {
+    "toiv-job": "ToIV 作业",
+    "canvas-task": "画布任务",
+    "agent-run": "智能体任务",
+};
+
+const ACTIVE_TONES = new Set(["loading", "warning"]);
 
 function formatTime(value: string): string {
     const d = new Date(value);
@@ -89,11 +100,15 @@ export default function TasksPage() {
 
     const [jobs, setJobs] = useState<ToivJob[]>([]);
     const [canvasTasks, setCanvasTasks] = useState<GenerationTask[]>([]);
+    const [agentRuns, setAgentRuns] = useState<ToivAgentRun[]>([]);
     const [loading, setLoading] = useState(true);
     const [canvasLoading, setCanvasLoading] = useState(true);
     const [canvasError, setCanvasError] = useState(false);
     const [error, setError] = useState(false);
     const [cancelingId, setCancelingId] = useState<string | null>(null);
+    // W1.5(2026-10-11):三源筛选 + 活跃任务 30s 轮询
+    const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
     const loadJobs = useCallback(async () => {
         setLoading(true);
@@ -120,9 +135,17 @@ export default function TasksPage() {
         }
     }, []);
 
+    const loadAgents = useCallback(async () => {
+        try {
+            setAgentRuns(await fetchAgentRuns(20));
+        } catch {
+            setAgentRuns([]);
+        }
+    }, []);
+
     const load = useCallback(async () => {
-        await Promise.all([loadJobs(), loadCanvas()]);
-    }, [loadJobs, loadCanvas]);
+        await Promise.all([loadJobs(), loadCanvas(), loadAgents()]);
+    }, [loadJobs, loadCanvas, loadAgents]);
 
     useEffect(() => {
         void load();
@@ -138,7 +161,7 @@ export default function TasksPage() {
         }
     };
 
-    const timeline = useMemo((): TimelineItem[] => {
+    const timelineItemsRaw = useMemo((): TimelineItem[] => {
         const items: TimelineItem[] = [];
         for (const job of jobs) {
             const meta = STATUS_META[job.status] ?? { tone: "neutral" as const, text: job.status };
@@ -165,6 +188,30 @@ export default function TasksPage() {
                 statusTone: canvasStatusTone(task),
             });
         }
+        for (const run of agentRuns) {
+            const counts = run.task_counts;
+            items.push({
+                id: run.id,
+                source: "agent-run",
+                createdAt: run.created_at || "",
+                title: run.goal?.trim() || `智能体任务 ${run.level || ""}`.trim(),
+                detail: [
+                    formatTime(run.created_at || ""),
+                    counts ? `子任务 ${counts.done}/${counts.total}${counts.error ? ` · 失败 ${counts.error}` : ""}` : "",
+                ]
+                    .filter(Boolean)
+                    .join(" · "),
+                statusLabel: run.status,
+                statusTone:
+                    run.status === "done" || run.status === "succeeded"
+                        ? "success"
+                        : run.status === "error" || run.status === "failed"
+                          ? "error"
+                          : run.status === "running"
+                            ? "loading"
+                            : "neutral",
+            });
+        }
         items.sort((a, b) => {
             const ta = new Date(a.createdAt).getTime();
             const tb = new Date(b.createdAt).getTime();
@@ -173,7 +220,30 @@ export default function TasksPage() {
             return nb - na;
         });
         return items;
-    }, [jobs, canvasTasks, focusJob]);
+    }, [jobs, canvasTasks, agentRuns, focusJob]);
+
+    const timeline = useMemo(() => {
+        return timelineItemsRaw.filter((i) => {
+            if (sourceFilter !== "all" && i.source !== sourceFilter) return false;
+            if (statusFilter === "active") return ACTIVE_TONES.has(i.statusTone);
+            if (statusFilter === "done") return i.statusTone === "success";
+            if (statusFilter === "error") return i.statusTone === "error";
+            return true;
+        });
+    }, [timelineItemsRaw, sourceFilter, statusFilter]);
+
+    // W1.5:存在活跃任务时 30s 自动轮询(静默,不转圈)
+    const hasActive = useMemo(
+        () => timelineItemsRaw.some((i) => ACTIVE_TONES.has(i.statusTone)),
+        [timelineItemsRaw],
+    );
+    const loadRef = useRef(load);
+    loadRef.current = load;
+    useEffect(() => {
+        if (!hasActive) return;
+        const t = setInterval(() => void loadRef.current(), 30_000);
+        return () => clearInterval(t);
+    }, [hasActive]);
 
     const showSkeleton = loading && canvasLoading;
     const empty = !loading && !error && timeline.length === 0 && !canvasLoading;
@@ -185,7 +255,8 @@ export default function TasksPage() {
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">任务中心</h1>
                     <p className="text-xs leading-5 text-muted-foreground">
-                        统一任务时间线：ToIV 作业（/api/jobs）+ 画布 GenerationTask。进行中任务见顶栏 chip；完整画布历史也可进「画布任务」。
+                        统一任务时间线：ToIV 作业（/api/jobs）+ 画布 GenerationTask + 智能体任务（/agent-runs）；
+                        活跃任务每 30s 自动刷新。
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -204,6 +275,58 @@ export default function TasksPage() {
                     已定位作业 {focusJob.slice(0, 8)}…；时间线按创建时间倒序。
                 </Callout>
             )}
+
+            <div className="flex flex-wrap items-center gap-2" aria-label="任务筛选">
+                {(
+                    [
+                        ["all", `全部 ${timelineItemsRaw.length}`],
+                        ["toiv-job", `ToIV 作业 ${timelineItemsRaw.filter((i) => i.source === "toiv-job").length}`],
+                        ["canvas-task", `画布任务 ${timelineItemsRaw.filter((i) => i.source === "canvas-task").length}`],
+                        ["agent-run", `智能体 ${timelineItemsRaw.filter((i) => i.source === "agent-run").length}`],
+                    ] as Array<[SourceFilter, string]>
+                ).map(([key, label]) => (
+                    <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSourceFilter(key)}
+                        className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                            sourceFilter === key
+                                ? "border-[var(--workspace-accent,#f5f5f5)] bg-[var(--surface-active,rgba(255,255,255,0.1))]"
+                                : "border-[var(--border)] text-[var(--muted-foreground,#a8a8a8)] hover:border-[var(--workspace-accent,#666)]"
+                        }`}
+                    >
+                        {label}
+                    </button>
+                ))}
+                <span className="ml-2 flex items-center gap-1">
+                    {(
+                        [
+                            ["all", "全部状态"],
+                            ["active", "进行中"],
+                            ["done", "已完成"],
+                            ["error", "失败"],
+                        ] as Array<[StatusFilter, string]>
+                    ).map(([key, label]) => (
+                        <button
+                            key={key}
+                            type="button"
+                            onClick={() => setStatusFilter(key)}
+                            className={`rounded-md px-2 py-1 text-xs transition-colors ${
+                                statusFilter === key
+                                    ? "bg-[var(--surface-active,rgba(255,255,255,0.1))] text-foreground"
+                                    : "text-[var(--muted-foreground,#a8a8a8)] hover:text-foreground"
+                            }`}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </span>
+                {hasActive && (
+                    <span className="ml-auto flex items-center gap-1.5 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                        <Loader2 className="size-3 animate-spin" aria-hidden /> 自动刷新中
+                    </span>
+                )}
+            </div>
 
             {showSkeleton ? (
                 <TaskTimelineSkeleton />
@@ -247,7 +370,7 @@ export default function TasksPage() {
                                         <StatusBadge
                                             variant="filled"
                                             tone="neutral"
-                                            label={item.source === "toiv-job" ? "ToIV 作业" : "画布任务"}
+                                            label={SOURCE_LABEL[item.source]}
                                             size="sm"
                                         />
                                         <StatusBadge variant="filled" tone="neutral" label={item.id.slice(0, 8)} size="sm" />
