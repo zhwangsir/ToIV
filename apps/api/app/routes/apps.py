@@ -1599,12 +1599,10 @@ _MODEL_FILE_ALIASES: dict[str, str] = {
     # H3 turbo 4 步 LoRA:RH 名为第三方转换版(无公开同名源),落盘官方 comfy 版
     # drbaph/MiniMax-H3-Turbo-Lora-ComfyUI@bb2bc49 同一 LoRA(2026-09-28 rh-acc-6680503297)
     "minimax_h3_turbo_4step-convertedByAIEverything.safetensors": "MiniMax-H3-Turbo-4step-Lora_ema_comfy.safetensors",
-    # H3 FL2VA:RH 图写 RH 存储名;NAS 无同名,但 pruned int8 + vae 已在 h3/
-    # (2026-10-10 feat/studio-h3-fl2va-alias;勿指 h3-eval 32GB 全量)
-    "MiniMax-H3-FL2VA-int8_convrot.safetensors": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
-    "MiniMax-H3-FL2VA-int8-convrot.safetensors": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
-    "MiniMax-H3-audio_vae.safetensors": "minimax_h3_audio_vae_fp32.safetensors",
-    "MiniMax-H3-video_vae.safetensors": "minimax_h3_video_vae_fp16.safetensors",
+    # H3 FL2VA(2026-10-11 W2.0 复盘撤除):10-10 曾把 RH 合规名改写成 NAS pruned 名,
+    # 但 RH 节点按 converter 命名约定做分区校验,NAS 名无分区证据被拒(实弹烟测
+    # fail 实证);设备侧已在权重根放同名合规软链,RH 名直传即可,勿再映射。
+    # (qwen 混排别名见上;VAE 同理由合规软链承载。)
 }
 
 _LOADER_MODEL_INPUT_KEYS: dict[str, tuple[str, ...]] = {
