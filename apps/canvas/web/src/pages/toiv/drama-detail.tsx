@@ -1,5 +1,5 @@
 import { AudioLines, ChevronRight, IdCard, MessagesSquare, PlayCircle, Upload } from "lucide-react";
-import { ArrowLeft, Clapperboard, ExternalLink, Film, Loader2, RefreshCw, User } from "lucide-react";
+import { ArrowLeft, Clapperboard, ExternalLink, Film, Layers, Loader2, RefreshCw, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
@@ -380,8 +380,9 @@ export default function DramaDetailPage() {
                 </div>
             </section>
 
-            <footer>
+            <footer className="flex items-center gap-2">
                 <Link to="/toiv/drama"><ToolButton variant="default" icon={<ArrowLeft />} label="返回项目列表" /></Link>
+                <Link to={`/toiv/ws/${id}`}><ToolButton variant="default" icon={<Layers />} label="v2 工作区" /></Link>
             </footer>
             <AppDrawer open={!!charDetail} onClose={() => setCharDetail(null)} width={480} title={charDetail?.char?.name || "角色"}>
                 {charDetail && (
