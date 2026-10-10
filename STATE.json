@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T13:10:00+08:00",
+  "updated_at": "2026-10-10T14:30:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14533,5 +14533,24 @@
       "/api/apps limit 待拍板"
     ],
     "updated_at": "2026-10-10T13:10:00+08:00"
+  },
+  "unified_platform_plan_2026_10_10": {
+    "status": "plan_delivered_decision_pending",
+    "date": "2026-10-10",
+    "source": [
+      "ToIV开发",
+      "项目管家"
+    ],
+    "steward": "项目管家",
+    "summary": "深度调研+重构方案交付：本地融合债摸底（8 条代码证据）+13 商业产品+12 开源项目（11 克隆 tmp/research-oss-20261010，Toonflow/ViMax/AI-NovelFlow 深读）；推荐方案 B=canvas 唯一壳收敛式重构（目标态一次定义+绞杀者渐进），P0-P4 四阶段；待用户拍板：走 B？P0 本周启动？R18 经典流去向",
+    "doc": "docs/ops/UNIFIED_PLATFORM_PLAN_20261010.md",
+    "key_findings": [
+      "行业收敛=人类画布+Agent 双入口同数据面",
+      "一致性走多主体参考非训练；海螺 9-3-3 槽位分层",
+      "Toonflow 17k 星=开源同型（节点即工具/文件化项目）",
+      "AI-NovelFlow 与 H3+ComfyUI 同栈（node_mapping 工作流模板）",
+      "ViMax 机位树首帧衔接+VLM 质检门禁+指纹缓存断点续跑"
+    ],
+    "updated_at": "2026-10-10T14:30:00+08:00"
   }
 }
