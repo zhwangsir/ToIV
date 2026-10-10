@@ -573,3 +573,30 @@ export async function pickCChainSegment(
     );
     return data as ToivCChainDetail;
 }
+
+/** W0.2b(2026-10-11 S1):分页取应用——/api/apps limit/offset 已实装,总数走 X-Total-Count。
+ * 与 fetchToivApps 的区别:带 offset、返回 {items,total} 供「加载更多」UI 用。 */
+export async function fetchToivAppsPage(
+    filter: { limit?: number; offset?: number; category?: string; q?: string } = {},
+): Promise<{ items: ToivApp[]; total: number }> {
+    const params: Record<string, string | number> = { limit: filter.limit ?? 200 };
+    if (filter.offset) params.offset = filter.offset;
+    if (filter.category && filter.category !== "all") params.category = filter.category;
+    if (filter.q?.trim()) params.q = filter.q.trim();
+    const resp = await toivHttp.get("/apps", { params });
+    const data = resp.data;
+    const list = Array.isArray(data) ? data : ((data as { items?: ToivApp[] })?.items ?? []);
+    const total = Number(resp.headers?.["x-total-count"] ?? list.length) || list.length;
+    return {
+        total,
+        items: list.map((raw) => {
+            const a = raw as ToivApp;
+            return {
+                ...a,
+                params_schema: Array.isArray(a.params_schema)
+                    ? a.params_schema.map(normalizeToivAppParam)
+                    : [],
+            };
+        }),
+    };
+}

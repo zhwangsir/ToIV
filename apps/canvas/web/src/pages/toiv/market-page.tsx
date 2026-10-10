@@ -15,7 +15,7 @@ import {
     buildToivRunValues,
     fetchToivApp,
     fetchToivAppVariants,
-    fetchToivApps,
+    fetchToivAppsPage,
     firstPinWorker,
     requiredToivParamLabel,
     runToivApp,
@@ -101,6 +101,7 @@ function CoverThumb({ coverUrl, category }: { coverUrl?: string; category?: stri
     );
 }
 
+const MARKET_PAGE_SIZE = 200;
 const IMAGE_EXT = ["jpg", "jpeg", "png", "webp"];
 const AUDIO_EXT = ["wav", "mp3", "m4a", "ogg", "flac"];
 const VIDEO_EXT = ["mp4", "mov", "webm", "mkv"];
@@ -377,6 +378,12 @@ export default function MarketPage() {
     const [apps, setApps] = useState<ToivApp[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
+    // W0.2b(2026-10-11 S1)分页:此前 /api/apps 忽略 limit 一次全量 6731 张全渲染
+    // (scrollHeight 61 万 px);现 200/页服务端切片 + 加载更多,筛选作用于已加载集。
+    const [total, setTotal] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const offsetRef = useRef(0);
     const [category, setCategory] = useState<string>("all");
     const [q, setQ] = useState("");
     const [detail, setDetail] = useState<ToivApp | null>(null);
@@ -393,13 +400,33 @@ export default function MarketPage() {
         setLoading(true);
         setError(false);
         try {
-            setApps(await fetchToivApps({ limit: 500 }));
+            const page = await fetchToivAppsPage({ limit: MARKET_PAGE_SIZE, offset: 0 });
+            offsetRef.current = page.items.length;
+            setApps(page.items);
+            setTotal(page.total);
+            setHasMore(page.items.length < page.total);
         } catch {
             setError(true);
         } finally {
             setLoading(false);
         }
     }, []);
+
+    const loadMore = useCallback(async () => {
+        if (loadingMore || loading) return;
+        setLoadingMore(true);
+        try {
+            const page = await fetchToivAppsPage({ limit: MARKET_PAGE_SIZE, offset: offsetRef.current });
+            offsetRef.current += page.items.length;
+            setApps((prev) => [...prev, ...page.items]);
+            setTotal(page.total);
+            setHasMore(offsetRef.current < page.total);
+        } catch {
+            // 单页追加失败不整体报错,用户可再点一次
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [loading, loadingMore]);
 
     useEffect(() => {
         void load();
@@ -678,6 +705,20 @@ export default function MarketPage() {
                             );
                         })}
                     </div>
+                    {hasMore && (
+                        <div className="flex flex-col items-center gap-2 py-4">
+                            <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                已加载 {apps.length} / 共 {total} 个应用 · 筛选作用于已加载部分
+                            </p>
+                            <ToolButton
+                                variant="default"
+                                icon={<RefreshCw />}
+                                label={loadingMore ? "加载中…" : "加载更多"}
+                                onClick={() => void loadMore()}
+                                loading={loadingMore}
+                            />
+                        </div>
+                    )}
                 </>
             )}
 
