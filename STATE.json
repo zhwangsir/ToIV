@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T15:20:00+08:00",
+  "updated_at": "2026-10-11T01:50:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14565,5 +14565,33 @@
     "doc": "docs/ops/UNIFIED_PLATFORM_EXECUTION_20261010.md",
     "parent": "unified_platform_plan_2026_10_10",
     "updated_at": "2026-10-10T15:20:00+08:00"
+  },
+  "s1_p0_foundations_2026_10_11": {
+    "status": "s1_p0_foundations_deployed",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "v2 重构 S1/P0 部署+验证：/api/apps 分页(limit/offset+X-Total-Count+未知query 422,commit 1a6da2d8)；canvas 市场分页 200/页+加载更多(8dfdb45a)；login 直发 toiv_session cookie(admin 闸,exchange 保留兼容)；CORS 暴露 X-Total-Count；PLATFORM_V2_CONTRACT.md 冻结(da0c8b97)。生产 wineryz 实证全过;api/canvas 01:32 CST 重启;web 仍 ae5e294b",
+    "verification": [
+      "set-cookie: toiv_session HttpOnly Path=/studio SameSite=strict Max-Age=604800",
+      "?limit=3→3行+x-total-count:6731",
+      "?offset=3 翻页正确",
+      "?lim=1→422",
+      "无limit 全量6731兼容",
+      "market-page-BOEZn8dp.js 含分页UI",
+      "服务全active"
+    ],
+    "corrections": [
+      "toiv_gate.go=活码(desktop嵌入模板)保留",
+      "core 孤儿 serve.mjs(:8271,10-05起)已kill(零引用零cron)",
+      "IDOR 1816f320 md5 实证早已随 d69ee564 在生产"
+    ],
+    "new_debt": [
+      "canvas tsc 预存失败 project.tsx:3097 → P1 顺带修"
+    ],
+    "next": "S2 canvas 六段工作区骨架(可 S5 管线v2 并行)",
+    "updated_at": "2026-10-11T01:50:00+08:00"
   }
 }

@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-10（项目管家）：**文档债批已收**——MODEL_SOURCES backfill `SenseVoiceSmall`（ok479/total816，core 已同步）；§7/§8 补 10-10 入账；RH 审计证据迁 `docs/ops/`；LB 池 10-10 复测仍单后端（pc01 :8188 TS CLOSED）；主工作树已切 main。生产 tip 未变：toiv-web `ae5e294b` / canvas `385be368` / api `d69ee564`（H3 token exp 10-17）；仍等硬刷验工具箱/本地·。`updated_at` 2026-10-10T13:10:00+08:00。
+> **最后更新**：2026-10-11（ToIV开发）：**v2 重构 S1/P0 已部署+生产验证**——/api/apps 分页(limit/offset+X-Total-Count+未知query 422)、市场页 200/页+加载更多、login 直发 `toiv_session` cookie(admin 闸)、core 孤儿 serve.mjs(:8271) 已清；`docs/ops/PLATFORM_V2_CONTRACT.md` 契约冻结。api+canvas 01:32 CST 重启；web 仍 `ae5e294b`。生产 tip=main `da0c8b97`。`updated_at` 2026-10-11T01:50:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -134,6 +134,13 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-11（ToIV开发：v2 统一平台 S1/P0 地基，已部署+验证）
+- **背景**：用户拍板走方案 B（canvas 唯一壳收敛式重构，S1–S14）；总纲 `docs/ops/UNIFIED_PLATFORM_PLAN_20261010.md`、排期 `UNIFIED_PLATFORM_EXECUTION_20261010.md`、契约 `PLATFORM_V2_CONTRACT.md`。调研=13 商业产品+12 开源（克隆 `tmp/research-oss-20261010/`，Toonflow/ViMax/AI-NovelFlow 深读）。
+- **S1 交付（api `1a6da2d8`+canvas `8dfdb45a`+docs `da0c8b97`，01:32 CST 部署）**：①`/api/apps` limit/offset 实装+`X-Total-Count`+未知 query 422（此前静默忽略，`?limit=500` 实返 6731 全量 7MB）；②canvas 市场页服务端分页 200/页+加载更多；③`/api/auth/login` 对 admin 直发 `toiv_session` cookie（与 exchange 同格式，canvas-api 零改动；exchange 保留兼容读，P4 移除）；④CORS 暴露 `X-Total-Count`；⑤契约文档冻结（实体复用映射/node_mapping 工作流模板/分镜 JSON/状态机/工件指纹规范）。
+- **生产实证（wineryz）**：set-cookie 属性全对；`?limit=3`→3 行+total 6731；`?offset=3` 翻页对；`?lim=1`→422；无 limit 全量兼容；market-page chunk 含分页 UI；服务全 active。测试 10 新增全绿（2 失败 stash 实证=预存基线）。
+- **口径修正**：`toiv_gate.go` 是活码（desktop 嵌入模板）不删；真清的是 core 孤儿 `serve.mjs`(:8271，10-05 起，已 kill)；IDOR `1816f320` md5 实证**早已在生产**。新债：canvas `tsc --noEmit` 预存失败（project.tsx:3097，部署走 vite 不阻塞）→ P1 顺带修。
+- Status：`s1_p0_foundations_deployed`；STATE 同键；下一批 S2（canvas 六段工作区骨架）。via ToIV 开发（自主执行）。
 
 ### 2026-10-10（项目管家：similar-merge P1 A/B + 市场 RH 重上架 + H3 token 刷新，均已部署）
 - **tip**：main 三端齐=`f8cfb4e4`。生产：api `d69ee564`（H3 FL2VA RH 名→NAS pruned 别名 Slice A；ActiveEnter 04:35:41）；web BUILD `ae5e294b`（含 Slice B `385be368` 文案/导航；ActiveEnter 04:47:19）；canvas `385be368`。**仍等用户硬刷验**「工具箱」「本地·」文案（headless 只能证服务端含新代码，证不了本地旧 chunk）。
@@ -376,7 +383,8 @@
 - [x] ~~MODEL_SOURCES / app_test_matrix 需重拷~~（**2026-09-22 核销**：core 真源 `/home/merlin/toiv/api/app/data/` 已 live；`model_sources.json` md5 `6aeded7b82dbe3f02bd23e060a3bdf01` tot ok478/blocked336/total815；`app_test_matrix/` 五文件 size/mtime 与本地一致；本轮无需再 scp/restart；STATE `model_sources_core_sync_2026_09_22`；**后续**若本地改 docs 快照仍需同步重拷）
 - [ ] H3 FL2VA 真出片+完成回写复测（E-3「探测通过≠链路可跑」；占 :8264 十几分钟；token exp 10-17 窗口内）——**待用户 GO**；顺带判 `h3_missing_trusted_identity`/907f5f85 能否核销
 - [ ] 非管理员视角市场复核（role=user 账号 4 个在产，密码哈希不可逆——需用户提供凭据或授权重置测试号）
-- [ ] `/api/apps` limit 未实现（`?limit=500` 实返全量）+ 画布市场/工具箱不分页全量渲染（admin 视角 6731 卡）——现在修 / 并入 RH 重上架批 / 明确不修，待拍板
+- [x] ~~`/api/apps` limit 未实现 + 画布市场不分页全量渲染~~（**2026-10-11 S1 已修并部署**：limit/offset+X-Total-Count+未知 query 422；市场 200/页+加载更多；wineryz 实证）
+- [ ] canvas `tsc --noEmit` 预存失败（project.tsx:3097 onAddLocalGenerator 属性不匹配；部署走 vite 不阻塞）——P1 顺带修
 - [ ] Slice C（RH 重上架后续）触发条件待重定义：真缺口候选仅剩「经典 view 正文未渲染工具箱分组」与「0.3 非管理员可见性」两处，任一成立才开刀
 - [ ] SeC 387721：einops reshape 错=SecNodes×torch2.13/sm_120 上游边界（已登记，flash-attn 关闭保留）
 

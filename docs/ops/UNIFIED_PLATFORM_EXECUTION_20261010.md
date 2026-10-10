@@ -30,13 +30,19 @@
 
 ## 3. 批次拆解
 
-### S1（P0）地基——先止血再动骨
+### S1（P0）地基——先止血再动骨 ✅ **2026-10-11 完成（生产已验证）**
 | # | 任务 | 现状→目标 | 验收 |
 |---|---|---|---|
 | W0.1 | **统一登录** | 三凭证链（JWT+exchange cookie+HMAC 头）→ 单 ToIV JWT（HttpOnly cookie），canvas Go 直验；30 天兼容期只读保留 exchange | 登录后直达 canvas 项目空间，全程 0 中间跳转；旧会话不强制掉线 |
 | W0.2 | **工程债三件** | ①`/api/apps` limit 实装+未知 query 拒绝（挂账 0.4）②canvas 市场分页（6731 卡→分页+虚拟滚动）③IDOR owner 强制 `1816f320` 部署开闸 | limit=500 实返 500；市场首屏<1s；越权访问 403 回归绿 |
 | W0.3 | **v2 契约冻结** | §3.x 草案：项目域 ERD（Project/Drama/Asset/Shot/Job/Render/Version）+API 面 + 工作流模板 schema | 契约文档独立成文并评审通过；后续批次只准加字段不准改语义 |
 | W0.4 | **死码清理** | gate 残骸注释、`toiv_gate.go`、`:8281` 相关 env 清理 | grep 零命中；部署链路回归绿 |
+
+**S1 完成回执（2026-10-11 01:32 CST 部署，wineryz 实证）**：
+- 代码：api `1a6da2d8`（分页+422+登录 cookie+CORS，10 新测试绿；2 失败为预存基线 stash 实证）；canvas `8dfdb45a`（市场 200/页+加载更多）；契约 `docs/ops/PLATFORM_V2_CONTRACT.md`（da0c8b97）。
+- 生产：login 响应 `set-cookie: toiv_session=…; HttpOnly; Path=/studio; SameSite=strict` ✅；`?limit=3`→3 行+`x-total-count: 6731` ✅；`?offset=3` 翻页正确 ✅；`?lim=1`→422 ✅；无 limit 全量 6731 兼容 ✅；market-page chunk 含分页 UI ✅；服务全 active（api/canvas 01:32:46/58 重启）。
+- 口径修正：①`toiv_gate.go` 是**活码**（desktop 嵌入 model-config.template）不删；真清的是 core 上 10-05 起的孤儿 `serve.mjs`(监听 :8271，零引用零 cron，已 kill)。②IDOR `1816f320` 经 md5 证据确认**早已随 d69ee564 在生产**（images/dub 双 md5 吻合），无需再部署。
+- 新登记债：canvas `tsc --noEmit` 在 main 预存失败（project.tsx:3097 onAddLocalGenerator 属性不匹配；部署走 vite 不过 tsc 故不阻塞）→ 归入 P1 顺带修。
 
 回滚：W0.1 feature flag 30 天；W0.2 独立提交可 revert。
 
@@ -122,3 +128,4 @@ S1 ──► S2 ──► S3 ──► S4        （壳迁移线，前端为主�
 ## 8. 变更记录
 
 - 2026-10-10 v1：初版（依据 UNIFIED_PLATFORM_PLAN_20261010.md 生成；13 商业+12 开源调研+本地摸底）。
+- 2026-10-11：**S1 完成**（生产验证回执见 §3 S1 节）。W0.4 缩围说明：desktop gate 为活码；新增 P1 顺带项=修 project.tsx 预存类型错误。
