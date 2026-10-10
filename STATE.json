@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T02:30:00+08:00",
+  "updated_at": "2026-10-11T02:35:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14597,7 +14597,42 @@
       "status": "s2_w1_1_deployed",
       "commit": "4d6b552d",
       "summary": "六段工作区骨架:/toiv/ws/:id 独立路由(剧本/资产/分镜/镜头/时间线/成片,只读呈现 characters/shots/pipeline),经典详情页加「v2 工作区」入口;tsc 零新错+vite 过;chunk drama-workspace-NO9yq_-O.js 已在线,/studio/toiv/ws/* 经同一会话闸",
-      "updated_at": "2026-10-11T02:30:00+08:00"
-    }
+      "updated_at": "2026-10-11T02:30:00+08:00",
+      "w1_5": {
+        "status": "deployed",
+        "commit": "c74c65c2",
+        "summary": "任务中心枢纽:三源时间线(ToIV 作业+画布 GenerationTask+智能体 agent-runs)+来源/状态筛选+活跃任务 30s 轮询;chunk tasks-page-BdkkkxoE.js 在线",
+        "updated_at": "2026-10-11T02:35:00+08:00"
+      }
+    },
+    "tsc_green": "b1b13e78 CanvasProjectContextMenuProps.onAddLocalGenerator 转发补齐,tsc 全绿"
+  },
+  "h3_fl2va_chain_closed_2026_10_11": {
+    "status": "h3_fl2va_smoke_pass",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发",
+      "设备管家"
+    ],
+    "steward": "ToIV开发",
+    "summary": "W2.0/W0.2 六轮实弹排查闭环:rh-acc-5759833090 烟测 PASS(223.8s 真出片,outputs=['13'])。907f5f85/h3_missing_trusted_identity 可核销",
+    "rounds": [
+      "#1 fail:命名守卫拒 NAS 名(api 反向别名把合规名改写成 minimax_h3_fl2va_pruned_int8_convrot)",
+      "#2#3 fail:_shared gate 后 .resolve()+validate 返回 resolved,把 NAS 名泄给 model_loader 二次校验",
+      "#4 fail:pruned 权重=曲线表变体(秩8)与 release config time_embed_dim=2688 不配",
+      "#5 fail:NAS fp16 video_vae 多 latents_mean/latents_std 两键,严格校验拒",
+      "#6 PASS:恢复本地全量四件套后真出片"
+    ],
+    "changes": [
+      "api(已部署 ea1d4914):撤除 _MODEL_FILE_ALIASES 四条反向映射,RH 合规名直传;测试改锁定 pass-through",
+      "workstation 节点补丁×3(不在仓库,备份 *.bak-20261011):components/_impl.py list_h3_weight_files 返回根内呈现名(不 resolve);validate_weight_partition 分类用传入名+返回原样路径(不 resolve);api/_shared.py gate 后不再 .resolve()",
+      "workstation 权重根 models/MiniMax-H3:从 _full_bak_20261010 恢复全量四件(FL2VA int8_convrot 34G/video_vae 5.2G/audio_vae 0.6G 真文件);bak 目录已清空;NAS pruned 路线整体弃用(pruned≠RH config 配对,NAS VAE 键集不符)"
+    ],
+    "lessons": [
+      "E-3 三连:别名/探测/单点修复均≠链路可跑,必须实弹烟测",
+      "RH 节点全链三处 resolve 会抹掉合规呈现名——命名约定即证据的设计与软链别名天然冲突",
+      "社区 pruned/重转换权重过不了 RH 严格校验,别拿 audit 的'功能等价'当'可替换'"
+    ],
+    "updated_at": "2026-10-11T02:35:00+08:00"
   }
 }

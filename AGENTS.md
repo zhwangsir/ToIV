@@ -135,6 +135,12 @@
 
 ## 七、当前焦点（活口径摘要）
 
+### 2026-10-11（ToIV开发：W2.0 FL2VA 链路闭环 + S2/W1.5 任务枢纽，已部署）
+- **W2.0（挂账 0.2 终局）**：`rh-acc-5759833090` 烟测**六轮实弹排查后 PASS**（223.8s 真出片）。修链：①api 撤 H3 FL2VA 反向别名 `ea1d4914`（10-10 别名把 RH 合规名改写成 NAS 名，被命名守卫拒——**E-3 三连实证**）；②workstation RH 节点三处 resolve 泄名补丁（`components/_impl.py`×2 + `api/_shared.py`×1，备份 `*.bak-20261011`，**不在仓库**）；③**NAS pruned 别名路线整体弃用**——pruned=曲线表变体与 release config 不配、NAS VAE 多两键，已从 `_full_bak_20261010` 恢复本地全量四件套（34G+5.2G+0.6G，盘余 4.7T 充裕）。`907f5f85`/`h3_missing_trusted_identity` 核销。教训：社区 pruned/重转换权重过不了 RH 严格校验，audit 的「功能等价」≠「可替换」。
+- **S2/W1.5 任务中心枢纽 `c74c65c2`（已部署）**：三源时间线（ToIV 作业+画布 GenerationTask+智能体 agent-runs）+来源/状态筛选+活跃任务 30s 自动轮询；吸收 OPT_BACKLOG「统一时间线」项。
+- **S2 顺带**：`b1b13e78` 补 `onAddLocalGenerator` 转发，canvas `tsc --noEmit` 全绿（预存债清）。
+- Status：`h3_fl2va_smoke_pass`；STATE `h3_fl2va_chain_closed_2026_10_11`；下一批 W2.1 分镜自动化 + S2/W1.3-1.4。via ToIV 开发（自主执行）。
+
 ### 2026-10-11（ToIV开发：v2 统一平台 S1/P0 地基，已部署+验证）
 - **背景**：用户拍板走方案 B（canvas 唯一壳收敛式重构，S1–S14）；总纲 `docs/ops/UNIFIED_PLATFORM_PLAN_20261010.md`、排期 `UNIFIED_PLATFORM_EXECUTION_20261010.md`、契约 `PLATFORM_V2_CONTRACT.md`。调研=13 商业产品+12 开源（克隆 `tmp/research-oss-20261010/`，Toonflow/ViMax/AI-NovelFlow 深读）。
 - **S1 交付（api `1a6da2d8`+canvas `8dfdb45a`+docs `da0c8b97`，01:32 CST 部署）**：①`/api/apps` limit/offset 实装+`X-Total-Count`+未知 query 422（此前静默忽略，`?limit=500` 实返 6731 全量 7MB）；②canvas 市场页服务端分页 200/页+加载更多；③`/api/auth/login` 对 admin 直发 `toiv_session` cookie（与 exchange 同格式，canvas-api 零改动；exchange 保留兼容读，P4 移除）；④CORS 暴露 `X-Total-Count`；⑤契约文档冻结（实体复用映射/node_mapping 工作流模板/分镜 JSON/状态机/工件指纹规范）。
@@ -381,7 +387,7 @@
 - [x] ~~A1 工具卡回放语义~~（payload 随 tool 消息落库 tool_calls JSON+messagesToChat 回放重建并入本轮气泡;中止轮不产空气泡守 W4;生产 reload 后卡仍在实证）
 - [x] ~~Comfy 二次编辑 save-back~~（`POST /api/apps/{id}/save-from-comfy`：读回 userdata→ui_to_api→指纹闸 409 防误覆盖+悬空绑定透出+审计;运行台 admin 门控「从画布存回」按钮）
 - [x] ~~MODEL_SOURCES / app_test_matrix 需重拷~~（**2026-09-22 核销**：core 真源 `/home/merlin/toiv/api/app/data/` 已 live；`model_sources.json` md5 `6aeded7b82dbe3f02bd23e060a3bdf01` tot ok478/blocked336/total815；`app_test_matrix/` 五文件 size/mtime 与本地一致；本轮无需再 scp/restart；STATE `model_sources_core_sync_2026_09_22`；**后续**若本地改 docs 快照仍需同步重拷）
-- [ ] H3 FL2VA 真出片+完成回写复测（E-3「探测通过≠链路可跑」；占 :8264 十几分钟；token exp 10-17 窗口内）——**待用户 GO**；顺带判 `h3_missing_trusted_identity`/907f5f85 能否核销
+- [x] ~~H3 FL2VA 真出片+完成回写复测~~（**2026-10-11 六轮排查 PASS**：api 撤反向别名+RH 节点 resolve 泄名补丁×3+恢复本地全量四件套；烟测 223.8s 真出片；`907f5f85` 核销；STATE `h3_fl2va_chain_closed_2026_10_11`）
 - [ ] 非管理员视角市场复核（role=user 账号 4 个在产，密码哈希不可逆——需用户提供凭据或授权重置测试号）
 - [x] ~~`/api/apps` limit 未实现 + 画布市场不分页全量渲染~~（**2026-10-11 S1 已修并部署**：limit/offset+X-Total-Count+未知 query 422；市场 200/页+加载更多；wineryz 实证）
 - [ ] canvas `tsc --noEmit` 预存失败（project.tsx:3097 onAddLocalGenerator 属性不匹配；部署走 vite 不阻塞）——P1 顺带修
