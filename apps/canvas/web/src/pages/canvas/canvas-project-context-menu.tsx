@@ -15,6 +15,7 @@ type CanvasProjectContextMenuProps = {
     screenToCanvas: (clientX: number, clientY: number) => Position;
     onClose: () => void;
     onAddNode: (type: CanvasNodeTypeId, position: Position) => void;
+    onAddLocalGenerator?: (opts: { type: "image" | "video"; model: string; title: string; position?: Position }) => void;
     onAddFolder: (position: Position) => void;
     onChooseStyle: () => void;
     onOpenDirector: (position?: Position) => void;
@@ -63,6 +64,7 @@ export function CanvasProjectContextMenu({ menu, node, screenToCanvas, ...props 
             onAddNode={(type) => {
                 if (menu.type === "canvas") props.onAddNode(type, menu.position);
             }}
+            onAddLocalGenerator={props.onAddLocalGenerator}
             onAddFolder={() => {
                 if (menu.type === "canvas") props.onAddFolder(menu.position);
             }}
