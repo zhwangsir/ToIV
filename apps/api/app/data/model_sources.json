@@ -1,10 +1,10 @@
 {
- "updated_at": "2026-09-18",
+ "updated_at": "2026-10-10",
  "updated_at_timezone": "Asia/Shanghai",
  "totals": {
-  "ok": 478,
+  "ok": 479,
   "blocked": 336,
-  "total": 815,
+  "total": 816,
   "ok_missing_source_url": 9,
   "ok_true_gaps_no_url_no_repo_not_alias": 0,
   "ok_local_alias_without_http_url": 5
@@ -8398,6 +8398,21 @@
    "bytes": null,
    "notes": "reason=mixed_sharp_combo_untraceable | NAS has non-sharp mixed_block35; numz has sharp_fp8 without mixed_block35; combo basename absent. | action=blocked_untraceable | suggested_next=Manual provenance if a trusted URL appears; do not invent mirrors. | app_refs=1 | from=_batch16_blocked_new.json",
    "batch": "batch16"
+  },
+  {
+   "basename": "SenseVoiceSmall",
+   "rel_path": "audio/SenseVoiceSmall",
+   "source_kind": "hf_mirror",
+   "source_url": "https://hf-mirror.com/FunAudioLLM/SenseVoiceSmall",
+   "repo": "FunAudioLLM/SenseVoiceSmall",
+   "revision": "main",
+   "filename": "model.pt",
+   "license_or_gated": null,
+   "downloaded_at": "2026-10-10T04:14:00+08:00",
+   "status": "ok",
+   "bytes": 936291369,
+   "notes": "rh_basename_audit_20261010 confirmed already_on_nas audio/SenseVoiceSmall/model.pt bytes=936291369 sha256=833ca2dc…a3ea | ledger backfill 2026-10-10（audit/TEST_LOG 曾记 ok=479 但条目从未提交，git log -S SenseVoice 全史为零）| /api/nas/models picker 待下次盘扫",
+   "batch": "rh_basename_nas_audit_20261010"
   },
   {
    "basename": "SESELAORUYAO.safetensors",

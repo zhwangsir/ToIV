@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-10（项目管家；融合/设备管家）：**H3 service-token 06:20 自动刷新 PASS**（revision 50→51；exp→2026-10-17 06:20 CST；hoursLeft≈168；原 10-13 过期项可关）。生产 tip 未变：toiv-web `ae5e294b` / canvas `385be368` / api `d69ee564`；docs `cd5e5003` 齐；仍等硬刷验工具箱/本地·。`updated_at` 2026-10-10T07:08:00+08:00。
+> **最后更新**：2026-10-10（项目管家）：**文档债批已收**——MODEL_SOURCES backfill `SenseVoiceSmall`（ok479/total816，core 已同步）；§7/§8 补 10-10 入账；RH 审计证据迁 `docs/ops/`；LB 池 10-10 复测仍单后端（pc01 :8188 TS CLOSED）；主工作树已切 main。生产 tip 未变：toiv-web `ae5e294b` / canvas `385be368` / api `d69ee564`（H3 token exp 10-17）；仍等硬刷验工具箱/本地·。`updated_at` 2026-10-10T13:10:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -23,7 +23,7 @@
 | spark01 | DSv4 TP2 **worker**（rank1，`dsv4_60` 容器；旧 vllm_glm53 stop 留存回滚） | .82 | 100.81.235.124 | dgmt-spark |
 | spark02 | **现网 LLM/VLM API** DSv4 TP2 **head** :8000（启动 `~/dsv4-serve.sh 1`(01)→`0`(02)，restart=no 重启需手动；guard cron 双侧已在） | .84 | 100.86.42.89 | dgmt-spark |
 | workstation | 算力+全部后端服务（见三） | 192.168.71.127 | **100.68.100.90** | merlin |
-| pc01 | ComfyUI worker :8188 + H3 第二实例 :8198（NSSM 服务化）；**10-05 offline 1 天**（:8188/:8198 失联，LB 池剩 WS 单后端） | **192.168.71.116** | **100.86.169.64**（~~100.69.134.27~~ 作废） | home |
+| pc01 | ComfyUI worker :8188 + H3 第二实例 :8198（NSSM 服务化）；**10-05 起持续 offline**（10-10 复测 :8188 经 TS 仍 CLOSED，LB 池剩 WS 单后端） | **192.168.71.116** | **100.86.169.64**（~~100.69.134.27~~ 作废） | home |
 | ~~pc02~~ | 2026-09-13 下线（LB 池已移除） | ~~.114~~ | 100.107.94.26 | w |
 | NAS | SMB 存储 44T | 192.168.71.7 | 100.80.237.96 | dgmt-nas |
 | 小米路由器 | BE10000 Pro AP/有线中继，管理页 .42 | 192.168.71.42 | — | — |
@@ -51,7 +51,7 @@
 
 | 服务 | 端口 | 卡 | systemd |
 |---|---|---|---|
-| ComfyUI-LB（池：本地 :8196 + pc01 :8188；`/admin/backends`；**10-05 pc01 掉线，实测仅 gpu0 单后端**） | :8188 | — | comfyui-lb |
+| ComfyUI-LB（池：本地 :8196 + pc01 :8188；`/admin/backends`；**10-05 pc01 掉线至今，10-10 复测 backends.json 仅 gpu0→:8196 单成员**） | :8188 | — | comfyui-lb |
 | gpu0-alt（cache-lru 8） | :8196 | GPU0 | comfyui-gpu0-alt |
 | LongCat（cache-lru 3） | :8197 | GPU0 | comfyui-longcat |
 | MiniMax H3（**UUID 钉卡 GPU-0e6e9149**；+pc01:8198 双池 `TOIV_H3_BASE_URLS`） | :8195 | GPU2 | toiv-comfyui-h3 |
@@ -134,6 +134,13 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-10（项目管家：similar-merge P1 A/B + 市场 RH 重上架 + H3 token 刷新，均已部署）
+- **tip**：main 三端齐=`f8cfb4e4`。生产：api `d69ee564`（H3 FL2VA RH 名→NAS pruned 别名 Slice A；ActiveEnter 04:35:41）；web BUILD `ae5e294b`（含 Slice B `385be368` 文案/导航；ActiveEnter 04:47:19）；canvas `385be368`。**仍等用户硬刷验**「工具箱」「本地·」文案（headless 只能证服务端含新代码，证不了本地旧 chunk）。
+- **市场 RH 重上架**：public=83（smoke pass 82）；非 RH/测挂 soft-hide；RH reimport deferred（无精确 basename）；RH keep 79 齐。
+- **H3**：service-token 06:20 自动刷新 PASS（revision 50→51，exp→2026-10-17 06:20）；FL2VA 真出片复测仍开口（E-3，待 GO）。
+- **文档债批（本条）**：MODEL_SOURCES backfill `SenseVoiceSmall`（**审计/TEST_LOG 曾记 ok479 实从未提交**，`git log -S SenseVoice` 全史为零；现 ok479/total816 两份 json+md 齐，core 已同步）；RH 审计证据迁 `docs/ops/rh_basename_nas_audit_20261010.md`；AGENTS §7/§8 补账+LB 单后端真机口径修正；DRAMA_UI_PLAN 雨夜整集 C 过期项核销；主工作树自 `qoder/flash-next`（已落后 6，纯祖先）切 main。
+- Status：`docs_debt_batch_2026_10_10`；STATE 同键；`updated_at` 2026-10-10T13:10:00+08:00。via 项目管家（ToIV开发）。
 
 ### 2026-10-09（ToIV 开发：desktop command_guard 品牌 `2483c74d`，未部署）
 - **tip**：origin/github/本地 main=`2483c74d`（分支 `feat/canvas-desktop-guard-brand-toiv`）。**未部署**；生产 c-chains 仍 404。
@@ -367,7 +374,10 @@
 - [x] ~~A1 工具卡回放语义~~（payload 随 tool 消息落库 tool_calls JSON+messagesToChat 回放重建并入本轮气泡;中止轮不产空气泡守 W4;生产 reload 后卡仍在实证）
 - [x] ~~Comfy 二次编辑 save-back~~（`POST /api/apps/{id}/save-from-comfy`：读回 userdata→ui_to_api→指纹闸 409 防误覆盖+悬空绑定透出+审计;运行台 admin 门控「从画布存回」按钮）
 - [x] ~~MODEL_SOURCES / app_test_matrix 需重拷~~（**2026-09-22 核销**：core 真源 `/home/merlin/toiv/api/app/data/` 已 live；`model_sources.json` md5 `6aeded7b82dbe3f02bd23e060a3bdf01` tot ok478/blocked336/total815；`app_test_matrix/` 五文件 size/mtime 与本地一致；本轮无需再 scp/restart；STATE `model_sources_core_sync_2026_09_22`；**后续**若本地改 docs 快照仍需同步重拷）
-- [ ] rh-acc-9923136513-48997d(Z-Image 去 AI 感)：**2026-09-23 空闲窗终测 FAIL** / `runtime_cuda`——finegrained-fp8 `kernels` 版本冲突（现要求 `0.15.2≤v<0.16.0`，舰队 `0.16.2`；:8196 restart+0.16.2 trust_ok 复测仍 FAIL）；测时 cover_gate 已解锁+队列空闲；封面闸假忙产品修 `1292bb5` 已部署、`TOIV_COVER_AUTOREFIRE=false`；**转设备**核接单 worker kernels/trust 落点后复测
+- [ ] H3 FL2VA 真出片+完成回写复测（E-3「探测通过≠链路可跑」；占 :8264 十几分钟；token exp 10-17 窗口内）——**待用户 GO**；顺带判 `h3_missing_trusted_identity`/907f5f85 能否核销
+- [ ] 非管理员视角市场复核（role=user 账号 4 个在产，密码哈希不可逆——需用户提供凭据或授权重置测试号）
+- [ ] `/api/apps` limit 未实现（`?limit=500` 实返全量）+ 画布市场/工具箱不分页全量渲染（admin 视角 6731 卡）——现在修 / 并入 RH 重上架批 / 明确不修，待拍板
+- [ ] Slice C（RH 重上架后续）触发条件待重定义：真缺口候选仅剩「经典 view 正文未渲染工具箱分组」与「0.3 非管理员可见性」两处，任一成立才开刀
 - [ ] SeC 387721：einops reshape 错=SecNodes×torch2.13/sm_120 上游边界（已登记，flash-attn 关闭保留）
 
 ### 设备/运维（现场或决策项）
@@ -376,7 +386,11 @@
 - [x] ~~决策点：cloud 遗留清理~~（2026-09-22 拍板执行：aigc-auth/deploy-flask/deploy-exo-proxy 三 docker 容器 `update --restart=no`+stop（镜像与 /root/aigc-auth、/opt/exo-proxy 目录保留可回滚）；ssh-fwd-22007~22012 死转发（指向陈旧 TS IP）stop+disable;frps/openresty/node-exporter 与双域实测 200 无恙）
 - [x] ~~决策点：OpenClaw×4 网关去留~~（2026-09-22 拍板执行：四节点 `ai.openclaw.gateway` LaunchAgent bootout+plist 改 `.disabled-20260922`（回滚=改名+load）;whisper :9310/JoyCaption :9305 四节点 LIVE 实测无恙,机器角色=whisper ASR 集群保留）
 - [ ] pc01 补装 kernels 0.16.x（其 SSH/TS 暂不可达;finegrained-fp8 节点若落 pc01 会撞版本闸,WS 已装妥）
+- [ ] ComfyUI LB 池单后端（pc01 :8188/:8198 自 10-05 失联，10-10 复测 :8188 经 TS 仍 CLOSED）——修 pc01 或撤池改 `backends.json`（§三口径已按 10-10 真机修正）
+- [ ] SenseVoice 接 `/api/nas/models`（权重已在 NAS `audio/SenseVoiceSmall` 936291369B sha256 833ca2dc…；ledger 已 backfill ok479；等下次 picker 盘扫）
+- [ ] H3 service-token exp 2026-10-17 06:20（自动刷新已 enable；届时留意一跳）
+- [ ] 旧 Admin JWT 吊销（HOLD，等设备侧执行）
 - [ ] rh-acc-9923136513-48997d(Z-Image 去 AI 感)：**2026-09-23 空闲窗终测 FAIL**（闸已开仍 FAIL）——报 finegrained-fp8 `kernels` 版本冲突（现要求 `0.15.2≤v<0.16.0`，舰队 `0.16.2`；:8196 restart+0.16.2 trust_ok 复测仍 FAIL）；疑接单 worker 未落到已装 kernels/`HF_ENDPOINT`/trust；先验「kernels 0.16.2 + fleet drop-in」未在本跑实证；**设备侧核 worker 落点后复测**；封面闸假忙 `1292bb5` 已部署、`TOIV_COVER_AUTOREFIRE=false`（产品侧闸项已清）
 - [x] ~~wave4 设备组残留核查~~（2026-09-22 真机核：Anything Everywhere3/easy sam3GetObjectMask/IPAdapter FaceID 节点族在位；H3 文本节点由 h3_like 前缀兜底覆盖非问题;「全局输入」全库无此节点名=误记;FaceID LoRA 原文件 Best_FaceID_v1.0 仍 blocked,等效 ip-adapter-faceid-plusv2_sd15/sdxl 已在位）
-- [ ] MODEL_SOURCES 持续追加（当前 ok478/blocked336/total815）
+- [ ] MODEL_SOURCES 持续追加（当前 ok479/blocked336/total816；2026-10-10 backfill `SenseVoiceSmall`，core 已同步）
 - [x] ~~wave23 后空闲窗口补刀~~（超时/排队：残差 7 例中 6 例间歇期已由烟测管线翻盘 pass,1 例三测演进为真修（kernels 0.16.2 装妥）+长链超时留空闲窗口终测;QwenEdit fp4:r128 edit+r128 image 8steps 已落 NAS,r32 edit 已在库补登记,账对齐 478/336/815;封面余量=autorefire 深度闸自动跑,勿手动）

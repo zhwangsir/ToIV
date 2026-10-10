@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-10T07:08:00+08:00",
+  "updated_at": "2026-10-10T13:10:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14346,8 +14346,9 @@
     "steward": "项目管家",
     "summary": "RH keep 79 齐；SenseVoice 进源；reimport/矩阵等精确名",
     "sensevoice_model_sources_ok": 479,
-    "evidence": ".regen_tmp/rh_basename_nas_audit_20261010.md",
-    "updated_at": "2026-10-10T04:15:00+08:00"
+    "evidence": "docs/ops/rh_basename_nas_audit_20261010.md",
+    "updated_at": "2026-10-10T13:10:00+08:00",
+    "note": "ledger 条目 2026-10-10 backfill（原审计称「已入」实未提交，git log -S SenseVoice 全史为零）；json totals ok=479/total=816；证据自 .regen_tmp/ 迁 docs/ops/"
   },
   "main_tip_16b56cfc_2026_10_10": {
     "status": "main_tip_16b56cfc_deployed",
@@ -14509,5 +14510,28 @@
       "docs": "cd5e5003"
     },
     "updated_at": "2026-10-10T07:08:00+08:00"
+  },
+  "docs_debt_batch_2026_10_10": {
+    "status": "docs_debt_batch_done",
+    "date": "2026-10-10",
+    "source": [
+      "项目管家",
+      "ToIV开发"
+    ],
+    "steward": "项目管家",
+    "summary": "文档债批：MODEL_SOURCES backfill SenseVoiceSmall（ok479/total816，docs+apps 两份 json md5 一致，core 已同步）；AGENTS §7 补 10-10 入账（similar-merge A/B 部署、市场 RH public83、H3 token exp10-17、web ae5e294b 待硬刷）+§8 去重 rh-acc 双条+新增 10-10 HOLD；LB 池单后端真机口径修正（pc01 :8188 TS CLOSED）；DRAMA_UI_PLAN 雨夜整集 C 过期项核销；主工作树自 qoder/flash-next 切 main（docs worktree /private/tmp/toiv-docs-main 已移除）",
+    "items": [
+      "MODEL_SOURCES.json+md+apps 快照 backfill SenseVoiceSmall ok（936291369B sha256 833ca2dc…a3ea）",
+      "AGENTS.md 头行/§1 pc01/§3 LB/§7 新条/§8 去重+4 产品 HOLD+5 设备 HOLD/计数 ok479",
+      "docs/ops/rh_basename_nas_audit_20261010.md 迁入（含 2026-10-10 补记）",
+      "DRAMA_UI_PLAN:288 雨夜整集 C 核销（10-07 splice2 拍板）",
+      "TEST_LOG 入账"
+    ],
+    "not_done": [
+      "tmp/ 处置（4 验证脚本+verify-20261010/ 证据去留）待拍板",
+      "H3 FL2VA 出片复测待 GO",
+      "/api/apps limit 待拍板"
+    ],
+    "updated_at": "2026-10-10T13:10:00+08:00"
   }
 }

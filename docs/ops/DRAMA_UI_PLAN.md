@@ -285,7 +285,7 @@
 - [x] 台词不进画面提示词；Avoid 屏蔽字幕/文字/水印；批量与整组重跑默认 `pipeline=c`
 - [x] 提交 `5c7b36b`；测试 API Batch6 **8** + 相关回归 **19** pass；web Batch6/2/5 **12** pass；全量 deploy 后 `/api/health`+web:3100=200
 - [x] :8195 确认 T8 + MotionContext 节点；:8196 空闲未碰；cuda:3 未用
-- [ ] 雨夜样片整集 C 真跑进行中：镜0 已 `rendered`（双候选 ~51min，选候选1；face_mean 当时空，insightface 已装 venv 待本批结束后重启 API）；镜1 自 12:44 CST 在 :8195 跑 prompt `60d7d41c…`（旧驱动仍连 API，resume `batch6_resume_shots123.py` 等待不 interrupt）；镜2–3 draft；进度 `tmp/batch6_rain_night_progress.json`
+- [x] ~~雨夜样片整集 C 真跑~~（**2026-10-10 核销**：10-07 拍板 c_hybrid 不换默认、雨夜成片维持 splice2（见 STATE `chybrid_closed_prod_trunk_stable`）；进度文件 `tmp/batch6_rain_night_progress.json` 已不存在，镜 1–3 无需续跑）
 
 ## 7. 短剧方案修订（调研结论合入，2026-10-01 11:30 CST）
 

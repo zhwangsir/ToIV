@@ -1,9 +1,9 @@
 <!-- public_e2e_wave2 2026-09-11T05:28:02+08:00: newly_ok LTX23_audio=364855188 LTX23_video=1452258578 taeltx2_3=23531296; already_on_nas distilled fp8 + Qwen3-VL-4B-Instruct -->
 # MODEL_SOURCES
 
-Updated: 2026-09-11T05:28:02+08:00 (Asia/Shanghai)
+Updated: 2026-10-10T13:05:00+08:00 (Asia/Shanghai)
 
-Totals: ok=476 blocked=337 total=813 (2026-09-21 +minimax_h3_ref2va_pruned_bf16.safetensors 37.45GiB hf-mirror→NAS h3/diffusion_models,:8195 UNETLoader 在列;142022 三件套(darkBeast/flux2-vae/qwen_3_8b)复核均在位核销)
+Totals: ok=476 blocked=337 total=813 (2026-09-21 +minimax_h3_ref2va_pruned_bf16.safetensors 37.45GiB hf-mirror→NAS h3/diffusion_models,:8195 UNETLoader 在列;142022 三件套(darkBeast/flux2-vae/qwen_3_8b)复核均在位核销); 2026-10-10 +SenseVoiceSmall ledger backfill → json ok=479/total=816（审计曾误记已入）
 
 Batch: capability_gap_v21_p0
 
@@ -358,6 +358,7 @@ Note: previous tip 467/343/810 → 464/335/799 after v21 P0 batch + dedup.
 | ok | seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors | 8466296338 | SEEDVR2/seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors | mekrod/seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16 | app_refs=1 |
 | ok | seedvr2_ema_7b_sharp_fp16.safetensors | 16479334424 | SEEDVR2/seedvr2_ema_7b_sharp_fp16.safetensors | numz/SeedVR2_comfyUI | app_refs=4 |
 | ok | seedvr2_ema_7b_sharp_fp8_e4m3fn.safetensors | 8239729704 | SEEDVR2/seedvr2_ema_7b_sharp_fp8_e4m3fn.safetensors | numz/SeedVR2_comfyUI | canonical sharp fp8; mixed_block35 sharp variant untraceable \| app_refs=1 |
+| ok | SenseVoiceSmall | 936291369 | audio/SenseVoiceSmall | FunAudioLLM/SenseVoiceSmall | rh_basename_audit_20261010 confirmed already_on_nas bytes=936291369 sha256=833ca2dc…a3ea \| ledger backfill（audit 曾记已入实未提交，本日补齐）\| picker /api/nas/models 待下次盘扫 |
 | ok | SESELAORUYAO.safetensors | 359259656 | loras/SESELAORUYAO.safetensors | fwwrsd/iossd-seselaoruyao | app_refs=3 \| priority=P1 \| batch=capability_gap_v16_non_h3 |
 | ok | sigclip_vision_patch14_384.safetensors | 856505640 | clip_vision/sigclip_vision_patch14_384.safetensors | Comfy-Org/sigclip_vision_384 | app_refs=3 |
 | ok | Singularity LTX-2.3  OmniCine Preview v0.1.safetensors | 2695584648 | loras/Singularity LTX-2.3  OmniCine Preview v0.1.safetensors | Muapi/singularity-ltx-2.3-omnicine-preview-v0.1 | hardlink alias of Singularity_LTX-2.3_OmniCine_Preview0.1.safetensors (same inode/bytes); app basename has double space |
