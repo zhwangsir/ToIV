@@ -1,3 +1,4 @@
+- 2026-10-11 **S2/W1.1 六段工作区骨架部署**（ToIV开发）：`4d6b552d`——/toiv/ws/:id 并行路由+经典详情入口；零回归；chunk 在线；status=`s2_w1_1_deployed`；updated_at 2026-10-11T02:30:00+08:00。
 - 2026-10-11 **v2 S1/P0 地基部署+验证**（ToIV开发）：api `1a6da2d8`+canvas `8dfdb45a`+契约 `da0c8b97`，01:32 CST 重启；wineryz 实证 cookie/分页/422/全量兼容全过；孤儿 serve.mjs 已清、IDOR md5 实证已在产；status=`s1_p0_foundations_deployed`；updated_at 2026-10-11T01:50:00+08:00。
 - 2026-10-10 **v2 执行排期**（ToIV开发；项目管家）：`docs/ops/UNIFIED_PLATFORM_EXECUTION_20261010.md`——S1-S14 批次（每批=AI 会话日）、两线并行（壳迁移/管线 v2）、DoD+回滚、旧挂账归位、决策点前置（S1 待 GO；R18 去向 P4 前必答）；status=`unified_platform_execution_2026_10_10`；updated_at 2026-10-10T15:20:00+08:00。
 - 2026-10-10 **统一平台调研+重构方案**（ToIV开发；项目管家）：13 商业产品+12 开源（11 克隆 tmp/，3 深读）+本地融合债 8 条实证 → `docs/ops/UNIFIED_PLATFORM_PLAN_20261010.md`；推荐方案 B（canvas 唯一壳、绞杀者渐进、P0-P4）；SlotLab 未检索到（疑=新片场 ShotLab）；status=`unified_platform_plan_2026_10_10`（decision_pending）；updated_at 2026-10-10T14:30:00+08:00。

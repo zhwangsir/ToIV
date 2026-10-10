@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T01:50:00+08:00",
+  "updated_at": "2026-10-11T02:30:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14592,6 +14592,12 @@
       "canvas tsc 预存失败 project.tsx:3097 → P1 顺带修"
     ],
     "next": "S2 canvas 六段工作区骨架(可 S5 管线v2 并行)",
-    "updated_at": "2026-10-11T01:50:00+08:00"
+    "updated_at": "2026-10-11T02:30:00+08:00",
+    "s2_w1_1": {
+      "status": "s2_w1_1_deployed",
+      "commit": "4d6b552d",
+      "summary": "六段工作区骨架:/toiv/ws/:id 独立路由(剧本/资产/分镜/镜头/时间线/成片,只读呈现 characters/shots/pipeline),经典详情页加「v2 工作区」入口;tsc 零新错+vite 过;chunk drama-workspace-NO9yq_-O.js 已在线,/studio/toiv/ws/* 经同一会话闸",
+      "updated_at": "2026-10-11T02:30:00+08:00"
+    }
   }
 }
