@@ -344,7 +344,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
         # 智能体对话会话 id 走响应头(agent.py EventSourceResponse);浏览器跨域 fetch 只放行
         # CORS 安全清单头,不暴露则 H5/小程序 H5 端读不到 → 续聊每次新建会话(M19/MP19 踩坑取证)
-        expose_headers=["X-Agent-Session-Id"],
+        # X-Total-Count:/api/apps 分页总数(W0.2a 2026-10-11),canvas 市场分页 UI 需要
+        expose_headers=["X-Agent-Session-Id", "X-Total-Count"],
     )
     # 市场列表 2MB JSON 大响应 gzip(2026-09-17 /api/apps 性能修复配套;弱网传输 10×)
     app.add_middleware(GZipMiddleware, minimum_size=2048)

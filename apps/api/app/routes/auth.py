@@ -5,12 +5,16 @@
 """
 from __future__ import annotations
 
+import base64
 import hmac
 import ipaddress
+import json
+import os
 import secrets
+import time
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -104,6 +108,7 @@ def _client_ip(request: Request) -> str:
 def login(
     body: LoginRequest,
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
 ) -> dict:
     # 认证前限流:IP 20/min(防喷洒)+ IP+账号 5/min(防爆破);超限 429
@@ -111,7 +116,24 @@ def login(
     user = session.exec(select(User).where(User.email == body.email)).first()
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="账号或密码错误")
-    return {"token": create_token(user.id), "user": _user_dict(user)}
+    token = create_token(user.id)
+    # W0.1(2026-10-11 S1)统一登录:管理员(或 STUDIO_MULTITENANT=1,与 web exchange 同旗)
+    # 在登录时直发 toiv_session cookie(Path=/studio)——/studio 深链/图片/下载/EventSource
+    # 等 URL 型访问不必再先回首页过 /studio/auth/exchange 换cookie。exchange 保留为
+    # 兼容读路径(P4 收敛期移除);cookie 格式与 exchange 完全一致(canvas-api 零改动)。
+    if user.role == "admin" or os.getenv("STUDIO_MULTITENANT", "").strip() == "1":
+        max_age = 7 * 86400
+        try:
+            payload = json.loads(base64.urlsafe_b64decode(token.split(".")[1] + "==="))
+            exp = int(payload.get("exp") or 0)
+            if exp > 0:
+                max_age = max(60, exp - int(time.time()))
+        except Exception:
+            pass  # 解不出过期时间按默认 7 天
+        response.set_cookie(
+            "toiv_session", token, path="/studio", httponly=True, samesite="strict", max_age=max_age
+        )
+    return {"token": token, "user": _user_dict(user)}
 
 
 class ServiceTokenRequest(LoginRequest):

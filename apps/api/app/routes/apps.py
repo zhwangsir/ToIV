@@ -3371,13 +3371,31 @@ def _app_job_kind(a: App) -> str:
 # ---------------------------------------------------------------------------
 # 路由:M1 CRUD
 # ---------------------------------------------------------------------------
+_APPS_LIST_ALLOWED_QUERY = {"category", "q", "use_case", "featured", "fingerprint", "limit", "offset"}
+
+
+def _apps_list_response(payload: bytes, limit: int | None, offset: int) -> Response:
+    """W0.2a(2026-10-11 S1)分页:缓存仍存全量字节(键不含 limit/offset),命中后切片。
+    响应形态保持裸数组不变(三端消费方零改动);分页时附 X-Total-Count 供 UI 计页。"""
+    if limit is None and offset <= 0:
+        return Response(content=payload, media_type="application/json")
+    items = json.loads(payload)
+    total = len(items)
+    page = items[offset : offset + limit] if limit is not None else items[offset:]
+    body = json.dumps(page, ensure_ascii=False).encode()
+    return Response(content=body, media_type="application/json", headers={"X-Total-Count": str(total)})
+
+
 @router.get("", response_model=list[AppOut])
 def list_apps(
+    request: Request,
     category: str | None = Query(default=None, description="按分类过滤"),
     q: str | None = Query(default=None, max_length=120, description="名称/简介模糊搜索"),
     use_case: str | None = Query(default=None, description="按用途分类过滤(见 /apps/use-cases/summary)"),
     featured: bool = Query(default=False, description="只看精选合集位"),
     fingerprint: str | None = Query(default=None, max_length=32, description="按功能指纹取同功能变体"),
+    limit: int | None = Query(default=None, ge=1, le=1000, description="分页条数(默认全量)"),
+    offset: int = Query(default=0, ge=0, description="分页偏移(配合 limit)"),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
@@ -3386,7 +3404,12 @@ def list_apps(
     运行器必须 GET /api/apps/{id} 拿完整 schema。
 
     2026-09-17 性能:响应走 45s TTL 缓存(写操作 bump 失效)——热路径每请求
-    全表查询+2195 行构造+序列化实测 4-14s,缓存命中直接回字节。"""
+    全表查询+2195 行构造+序列化实测 4-14s,缓存命中直接回字节。
+    2026-10-11 W0.2a:limit/offset 实装(此前静默忽略,?limit=500 实返全量 7MB);
+    未知 query 参数 422 显式拒绝,防再出现"参数拼错静默失效"。"""
+    extra = sorted(set(request.query_params.keys()) - _APPS_LIST_ALLOWED_QUERY)
+    if extra:
+        raise HTTPException(status_code=422, detail=f"未知的查询参数: {','.join(extra)}")
     allow_nsfw = nsfw_allowed(user)
     params = dict(
         category=category or "", q=q or "", use_case=use_case or "",
@@ -3399,14 +3422,14 @@ def list_apps(
         # 7MB 慢流(frp 37KB/s)会把会话(连接)挂住几分钟——缓存命中路径同样
         # 已因 auth 查询开了事务(pg 侧 idle in transaction 实证)。返回前显式关。
         session.close()
-        return Response(content=cached, media_type="application/json")
+        return _apps_list_response(cached, limit, offset)
     # 冷路径单飞:缓存失效瞬间 N 并发各自全表重建(10-30s/条)会占满连接池;
     # 锁内二次检查,后来者直接吃首个重建的成果。
     with apps_list_cache.rebuild_lock():
         cached = apps_list_cache.get(key)
         if cached is not None:
             session.close()
-            return Response(content=cached, media_type="application/json")
+            return _apps_list_response(cached, limit, offset)
         rows = session.exec(select(App).order_by(App.sort, App.name)).all()
         # 已发布说明书一次性取 map(app_id → AppGuide),防 550 行逐行查(N+1)
         guide_map: dict[str, AppGuide] = {
@@ -3453,7 +3476,7 @@ def list_apps(
         apps_list_cache.put(key, payload)
         # 同命中路径:返回前显式早释会话,勿把连接挂到 7MB 慢流结束
         session.close()
-        return Response(content=payload, media_type="application/json")
+        return _apps_list_response(payload, limit, offset)
 
 
 @router.get("/{aid}/variants")

@@ -419,3 +419,66 @@ def test_wechat_login_real_openid_bound(client, monkeypatch):
     assert body["user"]["email"] == "wx-real-openid@wechat.local"
     me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {body['token']}"})
     assert me.status_code == 200
+
+
+# ---- W0.1(2026-10-11 S1):登录直发 toiv_session cookie(Path=/studio,与 exchange 同格式) ----
+
+
+@pytest.fixture
+def duo():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def override() -> Session:
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override
+    with Session(engine) as s:
+        for name, role in (("root@toiv.ai", "admin"), ("plain@toiv.ai", "user")):
+            tenant = Tenant(name=name.split("@")[0])
+            s.add(tenant)
+            s.commit()
+            s.refresh(tenant)
+            s.add(
+                User(
+                    email=name,
+                    hashed_password=hash_password("password1"),
+                    tenant_id=tenant.id,
+                    role=role,
+                )
+            )
+            s.commit()
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+def _cookie_header(r) -> str:
+    return r.headers.get("set-cookie", "")
+
+
+def test_login_sets_studio_session_cookie_for_admin(duo):
+    r = duo.post("/api/auth/login", json={"email": "root@toiv.ai", "password": "password1"})
+    assert r.status_code == 200
+    c = _cookie_header(r)
+    assert "toiv_session=" in c
+    assert "Path=/studio" in c
+    assert "HttpOnly" in c
+    assert "samesite=strict" in c.lower()
+
+
+def test_login_no_studio_cookie_for_plain_user(duo):
+    r = duo.post("/api/auth/login", json={"email": "plain@toiv.ai", "password": "password1"})
+    assert r.status_code == 200
+    assert "toiv_session=" not in _cookie_header(r)
+
+
+def test_login_multitenant_flag_issues_cookie_to_plain_user(duo, monkeypatch):
+    monkeypatch.setenv("STUDIO_MULTITENANT", "1")
+    r = duo.post("/api/auth/login", json={"email": "plain@toiv.ai", "password": "password1"})
+    assert r.status_code == 200
+    assert "toiv_session=" in _cookie_header(r)
