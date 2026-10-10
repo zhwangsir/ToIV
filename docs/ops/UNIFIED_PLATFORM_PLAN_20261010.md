@@ -263,6 +263,8 @@ API     FastAPI=引擎 API（生成/管线/任务/市场）；canvas Go=画布�
 
 ## 附录 B：与既有计划的关系
 
+- **执行排期见 [UNIFIED_PLATFORM_EXECUTION_20261010.md](UNIFIED_PLATFORM_EXECUTION_20261010.md)**（批次拆解 S1–S14、决策点、挂账归位），两文件构成「战略+执行」一对。
+
 - 本文件取代 `UI_FUSION_PLAN.md` 作为融合线的总纲（该文件 M1–M4 已收口，历史价值保留）；`UI_FUSION_OPT_BACKLOG.md` 未做 4 项全部吸收进 P1/P3/P4。
 - 与 `DRAMA_UI_PLAN.md`（管线 C/c_hybrid 线）不冲突：管线 v2 以管线 C 契约为基座演进，splice2 仍默认。
 - 拍板请求：① 走方案 B？② P0 本周启动？③ R18 经典流 P4 前给去向意见。
