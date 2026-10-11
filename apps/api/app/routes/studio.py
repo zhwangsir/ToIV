@@ -474,7 +474,6 @@ async def burn_subtitles_endpoint(
         if not subs["cues"]:
             raise HTTPException(status_code=422, detail="无可用配音镜头,先生成字幕源(配音)")
         video_url = (p.final_url or "").strip()
-        logger.info("subtitle burn: pid=%s video_url=%s", pid[:12], video_url[:80])
         if not video_url:
             shot = session.exec(
                 select(StudioShot)
