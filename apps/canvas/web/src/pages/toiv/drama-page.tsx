@@ -1,11 +1,12 @@
-import { ArrowLeft, Clapperboard, Film, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Clapperboard, Film, Images, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import { ToolButton } from "@/components/ui/base/buttons";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { fetchDramaProjects, type ToivDramaProject } from "@/services/toiv/client";
+import { FromImageDialog } from "./from-image-dialog";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 
 const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
@@ -42,9 +43,11 @@ function ShotProgress({ p }: { p: NonNullable<ToivDramaProject["pipeline"]> }) {
 }
 
 export default function DramaPage() {
+    const navigate = useNavigate();
     const [projects, setProjects] = useState<ToivDramaProject[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
+    const [fromImageOpen, setFromImageOpen] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true); setError(false);
@@ -64,10 +67,17 @@ export default function DramaPage() {
                     <p className="text-xs leading-5 text-muted-foreground">剧本 → 资产 → 分镜 → 镜头 → 时间线 → 成片,打开项目进六段工作区</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <ToolButton variant="default" icon={<Images className="size-4" />} label="从图片创建" onClick={() => setFromImageOpen(true)} />
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
                     <Link to="/"><ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" /></Link>
                 </div>
             </header>
+
+            <FromImageDialog
+                open={fromImageOpen}
+                onClose={() => setFromImageOpen(false)}
+                onProjectCreated={(pid) => { setFromImageOpen(false); void load(); navigate(`/toiv/ws/${pid}`); }}
+            />
 
             {loading ? <div className="flex min-h-64 items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></div>
                 : error ? <EmptyState description="读取失败，请刷新重试" />

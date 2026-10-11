@@ -274,12 +274,12 @@ test("page.tsx 导航去重:fusion 卡五目标不在「更多」抽屉重复(20
       `${key} 已由融合卡承载,「更多」抽屉不应重复`,
     );
   }
-  // 非 fusion 目标保留:audio/animatic/settings
-  // (S12:fusion/canvas 视图退役;F1:resources/entities 退役跳 canvas,抽屉不再承载)
-  for (const key of ["audio", "animatic", "settings"]) {
+  // 非 fusion 目标保留:audio/settings
+  // (S12:fusion/canvas 视图退役;F1:resources/entities;F3:animatic 退役跳 canvas)
+  for (const key of ["audio", "settings"]) {
     assert.ok(moreBlock.includes(`key: "${key}"`), `「更多」抽屉缺 ${key} 入口`);
   }
-  for (const key of ["fusion", "canvas", "resources", "entities"]) {
+  for (const key of ["fusion", "canvas", "resources", "entities", "animatic"]) {
     assert.ok(!moreBlock.includes(`key: "${key}"`), `「更多」抽屉不应再含退役入口 ${key}`);
   }
 });

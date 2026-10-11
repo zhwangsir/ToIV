@@ -8,7 +8,7 @@ import json
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core import PydanticCustomError
@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.deps import get_current_admin, get_current_user, get_pool
+from app.ratelimit import enforce_generation_rate_limit
 from app.models import StudioCharacter, StudioProject, StudioShot, User
 from app.services.drama_pipeline import compute_studio_next_step
 from app.services.studio import assemble as assemble_svc
@@ -1609,7 +1610,7 @@ def reconcile_parse_jobs() -> int:
     with Session(_engine) as s:
         rows = s.exec(
             select(Job).where(
-                Job.kind.in_((_PARSE_KIND, _SHEET_KIND, _FRAME_KIND)),  # type: ignore[attr-defined]
+                Job.kind.in_((_PARSE_KIND, _SHEET_KIND, _FRAME_KIND, _IMAGE_PARSE_KIND)),  # type: ignore[attr-defined]
                 Job.status.in_(("queued", "running")),  # type: ignore[attr-defined]
             )
         ).all()
@@ -1684,6 +1685,225 @@ def get_script_parse_status(
             out["error"] = json.loads(job.result or "{}").get("error") or "拆解失败"
         except (ValueError, TypeError):
             out["error"] = "拆解失败"
+    elif job.status == "canceled":
+        out["error"] = "已中止"
+    return out
+
+
+# ── 从图片创建(F3 融合,2026-10-11)──────────────────────────────────────
+# 经典 animatic 的 AI 解析模式迁入 v2 域:上传 1-9 张图 → VLM 解析(复用
+# drama_image.analyze_storyboard_images,后端零改动)→ 建 StudioProject +
+# StudioCharacter + StudioShot。异步 Job(studio_image_parse)+ 轮询,与
+# script/parse 同范式;autorun 自动管线不随迁(v2 工作区逐镜渲染/管线 C 即后续),
+# 拼接小工具仍走经典 /api/animatic。
+_IMAGE_PARSE_KIND = "studio_image_parse"
+_FROM_IMG_MIME = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+_FROM_IMG_MAX_BYTES = 20 * 1024 * 1024
+
+
+async def _run_image_parse(
+    job_id: str,
+    tenant_id: str,
+    user_id: str,
+    payloads: list[tuple[bytes, str]],
+    hint: str,
+    style: str,
+    num_shots: int,
+    width: int,
+    height: int,
+    fps: int,
+) -> None:
+    """后台跑 VLM 解析并落 StudioProject/角色/分镜;结果写 Job.result。"""
+    import asyncio as _asyncio
+
+    from app.db import engine as _engine
+    from app.models import Job
+    from app.routes.drama_studio import _coerce_shot
+    from app.services.drama_image import analyze_storyboard_images
+
+    def _finish(status: str, result: dict) -> None:
+        with Session(_engine) as s:
+            job = s.get(Job, job_id)
+            if not job or job.status in ("done", "error", "canceled"):
+                return
+            job.status = status
+            job.result = json.dumps(result, ensure_ascii=False)
+            s.add(job)
+            s.commit()
+
+    try:
+        with Session(_engine) as s:
+            job0 = s.get(Job, job_id)
+            if not job0 or job0.status == "canceled":
+                return
+            job0.status = "running"
+            s.add(job0)
+            s.commit()
+
+        obj = await analyze_storyboard_images(payloads, hint, style, num_shots)
+        coerced = [_coerce_shot(sc, i) for i, sc in enumerate(obj["shots"][:num_shots])]
+        if not any(sc["prompt"] for sc in coerced):
+            _finish("error", {"error": "图片解析失败(无有效提示词),请重试"})
+            return
+        warnings = [str(w) for w in (obj.get("warnings") or [])]
+
+        with Session(_engine) as s:
+            p = StudioProject(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                title=obj["title"][:200] or "图片解析项目",
+                premise=obj["premise"][:2000],
+                style=style.strip()[:300],
+                width=width,
+                height=height,
+                fps=fps,
+                status="storyboard",
+            )
+            s.add(p)
+            s.flush()
+
+            # 出场角色自动建档(与 _create_shots_from_analysis 同语义)
+            seen: set[str] = set()
+            for sc in coerced:
+                for cname in sc.get("characters", []):
+                    if cname and cname not in seen:
+                        seen.add(cname)
+                        s.add(StudioCharacter(project_id=p.id, name=cname))
+            s.flush()
+
+            for i, sc in enumerate(coerced):
+                s.add(StudioShot(
+                    project_id=p.id,
+                    idx=i,
+                    scene=sc["scene"],
+                    prompt=sc["prompt"],
+                    dialogue=sc["dialogue"],
+                    speaker=sc.get("speaker", ""),
+                    duration_sec=sc.get("duration_sec", 6),
+                    characters=json.dumps(sc.get("characters", []), ensure_ascii=False),
+                    seam_to_next=sc.get("seam_to_next", ""),
+                    seam_anchor=sc.get("seam_anchor", ""),
+                ))
+            s.commit()
+            s.refresh(p)
+            pid = p.id
+            title = p.title
+
+        _finish("done", {
+            "project_id": pid,
+            "title": title,
+            "shot_count": len(coerced),
+            "character_count": len(seen),
+            "warnings": warnings,
+        })
+    except HTTPException as e:
+        _finish("error", {"error": str(e.detail)})
+    except Exception as e:  # noqa: BLE001 — 后台任务绝不静默死掉
+        logger.exception("image parse job %s 意外失败", job_id)
+        _finish("error", {"error": f"图片解析失败:{e}"})
+
+
+@router.post("/studio/projects/from-image")
+async def create_project_from_image_v2(
+    images: list[UploadFile] = File(...),
+    hint: str = Form(""),
+    style: str = Form(""),
+    num_shots: int = Form(8),
+    width: int = Form(768),
+    height: int = Form(1344),
+    fps: int = Form(24),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    """上传 1-9 张参考图 → VLM 解析 → 建 StudioProject(异步):返回 {job_id,status}。
+
+    校验口径与经典 /drama/projects/from-image 一致(数量 1-9/格式/路径穿越/20MB;
+    镜头 4-16;宽 256-1920 高 256-1344 取偶;帧率 4-30);完成后经
+    GET /studio/projects/from-image/{job_id} 轮询拿 project_id 跳工作区。
+    """
+    import asyncio as _asyncio
+
+    from app.models import Job
+
+    enforce_generation_rate_limit(user)
+    if not 1 <= len(images) <= 9:
+        raise HTTPException(status_code=422, detail="图片数量须为 1-9 张")
+    payloads: list[tuple[bytes, str]] = []
+    for img in images:
+        name = img.filename or ""
+        if not name or "/" in name or "\\" in name or ".." in name:
+            raise HTTPException(status_code=422, detail="非法文件名(禁止路径穿越)")
+        from pathlib import Path as _P
+
+        ext = _P(name).suffix.lower()
+        mime = _FROM_IMG_MIME.get(ext)
+        if not mime:
+            raise HTTPException(
+                status_code=422,
+                detail=f"不支持的图片格式(仅 {', '.join(sorted(_FROM_IMG_MIME))})",
+            )
+        data = await img.read()
+        if not data:
+            raise HTTPException(status_code=422, detail=f"图片为空: {name}")
+        if len(data) > _FROM_IMG_MAX_BYTES:
+            raise HTTPException(status_code=422, detail=f"图片超过 20MB: {name}")
+        payloads.append((data, mime))
+
+    if not 4 <= num_shots <= 16:
+        raise HTTPException(status_code=422, detail="镜头数量须为 4-16")
+    if not 256 <= width <= 1920 or not 256 <= height <= 1344:
+        raise HTTPException(status_code=422, detail="分辨率越界(宽 256-1920,高 256-1344)")
+    if not 4 <= fps <= 30:
+        raise HTTPException(status_code=422, detail="帧率须为 4-30")
+    width -= width % 2
+    height -= height % 2
+
+    job = Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id="",  # 回填 job.id(非 ComfyUI 作业,tracker 按空 worker 跳过)
+        worker="",
+        kind=_IMAGE_PARSE_KIND,
+        status="queued",
+        prompt=(hint or "图片解析建项目")[:200],
+        params=json.dumps({
+            "images": len(payloads), "hint": hint[:200], "style": style[:200],
+            "num_shots": num_shots, "width": width, "height": height, "fps": fps,
+        }, ensure_ascii=False),
+    )
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    job.prompt_id = f"imgparse-{job.id}"
+    session.add(job)
+    session.commit()
+    _asyncio.create_task(_run_image_parse(
+        job.id, user.tenant_id, user.id, payloads,
+        hint.strip(), style.strip(), num_shots, width, height, fps,
+    ))
+    return {"job_id": job.id, "status": "queued"}
+
+
+@router.get("/studio/projects/from-image/{job_id}")
+def get_image_parse_status(
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """轮询图片解析结果:done → {project_id,...};error → {error};进行中 → {status}。"""
+    from app.models import Job
+
+    job = session.get(Job, job_id)
+    if not job or job.user_id != user.id or job.kind != _IMAGE_PARSE_KIND:
+        raise HTTPException(status_code=404, detail="解析任务不存在")
+    out: dict = {"status": job.status}
+    if job.status == "done":
+        out.update(json.loads(job.result or "{}"))
+    elif job.status == "error":
+        try:
+            out["error"] = json.loads(job.result or "{}").get("error") or "解析失败"
+        except (ValueError, TypeError):
+            out["error"] = "解析失败"
     elif job.status == "canceled":
         out["error"] = "已中止"
     return out

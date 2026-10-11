@@ -112,6 +112,8 @@ const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
  *  R18=A 口径:image/video/market/library/avatartalk/settings 壳保留不动。 */
 const EXTERNAL_VIEW_REDIRECTS: Record<string, string> = {
   studio: "/studio/toiv/drama",
+  // F3(2026-10-11):animatic 退役——AI 解析入口=canvas 短剧列表「从图片创建」(StudioProject 域)
+  animatic: "/studio/toiv/drama",
   entities: "/studio/toiv/drama",
   resources: "/studio/settings?section=channels",
   dramaStudio: "/studio/toiv/drama",
@@ -230,7 +232,8 @@ function ViewFallback({ label }: { label: string }) {
 // S12(2026-10-11) R18=A 退役第一批:fusion(纯导航枢纽,canvas home 全覆盖)
 // 与 canvas(ComfyUI iframe,canvas 应用本体覆盖)移出 VALID_VIEWS;
 // 融合 F1(2026-10-11) 退役第二批:studio(v2 六段工作区覆盖)/entities(工作区资产段)/
-// resources(canvas 模型配置)移出 VALID_VIEWS,深链经 EXTERNAL_VIEW_REDIRECTS 跳 /studio。
+// resources(canvas 模型配置)移出 VALID_VIEWS,深链经 EXTERNAL_VIEW_REDIRECTS 跳 /studio;
+// F3(2026-10-11) animatic 退役(canvas 短剧列表「从图片创建」承接,AI 解析迁 StudioProject 域)。
 // 组件保留(深链经重定向归位),R18 只读壳视图(image/video/market/library)不动。
 const VALID_VIEWS = new Set<View>([
   "home",
@@ -239,7 +242,6 @@ const VALID_VIEWS = new Set<View>([
   "audio",
   "imageEdit",
   "videoEdit",
-  "animatic",
   "avatartalk",
   "dub",
   "library",
@@ -301,7 +303,6 @@ const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
   { key: "image", label: NAV_LABELS.imageMore, icon: "image" },
   { key: "video", label: NAV_LABELS.videoMore, icon: "video" },
   { key: "audio", label: NAV_LABELS.audioMore, icon: "audio" },
-  { key: "animatic", label: NAV_LABELS.animatic, icon: "film" },
   { key: "agent-runs", label: "任务", icon: "workflow" },
   { key: "settings", label: NAV_LABELS.settings, icon: "settings" },
 ];

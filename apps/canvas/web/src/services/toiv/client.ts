@@ -865,3 +865,67 @@ export async function lipsyncShotStrict(sid: string): Promise<void> {
         throw new Error(detail || "对口型失败");
     }
 }
+
+// ---- F3(2026-10-11):从图片创建(自经典 animatic 迁入 v2 域) ----
+
+/** POST /studio/projects/from-image(异步):VLM 解析→建 StudioProject+角色+分镜。 */
+export async function submitStudioFromImage(form: {
+    images: File[];
+    hint?: string;
+    style?: string;
+    numShots?: number;
+}): Promise<{ job_id: string; status: string }> {
+    const fd = new FormData();
+    for (const f of form.images) fd.append("images", f);
+    if (form.hint) fd.append("hint", form.hint);
+    if (form.style) fd.append("style", form.style);
+    fd.append("num_shots", String(form.numShots ?? 8));
+    const { data } = await toivHttp.post("/studio/projects/from-image", fd, { timeout: 60_000 });
+    return data;
+}
+
+export interface StudioFromImageDone {
+    status: "done";
+    project_id: string;
+    title: string;
+    shot_count: number;
+    character_count: number;
+    warnings?: string[];
+}
+
+export async function pollStudioFromImage(jobId: string): Promise<
+    | { status: "queued" | "running" }
+    | (StudioFromImageDone & { status: "done" })
+    | { status: "error" | "canceled"; error: string }
+> {
+    const { data } = await toivHttp.get(`/studio/projects/from-image/${encodeURIComponent(jobId)}`);
+    return data;
+}
+
+/** 快速拼接(经典 /api/animatic 小工具直通):图片+每镜时长 → 直接出片。 */
+export interface AnimaticStitchResult {
+    job_id: string;
+    url: string;
+    count: number;
+    duration: number;
+    fps: number;
+    width: number;
+    height: number;
+}
+
+export async function createAnimaticStitch(form: {
+    images: File[];
+    durations: number[];
+    fps?: number;
+    width?: number;
+    height?: number;
+}): Promise<AnimaticStitchResult> {
+    const fd = new FormData();
+    for (const f of form.images) fd.append("images", f);
+    fd.append("durations", JSON.stringify(form.durations));
+    fd.append("fps", String(form.fps ?? 16));
+    fd.append("width", String(form.width ?? 1920));
+    fd.append("height", String(form.height ?? 1080));
+    const { data } = await toivHttp.post("/animatic", fd, { timeout: 300_000 });
+    return data;
+}

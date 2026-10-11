@@ -27,15 +27,16 @@ function readSrc(rel: string): string {
 }
 
 /* ── ① page.tsx ── */
-test("page.tsx:animatic 导航图标用 film(2026-08-31 二轮:studio  drawer 入口已由融合卡承载)", () => {
+test("page.tsx:animatic 视图退役(F3:深链跳 canvas 短剧工作台)", () => {
   const src = readSrc("app/page.tsx");
   assert.ok(
-    src.includes('{ key: "animatic", label: NAV_LABELS.animatic, icon: "film" }'),
-    "animatic 应用 film 图标(原与 studio 同用 clapperboard;文案走 NAV_LABELS 单源)",
+    src.includes('animatic: "/studio/toiv/drama"'),
+    "animatic 应经 EXTERNAL_VIEW_REDIRECTS 跳 canvas 短剧列表(「从图片创建」承接)",
   );
-  // studio 不再出现在「更多」抽屉(与 fusion 卡重复);clapperboard 仍由融合旗舰卡使用
   const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
-  assert.ok(!moreBlock.includes('key: "studio"'), "studio 不应留在「更多」抽屉");
+  for (const key of ["studio", "animatic"]) {
+    assert.ok(!moreBlock.includes(`key: "${key}"`), `${key} 不应留在「更多」抽屉`);
+  }
 });
 
 test("page.tsx:handleOpenDramaProject 直开 canvas v2 工作区(F1:七步工作室退役)", () => {
