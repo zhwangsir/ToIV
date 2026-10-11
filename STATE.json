@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T16:15:00+08:00",
+  "updated_at": "2026-10-11T17:20:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14884,5 +14884,21 @@
       "配音前置=角色卡 voice_ref_url(无则 422 不糊弄)"
     ],
     "updated_at": "2026-10-11T16:15:00+08:00"
+  },
+  "s10_audio_2026_10_11": {
+    "status": "s10_deployed_e2e_pass",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "音频批(S10):①音效素材库——sfx 501 占位废除,ffmpeg lavfi 合成 8 音效(rain/wind/thunder/doorbell/beep/footstep/city/night,真实可听波形非假数据),幂等缓存/循环铺满/增益/列表模式;②mix 扩展 BGM 语义——逐路 gains_db 增益+duck=true 对白优先(sidechaincompress,首路为主轨副轨让位);3 测试绿",
+    "commit": "18c40161",
+    "e2e": "wineryz:①列表模式返回 8 音效;②全链实弹 tts(小周台词 4.11s)+sfx(rain 循环 8s/-3dB)+mix(gains[0,-16]+duck)→混音产物 197KB/4.11s HTTP 200 可下载(24kHz Int16);sfx 素材 384KB 可下载",
+    "notes": [
+      "separate 自取 studio 文件域 401(鉴权)——与字幕批同课:跨产物处理走本地/worker,BGM 链用 tts 现场合成替代导入",
+      "duck 滤镜图本地烟测通过后上生产"
+    ],
+    "updated_at": "2026-10-11T17:20:00+08:00"
   }
 }

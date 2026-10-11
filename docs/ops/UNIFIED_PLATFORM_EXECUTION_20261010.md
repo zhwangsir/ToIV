@@ -176,6 +176,11 @@ S1 ──► S2 ──► S3 ──► S4        （壳迁移线，前端为主�
 - ✅ 台词↔whisper 逐词时间轴（openclaw 四址集群复用）→词→cue 聚合（静默切分/时长钳制）+CJK/ASCII 混合对齐；SRT 外挂 + ffmpeg subtitles 内嵌双出；时间线双按钮；4 单测。
 - 生产 E2E：配音链（角色音色配置→TTS 2.2s）→SRT（1 镜/1 条 cue 0-3.08s 台词文本）→内嵌 mp4（1.45MB/6.58s HTTP 200）。产物解析三修（/api/images 产物在 worker output 非 NAS；sig 自取 401；统一 worker 取字节）。
 
+### S10 音频批（2026-10-11）
+- ✅ 音效素材库：sfx 501 占位废除 → ffmpeg lavfi 合成 8 音效（rain/wind/thunder/doorbell/beep/footstep/city/night；真实可听波形，不造假）；幂等缓存/循环/增益/列表模式。
+- ✅ mix 扩展 BGM 语义：逐路 `gains_db` 增益 + `duck=true` 对白优先（sidechaincompress 副路让位）。3 测试绿。
+- 生产 E2E：tts（小周台词 4.11s）+ sfx（rain 循环 8s）+ mix（-16dB duck）→ 混音产物 HTTP 200 可下载。
+
 ## 8. 变更记录
 
 - 2026-10-10 v1：初版（依据 UNIFIED_PLATFORM_PLAN_20261010.md 生成；13 商业+12 开源调研+本地摸底）。
