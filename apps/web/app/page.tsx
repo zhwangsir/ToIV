@@ -493,6 +493,10 @@ function HomeContent() {
     if (studioProbeRef.current) return;
     if (typeof window === "undefined") return;
     if (window.location.search.includes("classic=1")) return;
+    // F1:深链正被 EXTERNAL_VIEW_REDIRECTS 整页接走时不再探测——两个 location.replace
+    // 会竞态(cutover 的异步 replace 可能盖掉深链目标,?view=studio 实测撞过)。
+    const rawView = new URLSearchParams(window.location.search).get("view");
+    if (rawView && EXTERNAL_VIEW_REDIRECTS[rawView]) return;
     studioProbeRef.current = true;
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 1500);
