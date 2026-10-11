@@ -51,8 +51,8 @@
 |---|---|---|---|
 | W1.1 | canvas 六段工作区骨架（剧本/资产/分镜/镜头/时间线/成片 路由+布局+空态） | 新写（antd6+tailwind4 统一 token） | 六段可达、可互跳、面包屑正确 |
 | W1.2 | 剧详页 `/toiv/drama/:id` 升级为工作区入口 | 改造现有页（保留数据层 `services/toiv/client.ts`） | 从项目列表进工作区 0 跳转 |
-| W1.3 | 设定卡+character_asset 面板迁移 | 组件重写进 canvas（后端 API 不动）；吸收「展示卡/锚点/变体」全部能力 | 林夏(803fb69b) 实例全功能可视可编辑 |
-| W1.4 | 管线 B/C 创建流内迁 | c-chains API 已就绪（`/api/studio/c-chains`），前端表单+守卫迁 canvas | 画布内发起管线 C 作业→任务中心可见可取消 |
+| W1.3 | 设定卡+character_asset 面板迁移 | 组件重写进 canvas（后端 API 不动）；吸收「展示卡/锚点/变体」全部能力 | **◐ 2026-10-11 v1 完成**：设定卡抽屉(生成/重生成/分格采用为参考图)+错误透出；character_asset 锚点/色板深度面板→S3；设定卡异步化→S3 |
+| W1.4 | 管线 B/C 创建流内迁 | c-chains API 已就绪（`/api/studio/c-chains`），前端表单+守卫迁 canvas | **◐ 2026-10-11 v1 完成**：镜头渲染/配音/整批已入工作区(错误透出)；c-chains 表单→S3(经典详情已有) |
 | W1.5 | 任务中心枢纽 | `/toiv/tasks` 升级：GenerationTask+ToIV jobs+agent-runs 一屏、过滤、取消、失败重提 | 全平台任务单入口；旧任务页弃用 |
 
 回滚：路由开关指回经典五页（保留一版）。
