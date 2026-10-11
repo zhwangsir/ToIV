@@ -131,19 +131,9 @@ def _local_media(url: str) -> Path | None:
         sig = (q.get("sig") or [""])[0]
         if not (fn and worker):
             return None
-        # 带 sig 的完整 URL 直接自取(core 本机);无 sig 走 worker ComfyUI 取字节
+        # 统一走 worker ComfyUI 取字节(与 images 路由同源;/api/images 有鉴权,
+        # 服务端自取必 401——实测;sig 仅客户端能力,服务端无需)
         try:
-            if sig:
-                base = "http://127.0.0.1:8090"
-                r = httpx.get(
-                    f"{base}{url.split('?')[0]}",
-                    params={"filename": fn, "subfolder": sub, "type": "output", "worker": worker, "sig": sig},
-                    timeout=60.0,
-                )
-                if r.status_code == 200:
-                    tmp = Path(tempfile.gettempdir()) / f"subtmp_{hashlib.sha256(url.encode()).hexdigest()[:12]}{Path(fn).suffix}"
-                    tmp.write_bytes(r.content)
-                    return tmp
             from app.comfy.client import ComfyUIClient
             from app.config import get_settings
 
@@ -154,6 +144,7 @@ def _local_media(url: str) -> Path | None:
             tmp.write_bytes(content)
             return tmp
         except Exception:  # noqa: BLE001
+            logger.exception("字幕产物拉取失败 url=%s", url[:80])
             return None
     return None
 
