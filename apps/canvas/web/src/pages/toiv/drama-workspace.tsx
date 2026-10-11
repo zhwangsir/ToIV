@@ -6,21 +6,29 @@
  * S3/S4 逐段把经典端能力迁进来，迁移齐后 W1.2 末步做路由对调。
  * 现在各段为只读骨架：头部项目状态 + 各段已有数据的轻量呈现 + 落地批次的说明。
  */
-import { BookOpen, Clapperboard, Film, Layers, ListOrdered, Loader2, RefreshCw, ScrollText, Sparkles, Users } from "lucide-react";
+import { BookOpen, Clapperboard, Film, IdCard, Layers, ListOrdered, Loader2, PlayCircle, RefreshCw, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { ToolButton } from "@/components/ui/base/buttons";
 import { StatusBadge } from "@/components/ui/base/badges";
+import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import {
     createStudioCharacter,
+    fetchCharacterSheets,
     fetchDramaProject,
     patchStudioProject,
     pollScriptParse,
     saveStudioShots,
     submitScriptParse,
+    triggerBatchRender,
+    triggerSheetRegen,
+    triggerShotRender,
+    triggerShotVoice,
+    type ToivCharacterSheet,
+    type ToivDramaCharacter,
     type ToivDramaDetail,
 } from "@/services/toiv/client";
 
@@ -116,6 +124,74 @@ export default function DramaWorkspacePage() {
     const pollStop = useRef(false);
 
     useEffect(() => () => { pollStop.current = true; }, []);
+
+    // ---- W1.3: 资产段设定卡抽屉 ----
+    const [sheetChar, setSheetChar] = useState<ToivDramaCharacter | null>(null);
+    const [sheets, setSheets] = useState<ToivCharacterSheet[]>([]);
+    const [sheetsLoading, setSheetsLoading] = useState(false);
+    const [regenStyle, setRegenStyle] = useState<string | null>(null);
+
+    const openSheets = useCallback(async (c: ToivDramaCharacter) => {
+        setSheetChar(c);
+        setSheets([]);
+        setSheetsLoading(true);
+        try {
+            setSheets(await fetchCharacterSheets(c.id));
+        } catch {
+            setSheets([]);
+        } finally {
+            setSheetsLoading(false);
+        }
+    }, []);
+
+    const regenSheet = useCallback(async (cid: string, style: string) => {
+        setRegenStyle(style);
+        try {
+            await triggerSheetRegen(cid, style);
+            setSheets(await fetchCharacterSheets(cid));
+        } finally {
+            setRegenStyle(null);
+        }
+    }, []);
+
+    // ---- W1.4: 镜头段生成操作(渲染/配音/整批) ----
+    const [busyShots, setBusyShots] = useState<Set<string>>(new Set());
+    const [batchRendering, setBatchRendering] = useState(false);
+    const markBusy = (sid: string, on: boolean) =>
+        setBusyShots((prev) => {
+            const n = new Set(prev);
+            if (on) n.add(sid); else n.delete(sid);
+            return n;
+        });
+    const RENDERED_STATES = new Set(["rendering", "rendered", "voiced", "lipsynced", "done"]);
+    const runShotRender = useCallback(async (sid: string) => {
+        markBusy(sid, true);
+        try {
+            await triggerShotRender(sid);
+            await load();
+        } finally {
+            markBusy(sid, false);
+        }
+    }, [load]);
+    const runShotVoice = useCallback(async (sid: string) => {
+        markBusy(sid, true);
+        try {
+            await triggerShotVoice(sid);
+            await load();
+        } finally {
+            markBusy(sid, false);
+        }
+    }, [load]);
+    const runBatchRender = useCallback(async () => {
+        if (!id) return;
+        setBatchRendering(true);
+        try {
+            await triggerBatchRender(id);
+            await load();
+        } finally {
+            setBatchRendering(false);
+        }
+    }, [id, load]);
 
     const runAutoStoryboard = useCallback(async () => {
         if (!id || parsing) return;
@@ -276,15 +352,22 @@ export default function DramaWorkspacePage() {
                         {section === "assets" && (
                             <SectionShell title="资产（角色/场景/道具）" batch="S3">
                                 {characters.length === 0 ? (
-                                    <EmptyState description="暂无角色资产" />
+                                    <EmptyState description="暂无角色资产(AI 拆镜会自动入库,或在经典详情添加)" />
                                 ) : (
                                     <ul className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
                                         {characters.map((c) => (
-                                            <li key={c.id} className="flex flex-col gap-1 rounded-lg border border-[var(--border)] p-3">
+                                            <li key={c.id} className="flex flex-col gap-1.5 rounded-lg border border-[var(--border)] p-3">
                                                 <span className="text-sm font-medium text-foreground">{c.name || "未命名"}</span>
                                                 <span className="line-clamp-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
                                                     {c.description || c.visual_prompt || "无描述"}
                                                 </span>
+                                                <ToolButton
+                                                    size="sm"
+                                                    variant="default"
+                                                    icon={<IdCard />}
+                                                    label="设定卡"
+                                                    onClick={() => void openSheets(c)}
+                                                />
                                             </li>
                                         ))}
                                     </ul>
@@ -328,23 +411,58 @@ export default function DramaWorkspacePage() {
                         {section === "shots" && (
                             <SectionShell title="镜头（生成状态）" batch="S3/S4">
                                 {shots.length === 0 ? (
-                                    <EmptyState description="暂无镜头" />
+                                    <EmptyState description="暂无镜头(先在剧本段 AI 拆解)" />
                                 ) : (
-                                    <ul className="flex flex-col gap-2">
-                                        {shots.slice(0, 12).map((s) => (
-                                            <li key={s.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-xs">
-                                                <span className="w-8 tabular-nums text-[var(--muted-foreground,#a8a8a8)]">#{s.idx}</span>
-                                                <span className="min-w-0 flex-1 truncate">{s.scene || s.prompt || "—"}</span>
-                                                <StatusBadge variant="filled" tone={STATUS_TONE[s.status] ?? "neutral"} label={s.status} size="sm" />
-                                                {s.video_url && <StatusBadge variant="filled" tone="success" label="视频" size="sm" />}
-                                                {s.voice_url && <StatusBadge variant="filled" tone="success" label="配音" size="sm" />}
-                                                {s.final_clip_url && <StatusBadge variant="filled" tone="success" label="成片段" size="sm" />}
-                                            </li>
-                                        ))}
-                                        {shots.length > 12 && (
-                                            <li className="px-1 text-xs text-[var(--muted-foreground,#a8a8a8)]">…共 {shots.length} 镜,单镜操作(N 候选/重生成/质检)随 S3/S4 迁入</li>
-                                        )}
-                                    </ul>
+                                    <>
+                                        <div className="flex items-center gap-2">
+                                            <ToolButton
+                                                variant="default"
+                                                icon={<PlayCircle />}
+                                                label={batchRendering ? "整批渲染中…" : "整批渲染(全部未完成镜)"}
+                                                onClick={() => void runBatchRender()}
+                                                loading={batchRendering}
+                                            />
+                                            <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                                渲染走 H3 管线,同步等待数分钟;完成后状态自动刷新(N 候选选优 UI 属 S3/S4)
+                                            </span>
+                                        </div>
+                                        <ul className="flex flex-col gap-2">
+                                            {shots.map((s) => {
+                                                const busy = busyShots.has(s.id);
+                                                const canRender = !RENDERED_STATES.has(s.status) && !busy;
+                                                const canVoice = s.status === "rendered" && !s.voice_url && !busy;
+                                                return (
+                                                    <li key={s.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-xs">
+                                                        <span className="w-8 tabular-nums text-[var(--muted-foreground,#a8a8a8)]">#{s.idx}</span>
+                                                        <span className="min-w-0 flex-1 truncate">{s.scene || s.prompt || "—"}</span>
+                                                        <StatusBadge variant="filled" tone={STATUS_TONE[s.status] ?? "neutral"} label={s.status} size="sm" />
+                                                        {s.video_url && <StatusBadge variant="filled" tone="success" label="视频" size="sm" />}
+                                                        {s.voice_url && <StatusBadge variant="filled" tone="success" label="配音" size="sm" />}
+                                                        {s.final_clip_url && <StatusBadge variant="filled" tone="success" label="成片段" size="sm" />}
+                                                        {canVoice && (
+                                                            <ToolButton
+                                                                size="xs"
+                                                                variant="ghost"
+                                                                icon={<Volume2 />}
+                                                                label={busy ? "配音中…" : "配音"}
+                                                                onClick={() => void runShotVoice(s.id)}
+                                                            />
+                                                        )}
+                                                        {canRender && (
+                                                            <ToolButton
+                                                                size="xs"
+                                                                variant="ghost"
+                                                                icon={<PlayCircle />}
+                                                                label={busy ? "渲染中…" : "渲染"}
+                                                                onClick={() => void runShotRender(s.id)}
+                                                            />
+                                                        )}
+                                                        {busy && <Loader2 className="size-3 animate-spin text-muted-foreground" aria-hidden />}
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </>
                                 )}
                             </SectionShell>
                         )}
@@ -365,6 +483,58 @@ export default function DramaWorkspacePage() {
                     </div>
                 )}
             </div>
+            <AppDrawer open={!!sheetChar} onClose={() => setSheetChar(null)} width={440} title={sheetChar?.name || "角色设定卡"}>
+                {sheetChar && (
+                    <div className="flex flex-col gap-3">
+                        <p className="text-sm leading-relaxed text-foreground">{sheetChar.description || sheetChar.visual_prompt || "无描述"}</p>
+                        {sheetChar.visual_prompt && (
+                            <p className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs leading-relaxed text-muted-foreground">{sheetChar.visual_prompt}</p>
+                        )}
+                        <div className="flex flex-col gap-2">
+                            <span className="text-xs font-medium text-foreground">设定卡（{sheets.length}）</span>
+                            {sheetsLoading ? (
+                                <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="加载中" />
+                            ) : sheets.length === 0 ? (
+                                <div className="flex flex-col gap-2">
+                                    <EmptyState size="compact" description="暂无设定卡,选择风格生成(走 GPU,约 1-3 分钟)" />
+                                    <div className="flex justify-center gap-2">
+                                        {(["ancient_realistic", "anime"] as const).map((st) => (
+                                            <ToolButton
+                                                key={st}
+                                                size="sm"
+                                                variant="default"
+                                                icon={<IdCard />}
+                                                label={st === "ancient_realistic" ? "古风写实" : "二次元"}
+                                                loading={regenStyle === st}
+                                                onClick={() => void regenSheet(sheetChar.id, st)}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                sheets.map((sh) => (
+                                    <div key={sh.style} className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] p-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[11px] text-muted-foreground">
+                                                {sh.style}
+                                                {sh.mtime ? ` · ${new Date(sh.mtime).toLocaleDateString("zh-CN")}` : ""}
+                                            </span>
+                                            <ToolButton
+                                                size="xs"
+                                                icon={<RefreshCw />}
+                                                label="重生成"
+                                                loading={regenStyle === sh.style}
+                                                onClick={() => void regenSheet(sheetChar.id, sh.style)}
+                                            />
+                                        </div>
+                                        {sh.sheet_url && <img src={sh.sheet_url} alt="" className="w-full rounded-lg" loading="lazy" />}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
+            </AppDrawer>
         </WorkspacePage>
     );
 }
