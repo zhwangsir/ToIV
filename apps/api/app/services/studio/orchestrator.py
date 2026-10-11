@@ -402,9 +402,10 @@ async def render_shot(
     render_kw["wait"] = do_wait
     if parent_chain_job_id:
         render_kw["parent_chain_job_id"] = parent_chain_job_id
-    if not do_wait:
-        # 阶段 B 最小：异步只跑单候选，避免多 seed 串行堵在 HTTP
-        n = 1
+    # S5(2026-10-11):异步多候选解禁——wait=false 的 _once 立即回执(不等生成),
+    # 串行提交 n 个 Job 不堵 HTTP;候选落 queued,由 render_reconcile 按 Job 终态回写。
+    if not do_wait and n > 1:
+        auto_pick = False  # 裁脸选优需产物视频,异步路交由 UI pick/后续批
     renderer = get_renderer(shot)
     # 提交渲染前读侧写入(video_model/ref_images)，结束事务后再 await。
     # 否则 SQLAlchemy 隐式事务会在长轮询期间 idle in transaction 锁住镜次行。
@@ -450,9 +451,20 @@ async def render_shot(
                 }
                 try:
                     r = await _once(seed)
+                    meta = getattr(r, "pipeline_meta", None) or {}
+                    if not do_wait and isinstance(meta, dict) and meta.get("waited") is False:
+                        # S5:异步回执——url 空、status queued,登记 job 供 reconcile 回写
+                        entry["url"] = ""
+                        entry["status"] = "queued"
+                        entry["job_id"] = str(meta.get("job_id") or "")
+                        entry["db_job_id"] = str(meta.get("db_job_id") or "")
+                        entry["worker"] = str(meta.get("worker") or "")
+                        if meta.get("context_latent"):
+                            entry["context_latent"] = meta["context_latent"]
+                        candidates.append(entry)
+                        continue
                     entry["url"] = r.url
                     entry["status"] = "done"
-                    meta = getattr(r, "pipeline_meta", None) or {}
                     if isinstance(meta, dict):
                         if meta.get("context_latent"):
                             entry["context_latent"] = meta["context_latent"]
@@ -486,7 +498,8 @@ async def render_shot(
                     if first_err is None:
                         first_err = e
                 candidates.append(entry)
-            if result is None:
+            if result is None and not (not do_wait and candidates):
+                # S5:异步多候选无同步 result 属正常(全部候选已 queued 登记)
                 raise first_err or RenderError("全部候选生成失败")
             # Batch6：裁脸选优（可关）；失败标 shot 失败，禁止静默回落
             if auto_pick and len(candidates) > 1:
@@ -695,32 +708,38 @@ async def render_shot(
 
     # 阶段 B 最小：wait=false → 已登记 Job + spawn_tracker，立即返回；不落成片 URL
     _meta_async = getattr(result, "pipeline_meta", None) or {}
-    if (
-        not do_wait
-        and isinstance(_meta_async, dict)
-        and _meta_async.get("waited") is False
-        and (_meta_async.get("db_job_id") or "")
+    if not do_wait and (
+        candidates
+        or (
+            isinstance(_meta_async, dict)
+            and _meta_async.get("waited") is False
+            and (_meta_async.get("db_job_id") or "")
+        )
     ):
         import uuid as _uuid
 
-        shot.candidates_json = dumps_candidates(
-            [
-                {
-                    "id": _uuid.uuid4().hex,
-                    "url": "",
-                    "seed": int(_meta_async.get("seed") or seed or 0),
-                    "status": "queued",
-                    "is_picked": False,
-                    "error": "",
-                    "video_model": engine,
-                    "pipeline": str(_meta_async.get("pipeline") or pipe or ""),
-                    "job_id": str(_meta_async.get("job_id") or ""),
-                    "db_job_id": str(_meta_async.get("db_job_id") or ""),
-                    "worker": str(_meta_async.get("worker") or ""),
-                    "context_latent": str(_meta_async.get("context_latent") or ""),
-                }
-            ]
-        )
+        if candidates:
+            # S5:多候选异步——全部 queued 候选(各带 db_job_id)整体落库
+            shot.candidates_json = dumps_candidates(candidates)
+        else:
+            shot.candidates_json = dumps_candidates(
+                [
+                    {
+                        "id": _uuid.uuid4().hex,
+                        "url": "",
+                        "seed": int(_meta_async.get("seed") or seed or 0),
+                        "status": "queued",
+                        "is_picked": False,
+                        "error": "",
+                        "video_model": engine,
+                        "pipeline": str(_meta_async.get("pipeline") or pipe or ""),
+                        "job_id": str(_meta_async.get("job_id") or ""),
+                        "db_job_id": str(_meta_async.get("db_job_id") or ""),
+                        "worker": str(_meta_async.get("worker") or ""),
+                        "context_latent": str(_meta_async.get("context_latent") or ""),
+                    }
+                ]
+            )
         # 保持 rendering：成片由后续轮询/回收接上（本刀不写 URL）
         shot.status = "rendering"
         shot.error = ""

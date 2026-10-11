@@ -95,6 +95,14 @@ def _project_out(p: StudioProject) -> dict:
 
 
 def _project_detail(session: Session, p: StudioProject) -> dict:
+    # S5(2026-10-11):惰性回写——异步渲染(wait=false)的 Job 终态在此映射回镜,
+    # UI 渲染期 10s 轮询详情即自愈通道;失败不影响详情(内部已 try)。
+    from app.services.studio.render_reconcile import reconcile_project_renders
+
+    try:
+        reconcile_project_renders(session, p.id)
+    except Exception:  # noqa: BLE001
+        logger.warning("render_reconcile 项目级回写异常 pid=%s", p.id[:12])
     chars = session.exec(
         select(StudioCharacter).where(StudioCharacter.project_id == p.id)
     ).all()

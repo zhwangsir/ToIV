@@ -167,6 +167,11 @@ async def lifespan(app: FastAPI):
 
     studio_routes.reconcile_parse_jobs()
     studio_routes.reconcile_stuck_renders()
+    # S5:异步渲染 Job 终态 → 镜回写(渲染中且带 queued 候选)
+    with Session(engine) as _s:
+        from app.services.studio.render_reconcile import reconcile_all_renders
+
+        reconcile_all_renders(_s)
     # 主体库三视图收口:generating 主体按 params 快照 entity_id 反查作业重挂回写/标 error
     from app.routes import entities as entities_routes
 
