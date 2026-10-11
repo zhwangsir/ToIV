@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T18:10:00+08:00",
+  "updated_at": "2026-10-11T19:05:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14830,5 +14830,24 @@
       "机位树 lite 的降级语义(缺素材不炸)是拼接路线可用性的关键"
     ],
     "updated_at": "2026-10-11T18:10:00+08:00"
+  },
+  "s6_entity_assets_2026_10_11": {
+    "status": "s6_deployed_e2e_pass",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "资产下沉(S6):全局主体库 Entity 接入 Studio 域——GET /studio/assets(只读,kind 过滤,图片句柄双形态→/api/images URL 解析,三视图标记)+POST apply-to-project(选用为角色卡:同名去重/character|avatar 类守卫/三视图+ref 图聚合≤8);资产段「全局主体库」区块(卡片+已在项目标记+一键选用)",
+    "commits": [
+      "1b145f59 首版(DramaAsset 源)",
+      "7c0bb085+222a7618 数据源核正 Entity"
+    ],
+    "e2e": "wineryz:清单 23 角色类主体(倒霉蛋带三视图);浏览器选用「少女」→项目角色 3 个(少女入库,visual_prompt/ref 聚合);同名去重与 scene 422 单测绿",
+    "lessons": [
+      "数据源真值核正:生产 DramaAsset=0,全局库是 Entity(24)——摸底先查表再选型",
+      "cwd 漂移致一次提交漏改文件(git show --stat 复核拦出,补提交)"
+    ],
+    "updated_at": "2026-10-11T19:05:00+08:00"
   }
 }

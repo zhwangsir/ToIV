@@ -163,6 +163,10 @@ S1 ──► S2 ──► S3 ──► S4        （壳迁移线，前端为主�
 - ✅ 时间线 seam 选择器（硬切/续写/匹配切/重叠）随保存持久化；实测抓出并修 tlSave stale closure（依赖漏 tlSeam）。
 - ✅ 生产 E2E：idx4 seam=continue 持久化 → idx5 渲染（Job studio_pipeline_c）→ 12min 完成自动回写。
 
+### S6 资产下沉（2026-10-11，提前落地）
+- ✅ 全局主体库（Entity）接入 Studio 域：`GET /studio/assets`（只读+kind 过滤+图片句柄双形态解析）+ `apply-to-project`（选用为角色卡；同名去重；character/avatar 守卫；三视图+ref 聚合≤8）。资产段「全局主体库」区块。3 测试绿。
+- 数据源核正：首版接 DramaAsset（生产=0）→ 真值是 Entity（24）；生产 E2E：23 主体清单+选用「少女」入库。
+
 ## 8. 变更记录
 
 - 2026-10-10 v1：初版（依据 UNIFIED_PLATFORM_PLAN_20261010.md 生成；13 商业+12 开源调研+本地摸底）。
