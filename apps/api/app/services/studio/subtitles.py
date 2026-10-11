@@ -111,25 +111,64 @@ def _save_studio_text(content: str, name: str) -> str:
 
 
 def _local_media(url: str) -> Path | None:
-    """studio 文件域或 /api/images 产物(经 NAS 输出根解析,后者含 worker 参数)。"""
+    """studio 文件域直读;/api/images 产物经 worker 拉取落本地临时(与 images 路由同源)。"""
     from app.services.studio.orchestrator import _studio_local_path
 
     p = _studio_local_path(url)
     if p is not None:
         return p
-    # /api/images?filename=X&subfolder=Y&type=output → NAS 输出根/Y/X
     if url.startswith("/api/images"):
+        import hashlib
+        import tempfile
         from urllib.parse import parse_qs, urlparse
+
+        import httpx
 
         q = parse_qs(urlparse(url).query)
         fn = (q.get("filename") or [""])[0]
         sub = (q.get("subfolder") or [""])[0]
-        if fn:
-            for root in ("/mnt/toiv-nas/toiv/outputs", "/mnt/toiv-nas/toiv"):
-                cand = Path(root) / sub / fn
-                if cand.is_file():
-                    return cand
+        worker = (q.get("worker") or [""])[0]
+        sig = (q.get("sig") or [""])[0]
+        if not (fn and worker):
+            return None
+        # 带 sig 的完整 URL 直接自取(core 本机);无 sig 走 worker ComfyUI 取字节
+        try:
+            if sig:
+                base = "http://127.0.0.1:8090"
+                r = httpx.get(
+                    f"{base}{url.split('?')[0]}",
+                    params={"filename": fn, "subfolder": sub, "type": "output", "worker": worker, "sig": sig},
+                    timeout=60.0,
+                )
+                if r.status_code == 200:
+                    tmp = Path(tempfile.gettempdir()) / f"subtmp_{hashlib.sha256(url.encode()).hexdigest()[:12]}{Path(fn).suffix}"
+                    tmp.write_bytes(r.content)
+                    return tmp
+            from app.comfy.client import ComfyUIClient
+            from app.config import get_settings
+
+            st = get_settings()
+            client = ComfyUIClient(worker, timeout=st.request_timeout)
+            content, _ = asyncio_run(client.get_image_bytes(fn, sub, "output"))
+            tmp = Path(tempfile.gettempdir()) / f"subtmp_{hashlib.sha256(url.encode()).hexdigest()[:12]}{Path(fn).suffix}"
+            tmp.write_bytes(content)
+            return tmp
+        except Exception:  # noqa: BLE001
+            return None
     return None
+
+
+def asyncio_run(coro):
+    import asyncio
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    import concurrent.futures
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+        return ex.submit(asyncio.run, coro).result()
 
 
 async def _audio_duration(path: Path) -> float:
