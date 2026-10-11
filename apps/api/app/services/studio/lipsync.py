@@ -91,6 +91,26 @@ async def _download(http: httpx.AsyncClient, url: str) -> bytes:
     local = _local_studio_bytes(url)
     if local is not None:
         return local
+    # S11(2026-10-11):/api/images 产物带 sig 也 401(鉴权用户级)——改走
+    # worker ComfyUI 取字节(字幕批同课:产物真身在 worker output 目录)。
+    if url.startswith("/api/images"):
+        from urllib.parse import parse_qs, urlparse
+
+        from app.comfy.client import ComfyUIError as _CErr, ComfyUIClient
+        from app.config import get_settings
+
+        q = parse_qs(urlparse(url).query)
+        fn = (q.get("filename") or [""])[0]
+        sub = (q.get("subfolder") or [""])[0]
+        worker = (q.get("worker") or [""])[0]
+        if fn and worker:
+            try:
+                cli = ComfyUIClient(worker, timeout=get_settings().request_timeout)
+                content, _ = await cli.get_image_bytes(fn, sub, "output")
+                if content:
+                    return content
+            except _CErr as e:
+                raise LipsyncError(f"产物经 worker 拉取失败:{e}") from e
     try:
         r = await http.get(_resolve(url))
         r.raise_for_status()
