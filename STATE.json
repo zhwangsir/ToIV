@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-12T01:20:00+08:00",
+  "updated_at": "2026-10-12T02:10:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15048,5 +15048,16 @@
     "summary": "融合 F7:视频译制(经典 DubView 五步链)迁入 canvas。①新页 /toiv/dub-tools 五步向导:源视频上传(流式带进度)→字幕(whisper 听写轮询/导入 SRT/VTT)→LLM 翻译(en/ja/ko/zh)→配音轨(克隆源视频音色 ref_seconds+emo_text,Job 轮询)→对口型成片(lipsync-long 分段 GPU,done/total 进度);译文/原文双语分段展示;②工具箱「视频译制」入口;③经典 ?view=dub 退役(EXTERNAL→/studio/toiv/dub-tools),VALID_VIEWS 收缩到 8(home/image/video/avatartalk/library/market/settings+R18 壳)——除 R18 决策保留壳外,全部经典可退役视图已完成迁移;web 套 1158/1162(4 挂=预存基线,零新增);canvas tsc 零错。经典 DubView 附加功能未随迁:autocut 自动剪切/highlights 高光集锦/动漫口型(anime lipsync)/服务唤醒 overlay(登记)。",
     "e2e": "生产 LAN:SRT 导入实弹(2 段→带时间轴 segments)✓;翻译实弹(EN→JA:'ハロー、ワールド')✓;浏览器级 ?view=dub→/studio/toiv/dub-tools+五步 UI ✓。GPU 步(voice-track/lipsync-long)走经典后端管线零改动,未重跑实弹(登记)",
     "updated_at": "2026-10-12T01:20:00+08:00"
+  },
+  "fusion_f1_f7_complete_2026_10_12": {
+    "status": "fusion_program_complete_tests_closed_v4_planned",
+    "date": "2026-10-12",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "融合计划 F1–F7 全部完成(用户指令『把所有没有完全融合的内容解决掉,做完测试完再做新规划』收官)。累计交付:F1 导航拆组+studio/entities/resources 退役;F2 agent-runs 全功能迁 canvas(SSE+双确认门);F3 from-image 迁 v2 域(StudioProject)+双模式弹窗;F4 音频三工具;F5 图片七工具;F6 三轨视频剪辑;F7 五步译制链。经典 VALID_VIEWS 17→8(R18 壳+avatartalk+入口探测);canvas 新增 7 页 13 路由 5 工具域。全量测试收口:api 4027 过/106 挂(=存量债基线零新增,根因 422 序列化已定位未修)、web 1158/1162(4 预存)、canvas tsc 零错、浏览器级 23/23(11 退役深链归位+R18 壳 4 视图留守+8 canvas 页渲染)、五批生产实弹(stitch/TTS→ASR/removebg/三轨混排/SRT+翻译)。新一版规划落档 docs/ops/PLATFORM_V4_PLAN_20261012.md:V4-0 质量收口(测试债清零+多模态 VLM 上架+设定卡质量债)→V4-1 Agent 同构→V4-2 一致性→V4-3 质检→V4-4 真时间线决策→V4-5 小功能补齐→V4-6 架构收尾,约 11-19 批。",
+    "e2e": "final sweep 23/23 PASS;api 全量 33min 4027/106;详见各 fusion_fN 条目 e2e 字段",
+    "updated_at": "2026-10-12T02:10:00+08:00"
   }
 }
