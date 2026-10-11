@@ -690,11 +690,18 @@ export async function renderShotStrict(sid: string): Promise<void> {
     }
 }
 
-/** PATCH /studio/characters/{cid}——设定卡分格采用为参考图(正/侧/全身约定取前三格) */
-export async function adoptSheetAsReference(cid: string, urls: string[]): Promise<void> {
-    await toivHttp.patch(
-        `/studio/characters/${encodeURIComponent(cid)}`,
-        { reference_images: urls.slice(0, 8) },
-        { timeout: 15_000 },
-    );
+/** PATCH /studio/characters/{cid}——设定卡分格采用为参考图。
+ * char_panel_* URL 受后端 12:01 风格守卫约束:必须显式带 allowed_panel_styles(非 ORM 守卫字段),
+ * 否则 422「未显式匹配风格」。 */
+export async function adoptSheetAsReference(cid: string, style: string, urls: string[]): Promise<void> {
+    try {
+        await toivHttp.patch(
+            `/studio/characters/${encodeURIComponent(cid)}`,
+            { reference_images: urls.slice(0, 8), allowed_panel_styles: [style] },
+            { timeout: 15_000 },
+        );
+    } catch (e) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        throw new Error(detail || "参考图写入失败");
+    }
 }

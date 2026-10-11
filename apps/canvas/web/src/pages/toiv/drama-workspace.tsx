@@ -166,10 +166,13 @@ export default function DramaWorkspacePage() {
         const picked = urls.filter(Boolean).slice(0, 8);
         if (picked.length === 0) return;
         setAdopting(style);
+        setSheetError(null);
         try {
-            await adoptSheetAsReference(cid, picked);
+            await adoptSheetAsReference(cid, style, picked);
             setSheetChar((prev) => (prev ? { ...prev, reference_images: picked } : prev));
             await load();
+        } catch (e) {
+            setSheetError(e instanceof Error ? e.message : "参考图写入失败");
         } finally {
             setAdopting(null);
         }
@@ -557,7 +560,7 @@ export default function DramaWorkspacePage() {
                                         <div className="flex items-center justify-between">
                                             <span className="text-[11px] text-muted-foreground">
                                                 {sh.style}
-                                                {sh.mtime ? ` · ${new Date(sh.mtime).toLocaleDateString("zh-CN")}` : ""}
+                                                {sh.mtime ? ` · ${new Date(Number(sh.mtime) * 1000).toLocaleDateString("zh-CN")}` : ""}
                                             </span>
                                             <div className="flex items-center gap-1">
                                                 <ToolButton
