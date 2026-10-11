@@ -111,9 +111,25 @@ def _save_studio_text(content: str, name: str) -> str:
 
 
 def _local_media(url: str) -> Path | None:
+    """studio 文件域或 /api/images 产物(经 NAS 输出根解析,后者含 worker 参数)。"""
     from app.services.studio.orchestrator import _studio_local_path
 
-    return _studio_local_path(url)
+    p = _studio_local_path(url)
+    if p is not None:
+        return p
+    # /api/images?filename=X&subfolder=Y&type=output → NAS 输出根/Y/X
+    if url.startswith("/api/images"):
+        from urllib.parse import parse_qs, urlparse
+
+        q = parse_qs(urlparse(url).query)
+        fn = (q.get("filename") or [""])[0]
+        sub = (q.get("subfolder") or [""])[0]
+        if fn:
+            for root in ("/mnt/toiv-nas/toiv/outputs", "/mnt/toiv-nas/toiv"):
+                cand = Path(root) / sub / fn
+                if cand.is_file():
+                    return cand
+    return None
 
 
 async def _audio_duration(path: Path) -> float:
