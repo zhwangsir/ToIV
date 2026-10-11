@@ -6,7 +6,8 @@
  * S3/S4 逐段把经典端能力迁进来，迁移齐后 W1.2 末步做路由对调。
  * 现在各段为只读骨架：头部项目状态 + 各段已有数据的轻量呈现 + 落地批次的说明。
  */
-import { BookOpen, Check, Clapperboard, Film, IdCard, Layers, ListOrdered, Loader2, PlayCircle, RefreshCw, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
+import { BookOpen, Camera, Check, Clapperboard, Film, IdCard, Layers, ListOrdered, Loader2, PlayCircle, RefreshCw, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
+import type { ToivFrameVariant } from "@/services/toiv/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
@@ -26,10 +27,12 @@ import {
     pollScriptParse,
     pickShotCandidate,
     assembleStudioProject,
+    pollFrameVariants,
     pollSheetJob,
     renderShotAsync,
     renderShotStrict,
     saveStudioShots,
+    submitFrameVariants,
     submitScriptParse,
     submitSheetAsync,
     triggerBatchRender,
@@ -252,6 +255,31 @@ export default function DramaWorkspacePage() {
             markBusy(sid, false);
         }
     }, [id, load]);
+
+    // ---- W2.2: 多视角分镜扩展(配景) ----
+    const [frameBusy, setFrameBusy] = useState<Set<string>>(new Set());
+    const [frameVariants, setFrameVariants] = useState<Record<string, ToivFrameVariant[]>>({});
+    const [frameError, setFrameError] = useState<string | null>(null);
+    const runFrameVariants = useCallback(async (sid: string) => {
+        setFrameBusy((p) => new Set(p).add(sid));
+        setFrameError(null);
+        try {
+            const { job_id } = await submitFrameVariants(sid);
+            for (let i = 0; i < 120 && !pollStop.current; i++) {
+                await new Promise((r) => setTimeout(r, 3000));
+                const r = await pollFrameVariants(sid, job_id);
+                if (r.status === "error") throw new Error(r.error || "配景生成失败");
+                if (r.status === "done" && r.variants) {
+                    setFrameVariants((p) => ({ ...p, [sid]: r.variants ?? [] }));
+                    break;
+                }
+            }
+        } catch (e) {
+            setFrameError(e instanceof Error ? e.message : "配景生成失败");
+        } finally {
+            setFrameBusy((p) => { const n = new Set(p); n.delete(sid); return n; });
+        }
+    }, []);
 
     // ---- S9-lite: 成片合成 ----
     const [assembling, setAssembling] = useState(false);
@@ -498,6 +526,10 @@ export default function DramaWorkspacePage() {
                                 {shots.length === 0 ? (
                                     <EmptyState description="暂无分镜(剧本→自动分镜 S5 落地)" />
                                 ) : (
+                                    <>
+                                    {frameError && (
+                                        <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger,#e5484d)]">{frameError}</p>
+                                    )}
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left text-xs">
                                             <thead className="text-[var(--muted-foreground,#a8a8a8)]">
@@ -508,6 +540,7 @@ export default function DramaWorkspacePage() {
                                                     <th className="px-2 py-1.5">时长</th>
                                                     <th className="px-2 py-1.5">衔接</th>
                                                     <th className="px-2 py-1.5">状态</th>
+                                                    <th className="px-2 py-1.5">配景</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -521,11 +554,27 @@ export default function DramaWorkspacePage() {
                                                         <td className="px-2 py-1.5">
                                                             <StatusBadge variant="filled" tone={STATUS_TONE[s.status] ?? "neutral"} label={s.status} size="sm" />
                                                         </td>
+                                                        <td className="px-2 py-1.5">
+                                                            <div className="flex items-center gap-1">
+                                                                <ToolButton
+                                                                    size="xs"
+                                                                    variant="ghost"
+                                                                    icon={<Camera />}
+                                                                    label={frameBusy.has(s.id) ? "配景中…" : "AI 配景"}
+                                                                    loading={frameBusy.has(s.id)}
+                                                                    onClick={() => void runFrameVariants(s.id)}
+                                                                />
+                                                                {(frameVariants[s.id] ?? []).map((v) => (
+                                                                    <img key={v.scale} src={v.url} alt={v.scale} title={v.scale} className="h-10 w-16 rounded border border-[var(--border)] object-cover" loading="lazy" />
+                                                                ))}
+                                                            </div>
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                         </table>
                                     </div>
+                                    </>
                                 )}
                             </SectionShell>
                         )}

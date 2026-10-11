@@ -783,3 +783,24 @@ export async function pollSheetJob(
     );
     return data;
 }
+
+// ---- W2.2(2026-10-11): 多视角分镜扩展(单角色参考图→远/中/近景别示意图,异步 Job) ----
+
+export type ToivFrameVariant = { scale: string; url: string };
+
+export async function submitFrameVariants(sid: string, style: "anime" | "ancient_realistic" = "anime"): Promise<{ job_id: string; status: string }> {
+    const { data } = await toivHttp.post(
+        `/studio/shots/${encodeURIComponent(sid)}/frame-variants`,
+        { style },
+        { timeout: 30_000 },
+    );
+    return data;
+}
+
+export async function pollFrameVariants(sid: string, jobId: string): Promise<{ status: string; variants?: ToivFrameVariant[]; error?: string }> {
+    const { data } = await toivHttp.get(
+        `/studio/shots/${encodeURIComponent(sid)}/frame-variants/${encodeURIComponent(jobId)}`,
+        { timeout: 15_000 },
+    );
+    return data;
+}

@@ -434,6 +434,116 @@ async def _generate_sheet_core(
     return out
 
 
+
+class FrameVariantsRequest(BaseModel):
+    style: str = Field(default="anime", pattern="^(anime|ancient_realistic)$")
+
+
+# ── W2.2(2026-10-11):多视角分镜扩展(单角色参考图→多景别示意图,异步 Job) ──
+_FRAME_KIND = "studio_frame_variants"
+
+
+async def _run_frame_variants_job(job_id: str, sid: str, style: str) -> None:
+    from app.db import engine as _engine
+    from app.models import Job
+
+    def _finish(status: str, result: dict) -> None:
+        with Session(_engine) as s:
+            job = s.get(Job, job_id)
+            if not job or job.status in ("done", "error", "canceled"):
+                return
+            job.status = status
+            job.result = json.dumps(result, ensure_ascii=False)
+            s.add(job)
+            s.commit()
+
+    try:
+        with Session(_engine) as s:
+            job0 = s.get(Job, job_id)
+            if not job0 or job0.status == "canceled":
+                return
+            job0.status = "running"
+            s.add(job0)
+            s.commit()
+        from app.services.studio.shot_frame import (
+            FrameVariantError,
+            generate_frame_variants,
+        )
+
+        with Session(_engine) as s:
+            shot = s.get(StudioShot, sid)
+            if not shot:
+                _finish("error", {"error": "分镜不存在"})
+                return
+            variants = await generate_frame_variants(s, shot, style=style)
+        _finish("done", {"variants": variants})
+    except FrameVariantError as e:
+        _finish("error", {"error": str(e)})
+    except CharacterSheetError as e:
+        _finish("error", {"error": f"出图失败:{e}"})
+    except Exception as e:  # noqa: BLE001
+        logger.exception("frame_variants job %s 意外失败", job_id)
+        _finish("error", {"error": f"配景生成失败:{e}"})
+
+
+@router.post("/studio/shots/{sid}/frame-variants")
+async def submit_frame_variants(
+    sid: str,
+    body: "FrameVariantsRequest | None" = None,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """提交多景别配景(异步):3 景别示意图(远/中/近),Job+轮询(模式同设定卡 S3-b)。"""
+    import asyncio as _asyncio
+
+    from app.models import Job
+    from app.versioning import params_snapshot
+
+    shot = _get_shot(session, sid, user)
+    style = (body.style if body else None) or "anime"
+    job = Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id="",
+        worker="",
+        kind=_FRAME_KIND,
+        status="queued",
+        prompt=f"配景 {shot.scene[:60]}".strip()[:200],
+        params=params_snapshot(FrameVariantsRequest(style=style), sid=sid),
+    )
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    job.prompt_id = f"frame-{job.id}"
+    session.add(job)
+    session.commit()
+    _asyncio.create_task(_run_frame_variants_job(job.id, sid, style))
+    return {"job_id": job.id, "status": "queued"}
+
+
+@router.get("/studio/shots/{sid}/frame-variants/{job_id}")
+def frame_variants_status(
+    sid: str,
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """轮询配景结果:done → {variants:[{scale,url}]}。"""
+    from app.models import Job
+
+    _get_shot(session, sid, user)
+    job = session.get(Job, job_id)
+    if not job or job.user_id != user.id or job.kind != _FRAME_KIND:
+        raise HTTPException(status_code=404, detail="作业不存在")
+    out: dict = {"status": job.status}
+    if job.result:
+        try:
+            out.update(json.loads(job.result))
+        except (ValueError, TypeError):
+            pass
+    return out
+
+
 # ── S3-b(2026-10-11):设定卡生成异步化——15-20min 同步等待是 UX/可靠性双重雷 ──
 # 模式复用 script/parse:Job 建档 + 进程内后台协程 + 轮询端点;任务中心天然可见/可取消。
 _SHEET_KIND = "studio_sheet_gen"
