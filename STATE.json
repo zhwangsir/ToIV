@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T12:30:00+08:00",
+  "updated_at": "2026-10-11T13:45:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14694,5 +14694,30 @@
       "c-chains 按钮未实弹(避免长 GPU 链;API 侧 33 测试既有覆盖)"
     ],
     "updated_at": "2026-10-11T12:30:00+08:00"
+  },
+  "s4_batch_2026_10_11": {
+    "status": "s4_deployed_async_e2e_pass",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "S4 四件:①seam 衔接策略下沉 Studio 域(模型+幂等迁移+ShotInput None不改/空串清空+分镜表衔接列,1 测试,生产 PG 两列已落);②多候选 UI(渲染2候选+视频预览chips+选为成片 pick);③渲染异步化(wait=false 登记 Job+镜状态轮询,reload/断连免疫——实测同步路撞 VRAM 驱逐+reload 后 status 僵 rendering 暴露);④僵尸渲染态启动收口(reconcile_stuck_renders,实测#5 healed→error 可重试);顺带:项目卡默认进 v2 工作区(W1.2)、设定卡空态文案修正",
+    "commits": [
+      "34664989 seam+多候选UI+入口对调+文案",
+      "040c894b 渲染异步化",
+      "f1d83edd 僵尸收口(10 测试绿)"
+    ],
+    "e2e": [
+      "异步提交秒回(作业 c9ba6609,提示可离页)",
+      "僵尸#5 重启后 error+可重试",
+      "分镜表衔接列 hardcut 默认",
+      "老太太二次元/古风两张异步卡均被门禁拒且错误完整透出(二次元:徽标inpaint;古风:底图768<803需宽源,已知10-05同类)——异步失败路径实证"
+    ],
+    "known_issues": [
+      "测试项目两角色设定卡均未过内容门禁(需更宽源/outpaint,设定卡线质量工作)",
+      "#5 双候选渲染在途(c9ba6609),完成后候chips+pick 可验"
+    ],
+    "updated_at": "2026-10-11T13:45:00+08:00"
   }
 }

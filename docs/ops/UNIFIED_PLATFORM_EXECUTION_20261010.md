@@ -131,6 +131,14 @@ S1 ──► S2 ──► S3 ──► S4        （壳迁移线，前端为主�
 - ✅ 双项目域合并评估落档 `docs/ops/PROJECT_DOMAIN_MERGE_ASSESSMENT_20261011.md`（StudioProject 唯一宿主；多候选/seam 下沉归 S4；DramaAsset 保留共享）。
 - 微债：抽屉空态文案时长口径（下次部署顺带改）。
 
+### S4 增量（2026-10-11，双域合并评估 §3 首批落地）
+- ✅ seam_to_next/seam_anchor 下沉 StudioShot（模型+幂等迁移+PUT 语义：None 不改/空串清空；分镜表衔接列；1 测试）。
+- ✅ 多候选 UI：渲染默认 2 候选 → chips 视频预览 + 「选为成片」（pick 端点既有）。
+- ✅ 渲染异步化：wait=false 登记 Job + 镜状态轮询（实测：同步路撞 reload+VRAM 驱逐 → status 僵 rendering）。
+- ✅ 僵尸渲染态启动收口 reconcile_stuck_renders（实测 #5 healed → error 可重试）。
+- ✅ W1.2 lite：项目卡默认进 v2 工作区；设定卡空态文案修正。
+- 已知：测试项目两角色设定卡均被内容门禁拒（二次元=徽标 inpaint；古风=底图 768<803 需宽源/outpaint，10-05 同类）→ 设定卡线质量工作另立。
+
 ## 8. 变更记录
 
 - 2026-10-10 v1：初版（依据 UNIFIED_PLATFORM_PLAN_20261010.md 生成；13 商业+12 开源调研+本地摸底）。
