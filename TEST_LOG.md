@@ -1,3 +1,4 @@
+- 2026-10-11 **S12 R18=A 拍板+退役第一批**（ToIV开发）：A(经典只读壳,可翻案);fusion/canvas 退役(深链归位实证);四判据 3/4 过+桌面 wails 未装归用户侧;BUILD bf96f93a;status=`s12_retire_batch1_done_desktop_user_side`；updated_at 2026-10-11T20:10:00+08:00。
 - 2026-10-11 **S12 收敛第一步**（ToIV开发）：17+2 视图处置清单落档(退役3/只读1/迁移12/拆分1)+R18 三选项待拍板;deploy.sh --all 单链路实测三服务全 200;P-2b 复核过;status=`s12_step1_delivered_r18_pending`；updated_at 2026-10-11T19:00:00+08:00。
 - 2026-10-11 **S11 对口型产品化**（ToIV开发）：voiced 镜按钮+LatentSync final_clip 覆盖;_download 补 worker 分支(401 同课);生产 idx4 lipsynced 4.4s;status=`s11_deployed_e2e_pass`；updated_at 2026-10-11T18:00:00+08:00。
 - 2026-10-11 **S10 音频批**（ToIV开发）：`18c40161` sfx 素材库(8 音效 ffmpeg 合成)+mix BGM 语义(逐路增益+对白优先 ducking);生产 tts+sfx+mix 全链混音 4.11s 产物可下载;3 测试;status=`s10_deployed_e2e_pass`；updated_at 2026-10-11T17:20:00+08:00。

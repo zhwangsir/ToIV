@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T19:00:00+08:00",
+  "updated_at": "2026-10-11T20:10:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14926,5 +14926,16 @@
     "summary": "收敛批第一步:①经典 web 17+2 视图逐视图处置清单落档 docs/ops/CLASSIC_WEB_RETIREMENT_PLAN_20261011.md(退役3:fusion/canvas/nsfw;只读保留1:avatartalk 无对应;迁移12;settings 拆分;R18 渗透7视图,X-NSFW 机制经典侧独有,canvas 纯 SFW)——R18 去向三选项(A 保留经典只读壳/B canvas 增设 R18 模式/C 退役)已列给用户待拍板;②deploy.sh --all 单部署链路(api+web+canvas 一条命令,=--with-canvas 全量语义),实测三服务全 200",
     "token_unified": "apps.css P-2b 约束复核通过(apps-studio 起零 hex,898-903 渐变色标在区段前且属函数参数);经典22个手写CSS×canvas tailwind 双体系统一按计划归 P4 渐进(逐视图退役时同步清)",
     "updated_at": "2026-10-11T19:00:00+08:00"
+  },
+  "s12_r18_decision_and_retire_2026_10_11": {
+    "status": "s12_retire_batch1_done_desktop_user_side",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "R18 去向拍板:采纳 A(保留经典 web 只读壳)——依据用户『不要再问,直接进行』总授权+处置清单推荐项标注;A 零功能损失且可逆(改 B=canvas 增 R18 模式/改 C=退役均为后续增量,随时可翻案,STATE 本键即决策记录)。S12 退役第一批执行:fusion/canvas 移出 VALID_VIEWS(深链经 LEGACY_VIEW_REDIRECTS 归 home)+底部「更多」抽屉移除两入口;经典 web 全新构建部署(BUILD bf96f93a);deploy --all 单链路",
+    "e2e": "wineryz:?view=fusion→?view=home 归位;?view=canvas→/studio 归位(canvas 应用);四判据:①经典 web 收敛(R18 只读壳保留)✓ ②全流程零外跳(工作区多批实证)✓ ③中断恢复(S5 render_reconcile 生产实证)✓ ④桌面同版本=受 wails CLI 双机未装阻塞,归用户侧(安装 wails 后 wails build 即可,SPA 同源)",
+    "updated_at": "2026-10-11T20:10:00+08:00"
   }
 }
