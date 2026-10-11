@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T20:30:00+08:00",
+  "updated_at": "2026-10-11T16:15:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14865,5 +14865,24 @@
       "保留段走 _PR 轻量 result 兜底,同步/异步两路均不断链"
     ],
     "updated_at": "2026-10-11T20:30:00+08:00"
+  },
+  "s9_subtitles_2026_10_11": {
+    "status": "s9_subtitles_deployed_e2e_pass",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "字幕对齐(S9):台词↔whisper 逐词时间轴(复用 openclaw 四址集群 board_film._words_external)→词→cue 聚合(静默 0.6s 切分/6s 钳制)+CJK 逐字&ASCII 词混合对齐评分;SRT 外挂(studio 文件域)+ffmpeg subtitles 滤镜内嵌双出;时间线「生成字幕 SRT(外挂)」「字幕内嵌视频」双按钮;4 单测",
+    "commits": [
+      "bc1e1b40 主体",
+      "f7ea0aa9+/5706528f 产物解析三修(NAS 无产物→worker 拉字节;sig 自取 401 删分支)"
+    ],
+    "e2e": "wineryz:①配音链打通(小周配参考音→idx4 TTS 2.2s 配音)→SRT 生成:1 镜覆盖/1 条 cue(0-3.08s「牛奶热好了,给您放这儿。」)/全长 2.43s→SRT 文件内容核验格式正确;②内嵌:burn→01c4f1a3e6b4_sub.mp4(1.45MB/6.58s,HTTP 200 可下载);测试 final_url 已还原",
+    "lessons": [
+      "/api/images 产物真身在 worker output 目录非 NAS(找遍 NAS 无);服务端自取带 sig 的产物 URL 也 401(鉴权是用户级)——跨产物处理一律走 worker ComfyUI 取字节",
+      "配音前置=角色卡 voice_ref_url(无则 422 不糊弄)"
+    ],
+    "updated_at": "2026-10-11T16:15:00+08:00"
   }
 }

@@ -172,6 +172,10 @@ S1 ──► S2 ──► S3 ──► S4        （壳迁移线，前端为主�
 - ✅ 候选指纹 sha256(url)[:8]（url 身份哈希；跨机文件 sha256 不可行，见 STATE notes）。保留候选自动兜底 is_picked。11 测试绿。
 - 至此 S5 管线 v2 批次（W2.0–W2.7）全部收口。
 
+### S9 字幕对齐（2026-10-11）
+- ✅ 台词↔whisper 逐词时间轴（openclaw 四址集群复用）→词→cue 聚合（静默切分/时长钳制）+CJK/ASCII 混合对齐；SRT 外挂 + ffmpeg subtitles 内嵌双出；时间线双按钮；4 单测。
+- 生产 E2E：配音链（角色音色配置→TTS 2.2s）→SRT（1 镜/1 条 cue 0-3.08s 台词文本）→内嵌 mp4（1.45MB/6.58s HTTP 200）。产物解析三修（/api/images 产物在 worker output 非 NAS；sig 自取 401；统一 worker 取字节）。
+
 ## 8. 变更记录
 
 - 2026-10-10 v1：初版（依据 UNIFIED_PLATFORM_PLAN_20261010.md 生成；13 商业+12 开源调研+本地摸底）。

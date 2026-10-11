@@ -1,3 +1,4 @@
+- 2026-10-11 **S9 字幕对齐**（ToIV开发）：whisper 逐词→cue 聚合+混合对齐;SRT 外挂+内嵌双出;生产:配音 2.2s→SRT 1 条(0-3.08s 台词文本)→内嵌 mp4 6.58s 可下载;产物解析三修(worker 拉字节);status=`s9_subtitles_deployed_e2e_pass`；updated_at 2026-10-11T16:15:00+08:00。
 - 2026-10-11 **W2.7 断点续跑**（ToIV开发）：`9d68f584` 重渲染保留 done 候选只补缺口+指纹写入;生产两证(零重复提交/只补 2 缺口 15min 全回写);11 测试;status=`w2_7_deployed_e2e_pass`；updated_at 2026-10-11T20:30:00+08:00。
 - 2026-10-11 **S6 资产下沉**（ToIV开发）：全局主体 Entity 接入 Studio 域(清单/选用,句柄→URL);数据源核正 DramaAsset→Entity;生产 23 主体+选用「少女」入库;3 测试;status=`s6_deployed_e2e_pass`；updated_at 2026-10-11T19:05:00+08:00。
 - 2026-10-11 **W2.5 机位树 lite**（ToIV开发）：seam=continue 选路消费+时间线 seam 选择器;实测抓出并修 tlSave stale closure;生产 seam 持久化+idx5 渲染 12min 完成自动回写;status=`w2_5_deployed_e2e_pass`；updated_at 2026-10-11T18:10:00+08:00。
