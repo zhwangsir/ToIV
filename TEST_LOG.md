@@ -1,3 +1,4 @@
+- 2026-10-11 **S9-lite 时间线段 + 缺陷登记**（ToIV开发）：`e0490c9c` 播放列表+合成成片,六段全非空;实测暴露异步多候选回写丢失缺陷(Job done 有产物但 shot 僵 rendering,与 VRAM 驱逐重合)→ `defect_async_multicand_writeback_2026_10_11` S5 首靶；updated_at 2026-10-11T14:30:00+08:00。
 - 2026-10-11 **S4 批**（ToIV开发）：seam 下沉(迁移落 PG)/多候选 UI+pick/渲染异步化(实测僵死病灶根治)/僵尸渲染启动收口(实测 healed)；入口对调+文案微债；3 提交；status=`s4_deployed_async_e2e_pass`；updated_at 2026-10-11T13:45:00+08:00。
 - 2026-10-11 **S3 批**（ToIV开发）：`5397dcc5` 管线C入工作区+设定卡异步化(Job/轮询/收口,4 测试绿)；双域合并评估落档(StudioProject 唯一宿主)；异步提交/任务中心/轮询实弹全过；status=`s3_a_b_deployed_e2e_pass_assessment_done`；updated_at 2026-10-11T12:30:00+08:00。
 - 2026-10-11 **W1.3/W1.4 E2E 全链闭环**（ToIV开发）：剧本→拆镜→设定卡→采用参考图→H3 渲染 rendered,全程工作区内;三处吞错/类型 bug 实测抓出修复(allowed_panel_styles 守卫/panel_urls 对象/mtime 秒);status=`w1_3_w1_4_deployed_e2e_full_loop`；updated_at 2026-10-11T11:35:00+08:00。

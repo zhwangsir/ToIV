@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T13:45:00+08:00",
+  "updated_at": "2026-10-11T14:30:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14718,6 +14718,30 @@
       "测试项目两角色设定卡均未过内容门禁(需更宽源/outpaint,设定卡线质量工作)",
       "#5 双候选渲染在途(c9ba6609),完成后候chips+pick 可验"
     ],
-    "updated_at": "2026-10-11T13:45:00+08:00"
+    "updated_at": "2026-10-11T13:45:00+08:00",
+    "s9_lite": {
+      "commit": "e0490c9c",
+      "summary": "时间线段 v1:播放列表(就绪 N/M+逐镜状态)+合成成片按钮(422 前置透出);六段全部非空",
+      "e2e": "浏览器验证 UI 完整(就绪 1/8,合成按钮在位)",
+      "updated_at": "2026-10-11T14:30:00+08:00"
+    }
+  },
+  "defect_async_multicand_writeback_2026_10_11": {
+    "status": "open_s5_first_target",
+    "summary": "异步多候选渲染的镜状态回写丢失:Job c9ba6609 done 且产出 32d2d089_6_50366_00001_.mp4,但 shot5 停 rendering/candidates 空;两次僵死(sync #1 与 async #2)均与 H3 VRAM 门禁驱逐事件重合(空闲28G<36G→驱逐→管线沉默,无异常日志)",
+    "evidence": [
+      "Job c9ba6609 lookup:done+results=[32d2d089_6_50366_00001_.mp4]",
+      "shot5 status=rendering cands=[(False,False)]",
+      "12:57:26 驱逐日志后零活动;13:03:33 async prep(palette)后零活动",
+      "queue running:0"
+    ],
+    "hypothesis": "驱逐→模型重载路径中,候选2的续跑/重播种协程静默死亡,且无 finally 兜底回写 shot;Job 由 tracker 按候选1 prompt_id 终态判 done",
+    "fix_direction": [
+      "orchestrator 多候选 async 逐候选 try/except+finally 镜状态回写(成功写 rendered+candidates,失败写 error)",
+      "VRAM 驱逐重载路径补异常日志与重试上限",
+      "候选产物先落 candidates_json 再续跑下一候选(增量可见)",
+      "僵尸收口已兜底显示层(重启清 rendering),产物 mp4 人工可回收"
+    ],
+    "updated_at": "2026-10-11T14:30:00+08:00"
   }
 }
