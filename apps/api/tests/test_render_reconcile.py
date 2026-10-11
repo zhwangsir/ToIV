@@ -186,3 +186,24 @@ def test_async_multicand_writes_queued_candidates(ctx, monkeypatch):
         assert all(c["status"] == "queued" and c["db_job_id"] for c in cands)
         assert not any(c.get("is_picked") for c in cands)
         assert out is sh
+
+
+def test_zombie_reconcile_skips_job_backed_shots(ctx):
+    """S5:僵尸收口不得误杀「queued 候选(Job 在身)」的镜——归 render_reconcile 管。"""
+    from sqlmodel import select
+
+    from app.routes.studio import reconcile_stuck_renders
+
+    engine, pid, _ = ctx
+    with Session(engine) as s:
+        j = _mk_job(s, "running")
+        _mk_shot(s, pid, status="rendering",
+                 cands=[{"id": "c1", "url": "", "status": "queued", "db_job_id": j.id}])
+        _mk_shot(s, pid, status="rendering", cands=[])  # 真孤儿
+        import app.db as db_mod
+        from unittest.mock import patch as _patch
+        with _patch.object(db_mod, "engine", engine):
+            n = reconcile_stuck_renders()
+        rows = s.exec(select(StudioShot)).all()
+        assert n == 1  # 只收孤儿
+        assert {r.status for r in rows} == {"error", "rendering"}

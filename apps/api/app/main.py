@@ -166,12 +166,13 @@ async def lifespan(app: FastAPI):
     from app.routes import studio as studio_routes
 
     studio_routes.reconcile_parse_jobs()
-    studio_routes.reconcile_stuck_renders()
-    # S5:异步渲染 Job 终态 → 镜回写(渲染中且带 queued 候选)
+    # S5:先 Job 回写再僵尸收口——有 queued 候选(Job 在身)的镜由前者按 Job 终态
+    # 定生死(rendered/error),后者只兜真正孤儿 rendering;反序会把可救镜误判 error(实测#5)。
     with Session(engine) as _s:
         from app.services.studio.render_reconcile import reconcile_all_renders
 
         reconcile_all_renders(_s)
+    studio_routes.reconcile_stuck_renders()
     # 主体库三视图收口:generating 主体按 params 快照 entity_id 反查作业重挂回写/标 error
     from app.routes import entities as entities_routes
 

@@ -1290,6 +1290,17 @@ def reconcile_stuck_renders() -> int:
             )
         ).all()
         for sh in rows:
+            # S5:有 queued 候选(Job 在身)的镜归 render_reconcile 管(Job 终态定生死),
+            # 此处误杀会把 Job 已 done 的可救镜打成 error(实测#5 竞态)。
+            try:
+                cands = json.loads(sh.candidates_json or "[]")
+            except (ValueError, TypeError):
+                cands = []
+            if isinstance(cands, list) and any(
+                isinstance(c, dict) and c.get("status") == "queued" and c.get("db_job_id")
+                for c in cands
+            ):
+                continue
             sh.status = "error"
             sh.error = "渲染中断(服务重启或请求断开),请重新渲染"
             s.add(sh)
