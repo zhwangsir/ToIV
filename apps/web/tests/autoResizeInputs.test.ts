@@ -145,10 +145,10 @@ const WIRED_FILES = [
   "components/agent-run/PlanPanel.tsx",
   "components/agent-run/TaskCardList.tsx",
   "components/agent-run/ConfirmGateModal.tsx",
-  "app/agent-runs/page.tsx",
+  // F2(2026-10-11):app/agent-runs/page.tsx 退役为重定向,移出接线清单
 ];
 
-test("17 个接线文件均 import 并调用 useAutoResize", () => {
+test("接线文件均 import 并调用 useAutoResize(F2 后 16 个)", () => {
   for (const rel of WIRED_FILES) {
     const src = readSrc(rel);
     assert.ok(src.includes('from "@/hooks/useAutoResize"'), `${rel} 未导入 useAutoResize`);

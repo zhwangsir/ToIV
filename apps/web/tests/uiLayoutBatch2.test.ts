@@ -103,15 +103,11 @@ test("settings:账户紧凑行样式(头像 accent-soft 底托 + 邮箱截断)",
 
 /* ── ③ agent-runs:进度降档 + 容器 token + 标题截断 ── */
 
-test("agent-runs:进度计数降档副标位,右侧大数字栏已撤", () => {
+test("agent-runs:进度计数降档副标位,右侧大数字栏已撤(F2 页面退役,CSS 断言保留)", () => {
+  // F2(2026-10-11):经典 agent-runs 列表页退役为深链重定向(→/studio/toiv/tasks),
+  // 页面结构断言改为转发契约;样式断言仍守 agent-runs.css(经典组件保留)。
   const page = readSrc("app/agent-runs/page.tsx");
-  assert.ok(!page.includes("agent-run-side"), "右侧 Fraunces 大数字栏应移除");
-  assert.ok(page.includes("agent-run-progress"), "进度计数保留在副标");
-  // 进度与时间戳都在副标行内(区分信息)
-  const iSub = page.indexOf("agent-run-sub");
-  const iProgress = page.indexOf("agent-run-progress", iSub);
-  const iDate = page.indexOf("agent-run-date", iSub);
-  assert.ok(iProgress > iSub && iDate > iSub, "进度/时间戳须进副标行");
+  assert.ok(page.includes('redirect("/studio/toiv/tasks")'), "列表页应整体转发 canvas 任务中心");
 
   const css = readSrc("app/styles/agent-runs.css");
   const progress = cssBlock(css, ".agent-run-progress {");
@@ -130,9 +126,7 @@ test("agent-runs:容器宽度收编版型令牌(2026-09-04 美化 W4:直连 --la
   );
 });
 
-test("agent-runs:历史标题最多两行 ellipsis(stripMarkdown 并存)", () => {
-  const page = readSrc("app/agent-runs/page.tsx");
-  assert.ok(page.includes("stripMarkdown(r.goal)"), "stripMarkdown 不得移除");
+test("agent-runs:历史标题最多两行 ellipsis(F2 页面退役,CSS clamp 断言保留)", () => {
   const css = readSrc("app/styles/agent-runs.css");
   const goal = cssBlock(css, ".agent-run-goal {");
   assert.ok(goal.includes("-webkit-line-clamp: 2;"), "标题须 2 行 clamp");

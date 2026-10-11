@@ -35,7 +35,8 @@ test.describe("智能体 UI", () => {
       // 兜底:直达仍合法深链
       await page.goto("/agent-runs", { waitUntil: "domcontentloaded" });
     }
-    await page.waitForURL(/\/agent-runs/, { timeout: 30000 });
+    // F2(2026-10-11):经典 /agent-runs 已退役,深链整体跳 canvas 任务中心
+    await page.waitForURL(/\/studio\/toiv\/tasks/, { timeout: 30000 });
     await page.screenshot({ path: "ui-sweep/a2-tasks-runs.png" });
   });
 
@@ -62,27 +63,13 @@ test.describe("智能体 UI", () => {
   });
 
   // ── A2:运行台详情「在对话中继续」草稿通道 ──
-  test("agent-runs 详情「在对话中继续」回填助手输入框", async ({ page }) => {
-    test.setTimeout(150000);
-    await page.goto("/agent-runs", { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => document.body.innerText.length > 100, undefined, { timeout: 60000 });
-    // 列表第一条进详情(无运行记录时环境性跳过;列表项是 button 非链接;先等挂载再判空)
-    await page.waitForSelector(".agent-run-open", { timeout: 30000 }).catch(() => null);
-    const first = page.locator(".agent-run-open").first();
-    if ((await first.count()) === 0) {
-      console.log("CONTINUE_E2E_SKIP: 无运行记录");
-      return;
-    }
-    await first.click();
-    const btn = page.locator(".agent-continue-chat");
-    await expect(btn).toBeVisible({ timeout: 30000 });
-    await btn.click();
-    await page.waitForURL(/view=home/, { timeout: 30000 });
-    const composer = page.locator(".av-composer-input");
-    await expect(composer).toBeVisible({ timeout: 30000 });
-    const v = await composer.inputValue();
-    expect(v).toContain("继续处理智能体任务");
-    await page.screenshot({ path: "ui-sweep/a2-continue-in-chat.png" });
+  // F2(2026-10-11):经典运行台已退役,深链按 id 转发 canvas /studio/toiv/runs/:id;
+  // 「在对话中继续」属经典组件能力,随页面退役——本用例改为断言深链转发契约。
+  test("agent-runs 详情深链转发 canvas run 详情", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/agent-runs/sample-run-id", { waitUntil: "domcontentloaded" });
+    await page.waitForURL(/\/studio\/toiv\/runs\/sample-run-id/, { timeout: 30000 });
+    await page.screenshot({ path: "ui-sweep/a2-run-detail-forward.png" });
   });
 
 

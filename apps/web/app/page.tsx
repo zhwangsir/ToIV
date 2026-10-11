@@ -664,7 +664,8 @@ function HomeContent() {
     (key: string) => {
       // W1:agent-runs 是独立 Next 路由(非 view),抽屉入口特判跳转
       if (key === "agent-runs") {
-        router.push("/agent-runs");
+        // F2:Agent 任务中心迁入 canvas
+        window.location.assign("/studio/toiv/tasks");
         return;
       }
       // 独立管理系统(2026-09-15):抽屉「管理系统」项新开控制台标签页

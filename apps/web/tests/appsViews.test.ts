@@ -349,13 +349,13 @@ test("Studio Console v1:SideRail 左栏注册(做短剧主入口)+ ⌘K 面板�
   assert.ok(!src.includes("CornerNav"), "CornerNav 应退役");
 });
 
-test("W1:agent-runs 孤儿路由收口进「更多」抽屉(特判跳独立路由)", () => {
+test("W1:agent-runs 孤儿路由收口进「更多」抽屉(F2 后整体跳 canvas)", () => {
   const src = readSrc("app/page.tsx");
   const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
   assert.ok(moreBlock.includes('key: "agent-runs"'), "「更多」抽屉缺任务入口");
   assert.ok(
-    src.includes('router.push("/agent-runs")'),
-    "agent-runs 应特判跳独立 Next 路由",
+    src.includes('window.location.assign("/studio/toiv/tasks")'),
+    "agent-runs 抽屉入口应整体跳 canvas 任务中心(F2 迁移)",
   );
 });
 

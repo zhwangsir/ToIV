@@ -1,6 +1,7 @@
-import { ArrowLeft, ListChecks, Loader2, RefreshCw, X } from "lucide-react";
+import { ArrowLeft, ListChecks, Loader2, RefreshCw, Send, X } from "lucide-react";
+import { Button } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { ToolButton } from "@/components/ui/base/buttons";
 import { StatusBadge } from "@/components/ui/base/badges";
@@ -10,6 +11,7 @@ import { EmptyState } from "@/components/ui/product/empty-state";
 import { formatTaskKind, generationTaskStatusLabel } from "@/lib/generation-task-display";
 import { listGenerationTasks, type GenerationTask } from "@/services/api/task-center";
 import { cancelJob, fetchAgentRuns, fetchJobs, type ToivAgentRun, type ToivJob } from "@/services/toiv/client";
+import { createAgentRun } from "@/services/toiv/agent-runs";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 
 const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
@@ -245,6 +247,31 @@ export default function TasksPage() {
         return () => clearInterval(t);
     }, [hasActive]);
 
+    // F2:大目标直建智能体任务(L0 秒回转对话;L1/L2 进详情等计划)
+    const navigate = useNavigate();
+    const [goal, setGoal] = useState("");
+    const [creating, setCreating] = useState(false);
+    const [createNote, setCreateNote] = useState<string | null>(null);
+    const submitGoal = useCallback(async () => {
+        const trimmed = goal.trim();
+        if (!trimmed || creating) return;
+        setCreating(true);
+        setCreateNote(null);
+        try {
+            const res = await createAgentRun({ goal: trimmed });
+            setGoal("");
+            if (res.level === "L0" || !res.run_id) {
+                setCreateNote(res.ack || "已转交智能体对话,简单问题直接聊即可");
+            } else {
+                navigate(`/toiv/runs/${encodeURIComponent(res.run_id)}`);
+            }
+        } catch (e) {
+            setCreateNote(e instanceof Error ? e.message : "创建失败,请稍后重试");
+        } finally {
+            setCreating(false);
+        }
+    }, [goal, creating, navigate]);
+
     const showSkeleton = loading && canvasLoading;
     const empty = !loading && !error && timeline.length === 0 && !canvasLoading;
 
@@ -275,6 +302,26 @@ export default function TasksPage() {
                     已定位作业 {focusJob.slice(0, 8)}…；时间线按创建时间倒序。
                 </Callout>
             )}
+
+            <section className="flex flex-col gap-2 rounded-xl border bg-card p-3" aria-label="新建智能体任务">
+                <textarea
+                    className="w-full resize-y rounded-md border bg-background px-3 py-2 text-sm"
+                    rows={2}
+                    value={goal}
+                    placeholder="一句话描述你的需求,例如:拍一支 30 秒的咖啡店开业宣传短片,温暖治愈风,配轻爵士背景乐(⌘/Ctrl+Enter 直接创建)"
+                    onChange={(e) => setGoal(e.target.value)}
+                    onKeyDown={(e) => {
+                        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") void submitGoal();
+                    }}
+                />
+                <div className="flex items-center gap-2">
+                    <span className="flex-1 text-xs text-muted-foreground">复杂目标会先出执行计划等你确认;简单问题直链智能体对话。</span>
+                    <Button type="primary" size="small" icon={<Send className="size-3.5" />} loading={creating} disabled={!goal.trim()} onClick={() => void submitGoal()}>
+                        创建并拆解
+                    </Button>
+                </div>
+                {createNote && <Callout tone="info" title={createNote} onClose={() => setCreateNote(null)} />}
+            </section>
 
             <div className="flex flex-wrap items-center gap-2" aria-label="任务筛选">
                 {(
@@ -376,7 +423,13 @@ export default function TasksPage() {
                                         <StatusBadge variant="filled" tone="neutral" label={item.id.slice(0, 8)} size="sm" />
                                     </div>
                                     <Tooltip title={item.title}>
-                                        <p className="truncate text-sm font-medium">{item.title}</p>
+                                        {item.source === "agent-run" ? (
+                                            <Link to={`/toiv/runs/${encodeURIComponent(item.id)}`} className="truncate text-sm font-medium underline-offset-2 hover:underline">
+                                                {item.title}
+                                            </Link>
+                                        ) : (
+                                            <p className="truncate text-sm font-medium">{item.title}</p>
+                                        )}
                                     </Tooltip>
                                     <p className="mt-0.5 text-xs text-muted-foreground">{item.detail}</p>
                                 </div>
