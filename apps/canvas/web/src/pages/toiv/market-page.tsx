@@ -580,9 +580,9 @@ export default function MarketPage() {
             <header className="flex items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">工具箱</h1>
-                    <p className="text-sm text-muted-foreground">应用市场 · 与 web「工具箱」同入口</p>
+                    <p className="text-sm text-muted-foreground">应用市场 · 生成能力即取即用</p>
                     <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">
-                        ToIV 创作应用（原生页：列表 / 筛选 / 详情 / 运行 → 任务中心）
+                        应用（列表 / 筛选 / 详情 / 运行 → 任务中心）
                     </p>
                 </div>
                 <div className="flex items-center gap-2">

@@ -61,7 +61,7 @@ export default function DramaPage() {
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">短剧工作台</h1>
-                    <p className="text-xs leading-5 text-muted-foreground">ToIV 短剧项目与分镜管线（实时域：/api/studio/projects；详情在原工作台打开）</p>
+                    <p className="text-xs leading-5 text-muted-foreground">剧本 → 资产 → 分镜 → 镜头 → 时间线 → 成片,打开项目进六段工作区</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
