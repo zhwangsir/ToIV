@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T17:20:00+08:00",
+  "updated_at": "2026-10-11T18:00:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14900,5 +14900,20 @@
       "duck 滤镜图本地烟测通过后上生产"
     ],
     "updated_at": "2026-10-11T17:20:00+08:00"
+  },
+  "s11_lipsync_2026_10_11": {
+    "status": "s11_deployed_e2e_pass",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "对口型产品化(S11):镜头段 voiced 镜「对口型」按钮(LatentSync 产物覆盖 final_clip,lipsynced 状态)+严格版 lipsyncShotStrict(错误透出);后端 _download 补 /api/images worker 拉取分支(自取 401,字幕批 lesson 复用)",
+    "commits": [
+      "aa7a68dc 前端按钮+严格 client",
+      "worker 拉取分支 fix"
+    ],
+    "e2e": "wineryz:idx4(已配音镜)lipsync 200/4.4s→status=lipsynced+final_clip=972b0269….mp4(Studio 文件域)",
+    "updated_at": "2026-10-11T18:00:00+08:00"
   }
 }

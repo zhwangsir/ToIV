@@ -1,3 +1,4 @@
+- 2026-10-11 **S11 对口型产品化**（ToIV开发）：voiced 镜按钮+LatentSync final_clip 覆盖;_download 补 worker 分支(401 同课);生产 idx4 lipsynced 4.4s;status=`s11_deployed_e2e_pass`；updated_at 2026-10-11T18:00:00+08:00。
 - 2026-10-11 **S10 音频批**（ToIV开发）：`18c40161` sfx 素材库(8 音效 ffmpeg 合成)+mix BGM 语义(逐路增益+对白优先 ducking);生产 tts+sfx+mix 全链混音 4.11s 产物可下载;3 测试;status=`s10_deployed_e2e_pass`；updated_at 2026-10-11T17:20:00+08:00。
 - 2026-10-11 **S9 字幕对齐**（ToIV开发）：whisper 逐词→cue 聚合+混合对齐;SRT 外挂+内嵌双出;生产:配音 2.2s→SRT 1 条(0-3.08s 台词文本)→内嵌 mp4 6.58s 可下载;产物解析三修(worker 拉字节);status=`s9_subtitles_deployed_e2e_pass`；updated_at 2026-10-11T16:15:00+08:00。
 - 2026-10-11 **W2.7 断点续跑**（ToIV开发）：`9d68f584` 重渲染保留 done 候选只补缺口+指纹写入;生产两证(零重复提交/只补 2 缺口 15min 全回写);11 测试;status=`w2_7_deployed_e2e_pass`；updated_at 2026-10-11T20:30:00+08:00。

@@ -181,6 +181,10 @@ S1 ──► S2 ──► S3 ──► S4        （壳迁移线，前端为主�
 - ✅ mix 扩展 BGM 语义：逐路 `gains_db` 增益 + `duck=true` 对白优先（sidechaincompress 副路让位）。3 测试绿。
 - 生产 E2E：tts（小周台词 4.11s）+ sfx（rain 循环 8s）+ mix（-16dB duck）→ 混音产物 HTTP 200 可下载。
 
+### S11 对口型产品化（2026-10-11）
+- ✅ 镜头段 voiced 镜「对口型」按钮（LatentSync 产物覆盖 final_clip、lipsynced 状态）+严格版错误透出；后端 `_download` 补 `/api/images` worker 拉取分支（自取 401，字幕批同课）。
+- 生产 E2E：idx4（已配音镜）lipsync 200/4.4s → `lipsynced` + final_clip 落 Studio 文件域。
+
 ## 8. 变更记录
 
 - 2026-10-10 v1：初版（依据 UNIFIED_PLATFORM_PLAN_20261010.md 生成；13 商业+12 开源调研+本地摸底）。
