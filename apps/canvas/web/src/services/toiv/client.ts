@@ -1016,7 +1016,7 @@ export interface UploadImageHandle {
 /** POST /api/upload?kind=…(multipart file):上传源图,返回文件名+worker 句柄。 */
 export async function uploadToivImage(file: File, kind = "img2img"): Promise<UploadImageHandle> {
     const fd = new FormData();
-    fd.append("file", file);
+    fd.append("image", file);
     const { data } = await toivHttp.post(`/upload?kind=${encodeURIComponent(kind)}`, fd, { timeout: 300_000 });
     return data;
 }
