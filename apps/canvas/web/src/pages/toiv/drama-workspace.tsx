@@ -324,7 +324,7 @@ export default function DramaWorkspacePage() {
         } finally {
             setTlSaving(false);
         }
-    }, [id, tlShots, tlDuration, load]);
+    }, [id, tlShots, tlDuration, tlSeam, load]);
 
     // ---- W2.2: 多视角分镜扩展(配景) ----
     const [frameBusy, setFrameBusy] = useState<Set<string>>(new Set());
