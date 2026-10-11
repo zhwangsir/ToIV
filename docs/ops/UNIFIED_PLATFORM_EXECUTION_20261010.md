@@ -139,6 +139,12 @@ S1 ──► S2 ──► S3 ──► S4        （壳迁移线，前端为主�
 - ✅ W1.2 lite：项目卡默认进 v2 工作区；设定卡空态文案修正。
 - 已知：测试项目两角色设定卡均被内容门禁拒（二次元=徽标 inpaint；古风=底图 768<803 需宽源/outpaint，10-05 同类）→ 设定卡线质量工作另立。
 
+### S5 首靶（2026-10-11，缺陷修复+闭环）
+- ✅ `render_reconcile`：Job 终态 → 镜回写（done→候选 url+rendered+自动 is_picked；error→镜 error；惰性挂详情读取=UI 轮询即自愈 + 启动全量）。
+- ✅ 异步多候选解禁：wait=false 串行登记 n Job + queued 候选落库（原强制单候选）。
+- ✅ 两处追修（实测暴露）：收口竞态（回写先于僵尸收口+僵尸跳过 Job 在身镜）；回写检索键改「candidates 含 queued」（与镜状态解耦）。
+- ✅ 生产 E2E 三站：僵死 #5 自愈找回产物 → 真双候选（异 seed 双 Job）逐条回写 → chips+选为成片（video/final_clip 切换+is_picked 转移）。9 测试绿；`defect_async_multicand_writeback` 核销。
+
 ## 8. 变更记录
 
 - 2026-10-10 v1：初版（依据 UNIFIED_PLATFORM_PLAN_20261010.md 生成；13 商业+12 开源调研+本地摸底）。
