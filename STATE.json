@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T18:40:00+08:00",
+  "updated_at": "2026-10-11T19:45:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14970,5 +14970,16 @@
     "summary": "应用户要求对 S1-S14「全部走完」做全面复核。实证通过:①服务全活(canvas-api-pg 是 systemd --user 单元,系统层查 inactive 是查询错误);②web BUILD_ID=bf96f93a(其后提交均 docs);③API 端点面 10+ 实弹在线(分页 X-Total-Count=6731+未知query 422/workflow-templates 6 模板/studio assets/jobs/subtitles/orchestrate/c-chains/lipsync/frame-variants/sheet-async);④W2.2 修复已部署(studio.py:635 函数内 import);⑤canvas 包含 v2 全部功能串(对口型6包/AI配景/衔接4/任务中心11/分镜22/时间线12);⑥PG 账本:pipeline_c done×9/script_parse×3/frame_variants×2/audio_orchestrate×2/48镜27候选/Entity×24;⑦canvas tsc 零错;⑧桌面冒烟 ok=true。发现三个真问题:A.[测试债]本地+core 双环境全量套 106 failed/4023 passed——三重仲裁定论为存量债(10-10 pre-v2 提交 15f1816c 同样失败,非 S1-S14 引入):主根因单一=422 处理器对 Pydantic v2 ctx 内 ValueError 对象 JSON 序列化炸 TypeError(无效输入 500 化,校验仍在拦非安全洞),次因 builtin 应用不可变守卫 200==403 等行为漂移;建议立测试债清理批(修 handler 一处预计消大半)。B.[设定卡异步 0 成功样本]两发复测闭环均正常(queued→running→生成→结构化报错),但被质量门禁连拒(大块色块 stdev=0/正面脸高占比 0.328<0.35)——与已登记设定卡质量债同源,基建已修复,成功样本待质量侧解。C.[记账瑕疵]s12_r18 条目 updated_at 超前(20:10);web BUILD_ID 带 -dirty 后缀。",
     "e2e": "core venv 复现 4 用例失败;git worktree 15f1816c(pre-v2)复现同样失败;106 失败分类统计:ValueError 序列化 TypeError 为最大族",
     "updated_at": "2026-10-11T18:40:00+08:00"
+  },
+  "fusion_f1_batch_2026_10_11": {
+    "status": "deployed_verified_lan",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "融合 F1 第一批(用户拍板「主要任务是融合,把未完全融合的内容解决掉」):①canvas 侧栏拆「ToIV 创作」分组——短剧工作台/智能体对话升一级(双入口等价),其余按平台功能平铺(首页→短剧→智能体→项目→媒体库→工具箱→任务中心→模型配置),生产 bundle 实证新序+零旧分组;②经典侧 studio/entities/resources 三视图退役(EXTERNAL_VIEW_REDIRECTS 深链整页跳 /studio 对应页,连同 dramaStudio/manju/drama/models/train/backlot 旧别名),VALID_VIEWS 15→12;③做短剧 CTA(左栏/底部/融合卡)改指 /studio/toiv/drama,动态分镜解析成功直开 /studio/toiv/ws/:id;④市场/短剧页副标题去「与 web 同入口/原工作台/ToIV 创作」双项目措辞;⑤修 3 处导航断言过期(S12 遗留 fusion/canvas 2 挂+SliceB 字面量 1 挂),web 套 1162 测 1158 过(余 4 挂为预存基线:F1 零新增);⑥竞态修:entry.json cutover 探测跳过被 EXTERNAL 接管的深链。保留未动:agent-runs(计划确认门未迁)、animatic/dub/audio/imageEdit/videoEdit(M2/M3 待迁)、R18 壳(image/video/market/library/avatartalk/settings,决策 A 内)、entry.json 探测(融合机制本体)、BeefAPI 连接器名与 .beeftv-plugin 包格式(协议兼容)。web 测试债提醒:app 侧 106 失败根因之一 422 序列化未修(另一线)。",
+    "e2e": "生产 LAN(192.168.71.47):playwright 带 token+cookie 预热后 5 深链全 PASS(?view=studio|entities|dramaStudio→/studio/toiv/drama,?view=resources|models→/studio/settings?section=channels);无 cookie 首访经 /studio 302→home→探测→exchange→/studio 根(既有门行为,登记不修);web BUILD 54d1bd2e;canvas dist 新导航序实证",
+    "updated_at": "2026-10-11T19:45:00+08:00"
   }
 }
