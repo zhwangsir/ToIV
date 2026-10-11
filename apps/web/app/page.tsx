@@ -114,6 +114,8 @@ const EXTERNAL_VIEW_REDIRECTS: Record<string, string> = {
   studio: "/studio/toiv/drama",
   // F3(2026-10-11):animatic 退役——AI 解析入口=canvas 短剧列表「从图片创建」(StudioProject 域)
   animatic: "/studio/toiv/drama",
+  // F4(2026-10-11):audio 退役——三工具(配音/听写/分离)迁 canvas /toiv/audio;文生音乐走应用市场
+  audio: "/studio/toiv/audio",
   entities: "/studio/toiv/drama",
   resources: "/studio/settings?section=channels",
   dramaStudio: "/studio/toiv/drama",
@@ -239,7 +241,6 @@ const VALID_VIEWS = new Set<View>([
   "home",
   "image",
   "video",
-  "audio",
   "imageEdit",
   "videoEdit",
   "avatartalk",
@@ -299,10 +300,9 @@ const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
 const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
   // 2026-10-01:工具箱二级 — 生图/生视频/音频等从主栏下沉
   // Slice B #13: Generate 文案下沉「工具箱·引擎台」
-  // F1(2026-10-11):resources/entities 退役跳 canvas,抽屉不再承载
+  // F1:resources/entities;F3:animatic;F4:audio 退役跳 canvas,抽屉不再承载
   { key: "image", label: NAV_LABELS.imageMore, icon: "image" },
   { key: "video", label: NAV_LABELS.videoMore, icon: "video" },
-  { key: "audio", label: NAV_LABELS.audioMore, icon: "audio" },
   { key: "agent-runs", label: "任务", icon: "workflow" },
   { key: "settings", label: NAV_LABELS.settings, icon: "settings" },
 ];

@@ -260,8 +260,8 @@ test("page.tsx 导航去重:audio 下沉「更多」抽屉,底部主导航不再
   const src = readSrc("app/page.tsx");
   const navBlock = src.slice(src.indexOf("const BOTTOM_NAV_ITEMS"), src.indexOf("const BOTTOM_NAV_MORE_ITEMS"));
   const moreBlock = src.slice(src.indexOf("const BOTTOM_NAV_MORE_ITEMS"));
-  assert.ok(!navBlock.includes('key: "audio"'), "audio 已下沉抽屉,底部主导航不应重复");
-  assert.ok(moreBlock.includes('key: "audio"'), "「更多」抽屉缺 audio 入口");
+  assert.ok(!navBlock.includes('key: "audio"'), "audio 已退役(F4 跳 canvas),底部主导航不应出现");
+  assert.ok(!moreBlock.includes('key: "audio"'), "F4 后 audio 不应留在「更多」抽屉");
 });
 
 test("page.tsx 导航去重:fusion 卡五目标不在「更多」抽屉重复(2026-08-31 二轮精简)", () => {
@@ -274,12 +274,12 @@ test("page.tsx 导航去重:fusion 卡五目标不在「更多」抽屉重复(20
       `${key} 已由融合卡承载,「更多」抽屉不应重复`,
     );
   }
-  // 非 fusion 目标保留:audio/settings
-  // (S12:fusion/canvas 视图退役;F1:resources/entities;F3:animatic 退役跳 canvas)
-  for (const key of ["audio", "settings"]) {
+  // 非 fusion 目标保留:settings
+  // (S12:fusion/canvas;F1:resources/entities;F3:animatic;F4:audio 退役跳 canvas)
+  for (const key of ["settings"]) {
     assert.ok(moreBlock.includes(`key: "${key}"`), `「更多」抽屉缺 ${key} 入口`);
   }
-  for (const key of ["fusion", "canvas", "resources", "entities", "animatic"]) {
+  for (const key of ["fusion", "canvas", "resources", "entities", "animatic", "audio"]) {
     assert.ok(!moreBlock.includes(`key: "${key}"`), `「更多」抽屉不应再含退役入口 ${key}`);
   }
 });

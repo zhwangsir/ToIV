@@ -929,3 +929,79 @@ export async function createAnimaticStitch(form: {
     const { data } = await toivHttp.post("/animatic", fd, { timeout: 300_000 });
     return data;
 }
+
+// ---- F4(2026-10-11):音频工具(自经典 AudioView 编辑三工具迁入) ----
+
+export interface VoiceSynthResult {
+    url: string;
+    name: string;
+    duration_sec: number;
+}
+
+/** POST /api/manju/voice:文本 → IndexTTS2 语音;refAudioUrl 传参考音则克隆音色。 */
+export async function synthVoice(body: { text: string; emo_text?: string; emo_alpha?: number; ref_audio_url?: string }): Promise<VoiceSynthResult> {
+    const { data } = await toivHttp.post("/manju/voice", body, { timeout: 180_000 });
+    return data;
+}
+
+/** POST /api/manju/voice-ref multipart(audio):参考音上传(ffmpeg 归一为 wav)。 */
+export async function uploadVoiceRefAudio(file: File): Promise<VoiceSynthResult> {
+    const fd = new FormData();
+    fd.append("audio", file);
+    const { data } = await toivHttp.post("/manju/voice-ref", fd, { timeout: 120_000 });
+    return data;
+}
+
+export interface DubSegment {
+    index: number;
+    start: number;
+    end: number;
+    text: string;
+}
+
+export interface DubTranscribeStatus {
+    status: "running" | "done" | "error" | "canceled";
+    stage: string;
+    count: number;
+    segments: DubSegment[];
+    error: string | null;
+    progress: number;
+    elapsed: number;
+}
+
+/** POST /api/dub/upload multipart(video):长音视频流式落盘(带上传进度)。 */
+export async function uploadDubMedia(file: File, onProgress?: (pct: number) => void): Promise<{ name: string }> {
+    const fd = new FormData();
+    fd.append("video", file);
+    const { data } = await toivHttp.post("/dub/upload", fd, {
+        timeout: 600_000,
+        onUploadProgress: (e) => {
+            if (onProgress && e.total) onProgress(Math.round((e.loaded / e.total) * 100));
+        },
+    });
+    return data;
+}
+
+/** POST /api/dub/transcribe {name} → {job_id}(后台 whisper 听写)。 */
+export async function startDubTranscribe(name: string): Promise<{ job_id: string }> {
+    const { data } = await toivHttp.post("/dub/transcribe", { name }, { timeout: 30_000 });
+    return data;
+}
+
+export async function pollDubTranscribe(jobId: string): Promise<DubTranscribeStatus> {
+    const { data } = await toivHttp.get(`/dub/transcribe/${encodeURIComponent(jobId)}`, { timeout: 30_000 });
+    return data;
+}
+
+export interface AudioSeparateResult {
+    url: string;
+    duration_sec: number | null;
+}
+
+/** POST /api/audio/separate multipart(file):Demucs 人声分离 → 干声 wav。 */
+export async function separateAudioFile(file: File): Promise<AudioSeparateResult> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const { data } = await toivHttp.post("/audio/separate", fd, { timeout: 180_000 });
+    return data;
+}
