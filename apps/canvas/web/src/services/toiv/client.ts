@@ -496,8 +496,9 @@ export async function triggerShotLipsync(shotId: string): Promise<boolean> {
 export type ToivCharacterSheet = {
     style: string;
     sheet_url: string;
-    panel_urls?: string[];
-    mtime?: string;
+    /** 分格图:键为 portrait/front/side/back 等(后端键值对象,非数组) */
+    panel_urls?: Record<string, string>;
+    mtime?: string | number;
 };
 
 export async function fetchCharacterSheets(cid: string): Promise<ToivCharacterSheet[]> {

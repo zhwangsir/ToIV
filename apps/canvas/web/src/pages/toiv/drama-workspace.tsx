@@ -565,7 +565,10 @@ export default function DramaWorkspacePage() {
                                                     icon={<Check />}
                                                     label={adopting === sh.style ? "采用中…" : "采用为参考图"}
                                                     loading={adopting === sh.style}
-                                                    onClick={() => void adoptSheet(sheetChar.id, sh.style, (sh.panel_urls ?? []).length > 0 ? (sh.panel_urls ?? []) : [sh.sheet_url])}
+                                                    onClick={() => {
+                                                        const panels = sh.panel_urls ? Object.values(sh.panel_urls) : [];
+                                                        void adoptSheet(sheetChar.id, sh.style, panels.length > 0 ? panels : [sh.sheet_url]);
+                                                    }}
                                                 />
                                                 <ToolButton
                                                     size="xs"
