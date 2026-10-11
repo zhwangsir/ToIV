@@ -158,6 +158,11 @@ S1 ──► S2 ──► S3 ──► S4        （壳迁移线，前端为主�
 - ✅ API：清单/详情/激活切换（管理员；同 engine|mode 单激活；状态落 app/data）。生产实测：清单/切换/状态文件核验。
 - 备注：fl2va 与 ref2va 共享 engine|mode 键互斥默认；如需并存改键为 engine|family|mode（已记 STATE）。
 
+### W2.5 机位树 lite（2026-10-11）
+- ✅ seam_to_next=continue 选路消费：未显式指定管线时本镜自动走 c 续写（context 接上一镜 picked 候选；素材缺失安全降级独立镜）。对照单测（continue→c / 硬切→ref2va）。
+- ✅ 时间线 seam 选择器（硬切/续写/匹配切/重叠）随保存持久化；实测抓出并修 tlSave stale closure（依赖漏 tlSeam）。
+- ✅ 生产 E2E：idx4 seam=continue 持久化 → idx5 渲染（Job studio_pipeline_c）→ 12min 完成自动回写。
+
 ## 8. 变更记录
 
 - 2026-10-10 v1：初版（依据 UNIFIED_PLATFORM_PLAN_20261010.md 生成；13 商业+12 开源调研+本地摸底）。

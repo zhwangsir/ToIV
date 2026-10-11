@@ -1,3 +1,4 @@
+- 2026-10-11 **W2.5 机位树 lite**（ToIV开发）：seam=continue 选路消费+时间线 seam 选择器;实测抓出并修 tlSave stale closure;生产 seam 持久化+idx5 渲染 12min 完成自动回写;status=`w2_5_deployed_e2e_pass`；updated_at 2026-10-11T18:10:00+08:00。
 - 2026-10-11 **W2.4 工作流模板库**（ToIV开发）：`c9804cb3` 6 模板 node_mapping 声明式注册(值取真实构建器)+清单/详情/激活 API+防漂移测试;生产清单/切换/状态文件全验;status=`w2_4_deployed_e2e_pass`；updated_at 2026-10-11T17:05:00+08:00。
 - 2026-10-11 **S9 正式时间线(排序/时长)**（ToIV开发）：`ad2fa71d` ↑↓换位+时长编辑+保存(PUT 全量);实弹换序/改时长/状态保留全验;status=`s9_timeline_editing_e2e_pass`；updated_at 2026-10-11T16:20:00+08:00。
 - 2026-10-11 **W2.2 多视角分镜扩展**（ToIV开发）：AI 配景(单角色参考图→远/中/近三景别,异步 Job);实测抓出并修 except-NameError 协程暴毙+401 取图两真因;生产 50s 出 3 图+分镜表缩略图;status=`w2_2_deployed_e2e_pass`；updated_at 2026-10-11T15:20:00+08:00。

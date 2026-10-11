@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T17:05:00+08:00",
+  "updated_at": "2026-10-11T18:10:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14811,5 +14811,24 @@
       "fl2va t2v/i2v 与 ref2va single/first_last 共享 engine|mode 键导致互斥默认(ref2va 胜出);后续若需 fl2va 激活,键改 engine|family|mode 即可(已记)"
     ],
     "updated_at": "2026-10-11T17:05:00+08:00"
+  },
+  "w2_5_seam_continuity_2026_10_11": {
+    "status": "w2_5_deployed_e2e_pass",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "机位树 lite(W2.5):①选路消费——未显式指定管线时,上一镜 seam_to_next=continue → 本镜自动走 c(MotionContext 续写;context_latent 接既有『上一镜 picked 候选』链;素材缺失安全降级独立镜不炸);②时间线 seam 选择器(硬切/续写/匹配切/重叠)随「保存排序与时长」PUT 持久化",
+    "commits": [
+      "96cd3546 选路+选择器+对照测试(10 绿)",
+      "07474c44 stale closure 修(tlSave 依赖漏 tlSeam,实测 GET 仍 hardcut 暴露)"
+    ],
+    "e2e": "wineryz:idx4 微波炉 seam=continue 持久化(GET 复核)→idx5 暖柜提交渲染(未显式管线)→Job studio_pipeline_c→约 12min 渲完→render_reconciler 自动回写 rendered+video(94d829d7_6_59141.mp4);context 素材因上一镜为 ref2va 无存档而降级独立镜(符合机位树语义:有素材续/无素材独立)",
+    "lessons": [
+      "useCallback 依赖漏 state 字段=stale closure 保存回落旧值——编辑器类组件依赖数组要全列",
+      "机位树 lite 的降级语义(缺素材不炸)是拼接路线可用性的关键"
+    ],
+    "updated_at": "2026-10-11T18:10:00+08:00"
   }
 }
