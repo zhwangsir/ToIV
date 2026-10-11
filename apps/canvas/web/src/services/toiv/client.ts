@@ -665,3 +665,14 @@ export async function createStudioCharacter(
 export async function patchStudioProject(pid: string, patch: { premise?: string; style?: string }): Promise<void> {
     await toivHttp.patch(`/studio/projects/${encodeURIComponent(pid)}`, patch, { timeout: 15_000 });
 }
+
+/** W1.3(2026-10-11):严格版设定卡生成——失败抛错(带后端 detail),供工作区透出;
+ * 旧 triggerSheetRegen 吞错返回 boolean 的行为保留(drama-detail 既有契约)。 */
+export async function generateCharacterSheetStrict(cid: string, style: string): Promise<void> {
+    try {
+        await toivHttp.post(`/studio/characters/${encodeURIComponent(cid)}/character-sheet`, { style }, { timeout: 3600_000 });
+    } catch (e) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        throw new Error(detail || "设定卡生成失败(可能未过内部质检门禁,可重试)");
+    }
+}

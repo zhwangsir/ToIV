@@ -19,12 +19,12 @@ import {
     createStudioCharacter,
     fetchCharacterSheets,
     fetchDramaProject,
+    generateCharacterSheetStrict,
     patchStudioProject,
     pollScriptParse,
     saveStudioShots,
     submitScriptParse,
     triggerBatchRender,
-    triggerSheetRegen,
     triggerShotRender,
     triggerShotVoice,
     type ToivCharacterSheet,
@@ -130,10 +130,12 @@ export default function DramaWorkspacePage() {
     const [sheets, setSheets] = useState<ToivCharacterSheet[]>([]);
     const [sheetsLoading, setSheetsLoading] = useState(false);
     const [regenStyle, setRegenStyle] = useState<string | null>(null);
+    const [sheetError, setSheetError] = useState<string | null>(null);
 
     const openSheets = useCallback(async (c: ToivDramaCharacter) => {
         setSheetChar(c);
         setSheets([]);
+        setSheetError(null);
         setSheetsLoading(true);
         try {
             setSheets(await fetchCharacterSheets(c.id));
@@ -146,9 +148,12 @@ export default function DramaWorkspacePage() {
 
     const regenSheet = useCallback(async (cid: string, style: string) => {
         setRegenStyle(style);
+        setSheetError(null);
         try {
-            await triggerSheetRegen(cid, style);
+            await generateCharacterSheetStrict(cid, style);
             setSheets(await fetchCharacterSheets(cid));
+        } catch (e) {
+            setSheetError(e instanceof Error ? e.message : "设定卡生成失败");
         } finally {
             setRegenStyle(null);
         }
@@ -492,6 +497,11 @@ export default function DramaWorkspacePage() {
                         )}
                         <div className="flex flex-col gap-2">
                             <span className="text-xs font-medium text-foreground">设定卡（{sheets.length}）</span>
+                            {sheetError && (
+                                <p className="rounded-lg border border-[var(--border)] bg-[var(--muted,rgba(255,255,255,0.05))] p-2.5 text-xs text-[var(--danger,#e5484d)]">
+                                    {sheetError}
+                                </p>
+                            )}
                             {sheetsLoading ? (
                                 <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="加载中" />
                             ) : sheets.length === 0 ? (
