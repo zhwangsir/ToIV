@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T19:45:00+08:00",
+  "updated_at": "2026-10-11T21:05:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14981,5 +14981,16 @@
     "summary": "融合 F1 第一批(用户拍板「主要任务是融合,把未完全融合的内容解决掉」):①canvas 侧栏拆「ToIV 创作」分组——短剧工作台/智能体对话升一级(双入口等价),其余按平台功能平铺(首页→短剧→智能体→项目→媒体库→工具箱→任务中心→模型配置),生产 bundle 实证新序+零旧分组;②经典侧 studio/entities/resources 三视图退役(EXTERNAL_VIEW_REDIRECTS 深链整页跳 /studio 对应页,连同 dramaStudio/manju/drama/models/train/backlot 旧别名),VALID_VIEWS 15→12;③做短剧 CTA(左栏/底部/融合卡)改指 /studio/toiv/drama,动态分镜解析成功直开 /studio/toiv/ws/:id;④市场/短剧页副标题去「与 web 同入口/原工作台/ToIV 创作」双项目措辞;⑤修 3 处导航断言过期(S12 遗留 fusion/canvas 2 挂+SliceB 字面量 1 挂),web 套 1162 测 1158 过(余 4 挂为预存基线:F1 零新增);⑥竞态修:entry.json cutover 探测跳过被 EXTERNAL 接管的深链。保留未动:agent-runs(计划确认门未迁)、animatic/dub/audio/imageEdit/videoEdit(M2/M3 待迁)、R18 壳(image/video/market/library/avatartalk/settings,决策 A 内)、entry.json 探测(融合机制本体)、BeefAPI 连接器名与 .beeftv-plugin 包格式(协议兼容)。web 测试债提醒:app 侧 106 失败根因之一 422 序列化未修(另一线)。",
     "e2e": "生产 LAN(192.168.71.47):playwright 带 token+cookie 预热后 5 深链全 PASS(?view=studio|entities|dramaStudio→/studio/toiv/drama,?view=resources|models→/studio/settings?section=channels);无 cookie 首访经 /studio 302→home→探测→exchange→/studio 根(既有门行为,登记不修);web BUILD 54d1bd2e;canvas dist 新导航序实证",
     "updated_at": "2026-10-11T19:45:00+08:00"
+  },
+  "fusion_f2_agent_runs_2026_10_11": {
+    "status": "deployed_verified_lan",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "融合 F2:智能体任务(agent-runs)全功能迁入 canvas,经典侧退役。①canvas 新增 services/toiv/agent-runs.ts(10 端点+类型+SSE token 查询参数 URL+媒体 token URL+展示元数据,契约与经典 lib/api 对齐后端零改动);②新页 /toiv/runs/:id(SSE 断线退避重连≤5 次超限降级 5s 轮询/计划确认门=增删改+approve/modify/reject/任务卡干预=approve/regenerate带引导词/edit文案/换产物直传/合成确认门含时间线清单/成片播放/事件汇报流);③任务中心增强=大目标直建(L0 秒回提示转对话/L1L2 直跳详情)+智能体条目可点进详情;④经典 /agent-runs 列表与 [runId] 页退役为 redirect(→/studio/toiv/tasks 与 /studio/toiv/runs/:id),抽屉入口改指,「更多」抽屉 agent-runs 键保留;⑤e2e 规格+3 处单测断言同步(uiLayoutBatch2 页面源码断言改转发契约/autoResizeInputs 接线清单 17→16/appsViews 抽屉断言)。web 套 1158/1162(4 挂=预存基线,F2 零新增);canvas tsc 零错。经典组件树(components/agent-run/*)保留(深链经 redirect,不再渲染);「在对话中继续」草稿通道与 PipelineView 泳道形态未随迁(经典专属,登记小开口)。",
+    "e2e": "生产 LAN:playwright 带 token+cookie 预热——/agent-runs→/studio/toiv/tasks ✓;/agent-runs/7f4a58f3(真实 run)→/studio/toiv/runs/7f4a58f3 ✓ 详情页渲染(任务列表/事件流在位);/studio/toiv/tasks 含「创建并拆解」入口 ✓;web BUILD e656d945",
+    "updated_at": "2026-10-11T21:05:00+08:00"
   }
 }
