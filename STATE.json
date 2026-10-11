@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T18:00:00+08:00",
+  "updated_at": "2026-10-11T19:00:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14915,5 +14915,16 @@
     ],
     "e2e": "wineryz:idx4(已配音镜)lipsync 200/4.4s→status=lipsynced+final_clip=972b0269….mp4(Studio 文件域)",
     "updated_at": "2026-10-11T18:00:00+08:00"
+  },
+  "s12_convergence_step1_2026_10_11": {
+    "status": "s12_step1_delivered_r18_pending",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "收敛批第一步:①经典 web 17+2 视图逐视图处置清单落档 docs/ops/CLASSIC_WEB_RETIREMENT_PLAN_20261011.md(退役3:fusion/canvas/nsfw;只读保留1:avatartalk 无对应;迁移12;settings 拆分;R18 渗透7视图,X-NSFW 机制经典侧独有,canvas 纯 SFW)——R18 去向三选项(A 保留经典只读壳/B canvas 增设 R18 模式/C 退役)已列给用户待拍板;②deploy.sh --all 单部署链路(api+web+canvas 一条命令,=--with-canvas 全量语义),实测三服务全 200",
+    "token_unified": "apps.css P-2b 约束复核通过(apps-studio 起零 hex,898-903 渐变色标在区段前且属函数参数);经典22个手写CSS×canvas tailwind 双体系统一按计划归 P4 渐进(逐视图退役时同步清)",
+    "updated_at": "2026-10-11T19:00:00+08:00"
   }
 }

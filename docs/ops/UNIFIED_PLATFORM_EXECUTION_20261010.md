@@ -185,6 +185,11 @@ S1 ──► S2 ──► S3 ──► S4        （壳迁移线，前端为主�
 - ✅ 镜头段 voiced 镜「对口型」按钮（LatentSync 产物覆盖 final_clip、lipsynced 状态）+严格版错误透出；后端 `_download` 补 `/api/images` worker 拉取分支（自取 401，字幕批同课）。
 - 生产 E2E：idx4（已配音镜）lipsync 200/4.4s → `lipsynced` + final_clip 落 Studio 文件域。
 
+### S12 收敛批·第一步（2026-10-11）
+- ✅ 视图处置清单落档 `CLASSIC_WEB_RETIREMENT_PLAN_20261011.md`（退役 3：fusion/canvas//nsfw；只读保留 1：avatartalk；迁移 12；settings 拆分）。**R18 去向三选项已列用户待拍板**（A 保留经典只读壳 / B canvas 增设 R18 模式 / C 退役）。
+- ✅ 单部署链路：`deploy.sh --all`（api+web+canvas 一条命令）；实测三服务全 200。
+- token 统一：P-2b 复核通过；双体系（经典手写 CSS × canvas tailwind）统一归 P4 随视图退役渐进执行。
+
 ## 8. 变更记录
 
 - 2026-10-10 v1：初版（依据 UNIFIED_PLATFORM_PLAN_20261010.md 生成；13 商业+12 开源调研+本地摸底）。

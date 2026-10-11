@@ -13,6 +13,7 @@
 #   deploy/deploy.sh --with-canvas   # 追加画布件:rsync apps/canvas → core 构建(canvas-api-pg 二进制
 #                                    # + /studio SPA dist)换装重启(M4-5 后 canvas 部署合一入口)
 #   deploy/deploy.sh --canvas-only   # 仅画布件(不动 toiv-api/toiv-web)
+#   deploy/deploy.sh --all           # S12 单部署链路:api + web + canvas 一条命令(等价 --with-canvas 全量)
 #
 # -E:ERR trap 在函数内失败时也生效(用于部署失败时打印回滚提示)
 set -eEuo pipefail
@@ -35,6 +36,7 @@ for arg in "$@"; do
     --rollback)    ROLLBACK=true ;;
     --with-canvas) WITH_CANVAS=true ;;
     --canvas-only) CANVAS_ONLY=true ;;
+    --all)         SKIP_WEB=${SKIP_WEB:-false}; WITH_CANVAS=true ;;
     *)             REMOTE="$arg" ;;
   esac
 done
