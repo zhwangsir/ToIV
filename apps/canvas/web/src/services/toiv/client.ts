@@ -855,3 +855,13 @@ export async function burnSubtitles(pid: string): Promise<{ video_url: string; s
         throw new Error(detail || "字幕内嵌失败");
     }
 }
+
+/** S11(2026-10-11): 严格版对口型(LatentSync 产物覆盖 final_clip;错误透出,旧 trigger 吞错保留) */
+export async function lipsyncShotStrict(sid: string): Promise<void> {
+    try {
+        await toivHttp.post(`/studio/shots/${encodeURIComponent(sid)}/lipsync`, undefined, { timeout: 1800_000 });
+    } catch (e) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        throw new Error(detail || "对口型失败");
+    }
+}

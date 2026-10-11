@@ -6,7 +6,7 @@
  * S3/S4 逐段把经典端能力迁进来，迁移齐后 W1.2 末步做路由对调。
  * 现在各段为只读骨架：头部项目状态 + 各段已有数据的轻量呈现 + 落地批次的说明。
  */
-import { ArrowDown, ArrowUp, BookOpen, Camera, Captions, Check, Clapperboard, Film, IdCard, Layers, ListOrdered, Loader2, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
+import { ArrowDown, ArrowUp, BookOpen, Camera, Captions, Check, Clapperboard, Film, IdCard, Layers, ListOrdered, Loader2, Mic, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
 import type { ToivFrameVariant, ToivSharedAsset } from "@/services/toiv/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
@@ -29,6 +29,7 @@ import {
     applySharedAsset,
     assembleStudioProject,
     buildSubtitles,
+    lipsyncShotStrict,
     burnSubtitles,
     fetchSharedAssets,
     pollFrameVariants,
@@ -460,6 +461,23 @@ export default function DramaWorkspacePage() {
             markBusy(sid, false);
         }
     }, [load]);
+    // ---- S11: 对口型(voiced 镜:LatentSync 产物覆盖 final_clip) ----
+    const [lipsyncBusy, setLipsyncBusy] = useState<Set<string>>(new Set());
+    const [lipsyncMsg, setLipsyncMsg] = useState<string | null>(null);
+    const runLipsync = useCallback(async (sid: string) => {
+        setLipsyncBusy((p) => new Set(p).add(sid));
+        setLipsyncMsg(null);
+        try {
+            await lipsyncShotStrict(sid);
+            await load();
+            setLipsyncMsg("对口型完成(final_clip 已更新)");
+        } catch (e) {
+            setRenderError(e instanceof Error ? e.message : "对口型失败");
+        } finally {
+            setLipsyncBusy((p) => { const n = new Set(p); n.delete(sid); return n; });
+        }
+    }, [load]);
+
     const runBatchRender = useCallback(async () => {
         if (!id) return;
         setBatchRendering(true);
@@ -785,6 +803,9 @@ export default function DramaWorkspacePage() {
                                                 {renderMsg}
                                             </p>
                                         )}
+                                        {lipsyncMsg && (
+                                            <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{lipsyncMsg}</p>
+                                        )}
                                         <ul className="flex flex-col gap-2">
                                             {shots.map((s) => {
                                                 const busy = busyShots.has(s.id);
@@ -826,6 +847,16 @@ export default function DramaWorkspacePage() {
                                                                 icon={<Volume2 />}
                                                                 label={busy ? "配音中…" : "配音"}
                                                                 onClick={() => void runShotVoice(s.id)}
+                                                            />
+                                                        )}
+                                                        {s.voice_url && !["lipsyncing", "lipsynced"].includes(s.status) && (
+                                                            <ToolButton
+                                                                size="xs"
+                                                                variant="ghost"
+                                                                icon={<Mic />}
+                                                                label={lipsyncBusy.has(s.id) ? "对口型中…" : "对口型"}
+                                                                loading={lipsyncBusy.has(s.id)}
+                                                                onClick={() => void runLipsync(s.id)}
                                                             />
                                                         )}
                                                         {canRender && (
