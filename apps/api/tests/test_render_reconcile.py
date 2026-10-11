@@ -207,3 +207,27 @@ def test_zombie_reconcile_skips_job_backed_shots(ctx):
         rows = s.exec(select(StudioShot)).all()
         assert n == 1  # 只收孤儿
         assert {r.status for r in rows} == {"error", "rendering"}
+
+
+def test_reconcile_fills_remaining_candidate_after_rendered(ctx):
+    """S5 追修:首候选已自愈置 rendered 后,剩余 queued 候选仍须继续回写(不扰动已选)。"""
+    engine, pid, _ = ctx
+    with Session(engine) as s:
+        jd = _mk_job(s, "done", results=["/api/images?filename=first.mp4"])
+        j2 = _mk_job(s, "done", results=["/api/images?filename=second.mp4"])
+        cands = [
+            {"id": "c1", "url": "/api/images?filename=first.mp4", "status": "done",
+             "is_picked": True, "db_job_id": jd.id},
+            {"id": "c2", "url": "", "status": "queued", "is_picked": False, "db_job_id": j2.id},
+        ]
+        sh = _mk_shot(s, pid, status="rendered", cands=cands)
+        sh.video_url = "/api/images?filename=first.mp4"
+        s.add(sh); s.commit()
+        n = reconcile_project_renders(s, pid)
+        s.refresh(sh)
+        out = json.loads(sh.candidates_json)
+        assert n == 1
+        assert out[1]["status"] == "done" and out[1]["url"].endswith("second.mp4")
+        # 已选不扰动
+        assert out[0]["is_picked"] is True and out[1]["is_picked"] is False
+        assert sh.status == "rendered" and sh.video_url.endswith("first.mp4")

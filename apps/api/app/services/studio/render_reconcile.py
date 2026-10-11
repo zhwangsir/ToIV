@@ -100,11 +100,15 @@ def _reconcile_shot(session: Session, shot: StudioShot) -> bool:
 
 
 def reconcile_project_renders(session: Session, project_id: str) -> int:
-    """惰性通道:项目详情读取时按项目 reconcile(渲染期 UI 10s 轮询即自愈)。"""
+    """惰性通道:项目详情读取时按项目 reconcile(渲染期 UI 10s 轮询即自愈)。
+
+    S5 追修:检索键=candidates 含 queued(而非镜 status=rendering)——首个候选
+    自愈置 rendered 后,剩余 queued 候选仍须继续回写(实测候选2被晾 12min)。
+    """
     shots = session.exec(
         select(StudioShot).where(
             StudioShot.project_id == project_id,
-            StudioShot.status == "rendering",  # type: ignore[attr-defined]
+            StudioShot.candidates_json.contains('"queued"'),  # type: ignore[attr-defined]
         )
     ).all()
     n = 0
@@ -118,10 +122,10 @@ def reconcile_project_renders(session: Session, project_id: str) -> int:
 
 
 def reconcile_all_renders(session: Session) -> int:
-    """启动通道:api 启动时全量 reconcile(渲染中且带 queued 候选的镜)。"""
+    """启动通道:api 启动时全量 reconcile(带 queued 候选的镜,不限镜状态)。"""
     shots = session.exec(
         select(StudioShot).where(
-            StudioShot.status == "rendering",  # type: ignore[attr-defined]
+            StudioShot.candidates_json.contains('"queued"'),  # type: ignore[attr-defined]
         )
     ).all()
     n = 0
