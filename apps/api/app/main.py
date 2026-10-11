@@ -166,6 +166,7 @@ async def lifespan(app: FastAPI):
     from app.routes import studio as studio_routes
 
     studio_routes.reconcile_parse_jobs()
+    studio_routes.reconcile_stuck_renders()
     # 主体库三视图收口:generating 主体按 params 快照 entity_id 反查作业重挂回写/标 error
     from app.routes import entities as entities_routes
 

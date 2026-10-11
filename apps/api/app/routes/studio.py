@@ -1262,6 +1262,37 @@ async def _run_script_parse(job_id: str, pid: str, body: ScriptParseRequest) -> 
         _finish("error", {"error": f"拆解失败:{e}"})
 
 
+def reconcile_stuck_renders() -> int:
+    """S4-b(2026-10-11):启动时收口僵尸渲染态 studioushot。
+
+    实测病灶:同步 render 撞客户端断连/VRAM 驱逐路径,handler 死亡后
+    status 永久停在 rendering/queued(E-7 反向:DB 标 rendering ≠ 在跑)。
+    api 重启时一切进程内 handler 必死,故启动时见 rendering/queued 即僵尸。
+    (异步 wait=false 路径由 tracker/Job 语义自愈,不受影响——其镜状态
+    由 orchestrator 落库,重启后 reconcile_interrupted 类兜底;此处只兜同步残留。)
+    """
+    from app.db import engine as _engine
+    from app.models import Job, StudioShot
+
+    n = 0
+    with Session(_engine) as s:
+        rows = s.exec(
+            select(StudioShot).where(
+                StudioShot.status.in_(("rendering", "queued"))  # type: ignore[attr-defined]
+            )
+        ).all()
+        for sh in rows:
+            sh.status = "error"
+            sh.error = "渲染中断(服务重启或请求断开),请重新渲染"
+            s.add(sh)
+            n += 1
+        if n:
+            s.commit()
+    if n:
+        logger.info("reconcile_stuck_renders: 收口 %d 个僵尸渲染态 studioshot", n)
+    return n
+
+
 def reconcile_parse_jobs() -> int:
     """api 重启后收口在跑拆解作业(进程内协程随重启消失):标 error 允许重试。
 
