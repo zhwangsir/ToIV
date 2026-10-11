@@ -445,6 +445,15 @@ export type ToivDramaCharacter = {
     reference_images_by_style?: Record<string, string[]>;
 };
 
+export type ToivDramaShotCandidate = {
+    id: string;
+    url?: string;
+    seed?: number;
+    status?: string;
+    is_picked?: boolean;
+    error?: string;
+};
+
 export type ToivDramaShot = {
     id: string;
     idx: string | number;
@@ -461,6 +470,10 @@ export type ToivDramaShot = {
     voice_url?: string;
     final_clip_url?: string;
     error?: string;
+    /** S4:多候选(candidates_json 透出)与 seam 衔接策略 */
+    candidates?: ToivDramaShotCandidate[];
+    seam_to_next?: string;
+    seam_anchor?: string;
 };
 
 export type ToivDramaDetail = ToivDramaProject & {
@@ -681,12 +694,26 @@ export async function generateCharacterSheetStrict(cid: string, style: string): 
 
 /** W1.4(2026-10-11):严格版单镜渲染——失败抛错带 detail(缺参考图等前置问题可见);
  * 旧 triggerShotRender 吞错 boolean 保留(drama-detail 契约)。 */
-export async function renderShotStrict(sid: string): Promise<void> {
+export async function renderShotStrict(sid: string, opts: { num_candidates?: number } = {}): Promise<void> {
     try {
-        await toivHttp.post(`/studio/shots/${encodeURIComponent(sid)}/render`, undefined, { timeout: 3600_000 });
+        await toivHttp.post(
+            `/studio/shots/${encodeURIComponent(sid)}/render`,
+            opts.num_candidates ? { num_candidates: opts.num_candidates, wait: true } : undefined,
+            { timeout: 3600_000 },
+        );
     } catch (e) {
         const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
         throw new Error(detail || "渲染失败");
+    }
+}
+
+/** S4:选用候选视频为该镜成片(POST /studio/shots/{sid}/candidates/{cid}/pick) */
+export async function pickShotCandidate(sid: string, cid: string): Promise<void> {
+    try {
+        await toivHttp.post(`/studio/shots/${encodeURIComponent(sid)}/candidates/${encodeURIComponent(cid)}/pick`, undefined, { timeout: 30_000 });
+    } catch (e) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        throw new Error(detail || "选用候选失败");
     }
 }
 

@@ -77,7 +77,8 @@ export default function DramaPage() {
                         {projects.map((p) => {
                             const meta = STATUS_META[p.status] ?? { tone: "neutral" as const, text: p.status };
                             return (
-                                <a key={p.id} href={`/toiv/drama/${p.id}`}
+                                // S4/W1.2:项目卡默认进 v2 工作区(经典详情仍有入口)
+                                <a key={p.id} href={`/toiv/ws/${p.id}`}
                                     className="group flex flex-col gap-2.5 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-[var(--workspace-accent,#555)]">
                                     <div className="flex items-center justify-between gap-2">
                                         <StatusBadge variant="filled" tone={meta.tone} label={meta.text} size="sm" />

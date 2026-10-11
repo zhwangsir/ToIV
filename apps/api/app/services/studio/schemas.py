@@ -210,6 +210,9 @@ class ShotInput(BaseModel):
     duration_sec: int = Field(default=6, ge=1, le=60)
     characters: list[str] = Field(default_factory=list)
     render_mode: str = Field(default="video", pattern="^(video|image_motion)$")
+    # S4:seam 衔接策略(可选;None=不改,空串=清空)
+    seam_to_next: str | None = Field(default=None, max_length=20)
+    seam_anchor: str | None = Field(default=None, max_length=200)
 
 
 class ShotsSaveRequest(BaseModel):

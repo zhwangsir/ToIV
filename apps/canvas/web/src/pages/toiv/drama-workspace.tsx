@@ -24,6 +24,7 @@ import {
     fetchDramaProject,
     patchStudioProject,
     pollScriptParse,
+    pickShotCandidate,
     pollSheetJob,
     renderShotStrict,
     saveStudioShots,
@@ -228,12 +229,27 @@ export default function DramaWorkspacePage() {
         markBusy(sid, true);
         setRenderError(null);
         try {
-            await renderShotStrict(sid);
+            await renderShotStrict(sid, { num_candidates: 2 });
             await load();
         } catch (e) {
             setRenderError(e instanceof Error ? e.message : "渲染失败");
         } finally {
             markBusy(sid, false);
+        }
+    }, [load]);
+
+    // S4:候选选用
+    const [pickingCand, setPickingCand] = useState<string | null>(null);
+    const runPick = useCallback(async (sid: string, cid: string) => {
+        setPickingCand(cid);
+        setRenderError(null);
+        try {
+            await pickShotCandidate(sid, cid);
+            await load();
+        } catch (e) {
+            setRenderError(e instanceof Error ? e.message : "选用候选失败");
+        } finally {
+            setPickingCand(null);
         }
     }, [load]);
     const runShotVoice = useCallback(async (sid: string) => {
@@ -455,6 +471,7 @@ export default function DramaWorkspacePage() {
                                                     <th className="px-2 py-1.5">场景</th>
                                                     <th className="px-2 py-1.5">台词</th>
                                                     <th className="px-2 py-1.5">时长</th>
+                                                    <th className="px-2 py-1.5">衔接</th>
                                                     <th className="px-2 py-1.5">状态</th>
                                                 </tr>
                                             </thead>
@@ -465,6 +482,7 @@ export default function DramaWorkspacePage() {
                                                         <td className="max-w-72 truncate px-2 py-1.5">{s.scene || "—"}</td>
                                                         <td className="max-w-72 truncate px-2 py-1.5">{s.dialogue || "—"}</td>
                                                         <td className="px-2 py-1.5 tabular-nums">{s.duration_sec ?? "—"}s</td>
+                                                        <td className="px-2 py-1.5">{s.seam_to_next || "hardcut"}{s.seam_anchor ? `·${s.seam_anchor}` : ""}</td>
                                                         <td className="px-2 py-1.5">
                                                             <StatusBadge variant="filled" tone={STATUS_TONE[s.status] ?? "neutral"} label={s.status} size="sm" />
                                                         </td>
@@ -522,6 +540,27 @@ export default function DramaWorkspacePage() {
                                                         {s.video_url && <StatusBadge variant="filled" tone="success" label="视频" size="sm" />}
                                                         {s.voice_url && <StatusBadge variant="filled" tone="success" label="配音" size="sm" />}
                                                         {s.final_clip_url && <StatusBadge variant="filled" tone="success" label="成片段" size="sm" />}
+                                                        {(s.candidates ?? []).filter((c) => c.url).length > 1 && (
+                                                            <span className="flex items-center gap-1">
+                                                                {(s.candidates ?? []).filter((c) => c.url).map((c) => (
+                                                                    <span key={c.id} className="flex items-center gap-0.5">
+                                                                        <video src={c.url} className="h-10 w-auto rounded border border-[var(--border)]" preload="metadata" muted />
+                                                                        {c.is_picked ? (
+                                                                            <StatusBadge variant="filled" tone="success" label="已选" size="sm" />
+                                                                        ) : (
+                                                                            <ToolButton
+                                                                                size="xs"
+                                                                                variant="ghost"
+                                                                                icon={<Check />}
+                                                                                label={pickingCand === c.id ? "选…" : "选为成片"}
+                                                                                loading={pickingCand === c.id}
+                                                                                onClick={() => void runPick(s.id, c.id)}
+                                                                            />
+                                                                        )}
+                                                                    </span>
+                                                                ))}
+                                                            </span>
+                                                        )}
                                                         {canVoice && (
                                                             <ToolButton
                                                                 size="xs"
@@ -590,7 +629,7 @@ export default function DramaWorkspacePage() {
                                 <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="加载中" />
                             ) : sheets.length === 0 ? (
                                 <div className="flex flex-col gap-2">
-                                    <EmptyState size="compact" description="暂无设定卡,选择风格生成(走 GPU,约 1-3 分钟)" />
+                                    <EmptyState size="compact" description="暂无设定卡,选择风格生成(后台 Job,全程约 15-20 分钟)" />
                                     <div className="flex justify-center gap-2">
                                         {(["ancient_realistic", "anime"] as const).map((st) => (
                                             <ToolButton

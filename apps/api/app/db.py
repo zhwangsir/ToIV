@@ -122,6 +122,9 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("studioshot", "video_model", "video_model VARCHAR NOT NULL DEFAULT 'h3'"),
     ("studioshot", "candidates_json", "candidates_json VARCHAR NOT NULL DEFAULT '[]'"),
     ("studioshot", "ref_images_json", "ref_images_json VARCHAR NOT NULL DEFAULT '[]'"),
+    # S4(2026-10-11):seam 衔接策略下沉 Studio 域(双域合并评估 §3)
+    ("studioshot", "seam_to_next", "seam_to_next VARCHAR NOT NULL DEFAULT ''"),
+    ("studioshot", "seam_anchor", "seam_anchor VARCHAR NOT NULL DEFAULT ''"),
     # Batch2 角色三视图:既有 studiocharacter 表幂等补列
     ("studiocharacter", "reference_images", "reference_images VARCHAR NOT NULL DEFAULT '[]'"),
     ("studiocharacter", "reference_images_by_style", "reference_images_by_style VARCHAR NOT NULL DEFAULT '{}'"),

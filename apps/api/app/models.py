@@ -721,6 +721,10 @@ class StudioShot(SQLModel, table=True):
     video_model: str = "h3"  # h3 | ltx
     candidates_json: str = "[]"  # JSON:[{id,url,seed,status,is_picked,error}]
     ref_images_json: str = "[]"  # JSON:本镜选用的参考图 URL 列表
+    # S4(2026-10-11,双域合并评估下沉):与下一镜的衔接策略(空=硬切)。
+    # DramaShot 同名字段语义平移;管线 C 的续写衔接从内存态转持久化。
+    seam_to_next: str = ""  # continue(末帧续写)|overlap(共享帧重叠)|matchcut(匹配切口)|hardcut(硬切)
+    seam_anchor: str = ""  # matchcut/overlap 时的共享锚体描述(刀刃/圆环/瞳孔/色块…)
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
 
