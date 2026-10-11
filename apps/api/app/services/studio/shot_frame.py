@@ -11,7 +11,6 @@ import logging
 import uuid
 from typing import Any
 
-import httpx
 from sqlmodel import Session, select
 
 from app.models import StudioCharacter, StudioShot
@@ -71,16 +70,16 @@ def _primary_ref_url(session: Session, shot: StudioShot) -> tuple[str, str]:
     raise FrameVariantError("镜头角色无定妆参考图(先在资产段生成设定卡并采用)")
 
 
-async def _fetch_bytes(url: str) -> bytes:
-    if url.startswith("/api/"):
-        from app.config import get_settings
+def _fetch_bytes(url: str) -> bytes:
+    """参考图直读本地 studio 文件域——/api/studio/files/{name} 有鉴权(P-1),
+    HTTP 取回必 401(实测 22 字节错误 JSON 喂给 Comfy 报 cannot identify image)。"""
+    from app.storage import drama_output_root
 
-        base = (get_settings().api_base_url or "http://127.0.0.1:8090").rstrip("/")
-        url = base + url
-    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as hc:
-        r = await hc.get(url)
-        r.raise_for_status()
-        return r.content
+    name = url.rsplit("/", 1)[-1].split("?")[0]
+    path = drama_output_root() / "studio" / name
+    if not path.is_file():
+        raise FrameVariantError(f"参考图文件不存在:{name}")
+    return path.read_bytes()
 
 
 async def generate_frame_variants(
@@ -94,7 +93,7 @@ async def generate_frame_variants(
     from app.services.studio.character_sheet import _SHEET_CKPT, _build_img2img_graph  # noqa: F401 复用负向模板
 
     ref_url, visual = _primary_ref_url(session, shot)
-    data = await _fetch_bytes(ref_url)
+    data = _fetch_bytes(ref_url)
     cli = await _pick_sheet_client(None)
     fname = f"frame_var_src_{uuid.uuid4().hex[:10]}.png"
     image_name = await cli.upload_image(data, fname)

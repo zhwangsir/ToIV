@@ -457,6 +457,9 @@ async def _run_frame_variants_job(job_id: str, sid: str, style: str) -> None:
             s.add(job)
             s.commit()
 
+    from app.services.studio.character_sheet import CharacterSheetError
+    from app.services.studio.shot_frame import FrameVariantError, generate_frame_variants
+
     try:
         with Session(_engine) as s:
             job0 = s.get(Job, job_id)
@@ -465,10 +468,6 @@ async def _run_frame_variants_job(job_id: str, sid: str, style: str) -> None:
             job0.status = "running"
             s.add(job0)
             s.commit()
-        from app.services.studio.shot_frame import (
-            FrameVariantError,
-            generate_frame_variants,
-        )
 
         with Session(_engine) as s:
             shot = s.get(StudioShot, sid)
@@ -1435,7 +1434,7 @@ def reconcile_parse_jobs() -> int:
     with Session(_engine) as s:
         rows = s.exec(
             select(Job).where(
-                Job.kind.in_((_PARSE_KIND, _SHEET_KIND)),  # type: ignore[attr-defined]
+                Job.kind.in_((_PARSE_KIND, _SHEET_KIND, _FRAME_KIND)),  # type: ignore[attr-defined]
                 Job.status.in_(("queued", "running")),  # type: ignore[attr-defined]
             )
         ).all()
