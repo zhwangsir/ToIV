@@ -415,6 +415,7 @@ export type ToivDramaProject = {
     id: string;
     title?: string;
     premise?: string;
+    style?: string;
     status: string;
     width?: number;
     height?: number;
@@ -599,4 +600,68 @@ export async function fetchToivAppsPage(
             };
         }),
     };
+}
+
+// ---- W2.1(2026-10-11): 剧本→分镜自动化(后端 studio 域既有异步链路接线) ----
+
+export type ToivParsedCharacter = { name?: string; description?: string; visual_prompt?: string };
+export type ToivParsedShot = {
+    id?: string;
+    scene?: string;
+    prompt?: string;
+    negative?: string;
+    camera?: string;
+    dialogue?: string;
+    speaker?: string;
+    duration_sec?: number;
+    characters?: string[];
+    render_mode?: string;
+};
+
+/** POST /studio/projects/{pid}/script/parse → {job_id, status:"queued"}(LLM 后台拆解) */
+export async function submitScriptParse(
+    pid: string,
+    premise: string,
+    opts: { num_shots?: number; style?: string } = {},
+): Promise<{ job_id: string; status: string }> {
+    const { data } = await toivHttp.post(
+        `/studio/projects/${encodeURIComponent(pid)}/script/parse`,
+        { premise, num_shots: opts.num_shots ?? 8, style: opts.style ?? "" },
+        { timeout: 30_000 },
+    );
+    return data;
+}
+
+/** GET /studio/projects/{pid}/script/parse/{job_id} → done 时带 characters/shots */
+export async function pollScriptParse(
+    pid: string,
+    jobId: string,
+): Promise<{ status: string; characters?: ToivParsedCharacter[]; shots?: ToivParsedShot[]; error?: string }> {
+    const { data } = await toivHttp.get(
+        `/studio/projects/${encodeURIComponent(pid)}/script/parse/${encodeURIComponent(jobId)}`,
+        { timeout: 15_000 },
+    );
+    return data;
+}
+
+/** PUT /studio/projects/{pid}/shots —— 全量替换语义(拆解结果确认落库) */
+export async function saveStudioShots(pid: string, shots: ToivParsedShot[]): Promise<void> {
+    await toivHttp.put(`/studio/projects/${encodeURIComponent(pid)}/shots`, { shots }, { timeout: 30_000 });
+}
+
+/** POST /studio/projects/{pid}/characters(拆解出的新角色入库) */
+export async function createStudioCharacter(
+    pid: string,
+    character: ToivParsedCharacter,
+): Promise<void> {
+    await toivHttp.post(
+        `/studio/projects/${encodeURIComponent(pid)}/characters`,
+        { name: character.name || "未命名", description: character.description || "", visual_prompt: character.visual_prompt || "" },
+        { timeout: 15_000 },
+    );
+}
+
+/** PATCH /studio/projects/{pid}(剧本正文保存) */
+export async function patchStudioProject(pid: string, patch: { premise?: string; style?: string }): Promise<void> {
+    await toivHttp.patch(`/studio/projects/${encodeURIComponent(pid)}`, patch, { timeout: 15_000 });
 }

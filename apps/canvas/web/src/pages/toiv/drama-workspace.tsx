@@ -6,15 +6,23 @@
  * S3/S4 逐段把经典端能力迁进来，迁移齐后 W1.2 末步做路由对调。
  * 现在各段为只读骨架：头部项目状态 + 各段已有数据的轻量呈现 + 落地批次的说明。
  */
-import { BookOpen, Clapperboard, Film, Layers, ListOrdered, Loader2, RefreshCw, ScrollText, Users } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { BookOpen, Clapperboard, Film, Layers, ListOrdered, Loader2, RefreshCw, ScrollText, Sparkles, Users } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { ToolButton } from "@/components/ui/base/buttons";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { WorkspacePage } from "@/components/layout/workspace-page";
-import { fetchDramaProject, type ToivDramaDetail } from "@/services/toiv/client";
+import {
+    createStudioCharacter,
+    fetchDramaProject,
+    patchStudioProject,
+    pollScriptParse,
+    saveStudioShots,
+    submitScriptParse,
+    type ToivDramaDetail,
+} from "@/services/toiv/client";
 
 const SECTIONS = [
     { key: "script", label: "剧本", icon: BookOpen, batch: "S3" },
@@ -81,7 +89,9 @@ export default function DramaWorkspacePage() {
         setLoading(true);
         setError(false);
         try {
-            setDetail(await fetchDramaProject(id));
+            const d = await fetchDramaProject(id);
+            setDetail(d);
+            setPremiseText(d.premise || "");
         } catch {
             setError(true);
         } finally {
@@ -96,6 +106,60 @@ export default function DramaWorkspacePage() {
     const goSection = (key: SectionKey) => navigate(`/toiv/ws/${id}?section=${key}`, { replace: true });
     const shots = detail?.shots ?? [];
     const characters = detail?.characters ?? [];
+
+    // ---- W2.1: 剧本→分镜自动化(后端既有 studio/script/parse 异步链路) ----
+    const [premiseText, setPremiseText] = useState("");
+    const [numShots, setNumShots] = useState(8);
+    const [parsing, setParsing] = useState(false);
+    const [parseMsg, setParseMsg] = useState<string | null>(null);
+    const [parseError, setParseError] = useState<string | null>(null);
+    const pollStop = useRef(false);
+
+    useEffect(() => () => { pollStop.current = true; }, []);
+
+    const runAutoStoryboard = useCallback(async () => {
+        if (!id || parsing) return;
+        pollStop.current = false;
+        setParsing(true);
+        setParseError(null);
+        setParseMsg("保存剧本并提交拆解…");
+        try {
+            const premise = premiseText.trim();
+            if (!premise) throw new Error("剧本为空,先写下或粘贴剧情概要");
+            await patchStudioProject(id, { premise });
+            const { job_id } = await submitScriptParse(id, premise, { num_shots: numShots, style: detail?.style });
+            setParseMsg(`AI 拆解中(约 20-40s)…`);
+            // 2.5s 轮询,上限 150s
+            for (let i = 0; i < 60 && !pollStop.current; i++) {
+                await new Promise((r) => setTimeout(r, 2500));
+                const r = await pollScriptParse(id, job_id);
+                if (r.status === "error") throw new Error(r.error || "拆解失败");
+                if (r.status === "done" && r.shots) {
+                    setParseMsg(`拆解完成:${r.shots.length} 镜 / ${(r.characters ?? []).length} 角色,正在落库…`);
+                    // 新角色入库(按名字去重)
+                    const existing = new Set((detail?.characters ?? []).map((c) => (c.name || "").trim()));
+                    for (const c of r.characters ?? []) {
+                        const n = (c.name || "").trim();
+                        if (n && !existing.has(n)) {
+                            await createStudioCharacter(id, c);
+                            existing.add(n);
+                        }
+                    }
+                    await saveStudioShots(id, r.shots);
+                    await load();
+                    setParseMsg(`已生成 ${r.shots.length} 镜并保存,已跳转分镜表`);
+                    goSection("storyboard");
+                    return;
+                }
+            }
+            if (!pollStop.current) throw new Error("拆解超时,可在任务中心查看进度后重试");
+        } catch (e) {
+            setParseError(e instanceof Error ? e.message : "拆解失败,请重试");
+            setParseMsg(null);
+        } finally {
+            setParsing(false);
+        }
+    }, [id, parsing, premiseText, numShots, detail, load, goSection]);
 
     return (
         <WorkspacePage fluid className="toiv-drama-workspace">
@@ -162,10 +226,51 @@ export default function DramaWorkspacePage() {
                 ) : (
                     <div className="flex flex-col gap-4 rounded-xl border border-[var(--border)] p-4">
                         {section === "script" && (
-                            <SectionShell title="剧本" batch="S3">
-                                <p className="whitespace-pre-wrap rounded-lg border border-[var(--border)] p-3 text-sm leading-6 text-foreground">
-                                    {(detail as { script?: string }).script?.trim() || detail.premise || "（剧本正文待 S3 迁入编辑器;当前显示 premise）"}
-                                </p>
+                            <SectionShell title="剧本" batch="S5/W2.1">
+                                <textarea
+                                    value={premiseText}
+                                    onChange={(e) => setPremiseText(e.target.value)}
+                                    rows={8}
+                                    placeholder="写下或粘贴剧情概要/剧本,然后交给 AI 拆解为分镜…"
+                                    className="w-full resize-y rounded-lg border border-[var(--border)] bg-transparent p-3 text-sm leading-6 text-foreground outline-none focus:border-[var(--workspace-accent,#666)]"
+                                    aria-label="剧本正文"
+                                />
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <label className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                        目标镜数
+                                        <select
+                                            value={numShots}
+                                            onChange={(e) => setNumShots(Number(e.target.value))}
+                                            className="rounded-md border border-[var(--border)] bg-transparent px-2 py-1 text-xs text-foreground"
+                                            aria-label="目标镜数"
+                                        >
+                                            {[4, 6, 8, 12, 16].map((n) => (
+                                                <option key={n} value={n}>
+                                                    {n}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <ToolButton
+                                        variant="default"
+                                        icon={<Sparkles />}
+                                        label={parsing ? "拆解中…" : "AI 拆解为分镜"}
+                                        onClick={() => void runAutoStoryboard()}
+                                        loading={parsing}
+                                    />
+                                    <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                        已有 {shots.length} 镜 · 拆解保存为全量替换(旧分镜会被覆盖)
+                                    </span>
+                                </div>
+                                {parseMsg && (
+                                    <p className="flex items-center gap-1.5 text-xs text-foreground">
+                                        {parsing && <Loader2 className="size-3 animate-spin" aria-hidden />}
+                                        {parseMsg}
+                                    </p>
+                                )}
+                                {parseError && (
+                                    <p className="text-xs text-[var(--danger,#e5484d)]">{parseError}</p>
+                                )}
                             </SectionShell>
                         )}
                         {section === "assets" && (
