@@ -23,6 +23,7 @@ import {
     adoptSheetAsReference,
     patchStudioProject,
     pollScriptParse,
+    renderShotStrict,
     saveStudioShots,
     submitScriptParse,
     triggerBatchRender,
