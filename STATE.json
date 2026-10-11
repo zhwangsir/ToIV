@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T19:05:00+08:00",
+  "updated_at": "2026-10-11T20:30:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14849,5 +14849,21 @@
       "cwd 漂移致一次提交漏改文件(git show --stat 复核拦出,补提交)"
     ],
     "updated_at": "2026-10-11T19:05:00+08:00"
+  },
+  "w2_7_resume_fingerprint_2026_10_11": {
+    "status": "w2_7_deployed_e2e_pass",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "断点续跑收尾(W2.7):重渲染保留既有 done+url 候选只补缺口(零重复 GPU);候选指纹 sha256(url)[:8] 写入;保留候选自动兜底 is_picked(无入选时首个置选);reconcile 覆盖齐(queued→Job 终态,S5 已含 parse/sheet/frame 三 kind 启动收口)",
+    "commit": "9d68f584",
+    "e2e": "wineryz 两证:①#5 已有 1 done,重渲 n=2 → 保留段零新提交(在途 Job 0→0),shot 即时回 rendered+picked 保留;②n=3 只补 2 缺口(两 queued 逐个 Job 完成→3 done),约 15min 全回写",
+    "notes": [
+      "指纹为 url 身份哈希(跨机文件 sha256 不可行——产物在 worker output,core 无法读);契约§1 工件指纹规范以此代理实现",
+      "保留段走 _PR 轻量 result 兜底,同步/异步两路均不断链"
+    ],
+    "updated_at": "2026-10-11T20:30:00+08:00"
   }
 }

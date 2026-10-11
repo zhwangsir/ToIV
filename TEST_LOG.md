@@ -1,3 +1,4 @@
+- 2026-10-11 **W2.7 断点续跑**（ToIV开发）：`9d68f584` 重渲染保留 done 候选只补缺口+指纹写入;生产两证(零重复提交/只补 2 缺口 15min 全回写);11 测试;status=`w2_7_deployed_e2e_pass`；updated_at 2026-10-11T20:30:00+08:00。
 - 2026-10-11 **S6 资产下沉**（ToIV开发）：全局主体 Entity 接入 Studio 域(清单/选用,句柄→URL);数据源核正 DramaAsset→Entity;生产 23 主体+选用「少女」入库;3 测试;status=`s6_deployed_e2e_pass`；updated_at 2026-10-11T19:05:00+08:00。
 - 2026-10-11 **W2.5 机位树 lite**（ToIV开发）：seam=continue 选路消费+时间线 seam 选择器;实测抓出并修 tlSave stale closure;生产 seam 持久化+idx5 渲染 12min 完成自动回写;status=`w2_5_deployed_e2e_pass`；updated_at 2026-10-11T18:10:00+08:00。
 - 2026-10-11 **W2.4 工作流模板库**（ToIV开发）：`c9804cb3` 6 模板 node_mapping 声明式注册(值取真实构建器)+清单/详情/激活 API+防漂移测试;生产清单/切换/状态文件全验;status=`w2_4_deployed_e2e_pass`；updated_at 2026-10-11T17:05:00+08:00。
