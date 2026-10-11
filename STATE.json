@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T23:10:00+08:00",
+  "updated_at": "2026-10-12T00:05:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15015,5 +15015,16 @@
     "summary": "融合 F4:音频三工具(自经典 AudioView 编辑页签)迁入 canvas。①新页 /toiv/audio 舞台式三工具:TTS 配音(IndexTTS2 文本合成+参考音上传克隆音色 emo_text 情绪)/ASR 听写(dub/upload 带上传进度+dub/transcribe 后台作业 2s 轮询阶段进度+分段转写结果复制)/人声分离(audio/separate Demucs 干声 ≤50MB);②工具箱页头新增「音频工具」入口;③client 扩展六函数(synthVoice/uploadVoiceRefAudio/uploadDubMedia 进度/startDubTranscribe/pollDubTranscribe/separateAudioFile),后端零改动;④经典 ?view=audio 退役(EXTERNAL→/studio/toiv/audio),「更多」抽屉同步,VALID_VIEWS 15→11(home/image/video/imageEdit/videoEdit/avatartalk/dub/library/market/settings+R18 壳);web 套 1158/1162(4 挂=预存基线,F4 零新增);canvas tsc 零错。文生音乐不在本页(应用市场承载);经典 MarketView「音频」tab 仍渲染 AudioView(R18 壳内嵌,登记待后续处置);经典「生成」页签(ACE 文生音乐 GenerateView)经工具箱应用覆盖。",
     "e2e": "生产 LAN 全链实弹:TTS POST /api/manju/voice(温柔地 emo)→4.42s wav ✓→拉回上传 dub/upload→whisper transcribe done→segments=[(0.0,'欢迎光临,艰难的雨下得很大,来杯热咖啡吧。')](今晚→艰难为 whisper 正常误识,链路正确)✓;浏览器级:?view=audio→/studio/toiv/audio ✓、三工具 tab 渲染 ✓、工具箱音频工具入口 ✓",
     "updated_at": "2026-10-11T23:10:00+08:00"
+  },
+  "fusion_f5_image_tools_2026_10_11": {
+    "status": "deployed_e2e_verified",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "融合 F5:图片工具(经典 ImageEditView 七工具)迁入 canvas。①新页 /toiv/image-tools:智能去背景(general/anime/human)/高清增强(2x/4x)/局部重绘(target=文字描述区域,后端自理解,无手绘 mask)/人脸修复(denoise 滑杆)/智能编辑 Qwen(语义+10 相机档+fast)/3D 相机(azimuth×8/elevation×4/distance×3/speed×2)/图生3D(octree 5 档+步数);源图上传(kind img2img/hunyuan3d)+Job 3s 轮询(/api/jobs 找 prompt_id→results);②工具箱页头「图片工具」入口;③经典 ?view=imageEdit 与别名 image-edit 退役(EXTERNAL→/studio/toiv/image-tools),VALID_VIEWS 收缩到 10;web 套 1158/1162(4 挂=预存基线,F5 零新增);canvas tsc 零错。实弹中修正一处契约(上传字段名 file→image)。GLB 内联查看器未随迁(下载交付,登记);经典 OrbitViewer 拖拽播片由原生 video controls 承载。",
+    "e2e": "生产 LAN 全链实弹:upload img2img(f3-test.png→worker :8196)→POST /generate/removebg(general)→Job done→results=[/api/images?filename=ToIV_cutout_00015_.png…] ✓;浏览器级:?view=imageEdit→/studio/toiv/image-tools ✓、七工具 tab 全渲染 ✓",
+    "updated_at": "2026-10-12T00:05:00+08:00"
   }
 }
