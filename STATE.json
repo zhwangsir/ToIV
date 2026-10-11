@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T22:35:00+08:00",
+  "updated_at": "2026-10-11T23:10:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15004,5 +15004,16 @@
     "e2e": "生产 LAN:stitch 模式全链路实弹 PASS(2 图→/api/animatic→4s 640×360@12 成片);浏览器级:?view=animatic→/studio/toiv/drama ✓、从图片创建按钮+双 tab 弹窗 ✓;AI 模式管线实证到 VLM 调用层(提交→Job running→结构化错误透出)。",
     "open": "[环境缺口·设备域] 多模态 VLM 端点缺位:TOIV_VLM_SERVER_URL 指向 spark02 纯文本 DSv4,实测返回 400 'deepseek-v4-flash-dspark is not a multimodal model'——自 2026-08-05『workstation 不再跑文本/VLM 推理』决策后即缺位,经典 /drama/projects/from-image 同样不可用(非 F3 引入)。from-image/图片解析类功能待多模态推理上架后自动恢复(F3 代码已就绪);GPU2/3 现余量充足(722MiB/1.8G used),建议上架 Qwen3-VL 级 vLLM 并配 TOIV_VLM_*。",
     "updated_at": "2026-10-11T22:35:00+08:00"
+  },
+  "fusion_f4_audio_2026_10_11": {
+    "status": "deployed_e2e_verified",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "融合 F4:音频三工具(自经典 AudioView 编辑页签)迁入 canvas。①新页 /toiv/audio 舞台式三工具:TTS 配音(IndexTTS2 文本合成+参考音上传克隆音色 emo_text 情绪)/ASR 听写(dub/upload 带上传进度+dub/transcribe 后台作业 2s 轮询阶段进度+分段转写结果复制)/人声分离(audio/separate Demucs 干声 ≤50MB);②工具箱页头新增「音频工具」入口;③client 扩展六函数(synthVoice/uploadVoiceRefAudio/uploadDubMedia 进度/startDubTranscribe/pollDubTranscribe/separateAudioFile),后端零改动;④经典 ?view=audio 退役(EXTERNAL→/studio/toiv/audio),「更多」抽屉同步,VALID_VIEWS 15→11(home/image/video/imageEdit/videoEdit/avatartalk/dub/library/market/settings+R18 壳);web 套 1158/1162(4 挂=预存基线,F4 零新增);canvas tsc 零错。文生音乐不在本页(应用市场承载);经典 MarketView「音频」tab 仍渲染 AudioView(R18 壳内嵌,登记待后续处置);经典「生成」页签(ACE 文生音乐 GenerateView)经工具箱应用覆盖。",
+    "e2e": "生产 LAN 全链实弹:TTS POST /api/manju/voice(温柔地 emo)→4.42s wav ✓→拉回上传 dub/upload→whisper transcribe done→segments=[(0.0,'欢迎光临,艰难的雨下得很大,来杯热咖啡吧。')](今晚→艰难为 whisper 正常误识,链路正确)✓;浏览器级:?view=audio→/studio/toiv/audio ✓、三工具 tab 渲染 ✓、工具箱音频工具入口 ✓",
+    "updated_at": "2026-10-11T23:10:00+08:00"
   }
 }
