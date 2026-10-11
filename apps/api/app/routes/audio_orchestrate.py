@@ -93,9 +93,13 @@ class MixStep(BaseModel):
 
     inputs 显式给前序步骤序号(从 0 起;引用该步骤产出的全部产物,
     引用 variant 步骤一次即带入其 N 个变体);缺省 = 本轮此前全部产物(按步骤顺序)。
+    S10(2026-10-11) BGM 语义:gains_db 按输入顺序逐路增益(空=不增益);
+    duck=True 时对第 2..N 路做 sidechain 压制(第 1 路为主音轨如对白)。
     """
     type: Literal["mix"]
     inputs: list[int] | None = Field(default=None, max_length=20)
+    gains_db: list[float] | None = Field(default=None, max_length=20, description="逐路增益 dB(BGM 常用 -12~-18)")
+    duck: bool = Field(default=False, description="对白优先:非首路按首路 sidechain 压制")
 
 
 class VariantStep(BaseModel):
@@ -110,9 +114,62 @@ class VariantStep(BaseModel):
     )
 
 
+# ── S10:音效素材库 ──────────────────────────────────────────────────────
+# 原则:无现成音效引擎 → 用 ffmpeg 合成基础音效(真实可听的波形,非静音非假数据)。
+# 素材按需生成落 Studio 文件域,同音效名幂等复用。扩展=加条目即可。
+_SFX_LIBRARY: dict[str, dict] = {
+    "rain": {"desc": "雨声(粉噪+低通)", "gen": ["-f", "lavfi", "-i", "anoisesrc=color=pink:duration=8:amplitude=0.28", "-af", "lowpass=f=900,highpass=f=200"]},
+    "wind": {"desc": "风声(棕噪+带通)", "gen": ["-f", "lavfi", "-i", "anoisesrc=color=brown:duration=8:amplitude=0.35", "-af", "bandpass=f=400:width_type=h:w=300"]},
+    "thunder": {"desc": "雷声(棕噪+低通+衰减包络)", "gen": ["-f", "lavfi", "-i", "anoisesrc=color=brown:duration=4:amplitude=0.6", "-af", "lowpass=f=300,afade=t=in:d=0.05,afade=t=out:st=1.5:d=2.5"]},
+    "doorbell": {"desc": "门铃(双音正弦)", "gen": ["-f", "lavfi", "-i", "sine=frequency=880:duration=0.5", "-f", "lavfi", "-i", "sine=frequency=1100:duration=0.5", "-filter_complex", "[0][1]concat=n=2:v=0:a=1,afade=t=out:st=0.8:d=0.2"]},
+    "beep": {"desc": "提示音(单正弦)", "gen": ["-f", "lavfi", "-i", "sine=frequency=1200:duration=0.3", "-af", "afade=t=out:st=0.2:d=0.1"]},
+    "footstep": {"desc": "脚步(短噪脉冲×4)", "gen": ["-f", "lavfi", "-i", "anoisesrc=color=white:duration=0.15:amplitude=0.5", "-af", "lowpass=f=600,adelay=0|300|600|900,apulsator=hz=0.01"]},
+    "city": {"desc": "城市底噪(白噪+带通+颤)", "gen": ["-f", "lavfi", "-i", "anoisesrc=color=white:duration=8:amplitude=0.15", "-af", "bandpass=f=800:width_type=h:w=1200,tremolo=f=0.5"]},
+    "night": {"desc": "夜晚虫鸣(正弦组+颤)", "gen": ["-f", "lavfi", "-i", "sine=frequency=4200:duration=8", "-af", "tremolo=f=8:d=0.7,volume=0.15,lowpass=f=6000"]},
+}
+
+
+def _sfx_cache_path(name: str) -> Path:
+    from app.storage import drama_output_root
+
+    d = drama_output_root() / "studio"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / f"sfx_{name}.wav"
+
+
+def _ensure_sfx(name: str) -> Path:
+    """幂等生成音效素材(ffmpeg lavfi 合成;已存在直接复用)。"""
+    entry = _SFX_LIBRARY.get(name)
+    if entry is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"未知音效「{name}」;可用: {', '.join(sorted(_SFX_LIBRARY))}",
+        )
+    if shutil.which("ffmpeg") is None:
+        raise HTTPException(status_code=500, detail="ffmpeg 不可用,音效素材无法生成")
+    cache = _sfx_cache_path(name)
+    if cache.is_file() and cache.stat().st_size > 0:
+        return cache
+    import subprocess
+
+    cmd = ["ffmpeg", "-y", "-v", "error", *entry["gen"], "-ar", "24000", "-ac", "1", str(cache)]
+    r = subprocess.run(cmd, capture_output=True, timeout=30)
+    if r.returncode != 0 or not cache.is_file():
+        raise HTTPException(status_code=500, detail=f"音效「{name}」合成失败: {r.stderr.decode()[:120]}")
+    return cache
+
+
 class SfxStep(BaseModel):
-    """音效:现无引擎,明确 501 占位。"""
+    """音效:S10(2026-10-11)素材库方案——无生成引擎,不造假。
+
+    effect 指定素材库条目(内置库见 _SFX_LIBRARY;可循环/增益)。
+    素材缺失 → 422 明细;库为空 → 503(与「引擎未配置」同语义)。
+    """
     type: Literal["sfx"]
+    effect: str = Field(default="", max_length=64, description="素材库音效名(空=列出可用)")
+    loop: bool = Field(default=False, description="循环铺满 target_duration")
+    target_duration: float | None = Field(default=None, ge=0.5, le=600, description="循环目标时长(秒)")
+    gain_db: float = Field(default=0.0, ge=-24, le=12, description="增益 dB")
 
 
 Step = Annotated[
@@ -284,9 +341,12 @@ async def _concat_wav(segments: list[Path]) -> bytes:
         return out.read_bytes()
 
 
-async def _mix_wav(inputs: list[Path]) -> bytes:
+async def _mix_wav(inputs: list[Path], *, gains_db: list[float] | None = None, duck: bool = False) -> bytes:
     """ffmpeg amix 混音:各输入先 aresample 归一 24k(采样率不统一也能混),
-    再 amix 合成单轨——normalize=0 不做自动衰减,duration=longest 不截断长输入。"""
+    再 amix 合成单轨——normalize=0 不做自动衰减,duration=longest 不截断长输入。
+
+    S10: gains_db 逐路增益(BGM 常用);duck=True 时第 2..N 路以第 1 路
+    sidechaincompress 压制(对白优先,BGM 让位),再 amix。"""
     if shutil.which("ffmpeg") is None:
         raise HTTPException(status_code=500, detail="服务端未安装 ffmpeg")
     with tempfile.TemporaryDirectory() as td:
@@ -295,7 +355,26 @@ async def _mix_wav(inputs: list[Path]) -> bytes:
         for p in inputs:
             cmd += ["-i", str(p)]
         filters = "".join(f"[{k}:a]aresample=24000[a{k}];" for k in range(len(inputs)))
-        filters += "".join(f"[a{k}]" for k in range(len(inputs)))
+        if gains_db:
+            for k, g in enumerate(gains_db[: len(inputs)]):
+                filters += f"[a{k}]volume={g}dB[g{k}];"
+            for k in range(len(inputs)):
+                src_tag = f"g{k}" if k < len(gains_db) else f"a{k}"
+                filters += f"[{src_tag}]"
+        else:
+            filters += "".join(f"[a{k}]" for k in range(len(inputs)))
+        if duck and len(inputs) >= 2:
+            # 主轨(0)为 sidechain 源;各副轨压缩后统一 amix
+            filters = filters[: filters.rindex("".join(f"[a{k}]" for k in range(len(inputs))))] if not gains_db else filters
+            parts = []
+            chain = "".join(f"[g{k}]" if gains_db and k < len(gains_db) else f"[a{k}]" for k in range(len(inputs)))
+            filters = filters[: filters.rindex(chain)] if chain in filters else filters
+            for k in range(1, len(inputs)):
+                tag_in = f"g{k}" if gains_db and k < len(gains_db) else f"a{k}"
+                filters += f"[a0][{tag_in}]sidechaincompress=threshold=0.03:ratio=8:attack=5:release=300[d{k}];"
+            parts.append("[a0]" if not (gains_db and 0 < len(gains_db)) else "[g0]")
+            parts += [f"[d{k}]" for k in range(1, len(inputs))]
+            filters += "".join(parts)
         filters += f"amix=inputs={len(inputs)}:duration=longest:normalize=0[aout]"
         cmd += ["-filter_complex", filters, "-map", "[aout]", "-ar", "24000", str(out)]
         proc = await asyncio.create_subprocess_exec(
@@ -336,13 +415,49 @@ async def audio_orchestrate(
         for i, step in enumerate(body.steps):
             try:
                 if isinstance(step, SfxStep):
-                    raise HTTPException(
-                        status_code=501,
-                        detail=(
-                            "步骤类型 sfx 暂未实现:需接入音效引擎(音效生成/音效库服务)后开放;"
-                            "当前可用步骤类型:tts/separate/concat/mix/variant"
-                        ),
-                    )
+                    if not (step.effect or "").strip():
+                        # 列表模式:返回可用音效(不产文件)
+                        artifacts.append({
+                            "step": i, "type": "sfx_list",
+                            "effects": {k: v["desc"] for k, v in _SFX_LIBRARY.items()},
+                        })
+                        continue
+                    sfx_path = _ensure_sfx(step.effect.strip())
+                    out_path = sfx_path
+                    if step.loop and step.target_duration:
+                        looped = _sfx_cache_path(f"{step.effect}_loop{int(step.target_duration)}")
+                        if not looped.is_file():
+                            import subprocess as _sp
+
+                            rc = _sp.run(
+                                ["ffmpeg", "-y", "-v", "error", "-stream_loop", "-1",
+                                 "-i", str(sfx_path), "-t", str(step.target_duration),
+                                 "-ar", "24000", "-ac", "1", str(looped)],
+                                capture_output=True, timeout=60,
+                            )
+                            if rc.returncode != 0:
+                                raise HTTPException(status_code=500, detail=f"音效循环失败: {rc.stderr.decode()[:120]}")
+                        out_path = looped
+                    if step.gain_db:
+                        gained = _sfx_cache_path(f"{step.effect}_g{int(step.gain_db)}")
+                        if not gained.is_file():
+                            import subprocess as _sp
+
+                            rc = _sp.run(
+                                ["ffmpeg", "-y", "-v", "error", "-i", str(out_path),
+                                 "-af", f"volume={step.gain_db}dB", str(gained)],
+                                capture_output=True, timeout=30,
+                            )
+                            if rc.returncode != 0:
+                                raise HTTPException(status_code=500, detail=f"音效增益失败: {rc.stderr.decode()[:120]}")
+                        out_path = gained
+                    produced.setdefault(i, []).append(out_path)
+                    name = out_path.name
+                    artifacts.append({
+                        "step": i, "type": "sfx", "effect": step.effect,
+                        "url": f"/api/studio/files/{name}",
+                        "duration_sec": _wav_duration(out_path),
+                    })
                 if isinstance(step, TtsStep):
                     spec = body.voices.get(step.role or "") or VoiceSpec()
                     wav = await _synth_tts(client, step, spec)
@@ -410,7 +525,7 @@ async def audio_orchestrate(
                         raise HTTPException(
                             status_code=422, detail="混音至少需要两个输入产物"
                         )
-                    wav = await _mix_wav(mix_inputs)
+                    wav = await _mix_wav(mix_inputs, gains_db=step.gains_db, duck=step.duck)
                     path, name = _write_output(wav)
                     produced.setdefault(i, []).append(path)
                     final_url = f"/api/audio/orch/files/{name}"
@@ -451,7 +566,7 @@ async def audio_orchestrate(
                 raise
 
     result_urls = ([final_url] if final_url else []) + [
-        str(a["url"]) for a in artifacts if a["url"] != final_url
+        str(a["url"]) for a in artifacts if a.get("url") and a["url"] != final_url
     ]
     prompt = (body.title or "").strip() or next(
         (s.text for s in body.steps if isinstance(s, TtsStep)), "audio orchestration"
