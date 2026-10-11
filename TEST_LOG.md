@@ -1,3 +1,4 @@
+- 2026-10-11 **W2.2 多视角分镜扩展**（ToIV开发）：AI 配景(单角色参考图→远/中/近三景别,异步 Job);实测抓出并修 except-NameError 协程暴毙+401 取图两真因;生产 50s 出 3 图+分镜表缩略图;status=`w2_2_deployed_e2e_pass`；updated_at 2026-10-11T15:20:00+08:00。
 - 2026-10-11 **S5 首靶闭环**（ToIV开发）：异步渲染回写三刀(回写器/多候选解禁/竞态+检索键追修)+生产三站 E2E(僵死自愈找回 c9ba6609 产物→真双候选逐条回写→pick 切换 91057 成片)；9 测试绿；缺陷核销；status=`s5_first_target_closed_e2e`；updated_at 2026-10-11T16:10:00+08:00。
 - 2026-10-11 **S9-lite 时间线段 + 缺陷登记**（ToIV开发）：`e0490c9c` 播放列表+合成成片,六段全非空;实测暴露异步多候选回写丢失缺陷(Job done 有产物但 shot 僵 rendering,与 VRAM 驱逐重合)→ `defect_async_multicand_writeback_2026_10_11` S5 首靶；updated_at 2026-10-11T14:30:00+08:00。
 - 2026-10-11 **S4 批**（ToIV开发）：seam 下沉(迁移落 PG)/多候选 UI+pick/渲染异步化(实测僵死病灶根治)/僵尸渲染启动收口(实测 healed)；入口对调+文案微债；3 提交；status=`s4_deployed_async_e2e_pass`；updated_at 2026-10-11T13:45:00+08:00。

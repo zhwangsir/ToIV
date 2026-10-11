@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T16:10:00+08:00",
+  "updated_at": "2026-10-11T15:20:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14764,5 +14764,24 @@
       "回写检索键用业务内容(queued 候选)而非状态机值(rendering),状态会因自身副作用漂移"
     ],
     "updated_at": "2026-10-11T16:10:00+08:00"
+  },
+  "w2_2_frame_variants_2026_10_11": {
+    "status": "w2_2_deployed_e2e_pass",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "多视角分镜扩展(W2.2,对标可灵同名能力):单角色定妆参考图→远/中/近三景别示意图;服务 shot_frame.py 复用设定卡 img2img 机器(_pick_sheet_client/_wait_images/build_img2img_graph,:8262/:8264);异步 Job(studio_frame_variants)+轮询;分镜表新增「AI 配景」列(按钮+三缩略图)",
+    "commits": [
+      "cc702f81 首版(3 测试)",
+      "真因两修:except 求值 NameError 致协程暴毙(Job 永久 running;import 补齐+启动收口覆盖 frame kind)+参考图改直读本地文件域(/api/studio/files 鉴权 401 实测)"
+    ],
+    "e2e": "wineryz:修复后提交→50s done→3 景别 PNG(frame_var_32d2d089_{wide,medium,closeup});浏览器分镜表 #5 行三缩略图渲染;截图存 artifacts",
+    "lessons": [
+      "except 子句里的未导入名会在异常匹配时抛 NameError 吞掉原异常——协程暴毙且 Job 永久 running;这类坑靠启动收口兜底+import 纪律",
+      "P-1 产物 URL 有鉴权,服务端自取一律走本地文件域"
+    ],
+    "updated_at": "2026-10-11T15:20:00+08:00"
   }
 }
