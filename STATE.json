@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T16:20:00+08:00",
+  "updated_at": "2026-10-11T17:05:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14795,5 +14795,21 @@
     "commit": "ad2fa71d",
     "e2e": "wineryz 实弹:#5 微波炉上移一位+#4 暖柜时长 6→8→保存→API 复核 idx4/5 互换且 duration 8s 持久化,rendered/error 状态保留",
     "updated_at": "2026-10-11T16:20:00+08:00"
+  },
+  "w2_4_workflow_templates_2026_10_11": {
+    "status": "w2_4_deployed_e2e_pass",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "工作流模板库(W2.4,契约 §3 落地):6 模板 node_mapping 声明式注册(ref2va single/first_last/kf2/kf3+fl2va t2v/i2v),注入点值全部取自真实构建器(h3_pipeline_c.py 代码构建器+h3/*.json 模板图);API=清单/详情/激活切换(管理员,同 engine|mode 单激活键天然成立,状态落 app/data/workflow_template_active.json);3 测试含『node_mapping 节点 id 必须在真实图存在』防漂移断言",
+    "commit": "c9804cb3",
+    "e2e": "wineryz:清单 6 模板(ref2va 四 mode 默认激活,fl2va 两模板非激活因 engine|mode 键与 ref2va 同族竞争——语义如实);激活切换 kf2→True→复原 single;data 域状态文件核验",
+    "notes": [
+      "实现贴合真实架构:图由代码构建器生成,模板库登记注入点而非复制图——切换模板=切换注入点描述,零代码(契约 §3 目标达成)",
+      "fl2va t2v/i2v 与 ref2va single/first_last 共享 engine|mode 键导致互斥默认(ref2va 胜出);后续若需 fl2va 激活,键改 engine|family|mode 即可(已记)"
+    ],
+    "updated_at": "2026-10-11T17:05:00+08:00"
   }
 }
