@@ -631,13 +631,13 @@ export default function DramaWorkspacePage() {
                                 )}
                                 <div className="mt-3 flex flex-col gap-2 rounded-lg border border-dashed border-[var(--border)] p-3">
                                     <div className="flex items-center justify-between gap-2">
-                                        <span className="text-xs font-medium text-foreground">共享资产库（跨项目角色 · {sharedAssets.length}）</span>
+                                        <span className="text-xs font-medium text-foreground">全局主体库（跨项目角色 · {sharedAssets.length}）</span>
                                         <ToolButton size="xs" variant="ghost" icon={<RefreshCw />} label="刷新" loading={sharedLoading} onClick={() => void loadShared()} />
                                     </div>
                                     {assetMsg && <p className="text-xs text-foreground">{assetMsg}</p>}
                                     {assetError && <p className="text-xs text-[var(--danger,#e5484d)]">{assetError}</p>}
                                     {sharedAssets.length === 0 ? (
-                                        <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">暂无共享角色资产(在经典端「资产库」创建后跨项目复用)</p>
+                                        <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">暂无全局主体(在经典端「资源中心-主体库」创建后跨项目复用)</p>
                                     ) : (
                                         <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
                                             {sharedAssets.map((a) => {
