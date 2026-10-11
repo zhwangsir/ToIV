@@ -107,6 +107,9 @@ const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
   train: "resources",
   backlot: "resources",
   drama: "studio",
+  // S12 退役:fusion→home(对话即入口);canvas→home(canvas 应用经 /studio)
+  fusion: "home",
+  canvas: "home",
 };
 
 /** W1:这三个旧 key 重定向进资源中心时需带上目标 tab(?view=train → /?view=resources&tab=train) */
@@ -215,17 +218,18 @@ function ViewFallback({ label }: { label: string }) {
 // 分别收编进资源中心(带 tab)/studio,旧链接不 404;
 // create/generate/ltxstudio/dramaStudio/manju/skills/apps 同走重定向;
 // assistant 已底层化(2026-08-17):移出 VALID_VIEWS,URL ?view=assistant 在挂载 effect 中重定向 fusion
+// S12(2026-10-11) R18=A 退役第一批:fusion(纯导航枢纽,canvas home 全覆盖)
+// 与 canvas(ComfyUI iframe,canvas 应用本体覆盖)移出 VALID_VIEWS;
+// 组件保留(深链经 LEGACY_VIEW_REDIRECTS 归位),R18 只读壳视图不动。
 const VALID_VIEWS = new Set<View>([
   "home",
   "image",
   "video",
   "audio",
-  "fusion",
   "imageEdit",
   "videoEdit",
   "animatic",
   "avatartalk",
-  "canvas",
   "studio",
   "dub",
   "library",
@@ -291,8 +295,6 @@ const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
   { key: "resources", label: NAV_LABELS.resourcesMore, icon: "models" },
   { key: "entities", label: NAV_LABELS.entities, icon: "users" },
   { key: "animatic", label: NAV_LABELS.animatic, icon: "film" },
-  { key: "canvas", label: NAV_LABELS.canvas, icon: "workflow" },
-  { key: "fusion", label: NAV_LABELS.fusion, icon: "sparkles" },
   { key: "agent-runs", label: "任务", icon: "workflow" },
   { key: "settings", label: NAV_LABELS.settings, icon: "settings" },
 ];
