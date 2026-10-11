@@ -705,3 +705,27 @@ export async function adoptSheetAsReference(cid: string, style: string, urls: st
         throw new Error(detail || "参考图写入失败");
     }
 }
+
+// ---- S3-b(2026-10-11): 设定卡生成异步化(15-20min 同步等待是 UX/可靠性雷) ----
+
+/** POST /studio/characters/{cid}/character-sheet/async → {job_id, status:"queued"} */
+export async function submitSheetAsync(cid: string, style: string): Promise<{ job_id: string; status: string }> {
+    const { data } = await toivHttp.post(
+        `/studio/characters/${encodeURIComponent(cid)}/character-sheet/async`,
+        { style },
+        { timeout: 30_000 },
+    );
+    return data;
+}
+
+/** GET /studio/characters/{cid}/character-sheet/async/{job_id} → done 时带 sheet_url/panel_urls */
+export async function pollSheetJob(
+    cid: string,
+    jobId: string,
+): Promise<{ status: string; sheet_url?: string; panel_urls?: Record<string, string>; error?: string }> {
+    const { data } = await toivHttp.get(
+        `/studio/characters/${encodeURIComponent(cid)}/character-sheet/async/${encodeURIComponent(jobId)}`,
+        { timeout: 15_000 },
+    );
+    return data;
+}

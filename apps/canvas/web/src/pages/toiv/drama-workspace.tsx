@@ -16,16 +16,19 @@ import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import {
+    adoptSheetAsReference,
+    buildMakeupCChainFromDrama,
+    createCChain,
     createStudioCharacter,
     fetchCharacterSheets,
     fetchDramaProject,
-    generateCharacterSheetStrict,
-    adoptSheetAsReference,
     patchStudioProject,
     pollScriptParse,
+    pollSheetJob,
     renderShotStrict,
     saveStudioShots,
     submitScriptParse,
+    submitSheetAsync,
     triggerBatchRender,
     triggerShotVoice,
     type ToivCharacterSheet,
@@ -132,11 +135,13 @@ export default function DramaWorkspacePage() {
     const [sheetsLoading, setSheetsLoading] = useState(false);
     const [regenStyle, setRegenStyle] = useState<string | null>(null);
     const [sheetError, setSheetError] = useState<string | null>(null);
+    const [sheetMsg, setSheetMsg] = useState<string | null>(null);
 
     const openSheets = useCallback(async (c: ToivDramaCharacter) => {
         setSheetChar(c);
         setSheets([]);
         setSheetError(null);
+        setSheetMsg(null);
         setSheetsLoading(true);
         try {
             setSheets(await fetchCharacterSheets(c.id));
@@ -150,15 +155,45 @@ export default function DramaWorkspacePage() {
     const regenSheet = useCallback(async (cid: string, style: string) => {
         setRegenStyle(style);
         setSheetError(null);
+        setSheetMsg(null);
         try {
-            await generateCharacterSheetStrict(cid, style);
-            setSheets(await fetchCharacterSheets(cid));
+            const { job_id } = await submitSheetAsync(cid, style);
+            setSheetMsg(`后台生成中(作业 ${job_id.slice(0, 8)}…,全程 15-20 分钟;可关抽屉稍后再看,任务中心可见)`);
+            for (let i = 0; i < 300 && !pollStop.current; i++) {
+                await new Promise((r) => setTimeout(r, 5000));
+                const r = await pollSheetJob(cid, job_id);
+                if (r.status === "error") throw new Error(r.error || "生成失败");
+                if (r.status === "done") {
+                    setSheets(await fetchCharacterSheets(cid));
+                    setSheetMsg("生成完成,可点「采用为参考图」");
+                    await load();
+                    break;
+                }
+            }
         } catch (e) {
             setSheetError(e instanceof Error ? e.message : "设定卡生成失败");
         } finally {
             setRegenStyle(null);
         }
-    }, []);
+    }, [load]);
+
+    // ---- S3-a: 管线C(c_hybrid 妆容链)一键启动 ----
+    const [chainBusy, setChainBusy] = useState(false);
+    const [chainMsg, setChainMsg] = useState<string | null>(null);
+    const startCChain = useCallback(async () => {
+        if (!detail) return;
+        setChainBusy(true);
+        setChainMsg(null);
+        try {
+            const body = buildMakeupCChainFromDrama(detail, { num_candidates: 2, auto_assemble: true });
+            const ack = await createCChain(body);
+            setChainMsg(`管线C 已提交(作业 ${String(ack.job_id).slice(0, 8)}…)→ 任务中心跟踪`);
+        } catch (e) {
+            setChainMsg(e instanceof Error ? e.message : "管线C 提交失败");
+        } finally {
+            setChainBusy(false);
+        }
+    }, [detail]);
 
     // 设定卡分格(无分格则整卡)采用为 ref2va 定妆参考图(正/侧/全身约定取前三格)
     const [adopting, setAdopting] = useState<string | null>(null);
@@ -447,7 +482,7 @@ export default function DramaWorkspacePage() {
                                     <EmptyState description="暂无镜头(先在剧本段 AI 拆解)" />
                                 ) : (
                                     <>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             <ToolButton
                                                 variant="default"
                                                 icon={<PlayCircle />}
@@ -455,10 +490,20 @@ export default function DramaWorkspacePage() {
                                                 onClick={() => void runBatchRender()}
                                                 loading={batchRendering}
                                             />
+                                            <ToolButton
+                                                variant="default"
+                                                icon={<Clapperboard />}
+                                                label={chainBusy ? "管线C 提交中…" : "启动管线C(连续妆容链)"}
+                                                onClick={() => void startCChain()}
+                                                loading={chainBusy}
+                                            />
                                             <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
-                                                渲染走 H3 ref2va 管线(需角色定妆参考图:资产段生成设定卡并采用),同步等待数分钟
+                                                单镜/整批走 H3 ref2va(需角色定妆参考图);管线C 为 c_hybrid 连续生成,作业进任务中心
                                             </span>
                                         </div>
+                                        {chainMsg && (
+                                            <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{chainMsg}</p>
+                                        )}
                                         {renderError && (
                                             <p className="rounded-lg border border-[var(--border)] bg-[var(--muted,rgba(255,255,255,0.05))] p-2.5 text-xs text-[var(--danger,#e5484d)]">
                                                 {renderError}
@@ -533,6 +578,12 @@ export default function DramaWorkspacePage() {
                             {sheetError && (
                                 <p className="rounded-lg border border-[var(--border)] bg-[var(--muted,rgba(255,255,255,0.05))] p-2.5 text-xs text-[var(--danger,#e5484d)]">
                                     {sheetError}
+                                </p>
+                            )}
+                            {sheetMsg && (
+                                <p className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">
+                                    {regenStyle && <Loader2 className="size-3 animate-spin" aria-hidden />}
+                                    {sheetMsg}
                                 </p>
                             )}
                             {sheetsLoading ? (

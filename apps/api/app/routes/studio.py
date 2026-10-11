@@ -327,12 +327,21 @@ async def generate_character_sheet_route(
     pool=Depends(get_pool),
 ):
     """分格出图 + Pillow 固定版式拼版;默认只落设定卡文件,不写 reference_images。"""
-    from app.services.studio import character_sheet as sheet_svc
-
     c = session.get(StudioCharacter, cid)
     if not c:
         raise HTTPException(status_code=404, detail="角色不存在")
     _get_project(session, c.project_id, user)
+    return await _generate_sheet_core(c, body, session, pool)
+
+
+async def _generate_sheet_core(
+    c,
+    body: "CharacterSheetRequest",
+    session: Session,
+    pool,
+) -> dict:
+    """设定卡生成核心(同步/异步 Job 共用):校验 → 出图 → 首次定妆自动写 by_style。"""
+    from app.services.studio import character_sheet as sheet_svc
 
     name = (c.name or "").strip()
     if not name:
@@ -373,8 +382,6 @@ async def generate_character_sheet_route(
         raise HTTPException(status_code=e.status_code, detail=str(e)) from e
 
     # 12:01/22:31:默认不写视频参考;apply_to_video_refs 时按风格分桶写入,不互盖
-    refs_out = None
-    by_style_out = None
     # 10/05:首次定妆(本风格分桶为空)自动写入视频参考,否则新角色进视频步 C/c_hybrid 无参考直接失败;
     # 已有分桶时仍尊重 apply_to_video_refs=False,不覆盖已确认的参考。
     _bucket_empty = not sheet_svc.parse_refs_by_style(
@@ -408,24 +415,126 @@ async def generate_character_sheet_route(
         session.add(c)
         session.commit()
         session.refresh(c)
-        refs_out = [u for u in existing if isinstance(u, str)]
-        by_style_out = by_style
     _note_asset_regeneration(
-        cid, body.style, reason="character-sheet 整卡生成"
+        c.id, body.style, reason="character-sheet 整卡生成"
     )
     out = _character_out(c)
     out["sheet_url"] = url
     out["sheet_style"] = body.style
     out["panel_urls"] = panel_urls
     out["apply_to_video_refs"] = _apply_refs
-    if refs_out is not None:
-        out["reference_images"] = refs_out
-    if by_style_out is not None:
-        out["reference_images_by_style"] = by_style_out
     return out
 
 
+# ── S3-b(2026-10-11):设定卡生成异步化——15-20min 同步等待是 UX/可靠性双重雷 ──
+# 模式复用 script/parse:Job 建档 + 进程内后台协程 + 轮询端点;任务中心天然可见/可取消。
+_SHEET_KIND = "studio_sheet_gen"
 
+
+async def _run_sheet_job(job_id: str, cid: str, body: CharacterSheetRequest) -> None:
+    from app.db import engine as _engine
+    from app.models import Job
+
+    def _finish(status: str, result: dict) -> None:
+        with Session(_engine) as s:
+            job = s.get(Job, job_id)
+            if not job or job.status in ("done", "error", "canceled"):
+                return
+            job.status = status
+            job.result = json.dumps(result, ensure_ascii=False)
+            s.add(job)
+            s.commit()
+
+    try:
+        with Session(_engine) as s:
+            job0 = s.get(Job, job_id)
+            if not job0 or job0.status == "canceled":
+                return
+            job0.status = "running"
+            s.add(job0)
+            s.commit()
+        with Session(_engine) as s:
+            c = s.get(StudioCharacter, cid)
+            if not c:
+                _finish("error", {"error": "角色不存在"})
+                return
+            out = await _generate_sheet_core(c, body, s, get_pool())
+        _finish("done", {
+            k: out.get(k)
+            for k in ("sheet_url", "sheet_style", "panel_urls", "apply_to_video_refs")
+        })
+    except HTTPException as e:
+        _finish("error", {"error": str(e.detail)})
+    except Exception as e:  # noqa: BLE001 — 后台任务绝不静默死掉
+        logger.exception("sheet job %s 意外失败", job_id)
+        _finish("error", {"error": f"设定卡生成失败:{e}"})
+
+
+@router.post("/studio/characters/{cid}/character-sheet/async")
+async def generate_character_sheet_async(
+    cid: str,
+    body: CharacterSheetRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """提交设定卡生成(异步):建档 Job + 后台跑;前端轮询 async/{job_id} 取结果。
+
+    全管线 15-20 分钟级(portrait 颜色门禁/徽标 inpaint/表情×6 VLM 质检),
+    同步等待必然撞浏览器/代理超时——工作区与长链客户端一律走本端点。
+    """
+    import asyncio as _asyncio
+
+    from app.models import Job
+    from app.versioning import params_snapshot
+
+    c = session.get(StudioCharacter, cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="角色不存在")
+    _get_project(session, c.project_id, user)
+    job = Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id="",
+        worker="",
+        kind=_SHEET_KIND,
+        status="queued",
+        prompt=f"设定卡 {c.name or cid[:8]} {body.style}".strip()[:200],
+        params=params_snapshot(body, cid=cid),
+    )
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    job.prompt_id = f"sheet-{job.id}"
+    session.add(job)
+    session.commit()
+    _asyncio.create_task(_run_sheet_job(job.id, cid, body))
+    return {"job_id": job.id, "status": "queued"}
+
+
+@router.get("/studio/characters/{cid}/character-sheet/async/{job_id}")
+def sheet_job_status(
+    cid: str,
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """轮询设定卡生成:done → {sheet_url, panel_urls…};error → {error}。"""
+    from app.models import Job
+
+    c = session.get(StudioCharacter, cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="角色不存在")
+    _get_project(session, c.project_id, user)
+    job = session.get(Job, job_id)
+    if not job or job.user_id != user.id or job.kind != _SHEET_KIND:
+        raise HTTPException(status_code=404, detail="作业不存在")
+    out: dict = {"status": job.status}
+    if job.result:
+        try:
+            out.update(json.loads(job.result))
+        except (ValueError, TypeError):
+            pass
+    return out
 
 
 @router.post("/studio/characters/{cid}/character-sheet/panels")
@@ -1162,7 +1271,7 @@ def reconcile_parse_jobs() -> int:
     with Session(_engine) as s:
         rows = s.exec(
             select(Job).where(
-                Job.kind == _PARSE_KIND,
+                Job.kind.in_((_PARSE_KIND, _SHEET_KIND)),  # type: ignore[attr-defined]
                 Job.status.in_(("queued", "running")),  # type: ignore[attr-defined]
             )
         ).all()
