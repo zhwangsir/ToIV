@@ -1066,3 +1066,59 @@ export async function pollGenJob(promptId: string, limit = 30): Promise<{ status
     if (!job) return null;
     return { status: String(job.status ?? ""), results: Array.isArray(job.results) ? job.results : [], hold_reason: job.hold_reason };
 }
+
+// ---- F6(2026-10-12):视频剪辑(自经典 VideoEditView 三轨剪辑迁入) ----
+
+export interface VideoEditClip {
+    file: number;
+    in: number;
+    duration: number;
+    volume: number;
+}
+
+export interface VideoEditAudio {
+    file: number;
+    in: number;
+    duration: number;
+    start: number;
+    volume: number;
+}
+
+export interface VideoEditText {
+    text: string;
+    start: number;
+    end: number;
+    position: string;
+    fontSize: number;
+    color: string;
+}
+
+export interface VideoEditPlan {
+    width: number;
+    height: number;
+    fps: number;
+    clips: VideoEditClip[];
+    audios: VideoEditAudio[];
+    texts: VideoEditText[];
+}
+
+export interface VideoEditResult {
+    job_id: string;
+    url: string;
+    clips: number;
+    audios: number;
+    texts: number;
+    duration: number;
+    fps: number;
+    width: number;
+    height: number;
+}
+
+/** POST /api/video-edit/render multipart(plan+media):剪辑计划 → ffmpeg 成片(同步,分钟级)。 */
+export async function renderVideoEdit(plan: VideoEditPlan, media: File[]): Promise<VideoEditResult> {
+    const fd = new FormData();
+    fd.append("plan", JSON.stringify(plan));
+    for (const f of media) fd.append("media", f);
+    const { data } = await toivHttp.post("/video-edit/render", fd, { timeout: 300_000 });
+    return data;
+}
