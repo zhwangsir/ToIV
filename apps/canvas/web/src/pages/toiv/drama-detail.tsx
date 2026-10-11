@@ -433,13 +433,11 @@ export default function DramaDetailPage() {
                                             }} />
                                     </div>
                                     {sh.sheet_url && <img src={sh.sheet_url} alt="" className="w-full rounded-lg" loading="lazy" />}
-                                    {(sh.panel_urls ?? []).length > 0 && (
+                                    {sh.panel_urls && Object.keys(sh.panel_urls).length > 0 && (
                                         <div className="grid grid-cols-3 gap-1">
-                                            {sh.panel_urls!.slice(0, 9).map((p, i) => {
-                                                const panelKeys = ["portrait", "front", "side", "back", "faces", "costume", "expr_0", "expr_1", "expr_2"];
-                                                const pk = panelKeys[i] ?? `expr_${i - 6}`;
+                                            {Object.entries(sh.panel_urls).slice(0, 9).map(([pk, p]) => {
                                                 return (
-                                                    <div key={i} className="group relative">
+                                                    <div key={pk} className="group relative">
                                                         <img src={p} alt="" className="aspect-square w-full rounded-md object-cover" loading="lazy" />
                                                         <label className="absolute inset-0 z-10 flex cursor-pointer items-center justify-center bg-black/60 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
                                                             {replacingKey === pk ? "替换中…" : <><Upload className="mr-1 h-3 w-3" />替换</>}
