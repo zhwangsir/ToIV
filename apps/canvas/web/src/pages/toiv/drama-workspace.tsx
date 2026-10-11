@@ -25,6 +25,7 @@ import {
     patchStudioProject,
     pollScriptParse,
     pickShotCandidate,
+    assembleStudioProject,
     pollSheetJob,
     renderShotAsync,
     renderShotStrict,
@@ -249,6 +250,26 @@ export default function DramaWorkspacePage() {
             setRenderError(e instanceof Error ? e.message : "渲染失败");
         } finally {
             markBusy(sid, false);
+        }
+    }, [id, load]);
+
+    // ---- S9-lite: 成片合成 ----
+    const [assembling, setAssembling] = useState(false);
+    const [assembleMsg, setAssembleMsg] = useState<string | null>(null);
+    const [assembleError, setAssembleError] = useState<string | null>(null);
+    const runAssemble = useCallback(async () => {
+        if (!id) return;
+        setAssembling(true);
+        setAssembleError(null);
+        setAssembleMsg(null);
+        try {
+            await assembleStudioProject(id);
+            await load();
+            setAssembleMsg("成片合成完成,见「成片」段");
+        } catch (e) {
+            setAssembleError(e instanceof Error ? e.message : "成片合成失败");
+        } finally {
+            setAssembling(false);
         }
     }, [id, load]);
 
@@ -609,8 +630,43 @@ export default function DramaWorkspacePage() {
                             </SectionShell>
                         )}
                         {section === "timeline" && (
-                            <SectionShell title="时间线（汇编）" batch="S9">
-                                <EmptyState description="播放列表式汇编(排序/时长/预览/合成)S9 落地;契约见 PLATFORM_V2_CONTRACT RenderVersion" />
+                            <SectionShell title="时间线（汇编）" batch="S9-lite">
+                                {shots.length === 0 ? (
+                                    <EmptyState description="暂无分镜" />
+                                ) : (
+                                    <>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <ToolButton
+                                                variant="default"
+                                                icon={<Film />}
+                                                label={assembling ? "合成中…" : "合成成片(拼接全部就绪镜)"}
+                                                onClick={() => void runAssemble()}
+                                                loading={assembling}
+                                            />
+                                            <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                                就绪 {shots.filter((x) => x.final_clip_url).length}/{shots.length} 镜(全部就绪后方可合成;排序/时长编辑属 S9 正式版)
+                                            </span>
+                                        </div>
+                                        {assembleError && (
+                                            <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger,#e5484d)]">{assembleError}</p>
+                                        )}
+                                        {assembleMsg && (
+                                            <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{assembleMsg}</p>
+                                        )}
+                                        <ol className="flex flex-col gap-1.5">
+                                            {shots.map((x) => (
+                                                <li key={x.id} className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-xs">
+                                                    <span className="w-8 tabular-nums text-[var(--muted-foreground,#a8a8a8)]">#{x.idx}</span>
+                                                    <span className="min-w-0 flex-1 truncate">{x.scene || x.prompt || "—"}</span>
+                                                    <span className="tabular-nums text-[var(--muted-foreground,#a8a8a8)]">{x.duration_sec ?? "—"}s</span>
+                                                    {x.final_clip_url
+                                                        ? <StatusBadge variant="filled" tone="success" label="就绪" size="sm" />
+                                                        : <StatusBadge variant="filled" tone={STATUS_TONE[x.status] ?? "neutral"} label={x.status} size="sm" />}
+                                                </li>
+                                            ))}
+                                        </ol>
+                                    </>
+                                )}
                             </SectionShell>
                         )}
                         {section === "final" && (

@@ -707,6 +707,17 @@ export async function renderShotStrict(sid: string, opts: { num_candidates?: num
     }
 }
 
+/** S9-lite(2026-10-11):拼接全部就绪分镜 → 项目成片(POST /studio/projects/{pid}/assemble)。
+ * 任一镜缺 final_clip_url → 422(错误透出)。 */
+export async function assembleStudioProject(pid: string): Promise<void> {
+    try {
+        await toivHttp.post(`/studio/projects/${encodeURIComponent(pid)}/assemble`, undefined, { timeout: 600_000 });
+    } catch (e) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        throw new Error(detail || "成片合成失败");
+    }
+}
+
 /** S4-b(2026-10-11):异步单镜渲染——wait=false 登记 Job 即回(管线C阶段B机制);
  * 同步等待撞 reload/断连=状态僵死(实测),一律走此路。 */
 export async function renderShotAsync(sid: string, opts: { num_candidates?: number } = {}): Promise<{ job_id: string }> {
