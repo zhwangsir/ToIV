@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-11（ToIV开发）：**v2 重构 S1/P0 已部署+生产验证**——/api/apps 分页(limit/offset+X-Total-Count+未知query 422)、市场页 200/页+加载更多、login 直发 `toiv_session` cookie(admin 闸)、core 孤儿 serve.mjs(:8271) 已清；`docs/ops/PLATFORM_V2_CONTRACT.md` 契约冻结。api+canvas 01:32 CST 重启；web 仍 `ae5e294b`。生产 tip=main `da0c8b97`。`updated_at` 2026-10-11T01:50:00+08:00。
+> **最后更新**：2026-10-11（ToIV开发）：**v2 总计划 S1–S14 主线全部走完+四判据 4/4 收口**——tip=main `797b0d97` 双远端；桌面 ToIV.app 正规链构建成功（v1.7.7/418MB，agent-host Node24.15 入包）无头冒烟 ok=true；**用户已回局域网，验证优先 LAN 直连**（见五节）。`updated_at` 2026-10-11T16:30:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -78,7 +78,7 @@
 
 ## 五、Core 生产状态（活口径）
 
-- **服务**：toiv-api :8090 / toiv-web :3100 / toiv-admin :3200 systemd 常驻；PG 18+Redis 仅 bind 127.0.0.1。**域名双入口**：toiv.dgmt.top（香港 frp）+ **toiv.wineryz.top（CN 主入口，验证一律走此）**。
+- **服务**：toiv-api :8090 / toiv-web :3100 / toiv-admin :3200 systemd 常驻；PG 18+Redis 仅 bind 127.0.0.1。**域名双入口**：toiv.dgmt.top（香港 frp）+ **toiv.wineryz.top（CN 外网入口）**。**验证口径（2026-10-11 起）**：用户在局域网时**优先 LAN 直连** `http://192.168.71.47:3100`（web，/studio 同源）/`:8090`（api，health=`/api/health`）/`:3200`（admin；实测全 10ms 级）；外网/发布前回归才走 wineryz（N-1）。
 - **LLM/VLM（DSv4 无审查 TP2 LIVE）**：core `TOIV_LLM_*` 指 spark02 `http://192.168.71.84:8000/v1`；served `deepseek-v4-flash-dspark`+别名 `qwen3.8-27b`/`qwen3.6-uncensored`/`glm-5.3-flash`（core 零改动）；1M ctx、实测 70.5 tok/s；启动/回滚见第一节与归档。 `/api/llm/v1` 白名单 `TOIV_LLM_PROXY_MODELS` 须含上述四名（默认 `deepseek-v4-flash-dspark,qwen3.8-27b,qwen3.6-uncensored,glm-5.3-flash`），否则助手发 deepseek id 会本地 400。
 - **whisper ASR 集群**：`TOIV_WHISPER_URL`=openclaw 四址（.86/.75/.81/.85:9310，OpenAI 兼容契约；`Settings.whisper_endpoint_list` 多址故障转移，5xx/连接错换节点、4xx/中止不转移）；env 备份 `.env.bak-whisper-cluster-20260921`。
 - **Embedding**：workstation :9302（core `TOIV_EMBED_BASE_URL=http://192.168.71.127:9302/v1`）。
@@ -134,6 +134,12 @@
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-11（ToIV开发：桌面同版本构建收口+LAN 验证口径；四判据 4/4）
+- **背景**：S1–S14 主线已全部走完（tip `797b0d97` 双远端，详叙 `docs/ops/UNIFIED_PLATFORM_EXECUTION_20261010.md` 各批✅）；本轮补齐四判据第 4 项并固化 LAN 口径。
+- **桌面**：`apps/canvas/scripts/build-toiv-desktop.sh` 实跑成功——`ToIV.app` 418MB（`top.wineryz.toiv` v1.7.7；agent-host=Node 24.15.0+冻结依赖树入 `Resources/agent-host`；toiv-h3 插件包入 `Resources/plugin-packages`）；无头冒烟 `--toiv-smoke=` **ok=true**（backend/agentHost 2.5s/assistantWarm/loginPage 全过）。**环境钉子**：wails CLI v2.16.0 已装 `~/go/bin`（GOPROXY=goproxy.cn）；agent-host 打包**需 bun≥1.4**（`agent-host/bun.lock`=lockfileVersion 2，全局 1.2.17 与 CI 钉的 1.3.9 均解不了）+`BEEFTV_NODE_RUNTIME`=Node 24.15.0 官方目录（npmmirror 拉，脚本严校验版本+otool）；临时件 `/var/tmp/bun143`、`/var/tmp/node-v24.15.0-darwin-arm64`（tmp 三日清，重建按来源再拉）。
+- **口径**：用户已回局域网——验证优先 LAN 直连（见五节）；wineryz 退为外网/发布回归口径。
+- Status：`desktop_build_lan_caliber_2026_10_11`（STATE 同键）；开口仅剩：12 视图渐进迁移、token 统一（归 P4 随退役）、R18 翻案通道（A 可逆）。via ToIV 开发（自主执行）。
 
 ### 2026-10-11（ToIV开发：W2.0 FL2VA 链路闭环 + S2/W1.5 任务枢纽，已部署）
 - **W2.0（挂账 0.2 终局）**：`rh-acc-5759833090` 烟测**六轮实弹排查后 PASS**（223.8s 真出片）。修链：①api 撤 H3 FL2VA 反向别名 `ea1d4914`（10-10 别名把 RH 合规名改写成 NAS 名，被命名守卫拒——**E-3 三连实证**）；②workstation RH 节点三处 resolve 泄名补丁（`components/_impl.py`×2 + `api/_shared.py`×1，备份 `*.bak-20261011`，**不在仓库**）；③**NAS pruned 别名路线整体弃用**——pruned=曲线表变体与 release config 不配、NAS VAE 多两键，已从 `_full_bak_20261010` 恢复本地全量四件套（34G+5.2G+0.6G，盘余 4.7T 充裕）。`907f5f85`/`h3_missing_trusted_identity` 核销。教训：社区 pruned/重转换权重过不了 RH 严格校验，audit 的「功能等价」≠「可替换」。

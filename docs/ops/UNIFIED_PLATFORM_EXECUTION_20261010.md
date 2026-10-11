@@ -193,8 +193,15 @@ S1 ──► S2 ──► S3 ──► S4        （壳迁移线，前端为主�
 ### S12 收敛批·R18 拍板与退役第一批（2026-10-11）
 - ✅ **R18=A（保留经典 web 只读壳）**：依据用户总授权+清单推荐项；零功能损失可逆（翻案改 B/C 均为增量），STATE 即决策记录。
 - ✅ 退役第一批执行：fusion/canvas 移出 VALID_VIEWS+「更多」抽屉移除（深链 `?view=fusion→home`、`?view=canvas→/studio` 生产归位实证）；经典 web 全新构建部署（BUILD `bf96f93a`）。
-- ✅ 四判据终验：①经典 web 收敛（R18 只读壳）✓ ②全流程零外跳（工作区多批实证）✓ ③中断恢复 100%（S5 生产实证）✓ ④桌面同版本——**wails CLI 双机未装，归用户侧**（装后 `wails build` 即可，SPA 同源）。
+- ✅ 四判据终验：①经典 web 收敛（R18 只读壳）✓ ②全流程零外跳（工作区多批实证）✓ ③中断恢复 100%（S5 生产实证）✓ ④桌面同版本——**2026-10-11 补齐 ✅**（详见下条）。
 - 剩余迁移 12 视图按绞杀者纪律随用随迁（清单已落档）；token 统一随视图退役渐进。
+
+### S12 补齐·桌面同版本构建（2026-10-11，四判据 4/4 收口）
+- ✅ 正规链 `apps/canvas/scripts/build-toiv-desktop.sh` 实跑产出 `backend/cmd/desktop/build/bin/ToIV.app`（418MB；`top.wineryz.toiv` v1.7.7，版本取 `apps/canvas/VERSION`+commit ldflags；含 toiv-h3 插件包+全量媒体 SPA）。
+- ✅ agent-host 打包入包（`Contents/Resources/agent-host`：Node 24.15.0 darwin-arm64 + server.mjs + 冻结锁依赖树）。
+- ✅ 无头冒烟 `--toiv-smoke=` **ok=true**：backend/agentHost(2.5s)/assistantWarm/loginPage 全过；loginEndpoint 422=空体被拒（契约内）。
+- 环境钉子（本机已备）：wails CLI v2.16.0（`~/go/bin`，GOPROXY=goproxy.cn 装）；**agent-host 打包需 bun≥1.4**（`agent-host/bun.lock` 是 lockfileVersion 2，本机全局 1.2.17 解不了；CI 钉 1.3.9 已过时）+ `BEEFTV_NODE_RUNTIME`=Node 24.15.0 官方发行目录（npmmirror 拉，校验 platform/arch/精确版本+otool 系统 dylib）；临时件在 `/var/tmp/bun143`、`/var/tmp/node-v24.15.0-darwin-arm64`（tmp 三日清理，重建按此来源再拉）。
+- 顺手核正：**用户已回局域网**，验证入口 LAN 直连优先（web `http://192.168.71.47:3100`、api `:8090` health=`/api/health`、admin `:3200`；workstation 引擎 LAN 直查）；wineryz 仍为外网口径（N-1）。
 
 ## 8. 变更记录
 
