@@ -15,7 +15,7 @@ from pydantic_core import PydanticCustomError
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.deps import get_current_user, get_pool
+from app.deps import get_current_admin, get_current_user, get_pool
 from app.models import StudioCharacter, StudioProject, StudioShot, User
 from app.services.drama_pipeline import compute_studio_next_step
 from app.services.studio import assemble as assemble_svc
@@ -437,6 +437,38 @@ async def _generate_sheet_core(
 
 class FrameVariantsRequest(BaseModel):
     style: str = Field(default="anime", pattern="^(anime|ancient_realistic)$")
+
+
+# ── W2.4(2026-10-11):工作流模板库(node_mapping 声明式注册) ──
+@router.get("/studio/workflow-templates")
+def workflow_templates_list(user: User = Depends(get_current_user)) -> list[dict]:
+    """模板清单:含 node_mapping/能力约束/激活态。"""
+    from app.services.studio.workflow_templates import list_templates
+
+    return list_templates()
+
+
+@router.get("/studio/workflow-templates/{tid}")
+def workflow_template_get(tid: str, user: User = Depends(get_current_user)) -> dict:
+    from app.services.studio.workflow_templates import get_template
+
+    t = get_template(tid)
+    if t is None:
+        raise HTTPException(status_code=404, detail="模板不存在")
+    return t
+
+
+@router.put("/studio/workflow-templates/{tid}/activate")
+def workflow_template_activate(
+    tid: str, admin: User = Depends(get_current_admin)
+) -> dict:
+    """切换激活(管理员;同一 (engine,mode) 单激活,状态落 data 域)。"""
+    from app.services.studio.workflow_templates import set_active
+
+    try:
+        return set_active(tid)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="模板不存在") from None
 
 
 # ── W2.2(2026-10-11):多视角分镜扩展(单角色参考图→多景别示意图,异步 Job) ──
