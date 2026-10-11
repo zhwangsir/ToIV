@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-12T00:40:00+08:00",
+  "updated_at": "2026-10-12T01:20:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15037,5 +15037,16 @@
     "summary": "融合 F6:视频剪辑(经典 VideoEditView 三轨剪辑)迁入 canvas。①新页 /toiv/video-tools:媒体池(≤30 文件 client 端时长探测)+视频轨(片段 file/in/duration/volume+上下移,≤20)+音频轨(起点/时长/入点/音量,≤10)+文字叠加(起止/位置/字号/颜色,≤20)+输出规格三预设→render(plan+media multipart,同步 ffmpeg);上限与经典一致(500MB/文件,总时长 600s);②工具箱「视频剪辑」入口;③经典 ?view=videoEdit 与别名 video-edit 退役(EXTERNAL→/studio/toiv/video-tools),VALID_VIEWS 收缩到 9(home/image/video/avatartalk/dub/library/market/settings+R18);web 套 1158/1162(4 挂=预存基线,零新增);canvas tsc 零错。表单式编辑替代经典拖拽时间线(功能等价,plan 契约一致);富时间线交互(拖拽/吸附/预览游标)归 v3 C4 真时间线决策一并评估;经典 AiVideoEditView(AI 剪辑)未随迁(独立 AI 功能,登记)。",
     "e2e": "生产 LAN 全链实弹:2 片段(testsrc 2s×2)+1 音频(440Hz 4s,vol0.3)+1 文字叠加→POST /video-edit/render→{duration:4.0,640×360@12,url=/api/video-edit/output/30513f8c6c0b.mp4} ✓(发现后端 height 下限 256,测试计划已适配);浏览器级:?view=videoEdit→/studio/toiv/video-tools ✓、三轨 UI 渲染 ✓、工具箱三入口(音频/图片/视频) ✓",
     "updated_at": "2026-10-12T00:40:00+08:00"
+  },
+  "fusion_f7_dub_2026_10_12": {
+    "status": "deployed_partial_e2e_verified",
+    "date": "2026-10-12",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "融合 F7:视频译制(经典 DubView 五步链)迁入 canvas。①新页 /toiv/dub-tools 五步向导:源视频上传(流式带进度)→字幕(whisper 听写轮询/导入 SRT/VTT)→LLM 翻译(en/ja/ko/zh)→配音轨(克隆源视频音色 ref_seconds+emo_text,Job 轮询)→对口型成片(lipsync-long 分段 GPU,done/total 进度);译文/原文双语分段展示;②工具箱「视频译制」入口;③经典 ?view=dub 退役(EXTERNAL→/studio/toiv/dub-tools),VALID_VIEWS 收缩到 8(home/image/video/avatartalk/library/market/settings+R18 壳)——除 R18 决策保留壳外,全部经典可退役视图已完成迁移;web 套 1158/1162(4 挂=预存基线,零新增);canvas tsc 零错。经典 DubView 附加功能未随迁:autocut 自动剪切/highlights 高光集锦/动漫口型(anime lipsync)/服务唤醒 overlay(登记)。",
+    "e2e": "生产 LAN:SRT 导入实弹(2 段→带时间轴 segments)✓;翻译实弹(EN→JA:'ハロー、ワールド')✓;浏览器级 ?view=dub→/studio/toiv/dub-tools+五步 UI ✓。GPU 步(voice-track/lipsync-long)走经典后端管线零改动,未重跑实弹(登记)",
+    "updated_at": "2026-10-12T01:20:00+08:00"
   }
 }
