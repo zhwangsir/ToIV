@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T21:05:00+08:00",
+  "updated_at": "2026-10-11T22:35:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14992,5 +14992,17 @@
     "summary": "融合 F2:智能体任务(agent-runs)全功能迁入 canvas,经典侧退役。①canvas 新增 services/toiv/agent-runs.ts(10 端点+类型+SSE token 查询参数 URL+媒体 token URL+展示元数据,契约与经典 lib/api 对齐后端零改动);②新页 /toiv/runs/:id(SSE 断线退避重连≤5 次超限降级 5s 轮询/计划确认门=增删改+approve/modify/reject/任务卡干预=approve/regenerate带引导词/edit文案/换产物直传/合成确认门含时间线清单/成片播放/事件汇报流);③任务中心增强=大目标直建(L0 秒回提示转对话/L1L2 直跳详情)+智能体条目可点进详情;④经典 /agent-runs 列表与 [runId] 页退役为 redirect(→/studio/toiv/tasks 与 /studio/toiv/runs/:id),抽屉入口改指,「更多」抽屉 agent-runs 键保留;⑤e2e 规格+3 处单测断言同步(uiLayoutBatch2 页面源码断言改转发契约/autoResizeInputs 接线清单 17→16/appsViews 抽屉断言)。web 套 1158/1162(4 挂=预存基线,F2 零新增);canvas tsc 零错。经典组件树(components/agent-run/*)保留(深链经 redirect,不再渲染);「在对话中继续」草稿通道与 PipelineView 泳道形态未随迁(经典专属,登记小开口)。",
     "e2e": "生产 LAN:playwright 带 token+cookie 预热——/agent-runs→/studio/toiv/tasks ✓;/agent-runs/7f4a58f3(真实 run)→/studio/toiv/runs/7f4a58f3 ✓ 详情页渲染(任务列表/事件流在位);/studio/toiv/tasks 含「创建并拆解」入口 ✓;web BUILD e656d945",
     "updated_at": "2026-10-11T21:05:00+08:00"
+  },
+  "fusion_f3_from_image_2026_10_11": {
+    "status": "deployed_stitch_e2e_ai_blocked_by_vlm_env",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "融合 F3:animatic(动态分镜)迁 v2 域并退役经典视图。①后端 POST /api/studio/projects/from-image(异步 Job kind=studio_image_parse+轮询 GET /{job_id}):复用 drama_image.analyze_storyboard_images+_coerce_shot(经典管线零改动),建 StudioProject+StudioCharacter+StudioShot(含 seam 字段),reconcile_parse_jobs kinds 已纳入;与经典版差异=autorun 自动管线不随迁(v2 工作区逐镜渲染即后续)+默认 768×1344@24 对齐 v2 规格;单测 4/4(建档/失败透出/数量校验/归属 404)。②canvas 短剧列表「从图片创建」双模式弹窗:AI 解析(多图≤9+hint+分镜数 4-16,轮询 2s,done 跳工作区)/快速拼接(≤20 图+每图时长,直通经典 /api/animatic 出片+预览)。③经典 ?view=animatic 退役(EXTERNAL→/studio/toiv/drama),「更多」抽屉同步;web 套 1157/1162(F3 零新增,余 4 预存);canvas tsc 零错。",
+    "e2e": "生产 LAN:stitch 模式全链路实弹 PASS(2 图→/api/animatic→4s 640×360@12 成片);浏览器级:?view=animatic→/studio/toiv/drama ✓、从图片创建按钮+双 tab 弹窗 ✓;AI 模式管线实证到 VLM 调用层(提交→Job running→结构化错误透出)。",
+    "open": "[环境缺口·设备域] 多模态 VLM 端点缺位:TOIV_VLM_SERVER_URL 指向 spark02 纯文本 DSv4,实测返回 400 'deepseek-v4-flash-dspark is not a multimodal model'——自 2026-08-05『workstation 不再跑文本/VLM 推理』决策后即缺位,经典 /drama/projects/from-image 同样不可用(非 F3 引入)。from-image/图片解析类功能待多模态推理上架后自动恢复(F3 代码已就绪);GPU2/3 现余量充足(722MiB/1.8G used),建议上架 Qwen3-VL 级 vLLM 并配 TOIV_VLM_*。",
+    "updated_at": "2026-10-11T22:35:00+08:00"
   }
 }
