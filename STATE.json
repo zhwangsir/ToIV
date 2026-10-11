@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T11:00:00+08:00",
+  "updated_at": "2026-10-11T11:35:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14620,7 +14620,7 @@
       "updated_at": "2026-10-11T03:40:00+08:00"
     },
     "w1_3_w1_4": {
-      "status": "w1_3_w1_4_deployed_e2e_partial",
+      "status": "w1_3_w1_4_deployed_e2e_full_loop",
       "commits": [
         "9e147692 资产段设定卡抽屉+镜头段渲染/配音/整批",
         "942d44ec 设定卡错误透出",
@@ -14638,7 +14638,17 @@
         "管线 C c-chains 表单入工作区→S3(经典详情页已有完整管线C操作)",
         "设定卡生成改异步+进度条→S3(现同步等待 15min 级 UX 差)"
       ],
-      "updated_at": "2026-10-11T11:00:00+08:00"
+      "updated_at": "2026-10-11T11:35:00+08:00",
+      "final_commits": [
+        "7f203ccf 采用参考图带 allowed_panel_styles+错误透出+mtime 修正",
+        "77dbb93b 经典详情分格键值对象遍历(类型对齐)"
+      ],
+      "e2e_full_loop": "winerys 实弹全链闭环:粘贴剧本→AI 拆镜(8镜+2角色,33s)→设定卡古风写实生成(15min VLM 门禁管线,portrait 颜色/徽标/表情×6 全门禁)→分格采用为参考图(4张,12:01 风格守卫过)→镜头#4 H3 ref2va 渲染(约8min,GPU1 满载,连服装色板都从设定卡取到)→rendered+视频徽标;全程 /toiv/ws 内零跳转;截图存 artifacts",
+      "extra_bugs_fixed": [
+        "panel_urls 类型错(string[]→Record;经典详情位置猜key旧hack一并修)",
+        "采用参考图不带 allowed_panel_styles 被 12:01 守卫 422 静默(第三处吞错同款,已透出)",
+        "mtime epoch 秒被当毫秒(1970 年显示)"
+      ]
     }
   },
   "h3_fl2va_chain_closed_2026_10_11": {
