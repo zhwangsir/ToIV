@@ -270,3 +270,58 @@ def test_seam_continue_selects_c_pipeline(ctx, monkeypatch):
         s.add(c2); s.commit(); s.refresh(c2)
         asyncio.run(orch.render_shot(s, c2, None))
         assert captured.get("pipeline") == "ref2va"
+
+
+def test_rerender_preserves_done_candidates(ctx, monkeypatch):
+    """W2.7:重渲染保留既有 done+url 候选,只为缺口生成;全保留时零新提交。"""
+    import types
+
+    from app.services.studio import orchestrator as orch
+
+    engine, pid, _ = ctx
+    calls: list[int] = []
+
+    class _R:
+        kind = "video"
+        url = "/new.mp4"
+        pipeline_meta = {}
+
+    async def fake_render(shot, cast, pool, **kw):
+        calls.append(kw.get("seed") or 0)
+        return _R()
+
+    monkeypatch.setattr(orch, "get_renderer", lambda shot: types.SimpleNamespace(render=fake_render))
+    with Session(engine) as s:
+        from app.models import StudioShot as SH
+
+        # 已有 2 done 候选(其一 picked) → n=2 重渲染应零提交
+        sh = SH(project_id=pid, idx=0, scene="镜", status="error",
+                candidates_json=json.dumps([
+                    {"id": "c1", "url": "/a.mp4", "status": "done", "is_picked": True, "seed": 1},
+                    {"id": "c2", "url": "/b.mp4", "status": "done", "is_picked": False, "seed": 2},
+                ]))
+        s.add(sh); s.commit(); s.refresh(sh)
+        import asyncio
+
+        asyncio.run(orch.render_shot(s, sh, None, num_candidates=2, auto_pick=False))
+        s.refresh(sh)
+        assert calls == []  # 零新提交
+        out = json.loads(sh.candidates_json)
+        assert len(out) == 2 and out[0]["is_picked"] is True  # 保留原样
+
+        # 已有 1 done + n=3 → 只补 2
+        calls.clear()
+        sh2 = SH(project_id=pid, idx=1, scene="镜2", status="error",
+                 candidates_json=json.dumps([
+                     {"id": "d1", "url": "/c.mp4", "status": "done", "is_picked": True, "seed": 9},
+                 ]))
+        s.add(sh2); s.commit(); s.refresh(sh2)
+        asyncio.run(orch.render_shot(s, sh2, None, num_candidates=3, auto_pick=False))
+        s.refresh(sh2)
+        out2 = json.loads(sh2.candidates_json)
+        assert len(calls) == 2  # 只补缺口 2 个
+        assert len(out2) == 3
+        kept = [c for c in out2 if c["url"] == "/c.mp4"]
+        assert kept and kept[0]["is_picked"] is True
+        news = [c for c in out2 if c["url"] == "/new.mp4"]
+        assert len(news) == 2 and all(c.get("fingerprint") for c in news)  # 指纹写入

@@ -451,13 +451,39 @@ async def render_shot(
             candidates = []
         else:
             # 多候选:不同 seed 串行提交(不并行,避免打爆 H3 单实例队列)
-            if seed is not None:
-                seeds = [int(seed) + i for i in range(n)]
+            # W2.7(2026-10-11) 断点续跑:保留既有 done+url 候选,只为缺口生成;
+            # 指纹=sha256(url)[:8](url 含 seed+产物名,即产物身份指纹)。
+            _prior_done: list[dict[str, Any]] = []
+            try:
+                _pv = json.loads(prior_candidates_json or "[]")
+                if isinstance(_pv, list):
+                    _prior_done = [
+                        c for c in _pv
+                        if isinstance(c, dict) and c.get("status") == "done" and c.get("url")
+                    ]
+            except (ValueError, TypeError):
+                _prior_done = []
+            _need = max(0, n - len(_prior_done))
+            if _need > 0:
+                if seed is not None:
+                    seeds = [int(seed) + i for i in range(_need)]
+                else:
+                    seeds = [random.randint(0, 2**31 - 1) for _ in range(_need)]
             else:
-                seeds = [random.randint(0, 2**31 - 1) for _ in range(n)]
-            candidates = []
+                seeds = []
+            candidates = list(_prior_done)  # 保留段:已有产物不重跑(只补失败/缺口)
             result = None
             first_err: Exception | None = None
+            if _prior_done:
+                if not any(c.get("is_picked") for c in _prior_done):
+                    _prior_done[0]["is_picked"] = True
+
+                class _PR:
+                    kind = "video"
+                    url = str(_prior_done[0].get("url") or "")
+                    pipeline_meta = {}
+
+                result = _PR()  # 已有产物兜底(全保留时无需新产物也不断链)
             for seed in seeds:
                 cid = uuid.uuid4().hex
                 entry: dict[str, Any] = {
@@ -486,6 +512,9 @@ async def render_shot(
                         continue
                     entry["url"] = r.url
                     entry["status"] = "done"
+                    entry["fingerprint"] = __import__("hashlib").sha256(
+                        str(r.url).encode()
+                    ).hexdigest()[:8]
                     if isinstance(meta, dict):
                         if meta.get("context_latent"):
                             entry["context_latent"] = meta["context_latent"]
