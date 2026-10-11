@@ -22,6 +22,7 @@ const ToivMarketPage = lazy(() => import("@/pages/toiv/market-page"));
 const ToivAgentPage = lazy(() => import("@/pages/toiv/agent-page"));
 const ToivAgentRunDetailPage = lazy(() => import("@/pages/toiv/agent-run-detail"));
 const ToivAudioToolsPage = lazy(() => import("@/pages/toiv/audio-tools"));
+const ToivImageToolsPage = lazy(() => import("@/pages/toiv/image-tools"));
 const ToivLibraryDetailPage = lazy(() => import("@/pages/toiv/library-detail"));
 const ToivDramaPage = lazy(() => import("@/pages/toiv/drama-page"));
 const ToivDramaDetailPage = lazy(() => import("@/pages/toiv/drama-detail"));
@@ -127,6 +128,7 @@ export const router = createWorkspaceRouter([
             { path: "/toiv/agent", element: <ToivAgentPage /> },
             { path: "/toiv/runs/:id", element: deferred(<ToivAgentRunDetailPage />) },
             { path: "/toiv/audio", element: deferred(<ToivAudioToolsPage />) },
+            { path: "/toiv/image-tools", element: deferred(<ToivImageToolsPage />) },
             { path: "/toiv/drama", element: deferred(<ToivDramaPage />) },
             { path: "/toiv/drama/:id", element: deferred(<ToivDramaDetailPage />) },
             // v2 六段工作区骨架(S2/W1.1):独立路由并行于经典详情,迁移齐后对调

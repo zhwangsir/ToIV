@@ -98,7 +98,6 @@ const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
   generate: "image",
   ltxstudio: "video",
   "video-edit": "videoEdit",
-  "image-edit": "imageEdit",
   skills: "market",
   apps: "market",
   // S12 退役:fusion→home(对话即入口);canvas→home(canvas 应用经 /studio)
@@ -116,6 +115,9 @@ const EXTERNAL_VIEW_REDIRECTS: Record<string, string> = {
   animatic: "/studio/toiv/drama",
   // F4(2026-10-11):audio 退役——三工具(配音/听写/分离)迁 canvas /toiv/audio;文生音乐走应用市场
   audio: "/studio/toiv/audio",
+  // F5(2026-10-11):imageEdit 退役——七工具迁 canvas /toiv/image-tools
+  imageEdit: "/studio/toiv/image-tools",
+  "image-edit": "/studio/toiv/image-tools",
   entities: "/studio/toiv/drama",
   resources: "/studio/settings?section=channels",
   dramaStudio: "/studio/toiv/drama",
@@ -241,7 +243,6 @@ const VALID_VIEWS = new Set<View>([
   "home",
   "image",
   "video",
-  "imageEdit",
   "videoEdit",
   "avatartalk",
   "dub",

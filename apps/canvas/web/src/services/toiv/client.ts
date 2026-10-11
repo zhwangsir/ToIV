@@ -1005,3 +1005,64 @@ export async function separateAudioFile(file: File): Promise<AudioSeparateResult
     const { data } = await toivHttp.post("/audio/separate", fd, { timeout: 180_000 });
     return data;
 }
+
+// ---- F5(2026-10-11):图片工具(自经典 ImageEditView 七工具迁入) ----
+
+export interface UploadImageHandle {
+    filename: string;
+    worker: string;
+}
+
+/** POST /api/upload?kind=…(multipart file):上传源图,返回文件名+worker 句柄。 */
+export async function uploadToivImage(file: File, kind = "img2img"): Promise<UploadImageHandle> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const { data } = await toivHttp.post(`/upload?kind=${encodeURIComponent(kind)}`, fd, { timeout: 300_000 });
+    return data;
+}
+
+export interface GenAck {
+    prompt_id: string;
+    worker: string;
+    kind?: string;
+}
+
+const genPost = async <T,>(path: string, body: Record<string, unknown>): Promise<T> => {
+    const { data } = await toivHttp.post(path, body, { timeout: 60_000 });
+    return data;
+};
+
+/** 智能去背景(mode: general/anime/human)。 */
+export const generateRemoveBg = (p: { image: string; worker: string; mode?: string }) =>
+    genPost<GenAck>("/generate/removebg", { ...p, mode: p.mode ?? "general" });
+
+/** 高清增强(scale 2/4)。 */
+export const generateUpscale = (p: { image: string; worker: string; scale?: number }) =>
+    genPost<GenAck>("/generate/upscale", { ...p, scale: p.scale ?? 2 });
+
+/** 局部重绘(target=文字描述要修改的区域)。 */
+export const generateInpaint = (p: { image: string; worker: string; target: string; positive: string; negative?: string }) =>
+    genPost<GenAck>("/generate/inpaint", p);
+
+/** 人脸修复。 */
+export const generateFaceDetailer = (p: { image: string; worker: string; denoise?: number }) =>
+    genPost<GenAck>("/generate/facedetailer", { ...p, denoise: p.denoise ?? 0.6 });
+
+/** 智能编辑 Qwen(语义编辑+相机控制)。 */
+export const generateQwenEdit = (p: {
+    image: string; worker: string; positive?: string; camera?: string;
+    azimuth?: number; elevation?: number; distance?: string; fast?: boolean;
+}) => genPost<GenAck>("/generate/qwen-edit", { ...p, fast: p.fast ?? true });
+
+/** 图生 3D(Hunyuan3D → GLB)。 */
+export const generate3DModel = (p: { image: string; worker: string; steps?: number; cfg?: number; octree_resolution?: number; seed?: number }) =>
+    genPost<GenAck>("/generate/3d", { ...p, steps: p.steps ?? 30, cfg: p.cfg ?? 5.0, octree_resolution: p.octree_resolution ?? 256 });
+
+/** 生成作业轮询:按 prompt_id 在本人最近作业里找状态与产物(results=签名 URL 数组)。 */
+export async function pollGenJob(promptId: string, limit = 30): Promise<{ status: string; results: string[]; hold_reason?: string } | null> {
+    const { data } = await toivHttp.get("/jobs", { params: { limit }, timeout: 30_000 });
+    const rows = Array.isArray(data) ? data : [];
+    const job = rows.find((j: { prompt_id?: string }) => j.prompt_id === promptId);
+    if (!job) return null;
+    return { status: String(job.status ?? ""), results: Array.isArray(job.results) ? job.results : [], hold_reason: job.hold_reason };
+}

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { ToolButton } from "@/components/ui/base/buttons";
-import { AudioLines } from "lucide-react";
+import { AudioLines, ImagePlus } from "lucide-react";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { Callout } from "@/components/ui/product/callout";
@@ -588,6 +588,7 @@ export default function MarketPage() {
                 </div>
                 <div className="flex items-center gap-2">
                     <Link to="/toiv/audio"><ToolButton variant="default" icon={<AudioLines className="size-4" />} label="音频工具" /></Link>
+                    <Link to="/toiv/image-tools"><ToolButton variant="default" icon={<ImagePlus className="size-4" />} label="图片工具" /></Link>
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
                     <Link to="/">
                         <ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" />
