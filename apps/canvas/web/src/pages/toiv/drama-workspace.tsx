@@ -6,7 +6,7 @@
  * S3/S4 逐段把经典端能力迁进来，迁移齐后 W1.2 末步做路由对调。
  * 现在各段为只读骨架：头部项目状态 + 各段已有数据的轻量呈现 + 落地批次的说明。
  */
-import { BookOpen, Camera, Check, Clapperboard, Film, IdCard, Layers, ListOrdered, Loader2, PlayCircle, RefreshCw, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
+import { ArrowDown, ArrowUp, BookOpen, Camera, Check, Clapperboard, Film, IdCard, Layers, ListOrdered, Loader2, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
 import type { ToivFrameVariant } from "@/services/toiv/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
@@ -255,6 +255,73 @@ export default function DramaWorkspacePage() {
             markBusy(sid, false);
         }
     }, [id, load]);
+
+    // ---- S9 正式: 时间线排序/时长编辑(PUT shots 全量保存契约) ----
+    const [tlOrder, setTlOrder] = useState<string[]>([]);          // shot id 顺序
+    const [tlDuration, setTlDuration] = useState<Record<string, number>>({}); // id→秒
+    const [tlDirty, setTlDirty] = useState(false);
+    const [tlSaving, setTlSaving] = useState(false);
+    const [tlMsg, setTlMsg] = useState<string | null>(null);
+    const [tlError, setTlError] = useState<string | null>(null);
+
+    useEffect(() => {
+        // detail 刷新同步本地编辑态(未脏时)
+        if (!tlDirty && shots.length > 0) {
+            setTlOrder(shots.map((x) => x.id));
+            setTlDuration(Object.fromEntries(shots.map((x) => [x.id, x.duration_sec ?? 6])));
+        }
+    }, [shots, tlDirty]);
+
+    const tlShots = useMemo(
+        () => (tlOrder.length ? tlOrder.map((sid) => shots.find((x) => x.id === sid)).filter(Boolean) : shots) as typeof shots,
+        [tlOrder, shots],
+    );
+
+    const tlMove = (sid: string, dir: -1 | 1) => {
+        setTlDirty(true);
+        setTlOrder((prev) => {
+            const cur = prev.length ? prev : shots.map((x) => x.id);
+            const i = cur.indexOf(sid);
+            const j = i + dir;
+            if (i < 0 || j < 0 || j >= cur.length) return cur;
+            const n = [...cur];
+            [n[i], n[j]] = [n[j], n[i]];
+            return n;
+        });
+    };
+
+    const tlSetDuration = (sid: string, v: number) => {
+        setTlDirty(true);
+        setTlDuration((p) => ({ ...p, [sid]: Math.max(1, Math.min(60, v)) }));
+    };
+
+    const tlSave = useCallback(async () => {
+        if (!id) return;
+        setTlSaving(true);
+        setTlMsg(null);
+        setTlError(null);
+        try {
+            const payload = tlShots.map((x) => ({
+                id: x.id,
+                scene: x.scene ?? "",
+                prompt: x.prompt ?? "",
+                camera: x.camera ?? "",
+                dialogue: x.dialogue ?? "",
+                speaker: x.speaker ?? "",
+                duration_sec: tlDuration[x.id] ?? x.duration_sec ?? 6,
+                characters: (x.characters ?? []) as string[],
+                render_mode: x.render_mode ?? "video",
+            }));
+            await saveStudioShots(id, payload);
+            setTlDirty(false);
+            await load();
+            setTlMsg("排序与时长已保存(重排后新顺序即合成顺序)");
+        } catch (e) {
+            setTlError(e instanceof Error ? e.message : "保存失败");
+        } finally {
+            setTlSaving(false);
+        }
+    }, [id, tlShots, tlDuration, load]);
 
     // ---- W2.2: 多视角分镜扩展(配景) ----
     const [frameBusy, setFrameBusy] = useState<Set<string>>(new Set());
@@ -687,15 +754,24 @@ export default function DramaWorkspacePage() {
                                         <div className="flex flex-wrap items-center gap-2">
                                             <ToolButton
                                                 variant="default"
+                                                icon={<Save />}
+                                                label={tlSaving ? "保存中…" : tlDirty ? "保存排序与时长*" : "保存排序与时长"}
+                                                onClick={() => void tlSave()}
+                                                loading={tlSaving}
+                                            />
+                                            <ToolButton
+                                                variant="default"
                                                 icon={<Film />}
                                                 label={assembling ? "合成中…" : "合成成片(拼接全部就绪镜)"}
                                                 onClick={() => void runAssemble()}
                                                 loading={assembling}
                                             />
                                             <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
-                                                就绪 {shots.filter((x) => x.final_clip_url).length}/{shots.length} 镜(全部就绪后方可合成;排序/时长编辑属 S9 正式版)
+                                                就绪 {shots.filter((x) => x.final_clip_url).length}/{shots.length} 镜(全部就绪后方可合成)
                                             </span>
                                         </div>
+                                        {tlMsg && <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{tlMsg}</p>}
+                                        {tlError && <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger,#e5484d)]">{tlError}</p>}
                                         {assembleError && (
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger,#e5484d)]">{assembleError}</p>
                                         )}
@@ -703,11 +779,23 @@ export default function DramaWorkspacePage() {
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{assembleMsg}</p>
                                         )}
                                         <ol className="flex flex-col gap-1.5">
-                                            {shots.map((x) => (
+                                            {tlShots.map((x, i) => (
                                                 <li key={x.id} className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-xs">
-                                                    <span className="w-8 tabular-nums text-[var(--muted-foreground,#a8a8a8)]">#{x.idx}</span>
+                                                    <span className="flex flex-col gap-0.5">
+                                                        <button type="button" aria-label={`上移 ${x.scene?.slice(0, 8) ?? x.id.slice(0, 6)}`} disabled={i === 0} onClick={() => tlMove(x.id, -1)} className="text-[var(--muted-foreground,#a8a8a8)] hover:text-foreground disabled:opacity-30"><ArrowUp className="size-3" /></button>
+                                                        <button type="button" aria-label={`下移 ${x.scene?.slice(0, 8) ?? x.id.slice(0, 6)}`} disabled={i === tlShots.length - 1} onClick={() => tlMove(x.id, 1)} className="text-[var(--muted-foreground,#a8a8a8)] hover:text-foreground disabled:opacity-30"><ArrowDown className="size-3" /></button>
+                                                    </span>
+                                                    <span className="w-8 tabular-nums text-[var(--muted-foreground,#a8a8a8)]">{String(i + 1).padStart(2, "0")}</span>
                                                     <span className="min-w-0 flex-1 truncate">{x.scene || x.prompt || "—"}</span>
-                                                    <span className="tabular-nums text-[var(--muted-foreground,#a8a8a8)]">{x.duration_sec ?? "—"}s</span>
+                                                    <label className="flex items-center gap-1 text-[var(--muted-foreground,#a8a8a8)]">
+                                                        时长
+                                                        <input
+                                                            type="number" min={1} max={60} value={tlDuration[x.id] ?? x.duration_sec ?? 6}
+                                                            onChange={(e) => tlSetDuration(x.id, Number(e.target.value) || 1)}
+                                                            className="w-14 rounded border border-[var(--border)] bg-transparent px-1.5 py-0.5 text-xs tabular-nums text-foreground"
+                                                            aria-label={`时长 ${x.scene?.slice(0, 8) ?? x.id.slice(0, 6)}`}
+                                                        />s
+                                                    </label>
                                                     {x.final_clip_url
                                                         ? <StatusBadge variant="filled" tone="success" label="就绪" size="sm" />
                                                         : <StatusBadge variant="filled" tone={STATUS_TONE[x.status] ?? "neutral"} label={x.status} size="sm" />}

@@ -458,6 +458,9 @@ export type ToivDramaShot = {
     id: string;
     idx: string | number;
     status: string;
+    /** S9:PUT shots 全量保存回传所需(后端 ShotInput 契约字段) */
+    negative?: string;
+    characters?: string[];
     scene?: string;
     prompt?: string;
     dialogue?: string;
