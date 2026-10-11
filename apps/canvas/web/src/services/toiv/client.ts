@@ -707,6 +707,22 @@ export async function renderShotStrict(sid: string, opts: { num_candidates?: num
     }
 }
 
+/** S4-b(2026-10-11):异步单镜渲染——wait=false 登记 Job 即回(管线C阶段B机制);
+ * 同步等待撞 reload/断连=状态僵死(实测),一律走此路。 */
+export async function renderShotAsync(sid: string, opts: { num_candidates?: number } = {}): Promise<{ job_id: string }> {
+    try {
+        const { data } = await toivHttp.post(
+            `/studio/shots/${encodeURIComponent(sid)}/render`,
+            { num_candidates: opts.num_candidates ?? 2, wait: false },
+            { timeout: 30_000, validateStatus: (st) => st === 202 || (st >= 200 && st < 300) },
+        );
+        return data as { job_id: string };
+    } catch (e) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        throw new Error(detail || "渲染提交失败");
+    }
+}
+
 /** S4:选用候选视频为该镜成片(POST /studio/shots/{sid}/candidates/{cid}/pick) */
 export async function pickShotCandidate(sid: string, cid: string): Promise<void> {
     try {

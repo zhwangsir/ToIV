@@ -26,6 +26,7 @@ import {
     pollScriptParse,
     pickShotCandidate,
     pollSheetJob,
+    renderShotAsync,
     renderShotStrict,
     saveStudioShots,
     submitScriptParse,
@@ -225,18 +226,31 @@ export default function DramaWorkspacePage() {
             return n;
         });
     const RENDERED_STATES = new Set(["rendering", "rendered", "voiced", "lipsynced", "done"]);
+    // S4-b:异步提交(wait=false)+轮询镜状态——reload/断连不再僵死,离开页面也无碍
+    const [renderMsg, setRenderMsg] = useState<string | null>(null);
     const runShotRender = useCallback(async (sid: string) => {
         markBusy(sid, true);
         setRenderError(null);
+        setRenderMsg(null);
         try {
-            await renderShotStrict(sid, { num_candidates: 2 });
-            await load();
+            const { job_id } = await renderShotAsync(sid, { num_candidates: 2 });
+            setRenderMsg(`渲染已入后台(作业 ${job_id.slice(0, 8)}…,双候选约 10-20 分钟;可离开本页,任务中心可见)`);
+            for (let i = 0; i < 240 && !pollStop.current; i++) {
+                await new Promise((r) => setTimeout(r, 10000));
+                const d = await fetchDramaProject(id!);
+                const st = (d.shots ?? []).find((x) => x.id === sid)?.status;
+                if (st && !["queued", "rendering"].includes(st)) {
+                    await load();
+                    setRenderMsg("渲染完成");
+                    break;
+                }
+            }
         } catch (e) {
             setRenderError(e instanceof Error ? e.message : "渲染失败");
         } finally {
             markBusy(sid, false);
         }
-    }, [load]);
+    }, [id, load]);
 
     // S4:候选选用
     const [pickingCand, setPickingCand] = useState<string | null>(null);
@@ -525,6 +539,12 @@ export default function DramaWorkspacePage() {
                                         {renderError && (
                                             <p className="rounded-lg border border-[var(--border)] bg-[var(--muted,rgba(255,255,255,0.05))] p-2.5 text-xs text-[var(--danger,#e5484d)]">
                                                 {renderError}
+                                            </p>
+                                        )}
+                                        {renderMsg && (
+                                            <p className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">
+                                                <Loader2 className="size-3 animate-spin" aria-hidden />
+                                                {renderMsg}
                                             </p>
                                         )}
                                         <ul className="flex flex-col gap-2">
