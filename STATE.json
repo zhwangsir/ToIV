@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T02:35:00+08:00",
+  "updated_at": "2026-10-11T03:40:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14605,7 +14605,20 @@
         "updated_at": "2026-10-11T02:35:00+08:00"
       }
     },
-    "tsc_green": "b1b13e78 CanvasProjectContextMenuProps.onAddLocalGenerator 转发补齐,tsc 全绿"
+    "tsc_green": "b1b13e78 CanvasProjectContextMenuProps.onAddLocalGenerator 转发补齐,tsc 全绿",
+    "w2_1": {
+      "status": "w2_1_deployed_e2e_pass",
+      "commit": "ee609d71",
+      "summary": "剧本→分镜自动化接入 canvas 工作区:剧本段=可编辑 premise textarea+目标镜数(4-16)+「AI 拆解为分镜」(submit script/parse→2.5s 轮询→done 角色按名去重入库→PUT shots 全量落库→自动跳分镜表);复用 studio 域既有异步链路(实测拆解 24-33s)",
+      "e2e": "wineryz 浏览器实弹:测试项目 01c4f1a3(深夜便利店)粘贴剧本→点按钮→T+33s 自动跳分镜表,8 镜(场景/台词/时长/draft)+角色 小周/老太太 落库;截图存 artifacts",
+      "discovery": "剧本→分镜自动化后端早已存在(studio.py script/parse 异步 job+PUT shots 全量替换+drama 域另有 L1-L4 storyboard);真实缺口=canvas 无入口,本批即接线;两项目域并存(StudioProject vs DramaProject)记为架构债 S3 评估合并",
+      "updated_at": "2026-10-11T03:40:00+08:00"
+    },
+    "e2e_verification_2026_10_11": {
+      "status": "all_pass",
+      "summary": "已上线功能浏览器实测(用户要求):①/studio 壳+admin 会话完整渲染(v1.7.7);②市场分页 200→400 点「加载更多」实增,total 6731;③v2 工作区六段:剧本/分镜表真数据(2 镜 rendered)/镜头徽标/成片 video 元素 src 正确;④任务中心三源 31=作业9+画布8+智能体14,筛选就位;⑤FL2VA 烟测 PASS(前批);⑥W2.1 拆镜全链路(本批)。截图×3 存 cli/artifacts",
+      "updated_at": "2026-10-11T03:40:00+08:00"
+    }
   },
   "h3_fl2va_chain_closed_2026_10_11": {
     "status": "h3_fl2va_smoke_pass",

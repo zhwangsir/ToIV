@@ -61,7 +61,7 @@
 | # | 任务 | 参照 | 验收 |
 |---|---|---|---|
 | W2.0 | **H3 FL2VA 真出片+回写复测**（挂账 0.2，管线 v2 前置验证，E-3） | 已有部署 d69ee564 | **✅ 2026-10-11 完成**：六轮实弹排查（撤 api 反向别名 `ea1d4914`+RH 节点 resolve 泄名补丁×3+恢复本地全量四件套弃 NAS pruned 路线）→ 烟测 PASS 223.8s；907f5f85 核销 |
-| W2.1 | 剧本→分镜自动化：LLM（DSv4）输出结构化分镜 JSON（镜号/景别/机位/时长/资产引用/台词/情绪），程序校验+带前败记录重试 | NovelFlow 校验重试；ai-comic-factory JSON 契约 | 3000 字→≥8 镜；非法 JSON 重试成功率>95% |
+| W2.1 | 剧本→分镜自动化：LLM（DSv4）输出结构化分镜 JSON（镜号/景别/机位/时长/资产引用/台词/情绪），程序校验+带前败记录重试 | NovelFlow 校验重试；ai-comic-factory JSON 契约 | **✅ 2026-10-11 完成（提前）**：后端链路本就存在（studio script/parse），本批接线 canvas 工作区（剧本编辑+拆解+落库+跳转）；E2E 实弹 33s 闭环（8 镜+2 角色自动入库） |
 | W2.2 | 多视角分镜扩展：单角色图→多景别候选（img2img 相机提示词） | 可灵同名能力 | 1 图→3 景别候选≤3 分钟 |
 | W2.3 | 资产先行数据流：Shot 引用 Character/Scene/Prop；三视图注册表（front 锚点生成，side/back 以 front 为参考）；阶段感知参考（服装/道具实质变化才换） | ViMax 注册表；story-claw 阶段感知 | 跨镜同角色抽检一致率≥90%（face 门禁口径） |
 | W2.4 | 工作流模板库：node_mapping 声明式（单帧/首尾/2-4 关键帧 × fl2va/ref2va），megapixels/duration/extension 约束入表 | NovelFlow `constants/workflow.py` | 切换工作流模板零代码改 |

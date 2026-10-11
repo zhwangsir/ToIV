@@ -1,3 +1,4 @@
+- 2026-10-11 **W2.1 拆镜接线+E2E 全量实测**（ToIV开发）：`ee609d71` 剧本段 AI 拆解(拆解→落库→跳分镜表)浏览器实弹 T+33s 闭环(8 镜+2 角色);已上线功能五站实测全过(壳/市场分页/工作区/任务枢纽/FL2VA);发现双项目域架构债(StudioProject vs DramaProject);status=`w2_1_deployed_e2e_pass`；updated_at 2026-10-11T03:40:00+08:00。
 - 2026-10-11 **W2.0 FL2VA 链路闭环 + W1.5 任务枢纽部署**（ToIV开发）：烟测六轮(#1 命名守卫→#3 resolve 泄名→#4 pruned config 配对→#5 VAE 键集→**#6 PASS 223.8s 真出片**)；api `ea1d4914` 撤反向别名；workstation 节点补丁×3+全量权重恢复(详见 STATE `h3_fl2va_chain_closed_2026_10_11`)；canvas `c74c65c2` 任务中心三源+筛选+轮询已部署；status=`h3_fl2va_smoke_pass`；updated_at 2026-10-11T02:35:00+08:00。
 - 2026-10-11 **S2/W1.1 六段工作区骨架部署**（ToIV开发）：`4d6b552d`——/toiv/ws/:id 并行路由+经典详情入口；零回归；chunk 在线；status=`s2_w1_1_deployed`；updated_at 2026-10-11T02:30:00+08:00。
 - 2026-10-11 **v2 S1/P0 地基部署+验证**（ToIV开发）：api `1a6da2d8`+canvas `8dfdb45a`+契约 `da0c8b97`，01:32 CST 重启；wineryz 实证 cookie/分页/422/全量兼容全过；孤儿 serve.mjs 已清、IDOR md5 实证已在产；status=`s1_p0_foundations_deployed`；updated_at 2026-10-11T01:50:00+08:00。
