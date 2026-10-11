@@ -1122,3 +1122,87 @@ export async function renderVideoEdit(plan: VideoEditPlan, media: File[]): Promi
     const { data } = await toivHttp.post("/video-edit/render", fd, { timeout: 300_000 });
     return data;
 }
+
+// ---- F7(2026-10-12):视频译制(自经典 DubView 迁入) ----
+
+/** POST /api/dub/import-srt multipart(file):SRT/VTT → 带时间轴片段。 */
+export async function importSrtDub(file: File): Promise<{ segments: DubSegment[]; count: number }> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const { data } = await toivHttp.post("/dub/import-srt", fd, { timeout: 60_000 });
+    return data;
+}
+
+/** POST /api/dub/translate:LLM 批量翻译整段字幕(段数多耗时长)。 */
+export async function translateDub(
+    segments: { index: number; text: string }[],
+    targetLang: string,
+): Promise<{ translated: { index: number; translated: string }[]; count: number; target_lang: string }> {
+    const { data } = await toivHttp.post("/dub/translate", { segments, target_lang: targetLang }, { timeout: 180_000 });
+    return data;
+}
+
+export interface VoiceTrackResult {
+    name: string;
+    url: string;
+    duration: number;
+    segment_count: number;
+}
+
+/** POST /api/dub/voice-track → {job_id};轮询 /dub/voice-track/{job_id} 取进度/产物。 */
+export async function startVoiceTrack(body: {
+    name: string;
+    segments: { start: number; end: number; text: string }[];
+    refSeconds?: number;
+    emoText?: string;
+}): Promise<{ job_id: string }> {
+    const { data } = await toivHttp.post("/dub/voice-track", {
+        name: body.name,
+        segments: body.segments,
+        ref_seconds: body.refSeconds ?? 8,
+        emo_text: body.emoText ?? null,
+    }, { timeout: 30_000 });
+    return data;
+}
+
+export async function pollVoiceTrack(jobId: string): Promise<{
+    status: string; stage: string; progress: number;
+    url?: string; duration?: number; segment_count?: number; error?: string | null;
+}> {
+    const { data } = await toivHttp.get(`/dub/voice-track/${encodeURIComponent(jobId)}`, { timeout: 30_000 });
+    return data;
+}
+
+export interface LipsyncLongStatus {
+    id: string;
+    status: "running" | "done" | "error";
+    stage: string;
+    total: number;
+    completed: number;
+    url: string | null;
+    error: string | null;
+}
+
+/** POST /api/dub/lipsync-long:源视频+配音轨 → 对口型成片(分段 GPU,长视频)。 */
+export async function startLipsyncLong(body: {
+    name: string;
+    audioName?: string;
+    segSeconds?: number;
+    lipsExpression?: number;
+    inferenceSteps?: number;
+}): Promise<{ job_id: string }> {
+    const { data } = await toivHttp.post("/dub/lipsync-long", {
+        name: body.name,
+        segments: [],
+        seg_seconds: body.segSeconds ?? 12,
+        lips_expression: body.lipsExpression ?? 1,
+        inference_steps: body.inferenceSteps ?? 20,
+        ...(body.audioName ? { audio_name: body.audioName } : {}),
+    }, { timeout: 30_000 });
+    return data;
+}
+
+export async function pollLipsyncLong(jobId: string): Promise<LipsyncLongStatus> {
+    const { data } = await toivHttp.get(`/dub/lipsync-long/${encodeURIComponent(jobId)}`, { timeout: 30_000 });
+    return data;
+}

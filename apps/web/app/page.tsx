@@ -120,6 +120,8 @@ const EXTERNAL_VIEW_REDIRECTS: Record<string, string> = {
   // F6(2026-10-12):videoEdit 退役——三轨剪辑迁 canvas /toiv/video-tools
   videoEdit: "/studio/toiv/video-tools",
   "video-edit": "/studio/toiv/video-tools",
+  // F7(2026-10-12):dub 退役——五步译制链迁 canvas /toiv/dub-tools
+  dub: "/studio/toiv/dub-tools",
   entities: "/studio/toiv/drama",
   resources: "/studio/settings?section=channels",
   dramaStudio: "/studio/toiv/drama",
@@ -246,7 +248,6 @@ const VALID_VIEWS = new Set<View>([
   "image",
   "video",
   "avatartalk",
-  "dub",
   "library",
   "market",
   "settings",

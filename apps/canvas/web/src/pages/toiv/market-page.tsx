@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { ToolButton } from "@/components/ui/base/buttons";
-import { AudioLines, Clapperboard, ImagePlus } from "lucide-react";
+import { AudioLines, Clapperboard, ImagePlus, Languages } from "lucide-react";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { Callout } from "@/components/ui/product/callout";
@@ -590,6 +590,7 @@ export default function MarketPage() {
                     <Link to="/toiv/audio"><ToolButton variant="default" icon={<AudioLines className="size-4" />} label="音频工具" /></Link>
                     <Link to="/toiv/image-tools"><ToolButton variant="default" icon={<ImagePlus className="size-4" />} label="图片工具" /></Link>
                     <Link to="/toiv/video-tools"><ToolButton variant="default" icon={<Clapperboard className="size-4" />} label="视频剪辑" /></Link>
+                    <Link to="/toiv/dub-tools"><ToolButton variant="default" icon={<Languages className="size-4" />} label="视频译制" /></Link>
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
                     <Link to="/">
                         <ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" />
