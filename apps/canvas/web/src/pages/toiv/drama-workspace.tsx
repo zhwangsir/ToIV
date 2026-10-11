@@ -7,7 +7,7 @@
  * 现在各段为只读骨架：头部项目状态 + 各段已有数据的轻量呈现 + 落地批次的说明。
  */
 import { ArrowDown, ArrowUp, BookOpen, Camera, Check, Clapperboard, Film, IdCard, Layers, ListOrdered, Loader2, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
-import type { ToivFrameVariant } from "@/services/toiv/client";
+import type { ToivFrameVariant, ToivSharedAsset } from "@/services/toiv/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
@@ -26,7 +26,9 @@ import {
     patchStudioProject,
     pollScriptParse,
     pickShotCandidate,
+    applySharedAsset,
     assembleStudioProject,
+    fetchSharedAssets,
     pollFrameVariants,
     pollSheetJob,
     renderShotAsync,
@@ -218,6 +220,44 @@ export default function DramaWorkspacePage() {
             setAdopting(null);
         }
     }, [load]);
+
+    // ---- S6: 共享资产库(跨项目 DramaAsset,只读+选用) ----
+    const [sharedAssets, setSharedAssets] = useState<ToivSharedAsset[]>([]);
+    const [sharedLoading, setSharedLoading] = useState(false);
+    const [applyingAsset, setApplyingAsset] = useState<string | null>(null);
+    const [assetMsg, setAssetMsg] = useState<string | null>(null);
+    const [assetError, setAssetError] = useState<string | null>(null);
+
+    const loadShared = useCallback(async () => {
+        setSharedLoading(true);
+        try {
+            setSharedAssets(await fetchSharedAssets("character"));
+        } catch {
+            setSharedAssets([]);
+        } finally {
+            setSharedLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (section === "assets") void loadShared();
+    }, [section, loadShared]);
+
+    const runApplyAsset = useCallback(async (aid: string, name?: string) => {
+        if (!id) return;
+        setApplyingAsset(aid);
+        setAssetMsg(null);
+        setAssetError(null);
+        try {
+            await applySharedAsset(aid, id);
+            await load();
+            setAssetMsg(`已选用「${name ?? "资产"}」为项目角色`);
+        } catch (e) {
+            setAssetError(e instanceof Error ? e.message : "选用失败");
+        } finally {
+            setApplyingAsset(null);
+        }
+    }, [id, load]);
 
     // ---- W1.4: 镜头段生成操作(渲染/配音/整批) ----
     const [busyShots, setBusyShots] = useState<Set<string>>(new Set());
@@ -589,6 +629,38 @@ export default function DramaWorkspacePage() {
                                         ))}
                                     </ul>
                                 )}
+                                <div className="mt-3 flex flex-col gap-2 rounded-lg border border-dashed border-[var(--border)] p-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-xs font-medium text-foreground">共享资产库（跨项目角色 · {sharedAssets.length}）</span>
+                                        <ToolButton size="xs" variant="ghost" icon={<RefreshCw />} label="刷新" loading={sharedLoading} onClick={() => void loadShared()} />
+                                    </div>
+                                    {assetMsg && <p className="text-xs text-foreground">{assetMsg}</p>}
+                                    {assetError && <p className="text-xs text-[var(--danger,#e5484d)]">{assetError}</p>}
+                                    {sharedAssets.length === 0 ? (
+                                        <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">暂无共享角色资产(在经典端「资产库」创建后跨项目复用)</p>
+                                    ) : (
+                                        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
+                                            {sharedAssets.map((a) => {
+                                                const already = characters.some((c) => (c.name || "").trim() === (a.name || "").trim());
+                                                return (
+                                                    <div key={a.id} className="flex flex-col gap-1 rounded-lg border border-[var(--border)] p-2.5">
+                                                        <span className="truncate text-xs font-medium text-foreground">{a.name || "未命名"}</span>
+                                                        <span className="line-clamp-2 text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{a.description || a.visual_prompt || "无描述"}</span>
+                                                        <ToolButton
+                                                            size="xs"
+                                                            variant={already ? "ghost" : "default"}
+                                                            icon={<Check />}
+                                                            label={already ? "已在项目" : applyingAsset === a.id ? "选用中…" : "选用到项目"}
+                                                            disabled={already}
+                                                            loading={applyingAsset === a.id}
+                                                            onClick={() => void runApplyAsset(a.id, a.name)}
+                                                        />
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
                             </SectionShell>
                         )}
                         {section === "storyboard" && (

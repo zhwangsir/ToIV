@@ -8,7 +8,7 @@ import json
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core import PydanticCustomError
@@ -437,6 +437,69 @@ async def _generate_sheet_core(
 
 class FrameVariantsRequest(BaseModel):
     style: str = Field(default="anime", pattern="^(anime|ancient_realistic)$")
+
+
+# ── S6(2026-10-11):资产下沉——DramaAsset 跨项目库在 Studio 域接入(只读+选用) ──
+@router.get("/studio/assets")
+def studio_shared_assets(
+    kind: str | None = Query(default=None, description="character|scene|prop|style"),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """共享资产库(跨项目 DramaAsset,只读引用; Studio 域不双写)。"""
+    from app.models import DramaAsset
+
+    q = select(DramaAsset).where(DramaAsset.user_id == user.id)
+    if kind:
+        q = q.where(DramaAsset.kind == kind)
+    rows = session.exec(q.order_by(DramaAsset.updated_at.desc())).all()
+    return [
+        {
+            "id": a.id, "kind": a.kind, "name": a.name,
+            "description": a.description, "visual_prompt": a.visual_prompt,
+            "ref_image": a.ref_image, "voice_name": a.voice_name,
+        }
+        for a in rows
+    ]
+
+
+@router.post("/studio/assets/{aid}/apply-to-project/{pid}")
+def studio_apply_asset(
+    aid: str,
+    pid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """选用共享资产为项目角色卡(同名去重;kind=character 才可选用)。"""
+    from app.models import DramaAsset
+
+    a = session.get(DramaAsset, aid)
+    if not a or a.user_id != user.id:
+        raise HTTPException(status_code=404, detail="资产不存在")
+    if (a.kind or "character") != "character":
+        raise HTTPException(status_code=422, detail="仅角色类资产可选用为项目角色")
+    _get_project(session, pid, user)
+    dup = session.exec(
+        select(StudioCharacter).where(
+            StudioCharacter.project_id == pid, StudioCharacter.name == a.name
+        )
+    ).first()
+    if dup:
+        return _character_out(dup)
+    c = StudioCharacter(
+        project_id=pid,
+        name=a.name,
+        description=a.description,
+        visual_prompt=a.visual_prompt,
+        voice_ref_url=a.ref_audio,
+    )
+    refs = [u for u in (a.ref_image, a.reference_front, a.reference_side, a.reference_back) if u]
+    if refs:
+        c.reference_images = json.dumps(refs[:8], ensure_ascii=False)
+    session.add(c)
+    session.commit()
+    session.refresh(c)
+    return _character_out(c)
 
 
 # ── W2.4(2026-10-11):工作流模板库(node_mapping 声明式注册) ──

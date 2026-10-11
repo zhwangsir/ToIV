@@ -807,3 +807,29 @@ export async function pollFrameVariants(sid: string, jobId: string): Promise<{ s
     );
     return data;
 }
+
+// ---- S6(2026-10-11): 共享资产库(DramaAsset 跨项目,只读+选用为项目角色) ----
+
+export type ToivSharedAsset = {
+    id: string;
+    kind: string;
+    name?: string;
+    description?: string;
+    visual_prompt?: string;
+    ref_image?: string;
+    voice_name?: string;
+};
+
+export async function fetchSharedAssets(kind?: string): Promise<ToivSharedAsset[]> {
+    const { data } = await toivHttp.get("/studio/assets", { params: kind ? { kind } : {} });
+    return Array.isArray(data) ? data : [];
+}
+
+export async function applySharedAsset(aid: string, pid: string): Promise<void> {
+    try {
+        await toivHttp.post(`/studio/assets/${encodeURIComponent(aid)}/apply-to-project/${encodeURIComponent(pid)}`, undefined, { timeout: 15_000 });
+    } catch (e) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        throw new Error(detail || "选用资产失败");
+    }
+}
