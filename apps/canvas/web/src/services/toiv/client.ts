@@ -441,6 +441,7 @@ export type ToivDramaCharacter = {
     description?: string;
     visual_prompt?: string;
     voice_ref_url?: string;
+    reference_images?: string[];
     reference_images_by_style?: Record<string, string[]>;
 };
 
@@ -675,4 +676,24 @@ export async function generateCharacterSheetStrict(cid: string, style: string): 
         const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
         throw new Error(detail || "设定卡生成失败(可能未过内部质检门禁,可重试)");
     }
+}
+
+/** W1.4(2026-10-11):严格版单镜渲染——失败抛错带 detail(缺参考图等前置问题可见);
+ * 旧 triggerShotRender 吞错 boolean 保留(drama-detail 契约)。 */
+export async function renderShotStrict(sid: string): Promise<void> {
+    try {
+        await toivHttp.post(`/studio/shots/${encodeURIComponent(sid)}/render`, undefined, { timeout: 3600_000 });
+    } catch (e) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        throw new Error(detail || "渲染失败");
+    }
+}
+
+/** PATCH /studio/characters/{cid}——设定卡分格采用为参考图(正/侧/全身约定取前三格) */
+export async function adoptSheetAsReference(cid: string, urls: string[]): Promise<void> {
+    await toivHttp.patch(
+        `/studio/characters/${encodeURIComponent(cid)}`,
+        { reference_images: urls.slice(0, 8) },
+        { timeout: 15_000 },
+    );
 }

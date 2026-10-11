@@ -6,7 +6,7 @@
  * S3/S4 逐段把经典端能力迁进来，迁移齐后 W1.2 末步做路由对调。
  * 现在各段为只读骨架：头部项目状态 + 各段已有数据的轻量呈现 + 落地批次的说明。
  */
-import { BookOpen, Clapperboard, Film, IdCard, Layers, ListOrdered, Loader2, PlayCircle, RefreshCw, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
+import { BookOpen, Check, Clapperboard, Film, IdCard, Layers, ListOrdered, Loader2, PlayCircle, RefreshCw, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
@@ -20,12 +20,12 @@ import {
     fetchCharacterSheets,
     fetchDramaProject,
     generateCharacterSheetStrict,
+    adoptSheetAsReference,
     patchStudioProject,
     pollScriptParse,
     saveStudioShots,
     submitScriptParse,
     triggerBatchRender,
-    triggerShotRender,
     triggerShotVoice,
     type ToivCharacterSheet,
     type ToivDramaCharacter,
@@ -159,9 +159,25 @@ export default function DramaWorkspacePage() {
         }
     }, []);
 
+    // 设定卡分格(无分格则整卡)采用为 ref2va 定妆参考图(正/侧/全身约定取前三格)
+    const [adopting, setAdopting] = useState<string | null>(null);
+    const adoptSheet = useCallback(async (cid: string, style: string, urls: string[]) => {
+        const picked = urls.filter(Boolean).slice(0, 8);
+        if (picked.length === 0) return;
+        setAdopting(style);
+        try {
+            await adoptSheetAsReference(cid, picked);
+            setSheetChar((prev) => (prev ? { ...prev, reference_images: picked } : prev));
+            await load();
+        } finally {
+            setAdopting(null);
+        }
+    }, [load]);
+
     // ---- W1.4: 镜头段生成操作(渲染/配音/整批) ----
     const [busyShots, setBusyShots] = useState<Set<string>>(new Set());
     const [batchRendering, setBatchRendering] = useState(false);
+    const [renderError, setRenderError] = useState<string | null>(null);
     const markBusy = (sid: string, on: boolean) =>
         setBusyShots((prev) => {
             const n = new Set(prev);
@@ -171,9 +187,12 @@ export default function DramaWorkspacePage() {
     const RENDERED_STATES = new Set(["rendering", "rendered", "voiced", "lipsynced", "done"]);
     const runShotRender = useCallback(async (sid: string) => {
         markBusy(sid, true);
+        setRenderError(null);
         try {
-            await triggerShotRender(sid);
+            await renderShotStrict(sid);
             await load();
+        } catch (e) {
+            setRenderError(e instanceof Error ? e.message : "渲染失败");
         } finally {
             markBusy(sid, false);
         }
@@ -362,7 +381,12 @@ export default function DramaWorkspacePage() {
                                     <ul className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
                                         {characters.map((c) => (
                                             <li key={c.id} className="flex flex-col gap-1.5 rounded-lg border border-[var(--border)] p-3">
-                                                <span className="text-sm font-medium text-foreground">{c.name || "未命名"}</span>
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-sm font-medium text-foreground">{c.name || "未命名"}</span>
+                                                    {(c.reference_images?.length ?? 0) > 0 && (
+                                                        <StatusBadge variant="filled" tone="success" label={`参考图 ${c.reference_images?.length}`} size="sm" />
+                                                    )}
+                                                </div>
                                                 <span className="line-clamp-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
                                                     {c.description || c.visual_prompt || "无描述"}
                                                 </span>
@@ -428,9 +452,14 @@ export default function DramaWorkspacePage() {
                                                 loading={batchRendering}
                                             />
                                             <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
-                                                渲染走 H3 管线,同步等待数分钟;完成后状态自动刷新(N 候选选优 UI 属 S3/S4)
+                                                渲染走 H3 ref2va 管线(需角色定妆参考图:资产段生成设定卡并采用),同步等待数分钟
                                             </span>
                                         </div>
+                                        {renderError && (
+                                            <p className="rounded-lg border border-[var(--border)] bg-[var(--muted,rgba(255,255,255,0.05))] p-2.5 text-xs text-[var(--danger,#e5484d)]">
+                                                {renderError}
+                                            </p>
+                                        )}
                                         <ul className="flex flex-col gap-2">
                                             {shots.map((s) => {
                                                 const busy = busyShots.has(s.id);
@@ -529,13 +558,22 @@ export default function DramaWorkspacePage() {
                                                 {sh.style}
                                                 {sh.mtime ? ` · ${new Date(sh.mtime).toLocaleDateString("zh-CN")}` : ""}
                                             </span>
-                                            <ToolButton
-                                                size="xs"
-                                                icon={<RefreshCw />}
-                                                label="重生成"
-                                                loading={regenStyle === sh.style}
-                                                onClick={() => void regenSheet(sheetChar.id, sh.style)}
-                                            />
+                                            <div className="flex items-center gap-1">
+                                                <ToolButton
+                                                    size="xs"
+                                                    icon={<Check />}
+                                                    label={adopting === sh.style ? "采用中…" : "采用为参考图"}
+                                                    loading={adopting === sh.style}
+                                                    onClick={() => void adoptSheet(sheetChar.id, sh.style, (sh.panel_urls ?? []).length > 0 ? (sh.panel_urls ?? []) : [sh.sheet_url])}
+                                                />
+                                                <ToolButton
+                                                    size="xs"
+                                                    icon={<RefreshCw />}
+                                                    label="重生成"
+                                                    loading={regenStyle === sh.style}
+                                                    onClick={() => void regenSheet(sheetChar.id, sh.style)}
+                                                />
+                                            </div>
                                         </div>
                                         {sh.sheet_url && <img src={sh.sheet_url} alt="" className="w-full rounded-lg" loading="lazy" />}
                                     </div>
