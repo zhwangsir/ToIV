@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11T15:20:00+08:00",
+  "updated_at": "2026-10-11T16:20:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -14783,5 +14783,17 @@
       "P-1 产物 URL 有鉴权,服务端自取一律走本地文件域"
     ],
     "updated_at": "2026-10-11T15:20:00+08:00"
+  },
+  "s9_timeline_editing_2026_10_11": {
+    "status": "s9_timeline_editing_e2e_pass",
+    "date": "2026-10-11",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "S9 正式时间线核心:镜头排序(↑↓换位+序号即时重排 01-08)+时长行内编辑(1-60s spinbutton)+「保存排序与时长」(PUT shots 全量契约,合成顺序=新序);脏标记+detail 刷新同步保护;ToivDramaShot 补 negative/characters 字段保 PUT 回传不丢",
+    "commit": "ad2fa71d",
+    "e2e": "wineryz 实弹:#5 微波炉上移一位+#4 暖柜时长 6→8→保存→API 复核 idx4/5 互换且 duration 8s 持久化,rendered/error 状态保留",
+    "updated_at": "2026-10-11T16:20:00+08:00"
   }
 }
