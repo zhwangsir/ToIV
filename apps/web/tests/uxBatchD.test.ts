@@ -30,15 +30,15 @@ function readSrc(rel: string): string {
 test("page.tsx:animatic 导航图标用 film(2026-08-31 二轮:studio  drawer 入口已由融合卡承载)", () => {
   const src = readSrc("app/page.tsx");
   assert.ok(
-    src.includes('{ key: "animatic", label: "动态分镜", icon: "film" }'),
-    "animatic 应用 film 图标(原与 studio 同用 clapperboard)",
+    src.includes('{ key: "animatic", label: NAV_LABELS.animatic, icon: "film" }'),
+    "animatic 应用 film 图标(原与 studio 同用 clapperboard;文案走 NAV_LABELS 单源)",
   );
   // studio 不再出现在「更多」抽屉(与 fusion 卡重复);clapperboard 仍由融合旗舰卡使用
   const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
   assert.ok(!moreBlock.includes('key: "studio"'), "studio 不应留在「更多」抽屉");
 });
 
-test("page.tsx:handleOpenDramaProject 携带 projectId 并透传给 StudioView", () => {
+test("page.tsx:handleOpenDramaProject 直开 canvas v2 工作区(F1:七步工作室退役)", () => {
   const src = readSrc("app/page.tsx");
   assert.match(
     src,
@@ -46,17 +46,13 @@ test("page.tsx:handleOpenDramaProject 携带 projectId 并透传给 StudioView",
     "handleOpenDramaProject 应接收 projectId(原签名丢弃)",
   );
   assert.ok(
-    src.includes("setStudioInitialProjectId(projectId)"),
-    "projectId 应写入 studioInitialProjectId 状态",
+    src.includes("window.location.assign(`/studio/toiv/ws/${projectId}`)"),
+    "解析成功应整页直开 v2 工作区(/studio/toiv/ws/:id)",
   );
+  // 做短剧 CTA(导航选择+窄屏 CTA)同指 canvas 短剧列表
   assert.ok(
-    src.includes("initialProjectId={studioInitialProjectId}"),
-    "StudioView 应接收 initialProjectId",
-  );
-  // 导航/融合直进 studio 复位,防陈旧 id 误开旧项目
-  assert.ok(
-    src.includes('if (key === "studio") setStudioInitialProjectId(null)'),
-    "导航直进 studio 应复位待开项目 id",
+    src.includes('window.location.assign("/studio/toiv/drama")'),
+    "CTA 应直达 /studio/toiv/drama",
   );
 });
 

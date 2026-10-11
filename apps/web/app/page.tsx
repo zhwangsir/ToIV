@@ -97,23 +97,32 @@ const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
   create: "image",
   generate: "image",
   ltxstudio: "video",
-  dramaStudio: "studio",
-  manju: "studio",
   "video-edit": "videoEdit",
   "image-edit": "imageEdit",
   skills: "market",
   apps: "market",
-  models: "resources",
-  train: "resources",
-  backlot: "resources",
-  drama: "studio",
   // S12 退役:fusion→home(对话即入口);canvas→home(canvas 应用经 /studio)
   fusion: "home",
   canvas: "home",
 };
 
-/** W1:这三个旧 key 重定向进资源中心时需带上目标 tab(?view=train → /?view=resources&tab=train) */
-const LEGACY_RESOURCE_TAB_KEYS = new Set(["models", "train", "backlot"]);
+/** 融合 F1(2026-10-11):studio/entities/resources 视图退役——canvas 已全覆盖
+ *  (v2 六段工作区 / 工作区资产段(S6 Entity) / 模型配置);连同旧别名(dramaStudio/manju/
+ *  drama/models/train/backlot)整体跳 /studio 下对应页,不再回经典视图。
+ *  R18=A 口径:image/video/market/library/avatartalk/settings 壳保留不动。 */
+const EXTERNAL_VIEW_REDIRECTS: Record<string, string> = {
+  studio: "/studio/toiv/drama",
+  entities: "/studio/toiv/drama",
+  resources: "/studio/settings?section=channels",
+  dramaStudio: "/studio/toiv/drama",
+  manju: "/studio/toiv/drama",
+  drama: "/studio/toiv/drama",
+  models: "/studio/settings?section=channels",
+  train: "/studio/settings?section=channels",
+  backlot: "/studio/settings?section=channels",
+};
+
+/** W1(F1 后撤销):原资源中心 tab 直达集合随 resources 视图退役移除 */
 
 /** 解析 ?view= 参数:旧 key 走重定向,非法 key 返回 null(落默认视图)。 */
 function resolveView(raw: string | null): View | null {
@@ -220,7 +229,9 @@ function ViewFallback({ label }: { label: string }) {
 // assistant 已底层化(2026-08-17):移出 VALID_VIEWS,URL ?view=assistant 在挂载 effect 中重定向 fusion
 // S12(2026-10-11) R18=A 退役第一批:fusion(纯导航枢纽,canvas home 全覆盖)
 // 与 canvas(ComfyUI iframe,canvas 应用本体覆盖)移出 VALID_VIEWS;
-// 组件保留(深链经 LEGACY_VIEW_REDIRECTS 归位),R18 只读壳视图不动。
+// 融合 F1(2026-10-11) 退役第二批:studio(v2 六段工作区覆盖)/entities(工作区资产段)/
+// resources(canvas 模型配置)移出 VALID_VIEWS,深链经 EXTERNAL_VIEW_REDIRECTS 跳 /studio。
+// 组件保留(深链经重定向归位),R18 只读壳视图(image/video/market/library)不动。
 const VALID_VIEWS = new Set<View>([
   "home",
   "image",
@@ -230,11 +241,8 @@ const VALID_VIEWS = new Set<View>([
   "videoEdit",
   "animatic",
   "avatartalk",
-  "studio",
   "dub",
   "library",
-  "entities",
-  "resources",
   "market",
   "settings",
 ]);
@@ -287,13 +295,12 @@ const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
 ];
 
 const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
-  // 2026-10-01:工具箱二级 — 生图/生视频/音频/资源等从主栏下沉
+  // 2026-10-01:工具箱二级 — 生图/生视频/音频等从主栏下沉
   // Slice B #13: Generate 文案下沉「工具箱·引擎台」
+  // F1(2026-10-11):resources/entities 退役跳 canvas,抽屉不再承载
   { key: "image", label: NAV_LABELS.imageMore, icon: "image" },
   { key: "video", label: NAV_LABELS.videoMore, icon: "video" },
   { key: "audio", label: NAV_LABELS.audioMore, icon: "audio" },
-  { key: "resources", label: NAV_LABELS.resourcesMore, icon: "models" },
-  { key: "entities", label: NAV_LABELS.entities, icon: "users" },
   { key: "animatic", label: NAV_LABELS.animatic, icon: "film" },
   { key: "agent-runs", label: "任务", icon: "workflow" },
   { key: "settings", label: NAV_LABELS.settings, icon: "settings" },
@@ -515,15 +522,20 @@ function HomeContent() {
       router.replace("/?view=home");
       return;
     }
+    // F1:退役视图整体跳 canvas(整页替换,不留在经典壳里打转)
+    const ext = EXTERNAL_VIEW_REDIRECTS[raw ?? ""];
+    if (ext) {
+      window.location.replace(ext);
+      return;
+    }
     const resolved = resolveView(raw);
     if (resolved && resolved !== view) {
       setView(resolved);
     }
     // 旧 key(create/generate/ltxstudio 等)重定向后把 URL 规整为新 key,刷新/分享保持一致;
-    // W1:models/train/backlot 进资源中心时带上 tab,直达对应二级页
+    // F1:models/train/backlot 原带 tab 直达资源中心的逻辑随资源中心退役撤销(EXTERNAL 直跳)
     if (raw && LEGACY_VIEW_REDIRECTS[raw]) {
-      const tab = LEGACY_RESOURCE_TAB_KEYS.has(raw) ? `&tab=${raw}` : "";
-      router.replace(`/?view=${resolved ?? "home"}${tab}`);
+      router.replace(`/?view=${resolved ?? "home"}`);
     }
   }, [searchParams, view, router]);
 
@@ -656,7 +668,11 @@ function HomeContent() {
         window.open(`${window.location.protocol}//${window.location.hostname}:3200`, "_blank");
         return;
       }
-      if (key === "studio") setStudioInitialProjectId(null);
+      // F1:做短剧 CTA 直达 canvas v2 工作台(短剧项目列表)
+      if (key === "studio") {
+        window.location.assign("/studio/toiv/drama");
+        return;
+      }
       changeView(key as View);
     },
     [changeView, router],
@@ -669,22 +685,26 @@ function HomeContent() {
   // 独立管理系统地址(与主站同主机,端口 3200;2026-09-15 管理/观测并入独立系统);
   // 旧 ?view=admin|observability 直输用户:不在 VALID_VIEWS → 挂载重定向自然落融合页
 
-  // 动态分镜 AI 模式:解析成功后跳 studio 创作工作室并直开该项目
+  // 动态分镜 AI 模式:解析成功后直开 v2 工作区(F1:原七步工作室已退役)
   // (2026-08-30 批 D:此前丢弃 project.id,落项目列表找不到刚建的项目)
   const handleOpenDramaProject = useCallback(
     (projectId: string) => {
-      setStudioInitialProjectId(projectId);
-      changeView("studio");
+      window.location.assign(`/studio/toiv/ws/${projectId}`);
     },
-    [changeView],
+    [],
   );
 
   // 融合聚合页跳转:target 可带查询串(如 dramaStudio?mode=manju 进漫剧模式)
   const handleFusionNavigate = useCallback(
     (target: string) => {
       const [key, query] = target.split("?", 2);
+      // F1:目标视图已退役的,整体跳 canvas 对应页
+      const ext = EXTERNAL_VIEW_REDIRECTS[key];
+      if (ext) {
+        window.location.assign(ext);
+        return;
+      }
       const next = resolveView(key) ?? "fusion";
-      if (next === "studio") setStudioInitialProjectId(null);
       preloadView(next);
       withViewTransition(() => {
         setView(next);
@@ -837,7 +857,7 @@ function HomeContent() {
         moreItems={bottomNavMoreItems}
         current={view}
         onSelect={handleNavSelect}
-        ctaAction={() => changeView("studio")}
+        ctaAction={() => window.location.assign("/studio/toiv/drama")}
         onOpenSearch={() => setPaletteOpen(true)}
       />
     </div>

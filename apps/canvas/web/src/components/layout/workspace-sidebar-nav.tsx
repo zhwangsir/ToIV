@@ -47,21 +47,17 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
             ],
         },
         {
+            // F1(2026-10-11)融合:原「ToIV 创作」分组拆散——v2 后短剧工作台即主创作流,
+            // 与智能体对话(人和 Agent 双入口等价)升一级;其余按平台功能平铺,零子品牌分组。
             items: [
                 { id: "home", title: "首页", icon: Home, to: "/" },
+                { id: "toiv:drama", title: "短剧工作台", icon: Clapperboard, to: "/toiv/drama" },
+                { id: "toiv:agent", title: "智能体对话", icon: Bot, to: "/toiv/agent" },
                 { ...toolItem("canvas", "/project"), title: "项目" },
                 { id: "library", title: "媒体库", icon: Library, to: "/library" },
-                { id: "settings:channels", title: "模型配置", icon: Settings2, to: "/settings?section=channels" },
-            ],
-        },
-        {
-            // ToIV 原生模块：全部内部路由，零整页跳转
-            heading: "ToIV 创作",
-            items: [
-                { id: "toiv:agent", title: "智能体对话", icon: Bot, to: "/toiv/agent" },
-                { id: "toiv:drama", title: "短剧工作台", icon: Clapperboard, to: "/toiv/drama" },
                 { id: "toiv:market", title: "工具箱", icon: Store, to: "/toiv/market" },
                 { id: "toiv:tasks", title: "任务中心", icon: ListChecks, to: "/toiv/tasks" },
+                { id: "settings:channels", title: "模型配置", icon: Settings2, to: "/settings?section=channels" },
             ],
         },
         {

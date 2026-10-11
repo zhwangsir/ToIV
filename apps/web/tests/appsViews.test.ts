@@ -274,39 +274,58 @@ test("page.tsx 导航去重:fusion 卡五目标不在「更多」抽屉重复(20
       `${key} 已由融合卡承载,「更多」抽屉不应重复`,
     );
   }
-  // 非 fusion 目标保留:audio/canvas/entities/animatic/resources/settings
-  // (2026-09-12:market 进底部主导航、audio 下沉抽屉,抽屉成员同步换血)
-  for (const key of ["audio", "canvas", "entities", "animatic", "resources", "settings"]) {
+  // 非 fusion 目标保留:audio/animatic/settings
+  // (S12:fusion/canvas 视图退役;F1:resources/entities 退役跳 canvas,抽屉不再承载)
+  for (const key of ["audio", "animatic", "settings"]) {
     assert.ok(moreBlock.includes(`key: "${key}"`), `「更多」抽屉缺 ${key} 入口`);
+  }
+  for (const key of ["fusion", "canvas", "resources", "entities"]) {
+    assert.ok(!moreBlock.includes(`key: "${key}"`), `「更多」抽屉不应再含退役入口 ${key}`);
   }
 });
 
 /* ── 2026-08-31 W1 IA 骨架治理 ── */
-test("W1:models/train/backlot/drama 移出独立视图,旧 key 走重定向", () => {
+test("W1:models/train/backlot/drama 移出独立视图,旧 key 走重定向(F1 后跳 canvas)", () => {
   const src = readSrc("app/page.tsx");
   const redirectBlock = src.slice(src.indexOf("LEGACY_VIEW_REDIRECTS"), src.indexOf("resolveView"));
-  for (const key of ["models", "train", "backlot"]) {
-    assert.match(redirectBlock, new RegExp(`${key}: "resources"`), `${key} 应重定向进资源中心`);
+  // F1(2026-10-11):resources 视图退役,models/train/backlot 与 resources 一并直跳 canvas 模型配置
+  for (const key of ["models", "train", "backlot", "resources"]) {
+    assert.ok(
+      redirectBlock.includes(`${key}: "/studio/settings?section=channels"`),
+      `${key} 应经 EXTERNAL_VIEW_REDIRECTS 跳 canvas 模型配置`,
+    );
   }
-  assert.match(redirectBlock, /drama: "studio"/, "drama 旧管线应重定向到 studio");
+  for (const key of ["drama", "dramaStudio", "manju", "studio", "entities"]) {
+    assert.ok(
+      redirectBlock.includes(`${key}: "/studio/toiv/drama"`),
+      `${key} 应经 EXTERNAL_VIEW_REDIRECTS 跳 canvas 短剧工作台`,
+    );
+  }
   // 不再作为独立视图渲染
   assert.ok(!src.includes('view === "train"'), "train 不应有独立渲染分支");
   assert.ok(!src.includes('view === "models"'), "models 不应有独立渲染分支");
   assert.ok(!src.includes('view === "backlot"'), "backlot 不应有独立渲染分支");
   assert.ok(!src.includes('view === "drama"'), "drama 不应有独立渲染分支");
   const validBlock = src.slice(src.indexOf("VALID_VIEWS"), src.indexOf("VIEW_META"));
-  for (const key of ["models", "train", "backlot", "drama"]) {
+  for (const key of ["models", "train", "backlot", "drama", "studio", "entities", "resources"]) {
     assert.ok(!validBlock.includes(`"${key}"`), `VALID_VIEWS 不应再含 ${key}`);
   }
 });
 
-test("W1:models/train/backlot 重定向携带 tab 直达资源中心二级页", () => {
+test("F1:退役视图深链整体跳 canvas,CTA/项目直开改指 v2 工作区", () => {
   const src = readSrc("app/page.tsx");
+  // 挂载重定向:EXTERNAL 命中即整页跳转,不落经典壳
+  assert.ok(src.includes("const ext = EXTERNAL_VIEW_REDIRECTS[raw ?? \"\"]"), "缺 EXTERNAL 深链拦截");
+  assert.ok(src.includes("window.location.replace(ext)"), "EXTERNAL 应整页跳转");
+  // 做短剧 CTA(窄屏 CTA + 导航选择)与 animatic 解析回开项目,全部指 canvas v2
   assert.ok(
-    src.includes('LEGACY_RESOURCE_TAB_KEYS = new Set(["models", "train", "backlot"])'),
-    "缺资源 tab 旧 key 集合",
+    src.includes('window.location.assign("/studio/toiv/drama")'),
+    "做短剧 CTA 应直达 canvas 短剧工作台",
   );
-  assert.ok(src.includes('`&tab=${raw}`'), "重定向 URL 应携带 tab 参数");
+  assert.ok(
+    src.includes("window.location.assign(`/studio/toiv/ws/${projectId}`)"),
+    "动态分镜解析成功应直开 v2 工作区",
+  );
 });
 
 test("W1:ResourcesView 支持 ?tab= 初始直达(白名单校验)", () => {
@@ -363,11 +382,11 @@ test("W2:默认落地为对话首页(fusion 退为场景入口)", () => {
   assert.ok(src.includes('resolveView(raw) ?? "home"'), "默认视图应为 home");
   assert.ok(src.includes('if (raw === "assistant") return "home"'), "?view=assistant 应落 home");
   assert.ok(src.includes('router.replace("/?view=home")'), "assistant 旧链接 URL 应规整为 home");
-  // 2026-10-01:底部 CTA=做短剧;智能体仍在主栏;融合在更多
+  // 2026-10-01:底部 CTA=做短剧;智能体仍在主栏;S12 后融合卡退役,fusion 不再回「更多」
   const navBlock = src.slice(src.indexOf("BOTTOM_NAV_ITEMS"), src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
   assert.ok(navBlock.includes('{ key: "studio", label: NAV_LABELS.studio, icon: "clapperboard", isCta: true }'), "CTA 应为做短剧");
   const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
-  assert.ok(moreBlock.includes('key: "fusion"'), "融合应在「更多」抽屉");
+  assert.ok(!moreBlock.includes('key: "fusion"'), "S12 后 fusion 已退役,不应在「更多」抽屉");
   const railBlock = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
   assert.ok(
     railBlock.includes('{ key: "studio", label: NAV_LABELS.studio, icon: "clapperboard" }'),
