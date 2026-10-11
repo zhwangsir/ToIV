@@ -6,7 +6,7 @@
  * S3/S4 逐段把经典端能力迁进来，迁移齐后 W1.2 末步做路由对调。
  * 现在各段为只读骨架：头部项目状态 + 各段已有数据的轻量呈现 + 落地批次的说明。
  */
-import { ArrowDown, ArrowUp, BookOpen, Camera, Check, Clapperboard, Film, IdCard, Layers, ListOrdered, Loader2, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
+import { ArrowDown, ArrowUp, BookOpen, Camera, Captions, Check, Clapperboard, Film, IdCard, Layers, ListOrdered, Loader2, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
 import type { ToivFrameVariant, ToivSharedAsset } from "@/services/toiv/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
@@ -28,6 +28,8 @@ import {
     pickShotCandidate,
     applySharedAsset,
     assembleStudioProject,
+    buildSubtitles,
+    burnSubtitles,
     fetchSharedAssets,
     pollFrameVariants,
     pollSheetJob,
@@ -410,6 +412,30 @@ export default function DramaWorkspacePage() {
             setAssembling(false);
         }
     }, [id, load]);
+
+    // ---- S9: 字幕对齐(台词↔whisper,SRT 双出) ----
+    const [subsBusy, setSubsBusy] = useState<"build" | "burn" | null>(null);
+    const [subsMsg, setSubsMsg] = useState<string | null>(null);
+    const [subsError, setSubsError] = useState<string | null>(null);
+    const runSubtitles = useCallback(async (mode: "build" | "burn") => {
+        if (!id) return;
+        setSubsBusy(mode);
+        setSubsMsg(null);
+        setSubsError(null);
+        try {
+            if (mode === "build") {
+                const r = await buildSubtitles(id);
+                setSubsMsg(`SRT 生成:覆盖 ${r.shots_covered} 个配音镜 / ${r.cues.length} 条 / 全长 ${r.total_duration}s → ${r.srt_url.split("/").pop()}`);
+            } else {
+                const r = await burnSubtitles(id);
+                setSubsMsg(`字幕已内嵌 → ${r.video_url.split("/").pop()}(覆盖 ${r.shots_covered} 镜)`);
+            }
+        } catch (e) {
+            setSubsError(e instanceof Error ? e.message : "字幕操作失败");
+        } finally {
+            setSubsBusy(null);
+        }
+    }, [id]);
 
     // S4:候选选用
     const [pickingCand, setPickingCand] = useState<string | null>(null);
@@ -841,10 +867,26 @@ export default function DramaWorkspacePage() {
                                                 onClick={() => void runAssemble()}
                                                 loading={assembling}
                                             />
+                                            <ToolButton
+                                                variant="default"
+                                                icon={<Captions />}
+                                                label={subsBusy === "build" ? "生成中…" : "生成字幕 SRT(外挂)"}
+                                                onClick={() => void runSubtitles("build")}
+                                                loading={subsBusy === "build"}
+                                            />
+                                            <ToolButton
+                                                variant="default"
+                                                icon={<Captions />}
+                                                label={subsBusy === "burn" ? "内嵌中…" : "字幕内嵌视频"}
+                                                onClick={() => void runSubtitles("burn")}
+                                                loading={subsBusy === "burn"}
+                                            />
                                             <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
-                                                就绪 {shots.filter((x) => x.final_clip_url).length}/{shots.length} 镜(全部就绪后方可合成)
+                                                就绪 {shots.filter((x) => x.final_clip_url).length}/{shots.length} 镜;配音镜 {shots.filter((x) => x.voice_url).length} 个(字幕源)
                                             </span>
                                         </div>
+                                        {subsMsg && <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{subsMsg}</p>}
+                                        {subsError && <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger,#e5484d)]">{subsError}</p>}
                                         {tlMsg && <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{tlMsg}</p>}
                                         {tlError && <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger,#e5484d)]">{tlError}</p>}
                                         {assembleError && (

@@ -833,3 +833,25 @@ export async function applySharedAsset(aid: string, pid: string): Promise<void> 
         throw new Error(detail || "选用资产失败");
     }
 }
+
+// ---- S9(2026-10-11): 字幕对齐(台词↔whisper 时间轴,SRT 内嵌/外挂双出) ----
+
+export async function buildSubtitles(pid: string): Promise<{ srt_url: string; cues: Array<{ start: number; end: number; text: string }>; shots_covered: number; total_duration: number }> {
+    try {
+        const { data } = await toivHttp.post(`/studio/projects/${encodeURIComponent(pid)}/subtitles`, undefined, { timeout: 180_000 });
+        return data;
+    } catch (e) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        throw new Error(detail || "字幕生成失败");
+    }
+}
+
+export async function burnSubtitles(pid: string): Promise<{ video_url: string; srt_url: string; shots_covered: number }> {
+    try {
+        const { data } = await toivHttp.post(`/studio/projects/${encodeURIComponent(pid)}/subtitles/burn`, undefined, { timeout: 300_000 });
+        return data;
+    } catch (e) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        throw new Error(detail || "字幕内嵌失败");
+    }
+}

@@ -439,6 +439,58 @@ class FrameVariantsRequest(BaseModel):
     style: str = Field(default="anime", pattern="^(anime|ancient_realistic)$")
 
 
+# ── S9(2026-10-11):字幕对齐——台词↔whisper 时间轴,SRT 内嵌/外挂双出 ──
+@router.post("/studio/projects/{pid}/subtitles")
+async def build_subtitles_endpoint(
+    pid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """整片字幕:配音镜走 ASR+台词对齐 → SRT 外挂(studio 文件域)。
+
+    返回 {srt_url, cues, shots_covered, total_duration}。
+    """
+    _get_project(session, pid, user)
+    from app.services.studio.subtitles import build_project_subtitles
+
+    try:
+        return await build_project_subtitles(session, pid)
+    except Exception as e:  # noqa: BLE001 — 明确归一为 502,不带栈
+        raise HTTPException(status_code=502, detail=f"字幕生成失败:{e}") from e
+
+
+@router.post("/studio/projects/{pid}/subtitles/burn")
+async def burn_subtitles_endpoint(
+    pid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """内嵌:整片成片(或首可用视频)烧字幕 → <pid>_sub.mp4。"""
+    p = _get_project(session, pid, user)
+    from app.services.studio.subtitles import build_project_subtitles, burn_subtitles
+
+    try:
+        subs = await build_project_subtitles(session, pid)
+        if not subs["cues"]:
+            raise HTTPException(status_code=422, detail="无可用配音镜头,先生成字幕源(配音)")
+        video_url = (p.final_url or "").strip()
+        if not video_url:
+            shot = session.exec(
+                select(StudioShot)
+                .where(StudioShot.project_id == pid)
+                .order_by(StudioShot.idx)
+            ).first()
+            video_url = (getattr(shot, "video_url", "") or "").strip() if shot else ""
+        if not video_url:
+            raise HTTPException(status_code=422, detail="项目无成片/视频可烧字幕")
+        out = await burn_subtitles(video_url, subs["srt_url"], f"{pid[:12]}_sub.mp4")
+        return {"video_url": out, "srt_url": subs["srt_url"], "shots_covered": subs["shots_covered"]}
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"字幕内嵌失败:{e}") from e
+
+
 # ── S6(2026-10-11):资产下沉——全局主体库 Entity 在 Studio 域接入(只读+选用) ──
 # 数据源真值核正:生产 DramaAsset=0,全局主体库是 Entity(24,模型注释明确
 # 「DramaCharacter 旧数据由 db.py 启动迁移 copy 进本表」)。图片列是句柄 JSON
