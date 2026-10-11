@@ -125,6 +125,12 @@ S1 ──► S2 ──► S3 ──► S4        （壳迁移线，前端为主�
 | UI_FUSION_OPT_BACKLOG ui-v3 紫强调 | 冻结（并入不做清单） |
 | 非管理员市场视角复核（0.3） | S1 验收顺带（W0.2 改动后用 role=user 复测，凭据仍需你给） |
 
+### S3 增量（2026-10-11，提前执行）
+- ✅ 管线C 一键启动入工作区镜头段（c_hybrid 妆容链；提交→任务中心跟踪）。
+- ✅ 设定卡生成异步化：`POST /studio/characters/{cid}/character-sheet/async` Job+轮询+重启收口，消灭 15-20min 同步等待（4 测试绿；实弹：秒回提交/任务中心可见/轮询 running）。
+- ✅ 双项目域合并评估落档 `docs/ops/PROJECT_DOMAIN_MERGE_ASSESSMENT_20261011.md`（StudioProject 唯一宿主；多候选/seam 下沉归 S4；DramaAsset 保留共享）。
+- 微债：抽屉空态文案时长口径（下次部署顺带改）。
+
 ## 8. 变更记录
 
 - 2026-10-10 v1：初版（依据 UNIFIED_PLATFORM_PLAN_20261010.md 生成；13 商业+12 开源调研+本地摸底）。
