@@ -259,6 +259,7 @@ export default function DramaWorkspacePage() {
     // ---- S9 正式: 时间线排序/时长编辑(PUT shots 全量保存契约) ----
     const [tlOrder, setTlOrder] = useState<string[]>([]);          // shot id 顺序
     const [tlDuration, setTlDuration] = useState<Record<string, number>>({}); // id→秒
+    const [tlSeam, setTlSeam] = useState<Record<string, string>>({}); // id→seam_to_next(W2.5)
     const [tlDirty, setTlDirty] = useState(false);
     const [tlSaving, setTlSaving] = useState(false);
     const [tlMsg, setTlMsg] = useState<string | null>(null);
@@ -269,6 +270,7 @@ export default function DramaWorkspacePage() {
         if (!tlDirty && shots.length > 0) {
             setTlOrder(shots.map((x) => x.id));
             setTlDuration(Object.fromEntries(shots.map((x) => [x.id, x.duration_sec ?? 6])));
+            setTlSeam(Object.fromEntries(shots.map((x) => [x.id, x.seam_to_next || "hardcut"])));
         }
     }, [shots, tlDirty]);
 
@@ -311,6 +313,7 @@ export default function DramaWorkspacePage() {
                 duration_sec: tlDuration[x.id] ?? x.duration_sec ?? 6,
                 characters: (x.characters ?? []) as string[],
                 render_mode: x.render_mode ?? "video",
+                seam_to_next: tlSeam[x.id] ?? x.seam_to_next ?? "hardcut", // W2.5:衔接持久化
             }));
             await saveStudioShots(id, payload);
             setTlDirty(false);
@@ -796,6 +799,18 @@ export default function DramaWorkspacePage() {
                                                             aria-label={`时长 ${x.scene?.slice(0, 8) ?? x.id.slice(0, 6)}`}
                                                         />s
                                                     </label>
+                                                    <select
+                                                        value={tlSeam[x.id] ?? x.seam_to_next ?? "hardcut"}
+                                                        onChange={(e) => { setTlDirty(true); setTlSeam((p) => ({ ...p, [x.id]: e.target.value })); }}
+                                                        className="rounded border border-[var(--border)] bg-transparent px-1.5 py-0.5 text-xs text-foreground"
+                                                        aria-label={`衔接 ${x.scene?.slice(0, 6) ?? x.id.slice(0, 4)}`}
+                                                        title="与下一镜的衔接:continue=末帧续写(渲染自动走 c 管线)"
+                                                    >
+                                                        <option value="hardcut">硬切</option>
+                                                        <option value="continue">续写</option>
+                                                        <option value="matchcut">匹配切</option>
+                                                        <option value="overlap">重叠</option>
+                                                    </select>
                                                     {x.final_clip_url
                                                         ? <StatusBadge variant="filled" tone="success" label="就绪" size="sm" />
                                                         : <StatusBadge variant="filled" tone={STATUS_TONE[x.status] ?? "neutral"} label={x.status} size="sm" />}

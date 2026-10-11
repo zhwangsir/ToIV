@@ -367,6 +367,27 @@ async def render_shot(
     pipe = (pipeline or DEFAULT_VIDEO_PIPELINE).strip().lower() if engine == "h3" else "legacy"
     if pipe not in VIDEO_PIPELINES + ("legacy",):
         pipe = DEFAULT_VIDEO_PIPELINE
+    # W2.5 机位树 lite:未显式指定管线时,消费「上一镜 seam_to_next=continue」
+    # → 本镜走 c(MotionContext 续写,context_latent 由下方既有逻辑从上一镜
+    # picked 候选取),拼接路线的持久化 seam 字段从此有了真实选路效果。
+    if (
+        pipeline is None
+        and engine == "h3"
+        and shot.render_mode == "video"
+        and pipe == DEFAULT_VIDEO_PIPELINE
+    ):
+        _prev = None
+        try:
+            _siblings = session.exec(
+                select(StudioShot).where(StudioShot.project_id == shot.project_id)
+            ).all()
+            for _s in _siblings:
+                if _s.idx < shot.idx and (_prev is None or _s.idx > _prev.idx):
+                    _prev = _s
+        except Exception:  # noqa: BLE001 — 选路辅助,查询失败退回默认
+            _prev = None
+        if _prev is not None and (getattr(_prev, "seam_to_next", "") or "").strip() == "continue":
+            pipe = "c"
     render_kw["pipeline"] = pipe
     if pipe in VIDEO_PIPELINES:
         if ref_overrides:

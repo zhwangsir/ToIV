@@ -231,3 +231,42 @@ def test_reconcile_fills_remaining_candidate_after_rendered(ctx):
         # 已选不扰动
         assert out[0]["is_picked"] is True and out[1]["is_picked"] is False
         assert sh.status == "rendered" and sh.video_url.endswith("first.mp4")
+
+
+def test_seam_continue_selects_c_pipeline(ctx, monkeypatch):
+    """W2.5:上一镜 seam_to_next=continue → 本镜未显式指定管线时自动走 c(续写)。"""
+    import types
+
+    from app.services.studio import orchestrator as orch
+
+    engine, pid, _ = ctx
+    captured: dict = {}
+
+    class _R:
+        kind = "video"
+        url = "/x.mp4"
+        pipeline_meta = {}
+
+    async def fake_render(shot, cast, pool, **kw):
+        captured.update(kw)
+        return _R()
+
+    monkeypatch.setattr(orch, "get_renderer", lambda shot: types.SimpleNamespace(render=fake_render))
+    with Session(engine) as s:
+        from app.models import StudioShot as SH
+
+        a = SH(project_id=pid, idx=0, scene="镜A", status="rendered", seam_to_next="continue")
+        b = SH(project_id=pid, idx=1, scene="镜B", status="draft")
+        s.add(a); s.add(b); s.commit(); s.refresh(b)
+        import asyncio
+
+        asyncio.run(orch.render_shot(s, b, None))  # 未显式 pipeline
+        assert captured.get("pipeline") == "c"
+        # 对照:seam 硬切(默认空)的下一镜仍走 ref2va
+        captured.clear()
+        a.seam_to_next = ""
+        s.add(a); s.commit()
+        c2 = SH(project_id=pid, idx=2, scene="镜C", status="draft")
+        s.add(c2); s.commit(); s.refresh(c2)
+        asyncio.run(orch.render_shot(s, c2, None))
+        assert captured.get("pipeline") == "ref2va"
