@@ -439,25 +439,46 @@ class FrameVariantsRequest(BaseModel):
     style: str = Field(default="anime", pattern="^(anime|ancient_realistic)$")
 
 
-# ── S6(2026-10-11):资产下沉——DramaAsset 跨项目库在 Studio 域接入(只读+选用) ──
+# ── S6(2026-10-11):资产下沉——全局主体库 Entity 在 Studio 域接入(只读+选用) ──
+# 数据源真值核正:生产 DramaAsset=0,全局主体库是 Entity(24,模型注释明确
+# 「DramaCharacter 旧数据由 db.py 启动迁移 copy 进本表」)。图片列是句柄 JSON
+# 或纯 URL 双形态,经 parse_image_handle 解析为 /api/images URL 供渲染直接用。
+def _entity_image_url(value: str) -> str:
+    from app.services.entities import parse_image_handle
+
+    v = (value or "").strip()
+    if not v:
+        return ""
+    h = parse_image_handle(v)
+    if h:
+        from urllib.parse import quote
+
+        return (
+            f"/api/images?filename={quote(h['filename'])}"
+            f"&type=input&worker={quote(h['worker'])}"
+        )
+    return v  # 纯 URL 原样
+
+
 @router.get("/studio/assets")
 def studio_shared_assets(
-    kind: str | None = Query(default=None, description="character|scene|prop|style"),
+    kind: str | None = Query(default=None, description="character|scene|prop|avatar"),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[dict]:
-    """共享资产库(跨项目 DramaAsset,只读引用; Studio 域不双写)。"""
-    from app.models import DramaAsset
+    """共享资产库(全局主体 Entity,只读引用;Studio 域不双写)。"""
+    from app.models import Entity
 
-    q = select(DramaAsset).where(DramaAsset.user_id == user.id)
+    q = select(Entity).where(Entity.user_id == user.id)
     if kind:
-        q = q.where(DramaAsset.kind == kind)
-    rows = session.exec(q.order_by(DramaAsset.updated_at.desc())).all()
+        q = q.where(Entity.kind == kind)
+    rows = session.exec(q.order_by(Entity.updated_at.desc())).all()
     return [
         {
             "id": a.id, "kind": a.kind, "name": a.name,
-            "description": a.description, "visual_prompt": a.visual_prompt,
-            "ref_image": a.ref_image, "voice_name": a.voice_name,
+            "description": a.description, "visual_prompt": a.prompt_hint,
+            "ref_image": _entity_image_url(a.ref_image),
+            "has_three_view": bool(a.reference_front or a.reference_side or a.reference_back),
         }
         for a in rows
     ]
@@ -470,14 +491,17 @@ def studio_apply_asset(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """选用共享资产为项目角色卡(同名去重;kind=character 才可选用)。"""
-    from app.models import DramaAsset
+    """选用全局主体为项目角色卡(同名去重;character/avatar 类可选用)。
 
-    a = session.get(DramaAsset, aid)
+    参考图聚合:三视图(句柄→URL)优先,supplement ref_image;≤8 张(渲染契约)。
+    """
+    from app.models import Entity
+
+    a = session.get(Entity, aid)
     if not a or a.user_id != user.id:
-        raise HTTPException(status_code=404, detail="资产不存在")
-    if (a.kind or "character") != "character":
-        raise HTTPException(status_code=422, detail="仅角色类资产可选用为项目角色")
+        raise HTTPException(status_code=404, detail="主体不存在")
+    if (a.kind or "character") not in ("character", "avatar"):
+        raise HTTPException(status_code=422, detail="仅角色/形象类主体可选用为项目角色")
     _get_project(session, pid, user)
     dup = session.exec(
         select(StudioCharacter).where(
@@ -490,10 +514,14 @@ def studio_apply_asset(
         project_id=pid,
         name=a.name,
         description=a.description,
-        visual_prompt=a.visual_prompt,
+        visual_prompt=a.prompt_hint,
         voice_ref_url=a.ref_audio,
     )
-    refs = [u for u in (a.ref_image, a.reference_front, a.reference_side, a.reference_back) if u]
+    refs = [
+        _entity_image_url(u)
+        for u in (a.reference_front, a.reference_side, a.reference_back, a.ref_image)
+    ]
+    refs = [u for u in refs if u]
     if refs:
         c.reference_images = json.dumps(refs[:8], ensure_ascii=False)
     session.add(c)

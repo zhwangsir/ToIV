@@ -8,7 +8,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from app.db import get_session
 from app.main import app
-from app.models import DramaAsset, StudioCharacter, StudioProject, Tenant, User
+from app.models import Entity, StudioCharacter, StudioProject, Tenant, User
 from app.security import create_token, hash_password
 
 
@@ -29,11 +29,11 @@ def ctx():
         s.commit()
         p = StudioProject(tenant_id=t.id, user_id="u1", title="sa"); s.add(p); s.commit(); s.refresh(p)
         ids["pid"] = str(p.id)
-        a = DramaAsset(tenant_id=t.id, user_id="u1", kind="character", name="林夏",
-                       description="雨夜少女", visual_prompt="lin xia", ref_image="/r/f.png")
+        a = Entity(tenant_id=t.id, user_id="u1", kind="character", name="林夏",
+                   description="雨夜少女", prompt_hint="lin xia", ref_image="/r/f.png")
         s.add(a); s.commit(); s.refresh(a)
         ids["aid"] = str(a.id)
-        s.add(DramaAsset(tenant_id=t.id, user_id="u1", kind="scene", name="便利店"))
+        s.add(Entity(tenant_id=t.id, user_id="u1", kind="scene", name="便利店"))
         s.commit()
     yield TestClient(app), ids, {"Authorization": "Bearer " + create_token("u1")}
     app.dependency_overrides.clear()
@@ -61,13 +61,6 @@ def test_apply_dedup_and_kind_guard(ctx):
     r1 = client.post(f"/api/studio/assets/{ids['aid']}/apply-to-project/{ids['pid']}", headers=h)
     r2 = client.post(f"/api/studio/assets/{ids['aid']}/apply-to-project/{ids['pid']}", headers=h)
     assert r1.json()["id"] == r2.json()["id"]  # 同名去重返回既有
-    # scene 类 422
-    with Session(create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)):
-        pass
-    scene_id = None
-    from sqlmodel import select as _sel
-    engine2 = None
-    # 用 API 拿 scene 资产 id
     scene_id = next(x["id"] for x in client.get("/api/studio/assets?kind=scene", headers=h).json())
     r3 = client.post(f"/api/studio/assets/{scene_id}/apply-to-project/{ids['pid']}", headers=h)
     assert r3.status_code == 422
