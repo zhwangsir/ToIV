@@ -1098,7 +1098,11 @@ async def exec_list_apps(args: dict, ctx: dict) -> tuple[str, list[dict]]:
     from sqlmodel import Session as _OwnSession
     with _OwnSession(bind=session.get_bind()) as own:
         items = apps_route.list_apps(
+            # V4-0a:S1 起端点签名带 request(未知 query 参数 422 检查);工具直调
+            # 传空 query_params 桩通过该检查(实测漏传自 S1 起让本工具 500)。
+            request=SimpleNamespace(query_params={}),
             category=category, q=q, use_case=None, featured=False, fingerprint=None,
+            limit=None, offset=0,
             user=user, session=own,
         )
     if isinstance(items, Response):

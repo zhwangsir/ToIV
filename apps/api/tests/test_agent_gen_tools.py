@@ -64,6 +64,9 @@ class _FakePool:
 
 @pytest.fixture
 def db_env():
+    # V4-0a:45s TTL 列表缓存跨测试污染——每用例重置缓存代
+    from app.services import apps_list_cache as _alc
+    _alc.bump()
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -709,7 +712,12 @@ async def test_list_apps_marks_pass_and_prefers_verified(db_env):
     s.add(untested)
     s.commit()
     reg = get_ctx().service("tools")
-    text, events = await reg.execute("list_apps", {"q": "海螺"}, _ctx(_FakePool(_FakeClient()), user, s))
+    # V4-0a:目录 spec 文案会演进(h3-t2v 名从「海螺 H3 文生视频」改为「文生视频·H3」),
+    # 检索词与断言改从 _build_specs 现值驱动,不再锚死历史文案。
+    from app.services.app_seed import _build_specs as _specs
+    _name = next(sp for sp in _specs() if sp["id"] == "h3-t2v")["name"]
+    _probe = _name[:2]
+    text, events = await reg.execute("list_apps", {"q": _probe}, _ctx(_FakePool(_FakeClient()), user, s))
     assert "实测可用" in text
     assert "h3-t2v" in text
     # 结构化卡带可用性
@@ -736,8 +744,10 @@ async def test_search_knowledge_appends_pass_market_apps(db_env, monkeypatch):
     sfw.smoke_status = "pass"
     s.add(sfw)
     s.commit()
+    from app.services.app_seed import _build_specs as _specs
+    _name = next(sp for sp in _specs() if sp["id"] == "h3-t2v")["name"]
     text, events = await agent_tools.exec_search_knowledge(
-        {"query": "海螺"}, _FakePool(_FakeClient()), user, s
+        {"query": _name[:2]}, _FakePool(_FakeClient()), user, s
     )
     assert "知识库检索结果" in text
     assert "相关市场应用" in text and "h3-t2v" in text and "实测可用" in text
@@ -760,7 +770,9 @@ async def test_list_apps_hides_nsfw_when_not_allowed(db_env):
     _seed_market_apps(s, user)
     reg = get_ctx().service("tools")
     text, _ = await reg.execute("list_apps", {}, _ctx(_FakePool(_FakeClient()), user, s))
-    assert "h3-t2v" in text and "海螺 H3 文生视频" in text
+    from app.services.app_seed import _build_specs as _specs
+    _name = next(sp for sp in _specs() if sp["id"] == "h3-t2v")["name"]
+    assert "h3-t2v" in text and _name in text
     assert "h3-nsfw-t2v" not in text
     # R18 上下文可见 NSFW
     token = nsfw_intent_var.set(True)

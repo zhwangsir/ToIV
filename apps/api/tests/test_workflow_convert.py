@@ -64,7 +64,7 @@ def test_ltx_txt2video_widget_orders():
     api = ui_to_api(_load("ltx_txt2video.json"))
     # LTXVGemmaCLIPModelLoader:gemma/ltxv/max_length(字段名同 ltx_video.py 构造器)
     assert api["2"]["inputs"] == {
-        "gemma_path": "gemma3_12b_it/model.safetensors",
+        "gemma_path": "gemma3_12b_it_bf16/model.safetensors",
         "ltxv_path": "10eros_v14.safetensors",
         "max_length": 1024,
     }

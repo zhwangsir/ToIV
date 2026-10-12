@@ -108,6 +108,20 @@ def test_detect_burned_text_flags_haokun_subtitle_fixture():
     src = next((p for p in (fixture, alt, mate) if p.is_file()), None)
     if src is None:
         pytest.skip("no shot0_t10 fixture")
+    # V4-0a:检出依赖中文 OCR(RapidOCR 优先,tesseract+chi_sim 回落);
+    # 本机两者皆缺时(如 Mac 开发机)按环境跳过——core 部署机 rapidocr 在位实测 4/4。
+    try:
+        import rapidocr_onnxruntime  # noqa: F401
+    except ImportError:
+        import shutil as _sh
+
+        if not _sh.which("tesseract"):
+            pytest.skip("no chinese ocr engine (rapidocr/tesseract) on this host")
+        import subprocess as _sp
+
+        langs = _sp.run(["tesseract", "--list-langs"], capture_output=True, text=True).stdout
+        if "chi_sim" not in langs:
+            pytest.skip("tesseract lacks chi_sim (rapidocr absent)")
     import tempfile
     with tempfile.TemporaryDirectory() as td:
         td_p = Path(td)

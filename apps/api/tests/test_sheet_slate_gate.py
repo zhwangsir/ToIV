@@ -45,7 +45,7 @@ def test_coverage_slate_on_light_gray_bg():
 
 
 def test_force_tint_light_coat():
+    """V4-0a:整图程序着色已禁用(拍板须重出而非上色)——调用即拒,带明确文案。"""
     data = _png_figure((200, 200, 205))
-    tinted = cs.force_slate_garment_tint(data)
-    hx = cs.assert_garment_near_slate_gray(tinted, max_dist=95)
-    assert hx.startswith("#")
+    with pytest.raises(cs.CharacterSheetError, match="须重出"):
+        cs.force_slate_garment_tint(data)

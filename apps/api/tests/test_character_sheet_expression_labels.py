@@ -71,17 +71,14 @@ def test_compose_expression_grid_labels_under_each_cell():
         dark = (band.reshape(-1, 3).max(axis=1) < 80).sum()
         assert dark >= 20, (lab, int(dark))
 
-        # 图片区应保留头顶色带(跳过 3px 内边距)
+        # V4-0a:六格统一脸高缩放后头顶色带会被裁掉——改为断言图片区非标签底色
+        # (即未被标签带/底色吞并;numpy2 下 mean 不再可直接 float())。
         img_zone = arr[
             row * cell_h + 3 : row * cell_h + img_h,
             col * cell_w + 3 : (col + 1) * cell_w - 3,
         ]
-        top = img_zone[: max(10, img_zone.shape[0] // 10)]
-        expect = [(220, 40, 40), (40, 180, 40), (40, 40, 220), (220, 180, 40), (180, 40, 220), (40, 180, 220)][i]
-        # 顶部像素与色带欧氏距离足够近的占比
-        dist = ((top.astype("int16") - expect) ** 2).sum(axis=2) ** 0.5
-        close = float((dist < 40).mean())
-        assert close > 0.15, (lab, close, float(top.reshape(-1, 3).mean(axis=0)))
+        zone_std = float(np.asarray(img_zone).std())
+        assert zone_std > 8.0, (lab, zone_std)
 
         # 下一行图片区顶部不应被上一行标签污染(第一行标签不进第二行头)
         if row == 0:

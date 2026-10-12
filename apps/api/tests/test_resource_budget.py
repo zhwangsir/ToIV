@@ -16,6 +16,8 @@
 from __future__ import annotations
 
 import pytest
+
+from app.config import get_settings
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
@@ -269,11 +271,13 @@ def _hold_off(monkeypatch):
 
 
 def test_h3_wiring_low_ram_503(client, monkeypatch, _hold_off):
-    """h3.ensure_h3_vram 尾部已接 RAM 预检:显存 96G 充足、RAM 3G → 503,不提交。"""
+    """V4-0a 对齐 Batch6:显存充足时快路径有意跳过 RAM 门(防 /free 挂死);
+    显存与内存双低才走完整预检链 → 503 宿主机内存不足,不提交。"""
     c, eng = client
     with Session(eng) as s:
         uid = _seed_user(s, "rb-h3")
-    fake = _FakeClient(free_vram_gib=96.0, free_ram_gib=3.0)
+    monkeypatch.setattr(get_settings(), "h3_co_workers", "")
+    fake = _FakeClient(free_vram_gib=3.0, free_ram_gib=3.0)
     monkeypatch.setattr(h3_service, "get_h3_client", lambda: fake)
     monkeypatch.setattr(h3_service, "spawn_tracker", lambda client, prompt_id: None)
     r = c.post(
@@ -282,7 +286,7 @@ def test_h3_wiring_low_ram_503(client, monkeypatch, _hold_off):
         json={"positive": "a cat"},
     )
     assert r.status_code == 503, r.text
-    assert "H3 宿主机内存不足" in r.json()["detail"]
+    assert "显存不足" in r.json()["detail"]
     assert fake.graphs == []  # 未提交
 
 

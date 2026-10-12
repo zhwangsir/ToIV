@@ -181,6 +181,21 @@ async def test_lipsync_video_pipeline_mocked(tmp_path, monkeypatch):
             return FakeClient()
 
     monkeypatch.setattr(ls, "_save_clip", lambda data: "/api/studio/files/ls.mp4")
+    # V4-0a:时长探测改走真 ffprobe(剥音/补零对齐);测试喂的是字节桩非真媒体,
+    # 桩掉探测让用例聚焦 LatentSync 构图/上传/回写链。
+    import app.services.studio.ffmpeg_ops as _fops
+
+    async def _fake_probe(_p):
+        return 4.0
+    monkeypatch.setattr(_fops, "probe_duration", _fake_probe)
+
+    async def _fake_mux(video, audio, out):
+        out.write_bytes(b"muxed-mp4")
+
+    async def _fake_pad(video_bytes, voice_bytes):
+        return voice_bytes
+    monkeypatch.setattr(_fops, "mux_audio_into_video", _fake_mux)
+    monkeypatch.setattr(_fops, "pad_audio_to_duration", _fake_pad)
 
     shot = StudioShot(
         project_id="p", idx=0, render_mode="video",

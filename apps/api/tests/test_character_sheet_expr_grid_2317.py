@@ -66,7 +66,8 @@ def test_source_has_2317_hard_rules():
     assert ("23:17 hard-crop only" in src) or ("00:31 Lanczos native" in src)
     assert "_EXPR_GRID_EDIT_INSTRUCTION" in src
     assert "apply_expression_grid_local_features" in src
-    assert "2×3 宫格一次" in src
+    # V4-0a:2317 单图宫格链已被 10/1 固定版式(分格出图+拼版)替代,断言随迁
+    assert "Pillow 固定版式拼版" in src
     assert "def _split_expression_grid" in src
 
 

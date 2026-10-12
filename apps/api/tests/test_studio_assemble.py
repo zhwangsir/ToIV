@@ -63,6 +63,11 @@ async def test_assemble_project_ok(tmp_path, monkeypatch):
     async def _ok_assert(shots):
         return None
     monkeypatch.setattr(assemble, "assert_clip_durations_match_source", _ok_assert)
+    # V4-0a:S11 起合成前强制音轨校验(probe_has_audio);测试写的是字节桩非真媒体,
+    # 桩掉探测让用例聚焦 concat/状态机(音轨门另由 lipsync 链路测)。
+    async def _has_audio(_p):
+        return True
+    monkeypatch.setattr(assemble, "probe_has_audio", _has_audio)
     (tmp_path / "studio").mkdir()
     for n in ("a.mp4", "b.mp4"):
         (tmp_path / "studio" / n).write_bytes(b"mp4")
@@ -90,6 +95,11 @@ async def test_assemble_ffmpeg_error_marks_project(tmp_path, monkeypatch):
     async def _ok_assert(shots):
         return None
     monkeypatch.setattr(assemble, "assert_clip_durations_match_source", _ok_assert)
+    # V4-0a:S11 起合成前强制音轨校验(probe_has_audio);测试写的是字节桩非真媒体,
+    # 桩掉探测让用例聚焦 concat/状态机(音轨门另由 lipsync 链路测)。
+    async def _has_audio(_p):
+        return True
+    monkeypatch.setattr(assemble, "probe_has_audio", _has_audio)
     (tmp_path / "studio").mkdir()
     (tmp_path / "studio" / "a.mp4").write_bytes(b"mp4")
 

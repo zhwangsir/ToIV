@@ -259,17 +259,18 @@ async def test_separate_step_rejects_non_whitelist_url(monkeypatch, tmp_path):
     assert "白名单" in exc.value.detail
 
 
-async def test_sfx_step_returns_501(monkeypatch, tmp_path):
-    """sfx 仍 501 占位;文案引导:说明需接入音效引擎 + 列出当前可用步骤。"""
+async def test_sfx_step_synthesizes_from_library(monkeypatch, tmp_path):
+    """V4-0a 对齐 S10:sfx 已实装(lavfi 素材库合成,不造假)——指定音效出 wav 产物;
+    未指定 effect 列出可用条目。"""
     fake = _FakeClient()
     _patch_common(monkeypatch, tmp_path, fake)
 
-    body = OrchestrateRequest.model_validate({"steps": [{"type": "sfx"}]})
-    with pytest.raises(HTTPException) as exc:
-        await audio_orchestrate(body, _user(), _session())
-    assert exc.value.status_code == 501
-    assert "音效引擎" in exc.value.detail
-    assert "tts/separate/concat/mix/variant" in exc.value.detail
+    body = OrchestrateRequest.model_validate({"steps": [{"type": "sfx", "effect": "rain"}]})
+    out = await audio_orchestrate(body, _user(), _session())
+    arts = out["artifacts"]
+    assert arts and arts[0]["type"] == "sfx" and arts[0]["effect"] == "rain"
+    assert arts[0]["url"].startswith("/api/studio/files/sfx_")
+    assert arts[0]["duration_sec"] > 0
 
 
 async def test_mix_chain_explicit_inputs(monkeypatch, tmp_path):

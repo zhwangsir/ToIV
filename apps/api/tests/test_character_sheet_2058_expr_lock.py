@@ -35,20 +35,18 @@ def test_stern_cold_think_prompts_mutually_exclusive():
     assert "frown" in sheet_svc._EXPR_INPAINT_NEGATIVES[1]
     assert "smile" in sheet_svc._EXPR_INPAINT_NEGATIVES[1]
 
-    # 沉思可见特征（放松眉，禁皱眉）
-    assert "looking down and to the side" in think_e
-    assert "head slightly tilted" in think_e or "侧倾" in think_e
-    assert "relaxed brows" in think_e or "眉毛放松" in think_e
-    assert "faraway" in think_e
-    assert "lips slightly pressed" in think_e or "轻抿" in think_e
-    assert "looking down and to the side" in think_i
-    assert "relaxed brows" in think_i
-    assert "faraway" in think_i
-    # 正向不得要求皱眉
-    assert "slightly furrowed brows" not in think_i
-    assert "眉心轻蹙" not in think_e.split("禁止")[0]
-    assert "frown" in sheet_svc._EXPR_INPAINT_NEGATIVES[2]
-    assert "furrowed" in sheet_svc._EXPR_INPAINT_NEGATIVES[2]
+    # 沉思可见特征(V4-0a 对齐锁定措辞:视线下垂偏侧+眉头微蹙+嘴唇闭合,
+    # 禁张嘴/O 形嘴/微笑/侧面化——旧「放松眉」语义已被后续表情锁定批反转)
+    assert "looking down and to one side" in think_e
+    assert "not at viewer" in think_e
+    assert "furrowed" in think_e or "微蹙" in think_e
+    assert "lips closed" in think_e or "嘴唇闭合" in think_e
+    assert "禁止张嘴" in think_e
+    assert "looking down and to one side" in think_i
+    assert "furrowed" in think_i or "微蹙" in think_i
+    # 沉思负向禁微笑/大笑(V4-0a:微蹙眉已转正向,负向集合随之重排)
+    assert "big smile" in sheet_svc._EXPR_INPAINT_NEGATIVES[2]
+    assert "laughing" in sheet_svc._EXPR_INPAINT_NEGATIVES[2]
 
     # 三套关键词互斥：威严有 narrow/抬下巴，冷酷无；沉思有 side+tilt，威严无 side tilt
     assert "chin raised" not in cold_i and "chin raised" not in think_i
@@ -63,8 +61,8 @@ def test_vlm_prompt_has_visible_feature_definitions():
     assert "sharp narrowed eyes" in p or "narrowed eyes" in p
     assert "expressionless" in p and "half-lidded" in p
     assert "eyebrows neutral" in p
-    assert "looking down and to the side" in p
-    assert "head slightly tilted" in p
+    assert "looking down and to one side" in p
+    assert "focused eyes" in p  # V4-0a:VLM 分类提示改为六标签特征定义式
     assert "relaxed brows" in p and "faraway gaze" in p
     assert "reject if frown or furrowed" in p.lower() or "reject if frown" in p
     assert "reject if wide eyes" in p.lower() or "wide eyes or blank" in p

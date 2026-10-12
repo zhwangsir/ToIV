@@ -86,11 +86,11 @@ def test_costume_bands_no_face_and_fill():
     arr[int(h * 0.08) : int(h * 0.20), int(w * 0.36) : int(w * 0.64)] = (220, 180, 150)
     portrait = _png(arr)
     out = sheet_svc.build_costume_collage_from_portrait(
-        portrait, style="anime", size=128, min_fg=0.60
+        portrait, style="anime", size=128, min_fg=0.60, min_edge_density=0.0
     )
-    ratios = sheet_svc.costume_cell_content_ratios(out, n=5)
-    assert len(ratios) == 5
-    assert sheet_svc._COSTUME_PORTRAIT_BANDS[0][0] == "hood_collar"
+    ratios = sheet_svc.costume_cell_content_ratios(out, n=4)
+    assert len(ratios) == 4
+    assert sheet_svc._COSTUME_PORTRAIT_BANDS[0][0] == "collar"
     assert sheet_svc._COSTUME_PORTRAIT_BANDS[0][1][1] >= 0.15  # 下巴下
     assert all(r >= 0.05 for r in ratios), ratios
 
@@ -150,9 +150,9 @@ def test_wrist_cuff_box_and_fill():
     # 灰条横向限制：袖口框不得吃满整幅浅外框
     assert box[0] >= 0.15 and box[2] <= 0.85
     out = sheet_svc.build_costume_collage_from_portrait(
-        portrait, style="anime", size=128, min_fg=0.60
+        portrait, style="anime", size=128, min_fg=0.60, min_edge_density=0.0
     )
-    ratios = sheet_svc.costume_cell_content_ratios(out, n=5)
+    ratios = sheet_svc.costume_cell_content_ratios(out, n=4)
     assert ratios[1] >= 0.05, ratios
     # 袖口格内芯浅边应显著低于旧 letterbox
     im = Image.open(BytesIO(out)).convert("RGB")

@@ -1,6 +1,8 @@
 """渲染策略层测试:render_mode 分发、结果契约、图像运镜链、视频链。"""
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.models import StudioCharacter, StudioShot
@@ -141,8 +143,8 @@ async def test_video_render_delegates_to_generator(monkeypatch):
         project_id="p", idx=0, render_mode="video",
         prompt="rainy alley, neon", duration_sec=6,
     )
-    cast = [StudioCharacter(project_id="p", name="凛", visual_prompt="1girl, silver hair")]
-    r = await video_mod.VideoRenderer().render(shot, cast, pool=None)
+    cast = [StudioCharacter(project_id="p", name="凛", visual_prompt="1girl, silver hair", reference_images=json.dumps(["/api/images?filename=ref.png&type=input&worker=http://fake"]))]
+    r = await video_mod.VideoRenderer().render(shot, cast, pool=None, pipeline="legacy")
     assert r.kind == "video" and r.url.endswith(".mp4")
     assert "1girl, silver hair" in seen["prompt"]
     assert "rainy alley, neon" in seen["prompt"]
@@ -151,7 +153,7 @@ async def test_video_render_delegates_to_generator(monkeypatch):
     assert seen["gen_name"] == "h3"
     # 显式 video_model 覆盖默认(kw 透传)
     seen.clear()
-    await video_mod.VideoRenderer().render(shot, cast, pool=None, video_model="ltx")
+    await video_mod.VideoRenderer().render(shot, cast, pool=None, video_model="ltx", pipeline="legacy")
     assert seen["gen_name"] == "ltx"
 
 
@@ -164,7 +166,7 @@ async def test_video_render_error_wrap(monkeypatch):
     monkeypatch.setattr(video_mod, "get_generator", lambda name, pool: FailGen())
     shot = StudioShot(project_id="p", idx=0, render_mode="video", prompt="x")
     with pytest.raises(base.RenderError):
-        await video_mod.VideoRenderer().render(shot, [], pool=None)
+        await video_mod.VideoRenderer().render(shot, [], pool=None, pipeline="legacy")
 
 
 @pytest.mark.asyncio
@@ -179,7 +181,7 @@ async def test_video_render_unsuccess_result(monkeypatch):
     monkeypatch.setattr(video_mod, "get_generator", lambda name, pool: StubGen())
     shot = StudioShot(project_id="p", idx=0, render_mode="video", prompt="x")
     with pytest.raises(base.RenderError, match="尚未接入"):
-        await video_mod.VideoRenderer().render(shot, [], pool=None)
+        await video_mod.VideoRenderer().render(shot, [], pool=None, pipeline="legacy")
 
 
 @pytest.mark.asyncio
@@ -221,7 +223,7 @@ async def test_video_render_fire_and_forget_waits(monkeypatch):
     monkeypatch.setattr(video_mod, "_save_output", fake_save)
 
     shot = StudioShot(project_id="p", idx=0, render_mode="video", prompt="x")
-    r = await video_mod.VideoRenderer().render(shot, [], pool=None)
+    r = await video_mod.VideoRenderer().render(shot, [], pool=None, pipeline="legacy")
     assert r.kind == "video"
     assert r.url == "/api/studio/files/abc123.mp4"  # Studio 落盘 URL(assemble 可合成)
     assert saved == [(b"\x00\x00mp4-fake", ".mp4")]  # 产物已下载并落盘
@@ -256,7 +258,7 @@ async def test_video_render_download_empty(monkeypatch):
 
     shot = StudioShot(project_id="p", idx=0, render_mode="video", prompt="x")
     with pytest.raises(base.RenderError, match="下载为空"):
-        await video_mod.VideoRenderer().render(shot, [], pool=None)
+        await video_mod.VideoRenderer().render(shot, [], pool=None, pipeline="legacy")
 
 
 # ── 项目级产出规格(分辨率/帧率)贯通 ──────────────────────────────────────
@@ -277,14 +279,14 @@ async def test_video_render_forwards_project_spec(monkeypatch):
     monkeypatch.setattr(video_mod, "get_generator", lambda name, pool: FakeGen())
     shot = StudioShot(project_id="p", idx=0, render_mode="video", prompt="x", duration_sec=6)
     r = await video_mod.VideoRenderer().render(
-        shot, [], pool=None, width=1280, height=720, fps=24
+        shot, [], pool=None, width=1280, height=720, fps=24, pipeline="legacy"
     )
     assert r.kind == "video"
     assert seen["width"] == 1280 and seen["height"] == 720
     assert seen["fps"] == 24 and seen["duration_sec"] == 6
 
     seen.clear()
-    await video_mod.VideoRenderer().render(shot, [], pool=None)
+    await video_mod.VideoRenderer().render(shot, [], pool=None, pipeline="legacy")
     assert seen["width"] == 768 and seen["height"] == 384 and seen["fps"] == 16
 
 

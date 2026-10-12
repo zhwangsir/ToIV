@@ -90,6 +90,9 @@ def _seed_app(session: Session, **over) -> App:
 
 @pytest.fixture
 def ctx():
+    # V4-0a:45s TTL 列表缓存跨测试污染——每用例夹具重置缓存代
+    from app.services import apps_list_cache as _alc
+    _alc.bump()
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -352,12 +355,21 @@ def test_detail_nsfw_hidden_without_header(ctx):
 # --------------------------------------------------------------------------- #
 # 更新 / 删除
 # --------------------------------------------------------------------------- #
-def test_update_builtin_403(ctx):
+def test_update_builtin_scope(ctx):
+    """V4-0a:内置不可变守卫的现行契约——admin 可调 name/sort/is_public(2026-09-23
+    Admin wave 决策:下架死卡/意图短名),改长文案等仍 403;非 admin 一律 403。"""
     c, tokens, _, engine = ctx
     with Session(engine) as s:
         _seed_app(s, id="builtin", is_builtin=True)
+    # admin 调短名 → 放行
     r = c.put("/api/apps/builtin", headers=_h(tokens, "admin"), json={"name": "x"})
-    assert r.status_code == 403
+    assert r.status_code == 200
+    # admin 改长文案 → 403(仅上架/排序/短名白名单)
+    r2 = c.put("/api/apps/builtin", headers=_h(tokens, "admin"), json={"description": "y"})
+    assert r2.status_code == 403
+    # 非 admin 改短名 → 403
+    r3 = c.put("/api/apps/builtin", headers=_h(tokens, "user"), json={"name": "z"})
+    assert r3.status_code == 403
 
 
 def test_admin_can_unhide_soft_hidden_catalog_and_builtin(ctx):

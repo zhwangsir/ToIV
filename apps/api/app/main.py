@@ -299,6 +299,24 @@ async def lifespan(app: FastAPI):
         await close_clients()
 
 
+def _jsonable_validation_errors(errors: list[dict]) -> list[dict]:
+    """V4-0a(2026-10-12):校验错误可 JSON 化。
+
+    Pydantic v2 的 errors() 在 ctx 里携带原始 ValueError/异常对象,
+    直接进 JSONResponse 会 TypeError(实测把 422 变 500,横切 ~60 个用例)。
+    ctx 值与顶层 exc 一律字符串化,其余字段原样保留。"""
+    out: list[dict] = []
+    for err in errors:
+        e = dict(err)
+        ctx = e.get("ctx")
+        if isinstance(ctx, dict):
+            e["ctx"] = {k: (str(v) if isinstance(v, BaseException) else v) for k, v in ctx.items()}
+        if isinstance(e.get("exc"), BaseException):
+            e["exc"] = str(e["exc"])
+        out.append(e)
+    return out
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
 
@@ -440,7 +458,7 @@ def create_app() -> FastAPI:
                     status_code=422,
                     content={"detail": "速度档位只能选快速或精细"},
                 )
-        return JSONResponse(status_code=422, content={"detail": exc.errors()})
+        return JSONResponse(status_code=422, content={"detail": _jsonable_validation_errors(exc.errors())})
 
     @app.exception_handler(Exception)
     async def _unhandled_exc_handler(request: Request, exc: Exception) -> JSONResponse:

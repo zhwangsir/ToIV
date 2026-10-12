@@ -43,9 +43,14 @@ _GIB = 1 << 30
 
 @pytest.fixture(autouse=True)
 def _fast_settle(monkeypatch):
-    """驱逐后的落定等待压到 0(生产 5s),同 test_resource_budget。"""
+    """驱逐后的落定等待压到 0(生产 5s),同 test_resource_budget。
+
+    V4-0a:另禁用 H3 同卡 co-worker 驱逐(默认指向生产 :8262,测试真连会拖慢且不定),
+    并把 BATCH6 显存充足快路径的语义变化适配进 fakes——资源紧张场景同时压低显存,
+    让预检链真实走到 503→hold(显存充足时 Batch6 有意跳过 RAM 门,旧场景不再触发)。"""
     monkeypatch.setattr(rb, "_SETTLE_SEC", 0.0)
     monkeypatch.setattr(h3_service, "_VRAM_SETTLE_SEC", 0.0)
+    monkeypatch.setattr(get_settings(), "h3_co_workers", "")
 
 
 # --------------------------------------------------------------------------- #
@@ -196,14 +201,14 @@ def test_h3_precheck_failure_holds_instead_of_503(client, monkeypatch):
     c, eng, _ = client
     with Session(eng) as s:
         uid = _seed_user(s, "hold-h3")
-    fake = _FakeClient(free_ram_gib=3.0)
+    fake = _FakeClient(free_vram_gib=3.0, free_ram_gib=3.0)
     monkeypatch.setattr(h3_service, "get_h3_client", lambda: fake)
 
     r = _post_h3_t2v(c, uid)
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["held"] is True
-    assert "内存不足" in body["hold_reason"]
+    assert "显存不足" in body["hold_reason"]
     assert body["prompt_id"].startswith("hold-")
     assert fake.graphs == []  # 未提交
 
@@ -211,7 +216,7 @@ def test_h3_precheck_failure_holds_instead_of_503(client, monkeypatch):
         job = s.exec(select(Job).where(Job.prompt_id == body["prompt_id"])).first()
         assert job is not None
         assert job.status == "held"
-        assert "内存不足" in job.hold_reason
+        assert "显存不足" in job.hold_reason
         ticket = s.exec(select(HeldJob).where(HeldJob.job_id == job.id)).first()
         assert ticket is not None
         assert ticket.engine == "h3"
@@ -227,7 +232,7 @@ def test_h3_precheck_failure_holds_instead_of_503(client, monkeypatch):
     assert r2.status_code == 200
     items = r2.json()
     assert any(
-        i["prompt_id"] == body["prompt_id"] and "内存不足" in i["hold_reason"]
+        i["prompt_id"] == body["prompt_id"] and "显存不足" in i["hold_reason"]
         for i in items
     )
 
@@ -258,7 +263,7 @@ def test_wan_precheck_failure_holds(client, monkeypatch):
     c, eng, _ = client
     with Session(eng) as s:
         uid = _seed_user(s, "hold-wan")
-    fake = _FakeClient("http://fake-lc", free_ram_gib=3.0)
+    fake = _FakeClient("http://fake-lc", free_vram_gib=3.0, free_ram_gib=3.0)
     monkeypatch.setattr(longcat_service, "get_longcat_client", lambda: fake)
     monkeypatch.setattr(wan_route, "resolve_worker", lambda worker: _FakeSourceWorker())
 
@@ -271,7 +276,7 @@ def test_wan_precheck_failure_holds(client, monkeypatch):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["held"] is True
-    assert "内存不足" in body["hold_reason"]
+    assert "显存不足" in body["hold_reason"]
     assert fake.graphs == []
     tickets = _tickets(eng)
     assert len(tickets) == 1
@@ -285,13 +290,13 @@ def test_hold_disabled_keeps_503(client, monkeypatch):
     c, eng, _ = client
     with Session(eng) as s:
         uid = _seed_user(s, "hold-off")
-    fake = _FakeClient(free_ram_gib=3.0)
+    fake = _FakeClient(free_vram_gib=3.0, free_ram_gib=3.0)
     monkeypatch.setattr(h3_service, "get_h3_client", lambda: fake)
     monkeypatch.setattr(get_settings(), "hold_queue_enabled", False)
 
     r = _post_h3_t2v(c, uid)
     assert r.status_code == 503, r.text
-    assert "内存不足" in r.json()["detail"]
+    assert "显存不足" in r.json()["detail"]
     assert fake.graphs == []
     assert _tickets(eng) == []
 
@@ -306,13 +311,13 @@ async def test_release_round_submits_when_resources_recover(client, monkeypatch)
     c, eng, spawned = client
     with Session(eng) as s:
         uid = _seed_user(s, "hold-rel")
-    fake = _FakeClient(free_ram_gib=3.0)
+    fake = _FakeClient(free_vram_gib=3.0, free_ram_gib=3.0)
     monkeypatch.setattr(h3_service, "get_h3_client", lambda: fake)
     r = _post_h3_t2v(c, uid)
     assert r.json()["held"] is True
     job_id = _job_by_any_pid(eng, r.json()["prompt_id"]).id
 
-    fake.free_ram = 128.0  # 资源恢复
+    fake.free_ram = 128.0; fake.free_vram = 96.0  # 资源恢复(显存同步恢复)
     monkeypatch.setattr(hold_queue, "_make_client", lambda worker: fake)
     stats = await hold_queue.run_release_round()
     assert stats == {"released": 1, "timed_out": 0, "dropped": 0}
@@ -331,7 +336,7 @@ async def test_release_round_keeps_hold_when_still_short(client, monkeypatch):
     c, eng, spawned = client
     with Session(eng) as s:
         uid = _seed_user(s, "hold-wait")
-    fake = _FakeClient(free_ram_gib=3.0)
+    fake = _FakeClient(free_vram_gib=3.0, free_ram_gib=3.0)
     monkeypatch.setattr(h3_service, "get_h3_client", lambda: fake)
     r = _post_h3_t2v(c, uid)
     pid = r.json()["prompt_id"]
@@ -351,14 +356,14 @@ async def test_fifo_release_order_with_round_cap(client, monkeypatch):
     c, eng, spawned = client
     with Session(eng) as s:
         uid = _seed_user(s, "hold-fifo")
-    fake = _FakeClient(free_ram_gib=3.0)
+    fake = _FakeClient(free_vram_gib=3.0, free_ram_gib=3.0)
     monkeypatch.setattr(h3_service, "get_h3_client", lambda: fake)
     first = _post_h3_t2v(c, uid).json()["prompt_id"]
     second = _post_h3_t2v(c, uid).json()["prompt_id"]
     first_id = _job_by_any_pid(eng, first).id
     second_id = _job_by_any_pid(eng, second).id
 
-    fake.free_ram = 128.0
+    fake.free_ram = 128.0; fake.free_vram = 96.0
     monkeypatch.setattr(hold_queue, "_make_client", lambda worker: fake)
     monkeypatch.setattr(get_settings(), "hold_release_max_per_round", 1)
     stats = await hold_queue.run_release_round()
@@ -380,15 +385,15 @@ async def test_fifo_head_blocked_no_overtake(client, monkeypatch):
     c, eng, _ = client
     with Session(eng) as s:
         uid = _seed_user(s, "hold-head")
-    fake_h3 = _FakeClient("http://fake-h3", free_ram_gib=3.0)
-    fake_lc = _FakeClient("http://fake-lc", free_ram_gib=3.0)
+    fake_h3 = _FakeClient("http://fake-h3", free_vram_gib=3.0, free_ram_gib=3.0)
+    fake_lc = _FakeClient("http://fake-lc", free_vram_gib=3.0, free_ram_gib=3.0)
     monkeypatch.setattr(h3_service, "get_h3_client", lambda: fake_h3)
     assert _post_h3_t2v(c, uid).json()["held"] is True  # 先 hold(队首)
     monkeypatch.setattr(longcat_service, "get_longcat_client", lambda: fake_lc)
     r = c.post("/api/longcat/t2v", headers=_auth(uid), json={"positive": "a cat"})
     assert r.json()["held"] is True  # 后 hold
 
-    fake_lc.free_ram = 128.0  # 仅 longcat 侧资源恢复;队首 h3 仍不足
+    fake_lc.free_ram = 128.0; fake_lc.free_vram = 96.0  # 仅 longcat 侧资源恢复;队首 h3 仍不足
     clients = {"http://fake-h3": fake_h3, "http://fake-lc": fake_lc}
     monkeypatch.setattr(hold_queue, "_make_client", lambda worker: clients[worker])
     stats = await hold_queue.run_release_round()
@@ -402,7 +407,7 @@ async def test_hold_timeout_marks_error(client, monkeypatch):
     c, eng, _ = client
     with Session(eng) as s:
         uid = _seed_user(s, "hold-timeout")
-    fake = _FakeClient(free_ram_gib=3.0)
+    fake = _FakeClient(free_vram_gib=3.0, free_ram_gib=3.0)
     monkeypatch.setattr(h3_service, "get_h3_client", lambda: fake)
     pid = _post_h3_t2v(c, uid).json()["prompt_id"]
     job_id = _job_by_any_pid(eng, pid).id
@@ -432,12 +437,12 @@ async def test_soft_deleted_hold_skipped_ticket_kept(client, monkeypatch):
     c, eng, _ = client
     with Session(eng) as s:
         uid = _seed_user(s, "hold-del")
-    fake = _FakeClient(free_ram_gib=3.0)
+    fake = _FakeClient(free_vram_gib=3.0, free_ram_gib=3.0)
     monkeypatch.setattr(h3_service, "get_h3_client", lambda: fake)
     pid = _post_h3_t2v(c, uid).json()["prompt_id"]
     job_id = _job_by_any_pid(eng, pid).id
 
-    fake.free_ram = 128.0  # 资源已够,但作业进了回收站
+    fake.free_ram = 128.0; fake.free_vram = 96.0  # 资源已够,但作业进了回收站
     monkeypatch.setattr(hold_queue, "_make_client", lambda worker: fake)
     with Session(eng) as s:
         job = s.get(Job, job_id)
@@ -466,7 +471,7 @@ async def test_orphan_ticket_dropped(client, monkeypatch):
     c, eng, _ = client
     with Session(eng) as s:
         uid = _seed_user(s, "hold-orphan")
-    fake = _FakeClient(free_ram_gib=3.0)
+    fake = _FakeClient(free_vram_gib=3.0, free_ram_gib=3.0)
     monkeypatch.setattr(h3_service, "get_h3_client", lambda: fake)
     pid = _post_h3_t2v(c, uid).json()["prompt_id"]
     job_id = _job_by_any_pid(eng, pid).id

@@ -300,6 +300,9 @@ def _stub_dedicated_instances(monkeypatch, client) -> None:  # noqa: ANN001
 
 @pytest.fixture
 def ctx(monkeypatch):
+    # V4-0a:45s TTL 列表缓存跨测试污染——每用例夹具重置缓存代
+    from app.services import apps_list_cache as _alc
+    _alc.bump()
     engine = _engine()
 
     def override():

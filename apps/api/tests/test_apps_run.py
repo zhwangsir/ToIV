@@ -116,6 +116,9 @@ class _FailPool(_FakePool):
 
 @pytest.fixture
 def ctx(monkeypatch):
+    # V4-0a:45s TTL 列表缓存跨测试污染——每用例夹具重置缓存代
+    from app.services import apps_list_cache as _alc
+    _alc.bump()
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},

@@ -146,7 +146,7 @@ def test_render_single_shot(ctx, monkeypatch):
     pid = _mk_project(client, H)
     shots = _mk_shots(client, H, pid)
 
-    async def fake_render_shot(session, shot, pool=None, request=None):
+    async def fake_render_shot(session, shot, pool=None, request=None, **kw):
         shot.status = "rendered"
         shot.video_url = "/api/studio/files/fake.mp4"
         shot.final_clip_url = shot.video_url
@@ -167,7 +167,7 @@ def test_render_single_shot_error(ctx, monkeypatch):
     pid = _mk_project(client, H)
     shots = _mk_shots(client, H, pid)
 
-    async def fake_render_shot(session, shot, pool=None, request=None):
+    async def fake_render_shot(session, shot, pool=None, request=None, **kw):
         raise RenderError("worker 全忙")
 
     monkeypatch.setattr(orch, "render_shot", fake_render_shot)
@@ -183,7 +183,7 @@ def test_render_batch_skips_terminal(ctx, monkeypatch):
     shots = _mk_shots(client, H, pid)
 
     # 先把 shot A 渲染到终态(commit 落库,批量时才能被跳过)
-    async def ok_render(session, shot, pool=None, request=None):
+    async def ok_render(session, shot, pool=None, request=None, **kw):
         shot.status = "rendered"
         session.add(shot)
         session.commit()
@@ -195,7 +195,7 @@ def test_render_batch_skips_terminal(ctx, monkeypatch):
     # 批量:仅应渲染仍处于 draft 的 shot B
     rendered: list[str] = []
 
-    async def recording_render(session, shot, pool=None, request=None):
+    async def recording_render(session, shot, pool=None, request=None, **kw):
         rendered.append(shot.id)
         shot.status = "rendered"
         return shot
@@ -215,7 +215,7 @@ def test_render_batch_failure_not_blocking(ctx, monkeypatch):
     pid = _mk_project(client, H)
     _mk_shots(client, H, pid)
 
-    async def failing_render(session, shot, pool=None, request=None):
+    async def failing_render(session, shot, pool=None, request=None, **kw):
         raise RenderError("出图失败")
 
     monkeypatch.setattr(orch, "render_shot", failing_render)
@@ -584,6 +584,18 @@ def test_render_body_h3_default_and_candidates(ctx, monkeypatch):
             return RenderResult(kind="video", url=f"/api/studio/files/c{n['i']}.mp4")
 
     monkeypatch.setattr(orch, "get_renderer", lambda shot: FakeRenderer())
+    # V4-0a:Batch6 起多候选自动裁脸选优(禁止静默回落);测试渲染器产的是假 URL,
+    # 桩掉选优(取首个候选)让用例聚焦候选登记/引擎透传(选优门由 candidate_pick 测)。
+    import app.services.studio.candidate_pick as _cp
+
+    def _fake_pick(cands, **_kw):
+        for c in cands:
+            if c.get("status") == "done" and c.get("url"):
+                c["is_picked"] = True
+                return c["id"], cands
+        raise RuntimeError("no done candidate")
+
+    monkeypatch.setattr(_cp, "pick_best_candidate", _fake_pick)
 
     r = client.post(
         f"/api/studio/shots/{sid}/render",
