@@ -4243,6 +4243,32 @@ def resolve_required_nodes(stored: list[str] | None, graph: dict) -> set[str]:
     return declared - inlined_away
 
 
+async def _dedicated_satisfies(client, required: set[str]) -> bool:
+    """专用实例是否真备齐图里引用的权重。
+
+    专用实例分支原先直接 return,而 required 只在 _pick_app_client 最后一行
+    pool.pick(required=…) 才被消费 → **模型可用性从不被检查**。实测后果:
+    `n.startswith("WanVideo")` 把 KJNodes WanVideoWrapper 图硬路由到 LongCat :8197,
+    而 :8197 只有 wan2.2_i2v_…_fp16、没有 …_fp8_scaled(:8196/:8188 两者都有);
+    随后 combo_repair 拿**被选中那台**的清单把权重静默换成 fp16,却不动与之耦合的
+    quantization=fp8_scaled 部件,报「The model is not a scaled fp8 model」——
+    把路由错伪装成权重不兼容,且生产生成走的是同一个 picker。
+
+    model_names() 自带 TTL 缓存(client.py:_MODELS_TTL),故这不是热路径新增往返。
+    探测异常/空集一律判「满足」放行:宁可维持原行为,也不要因一次探测抖动把只能跑在
+    专用实例上的应用整体打成 503。
+    """
+    if not required:
+        return True
+    try:
+        models = await client.model_names()
+    except Exception:  # noqa: BLE001 — 探测失败不该比不探测更糟
+        return True
+    if not models:
+        return True
+    return required.issubset(models)
+
+
 async def _pick_app_client(pool, nodes: set[str], required: set[str]):
     """按图上的 class_type 把应用派到专用实例,其余仍走 WorkerPool。"""
     # 含 Turbo/T8 等变体:凡 MiniMaxH3* 都走 H3 专用实例,避免 pool.pick 在通用池 503。
@@ -4307,7 +4333,17 @@ async def _pick_app_client(pool, nodes: set[str], required: set[str]):
         client = getter()
         if hasattr(client, "__await__"):
             client = await client
-        return client
+        if await _dedicated_satisfies(client, required):
+            return client
+        # 专用实例缺权重:仅当通用池真能接得住才穿透。接不住仍返回专用实例——保持原行为与
+        # 原错误信息,别把「缺权重」换成「无可用 worker」这种更难查的 503。
+        # 只对本分支加闸:WanVideo* 是 KJNodes 通用家族,:8196/:8188 同样装得下,穿透有意义;
+        # h3_like / qwen_edit_like 的节点族只存在于专用实例,pool.pick 必然失败,加闸纯属开销
+        # (且 H3 权重命名有 RH 名↔NAS 名别名史,拿 issubset 卡它有打翻 W2.0 链路的风险)。
+        try:
+            return await pool.pick(required=required, required_nodes=nodes)
+        except ComfyUIError:
+            return client
     return await pool.pick(required=required, required_nodes=nodes)
 
 

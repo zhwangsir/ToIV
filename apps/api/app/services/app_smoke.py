@@ -277,6 +277,23 @@ def _best_match(value: str, combo: list[str]) -> str:
     return exact[0] if len(exact) == 1 else ""
 
 
+# 长 token 必须排在会被其包含的短 token 之前:fp8_scaled/fp8_e4m3fn 先于 fp8,nvfp4 先于 fp4,
+# 否则 "…fp8_scaled…" 会被读成 fp8,精度比较就失去意义。
+_PRECISION_TOKENS = (
+    "fp8_scaled", "fp8_e4m3fn", "fp8_e4m3", "nvfp4", "fp4", "fp8",
+    "fp16", "bf16", "int8", "int4", "gguf",
+)
+
+
+def _precision_of(filename: str) -> str | None:
+    """从权重文件名里读出精度/量化 token;读不出返回 None(此时不做精度守卫)。"""
+    low = (filename or "").lower()
+    for t in _PRECISION_TOKENS:
+        if t in low:
+            return t
+    return None
+
+
 def combo_repair(graph: dict, objinfo: dict) -> list[str]:
     """首跑校验失败后的确定性修复:类名别名 + combo 变体改写。返回修复说明列表。"""
     fixes: list[str] = []
@@ -309,8 +326,21 @@ def combo_repair(graph: dict, objinfo: dict) -> list[str]:
             continue
         cand = _best_match(val, combo)
         if cand:
-            node["inputs"][field] = cand
-            fixes.append(f"node {nid}: {ct}.{field} {val} → {cand}")
+            po, pc = _precision_of(val), _precision_of(cand)
+            if po and pc and po != pc:
+                # 换精度不是「修复」:显存占用与出图特性都会变,且与同节点的量化部件耦合。
+                # 实测 fp8_scaled→fp16 后 quantization 仍是 fp8_scaled,报「The model is not a
+                # scaled fp8 model, please disable '_scaled' in quantization」——把「该 worker
+                # 缺此权重 / 路由错」伪装成「权重不兼容」,归因被修复动作覆盖(与 LLM 补丁
+                # 删绑定目标节点撞 422 遮蔽真因同型)。拒绝并在 fixes 里写明真因。
+                fixes.append(
+                    f"node {nid}: {ct}.{field} {val} 拒绝换成 {cand}"
+                    f"(精度 {po}→{pc} 会变显存/出图特性,且与本节点量化部件耦合);"
+                    f"真因=该 worker 缺此权重或路由错"
+                )
+            else:
+                node["inputs"][field] = cand
+                fixes.append(f"node {nid}: {ct}.{field} {val} → {cand}")
     return fixes
 
 
