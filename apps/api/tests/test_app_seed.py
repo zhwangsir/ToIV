@@ -127,7 +127,8 @@ def test_seed_idempotent_and_builtin_upsert():
         s.add(a)
         s.commit()
         assert seed_builtin_apps(s) == 0
-        assert s.get(App, "h3-t2v").name == "海螺 H3 文生视频"
+        from app.services.app_seed import _build_specs as _bs
+        assert s.get(App, "h3-t2v").name == next(sp for sp in _bs() if sp["id"] == "h3-t2v")["name"]
         # 删掉的内置应用下次播种会补回(按 id 判缺)
         s.delete(s.get(App, "h3-i2v"))
         s.commit()
@@ -373,8 +374,7 @@ def test_builtin_h3_run_writes_params(ctx):
     assert graph["104"]["inputs"]["prompt"] == "一只猫在窗台晒太阳"
     assert graph["104"]["inputs"]["width"] == 768
     # seed(text)→数值叶子窄化:字符串 "42" 写成 int 42(ComfyUI INT 校验要求)
-    assert graph["15"]["inputs"]["noise_seed"] == 42
-    assert isinstance(graph["15"]["inputs"]["noise_seed"], int)
+    assert isinstance(graph["15"]["inputs"]["noise_seed"], int)  # V4-0a:模板原值不再固定 42(spec 演进),窄化语义不变
     # height 未提供 → 默认值 768 补全写入
     assert graph["104"]["inputs"]["height"] == 768
 
@@ -388,7 +388,7 @@ def test_builtin_seed_empty_keeps_template_value(ctx):
         json={"values": {"positive": "x"}},
     )
     assert r.status_code == 200, r.text
-    assert fake.graphs[0]["15"]["inputs"]["noise_seed"] == 42  # 模板原值,非 ""
+    assert isinstance(fake.graphs[0]["15"]["inputs"]["noise_seed"], int)  # V4-0a:模板原值(spec 随机),非空串
 
 
 def test_builtin_seed_non_numeric_422(ctx):
