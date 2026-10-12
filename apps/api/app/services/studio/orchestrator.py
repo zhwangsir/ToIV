@@ -560,6 +560,28 @@ async def render_shot(
             if result is None and not (not do_wait and candidates):
                 # S5:异步多候选无同步 result 属正常(全部候选已 queued 登记)
                 raise first_err or RenderError("全部候选生成失败")
+            # V4-3 质检门禁:对唯一 done 候选跑 VLM 四问(单候选也打分;
+            # 失败/未配置 skip 不阻塞;多候选路径 qa 同样落条目,随后走裁脸选优)
+            try:
+                from app.services.studio.qa_gate import apply_qa_to_candidates
+                from app.storage import drama_output_root as _root
+
+                def _resolve_vid_any(url: str):
+                    marker = "/api/studio/files/"
+                    if marker in url:
+                        name = url.split(marker, 1)[1].split("?", 1)[0]
+                        p = _root() / "studio" / name
+                        return str(p) if p.is_file() else None
+                    return None
+
+                apply_qa_to_candidates(
+                    candidates,
+                    ref_image_path=None,
+                    scene=str(getattr(shot, "scene", "") or ""),
+                    local_url_resolver=_resolve_vid_any,
+                )
+            except Exception as _qa_e:  # noqa: BLE001 — 质检失败绝不阻塞渲染主链
+                logger.warning("qa_gate 异常(跳过): %s", _qa_e)
             # Batch6：裁脸选优（可关）；失败标 shot 失败，禁止静默回落
             if auto_pick and len(candidates) > 1:
                 from app.services.studio.candidate_pick import (
@@ -604,19 +626,6 @@ async def render_shot(
                         return str(p) if p.is_file() else None
                     return None
 
-                # V4-3 质检门禁:对唯一 done 候选跑 VLM 四问(单候选也打分;
-                # 失败/未配置 skip 不阻塞;多候选路径 qa 同样落条目,随后走裁脸选优)
-                try:
-                    from app.services.studio.qa_gate import apply_qa_to_candidates
-
-                    apply_qa_to_candidates(
-                        candidates,
-                        ref_image_path=None,
-                        scene=str(getattr(shot, "scene", "") or ""),
-                        local_url_resolver=_resolve_vid,
-                    )
-                except Exception as _qa_e:  # noqa: BLE001 — 质检失败绝不阻塞渲染主链
-                    logger.warning("qa_gate 异常(跳过): %s", _qa_e)
                 # 上一镜成片 / 场景参考：抑制候选场景回退（雨夜镜2 曾出现）
                 prev_video_path = None
                 siblings = session.exec(
