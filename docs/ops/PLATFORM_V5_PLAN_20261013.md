@@ -615,6 +615,52 @@ zenstory `evaluations/`（**MIT**）：8 维加权 100 分 + 五档锚点 + 盲�
 
 ---
 
+### W8-6 批D-3 RH 云节点 shim：按实证签名重写（`23216a69`，已提交未部署）
+
+**为什么重写**：09-15 版 `deploy/comfy-extensions/toiv_rh_shims` 只有 `RHHiddenNodes` 一个类，且把 `image_1` 声明为 required。对生产库 **8142 张 rh-acc 图**做 jsonb 聚合后实测：真实图从不传 `image_1`，传的是 `images_1`/`face_images_5`/`var_4_4`/`string_1_1`/`clip_0` 一类**随图而变**的名字（全为连线）。后果有两层：①smoke 一律报 `Required input is missing image_1`；②更糟的是它让 `object_info` 里出现 `RHHiddenNodes`，能力扫描据此把 **78/283** 个应用误判为 `ok`（0 条 public）。
+
+**新增六类**（签名=输入键出现次数与 jsonb 类型 + 「输出槽 0 被哪些下游节点的哪个字段消费」双证据定 RETURN_TYPES）：
+
+| 类名 | 实证图数 | 本地后端 |
+|---|---|---|
+| `RH_Captioner` | 195 | Qwen3-VL（served id `toiv-vlm`，:9311） |
+| `RH_Translator` | 119 | DSv4（`deepseek-v4-flash-dspark`@spark02:8000） |
+| `RunningHub Deepcleaner` | 92 | DSv4 |
+| `RH_LLMAPI_Pro_Node` | 49 | 有图走 VLM、无图走 DSv4 |
+| `RH_Prompter` | 31 | DSv4 |
+| `RH_GetAudioDuration` | 9 | 纯本地 `frames/sample_rate` |
+
+`RH_Captioner` 输出槽 0 全部流向 `CLIPTextEncode.text`/`ShowText.text`/`Text Concatenate.text_b` → 确定为单 STRING 输出，不是猜的。RH 图里的 `model` 字段是 RH 云端模型名（gpt-4o 一类），本地没有 → 一律改写成 served id，**换后端不换图**就是 shim 的核心语义。
+
+**`RHHiddenNodes` 判定为不可通用 shim**：输入名随图而变已如上；输出槽 0 在不同图里分别喂给 **INT**（`easy mathInt.a`，52 次）、STRING、IMAGE——静态 `INPUT_TYPES` 与 `RETURN_TYPES` 无法同时满足。改为全输入 optional（至少让「只有 pwd」那类图过校验）+ 运行时抛明确错误「此应用不可本地部署，请勿上架」，**不再用假签名骗过能力扫描**；可部署性仍由 `KNOWN_RISKY_NODES` 标注 + smoke 裁判。
+
+**失败语义**：`RH_Translator` 无 `skip_error` 字段 → 失败必须抛，否则 smoke 会 pass 但产出的是原文，用户拿到「翻译没生效」的图却看不到任何错误；`RH_LLMAPI_Pro_Node` 尊重图里的 `skip_error`。空 prompt 短路返回不白花 LLM 调用。采样参数只在显式给了才写进请求体——RH 图里的 `temperature=0` 直透会把本地模型压成贪心解码，而两端 0 的语义并不等价。
+
+**测试**：torch/PIL 延迟导入到 `image_to_data_url` 内部，故纯 stdlib 环境也能导入做单测——新增 **47 例**（注册表与实证类名逐字一致 / ComfyUI 契约完整 / 默认值指向实测 served id / 请求体拼装 / 响应解析含分块 content / **4xx 不重试而 5xx 重试** / 降级语义 / 音频时长 / 图像编码往返取像素校验）。
+
+**部署**：stage2 脚本装在 3 处目录（`/opt/ComfyUI`、`ComfyUI-h3-eval`、`ComfyUI-longcat`），但**只重启 `:8196`（comfyui-gpu0-alt）**。`:8195`/`:8264`/`:8197` 装了文件不重启——RH 云节点应用走通用池不需要 H3，而 H3 链路是 W2.0 六轮实弹才通的，不值得为边缘组合在无人值守时段冒险。重启前后各取一次 `object_info` 节点数，**下降即回滚**（备份 `toiv_rh_shims.bak-<stamp>`）。
+
+**配套**：分类器加 `--recheck-status`（`910dc2fa`）——分类按 webapp_id 断点续跑与状态无关，装完 shim 重跑会跳过全部 64831 行、27029 条 blocked 永不重评，shim 收益拿不到；该选项把 blocked 剔出「已完成」重分类并写入独立产物 `classified_recheck.jsonl`（不污染原文件，导入驱动用既有 `TOIV_RH_CLASSIFIED` 指过去）。实测识别出 27114 行待复检。
+
+**刻意不做**：160 个社区节点包（`INSTALL_PLAN.md`）**不在无人值守时段自动安装**——那是把第三方代码引入生产实例，供应链风险与自研 shim 不同级；计划已按可解锁应用次排序备好，等用户挑窗口。
+
+### W9-3 P1-3 配方扩充：实测**不可执行**（两条独立原因，均已证伪原方案）
+
+调研报告 C-9 P1-3 规定用 `GET /api/v1/images?withMeta=true&baseModel=…` 拉 LTXV 2.3 高热度作品元数据结构化成配方。实弹两条都不通：
+
+**① `baseModel` 过滤在 `/api/v1/images` 上完全失效。** `baseModel=Flux.1%20D`、`baseModel=Pony`、`baseModel=LTXV%202.3` 与**完全不传**四者返回同一批：首条 id 均 `12097475`，分布均 `Flux.1 D 37 / Illustrious 16 / Pony 14 / SDXL 1.0 13`，LTXV 字样 **0 条**。传 `LTXV 2.3` 拿回来的其实是 Pony/SDXL 图（meta 里还带 `ponyDiffusionV6XL_v6StartWithThisOne Version` 键）。**若照报告写配方，会把 Pony/Flux 的提示词当成 LTXV 2.3 配方上架。** 这与 RunningHub `page`/`pageSize`/`searchValue` 被静默忽略是同一病，也是 AGENTS 新增 **P-12「派生指标不能自证」** 的第三个实例。
+
+**② 换成可用的 `modelId=` 路由后，SFW 集里没有 prompt 元数据可提。** `modelId=2445735`（Lightricks LTXV 2.3，Checkpoint）返回 100 条且**全部自报 `baseModel: "LTXV 2.3"`**、首条 id `145480486` 与无过滤时不同 → 证明 `modelId` 真生效、`baseModel` 才是坏的那个。但 100 条里**带 prompt 的 = 0 条**；`modelId=2339823`（LTXV2.3 GGUF I2V/T2V/FFLF，Workflows 类）35 条同样 **0 条**。没有 prompt 就没有配方可提。
+
+**结论**：P1-3 按原方案作废。三条备选（**需拍板**）：
+- (a) 改用 LTXV LoRA 的 `trainedWords` + Checkpoint 版本元数据，拼「触发词 / 采样参数」型配方——不含图像提示词、不越红线，但信息量低于原设想；
+- (b) 从 Workflows 类条目的描述与附带工作流 JSON 提参数——须先逐条查 `allowDerivatives`，且报告 P3 已测得抽样 **70% gated**，可入库池比看起来小得多；
+- (c) 放弃 LTXV 2.3 配方，把 P1-3 的预算转给 W8——shim + 装包解锁的应用数量级（430 + 1513 应用次）远大于一个配方族的产品增益。**建议 (c)**。
+
+**另需纠正**：`/api/v1/model-versions?modelId=` 返回 404 是我探错了路径（正确形式是 `/api/v1/model-versions/{id}`），**不是能力缺失**，别记成缺口。
+
+**红线复核**：本轮全程 `nsfw=false`，未抓取、未复述、未生成任何露骨内容；未注册账号、未绕登录墙或付费墙；`by-hash` 溯源只取 id/名称/许可旗标/creator/下载数等结构化字段。
+
 ## 14. 决策点（默认值不回复则按默认走）
 
 | 时点 | 决策 | 选项 | 默认 |
@@ -697,3 +743,4 @@ zenstory `evaluations/`（**MIT**）：8 维加权 100 分 + 五档锚点 + 盲�
 
 - 2026-10-13 v1：初版。依据三份调研（商业 13 家 / 开源语料再挖 + 39 仓新克隆 / 代码级盘点）+ 2026-10-08 实弹日志重排 v3 六主线；**纠正上一批入账口径**（react-router 实为降级钉版 7.9.5，非升级 8.4.0）；新增 W0 拼接规格归一（活雷）与默认竖屏两条真缺陷；V4-4 后置项找到不违反原决策的低成本落地路径（EDL + 剪映出口）。
 - 2026-10-13 v2：用户追加两条指令并授权自主推进——**新增 W8（RunningHub 全量本地可部署化）与 W9（Civitai.red R18 参照线）**；**显式推翻 v3 §6 / v4 §4 / 本计划原 §13 继承的「RH 市场扩容」不做项**；补 §12 W8-0 通路实测（runninghub.cn 直连 200、civitai.com 不通、**civitai.red 直连 200**、core SSH 与 toiv-api/web active）；§14 增 4 条决策点（默认值已给，按默认走）；§17 改为双轨并行 + 自主执行六条自约束（含「仍会主动上报的三类事」）；章节重编号（原 12–16 → 14–18）。
+- 2026-10-13 v3：W8-6 批D-3 RH 云节点 shim 按**生产图实证签名**重写（6 类新增 / `RHHiddenNodes` 判为不可通用 shim / 47 例单测 / stage2 只重启 :8196 且节点数下降即回滚）+ 分类器 `--recheck-status`；**W9-3 证伪 P1-3 配方方案**（`baseModel` 过滤在 `/api/v1/images` 上完全失效——四个变体返回同一批首条 id 12097475；换 `modelId=` 真生效后 SFW 集带 prompt 的仍为 0 条），建议把 P1-3 预算转给 W8；明确 160 个社区节点包**不无人值守自动安装**（第三方代码供应链风险）。
