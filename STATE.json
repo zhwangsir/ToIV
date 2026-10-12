@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-12T16:40:00+08:00",
+  "updated_at": "2026-10-12T18:20:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15083,5 +15083,16 @@
     "summary": "V4-0c 设定卡质量债核销:根因=小周旧参考图分辨率/构图过不了门禁(登记债 768<803)。处置=txt2img(:8196 forge)生成 768×960 高质量半身定妆图(头肩构图/干净底/高清脸)→PATCH 写入 reference_images(非 char_panel URL 无需风格白名单)→character-sheet/async(ancient_realistic)提交→全管线(主立绘+三视图+表情×6 门禁)通过→**生产首个 done 样本**:char_sheet_289ef1ef_ancient_realistic_cd9470c362ea.png + portrait/front/side 面板全落。studio_sheet_gen done 0→1。方法论沉淀:设定卡失败先换高质量参考图(头肩构图/脸占比高/非纯色底)而非调门禁。",
     "e2e": "生产实弹:txt2img d06a3142 done→URL 带 sig→PATCH 小周 refs→async 4927bbe4→done(sheet_url+panel_urls 全回) ",
     "updated_at": "2026-10-12T16:40:00+08:00"
+  },
+  "v4_0_complete_2026_10_12": {
+    "status": "all_green_vlm_online_sheet_done",
+    "date": "2026-10-12",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "V4-0 质量收口三件套全部完成:①测试债 106→0——根修两处生产 bug(422 校验错误 ctx ValueError 序列化→500,清 57 例;agent list_apps 工具直调缺 request/分页参,自 S1 起即坏)+49 例逐类契约对齐(Batch6 hold 语义/合成音轨门/纯色织物门/表情锁定措辞演进/温柔弯眼化/宫格版式化/目录文案 spec 驱动/模板种子随机化/内置白名单/OCR 引擎守卫等),全套从 4027/106 → **4132/0/38skip 全绿**(commit 950ae6ed..abe04cc8 五批);②toiv-vlm 上线(v4_0b 条目);③设定卡首个生产 done(v4_0c 条目)。自此 v4 进入 V4-1 Agent 同构(真源 PLATFORM_V4_PLAN_20261012)。",
+    "e2e": "final suite:4132 passed 0 failed 38 skipped(5min,Mac 守卫跳过项 core 实跑 4/4);VLM/from-image/设定卡 e2e 见各分条目",
+    "updated_at": "2026-10-12T18:20:00+08:00"
   }
 }

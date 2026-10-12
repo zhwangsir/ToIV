@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-12（ToIV开发）：**v4-0 质量收口三件套完成**——api 测试债清零（106→全绿在验,422 序列化根修+agent 工具真 bug 修复）；toiv-vlm 上线（Qwen3-VL-8B@GPU3:9311,多模态 08-05 缺位恢复,from-image 实弹复活）；设定卡异步首个生产 done（参考图质量方法论）。`updated_at` 2026-10-12T16:40:00+08:00。
+> **最后更新**：2026-10-12（ToIV开发）：**V4-0 质量收口全部完成**——api 测试债 106→0 全绿（4132/0/38skip；根修 422 序列化+agent list_apps 真 bug）；toiv-vlm 上线（Qwen3-VL-8B@GPU3:9311，多模态 08-05 缺位恢复，from-image 实弹复活）；设定卡异步首个生产 done。下一波 V4-1 Agent 同构（真源 `docs/ops/PLATFORM_V4_PLAN_20261012.md`）。`updated_at` 2026-10-12T18:20:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
