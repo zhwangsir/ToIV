@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-12T18:20:00+08:00",
+  "updated_at": "2026-10-12T19:40:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15094,5 +15094,17 @@
     "summary": "V4-0 质量收口三件套全部完成:①测试债 106→0——根修两处生产 bug(422 校验错误 ctx ValueError 序列化→500,清 57 例;agent list_apps 工具直调缺 request/分页参,自 S1 起即坏)+49 例逐类契约对齐(Batch6 hold 语义/合成音轨门/纯色织物门/表情锁定措辞演进/温柔弯眼化/宫格版式化/目录文案 spec 驱动/模板种子随机化/内置白名单/OCR 引擎守卫等),全套从 4027/106 → **4132/0/38skip 全绿**(commit 950ae6ed..abe04cc8 五批);②toiv-vlm 上线(v4_0b 条目);③设定卡首个生产 done(v4_0c 条目)。自此 v4 进入 V4-1 Agent 同构(真源 PLATFORM_V4_PLAN_20261012)。",
     "e2e": "final suite:4132 passed 0 failed 38 skipped(5min,Mac 守卫跳过项 core 实跑 4/4);VLM/from-image/设定卡 e2e 见各分条目",
     "updated_at": "2026-10-12T18:20:00+08:00"
+  },
+  "v4_1_agent_isomorphism_2026_10_12": {
+    "status": "deployed_live_fired",
+    "date": "2026-10-12",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "V4-1 Agent 同构(v4 计划价值主线)完成:24 新工具回灌对话助手,与 UI 调同一批 routes 函数(人机同构=同一 API 面)。①tools_studio.py 11 工具(v2 工作区/创作域:create_studio_project/breakdown_script+status/image_parse_from_reference+status(走 toiv-vlm)/gen_character_sheet+check_sheet/render_shot(多候选)/pick_shot_candidate/shot_subtitles(srt+burn)/lipsync_shot);②tools_tools.py 13 工具(工具页域:synthesize_voice/separate_vocals/transcribe_media/remove_background/upscale_image/inpaint_region/fix_faces/qwen_edit_image/image_to_3d/render_video_edit/translate_segments/generate_voice_track/lipsync_long);③原则19 更新(译制/剪辑/音频/图片均已有通路禁止跳转)+原则20 虚拟剧组(导演/编剧/分镜师/画师/剪辑配乐/质检六角色流水线,长任务提交即推进下一环);④五处同步(schema/seam/ORDER/LEGACY/等价测试),BUILTIN 30→58。全量回归 4132/0 零新增失败;生产部署+对话实弹:create_studio_project 真调用→项目「深夜食堂」落库(af6572dd)→回复带工作区引导。",
+    "e2e": "生产对话实弹:/api/agent/chat(SSE)→thinking 11.5s→tool create_studio_project→回复含 project_id+三步引导;PG 验证项目真实落库(title/premise 全对)",
+    "leftover": "语音域 tools 待 voice-track 轮询类工具补 check 语义(现 check_jobs 通用);team.json 物理文件未落(原则20 提示词编排已等效,物理化待 A2A 需求出现);画布节点即工具(Toonflow 式)归 V4-1 后续小批",
+    "updated_at": "2026-10-12T19:40:00+08:00"
   }
 }
