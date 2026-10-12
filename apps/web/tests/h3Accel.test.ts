@@ -266,7 +266,11 @@ test("AppRunnerView:H3 应用渲染选择器并随提交下发", () => {
   const src = readFileSync(new URL("../components/apps/AppRunnerView.tsx", import.meta.url), "utf8");
   assert.ok(src.includes("H3AccelSelect"), "应渲染 H3AccelSelect");
   assert.ok(src.includes("appSupportsH3Accel(app)"), "仅 H3 家族应用显示选择器");
-  assert.ok(src.includes("appSupportsH3Accel(app) ? accel : \"off\""), "提交携带加速档");
+  // 提交侧语义(不再钉死表达式字面量):H3 家族判定 → 手动档优先、未选则由 speed_tier 映射;非 H3 家族回落 "off"
+  assert.ok(src.includes("const h3 = appSupportsH3Accel(app);"), "提交前判定是否 H3 家族");
+  assert.ok(src.includes("speedTierToH3Accel(speedTier)"), "未手动选档时由 speed_tier 映射");
+  assert.ok(src.includes("acceleration: effectiveAccel"), "提交携带加速档");
+  assert.ok(/:\s*"off";/.test(src), "非 H3 家族加速档回落 off");
 });
 
 test("EngineStudioView:h3-* 引擎卡渲染选择器并传入 submitEngineGeneration", () => {

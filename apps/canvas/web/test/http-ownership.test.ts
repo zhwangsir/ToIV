@@ -24,7 +24,14 @@ const axiosAllowed = new Set([
     "services/api/image-response.ts",
     "services/api/video-response.ts",
     "services/diagnostics/client-diagnostics.ts",
+    // ToIV FastAPI 平面(融合 M1):裸 JSON + ToIV JWT,不走画布信封,故不能并入共享 http
+    "services/toiv/client.ts",
 ]);
+
+// 两个数据平面各自唯一的 axios 实例根:
+// - services/api/request.ts → 画布 Go 后端(/studio/api,信封 {code,data,msg,reason},由 http 解包)
+// - services/toiv/client.ts → ToIV FastAPI(同源 /api,裸 JSON),见该文件 docstring「两个数据平面,互不混淆」
+const axiosInstanceRoots = new Set(["services/api/request.ts", "services/toiv/client.ts"]);
 
 test("business API modules call http instead of axios or request(apiClient)", () => {
     const offenders = walkSourceFiles(resolve(srcRoot, "services"))
@@ -38,10 +45,10 @@ test("business API modules call http instead of axios or request(apiClient)", ()
     expect(offenders).toEqual([]);
 });
 
-test("axios.create stays in the shared request client", () => {
+test("axios.create stays in the two data-plane roots", () => {
     const offenders = walkSourceFiles(srcRoot)
         .filter((file) => {
-            if (relative(srcRoot, file) === "services/api/request.ts") return false;
+            if (axiosInstanceRoots.has(relative(srcRoot, file))) return false;
             return readFileSync(file, "utf8").includes("axios.create(");
         })
         .map((file) => relative(srcRoot, file));

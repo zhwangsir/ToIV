@@ -1,4 +1,4 @@
-import { apiClient, request } from "@/services/api/request";
+import { http } from "@/services/api/request";
 
 export type NasModelEntry = {
     basename: string;
@@ -44,29 +44,27 @@ export type NasBindGroup = "h3" | "main" | "image" | "video";
 
 export function getNasModels(group?: "h3" | "main" | "all") {
     const params = group && group !== "all" ? { group } : undefined;
-    return request<{
+    return http.get<{
         inventory: NasModelInventory;
         bindings: { h3?: NasBinding; image?: NasBinding; video?: NasBinding };
         defaults: Record<string, unknown>;
-    }>(apiClient.get("/nas/models", { params }));
+    }>("/nas/models", { params });
 }
 
 export function getNasModelDefaults() {
-    return request<Record<string, unknown>>(apiClient.get("/nas/models/defaults"));
+    return http.get<Record<string, unknown>>("/nas/models/defaults");
 }
 
 export function startNasModelBind(relPath: string, group: NasBindGroup = "h3", workerLabel?: string) {
-    return request<NasBindJob>(
-        apiClient.post("/nas/models/bind", {
-            rel_path: relPath,
-            group,
-            ...(workerLabel ? { worker_label: workerLabel } : {}),
-        }),
-    );
+    return http.post<NasBindJob>("/nas/models/bind", {
+        rel_path: relPath,
+        group,
+        ...(workerLabel ? { worker_label: workerLabel } : {}),
+    });
 }
 
 export function getNasModelBindJob(jobId: string) {
-    return request<NasBindJob>(apiClient.get(`/nas/models/bind/${encodeURIComponent(jobId)}`));
+    return http.get<NasBindJob>(`/nas/models/bind/${encodeURIComponent(jobId)}`);
 }
 
 export async function pollNasModelBind(

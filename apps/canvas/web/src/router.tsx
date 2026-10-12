@@ -48,9 +48,11 @@ function WorkspaceLayout() {
     const isCanvasProjectRoute = pathname.startsWith("/canvas/");
     const fallback = isCanvasProjectRoute ? <CanvasRefreshShell /> : <FullScreenLoader label="正在打开创作空间" detail="准备当前页面" />;
     // V4-5-fix:路由切换偶发视图卡死(实测:进入 /toiv/drama 后再切 /library,URL 推进但
-    // Outlet 不重渲染,React 19.2 + react-router 8.2 的 transition 卡死)。以 pathname 为
-    // key 强制路径变化时重建 Suspense 边界,代价是导航时整树重挂(与旧多页行为一致,可接受)。
-    return <Suspense key={pathname} fallback={fallback}><UserLayout key={pathname}><Outlet /></UserLayout></Suspense>;
+    // Outlet 不重渲染)。根修是 drama-page 的 FromImageDialog 改条件挂载(f8633401);这里的
+    // pathname-key 是防御性加固——路径变化时强制重建 Suspense 边界,代价是导航时整树重挂
+    //(与旧多页行为一致,可接受)。注:当时环境是 React 19.2 + react-router 8.2,已证与 router
+    // 版本无关;当前实装为钉版 react-router 7.9.5。摘除本 key 前须补 drama↔library 往返回归。
+    return <Suspense key={pathname} fallback={fallback}><UserLayout><Outlet /></UserLayout></Suspense>;
 }
 
 function LocalAwareProjectRoute() {

@@ -41,7 +41,17 @@ describe("decodeNovelText", () => {
         expect(decodeNovelText(bytes.buffer)).toBe("第一章");
     });
 
-    test("UTF-8 严格解码失败后回退到 GB18030", () => {
+    // bun 1.2.17 的 TextDecoder 不带 gb18030(浏览器与 Node 都有);缺能力时跳过而不是改解码逻辑
+    const hasGb18030 = (() => {
+        try {
+            new TextDecoder("gb18030");
+            return true;
+        } catch {
+            return false;
+        }
+    })();
+
+    test.skipIf(!hasGb18030)("UTF-8 严格解码失败后回退到 GB18030", () => {
         const bytes = new Uint8Array([0xb5, 0xda, 0xd2, 0xbb, 0xd5, 0xc2, 0x0a, 0xd5, 0xfd, 0xce, 0xc4]);
         expect(decodeNovelText(bytes.buffer)).toBe("第一章\n正文");
     });

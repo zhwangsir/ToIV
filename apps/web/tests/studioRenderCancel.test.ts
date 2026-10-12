@@ -22,7 +22,11 @@ test("useStudioProject:renderShot 传 signal,暴露 cancelRenderShot", () => {
   const src = readSrc("hooks/useStudioProject.ts");
   assert.ok(src.includes("cancelRenderShot"), "缺 cancelRenderShot");
   assert.ok(src.includes("cancelRenderAll"), "缺 cancelRenderAll");
-  assert.ok(src.includes("renderStudioShot(sid, { signal: ac.signal })"), "单镜未传 signal");
+  // 语义断言:单镜渲染必须把 AbortSignal 透传下去(不钉死 opts 字面量,后续加 body 等参数不应破测)
+  assert.ok(
+    /renderStudioShot\(\s*sid,\s*\{[^}]*signal:\s*ac\.signal/.test(src),
+    "单镜未传 signal",
+  );
   assert.ok(src.includes("renderStudioAll(pid, { signal: ac.signal })"), "批量未传 signal");
   assert.ok(src.includes("isParseAbortError"), "中止未按 AbortError 静默");
 });

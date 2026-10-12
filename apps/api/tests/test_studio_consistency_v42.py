@@ -194,9 +194,7 @@ def test_shot_epoch_group_logging_smoke(ctx, monkeypatch):
         import asyncio
 
         try:
-            asyncio.get_event_loop().run_until_complete(
-                orchestrator.render_shot(s, shot, pool=None)
-            )
+            asyncio.run(orchestrator.render_shot(s, shot, pool=None))
         except Exception:  # noqa: BLE001 — 渲染门失败即到此为止(日志已出)
             pass
     assert any("ref_epoch=3" in m for m in seen), seen[:5]

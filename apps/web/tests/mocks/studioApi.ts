@@ -4,7 +4,12 @@
  * - calls:调用计数,用于断言「失败时不静默 refresh」之类行为;
  * - 类型从真实 lib/api 引入(仅类型,运行时擦除),保证与生产签名一致。
  */
-import type { StudioProjectDetail, StudioShot, StudioShotInput } from "../../lib/api";
+import type {
+  StudioProjectDetail,
+  StudioShot,
+  StudioShotInput,
+  StudioStepRerunResult,
+} from "../../lib/api";
 
 export const calls = {
   getStudioProject: 0,
@@ -13,6 +18,8 @@ export const calls = {
   renderStudioAll: 0,
   voiceStudioShot: 0,
   lipsyncStudioShot: 0,
+  pickStudioCandidate: 0,
+  rerunStudioStep: 0,
   assembleStudio: 0,
 };
 
@@ -59,6 +66,22 @@ export function makeDetail(pid: string): StudioProjectDetail {
   };
 }
 
+/** rerunStudioStep 替身返回体(与真实 StudioStepRerunResult 同形)。 */
+export function makeStepRerunResult(step: string): StudioStepRerunResult {
+  return {
+    step,
+    attempted: 0,
+    ok: 0,
+    failed: 0,
+    errors: [],
+    pipeline: {
+      total_shots: 0,
+      by_status: {},
+      next_step: { step: "assemble", label: "合成", action: "assemble", todo: 0 },
+    },
+  };
+}
+
 const defaultImpl = {
   getStudioProject: async (pid: string): Promise<StudioProjectDetail> => makeDetail(pid),
   saveStudioShots: async (
@@ -72,6 +95,9 @@ const defaultImpl = {
   }),
   voiceStudioShot: async (sid: string): Promise<StudioShot> => makeShot(sid),
   lipsyncStudioShot: async (sid: string): Promise<StudioShot> => makeShot(sid),
+  pickStudioCandidate: async (sid: string, _cid: string): Promise<StudioShot> => makeShot(sid),
+  rerunStudioStep: async (_pid: string, step: string): Promise<StudioStepRerunResult> =>
+    makeStepRerunResult(step),
   assembleStudio: async (pid: string): Promise<StudioProjectDetail> => makeDetail(pid),
 };
 
@@ -115,6 +141,19 @@ export const voiceStudioShot = (sid: string): Promise<StudioShot> => {
 export const lipsyncStudioShot = (sid: string): Promise<StudioShot> => {
   calls.lipsyncStudioShot++;
   return impl.lipsyncStudioShot(sid);
+};
+/** 契约:POST /api/studio/shots/{sid}/candidates/{cid}/pick(选用某候选为当前分镜视频)。 */
+export const pickStudioCandidate = (sid: string, cid: string): Promise<StudioShot> => {
+  calls.pickStudioCandidate++;
+  return impl.pickStudioCandidate(sid, cid);
+};
+/** 契约:POST /api/studio/projects/{pid}/steps/{step}/rerun(整组重跑某一步)。 */
+export const rerunStudioStep = (
+  pid: string,
+  step: "video" | "voice" | "lipsync" | "storyboard",
+): Promise<StudioStepRerunResult> => {
+  calls.rerunStudioStep++;
+  return impl.rerunStudioStep(pid, step);
 };
 export const assembleStudio = (pid: string): Promise<StudioProjectDetail> => {
   calls.assembleStudio++;

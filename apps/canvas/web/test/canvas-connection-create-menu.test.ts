@@ -8,10 +8,16 @@ test("connection menu reuses the compact create menu with the supported node set
     expect(component).toContain('<CanvasCreateMenu commands={commands} layout="list"');
     expect(component).toContain('title="引用该节点生成"');
     const commands = component.match(/command\("[^"]+"/g) || [];
-    expect(commands).toHaveLength(7);
+    const ids = commands.map((c) => c.slice('command("'.length, -1));
     for (const id of ["text", "image", "video", "audio", "smart-edit", "director", "script"]) {
-        expect(commands).toContain(`command("${id}"`);
+        expect(ids).toContain(id);
     }
+    // 新增节点类型必须显式登记进 KNOWN,否则视为无意识漂移(不硬编码总数,总数增长本身不是缺陷)
+    const KNOWN = [
+        "text", "image", "video", "audio", "smart-edit", "director", "script",
+        "tpl-t2i", "tpl-inpaint", "tpl-lipsync", "tpl-dub",
+    ];
+    expect(ids.filter((id) => !KNOWN.includes(id))).toEqual([]);
 });
 
 test("add-node submenu exposes the LibTV-style compact list layout", () => {

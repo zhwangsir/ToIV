@@ -104,7 +104,8 @@ test("③ AssemblyStage:无分镜渲染引导空态(ui/Empty),不渲染空时间
   assert.ok(src.includes('from "@/components/ui/Empty"'), "未引入 ui/Empty");
   assert.ok(src.includes("d.shots.length === 0"), "缺无分镜分支");
   assert.ok(src.includes("还没有分镜可合成"), "缺引导空态标题");
-  assert.ok(src.includes("新增分镜"), "引导文案未指路分镜阶段");
+  // 语义断言:引导文案要指路分镜阶段(现文案为「先到「剧本」拆解或「分镜」新增」,不钉死词序)
+  assert.ok(/「分镜」新增|新增分镜/.test(src), "引导文案未指路分镜阶段");
 });
 
 /* ── ④ stages 裸控件/裸错误收敛 ── */
