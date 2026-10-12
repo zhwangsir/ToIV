@@ -111,12 +111,10 @@ def test_2318_contemplative_gentle_qwen_edit_contract():
     assert "拒绝回落 inpaint" in src or "禁止静默回落" in src or "no silent inpaint" in src
     # 指令含 23:18 关键词
     assert "eyes looking down" in sheet_svc._EXPR_EDIT_INSTRUCTIONS[2].lower()
-    assert "eyelids half closed" in sheet_svc._EXPR_EDIT_INSTRUCTIONS[2].lower() or (
-        "half closed" in sheet_svc._EXPR_EDIT_INSTRUCTIONS[2].lower()
-    )
-    assert "calm closed mouth" in sheet_svc._EXPR_EDIT_INSTRUCTIONS[2].lower()
+    # V4-0a 对齐锁定措辞:沉思=视线下垂+眉头微蹙+嘴唇闭合(半闭眼皮语义已移除)
+    assert "lips closed" in sheet_svc._EXPR_EDIT_INSTRUCTIONS[2].lower()
     g = sheet_svc._EXPR_EDIT_INSTRUCTIONS[3].lower()
-    assert "gentle closed-eye smile" in g or "closed-eye smile" in g
+    assert "closed-mouth gentle smile" in g or "gentle smile" in g
     assert "mouth corners up" in g
 
 

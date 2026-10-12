@@ -216,22 +216,22 @@ def test_squareize_defaults_to_expr_scale():
 
 
 def test_gentle_determined_prompt_strings():
-    assert "gentle closed-eye smile" in sheet_svc._EXPR_PROMPTS[3]
-    assert ("soft smile" in sheet_svc._EXPR_PROMPTS[3] or "soft closed-eye smile" in sheet_svc._EXPR_PROMPTS[3])
+    assert "eyes softly curved" in sheet_svc._EXPR_PROMPTS[3]  # V4-0a:闭眼→弯眼微笑(措辞软化)
+    assert "gentle smile" in sheet_svc._EXPR_PROMPTS[3]
     assert "relaxed eyebrows" in sheet_svc._EXPR_PROMPTS[3] or "relaxed" in sheet_svc._EXPR_PROMPTS[3]
     assert "determined" in sheet_svc._EXPR_PROMPTS[5].lower()
     assert "firm closed mouth" in sheet_svc._EXPR_PROMPTS[5]
     assert "focused eyes" in sheet_svc._EXPR_PROMPTS[5]
     assert "eyebrows slightly lowered" in sheet_svc._EXPR_PROMPTS[5]
 
-    assert "gentle closed-eye smile" in sheet_svc._EXPR_INPAINT_PROMPTS[3]
+    assert "eyes softly curved" in sheet_svc._EXPR_INPAINT_PROMPTS[3] or "gentle" in sheet_svc._EXPR_INPAINT_PROMPTS[3].lower()
     assert "frown" in sheet_svc._EXPR_INPAINT_PROMPTS[3] or "pout" in sheet_svc._EXPR_INPAINT_PROMPTS[3]
     assert "firm closed mouth" in sheet_svc._EXPR_INPAINT_PROMPTS[5]
     assert "focused eyes" in sheet_svc._EXPR_INPAINT_PROMPTS[5]
     assert "surprised" in sheet_svc._EXPR_INPAINT_PROMPTS[5] or "open mouth" in sheet_svc._EXPR_INPAINT_PROMPTS[5]
 
     g = sheet_svc._EXPR_EDIT_INSTRUCTIONS[3]
-    assert "闭眼微笑" in g or "gentle closed-eye smile" in g
+    assert "eyes softly curved" in g or "弯眼" in g or "gentle smile" in g
     assert "pout" in g.lower() or "嘟嘴" in g
     d = sheet_svc._EXPR_EDIT_INSTRUCTIONS[5]
     assert "determined" in d.lower() or "firm closed mouth" in d

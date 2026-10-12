@@ -95,7 +95,7 @@ def test_compose_grid_asserts_face_height_gate():
 def test_vlm_prompt_asks_smiling_second_question():
     p = sheet_svc._EXPR_VLM_PROMPT
     assert "smiling" in p.lower()
-    assert "soft closed-eye smile" in p.lower() or "closed-eye smile" in p.lower()
+    assert "eyes softly curved" in p.lower() or "softly curved" in p.lower()
 
 
 def test_parse_vlm_smiling_yes_no():
@@ -154,7 +154,7 @@ def test_gentle_inpaint_prompt_soft_closed_eye_smile():
         + " "
         + sheet_svc._EXPR_INPAINT_PROMPTS[3]
     ).lower()
-    assert "closed-eye smile" in g or "gentle closed-eye" in g
+    assert "eyes softly curved" in g or "softly curved" in g
     src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
     assert "expr_3" in src
     assert "assert_expr_cell_face_height_frac" in src

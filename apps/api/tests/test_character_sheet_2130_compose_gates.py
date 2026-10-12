@@ -110,8 +110,9 @@ def test_eyes_only_mask_excludes_mouth():
 def test_gentle_prompt_soft_closed_eye_smile():
     gentle_e = sheet_svc._EXPR_EDIT_INSTRUCTIONS[3]
     gentle_i = sheet_svc._EXPR_INPAINT_PROMPTS[3]
-    assert "closed-eye" in gentle_e.lower() or "闭眼" in gentle_e
-    assert "soft closed-eye smile" in gentle_i.lower() or "eyes closed" in gentle_i.lower()
+    # V4-0a:温柔=闭嘴浅笑+柔和眼神(睁眼或弯月眼均可),闭眼微笑语义已软化
+    assert "closed-mouth gentle smile" in gentle_e or "闭嘴浅笑" in gentle_e
+    assert "gentle" in gentle_i.lower()
     assert "open eyes" in sheet_svc._EXPR_INPAINT_NEGATIVES[3]
 
 

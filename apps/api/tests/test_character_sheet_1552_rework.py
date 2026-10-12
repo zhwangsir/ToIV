@@ -166,8 +166,8 @@ def test_source_has_1552_rules():
     src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
     assert "match_side_head_coat_hair_to_front" in src
     assert ("hist-match" in src and "coat" in src) or "hist-match accepted" in src
-    assert "pick-best" in src
-    assert "for g_attempt in range(4)" in src
+    # V4-0a:pick-best 竞争链已被 10/1 固定版式(分格出图+拼版)替代
+    assert "Pillow 固定版式拼版" in src
     assert "_COSTUME_PORTRAIT_N = 4" in src
     assert "costume_cell_edge_density" in src
     assert '("collar"' in src or '("collar",' in src

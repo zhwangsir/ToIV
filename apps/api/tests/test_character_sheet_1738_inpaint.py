@@ -142,7 +142,7 @@ def test_expr_prompts_match_parent_semantics():
     resolute = sheet_svc._EXPR_EDIT_INSTRUCTIONS[5]
     assert ("抿嘴" in resolute or "抿紧" in resolute) and ("坚定" in resolute)
     think = sheet_svc._EXPR_EDIT_INSTRUCTIONS[2]
-    assert ("偏下" in think or "下垂" in think or "斜下方" in think) and ("闭嘴" in think or "微闭" in think)
+    assert ("下垂" in think or "低垂" in think) and ("嘴唇闭合" in think or "lips closed" in think)  # V4-0a:锁定措辞
 
 
 def test_collar_box_chin_to_collarbone():
