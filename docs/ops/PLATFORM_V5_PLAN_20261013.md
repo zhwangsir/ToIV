@@ -644,6 +644,27 @@ zenstory `evaluations/`（**MIT**）：8 维加权 100 分 + 五档锚点 + 盲�
 
 **刻意不做**：160 个社区节点包（`INSTALL_PLAN.md`）**不在无人值守时段自动安装**——那是把第三方代码引入生产实例，供应链风险与自研 shim 不同级；计划已按可解锁应用次排序备好，等用户挑窗口。
 
+### W8-7 🔴 新雷（landmine 级，生产在受影响）：`WanVideo*` 前缀把应用硬路由到 :8197，且**绕过模型可用性检查**
+
+**症状**：先导烟测 25 条里 3 条（12%）失败于同一形态——`cls=product`，detail 是一串 `[fixes: node 24: WanVideoModelLoader.model wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors → …fp16…]` 后接 `The model is not a scaled fp8 model, please disable '_scaled' in quantization`。
+
+**逐层查证**（每一步都实测，没有推测）：
+
+1. 该模型**在舰队上是存在的**：`:8196` 与 `:8188` 的 `/models/diffusion_models` 都精确含 `wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors`（各 197 条）。**不是缺权重。**
+2. `:8197`（LongCat）**只有 fp16 变体、没有 fp8_scaled**（188 条里 `fp8_scaled=False / fp16=True`）——与 repair 做出的替换完全吻合，说明**这一跑被路由到了 :8197**。
+3. `_extract_required`（`app/agent/tools.py:188`）**没有字段盲区**：它对 `WanVideoModelLoader` 显式取 `.model` 泛型字段（193-197 行）。所以 `required` 里**确实含**那个 fp8_scaled 文件名。（我先猜是字段盲区，查证后推翻。）
+4. `app_smoke.py:431` 是 `required = _extract_required(graph)`——图导出，**不存在存量快照覆盖**（与批E 的 nodes 病灶不同形，这条排除）。（第二个猜测也推翻。）
+5. **真因在 `routes/apps.py:4294` 的 `_pick_app_client`**：`n.startswith("WanVideo")` → `longcat_like=True` → 直接 `return get_longcat_client()`。而 `required` 只在函数**最后一行** `return await pool.pick(required=required, required_nodes=nodes)` 才被消费——**专用实例分支在模型检查之前就返回了**。
+6. 该应用的 `required_nodes` 实测全是 KJNodes WanVideoWrapper 家族（`WanVideoModelLoader`/`WanVideoSampler`/`WanVideoDecode`/`WanVideoLoraSelect`/`WanVideoTextEncode`…18 个），必然命中 `WanVideo` 前缀。
+
+**为什么错误信息会骗人**：路由落到 :8197 后，`combo_repair(graph, objinfo_all)`（`app_smoke.py:489`）拿**被选中那台**的 object_info 做「就近变体」替换，把 fp8_scaled 权重换成 fp16——但图里与它**耦合的 `quantization` 部件仍是 `fp8_scaled`**，于是报「模型不是 scaled fp8，请在 quantization 里关掉 `_scaled`」。repair 只改耦合对的一半，把「路由错」伪装成「权重不兼容」。（与批E 修的 LLM 补丁 422 遮蔽同型：**修复动作覆盖了原始归因**。）
+
+**影响面**：`_pick_app_client` 同时是**生产生成路径**的 picker（`routes/apps.py:4393`），不只是烟测。WanVideoWrapper 是 RH 图里 Wan2.2 视频最主流的通路，故凡是「模型只在 :8196/:8188 而不在 :8197」的 WanVideo* 应用都会被误路由 + 静默换权重 + 报误导性错误。
+
+**建议修法（窄且与 E-1 同纪律，只是把纪律用到模型轴）**：`longcat_like` 分支在 `return` 前先问一句专用实例能否满足 `required`；不能就**穿透**到 `pool.pick(required=required, required_nodes=nodes)`。同理需复查 `h3_like`/`qwen_edit_like`/`animate2` 三个分支——它们同样在模型检查前返回。
+
+**为什么本轮不直接改**：这是所有 WanVideo* 应用的生产路由热路径，而 stage1 延后流水线会在导入结束后**自动部署工作树里的 api**——未经测试的热路径改动会被无人值守推上生产。故本轮只记录 + 停掉流水线做查证，改法留待带测试的独立提交。
+
 ### W9-3 P1-3 配方扩充：实测**不可执行**（两条独立原因，均已证伪原方案）
 
 调研报告 C-9 P1-3 规定用 `GET /api/v1/images?withMeta=true&baseModel=…` 拉 LTXV 2.3 高热度作品元数据结构化成配方。实弹两条都不通：
@@ -744,3 +765,4 @@ zenstory `evaluations/`（**MIT**）：8 维加权 100 分 + 五档锚点 + 盲�
 - 2026-10-13 v1：初版。依据三份调研（商业 13 家 / 开源语料再挖 + 39 仓新克隆 / 代码级盘点）+ 2026-10-08 实弹日志重排 v3 六主线；**纠正上一批入账口径**（react-router 实为降级钉版 7.9.5，非升级 8.4.0）；新增 W0 拼接规格归一（活雷）与默认竖屏两条真缺陷；V4-4 后置项找到不违反原决策的低成本落地路径（EDL + 剪映出口）。
 - 2026-10-13 v2：用户追加两条指令并授权自主推进——**新增 W8（RunningHub 全量本地可部署化）与 W9（Civitai.red R18 参照线）**；**显式推翻 v3 §6 / v4 §4 / 本计划原 §13 继承的「RH 市场扩容」不做项**；补 §12 W8-0 通路实测（runninghub.cn 直连 200、civitai.com 不通、**civitai.red 直连 200**、core SSH 与 toiv-api/web active）；§14 增 4 条决策点（默认值已给，按默认走）；§17 改为双轨并行 + 自主执行六条自约束（含「仍会主动上报的三类事」）；章节重编号（原 12–16 → 14–18）。
 - 2026-10-13 v3：W8-6 批D-3 RH 云节点 shim 按**生产图实证签名**重写（6 类新增 / `RHHiddenNodes` 判为不可通用 shim / 47 例单测 / stage2 只重启 :8196 且节点数下降即回滚）+ 分类器 `--recheck-status`；**W9-3 证伪 P1-3 配方方案**（`baseModel` 过滤在 `/api/v1/images` 上完全失效——四个变体返回同一批首条 id 12097475；换 `modelId=` 真生效后 SFW 集带 prompt 的仍为 0 条），建议把 P1-3 预算转给 W8；明确 160 个社区节点包**不无人值守自动安装**（第三方代码供应链风险）。
+- 2026-10-13 v4：**W8-7 记录一枚 landmine 级新雷**——`_pick_app_client` 的 `WanVideo*` 前缀把应用硬路由到 :8197 并在 `pool.pick(required=…)` 之前返回，导致模型可用性从不被检查；随后 `combo_repair` 用被选中那台的清单把 fp8_scaled 权重静默换成 fp16、却不动与之耦合的 `quantization` 部件，把「路由错」伪装成「权重不兼容」。查证过程连带推翻两个先验猜测（`_extract_required` 字段盲区、存量快照覆盖），六步证据见 W8-7。**生产路径同受影响**；本轮只记录不改（stage1 会无人值守自动部署工作树）。

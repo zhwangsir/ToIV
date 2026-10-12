@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T07:15:00+08:00",
+  "updated_at": "2026-10-13T07:25:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15189,7 +15189,9 @@
       "_already_seeded_webapp_ids 曾恒返回 0(实际库内 5636 条)——它请求 ?limit=5000,而 S1 分页契约对 limit>1000 返回 422,函数把 422 静默吞成空集 → 去重形同失效,重跑会重复灌入约 6k 应用。改为分页 + 任何一页失败即 raise;修正后如实报 5636"
     ],
     "leftover": "①上架闸:先导批 pass 率 ≥60% 才放量,当前先导 10/25 进行中,不得跳过 smoke 直接 bulk-public(≤200/次);②装包计划 160 个包待执行,需 ComfyUI 实例重启窗口(烟测跑动期间禁止重启,:8188 曾因此瞬时 503),重活/CUDA 包(nunchaku 需 sm_120 内核,见 P-7)风险高于纯 python 工具包;③deploy/comfy-extensions/toiv_rh_shims 是 2026-09-15 的 38 行旧件,只实现 RHHiddenNodes 且签名与真实 RH 图不符 → 451 应用受影响;RH_Translator 实证签名 seed/prompt/advanced_options→STRING,三种接线(字面量/表单绑定/运行时连线),故 ComfyUI 侧 shim 优于 api 侧预解析(后者只能处理字面量,且 _build_graph 是同步热路径不宜塞网络调用),文本类 Translator+Prompter+LLMAPI+Deepcleaner 可映射本地 DSv4、Captioner 映射 Qwen3-VL:9311、MinimaxHailuoH3* 映射本地 H3:8264;④批D 模型下载:39 条 unresolved_transport 待重试,仅 6 条 civitai 命中;⑤stage2 脚本已挂起(tmp/rh_classify_20261013/stage2_shim_rollout.sh):等 stage1 退出→装 shim 到 3 处目录→**只重启 :8196**(comfyui-gpu0-alt),:8195/:8264/:8197 装文件不重启(RH 云节点应用走通用池不需要 H3,H3 链路是 W2.0 六轮实弹才通的,不值得为边缘组合在无人值守时段冒险);重启前后各取 object_info 节点数,下降即回滚(备份 toiv_rh_shims.bak-<stamp>)→重扫能力→复检 blocked→导入新解锁应用(is_public=False,不上架);⑥160 个社区节点包**刻意不无人值守自动安装**——第三方代码引入生产实例的供应链风险与自研 shim 不同级,INSTALL_PLAN.md 已按可解锁应用次排序备好等窗口",
-    "updated_at": "2026-10-13T07:15:00+08:00"
+    "updated_at": "2026-10-13T07:25:00+08:00",
+    "landmine_wanvideo_routing": "🔴 _pick_app_client(routes/apps.py:4294) 的 n.startswith('WanVideo') → longcat_like 分支在 `return await pool.pick(required=required, …)` 之前就 return 专用实例 :8197,故 required(模型集)从不被消费。实测:wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors 在 :8196/:8188 都有、:8197 只有 fp16 变体;路由落 :8197 后 combo_repair(app_smoke.py:489,用被选中那台的 object_info)把权重换成 fp16,却不动与之耦合的 quantization=fp8_scaled 部件 → 报『The model is not a scaled fp8 model, please disable _scaled in quantization』,把路由错伪装成权重不兼容(与批E 修的 LLM 补丁 422 遮蔽同型:修复动作覆盖原始归因)。先导烟测 25 条里 3 条(12%)是这一形态。**生产生成路径同一个 picker(routes/apps.py:4393),不只烟测**。查证中推翻两个先验猜测:_extract_required(agent/tools.py:188) 对 WanVideoModelLoader.model 有显式处理、无字段盲区;app_smoke.py:431 是 required=_extract_required(graph),不存在存量快照覆盖。建议修法:专用实例分支 return 前先验能否满足 required,不能则穿透 pool.pick;并复查 h3_like/qwen_edit_like/animate2 三个同形分支。本轮不改:stage1 延后流水线会自动部署工作树里的 api,未测的热路径改动不得无人值守上生产。",
+    "smoke_pilot_result": "先导批 25 条(精确圈定新导入 id,--ids-file):**pass 10 / 40%,未达 ≥60% 上架闸 → 不放量 bulk-public**。fail 14 + timeout 1;归因 product 6 / validation 5 / missing_model 2 / transport 1 / timeout 1。15 条非 pass 里 11 条来自两个簇:①陈旧包版本(RHHiddenNodes image_1 签名 2、PathchSageAttentionKJ 返回类型不匹配 2、AILab_QwenVL_Advanced 缺 use_torch_compile 1、SeedVR2 缺 input_noise_scale 1 = 6 条)——RHHiddenNodes 已由批D-3 shim 修;②路由/换权重(wan2.2 fp8_scaled 3 + video/h264-mp4.json 2 = 5 条)——见 landmine_wanvideo_routing。两簇修掉后理论上限 21/25=84%,故闸有望达标,但必须先修再复测,不要按 40% 直接判死。"
   },
   "w9_civitai_provenance_2026_10_13": {
     "status": "civitai_provenance_backfilled_recipes_rescoped",

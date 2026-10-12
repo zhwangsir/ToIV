@@ -120,6 +120,7 @@
 - **E-6 超分竖屏源必须显式 --target-w/--target-h**,生产一律 `--keep-frames`。
 - **E-7 回写协程生命周期不得超过 tracker 作业生命周期**：「等待作业完成再落库」按多轮等待+启动 reconcile 双保险写。
 - **E-8 读用户参考图一律 input→output 双形态**：统一走 `get_image_bytes_any`(硬编码 input 必 404→502)。
+- **E-9 🔴 专用实例分支必须在模型检查之前先验模型（10-13 实证雷）**：`_pick_app_client`(`routes/apps.py:4294`) 按 class_type 前缀把应用派到专用实例,`n.startswith('WanVideo')` → LongCat :8197 并**直接 return**,而 `required`(模型集)只在函数最后一行 `pool.pick(required=…)` 才被消费 → **模型可用性从不被检查**。实测 `wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors` 在 :8196/:8188 都有、:8197 只有 fp16;路由落 :8197 后 `combo_repair` 用被选中那台的 object_info 把权重静默换成 fp16,却不动与之**耦合**的 `quantization=fp8_scaled` 部件,报「The model is not a scaled fp8 model」——**把路由错伪装成权重不兼容**。生产生成同一个 picker,不只烟测。处置:专用实例分支 return 前先验能否满足 `required`,不能则穿透 `pool.pick`;`h3_like`/`qwen_edit_like`/`animate2` 三个同形分支一并复查。另:`combo_repair` 换模型文件时必须同时处理与之耦合的量化/精度部件,只改一半会造出内部矛盾的图并遮蔽真因(与批E 的 LLM 补丁 422 遮蔽同型)。
 
 ### P. 平台机制
 - **P-1 产物 URL 已签名+归属校验**：测试构造 URL 必须带 sig 或先建档;媒体走 `?token=`。
