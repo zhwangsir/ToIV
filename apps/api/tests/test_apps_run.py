@@ -583,7 +583,7 @@ def test_build_graph_required_backfill():
     assert lt["end_frame"] == 240  # 已有值不覆盖
     assert lt["duration_frames"] == 120 and lt["timeline_data"] == ""
     pf = built["44"]["inputs"]
-    assert pf["mode"] == "2_image" and pf["batch_size"] == 1
+    assert pf["batch_size"] == 1  # V4-0a:mode 兜底已撤(由节点默认自决)
     assert built["179"]["inputs"]["attention_mode"] == "auto"
     assert built["34"]["inputs"]["batch_size"] == 1
     fx = built["99"]["inputs"]

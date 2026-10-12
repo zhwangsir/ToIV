@@ -113,7 +113,6 @@ def test_gentle_prompt_soft_closed_eye_smile():
     # V4-0a:温柔=闭嘴浅笑+柔和眼神(睁眼或弯月眼均可),闭眼微笑语义已软化
     assert "closed-mouth gentle smile" in gentle_e or "闭嘴浅笑" in gentle_e
     assert "gentle" in gentle_i.lower()
-    assert "open eyes" in sheet_svc._EXPR_INPAINT_NEGATIVES[3]
 
 
 def test_locked_normalize_contract_in_source():
