@@ -1,0 +1,675 @@
+# ToIV v5 方案计划 · 从「能力齐了」到「真能出片、真能看见」（2026-10-13）
+
+> **依据**：本轮三路调研（真源见 §1）+ `main @ f8633401` 代码级盘点 + `docs/ops/DRAMA_UI_PLAN.md` 2026-10-08 实弹日志。
+> **前提**：v4 六波次全部完成（STATE `v4_6_arch_close_2026_10_13`）；F1–F7 融合已收口；经典 web 收缩为 7 视图 R18 壳。
+> **定位**：本计划替代 `PLATFORM_V4_PLAN_20261012.md` 的排期部分。v3 六条能力主线（C1–C6）**目标不变**，本轮按「调研差距 + 代码实测欠账」重排优先级。
+> **状态**：**2026-10-13 用户已授权自主推进**（「后续无需询问我你自主往下进行吧」），并追加 W8/W9 两条指令。执行时守 §17 的六条自约束；三类事仍主动上报（新活雷 / 需推翻既有拍板 / 不可逆或高影响操作）。
+
+---
+
+## 1. 本轮调研真源（三份报告 + 一个新语料池）
+
+| 产物 | 路径 | 内容 |
+|---|---|---|
+| 商业产品拆解 | `tmp/research-commercial-20261013/REPORT.md`（515 行） | 13 家 × 8 问 + 横向矩阵 + 差距 Top15，逐条挂 URL 与证据强度（官/媒/测/推） |
+| 开源参照再挖掘 | `tmp/research-oss-20261013/REPORT.md`（1347 行） | 语料再筛分级 + 8 份源码级深读 + 缺口判断 + 借鉴 Top12（含许可红线） |
+| 代码级现状盘点 | `tmp/research-toiv-current-20261013/REPORT.md`（231 行） | 七节，逐条 `文件:行号`；含本机实跑测试/类型检查结果 |
+| 新增语料池 | `../AI-OSS-Reference/repos-v5/`（39 仓 / 3.4GB） | H3 生态 19 + 短剧创作台/skill 13 + 剪映时间线 5 + 质检一致性 2 |
+
+**本轮最重要的三个调研发现**：
+
+1. **语料库有致命盲区**：既有 4640 条登记里几乎没有 MiniMax H3 生态（仅 4 条、1 条克隆），而 H3 是现网出片主力（`:8264` 生产口）。2026-08 以来 GitHub 围绕 H3 长出 ≥25 仓生态，其中 ≥8 个 Apache/MIT 可并码。已补 19 仓。
+2. **三个互不相关的团队（ArcReel / zenstory / TFboy1）在同一个半年独立收敛到同一套设计**：「自动推断只是候选，用户确认才算绑定」+「未绑定 ≠ 不支持 ≠ 从未推断（三态必须分开）」+「绑节点语义 class_type 而不是绑节点 ID」。三方独立收敛 = 这类问题的正解，我们的 `node_mapping` 契约该照此改。
+3. **ToIV 的质检能力在 13 家商业产品里属领先**（只有 Flova 做了失败原因透出+重试），但**缺了「零成本前置闸」**：OpenMontage 用纯 Python 在烧 GPU 之前跑结构质检；我们现在全部质检发生在花钱生成之后。
+
+---
+
+## 2. 调研启示兑现对照（承接 v3 §1 的口径，已兑现的不重做）
+
+### 2.1 v3/v4 已兑现（本轮不重做，只补欠账）
+
+| 启示（来源） | 兑现情况 |
+|---|---|
+| 剧本→分镜自动化（小云雀/LibTV/NovelFlow） | ✅ `breakdown_script` + 分镜 JSON 契约 |
+| N 候选 + 镜头重生成（各家） | ✅ `candidates_json` + pick + 指纹缓存 |
+| 角色三视图注册表（ViMax/小云雀/Flova） | ✅ V4-2a 景别→视图优先级重排（`shot_refs.py:108`） |
+| 阶段感知换参考（story-claw） | ◐ **只有字段与日志，未真消费**（见 §2.2 第 3 行） |
+| VLM 质检门禁 + 自动重生成（story-claw/ViMax） | ◐ 门禁在（`qa_gate.py`），**UI 零透出、多候选路径不重试** |
+| Agent 与创作面同构（Toonflow/可灵 MCP） | ✅ V4-1 58 工具（`BUILTIN_ORDER` 程序化数过） |
+| 虚拟剧组（纳豆 70 智能体/team.json） | ◐ **只是 `runner.py:67` 提示词第 20 条，team.json 全仓不存在** |
+| 真时间线 / 时间线 DSL（即梦/ShortGPT EML） | ❌ V4-4 显式后置 —— **本轮找到成本更低的落地路径（§5 Wave 4）** |
+| 播放列表式汇编（TapNow） | ✅ v2 时间线 + `assemble.py` |
+| 字幕对齐/BGM/音效/断点续跑 | ✅（sfx 仍 501 占位，`audio_orchestrate.py:15,402`） |
+
+### 2.2 本轮新识别的差距（按「用户可感知价值 ÷ 实现成本」排序，双源确认优先）
+
+| # | 差距 | 商业侧证据 | 开源侧证据 | 代码侧实测 | 落波 |
+|---|---|---|---|---|---|
+| 1 | **质检结果黑盒**：四问判定与自动重试对用户不可见 | Flova 受限原因透出+重试（13 家唯一） | OpenMontage `character_qa_report` 形状（status/checks/issues/recommended_action） | `candidates_json[i].qa` 已全程透出 API，canvas 侧 grep 零消费 | W1 |
+| 2 | **质检全在烧 GPU 之后**，无前置结构闸 | — | OpenMontage `slideshow_risk.py` 6 维 + VBench 16 维词表（Apache） | `qa_gate.py` 三触发点全在 `render_shot` 内 | W1 |
+| 3 | **ref_epoch 名不副实**：换装不自动切参考 | LibTV 主体库/三视图锁设定 | zenstory SHT-22/23/25 三态绑定+用途闭集（MIT） | `orchestrator.py:255-268` 仅 `logger.info`，参考组仍由 `shot_refs.collect_cast_ref_images` 决定 | W2 |
+| 4 | **拼接是纯流拷贝且无规格断言**（活雷） | — | Motion-Context `level_step.py`（逐段打印采样率并标记不一致） | `concat_parts` = `-f concat -c copy`（`ffmpeg_ops.py:41-56`）；合成前只断言时长+有音轨（`assemble.py:58-122`）；docstring 自认 16fps/25fps 混规格 | **W0** |
+| 5 | **新项目/技能模板默认横屏低清** | 短剧标准竖屏 | — | `test_drama_skills.py:113-115` 断言 `768×384@16`；引擎上限 `1344×768`（`engine_registry.py:674`） | **W0** |
+| 6 | **无双速出片**（预演档/成片档），试错成本单条 223s+ | Vidu Q3 闪电/大片两档、小云雀智能预演 | TFboy1 参数确认表 + 批量断点监控（MIT） | 无 | W3 |
+| 7 | **无宫格选卡**，构图靠一次一张抽卡 | LibTV 多机位 9/25 宫格、剧情推演 4 宫格 | — | `frame-variants` 有三景别 img2img 机器可复用 | W3 |
+| 8 | **分镜级局部修改会牵动整链** | Flova 故事板并行局部修改、小云雀分步编辑 | Jellyfish 三状态分离（Apache） | 无级联依赖图 | W3 |
+| 9 | **缺剧级聚合层**（剧本/分镜/资产各自为表） | 小云雀故事蓝图 | Jellyfish 数据模型范本（Apache，6.7K★） | `StudioProject/Character/Shot` 三表 + 文件态 `char_asset_*.json` 不入库 | W3 |
+| 10 | **真时间线剪辑无出口** | 即梦时间轨 | pyJianYingDraft(Apache)+video-use(MIT)+JyDraft(Apache) EDL 中间表示 | V4-4 后置；`/api/video-edit/render` 生产零使用 | W4 |
+| 11 | **H3 原生音画一体没吃透** | 海螺 H3 / Vidu Q3 / Seedance 2.0 音画直出成旗舰标配 | H3 生态 19 仓（AIMixer/tritant Apache） | 对白镜头仍走「H3 画面 + IndexTTS 配音 + 对轴」三段式；10-08 实测 H3 原生音频会呓语 | W7（A/B，需拍板） |
+| 12 | **多镜头连续生成已被否，但否决依据的实现有正解** | 可灵 3.0 智能分镜 / Vidu Q3 一镜到底 | Motion-Context latent 级链接 + 反向音频窗口（GPL 抄原理）；Extender/Director（Apache 可并码） | c_hybrid 10-07 用户目检否决；失败根因=像素往返+音频当 reference | W7（A/B，需拍板） |
+| 13 | **Agent 无长记忆**（不记得用户画风/画幅/禁忌） | Updream 长记忆助手 | zenstory `project.md` 逐次追加当记忆（MIT） | 无 `user_prefs` 持久化 | W5 |
+| 14 | **无拉片分析**（爆款拆解→分镜模板） | LibTV 一键拉片、小云雀 3D 导演台 | — | 本地件全齐：Qwen3-VL(:9311)+whisper 四节点+DSv4 | W5 |
+| 15 | **工具(58)与应用(6773)之间缺方法论封装层** | Updream Skills 库、Flova 自建工作流 | video-use SKILL.md 12 Hard Rules（MIT）、agentskills 规范（Apache） | `skill-packages` 仅桌面插件包形态 | W5 |
+| 16 | **无对外 CLI/程序化入口** | 纳逗Pro CLI、LibTV Agent Skill 双入口 | — | `toiv-comfy-mcp:9100` 有雏形，无官方 CLI | W5 |
+| 17 | **门禁散写三处，回执靠解析文案** | Flova 消息排队+结构化 reason | ArcReel 准入单一缝 + 闭集 `Action` 枚举（AGPL 抄结构） | 封面 autorefire 深度闸 / qa_gate / 批量提交校验各自为政；P-9「成功文案首 60 字禁 hint 词」纪律因此存在 | W1→W6 |
+| 18 | **模型信息散在 ≥6 处** | — | lumenx 三层 catalog（MIT） | `TOIV_LLM_PROXY_MODELS` / vLLM 别名 / `model_registry_draft.json`（挂账未落地）/ MODEL_SOURCES 双份 / admin 四 tab / `backends.json` | W6 |
+| 19 | **`node_mapping` 绑节点 ID**，工作流重排即静默错位 | RunningHub 工作流封装 | TFboy1 `set_widget(class_type,…)`（MIT）+ ArcReel 三态 | `PLATFORM_V2_CONTRACT.md` §3 `"prompt": "186"` 形态；对应 E-1 与 10-11 三处泄名补丁 | W6 |
+| 20 | **经典 web 剩 5 项退役全卡在一个开关上** | — | — | `entry.json` 探测未迁（`apps/web/app/page.tsx:507`）+ R18=A 未拍板 | W5 |
+
+---
+
+## 3. v5 波次总览
+
+| 波次 | 主题 | 内容摘要 | 验收 | 批数 |
+|---|---|---|---|---|
+| **W0** | 收尾与地基（前置） | 测试红灯收口 / 导航三变更处置 / 拼接规格归一 / 默认竖屏 / 入账与文档回写 / 仓库卫生 | 三端测试全绿可信基线；混规格拼接实弹不出哑音；新建项目默认 768×1344@24 | 2–3 |
+| **W1** | 质检闭环（最高性价比） | qa 徽标 UI + 结构前置闸 + VBench 维度字典 + 失败模式注册表 | 分镜卡可见四问逐问判定与 VLM 原话；平庸分镜在提交前被挡；同类失败不再重犯 | 2–3 |
+| **W2** | 一致性补课 | ref_bindings 三态+用途闭集 / ref_epoch 真消费 / 角色三视图标准件 / 多主体合并 / 资产入库 | 换装镜自动切参考（断言级）；双角色镜 A/B 一致性数值可比 | 2–3 |
+| **W3** | 一键成片自动化 | 双速出片 / 宫格选卡 / 剧级蓝图聚合 / 分镜级局部修改+级联 / 分镜契约升级 / Delivery Promise | 「一句话→全片草稿」预演档实弹；改一镜只级联下游 | 3–5 |
+| **W4** | 剪辑与后期出口 | EDL 中间表示 + 剪映草稿出口 + Shrink/ExtendMode + 影调归一 + 词锚定对齐 | 导出草稿在剪映可打开续编；成片影调 A/B 目检 | 2–3 |
+| **W5** | Agent 深化与产品收敛 | team.json 物理化 / user_prefs 长记忆 / 拉片分析 / Skills 封装层 / CLI+MCP / 消息排队 / 12 视图终局 | 剧组可唤起且配置可改；外部 agent 一条命令跑全链；经典 web 退役到终态 | 3–5 |
+| **W6** | 工程化与防事故 | 准入单一缝+闭集 Action / model catalog 三层 / contract 自检 / node_mapping class_type 化 / DESIGN.md token 契约 | P-9 文案纪律可删；E-1/E-3/D-2 类事故有代码级守卫 | 2–4 |
+| **W7** | 机会窗（**均需用户拍板才开**） | H3 音画一体 A/B / 多镜头续接翻案 A/B | 互相关数值 + 盲评量表，不以目检定论 | 2–4 |
+| **W8** | RunningHub 全量本地可部署化（**用户 10-13 新增，并行轨 B**） | 只读盘点 → 四类可部署性分类 → 分批 smoke 真跑 → 缺件补权重到 NAS → 批量上架（含说明卡/封面/use_case） | ②可修复类首批转①并公开；缺件清单入账 MODEL_SOURCES；不可本地化者登记不上架 | 3–6 |
+| **W9** | Civitai.red R18 参照线（**用户 10-13 新增，并行轨 B**） | 站点与 API 探明 → 与 ToIV R18 栈交叉 → blocked 336 条缺口对照 → 资产与工作流参照补强 | 参照报告 + 可下载缺口清单 + R18 线动作项（仅元数据层，守未成年硬红线） | 1–3 |
+
+**总量约 22–39 批**，比 v4（11–19 批）大得多。**W0–W7 与 W8–W9 是两条可并行的轨**（代码域 vs 数据/运营域，交叉点只有 `app_smoke.py` 与队列闸，见 §17）。
+
+**并行度**：W1（前端为主）与 W2（api 契约为主）可并行；W6 的准入缝最好紧随 W1（同一批数据形状）；W7 独立，随时可插入或永久搁置。
+
+---
+
+## 4. W0 收尾与地基（功能条目级）
+
+### W0-1 测试红灯收口，恢复「全绿」可信基线
+
+**为什么第一刀是这个**：AGENTS 记的基线（api 4132/0、web 1031 全绿）与实测（api 4136/1、web 1158/4、canvas 2679/4）已经对不上两个维度。**基线不可信时，后续每一波的「无新增失败」判据都失效。**
+
+| 项 | 落点 | 动作 |
+|---|---|---|
+| canvas 治理违规 ×2 | `apps/canvas/web/src/services/toiv/client.ts:1,34`（自己 `import axios` + `axios.create`）、`services/api/nas-models.ts:1,51-69`（`request(apiClient.…)`） | 二选一：改走共享 `http`（符合 canvas AGENTS §4），或进 `test/http-ownership.test.ts:21-27` 白名单并写明豁免理由。**推荐前者**——ToIV 融合新增的 `services/toiv/*` 整体游离在治理外，是 P-2b 第③条在 canvas 域的漏网形态 |
+| canvas 陈旧断言 | `test/canvas-connection-create-menu.test.ts:11`（`toHaveLength(7)` 实际 11） | 组件加了节点类型、测试没跟上；更新断言并改为「包含必需项」而非硬编码总数，防再次漂移 |
+| canvas 环境性失败 | `test/canvas-document.test.ts:46` / `src/lib/canvas/canvas-document.ts:44` | bun 1.2.17 的 `TextDecoder` 无 gb18030（浏览器有）。加运行时能力探测 + skip 标注原因，**不要为了让它绿而改解码逻辑** |
+| 经典 web ×4 | `tests/h3Accel.test.ts`、`tests/studioRenderCancel.test.ts`、`tests/useStudioProject.test.ts`（文件级崩）、`tests/uxBatchC.test.ts:107` | 多指向 studio 视图退役后断言过期。**决策点**：随 W5 经典 web 终局一并删除这些测试，还是现在修？默认=现在标注 `skip(reason="studio 视图已退役，随 W5 清理")`，不投入修复 |
+| api 顺序污染 ×1 | `tests/test_studio_consistency_v42.py:196-198` 用弃用 `asyncio.get_event_loop()` | 改 `asyncio.run(...)`；`9e445443` 的 caplog→logger spy 改造没根治，这次根治 |
+
+**验收**：`cd apps/canvas/web && bun run test` 与 `./.venv/bin/python -m pytest tests -q` 与 `cd apps/web && npm test` 三条命令的实际输出贴进 STATE；AGENTS 基线数字同步更正（含「web 1031」→实测值）。
+
+### W0-2 导航卡死修复的三变更处置（含**纠正我上次的错误说法**）
+
+**事实纠正**：我上次报告说「f8633401 含 react-router 8.4.0 升级」——**错**。实际是**从 `^8.2.0` 降级并钉死到 `7.9.5`**（`apps/canvas/web/package.json:74` 精确钉版无 caret；`bun.lock:2210` 与 `node_modules` 实装均已核；全仓无 8.4.0，lock 里的 8.4.0 命中是 eslint-scope）。提交信息自证「已证与 router 版本无关」。
+
+| 变更 | 位置 | 处置 | 依据 |
+|---|---|---|---|
+| ①根修：FromImageDialog 条件挂载 | `src/pages/toiv/drama-page.tsx:76-84` | **保留** | 10 轮侧栏全路由巡游 10/10 PASS |
+| ②react-router `^8.2.0`→`7.9.5` 钉版 | `package.json:74` + `bun.lock` | **保留钉版** | 55 个源文件用 `react-router`，未发现 v8 独有 API；卡死已证与 router 无关，升回 8.x 零功能收益；要升应作独立批带全量回归 |
+| ③pathname-key Suspense | `src/router.tsx:50-53` | **短期保留，W0 内补回归后摘除** | 代价比上次说的大：WorkspaceLayout 下**全部路由**（含 `/canvas/:id`）每次导航整树重挂；且内外两个 `key` 有一处冗余（外层已强制子树重建，内层 `UserLayout key` 可省）。缺「去 key 后的回归证据」，所以先补证据再摘 |
+
+**W0-2 动作**：①摘除内层冗余 `key`（1 行）；②跑「去外层 key + drama↔library↔market↔tasks 往返导航 ×10 轮」真机回归；PASS 则摘外层 key，FAIL 则保留并在注释里写明「防御性保留 + 回归日期」；③**修正注释里「react-router 8.2」的措辞**（当前实装 7.9.5，注释与依赖不符会误导下次排障）；④根因最后一层（弹窗内具体哪行副作用卡死 transition）——**建议不再投入**：组件级绕过已验证有效，深挖 React 19.2 + router 内部 transition 语义的边际收益低于同批其它项。若你要求挖到底，单列一批。
+
+### W0-3 拼接规格归一（活雷，优先级高于任何新功能）
+
+**已核实的风险结构**：
+- `concat_parts` = `ffmpeg -f concat -safe 0 -i list -c copy`（`ffmpeg_ops.py:41-56`），**纯流拷贝**；
+- 合成前只有两条断言：时长 ≈ 源（`assemble.py:58-101`，误差 <0.5s）、每镜有音轨（`:105-122`）；**没有任何采样率/fps/分辨率/编码一致性断言**；
+- `assemble.py:3-4` docstring 自己承认「视频链/图像运镜链出 16fps mp4，对口型链出 25fps h264」混规格是常态，并写「规格不一的观众端兼容问题留给后续转码增强」；
+- 流拷贝 concat 遇到不一致的音频采样率时，输出沿用首片流头参数，后续片可能变速/静默/播放器 desync，**而 `probe_duration` 照样返回完整时长** → 所有时长检查通过，尾部哑音无人发现。
+
+**待实测确认**（本机不能闭环，需上 core/workstation）：H3 实际输出音频采样率是否 32kHz（开源侧证据：Motion-Context `level_step.py` 专为此写了逐段采样率打印）。
+
+**动作（条目级）**：
+1. `assemble.py` 新增 `assert_clip_specs_uniform(shots)`：对每镜 `final_clip` 用 ffprobe 取 `sample_rate / channels / r_frame_rate / width / height / codec_name`，与首镜比对；不一致 → 不静默拼接，走 2；
+2. `ffmpeg_ops.py` 新增 `normalize_clip()`（统一 `-ar 48000 -ac 2 -r {fps} -vf scale=… -c:v libx264 -c:a aac`）与 `concat_parts_transcode()`；`concat_parts`（copy 版）保留给「已验证同规格」快路径；
+3. `assemble_project` 逻辑：规格一致 → copy 快路径；不一致 → 归一后转码拼接，并把「发生了转码归一」写进 `project.error`/日志（**不静默**，呼应 OpenMontage「大声的失败胜过一个你没注意到的坏渲染」）；
+4. 顺带核 `mux_audio_into_video` 的 `-ar 48000`（`ffmpeg_ops.py:140`）与 `assembly.py:432` 的 `aresample=44100` —— **平台内两条链用了两个不同目标采样率**，应统一到单一常量；
+5. AGENTS §六 E 类补一条易错点：「H3 音频采样率 ≠ 48000；流拷贝 concat 不能中途改采样率，混规格必须转码」。
+
+**验收**：造一个混规格项目（16fps 无口型镜 + 25fps 对口型镜 + 不同采样率音轨）实弹拼接，逐段 `ffprobe` + `volumedetect` 证明尾部有声；`window_mean_volume_db`（`ffmpeg_ops.py:151`）现成可用。
+
+### W0-4 新建项目默认规格改竖屏
+
+`test_drama_skills.py:113-115` 在断言 `width==768 / height==384 / fps==16`（横屏、低于短剧标准）。10-08 实弹日志已点名这是「一句话到成片新项目会全部低分辨率」的缺陷，当时列为「下一步①」但至今未修。
+
+**动作**：技能模板与新建项目默认改 `768×1344@24`（引擎上限 `1344×768`，`engine_registry.py:674` 的比例限 9:16~16:9 已支持）；同步改断言；核 `engine_registry` 各视频档预设是否都 32 对齐且 ≤1344（`test_engine_registry.py:763` 已有该守卫，复用）。
+
+### W0-5 入账与文档回写（含纠正）
+
+1. STATE + AGENTS 补导航卡死专条，**并写明 react-router 实际是降级钉版 7.9.5**（纠正上一条入账口径）；
+2. AGENTS 基线数字更正：api 4136/1/38skip、canvas 2679/4、web 1158/4（W0-1 做完后再更新为全绿值）；
+3. AGENTS 第八节划掉已核销项：canvas `tsc --noEmit` 预存失败（实测 exit 0，`b1b13e78` 已修）；Slice C 两处「真缺口」——「经典 view 正文未渲染工具箱分组」已不成立（`MarketView.tsx:27,58,97-102` 自 10-01 Batch3 已在），「0.3 非管理员可见性」代码中不存在该等级实体（可见性=`is_public` + soft-hide + NSFW 门控），**本质是线上验证项而非代码缺口**；
+4. `CLASSIC_WEB_RETIREMENT_PLAN_20261011.md` 回写 F1–F7：14 行迁移清单**已完成 9 行**（studio/entities/resources/agent-runs/animatic/audio/imageEdit/videoEdit/dub 全退役成 redirect），剩 5 项（home 探测、image/video、library、market、`/drama/[id]`）；
+5. `app/agent/subagent.py:18` docstring「原型状态:未接路由」过期（实际已接 `routes/agent.py:514-527`，202）；
+6. `router.tsx` 注释与依赖版本不符（见 W0-2）；
+7. 三份调研报告与 `repos-v5/` 语料入账（`AI-OSS-Reference/SURVEY.md` 增补 V5 批次口径——**该文件不在 ToIV git 内，单独提交**）。
+
+### W0-6 仓库卫生（需你给处置意见，我不擅自动）
+
+- `opentalking/` **2.6GB 未跟踪**，含 `.env` 与 `.env.bak.*`，目录结构与 ToIV 同构（`apps/ configs/ AGENTS.md STATE.json`）——疑为某次并行会话/数字人线的整仓副本。**风险**：`.env` 可能含凭据；2.6GB 在仓库根会污染 glob/检索。**选项**：A 移出仓库到 `../` 保留；B 确认无用后删除；C 保留但在 `.gitignore` 显式登记 + 说明来源。**默认 A（可逆）**。
+- `drama/output/` 57MB 未跟踪：疑为本地实弹产物，同上处理。
+- `f3-verify.tmp.mjs`、`toiv.db`（AGENTS 已记「core 的 toiv.db 是废弃 SQLite 勿用」，本地这份同理）：确认后清理。
+
+### W0-7 执行记录（2026-10-13 本轮已做，含两处自我修正）
+
+**已完成并实测验证**：
+
+| 项 | 动作 | 实测结果 |
+|---|---|---|
+| api 顺序污染 | `tests/test_studio_consistency_v42.py` 弃用 API `asyncio.get_event_loop().run_until_complete(...)` → `asyncio.run(...)` | **4137 passed / 0 failed / 38 skipped**（259s，原 4136/1）✅ 根治 |
+| 经典 web 4 红 | ①`tests/mocks/studioApi.ts` 补两个漏掉的替身导出 `pickStudioCandidate` / `rerunStudioStep`（含 `calls`/`defaultImpl`/`makeStepRerunResult`）——**真 `lib/api.ts:5064/5146` 一直有导出，纯属 mock 漂移（P-2b ③ 漏网），不是生产缺陷**；②`h3Accel.test.ts`「提交携带加速档」脆断言改语义断言（组件已演进为 `effectiveAccel`：H3 家族手动档优先、未选则 `speedTierToH3Accel(speedTier)` 映射、非 H3 回落 `"off"`，`AppRunnerView.tsx:323-334`，**行为正确**）；③`studioRenderCancel.test.ts`「单镜未传 signal」同为脆断言（hook `useStudioProject.ts:113` 实际是 `renderStudioShot(sid, { signal: ac.signal, body })`，加了 `body` 后字面量就不匹配了，**signal 一直在传**）；④`uxBatchC.test.ts`「引导文案未指路分镜阶段」同为脆断言（`AssemblyStage.tsx:79` 现文案 `先到「剧本」拆解或「分镜」新增`，语义达标） | **1166 tests / 1166 pass / 0 fail**（原 1158/1162；总数+4 因 `useStudioProject.test.ts` 从文件级崩恢复为可运行）✅ |
+| canvas 2 红（陈旧断言 + 环境性） | ①`canvas-connection-create-menu.test.ts` 硬编码 `toHaveLength(7)` → 改为「必需 7 项 + 新增节点须显式登记进 KNOWN 白名单」（实际 11 项：原 7 + `tpl-t2i/tpl-inpaint/tpl-lipsync/tpl-dub`）；②`canvas-document.test.ts` gb18030 用例加能力探测 `test.skipIf`（bun 1.2.17 的 `TextDecoder` 无 gb18030，浏览器有；**不改解码逻辑**） | 定向 6 pass / 1 skip ✅ |
+| canvas 2 红（治理违规） | ①`services/api/nas-models.ts` 从旧写法 `request(apiClient.*)` 迁到 `http.get/post`（4 处；**平面判断已核实**：它打的是 Go 后端 `backend/internal/handler/nas_models.go:34,48,51,68`，信封一致，迁移安全；消费方 `pages/settings/local-compute-pane.tsx:45`）；②`services/toiv/client.ts` **不迁** —— 修正本报告 W0-1 原判：该文件 docstring 明写它是**刻意的第二数据平面**（同源 `/api` 直连 ToIV FastAPI、裸 JSON、ToIV JWT），共享 `http` 会解 `{code,data,msg,reason}` 信封，并过去必然破功。改为把它登记为「第二个 axios 实例根」，`http-ownership.test.ts` 新增 `axiosInstanceRoots` 集合并把用例改名为 `axios.create stays in the two data-plane roots` | 主批 **2682 pass / 2 skip / 0 fail**（原 2679/4fail）✅；`tsc --noEmit` exit 0 ✅ |
+| W0-2 导航三变更 | 摘除 `router.tsx:50` 内层冗余 `key={pathname}`（外层 Suspense key 已强制子树重建，内层是 no-op）；注释里「react-router 8.2」措辞修正为「当时环境是 8.2，已证与版本无关，当前实装钉版 7.9.5」，并写明「摘除外层 key 前须补 drama↔library 往返回归」 | 已改；**外层 key 保留**（回归证据未补，见下） |
+
+**W0-3 已实现（代码 + 单测，生产混规格实弹验收待做）**：
+
+- `ffmpeg_ops.py` 新增：`TARGET_AUDIO_SAMPLE_RATE=48000` / `TARGET_AUDIO_CHANNELS=2` 单一常量（历史上 mux 用 48000、`routes/assembly.py:432` 用 44100，两个目标采样率并存）；`probe_media_spec()`（ffprobe 取 video 的 codec/width/height/r_frame_rate 与 audio 的 codec/sample_rate/channels，失败抛错不静默猜测）；`spec_diff_fields()`（含「有的片有音轨有的没有」这种 `audio.presence` 不一致）；`normalize_clip()`（等比缩放 + 补边到首片几何、`fps` 对齐、`aresample` + `aformat=stereo`、libx264 crf18、`+faststart`）；`concat_parts_uniform()`（全一致 → 流拷贝快路径零画质损失；有差异 → 只重编码不一致的那几片，参照片原样保留，临时件用完即删；返回 `{mode, normalized, diff, specs}`）。
+- `assemble.py`：改调 `concat_parts_uniform`；`mode == "transcode"` 时 **`logger.warning` 显式记录**归一片数与差异字段（不静默）；模块 docstring 重写——原文自相矛盾（先说「同规格」又列出 16fps/25fps 两种）且把兼容问题「留给后续转码增强」，现已兑现并写明「为什么不能无条件流拷贝」。
+- 新增 `tests/test_studio_assemble_spec_uniform.py` **15 例全绿**（纯单元，monkeypatch probe/concat/normalize，不依赖真媒体与 ffmpeg）：视频四字段与音频三字段逐项差异检测、`sample_rate="32000"` 专列一例（H3 侧实测口径）、音轨有无不一致、全一致走 copy 且不重编码、混规格只归一 2/3 片且参照片不动、临时件清理、空片段抛错、平台音频目标单一真源。
+- 连带修复：`tests/test_studio_assemble.py` 两用例原先 monkeypatch `assemble.concat_parts`（已随本次改动移除该导入）→ 改 patch `concat_parts_uniform` 并让桩返回报告字典。`test_studio_assemble.py` + 新测 + `test_drama_assemble.py` 合计 **35 passed**；api 全量 **4150 passed / 0 failed / 38 skipped**（含新增 15 例）。
+- **仍待做**：生产混规格实弹（16fps 无口型镜 + 25fps 对口型镜 + 不同采样率音轨 → 拼接后逐段 `ffprobe` + `volumedetect` 证明尾部有声）；以及核 H3 实际输出采样率是否 32kHz（需上 workstation 取一条真产物探测）。`routes/assembly.py` 的 `aresample=44100` 是否统一到 48000 **本次未动**（属另一条链，改动面需单独评估）。
+
+**两处自我修正（原判有误，按证据改口）**：
+
+1. **W0-4「默认横屏低清」不是活路径缺陷**。`apps/api/app/models.py:655-657` 实证 v2 Studio 域默认**已经是竖屏 `STUDIO_DEFAULT_WIDTH=768 / HEIGHT=1344 / FPS=24`**，且 `services/studio/schemas.py:157-159` 注释明写「宽高上限对称 1920:竖屏短剧(如 720×1280)需要 height > 1080」——10-08 日志里那条缺陷在活路径上早已修好。残留 `768×384@16` 的只在**旧 Drama 域**（`routes/drama_skills.py:35-36,60,85-86,105-106,180`、`routes/drama_studio.py:193` 且 `height` 上限 `le=1080`），而 `applySkill` 在前端**已无调用方**（仅 `apps/web/lib/api.ts:4284` 客户端函数 + `test_drama_skills.py` 断言）。→ **W0-4 降级并改挂 W5-7**：随经典 web 退役一并删除旧 Drama 域的建项目路径与其测试，不单独改默认值（改死代码的默认值没有用户价值）。
+2. **W0-1 对 `services/toiv/client.ts` 的处置判断反了**（原写「推荐改走共享 http」）。见上表，已按第二数据平面处理。
+
+**新发现的既有红灯（此前无人报告，AGENTS 基线称全绿）**：
+
+- **W0-1b `apps/canvas/web/test/asset-view-scope.browser.test.ts` 5 例全红**。证据链：①**clean HEAD 同样 0 pass / 5 fail**（定向 `git stash push` 我的 5 个 canvas 文件后重跑，已 `stash pop` 复原，工作树完好）→ 与本轮改动无关；②其它 browser 套件正常（`home-dark-palette` 2/2、`reference-links` 4/4）→ playwright/Chromium 脚手架没坏，是该文件单独坏；③首个失败点是 `page.reload()` 后 `getByRole("dialog")` 永不出现（`:160`，15s 超时），其余 4 例是浏览器关闭后的级联（有用例耗时 4258071123ms，计时器已崩）；④该测试用 Bun plugin 自注入 `__assetViewHarness`，而 `src/` 里**搜不到** `__assetViewHarness` → 疑为夹具与被测应用脱节。
+- **口径修正**：盘点报告里 canvas「2679 pass / 4 fail（2684 tests / 408 文件 / 9.4s）」只是 `run-test-suite.mjs` 的 **shared 批**；该脚本随后会**逐个** isolated 跑 20 个 `.browser.test.ts`（每个启一次 Chromium），这一段此前未被计入基线。故「canvas 全绿」的判据必须写明是 shared 批还是含 browser 批。
+- **处置**：不并入本轮（需按系统化调试单独立项：先读 `beforeAll` 的 plugin 注入与 `page.reload()` 后期望出现的 dialog 是哪个），登记为 **W0-1b**，与 W5-7 媒体库/资产面改造同批处理更划算。
+
+
+
+---
+
+## 5. W1 质检闭环（最高性价比，双源确认）
+
+### W1-1 qa 徽标 UI（纯前端，数据已就位）
+
+- **后端现状**：`qa_gate.py` 四问（人物/服装/场景/画面健康）0–10 分（`_QA_PROMPT:42-47`），阈值 `PASS_MIN=6.0 / ITEM_MIN=4.0` / 抽 3 帧（`:36-38`），`verdict ∈ pass|warn|fail`（`:169-173`），结果落 `candidates_json[i].qa`（`:9`）；toiv-vlm 未配置一律 skip 不阻塞（`:50-53`）。
+- **前端现状**：`apps/canvas/web/src/pages/toiv/*` 对 qa/verdict **零消费**（grep 仅命中无关的 art-critique 与 agent-run）。
+- **动作**：分镜卡（`drama-workspace.tsx` 镜头段）与任务中心加徽标——`pass/warn/fail/skip` 四态色点 + hover 展开四问逐问分数 + VLM 原话理由 + 「按建议修改并重试」按钮（绑 W1-4 的 `recommended_action` 闭集）。**形状抄 OpenMontage `character_qa_report`**（AGPL，只抄结构：`status` + `checks`(bool 集，`additionalProperties:false`) + `issues[]` + `recommended_action`(5 值闭集)）。
+- **约束**：P-2b——engineStudio 零 hex，先 grep `globals.css` 取 token；多组件文件用 `<style jsx global>` + 前缀命名；新增 `lib/api` 导出必补替身（canvas 侧对应治理是 `test/http-ownership.test.ts`，W0-1 已收口）。
+- **验收**：生产实弹一个项目，截图证明徽标与 VLM 原话可见；`qa=skip`（VLM 未配置）时必须显示「未质检」而不是伪装成 pass。
+
+### W1-2 生成前零成本结构闸（省 GPU，开源侧最强借鉴）
+
+- **动作**：新增 `apps/api/app/services/studio/structural_gate.py`，跑在分镜 JSON 上、**提交生成之前**，纯 Python 零 GPU：
+  - (a) **slideshow 风险 6 维打分**：`repetition / decorative_visuals / weak_motion / weak_shot_intent / typography_overreliance / unsupported_cinematic_claims`，每维 0–5（越低越好），返回 `{average, verdict, dimensions:{name:{score,reason}}}`；判决 `<2.0 strong / <3.0 acceptable / <4.0 revise / >=4.0 fail`，**fail 不许进 compose**；
+  - (b) **场景变化检查**：某一种 `shot_size` 在 ≥4 镜里占比 >50% → violation 并给百分比；
+  - (c) **通用词检测**：22 词 `GENERIC_PHRASES` 词表（"a person"/"modern"/"stunning"/"seamless"…）标记懒惰描述；
+  - 自我定位照抄其纪律：「**这是结构性检查，不是创作判断**——只标记那些可靠地产出平庸结果的具体模式」。
+- **输入依赖**：需要 W3-1 的镜头语言闭集字段才能算准（`shot_size`/`camera_movement`/`shot_intent`）。**排序建议**：W1-2 先用现有 4 值 `shot_size` + 自由文本 `camera` 做 (b)(c) 两维（已能挡掉大部分平庸），(a) 的完整 6 维等 W3-1 契约升级后补齐。
+- **失败回喂**：violations 走现有「错误清单 + `previous_failed_attempts` 回喂 LLM 重试 ≤3 次」通道（`PLATFORM_V2_CONTRACT.md` §4）。violations 是**问题码 + 具体数字**而非自然语言，因此不踩 P-9「成功文案首 60 字禁 hint 词」的坑。
+- **许可红线**：OpenMontage **AGPL-3.0，严禁并码**——6 维名称/阈值/定位属思路，`slideshow_risk.py` 代码必须自写。
+- **验收**：拿 10-08 雨夜整集与《两小时的注定》v7 的真实分镜 JSON 回测，证明结构闸能标记出当时人肉审片发现的问题（s8 场景断裂成灰棚、s2 乱码招牌、s5 潜水艇生成成老爷车）中的结构性部分。
+
+### W1-3 VBench 16 维作为质检维度字典（不跑其模型）
+
+把「四问」扩成按维度打分的结构化裁决：`subject_consistency / background_consistency / temporal_flickering / motion_smoothness / dynamic_degree / aesthetic_quality / imaging_quality / overall_consistency / object_class / multiple_objects / color / spatial_relationship / scene / temporal_style / appearance_style / human_action`（`Vchitect/VBench` **Apache-2.0**，维度词表与定义可引用，跑其模型才需引入代码）。
+
+**关键补强**：现有四问是**单帧**判定，而 10-08 人肉审片（12 帧×12 镜=144 帧）发现的四类典型缺陷——镜内场景跳变/人物瞬移、镜内人物切换硬切、服装饰品时有时无、AI 文字招牌——**三类是时序缺陷，单帧看不出来**。动作：`qa_gate` 抽帧从 3 帧升到「首/中/尾 + 均匀 12 帧」两档（快/严），提示词增加时序四问（镜内是否场景跳变/是否人物切换/服装饰品是否全程稳定/是否出现文字招牌）。
+
+### W1-4 失败模式注册表 + 逐轮收敛史（质检闭环的后半环）
+
+- **现状缺口**：「VLM 四问 → 失败补候选 ≤2 轮」，失败**原因没有结构化沉淀**，同类失败反复发生。
+- **动作**（**用 PG 实现，抄结构不抄码**；来源 dramaclaw **ELv2 source-available，严禁并码**）：
+  - `failure_mode_defs`（全局）：`code / layer / description / negative_prompt_clause / registry_version`；
+  - `failure_mode_hits(project_id, code, episode, evidence)`（项目内，不跨项目共享）；
+  - `convergence_rounds(project_id, episode, phase, round_num, passed, metrics)`：逐集/逐阶段通过史；
+  - 门面 `build_negative_prompt_clause(layer)` 与 `load_negative_clause_for_project(project_id, layer)`（可安全从同步管线代码调用）；
+  - `registry_version` **只哈希规范定义**（迁移合并进来的遗留行不贡献版本）。
+- **直接收益**：①2026-10-05「设定卡 1224 局 fallback 根因=编辑底图缺陷（`base_expr_2` 嘴微张小 O / `base_expr_3` 底部灰带 + 构图 top=0 vs 锁定格 0.117），换 seed 无效」——这正该是一条带 `layer` 的失败模式定义，而「1224 局」本身就是 `convergence_rounds` 该记的通过史；②封面 autorefire 的「深度闸 12 + 尝试上限 3 + 批限 120」有了数据依据（AGENTS 写「勿手动乱调」，那就让它按收敛趋势自动调）；③`qa=fail` 自动重试目前**只在同步单候选路径**（`routes/studio.py:2148-2193`，`MAX_ATTEMPTS=2`，`qa_gate.py:221-226`），多候选/异步路径明确不重试（`:2148-2149` 注释）——注册表落地后把重试策略统一到异步路径。
+
+### W1-5 成片级抽检（v3 C2 遗留未做）
+
+`splice2`/`assemble` 合成前按镜抽样质检，坏镜挡在合成前。落点：`assemble_project` 在两条断言之后、`concat_parts` 之前插入 `qa_sampling_gate`（抽样比例可配，`fail` 镜阻断并回报镜号）。与 W0-3 的规格断言同批做，同一个函数入口。
+
+---
+
+## 6. W2 一致性补课（功能条目级）
+
+### W2-1 参考图三态绑定 + 用途闭集（取代「按主体类型分槽」）
+
+- **现状**：`PLATFORM_V2_CONTRACT.md` §3 `ref_slots` = `character{max:4,required:1} / scene{max:2} / motion{max:1}` —— 按**主体类型**分槽，无法表达「这张锁身份、那张锁构图」，也无法区分「没绑」的三种原因。
+- **改为**：`ref_bindings: [{slot, purpose, state, asset_id?, note?}]`
+  - `purpose` 闭集：`身份 / 造型状态 / 地理 / 构图 / 尺度 / 效果 / 起始帧 / 结束帧 / 风格`；每镜**至多一个「起始帧」和一个「结束帧」，且「结束帧」必须有「起始帧」**；
+  - `state` 四选一：`bound`(已绑真实图) / `planned`(声明创作者自备槽位，指向已有 `IMG-`/`SHOT-`，**永不声称拥有图片**) / `missing`(部分绑定+点名仍缺的：起始/身份/地理/道具) / `declined_t2v`(创作者**明确**选择文生视频)；
+  - **核心纪律**：「**省略参考选择 ≠ 同意文生视频**」；「提示词条目、看似合理的文件名、文字描述都不算真实图片」；
+  - 每镜新增必填 `visual_basis`（视觉依据，逐项解析到 `character_asset` 既有实体）。
+- **与既有能力衔接**：`character_asset.py` 已有锚点/色板/**覆盖缺口 chip**/补拍计划——「覆盖缺口」正是 `visual_basis` 的未解析项；`get_image_bytes_any`（E-8 input→output 双形态）正是「文件名像但内容未核对」的防线。
+- **生成前校验**：有 `missing` 就不许提交 t2v（走 W1 结构闸同一入口，报 problem code 而非文案）。
+- **来源/许可**：zenstory `skills/short-drama-storyboard/references/stage-contract.md` SHT-22/23/24/25（**MIT，可并码**，保留 LICENSE/NOTICE）；ArcReel `GLOSSARY.md` 三态（**AGPL，只抄语义**）；`bytedance/UNO` 多主体（Apache，仅模型侧对照，不引权重）。
+- **命中弱项**：参考槽位分层/多主体合并（v3 C1 遗留）。
+
+### W2-2 ref_epoch 从「日志」变「真消费」
+
+- **现状**：`StudioShot.ref_epoch/ref_epoch_note` 列在（`models.py:730-731`，启动迁移 `app/db.py:129-130`），PUT 可写（`routes/studio.py:1476-1479`，schema `services/studio/schemas.py:217-218`），但**渲染路径只 `logger.info("…阶段感知参考组")`**（`orchestrator.py:255-268`），参考组仍由 `shot_refs.collect_cast_ref_images` + `infer_view_priority`（`shot_refs.py:108`）决定。测试 `test_studio_consistency_v42.py:119-158` 只断言持久化与 PUT，**不断言参考组切换**。
+- **动作**：①`character_asset` 增加 `epoch` 维度（服装/道具实质变化=换装/湿身/受伤才切），同 epoch 镜头共享同一参考组；②`collect_cast_ref_images` 接受 `ref_epoch` 参数并按 epoch 选参考版本；③补断言级测试：造 epoch=1/2 两镜，断言取到的参考图 URL 集合不同；④`ref_epoch` 变更时联动 W2-1 的 `ref_bindings.state`（旧绑定自动降为 `missing`，逼迫显式重绑而不是静默沿用旧装）。
+
+### W2-3 角色三视图标准产物 + 资产等级递进
+
+- **现状（已核实，比预想更弱）**：设定卡/展示卡有了（`render_character_card`，`character_asset.py:856`），但 **v2 主线角色卡 `StudioCharacter`（`models.py:685-696`）没有三视图列**——只有扁平 `reference_images`（JSON 数组，注释写明「视频默认读此列」）+ `reference_images_by_style`（`{anime:[…], ancient_realistic:[…]}`）+ `voice_ref_url`。`reference_front/side/back` 三列只存在于**旧域** `DramaCharacter`（`models.py:498`）。V4-2a 的「三视图注册表」实际是**对扁平参考图列表按镜次景别做视图优先级重排**（`shot_refs.py:108` `infer_view_priority`），不是独立的三视图槽位。
+- **因此本条有两条路，需你选（决策点已列入 §14）**：
+  - **路 A（推荐，与 W2-1 合流）**：**不加 front/side/back 列**，改为给每张参考图挂 `purpose` + `view_angle` 元数据（正是 W2-1 的 `ref_bindings`），三视图成为「`view_angle ∈ FRONT/LEFT/RIGHT/BACK/THREE_QUARTER/TOP/DETAIL` 的三张必备图」。优点：不动 schema、与用途闭集统一、扁平列表兼容不破；缺点：查询要走 JSON。
+  - **路 B**：给 `StudioCharacter` 补 `reference_front/side/back` 三列对齐旧域字段名（`PLATFORM_V2_CONTRACT.md` §1.2 当初给 `DramaAsset` 定的就是这个口径：「对齐 DramaCharacter 既有字段名」）。优点：直白、SQL 可查；缺点：与 W2-1 的多槽位模型重复表达，且要写启动迁移（`app/db.py`）。
+- **共同动作**：①固定工作流：角色定妆图 → 三视图 → 入资产版本链（`record_regeneration`，`character_asset.py:352`）；②三视图直接作为后续 i2v 参考输入（接 W2-1 的 `purpose=身份`）；③引入 `AssetQualityLevel LOW→MEDIUM→HIGH→ULTRA`（由低到高逐步补齐更多角度/细节图），把现有「覆盖缺口 chip / 补拍计划 / coverage-plan 3 job」改成按等级递进（来源 Jellyfish **Apache-2.0，可并码**；与 TFboy1「人物四视图=三张不同视角全身+一张脸部特写，锁定脸/年龄/体型/发型/服装/饰品/惯用手」互相印证）。
+
+### W2-4 角色资产入库（架构债，为 W3 剧级蓝图铺路）
+
+- **现状**：`char_asset_{cid8}_{style}.json` / `char_card_*.png` 写磁盘不落库（`character_asset.py:538-543`，`asset_json_path`=`drama_output_root()/studio/…`，NAS 优先降本地 `app/storage.py:81-90`；原子替换写 `:557-571`；422 校验闸 `:558-561`）；5 个 REST 端点 `routes/studio.py:1311/1325/1360/1388/1413`。**无 CharacterAsset 表**。
+- **代价**：无法做剧级检索/聚合（W3-3 需要）、无法用 SQL 保证一致性、并行会话互踩只能靠 mtime 佐证（10-06「D4 编辑底图重做=并行会话持有，`base_expr_*` mtime 佐证，本线不碰防 P-5」）。
+- **动作**：新增 `CharacterAsset` 表（`project_id / character_id / style / epoch / anchors JSON / palette JSON / overrides JSON / lipsync_series JSON / version / provenance JSON / locked / file_url / fingerprint8`），文件态保留为**产物**、DB 为**索引与真相**；内容寻址工件库口径照 `artifacts/<sha256_prefix>/<sha256>.<ext>`（「调用点只见到解析后的路径加哈希，**从不自己挑文件名**」；「**只有本模块拥有布局，调用方不得自创子目录**」——dramaclaw `artifact_store.py`，ELv2 只抄思路）。
+- **迁移**：一次性脚本扫存量 `char_asset_*.json` 灌库，双写一个批次后切读，旧文件保留为回滚快照（照 M4-3 typed-import 迁移的成功口径）。
+
+### W2-5 多主体合并参考 + 视频参考锁主体
+
+- **多主体合并**（NovelFlow `merged_character_image` 范式 + `bytedance/UNO` Apache 对照）：双/三角色镜头先合成合并参考图再喂视频参考槽；工作流按资产组合自动选型（单/双/三参考模板，`workflow_templates` 已有骨架）。
+- **视频参考**（可灵 Elements 3.0 / Vidu 参考生 / Seedance 2.5 五十素材混参）：`character_asset` 加「标准动态参考」字段（5s 定妆动态视频），生成链传入 H3 参考模式；顺带把参考包（图+视频+音色样本）绑定角色。**依赖 W7 的 H3 生态核实结果**（AIMixer 9图/3音/3视频槽位协议，Apache）。
+
+---
+
+## 7. W3 一键成片自动化（功能条目级）
+
+### W3-1 分镜 JSON 契约升级（本波地基）
+
+- **现状**：`PLATFORM_V2_CONTRACT.md` §4 —— `shot_size`（4 值）+ `camera`（**自由文本** `"low_angle_dolly_in"`）+ `beat`（自由文本 `"铺垫"`）。
+- **改为三层**：
+  - **(a) 镜头语言闭集**（两套独立收敛取并集）：`shot_size`(ECU/CU/MCU/MS/MLS/LS/ELS + over_shoulder/insert/establishing) · `camera_angle`(EYE_LEVEL/HIGH_ANGLE/LOW_ANGLE/BIRD_EYE/DUTCH/OVER_SHOULDER) · `camera_movement`(STATIC/PAN/TILT/DOLLY_IN/DOLLY_OUT/TRACK/CRANE/HANDHELD/STEADICAM/ZOOM_IN/ZOOM_OUT + whip_pan/orbital/rack_focus…) · `lens_mm`∈[14,24,35,50,85,135,200] · `lighting_key` · `depth_of_field` · `color_temperature` · `transition`(CUT/DISSOLVE/WIPE/FADE_IN/FADE_OUT/MATCH_CUT/J_CUT/L_CUT) · `vfx_type`(13 值) · `dialogue_line_mode`(DIALOGUE/VOICE_OVER/OFF_SCREEN/PHONE)；
+  - **(b) 规则四分类**：每条契约规则标 `structural_invariant`（机器可校验，进 pydantic 校验器）/ `reviewed_invariant`（必须 agent 或人审，进 Qwen3-VL 提示词）/ `craft_default`（默认可覆盖）/ `taste_option`（不设门禁）；
+  - **(c) 意图字段**：`shot_intent`（这一镜为何存在）· `narrative_role`（10 值闭集，取代自由文本 `beat`）· `information_role`（观众学到/感受到什么）· `hero_moment`（bool，全片视觉峰值）。
+- **连带收益**：`hero_moment` 让「哪几镜值得多抽卡/多轮重试」有据可依（现在封面 autorefire 与补候选是**均匀用力**）；`narrative_role` 让「挑高光」（`dub_text.py:529`，V4-5 已上线）从启发式变成字段查询。
+- **补一条**（TFboy1 MIT「八条生命通道」）：`seam_to_next`(continue/overlap/matchcut/hardcut) 现有字段（`models.py:724-727`）补一个必填 `seam_anchor`——「上下镜头必须至少传递一个锚点（同一动作方向/同一视线目标/同一道光/同一个道具/同一种轮廓/同一段声音/同一股受力），禁止无理由跳切」。契约里 `seam_anchor` 字段已存在但为空串，本条是把它变成必填 + 校验。与 W7 的「气闸」规则同源。
+- **许可**：Jellyfish **Apache-2.0 可并码**（枚举与中英映射表 `SHOT_TYPE_ZH`/`CAMERA_ANGLE_ZH` 可直接移植，保留 NOTICE）；zenstory **MIT 可并码**；OpenMontage **AGPL —— 电影词汇本身是行业事实不受版权保护，但 `scene_plan.schema.json` 的具体 JSON 结构是表达，必须自己重写 schema，不可复制文件**。
+
+### W3-2 双速出片（预演档 / 成片档）
+
+- **动机**：单条满配 223s+（10-11 烟测）/ 360–552s（10-08 雨夜 12 镜，总 ~75 分钟）。所有镜头都跑满配 → 试错成本高到不敢迭代节奏。
+- **动作**：`StudioProject` 加 `render_tier ∈ preview|final`；preview 档 = 低分辨率 + 少步数 + 单候选 + 跳过 qa 严档（走 W1-3 快档）；分镜表加「本镜预演通过」勾选，勾选后批量升 final 档重跑。`workflow_template` 增 `preview_variant`（同 engine/mode 的低配 node_mapping，`acceleration.default_steps` 下调）。
+- **本地优势放大**：商业产品受积分制约束不敢做（Vidu 靠「闪电出片」当卖点收费），我们边际成本≈电费。
+- **验收**：雨夜整集 12 镜预演档全片时长与总耗时实测，对比 10-08 的 ~75 分钟基线。
+
+### W3-3 剧级「故事蓝图」聚合层
+
+- **现状**：剧本/分镜/角色资产各自为表（`StudioProject:660` / `StudioCharacter:685` / `StudioShot:699` + 文件态资产），缺全剧级索引与全局改写入口。
+- **动作**：①聚合读端点 `GET /api/studio/projects/{id}/blueprint`：角色×场景×镜头关系 + 节拍结构（`narrative_role` 序列）+ 每镜 `ref_bindings` 覆盖状态 + qa 状态；②canvas 加蓝图视图（关系图 + 缺口 chip）；③**全剧级指令**：「所有镜头换成冬装」→ 定位受影响镜头（`ref_bindings.purpose=造型状态` 命中的）→ 自动 bump `ref_epoch`（W2-2）→ 生成补拍计划（`coverage-plan` 已有）。
+- **依赖**：W2-1（ref_bindings）、W2-2（epoch 真消费）、W2-4（资产入库）、W3-1（narrative_role）。**这是本波最重的一条，建议放最后**。
+- **数据模型参照**：Jellyfish（Apache-2.0，6.7K★）——短剧端到端生产工作区的范本；其「**三状态分离**（信息确认 / 运行时任务 / 生成准备度），并明确废弃 `generating` 作为 shot.status」可结构性消灭 **H-4「DB 标 error ≠ 生成失败」**。落点：`PLATFORM_V2_CONTRACT.md` §5 状态机按此重写（现状 `StudioShot.status: draft|queued|rendering|rendered|voiced|lipsynced|done|error` 把三件事混在一根轴上）。
+
+### W3-4 分镜级局部修改 + 级联
+
+- **动作**：对话/UI 里「第 N 镜改成 X」→ 定位分镜 → 只重跑该镜 → **仅级联受影响下游**（拼接/字幕/音轨），不动其它镜。需要一张显式依赖图（镜→候选→成片片段→字幕 cue→音轨段），落 `AgentTask.depends_on`（`models.py:788` 已有 DAG + `attempt≤2` + `idempotency_key`，可直接复用）。
+- **契约纪律**（Jellyfish/ArcReel 共同点）：「**不兼容的显式 Take/Retry 请求不会被替换成另一个 Take**」——用户点名要重跑第 5 镜，系统不许拿第 4 镜的结果顶上。
+
+### W3-5 Delivery Promise（防「静默降级」）
+
+- **动机**：我们已付过两次学费，共同结构都是「**一个环节静默替换了另一个环节承诺的东西**」——①`ea1d4914` H3 FL2VA 反向别名把 RH 合规名改写成 NAS pruned 名被命名守卫拒（E-3 三连实证，六轮排查才 PASS）；②`907f5f85`/`h3_missing_trusted_identity`——audit 判「功能等价」的 pruned 权重实际不可替换（曲线表变体与 release config 不配、NAS VAE 多两键）。
+- **动作**：`Job` 表（`models.py:97-142`）加 `promise` JSONB：`{engine, mode, weights_identity, min_motion_ratio, still_fallback_allowed, native_duration_s, audio_sample_rate, workflow_template_version, jianying_draft_version?}`；在 `POST /api/studio/c-chains`（`routes/studio.py:2272-2306`）与批量提交入口写入并**锁定**；`deps.resolve_worker()`（E-1）与命名守卫校验失败时**抛准入问题码**（W6-1）而不是换后端；compose 阶段兑现不了就**停下来问**，不静默替换。
+- **把 H3 工程事实钉进 promise**：`audio_sample_rate`（W0-3 实测值，不是想当然的 48000）、`native_duration: 5–15s`、`context_length: 22` 造成的 0.92s 头部裁剪、`acceleration.lora: lightx2v_turbo_8step`（**Turbo LoRA 与 Spectrum 加速都牺牲音频**，配音质量需单独核）。
+- **许可**：OpenMontage **AGPL，只抄概念**；`PromiseType` 取值与 `min_motion_ratio` 阈值可作设计参考，实现自写。
+
+---
+
+## 8. W4 剪辑与后期出口（V4-4 后置项的低成本翻案）
+
+> V4-4 决策（`V4_4_TIMELINE_DECISION_20261013.md`）后置的是「**自研拖拽时间线编辑器 / Remotion / 时间线 DSL**」，理由是 2-3 批级前端工程 + 长期维护面与「本地自用」不匹配。**本轮找到的路径不违反该决策**：不自研 NLE，而是「EDL 中间表示 + 导出到用户已有的剪映」。其重新评估触发条件之一「Agent 代操发现 plan JSON 表达力不足」也已部分成立（Shrink/ExtendMode 的 8 个枚举解决的正是「计划时长 ≠ 实际时长」，这是 plan JSON 表达不了的）。
+
+### W4-1 EDL 中间表示（第一步，小）
+
+- 新增 `apps/api/app/services/studio/edl.py`：`edl.json` = 源 / 入点 / 出点 / 转场 / 轨道 / 时间轴偏移；时间基用**微秒** + `Timerange`。
+- 现有 `assemble.py`（concat）与 `routes/audio_orchestrate.py`（tts/separate/concat/mix/variant）改为「**先出 EDL，再按 EDL 渲染**」，一份 EDL 同时导出 ffmpeg concat / 剪映草稿 / canvas 只读时间线。
+
+### W4-2 剪映草稿出口（第一步，小；**唯一直接命中且许可干净的一条**）
+
+- `POST /api/studio/projects/{id}/export/jianying-draft` → 用 `pyJianYingDraft`（**Apache-2.0，PyPI 包，直接依赖比复制代码更干净**）产出草稿 zip；
+- 暴露 `ShrinkMode`（新素材比槽位短）：`cut_head / cut_tail / cut_tail_align`（裁尾并消除间隙，后续片段依次前移）`/ shrink`（保持中点，两端向中间靠拢）；`ExtendMode`（新素材比槽位长）：`cut_material_tail`（**总是成功**）`/ extend_head`（与前续重合时失败）`/ extend_tail`（与后续重合时失败）`/ push_tail`（必要时依次后移，**总是成功**）；`maintrack_adsorb` 作草稿级开关；
+- **模板模式**：加载已有草稿当模板、按名替换片段素材与文本；**导入的轨道与新建的轨道分离**以最大限度兼容模板中的复杂特性（文本特效/复合片段）；`_track_ref_owner_id` 校验 TrackRef 归属。
+- **平台限制（必须写进 UI 与文档）**：pyJianYingDraft README 诚实记录——**Linux/macOS 支持草稿生成与模板模式，但不支持自动导出，生成的草稿仍需在 Windows 版剪映下导出**。core 是 Linux → 我们只产草稿，导出在用户 Windows 侧（pc01 若能修好正好是导出节点，见 AGENTS 第八节设备项）。
+- **格式风险（非许可风险）**：剪映/CapCut 草稿是**逆向得来的私有格式**，新版 `draft_content.json` 常非明文（需 `fallback_loader`）。动作：把「草稿格式版本」纳入 W3-5 的 `promise`，版本升降级失败时报准入问题码（`jy-draftc` NOASSERTION，只抄「结构版本升降级」思路）。
+
+### W4-3 canvas 只读时间线（第二步，中）
+
+读同一份 EDL，提供「在剪映里继续精修」的下载入口。**不做拖拽编辑**（守 V4-4 决策）。
+
+### W4-4 影调归一（成片层）
+
+- **动机**：多镜头亮度/色温漂移是 c_hybrid 被否的直接原因之一（10-07 用户目检「亮度/实拍感不及拼接路线」）；10-08 也记「Peter 大衣色偶漂」。商业侧 TapNow 有画布级全局亮度/色温/主光/轮廓光调节。
+- **动作**：拼接前插入「影调归一」工序（色彩匹配/直方图对齐/统一 LUT），落 `ffmpeg_ops.py`；先在漫剧成片链试点 A/B。
+
+### W4-5 词锚定时间轴（译制/字幕/口型共用底座）
+
+- **现状疑问**：whisper 四节点（`.86/.75/.81/.85:9310`）产出是否词级？若不是，Rule 8 说的「亚秒级间隙数据」与「编辑信号」都在丢失。动漫口型（`dub_anime.py:1-11`）自认是**音频能量驱动嘴区张合，非音素级**，且 `lbpcascade_animeface` 检测不稳则帧不动——词级对齐能直接改善它。
+- **动作**：**(A)** 统一 ASR 产出为 `AlignedTranscriptEvidence`（**精确 16kHz 采样点坐标** + word/char/score/speech-activity，**缺失保持缺失，不推断为静音**），并按源缓存（重复转录是白烧 GPU）；**(B)** 实现 M:N 有界单调 DP 对齐器（六种组：`exact/split/merge/replacement/source-omission/evidence-insertion`），**纯确定性**：不调 LLM、不读音频、不推断说话人、**不保留多条候选路径**；缺失 token 段得到「介于已测邻居之间的连续加权窗口，而不是被发明出来的点时间戳」。
+- **配套 Hard Rules**（video-use **MIT，12 条可直接移植**进音频/字幕链与 skill 规范）：主 SRT 用输出时间轴偏移 `output_time = word.start - segment_start + segment_offset`；绝不在词中间切；每个切点加 30–200ms 填充吸收 50–100ms 时间戳漂移；只用词级逐字 ASR，绝不用 SRT/短语模式，绝不归一化填充词。
+- **一条架构原则值得单独抄**（hypit `region-evidence`）：**VLM 只产证据（帧级归一化 box 序列 + null），身份判定与放置发现留在确定性代码里** —— 这样 VLM 换版本或缺位（08-05 那次锁死 from-image AI 模式）不会污染下游逻辑。直接适用于 W1 的 qa_gate 改造。
+- **许可红线（重要）**：hypit 是 **Apache-2.0 附加条件**——(a) **不得运营多租户环境或作为托管/SaaS 向第三方提供**；(b) 不得商业再分发；(c) 不得移除 CLI/run report/manifest 的名称与版权信息。**ToIV「仅本地自用/学习，不公开运营」属明确允许范围**；但 AGENTS §五 的 `STUDIO_MULTITENANT=1`（默认关，需密钥）**一旦对外开启即触发条件 (a)，届时禁引其代码**。`narrative-speech-alignment` 算法描述可作设计参考，实现建议自写（Python + DP，量级不大）。
+
+---
+
+## 9. W5 Agent 深化与产品收敛（功能条目级）
+
+### W5-1 team.json 物理化 = pipeline YAML
+
+- **现状**：虚拟剧组六角色（导演/编剧/分镜师/画师/剪辑配乐/质检）**写死在 `runner.py:67` 提示词第 20 条文本里**，无配置文件；`team.json` 全仓不存在（只在 3 份 PLAN 文档里被提及）。persona 持久化只有 `Agent` 表（`models.py:311-335`，Skill 市场技能卡语义），无「剧组成员」表。
+- **动作**（抄 OpenMontage **AGPL 字段集**，实现自写）：`pipeline.yaml` 含 `stability / default_checkpoint_policy / orchestration{budget_default, max_revisions_per_stage, max_send_backs, max_wall_time_minutes} / extensions{custom_*} / required_skills / compatible_playbooks`，每 stage 带 `tools_available` 白名单 + `checkpoint_required` + `human_approval_default` + `review_focus` + `success_criteria` + `sub_stages[].condition`。
+- **连带收益（很大）**：把 P-9「加工具同步四处断言（`BUILTIN_ORDER` / schemas / `LEGACY_SYSTEM` / `test_agent_gen_tools`）」变成**一份 YAML + 一个 loader**；封面 autorefire 的三个常量（深度闸 12/上限 3/批限 120）收进 `orchestration`；每角色的工具子集从提示词文本变成可校验的白名单。
+- **注意**：另有两条真实多任务编排线不要混淆——**Agent Team（LangGraph）**：`agent_team_graph.py`（StateGraph + interrupt 合成门 + PostgresSaver）+ `agent_team_exec.py` + `routes/agent_team.py`（998 行），任务 kind 是**确定性枚举**（script/storyboard/image/video/audio/assemble，`models.py:791`），非 persona 分工；**subagent 原型**：`subagent.py`（LLM 拆 DAG + persona + 工具子集），已接 `routes/agent.py:514-527`（202）。team.json 应与这两条线的关系在设计时说清（建议：team.json 是**声明层**，Agent Team 是**执行层**，subagent 是**规划层**）。
+
+### W5-2 user_prefs 长记忆
+
+`user_prefs` 持久化（画风/画幅/节奏/禁忌/常用音色）+ system prompt 注入 + 显式「记住/忘记」工具（走 P-9 四处同步）。本地单人场景体感提升极大、成本低。注意与 auto-memory 类机制区分：这是**产品内的用户偏好**，不是 agent 会话记忆。
+
+### W5-3 拉片分析（爆款拆解 → 分镜模板）
+
+- **本地件全齐**：Qwen3-VL-8B(:9311) + whisper 四节点 + DSv4。
+- **动作**：新 agent 工具 `analyze_reference_film`：抽帧 + VLM 描述景别/运镜/色调 + ASR 台词 + 镜头切分 → 输出**符合 W3-1 闭集的分镜模板** → 入私人模板库（不是公开市场，守「不做社区/UGC」拍板）。
+- **配套**：机位模板库（景别+角度+运镜结构化预设注入 prompt）+ 分镜模板跨剧复用。商业侧对标 LibTV 一键拉片 / 小云雀 3D 导演台。
+
+### W5-4 Skills 方法论封装层
+
+- **缺口**：工具（58 个）与应用（6773 个）之间缺「编排 + 提示词方法论 + 验收标准」的打包复用单元。
+- **动作**：定义私人 skill 格式（工具序列 + prompt 模板 + 质检项 + Hard Rules），支持 agent 把跑通的流程自动沉淀为 skill、一句话复用；对齐 `agentskills` 规范（Apache-2.0）+ `.well-known/agent-skills/` 发现形态；SKILL.md 写法抄 video-use（**MIT**）：「12 条 Hard Rules vs 艺术自由分层」+「`project.md` 逐次追加当记忆」+「**在把输出给用户看之前先自己验证**」。
+- **落点**：`skill-packages`（canvas 数据目录）；桌面端已把 toiv-h3 插件包入 `Resources/plugin-packages`，可对齐同一规范。
+- **顺带**：`PromptTemplate` 表（Jellyfish Apache）——`category`(22 类) + `variables[]` + `is_default` 同类别应用层唯一 + `is_system` 禁改；22 类目可直接对照（frame_head/tail/key_image + _prompt、video_prompt、storyboard_prompt、bgm、sfx、character/actor/prop/scene/costume_image_front+_other、combined）。ToIV 现在提示词散在各处。
+
+### W5-5 对外 CLI + Agent 接入文档
+
+官方 `toiv` CLI（登录/建项目/提剧本/查任务/取片）+「Agent 接入」文档页；让 Qoder/OpenClaw 类 Agent 一句话调用 ToIV 全链。基础：`toiv-comfy-mcp:9100` + FastAPI 全量端点 + 桌面 `agent-host`。对标纳逗Pro CLI / LibTV Agent Skill 双入口。**注意**：v3 §C6 曾把「四入口 CLI/API」判为最低优先级（自用价值小）——本轮商业调研发现它是「让外部 Agent 驱动 ToIV」的唯一通路，价值重估上调；若你认为仍不值，本条可永久搁置。
+
+### W5-6 消息排队 + 结构化 reason_code
+
+- runner 层加指令 FIFO 队列（执行中新消息入队而不是互相打断）；
+- 拒绝路径统一带结构化 `reason_code`（依赖 W6-1 的 problem code）；
+- **原始异常文本只落服务端日志、不进浏览器响应体**（可能带出连接串或内部拓扑）——这条同时是安全项。
+
+### W5-7 经典 web 终局（12 视图迁移收尾）
+
+- **已完成 9/14**（文档滞后，W0-5 回写）；剩 5 项**全部卡在两件事**：
+  1. `entry.json` 探测跳转逻辑未迁（`apps/web/app/page.tsx:507` fetch `/studio/entry.json`，路由在 `apps/web/app/studio/entry.json/route.ts:1`）——**退役前必须迁到网关或 canvas 自身，否则失去 cutover 开关**；
+  2. R18 经典流去向未拍板（A 保留只读壳 / B canvas 增 R18 模式 / C 退役）。
+- **拍板后一次性退役**：image/video、library、market、`/drama/[id]` 播放器（含 analytics 埋点 `DramaSession:436`/`DramaEvent:454` 的迁移或归档）+ `settings` 拆分（主题/引擎状态只读→退役；R18 开关唯一入口→随决策安置）+ `avatartalk`（数字人唯一实现，canvas 无对应，R18 决策后定去留）。
+- **顺带**：canvas `drama-workspace.tsx`（1058 行）页头仍自述「骨架·各段能力按批次迁入·数据与经典端同源只读」（`:556`）并保留「经典详情」回跳按钮（`:561`）——经典 web 退役后这两处必须清掉，否则用户点到死链。
+
+### W5-8 桌面端
+
+W4/W5 的 canvas 变更需要重跑 `apps/canvas/scripts/build-toiv-desktop.sh` + 无头冒烟 `--toiv-smoke=`（判据 ok=true：backend/agentHost/assistantWarm/loginPage）。**环境钉子**（AGENTS 已记）：wails CLI v2.16.0 在 `~/go/bin`；agent-host 打包需 **bun≥1.4**（全局 1.2.17 解不了 `bun.lock` lockfileVersion 2）+ `BEEFTV_NODE_RUNTIME`=Node 24.15.0；临时件 `/var/tmp/bun143`、`/var/tmp/node-v24.15.0-darwin-arm64`（tmp 三日清，重建按来源再拉）。**注意本机 bun 是 1.2.17**（W0-1 实测），桌面构建前需确认临时件是否还在。
+
+---
+
+## 10. W6 工程化与防事故（功能条目级）
+
+### W6-1 准入裁决单一缝 + 闭集 Action 枚举
+
+- **现状**：门禁散写三处——①封面 autorefire 深度闸（12+3+120）②VLM 四问质检 ③批量生成提交前校验；agent 工具回执靠**解析自然语言**，因此有 P-9「成功文案首 60 字禁 hint 词（失败/超时/不可用/仅 R18/过于频繁/未知工具/不存在）」这条纪律。
+- **动作**（ArcReel **AGPL-3.0，严禁并码**；用 pydantic + StrEnum 自写）：
+  1. **准入 vs 执行结果彻底分离**：准入核是纯决策——**不读文件系统、不读数据库、不读队列**；采集项目/TTS/供应商/队列状态是适配器的事；「这个决定是请求前门禁，**对执行结果不作任何断言**」；
+  2. **三值裁决** `ADMITTED / CONFIRMATION_REQUIRED / BLOCKED`，其中**只有一个**阻塞码（档位与费用确认）可由用户同意清除（`confirmation_only` = 「唯一障碍是用户的同意」）；
+  3. **携带全部理由而不是第一个**：`problems: tuple[...]`，为空 ⇔ 该单元可独立请求；每单元附 `request_duration_seconds / request_cost / projection`（已序列化的当前状态事实，调用方不必从 problem params 反推）；
+  4. **全有或全无**：批次里一个不过整批报 `BATCH_ADMISSION_WITHHELD`，不半提交；顺序入队中断时已建任务是「完整、已准入、已付费」的单位继续跑，只有携带 `ENQUEUE_INTERRUPTED` 的目标仍需排队，一次「missing-only sweep」正好捡起那些；
+  5. **闭集动作枚举** `GenerationAction`：`RETRY / FIX_INPUT / GENERATE_DEPENDENCY / WAIT_FOR_TASK / REPLAN_UNIT / CONFIRM_REQUEST_DURATION / CONFIGURE_PROVIDER / REPAIR_ARTIFACT_STATE / RETRY_ARTIFACT_DOWNLOAD / RETRY_PROJECT_MIGRATION / NONE`，消费方**无需读散文即可派发**；
+  6. **覆盖率测试当漂移守卫**：每个已注册失败码都必须映射到一个 action；未注册的码会静默降级为 `RETRY`——「而对一个被拒绝的请求来说，RETRY 意味着为同一个拒绝再付一次钱」；
+  7. **本地化只在边缘加句子**：code/action/tier/cost 保持共享缝产出原样，「Web 与 Agent 永远不会对『发生了什么』产生分歧——只会对『用哪种语言读』产生分歧」。
+- **两条直接兑现既有纪律**：
+  - `RETRY_ARTIFACT_DOWNLOAD` = 把 **H-4**「DB 标 error ≠ 生成失败；批量失败先查 ComfyUI `/history/{pid}`，产物在就回写，禁止盲目重提」从人工纪律变成代码枚举；
+  - `DEPENDENCY_FAILED`（同批成员未成功 → 本单元**从未提交给供应商、nothing was billed**，`params.dependency` 点名那个成员）用于分镜依赖链（关键帧→视频→拼接）。
+- **可删的债**：problem code 落地后，**P-9「成功文案首 60 字禁 hint 词」整条纪律可删**（它存在的唯一原因是消费方在解析自然语言）。
+
+### W6-2 model catalog 三层体系
+
+- **现状**：模型信息散在 **≥6 处**——`TOIV_LLM_PROXY_MODELS` 白名单（core env）· served-model-name 别名（spark02 vLLM：`deepseek-v4-flash-dspark` + `qwen3.8-27b`/`qwen3.6-uncensored`/`glm-5.3-flash`）· `model_registry_draft.json`（`5a8fa423`，**挂账至今未落地**）· `docs/MODEL_SOURCES.md/.json`（ok479/blocked336/total816）+ core 快照 `apps/api/app/data/model_sources.json` · admin「模型资产」四 tab（`GET /api/admin/model-sources`、`/api/admin/knowledge-graph`）· `deps.resolve_worker()` + 工作站 `/opt/comfyui-lb/backends.json`。
+- **症状与 lumenx 改造前逐字相同**：「你不知道自己是不是已经把所有地方都改全了」。已发生事故：10-10 MODEL_SOURCES backfill `SenseVoiceSmall`——**审计/TEST_LOG 曾记 ok479 但实际从未提交**（`git log -S SenseVoice` 全史为零）。
+- **动作**（lumenx **MIT，可并码**，保留 LICENSE）：把 `model_registry_draft.json` 按三层做实——**文档证据层**（厂商文档归档）→ **可执行清单层** `catalog/families/{h3,wan,longcat,comfy-lb,llm-dsv4,tts-indextts,asr-whisper,embedding-qwen3,vlm-qwen3vl}.yaml` + `schema/model-catalog.schema.json` → **消费层** `generated/`（喂 admin 四 tab、喂 `deps.resolve_worker()`、喂 `TOIV_LLM_PROXY_MODELS` 默认值）+ `build_model_catalog.py` / `validate_model_catalog.py`（validate 检查 artifact 一致性 / 默认值可见性 / **文档链路** = MODEL_SOURCES 与 core 快照 md5 是否一致）。
+- **核心判断（照抄其口径）**：「**不是所有模型变更都需要改运行时代码**」——新增 model ID / 改默认模型 / 调 UI 可见性 / 更新支持参数与文档链路，都只改 catalog；但**新认证方式 / 新 endpoint / 新媒体输入方式 / 新请求或响应字段 / 新 provider family** 必须改 adapter。
+- **「模式 B」口径**：docs 快照与 core `app/data/` 双份的现实（AGENTS §四已记「后续若本地改 docs 快照仍需同步重拷」）→ 从口头纪律变成 PR 模板里的一行注明「外部待补同步，不影响代码开发和验证，但不代表所有文档仓库都已同步完成」。
+
+### W6-3 contract 自检与版本化（E-3 的通用化实现）
+
+- **动机**：E-3「引擎探测通过 ≠ 链路可跑，新引擎必须真机 e2e 后交付」现在靠人工纪律 + 六轮实弹排查（10-11 FL2VA 烟测）。D-2「一次性手工迁移没有守护会静默失效」的教科书案例就在手上：**10-11 打的三个 RH resolve 泄名补丁（`components/_impl.py`×2 + `api/_shared.py`）不在仓库、是工作站侧文件**。
+- **动作**：给每个专用链路加一份 `*_contract.py`，在首次真跑之前**证明依赖的语义性质仍成立**；不成立就**拒跑并说出什么东西移动了**（「一个大声的失败胜过一个你没注意到的坏渲染」）：
+  - **RH 节点 contract**：断言工作站侧三处 resolve 不泄名（把不在仓库的补丁纳入守护）；
+  - **H3 layout contract**：断言 `FRAME_RESCALE` 与关键帧定位算式仍允许 `fractional`/`negative`（上游自己的节点在到达 layout 前就把 `frame_idx` 校验为非负整数，所以**上游没有任何测试覆盖这两个属性**，日后加一个 int cast 不会自己大声失败，只会悄悄移动被钉住的音频）；
+  - **workflow template contract**：模板版本纳入作业复用判定，模板变了则已缓存/已提交作业不可复用；
+  - **版本探测读代码而不是读版本号**（「那是从 layout 代码本身读出来的，所以 nightly 或 fork 也能得到正确答案」）。
+- **配套**：把「预期失败」与「未验证项」显式写进 `TEST_LOG.md`（现有 38 skip 的原因应逐条可查）；验证证据分文件落盘（`MANIFEST.sha256` / `PACKAGE_VALIDATION.txt` / `PROJECT_STATE.md` / `WORKLOG.md`）。
+- **许可**：Motion-Context **GPL-3.0，只抄政策**；H3-Continuum **MIT，可并码**（`compatibility.py`/`hardening.py` 模式可直接参考）；dramaclaw **ELv2，只抄思路**。
+
+### W6-4 `node_mapping` 从节点 ID 改为 class_type 绑定
+
+- **现状**：`PLATFORM_V2_CONTRACT.md` §3 `"prompt": "186", "first_image": "52", "seed": "80"` —— **绑节点 ID**，工作流被重新布局/增删节点后映射错位且**不报错**。
+- **改为**：`{semantic: {class_type, field, state, node_id_hint?}}`，`node_id_hint` 只作加速缓存、以 `class_type` 复核；找不到就抛「模板缺少节点 `<class_type>`，无法设置 `<field>`」，**绝不静默跳过**；**推断只是候选，保存才算绑定**；未绑定 = 平台不驱动该维度、对应值以 workflow 字面值为准；**提示词与产物两项必有**。
+- **用户工作流优先（铁律）**：构建前必须先扫描用户已有工作流并让用户确认选择，**禁止自行创建新工作流**；每个候选标注格式（API/UI）、模式（ref2va/i2v/t2v/batch）、**参考图槽位数**、Turbo 标记、模型文件与输出前缀；`workflow_map` 键可以是模式名（整批统一）或段号字符串（按段指定），`segments[].template` 优先级最高；**UI 格式必须先显式转换，构建脚本遇到 UI 格式报错提示，不会自动改写用户文件**（与 `save-from-comfy` 的指纹闸 409 同口径，可合并）。
+- **存量回填**：6773 应用市场的模板需回填 `class_type`，可写脚本从现有 `node_mapping` 反查。
+- **直接对应三起既有事故/纪律**：E-1（新专用实例必须补 `deps.resolve_worker()` 精确匹配，否则作业成功但产物 502 = 「产物绑定缺失」）、10-11 三处泄名补丁（本质是绑定层改写了名字）、`save-from-comfy` 指纹闸。
+- **顺带**（AIMixer Apache）：`cache_name` 命名卫生——`output/<cache>/<名字>_<节点id>/`，自动过滤 `/ \ : * ? " < > |` 与 Windows 保留名（CON/NUL…），最长 64 字符；同名不同节点 id 分开；复制工作流后节点 id 通常不变、名字也相同就会继续共用一个目录。落在 P-4「/tmp 是 tmpfs」与 W-2「SYSTEM 任务看不到用户盘符」旁边。
+- **许可**：TFboy1 **MIT，可并码**（`build_workflows.py` 的 `set_widget` 模式可移植）；ArcReel **AGPL，只抄三态语义**。
+
+### W6-5 DESIGN.md 作为 token 真源契约
+
+把 P-2b 三约束（appsRh 懒惰正则顺序 / engineStudio 零 hex / mocks 替身）从**防御性检查**升级为**声明性契约**：`DESIGN.md` YAML front matter 逐值对齐 `index.css`，暗色为准、亮色用 `light-*` 前缀并行，分段注释标明每组的 CSS 来源块；检查可由 DESIGN.md 生成。来源：dramaclaw（ELv2，抄形态）+ `google-labs-code/design.md`（语料 A 批）。
+
+### W6-6 市场三表拆分 + 术语典
+
+- **三表**（ArcReel AGPL 抄形态）：source / installation / submission 分离——同时物理化 AGENTS §四两个口径：「盘上有 ≠ 产品在用」、「来源清单 ok479/blocked336 不是盘上文件总数」。
+- **术语典 + `_Avoid_` 反同义词表**：防 H3 FL2VA 命名事故复发；词条至少覆盖引擎/实例/工作流/模板/端点/节点绑定/权重身份/别名/合规名/NAS 名。
+
+---
+
+## 11. W7 机会窗（**均需用户拍板才开，默认不做**）
+
+### W7-1 H3 原生音画一体 A/B
+
+- **商业侧**：音画一体直出（Seedance 2.0/2.5、Vidu Q3、Kling 2.6+、海螺 H3）已是 2026 旗舰标配，「后期配音对齐」路线正被替代。**我们手里就有 H3 却没吃透。**
+- **但我们踩过坑（不可忽略）**：10-08 实锤——v2 直接用 H3 原生音频，whisper 转写出「我看她一下母下妆微笑…」，**H3 音频联合生成不可控，prompt 不写对白也会呓语人声**（爱情片场景先验）；当时定位的三条平台设计缺陷之一是「**正式管线音频必须走平台编排**」，且「H3 prompt 写『音频：…』仅是生成先验提示，**不构成人声开关**」。
+- **所以做成 A/B，不换默认**：对白驱动镜头走 H3 音画一体（口型天然对齐，可砍掉整段 TTS 对轴工序）vs 现有「H3 画面 + IndexTTS 配音」；**验收必须用 whisper 转写回归**（10-08 v3 的有效方法论：「六段旁白完整转写还原、零呓语」）+ 逐字正确率量化，不以目检定论。译制/改词场景仍走后配音。
+- **附带**：情感配音已全链透传（`routes/voice.py:141-143`、`routes/dub_voice.py:104-106`、`agent/tools_tools.py:317`），A/B 时 IndexTTS 侧可用 `emo_text/emo_alpha` 拉满做对照。
+
+### W7-2 多镜头连续生成翻案 A/B
+
+- **10-07 拍板有效**：用户目检四镜拼片后结论「作为长视频效果一般，短视频生成+首尾帧拼接效果更好」→ c_hybrid 不换默认。**本条不改这个默认。**
+- **但否决依据的实现有正解**（开源侧本轮最大发现之一）：当时失败建立在**像素往返 + 音频当 reference** 两点上——
+  1. **画面走 latent 不走像素**：把上一段尾部**直接从它的 latent 里切出来**，被钉住的帧逐 bit 相同（像素往返每接缝付一次解码+缩放+重编码，正是长链色偏与发软的来源）；
+  2. **音频窗口反向覆盖**：被钉住的音频窗口必须**在接缝处结束**并向已播放的声音**回溯**；仍搭 reference 机制，但**时间坐标被改写到新段自己的时间轴上**。差别是「模型在续接你的音轨」vs「模型写了一段听起来像它的东西」（**互相关 0.45 → 0.95+，偏移不随链累积**）；
+  3. **三个常量**：`context_length = 22`（5/22/39/56 里选，56 每次浪费 2.3s）· `audio_context_length = 24`（**3 的倍数才落在 40Hz 音频栅格**，一帧 = 5/3 音频步）· `match_tail` 常开（H3 音频栅格向上取整，每段多约 8ms，逐接缝累积）；
+  4. **Trim**：被钉住的头部回到新段开头，concat 前必须裁掉；`head` 模式下成片比采样短 `context_length` 帧（22 帧 = **0.92s**），**提示词时间码要按采样版本算**；
+  5. **跨 run 传递**：`SaveLatent`/`LoadLatent` 带 `clip_index`，文件命名 `clip_00002.safetensors` = 第 2 段；自动保存的带尾下划线，索引加载刻意跳过；**禁止用 queue「run on change」走链**（每次索引变化是独立图编辑，会排两次队并跳槽）；
+  6. **四条提示词规则**：模型把矛盾渲染成**并集**（不是替换）· **气闸**（第 N+1 段开场保持第 N 段收尾构图、无对白、约两秒，再切新设置）· **给保持一点事做**（一次呼吸/重心转移/视线变化，否则渲染成冻结）· **把被钉住的头部算进时间码**。
+- **验收标准必须是数值**：`seam_probe`（互相关量化接缝是「真续接」还是「模仿」）+ `freeze_detect`（找「保持」段里的字面冻结）+ `level_step`（逐段采样率不一致标记），**而不是目检**。这是 10-07 那次拍板方法论的升级：目检结论仍有效，但翻案需要可复现证据。
+- **许可**：Motion-Context **GPL-3.0，严禁并码**（只抄原理与常量）；`AIMixer/ComfyUI_MiniMaxH3_Director`（**Apache-2.0**，2.3K★）与 `tritant/ComfyUI_MiniMax_H3_Extender`（**Apache-2.0**）可并码；`H3-Continuum`（MIT）可并码；`TimelineDirector`/`ALLinONE`/`Guide`/`Spectrum` 均 GPL-3.0 只读；`TE_MAN` 自定义「仅供学习和阅读」只读；`MiniMax-AI/MiniMax-H3` 官方仓与两份 awesome 索引**仓内无 LICENSE → 视为未澄清，只读**。
+- **前置条件**：工作站侧 ComfyUI ≥ 0.34.0（H3 任意关键帧锚点）；必须先跑 W6-3 的 contract 自检；六 `task_type` → UNET 映射铁律（`t2v/i2v/fl2v → fl2va`，`r2v/v2v/rv2v → ref2va`，CLIP Loader type 必须 `minimax`/Qwen3-VL）与 ToIV 的 `minimax-h3-r2v`/`minimax-h3-pipeline-c` 拆分（`f454bf12`）逐条核对，并把 UNET 身份纳入 `deps.resolve_worker()` 精确匹配（E-1）。
+
+### W7-3 盲评量表（让拍板可复现）
+
+zenstory `evaluations/`（**MIT**）：8 维加权 100 分 + 五档锚点 + 盲评纪律 + `OVERFIT_FLAGS` 五项 + `MIN_CASES=12`/`MIN_GENRES=10` + development-holdout 双 split + sha256 证据绑定；明确「**不评文件数量、Schema 完整度、提示词或工作流便利性**」。把「用户目检四镜拼片对比」这类拍板升级为可复现证据；也可用于 12 视图迁移前后的体验对照。**W7-1/W7-2 的验收都该用它。**
+
+---
+
+## 12. W8 RunningHub 全量本地可部署化（**2026-10-13 用户新增指令，推翻原「RH 市场扩容」不做项**）
+
+> **用户原话**：「去 RunningHub 的**所有能够本地部署的应用**都拉取下来放到我们的项目中使用」。
+> 这条**显式推翻**了 v3 §6 / v4 §4 / 本计划 §15 继承的「RH 市场扩容」不做项，也构成了 `rh_market_reset.py` docstring 所要求的「bulk-public / 现网 reseed **须用户另令**」中那个「另令」。
+> **执行原则**：先只读盘点 → dry-run 批次计划 → 分批执行 + 每批实弹验收。不一次性 reseed（6773 条量级 + GPU 时长约束 + 封面闸约束）。
+
+### W8-0 已实测的通路事实（2026-10-13）
+
+| 项 | 实测结果 |
+|---|---|
+| `https://www.runninghub.cn/` | **直连 200 / 0.54s**（本机 Mac 无需代理） |
+| `https://civitai.com/` | 超时不通（DNS 污染，与既有记录一致） |
+| `https://civitai.red/` | **直连 200 / 1.25s**（用户所指域，可达） |
+| core SSH | `merlin@192.168.71.47` BatchMode 可用；`toiv-api`/`toiv-web` 均 active |
+
+### W8-1 只读盘点（进行中，本轮已派工）
+
+产出 `tmp/research-rh-local-20261013/REPORT.md`。要回答的四组问题：
+
+- **A 现状真相**（PG 实测，不信文档）：`App` 表实际行数与 schema、`is_public` × smoke 状态交叉分布、「rh-acc」如何标识、RH 来源应用实际条数、当前公开可用条数（AGENTS 记 83，需核实）、与 6773 的差额去向、`app_test_matrix/` 与 DB smoke 字段是否一致。
+- **B RH 目录获取通路**（**关键未知**）：当初 6773 条怎么进来的（导入脚本/端点/一次性 dump？`rh_family_presets.json` 20745 行的来源）；RH 是否有可用 API 列出**当前全量**、是否需认证；`docs/ops/rh_basename_nas_audit_20261010.md` 记的 deferred 原因「无精确 basename」是否仍成立。
+- **C 本地可部署性四分类**（核心交付）：①已验证可跑（smoke pass）②可修复（归因是模型名/节点类名漂移，即 `_combo_repair` 那类，或只缺一个可下载权重）③缺模型（NAS 两棵树没有；给出缺哪些、能否 hf-mirror 下载、体积）④缺节点/缺引擎（需未装自定义节点，或依赖 RH 云端专有节点/云端模型 API 无法本地化）。
+- **D 执行计划**：分批方案与顺序（建议先②可修复类，ROI 最高）、每批验收判据、GPU 时长预估、与封面 autorefire 深度闸（12+3+120，`sum_queue_depth(force=)`）的错峰关系、上架动作确切调用形状（`POST /api/admin/apps/bulk-public` 请求体 + `rh_market_reset` 计划如何喂入 + 说明卡/封面/use_case 打标是否同批补）、风险与回滚（soft-hide 可逆性、误上架回滚动作）。
+
+### W8-2 既有机器（不要重造）
+
+| 能力 | 落点 | 用途 |
+|---|---|---|
+| 应用烟测 + 自愈归因 | `app/services/app_smoke.py`（`classify_failure` / `run_app_smoke` / `_combo_repair`：拉目标实例 `object_info`，把不在列的模型文件名/节点类名改写到最接近的在列变体后重提一次） | **这就是「本地可部署性」的裁判**：能真跑通 = 可部署 |
+| soft-hide 计划器 | `app/services/rh_market_reset.py`（dry-run 优先、只 soft-hide 不硬删、`KEEP_WHITELIST` 保 intent 本地 alt/核心引擎/longcat/avatar、「未测 ≠ 挂」） | 批量上下架的计划产出 |
+| RH 溯源 | `app/services/provenance.py`（`extract_rh_webapp_id` / `rh_webapp_url`） | 每条应用的 RH 来源可回溯 |
+| 预设族种子 | `rh_family_preset_seed.py` / `rh_h3_preset_seed.py` + `app/data/rh_family_presets.json` / `rh_h3_presets.json` | 既有 RH 族预设 |
+| admin 批量面 | `POST /api/admin/apps/bulk-public`、`GET /api/admin/closeout-summary`、`GET /api/admin/test-matrix`、`GET /api/admin/model-sources`；说明书批量面板（550 全量 + 单飞批量生成 + 发布 + 回填） | 上架/说明卡/封面 |
+| 模型来源账 | `docs/MODEL_SOURCES.md/.json` + core 快照 `app/data/model_sources.json`（ok479/blocked336/total816） | ③缺模型类的判定依据与下载清单 |
+
+### W8-3 执行阶段（W8-1 报告回来后细化，此处先定纪律）
+
+1. **顺序**：②可修复类 → ③缺模型但可下载类（先补权重到 NAS 再 smoke）→ ①已 pass 但未公开的 → ④明确不可本地化的**登记为「云端专属」并不上架**（诚实标注，不伪装可用）。
+2. **每批规模**受两个闸约束：封面 autorefire 深度闸（queue_depth > 12 即 gated）与 GPU 实际空闲窗；沿用「空闲窗口补刀」的既有做法，不与用户创作任务抢队列。
+3. **H-4 纪律**：批量失败先查 ComfyUI `/history/{pid}`，产物在就回写，**禁止盲目重提**。
+4. **E-1 纪律**：若某类应用需要新专用实例，必须同步补 `deps.resolve_worker()` 精确匹配，否则作业成功但产物 502。
+5. **验收**：每批给出 smoke pass 数 / 新公开数 / 说明卡与封面补齐数 / 缺件清单增量；实弹抽 3 条真跑真出图。
+6. **回滚**：只 soft-hide 不硬删（既有纪律），误上架回滚 = 反向 bulk-public。
+
+### W8-4 执行记录（2026-10-13）
+
+**批 0 已执行完毕并 PG 实证**（`tmp/research-rh-local-20261013/w8_batch0_revive.py`，日志 `batch0_revive_log.jsonl`）：
+
+| 项 | 结果 |
+|---|---|
+| 动作 | 复活「已 `smoke=pass` 但被隐藏」的 RH 应用，`POST /api/admin/apps/bulk-public` 分 9 片（每片 ≤200，端点上限 `app_smoke_admin.py:245`） |
+| 规模 | 目标 1727 条（CSV 1756 条 − **主动排除 29 条 `is_nsfw=t`**，留给 W9 的 R18 线，守 R18=A 物理隔离）；`done=1727 / missing=0` |
+| PG 实证 | `is_public` **83 → 1810**（=83+1727，分毫不差）；近 30 分钟 `app.bulk_public` 审计 **1727 行**（逐条留痕） |
+| 完整性 | 1810 条公开中：`is_nsfw` **1**（既有那张，排除生效）· `smoke_status=pass` **1809**（唯一例外=`longcat-continue`，`rh_market_reset` pass1「未测≠挂」保留卡）· `workflow_json` 缺失 **0** · 无 `cover_url` **2** · 无 `use_case` **1**；`output_kind` = image 1090 / video 719 / audio 1 |
+| 可逆性 | 仅改 `is_public`，未删行、未动 `workflow_json`/`smoke_*`/`cover_url`；回滚 = 反向 `bulk-public {"is_public": false}` |
+| 判定口径 | 45 条 `scan_block_kind` 非空（models_only 21 / both 15 / nodes_only 8 / unlocalizable 1）但 `smoke=pass` —— **静态扫描与实际真跑冲突时以真跑为准**（且已证 `RHHiddenNodes` 扫描有误判，见 W8-1 §C） |
+
+**验证指标的一个坑（记下来防再犯）**：`GET /api/apps` 的 `X-Total-Count` 在 **admin 视角不受 `is_public` 过滤**（实测上架前后恒为 6731），**不能**用来验证上架效果；必须走 PG `count(*) FILTER (WHERE is_public)`。这也顺带说明 AGENTS 里「6773 总/5061 公开」这类数字的口径需要注明是 admin 还是 user 视角。
+
+**批 A 进行中**：`w8_batchA_enumerate.py` 枚举 RH 全量目录（`POST /api/webapp/list`，`current`+`size=500`+`search`，约 142 页 / total≈70507），含**分页陷阱自检**（第 1/2 页 id 必须零重叠，否则说明分页参数被静默忽略、立即中止）——这正是 2026-09 只能靠 14+8 个关键词凑到 8747 条的根因。产物 `rh_catalog_full.jsonl`，**纯只读、不写 ToIV 库**。
+
+**下一步（按 W8-3 顺序）**：批 3 重扫（零 GPU，约 82s；修 `RHHiddenNodes` 误判 + 纳入 `:8264`/`:8197`/`:8199`，可解锁 231 条误判并给批 5/6 准确缺口清单）→ 批 1（②a image 子集 200 条 smoke，约 18.3 GPU·h，先导 50 条 pass 率 ≥60% 才继续）→ 说明卡批量生成（走 LLM @spark02，不占 ComfyUI 队列，可与 smoke 并行）→ 全量目录的静态可部署性分类与导入。
+**执行期纪律**：保持 `TOIV_COVER_AUTOREFIRE=false`（现为 false、`gated=false`、`queue_depth=0`，不构成约束，但批量 smoke 自己会顶高 depth）；`POST /api/admin/apps/smoke/batch` **打不到隐藏卡**（`_pick_batch` 过滤 `is_public==True`），必须逐条走 `POST /api/admin/apps/{id}/smoke`。
+
+---
+
+
+
+> **用户原话**：「Civitai.red 上面有关 R18 的内容都可以学习参考上面的进行」。
+> 与既有拍板的关系：R18 经典流维持 **A（保留经典 web 只读壳）**；`X-NSFW` 机制 + AgeGate + R18 引擎集（如 `h3-nsfw-fl2v`）是仓库既有事实；「内容限制管控已下线（未成年硬阻断 + X-NSFW 语义保留）」是 AGENTS §五 记录的现网口径。本波**不改 R18 的 A/B/C 决策**，只做资产与工作流层面的参照补强。
+
+## 13. W9 Civitai.red R18 参照线（**2026-10-13 用户新增指令**）
+
+### W9-0 工作层面与红线（写死，避免越界）
+
+- **只做技术元数据层**：模型/LoRA/工作流的名称、类型、基础模型家族（SD1.5/SDXL/Flux/Pony/Illustrious/Wan/Hunyuan…）、体积、下载可得性、触发词、推荐参数、依赖节点、许可与署名要求、是否需登录/付费。
+- **不抓取、不转述、不生成露骨内容本身**；不下载权重（本轮不需要）；不注册账号；不绕过任何登录墙/付费墙（遇阻记录「需登录，未获取」）。
+- **涉未成年内容一律不碰、不记录、不检索——硬红线，无例外**（与 AGENTS「未成年硬阻断」口径一致）。
+
+### W9-1 调研问题（进行中，本轮已派工）
+
+产出 `tmp/research-civitai-20261013/REPORT.md`：
+
+- **A civitai.red 是什么**：civitai.com 的镜像/反代还是独立站；数据是否同源；有无站点自述与稳定性说明；**有无可用 API**（civitai 官方 REST v1 `/api/v1/models`、`/api/v1/model-versions/{id}` 等，镜像是否透传）；无 token 时的可见范围与限流；NSFW 过滤的控制机制（**只记录机制，不用来批量拉露骨内容**）；该把它当「可依赖数据源」还是「一次性参照」。
+- **B 与 ToIV 栈交叉**（重点，不做泛泛榜单）：我们 R18 线**实际依赖哪些模型/引擎**（从 `engine_registry.py` / `workflows/community_recipes.py` / `rh_*_presets.json` 读出，挂 `文件:行号`）；civitai.red 上**兼容且可本地部署**的资产按 checkpoint/LoRA/LyCORIS/VAE/Embedding/ControlNet/工作流 JSON 分类的数量级与代表条目；**缺口对照**——MODEL_SOURCES 里 `blocked` 的 336 条有多少能在 civitai.red 找到可得来源、有多少是 civitai 独有（hf-mirror 没有）；工作流 JSON 能否直接进我们应用市场、需要哪些改造（节点依赖 + 模型名改写，复用 `_combo_repair`）。
+- **C 落地建议**：按 ROI 排序的可执行动作清单（含前置：token？工作站磁盘？节点安装？）；许可与合规（CC/自定义/禁商用/需署名/禁再分发 对「本地自用不公开运营」意味着什么，哪些即使本地自用也有风险）；若要**长期化**该怎么设计（`civitai_catalog` 只读快照 + 定期增量 + 与 MODEL_SOURCES 对账）及其成本收益。
+
+### W9-2 与 W8 的协同
+
+两波共用同一套判定机器与同一本账：
+- **可下载性**统一走 AGENTS §四 口径：主路 = workstation 直连 `hf-mirror.com` + `aria2c -x16`；civitai 直链为备选（需核工作站侧可达性与限速）。
+- **入账**统一进 `docs/MODEL_SOURCES.md/.json`（勿在仓库根新增 MODEL_SOURCES*），并同步 core 快照 `apps/api/app/data/model_sources.json`（AGENTS 已记「后续若本地改 docs 快照仍需同步重拷」，W6-2 的 catalog `validate` 会把这条从口头纪律变成机器校验）。
+- **可部署性**统一由 `app_smoke.py` 真跑裁判，不以「盘上有」为准（AGENTS §四：「盘上有 ≠ 产品在用」）。
+- R18 资产落位需与 R18=A 决策一致：**只进经典 web 的 R18 引擎集/市场面，不进 `/studio`（canvas 全程无 R18 代码，纯 SFW）**——这是 `CLASSIC_WEB_RETIREMENT_PLAN_20261011.md` 已确立的物理隔离，W5-7 经典 web 退役时必须保住这条边界。
+
+---
+
+## 14. 决策点（默认值不回复则按默认走）
+
+| 时点 | 决策 | 选项 | 默认 |
+|---|---|---|---|
+| W0 前 | `opentalking/`（2.6GB 未跟踪含 `.env`）与 `drama/output/` 处置 | A 移出仓库保留 / B 删除 / C 保留+`.gitignore` 登记 | **A（可逆）** |
+| W0 前 | 经典 web 4 个陈旧测试 | 现在修 / 标 skip 随 W5 清理 / 直接删 | **标 skip 随 W5 清理** |
+| W0-2 | pathname-key Suspense 摘除 | 补回归后摘 / 永久保留为防御 | **补回归后摘**（回归 FAIL 则保留并注明日期） |
+| W0-2 | 导航卡死根因最后一层 | 深挖到行 / 组件级绕过即止 | **即止**（要求挖到底则单列一批） |
+| W1 | qa 严档抽帧数 | 3 帧（现状）/ 首中尾 3 帧 / 均匀 12 帧 | **快档 3 帧 + 严档 12 帧双档** |
+| W2 | 角色资产入库迁移方式 | 双写一批次后切读 / 直接切 | **双写一批次**（照 M4-3 成功口径） |
+| W2 | 三视图落法（W2-3） | 路 A：`ref_bindings` 挂 `view_angle` 元数据（不动 schema）/ 路 B：`StudioCharacter` 补 `reference_front/side/back` 三列 | **路 A**（与 W2-1 用途闭集统一，避免两套表达） |
+| W3 | `StudioShot.status` 是否按「三状态分离」重写 | 重写（结构性消灭 H-4）/ 维持现状加字段 | **重写**（但需契约升版 + 全量回归，代价最大，可延到 W6） |
+| W4 | 剪映草稿出口 | 做 / 不做（守 V4-4 后置） | **做**（不违反 V4-4：不自研 NLE，且其触发条件之一已成立） |
+| W5 | 对外 CLI | 做 / 永久搁置 | **做**（v3 判为最低优先级，本轮价值重估上调；你认为不值则搁置） |
+| W5 | R18 经典流去向 | A 保留只读壳 / B canvas 增 R18 模式 / C 退役 | **维持 A**（继承 v3/v4 拍板，可逆） |
+| W7 | H3 音画一体 A/B | 开 / 不开 | **不开**（需你明确点头；有 10-08 呓语实锤在前） |
+| W7 | 多镜头续接翻案 A/B | 开 / 不开 | **不开**（需你明确点头；默认路线不变） |
+| 全程 | `STUDIO_MULTITENANT` | 保持默认关 | **保持关**（一旦对外开启即触发 hypit Apache 附加条件 (a)，届时禁引其代码） |
+| W8 | RH 不可本地化的应用（④类）怎么处理 | 登记为「云端专属」不上架 / 强行上架 / 直接删行 | **登记不上架**（诚实标注，不伪装可用；守「只 soft-hide 不硬删」纪律） |
+| W8 | 首批执行范围 | 只做②可修复类 / ②+①未公开类 / 全量 reseed | **只做②可修复类**（ROI 最高，且能在小批量里验证整条流水线与闸的互动） |
+| W9 | civitai 数据源定位 | 一次性参照 / 长期化 `civitai_catalog` 快照 | **先一次性参照**（镜像站稳定性未知；长期化等 W9-1 报告判断） |
+| W9 | R18 资产落位 | 只进经典 web R18 面 / 也给 canvas | **只进经典 web R18 面**（canvas 全程无 R18 代码，纯 SFW，这条物理隔离不能破） |
+
+---
+
+## 15. 明确不做（继承 v3 §6 / v4 §4 并追加）
+
+**继承**：社区/UGC、商业积分、多租户（默认关）、自研模型训练/微调（一致性始终走参考路线）、c_hybrid 长视频连续生成**换默认**（W7-2 只做 A/B，不动默认）。
+
+> **2026-10-13 移除项**：原「**RH 市场扩容**」不做项被用户新指令**显式推翻**，改为 W8 主线（见 §12）。v3 §6 / v4 §4 里的同一条目应以本计划为准。
+
+**本轮追加**：
+- **节点级多人实时协作**（Shotlab 5 人同画布 + 节点编辑锁）与**团队席位**（Flova 100 席 / 纳逗百人协作）——ToIV 定位本地自用，明确不抄；
+- **自研 NLE / 拖拽时间线编辑器 / Remotion**——守 V4-4 决策，W4 只做 EDL + 剪映出口；
+- **跑 VBench 模型做客观评分**——只借 16 维词表，不引入其推理栈（本地 GPU 优先级更高）；
+- **积分/水印/时长上限**等商业限制机制——不适用；
+- **SlotLab 跟踪**——本轮再次确认查无此物（按新片场 Shotlab 处理），维持 v3 「不再跟踪」；
+- **Gitee 原生项目补搜**——本轮 Gitee API v5 `search/repositories` 实测返空数组（疑需登录 token），`so.gitee.com` 是 SPA 无法直取；改用 `site:gitee.com` 只找到 GitHub 项目的镜像。**判断：中文 AI 短剧/漫剧项目的发布主场仍是 GitHub**（本轮 62 个新候选里中文项目全部在 GitHub）。若后续拿到 Gitee token，可用 `_tools/discover-d.mjs` 同结构补一路。
+
+---
+
+## 16. 风险与回滚
+
+| 风险 | 触发信号 | 缓解 / 回滚 |
+|---|---|---|
+| **所有借鉴点均未做 E-3 真机验证** | 任何一条落地前 | 照 E-3 纪律：新引擎/新链路必须真机 e2e 后交付；语料 1614 仓**均未安装依赖/实跑**，本轮结论是「读文档+读源码」级 |
+| 剪映草稿私有格式不稳定 | 新版剪映 `draft_content.json` 非明文 / 打不开 | 草稿格式版本纳入 `promise`；升降级失败报准入问题码；`fallback_loader` 兜底；最坏情况退回 EDL + ffmpeg concat |
+| W2-4 资产入库迁移踩雷 | 双写不一致 | 照 M4-3 口径：双写一批次 → 校验 → 切读；旧 `char_asset_*.json` 保留为回滚快照 |
+| W3-3 状态机重写波及全链 | 大面积测试红 | 决策点已标「可延到 W6」；重写需契约升版（`PLATFORM_V2_CONTRACT.md` 记变更）+ 全量回归 |
+| AGPL/GPL/ELv2 误并码 | code review | 每条借鉴点已标许可；AGPL（OpenMontage/ArcReel/Kinema）、GPL（Motion-Context 等 5 个 H3 件）、ELv2（dramaclaw）、无 LICENSE（MiniMax-H3 官方仓/Storyboard-Copilot 等 6 个）→ **全部只抄思路，代码自写**；可并码白名单：Jellyfish(Apache)、zenstory(MIT)、pyJianYingDraft(Apache)、video-use(MIT)、lumenx(MIT)、AIMixer/tritant(Apache)、VBench/UNO(Apache)、TFboy1(MIT)、H3-Continuum(MIT) |
+| 生产部署踩并行会话 | 关键服务莫名掉线 | 守 P-5（并行 SSH 会互相改写状态，先 `journalctl -u <svc>`）；web/admin 一律 core 本机构建；api 走 `deploy/deploy.sh --skip-web core-jump` |
+| W0-3 转码拼接引入画质损失 | 目检对比 | 同规格仍走 copy 快路径；只有检测到不一致才转码，且**显式记录发生了归一**（不静默） |
+
+---
+
+## 17. 执行顺序（2026-10-13 用户已授权自主推进，不再逐波请示）
+
+```
+并行轨 A（代码/产品）：W0（2–3 批）→ W1（2–3 批）→ [W2 与 W6-1 并行] → W3 → W4 → W5 → W6 余项 → (W7 视拍板)
+并行轨 B（资产/运营）：W8-1 只读盘点 → W8-3 分批执行（②可修复类起）→ 与 W9-1 调研合流 → W9-2 资产补强
+```
+
+**两轨可并行的理由**：轨 A 改的是 `apps/api/app/services/studio/*` + `apps/canvas/web/*`（代码域）；轨 B 改的是 DB 行状态（`is_public`/smoke 字段）+ NAS 权重文件 + MODEL_SOURCES 账（数据/运营域）。**唯一交叉点是 `app_smoke.py` 与队列闸**——轨 B 跑 smoke 会占 GPU 与队列深度，因此轨 B 的批量真跑必须避开轨 A 的生产实弹验收窗口（守 P-5：并行会话会互相改写状态）。
+
+**每批的固定动作**（沿用 v4 口径）：实现 → 测试（三端全绿基线）→ `deploy --all` → **LAN 直连实弹**（`http://192.168.71.47:3100` / `:8090` / `:3200`，用户在局域网时优先 LAN，外网/发布回归才走 wineryz）→ 入账（STATE + AGENTS + docs）→ 推送双远端。
+
+**自主执行的自约束**（授权不等于无纪律，以下每条仍然守）：
+1. **生产写操作分批 + 每批可回滚**：W8 不做一次性全量 reseed；只 soft-hide/上架，不硬删行（`rh_market_reset.py` 既有纪律）。
+2. **不碰不在场的东西**：`opentalking/`（2.6GB 含 `.env`）按默认 A 移出仓库保留、不删除；工作站侧不在仓库的补丁文件（10-11 三处 RH resolve 补丁）只做守护、不回滚。
+3. **GPU 与队列错峰**：批量 smoke 前查 `sum_queue_depth`，封面闸 gated（depth>12）时不硬闯；H-4 纪律——失败先查 `/history/{pid}`，产物在就回写，禁止盲目重提。
+4. **诚实标注**：不可本地化的应用登记为「云端专属」不上架；`qa=skip` 显示「未质检」不伪装 pass；拿不到的数据写「未能核实」不编造。
+5. **每波收口即入账**：STATE + AGENTS + docs 三处同批更新，含数字更正（当前 AGENTS 基线 api「4132/0」/web「1031 全绿」均已过期）。
+6. **仍会主动上报的三类事**：①发现新的活雷级缺陷（如 W0-3）②需要推翻既有用户拍板（如 R18 A/B/C、c_hybrid 默认路线）③不可逆或高影响操作（删数据、删目录、force push、动生产 PG schema）。授权覆盖执行，不覆盖这三类的知情权。
+
+**建议先落地的仍是 W0 + W1**（约 4–6 批）：W0 是地基（基线不可信时后续判据全失效）+ 两条真缺陷；W1 是双源确认的最高性价比项。轨 B 的 W8-1/W9-1 盘点本轮已并行派工，报告回来即可开 W8-3 首批。
+
+---
+
+## 18. 变更记录
+
+- 2026-10-13 v1：初版。依据三份调研（商业 13 家 / 开源语料再挖 + 39 仓新克隆 / 代码级盘点）+ 2026-10-08 实弹日志重排 v3 六主线；**纠正上一批入账口径**（react-router 实为降级钉版 7.9.5，非升级 8.4.0）；新增 W0 拼接规格归一（活雷）与默认竖屏两条真缺陷；V4-4 后置项找到不违反原决策的低成本落地路径（EDL + 剪映出口）。
+- 2026-10-13 v2：用户追加两条指令并授权自主推进——**新增 W8（RunningHub 全量本地可部署化）与 W9（Civitai.red R18 参照线）**；**显式推翻 v3 §6 / v4 §4 / 本计划原 §13 继承的「RH 市场扩容」不做项**；补 §12 W8-0 通路实测（runninghub.cn 直连 200、civitai.com 不通、**civitai.red 直连 200**、core SSH 与 toiv-api/web active）；§14 增 4 条决策点（默认值已给，按默认走）；§17 改为双轨并行 + 自主执行六条自约束（含「仍会主动上报的三类事」）；章节重编号（原 12–16 → 14–18）。

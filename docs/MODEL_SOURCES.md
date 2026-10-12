@@ -1,9 +1,9 @@
 <!-- public_e2e_wave2 2026-09-11T05:28:02+08:00: newly_ok LTX23_audio=364855188 LTX23_video=1452258578 taeltx2_3=23531296; already_on_nas distilled fp8 + Qwen3-VL-4B-Instruct -->
 # MODEL_SOURCES
 
-Updated: 2026-10-10T13:05:00+08:00 (Asia/Shanghai)
+Updated: 2026-10-13T06:05:00+08:00 (Asia/Shanghai)
 
-Totals: ok=476 blocked=337 total=813 (2026-09-21 +minimax_h3_ref2va_pruned_bf16.safetensors 37.45GiB hf-mirror→NAS h3/diffusion_models,:8195 UNETLoader 在列;142022 三件套(darkBeast/flux2-vae/qwen_3_8b)复核均在位核销); 2026-10-10 +SenseVoiceSmall ledger backfill → json ok=479/total=816（审计曾误记已入）
+Totals: ok=487 blocked=337 total=825 (2026-10-13 W9 P0-1 civitai by-hash 溯源:9 个 H3 R18 LoRA(`apps/api/app/services/h3.py` H3_NSFW_LORAS 名单)此前**完全不在账本**(旧账本按 HF 口径扫,civitai 来源整批漏);8 条经 `/api/v1/model-versions/by-hash/{sha256}` 当场重验(远端 sha256 逐条比对一致)后以 `source_kind=civitai` 入账 → ok 479→487;第 9 条 `h3_musubi_v4-000040.safetensors` 上游 civitai 2841940 已下架(实测 `{"error":"No model with id 2841940"}`)、by-hash 亦 MISS → 记 `status=blocked` + `provenance_lost`(本地文件仍在、可用但不可再溯源/不可补下)→ blocked 336→337。**civitai.red 经五条独立证据确认为 civitai 官方备用域名**(站点自报 serverDomains: green=civitai.com / blue=civitai.red+civitaired.com,同后端同库同 R2),官方 REST v1 全套透传、读元数据免 token;但 R18 版本 8/9 为 401 需登录 → 「找得到出处」≠「能补下载」。脚本 `scripts/ops/civitai_provenance_backfill.py`,core 快照 `apps/api/app/data/model_sources.json` 已同步且字节一致。)
 
 Batch: capability_gap_v21_p0
 

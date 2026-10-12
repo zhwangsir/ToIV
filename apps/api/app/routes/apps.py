@@ -1806,6 +1806,81 @@ def _normalize_double_extension(graph: dict) -> None:
                 inputs[k] = pat.sub(".safetensors", v)
 
 
+_PRIMITIVE_LITERAL_FIELD = {"Text": "text", "Bool": "boolean"}
+
+
+def _normalize_primitive_literal_nodes(graph: dict, bindings: dict | None) -> dict | None:
+    """RH 导出图里的 `Text`/`Bool` 是纯字面量原语,本地 worker 没有这两个类名。
+
+    实证(2026-10-13,抽样 40 条缺 Text 的应用):`Text` 卡住 235 个应用、`Bool` 卡住 35 个,
+    但它们的形状是 `{"class_type":"Text","inputs":{"text":"<常量>"}}`——**不接任何上游、
+    只输出一个常量**,消费方形如 `inputs.text1 = ["29", 0]`。其中 70%(28/40)的 Text 正是
+    表单 binding 落点,多消费方仅 1/40。故分两种情形:
+      (a) 非 binding 落点 → 把常量内联进所有消费方,摘除节点;
+      (b) binding 落点且**只有一个**消费方 → 把 binding 重指到该消费方槽位,摘除节点;
+      多消费方时不动(同一值写多处会把表单语义写歪),保留节点让 worker 校验如实报错。
+    返回(可能被改写过的)bindings,与 _normalize_comfy_literals_int 同约定。
+    """
+    if not isinstance(graph, dict):
+        return bindings
+    # 不改写调用方的 bindings(_build_graph 只对 workflow 做 deepcopy;bindings 可能来自
+    # 共享缓存如 apps_list_cache,就地改写会污染缓存)。深拷后只通过返回值传出。
+    bindings = copy.deepcopy(bindings) if isinstance(bindings, dict) else {}
+    bound: set[str] = set()
+    for tgt in bindings.values():
+        if isinstance(tgt, dict) and tgt.get("node") is not None:
+            bound.add(str(tgt["node"]))
+
+    literals: dict[str, object] = {}
+    for nid, node in graph.items():
+        if not isinstance(node, dict) or node.get("class_type") not in _PRIMITIVE_LITERAL_FIELD:
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict) or not inputs:
+            continue
+        # 任一输入是连线(list)就不是纯字面量,整条跳过
+        if any(isinstance(v, list) for v in inputs.values()):
+            continue
+        field = _PRIMITIVE_LITERAL_FIELD[node["class_type"]]
+        literals[str(nid)] = inputs.get(field, next(iter(inputs.values())))
+    if not literals:
+        return bindings
+
+    consumers: dict[str, list[tuple[str, str]]] = {nid: [] for nid in literals}
+    for nid, node in graph.items():
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        for field, val in inputs.items():
+            if isinstance(val, list) and len(val) == 2 and str(val[0]) in literals and val[1] == 0:
+                consumers[str(val[0])].append((str(nid), field))
+
+    for nid, value in literals.items():
+        cons = consumers.get(nid) or []
+        is_bound = nid in bound
+        if is_bound and len(cons) != 1:
+            # (c) 多消费方的 binding 落点:重指只能指一处,写多处会把表单语义写歪 → 整条不动
+            continue
+        # 常量内联进所有消费方。这一步对 (b) 也是必需的:摘掉原语后消费方槽位会留下悬空连线,
+        # 而 _write_leaf 拒往连线/复合结构写值(422 禁改拓扑);内联成标量后表单值才能正常覆盖。
+        # 语义无损——该常量本来就是表单里显示的默认值。
+        for c_nid, c_field in cons:
+            c_inputs = (graph.get(c_nid) or {}).get("inputs")
+            if isinstance(c_inputs, dict):
+                c_inputs[c_field] = value
+        if is_bound and cons:
+            c_nid, c_field = cons[0]
+            for tgt in bindings.values():
+                if isinstance(tgt, dict) and str(tgt.get("node")) == nid:
+                    tgt["node"] = c_nid
+                    tgt["field"] = f"inputs.{c_field}"
+        graph.pop(nid, None)
+        bound.discard(nid)
+    return bindings
+
+
 def _bypass_comfy_literals_link_nodes(graph: dict, bindings: dict | None = None) -> None:
     """ComfyLiterals Int/Float 的 Number 是 STRING 槽:吃 INT/FLOAT 连线必被类型校验拒
     (received_type(INT) mismatch input_type(STRING),wave23 烟测实证 5262675969)。
@@ -3219,6 +3294,8 @@ def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
     """
     graph = copy.deepcopy(workflow)
     bindings = _normalize_comfy_literals_int(graph, bindings)
+    # Text/Bool 字面量原语内联或 binding 重指(必须在 _bypass 之前:重指会改 bound 集合)
+    bindings = _normalize_primitive_literal_nodes(graph, bindings)
     _bypass_comfy_literals_link_nodes(graph, bindings)
     _normalize_node_class_aliases(graph)
     _normalize_text_multiline_dynamic_prompts(graph)
