@@ -76,8 +76,10 @@ async def test_assemble_project_ok(tmp_path, monkeypatch):
     async def fake_concat(parts, out):
         written["parts"] = parts
         out.write_bytes(b"final")
+        # W0-3:拼接改走 concat_parts_uniform(按规格决定 copy/归一),返回拼接报告
+        return {"mode": "copy", "normalized": 0, "diff": []}
 
-    monkeypatch.setattr(assemble, "concat_parts", fake_concat)
+    monkeypatch.setattr(assemble, "concat_parts_uniform", fake_concat)
     project = StudioProject(tenant_id="t", user_id="u", title="x")
     shots = [_shot(0, "/api/studio/files/a.mp4"), _shot(1, "/api/studio/files/b.mp4")]
 
@@ -106,7 +108,7 @@ async def test_assemble_ffmpeg_error_marks_project(tmp_path, monkeypatch):
     async def bad_concat(parts, out):
         raise FFmpegError("boom")
 
-    monkeypatch.setattr(assemble, "concat_parts", bad_concat)
+    monkeypatch.setattr(assemble, "concat_parts_uniform", bad_concat)
     project = StudioProject(tenant_id="t", user_id="u", title="x")
     with pytest.raises(assemble.AssembleError, match="boom"):
         await assemble.assemble_project(

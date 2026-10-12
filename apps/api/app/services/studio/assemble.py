@@ -1,15 +1,23 @@
 """合成服务:按分镜序拼接最终片段 → 项目成片。
 
-各镜 final_clip_url 同规格(视频链/图像运镜链均出 16fps mp4,对口型链 25fps h264),
-用 ffmpeg concat demuxer 无损拼接;规格不一的观众端兼容问题留给后续转码增强。
+各镜 final_clip_url **规格并不保证一致**(视频链/图像运镜链出 16fps mp4,对口型链出 25fps h264;
+H3 侧音频采样率也未必是 48k)。因此拼接走 `concat_parts_uniform`:
+先 ffprobe 逐片取规格,全一致 → concat demuxer 流拷贝(无损快路径);
+有差异 → 逐片重编码归一到首片几何/帧率 + 平台统一音频规格后再拷贝拼接。
+
+**为什么不能无条件流拷贝**:concat demuxer + `-c copy` 要求各输入编解码参数一致;不一致时输出
+沿用首片流头参数,后续片段可能变速/静默/播放器 desync,而 `probe_duration` 仍返回完整时长
+→ 所有时长断言照过、尾部哑音无人发现(2026-10-13 W0-3 登记的活雷)。
 
 产物落 Studio 输出目录(drama_output_root()/studio,NAS 优先降级本地),
 URL 经 /api/studio/files/{name} 访问;回写 project.final_url + status=ready。
 
-合成前断言:每镜成片时长 ≈ 该镜视频原长(误差 <0.5s),防止对口型短配音截断成片。
+合成前断言:每镜成片时长 ≈ 该镜视频原长(误差 <0.5s),防止对口型短配音截断成片;
+以及每镜有音轨(对口型剥音未 mux 时拦截)。
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from pathlib import Path
 
@@ -18,11 +26,13 @@ from sqlmodel import Session
 from app.models import StudioProject, StudioShot
 from app.services.studio.ffmpeg_ops import (
     FFmpegError,
-    concat_parts,
+    concat_parts_uniform,
     probe_duration,
     probe_has_audio,
 )
 from app.storage import drama_output_root
+
+logger = logging.getLogger(__name__)
 
 _FILES_PREFIX = "/api/studio/files/"
 # 成片相对源视频允许的时长误差(秒)
@@ -141,13 +151,19 @@ async def assemble_project(
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"final-{uuid.uuid4().hex}.mp4"
     try:
-        await concat_parts(parts, out)
+        report = await concat_parts_uniform(parts, out)
     except FFmpegError as e:
         project.status = "error"
         project.error = str(e)
         session.add(project)
         session.commit()
         raise AssembleError(str(e)) from e
+    if report.get("mode") == "transcode":
+        # 不静默:混规格片段经过了重编码归一(流拷贝会让尾部变速/哑音而时长检查照样过)
+        logger.warning(
+            "assemble project=%s 片段规格不一致,已转码归一 %s/%s 片;差异字段=%s",
+            project.id, report.get("normalized"), len(parts), report.get("diff"),
+        )
     project.final_url = f"{_FILES_PREFIX}{out.name}"
     project.status = "ready"
     project.error = ""

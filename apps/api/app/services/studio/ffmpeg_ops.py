@@ -56,6 +56,146 @@ async def concat_parts(parts: list[Path], out: Path) -> None:
         list_file.unlink(missing_ok=True)
 
 
+# 平台统一音频规格。历史上 mux 用 48000(本文件)而 routes/assembly.py 用 44100,
+# 两个目标采样率并存;拼接与 mux 一律以本常量为准。
+TARGET_AUDIO_SAMPLE_RATE = 48000
+TARGET_AUDIO_CHANNELS = 2
+
+# concat demuxer + `-c copy` 要求所有输入的编解码参数一致;不一致时输出会沿用首片的流头参数,
+# 后续片段可能变速/静默/播放器 desync,而 probe_duration 仍返回完整时长 → 时长检查全过、尾部无声无人发现。
+_SPEC_VIDEO_FIELDS = ("codec_name", "width", "height", "r_frame_rate")
+_SPEC_AUDIO_FIELDS = ("codec_name", "sample_rate", "channels")
+
+
+async def probe_media_spec(path: Path) -> dict:
+    """ffprobe 取拼接相关的规格字段;失败抛 FFmpegError(不静默猜测)。
+
+    返回 {"video": {codec_name,width,height,r_frame_rate}|None,
+          "audio": {codec_name,sample_rate,channels}|None}
+    """
+    if shutil.which("ffprobe") is None:
+        raise FFmpegError("服务端未安装 ffprobe")
+    proc = await asyncio.create_subprocess_exec(
+        "ffprobe", "-v", "error", "-show_streams", "-of", "json", str(path),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    out, err = await proc.communicate()
+    if proc.returncode != 0:
+        tail = (err or b"").decode(errors="replace")[-200:]
+        raise FFmpegError(f"ffprobe 规格探测失败: {tail}")
+    import json as _json
+
+    try:
+        streams = (_json.loads((out or b"{}").decode()) or {}).get("streams") or []
+    except ValueError as e:
+        raise FFmpegError(f"ffprobe 规格解析失败: {e}") from e
+    video = audio = None
+    for s in streams:
+        kind = s.get("codec_type")
+        if kind == "video" and video is None:
+            video = {k: s.get(k) for k in _SPEC_VIDEO_FIELDS}
+        elif kind == "audio" and audio is None:
+            audio = {k: s.get(k) for k in _SPEC_AUDIO_FIELDS}
+    if video is None:
+        raise FFmpegError(f"无视频流,无法拼接: {path.name}")
+    return {"video": video, "audio": audio}
+
+
+def spec_diff_fields(specs: list[dict]) -> list[str]:
+    """返回各片之间不一致的字段名(形如 video.width / audio.sample_rate);空列表=可安全流拷贝。"""
+    if len(specs) < 2:
+        return []
+    diff: list[str] = []
+    for group in ("video", "audio"):
+        rows = [s.get(group) for s in specs]
+        if any(r is None for r in rows):
+            # 有的片有音轨、有的没有 → 也是不一致(拼接后音轨会断)
+            if not all(r is None for r in rows):
+                diff.append(f"{group}.presence")
+            continue
+        keys = _SPEC_VIDEO_FIELDS if group == "video" else _SPEC_AUDIO_FIELDS
+        for k in keys:
+            if len({str(r.get(k)) for r in rows}) > 1:
+                diff.append(f"{group}.{k}")
+    return diff
+
+
+async def normalize_clip(
+    src: Path, out: Path, ref: dict, *, timeout: float = 900.0
+) -> Path:
+    """把 src 重编码到 ref 的视频几何/帧率 + 平台统一音频规格(拼接前的归一)。"""
+    ensure_ffmpeg()
+    v = ref.get("video") or {}
+    width = int(v.get("width") or 0)
+    height = int(v.get("height") or 0)
+    fps = str(v.get("r_frame_rate") or "24")
+    vf = ["setsar=1"]
+    if width > 0 and height > 0:
+        # 先等比缩放到目标框内,再补边到精确几何,避免拉伸变形
+        vf.insert(0, f"scale={width}:{height}:force_original_aspect_ratio=decrease")
+        vf.insert(1, f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2")
+    vf.append(f"fps={fps}")
+    await run_ffmpeg(
+        [
+            "ffmpeg", "-y", "-i", src.as_posix(),
+            "-vf", ",".join(vf),
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+            "-pix_fmt", "yuv420p",
+            "-af", f"aresample={TARGET_AUDIO_SAMPLE_RATE},aformat=channel_layouts=stereo",
+            "-c:a", "aac", "-b:a", "192k",
+            "-ar", str(TARGET_AUDIO_SAMPLE_RATE), "-ac", str(TARGET_AUDIO_CHANNELS),
+            "-movflags", "+faststart",
+            out.as_posix(),
+        ],
+        timeout=timeout,
+    )
+    if not out.is_file() or out.stat().st_size < 32:
+        raise FFmpegError(f"归一产物无效: {out.name}")
+    return out
+
+
+async def concat_parts_uniform(parts: list[Path], out: Path) -> dict:
+    """按规格决定拼接方式:全一致走流拷贝快路径,不一致先归一再拷贝。
+
+    返回 {"mode": "copy"|"transcode", "normalized": int, "diff": [...], "specs": [...]}。
+    归一**不静默**:调用方应把 mode/diff 落日志或回写,让用户知道成片经过了重编码。
+    """
+    if not parts:
+        raise FFmpegError("无片段可拼接")
+    specs = [await probe_media_spec(p) for p in parts]
+    diff = spec_diff_fields(specs)
+    if not diff:
+        await concat_parts(parts, out)
+        return {"mode": "copy", "normalized": 0, "diff": [], "specs": specs}
+
+    ref = specs[0]
+    ref_audio = {"codec_name": "aac",
+                 "sample_rate": str(TARGET_AUDIO_SAMPLE_RATE),
+                 "channels": str(TARGET_AUDIO_CHANNELS)}
+    prepared: list[Path] = []
+    tmp_made: list[Path] = []
+    normalized = 0
+    try:
+        for i, (p, s) in enumerate(zip(parts, specs)):
+            need = (s.get("video") != ref.get("video")) or (
+                (s.get("audio") or {}) != ref_audio and s.get("audio") is not None
+            ) or (s.get("audio") is None) != (ref.get("audio") is None)
+            if not need:
+                prepared.append(p)
+                continue
+            tmp = out.parent / f"{out.stem}-norm{i:03d}.mp4"
+            await normalize_clip(p, tmp, ref)
+            prepared.append(tmp)
+            tmp_made.append(tmp)
+            normalized += 1
+        await concat_parts(prepared, out)
+    finally:
+        for t in tmp_made:
+            t.unlink(missing_ok=True)
+    return {"mode": "transcode", "normalized": normalized, "diff": diff, "specs": specs}
+
+
 async def probe_duration(path: Path) -> float:
     """ffprobe 测媒体时长(秒);失败抛 FFmpegError(不静默估时)。"""
     if shutil.which("ffprobe") is None:
