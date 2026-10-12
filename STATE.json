@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-12T20:30:00+08:00",
+  "updated_at": "2026-10-13T00:20:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15118,5 +15118,17 @@
     "e2e": "生产实弹:深夜食堂项目(af6572dd)新增镜 PUT ref_epoch=1+camera=背面中景 → 持久化验证 ✓;项目详情 epoch 字段透出 ✓",
     "leftover": "参考槽位分层参数化(海螺 9-3-3 命名)与多主体合并参考(NovelFlow merged_character_image)未落——现有 char_panel 分桶+scene_images 已覆盖主要场景,这两项待双角色镜一致性实测暴露问题后再评估;A/B 对比(同镜 epoch 前后)待真实项目自然发生",
     "updated_at": "2026-10-12T20:30:00+08:00"
+  },
+  "v4_3_qa_automation_2026_10_12": {
+    "status": "deployed_live_scored_pass",
+    "date": "2026-10-12",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "V4-3 质检自动化完成。①qa_gate.py 镜头级 VLM 四问门禁(story-claw/ViMax 范式):对渲染产物均匀抽 3 帧(ffmpeg 15%/50%/85%)→toiv-vlm 打分(person 人物一致/outfit 服装一致/scene 场景匹配/health 画面健康,0-10 四维)→verdict pass(≥6 且无低分)/warn(单项<4)/fail(总分<6 或两项低);纯增量纪律=无 VLM/抽帧失败/解析失败一律 skip 不阻塞渲染主链。②qa 落 candidates_json(条目级 qa 字段);多候选路径钩子在选优后,单候选路径在 _once 快路径后合成候选条目打分——**根修二次**:单候选 n<=1 走快路径根本不进候选循环,首版钩子位置三改才命中(诊断日志从 info 升 warning 才透出,根 logger 级别=WARNING 只透 warning+)。③V4-3b 自动重试:render_one 单候选同步路径 qa=fail → 换 seed 重生成(上限 MAX_ATTEMPTS=2,warn 不重试不浪费卡时)。回归:触及域 111+38 全绿;全套 4135/2(修正后单跑 5/5+21/21)。",
+    "e2e": "生产实弹(深夜食堂镜0,H3 Ref2VA 391s):VLM 四问 {person:10,outfit:10,scene:9,health:10} total=9.8 verdict=pass,qa 落 candidates 并随响应返回;journal 'qa_gate 单候选: verdict=pass (总分 9.8)' ✓。排障记录:参考图 URL 须 type=input(upload 落 input 目录非 output);core 进程 env 需真重启才刷新(systemctl restart 需 sudo -S 交互);根 logger 级别 WARNING,INFO 日志不可见",
+    "leftover": "warn 级低分项仅记录未接 UI 徽标(候选卡可加 qa 徽标,前端小批);多候选路径 qa 在选优前打分(对全部 done 候选打分成本高,现只对入选打分);文本乱码 health 已有 text_gate 承担",
+    "updated_at": "2026-10-13T00:20:00+08:00"
   }
 }
