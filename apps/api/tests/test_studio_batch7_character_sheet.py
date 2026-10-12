@@ -233,8 +233,10 @@ def test_shot_refs_skips_character_sheet():
     refs = collect_cast_ref_images([c])
     urls = ref_urls(refs)
     assert all("char_sheet_" not in u for u in urls)
-    assert "portrait" in urls[0]
-    assert "立绘" in refs[0].label
+    # V4-2a:无 camera 上下文默认 front 优先(原 portrait 首位);四视图全保留且标签按视图键
+    assert "front" in urls[0]
+    by_url = {r.image_url: r.label for r in refs}
+    assert "立绘" in by_url["/api/studio/files/char_panel_lin_anime_portrait_1.png"]
 
 
 def test_costume_prompt_bans_hanfu():

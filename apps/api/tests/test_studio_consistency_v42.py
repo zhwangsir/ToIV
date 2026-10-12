@@ -158,13 +158,16 @@ def test_shot_ref_epoch_persist_and_put(ctx):
     assert r3.json()["shots"][0]["ref_epoch_note"] == ""
 
 
-def test_shot_epoch_group_logging_smoke(ctx, caplog):
-    """渲染入口 epoch 日志:带 epoch 的镜打归组日志(冒烟;不真渲染)。"""
+def test_shot_epoch_group_logging_smoke(ctx, monkeypatch):
+    """渲染入口 epoch 日志:带 epoch 的镜打归组日志(冒烟;不真渲染)。
+
+    V4-3 修正:caplog 挂 root 会跨测试污染(全量套实证)——改用 monkeypatch 直接
+    捕 orchestrator.logger.info 首参,零串扰。
+    """
     from app.services.studio import orchestrator
 
     client, token, engine = ctx
-    H = {"Authorization": f"Bearer {token}"}
-    pid = _mk_project(client, H)
+    pid = _mk_project(client, {"Authorization": f"Bearer {token}"})
     with Session(engine) as s:
         shot = StudioShot(
             project_id=pid, idx=0, scene="换装后", prompt="x",
@@ -174,20 +177,26 @@ def test_shot_epoch_group_logging_smoke(ctx, caplog):
         s.commit()
         s.refresh(shot)
         sid = shot.id
-    import logging
 
+    seen: list[str] = []
+    orig_info = orchestrator.logger.info
+
+    def _spy(msg, *a, **kw):
+        try:
+            seen.append(str(msg) % a if a else str(msg))
+        except Exception:  # noqa: BLE001
+            seen.append(str(msg))
+        return orig_info(msg, *a, **kw)
+
+    monkeypatch.setattr(orchestrator.logger, "info", _spy)
     with Session(engine) as s:
         shot = s.get(StudioShot, sid)
         import asyncio
 
-        with caplog.at_level(logging.INFO, logger="app.services.studio.orchestrator"):
-            # 不 mock 也会在参考图门处失败——只要日志先出即可;捕获 RenderError/HTTPException
-            try:
-                asyncio.get_event_loop().run_until_complete(
-                    orchestrator.render_shot(s, shot, pool=None)
-                )
-            except Exception:  # noqa: BLE001 — 渲染门失败即到此为止
-                pass
-    # V4-1 后 access 日志混入;只看 orchestrator 记录器的记录
-    orch_logs = [r for r in caplog.records if r.name == "app.services.studio.orchestrator"]
-    assert any("ref_epoch=3" in r.getMessage() for r in orch_logs), [r.getMessage() for r in orch_logs[:5]]
+        try:
+            asyncio.get_event_loop().run_until_complete(
+                orchestrator.render_shot(s, shot, pool=None)
+            )
+        except Exception:  # noqa: BLE001 — 渲染门失败即到此为止(日志已出)
+            pass
+    assert any("ref_epoch=3" in m for m in seen), seen[:5]
