@@ -604,6 +604,19 @@ async def render_shot(
                         return str(p) if p.is_file() else None
                     return None
 
+                # V4-3 质检门禁:对唯一 done 候选跑 VLM 四问(单候选也打分;
+                # 失败/未配置 skip 不阻塞;多候选路径 qa 同样落条目,随后走裁脸选优)
+                try:
+                    from app.services.studio.qa_gate import apply_qa_to_candidates
+
+                    apply_qa_to_candidates(
+                        candidates,
+                        ref_image_path=None,
+                        scene=str(getattr(shot, "scene", "") or ""),
+                        local_url_resolver=_resolve_vid,
+                    )
+                except Exception as _qa_e:  # noqa: BLE001 — 质检失败绝不阻塞渲染主链
+                    logger.warning("qa_gate 异常(跳过): %s", _qa_e)
                 # 上一镜成片 / 场景参考：抑制候选场景回退（雨夜镜2 曾出现）
                 prev_video_path = None
                 siblings = session.exec(
