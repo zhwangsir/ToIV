@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T00:20:00+08:00",
+  "updated_at": "2026-10-13T01:00:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15130,5 +15130,16 @@
     "e2e": "生产实弹(深夜食堂镜0,H3 Ref2VA 391s):VLM 四问 {person:10,outfit:10,scene:9,health:10} total=9.8 verdict=pass,qa 落 candidates 并随响应返回;journal 'qa_gate 单候选: verdict=pass (总分 9.8)' ✓。排障记录:参考图 URL 须 type=input(upload 落 input 目录非 output);core 进程 env 需真重启才刷新(systemctl restart 需 sudo -S 交互);根 logger 级别 WARNING,INFO 日志不可见",
     "leftover": "warn 级低分项仅记录未接 UI 徽标(候选卡可加 qa 徽标,前端小批);多候选路径 qa 在选优前打分(对全部 done 候选打分成本高,现只对入选打分);文本乱码 health 已有 text_gate 承担",
     "updated_at": "2026-10-13T00:20:00+08:00"
+  },
+  "v4_4_45_complete_2026_10_13": {
+    "status": "decision_recorded_enhancements_deployed",
+    "date": "2026-10-13",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "V4-4+V4-5 完成。①V4-4 真时间线决策(docs/ops/V4_4_TIMELINE_DECISION_20261013.md):显式后置——判据=表单式三轨生产零使用/v2 时间线+seam 8 镜+管线C done16 主路径/拼接路线用户拍板;ShortGPT EML 的『LLM 可操作』价值已被 V4-1 render_video_edit 工具等效达成;含三条重新评估触发条件(≥3 次表达力缺口/LLM plan 不足/对外发布);本项从 1-3 批缩减为决策记录零代码。②V4-5 译制增强三件迁 canvas(dub-tools 页):AI 挑高光(LLM 从字幕选段,列表 ★ 高亮+标题)/自动切段(ffmpeg 场景|静音检测→更新分段,供对口型 segments)/动漫口型(本地 CV 轻量方案,与 LatentSync 并列可选,含轮询进度)。canvas tsc 零错;生产实弹 highlights(3 段→『深夜一碗热汤的治愈』选[2])✓;浏览器级四按钮 ✓;GLB 内联查看器/AiVideoEdit/泳道视图/在对话中继续草稿通道维持显式不迁(登记于各 F 批,均为低频或经典专属)。",
+    "e2e": "highlights POST 200 选段正确;浏览器三按钮+切段选择器在位",
+    "updated_at": "2026-10-13T01:00:00+08:00"
   }
 }
