@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-12T02:10:00+08:00",
+  "updated_at": "2026-10-12T16:05:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15059,5 +15059,18 @@
     "summary": "融合计划 F1–F7 全部完成(用户指令『把所有没有完全融合的内容解决掉,做完测试完再做新规划』收官)。累计交付:F1 导航拆组+studio/entities/resources 退役;F2 agent-runs 全功能迁 canvas(SSE+双确认门);F3 from-image 迁 v2 域(StudioProject)+双模式弹窗;F4 音频三工具;F5 图片七工具;F6 三轨视频剪辑;F7 五步译制链。经典 VALID_VIEWS 17→8(R18 壳+avatartalk+入口探测);canvas 新增 7 页 13 路由 5 工具域。全量测试收口:api 4027 过/106 挂(=存量债基线零新增,根因 422 序列化已定位未修)、web 1158/1162(4 预存)、canvas tsc 零错、浏览器级 23/23(11 退役深链归位+R18 壳 4 视图留守+8 canvas 页渲染)、五批生产实弹(stitch/TTS→ASR/removebg/三轨混排/SRT+翻译)。新一版规划落档 docs/ops/PLATFORM_V4_PLAN_20261012.md:V4-0 质量收口(测试债清零+多模态 VLM 上架+设定卡质量债)→V4-1 Agent 同构→V4-2 一致性→V4-3 质检→V4-4 真时间线决策→V4-5 小功能补齐→V4-6 架构收尾,约 11-19 批。",
     "e2e": "final sweep 23/23 PASS;api 全量 33min 4027/106;详见各 fusion_fN 条目 e2e 字段",
     "updated_at": "2026-10-12T02:10:00+08:00"
+  },
+  "v4_0b_vlm_online_2026_10_12": {
+    "status": "vlm_online_from_image_revived_e2e",
+    "date": "2026-10-12",
+    "source": [
+      "ToIV开发",
+      "设备域"
+    ],
+    "steward": "ToIV开发",
+    "summary": "V4-0b 多模态 VLM 上架:workstation GPU3 新服务 toiv-vlm(systemd enabled,:9311)。曲折:①vLLM 0.31 新栈在无 CUDA toolkit 主机不可用(deep_jit 找 nvcc/ptxas 版本矩阵错乱——pip nvcc cu13+triton ptxas 12.9 遮蔽,逐层修仍有 flashinfer ninja 版本冲突),止损弃用;②改用 /opt/toiv-vlm/venv(vLLM 0.11.2,cu12.8 老栈,前次会话遗留)+本地已存 Qwen3-VL-8B-Instruct(BF16,gpu-mem-util 0.5 与 :8263 共卡 GPU3),CUDA_VISIBLE_DEVICES=3(0.11.2 不认 UUID,H-6 起服复核);③core .env TOIV_VLM_SERVER_URL=http://192.168.71.127:9311 + TOIV_VLM_MODEL_ID=toiv-vlm,toiv-api 已重启。自 08-05 缺位的多模态能力恢复。",
+    "e2e": "多模态冒烟:图(草帽女子)+提示→'一位戴着草帽、身穿白色衬衫和米色长裙的年轻女子' ✓;F3 from-image AI 模式生产实弹:真图+hint→Job done→StudioProject「街角的温柔时光」(4 分镜/1 角色 林晚,分镜场景+英文 prompt 全落库) ✓——F3 的环境缺口正式核销",
+    "leftover": "32B-FP8 路线暂弃(需 CUDA toolkit 完整安装,如后续要更强 VLM 再评估:apt cuda-toolkit 或容器化);vlm-venv(0.31)+本地 34G 32B 模型留存可复用;AGENTS 服务表未含 toiv-vlm(下次会话补)",
+    "updated_at": "2026-10-12T16:05:00+08:00"
   }
 }
