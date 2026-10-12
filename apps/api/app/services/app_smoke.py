@@ -70,6 +70,22 @@ _SMKE_TASK: asyncio.Task | None = None
 _SMKE_SUMMARY: dict | None = None
 
 
+def _missing_binding_targets(workflow: dict, bindings: dict) -> set[str]:
+    """返回 bindings 指向、但 workflow 里已不存在的节点 id 集合。
+
+    用于拒绝「删掉了表单绑定目标」的 LLM 补丁:那种图跑起来会在 _write_leaf 抛 422
+    「绑定 X 指向不存在的节点 N」,并被归因成 app_data,把首跑的真实失败原因盖掉。
+    """
+    present = {str(nid) for nid, node in (workflow or {}).items() if isinstance(node, dict)}
+    missing: set[str] = set()
+    for tgt in (bindings or {}).values():
+        if isinstance(tgt, dict) and tgt.get("node") is not None:
+            nid = str(tgt["node"])
+            if nid not in present:
+                missing.add(nid)
+    return missing
+
+
 # ---------------------------------------------------------------------------
 # 归因器:错误文本 + node_errors → 结构化类(与 BUG_REGISTRY/whitepaper 分类法对齐)
 # ---------------------------------------------------------------------------
@@ -374,6 +390,7 @@ async def run_app_smoke(
         _extract_required,
         _pick_app_client,
         _queue_with_validation,
+        resolve_required_nodes,
     )
     from app.comfy.client import ComfyUIError
 
@@ -412,9 +429,8 @@ async def run_app_smoke(
 
     for attempt in (1, 2):  # 2=combo 校准修复后原位重试(重建会丢修复,故循环外构建)
         required = _extract_required(graph)
-        nodes = set(app.required_nodes or []) or {
-            n.get("class_type") for n in graph.values() if isinstance(n, dict) and n.get("class_type")
-        }
+        # 与 routes/apps.py 同一口径:以将提交的图为准(库内快照可能含归一已摘除的 Text/Bool 原语)
+        nodes = resolve_required_nodes(app.required_nodes, graph)
         try:
             client = await _pick_app_client(pool, set(filter(None, nodes)), required)
         except Exception as exc:
@@ -498,23 +514,39 @@ async def run_app_smoke(
             out = await selfheal_llm.propose_and_validate(graph, res["cls"], last_msg, objinfo_all)
             if out is not None:
                 patch, patched_raw, applied = out
-                trial = await run_app_smoke(
-                    pool, session, app, workflow_override=patched_raw, allow_llm=False,
-                    values_override=values_override, collect_result=collect_result,
-                    timeout_s=timeout_s,
-                )
-                note = f"trial={trial['status']} {trial['detail'][:160]} fixes={applied[:3]}"
-                selfheal_llm.record_proposal(
-                    session, app, res["cls"], last_msg, patch,
-                    workflow_override if workflow_override is not None else (app.workflow_json or {}),
-                    note,
-                )
-                if trial["status"] == "pass":
-                    app.workflow_json = patched_raw  # 补丁固化(原始图已备份提案)
-                    session.add(app)
-                    session.commit()
-                    return {**trial, "fixes": fixes_all + [f"llm:{a}" for a in applied]}
-                last_msg = f"llm-repair trial fail: {trial['detail'][:160]}"
+                # 补丁不得删掉表单绑定的目标节点:否则 _build_graph 写值时抛
+                # 422「绑定 X 指向不存在的节点 N」,而这条 422 会被归类成 app_data、
+                # **掩盖首跑的真实失败原因**(2026-10-13 实证:rh-acc-0052555778-19dac9)。
+                # 拒补丁并保留原错误,比拿一个语义已变的图去试跑更诚实。
+                dropped = _missing_binding_targets(patched_raw, app.bindings or {})
+                if dropped:
+                    last_msg = (
+                        f"llm patch rejected: 删掉了表单绑定目标节点 {sorted(dropped)[:3]};"
+                        f"原错误:{last_msg[:140]}"
+                    )
+                    selfheal_llm.record_proposal(
+                        session, app, res["cls"], last_msg, patch,
+                        workflow_override if workflow_override is not None else (app.workflow_json or {}),
+                        f"rejected_drops_binding_targets={sorted(dropped)[:5]} fixes={applied[:3]}",
+                    )
+                else:
+                    trial = await run_app_smoke(
+                        pool, session, app, workflow_override=patched_raw, allow_llm=False,
+                        values_override=values_override, collect_result=collect_result,
+                        timeout_s=timeout_s,
+                    )
+                    note = f"trial={trial['status']} {trial['detail'][:160]} fixes={applied[:3]}"
+                    selfheal_llm.record_proposal(
+                        session, app, res["cls"], last_msg, patch,
+                        workflow_override if workflow_override is not None else (app.workflow_json or {}),
+                        note,
+                    )
+                    if trial["status"] == "pass":
+                        app.workflow_json = patched_raw  # 补丁固化(原始图已备份提案)
+                        session.add(app)
+                        session.commit()
+                        return {**trial, "fixes": fixes_all + [f"llm:{a}" for a in applied]}
+                    last_msg = f"llm-repair trial fail: {trial['detail'][:160]}"
         except Exception as exc:  # noqa: BLE001 — LLM 修复故障不遮蔽原错误
             last_msg = last_msg or f"llm repair error: {exc}"
         res = classify_failure(last_msg, last_ne)

@@ -12,7 +12,11 @@
 """
 from __future__ import annotations
 
-from app.routes.apps import _build_graph, _normalize_primitive_literal_nodes
+from app.routes.apps import (
+    _build_graph,
+    _normalize_primitive_literal_nodes,
+    resolve_required_nodes,
+)
 
 
 def _graph_text(consumers: int = 1, text: str = "hello", bound_field: str = "text"):
@@ -150,3 +154,63 @@ def test_none_bindings_tolerated():
     g = _graph_text(consumers=1)
     assert _normalize_primitive_literal_nodes(g, None) == {}
     assert g["100"]["inputs"]["text1"] == "hello"
+
+
+# ---------- worker 选择用的节点集合必须以「将提交的图」为准 ----------
+
+def test_resolve_required_nodes_drops_inlined_primitives():
+    """库内快照仍写着 Text,但归一后的图里已无 Text → 不许拿它淘汰 worker。
+
+    2026-10-13 实弹:归一已部署,smoke 仍报「缺节点 Text」,正是因为 worker 选择读的是快照列。
+    """
+    graph = {"1": {"class_type": "KSampler", "inputs": {}},
+             "2": {"class_type": "VAEDecode", "inputs": {}}}
+    assert resolve_required_nodes(["KSampler", "VAEDecode", "Text"], graph) == {"KSampler", "VAEDecode"}
+
+
+def test_resolve_required_nodes_derives_from_graph_when_stored_empty():
+    graph = {"1": {"class_type": "KSampler", "inputs": {}}}
+    assert resolve_required_nodes([], graph) == {"KSampler"}
+    assert resolve_required_nodes(None, graph) == {"KSampler"}
+
+
+def test_resolve_required_nodes_keeps_declared_subset():
+    """快照声明的可选分支节点只要还在图里就保留。"""
+    graph = {"1": {"class_type": "KSampler", "inputs": {}},
+             "2": {"class_type": "LoraLoaderModelOnly", "inputs": {}},
+             "3": {"class_type": "ExtraNode", "inputs": {}}}
+    assert resolve_required_nodes(["KSampler", "LoraLoaderModelOnly"], graph) == {
+        "KSampler", "LoraLoaderModelOnly"}
+
+
+def test_resolve_required_nodes_preserves_declared_nodes_absent_from_graph():
+    """逃生门不许削:应用可声明图里没有的节点(运行时包装节点/钉专用 worker),原样生效。
+
+    对应既有契约 test_apps_run.py::test_run_explicit_required_nodes_used。
+    """
+    graph = {"1": {"class_type": "KSampler", "inputs": {}}}
+    assert resolve_required_nodes(["MyCustomNode"], graph) == {"MyCustomNode"}
+    assert resolve_required_nodes(["MyCustomNode", "Text"], graph) == {"MyCustomNode"}
+
+
+def test_resolve_required_nodes_keeps_primitive_that_survived_normalization():
+    """binding 落点 + 多消费方时原语被**保留**在图里 → 它确实还要 worker 执行,不许剔除。"""
+    graph = {"29": {"class_type": "Text", "inputs": {"text": "v"}},
+             "1": {"class_type": "KSampler", "inputs": {}}}
+    assert resolve_required_nodes(["Text", "KSampler"], graph) == {"Text", "KSampler"}
+
+
+def test_resolve_required_nodes_tolerates_empty_graph_and_junk():
+    assert resolve_required_nodes(["Text"], {}) == set()
+    assert resolve_required_nodes(["", None, "KSampler"],  # type: ignore[list-item]
+                                  {"1": {"class_type": "KSampler"}, "2": "junk"}) == {"KSampler"}
+
+
+def test_build_graph_then_resolve_has_no_primitive_left():
+    """端到端:构图 + 节点集合推导后,Text 既不在图里也不在 worker 要求里。"""
+    wf = _graph_text(consumers=1, text="默认")
+    bindings = {"text_text": {"node": "29", "field": "inputs.text"}}
+    built = _build_graph(wf, bindings, {"text_text": "新值"})
+    nodes = resolve_required_nodes(["Text", "CR Text Concatenate"], built)
+    assert "Text" not in nodes
+    assert nodes == {"CR Text Concatenate"}

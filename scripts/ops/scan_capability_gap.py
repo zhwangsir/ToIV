@@ -58,12 +58,23 @@ MODEL_FOLDERS = [
     "MelBandRoFormer",
 ]
 
-# 2026-10-13(W8 批3):实测三台 worker 的 object_info 均已装 RHHiddenNodes shim,旧值
-# {"RHHiddenNodes"} 造成 205 条 app 被误判 unlocalizable(真实阻塞在 missing_nodes/models),
-# 并连带 283 条打上 unlocalizable_nodes 标记。默认置空;需要时用 TOIV_UNLOCALIZABLE_NODES=A,B 显式声明。
+# 2026-10-13(W8 批3)一度置空,理由是「三台 worker 的 object_info 都装了 RHHiddenNodes shim」。
+# 实弹部分推翻、部分支持该判断,故最终采取「**标注风险但不排除**」:
+#   · shim 签名 = image_1(IMAGE,required) + image_2/3/4/pwd(optional) → 输出 IMAGE(手写图像多路器);
+#   · RH 原图里 RHHiddenNodes 常用 `images_1`(复数)/`num_frames_2`,甚至有只给 `pwd` 的节点
+#     (实证 app rh-acc-8847936513-e3edd5 节点 294/295/296)→ smoke 报
+#     `RHHiddenNodes: Required input is missing image_1`(validation 失败);
+#   · **但并非普遍致命**:生产 424 个用 RHHiddenNodes 的应用里,有 6 个 is_public=true 且 smoke=pass
+#     (PG 实测)。一刀切排除会误杀这 6 个已证明可跑的。
+# 结论:静态扫描只做**风险标注**(见 KNOWN_RISKY_NODES),可跑与否的最终裁判是 smoke 真跑
+# (仓库既有纪律「盘上有 ≠ 产品在用」)。需要硬排除时用 TOIV_UNLOCALIZABLE_NODES=A,B 显式声明。
 UNLOCALIZABLE_NODES = {
     n.strip() for n in os.environ.get("TOIV_UNLOCALIZABLE_NODES", "").split(",") if n.strip()
 }
+
+# 已知「shim 装着但签名可能与 RH 原图不符」的节点:命中即打 risk flag,供下游优先 smoke / 标注,
+# 不参与 ok|blocked 判定。
+KNOWN_RISKY_NODES = {"RHHiddenNodes"}
 
 # Prefix / exact → suggested custom node package (owner/repo)
 NODE_PACKAGE_HINTS = [
@@ -480,6 +491,8 @@ def main() -> int:
             "is_public": detail.get("is_public"),
             "is_nsfw": detail.get("is_nsfw"),
             "is_builtin": detail.get("is_builtin"),
+            # 已知 shim 签名可能不兼容的节点(如 RHHiddenNodes):不影响 ok|blocked,供下游优先 smoke/标注
+            "risk_nodes": sorted(nodes & KNOWN_RISKY_NODES),
             "nodes": sorted(nodes),
             "models": sorted(models),
             "unlocalizable_nodes": unloc,

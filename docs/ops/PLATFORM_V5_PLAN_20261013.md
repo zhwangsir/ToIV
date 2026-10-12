@@ -562,10 +562,34 @@ zenstory `evaluations/`（**MIT**）：8 维加权 100 分 + 五档锚点 + 盲�
 
 
 
-> **用户原话**：「Civitai.red 上面有关 R18 的内容都可以学习参考上面的进行」。
-> 与既有拍板的关系：R18 经典流维持 **A（保留经典 web 只读壳）**；`X-NSFW` 机制 + AgeGate + R18 引擎集（如 `h3-nsfw-fl2v`）是仓库既有事实；「内容限制管控已下线（未成年硬阻断 + X-NSFW 语义保留）」是 AGENTS §五 记录的现网口径。本波**不改 R18 的 A/B/C 决策**，只做资产与工作流层面的参照补强。
+### W8-5 批 E 实弹结论与三次判断反转（2026-10-13，必须留档）
+
+**批 E 已实现并部署，实弹 PASS**：`rh-acc-0001608704-ef70d6`（Z-Image+seedvr2.5.1 直生 4K）此前判「缺节点 Text」，部署后 `POST /api/admin/apps/{id}/smoke` → **status=pass，真跑 159s，outputs=['11','16']**。
+
+实现分两处（第一版不完整，被实弹与既有测试各打回一次）：
+1. `_normalize_primitive_literal_nodes`（`routes/apps.py`）：构图阶段内联/重指；
+2. `resolve_required_nodes`（同文件，`app_smoke.py` 共用）：**worker 选择读的是库内 `App.required_nodes` 快照**（`routes/apps.py:4346`、`app_smoke.py:415` 两处同模式），快照仍含已被内联摘除的 `Text` → 归一部署后 smoke 仍报「缺节点 Text」。抽出共享 helper 两处统一。
+   - 第一版用「快照 ∩ 图」泛化交集，被既有 `test_apps_run.py::test_run_explicit_required_nodes_used` 打回——那条守的是**有意逃生门**（应用可声明图里没有的节点：运行时包装节点/钉专用 worker）。收窄为「只剔除本会被归一内联掉的字面量原语」，逃生门保住；原语若因「binding 落点 + 多消费方」被保留在图里，也照样保留（它确实还要 worker 执行）。
+
+**反转一：`UNLOCALIZABLE_NODES` 清零是错的，但一刀切恢复也是错的。**
+- 批 3 重扫把 `unlocalizable` 从 283 清到 0，理由是「三台 worker 的 `object_info` 都装了 `RHHiddenNodes` shim」。**实弹推翻**：shim 签名是 `image_1`(IMAGE,required) + `image_2/3/4/pwd`(optional) → 输出 IMAGE（一个手写图像多路器），而 RH 原图里该节点入参是 **`images_1`（复数）/ `num_frames_2`**，甚至有只给 `pwd` 的（实证 `rh-acc-8847936513-e3edd5` 节点 294/295/296）→ smoke 报 `RHHiddenNodes: Required input is missing image_1`（validation）。清零导致 **78/283 条被误判 ok**（其中 `is_public=true` 为 **0**，未污染市场）。
+- 但**一刀切排除同样错**：PG 实测生产 424 个用 `RHHiddenNodes` 的应用里，**有 6 个 `is_public=true` 且 `smoke_status=pass`** —— 它不是普遍致命，只在图用 `images_1`/`num_frames_2` 这类入参时炸。
+- **最终口径**：静态扫描只做**风险标注**（新增 `KNOWN_RISKY_NODES` + 输出字段 `risk_nodes`，不参与 `ok|blocked` 判定），**可跑与否的裁判是 smoke 真跑**（仓库既有纪律「盘上有 ≠ 产品在用」）。需要硬排除时用 `TOIV_UNLOCALIZABLE_NODES` 显式声明。
+
+**反转二：重扫「解锁 231 条」不成立。** 新旧迁移矩阵 **零翻转**（`blocked→blocked 3351`、`ok→ok 3380`）。原因：`:8196` 挂两棵 NAS 树、节点集最广（4940 nodes / 972 models），专用实例 `:8264`(4380/84)、`:8197`(4667/790)、`:8199`(893/84) 更窄，不可能满足 `:8196` 满足不了的。扩池的真实价值只是让 `block_kind` 分类更准。附带核实扩池**没有**实质污染 ok 判定：全量 ok 记录中「通用池可跑」**4272** vs「仅专用实例」**32**（0.74%）。
+
+**反转三：模型侧第一版结论作废。** 第一版报「hf_only 39」是假的——hf-mirror 间歇 `SSL: UNEXPECTED_EOF_WHILE_READING` 被 `except` 吞成 `not_found`；且「仓库 id」与「文件名」两类缺件混判（`TencentGameMate/chinese-wav2vec2-base` 是 repo id 不是文件，实测该仓 6 个文件含 `pytorch_model.bin`）、HF 重传改名使精确 basename 全灭（递归核树后仍 0/12 命中）。修正后 Top150 真实分布：**civitai 命中 6 / not_found 105 / unresolved_transport 39（待重试）**；旧输出留档 `model_resolution_v1_flawed.jsonl`。**结论：「缺模型」这个桶远比预期难恢复**（RH 图里多是社区私有上传或改名件），不该按乐观口径排期。
+
+**先导批的一个方法错误（已修）**：第一次 smoke 先导批用 `--kind image --status untested` 筛选，把**库里既有的未测老应用**也捞了进来（`满血版图片编辑-6d4088`、`Flux-文生图-96c82d` 等 `wid=None`），7 条里 1 pass/6 fail —— 那**不是**对 1717 条新导入的判决。改为 `--ids-file` 严格限定新导入 id。附带发现：老应用未测池 pass 率仅 ~14%，印证「4258 条未测」多半是**因为跑不通才一直没测**。
+
+**自愈链缺陷（本轮发现并修）**：`rh-acc-0052555778-19dac9` smoke 报 `422: 绑定 text_text 指向不存在的节点 144`、`cls=app_data`。真因是 **LLM 修补后的图删掉了 Text 节点 144，而试跑仍用库内 `app.bindings`**（`app_smoke.py:501` `workflow_override=patched_raw` + `app.bindings`）→ `_write_leaf` 422，且这条 422 **把首跑的真实失败原因盖掉**、归因成 `app_data` 误导处置。修法：新增 `_missing_binding_targets()`，补丁若删掉绑定目标节点则**拒绝该补丁并保留原错误**，`record_proposal` 记 `rejected_drops_binding_targets`。5 例新测 + 既有 app_smoke 27 例 = 32 passed。
+
+---
 
 ## 13. W9 Civitai.red R18 参照线（**2026-10-13 用户新增指令**）
+
+> **用户原话**：「Civitai.red 上面有关 R18 的内容都可以学习参考上面的进行」。
+> 与既有拍板的关系：R18 经典流维持 **A（保留经典 web 只读壳）**；`X-NSFW` 机制 + AgeGate + R18 引擎集（如 `h3-nsfw-fl2v`）是仓库既有事实；「内容限制管控已下线（未成年硬阻断 + X-NSFW 语义保留）」是 AGENTS §五 记录的现网口径。本波**不改 R18 的 A/B/C 决策**，只做资产与工作流层面的参照补强。
 
 ### W9-0 工作层面与红线（写死，避免越界）
 

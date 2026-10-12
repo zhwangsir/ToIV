@@ -4219,6 +4219,30 @@ async def _queue_with_validation(client, graph: dict, client_id: str) -> tuple[s
     return await validated(graph, client_id)
 
 
+def resolve_required_nodes(stored: list[str] | None, graph: dict) -> set[str]:
+    """worker 选择用的节点集合:库内快照减去「已被图归一内联掉的字面量原语」。
+
+    `App.required_nodes` 是导入时算的快照,会含 `Text`/`Bool` 这类 RH 字面量原语——
+    `_normalize_primitive_literal_nodes` 已把常量内联进消费方并删掉节点,但快照仍写着它们,
+    于是 worker 选择被根本不存在的依赖淘汰。2026-10-13 实弹实证:归一已部署,smoke 仍报
+    「没有具备所需模型且可用的 worker。…:8196: 缺节点 Text」,而构图结果里已无 Text。
+
+    **只剔除字面量原语**,不做泛化交集:`required_nodes` 非空时按既有契约原样生效
+    (test_run_explicit_required_nodes_used),应用可以声明图里没有的节点(运行时包装节点/
+    钉专用 worker 用),泛化交集会把这个逃生门削掉。原语若因「binding 落点 + 多消费方」
+    而被保留在图里,这里也照样保留(它确实还要被 worker 执行)。
+    """
+    present = {
+        n.get("class_type") for n in (graph or {}).values()
+        if isinstance(n, dict) and n.get("class_type")
+    }
+    declared = {str(x) for x in (stored or []) if x}
+    if not declared:
+        return present
+    inlined_away = {c for c in declared & set(_PRIMITIVE_LITERAL_FIELD) if c not in present}
+    return declared - inlined_away
+
+
 async def _pick_app_client(pool, nodes: set[str], required: set[str]):
     """按图上的 class_type 把应用派到专用实例,其余仍走 WorkerPool。"""
     # 含 Turbo/T8 等变体:凡 MiniMaxH3* 都走 H3 专用实例,避免 pool.pick 在通用池 503。
@@ -4343,9 +4367,7 @@ async def run_app(
     values = {**values, "seed": seed_used}
     # 模型依赖从写值后的图提取(绑定可能改写模型引用叶子);节点依赖空则从图自动取
     required = _extract_required(graph)
-    nodes = set(run_app.required_nodes or a.required_nodes or []) or {
-        n["class_type"] for n in graph.values() if isinstance(n, dict) and n.get("class_type")
-    }
+    nodes = resolve_required_nodes(run_app.required_nodes or a.required_nodes, graph)
     # 速度分档(INTENT e)+H3 智能加速:
     # - speed_tier=fast|quality(默认精细);显式 acceleration!=off 优先进阶档
     # - H3:fast→balanced / quality→off;非 H3:fast 折半 KSampler steps
