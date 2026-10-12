@@ -718,6 +718,18 @@ async def render_shot(
                     # 候选已出片但选优失败：先写入 candidates；外层按是否已有入选决定 error 或保留
                     shot.candidates_json = dumps_candidates(candidates)
                     raise RenderError(str(e)) from e
+                # V4-3 质检门禁:入选候选 VLM 四问(纯增量,失败/未配置 skip 不阻塞)
+                try:
+                    from app.services.studio.qa_gate import apply_qa_to_candidates
+
+                    apply_qa_to_candidates(
+                        candidates,
+                        ref_image_path=ref_path,
+                        scene=str(getattr(shot, "scene", "") or ""),
+                        local_url_resolver=_resolve_vid,
+                    )
+                except Exception as _qa_e:  # noqa: BLE001 — 质检失败绝不阻塞渲染主链
+                    logger.warning("qa_gate 异常(跳过): %s", _qa_e)
                 if win_id:
                     for c in candidates:
                         if c.get("id") == win_id and c.get("url"):

@@ -2144,22 +2144,52 @@ async def render_one(
             worker_url = validate_worker_override(body.worker_url)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
-    try:
-        out_shot = await orchestrator.render_shot(
-            session,
-            shot,
-            request=request,
-            video_model=vm,
-            num_candidates=n,
-            ref_images=refs,
-            scene_images=scenes,
-            pipeline=pipe,
-            ref_style=rstyle,
-            seed=fixed_seed,
-            worker_url=worker_url,
-            wait=do_wait,
-        )
+    # V4-3b 质检自动重试:单候选同步路径 qa=fail → 换 seed 重生成(上限 MAX_ATTEMPTS);
+    # 多候选/异步路径不重试(选优与 tracker 各有语义)。RenderError 由底部 except 转 502。
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            out_shot = await orchestrator.render_shot(
+                session,
+                shot,
+                request=request,
+                video_model=vm,
+                num_candidates=n,
+                ref_images=refs,
+                scene_images=scenes,
+                pipeline=pipe,
+                ref_style=rstyle,
+                seed=fixed_seed,
+                worker_url=worker_url,
+                wait=do_wait,
+            )
+        except RenderError as e:
+            raise HTTPException(status_code=502, detail=str(e)) from e
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
         if do_wait:
+            from app.services.studio.qa_gate import MAX_ATTEMPTS as _QA_MAX, should_retry as _qa_retry
+
+            qa = None
+            try:
+                _rows = json.loads(out_shot.candidates_json or "[]")
+                qa = next(
+                    (c.get("qa") for c in _rows
+                     if isinstance(c, dict) and c.get("status") == "done" and isinstance(c.get("qa"), dict)),
+                    None,
+                )
+            except (ValueError, TypeError):
+                qa = None
+            if _qa_retry(qa, attempt) and n == 1:
+                import logging as _log
+
+                _log.getLogger(__name__).warning(
+                    "qa 重试 shot=%s verdict=%s attempt=%s/%s(换 seed 重生成)",
+                    sid, qa.get("verdict"), attempt, _QA_MAX,
+                )
+                fixed_seed = None  # 换 seed
+                continue
             return _shot_out(out_shot)
         import json as _json
 
@@ -2184,11 +2214,6 @@ async def render_one(
             "shot_id": out_shot.id,
             "shot": _shot_out(out_shot),
         }
-    except ValueError as e:
-        # 非法 ref_style 等参数错误 → 422 纯中文
-        raise HTTPException(status_code=422, detail=str(e)) from e
-    except RenderError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
 
 
 @router.post("/studio/shots/{sid}/candidates/{cid}/pick")

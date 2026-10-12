@@ -188,4 +188,6 @@ def test_shot_epoch_group_logging_smoke(ctx, caplog):
                 )
             except Exception:  # noqa: BLE001 — 渲染门失败即到此为止
                 pass
-    assert any("ref_epoch=3" in rec.message for rec in caplog.records), caplog.messages[:5]
+    # V4-1 后 access 日志混入;只看 orchestrator 记录器的记录
+    orch_logs = [r for r in caplog.records if r.name == "app.services.studio.orchestrator"]
+    assert any("ref_epoch=3" in r.getMessage() for r in orch_logs), [r.getMessage() for r in orch_logs[:5]]
