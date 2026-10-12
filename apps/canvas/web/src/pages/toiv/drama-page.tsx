@@ -73,11 +73,13 @@ export default function DramaPage() {
                 </div>
             </header>
 
-            <FromImageDialog
-                open={fromImageOpen}
-                onClose={() => setFromImageOpen(false)}
-                onProjectCreated={(pid) => { setFromImageOpen(false); void load(); navigate(`/toiv/ws/${pid}`); }}
-            />
+            {fromImageOpen && (
+                <FromImageDialog
+                    open
+                    onClose={() => setFromImageOpen(false)}
+                    onProjectCreated={(pid) => { setFromImageOpen(false); void load(); navigate(`/toiv/ws/${pid}`); }}
+                />
+            )}
 
             {loading ? <div className="flex min-h-64 items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></div>
                 : error ? <EmptyState description="读取失败，请刷新重试" />
