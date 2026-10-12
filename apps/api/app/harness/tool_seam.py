@@ -229,6 +229,75 @@ def builtin_tool_specs() -> list[ToolSpec]:
                      "auto-editor 智能粗剪(去静默/废帧;输入本站视频地址)", rate_scope=""),
         ]
 
+    def _toolpages_specs() -> list[ToolSpec]:
+        """V4-1 Agent 同构(2026-10-12):工具页域(音频/图片/视频剪辑/译制;tools_tools.py)。"""
+        from app.agent import tools_tools as tt
+
+        def ts_(name: str) -> dict:
+            return next(s for s in tt.TOOL_SCHEMAS_TOOLPAGES if s["function"]["name"] == name)
+
+        return [
+            ToolSpec("synthesize_voice", ts_("synthesize_voice"), tt.exec_synthesize_voice,
+                     "TTS 配音(IndexTTS2;参考音克隆;约几十秒)", rate_scope=""),
+            ToolSpec("separate_vocals", ts_("separate_vocals"), tt.exec_separate_vocals,
+                     "人声分离(Demucs 干声;可作克隆参考音)", rate_scope=""),
+            ToolSpec("transcribe_media", ts_("transcribe_media"), tt.exec_transcribe_media,
+                     "whisper 听写(音视频→带时间轴分段;异步)", rate_scope=""),
+            ToolSpec("remove_background", ts_("remove_background"), tt.exec_remove_background,
+                     "智能去背景(general/anime/human)", rate_scope=""),
+            ToolSpec("upscale_image", ts_("upscale_image"), tt.exec_upscale_image,
+                     "高清增强(2x/4x 放大+细节修复)", rate_scope=""),
+            ToolSpec("inpaint_region", ts_("inpaint_region"), tt.exec_inpaint_region,
+                     "局部重绘(文字描述区域与替换内容)", rate_scope=""),
+            ToolSpec("fix_faces", ts_("fix_faces"), tt.exec_fix_faces,
+                     "人脸修复(模糊/低质量脸)", rate_scope=""),
+            ToolSpec("qwen_edit_image", ts_("qwen_edit_image"), tt.exec_qwen_edit_image,
+                     "智能编辑(Qwen 语义+相机控制)", rate_scope=""),
+            ToolSpec("image_to_3d", ts_("image_to_3d"), tt.exec_image_to_3d,
+                     "图生 3D(Hunyuan3D GLB;分钟级)", rate_scope=""),
+            ToolSpec("render_video_edit", ts_("render_video_edit"), tt.exec_render_video_edit,
+                     "三轨剪辑成片(片段/音频/文字→ffmpeg;≤600s)", rate_scope=""),
+            ToolSpec("translate_segments", ts_("translate_segments"), tt.exec_translate_segments,
+                     "LLM 字幕翻译(en/ja/ko/zh)", rate_scope=""),
+            ToolSpec("generate_voice_track", ts_("generate_voice_track"), tt.exec_generate_voice_track,
+                     "译制配音轨(克隆源音色;异步)", rate_scope=""),
+            ToolSpec("lipsync_long", ts_("lipsync_long"), tt.exec_lipsync_long,
+                     "译制对口型成片(分段 GPU;异步)", rate_scope=""),
+        ]
+
+    def _studio_specs() -> list[ToolSpec]:
+        """V4-1 Agent 同构(2026-10-12):v2 六段工作区/创作域工具(tools_studio.py)。
+        与 UI 调同一批 routes 函数;长任务提交即返回 job_id。"""
+        from app.agent import tools_studio as ts
+
+        def ss(name: str) -> dict:
+            return next(s for s in ts.TOOL_SCHEMAS_STUDIO if s["function"]["name"] == name)
+
+        return [
+            ToolSpec("create_studio_project", ss("create_studio_project"), ts.exec_create_studio_project,
+                     "创建 v2 短剧项目(六段工作区;返回 project_id)", rate_scope=""),
+            ToolSpec("breakdown_script", ss("breakdown_script"), ts.exec_breakdown_script,
+                     "剧本 AI 拆解成结构化分镜+角色(异步;查 studio_parse_status)", rate_scope=""),
+            ToolSpec("studio_parse_status", ss("studio_parse_status"), ts.exec_studio_parse_status,
+                     "查询剧本拆解结果(角色/分镜)", rate_scope=""),
+            ToolSpec("image_parse_from_reference", ss("image_parse_from_reference"), ts.exec_image_parse_from_reference,
+                     "从图片 VLM 解析直接建项目+分镜(需用户已发图;异步)", rate_scope=""),
+            ToolSpec("studio_image_parse_status", ss("studio_image_parse_status"), ts.exec_studio_image_parse_status,
+                     "查询图片解析结果(项目 id)", rate_scope=""),
+            ToolSpec("gen_character_sheet", ss("gen_character_sheet"), ts.exec_gen_character_sheet,
+                     "生成角色定妆卡(主立绘+三视图+表情;15-20 分钟异步)", rate_scope=""),
+            ToolSpec("check_sheet", ss("check_sheet"), ts.exec_check_sheet,
+                     "查询设定卡生成结果(设定卡+面板 URL)", rate_scope=""),
+            ToolSpec("render_shot", ss("render_shot"), ts.exec_render_shot,
+                     "渲染一个分镜(H3 Ref2VA;可多候选;异步 job_id)", rate_scope=""),
+            ToolSpec("pick_shot_candidate", ss("pick_shot_candidate"), ts.exec_pick_shot_candidate,
+                     "多候选渲染后选定某候选为镜成片", rate_scope=""),
+            ToolSpec("shot_subtitles", ss("shot_subtitles"), ts.exec_shot_subtitles,
+                     "整片字幕(SRT 外挂;op=burn 烧录内嵌)", rate_scope=""),
+            ToolSpec("lipsync_shot", ss("lipsync_shot"), ts.exec_lipsync_shot,
+                     "对已渲染+已配音的视频镜做对口型(分钟级)", rate_scope=""),
+        ]
+
     return [
         ToolSpec("generate_image", schema("generate_image"), _wrap(tools.exec_generate_image),
                  "文生图(海报/插画/照片/概念图等)"),
@@ -284,6 +353,10 @@ def builtin_tool_specs() -> list[ToolSpec]:
         # ── 自愈闭环延伸工具(tools_selfheal.py;烟测失败归因/修复建议/重测/回滚)──
         *_selfheal_specs(),
         *_videoedit_specs(),
+        # ── V4-1 v2 工作区/创作域工具(tools_studio.py;与 UI 同 API 面)──
+        *_studio_specs(),
+        # ── V4-1 工具页域(音频/图片/视频剪辑/译制;tools_tools.py)──
+        *_toolpages_specs(),
     ]
 
 

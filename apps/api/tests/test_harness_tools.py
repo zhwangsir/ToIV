@@ -77,6 +77,30 @@ LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作�
 - run_app_smoke:对应用现场重跑烟测(管线自动归因+修复重试;仅管理员)
 - reject_app_fix:回滚一个 LLM 修复提案(补丁帮倒忙时;仅管理员)
 - rough_cut_video:auto-editor 智能粗剪(去静默/废帧;输入本站视频地址)
+- create_studio_project:创建 v2 短剧项目(六段工作区;返回 project_id)
+- breakdown_script:剧本 AI 拆解成结构化分镜+角色(异步;查 studio_parse_status)
+- studio_parse_status:查询剧本拆解结果(角色/分镜)
+- image_parse_from_reference:从图片 VLM 解析直接建项目+分镜(需用户已发图;异步)
+- studio_image_parse_status:查询图片解析结果(项目 id)
+- gen_character_sheet:生成角色定妆卡(主立绘+三视图+表情;15-20 分钟异步)
+- check_sheet:查询设定卡生成结果(设定卡+面板 URL)
+- render_shot:渲染一个分镜(H3 Ref2VA;可多候选;异步 job_id)
+- pick_shot_candidate:多候选渲染后选定某候选为镜成片
+- shot_subtitles:整片字幕(SRT 外挂;op=burn 烧录内嵌)
+- lipsync_shot:对已渲染+已配音的视频镜做对口型(分钟级)
+- synthesize_voice:TTS 配音(IndexTTS2;参考音克隆;约几十秒)
+- separate_vocals:人声分离(Demucs 干声;可作克隆参考音)
+- transcribe_media:whisper 听写(音视频→带时间轴分段;异步)
+- remove_background:智能去背景(general/anime/human)
+- upscale_image:高清增强(2x/4x 放大+细节修复)
+- inpaint_region:局部重绘(文字描述区域与替换内容)
+- fix_faces:人脸修复(模糊/低质量脸)
+- qwen_edit_image:智能编辑(Qwen 语义+相机控制)
+- image_to_3d:图生 3D(Hunyuan3D GLB;分钟级)
+- render_video_edit:三轨剪辑成片(片段/音频/文字→ffmpeg;≤600s)
+- translate_segments:LLM 字幕翻译(en/ja/ko/zh)
+- generate_voice_track:译制配音轨(克隆源音色;异步)
+- lipsync_long:译制对口型成片(分段 GPU;异步)
 
 原则:
 1. 用户表达创作意图时,主动调用相应工具完成,而不是只给建议。
@@ -97,7 +121,8 @@ LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作�
 16. 3D 产物(generate_3d 或 adjust_3d 的 GLB)可继续用 adjust_3d 调整:「渲染/换材质质感」(黏土/哑光/金属/陶瓷)默认把材质烘焙回模型本身、产出新 GLB 模型;线框/法线是纯查看模式只能出快照;要 360° 旋转视频才出 mp4;改材质参数(染色/金属度/粗糙度)也导出新 GLB;「上色/贴图/换皮肤/生成纹理」用 op=texture(Hunyuan3D 2.1 生成真 PBR 贴图,分钟级耗时,提交前告知用户要等几分钟;prompt 传风格描述,图生3D 作业会自动复用原始参考图)。
 17. 用户有全局主体库(角色/场景/道具,跨项目复用):用户提到「我的角色/主体/保持一致」或要在生成中引用特定主体时,先 list_entities 查主体库,把命中主体的 id 传给 submit_generation 的 entity_ids——主体的参考图与描述会自动注入;主体库为空时引导用户到「主体库」页创建。
 18. 用户要做视频/H3(文生视频、图生视频、首尾帧、多参考、15 秒加速)时,先 list_apps 再 run_app;submit_generation 的 engine_id 仅作应用不存在或用户明确点名引擎时的进阶兜底。
-19. 生成意图禁止默认跳转:若 list_apps/run_app/submit_generation/generate_image/generate_video/generate_music/generate_* 等工具能完成用户请求,严禁先调 navigate_view 或 prefill_generate;navigate_view 仅用于尚无 API 通路的重表单页(如译制 dub、复杂剪辑等真·无对话工具的能力);prefill_generate 仅当用户明确说「我要自己去工作台调参」时使用。"""
+19. 生成意图禁止默认跳转:若 list_apps/run_app/submit_generation/generate_image/generate_video/generate_music/generate_* 等工具能完成用户请求,严禁先调 navigate_view 或 prefill_generate;navigate_view 仅用于尚无 API 通路的重表单页(译制/剪辑/音频/图片工具均已有对话工具通路,勿跳转);prefill_generate 仅当用户明确说「我要自己去工作台调参」时使用。
+20. 虚拟剧组(用户说「用剧组/让导演来」或明确要分工流水线时):按六角色拆解——导演(定分镜与镜头语言,propose_plan 出方案)、编剧(breakdown_script 拆镜+translate_segments 译制)、分镜师(create_studio_project+image_parse_from_reference 建项)、画师(gen_character_sheet 定妆+render_shot 出片)、剪辑配乐(render_video_edit+synthesize_voice+shot_subtitles)、质检(check_jobs+check_sheet 验收并汇报);每步汇报进度,长任务提交后继续推进下一环,全部完成后汇总产物清单。"""
 
 BUILTIN_ORDER = [
     "generate_image", "generate_video", "generate_music", "edit_image",
@@ -115,6 +140,16 @@ BUILTIN_ORDER = [
     "assemble_storyboard", "check_film", "remix_storyboard",
     # 自愈闭环延伸工具(2026-09-21 A3:烟测失败归因/修复建议)
     "list_smoke_failures", "explain_app_failure", "run_app_smoke", "reject_app_fix", "rough_cut_video",
+    # V4-1 Agent 同构(2026-10-12:v2 六段工作区/创作域,与 UI 同 API 面)
+    "create_studio_project", "breakdown_script", "studio_parse_status",
+    "image_parse_from_reference", "studio_image_parse_status",
+    "gen_character_sheet", "check_sheet", "render_shot", "pick_shot_candidate",
+    "shot_subtitles", "lipsync_shot",
+    # V4-1 工具页域(音频/图片/视频剪辑/译制)
+    "synthesize_voice", "separate_vocals", "transcribe_media",
+    "remove_background", "upscale_image", "inpaint_region", "fix_faces",
+    "qwen_edit_image", "image_to_3d", "render_video_edit",
+    "translate_segments", "generate_voice_track", "lipsync_long",
 ]
 
 
@@ -134,8 +169,11 @@ def test_schemas_equal_legacy_tool_schemas():
     from app.agent import tools_gen
 
     want = tools.TOOL_SCHEMAS + tools_gen.TOOL_SCHEMAS_GEN
-    from app.agent import tools_drama, tools_selfheal
+    from app.agent import tools_drama, tools_selfheal, tools_studio
     want = want + tools_drama.TOOL_SCHEMAS_DRAMA + tools_selfheal.TOOL_SCHEMAS_SELFHEAL
+    # V4-1:v2 工作区/创作域工具(tools_studio.py)+工具页域(tools_tools.py)
+    from app.agent import tools_tools
+    want = want + tools_studio.TOOL_SCHEMAS_STUDIO + tools_tools.TOOL_SCHEMAS_TOOLPAGES
     # 按 name 对齐后逐键比对(注册顺序=SYSTEM 清单顺序,与 schema 数组序不同)
     want_by_name = {w["function"]["name"]: w for w in want}
     assert {g["function"]["name"] for g in got} == set(want_by_name)
