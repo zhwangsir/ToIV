@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-12（ToIV开发）：**V4-0 质量收口全部完成**——api 测试债 106→0 全绿（4132/0/38skip；根修 422 序列化+agent list_apps 真 bug）；toiv-vlm 上线（Qwen3-VL-8B@GPU3:9311，多模态 08-05 缺位恢复，from-image 实弹复活）；设定卡异步首个生产 done。下一波 V4-1 Agent 同构（真源 `docs/ops/PLATFORM_V4_PLAN_20261012.md`）。`updated_at` 2026-10-12T18:20:00+08:00。
+> **最后更新**：2026-10-13（ToIV开发）：**V5 方案成文 + W0 收口 + W8 RunningHub 全量本地化在跑**——V5 优化方案 18 节功能条目级（真源 `docs/ops/PLATFORM_V5_PLAN_20261013.md`，四主轴全要）；三端「全绿」基线恢复（api 4215 collected/全量 exit=0、web 1166、canvas tsc 0 错+shared 2682）；W0-3 拼接混规格静默哑音活雷已修；RH 全量分类完成（64831 条 → ok 5960），批0 复活 1727 条使 public 83→1810，批C 已导入 1717+（`is_public=False`，待 smoke 才上架）。**纠正上批口径：`f8633401` 是 react-router 从 `^8.2.0` 降级钉死 `7.9.5`，不是升级 8.4.0**。`updated_at` 2026-10-13T07:00:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -133,8 +133,21 @@
 - **P-8 DB 会话纪律（09-21 池楔死 P0）**：FastAPI yield 依赖**响应流完才 teardown**——大 payload 端点必须内存拼好字节后**显式 session.close() 再返回**;**异步长任务禁持 DB 会话跨 await**;PG 池已显式 20+20/pre_ping;诊断=pg_stat_activity 看 idle in transaction（基线 20 idle/0 楔死）+core venv py-spy。
 - **P-9 agent 工具纪律**：加工具同步四处断言（BUILTIN_ORDER/schemas/LEGACY_SYSTEM/test_agent_gen_tools）;服务抽出 import 必须别名防遮蔽;**成功文案首 60 字禁 hint 词**（"失败/超时/不可用/仅 R18/过于频繁/未知工具/不存在",错误路径反而要含）。
 - **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
+- **P-11 分页契约会把「静默吞错」放大成数据灾难（10-13 实证）**：S1 起 `/api/apps` 对 `limit>1000` 与未知 query 返回 **422**（不再是静默忽略）。任何「先拉全量 id 再去重」的辅助函数若把非 200 吞成空集，去重就形同失效——`_already_seeded_webapp_ids` 曾请求 `?limit=5000` 拿到 422 后返回 0 条（库内实有 5636），重跑会重复灌入约 6k 应用。**处置**：分页拉（`limit=1000&offset=`）+ **任何一页失败即 raise**，绝不返回空集当「库里没有」。同类风险自查：所有 `except → continue/return []` 的网络辅助函数。
+- **P-12 派生指标不能自证（10-13 两例）**：①用 `X-Total-Count` 验证上架是错的——admin 视图**不按 `is_public` 过滤**，发布前后都是 6731；改用 PG `count(*) FILTER (WHERE is_public)` 才看到 83→1810。②「重扫解锁 231 应用」出自调研报告，翻转矩阵实测**零变化**（blocked→blocked 3351、ok→ok 3380）。**处置**：任何「预期收益 N 条」的说法，落地前先做翻转矩阵/前后对照，别拿单向计数当增量。
 
 ## 七、当前焦点（活口径摘要）
+
+### 2026-10-13（ToIV开发：V5 方案 + W0 收口 + W8 RunningHub 全量本地化 + W9 civitai 溯源）
+- **用户新增指令**：「把 RunningHub 所有能本地部署的应用都拉进项目使用；civitai.red 上 R18 相关内容可学习参考；后续无需询问，自主往下进行」。自主边界自守三类仍主动报：新雷级缺陷、需推翻既有拍板（R18 A/B/C、c_hybrid 默认路线）、不可逆/高影响操作（删数据目录、force push、生产 PG schema 变更）。
+- **V5 方案**：`docs/ops/PLATFORM_V5_PLAN_20261013.md`（18 节，功能条目级）。三轨调研=商业 13 家 + 开源语料再挖与 39 仓新克隆（github+gitee，纯本地学习用途）+ 代码级盘点；§2.2 20 行差距表三源互证；波次 W0–W9；§14 决策点；§15 明确不做；§17 双轨执行序 + 六条自守约束。
+- **W0 收口**：①三端「全绿」基线恢复——api **4215 collected / 全量 exit=0 / 38 skip**、web **1166 全绿**、canvas **tsc 0 错 + shared 2682 pass/2 skip/0 fail**；②W0-3 拼接规格归一（活雷）——ffmpeg concat demuxer + `-c copy` 混规格**静默丢尾段音轨而 `probe_duration` 照报满时长**，新增 `probe_media_spec`/`spec_diff_fields`/`normalize_clip`/`concat_parts_uniform`（只转码不一致分段），15 例单测；③W0-2 内层冗余 `key={pathname}` 已摘，外层 key **保留待回归**。
+- **口径纠正（重要，别再传错）**：`f8633401` 是 react-router **从 `^8.2.0` 降级并钉死 `7.9.5`**（`apps/canvas/web/package.json:74` 无 caret；`bun.lock:2210` 与 `node_modules` 均已核），**不是升级 8.4.0**；提交信息本身自证「已证与 router 版本无关」。另：「默认横屏低清是活缺陷」也错——`models.py:655-657` `STUDIO_DEFAULT_WIDTH=768/HEIGHT=1344/FPS=24`，v2 Studio 主路径已是竖屏，768×384@16 只在已死的 legacy Drama 域（重划 W5-7）。`services/toiv/client.ts` 是**刻意的第二数据面**（裸 JSON + ToIV JWT），共享 `http` 会解包 `{code,data,msg,reason}` 从而破坏它 → 已白名单登记为第二个 axios 实例根，不迁。
+- **W8 RunningHub**：批B 全量分类完成（65031 候选/64831 处理/3964s → **ok 5960**、blocked 27029、not_exportable 31781、export_failed 58）；批0 复活 pass-but-hidden **1727** 条 → `is_public` **83→1810**；批C-1 导入 **1717**（app 表 6854→8571），批C-2 进行中（`is_public` 一律 False）；批E 原语字面量内联 + `resolve_required_nodes` + LLM 补丁绑定守卫（`3f3450ad`，真机 smoke PASS 实证 243.9s 出片）；批D-2 节点包归因用 ComfyUI-Manager **`extension-node-map.json`**（5705 repo/42491 类名）反查 642 缺失类名 → pack_resolved 305/1202 应用次、pack_stale 46/311、ambiguous 52/157、rh_cloud 47/587、unresolved 189/763，装包计划 160 包（Top：WanAnimatePlus 174 判为**更新**、nunchaku 127、Fluxtapoz 87、ttN 56、LCS 52）。
+- **W9 civitai**：认定 **civitai.red 是 civitai 官方备用域**（站点自报 `serverDomains`：green=civitai.com、blue=civitai.red+civitaired.com，同后端/同库/同 R2）；本机 civitai.com 被 DNS 污染而 .red 可达；`/api/v1/model-versions/by-hash/{sha256}` = 溯源神谕。P0-1 完成：9 个 H3 R18 LoRA → **8 条解析成功**（含 modelId/creator/许可四旗标），`MODEL_SOURCES` ok **479→487**、blocked 336→337、total **816→825**，core 快照逐字节同步。P0-2 修 `h3.py:53` 悬空引用（civitai 2841940 已下架 → 标 `provenance_lost`）。**边界**：只做元数据层，不下载权重、不注册账号、不绕登录墙/付费墙；涉及未成年一律绝对禁区；R18 资产只进经典 web R18 面，绝不进 `/studio`（canvas 纯 SFW）。
+- **三次判断反转（都已入账，别再按旧结论走）**：①RHHiddenNodes 清空 `UNLOCALIZABLE_NODES` 错（shim 签名 `image_1` required，而 RH 图用 `images_1`/`num_frames_2` → 78/283 假阳性 ok），但一刀切排除也错（PG 实证 **451** 个生产应用在用、其中 **6** 条 `is_public=true` 且 `smoke_status=pass`）→ 终局**标注不排除**（`KNOWN_RISKY_NODES`/`risk_nodes`），可部署性以 smoke 为裁判；②调研报告「重扫解锁 231 应用」**假**（翻转矩阵零变化），真价值只是清掉伪造的 unlocalizable 标签；③模型解析 v1 **不可信**（hf-mirror 间歇 SSL EOF 被 `except→continue` 吞成 `not_found`，「hf_only 39」全是假象）→ v2 加重试 + 独立 `unresolved_transport` 态，Top150 修正为 civitai 6/not_found 105/transport 39，旧产物留 `model_resolution_v1_flawed.jsonl`。另：civitai 报告「H3 零配方」也**假**——`community_recipes.py` 有 9 条其中 6 条 H3，只有 LTXV 2.3 真是零 → P1-3 重划。
+- **开口**：上架闸（先导批 pass 率 ≥60% 才放量，**不得跳过 smoke 直接 bulk-public**）；装包 160 个待 ComfyUI 重启窗口（烟测跑动期间禁重启，:8188 曾因此瞬时 503；nunchaku 需 sm_120 内核见 P-7，风险高于纯 python 工具包）；`deploy/comfy-extensions/toiv_rh_shims` 是 09-15 的 38 行旧件，只实现 RHHiddenNodes 且签名与真实图不符 → 451 应用受影响，扩展方向已定（**ComfyUI 侧 shim 优于 api 侧预解析**：RH_Translator 实证签名 `seed`/`prompt`/`advanced_options`→STRING 有三种接线，字面量/表单绑定/运行时连线，api 侧只能处理字面量，且 `_build_graph` 是同步热路径不宜塞网络调用）；W0-1b `asset-view-scope.browser.test.ts` 5 例既有红灯（定向 `git stash` 实证 HEAD 既存，非本批引入）。
+- Status：`v5_plan_w0_test_debt_2026_10_13` + `w8_rh_full_local_import_2026_10_13` + `w9_civitai_provenance_2026_10_13`（STATE 同三键）。via ToIV 开发（自主执行）。
 
 ### 2026-10-11（ToIV开发：桌面同版本构建收口+LAN 验证口径；四判据 4/4）
 - **背景**：S1–S14 主线已全部走完（tip `797b0d97` 双远端，详叙 `docs/ops/UNIFIED_PLATFORM_EXECUTION_20261010.md` 各批✅）；本轮补齐四判据第 4 项并固化 LAN 口径。
@@ -397,8 +410,11 @@
 - [x] ~~H3 FL2VA 真出片+完成回写复测~~（**2026-10-11 六轮排查 PASS**：api 撤反向别名+RH 节点 resolve 泄名补丁×3+恢复本地全量四件套；烟测 223.8s 真出片；`907f5f85` 核销；STATE `h3_fl2va_chain_closed_2026_10_11`）
 - [ ] 非管理员视角市场复核（role=user 账号 4 个在产，密码哈希不可逆——需用户提供凭据或授权重置测试号）
 - [x] ~~`/api/apps` limit 未实现 + 画布市场不分页全量渲染~~（**2026-10-11 S1 已修并部署**：limit/offset+X-Total-Count+未知 query 422；市场 200/页+加载更多；wineryz 实证）
-- [ ] canvas `tsc --noEmit` 预存失败（project.tsx:3097 onAddLocalGenerator 属性不匹配；部署走 vite 不阻塞）——P1 顺带修
-- [ ] Slice C（RH 重上架后续）触发条件待重定义：真缺口候选仅剩「经典 view 正文未渲染工具箱分组」与「0.3 非管理员可见性」两处，任一成立才开刀
+- [x] ~~canvas `tsc --noEmit` 预存失败（project.tsx:3097 onAddLocalGenerator）~~（**2026-10-13 W0-1 已修**：`tsc --noEmit` 0 错，同时补 `onAddLocalGenerator` 转发；shared 批 2682 pass/2 skip/0 fail）
+- [ ] W0-1b canvas `asset-view-scope.browser.test.ts` 5 例既有红灯（定向 `git stash` 实证 HEAD 既存、非本批引入；其余 browser 套件全过故 harness 无问题；首症=reload 后 `getByRole("dialog")` 不出现，`__assetViewHarness` 由 Bun 插件注入故 `src/` 内搜不到）——建议与 W5-7 配对做系统化排障
+- [ ] W0-2 外层 pathname-key 摘除回归（内层冗余 key 已摘；摘外层前须补 drama↔library↔market↔tasks 往返 ×10 真机回归，PASS 才摘，FAIL 则保留并在注释写明防御性保留+回归日期）
+- [ ] AGENTS.md 自身体量违约：文件头声明「全文 <20KB」而实测 66KB——§七 焦点条目需按既有惯例归档到 `.archive/`（本批未动，避免与在跑批次抢同一文件）
+- [ ] Slice C（RH 重上架后续）触发条件待重定义：真缺口候选仅剩「经典 view 正文未渲染工具箱分组」与「0.3 非管理员可见性」两处，任一成立才开刀。**2026-10-13 前提已变**：W8 批B/批C 把 RH 全量分类（ok 5960）并导入 1717+ 条，「RH 重上架」这件事已由 W8 以更大规模接管，Slice C 若再开刀须先与 W8 上架闸对齐，避免两套上架口径
 - [ ] SeC 387721：einops reshape 错=SecNodes×torch2.13/sm_120 上游边界（已登记，flash-attn 关闭保留）
 
 ### 设备/运维（现场或决策项）
@@ -413,5 +429,5 @@
 - [ ] 旧 Admin JWT 吊销（HOLD，等设备侧执行）
 - [ ] rh-acc-9923136513-48997d(Z-Image 去 AI 感)：**2026-09-23 空闲窗终测 FAIL**（闸已开仍 FAIL）——报 finegrained-fp8 `kernels` 版本冲突（现要求 `0.15.2≤v<0.16.0`，舰队 `0.16.2`；:8196 restart+0.16.2 trust_ok 复测仍 FAIL）；疑接单 worker 未落到已装 kernels/`HF_ENDPOINT`/trust；先验「kernels 0.16.2 + fleet drop-in」未在本跑实证；**设备侧核 worker 落点后复测**；封面闸假忙 `1292bb5` 已部署、`TOIV_COVER_AUTOREFIRE=false`（产品侧闸项已清）
 - [x] ~~wave4 设备组残留核查~~（2026-09-22 真机核：Anything Everywhere3/easy sam3GetObjectMask/IPAdapter FaceID 节点族在位；H3 文本节点由 h3_like 前缀兜底覆盖非问题;「全局输入」全库无此节点名=误记;FaceID LoRA 原文件 Best_FaceID_v1.0 仍 blocked,等效 ip-adapter-faceid-plusv2_sd15/sdxl 已在位）
-- [ ] MODEL_SOURCES 持续追加（当前 ok479/blocked336/total816；2026-10-10 backfill `SenseVoiceSmall`，core 已同步）
+- [ ] MODEL_SOURCES 持续追加（当前 **ok487/blocked337/total825**；2026-10-13 W9 P0-1 by-hash 溯源回填 9 条 H3 R18 LoRA——8 条 civitai 解析成功含 modelId/creator/许可四旗标、1 条上游已下架标 `provenance_lost`；core 快照 `apps/api/app/data/model_sources.json` 逐字节同步）
 - [x] ~~wave23 后空闲窗口补刀~~（超时/排队：残差 7 例中 6 例间歇期已由烟测管线翻盘 pass,1 例三测演进为真修（kernels 0.16.2 装妥）+长链超时留空闲窗口终测;QwenEdit fp4:r128 edit+r128 image 8steps 已落 NAS,r32 edit 已在库补登记,账对齐 478/336/815;封面余量=autorefire 深度闸自动跑,勿手动）
