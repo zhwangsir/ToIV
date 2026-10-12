@@ -8,10 +8,14 @@ import { Callout } from "@/components/ui/product/callout";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import {
+    autocutDub,
+    getAnimeLipsyncStatus,
+    highlightsDub,
     importSrtDub,
     pollDubTranscribe,
     pollLipsyncLong,
     pollVoiceTrack,
+    startAnimeLipsync,
     startDubTranscribe,
     startLipsyncLong,
     startVoiceTrack,
@@ -46,7 +50,8 @@ type Phase =
     | { kind: "transcribe"; stage: string; pct: number }
     | { kind: "translate" }
     | { kind: "voice"; stage: string; pct: number }
-    | { kind: "lipsync"; stage: string; done: number; total: number };
+    | { kind: "lipsync"; stage: string; done: number; total: number }
+    | { kind: "anime"; stage: string; pct: number };
 
 export default function DubToolsPage() {
     const [videoName, setVideoName] = useState("");
@@ -57,6 +62,7 @@ export default function DubToolsPage() {
     const [emoText, setEmoText] = useState("");
     const [voice, setVoice] = useState<{ url: string; duration: number; segment_count: number } | null>(null);
     const [lipsyncUrl, setLipsyncUrl] = useState("");
+    const [highlights, setHighlights] = useState<{ title: string; selected: number[] } | null>(null);
     const [phase, setPhase] = useState<Phase>({ kind: "idle" });
     const [error, setError] = useState<string | null>(null);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -223,6 +229,82 @@ export default function DubToolsPage() {
         }
     };
 
+    // V4-5:AI 精剪——LLM 从字幕挑高光句,选中的分段高亮
+    const pickHighlights = async () => {
+        if (segments.length === 0) return;
+        guard();
+        setError(null);
+        setPhase({ kind: "translate" });
+        try {
+            const r = await highlightsDub(segments.map((s) => ({ index: s.index, text: s.text })), 0);
+            setHighlights({ title: r.title, selected: r.selected ?? [] });
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "AI 精剪失败");
+        } finally {
+            setPhase({ kind: "idle" });
+        }
+    };
+
+    // V4-5:自动切段(场景/静音检测)——切段结果直接填给对口型
+    const [autocutMode, setAutocutMode] = useState<"scene" | "silence">("scene");
+    const runAutocut = async () => {
+        if (!videoName) return;
+        guard();
+        setError(null);
+        setPhase({ kind: "translate" });
+        try {
+            const r = await autocutDub(videoName, autocutMode, 0.4, 3);
+            const segs: DubSegment[] = (r.segments ?? []).map((x, i) => ({
+                index: i, start: x.start, end: x.end,
+                text: segments.find((o) => o.start >= x.start && o.end <= x.end)?.text ?? "",
+            }));
+            setSegments(segs);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "自动切段失败");
+        } finally {
+            setPhase({ kind: "idle" });
+        }
+    };
+
+    // V4-5:动漫口型(本地 CV,非 LatentSync;低配替代)
+    const doAnimeLipsync = async () => {
+        if (!videoName) return;
+        guard();
+        setError(null);
+        setLipsyncUrl("");
+        setPhase({ kind: "anime", stage: "启动动漫口型", pct: 0 });
+        try {
+            const { job_id } = await startAnimeLipsync(
+                videoName,
+                voice?.url.split("/").pop()?.split("?")[0],
+            );
+            await new Promise<void>((resolve, reject) => {
+                pollRef.current = setInterval(async () => {
+                    try {
+                        const st = await getAnimeLipsyncStatus(job_id);
+                        if (st.status === "done") {
+                            guard();
+                            setLipsyncUrl(st.url ?? "");
+                            setPhase({ kind: "idle" });
+                            resolve();
+                        } else if (st.status === "error") {
+                            guard();
+                            reject(new Error(st.error || "动漫口型失败"));
+                        } else {
+                            setPhase({ kind: "anime", stage: st.stage || "处理中", pct: st.progress ?? 0 });
+                        }
+                    } catch (e) {
+                        guard();
+                        reject(e);
+                    }
+                }, 2000);
+            });
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "动漫口型失败");
+            setPhase({ kind: "idle" });
+        }
+    };
+
     const busy = phase.kind !== "idle";
 
     const phaseText = (): string => {
@@ -232,6 +314,7 @@ export default function DubToolsPage() {
             case "translate": return "LLM 翻译中(段数多耗时长)…";
             case "voice": return `${phase.stage} ${phase.pct}%`;
             case "lipsync": return `${phase.stage}${phase.total ? ` ${phase.done}/${phase.total}` : ""}`;
+            case "anime": return `${phase.stage} ${phase.pct}%`;
             default: return "";
         }
     };
@@ -283,9 +366,10 @@ export default function DubToolsPage() {
                     {segments.length > 0 && (
                         <ol className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-xl border p-2 text-sm">
                             {segments.map((s) => (
-                                <li key={s.index} className="flex flex-col gap-0.5">
+                                <li key={s.index} className={`flex flex-col gap-0.5 rounded-md px-1 ${highlights?.selected.includes(s.index) ? "bg-warning/15 ring-1 ring-warning/40" : ""}`}>
                                     <div className="flex gap-2 text-xs text-muted-foreground">
                                         <span className="shrink-0 tabular-nums">{fmtTime(s.start)}→{fmtTime(s.end)}</span>
+                                        {highlights?.selected.includes(s.index) && <span className="text-warning">★ 高光</span>}
                                     </div>
                                     <p className="break-words">{s.text}</p>
                                     {translated[s.index] && <p className="break-words text-primary/90">{translated[s.index]}</p>}
@@ -304,6 +388,9 @@ export default function DubToolsPage() {
                     <span className="flex-1" />
                     <Button size="small" disabled={segments.length === 0 || busy} loading={phase.kind === "translate"} onClick={() => void translate()}>
                         翻译字幕
+                    </Button>
+                    <Button size="small" disabled={segments.length === 0 || busy} onClick={() => void pickHighlights()}>
+                        AI 挑高光
                     </Button>
                 </section>
 
@@ -333,8 +420,21 @@ export default function DubToolsPage() {
                         <Button size="small" type="primary" disabled={!videoName || busy} loading={phase.kind === "lipsync"} onClick={() => void doLipsync()}>
                             生成对口型成片
                         </Button>
+                        <Button size="small" disabled={!videoName || busy} loading={phase.kind === "anime"} onClick={() => void doAnimeLipsync()}>
+                            动漫口型(轻量)
+                        </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">用源视频(或上一步配音轨)驱动口型;未生成配音轨时用源视频自带音轨。</p>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>自动切段:</span>
+                        <select className="rounded-md border bg-background px-2 py-1" value={autocutMode} disabled={busy} onChange={(e) => setAutocutMode(e.target.value as "scene" | "silence")}>
+                            <option value="scene">场景切换</option>
+                            <option value="silence">静音检测</option>
+                        </select>
+                        <Button size="small" variant="text" disabled={!videoName || busy} onClick={() => void runAutocut()}>
+                            运行切段(更新分段)
+                        </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">用源视频(或上一步配音轨)驱动口型;未生成配音轨时用源视频自带音轨。动漫口型为本地 CV 轻量方案(非 LatentSync)。</p>
                     {lipsyncUrl ? (
                         <video src={toivMediaUrl(lipsyncUrl)} controls playsInline className="max-h-[420px] w-full rounded-lg bg-black/5" />
                     ) : (

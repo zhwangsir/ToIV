@@ -1206,3 +1206,52 @@ export async function pollLipsyncLong(jobId: string): Promise<LipsyncLongStatus>
     const { data } = await toivHttp.get(`/dub/lipsync-long/${encodeURIComponent(jobId)}`, { timeout: 30_000 });
     return data;
 }
+
+// ---- V4-5(2026-10-13):译制增强三件(自经典 DubView 附加功能迁入) ----
+
+export interface DubAutoCutSegment {
+    start: number;
+    end: number;
+}
+
+/** POST /api/dub/autocut:场景/静音检测 → 建议切段(供 lipsync-long segments)。 */
+export async function autocutDub(name: string, mode: "scene" | "silence", threshold: number, minSeg: number): Promise<{ segments: DubAutoCutSegment[]; count: number }> {
+    const { data } = await toivHttp.post("/dub/autocut", {
+        name, mode, threshold, min_seg: minSeg,
+    }, { timeout: 180_000 });
+    return data;
+}
+
+/** POST /api/dub/highlights:LLM 从字幕挑高光句(集锦候选;返回选中序号)。 */
+export async function highlightsDub(segments: { index: number; text: string }[], targetCount = 0): Promise<{ title: string; selected: number[]; count: number }> {
+    const { data } = await toivHttp.post("/dub/highlights", { segments, target_count: targetCount }, { timeout: 120_000 });
+    return data;
+}
+
+export interface AnimeLipsyncStatus {
+    id: string;
+    status: "running" | "done" | "error";
+    stage: string;
+    progress: number;
+    frames: number;
+    faces_detected: number;
+    url: string | null;
+    error: string | null;
+    elapsed: number;
+}
+
+/** POST /api/dub/anime-lipsync:本地自建 CV 动漫口型(非 LatentSync;异步 job_id)。 */
+export async function startAnimeLipsync(name: string, audioName?: string, mouthGain?: number, smooth?: number): Promise<{ job_id: string }> {
+    const { data } = await toivHttp.post("/dub/anime-lipsync", {
+        name,
+        audio_name: audioName ?? null,
+        mouth_gain: mouthGain ?? 1.0,
+        smooth: smooth ?? 3,
+    }, { timeout: 30_000 });
+    return data;
+}
+
+export async function getAnimeLipsyncStatus(jobId: string): Promise<AnimeLipsyncStatus> {
+    const { data } = await toivHttp.get(`/dub/anime-lipsync/${encodeURIComponent(jobId)}`, { timeout: 30_000 });
+    return data;
+}
