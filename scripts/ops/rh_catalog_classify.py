@@ -177,6 +177,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0, help="只处理前 N 条(试点)")
     ap.add_argument("--min-use", type=int, default=0, help="按 useCount 下限过滤")
+    ap.add_argument("--recheck-status", default="",
+                    help="逗号分隔状态:这些状态的已分类行**不算已完成**,重新分类并写入 "
+                         "classified_recheck.jsonl。装完 shim/节点包后只用复检 blocked,别全量重跑")
+    ap.add_argument("--out-name", default="", help="覆盖输出文件名(默认见下)")
     args = ap.parse_args()
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -189,15 +193,34 @@ def main() -> int:
         cands = cands[: args.limit]
     log(f"候选 {len(cands)}(min_use={args.min_use}, limit={args.limit})")
 
-    cls_path = OUT_DIR / "classified.jsonl"
+    recheck = {s.strip() for s in args.recheck_status.split(",") if s.strip()}
+    base_path = OUT_DIR / "classified.jsonl"
+    cls_path = OUT_DIR / (args.out_name or ("classified_recheck.jsonl" if recheck else "classified.jsonl"))
     done_ids: set[str] = set()
-    if cls_path.exists():
+    prior: dict[str, str] = {}
+    if base_path.exists():
+        for l in base_path.open():
+            try:
+                r = json.loads(l)
+            except json.JSONDecodeError:
+                continue
+            wid = str(r.get("webapp_id"))
+            prior[wid] = r.get("status")
+            # 复检模式下,命中待复检状态的行不进 done_ids → 会被重新分类
+            if not recheck or r.get("status") not in recheck:
+                done_ids.add(wid)
+    if cls_path != base_path and cls_path.exists():
+        # 复检产物自身也要断点续跑,否则中断后从头再来
         for l in cls_path.open():
             try:
                 done_ids.add(str(json.loads(l)["webapp_id"]))
             except (json.JSONDecodeError, KeyError):
                 continue
     todo = [c for c in cands if str(c["id"]) not in done_ids]
+    if recheck:
+        n_re = len(prior) - len([w for w in prior if w in done_ids])
+        log(f"复检模式:状态∈{sorted(recheck)} 的 {n_re} 行重新分类 → {cls_path.name};"
+            f"其余 {len(prior) - n_re} 行沿用旧结论")
     log(f"已完成 {len(done_ids)} | 本轮待处理 {len(todo)}(断点续跑)")
     if not todo:
         log("无待处理项")
