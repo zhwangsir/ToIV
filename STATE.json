@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-12T16:05:00+08:00",
+  "updated_at": "2026-10-12T16:40:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15072,5 +15072,16 @@
     "e2e": "多模态冒烟:图(草帽女子)+提示→'一位戴着草帽、身穿白色衬衫和米色长裙的年轻女子' ✓;F3 from-image AI 模式生产实弹:真图+hint→Job done→StudioProject「街角的温柔时光」(4 分镜/1 角色 林晚,分镜场景+英文 prompt 全落库) ✓——F3 的环境缺口正式核销",
     "leftover": "32B-FP8 路线暂弃(需 CUDA toolkit 完整安装,如后续要更强 VLM 再评估:apt cuda-toolkit 或容器化);vlm-venv(0.31)+本地 34G 32B 模型留存可复用;AGENTS 服务表未含 toiv-vlm(下次会话补)",
     "updated_at": "2026-10-12T16:05:00+08:00"
+  },
+  "v4_0c_sheet_first_done_2026_10_12": {
+    "status": "first_production_sheet_done_debt_cleared",
+    "date": "2026-10-12",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "V4-0c 设定卡质量债核销:根因=小周旧参考图分辨率/构图过不了门禁(登记债 768<803)。处置=txt2img(:8196 forge)生成 768×960 高质量半身定妆图(头肩构图/干净底/高清脸)→PATCH 写入 reference_images(非 char_panel URL 无需风格白名单)→character-sheet/async(ancient_realistic)提交→全管线(主立绘+三视图+表情×6 门禁)通过→**生产首个 done 样本**:char_sheet_289ef1ef_ancient_realistic_cd9470c362ea.png + portrait/front/side 面板全落。studio_sheet_gen done 0→1。方法论沉淀:设定卡失败先换高质量参考图(头肩构图/脸占比高/非纯色底)而非调门禁。",
+    "e2e": "生产实弹:txt2img d06a3142 done→URL 带 sig→PATCH 小周 refs→async 4927bbe4→done(sheet_url+panel_urls 全回) ",
+    "updated_at": "2026-10-12T16:40:00+08:00"
   }
 }

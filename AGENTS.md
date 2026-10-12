@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-12（ToIV开发）：**融合计划 F1–F7 全部完成**——经典 VALID_VIEWS 17→8（R18 壳+avatartalk+入口探测），canvas 新增 7 工具/详情页，浏览器级 23/23、五批生产实弹、api 4027/106（存量债零新增）全过；下一阶段真源 `docs/ops/PLATFORM_V4_PLAN_20261012.md`（V4-0 质量收口→Agent 同构→一致性→质检→真时间线→补齐→架构收尾）。验证口径=LAN 直连优先。`updated_at` 2026-10-12T02:10:00+08:00。
+> **最后更新**：2026-10-12（ToIV开发）：**v4-0 质量收口三件套完成**——api 测试债清零（106→全绿在验,422 序列化根修+agent 工具真 bug 修复）；toiv-vlm 上线（Qwen3-VL-8B@GPU3:9311,多模态 08-05 缺位恢复,from-image 实弹复活）；设定卡异步首个生产 done（参考图质量方法论）。`updated_at` 2026-10-12T16:40:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
@@ -57,6 +57,7 @@
 | MiniMax H3（**UUID 钉卡 GPU-0e6e9149**；+pc01:8198 双池 `TOIV_H3_BASE_URLS`） | :8195 | GPU2 | toiv-comfyui-h3 |
 | **MiniMax H3 worker #2**（ComfyUI-h3-eval，**UUID 8a63d89c GPU1**；10-03 上线**替换 :8261 超分 GPU1**） | :8264 | GPU1 | toiv-comfyui-h3-gpu1 |
 | Wan-Animate-2 | :8199 | GPU3 | comfyui-wan-animate-2 |
+| **ToIV VLM（Qwen3-VL-8B BF16 多模态,from-image/图片解析）** | **:9311** | GPU3(数字索引,0.11 不认 UUID) | toiv-vlm（/opt/toiv-vlm/venv vLLM 0.11.2） |
 | 超分 fleet（4x-UltraSharp 帧超分；**:8261 已撤**） | :8262/:8263 | — | comfyui-upscale-gpu2/3 |
 | Qwen3-Embedding-4B | :9302 | — | qwen3-embedding |
 | IndexTTS 2.5（配音主路，勿再停） | :9200 | GPU0 | toiv-indextts |
