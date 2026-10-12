@@ -457,7 +457,51 @@ async def render_shot(
             )
         if shot.render_mode != "video" or n <= 1:
             result = await _once(seed)
-            candidates = []
+            # V4-3 质检门禁:单候选路径对产物跑 VLM 四问(qa 挂到合成条目;
+            # 失败/未配置 skip 不阻塞;qa=fail 时由 render_one 的重试循环换 seed 重生成)
+            if result is not None and result.kind == "video" and result.url:
+                try:
+                    from app.services.studio.qa_gate import qa_gate_video, vlm_available
+
+                    if vlm_available():
+                        import tempfile as _tf
+                        from app.storage import drama_output_root as _root
+
+                        marker = "/api/studio/files/"
+                        vp = None
+                        if marker in result.url:
+                            name = result.url.split(marker, 1)[1].split("?", 1)[0]
+                            p = _root() / "studio" / name
+                            vp = p if p.is_file() else None
+                        if vp is not None:
+                            import asyncio as _aio
+
+                            qa = await _aio.to_thread(
+                                qa_gate_video,
+                                vp,
+                                ref_image_path=None,
+                                scene=str(getattr(shot, "scene", "") or ""),
+                            )
+                            if qa is not None:
+                                result = result  # 保持原 result;qa 存到 shot 级唯一候选条目
+                                candidates = [{
+                                    "id": __import__("uuid").uuid4().hex,
+                                    "url": result.url,
+                                    "seed": seed,
+                                    "status": "done",
+                                    "is_picked": True,
+                                    "error": "",
+                                    "video_model": "h3",
+                                    "pipeline": pipe if shot.render_mode == "video" else "",
+                                    "qa": qa,
+                                }]
+                                logger.warning(
+                                    "qa_gate 单候选: verdict=%s (%s)",
+                                    qa["verdict"], qa["reason"],
+                                )
+                except Exception as _qa_e:  # noqa: BLE001 — 质检失败绝不阻塞渲染主链
+                    logger.warning("qa_gate 异常(跳过): %s", _qa_e)
+            candidates = [] if not candidates else candidates
         else:
             # 多候选:不同 seed 串行提交(不并行,避免打爆 H3 单实例队列)
             # W2.7(2026-10-11) 断点续跑:保留既有 done+url 候选,只为缺口生成;
@@ -571,15 +615,18 @@ async def render_shot(
                     if marker in url:
                         name = url.split(marker, 1)[1].split("?", 1)[0]
                         p = _root() / "studio" / name
+                        logger.warning("qa_gate resolver: %s -> %s", name, "HIT" if p.is_file() else "MISS")
                         return str(p) if p.is_file() else None
+                    logger.warning("qa_gate resolver: url 非 studio 域,skip")
                     return None
 
-                apply_qa_to_candidates(
+                qa_applied = apply_qa_to_candidates(
                     candidates,
                     ref_image_path=None,
                     scene=str(getattr(shot, "scene", "") or ""),
                     local_url_resolver=_resolve_vid_any,
                 )
+                logger.warning("qa_gate done: %s", qa_applied)
             except Exception as _qa_e:  # noqa: BLE001 — 质检失败绝不阻塞渲染主链
                 logger.warning("qa_gate 异常(跳过): %s", _qa_e)
             # Batch6：裁脸选优（可关）；失败标 shot 失败，禁止静默回落
