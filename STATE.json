@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T01:00:00+08:00",
+  "updated_at": "2026-10-13T01:40:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15141,5 +15141,17 @@
     "summary": "V4-4+V4-5 完成。①V4-4 真时间线决策(docs/ops/V4_4_TIMELINE_DECISION_20261013.md):显式后置——判据=表单式三轨生产零使用/v2 时间线+seam 8 镜+管线C done16 主路径/拼接路线用户拍板;ShortGPT EML 的『LLM 可操作』价值已被 V4-1 render_video_edit 工具等效达成;含三条重新评估触发条件(≥3 次表达力缺口/LLM plan 不足/对外发布);本项从 1-3 批缩减为决策记录零代码。②V4-5 译制增强三件迁 canvas(dub-tools 页):AI 挑高光(LLM 从字幕选段,列表 ★ 高亮+标题)/自动切段(ffmpeg 场景|静音检测→更新分段,供对口型 segments)/动漫口型(本地 CV 轻量方案,与 LatentSync 并列可选,含轮询进度)。canvas tsc 零错;生产实弹 highlights(3 段→『深夜一碗热汤的治愈』选[2])✓;浏览器级四按钮 ✓;GLB 内联查看器/AiVideoEdit/泳道视图/在对话中继续草稿通道维持显式不迁(登记于各 F 批,均为低频或经典专属)。",
     "e2e": "highlights POST 200 选段正确;浏览器三按钮+切段选择器在位",
     "updated_at": "2026-10-13T01:00:00+08:00"
+  },
+  "v4_6_arch_close_2026_10_13": {
+    "status": "desktop_rebuilt_smoke_ok_token_domain_final",
+    "date": "2026-10-13",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "V4-6 架构收尾完成(三项均达终态或显式收编):①桌面同版本重建——build-toiv-desktop.sh 重跑(含 V4-1~V4-5 全部 canvas 更新),无头冒烟 ok=true(backend/agentHost/loginPage);②token 统一核验终态:经典 web 仅剩 R18 壳+avatartalk,apps.css 零 hex(P-2b 达标),双样式问题随视图收缩自然消解——剩余 23 个手写 CSS 属 R18 壳终态资产,不再投入统一;③域合并:from-image 已落 StudioProject 域(F3),DramaProject 域仅剩经典播放器/agent-runs 历史数据读取,合并评估文档在案(PROJECT_DOMAIN_MERGE_ASSESSMENT_20261011),按既有结论维持 StudioProject 唯一宿主+能力按需下沉,不再单独立批。v4 计划六波次全部完成。",
+    "e2e": "桌面冒烟 exit=0 ok=true;apps.css hex=0",
+    "leftover": "R18 翻案通道维持开放(A 决策可逆);V4 观察项(槽位分层/多主体合并/qa 徽标 UI)随真实使用评估",
+    "updated_at": "2026-10-13T01:40:00+08:00"
   }
 }
