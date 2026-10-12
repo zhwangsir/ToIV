@@ -1195,3 +1195,92 @@ def test_build_graph_vhs_combine_drops_orphan_missing_images():
     assert "11" in graph
     assert graph["11"]["inputs"]["frame_rate"] == 16
     assert graph["11"]["inputs"]["images"] == ["10", 0]
+
+
+# ── W8-7b:VHS 旧版 format 预设带 .json 后缀,新版 combo 不认 ──────────────────
+# 实测 :8196/:8197 的 VHS_VideoCombine.format 共 14 个选项(image/gif、video/webm、
+# video/h264-mp4、video/h265-mp4、video/nvenc_*…),**没有一个带 .json**。RH 图多为旧版
+# 导出,写成 "video/h264-mp4.json"(指 video_formats/ 下的预设文件),直传被 ComfyUI 判为
+# 「值不在 combo 列表」,而冒烟把它归因成 missing_model —— 报错类别本身就是错的。
+# 生产库实测 93 个 rh-acc 应用中招,先导批 25 条里占 2 条(8%)。
+def _vhs(fmt, **extra):
+    return {"22": {"class_type": "VHS_VideoCombine",
+                   "inputs": {"images": ["6", 0], "format": fmt, "save_output": True,
+                              "filename_prefix": "AnimateDiff", **extra}}}
+
+
+def test_build_graph_strips_legacy_json_suffix_from_vhs_format():
+    from app.routes.apps import _build_graph
+
+    graph = _build_graph(_vhs("video/h264-mp4.json"), {}, {})
+    assert graph["22"]["inputs"]["format"] == "video/h264-mp4"
+
+
+@pytest.mark.parametrize("legacy,modern", [
+    ("video/h264-mp4.json", "video/h264-mp4"),
+    ("video/h265-mp4.json", "video/h265-mp4"),
+    ("image/gif.json", "image/gif"),
+    ("video/webm.json", "video/webm"),
+])
+def test_legacy_format_suffix_stripped_across_presets(legacy, modern):
+    from app.routes.apps import _normalize_vhs_video_combine
+
+    g = _vhs(legacy)
+    _normalize_vhs_video_combine(g)
+    assert g["22"]["inputs"]["format"] == modern
+
+
+def test_modern_vhs_format_is_left_alone():
+    """已经是新版的值不能被二次改写(否则 video/h264-mp4 会被削成 video/h264-mp)。"""
+    from app.routes.apps import _normalize_vhs_video_combine
+
+    g = _vhs("video/h264-mp4")
+    _normalize_vhs_video_combine(g)
+    assert g["22"]["inputs"]["format"] == "video/h264-mp4"
+
+
+def test_linked_vhs_format_is_not_touched():
+    """format 是连线(list)时不是字面量,不能当字符串处理后缀。"""
+    from app.routes.apps import _normalize_vhs_video_combine
+
+    g = _vhs(["5", 0])
+    _normalize_vhs_video_combine(g)
+    assert g["22"]["inputs"]["format"] == ["5", 0]
+
+
+def test_orphan_vhs_combine_with_legacy_format_is_still_dropped():
+    """孤儿剪枝优先于 format 归一:无 images 的 Combine 该删就删,别在死节点上做无用功。"""
+    from app.routes.apps import _normalize_vhs_video_combine
+
+    g = {"22": {"class_type": "VHS_VideoCombine",
+                "inputs": {"format": "video/h264-mp4.json", "save_output": True}}}
+    _normalize_vhs_video_combine(g)
+    assert "22" not in g
+
+
+def test_legacy_format_fix_coexists_with_frame_rate_and_save_output():
+    """三条归一(frame_rate 补齐 / save_output 打开 / format 去后缀)必须同时生效,
+    别因为加了 format 分支就把既有行为挤掉。"""
+    from app.routes.apps import _build_graph
+
+    wf = {"64": {"class_type": "VHS_VideoCombine",
+                 "inputs": {"images": ["1", 0], "format": "video/h264-mp4.json",
+                            "save_output": False, "filename_prefix": "A"}}}
+    graph = _build_graph(wf, {}, {})
+    assert graph["64"]["inputs"]["format"] == "video/h264-mp4"
+    assert graph["64"]["inputs"]["frame_rate"] == 16
+    assert graph["64"]["inputs"]["save_output"] is True
+
+
+def test_real_production_graph_shape_from_rh_import():
+    """照抄 rh-acc-5491985409-875737 的真实节点(先导批 missing_model 失败样本)。"""
+    from app.routes.apps import _build_graph
+
+    wf = {"22": {"class_type": "VHS_VideoCombine", "inputs": {
+        "save_output": True, "filename_prefix": "AnimateDiff", "images": ["6", 0],
+        "loop_count": 0, "pix_fmt": "yuv420p", "save_metadata": True, "crf": 19,
+        "trim_to_audio": False, "format": "video/h264-mp4.json", "no_preview": False,
+        "frame_rate": 16, "pingpong": False}}}
+    graph = _build_graph(wf, {}, {})
+    assert graph["22"]["inputs"]["format"] == "video/h264-mp4"
+    assert graph["22"]["inputs"]["crf"] == 19, "其余字段不得被动到"

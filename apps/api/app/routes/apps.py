@@ -2910,7 +2910,7 @@ def _normalize_vhs_load_video(graph: dict) -> None:
 
 
 def _normalize_vhs_video_combine(graph: dict) -> None:
-    """VHS_VideoCombine:补 frame_rate;去无 images 孤儿;全 False 时开一路保存。
+    """VHS_VideoCombine:补 frame_rate;去无 images 孤儿;全 False 时开一路保存;旧版 format 去 .json。
 
     新版 required 含 frame_rate;RH 预览路常缺 → 剪枝。RH 偶发留下
     无 images 连线却 save_output=True 的孤儿 Combine → required_input_missing。
@@ -2945,6 +2945,14 @@ def _normalize_vhs_video_combine(graph: dict) -> None:
             combines.append(inputs)
             if "frame_rate" not in inputs:
                 inputs["frame_rate"] = 16
+            fmt = inputs.get("format")
+            if isinstance(fmt, str) and fmt.endswith(".json"):
+                # VHS 早期把格式预设写成 "video/h264-mp4.json"(指 video_formats/ 下的预设文件),
+                # 新版 combo 只认去掉后缀的 "video/h264-mp4"(实测 :8196/:8197 的 14 个选项里
+                # 没有任何一个带 .json)。RH 图多为旧版导出,直传会被 ComfyUI 判为「值不在 combo
+                # 列表」,而冒烟把它归因成 missing_model——**报错类别本身就是错的**,害排查绕远路。
+                # 生产库实测 93 个 rh-acc 应用中招,先导批 25 条里占 2 条(8%)。
+                inputs["format"] = fmt[: -len(".json")]
             if inputs.get("save_output") is True:
                 has_saver = True
     for oid in orphan_ids:
