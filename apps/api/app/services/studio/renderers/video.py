@@ -110,6 +110,8 @@ class VideoRenderer:
             engine=video_model,
             ref_images=kw.get("ref_images"),
             scene_images=kw.get("scene_images"),
+            camera=getattr(shot, "camera", "") or "",
+            prompt=shot.prompt,
         )
         if ref_prefix:
             prompt = ref_prefix + prompt

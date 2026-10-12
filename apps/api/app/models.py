@@ -725,6 +725,10 @@ class StudioShot(SQLModel, table=True):
     # DramaShot 同名字段语义平移;管线 C 的续写衔接从内存态转持久化。
     seam_to_next: str = ""  # continue(末帧续写)|overlap(共享帧重叠)|matchcut(匹配切口)|hardcut(硬切)
     seam_anchor: str = ""  # matchcut/overlap 时的共享锚体描述(刀刃/圆环/瞳孔/色块…)
+    # V4-2c 阶段感知换参考(story-claw 范式):服装/造型发生实质变化(换装/湿身/受伤)时 +1;
+    # 同 epoch 镜共享同一组参考(stage-aware ref reuse),渲染日志按 epoch 归组排查。
+    ref_epoch: int = Field(default=0, ge=0)
+    ref_epoch_note: str = Field(default="", max_length=200)  # 变化说明(如「第3镜起换雨衣」)
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
 

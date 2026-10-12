@@ -213,6 +213,9 @@ class ShotInput(BaseModel):
     # S4:seam 衔接策略(可选;None=不改,空串=清空)
     seam_to_next: str | None = Field(default=None, max_length=20)
     seam_anchor: str | None = Field(default=None, max_length=200)
+    # V4-2c 阶段感知换参考:服装/造型实质变化时 +1(同 epoch 共享参考组;None=不改)
+    ref_epoch: int | None = Field(default=None, ge=0)
+    ref_epoch_note: str | None = Field(default=None, max_length=200)
 
 
 class ShotsSaveRequest(BaseModel):

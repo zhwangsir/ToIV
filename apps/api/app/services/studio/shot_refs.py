@@ -105,18 +105,49 @@ def _parse_ref_list(raw: Any) -> list[str]:
     return []
 
 
+def infer_view_priority(camera: str, prompt: str = "") -> tuple[str, ...]:
+    """V4-2a 三视图注册表:按镜次景别推断视图优先级(front/side/back/portrait)。
+
+    - 背面/背影镜 → back 优先(角色背对镜头,背视图是最强参考);
+    - 侧面/走位镜 → side 优先;
+    - 特写/面部镜 → portrait(立绘脸部信息最全);
+    - 其余(默认全景/中景) → front 优先。
+    只重排顺序、不删参考(信息不丢;槽位标签仍按 URL 视图键标注)。
+    """
+    text = f"{camera} {prompt}".lower()
+    if any(k in text for k in ("背面", "背影", "back view", "from behind", "转身离开", "背对")):
+        return ("back", "portrait", "front", "side")
+    if any(k in text for k in ("侧面", "侧脸", "side view", "profile", "走位", "擦肩")):
+        return ("side", "front", "portrait", "back")
+    if any(k in text for k in ("特写", "面部", "脸部", "眼神", "closeup", "close-up", "close up", "面部表情")):
+        return ("portrait", "front", "side", "back")
+    return ("front", "portrait", "side", "back")
+
+
+def _view_key(url: str) -> str | None:
+    """URL → 视图键(char_panel_{view}_ / _{view}.png);非面板图返回 None。"""
+    for v in ("portrait", "front", "side", "back"):
+        if f"_{v}_" in url or url.rstrip("/").endswith(f"_{v}.png"):
+            return v
+    return None
+
+
 def collect_cast_ref_images(
     cast: list[Any],
     *,
     scene_images: list[str] | None = None,
     max_refs: int = 9,
     style: str | None = None,
+    camera: str = "",
+    prompt: str = "",
 ) -> list[RefImage]:
     """立绘+三视图(正/侧/背) + 场景图 → RefImage(最多 max_refs)。
 
     Batch7 v2(17:45#6):整卡 char_sheet_ 不进 Ref2VA 视频参考链;
     仅使用非设定卡 URL(优先 char_panel_ 立绘/三视图)。
     22:31+:优先 reference_images_by_style[style];无分桶时回落扁平 reference_images。
+    V4-2a 三视图注册表:按镜次 camera/prompt 景别重排视图顺序(背面目镜 back 优先、
+    特写镜 portrait 优先等),参考信息不丢只重排;槽位标签维持 URL 视图键。
     """
     refs: list[RefImage] = []
     _panel_slot = {
@@ -146,12 +177,24 @@ def collect_cast_ref_images(
                 )
             urls = _parse_ref_list(getattr(c, "reference_images", None))
         views = [u for u in urls if "char_sheet_" not in u]
-        for i, url in enumerate(views[:4]):
-            slot = None
-            for key, lab in _panel_slot.items():
-                if f"_{key}_" in url or url.rstrip("/").endswith(f"_{key}.png"):
-                    slot = lab
-                    break
+        # V4-2a:按视图键分桶,按景别优先级展开(非面板图保持原序追加在尾)
+        prio = infer_view_priority(camera, prompt)
+        buckets: dict[str, list[str]] = {}
+        plain: list[str] = []
+        for u in views:
+            k = _view_key(u)
+            if k:
+                buckets.setdefault(k, []).append(u)
+            else:
+                plain.append(u)
+        ordered: list[tuple[str, str]] = []  # (url, view_key|'')
+        for k in prio:
+            for u in buckets.get(k, []):
+                ordered.append((u, k))
+        for u in plain:
+            ordered.append((u, ""))
+        for i, (url, vk) in enumerate(ordered[:6]):
+            slot = _panel_slot.get(vk) if vk else None
             if slot is None:
                 slot = _CHAR_SLOT_LABELS[i] if i < len(_CHAR_SLOT_LABELS) else f"参考{i + 1}"
             refs.append(
@@ -275,11 +318,14 @@ def h3_ref_prefix(
     ref_images: list[str] | None = None,
     scene_images: list[str] | None = None,
     style: str | None = None,
+    camera: str = "",
+    prompt: str = "",
 ) -> tuple[str, list[str]]:
     """返回 (引用行前缀, 实际使用的 URL 列表)。非 h3 → ("", [])。
 
     ref_images 显式给出时按该列表编号(调用方已排好序,可含场景);
     否则从 cast 三视图(+分桶风格) + scene_images 自动收集。
+    V4-2a:camera/prompt 透传给收集器做景别视图优先级。
     """
     if engine != "h3":
         return "", []
@@ -290,7 +336,7 @@ def h3_ref_prefix(
             if isinstance(u, str) and u.strip()
         ][:9]
     else:
-        refs = collect_cast_ref_images(cast, scene_images=scene_images, style=style)
+        refs = collect_cast_ref_images(cast, scene_images=scene_images, style=style, camera=camera, prompt=prompt)
     prefix = build_ref_prefix(refs)
     urls = ref_urls(refs)
     if prefix:

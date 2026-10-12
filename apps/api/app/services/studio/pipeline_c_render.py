@@ -517,12 +517,14 @@ async def render_pipeline_c(
     if ref_images is not None:
         urls = [u for u in ref_images if isinstance(u, str) and u.strip()]
         prefix, _ = h3_ref_prefix(
-            cast, engine="h3", ref_images=urls, scene_images=None, style=style
+            cast, engine="h3", ref_images=urls, scene_images=None, style=style,
+            camera=getattr(shot, "camera", "") or "", prompt=getattr(shot, "prompt", "") or "",
         )
     elif indep:
         # 每镜 4 张定妆参考：先全量收集（不受 9 张截断丢后排角色），缺参考的出镜角色直接报错
         refs = collect_cast_ref_images(
-            cast, scene_images=scene_images, style=style, max_refs=64
+            cast, scene_images=scene_images, style=style, max_refs=64,
+            camera=getattr(shot, "camera", "") or "", prompt=getattr(shot, "prompt", "") or "",
         )
         refs = apply_ref_overrides(refs, ref_overrides)
         missing = cast_missing_refs(cast, refs)
@@ -534,7 +536,10 @@ async def render_pipeline_c(
         urls = ref_urls(refs)
         prefix = build_ref_prefix(refs)
     else:
-        refs = collect_cast_ref_images(cast, scene_images=scene_images, style=style)
+        refs = collect_cast_ref_images(
+            cast, scene_images=scene_images, style=style,
+            camera=getattr(shot, "camera", "") or "", prompt=getattr(shot, "prompt", "") or "",
+        )
         refs = apply_ref_overrides(refs, ref_overrides)
         urls = ref_urls(refs)
         prefix, _ = h3_ref_prefix(

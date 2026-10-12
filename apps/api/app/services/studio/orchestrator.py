@@ -252,11 +252,20 @@ async def render_shot(
 ) -> StudioShot:
     """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。
 
+    V4-2c 阶段感知:ref_epoch>0 或带 note 时日志标注参考阶段(同 epoch 镜共享参考组)。
+
     视频步(10-07 拍板默认逐镜独立 Ref2VA):
       · video_model 默认 h3;pipeline 默认 ref2va(每镜 4 张定妆参考,不续写上一镜);
       · 显式 pipeline=c / c_hybrid 才走 Motion Context,并自动续写上一镜 context_latent;
       · num_candidates>1 时串行多 seed,按裁脸相似度+无烧录字幕选优。
     """
+    epoch = int(getattr(shot, "ref_epoch", 0) or 0)
+    epoch_note = str(getattr(shot, "ref_epoch_note", "") or "")
+    if epoch or epoch_note:
+        logger.info(
+            "render shot=%s ref_epoch=%s(%s) 阶段感知参考组",
+            getattr(shot, "id", ""), epoch, epoch_note[:60],
+        )
     import random
     import uuid
 

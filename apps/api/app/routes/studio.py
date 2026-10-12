@@ -1473,6 +1473,10 @@ def save_shots(
             shot.seam_to_next = item.seam_to_next
         if item.seam_anchor is not None:
             shot.seam_anchor = item.seam_anchor
+        if item.ref_epoch is not None:
+            shot.ref_epoch = item.ref_epoch
+        if item.ref_epoch_note is not None:
+            shot.ref_epoch_note = item.ref_epoch_note
         # 生成方式变化 → 旧媒体失效,回到草稿
         if shot.render_mode != item.render_mode:
             shot.render_mode = item.render_mode
