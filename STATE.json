@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-12T19:40:00+08:00",
+  "updated_at": "2026-10-12T20:30:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15106,5 +15106,17 @@
     "e2e": "生产对话实弹:/api/agent/chat(SSE)→thinking 11.5s→tool create_studio_project→回复含 project_id+三步引导;PG 验证项目真实落库(title/premise 全对)",
     "leftover": "语音域 tools 待 voice-track 轮询类工具补 check 语义(现 check_jobs 通用);team.json 物理文件未落(原则20 提示词编排已等效,物理化待 A2A 需求出现);画布节点即工具(Toonflow 式)归 V4-1 后续小批",
     "updated_at": "2026-10-12T19:40:00+08:00"
+  },
+  "v4_2_consistency_2026_10_12": {
+    "status": "deployed_live_verified",
+    "date": "2026-10-12",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "V4-2 一致性深水区完成(裁剪自 v3 C1 四项到两项高价值落地,槽位参数化与多主体合并并入后续观察项)。①三视图注册表:shot_refs 新增 infer_view_priority(镜次 camera/prompt 景别→视图优先级:背面/背影镜 back 优先、侧面/走位镜 side 优先、特写/面部镜 portrait 优先、默认 front)——参考信息不丢只重排;char_panel URL 视图键分桶(_view_key),渲染双链(独立镜 Ref2VA 选片+管线 C+video 渲染器)已穿参;槽位标签维持视图键标注。②阶段感知换参考(story-claw):StudioShot.ref_epoch/note 持久化(db 幂等迁移+ShotInput+PUT 通路+_shot_out 自动透出)+渲染入口 epoch 归组日志;换装/湿身/受伤等实质变化才 +1,同 epoch 镜共享参考组。单测 5 例(优先级推断/重排不丢/特写 portrait/持久化/日志冒烟);回归 89 例全绿。",
+    "e2e": "生产实弹:深夜食堂项目(af6572dd)新增镜 PUT ref_epoch=1+camera=背面中景 → 持久化验证 ✓;项目详情 epoch 字段透出 ✓",
+    "leftover": "参考槽位分层参数化(海螺 9-3-3 命名)与多主体合并参考(NovelFlow merged_character_image)未落——现有 char_panel 分桶+scene_images 已覆盖主要场景,这两项待双角色镜一致性实测暴露问题后再评估;A/B 对比(同镜 epoch 前后)待真实项目自然发生",
+    "updated_at": "2026-10-12T20:30:00+08:00"
   }
 }
