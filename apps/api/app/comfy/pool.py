@@ -27,6 +27,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 import httpx
+import os
 import redis as redis_lib
 
 from app.comfy.client import ComfyUIClient, ComfyUIError
@@ -35,11 +36,37 @@ from app.services import redis_client
 logger = logging.getLogger(__name__)
 
 _UNREACHABLE = 10**9
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
 # 熔断器参数
-_BREAKER_FAIL_THRESHOLD = 3  # 连续失败次数阈值
-_BREAKER_COOLDOWN = 30.0  # 熔断冷却期(秒)
+# 阈值 3→5、探测 TTL 5s→10s:GPU 打满时 /queue 会整次超时报错,原参数下三次连续失败
+# 只需约 15s 就把**健康但繁忙**的 worker 判死并冷 30s——批量烟测实测并发 2 时
+# 9 条里 4 条报「所有 worker 均不可达(熔断中)」,而同刻四口从 core 直连均 200/7ms。
+# 即这是把应用写成假 fail 的来源,不是应用坏。留 env 口子便于回退与现场调参。
+_BREAKER_FAIL_THRESHOLD = _env_int("TOIV_WORKER_BREAKER_FAILS", 5)  # 连续失败次数阈值
+_BREAKER_COOLDOWN = _env_float("TOIV_WORKER_BREAKER_COOLDOWN_S", 30.0)  # 熔断冷却期(秒)
 # 健康探测缓存 TTL
-_PROBE_TTL = 5.0
+_PROBE_TTL = _env_float("TOIV_WORKER_PROBE_TTL_S", 10.0)
 # 注册表(LB /admin/backends)惰性刷新 TTL 与拉取超时
 _REGISTRY_TTL = 60.0
 _REGISTRY_TIMEOUT = 3.0
