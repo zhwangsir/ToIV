@@ -28,7 +28,7 @@ for ((r=1; r<=ROUNDS; r++)); do
   OUT="$LOGDIR/sup_round${r}_${TS}.log"
   echo "[sup $(date +%H:%M:%S)] 第 $r/$ROUNDS 轮启动 → $OUT"
   apps/api/.venv/bin/python scripts/ops/rh_smoke_batch.py \
-    --status untested --limit "$LIMIT" --concurrency "${ROUND_CONC:-3}" --timeout-s 900 --sleep 1.2 \
+    --status untested --limit "$LIMIT" --concurrency "${ROUND_CONC:-2}" --timeout-s 900 --sleep 1.2 \
     --publish-passes --publish-every 10 >> "$OUT" 2>&1
   echo "[sup $(date +%H:%M:%S)] 第 $r 轮结束"
   tail -4 "$OUT"
