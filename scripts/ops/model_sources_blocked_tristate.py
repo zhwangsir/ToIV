@@ -45,7 +45,9 @@ _OPAQUE = re.compile(r"^[\d\s_.\-+]+$")
 
 
 def _now() -> str:
-    return datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%dT%H:%M:%S%z")
+    # ledger 既有约定是带冒号的 ISO 偏移(2026-10-13T06:05:36+08:00);
+    # %z 给的是 +0800,直接写进去会让同一文件里出现两种时区格式
+    return datetime.now(timezone(timedelta(hours=8))).isoformat(timespec="seconds")
 
 
 def is_local_artifact(basename: str) -> bool:
@@ -241,7 +243,11 @@ def main() -> int:
         if r.get("sha256"):
             tag += f" | sha256={str(r['sha256'])[:16]}…"
         note = (it.get("notes") or "").strip()
-        it["notes"] = f"{note} | {tag}" if note else tag
+        # 幂等:重复 --apply 不得把同一个 tag 追加第二遍(ledger 是长期账本,不是日志)
+        if f"p1-2 {r['state']}" in note:
+            it["notes"] = note
+        else:
+            it["notes"] = f"{note} | {tag}" if note else tag
         changed += 1
     ledger["updated_at"] = _now()
     LEDGER.write_text(json.dumps(ledger, ensure_ascii=False, indent=1) + "\n")
