@@ -19,6 +19,9 @@ LIMIT=${ROUND_LIMIT:-1500}
 # 而 image 多在 60~200s。目标是「能用起来」的应用数,不是均匀覆盖,
 # 所以先把便宜的产出吃完,再由 ROUND_KIND=all 兜其他类型。
 KIND=${ROUND_KIND:-image}
+# 有静态预筛清单就优先打它(缺件已齐、产出最高);没有则回落到按 kind 盲扫。
+# 清单可用 scripts/ops/rh_smoke_prioritize.py 重新生成,过期了就直接删文件回落,不会静默用错数据。
+IDS=${ROUND_IDS:-tmp/rh_smoke_20261013/priority_complete.txt}
 LOGDIR=tmp/rh_smoke_20261013
 mkdir -p "$LOGDIR"
 ZERO_TRANSPORT_STREAK=0
@@ -32,7 +35,8 @@ for ((r=1; r<=ROUNDS; r++)); do
   OUT="$LOGDIR/sup_round${r}_${KIND}_${TS}.log"
   echo "[sup $(date +%H:%M:%S)] 第 $r/$ROUNDS 轮启动 → $OUT"
   apps/api/.venv/bin/python scripts/ops/rh_smoke_batch.py \
-    --kind "$KIND" --status untested --limit "$LIMIT" --concurrency "${ROUND_CONC:-2}" --timeout-s 900 --sleep 1.2 \
+    $( [ -s "$IDS" ] && printf -- '--ids-file %s --limit %s' "$IDS" "$LIMIT" \
+                        || printf -- '--kind %s --status untested --limit %s' "$KIND" "$LIMIT" ) \
     --publish-passes --publish-every 10 >> "$OUT" 2>&1
   echo "[sup $(date +%H:%M:%S)] 第 $r 轮结束"
   tail -4 "$OUT"
