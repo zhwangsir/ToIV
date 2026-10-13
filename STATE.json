@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-14T03:52:18+08:00",
+  "updated_at": "2026-10-14T03:57:07+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15769,6 +15769,13 @@
       "action": "backends.json 加 gpu3→:8263 weight1.0(备份 backends.json.bak-20261014-gpu3);LB 两成员 healthy;api 日志 03:50:23 确认池成员=[8196,8263]",
       "delta_only_2_classes": "GuHai_FaceAlignment/GuHai_IDPhotoCrop 在 :8263 未导入(Goohaitools-comfyui/nodes/面部对齐.py),待查",
       "pending_measure": "两台都忙后的真实速率(预期~35/h)、pass 率是否下降、transport 假 fail 是否回升"
+    },
+    "w8_21_list_mechanism_and_concurrency": {
+      "w8_18_verdict_stands_mechanism_corrected": "supervisor 不重建清单(固定 ROUND_IDS);真相是我轮中手工重跑生成器且未提交,故 git 历史看不出;两条卡确为 in-flight",
+      "waste_behavior": "batch 的 --ids-file 分支不过滤已测状态 + supervisor 每轮复用同一文件 → 跨轮会重跑已测;实测旧清单 7361 中 213 条已测",
+      "action": "重生成 untested-only 清单 7148(sha256 20de4539);supervisor 以 MAX_ROUNDS=12/ROUND_LIMIT=7200/ROUND_CONC=3 重启并脱离会话;当前并发2旧清单那轮不打断",
+      "pending_measure": "并发3+双实例的真实速率、transport 假 fail 是否回升、:8263 cache-lru 2 是否单条更慢(慢则降 weight 不撤出)",
+      "long_term_todo": "给 --ids-file 分支加状态过滤,或让 supervisor 每轮先重生成清单"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
