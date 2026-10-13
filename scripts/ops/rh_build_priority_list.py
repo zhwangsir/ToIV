@@ -61,13 +61,13 @@ def main() -> int:
         except Exception:
             continue
 
-    rows = psql_cols("select id, coalesce(smoke_status,''), substring(description from 'RH:([0-9]+)') "
-                     "from app where description like '%RH:%'")
+    rows = psql_cols("select id, coalesce(smoke_status,''), substring(description from 'RH:([0-9]+)'), "
+                     "coalesce(nullif(output_kind,''),'(空)') from app where description like '%RH:%'")
     prio = []
     for parts in rows:
-        if len(parts) < 3:
+        if len(parts) < 4:
             continue
-        aid, st, wid = parts[0].strip(), parts[1].strip(), parts[2].strip()
+        aid, st, wid, kind = (parts[i].strip() for i in range(4))
         if not wid:
             continue
         if wid in ok:
@@ -78,9 +78,12 @@ def main() -> int:
             continue
         if st:          # 已测过的不重复占机时
             continue
-        prio.append((tier, aid))
+        # 同价类内再按产物类型分层:image 单条 60~280s,video 170~880s。
+        # 同一张 GPU0 上,把便宜的产出排前面能显著提高「单位机时上架数」;
+        # 预期收益,不预先记为已达成收益(需实测 pass 率与条/小时确认)。
+        prio.append((tier, {"image": 0, "audio": 1, "3d": 2, "video": 4}.get(kind, 5), aid))
     prio.sort()
-    ids = [a for _, a in prio]
+    ids = [a for *_, a in prio]
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(ids) + ("\n" if ids else ""))
     print(f"per-worker 可服务 {len(ok)} | 重评解锁 {len(recov)} | 未测且在名单内 {len(ids)}")
