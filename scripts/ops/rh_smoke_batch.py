@@ -71,6 +71,29 @@ def req(method: str, path: str, body=None, tok=None, timeout=900.0):
         return 0, {"_error": f"{type(e).__name__}: {e}"[:200]}
 
 
+def _status_map(tok: str) -> dict[str, str]:
+    """id → smoke_status(仅含**已测过**的)。分页拉全量,任何一页失败即 raise。
+
+    P-11:分页失败绝不能被吞成"库里没有",否则过滤形同失效、清单会重测已验证的应用。
+    注意口径:/api/apps 即便用 admin token 也只返回 14,181/14,304 条(123 条不可见,
+    疑为内容形态过滤),这部分**不会被过滤掉**——方向是安全的(最多多测几条,不会漏测)。
+    """
+    out: dict[str, str] = {}
+    offset = 0
+    while True:
+        st, page = req("GET", f"/api/apps?limit=1000&offset={offset}", tok=tok, timeout=180)
+        if st != 200 or not isinstance(page, list):
+            raise RuntimeError(f"/api/apps 第 {offset // 1000 + 1} 页失败 http={st},拒绝把失败当空集")
+        for a in page:
+            sm = (a.get("smoke_status") or "").strip()
+            if isinstance(a.get("id"), str) and sm:
+                out[a["id"]] = sm
+        if len(page) < 1000:
+            break
+        offset += 1000
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--kind", default="", help="只跑某类 output_kind(image/video/audio)")
@@ -85,6 +108,10 @@ def main() -> int:
     ap.add_argument("--publish-passes", action="store_true",
                     help="把本轮 pass 的应用批量上架(≤200/次,走 /api/admin/apps/bulk-public,逐条留审计)。"
                          "判据是「该应用自己 smoke pass」,与先导批的 60%% 群体判据是两回事")
+    ap.add_argument("--allow-retest", action="store_true",
+                    help="允许重测已有结果的应用。默认**跳过**:清单是快照,生成后可能已被测过;"
+                         "重测不仅白烧机时,还会把已验证的 pass 覆盖成 timeout(2026-10-14 实证 3 例,其中"
+                         "rh-acc-9223577602-cac65a 变成 is_public=true 而 smoke_status=timeout 的矛盾态)")
     ap.add_argument("--publish-every", type=int, default=25,
                     help="每攒够 N 条 pass 就上架一批,不等整轮跑完(默认 25)")
     args = ap.parse_args()
@@ -105,6 +132,12 @@ def main() -> int:
         # 清单可能被轮间重建覆盖:落盘 sha 才能在事后判定「某条到底在不在这轮的输入里」
         # (10-13 实证:两条 running 卡不在磁盘清单里却出现在本轮结果里,因无当时的 sha 而无法定案)
         print(f"ids-file={args.ids_file} n={len(ids)} sha256={hashlib.sha256(raw.encode()).hexdigest()[:16]}", flush=True)
+        if not args.allow_retest and ids:
+            before = len(ids)
+            tested = _status_map(tok)
+            ids = [i for i in ids if i not in tested]
+            print(f"按当前库内状态过滤:{before} → {len(ids)}(跳过已测 {before - len(ids)};"
+                  f"库内已测总数 {len(tested)}) —— 要重测请加 --allow-retest", flush=True)
     else:
         ids = []
         offset = 0
