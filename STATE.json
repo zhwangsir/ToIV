@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T15:27:30+08:00",
+  "updated_at": "2026-10-13T15:50:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15501,6 +15501,26 @@
       "判因": "池探针在高负载下超时被判不可达;且 api 侧 worker_warmup 同时往 :8262/:8264 提交预热作业抢资源",
       "处置": "监管脚本默认并发降为 1(ROUND_CONC 可调)+ sleep 1.2;宁可慢,不要把健康应用写成假 fail",
       "遗留": "熔断期写成 fail 的应用需公平重测(见任务 #25)"
+    },
+    "publish_twins_was_vacuous": {
+      "date": "2026-10-13",
+      "status": "retracts_claim_no_apps_were_actually_published",
+      "撤回": "上一轮记的「本轮已上架 4 条 H3 NSFW 应用（public 1873→1877）」——该收益为 0",
+      "真因": "app_content_modes.py:12-30 的 SFW_NSFW_TWINS 把 h3-t2v→h3-nsfw-t2v 等 9 对定成同卡双形态；MERGE_HIDE_IDS = SFW_NSFW_TWINS.values()，由 seed_builtin_apps 每次启动把孪生卡强制软隐藏（app_seed.py:1334-1335：若 row.is_public 则置 False）。我上架的正是这 4 张孪生卡，15:40 api 重启后不变量自动改回 false。系统行为正确，是我违反设计。",
+      "真实现状": "9 张 SFW 父卡全部 is_public=true 且 smoke_status=pass（h3-t2v/i2v/fl2v/r2v/两个 15s-fast/r2v-voice/txt2img-basic/img2img-basic）：这些能力在我动手之前就已公开可用；市场侧 content_modes 打 sfw+nsfw 双标签，runner 在 R18 上下文切孪生图。",
+      "方法论教训": "运营态写入（上架/下架/精选）前先确认该 id 是否被某个启动期 reconcile 拥有；收益要用稳定态口径（父卡公开且 pass），不能用接口 done 数或改后瞬时计数（1873→1877→1870 这段摆动就是这么来的）。已沉淀 AGENTS P-17。",
+      "对战役影响": "--publish-passes 对孪生卡是无效动作（会自我回滚）；RH 导入的 1.3 万应用不在这 9 对里，对主战役无影响，但 pass 数 ≠ market 可见数。"
+    },
+    "transport_bucket_was_conflated": {
+      "date": "2026-10-13",
+      "纠正": "上一轮说「并发 3 下 transport 仍 57%，说明熔断修复无效」——按 cls 聚合把三种不同成因混为一桶",
+      "今日transport分桶": {
+        "熔断中": 5,
+        "无可用worker": 6,
+        "502媒体转运": 2,
+        "合计": 13
+      },
+      "诚实结论": "「无可用 worker」是 pool.pick 的正常能力结论（确实没有满足 required 的 worker），不是熔断。熔断修复只验到生产值确已生效（threshold=5 / ttl=10 / api 15:40:49 启动），效果尚未被数据证明——需同一批应用改前后各测一次，不能拿混桶的 cls 计数当证据。"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
