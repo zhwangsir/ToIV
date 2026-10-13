@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
 import { MediaLibrarySourceRail } from "@/components/library/media-library-source-rail";
+import LibraryWorks from "./library-works";
 import { ToolButton } from "@/components/ui/base/buttons";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { WorkspacePage } from "@/components/layout/workspace-page";
@@ -16,6 +17,7 @@ function formatTime(value: string): string {
 }
 
 export default function LibraryPage() {
+    const [tab, setTab] = useState<"works" | "boards">("works");
     const [boards, setBoards] = useState<ToivBoard[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -31,7 +33,7 @@ export default function LibraryPage() {
         }
     }, []);
 
-    useEffect(() => { void load(); }, [load]);
+    useEffect(() => { if (tab === "boards") void load(); }, [load, tab]);
 
     return (
         <WorkspacePage fluid className="toiv-library-page library-page assets-library-page">
@@ -39,7 +41,17 @@ export default function LibraryPage() {
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">作品</h1>
-                    <p className="text-xs leading-5 text-muted-foreground">成片与分镜作品集（/api/boards）</p>
+                    <p className="text-xs leading-5 text-muted-foreground">{tab === "works" ? "我的生成作品（/api/jobs · SFW；R18 作品仍在经典壳）" : "成片与分镜作品集（/api/boards）"}</p>
+                <div className="mt-2 flex items-center gap-1" role="tablist" aria-label="作品库来源">
+                    {([["works", "作品"], ["boards", "画板"]] as const).map(([k, label]) => (
+                        <button key={k} type="button" role="tab" aria-selected={tab === k}
+                            onClick={() => setTab(k)}
+                            className={`rounded-full border px-3 py-1 text-xs transition-colors ${tab === k
+                                ? "border-transparent bg-[var(--workspace-accent,#f5f5f5)] text-[var(--workspace-accent-foreground,#111)]"
+                                : "border-[var(--border-semantic,var(--border,#333))] text-muted-foreground hover:text-foreground"}`}
+                            data-testid={`library-tab-${k}`}>{label}</button>
+                    ))}
+                </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
@@ -47,7 +59,9 @@ export default function LibraryPage() {
                 </div>
             </header>
 
-            {loading ? (
+            {tab === "works" ? (
+                <LibraryWorks />
+            ) : loading ? (
                 <div className="flex min-h-64 items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></div>
             ) : error ? (
                 <EmptyState description="读取失败，请刷新重试" />

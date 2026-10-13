@@ -92,6 +92,75 @@ export async function cancelJob(jobId: string): Promise<boolean> {
     }
 }
 
+/** 作品库作业面(SFW):主站 /api/jobs 分页契约与 apps/web fetchJobsPage 同口径。
+ *  P-11:分页失败必须抛错,不得吞成空数组——吞了就会把「没拉到」显示成「作品库是空的」。 */
+export type ToivWorkJob = {
+    id: string;
+    prompt_id: string;
+    kind: string;
+    status: string;
+    prompt: string;
+    created_at: string;
+    results: string[];
+    nsfw?: boolean;
+    error?: string | null;
+    post_status?: string;
+    app_name?: string;
+    has_params?: boolean;
+    batch_id?: string;
+    meta?: { width?: number; height?: number; steps?: number; duration_hint?: number };
+};
+
+export type ToivWorksPage = { items: ToivWorkJob[]; offset: number; hasMore: boolean };
+
+export async function fetchToivWorksPage(opts: {
+    limit?: number;
+    offset?: number;
+    kind?: string;
+}): Promise<ToivWorksPage> {
+    const limit = opts.limit ?? 60;
+    const offset = opts.offset ?? 0;
+    const { data } = await toivHttp.get("/jobs", {
+        params: { limit, offset, ...(opts.kind ? { kind: opts.kind } : {}) },
+        timeout: 45_000,
+    });
+    const items = Array.isArray(data) ? (data as ToivWorkJob[]) : [];
+    return { items, offset, hasMore: items.length >= limit };
+}
+
+export async function fetchToivWorkCounts(kind?: string): Promise<Record<string, number>> {
+    const { data } = await toivHttp.get("/jobs/counts", {
+        params: kind ? { kind } : {},
+        timeout: 45_000,
+    });
+    return (data ?? {}) as Record<string, number>;
+}
+
+export async function fetchToivTrashPage(opts: { limit?: number; offset?: number }): Promise<ToivWorkJob[]> {
+    const { data } = await toivHttp.get("/jobs/trash", {
+        params: { limit: opts.limit ?? 100, offset: opts.offset ?? 0 },
+        timeout: 45_000,
+    });
+    return Array.isArray(data) ? (data as ToivWorkJob[]) : [];
+}
+
+export async function deleteToivWork(jobId: string): Promise<void> {
+    await toivHttp.delete(`/jobs/${encodeURIComponent(jobId)}`);
+}
+
+export async function restoreToivWork(jobId: string): Promise<void> {
+    await toivHttp.post(`/jobs/${encodeURIComponent(jobId)}/restore`);
+}
+
+export async function rerunToivWork(jobKey: string): Promise<boolean> {
+    try {
+        await toivHttp.post(`/jobs/${encodeURIComponent(jobKey)}/rerun`);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 export async function fetchBoards(): Promise<ToivBoard[]> {
     const { data } = await toivHttp.get("/boards");
     return Array.isArray(data) ? data : [];

@@ -51,3 +51,12 @@ export function toivCoverImageUrl(path: string | null | undefined): string {
           : normalized;
     return withToivImgToken(abs);
 }
+
+/** 作品播放/查看地址:与 toivCoverImageUrl 同签名口径,但**不做** COS 截帧(要真文件)。 */
+export function toivMediaUrl(path: string | null | undefined): string {
+    if (!path) return "";
+    if (path.startsWith("http")) return withToivImgToken(path);
+    const normalized = path.startsWith("/") ? path : `/${path}`;
+    const abs = normalized.startsWith("/api/") ? normalized : normalized.startsWith("/apps/") ? `/api${normalized}` : normalized;
+    return withToivImgToken(abs);
+}

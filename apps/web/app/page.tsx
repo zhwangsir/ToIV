@@ -132,6 +132,15 @@ const EXTERNAL_VIEW_REDIRECTS: Record<string, string> = {
   backlot: "/studio/settings?section=channels",
 };
 
+/** F8(2026-10-14 融合批):market/library 的 canvas 对应页已具备 SFW 主链路——
+ *  市场=应用分页+运行→任务中心(868 行,含 W0.2b 服务端分页);作品=jobs 网格/类型筛选/搜索/
+ *  排序/回收站恢复/重跑(library-works.tsx)。按绞杀者纪律(W4.1)整页跳过去。
+ *  缺口(技能 tab、引擎工作台内嵌、保存视图、3D、超分)经 ?classic=1 仍可达,不藏功能。 */
+const CANVAS_MIGRATED_VIEWS: Record<string, string> = {
+  market: "/studio/toiv/market",
+  library: "/studio/toiv/library",
+};
+
 /** W1(F1 后撤销):原资源中心 tab 直达集合随 resources 视图退役移除 */
 
 /** 解析 ?view= 参数:旧 key 走重定向,非法 key 返回 null(落默认视图)。 */
@@ -536,6 +545,15 @@ function HomeContent() {
       window.location.replace(ext);
       return;
     }
+    // F8:market/library 迁 canvas。两条逃生口与 studioProbe 同口径:
+    // ①?classic=1 显式留经典(技能 tab/保存视图/3D/超分等 canvas 尚未覆盖的能力);
+    // ②R18 模式留经典——canvas 是纯 SFW 拍板面,R18 作品与应用的唯一家在经典壳(R18=A),
+    //   整页跳过去等于把 R18 面藏掉,违反内容边界。
+    const migrated = CANVAS_MIGRATED_VIEWS[raw ?? ""];
+    if (migrated && !window.location.search.includes("classic=1") && !r18) {
+      window.location.replace(migrated);
+      return;
+    }
     const resolved = resolveView(raw);
     if (resolved && resolved !== view) {
       setView(resolved);
@@ -545,7 +563,7 @@ function HomeContent() {
     if (raw && LEGACY_VIEW_REDIRECTS[raw]) {
       router.replace(`/?view=${resolved ?? "home"}`);
     }
-  }, [searchParams, view, router]);
+  }, [searchParams, view, router, r18]);
 
   useEffect(() => {
     // M9:fetchMe 之前恢复 R18 模式(仅同步 X-NSFW 请求头标记,不清缓存不广播)
