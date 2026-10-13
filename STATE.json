@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T16:55:30+08:00",
+  "updated_at": "2026-10-13T16:59:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15611,6 +15611,19 @@
         "http_404": 1
       },
       "运行实况": "命令行含 --ids-file priority_complete.txt --concurrency 2 --timeout-s 900;:8196 run 1 pend 2"
+    },
+    "blocked_bucket_rescored_1475_recovered": {
+      "date": "2026-10-13",
+      "问题": "目标要的是「所有**能**本地部署的」,但批B 的 27029 条 blocked 是在 shim 落地前、且在实例重启注册补齐节点前判的——分类会随我方能力增长而过期(P-14 同型,但方向相反:低估)。",
+      "方法": "用**当天重启后**重取的四口 object_info 并集(类名 6231 / 模型选项 28553)重评 blocked 记录的 missing_nodes_on_all_workers 与 missing_models_on_no_worker;两者都空即「现已齐」。纯离线,不烧 GPU。",
+      "结果": "blocked 26361 → **1475 条现已齐**(仍缺 25639),这些从未被导入;且是高用量头部:Flux文生图 55646 次、银河换脸王 51984、Wan2.2 T2V 48969、Flux图生图 36954…;主标签:图生视频 350 / 视频生视频 128 / 人像写真 92 / 音频生成 86 / 文生视频 83。",
+      "处置": "生成 classified_recovered.jsonl(status 改 ok 并写明 recovered_by),给导入器加 --classified 以喂这个**重评子集**而不是整个 blocked 桶(否则会把 26361 全导进来);导入 is_public 一律 False,交给烟测战役 + 轮间收割裁决。",
+      "干跑校验": "5 条里 3 条 skip_already(去重有效)、2 条 dry_run;库内 RH 溯源 webappId 12364 个。",
+      "工具坑两处已修": "① 新代码用了未导入的 pathlib(NameError);② 日志把分类源硬写成 classified.jsonl,换源后会说谎——已改为打印真实源文件名,并在文件缺失时直接 raise 而不是静默回落原文件(P-11 同族)。",
+      "产物": [
+        "tmp/rh_classify_20261013/classified_recovered.jsonl",
+        "tmp/rh_classify_20261013/unblocked_by_today_fixes.json"
+      ]
     }
   },
   "w9_civitai_provenance_2026_10_13": {

@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import pathlib
 import os
 import sys
 import time
@@ -59,6 +60,9 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="显式 dry-run(默认行为)")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--status", default="ok", help="classified.jsonl 里要导入的 status")
+    ap.add_argument("--classified", default="",
+                    help="指定分类产物路径;用于喂**重新评分后**的子集(如今天 shim/重启解锁的那批),"
+                         "而不是原始 classified.jsonl 的整个 status 桶")
     ap.add_argument("--min-use", type=int, default=0)
     ap.add_argument("--sleep", type=float, default=0.35)
     ap.add_argument("--publish", action="store_true",
@@ -72,10 +76,13 @@ def main() -> int:
 
     api_key = mod._load_rh_key()
     token = login(BASE)
-    print(f"core={BASE} 登录 ok | 分类源={CLASSIFIED.name} | 模式={'DRY-RUN' if dry else 'APPLY'}")
+    print(f"core={BASE} 登录 ok | 分类源={(args.classified or CLASSIFIED.name) and pathlib.Path(args.classified).name if args.classified else CLASSIFIED.name} | 模式={'DRY-RUN' if dry else 'APPLY'}")
 
     rows = []
-    for line in CLASSIFIED.open(encoding="utf-8"):
+    src = pathlib.Path(args.classified) if args.classified else CLASSIFIED
+    if not src.exists():
+        raise SystemExit(f"分类产物不存在: {src}")   # 不静默回落到原始文件(那会导错一大桶)
+    for line in src.open(encoding="utf-8"):
         try:
             r = json.loads(line)
         except json.JSONDecodeError:
