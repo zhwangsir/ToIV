@@ -63,7 +63,11 @@ def main() -> int:
     ap.add_argument("--publish-passes", action="store_true",
                     help="把本轮 pass 的应用批量上架(≤200/次,走 /api/admin/apps/bulk-public,逐条留审计)。"
                          "判据是「该应用自己 smoke pass」,与先导批的 60%% 群体判据是两回事")
+    ap.add_argument("--publish-every", type=int, default=25,
+                    help="每攒够 N 条 pass 就上架一批,不等整轮跑完(默认 25)")
     args = ap.parse_args()
+    if args.publish_every < 1:
+        args.publish_every = 1
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     log_path = OUT_DIR / f"smoke_{args.kind or 'all'}_{time.strftime('%H%M%S')}.jsonl"
 
@@ -102,9 +106,24 @@ def main() -> int:
     tally: dict[str, int] = {}
     cls: dict[str, int] = {}
     passed: list[str] = []
+    pending_pub: list[str] = []
     t0 = time.time()
     lock = threading.Lock()
     done_n = 0
+
+    def flush_publish(batch: list[str], tag: str) -> None:
+        """上架一批已 individually-pass 的应用。
+
+        增量而非收尾才发:一条 600 项的战役要跑数小时,攒到最后等于让已验证可用的应用
+        在库里闲着——按目标「拉进来要用」这是纯损失。逐条留审计走 bulk-public。
+        """
+        if not batch:
+            return
+        for i in range(0, len(batch), 200):
+            st, r = req("POST", "/api/admin/apps/bulk-public",
+                        {"ids": batch[i:i + 200], "is_public": True}, tok=tok, timeout=300)
+            print(f"  上架[{tag}] 批 {i // 200 + 1}: http={st} done={(r or {}).get('done')} "
+                  f"missing={(r or {}).get('missing')}", flush=True)
 
     def one(aid: str) -> None:
         nonlocal done_n
@@ -124,8 +143,14 @@ def main() -> int:
             tally[status] = tally.get(status, 0) + 1
             if status != "pass" and c:
                 cls[c] = cls.get(c, 0) + 1
+            batch: list[str] = []
             if status == "pass":
                 passed.append(aid)
+                if args.publish_passes:
+                    pending_pub.append(aid)
+                    if len(pending_pub) >= args.publish_every:
+                        batch = pending_pub.copy()
+                        pending_pub.clear()
             log.write(json.dumps(rec, ensure_ascii=False) + "\n")
             log.flush()
             done_n += 1
@@ -134,6 +159,8 @@ def main() -> int:
                 rate = done_n / el * 3600 if el else 0
                 print(f"  {done_n}/{len(ids)} pass={tally.get('pass', 0)} {tally} "
                       f"| {el / 60:.1f}min | {rate:.0f}/h | 归因 {cls}", flush=True)
+        if batch:
+            flush_publish(batch, "增量")
 
     with log_path.open("a", encoding="utf-8") as log:
         if args.concurrency <= 1:
@@ -144,13 +171,9 @@ def main() -> int:
             with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
                 list(ex.map(one, ids))
 
-    if args.publish_passes and passed:
-        print(f"\n上架本轮 pass 的 {len(passed)} 条(≤200/次)…")
-        for i in range(0, len(passed), 200):
-            st, r = req("POST", "/api/admin/apps/bulk-public",
-                        {"ids": passed[i:i + 200], "is_public": True}, tok=tok, timeout=300)
-            print(f"  批 {i // 200 + 1}: http={st} done={(r or {}).get('done')} "
-                  f"missing={(r or {}).get('missing')}", flush=True)
+    if args.publish_passes and pending_pub:
+        flush_publish(pending_pub, "收尾")
+        pending_pub.clear()
 
     total = sum(tally.values())
     p = tally.get("pass", 0)
