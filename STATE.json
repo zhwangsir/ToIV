@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T16:19:30+08:00",
+  "updated_at": "2026-10-13T16:55:30+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15593,6 +15593,24 @@
       },
       "结论": "「拉进来并使用」这一环第一次拿到前端级证据:一条本批新上架的 RH 应用在市场可见、详情正确、运行表单可用。",
       "仍未验": "没有真正点「生成」出图(会占 GPU 且与在跑战役抢卡);这一步留给战役自然覆盖(smoke 已真出图),或用户目检。"
+    },
+    "harvest_pipeline_and_arg_bug": {
+      "date": "2026-10-13",
+      "新增工具": [
+        "scripts/ops/publish_pass_but_hidden.py(轮间收割:跳过不变量卡 + 回 PG 复核,count 不变即 exit 1)",
+        "scripts/ops/rh_smoke_prioritize.py(静态预筛:未测 10898 条里 complete 6929 = 63.6%)",
+        "监管接上预筛清单并改数组传参"
+      ],
+      "自查出的配置失效": "接清单时用 $(printf) 拼参数,把 --concurrency/--timeout-s/--sleep 整段吞掉,战役悄悄降回并发 1 与默认 600s。属于「跑着看着正常但配置已失效」那类;取证方式是核对 ps 的真实命令行,不是靠自己 echo。已改数组传参并复验。",
+      "收割实证": "三次运行 public 1894→1895→1897;每次剩余 pass-but-hidden 恒等于不变量卡数 7",
+      "本轮净上架": "市场可见 1870(本轮起点)→ 1897,+27 条,全部逐条 smoke pass 且经 PG 复核",
+      "今日烟测累计": {
+        "fail": 134,
+        "pass": 53,
+        "timeout": 6,
+        "http_404": 1
+      },
+      "运行实况": "命令行含 --ids-file priority_complete.txt --concurrency 2 --timeout-s 900;:8196 run 1 pend 2"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
