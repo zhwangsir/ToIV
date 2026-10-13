@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import atexit
+import hashlib
 import json
 import signal
 import sys
