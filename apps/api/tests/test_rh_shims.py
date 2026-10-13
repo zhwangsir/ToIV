@@ -28,6 +28,7 @@ _spec.loader.exec_module(shim)
 # ── 注册表:类名必须与生产图里实证的 class_type 逐字一致(差一个空格就缺节点) ──
 EXPECTED_CLASSES = {
     "RH_Captioner", "RH_Translator", "RH_Prompter", "RH_LLMAPI_Pro_Node",
+    "RH_LLMAPI_NODE", "RH_Captioner_Pro", "Runninghub Captioner",
     "RunningHub Deepcleaner", "RH_GetAudioDuration", "RHHiddenNodes",
 }
 
@@ -333,3 +334,74 @@ def test_image_to_data_url_rejects_uninterpretable_shape():
 
     with pytest.raises(RuntimeError):
         shim.image_to_data_url(torch.from_numpy(np.zeros((5, 5), dtype="float32")))
+
+
+# ── RH_LLMAPI_NODE:实测 662 张图在用,是 RH 云 LLM 的主力入口(比 Pro 版 148 多得多) ──
+def test_llmapi_node_signature_matches_production_evidence():
+    """字段来自生产库 jsonb 聚合:temperature/api_baseurl/model/api_key 各 731/731/731/727 次,
+    seed 689、prompt 640(连线)+91(字面量)、ref_image 516、role 412+319、ref_image1..3。"""
+    spec = shim._RHLLMAPINode.INPUT_TYPES()
+    assert set(spec["required"]) == {"model", "prompt"}
+    opt = set(spec["optional"])
+    for k in ("api_baseurl", "api_key", "role", "temperature", "seed",
+              "ref_image", "ref_image1", "ref_image2", "ref_image3"):
+        assert k in opt, f"生产图在用 {k},签名里必须有"
+    assert shim._RHLLMAPINode.RETURN_TYPES == ("STRING",), (
+        "输出槽 0 实测全部流向文本字段(ProcessString.input_string 260 / ShowText.text 114 / "
+        "CLIPTextEncode.text 67 / WanVideoTextEncode.positive_prompt 21)")
+
+
+def test_llmapi_node_ignores_rh_cloud_endpoint_and_key(monkeypatch):
+    """api_baseurl/api_key 指向 RH 云,必须忽略并改用本地后端;密钥不得进请求体。"""
+    seen = {}
+
+    def fake(base, payload):
+        seen["base"] = base
+        seen["payload"] = payload
+        return "out"
+
+    monkeypatch.setattr(shim, "post_chat", fake)
+    assert shim._RHLLMAPINode().run(
+        model="gpt-4o", prompt="hi",
+        api_baseurl="https://api.runninghub.ai/v1", api_key="sk-SECRET-DO-NOT-LEAK",
+    ) == ("out",)
+    blob = json.dumps(seen["payload"])
+    assert "sk-SECRET-DO-NOT-LEAK" not in blob and "runninghub" not in blob
+    assert "192.168.71.84:8000" in seen["base"], "无图 → 走本地 DSv4"
+
+
+def test_llmapi_node_routes_to_vlm_when_ref_image_present(monkeypatch):
+    seen = {}
+
+    def fake(base, payload):
+        seen["base"] = base
+        seen["payload"] = payload
+        return "cap"
+
+    monkeypatch.setattr(shim, "post_chat", fake)
+    pytest.importorskip("numpy"); pytest.importorskip("PIL"); pytest.importorskip("torch")
+    import numpy as np
+    import torch
+
+    img = torch.from_numpy(np.zeros((1, 4, 4, 3), dtype="float32"))
+    assert shim._RHLLMAPINode().run(model="gpt-4o", prompt="describe", ref_image=img) == ("cap",)
+    assert "9311" in seen["base"], "带图 → 走本地 Qwen3-VL"
+    assert any(b.get("type") == "image_url" for b in seen["payload"]["messages"][-1]["content"])
+
+
+def test_llmapi_node_failure_raises_because_it_has_no_skip_error(monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("upstream down")
+
+    monkeypatch.setattr(shim, "post_chat", boom)
+    with pytest.raises(RuntimeError):
+        shim._RHLLMAPINode().run(model="m", prompt="x")
+
+
+def test_captioner_pro_and_runninghub_captioner_aliases_are_registered():
+    """同一语义的多种拼写:漏一个就是一批应用在烟测里报 missing_node_type。
+    'Runninghub Captioner' 是真机烟测炸出来才发现的——只聚合 RH_Captioner 会漏。"""
+    assert shim.NODE_CLASS_MAPPINGS["RH_Captioner_Pro"] is shim._RHLLMAPIPro
+    assert shim.NODE_CLASS_MAPPINGS["Runninghub Captioner"] is shim._RHCaptioner
+    # Pro 版的 optional 里必须有 image1(RH_Captioner_Pro 实测用 image1)
+    assert "image1" in shim._RHLLMAPIPro.INPUT_TYPES()["optional"]

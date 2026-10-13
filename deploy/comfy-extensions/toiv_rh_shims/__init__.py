@@ -414,11 +414,72 @@ class _RHHiddenNodes:
         )
 
 
+# ── RH_LLMAPI_NODE:RH 云 LLM 的**主力**入口(实测 662 张图,远多于 Pro 版的 148) ──
+class _RHLLMAPINode:
+    """与 Pro 版的差别:多了 api_baseurl / api_key(RH 云端点与密钥)与 ref_image(单数)。
+
+    api_baseurl / api_key **一律忽略**——shim 的全部意义就是换后端不换图:图里指向 RH 云,
+    本地改指 DSv4 / Qwen3-VL。api_key 是密钥,不写进日志。
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "model": ("STRING", {"default": ""}),
+                "prompt": ("STRING", {"default": "", "multiline": True}),
+            },
+            "optional": {
+                "api_baseurl": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": ""}),
+                "role": ("STRING", {"default": "user"}),
+                "temperature": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 2.0, "step": 0.01}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
+                "ref_image": ("IMAGE",),
+                "ref_image1": ("IMAGE",),
+                "ref_image2": ("IMAGE",),
+                "ref_image3": ("IMAGE",),
+            },
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("text",)
+    FUNCTION = "run"
+    CATEGORY = "RH"
+
+    def run(self, model="", prompt="", api_baseurl="", api_key="", role="user",
+            temperature=None, seed=0, ref_image=None, ref_image1=None,
+            ref_image2=None, ref_image3=None):
+        text = _text_or_none(prompt)
+        images = [image_to_data_url(im)
+                  for im in (ref_image, ref_image1, ref_image2, ref_image3) if im is not None]
+        base, served = ((cfg("VLM_BASE"), cfg("VLM_MODEL")) if images
+                        else (cfg("LLM_BASE"), cfg("LLM_MODEL")))
+        if api_baseurl or api_key:
+            # 只记「忽略了云端点」,不把 api_key 落日志
+            LOG.info("RH shim 忽略图内 RH 云端点/密钥,改用本地后端 %s", served)
+        if model and model != served:
+            LOG.info("RH shim 改写模型名 %r → %r(本地无 RH 云端模型)", model, served)
+        payload = build_chat_payload(served, "", text, images=images or None,
+                                     temperature=temperature, seed=seed or None)
+        try:
+            return (post_chat(base, payload).strip(),)
+        except RuntimeError as e:
+            # 本类无 skip_error 字段:失败必须抛,否则用户拿到原文当译文/描述却看不到任何错误
+            return (_fail_or_fallback(False, text, e),)
+
+
 NODE_CLASS_MAPPINGS = {
     "RH_Captioner": _RHCaptioner,
     "RH_Translator": _RHTranslator,
     "RH_Prompter": _RHPrompter,
     "RH_LLMAPI_Pro_Node": _RHLLMAPIPro,
+    "RH_LLMAPI_NODE": _RHLLMAPINode,
+    # 实测同一语义在不同图里有多种拼写:RH_Captioner_Pro 的字段是 Pro 版的子集(只多 image1,
+    # 而 Pro 版本就有 image1/2/3),故直接复用;"Runninghub Captioner" 是 RH_Captioner 的另一种写法
+    # (真机烟测报 "Node 'Runninghub Captioner' not found" 才发现,光看 RH_Captioner 的聚合会漏)。
+    "RH_Captioner_Pro": _RHLLMAPIPro,
+    "Runninghub Captioner": _RHCaptioner,
     "RunningHub Deepcleaner": _RHDeepcleaner,
     "RH_GetAudioDuration": _RHGetAudioDuration,
     "RHHiddenNodes": _RHHiddenNodes,
@@ -428,6 +489,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RH_Translator": "RH Translator (ToIV → DSv4)",
     "RH_Prompter": "RH Prompter (ToIV → DSv4)",
     "RH_LLMAPI_Pro_Node": "RH LLMAPI Pro (ToIV → DSv4/VLM)",
+    "RH_LLMAPI_NODE": "RH LLMAPI (ToIV → DSv4/VLM)",
+    "RH_Captioner_Pro": "RH Captioner Pro (ToIV → DSv4/VLM)",
+    "Runninghub Captioner": "Runninghub Captioner (ToIV → Qwen3-VL)",
     "RunningHub Deepcleaner": "RH Deepcleaner (ToIV → DSv4)",
     "RH_GetAudioDuration": "RH Get Audio Duration (ToIV local)",
     "RHHiddenNodes": "RH Hidden Nodes (ToIV shim — 不可本地部署)",
