@@ -15,7 +15,9 @@ ComfyUI 实例只有 :8196/:8264/:8197/:8199 四台,:8188 是 :8196 的 LB 前�
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
+import signal
 import sys
 import threading
 import time
@@ -187,6 +189,17 @@ def main() -> int:
         if batch:
             flush_publish(batch, "增量")
 
+    def _flush_on_exit(*_a) -> None:
+        """被 kill / 正常收尾都要把已 pass 的先上架。
+
+        之前只在循环跑完后统一上架:我为了改参数 kill 过三次战役,
+        每次都在进程里攒着若干条 pass 一起丢掉——「已验证可用」的应用
+        因为一次运维动作而白测。atexit + SIGTERM 双保险,幂等(bulk-public 可重复调)。
+        """
+        if pending_pub:
+            flush_publish(pending_pub, "退出前")
+            pending_pub.clear()
+
     with log_path.open("a", encoding="utf-8") as log:
         if args.concurrency <= 1:
             for aid in ids:
@@ -201,6 +214,12 @@ def main() -> int:
         pending_pub.clear()
 
     if args.publish_passes:
+        atexit.register(_flush_on_exit)
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            try:
+                signal.signal(sig, _flush_on_exit)
+            except ValueError:
+                pass  # 非主线程时注册不了,靠 atexit 兜底
         print(f"(已跳过启动期不变量卡 {skipped_guard} 个:上架会被下次 api 启动回滚)")
 
     total = sum(tally.values())

@@ -60,6 +60,12 @@ PY
       ZERO_TRANSPORT_STREAK=0
     fi
   fi
+  # 轮间收割:把「已 pass 但未公开」的立即上架。
+  # 为什么不只靠进程内的 --publish-every:SIGTERM 路径的兜底我无法在无真 pass 的情况下取证,
+  # 而轮间收割走的是已经手工跑通三次的同一条 bulk-public 通道(证据可核)。
+  echo "[sup $(date +%H:%M:%S)] 轮间收割 pass-but-hidden"
+  apps/api/.venv/bin/python scripts/ops/publish_pass_but_hidden.py >> "$OUT" 2>&1 || echo "  收割失败(不阻断下一轮)"
+
   # 未测见底就收工
   LEFT=$(ssh -o ConnectTimeout=20 merlin@192.168.71.47 \
     "PGPASSWORD=68799b59242beeccfd54963902a35006 psql -h 127.0.0.1 -U toiv -d toiv -tAc \"select count(*) from app where coalesce(smoke_status,'')=''\"" 2>/dev/null)
