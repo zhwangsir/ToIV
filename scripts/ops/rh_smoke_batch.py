@@ -99,7 +99,11 @@ def main() -> int:
         return 2
 
     if args.ids_file:
-        ids = [l.strip() for l in Path(args.ids_file).read_text().splitlines() if l.strip()]
+        raw = Path(args.ids_file).read_text()
+        ids = [l.strip() for l in raw.splitlines() if l.strip()]
+        # 清单可能被轮间重建覆盖:落盘 sha 才能在事后判定「某条到底在不在这轮的输入里」
+        # (10-13 实证:两条 running 卡不在磁盘清单里却出现在本轮结果里,因无当时的 sha 而无法定案)
+        print(f"ids-file={args.ids_file} n={len(ids)} sha256={hashlib.sha256(raw.encode()).hexdigest()[:16]}", flush=True)
     else:
         ids = []
         offset = 0

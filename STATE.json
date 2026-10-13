@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T17:59:18+08:00",
+  "updated_at": "2026-10-13T18:01:16+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15740,6 +15740,19 @@
       "open_mechanism": "谁把这两个 id 提交进 17:34 那一轮仍未查清(ids-file 一次性读入且当时不含它们;sec 与时间线对不齐)——故意不写结论",
       "campaign_today": "185 条结果 / 131 去重: pass 53, fail 121, timeout 10, http_404 1",
       "civitai_path": "downloadUrl host=civitai.com;WS 直连与 Mac Clash(:7897) 两条路 1 字节 Range GET 均 000 超时 → 25 条缺件卡点是域名可达性而非 token"
+    },
+    "w8_18_running_was_inflight_not_orphan": {
+      "verdict": "两条 running 卡是在跑不是在等收口:本轮 pass 的 rh-acc-0015360002 同样不在当前磁盘清单 → 进程读的是重建前的清单内容",
+      "corrections": [
+        "W8-16/17 的「卡死卡/谁提交未解」问题被证伪",
+        "reconcile_interrupted_smokes 战役在跑时不得手调(设计口径=API 启动时一次)",
+        "a5cddfba 提交说明的理由错:不是必须补录,而是重建后的清单按空值筛把它们排除了"
+      ],
+      "final_states": {
+        "rh-acc-0018549761-0fedd3": "fail/product",
+        "rh-acc-0029976577-97f43a": "timeout"
+      },
+      "tooling": "rh_smoke_batch.py 读 --ids-file 时打印 n + sha256 前 16 位(清单是轮间可变量)"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
