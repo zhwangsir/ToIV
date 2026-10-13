@@ -8,6 +8,9 @@
 #   1) 连续 2 轮 pass=0 且 fail 全属 transport/熔断 → 是测量环境坏,不是应用坏,继续跑只会写脏数据;
 #   2) 达到 MAX_ROUNDS 上限(默认 8)。
 # 熔断污染是本项目自己引入过的坑(重启接单实例会把在跑烟测打成 transport 并落 fail)。
+# 默认并发 1 而非 2:实测四口从 core 直连均 200/7ms 却仍报「熔断中」,
+# 说明是池探针在高负载下超时(还叠加 worker_warmup 往 :8262/:8264 提交作业),
+# 并发 2 会把健康应用写成假 fail——宁可慢,不要脏数据。
 set -u
 cd "$(dirname "$0")/../.." || exit 1
 ROUNDS=${MAX_ROUNDS:-8}
@@ -25,7 +28,7 @@ for ((r=1; r<=ROUNDS; r++)); do
   OUT="$LOGDIR/sup_round${r}_${TS}.log"
   echo "[sup $(date +%H:%M:%S)] 第 $r/$ROUNDS 轮启动 → $OUT"
   apps/api/.venv/bin/python scripts/ops/rh_smoke_batch.py \
-    --status untested --limit "$LIMIT" --concurrency 2 --timeout-s 900 --sleep 0.8 \
+    --status untested --limit "$LIMIT" --concurrency "${ROUND_CONC:-1}" --timeout-s 900 --sleep 1.2 \
     --publish-passes --publish-every 10 >> "$OUT" 2>&1
   echo "[sup $(date +%H:%M:%S)] 第 $r 轮结束"
   tail -4 "$OUT"

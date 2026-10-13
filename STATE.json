@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T15:11:00+08:00",
+  "updated_at": "2026-10-13T15:27:30+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15422,6 +15422,85 @@
         "H3 两口缺 ComfyUI-LTXVideo/dlib/wget"
       ],
       "边界": "以上均属依赖/包变更,不在自主范围,等用户确认"
+    },
+    "true_missing_classes_authoritative": {
+      "date": "2026-10-13",
+      "method": "不走 smoke_error 字符串解析(会截断多词类名且全是陈旧行);直接 jsonb_each 取 fail 应用的 class_type 集合,减四口 /object_info 键并集(按 body 键名,不信状态码 P-16)",
+      "规模": {
+        "舰队类名并集": 5445,
+        "fail 应用": 558,
+        "真正缺失类名": 311
+      },
+      "Top_按引用应用数": [
+        [
+          "TTP_Image_Assy",
+          36
+        ],
+        [
+          "TTP_Image_Tile_Batch",
+          35
+        ],
+        [
+          "TTP_Tile_image_size",
+          28
+        ],
+        [
+          "Text",
+          25
+        ],
+        [
+          "llama_cpp_instruct_adv",
+          23
+        ],
+        [
+          "llama_cpp_model_loader",
+          23
+        ],
+        [
+          "llama_cpp_parameters",
+          21
+        ],
+        [
+          "NunchakuQwenImageDiTLoader",
+          16
+        ],
+        [
+          "ProcessString",
+          13
+        ],
+        [
+          "Qwen3_VQA",
+          12
+        ],
+        [
+          "CropWithPadInfo_EditUtils",
+          11
+        ],
+        [
+          "SeedVR2",
+          11
+        ],
+        [
+          "FluxResolutionNode",
+          10
+        ],
+        [
+          "CompressImages",
+          10
+        ]
+      ],
+      "关键收敛": "此前「160 个包」的口径太散。真实缺件高度集中在少数几个包:TTP_* 三兄弟(TTP_Image_Assy 36 / TTP_Image_Tile_Batch 35 / TTP_Tile_image_size 28 = 99 次)同属 TTPlanetPig 系;llama_cpp_*(23/23/21 = 67 次)同属一个 LLM 节点包。装这 2 个包就覆盖 166/311 类名次 ≈ 53%。",
+      "纠正": "上一版按 smoke_error 统计出的 Top 是 RH_LLMAPI_NODE(16)/RH_Captioner(7)/RH_Translator(6) —— 那些是我自己的 shim,四口现均 8/8 已全覆盖,计数全来自重启前的陈旧行;同时该口径还把 「ttN float」截断成「ttN」、「ttN text」截断成「Text」,并把多词类名切碎。两个错误都已入账。",
+      "nunchaku 单列": "NunchakuQwenImageDiTLoader 16 次 —— 装它需 sm_120 内核(P-7),风险高于纯 python 包,须人工窗口",
+      "产物": "tmp/rh_resmoke_20261013/true_missing_classes.json(含每类前 6 个 app id)"
+    },
+    "transport_false_fails_and_concurrency": {
+      "date": "2026-10-13",
+      "现象": "并发 2 的战役里 9 条测出 4 条 transport(2 条「所有 worker 均不可达(熔断中)」+ 2 条「502 媒体文件无法转运到 :8197」)",
+      "排除": "从 core 直连四口 system_stats 全 200 / ~7ms → 不是链路问题",
+      "判因": "池探针在高负载下超时被判不可达;且 api 侧 worker_warmup 同时往 :8262/:8264 提交预热作业抢资源",
+      "处置": "监管脚本默认并发降为 1(ROUND_CONC 可调)+ sleep 1.2;宁可慢,不要把健康应用写成假 fail",
+      "遗留": "熔断期写成 fail 的应用需公平重测(见任务 #25)"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
