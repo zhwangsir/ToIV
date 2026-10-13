@@ -321,6 +321,47 @@ def _spec_default(spec) -> object:
     return _MISSING
 
 
+async def _fetch_class_specs(client, graph: dict, tries: int = 2) -> tuple[dict, list[str]]:
+    """按类逐个拉 object_info。返回 (规格并集, 拉不到的类名列表)。
+
+    为什么必须把「拉不到」和「没这个类」分开:实例装载 19.5GB 级模型时 ComfyUI 的
+    HTTP 服务与执行共用一个事件循环,会被阻塞几十秒——实测同一条 `/object_info/SeedVR2`
+    在 :8196 上依次返回 `35s 无响应(http=000)` → `8.7s` → `6ms`。单次抓取失败若被
+    `except: pass` 吞掉,`combo_repair` 就拿不到该类的 required 规格,**补不了缺失的必填输入**,
+    于是「我们没修好」被记成「应用自己是坏的 validation 失败」(P-11 同型:查询失败不得当成"没有")。
+    重试一次可跨过大部分装载窗口;仍失败就把类名透出,让归因保持诚实。
+    """
+    specs: dict = {}
+    failed: list[str] = []
+    for ct in sorted({n.get("class_type") for n in (graph or {}).values() if isinstance(n, dict)}):
+        if not isinstance(ct, str):
+            continue
+        got: dict | None = None
+        for i in range(max(1, tries)):
+            try:
+                got = await client.object_info(ct) or {}
+                break
+            except Exception:  # noqa: BLE001 — 装载窗口内的探测失败要重试,不能吞成"没这个类"
+                got = None
+                if i + 1 < tries:
+                    await asyncio.sleep(1.0)
+        if got:
+            specs.update(got)
+        else:
+            failed.append(ct)
+    return specs, failed
+
+
+def _spec_incomplete_note(failed: list[str]) -> str:
+    """规格没取全时的归因标注。
+
+    措辞刻意避开 classify_failure 的关键词(缺模型/缺节点/超时/required input is missing 等),
+    否则这条标注自己就会把失败改分类,变成新的误判源。
+    """
+    return (f"repair_incomplete: {len(failed)} 个类的 object_info 未取到"
+            f"(实例装载大模型时事件循环阻塞),其必填输入无从补齐: {sorted(failed)[:5]}")
+
+
 def combo_repair(graph: dict, objinfo: dict, edits_out: list | None = None) -> list[str]:
     """首跑校验失败后的确定性修复:类名别名 + combo 变体改写 + 缺的 widget 按声明默认值补齐。
 
@@ -622,14 +663,9 @@ async def run_app_smoke(
         # 失败 → 确定性修复(combo 校准)后重试一次
         if attempt == 1:
             try:
-                objinfo_all: dict = {}
-                for ct in {n.get("class_type") for n in graph.values() if isinstance(n, dict)}:
-                    if not isinstance(ct, str):
-                        continue
-                    try:
-                        objinfo_all.update(await client.object_info(ct) or {})
-                    except Exception:
-                        pass
+                objinfo_all, spec_failed = await _fetch_class_specs(client, graph)
+                if spec_failed:
+                    fixes_all.append(_spec_incomplete_note(spec_failed))
                 fixes = combo_repair(graph, objinfo_all, edits_all)
                 if fixes:
                     fixes_all.extend(fixes)
@@ -645,14 +681,9 @@ async def run_app_smoke(
         and get_settings().selfheal_llm_enabled
     ):
         try:
-            objinfo_all: dict = {}
-            for ct in {n.get("class_type") for n in graph.values() if isinstance(n, dict)}:
-                if not isinstance(ct, str):
-                    continue
-                try:
-                    objinfo_all.update(await client.object_info(ct) or {})
-                except Exception:
-                    pass
+            objinfo_all, spec_failed = await _fetch_class_specs(client, graph)
+            if spec_failed:
+                fixes_all.append(_spec_incomplete_note(spec_failed))
             from app.services import selfheal_llm
 
             out = await selfheal_llm.propose_and_validate(graph, res["cls"], last_msg, objinfo_all)
