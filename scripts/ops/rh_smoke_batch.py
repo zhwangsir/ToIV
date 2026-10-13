@@ -27,6 +27,25 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT_DIR = ROOT / "tmp" / "rh_smoke_20261013"
+
+# 启动期不变量清单里的 id 上架了也会被 seed_builtin_apps 静默改回(见 AGENTS P-17),
+# 白跑一次还会让 bulk-public 的 done 数看起来像收益。取不到就退回空集,不阻断战役。
+def _invariant_hidden_ids() -> set[str]:
+    ids: set[str] = set()
+    try:
+        from app.services.app_content_modes import MERGE_HIDE_IDS
+
+        ids |= set(MERGE_HIDE_IDS)
+    except Exception:  # noqa: BLE001 — 拿不到就少一层保护,不致命
+        pass
+    try:
+        from app.services.app_seed import SIMILAR_MERGE_HIDE_IDS
+
+        ids |= set(SIMILAR_MERGE_HIDE_IDS)
+    except Exception:  # noqa: BLE001
+        pass
+    return ids
+
 BASE = "http://192.168.71.47:8090"
 
 
@@ -110,6 +129,8 @@ def main() -> int:
     t0 = time.time()
     lock = threading.Lock()
     done_n = 0
+    GUARD_IDS = _invariant_hidden_ids()
+    skipped_guard = 0
 
     def flush_publish(batch: list[str], tag: str) -> None:
         """上架一批已 individually-pass 的应用。
@@ -117,6 +138,10 @@ def main() -> int:
         增量而非收尾才发:一条 600 项的战役要跑数小时,攒到最后等于让已验证可用的应用
         在库里闲着——按目标「拉进来要用」这是纯损失。逐条留审计走 bulk-public。
         """
+        nonlocal skipped_guard
+        kept = [b for b in batch if b not in GUARD_IDS]
+        skipped_guard += len(batch) - len(kept)
+        batch = kept
         if not batch:
             return
         for i in range(0, len(batch), 200):
@@ -174,6 +199,9 @@ def main() -> int:
     if args.publish_passes and pending_pub:
         flush_publish(pending_pub, "收尾")
         pending_pub.clear()
+
+    if args.publish_passes:
+        print(f"(已跳过启动期不变量卡 {skipped_guard} 个:上架会被下次 api 启动回滚)")
 
     total = sum(tally.values())
     p = tally.get("pass", 0)
