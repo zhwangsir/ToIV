@@ -953,13 +953,24 @@ def signature_mismatches(graph: dict, objinfo: dict) -> dict:
     `ImageScaleToTotalPixels.resolution_steps` 是 `["INT", {"default": 1}]` 却被容忍。
     即「有没有 default」并不决定 ComfyUI 是否强制,故**不存在可靠的静态判据**。
 
-    因此三类一律只作告警透出,**都不参与 procurable 判定**:
+    因此前三类一律只作告警透出,**都不参与 procurable 判定**:
     - missing_required / combo_invalid / undeclared:仅供人工分诊与后续研究,
       拿去卡导入会同时产生漏判与误杀(实测数据见上)。
+
+    第四类 socket_out_of_range 与前三类**性质不同**:连线的输出槽索引 ≥ 源类
+    RETURN_TYPES 长度时,ComfyUI `execution.py:925-927` 的 `r[val[1]]` **必然**抛
+    `IndexError: tuple index out of range`,不存在容忍反例,故判据是确定的。
+    仍不作闸的唯一理由是 preflight 用的是**全 fleet 并集** objinfo——同名类在不同
+    worker 上输出个数可能不同,并集里的 arity 未必等于实际接单那台。
+    该错被 inner 分支(`execution.py:961`)捕获后挂在**下游消费者**身上,真凶不出现
+    在错误信息里,一次可表现为多种互不相关的节点族,故必须靠静态比对点名源类。
+    真实案例:`RHHiddenNodes` shim 只声明 1 个输出,而存量图有
+    `TextEncodeQwenImageEditPlus.prompt ← ['382', 1]`。
     """
     missing_required: list[str] = []
     combo_invalid: list[str] = []
     undeclared: list[str] = []
+    socket_out_of_range: list[str] = []
     for nid, node in (graph or {}).items():
         if not isinstance(node, dict):
             continue
@@ -977,6 +988,17 @@ def signature_mismatches(graph: dict, objinfo: dict) -> dict:
             if key not in inputs:
                 missing_required.append(f"{tag}: 缺必填输入 {key}")
         for key, val in inputs.items():
+            if (isinstance(val, list) and len(val) == 2 and isinstance(val[0], str)
+                    and isinstance(val[1], int) and not isinstance(val[1], bool)
+                    and val[0] in graph):
+                src = graph[val[0]]
+                src_ct = src.get("class_type") if isinstance(src, dict) else None
+                src_info = objinfo.get(src_ct) if isinstance(src_ct, str) else None
+                outs = src_info.get("output") if isinstance(src_info, dict) else None
+                if isinstance(outs, list) and val[1] >= len(outs):
+                    socket_out_of_range.append(
+                        f"{tag}: {key} ← 连线 {val} 输出槽越界"
+                        f"(源类 {src_ct} 只有 {len(outs)} 个输出 {outs})")
             if key not in declared:
                 undeclared.append(f"{tag}: 未声明的输入 {key}")
                 continue
@@ -987,7 +1009,8 @@ def signature_mismatches(graph: dict, objinfo: dict) -> dict:
                     combo_invalid.append(f"{tag}: {key}={val!r} 不在已安装 combo({len(opts)} 项)")
     return {"missing_required": missing_required,
             "combo_invalid": combo_invalid,
-            "undeclared": undeclared}
+            "undeclared": undeclared,
+            "socket_out_of_range": socket_out_of_range}
 
 
 async def preflight_check(pool: WorkerPool, workflow_json: dict, required_nodes: list[str] | None = None) -> dict:
@@ -1004,7 +1027,7 @@ async def preflight_check(pool: WorkerPool, workflow_json: dict, required_nodes:
     """
     base = {"procurable": True, "missing_models": [], "missing_nodes": [], "total_models": 0,
             "signature_missing_required": [], "signature_combo_invalid": [],
-            "signature_undeclared": []}
+            "signature_undeclared": [], "signature_socket_out_of_range": []}
     try:
         objinfo = await _union_objinfo(pool)
     except Exception as exc:  # noqa: BLE001 — 并集不可得时不误杀
@@ -1039,5 +1062,6 @@ async def preflight_check(pool: WorkerPool, workflow_json: dict, required_nodes:
     base["signature_missing_required"] = sig["missing_required"][:20]
     base["signature_combo_invalid"] = sig["combo_invalid"][:20]
     base["signature_undeclared"] = sig["undeclared"][:20]
+    base["signature_socket_out_of_range"] = sig["socket_out_of_range"][:20]
     base["procurable"] = not missing_models and not missing_nodes
     return base

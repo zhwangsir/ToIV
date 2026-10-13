@@ -108,7 +108,8 @@ def test_plain_string_widget_is_not_treated_as_combo():
 def test_unknown_class_is_skipped_not_flagged():
     """类名不在 object_info 归 missing_nodes 那条路径管,这里必须沉默,否则重复报错。"""
     out = signature_mismatches({"1": {"class_type": "TotallyUnknown", "inputs": {}}}, {})
-    assert out == {"missing_required": [], "combo_invalid": [], "undeclared": []}
+    assert out == {"missing_required": [], "combo_invalid": [], "undeclared": [],
+                   "socket_out_of_range": []}
 
 
 @pytest.mark.parametrize("graph", [
@@ -117,7 +118,7 @@ def test_unknown_class_is_skipped_not_flagged():
 ])
 def test_junk_graphs_do_not_raise(graph):
     out = signature_mismatches(graph, {"X": _node({"a": ["IMAGE"]})})
-    assert isinstance(out, dict) and set(out) == {"missing_required", "combo_invalid", "undeclared"}
+    assert isinstance(out, dict) and set(out) == {"missing_required", "combo_invalid", "undeclared", "socket_out_of_range"}
 
 
 def test_malformed_objinfo_is_tolerated():
