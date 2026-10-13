@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T10:39:00+08:00",
+  "updated_at": "2026-10-13T14:28:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15312,6 +15312,26 @@
         "重启 :8195/:8264 以加载已就位的补丁(P-15)"
       ],
       "agents_pitfall": "E-11"
+    },
+    "pass_rate_gate_invalidated_stale_measurements": {
+      "date": "2026-10-13",
+      "status": "correction_retracts_prior_32pct",
+      "撤回": "上一轮记的「pass 率 32% < 60% 判据,故停掉放量」——该结论用错了测量口径",
+      "证据": [
+        "PG: fail 总数 550,其中 smoke_at < 2026-10-13 10:04:22(舰队重启)= 549 条;smoke_at < 09:14:02(api VHS 修复部署)= 549 条 → 当前 fail 集**几乎全部**是修复前的测量",
+        "P-15 复核 shim:盘上 md5 11d573838e95 与仓库逐字节一致,:8196 object_info 返回 required=[] / optional=[image_1..4,pwd] → 日志里「Required input is missing image_1」全是重启前的旧行,非现存缺陷",
+        "VHS 修复真生效(未构成假修复):rh-acc-5491985409 已从 .json 校验错进展到 poll exceeded(即过了校验);rh-acc-2695369729 末次测试 08:19 早于 09:14 部署,属陈旧行",
+        "抽样计数再膨胀一次:先前记「video/h264-mp4.json 簇 4 条」实为 **2 个应用各重跑 2 次**"
+      ],
+      "同口径其余数": {
+        "timeout 总数": 203,
+        "其中 video": 34,
+        "pass 且带 [fixes: 标记": 4,
+        "注": "fixes 标记从 P-13 记的 13 降到 4,与 W8-9 修复固化回存量图一致"
+      },
+      "已启动的重测": "后台 nohup rh_smoke_batch --ids-file tmp/rh_resmoke_20261013/stale_fail_ids.txt(150 条 fail 且 smoke_at<10:04)concurrency=2 timeout=900s,**不带 --publish-passes**(60% 判据须由本次重测重新裁决)",
+      "cusolver 定性补充": "粘滞污染假设**已证伪**:同一进程(pid 817802)10:31 之后 cusolver 计数=0 且继续正常出片;10:26/10:30 是两次孤立发作。逐卡最小 repro(/opt/ComfyUI/venv,torch 2.12.1+cu130)四卡 solve/svd 全 OK,无 Xid、无系统 OOM → 环境面正常,属间歇性;报错来自 :8196 的「Error during sampling」而非我补丁所在的 WanVideoWrapper 文件,印证 E-11(堵单点不等量堵住全部)",
+      "纪律": "放量判据只能由**当前代码**的测量决定;任何 pass/fail 统计先与部署时间戳对比,低于部署时间的行不得计入归因分母(同 E-11/P-15 型错误)"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
