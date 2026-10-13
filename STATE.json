@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T14:39:00+08:00",
+  "updated_at": "2026-10-13T14:44:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15359,6 +15359,29 @@
       "union-vs-per-worker假设": "已证伪:抽 3 条缺模型 fail 逐一查 :8196/:8197/:8264 三口 object_info,Blossoms-Illustrious-lora_V1 / zit_fdpo_v1 / flux1-kontext-dev-Q8_0.gguf / kontext_big_breasts_and_butts 三口全部不存在→ 不是「分类器用并集、烟测要单机」的口径错配,是真的没有这些权重。各口模型名规模 26507/9029/4505。",
       "可得性分流": "脚本 tmp/rh_resmoke_20261013/missing_model_feasibility.py 在跑(账本 status × hf-mirror 检索),出数前不下结论",
       "纪律更新": "并发上限按「同一物理卡上的重作业数」定,不按池成员数定;:8196 与 :8197 同卡 → 有效并发上限=1~2,不再往上调"
+    },
+    "missing_model_feasibility": {
+      "date": "2026-10-13",
+      "tool": "scripts/ops/missing_model_feasibility.py(只读,不下权重)",
+      "输入": "smoke=fail 且报「缺模型」的 157 条 → 正则抽出 223 个权重名提及",
+      "账本侧": {
+        "ledger_absent": 166,
+        "ledger_blocked": 97,
+        "ledger_ok": 5
+      },
+      "hf-mirror 侧": {
+        "hf_hit": 52,
+        "hf_miss": 210,
+        "hf_err": 6
+      },
+      "可用结论": "**52 个权重名在 hf-mirror 有候选** → 这部分属 AGENTS §四 文档化的主路(直连 hf-mirror + aria2c -x16),在我自主边界内可下;其余 210 条 hf_miss 里 97 条账本本就 blocked,与 W9 已定结论一致(civitai 精确命中 25 条全部需登录,匿名可下 0 条)→ 需用户本人出 token 才可能救。",
+      "样本证据": [
+        "flux1-kontext-dev-Q8_0.gguf → ledger_absent + hf_hit ['hailuavt86/flux1-kontext-dev-Q8_0.gguf']",
+        "kontext_big_breasts_and_butts.safetensors → ledger_absent + hf_hit(多候选,需人工择一)",
+        "Blossoms-Illustrious-lora_V1 / zit_fdpo_v1 / flux2美妆精修 → hf_miss(其中后两条账本 blocked)"
+      ],
+      "下一步": "从 missing_model_feasibility.json 里取 hf_hit 且单候选的条目做下载清单(先核 sha256/size 再落 NAS,按 P-12 不因「名字像」就上架;E-9/P-15 教训:装完必须逐实例重启核验)",
+      "同时进行的战役": "未测 10966 条已开烟测(limit 600,concurrency 2,timeout 900,--publish-passes);R18 边界已真机核验:canvas 从不发 X-NSFW,不带该头拉 1000 条 is_nsfw=0(库里实有 87 条已上架 nsfw)→ 批量上架不会把 R18 漏进 /studio"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
