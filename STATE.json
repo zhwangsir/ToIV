@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T16:14:00+08:00",
+  "updated_at": "2026-10-13T16:19:30+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15575,6 +15575,24 @@
       "验证方式": "PG count 前后对照 + 上架后重查 pass-but-hidden 集合与 MERGE_HIDE_IDS∪SIMILAR_MERGE_HIDE_IDS 求差为零",
       "本轮战役吞吐实录": "image 优先后单条 6~280s(对比视频 750~882s);0 秒失败经查是**合法的**即时缺件拒绝(缺 kinghere-Zimage造像v2.0 / RH_Nano_Banana2_*),非熔断风暴",
       "操作失误入账": "切换参数时 kill 在跑战役两次,会把在飞作业打成 transport 伪 fail;正确做法是等当轮跑完再改"
+    },
+    "ui_end_to_end_verification": {
+      "date": "2026-10-13",
+      "为什么补这一条": "整轮我全部用 API/PG 验证,从未在真浏览器上看过市场页——AGENTS P-2 明确禁止只看 API 就交付。上架了 15 条应用却没有一条在前端验过,这是完成度审计里的真实缺口。",
+      "路径": "LAN 直连 http://192.168.71.47:3100(N-1 口径,不用外网域名)",
+      "踩到的坑": [
+        "/market 不是路由(404);市场是根页的 view 参数 `/?view=market`",
+        "未登录时 /login 会回落到落地页,页面只有 157 字符,别把「加载慢」误判成「渲染失败」",
+        "登录态键是 localStorage 的 `toiv_token`(lib/api.ts:37),fetch /api/auth/login 拿到 200+token 后必须自己写入,document.cookie 看不到(httpOnly)"
+      ],
+      "验证结果": {
+        "应用": "rh-acc-2530812930-2464e6「[1月] 最强视角切换(Qwen 96视角)」(本批新上架)",
+        "市场详情": "标题正确渲染;节点清单 14 节点/13 类(原生 11 + 自定义 3:CR Text / DF_Get_image_size / TextEncodeQwenImageEditPlus);可见性显示「公开」;RH WEBAPPID 与 accurate export 标记在位",
+        "运行页": "点「打开应用」后表单打开:控件 53 个、含提示词 textarea、参数区(分辨率/步数/提示词等)命中、生成按钮在位",
+        "截图": "toiv-rh-app-runform-verified.png"
+      },
+      "结论": "「拉进来并使用」这一环第一次拿到前端级证据:一条本批新上架的 RH 应用在市场可见、详情正确、运行表单可用。",
+      "仍未验": "没有真正点「生成」出图(会占 GPU 且与在跑战役抢卡);这一步留给战役自然覆盖(smoke 已真出图),或用户目检。"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
