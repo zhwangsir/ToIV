@@ -296,11 +296,39 @@ def _precision_of(filename: str) -> str | None:
     return None
 
 
+_MISSING = object()
+
+
+def _spec_default(spec) -> object:
+    """object_info 里某个输入槽的默认值;拿不到返回 _MISSING(表示补不出来,别瞎补)。
+
+    只认两种来源:①widget 显式声明的 {"default": …};②combo 的第一个选项
+    (ComfyUI 的隐式默认)。连线型(["IMAGE"]/["MODEL"] 一类)没有默认值 → _MISSING,
+    因为凭空造一条连线等于改拓扑,那不是修复是编造。
+    """
+    if not isinstance(spec, (list, tuple)) or not spec:
+        return _MISSING
+    head = spec[0]
+    if isinstance(head, (list, tuple)):
+        opts = [v for v in head if isinstance(v, str)]
+        return opts[0] if opts else _MISSING
+    if len(spec) > 1 and isinstance(spec[1], dict):
+        opts = spec[1].get("options")
+        if isinstance(opts, list) and opts:
+            return opts[0]
+        if "default" in spec[1]:
+            return spec[1]["default"]
+    return _MISSING
+
+
 def combo_repair(graph: dict, objinfo: dict, edits_out: list | None = None) -> list[str]:
-    """首跑校验失败后的确定性修复:类名别名 + combo 变体改写。返回修复说明列表。
+    """首跑校验失败后的确定性修复:类名别名 + combo 变体改写 + 缺的 widget 按声明默认值补齐。
+
+    返回修复说明列表。
 
     edits_out 若给出,会被填入**结构化**修改记录 (node_id, kind, field, old, new),
-    kind ∈ {"class_type", "input"}。用途:烟测通过后把同样的修改施加到**存量 workflow_json**
+    kind ∈ {"class_type", "input", "input_missing"}(末者 old 恒为 None,表示当时该键缺失,
+    回放时若存量图已有值则不覆盖)。用途:烟测通过后把同样的修改施加到**存量 workflow_json**
     上再落库——修复只作用于 _build_graph 产出的运行图,而运行图里已经写进了烟测 fixture 的
     表单值,直接把它存回去等于把测试用的提示词/种子/图片固化进应用。故必须回放结构化 edits。
     """
@@ -355,6 +383,34 @@ def combo_repair(graph: dict, objinfo: dict, edits_out: list | None = None) -> l
                 node["inputs"][field] = cand
                 fixes.append(f"node {nid}: {ct}.{field} {val} → {cand}")
                 _rec(nid, "input", field, val, cand)
+    # 3) 缺的 required widget:按**已安装节点自己声明的默认值**补齐。
+    #    RH 导出图会省略「等于默认值」的 widget,而部分节点版本在 API 格式下仍强制要求它出现
+    #    (实测 AILab_QwenVL_Advanced.use_torch_compile 报 "Required input is missing …",
+    #    影响 183 个应用;SeedVR2.input_noise_scale 同款,影响 1347 个)。
+    #    补进去的就是节点自己声明的默认值,所以:ComfyUI 本来会自动填的情况下这是**语义空操作**,
+    #    强制要求的情况下则直接修好——两头都不亏,不需要判断哪种节点属于哪一类
+    #    (我实测过:有没有 default 并不决定 ComfyUI 是否强制,故没有可靠的静态判据可用)。
+    #    连线型补不出来(_spec_default 返回 _MISSING),不硬造:造连线等于改拓扑,那不是修复。
+    for nid, node in graph.items():
+        if not isinstance(node, dict):
+            continue
+        ct = node.get("class_type")
+        info = objinfo.get(ct) if isinstance(ct, str) else None
+        if not isinstance(info, dict):
+            continue
+        required = (info.get("input") or {}).get("required")
+        inputs = node.get("inputs")
+        if not isinstance(required, dict) or not isinstance(inputs, dict):
+            continue
+        for key, spec in required.items():
+            if key in inputs:
+                continue
+            default = _spec_default(spec)
+            if default is _MISSING:
+                continue
+            inputs[key] = default
+            fixes.append(f"node {nid}: {ct}.{key} 缺失 → 按已装节点默认值补 {default!r}")
+            _rec(nid, "input_missing", key, None, default)
     return fixes
 
 
@@ -383,6 +439,14 @@ def apply_edits_to_workflow(workflow: dict, edits: list) -> tuple[dict, list[str
         inputs = node.get("inputs")
         if not isinstance(inputs, dict):
             skipped.append(f"node {nid} 无 inputs")
+            continue
+        if kind == "input_missing":
+            # old 恒为 None:该键在运行图里当时是**缺失**的。存量图里若已有值,
+            # 说明别处填过,不能用默认值覆盖人家的显式值。
+            if field in inputs and inputs.get(field) is not None:
+                skipped.append(f"node {nid}.{field} 存量图里已有值,不用默认值覆盖")
+                continue
+            inputs[field] = new
             continue
         if inputs.get(field) != old:
             skipped.append(f"node {nid}.{field} 已不是 {old!r}")
