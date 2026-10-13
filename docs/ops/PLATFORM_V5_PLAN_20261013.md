@@ -1086,3 +1086,54 @@ api 侧 untested runner、admin 手动触发），别在机制不明时再写「
    复盘任何「这条为什么没跑/跑了」先看这条日志，别再拿磁盘现值倒推输入；
 3. `handoff` 之后仍开着的两处真缺件：TTN 浮点/帧率等 21 条 class_type 归因（任务 #26，先证伪再决定建不建别名表）、
    以及需用户放行的第三方装包（覆盖缺失类名 53%）与 civitai 权重字节通路（卡在 civitai.com 域名不可达，与 token 无关）。
+
+## W8-20 真吞吐上限找到了：池里只有**一个**成员（10-14 11:50 CST，已扩容并纠正 W8-15）
+
+### 实测速率远低于先前估计
+把今天所有 `smoke_all_*.jsonl` 汇总：387 条结果跨 21.1 小时 → **18.4 条/小时**
+（`pass 168 / fail 189 / timeout 29 / http_404 1`），延迟 `p50=205s / p90=696s / max=1012s`。
+`3600 / 205 ≈ 17.5/h` 与实测吻合 → **等价于并发 1**。`--concurrency 2` 没换来并行，
+因为 `backends.json` 里当时**只有一个成员**：
+```json
+[{"id":"gpu0","url":"http://127.0.0.1:8196","gpu":0,"weight":1.5}]
+```
+两个提交都排在同一个 ComfyUI 进程的队列里（实测 `:8196 /queue` = running 1 + pending 1，`:8263` = 0/0）。
+单实例饱和的旁证：`:8196 /object_info` 耗时 **116.9s**（18MB）而 `/queue` 只要 **1ms**；
+这也解释了先前「抬并发就出 transport 假 fail」——探针 TTL 只有 10s，打的是同一台被打满的机器。
+
+### 纠正 W8-15：`:8263` 不需要装任何东西，只需要**重启**
+W8-15 记的「`:8263` 缺 ttN(0)、RH shim 只 2/8，直接加会把刚解锁的应用路由到跑不了它们的机器上」
+——**前提错了**。`:8263` 与 `:8196` 是**同一棵 `/opt/ComfyUI` 树**（`WorkingDirectory=/opt/ComfyUI`，
+只差 `--port/--output-directory/--cache-lru 2/--disable-smart-memory`），盘上文件本来就齐；
+它报 2/8 与 ttN=0 是**进程陈旧**（P-15「装了文件 ≠ 生效」的又一实例，这次反过来：文件在、进程没加载）。
+`systemctl restart comfyui-upscale-gpu3` 之后实测：
+
+| 指标 | :8196 | :8263（重启后） |
+|---|---|---|
+| 类名总数 | 5,311 | **5,309** |
+| RH shim 类 | 9（含 `Runninghub Captioner`） | **9（同一组）** |
+| ttN | 42 | **42** |
+| 五类 loader 模型选项合计 | 711 | **711（ratio 1.000）** |
+| 独有类名 | `GuHai_FaceAlignment` / `GuHai_IDPhotoCrop` | 无 |
+
+即除 `Goohaitools-comfyui/nodes/面部对齐.py` 那 2 个类外**能力等价**（该包在 :8263 这次启动没导入成功，
+待查；两个类都很冷门）。共享的导入失败（`ComfyUI_IndexTTS` 撞 transformers `OffloadedCache`、
+`dzNodes LayerStyle` 撞 `cv2.ximgproc.guidedFilter`）两边一致，不构成差异。
+GPU3 显存 46.4/97.9GB 已用（**51GB 空闲**），且 `core → 100.68.100.90:8263/system_stats` = 200 / 6ms。
+
+### 已执行（可回滚）
+1. `cp /opt/comfyui-lb/backends.json backends.json.bak-20261014-gpu3`；
+2. 加入 `{"id":"gpu3","url":"http://127.0.0.1:8263","gpu":3,"weight":1.0}`（gpu0 权重保持 1.5）；
+3. LB `/admin/backends` 两成员均 `healthy: true`；
+4. **api 侧已确认生效**（不是靠推断）：`journalctl -u toiv-api` 03:50:23 UTC
+   `ComfyUI worker 池注册表刷新:新增 ['http://100.68.100.90:8263'],移除 [],当前成员 ['…:8196','…:8263']`
+   （`_REGISTRY_TTL=60s`；`pool.py:147` 会把 127.0.0.1 改写成注册表 host，故走 TS，实测 6ms）。
+- 回滚 = 恢复 `backends.json.bak-20261014-gpu3`（5s 热重载，零重启）。
+- 注意 `:8263` 同时是生产**超分** worker（`comfyui-upscale-gpu3.service`），入池后与出图任务共享该进程；
+  本次重启时它空闲（GPU 利用率 0%），影响窗口只有重启的 ~2 分钟。
+
+### 待测（本轮结束后必须回填，别当成已生效的收益）
+- 两台都忙时的实际速率（预期 ~35/h；判据：`:8263 /history` 计数增长 **且** 汇总速率上升）；
+- `pass` 率是否因新成员而下降（若下降 → 说明 :8263 的 `--cache-lru 2` 换模型代价过高，调低其 weight 或撤出）；
+- transport/熔断类假 fail 是否回升（若回升 → 探针 TTL 10s 对饱和实例仍太短，应调 `TOIV_WORKER_PROBE_TTL_S`
+  而不是降并发）。

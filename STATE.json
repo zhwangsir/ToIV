@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T18:02:14+08:00",
+  "updated_at": "2026-10-14T03:52:18+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15760,6 +15760,15 @@
       "gap_note": "pass>public 至少 1 条未上架:可能是增量上架缓冲(每10条一批)或 MERGE_HIDE_IDS 不变量(P-17),下轮先跑 publish_pass_but_hidden.py 再核对差集",
       "remaining": "≈5450 条可本地部署未真跑,40–50/h → 110–135 GPU-小时;上限=8196/8197 同 GPU0",
       "live": "supervisor+batch PPID=1 已脱离会话,8 轮自动止损"
+    },
+    "w8_20_pool_single_member_was_the_cap": {
+      "measured_throughput": "387 结果/21.1h = 18.4 条/h(p50 205s → 等价并发 1);pass168/fail189/timeout29",
+      "root_cause": "backends.json 只有一个成员 gpu0→:8196,--concurrency 2 的两个提交排在同一 ComfyUI 进程队列(running1+pending1)",
+      "saturation_evidence": ":8196 /object_info 116.9s vs /queue 1ms",
+      "w8_15_corrected": ":8263 与 :8196 同一棵 /opt/ComfyUI 树,缺 shim/ttN 是进程陈旧(P-15),restart 后 5309 类/9 shim/42 ttN/模型选项 711=711",
+      "action": "backends.json 加 gpu3→:8263 weight1.0(备份 backends.json.bak-20261014-gpu3);LB 两成员 healthy;api 日志 03:50:23 确认池成员=[8196,8263]",
+      "delta_only_2_classes": "GuHai_FaceAlignment/GuHai_IDPhotoCrop 在 :8263 未导入(Goohaitools-comfyui/nodes/面部对齐.py),待查",
+      "pending_measure": "两台都忙后的真实速率(预期~35/h)、pass 率是否下降、transport 假 fail 是否回升"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
