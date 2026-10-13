@@ -1,0 +1,317 @@
+[
+ {
+  "class": "RH_LLMAPI_NODE",
+  "app_mentions": 731,
+  "registered_now": true
+ },
+ {
+  "class": "RH_Captioner",
+  "app_mentions": 391,
+  "registered_now": true
+ },
+ {
+  "class": "RH_Translator",
+  "app_mentions": 291,
+  "registered_now": true
+ },
+ {
+  "class": "RunningHub Deepcleaner",
+  "app_mentions": 177,
+  "registered_now": true
+ },
+ {
+  "class": "RH_LLMAPI_Pro_Node",
+  "app_mentions": 162,
+  "registered_now": true
+ },
+ {
+  "class": "RH_Prompter",
+  "app_mentions": 79,
+  "registered_now": true
+ },
+ {
+  "class": "RH_Nano_Banana2_Image2Image",
+  "app_mentions": 24,
+  "registered_now": false
+ },
+ {
+  "class": "Comfly_api_set",
+  "app_mentions": 23,
+  "registered_now": false
+ },
+ {
+  "class": "RH_Nano_Banana2_Gemini31Flash",
+  "app_mentions": 21,
+  "registered_now": false
+ },
+ {
+  "class": "RH_GetAudioDuration",
+  "app_mentions": 13,
+  "registered_now": true
+ },
+ {
+  "class": "RH_RhartImageG2ImageToImage",
+  "app_mentions": 12,
+  "registered_now": false
+ },
+ {
+  "class": "RH_Nano_Banana_Image2Image",
+  "app_mentions": 10,
+  "registered_now": false
+ },
+ {
+  "class": "RH_MinimaxHailuoH3MultimodalToVideo",
+  "app_mentions": 7,
+  "registered_now": false
+ },
+ {
+  "class": "RunningHub_Step1XEdit",
+  "app_mentions": 6,
+  "registered_now": false
+ },
+ {
+  "class": "RH_MinimaxHailuoH3TextToVideo",
+  "app_mentions": 5,
+  "registered_now": false
+ },
+ {
+  "class": "Comfly_gpt_image_2",
+  "app_mentions": 5,
+  "registered_now": false
+ },
+ {
+  "class": "RH_RhartImageG2OfficialImageToImage",
+  "app_mentions": 5,
+  "registered_now": false
+ },
+ {
+  "class": "RH_Utils",
+  "app_mentions": 5,
+  "registered_now": false
+ },
+ {
+  "class": "RH_QwenImageGenerator",
+  "app_mentions": 5,
+  "registered_now": false
+ },
+ {
+  "class": "RH_Jimeng4_Image2Image",
+  "app_mentions": 5,
+  "registered_now": false
+ },
+ {
+  "class": "Comfly_gpt_image_2_official_ratio",
+  "app_mentions": 4,
+  "registered_now": false
+ },
+ {
+  "class": "RH_MinimaxHailuoH3ImageToVideo",
+  "app_mentions": 4,
+  "registered_now": false
+ },
+ {
+  "class": "RH_ComfyFluxKontext",
+  "app_mentions": 4,
+  "registered_now": false
+ },
+ {
+  "class": "RH_SeedreamV5ProImageToImage",
+  "app_mentions": 4,
+  "registered_now": false
+ },
+ {
+  "class": "RH_Captioner_Pro",
+  "app_mentions": 3,
+  "registered_now": true
+ },
+ {
+  "class": "Comfly_gpt_image_2_official",
+  "app_mentions": 3,
+  "registered_now": false
+ },
+ {
+  "class": "RH_RhartImageG2TextToImage",
+  "app_mentions": 3,
+  "registered_now": false
+ },
+ {
+  "class": "Comfly_nano_banana",
+  "app_mentions": 2,
+  "registered_now": false
+ },
+ {
+  "class": "Comfly_Doubao_Seedream_4",
+  "app_mentions": 2,
+  "registered_now": false
+ },
+ {
+  "class": "RH_RhartImageNG31FlashImageToImage",
+  "app_mentions": 2,
+  "registered_now": false
+ },
+ {
+  "class": "RunningHub_ImageQwenI2L_Loader(Style)",
+  "app_mentions": 2,
+  "registered_now": false
+ },
+ {
+  "class": "RunningHub_ImageQwenI2L_LoraGenerator",
+  "app_mentions": 2,
+  "registered_now": false
+ },
+ {
+  "class": "Comfly_qwen_image",
+  "app_mentions": 2,
+  "registered_now": false
+ },
+ {
+  "class": "RunningHub OneReward Sampler",
+  "app_mentions": 2,
+  "registered_now": false
+ },
+ {
+  "class": "RunningHub OneReward Loader",
+  "app_mentions": 2,
+  "registered_now": false
+ },
+ {
+  "class": "Comfly_gemini_3_1_flash_image_edit_S2A",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RunningHub_ZImageI2L_Loader",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RunningHub_ZImageI2L_LoraGenerator",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RunningHub_ZImageI2L_Saver",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_YouchuanTextToImageV81",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_Nano_Banana2_Gemini31Flash_Batch",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "Comfly_gpt_image_2_S2A",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_RhartImageG3TextToImage",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "Comfly_Flux_Kontext_Edit",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "Comfly_Flux_Kontext",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "ComflySeededit",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "Comfly_Flux_2_Max",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_Sora2_I2V",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_RhartImageG4TextToImage",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_AlibabaWan27ImageEditPro",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_RhartImageGTextToImage",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RunningHub DreamO",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_RhartImageG4ImageToImage",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_OneShot_Prompter",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "Comfly_nano_banana2_edit_S2A",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "Comfly_gpt_image_1_edit",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_RhartImageG3ImageToImage",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_RhartImageNProEdit",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_GPT-Image1",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RunningHub OmniConsistency LoraLoader",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RunningHub OmniConsistency Sampler",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_RhartImageXOfficialEdit",
+  "app_mentions": 1,
+  "registered_now": false
+ },
+ {
+  "class": "RH_RhartImageGImageToImage",
+  "app_mentions": 1,
+  "registered_now": false
+ }
+]

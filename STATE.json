@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T15:55:00+08:00",
+  "updated_at": "2026-10-13T16:12:30+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15557,6 +15557,15 @@
       "混杂因子": "同时把并发从 1 提到 3,而 :8196 与 :8197 同处 GPU0——并发升高与熔断变化没有分离,这是设计上的混淆,后续要单变量验证",
       "处置": "参数保留(更高阈值本身不增加故障风险,只是对真死 worker 反应慢 30s 内),但**不记为收益**;并发回到 2 观察",
       "教训复用": "我先前两次把「未证明」写成「已修」(cusolver、上架 4 条)。这次先给数再给结论,并把样本量与混杂因子一起写。"
+    },
+    "rh_cloud_node_coverage_final": {
+      "date": "2026-10-13",
+      "method": "jsonb_each 全库取 RH_/Comfly*/RunningHub*/…Gemini* 类名,逐一对四口 object_info 键并集核注册(按 body 键名,不用状态码 P-16)",
+      "总面": "云节点类名 63 种 / 应用次 2046",
+      "已被shim覆盖": "1847 次 = 90.3%(RH_LLMAPI_NODE 731 / RH_Captioner 391 / RH_Translator 291 / RH_LLMAPI_Pro_Node 162 / RH_Prompter 79 / RH_GetAudioDuration 13 等)",
+      "未覆盖尾": "199 次 / 55 类,再分两类:(a) 有真本地等价的 30 次——MiniMax Hailuo H3 三个节点(舰队本就有 :8264 H3 生产口)与 Qwen-Image/Z-Image 生成族;(b) 本质云端专有 169 次——Gemini/nano-banana、gpt-image、Seedream、Jimeng、Sora2、Rhart、Flux-2-Max 等,本地无等价模型",
+      "结论": "「RH 全量能本地部署的应用」这条目标的硬上限已被量化:云节点里 90.3% 的引用量我已用自家 shim 落地,剩余 ~199 次里只有 ~27 次存在**诚实的**本地等价(接 H3 / Qwen-Image 口),其余 ~172 次是把 Google/OpenAI/字节/快手闭源 API 写进图里的卡,做 shim 就是假承诺,应按 RHHiddenNodes 的先例「标注不排除、由 smoke 裁判」。",
+      "产物": "tmp/rh_cloud_nodes_20261013/inventory.json(63 类逐一标 registered_now)"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
