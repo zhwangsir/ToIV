@@ -34,6 +34,8 @@ test("F8 逃生口:classic=1 与 R18 模式都必须留在经典壳", () => {
   assert.match(block, /classic=1/, "缺 ?classic=1 逃生口");
   assert.match(block, /!r18/, "缺 R18 模式逃生口(canvas 纯 SFW,R18 面不能跳走)");
   assert.match(block, /window\.location\.replace\(migrated\)/);
+  assert.match(block, /\/studio\/auth\/exchange/, "跳转前必须换会话");
+  assert.match(block, /if \(r\.ok\)/, "仅交换成功才跳:非管理员 403 必须留经典(零回退)");
 });
 
 test("F8 不删经典渲染路径:逃生口要真能渲染 market/library", () => {

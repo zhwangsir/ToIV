@@ -551,7 +551,16 @@ function HomeContent() {
     //   整页跳过去等于把 R18 面藏掉,违反内容边界。
     const migrated = CANVAS_MIGRATED_VIEWS[raw ?? ""];
     if (migrated && !window.location.search.includes("classic=1") && !r18) {
-      window.location.replace(migrated);
+      // 会话交换成功(管理员)才跳:非管理员 exchange 403 → 留经典,零回退。
+      // 非管理员的 canvas 准入待 0.3 复核(role=user 凭据不可逆,拿不到就不能证),不拿用户当灰度。
+      const t = getToken();
+      if (t) {
+        fetch("/studio/auth/exchange", { method: "POST", headers: { authorization: `Bearer ${t}` } })
+          .then((r) => {
+            if (r.ok) window.location.replace(migrated);
+          })
+          .catch(() => {});
+      }
       return;
     }
     const resolved = resolveView(raw);
