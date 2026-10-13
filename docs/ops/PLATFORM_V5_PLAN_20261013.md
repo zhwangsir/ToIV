@@ -1063,3 +1063,26 @@ api 侧 untested runner、admin 手动触发），别在机制不明时再写「
 
 为让这类判定今后一次到位,`rh_smoke_batch.py` 读 `--ids-file` 时现在把
 `n=<条数> sha256=<前16位>` 打进日志——**清单是被轮间重建的可变量,没有当时的指纹就无法事后自证输入**。
+
+## W8-19 交接：续跑指令与当前真实计数器（10-13 18:02 CST，战役仍在跑）
+
+盘面（PG 为准，非派生计数）：`total 14,304 / public 1,905 / pass 1,906 / running 2 / untested 11,583`。
+今日战役累计终态：190 条 = `pass 55 / fail 124 / timeout 10 / http_404 1`。
+⚠️ **`pass(1,906) > public(1,905)`**：至少一条 pass 卡尚未上架。两种正常解释——增量上架缓冲（每攒 10 条发一批）
+或落在 `MERGE_HIDE_IDS` 启动期不变量里（P-17，故意不发）。**下一轮先跑 `scripts/ops/publish_pass_but_hidden.py`
+收割并核对差集**，别把它当成漏发，也别当成缺陷。
+
+在跑链路（父进程 PPID=1，已脱离会话，不会随终端退出而死）：
+- `bash scripts/ops/rh_smoke_supervise.sh`（8 轮，轮间收割 pass-but-hidden，连续两轮零 pass 自动止损）
+- `apps/api/.venv/bin/python scripts/ops/rh_smoke_batch.py --ids-file tmp/rh_smoke_20261013/priority_perworker.txt --limit 7400 --concurrency 2 --timeout-s 900 --sleep 1.2 --publish-passes --publish-every 10`
+- 看进度：`tail -f tmp/rh_smoke_20261013/supervisor.log`；逐条终态：`tmp/rh_smoke_20261013/smoke_all_*.jsonl`
+
+剩余工作的确定量级与上限：可本地部署但未真跑 ≈ **5,450 条**，~40–50 条/小时 → **还需 110–135 GPU-小时**。
+物理上限是 `:8196` 与 `:8197` 同处 GPU0（并发抬到 3+ 会触发池探针超时→熔断→把健康应用写成 transport 假 fail，已实测）。
+
+下一轮该做的三件（按价值排序，均不需要新决策）：
+1. 继续收割上架 + 每轮末用 PG 口径复核 `pass/public/untested` 三数（勿用接口 done 数，P-12/P-17）；
+2. 清单重建会按 `smoke_status` 空值筛掉**在跑**的卡（W8-18 定案），故 `--ids-file` 读取已打 `n+sha256` 指纹；
+   复盘任何「这条为什么没跑/跑了」先看这条日志，别再拿磁盘现值倒推输入；
+3. `handoff` 之后仍开着的两处真缺件：TTN 浮点/帧率等 21 条 class_type 归因（任务 #26，先证伪再决定建不建别名表）、
+   以及需用户放行的第三方装包（覆盖缺失类名 53%）与 civitai 权重字节通路（卡在 civitai.com 域名不可达，与 token 无关）。

@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T18:01:16+08:00",
+  "updated_at": "2026-10-13T18:02:14+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15753,6 +15753,13 @@
         "rh-acc-0029976577-97f43a": "timeout"
       },
       "tooling": "rh_smoke_batch.py 读 --ids-file 时打印 n + sha256 前 16 位(清单是轮间可变量)"
+    },
+    "w8_19_handoff_counters_1802cst": {
+      "pg": "total 14304 / public 1905 / pass 1906 / running 2 / untested 11583",
+      "today_campaign": "190 条终态: pass 55 / fail 124 / timeout 10 / http_404 1",
+      "gap_note": "pass>public 至少 1 条未上架:可能是增量上架缓冲(每10条一批)或 MERGE_HIDE_IDS 不变量(P-17),下轮先跑 publish_pass_but_hidden.py 再核对差集",
+      "remaining": "≈5450 条可本地部署未真跑,40–50/h → 110–135 GPU-小时;上限=8196/8197 同 GPU0",
+      "live": "supervisor+batch PPID=1 已脱离会话,8 轮自动止损"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
