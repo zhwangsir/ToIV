@@ -15705,6 +15705,12 @@
         "已验证pass": 1902,
         "高优先未测清单": 7361
       }
+    },
+    "running_orphans_reconciled": {
+      "date": "2026-10-13",
+      "根因": "我 pkill 战役留下的 3 条 smoke_status=running 且 smoke_at 为 NULL —— 任何按时间判活的工具都看不见它们;而生成器只收 smoke_status 为空的卡,于是它们既不重跑也不进失败列表(会静默掉出射程)。",
+      "处置": "不新写平行 reconciler:生产已有 reconcile_interrupted_smokes()(api 启动时收口,上次跑在 15:40 部署那刻,晚于它的 kill 没被覆盖)。直接调该函数,返回清理 3 条;函数注释明确说明在跑的烟测会自己把状态写回 running,所以战役运行中调用是安全的。",
+      "教训": "运维动作(pkill)的尾账要靠**已有的 reconcile 入口**收,而不是给分析脚本加特例;下次 kill 战役后必须跑一次 reconcile 再生成清单,否则目标集会随每次中断单调缩小。"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
