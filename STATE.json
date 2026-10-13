@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-14T04:08:06+08:00",
+  "updated_at": "2026-10-14T04:19:15+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15785,6 +15785,14 @@
       "gpu3_verified": ":8263 /history 1→4 全 success,图内含 RH_LLMAPI_NODE/RH_Translator → shim 执行期验证通过;模型名 3850 vs 3848(差 2 个无关 .bin);object_info 13.9s/15.4s < 30s 超时",
       "lesson": "判分流生效要用累计量(/history 增长)而非 queue/nvidia-smi 瞬时快照——单条烟测 100~600s,空闲窗口比采样间隔长",
       "pending": "7 条定向重跑结果未落盘,未记收益(P-12)"
+    },
+    "w8_23_throughput_doubled_and_probe_window": {
+      "throughput": "扩容前 389 条/21.22h=18.3/h(pass 44%) → 扩容后 11 条/0.29h=37.3/h(pass 55%,样本小不具统计意义);剩余 7148 条 ≈192h",
+      "my_mistake": "把 onnx(7)+seedvr(2) 两个定向重测叠在战役上=6 并发打 2 实例,两台 /queue 20s 无响应;已 kill 两个重测,战役与 supervisor 未受影响",
+      "probe_window_mechanism": "19.5GB QwenImage/7.6GB ZImageTE staging 期间事件循环阻塞 → 探测失败累积到熔断 → 「熔断中」4 应用与「无可用 worker」6 应用里至少一部分是探测窗口而非应用缺陷;这也解释了此前「抬并发出 transport 假 fail」的真机制",
+      "seedvr_root_cause": "_union_objinfo 只并 _COMBO_LOADERS(app_smoke.py:494-504) → pick 前那次 combo_repair 补不了非 loader widget;attempt==1 的 objinfo_all 逐类抓取失败被 except:pass 吞(P-11 同型) → 补不上被记成应用 validation 失败。下一步:区分抓取失败与类不存在+重试一次+detail 标 repair_incomplete",
+      "wanvideo_blocked": "wan2.2_animate_14B_bf16.safetensors 在 hf-mirror 无单文件(官方只有 4 分片;Kijai 只有 relight LoRA;NAS 只有 fp8_e4m3fn_scaled_KJ 18.4GB) → 需分片转换或允许「同时改写耦合 quantization」的精度替换,列为待拍板",
+      "dedup_clusters": "347 去重应用中 187 非 pass: poll超时18/裸validation15/SeedVR10/missing_node_type9/WanVideo8/llm空7/ONNX7(已修待验)/无worker6/cusolver5/熔断4"
     }
   },
   "w9_civitai_provenance_2026_10_13": {

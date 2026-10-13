@@ -1197,3 +1197,56 @@ W8-20 把 `:8263` 加进池后，我一度按瞬时快照误判"没在分流"（
   （Redis 共享探测键 `toiv:worker-health:*` TTL 仅 20s，两边都查不到属正常，不是排障线索。）
 - **教训（对我自己）**:判断"分流有没有生效"不能用一次 `queue`/`nvidia-smi` 快照——单条烟测 100~600s，
   两台机器各自的空闲窗口比采样间隔长得多。判据要用**累计量**（`/history` 条数增长）而不是瞬时量。
+
+## W8-23 扩容后的真实速率（**实测翻倍**）+ 一个会把健康应用打成假 fail 的探测窗口（10-14 04:20 CST）
+
+### ① 吞吐实测：18.3/h → **37.3/h**（不是推算，是同一口径前后对比）
+| 区间 | 结果数 | 跨度 | 速率 | pass |
+|---|---|---|---|---|
+| 扩容前（单实例 :8196） | 389 | 21.22h | **18.3/h** | 170（44%） |
+| 扩容后（:8196 + :8263） | 11 | 0.29h | **37.3/h** | 6（55%） |
+
+后段样本只有 11 条、17 分钟，**pass 率差异不具统计意义**，速率翻倍与「两台各自跑一条重作业」的观测一致
+（`:8263` 日志里在跑 QwenImage + QwenImageControlNet 的 RH 应用）。按 37.3/h 计，剩余 7,148 条 ≈ **192h**；
+这只是把上限从 ~390h 砍半，**不是终点**——下一轮 supervisor 会用 `ROUND_CONC=3`，需再实测。
+
+### ② 我自己的操作失误：把两个定向重测叠在战役上，一度让两台实例同时探测超时
+`onnx_fix_retest`（7 条，conc 2）+ `seedvr_retest`（2 条，conc 2）叠在战役（conc 2）上 = **6 条并发打 2 台实例**，
+结果两台的 `/queue` 都 20s 无响应（`http=000`）。**已把两个重测 kill 掉**（战役与 supervisor 未受影响，
+`pgrep` 复核 batch=1 / supervisor=1），把机时还给主线。教训:**定向重测要排队等战役轮次边界，不能叠加**——
+叠加不只是慢，它会触发下面的探测窗口，把健康应用写成 transport 假 fail，污染的正是我要测的东西。
+
+### ③ 探测窗口:19.5GB 模型 staging 期间 `/queue` 会无响应 → 熔断/假 fail 的真机制
+两台实例日志显示它们在干的是**装载巨模型**（不是卡死、不是 CPU 打满:GPU 利用率 0~2%、进程 CPU 10~38%）:
+```
+[INFO] Model QwenImage prepared for dynamic VRAM loading. 19483MB Staged. 720 patches attached.
+[INFO] Model ZImageTEModel_ prepared for dynamic VRAM loading. 7671MB Staged.
+```
+ComfyUI 的 HTTP 服务与执行共用一个事件循环 → **staging 的几十秒内任何轻量端点都不响应**。
+而 api 侧 `request_timeout=30s`、`_PROBE_TTL=10s`、熔断阈值 5 次失败 →
+一次 19.5GB 的装载就足以让探测失败并累积到熔断，于是「所有 worker 均不可达(熔断中)」
+（今日去重后 **4 个应用**）与「没有具备所需模型且可用的 worker」（**6 个应用**）里，
+**至少一部分不是应用的问题，是探测窗口的问题**。这解释了先前「抬并发就出 transport 假 fail」的真机制:
+不是并发本身，而是并发→更多 staging→更多探测落在无响应窗口。
+- **建议（未执行，因为要重启 api，会打断战役）**：把探测改打更轻的端点或给 staging 期加宽限，
+  或把 `TOIV_WORKER_PROBE_TTL_S` 抬高以减少探测次数；任何一项都要**单独改、单独测**，别和并发一起动（否则又是混杂变量）。
+
+### ④ 两个失败簇的**去重**规模（先前按结果行数报的数偏大，已按应用去重）
+今日 347 个去重应用里 187 个非 pass。Top 簇（按应用数）:
+`poll exceeded 900s` **18** | 裸 `prompt_outputs_failed_validation` **15** | SeedVR 补默认值后仍失败 **10** |
+`missing_node_type` **9** | WanVideo 权重拒换 **8** | llm-repair trial fail(空) **7** | ONNX 污染 **7**(已修待验) |
+无可用 worker **6** | cusolver **5** | 熔断 **4**。
+- SeedVR 簇的真因已定位:`input_noise_scale`/`latent_noise_scale` 在已装 SeedVR2 里是
+  `["FLOAT",{"default":0.0,…}]`（**能补**，`_spec_default` 对 0.0 也没有 falsy 陷阱），
+  而 `_union_objinfo` **只并 `_COMBO_LOADERS` 那几类**（`app_smoke.py:494-504`），
+  所以 pick 之前那次 `combo_repair` 补不了非 loader 类的 widget；真正能补的是 `attempt==1` 分支里
+  按类逐个 `client.object_info(ct)` 拼出来的 `objinfo_all`（`app_smoke.py:625-633`），
+  而它**每个类的抓取失败都被 `except Exception: pass` 吞掉**（P-11 同型）——
+  一次 staging 窗口里的探测超时就会让该类规格缺失，于是「补不上」被记成应用自己的 validation 失败。
+  这是**下一个该修的点**（把抓取失败与"类不存在"区分开，失败时重试一次并在 detail 里标注 repair_incomplete，
+  别让它伪装成应用缺陷）。本轮未改代码:改它要重启 api，且需要真机重测取证，不在本轮窗口内。
+- WanVideo 簇（8 个应用）缺的是 `Wan22Animate/wan2.2_animate_14B_bf16.safetensors`：
+  hf-mirror 上**没有这个单文件**（官方 `Wan-AI/Wan2.2-Animate-14B` 只有 4 分片 diffusers 权重；
+  `Kijai/WanVideo_comfy` 只有 relight LoRA；NAS 里只有 18.4GB 的 fp8_e4m3fn_scaled_KJ）。
+  所以要么做分片→单文件转换，要么让 `combo_repair` 在**同时改写耦合的 quantization 部件**的前提下允许精度替换
+  （E-9 的正解，但错配会产出静默错误结果，按 E-10 原则宁可清晰失败）→ **列为待拍板**，不擅自改。
