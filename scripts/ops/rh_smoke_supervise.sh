@@ -15,6 +15,10 @@ set -u
 cd "$(dirname "$0")/../.." || exit 1
 ROUNDS=${MAX_ROUNDS:-8}
 LIMIT=${ROUND_LIMIT:-1500}
+# 默认只跑 image:实测视频卡单条 pass 要 750~882s(贴着 900s 超时),
+# 而 image 多在 60~200s。目标是「能用起来」的应用数,不是均匀覆盖,
+# 所以先把便宜的产出吃完,再由 ROUND_KIND=all 兜其他类型。
+KIND=${ROUND_KIND:-image}
 LOGDIR=tmp/rh_smoke_20261013
 mkdir -p "$LOGDIR"
 ZERO_TRANSPORT_STREAK=0
@@ -25,10 +29,10 @@ for ((r=1; r<=ROUNDS; r++)); do
     while pgrep -f "scripts/ops/rh_smoke_batch.py" >/dev/null 2>&1; do sleep 30; done
   fi
   TS=$(date +%H%M%S)
-  OUT="$LOGDIR/sup_round${r}_${TS}.log"
+  OUT="$LOGDIR/sup_round${r}_${KIND}_${TS}.log"
   echo "[sup $(date +%H:%M:%S)] 第 $r/$ROUNDS 轮启动 → $OUT"
   apps/api/.venv/bin/python scripts/ops/rh_smoke_batch.py \
-    --status untested --limit "$LIMIT" --concurrency "${ROUND_CONC:-2}" --timeout-s 900 --sleep 1.2 \
+    --kind "$KIND" --status untested --limit "$LIMIT" --concurrency "${ROUND_CONC:-2}" --timeout-s 900 --sleep 1.2 \
     --publish-passes --publish-every 10 >> "$OUT" 2>&1
   echo "[sup $(date +%H:%M:%S)] 第 $r 轮结束"
   tail -4 "$OUT"
