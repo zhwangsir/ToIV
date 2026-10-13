@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T15:04:30+08:00",
+  "updated_at": "2026-10-13T15:06:30+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15402,6 +15402,12 @@
       "验证": "四口现均 8/8;节点总数 :8195/:8264 4380→4387(未下降,按 P-15 守卫无需回滚),同时顺带加载了 UniPC CPU-solve 补丁(此前这两口也从未加载)。",
       "属边界内": "装的是本仓自己的 shim 并重启自家实例,不是第三方包安装 —— 后者仍按约定等用户确认。",
       "推论": "此前所有被路由到 H3 专用口且用到 RH 云节点的 app 都会假性报 missing_node;这解释了缺节点桶里的一部分,且说明**舰队能力扫描存在系统性低估**(见记忆 fleet-scan-restart-caveat)。"
+    },
+    "case_mismatch_and_memory_corr": {
+      "date": "2026-10-13",
+      "大小写错配": "路由用精确成员判断,`Flux-2-Klein-9b-fp8.safetensors` vs 可见的 `flux-2-klein-9b-fp8.safetensors` 判缺;全量核仅 1/154=0.6% → **不为 1 例造通用机制**,仅记已知缺陷",
+      "网络记忆校正": "HF 可达性按主机不同:Mac 侧 API 可达(SDXL 57 siblings),工作站侧被 DNS 污染进 Facebook 段不可达;hf-mirror 的 /api 能列文件但 /resolve 对社区小仓 404(未缓存 blob)——列得出≠下得来",
+      "本轮已上架": "4 条 H3 NSFW(t2v/i2v/fl2v/r2v)经逐条 smoke pass 后上架,PG public 1873→1877;不带 X-NSFW 的市场 0 泄漏"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
