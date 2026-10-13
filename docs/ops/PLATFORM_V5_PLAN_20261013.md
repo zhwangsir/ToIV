@@ -1250,3 +1250,46 @@ ComfyUI 的 HTTP 服务与执行共用一个事件循环 → **staging 的几十
   `Kijai/WanVideo_comfy` 只有 relight LoRA；NAS 里只有 18.4GB 的 fp8_e4m3fn_scaled_KJ）。
   所以要么做分片→单文件转换，要么让 `combo_repair` 在**同时改写耦合的 quantization 部件**的前提下允许精度替换
   （E-9 的正解，但错配会产出静默错误结果，按 E-10 原则宁可清晰失败）→ **列为待拍板**，不擅自改。
+
+## W8-24 修掉「探测失败被吞成应用缺陷」并已部署验证（10-14 04:26 CST）
+
+### 缺陷与实测证据
+`run_app_smoke` 在两处（首跑失败后的确定性修复、LLM 修复阶段）都用同一形状拼 `objinfo_all`：
+```python
+for ct in {…class_type…}:
+    try: objinfo_all.update(await client.object_info(ct) or {})
+    except Exception: pass        # ← 抓取失败与"没这个类"不可区分
+```
+而 ComfyUI 的 HTTP 服务与执行**共用一个事件循环**，装载 19.5GB 级模型期间连轻量端点都不响应。
+实测同一条 `/object_info/SeedVR2` 在 :8196 上连续三次：**35s 无响应(http=000) → 8.7s → 6ms**。
+`request_timeout=30s` → 装载窗口内的抓取必然失败并被吞掉 → `combo_repair` 拿不到该类 required 规格 →
+`SeedVR2.input_noise_scale`（已装版声明为 `["FLOAT",{"default":0.0,…}]`，**本来能补**）补不上 →
+应用被记成自己的 `validation` 失败。这是 P-11「查询失败不得当成『没有』」的又一实例，
+也解释了 W8-23 里 SeedVR 簇（去重 10 个应用）与部分裸 validation 簇（15 个）的来源。
+
+### 修复（`1434ac26`）
+- 新增 `_fetch_class_specs(client, graph, tries=2)`：逐类抓取，失败**重试一次**（跨过装载窗口），
+  仍失败则把类名收集进 `failed` 返回，不再静默；
+- 新增 `_spec_incomplete_note()`：把「哪些类的规格没取到」写进 `fixes`（会随 `[fixes: …]` 落进 smoke_error），
+  措辞**刻意避开** `classify_failure` 的关键词（缺模型/缺节点/超时/required input is missing…），
+  并有单测锁住「加上这条标注不得改变 cls」——否则标注自己就成了新的误判源；
+- 两处调用点改用该 helper；`_union_objinfo` 未动（它只并 `_COMBO_LOADERS`，职责不同）。
+- 测试：新增 `tests/test_spec_fetch_retry.py` 5 例（瞬时失败重试后规格存活 / 永久失败如实上报且不无限打实例 /
+  重试后 `combo_repair` 真能把 falsy 默认值 0.0 补上 / 无规格时不许瞎补但要有标注 / 标注不改变分类）；
+  smoke·combo·repair·pool·preflight·signature 全套 **168 passed**，零回归。
+
+### 部署与「已加载」验证（不靠推断）
+- `deploy/deploy.sh --skip-web core-jump` → `✅ 部署完成`，`/api/health` 200 / 60ms；
+- **生产文件 md5 `df416ca7b71b` == 本地 md5**（逐字节一致）；`toiv-api ActiveEnterTimestamp=04:24:43`
+  **晚于** rsync → 运行中的进程确实加载了修复（E-11/P-15 的两道必查）；
+- 重启后池成员仍是两台且 healthy：`[('gpu0','http://127.0.0.1:8196',True), ('gpu3','http://127.0.0.1:8263',True)]`；
+- 重启前在跑的 3 条卡（`rh-acc-0515276802-c50c75`/`0517640193-e367dd`/`9118878722-f9197e`）
+  被**启动期** reconcile 清回未测（这是它的设计用途；与 W8-18「战役在跑时手调」是两回事）；
+- 新轮 04:25:13 起，命令行实测 `--ids-file priority_perworker.txt --limit 7200 --concurrency 3`，
+  日志首行即本次新加的指纹：`n=7148 sha256=20de453916c82951`（W8-18 当时缺的正是这一行）。
+
+### 待观察（不预记收益）
+- `repair_incomplete` 标注在真实结果里的出现频率（高 = 装载窗口确实是主要假 fail 源）；
+- conc 3 + 双实例的条/h 与 pass 率（对照 W8-23 的 37.3/h）；
+- SeedVR 簇 10 个应用需在**战役轮次边界**单独重测（不要叠加，见 W8-23 的失误），
+  ids 可由 `grep 'SeedVR' smoke_all_*.jsonl` 取；ONNX 簇 7 个同理（`tmp/rh_smoke_20261013/onnx_fix_retest.txt`）。

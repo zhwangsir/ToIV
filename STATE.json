@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-14T04:19:15+08:00",
+  "updated_at": "2026-10-14T04:29:05+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15793,6 +15793,15 @@
       "seedvr_root_cause": "_union_objinfo 只并 _COMBO_LOADERS(app_smoke.py:494-504) → pick 前那次 combo_repair 补不了非 loader widget;attempt==1 的 objinfo_all 逐类抓取失败被 except:pass 吞(P-11 同型) → 补不上被记成应用 validation 失败。下一步:区分抓取失败与类不存在+重试一次+detail 标 repair_incomplete",
       "wanvideo_blocked": "wan2.2_animate_14B_bf16.safetensors 在 hf-mirror 无单文件(官方只有 4 分片;Kijai 只有 relight LoRA;NAS 只有 fp8_e4m3fn_scaled_KJ 18.4GB) → 需分片转换或允许「同时改写耦合 quantization」的精度替换,列为待拍板",
       "dedup_clusters": "347 去重应用中 187 非 pass: poll超时18/裸validation15/SeedVR10/missing_node_type9/WanVideo8/llm空7/ONNX7(已修待验)/无worker6/cusolver5/熔断4"
+    },
+    "w8_24_probe_swallow_fix_deployed": {
+      "defect": "objinfo_all 逐类 object_info 抓取失败被 except:pass 吞 → combo_repair 补不了必填输入 → 记成应用 validation 失败(P-11 同型)",
+      "evidence": "同一条 /object_info/SeedVR2 在 :8196 连续三次 35s(http=000)→8.7s→6ms;SeedVR2.input_noise_scale 实为 FLOAT default 0.0(本来能补)",
+      "fix_commit": "1434ac26 _fetch_class_specs(重试一次)+_spec_incomplete_note(措辞避开 classify_failure 关键词)",
+      "tests": "新增 5 例 + smoke/combo/repair/pool/preflight/signature 全套 168 passed 零回归",
+      "deploy_verified": "deploy.sh --skip-web core-jump ✅;health 200/60ms;生产 md5 df416ca7b71b == 本地;ActiveEnter 04:24:43 晚于 rsync;池两成员 healthy;3 条在跑卡由启动期 reconcile 清回未测",
+      "new_round": "04:25:13 起 conc=3 limit=7200,日志首行指纹 n=7148 sha256=20de453916c82951",
+      "pending_observe": "repair_incomplete 出现频率、conc3+双实例的条/h 与 pass 率、SeedVR(10)与 ONNX(7)簇需在轮次边界单独重测"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
