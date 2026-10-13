@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T16:12:30+08:00",
+  "updated_at": "2026-10-13T16:14:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15566,6 +15566,15 @@
       "未覆盖尾": "199 次 / 55 类,再分两类:(a) 有真本地等价的 30 次——MiniMax Hailuo H3 三个节点(舰队本就有 :8264 H3 生产口)与 Qwen-Image/Z-Image 生成族;(b) 本质云端专有 169 次——Gemini/nano-banana、gpt-image、Seedream、Jimeng、Sora2、Rhart、Flux-2-Max 等,本地无等价模型",
       "结论": "「RH 全量能本地部署的应用」这条目标的硬上限已被量化:云节点里 90.3% 的引用量我已用自家 shim 落地,剩余 ~199 次里只有 ~27 次存在**诚实的**本地等价(接 H3 / Qwen-Image 口),其余 ~172 次是把 Google/OpenAI/字节/快手闭源 API 写进图里的卡,做 shim 就是假承诺,应按 RHHiddenNodes 的先例「标注不排除、由 smoke 裁判」。",
       "产物": "tmp/rh_cloud_nodes_20261013/inventory.json(63 类逐一标 registered_now)"
+    },
+    "publish_queue_drained": {
+      "date": "2026-10-13",
+      "动作": "第二批 pass-but-hidden 上架 6 条(先剔除 7 条不变量卡)",
+      "稳定态": "市场可见 1879 → **1885**;剩余 smoke=pass 且未公开 = **7 条 = 恰等于不变量清单里的孪生/合并卡**",
+      "含义": "「已验证可用但没上架」这个队列已清空——剩下的 7 条按设计就该隐藏(由 SFW 父卡承载),不是欠账",
+      "验证方式": "PG count 前后对照 + 上架后重查 pass-but-hidden 集合与 MERGE_HIDE_IDS∪SIMILAR_MERGE_HIDE_IDS 求差为零",
+      "本轮战役吞吐实录": "image 优先后单条 6~280s(对比视频 750~882s);0 秒失败经查是**合法的**即时缺件拒绝(缺 kinghere-Zimage造像v2.0 / RH_Nano_Banana2_*),非熔断风暴",
+      "操作失误入账": "切换参数时 kill 在跑战役两次,会把在飞作业打成 transport 伪 fail;正确做法是等当轮跑完再改"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
