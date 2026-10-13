@@ -983,3 +983,37 @@ missing_node 4(`FL_ColorPicker`/`VRAMReserver`/本地化类名 `TTN浮点`/`帧�
   每 10 条 pass 增量上架,轮间 `publish_pass_but_hidden.py` 收割,连续两轮零 pass 自动止损)。
 - 等用户:装包(两个包覆盖真实缺失节点类的 53%)、civitai token(96% 缺权重唯一通路)。
 - 别再做:从 civitai 抓 prompt 扩配方库(180 图 / 0 meta 已证伪);重测旧 fail(救回率 13.3%,结构性缺件)。
+
+## W8-16 两处口径纠正：running 卡的测量本身是错的 + civitai token 前提被证伪（2026-10-13）
+
+### ① 撤回「pkill 留下 3 条 running 孤儿已修」（`c2fb1bca`/`47c01add`）
+两次结论都建立在同一个**错的测量**上。我在 core 手跑 `reconcile_interrupted_smokes()` 打印 `0`,
+同刻 PG 里却有 2 行 `smoke_status='running'`——我先据此写「孤儿已修」,又据此写「reconcile 失效」,
+**两条都错**。真因:`TOIV_DATABASE_URL` 只存在于 systemd 进程环境(core 上没有 `.env` 文件),
+手跑时缺这个 env,`app.db` 静默回落到 §五 早已判废的 SQLite `toiv.db`。
+从 `/proc/<api pid>/environ` 取出真实 URL 重跑同一函数:**`reconcile returned: 2`,PG 里 running 归零**。
+函数一直是对的,错的是我的测量。
+
+- 那 2 条卡确实是**卡死态**（不在活跃 id 清单、无任何进程持有），现已清回未测、会随下一轮清单被重测；
+- **但「谁把它们打成 running」仍未定**——不能从行本身判定:`smoke_at` 只在完成时写,
+  `updated_at` 定义无 `onupdate`(`models.py:387`),所以 `updated_at == created_at` 不证明这行没被 UPDATE 过。
+  要判定只能靠外部证据(API `ActiveEnterTimestamp` 15:40:49 / 活跃 id 清单 / `:8196 /queue` 现况)。
+- 根治要加 `smoke_started_at` 列 = 生产 PG schema 变更,**未擅动**,列为待拍板项。
+- 已入账 AGENTS **P-18 / P-18b**。
+
+### ② 「25 条缺件唯一通路是用户注册 + token」——token 这半边前提已不成立
+实测生产 api 进程环境里**早就有** `TOIV_CIVITAI_API_KEY`（32 字符,`marketplace.py:35`/`model_wiki.py:58`/
+`nas_models.py:38` 在读）。拿 blocked 且带 civitai id 的 3 条(2717298 / 2027766 / 2270257)做前后对照:
+
+| id | anon | auth | 差异 |
+|---|---|---|---|
+| 2717298 | 200 / 1 version / 1 file / downloadUrl 有 | 同左 | **无** |
+| 2027766 | 200 / 20 versions / 2 files / downloadUrl 有 | 同左 | **无** |
+| 2270257 | 200 / 1 version / 1 file / downloadUrl 有 | 同左 | **无** |
+
+即**元数据层根本不需要 token**，匿名已能拿到 `downloadUrl`；「全部需要登录才能拿」的旧结论至少对这三条是假的。
+但这不等于「能下载」:对真实 `downloadUrl` 做 1 字节 Range GET(`-r 0-0 -L`)从 core 出发 **>100s 无返回**,
+测试挂住未出结果 → **25 条可下载仍未证**，按 P-12「字段存在 ≠ 通路可达」处理。
+
+**修正后的待拍板口径**：卡点不是「等用户给 token」（生产已有），而是「等一条能从 core/WS 跑通的
+civitai 文件下载通路 + 用户放行把权重下载到 NAS」。缺件线（任务 #17/#24）在拿到这条通路前不要再记收益。

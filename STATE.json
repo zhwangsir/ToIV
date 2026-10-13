@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T17:30:00+08:00",
+  "updated_at": "2026-10-13T17:53:19+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15711,6 +15711,25 @@
       "根因": "我 pkill 战役留下的 3 条 smoke_status=running 且 smoke_at 为 NULL —— 任何按时间判活的工具都看不见它们;而生成器只收 smoke_status 为空的卡,于是它们既不重跑也不进失败列表(会静默掉出射程)。",
       "处置": "不新写平行 reconciler:生产已有 reconcile_interrupted_smokes()(api 启动时收口,上次跑在 15:40 部署那刻,晚于它的 kill 没被覆盖)。直接调该函数,返回清理 3 条;函数注释明确说明在跑的烟测会自己把状态写回 running,所以战役运行中调用是安全的。",
       "教训": "运维动作(pkill)的尾账要靠**已有的 reconcile 入口**收,而不是给分析脚本加特例;下次 kill 战役后必须跑一次 reconcile 再生成清单,否则目标集会随每次中断单调缩小。"
+    },
+    "w8_16_running_card_measurement_correction": {
+      "retracted_commits": [
+        "c2fb1bca",
+        "47c01add"
+      ],
+      "root_cause": "手跑 ops 代码缺 TOIV_DATABASE_URL → app.db 回落废弃 SQLite，两次结论(孤儿已修/reconcile 失效)都基于错测量",
+      "proof": "带真实 URL 重跑 reconcile_interrupted_smokes() → returned 2，PG running 归零；函数本身一直正确",
+      "open": "谁把这两条打成 running 仍未定（smoke_at 只在完成时写、updated_at 无 onupdate → 行内无 started_at）；根治需加 smoke_started_at 列=生产 PG schema 变更，待拍板",
+      "agents": [
+        "P-18",
+        "P-18b"
+      ]
+    },
+    "w8_16_civitai_token_premise_falsified": {
+      "fact": "生产 api 进程环境早有 TOIV_CIVITAI_API_KEY(32)，marketplace/model_wiki/nas_models 在读",
+      "test": "blocked+civitai id 三条 2717298/2027766/2270257：anon 与 auth 元数据完全一致，匿名即含 downloadUrl → 元数据层不需要 token",
+      "not_proven": "downloadUrl 的 1 字节 Range GET 从 core >100s 无返回 → 25 条可下载仍未证(P-12)",
+      "caliber": "卡点从「等用户给 token」改为「等可跑通的 civitai 文件下载通路 + 用户放行下载权重」"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
