@@ -34,9 +34,17 @@ for ((r=1; r<=ROUNDS; r++)); do
   TS=$(date +%H%M%S)
   OUT="$LOGDIR/sup_round${r}_${KIND}_${TS}.log"
   echo "[sup $(date +%H:%M:%S)] 第 $r/$ROUNDS 轮启动 → $OUT"
+  # 参数必须用数组传:先前用 $( ...) 拼参数,把 --concurrency/--timeout-s/--sleep
+  # 整段弄丢了(实测命令行里查不到),等于悄悄降回并发 1 / 默认 600s 超时。
+  # 是「跑起来看着正常但配置已失效」那类,只有核对真实命令行才抓得出来。
+  if [ -s "$IDS" ]; then
+    TARGET=(--ids-file "$IDS" --limit "$LIMIT")
+  else
+    TARGET=(--kind "$KIND" --status untested --limit "$LIMIT")
+  fi
   apps/api/.venv/bin/python scripts/ops/rh_smoke_batch.py \
-    $( [ -s "$IDS" ] && printf -- '--ids-file %s --limit %s' "$IDS" "$LIMIT" \
-                        || printf -- '--kind %s --status untested --limit %s' "$KIND" "$LIMIT" ) \
+    "${TARGET[@]}" \
+    --concurrency "${ROUND_CONC:-2}" --timeout-s 900 --sleep 1.2 \
     --publish-passes --publish-every 10 >> "$OUT" 2>&1
   echo "[sup $(date +%H:%M:%S)] 第 $r 轮结束"
   tail -4 "$OUT"
