@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-10-13（ToIV开发）：**V5 方案成文 + W0 收口 + W8 RunningHub 全量本地化在跑**——V5 优化方案 18 节功能条目级（真源 `docs/ops/PLATFORM_V5_PLAN_20261013.md`，四主轴全要）；三端「全绿」基线恢复（api 4215 collected/全量 exit=0、web 1166、canvas tsc 0 错+shared 2682）；W0-3 拼接混规格静默哑音活雷已修；RH 全量分类完成（64831 条 → ok 5960），批0 复活 1727 条使 public 83→1810，批C 已导入 1717+（`is_public=False`，待 smoke 才上架）。**纠正上批口径：`f8633401` 是 react-router 从 `^8.2.0` 降级钉死 `7.9.5`，不是升级 8.4.0**。`updated_at` 2026-10-13T07:00:00+08:00。
+> **最后更新**：2026-10-13 18:03（ToIV开发）：**V5 方案成文 + W0 收口 + W8 RunningHub 全量本地化在跑**——本会话终态(PG 为准)`total 14,304 / public 1,909 / pass 1,906 / untested 11,583`,可本地部署但未真跑 ≈5,450 条(40–50/h → 还需 110–135 GPU-小时;上限是 :8196 与 :8197 同 GPU0)。续跑指令与待核对项见 `docs/ops/PLATFORM_V5_PLAN_20261013.md` **W8-19**;本批新增易错点见 §六 P-18/P-18b:手跑 ops 代码缺 `TOIV_DATABASE_URL` 会静默回落废弃 SQLite(已两次致错结论);`app` 表无烟测开始时刻,running 不能从行本身判定,战役在跑时不得手调 `reconcile_interrupted_smokes`。——V5 优化方案 18 节功能条目级（真源 `docs/ops/PLATFORM_V5_PLAN_20261013.md`，四主轴全要）；三端「全绿」基线恢复（api 4215 collected/全量 exit=0、web 1166、canvas tsc 0 错+shared 2682）；W0-3 拼接混规格静默哑音活雷已修；RH 全量分类完成（64831 条 → ok 5960），批0 复活 1727 条使 public 83→1810，批C 已导入 1717+（`is_public=False`，待 smoke 才上架）。**纠正上批口径：`f8633401` 是 react-router 从 `^8.2.0` 降级钉死 `7.9.5`，不是升级 8.4.0**。`updated_at` 2026-10-13T07:00:00+08:00。
 > **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
 
 ---
