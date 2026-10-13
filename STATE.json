@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T17:12:00+08:00",
+  "updated_at": "2026-10-13T17:12:40+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15657,6 +15657,17 @@
         "WanVideoTextEncode: Exception when validating inner node(inner-node 校验崩,属 tuple/类型不匹配家族)"
       ],
       "入库进度": "recovered 1475 条中已入库 918(导入仍在跑)"
+    },
+    "block_closeout": {
+      "date": "2026-10-13T17:12+08:00",
+      "入库": "应用总数 13582 → **14079**(+497;其中 recovered 批次已入库 1246/1475,导入仍在跑)",
+      "上架": "市场可见 1870 → **1901**(+31),全部逐条 smoke pass、跳过 7 张不变量卡、每条经 PG 复核",
+      "已验证pass": 1898,
+      "未测": 11375,
+      "未测数上升的原因": "导入在持续加新行,不是倒退",
+      "战役清单": "priority_complete.txt 6929 → 7586(+657 recovered);导入跑完后需再执行一次同段补全脚本",
+      "自动链路": "监管(并发2 + 每轮间收割 + 连续两轮零pass即止损)+ 战役每 10 条 pass 增量上架",
+      "本轮产出的关键判断": "recovered 批次实测 67% pass,证明静态预筛有预测力;not_exportable 0/40 复测关闭该桶(RH 侧 workflowState=0,非工程欠账)"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
