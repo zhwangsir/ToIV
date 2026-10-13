@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T14:28:00+08:00",
+  "updated_at": "2026-10-13T14:39:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15332,6 +15332,33 @@
       "已启动的重测": "后台 nohup rh_smoke_batch --ids-file tmp/rh_resmoke_20261013/stale_fail_ids.txt(150 条 fail 且 smoke_at<10:04)concurrency=2 timeout=900s,**不带 --publish-passes**(60% 判据须由本次重测重新裁决)",
       "cusolver 定性补充": "粘滞污染假设**已证伪**:同一进程(pid 817802)10:31 之后 cusolver 计数=0 且继续正常出片;10:26/10:30 是两次孤立发作。逐卡最小 repro(/opt/ComfyUI/venv,torch 2.12.1+cu130)四卡 solve/svd 全 OK,无 Xid、无系统 OOM → 环境面正常,属间歇性;报错来自 :8196 的「Error during sampling」而非我补丁所在的 WanVideoWrapper 文件,印证 E-11(堵单点不等量堵住全部)",
       "纪律": "放量判据只能由**当前代码**的测量决定;任何 pass/fail 统计先与部署时间戳对比,低于部署时间的行不得计入归因分母(同 E-11/P-15 型错误)"
+    },
+    "fleet_topology_and_recovery_rate": {
+      "date": "2026-10-13",
+      "关键事实": "通用池的 :8196(gpu0-alt)与 :8197(longcat)**同处一张物理卡** GPU-c2193dfe(GPU0)。nvidia-smi --query-compute-apps 实测该卡上同时挂着 pid 817802(:8196)与 817879(:8197)。→ 「池里有两台」是假象:并发 2 等于把两个重作业压到同一张 97GB 卡上。这解释了 cusolver/OOM 型间歇失败为何随负载出现,也说明 --concurrency 的上限由物理决定,不是由成员数决定。",
+      "端口钉卡实况": {
+        "comfyui-gpu0-alt": "CUDA_VISIBLE_DEVICES=0(数字索引)",
+        "comfyui-longcat": "CUDA_VISIBLE_DEVICES=GPU-c2193dfe(UUID,与 :8196 同卡)",
+        "toiv-comfyui-h3": "CUDA_VISIBLE_DEVICES=2(数字)",
+        "toiv-comfyui-h3-gpu1": "CUDA_VISIBLE_DEVICES=1(数字)",
+        "注": ":8196/:8195/:8264 用数字索引,违反 H-6「锁卡一律 UUID」;当前 4 卡健康无 reset 故索引未偏移,但属既有债务"
+      },
+      "陈旧 fail 重测恢复率": {
+        "已测": 15,
+        "pass": 2,
+        "恢复率": "13.3%",
+        "解读": "这不是总体 pass 率——样本是刻意挑的旧 fail,故 13.3% 是「今日全部修复对存量 fail 的救回率」。结论:存量 fail 主要是**结构性**缺件(缺模型 6/15),不是我能靠改代码消掉的;继续重测旧 fail 的边际收益低。",
+        "真实分母": "未测 10966 条才是总体 pass 率的来源;在此之前任何「市场可用率」都是拿偏样本当总体"
+      },
+      "缺件规模(PG)": {
+        "fail且报缺模型": 157,
+        "fail且报缺节点": 127,
+        "两者都报": 51,
+        "未测": 10966
+      },
+      "union-vs-per-worker假设": "已证伪:抽 3 条缺模型 fail 逐一查 :8196/:8197/:8264 三口 object_info,Blossoms-Illustrious-lora_V1 / zit_fdpo_v1 / flux1-kontext-dev-Q8_0.gguf / kontext_big_breasts_and_butts 三口全部不存在→ 不是「分类器用并集、烟测要单机」的口径错配,是真的没有这些权重。各口模型名规模 26507/9029/4505。",
+      "可得性分流": "脚本 tmp/rh_resmoke_20261013/missing_model_feasibility.py 在跑(账本 status × hf-mirror 检索),出数前不下结论",
+      "纪律更新": "并发上限按「同一物理卡上的重作业数」定,不按池成员数定;:8196 与 :8197 同卡 → 有效并发上限=1~2,不再往上调"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
