@@ -13,6 +13,8 @@
 from __future__ import annotations
 
 import asyncio
+import copy
+import logging
 import re
 from datetime import datetime
 from pathlib import Path
@@ -294,9 +296,19 @@ def _precision_of(filename: str) -> str | None:
     return None
 
 
-def combo_repair(graph: dict, objinfo: dict) -> list[str]:
-    """首跑校验失败后的确定性修复:类名别名 + combo 变体改写。返回修复说明列表。"""
+def combo_repair(graph: dict, objinfo: dict, edits_out: list | None = None) -> list[str]:
+    """首跑校验失败后的确定性修复:类名别名 + combo 变体改写。返回修复说明列表。
+
+    edits_out 若给出,会被填入**结构化**修改记录 (node_id, kind, field, old, new),
+    kind ∈ {"class_type", "input"}。用途:烟测通过后把同样的修改施加到**存量 workflow_json**
+    上再落库——修复只作用于 _build_graph 产出的运行图,而运行图里已经写进了烟测 fixture 的
+    表单值,直接把它存回去等于把测试用的提示词/种子/图片固化进应用。故必须回放结构化 edits。
+    """
     fixes: list[str] = []
+
+    def _rec(nid, kind, field, old, new):
+        if edits_out is not None:
+            edits_out.append((str(nid), kind, field, old, new))
     # 1) 类名:大小写/紧缩写别名(如 StringToInt vs Stringtoint)
     classes = set(objinfo.keys())
     lower_map: dict[str, str] = {}
@@ -311,6 +323,7 @@ def combo_repair(graph: dict, objinfo: dict) -> list[str]:
             if aliased:
                 node["class_type"] = aliased
                 fixes.append(f"node {nid}: class {ct} → {aliased}")
+                _rec(nid, "class_type", None, ct, aliased)
     # 2) combo 字段:值不在列表 → 最近变体
     for nid, node in graph.items():
         if not isinstance(node, dict):
@@ -341,7 +354,41 @@ def combo_repair(graph: dict, objinfo: dict) -> list[str]:
             else:
                 node["inputs"][field] = cand
                 fixes.append(f"node {nid}: {ct}.{field} {val} → {cand}")
+                _rec(nid, "input", field, val, cand)
     return fixes
+
+
+def apply_edits_to_workflow(workflow: dict, edits: list) -> tuple[dict, list[str]]:
+    """把 combo_repair 的结构化 edits 施加到**存量 workflow_json** 的深拷贝上。
+
+    返回 (新 workflow, 跳过原因列表)。任何一条 edit 落不下去(节点不存在 / 原值对不上)
+    都进 skipped——此时调用方**不得落库**,否则存进去的是只改了一半的图,比不改更难查。
+    「原值必须对得上才改」是防止把 edits 回放到一个已被别处改过的图上。
+    """
+    out = copy.deepcopy(workflow) if isinstance(workflow, dict) else {}
+    skipped: list[str] = []
+    for nid, kind, field, old, new in edits:
+        node = out.get(nid)
+        if not isinstance(node, dict) and str(nid).lstrip("-").isdigit():
+            node = out.get(int(nid))
+        if not isinstance(node, dict):
+            skipped.append(f"node {nid} 不在存量图里")
+            continue
+        if kind == "class_type":
+            if node.get("class_type") != old:
+                skipped.append(f"node {nid} class_type 已不是 {old!r}")
+                continue
+            node["class_type"] = new
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            skipped.append(f"node {nid} 无 inputs")
+            continue
+        if inputs.get(field) != old:
+            skipped.append(f"node {nid}.{field} 已不是 {old!r}")
+            continue
+        inputs[field] = new
+    return out, skipped
 
 
 
@@ -438,6 +485,8 @@ async def run_app_smoke(
     if values_override:
         values = {**values, **values_override}
     fixes_all: list[str] = []
+    # combo_repair 的结构化修改记录,烟测通过后回放到存量图(见 _persist_repairs)
+    edits_all: list = []
     last_msg = ""
     last_ne: dict = {}
 
@@ -451,7 +500,7 @@ async def run_app_smoke(
 
     # pick 之前先做并集校准:RH 名≠fleet 名时改写到真实在列变体,自然路由到持有者
     try:
-        fixes0 = combo_repair(graph, await _union_objinfo(pool))
+        fixes0 = combo_repair(graph, await _union_objinfo(pool), edits_all)
         if fixes0:
             fixes_all.extend(fixes0)
     except Exception:  # noqa: BLE001 — 并集拉取失败不阻塞烟测
@@ -497,6 +546,7 @@ async def run_app_smoke(
                     except Exception:  # noqa: BLE001 — 清场尽力而为
                         pass
                 if status == "pass":
+                    _persist_repairs(session, app, edits_all)
                     out = _finish(session, app, "pass", {"cls": "", "detail": msg}, fixes_all,
                                   files=out_files if collect_result else None)
                     if collect_result:
@@ -516,7 +566,7 @@ async def run_app_smoke(
                         objinfo_all.update(await client.object_info(ct) or {})
                     except Exception:
                         pass
-                fixes = combo_repair(graph, objinfo_all)
+                fixes = combo_repair(graph, objinfo_all, edits_all)
                 if fixes:
                     fixes_all.extend(fixes)
                     continue
@@ -699,6 +749,35 @@ async def _poll_history(client, prompt_id: str, output_kind: str,
                             })
             return "pass", f"outputs={list(e['outputs'])[:3]}", files
     return "error", f"poll exceeded {limit}s", []
+
+
+def _persist_repairs(session: Session, app: App, edits: list) -> None:
+    """烟测通过且过程中改过图 → 把同样的修改回放到存量 workflow_json 并落库。
+
+    不回放的后果是「烟测通过」成为假承诺:_finish 只写 smoke_status/smoke_error,
+    存量图仍是坏的,而 combo_repair **不在 routes/apps.py 的生产运行路径上**,
+    用户真跑时没有兜底 → 直接失败。实测 13 个应用正处于此状态,且**全部 is_public=true**,
+    即已经挂在市场上等着被点开。
+
+    只回放结构化 edits、**绝不直接存运行图**:运行图里已写进烟测 fixture 的表单值,
+    存回去等于把测试用的提示词/种子/图片固化进应用。
+    任何一条 edit 回放不下去就整体不落库(半改的图比不改更难查),只记日志。
+    """
+    if not edits:
+        return
+    raw = app.workflow_json if isinstance(app.workflow_json, dict) else {}
+    if not raw:
+        return
+    log = logging.getLogger("toiv.smoke")
+    new_wf, skipped = apply_edits_to_workflow(raw, edits)
+    if skipped:
+        log.warning("烟测通过但修复无法回放到存量图,不落库 app=%s skipped=%s",
+                    app.id, skipped[:3])
+        return
+    app.workflow_json = new_wf
+    session.add(app)
+    session.commit()
+    log.info("烟测修复已固化到存量图 app=%s edits=%d", app.id, len(edits))
 
 
 def _finish(session: Session, app: App, status: str, res: dict, fixes: list[str],
