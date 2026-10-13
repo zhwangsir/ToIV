@@ -766,3 +766,54 @@ zenstory `evaluations/`（**MIT**）：8 维加权 100 分 + 五档锚点 + 盲�
 - 2026-10-13 v2：用户追加两条指令并授权自主推进——**新增 W8（RunningHub 全量本地可部署化）与 W9（Civitai.red R18 参照线）**；**显式推翻 v3 §6 / v4 §4 / 本计划原 §13 继承的「RH 市场扩容」不做项**；补 §12 W8-0 通路实测（runninghub.cn 直连 200、civitai.com 不通、**civitai.red 直连 200**、core SSH 与 toiv-api/web active）；§14 增 4 条决策点（默认值已给，按默认走）；§17 改为双轨并行 + 自主执行六条自约束（含「仍会主动上报的三类事」）；章节重编号（原 12–16 → 14–18）。
 - 2026-10-13 v3：W8-6 批D-3 RH 云节点 shim 按**生产图实证签名**重写（6 类新增 / `RHHiddenNodes` 判为不可通用 shim / 47 例单测 / stage2 只重启 :8196 且节点数下降即回滚）+ 分类器 `--recheck-status`；**W9-3 证伪 P1-3 配方方案**（`baseModel` 过滤在 `/api/v1/images` 上完全失效——四个变体返回同一批首条 id 12097475；换 `modelId=` 真生效后 SFW 集带 prompt 的仍为 0 条），建议把 P1-3 预算转给 W8；明确 160 个社区节点包**不无人值守自动安装**（第三方代码供应链风险）。
 - 2026-10-13 v4：**W8-7 记录一枚 landmine 级新雷**——`_pick_app_client` 的 `WanVideo*` 前缀把应用硬路由到 :8197 并在 `pool.pick(required=…)` 之前返回，导致模型可用性从不被检查；随后 `combo_repair` 用被选中那台的清单把 fp8_scaled 权重静默换成 fp16、却不动与之耦合的 `quantization` 部件，把「路由错」伪装成「权重不兼容」。查证过程连带推翻两个先验猜测（`_extract_required` 字段盲区、存量快照覆盖），六步证据见 W8-7。**生产路径同受影响**；本轮只记录不改（stage1 会无人值守自动部署工作树）。
+
+
+---
+
+## W8-11 `tuple index out of range` 簇根因定性（2026-10-13，自造雷，无线上损害）
+
+**结论先行**：这不是第三方包版本漂移，也不是我方剪枝造悬空连线，而是**我方 RHHiddenNodes shim 的输出元数不够宽**。
+
+### 机制（逐字定位，非推测）
+ComfyUI `execution.py:925-927`：
+```python
+o_id = val[0]
+o_class_type = prompt[o_id]['class_type']
+r = nodes.NODE_CLASS_MAPPINGS[o_class_type].RETURN_TYPES
+received_type = r[val[1]]          # ← socket 越界 = IndexError: tuple index out of range
+```
+异常被 `validate_inputs` 的 inner 分支捕获（`execution.py:961` → `"Exception when validating inner node"`），**错误挂在下游消费者身上，真凶不出现在信息里**。
+
+### 排除的两个假设（都是先猜后证伪）
+1. *object_info 空 spec 假设*：四个受害类逐一取 `object_info`，required/optional/hidden 无一项为空或非 list → 排除。
+2. *我方剪枝造悬空连线假设*：`rh-acc-6319519745-e513fc` 存量原图与 `_build_graph` 之后，悬空/畸形连线均为 **0** → 排除。
+
+### 定案证据
+`rh-acc-6551162881-57c57b`（28 节点）越界连线恰 1 条：
+```
+目标 327 (TextEncodeQwenImageEditPlus) 字段 'prompt' ← 连线 ['382', 1]
+源类 RHHiddenNodes 实际 outputs(1) = ['IMAGE']
+```
+存量原图同样 1 条 → 不是 `_build_graph` 引入，是云端原图本就引用 socket 1，而我的 shim 只给了 1 个输出。
+
+### 规模校正（对自己上一轮结论的纠正）
+先前在 17 条抽样里看到 4 例，据此称其为「新的最大失败簇」——**全库实查只有 7 条**：
+
+| 口径 | 数 |
+|---|---|
+| app 总数 | 13582 |
+| 含 RHHiddenNodes | 760（未测 680 / fail 72 / pass 7 / 已上架 6） |
+| fail 报 `tuple index out of range` | 7 |
+| 其中含 RHHiddenNodes | 6 |
+| fail 报 `Return type mismatch` | 20 |
+| smoke pass / fail 合计 | 1868 / 544 |
+
+抽样外推的簇规模必须回全库核（AGENTS P-14 同型；已另记 E-10）。
+
+### 损害评估
+**无线上损害**：7 条全部 `smoke=fail`，故未上架。已上架的 6 条 RHHidden 应用来自 pass 集——即 socket 0 图像直通路径确实能工作（此前对 RHHiddenNodes 的第三次判断翻转，正向结论仍然成立）。
+
+### 处置决策
+**不采用「加宽 RETURN_TYPES 骗过校验」**：过校验后节点返回值个数与声明不符，只会在执行期换一个更难懂的错，属于典型的假承诺（P-13 同族）。不可通用 shim 的正确终态是**清晰的归因失败**。
+
+待办（需更多轮次，纯函数可离线单测，不占 GPU）：把 socket 越界检测并入 `preflight_check` 的 advisory 桶，让 `smoke_error` 直接点名 `RHHiddenNodes` 而不是报下游节点名。
