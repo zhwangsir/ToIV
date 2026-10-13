@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T17:02:30+08:00",
+  "updated_at": "2026-10-13T17:12:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15639,7 +15639,24 @@
       "blocked 重评": "1475 现已齐(正在导入,is_public=False)/ 25639 仍缺件",
       "not_exportable 复测": "随机抽 40 条重打 RH 两步导出门禁:**0 条解锁**。原因不是我方能力,而是这些记录的 workflowState=0 —— 发布者关掉了导出开关,本地做任何事都改不动。所以这 31881 条不是「漏掉的」,是 RH 侧不可得;不再复测该桶。",
       "结论": "「RunningHub 上能本地部署的应用」的可及上限 ≈ ok 5975 + 重评解锁 1475 = **7450 条**;其中能真跑还要过烟测(缺权重/缺节点会砍掉一大块,实测存量 fail 里 94% 缺模型是无源可得)。剩余 57544 条属「RH 侧关闭导出」或「本地缺件且无开放获取渠道」,不是工程欠账。",
-      "抽样口径声明": "n=40 只能定数量级;但结合 workflowState 是发布者设置这一机制,0/40 与机制自洽,足以关闭该桶"
+      "抽样口径声明": "n=40 只能定数量级;但结合 workflowState 是发布者设置这一机制,0/40 与机制自洽,足以关闭该桶",
+      "recovered批次实测": "随机 6 条真烟测:pass 4 / fail 2 = **67%**,对比盲扫约 30%。"
+    },
+    "recovered_batch_validated": {
+      "date": "2026-10-13",
+      "样本": "从已入库的 recovered 批次取 6 条真烟测(concurrency 2)",
+      "结果": {
+        "pass": 4,
+        "fail": 2,
+        "pass率": "67%"
+      },
+      "对照": "同日盲扫 image 8/16=50%、整体未测盲扫约 30%",
+      "结论": "静态预筛(类名+权重名都在四口并集内)对产出有真实预测力;recovered 批次不是纸面收益。",
+      "两条失败归因": [
+        "missing_node_type(并集口径高估:某类只在部分 worker 有 → 我重评时就声明过该盲区,现在被实测命中)",
+        "WanVideoTextEncode: Exception when validating inner node(inner-node 校验崩,属 tuple/类型不匹配家族)"
+      ],
+      "入库进度": "recovered 1475 条中已入库 918(导入仍在跑)"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
