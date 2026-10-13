@@ -794,14 +794,74 @@ def last_smoke_summary() -> dict | None:
     return _SMKE_SUMMARY
 
 
-async def preflight_check(pool: WorkerPool, workflow_json: dict, required_nodes: list[str] | None = None) -> dict:
-    """导入前依赖预检:模型文件/节点类在全 fleet 是否可得(不烧 GPU,纯 object_info 并集)。
+def signature_mismatches(graph: dict, objinfo: dict) -> dict:
+    """图与**已安装**节点的签名级比对。返回 {missing_required, combo_invalid, undeclared}。
 
-    返回 {procurable, missing_models, missing_nodes, total_models}。
+    为什么需要:能力扫描只比「类名在不在」,于是「装了但版本旧」的包一路骗过分类——
+    先导批 25 条里 4 条就是这类(`AILab_QwenVL_Advanced` 缺 `use_torch_compile`、
+    `SeedVR2` 缺 `input_noise_scale`、`RHHiddenNodes` 缺 `image_1`、
+    `PathchSageAttentionKJ` 返回类型不匹配),分类却全判 ok。类名在、签名不在,
+    是同一个坑的另一半。
+
+    判定口径**只能按实测**,不能按 object_info 的 spec 形状推:拿先导批 25 条真图 ×
+    真 smoke 结果回测,「required 里的键必须全部出现」这条规则做闸的话——14 条失败只抓到 1 条,
+    却把 1 条**实际 pass** 的应用误判为不可得。逐条查 spec 后发现反例互斥:
+    `AILab_QwenVL_Advanced.use_torch_compile` 是 `["BOOLEAN", {"default": false}]` 却被强制;
+    `ImageScaleToTotalPixels.resolution_steps` 是 `["INT", {"default": 1}]` 却被容忍。
+    即「有没有 default」并不决定 ComfyUI 是否强制,故**不存在可靠的静态判据**。
+
+    因此三类一律只作告警透出,**都不参与 procurable 判定**:
+    - missing_required / combo_invalid / undeclared:仅供人工分诊与后续研究,
+      拿去卡导入会同时产生漏判与误杀(实测数据见上)。
+    """
+    missing_required: list[str] = []
+    combo_invalid: list[str] = []
+    undeclared: list[str] = []
+    for nid, node in (graph or {}).items():
+        if not isinstance(node, dict):
+            continue
+        ct = node.get("class_type")
+        info = objinfo.get(ct) if isinstance(ct, str) else None
+        if not isinstance(info, dict):
+            continue  # 类名缺失归 missing_nodes 那条路径管,别在这里重复报
+        spec_in = info.get("input") if isinstance(info.get("input"), dict) else {}
+        required = spec_in.get("required") if isinstance(spec_in.get("required"), dict) else {}
+        optional = spec_in.get("optional") if isinstance(spec_in.get("optional"), dict) else {}
+        declared = {**required, **optional}
+        inputs = node.get("inputs") if isinstance(node.get("inputs"), dict) else {}
+        tag = f"{ct}(node {nid})"
+        for key in required:
+            if key not in inputs:
+                missing_required.append(f"{tag}: 缺必填输入 {key}")
+        for key, val in inputs.items():
+            if key not in declared:
+                undeclared.append(f"{tag}: 未声明的输入 {key}")
+                continue
+            # 连线(list)运行时才有值,这里只校验字面量
+            if isinstance(val, str):
+                opts = _combo_opts(declared[key])
+                if opts and val not in opts:
+                    combo_invalid.append(f"{tag}: {key}={val!r} 不在已安装 combo({len(opts)} 项)")
+    return {"missing_required": missing_required,
+            "combo_invalid": combo_invalid,
+            "undeclared": undeclared}
+
+
+async def preflight_check(pool: WorkerPool, workflow_json: dict, required_nodes: list[str] | None = None) -> dict:
+    """导入前依赖预检:模型文件/节点类/节点**签名**在全 fleet 是否可得(不烧 GPU,纯 object_info 并集)。
+
+    返回 {procurable, missing_models, missing_nodes, total_models,
+    signature_missing_required, signature_combo_invalid, signature_undeclared}。
     用途:RH 导入管线在入库前调用——不可得的应用打 content_missing 隔离,
     不进入市场稀释可用率。
+
+    procurable 只被两件事否决:缺模型、缺类名。签名三类(missing_required /
+    combo_invalid / undeclared)一律只作告警透出、不参与判定——拿它们做闸已实测会
+    同时漏判与误杀,理由与数据见 signature_mismatches。
     """
-    base = {"procurable": True, "missing_models": [], "missing_nodes": [], "total_models": 0}
+    base = {"procurable": True, "missing_models": [], "missing_nodes": [], "total_models": 0,
+            "signature_missing_required": [], "signature_combo_invalid": [],
+            "signature_undeclared": []}
     try:
         objinfo = await _union_objinfo(pool)
     except Exception as exc:  # noqa: BLE001 — 并集不可得时不误杀
@@ -831,5 +891,10 @@ async def preflight_check(pool: WorkerPool, workflow_json: dict, required_nodes:
     base["missing_nodes"] = missing_nodes
     base["missing_models"] = missing_models[:20]
     base["total_models"] = total
+    # 签名级比对:三类一律只透出、不判死(实测做闸会同时漏判与误杀,理由见 signature_mismatches)
+    sig = signature_mismatches(workflow_json or {}, objinfo)
+    base["signature_missing_required"] = sig["missing_required"][:20]
+    base["signature_combo_invalid"] = sig["combo_invalid"][:20]
+    base["signature_undeclared"] = sig["undeclared"][:20]
     base["procurable"] = not missing_models and not missing_nodes
     return base
