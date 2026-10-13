@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T17:53:19+08:00",
+  "updated_at": "2026-10-13T17:59:18+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15730,6 +15730,16 @@
       "test": "blocked+civitai id 三条 2717298/2027766/2270257：anon 与 auth 元数据完全一致，匿名即含 downloadUrl → 元数据层不需要 token",
       "not_proven": "downloadUrl 的 1 字节 Range GET 从 core >100s 无返回 → 25 条可下载仍未证(P-12)",
       "caliber": "卡点从「等用户给 token」改为「等可跑通的 civitai 文件下载通路 + 用户放行下载权重」"
+    },
+    "w8_17_stuck_cards_and_civitai_path": {
+      "cards": {
+        "rh-acc-0018549761-0fedd3": "fail/product(llm-repair trial fail, 875.4s)",
+        "rh-acc-0029976577-97f43a": "timeout(poll exceeded 900s, 905.7s)"
+      },
+      "meaning": "两条卡死卡清回未测后立刻被真跑并双双失败——不缺机会缺能跑",
+      "open_mechanism": "谁把这两个 id 提交进 17:34 那一轮仍未查清(ids-file 一次性读入且当时不含它们;sec 与时间线对不齐)——故意不写结论",
+      "campaign_today": "185 条结果 / 131 去重: pass 53, fail 121, timeout 10, http_404 1",
+      "civitai_path": "downloadUrl host=civitai.com;WS 直连与 Mac Clash(:7897) 两条路 1 字节 Range GET 均 000 超时 → 25 条缺件卡点是域名可达性而非 token"
     }
   },
   "w9_civitai_provenance_2026_10_13": {

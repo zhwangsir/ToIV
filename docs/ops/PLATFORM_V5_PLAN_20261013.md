@@ -1017,3 +1017,29 @@ missing_node 4(`FL_ColorPicker`/`VRAMReserver`/本地化类名 `TTN浮点`/`帧�
 
 **修正后的待拍板口径**：卡点不是「等用户给 token」（生产已有），而是「等一条能从 core/WS 跑通的
 civitai 文件下载通路 + 用户放行把权重下载到 NAS」。缺件线（任务 #17/#24）在拿到这条通路前不要再记收益。
+
+## W8-17 两条卡死卡的真实结局 + civitai 文件通路的真因是域名可达性（2026-10-13）
+
+### ① 清回未测后立刻被真跑，两条都是**真坏**（不是被状态卡住的好卡）
+`reconcile` 于 17:47:06 把 `rh-acc-0018549761-0fedd3` / `rh-acc-0029976577-97f43a` 清回未测；
+同一轮在跑 `smoke_all_173429.jsonl` 随即给出终态：
+- `0018549761` → `fail / cls=product`，`llm-repair trial fail`，sec=875.4
+- `0029976577` → `timeout / poll exceeded 900s`，sec=905.7
+
+即这两条**不缺机会，缺的是能跑**。⚠️ 未解开的机制问题（**故意不写成结论**，P-18 的教训）：
+`--ids-file` 在进程启动时一次性读入（`rh_smoke_batch.py:102`），而 17:34 那份清单**不含**这两个 id
+（现文件里它们只出现在我 17:54 追加的第 7360/7361 行）——所以「谁把它们提交进本轮」还没查清。
+`sec` 字段与 17:47 之后才开始跑也对不齐。**下轮先查这条提交路径**（候选:批量脚本的 DB 补足分支、
+api 侧 untested runner、admin 手动触发），别在机制不明时再写「孤儿/排除」类结论。
+
+### ② 今日主力清单的真实 pass 率（用于校准剩余工作量）
+`smoke_all_*.jsonl` 合计 185 条结果:**pass 53 / fail 121 / timeout 10 / http_404 1**，去重后 131 个应用。
+按「本轮新增 pass」口径 53 条,与 PG 累计 pass=1904 一致增长中。
+
+### ③ civitai 权重拿不到的真因:**文件域名 civitai.com 在本集群不可达**，与 token 无关
+- 元数据走 `civitai.red` 完全可用（anon 即含 `files[].downloadUrl`）；
+- 但 `downloadUrl` 的 host 是 **civitai.com**；从 workstation 直连 `-r 0-0 -L` → `000`（30s 超时）×3 条；
+  经 Mac Clash 代理 `192.168.71.9:7897` 同样 → `000`（25s 超时）。
+- 结论:**25 条 blocked 缺件的卡点是域名可达性**（civitai.com 在本机被 DNS 污染/阻断，见网络记忆），
+  不是账号权限。要解需要提供一条能拉 `civitai.com` 文件的通路（可用镜像/代理，或用户手工下载入 NAS），
+  在拿到通路之前，MODEL_SOURCES 的 96% 不可得结论**依然成立，但理由要换成这一条**。
