@@ -294,16 +294,52 @@ def test_hidden_nodes_no_longer_requires_image_1():
     assert "image_1" in spec["optional"]
 
 
+class _FakeImage:
+    """ComfyUI 的 IMAGE 是 [B,H,W,C] 四维张量;这里只需 shape 就够鸭子类型判定。"""
+
+    def __init__(self, shape=(1, 8, 8, 3)):
+        self.shape = shape
+
+
 def test_hidden_nodes_passes_through_first_available_image():
-    sentinel = object()
-    assert shim._RHHiddenNodes().passthrough(image_1=None, image_2=sentinel) == (sentinel,)
+    img = _FakeImage()
+    assert shim._RHHiddenNodes().passthrough(image_1=None, image_2=img) == (img,)
 
 
-def test_hidden_nodes_raises_an_honest_error_when_it_has_nothing():
-    with pytest.raises(RuntimeError) as ei:
-        shim._RHHiddenNodes().passthrough(pwd="x")
-    msg = str(ei.value)
-    assert "不可本地部署" in msg and "RHHiddenNodes" in msg
+def test_hidden_nodes_accepts_arbitrary_undeclared_input_names():
+    """生产实证 rh-acc-8847936513-e3edd5:图传的是 images_1,只声明固定几个 optional 名会抛
+    `passthrough() got an unexpected keyword argument 'images_1'`——Python TypeError,
+    比我们要给的那句「不可本地部署」难查得多。故 **kwargs 是必需项不是保险。"""
+    img = _FakeImage()
+    assert shim._RHHiddenNodes().passthrough(images_1=img) == (img,)
+    assert shim._RHHiddenNodes().passthrough(face_images_5=img, var_4_4="text") == (img,)
+    assert shim._RHHiddenNodes().passthrough(pwd="x", ref_image_2=img) == (img,)
+
+
+def test_hidden_nodes_ignores_non_image_kwargs_and_raises():
+    """只有 pwd / 只有数值型输入时不得乱透传:输出类型是 IMAGE,传个 int 下去会静默产错图。"""
+    for kwargs in ({"pwd": "x"}, {"num_frames_2": 81}, {"string_1_1": "abc"}, {}):
+        with pytest.raises(RuntimeError) as ei:
+            shim._RHHiddenNodes().passthrough(**kwargs)
+        msg = str(ei.value)
+        assert "不可本地部署" in msg and "RHHiddenNodes" in msg
+
+
+def test_hidden_nodes_does_not_pass_a_mask_off_as_image():
+    """MASK 是 [B,H,W] 三维;当 IMAGE 透传会静默产出错图,比报错更糟。"""
+    with pytest.raises(RuntimeError):
+        shim._RHHiddenNodes().passthrough(mask_2=_FakeImage(shape=(1, 8, 8)))
+
+
+@pytest.mark.parametrize("value,expected", [
+    (_FakeImage((1, 8, 8, 3)), True),
+    (_FakeImage((2, 16, 16, 4)), True),
+    (_FakeImage((8, 8, 3)), False),      # MASK 形状
+    (_FakeImage((8, 8)), False),
+    (None, False), ("str", False), ({"samples": None}, False), (81, False),
+])
+def test_looks_like_image(value, expected):
+    assert shim._looks_like_image(value) is expected
 
 
 # ── 图像编码(需 numpy/PIL/torch,缺则跳过) ──

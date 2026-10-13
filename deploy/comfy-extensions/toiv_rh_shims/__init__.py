@@ -381,7 +381,22 @@ class _RHGetAudioDuration:
         return (frames / float(sr),)
 
 
-# ── RHHiddenNodes:不可通用 shim(见模块 docstring),保留注册但改为诚实失败 ──
+def _looks_like_image(value) -> bool:
+    """鸭子类型判 IMAGE:ComfyUI 的 IMAGE 是 [B,H,W,C] 四维张量。
+
+    只认 4 维,不认 3 维——MASK 是 [B,H,W],把 MASK 当 IMAGE 透传会静默产出错图。
+    不在模块层导入 torch(保持纯 stdlib 可导入,以便单测)。
+    """
+    shape = getattr(value, "shape", None)
+    if shape is None:
+        return False
+    try:
+        return len(shape) == 4
+    except TypeError:
+        return False
+
+
+# ── RHHiddenNodes:不可通用 shim(见模块 docstring),但要做到「能透传就透传,不能就诚实报错」 ──
 class _RHHiddenNodes:
     @classmethod
     def INPUT_TYPES(cls):
@@ -403,14 +418,22 @@ class _RHHiddenNodes:
     FUNCTION = "passthrough"
     CATEGORY = "RH"
 
-    def passthrough(self, image_1=None, image_2=None, image_3=None, image_4=None, pwd=""):
-        for img in (image_1, image_2, image_3, image_4):
-            if img is not None:
-                return (img,)
+    def passthrough(self, image_1=None, image_2=None, image_3=None, image_4=None, pwd="", **kwargs):
+        """**kwargs 是必需的,不是保险:ComfyUI 会把图里每个输入按名字当关键字参数传进来,
+        而 RHHiddenNodes 的输入名随图而变。生产实证 rh-acc-8847936513-e3edd5 报
+        `_RHHiddenNodes.passthrough() got an unexpected keyword argument 'images_1'`——
+        只声明固定几个 optional 名根本接不住,而且抛的是 Python TypeError,
+        比我要给的那句「此应用不可本地部署」难查得多。
+        """
+        for value in (image_1, image_2, image_3, image_4, *kwargs.values()):
+            if _looks_like_image(value):
+                return (value,)
         raise RuntimeError(
             "RHHiddenNodes 是 RunningHub 平台内部折叠子图的黑盒占位:实测其输入名随图而变"
-            "(face_images_5/var_4_4/string_1_1/clip_0…),输出槽在不同图里分别是 INT/STRING/IMAGE,"
-            "本地无法忠实等价。此应用不可本地部署,请勿上架(能力扫描已用 risk_nodes 标注)。"
+            "(face_images_5/var_4_4/string_1_1/clip_0…),且本次未收到任何可透传的 IMAGE。"
+            "它的输出槽在不同图里分别喂给 INT/STRING/IMAGE,本地无法忠实等价"
+            "(生产实证 easy mathInt: Return type mismatch … received_type(IMAGE))。"
+            "此应用不可本地部署,请勿上架(能力扫描已用 risk_nodes 标注)。"
         )
 
 
