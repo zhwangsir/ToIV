@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T15:50:00+08:00",
+  "updated_at": "2026-10-13T15:53:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15521,6 +15521,32 @@
         "合计": 13
       },
       "诚实结论": "「无可用 worker」是 pool.pick 的正常能力结论（确实没有满足 required 的 worker），不是熔断。熔断修复只验到生产值确已生效（threshold=5 / ttl=10 / api 15:40:49 启动），效果尚未被数据证明——需同一批应用改前后各测一次，不能拿混桶的 cls 计数当证据。"
+    },
+    "pass_but_hidden_publish_batch": {
+      "date": "2026-10-13",
+      "动作": "筛 smoke_status=pass 且 is_public=false 的应用,先按 P-17 比对启动期不变量清单(MERGE_HIDE_IDS + SIMILAR_MERGE_HIDE_IDS,共 11 个 id),再上架",
+      "过滤结果": "16 条 pass-but-hidden → **7 条受不变量保护不可上架**(ace-music-legacy / h3-nsfw-t2v/i2v/fl2v/r2v / nsfw-img2img / wan-animate),**9 条 RH 导入卡可安全上架**",
+      "已上架9条": [
+        "rh-acc-0434976770-a499f7",
+        "rh-acc-0893999106-0d1d24",
+        "rh-acc-2184759298-89c7e7",
+        "rh-acc-2508362754-afa18c",
+        "rh-acc-3114207234-a1ba7e",
+        "rh-acc-7411214337-264c4e",
+        "rh-acc-7425702913-4226fd",
+        "rh-acc-8847936513-e3edd5",
+        "rh-acc-9704430593-441c64"
+      ],
+      "稳定态验证": [
+        "PG: public 1870 → **1879**(+9);9 条逐条 is_public=true;7 条不变量卡仍隐藏(符合设计)",
+        "真机 GET /api/apps/<id>:两条已上架均 **200**(市场可见),h3-nsfw-t2v 仍 **404**(孪生卡按设计不可见,由 SFW 父卡承载)",
+        "注意分页假象:limit=1000 只覆盖 1879 条公开卡的第一页,「不在首页」≠「不可见」——我差点又把它读成失败"
+      ],
+      "仍开口": {
+        "public但fail": 10,
+        "pass但未公开(本批后)": "0(9 条已清)",
+        "说明": "public 且 fail 的 10 条是 P-13 型残留,需重测或人工下架决定"
+      }
     }
   },
   "w9_civitai_provenance_2026_10_13": {
