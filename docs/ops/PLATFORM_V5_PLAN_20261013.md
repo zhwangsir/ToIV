@@ -817,3 +817,38 @@ received_type = r[val[1]]          # ← socket 越界 = IndexError: tuple index
 **不采用「加宽 RETURN_TYPES 骗过校验」**：过校验后节点返回值个数与声明不符，只会在执行期换一个更难懂的错，属于典型的假承诺（P-13 同族）。不可通用 shim 的正确终态是**清晰的归因失败**。
 
 待办（需更多轮次，纯函数可离线单测，不占 GPU）：把 socket 越界检测并入 `preflight_check` 的 advisory 桶，让 `smoke_error` 直接点名 `RHHiddenNodes` 而不是报下游节点名。
+
+---
+
+## W8-12 cusolver「已修已验证」结论撤回（2026-10-13）
+
+先前 STATE 记 `cusolver_root_cause_fixed` + `cusolver_fix_verified_in_production`,依据是打了
+`apply_wanvideo_unipc_cpu_solve.py`(把 `fm_solvers_unipc.py:497/:643` 的 `torch.linalg.solve`
+移到 CPU)后单实例烟测通过。**该结论撤回**。
+
+P-15 核验(进程启动时间 vs 文件 mtime):
+
+| 实例 | 端口 | 启动时间 | 补丁 mtime | 已加载 |
+|---|---|---|---|---|
+| comfyui-gpu0-alt | :8196 | 2026-10-13 10:04:22 | 08:34:09 | ✅ |
+| comfyui-longcat | :8197 | 2026-10-13 10:04:25 | 08:34:09 | ✅ |
+| toiv-comfyui-h3 | :8195 | 2026-10-06 14:09:41 | 08:34:09 | ❌ 从未加载 |
+| toiv-comfyui-h3-gpu1 | :8264 | 2026-10-11 02:14:52 | 08:34:09 | ❌ 从未加载 |
+
+三处目录 md5 同为 `938168a3`、`R.cpu(), b.cpu()` 各 1 处 → 文件面没问题。
+
+**关键反证**:stage5 日志里 cusolver 报错时间戳 `10:26:27` 与 `10:30:38`,均**晚于** :8197 的
+10:04:25 重启 → 补丁确已加载仍复发。说明单调用点补丁不充分:`cusolverDnCreate` 是库/上下文级
+失败,任意 `torch.linalg.solve`/SVD/QR 调用点都能触发,堵一处不等于堵住全部。
+
+**campaign 处置**:stage5 与 `rh_smoke_batch` 已停(可逆,98 条数据留档)。pass 31 / fail 63 /
+timeout 4 = **pass 率 32%**,低于先导批 60% 放量判据;按纪律先归因再放量,不继续烧 GPU。
+失败归因:其他 31、`Required input is missing` 11、`Return type mismatch` 9、精度耦合拒绝 6、
+`tuple index out of range` 5、cusolver 5。
+
+**下一步(需人工窗口)**:①查 GPU 是否 requires reset(`nvidia-smi -q`)+ dmesg Xid;
+②评估把 `torch.backends.cuda.preferred_linalg_library` 全局设 `default`/`magma` 替代逐点 `.cpu()`;
+③核 libcusolver 与 torch 2.12.1+cu130 / sm_120 匹配性(P-7);④重启 :8195/:8264 加载已就位补丁。
+
+沉淀 AGENTS **E-11**:写「已验证」前必查两件事——补丁是否真被加载(进程启动时间 > 文件 mtime)、
+同一故障是否还有其他调用点。
