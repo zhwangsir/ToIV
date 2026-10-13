@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T14:44:00+08:00",
+  "updated_at": "2026-10-13T14:45:30+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15382,6 +15382,18 @@
       ],
       "下一步": "从 missing_model_feasibility.json 里取 hf_hit 且单候选的条目做下载清单(先核 sha256/size 再落 NAS,按 P-12 不因「名字像」就上架;E-9/P-15 教训:装完必须逐实例重启核验)",
       "同时进行的战役": "未测 10966 条已开烟测(limit 600,concurrency 2,timeout 900,--publish-passes);R18 边界已真机核验:canvas 从不发 X-NSFW,不带该头拉 1000 条 is_nsfw=0(库里实有 87 条已上架 nsfw)→ 批量上架不会把 R18 漏进 /studio"
+    },
+    "download_plan_reality_check": {
+      "date": "2026-10-13",
+      "tool": "tmp/rh_resmoke_20261013/download_plan.json",
+      "漏斗": "157 条缺模型 fail → 223 权重名提及 → hf_hit 52 提及 → 去重 38 个权重名 → **exact_in_repo 仅 4 / name_only 5 / ambiguous 29**",
+      "结论": "能**放心自动下载**的只有 4 个(文件名逐字命中仓库)。29 个「多候选」绝不能按名字挑一个下——这正是 10-11 W2.0 事故的形状(社区 pruned/重传/改精度变体过不了严格校验,且 sha256 不一致会静默出错图)。所以「52 条可自主补」这个初判**偏乐观**,真实可自主推进面=4 条,其余要人工择一或用户 civitai token。",
+      "exact_4": [
+        "dopsd_white_zimage_turbo_comfy.safetensors ← RunningHubAI/rh-dopsd-white-zimage-turbo-comfy.safetensors-lora",
+        "flux-2-klein-9b-kv-fp8.safetensors ← black-forest-labs/FLUX.2-klein-9b-kv-fp8",
+        "(另 2 条见 download_plan.json state=exact_in_repo)"
+      ],
+      "资源已核": "NAS /home/merlin/nas_mount 34T 可用(44T 用 24%);本地 / 4.6T 可用;RAM available 95G/183G → 容量不是瓶颈(H-3 已核)"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
