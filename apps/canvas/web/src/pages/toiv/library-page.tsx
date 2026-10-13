@@ -8,7 +8,7 @@ import { ToolButton } from "@/components/ui/base/buttons";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import { mediaLibraryWorksDetailPath } from "@/lib/media-library-routes";
-import { fetchBoards, type ToivBoard } from "@/services/toiv/client";
+import { fetchBoards, fetchToivWorkCounts, type ToivBoard } from "@/services/toiv/client";
 
 function formatTime(value: string): string {
     const d = new Date(value);
@@ -19,6 +19,7 @@ function formatTime(value: string): string {
 export default function LibraryPage() {
     const [tab, setTab] = useState<"works" | "boards">("works");
     const [boards, setBoards] = useState<ToivBoard[]>([]);
+    const [worksCount, setWorksCount] = useState<number | undefined>(undefined);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
 
@@ -34,6 +35,12 @@ export default function LibraryPage() {
     }, []);
 
     useEffect(() => { if (tab === "boards") void load(); }, [load, tab]);
+    useEffect(() => {
+        // 侧栏「作品」计数要反映 jobs 总数,不是画板数(否则恒 0 误导)
+        fetchToivWorkCounts()
+            .then((c) => setWorksCount(Object.values(c).reduce((a, b) => a + (Number(b) || 0), 0)))
+            .catch(() => setWorksCount(undefined));
+    }, []);
 
     return (
         <WorkspacePage fluid className="toiv-library-page library-page assets-library-page">
@@ -91,7 +98,7 @@ export default function LibraryPage() {
                 </div>
             )}
             </div>
-            <MediaLibrarySourceRail active="works" worksCount={boards.length} />
+            <MediaLibrarySourceRail active="works" worksCount={worksCount ?? boards.length} />
         </WorkspacePage>
     );
 }

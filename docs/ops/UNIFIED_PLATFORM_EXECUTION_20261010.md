@@ -207,3 +207,46 @@ S1 ──► S2 ──► S3 ──► S4        （壳迁移线，前端为主�
 
 - 2026-10-10 v1：初版（依据 UNIFIED_PLATFORM_PLAN_20261010.md 生成；13 商业+12 开源调研+本地摸底）。
 - 2026-10-11：**S1 完成**（生产验证回执见 §3 S1 节）。W0.4 缩围说明：desktop gate 为活码；新增 P1 顺带项=修 project.tsx 预存类型错误。
+
+### S13 融合批·market/library 迁 canvas(2026-10-14,用户点名催办「两页还是旧 UI」)
+- ✅ canvas 作品面 v1:`pages/toiv/library-works.tsx`(jobs 分页 60/页 + 类型段控 + 搜索 + 排序 +
+  状态徽标 + 签名媒体预览 + 打开详情 `/library/works/:id` + 重跑 + 软删 + 回收站恢复);
+  `library-page.tsx` 加「作品/画板」双 tab(作品默认);`services/toiv/client.ts` 增
+  `fetchToivWorksPage/fetchToivWorkCounts/fetchToivTrashPage/deleteToivWork/restoreToivWork/rerunToivWork`
+  (分页失败抛错,P-11);`cover-url.ts` 增 `toivMediaUrl`(不截帧的播放地址,同 ?token= 口径)。
+- ✅ 经典壳 F8 跳转:`page.tsx` 新增 `CANVAS_MIGRATED_VIEWS`(market→/studio/toiv/market、
+  library→/studio/toiv/library),**三条不跳**:①`?classic=1`;②R18 模式(canvas 纯 SFW,R18 面唯一家在经典,R18=A);
+  ③`/studio/auth/exchange` 非 200(非管理员 403 → 留经典,**不拿 role=user 当灰度**,0.3 复核前零回退)。
+- ✅ 测试:web `tests/f8CanvasMigration.test.ts` 4 例(跳转表/双逃生口/经典渲染路径未删/canvas 作品面契约),
+  全套 **1170 绿**;canvas `test/toiv-library-works.test.ts` 4 例,**4 绿**;canvas `bun run build` 过。
+- ✅ 部署:web core 本机构建+重启 toiv-web;canvas `deploy.sh --canvas-only`(88 插件包+gate template+canvas-api-pg 就绪)。
+
+**parity 清单(迁移门禁,逐点打勾;✗ = 仍在经典,经 ?classic=1 可达,不藏功能)**
+| 能力 | 经典 | canvas |
+|---|---|---|
+| 市场:应用列表/服务端分页/搜索 | ✓ | ✓(S1 W0.2b) |
+| 市场:运行应用→任务中心 | ✓ | ✓ |
+| 市场:技能 tab | ✓ | ✗ |
+| 市场:图片/视频引擎工作台内嵌 | ✓ | ✗(独立视图 ?view=image/video 仍在经典) |
+| 市场:音频/资源 tab | ✓ | ✓(F4/F1 已跳 canvas) |
+| 市场:R18 应用面 | ✓ | 不进(R18=A) |
+| 作品库:作品网格/分页/类型/搜索/排序 | ✓ | ✓(本批) |
+| 作品库:详情/软删/回收站恢复/重跑 | ✓ | ✓(本批) |
+| 作品库:画板 boards | ✓ | ✓(既有) |
+| 作品库:收藏/保存视图/密度 | ✓ | ✗ |
+| 作品库:3D 操作/超分/批量删除/清理失败 | ✓ | ✗ |
+| 作品库:R18 作品 | ✓ | 不进(R18=A) |
+
+**回滚**:删 `CANVAS_MIGRATED_VIEWS` 两行即回经典(渲染路径未删);canvas 侧为纯新增。
+**下一批(S14 候选)**:canvas 补技能市场与收藏/保存视图 → 收掉 market/library 的 ✗ 行;
+非管理员 canvas 准入(0.3)复核通过后,把 exchange 闸换成 JWT 直验闸,全量用户进 canvas。
+
+**S13 验收与两处「部署后才发现」的修复(真浏览器取证,P-2)**
+- 生产实测:`?view=market` → `/studio/toiv/market`(canvas 深色壳);`?view=library` → `/studio/library?source=works`
+  且「作品」tab 默认、jobs 网格渲染;**`?view=library&classic=1` 留经典壳**(DOM 断言:`.app-main` 在、canvas 壳不在)。
+- 修复①(碎图):`results` 是带查询串的地址(`/api/images?filename=x.mp4&sig=…`),扩展名不在串尾,
+  初版 `isVideo` 用 `$` 锚定把视频判成图片 → `<img>` 载 mp4 全碎。改为 `/\.(mp4|webm|mov|m4v)([?&]|$)/i`;
+  复验 `<video>` `readyState=4`(真加载)。教训:**带查询串的媒体路径,扩展名判定不能锚串尾**。
+- 修复②(误导计数):媒体库侧栏「作品」计数原先传 `boards.length`(恒 0),改由 `/api/jobs/counts` 汇总
+  (实测 49)。
+- 会话闸:`/studio/auth/exchange` 仅管理员 200;非管理员 403 → **留经典**(不拿 role=user 当灰度,0.3 复核前零回退)。

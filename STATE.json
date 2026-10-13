@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-14T04:29:05+08:00",
+  "updated_at": "2026-10-14T04:53:48+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15826,5 +15826,19 @@
       "顺带纠正": "旧记忆把「withMeta 可返回字段清单」当成「每条都有值」,已改写并给出复用前置判据(数 meta 非空率≥30%)。",
       "既有交付仍有效": "apps/api/app/workflows/community_recipes.py 的 7 作品提炼(四幕结构+负向模板+LoRA 触发词六件套)经 GET /api/models/recipes 按 NSFW 门控透出。"
     }
+  },
+  "s13_market_library_canvas_migration_2026_10_14": {
+    "canvas_new": "library-works.tsx(jobs 分页/类型/搜索/排序/详情/重跑/软删/回收站恢复)+library-page 双 tab+client 6 个 jobs 函数+toivMediaUrl",
+    "classic_f8": "CANVAS_MIGRATED_VIEWS market/library → /studio/toiv/*;不跳:?classic=1、R18 模式、exchange 非 200(非管理员零回退)",
+    "tests": "web 1170 绿(含 f8 4 例);canvas 4 绿;bun run build 过",
+    "deploy": "web core 本机构建+restart;canvas --canvas-only(88 插件包/gate template/canvas-api-pg 就绪)",
+    "parity_gaps_classic_only": [
+      "市场技能 tab",
+      "市场图片/视频引擎工作台内嵌",
+      "作品收藏/保存视图/密度",
+      "作品 3D/超分/批量删除/清理失败"
+    ],
+    "r18": "不进 canvas(R18=A);R18 模式下两视图留经典壳",
+    "rollback": "删 CANVAS_MIGRATED_VIEWS 两行;canvas 侧纯新增"
   }
 }

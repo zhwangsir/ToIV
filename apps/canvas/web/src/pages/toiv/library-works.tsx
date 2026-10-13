@@ -163,7 +163,9 @@ export default function LibraryWorks() {
                     {visible.map((job) => {
                         const st = statusLabel(job);
                         const cover = job.results?.[0] ?? "";
-                        const isVideo = /\.(mp4|webm|mov|m4v)$/i.test(cover);
+                        // results 常是带查询串的地址(/api/images?filename=x.mp4&sig=…),扩展名不在串尾,
+                        // 故按「扩展名后接 ?/&/结尾」判定,不能 $ 锚定(否则视频被当图片渲染成碎图)。
+                        const isVideo = /\.(mp4|webm|mov|m4v)([?&]|$)/i.test(cover);
                         return (
                             <div
                                 key={job.id}
