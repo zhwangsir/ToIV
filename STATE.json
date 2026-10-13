@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T17:12:40+08:00",
+  "updated_at": "2026-10-13T17:19:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15685,6 +15685,12 @@
     ],
     "leftover": "P1-3 **已证伪待拍板**(baseModel 过滤失效 + modelId 路由下 SFW 零 prompt;建议把预算转 W8);P1-1 WAI Illustrious 补位(civitai 827184 v17.0 → hf-mirror LyliaEngine/waiIllustriousSDXL_v170 gated=False,重传副本必须以 civitai sha256 校验后才可上架);P1-2 blocked 337 三态复查流水线(civitai 定源用 files[].name 精确等于 basename,不要用模型名模糊匹配);P2-2 申请 civitai 账号+token 需用户本人操作(本调研未注册、未绕任何登录墙);P3 工作流入库建议只对「非 gated + 节点依赖闭合 + allowDerivatives=true」的少数条目做",
     "updated_at": "2026-10-13T07:15:00+08:00",
-    "p1_2_pipeline": "P1-2 三态(六态)复查流水线已建(cda8619a,scripts/ops/model_sources_blocked_tristate.py)并在跑:blocked 337 条按名形先摘出本地渲染产物(纯数字/时间戳 stem,永不浪费 civitai 配额),其余复用 rh_gap_resolve.resolve_model 并**优先直接映射它自己那套 v2 状态**(不重算,重算就是 v1 翻车原因)。read-only 默认;--apply 只动 source_url/license_or_gated/notes/resolution_state,**绝不把 status 从 blocked 改 ok**(溯源成功≠权重在盘上)。前 25 条已出 traceable_login_required 7 条。"
+    "p1_2_pipeline": "P1-2 三态(六态)复查流水线已建(cda8619a,scripts/ops/model_sources_blocked_tristate.py)并在跑:blocked 337 条按名形先摘出本地渲染产物(纯数字/时间戳 stem,永不浪费 civitai 配额),其余复用 rh_gap_resolve.resolve_model 并**优先直接映射它自己那套 v2 状态**(不重算,重算就是 v1 翻车原因)。read-only 默认;--apply 只动 source_url/license_or_gated/notes/resolution_state,**绝不把 status 从 blocked 改 ok**(溯源成功≠权重在盘上)。前 25 条已出 traceable_login_required 7 条。",
+    "recipe_harvest_path_dead": {
+      "date": "2026-10-13",
+      "结论": "从 civitai 抓 prompt 扩社区配方库当前不通:6 个 modelId 的 withMeta 结果 SFW+NSFW 共 180 张图,带 prompt 0 张、带 args 0 张 —— 不是内容边界挡路,是数据本身没有。",
+      "顺带纠正": "旧记忆把「withMeta 可返回字段清单」当成「每条都有值」,已改写并给出复用前置判据(数 meta 非空率≥30%)。",
+      "既有交付仍有效": "apps/api/app/workflows/community_recipes.py 的 7 作品提炼(四幕结构+负向模板+LoRA 触发词六件套)经 GET /api/models/recipes 按 NSFW 门控透出。"
+    }
   }
 }
