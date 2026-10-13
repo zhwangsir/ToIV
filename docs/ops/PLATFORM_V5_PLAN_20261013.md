@@ -897,3 +897,42 @@ timeout 4 = **pass 率 32%**,低于先导批 60% 放量判据;按纪律先归因
 `huggingface.co` 从工作站解析进 Facebook 地址段（DNS 污染）→ 不可达。
 → **94% 的缺模型 fail 是硬阻塞**，需用户 civitai token 或人工择源，不属我可自主推进的范围。
 （附带收获：Mac 侧本轮 `huggingface.co` API 可达，与旧记忆「本机被污染」不完全一致，按现测为准。）
+
+---
+
+## W8-14 已装 pack 因 config.ini 脏行整体导入失败：+42 节点、解锁 56 个应用（2026-10-13）
+
+### 发现路径（关键是别信状态码）
+逐实例翻启动日志找 `IMPORT FAILED`，:8196 上有两个：`ComfyUI_tinyterraNodes` 与 `ComfyUI_IndexTTS`。
+先按 `curl -w %{http_code}` 探 `ttN text3` 得 **200**，据此几乎判定「ttN 没问题」；
+改用 **body 键名** 复核才发现 `200` 的 body 是 `{}`，连 `totally-made-up-node` 也返回 200 ——
+**状态码在这类接口上完全没有信息量**（已沉淀 AGENTS **P-16**）。
+
+### 根因
+`ComfyUI_tinyterraNodes/config.ini` 第 9 行是一个孤儿续行 `.0`（前一行 `advplot range = 1.1.0` 已被截断），
+`configparser` 抛 `ParsingError` → 该 pack 的 `__init__.py:110 update_config()` 崩溃 → **整个 pack 不注册**。
+不是缺包、不是缺依赖、不是版本漂移，**一个数据文件的脏行让 42 个节点消失**。
+
+### 处置（只动数据文件，零安装）
+1. `cp -n config.ini config.ini.bak-20261013-1509`（可回滚）；
+2. 程序化只摘「以空白开头且不含 `=` 的孤儿续行」，保留段头与全部 `key = value`；
+3. 修复后解析 OK，6 条版本记录完好：pipeedit 1.1.1 / pipe2basic 1.1.0 / tinyconditioning 1.0.2 / pipeksampler_v2 2.3.1 / pipeksampleradvanced_v2 2.3.0 / advplot range 1.1.0；
+4. 只有 `/opt/ComfyUI`(:8196) 装有该 pack（longcat / h3-eval 无此目录），故只重启 :8196；
+5. **重启前先停烟测战役**，避免打断在跑作业污染 pass 率测量。
+
+### 验证（P-15 守卫）
+:8196 节点总数 **5269 → 5311（+42）**，未下降；ttN 族注册 42 个。
+再查「这 56 个应用实际引用哪些 ttN 类」：**6 种（`ttN concat/float/int/seed/text/text7BOX_concat`），修复后仍缺 0 种**。
+状态分布：未测 51 / fail 5 → 已起 56 条的专项烟测（`--publish-every 5` 增量上架）。
+
+### 复发风险（必须记账）
+`update_config()` 是**该 pack 自己在启动时写这个文件**的，脏行可能再次产生；
+而它的失败是静默的（ComfyUI 只打一行 IMPORT FAILED，节点数悄悄少 42）。
+**守法**：每次重启 :8196 后取一次 `/object_info` 键数并与 5311 基线比，掉 40+ 就查 `config.ini`。
+（对应 AGENTS D-2「一次性手工迁移没有守护会静默失效」。）
+
+### 其余 IMPORT FAILED 的现状（未动，避免无收益改动）
+- `ComfyUI_IndexTTS`：`cannot import name 'OffloadedCache' from transformers.cache_utils`（库版本面，5 个应用引用）；
+- `LayerStyle`：`cv2.ximgproc.guidedFilter` 缺（需重装 opencv-contrib-python，属依赖变更）；但 `LayerUtility: PurgeVRAM V2` 实测**已注册**，5141 引用面未受影响；
+- H3 两口：`ComfyUI-LTXVideo`/`dlib`/`wget` 缺模块（分别影响 VRGDG_LTXLoopingSampler、人脸自动矫正、LG_Tools inspynet）。
+按纪律这些都属依赖/包变更，**不在我自主边界内**，等用户确认再动。

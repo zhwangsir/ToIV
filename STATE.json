@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T15:06:30+08:00",
+  "updated_at": "2026-10-13T15:11:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15408,6 +15408,20 @@
       "大小写错配": "路由用精确成员判断,`Flux-2-Klein-9b-fp8.safetensors` vs 可见的 `flux-2-klein-9b-fp8.safetensors` 判缺;全量核仅 1/154=0.6% → **不为 1 例造通用机制**,仅记已知缺陷",
       "网络记忆校正": "HF 可达性按主机不同:Mac 侧 API 可达(SDXL 57 siblings),工作站侧被 DNS 污染进 Facebook 段不可达;hf-mirror 的 /api 能列文件但 /resolve 对社区小仓 404(未缓存 blob)——列得出≠下得来",
       "本轮已上架": "4 条 H3 NSFW(t2v/i2v/fl2v/r2v)经逐条 smoke pass 后上架,PG public 1873→1877;不带 X-NSFW 的市场 0 泄漏"
+    },
+    "ttn_config_ini_fix": {
+      "date": "2026-10-13",
+      "根因": "ComfyUI_tinyterraNodes/config.ini 第 9 行孤儿续行 `.0` → configparser ParsingError → __init__.py:110 update_config() 崩 → 整个 pack 不注册(42 节点消失)",
+      "处置": "备份 .bak-20261013-1509 + 程序化只摘「空白开头且无 =」的孤儿续行;6 条版本记录完好;仅 :8196 装有该 pack 故只重启它;重启前先停战役避免污染测量",
+      "验证": "节点数 5269→5311(+42) 未下降;56 个应用实际引用 6 种 ttN 类,修复后仍缺 0 种;已起 56 条专项烟测(--publish-every 5)",
+      "方法论坑": "P-16:object_info/<未知类> 返回 200 + {} ,状态码无信息量;我一度据此误判 ttN 正常,靠 body 键名复核才纠正",
+      "复发风险": "update_config() 由该 pack 启动时自写该文件,脏行可再现且失败是静默的 → 每次重启后取 /object_info 键数与 5311 基线比,掉 40+ 即查 config.ini",
+      "未动项": [
+        "ComfyUI_IndexTTS(OffloadedCache 库版本,5 app)",
+        "LayerStyle(cv2 guidedFilter 需重装 opencv-contrib;但 LayerUtility 类实测已注册)",
+        "H3 两口缺 ComfyUI-LTXVideo/dlib/wget"
+      ],
+      "边界": "以上均属依赖/包变更,不在自主范围,等用户确认"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
