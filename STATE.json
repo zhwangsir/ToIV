@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T14:45:30+08:00",
+  "updated_at": "2026-10-13T15:04:30+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15394,6 +15394,14 @@
         "(另 2 条见 download_plan.json state=exact_in_repo)"
       ],
       "资源已核": "NAS /home/merlin/nas_mount 34T 可用(44T 用 24%);本地 / 4.6T 可用;RAM available 95G/183G → 容量不是瓶颈(H-3 已核)"
+    },
+    "h3_shim_not_loaded_fixed": {
+      "date": "2026-10-13",
+      "发现": "127 条缺节点 fail 里出现 RH_Captioner(6)/RH_LLMAPI_NODE(3)/RH_Translator(1) —— **都是我自己的 shim**。逐口 object_info 实测::8196/:8197 = 8/8,**:8195/:8264 只有 2/8**(仅 RH_LLMAPI_NODE、RHHiddenNodes)。盘上文件三处 md5 同为 11d573838e、mtime 10:00:49,但 :8195 启动于 10-06、:8264 启动于 10-11 → 从未加载(P-15 第四次命中)。",
+      "处置": "重启 toiv-comfyui-h3(:8195)与 toiv-comfyui-h3-gpu1(:8264)。重启前核过队列::8195 空闲、:8264 的 1 running+2 pending 全是本次烟测自己的作业(core 活跃用户作业 0),故不打断真实用户。",
+      "验证": "四口现均 8/8;节点总数 :8195/:8264 4380→4387(未下降,按 P-15 守卫无需回滚),同时顺带加载了 UniPC CPU-solve 补丁(此前这两口也从未加载)。",
+      "属边界内": "装的是本仓自己的 shim 并重启自家实例,不是第三方包安装 —— 后者仍按约定等用户确认。",
+      "推论": "此前所有被路由到 H3 专用口且用到 RH 云节点的 app 都会假性报 missing_node;这解释了缺节点桶里的一部分,且说明**舰队能力扫描存在系统性低估**(见记忆 fleet-scan-restart-caveat)。"
     }
   },
   "w9_civitai_provenance_2026_10_13": {
