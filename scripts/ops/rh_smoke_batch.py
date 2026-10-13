@@ -2,7 +2,10 @@
 
 为什么逐条:`POST /api/admin/apps/smoke/batch` 的 `_pick_batch` 过滤 `is_public==True`,
 打不到隐藏卡(新导入的一律 is_public=False)→ 必须走 `POST /api/admin/apps/{id}/smoke`。
-为什么串行:批量 smoke 自己会顶高队列深度,撞封面 autorefire 深度闸(12);串行 + 间隔最稳。
+默认串行:批量 smoke 会顶高队列深度,撞封面 autorefire 深度闸(12)。生产已
+`TOIV_COVER_AUTOREFIRE=false`,故 --concurrency>1 可用;但**别超过实例数**(池里真正独立的
+ComfyUI 实例只有 :8196/:8264/:8197/:8199 四台,:8188 是 :8196 的 LB 前端),超过只是排队,
+还会把重作业挤到同一张卡上互相超时、制造假 timeout。
 纪律:H-4「DB 标 error ≠ 生成失败」——失败的先查 ComfyUI /history/{pid} 再决定重提,禁止盲目重跑。
 
 用法:
@@ -14,10 +17,12 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -53,6 +58,11 @@ def main() -> int:
     ap.add_argument("--timeout-s", type=int, default=600)
     ap.add_argument("--sleep", type=float, default=1.0)
     ap.add_argument("--ids-file", default="", help="备选:从文件读 app id(一行一个)")
+    ap.add_argument("--concurrency", type=int, default=1,
+                    help="并发烟测数(默认 1=串行)。别超过 4:池里独立实例只有四台")
+    ap.add_argument("--publish-passes", action="store_true",
+                    help="把本轮 pass 的应用批量上架(≤200/次,走 /api/admin/apps/bulk-public,逐条留审计)。"
+                         "判据是「该应用自己 smoke pass」,与先导批的 60%% 群体判据是两回事")
     args = ap.parse_args()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     log_path = OUT_DIR / f"smoke_{args.kind or 'all'}_{time.strftime('%H%M%S')}.jsonl"
@@ -91,30 +101,56 @@ def main() -> int:
 
     tally: dict[str, int] = {}
     cls: dict[str, int] = {}
+    passed: list[str] = []
     t0 = time.time()
-    with log_path.open("a", encoding="utf-8") as log:
-        for i, aid in enumerate(ids, 1):
-            ts = time.time()
-            st, r = req("POST", f"/api/admin/apps/{urllib.parse.quote(aid, safe='')}/smoke",
-                        {"timeout_s": args.timeout_s}, tok=tok, timeout=args.timeout_s + 120)
-            status = (r or {}).get("status") if isinstance(r, dict) else None
-            c = (r or {}).get("cls") if isinstance(r, dict) else None
-            status = status or f"http_{st}"
+    lock = threading.Lock()
+    done_n = 0
+
+    def one(aid: str) -> None:
+        nonlocal done_n
+        ts = time.time()
+        st, r = req("POST", f"/api/admin/apps/{urllib.parse.quote(aid, safe='')}/smoke",
+                    {"timeout_s": args.timeout_s}, tok=tok, timeout=args.timeout_s + 120)
+        status = (r or {}).get("status") if isinstance(r, dict) else None
+        c = (r or {}).get("cls") if isinstance(r, dict) else None
+        status = status or f"http_{st}"
+        rec = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "id": aid, "http": st,
+            "status": status, "cls": c,
+            "detail": str((r or {}).get("detail"))[:220] if isinstance(r, dict) else str(r)[:220],
+            "sec": round(time.time() - ts, 1),
+        }
+        with lock:
             tally[status] = tally.get(status, 0) + 1
             if status != "pass" and c:
                 cls[c] = cls.get(c, 0) + 1
-            log.write(json.dumps({
-                "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "id": aid, "http": st,
-                "status": status, "cls": c,
-                "detail": str((r or {}).get("detail"))[:220] if isinstance(r, dict) else str(r)[:220],
-                "sec": round(time.time() - ts, 1),
-            }, ensure_ascii=False) + "\n")
+            if status == "pass":
+                passed.append(aid)
+            log.write(json.dumps(rec, ensure_ascii=False) + "\n")
             log.flush()
-            if i % 5 == 0 or i == len(ids):
+            done_n += 1
+            if done_n % 10 == 0 or done_n == len(ids):
                 el = time.time() - t0
-                print(f"  {i}/{len(ids)} pass={tally.get('pass', 0)} {tally} "
-                      f"| {el / 60:.1f}min | 归因 {cls}", flush=True)
-            time.sleep(args.sleep)
+                rate = done_n / el * 3600 if el else 0
+                print(f"  {done_n}/{len(ids)} pass={tally.get('pass', 0)} {tally} "
+                      f"| {el / 60:.1f}min | {rate:.0f}/h | 归因 {cls}", flush=True)
+
+    with log_path.open("a", encoding="utf-8") as log:
+        if args.concurrency <= 1:
+            for aid in ids:
+                one(aid)
+                time.sleep(args.sleep)
+        else:
+            with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
+                list(ex.map(one, ids))
+
+    if args.publish_passes and passed:
+        print(f"\n上架本轮 pass 的 {len(passed)} 条(≤200/次)…")
+        for i in range(0, len(passed), 200):
+            st, r = req("POST", "/api/admin/apps/bulk-public",
+                        {"ids": passed[i:i + 200], "is_public": True}, tok=tok, timeout=300)
+            print(f"  批 {i // 200 + 1}: http={st} done={(r or {}).get('done')} "
+                  f"missing={(r or {}).get('missing')}", flush=True)
 
     total = sum(tally.values())
     p = tally.get("pass", 0)
