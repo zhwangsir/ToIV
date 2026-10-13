@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-14T03:57:07+08:00",
+  "updated_at": "2026-10-14T04:08:06+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15776,6 +15776,15 @@
       "action": "重生成 untested-only 清单 7148(sha256 20de4539);supervisor 以 MAX_ROUNDS=12/ROUND_LIMIT=7200/ROUND_CONC=3 重启并脱离会话;当前并发2旧清单那轮不打断",
       "pending_measure": "并发3+双实例的真实速率、transport 假 fail 是否回升、:8263 cache-lru 2 是否单条更慢(慢则降 weight 不撤出)",
       "long_term_todo": "给 --ids-file 分支加状态过滤,或让 supervisor 每轮先重生成清单"
+    },
+    "w8_22_wd14_corruption_and_gpu3_verified": {
+      "defect": "ComfyUI-WD14-Tagger 把 HF 限流错误页(317B)当模型写盘且不校验 → 7 条应用 INVALID_PROTOBUF(22:42→02:03,与文件 mtime 对齐)",
+      "fix": "hf-mirror 重下 model.onnx 1260435999B + selected_tags.csv 308468B;舰队 venv ort 1.28.0 加载验证通过;坏件备份 *.bak-ratelimit-317B;无需重启(每次调用现建 InferenceSession)",
+      "sweep": "/opt/ComfyUI <20KB 权重仅 3 命中,另 2 为真数据;NAS 两棵树零命中",
+      "agents": "E-12",
+      "gpu3_verified": ":8263 /history 1→4 全 success,图内含 RH_LLMAPI_NODE/RH_Translator → shim 执行期验证通过;模型名 3850 vs 3848(差 2 个无关 .bin);object_info 13.9s/15.4s < 30s 超时",
+      "lesson": "判分流生效要用累计量(/history 增长)而非 queue/nvidia-smi 瞬时快照——单条烟测 100~600s,空闲窗口比采样间隔长",
+      "pending": "7 条定向重跑结果未落盘,未记收益(P-12)"
     }
   },
   "w9_civitai_provenance_2026_10_13": {

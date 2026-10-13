@@ -1164,3 +1164,36 @@ supervisor 已按 `MAX_ROUNDS=12 ROUND_LIMIT=7200 ROUND_CONC=3 ROUND_IDS=<新清
 当前在跑的那轮（并发 2、旧清单）不打断，自然结束后由新 supervisor 接手。
 ⚠️ **并发 3 的收益与副作用都还没实测**：要盯 `transport` 类假 fail 是否回升（探针 TTL 10s），
 以及 `:8263` 的 `--cache-lru 2` 是否让它单条更慢（若是，把它的 weight 从 1.0 调低而不是撤出）。
+
+## W8-22 一个静默打死 7 个应用的污染文件（已修）+ GPU3 扩容已在生产验证（10-14 04:10 CST）
+
+### ① WD14 tagger 的模型文件是 HF 限流错误页（317 字节），不是模型
+- 现象:7 条应用报 `[ONNXRuntimeError] : 7 : INVALID_PROTOBUF : Load model from /opt/ComfyUI/custom_nodes/ComfyUI-WD14-Tagger/models/wd-eva02-large-tagger-v3`，
+  时间跨度 22:42→02:03，**与文件 mtime `Oct 13 22:42` 完全对齐** → 因果关系确凿。
+- 真因:`wd-eva02-large-tagger-v3.onnx` 与 `.csv` 都是 **317 字节**，内容是
+  `We had to rate limit you, you hit the quota of 100000 resolvers requests per 5 minutes period.`；
+  即 `download_model()`（`wd14tagger.py:103-130`）把 HTTP 错误响应体当模型写盘且不校验。
+  错误信息只指向 onnx 解析失败,**不指向限流**,按字面查会去怀疑 onnxruntime 版本/opset（错方向）。
+- 修复:从 hf-mirror 重下（`SmilingWolf/wd-eva02-large-tagger-v3` 的 `model.onnx` 1,260,435,999B +
+  `selected_tags.csv` 308,468B，12s 下完）→ **用舰队自己的 venv 验证可加载**（ort 1.28.0，
+  `input ['batch_size',448,448,3]`，csv 10,862 行）→ 坏文件备份为 `*.bak-ratelimit-317B` → 就地替换。
+  该包每次调用现建 `InferenceSession`（`wd14tagger.py:50-51`）、无全局缓存 → **不需要重启实例**（重要:
+  烟测战役在跑，重启会污染测量，见 P-15/W8-20）。
+- 复查同类污染:全 `/opt/ComfyUI` 扫 <20KB 的 `.onnx/.safetensors/.ckpt/.pth/.bin` 只有 3 个命中，
+  另 2 个是真数据（`lpips/vgg.pth` 7,289B 真 pickle stub、`marigold_empty_prompt.safetensors`/`empty_embedding.safetensors` 本就是空提示嵌入）；
+  NAS 两棵树（`toiv/comfyui-models`、旧 Windows 树）**零命中**。已入账 AGENTS **E-12**。
+- 验证状态:7 条的定向重跑已起（`tmp/rh_smoke_20261013/onnx_fix_retest.txt`，`sha256=e3104e22`），
+  **结果尚未落盘，本节不记收益**（P-12）。
+
+### ② GPU3 扩容不是"理论上生效"，是**生产实证生效**
+W8-20 把 `:8263` 加进池后，我一度按瞬时快照误判"没在分流"（`:8196 run=1 pend=6`、`:8263 run=0 pend=0`、GPU3 利用率 0%）。
+拉长窗口后证据反转:`:8263 /history` 从 1 条涨到 **4 条，全部 `status=success`**，
+且这些图里含 **`RH_LLMAPI_NODE` / `RH_Translator` / `CR SDXL Aspect Ratio` / `FluxKontextImageScale`** →
+说明**我们的 RH shim 在 GPU3 上真的执行成功**（不只是 `object_info` 里有类名，P-16 的进阶版:执行期证据）。
+- 能力对齐复核（全量 combo 名集合，不只计数）:模型名 `8196=3,850 / 8263=3,848`，
+  差异只有 `1_txt2img.bin`、`1_txt2img (1).bin` 两个无关文件；类名差异只有 2 个 GuHai 类（W8-20）。
+- 探针不是瓶颈:从 core 实测 `object_info` 8196=13.9s / 8263=15.4s，均 < `request_timeout=30s`；
+  客户端侧 `_MODELS_TTL=120s`、`_QUEUE_TTL=2s`、`_NODES_TTL=600s`，故能力探测有缓存、不会每 pick 拉 30MB。
+  （Redis 共享探测键 `toiv:worker-health:*` TTL 仅 20s，两边都查不到属正常，不是排障线索。）
+- **教训（对我自己）**:判断"分流有没有生效"不能用一次 `queue`/`nvidia-smi` 快照——单条烟测 100~600s，
+  两台机器各自的空闲窗口比采样间隔长得多。判据要用**累计量**（`/history` 条数增长）而不是瞬时量。
