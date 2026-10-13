@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-14T04:53:48+08:00",
+  "updated_at": "2026-10-13T02:30:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15840,5 +15840,17 @@
     ],
     "r18": "不进 canvas(R18=A);R18 模式下两视图留经典壳",
     "rollback": "删 CANVAS_MIGRATED_VIEWS 两行;canvas 侧纯新增"
+  },
+  "nav_stuck_fix_2026_10_13": {
+    "status": "root_cause_component_level_fixed_verified_10_10",
+    "date": "2026-10-13",
+    "source": [
+      "ToIV开发"
+    ],
+    "steward": "ToIV开发",
+    "summary": "用户报障:侧栏点「媒体库」URL 变 /studio/library 但内容停在短剧工作台。生产二分定位(React fiber 读 router location 铁证=URL 推进而 router 内部 location 不消费):触发条件=先进入 /toiv/drama 页,之后所有 SPA 导航卡死(market/tasks/library 全部,history.back 出错误边界);不经过 drama 则全正常。排除项(均实测):react-router 版本(8.2.0→8.4.0→7.9.5 三对照全卡)/SW 无/双 React 无/全局点击拦截无/数据 API 挂起也复现/chunk 加载失败无关。根因组件=drama 页常驻挂载的 FromImageDialog(F3 引入,open=false 也在树上),其在 React 19.2.7+react-router 8.2 组合下使后续路由 transition 不提交。修复=改条件渲染(open 才挂载);附带变更留在代码:react-router 升 8.4.0(修 bug 尝试,无害保留)+WorkspaceLayout Suspense/UserLayout 按 pathname 加 key(强制边界重建,加固)。生产验证:10 轮侧栏全路由巡游 10/10 PASS(含 drama↔library 往返);canvas 单测 archive 3/3(全量套里一次 fail 为并发资源竞争偶发,单跑复现不了)。",
+    "e2e": "playwright 生产:6 步导航电路 ALL PASS;10 站巡游 9 PASS+1 断言误写(settings h1 实为「模型与算力·渠道」,URL/内容正确)实为 10/10",
+    "leftover": "弹窗内部具体哪行副作用卡 transition 未挖穿(组件级定位+绕过);router 8.4 升级与 Suspense key 两个非根修变更留生产,如需简化可回退",
+    "updated_at": "2026-10-13T02:30:00+08:00"
   }
 }
