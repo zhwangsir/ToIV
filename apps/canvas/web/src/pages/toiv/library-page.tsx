@@ -4,11 +4,15 @@ import { Link } from "react-router";
 
 import { MediaLibrarySourceRail } from "@/components/library/media-library-source-rail";
 import LibraryWorks from "./library-works";
+import LibraryTranscriptSearch from "./library-transcript-search";
 import { ToolButton } from "@/components/ui/base/buttons";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import { mediaLibraryWorksDetailPath } from "@/lib/media-library-routes";
 import { fetchBoards, fetchToivWorkCounts, type ToivBoard } from "@/services/toiv/client";
+import { fetchToivAccountRole, isTranscriptSearchAvailable } from "@/services/toiv/transcript-search";
+
+type LibraryTab = "works" | "boards" | "transcript";
 
 function formatTime(value: string): string {
     const d = new Date(value);
@@ -17,11 +21,16 @@ function formatTime(value: string): string {
 }
 
 export default function LibraryPage() {
-    const [tab, setTab] = useState<"works" | "boards">("works");
+    const [tab, setTab] = useState<LibraryTab>("works");
     const [boards, setBoards] = useState<ToivBoard[]>([]);
     const [worksCount, setWorksCount] = useState<number | undefined>(undefined);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
+    // F11:「台词检索」是管理端点(/admin/media/transcripts/search),仅 admin 角色露出 tab;
+    // 角色来自既有账号会话面 GET /api/auth/me(fetchToivAccountRole),失败=null=隐藏(失败关闭)。
+    const [role, setRole] = useState<string | null>(null);
+    const transcriptVisible = isTranscriptSearchAvailable(role);
+    const activeTab: LibraryTab = tab === "transcript" && !transcriptVisible ? "works" : tab;
 
     const load = useCallback(async () => {
         setLoading(true); setError(false);
@@ -34,7 +43,10 @@ export default function LibraryPage() {
         }
     }, []);
 
-    useEffect(() => { if (tab === "boards") void load(); }, [load, tab]);
+    useEffect(() => { if (activeTab === "boards") void load(); }, [load, activeTab]);
+    useEffect(() => {
+        void fetchToivAccountRole().then(setRole);
+    }, []);
     useEffect(() => {
         // 侧栏「作品」计数要反映 jobs 总数,不是画板数(否则恒 0 误导)
         fetchToivWorkCounts()
@@ -48,12 +60,15 @@ export default function LibraryPage() {
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">作品</h1>
-                    <p className="text-xs leading-5 text-muted-foreground">{tab === "works" ? "我的生成作品（/api/jobs · SFW；R18 作品仍在经典壳）" : "成片与分镜作品集（/api/boards）"}</p>
+                    <p className="text-xs leading-5 text-muted-foreground">{activeTab === "works" ? "我的生成作品（/api/jobs · SFW；R18 作品仍在经典壳）" : activeTab === "transcript" ? "已转录媒体的台词全文检索（管理端点 · FU2 索引）" : "成片与分镜作品集（/api/boards）"}</p>
                 <div className="mt-2 flex items-center gap-1" role="tablist" aria-label="作品库来源">
-                    {([["works", "作品"], ["boards", "画板"]] as const).map(([k, label]) => (
-                        <button key={k} type="button" role="tab" aria-selected={tab === k}
+                    {(transcriptVisible
+                        ? ([["works", "作品"], ["boards", "画板"], ["transcript", "台词检索"]] as const)
+                        : ([["works", "作品"], ["boards", "画板"]] as const)
+                    ).map(([k, label]) => (
+                        <button key={k} type="button" role="tab" aria-selected={activeTab === k}
                             onClick={() => setTab(k)}
-                            className={`rounded-full border px-3 py-1 text-xs transition-colors ${tab === k
+                            className={`rounded-full border px-3 py-1 text-xs transition-colors ${activeTab === k
                                 ? "border-transparent bg-[var(--workspace-accent,#f5f5f5)] text-[var(--workspace-accent-foreground,#111)]"
                                 : "border-[var(--border-semantic,var(--border,#333))] text-muted-foreground hover:text-foreground"}`}
                             data-testid={`library-tab-${k}`}>{label}</button>
@@ -66,8 +81,10 @@ export default function LibraryPage() {
                 </div>
             </header>
 
-            {tab === "works" ? (
+            {activeTab === "works" ? (
                 <LibraryWorks />
+            ) : activeTab === "transcript" ? (
+                <LibraryTranscriptSearch />
             ) : loading ? (
                 <div className="flex min-h-64 items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></div>
             ) : error ? (

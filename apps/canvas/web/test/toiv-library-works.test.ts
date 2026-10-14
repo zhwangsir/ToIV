@@ -17,7 +17,9 @@ describe("toiv library works face", () => {
     const router = read("src/router.tsx");
 
     test("library-page 双 tab 且作品为默认", () => {
-        expect(page).toContain('useState<"works" | "boards">("works")');
+        // F11 起 tab 联合类型收敛为 LibraryTab(works/boards/transcript;台词检索 admin 门禁另测)
+        expect(page).toContain('type LibraryTab = "works" | "boards" | "transcript"');
+        expect(page).toContain('useState<LibraryTab>("works")');
         expect(page).toContain("data-testid={`library-tab-${k}`}");
         expect(page).toContain("<LibraryWorks />");
     });
