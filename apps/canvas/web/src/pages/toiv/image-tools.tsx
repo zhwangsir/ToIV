@@ -1,6 +1,6 @@
 import { ArrowLeft, Box, Camera, Eraser, ImagePlus, Loader2, ScanFace, Sparkles, Upload, Wand2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { Button } from "antd";
 import { ToolButton } from "@/components/ui/base/buttons";
@@ -86,7 +86,10 @@ const selectCls = "rounded-md border bg-background px-2 py-1.5 text-sm";
 const inputCls = "w-full rounded-md border bg-background px-2.5 py-2 text-sm";
 
 export default function ImageToolsPage() {
-    const [tool, setTool] = useState<Tool>("removebg");
+    // F10 3D 工具位深链:/create 的 3D 入口卡以 ?tool=hunyuan3d|camera3d 直达对应工具。
+    const [searchParams] = useSearchParams();
+    const requestedTool = searchParams.get("tool");
+    const [tool, setTool] = useState<Tool>(() => (TOOLS.some((t) => t.key === requestedTool) ? (requestedTool as Tool) : "removebg"));
     const [source, setSource] = useState<UploadImageHandle | null>(null);
     const [srcPreview, setSrcPreview] = useState<string>("");
     const [srcName, setSrcName] = useState("");

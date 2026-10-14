@@ -33,9 +33,11 @@ import { buildCreationMentionReferences, expandCreationPrompt, reconcileCreation
 import { creationAttachmentFromAsset, creationAttachmentFromAudio, creationAttachmentFromAudioAsset, creationAttachmentFromDocument, creationAttachmentFromExternalAsset, creationAttachmentFromImage, creationAttachmentFromVideo, creationAttachmentFromVideoAsset, creationAttachmentKind, creationAudioAsset, creationFileAccepted, creationImageAsset, creationMediaAspectRatio, creationUploadAccept, creationVideoAsset, removeCreationAttachment, splitCreationAttachments, type CreationAttachment } from "./creation-assets";
 import { defaultCreationMode, modeLabels, type CreationConversation, type CreationMessage, type CreationMode, type CreationRetryContext, type CreationSettings, type CreationShotRailEntry, type CreationStatus } from "./creation-types";
 import { attachCreationTaskContexts, completedCreationGenerationTask, conversationTimestamp, creationShotRail, creationVideoShotOrdinal, isImageAttachment, isVideoAttachment, materializeCreationTaskResults, newConversation, newMessage, reconcileCreationTaskMessages } from "./creation-conversations";
-import { CreationComposer, CreationEmptySuggest, CreationFeaturedWorks, CreationHistoryDrawer, CreationMessageView, CreationModeTabs, CreationWorkspaceToolbar, creationAssetCategoryLabels } from "./creation-workspace";
+import { CreationComposer, CreationEmptySuggest, CreationFeaturedWorks, CreationHistoryDrawer, CreationMessageView, CreationModeTabs, CreationThreeDEntryModal, CreationWorkspaceToolbar, creationAssetCategoryLabels } from "./creation-workspace";
+import { findCreationCanonSkill } from "./creation-canon-skills";
 import { createDemoConversation } from "./creation-demo-data";
 import { CreationConflictBanner, CreationConflictDialog } from "./creation-conflict";
+import type { CreationViewPreset, CreationViewPresetDraft } from "@/stores/use-creation-view-presets-store";
 
 const AssetLibraryPickerModal = lazy(() => import("@/components/assets/asset-library-picker-modal").then((module) => ({ default: module.AssetLibraryPickerModal })));
 const loadCreationRuntime = () => import("./creation-runtime");
@@ -119,6 +121,7 @@ export default function CreatePage() {
     const [referenceReplacementBusy, setReferenceReplacementBusy] = useState(false);
     const [historyOpen, setHistoryOpen] = useState(false);
     const [libraryOpen, setLibraryOpen] = useState(false);
+    const [threeDOpen, setThreeDOpen] = useState(false);
     const externalAssetSources = useExternalAssetSources(libraryOpen);
     const abortRef = useRef<AbortController | null>(null);
     const composerFocusRef = useRef<HTMLTextAreaElement>(null);
@@ -469,6 +472,43 @@ export default function CreatePage() {
     const setComposerCount = (value: string) => {
         setCount(value);
         if (mode === "image") rememberImageSettings({ count: value });
+    };
+
+    // F10 保存视图:当前引擎参数快照(仅 image/video;text 无引擎参数)。
+    const viewPresetSnapshot = useMemo<CreationViewPresetDraft>(() => ({
+        mode: mode === "video" ? "video" : "image",
+        model: selectedModel || undefined,
+        ratio,
+        seconds,
+        quality,
+        videoQuality,
+        count,
+    }), [count, mode, quality, ratio, seconds, selectedModel, videoQuality]);
+
+    // 套用预设:先写偏好 store 再切模式,避免偏好恢复 effect 把预设值冲掉。
+    const applyViewPreset = (preset: CreationViewPreset) => {
+        if (preset.mode === "image") rememberImageSettings({ ratio: preset.ratio, quality: preset.quality, count: preset.count });
+        else rememberVideoSettings({ ratio: preset.ratio, seconds: preset.seconds, videoQuality: preset.videoQuality });
+        selectMode(preset.mode);
+        if (preset.model) {
+            const models = selectableModelsByCapability(config, preset.mode);
+            if (models.includes(preset.model)) updateConfig(preset.mode === "image" ? "imageModel" : "videoModel", preset.model);
+        }
+        setRatio(preset.ratio);
+        setSeconds(preset.seconds);
+        setQuality(preset.quality);
+        setVideoQuality(preset.videoQuality);
+        setCount(preset.count);
+        toast.success(`已套用视图「${preset.name}」`);
+    };
+
+    // F10 3D 工具位:img2threejs 正典技能直出(填模板进输入框,补参考图后发送)。
+    const startImg2Threejs = () => {
+        const skill = findCreationCanonSkill("img2threejs");
+        if (!skill) return;
+        selectMode(skill.mode);
+        setPrompt(skill.prompt);
+        window.requestAnimationFrame(() => composerFocusRef.current?.focus());
     };
 
     const externalLibraryItems = useMemo<AssetLibraryPickerItem[]>(
@@ -1152,6 +1192,7 @@ export default function CreatePage() {
         promptOptimizerProvider,
         composerFocusRef,
         onPromptFocus: loadAddedSkills,
+        viewPresets: { snapshot: viewPresetSnapshot, onApply: applyViewPreset },
         onSubmit: () => void submit(),
     };
 
@@ -1202,6 +1243,7 @@ export default function CreatePage() {
                     <CreationEmptySuggest
                         onStartPrompt={(nextMode, prompt) => { selectMode(nextMode); setPrompt(prompt); window.requestAnimationFrame(() => composerFocusRef.current?.focus()); }}
                         onOpenLibrary={() => { selectMode("image"); setLibraryOpen(true); }}
+                        onOpenThreeDTools={() => setThreeDOpen(true)}
                     />
                 </section>
                 <CreationFeaturedWorks
@@ -1227,6 +1269,7 @@ export default function CreatePage() {
             </div>}
         </div>
         <CreationHistoryDrawer open={historyOpen} conversations={historyConversations} activeId={activeConversation.id} onNew={startNewConversation} onClose={() => setHistoryOpen(false)} onSelect={selectConversation} onDelete={confirmDeleteConversation} onRename={renameConversationTitle} />
+        <CreationThreeDEntryModal open={threeDOpen} onClose={() => setThreeDOpen(false)} onUseImg2Threejs={startImg2Threejs} />
         <CreationConflictDialog
             open={conflictOpen && conversationHasConflict(activeConversation)}
             local={activeConversation}

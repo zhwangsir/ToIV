@@ -385,3 +385,135 @@ html:not(.dark) .app-product-overlays .creation-control-popover-surface {
     .creation-conflict-banner { width: calc(100% - 28px); }
     .creation-conflict-cards { grid-template-columns: 1fr; }
 }
+
+/* ---- F10 引擎台收编:超分入口 / 保存视图 / 正典技能 / 3D 工具位 ---- */
+
+/* 超分:图片结果格右上角一键动作(hover 浮现,与预览放大钮同语言) */
+.creation-image-result-cell { position: relative; min-width: 0; }
+.creation-image-result-cell .creation-image-result { width: 100%; }
+.creation-image-upscale {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 1;
+    display: grid;
+    width: 27px;
+    height: 27px;
+    place-items: center;
+    border: 0;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--user-surface) 82%, transparent);
+    color: var(--user-ink);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 160ms ease, background var(--user-motion);
+    backdrop-filter: blur(8px);
+}
+.creation-image-upscale svg { width: 14px; height: 14px; }
+.creation-image-result-cell:hover .creation-image-upscale,
+.creation-image-upscale:focus-visible,
+.creation-image-upscale:disabled { opacity: 1; }
+.creation-image-upscale:hover:not(:disabled) { background: var(--user-surface-hover); }
+.creation-image-upscale:disabled { cursor: progress; color: var(--user-ink-muted); }
+.creation-image-upscale:focus-visible { outline: 2px solid var(--user-accent); outline-offset: 2px; }
+
+/* 保存视图:引擎参数命名预设面板(复用 creation-control-popover 外壳) */
+.creation-view-presets { display: flex; flex-direction: column; gap: 10px; width: min(320px, calc(100vw - 64px)); }
+.creation-view-presets-head { display: flex; flex-direction: column; gap: 2px; }
+.creation-view-presets-head span { color: var(--user-ink); font-size: 13px; font-weight: 650; }
+.creation-view-presets-head small { color: var(--user-ink-muted); font-size: 11px; line-height: 1.5; }
+.creation-view-presets-save { display: flex; align-items: center; gap: 8px; }
+.creation-view-presets-save input {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    border: 1px solid var(--user-border);
+    border-radius: 9px;
+    background: var(--user-surface-muted);
+    color: var(--user-ink);
+    font-size: 12px;
+    padding: 0 10px;
+}
+.creation-view-presets-save input::placeholder { color: var(--user-ink-muted); }
+.creation-view-presets-save input:focus-visible { outline: 2px solid var(--user-accent); outline-offset: 1px; }
+.creation-view-presets-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 240px;
+    margin: 0;
+    overflow-y: auto;
+    padding: 0;
+    list-style: none;
+}
+.creation-view-presets-list li { display: flex; align-items: center; gap: 4px; }
+.creation-view-presets-apply {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--user-ink);
+    cursor: pointer;
+    padding: 7px 10px;
+    text-align: left;
+    transition: background var(--user-motion);
+}
+.creation-view-presets-apply:hover { background: var(--user-surface-hover); }
+.creation-view-presets-apply:focus-visible { outline: 2px solid var(--user-accent); outline-offset: -2px; }
+.creation-view-presets-apply strong { font-size: 12px; font-weight: 650; overflow-wrap: anywhere; }
+.creation-view-presets-apply span { color: var(--user-ink-muted); font-size: 11px; }
+.creation-view-presets-delete {
+    display: grid;
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--user-ink-muted);
+    cursor: pointer;
+    transition: color var(--user-motion), background var(--user-motion);
+}
+.creation-view-presets-delete svg { width: 14px; height: 14px; }
+.creation-view-presets-delete:hover { background: var(--user-surface-hover); color: var(--destructive); }
+.creation-view-presets-delete:focus-visible { outline: 2px solid var(--user-accent); outline-offset: 1px; }
+.creation-view-presets-empty { margin: 0; color: var(--user-ink-muted); font-size: 12px; line-height: 1.6; }
+
+/* 3D 工具位:入口面板(指向既有 Hunyuan3D / 3D 相机 / img2threejs,不做新渲染器) */
+.creation-threed-entries { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 8px; }
+.creation-threed-entry {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    border: 1px solid var(--user-border);
+    border-radius: var(--user-radius-control, 14px);
+    background: transparent;
+    color: var(--user-ink);
+    cursor: pointer;
+    padding: 12px 14px;
+    text-align: left;
+    transition: background var(--user-motion), border-color var(--user-motion);
+}
+.creation-threed-entry:hover { background: var(--user-surface-hover); border-color: var(--user-border-strong, var(--user-border)); }
+.creation-threed-entry:focus-visible { outline: 2px solid var(--user-accent); outline-offset: 2px; }
+.creation-threed-entry-icon {
+    display: grid;
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border-radius: 11px;
+    background: var(--user-surface-muted);
+    color: var(--user-ink);
+}
+.creation-threed-entry-icon svg { width: 18px; height: 18px; }
+.creation-threed-entry-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; }
+.creation-threed-entry-copy strong { font-size: 13px; font-weight: 650; }
+.creation-threed-entry-copy span { color: var(--user-ink-muted); font-size: 11px; line-height: 1.5; }
+.creation-threed-entry > svg:last-child { flex: 0 0 auto; width: 15px; height: 15px; color: var(--user-ink-muted); }

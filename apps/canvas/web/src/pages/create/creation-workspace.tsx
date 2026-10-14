@@ -9,7 +9,7 @@ import { useWorkspaceTopBarMount } from "@/components/layout/workspace-top-bar-e
 import { Tooltip } from "@/components/ui/base/tooltip";
 import { Reorder, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useNavigate } from "react-router";
-import { ArrowDown, ArrowUp, Brain, ChevronDown, ChevronLeft, ChevronRight, Clapperboard, Clock3, Copy, Download, FileText, Film, History, Image as ImageIcon, LoaderCircle, Maximize2, MessageSquareText, Minimize2, MoreHorizontal, Music2, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Sparkles, Trash2, UserRound, WandSparkles, Waves, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Bookmark, Box, Brain, Camera, ChevronDown, ChevronLeft, ChevronRight, Clapperboard, Clock3, Code2, Copy, Download, FileText, Film, History, Image as ImageIcon, ImagePlus, LoaderCircle, Maximize2, MessageSquareText, Minimize2, MoreHorizontal, Music2, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Sparkles, Trash2, UserRound, WandSparkles, Waves, X } from "lucide-react";
 
 import { AIMessageMarkdown } from "@/components/ai/ai-message-markdown";
 import { GenerationToolCard, type GenerationToolStatus } from "@/components/ai/generation-tool-card";
@@ -37,6 +37,10 @@ import { mergedImageCapabilityConfig, type ModelRequirements } from "@/lib/model
 import { listAddedSkills, type Skill } from "@/services/api/skills";
 import { resolveResourceUrl } from "@/services/api/resources";
 import { resolveMediaUrl } from "@/services/file-storage";
+import { submitVideoUpscaleViaToiv, upscaleImageViaToiv } from "@/services/toiv/upscale";
+import { toivMediaUrl } from "@/services/toiv/agent-runs";
+import { useCreationViewPresetsStore, CREATION_VIEW_PRESET_NAME_LIMIT, type CreationViewPreset, type CreationViewPresetDraft } from "@/stores/use-creation-view-presets-store";
+import { creationCanonSkills } from "./creation-canon-skills";
 import { modelOptionName, resolveModelChannel, type AiConfig } from "@/stores/use-config-store";
 import { useAppearanceStore } from "@/stores/use-appearance-store";
 import { useUserStore } from "@/stores/use-user-store";
@@ -252,6 +256,8 @@ function CreationUserMessage({ item, shotNumber, onEditUserMessage }: { item: Cr
 function MediaResult({ item, onRetryFailure, onCreateVariant, onContinueCanvas, openingCanvas }: { item: CreationMessage; onRetryFailure: () => void; onCreateVariant: () => void; onContinueCanvas: (ids?: string[]) => void; openingCanvas: boolean }) {
     const [previewUrl, setPreviewUrl] = useState("");
     const [previewType, setPreviewType] = useState<"image" | "video">("image");
+    const [upscalingUrl, setUpscalingUrl] = useState("");
+    const { message: mediaToast } = App.useApp();
     const assets = useAssetStore((state) => state.assets);
     const resultUrls = item.resultUrls || [];
     const resultAssetIds = resultUrls.length ? creationResultAssetIds(assets, { messageId: item.id, taskIds: item.taskIds || [], resultUrls }) : [];
@@ -286,9 +292,52 @@ function MediaResult({ item, onRetryFailure, onCreateVariant, onContinueCanvas, 
     }
     if (!resultUrls.length) return <div className="creation-media-empty">没有返回可预览结果 <button type="button" onClick={onRetryFailure}>重试</button></div>;
     const isVideo = item.mode === "video";
+    // F10 超分入口:选中媒体一键提交 ToIV 超分 fleet(图片同步等产物,视频秒回作业)。
+    const runImageUpscale = async (url: string, scale: number) => {
+        if (upscalingUrl) return;
+        setUpscalingUrl(url);
+        try {
+            const results = await upscaleImageViaToiv(url, { scale });
+            const first = results[0] ? toivMediaUrl(results[0]) : "";
+            if (first) { setPreviewType("image"); setPreviewUrl(first); }
+            mediaToast.success(`超分完成(${scale}x),产物已自动收录 ToIV 作品库`);
+        } catch (error) {
+            mediaToast.error(error instanceof Error ? error.message : "超分失败,请稍后重试");
+        } finally {
+            setUpscalingUrl("");
+        }
+    };
+    const runVideoUpscale = async () => {
+        const source = displayUrls[0];
+        if (!source || upscalingUrl) return;
+        setUpscalingUrl(source);
+        try {
+            await submitVideoUpscaleViaToiv(source);
+            mediaToast.success("视频超分作业已提交(4K),完成后自动收录作品库,可在 ToIV 任务中心查看进度");
+        } catch (error) {
+            mediaToast.error(error instanceof Error ? error.message : "视频超分提交失败,请稍后重试");
+        } finally {
+            setUpscalingUrl("");
+        }
+    };
     return <div className="creation-media-result">
-        {isVideo ? <button type="button" className="creation-video-result" onClick={() => { setPreviewType("video"); setPreviewUrl(displayUrls[0]); }} aria-label="预览生成视频"><video muted preload="metadata" src={displayUrls[0]} /><span><Maximize2 />预览视频</span></button> : <div className="creation-image-result-grid">{displayUrls.map((url) => <button key={url} type="button" className="creation-image-result" onClick={() => { setPreviewType("image"); setPreviewUrl(url); }} aria-label="预览生成图片"><img src={url} alt="生成结果" /><span><Maximize2 /></span></button>)}</div>}
-        <div className="creation-media-actions"><span>{isVideo ? "视频结果" : `${resultUrls.length} 张图片`}</span><Button type="link" size="small" loading={openingCanvas} disabled={!canContinueWithResults} title={canContinueWithResults ? undefined : "素材保存完成后才能转入画布"} onClick={() => onContinueCanvas(resultAssetIds)}>添加到画布</Button>{displayUrls.map((url, index) => <a key={`${url}-download`} href={url} download>{displayUrls.length > 1 ? `下载 ${index + 1}` : <><Download />下载</>}</a>)}</div>
+        {isVideo ? <button type="button" className="creation-video-result" onClick={() => { setPreviewType("video"); setPreviewUrl(displayUrls[0]); }} aria-label="预览生成视频"><video muted preload="metadata" src={displayUrls[0]} /><span><Maximize2 />预览视频</span></button> : <div className="creation-image-result-grid">{displayUrls.map((url, index) => <div key={url} className="creation-image-result-cell">
+            <button type="button" className="creation-image-result" onClick={() => { setPreviewType("image"); setPreviewUrl(url); }} aria-label="预览生成图片"><img src={url} alt="生成结果" /><span><Maximize2 /></span></button>
+            <Dropdown
+                trigger={["click"]}
+                placement="bottomRight"
+                menu={{
+                    items: [
+                        { key: "2", label: "2x 放大修复" },
+                        { key: "4", label: "4x 放大修复(4K 级)" },
+                    ],
+                    onClick: ({ key, domEvent }) => { domEvent.stopPropagation(); void runImageUpscale(url, Number(key)); },
+                }}
+            >
+                <button type="button" className="creation-image-upscale" disabled={Boolean(upscalingUrl)} onClick={(event) => event.stopPropagation()} aria-label={`超分第 ${index + 1} 张图片`}>{upscalingUrl === url ? <LoaderCircle className="animate-spin" /> : <ImagePlus />}</button>
+            </Dropdown>
+        </div>)}</div>}
+        <div className="creation-media-actions"><span>{isVideo ? "视频结果" : `${resultUrls.length} 张图片`}</span><Button type="link" size="small" loading={openingCanvas} disabled={!canContinueWithResults} title={canContinueWithResults ? undefined : "素材保存完成后才能转入画布"} onClick={() => onContinueCanvas(resultAssetIds)}>添加到画布</Button>{isVideo && item.status === "done" ? <Button type="link" size="small" loading={Boolean(upscalingUrl)} onClick={() => void runVideoUpscale()}>超分 4K</Button> : null}{displayUrls.map((url, index) => <a key={`${url}-download`} href={url} download>{displayUrls.length > 1 ? `下载 ${index + 1}` : <><Download />下载</>}</a>)}</div>
         <CreationMediaPreviewModal url={previewUrl} type={previewType} onClose={() => setPreviewUrl("")} />
     </div>;
 }
@@ -380,6 +429,8 @@ type ComposerProps = {
     composerFocusRef: RefObject<HTMLTextAreaElement | null>;
     onPromptFocus: () => void;
     placeholderOverride?: string;
+    /** F10 保存视图:当前引擎参数快照 + 套用回调(text 模式无引擎参数,不渲染入口)。 */
+    viewPresets?: { snapshot: CreationViewPresetDraft; onApply: (preset: CreationViewPreset) => void };
     onSubmit: () => void;
 };
 
@@ -615,6 +666,7 @@ export function CreationComposer(props: ComposerProps) {
 				<ModelPicker config={props.config} value={props.model} onChange={props.onModelChange} capability={props.mode} requirements={props.modelRequirements} className="creation-model-picker" placeholder={`选择${modeLabels[props.mode]}模型`} variant="creation" />
                 {props.mode === "video" || (props.mode === "image" && imageSettingsSupported) ? <GenerationSettingsMenu {...props} /> : null}
                 {props.mode === "video" ? <DurationMenu profile={props.videoProfile} seconds={props.seconds} onChange={props.setSeconds} /> : null}
+                {props.viewPresets && props.mode !== "text" ? <CreationViewPresetsMenu snapshot={props.viewPresets.snapshot} onApply={props.viewPresets.onApply} /> : null}
                 {props.mode === "text" ? <>
                     <Tooltip title={interactionBusy ? "生成中，此开关将在下次发送时生效" : (props.textStreaming ? "流式输出已开启" : "流式输出已关闭")}><button type="button" className="creation-chat-control" aria-pressed={props.textStreaming} disabled={interactionBusy} onClick={() => props.setTextStreaming(!props.textStreaming)}><Waves /><span>流式</span></button></Tooltip>
                     <Tooltip title={interactionBusy ? "生成中，此开关将在下次发送时生效" : (props.textThinking ? "思考已开启，会展示模型返回的推理摘要" : "开启模型思考")}><button type="button" className="creation-chat-control" aria-pressed={props.textThinking} disabled={interactionBusy} onClick={() => props.setTextThinking(!props.textThinking)}><Brain /><span>思考</span></button></Tooltip>
@@ -756,6 +808,61 @@ function DurationMenu({ profile, seconds, onChange }: { profile: VideoCapability
     </Popover>;
 }
 
+/** F10 保存视图:引擎参数命名预设(存当前参数/套用/删除),持久化在用户 scope 隔离的本地 store。 */
+export function CreationViewPresetsMenu({ snapshot, onApply }: { snapshot: CreationViewPresetDraft; onApply: (preset: CreationViewPreset) => void }) {
+    const [open, setOpen] = useState(false);
+    const [name, setName] = useState("");
+    const presets = useCreationViewPresetsStore((state) => state.presets);
+    const savePreset = useCreationViewPresetsStore((state) => state.savePreset);
+    const deletePreset = useCreationViewPresetsStore((state) => state.deletePreset);
+    const { message: presetToast } = App.useApp();
+    const commitSave = () => {
+        const preset = savePreset(name, snapshot);
+        if (!preset) {
+            presetToast.warning("请先给这个视图起个名字");
+            return;
+        }
+        setName("");
+        presetToast.success(`已保存视图「${preset.name}」`);
+    };
+    const panel = <div className="creation-view-presets">
+        <div className="creation-view-presets-head"><span>保存视图</span><small>把当前引擎参数存成命名预设,随时一键套用</small></div>
+        <div className="creation-view-presets-save">
+            <input value={name} maxLength={CREATION_VIEW_PRESET_NAME_LIMIT} placeholder="预设名称,如「竖屏 1080 快出」" aria-label="视图预设名称" onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitSave(); } }} />
+            <Button size="small" type="primary" disabled={!name.trim()} onClick={commitSave}>保存当前</Button>
+        </div>
+        {presets.length ? <ul className="creation-view-presets-list" aria-label="已保存的视图预设">{presets.map((preset) => <li key={preset.id}>
+            <button type="button" className="creation-view-presets-apply" title={`套用视图「${preset.name}」`} onClick={() => { onApply(preset); setOpen(false); }}>
+                <strong>{preset.name}</strong>
+                <span>{preset.mode === "video" ? `视频 · ${preset.ratio} · ${preset.seconds}s · ${preset.videoQuality}p` : `图片 · ${preset.ratio} · ${preset.quality} · ${preset.count} 张`}</span>
+            </button>
+            <Tooltip title="删除预设"><button type="button" className="creation-view-presets-delete" aria-label={`删除预设 ${preset.name}`} onClick={() => deletePreset(preset.id)}><Trash2 /></button></Tooltip>
+        </li>)}</ul> : <p className="creation-view-presets-empty">还没有保存的视图。调整好参数后点「保存当前」,下次一键回到同一套引擎参数。</p>}
+    </div>;
+    return <Popover open={open} onOpenChange={setOpen} trigger="click" placement="bottom" arrow={false} classNames={{ root: "creation-control-popover", container: "creation-control-popover-surface", content: "creation-control-popover-content" }} content={panel}>
+        <button type="button" className="creation-chat-control is-view-presets" aria-label="保存视图:引擎参数预设"><Bookmark /><span>视图{presets.length ? ` ${presets.length}` : ""}</span><ChevronDown className={open ? "is-open" : ""} /></button>
+    </Popover>;
+}
+
+/** F10 3D 工具位:指向既有 3D 能力(Hunyuan3D 工作流 / 3D 相机 / img2threejs 正典技能),不做新渲染器。 */
+export function CreationThreeDEntryModal({ open, onClose, onUseImg2Threejs }: { open: boolean; onClose: () => void; onUseImg2Threejs: () => void }) {
+    const navigate = useNavigate();
+    const entries = [
+        { icon: Box, title: "图生 3D · Hunyuan3D", description: "单图生成 3D 模型(GLB),走 ToIV 既有图生 3D 工作流", action: () => { onClose(); navigate("/toiv/image-tools?tool=hunyuan3d"); } },
+        { icon: Camera, title: "3D 相机 360°", description: "控制方位/俯仰/距离,环绕一圈看全貌(Qwen 相机控制)", action: () => { onClose(); navigate("/toiv/image-tools?tool=camera3d"); } },
+        { icon: Code2, title: "img2threejs 程序化建模", description: "正典技能直出:参考图重建为可动画的程序化 Three.js 模型(纯代码重建)", action: () => { onClose(); onUseImg2Threejs(); } },
+    ];
+    return <AppModal open={open} onCancel={onClose} title="3D 工具" footer={null} centered destroyOnHidden width="min(560px, calc(100vw - 32px))" className="creation-threed-modal">
+        <div className="creation-threed-entries">
+            {entries.map((entry) => <button key={entry.title} type="button" className="creation-threed-entry" onClick={entry.action}>
+                <span className="creation-threed-entry-icon" aria-hidden="true"><entry.icon /></span>
+                <span className="creation-threed-entry-copy"><strong>{entry.title}</strong><span>{entry.description}</span></span>
+                <ChevronRight aria-hidden="true" />
+            </button>)}
+        </div>
+    </AppModal>;
+}
+
 const creationEmptyBannerFrames = [
     { src: publicAsset("/short-drama-styles/cyberpunk-neon.jpg"), caption: "镜头01 · 雨夜霓虹" },
     { src: publicAsset("/short-drama-styles/suspense-noir.jpg"), caption: "镜头02 · 暗巷追逐" },
@@ -773,14 +880,15 @@ export function CreationEmptyBanner() {
     </div>;
 }
 
-const creationEmptySuggestions: Array<{ mode: CreationMode; icon: typeof Clapperboard; title: string; hint: string; prompt: string; openLibrary?: boolean }> = [
+const creationEmptySuggestions: Array<{ mode: CreationMode; icon: typeof Clapperboard; title: string; hint: string; prompt: string; openLibrary?: boolean; openThreeDTools?: boolean }> = [
     { mode: "video", icon: Clapperboard, title: "生成第一个镜头", hint: "描述画面、镜头运动与光线", prompt: "雨夜天台，镜头缓缓推近霓虹灯牌下的主角，她回眸看向镜头，强对比电影感布光" },
     { mode: "image", icon: ImageIcon, title: "从参考图开始", hint: "上传风格图，生成同风格画面", prompt: "", openLibrary: true },
+    { mode: "image", icon: Box, title: "3D 工具位", hint: "图生 3D / 3D 相机 / img2threejs", prompt: "", openThreeDTools: true },
     { mode: "text", icon: FileText, title: "续写故事", hint: "和 AI 讨论剧情、角色与对白", prompt: "帮我续写一个短剧故事，先聊聊剧情走向：" },
     { mode: "video", icon: Sparkles, title: "引用技能增强", hint: "@技能 调用分镜、配音等专业能力", prompt: "调用分镜技能，帮我规划这个镜头的拍摄方案：" },
 ];
 
-export function CreationEmptySuggest({ onStartPrompt, onOpenLibrary }: { onStartPrompt: (mode: CreationMode, prompt: string) => void; onOpenLibrary: () => void }) {
+export function CreationEmptySuggest({ onStartPrompt, onOpenLibrary, onOpenThreeDTools }: { onStartPrompt: (mode: CreationMode, prompt: string) => void; onOpenLibrary: () => void; onOpenThreeDTools: () => void }) {
     const reducedMotion = useReducedMotion();
     const [hovered, setHovered] = useState<string | null>(null);
     return <LayoutGroup id="creation-empty-suggest">
@@ -788,7 +896,8 @@ export function CreationEmptySuggest({ onStartPrompt, onOpenLibrary }: { onStart
         {creationEmptySuggestions.map((item) => {
             const Icon = item.icon;
             const start = () => {
-                if (item.openLibrary) onOpenLibrary();
+                if (item.openThreeDTools) onOpenThreeDTools();
+                else if (item.openLibrary) onOpenLibrary();
                 else onStartPrompt(item.mode, item.prompt);
             };
             return <motion.button
@@ -834,7 +943,7 @@ export function CreationFeaturedWorks({ onStartPrompt }: { onStartPrompt: (mode:
     const [filter, setFilter] = useState<"all" | CreationMode>("all");
     const [limit, setLimit] = useState(12);
     const [collection, setCollection] = useState<"inspiration" | "skill">("inspiration");
-    const [skillSection, setSkillSection] = useState<"recommended" | "mine">("recommended");
+    const [skillSection, setSkillSection] = useState<"recommended" | "canon" | "mine">("recommended");
     const [mySkills, setMySkills] = useState<Skill[]>([]);
     const [mySkillsLoaded, setMySkillsLoaded] = useState(false);
     const filtered = creationFeaturedWorks.filter((item) => filter === "all" || item.mode === filter);
@@ -867,12 +976,23 @@ export function CreationFeaturedWorks({ onStartPrompt }: { onStartPrompt: (mode:
         {isSkill ? <div className="creation-skill-toolbar">
             <div className="creation-skill-subpages" role="tablist" aria-label="Skill 子页面">
                 <button type="button" role="tab" aria-selected={skillSection === "recommended"} onClick={() => setSkillSection("recommended")}>推荐</button>
+                <button type="button" role="tab" aria-selected={skillSection === "canon"} onClick={() => setSkillSection("canon")}>正典</button>
                 <button type="button" role="tab" aria-selected={skillSection === "mine"} onClick={() => setSkillSection("mine")}>我的</button>
             </div>
             {skillSection === "mine" ? <button type="button" className="creation-skill-create" onClick={() => navigate("/skills?create=1")}><Plus size={16} />创建 Skill</button> : null}
         </div> : <div className="creation-inspiration-filters" role="group" aria-label="灵感类型">
             {(["all", "video", "image", "text"] as const).map((value) => <button key={value} type="button" aria-pressed={filter === value} onClick={() => { setFilter(value); setLimit(12); }}>{value === "all" ? "全部灵感" : modeLabels[value]}<span>{creationFeaturedWorks.filter((item) => value === "all" || item.mode === value).length}</span></button>)}
         </div>}
+        {isSkill && skillSection === "canon" ? <>
+            <div className="creation-featured-layout creation-skill-grid">
+                {creationCanonSkills.map((skill) => <button key={skill.id} type="button" className="product-collection-card creation-featured-card creation-skill-card" title={`触发词:${skill.triggers.join(" / ")}`} onClick={() => onStartPrompt(skill.mode, skill.prompt)}>
+                    <span className="creation-featured-media"><img src={skill.image} alt="" loading="lazy" /><span className="creation-skill-type">正典 · {skill.kindLabel}</span><span className="creation-skill-hover-use"><Sparkles />直出</span></span>
+                    <span className="creation-featured-copy"><strong>{skill.name}</strong><span>{skill.description}</span><em><Sparkles />{skill.author} · v{skill.version}</em>
+                    </span>
+                </button>)}
+            </div>
+            <footer className="creation-inspiration-footer"><span>已展示 {creationCanonSkills.length} 个正典技能 · 与服务端 app/skills 注册表同步维护</span></footer>
+        </> : <>
         <div className={`creation-featured-layout ${isSkill ? "creation-skill-grid" : ""}`}>
                 {isSkill ? visibleSkills.map((item) => <button key={item.title} type="button" className="product-collection-card creation-featured-card creation-skill-card" onClick={() => onStartPrompt("video", item.prompt)}>
                     <span className="creation-featured-media"><img src={item.image} alt="" loading="lazy" /><span className="creation-skill-type">视频</span><span className="creation-skill-hover-use"><Sparkles />使用</span></span>
@@ -885,6 +1005,7 @@ export function CreationFeaturedWorks({ onStartPrompt }: { onStartPrompt: (mode:
         </div>
         {isSkill && skillSection === "mine" && mySkillsLoaded && !visibleSkills.length ? <div className="creation-skill-empty"><Sparkles /><strong>还没有安装 Skill</strong><span>上传、安装或创建一个 Skill 后，它会显示在这里。</span></div> : null}
         <footer className="creation-inspiration-footer">{isSkill ? <span>已展示 {visibleSkills.length} 个 Skill</span> : <>{limit < filtered.length ? <Button onClick={() => setLimit((count) => count + 12)}>展开更多灵感<ChevronDown /></Button> : <span>已展示全部 {filtered.length} 个创意</span>}<details><summary>模板与封面来源</summary><p>{inspirationSource.notice}</p><a href={inspirationSource.repository} target="_blank" rel="noreferrer">awesome-chatgpt-prompts · CC0</a></details></>}</footer>
+        </>}
     </section>;
 }
 
