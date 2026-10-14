@@ -25,7 +25,7 @@ description: |
 | SSH core（生产 web/api/PG） | `ssh merlin@192.168.71.47`（TS: `ssh merlin@100.77.80.100`） |
 | 打开 ToIV（局域网，10ms 级） | `http://192.168.71.47:3100`（web）/ `:8090`（api）/ `:3200`（admin） |
 | 打开 ToIV（外网） | `https://toiv.wineryz.top`（CN 入口）或 `https://toiv.dgmt.top`（香港 frp） |
-| ToIV 登录 | 账号 `admin`；密码见 [credentials.md](credentials.md) 获取途径（**凭据明文不入库**） |
+| ToIV 登录 | `admin / admin123`（登录字段名是 **`email`**；全量凭据见 [credentials.md](credentials.md)） |
 | LLM 直连 | `http://192.168.71.84:8000/v1`（spark02，served `deepseek-v4-flash-dspark`+3 别名；经 core 代理 `:8090/api/llm/v1` 需 ToIV JWT） |
 | 生产 PG 直查 | 见 api.md §运维配方（只能 SSH 到 core 本机执行） |
 | 查 GPU/服务 | `ssh merlin@192.168.71.127 'nvidia-smi; systemctl status comfyui-lb'` |
