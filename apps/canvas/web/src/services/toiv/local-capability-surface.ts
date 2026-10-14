@@ -26,7 +26,7 @@ import {
     intentMarketPath,
     resolveIntentAppId,
     type IntentKeeper,
-} from "@toiv-web/lib/intentKeepers";
+} from "./intent-keepers";
 
 /** Gate template 稳定 id（与 model-config.template.json 一致）。 */
 export const LOCAL_H3_CHANNEL_ID = "MZt9ON1JvbabJ2GS-PvXR";
