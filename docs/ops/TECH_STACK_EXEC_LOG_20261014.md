@@ -251,3 +251,24 @@
 - **#18 词锚透传**：studio SVML drafts 增加附加字段 beats[{text,cues,anchor_words}]（既有 8 键不变）；
   +1 例跨拍锚断言测试。待下一 api 窗部署。
 - 吞吐杠杆现状：池 2→3 后端 + H3 烟测默认 balanced(2.94x) + 超时分级；待复测稳态吞吐。
+
+---
+
+## 批次 8：2026-10-15 FU2 成片剪辑包完成（video-use MIT 五件全并码 + 生产 e2e）
+
+- 五件：edit_pack(Packed Transcript,whisper/Scribe 双形状)/edit_edl(EDL 契约+词边界剪规硬规则)/
+  edit_render(30ms 音频淡入淡出+单一输出帧率+无损 concat+质量梯)/edit_view(帧条+波形+词标签合成图)/
+  edit_grade(ebur128+blackdetect+freezedetect 客观 QA+上限轮自评闭环,响度出带自动加增益重渲一次)。
+- 编排 edit_job：单飞；EDL→素材落地→三级词级 ASR→packed md→校验不过不渲染→自评→下钻图；
+  路由 /api/admin/edit/jobs(202/409)+状态+产物白名单发放；媒体转录索引 MediaTranscript 表+
+  /admin/media/transcript+/admin/media/transcripts/search(去空格归一检索)。
+- **修了两个真缺陷**：①mp4 当 audio/wav 贴 whisper 集群=500 且旧代码静默吞非 200 → 词级链在
+  core 静默退化成均分（board_film 卡拉OK 同受害）；修在共享缝：非 wav 先抽 16k 单声道。
+  ②剪规把「切边压在词起点」判成 0ms 静音=unsafe（e2e 抓出）；新语义=词内才 midword，
+  首末词外侧 clean，其余看所处静音窗宽。
+- **生产 e2e（scripts/ops/e2e_film_edit.py，两步式=agent 工作流）**：真配音成片 54.7s →
+  外部 whisper 26 词/5 短语 → 片头 2.6s 静音内宽 EDL 放行（规则正确）→ 首短语内切点被拦
+  (midword_cut) → 按 packed md ≥0.5s 间隙选切点跨两 take 出片 → 自检一轮过
+  (mean -27.8 dBFS 在带内、零 findings) → final.mp4/timeline_view.png/takes_packed.md 均 200。
+- 基线 4429 passed / 38 skipped / exit=0。
+- 开口：#24 加速档显式选项 UI；F11 媒体库 UI 接检索面；#22/#23 量化试点；F9-F12。

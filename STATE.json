@@ -1,7 +1,7 @@
 {
   "updated_at": "2026-10-15T02:40:00+08:00",
   "session_checkpoint_2026_10_15": {
-    "status": "active_accel_batch_2026_10_15",
+    "status": "active_fu2_done_2026_10_15",
     "commits": [
       "2c84e79c",
       "88c6251f",
@@ -13,7 +13,12 @@
       "4c80f558",
       "8493662c",
       "7701d896",
-      "43b57b08"
+      "43b57b08",
+      "9810970a",
+      "d75eaa4d",
+      "fc282164",
+      "d048f272",
+      "ce220a06"
     ],
     "both_remotes": "pending_push",
     "live_on_prod": "api: DramaScene + studio/drama SVML endpoints + img2threejs + registry hardening + TOIV_OPENTALKING_ENABLED=false + smoke_started_at/running_cards; canvas: R18 pane + SVML import panel + P-20 fix; workstation: LB probe patch (10s+2-strike), :8263 restarted, :8195 stopped+disabled",
@@ -50,11 +55,13 @@
       "open_issue": "SEEDVR2 long CPU phase starves event loop; 900s driver timeout marks real jobs as false timeouts (task 19)"
     },
     "next": [
-      "verify first warmup tick after 02:36 shows no ace_step 400 (task 3)",
-      "re-measure throughput once in-flight SEEDVR2 jobs drain",
-      "real T1 lever = 392 missing-dep apps (missing_model 219 + missing_node 173): install packages + per-instance object_info verify",
-      "SVML cues passthrough for FU1 timeline (task 18)",
-      "FU2 video-use MIT port -> F9 -> F10 -> F11 -> F12"
+      "#24 accel explicit option UI",
+      "F11 library UI wires transcript search",
+      "#22/#23 quantization pilots with A/B gates",
+      "F9->F10->F11->F12",
+      "#9 missing_node 173 packages",
+      "#16 spinner repro",
+      "#18 deploy landed with FU2 batch"
     ],
     "decisions_on_file": [
       "D-U1=B no red-line architecture; canvas R18 gated mode; web -> login+landing; minors content remains absolute legal boundary",
@@ -82,6 +89,38 @@
         "NNLatentUpscale"
       ],
       "h3_blockcache": "wired dynamically via h3_accel balanced, not by direct graph refs"
+    },
+    "fu2": {
+      "pieces": [
+        "edit_pack",
+        "edit_edl",
+        "edit_render",
+        "edit_view",
+        "edit_grade",
+        "edit_job",
+        "edit_transcript"
+      ],
+      "routes": [
+        "/api/admin/edit/jobs",
+        "/api/admin/edit/jobs/{id}",
+        "/api/edit/files/{id}/{name}",
+        "/api/admin/media/transcript",
+        "/api/admin/media/transcripts/search"
+      ],
+      "prod_e2e": "54.7s dubbed film: external whisper 26 words/5 phrases; leading-silence wide EDL allowed; midword cut rejected; gap-picked two-take EDL rendered, self-review 1 round clean (mean -27.8 dBFS); artifacts 200",
+      "latent_bugs_fixed": [
+        "mp4 posted as audio/wav -> whisper 500 silently degraded word chain to even-split (board_film affected too)",
+        "cut edge exactly on word start misjudged unsafe"
+      ]
+    },
+    "throughput": {
+      "before_bleed_stop_per_h": 21,
+      "after_3backend_pool_per_h": 48,
+      "pool": [
+        "8196",
+        "8263",
+        "8265"
+      ]
     }
   },
   "ui_unify_fusion_plan_2026_10_14": {
