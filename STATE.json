@@ -1,5 +1,51 @@
 {
-  "updated_at": "2026-10-14T15:20:00+08:00",
+  "updated_at": "2026-10-14T19:30:00+08:00",
+  "tech_stack_t0_exec_2026_10_14": {
+    "status": "t0_executed_user4_new_decisions",
+    "date": "2026-10-14",
+    "steward": "ToIV 开发",
+    "doc": "docs/ops/TECH_STACK_PLAN_20261014.md (v3)",
+    "exec_log": "docs/ops/TECH_STACK_EXEC_LOG_20261014.md (batch 1+2)",
+    "user_new_decisions_2026_10_14_eve": {
+      "u1_opentalking_decommission": "APPROVED - opentalking digital human taken offline, NOT fixed (3 units stay in systemd-archive); priority=AI drama creation + video content; TOIV_OPENTALKING_ENABLED=false flips at next running=0 api-restart window (campaign running=3, no api restart)",
+      "u2_feature_imports": "img2threejs (Apache-2.0, image->procedural Three.js agent skill) + hypit (22.1k star, SVML word-anchored storyboard DSL; MODIFIED Apache license: single-tenant own-infra use explicitly permitted => local-use code merge OK, multi-tenant SaaS/commercial resale banned, LOGO preserved, must clear before any public operation)",
+      "u3_latest_models": "standing principle: all model imports/A-B default to latest upstream versions",
+      "u4_ui_overhaul": "T-U wave opened, HIGH priority - whole-UI audit + UX fixes incl. digital-human entry hiding"
+    },
+    "t0_results": {
+      "t0_1_agents_archive": "PASS 20473B < 20480B (was 93738B); full old text -> .archive/AGENTS-full-20261014.md; sec6 lessons kept rule-style, narratives archived",
+      "t0_2_gpu_accounting": "embedding :9302 registered GPU1 (SentenceTransformer /opt/qwen3-embedding-server.py, NOT vLLM, no util knob); restart-reclaimed 28.5G (84.6->56.1, free 41.8G); acceptance '>=60GB free' physically unreachable while H3#2 41.3G resident - recorded honestly (P-25)",
+      "t0_3_opentalking": "RE-VERDICT fix->decommission per U1; root cause of reachable=false = whole 3-unit chain (opentaling+tts-shim+flashtalk) manually archived since 09-07; units stay archived",
+      "d7_pc01": "CLOSED - backends.json actually :8196+:8263 dual backend (AGENTS 'single member' record stale), pc01 not in pool",
+      "pg_baseline": "total 14304 / public 2166 / pass 2170 / public&pass 2156 / untested 11096 / running 3"
+    },
+    "new_lessons": "P-24: reachable=false first diagnostic = SSH target box, check port + systemd-archive dir (app-layer config can be fine); P-25: acceptance targets must be feasibility-checked against live constraints, record actuals honestly"
+  },
+  "tech_stack_plan_v3_2026_10_14": {
+    "status": "plan_v3_worldwalk_added",
+    "date": "2026-10-14",
+    "steward": "ToIV 开发",
+    "doc": "docs/ops/TECH_STACK_PLAN_20261014.md",
+    "world_walk_research": "docs/ops/WORLD_MODEL_INTERACTIVE_RESEARCH_20261014.md",
+    "exec_prompt": "docs/ops/TECH_STACK_EXEC_PROMPT_20261014.md (self-contained AI execution prompt, 10 sections, paste-into-any-session per toiv-cluster PROMPT.md pattern)",
+    "latest_user_directive_2026_10_14_eod": "用户拍板「都尝试做成功能」→ T-W2 改为世界模型三件全做（HelixWorld+HY-WorldPlay 实时漫游沙箱分时独占一卡；Echo-WM 经现成 ComfyUI 节点接舰队，Action DSL 预演+四流音频），取消淘汰制。Echo-WM 核实结论（本地克隆）：LTX-2.3 底座+Gemma-3-12b 文本塔（gated）、LTX-2 Community License+仅学术非商用（池内最严，本地自用可过转公开必清）、四流音频最强（视频+环境声+音乐+语音）、Action DSL 脚本式交互非实时（流式 demo 未发）、Flash=4步DMD自回归、第三方 ComfyUI 节点现成、UE 数据引擎；定位=T-W2 音频流来源+world.walk 接口设计参照+LTX-2 线优先级抬升。",
+    "user_decisions": {
+      "d3_training_stack": "APPROVED 2026-10-14 (user: 任何功能都应该放开) — L0-L3 all open, L4 full-FT still needs separate approval; overturns V5 sec15 no-self-training clause",
+      "d4_skyreels_ab": "APPROVED 2026-10-14 — A/B runs (T6-1); changing splice2 default still requires separate post-A/B decision",
+      "scope_note": "ops boundaries (UGC/multitenant/public operation) NOT in this unban"
+    },
+    "summary": "v2 merges three sources: user whitepaper (v1.0 10 volumes) + live-cluster facts + user OSS survey repo ~/Desktop/ALLProject/Ai-OSS-Reference (SURVEY.md 637 entries in 4 batches, per-repo LICENSE archived = first source of truth for any import). New: OSS import matrix (C-batch 18 verdicts + A/B/D key items); TTS three-tier (IndexTTS final / GPT-SoVITS voice assets / pocket-tts CPU preview; A/B pool Qwen3-TTS, OmniVoice, voicebox); digital-human pool 3->6 (+InfiniteTalk long-form, LatentSync, EchoMimicV2, OpenAvatarChat, all clean licenses); eval three layers (laya/nimble System-1 decision heads P0 + pyiqa NR-IQA + :9311 VLM); 'MCP server + ComfyUI node + CLI' adopted as delivery standard for new capabilities (MCP endpoints converge on agent-host, control plane untouched); skill format to align agentskills spec (no homegrown); hyperframes HTML->video as 4th shot type (subtitles/intro/poster cards). New waves T-P (Pixelle-Video sandbox eval, default verdict=learn-not-mount), T-H (HTML render channel), T-S (skills alignment + first drama-skill batch: shuohao/shanyin x2/OnlyShot/video-shotcraft/brag/GPT-Image2-Skill, all Apache/MIT). T6 activated (SkyReels A/B + Wan LoRA + image LoRA + scene_asset pilot). REJECTED unchanged: LLM brain swap, containerization/K8s, LangGraph rewrite. NEW red lines: AI-watermark removal permanently banned; AGPL-167 + undeclared-license-431 repos no-code-merge (imports restricted to Apache/MIT/BSD after per-repo LICENSE read); face swap self-owned footage only; no whole-film HTML rendering.",
+    "gpu_baseline_2026_10_14": {
+      "gpu0": "13.9G used: :8196 gpu0-alt + :8197 LongCat + :9200 IndexTTS colocated (W8 bottleneck)",
+      "gpu1": "78.7G used: :8264 H3-worker2 (41.3G) + qwen3-embedding :9302 (37.3G, card slot newly registered)",
+      "gpu2": "62.1G used: :8195 H3-main UUID-pinned",
+      "gpu3": "47.8G used: :8199 animate2 + :9311 vlm(44.6G) + :8263 upscale; ~48G free",
+      "ram": "154Gi used / 183Gi total (high, watch H-3)"
+    },
+    "pg_baseline_2026_10_14": "total 14304 / public 2156 / pass 2161 / untested 11115 / fail 726 / timeout 299 / running 3",
+    "known_live_issue": "opentalking {enabled:true, reachable:false} reproduced — digital-human engine offline, T0-3 fix",
+    "v3_addendum": "User added feature directive: interactive world-model exploration (WorldWalk, 'walk into AI-generated worlds'). Research doc authored: closed-source benchmarks Genie 3 (24fps, Google Labs public beta Jan 2026) / Decart Oasis 3 (<40ms API) / World Labs Marble->World API->Atlas; open-source local pool: HY-WorldPlay (720p@24fps streaming, NOASSERTION), HelixWorld (Apache, real-time audio-visual, ~70GB BF16 single GPU = fits one 96GB card), HunyuanWorld-Mirror (feed-forward 3D Gaussians), WorldCrafter/VerseCrafter (camera-controlled, Blender addon), LingBot-World v2, AMD Micro-World. Verdict: dual-route — route B (generate->3D reconstruct->browser walkthrough, zero resident GPU, closes loop with drama location-scouting via camera writeback to storyboard JSON world_camera field) goes first; route A (neural streaming, HelixWorld first sandbox, dedicated-GPU window) as flagship experience; route C hybrid as end-state. New T-W wave added (W0 sandbox/W1 B-MVP/W2 A-PoC/W3 hybrid). CORRECTION: deeplethe/utopia is a Rust knowledge-graph/RAG system, NOT a visual world model — removed from world-model line (v2 mislabel fixed)."
+  },
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",

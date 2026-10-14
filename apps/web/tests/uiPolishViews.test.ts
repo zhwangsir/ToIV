@@ -129,8 +129,8 @@ test("首页空态:意图入口+composer+最近(计划 d 少字)", () => {
 /* ── ⑤ 融合(FusionView + fusion.css,2026-09-02 W3 hairline 列表) ── */
 test("融合:五行数据齐全,行结构为 图标+名称/描述+箭头(2026-09-06 单色极简:能力 tags 退役)", () => {
   const src = readSrc("components/fusion/FusionView.tsx");
-  // 五个融合应用入口保留
-  for (const name of ["创作工作室", "数字人", "译制", "图片编辑", "视频剪辑"]) {
+  // 融合应用入口(U1 2026-10-14 起数字人下架,余四行)
+  for (const name of ["创作工作室", "译制", "图片编辑", "视频剪辑"]) {
     assert.ok(src.includes(`name: "${name}"`), `缺融合入口:${name}`);
   }
   assert.ok(src.includes("fusion-row-icon"), "缺行图标槽");

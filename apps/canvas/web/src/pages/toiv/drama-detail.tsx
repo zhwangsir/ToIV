@@ -180,14 +180,14 @@ export default function DramaDetailPage() {
                             />
                         ) : null}
                         <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} />
-                        <a
-                            href={`/drama/${detail.id}?classic=1`}
+                        <Link
+                            to={`/toiv/drama/${detail.id}?classic=1`}
                             className="inline-flex h-8 select-none items-center justify-center gap-1.5 rounded-[var(--r-md,12px)] border border-border px-2.5 text-caption font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             title="完整分镜编辑仍在旧工作台；本页已支持管线C与出片预览"
                         >
                             <ExternalLink aria-hidden />
                             <span>完整编辑（迁移中）</span>
-                        </a>
+                        </Link>
                     </div>
                     {chainNote ? <p className="max-w-md text-right text-xs text-muted-foreground">{chainNote}</p> : null}
                 </div>

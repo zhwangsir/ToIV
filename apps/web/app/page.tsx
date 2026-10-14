@@ -206,9 +206,7 @@ const VideoEditView = lazy(() =>
 const AnimaticView = lazy(() =>
   viewImporters.animatic().then((m) => ({ default: m.AnimaticView })),
 );
-const AvatarTalkView = lazy(() =>
-  viewImporters.avatartalk().then((m) => ({ default: m.AvatarTalkView })),
-);
+// U1(2026-10-14) avatartalk 数字人下架:入口摘除,深链走下架说明;组件不再懒加载
 const CanvasView = lazy(() =>
   viewImporters.canvas().then((m) => ({ default: m.CanvasView })),
 );
@@ -873,7 +871,17 @@ function HomeContent() {
                 // 动态分镜全端统一:AnimaticView 为唯一实现(旧桌面端 FROZEN 视图已物理删除)
                 <AnimaticView onOpenDramaProject={handleOpenDramaProject} />
               )}
-              {view === "avatartalk" && <AvatarTalkView onNavigate={handleFusionNavigate} />}
+              {/* U1(2026-10-14):opentalking 数字人栈下架——入口(fusion 卡/@面板/⌘K)已摘,
+                  深链落到此说明页;组件保留待 T7 对照池选型后复用 */}
+              {view === "avatartalk" && (
+                <div className="decommission-note" role="status">
+                  <h2>数字人功能已下架</h2>
+                  <p>
+                    opentalking 数字人引擎已于 2026-10-14 下架(资源优先短剧创作与视频内容)。
+                    成片类说话人视频仍可用「视频生成」或「创作工作室」的数字人分镜完成。
+                  </p>
+                </div>
+              )}
               {view === "library" && <LibraryView onNavigate={handleFusionNavigate} />}
               {view === "entities" && <EntitiesView />}
               {/* W1:train/backlot/models 不再独立渲染,统一经 ResourcesView tab 容器;

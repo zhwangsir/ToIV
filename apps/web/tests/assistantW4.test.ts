@@ -162,9 +162,11 @@ test("W5 降级:探活失败置离线,门户隐藏对话框、展开全量工作
   assert.ok(portalSrc.includes('role="alert"'), "离线提示缺 alert 语义");
   assert.ok(portalSrc.includes("助手离线"), "缺离线提示文案");
   assert.ok(portalSrc.includes("OFFLINE_ENTRIES.map"), "离线态未展开全量导航");
-  for (const v of ["image", "video", "audio", "studio", "avatartalk", "dub", "imageEdit", "videoEdit", "canvas", "library", "entities", "market"]) {
+  // U1(2026-10-14):数字人下架,离线导航不再含 avatartalk
+  for (const v of ["image", "video", "audio", "studio", "dub", "imageEdit", "videoEdit", "canvas", "library", "entities", "market"]) {
     assert.ok(OFFLINE_ENTRIES.some((e) => e.view === v), `离线导航缺 ${v}`);
   }
+  assert.ok(!OFFLINE_ENTRIES.some((e) => e.view === "avatartalk"), "离线导航不应再有数字人");
   for (const v of ["admin", "observability", "settings"]) {
     assert.ok(!OFFLINE_ENTRIES.some((e) => e.view === v), `离线导航不应含 ${v}`);
   }

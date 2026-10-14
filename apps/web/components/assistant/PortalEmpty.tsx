@@ -58,13 +58,7 @@ export const SKILL_ENTRIES: PortalEntry[] = [
     desc: "音乐 / 配音",
     prompt: "帮我生成一段音乐/配音：",
   },
-  {
-    view: "avatartalk",
-    icon: "user",
-    label: "数字人",
-    desc: "照片说话",
-    prompt: "帮我做一段照片说话的数字人视频：",
-  },
+  // U1(2026-10-14):数字人 chip 已摘——opentalking 栈下架。
   {
     view: "library",
     icon: "library",
@@ -80,7 +74,7 @@ export const OFFLINE_ENTRIES: PortalEntry[] = [
   { view: "video", icon: "video", label: "视频", desc: "H3 · LongCat" },
   { view: "audio", icon: "audio", label: "音频", desc: "音乐 · 配音" },
   { view: "studio", icon: "clapperboard", label: "工作室", desc: "短剧全流程" },
-  { view: "avatartalk", icon: "user", label: "数字人", desc: "说话视频" },
+  // U1(2026-10-14):数字人入口已摘——opentalking 栈下架。
   { view: "dub", icon: "mic", label: "译制", desc: "听写 · 配音" },
   { view: "imageEdit", icon: "palette", label: "图片编辑", desc: "重绘 · 扩图" },
   { view: "videoEdit", icon: "film", label: "视频剪辑", desc: "裁剪 · 补帧" },

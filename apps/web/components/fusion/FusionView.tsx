@@ -21,12 +21,7 @@ const FUSION_APPS: FusionApp[] = [
     desc: "剧本 → 角色 → 分镜 → 成片:每个分镜独立选择视频生成或图像运镜,一站式创作。",
   },
   {
-    target: "avatartalk",
-    icon: "user",
-    name: "数字人",
-    desc: "实时对话数字人 + 人像音频驱动说话视频(LongCat-Avatar),对话与成片双模式。",
-  },
-  {
+    // U1(2026-10-14):数字人卡片已摘——opentalking 栈下架,资源优先短剧创作与视频内容。
     target: "dub",
     icon: "dub",
     name: "译制",

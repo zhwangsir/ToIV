@@ -90,7 +90,7 @@ export default function DramaPage() {
                             const meta = STATUS_META[p.status] ?? { tone: "neutral" as const, text: p.status };
                             return (
                                 // S4/W1.2:项目卡默认进 v2 工作区(经典详情仍有入口)
-                                <a key={p.id} href={`/toiv/ws/${p.id}`}
+                                <Link key={p.id} to={`/toiv/ws/${p.id}`}
                                     className="group flex flex-col gap-2.5 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-[var(--workspace-accent,#555)]">
                                     <div className="flex items-center justify-between gap-2">
                                         <StatusBadge variant="filled" tone={meta.tone} label={meta.text} size="sm" />
@@ -107,7 +107,7 @@ export default function DramaPage() {
                                             ? <StatusBadge variant="filled" tone="success" label="有成片" size="sm" />
                                             : <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Clapperboard className="h-3 w-3" />打开工作台 →</span>}
                                     </div>
-                                </a>
+                                </Link>
                             );
                         })}
                     </div>

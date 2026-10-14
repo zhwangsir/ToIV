@@ -31,9 +31,11 @@ test("filterPortalEntries:@ 技能面板 R18/SFW 门控(drama 仅 R18)", () => {
   assert.ok(!sfwSkills.includes("drama"));
   assert.ok(filterPortalEntries(SKILL_ENTRIES, true).some((e) => e.view === "drama"));
   // 通用入口双模式可见
-  for (const v of ["image", "video", "audio", "avatartalk", "library"]) {
+  for (const v of ["image", "video", "audio", "library"]) {
     assert.ok(sfwSkills.includes(v), `@ 面板 SFW 缺 ${v}`);
   }
+  // U1(2026-10-14):opentalking 数字人下架,@ 面板不得再出现入口
+  assert.ok(!sfwSkills.includes("avatartalk"), "@ 面板不应再有数字人入口");
 });
 
 test("Studio Console v1:离线降级导航覆盖工作台层,不含系统层", () => {
@@ -69,4 +71,17 @@ test("P0.2 SKILL_ENTRIES:生成类带 prompt;作品库 navigate;非门户宫格"
   assert.ok(!src.includes("av-scene-grid"), "门户不应再渲染 av-scene-grid");
   assert.ok(!src.includes("av-scene-card"), "门户不应再渲染 av-scene-card");
   assert.ok(!src.includes("一期内容 = 工作台快捷入口"), "陈旧工作台快捷入口注释未清");
+});
+
+test("U1 数字人下架:fusion 卡/⌘K/离线导航三处入口摘除 + page 深链走下架说明", () => {
+  const webRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const fusion = readFileSync(join(webRoot, "components/fusion/FusionView.tsx"), "utf-8");
+  assert.ok(!fusion.includes('target: "avatartalk"'), "fusion 聚合页不得再有数字人卡");
+  const palette = readFileSync(join(webRoot, "components/nav/CommandPalette.tsx"), "utf-8");
+  assert.ok(!palette.includes('view: "avatartalk"'), "⌘K 面板不得再有数字人命令");
+  const offline = OFFLINE_ENTRIES.map((e) => e.view);
+  assert.ok(!offline.includes("avatartalk"), "离线降级导航不得再有数字人");
+  const page = readFileSync(join(webRoot, "app/page.tsx"), "utf-8");
+  assert.ok(page.includes("数字人功能已下架"), "page 深链缺下架说明");
+  assert.ok(!page.includes("<AvatarTalkView"), "page 不得再渲染 AvatarTalkView");
 });

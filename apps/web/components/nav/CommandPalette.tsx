@@ -21,7 +21,7 @@ const CMDK_PAGES: { view: string; label: string; icon: IconName; admin?: boolean
   { view: "video", label: NAV_LABELS.video, icon: "video" },
   { view: "audio", label: NAV_LABELS.audio, icon: "audio" },
   { view: "studio", label: NAV_LABELS.studio, icon: "clapperboard" },
-  { view: "avatartalk", label: NAV_LABELS.avatartalk, icon: "user" },
+  // U1(2026-10-14):数字人命令已摘——opentalking 栈下架。
   { view: "dub", label: NAV_LABELS.dub, icon: "mic" },
   { view: "imageEdit", label: NAV_LABELS.imageEdit, icon: "palette" },
   { view: "videoEdit", label: NAV_LABELS.videoEdit, icon: "film" },

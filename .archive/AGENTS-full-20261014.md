@@ -1,0 +1,465 @@
+# AGENTS.md — 集群操作记忆与决策记录
+
+> **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件（全文 <20KB，约 5 分钟）
+> **维护者**：设备管家（AI Assistant）
+> **最后更新**：2026-10-14 17:30（ToIV开发）：**技术栈演进方案 v2 成文（白皮书×真机×OSS 调研仓三源合并）** `docs/ops/TECH_STACK_PLAN_20261014.md`——**用户拍板「任何功能都应该放开」：D3 训练栈全档解禁（V5 §15「不做自研训练」对应条作废，L4 全参仍单独立项）、D4 SkyReels 对照开跑**；合并用户调研仓 `~/Desktop/ALLProject/Ai-OSS-Reference`（SURVEY.md 四批 637 条，引入第一真源）：新增 OSS 引入矩阵 + T-P Pixelle 沙箱/T-H HTML 渲染通道/T-S 技能规范对齐三波，TTS 三档化（+pocket-tts CPU 预览），数字人对照池 3→6 件（+InfiniteTalk/LatentSync/EchoMimicV2/OpenAvatarChat），评测三层化（laya/nimble 决策头+pyiqa+:9311 VLM），「MCP server+ComfyUI 节点+CLI」三件套定为新能力交付规范。当日真机核实：4×RTX PRO 6000+2×DGX Spark=白皮书硬件即现网、PG 14304/public 2156/pass 2161/未测 11115/running 3、opentalking reachable=false。红线新增：去 AI 水印永禁、AGPL167+未声明431 仓不并码、换脸仅自有素材。——前情（2026-10-13 18:03）：**V5 方案成文 + W0 收口 + W8 RunningHub 全量本地化在跑**——本会话终态(PG 为准)`total 14,304 / public 1,909 / pass 1,906 / untested 11,583`,可本地部署但未真跑 ≈5,450 条(40–50/h → 还需 110–135 GPU-小时;上限是 :8196 与 :8197 同 GPU0)。续跑指令与待核对项见 `docs/ops/PLATFORM_V5_PLAN_20261013.md` **W8-19**;本批新增易错点见 §六 P-18/P-18b:手跑 ops 代码缺 `TOIV_DATABASE_URL` 会静默回落废弃 SQLite(已两次致错结论);`app` 表无烟测开始时刻,running 不能从行本身判定,战役在跑时不得手调 `reconcile_interrupted_smokes`。——V5 优化方案 18 节功能条目级（真源 `docs/ops/PLATFORM_V5_PLAN_20261013.md`，四主轴全要）；三端「全绿」基线恢复（api 4215 collected/全量 exit=0、web 1166、canvas tsc 0 错+shared 2682）；W0-3 拼接混规格静默哑音活雷已修；RH 全量分类完成（64831 条 → ok 5960），批0 复活 1727 条使 public 83→1810，批C 已导入 1717+（`is_public=False`，待 smoke 才上架）。**纠正上批口径：`f8633401` 是 react-router 从 `^8.2.0` 降级钉死 `7.9.5`，不是升级 8.4.0**。`updated_at` 2026-10-13T07:00:00+08:00。
+> **历史归档**：09-16~09-21 详叙 `.archive/AGENTS-focus-20260916-0921.md`；09-04~09-11 `.archive/AGENTS-changes-20260904-0911.md`；更早 `.archive/AGENTS-full-20260903.md`；机读状态 `STATE.json`
+
+---
+
+## 〇、🔒 硬性规则（每次会话必读）
+
+1. **所有 AI/算力后端服务来源均在 Workstation**（192.168.71.127 / 100.68.100.90）。core(192.168.71.47)只跑 web/api+PG/Redis 是业务网关不是算力；Mac 只是操作终端，配置里的 127.0.0.1 只是本地 dev 兜底。排查「服务离线/引擎不可达」第一反应=SSH 到 Workstation 查 systemd 和端口，禁止臆断。
+2. **文档仅供参考，必须真机验证**。凡 GPU 显存/服务状态/端口/路径/挂载/模型占用，先 SSH 执行真实命令（nvidia-smi/systemctl/ss/mountpoint/df/free）再作答；文档与真机冲突以真机为准并修正文档。「已停用/已退役」记录尤其要复核（stop≠disable，重启会复活）。
+
+---
+
+## 一、集群设备清单
+
+| 设备 | 角色 | LAN IP | Tailscale IP | SSH 用户 |
+|---|---|---|---|---|
+| ~~studio01-04~~ | 2026-08-29 全线下线退役（fleet_registry 已移除） | .109-.113 | — | — |
+| openclaw01-04 | **whisper ASR 集群 :9310**（core env 四址故障转移）+JoyCaption :9305；**10-05 翻案：四节点 9310/9305 经 TS 全 OPEN**（旧「02-04 tailscaled 僵死」记录撤销）；⚠️ openclaw01 SSH 拒连（服务不受影响） | .86/.75/.81/.85 | **100.115.23.67 / 100.76.35.7 / 100.76.140.121 / 100.125.217.11** | dgmt-openclaw01-04（01 SSH 拒连） |
+| spark01 | DSv4 TP2 **worker**（rank1，`dsv4_60` 容器；旧 vllm_glm53 stop 留存回滚） | .82 | 100.81.235.124 | dgmt-spark |
+| spark02 | **现网 LLM/VLM API** DSv4 TP2 **head** :8000（启动 `~/dsv4-serve.sh 1`(01)→`0`(02)，restart=no 重启需手动；guard cron 双侧已在） | .84 | 100.86.42.89 | dgmt-spark |
+| workstation | 算力+全部后端服务（见三） | 192.168.71.127 | **100.68.100.90** | merlin |
+| pc01 | ComfyUI worker :8188 + H3 第二实例 :8198（NSSM 服务化）；**10-05 起持续 offline**（10-10 复测 :8188 经 TS 仍 CLOSED，LB 池剩 WS 单后端） | **192.168.71.116** | **100.86.169.64**（~~100.69.134.27~~ 作废） | home |
+| ~~pc02~~ | 2026-09-13 下线（LB 池已移除） | ~~.114~~ | 100.107.94.26 | w |
+| NAS | SMB 存储 44T | 192.168.71.7 | 100.80.237.96 | dgmt-nas |
+| 小米路由器 | BE10000 Pro AP/有线中继，管理页 .42 | 192.168.71.42 | — | — |
+| 光猫 | 主网关/拨号 | 192.168.71.1 | — | — |
+| cloud | 香港网关/frps/OpenResty；⚠️ tailscaled 僵死待现场重启（用户面 frp 不受影响） | 43.119.32.180 | 100.83.78.114 | root |
+| core | **ToIV 生产**(web :3100+api :8090+PG+Redis+admin :3200) | 192.168.71.47 | **100.77.80.100** | merlin |
+| beijing | **CN 入口** toiv.wineryz.top（OpenResty+frps 7000/7500/13100/18090） | 8.140.222.24 | — | root |
+| MateBook | 操作终端（当前在外地，bulk ~37KB/s） | 192.168.71.9 | 100.74.15.34 | 本机 |
+
+> 🔒 访问原则：浏览器侧直连一律 **Tailscale 优先**；core→workstation 服务间调用走 LAN；**「TS 离线」≠「服务掉线」**（N-5）。
+
+## 二、关键凭据（禁止再次询问）
+
+| 服务 | 用户名 | 密码 | 备注 |
+|------|--------|------|------|
+| NAS SMB | dgmt-nas | Aki.19950108 | 192.168.71.7，共享名 NAS |
+| Tailscale Auth Key | — | tskey-auth-kPM5hHvNGY11CNTRL-UTn8rtRjK8Pfw3riNoGB8Pru71VhdRR9C | 已用于 core 授权 |
+| ToIV admin | admin | admin123 | 生产 core（登录字段是 `email`） |
+
+**NAS 挂载**：WS=fstab `/home/merlin/nas_mount`（重启后必 `mountpoint` 核实，**挂载后必须重启 ComfyUI 实例**否则缓存空模型列表）；Windows=`cmdkey /add:192.168.71.7 /user:dgmt-nas /pass:Aki.19950108`+SYSTEM 自挂 Z:（W-2）。
+
+## 三、Workstation 服务与 GPU（🔒 启动服务前必须核对；显存/RAM 是动态值，先 `nvidia-smi`/`free -h`）
+
+**现网常驻（2026-09-12 恢复，全部 enabled；09-21 复核全 active）**：
+
+| 服务 | 端口 | 卡 | systemd |
+|---|---|---|---|
+| ComfyUI-LB（池：本地 :8196 + pc01 :8188；`/admin/backends`；**10-05 pc01 掉线至今，10-10 复测 backends.json 仅 gpu0→:8196 单成员**） | :8188 | — | comfyui-lb |
+| gpu0-alt（cache-lru 8） | :8196 | GPU0 | comfyui-gpu0-alt |
+| LongCat（cache-lru 3） | :8197 | GPU0 | comfyui-longcat |
+| MiniMax H3（**UUID 钉卡 GPU-0e6e9149**；+pc01:8198 双池 `TOIV_H3_BASE_URLS`） | :8195 | GPU2 | toiv-comfyui-h3 |
+| **MiniMax H3 worker #2**（ComfyUI-h3-eval，**UUID 8a63d89c GPU1**；10-03 上线**替换 :8261 超分 GPU1**） | :8264 | GPU1 | toiv-comfyui-h3-gpu1 |
+| Wan-Animate-2 | :8199 | GPU3 | comfyui-wan-animate-2 |
+| **ToIV VLM（Qwen3-VL-8B BF16 多模态,from-image/图片解析）** | **:9311** | GPU3(数字索引,0.11 不认 UUID) | toiv-vlm（/opt/toiv-vlm/venv vLLM 0.11.2） |
+| 超分 fleet（4x-UltraSharp 帧超分；**:8261 已撤**） | :8262/:8263 | — | comfyui-upscale-gpu2/3 |
+| Qwen3-Embedding-4B | :9302 | — | qwen3-embedding |
+| IndexTTS 2.5（配音主路，勿再停） | :9200 | GPU0 | toiv-indextts |
+| 音频分离 / comfy-mcp / fan_guard（脚本 `/opt/fan_guard.py`） | :9220/:9100/— | — | toiv-audio-sep / toiv-comfy-mcp / fan_guard |
+
+- **🔒 池后端变更只编辑 workstation `/opt/comfyui-lb/backends.json`**（5s 热重载零重启；api 按 `TOIV_COMFY_WORKERS_REGISTRY_URL` 60s 跟随）；禁止改 core env/LB 源码切成员。
+- **🔒 新服务锁卡一律用 GPU UUID**（H-6）；新专用实例必须补 `deps.resolve_worker()` 精确匹配（E-1）。
+- **散热政策（拍板）**：无软件温度熔断，GPU 自降频即保护；锁扇是吞吐优化；仅持续 ≥95°C 人工介入。
+- 关键路径：ComfyUI=/opt/ComfyUI · H3=/home/merlin/ComfyUI-h3-eval · LongCat=/home/merlin/ComfyUI-longcat · IndexTTS=/home/merlin/index-tts。断电恢复 SOP 见 STATE `power_outage_recovery_2026_09_13`。
+
+## 四、NAS 模型路径与下载
+
+- **两棵树**（同一台 Tailscale NAS；core=`/mnt/toiv-nas`，工作站=`/home/merlin/nas_mount`）：
+  - **主库（新下载只进这里）** `toiv/comfyui-models` ≈5.2T（扩散≈2.5T/249；checkpoint≈627G/46；h3≈518G/90；LLM≈355G/280；文本编码≈265G/61；LoRA≈237G/433 等）。`h3/diffusion_models` 内 **13** 个 safetensors（不等于整棵 NAS）。
+  - **旧库** `Windows/ComfyUI/ComfyUIModel/models` ≈1.5T / 1085 文件。两树合计约 6.7T **会把硬链算重**（已知一例 2026-09-28 lightx2v LoRA nlink=2；未全盘对 inode）。
+- **端口挂载（2026-10-09 设备管家真机）**：`:8196` 的 `/opt/ComfyUI/models`→旧 Windows 树软链，extra `toiv:` 再挂整棵 toiv→两棵都可见；`:8197` models 为本机目录，extra 挂整棵 toiv+`h3/`，本地 diffusion 仅两条软链→NAS fl2va/ref2va pruned int8；`:8195`/`:8264` 共用 ComfyUI-h3-eval，extra 只挂 `h3/`；多出的两个 FL2VA 名是本机软链→同份 32GB 本地文件（不在 NAS）。**H3 生产口=:8264**，`:8195` 试验。
+- **口径**：盘上有 ≠ 产品在用。代码写死且盘上确认的 H3/Qwen-Edit 文件名见 STATE/`branch_integrate_2026_10_09`；来源清单 ok575/blocked336（2026-09-28）**不是**盘上文件总数。PC01/02 extra 指向旧 Windows 树时 **不得含 custom_nodes 键**。
+- **下载清单**：`docs/MODEL_SOURCES.md/.json`（勿在仓库根新增 MODEL_SOURCES*）。**下载主路=workstation 直连 hf-mirror.com + aria2c -x16**（N-2）。
+
+## 五、Core 生产状态（活口径）
+
+- **服务**：toiv-api :8090 / toiv-web :3100 / toiv-admin :3200 systemd 常驻；PG 18+Redis 仅 bind 127.0.0.1。**域名双入口**：toiv.dgmt.top（香港 frp）+ **toiv.wineryz.top（CN 外网入口）**。**验证口径（2026-10-11 起）**：用户在局域网时**优先 LAN 直连** `http://192.168.71.47:3100`（web，/studio 同源）/`:8090`（api，health=`/api/health`）/`:3200`（admin；实测全 10ms 级）；外网/发布前回归才走 wineryz（N-1）。
+- **LLM/VLM（DSv4 无审查 TP2 LIVE）**：core `TOIV_LLM_*` 指 spark02 `http://192.168.71.84:8000/v1`；served `deepseek-v4-flash-dspark`+别名 `qwen3.8-27b`/`qwen3.6-uncensored`/`glm-5.3-flash`（core 零改动）；1M ctx、实测 70.5 tok/s；启动/回滚见第一节与归档。 `/api/llm/v1` 白名单 `TOIV_LLM_PROXY_MODELS` 须含上述四名（默认 `deepseek-v4-flash-dspark,qwen3.8-27b,qwen3.6-uncensored,glm-5.3-flash`），否则助手发 deepseek id 会本地 400。
+- **whisper ASR 集群**：`TOIV_WHISPER_URL`=openclaw 四址（.86/.75/.81/.85:9310，OpenAI 兼容契约；`Settings.whisper_endpoint_list` 多址故障转移，5xx/连接错换节点、4xx/中止不转移）；env 备份 `.env.bak-whisper-cluster-20260921`。
+- **Embedding**：workstation :9302（core `TOIV_EMBED_BASE_URL=http://192.168.71.127:9302/v1`）。
+- **部署口径（拍板）**：web/admin 一律 **core 本机构建**（外地 .next 不可传）——web=`cd /home/merlin/toiv/web && rm -rf .next && pnpm build && sudo systemctl restart toiv-web`；admin 构建前 core 必须全量 `npm install`（生产装 --omit=dev 缺 typescript 会报 `@/components` 假线索）；api=`deploy/deploy.sh --skip-web core-jump`（重试循环）。生产 PG 直查：`export PGPASSWORD=68799b59242beeccfd54963902a35006; psql -h 127.0.0.1 -U toiv -d toiv`（core 的 toiv/api/toiv.db 是废弃 SQLite 勿用）。
+- **杂项**：视频评分器 `TOIV_VIDEO_SCORER_ENABLED=true`；web_search 代理 `TOIV_WEB_SEARCH_PROXY=http://192.168.71.9:7897`（依赖 Mac 在线）；数字人 M1–M6 与音频编排（tts/separate/concat/mix/variant）可用，sfx 仍 501；内容限制管控已下线（未成年硬阻断+X-NSFW 语义保留）；封面 autorefire 深度闸 12+尝试上限 3+批限 120，勿手动乱调。
+
+## 六、⚠️ 易错点（按主题归并）
+
+### H. 硬件/容量
+- **H-1 禁止臆造硬件数据**：先 SSH 真机确认。
+- **H-2 显存数字是快照不是真理**：容量规划/共卡部署必须现场 nvidia-smi;vLLM 共卡必须显式调低 gpu-memory-utilization。
+- **H-3 多引擎并跑先算 RAM**（183G 曾耗尽 OOM）：上架大 RAM 模型前 `free -h`。
+- **H-4 「DB 标 error」≠「生成失败」**：批量失败先查 ComfyUI `/history/{pid}`,产物在就回写,禁止盲目重提。
+- **H-5 温度政策**：无软件熔断（见三节）。
+- **H-6 CUDA 数字索引≠nvidia-smi 索引**（GPU0 requires reset 时偏移；2026-09-21 真机核：已自愈）：🔒 锁卡一律 **GPU UUID**+起服后 `--query-compute-apps` 复核。
+- **H-7 :8189 已退役**（unit disable 防复活）；:8196 gpu0-alt 是正式本地池后端。
+
+### D. 退役/迁移
+- **D-1 stop≠disable,重启会复活**：退役必须 disable/mask;「已迁移/已停用」记录跨项目冲突时真机复核。
+- **D-2 一次性手工迁移没有守护会静默失效**：生产依赖变更后必须实测业务链路。
+
+### N. 网络/代理
+- **N-1 跨境链路波动会污染 A/B 结论**：「502/超时」先排除全局链路事件（验证入口用 CN wineryz，dgmt frp 抖动）。
+- **N-2 HF/外网下载**：hf-mirror.com 从 workstation 直连+aria2c -x16 是主路;Mac Clash(:7897)为备,依赖 Mac 在线。
+- **N-3 Tailscale**：浏览器侧 TS 优先;服务须监听 0.0.0.0 才经 TS 可达。
+- **N-4 Windows 长命令经 SSH 会被换行截断**：用 PowerShell `-EncodedCommand`;`schtasks` 用 `/create /f` 覆盖重建。
+- **N-5 「TS 离线」≠「服务掉线」**（09-21 翻案）：先 LAN ping+端口扫;处置 Mac=`tailscale down && up`,Linux=ts-health 探针（已常驻 core/WS）。
+
+### W. Windows
+- **W-1 SSH session 隔离**：长期服务用计划任务+bat 或 NSSM;SSH 启的进程断连即被杀。
+- **W-2 SYSTEM 任务看不到用户盘符**：ps1 开头自挂 `net use Z:`;模型可见性最终裁判=ComfyUI 进程 object_info。
+
+### E. 引擎/工作流
+- **E-1 新专用 ComfyUI 实例必须补 `deps.resolve_worker()` 精确匹配**：否则作业成功但产物 502。
+- **E-2 LongCat 链路坑**：TI2V i2v 用 WanVideoEncode→extra_latents;Avatar 音频必须 whisper-large-v3;WanVideoWrapper 必须 `rope_function="comfy"`。
+- **E-3 引擎探测通过≠链路可跑**：新引擎必须真机 e2e 后交付。
+- **E-4 vLLM 坑**：NVML mismatch 炸平台探测（补丁 /home/merlin/patch_vllm_nvml.py）;**served-model-name 别名机制——换模型保别名=core 零改动**。
+- **E-6 超分竖屏源必须显式 --target-w/--target-h**,生产一律 `--keep-frames`。
+- **E-7 回写协程生命周期不得超过 tracker 作业生命周期**：「等待作业完成再落库」按多轮等待+启动 reconcile 双保险写。
+- **E-8 读用户参考图一律 input→output 双形态**：统一走 `get_image_bytes_any`(硬编码 input 必 404→502)。
+- **E-9 🔴 专用实例分支必须在模型检查之前先验模型（10-13 实证雷）**：`_pick_app_client`(`routes/apps.py:4294`) 按 class_type 前缀把应用派到专用实例,`n.startswith('WanVideo')` → LongCat :8197 并**直接 return**,而 `required`(模型集)只在函数最后一行 `pool.pick(required=…)` 才被消费 → **模型可用性从不被检查**。实测 `wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors` 在 :8196/:8188 都有、:8197 只有 fp16;路由落 :8197 后 `combo_repair` 用被选中那台的 object_info 把权重静默换成 fp16,却不动与之**耦合**的 `quantization=fp8_scaled` 部件,报「The model is not a scaled fp8 model」——**把路由错伪装成权重不兼容**。生产生成同一个 picker,不只烟测。处置:专用实例分支 return 前先验能否满足 `required`,不能则穿透 `pool.pick`;`h3_like`/`qwen_edit_like`/`animate2` 三个同形分支一并复查。另:`combo_repair` 换模型文件时必须同时处理与之耦合的量化/精度部件,只改一半会造出内部矛盾的图并遮蔽真因(与批E 的 LLM 补丁 422 遮蔽同型)。
+- **E-10 🔴 shim 的输出元数必须 ≥ 云端原节点被引用的最大 socket 索引（10-13 实证雷,自造）**：ComfyUI 校验期 `execution.py:925-927` 执行 `r = NODE_CLASS_MAPPINGS[源类].RETURN_TYPES` → `received_type = r[val[1]]`,socket 越界即抛 **`tuple index out of range`**;异常被 `validate_inputs` 的 inner 分支捕获后**挂在下游消费者身上**,真凶不出现在错误信息里。实测 `RHHiddenNodes` shim 只声明 1 个输出(`IMAGE`),而存量图里 `TextEncodeQwenImageEditPlus.prompt ← ['382', 1]` 引用 socket 1 → 报错却指向 4 种互不相关的节点族(`TextEncodeQwenImageEditPlus`/`ImageResizeKJ`/`ModelSamplingSD3`/`WanVideoVACEStartToEndFrame`),极易误判成「包版本漂移/共因」。**诊断法**（不靠猜）：逐节点 `GET /object_info/<class>`,对图里每条 `[node_id, idx]` 连线断言 `idx < len(output)`,越界者即真凶。**规模校正**：曾按 17 条抽样里 4 例断言这是「新的最大失败簇」,全库实查只有 **7** 条(6 条含 RHHiddenNodes)——抽样外推的簇规模必须回全库核（P-14 同型）。**处置原则**：不要用「把 RETURN_TYPES 加宽到能过校验」来消错——过校验后节点返回值个数与声明不符,只会在执行期换一个更难懂的错;不可通用 shim 的正确终态是**清晰的归因失败**,不是骗过校验。
+- **E-11 🔴 库级失败(cusolver/cuDNN/NCCL)不能用单调用点补丁当根修（10-13 实证,自我撤回）**：`cusolverDnCreate(handle)` 失败是 CUDA 库/上下文级故障,可由任意 `torch.linalg.solve`/SVD/QR 调用点触发。此前只把 `fm_solvers_unipc.py` 两处 solve 移到 `.cpu()`,并据单实例烟测通过写下「根因已修 + 生产已验证」——**该结论已撤回**。P-15 核验:补丁 mtime `08:34:09`、三处目录 md5 同为 `938168a3`,`:8196`(启动 10:04:22)与 `:8197`(10:04:25)均**晚于**补丁即确已加载,而 cusolver 在 10:26/10:30 仍复发;`:8195`(10-06 14:09)/`:8264`(10-11 02:14)启动早于补丁 → **从未加载**。**处置**:库级失败必须查环境面(GPU 是否 requires reset / dmesg Xid、`torch.backends.cuda.preferred_linalg_library` 全局设置、libcusolver 与 torch+cu130/sm_120 是否匹配),不能只堵一个调用点。**写「已验证」前的两道必查**:①补丁是否真被加载(进程启动时间 > 文件 mtime);②同一故障是否还有其他调用点。
+- **E-12 🔴 节点包会把 HTTP 错误响应当模型文件写盘,且不校验(10-14 实证,7 个应用被静默打死)**：`ComfyUI-WD14-Tagger` 的 `download_model()`(`wd14tagger.py:103-130`)把 `{repo}/resolve/main/model.onnx` 与 `selected_tags.csv` 直接写到 `models/<model>.onnx|.csv`,**不检查响应是否为真模型**。10-13 22:42 它撞上 HF 限流,于是盘上留下两个 **317 字节**、内容是 `We had to rate limit you, you hit the quota of 100000 resolvers requests per 5 minutes period.` 的"模型";此后所有用到该 tagger 的应用一律 `[ONNXRuntimeError] : 7 : INVALID_PROTOBUF`,22:42→02:03 共 **7 条** fail(错误信息只指向 onnx 解析失败,不指向限流,极易误判成 onnxruntime 版本/opset 问题)。**诊断法**:先看文件**大小与头部字节**(错误页是纯文本、几百字节;真 onnx 是 GB 级 protobuf),别先怀疑运行时版本。**处置**:从 hf-mirror 重下真文件(N-2),用**舰队自己的 venv** 验证能加载(`/opt/ComfyUI/venv/bin/python -c "onnxruntime.InferenceSession(...)"`,实测 ort 1.28.0 加载 1.26GB 成功、input `['batch_size',448,448,3]`),备份坏文件后就地替换;该包在 `wd14tagger.py:50-51` 每次调用现建 `InferenceSession`、无全局缓存 → **换文件不需要重启实例**。**同类风险自查**:任何"小得离谱的权重文件"都可能是错误页/LFS 指针(本次全盘扫 <20KB 的 .onnx/.safetensors/.ckpt/.pt 只查出这一个真污染;`lpips/vgg.pth` 7KB 是真 pickle stub、`comfy_mtb/styles.csv` 是真 CSV,别误杀)。
+
+### P. 平台机制
+- **P-1 产物 URL 已签名+归属校验**：测试构造 URL 必须带 sig 或先建档;媒体走 `?token=`。
+- **P-2 前端变更必须真机验证**：生产 `rm -rf .next` 干净重建,截图/查 BUILD_ID,不能只看 API。
+- **P-2b CSS/前端三约束**：①appsRh 全文件懒惰正则——`object-fit: cover` 须在 `.rh-preview-cover`/`.rh-detail-cover` 断言区**之前**;②engineStudio 零 hex——自 `.apps-studio {` 起扫到文件尾,禁 hex 且勿臆造 token（先 grep globals.css）;③新增 lib/api 导出必补 `tests/mocks/studioApi.ts` 替身。多组件文件一律 `<style jsx global>`+前缀命名。
+- **P-3 浏览器自动化测 React**：select 用 native setter+dispatchEvent;多 textarea 用 `.promptbar-textarea`。
+- **P-4 命令行自杀坑**：`pkill -f` 模式串用 `[f]an_guard` 式转义;/tmp 是 tmpfs（大文件写 /var/tmp）。
+- **P-5 并行 SSH 会话会互相改写状态**：关键服务「莫名掉线」先 `journalctl -u <svc>` 查停止来源。
+- **P-6 杂项**：workstation pip 用清华镜像、github 用 ghfast.top;core 登录返回字段是 `token`;上传 kind 必须下划线风格;H3 生成前先 free 缓存。
+- **P-7 新 Python 服务环境三坑**(sm_120)：torch 必须 cu128+/cu130;老牌 CV 包 `--no-build-isolation`;**库主版本升级后旧调用约定逐处核对,能跑≠语义对**。
+- **P-8 DB 会话纪律（09-21 池楔死 P0）**：FastAPI yield 依赖**响应流完才 teardown**——大 payload 端点必须内存拼好字节后**显式 session.close() 再返回**;**异步长任务禁持 DB 会话跨 await**;PG 池已显式 20+20/pre_ping;诊断=pg_stat_activity 看 idle in transaction（基线 20 idle/0 楔死）+core venv py-spy。
+- **P-9 agent 工具纪律**：加工具同步四处断言（BUILTIN_ORDER/schemas/LEGACY_SYSTEM/test_agent_gen_tools）;服务抽出 import 必须别名防遮蔽;**成功文案首 60 字禁 hint 词**（"失败/超时/不可用/仅 R18/过于频繁/未知工具/不存在",错误路径反而要含）。
+- **P-10 kernels 0.16+ 信任门坑（09-22 实证）**：finegrained-fp8 类内核经 `kernels.get_kernel` 加载时要做 publisher 信任校验（org 概览 API)——**实例无 `HF_ENDPOINT` 会直连 huggingface.co 超时报 `runtime_cuda` 假缺包**;处置=unit 补 `Environment=HF_ENDPOINT=https://hf-mirror.com` drop-in（drop-in 目录是 `单元名.service.d/`,漏 `.service` 不生效)+`kernels>=0.16` 落 venv;烟测 480s 窗口外慢链别误读为缺陷。
+- **P-11 分页契约会把「静默吞错」放大成数据灾难（10-13 实证）**：S1 起 `/api/apps` 对 `limit>1000` 与未知 query 返回 **422**（不再是静默忽略）。任何「先拉全量 id 再去重」的辅助函数若把非 200 吞成空集，去重就形同失效——`_already_seeded_webapp_ids` 曾请求 `?limit=5000` 拿到 422 后返回 0 条（库内实有 5636），重跑会重复灌入约 6k 应用。**处置**：分页拉（`limit=1000&offset=`）+ **任何一页失败即 raise**，绝不返回空集当「库里没有」。同类风险自查：所有 `except → continue/return []` 的网络辅助函数。
+- **P-12 派生指标不能自证（10-13 三例）**：①用 `X-Total-Count` 验证上架是错的——admin 视图**不按 `is_public` 过滤**，发布前后都是 6731；改用 PG `count(*) FILTER (WHERE is_public)` 才看到 83→1810。②「重扫解锁 231 应用」出自调研报告，翻转矩阵实测**零变化**（blocked→blocked 3351、ok→ok 3380）。③civitai `/api/v1/images` 的 `baseModel` 过滤**完全失效**——`Flux.1 D`/`Pony`/`LTXV 2.3`/不传 四者返回同一批（首条 id 均 12097475、分布均 Flux.1 D 37/Illustrious 16/Pony 14），照文档写会把 Pony/Flux 提示词当 LTXV 2.3 配方上架；改用**真生效**的 `modelId=`（判据:items 自报 baseModel 与首条 id 都变了才算生效）。**处置**：任何「预期收益 N 条」的说法，落地前先做翻转矩阵/前后对照，别拿单向计数当增量；**任何过滤参数都要用「换个值看结果变不变」自证**——返回同一批就是被静默忽略（RunningHub `page`/`pageSize`/`searchValue`、civitai `baseModel` 同病）。
+- **P-13 「烟测通过」不等于「生产可用」——修复必须固化回存量图（10-13 实证）**：`combo_repair` 只在烟测路径跑（`routes/apps.py` 全文未调用它），而 `_finish` 只写 `smoke_status/smoke_error`、**不写 `workflow_json`**。于是「靠修复才通过」的应用存量图仍是坏的，用户真跑没有兜底 → 直接失败。实测：`smoke_status=pass` 共 1869 条，其中 **13 条** `smoke_error` 以 `[fixes:` 开头，且这 13 条**全部 `is_public=true`**，即已挂在市场上。**处置**：修复要以结构化 edits 回放到存量图后落库；**绝不能直接存运行图**——运行图是 `_build_graph` 的产物，里面已写进烟测 fixture 的提示词/种子/图片，存回去等于把测试数据固化进应用。任何一条 edit 回放不下去就整体不落库（半改的图比不改更难查：用户看到的失败会与烟测记录的 fixes 对不上）。**通用检查**：任何「探测/修复后重试」的机制，都要问一句「修复有没有写回持久层」，否则测的是修复后的图、跑的是修复前的图。
+- **P-14 「枚举全库得到 N 个名字」的结论会随数据增长过期（10-13 实证）**：RH shim 的签名证据取自当时 gap-scan 的 top-N（6 个类名），生产库从 8571 涨到 12829 后，全库重新枚举出 `RH_LLMAPI_NODE`**662 张图在用而 shim 完全没覆盖**，另有 `Runninghub Captioner` 这种同义异拼（真机烟测报 missing_node_type 才发现）。**处置**：凡「按名字清单实现兼容层」的活，动手前重新枚举一次全库；清单要按「语义族 + 正则」而不是「字面名 top-N」来定。
+- **P-15 装了文件 ≠ 生效：ComfyUI 自定义节点必须重启对应实例（10-13 实证）**：shim 文件已 rsync 到 :8195/:8264/:8197 三处目录，但只有重启过的 :8196 真正注册了类；应用被 `WanVideo*` 前缀路由到 :8197 时照报 `Node 'Runninghub Captioner' not found`。**处置**：多实例舰队的节点包变更要逐实例重启并逐个 `object_info/<class>` 核验，别拿「文件在盘上」当生效；重启前后各取一次节点总数，下降即回滚。
+- **P-16 `/object_info/<未知类名>` 返回 **HTTP 200 + 空对象**,状态码不能证明节点存在（10-13 实证,一轮内两次差点误判）**：实测 `curl :8196/object_info/totally-made-up-node` → `200`,body 为 `{}`(2 字节);真存在的类返回 `200` + `{"类名":…}`(670+ 字节)。**判据只能取 body 的键集合**(`name in json.loads(raw)`)或全量 `/object_info` 的键数,`-w %{http_code}` 一律作废。踩坑经过:先用状态码得出「ttN 已注册」→ 差点把真缺陷判成非问题;改用 body 键名后证实 ttN **确实没注册**,修掉该 pack 的 config.ini 后 :8196 节点数 5269→5311(+42)、56 个应用引用的 6 种 ttN 类全部满足。**同类风险**:任何「拿 2xx 当存在性」的探测(REST 列表接口返空数组 ≠ 查询失败,也可能 ≠ 资源存在)。
+- **P-17 上架类操作先查该 id 是否落在「启动期不变量清单」里（10-13 实证,我记了一笔假收益）**：`app_content_modes.SFW_NSFW_TWINS` 把 9 对卡定成同卡双形态,`MERGE_HIDE_IDS = SFW_NSFW_TWINS.values()`,而 `seed_builtin_apps` 每次启动都执行 `if row.is_public: row.is_public = False`(`app_seed.py:1334-1335`)强制软隐藏 R18 孪生卡——公开面是 **SFW 父卡**,runner 在 R18 上下文切孪生图。我对孪生卡调 bulk-public,当场看到 public 1873→1877 就记成「上架 4 条」,api 一重启(15:40)不变量把它改回 false。**系统没错,是我违反设计**;9 张父卡本来就 `is_public=true 且 smoke=pass`,收益自始至终是 0。**通用处置**：任何「运营态写入」(上架/下架/精选)在执行前先确认该 id 是否被某个启动期 reconcile 拥有;判断收益要用「稳定态口径」(父卡公开且 pass),不能用接口返回的 done 数或改后瞬时计数。同类风险见 P-13/P-12。
+- **P-18 在 core 手跑 `app.*` 代码必须显式带 `TOIV_DATABASE_URL`,否则静默回落废弃 SQLite（10-13 实证,一个错测量让我连错两次结论）**：生产 DB 地址只在 systemd 进程环境里（core 上 `/home/merlin/toiv/api/.env` 不存在），`app.db` 缺 env 时回落到 §五 已判废的 `toiv.db`。实测:同一函数 `reconcile_interrupted_smokes()` 手跑打印 `0`,同刻 PG `select … where smoke_status='running'` 却返回 2 行；从 `/proc/<api pid>/environ` 取 URL 重跑同一函数 → `reconcile returned: 2`,PG 里 running 归零。**我先前提交的「pkill 留下 3 条 running 孤儿已修」和随后撤回的「reconcile 失效」,两条都建立在这次 SQLite 回落上——函数一直是对的,错的是我的测量。** 处置:任何直连生产库的运维脚本/探针第一步断言 `engine.url.get_backend_name() == "postgresql"` 否则 raise；结论一律用 `psql` 复核（§五 口径）。
+- **P-18b `app` 表没有任何「烟测开始时刻」,running 是 in-flight 还是孤儿不能从行本身判定（10-13 实证）**：`smoke_at` 只在完成时写,`updated_at` 定义是 `Field(default_factory=_now)`（`models.py:387`）**无 onupdate**——所以「`updated_at == created_at`」只说明没人显式改过该字段,**不证明这行没被 UPDATE 过**,别拿它当新鲜度。判定只能靠外部证据:该 id 在不在活跃 id 清单里 + API `ActiveEnterTimestamp` + `:8196 /queue` 现况。要根治得加 `smoke_started_at` 列,那是生产 PG schema 变更,须用户拍板后再动。
+- **P-19 前端注释里的「这个端点不用鉴权」必须实测,别信注释（10-14 全面 UI 测试实证）**:`lib/opentalking.ts` 的 `otGetStatus` 用裸 `fetch` 打 `/api/opentalking/status`,注释明写「/status 无需鉴权(后端 ot_status 未加 Depends)」——**假的**:后端 `routes/opentalking.py` 的 `ot_status` 带 `Depends(get_current_user)`(且注释说明理由:不匿名暴露内部引擎/tts 指纹)。后果:浏览器里该请求恒 **401**,数字人页把「引擎离线」显示成登录类错误,排查方向被带偏。实测口径:`无 token→401 / 带 token→200 {"enabled":true,"reachable":false}`。**处置**:所有走 canvas/FastAPI 的探活一律经带 `authHeaders()` 的统一封装(此处 `otFetch`);已加 3 例防回归测试,其中一例**直接断言后端源码含 `Depends(get_current_user)`**,让注释再撒谎时测试先红。
+- **P-20 SPA 挂在 /studio 子路径下时,硬编 `/api/...` 必 404（10-14 实证）**:`pages/canvas/project.tsx` 的 EventSource 写死 `/api/canvas-projects/{id}/events`,而 canvas-api 在 web 入口的前缀是 **`/studio/api`**(`apiBaseURL`,由 `VITE_CANVAS_BACKEND_URL`/`configureApiRuntime` 决定)。裸 `/api` 被 Next 转给 FastAPI(:8090)→ 恒 404,且 `isLocalWorkspaceMode()` 恒 true 挡不住。**通用判据**:任何绕过 `http`/`apiBaseURL` 自己拼 URL 的请求(fetch/EventSource/img src/window.open)在子路径部署下都是雷;新增此类调用必须用 `apiBaseURL`。
+- **P-21 浏览器里判「碎图」不能用 `complete && naturalWidth===0`（10-14 自纠,差点误报 8 个缺陷）**:`loading="lazy"` 的图在视口外时该表达式为真,但资源本身完全正常——实测对 6 张「碎图」逐个 `fetch(i.src)` 全是 **200**。正确判据:①先滚动到目标区域再测;②或对候选图 `fetch` 取状态码;③过滤掉 `loading==="lazy" && !inViewport` 的样本。反向教训:**我自己写的新页面确实有真碎图**(音频/未知类型产物被塞进 `<img>`),假阳性与真缺陷混在一次扫描里,只靠肉眼看截图会两个都漏。
+- **P-22 永久失败(401/403)不能被当成「还没起来」去轮询（10-14 实证,一次会话刷出 3,877 条 403）**：canvas 助手在 web 入口(:3100/studio 经 Next 代理)下 `/studio/api/assistant/ui-session` 恒 403(后端 `isLoopbackRequest` 要求 Host 是回环地址,见 `agent_ops.go:279`——这是**永久**失败,不是启动中)。而 `use-canvas-assistant.ts` 的 catch 在 warmup 窗口内把任何异常一律置 `reason:"host_starting"` → `starting` 恒真 → 每秒 1 次快档轮询,一小时近 4000 条 403 + 控制台刷屏,UI 还长期显示「助手正在启动…」骗人。**处置**:给 403 打可判定标记(`isAgentUiForbidden`)→ 置 `reason:"forbidden"` 终态并**清掉定时器**,文案说真话且不给「重试」按钮(重试必然再 403)。**测量口径教训**:判断是否在轮询要看**时间轴增量**(等 25s 再数,`growth` 必须为 0),不能看单次绝对计数——我一度把「每次挂载各打一次」的 8/30 误读成仍在轮询。同类风险自查:任何 `catch → 设成"启动中/重试中"` 的分支,都要先问「这个错误有重试成功的可能吗」。
+- **P-23 「Web 代理让 Host 变非回环」的诊断是错的——Next rewrite 会把 Host 改写成目标,真正拦人的是 Origin 同源分支（10-14 实证修复）**：生产取证:经 `:3100/studio/api/*`(Next beforeFiles→127.0.0.1:8290)打到 canvas 后端的请求 **Host 是回环的**(`GET /assistant/status` 无 Origin 直接过=铁证),Next 只保留 `X-Forwarded-Host`。403 真因=浏览器 `Origin:http://192.168.71.47:3100` 与 Host(127.0.0.1:8290)永不同源,又不在 `BEEFTV_ALLOWED_ORIGINS`(只配了 wineryz/TS-IP)。**修复**(`6807b531`):新增 `CANVAS_OPS_TRUSTED_ORIGINS`(精确 http/https Origin,归一化协议+主机+端口,默认端口省略,拒绝通配/路径/查询/碎片/用户信息,非法条目跳过);`isTrustedOpsSource` 统一准入=回环沿用原语义,非回环 Host 需「可信 Origin 精确匹配+回环 RemoteAddr」双条件,未配置不放开;拒绝时 `ops_source_denied` 日志(方法/路径/Host/Origin/远端,无凭据)。core env 已配 `CANVAS_OPS_TRUSTED_ORIGINS=http://192.168.71.47:3100,http://100.77.80.100:3100,https://toiv.wineryz.top`。**同类教训**:「代理改了哪个头」必须用无副作用探针实证(GET 无 Origin 的 200/403 一发定 Host),别按直觉改判断顺序。
+
+
+## 七、当前焦点（活口径摘要）
+
+### 2026-10-14（ToIV开发：技术栈演进方案 v2——白皮书×真机×OSS 调研仓三源合并，纯文档零部署）
+- **输入与真源**：①用户白皮书《ToIV 2026 本地 AIGC 综合创作平台技术选型白皮书》v1.0（~/Downloads，10 分册）②**用户 OSS 调研仓 `~/Desktop/ALLProject/Ai-OSS-Reference`（SURVEY.md 186KB：A 批 49 条目/B 批 61 仓/C 批 522 仓/D 批 4003 审查保留 988 克隆，共 637 条，含逐仓 LICENSE 留档——后续一切引入动作以它为第一真源）**③AGENTS 活口径④V5 计划⑤当日真机核实。方案真源 `docs/ops/TECH_STACK_PLAN_20261014.md` **v2**（§2 差距矩阵/§2.8 OSS 引入矩阵/§3 四主轴/§4 T0–T10 波次/§7 决策点/§8 红线/§9 风险）。
+- **用户拍板落账（本版生效依据）**：「任何功能都应该放开」→ **D3 训练栈全档解禁**（推翻 V5 §15「不做自研模型训练/微调」对应条；L0–L3 全开，**L4 全参仍单独立项**）、**D4 SkyReels-V2-DF 对照 A/B 开跑**（换默认仍需 A/B 后另行拍板，10-07 splice2 保护）。范围澄清：UGC/多租户/公开运营等运营边界不在本次解禁范围。
+- **当日真机核实**：workstation=**4×RTX PRO 6000 Blackwell 96GB**、spark02=**GB10 DGX Spark**——白皮书硬件假设就是现网，零采购可落地。GPU 实测：GPU0 13.9G（:8196+:8197+IndexTTS **三服务共卡=W8 吞吐瓶颈物理根源**）/GPU1 78.7G（H3#2+**qwen3-embedding 落 GPU1 此前未登记卡位**，`nemotron-venv` 进程名误导，37G 偏肥可调）/GPU2 62.1G/GPU3 47.8G（**~48G 闲置=T1/T3 落点**）；RAM 154/183G 高位。PG：total 14304/public **2156**/pass **2161**/未测 **11115**/running **3**（战役在跑，T1 重启须等窗口）。**opentalking `reachable:false` 实测复现（数字人引擎离线，T0-3 修）**。
+- **核心裁定（v2）**：白皮书栈约 2/3 已在产；v1 五大缺口（评测门禁/预览档/GPU 槽位/音频数字人/编排原则）在调研仓全部找到开源答案——①评测三层化：**laya/nimble System-1 决策头**（33ms 校准概率，SURVEY §5 标 P0）+pyiqa 无参考 IQA+:9311 VLM；②预览双介质：视频 TI2V-5B+TTS **pocket-tts（CPU+ComfyUI 节点）**；③TTS 三档体系（IndexTTS 终渲不动/GPT-SoVITS 音色资产/对照池 Qwen3-TTS·OmniVoice·voicebox）；④数字人对照池 3→6 件（+**InfiniteTalk 无限长口播**/LatentSync/EchoMimicV2/OpenAvatarChat，全部许可干净）；⑤**「MCP server+ComfyUI 节点+CLI」三件套定为新能力交付规范**（调研结构性结论，MCP 端点收敛 agent-host 不改控制面）；⑥技能包对齐 **agentskills 规范**别自创；⑦**hyperframes（61.2K★ Apache）HTML→视频**=第四种镜头类型（字幕/片头/海报卡，中文排版痛点直消）。新增三波：**T-P** Pixelle-Video 沙箱评估（Apache，默认借鉴不挂池）、**T-H** HTML 渲染通道、**T-S** 技能规范对齐+短剧 skill 首批（shuohao/shanyin×2/OnlyShot/video-shotcraft/brag/GPT-Image2-Skill，全 Apache/MIT）。T6 转正执行（SkyReels 对照+Wan LoRA+图像 LoRA+scene_asset 场景一致性试点）。**否决**：换 LLM 大脑（DSv4 无审查 R18 刚需）、容器化/K8s、LangGraph 重写。**红线新增**：去 AI 水印能力永久禁用（remove-ai-watermarks）、**AGPL 167 仓+未声明许可 431 仓不并码**（引入仅限 Apache/MIT/BSD，引入前逐仓读 LICENSE）、换脸仅自有素材、不做整片 HTML 化。
+- **[v3 增补（同日）用户新增功能指令：世界模型交互探索 WorldWalk**（「走进 AI 生成的世界自由探索」）——调研真源 `docs/ops/WORLD_MODEL_INTERACTIVE_RESEARCH_20261014.md`：闭源标杆 Genie 3（24fps 实时导航，2026-01 Google Labs 公测）/Oasis 3（<40ms，API）/World Labs Marble→World API→Atlas；**开源可本地池**：HY-WorldPlay（720p@24fps 流式视频扩散，长程几何一致，NOASSERTION）、**HelixWorld（Apache，实时音视双模——「向前走或转身，画面和声音一起更新」，BF16 单卡 ~70G 恰配 96GB 卡）**、HY-World 2.0 三系（WorldMirror 前馈重建/HY-Pano 全景/WorldStereo 世界扩展）、WorldCrafter/VerseCrafter（相机控制预演，VerseCrafter 带 Blender 插件）、LingBot-World v2、AMD Micro-World。**双路线裁定**：B「生成→3D 重建→浏览器漫游」先行（零常驻 GPU、闭环短剧选景：漫游选机位→回写分镜 JSON `world_camera`→出关键帧参考图）；A「神经流式」做体验旗舰（**HelixWorld 首发沙箱**=Apache 最干净）；C 混合终态（WorldStereo 边界扩展）。新增 **T-W 波**（W0 选型沙箱→W1 B-MVP→W2 A-PoC 专用窗独占一卡→W3 混合）。**纠错**：utopia（8.3K★）自称 world model 实为 Rust 知识图谱/RAG 系统，移出世界模型线。边界：漫游=预演档成片仍走 DiT；R18 世界只进经典面；交付守三件套（`world.build`/`world.walk`/`world.camera`）。
+- **[终态增补（同日）用户拍板「都尝试做成功能」+ 索要执行提示词**：T-W2 改为**三件全做**（HelixWorld/HY-WorldPlay 实时漫游沙箱分时独占一卡夜窗轮换 + Echo-WM 走现成 ComfyUI 节点接舰队做 Action DSL 预演+四流音频，统一 `world.walk` 接口），取消淘汰制（方案 T-W2 已改）。**自包含执行提示词成文** `docs/ops/TECH_STACK_EXEC_PROMPT_20261014.md`（十节：角色授权/必读真源/基线快照/T0–T10+T-W 波次执行卡/14 条铁律/每批收口六步/三类上报/红线清单/北极星/第一步引导——任意 AI 会话粘贴即用，同 `toiv-cluster/PROMPT.md` 模式）。
+- Status：`tech_stack_plan_v3_2026_10_14`（STATE 同键，v1/v2 已并入）+ `tech_stack_exec_prompt_v1_2026_10_14`；via ToIV 开发（自主执行）。
+
+### 2026-10-14（ToIV开发：canvas 助手/文档 Ops Web 入口 403 根修 + 助手渠道凭据换轨,已部署+验收）
+- **403 根修**（`6807b531`,core 已换装 canvas-api-pg 重启,验收全过）：根因与 P-23（见 §六）——**不是**「Host 非回环」（Next beforeFiles 会把 Host 改写成 127.0.0.1:8290），是浏览器 Origin 与 Host 永不同源且不在旧 `BEEFTV_ALLOWED_ORIGINS`。实现：`CANVAS_OPS_TRUSTED_ORIGINS` 精确可信 Origin + `isTrustedOpsSource` 统一准入（回环原语义/非回环需 Origin 精确匹配+回环 RemoteAddr/未配置不放开）+ `ops_source_denied` 拒绝日志 + `hostOpsURL` 非回环 Host 回退本机监听（防宿主子进程回调被指向前端代理）。`/ops/clients` 与 `requireOwner` 维持仅回环。测试 22 例矩阵+路由级三态+日志断言,handler 包全绿（`TestSaveAdminChannelModelRejectsActiveDuplicateKey` 失败为 HEAD 存量,stash 实证）。**生产验收**：ui-session 200(toivLogin)、history/sessions 200 真实轮次、`ops/canvas.search` 200、真实对话回合 `reply:"收到"`(firstToken 978ms)、**文档 Ops 端到端**（助手 `canvas.get`+`canvas.nodes.create` 16ms,revision 1→2）、伪造 Host/Origin 对被新分支 403 且日志在 journal、非可信 Origin 仍 403、REST PUT 同内容回写 200(revision 7→8)。P-22 的前端 `isAgentUiForbidden` 缓解保留作双保险。
+- **连带发现并换轨（渠道凭据,预存缺陷非本修复引入）**：助手宿主实际打 `http://127.0.0.1:8090/api/llm/v1`+**已过期 ToIV JWT**（10-06 gate 供给的 7 天期 token,gate 已退役无人续期 → 401 model_request_failed,桌面端同中招）。经 `/workspace/model-config` API(revision 88→89)把 `toiv-llm` 渠道 BaseURL 换回 gate 模板自有的 **spark02 直连 `http://192.168.71.84:8000/v1`（免鉴权,无过期面）**；备份 `local-model-config.json.bak-20261014-llmchannel`、二进制备份 `canvas-api-pg.bak-20261014-403fix`、env 备份 `canvas-api.env.bak-20261014-403fix`。core env 追加 `CANVAS_OPS_TRUSTED_ORIGINS=http://192.168.71.47:3100,http://100.77.80.100:3100,https://toiv.wineryz.top`。
+- Status：`canvas_web_entry_403_fixed_2026_10_14`（STATE 同键）。via ToIV 开发（自主执行）。
+- **toiv-cluster skill（`deb8f7e3` 起，终态=全明文）**：集群远程连接/凭据/API 手册沉淀为可移植 skill——`skills/toiv-cluster/`（SKILL.md+connections/credentials/api+install.sh，符号链接装入 `~/.agents/skills/`，其他设备 clone 后一条命令启用，git pull 即更新）。内容=AGENTS §一~§五 摘要+10-14 实测口径（登录扁平响应/systemctl --user 需 XDG_RUNTIME_DIR/canvas 三层鉴权链/Next 改写 Host 等）。**凭据口径两度反转,终局=用户拍板(10-14):「不涉及生产场景(仅本地自用),全部明文提交」**——credentials.md 恢复全明文(与 AGENTS §二 同口径,curl 例同)。⚠️ 提醒在案:github 仓公开可读,admin 登录经 wineryz 公网可达;若日后转公开运营须先轮换全部凭据+清历史。
+
+### 2026-10-13（ToIV开发：V5 方案 + W0 收口 + W8 RunningHub 全量本地化 + W9 civitai 溯源）
+- **用户新增指令**：「把 RunningHub 所有能本地部署的应用都拉进项目使用；civitai.red 上 R18 相关内容可学习参考；后续无需询问，自主往下进行」。自主边界自守三类仍主动报：新雷级缺陷、需推翻既有拍板（R18 A/B/C、c_hybrid 默认路线）、不可逆/高影响操作（删数据目录、force push、生产 PG schema 变更）。
+- **V5 方案**：`docs/ops/PLATFORM_V5_PLAN_20261013.md`（18 节，功能条目级）。三轨调研=商业 13 家 + 开源语料再挖与 39 仓新克隆（github+gitee，纯本地学习用途）+ 代码级盘点；§2.2 20 行差距表三源互证；波次 W0–W9；§14 决策点；§15 明确不做；§17 双轨执行序 + 六条自守约束。
+- **W0 收口**：①三端「全绿」基线恢复——api **4215 collected / 全量 exit=0 / 38 skip**、web **1166 全绿**、canvas **tsc 0 错 + shared 2682 pass/2 skip/0 fail**；②W0-3 拼接规格归一（活雷）——ffmpeg concat demuxer + `-c copy` 混规格**静默丢尾段音轨而 `probe_duration` 照报满时长**，新增 `probe_media_spec`/`spec_diff_fields`/`normalize_clip`/`concat_parts_uniform`（只转码不一致分段），15 例单测；③W0-2 内层冗余 `key={pathname}` 已摘，外层 key **保留待回归**。
+- **口径纠正（重要，别再传错）**：`f8633401` 是 react-router **从 `^8.2.0` 降级并钉死 `7.9.5`**（`apps/canvas/web/package.json:74` 无 caret；`bun.lock:2210` 与 `node_modules` 均已核），**不是升级 8.4.0**；提交信息本身自证「已证与 router 版本无关」。另：「默认横屏低清是活缺陷」也错——`models.py:655-657` `STUDIO_DEFAULT_WIDTH=768/HEIGHT=1344/FPS=24`，v2 Studio 主路径已是竖屏，768×384@16 只在已死的 legacy Drama 域（重划 W5-7）。`services/toiv/client.ts` 是**刻意的第二数据面**（裸 JSON + ToIV JWT），共享 `http` 会解包 `{code,data,msg,reason}` 从而破坏它 → 已白名单登记为第二个 axios 实例根，不迁。
+- **W8 RunningHub**：批B 全量分类完成（65031 候选/64831 处理/3964s → **ok 5960**、blocked 27029、not_exportable 31781、export_failed 58）；批0 复活 pass-but-hidden **1727** 条 → `is_public` **83→1810**；批C-1 导入 **1717**（app 表 6854→8571），批C-2 进行中（`is_public` 一律 False）；批E 原语字面量内联 + `resolve_required_nodes` + LLM 补丁绑定守卫（`3f3450ad`，真机 smoke PASS 实证 243.9s 出片）；批D-2 节点包归因用 ComfyUI-Manager **`extension-node-map.json`**（5705 repo/42491 类名）反查 642 缺失类名 → pack_resolved 305/1202 应用次、pack_stale 46/311、ambiguous 52/157、rh_cloud 47/587、unresolved 189/763，装包计划 160 包（Top：WanAnimatePlus 174 判为**更新**、nunchaku 127、Fluxtapoz 87、ttN 56、LCS 52）。
+- **W9 civitai**：认定 **civitai.red 是 civitai 官方备用域**（站点自报 `serverDomains`：green=civitai.com、blue=civitai.red+civitaired.com，同后端/同库/同 R2）；本机 civitai.com 被 DNS 污染而 .red 可达；`/api/v1/model-versions/by-hash/{sha256}` = 溯源神谕。P0-1 完成：9 个 H3 R18 LoRA → **8 条解析成功**（含 modelId/creator/许可四旗标），`MODEL_SOURCES` ok **479→487**、blocked 336→337、total **816→825**，core 快照逐字节同步。P0-2 修 `h3.py:53` 悬空引用（civitai 2841940 已下架 → 标 `provenance_lost`）。**边界**：只做元数据层，不下载权重、不注册账号、不绕登录墙/付费墙；涉及未成年一律绝对禁区；R18 资产只进经典 web R18 面，绝不进 `/studio`（canvas 纯 SFW）。
+- **三次判断反转（都已入账，别再按旧结论走）**：①RHHiddenNodes 清空 `UNLOCALIZABLE_NODES` 错（shim 签名 `image_1` required，而 RH 图用 `images_1`/`num_frames_2` → 78/283 假阳性 ok），但一刀切排除也错（PG 实证 **451** 个生产应用在用、其中 **6** 条 `is_public=true` 且 `smoke_status=pass`）→ 终局**标注不排除**（`KNOWN_RISKY_NODES`/`risk_nodes`），可部署性以 smoke 为裁判；②调研报告「重扫解锁 231 应用」**假**（翻转矩阵零变化），真价值只是清掉伪造的 unlocalizable 标签；③模型解析 v1 **不可信**（hf-mirror 间歇 SSL EOF 被 `except→continue` 吞成 `not_found`，「hf_only 39」全是假象）→ v2 加重试 + 独立 `unresolved_transport` 态，Top150 修正为 civitai 6/not_found 105/transport 39，旧产物留 `model_resolution_v1_flawed.jsonl`。另：civitai 报告「H3 零配方」也**假**——`community_recipes.py` 有 9 条其中 6 条 H3，只有 LTXV 2.3 真是零 → P1-3 重划。
+- **开口**：上架闸（先导批 pass 率 ≥60% 才放量，**不得跳过 smoke 直接 bulk-public**）；装包 160 个待 ComfyUI 重启窗口（烟测跑动期间禁重启，:8188 曾因此瞬时 503；nunchaku 需 sm_120 内核见 P-7，风险高于纯 python 工具包）；`deploy/comfy-extensions/toiv_rh_shims` 是 09-15 的 38 行旧件，只实现 RHHiddenNodes 且签名与真实图不符 → 451 应用受影响，扩展方向已定（**ComfyUI 侧 shim 优于 api 侧预解析**：RH_Translator 实证签名 `seed`/`prompt`/`advanced_options`→STRING 有三种接线，字面量/表单绑定/运行时连线，api 侧只能处理字面量，且 `_build_graph` 是同步热路径不宜塞网络调用）；W0-1b `asset-view-scope.browser.test.ts` 5 例既有红灯（定向 `git stash` 实证 HEAD 既存，非本批引入）。
+- Status：`v5_plan_w0_test_debt_2026_10_13` + `w8_rh_full_local_import_2026_10_13` + `w9_civitai_provenance_2026_10_13`（STATE 同三键）。via ToIV 开发（自主执行）。
+
+### 2026-10-11（ToIV开发：桌面同版本构建收口+LAN 验证口径；四判据 4/4）
+- **背景**：S1–S14 主线已全部走完（tip `797b0d97` 双远端，详叙 `docs/ops/UNIFIED_PLATFORM_EXECUTION_20261010.md` 各批✅）；本轮补齐四判据第 4 项并固化 LAN 口径。
+- **桌面**：`apps/canvas/scripts/build-toiv-desktop.sh` 实跑成功——`ToIV.app` 418MB（`top.wineryz.toiv` v1.7.7；agent-host=Node 24.15.0+冻结依赖树入 `Resources/agent-host`；toiv-h3 插件包入 `Resources/plugin-packages`）；无头冒烟 `--toiv-smoke=` **ok=true**（backend/agentHost 2.5s/assistantWarm/loginPage 全过）。**环境钉子**：wails CLI v2.16.0 已装 `~/go/bin`（GOPROXY=goproxy.cn）；agent-host 打包**需 bun≥1.4**（`agent-host/bun.lock`=lockfileVersion 2，全局 1.2.17 与 CI 钉的 1.3.9 均解不了）+`BEEFTV_NODE_RUNTIME`=Node 24.15.0 官方目录（npmmirror 拉，脚本严校验版本+otool）；临时件 `/var/tmp/bun143`、`/var/tmp/node-v24.15.0-darwin-arm64`（tmp 三日清，重建按来源再拉）。
+- **口径**：用户已回局域网——验证优先 LAN 直连（见五节）；wineryz 退为外网/发布回归口径。
+- Status：`desktop_build_lan_caliber_2026_10_11`（STATE 同键）；开口仅剩：12 视图渐进迁移、token 统一（归 P4 随退役）、R18 翻案通道（A 可逆）。via ToIV 开发（自主执行）。
+
+### 2026-10-11（ToIV开发：W2.0 FL2VA 链路闭环 + S2/W1.5 任务枢纽，已部署）
+- **W2.0（挂账 0.2 终局）**：`rh-acc-5759833090` 烟测**六轮实弹排查后 PASS**（223.8s 真出片）。修链：①api 撤 H3 FL2VA 反向别名 `ea1d4914`（10-10 别名把 RH 合规名改写成 NAS 名，被命名守卫拒——**E-3 三连实证**）；②workstation RH 节点三处 resolve 泄名补丁（`components/_impl.py`×2 + `api/_shared.py`×1，备份 `*.bak-20261011`，**不在仓库**）；③**NAS pruned 别名路线整体弃用**——pruned=曲线表变体与 release config 不配、NAS VAE 多两键，已从 `_full_bak_20261010` 恢复本地全量四件套（34G+5.2G+0.6G，盘余 4.7T 充裕）。`907f5f85`/`h3_missing_trusted_identity` 核销。教训：社区 pruned/重转换权重过不了 RH 严格校验，audit 的「功能等价」≠「可替换」。
+- **S2/W1.5 任务中心枢纽 `c74c65c2`（已部署）**：三源时间线（ToIV 作业+画布 GenerationTask+智能体 agent-runs）+来源/状态筛选+活跃任务 30s 自动轮询；吸收 OPT_BACKLOG「统一时间线」项。
+- **S2 顺带**：`b1b13e78` 补 `onAddLocalGenerator` 转发，canvas `tsc --noEmit` 全绿（预存债清）。
+- Status：`h3_fl2va_smoke_pass`；STATE `h3_fl2va_chain_closed_2026_10_11`；下一批 W2.1 分镜自动化 + S2/W1.3-1.4。via ToIV 开发（自主执行）。
+
+### 2026-10-11（ToIV开发：v2 统一平台 S1/P0 地基，已部署+验证）
+- **背景**：用户拍板走方案 B（canvas 唯一壳收敛式重构，S1–S14）；总纲 `docs/ops/UNIFIED_PLATFORM_PLAN_20261010.md`、排期 `UNIFIED_PLATFORM_EXECUTION_20261010.md`、契约 `PLATFORM_V2_CONTRACT.md`。调研=13 商业产品+12 开源（克隆 `tmp/research-oss-20261010/`，Toonflow/ViMax/AI-NovelFlow 深读）。
+- **S1 交付（api `1a6da2d8`+canvas `8dfdb45a`+docs `da0c8b97`，01:32 CST 部署）**：①`/api/apps` limit/offset 实装+`X-Total-Count`+未知 query 422（此前静默忽略，`?limit=500` 实返 6731 全量 7MB）；②canvas 市场页服务端分页 200/页+加载更多；③`/api/auth/login` 对 admin 直发 `toiv_session` cookie（与 exchange 同格式，canvas-api 零改动；exchange 保留兼容读，P4 移除）；④CORS 暴露 `X-Total-Count`；⑤契约文档冻结（实体复用映射/node_mapping 工作流模板/分镜 JSON/状态机/工件指纹规范）。
+- **生产实证（wineryz）**：set-cookie 属性全对；`?limit=3`→3 行+total 6731；`?offset=3` 翻页对；`?lim=1`→422；无 limit 全量兼容；market-page chunk 含分页 UI；服务全 active。测试 10 新增全绿（2 失败 stash 实证=预存基线）。
+- **口径修正**：`toiv_gate.go` 是活码（desktop 嵌入模板）不删；真清的是 core 孤儿 `serve.mjs`(:8271，10-05 起，已 kill)；IDOR `1816f320` md5 实证**早已在生产**。新债：canvas `tsc --noEmit` 预存失败（project.tsx:3097，部署走 vite 不阻塞）→ P1 顺带修。
+- Status：`s1_p0_foundations_deployed`；STATE 同键；下一批 S2（canvas 六段工作区骨架）。via ToIV 开发（自主执行）。
+
+### 2026-10-10（项目管家：similar-merge P1 A/B + 市场 RH 重上架 + H3 token 刷新，均已部署）
+- **tip**：main 三端齐=`f8cfb4e4`。生产：api `d69ee564`（H3 FL2VA RH 名→NAS pruned 别名 Slice A；ActiveEnter 04:35:41）；web BUILD `ae5e294b`（含 Slice B `385be368` 文案/导航；ActiveEnter 04:47:19）；canvas `385be368`。**仍等用户硬刷验**「工具箱」「本地·」文案（headless 只能证服务端含新代码，证不了本地旧 chunk）。
+- **市场 RH 重上架**：public=83（smoke pass 82）；非 RH/测挂 soft-hide；RH reimport deferred（无精确 basename）；RH keep 79 齐。
+- **H3**：service-token 06:20 自动刷新 PASS（revision 50→51，exp→2026-10-17 06:20）；FL2VA 真出片复测仍开口（E-3，待 GO）。
+- **文档债批（本条）**：MODEL_SOURCES backfill `SenseVoiceSmall`（**审计/TEST_LOG 曾记 ok479 实从未提交**，`git log -S SenseVoice` 全史为零；现 ok479/total816 两份 json+md 齐，core 已同步）；RH 审计证据迁 `docs/ops/rh_basename_nas_audit_20261010.md`；AGENTS §7/§8 补账+LB 单后端真机口径修正；DRAMA_UI_PLAN 雨夜整集 C 过期项核销；主工作树自 `qoder/flash-next`（已落后 6，纯祖先）切 main。
+- Status：`docs_debt_batch_2026_10_10`；STATE 同键；`updated_at` 2026-10-10T13:10:00+08:00。via 项目管家（ToIV开发）。
+
+### 2026-10-09（ToIV 开发：desktop command_guard 品牌 `2483c74d`，未部署）
+- **tip**：origin/github/本地 main=`2483c74d`（分支 `feat/canvas-desktop-guard-brand-toiv`）。**未部署**；生产 c-chains 仍 404。
+- **范围**：`command_guard.go` 两处用户可见报错 BeefTV→ToIV；CLI 名仍 `beeftv`；`wails.json` author.name→ToIV；`go test ./cmd/desktop/` 通过。未动数据目录/BeefTV.app/MCP 协议。
+- Status：`canvas_desktop_guard_brand_toiv_merged_undeployed`；闸不开。via ToIV 开发。
+
+### 2026-10-09（项目管家：storage-keys 已合 `0b038325`）
+- **tip**：origin/github/本地 main=`0b038325`（merge：canvas storage keys beeftv→toiv，含 `6d25357f`）。**未部署**；生产 c-chains 仍 404。
+- **存储键**：已合；旧键可读、写新键。
+- Status：`canvas_storage_keys_toiv_merged_undeployed`；闸不开。via 项目管家（ToIV开发）。
+
+### 2026-10-09（项目管家：storage-keys 分支 `6d25357f` 未合）
+- **tip**：origin/本地 main=`001f3fc2`（其上 CSS/文案已合）。**未部署**；生产 c-chains 仍 404。
+- **存储键**：`feat/canvas-storage-keys-toiv` tip=`6d25357f`（localStorage/queryKey `beeftv-*`→`toiv-*`，旧键可读、写新键）；**未合 main**、未部署。
+- Status：`canvas_storage_keys_toiv_tip_unmerged`；闸不开。via 项目管家（BeefTV）。
+
+### 2026-10-09（ToIV 开发：CSS 前缀合入 `3f41ee07`，未部署）
+- **tip**：origin/本地 main=`3f41ee07`（merge `6a519cc1`）。GitHub 若滞后另报。**未部署**；生产 c-chains 仍 404。
+- **范围**：`apps/canvas/web` 类名/keyframes/`toiv-local-overrides.css`；home-dashboard/loader/globals；bun test 5 passed。
+- Status：`canvas_css_prefix_toiv_merged_undeployed`；闸不开。via ToIV 开发。
+
+### 2026-10-09（项目管家：产品文案合入 `12499686`，未部署）
+- **tip**：origin/github/本地 main=`12499686`（merge `f8ac0794`）。**未部署**；生产 c-chains 仍 404。
+- **范围**：仅 4 处可见文案/下载名去 BeefTV；MCP/CLI 协议 id 仍 `beeftv`。
+- Status：`canvas_product_copy_toiv_merged_undeployed`；闸不开。via 项目管家（ToIV 开发/BeefTV）。
+
+### 2026-10-09（项目管家：产品文案分支 `f8ac0794` 未合）
+- **tip**：origin/github/本地 main=`a1f23092`。**未部署**；生产 c-chains 仍 404。
+- **文案**：`feat/canvas-product-copy-toiv` tip=`f8ac0794`（本地启动提示/智能体 CLI 说明等可见文案去 BeefTV）；MCP/CLI 服务名仍 `beeftv`；**未合 main**、未部署。
+- Status：`canvas_product_copy_toiv_tip_unmerged`；闸不开。via 项目管家（BeefTV）。
+
+### 2026-10-09（项目管家：preload 单测合入 `6134c2ef`，未部署）
+- **tip**：origin/github/本地 main=`6134c2ef`（merge `9cce3ed0`）。**未部署**；生产 c-chains 仍 404。
+- **测**：`bun test` 3 passed；只拆 `c-chains.ts` 纯模块，缺 localforage 跳过；未改同步 render/部署。
+- Status：`canvas_test_preload_optional_merged_undeployed`；闸不开。via 项目管家（ToIV 开发/BeefTV）。
+
+### 2026-10-09（项目管家：preload 单测分支 `9cce3ed0` 未合）
+- **tip**：origin/github/本地 main=`feac0433`。**未部署**；生产 c-chains 仍 404。
+- **单测**：`feat/canvas-test-preload-optional` tip=`9cce3ed0`（抽出纯模块，缺 localforage 也能跑，3 passed）；**未合 main**、未部署。
+- Status：`canvas_test_preload_optional_tip_unmerged`；闸不开。via 项目管家（BeefTV）。
+
+### 2026-10-09（项目管家：pick-append 合入 `a68a9fe8`，未部署）
+- **tip**：origin/github/本地 main=`a68a9fe8`（no-ff merge `d7537c61`）。**未部署**；生产 c-chains 仍 404。
+- **范围**：仅 apps/canvas 短剧详情+类型（链尾候选改选+续段）；取消仍顶层 job_id；同步 render 未改。
+- **测**：客户端单测缺 localforage 未跑通；静态审过。
+- Status：`canvas_pick_append_merged_undeployed`；闸不开。via 项目管家（ToIV 开发/BeefTV）。
+
+### 2026-10-09（ToIV 开发：拒旧网页+UA 品牌 `f5865a30`，未部署）
+- **tip**：origin/github/本地 main=`f5865a30`（其上 docs `14f5f585` / 守卫合入 `c4f68adf`）。**未部署**。
+- **deploy**：`assert_web_build_matches_head`——BUILD_ID 短 sha 必须= `git rev-parse --short HEAD`；`--skip-web` 不查；`ALLOW_STALE_WEB=1` 警告绕过。旧 BUILD_ID `20261007-194448-7ce69c7f-dirty` 已手工核验会拒。
+- **UA**：`channel-headers-editor.tsx` DEFAULT_USER_AGENT→`ToIV/1.0 (+https://github.com/zhwangsir/ToIV)`；未改 beeftv.plugin / beeftv-* CSS / BeefAPI / LICENSE / Go outbound UA。
+- Status：`deploy_stale_web_ua_brand_undeployed`；STATE `deploy_stale_web_ua_brand_2026_10_09`；闸不开。via ToIV 开发。
+
+### 2026-10-09（项目管家：画布守卫合入 `c4f68adf`，未部署）
+- **tip**：Gitee/本地 main=`c4f68adf`（merge `43a51ce5`）；其上含 docs `4575aaa9`、失败单测 `da2dd223`。**未部署**；生产 c-chains 仍 404。
+- **GitHub**：仍=`da2dd223`（443，待补推；禁强推）。
+- **守卫**：空分镜/非 makeup 在 POST 前拒；**已合 main**。
+- Status：`pipeline_c_c_chains_guards_merged_gitee_only_undeployed`；STATE 同键已更新；闸不开。via 项目管家（ToIV 开发/BeefTV/设备）。
+
+### 2026-10-09（项目管家：c-chains 失败单测 `da2dd223`，未部署）
+- **tip**：origin/github/本地 main=`da2dd223`。**未部署**；生产 c-chains 仍 404。
+- **单测**：非 makeup→422、空 segments、缺 prompt、创建后立即 cancel 停后台、`job_id`=DB Job.id；整文件 11 passed；不真跑 H3。
+- **画布守卫**：`feat/canvas-c-chains-client-guards` tip=`43a51ce5`（两端已推）；空分镜/非 makeup 在 POST 前拒，3 passed；**未合 main**、未部署。
+- Status：`pipeline_c_c_chains_failtests_undeployed`；STATE 同键已更新；闸不开。via 项目管家（ToIV 开发/BeefTV）。
+
+### 2026-10-09（项目管家：画布 c-chains 已合 main `72dcbe7e`，未部署）
+- **tip**：origin/github/本地 main=`72dcbe7e`（merge `fd108457`）。**未部署**；生产 c-chains 仍 404。
+- **画布**：短剧详情「管线C」仅 makeup；取消顶层 DB `job_id`；同步 render 未动。**已合 main**。
+- Status：`pipeline_c_c_chains_merged_undeployed`；STATE 同键已更新；闸不开。via 项目管家（ToIV 开发）。
+
+### 2026-10-09（项目管家：c-chains `cd1ae748`，未部署）
+- **tip**：origin/github/本地 main=`cd1ae748`。**未部署**；生产 `POST /api/studio/c-chains` 现 404。
+- **API**：`POST /api/studio/c-chains`→202；顶层 `job_id`=DB Job.id；取消 `/api/jobs/{id}/cancel`；首版仅 `start.type=makeup`；33 passed。同步 render / `wait=false` 未改。
+- **画布**：`feat/canvas-c-chains-client` tip=`fd108457`（两端分支已推），短剧详情「管线C」仅 makeup；**未合 main**、未部署。
+- Status：`pipeline_c_c_chains_tip_undeployed`；STATE `pipeline_c_c_chains_2026_10_09`；闸不开。via 项目管家（ToIV 开发/BeefTV/设备）。
+
+### 2026-10-09（项目管家：管线 C 阶段 B `6959868b`，未部署）
+- **tip**：origin/github/本地 main=`6959868b`。**未部署**（生产 API 仍 10-08 进程）。
+- **阶段 B**：`wait=false` 立即回顶层 DB Job.id；默认 `wait=true` 同步未改；28 passed。未开 c-chains 全量。
+- **契约**：取消走 `/api/jobs/{id}/cancel` 只用顶层 DB id；嵌套 `job_id` 可能仍是 Comfy `prompt_id`。画布默认可暂不改编排。
+- Status：`pipeline_c_stage_b_tip_undeployed`；STATE `pipeline_c_stage_b_2026_10_09`；闸不开。via 项目管家（ToIV 开发/BeefTV/设备）。
+
+### 2026-10-09（项目管家：管线 C 阶段 A `3c7a3eb4`，未部署）
+- **tip**：Gitee/本地=`3c7a3eb4`；GitHub 仍=`5a8fa423`（443，未强推）。**未部署**。
+- **阶段 A**：`queue_prompt` 后登记 DB Job + spawn_tracker；HTTP 仍同步等片。真异步 `c-chains` 未做。
+- **其上**：`b08f97b9` 任务页→`/api/jobs`；H3 草案已拆 `minimax-h3-r2v` / `minimax-h3-pipeline-c`（`f454bf12`）。盘面≠出片。
+- Status：`pipeline_c_stage_a_gitee_only_undeployed`；STATE `pipeline_c_stage_a_2026_10_09`；闸不开。via 项目管家（ToIV 开发）。
+
+### 2026-10-09（项目管家：任务中心 `/api/jobs` + H3 草案 `5a8fa423`，未部署）
+- **tip**：origin/github/本地 main=`5a8fa423`（其上 `b08f97b9` 任务页改接 `/api/jobs`+可取消；`5a8fa423`=`model_registry_draft.json` 盘面草案）。**未部署**；生产 toiv-api 仍 10-08 03:43 起那次。
+- **任务页**：改读 `/api/jobs`；`fetchAgentRuns` 仍在，仅对话侧。合入≠线上已换。
+- **管线 C（只读核，无代码）**：Studio 默认同步等片；返回 `job_id`=Comfy `prompt_id`，不建 DB Job；无 `c-chains`。阶段 A 计划：queue 后登记 Job、HTTP 仍等片；真异步另开。
+- **H3 盘面**：NAS `h3/` fl2va/ref2va pruned≈21GB；`:8264` 本机 32GB FL2VA≠NAS pruned。登记须拆：T2V/多镜 fl2va+nvfp4；画布 R2V ref2va+nvfp4；管线 C ref2va+int8。草案里 bundling 待拆。盘面≠出片；成人向权重≠进 `/studio`。
+- Status：`jobs_task_center_h3_registry_draft_undeployed`；STATE 同名键；闸不开。via 项目管家（ToIV 开发/BeefTV/设备/模型下载）。
+
+### 2026-10-09（项目管家：画布 UI 融合 `e1672b8f`，未部署）
+- **tip**：origin(Gitee)/github/本地 main 均核=`e1672b8f`（`fix(canvas): ToIV 创作页改用画布组件`）。**未部署** core。
+- **范围**：登录后画布内「ToIV 创作」五页（短剧/对话/市场/作品库/任务）收进画布组件；品牌只写 ToIV；抽屉仍画布原壳；成人向留经典界面，不进 `/studio`；管理员闸未开；不另开分支。
+- **设备**：Workstation 出片；LLM=两台 Spark vLLM TP2 :8000，对外 `deepseek-v4-flash-dspark`（别名同进程）；不调度到 workstation。
+- **不合/待删**：坏隔离 `8c03b366`/`9e2e204f`；截断刷新 `30386e18`/`c6dfe4d6`；旧 PuLID `44561d09`；旧色板 `fdbd82d5`（清 `toiv_wt_palette` 工作树后再删本地分支）。
+- Status：`canvas_ui_fusion_tip_undeployed`；STATE `canvas_ui_fusion_2026_10_09`；`updated_at` 2026-10-09T07:15:00+08:00。via 项目管家（ToIV 开发）。
+
+### 2026-10-09（项目管家：分支合入 `3d95a41f`，未部署）
+- **tip**：origin(Gitee)/github/本地 main 均核=`3d95a41f`（README 同 tip）。**未部署** core；线上构建号仍可能是 `20261007-194448-7ce69c7f-dirty`，与 tip 分记。
+- **已合**：H3 令牌刷新 r3；古风色板 fb10；帽兜门禁；用户隔离 `44e1162f`（默认关，需密钥+`STUDIO_MULTITENANT=1`）；出站端口白名单 `6fe5d190`；JSON 方言查询 `2858d94c`；参数错误短句 `c74df3a6`。相关 Go 测过；staging 未跑真实刷新/多租户。**桌面主机白名单** tip `63dd8080`（`toiv_gate`/`CANVAS_OUTBOUND_HOST_ALLOWLIST`；自定义渠道未套；未部署）。**摸底 2026-10-09**：Job 列表隔离到位，images/dub 缺强 owner 可串数据（IDOR）；Python owner 强制已合 tip `1816f320`（56 passed；未开闸、未部署）。
+- **未合**：r2；坏掉的多租户枝；旧色板 `fdbd82d5`；2026-06 PuLID。
+- **官网**：合入 `a105720b` 已在更早 main；静态落地未登录 `/`；不调模型。
+- Status：`branch_integrate_main_tip_undeployed`；STATE `branch_integrate_2026_10_09`；`updated_at` 2026-10-09T06:30:00+08:00。via 项目管家（ToIV 开发）。
+
+### 2026-10-07（项目管家：c_hybrid 线终局拍板 + 全自主工程收口）
+- **拍板**：用户目检四镜拼片对比（c_hybrid 方案D 54.70s vs splice2）后结论「作为长视频效果一般，短视频生成+首尾帧拼接效果更好」→ **c_hybrid（H3 多镜头连续生成路线）不换默认；雨夜成片维持 splice2，生产零变更**。A/B 归档：c_hybrid 一致性达标（同脸/同衣/同帽，face 0.949/0.951）但亮度/实拍感不及拼接路线；门禁体系保留（已并入设定卡线）。expr_3 按建议 C 入账（认可现状先交付）。
+- **本波全部交付**（详见 DRAMA_UI_PLAN 各条）：M4 八件全齐（PG 单实例/gate 切流/JWT 直验 Phase A+B/单仓 apps/canvas/统一 CI 首绿/deploy.sh --canvas-only/Phase C gate 全面退役）+ C6 全部自主部分（PWA 基础件/安装横幅/更新提示 v1→v3 实证/移动端专注模式/小程序壳 web-view+校验文件路由+构建门禁）+ 抓修生产隐患 wechat_dev_bypass true→false（任意 code 换 JWT）。ToIV main tip `baa96ca9` 双远端。
+- **开口（全部用户侧）**：小程序四步（注册 AppID→.env 73/74 行+manifest→业务域名/request 域名→微信工具送审，产物 dist/build/mp-weixin 与校验文件路由 deploy/mp-verify/ 均已备妥）。
+- Status：`chybrid_closed_prod_trunk_stable`；STATE `m4_3_gate_cutover_2026_10_06`（含全部波次字段）；`updated_at` 2026-10-07T12:16:00+08:00。via 项目管家（ToIV 开发）。
+
+### 2026-10-06（项目管家：UI 融合 M4-3 gate 切流单实例上线）
+- **拍板回溯**：UI_FUSION_PLAN M4 第三项（gate 切指单实例→双写校验→切默认流量）按既定方案自主执行，无新决策点。
+- **交付**：① 统一二进制（PG 支持 + M6a gate identity 从 beeftv-m6a 工作树并回 main，裸请求 401 实证）；② typed-import 终版 `tmp/m43/mig4.py`（空 schema 先启动建 69 类型化表→停机按 information_schema 列类型灌 f659 sqlite，127 行/69 表全等；text 直迁在启动路径连环炸不可复制）；③ serve.mjs 单实例模式（`GATE_SINGLE_BACKEND/GATE_SINGLE_UID/GATE_SINGLE_DATA_DIR` 三 env，回滚=删三行重启 gate）；④ 修 M4-2 env 笔误（`CANVAS_DATA_DIR`→`CANVAS_BACKEND_DATA_DIR`，单实例此前跑 /home/merlin/data 已清理；状态文件 local-model-config.json/.settings-key/pi-agent/sessions/workspace/skill-packages 整体搬迁）。运维日志 `docs/ops/DRAMA_UI_PLAN.md` 末条。
+- **生产**：/studio 全量流量走 gate(:8281)→canvas-api-pg(:8290, PG schema=canvas)；实弹全绿（登录链/画布列表返回用户当日 2 项目/写路径 PUT+DELETE 落 PG 软删正确/h3 通道同步 h3Channels 1/助手预热/公网 302/401 行为正常）；canvas-api-pg.service 已 enable；per-user f659 单元停用、sqlite 冻结为回滚快照。
+- **开口**：M4-4 Phase C（gate 全面退役：静态迁 Next+auth 职责移交，待真浏览器复验 Phase B 直连）；统一 CI（canvas 自有 workflows 因嵌套失效）；deploy.sh 一条命令（部署合一）；C6 全平台（PWA/深链）；真浏览器终验（用户侧）；四镜拼片对比。Phase B 直连已上线（cookie 兜底+第四信任源+SPA Bearer+Next rewrite，回滚=next.config 删条重建）；**单仓合并已完成（apps/canvas，ToIV-canvas 仓已归档）**。
+- Status：`m4_3_gate_cutover`；STATE 同名；`updated_at` 2026-10-06T22:45:00+08:00。via 项目管家（ToIV 开发）。
+
+### 2026-10-06（项目管家：角色资产协议 v1 落地并上 core）
+- **拍板**：用户按 `docs/ops/CHARACTER_ASSET_PROTOCOL.md` 放行——D1 协议产品级/D2 展示卡/D3 存量回填执行、**D4 两张编辑底图重做分开走舰队批次**（重做完经 refresh 端点记版本级联）。
+- **交付（四波，全上 core）**：①api `a3fde180`——`character_asset.py`（L2：锚点/色板/覆盖/口型系列/版本溯源/锁定+展示卡渲染+M2 variant/补拍 builder，文件态 `char_asset_*.json`/`char_card_*.png`）+5 端点+生成链钩子；②web `c32baff8`——CharacterAssetPanel（锚点行编辑/色板/覆盖缺口 chip/补拍计划/展示卡/版本溯源）；③M2 实跑 `946e840b`——style_variants 入 schema+PUT，林夏→写实（majicMIX 0.68）/水墨（flux2 0.72）生产 img2img 生成并登记；④变体展示 `2e020824`——面板变体卡网格。测试 api 12 绿/web 4 绿，**均与 HEAD 基线零新增失败**（53/104、5 例预存环境性失败勿记本线账）。
+- **生产核验**：林夏（803fb69b=1224 案主角）D3 回填 v1+5 正典锚点+负向约束+两变体+展示卡（三迭代视觉过，底部空带 345→150px）；coverage-plan 3 job；web BUILD_ID `20261006-120515-nogit`（四文件精确 scp，**避让并行会话 BeefTV 在途未提交改动**）。
+- **口径沉淀**：/api/images 的 sig 只免归属校验、认证 token 仍必需；:8196 无 WAI Illustrious（水墨走 flux2）；img2img 异步 prompt_id 模式取回走 jobs lookup `results` 字段；TS 大流量黑洞 rsync 走 core-jump 双跳。
+- **归属与开口**：**D4 编辑底图重做=并行会话持有**（base_expr_* mtime 2026-10-06 16:51 佐证，本线不碰防 P-5）；M3 per-character LoRA 后置；功能说明 `docs/CHARACTER_ASSET_GUIDE.md`。
+- Status：`character_asset_protocol_m1_m2_executed`；STATE 同名；`updated_at` 2026-10-06T20:40:00+08:00。via 项目管家（ToIV 开发）。
+
+### 2026-10-05（项目管家：设定卡 1224 结案 + 全设备 TS 普查）
+- **设定卡**：嘴部放大复判 `c78f4542` 端到端验证过（mz_real_0600 回归 + 1224 局实弹 a0/a3 正拒）；1224 局 fallback 根因=**编辑底图缺陷**（base_expr_2 嘴微张小 O / base_expr_3 底部灰带+构图 top=0 vs 锁定格 0.117）——**重做两张编辑底待父拍板**，换 seed 无效。
+- **c_hybrid 对比克隆 8f652c7d 仍 HOLD**：06:08 参考门禁终稿**双候选 PASS**（front s0c3 face 0.949 / side s0c1 face 0.951 四问全过）；首帧方案 A/B 待拍板 → `hoodup_storyboard.py --variant A|B --apply` → 解 HOLD 续跑镜2入库+镜3+成片。
+- **设备普查（真机核实）**：openclaw02/03/04 whisper:9310/JoyCaption:9305 经 TS 全 OPEN（旧僵死记录撤销）；pc01 offline 1 天、TS IP 变 100.86.169.64；WS :8264=H3 worker#2（GPU1 UUID 8a63d89c，10-03 替换 :8261）；LB 池仅 gpu0 单后端；:8197 已自愈 UP；NAS 445 经 TS 通；cloud TS 仍僵死（走公网）。
+- **主干**：main 三端 tip=`6d2f38ff`；core `character_sheet.py` md5 `eded9b43` 与本地一致；docs/ops 日志已补齐未提交。
+- Status：`sheet_1224_closed_device_audit_2026_10_05`；STATE 同名；`updated_at` 2026-10-05T14:05:00+08:00。via 项目管家（ToIV 开发）。
+
+### 2026-09-23（项目管家：助手门户 cinematic 空态）
+- 在线空态去场景宫格与最近作品轨；仅 Fraunces 问候 + portal composer + ambient/入场；离线 alert+OFFLINE chips 保留；`@` SKILL_ENTRIES 不变。
+- **产品 tip `cdac9e4`**（含先前 docs tip `41c08d1`）；origin/github/本地 main 已齐。
+- **部署**：web 已上 **core-ts**；BUILD_ID=`20260923-101036-nogit`（覆盖 `20260923-100246-nogit`）；api/web health 200。
+- **主干**：仍仅 **main**。
+- Status：`assistant_portal_cinematic_empty_deployed`；STATE `assistant_portal_cinematic_empty_2026_09_23`；`updated_at` 2026-09-23T18:15:00+08:00。via 项目管家（ToIV 开发）。
+
+### 2026-09-23（项目管家：助手 P0 禁跳转+chips+任务回会话）
+- **P0.1**：`runner` 原则 19 + `navigate_view`/`prefill_generate` 工具描述收紧为逃逸出口；Agent Team L0 ack「请在对话智能体里直接完成」。
+- **P0.2**：`SKILL_ENTRIES` 改为对话 prompt chips（作品库仍 navigate）；@ 面板同语义。
+- **P0.3**：composer「任务」开抽屉/左侧「最近任务」；「在对话里继续」预填；`/agent-runs` 深链保留。未嵌入完整 Agent Team UI。
+- **部署**：P0 web+api 已上 **core-ts**（100.77.80.100）；api health 200；web BUILD_ID 曾=`20260923-100246-nogit`（现网已由 cinematic `20260923-101036-nogit` 覆盖；更早 IA `20260923-092729-nogit`）；web health 200。
+- **远端**：origin(Gitee)/github/本地 main tip=`cf2c10d`（已齐）。
+- **主干**：仍仅 **main**。
+- Status：`assistant_p0_deployed_core`；STATE `assistant_p0_chat_agent_2026_09_23`；`updated_at` 2026-09-23T18:05:00+08:00。via 项目管家（ToIV 开发）。
+
+### 2026-09-23（项目管家：对话=智能体 IA）
+- **产品 tip `b65cef4`** 已双推 Gitee+GitHub main（上一 tip `75f96fa` 之上 +1）。
+- **IA**：侧栏唯一「智能体」= home 对话面；`/agent-runs` 降为「任务」深链（更多抽屉 + composer），不再与对话并排第二入口。
+- **部署**：web→core **已完成**；现网 BUILD_ID 以 cinematic 空态部署为准（`20260923-101036-nogit`，覆盖 P0 `20260923-100246-nogit`）。
+- **主干**：仍仅 **main**。
+- Status：`web_agent_chat_ia_deployed`；STATE `web_agent_chat_ia_2026_09_23`；`updated_at` 2026-09-23T18:05:00+08:00。via 项目管家（ToIV 开发）。
+
+### 2026-09-23（项目管家：Admin wave6 已上 main+core）
+- **产品主干**：仍仅 **main**；管理系统深化继续在 main（勿再开产品 feature 枝）。
+- **交付 `256264f`**：`GET /api/admin/closeout-summary`（公开烟测分布/软隐藏/封面闸）；`POST /api/admin/apps/bulk-public`（批量 soft-hide/上架）；admin 概览「收尾运营」卡 + 应用管理筛选/批量；`docs/ADMIN_WAVE6_20260923.md`；单测 1 绿。
+- **生产**：api+admin 已 deploy 到 core-ts（:8090/:3200 就绪）。
+- **远端**：origin(Gitee) main tip=`256264f`（含 docs tip `fd41f2b`）；github/main 仍 `858d3c9`（443 不通，待补推）。
+- Status：`admin_wave6_on_main_core`；STATE `admin_wave6_closeout_ops_2026_09_23`；`updated_at` 2026-09-23T14:22:00+08:00。via 项目管家（ToIV 开发）。
+
+### 2026-09-23（项目管家：产品主干仅 main）
+- **用户拍板**：不再多开产品分支；对比后融合。产品主干 = **仅 main**；后续管理系统深化也在 main 上做；**勿再记** `feat/app-guides-admin-cms`。
+- **已执行**：`feat/app-guides-admin-cms`（含 `1292bb5` 封面闸 + Admin 五批 + 助手 A1–A4）已合入 main @ `858d3c9`；融合点 `858d3c9`；其后 docs `fd41f2b` + Admin wave6 `256264f` 已在 **origin(Gitee) main**；github/main 仍停 `858d3c9` 待补推。
+- **枝清理**：远端删 `feat/app-guides-admin-cms`、`feat/mp-library-kinds`；本地空枝删 ace-step / mp-engine-catchup / mp-library-kinds / mobile-uniapp-only。
+- **保留**：`claude/jovial-fermi-*` 漫剧 7 提交待挑合（落后约 718，**不整支硬并**）。
+- **未进 main**：本地 stash 仍有 MODEL_SOURCES+AGENTS wip（`stash@{0}` on 旧 feat）；勿误 pop 进主干。
+- Status：`product_trunk_main_only`；STATE `product_trunk_main_only_2026_09_23`；`updated_at` 2026-09-23T14:06:00+08:00。via 项目管家（ToIV 开发）。
+
+
+### 2026-09-23（项目管家：992313 终测 FAIL；封面闸假忙已修）
+- **`rh-acc-9923136513-48997d` idle-window 最终 smoke = FAIL**：`runtime_cuda` / finegrained-fp8 **`kernels` 版本冲突**（现要求 `0.15.2≤v<0.16.0`，舰队 `0.16.2`；:8196 restart+trust_ok 复测仍 FAIL）；测时 cover_gate **已解锁**且队列空闲（非闸阻塞）。转设备侧核接单 worker 的 kernels/HF_ENDPOINT/trust 落点。 复测后定为版本区间冲突，**设备管家在裁处**。
+- **封面闸假忙死锁已修并部署**：产品 `1292bb5`（`sum_queue_depth(force=)`）已上 core；生产 `TOIV_COVER_AUTOREFIRE=false`；gated=false / depth=0（tip 口径）；轮询例程已删。
+- **分支口径**（已被同日下午主干融合取代）：曾记产品仍 `feat/app-guides-admin-cms` 未合 main；**现已合入 main @ `858d3c9`，主干仅 main**（见上节）。
+- Status：`idle_window_fail_runtime_cuda_kernels`；STATE `rh_acc_992313_fail_cover_gate_fix_2026_09_23`；`updated_at` 2026-09-23T05:49:00+08:00。via 项目管家（ToIV 开发）。
+
+### 2026-09-22（项目管家：model_sources core 已 live；992313 封面闸暂缓）
+- **`model_sources.json` + `app_test_matrix/` 生产已齐**（ToIV 开发；via 项目管家）：真源布局 core 扁平 `/home/merlin/toiv/api/app/data/`（非 `…/apps/api/…`）；`model_sources.json` 本地与 core md5 一致 `6aeded7b82dbe3f02bd23e060a3bdf01`（500960B；ok478/blocked336/total815；updated_at 2026-09-18）；`app_test_matrix/` 五文件 size/mtime 与本地一致（Sep 22 02:53）；本轮 **无需再 scp/restart**（已 live）。第八节「需重拷」本轮可核销。
+- **`rh-acc-9923136513` 空闲窗终测暂缓**：`/api/observability` cover_gate 仍 `gated=true`（queue_depth 13 > guard 12），pending≈4461，autorefire running；业务队列 queued/running=0。等封面闸松开或设备侧 drain 后再终测。
+- **分支口径**（历史）：当时产品仍 `feat/app-guides-admin-cms` @ `b30806d` 超前 main；**2026-09-23 已合入 main，主干仅 main**。
+- Status：`already_live_verified`；STATE `model_sources_core_sync_2026_09_22`；`updated_at` 2026-09-22T21:05:00+08:00。via 项目管家（ToIV 开发）。
+
+
+### 基线（2026-09-22 收尾后核）
+- **测试**：api **3336** / web **1031** / **admin 12** / e2e **13/13 全绿**（agents-ui 三例已按新架构重写：优化对照卡+管理系统打 :3200）；分支 **main**（原 `feat/app-guides-admin-cms` 已于 2026-09-23 合入；**勿 stage `.regen_tmp`/`dogfood-output`**）。
+- **生产**：见五节；web BUILD_ID `20260922-014516-nogit`；admin deploy-admin.sh 固化版部署（:3200）。
+- **目录**：应用 **6773 总/5061 公开/5558 rh-acc**，use_case 打标全覆盖；说明卡 550/550；作品库 72 件（44 件折 18 变体文件夹）。
+
+### 批 1 已交付（2026-09-22，三件套全绿+真机验证）
+1. **作品库文件夹整组删除 P0**：文件夹卡 hover 操作组+批量整组点选+确认 Modal（状态分布/进行中排除/画板静默移除）+「全部撤销」；纯函数 `folderTerminalMembers`/`folderStatusSummary`；三处「不做整组删除」翻案；新增 4 组 jest+e2e 1 例（生产真删真撤销 69→69）。
+2. **助手 A0 快赢**：移动端 CTA fusion→home（真机 iPhone 验证）；popup 快捷键提示分端；`AgentRunStyles.tsx` 空文件物理删除。
+3. **Admin 审计筛选键点号化**：21 个真实动作+中文标签，筛「删除作品」50 行命中。
+
+### 批 2 已交付（2026-09-22，全绿+真机验证）
+1. **助手 A1 工具卡片**：后端五工具 ok 事件结构化 payload（`ok_tool_event`，runner 透传，LLM 文本不变；方案「协议零改动」实勘证伪→最小协议增量）；前端 `toolcards/` registry 7 名→6 族卡，chip 回退；「应用到输入框」回填 composer 真机验证；page.tsx 两处 onNavigate 改 `handleFusionNavigate`（修 `market?app=` 深链）。
+2. **Admin P0 设备域+D3 说明书批量+P1 作业队列**：假活角标+服务健康三卡（whisper 4/4、LB 2/2（新 `/system/comfy-backends` 代理）、GPU 冒烟）；说明书批量面板（550 全量+单飞批量生成+发布+回填）；作业队列子页（all=1+属主透出+行内五操作 admin 旁路+回收站）。**根修**：smoke_admin 四处 audit 漏 commit（生产四类审计 0 条实证）+boards 删除审计。
+3. **文件夹 P1**：`POST /api/jobs/bulk-delete`+`deleteJobsSmart` >20 切端点（抛错回退）；板列表卡删除入口。
+
+### 批 3 已交付（2026-09-22，全绿+真机验证）
+1. **助手 A2 信息架构**：SideRail 智能体入口；agent-runs 详情「在对话中继续」（一次性草稿通道 `lib/assistantDraft.ts`）；会话 fork 入 UI（`convStore.fork` server 端点/local 兜底）。e2e 三例（rail/分叉置顶/继续回填）。
+2. **Admin P1 内容运营**（AppsManager 232→1273 行）：新建/导入两阶段/preflight/封面上传/删除/批量精选；apm-toast 自包含。后端 `_OUTPUT_KINDS` 补 3d 双处。
+3. **P2 卫生项**：变体分组排系统 kind（`SYSTEM_KIND_PREFIXES`）；回收站「全部恢复」。
+
+### 批 4 已交付（2026-09-22，全绿+真机验证）
+1. **助手 A3 组件工程化**：`AssistantView.tsx` **3614→1635 行**——拆 MessageList(551)/Composer(278)/PortalEmpty(153)/SessionDrawer(226) 四新组件+styled-jsx 1150 行外迁 `app/styles/assistant-view.css`（零 hex，56 token 全核实）；数据层留主壳+re-export 保原导入路径（6 测试零迁移）；13 个测试文件源码断言重指（字符串零变更）；lazy Modal 约束随 SessionDrawer 迁移保留；全量 1021 绿+e2e 三 spec 过+生产构建过，**行为零变化**（av- 类名集合机器 diff 为空）。
+2. **Admin D2 模型资产域**（AdminView 第六子页「模型资产」，四 tab）：本地清单（类目 chips+nsfw/vpred 徽标+搜索）；模型百科（type/q 过滤+行内展开详情+Civitai 富化 Modal 180s 长请求）；引擎注册表只读+手动重探测；MODEL_SOURCES 只读视图（新 `GET /api/admin/model-sources`：476/336/812 三卡+status 筛选+搜索）。**部署口径**：docs/MODEL_SOURCES.json 快照入 `apps/api/app/data/model_sources.json`（docs 不在 rsync 范围；后续更新需同步重拷）。
+3. **Admin D6 实测矩阵实装**：占位页→`GET /api/admin/test-matrix`（新端点读 `app/data/app_test_matrix/` 快照——`.regen_tmp` 不部署故拷入）；L0 五卡（550/550+输出分布）+fail 优先排序表；L2 四卡（24：pass 8/fail_product 15/fail_timeout 1）+24 行回执+candidates details 折叠。
+
+### 批 5 已交付（2026-09-22 收尾批，全绿+真机验证；四域方案五批全收口）
+1. **助手 A4 移动端**：AssistantOverlay 窄屏（≤767px）全屏 sheet 形态（顶部安全边距+把手下滑关闭 96px 阈值+`av-sheet-in` 滑入+reduced-motion 豁免；桌面 popup 一字未动——assistant-view.css 后至覆盖，assistant.css 零改）；⌘K 入口移动端可见化（「更多」抽屉首位「搜索」项→`setPaletteOpen(true)` 同一通道）；composer 工具行断点特化（44px token 化+页形态文档钮窄屏折叠 `av-composer-docs`）。7 组 jest，真机 iPhone viewport 验证（把手/面板 390×640/抽屉搜索开 cmdk）。
+2. **Admin D7 工程化**：`lib/api.ts` **5387→1224 行**（450 导出静态核+BFS 闭包删 338 零引用块；按域 9 文件+barrel，`@/lib/api` 导入零改动）；**admin 测试 0→1**（node:test harness 平移 web 模式，4 文件 12 例：apiErrorMessage 归一/封装 URL 契约/ACTION_LABELS 点号防回归/deploy 口径锁）；`deploy-admin.sh` 固化 core 本机构建口径（rsync 源码→core 全量 install→core build→restart，删 Mac 构建前置；已 dogfood 部署一次 23s 全程）。
+3. **D5 观测深化**：「图谱反查」入模型资产第五 tab（`GET /api/admin/knowledge-graph` entity+depth 查询，节点/边双表+种子徽标+出处外链）；观测服务健康区第四卡「封面队列闸」（api observability 聚合块 `cover_gate`：`plan_demo_targets` 复用拼装，闸 12/上限 3/批限 120 常量单一真源；生产实测 pending 4482 透出）。
+
+### 下一步（四域方案已全收口；新议题另立）
+- 总方案 `docs/EVOLUTION_PLAN_20260922.md` 五批全交付；开口项见第八节（运维现场项/卫生项/新议题）。
+
+### 关键拍板（长期有效）
+- **ToIV 仅本地自用/学习，不公开运营**——社区广场/UGC 合规搁置备档；hypit 平台级集成否决。
+- 09-21 交付：漫剧线 M1-M3+A1-A3+remix 全收口、RH SCALE3 8747 全 drain 新种 4524、P0 池楔死根修（fb7a69d）、whisper 四节点集群（ffd4939）。逐条叙事见归档。
+
+## 八、未完成任务总表（仅存开口项；已核销见归档/STATE.json）
+
+### 产品（批 5 收尾+开口项收尾后）
+- [x] ~~authed-agents-ui.spec 3 例陈旧重写~~（已按新架构重写：优化对照卡+管理系统两例打 :3200，6/6 绿）
+- [x] ~~A1 工具卡回放语义~~（payload 随 tool 消息落库 tool_calls JSON+messagesToChat 回放重建并入本轮气泡;中止轮不产空气泡守 W4;生产 reload 后卡仍在实证）
+- [x] ~~Comfy 二次编辑 save-back~~（`POST /api/apps/{id}/save-from-comfy`：读回 userdata→ui_to_api→指纹闸 409 防误覆盖+悬空绑定透出+审计;运行台 admin 门控「从画布存回」按钮）
+- [x] ~~MODEL_SOURCES / app_test_matrix 需重拷~~（**2026-09-22 核销**：core 真源 `/home/merlin/toiv/api/app/data/` 已 live；`model_sources.json` md5 `6aeded7b82dbe3f02bd23e060a3bdf01` tot ok478/blocked336/total815；`app_test_matrix/` 五文件 size/mtime 与本地一致；本轮无需再 scp/restart；STATE `model_sources_core_sync_2026_09_22`；**后续**若本地改 docs 快照仍需同步重拷）
+- [x] ~~H3 FL2VA 真出片+完成回写复测~~（**2026-10-11 六轮排查 PASS**：api 撤反向别名+RH 节点 resolve 泄名补丁×3+恢复本地全量四件套；烟测 223.8s 真出片；`907f5f85` 核销；STATE `h3_fl2va_chain_closed_2026_10_11`）
+- [ ] 非管理员视角市场复核（role=user 账号 4 个在产，密码哈希不可逆——需用户提供凭据或授权重置测试号）
+- [x] ~~`/api/apps` limit 未实现 + 画布市场不分页全量渲染~~（**2026-10-11 S1 已修并部署**：limit/offset+X-Total-Count+未知 query 422；市场 200/页+加载更多；wineryz 实证）
+- [x] ~~canvas `tsc --noEmit` 预存失败（project.tsx:3097 onAddLocalGenerator）~~（**2026-10-13 W0-1 已修**：`tsc --noEmit` 0 错，同时补 `onAddLocalGenerator` 转发；shared 批 2682 pass/2 skip/0 fail）
+- [ ] W0-1b canvas `asset-view-scope.browser.test.ts` 5 例既有红灯（定向 `git stash` 实证 HEAD 既存、非本批引入；其余 browser 套件全过故 harness 无问题；首症=reload 后 `getByRole("dialog")` 不出现，`__assetViewHarness` 由 Bun 插件注入故 `src/` 内搜不到）——建议与 W5-7 配对做系统化排障
+- [ ] W0-2 外层 pathname-key 摘除回归（内层冗余 key 已摘；摘外层前须补 drama↔library↔market↔tasks 往返 ×10 真机回归，PASS 才摘，FAIL 则保留并在注释写明防御性保留+回归日期）
+- [ ] AGENTS.md 自身体量违约：文件头声明「全文 <20KB」而实测 66KB——§七 焦点条目需按既有惯例归档到 `.archive/`（本批未动，避免与在跑批次抢同一文件）
+- [ ] Slice C（RH 重上架后续）触发条件待重定义：真缺口候选仅剩「经典 view 正文未渲染工具箱分组」与「0.3 非管理员可见性」两处，任一成立才开刀。**2026-10-13 前提已变**：W8 批B/批C 把 RH 全量分类（ok 5960）并导入 1717+ 条，「RH 重上架」这件事已由 W8 以更大规模接管，Slice C 若再开刀须先与 W8 上架闸对齐，避免两套上架口径
+- [ ] SeC 387721：einops reshape 错=SecNodes×torch2.13/sm_120 上游边界（已登记，flash-attn 关闭保留）
+
+### 设备/运维（现场或决策项）
+- [ ] openclaw02-04 + cloud tailscaled 恢复（**需现场**：`tailscale down && up` / `systemctl restart tailscaled`）
+- [ ] core BIOS 来电自启建议设置（断电后需人工确认）
+- [x] ~~决策点：cloud 遗留清理~~（2026-09-22 拍板执行：aigc-auth/deploy-flask/deploy-exo-proxy 三 docker 容器 `update --restart=no`+stop（镜像与 /root/aigc-auth、/opt/exo-proxy 目录保留可回滚）；ssh-fwd-22007~22012 死转发（指向陈旧 TS IP）stop+disable;frps/openresty/node-exporter 与双域实测 200 无恙）
+- [x] ~~决策点：OpenClaw×4 网关去留~~（2026-09-22 拍板执行：四节点 `ai.openclaw.gateway` LaunchAgent bootout+plist 改 `.disabled-20260922`（回滚=改名+load）;whisper :9310/JoyCaption :9305 四节点 LIVE 实测无恙,机器角色=whisper ASR 集群保留）
+- [ ] pc01 补装 kernels 0.16.x（其 SSH/TS 暂不可达;finegrained-fp8 节点若落 pc01 会撞版本闸,WS 已装妥）
+- [ ] ComfyUI LB 池单后端（pc01 :8188/:8198 自 10-05 失联，10-10 复测 :8188 经 TS 仍 CLOSED）——修 pc01 或撤池改 `backends.json`（§三口径已按 10-10 真机修正）
+- [ ] SenseVoice 接 `/api/nas/models`（权重已在 NAS `audio/SenseVoiceSmall` 936291369B sha256 833ca2dc…；ledger 已 backfill ok479；等下次 picker 盘扫）
+- [ ] H3 service-token exp 2026-10-17 06:20（自动刷新已 enable；届时留意一跳）
+- [ ] 旧 Admin JWT 吊销（HOLD，等设备侧执行）
+- [ ] rh-acc-9923136513-48997d(Z-Image 去 AI 感)：**2026-09-23 空闲窗终测 FAIL**（闸已开仍 FAIL）——报 finegrained-fp8 `kernels` 版本冲突（现要求 `0.15.2≤v<0.16.0`，舰队 `0.16.2`；:8196 restart+0.16.2 trust_ok 复测仍 FAIL）；疑接单 worker 未落到已装 kernels/`HF_ENDPOINT`/trust；先验「kernels 0.16.2 + fleet drop-in」未在本跑实证；**设备侧核 worker 落点后复测**；封面闸假忙 `1292bb5` 已部署、`TOIV_COVER_AUTOREFIRE=false`（产品侧闸项已清）
+- [x] ~~wave4 设备组残留核查~~（2026-09-22 真机核：Anything Everywhere3/easy sam3GetObjectMask/IPAdapter FaceID 节点族在位；H3 文本节点由 h3_like 前缀兜底覆盖非问题;「全局输入」全库无此节点名=误记;FaceID LoRA 原文件 Best_FaceID_v1.0 仍 blocked,等效 ip-adapter-faceid-plusv2_sd15/sdxl 已在位）
+- [ ] MODEL_SOURCES 持续追加（当前 **ok487/blocked337/total825**；2026-10-13 W9 P0-1 by-hash 溯源回填 9 条 H3 R18 LoRA——8 条 civitai 解析成功含 modelId/creator/许可四旗标、1 条上游已下架标 `provenance_lost`；core 快照 `apps/api/app/data/model_sources.json` 逐字节同步）
+- [x] ~~wave23 后空闲窗口补刀~~（超时/排队：残差 7 例中 6 例间歇期已由烟测管线翻盘 pass,1 例三测演进为真修（kernels 0.16.2 装妥）+长链超时留空闲窗口终测;QwenEdit fp4:r128 edit+r128 image 8steps 已落 NAS,r32 edit 已在库补登记,账对齐 478/336/815;封面余量=autorefire 深度闸自动跑,勿手动）
