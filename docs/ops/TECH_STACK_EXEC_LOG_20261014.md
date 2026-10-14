@@ -291,3 +291,14 @@
   盘点发现：z_image fp8_scaled 盘上 9-8 就有（z-image-turbo_fp8_scaled_KJ.safetensors），
   生产图却零引用=「盘上有≠产品在用」又一例；我起的重复下载已删。fp8 在 RH 导入图里已是事实
   标准（qwen_image_fp8 143 条在用等），缺口在自家 builtin builder 仍 bf16。
+
+## 批次 10(2026-10-15 晨):量化门判读 + 舰队滚动 + F9/F10/F11 收编 + P-11 形状门
+
+- **#22 门判读**:z-image bf16 vs fp8_scaled_KJ 同 seed A/B=**2.5x(124s→49.6s)/SSIM 0.8632 → draft-only**;样张 a_bf16.png/b_quant.png 肉眼复核=fp8 干净但语义漂移(背景/姿态不同),与 SSIM 一致。灰度落地=烟测路径 ckpt 字符串换权(`smoke_quant_ckpt_swap` 开关可回退),产品默认仍 bf16。
+- **#23 改判**:wan2.2 t2v 现网自 08-27 起**默认已是 fp8_scaled 双专家**(当时无同 seed 门)→ 补回顾门脚本 `scripts/ops/ab_wan_quant_gate.py`(A=现网 fp8 / B=fp16 原件,抽 t+2s 帧 SSIM);GGUF 变体判不取(Q8≈fp8 位宽无收益,Q4 画质换不存在的显存压力;且 GGUF loader 节点未装)。
+- **missing_node 173 普查**(PG smoke_error 全量重析):156 distinct 类键;主导簇=RH 云端节点(RH_LLMAPI_NODE 16 等,shim 范畴非装包)+ 陈旧错误 + 类键漂移(Text/FL Image Batch To Grid/Render NLF Poses)+ 少量真装包(WanAnimatePlus/Qwen-Image-DiffSynth/SCAIL alias)。
+- **零下载修复**:`toiv_classkey_aliases` 包(只加注册键不复制第三方代码;SCAIL 相对导入需合成包加载,首版静默失效已修,留仓 scripts/ops/toiv_classkey_aliases_init.py);克隆 WanAnimatePlus(Apache-2.0 核验)+ ComfyUI_Qwen-Image_new(Apache-2.0 核验)入 /opt 共享树;inspyrenet **PyPI 不存在**且节点包两树皆无 → 记开口(2 app),不冒险动 venv。
+- **舰队滚动踩坑**:①api 池=core env 直连 worker,**不经 LB** → backends.json 排水对 api 无效,战役 transport 失败 spike 即此;②nohup 脚本无 sudo → systemctl 拒;③:8196 长作业堵死事件循环,/queue 探针 25s 全超时(非死,是忙)。终态脚本 fleet_final:等 8265 ready → 双实例 sudo 重启 → P-15 双实例计数互核 + 9 目标键断言 → LB 恢复三后端。
+- **F9/F10/F11 收编提交**:F9 助手统一(命令面/浮层/分叉/web home 跳转壳 fail-safe)、F10 引擎台四缺口(正典技能 tab/视图预设/超分入口/3D 工具位;GET /api/skills 不存在→静态镜像+注释标 P-14 过期风险)、F11 媒体库台词检索面(admin 门禁+P-11 形状门+浮层预览;F11_GAP 八项记录)。
+- **P-11 形状门**:canvas 作业列表两处「非数组 200→静默空集」改抛错+回归断言。
+- **#24 提交**:tiers 单一数据源(h3 实测档过滤 recommended=false/无倍率档;wan/qwen 静态参考禁编造数字)+ studio/渲染体 accel 透传 + 剧本工作区 Select 默认满血。
