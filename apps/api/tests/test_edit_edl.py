@@ -71,3 +71,10 @@ def test_validate_pad_out_of_window_reported_but_clamped_at_render():
     kinds = {i["kind"] for i in edl_mod.validate_edl(e, {"t": SPANS_SRC})}
     assert "pad_out_of_window" in kinds
     assert edl_mod.materialize_range(r, SPANS)[0] == 1.7 - edl_mod.PAD_MAX
+
+
+def test_speechless_source_has_no_word_constraints():
+    """纯音乐/空镜素材没有要保护的词边界:切边一律 clean,不被剪规拦死。"""
+    assert edl_mod.classify_edge(1.23, []) == ("clean", 0.0)
+    e = Edl(sources={"m": "music.mp4"}, ranges=[EdlRange(source="m", start=1.23, end=4.56)])
+    assert edl_mod.validate_edl(e, {"m": []}) == []

@@ -56,7 +56,12 @@ def word_spans(words: list[dict]) -> list[tuple[float, float]]:
 
 
 def classify_edge(edge: float, spans: list[tuple[float, float]]) -> tuple[str, float]:
-    """切边落在哪：('midword',0) / ('clean'|'usable'|'unsafe', 所在静音窗宽度)。"""
+    """切边落在哪：('midword',0) / ('clean'|'usable'|'unsafe', 所在静音窗宽度)。
+
+    无语音素材(纯音乐/空镜)没有要保护的词边界 → 一律 clean。
+    """
+    if not spans:
+        return "clean", 0.0
     for s, e in spans:
         if s < edge < e:
             return "midword", 0.0

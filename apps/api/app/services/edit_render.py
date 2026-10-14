@@ -53,7 +53,7 @@ def _is_portrait(src: Path) -> bool:
 
 def extract_segment(src: Path, start: float, duration: float, out_path: Path, *,
                     grade_filter: str = "", preview: bool = False, draft: bool = False,
-                    rate: str = "24") -> None:
+                    rate: str = "24", audio_gain: str = "") -> None:
     portrait = _is_portrait(src)
     if draft:
         scale = "scale=-2:1280" if portrait else "scale=1280:-2"
@@ -67,6 +67,8 @@ def extract_segment(src: Path, start: float, duration: float, out_path: Path, *,
     vf = ",".join(p for p in (scale, grade_filter) if p)
     fade_out = max(0.0, duration - AFade_MS)
     af = f"afade=t=in:st=0:d={AFade_MS},afade=t=out:st={fade_out:.3f}:d={AFade_MS}"
+    if audio_gain:  # 自评闭环修响度用(eg: volume=1.6);空=不动
+        af = f"{af},{audio_gain}"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         "ffmpeg", "-y", "-ss", f"{start:.3f}", "-i", str(src), "-t", f"{duration:.3f}",
@@ -88,7 +90,8 @@ def concat_segments(seg_paths: list[Path], out_path: Path) -> None:
 
 def render_edl(edl: Edl, words_by_source: dict[str, list[dict]], resolve_path,
                out_dir: Path, *, preview: bool = False, draft: bool = False,
-               fps: str | None = None, grade_filter: str = "") -> dict:
+               fps: str | None = None, grade_filter: str = "",
+               audio_gain: str = "") -> dict:
     """校验 → 吸附+pad → 分段抽取 → 无损 concat。校验有违规直接不渲染(硬规则前置)。"""
     issues = [i for i in validate_edl(edl, words_by_source)
               if i["kind"] not in ("needs_visual_check",)]
@@ -102,7 +105,8 @@ def render_edl(edl: Edl, words_by_source: dict[str, list[dict]], resolve_path,
         start, end = materialize_range(rng, word_spans(words_by_source.get(rng.source, [])))
         out = seg_dir / f"seg_{i:02d}_{rng.source}.mp4"
         extract_segment(src, start, max(0.05, end - start), out,
-                        grade_filter=grade_filter, preview=preview, draft=draft, rate=rate)
+                        grade_filter=grade_filter, preview=preview, draft=draft, rate=rate,
+                        audio_gain=audio_gain)
         segs.append(out)
     out_path = out_dir / ("preview.mp4" if preview else ("draft.mp4" if draft else "final.mp4"))
     concat_segments(segs, out_path)
