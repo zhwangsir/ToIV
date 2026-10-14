@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-15T10:30:00+08:00",
+  "updated_at": "2026-10-15T12:10:00+08:00",
   "ui_unify_fusion_plan_2026_10_14": {
     "status": "executing_FU1_after_D-U1_verdict_B",
     "date": "2026-10-14",
@@ -13,7 +13,13 @@
     },
     "waves": "FU1 drama deep-fusion -> FU2 video-use edit package -> FU3 gating+asset v1.5 -> F9 assistant unify -> F10 engine studio absorb -> F11 library absorb -> F12 shell retire (needs D-U1) -> FU4/FU5 orchestration absorption; order per user priority drama+video first (D-U2 default)",
     "decision_points": "D-U1 R18 fate: A(default)=web thin shell keeps R18 classic face, no red-line overturn; B=canvas R18 mode (overturns 'R18 never enters /studio', needs explicit approval); D-U2 order default drama-first; D-U3 Toonflow canvas-engine not imported, methodology only",
-    "decision_d_u1": "DECIDED 2026-10-15 user: NO red-line architecture at all (pure local learning use) -> option B: canvas builds R18 gated mode (settings toggle + entry confirm + X-NSFW context), web retires to login+landing only; red-line architecture withdrawn; sole absolute boundary = minors content (legal, non-negotiable); reuse existing backend X-NSFW semantics + R18 context switching"
+    "decision_d_u1": "DECIDED 2026-10-15 user: NO red-line architecture at all (pure local learning use) -> option B: canvas builds R18 gated mode (settings toggle + entry confirm + X-NSFW context), web retires to login+landing only; red-line architecture withdrawn; sole absolute boundary = minors content (legal, non-negotiable); reuse existing backend X-NSFW semantics + R18 context switching",
+    "fu1_progress": {
+      "scene_asset_v0": "DramaScene table + drama_scenes router (variants/anchor-freeze/attach via scene_layout JSON, zero schema change); 4 tests; AWAITS api window",
+      "studio_svml": "POST /studio/projects/{pid}/import-svml returns parse-shaped drafts (no DB write, frontend reuses character-create + PUT full-replace chain); canvas workspace import panel with 404-window friendly msg; 2 tests; prod e2e at api window",
+      "r18_mode": "LIVE on canvas: r18-mode service + X-NSFW interceptor + R18SettingsPane two-step gate + initR18Mode entry; LAN-verified (user toggled on); zero backend change, underage hard-block unaffected",
+      "deploy": "canvas-only deployed; api batch pending running=0 (DramaScene/studio-svml/drama-svml/img2threejs/registry)"
+    }
   },
   "tech_stack_t0_exec_2026_10_14": {
     "status": "t0_executed_user4_new_decisions",

@@ -97,3 +97,30 @@
 - **待 running=0 窗口捆绑执行**：api 部署（SVML 端点/img2threejs/registry 加固）+ `TOIV_OPENTALKING_ENABLED=false` 翻转 + T1（LongCat 迁 GPU3+160 装包+逐实例核验）。
 
 
+
+---
+
+## 批次 3：D-U1 拍板 B + FU1 短剧深融合 + R18 门控骨架（2026-10-15）
+
+### D-U1 拍板落账（用户）
+- 用户原话：「不想设置任何红线和限制……纯本地学习测试使用」→ **选 B**：撤销 R18 红线架构，canvas 内建 R18 门控模式，web 退役到登录+官网。**唯一绝对禁区=涉未成年（法律底线，非架构红线）**。方案 §4 已改判。
+
+### FU1-a scene_asset v0（api，dramaclaw 设计采纳，待 api 窗部署）✅
+- 新表 `DramaScene`（create_all 自动建，零 schema 变更）：base_scene_id 派生变体（变体只存 variant_prompt 增量+time_of_day）、environment_prompt、master/reverse 参考图、frozen_anchor 冻结锚点 JSON、camera_presets 机位预设。
+- prompt 组装器 `[环境基础]+[变体增量]+[时段板]`（7 个时段白名单短语）；派生场景经 session 向上解析基础环境。
+- 端点：列表(基础带 variants+孤儿透出)/建场景/派生变体(禁止二阶派生)/PATCH/删除(级联变体+分镜 scene_ref 就地解绑)/freeze-anchor(master|reverse|selected,缺图 422)/attach(写 DramaShot.scene_layout JSON 的 scene_ref 键——**零 schema 变更**；环境词幂等注入 prompt)/shot scene-ref 读回。
+- 测试 4 例 + 相关回归 165 例全绿。
+
+### FU1-b Studio 域 SVML 拆镜（api+canvas）✅（生产 e2e 待 api 窗）
+- 关键发现：v2 工作区跑在 **Studio 域**（`/api/studio/projects`，StudioProject/StudioShot），非旧 DramaProject 域——SVML 端点补了 Studio 域形态：`POST /studio/projects/{pid}/import-svml` 返回与 script/parse **同构** drafts（**不落库**），前端复用既有「建角色+PUT shots 全量替换」链——单一写路径。
+- canvas 六段工作区剧本段新增「导入词锚定脚本」面板（语法占位提示/确定性解析提示/404 窗口友好文案）；`importSvmlStudio` client 函数。
+- 测试 2 例；drama/skills/svml 回归 140 例全绿。**开口**：api 部署后工作区真机导入 e2e。
+
+### R18 门控模式骨架（canvas，**已部署即刻生效**）✅
+- `services/toiv/r18-mode.ts`：localStorage 持久化+dataset.r18 全局样式钩子+`nsfwHeaderEnabled`；client.ts 拦截器 R18 开启时全请求附加 `X-NSFW: 1`（后端 nsfw_ctx 零改动，未成年硬阻断不受影响）。
+- `R18SettingsPane`：两步确认门（开启→显式确认）+状态呈现+关闭；入口 `initR18Mode()` 恢复持久化。单测 2 例+tsc 0 错。
+- **LAN 验收**：设置页 R18 面板渲染正确、开启态持久化呈现、关闭按钮在位（截图）；用户已在浏览器实测开启。
+
+### 部署与提交
+- canvas `--canvas-only` 已部署（R18 骨架即刻生效）；api 侧（DramaScene+studio SVML+drama SVML+img2threejs）继续攒批等 running=0。
+- 提交：`e0a1…`（本批）推送双远端。
