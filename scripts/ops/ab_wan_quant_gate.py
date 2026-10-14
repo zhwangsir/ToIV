@@ -104,9 +104,9 @@ def _run_arm(worker: str, tag: str, high: str, low: str, prompt: str, seed: int,
     graph = build_wan_t2v_graph(params)
     t0 = time.time()
     pid = _post(worker, graph, f"abwan-{tag}")
-    hist = _wait(worker, pid)
+    entry = _wait(worker, pid)
     sec = round(time.time() - t0, 1)
-    video = _fetch_video(worker, hist[pid])
+    video = _fetch_video(worker, entry)
     png = out / f"{tag}_frame.png"
     _mid_frame(video, png)
     return {"tag": tag, "high_unet": high, "low_unet": low, "prompt_id": pid,
