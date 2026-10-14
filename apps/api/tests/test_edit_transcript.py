@@ -43,6 +43,7 @@ async def test_index_then_search(session):
     hits = et.search(s, "夜色")
     assert len(hits) == 1 and hits[0]["media_url"] == url
     assert any("夜色 落下" in h for h in hits[0]["hits"])
+    assert et.search(s, "夜色落下") and et.search(s, "夜色落下")[0]["hits"], "跨词空格检索应命中"
     assert et.search(s, "不存在的词") == []
     assert et.search(s, "") == []
 

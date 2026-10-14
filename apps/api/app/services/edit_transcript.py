@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 
 from sqlmodel import Session, select
@@ -68,17 +69,26 @@ async def index_media(session: Session, url: str) -> dict:
 
 
 def search(session: Session, q: str, limit: int = 20) -> list[dict]:
-    """packed_md 子串检索;回显命中短语行(带 [start-end])。"""
+    """packed_md 检索;回显命中短语行(带 [start-end])。
+
+    归一:packed md 里词间有空格(「微 信」),用户搜自然词(「微信」)必须去空格比对;
+    SQL 侧用首字符 contains 粗筛,精确比对在 Python 侧做(免加列免迁移)。
+    """
     needle = (q or "").strip()
     if not needle:
         return []
+    needle_flat = re.sub(r"\s+", "", needle)
     rows = session.exec(
-        select(MediaTranscript).where(MediaTranscript.packed_md.contains(needle))
+        select(MediaTranscript).where(MediaTranscript.packed_md.contains(needle[0]))
     ).all()
     out: list[dict] = []
-    for r in rows[:limit]:
+    for r in rows:
+        if needle_flat not in re.sub(r"\s+", "", r.packed_md or ""):
+            continue
         hits = [ln.strip() for ln in (r.packed_md or "").splitlines()
-                if needle in ln and ln.strip().startswith("[")]
+                if ln.strip().startswith("[") and needle_flat in re.sub(r"\s+", "", ln)]
         out.append({"media_url": r.media_url, "duration_sec": r.duration_sec,
                     "source_tag": r.source_tag, "hits": hits[:8]})
+        if len(out) >= limit:
+            break
     return out
