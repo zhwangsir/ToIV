@@ -1,23 +1,68 @@
 {
-  "updated_at": "2026-10-15T13:00:00+08:00",
+  "updated_at": "2026-10-15T02:40:00+08:00",
   "session_checkpoint_2026_10_15": {
-    "status": "PAUSED_BY_USER_archive_point",
+    "status": "active_bleed_stop_batch_2026_10_15",
     "commits": [
       "2c84e79c",
       "88c6251f",
       "a4c17669",
       "8bf7aec6",
       "9f65e0d1",
-      "ef02f652"
+      "ef02f652",
+      "5f86e1dd",
+      "4c80f558",
+      "8493662c"
     ],
-    "both_remotes": "synced",
-    "live_on_prod": "canvas: R18 pane + SVML import panel + P-20 fix + digital-human decommission; web: avatartalk decommission note",
-    "pending_api_bundle_at_running0": "DramaScene + studio/drama SVML endpoints + img2threejs + registry hardening + TOIV_OPENTALKING_ENABLED=false + T1 (LongCat->GPU3 + 160 packages) + SVML workspace prod e2e",
-    "next_waves": "FU2 video-use MIT port (edit package) -> F9 assistant unify -> F10 engine studio gaps -> F11 library -> F12 web shell retire",
-    "decisions_on_file": "D-U1=B (no red-line architecture, canvas R18 gated mode, web->login+landing); minors content remains absolute legal boundary",
+    "both_remotes": "pending_push",
+    "live_on_prod": "api: DramaScene + studio/drama SVML endpoints + img2threejs + registry hardening + TOIV_OPENTALKING_ENABLED=false + smoke_started_at/running_cards; canvas: R18 pane + SVML import panel + P-20 fix; workstation: LB probe patch (10s+2-strike), :8263 restarted, :8195 stopped+disabled",
+    "corrections_vs_10_14_archive": [
+      "running column tracks in-flight smokes, not orphans; main.py:252 reconcile clears them at startup",
+      "smoke_at written via utcnow() = UTC while PG TimeZone=Asia/Shanghai; do not read ages in CST (P-24)",
+      "true campaign throughput ~21/h (driver self-report + 180s delta), not 40-50/h",
+      "throughput collapse root cause = host RAM exhaustion + 75G swap (two H3 instances 100G RSS), not GPU0 contention"
+    ],
+    "bleed_stop_results": {
+      "lb_flaps_per_3h": {
+        "before": 65,
+        "after": 1
+      },
+      "ram": {
+        "before": "used 157G free 1G available 26G swap 75G",
+        "after": "used 96G free 63G available 87G"
+      },
+      "gpu2": {
+        "before_miB": 62088,
+        "after_miB": 23
+      },
+      "api_baseline": "4393 passed / 38 skipped / exit=0"
+    },
+    "campaign": {
+      "driver": "restarted 02:24, logs at ~/toiv-ops-logs/rh_smoke (RH_SMOKE_OUT_DIR), ids priority_perworker 7148->6729",
+      "untested": 10961,
+      "untested_by_kind": {
+        "image": 5812,
+        "video": 5064,
+        "audio": 89
+      },
+      "rate_per_h": 21,
+      "open_issue": "SEEDVR2 long CPU phase starves event loop; 900s driver timeout marks real jobs as false timeouts (task 19)"
+    },
+    "next": [
+      "verify first warmup tick after 02:36 shows no ace_step 400 (task 3)",
+      "re-measure throughput once in-flight SEEDVR2 jobs drain",
+      "real T1 lever = 392 missing-dep apps (missing_model 219 + missing_node 173): install packages + per-instance object_info verify",
+      "SVML cues passthrough for FU1 timeline (task 18)",
+      "FU2 video-use MIT port -> F9 -> F10 -> F11 -> F12"
+    ],
+    "decisions_on_file": [
+      "D-U1=B no red-line architecture; canvas R18 gated mode; web -> login+landing; minors content remains absolute legal boundary",
+      "2026-10-15: stop+disable idle :8195 H3 instance",
+      "2026-10-15: add smoke_started_at column with the api window"
+    ],
     "watchlist": [
       "market first-visit spinner>10s (client-nav suspect)",
-      "canvas full bun-test parallel crash = pre-existing env (Bun segfault)"
+      "canvas full bun-test parallel crash = pre-existing env (Bun segfault)",
+      "workspace beforeunload guard fires even on pages without edits (T-U wave candidate)"
     ]
   },
   "ui_unify_fusion_plan_2026_10_14": {

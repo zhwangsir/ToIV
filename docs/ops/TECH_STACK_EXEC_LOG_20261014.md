@@ -153,3 +153,37 @@
 3. FU2 成片剪辑包：video-use(MIT) 五件套并码移植（packed transcript/EDL 协议/词边界剪规/timeline_view VLM 下钻/渲染后自评闭环）。
 4. F9 助手统一（canvas /toiv/agent 吸收 web 浮层+⌘K）→ F10 引擎台四缺口 → F11 库收编 → F12 web 壳退役（R18 已由 canvas 面板承接，无阻塞）。
 5. 挂账观察项：工具箱首进 spinner>10s（API 179ms 正常，疑前端导航态竞态）；canvas 全量 bun test 并发失败=预存环境性（Bun 段错误）。
+
+---
+
+## 批次 4：2026-10-15 凌晨 止血 + 取窗 + 取证（本会话）
+
+### 4-0 三处对存档口径的纠正（全部真机取证）
+1. **「等 running=0」不是不可达门禁，running 列也不是孤儿**：api 启动日志实证 10-14 04:24:48 `reconcile_interrupted_smokes cleared 3 running card(s)`（main.py:252 已接线）。先前把 3 条 running 读成「10-13 孤儿」是误读 `updated_at`（无 onupdate，读出来是导入时刻）——正是 P-18b 原文警告的坑。真实在飞的活儿确实写 running（app_smoke.py:579），驱动停后 3 条里 2 条由 api 协程跑完（api 不因客户端断开取消），第 3 条落 pass。
+2. **「完成侧停了 8 小时」是时区误读，作废**：`smoke_at` 由 `datetime.utcnow()` 写入=UTC，PG 时区 Asia/Shanghai。01:32 CST 查到的 max(smoke_at)=17:31 实为 1 分钟前。战役从未停摆。
+3. **吞吐真值 ~21/h**（驱动自报 21-22/h + 180s 窗口实测 1 条/3min），不是存档说的 40-50/h。未测 10961（image 5812/video 5064/audio 89）。
+
+### 4-1 吞吐降速真因链（实测）
+- **host RAM 耗尽 + 75G swap**：free=157/183G、free 1G、/swap.img 7.6/8G + /swapfile-hyi 67.6/96G。两个 H3 实例占 59.9G+40.4G RSS。进程 D 态（wchan=wait_for_response）、ComfyUI HTTP 8s 不应答、模型加载慢。
+- **LB 探针抖动**：3h 内 65 次 UNHEALTHY↔HEALTHY，直连探测却 1.9ms/200。根因=探测与媒体代理共用 session、HEALTH_TIMEOUT=3s、单次失败即摘除。已打补丁（10s + 连续 2 次失败才摘除，脚本 scripts/ops/patch_lb_probe_20261015.py，备份 comfyui-lb.py.bak-20261015-probe），应用后同窗口仅 1 次（真摘除）。
+- **:8263 真卡死**：同 prompt 20+min、history 冻结、CPU 30s 涨 3s、GPU 0% → 重启（节点数 5309 前后一致，P-15 过关）。
+- **worker_warmup 空转**：ace_step_1.5_turbo_aio.safetensors 只在 :8262/:8196 可见，:8195/:8264 ckpt 列表为空（H3 口只挂 h3/ 树）；旧实现取「第一个空闲候选」→ 音乐图打到 :8264 必 400。已修为按图核验可见性。
+- **:8195 闲置 24h 白占 59.9G RAM + 61.9G 显存**（近 24h api 日志 0 次打 :8195、828 次打 :8264；生产 env 只指 :8264）→ 用户拍板 stop+disable。回收后 free 1G→63G、available 26G→87G、GPU2 62088MiB→23MiB。
+
+### 4-2 窗口内一次完成（api 02:21:02 重启，PID 1042765）
+- 部署捆绑包（88c6251f+9f65e0d1+4c80f558）：DramaScene 表建成（count 0）、两个 SVML 端点注册（未鉴权 401 非 404）、registry 加固、img2threejs。
+- `TOIV_OPENTALKING_ENABLED=false` 进程内实测生效（env 备份 .env.bak-20261015-opentalking）。
+- **P-18b 根治上线**：app.smoke_started_at 列 + 提交写 + reconcile 清 + `/api/admin/apps/smoke/status` 透出 running_cards{count,without_started_at,max_age_sec,ids}。生产实测读到 count=0。
+- 全量基线 **4393 passed / 38 skipped / exit=0**（4m09s）。
+
+### 4-3 SVML 真机 e2e（API + 浏览器双取证）
+- API 级：POST /api/studio/projects/{pid}/import-svml 返回 {shots,characters,count}，`---` 分镜、[scene:]/[mood:] 与 <角色|voice> 正确、duration_sec 2-15s 夹值、**导入前后 studioshot 行数不变=端点确不落库**。
+- 浏览器级（Playwright 受控浏览器，admin 既有登录态）：空项目「8264同seed验收0921」→ 剧本段「导入词锚定脚本」面板 → 粘贴含 @{回头}…@{/回头} 词锚样例 → 「解析并导入分镜」→ 自动跳 ?section=storyboard，分镜表 2 行（雨夜巷口 5s / 霓虹街口 3s，hardcut/draft/AI 配景），PG 复核 2 行落库 + 角色「林夏」自动建 + 无说话人行进视觉 prompt。截图 ~/svml-import-storyboard.png。
+- **发现缺口（#18）**：解析器 Beat 带 cues/anchor_words（svml_lite.py:59-67），但 studio 路由只映射 8 个固定键（studio.py:152-165）→ 词锚到不了前端，FU1 时间轴/改词重排拿不到输入。
+
+### 4-4 战役重启与新坑
+- 驱动按原参重启（7148 清单→过滤后 6729，concurrency 3），日志改落 ~/toiv-ops-logs/rh_smoke/（RH_SMOKE_OUT_DIR 旋钮，根除 stash 换 inode 孤儿日志坑）。
+- **新坑（#19）**：:8196 跑 SEEDVR2 超分时 CPU 密集（7B DiT 物化 CPU + BlockSwap 32/36），/queue 40s 全超时、GPU 0%，但日志在推进=长 CPU 阶段非卡死。驱动 900s 超时先于此类作业完成 → 假 timeout 混入归因（368 条 timeout 需重估）。
+
+### 4-5 提交
+`4c80f558`（smoke_started_at + 预热 ckpt 门 + LB 补丁脚本）、`8493662c`（日志目录旋钮）。双远端待推。
