@@ -896,6 +896,7 @@ export default function DramaWorkspacePage() {
                                                     value={accelLevel}
                                                     onChange={(v) => setAccelLevel(v)}
                                                     style={{ minWidth: 220 }}
+                                                    popupMatchSelectWidth={false}
                                                     aria-label="加速档"
                                                     options={accelTiers.map((t) => ({
                                                         value: t.level,

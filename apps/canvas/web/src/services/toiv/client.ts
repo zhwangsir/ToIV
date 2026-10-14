@@ -643,6 +643,8 @@ export function formatAccelTierLabel(t: ToivAccelTier): string {
 /** 加速档说明小字：note/source；reference 档标注「参考值」（无实测倍率/SSIM）。 */
 export function formatAccelTierNote(t: ToivAccelTier): string {
     const note = (t.note || "").trim();
+    // off 满血档是产品默认,不是「参考值」:不加前缀,避免把默认档说成估算
+    if (t.level === "off") return note;
     if (t.source === "reference") return note ? `参考值 · ${note}` : "参考值";
     return note || (t.source === "measured" ? "实测值" : "");
 }

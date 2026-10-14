@@ -209,9 +209,17 @@ export default function LibraryWorks() {
                                             loading="lazy"
                                             className="size-full object-cover"
                                             onError={(e) => {
-                                                // 永不露碎图:加载失败退成占位块(原生碎图标对用户零信息量)
-                                                e.currentTarget.style.display = "none";
-                                                e.currentTarget.dataset.broken = "1";
+                                                // 永不露碎图:加载失败退成占位块(原生碎图标对用户零信息量)。
+                                                // worker 饱和期 /api/images 代理会 502(瞬态),先延迟重试一次再退占位。
+                                                const el = e.currentTarget;
+                                                if (!el.dataset.retried) {
+                                                    el.dataset.retried = "1";
+                                                    const src = el.src;
+                                                    window.setTimeout(() => { el.src = `${src}${src.includes("?") ? "&" : "?"}r=1`; }, 4000);
+                                                    return;
+                                                }
+                                                el.style.display = "none";
+                                                el.dataset.broken = "1";
                                             }}
                                         />
                                     ) : (
