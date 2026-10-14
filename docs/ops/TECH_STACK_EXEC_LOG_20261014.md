@@ -312,3 +312,12 @@
 - **烟测量化灰度实证**:api journal「烟测量化换权生效」×1(z-image app),产品路径不受影响。
 - **踩坑入册 P-25**:舰队串行重启 / api 池不经 LB / web 构建停站窗口。
 - **开口**:stale 120 条复测轮因饱和污染暂停(首 4 条 2 timeout),待 wan 门完成后 concurrency 2 续跑;RH shim(~27 app)/inspyrenet(2)/Qwen-DiffSynth 旧键(3)记开口。
+
+## 批次 12(2026-10-15 晨末):#23 门判落地 + F12 验证 + 测试清点
+
+- **#23 回顾门出判**:wan2.2 t2v 现网 fp8 双专家 vs fp16 原件,同 seed 81 帧:**SSIM 0.8823(t+2s 帧)/1.52x(373.7s vs 566.8s)** → 草稿带。留样两帧肉眼复核=构图一致、背景纹理级漂移,与 SSIM 一致。
+- **落地(灰度口径)**:产品默认回满血 fp16(`WanT2VParams` 默认换 fp16);显式 `quant="fp8"` 选项入 `/generate/txt2video`(pattern 校验);烟测路径经 `SMOKE_QUANT_CKPT_SWAP` 自动 fp16→fp8(草稿路径吃 1.52x)。GGUF 维持判不取。api 已部署(战役暂停窗,零损失)。
+- **F12 真机验证**:退役路径 /library|/market|/tasks(含子路径)308 → canvas 对应面 ✓;登录态 `/`→splash→`/studio` 交接在 F12 后仍 ✓;web 351/351、tsc 0、build 15 路由 ✓。
+- **F12 漏网修**:canvas 跨仓导入 `@toiv-web/lib/intentKeepers` 随 web 删除断链 → 单源迁入 canvas `services/toiv/intent-keepers.ts`;配套测试断言更新(web 数字面退役断言+avatar-talk 归属)。
+- **测试清点(canvas 443 文件逐文件跑)**:非浏览器全绿(3 处真红已修:mock 缺 withToivAuth/intentKeepers 断言/跨仓读已删文件);浏览器族 5 文件(asset-view-scope= W0-1b 既存 + assistant-model-picker/canvas-lifecycle-restart/canvas-node-editor-scope/project-settings-view)本机 harness 红,与今日改动无涉,与 W0-1b 配对留系统化排障开口。bun 全量单进程跑尾崩溃= #16 已归档的 runner 缺陷,逐文件跑规避。
+- **开口移交**:RH 云端 shim(~27 app)/inspyrenet(2)/Qwen-DiffSynth 旧键(3)/浏览器族红/stale 120 复测轮(已续跑,concurrency 2)+战役 supervisor 已恢复。
