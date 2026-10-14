@@ -244,10 +244,32 @@ async def _words_builtin(path: Path) -> list[dict] | None:
         return None
 
 
+async def _as_16k_wav(path: Path) -> tuple[Path, bool]:
+    """ASR 只吃可解码音频:mp4 当 audio/wav 贴给 whisper 集群=500(2026-10-15 真机实证),
+    而旧实现把非 200 静默吞掉 → 词级链在 core(无 CUDA,内置也跑不动)上静默退化成均分。
+    非 wav 一律先抽 16k 单声道 wav;返回 (送 ASR 的路径, 是否临时文件)。"""
+    if path.suffix.lower() == ".wav":
+        return path, False
+    out = path.with_name(path.name + ".asr16k.wav")
+    await _run_ffmpeg(["ffmpeg", "-y", "-i", str(path), "-vn", "-ar", "16000", "-ac", "1", str(out)])
+    return out, True
+
+
 async def _transcribe_words(
     path: Path, slot_start: float, slot_end: float, fallback_text: str
 ) -> tuple[list[dict], str]:
     """逐词三级链:外部 → 内置 → 均分。返回 (偏移+钳制后的 words, source_tag)。"""
+    asr_path, tmp = await _as_16k_wav(path)
+    try:
+        return await _transcribe_words_inner(asr_path, slot_start, slot_end, fallback_text)
+    finally:
+        if tmp:
+            asr_path.unlink(missing_ok=True)
+
+
+async def _transcribe_words_inner(
+    path: Path, slot_start: float, slot_end: float, fallback_text: str
+) -> tuple[list[dict], str]:
     for probe in (_words_external, _words_builtin):
         words = await probe(path)
         if words:

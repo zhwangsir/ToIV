@@ -54,3 +54,29 @@ async def test_index_upsert_not_duplicate(session):
     from sqlmodel import select
     n = len(s.exec(select(MediaTranscript)).all())
     assert n == 1
+
+
+async def test_transcribe_converts_mp4_to_wav_before_asr(monkeypatch, tmp_path):
+    """mp4 直接贴给 whisper 集群=500(真机实证);必须先抽 16k 单声道 wav。"""
+    import subprocess
+
+    import app.services.board_film as bf
+
+    mp4 = tmp_path / "take.mp4"
+    subprocess.run(
+        ["ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration=1",
+         "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+         "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", "-shortest", str(mp4)],
+        check=True, capture_output=True)
+    seen: dict = {}
+
+    async def _ext(path):
+        seen["suffix"] = path.suffix
+        seen["exists"] = path.is_file()
+        return [{"start": 0.1, "end": 0.4, "text": "词"}]
+
+    monkeypatch.setattr(bf, "_words_external", _ext)
+    words, tag = await bf._transcribe_words(mp4, 0.0, 1.0, "")
+    assert seen == {"suffix": ".wav", "exists": True}
+    assert tag == "external" and words[0]["text"] == "词"
+    assert not list(tmp_path.glob("*.asr16k.wav"))  # 临时 wav 用完即删
