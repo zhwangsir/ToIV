@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-14T19:30:00+08:00",
+  "updated_at": "2026-10-14T20:05:00+08:00",
   "tech_stack_t0_exec_2026_10_14": {
     "status": "t0_executed_user4_new_decisions",
     "date": "2026-10-14",
@@ -19,7 +19,17 @@
       "d7_pc01": "CLOSED - backends.json actually :8196+:8263 dual backend (AGENTS 'single member' record stale), pc01 not in pool",
       "pg_baseline": "total 14304 / public 2166 / pass 2170 / public&pass 2156 / untested 11096 / running 3"
     },
-    "new_lessons": "P-24: reachable=false first diagnostic = SSH target box, check port + systemd-archive dir (app-layer config can be fine); P-25: acceptance targets must be feasibility-checked against live constraints, record actuals honestly"
+    "new_lessons": "P-24: reachable=false first diagnostic = SSH target box, check port + systemd-archive dir (app-layer config can be fine); P-25: acceptance targets must be feasibility-checked against live constraints, record actuals honestly",
+    "batch2_u2_tu": {
+      "svml_lite": "hypit word-anchored grammar -> drama line: app/services/svml_lite.py (beats ||, cross-beat @{cue} anchors, <speaker|voice>, [scene:] metas, --- separators, 4.2chars/s duration est clamped 2-15s) + POST /api/drama/projects/{pid}/import-svml reusing _create_shots_from_analysis; 13 tests green, drama_studio 98 regression green; AWAITING deploy at running=0 window",
+      "img2threejs": "Apache-2.0 skill adapted into canon registry (SKILL.md + LICENSE-NOTICE); upstream forge state machine NOT vendored (survey clone keeps full); registry.py yaml hardening added after live proof that a broken frontmatter crashed SkillsRegistry() init (= api startup surface); 23 skills tests green",
+      "hypit_license": "modified Apache-2.0: single-tenant own-infra explicitly permitted => local-use code merge OK; multi-tenant SaaS/commercial resale banned; LOGO preserved; clear before any public operation",
+      "tu_ui_audit": "real-browser LAN audit 5 pages; P-20-class LIVE BUG found and root-fixed: drama card 'open workspace' 404 (canvas basename /studio, raw <a href> bypassed router prefix; drama-detail also had wrong route /drama->/toiv/drama double bug); 3 raw anchors -> <Link>; new p20-subpath-anchor scan test; digital-human entries removed (fusion card/@panel/cmdk/offline nav) + deep-link decommission note; market first-visit spinner>10s logged as observation (API 179ms fine, suspect client-nav race, needs repro)",
+      "avatar_talk_app_kept": "market app avatar-talk = LongCat-Avatar ComfyUI talking video, NOT opentalking — stays live (video content = user priority); decommission only killed opentalking realtime view",
+      "design_md": "docs/DESIGN.md design.md-format token contract, 124 tokens generated from globals.css via scripts/gen_design_md.py; designTokens.test 4 checks; web full suite 1178/1178 green"
+    },
+    "deploy_2026_10_14_eve": "web-only (BUILD_ID 20261014-102310-88c6251f, toiv-web restarted, health ok) + canvas-only (core build, canvas-api-pg swapped, health ok) — toiv-api NOT touched (campaign running=3); LAN acceptance: drama card -> /studio/toiv/ws/<id> opens v2 workspace (404 GONE), /?view=avatartalk shows decommission note",
+    "pending_window_bundle": "at running=0: api deploy (svml endpoint + img2threejs + registry hardening) + TOIV_OPENTALKING_ENABLED=false flip + T1 LongCat->GPU3 + 160 package installs + per-instance object_info verify (P-15)"
   },
   "tech_stack_plan_v3_2026_10_14": {
     "status": "plan_v3_worldwalk_added",
