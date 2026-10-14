@@ -56,9 +56,12 @@ def word_spans(words: list[dict]) -> list[tuple[float, float]]:
 
 
 def classify_edge(edge: float, spans: list[tuple[float, float]]) -> tuple[str, float]:
-    """切边落在哪：('midword',0) / ('clean'|'usable'|'unsafe', 所在静音窗宽度)。
+    """切边落在哪：('midword',0) / ('clean'|'usable'|'unsafe', 所处静音窗宽度)。
 
     无语音素材(纯音乐/空镜)没有要保护的词边界 → 一律 clean。
+    词内(严格落在某词起止之间)= midword;否则看它所处静音窗(prev_end→next_start)宽度:
+    切边正好压在词起点/终点上时窗口就是相邻静音,属最安全的一类;
+    窗 <150ms 说明切点贴着词尾/词头,ASR 漂移会把字切坏 → unsafe。
     """
     if not spans:
         return "clean", 0.0
@@ -67,9 +70,9 @@ def classify_edge(edge: float, spans: list[tuple[float, float]]) -> tuple[str, f
             return "midword", 0.0
     before = [e for s, e in spans if e <= edge]
     after = [s for s, e in spans if s >= edge]
-    gap_start = max(before) if before else edge
-    gap_end = min(after) if after else edge
-    gap = round(gap_end - gap_start, 3)  # 毫秒精度:避开 3.0-2.6=0.39999… 的浮点陷阱
+    if not before or not after:  # 首词之前/末词之后:没有会被切坏的邻居
+        return "clean", 0.0
+    gap = round(min(after) - max(before), 3)
     if gap >= SAFE_SILENCE:
         return "clean", gap
     if gap >= USABLE_SILENCE:

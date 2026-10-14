@@ -21,7 +21,7 @@ import urllib.error
 import urllib.request
 
 BASE = "http://192.168.71.47:8090"
-LINE_RE = re.compile(r"^\s*\[(\d+\.\d+)-(\d+\.\d+)\]")
+LINE_RE = re.compile(r"^\s*\[(\d+\.\d+)-(\d+\.\d+)\]", re.M)
 
 
 def req(method, path, body=None, tok=None, timeout=120, raw=False):
@@ -54,18 +54,17 @@ def main() -> int:
     st, empty = req("GET", "/api/admin/media/transcripts/search?q=", tok=tok)
     assert st == 200 and empty == {"q": "", "results": []}, empty
 
-    st, bad = req("POST", "/api/admin/edit/jobs",
-                  {"edl": {"sources": {"a": take_a}, "ranges": [{"source": "a", "start": 0.0, "end": 0.7}]}}, tok)
-    print(f"[3] wide EDL submit http={st} {bad}")
-    assert st == 202, bad
-    j1 = bad["job_id"]
+    st, wide = req("POST", "/api/admin/edit/jobs",
+                   {"edl": {"sources": {"a": take_a}, "ranges": [{"source": "a", "start": 0.0, "end": 0.7}]}}, tok)
+    print(f"[3] wide EDL submit http={st} {wide}")
+    assert st == 202, wide
+    j1 = wide["job_id"]
     for _ in range(60):
         st, s1 = req("GET", f"/api/admin/edit/jobs/{j1}", tok=tok)
         if s1.get("status") not in ("queued", "running"):
             break
         time.sleep(3)
-    print(f"    job1 status={s1.get('status')} err={str(s1.get('error'))[:120]}")
-    assert s1.get("status") == "error" and "校验不过" in s1.get("error", ""), "宽 EDL 应被剪规拦下"
+    print(f"    job1 status={s1.get('status')} (片头静音则放行,属规则正确行为)")
 
     st, md_b = req("GET", f"/api/edit/files/{j1}/takes_packed.md", tok=tok, raw=True)
     assert st == 200, md_b
@@ -73,10 +72,27 @@ def main() -> int:
     raw = md_b.decode()
     phrases = [(float(a), float(b)) for a, b in LINE_RE.findall(raw)]
     assert len(phrases) >= 2, f"短语不足: {phrases}"
+
+    # 词内切探针:首短语内部切点必须被剪规拦下(硬规则 6)
+    ps, pe = phrases[0]
+    st, badj = req("POST", "/api/admin/edit/jobs",
+                   {"edl": {"sources": {"a": take_a},
+                            "ranges": [{"source": "a", "start": round(ps + 0.2, 2),
+                                        "end": round(ps + 0.5, 2)}]}}, tok)
+    assert st == 202, badj
+    jb = badj["job_id"]
+    for _ in range(60):
+        st, sb = req("GET", f"/api/admin/edit/jobs/{jb}", tok=tok)
+        if sb.get("status") not in ("queued", "running"):
+            break
+        time.sleep(3)
+    print(f"    midword probe status={sb.get('status')} err={str(sb.get('error'))[:80]}")
+    assert sb.get("status") == "error" and "校验不过" in sb.get("error", ""), "词内切必须被拦"
+
     cuts = []
     for (s0, e0), (s1_, _) in zip(phrases, phrases[1:]):
         if s1_ - e0 >= 0.5:
-            cuts.append((e0 + (s1_ - e0) / 2))
+            cuts.append(e0 + (s1_ - e0) / 2)
     assert cuts, f"没有 ≥0.5s 的短语间隙: {phrases}"
     r1 = (max(0.0, phrases[0][0] - 0.0), cuts[0])
     r2 = (cuts[0], min(phrases[-1][1] + 0.2, cuts[0] + 6.0)) if len(cuts) > 1 else (cuts[0], phrases[-1][1])

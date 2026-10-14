@@ -78,3 +78,12 @@ def test_speechless_source_has_no_word_constraints():
     assert edl_mod.classify_edge(1.23, []) == ("clean", 0.0)
     e = Edl(sources={"m": "music.mp4"}, ranges=[EdlRange(source="m", start=1.23, end=4.56)])
     assert edl_mod.validate_edl(e, {"m": []}) == []
+
+
+def test_edge_exactly_on_word_boundary_is_clean():
+    """吸附目标位置(词起点/终点)与首末词外侧都是安全切边,不能被 0ms 误判。"""
+    assert edl_mod.classify_edge(1.0, SPANS) == ("clean", 0.0)   # 首词起点
+    assert edl_mod.classify_edge(1.4, SPANS) == ("clean", 0.6)   # 词终点,窗口=后续静音
+    assert edl_mod.classify_edge(0.2, SPANS)[0] == "clean"       # 首词之前
+    assert edl_mod.classify_edge(9.0, SPANS)[0] == "clean"       # 末词之后
+    assert edl_mod.classify_edge(4.4, SPANS)[0] == "usable"      # 0.2s 窗内仍分级
