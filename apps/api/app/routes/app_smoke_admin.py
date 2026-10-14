@@ -16,6 +16,7 @@ from app.db import get_session
 from app.deps import get_current_admin
 from app.models import App, User
 from app.services import app_smoke as smoke_svc
+from app.services import h3_accel
 from app.comfy.pool import WorkerPool
 from app.deps import get_pool
 from app import audit
@@ -31,6 +32,8 @@ class SmokeBatchRequest(BaseModel):
 class SmokeOneRequest(BaseModel):
     """可选 JSON 体:运维脚本常把 timeout_s 放 body,query 仍优先。"""
     timeout_s: int | None = Field(default=None, ge=60, le=3600)
+    # 覆盖烟测默认加速档(None=走 settings.smoke_accel_level;"off"=本次满血)
+    accel: str | None = None
 
 
 @router.post("/admin/apps/{app_id}/smoke")
@@ -46,7 +49,14 @@ async def smoke_one_app(
     if not a:
         raise HTTPException(status_code=404, detail="应用不存在")
     effective = timeout_s if timeout_s is not None else (body.timeout_s if body else None)
-    result = await smoke_svc.run_app_smoke(pool, session, a, timeout_s=effective)
+    accel = body.accel if body else None
+    if accel is not None:
+        try:
+            accel = h3_accel.validate_acceleration(accel)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    result = await smoke_svc.run_app_smoke(
+        pool, session, a, timeout_s=effective, accel=accel)
     audit.record(
         session, user=admin, action="app.smoke", target_type="app", target_id=app_id,
         summary=f"烟测 {result['status']} {result['cls']}", detail=result,

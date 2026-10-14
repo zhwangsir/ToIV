@@ -394,6 +394,10 @@ class Settings(BaseSettings):
     # H3 智能加速机读规格文件路径(services/h3_accel;空 = 仓库根
     # .regen_tmp/h3_sglang_bench_20260912/profiles.json)。文件缺失时优雅降级按原生提交。
     h3_accel_profiles_path: str = ""
+    # 烟测默认加速档(2026-10-15 用户拍板:测试默认走加速拿结果;产品路径默认不变)。
+    # 取值见 services/h3_accel.ACCEL_LEVELS;仅作用于 H3 家族图且仅 recommended 档,
+    # 不可加速时 apply_acceleration 原样返回。"off"/空 = 烟测也走满血。
+    smoke_accel_level: str = "balanced"
 
     # —— LongCat-Video 长视频引擎(专用 ComfyUI 实例,workstation GPU0 :8197) ——
     # 独立于 WorkerPool(WanVideo 系节点仅该实例装有);systemd comfyui-longcat.service 托管,

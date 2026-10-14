@@ -551,11 +551,30 @@ async def _union_objinfo(pool: WorkerPool) -> dict:
 # ---------------------------------------------------------------------------
 # 烟测主流程
 # ---------------------------------------------------------------------------
+def _apply_smoke_accel(app: App, graph: dict, accel: str | None) -> tuple[dict, bool, str]:
+    """烟测加速档(2026-10-15 用户拍板:测试默认走加速拿结果)。
+
+    返回 (图, 是否生效, 档位)。仅 H3 家族图、仅规格里 recommended 的档;
+    apply_acceleration 对不可加速/规格缺失/连线校验失败的图原样返回,宁慢不坏。
+    产品路径不调这里——各自路由的 accel 参数说了算,本函数只改烟测口径。
+    """
+    level = accel if accel is not None else get_settings().smoke_accel_level
+    if not level or level == "off":
+        return graph, False, level or "off"
+    from app.routes.apps import _extract_required  # 惰性:routes 顶层 import 本模块
+    from app.services import h3_accel
+
+    if not h3_accel.is_h3_family(app.id, _extract_required(graph)):
+        return graph, False, level
+    out, applied = h3_accel.apply_acceleration(graph, level)
+    return out, applied, level
+
+
 async def run_app_smoke(
     pool: WorkerPool, session: Session, app: App,
     *, workflow_override: dict | None = None, allow_llm: bool = True,
     values_override: dict | None = None, collect_result: bool = False,
-    timeout_s: int | None = None,
+    timeout_s: int | None = None, accel: str | None = None,
 ) -> dict:
     """单应用真跑一遍;结果落 App.smoke_*;返回 {status, cls, detail, fixes}。
 
@@ -611,6 +630,16 @@ async def run_app_smoke(
             fixes_all.extend(fixes0)
     except Exception:  # noqa: BLE001 — 并集拉取失败不阻塞烟测
         pass
+
+    # 烟测默认走加速档拿结果(2026-10-15 用户拍板):仅 H3 家族图、仅规格里 recommended
+    # 的档(balanced=BlockCache T8+SageAttention,实测 2.94x/SSIM 0.82 过门);
+    # apply_acceleration 对不可加速/规格缺失图原样返回(applied=False),宁慢不坏。
+    # 产品路径不受影响:各自路由的 accel 参数说了算,这里只改烟测口径。
+    graph, accel_applied, accel_level = _apply_smoke_accel(app, graph, accel)
+    if accel_applied:
+        fixes_all.append(f"accel={accel_level}")
+        logging.getLogger("toiv.smoke").info(
+            "烟测加速档生效 app=%s level=%s", app.id, accel_level)
 
     for attempt in (1, 2):  # 2=combo 校准修复后原位重试(重建会丢修复,故循环外构建)
         required = _extract_required(graph)

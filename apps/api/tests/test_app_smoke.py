@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 
+from fastapi import HTTPException
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
@@ -539,3 +541,98 @@ def test_smoke_one_accepts_timeout_s_in_body(monkeypatch):
     finally:
         app.dependency_overrides.pop(get_session, None)
         app.dependency_overrides.pop(get_pool, None)
+
+
+# ---------------------------------------------------------------------------
+# 烟测加速档(2026-10-15 用户拍板):测试默认走加速拿结果,产品路径默认不变
+# ---------------------------------------------------------------------------
+class _StubSettings:
+    smoke_accel_level = "balanced"
+
+
+def _h3_app() -> App:
+    return App(id="h3-t2v", name="h3", description="d", category="video", is_public=True)
+
+
+def _graph() -> dict:
+    return {"1": {"class_type": "MiniMaxH3Sampler", "inputs": {}}}
+
+
+def test_smoke_accel_default_applies_to_h3_family(monkeypatch):
+    monkeypatch.setattr(svc, "get_settings", lambda: _StubSettings())
+    monkeypatch.setattr("app.services.h3_accel.is_h3_family", lambda aid, nodes: True)
+    monkeypatch.setattr(
+        "app.services.h3_accel.apply_acceleration", lambda g, level: ({"accel": level}, True))
+    out, applied, level = svc._apply_smoke_accel(_h3_app(), _graph(), None)
+    assert (applied, level, out) == (True, "balanced", {"accel": "balanced"})
+
+
+def test_smoke_accel_off_skips_even_for_h3(monkeypatch):
+    monkeypatch.setattr(svc, "get_settings", lambda: _StubSettings())
+
+    def _boom(g, level):  # off 档根本不该走到改写
+        raise AssertionError("off 档不应改写图")
+
+    monkeypatch.setattr("app.services.h3_accel.apply_acceleration", _boom)
+    g = _graph()
+    out, applied, level = svc._apply_smoke_accel(_h3_app(), g, "off")
+    assert out is g and applied is False and level == "off"
+
+
+def test_smoke_accel_ignores_non_h3_family(monkeypatch):
+    monkeypatch.setattr(svc, "get_settings", lambda: _StubSettings())
+    monkeypatch.setattr("app.services.h3_accel.is_h3_family", lambda aid, nodes: False)
+    monkeypatch.setattr(
+        "app.services.h3_accel.apply_acceleration", lambda g, level: (_ for _ in ()).throw(AssertionError("非 H3 不应改写")))
+    g = _graph()
+    out, applied, level = svc._apply_smoke_accel(App(id="rh-x", name="x", description="d",
+                                                     category="image", is_public=True), g, None)
+    assert out is g and applied is False
+
+
+def test_smoke_accel_degrades_when_not_applicable(monkeypatch):
+    """规格缺失/连线校验不过 → apply 原样返回 applied=False,烟测继续满血跑。"""
+    monkeypatch.setattr(svc, "get_settings", lambda: _StubSettings())
+    monkeypatch.setattr("app.services.h3_accel.is_h3_family", lambda aid, nodes: True)
+    monkeypatch.setattr("app.services.h3_accel.apply_acceleration",
+                        lambda g, level: (dict(g), False))
+    out, applied, level = svc._apply_smoke_accel(_h3_app(), _graph(), None)
+    assert applied is False and level == "balanced"
+
+
+async def test_smoke_endpoint_rejects_bogus_accel_and_passes_valid(monkeypatch):
+    from app.deps import get_current_admin, get_pool
+    from app.routes import app_smoke_admin as route_mod
+
+    captured: dict = {}
+
+    async def _fake(pool, session, app, **kw):
+        captured.update(kw)
+        return {"status": "pass", "cls": "", "detail": "", "fixes": []}
+
+    monkeypatch.setattr(route_mod.smoke_svc, "run_app_smoke", _fake)
+    eng = create_engine("sqlite://", connect_args={"check_same_thread": False},
+                        poolclass=StaticPool)
+    SQLModel.metadata.create_all(eng)
+    with Session(eng) as s:
+        s.add(App(id="h3-x", name="x", description="d", category="video", is_public=True))
+        t = Tenant(name="t"); s.add(t); s.commit(); s.refresh(t)
+        tid = t.id
+        s.add(User(id="u1", email="a@a.com", hashed_password=hash_password("p"),
+                   tenant_id=tid, role="admin"))
+        s.commit()
+    admin_user = User(id="u1", email="a@a.com", hashed_password="x", role="admin",
+                      tenant_id=tid)
+    with Session(eng) as s:
+        with pytest.raises(HTTPException) as ei:
+            await route_mod.smoke_one_app(
+                "h3-x", admin=admin_user, pool=None, session=s, timeout_s=None,
+                body=route_mod.SmokeOneRequest(accel="bogus"))
+        assert ei.value.status_code == 422
+    with Session(eng) as s:
+        out = await route_mod.smoke_one_app(
+            "h3-x", admin=admin_user, pool=None, session=s, timeout_s=None,
+            body=route_mod.SmokeOneRequest(accel="balanced"))
+    assert out["status"] == "pass"
+    assert captured["accel"] == "balanced"
+    assert get_current_admin and get_pool  # 依赖未被旁路(端点签名仍带 admin/pool)
