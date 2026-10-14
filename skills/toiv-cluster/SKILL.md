@@ -32,6 +32,7 @@ description: |
 
 ## 引用文件
 
+- **[PROMPT.md](PROMPT.md)** — **自包含提示词版**：不想装 skill 时，直接把分隔线内全文粘贴给任意 AI 会话即可用。
 - **[connections.md](connections.md)** — 全部设备的角色/LAN IP/Tailscale IP/SSH 用户/当前状态，NAS 挂载，入口域名与端口全景。
 - **[credentials.md](credentials.md)** — NAS SMB、Tailscale Auth Key、ToIV admin、生产 PG、渠道凭据现状与轮换注意。
 - **[api.md](api.md)** — API 文档：鉴权口径与实测可用的 curl 例（登录/LLM/whisper/embedding/canvas 助手链/ComfyUI 探测坑），部署与运维配方。
