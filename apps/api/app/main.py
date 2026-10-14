@@ -15,6 +15,7 @@ from app.config import get_settings
 from app.db import bootstrap_admin, init_db
 from app.logging_config import redact_token_in_query, setup_logging
 from app.routes import (
+    acceleration,
     account,
     admin,
     admin_model_assets,
@@ -472,6 +473,7 @@ def create_app() -> FastAPI:
     for module in (
         auth,
         account,
+        acceleration,
         admin,
         admin_model_assets,
         assets,

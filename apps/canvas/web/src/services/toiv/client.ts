@@ -569,8 +569,10 @@ export async function triggerShotRender(shotId: string): Promise<boolean> {
     catch { return false; }
 }
 
-export async function triggerBatchRender(pid: string): Promise<boolean> {
-    try { await toivHttp.post(`/studio/projects/${pid}/render`, undefined, { timeout: 3600_000 }); return true; }
+export async function triggerBatchRender(pid: string, accel?: string): Promise<boolean> {
+    try {
+        const body = accel && accel !== "off" ? { accel } : undefined;
+        await toivHttp.post(`/studio/projects/${pid}/render`, body, { timeout: 3600_000 }); return true; }
     catch { return false; }
 }
 
@@ -582,6 +584,57 @@ export async function triggerShotVoice(shotId: string): Promise<boolean> {
 export async function triggerShotLipsync(shotId: string): Promise<boolean> {
     try { await toivHttp.post(`/studio/shots/${shotId}/lipsync`, undefined, { timeout: 1800_000 }); return true; }
     catch { return false; }
+}
+
+/** 任务 #24：统一「生成加速档」清单（GET /api/acceleration/tiers）。
+ *  每档 {level,label,speedup,ssim,recommended,source,note}；h3 为实测档（已过滤下架档），
+ *  wan/qwen 为静态参考档（speedup/ssim 恒 null，source="reference"）。
+ *  产品路径默认满血 off；加速档为显式可选。 */
+export type ToivAccelTier = {
+    level: string;
+    label: string;
+    speedup: number | null;
+    ssim: number | null;
+    recommended: boolean;
+    source: string;
+    note?: string;
+};
+
+export type ToivAccelFamily = "h3" | "wan" | "qwen";
+
+/** 拉取指定家族的加速档清单；失败/缺省回落单条满血 off 档（不阻断渲染 UI）。 */
+export async function fetchAccelTiers(family: ToivAccelFamily = "h3"): Promise<ToivAccelTier[]> {
+    const { data } = await toivHttp.get("/acceleration/tiers");
+    const list = (data as { families?: Record<string, ToivAccelTier[]> })?.families?.[family];
+    return Array.isArray(list) ? list : [];
+}
+
+/** off 满血兜底档（tiers 端点不可达时保证 Select 至少一项且默认满血）。 */
+export const OFF_ACCEL_TIER: ToivAccelTier = {
+    level: "off",
+    label: "满血（默认）",
+    speedup: null,
+    ssim: null,
+    recommended: true,
+    source: "reference",
+    note: "原生采样，不做加速改写。质量优先默认档。",
+};
+
+/** 加速档 Select 选项 label：「甜点位 · 2.94x · SSIM 0.82」；off 档「满血（默认）」。
+ *  无实测倍率/SSIM（wan/qwen 参考档）时只显 label。 */
+export function formatAccelTierLabel(t: ToivAccelTier): string {
+    if (t.level === "off") return t.label || "满血（默认）";
+    const parts: string[] = [t.label || t.level];
+    if (typeof t.speedup === "number") parts.push(`${t.speedup.toFixed(2)}x`);
+    if (typeof t.ssim === "number") parts.push(`SSIM ${t.ssim.toFixed(2)}`);
+    return parts.join(" · ");
+}
+
+/** 加速档说明小字：note/source；reference 档标注「参考值」（无实测倍率/SSIM）。 */
+export function formatAccelTierNote(t: ToivAccelTier): string {
+    const note = (t.note || "").trim();
+    if (t.source === "reference") return note ? `参考值 · ${note}` : "参考值";
+    return note || (t.source === "measured" ? "实测值" : "");
 }
 
 export type ToivCharacterSheet = {
@@ -785,12 +838,16 @@ export async function generateCharacterSheetStrict(cid: string, style: string): 
 }
 
 /** W1.4(2026-10-11):严格版单镜渲染——失败抛错带 detail(缺参考图等前置问题可见);
- * 旧 triggerShotRender 吞错 boolean 保留(drama-detail 契约)。 */
-export async function renderShotStrict(sid: string, opts: { num_candidates?: number } = {}): Promise<void> {
+ * 旧 triggerShotRender 吞错 boolean 保留(drama-detail 契约)。
+ * 任务 #24:opts.accel 传显式加速档(默认 off 满血);后端仅对 H3 家族图生效。 */
+export async function renderShotStrict(sid: string, opts: { num_candidates?: number; accel?: string } = {}): Promise<void> {
     try {
+        const payload: Record<string, unknown> = { wait: true };
+        if (opts.num_candidates) payload.num_candidates = opts.num_candidates;
+        if (opts.accel && opts.accel !== "off") payload.accel = opts.accel;
         await toivHttp.post(
             `/studio/shots/${encodeURIComponent(sid)}/render`,
-            opts.num_candidates ? { num_candidates: opts.num_candidates, wait: true } : undefined,
+            opts.num_candidates || (opts.accel && opts.accel !== "off") ? payload : undefined,
             { timeout: 3600_000 },
         );
     } catch (e) {
@@ -812,11 +869,13 @@ export async function assembleStudioProject(pid: string): Promise<void> {
 
 /** S4-b(2026-10-11):异步单镜渲染——wait=false 登记 Job 即回(管线C阶段B机制);
  * 同步等待撞 reload/断连=状态僵死(实测),一律走此路。 */
-export async function renderShotAsync(sid: string, opts: { num_candidates?: number } = {}): Promise<{ job_id: string }> {
+export async function renderShotAsync(sid: string, opts: { num_candidates?: number; accel?: string } = {}): Promise<{ job_id: string }> {
     try {
+        const payload: Record<string, unknown> = { num_candidates: opts.num_candidates ?? 2, wait: false };
+        if (opts.accel && opts.accel !== "off") payload.accel = opts.accel;
         const { data } = await toivHttp.post(
             `/studio/shots/${encodeURIComponent(sid)}/render`,
-            { num_candidates: opts.num_candidates ?? 2, wait: false },
+            payload,
             { timeout: 30_000, validateStatus: (st) => st === 202 || (st >= 200 && st < 300) },
         );
         return data as { job_id: string };

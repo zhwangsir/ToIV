@@ -460,6 +460,27 @@ async def _brand_ocr_after_render(url: str, skip_until_frame: int = 0) -> dict:
             pass
 
 
+def _apply_studio_accel(graph: dict, accel: str) -> tuple[dict, bool]:
+    """任务 #24：显式加速档改写。返回 (图, 是否实际生效)。
+
+    - off / 空档：零行为变化，原样返回 (graph, False)；
+    - 非 H3 家族图（wan/qwen/ltx 等不经此改写）：原样返回 (graph, False)；
+    - H3 家族图：委托 h3_accel.apply_acceleration（规格缺失/下架档/校验失败自动降级原生）。
+    与 routes/h3_studio._accel_transform 同一语义；is_h3_family 判定口径与 _pick_app_client 一致。
+    """
+    level = (accel or "off").strip().lower() or "off"
+    if level == "off":
+        return graph, False
+    from app.services import h3_accel
+
+    class_types = [
+        str(n.get("class_type", "")) for n in graph.values() if isinstance(n, dict)
+    ]
+    if not h3_accel.is_h3_family(None, class_types):
+        return graph, False
+    return h3_accel.apply_acceleration(graph, level)
+
+
 async def render_pipeline_c(
     shot: Any,
     cast: list[Any],
@@ -482,6 +503,7 @@ async def render_pipeline_c(
     user_id: str | None = None,
     wait: bool = True,
     parent_chain_job_id: str | None = None,
+    accel: str = "off",
 ) -> dict[str, Any]:
     """执行管线 C，返回 {url, context_latent, seed, prompt, worker, job_id, db_job_id, pipeline, first_frame}。
 
@@ -623,6 +645,7 @@ async def render_pipeline_c(
     prefix_ctx = ""
     max_submits = 3  # 首次 + 最多额外 2 次换 seed
     db_job_id: str | None = None
+    accel_applied = False  # 任务 #24：加速档是否实际生效（H3 家族 + 规格可用）
     owner = _resolve_job_owner(shot, tenant_id, user_id)
     do_wait = bool(wait)
     job_stage = "A" if do_wait else "B"
@@ -659,6 +682,9 @@ async def render_pipeline_c(
             graph = build_h3_pipeline_c_graph(params)
         except ValueError as e:
             raise RenderError(str(e)) from e
+
+        # 任务 #24：显式加速档（默认满血 off）——仅 H3 家族图按档改写，其余原样提交。
+        graph, accel_applied = _apply_studio_accel(graph, accel)
 
         client_id = uuid.uuid4().hex
         try:
@@ -730,6 +756,8 @@ async def render_pipeline_c(
                 "ref_overrides": dict(ref_overrides or {}),
                 "waited": False,
                 "status": "queued",
+                "acceleration": (accel or "off"),
+                "acceleration_applied": accel_applied,
             }
 
         url = await _wait_video_url(client.base_url, prompt_id, request=request)
@@ -838,6 +866,8 @@ async def render_pipeline_c(
         "ref_overrides": dict(ref_overrides or {}),
         "waited": True,
         "status": "done",
+        "acceleration": (accel or "off"),
+        "acceleration_applied": accel_applied,
     }
 
 

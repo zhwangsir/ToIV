@@ -19,6 +19,7 @@ from app.deps import get_current_admin, get_current_user, get_pool
 from app.ratelimit import enforce_generation_rate_limit
 from app.models import StudioCharacter, StudioProject, StudioShot, User
 from app.services.drama_pipeline import compute_studio_next_step
+from app.services import h3_accel
 from app.services.svml_lite import drafts_to_coerced, parse_svml_script as svml_parse_script
 from app.services.studio import assemble as assemble_svc
 from app.services.studio import lipsync as lipsync_svc
@@ -2150,6 +2151,14 @@ class RenderShotBody(BaseModel):
         default=True,
         description="True=同步等片（默认）；False=登记 Job 后立即返回 job_id，tracker 后台继续",
     )
+    # 任务 #24：显式加速档（产品路径默认满血 off）；仅 H3 家族图生效，非 H3 原样提交。
+    # 非法值 → 422（h3_accel.validate_acceleration）；wan/qwen 系不经此渲染路径。
+    accel: str = Field(default="off", max_length=16)
+
+    @field_validator("accel")
+    @classmethod
+    def _check_accel(cls, v: str) -> str:
+        return h3_accel.validate_acceleration(v)
 
     @field_validator("pipeline")
     @classmethod
@@ -2161,6 +2170,18 @@ class RenderShotBody(BaseModel):
                 "pipeline_invalid", "pipeline 仅支持 ref2va | c | c_hybrid | legacy"
             )
         return p
+
+
+class RenderProjectBody(BaseModel):
+    """整批渲染请求体(任务 #24)。全部可选;缺省兼容旧客户端(无 body / 空 body)。"""
+
+    # 显式加速档:产品默认满血 off;非法值 → 422(h3_accel.validate_acceleration)。
+    accel: str = Field(default="off", max_length=16)
+
+    @field_validator("accel")
+    @classmethod
+    def _check_accel(cls, v: str) -> str:
+        return h3_accel.validate_acceleration(v)
 
 
 @router.post("/studio/shots/{sid}/render")
@@ -2185,6 +2206,8 @@ async def render_one(
     pipe = (body.pipeline if body is not None else "ref2va") or "ref2va"
     rstyle = body.ref_style if body is not None else None
     fixed_seed = body.seed if body is not None else None
+    accel = (body.accel if body is not None else "off") or "off"
+    accel_echo: dict = {}
     do_wait = True if body is None else bool(body.wait)
     worker_url = None
     if body is not None and (body.worker_url or "").strip():
@@ -2214,6 +2237,8 @@ async def render_one(
                 ref_style=rstyle,
                 seed=fixed_seed,
                 worker_url=worker_url,
+                accel=accel,
+                accel_echo=accel_echo,
                 wait=do_wait,
             )
         except RenderError as e:
@@ -2242,7 +2267,10 @@ async def render_one(
                 )
                 fixed_seed = None  # 换 seed
                 continue
-            return _shot_out(out_shot)
+            data = _shot_out(out_shot)
+            data["acceleration"] = accel
+            data["acceleration_applied"] = bool(accel_echo.get("applied"))
+            return data
         import json as _json
 
         db_job_id = ""
@@ -2264,6 +2292,8 @@ async def render_one(
             "prompt_id": comfy_pid,
             "status": "queued",
             "shot_id": out_shot.id,
+            "acceleration": accel,
+            "acceleration_applied": bool(accel_echo.get("applied")),
             "shot": _shot_out(out_shot),
         }
 
@@ -2286,21 +2316,25 @@ def pick_shot_candidate(
 @router.post("/studio/projects/{pid}/render")
 async def render_batch(
     pid: str,
+    body: RenderProjectBody | None = None,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
     request: Request = None  # FastAPI 注入;勿标 Optional 否则当 Pydantic 字段,
 ):
     """批量渲染:跳过已 rendered/voiced/lipsynced/done 的分镜;单镜失败不阻塞其余。"""
     _get_project(session, pid, user)
+    accel = (body.accel if body is not None else "off") or "off"
     shots = session.exec(
         select(StudioShot).where(StudioShot.project_id == pid).order_by(StudioShot.idx)
     ).all()
     done, failed = 0, 0
+    applied_any = False
     for shot in shots:
         if request is not None and await request.is_disconnected():
             break
         if shot.status in orchestrator.terminal_states():
             continue
+        accel_echo: dict = {}
         try:
             await orchestrator.render_shot(
                 session,
@@ -2309,11 +2343,19 @@ async def render_batch(
                 video_model="h3",
                 num_candidates=2,
                 pipeline="ref2va",
+                accel=accel,
+                accel_echo=accel_echo,
             )
             done += 1
+            applied_any = applied_any or bool(accel_echo.get("applied"))
         except RenderError:
             failed += 1
-    return {"rendered": done, "failed": failed}
+    return {
+        "rendered": done,
+        "failed": failed,
+        "acceleration": accel,
+        "acceleration_applied": applied_any,
+    }
 
 
 

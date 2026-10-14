@@ -7,6 +7,7 @@
  * 现在各段为只读骨架：头部项目状态 + 各段已有数据的轻量呈现 + 落地批次的说明。
  */
 import { ArrowDown, ArrowUp, BookOpen, Camera, Captions, Check, Clapperboard, FileText, Film, IdCard, Layers, ListOrdered, Loader2, Mic, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
+import { Select } from "antd";
 import type { ToivFrameVariant, ToivSharedAsset } from "@/services/toiv/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
@@ -23,6 +24,10 @@ import {
     createStudioCharacter,
     fetchCharacterSheets,
     fetchDramaProject,
+    fetchAccelTiers,
+    formatAccelTierLabel,
+    formatAccelTierNote,
+    OFF_ACCEL_TIER,
     patchStudioProject,
     pollScriptParse,
     pickShotCandidate,
@@ -46,6 +51,7 @@ import {
     type ToivCharacterSheet,
     type ToivDramaCharacter,
     type ToivDramaDetail,
+    type ToivAccelTier,
 } from "@/services/toiv/client";
 
 const SECTIONS = [
@@ -276,12 +282,28 @@ export default function DramaWorkspacePage() {
     const RENDERED_STATES = new Set(["rendering", "rendered", "voiced", "lipsynced", "done"]);
     // S4-b:异步提交(wait=false)+轮询镜状态——reload/断连不再僵死,离开页面也无碍
     const [renderMsg, setRenderMsg] = useState<string | null>(null);
+    // ---- 任务 #24:显式加速档(产品默认满血 off;选项来自 /api/acceleration/tiers h3 族) ----
+    const [accelTiers, setAccelTiers] = useState<ToivAccelTier[]>([OFF_ACCEL_TIER]);
+    const [accelLevel, setAccelLevel] = useState<string>("off");
+    useEffect(() => {
+        let alive = true;
+        void (async () => {
+            try {
+                const tiers = await fetchAccelTiers("h3");
+                if (alive) setAccelTiers(tiers.length > 0 ? tiers : [OFF_ACCEL_TIER]);
+            } catch {
+                if (alive) setAccelTiers([OFF_ACCEL_TIER]);
+            }
+        })();
+        return () => { alive = false; };
+    }, []);
+    const selectedAccelTier = accelTiers.find((t) => t.level === accelLevel) ?? OFF_ACCEL_TIER;
     const runShotRender = useCallback(async (sid: string) => {
         markBusy(sid, true);
         setRenderError(null);
         setRenderMsg(null);
         try {
-            const { job_id } = await renderShotAsync(sid, { num_candidates: 2 });
+            const { job_id } = await renderShotAsync(sid, { num_candidates: 2, accel: accelLevel });
             setRenderMsg(`渲染已入后台(作业 ${job_id.slice(0, 8)}…,双候选约 10-20 分钟;可离开本页,任务中心可见)`);
             for (let i = 0; i < 240 && !pollStop.current; i++) {
                 await new Promise((r) => setTimeout(r, 10000));
@@ -298,7 +320,7 @@ export default function DramaWorkspacePage() {
         } finally {
             markBusy(sid, false);
         }
-    }, [id, load]);
+    }, [id, load, accelLevel]);
 
     // ---- S9 正式: 时间线排序/时长编辑(PUT shots 全量保存契约) ----
     const [tlOrder, setTlOrder] = useState<string[]>([]);          // shot id 顺序
@@ -527,12 +549,12 @@ export default function DramaWorkspacePage() {
         if (!id) return;
         setBatchRendering(true);
         try {
-            await triggerBatchRender(id);
+            await triggerBatchRender(id, accelLevel);
             await load();
         } finally {
             setBatchRendering(false);
         }
-    }, [id, load]);
+    }, [id, load, accelLevel]);
 
     const runAutoStoryboard = useCallback(async () => {
         if (!id || parsing) return;
@@ -867,10 +889,27 @@ export default function DramaWorkspacePage() {
                                                 onClick={() => void startCChain()}
                                                 loading={chainBusy}
                                             />
+                                            <label className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                                加速档
+                                                <Select
+                                                    size="small"
+                                                    value={accelLevel}
+                                                    onChange={(v) => setAccelLevel(v)}
+                                                    style={{ minWidth: 220 }}
+                                                    aria-label="加速档"
+                                                    options={accelTiers.map((t) => ({
+                                                        value: t.level,
+                                                        label: formatAccelTierLabel(t),
+                                                    }))}
+                                                />
+                                            </label>
                                             <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
                                                 单镜/整批走 H3 ref2va(需角色定妆参考图);管线C 为 c_hybrid 连续生成,作业进任务中心
                                             </span>
                                         </div>
+                                        <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                            {formatAccelTierNote(selectedAccelTier) || "满血档:原生采样,质量优先(产品默认)。"}
+                                        </p>
                                         {chainMsg && (
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{chainMsg}</p>
                                         )}

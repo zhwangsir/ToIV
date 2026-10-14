@@ -249,6 +249,8 @@ async def render_shot(
     outfit_desc: str | None = None,
     wait: bool = True,
     parent_chain_job_id: str | None = None,
+    accel: str = "off",
+    accel_echo: dict | None = None,
 ) -> StudioShot:
     """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。
 
@@ -373,6 +375,7 @@ async def render_shot(
     if request is not None:
         render_kw["request"] = request
     render_kw["video_model"] = engine
+    render_kw["accel"] = (accel or "off").strip().lower() or "off"
     pipe = (pipeline or DEFAULT_VIDEO_PIPELINE).strip().lower() if engine == "h3" else "legacy"
     if pipe not in VIDEO_PIPELINES + ("legacy",):
         pipe = DEFAULT_VIDEO_PIPELINE
@@ -848,6 +851,12 @@ async def render_shot(
 
     # 阶段 B 最小：wait=false → 已登记 Job + spawn_tracker，立即返回；不落成片 URL
     _meta_async = getattr(result, "pipeline_meta", None) or {}
+    # 任务 #24：把实际生效的加速档回显给路由层（accel_echo 由 render_pipeline_c 填充）
+    if accel_echo is not None:
+        accel_echo["level"] = render_kw.get("accel", "off")
+        accel_echo["applied"] = bool(
+            isinstance(_meta_async, dict) and _meta_async.get("acceleration_applied")
+        )
     if not do_wait and (
         candidates
         or (

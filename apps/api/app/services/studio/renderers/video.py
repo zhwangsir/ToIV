@@ -148,6 +148,7 @@ class VideoRenderer:
                     user_id=kw.get("user_id"),
                     wait=bool(kw.get("wait", True)),
                     parent_chain_job_id=kw.get("parent_chain_job_id"),
+                    accel=str(kw.get("accel") or "off"),
                 )
             except RenderError:
                 raise

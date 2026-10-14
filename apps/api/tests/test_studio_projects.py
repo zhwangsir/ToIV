@@ -203,7 +203,9 @@ def test_render_batch_skips_terminal(ctx, monkeypatch):
     monkeypatch.setattr(orch, "render_shot", recording_render)
     r = client.post(f"/api/studio/projects/{pid}/render", headers=H)
     assert r.status_code == 200, r.text
-    assert r.json() == {"rendered": 1, "failed": 0}
+    body = r.json()
+    assert body["rendered"] == 1 and body["failed"] == 0
+    assert body["acceleration"] == "off"  # 任务 #24：默认满血
     assert rendered == [shots[1]["id"]]
 
 
@@ -221,7 +223,9 @@ def test_render_batch_failure_not_blocking(ctx, monkeypatch):
     monkeypatch.setattr(orch, "render_shot", failing_render)
     r = client.post(f"/api/studio/projects/{pid}/render", headers=H)
     assert r.status_code == 200
-    assert r.json() == {"rendered": 0, "failed": 2}
+    body = r.json()
+    assert body["rendered"] == 0 and body["failed"] == 2
+    assert body["acceleration"] == "off"
 
 
 def test_project_status_counts(ctx):
