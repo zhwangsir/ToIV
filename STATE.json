@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-14T08:46:43+08:00",
+  "updated_at": "2026-10-14T14:18:23+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15859,7 +15859,9 @@
     "defects_fixed": [
       "①作品面音频/未知类型产物塞 <img> → 碎图(改分类型渲染 + onError 兜底);复验 brokenImgs=0、audio 播放器 2、占位块 16",
       "②opentalking 探活裸 fetch → 恒 401(后端实要求鉴权,前端注释撒谎);复验 statusCall=200 且 UI 诚实显示「引擎离线」;AGENTS P-19",
-      "③画布 SSE 硬编 /api → /studio 挂载下恒 404;复验 failed 列表已无 events;AGENTS P-20"
+      "③画布 SSE 硬编 /api → /studio 挂载下恒 404;复验 failed 列表已无 events;AGENTS P-20",
+      "④用户实测 /api/boards/<job-id>/items 404:作品面把 job id 链进画板详情路由(library-detail 把 :id 当 board 用) → 改为页面内置预览浮层;复验 44 卡可预览、/api/boards 调用 0、失败请求 0、Esc 关闭",
+      "⑤助手 403 被当 host_starting 无限轮询(一次会话 3,877 条 403) → 403 置终态并停轮询 + 诚实文案;复验再等 25s growth=0;AGENTS P-22"
     ],
     "open_need_user": [
       "canvas 创作助手与 ops 提交层在 web 入口恒 403:`agent_ops.go:279 isLoopbackRequest` 要求 Host 是回环地址,经 :3100 代理时 Host=192.168.71.47 → 拒绝。画布内容本身没丢(REST PUT 路径正常),但助手面板不可用。属安全边界(防远程 agent 提交文档),未擅自改动;可选:A) Next 重写保留回环 Host + 扩 Origin 白名单;B) 新增 CANVAS_OPS_TRUSTED_ORIGINS 显式放行;C) 承认助手/ops 为桌面专属,web 入口隐藏该面板",
@@ -15867,6 +15869,8 @@
     ],
     "e2e": "UI 提交 Flux2 文生图 → job 09b2c566 status=done 出 PNG → canvas 作品面搜索命中且图 2/2 真加载",
     "tests": "web 1173 绿(含新增 avatartalk 3 例 + F8 4 例);canvas toiv-library-works 4 绿;构建两侧均过;部署 web core 本机构建 + canvas --canvas-only(未动 toiv-api,烟测战役全程未中断)",
-    "false_positive_avoided": "窄屏 8/10 '碎图' 经 fetch 全 200 证实为懒加载假阳性(AGENTS P-21),未误报为缺陷"
+    "false_positive_avoided": "窄屏 8/10 '碎图' 经 fetch 全 200 证实为懒加载假阳性(AGENTS P-21),未误报为缺陷",
+    "parity_correction": "canvas 侧「作品详情」此前被我错误勾成 ✓:canvas 无 job 详情页,/library/works/:id 是画板语义。现改为内置预览(查看/重跑/回收站),真正的 job 详情页仍是开口",
+    "also_found": "媒体库 source=history 与 source=materials 渲染同一个 AssetsPage(rail 三个入口实际两个面)——既有问题,未改"
   }
 }
