@@ -302,3 +302,13 @@
 - **F9/F10/F11 收编提交**:F9 助手统一(命令面/浮层/分叉/web home 跳转壳 fail-safe)、F10 引擎台四缺口(正典技能 tab/视图预设/超分入口/3D 工具位;GET /api/skills 不存在→静态镜像+注释标 P-14 过期风险)、F11 媒体库台词检索面(admin 门禁+P-11 形状门+浮层预览;F11_GAP 八项记录)。
 - **P-11 形状门**:canvas 作业列表两处「非数组 200→静默空集」改抛错+回归断言。
 - **#24 提交**:tiers 单一数据源(h3 实测档过滤 recommended=false/无倍率档;wan/qwen 静态参考禁编造数字)+ studio/渲染体 accel 透传 + 剧本工作区 Select 默认满血。
+
+## 批次 11(2026-10-15 晨后半):部署+真机取证+UI 打磨
+
+- **部署**:`deploy.sh --skip-web --with-canvas`(api+canvas)+ web 源码 rsync+core 构建重启;随后 `--canvas-only` 补打磨批。api 重启窗 ≤3 in-flight(战役 round2-4 撞窗由 supervisor 自动续轮)。
+- **真机取证(Playwright,admin 会话)**:①F9 交接 `/`→splash→`/studio` ✓;②#24 加速档 Select 在镜头段:满血(默认)/甜点位 2.94x·SSIM 0.82/极速预览 12.90x·SSIM 0.75,**无 lossless** ✓(截图留证);③F11 台词检索 tab(admin 门禁)去空格命中 `[002.62-003.88] 还 营 业 吧` ✓;④F10 正典 6 卡/3D 工具位/视图预设 ✓(超分入口代码+单测验证);⑤W0-2 门禁:四面往返×10=40/40 且布局节点存活(无整树重挂)✓;⑥工具箱首进 405ms 出内容,>10s spinner 不复现 ✓。
+- **UI 打磨批(取证发现)**:加速档下拉 `popupMatchSelectWidth=false` 解截断;满血档 note 去「参考值」误导前缀;作品缩略图 502(worker 饱和瞬态)延迟 4s 重试一次再退占位。beforeunload 弹窗经查为同步进行中合法保护,非缺陷,撤回。
+- **吞吐复测(#9)**:round5 修复后 9min 窗口 **67/h、pass 4/10**;修复前同轮 29–32/h、pass 率更低。
+- **烟测量化灰度实证**:api journal「烟测量化换权生效」×1(z-image app),产品路径不受影响。
+- **踩坑入册 P-25**:舰队串行重启 / api 池不经 LB / web 构建停站窗口。
+- **开口**:stale 120 条复测轮因饱和污染暂停(首 4 条 2 timeout),待 wan 门完成后 concurrency 2 续跑;RH shim(~27 app)/inspyrenet(2)/Qwen-DiffSynth 旧键(3)记开口。
