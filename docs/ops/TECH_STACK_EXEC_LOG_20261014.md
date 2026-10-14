@@ -124,3 +124,32 @@
 ### 部署与提交
 - canvas `--canvas-only` 已部署（R18 骨架即刻生效）；api 侧（DramaScene+studio SVML+drama SVML+img2threejs）继续攒批等 running=0。
 - 提交：`e0a1…`（本批）推送双远端。
+
+---
+
+## 存档检查点（2026-10-15，用户指示暂停存档）
+
+### 本会话总账（2026-10-14 晚 ~ 10-15，7 个提交，双远端齐）
+| 批 | 内容 | 状态 |
+|----|------|------|
+| 批1 | T0 卫生：AGENTS 93.7KB→20.4KB 归档/embdding 重启回收 28.5G/LB 池口径修正/opentalking 下架改判/D7 闭账 | ✅ |
+| 批2 | U2 引入：hypit SVML 解析器+导入端点(13T)/img2threejs 技能+registry 加固(23T)/DESIGN.md token 契约(4T)/T-U 审计+数字人下架+P-20 短剧 404 根修 | ✅ web+canvas 已部署 |
+| 批3 | D-U1=B 拍板/R18 门控骨架(LIVE)/scene_asset v0(4T)/Studio 域 SVML(2T) | ✅ R18 已部署，api 侧攒批 |
+| 提交链 | `2c84e79c`→`88c6251f`→`a4c17669`→`8bf7aec6`→`9f65e0d1`→`ef02f652`（+本档） | Gitee+GitHub 齐 |
+
+### 三处拍板存档
+1. 10-14 四条：opentalking 下架（资源优先短剧/视频）/引用 img2threejs+hypit/模型保持最新/UI 优化高优先。
+2. 10-14 晚：完全使用 BeefTV(canvas) 那一套 + 六仓深度融合（方案 `UI_UNIFY_FUSION_PLAN_20261014.md`）。
+3. 10-15：**D-U1=B 不设红线架构**——canvas R18 门控模式，web 退役到登录+官网；涉未成年仍绝对禁区（法律级）。
+
+### 生产现态（存档时点）
+- core：web/canvas-api-pg active（canvas 含 R18 面板+SVML UI 面板）；**toiv-api 10-14 04:24 起未重启**（战役纪律）。
+- 战役：running=3，public 2166→**2216**（持续上架中）。
+- workstation：GPU0~40G(战役装模)/GPU1 56.1G(回收 28.5G 后)/GPU2 62.1G/GPU3 47.8G；LB 池=:8196+:8263。
+
+### 下一会话入口（按序）
+1. 读 AGENTS.md（<20KB 新版）+ 本文件存档节 + `UI_UNIFY_FUSION_PLAN_20261014.md`。
+2. **等 running=0 窗口**→一次性 api 部署捆绑包：DramaScene+两个 SVML 端点+img2threejs+registry 加固+`TOIV_OPENTALKING_ENABLED=false` 翻转+SVML 工作区真机 e2e+T1（LongCat 迁 GPU3+160 装包+逐实例 object_info 核验）。
+3. FU2 成片剪辑包：video-use(MIT) 五件套并码移植（packed transcript/EDL 协议/词边界剪规/timeline_view VLM 下钻/渲染后自评闭环）。
+4. F9 助手统一（canvas /toiv/agent 吸收 web 浮层+⌘K）→ F10 引擎台四缺口 → F11 库收编 → F12 web 壳退役（R18 已由 canvas 面板承接，无阻塞）。
+5. 挂账观察项：工具箱首进 spinner>10s（API 179ms 正常，疑前端导航态竞态）；canvas 全量 bun test 并发失败=预存环境性（Bun 段错误）。

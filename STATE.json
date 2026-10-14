@@ -1,5 +1,25 @@
 {
-  "updated_at": "2026-10-15T12:10:00+08:00",
+  "updated_at": "2026-10-15T13:00:00+08:00",
+  "session_checkpoint_2026_10_15": {
+    "status": "PAUSED_BY_USER_archive_point",
+    "commits": [
+      "2c84e79c",
+      "88c6251f",
+      "a4c17669",
+      "8bf7aec6",
+      "9f65e0d1",
+      "ef02f652"
+    ],
+    "both_remotes": "synced",
+    "live_on_prod": "canvas: R18 pane + SVML import panel + P-20 fix + digital-human decommission; web: avatartalk decommission note",
+    "pending_api_bundle_at_running0": "DramaScene + studio/drama SVML endpoints + img2threejs + registry hardening + TOIV_OPENTALKING_ENABLED=false + T1 (LongCat->GPU3 + 160 packages) + SVML workspace prod e2e",
+    "next_waves": "FU2 video-use MIT port (edit package) -> F9 assistant unify -> F10 engine studio gaps -> F11 library -> F12 web shell retire",
+    "decisions_on_file": "D-U1=B (no red-line architecture, canvas R18 gated mode, web->login+landing); minors content remains absolute legal boundary",
+    "watchlist": [
+      "market first-visit spinner>10s (client-nav suspect)",
+      "canvas full bun-test parallel crash = pre-existing env (Bun segfault)"
+    ]
+  },
   "ui_unify_fusion_plan_2026_10_14": {
     "status": "executing_FU1_after_D-U1_verdict_B",
     "date": "2026-10-14",
