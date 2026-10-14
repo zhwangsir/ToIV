@@ -1,4 +1,4 @@
-import { ArrowLeft, Loader2, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, File, Loader2, Music, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
@@ -37,6 +37,19 @@ function formatTime(value: string): string {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return "—";
     return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(d);
+}
+
+type MediaKind = "video" | "audio" | "image" | "other";
+
+/** 产物类型判定。results 常是带查询串的地址(/api/images?filename=x.mp4&sig=…),
+ *  扩展名既可能在路径尾,也可能藏在 filename= 参数里,两处都要看。 */
+function mediaKind(path: string): MediaKind {
+    const name = /filename=([^&]+)/i.exec(path)?.[1] ?? path;
+    const ext = (/\.([a-z0-9]{2,5})(?:[?&#]|$)/i.exec(decodeURIComponent(name))?.[1] || "").toLowerCase();
+    if (["mp4", "webm", "mov", "m4v", "avi"].includes(ext)) return "video";
+    if (["mp3", "wav", "m4a", "flac", "ogg", "aac"].includes(ext)) return "audio";
+    if (["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp"].includes(ext)) return "image";
+    return "other";
 }
 
 function statusLabel(job: ToivWorkJob): { text: string; tone: "ok" | "run" | "err" } {
@@ -163,23 +176,37 @@ export default function LibraryWorks() {
                     {visible.map((job) => {
                         const st = statusLabel(job);
                         const cover = job.results?.[0] ?? "";
-                        // results 常是带查询串的地址(/api/images?filename=x.mp4&sig=…),扩展名不在串尾,
-                        // 故按「扩展名后接 ?/&/结尾」判定,不能 $ 锚定(否则视频被当图片渲染成碎图)。
-                        const isVideo = /\.(mp4|webm|mov|m4v)([?&]|$)/i.test(cover);
+                        const mediaKind_ = mediaKind(cover);
                         return (
                             <div
                                 key={job.id}
                                 className="group flex flex-col overflow-hidden rounded-[var(--card-radius,12px)] bg-[var(--card-surface,#f7f7f7)] transition-colors hover:bg-[var(--card-surface-hover,#f0f0f0)]"
                             >
                                 <Link to={`/library/works/${job.id}`} className="block aspect-video w-full overflow-hidden bg-black/20">
-                                    {cover ? (
-                                        isVideo ? (
-                                            <video src={toivMediaUrl(cover)} muted preload="metadata" className="size-full object-cover" />
-                                        ) : (
-                                            <img src={toivCoverImageUrl(cover)} alt="" loading="lazy" className="size-full object-cover" />
-                                        )
+                                    {cover && mediaKind_ === "video" ? (
+                                        <video src={toivMediaUrl(cover)} muted preload="metadata" className="size-full object-cover" />
+                                    ) : cover && mediaKind_ === "audio" ? (
+                                        <div className="flex size-full flex-col items-center justify-center gap-2 px-3">
+                                            <Music className="size-7 text-muted-foreground" aria-hidden="true" />
+                                            <audio src={toivMediaUrl(cover)} controls preload="none" className="w-full max-w-56" />
+                                        </div>
+                                    ) : cover && mediaKind_ === "image" ? (
+                                        <img
+                                            src={toivCoverImageUrl(cover)}
+                                            alt=""
+                                            loading="lazy"
+                                            className="size-full object-cover"
+                                            onError={(e) => {
+                                                // 永不露碎图:加载失败退成占位块(原生碎图标对用户零信息量)
+                                                e.currentTarget.style.display = "none";
+                                                e.currentTarget.dataset.broken = "1";
+                                            }}
+                                        />
                                     ) : (
-                                        <div className="flex size-full items-center justify-center text-xs text-muted-foreground">无预览</div>
+                                        <div className="flex size-full flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
+                                            <File className="size-6" aria-hidden="true" />
+                                            {cover ? "该类型不提供预览" : "无预览"}
+                                        </div>
                                     )}
                                 </Link>
                                 <div className="flex flex-col gap-1 p-3">

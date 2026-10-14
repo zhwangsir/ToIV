@@ -14,6 +14,7 @@ import { getActiveUserScope, scopedLocalStorage } from "@/lib/user-scope";
 import { assertUserScope, captureUserScope, userScopeMatches, type CapturedUserScope } from "@/lib/user-scope-guard";
 import { findWorkspaceAssetIdByStorageKey } from "@/lib/canvas/director/director-library-persist";
 import { resourceFileUrl, resourceIdFromStorageKey, syncResourceToArkPrivateAsset } from "@/services/api/resources";
+import { apiBaseURL } from "@/services/api/request";
 import { uploadImage } from "@/services/image-storage";
 import { imageMetadata } from "@/lib/canvas/canvas-generation-task-sync";
 import { isCanvasImageSourceNode } from "@/lib/canvas/canvas-image-source";
@@ -246,7 +247,12 @@ function InfiniteCanvasPage() {
     }, [projectId, setNodes]);
     useEffect(() => {
         if (!projectId || !isLocalWorkspaceMode() || window.location.protocol !== "http:") return;
-        const source = new EventSource(`/api/canvas-projects/${encodeURIComponent(projectId)}/events`);
+        // 基址必须走配置化的 apiBaseURL:SPA 挂在 /studio 下时 canvas-api 前缀是 /studio/api,
+        // 硬编 /api 会被 Next 转给 FastAPI(:8090)→ 恒 404(实测 /api/canvas-projects/.../events 404)。
+        const source = new EventSource(
+            `${apiBaseURL.replace(/\/$/, "")}/canvas-projects/${encodeURIComponent(projectId)}/events`,
+            { withCredentials: true },
+        );
         const sync = () => void refreshLocalCanvasProjectIfChanged(projectId).then((project) => {
             if (project) { setNodes(project.nodes || []); setConnections(project.connections || []); }
         });

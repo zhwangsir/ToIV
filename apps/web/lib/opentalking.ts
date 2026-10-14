@@ -137,8 +137,9 @@ export async function otGetHealth(): Promise<Record<string, unknown>> {
 }
 
 export async function otGetStatus(): Promise<{ enabled: boolean; reachable: boolean; model?: string; tts_provider?: string }> {
-  // /status 无需鉴权(后端 opentalking.py 的 ot_status 未加 Depends)
-  const res = await fetch(`${OT_BASE}/status`);
+  // 必须走 otFetch:后端 `ot_status` 有 Depends(get_current_user)(routes/opentalking.py:188,
+  // 刻意不匿名暴露内部引擎/tts 指纹)。裸 fetch 会 401,把「引擎不可达」在 UI 上误报成登录问题。
+  const res = await otFetch(`/status`);
   return handleResponse(res);
 }
 
