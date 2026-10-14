@@ -97,7 +97,8 @@ func RegisterAgentUISessionRoutes(r gin.IRouter, svc *app.Service, ui *uiSession
 			fail(c, http.StatusForbidden, app.BadAuthRequest("外部客户端不能签发界面会话"))
 			return
 		}
-		if !isLoopbackRequest(c.Request) {
+		if !isTrustedOpsSource(c.Request) {
+			opsSourceDenied(c, "只接受本机同源请求")
 			fail(c, http.StatusForbidden, app.BadAuthRequest("只接受本机同源请求"))
 			return
 		}

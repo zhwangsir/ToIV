@@ -50,8 +50,9 @@ func RegisterAgentProxyRoutes(r gin.IRouter, svc *app.Service, clients *agentops
 	client := agentHostClient(10 * time.Minute)
 
 	guard := func(c *gin.Context, requireWrite bool) bool {
-		// 与 /agent-ops 完全相同的来源校验：Host/RemoteAddr/Origin 都必须是本机且同源。
-		if !isLoopbackRequest(c.Request) {
+		// 来源准入与 /agent-ops 完全一致：回环同源，或反向代理入口的可信 Origin。
+		if !isTrustedOpsSource(c.Request) {
+			opsSourceDenied(c, "内置助手入口只接受本机同源请求")
 			c.JSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "reason": "forbidden", "msg": "内置助手入口只接受本机同源请求"})
 			return false
 		}
@@ -77,7 +78,14 @@ func RegisterAgentProxyRoutes(r gin.IRouter, svc *app.Service, clients *agentops
 	}
 
 	// hostOpsURL 用请求自身的 Host 推导操作层基址：桌面形态监听随机端口，猜端口会指向别处。
-	hostOpsURL := func(c *gin.Context) string { return "http://" + c.Request.Host + "/api" }
+	// 反向代理若保留外部 Host（前端入口地址），拿它当回调地址会把宿主子进程的 ops 调用
+	// 打进前端代理；此时回退空串，由 assistantruntime 的 opsBaseURL 落到本进程监听地址。
+	hostOpsURL := func(c *gin.Context) string {
+		if !isLoopbackHost(c.Request.Host) {
+			return ""
+		}
+		return "http://" + c.Request.Host + "/api"
+	}
 	launchToken := func(c *gin.Context) string { return strings.TrimSpace(c.GetHeader(httptransport.LaunchTokenHeader)) }
 
 	unavailable := func(c *gin.Context, reason string) {
@@ -135,8 +143,9 @@ func RegisterAgentProxyRoutes(r gin.IRouter, svc *app.Service, clients *agentops
 		ok(c, gin.H{"available": false, "reason": "host_unreachable", "model": modelInfo})
 	}
 	guardedStatus := func(c *gin.Context) {
-		// 状态查询不含任何凭据，只做本机同源校验：面板需要它在未签发会话时也能显示"未就绪"。
-		if !isLoopbackRequest(c.Request) {
+		// 状态查询不含任何凭据，只做来源准入：面板需要它在未签发会话时也能显示"未就绪"。
+		if !isTrustedOpsSource(c.Request) {
+			opsSourceDenied(c, "内置助手入口只接受本机同源请求")
 			c.JSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "reason": "forbidden"})
 			return
 		}

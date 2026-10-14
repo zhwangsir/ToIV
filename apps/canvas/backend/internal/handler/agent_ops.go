@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -26,7 +27,8 @@ func RegisterAgentOpsRoutes(r gin.IRouter, svc *app.Service, store *agentops.Sto
 	agentops.RegisterDefaultOps(registry)
 
 	r.GET("/ops", func(c *gin.Context) {
-		if !isLoopbackRequest(c.Request) {
+		if !isTrustedOpsSource(c.Request) {
+			opsSourceDenied(c, "操作层只接受本机请求")
 			fail(c, http.StatusForbidden, app.BadAuthRequest("操作层只接受本机请求"))
 			return
 		}
@@ -93,8 +95,10 @@ func RegisterAgentOpsRoutes(r gin.IRouter, svc *app.Service, store *agentops.Sto
 	})
 
 	r.POST("/ops/:op", func(c *gin.Context) {
-		// 本机入口：只接受 loopback 来源，避免被浏览器跨站或外部主机调用。
-		if !isLoopbackRequest(c.Request) {
+		// 来源准入：本机回环沿用原语义；Web 入口经反向代理时要求 Origin
+		// 与 CANVAS_OPS_TRUSTED_ORIGINS 精确匹配（见 isTrustedOpsSource）。
+		if !isTrustedOpsSource(c.Request) {
+			opsSourceDenied(c, "操作层只接受本机请求")
 			fail(c, http.StatusForbidden, app.BadAuthRequest("操作层只接受本机请求"))
 			return
 		}
@@ -302,12 +306,127 @@ func isLoopbackRequest(r *http.Request) bool {
 	if strings.EqualFold(parsed.Host, r.Host) {
 		return true
 	}
+	// 反向代理（Web 入口）转发后 Host 是后端自身地址、Origin 是前端入口地址，
+	// 同源判断永远不成立；这种情况由显式配置的可信 Origin 兜底。
+	if matchTrustedOpsOrigin(origin) {
+		return true
+	}
 	for _, allowed := range allowedOrigins() {
 		if strings.EqualFold(strings.TrimRight(allowed, "/"), strings.TrimRight(origin, "/")) {
 			return true
 		}
 	}
 	return false
+}
+
+// opsTrustedOriginsEnv 显式登记 Web 入口（反向代理）的正式 Origin，逗号分隔。
+// 例：CANVAS_OPS_TRUSTED_ORIGINS=http://192.168.71.47:3100,https://toiv.wineryz.top
+// 只接受精确的 http/https Origin（协议+主机+端口完全一致），不支持通配符；
+// 未配置时非回环请求一律维持原有安全行为。
+const opsTrustedOriginsEnv = "CANVAS_OPS_TRUSTED_ORIGINS"
+
+// opsOrigin 是归一化后的 Origin：小写 scheme + 小写 host（含端口，默认端口已省略）。
+type opsOrigin struct {
+	scheme string
+	host   string
+}
+
+// normalizeOpsOrigin 解析并归一化一个 Origin 字符串；不是纯 http/https 来源
+// （带路径/查询/碎片/用户信息、其他协议、空主机）一律不通过。
+func normalizeOpsOrigin(raw string) (opsOrigin, bool) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return opsOrigin{}, false
+	}
+	if parsed.User != nil || parsed.Opaque != "" ||
+		(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return opsOrigin{}, false
+	}
+	hostname := strings.ToLower(parsed.Hostname())
+	if hostname == "" || strings.ContainsAny(hostname, "*?") {
+		return opsOrigin{}, false
+	}
+	host := hostname
+	if strings.Contains(hostname, ":") { // IPv6 字面量补回方括号
+		host = "[" + hostname + "]"
+	}
+	if port := parsed.Port(); port != "" {
+		if !((parsed.Scheme == "http" && port == "80") || (parsed.Scheme == "https" && port == "443")) {
+			host += ":" + port
+		}
+	}
+	return opsOrigin{scheme: strings.ToLower(parsed.Scheme), host: host}, true
+}
+
+// trustedOpsOrigins 读取并解析配置；非法条目跳过（不 panic、不整表失效）。
+func trustedOpsOrigins() []opsOrigin {
+	raw := strings.TrimSpace(os.Getenv(opsTrustedOriginsEnv))
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]opsOrigin, 0, len(parts))
+	for _, item := range parts {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		if origin, ok := normalizeOpsOrigin(trimmed); ok {
+			out = append(out, origin)
+		}
+	}
+	return out
+}
+
+// matchTrustedOpsOrigin 报告 Origin 是否与配置的可信来源精确匹配（协议/主机/端口）。
+func matchTrustedOpsOrigin(origin string) bool {
+	if strings.TrimSpace(origin) == "" {
+		return false
+	}
+	normalized, ok := normalizeOpsOrigin(origin)
+	if !ok {
+		return false
+	}
+	for _, trusted := range trustedOpsOrigins() {
+		if trusted == normalized {
+			return true
+		}
+	}
+	return false
+}
+
+// isTrustedOpsSource 是操作层与内置助手入口的统一来源准入：
+//   - 回环请求沿用 isLoopbackRequest 原语义（桌面/CLI/同机宿主子进程不变）；
+//   - Host 非回环（反向代理保留外部 Host 的形态）仅当「Origin 与
+//     CANVAS_OPS_TRUSTED_ORIGINS 精确匹配」且「来源仍是本机进程（回环 RemoteAddr，
+//     即同机代理转发）」时放行；
+//   - 未配置可信 Origin 时非回环请求一律拒绝，不自动放开。
+func isTrustedOpsSource(r *http.Request) bool {
+	if isLoopbackRequest(r) {
+		return true
+	}
+	if len(trustedOpsOrigins()) == 0 {
+		return false
+	}
+	remoteHost, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		remoteHost = r.RemoteAddr
+	}
+	if !isLoopbackHost(remoteHost) {
+		return false
+	}
+	return matchTrustedOpsOrigin(r.Header.Get("Origin"))
+}
+
+// opsSourceDenied 记录被拒请求的来源画像（方法/路径/Host/Origin/远端地址），
+// 不含任何凭据头，用于排查代理链路与可信 Origin 配置。
+func opsSourceDenied(c *gin.Context, reason string) {
+	if c == nil || c.Request == nil {
+		return
+	}
+	r := c.Request
+	log.Printf("ops_source_denied reason=%q method=%s path=%s host=%q origin=%q remote=%s",
+		reason, r.Method, r.URL.Path, r.Host, strings.TrimSpace(r.Header.Get("Origin")), r.RemoteAddr)
 }
 
 // allowedOrigins 允许显式配置的正式前端 Origin（例如 Wails 宿主页面）。
