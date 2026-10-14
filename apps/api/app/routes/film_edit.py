@@ -7,13 +7,15 @@ LLM/agent 只产 EDL 声明决策表,渲染与自评在服务端(video-use MIT �
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from sqlmodel import Session
 
+from app.db import get_session
 from app.deps import get_current_admin, get_current_user
 from app.models import User
-from app.services import edit_job
+from app.services import edit_job, edit_transcript
 from app.services.edit_edl import Edl
 
 router = APIRouter(tags=["film-edit"])
@@ -53,3 +55,30 @@ def get_edit_file(
     if path is None:
         raise HTTPException(status_code=404, detail="产物不存在")
     return FileResponse(path)
+
+
+class TranscriptRequest(BaseModel):
+    url: str
+
+
+@router.post("/admin/media/transcript")
+async def index_media_transcript(
+    body: TranscriptRequest,
+    admin: User = Depends(get_current_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    """生成视频入库文本面:转录+打包+upsert(媒体库文本检索的数据层,UI 归 F11)。"""
+    try:
+        return await edit_transcript.index_media(session, body.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/admin/media/transcripts/search")
+def search_transcripts(
+    q: str = Query(default=""),
+    limit: int = Query(default=20, ge=1, le=100),
+    admin: User = Depends(get_current_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    return {"q": q, "results": edit_transcript.search(session, q, limit)}

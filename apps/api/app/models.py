@@ -1035,3 +1035,18 @@ class SelfhealProposal(SQLModel, table=True):
     status: str = "applied"  # applied | rejected
     note: str = ""  # 试提交结果/拒绝原因
     created_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# 媒体转录索引(FU2,2026-10-15):生成视频的词级转录打包视图,供媒体库文本检索。
+# packed_md 是 LLM/人检索的唯一文本面(video-use Packed Transcript 并码)。
+# ---------------------------------------------------------------------------
+class MediaTranscript(SQLModel, table=True):
+    id: str = Field(default_factory=_uid, primary_key=True)
+    media_url: str = Field(index=True, max_length=500)  # 归一后的媒体 url/路径
+    packed_md: str = Field(sa_column=Column(TEXT))
+    words_json: str = Field(sa_column=Column(TEXT))  # 词级表(start/end/text)
+    duration_sec: float = 0.0
+    source_tag: str = ""  # external(集群 whisper)/builtin/even-split
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
