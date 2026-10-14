@@ -46,12 +46,23 @@ class Skill:
 
 
 def _parse_skill_md(md_path: Path) -> Skill | None:
-    """解析单个 SKILL.md;缺 frontmatter / frontmatter 非法 / 缺 name 时返回 None。"""
-    text = md_path.read_text(encoding="utf-8")
+    """解析单个 SKILL.md;缺 frontmatter / frontmatter 非法 / 缺 name 时返回 None。
+
+    yaml 解析异常同样吞掉返回 None(2026-10-14 实证:一个坏 frontmatter 的
+    SKILL.md 曾让 SkillsRegistry() 初始化直接抛 ScannerError——与 docstring
+    「不拖垮注册表」的承诺相反,生产上一个坏技能文件就能打死 api 启动)。
+    """
+    try:
+        text = md_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
     m = _FRONTMATTER_RE.match(text)
     if not m:
         return None
-    meta = yaml.safe_load(m.group(1))
+    try:
+        meta = yaml.safe_load(m.group(1))
+    except yaml.YAMLError:
+        return None
     if not isinstance(meta, dict) or not meta.get("name"):
         return None
     return Skill(

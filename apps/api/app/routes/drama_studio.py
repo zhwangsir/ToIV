@@ -87,6 +87,7 @@ from app.services.drama_presence import (
 )
 from app.services.duration import snap_engine_frames, validate_engine_frames
 from app.services.studio.schemas import reconcile_character_names
+from app.services.svml_lite import drafts_to_coerced, parse_svml_script as svml_parse_script
 from app.skills.registry import skills_registry
 from app.storage import drama_output_root
 from app.versioning import params_snapshot
@@ -260,6 +261,14 @@ class StoryboardRequest(BaseModel):
     style: str | None = Field(default=None, max_length=300)
     # 可选:覆盖项目里的 script;不传则用项目 script
     script: str | None = Field(default=None, max_length=20000)
+
+
+class SvmlImportRequest(BaseModel):
+    """SVML-lite 词锚定脚本导入(hypit 语法,确定性解析不经 LLM)。"""
+
+    script: str = Field(max_length=50000)
+    # False=未显式声明 duration 的分镜一律落默认 6s;True=按台词字数估时
+    auto_duration: bool = True
 
 
 class ShotPatch(BaseModel):
@@ -1266,6 +1275,37 @@ async def storyboard(
     p.script = script
     created = _create_shots_from_analysis(p, coerced, session)
     return {"shots": [_shot_dict(s, session) for s in created]}
+
+
+@router.post("/drama/projects/{pid}/import-svml")
+def import_svml(
+    pid: str,
+    body: SvmlImportRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """SVML-lite 词锚定脚本 → 分镜(确定性解析,不经 LLM)。
+
+    语法:hypit SVML 词锚定核心子集——|| 拍分隔、@{cue}词@{/cue} 词锚、
+    <角色|voice> 说话人前缀、[scene:/mood:/beat:] 行内元数据、--- 分镜分隔。
+    与 /storyboard 一样清空既有分镜后重建;原始脚本整体存 project.script。
+    prompt 为视觉拍文本(草稿级中文描述),可用既有单镜精修/重拆提升。
+    """
+    p = _owned_project(pid, user, session)
+    try:
+        drafts = svml_parse_script(body.script)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"SVML 解析失败:{exc}") from exc
+    if not body.auto_duration:
+        for d in drafts:
+            if d.duration_auto:
+                d.duration_sec = 6
+    coerced = drafts_to_coerced(drafts)
+    p.script = body.script
+    created = _create_shots_from_analysis(
+        p, coerced, session, log_step="import-svml", log_detail=f"SVML 词锚定脚本导入 {len(coerced)} 个分镜"
+    )
+    return {"shots": [_shot_dict(s, session) for s in created], "count": len(created)}
 
 
 # ===========================================================================

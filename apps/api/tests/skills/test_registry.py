@@ -85,3 +85,34 @@ def test_singleton_loads_canon():
     assert "h3-t2v-15s-fast" in catalog.body
     assert "h3-i2v-15s-fast" in catalog.body
     assert "h3-r2v-voice" in catalog.body
+
+
+def test_broken_yaml_skipped_not_fatal(tmp_path):
+    """坏 frontmatter(裸冒号炸 yaml)必须跳过,不得拖垮整个注册表。
+
+    2026-10-14 实证:yaml.safe_load 无 try 包裹时,一个坏 SKILL.md 会让
+    SkillsRegistry() 初始化直接抛 ScannerError——生产上等于坏技能文件打死
+    api 启动,与「解析失败直接跳过」的 docstring 契约相反。
+    """
+    _write(tmp_path, "good", _SAMPLE.replace("demo-skill", "good-one"))
+    _write(
+        tmp_path,
+        "broken",
+        "---\nname: broken-skill\nauthor: no quotes: colon here\n---\n正文\n",
+    )
+    reg = SkillsRegistry(root=tmp_path)  # 不得抛异常
+    assert [s.name for s in reg.list()] == ["good-one"]
+    assert reg.get("broken-skill") is None
+
+
+def test_img2threejs_canon_registered():
+    """img2threejs(2026-10-14 U2 引入,Apache-2.0)在册且许可留档齐备。"""
+    skill = skills_registry.get("img2threejs")
+    assert skill is not None
+    assert skill.kind == "template"
+    assert "Apache-2.0" in skill.author
+    out = skills_registry.render("img2threejs", reference="r.png", object_class="角色", quality="high")
+    assert "r.png" in out and "create" in out
+    notice = skill.path.replace("SKILL.md", "LICENSE-NOTICE.md")
+    from pathlib import Path
+    assert Path(notice).exists()
