@@ -74,8 +74,8 @@ export function resourceStorageKey(id: string) {
     return `resource:${id}`;
 }
 
-export async function getAccountFileStorageUsage() {
-    const data = await http.get<{ usage: AccountFileStorageUsage }>("/resources/storage-usage");
+export async function getAccountFileStorageUsage(signal?: AbortSignal) {
+    const data = await http.get<{ usage: AccountFileStorageUsage }>("/resources/storage-usage", { signal });
     return data.usage;
 }
 

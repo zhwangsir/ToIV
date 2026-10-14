@@ -20,10 +20,13 @@ export function useAccountFileStorageUsage(enabled = true) {
     }), [assets]);
     const query = useQuery({
         queryKey: accountFileStorageUsageQueryKey,
-        queryFn: getAccountFileStorageUsage,
+        // 信号必须传:侧栏每次导航重挂都会新发一次该请求,不 abort 会在 HTTP/1.1
+        // 六连接池里累积长请求,把 /api/apps 之类首屏请求挤到排队 >10s(工具箱首进转圈真因)。
+        queryFn: ({ signal }) => getAccountFileStorageUsage(signal),
         enabled: enabled && !localMode,
+        // staleTime 内重挂不再发请求;refetchOnMount:"always" 会绕过 staleTime 造成累积。
         staleTime: 30_000,
-        refetchOnMount: "always",
+        refetchOnMount: true,
     });
     return localMode ? { ...query, data: localUsage, isPending: false, isError: false } : query;
 }

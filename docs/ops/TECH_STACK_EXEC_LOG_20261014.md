@@ -272,3 +272,22 @@
   (mean -27.8 dBFS 在带内、零 findings) → final.mp4/timeline_view.png/takes_packed.md 均 200。
 - 基线 4429 passed / 38 skipped / exit=0。
 - 开口：#24 加速档显式选项 UI；F11 媒体库 UI 接检索面；#22/#23 量化试点；F9-F12。
+
+## 批次 9：2026-10-15 #16 观察项收口 + #22 质量门基建
+
+- **canvas 全量 bun test 并发崩溃=预存环境性，归档**：stash 对照实证 HEAD 同样 `backend not ready`
+  + Bun 1.2.17 段错误、峰值 RSS 80GB；单跑全过。CI 口径建议：分片/串行跑 canvas 全量，
+  不以并发全量作为门禁（本批不入 CI 配置，留档待 F12 测试清洗波统一处置）。
+- **工具箱首进 spinner>10s 根因（源码取证）**：`router.tsx:55` 的 `Suspense key={pathname}`
+  每次客户端导航整树重挂；`hooks/use-account-file-storage-usage.ts` 的容量计
+  `refetchOnMount:"always"` 且 queryFn 不传 AbortSignal → 残留长请求占满 HTTP/1.1 六连接，
+  `/api/apps` 排队 >10s；硬刷新杀连接故 <5s。次因：`client.ts:682` 把非数组 200 静默归一成
+  「全部 0」（违 P-11）。
+  已修：容量计传 signal + `refetchOnMount:true`（staleTime 30s 生效，重挂不再累积）。
+  待修（等 F9 代理收工避免同文件冲突）：client.ts 非数组 200 改抛错；W0-2 的 pathname-key
+  摘除按既定纪律先做 drama↔library↔market↔tasks 往返×10 真机回归再摘。
+- **#22 质量门基建**：scripts/ops/ab_quant_gate.py（同 seed 同提示词 bf16 vs 量化变体各出一张，
+  全局 SSIM + 留样 + gate 判读 ≥0.90 灰度/0.80-0.90 仅草稿/<0.80 拒）。
+  盘点发现：z_image fp8_scaled 盘上 9-8 就有（z-image-turbo_fp8_scaled_KJ.safetensors），
+  生产图却零引用=「盘上有≠产品在用」又一例；我起的重复下载已删。fp8 在 RH 导入图里已是事实
+  标准（qwen_image_fp8 143 条在用等），缺口在自家 builtin builder 仍 bf16。
