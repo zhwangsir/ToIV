@@ -667,3 +667,22 @@ def test_smoke_quant_swap_flag_off_and_no_match():
         assert out2["1"]["inputs"]["ckpt_name"] == "z_image_turbo_bf16.safetensors"
     finally:
         st.smoke_quant_ckpt_swap = old
+
+
+def test_wan_quant_default_fp16_and_explicit_fp8():
+    from app.workflows.wan_t2v import WanT2VParams, build_wan_t2v_graph
+    unets = lambda g: [v["inputs"]["unet_name"] for v in g.values()
+                       if isinstance(v, dict) and v.get("class_type") == "UNETLoader"]
+    d = unets(build_wan_t2v_graph(WanT2VParams(positive="x", seed=1)))
+    assert all("fp16" in u for u in d)  # #23 门判 draft-only → 产品默认满血 fp16
+    f = unets(build_wan_t2v_graph(WanT2VParams(positive="x", seed=1, quant="fp8")))
+    assert all("fp8_scaled" in u for u in f)
+
+
+def test_smoke_quant_swap_covers_wan_fp16_to_fp8():
+    g = {"1": {"class_type": "UNETLoader", "inputs": {"unet_name": "wan2.2_t2v_high_noise_14B_fp16.safetensors"}},
+         "2": {"class_type": "UNETLoader", "inputs": {"unet_name": "wan2.2_t2v_low_noise_14B_fp16.safetensors"}}}
+    out, n = svc._apply_smoke_quant_swap(g)
+    assert n == 2
+    assert out["1"]["inputs"]["unet_name"] == "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"
+    assert out["2"]["inputs"]["unet_name"] == "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors"

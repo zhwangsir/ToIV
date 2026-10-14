@@ -573,6 +573,9 @@ def _apply_smoke_accel(app: App, graph: dict, accel: str | None) -> tuple[dict, 
 SMOKE_QUANT_CKPT_SWAP: dict[str, str] = {
     # #22 灰度:同 seed A/B 门判 draft-only(SSIM 0.863/2.5x)→ 只进烟测/草稿路径,产品默认仍 bf16。
     "z_image_turbo_bf16.safetensors": "z-image-turbo_fp8_scaled_KJ.safetensors",
+    # #23:wan t2v 满血 fp16 双专家 → 草稿带 fp8(1.52x,SSIM 0.8823);烟测=草稿路径可用
+    "wan2.2_t2v_high_noise_14B_fp16.safetensors": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
+    "wan2.2_t2v_low_noise_14B_fp16.safetensors": "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
 }
 
 

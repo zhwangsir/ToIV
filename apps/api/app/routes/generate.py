@@ -459,6 +459,8 @@ class Txt2VideoRequest(BaseModel):
     accel: str | None = Field(default=None, max_length=16)
     # EasyCache 复用阈值(仅 turbo_cache 档生效;空=builder 默认 0.15)
     cache_threshold: float | None = Field(default=None, ge=0.05, le=0.40)
+    # 量化档(#23):fp16=满血默认 / fp8=草稿带(同 seed SSIM 0.8823、1.52x;门判 draft-only)
+    quant: str = Field(default="fp16", pattern="^(fp16|fp8)$")
 
     @field_validator("accel")
     @classmethod
@@ -491,6 +493,7 @@ async def generate_txt2video(
          length=_snap_length(req.length),
          fps=req.fps,
          accel=req.accel,
+         quant=req.quant,
          **({"cache_threshold": req.cache_threshold} if req.cache_threshold is not None else {}),
          **({"seed": req.seed} if req.seed is not None else {}),
     )

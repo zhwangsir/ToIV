@@ -135,10 +135,16 @@ def test_i2v_accel_invalid_raises():
 
 
 def test_t2v_default_uses_t2v_unets():
-    """T2V 双专家权重已在库,默认不再复用 i2v UNET(错配修复落地)。"""
+    """T2V 双专家权重已在库,默认不再复用 i2v UNET(错配修复落地)。
+    #23 回顾门(2026-10-15):fp8 同 seed SSIM 0.8823=草稿带 → 产品默认满血 fp16,
+    fp8 仅显式 quant="fp8"(草稿/预览)与烟测换权路径。"""
     p = WanT2VParams(positive="x")
-    assert p.high_unet == "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"
-    assert p.low_unet == "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors"
+    assert p.high_unet == "wan2.2_t2v_high_noise_14B_fp16.safetensors"
+    assert p.low_unet == "wan2.2_t2v_low_noise_14B_fp16.safetensors"
+    f = WanT2VParams(positive="x", quant="fp8")
+    assert f.high_unet == "wan2.2_t2v_high_noise_14B_fp16.safetensors"  # 字段默认不动
+    g = build_wan_t2v_graph(f)
+    assert g["1"]["inputs"]["unet_name"] == "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"
 
 
 def test_t2v_legacy_default_is_full_quality():

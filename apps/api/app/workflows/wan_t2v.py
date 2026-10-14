@@ -43,8 +43,12 @@ class WanT2VParams:
     positive: str
     negative: str = DEFAULT_NEGATIVE
     # Wan2.2-T2V-A14B 双专家 FP8(2026-08-27 起默认,修掉复用 i2v UNET 的错配)
-    high_unet: str = "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"
-    low_unet: str = "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors"
+    # #23 回顾门(2026-10-15):fp8 双专家同 seed SSIM 0.8823/1.52x=草稿带 → 产品默认回满血 fp16;
+    # fp8 仅显式 quant="fp8"(草稿/预览)与烟测路径(见 app_smoke.SMOKE_QUANT_CKPT_SWAP)。
+    high_unet: str = "wan2.2_t2v_high_noise_14B_fp16.safetensors"
+    low_unet: str = "wan2.2_t2v_low_noise_14B_fp16.safetensors"
+    # 量化档:fp16=满血(默认)/ fp8=草稿带(实测 1.52x,SSIM 0.8823,门判 draft-only)
+    quant: str = "fp16"
     # t2v 专用 Seko 4 步蒸馏 LoRA(高噪模型挂 high_noise、低噪挂 low_noise,成对)
     high_lora: str = SEKO_T2V_HIGH_LORA
     low_lora: str = SEKO_T2V_LOW_LORA
@@ -119,7 +123,13 @@ def _resolve_sampling(p: WanT2VParams) -> tuple[bool, int, float, float, bool]:
     raise ValueError(f"未知 Wan 加速档: {p.accel!r}(可选 off/turbo/turbo_cache)")
 
 
+FP8_HIGH_UNET = "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"
+FP8_LOW_UNET = "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors"
+
+
 def build_wan_t2v_graph(p: WanT2VParams) -> dict:
+    if p.quant == "fp8":
+        p = WanT2VParams(**{**p.__dict__, "high_unet": FP8_HIGH_UNET, "low_unet": FP8_LOW_UNET})
     """把参数编译成 ComfyUI API 格式的 prompt 图。每次返回新 dict(不可变)。"""
     use_lora, steps, high_cfg, low_cfg, use_cache = _resolve_sampling(p)
     boundary = max(1, steps // 2)
