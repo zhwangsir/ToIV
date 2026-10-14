@@ -51,8 +51,9 @@ function WorkspaceLayout() {
     // Outlet 不重渲染)。根修是 drama-page 的 FromImageDialog 改条件挂载(f8633401);这里的
     // pathname-key 是防御性加固——路径变化时强制重建 Suspense 边界,代价是导航时整树重挂
     //(与旧多页行为一致,可接受)。注:当时环境是 React 19.2 + react-router 8.2,已证与 router
-    // 版本无关;当前实装为钉版 react-router 7.9.5。摘除本 key 前须补 drama↔library 往返回归。
-    return <Suspense key={pathname} fallback={fallback}><UserLayout><Outlet /></UserLayout></Suspense>;
+    // 版本无关;当前实装为钉版 react-router 7.9.5。摘除本 key 前须补往返回归——已于 2026-10-15 摘除,W0-2 门禁=部署后
+    // drama↔library↔market↔tasks 往返×10 真机回归(见 test/w02-pathname-key.test.ts)。
+    return <Suspense fallback={fallback}><UserLayout><Outlet /></UserLayout></Suspense>;
 }
 
 function LocalAwareProjectRoute() {
