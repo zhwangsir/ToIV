@@ -19,6 +19,7 @@ from app.deps import get_current_admin, get_current_user, get_pool
 from app.ratelimit import enforce_generation_rate_limit
 from app.models import StudioCharacter, StudioProject, StudioShot, User
 from app.services.drama_pipeline import compute_studio_next_step
+from app.services.svml_lite import drafts_to_coerced, parse_svml_script as svml_parse_script
 from app.services.studio import assemble as assemble_svc
 from app.services.studio import lipsync as lipsync_svc
 from app.services.studio import orchestrator, storyboard
@@ -118,6 +119,51 @@ def _project_detail(session: Session, p: StudioProject) -> dict:
 
 
 # ── 项目 CRUD ─────────────────────────────────────────────────────────────
+
+
+@router.post("/studio/projects/{pid}/import-svml")
+def import_svml_studio(
+    pid: str,
+    body: dict,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """SVML-lite 词锚定脚本 → 分镜草稿(hypit 语法,确定性解析,不经 LLM)。
+
+    返回与 script/parse 同构的 shots 草稿,**不落库**——前端复用既有
+    「建角色 + PUT shots 全量替换」链路确认落库(与 AI 拆解同一写路径)。
+    语法:|| 拍分隔 / @{cue}词@{/cue} 跨拍词锚 / <角色|voice> 说话人 /
+    [scene:/mood:/beat:] 元数据 / --- 分镜分隔;字数估时(4.2 字/s,夹 2-15s)。
+    """
+    script = (body or {}).get("script", "")
+    if not isinstance(script, str) or not script.strip():
+        raise HTTPException(status_code=422, detail="script 为空")
+    if len(script) > 50000:
+        raise HTTPException(status_code=422, detail="script 过长(上限 50000 字符)")
+    try:
+        drafts = svml_parse_script(script)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"SVML 解析失败:{exc}") from exc
+    if (body or {}).get("auto_duration") is False:
+        for d in drafts:
+            if d.duration_auto:
+                d.duration_sec = 6
+    coerced = drafts_to_coerced(drafts)
+    shots = [
+        {
+            "scene": c["scene"],
+            "prompt": c["prompt"],
+            "camera": "",
+            "dialogue": c["dialogue"],
+            "speaker": c["speaker"],
+            "duration_sec": c["duration_sec"],
+            "characters": c["characters"],
+            "render_mode": "video",
+        }
+        for c in coerced
+    ]
+    characters = sorted({n for c in coerced for n in c["characters"]})
+    return {"shots": shots, "characters": characters, "count": len(shots)}
 
 
 @router.post("/studio/projects")

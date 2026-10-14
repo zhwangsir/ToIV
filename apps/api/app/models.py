@@ -566,6 +566,28 @@ class DramaShot(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=_now)
 
 
+class DramaScene(SQLModel, table=True):
+    """scene_asset 场景实体(FU1,dramaclaw 设计采纳):基础场景+派生变体+锚点冻结。
+
+    base_scene_id 空=基础场景;非空=派生变体(只存 variant_prompt 增量+时段,
+    环境继承基础)。frozen_anchor/camera_presets 为 JSON 字符串。
+    分镜绑定走 DramaShot.scene_layout JSON 的 scene_ref 键(零 schema 变更)。
+    """
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    project_id: str = Field(foreign_key="dramaproject.id", index=True)
+    name: str
+    base_scene_id: str = Field(default="", index=True)  # 空=基础场景
+    variant_prompt: str = ""  # 变体增量提示词(派生场景用)
+    time_of_day: str = ""  # morning|noon|afternoon|dusk|night|late_night|dawn(空=不限)
+    environment_prompt: str = ""  # 英文环境描述(基础场景)
+    master_ref: str = ""  # 正向参考图(锚点候选)
+    reverse_ref: str = ""  # 反向参考图(锚点候选)
+    frozen_anchor: str = ""  # JSON {anchor_id, image_url, frozen_at}
+    camera_presets: str = "[]"  # JSON [{name,position,target,fov}](衔接 world_camera)
+    created_at: datetime = Field(default_factory=_now)
+
+
 class DramaShotCandidate(SQLModel, table=True):
     """分镜视频候选:M1 单镜多候选生成,可从中挑选 active。"""
 

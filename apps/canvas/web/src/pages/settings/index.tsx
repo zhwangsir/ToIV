@@ -8,6 +8,7 @@ import { useUserStore } from "@/stores/use-user-store";
 import { ChannelSettingsPane, channelValidationError, focusInvalidChannelField, isChannelReady } from "./channel-settings-pane";
 import { ModelDefaultGrid } from "./model-default-grid";
 import { LocalComputePane } from "./local-compute-pane";
+import { R18SettingsPane } from "./r18-settings-pane";
 
 type ConfigSectionKey = "channels" | "models";
 
@@ -78,6 +79,7 @@ export default function SettingsPage() {
             <SettingsPane>
                 <LocalComputePane />
                 <ChannelSettingsPane />
+                <R18SettingsPane />
                 <div className="settings-section mt-4">
                     <div className="settings-pane-header">
                         <div className="min-w-0">

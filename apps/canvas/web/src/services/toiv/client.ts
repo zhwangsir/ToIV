@@ -29,6 +29,8 @@ export {
  * 认证用 ToIV JWT(localStorage.toiv_token,与旧版视图同 key 同源共享)。
  * 与画布 apiClient(/studio/api → per-user Go)是两个数据平面,互不混淆。
  */
+import { nsfwHeaderEnabled } from "@/services/toiv/r18-mode";
+
 const TOKEN_KEY = "toiv_token";
 
 export const toivHttp = axios.create({ baseURL: "/api", timeout: 15_000 });
@@ -38,6 +40,10 @@ toivHttp.interceptors.request.use((config) => {
     if (typeof window !== "undefined") {
         const token = window.localStorage.getItem(TOKEN_KEY);
         if (token) config.headers.Authorization = `Bearer ${token}`;
+        // D-U1(2026-10-15):R18 模式开启时全请求附加 X-NSFW 上下文(后端 nsfw_ctx 放行 R18 可见面)
+        if (nsfwHeaderEnabled()) {
+            config.headers["X-NSFW"] = "1";
+        }
     }
     return config;
 });
@@ -704,6 +710,20 @@ export type ToivParsedShot = {
     characters?: string[];
     render_mode?: string;
 };
+
+/** POST /studio/projects/{pid}/import-svml → 词锚定脚本确定性拆镜(hypit 语法,不经 LLM,不落库)。
+ *  返回与 script/parse 同构的 shots+characters,由前端走既有「建角色+PUT shots 全量替换」链路。 */
+export async function importSvmlStudio(
+    pid: string,
+    script: string,
+): Promise<{ shots: ToivParsedShot[]; characters: string[]; count: number }> {
+    const { data } = await toivHttp.post(
+        `/studio/projects/${encodeURIComponent(pid)}/import-svml`,
+        { script },
+        { timeout: 15_000 },
+    );
+    return data;
+}
 
 /** POST /studio/projects/{pid}/script/parse → {job_id, status:"queued"}(LLM 后台拆解) */
 export async function submitScriptParse(

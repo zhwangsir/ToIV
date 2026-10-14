@@ -6,7 +6,7 @@
  * S3/S4 逐段把经典端能力迁进来，迁移齐后 W1.2 末步做路由对调。
  * 现在各段为只读骨架：头部项目状态 + 各段已有数据的轻量呈现 + 落地批次的说明。
  */
-import { ArrowDown, ArrowUp, BookOpen, Camera, Captions, Check, Clapperboard, Film, IdCard, Layers, ListOrdered, Loader2, Mic, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
+import { ArrowDown, ArrowUp, BookOpen, Camera, Captions, Check, Clapperboard, FileText, Film, IdCard, Layers, ListOrdered, Loader2, Mic, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
 import type { ToivFrameVariant, ToivSharedAsset } from "@/services/toiv/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
@@ -38,6 +38,7 @@ import {
     renderShotStrict,
     saveStudioShots,
     submitFrameVariants,
+    importSvmlStudio,
     submitScriptParse,
     submitSheetAsync,
     triggerBatchRender,
@@ -478,6 +479,50 @@ export default function DramaWorkspacePage() {
         }
     }, [load]);
 
+    // ---- FU1-b:hypit SVML 词锚定脚本导入(确定性拆镜,不经 LLM) ----
+    const [svmlOpen, setSvmlOpen] = useState(false);
+    const [svmlText, setSvmlText] = useState("");
+    const [svmlBusy, setSvmlBusy] = useState(false);
+    const [svmlMsg, setSvmlMsg] = useState<string | null>(null);
+    const [svmlErr, setSvmlErr] = useState<string | null>(null);
+    const runSvmlImport = useCallback(async () => {
+        if (!id || svmlBusy) return;
+        setSvmlBusy(true);
+        setSvmlErr(null);
+        setSvmlMsg(null);
+        try {
+            const script = svmlText.trim();
+            if (!script) throw new Error("脚本文本为空");
+            const r = await importSvmlStudio(id, script);
+            setSvmlMsg(`解析出 ${r.count} 镜 / ${r.characters.length} 角色,正在落库…`);
+            // 复用 AI 拆解同一落库链:新角色入库 → PUT shots 全量替换
+            const existing = new Set((detail?.characters ?? []).map((c) => (c.name || "").trim()));
+            for (const name of r.characters) {
+                const n = (name || "").trim();
+                if (n && !existing.has(n)) {
+                    await createStudioCharacter(id, { name: n });
+                    existing.add(n);
+                }
+            }
+            await saveStudioShots(id, r.shots);
+            await load();
+            setSvmlMsg(`已导入 ${r.count} 镜(词锚定估时),已跳转分镜表`);
+            setSvmlOpen(false);
+            setSvmlText("");
+            goSection("storyboard");
+        } catch (e) {
+            let msg = e instanceof Error ? e.message : "导入失败";
+            // api 未部署窗口(404)给可行动文案,避免裸 Not Found
+            const status = (e as { response?: { status?: number } })?.response?.status;
+            if (status === 404) msg = "后端尚未更新(SVML 端点随下一批 api 部署生效)";
+            else if (status === 422) msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || msg;
+            setSvmlErr(msg.includes("SVML") || status === 404 ? msg : `导入失败:${msg}`);
+            setSvmlMsg(null);
+        } finally {
+            setSvmlBusy(false);
+        }
+    }, [id, svmlBusy, svmlText, detail?.characters, load, goSection]);
+
     const runBatchRender = useCallback(async () => {
         if (!id) return;
         setBatchRendering(true);
@@ -630,10 +675,47 @@ export default function DramaWorkspacePage() {
                                         onClick={() => void runAutoStoryboard()}
                                         loading={parsing}
                                     />
+                                    <ToolButton
+                                        variant="default"
+                                        icon={<FileText />}
+                                        label="导入词锚定脚本"
+                                        onClick={() => setSvmlOpen((v) => !v)}
+                                    />
                                     <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
-                                        已有 {shots.length} 镜 · 拆解保存为全量替换(旧分镜会被覆盖)
+                                        已有 {shots.length} 镜 · 拆解/导入均为全量替换(旧分镜会被覆盖)
                                     </span>
                                 </div>
+                                {svmlOpen && (
+                                    <div className="flex flex-col gap-2 rounded-lg border border-[var(--border)] p-3">
+                                        <textarea
+                                            value={svmlText}
+                                            onChange={(e) => setSvmlText(e.target.value)}
+                                            rows={8}
+                                            placeholder={"词锚定脚本(hypit SVML 语法):\n[scene:雨夜巷口][mood:紧张]\n<林夏> 别跟着我。||我说了,@{回头}猛地回头@{/回头}别跟着我。\n镜头缓推 || 霓虹闪烁\n---\n(空行或 --- 分镜;|| 分拍;@{锚}词@{/锚} 词级锚点;时长按字数自动估算)"}
+                                            className="w-full resize-y rounded-lg border border-[var(--border)] bg-transparent p-3 font-mono text-xs leading-5 text-foreground outline-none focus:border-[var(--workspace-accent,#666)]"
+                                            aria-label="词锚定脚本文本"
+                                        />
+                                        <div className="flex items-center gap-2">
+                                            <ToolButton
+                                                variant="default"
+                                                icon={<Sparkles />}
+                                                label={svmlBusy ? "解析导入中…" : "解析并导入分镜"}
+                                                onClick={() => void runSvmlImport()}
+                                                loading={svmlBusy}
+                                            />
+                                            <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                                确定性解析不经 LLM · 台词字数自动估时(2–15s)
+                                            </span>
+                                        </div>
+                                        {svmlMsg && (
+                                            <p className="flex items-center gap-1.5 text-xs text-foreground">
+                                                {svmlBusy && <Loader2 className="size-3 animate-spin" aria-hidden />}
+                                                {svmlMsg}
+                                            </p>
+                                        )}
+                                        {svmlErr && <p className="text-xs text-[var(--danger,#e5484d)]">{svmlErr}</p>}
+                                    </div>
+                                )}
                                 {parseMsg && (
                                     <p className="flex items-center gap-1.5 text-xs text-foreground">
                                         {parsing && <Loader2 className="size-3 animate-spin" aria-hidden />}

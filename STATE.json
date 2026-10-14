@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-10-14T21:30:00+08:00",
+  "updated_at": "2026-10-15T10:30:00+08:00",
   "ui_unify_fusion_plan_2026_10_14": {
-    "status": "plan_delivered_awaiting_D-U1_r18_verdict",
+    "status": "executing_FU1_after_D-U1_verdict_B",
     "date": "2026-10-14",
     "steward": "ToIV 开发",
     "doc": "docs/ops/UI_UNIFY_FUSION_PLAN_20261014.md",
@@ -12,7 +12,8 @@
       "fusion_matrix": "drama line: dramaclaw scene_asset (base/variant/time_of_day + render_anchor background freeze + spatial contract + character_tag dual-ref + blocking) + Toonflow stage-gating/{{ref N}}/merged-clip gen + hypit word-anchored timeline; edit line: video-use MIT direct-port (packed transcript, EDL JSON protocol, word-boundary cut rules, timeline_view VLM drill-down, render-self-critique loop) + ChatCut atomic edit_timeline tool concept; orchestration: hypit files-as-memory/plan-build-get + Toonflow SOP skills + OpenMontage manifest/checkpoint/asset-manifest (read-only)"
     },
     "waves": "FU1 drama deep-fusion -> FU2 video-use edit package -> FU3 gating+asset v1.5 -> F9 assistant unify -> F10 engine studio absorb -> F11 library absorb -> F12 shell retire (needs D-U1) -> FU4/FU5 orchestration absorption; order per user priority drama+video first (D-U2 default)",
-    "decision_points": "D-U1 R18 fate: A(default)=web thin shell keeps R18 classic face, no red-line overturn; B=canvas R18 mode (overturns 'R18 never enters /studio', needs explicit approval); D-U2 order default drama-first; D-U3 Toonflow canvas-engine not imported, methodology only"
+    "decision_points": "D-U1 R18 fate: A(default)=web thin shell keeps R18 classic face, no red-line overturn; B=canvas R18 mode (overturns 'R18 never enters /studio', needs explicit approval); D-U2 order default drama-first; D-U3 Toonflow canvas-engine not imported, methodology only",
+    "decision_d_u1": "DECIDED 2026-10-15 user: NO red-line architecture at all (pure local learning use) -> option B: canvas builds R18 gated mode (settings toggle + entry confirm + X-NSFW context), web retires to login+landing only; red-line architecture withdrawn; sole absolute boundary = minors content (legal, non-negotiable); reuse existing backend X-NSFW semantics + R18 context switching"
   },
   "tech_stack_t0_exec_2026_10_14": {
     "status": "t0_executed_user4_new_decisions",
