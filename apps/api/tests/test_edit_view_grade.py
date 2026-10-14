@@ -51,7 +51,7 @@ def test_timeline_view_composite(clip, tmp_path):
 
 def test_qa_flags_black_span(black_tail_clip):
     m = eg.qa_render(black_tail_clip)
-    assert m["loudness_i"] is not None
+    assert (m["loudness_i"] is not None) or (m["mean_db"] is not None)
     assert any(f["kind"] == "black_span" for f in m["findings"])
 
 

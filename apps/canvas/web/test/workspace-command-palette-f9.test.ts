@@ -111,3 +111,4 @@ describe("F9 workspace command palette", () => {
         expect(html).toContain("设置");
     });
 });
+
