@@ -21,7 +21,6 @@
 | spark01 | DSv4 TP2 worker（rank1，`dsv4_60` 容器） | .82 | 100.81.235.124 | dgmt-spark |
 | spark02 | 现网 LLM/VLM API DSv4 TP2 head :8000（`~/dsv4-serve.sh 1`(01)→`0`(02)，restart=no 重启需手动；guard cron 双侧） | .84 | 100.86.42.89 | dgmt-spark |
 | workstation | 算力+全部后端服务（见三） | 192.168.71.127 | 100.68.100.90 | merlin |
-| pc01 | ComfyUI worker :8188+H3 :8198；**10-05 起 offline，已撤出 LB 池**（修复非紧急） | 192.168.71.116 | 100.86.169.64 | home |
 | NAS | SMB 存储 44T | 192.168.71.7 | 100.80.237.96 | dgmt-nas |
 | 路由器/光猫 | BE10000 Pro .42 / 主网关 .1 | — | — | — |
 | cloud | 香港网关/frps/OpenResty；⚠️ tailscaled 僵死待现场重启（frp 不受影响） | 43.119.32.180 | 100.83.78.114 | root |
@@ -48,17 +47,18 @@
 
 | 服务 | 端口 | 卡 | systemd |
 |---|---|---|---|
-| ComfyUI-LB（池=本地 **:8196+:8263 双后端**，10-14 实测；`/opt/comfyui-lb/backends.json` 5s 热重载） | :8188 | — | comfyui-lb |
+| ComfyUI-LB（池=本地 **:8196+:8263+:8265 三后端**，10-15 扩；`backends.json` 5s 热重载） | :8188 | — | comfyui-lb |
 | gpu0-alt（cache-lru 8） | :8196 | GPU0 | comfyui-gpu0-alt |
 | LongCat（cache-lru 3） | :8197 | GPU0 | comfyui-longcat |
-| MiniMax H3（UUID 钉卡 GPU-0e6e9149） | :8195 | GPU2 | toiv-comfyui-h3 |
+| ~~MiniMax H3 :8195~~（闲置 24h，10-15 停+disable 回收 60G RAM） | — | GPU2 | toiv-comfyui-h3 |
 | MiniMax H3 worker#2（UUID 8a63d89c，~41G） | :8264 | GPU1 | toiv-comfyui-h3-gpu1 |
 | ToIV VLM（Qwen3-VL-8B BF16，~44.6G） | :9311 | GPU3 | toiv-vlm |
 | 超分 fleet（4x-UltraSharp；**:8261 已撤**；**:8263 在 LB 池**） | :8262/:8263 | GPU2/GPU3 | comfyui-upscale-gpu2/3 |
+| 通用 worker#3（2026-10-15 加池扩容+SEEDVR2 余量；UUID 钉卡 H-6） | :8265 | GPU2 | comfyui-gpu2-gen |
 | Qwen3-Embedding-4B（SentenceTransformer 脚本 `/opt/qwen3-embedding-server.py`，非 vLLM；进程名 nemotron-venv 有误导） | :9302 | **GPU1**（CVD=1 存量） | qwen3-embedding |
 | IndexTTS 2.5（配音主路，勿再停） | :9200 | GPU0 | toiv-indextts |
 | 音频分离 / comfy-mcp / fan_guard（`/opt/fan_guard.py`） | :9220/:9100/— | — | toiv-audio-sep / toiv-comfy-mcp / fan_guard |
-| ~~opentalking 数字人栈~~ | ~~:4403/:19092/:9000~~ | — | **2026-10-14 用户拍板下架**：三 unit 留 `/home/merlin/systemd-archive/` 不复活；代码 `/home/merlin/opentalking` |
+| ~~opentalking~~ | 已下架 | — | unit 归档 systemd-archive；代码 /home/merlin/opentalking |
 
 - **🔒 池后端变更只编辑 workstation `/opt/comfyui-lb/backends.json`**；禁止改 core env/LB 源码切成员。
 - **🔒 新服务锁卡一律用 GPU UUID**（H-6）；新专用实例必须补 `deps.resolve_worker()` 精确匹配（E-1）。

@@ -234,3 +234,20 @@
   端到端 184s（规格 native 515s → balanced 175s 去噪），约 2.8x 实测生效。
 - 全量基线 4398 passed / 38 skipped / exit=0（+5 例加速档测试）。战役 04:09 带加速档重启。
 - 开口：#24 加速档显式选项进产品路径（默认满血，档位带倍率/SSIM 说明）；#21/#22/#23 不变。
+
+---
+
+## 批次 7：2026-10-15 池扩容 + 缺件真因改判 + 词锚透传
+
+- **池扩到三后端**：新通用实例 comfyui-gpu2-gen :8265（GPU2 整张空卡，UUID 0e6e9149 钉卡 H-6；
+  drop-in 带 hf-mirror+headless-audio；instances 目录独立）。P-15 节点数 parity 5311=:8196；
+  backends.json 热重载生效（gpu0,gpu3→+gpu2）；:8188 路由正常。启动期 NAS 扫描使 probe 一度 82s，
+   settle 后毫秒级——新实例加池前必须等 probe 延迟回落，否则被自己的探针误摘。
+- **缺件真因改判**：计划下载的 3 个资产（Z-Image-Engineer V4/V6 Q8 GGUF、flux1-redux-dev）
+  **盘上全在**（NAS LLM/ 与 style_models/）。missing_model 的主因是**可见性/路由**（作业派到只挂
+  h3/ 树的实例），不是文件缺失——:8195 停 + :8265 双树可见即治。规划器留档
+  scripts/ops/plan_missing_downloads.py（只收 ledger_ok 或 hf 单候选+basename 唯一+目录可判定；
+  本轮 plan=0 可下新增，104 blocked/170 absent 不碰）。
+- **#18 词锚透传**：studio SVML drafts 增加附加字段 beats[{text,cues,anchor_words}]（既有 8 键不变）；
+  +1 例跨拍锚断言测试。待下一 api 窗部署。
+- 吞吐杠杆现状：池 2→3 后端 + H3 烟测默认 balanced(2.94x) + 超时分级；待复测稳态吞吐。

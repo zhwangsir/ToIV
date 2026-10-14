@@ -89,3 +89,24 @@ def test_studio_import_svml_guards(ctx):
     assert client.post(
         f"/api/studio/projects/{pid}/import-svml", json={"script": "x"}
     ).status_code in (401, 403)
+
+
+def test_studio_import_svml_carries_word_anchors(ctx):
+    """词锚必须透传进 drafts(FU1 时间轴/改词重排的输入);跨拍锚叠加到经过的每一拍。"""
+    client, tok = ctx
+    pid = client.post(
+        "/api/studio/projects", headers=_h(tok), json={"title": "A"}
+    ).json()["id"]
+    script = "<林夏> 别跟着我。||我说了,@{回头}猛地回头@{/回头}别跟着我。||@{回头}站稳@{/回头}"
+    r = client.post(f"/api/studio/projects/{pid}/import-svml", headers=_h(tok), json={"script": script})
+    assert r.status_code == 200, r.text
+    shot = r.json()["shots"][0]
+    beats = shot["beats"]
+    assert [b["cues"] for b in beats] == [[], ["回头"], ["回头"]]
+    assert beats[1]["anchor_words"] == "猛地回头"
+    assert beats[2]["anchor_words"] == "站稳"
+    # 附加字段不破坏既有键集合(前端单一写路径依赖它们)
+    assert set(shot) >= {
+        "scene", "prompt", "dialogue", "speaker", "duration_sec",
+        "characters", "render_mode", "beats",
+    }

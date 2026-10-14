@@ -159,8 +159,14 @@ def import_svml_studio(
             "duration_sec": c["duration_sec"],
             "characters": c["characters"],
             "render_mode": "video",
+            # 词锚透传(FU1 时间轴视图/改词重排的输入)。附加字段:既有 8 键不变,
+            # 前端「建角色+PUT shots 全量替换」单一写路径不受影响。
+            "beats": [
+                {"text": b.text, "cues": list(b.cues), "anchor_words": b.anchor_words}
+                for b in d.beats
+            ],
         }
-        for c in coerced
+        for c, d in zip(coerced, drafts)
     ]
     characters = sorted({n for c in coerced for n in c["characters"]})
     return {"shots": shots, "characters": characters, "count": len(shots)}
