@@ -11,6 +11,7 @@ let sessionResponse: (() => Response) | null = null;
 
 mock.module("@/services/api/request", () => ({
 	apiBaseURL: "http://127.0.0.1:54321/api",
+    withToivAuth: (h?: Record<string, string>) => ({ ...(h || {}) }),
     ApiError: class ApiError extends Error {
         status?: number;
         reason?: string;
