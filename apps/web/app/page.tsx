@@ -496,14 +496,18 @@ function HomeContent() {
     return () => cancelAnimationFrame(raf);
   }, [neonPlaying]);
 
-  // BeefTV studio 切换(2026-10-06 cutover C3):登录态落 ?view=home 时探测入口开关,
-  // enabled 则整体切到 /studio/(BeefTV UI);失败/超时/关闭一律留在 ToIV UI(fail-safe),?classic=1 可绕过
+  // BeefTV studio 切换(2026-10-06 cutover C3 → 2026-10-15 F9 跳转壳):登录态落 home
+  // 默认整页切到 /studio/(BeefTV UI),切换期间渲染跳转壳、不再渲染第二套助手对话面;
+  // 失败/超时/关闭/非管理员 exchange 403 → 回落经典 home(fail-safe,不锁死),
+  // ?classic=1 与 R18 模式显式绕过(R18 上下文的唯一家在经典壳,canvas 纯 SFW)
+  const [studioHandoffFailed, setStudioHandoffFailed] = useState(false);
   const studioProbeRef = useRef(false);
   useEffect(() => {
     if (auth !== "in" || view !== "home") return;
     if (studioProbeRef.current) return;
     if (typeof window === "undefined") return;
     if (window.location.search.includes("classic=1")) return;
+    if (r18) return;
     // F1:深链正被 EXTERNAL_VIEW_REDIRECTS 整页接走时不再探测——两个 location.replace
     // 会竞态(cutover 的异步 replace 可能盖掉深链目标,?view=studio 实测撞过)。
     const rawView = new URLSearchParams(window.location.search).get("view");
@@ -514,20 +518,27 @@ function HomeContent() {
     fetch("/studio/entry.json", { cache: "no-store", signal: ctl.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (!j || !j.enabled) return;
+        if (!j || !j.enabled) {
+          setStudioHandoffFailed(true); // studio 关闭(回滚态)→ 回落经典 home
+          return;
+        }
         // M4-4 Phase C:跳转前把 ToIV JWT 换成 /studio 会话 cookie——URL 型访问
         // (画布图片/下载/EventSource 无法带 Authorization)依赖它经 canvas-api 直验。
         // 2026-10-08 止血:交换成功(仅管理员,非管理员 403)才跳转;先等 cookie 落地,
         // 否则 /studio 页面闸看不到会话会把人弹回首页。
         const t = getToken();
-        if (!t) return;
+        if (!t) {
+          setStudioHandoffFailed(true);
+          return;
+        }
         return fetch("/studio/auth/exchange", { method: "POST", headers: { authorization: `Bearer ${t}` } }).then((r) => {
           if (r.ok) window.location.replace("/studio/");
+          else setStudioHandoffFailed(true); // 非管理员 403 → 回落经典,零回退
         });
       })
-      .catch(() => {})
+      .catch(() => setStudioHandoffFailed(true))
       .finally(() => clearTimeout(timer));
-  }, [auth, view]);
+  }, [auth, view, r18]);
 
   useEffect(() => {
     const raw = searchParams.get("view");
@@ -787,6 +798,28 @@ function HomeContent() {
 
   if (auth === "out") {
     return <LandingPage />;
+  }
+
+  // F9 跳转壳(2026-10-15):登录态 home = 整页切 /studio,切换期间不渲染第二套助手
+  // 对话面(SideRail/⌘K/浮层/HomeView 全不挂载)。回落经典 home 的条件:
+  // ①handoff 失败(studio 关闭/非管理员 exchange 403/网络故障,fail-safe 不锁死);
+  // ②?classic=1 显式逃生口;③R18 模式(canvas 纯 SFW,R18 面唯一家在经典壳);
+  // ④正被 EXTERNAL_VIEW_REDIRECTS 整页接走的深链(那边自带 location.replace)。
+  const rawViewParam = searchParams.get("view");
+  const homeHandoffPending =
+    auth === "in" &&
+    view === "home" &&
+    !studioHandoffFailed &&
+    searchParams.get("classic") !== "1" &&
+    !r18 &&
+    !(rawViewParam !== null && Boolean(EXTERNAL_VIEW_REDIRECTS[rawViewParam]));
+  if (homeHandoffPending) {
+    return (
+      <div className="splash splash-handoff" role="status" aria-label="正在进入创作工作室">
+        <div className="splash-orb" aria-hidden="true" />
+        <p className="splash-handoff-text">正在进入创作工作室…</p>
+      </div>
+    );
   }
 
   return (

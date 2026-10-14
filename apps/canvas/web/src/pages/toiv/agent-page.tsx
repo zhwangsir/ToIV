@@ -23,7 +23,7 @@ import {
     type ToivAgentSessionSummary,
     type ToivStreamEvent,
 } from "@/services/toiv/agent-chat";
-import { takeAgentDraft } from "@/services/toiv/agent-draft";
+import { EV_AGENT_NEW_SESSION, takeAgentDraft, takePendingAgentSession } from "@/services/toiv/agent-draft";
 
 type TextTurn = { kind: "text"; role: "user" | "assistant"; content: string };
 type ToolTurn = { kind: "tool"; name: string; payload: Record<string, unknown>; status?: string };
@@ -140,6 +140,19 @@ export default function AgentPage() {
         setSessionId(null);
         setTurns([]);
     }, []);
+
+    // F9:浮层「在对话页打开」把会话 id 暂存,页面挂载时消费并即删(与草稿通道同模式)。
+    useEffect(() => {
+        const pending = takePendingAgentSession();
+        if (pending) void openSession(pending);
+    }, [openSession]);
+
+    // F9:⌘K 命令面板「新对话」经自定义事件通知(页面已挂载时直接重置为新会话)。
+    useEffect(() => {
+        const handler = () => newSession();
+        window.addEventListener(EV_AGENT_NEW_SESSION, handler);
+        return () => window.removeEventListener(EV_AGENT_NEW_SESSION, handler);
+    }, [newSession]);
 
     const onFork = useCallback(async () => {
         if (!sessionId || busy) return;

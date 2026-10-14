@@ -5,6 +5,37 @@
 
 export const AGENT_DRAFT_KEY = "toiv_agent_draft";
 
+/**
+ * F9(2026-10-15 UI 统一波):跨组件「新对话」指令。
+ * ⌘K 命令面板等入口 dispatch,AgentPage 监听并重置为全新会话;
+ * 页面尚未挂载时无需暂存——挂载初态本身就是新会话。
+ */
+export const EV_AGENT_NEW_SESSION = "toiv:agent-new-session";
+
+/** F9:浮层「在对话页打开」的一次性会话暂存键(与草稿通道同模式:take 即删)。 */
+export const AGENT_PENDING_SESSION_KEY = "toiv_agent_pending_session";
+
+export function stashPendingAgentSession(sessionId: string): void {
+    if (typeof window === "undefined" || !sessionId.trim()) return;
+    try {
+        window.localStorage.setItem(AGENT_PENDING_SESSION_KEY, sessionId);
+    } catch {
+        /* ignore */
+    }
+}
+
+export function takePendingAgentSession(): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+        const raw = window.localStorage.getItem(AGENT_PENDING_SESSION_KEY);
+        if (!raw) return null;
+        window.localStorage.removeItem(AGENT_PENDING_SESSION_KEY);
+        return raw.trim() || null;
+    } catch {
+        return null;
+    }
+}
+
 export type AgentDraftPayload = {
     text: string;
     source?: "canvas-node" | "manual";

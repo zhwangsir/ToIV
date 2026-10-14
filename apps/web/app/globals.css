@@ -664,6 +664,17 @@ img, video {
   .splash-orb { animation: none; }
 }
 
+/* F9 跳转壳:登录态 home 整页切 /studio 期间的占位(splash 之上叠加文案,纵向排列) */
+.splash-handoff {
+  flex-direction: column;
+  gap: 18px;
+}
+.splash-handoff-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
 /* 视图懒加载切换占位:与 splash 同源,局部居中,避免布局跳动 */
 .view-fallback {
   display: flex;
