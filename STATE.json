@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-14T15:00:00+08:00",
+  "updated_at": "2026-10-14T15:10:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15910,6 +15910,8 @@
     ],
     "install": "bash skills/toiv-cluster/install.sh -> ~/.agents/skills/toiv-cluster(符号链接)",
     "note": "含敏感凭据,仓库私有;内容源=AGENTS.md+10-14 实测,各节带核验日期",
-    "updated_at": "2026-10-14T15:00:00+08:00"
+    "updated_at": "2026-10-14T15:10:00+08:00",
+    "privacy": "用户口径 10-14:凭据明文不入库——skill 已抽离为获取途径指引+变量占位(d032bdd0 后 HEAD 干净)",
+    "history_note": "明文仍在 git 历史(AGENTS §二 既有+skill 初版);彻底移除需历史重写(禁强推)或轮换凭据,待拍板"
   }
 }
