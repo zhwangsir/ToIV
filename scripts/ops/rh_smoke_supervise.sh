@@ -22,7 +22,10 @@ KIND=${ROUND_KIND:-image}
 # 有静态预筛清单就优先打它(缺件已齐、产出最高);没有则回落到按 kind 盲扫。
 # 清单可用 scripts/ops/rh_smoke_prioritize.py 重新生成,过期了就直接删文件回落,不会静默用错数据。
 IDS=${ROUND_IDS:-tmp/rh_smoke_20261013/priority_complete.txt}
-LOGDIR=tmp/rh_smoke_20261013
+LOGDIR=${RH_SMOKE_OUT_DIR:-tmp/rh_smoke_20261013}
+# 与 rh_smoke_batch.py 共用一个旋钮:指到仓库外可避开 git stash -u 换 inode
+# 把运行中日志变孤儿的坑(2026-10-15 实证,详见该脚本 OUT_DIR 注记)。
+export RH_SMOKE_OUT_DIR="$LOGDIR"
 mkdir -p "$LOGDIR"
 ZERO_TRANSPORT_STREAK=0
 

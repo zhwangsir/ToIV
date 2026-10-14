@@ -18,6 +18,7 @@ import argparse
 import atexit
 import hashlib
 import json
+import os
 import signal
 import sys
 import threading
@@ -29,7 +30,10 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT_DIR = ROOT / "tmp" / "rh_smoke_20261013"
+# 日志目录可用 RH_SMOKE_OUT_DIR 指到仓库外。2026-10-15 实证:git stash -u/pop 会把
+# tmp/ 下未跟踪文件整体换成新 inode,而在跑的驱动仍写旧 inode → 可见日志凭空停在换
+# inode 那一刻(结果落 PG 不丢,但本地归因明细成孤儿,进程一退就再也读不出来)。
+OUT_DIR = Path(os.environ.get("RH_SMOKE_OUT_DIR") or ROOT / "tmp" / "rh_smoke_20261013")
 
 # 启动期不变量清单里的 id 上架了也会被 seed_builtin_apps 静默改回(见 AGENTS P-17),
 # 白跑一次还会让 bulk-public 的 done 数看起来像收益。取不到就退回空集,不阻断战役。
