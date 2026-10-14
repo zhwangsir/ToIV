@@ -428,14 +428,12 @@ def test_wan_endpoints_share_single_resource_precheck(client, monkeypatch):
 def test_frontend_video_bucket_includes_module_kinds():
     """跨栈接缝:四模块产物 kind 全部归前端作品库视频桶(libraryQuery),视频编辑的
     源选择器(作品库选视频)才能选到多镜头/关键帧链产物,编辑产物本身也可见。"""
-    ts = (Path(__file__).parents[2] / "web" / "lib" / "libraryQuery.ts").read_text(encoding="utf-8")
-    video_block = re.search(r'label: "视频",\s*kinds: \[(.*?)\]', ts, re.S)
-    assert video_block is not None, "libraryQuery 须存在视频桶定义"
-    kinds = video_block.group(1)
-    assert '"keyframe_chain"' in kinds
-    assert '"transition"' in kinds
-    assert '"h3_multishot"' in kinds, "多镜头产物须在视频桶(编辑源可选)"
-    assert '"video_edit"' in kinds, "video_edit 前端须在视频桶(编辑源可选)"
+    # F12 后视频桶单源在服务端 VIDEO_KINDS(canvas 作品库 kind=video 直传 /jobs)
+    from app.routes.jobs import VIDEO_KINDS
+    for k in ("keyframe_chain", "transition", "h3_multishot", "video_edit"):
+        assert k in VIDEO_KINDS, f"{k} 须在服务端视频桶(编辑源可选)"
+    canvas = (Path(__file__).parents[2] / "canvas" / "web" / "src" / "pages" / "toiv" / "library-works.tsx").read_text(encoding="utf-8")
+    assert '{ key: "video", label: "视频" }' in canvas, "canvas 作品库须有视频 kind tab 消费服务端桶"
 
 
 # --------------------------------------------------------------------------- #

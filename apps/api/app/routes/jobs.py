@@ -50,6 +50,11 @@ VIDEO_KINDS = frozenset(
         "hunyuan_i2v",
         "anime_lipsync",
         "dub_lipsync_long",
+        # F12 后 canvas 作品库视频桶以服务端为单源:补齐原 web libraryQuery 前端桶的四模块 kind
+        "keyframe_chain",
+        "transition",
+        "h3_multishot",
+        "video_edit",
     }
 )
 
