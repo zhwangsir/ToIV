@@ -65,7 +65,7 @@
 - **散热**：无软件温度熔断，GPU 自降频即保护；仅持续 ≥95°C 人工介入。
 - 关键路径：ComfyUI=/opt/ComfyUI · H3=/home/merlin/ComfyUI-h3-eval · LongCat=/home/merlin/ComfyUI-longcat · IndexTTS=/home/merlin/index-tts。
 
-- **四、NAS**：主库 `toiv/comfyui-models` ≈5.2T（新下载只进这里）core=`/mnt/toiv-nas`、工作站=`/home/merlin/nas_mount`；旧库 `Windows/ComfyUI/ComfyUIModel/models` ≈1.5T；两树合计会把硬链算重。端口挂载（10-09 实测）：:8196 两棵都可见；:8197 extra 挂 toiv+h3；:8195/:8264 只挂 h3/，**H3 生产口=:8264**。口径：盘上有≠产品在用（写死文件名见 STATE `branch_integrate_2026_10_09`）；PC01/02 extra 指旧树不得含 custom_nodes 键。下载清单 `docs/MODEL_SOURCES.md/.json`（勿在仓库根新增）；主路=workstation 直连 hf-mirror.com+aria2c -x16（N-2）。
+- **四、NAS**：主库 `toiv/comfyui-models` ≈5.2T（新下载只进这里）core=`/mnt/toiv-nas`、工作站=`/home/merlin/nas_mount`；旧库 `Windows/ComfyUI/ComfyUIModel/models` ≈1.5T；两树合计会把硬链算重。端口挂载（10-09 实测）：:8196 两棵都可见；:8197 extra 挂 toiv+h3；:8195/:8264 只挂 h3/，**H3 生产口=:8264**。口径：盘上有≠产品在用（写死文件名见 STATE `branch_integrate_2026_10_09`）；PC01/02 extra 指旧树不得含 custom_nodes 键。下载清单 `docs/MODEL_SOURCES.md/.json`；主路=hf-mirror.com+aria2c -x16（N-2）。
 
 ## 五、Core 生产状态（活口径）
 
@@ -100,7 +100,7 @@
 
 ### 2026-10-14 晚（ToIV 开发：技术栈方案 v3 执行开始 · T0 批）
 - **真源**：`docs/ops/TECH_STACK_PLAN_20261014.md`（v3）+ 执行提示词 `TECH_STACK_EXEC_PROMPT_20261014.md` + 世界漫游调研 `WORLD_MODEL_INTERACTIVE_RESEARCH_20261014.md` + OSS 调研仓 `~/Desktop/ALLProject/Ai-OSS-Reference`（SURVEY.md 637 条含逐仓 LICENSE 留档，**引入第一真源**；AGPL 167+未声明 431 只读不并码，引入仅限 Apache/MIT/BSD 且逐仓读 LICENSE）。
-- **用户四条新拍板（本批生效）**：①opentalking 数字人**下架不修复**，资源优先 AI 短剧创作与视频内容；②**引用 img2threejs + hypit 功能**（img2threejs=图像→程序化 Three.js 的 agent skill，Apache-2.0；hypit=SVML 词锚定分镜 DSL+视频工作流克隆，修改版 Apache 单租户可并码——上述许可裁定都已留档）；③**模型保持最新**原则；④**整体 UI 优化立项高优先**（T-U 波）。
+- **用户拍板（同日两批）**：①opentalking 数字人**下架不修复**；②引用 img2threejs(Apache)+hypit(修改版 Apache 单租户可并码)功能；③**模型保持最新**；④UI 优化+**「完全使用 BeefTV(canvas) 那一套」**——canvas 定为唯一 SFW 主 UI，web 缩薄壳，六仓(hypit/Toonflow/dramaclaw/OpenMontage/ChatCut/video-use)深度融合，方案真源 `docs/ops/UI_UNIFY_FUSION_PLAN_20261014.md`（F9-F12+FU1-FU5；R18 去留 D-U1 待拍板，默认 A=web 留 R18 薄壳不推翻红线）。
 - **T0 执行记录**：AGENTS 归档瘦身（93.7KB→<20KB）；GPU1 embedding 重启回收 28.5G；LB 池口径修正（:8196+:8263 双后端）；opentalking 下架处置；其余见 `docs/ops/TECH_STACK_EXEC_LOG_20261014.md`。
 - **状态**：`tech_stack_t0_exec_2026_10_14`（STATE 同键）。
 
@@ -109,9 +109,9 @@
 ### 产品
 - [ ] 非管理员视角市场复核（role=user 账号密码哈希不可逆——需用户提供凭据或授权重置测试号）
 - [ ] W0-1b canvas `asset-view-scope.browser.test.ts` 5 例既有红灯（HEAD 既存非本批引入；首症=reload 后 dialog 不出现）——与 W5-7 配对系统化排障
-- [ ] W0-2 外层 pathname-key 摘除回归（须补 drama↔library↔market↔tasks 往返×10 真机回归，PASS 才摘，FAIL 则注释写明防御性保留）
+- [ ] W0-2 外层 pathname-key 摘除回归（drama↔library↔market↔tasks 往返×10 真机回归，PASS 才摘）
 - [ ] Slice C 触发条件待重定义（须先与 W8 上架闸对齐避免两套上架口径）
-- [ ] SeC 387721：einops reshape 错=SecNodes×torch2.13/sm_120 上游边界（flash-attn 关闭保留）
+- [ ] SeC 387721：einops reshape 错=SecNodes×torch2.13/sm_120 上游边界（保留观察）
 - **T-U UI 优化波（2026-10-14 用户拍板，高优先）**：整体 UI 审计+体验修复；含数字人入口下架隐藏
 
 ### 设备/运维
