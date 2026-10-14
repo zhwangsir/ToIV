@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
@@ -18,7 +18,7 @@ import { LOCAL_IMAGE_MODEL_REF, LOCAL_VIDEO_CHANNEL_ID } from "../src/lib/local-
 import {
     INTENT_ENTRIES,
     resolveIntentAppId,
-} from "../../../web/lib/intentKeepers";
+} from "../src/services/toiv/intent-keepers";
 
 describe("local-capability-surface catalog", () => {
     test("featured pack covers local 7 + Wan", () => {
@@ -126,7 +126,6 @@ describe("local-capability-surface wiring (source)", () => {
     const surface = readFileSync(join(import.meta.dir, "../src/services/toiv/local-capability-surface.ts"), "utf8");
     const menu = readFileSync(join(import.meta.dir, "../src/lib/canvas/tool-registry/definitions/add-node-menu-tools.tsx"), "utf8");
     const client = readFileSync(join(import.meta.dir, "../src/services/toiv/client.ts"), "utf8");
-    const avatarTalk = readFileSync(join(import.meta.dir, "../../../web/components/avatartalk/AvatarTalkView.tsx"), "utf8");
     const seed = readFileSync(join(import.meta.dir, "../../../api/app/services/app_seed.py"), "utf8");
 
     test("market page shows local badges, featured strip, and variants modes", () => {
@@ -138,7 +137,7 @@ describe("local-capability-surface wiring (source)", () => {
     });
 
     test("home intent bar deep-links market keepers from intentKeepers (no empty-shell add=)", () => {
-        expect(surface).toContain("@toiv-web/lib/intentKeepers");
+        expect(surface).toContain('from "./intent-keepers"');
         expect(surface).toContain("resolveIntentAppId");
         expect(home).toContain("HOME_INTENT_ENTRIES");
         expect(home).toContain("homeIntentBarItems");
@@ -156,9 +155,9 @@ describe("local-capability-surface wiring (source)", () => {
     });
 
     test("P0-3 AvatarTalkView gen deep-links avatar-talk (split from lipsync)", () => {
-        expect(avatarTalk).toContain('market?app=avatar-talk');
-        expect(avatarTalk).toContain("打开数字人应用");
-        expect(avatarTalk).toContain("与对口型分轨");
+        // F12/U1:web 数字面已退役下架,canvas 市场保留 avatar-talk 深链目标即可
+        expect(existsSync(join(import.meta.dir, "../../../web/components/avatartalk/AvatarTalkView.tsx"))).toBe(false);
+        expect(surface).toContain('appId: "avatar-talk"');
     });
 
     test("create-menu registers hardcoded local presets", () => {
