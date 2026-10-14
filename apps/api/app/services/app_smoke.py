@@ -577,6 +577,7 @@ async def run_app_smoke(
     from app.comfy.client import ComfyUIError
 
     app.smoke_status = "running"
+    app.smoke_started_at = datetime.utcnow()
     session.add(app)
     session.commit()
 
@@ -909,6 +910,7 @@ def reconcile_interrupted_smokes() -> int:
             app.smoke_status = ""
             app.smoke_cls = ""
             app.smoke_error = ""
+            app.smoke_started_at = None
             session.add(app)
             n += 1
         if n:
@@ -917,6 +919,23 @@ def reconcile_interrupted_smokes() -> int:
         import logging
         logging.getLogger("toiv.smoke").info("reconcile_interrupted_smokes cleared %d running card(s)", n)
     return n
+
+
+def running_cards_report(session: Session) -> dict:
+    """running 行的年龄画像:靠 smoke_started_at 判孤儿,不靠 updated_at(无 onupdate,读不出年龄)。"""
+    rows = session.exec(select(App).where(App.smoke_status == "running")).all()
+    now = datetime.utcnow()
+    ages = sorted(
+        int((now - r.smoke_started_at).total_seconds())
+        for r in rows
+        if r.smoke_started_at is not None
+    )
+    return {
+        "count": len(rows),
+        "without_started_at": sum(1 for r in rows if r.smoke_started_at is None),
+        "max_age_sec": ages[-1] if ages else None,
+        "ids": [r.id for r in rows][:20],
+    }
 
 
 # ---------------------------------------------------------------------------

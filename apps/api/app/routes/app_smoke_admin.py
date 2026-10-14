@@ -74,8 +74,13 @@ async def smoke_batch(
 
 
 @router.get("/admin/apps/smoke/status")
-def smoke_status() -> dict:
-    return {"running": smoke_svc.smoke_running(), "summary": smoke_svc.last_smoke_summary()}
+def smoke_status(session: Session = Depends(get_session)) -> dict:
+    return {
+        "running": smoke_svc.smoke_running(),
+        "summary": smoke_svc.last_smoke_summary(),
+        # P-18b:running 行的年龄可判定,避免把在飞的卡误读成孤儿(updated_at 无 onupdate)
+        "running_cards": smoke_svc.running_cards_report(session),
+    }
 
 
 class DemoCoverRequest(BaseModel):

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -442,7 +443,8 @@ def test_reconcile_interrupted_smokes_clears_running(monkeypatch):
     SQLModel.metadata.create_all(eng)
     with Session(eng) as s:
         s.add(App(id="a-run", name="run", description="d", category="image",
-                  is_public=True, smoke_status="running", smoke_cls="x", smoke_error="mid"))
+                  is_public=True, smoke_status="running", smoke_cls="x", smoke_error="mid",
+                  smoke_started_at=datetime.utcnow() - timedelta(minutes=90)))
         s.add(App(id="a-pass", name="pass", description="d", category="image",
                   is_public=True, smoke_status="pass"))
         s.add(App(id="a-fail", name="fail", description="d", category="image",
@@ -455,9 +457,42 @@ def test_reconcile_interrupted_smokes_clears_running(monkeypatch):
         assert run.smoke_status == ""
         assert run.smoke_cls == ""
         assert run.smoke_error == ""
+        assert run.smoke_started_at is None
         assert s.get(App, "a-pass").smoke_status == "pass"
         assert s.get(App, "a-fail").smoke_status == "fail"
     assert svc.reconcile_interrupted_smokes() == 0
+
+
+def test_running_cards_report_reads_age_from_started_at():
+    """running 行年龄只能来自 smoke_started_at:updated_at 无 onupdate,读出来是导入时刻(P-18b)。
+
+    2026-10-15 实测代价:按 updated_at 判年龄把 3 张在飞的卡误读成两天前的孤儿,
+    于是「等 running=0」被当成不可达门禁,api 部署被阻塞一整天以上。
+    """
+    eng = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(eng)
+    now = datetime.utcnow()
+    with Session(eng) as s:
+        s.add(App(id="r-new", name="n", description="d", category="image", is_public=True,
+                  smoke_status="running", smoke_started_at=now - timedelta(seconds=30)))
+        s.add(App(id="r-old", name="o", description="d", category="image", is_public=True,
+                  smoke_status="running", smoke_started_at=now - timedelta(seconds=4000)))
+        # 老数据没有开始时刻:必须显式计数,不能被静默当成「刚开始」
+        s.add(App(id="r-legacy", name="l", description="d", category="image", is_public=True,
+                  smoke_status="running"))
+        s.add(App(id="a-pass", name="p", description="d", category="image", is_public=True,
+                  smoke_status="pass"))
+        s.commit()
+    with Session(eng) as s:
+        rep = svc.running_cards_report(s)
+    assert rep["count"] == 3
+    assert rep["without_started_at"] == 1
+    assert 3900 <= rep["max_age_sec"] <= 4300
+    assert set(rep["ids"]) == {"r-new", "r-old", "r-legacy"}
 
 
 # ---------------------------------------------------------------------------

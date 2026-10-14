@@ -382,6 +382,9 @@ class App(SQLModel, table=True):
     smoke_cls: str = ""  # 归因类(missing_node/missing_model/validation/runtime/resource/timeout/transport/app_data)
     smoke_error: str = ""  # 最近一次失败摘要(截断 300 字)
     smoke_at: datetime | None = None  # 最近烟测完成时间
+    # P-18b 根治:烟测开始时刻。smoke_at 只在完成时写、updated_at 无 onupdate,
+    # 于是 running 行既读不出年龄也判不了孤儿(实测把在飞的卡误读成两天前的孤儿)。
+    smoke_started_at: datetime | None = None
     sort: int = 100
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)

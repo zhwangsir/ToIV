@@ -115,6 +115,46 @@ async def pick_idle_warmup_worker(candidates: list[str]) -> str | None:
     return None
 
 
+def _required_ckpts(graph: dict[str, Any]) -> set[str]:
+    """取出待提交图里 CheckpointLoaderSimple 的 ckpt_name 字面值。
+
+    图里要什么就查什么,不按模型名清单做兼容判断(P-14)。
+    """
+    out: set[str] = set()
+    for node in (graph or {}).values():
+        if not isinstance(node, dict) or node.get("class_type") != "CheckpointLoaderSimple":
+            continue
+        name = (node.get("inputs") or {}).get("ckpt_name")
+        if isinstance(name, str) and name:
+            out.add(name)
+    return out
+
+
+async def _visible_ckpts(worker_url: str, timeout: float = 15.0) -> set[str] | None:
+    """目标实例可见的 ckpt 清单;None=探测失败(不可判定,放行让提交端自己报错)。
+
+    只查单类 /object_info/CheckpointLoaderSimple:全量 object_info 在 NAS 大目录实例
+    实测 60–105s 且与 HTTP 同主线程(见 comfy/client.py 注记),预热探针不能这么打。
+    200+空体=该类不存在(P-16),按「一个都不可见」处理,不能当成放行。
+    """
+    from app.comfy.client import ComfyUIClient
+
+    try:
+        info = await ComfyUIClient(worker_url, timeout=timeout).object_info(
+            "CheckpointLoaderSimple"
+        )
+    except Exception as e:  # noqa: BLE001
+        log.warning("warmup ckpt probe %s failed: %s", worker_url, e)
+        return None
+    node = (info or {}).get("CheckpointLoaderSimple")
+    if not isinstance(node, dict):
+        return set()
+    try:
+        return {str(n) for n in node["input"]["required"]["ckpt_name"][0]}
+    except Exception:  # noqa: BLE001
+        return set()
+
+
 def build_warmup_graph(kind: str, seed: int) -> dict[str, Any]:
     """按 kind 构造最小可加载图(与生产 builder 同码)。"""
     if kind == "txt2img":
@@ -189,6 +229,19 @@ async def warm_one(worker_url: str, kind: str, seed: int) -> dict[str, Any]:
         graph = build_warmup_graph(kind, seed)
     except Exception as e:  # noqa: BLE001
         return {"worker": worker_url, "kind": kind, "status": "build_fail", "error": str(e)[:200]}
+    need = _required_ckpts(graph)
+    if need:
+        visible = await _visible_ckpts(worker_url)
+        if visible is not None:
+            missing = sorted(need - visible)
+            if missing:
+                # 这个实例根本看不到该 ckpt(如 H3 口只挂 h3/ 树),提交必 400;换实例
+                return {
+                    "worker": worker_url,
+                    "kind": kind,
+                    "status": "skipped_ckpt_not_visible",
+                    "missing": missing[:3],
+                }
     client_id = f"warmup-{uuid.uuid4().hex[:10]}"
     pid = await submit_prompt(worker_url, graph, client_id)
     if not pid:
@@ -200,6 +253,29 @@ async def warm_one(worker_url: str, kind: str, seed: int) -> dict[str, Any]:
         "prompt_id": pid,
         "client_id": client_id,
         "seed": seed,
+    }
+
+
+async def _warm_idle_capable(candidates: list[str], kind: str, seed: int) -> dict[str, Any]:
+    """依次试空闲候选:图里要的 ckpt 在该实例不可见就换下一个。
+
+    旧实现只取「第一个空闲」,于是 H3 口(:8195/:8264,只挂 h3/ 树、ckpt 列表为空)
+    空闲时会接下音乐/文生图预热图,提交必 400 prompt_outputs_failed_validation。
+    """
+    incapable: set[str] = set()
+    while True:
+        idle = await pick_idle_warmup_worker([c for c in candidates if c not in incapable])
+        if not idle:
+            break
+        res = await warm_one(idle, kind, seed)
+        if res.get("status") != "skipped_ckpt_not_visible":
+            return res
+        incapable.add(idle)
+    return {
+        "kind": kind,
+        "status": "skipped_no_capable_worker" if incapable else "skipped_all_busy",
+        "candidates": candidates,
+        "incapable": sorted(incapable),
     }
 
 
@@ -216,24 +292,10 @@ async def warm_popular_idle(*, seed: int | None = None, include_h3: bool = True)
     if not pool_candidates:
         results.append({"kind": "txt2img", "status": "skipped_no_allowed_worker"})
     else:
-        idle = await pick_idle_warmup_worker(pool_candidates)
-        if not idle:
-            results.append(
-                {
-                    "kind": "txt2img",
-                    "status": "skipped_all_busy",
-                    "candidates": pool_candidates,
-                }
-            )
-        else:
-            results.append(await warm_one(idle, "txt2img", base_seed))
-            await asyncio.sleep(1.0)
-            # 同口若仍空闲再暖音乐;忙则换下一个候选
-            idle2 = await pick_idle_warmup_worker(pool_candidates)
-            if idle2:
-                results.append(await warm_one(idle2, "audio", base_seed + 1))
-            else:
-                results.append({"kind": "audio", "status": "skipped_all_busy"})
+        results.append(await _warm_idle_capable(pool_candidates, "txt2img", base_seed))
+        await asyncio.sleep(1.0)
+        # 同口若仍空闲再暖音乐;忙或看不到 ckpt 就换下一个候选
+        results.append(await _warm_idle_capable(pool_candidates, "audio", base_seed + 1))
 
     if include_h3:
         h3 = (settings.h3_base or "").rstrip("/")

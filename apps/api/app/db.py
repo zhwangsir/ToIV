@@ -116,6 +116,8 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("app", "smoke_cls", "smoke_cls VARCHAR NOT NULL DEFAULT ''"),
     ("app", "smoke_error", "smoke_error VARCHAR NOT NULL DEFAULT ''"),
     ("app", "smoke_at", "smoke_at TIMESTAMP"),
+    # P-18b 根治(2026-10-15):烟测开始时刻,running 行的年龄从此可判定(见 models.App)
+    ("app", "smoke_started_at", "smoke_started_at TIMESTAMP"),
     # 分镜板 v2(M1,2026-09-21):LLM 拆镜结构化草稿 JSON(ShotDraft),既有 boarditem 表补列
     ("boarditem", "shot_meta", "shot_meta VARCHAR NOT NULL DEFAULT ''"),
     # Batch2 视频步残余(2026-10-01):Studio 分镜引擎/多候选/多参考
