@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-14T14:18:23+08:00",
+  "updated_at": "2026-10-14T14:50:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15872,5 +15872,31 @@
     "false_positive_avoided": "窄屏 8/10 '碎图' 经 fetch 全 200 证实为懒加载假阳性(AGENTS P-21),未误报为缺陷",
     "parity_correction": "canvas 侧「作品详情」此前被我错误勾成 ✓:canvas 无 job 详情页,/library/works/:id 是画板语义。现改为内置预览(查看/重跑/回收站),真正的 job 详情页仍是开口",
     "also_found": "媒体库 source=history 与 source=materials 渲染同一个 AssetsPage(rail 三个入口实际两个面)——既有问题,未改"
+  },
+  "canvas_web_entry_403_fixed_2026_10_14": {
+    "title": "canvas 助手/文档 Ops Web 入口 403 根修 + 助手渠道凭据换轨",
+    "date": "2026-10-14",
+    "commit": "6807b531",
+    "deployed": true,
+    "root_cause": "Next beforeFiles rewrite 把 Host 改写为 127.0.0.1:8290(非保留外部 Host);403 真因是浏览器 Origin 与 Host 不同源且不在 BEEFTV_ALLOWED_ORIGINS",
+    "fix": "CANVAS_OPS_TRUSTED_ORIGINS 精确可信 Origin + isTrustedOpsSource 统一准入 + ops_source_denied 日志 + hostOpsURL 非回环回退",
+    "prod_env": "CANVAS_OPS_TRUSTED_ORIGINS=http://192.168.71.47:3100,http://100.77.80.100:3100,https://toiv.wineryz.top",
+    "channel_fix": "toiv-llm BaseURL /api/llm/v1+过期JWT -> http://192.168.71.84:8000/v1 spark02 直连 (model-config revision 88->89)",
+    "backups": [
+      "canvas-api-pg.bak-20261014-403fix",
+      "canvas-api.env.bak-20261014-403fix",
+      "local-model-config.json.bak-20261014-llmchannel"
+    ],
+    "verified": [
+      "ui-session 200",
+      "history/sessions 200",
+      "ops canvas.search 200",
+      "chat reply ok firstToken 978ms",
+      "canvas.nodes.create revision 1->2",
+      "forged host/origin 403+log",
+      "untrusted origin 403",
+      "REST PUT 200 rev7->8"
+    ],
+    "updated_at": "2026-10-14T14:50:00+08:00"
   }
 }
