@@ -22,9 +22,14 @@ describe("toiv library works face", () => {
         expect(page).toContain("<LibraryWorks />");
     });
 
-    test("作品面详情路径与 router 注册一致", () => {
-        expect(works).toContain("/library/works/${job.id}");
-        expect(router).toContain('{ path: "/library/works/:id"');
+    test("作品面不得把 job id 链进画板详情路由(10-14 实测 404 回归)", () => {
+        // /library/works/:id 由 library-detail.tsx 承载,它把 :id 当**画板 id** 用
+        // (fetchBoardItems(id) → GET /api/boards/{id}/items)。传 job id 进去必然 404,
+        // 且详情页的改名/导出/删除画板等动作语义全错。作品预览改走页面内置浮层。
+        expect(works).not.toContain("/library/works/");
+        expect(works).toContain("setPreview(job)");
+        expect(works).toContain('aria-label="作品预览"');
+        expect(router).toContain('{ path: "/library/works/:id"'); // 画板详情仍在,只是不该收 job id
     });
 
     test("/toiv/library 重定向到媒体库壳,经典跳转与画布内导航同页", () => {

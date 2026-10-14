@@ -1,6 +1,5 @@
-import { ArrowLeft, File, Loader2, Music, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
+import { File, Loader2, Music, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
 
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { ToolButton } from "@/components/ui/base/buttons";
@@ -72,6 +71,7 @@ export default function LibraryWorks() {
     const [error, setError] = useState(false);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [confirmId, setConfirmId] = useState<string | null>(null);
+    const [preview, setPreview] = useState<ToivWorkJob | null>(null);
 
     const load = useCallback(async (mode: "reset" | "more") => {
         if (mode === "reset") setLoading(true);
@@ -106,6 +106,13 @@ export default function LibraryWorks() {
         const rows = q ? items.filter((j) => (j.prompt || "").toLowerCase().includes(q) || (j.app_name || "").toLowerCase().includes(q)) : items;
         return sortNewest ? rows : [...rows].reverse();
     }, [items, query, sortNewest]);
+
+    useEffect(() => {
+        if (!preview) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPreview(null); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [preview]);
 
     const act = useCallback(async (job: ToivWorkJob, op: "delete" | "restore" | "rerun") => {
         setBusyId(job.id);
@@ -182,7 +189,12 @@ export default function LibraryWorks() {
                                 key={job.id}
                                 className="group flex flex-col overflow-hidden rounded-[var(--card-radius,12px)] bg-[var(--card-surface,#f7f7f7)] transition-colors hover:bg-[var(--card-surface-hover,#f0f0f0)]"
                             >
-                                <Link to={`/library/works/${job.id}`} className="block aspect-video w-full overflow-hidden bg-black/20">
+                                <button
+                                    type="button"
+                                    onClick={() => setPreview(job)}
+                                    aria-label={`预览作品 ${job.id.slice(0, 8)}`}
+                                    className="block aspect-video w-full cursor-zoom-in overflow-hidden bg-black/20 text-left"
+                                >
                                     {cover && mediaKind_ === "video" ? (
                                         <video src={toivMediaUrl(cover)} muted preload="metadata" className="size-full object-cover" />
                                     ) : cover && mediaKind_ === "audio" ? (
@@ -208,7 +220,7 @@ export default function LibraryWorks() {
                                             {cover ? "该类型不提供预览" : "无预览"}
                                         </div>
                                     )}
-                                </Link>
+                                </button>
                                 <div className="flex flex-col gap-1 p-3">
                                     <div className="flex items-center gap-2 text-[11px]">
                                         <span
@@ -258,9 +270,13 @@ export default function LibraryWorks() {
                                                 ) : (
                                                     <ToolButton variant="ghost" icon={<Trash2 />} label="删除" onClick={() => setConfirmId(job.id)} />
                                                 )}
-                                                <Link to={`/library/works/${job.id}`} className="ml-auto">
-                                                    <ToolButton variant="ghost" icon={<ArrowLeft className="rotate-180" />} label="打开" />
-                                                </Link>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setPreview(job)}
+                                                    className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                                                >
+                                                    预览
+                                                </button>
                                             </>
                                         )}
                                     </div>
@@ -276,6 +292,46 @@ export default function LibraryWorks() {
                     <ToolButton variant="default" icon={<RefreshCw />} label="加载更多" loading={loadingMore} onClick={() => void load("more")} />
                 </div>
             ) : null}
+
+            {preview ? (() => {
+                const cover = preview.results?.[0] ?? "";
+                const kind = mediaKind(cover);
+                return (
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="作品预览"
+                        onClick={() => setPreview(null)}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
+                    >
+                        <div
+                            className="flex max-h-full w-full max-w-3xl flex-col gap-3 overflow-auto rounded-[var(--card-radius,12px)] bg-[var(--popover,#1f1f1f)] p-4"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="text-xs text-muted-foreground">
+                                    {preview.kind || "—"} · {statusLabel(preview).text} · {formatTime(preview.created_at)}
+                                    {preview.app_name ? ` · ${preview.app_name}` : ""}
+                                </span>
+                                <button type="button" onClick={() => setPreview(null)} aria-label="关闭预览" className="text-xs text-muted-foreground hover:text-foreground">
+                                    关闭 (Esc)
+                                </button>
+                            </div>
+                            <div className="flex max-h-[60vh] items-center justify-center overflow-hidden rounded-lg bg-black/30">
+                                {kind === "video" ? <video src={toivMediaUrl(cover)} controls autoPlay className="max-h-[60vh] w-full object-contain" />
+                                    : kind === "audio" ? <audio src={toivMediaUrl(cover)} controls autoPlay className="w-full p-6" />
+                                    : kind === "image" ? <img src={toivCoverImageUrl(cover)} alt="" className="max-h-[60vh] w-full object-contain" />
+                                    : <span className="p-10 text-xs text-muted-foreground">该类型不提供预览</span>}
+                            </div>
+                            <p className="whitespace-pre-wrap text-xs leading-5 text-foreground">{preview.prompt || preview.error || "（无提示词）"}</p>
+                            <div className="flex items-center gap-2">
+                                <ToolButton variant="ghost" icon={<RefreshCw />} label="重跑" loading={busyId === preview.id} onClick={() => void act(preview, "rerun")} />
+                                <ToolButton variant="ghost" icon={<Trash2 />} label="移入回收站" onClick={() => { setConfirmId(preview.id); setPreview(null); }} />
+                            </div>
+                        </div>
+                    </div>
+                );
+            })() : null}
         </div>
     );
 }
