@@ -12,6 +12,7 @@ import {
     cancelAgentChat,
     createAssistantSession,
     getAgentHostStatus,
+    isAgentUiForbidden,
     getAssistantHistory,
     listAssistantSessions,
     restartAgentHost,
@@ -190,21 +191,26 @@ export function useCanvasAssistant({ canvasId, onCanvasChanged }: Options) {
     // 还没拿到状态或助手正在启动时每秒复查一次，首开只显示“正在启动”，不闪错误；
     // 刚打开的一分钟内连状态都取不到（工作区还在起），也按“正在启动”处理。
     const starting = !status || status.reason === "host_starting";
+    // 403 是永久失败:置终态并**彻底停止轮询**。此前它被 catch 归成 host_starting,
+    // 于是每秒打一次 /assistant/ui-session 且永远不可能成功(实测一小时近 4000 条 403 + 控制台刷屏)。
+    const forbidden = status?.reason === "forbidden";
     useEffect(() => {
-        if (!open) return;
+        if (!open || forbidden) return;
         let cancelled = false;
         const openedAt = Date.now();
         const refresh = () => {
             getAgentHostStatus()
                 .then((value) => { if (!cancelled) setStatus(value); })
-                .catch(() => {
-                    if (!cancelled) setStatus(Date.now() - openedAt < ASSISTANT_WARMUP_MS ? { available: false, reason: "host_starting" } : { available: false });
+                .catch((error) => {
+                    if (cancelled) return;
+                    if (isAgentUiForbidden(error)) { setStatus({ available: false, reason: "forbidden" }); return; }
+                    setStatus(Date.now() - openedAt < ASSISTANT_WARMUP_MS ? { available: false, reason: "host_starting" } : { available: false });
                 });
         };
         refresh();
         const timer = setInterval(refresh, starting ? ASSISTANT_STARTING_POLL_MS : 15000);
         return () => { cancelled = true; clearInterval(timer); };
-    }, [open, starting]);
+    }, [open, starting, forbidden]);
 
     const loadHistory = useCallback(async (targetCanvas: string, sessionId?: string) => {
         const run = runFor(targetCanvas);

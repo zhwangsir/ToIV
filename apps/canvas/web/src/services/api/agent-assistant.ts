@@ -219,6 +219,11 @@ export function assistantUndoFailure(error: unknown): AssistantUndoFailure {
     }
 }
 
+/** 上层据此区分「永久 403」与「暂时取不到」,前者必须停止轮询。 */
+export function isAgentUiForbidden(error: unknown): boolean {
+    return Boolean(error && typeof error === "object" && (error as { agentUiForbidden?: boolean }).agentUiForbidden);
+}
+
 export async function ensureAgentUiSession(): Promise<string> {
     const scope = captureUserScope();
     if (uiSession && userScopeMatches(uiSession.scope, scope) && Date.now() + 30_000 < uiSession.expiresAt) return uiSession.token;
@@ -240,7 +245,11 @@ async function issueAgentUiSession(scope: CapturedUserScope, generation: number)
     } catch (error) {
         const status = error instanceof ApiError ? error.status : undefined;
         if (status === 403) {
-            throw new Error(agentAssistantFailureText("forbidden"));
+            // 403 是**永久**失败(访问来源未放行),不是"还没起来"。打上标记让上层停止轮询:
+            // 曾因此把 web 入口的助手变成每秒 1 次、一小时近 4000 条 403 的空转风暴。
+            const forbidden = new Error(agentAssistantFailureText("forbidden")) as Error & { agentUiForbidden?: true };
+            forbidden.agentUiForbidden = true;
+            throw forbidden;
         }
         throw new Error(agentAssistantFailureText(undefined, "创作助手暂时不可用，请稍后再试"));
     }

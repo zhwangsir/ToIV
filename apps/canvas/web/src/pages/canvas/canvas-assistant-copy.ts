@@ -24,6 +24,9 @@ export function assistantStatusNotice(reason: string | undefined): AssistantStat
             return { text: "BeefAPI 还没连接好", actionLabel: "去连接", action: "model-settings" };
         case "host_starting":
             return { text: "助手正在启动…", starting: true };
+        case "forbidden":
+            // 别给「重试」:访问来源未放行时重试永远不会成功,只会再刷一次 403。
+            return { text: "助手在当前入口不可用（访问来源未放行，需本机桌面端或放行该来源）" };
         case "host_start_failed":
         case "host_unreachable":
             return { text: "助手没有启动成功", actionLabel: "重试", action: "retry" };
