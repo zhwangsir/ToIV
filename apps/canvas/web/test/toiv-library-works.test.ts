@@ -41,4 +41,11 @@ describe("toiv library works face", () => {
         expect(works).toContain("setError(true)");
         expect(read("src/services/toiv/client.ts")).toContain("export async function fetchToivWorksPage");
     });
+
+    test("P-11 形状门:作业列表非数组/非信封 200 必须抛错,禁止静默空集(10-15 加固)", () => {
+        const client = read("src/services/toiv/client.ts");
+        expect(client).toContain("function extractWorkJobList");
+        expect(client).toContain("作业列表响应形状异常");
+        expect(client).not.toContain("Array.isArray(data) ? (data as ToivWorkJob[]) : []");
+    });
 });
