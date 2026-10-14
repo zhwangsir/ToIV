@@ -1,113 +1,41 @@
 "use client";
 
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { LandingPage } from "@/components/landing/LandingPage";
-import { SideRail, type RailItem } from "@/components/nav/SideRail";
-import { CommandPalette } from "@/components/nav/CommandPalette";
 import { NAV_LABELS } from "@/lib/navLabels";
-import { AccountButton } from "@/components/nav/AccountButton";
-import { TaskCenter } from "@/components/nav/TaskCenter";
-import { AssistantOverlay } from "@/components/assistant/AssistantOverlay";
-import { BottomNav, type BottomNavItem } from "@/components/nav/BottomNav";
 import { fetchMe, getToken, setToken, testLogin, TOKEN_KEY } from "@/lib/api";
-import { idlePrefetch, prefetchView } from "@/lib/prefetch";
 import { useCrossTabSync } from "@/lib/crossTab";
-import { initR18Mode, isR18Mode, useR18Mode } from "@/lib/r18";
+import { initR18Mode, useR18Mode } from "@/lib/r18";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
-import { Empty } from "@/components/ui/Empty";
-import { Icon } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
-import { useToast } from "@/components/ui/Toast";
-
-// assistant.css 随主包 eager 加载(2026-08-23):它同时是 .neon-edge 灯带与
-// .av-overlay 浮层样式的唯一来源;若只由懒加载的 AssistantView 引入,
-// 首次 Shift+Enter 时 CSS chunk 尚未到达,灯带整段隐形(修复前实测首开无光)。
-import "@/app/styles/assistant.css";
 
 type AuthState = "loading" | "in" | "out";
 
-// 霓虹边缘动画(2026-08-18)的角度插值注册:CSS.registerProperty 让
-// --neon-angle 可动画(等价 CSS @property,但可在 JS 侧 try/catch 容错)。
-// 不支持的内核此调用不存在 → page.tsx 快捷键探测 "registerProperty" in CSS
-// 直接跳过动画;重复注册(hmr)静默忽略。
-if (typeof window !== "undefined" && "registerProperty" in CSS) {
-  try {
-    CSS.registerProperty({
-      name: "--neon-angle",
-      syntax: "<angle>",
-      inherits: false,
-      initialValue: "0deg",
-    });
-    // 阶段一核点雷达弧的扫描角(同 --neon-angle,rAF 内联驱动)
-    CSS.registerProperty({
-      name: "--core-sweep",
-      syntax: "<angle>",
-      inherits: false,
-      initialValue: "0deg",
-    });
-  } catch {
-    /* 已注册/hmr 重复,忽略 */
-  }
-}
+/** F12 薄壳(2026-10-15,D-U1=A):web 只保留 ①未登录落地/登录 ②F9 首页跳转壳
+ *  ③R18/NSFW 薄壳面(image/video 引擎台——NSFW 引擎无 canvas 对应)与三条逃生口
+ *  (?classic=1 / R18 深链 / EXTERNAL 深链)④数字人下架说明。
+ *  助手/命令面板/任务中心/侧栏底栏/作品库/市场/设置/工作室台等第二套壳已随
+ *  F9-F11 收编进 canvas(/studio),对应组件与视图在本批物理删除。 */
+type View = "home" | "image" | "video" | "avatartalk";
 
-// ── AI 助手启动序列·设计参数表(2026-09-04 W0 单色化:琥珀单色系 --accent-glow→--accent-glow-deep) ──
-// 阶段一「核心点亮」  0–350ms :视口中心核点(琥珀)脉冲成环 + 雷达弧扫描一圈
-// 阶段二「灯带扫边」  0–1000ms:neon-edge 单色极光 conic 扫 430deg,easeInOutQuart,
-//                               扫边同时中心核淡出(与阶段一同场融合)
-// 阶段三「弹窗降临」 700–1100ms:灯带收尾前 300ms 起播,面板 scale .92→1 + 淡入
-//                               (400ms cubic-bezier(.22,1,.36,1),assistant.css)
-// 关闭 200ms ease-in(scale→.96 + 淡出,assistant.css 方向性 transition);
-// 全程再按 Shift+Enter/Esc 可跳过(直开),prefers-reduced-motion 一切直开
-const NEON_MS = 1000; // 阶段二:灯带扫边总时长(提速自 1400ms)
-const NEON_SWEEP_DEG = 430; // 扫满一圈并过冲 70deg,让软尾滑过终点
-const NEON_CORE_MS = 350; // 阶段一:核点点亮时长
-const NEON_PANEL_LEAD_MS = 300; // 阶段三:弹窗相对灯带收尾的提前量(700ms 处起播)
-
-type View =
-  | "assistant"
-  | "home"
-  | "image"
-  | "video"
-  | "audio"
-  | "fusion"
-  | "imageEdit"
-  | "videoEdit"
-  | "animatic"
-  | "avatartalk"
-  | "canvas"
-  | "studio"
-  | "dub"
-  | "library"
-  | "entities"
-  | "resources"
-  | "market"
-  | "settings"
-
-/** M1 三大板块拆分:generate 退役拆为 图片/视频/音频,旧链接按 kind 重定向(不 404)。
- *  M4 studio 替代短剧/漫剧:旧 key 一律重定向到 studio。
- *  2026-08-31 精简:Skill 市场/应用市场合并为「市场」(market),旧 key 重定向。
- *  2026-08-31 W1 IA 治理:models/train/backlot 双轨容器收编进资源中心(带 tab);
- *  drama 旧管线退役,重定向 studio(实体数据仍由 /drama/[id] 播放器承载)。
- *  2026-09-12 引擎工作台:image/video 改挂 EngineStudioView(纯引擎工作台),
- *  KindCreateView(应用目录壳)退役挂载,应用全归应用市场(market)。 */
+/** M1 三大板块拆分遗留:旧 key 按语义归位(不 404)。 */
 const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
   create: "image",
   generate: "image",
   ltxstudio: "video",
-  skills: "market",
-  apps: "market",
-  // S12 退役:fusion→home(对话即入口);canvas→home(canvas 应用经 /studio)
+  // S12 退役:fusion→home(经典回落面板);canvas→home(canvas 应用经 /studio)
   fusion: "home",
   canvas: "home",
+  // F12:home 助手面下线,旧助手深链落经典回落面板
+  assistant: "home",
+  home: "home",
 };
 
-/** 融合 F1(2026-10-11):studio/entities/resources 视图退役——canvas 已全覆盖
- *  (v2 六段工作区 / 工作区资产段(S6 Entity) / 模型配置);连同旧别名(dramaStudio/manju/
- *  drama/models/train/backlot)整体跳 /studio 下对应页,不再回经典视图。
- *  R18=A 口径:image/video/market/library/avatartalk/settings 壳保留不动。 */
+/** 融合 F1-F11 退役视图深链:整页跳 canvas 对应页(EXTERNAL 逃生口,自带 location.replace)。
+ *  F12 追加:market/library 面物理删除后深链无条件跳 canvas(canvas 已具 R18 门控,
+ *  services/toiv/r18-mode + X-NSFW 头);agent-runs 任务中心深链跳 canvas 任务页(F2)。 */
 const EXTERNAL_VIEW_REDIRECTS: Record<string, string> = {
   studio: "/studio/toiv/drama",
   // F3(2026-10-11):animatic 退役——AI 解析入口=canvas 短剧列表「从图片创建」(StudioProject 域)
@@ -130,18 +58,14 @@ const EXTERNAL_VIEW_REDIRECTS: Record<string, string> = {
   models: "/studio/settings?section=channels",
   train: "/studio/settings?section=channels",
   backlot: "/studio/settings?section=channels",
-};
-
-/** F8(2026-10-14 融合批):market/library 的 canvas 对应页已具备 SFW 主链路——
- *  市场=应用分页+运行→任务中心(868 行,含 W0.2b 服务端分页);作品=jobs 网格/类型筛选/搜索/
- *  排序/回收站恢复/重跑(library-works.tsx)。按绞杀者纪律(W4.1)整页跳过去。
- *  缺口(技能 tab、引擎工作台内嵌、保存视图、3D、超分)经 ?classic=1 仍可达,不藏功能。 */
-const CANVAS_MIGRATED_VIEWS: Record<string, string> = {
+  // F8/F11:市场与作品库面已删(分页市场=canvas market-page;作品/回收站/检索=library-works)
   market: "/studio/toiv/market",
+  skills: "/studio/toiv/market",
+  apps: "/studio/toiv/market",
   library: "/studio/toiv/library",
+  // F2/F12:任务中心面已删(运行台=canvas /toiv/tasks)
+  tasks: "/studio/toiv/tasks",
 };
-
-/** W1(F1 后撤销):原资源中心 tab 直达集合随 resources 视图退役移除 */
 
 /** 解析 ?view= 参数:旧 key 走重定向,非法 key 返回 null(落默认视图)。 */
 function resolveView(raw: string | null): View | null {
@@ -151,86 +75,12 @@ function resolveView(raw: string | null): View | null {
   return VALID_VIEWS.has(raw as View) ? (raw as View) : null;
 }
 
-// ── 视图懒加载:chunk 按需拉取;灵动岛悬停/聚焦期间并行预热,消除切换白屏等待 ──
-const viewImporters = {
-  // assistant 已底层化为 Shift+Enter 浮层(非视图),importer 保留仅维持 View 类型索引完整性
-  assistant: () => import("@/components/assistant/AssistantView"),
-  // W2:对话首页与助手同 chunk(AssistantView variant="page")
-  home: () => import("@/components/assistant/AssistantView"),
-  // 2026-09-12 引擎工作台:图片/视频 = 纯引擎工作台(EngineStudioView,kind 区分);
-  // KindCreateView(应用目录壳)退役挂载,不再被任何视图引用,应用全归应用市场
-  image: () => import("@/components/studio/EngineStudioView"),
-  video: () => import("@/components/studio/EngineStudioView"),
-  audio: () => import("@/components/audio/AudioView"),
-  fusion: () => import("@/components/fusion/FusionView"),
-  imageEdit: () => import("@/components/image-edit/ImageEditView"),
-  videoEdit: () => import("@/components/video-edit/VideoEditView"),
-  animatic: () => import("@/components/animatic/AnimaticView"),
-  avatartalk: () => import("@/components/avatartalk/AvatarTalkView"),
-  canvas: () => import("@/components/canvas/CanvasView"),
-  studio: () => import("@/components/studio/StudioView"),
-  dub: () => import("@/components/dub/DubView"),
-  library: () => import("@/components/library/LibraryView"),
-  entities: () => import("@/components/entities/EntitiesView"),
-  resources: () => import("@/components/resources/ResourcesView"),
-  market: () => import("@/components/market/MarketView"),
-  settings: () => import("@/components/settings/SettingsView"),
-} as const;
-
-/** 预热目标视图 chunk。webpack 模块缓存去重,重复/并发调用零额外开销。 */
-function preloadView(key: View) {
-  viewImporters[key]().catch(() => {
-    /* 预热失败不阻塞:点击时 lazy 会重新发起加载 */
-  });
-}
-
+// ── R18/NSFW 薄壳面:图片/视频引擎台(懒加载;NSFW 引擎由后端按 X-NSFW 上下文放行,
+//    canvas /create 无 ToIV 引擎注册表直连,NSFW 引擎生成的唯一入口保留在此) ──
 const EngineStudioView = lazy(() =>
-  viewImporters.image().then((m) => ({ default: m.EngineStudioView })),
+  import("@/components/studio/EngineStudioView").then((m) => ({ default: m.EngineStudioView })),
 );
-// W2:对话首页 = AssistantView 整页形态(与 Shift+Enter 浮层同 chunk)
-const HomeView = lazy(() =>
-  viewImporters.home().then((m) => ({ default: m.AssistantView })),
-);
-const AudioView = lazy(() =>
-  viewImporters.audio().then((m) => ({ default: m.AudioView })),
-);
-const FusionView = lazy(() =>
-  viewImporters.fusion().then((m) => ({ default: m.FusionView })),
-);
-const ImageEditView = lazy(() =>
-  viewImporters.imageEdit().then((m) => ({ default: m.ImageEditView })),
-);
-const VideoEditView = lazy(() =>
-  viewImporters.videoEdit().then((m) => ({ default: m.VideoEditView })),
-);
-const AnimaticView = lazy(() =>
-  viewImporters.animatic().then((m) => ({ default: m.AnimaticView })),
-);
-// U1(2026-10-14) avatartalk 数字人下架:入口摘除,深链走下架说明;组件不再懒加载
-const CanvasView = lazy(() =>
-  viewImporters.canvas().then((m) => ({ default: m.CanvasView })),
-);
-const StudioView = lazy(() =>
-  viewImporters.studio().then((m) => ({ default: m.StudioView })),
-);
-const DubView = lazy(() =>
-  viewImporters.dub().then((m) => ({ default: m.DubView })),
-);
-const LibraryView = lazy(() =>
-  viewImporters.library().then((m) => ({ default: m.LibraryView })),
-);
-const EntitiesView = lazy(() =>
-  viewImporters.entities().then((m) => ({ default: m.EntitiesView })),
-);
-const ResourcesView = lazy(() =>
-  viewImporters.resources().then((m) => ({ default: m.ResourcesView })),
-);
-const MarketView = lazy(() =>
-  viewImporters.market().then((m) => ({ default: m.MarketView })),
-);
-const SettingsView = lazy(() =>
-  viewImporters.settings().then((m) => ({ default: m.SettingsView })),
-);
+
 /** 视图切换加载占位:统一走共享 LoadingBlock(P1-2 收编),保留 role/aria 状态语义。 */
 function ViewFallback({ label }: { label: string }) {
   return (
@@ -240,96 +90,14 @@ function ViewFallback({ label }: { label: string }) {
   );
 }
 
-// 2026-08-31 W1:models/train/backlot/drama 移出 VALID_VIEWS,经 LEGACY_VIEW_REDIRECTS
-// 分别收编进资源中心(带 tab)/studio,旧链接不 404;
-// create/generate/ltxstudio/dramaStudio/manju/skills/apps 同走重定向;
-// assistant 已底层化(2026-08-17):移出 VALID_VIEWS,URL ?view=assistant 在挂载 effect 中重定向 fusion
-// S12(2026-10-11) R18=A 退役第一批:fusion(纯导航枢纽,canvas home 全覆盖)
-// 与 canvas(ComfyUI iframe,canvas 应用本体覆盖)移出 VALID_VIEWS;
-// 融合 F1(2026-10-11) 退役第二批:studio(v2 六段工作区覆盖)/entities(工作区资产段)/
-// resources(canvas 模型配置)移出 VALID_VIEWS,深链经 EXTERNAL_VIEW_REDIRECTS 跳 /studio;
-// F3(2026-10-11) animatic 退役(canvas 短剧列表「从图片创建」承接,AI 解析迁 StudioProject 域)。
-// 组件保留(深链经重定向归位),R18 只读壳视图(image/video/market/library)不动。
-const VALID_VIEWS = new Set<View>([
-  "home",
-  "image",
-  "video",
-  "avatartalk",
-  "library",
-  "market",
-  "settings",
-]);
+const VALID_VIEWS = new Set<View>(["home", "image", "video", "avatartalk"]);
 
 const VIEW_META: Record<View, { label: string }> = {
-  assistant: { label: "智能体" },
-  home:      { label: NAV_LABELS.home },
-  image:     { label: NAV_LABELS.image },
-  video:     { label: NAV_LABELS.video },
-  audio:     { label: NAV_LABELS.audio },
-  fusion:    { label: "融合" },
-  imageEdit: { label: "图片编辑" },
-  videoEdit: { label: "视频剪辑" },
-  animatic:  { label: "动态分镜" },
+  home: { label: NAV_LABELS.home },
+  image: { label: NAV_LABELS.image },
+  video: { label: NAV_LABELS.video },
   avatartalk: { label: "数字人" },
-  canvas:    { label: "画布" },
-  studio:    { label: NAV_LABELS.studio },
-  dub:       { label: "译制" },
-  library:    { label: NAV_LABELS.library },
-  entities:   { label: "主体库" },
-  resources:  { label: NAV_LABELS.resources },
-  market:     { label: NAV_LABELS.market },
-  settings:   { label: "设置" },
 };
-
-/** Studio Console v1(2026-08-31):左侧 52px 图标栏主项——只保留高频页,
- *  融合/画布/主体库/译制/数字人/编辑器等经 ⌘K 命令面板或页面内入口到达。
- *  窄屏由底部导航承载(BOTTOM_NAV_ITEMS + 「更多」抽屉)。
- *  2026-09-12 引擎工作台:应用市场升至次位,图片/视频改名图片生成/视频生成(纯引擎)。
- *  2026-09-23:「对话就是智能体」= home 对话面;运行台 /agent-runs 为「任务」深链。
- *  2026-10-01:AI 短剧唯一主体——左栏主入口「做短剧」(studio);市场改「工具箱」;
- *  图片/视频/音频/资源下沉更多抽屉。 */
-const RAIL_ITEMS: RailItem[] = [
-  // 2026-10-01:AI 短剧唯一主体 — 主入口「做短剧」;市场/生图/生视频/音频/资源收进工具箱(更多)
-  // Slice B:文案单源 NAV_LABELS；canvas=主创作面；web Generate 下沉引擎台
-  { key: "studio", label: NAV_LABELS.studio, icon: "clapperboard" },
-  { key: "home", label: NAV_LABELS.home, icon: "bot" },
-  { key: "library", label: NAV_LABELS.libraryRail, icon: "library" },
-  { key: "market", label: NAV_LABELS.market, icon: "store" },
-];
-
-/** 窄屏底部导航:主入口 5 个(含 CTA)+「更多」抽屉承载其余
- *  W2:CTA 由融合改为对话(首页即助手);融合场景卡入口下沉「更多」抽屉首位
- *  2026-09-12 引擎工作台:应用市场进主入口首位;audio 下沉「更多」抽屉首位(去重) */
-const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
-  { key: "studio", label: NAV_LABELS.studio, icon: "clapperboard", isCta: true },
-  { key: "home", label: NAV_LABELS.home, icon: "bot" },
-  { key: "library", label: NAV_LABELS.libraryRail, icon: "library" },
-  { key: "market", label: NAV_LABELS.market, icon: "store" },
-];
-
-const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
-  // 2026-10-01:工具箱二级 — 生图/生视频/音频等从主栏下沉
-  // Slice B #13: Generate 文案下沉「工具箱·引擎台」
-  // F1:resources/entities;F3:animatic;F4:audio 退役跳 canvas,抽屉不再承载
-  { key: "image", label: NAV_LABELS.imageMore, icon: "image" },
-  { key: "video", label: NAV_LABELS.videoMore, icon: "video" },
-  { key: "agent-runs", label: "任务", icon: "workflow" },
-  { key: "settings", label: NAV_LABELS.settings, icon: "settings" },
-];
-
-/** WS5:视图切换走 View Transitions(主舞台 cross-fade,样式见 styles/motion.css)。
- *  存在性守卫:不支持的浏览器直接执行原逻辑,不引入 polyfill。
- *  flushSync 让 React 在快照回调内同步提交 DOM,否则新快照仍是旧视图。 */
-function withViewTransition(update: () => void) {
-  const doc = document as Document & {
-    startViewTransition?: (updateCallback: () => void) => unknown;
-  };
-  if (typeof doc.startViewTransition === "function") {
-    doc.startViewTransition(() => flushSync(update));
-  } else {
-    update();
-  }
-}
 
 export default function Home() {
   return (
@@ -350,156 +118,18 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const [auth, setAuth] = useState<AuthState>("loading");
   const [account, setAccount] = useState<string | null>(null);
-  // 2026-08-17 底层化:AI 助手移出视图体系(默认视图 fusion 聚合页承接门户职能),
-  // 旧链接 ?view=assistant 兼容:落到 fusion 并自动唤起助手浮层
   const [view, setView] = useState<View>(() => {
     const raw = searchParams.get("view");
-    if (raw === "assistant") return "home"; // W2:旧助手链接落到对话首页(页即助手,无需再开浮层)
+    if (raw === "assistant") return "home"; // 旧助手链接落经典回落面板(助手面已迁 canvas /toiv/agent)
     return resolveView(raw) ?? "home";
   });
-  // AI 助手全局浮层(Shift+Enter 唤起;W2 起 ?view=assistant 落 home 不再自动开浮层)
-  const [assistantOpen, setAssistantOpen] = useState(false);
-  // Studio Console v1:⌘K 命令面板(全局键盘主导航)
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  // 开闭态 ref 镜像:快捷键 handler 读当前值,避免在 setState updater 内做副作用
-  const assistantOpenRef = useRef(assistantOpen);
-  assistantOpenRef.current = assistantOpen;
-  // 霓虹边缘动画(2026-08-18):Shift+Enter 开启前沿视口边缘扫描一圈,再平滑过渡出弹窗
-  const [neonPlaying, setNeonPlaying] = useState(false);
-  const neonRef = useRef<HTMLDivElement | null>(null);
-  // 阶段一核点(2026-08-24):与灯带同场,同一 rAF 逐帧驱动
-  const coreRef = useRef<HTMLDivElement | null>(null);
-  // M9:订阅全局 R18 内容模式(短剧视图可见性/导航项按此 computed)
+  // M9:订阅全局 R18 内容模式(逃生口/深链按此 computed)
   const [r18] = useR18Mode();
-
-  // 全局快捷键:Shift+Enter 唤起/收起 AI 助手浮层(底层常驻,任意视图之上)。
-  // 开启序列(2026-08-24 重做,总时长 ≤1.4s):阶段一核点点亮(350ms)→ 阶段二
-  // 极光灯带扫边(1000ms,双色)→ 阶段三弹窗降临(收尾前 300ms 起播,与余光交叠);
-  // prefers-reduced-motion / 不支持 CSS.registerProperty 的浏览器直接开启(无动画)。
-  // 守卫:焦点在 input/textarea/select/contenteditable 时不触发,避免与输入框换行冲突;
-  // 仅纯 Shift+Enter(不带 Cmd/Ctrl/Alt),不与 ⌘Enter 提交类快捷键(agent-runs/PromptBar)相碰。
-  useEffect(() => {
-    const canNeon =
-      typeof window !== "undefined" &&
-      "registerProperty" in CSS &&
-      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    // 双定时器:openTimer 在灯带收尾前 300ms 起播弹窗,doneTimer 在扫边结束收起灯带
-    let openTimer: ReturnType<typeof setTimeout> | null = null;
-    let doneTimer: ReturnType<typeof setTimeout> | null = null;
-    const clearTimers = () => {
-      if (openTimer) {
-        clearTimeout(openTimer);
-        openTimer = null;
-      }
-      if (doneTimer) {
-        clearTimeout(doneTimer);
-        doneTimer = null;
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Enter" || !e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" ||
-          target.isContentEditable)
-      ) {
-        return; // 输入上下文内 Shift+Enter 保留原生换行
-      }
-      e.preventDefault();
-      if (openTimer || doneTimer) {
-        // 启动序列进行中再次按下:取消动画,直接展开(连按不等候)
-        clearTimers();
-        setNeonPlaying(false);
-        setAssistantOpen(true);
-        return;
-      }
-      if (assistantOpenRef.current) {
-        setAssistantOpen(false); // 已开 → 直接收起(不播霓虹)
-        return;
-      }
-      if (canNeon) {
-        setNeonPlaying(true);
-        // 阶段三:弹窗在灯带收尾前 300ms 起播(700ms 处),与灯带余光交叠
-        openTimer = setTimeout(() => {
-          setAssistantOpen(true);
-          openTimer = null;
-        }, NEON_MS - NEON_PANEL_LEAD_MS);
-        doneTimer = setTimeout(() => {
-          setNeonPlaying(false);
-          doneTimer = null;
-        }, NEON_MS);
-      } else {
-        setAssistantOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      clearTimers();
-    };
-  }, []);
-
-  // Studio Console v1:⌘K / Ctrl+K 全局唤起命令面板(输入框内也可用——
-  // 与 Shift+Enter 不同,⌘K 不与文本输入冲突,无需焦点守卫)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setPaletteOpen((v) => !v);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  // 霓虹扫描驱动(2026-08-23 重写):JS rAF 逐帧写 --neon-angle/opacity 内联值。
-  // 为什么不用 CSS 自定义属性动画:在本页层叠树下,keyframes 驱动 --neon-angle 的
-  // 逐帧重绘会被 Chromium 整体丢弃(灯带全程隐形,dev/prod/headed 均实证,
-  // 注入同名规则或层提升只能偶发缓解);内联 style 更新走常规 style recalc,
-  // 每次必重绘——可靠优先,且 easing/淡入淡出可在 JS 里精确编排。
-  useEffect(() => {
-    if (!neonPlaying) return;
-    const el = neonRef.current;
-    if (!el) return;
-    const core = coreRef.current;
-    const start = performance.now();
-    let raf = 0;
-    const tick = (now: number) => {
-      const t = now - start;
-      const k = Math.min(1, t / NEON_MS);
-      // easeInOutQuart:起步轻盈、中段流动、收尾减速
-      const eased = k < 0.5 ? 8 * k ** 4 : 1 - (-2 * k + 2) ** 4 / 2;
-      el.style.setProperty("--neon-angle", `${(eased * NEON_SWEEP_DEG).toFixed(2)}deg`);
-      // 首尾淡入淡出(前 12% 淡入,末 16% 淡出,不戛然而止)
-      const fadeIn = Math.min(1, k / 0.12);
-      const fadeOut = k < 0.84 ? 1 : Math.max(0, (1 - k) / 0.16);
-      el.style.opacity = (fadeIn * fadeOut).toFixed(3);
-      if (core) {
-        // 阶段一「核心点亮」(0–350ms):核点 ease-out 脉冲放大成环 + 雷达弧扫满一圈
-        const ck = Math.min(1, t / NEON_CORE_MS);
-        const cEase = 1 - (1 - ck) ** 3; // easeOutCubic
-        core.style.transform = `scale(${(0.55 + 0.45 * cEase).toFixed(3)})`;
-        core.style.setProperty("--core-sweep", `${(cEase * 360).toFixed(2)}deg`);
-        // 阶段二:扫边同时中心核淡出(350ms 后线性退场,随灯带收尾归于 0)
-        const coreOpacity =
-          ck < 1
-            ? Math.min(1, t / 90) // 核点快速点亮,不黑场硬闪
-            : Math.max(0, 1 - (t - NEON_CORE_MS) / (NEON_MS - NEON_CORE_MS));
-        core.style.opacity = coreOpacity.toFixed(3);
-      }
-      if (k < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [neonPlaying]);
 
   // BeefTV studio 切换(2026-10-06 cutover C3 → 2026-10-15 F9 跳转壳):登录态落 home
   // 默认整页切到 /studio/(BeefTV UI),切换期间渲染跳转壳、不再渲染第二套助手对话面;
-  // 失败/超时/关闭/非管理员 exchange 403 → 回落经典 home(fail-safe,不锁死),
-  // ?classic=1 与 R18 模式显式绕过(R18 上下文的唯一家在经典壳,canvas 纯 SFW)
+  // 失败/超时/关闭/非管理员 exchange 403 → 回落经典薄壳(fail-safe,不锁死),
+  // ?classic=1 与 R18 模式显式绕过(R18 上下文的引擎台家在经典壳)
   const [studioHandoffFailed, setStudioHandoffFailed] = useState(false);
   const studioProbeRef = useRef(false);
   useEffect(() => {
@@ -519,7 +149,7 @@ function HomeContent() {
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!j || !j.enabled) {
-          setStudioHandoffFailed(true); // studio 关闭(回滚态)→ 回落经典 home
+          setStudioHandoffFailed(true); // studio 关闭(回滚态)→ 回落经典薄壳
           return;
         }
         // M4-4 Phase C:跳转前把 ToIV JWT 换成 /studio 会话 cookie——URL 型访问
@@ -542,46 +172,22 @@ function HomeContent() {
 
   useEffect(() => {
     const raw = searchParams.get("view");
-    // assistant 已底层化(W2:落对话首页,页即助手不再自动开浮层)
-    if (raw === "assistant") {
-      if (view !== "home") setView("home");
-      router.replace("/?view=home");
-      return;
-    }
-    // F1:退役视图整体跳 canvas(整页替换,不留在经典壳里打转)
+    // F1/F12:退役视图与市场/库/任务深链整体跳 canvas(整页替换,不留在薄壳里打转)
     const ext = EXTERNAL_VIEW_REDIRECTS[raw ?? ""];
     if (ext) {
       window.location.replace(ext);
-      return;
-    }
-    // F8:market/library 迁 canvas。两条逃生口与 studioProbe 同口径:
-    // ①?classic=1 显式留经典(技能 tab/保存视图/3D/超分等 canvas 尚未覆盖的能力);
-    // ②R18 模式留经典——canvas 是纯 SFW 拍板面,R18 作品与应用的唯一家在经典壳(R18=A),
-    //   整页跳过去等于把 R18 面藏掉,违反内容边界。
-    const migrated = CANVAS_MIGRATED_VIEWS[raw ?? ""];
-    if (migrated && !window.location.search.includes("classic=1") && !r18) {
-      // 会话交换成功(管理员)才跳:非管理员 exchange 403 → 留经典,零回退。
-      // 非管理员的 canvas 准入待 0.3 复核(role=user 凭据不可逆,拿不到就不能证),不拿用户当灰度。
-      const t = getToken();
-      if (t) {
-        fetch("/studio/auth/exchange", { method: "POST", headers: { authorization: `Bearer ${t}` } })
-          .then((r) => {
-            if (r.ok) window.location.replace(migrated);
-          })
-          .catch(() => {});
-      }
       return;
     }
     const resolved = resolveView(raw);
     if (resolved && resolved !== view) {
       setView(resolved);
     }
-    // 旧 key(create/generate/ltxstudio 等)重定向后把 URL 规整为新 key,刷新/分享保持一致;
-    // F1:models/train/backlot 原带 tab 直达资源中心的逻辑随资源中心退役撤销(EXTERNAL 直跳)
+    // 旧 key(create/generate/ltxstudio/assistant 等)重定向后把 URL 规整为新 key,
+    // 刷新/分享保持一致
     if (raw && LEGACY_VIEW_REDIRECTS[raw]) {
       router.replace(`/?view=${resolved ?? "home"}`);
     }
-  }, [searchParams, view, router, r18]);
+  }, [searchParams, view, router]);
 
   useEffect(() => {
     // M9:fetchMe 之前恢复 R18 模式(仅同步 X-NSFW 请求头标记,不清缓存不广播)
@@ -636,28 +242,6 @@ function HomeContent() {
     })();
   }, []);
 
-  const onLogout = useCallback(() => {
-    // BeefTV studio 会话联动(cutover C3):清 /studio 路径域的 gate cookie(发后即忘)
-    fetch("/studio/auth/logout", { method: "POST", keepalive: true }).catch(() => {});
-    setToken(null);
-    setAccount(null);
-    setAuth("out");
-  }, []);
-
-  // Shift+Enter 可发现性(2026-08-17 助手底层化):登录后首次进入提示一次,不打扰回头客;
-  // 不设入口按钮(用户明确:助手不单独作为功能显示,仅快捷键唤起)
-  const toast = useToast();
-  useEffect(() => {
-    if (auth !== "in") return;
-    if (typeof window === "undefined") return;
-    if (window.localStorage.getItem("toiv_hint_shiftenter") === "1") return;
-    window.localStorage.setItem("toiv_hint_shiftenter", "1");
-    const t = setTimeout(() => {
-      toast.info("AI 助手已底层化,Shift+Enter 随时唤起对话");
-    }, 1200);
-    return () => clearTimeout(t);
-  }, [auth, toast]);
-
   // P1-8 跨标签页登录态同步:他页退出登录(token 被删)→ 本页立即回落登录页;
   // 他页登录成功(token 写入)→ 本页探测会话并刷新用户态,避免「A 页退出、B 页
   // 还以为已登录」的状态孤岛。
@@ -680,113 +264,7 @@ function HomeContent() {
       });
   });
 
-  const changeView = useCallback(
-    (next: View) => {
-      // 独立管理系统(2026-09-15):侧栏「管理系统」项不是视图,新开控制台标签页
-      if ((next as string) === "admin-console") {
-        window.open(`${window.location.protocol}//${window.location.hostname}:3200`, "_blank");
-        return;
-      }
-      preloadView(next); // 兜底:未预热目标在点击瞬间立即发起加载
-      withViewTransition(() => {
-        setView(next);
-        router.replace(`/?view=${next}`);
-      });
-    },
-    [router],
-  );
-
-  // 2026-08-31 精简:市场入口合并为 market 聚合视图;/agent-runs 路由保留直达
-  // 2026-08-30 批 D:动态分镜「前往工作室」携带的待开项目 id;
-  // 导航/融合直进 studio 时复位(null = 落项目列表),避免陈旧 id 误开旧项目
-  const [studioInitialProjectId, setStudioInitialProjectId] = useState<string | null>(null);
-  const handleNavSelect = useCallback(
-    (key: string) => {
-      // W1:agent-runs 是独立 Next 路由(非 view),抽屉入口特判跳转
-      if (key === "agent-runs") {
-        // F2:Agent 任务中心迁入 canvas
-        window.location.assign("/studio/toiv/tasks");
-        return;
-      }
-      // 独立管理系统(2026-09-15):抽屉「管理系统」项新开控制台标签页
-      if (key === "admin-console") {
-        window.open(`${window.location.protocol}//${window.location.hostname}:3200`, "_blank");
-        return;
-      }
-      // F1:做短剧 CTA 直达 canvas v2 工作台(短剧项目列表)
-      if (key === "studio") {
-        window.location.assign("/studio/toiv/drama");
-        return;
-      }
-      changeView(key as View);
-    },
-    [changeView, router],
-  );
-
-  // 旧观测面板已并入独立管理系统(:3200);旧链接一律弹回融合页(管理系统从侧栏跳转);
-  // 等会话探测完成(account 非 null)再判,避免登录中误弹。
-  // 2026-09-02:弹回走 history.replaceState 而非 changeView(router.replace 会触发 RSC
-  // 服务端往返;生产实测非管理员撞此门控时 RSC 请求重试风暴 97+ 次)
-  // 独立管理系统地址(与主站同主机,端口 3200;2026-09-15 管理/观测并入独立系统);
-  // 旧 ?view=admin|observability 直输用户:不在 VALID_VIEWS → 挂载重定向自然落融合页
-
-  // 动态分镜 AI 模式:解析成功后直开 v2 工作区(F1:原七步工作室已退役)
-  // (2026-08-30 批 D:此前丢弃 project.id,落项目列表找不到刚建的项目)
-  const handleOpenDramaProject = useCallback(
-    (projectId: string) => {
-      window.location.assign(`/studio/toiv/ws/${projectId}`);
-    },
-    [],
-  );
-
-  // 融合聚合页跳转:target 可带查询串(如 dramaStudio?mode=manju 进漫剧模式)
-  const handleFusionNavigate = useCallback(
-    (target: string) => {
-      const [key, query] = target.split("?", 2);
-      // F1:目标视图已退役的,整体跳 canvas 对应页
-      const ext = EXTERNAL_VIEW_REDIRECTS[key];
-      if (ext) {
-        window.location.assign(ext);
-        return;
-      }
-      const next = resolveView(key) ?? "fusion";
-      preloadView(next);
-      withViewTransition(() => {
-        setView(next);
-        router.replace(`/?view=${next}${query ? `&${query}` : ""}`);
-      });
-    },
-    [router],
-  );
-
-  // 灵动岛项悬停/聚焦:按操作意向精确预热目标视图(chunk + 首屏数据,L3)
-  const handleViewIntent = useCallback((key: string) => {
-    if (VALID_VIEWS.has(key as View)) preloadView(key as View);
-    prefetchView(key);
-  }, []);
-
-  // L3 首屏空闲预热(2026-09-01):登录落地后闲时预热高频视图数据,
-  // 全部经 swr-cache——TTL 内零网络,过期后台静默刷新
-  useEffect(() => {
-    if (auth !== "in") return;
-    idlePrefetch(["image", "video", "library", "market"]);
-  }, [auth]);
-
-  const isAdmin = account === "admin";
   const meta = VIEW_META[view];
-
-  // 观测/管理仅管理员可见(端点 admin-only,普通用户加入口只会 403)
-  // 注意:RAIL_ITEMS 是模块级常量,admin 注入必须复制新数组,不能 push 共享常量
-  const railAdminItems: RailItem[] = isAdmin
-    ? [{ key: "admin-console", label: "管理系统", icon: "shield-check" }]
-    : [];
-  let bottomNavMoreItems: BottomNavItem[] = BOTTOM_NAV_MORE_ITEMS;
-  if (isAdmin) {
-    bottomNavMoreItems = [
-      ...bottomNavMoreItems,
-      { key: "admin-console", label: "管理系统", icon: "shield-check" },
-    ];
-  }
 
   if (auth === "loading") {
     return (
@@ -801,9 +279,9 @@ function HomeContent() {
   }
 
   // F9 跳转壳(2026-10-15):登录态 home = 整页切 /studio,切换期间不渲染第二套助手
-  // 对话面(SideRail/⌘K/浮层/HomeView 全不挂载)。回落经典 home 的条件:
+  // 对话面(F12 薄壳:SideRail/⌘K/浮层/HomeView 已物理下线)。回落经典薄壳的条件:
   // ①handoff 失败(studio 关闭/非管理员 exchange 403/网络故障,fail-safe 不锁死);
-  // ②?classic=1 显式逃生口;③R18 模式(canvas 纯 SFW,R18 面唯一家在经典壳);
+  // ②?classic=1 显式逃生口;③R18 模式(R18 引擎台深链家在经典壳);
   // ④正被 EXTERNAL_VIEW_REDIRECTS 整页接走的深链(那边自带 location.replace)。
   const rawViewParam = searchParams.get("view");
   const homeHandoffPending =
@@ -824,119 +302,67 @@ function HomeContent() {
 
   return (
     <div className="app-shell">
-      {/* Studio Console v1:左侧 52px 图标栏(高频页 + admin 项 + 底部任务/账户槽);
-          顶部不再有任何常驻 chrome(灵动岛/账户钮/任务中心全部收编进栏) */}
-      <SideRail
-        items={RAIL_ITEMS}
-        current={view}
-        onSelect={handleNavSelect}
-        onItemIntent={handleViewIntent}
-        adminItems={railAdminItems}
-        onOpenPalette={() => setPaletteOpen(true)}
-        bottom={
-          <>
-            {account && <TaskCenter />}
-            {account && (
-              <AccountButton
-                account={account}
-                onLogout={onLogout}
-                onOpenSettings={() => handleNavSelect("settings")}
-              />
-            )}
-          </>
-        }
-      />
-
-      {/* ⌘K 命令面板(Studio Console v1 主导航):全功能/会话/作品检索 */}
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        onNavigate={(v) => handleNavSelect(v)}
-        isAdmin={isAdmin}
-      />
-
-      {/* 启动序列(2026-09-04 W0 单色化):Shift+Enter 开启后——阶段一核点点亮(中心,
-          350ms)+ 阶段二极光灯带扫边(1000ms,琥珀单色),随后弹窗降临
-          (样式见 assistant.css;伪元素在本页层叠树下不重绘,核点用真实子节点) */}
-      {neonPlaying && (
-        <>
-          <div className="neon-edge" ref={neonRef} aria-hidden="true" />
-          <div className="neon-core" ref={coreRef} aria-hidden="true">
-            <div className="neon-core-arc" />
-            <div className="neon-core-dot" />
-          </div>
-        </>
-      )}
-
-      {/* AI 助手全局浮层(2026-08-17 底层化):Shift+Enter 唤起,任意视图之上对话;
-          助手内跳视图先收浮层再切换;onNavigate 走融合跳转(A1 工具卡深链带查询串) */}
-      <AssistantOverlay
-        open={assistantOpen}
-        onClose={() => setAssistantOpen(false)}
-        onNavigate={handleFusionNavigate}
-      />
-
-      <main id="main" className={`app-main${view === "avatartalk" ? " avatartalk-main" : ""}`}>
+      <main id="main" className="app-main">
         <div className="view-root view-stage">
           <ErrorBoundary key={view} viewName={meta.label}>
             <Suspense fallback={<ViewFallback label={meta.label} />}>
-              {/* W2:对话为家——AssistantView 整页形态(门户空态/场景卡/快捷动作/最近作品);
-                  onNavigate 走融合跳转(handleFusionNavigate):A1 工具卡深链带查询串
-                  (market?app=…),handleNavSelect 不解析查询串会整条吞进 view */}
-              {view === "home" && <HomeView variant="page" onNavigate={handleFusionNavigate} />}
+              {/* F12 经典回落面板:仅在 handoff 失败/?classic=1/R18 模式到达;
+                  提供重试、退出与 R18/NSFW 薄壳面(引擎台)深链 */}
+              {view === "home" && (
+                <div className="decommission-note" role="status">
+                  <h2>经典模式(薄壳)</h2>
+                  <p>
+                    主界面已迁入创作工作室(/studio)。当前处于经典回落
+                    {studioHandoffFailed ? "(工作室暂不可用或非管理员会话)" : "(?classic=1 或 R18 模式)"}
+                    {account ? `,账户 ${account}` : ""}。
+                  </p>
+                  <p className="thin-shell-links">
+                    <a href="/?view=image">{NAV_LABELS.image}</a>
+                    <a href="/?view=video">{NAV_LABELS.video}</a>
+                    <a href="/studio/toiv/library">作品库(canvas)</a>
+                    <a href="/studio/toiv/market">工具箱(canvas)</a>
+                    <a href="/studio/toiv/tasks">任务(canvas)</a>
+                    {!studioHandoffFailed && (
+                      <button type="button" onClick={() => window.location.replace("/studio/")}>
+                        进入创作工作室
+                      </button>
+                    )}
+                    {studioHandoffFailed && (
+                      <button type="button" onClick={() => window.location.reload()}>
+                        重试进入工作室
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        fetch("/studio/auth/logout", { method: "POST", keepalive: true }).catch(() => {});
+                        setToken(null);
+                        setAccount(null);
+                        setAuth("out");
+                      }}
+                    >
+                      退出登录
+                    </button>
+                  </p>
+                </div>
+              )}
+              {/* R18/NSFW 薄壳面:图片/视频引擎台(NSFW 引擎经 X-NSFW 上下文由后端放行) */}
               {view === "image" && <EngineStudioView kind="image" />}
               {view === "video" && <EngineStudioView kind="video" />}
-              {view === "audio" && <AudioView />}
-              {view === "fusion" && <FusionView onNavigate={handleFusionNavigate} />}
-              {/* 融合二级页(2026-08-29):统一补「返回融合」入口(onBack) */}
-              {view === "imageEdit" && <ImageEditView onBack={() => handleFusionNavigate("fusion")} />}
-              {view === "videoEdit" && <VideoEditView onBack={() => handleFusionNavigate("fusion")} />}
-              {view === "canvas" && <CanvasView />}
-              {view === "studio" && (
-                <StudioView
-                  onBack={() => handleFusionNavigate("fusion")}
-                  initialProjectId={studioInitialProjectId}
-                />
-              )}
-              {/* W1:drama 旧管线退役(?view=drama → studio),渲染分支移除 */}
-              {view === "dub" && <DubView onBack={() => handleFusionNavigate("fusion")} />}
-              {view === "animatic" && (
-                // 动态分镜全端统一:AnimaticView 为唯一实现(旧桌面端 FROZEN 视图已物理删除)
-                <AnimaticView onOpenDramaProject={handleOpenDramaProject} />
-              )}
-              {/* U1(2026-10-14):opentalking 数字人栈下架——入口(fusion 卡/@面板/⌘K)已摘,
-                  深链落到此说明页;组件保留待 T7 对照池选型后复用 */}
+              {/* U1(2026-10-14):opentalking 数字人栈下架——深链落此说明页 */}
               {view === "avatartalk" && (
                 <div className="decommission-note" role="status">
                   <h2>数字人功能已下架</h2>
                   <p>
                     opentalking 数字人引擎已于 2026-10-14 下架(资源优先短剧创作与视频内容)。
-                    成片类说话人视频仍可用「视频生成」或「创作工作室」的数字人分镜完成。
+                    成片类说话人视频仍可用「视频生成」或创作工作室的数字人分镜完成。
                   </p>
                 </div>
               )}
-              {view === "library" && <LibraryView onNavigate={handleFusionNavigate} />}
-              {view === "entities" && <EntitiesView />}
-              {/* W1:train/backlot/models 不再独立渲染,统一经 ResourcesView tab 容器;
-                  BacklotView 空态 CTA 经 onCreateProject 透传保持可跳工作室 */}
-              {view === "resources" && (
-                <ResourcesView onCreateProject={() => handleNavSelect("studio")} />
-              )}
-              {view === "market" && <MarketView onNavigate={handleFusionNavigate} />}
-              {view === "settings" && <SettingsView account={account} onLogout={onLogout} />}
-                          </Suspense>
+            </Suspense>
           </ErrorBoundary>
         </div>
       </main>
-
-      <BottomNav
-        items={BOTTOM_NAV_ITEMS}
-        moreItems={bottomNavMoreItems}
-        current={view}
-        onSelect={handleNavSelect}
-        ctaAction={() => window.location.assign("/studio/toiv/drama")}
-        onOpenSearch={() => setPaletteOpen(true)}
-      />
     </div>
   );
 }

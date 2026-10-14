@@ -54,70 +54,7 @@ test("② trackJob:降级轮询走 lookup 单查,不再全量扫描(源码断言
 
 /* ── ③ GenerateView:草稿态 / 错误条提升 / 禁用原因 / 裁切链轮询 / 历史持久化 ── */
 
-test("③ GenerateView:引擎未就绪提示词进本地草稿,就绪后回填(源码断言)", () => {
-  const src = readSrc("components/generate/GenerateView.tsx");
-  assert.ok(src.includes("promptDraft"), "缺引擎未就绪本地草稿态");
-  assert.ok(src.includes("setPromptDraft(v)"), "onChange 未落入草稿");
-  assert.ok(src.includes("promptDraftRefilledRef"), "缺就绪回填一次性守卫");
-  // 回填不得覆盖已有输入
-  assert.ok(src.includes('(prev[engine.id] ?? "").trim()'), "回填须避让已有输入");
-});
-
-test("③ GenerateView:enginesError 提升到舞台区 ErrorBar + 重试按钮(源码断言)", () => {
-  const src = readSrc("components/generate/GenerateView.tsx");
-  assert.ok(src.includes("generate-engines-error"), "缺舞台区引擎错误条容器");
-  assert.ok(src.includes("引擎列表加载失败"), "缺错误条文案");
-  assert.ok(src.includes("onEnginesRetry"), "未向 PromptBar 传重试回调");
-  assert.ok(src.includes("loadEngines"), "重试未接 loadEngines");
-  // 舞台区必须在参数浮板之前渲染(窄屏浮板收起也可见)
-  const iStage = src.indexOf("generate-engines-error");
-  const iAside = src.indexOf('className="generate-params"');
-  assert.ok(iStage > 0 && iStage < iAside, "舞台区错误条须先于参数浮板渲染");
-});
-
-test("③ GenerateView:生成按钮禁用原因按 canSubmit 缺失项给出(源码断言)", () => {
-  const src = readSrc("components/generate/GenerateView.tsx");
-  assert.ok(src.includes("submitBlockReason"), "缺 submitBlockReason");
-  assert.ok(src.includes("请先填写提示词"), "缺提示词缺失原因");
-  assert.ok(src.includes("请先上传"), "缺参考输入缺失原因");
-  assert.ok(src.includes("引擎不可用"), "缺引擎不可用原因");
-  assert.ok(src.includes("引擎加载中"), "缺引擎加载中原因");
-});
-
-test("③ GenerateView:pollFinalResult 改 lookup 单查 + 超时/失败 toast + 卸载停轮询(源码断言)", () => {
-  const src = readSrc("components/generate/GenerateView.tsx");
-  assert.ok(src.includes("lookupJob(promptId)"), "裁切链轮询未走 lookupJob");
-  assert.ok(!src.includes('apiFetch("/api/jobs?limit=200"'), "裁切链轮询全量扫描残留");
-  assert.ok(src.includes("精确裁切未完成,已保留原始时长版本"), "缺超时/失败降级 toast");
-  assert.ok(src.includes("mountedRef"), "缺卸载停轮询标记");
-});
-
-test("③ GenerateView:会话历史持久化 localStorage + 挂载恢复在跑条目(源码断言)", () => {
-  const src = readSrc("components/generate/GenerateView.tsx");
-  assert.ok(src.includes("toiv_gen_history_v1"), "缺历史持久化键");
-  assert.ok(src.includes("saveJSON(HISTORY_KEY"), "entries 未持久化");
-  assert.ok(src.includes("loadJSON<HistoryEntry[]>"), "挂载未读回历史");
-  assert.ok(src.includes("fetchActiveJobs"), "恢复未对账 /api/jobs/active");
-  assert.ok(src.includes("resumeTracking"), "在跑条目缺恢复跟踪");
-});
-
 /* ── ④ PromptBar:引擎 chip 三态 + 禁用原因 ── */
-
-test("④ PromptBar:引擎 chip 区分加载中/加载失败点击重试(源码断言)", () => {
-  const src = readSrc("components/generate/PromptBar.tsx");
-  assert.ok(src.includes("enginesState"), "缺 enginesState prop");
-  assert.ok(src.includes("引擎加载中…"), "缺加载中文案");
-  assert.ok(src.includes("引擎加载失败,点击重试"), "缺失败重试文案");
-  assert.ok(src.includes("onEnginesRetry"), "缺重试回调");
-  assert.ok(src.includes("is-error"), "缺失败态样式钩子");
-});
-
-test("④ PromptBar:禁用原因内联提示 + 主按钮 title(源码断言)", () => {
-  const src = readSrc("components/generate/PromptBar.tsx");
-  assert.ok(src.includes("promptbar-block-reason"), "缺内联原因提示");
-  assert.ok(src.includes("submitBlockReason"), "缺 submitBlockReason prop");
-  assert.ok(src.includes("title={!canSubmit && submitBlockReason"), "主按钮缺 title 原因透出");
-});
 
 /* ── ⑤ ResultPanel:下载 / 空产物占位 / 重新加载 ── */
 

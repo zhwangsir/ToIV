@@ -1999,3 +1999,30 @@ select.input {
   color: var(--text-secondary);
   line-height: var(--leading-loose);
 }
+.decommission-note p + p {
+  margin-top: var(--space-3);
+}
+
+/* ── F12 经典回落薄壳(2026-10-15):深链/退出操作排,token 化零新 hex ────── */
+.thin-shell-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+}
+.thin-shell-links a,
+.thin-shell-links button {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control, var(--radius-panel));
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.875rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+.thin-shell-links a:hover,
+.thin-shell-links button:hover {
+  border-color: var(--accent-glow, var(--border-strong));
+}

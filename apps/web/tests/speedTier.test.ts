@@ -13,7 +13,7 @@ import {
   parseSpeedTier,
   speedTierToH3Accel,
   SPEED_TIER_STORAGE_KEY,
-} from "../lib/speedTier.ts";
+} from "../lib/speedTier";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (rel: string) => readFileSync(join(root, rel), "utf8");
@@ -34,15 +34,6 @@ test("SpeedTierSelect:段控快速/精细", () => {
   assert.ok(src.includes("快速"));
   assert.ok(src.includes("精细"));
   assert.ok(src.includes('aria-label="速度"'));
-});
-
-test("AppRunnerView:挂载分档并透传 speed_tier + 排队提示 + 失败白话", () => {
-  const src = read("components/apps/AppRunnerView.tsx");
-  assert.ok(src.includes("SpeedTierSelect"));
-  assert.ok(src.includes("speed_tier: speedTier"));
-  assert.ok(src.includes("queued_behind"));
-  assert.ok(src.includes("plainJobErrorReason"));
-  assert.ok(src.includes("saveSpeedTier"));
 });
 
 test("EngineStudioView:挂载分档并提交 speed_tier", () => {

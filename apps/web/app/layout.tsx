@@ -2,18 +2,15 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Geist, Geist_Mono, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import "./styles/glass.css";
-import "./styles/nav-account.css";
-/* V2 CSS 按视图分割(2026-08-14):library/settings/animatic/avatartalk/landing/fusion/docs
-   已迁移到各视图入口 tsx 随 lazy chunk 分割;studio.css/agent-runs.css 此前已分割。
-   stage.css 保持全局:① 被 generate/audio/avatartalk 三视图消费;② 与 motion.css 存在
+/* F12 薄壳(2026-10-15):nav-account.css(侧栏账户钮)/canvas-flow.css(React Flow 画布)
+   随第二套壳组件下线删除。
+   stage.css 保持全局:① 被引擎台结果面板消费;② 与 motion.css/details.css 存在
    加载顺序依赖(.stage-skeleton+.skeleton-shimmer 同元素混用,当前 stage 先于 motion,
    微光渐变依赖 motion 后置胜出;分割后 stage 必然晚于全局 motion,background 简写会
    重置渐变造成视觉回归),保守保留全局。 */
 import "./styles/stage.css";
 import "./styles/motion.css";
 import "./styles/effects.css";
-/* 原生画布(2026-09-16 去 iframe 化):React Flow 节点图样式 */
-import "./styles/canvas-flow.css";
 import "./styles/details.css";
 /* 新界面 v3 基础层:仅 html[data-ui="v3"] 生效(新旧界面开关,2026-09-29) */
 import "./styles/ui-v3.css";

@@ -1,17 +1,10 @@
 /**
- * 前端 UX 精修批 D(2026-08-30)单测(node:test,源码断言为主):
- * ① page.tsx:animatic 图标差异化(film,与 studio clapperboard 区分)/
- *    handleOpenDramaProject 透传 projectId → StudioView initialProjectId/
- *    admin 视图 isAdmin 门控(非管理员给无权限提示)+ admin 导航入口
- * ② StudioView:initialProjectId prop 仅透传为 activeId 初值(不改内部)
- * ③ CanvasView:三处自绘 SVG 警告三角收编 ui/Icon(warning)
- * ④ (DramaView 两例已随 2026-09-03 W4 drama 死链删除退役)
- * ⑤ LibraryView:主列表+回收站双页头收编 PageHeader;灯箱 3D 操作条
- *    伪 token 回退(hex/白玻璃)与 7px/6px 野值清零
- * ⑥ BacklotView/ModelsView:私造空态收编 ui/Empty;backlot 空态补
- *    「前往工作室创建」CTA(onCreateProject)
- * ⑦ SettingsView:版本号改从 /version.json 动态拉(部署指纹);
- *    LandingPage:邮箱框 type=email + 网络故障/凭据错误文案分流
+ * 前端 UX 精修批 D(2026-08-30)存留单测(node:test,源码断言):
+ * F12 薄壳退役(2026-10-15)后仅保留两例——
+ * ① page.tsx:animatic 深链经 EXTERNAL_VIEW_REDIRECTS 跳 canvas 短剧工作台(F3);
+ * ② LandingPage:邮箱框 type=email + 网络故障/凭据错误文案分流(保留面:未登录落地)。
+ * 其余绑定 StudioView/CanvasView/LibraryView/BacklotView/ModelsView/SettingsView
+ * 的断言已随对应视图在 F12 物理删除而报废。
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -33,131 +26,9 @@ test("page.tsx:animatic 视图退役(F3:深链跳 canvas 短剧工作台)", () =
     src.includes('animatic: "/studio/toiv/drama"'),
     "animatic 应经 EXTERNAL_VIEW_REDIRECTS 跳 canvas 短剧列表(「从图片创建」承接)",
   );
-  const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
-  for (const key of ["studio", "animatic"]) {
-    assert.ok(!moreBlock.includes(`key: "${key}"`), `${key} 不应留在「更多」抽屉`);
-  }
 });
 
-test("page.tsx:handleOpenDramaProject 直开 canvas v2 工作区(F1:七步工作室退役)", () => {
-  const src = readSrc("app/page.tsx");
-  assert.match(
-    src,
-    /const handleOpenDramaProject = useCallback\(\s*\(projectId: string\)/,
-    "handleOpenDramaProject 应接收 projectId(原签名丢弃)",
-  );
-  assert.ok(
-    src.includes("window.location.assign(`/studio/toiv/ws/${projectId}`)"),
-    "解析成功应整页直开 v2 工作区(/studio/toiv/ws/:id)",
-  );
-  // 做短剧 CTA(导航选择+窄屏 CTA)同指 canvas 短剧列表
-  assert.ok(
-    src.includes('window.location.assign("/studio/toiv/drama")'),
-    "CTA 应直达 /studio/toiv/drama",
-  );
-});
-
-test("page.tsx:admin/observability 视图退役,管理系统改为外跳 admin-console(2026-09-15 合并)", () => {
-  const src = readSrc("app/page.tsx");
-  assert.ok(!src.includes("AdminView"), "AdminView 应已迁出主站");
-  assert.ok(!src.includes("ObservabilityView"), "ObservabilityView 应已迁出主站");
-  assert.ok(src.includes("admin-console"), "侧栏/抽屉应保留管理系统跳转项");
-  assert.ok(src.includes(":3200"), "跳转应指向独立控制台端口");
-});
-test("page.tsx:管理系统入口仅管理员可见(左栏 adminItems + 底部更多)", () => {
-  const src = readSrc("app/page.tsx");
-  assert.ok(src.includes('key: "admin-console", label: "管理系统"'), "缺管理系统跳转项");
-  assert.ok(src.includes("if (isAdmin) {"), "跳转项应仅管理员注入");
-});
-test("StudioView:initialProjectId 仅作 activeId 初值透传", () => {
-  const src = readSrc("components/studio/StudioView.tsx");
-  assert.ok(src.includes("initialProjectId?: string | null"), "props 缺 initialProjectId");
-  assert.ok(
-    src.includes("useState<string | null>(initialProjectId ?? null)"),
-    "activeId 应以 initialProjectId 为初值",
-  );
-});
-
-/* ── ③ CanvasView 自绘 SVG 收编 ── */
-test("CanvasIframe(旧 iframe 逃生门):警告三角收编 ui/Icon,无自绘 SVG 残留", () => {
-  const src = readSrc("components/canvas/CanvasIframe.tsx");
-  assert.ok(
-    !src.includes('d="M12 3 2.5 20h19L12 3Z"'),
-    "自绘三角 path 应清除(UI_STANDARD §6 禁自定义 SVG)",
-  );
-  // 2026-08-30 公网混合内容根治:ready 态的混合内容指引分支随 planCanvasSrc 代理
-  // 决策成为死代码被移除,警告位由 3 处收敛为 2 处(连接失败卡 + iframe 加载失败遮罩)
-  const iconCount = (src.match(/name="warning" size=\{28\}/g) ?? []).length;
-  assert.equal(iconCount, 2, "两处警告位都应使用 Icon warning(原内联 SVG)");
-  assert.ok(src.includes("canvas-fallback-icon"), "fallback 图标类名保留(尺寸钩子)");
-  assert.ok(src.includes("canvas-error-icon"), "error 图标类名保留(尺寸钩子)");
-});
-
-/* (④ DramaView 两例已随 2026-09-03 W4 drama 死链删除退役) */
-
-/* ── ⑤ LibraryView ── */
-test("LibraryView:双 PageHeader 已退役(2026-09-02 W3),计数入工具条 + 回收站细顶条", () => {
-  const src = readSrc("components/library/LibraryView.tsx");
-  assert.ok(!/import \{ PageHeader \}|<PageHeader/.test(src), "PageHeader 应已整体退役(主列表 + 回收站)");
-  assert.ok(src.includes("lib-trash-head"), "回收站细顶条缺失");
-  assert.ok(src.includes("lib-count-pill"), "作品计数应并入工具条尾");
-});
-
-test("LibraryView:灯箱 3D 操作条伪 token 回退与野值清零", () => {
-  const src = readSrc("components/library/LibraryView.tsx");
-  const i0 = src.indexOf(".t3dops-bar");
-  const i1 = src.indexOf(".t3dops-more[open]");
-  assert.ok(i0 > 0 && i1 > i0, "t3dops 样式块缺失");
-  const block = src.slice(i0, i1);
-  assert.ok(!block.includes("#"), "t3dops 不得含 hex 回退(#888/#eee/#7c6cff)");
-  assert.ok(!block.includes("rgba("), "t3dops 不得含白玻璃 rgba 回退");
-  assert.ok(!/\b7px\b/.test(block), "7px 野值应清除");
-  assert.ok(!/\b6px 8px\b/.test(block), "6px 8px 野值应清除");
-  assert.ok(block.includes("var(--space-2)"), "间距应走 --space-* token");
-  assert.ok(block.includes("var(--radius-control)"), "圆角应走 --radius-control");
-  assert.ok(block.includes("border-color: var(--accent)"), "hover/主钮描边应走 --accent");
-});
-
-/* ── ⑥ BacklotView / ModelsView 空态收敛 ── */
-test("BacklotView:空态收编 ui/Empty + 前往工作室创建 CTA", () => {
-  const src = readSrc("components/backlot/BacklotView.tsx");
-  assert.match(src, /import \{ Empty \} from "@\/components\/ui\/Empty"/);
-  assert.match(src, /<Empty[\s\S]{0,200}title="还没有项目"/, "空态应走 Empty 组件");
-  assert.ok(src.includes("前往工作室创建"), "空态缺 CTA 文案");
-  assert.ok(src.includes("onCreateProject"), "缺 onCreateProject prop");
-  assert.ok(!src.includes("bl-empty"), "私造 bl-empty 空态应清除(含死样式)");
-});
-
-test("BacklotView:空态 CTA 经资源中心透传接线跳 studio", () => {
-  // W1:backlot 收编进 ResourcesView tab,CTA 经 page.tsx → ResourcesView → BacklotView 透传
-  const pageSrc = readSrc("app/page.tsx");
-  assert.match(
-    pageSrc,
-    /<ResourcesView onCreateProject=\{\(\) => handleNavSelect\("studio"\)\} \/>/,
-    "page.tsx 应把 onCreateProject 传给 ResourcesView(handleNavSelect 顺带复位待开项目 id)",
-  );
-  const resSrc = readSrc("components/resources/ResourcesView.tsx");
-  assert.match(
-    resSrc,
-    /<BacklotView onCreateProject=\{onCreateProject\} \/>/,
-    "ResourcesView 应把 onCreateProject 透传给 BacklotView",
-  );
-});
-
-test("ModelsView:本地模型空态收编 ui/Empty", () => {
-  const src = readSrc("components/models/ModelsView.tsx");
-  assert.match(src, /import \{ Empty \} from "@\/components\/ui\/Empty"/);
-  assert.match(src, /<Empty[\s\S]{0,200}本地暂无已安装模型/, "空态应走 Empty 组件");
-});
-
-/* ── ⑦ SettingsView / LandingPage ── */
-test("SettingsView:版本号从 /version.json 动态拉取,无硬编码 APP_VERSION", () => {
-  const src = readSrc("components/settings/SettingsView.tsx");
-  assert.ok(!src.includes('APP_VERSION = "0.0.1"'), "硬编码版本号应清除");
-  assert.ok(src.includes('fetch("/version.json"'), "应请求 /version.json");
-  assert.ok(src.includes("buildId"), "应展示构建指纹 buildId");
-});
-
+/* ── ② LandingPage(F12 保留面:未登录落地/登录) ── */
 test("LandingPage:邮箱框 type=email + 网络/凭据错误文案分流", () => {
   const src = readSrc("components/landing/LandingPage.tsx");
   assert.ok(src.includes('type="email"'), "邮箱框应为 type=email");

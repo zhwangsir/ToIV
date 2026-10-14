@@ -5,10 +5,10 @@
  * ②fail-safe:studio 关闭/无 token/非管理员 exchange 403/网络失败 → 回落经典 home(不锁死);
  * ③逃生口同在:?classic=1、R18 模式(canvas 纯 SFW)、EXTERNAL 深链(自带整页 replace);
  * ④未登录保持 LandingPage 登录/落地流程不变;
- * ⑤经典回落路径保留(HomeView/AssistantOverlay 注册不删,F12 才整体下线)。
+ * ⑤ F12 薄壳:第二套助手面/壳导航物理下线,经典回落=R18 引擎台 + 深链面板。
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
@@ -64,11 +64,28 @@ test("F9 未登录流程不变:LandingPage 保持;登录探测/跨页同步不�
   assert.match(src, /useCrossTabSync\(TOKEN_KEY/, "跨标签页登录态同步不得被动");
 });
 
-test("F9 经典回落路径保留(本波只做到「登录态不渲染助手面」,退役在 F12)", () => {
+test("F12 薄壳:第二套助手面物理下线,经典回落=R18 薄壳面 + 深链面板", () => {
   const src = readSrc("apps/web/app/page.tsx");
-  assert.match(src, /\{view === "home" && <HomeView variant="page"/, "回落路径的 home 助手面注册不得删除(F12 处置)");
-  assert.match(src, /<AssistantOverlay/, "Shift+Enter 浮层保留给经典 R18 视图(F12 处置)");
-  assert.match(src, /home: \(\) => import\("@\/components\/assistant\/AssistantView"\)/);
+  // F12:HomeView/AssistantOverlay/SideRail/⌘K/TaskCenter 注册全部删除(收编进 canvas F9)
+  assert.doesNotMatch(src, /@\/components\/assistant\//, "助手面 import 应已随 F12 物理下线");
+  assert.doesNotMatch(src, /<AssistantOverlay|<HomeView/, "助手面 JSX 应已下线");
+  assert.doesNotMatch(src, /@\/components\/nav\//, "第二套壳导航 import 应已下线");
+  assert.doesNotMatch(src, /<SideRail|<BottomNav|<CommandPalette|<TaskCenter|<AccountButton/, "第二套壳导航 JSX 应已下线");
+  // 回落薄壳:R18/NSFW 引擎台(懒加载注册)+ 经典回落面板(decommission-note)
+  assert.match(src, /import\("@\/components\/studio\/EngineStudioView"\)/, "R18 引擎台懒加载注册缺失");
+  assert.match(src, /view === "image" && <EngineStudioView kind="image" \/>/);
+  assert.match(src, /view === "video" && <EngineStudioView kind="video" \/>/);
+  assert.match(src, /经典模式\(薄壳\)/, "handoff 失败/?classic=1 应落经典回落面板");
+  // 文件系统级断言:被收编面源文件确已删除
+  for (const gone of [
+    "apps/web/components/assistant/AssistantView.tsx",
+    "apps/web/components/nav/SideRail.tsx",
+    "apps/web/components/nav/TaskCenter.tsx",
+    "apps/web/components/library/LibraryView.tsx",
+    "apps/web/components/market/MarketView.tsx",
+  ]) {
+    assert.ok(!existsSync(join(repoRoot, gone)), `${gone} 应已删除`);
+  }
 });
 
 test("F9 跳转壳样式:splash-handoff 落 globals.css(纵向 + muted token,零新 hex)", () => {

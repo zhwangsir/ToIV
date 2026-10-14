@@ -1,5 +1,7 @@
 /**
  * Studio 剧本拆解:超时/中止必须 cancelJob,不能只停前端轮询。
+ * F12:ScriptStage/kindLabel 断言随七步工作室与作品库面退役删除;
+ * lib/studioParseUx 仍被 lib/api(parseStudioScript)消费,契约断言保留。
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -12,7 +14,6 @@ import {
   isParseAbortError,
   studioParsePollDecision,
 } from "../lib/studioParseUx";
-import { kindLabel } from "../lib/libraryQuery";
 
 const webRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readSrc = (rel: string) => readFileSync(join(webRoot, rel), "utf-8");
@@ -41,18 +42,4 @@ test("parseStudioScript:超时与 abort 都 cancelJob", () => {
   assert.ok(fn.includes("cancelJob(submitted.job_id)"), "超时/中止未 cancelJob");
   assert.ok(fn.includes("opts?.signal"), "未接 AbortSignal");
   assert.ok(fn.includes("作业已中止"), "超时报错未声明已中止作业");
-});
-
-test("ScriptStage:拆解中主按钮/确认框可中止", () => {
-  const src = readSrc("components/studio/stages/ScriptStage.tsx");
-  assert.ok(src.includes("abortParse"), "缺 abortParse");
-  assert.ok(src.includes("中止拆解"), "主按钮拆解中不是「中止拆解」");
-  assert.ok(src.includes("{ signal: ac.signal }"), "parseStudioScript 未传 signal");
-  assert.ok(src.includes("isParseAbortError"), "中止未按 AbortError 静默");
-  assert.ok(!src.includes("disabled={parsing || !premise.trim()}"), "拆解中主按钮仍 disabled=死控件");
-  assert.ok(!src.includes("disabled={parsing}"), "确认框取消在 parsing 时仍 disabled");
-});
-
-test("kindLabel:studio_script_parse → 剧本拆解", () => {
-  assert.equal(kindLabel("studio_script_parse"), "剧本拆解");
 });

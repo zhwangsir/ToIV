@@ -3,8 +3,8 @@
  * ① submitEngineGeneration 路由到 POST /api/generate/transition,载荷含
  *    first_frame/last_frame/worker/cfg,顺序语义(第 1 张=首帧,第 2 张=尾帧)
  * ② 不是恰好 2 张图 → 提交前拦截报错(后端契约两帧必填)
- * ③ GenerateView 接线:canSubmit 恰好 2 张门控 + uploadKind 复用 wan_vace(同实例 :8197)
- * ④ libraryQuery:kind=transition 归视频桶,中文短名「首尾帧转场」
+ * ③ engineUploadKind:wan-transition 上传 kind 复用 wan_vace(同实例 :8197)
+ * (F12:GenerateView/libraryQuery 断言随视图退役删除;引擎台提交面在 EngineStudioView)
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -17,7 +17,6 @@ import {
   type EngineInfo,
   type EngineParam,
 } from "../lib/engines";
-import { kindLabel, kindToFilter } from "../lib/libraryQuery";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const webRoot = join(testDir, "..");
@@ -127,18 +126,7 @@ test("② 不是恰好 2 张图:提交前拦截,不发请求", async () => {
   assert.equal(fetchCalls.length, 0, "拦截期不得发出提交请求");
 });
 
-test("③ GenerateView 接线:恰好 2 张门控 + uploadKind 复用 wan_vace", () => {
-  const src = readSrc("components/generate/GenerateView.tsx");
-  assert.ok(
-    src.includes('engine.id !== "wan-transition" || refImages.length === 2'),
-    "canSubmit 缺首尾帧恰好 2 张门控",
-  );
-  // uploadKind 映射(2026-09-12 抽取):GenerateView 改走共享 engineUploadKind,
-  // wan-transition 与 VACE 同实例(:8197)的分支收编进 lib/engines
-  assert.ok(
-    src.includes("engineUploadKind(engine.id)"),
-    "GenerateView 应走共享 engineUploadKind",
-  );
+test("③ engineUploadKind:wan-transition 上传 kind 复用 wan_vace(同实例 :8197)", () => {
   const lib = readSrc("lib/engines.ts");
   const idx = lib.indexOf('engineId === "wan-transition"');
   assert.ok(idx > 0, "engineUploadKind 缺 wan-transition 分支");
@@ -148,7 +136,3 @@ test("③ GenerateView 接线:恰好 2 张门控 + uploadKind 复用 wan_vace", 
   );
 });
 
-test("④ libraryQuery:kind=transition 归视频桶,短名「首尾帧转场」", () => {
-  assert.equal(kindToFilter("transition"), "video");
-  assert.equal(kindLabel("transition"), "首尾帧转场");
-});

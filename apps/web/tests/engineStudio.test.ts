@@ -217,20 +217,6 @@ test("EngineStudioView 复用接线:ParamField/submitEngineGeneration/ResultPane
 
 /* ── ④ 共享抽取:engineUploadKind ── */
 
-test("engineUploadKind:GenerateView 口径收编 lib/engines,h3-* 直传 H3 实例", () => {
-  assert.equal(engineUploadKind("img2img"), "img2img");
-  assert.equal(engineUploadKind("nsfw-img2img"), "img2img");
-  assert.equal(engineUploadKind("h3-i2v"), "h3_i2v");
-  assert.equal(engineUploadKind("h3-fl2v"), "h3_i2v");
-  assert.equal(engineUploadKind("h3-r2v"), "h3_i2v");
-  assert.equal(engineUploadKind("wan-animate-2"), "wan_animate2");
-  assert.equal(engineUploadKind("wan-vace"), "wan_vace");
-  assert.equal(engineUploadKind("ltx-nsfw-i2v"), "ltx_i2v");
-  const gv = readSrc("components/generate/GenerateView.tsx");
-  assert.ok(gv.includes("engineUploadKind(engine.id)"), "GenerateView 应改走共享 engineUploadKind");
-  assert.ok(!gv.includes('engine?.id === "wan-animate-2"'), "GenerateView 不应再私链 uploadKind 三元");
-});
-
 /* ── ⑤ 样式与预取 ── */
 
 test("apps.css:apps-studio-* 类齐全且 token 纪律(零 hex)", () => {
@@ -254,17 +240,6 @@ test("apps.css:apps-studio-* 类齐全且 token 纪律(零 hex)", () => {
   }
   const studioBlock = css.slice(css.indexOf(".apps-studio {"));
   assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(studioBlock), "apps-studio 段不得出现 hex 色值");
-});
-
-test("prefetch.ts:image/video 预热引擎注册表,不再拉应用目录(应用全归市场)", () => {
-  const src = readSrc("lib/prefetch.ts");
-  const img = src.match(/image: \[[^\]]*\]/)?.[0] ?? "";
-  const vid = src.match(/video: \[[^\]]*\]/)?.[0] ?? "";
-  for (const [name, row] of [["image", img], ["video", vid]] as const) {
-    assert.ok(row.includes("fetchEngines()"), `${name} 预热缺引擎注册表`);
-    assert.ok(!row.includes("listApps()"), `${name} 不应再预热应用目录`);
-  }
-  assert.ok((src.match(/market: \[[^\]]*\]/)?.[0] ?? "").includes("listApps()"), "market 预热保留应用目录");
 });
 
 test("STUDIO_MODES 映射覆盖设计清单(模式标签与引擎 id)", () => {

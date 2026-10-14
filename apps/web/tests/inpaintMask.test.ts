@@ -71,16 +71,3 @@ test("brushDiameterPx / maskedFileName", () => {
   assert.equal(maskedFileName(".png"), "image_mask.png");
 });
 
-test("接线:运行页按工作流判定遮罩槽,图槽出涂抹入口", () => {
-  const runner = src("components/apps/AppRunnerView.tsx");
-  assert.match(runner, /maskImageKeys\(/);
-  const field = src("components/generate/ParamField.tsx");
-  assert.match(field, /maskable=/);
-  const upload = src("components/generate/RefImageUpload.tsx");
-  assert.match(upload, /InpaintMaskPainter/);
-  const painter = src("components/generate/InpaintMaskPainter.tsx");
-  assert.match(painter, /composeMaskedPixels/);
-  assert.match(painter, /destination-out/);
-  assert.match(painter, /prefers-reduced-motion/);
-  assert.doesNotMatch(painter, /#[0-9a-fA-F]{3,8}\b/);
-});

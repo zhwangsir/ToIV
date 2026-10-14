@@ -129,86 +129,10 @@ test("useAutoResize:ref 为空时安全空转", () => {
   assert.doesNotThrow(() => h.unmount());
 });
 
-/* ── ③ 源码断言:接线清单全量 import + 调用 ── */
-const WIRED_FILES = [
-  "components/assistant/AssistantView.tsx",
-  "components/generate/GenerateView.tsx",
-  "components/generate/ParamField.tsx",
-  "components/generate/PromptBar.tsx",
-  "components/studio/stages/ScriptStage.tsx",
-  "components/studio/stages/CastStage.tsx",
-  "components/studio/ShotCard.tsx",
-  "components/animatic/AnimaticView.tsx",
-  "components/audio/AudioView.tsx",
-  "components/avatartalk/AvatarGenPanel.tsx",
-  "components/avatartalk/AvatarTalkView.tsx",
-  "components/agent-run/PlanPanel.tsx",
-  "components/agent-run/TaskCardList.tsx",
-  "components/agent-run/ConfirmGateModal.tsx",
-  // F2(2026-10-11):app/agent-runs/page.tsx 退役为重定向,移出接线清单
-];
-
-test("接线文件均 import 并调用 useAutoResize(F2 后 16 个)", () => {
-  for (const rel of WIRED_FILES) {
-    const src = readSrc(rel);
-    assert.ok(src.includes('from "@/hooks/useAutoResize"'), `${rel} 未导入 useAutoResize`);
-    assert.ok(/useAutoResize\(/.test(src), `${rel} 未调用 useAutoResize`);
-  }
-});
-
-test("AssistantView:176px 硬顶与行数估算逻辑已删除", () => {
-  const src = readSrc("components/assistant/AssistantView.tsx");
-  assert.ok(!src.includes("max-height: 176px"), "styled-jsx 仍残留 176px 硬顶");
-  assert.ok(!src.includes("textareaRows"), "行数估算 state 残留");
-  assert.ok(!src.includes("resize: none"), "composer resize:none 残留");
-  assert.ok(
-    src.includes("useAutoResize(textareaRef, input, { maxVh: 40, maxLines: 8 })"),
-    "composer 未按 40vh/8 行接 hook",
-  );
-});
-
-test("AudioView:情感描述 resize:none 已放行,min-height:36px 下限保留", () => {
-  const src = readSrc("components/audio/AudioView.tsx");
-  assert.ok(!src.includes("resize: none"), "audio-oneline-input resize:none 残留");
-  assert.ok(src.includes("min-height: 36px"), "单行下限被误删");
-});
-
-test("PlanPanel:打回反馈已升级 textarea;列表文案走 PlanTextarea 包装", () => {
-  const src = readSrc("components/agent-run/PlanPanel.tsx");
-  assert.ok(
-    !/<input[^>]*agent-plan-feedback/.test(src),
-    "打回反馈仍是单行 input",
-  );
-  assert.ok(
-    /<textarea[\s\S]*?className="input agent-plan-feedback"/.test(src),
-    "打回反馈 textarea 缺失",
-  );
-  assert.ok(src.includes("function PlanTextarea"), "列表映射包装组件缺失");
-});
-
-test("PromptBar 遮盖舞台修复:hook 40vh + stage.css max-height:40vh", () => {
-  const bar = readSrc("components/generate/PromptBar.tsx");
-  assert.ok(
-    bar.includes("useAutoResize(taRef, value, { maxVh: 40 })"),
-    "PromptBar 未按 40vh 接 hook",
-  );
-  assert.ok(!bar.includes("ta.scrollHeight"), "旧内联两段式实现残留");
-
-  const css = readSrc("app/styles/stage.css");
-  const block = css.match(/\.promptbar-textarea \{[^}]*\}/);
-  assert.ok(block, "stage.css 缺 .promptbar-textarea 规则块");
-  assert.ok(block[0].includes("max-height: 40vh"), ".promptbar-textarea 未 40vh 封顶");
-  assert.ok(!block[0].includes("max-height: none"), ".promptbar-textarea 仍无限高(遮盖舞台)");
-});
-
+/* ── ③ 源码断言:存留基座(F12 后接线面大多随视图退役,仅留 ui/Textarea 基座) ── */
 test("ui/Textarea 基座支持 ref(React 19 ref-as-prop),供 hook 取节点", () => {
   const src = readSrc("components/ui/Input.tsx");
   assert.ok(/ref\?: Ref<HTMLTextAreaElement>/.test(src), "TextareaProps 未声明 ref");
   assert.ok(/function Textarea\(\{ className, ref, \.\.\.rest \}/.test(src), "Textarea 未透传 ref");
 });
 
-test("CastStage 非受控角色卡走 CastTextarea 包装(初始撑开 + input 兜底)", () => {
-  const src = readSrc("components/studio/stages/CastStage.tsx");
-  assert.ok(src.includes("function CastTextarea"), "CastTextarea 包装缺失");
-  assert.ok(!/<textarea\n\s+className="input"\n\s+rows=\{2\}\n\s+defaultValue/.test(src), "仍有未包装的裸 textarea");
-});

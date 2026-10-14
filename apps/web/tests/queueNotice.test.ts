@@ -21,15 +21,6 @@ test("types.ts:GenerateResponse 契约含 queued_behind(编译层透传)", () =>
   assert.ok(src.includes("queued_behind?: number"), "缺 queued_behind 字段");
 });
 
-test("GenerateView:排队位次 → toast + notice 双通道", () => {
-  const src = readSrc("components/generate/GenerateView.tsx");
-  // toast:提交即告知「排队,非故障」
-  assert.ok(src.includes("排队等待,非故障"), "缺排队非故障 toast 文案");
-  assert.ok(src.includes("res.queued_behind"), "未读取 queued_behind");
-  // notice:结果卡常驻排队位次(走开再回来看得见)
-  assert.ok(src.includes("排队中:前方还有"), "缺 notice 排队文案");
-});
-
 test("engines.ts:H3 提交走 GenerateResponse 泛型(queued_behind 自动透传)", () => {
   const src = readSrc("lib/engines.ts");
   assert.ok(src.includes("_postH3"), "H3 提交函数缺失");

@@ -166,13 +166,3 @@ test("L2:swr-cache 内建 IndexedDB 层,node 无 IDB 静默降级", async () => 
 
 /* ── ④ L3 预取接线 ── */
 
-test("L3:prefetch 映射覆盖高频视图,page.tsx 悬停 + 空闲预热已接线", () => {
-  const src = readSrc("lib/prefetch.ts");
-  for (const view of ["home", "image", "video", "audio", "library", "market", "fusion", "resources", "studio"]) {
-    assert.ok(src.includes(`${view}:`), `prefetch 缺 ${view} 预热`);
-  }
-  assert.ok(src.includes("requestIdleCallback"), "空闲预热缺 rIC");
-  const page = readSrc("app/page.tsx");
-  assert.ok(page.includes("prefetchView(key)"), "SideRail 悬停未接数据预取");
-  assert.ok(page.includes("idlePrefetch("), "缺首屏空闲预热");
-});
