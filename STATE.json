@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-13T02:30:00+08:00",
+  "updated_at": "2026-10-14T08:46:43+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15852,5 +15852,21 @@
     "e2e": "playwright 生产:6 步导航电路 ALL PASS;10 站巡游 9 PASS+1 断言误写(settings h1 实为「模型与算力·渠道」,URL/内容正确)实为 10/10",
     "leftover": "弹窗内部具体哪行副作用卡 transition 未挖穿(组件级定位+绕过);router 8.4 升级与 Suspense key 两个非根修变更留生产,如需简化可回退",
     "updated_at": "2026-10-13T02:30:00+08:00"
+  },
+  "ui_full_test_2026_10_14": {
+    "scope": "Playwright 真浏览器:canvas 13 页 + 经典 11 页 + 旧 key 重定向 15 条 + 移动端 390x844 5 页 + 真实出图端到端 1 条",
+    "clean": "无横向溢出;旧 key 重定向 15/15 正确(skills/apps→canvas 市场链式跳转对);canvas 市场 198 图 0 碎;经典 market/library 的 classic=1 逃生口正常渲染",
+    "defects_fixed": [
+      "①作品面音频/未知类型产物塞 <img> → 碎图(改分类型渲染 + onError 兜底);复验 brokenImgs=0、audio 播放器 2、占位块 16",
+      "②opentalking 探活裸 fetch → 恒 401(后端实要求鉴权,前端注释撒谎);复验 statusCall=200 且 UI 诚实显示「引擎离线」;AGENTS P-19",
+      "③画布 SSE 硬编 /api → /studio 挂载下恒 404;复验 failed 列表已无 events;AGENTS P-20"
+    ],
+    "open_need_user": [
+      "canvas 创作助手与 ops 提交层在 web 入口恒 403:`agent_ops.go:279 isLoopbackRequest` 要求 Host 是回环地址,经 :3100 代理时 Host=192.168.71.47 → 拒绝。画布内容本身没丢(REST PUT 路径正常),但助手面板不可用。属安全边界(防远程 agent 提交文档),未擅自改动;可选:A) Next 重写保留回环 Host + 扩 Origin 白名单;B) 新增 CANVAS_OPS_TRUSTED_ORIGINS 显式放行;C) 承认助手/ops 为桌面专属,web 入口隐藏该面板",
+      "数字人引擎离线:opentalking base :4403 不可达(reachable:false → models/avatars 503),需现场启动服务(AGENTS 记 opentalking/ 目录不可动)"
+    ],
+    "e2e": "UI 提交 Flux2 文生图 → job 09b2c566 status=done 出 PNG → canvas 作品面搜索命中且图 2/2 真加载",
+    "tests": "web 1173 绿(含新增 avatartalk 3 例 + F8 4 例);canvas toiv-library-works 4 绿;构建两侧均过;部署 web core 本机构建 + canvas --canvas-only(未动 toiv-api,烟测战役全程未中断)",
+    "false_positive_avoided": "窄屏 8/10 '碎图' 经 fetch 全 200 证实为懒加载假阳性(AGENTS P-21),未误报为缺陷"
   }
 }
