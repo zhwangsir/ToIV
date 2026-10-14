@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-14T14:50:00+08:00",
+  "updated_at": "2026-10-14T15:00:00+08:00",
   "branch_integrate_2026_10_09": {
     "status": "branch_integrate_main_tip_undeployed",
     "date": "2026-10-09",
@@ -15898,5 +15898,18 @@
       "REST PUT 200 rev7->8"
     ],
     "updated_at": "2026-10-14T14:50:00+08:00"
+  },
+  "cluster_access_skill_2026_10_14": {
+    "title": "toiv-cluster skill:集群连接/凭据/API 手册可移植化",
+    "files": [
+      "skills/toiv-cluster/SKILL.md",
+      "connections.md",
+      "credentials.md",
+      "api.md",
+      "install.sh"
+    ],
+    "install": "bash skills/toiv-cluster/install.sh -> ~/.agents/skills/toiv-cluster(符号链接)",
+    "note": "含敏感凭据,仓库私有;内容源=AGENTS.md+10-14 实测,各节带核验日期",
+    "updated_at": "2026-10-14T15:00:00+08:00"
   }
 }
