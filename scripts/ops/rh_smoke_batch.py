@@ -35,6 +35,23 @@ ROOT = Path(__file__).resolve().parents[2]
 # inode 那一刻(结果落 PG 不丢,但本地归因明细成孤儿,进程一退就再也读不出来)。
 OUT_DIR = Path(os.environ.get("RH_SMOKE_OUT_DIR") or ROOT / "tmp" / "rh_smoke_20261013")
 
+# 重作业家族单独放宽超时。实测视频单条 750~882s 贴着 900s 悬崖,SEEDVR2 超分更长
+# (7B DiT 权重物化 CPU + BlockSwap 32/36);客户端先放弃只产生假 timeout 与漏上架
+# (api 侧协程不因客户端断开而停,实测杀驱动后在跑作业仍写终态)。
+_HEAVY_NODE_MARKERS = ("SeedVR2", "BlockSwap", "VACE")
+_HEAVY_TIMEOUT_S = 2400
+_TIMEOUT_RECHECK_S = 90
+
+
+def _timeout_for_app(meta: dict, base: int) -> int:
+    """按应用形态定超时:视频/超分重作业放宽,其余沿用 base。"""
+    if (meta.get("output_kind") or "") == "video":
+        return max(base, _HEAVY_TIMEOUT_S)
+    nodes = " ".join(str(n) for n in (meta.get("required_nodes") or []))
+    if any(m in nodes for m in _HEAVY_NODE_MARKERS):
+        return max(base, _HEAVY_TIMEOUT_S)
+    return base
+
 # 启动期不变量清单里的 id 上架了也会被 seed_builtin_apps 静默改回(见 AGENTS P-17),
 # 白跑一次还会让 bulk-public 的 done 数看起来像收益。取不到就退回空集,不阻断战役。
 def _invariant_hidden_ids() -> set[str]:
@@ -197,11 +214,25 @@ def main() -> int:
     def one(aid: str) -> None:
         nonlocal done_n
         ts = time.time()
-        st, r = req("POST", f"/api/admin/apps/{urllib.parse.quote(aid, safe='')}/smoke",
-                    {"timeout_s": args.timeout_s}, tok=tok, timeout=args.timeout_s + 120)
+        qid = urllib.parse.quote(aid, safe="")
+        timeout_s = args.timeout_s
+        mst, meta = req("GET", f"/api/apps/{qid}", tok=tok, timeout=30)
+        if mst == 200 and isinstance(meta, dict):
+            timeout_s = _timeout_for_app(meta, args.timeout_s)
+        st, r = req("POST", f"/api/admin/apps/{qid}/smoke",
+                    {"timeout_s": timeout_s}, tok=tok, timeout=timeout_s + 120)
         status = (r or {}).get("status") if isinstance(r, dict) else None
         c = (r or {}).get("cls") if isinstance(r, dict) else None
         status = status or f"http_{st}"
+        if status == "timeout":
+            # api 协程不因客户端放弃而停:稍后回读 PG 真值,别把跑完的真作业记成假
+            # timeout(归因噪声)或漏掉上架(publish 只看驱动本地 status)。
+            time.sleep(_TIMEOUT_RECHECK_S)
+            rst, m2 = req("GET", f"/api/apps/{qid}", tok=tok, timeout=30)
+            fin = (m2 or {}).get("smoke_status") if (rst == 200 and isinstance(m2, dict)) else ""
+            if fin in ("pass", "fail"):
+                status = fin
+                c = (m2 or {}).get("smoke_cls") or c
         rec = {
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "id": aid, "http": st,
             "status": status, "cls": c,

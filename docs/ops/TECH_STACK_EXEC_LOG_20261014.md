@@ -187,3 +187,31 @@
 
 ### 4-5 提交
 `4c80f558`（smoke_started_at + 预热 ckpt 门 + LB 补丁脚本）、`8493662c`（日志目录旋钮）。双远端待推。
+
+---
+
+## 批次 5：2026-10-15 加速/量化审计（用户问「慢+占资源」后的自主第一步）
+
+### 5-1 接线率审计（类名取自包源码 NODE_CLASS_MAPPINGS，未打运行中实例的全量 object_info）
+| 能力 | 安装面 | 应用图引用(总/上架/过) | builtin | 判定 |
+|---|---|---|---|---|
+| SageAttention 补丁(PathchSageAttentionKJ) | 池实例 | 1252/129/129 | — | **已接线且规模验证=舰队事实标准** |
+| FlashVSR 超分 | /opt+LongCat | 117/3/3 | — | 已接线，小样本过 |
+| GGUF loaders | 全实例 | 140/9/9 | — | 已接线 |
+| TeaCache/MagCache 包版 | 仅 /opt | 33/0/0（30 未测） | 无 | **RH 图接了但零验证**；required_nodes 已含→路由知晓 |
+| WanVideoWrapper 内置 MagCache | 随 wrapper | — | wan_vace.py | builtin VACE 已接 |
+| CacheDiT_Model_Optimizer | 仅 /opt | 0 | nextgen.py 加速档 | builtin 有档但默认关；phantom_studio 默认 turbo、h3_studio 走 h3_accel profiles |
+| CacheDiT H3/Wan/LTX2 优化器 | 仅 /opt | 0 | 无 | 纯闲置；且 H3 实例(h3-eval)没装 CacheDiT=安装面错位 |
+| MiniMaxH3BlockCacheT8 | H3+LongCat 实例 | 0 | 无 | **纯闲置**：图内节点(experimental)，threshold=0 即等价关闭=天然 A/B 旋钮 |
+| CompileModel / NNLatentUpscale | 仅 /opt | 0 | 无 | 纯闲置（sm_120 风险，暂不动） |
+
+### 5-2 两个假设被实测修正
+- 「SEEDVR2 32/36 offload 是舰队配置」错：那是 **1445 张 RH 第三方图里作者自调的 blocks_to_swap**（分布 0/16/20/25/30/32/36/40）；builtin 超分走 ComfyUI 原生 seedvr 节点，无此旋钮。批量改第三方图不合所有权纪律 → #21 改判为「给 SEEDVR2 重作业有余量的卡/超时分级」，不动别人图。
+- 「加速没接」错一半：builtin 已有完整加速档体系（wan_t2v/i2v 的 turbo=4 步 Seko 双 LoRA、turbo_cache=8 步+EasyCache；nextgen 的 Lightning+CacheDiT），只是**多数路径默认关**；phantom_studio 已默认 turbo。把哪条产品路径默认开加速档=质量取舍，留用户拍板。
+
+### 5-3 已落（零质量代价）
+- 驱动超时分级：video/SeedVR2/BlockSwap/VACE 家族 → 2400s（api 上限 3600 内）；客户端 timeout 后 90s 回读 PG 真值再定 status，止住假 timeout 归因与漏上架（api 协程不因客户端放弃而停，实测证）。
+- 30 个自带 TeaCache/MagCache 的未测应用入 `tmp/rh_smoke_20261013/priority_accel_apps.txt`（下轮 ROUND_IDS 可切）。
+
+### 5-4 下一步（按收益/风险）
+① H3 block cache 接进 builtin H3 链（opt-in 参数默认关 + 同 seed A/B + 单实例灰度）；② 图系 DiT 补 fp8（#22，Qwen-Image 系先行）；③ 视频系切盘上 fp8/GGUF（#23）；④ 加速档默认值拍板（产品决策）。
