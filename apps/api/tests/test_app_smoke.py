@@ -636,3 +636,34 @@ async def test_smoke_endpoint_rejects_bogus_accel_and_passes_valid(monkeypatch):
     assert out["status"] == "pass"
     assert captured["accel"] == "balanced"
     assert get_current_admin and get_pool  # 依赖未被旁路(端点签名仍带 admin/pool)
+
+
+# ---------------------------------------------------------------------------
+# #22 灰度:烟测路径 bf16→fp8 换权(同 seed A/B 门判 draft-only,只进烟测)
+# ---------------------------------------------------------------------------
+def test_smoke_quant_swap_replaces_bf16_ckpt_string_only():
+    g = {"1": {"class_type": "CheckpointLoaderSimple", "inputs": {
+        "ckpt_name": "z_image_turbo_bf16.safetensors",
+        "note": ["z_image_turbo_bf16.safetensors"],
+    }}}
+    out, n = svc._apply_smoke_quant_swap(g)
+    assert n == 1
+    assert out["1"]["inputs"]["ckpt_name"] == "z-image-turbo_fp8_scaled_KJ.safetensors"
+    assert out["1"]["inputs"]["note"][0] == "z_image_turbo_bf16.safetensors"  # 列表输入不动
+
+
+def test_smoke_quant_swap_flag_off_and_no_match():
+    from app.config import get_settings
+    g = {"1": {"class_type": "X", "inputs": {"ckpt_name": "other.safetensors"}}}
+    _, n = svc._apply_smoke_quant_swap(g)
+    assert n == 0
+    st = get_settings()
+    old = st.smoke_quant_ckpt_swap
+    st.smoke_quant_ckpt_swap = False
+    try:
+        g2 = {"1": {"class_type": "X", "inputs": {"ckpt_name": "z_image_turbo_bf16.safetensors"}}}
+        out2, n2 = svc._apply_smoke_quant_swap(g2)
+        assert n2 == 0
+        assert out2["1"]["inputs"]["ckpt_name"] == "z_image_turbo_bf16.safetensors"
+    finally:
+        st.smoke_quant_ckpt_swap = old

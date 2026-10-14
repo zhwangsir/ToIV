@@ -570,6 +570,34 @@ def _apply_smoke_accel(app: App, graph: dict, accel: str | None) -> tuple[dict, 
     return out, applied, level
 
 
+SMOKE_QUANT_CKPT_SWAP: dict[str, str] = {
+    # #22 灰度:同 seed A/B 门判 draft-only(SSIM 0.863/2.5x)→ 只进烟测/草稿路径,产品默认仍 bf16。
+    "z_image_turbo_bf16.safetensors": "z-image-turbo_fp8_scaled_KJ.safetensors",
+}
+
+
+def _apply_smoke_quant_swap(graph: dict) -> tuple[dict, int]:
+    """烟测路径把图系 bf16 ckpt 字符串换成盘上 fp8 变体(仅字符串替换,不动连线)。
+
+    目标权重在某 worker 不可见时由既有 pick/warmup 口径报 missing_model,不在此另加探测。
+    """
+    if not get_settings().smoke_quant_ckpt_swap:
+        return graph, 0
+    n = 0
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        for key, val in list(inputs.items()):
+            tgt = SMOKE_QUANT_CKPT_SWAP.get(val) if isinstance(val, str) else None
+            if tgt:
+                inputs[key] = tgt
+                n += 1
+    return graph, n
+
+
 async def run_app_smoke(
     pool: WorkerPool, session: Session, app: App,
     *, workflow_override: dict | None = None, allow_llm: bool = True,
@@ -640,6 +668,12 @@ async def run_app_smoke(
         fixes_all.append(f"accel={accel_level}")
         logging.getLogger("toiv.smoke").info(
             "烟测加速档生效 app=%s level=%s", app.id, accel_level)
+
+    graph, swap_n = _apply_smoke_quant_swap(graph)
+    if swap_n:
+        fixes_all.append(f"quant_swap={swap_n}")
+        logging.getLogger("toiv.smoke").info(
+            "烟测量化换权生效 app=%s swapped=%d", app.id, swap_n)
 
     for attempt in (1, 2):  # 2=combo 校准修复后原位重试(重建会丢修复,故循环外构建)
         required = _extract_required(graph)

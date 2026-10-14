@@ -398,6 +398,7 @@ class Settings(BaseSettings):
     # 取值见 services/h3_accel.ACCEL_LEVELS;仅作用于 H3 家族图且仅 recommended 档,
     # 不可加速时 apply_acceleration 原样返回。"off"/空 = 烟测也走满血。
     smoke_accel_level: str = "balanced"
+    smoke_quant_ckpt_swap: bool = True  # #22 灰度:烟测路径 bf16→盘上 fp8(A/B 门判 draft-only)
 
     # —— LongCat-Video 长视频引擎(专用 ComfyUI 实例,workstation GPU0 :8197) ——
     # 独立于 WorkerPool(WanVideo 系节点仅该实例装有);systemd comfyui-longcat.service 托管,
