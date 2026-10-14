@@ -69,8 +69,26 @@ async function guardStudio(req: NextRequest): Promise<NextResponse> {
   return res;
 }
 
+/** F12(2026-10-15):退役面旧路径深链 308 到 canvas 对应面,书签/外链不 404。 */
+const RETIRED_FACE_REDIRECTS: ReadonlyArray<[RegExp, string]> = [
+  [/^\/library(\/.*)?$/, "/studio/library$1"],
+  [/^\/market(\/.*)?$/, "/studio/toiv/market$1"],
+  [/^\/tasks(\/.*)?$/, "/studio/toiv/tasks$1"],
+];
+
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+  for (const [re, target] of RETIRED_FACE_REDIRECTS) {
+    const m = re.exec(pathname);
+    if (m) {
+      const url = req.nextUrl.clone();
+      url.pathname = target.replace("$1", m[1] ?? "");
+      url.search = search;
+      const res = NextResponse.redirect(url, 308);
+      res.headers.set("cache-control", "no-store");
+      return res;
+    }
+  }
   if (isStudioPath(pathname)) return guardStudio(req);
   if (pathname !== "/" || search) return NextResponse.next();
   if (req.method !== "GET" && req.method !== "HEAD") return NextResponse.next();
@@ -80,4 +98,4 @@ export async function middleware(req: NextRequest) {
   return NextResponse.rewrite(url);
 }
 
-export const config = { matcher: ["/", "/studio", "/studio/:path*"] };
+export const config = { matcher: ["/", "/studio", "/studio/:path*", "/library", "/library/:path*", "/market", "/market/:path*", "/tasks", "/tasks/:path*"] };
