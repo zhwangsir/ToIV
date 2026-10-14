@@ -215,3 +215,22 @@
 
 ### 5-4 下一步（按收益/风险）
 ① H3 block cache 接进 builtin H3 链（opt-in 参数默认关 + 同 seed A/B + 单实例灰度）；② 图系 DiT 补 fp8（#22，Qwen-Image 系先行）；③ 视频系切盘上 fp8/GGUF（#23）；④ 加速档默认值拍板（产品决策）。
+
+---
+
+## 批次 6：2026-10-15 烟测默认加速档（用户拍板：产品满血默认+显式选项，测试默认加速拿结果）
+
+- 实现（43b57b08）：`settings.smoke_accel_level` 默认 **balanced**；`app_smoke._apply_smoke_accel`
+  仅对 H3 家族图生效，`apply_acceleration` 对不可加速/规格缺失/连线校验失败原样返回（宁慢不坏）；
+  admin 单跑端点 body.accel 可覆盖（"off"=本次满血，非法档 422）；生效档进 fixes 摘要与日志。
+- 档位依据（core 规格 h3_accel_profiles.json 实测）：balanced=BlockCache T8+SageAttention，
+  **2.94x / SSIM 0.8194（min 0.7847 过 0.75 门）/ recommended=true / 生产三档复测通过**；
+  lossless 档 recommended=false 会被 apply_acceleration 自动拒（前端勿展示）；
+  extreme=12.9x/SSIM 0.7494 预览级，须用户知情选择。
+- 部署前排雷：balanced 会加 MiniMaxH3MemoryEfficientSageAttentionPatch(KJNodes)+MiniMaxH3BlockCacheT8，
+  而 apply_acceleration 不校验节点安装 → 单类探测核实 :8264 两类均 PRESENT 后才部署。
+  顺带修正批次 5 审计措辞：blockcache 并非「纯闲置」——直接图引用为 0，但 h3_accel balanced 会动态接入。
+- **真机验证**：POST /api/admin/apps/h3-t2v/smoke（不传 accel）→ pass + fixes=['accel=balanced']，
+  端到端 184s（规格 native 515s → balanced 175s 去噪），约 2.8x 实测生效。
+- 全量基线 4398 passed / 38 skipped / exit=0（+5 例加速档测试）。战役 04:09 带加速档重启。
+- 开口：#24 加速档显式选项进产品路径（默认满血，档位带倍率/SSIM 说明）；#21/#22/#23 不变。

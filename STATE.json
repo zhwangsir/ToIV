@@ -1,7 +1,7 @@
 {
   "updated_at": "2026-10-15T02:40:00+08:00",
   "session_checkpoint_2026_10_15": {
-    "status": "active_bleed_stop_batch_2026_10_15",
+    "status": "active_accel_batch_2026_10_15",
     "commits": [
       "2c84e79c",
       "88c6251f",
@@ -11,7 +11,9 @@
       "ef02f652",
       "5f86e1dd",
       "4c80f558",
-      "8493662c"
+      "8493662c",
+      "7701d896",
+      "43b57b08"
     ],
     "both_remotes": "pending_push",
     "live_on_prod": "api: DramaScene + studio/drama SVML endpoints + img2threejs + registry hardening + TOIV_OPENTALKING_ENABLED=false + smoke_started_at/running_cards; canvas: R18 pane + SVML import panel + P-20 fix; workstation: LB probe patch (10s+2-strike), :8263 restarted, :8195 stopped+disabled",
@@ -63,7 +65,24 @@
       "market first-visit spinner>10s (client-nav suspect)",
       "canvas full bun-test parallel crash = pre-existing env (Bun segfault)",
       "workspace beforeunload guard fires even on pages without edits (T-U wave candidate)"
-    ]
+    ],
+    "smoke_accel": {
+      "default_level": "balanced",
+      "scope": "smoke path only, H3 family",
+      "verified": "h3-t2v pass in 184s with fixes=['accel=balanced']",
+      "product_default": "unchanged (full quality); explicit option = task 24"
+    },
+    "audit": {
+      "sage_attn_apps": 1252,
+      "sage_attn_passed": 129,
+      "teacache_untested": 30,
+      "idle_assets": [
+        "CacheDiT H3/Wan/LTX2 optimizers",
+        "CompileModel",
+        "NNLatentUpscale"
+      ],
+      "h3_blockcache": "wired dynamically via h3_accel balanced, not by direct graph refs"
+    }
   },
   "ui_unify_fusion_plan_2026_10_14": {
     "status": "executing_FU1_after_D-U1_verdict_B",
