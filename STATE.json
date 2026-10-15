@@ -44,15 +44,9 @@
    "api_baseline": "4393 passed / 38 skipped / exit=0"
   },
   "campaign": {
-   "driver": "restarted 02:24, logs at ~/toiv-ops-logs/rh_smoke (RH_SMOKE_OUT_DIR), ids priority_perworker 7148->6729",
-   "untested": 10961,
-   "untested_by_kind": {
-    "image": 5812,
-    "video": 5064,
-    "audio": 89
-   },
-   "rate_per_h": 21,
-   "open_issue": "SEEDVR2 long CPU phase starves event loop; 900s driver timeout marks real jobs as false timeouts (task 19)"
+   "throughput_post_fix": "67/h",
+   "retest": "round3 在跑(120 ids, concurrency 2)",
+   "main": "supervisor 单飞续轮"
   },
   "next": [
    "FLEET_FINAL_DONE → verify keys",
@@ -122,8 +116,8 @@
     "8265"
    ]
   },
-  "updated": "2026-10-15T06:51+08:00",
-  "batch": 10,
+  "updated": "2026-10-15T08:02+08:00",
+  "batch": 13,
   "commits_since_last": [
    "ef1d59ed accel tiers+#24",
    "2be57ce7 F9",
@@ -162,14 +156,54 @@
    ]
   },
   "fleet": {
-   "pool": "8196+8263+8265 (api env direct; LB restored 3)",
-   "roll": "fleet_final_20261015.sh: restart both gen workers w/ fixed alias pack, P-15 cross-count verify",
-   "gotchas": [
-    "api pool bypasses LB (backends.json drain ineffective)",
-    "nohup lacks sudo",
-    "long job blocks /queue probes"
+   "nodes": "5400/5400 双实例互核; alias 30 键+SCAIL 合成包; WanAnimatePlus/Qwen-Image_new(Apache-2.0) 在册",
+   "open": [
+    "RH shim ~27 app",
+    "inspyrenet 2 app",
+    "Qwen-DiffSynth 旧键 3 app"
    ]
-  }
+  },
+  "pushed": "origin/main 5f86e1dd..6df55a38 (gitee); canvas 本地镜像 checkout 拒推(scratch, 记录)",
+  "gates": {
+   "zimage_fp8": {
+    "ssim": 0.8632,
+    "speedup": 2.5,
+    "gate": "draft-only",
+    "gray": "smoke swap live (journal 实证)"
+   },
+   "wan_t2v_fp8_retro": {
+    "ssim": 0.8823,
+    "speedup": 1.52,
+    "gate": "draft-only",
+    "action": "产品默认回 fp16 + 显式 quant=fp8 + 烟测换权; 已部署"
+   }
+  },
+  "ui_verified": [
+   "F9 交接",
+   "#24 三档无 lossless",
+   "F11 去空格命中",
+   "F10 正典/3D/视图",
+   "W0-2 40/40 无重挂",
+   "工具箱 405ms",
+   "F12 308 重定向+交接复验"
+  ],
+  "ui_polish": [
+   "下拉宽度自适应",
+   "满血档 note 去参考值前缀",
+   "缩略图 502 重试",
+   "pathname-key 摘除"
+  ],
+  "tests": {
+   "api": "4440 pass→修 1(F12 视频桶单源)→相关全绿",
+   "canvas": "逐文件全绿(3 真红已修); 浏览器族 5 文件本机 harness 红=既存环境族(W0-1b 配对)",
+   "web": "351/351"
+  },
+  "next_session": [
+   "retest/campaign 收口数字",
+   "浏览器族红系统化排障(W0-1b 配对)",
+   "RH shim 决策执行",
+   "canvas 视频 quant 选项 UI(骑 #24 选择器模式)"
+  ]
  },
  "ui_unify_fusion_plan_2026_10_14": {
   "status": "executing_FU1_after_D-U1_verdict_B",
