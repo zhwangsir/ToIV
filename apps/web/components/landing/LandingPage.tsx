@@ -12,7 +12,7 @@ import "@/app/styles/landing.css";
 const CAPABILITIES = [
   { index: "01", label: "图像生成", desc: "文生图 / 图生图,多引擎切换" },
   { index: "02", label: "视频生成", desc: "长镜头生成与末帧续写" },
-  { index: "03", label: "数字人对话", desc: "实时语音驱动的数字分身" },
+  { index: "03", label: "短剧创作", desc: "从剧本拆镜到成片的工作台" },
 ];
 
 /**
@@ -78,7 +78,7 @@ export function LandingPage() {
           </div>
           <h1 className="landing-slogan">今天想创作什么?</h1>
           <p className="landing-brand-desc">
-            一个工作台,装下图像、视频与数字人的完整创作流程。
+            一个工作台,装下图像、视频与短剧的完整创作流程。
           </p>
         </div>
         <ul className="landing-keywords">
@@ -102,7 +102,7 @@ export function LandingPage() {
           </div>
           <div className="landing-card-head">
             <h2 className="landing-title">登录</h2>
-            <p className="landing-subtitle">AI 创作平台 · 图像 / 视频 / 音频 / 数字人</p>
+            <p className="landing-subtitle">AI 创作平台 · 图像 / 视频 / 音频 / 短剧</p>
           </div>
 
           <form className="landing-form" onSubmit={onSubmit} noValidate>
