@@ -130,6 +130,8 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     # V4-2c(2026-10-12)阶段感知换参考:服装/造型实质变化才 +1(同 epoch 共享参考组)
     ("studioshot", "ref_epoch", "ref_epoch INT NOT NULL DEFAULT 0"),
     ("studioshot", "ref_epoch_note", "ref_epoch_note VARCHAR NOT NULL DEFAULT ''"),
+    # FU1 词锚定时间轴(2026-10-15):拍结构持久化,支撑 canvas 时间线/改词重排
+    ("studioshot", "beats_json", "beats_json VARCHAR NOT NULL DEFAULT '[]'"),
     # Batch2 角色三视图:既有 studiocharacter 表幂等补列
     ("studiocharacter", "reference_images", "reference_images VARCHAR NOT NULL DEFAULT '[]'"),
     ("studiocharacter", "reference_images_by_style", "reference_images_by_style VARCHAR NOT NULL DEFAULT '{}'"),

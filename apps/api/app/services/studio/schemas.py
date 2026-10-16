@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
@@ -197,6 +198,16 @@ class CharacterPatch(BaseModel):
     )
 
 
+class WordAnchorBeat(BaseModel):
+    """只接收拍声明；响应中的派生时间字段不进入持久层。"""
+
+    text: str = ""
+    cues: list[str] = Field(default_factory=list)
+    anchor_words: str = ""
+    kind: Literal["v", "d"] | None = None
+    block: int = Field(default=0, ge=0, strict=True)
+
+
 class ShotInput(BaseModel):
     """批量保存分镜的单条输入(无 id = 新增,有 id = 更新)。"""
 
@@ -216,6 +227,8 @@ class ShotInput(BaseModel):
     # V4-2c 阶段感知换参考:服装/造型实质变化时 +1(同 epoch 共享参考组;None=不改)
     ref_epoch: int | None = Field(default=None, ge=0)
     ref_epoch_note: str | None = Field(default=None, max_length=200)
+    # FU1 词锚定时间轴:None=不改；空文本仍保留一拍及其锚
+    beats: list[WordAnchorBeat] | None = Field(default=None, max_length=200)
 
 
 class ShotsSaveRequest(BaseModel):

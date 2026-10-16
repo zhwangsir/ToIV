@@ -9,10 +9,11 @@
 import { ArrowDown, ArrowUp, BookOpen, Camera, Captions, Check, Clapperboard, FileText, Film, IdCard, Layers, ListOrdered, Loader2, Mic, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
 import { Select } from "antd";
 import type { ToivFrameVariant, ToivSharedAsset } from "@/services/toiv/client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { ToolButton } from "@/components/ui/base/buttons";
+import { WordAnchorTimeline } from "@/components/toiv/word-anchor-timeline";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { EmptyState } from "@/components/ui/product/empty-state";
@@ -272,6 +273,8 @@ export default function DramaWorkspacePage() {
     // ---- W1.4: 镜头段生成操作(渲染/配音/整批) ----
     const [busyShots, setBusyShots] = useState<Set<string>>(new Set());
     const [batchRendering, setBatchRendering] = useState(false);
+    // FU:Toonflow 门控确认——生成前展示数量/加速档,确认才推进(不是静默开火)
+    const [gateOpen, setGateOpen] = useState(false);
     const [renderError, setRenderError] = useState<string | null>(null);
     const markBusy = (sid: string, on: boolean) =>
         setBusyShots((prev) => {
@@ -330,6 +333,15 @@ export default function DramaWorkspacePage() {
     const [tlSaving, setTlSaving] = useState(false);
     const [tlMsg, setTlMsg] = useState<string | null>(null);
     const [tlError, setTlError] = useState<string | null>(null);
+    const [beatEditing, setBeatEditing] = useState<Set<string>>(new Set());
+    const onBeatEditingChange = useCallback((sid: string, editing: boolean) => {
+        setBeatEditing((prev) => {
+            if (prev.has(sid) === editing) return prev;
+            const next = new Set(prev);
+            if (editing) next.add(sid); else next.delete(sid);
+            return next;
+        });
+    }, []);
 
     useEffect(() => {
         // detail 刷新同步本地编辑态(未脏时)
@@ -360,11 +372,11 @@ export default function DramaWorkspacePage() {
 
     const tlSetDuration = (sid: string, v: number) => {
         setTlDirty(true);
-        setTlDuration((p) => ({ ...p, [sid]: Math.max(1, Math.min(60, v)) }));
+        setTlDuration((p) => ({ ...p, [sid]: Math.max(3, Math.min(60, v)) }));
     };
 
     const tlSave = useCallback(async () => {
-        if (!id) return;
+        if (!id || tlSaving || beatEditing.size > 0) return;
         setTlSaving(true);
         setTlMsg(null);
         setTlError(null);
@@ -380,6 +392,7 @@ export default function DramaWorkspacePage() {
                 characters: (x.characters ?? []) as string[],
                 render_mode: x.render_mode ?? "video",
                 seam_to_next: tlSeam[x.id] ?? x.seam_to_next ?? "hardcut", // W2.5:衔接持久化
+                beats: x.beats ?? [],
             }));
             await saveStudioShots(id, payload);
             setTlDirty(false);
@@ -390,7 +403,7 @@ export default function DramaWorkspacePage() {
         } finally {
             setTlSaving(false);
         }
-    }, [id, tlShots, tlDuration, tlSeam, load]);
+    }, [id, tlShots, tlDuration, tlSeam, load, tlSaving, beatEditing]);
 
     // ---- W2.2: 多视角分镜扩展(配景) ----
     const [frameBusy, setFrameBusy] = useState<Set<string>>(new Set());
@@ -879,7 +892,7 @@ export default function DramaWorkspacePage() {
                                                 variant="default"
                                                 icon={<PlayCircle />}
                                                 label={batchRendering ? "整批渲染中…" : "整批渲染(全部未完成镜)"}
-                                                onClick={() => void runBatchRender()}
+                                                onClick={() => setGateOpen(true)}
                                                 loading={batchRendering}
                                             />
                                             <ToolButton
@@ -911,6 +924,30 @@ export default function DramaWorkspacePage() {
                                         <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
                                             {formatAccelTierNote(selectedAccelTier) || "满血档:原生采样,质量优先(产品默认)。"}
                                         </p>
+                                        {gateOpen && (
+                                            <div className="rounded-lg border border-[var(--border)] bg-[var(--card,#121214)] p-3 text-xs">
+                                                <p className="mb-2 font-medium text-foreground">生成前确认（Toonflow 门控）</p>
+                                                <ul className="mb-2 flex flex-col gap-0.5 text-[var(--muted-foreground,#a8a8a8)]">
+                                                    <li>· 待渲染：{shots.filter((x) => !RENDERED_STATES.has(x.status)).length} / {shots.length} 镜</li>
+                                                    <li>· 引擎：H3 ref2va · 加速档：{formatAccelTierLabel(selectedAccelTier)}</li>
+                                                    <li>· 说明：{formatAccelTierNote(selectedAccelTier) || "满血档:原生采样,质量优先。"}</li>
+                                                    <li>· 算力消耗以舰队实跑为准；作业进任务中心可中止。</li>
+                                                </ul>
+                                                <div className="flex gap-2">
+                                                    <ToolButton
+                                                        variant="default"
+                                                        icon={<PlayCircle />}
+                                                        label={batchRendering ? "提交中…" : "确认并开始整批渲染"}
+                                                        loading={batchRendering}
+                                                        onClick={() => {
+                                                            setGateOpen(false);
+                                                            void runBatchRender();
+                                                        }}
+                                                    />
+                                                    <ToolButton variant="ghost" label="取消" onClick={() => setGateOpen(false)} />
+                                                </div>
+                                            </div>
+                                        )}
                                         {chainMsg && (
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{chainMsg}</p>
                                         )}
@@ -1012,7 +1049,9 @@ export default function DramaWorkspacePage() {
                                                 label={tlSaving ? "保存中…" : tlDirty ? "保存排序与时长*" : "保存排序与时长"}
                                                 onClick={() => void tlSave()}
                                                 loading={tlSaving}
+                                                disabled={tlSaving || beatEditing.size > 0}
                                             />
+                                            {beatEditing.size > 0 && <span className="text-xs text-muted-foreground">请先应用改词重排，再保存排序与时长</span>}
                                             <ToolButton
                                                 variant="default"
                                                 icon={<Film />}
@@ -1050,7 +1089,8 @@ export default function DramaWorkspacePage() {
                                         )}
                                         <ol className="flex flex-col gap-1.5">
                                             {tlShots.map((x, i) => (
-                                                <li key={x.id} className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-xs">
+                                                <Fragment key={x.id}>
+                                                <li className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-xs">
                                                     <span className="flex flex-col gap-0.5">
                                                         <button type="button" aria-label={`上移 ${x.scene?.slice(0, 8) ?? x.id.slice(0, 6)}`} disabled={i === 0} onClick={() => tlMove(x.id, -1)} className="text-[var(--muted-foreground,#a8a8a8)] hover:text-foreground disabled:opacity-30"><ArrowUp className="size-3" /></button>
                                                         <button type="button" aria-label={`下移 ${x.scene?.slice(0, 8) ?? x.id.slice(0, 6)}`} disabled={i === tlShots.length - 1} onClick={() => tlMove(x.id, 1)} className="text-[var(--muted-foreground,#a8a8a8)] hover:text-foreground disabled:opacity-30"><ArrowDown className="size-3" /></button>
@@ -1060,8 +1100,9 @@ export default function DramaWorkspacePage() {
                                                     <label className="flex items-center gap-1 text-[var(--muted-foreground,#a8a8a8)]">
                                                         时长
                                                         <input
-                                                            type="number" min={1} max={60} value={tlDuration[x.id] ?? x.duration_sec ?? 6}
-                                                            onChange={(e) => tlSetDuration(x.id, Number(e.target.value) || 1)}
+                                                            type="number" min={3} max={60} value={tlDuration[x.id] ?? x.duration_sec ?? 6}
+                                                            disabled={tlSaving || beatEditing.has(x.id)}
+                                                            onChange={(e) => tlSetDuration(x.id, Number(e.target.value) || 3)}
                                                             className="w-14 rounded border border-[var(--border)] bg-transparent px-1.5 py-0.5 text-xs tabular-nums text-foreground"
                                                             aria-label={`时长 ${x.scene?.slice(0, 8) ?? x.id.slice(0, 6)}`}
                                                         />s
@@ -1082,6 +1123,24 @@ export default function DramaWorkspacePage() {
                                                         ? <StatusBadge variant="filled" tone="success" label="就绪" size="sm" />
                                                         : <StatusBadge variant="filled" tone={STATUS_TONE[x.status] ?? "neutral"} label={x.status} size="sm" />}
                                                 </li>
+                                                    {(x.beats?.length ?? 0) > 0 && (
+                                                        <li key={`${x.id}-beats`} className="px-1">
+                                                            <WordAnchorTimeline
+                                                                shot={x}
+                                                                totalSec={tlDuration[x.id] ?? x.duration_sec}
+                                                                disabled={tlSaving}
+                                                                onEditingChange={onBeatEditingChange}
+                                                                onUpdated={(patch) => {
+                                                                    if (patch.duration_sec != null) tlSetDuration(x.id, patch.duration_sec);
+                                                                    setDetail((prev) => prev ? {
+                                                                        ...prev,
+                                                                        shots: prev.shots?.map((s) => s.id === x.id ? { ...s, ...patch } : s),
+                                                                    } : prev);
+                                                                }}
+                                                            />
+                                                        </li>
+                                                    )}
+                                                </Fragment>
                                             ))}
                                         </ol>
                                     </>

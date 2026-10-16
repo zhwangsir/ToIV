@@ -136,6 +136,10 @@ def import_svml_studio(
     语法:|| 拍分隔 / @{cue}词@{/cue} 跨拍词锚 / <角色|voice> 说话人 /
     [scene:/mood:/beat:] 元数据 / --- 分镜分隔;字数估时(4.2 字/s,夹 2-15s)。
     """
+    from dataclasses import asdict
+    from app.services.svml_timeline import project_timeline
+
+    _get_project(session, pid, user)
     script = (body or {}).get("script", "")
     if not isinstance(script, str) or not script.strip():
         raise HTTPException(status_code=422, detail="script 为空")
@@ -160,12 +164,11 @@ def import_svml_studio(
             "duration_sec": c["duration_sec"],
             "characters": c["characters"],
             "render_mode": "video",
-            # 词锚透传(FU1 时间轴视图/改词重排的输入)。附加字段:既有 8 键不变,
-            # 前端「建角色+PUT shots 全量替换」单一写路径不受影响。
-            "beats": [
-                {"text": b.text, "cues": list(b.cues), "anchor_words": b.anchor_words}
-                for b in d.beats
-            ],
+            # 拍声明保留视觉/对白通道；所有响应共用服务端投影。
+            **project_timeline(
+                [asdict(b) for b in d.beats],
+                total_sec=d.duration_sec if not d.duration_auto or body.get("auto_duration") is False else None,
+            ),
         }
         for c, d in zip(coerced, drafts)
     ]
@@ -1530,6 +1533,19 @@ def save_shots(
             shot.ref_epoch = item.ref_epoch
         if item.ref_epoch_note is not None:
             shot.ref_epoch_note = item.ref_epoch_note
+        # FU1 词锚:拍结构落库(None=不改;[]=清空)，消费文本从声明派生。
+        from app.services.svml_timeline import _norm_beats, beat_text_fields, parse_beats_json, project_timeline
+
+        if item.beats is not None:
+            declarations = _norm_beats([b.model_dump() for b in item.beats])
+            shot.beats_json = json.dumps(declarations, ensure_ascii=False)
+        else:
+            declarations = parse_beats_json(shot.beats_json)
+        if declarations:
+            shot.duration_sec = project_timeline(declarations, total_sec=shot.duration_sec)["duration_sec"]
+            if all(b.get("kind") in ("v", "d") for b in declarations):
+                for field, text in beat_text_fields(declarations).items():
+                    setattr(shot, field, text)
         # 生成方式变化 → 旧媒体失效,回到草稿
         if shot.render_mode != item.render_mode:
             shot.render_mode = item.render_mode
@@ -1546,12 +1562,56 @@ def save_shots(
     session.commit()
     for shot in out:
         session.refresh(shot)
-    return {
-        "shots": [
-            {**s.model_dump(), "characters": json.loads(s.characters or "[]")}
-            for s in out
-        ]
-    }
+    return {"shots": [_shot_out(s) for s in out]}
+
+
+class ShotReflowRequest(BaseModel):
+    """FU1 改词重排:改台词后重投影拍时长(锚/cue 不动)。"""
+
+    texts: list[str] | None = Field(default=None, max_length=200)
+    total_sec: int | None = Field(default=None, ge=3, le=60)
+    persist: bool = True
+
+
+@router.post("/studio/shots/{sid}/reflow-beats")
+def reflow_shot_beats(
+    sid: str,
+    body: ShotReflowRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """hypit 词锚投影:改词 → 按新文本重分时长;声明源仍是 beats 文本。"""
+    from datetime import datetime
+    from app.services.svml_timeline import (
+        _norm_beats, beat_text_fields, bind_beat_channels, parse_beats_json, reflow_beats,
+    )
+
+    shot = _get_shot(session, sid, user)
+    beats = parse_beats_json(shot.beats_json)
+    if not beats and body.texts:
+        raise HTTPException(status_code=422, detail="该镜无词锚拍结构,无法重排")
+    try:
+        if body.texts is not None:
+            beats = bind_beat_channels(beats, dialogue=shot.dialogue, prompt=shot.prompt)
+        result = reflow_beats(
+            beats, new_texts=body.texts,
+            total_sec=body.total_sec if body.total_sec is not None else shot.duration_sec,
+        )
+        fields = beat_text_fields(result["beats"])
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if body.persist:
+        # 只存声明，不把 start/end 等派生时间写回真源。
+        shot.beats_json = json.dumps(_norm_beats(result["beats"]), ensure_ascii=False)
+        shot.duration_sec = result["duration_sec"]
+        for field, text in fields.items():
+            setattr(shot, field, text)
+        shot.updated_at = datetime.utcnow()
+        session.add(shot)
+        session.commit()
+        session.refresh(shot)
+        return _shot_out(shot)
+    return {**_shot_out(shot), **result, **fields, "persisted": False}
 
 
 # ── 剧本拆解 ───────────────────────────────────────────────────────────────
@@ -2125,6 +2185,13 @@ def _shot_out(s: StudioShot) -> dict:
     data["candidates"] = candidates if isinstance(candidates, list) else []
     data["ref_images"] = ref_images if isinstance(ref_images, list) else []
     data.setdefault("video_model", getattr(s, "video_model", None) or "h3")
+    from app.services.svml_timeline import parse_beats_json, project_timeline
+
+    data.pop("beats_json", None)
+    beats = parse_beats_json(s.beats_json)
+    data["beats"] = []
+    if beats:
+        data.update(project_timeline(beats, total_sec=s.duration_sec))
     return data
 
 

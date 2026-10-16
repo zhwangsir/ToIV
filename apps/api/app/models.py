@@ -754,6 +754,8 @@ class StudioShot(SQLModel, table=True):
     # 同 epoch 镜共享同一组参考(stage-aware ref reuse),渲染日志按 epoch 归组排查。
     ref_epoch: int = Field(default=0, ge=0)
     ref_epoch_note: str = Field(default="", max_length=200)  # 变化说明(如「第3镜起换雨衣」)
+    # FU1 词锚定时间轴(hypit):[{text,cues,anchor_words}] 拍结构;空=无词锚
+    beats_json: str = Field(default="[]")
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
 

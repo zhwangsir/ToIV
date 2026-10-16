@@ -66,6 +66,8 @@ class Beat:
     text: str = ""  # 剥锚后纯文本
     cues: list[str] = field(default_factory=list)  # 本拍内激活的 cue 名(按出现序)
     anchor_words: str = ""  # 本拍内处于锚内的词(拼接)
+    kind: str = ""  # v=视觉、d=对白；重排必须保留文本消费通道
+    block: int = 0  # 原文本块，用于视觉块之间的逗号连接
 
 
 @dataclass
@@ -163,7 +165,8 @@ def _shot_from_blocks(
     )
     if metas.get("duration"):
         try:
-            shot.duration_sec = max(_MIN_SHOT_SEC, min(_MAX_SHOT_SEC, int(float(metas["duration"]))))
+            # 显式镜头总长不受 2–15s 的语速估计界限约束。
+            shot.duration_sec = max(3, min(60, int(float(metas["duration"]))))
             shot.duration_auto = False
         except ValueError:
             pass
@@ -171,10 +174,13 @@ def _shot_from_blocks(
     visual_parts: list[str] = []
     dialogue_parts: list[str] = []
     speakers: list[str] = []
-    for kind, speaker, text in lines:
+    for block, (kind, speaker, text) in enumerate(lines):
         # || 拍分隔不进落库文本(拍结构已在 beats 里),剥锚后以空格衔接
         cleaned = strip_anchors(text).replace("||", " ").strip()
         beats = parse_beats(text)
+        for beat in beats:
+            beat.kind = kind
+            beat.block = block
         shot.beats.extend(beats)
         if kind == "v":
             visual_parts.append(cleaned)

@@ -530,6 +530,30 @@ export type ToivDramaCharacter = {
     reference_images_by_style?: Record<string, string[]>;
 };
 
+/** FU1 词锚拍(hypit):一拍内台词 + 附着 cue/锚词 */
+export type ToivBeat = {
+    text?: string;
+    cues?: string[];
+    anchor_words?: string;
+    kind?: "v" | "d";
+    block?: number;
+};
+
+export type ToivProjectedBeat = ToivBeat & {
+    start_sec: number;
+    end_sec: number;
+    est_sec: number;
+};
+
+export type ToivReflowResult = {
+    id: string;
+    duration_sec: number;
+    beats: ToivProjectedBeat[];
+    dialogue: string;
+    prompt: string;
+    persisted?: boolean;
+};
+
 export type ToivDramaShotCandidate = {
     id: string;
     url?: string;
@@ -562,6 +586,8 @@ export type ToivDramaShot = {
     candidates?: ToivDramaShotCandidate[];
     seam_to_next?: string;
     seam_anchor?: string;
+    /** FU1 声明及服务端投影(空=无词锚) */
+    beats?: ToivProjectedBeat[];
 };
 
 export type ToivDramaDetail = ToivDramaProject & {
@@ -774,6 +800,7 @@ export type ToivParsedShot = {
     duration_sec?: number;
     characters?: string[];
     render_mode?: string;
+    beats?: ToivBeat[];
 };
 
 /** POST /studio/projects/{pid}/import-svml → 词锚定脚本确定性拆镜(hypit 语法,不经 LLM,不落库)。
@@ -811,6 +838,19 @@ export async function pollScriptParse(
 ): Promise<{ status: string; characters?: ToivParsedCharacter[]; shots?: ToivParsedShot[]; error?: string }> {
     const { data } = await toivHttp.get(
         `/studio/projects/${encodeURIComponent(pid)}/script/parse/${encodeURIComponent(jobId)}`,
+        { timeout: 15_000 },
+    );
+    return data;
+}
+
+/** POST /studio/shots/{sid}/reflow-beats —— 改词重排(词锚投影回写时长) */
+export async function reflowShotBeats(
+    sid: string,
+    opts: { texts?: string[]; total_sec?: number; persist?: boolean } = {},
+): Promise<ToivReflowResult> {
+    const { data } = await toivHttp.post<ToivReflowResult>(
+        `/studio/shots/${encodeURIComponent(sid)}/reflow-beats`,
+        { texts: opts.texts, total_sec: opts.total_sec, persist: opts.persist ?? true },
         { timeout: 15_000 },
     );
     return data;
