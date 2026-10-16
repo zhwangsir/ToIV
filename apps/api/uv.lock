@@ -3899,6 +3899,9 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "fakeredis", extra = ["lua"] },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "opencv-python-headless" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
 ]
@@ -3925,7 +3928,9 @@ requires-dist = [
     { name = "insightface", marker = "extra == 'face-pick'", specifier = ">=0.7.3" },
     { name = "langgraph", specifier = ">=1.0,<2" },
     { name = "langgraph-checkpoint-postgres", specifier = ">=3.1,<4" },
+    { name = "numpy", marker = "extra == 'dev'", specifier = ">=2.1" },
     { name = "onnxruntime", marker = "extra == 'face-pick'", specifier = ">=1.17" },
+    { name = "opencv-python-headless", marker = "extra == 'dev'", specifier = ">=4.8" },
     { name = "opencv-python-headless", marker = "extra == 'face-pick'", specifier = ">=4.8" },
     { name = "openpyxl", specifier = ">=3.1" },
     { name = "paramiko", specifier = ">=3.4" },

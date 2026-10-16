@@ -2,7 +2,7 @@
 
 AI 短剧和画布。公网入口是 [toiv.wineryz.top](https://toiv.wineryz.top)。未登录看到的是官网静态页，登录后进 `/studio` 画布。品牌名只用 ToIV。
 
-这份说明按 2026-10-09 的仓库和线上核对过的事实写。没在这次跑通的能力，不写成已经可用。
+这份说明按仓库与线上核对过的事实写。没跑通的能力，不写成已经可用。仓库结构见下文「工程结构」。
 
 ## 仓库
 
@@ -41,10 +41,27 @@ H3 生产是 `:8264`。`:8195` 只做试验。生图 `:8196`，LongCat / Wan / V
 
 权重在 NAS 的 `toiv/comfyui-models`，不进 git。另一棵 `Windows/ComfyUI/ComfyUIModel/models` 是旧库，文件还在，不要把它的大小加进主库。2026-09-28 的来源清单是 ok 575 / blocked 336 / total 912，那不是盘上的文件数。
 
+## 工程结构（2026-10-15 清理定版）
+
+```
+apps/          api · web · admin · canvas   # 应用主体
+MiniProgram/   uni-app 唯一移动端（半自治）
+deploy/        部署脚本 / infra / 微服务
+scripts/       e2e · eval · h3 · ops · bench
+docs/          产品与 ops 文档
+skills/        agent 技能
+third_party/   融合源工作树(dramaclaw/toonflow/hypit/video-use;不入仓)
+drama/         运行时挂载（output/ 不入仓）
+```
+
+不入仓：`tmp/` `*.tmp.mjs` `node_modules` `.next` `.venv` `*.db` `.regen_tmp/` `dogfood-output/`、`third_party/{dramaclaw,toonflow,hypit,video-use}/` 整树（LICENSE 原文在 `third_party/licenses/`）。`opentalking` 不 vendor。
+
 ## 文档
 
 - README.md：本文件
-- AGENTS.md、DEVELOPMENT.md、STATE.json、TEST_LOG.md：五件套里的另外四份。2026-10-09 还没按这次审计回写，不要拿里面的旧部署口径当现状。
-- `apps/canvas/README.md` 仍是上游画布的原文，这次没有改名。
+- AGENTS.md：会话必读（集群操作 + 开发/测试/部署命令）
+- DEVELOPMENT.md：正式开发指南（会话日志已迁 `.archive/DEVELOPMENT-session-logs.md`）
+- STATE.json / TEST_LOG.md：状态快照与测试日志
+- `apps/canvas/AGENTS.md`：画布子系统约定（改 canvas 必读）
 
-本地开发命令以 DEVELOPMENT.md 为准。模型、成片和 `tmp/` 里的试片不要提交。
+本地开发命令以 DEVELOPMENT.md / AGENTS.md §〇b 为准。模型、成片和 `tmp/` 试片不要提交。

@@ -81,3 +81,20 @@ apps/web/test-results/
 apps/web/test-results-prod/
 apps/web/playwright-report/
 apps/web/.auth/
+
+# 工作暂存与一次性调试(2026-10-15 结构清理固化;脚本默认写这里的不要 commit)
+/tmp/
+*.tmp.mjs
+f3-verify*.mjs
+
+# 本地认证缓存(已有 .auth/;补防)
+auth-state.json
+
+# 实验/头脑风暴
+.superpowers/
+
+# 六仓融合源码工作树(本地拉取供移植/对照;勿整树入仓;LICENSE 文本在 third_party/licenses/)
+third_party/dramaclaw/
+third_party/toonflow/
+third_party/hypit/
+third_party/video-use/

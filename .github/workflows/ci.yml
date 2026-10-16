@@ -62,7 +62,7 @@ jobs:
             pydantic-settings python-dotenv sqlmodel pyjwt python-multipart \
             pillow redis paramiko pypdf python-docx \
             langgraph \
-            pytest pytest-asyncio "fakeredis[lua]"
+            pytest pytest-asyncio "numpy>=2.1" "opencv-python-headless>=4.8" "fakeredis[lua]"
       - name: Run API tests
         run: python -m pytest tests -q
 
