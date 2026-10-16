@@ -431,6 +431,7 @@ async def _generate_sheet_core(
         colors=list(body.colors or []),
         visual_prompt=visual,
         description=(c.description or "").strip(),
+        template=(getattr(body, "template", "") or "").strip(),
     )
     try:
         # 17:45#2:默认不复用旧 sample 三视图;allow_reuse_refs=False
@@ -930,6 +931,7 @@ async def regenerate_character_sheet_panels_route(
         colors=list(body.colors or []),
         visual_prompt=visual,
         description=(c.description or "").strip(),
+        template=(getattr(body, "template", "") or "").strip(),
     )
 
     locked: dict[str, bytes] = {}

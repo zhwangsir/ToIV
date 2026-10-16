@@ -578,7 +578,7 @@ class DramaScene(SQLModel, table=True):
     """
 
     id: str = Field(default_factory=_uid, primary_key=True)
-    project_id: str = Field(foreign_key="dramaproject.id", index=True)
+    project_id: str = Field(index=True)  # P4:兼容 DramaProject/StudioProject 双域(FK 放开,StudioProject 唯一宿主)
     name: str
     base_scene_id: str = Field(default="", index=True)  # 空=基础场景
     variant_prompt: str = ""  # 变体增量提示词(派生场景用)
@@ -756,6 +756,8 @@ class StudioShot(SQLModel, table=True):
     ref_epoch_note: str = Field(default="", max_length=200)  # 变化说明(如「第3镜起换雨衣」)
     # FU1 词锚定时间轴(hypit):[{text,cues,anchor_words}] 拍结构;空=无词锚
     beats_json: str = Field(default="[]")
+    # P4 scene_asset(dramaclaw 设计采纳):冻结锚点绑定 {scene_id,anchor_id,anchor_image,anchor_sha256}
+    scene_ref_json: str = Field(default="")
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
 

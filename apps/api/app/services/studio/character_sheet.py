@@ -595,6 +595,8 @@ class SheetMeta:
     colors: list[str] = field(default_factory=list)
     visual_prompt: str = ""
     description: str = ""
+    # P4:toonflow_board=特写+正面全身+右侧90°+背面全身 四视图参考板(空=经典设定卡)
+    template: str = ""
 
 
 def resolve_cjk_font(size: int = 28) -> ImageFont.FreeTypeFont:
@@ -1617,6 +1619,30 @@ def _character_base(meta: SheetMeta) -> str:
     return base
 
 
+def _side_view_prompt(
+    meta: SheetMeta, *, solo: str, base: str, name: str, outfit: str,
+    head_bit: str, solid: str, suf: str,
+) -> str:
+    """侧视图提示:经典=左侧;toonflow_board=严格右侧90°(四视图参考板规范)。"""
+    if meta.template == "toonflow_board":
+        return (
+            f"{solo}, {base}, ONE figure only, STRICT right-side profile full body turnaround of {name}, "
+            f"body and face turned exactly 90 degrees to the viewer's RIGHT, facing viewer's right, "
+            f"right 90 degree side view, only one eye visible, nose bridge silhouette pointing right, "
+            f"adult woman 165cm proportions, {head_bit}, "
+            f"jet black hair, orthographic, {outfit}, standing straight, "
+            f"feet on ground, figure fills frame height, single person only, "
+            f"NOT front view, NOT back view, NOT left side view, empty background, {solid}, {suf}"
+        )
+    return (
+        f"{solo}, {base}, ONE figure only, STRICT side profile full body turnaround of {name}, "
+        f"looking left, 90 degree side view, adult woman 165cm proportions, {head_bit}, "
+        f"jet black hair, orthographic, {outfit}, standing straight, "
+        f"feet on ground, figure fills frame height, single person only, "
+        f"NOT front view, NOT back view, empty background, {solid}, {suf}"
+    )
+
+
 def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
     """各分区英文出图提示(风格后缀统一追加)。含 6 格独立表情键。"""
     style = meta.style if meta.style in SHEET_STYLES else "anime"
@@ -1682,12 +1708,9 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
             f"{same_outfit}, plain chest no badge no spiral, "
             f"feet on ground line, figure fills frame height, single person only, empty background, {solid}, {suf}"
         ),
-        "side": (
-            f"{solo}, {base}, ONE figure only, STRICT side profile full body turnaround of {name}, "
-            f"looking left, 90 degree side view, adult woman 165cm proportions, {head_bit}, "
-            f"jet black hair, orthographic, {outfit}, standing straight, "
-            f"feet on ground, figure fills frame height, single person only, "
-            f"NOT front view, NOT back view, empty background, {solid}, {suf}"
+        "side": _side_view_prompt(
+            meta, solo=solo, base=base, name=name, outfit=outfit,
+            head_bit=head_bit, solid=solid, suf=suf,
         ),
         "back": (
             f"{solo}, {base}, ONE figure only, STRICT rear view full body turnaround of {name}, "
@@ -3357,6 +3380,56 @@ _EXPR_GRID_EDIT_INSTRUCTION = (
     "不要加文字、徽标、徽章、水印；不要加长发；不要把六格融成一张脸；"
     "六格眉眼嘴变化要大、一眼可辨，尤其惊恐必须张嘴。"
 )
+
+
+def compose_reference_board(
+    panels: dict[str, Image.Image | bytes],
+    meta: SheetMeta,
+    *,
+    font_path_probe: bool = True,
+) -> bytes:
+    """P4 Toonflow 四视图参考板:特写+正面全身+右侧90°+背面全身 合一横排 PNG。
+
+    设计来源 Toonflow(MIT)三视图参考板规范;缺任一面板抛 CharacterSheetError。
+    """
+    from PIL import ImageOps
+
+    cells = (("face_front", "特写"), ("front", "正面全身"), ("side", "右侧90°"), ("back", "背面全身"))
+    if not (meta.name or "").strip():
+        raise CharacterSheetError("角色名为空", status_code=422)
+    font_title = resolve_cjk_font(36) if font_path_probe else ImageFont.load_default()
+    font_label = resolve_cjk_font(22) if font_path_probe else ImageFont.load_default()
+
+    def _as_image(key: str) -> Image.Image:
+        raw = panels.get(key)
+        if raw is None:
+            raise CharacterSheetError(f"缺面板:{key}", status_code=500)
+        if isinstance(raw, Image.Image):
+            return raw.convert("RGB")
+        if isinstance(raw, (bytes, bytearray)):
+            try:
+                return Image.open(BytesIO(raw)).convert("RGB")
+            except Exception as e:  # noqa: BLE001
+                raise CharacterSheetError(f"面板损坏:{key}", status_code=500) from e
+        raise CharacterSheetError(f"面板类型无效:{key}", status_code=500)
+
+    cell_w, cell_h, gap, bar_h, label_h = 380, 860, 24, 72, 56
+    board_w = gap + len(cells) * (cell_w + gap)
+    board_h = bar_h + gap + cell_h + label_h
+    canvas = Image.new("RGB", (board_w, board_h), (24, 24, 28))
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle([0, 0, board_w, bar_h], fill=(38, 38, 44))
+    draw.text((gap, 18), f"Toonflow 四视图参考板 · {meta.name.strip()}", font=font_title, fill=(240, 240, 244))
+    for i, (key, label) in enumerate(cells):
+        x = gap + i * (cell_w + gap)
+        src = _as_image(key)
+        fitted = ImageOps.fit(src, (cell_w, cell_h), method=Image.Resampling.LANCZOS)
+        canvas.paste(fitted, (x, bar_h + gap))
+        draw.rectangle([x, bar_h + gap, x + cell_w - 1, bar_h + gap + cell_h - 1], outline=(90, 90, 100), width=2)
+        draw.text((x + 12, bar_h + gap + cell_h + 14), label, font=font_label, fill=(220, 220, 228))
+    buf = BytesIO()
+    canvas.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 def compose_character_sheet(
@@ -11388,7 +11461,11 @@ async def generate_character_sheet(
     # anime：强制色板 garment 主色含板岩灰优先
     if meta.style in ("anime", "二次元") and not meta.colors:
         meta.colors = ["#E8C4A8", "#5A6A7A", "#D4D3D8", "#C98A7A", "#2C2C34", "#1A1A1E"]
-    png = compose_character_sheet(panels, meta)
+    png = (
+        compose_reference_board(panels, meta)
+        if meta.template == "toonflow_board"
+        else compose_character_sheet(panels, meta)
+    )
     url = save_sheet_png(png, character_id=character_id, style=meta.style)
     _SHEET_REJECT_CTX.reset(_reject_token)
     return url, png, panel_urls
@@ -14815,6 +14892,10 @@ async def regenerate_sheet_panels(
             # 允许只重部分表情;缺的用立绘脸裁
             panels[ek] = crop_face_ref(panels["portrait"], size=768)
 
-    png = compose_character_sheet(panels, meta)
+    png = (
+        compose_reference_board(panels, meta)
+        if meta.template == "toonflow_board"
+        else compose_character_sheet(panels, meta)
+    )
     url = save_sheet_png(png, character_id=character_id, style=meta.style)
     return url, png, panel_urls, debug

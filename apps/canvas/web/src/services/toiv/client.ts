@@ -856,6 +856,59 @@ export async function reflowShotBeats(
     return data;
 }
 
+/** P4 scene_asset(dramaclaw 设计采纳,NOTICE 见 third_party/licenses/):场景变体+冻结锚点 */
+export type ToivSceneFrozenAnchor = {
+    anchor_id?: string;
+    image_url?: string;
+    snapshot_url?: string;
+    sha256?: string;
+    frozen_at?: number;
+};
+
+export type ToivSceneItem = {
+    id: string;
+    project_id: string;
+    name: string;
+    base_scene_id?: string;
+    is_variant?: boolean;
+    variant_prompt?: string;
+    time_of_day?: string;
+    environment_prompt?: string;
+    master_ref?: string;
+    reverse_ref?: string;
+    frozen_anchor?: ToivSceneFrozenAnchor | null;
+    composed_prompt?: string;
+    variants?: ToivSceneItem[];
+};
+
+export type ToivSceneRef = {
+    scene_id?: string;
+    scene_name?: string;
+    anchor_id?: string;
+    anchor_image?: string;
+    anchor_sha256?: string;
+};
+
+export async function listToivScenes(pid: string): Promise<{ scenes: ToivSceneItem[]; orphans: ToivSceneItem[] }> {
+    const { data } = await toivHttp.get(`/drama/projects/${encodeURIComponent(pid)}/scenes`);
+    return data as { scenes: ToivSceneItem[]; orphans: ToivSceneItem[] };
+}
+
+export async function createToivScene(pid: string, body: { name: string; environment_prompt?: string; master_ref?: string }): Promise<ToivSceneItem> {
+    const { data } = await toivHttp.post(`/drama/projects/${encodeURIComponent(pid)}/scenes`, body);
+    return (data as { scene: ToivSceneItem }).scene;
+}
+
+export async function freezeToivSceneAnchor(sid: string, body: { anchor_id: "master" | "reverse" | "selected"; image_url?: string }): Promise<ToivSceneItem> {
+    const { data } = await toivHttp.post(`/drama/scenes/${encodeURIComponent(sid)}/freeze-anchor`, body);
+    return (data as { scene: ToivSceneItem }).scene;
+}
+
+export async function attachToivSceneToShot(sid: string, body: { shot_id: string; use_frozen?: boolean }): Promise<{ anchor_image: string; scene_ref: ToivSceneRef }> {
+    const { data } = await toivHttp.post(`/drama/scenes/${encodeURIComponent(sid)}/attach`, body);
+    return data as { anchor_image: string; scene_ref: ToivSceneRef };
+}
+
 /** PUT /studio/projects/{pid}/shots —— 全量替换语义(拆解结果确认落库) */
 export async function saveStudioShots(pid: string, shots: ToivParsedShot[]): Promise<void> {
     await toivHttp.put(`/studio/projects/${encodeURIComponent(pid)}/shots`, { shots }, { timeout: 30_000 });

@@ -14,6 +14,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { ToolButton } from "@/components/ui/base/buttons";
 import { WordAnchorTimeline } from "@/components/toiv/word-anchor-timeline";
+import { SceneAnchorPanel } from "@/components/toiv/scene-anchor-panel";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { EmptyState } from "@/components/ui/product/empty-state";
@@ -926,7 +927,7 @@ export default function DramaWorkspacePage() {
                                         </p>
                                         {gateOpen && (
                                             <div className="rounded-lg border border-[var(--border)] bg-[var(--card,#121214)] p-3 text-xs">
-                                                <p className="mb-2 font-medium text-foreground">生成前确认（Toonflow 门控）</p>
+                                                <p className="mb-2 font-medium text-foreground">生成前确认</p>
                                                 <ul className="mb-2 flex flex-col gap-0.5 text-[var(--muted-foreground,#a8a8a8)]">
                                                     <li>· 待渲染：{shots.filter((x) => !RENDERED_STATES.has(x.status)).length} / {shots.length} 镜</li>
                                                     <li>· 引擎：H3 ref2va · 加速档：{formatAccelTierLabel(selectedAccelTier)}</li>
@@ -1143,6 +1144,12 @@ export default function DramaWorkspacePage() {
                                                 </Fragment>
                                             ))}
                                         </ol>
+                                        {id && (
+                                            <SceneAnchorPanel
+                                                projectId={id}
+                                                shots={tlShots.map((x) => ({ id: x.id, idx: x.idx, scene: x.scene }))}
+                                            />
+                                        )}
                                     </>
                                 )}
                             </SectionShell>

@@ -346,6 +346,17 @@ async def render_shot(
             scene_images, getattr(shot, "idx", 0) or 0
         )
         render_kw["scene_images"] = scene_images
+    # P4(dramaclaw 冻结锚点):分镜绑定的锚点快照注入场景参考(排最前,跨镜共背景)
+    from app.services.studio.shot_refs import scene_images_with_anchor
+
+    if scene_images is None:
+        _anchored = scene_images_with_anchor([], shot)
+        if _anchored:
+            scene_images = _anchored
+            render_kw["scene_images"] = scene_images
+    else:
+        scene_images = scene_images_with_anchor(scene_images, shot)
+        render_kw["scene_images"] = scene_images
 
     sheet_style = resolve_ref_style(
         ref_style,

@@ -342,3 +342,36 @@ def h3_ref_prefix(
     if prefix:
         logger.info("studio h3 注入 %d 张参考图引用行", len(urls))
     return prefix, urls
+
+
+def scene_ref_of(shot) -> dict:
+    """P4(dramaclaw 冻结锚点):读分镜 scene_ref——Studio 走 scene_ref_json,Drama 走 scene_layout.scene_ref。"""
+    import json as _json
+
+    raw = getattr(shot, "scene_ref_json", "") or ""
+    if raw:
+        try:
+            ref = _json.loads(raw)
+            if isinstance(ref, dict):
+                return ref
+        except (ValueError, TypeError):
+            pass
+    layout_raw = getattr(shot, "scene_layout", "") or ""
+    if layout_raw:
+        try:
+            layout = _json.loads(layout_raw)
+            ref = layout.get("scene_ref") if isinstance(layout, dict) else None
+            if isinstance(ref, dict):
+                return ref
+        except (ValueError, TypeError):
+            pass
+    return {}
+
+
+def scene_images_with_anchor(scene_images: list[str], shot) -> list[str]:
+    """冻结锚点快照注入场景参考(排最前);已在列表则不重复,无锚点原样返回。"""
+    anchor = (scene_ref_of(shot).get("anchor_image") or "").strip()
+    imgs = [u for u in (scene_images or []) if isinstance(u, str) and u.strip()]
+    if anchor and anchor not in imgs:
+        return [anchor, *imgs]
+    return imgs

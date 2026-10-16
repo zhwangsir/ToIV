@@ -132,6 +132,8 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("studioshot", "ref_epoch_note", "ref_epoch_note VARCHAR NOT NULL DEFAULT ''"),
     # FU1 词锚定时间轴(2026-10-15):拍结构持久化,支撑 canvas 时间线/改词重排
     ("studioshot", "beats_json", "beats_json VARCHAR NOT NULL DEFAULT '[]'"),
+    # P4 scene_asset(2026-10-16):冻结锚点绑定(StudioProject 唯一宿主接线)
+    ("studioshot", "scene_ref_json", "scene_ref_json VARCHAR NOT NULL DEFAULT ''"),
     # Batch2 角色三视图:既有 studiocharacter 表幂等补列
     ("studiocharacter", "reference_images", "reference_images VARCHAR NOT NULL DEFAULT '[]'"),
     ("studiocharacter", "reference_images_by_style", "reference_images_by_style VARCHAR NOT NULL DEFAULT '{}'"),
@@ -377,6 +379,8 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     "ALTER TABLE dramashot ADD COLUMN continue_error TEXT DEFAULT ''",
     # 颜色标记草图在场校验结果(drama_presence)
     "ALTER TABLE dramashot ADD COLUMN detected_colors TEXT DEFAULT ''",
+    # P4 scene_asset:dramascene.project_id 放开 FK(兼容 StudioProject 唯一宿主;SQLite 无 DROP CONSTRAINT 由执行器吞掉)
+    "ALTER TABLE dramascene DROP CONSTRAINT IF EXISTS dramascene_project_id_fkey",
     # ── Job 表索引(既有库幂等补建;新库由 SQLModel index=True 建 ix_job_*,
     # 与本 idx_job_* 不同名不冲突,双索引并存代价可忽略)──
     # tracker 按 prompt_id 反查 Job

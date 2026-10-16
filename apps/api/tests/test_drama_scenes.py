@@ -118,7 +118,10 @@ def test_scene_crud_and_variant(ctx):
     assert "master.png" in lst["scenes"][0]["master_ref"]
 
 
-def test_freeze_anchor_and_attach(ctx):
+def test_freeze_anchor_and_attach(ctx, monkeypatch):
+    import app.routes.drama_scenes as ds
+
+    monkeypatch.setattr(ds, "_read_image_bytes", lambda url: f"bytes:{url}".encode())
     client, tok, _ = ctx
     pid = _mk_project(client, tok)
     sid_scene = client.post(
@@ -151,7 +154,9 @@ def test_freeze_anchor_and_attach(ctx):
     assert r2.status_code == 200, r2.text
     data = r2.json()
     assert data["scene_ref"]["anchor_id"] == "master"
-    assert "m.png" in data["anchor_image"]
+    # P4:绑定的是不可变内容寻址快照(非原图 URL),原图仅存 frozen.image_url 作溯源
+    assert "scene_anchor_" in data["anchor_image"]
+    assert data["scene_ref"]["anchor_sha256"]
     assert data["prompt_injected"] is False  # 组合词为空(环境未填)则不注入
     # 再验证注入与幂等:给场景补环境词后重绑
     client.patch(
@@ -174,7 +179,7 @@ def test_freeze_anchor_and_attach(ctx):
     assert rd["scene_ref"]["scene_id"] == sid_scene
     assert rd["scene"]["name"] == "巷口"
     # scene_ref 结构合法(经 API 读回校验)
-    assert rd["scene_ref"]["anchor_image"].endswith("m.png")
+    assert rd["scene_ref"]["anchor_image"].startswith("/api/studio/files/scene_anchor_")
 
 
 def test_delete_cascades_and_detaches(ctx):

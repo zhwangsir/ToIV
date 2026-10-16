@@ -257,6 +257,8 @@ class CharacterSheetRequest(BaseModel):
     visual_prompt_override: str | None = Field(default=None, max_length=2000)
     worker: str | None = Field(default=None, max_length=200)
     seed: int | None = None
+    # P4:toonflow_board=特写+正面全身+右侧90°+背面全身 四视图参考板(空=经典设定卡)
+    template: str = Field(default="", pattern="^(toonflow_board)?$")
 
 
 class CharacterSheetPanelsRequest(BaseModel):

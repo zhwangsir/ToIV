@@ -20,7 +20,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.deps import get_current_user
-from app.models import DramaProject, DramaScene, DramaShot, User
+from app.models import DramaProject, DramaScene, DramaShot, StudioProject, StudioShot, User
 from app.routes.drama_studio import _append_process, _owned_project, _owned_shot
 
 router = APIRouter()
@@ -75,8 +75,77 @@ def _owned_scene(sid: str, user: User, session: Session) -> DramaScene:
     s = session.get(DramaScene, sid)
     if not s:
         raise HTTPException(status_code=404, detail="场景不存在")
-    _owned_project(s.project_id, user, session)
+    _owned_project_any(s.project_id, user, session)
     return s
+
+
+def _owned_project_any(pid: str, user: User, session: Session):
+    """P4:场景注册表兼容 DramaProject(旧链)与 StudioProject(唯一宿主)。"""
+    p = session.get(DramaProject, pid)
+    if p:
+        if p.user_id != user.id:
+            raise HTTPException(status_code=404, detail="项目不存在")
+        return p
+    sp = session.get(StudioProject, pid)
+    if not sp or sp.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    return sp
+
+
+def _owned_shot_any(sid: str, user: User, session: Session):
+    s = session.get(DramaShot, sid)
+    if s:
+        _owned_project_any(s.project_id, user, session)
+        return s
+    sp = session.get(StudioShot, sid)
+    if not sp:
+        raise HTTPException(status_code=404, detail="分镜不存在")
+    _owned_project_any(sp.project_id, user, session)
+    return sp
+
+
+def _read_image_bytes(image_url: str) -> bytes:
+    """读锚点原图字节:studio 文件直读本地,http(s) 下载,其余按本地路径。"""
+    from pathlib import Path
+    from urllib.parse import urlsplit
+
+    url = (image_url or "").strip()
+    if not url:
+        raise HTTPException(status_code=422, detail="锚点图缺失")
+    if url.startswith("/api/studio/files/"):
+        from app.storage import drama_output_root
+
+        p = drama_output_root() / "studio" / Path(urlsplit(url).path).name
+        if p.is_file():
+            return p.read_bytes()
+        raise HTTPException(status_code=422, detail="锚点图不存在")
+    if url.startswith("http://") or url.startswith("https://"):
+        import httpx
+
+        resp = httpx.get(url, timeout=15)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=422, detail="锚点图下载失败")
+        return resp.content
+    p = Path(url)
+    if p.is_file():
+        return p.read_bytes()
+    raise HTTPException(status_code=422, detail="锚点图不可读")
+
+
+def _snapshot_anchor_bytes(data: bytes) -> tuple[str, str]:
+    """内容寻址不可变快照 scene_anchor_<sha16>.png;同字节幂等,不同字节=新锚点。"""
+    import hashlib
+
+    from app.storage import drama_output_root
+
+    sha = hashlib.sha256(data).hexdigest()
+    out_dir = drama_output_root() / "studio"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    name = f"scene_anchor_{sha[:16]}.png"
+    p = out_dir / name
+    if not p.is_file():
+        p.write_bytes(data)
+    return f"/api/studio/files/{name}", sha
 
 
 class SceneCreate(BaseModel):
@@ -149,7 +218,7 @@ def create_scene(
     session: Session = Depends(get_session),
 ) -> dict:
     """建基础场景(base_scene_id 空)。"""
-    p = _owned_project(pid, user, session)
+    p = _owned_project_any(pid, user, session)
     if body.time_of_day and body.time_of_day not in _TIME_OF_DAY_PLATES:
         raise HTTPException(status_code=422, detail=f"time_of_day 仅支持 {'/'.join(_TIME_OF_DAY_PLATES)}")
     s = DramaScene(
@@ -162,8 +231,9 @@ def create_scene(
         camera_presets=json.dumps(body.camera_presets, ensure_ascii=False) if body.camera_presets else "[]",
     )
     session.add(s)
-    _append_process(p, "scene-asset", f"新建场景「{body.name}」")
-    session.add(p)
+    if isinstance(p, DramaProject):
+        _append_process(p, "scene-asset", f"新建场景「{body.name}」")
+        session.add(p)
     session.commit()
     session.refresh(s)
     d = _scene_dict(s)
@@ -236,10 +306,9 @@ def delete_scene(
     ]
     doomed_ids = [s.id, *variant_ids]
     doomed_set = set(doomed_ids)
-    # 解绑引用该场景(或其变体)的分镜
-    shots = session.exec(select(DramaShot).where(DramaShot.project_id == s.project_id)).all()
+    # 解绑引用该场景(或其变体)的分镜(Drama/Studio 双域)
     detached = 0
-    for shot in shots:
+    for shot in session.exec(select(DramaShot).where(DramaShot.project_id == s.project_id)).all():
         if not shot.scene_layout:
             continue
         try:
@@ -250,6 +319,17 @@ def delete_scene(
         if isinstance(ref, dict) and ref.get("scene_id") in doomed_set:
             layout.pop("scene_ref")
             shot.scene_layout = json.dumps(layout, ensure_ascii=False)
+            session.add(shot)
+            detached += 1
+    for shot in session.exec(select(StudioShot).where(StudioShot.project_id == s.project_id)).all():
+        if not shot.scene_ref_json:
+            continue
+        try:
+            ref = json.loads(shot.scene_ref_json)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(ref, dict) and ref.get("scene_id") in doomed_set:
+            shot.scene_ref_json = ""
             session.add(shot)
             detached += 1
     for did in doomed_ids:
@@ -283,8 +363,16 @@ def freeze_anchor(
         image = s.reverse_ref
     if not image:
         raise HTTPException(status_code=422, detail="锚点图缺失:master/reverse 需先在场景上设参考图,selected 需传 image_url")
+    # P4:冻结=不可变字节快照(内容寻址)。二次冻结产生新快照,旧绑定不漂移。
+    snap_url, sha = _snapshot_anchor_bytes(_read_image_bytes(image))
     s.frozen_anchor = json.dumps(
-        {"anchor_id": body.anchor_id, "image_url": image, "frozen_at": int(_time.time())},
+        {
+            "anchor_id": body.anchor_id,
+            "image_url": image,
+            "snapshot_url": snap_url,
+            "sha256": sha,
+            "frozen_at": int(_time.time()),
+        },
         ensure_ascii=False,
     )
     session.add(s)
@@ -307,13 +395,10 @@ def attach_scene(
     from app.jsonutil import parse_json_obj
 
     s = _owned_scene(sid, user, session)
-    shot = _owned_shot(body.shot_id, user, session)
+    shot = _owned_shot_any(body.shot_id, user, session)
     if shot.project_id != s.project_id:
         raise HTTPException(status_code=422, detail="分镜与场景不在同一项目")
 
-    layout = parse_json_obj(shot.scene_layout) or {}
-    if not isinstance(layout, dict):
-        layout = {}
     ref: dict = {"scene_id": s.id, "scene_name": s.name}
     anchor_image = ""
     if body.use_frozen:
@@ -321,10 +406,18 @@ def attach_scene(
             raise HTTPException(status_code=422, detail="场景尚未冻结锚点(先 freeze-anchor 或 use_frozen=false)")
         frozen = json.loads(s.frozen_anchor)
         ref["anchor_id"] = frozen["anchor_id"]
-        ref["anchor_image"] = frozen["image_url"]
-        anchor_image = frozen["image_url"]
-    layout["scene_ref"] = ref
-    shot.scene_layout = json.dumps(layout, ensure_ascii=False)
+        # 绑定的是不可变快照(非原图 URL),后续再冻结不影响旧绑定
+        ref["anchor_image"] = frozen.get("snapshot_url") or frozen["image_url"]
+        ref["anchor_sha256"] = frozen.get("sha256", "")
+        anchor_image = ref["anchor_image"]
+    if isinstance(shot, DramaShot):
+        layout = parse_json_obj(shot.scene_layout) or {}
+        if not isinstance(layout, dict):
+            layout = {}
+        layout["scene_ref"] = ref
+        shot.scene_layout = json.dumps(layout, ensure_ascii=False)
+    else:
+        shot.scene_ref_json = json.dumps(ref, ensure_ascii=False)
 
     composed = compose_scene_prompt(s, session)
     injected = False
@@ -351,13 +444,10 @@ def get_shot_scene_ref(
     session: Session = Depends(get_session),
 ) -> dict:
     """读分镜的 scene_ref(含场景名/锚点),供前端时间线/工作区展示。"""
-    shot = _owned_shot(shot_id, user, session)
-    layout = None
-    if shot.scene_layout:
-        from app.jsonutil import parse_json_obj
+    from app.services.studio.shot_refs import scene_ref_of
 
-        layout = parse_json_obj(shot.scene_layout)
-    ref = layout.get("scene_ref") if isinstance(layout, dict) else None
+    shot = _owned_shot_any(shot_id, user, session)
+    ref = scene_ref_of(shot) or None
     scene = None
     if isinstance(ref, dict) and ref.get("scene_id"):
         row = session.get(DramaScene, ref["scene_id"])
