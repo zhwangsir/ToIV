@@ -93,11 +93,19 @@ beforeAll(async () => {
         plugins,
         target: "browser",
         define: {
-            "import.meta.env.DEV": "false",
-            "import.meta.env.PROD": "true",
-            "import.meta.env.MODE": '"production"',
-            "import.meta.env.VITE_CANVAS_LOCAL_MODE": '"false"',
-            "import.meta.env.VITE_CANVAS_BACKEND_URL": '""',
+            // 整体注入 import.meta.env:按 key 逐个 define 会漏掉 BASE_URL 等后续新增键
+            // (src/lib/app-base.ts 引 BASE_URL 曾致 harness 白屏、dialog 永不出现=W0-1b 根因)
+            "import.meta.env": JSON.stringify({
+                DEV: false,
+                PROD: true,
+                MODE: "production",
+                BASE_URL: "/",
+                VITE_CANVAS_LOCAL_MODE: "false",
+                VITE_CANVAS_BACKEND_URL: "",
+                VITE_APP_VERSION: "test",
+                VITE_BUILD_COMMIT: "test",
+                VITE_FRAMEFIELD_LOCAL_RUNTIME_ENDPOINT: "",
+            }),
             "process.env.NODE_ENV": '"production"',
         },
     });

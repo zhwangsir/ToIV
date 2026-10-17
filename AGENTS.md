@@ -134,7 +134,7 @@ cd apps/canvas/web && bun run lint && bun run typecheck && bun run build
 
 ### 产品
 - [ ] 非管理员视角市场复核（role=user 账号密码哈希不可逆——需用户提供凭据或授权重置测试号）
-- [ ] W0-1b canvas `web/test/asset-view-scope.browser.test.ts` 5 例既有红灯（HEAD 既存；首症=reload 后 dialog 不出现；疑 harness `__assetViewHarness` 与 src 脱节）——与 W5-7 配对系统化排障
+- [x] W0-1b canvas `web/test/asset-view-scope.browser.test.ts` 既有红灯（**2026-10-17 根治**：harness 构建按 key 逐个 define `import.meta.env.*` 漏 `BASE_URL`，src/lib/app-base.ts 引用即白屏、dialog 永不出现；改整体注入 `import.meta.env` 对象后 4/4 绿，防后续键漂移）
 - [ ] W0-2 门禁：pathname-key **已摘**（`w02-pathname-key.test.ts` 防回归），待部署后 drama↔library↔market↔tasks 往返×10 真机回归 PASS 才算闭账
 - [ ] Slice C 触发条件待重定义（须先与 W8 上架闸对齐避免两套上架口径）
 - [ ] SeC 387721：einops reshape 错=SecNodes×torch2.13/sm_120 上游边界（保留观察）
