@@ -73,3 +73,11 @@ def test_sheet_request_template_whitelist():
 
     with pytest.raises(ValidationError):
         CharacterSheetRequest(name="x", style="anime", template="bogus")
+
+
+def test_toonflow_board_prompts_skip_expression_stage():
+    """board 模板不出表情格:expr_* / faces 不进 prompts(免跑宽头肩编辑底段)。"""
+    prompts = build_panel_prompts(_meta("toonflow_board"))
+    assert not any(k.startswith("expr_") for k in prompts), sorted(prompts)
+    assert "faces" not in prompts
+    assert {"portrait", "face_front", "front", "side", "back"} <= set(prompts)

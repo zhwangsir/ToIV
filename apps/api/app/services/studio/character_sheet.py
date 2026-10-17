@@ -1788,6 +1788,12 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
             prompts[_k] = prompts[_k].replace(
                 "bare raincoat fabric only", "bare garment fabric only"
             )
+    if meta.template == "toonflow_board":
+        # 四视图板只出五格;表情/面部三联/服装格不进 prompts,免跑宽头肩编辑底段
+        # (2026-10-17 真机:board 走超集 prompts 时 expr_2 卡死于编辑底尺寸门)
+        keep = {"portrait", "face_front", "front", "side", "back"}
+        for _k in [k for k in prompts if k not in keep]:
+            prompts.pop(_k)
     return prompts
 
 
