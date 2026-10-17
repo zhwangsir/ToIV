@@ -1,32 +1,28 @@
-"""Packed Transcript：词级 ASR → 短语级带时间戳 markdown（FU2 件 1）。
+"""Packed Transcript(旧契约兼容面;FU2 深化收编)。
 
-移植自 video-use(MIT, Copyright (c) 2026 Browser Use) helpers/pack_transcripts.py，
-按 ToIV 现状改编：ASR 用自家 whisper 集群(openclaw :9310 四址故障转移,
-word_timestamps verbatim)，不引 ElevenLabs Scribe(方案 R5)。词表形状同时兼容
-whisper({word|text,start,end}) 与 Scribe({type,text,start,end,speaker_id})。
+打包/断句/格式化已统一到 services/media/packed_transcript.py 单一源;
+本模块保留既有调用方依赖的词表形状({type,text,start,end,speaker_id},
+兼容 whisper segments 与 Scribe 条目)与 group_into_phrases/pack_takes 入口,
+断句改调 media.group_words,不再重复实现 video-use 同类逻辑。
 
-用途：媒体库生成视频入库时产出该视图，作为 LLM 检索/选片的唯一文本面——
-一小时素材约 12KB，token 约为原始词级 JSON 的 1/10，且仅凭文本即有词边界精度。
+ASR 用自家 whisper 集群(TOIV_WHISPER_URL 四址故障转移,word_timestamps verbatim),
+不引 ElevenLabs Scribe(方案 R5)。
 """
 from __future__ import annotations
 
 from typing import Any
 
-# 短语切分静音门槛(video-use 默认 0.5s)
-SILENCE_THRESHOLD = 0.5
+from app.services.media.packed_transcript import (
+    SILENCE_THRESHOLD,
+    format_duration,
+    format_time,
+    group_words,
+)
 
-
-def format_time(seconds: float) -> str:
-    """固定 6 字符宽的秒表示，便于对齐(video-use 原样)。"""
-    return f"{seconds:06.2f}"
-
-
-def format_duration(seconds: float) -> str:
-    if seconds < 60:
-        return f"{seconds:.1f}s"
-    m = int(seconds // 60)
-    s = seconds - m * 60
-    return f"{m}m {s:04.1f}s"
+__all__ = [
+    "SILENCE_THRESHOLD", "format_time", "format_duration",
+    "normalize_words", "group_into_phrases", "pack_takes",
+]
 
 
 def normalize_words(payload: Any) -> list[dict]:
@@ -65,64 +61,32 @@ def normalize_words(payload: Any) -> list[dict]:
     return out
 
 
-def group_into_phrases(words: list[dict], silence_threshold: float = SILENCE_THRESHOLD) -> list[dict]:
-    """按「静音 ≥ 门槛 或 说话人变化」切短语；返回 [{start,end,text,speaker_id}]。
+def group_into_phrases(
+    words: list[dict], silence_threshold: float = SILENCE_THRESHOLD
+) -> list[dict]:
+    """按「静音 ≥ 门槛 或 说话人变化」切短语;返回 [{start,end,text,speaker_id}]。
 
-    与 video-use 同语义：Scribe 的 spacing 条目携带静音信息；whisper 无 spacing，
-    静音由相邻词边界差推得(prev_end → start)。
+    收编后断句改调 media.group_words(单一源):Scribe spacing 条目携带的静音
+    由相邻词边界差推得(等价语义),audio_event 文本先括注,输出键适配回 speaker_id。
     """
-    phrases: list[dict] = []
-    cur: list[dict] = []
-    cur_start: float | None = None
-    cur_speaker: str | None = None
-    prev_end: float | None = None
-
-    def flush() -> None:
-        nonlocal cur, cur_start, cur_speaker
-        if not cur:
-            return
-        parts: list[str] = []
-        for w in cur:
-            raw = (w.get("text") or "").strip()
-            if not raw:
-                continue
-            if w.get("type") == "audio_event" and not raw.startswith("("):
-                raw = f"({raw})"
-            parts.append(raw)
-        if parts:
-            text = " ".join(parts)
-            text = text.replace(" ,", ",").replace(" .", ".").replace(" ?", "?").replace(" !", "!")
-            phrases.append({
-                "start": cur_start,
-                "end": cur[-1].get("end", cur[-1].get("start", cur_start or 0.0)),
-                "text": text,
-                "speaker_id": cur_speaker,
-            })
-        cur, cur_start, cur_speaker = [], None, None
-
-    for w in words:
+    adapted: list[dict] = []
+    for w in words or []:
         if w.get("type") == "spacing":
-            s, e = w.get("start"), w.get("end")
-            if s is not None and e is not None and e - s >= silence_threshold:
-                flush()
-                prev_end = None
             continue
-        start = w.get("start")
-        if start is None:
+        raw = (w.get("text") or "").strip()
+        if w.get("type") == "audio_event" and raw and not raw.startswith("("):
+            raw = f"({raw})"
+        entry = {"text": raw, "start": w.get("start"), "end": w.get("end", w.get("start"))}
+        if entry["start"] is None:
             continue
-        speaker = w.get("speaker_id")
-        if cur_speaker is not None and speaker is not None and speaker != cur_speaker:
-            flush()
-            prev_end = None
-        if prev_end is not None and start - prev_end >= silence_threshold:
-            flush()
-        if cur_start is None:
-            cur_start = start
-            cur_speaker = speaker
-        cur.append(w)
-        prev_end = w.get("end", start)
-    flush()
-    return phrases
+        if w.get("speaker_id") is not None:
+            entry["speaker"] = w["speaker_id"]
+        adapted.append(entry)
+    return [
+        {"start": s["start"], "end": s["end"], "text": s["text"],
+         "speaker_id": s.get("speaker")}
+        for s in group_words(adapted, silence_threshold=silence_threshold)
+    ]
 
 
 def pack_takes(takes: list[dict], silence_threshold: float = SILENCE_THRESHOLD) -> str:

@@ -1,12 +1,16 @@
-"""EDL 中间表示 + 词边界剪规硬规则（FU2 件 2+3）。
+"""EDL 中间表示(旧契约兼容面)+ 词边界剪规(FU2 深化收编)。
 
-移植自 video-use(MIT, Copyright (c) 2026 Browser Use)：EDL 契约见 helpers/render.py
-（sources/ranges/grade/subtitles），剪规硬规则见 SKILL.md 硬规则 6/7 与剪辑指引：
-  - 绝不词内切：切边吸附到词边界；
-  - 每个切边 pad，工作窗 30–200ms（ASR 时间戳漂 50–100ms，pad 吸收漂移）；
-  - 静音 ≥400ms 是最干净的切点；150–400ms 可用但需视觉复核；<150ms 不安全；
-  - 段边界 30ms 音频淡入淡出（渲染件负责，见 edit_render）；字幕最后烧。
-LLM 只产 EDL 声明决策表，不碰视频；渲染器消费 EDL——runner 与合成端的标准解耦协议。
+剪点语义已统一到 services/media/cut_rules.py 单一源(分级/吸附/pad/取用区间),
+EDL 取用语义与 services/media/edl.py 的 EdlItem.materialize 同口径;
+本模块保留既有调用方依赖的 pydantic 契约(sources/ranges/grade/subtitles)与
+validate_edl/materialize_range 入口,原语一律改调 media.cut_rules,不重复实现。
+
+硬规则出处(移植自 video-use(MIT, Copyright (c) 2026 Browser Use) SKILL 剪辑指引):
+  - 绝不词内切:切边吸附到词边界;
+  - 每个切边 pad,工作窗 30–200ms(ASR 时间戳漂 50–100ms,pad 吸收漂移);
+  - 静音 ≥400ms 是最干净的切点;150–400ms 可用但需视觉复核;<150ms 不安全;
+  - 段边界 30ms 音频淡入淡出(渲染件负责,见 edit_render);字幕最后烧。
+LLM 只产 EDL 声明决策表,不碰视频;渲染器消费 EDL——runner 与合成端的标准解耦协议。
 """
 from __future__ import annotations
 
@@ -14,13 +18,25 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-# 切边 pad 工作窗(SKILL 硬规则 7)
-PAD_MIN, PAD_MAX = 0.03, 0.20
-# _launch 视频实测值(SKILL 剪辑指引):首词前 50ms、末词后 80ms
-PAD_IN_DEFAULT, PAD_OUT_DEFAULT = 0.05, 0.08
-# 静音切点分级(SKILL 剪辑指引)
-SAFE_SILENCE = 0.40
-USABLE_SILENCE = 0.15
+from app.services.media.cut_rules import (
+    PAD_MAX,
+    PAD_MIN,
+    SAFE_SILENCE,
+    USABLE_SILENCE,
+    classify_edge,
+    clamp_pad,
+    materialize_bounds,
+    snap_range,
+    word_spans,
+)
+from app.services.media.cut_rules import DEFAULT_PAD_IN as PAD_IN_DEFAULT
+from app.services.media.cut_rules import DEFAULT_PAD_OUT as PAD_OUT_DEFAULT
+
+__all__ = [
+    "Edl", "EdlRange", "PAD_MIN", "PAD_MAX", "PAD_IN_DEFAULT", "PAD_OUT_DEFAULT",
+    "SAFE_SILENCE", "USABLE_SILENCE", "word_spans", "classify_edge", "snap_range",
+    "clamp_pad", "materialize_range", "validate_edl",
+]
 
 
 class EdlRange(BaseModel):
@@ -44,66 +60,10 @@ class Edl(BaseModel):
     overlays: list[dict[str, Any]] = Field(default_factory=list)
 
 
-def word_spans(words: list[dict]) -> list[tuple[float, float]]:
-    out = []
-    for w in words or []:
-        s = w.get("start")
-        if s is None:
-            continue
-        out.append((float(s), float(w.get("end", s))))
-    out.sort()
-    return out
-
-
-def classify_edge(edge: float, spans: list[tuple[float, float]]) -> tuple[str, float]:
-    """切边落在哪：('midword',0) / ('clean'|'usable'|'unsafe', 所处静音窗宽度)。
-
-    无语音素材(纯音乐/空镜)没有要保护的词边界 → 一律 clean。
-    词内(严格落在某词起止之间)= midword;否则看它所处静音窗(prev_end→next_start)宽度:
-    切边正好压在词起点/终点上时窗口就是相邻静音,属最安全的一类;
-    窗 <150ms 说明切点贴着词尾/词头,ASR 漂移会把字切坏 → unsafe。
-    """
-    if not spans:
-        return "clean", 0.0
-    for s, e in spans:
-        if s < edge < e:
-            return "midword", 0.0
-    before = [e for s, e in spans if e <= edge]
-    after = [s for s, e in spans if s >= edge]
-    if not before or not after:  # 首词之前/末词之后:没有会被切坏的邻居
-        return "clean", 0.0
-    gap = round(min(after) - max(before), 3)
-    if gap >= SAFE_SILENCE:
-        return "clean", gap
-    if gap >= USABLE_SILENCE:
-        return "usable", gap
-    return "unsafe", gap
-
-
-def snap_range(start: float, end: float, spans: list[tuple[float, float]]) -> tuple[float, float]:
-    """词内切边外扩到整词：start 吸附到所在词起点，end 吸附到所在词终点(宁多勿切)。"""
-    for s, e in spans:
-        if s < start < e:
-            start = s
-            break
-    for s, e in reversed(spans):
-        if s < end < e:
-            end = e
-            break
-    return start, end
-
-
-def clamp_pad(value: float | None, default: float) -> float:
-    v = default if value is None else value
-    return min(max(v, PAD_MIN), PAD_MAX)
-
-
 def materialize_range(rng: EdlRange, spans: list[tuple[float, float]]) -> tuple[float, float]:
-    """吸附 + pad 后的实际取用区间(渲染件与校验器共用同一函数,口径不分裂)。"""
-    start, end = snap_range(rng.start, rng.end, spans)
-    start = max(0.0, start - clamp_pad(rng.pad_in, PAD_IN_DEFAULT))
-    end = end + clamp_pad(rng.pad_out, PAD_OUT_DEFAULT)
-    return start, end
+    """吸附 + pad 后的实际取用区间(改调 media.cut_rules.materialize_bounds 单一源)。"""
+    return materialize_bounds(
+        rng.start, rng.end, spans, pad_in=rng.pad_in, pad_out=rng.pad_out)
 
 
 def validate_edl(edl: Edl, words_by_source: dict[str, list[dict]]) -> list[dict]:

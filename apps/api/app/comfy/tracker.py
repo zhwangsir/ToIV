@@ -26,8 +26,14 @@ from app.comfy.client import ComfyUIClient, ComfyUIError
 from app.config import get_settings
 from app.db import engine
 from app.models import App, Job
+from app.services.media import artifact_transcript
 
 logger = logging.getLogger(__name__)
+
+# FU2 深化:Packed Transcript 自动产出钩子——纯接线(核心逻辑在 services/media/,
+# 视频产物→whisper→<产物名>.transcript.md);整体可注入替换(测试/运维:
+# tracker.video_transcript_hook = stub),失败只记日志绝不阻断 mark_done 回写。
+video_transcript_hook = artifact_transcript.on_artifacts_done
 
 # 持有后台任务强引用(asyncio 仅持弱引用,否则可能被 GC 提前回收)
 _tasks: set[asyncio.Task] = set()
@@ -189,6 +195,10 @@ def mark_done(prompt_id: str, urls: list[str]) -> None:
             if isinstance(app_id, str) and app_id:
                 increment_app_usage(session, app_id)
             session.commit()
+            try:
+                video_transcript_hook(urls)
+            except Exception as e:  # noqa: BLE001 — 转写钩子失败只记日志,不阻断回写
+                logger.warning("transcript 钩子失败 %s: %s", prompt_id, e)
 
 
 async def record_result(client: ComfyUIClient, prompt_id: str) -> list[str]:

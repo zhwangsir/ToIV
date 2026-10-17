@@ -18,6 +18,8 @@ PAD_MIN, PAD_MAX = 0.03, 0.20
 DEFAULT_PAD_IN, DEFAULT_PAD_OUT = 0.05, 0.08
 # 静音切点门槛:≥400ms 才算安全切点
 SAFE_SILENCE = 0.40
+# 150–400ms 间隙:可用但需视觉复核;<150ms 不安全(SKILL 剪辑指引分级)
+USABLE_SILENCE = 0.15
 # 段边界音频淡入淡出时长(防爆音)
 AUDIO_FADE = 0.03
 
@@ -40,6 +42,45 @@ def word_spans(words: list[dict]) -> list[tuple[float, float]]:
 def is_midword(t: float, spans: list[tuple[float, float]]) -> bool:
     """严格落在某词起止之间=词内(压在词边界上不算词内)。"""
     return any(s < t < e for s, e in spans)
+
+
+def classify_edge(edge: float, spans: list[tuple[float, float]]) -> tuple[str, float]:
+    """切边落在哪(收编自旧 edit_edl,分级口径唯一源):('midword',0) /
+    ('clean'|'usable'|'unsafe', 所处静音窗宽度)。
+
+    无语音素材(纯音乐/空镜)没有要保护的词边界 → 一律 clean。
+    词内(严格落在某词起止之间)= midword;否则看它所处静音窗(prev_end→next_start)宽度:
+    切边正好压在词起点/终点上时窗口就是相邻静音,属最安全的一类;
+    窗 <150ms 说明切点贴着词尾/词头,ASR 漂移会把字切坏 → unsafe。
+    """
+    if not spans:
+        return "clean", 0.0
+    for s, e in spans:
+        if s < edge < e:
+            return "midword", 0.0
+    before = [e for s, e in spans if e <= edge]
+    after = [s for s, e in spans if s >= edge]
+    if not before or not after:  # 首词之前/末词之后:没有会被切坏的邻居
+        return "clean", 0.0
+    gap = round(min(after) - max(before), 3)
+    if gap >= SAFE_SILENCE:
+        return "clean", gap
+    if gap >= USABLE_SILENCE:
+        return "usable", gap
+    return "unsafe", gap
+
+
+def snap_range(start: float, end: float, spans: list[tuple[float, float]]) -> tuple[float, float]:
+    """词内切边外扩到整词:start 吸附到所在词起点,end 吸附到所在词终点(宁多勿切)。"""
+    for s, e in spans:
+        if s < start < e:
+            start = s
+            break
+    for s, e in reversed(spans):
+        if s < end < e:
+            end = e
+            break
+    return start, end
 
 
 def gap_windows(
@@ -109,9 +150,22 @@ def cut_points(
 
 # ---------------------------------------------------------------- 切边 pad
 
-def clamp_pad(value: float) -> float:
-    """pad 夹进 30–200ms 工作窗。"""
-    return min(max(float(value), PAD_MIN), PAD_MAX)
+def clamp_pad(value: float | None, default: float = DEFAULT_PAD_IN) -> float:
+    """pad 夹进 30–200ms 工作窗;None 用 default(收编自旧 edit_edl 两参口径)。"""
+    return min(max(default if value is None else float(value), PAD_MIN), PAD_MAX)
+
+
+def materialize_bounds(
+    start: float,
+    end: float,
+    spans: list[tuple[float, float]],
+    *,
+    pad_in: float | None = None,
+    pad_out: float | None = None,
+) -> tuple[float, float]:
+    """吸附整词 + pad 外扩后的实际取用区间(渲染件与校验器共用同一函数,口径不分裂)。"""
+    s, e = snap_range(start, end, spans)
+    return max(0.0, s - clamp_pad(pad_in, DEFAULT_PAD_IN)), e + clamp_pad(pad_out, DEFAULT_PAD_OUT)
 
 
 def pad_bounds(

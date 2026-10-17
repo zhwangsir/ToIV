@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -163,6 +163,32 @@ def fusion_timeline_png(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return Response(content=png, media_type="image/png")
+
+
+@router.get("/fusion/transcript/of-video")
+def fusion_transcript_of_video(
+    path: str = Query(min_length=1, max_length=1000),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """读取视频产物的 Packed Transcript(<产物名>.transcript.md)。
+
+    path=视频路径(drama 输出根内,相对路径按根解析)或裸产物名(远程产物视频
+    不在盘时读 drama 根内的 sidecar);实际读取对象一律过 _safe_media_path 安全闸。
+    """
+    from app.services.media.artifact_transcript import sidecar_candidates
+
+    video = Path(path).expanduser()
+    if not video.is_absolute():
+        from app.storage import drama_output_root
+
+        video = drama_output_root() / video
+    for cand in sidecar_candidates(video):
+        if cand.is_file():
+            real = _safe_media_path(str(cand))
+            return {"video": path, "transcript": real.name,
+                    "markdown": real.read_text(encoding="utf-8")}
+    _safe_media_path(str(video))  # 无 sidecar 仍过闸:越界报 403,缺失报 404
+    raise HTTPException(status_code=404, detail="该视频尚无 transcript")
 
 
 @router.post("/fusion/manifest/validate")

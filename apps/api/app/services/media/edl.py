@@ -31,6 +31,17 @@ class EdlItem:
     quote: str = ""
     reason: str = ""
 
+    def materialize(
+        self,
+        spans: list[tuple[float, float]],
+        *,
+        pad_in: float | None = None,
+        pad_out: float | None = None,
+    ) -> tuple[float, float]:
+        """吸附整词 + pad 外扩后的取用区间(与旧 edit_edl.materialize_range 同语义)。"""
+        return cut_rules.materialize_bounds(
+            self.start, self.end, spans, pad_in=pad_in, pad_out=pad_out)
+
 
 @dataclass
 class Edl:
