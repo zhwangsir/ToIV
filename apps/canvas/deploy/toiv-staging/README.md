@@ -4,7 +4,7 @@
 - `beeftv-user@<toiv_user_id>` (127.0.0.1:83xx) is one BeefTV backend per ToIV user, data in
   `/home/merlin/beeftv-staging/users/<uid>/data` (spawned on demand after login, reclaimed when idle; see web.env.example).
 - `beeftv-backend` (127.0.0.1:8272) is the legacy shared instance; it is no longer routed by the gate.
-- Copy `gate/model-config.template.json` (or `*.example.json` → strip `.example`) to `/home/merlin/beeftv-staging/gate/` and `/home/merlin/beeftv-prod/gate/`;
+- Copy `gate/model-config.template.json` (or `*.example.json` → strip `.example`) to `/home/merlin/beeftv-staging/gate/` and `/home/merlin/toiv-studio/gate/`;
   keep live matched to example (H3 int8_convrot + Qwen-Rapid-AIO-SFW-v11 + deepseek-v4-flash-dspark); secrets live only in `/home/merlin/beeftv-staging/secrets/` (0700).
 
 ## Login / startup screens (M4)

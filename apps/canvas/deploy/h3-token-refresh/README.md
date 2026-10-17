@@ -63,25 +63,25 @@ Files arrive on core with `deploy.sh --with-canvas/--canvas-only` under
 # 0. ToIV API (deploy the branch first): service accounts + revocation list, in the toiv-api env
 #    TOIV_SERVICE_ACCOUNTS=svc_canvas_h3
 #    TOIV_SERVICE_TOKEN_EXPIRE_MINUTES=10080
-#    TOIV_REVOKED_TOKENS_FILE=/home/merlin/beeftv-prod/secrets/toiv_revoked_tokens.json
+#    TOIV_REVOKED_TOKENS_FILE=/home/merlin/toiv-studio/secrets/toiv_revoked_tokens.json
 #    then create the account (non-admin, no other use) in the admin console, e.g. svc_canvas_h3.
 
 # 1. service account credentials for the script (0600)
-install -d -m 700 /home/merlin/beeftv-prod/h3-token-refresh
+install -d -m 700 /home/merlin/toiv-studio/h3-token-refresh
 umask 077
-cat > /home/merlin/beeftv-prod/secrets/h3_service_account.env <<'CRED'
+cat > /home/merlin/toiv-studio/secrets/h3_service_account.env <<'CRED'
 TOIV_H3_EMAIL=svc_canvas_h3
 TOIV_H3_PASSWORD=<service account password>
 CRED
-chmod 600 /home/merlin/beeftv-prod/secrets/h3_service_account.env   # the script refuses 0644
+chmod 600 /home/merlin/toiv-studio/secrets/h3_service_account.env   # the script refuses 0644
 
 # 2. script + config
 D=/home/merlin/toiv/apps/canvas/deploy/h3-token-refresh
-install -m 700 $D/h3_token_refresh.py /home/merlin/beeftv-prod/h3-token-refresh/
-install -m 600 $D/h3-token-refresh.env.example /home/merlin/beeftv-prod/h3-token-refresh/h3-token-refresh.env
+install -m 700 $D/h3_token_refresh.py /home/merlin/toiv-studio/h3-token-refresh/
+install -m 600 $D/h3-token-refresh.env.example /home/merlin/toiv-studio/h3-token-refresh/h3-token-refresh.env
 
 # 3. one manual run first (read-only check, dry-run mint, then the real refresh)
-cd /home/merlin/beeftv-prod/h3-token-refresh
+cd /home/merlin/toiv-studio/h3-token-refresh
 python3 h3_token_refresh.py --env h3-token-refresh.env --check
 python3 h3_token_refresh.py --env h3-token-refresh.env --dry-run
 python3 h3_token_refresh.py --env h3-token-refresh.env   # expect "refreshed: … scope=h3 … retiredRecorded=1"
@@ -99,9 +99,9 @@ JWT, subject `f659936d…`) in `RETIRED_FILE`. Revoke exactly that token (other 
 logged in); ToIV re-reads the list on change, no restart:
 ```bash
 cd /home/merlin/toiv/apps/api
-python3 scripts/revoke_token.py --file /home/merlin/beeftv-prod/secrets/toiv_revoked_tokens.json \
-    --sha256 $(cat /home/merlin/beeftv-prod/h3-token-refresh/retired.sha256)
-python3 scripts/revoke_token.py --file /home/merlin/beeftv-prod/secrets/toiv_revoked_tokens.json --list
+python3 scripts/revoke_token.py --file /home/merlin/toiv-studio/secrets/toiv_revoked_tokens.json \
+    --sha256 $(cat /home/merlin/toiv-studio/h3-token-refresh/retired.sha256)
+python3 scripts/revoke_token.py --file /home/merlin/toiv-studio/secrets/toiv_revoked_tokens.json --list
 ```
 Do this only after the H3 channel holds the service token (`status.json`: `after.scope == "h3"`) and
 a /studio H3 job succeeded, otherwise /studio H3 breaks. The gate copied the admin's *login* JWT,
@@ -111,9 +111,9 @@ so if that browser session is still in use it is logged out once (log in again).
 Operate:
 ```bash
 systemctl --user start toiv-h3-token-refresh.service      # refresh now
-tail -n 20 /home/merlin/beeftv-prod/h3-token-refresh/{refresh,check}.log
-cat /home/merlin/beeftv-prod/h3-token-refresh/status.json
-grep -E 'WARNING|ERROR' /home/merlin/beeftv-prod/h3-token-refresh/*.log | tail
+tail -n 20 /home/merlin/toiv-studio/h3-token-refresh/{refresh,check}.log
+cat /home/merlin/toiv-studio/h3-token-refresh/status.json
+grep -E 'WARNING|ERROR' /home/merlin/toiv-studio/h3-token-refresh/*.log | tail
 ```
 Uninstall: `systemctl --user disable --now toiv-h3-token-refresh.timer toiv-h3-token-check.timer`,
 remove the four unit files, `daemon-reload`.

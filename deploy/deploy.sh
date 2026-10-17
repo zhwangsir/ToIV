@@ -107,23 +107,23 @@ if [ -d .rollback-previous/web-next ]; then
   echo "  已恢复 web/.next"
 fi
 if [ -d .rollback-previous/canvas-plugins ]; then
-  rm -rf /home/merlin/beeftv-prod/plugin-packages
-  cp -al .rollback-previous/canvas-plugins /home/merlin/beeftv-prod/plugin-packages
+  rm -rf /home/merlin/toiv-studio/plugin-packages
+  cp -al .rollback-previous/canvas-plugins /home/merlin/toiv-studio/plugin-packages
   echo "  已恢复 canvas 官方插件包"
 fi
 if [ -f .rollback-previous/canvas-api.env ]; then
-  cp -p .rollback-previous/canvas-api.env /home/merlin/beeftv-prod/canvas-api/canvas-api.env
+  cp -p .rollback-previous/canvas-api.env /home/merlin/toiv-studio/canvas-api/canvas-api.env
   echo "  已恢复 canvas-api.env"
 fi
 if [ -f .rollback-previous/canvas-bin ]; then
   systemctl --user stop canvas-api-pg || true
-  cp .rollback-previous/canvas-bin /home/merlin/beeftv-prod/canvas-api-pg
+  cp .rollback-previous/canvas-bin /home/merlin/toiv-studio/canvas-api-pg
   systemctl --user start canvas-api-pg || true
   echo "  已恢复 canvas-api-pg 二进制"
 fi
 if [ -d .rollback-previous/canvas-dist ]; then
-  rm -rf /home/merlin/beeftv-prod/dist
-  cp -al .rollback-previous/canvas-dist /home/merlin/beeftv-prod/dist
+  rm -rf /home/merlin/toiv-studio/dist
+  cp -al .rollback-previous/canvas-dist /home/merlin/toiv-studio/dist
   echo "  已恢复 canvas /studio dist"
 fi
 REMOTE_EOF
@@ -145,8 +145,8 @@ fi
 # 目标链:apps/canvas 源码 rsync → ${REMOTE_DIR}/apps/canvas → core 本机构建
 #   · Go:   ~/sdk/go1.25.0 CGO 构建.canvas-api-pg.new,停服换装再启(运行中二进制 Text file busy)
 #   · Web:  node_modules 兜底(已有则沿用;缺则 bun install,无 bun 则硬链旧检出)后
-#           VITE_CANVAS_BACKEND_URL=/studio/api --base=/studio/ 生产口径出 dist → beeftv-prod/dist
-#   · 插件: core 本机 build-packages.sh → beeftv-prod/plugin-packages(canvas-api.env 指向此处)
+#           VITE_CANVAS_BACKEND_URL=/studio/api --base=/studio/ 生产口径出 dist → toiv-studio/dist
+#   · 插件: core 本机 build-packages.sh → toiv-studio/plugin-packages(canvas-api.env 指向此处)
 #   · 快照:.rollback-previous/canvas-{bin,dist,plugins,api.env}(与 api/web 快照同批,--rollback 一并恢复)
 deploy_canvas() {
   echo "▶ [canvas] rsync apps/canvas → ${REMOTE}:${REMOTE_DIR}/apps/canvas …"
@@ -161,7 +161,7 @@ deploy_canvas() {
 set -euo pipefail
 TOIV="$1"
 CANVAS="$TOIV/apps/canvas"
-PROD="/home/merlin/beeftv-prod"
+PROD="/home/merlin/toiv-studio"
 GOROOT_BIN="$HOME/sdk/go1.25.0/bin"
 
 # 快照(与主部署同批回滚)
@@ -169,7 +169,7 @@ mkdir -p "$TOIV/.rollback-previous"
 [ -f "$PROD/canvas-api-pg" ] && cp -al "$PROD/canvas-api-pg" "$TOIV/.rollback-previous/canvas-bin" 2>/dev/null || true
 [ -d "$PROD/dist" ] && rm -rf "$TOIV/.rollback-previous/canvas-dist" && cp -al "$PROD/dist" "$TOIV/.rollback-previous/canvas-dist" || true
 
-# 官方插件包(toiv-h3 等):core 本机打包 → beeftv-prod/plugin-packages(只放 *.beeftv-plugin),
+# 官方插件包(toiv-h3 等):core 本机打包 → toiv-studio/plugin-packages(只放 *.beeftv-plugin),
 # canvas-api 启动时按该目录 reconcile 内置插件。此前 env 指向已归档的旧 BeefTV 检出
 # (/home/merlin/beeftv/plugin-packages,停在 toiv-h3 0.3.0),主仓插件改动部署不到生产。
 # 首次部署把 canvas-api.env 的 CANVAS_OFFICIAL_PLUGIN_DIR 切过来(先备份,--rollback 恢复)。
@@ -193,7 +193,7 @@ if [ -f "$ENVF" ] && ! grep -qx "CANVAS_OFFICIAL_PLUGIN_DIR=$PLUG" "$ENVF"; then
 fi
 echo "  官方插件包 ${n_pk} 个 → $PLUG"
 
-# Live gate model-config template（prod 读 beeftv-prod/gate/model-config.template.json，勿只留 .example）
+# Live gate model-config template（prod 读 toiv-studio/gate/model-config.template.json，勿只留 .example）
 GATE_PROD="$PROD/gate"
 mkdir -p "$GATE_PROD"
 SRC_LIVE="$CANVAS/deploy/toiv-staging/gate/model-config.template.json"
