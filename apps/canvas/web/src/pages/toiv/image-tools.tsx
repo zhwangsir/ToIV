@@ -246,7 +246,7 @@ export default function ImageToolsPage() {
                             <p className="text-xs text-muted-foreground">{active.desc}</p>
                         </div>
                         <label
-                            className="flex min-h-40 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground transition-colors hover:border-[var(--workspace-accent,#666)]"
+                            className="flex min-h-40 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground transition-colors hover:border-[var(--workspace-accent)]"
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) void pickFile(f); }}
                         >
@@ -276,7 +276,7 @@ export default function ImageToolsPage() {
                             <div className="flex items-center gap-2 text-sm">
                                 <span className="text-muted-foreground">放大倍数</span>
                                 {[2, 4].map((n) => (
-                                    <button key={n} type="button" className={`rounded-md px-2.5 py-1 text-xs ${upscaleScale === n ? "bg-[var(--surface-active,rgba(255,255,255,0.12))] text-foreground" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setUpscaleScale(n)}>{n}x</button>
+                                    <button key={n} type="button" className={`rounded-md px-2.5 py-1 text-xs ${upscaleScale === n ? "bg-[var(--surface-active)] text-foreground" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setUpscaleScale(n)}>{n}x</button>
                                 ))}
                             </div>
                         )}

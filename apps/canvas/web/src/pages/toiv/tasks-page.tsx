@@ -9,6 +9,7 @@ import { Tooltip } from "@/components/ui/base/tooltip";
 import { Callout } from "@/components/ui/product/callout";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { formatTaskKind, generationTaskStatusLabel } from "@/lib/generation-task-display";
+import { formatDateTime } from "@/lib/time-format";
 import { listGenerationTasks, type GenerationTask } from "@/services/api/task-center";
 import { cancelJob, fetchAgentRuns, fetchJobs, type ToivAgentRun, type ToivJob } from "@/services/toiv/client";
 import { createAgentRun } from "@/services/toiv/agent-runs";
@@ -60,18 +61,6 @@ const SOURCE_LABEL: Record<TimelineItem["source"], string> = {
 
 const ACTIVE_TONES = new Set(["loading", "warning"]);
 
-function formatTime(value: string): string {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "—";
-    return new Intl.DateTimeFormat("zh-CN", {
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-    }).format(d);
-}
-
 function promptSummary(prompt?: string): string {
     const text = (prompt || "").trim();
     if (!text) return "(无提示摘要)";
@@ -79,7 +68,7 @@ function promptSummary(prompt?: string): string {
 }
 
 function detailLine(job: ToivJob): string {
-    const parts: string[] = [formatTime(job.created_at)];
+    const parts: string[] = [formatDateTime(job.created_at)];
     if (job.kind) parts.push(job.kind);
     const reason = (job.status === "held" ? job.hold_reason : job.error)?.trim();
     if (reason) parts.push(reason.length > 48 ? `${reason.slice(0, 48)}…` : reason);
@@ -99,7 +88,7 @@ function TaskTimelineSkeleton() {
         <div className="flex flex-col gap-3" aria-busy="true" aria-label="任务时间线加载中">
             {[0, 1, 2].map((i) => (
                 <div key={i} className="flex gap-3">
-                    <div className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--muted,rgba(255,255,255,0.12))]" />
+                    <div className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--muted)]" />
                     <div className="h-16 flex-1 animate-pulse rounded-xl border border-border bg-card/60" />
                 </div>
             ))}
@@ -202,7 +191,7 @@ export default function TasksPage() {
                 source: "canvas-task",
                 createdAt: task.createdAt || "",
                 title: promptSummary(task.prompt),
-                detail: [formatTime(task.createdAt || ""), formatTaskKind(task)].filter(Boolean).join(" · "),
+                detail: [formatDateTime(task.createdAt || ""), formatTaskKind(task)].filter(Boolean).join(" · "),
                 statusLabel: generationTaskStatusLabel(task),
                 statusTone: canvasStatusTone(task),
             });
@@ -215,7 +204,7 @@ export default function TasksPage() {
                 createdAt: run.created_at || "",
                 title: run.goal?.trim() || `智能体任务 ${run.level || ""}`.trim(),
                 detail: [
-                    formatTime(run.created_at || ""),
+                    formatDateTime(run.created_at || ""),
                     counts ? `子任务 ${counts.done}/${counts.total}${counts.error ? ` · 失败 ${counts.error}` : ""}` : "",
                 ]
                     .filter(Boolean)
@@ -352,8 +341,8 @@ export default function TasksPage() {
                         onClick={() => setSourceFilter(key)}
                         className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                             sourceFilter === key
-                                ? "border-[var(--workspace-accent,#f5f5f5)] bg-[var(--surface-active,rgba(255,255,255,0.1))]"
-                                : "border-[var(--border)] text-[var(--muted-foreground,#a8a8a8)] hover:border-[var(--workspace-accent,#666)]"
+                                ? "border-[var(--workspace-accent)] bg-[var(--surface-active)]"
+                                : "border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--workspace-accent)]"
                         }`}
                     >
                         {label}
@@ -374,8 +363,8 @@ export default function TasksPage() {
                             onClick={() => setStatusFilter(key)}
                             className={`rounded-md px-2 py-1 text-xs transition-colors ${
                                 statusFilter === key
-                                    ? "bg-[var(--surface-active,rgba(255,255,255,0.1))] text-foreground"
-                                    : "text-[var(--muted-foreground,#a8a8a8)] hover:text-foreground"
+                                    ? "bg-[var(--surface-active)] text-foreground"
+                                    : "text-[var(--muted-foreground)] hover:text-foreground"
                             }`}
                         >
                             {label}
@@ -383,7 +372,7 @@ export default function TasksPage() {
                     ))}
                 </span>
                 {hasActive && (
-                    <span className="ml-auto flex items-center gap-1.5 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                    <span className="ml-auto flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
                         <Loader2 className="size-3 animate-spin" aria-hidden /> 自动刷新中
                     </span>
                 )}
@@ -423,12 +412,12 @@ export default function TasksPage() {
                                 id={item.source === "toiv-job" ? `job-${item.id}` : `canvas-${item.id}`}
                                 className={`relative -ml-4 mb-2 flex gap-3 rounded-xl border px-3 py-3 pl-4 ${
                                     item.highlight
-                                        ? "border-[var(--workspace-accent,#888)] bg-[var(--surface-active,rgba(255,255,255,0.08))]"
+                                        ? "border-[var(--workspace-accent)] bg-[var(--surface-active)]"
                                         : "border-border bg-card"
                                 }`}
                             >
                                 <span
-                                    className="absolute -left-[5px] top-5 h-2.5 w-2.5 rounded-full border border-border bg-[var(--workspace-accent,#888)]"
+                                    className="absolute -left-[5px] top-5 h-2.5 w-2.5 rounded-full border border-border bg-[var(--workspace-accent)]"
                                     aria-hidden
                                 />
                                 <div className="min-w-0 flex-1">

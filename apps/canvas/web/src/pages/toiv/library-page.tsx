@@ -9,16 +9,11 @@ import { ToolButton } from "@/components/ui/base/buttons";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import { mediaLibraryWorksDetailPath } from "@/lib/media-library-routes";
+import { formatDateTime } from "@/lib/time-format";
 import { fetchBoards, fetchToivWorkCounts, type ToivBoard } from "@/services/toiv/client";
 import { fetchToivAccountRole, isTranscriptSearchAvailable } from "@/services/toiv/transcript-search";
 
 type LibraryTab = "works" | "boards" | "transcript";
-
-function formatTime(value: string): string {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "—";
-    return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
-}
 
 export default function LibraryPage() {
     const [tab, setTab] = useState<LibraryTab>("works");
@@ -69,8 +64,8 @@ export default function LibraryPage() {
                         <button key={k} type="button" role="tab" aria-selected={activeTab === k}
                             onClick={() => setTab(k)}
                             className={`rounded-full border px-3 py-1 text-xs transition-colors ${activeTab === k
-                                ? "border-transparent bg-[var(--workspace-accent,#f5f5f5)] text-[var(--workspace-accent-foreground,#111)]"
-                                : "border-[var(--border-semantic,var(--border,#333))] text-muted-foreground hover:text-foreground"}`}
+                                ? "border-transparent bg-[var(--workspace-accent)] text-[var(--workspace-accent-foreground)]"
+                                : "border-[var(--border-semantic,var(--border))] text-muted-foreground hover:text-foreground"}`}
                             data-testid={`library-tab-${k}`}>{label}</button>
                     ))}
                 </div>
@@ -100,9 +95,9 @@ export default function LibraryPage() {
                         <Link
                             key={board.id}
                             to={mediaLibraryWorksDetailPath(board.id)}
-                            className="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-[var(--workspace-accent,#f5f5f5)]"
+                            className="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-[var(--workspace-accent)]"
                         >
-                            <div className="flex h-28 items-center justify-center rounded-xl bg-[var(--muted,rgba(255,255,255,0.06))]">
+                            <div className="flex h-28 items-center justify-center rounded-xl bg-[var(--muted)]">
                                 {board.cover_url
                                     ? <img src={board.cover_url} alt="" className="h-full w-full rounded-xl object-cover" />
                                     : <FolderOpen className="h-8 w-8 text-muted-foreground" />}
@@ -110,7 +105,7 @@ export default function LibraryPage() {
                             <div className="flex flex-col gap-1">
                                 <p className="truncate text-sm font-medium" title={board.name}>{board.name}</p>
                                 <p className="text-xs text-muted-foreground">
-                                    {board.item_count} 件作品 · {formatTime(board.created_at)}
+                                    {board.item_count} 件作品 · {formatDateTime(board.created_at)}
                                 </p>
                             </div>
                         </Link>
@@ -118,7 +113,8 @@ export default function LibraryPage() {
                 </div>
             )}
             </div>
-            <MediaLibrarySourceRail active="works" worksCount={worksCount ?? boards.length} />
+            {/* rail 高亮跟随当前页签：画板/台词检索不是来源项，不硬指「作品」误导 */}
+            <MediaLibrarySourceRail active={activeTab === "works" ? "works" : undefined} worksCount={worksCount ?? boards.length} />
         </WorkspacePage>
     );
 }

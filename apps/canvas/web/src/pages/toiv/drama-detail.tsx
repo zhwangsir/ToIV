@@ -309,7 +309,7 @@ export default function DramaDetailPage() {
                             const refs = Object.values(c.reference_images_by_style ?? {}).flat().filter(Boolean) as string[];
                             return (
                                 <button key={c.id} type="button" onClick={() => void openCharacter(c)}
-                                    className="flex gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:border-[var(--workspace-accent,#555)]">
+                                    className="flex gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:border-[var(--workspace-accent)]">
                                     {refs[0] && <img src={refs[0]} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" loading="lazy" />}
                                     <div className="flex min-w-0 flex-1 flex-col gap-1">
                                         <div className="flex items-center gap-1">
@@ -334,7 +334,7 @@ export default function DramaDetailPage() {
                         const media = s.video_url || s.final_clip_url || s.image_url;
                         return (
                             <div key={s.id} className="flex items-stretch gap-3 rounded-2xl border border-border bg-card p-3">
-                                <div className="flex w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))]">
+                                <div className="flex w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--muted)]">
                                     {media
                                         ? (s.video_url || s.final_clip_url
                                             ? <video src={s.video_url || s.final_clip_url} className="h-full w-full object-cover" muted preload="metadata" />
@@ -389,7 +389,7 @@ export default function DramaDetailPage() {
                     <div className="flex flex-col gap-4">
                         <p className="text-sm leading-relaxed">{charDetail.char.description || charDetail.char.visual_prompt}</p>
                         {charDetail.char.visual_prompt && (
-                            <p className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs leading-relaxed text-muted-foreground">{charDetail.char.visual_prompt}</p>
+                            <p className="rounded-xl bg-[var(--muted)] p-3 text-xs leading-relaxed text-muted-foreground">{charDetail.char.visual_prompt}</p>
                         )}
                         {charDetail.char.voice_ref_url && (
                             <div className="flex flex-col gap-1">

@@ -339,7 +339,7 @@ export default function DubToolsPage() {
                 {/* Step 1 上传 */}
                 <section className="flex flex-col gap-2 rounded-2xl border bg-card p-4">
                     <h2 className="flex items-center gap-2 text-sm font-semibold"><Video className="size-4" />① 源视频</h2>
-                    <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-5 text-sm text-muted-foreground transition-colors hover:border-[var(--workspace-accent,#666)]"
+                    <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-5 text-sm text-muted-foreground transition-colors hover:border-[var(--workspace-accent)]"
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) void upload(f); }}>
                         <Upload className="size-6" />

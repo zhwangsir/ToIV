@@ -33,11 +33,11 @@ const num = (v: unknown): number | null => (typeof v === "number" && Number.isFi
 const objArr = (v: unknown): Record<string, unknown>[] =>
     Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x)) : [];
 
-const shell = "flex max-w-full min-w-[240px] flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--card,#181818)] p-3 text-xs text-foreground";
-const label = "text-[10px] uppercase tracking-wide text-[var(--muted-foreground,#a8a8a8)]";
-const btn = "inline-flex items-center gap-1 rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-medium hover:bg-[var(--surface-hover,rgba(255,255,255,0.06))]";
+const shell = "flex max-w-full min-w-[240px] flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-xs text-foreground";
+const label = "text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]";
+const btn = "inline-flex items-center gap-1 rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-medium hover:bg-[var(--surface-hover)]";
 const btnPrimary = `${btn} border-transparent bg-foreground text-background hover:opacity-85`;
-const badge = "rounded-full border border-[var(--border)] px-1.5 py-0.5 text-[10px] text-[var(--muted-foreground,#a8a8a8)]";
+const badge = "rounded-full border border-[var(--border)] px-1.5 py-0.5 text-[10px] text-[var(--muted-foreground)]";
 const badgeWarn = `${badge} border-amber-500/40 text-amber-400`;
 const badgeErr = `${badge} border-red-500/40 text-red-400`;
 
@@ -63,7 +63,7 @@ export function OptimizePromptCard({ payload, ctx }: ToolCardProps): ReactNode {
             {negative ? (
                 <div>
                     <div className={label}>负向提示词</div>
-                    <div className="mt-1 font-mono text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{negative}</div>
+                    <div className="mt-1 font-mono text-[11px] text-[var(--muted-foreground)]">{negative}</div>
                 </div>
             ) : null}
             {ctx.onApplyInput ? (
@@ -88,11 +88,11 @@ export function KnowledgeCard({ payload }: ToolCardProps): ReactNode {
             {items.map((it, i) => (
                 <div key={i} className="rounded-lg border border-[var(--border)]/60 p-2">
                     <div className="flex items-center gap-1.5">
-                        <Database className="size-3 shrink-0 text-[var(--muted-foreground,#a8a8a8)]" />
+                        <Database className="size-3 shrink-0 text-[var(--muted-foreground)]" />
                         <span className="font-medium">{it.title || "知识条目"}</span>
                         <span className={badge}>知识库</span>
                     </div>
-                    {it.snippet ? <p className="mt-1 text-[var(--muted-foreground,#a8a8a8)]">{it.snippet}</p> : null}
+                    {it.snippet ? <p className="mt-1 text-[var(--muted-foreground)]">{it.snippet}</p> : null}
                 </div>
             ))}
         </div>
@@ -116,8 +116,8 @@ export function AppListCard({ payload, ctx }: ToolCardProps): ReactNode {
         <div className={`${shell} toiv-tc-apps`} data-testid="toiv-tc-apps">
             {items.map((it) => (
                 <div key={it.id} className="flex items-center gap-2 rounded-lg border border-[var(--border)]/60 p-2">
-                    <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--surface-hover,rgba(255,255,255,0.04))]">
-                        <LayoutGrid className="size-3.5 text-[var(--muted-foreground,#a8a8a8)]" />
+                    <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--surface-hover)]">
+                        <LayoutGrid className="size-3.5 text-[var(--muted-foreground)]" />
                         {it.cover ? <img src={it.cover} alt="" className="size-9 object-cover" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
                     </span>
                     <span className="min-w-0 flex-1">
@@ -125,7 +125,7 @@ export function AppListCard({ payload, ctx }: ToolCardProps): ReactNode {
                             {it.name}
                             {it.nsfw ? <span className={badgeWarn}>18+</span> : null}
                         </span>
-                        <span className="block truncate text-[var(--muted-foreground,#a8a8a8)]">
+                        <span className="block truncate text-[var(--muted-foreground)]">
                             {[it.useCase, it.description].filter(Boolean).join(" · ") || "—"}
                         </span>
                     </span>
@@ -134,7 +134,7 @@ export function AppListCard({ payload, ctx }: ToolCardProps): ReactNode {
                     ) : null}
                 </div>
             ))}
-            {total !== null && total > items.length ? <div className="text-[var(--muted-foreground,#a8a8a8)]">共 {total} 个应用</div> : null}
+            {total !== null && total > items.length ? <div className="text-[var(--muted-foreground)]">共 {total} 个应用</div> : null}
         </div>
     );
 }
@@ -198,7 +198,7 @@ export function SelfhealCard({ payload, ctx }: ToolCardProps): ReactNode {
                             <span className="font-medium">{it.name || "未命名应用"}</span>
                             {it.cls ? <span className={badgeErr}>{it.cls}</span> : null}
                         </div>
-                        {it.advice ? <p className="mt-1 text-[var(--muted-foreground,#a8a8a8)]">建议:{it.advice}</p> : null}
+                        {it.advice ? <p className="mt-1 text-[var(--muted-foreground)]">建议:{it.advice}</p> : null}
                         {it.error ? <p className="mt-1 text-red-400">{it.error}</p> : null}
                     </div>
                 ))}
@@ -220,7 +220,7 @@ export function SelfhealCard({ payload, ctx }: ToolCardProps): ReactNode {
                 {cls ? <span className={badgeErr}>{cls}</span> : null}
                 {status ? <span className={badge}>{status}</span> : null}
             </div>
-            {advice ? <p className="text-[var(--muted-foreground,#a8a8a8)]">建议:{advice}</p> : null}
+            {advice ? <p className="text-[var(--muted-foreground)]">建议:{advice}</p> : null}
             {error ? <p className="text-red-400">{error}</p> : null}
             {appId && ctx.onOpenApp ? (
                 <button type="button" className={btn} onClick={() => ctx.onOpenApp?.(appId)}>查看应用</button>
@@ -262,19 +262,19 @@ export function GenerationJobCard({ payload }: ToolCardProps): ReactNode {
                 <span className={status === "error" ? badgeErr : status === "done" ? badge : badgeWarn}>{statusLabel}</span>
             </div>
             {labelText ? <div>{labelText}</div> : null}
-            {status === "held" && holdReason ? <div className="text-[var(--muted-foreground,#a8a8a8)]">{holdReason}</div> : null}
+            {status === "held" && holdReason ? <div className="text-[var(--muted-foreground)]">{holdReason}</div> : null}
             {status === "error" && (error || holdReason) ? <div className="text-red-400">{error || holdReason}</div> : null}
             {status === "done" && results.length ? (
                 <div className="flex gap-1.5">
                     {results.slice(0, 4).map((url) => (
-                        <span key={url} className="relative flex size-12 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface-hover,rgba(255,255,255,0.04))]">
-                            <ImageIcon className="absolute inset-0 m-auto size-3.5 text-[var(--muted-foreground,#a8a8a8)]" />
+                        <span key={url} className="relative flex size-12 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface-hover)]">
+                            <ImageIcon className="absolute inset-0 m-auto size-3.5 text-[var(--muted-foreground)]" />
                             <img src={url} alt="" className="relative size-12 object-cover" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                         </span>
                     ))}
                 </div>
             ) : null}
-            {jobId ? <div className="text-[10px] text-[var(--muted-foreground,#a8a8a8)]">作业 {jobId}</div> : null}
+            {jobId ? <div className="text-[10px] text-[var(--muted-foreground)]">作业 {jobId}</div> : null}
         </div>
     );
 }
@@ -294,7 +294,7 @@ export function ProposalCard({ payload, ctx }: ToolCardProps): ReactNode {
                 {estimate ? <span className={badge}>{estimate}</span> : null}
                 <span className={badge}>{kind === "canvas_graph" ? "画布图" : kind}</span>
             </div>
-            {body ? <p className="whitespace-pre-wrap break-words text-[var(--muted-foreground,#a8a8a8)]">{body}</p> : null}
+            {body ? <p className="whitespace-pre-wrap break-words text-[var(--muted-foreground)]">{body}</p> : null}
             {ctx.onApplyToCanvas ? (
                 <button type="button" className={btnPrimary} onClick={() => void ctx.onApplyToCanvas?.(payload)}>
                     一键入画布

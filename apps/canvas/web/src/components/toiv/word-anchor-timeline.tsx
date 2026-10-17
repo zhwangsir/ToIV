@@ -61,7 +61,7 @@ export function WordAnchorTimeline({
 
     return (
         <div className="flex flex-col gap-2 rounded-lg border border-[var(--border)] p-2.5">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted-foreground)]">
                 <span className="font-medium text-foreground">词锚时间轴</span>
                 <span>{beats.length} 拍 · {total.toFixed(1)}s（服务端投影）</span>
                 <ToolButton
@@ -73,7 +73,7 @@ export function WordAnchorTimeline({
                     onClick={() => void submitReflow()}
                 />
             </div>
-            {err && <p className="text-xs text-[var(--danger,#e5484d)]">{err}</p>}
+            {err && <p className="text-xs text-[var(--danger)]">{err}</p>}
             <div className="flex h-6 w-full overflow-hidden rounded border border-[var(--border)]">
                 {rows.map((r, i) => {
                     const hasAnchor = !!(r.beat.anchor_words && r.beat.anchor_words.trim());
@@ -86,10 +86,10 @@ export function WordAnchorTimeline({
                             }${hasAnchor ? ` · 锚:${r.beat.anchor_words}` : ""}`}
                             className={`flex items-center justify-center border-r border-[var(--border)] text-[10px] ${
                                 hasAnchor
-                                    ? "bg-[var(--accent,#6e56cf)] text-white"
+                                    ? "bg-[var(--accent)] text-white"
                                     : i % 2
-                                        ? "bg-[var(--muted,#1e1e20)] text-[var(--muted-foreground,#a8a8a8)]"
-                                        : "bg-[var(--card,#121214)] text-[var(--muted-foreground,#a8a8a8)]"
+                                        ? "bg-[var(--muted)] text-[var(--muted-foreground)]"
+                                        : "bg-[var(--card)] text-[var(--muted-foreground)]"
                             }`}
                             style={{ width: `${pct}%` }}
                         >
@@ -101,7 +101,7 @@ export function WordAnchorTimeline({
             <ol className="flex flex-col gap-1">
                 {rows.map((r, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs">
-                        <span className="w-16 shrink-0 tabular-nums text-[var(--muted-foreground,#a8a8a8)]">
+                        <span className="w-16 shrink-0 tabular-nums text-[var(--muted-foreground)]">
                             {r.start.toFixed(1)}–{r.end.toFixed(1)}s
                         </span>
                         <input
@@ -115,7 +115,7 @@ export function WordAnchorTimeline({
                                 setTexts(next);
                             }}
                         />
-                        <span className="shrink-0 text-[10px] text-[var(--muted-foreground,#a8a8a8)]">
+                        <span className="shrink-0 text-[10px] text-[var(--muted-foreground)]">
                             {r.beat.cues?.length ? r.beat.cues.map((c) => `@${c}`).join(" ") : ""}
                             {r.beat.anchor_words ? ` 锚:${r.beat.anchor_words}` : ""}
                         </span>

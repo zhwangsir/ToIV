@@ -205,7 +205,7 @@ function AsrTool() {
 
     return (
         <div className="flex flex-col gap-3">
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-6 text-sm text-muted-foreground transition-colors hover:border-[var(--workspace-accent,#666)]"
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-6 text-sm text-muted-foreground transition-colors hover:border-[var(--workspace-accent)]"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) void submit(f); }}>
                 <Upload className="size-6" />
@@ -273,7 +273,7 @@ function SeparateTool() {
 
     return (
         <div className="flex flex-col gap-3">
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-6 text-sm text-muted-foreground transition-colors hover:border-[var(--workspace-accent,#666)]"
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-6 text-sm text-muted-foreground transition-colors hover:border-[var(--workspace-accent)]"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) void submit(f); }}>
                 <AudioLines className="size-6" />

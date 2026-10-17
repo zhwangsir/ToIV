@@ -133,6 +133,21 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
                 onClose();
                 return;
             }
+            if (event.key === "Tab") {
+                // 焦点陷阱:面板内 Tab 循环,不漏焦到背景壳
+                event.preventDefault();
+                const focusables = document.querySelectorAll<HTMLElement>(
+                    '[role="dialog"] input, [role="dialog"] button',
+                );
+                if (!focusables.length) return;
+                const list = Array.from(focusables);
+                const idx = list.indexOf(document.activeElement as HTMLElement);
+                const next = event.shiftKey
+                    ? list[(idx <= 0 ? list.length : idx) - 1]
+                    : list[(idx + 1) % list.length];
+                next?.focus();
+                return;
+            }
             if (event.key === "ArrowDown") {
                 event.preventDefault();
                 setHighlight((index) => Math.min(index + 1, Math.max(filtered.length - 1, 0)));

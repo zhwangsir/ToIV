@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router";
 import { ToolButton } from "@/components/ui/base/buttons";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { EmptyState } from "@/components/ui/product/empty-state";
+import { formatDateTime } from "@/lib/time-format";
 import { fetchDramaProjects, type ToivDramaProject } from "@/services/toiv/client";
 import { FromImageDialog } from "./from-image-dialog";
 import { WorkspacePage } from "@/components/layout/workspace-page";
@@ -18,12 +19,6 @@ const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "e
     error: { tone: "error", text: "失败" },
 };
 
-function fmt(v?: string): string {
-    if (!v) return "—";
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("zh-CN");
-}
-
 function ShotProgress({ p }: { p: NonNullable<ToivDramaProject["pipeline"]> }) {
     const total = p.total_shots || 0;
     const done = (p.by_status?.done ?? 0) + (p.by_status?.lipsynced ?? 0);
@@ -34,8 +29,8 @@ function ShotProgress({ p }: { p: NonNullable<ToivDramaProject["pipeline"]> }) {
                 <span>{total} 个分镜 · {done}/{total} 完成</span>
                 <span>{Object.entries(p.by_status ?? {}).map(([k, n]) => `${STATUS_META[k]?.text ?? k}${n}`).join(" ")}</span>
             </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--muted,rgba(255,255,255,0.08))]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-                <div className="h-full rounded-full bg-[var(--workspace-accent,#888)] transition-[width]" style={{ width: `${pct}%` }} />
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--muted)]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+                <div className="h-full rounded-full bg-[var(--workspace-accent)] transition-[width]" style={{ width: `${pct}%` }} />
             </div>
             {p.next_step && <span className="text-[11px] text-muted-foreground">下一步:{p.next_step.label}(待办 {p.next_step.todo})</span>}
         </div>
@@ -91,10 +86,10 @@ export default function DramaPage() {
                             return (
                                 // S4/W1.2:项目卡默认进 v2 工作区(经典详情仍有入口)
                                 <Link key={p.id} to={`/toiv/ws/${p.id}`}
-                                    className="group flex flex-col gap-2.5 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-[var(--workspace-accent,#555)]">
+                                    className="group flex flex-col gap-2.5 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-[var(--workspace-accent)]">
                                     <div className="flex items-center justify-between gap-2">
                                         <StatusBadge variant="filled" tone={meta.tone} label={meta.text} size="sm" />
-                                        <span className="text-[11px] text-muted-foreground">{fmt(p.updated_at)}</span>
+                                        <span className="text-[11px] text-muted-foreground">{formatDateTime(p.updated_at)}</span>
                                     </div>
                                     <p className="line-clamp-1 text-sm font-medium" title={p.title || p.premise}>
                                         {p.title || p.premise?.slice(0, 24) || "未命名项目"}

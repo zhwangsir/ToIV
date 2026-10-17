@@ -81,7 +81,7 @@ function CoverThumb({ coverUrl, category }: { coverUrl?: string; category?: stri
     }, [coverUrl]);
     const showImg = Boolean(src) && !failed;
     return (
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--muted,rgba(255,255,255,0.05))]">
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--muted)]">
             {showImg ? (
                 <img
                     src={src}
@@ -91,7 +91,7 @@ function CoverThumb({ coverUrl, category }: { coverUrl?: string; category?: stri
                     onError={() => setFailed(true)}
                 />
             ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-[var(--muted-foreground,#a8a8a8)]">
+                <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-[var(--muted-foreground)]">
                     <span className="text-2xl opacity-50" aria-hidden>
                         {CATEGORY_META[category || "other"] ?? "应用"}
                     </span>
@@ -205,7 +205,7 @@ function MarketMediaField({
         <div className="flex flex-col gap-1.5 text-xs">
             <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-foreground">{param.label}</span>
-                <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
+                <span className="text-[11px] text-[var(--muted-foreground)]">
                     {list.length}/{max}
                 </span>
             </div>
@@ -219,7 +219,7 @@ function MarketMediaField({
                             {item.previewUrl && param.type === "images" ? (
                                 <img src={item.previewUrl} alt="" className="h-8 w-8 rounded object-cover" />
                             ) : (
-                                <span className="grid h-8 w-8 place-items-center rounded bg-[var(--muted,rgba(255,255,255,0.06))] text-[10px]">
+                                <span className="grid h-8 w-8 place-items-center rounded bg-[var(--muted)] text-[10px]">
                                     {kindLabel[0]}
                                 </span>
                             )}
@@ -228,7 +228,7 @@ function MarketMediaField({
                             </span>
                             <button
                                 type="button"
-                                className="rounded p-1 text-[var(--muted-foreground,#a8a8a8)] hover:text-foreground"
+                                className="rounded p-1 text-[var(--muted-foreground)] hover:text-foreground"
                                 aria-label="移除"
                                 disabled={disabled || uploading}
                                 onClick={() => removeAt(idx)}
@@ -244,7 +244,7 @@ function MarketMediaField({
                     type="button"
                     disabled={disabled || uploading}
                     onClick={() => inputRef.current?.click()}
-                    className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-[var(--muted-foreground,#a8a8a8)] transition-colors hover:border-[var(--workspace-accent,#666)] hover:text-foreground disabled:opacity-50"
+                    className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-[var(--muted-foreground)] transition-colors hover:border-[var(--workspace-accent)] hover:text-foreground disabled:opacity-50"
                 >
                     {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                     {uploading ? `上传中${progress != null ? ` ${progress}%` : ""}` : `上传${kindLabel}`}
@@ -259,9 +259,9 @@ function MarketMediaField({
                 onChange={(e) => void onFile(e.target.files?.[0])}
             />
             {param.hint && !error && (
-                <p className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{param.hint}</p>
+                <p className="text-[11px] text-[var(--muted-foreground)]">{param.hint}</p>
             )}
-            {error && <p className="text-[11px] text-[var(--destructive,#f87171)]">{error}</p>}
+            {error && <p className="text-[11px] text-[var(--destructive)]">{error}</p>}
         </div>
     );
 }
@@ -283,18 +283,18 @@ function ParamField({
 }) {
     const id = `mkt-param-${param.key}`;
     const common =
-        "w-full rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-xs outline-none focus:border-[var(--workspace-accent,#888)]";
+        "w-full rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-xs outline-none focus:border-[var(--workspace-accent)]";
 
     if (param.type === "switch") {
         return (
             <label className="flex items-center justify-between gap-3 text-xs">
-                <span className="text-[var(--muted-foreground,#a8a8a8)]">{param.label}</span>
+                <span className="text-[var(--muted-foreground)]">{param.label}</span>
                 <input
                     id={id}
                     type="checkbox"
                     checked={Boolean(value)}
                     onChange={(e) => onChange(param.key, e.target.checked)}
-                    className="h-4 w-4 accent-[var(--workspace-accent,#f5f5f5)]"
+                    className="h-4 w-4 accent-[var(--workspace-accent)]"
                 />
             </label>
         );
@@ -303,7 +303,7 @@ function ParamField({
     if (param.type === "select") {
         return (
             <label className="flex flex-col gap-1 text-xs">
-                <span className="text-[var(--muted-foreground,#a8a8a8)]">{param.label}</span>
+                <span className="text-[var(--muted-foreground)]">{param.label}</span>
                 <select
                     id={id}
                     value={String(value ?? "")}
@@ -323,7 +323,7 @@ function ParamField({
     if (param.type === "textarea") {
         return (
             <label className="flex flex-col gap-1 text-xs">
-                <span className="text-[var(--muted-foreground,#a8a8a8)]">{param.label}</span>
+                <span className="text-[var(--muted-foreground)]">{param.label}</span>
                 <textarea
                     id={id}
                     rows={3}
@@ -351,7 +351,7 @@ function ParamField({
 
     return (
         <label className="flex flex-col gap-1 text-xs">
-            <span className="text-[var(--muted-foreground,#a8a8a8)]">{param.label}</span>
+            <span className="text-[var(--muted-foreground)]">{param.label}</span>
             <input
                 id={id}
                 type={param.type === "number" ? "number" : "text"}
@@ -586,7 +586,7 @@ export default function MarketPage() {
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">工具箱</h1>
                     <p className="text-sm text-muted-foreground">应用市场 · 生成能力即取即用</p>
-                    <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">
+                    <p className="text-xs leading-5 text-[var(--muted-foreground)]">
                         浏览应用、配置参数后运行；作业自动进入任务中心
                     </p>
                 </div>
@@ -610,21 +610,21 @@ export default function MarketPage() {
                         onClick={() => setCategory(key)}
                         className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                             category === key
-                                ? "border-[var(--workspace-accent,#f5f5f5)] bg-[var(--surface-active,rgba(255,255,255,0.1))]"
-                                : "border-[var(--border)] text-[var(--muted-foreground,#a8a8a8)] hover:border-[var(--workspace-accent,#666)]"
+                                ? "border-[var(--workspace-accent)] bg-[var(--surface-active)]"
+                                : "border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--workspace-accent)]"
                         }`}
                     >
                         {key === "all" ? `全部 ${n}` : `${CATEGORY_META[key] ?? key} ${n}`}
                     </button>
                 ))}
                 <label className="ml-auto flex w-56 items-center gap-2 rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-xs">
-                    <Search className="h-3.5 w-3.5 shrink-0 text-[var(--muted-foreground,#a8a8a8)]" aria-hidden />
+                    <Search className="h-3.5 w-3.5 shrink-0 text-[var(--muted-foreground)]" aria-hidden />
                     <input
                         type="search"
                         placeholder="搜索应用"
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[var(--muted-foreground,#a8a8a8)]"
+                        className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[var(--muted-foreground)]"
                     />
                 </label>
             </div>
@@ -648,7 +648,7 @@ export default function MarketPage() {
                         <section className="flex flex-col gap-2" aria-label="本地精选">
                             <div className="flex items-baseline justify-between">
                                 <h2 className="text-sm font-medium text-foreground">本地精选</h2>
-                                <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
+                                <span className="text-[11px] text-[var(--muted-foreground)]">
                                     生图 · H3 · LongCat · VACE · Animate2 · Continue · Avatar · Wan
                                 </span>
                             </div>
@@ -670,11 +670,11 @@ export default function MarketPage() {
                                                 else if (entry.appId) void openDetail(entry.appId);
                                                 else if (entry.canvasTo) navigate(entry.canvasTo);
                                             }}
-                                            className="flex w-44 shrink-0 flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--card,#181818)] p-3 text-left transition-colors hover:border-[var(--workspace-accent,#555)]"
+                                            className="flex w-44 shrink-0 flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-left transition-colors hover:border-[var(--workspace-accent)]"
                                         >
                                             <p className="truncate text-sm font-medium">{app?.name || entry.label}</p>
                                             <LocalBadges badge={badge} />
-                                            <p className="line-clamp-2 text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
+                                            <p className="line-clamp-2 text-[11px] text-[var(--muted-foreground)]">
                                                 {app?.guide_purpose || app?.description || `本地 worker ${entry.worker}`}
                                             </p>
                                         </button>
@@ -691,12 +691,12 @@ export default function MarketPage() {
                                     key={app.id}
                                     type="button"
                                     onClick={() => void openDetail(app)}
-                                    className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)] text-left transition-colors hover:border-[var(--workspace-accent,#555)]"
+                                    className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] text-left transition-colors hover:border-[var(--workspace-accent)]"
                                 >
                                     <CoverThumb coverUrl={app.cover_url} category={app.category} />
                                     <div className="flex flex-1 flex-col gap-1.5 p-3">
                                         <p className="truncate text-sm font-medium">{app.name}</p>
-                                        <p className="line-clamp-2 min-h-8 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                        <p className="line-clamp-2 min-h-8 text-xs text-[var(--muted-foreground)]">
                                             {app.guide_purpose || app.description}
                                         </p>
                                         {local && <LocalBadges badge={local} />}
@@ -705,7 +705,7 @@ export default function MarketPage() {
                                         )}
                                         <div className="mt-auto flex items-center justify-between pt-1">
                                             {smokeBadge(app)}
-                                            <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
+                                            <span className="text-[11px] text-[var(--muted-foreground)]">
                                                 {app.usage_count ?? 0} 次使用
                                             </span>
                                         </div>
@@ -716,7 +716,7 @@ export default function MarketPage() {
                     </div>
                     {hasMore && (
                         <div className="flex flex-col items-center gap-2 py-4">
-                            <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                            <p className="text-xs text-[var(--muted-foreground)]">
                                 已加载 {apps.length} / 共 {total} 个应用 · 筛选作用于已加载部分
                             </p>
                             <ToolButton
@@ -775,7 +775,7 @@ export default function MarketPage() {
                                     <div className="flex flex-col gap-2">
                                         <p className="text-xs font-medium">模式</p>
                                         {modesLoading ? (
-                                            <p className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">加载模式…</p>
+                                            <p className="text-[11px] text-[var(--muted-foreground)]">加载模式…</p>
                                         ) : (
                                             <div className="flex flex-wrap gap-1.5">
                                                 {modes.map((m) => {
@@ -790,8 +790,8 @@ export default function MarketPage() {
                                                             }}
                                                             className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
                                                                 active
-                                                                    ? "border-[var(--workspace-accent,#f5f5f5)] bg-[var(--surface-active,rgba(255,255,255,0.1))]"
-                                                                    : "border-[var(--border)] text-[var(--muted-foreground,#a8a8a8)] hover:border-[var(--workspace-accent,#666)]"
+                                                                    ? "border-[var(--workspace-accent)] bg-[var(--surface-active)]"
+                                                                    : "border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--workspace-accent)]"
                                                             }`}
                                                         >
                                                             {m.label}
@@ -804,7 +804,7 @@ export default function MarketPage() {
                                 )}
                                 <p className="text-sm leading-relaxed">{detail.description}</p>
                                 {detail.guide_purpose && (
-                                    <div className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs leading-relaxed text-[var(--muted-foreground,#a8a8a8)]">
+                                    <div className="rounded-xl bg-[var(--muted)] p-3 text-xs leading-relaxed text-[var(--muted-foreground)]">
                                         {detail.guide_purpose}
                                     </div>
                                 )}
@@ -827,16 +827,16 @@ export default function MarketPage() {
                                 )}
 
                                 {runMsg && (
-                                    <p className={`text-xs ${runFailed ? "text-[var(--destructive,#f87171)]" : "text-[var(--muted-foreground,#a8a8a8)]"}`} role="status">
+                                    <p className={`text-xs ${runFailed ? "text-[var(--destructive)]" : "text-[var(--muted-foreground)]"}`} role="status">
                                         {runMsg}
                                     </p>
                                 )}
                                 {missing && (
-                                    <p className="text-xs text-[var(--destructive,#f87171)]">还差必填项：{missing}</p>
+                                    <p className="text-xs text-[var(--destructive)]">还差必填项：{missing}</p>
                                 )}
 
                                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3">
-                                    <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                    <span className="text-xs text-[var(--muted-foreground)]">
                                         作者 {detail.author || "—"} · {detail.usage_count ?? 0} 次使用
                                     </span>
                                     <div className="flex flex-wrap items-center gap-2">
@@ -858,7 +858,7 @@ export default function MarketPage() {
                                         />
                                     </div>
                                 </div>
-                                <p className="text-[11px] leading-relaxed text-[var(--muted-foreground,#a8a8a8)]">
+                                <p className="text-[11px] leading-relaxed text-[var(--muted-foreground)]">
                                     上传的媒体素材随运行一起提交；作业进任务中心。「注册到画布」把应用加入画布的可用工具清单。
                                 </p>
                             </>

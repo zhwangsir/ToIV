@@ -100,7 +100,7 @@ function StatusLine({ project }: { project: ToivDramaDetail }) {
         if (p.next_step) parts.push(`下一步 ${p.next_step.label}×${p.next_step.todo}`);
     }
     if (project.width && project.height) parts.push(`${project.width}×${project.height}@${project.fps ?? "?"}fps`);
-    return <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">{parts.join(" · ") || "暂无管线数据"}</p>;
+    return <p className="text-xs text-[var(--muted-foreground)]">{parts.join(" · ") || "暂无管线数据"}</p>;
 }
 
 export default function DramaWorkspacePage() {
@@ -638,7 +638,7 @@ export default function DramaWorkspacePage() {
                             )}
                         </div>
                         {detail && <StatusLine project={detail} />}
-                        <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">
+                        <p className="text-xs leading-5 text-[var(--muted-foreground)]">
                             剧本 → 资产 → 分镜 → 镜头 → 时间线 → 成片，六段数据与经典端同源
                         </p>
                     </div>
@@ -665,8 +665,8 @@ export default function DramaWorkspacePage() {
                                 onClick={() => goSection(s.key)}
                                 className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors ${
                                     active
-                                        ? "bg-[var(--surface-active,rgba(255,255,255,0.1))] text-foreground"
-                                        : "text-[var(--muted-foreground,#a8a8a8)] hover:text-foreground"
+                                        ? "bg-[var(--surface-active)] text-foreground"
+                                        : "text-[var(--muted-foreground)] hover:text-foreground"
                                 }`}
                             >
                                 <Icon className="size-3.5" aria-hidden />
@@ -691,11 +691,11 @@ export default function DramaWorkspacePage() {
                                     onChange={(e) => setPremiseText(e.target.value)}
                                     rows={8}
                                     placeholder="写下或粘贴剧情概要/剧本,然后交给 AI 拆解为分镜…"
-                                    className="w-full resize-y rounded-lg border border-[var(--border)] bg-transparent p-3 text-sm leading-6 text-foreground outline-none focus:border-[var(--workspace-accent,#666)]"
+                                    className="w-full resize-y rounded-lg border border-[var(--border)] bg-transparent p-3 text-sm leading-6 text-foreground outline-none focus:border-[var(--workspace-accent)]"
                                     aria-label="剧本正文"
                                 />
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <label className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                    <label className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
                                         目标镜数
                                         <select
                                             value={numShots}
@@ -723,7 +723,7 @@ export default function DramaWorkspacePage() {
                                         label="导入词锚定脚本"
                                         onClick={() => setSvmlOpen((v) => !v)}
                                     />
-                                    <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                    <span className="text-xs text-[var(--muted-foreground)]">
                                         已有 {shots.length} 镜 · 拆解/导入均为全量替换(旧分镜会被覆盖)
                                     </span>
                                 </div>
@@ -734,7 +734,7 @@ export default function DramaWorkspacePage() {
                                             onChange={(e) => setSvmlText(e.target.value)}
                                             rows={8}
                                             placeholder={"词锚定脚本(hypit SVML 语法):\n[scene:雨夜巷口][mood:紧张]\n<林夏> 别跟着我。||我说了,@{回头}猛地回头@{/回头}别跟着我。\n镜头缓推 || 霓虹闪烁\n---\n(空行或 --- 分镜;|| 分拍;@{锚}词@{/锚} 词级锚点;时长按字数自动估算)"}
-                                            className="w-full resize-y rounded-lg border border-[var(--border)] bg-transparent p-3 font-mono text-xs leading-5 text-foreground outline-none focus:border-[var(--workspace-accent,#666)]"
+                                            className="w-full resize-y rounded-lg border border-[var(--border)] bg-transparent p-3 font-mono text-xs leading-5 text-foreground outline-none focus:border-[var(--workspace-accent)]"
                                             aria-label="词锚定脚本文本"
                                         />
                                         <div className="flex items-center gap-2">
@@ -745,7 +745,7 @@ export default function DramaWorkspacePage() {
                                                 onClick={() => void runSvmlImport()}
                                                 loading={svmlBusy}
                                             />
-                                            <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                            <span className="text-xs text-[var(--muted-foreground)]">
                                                 确定性解析不经 LLM · 台词字数自动估时(2–15s)
                                             </span>
                                         </div>
@@ -755,7 +755,7 @@ export default function DramaWorkspacePage() {
                                                 {svmlMsg}
                                             </p>
                                         )}
-                                        {svmlErr && <p className="text-xs text-[var(--danger,#e5484d)]">{svmlErr}</p>}
+                                        {svmlErr && <p className="text-xs text-[var(--danger)]">{svmlErr}</p>}
                                     </div>
                                 )}
                                 {parseMsg && (
@@ -765,7 +765,7 @@ export default function DramaWorkspacePage() {
                                     </p>
                                 )}
                                 {parseError && (
-                                    <p className="text-xs text-[var(--danger,#e5484d)]">{parseError}</p>
+                                    <p className="text-xs text-[var(--danger)]">{parseError}</p>
                                 )}
                             </SectionShell>
                         )}
@@ -783,7 +783,7 @@ export default function DramaWorkspacePage() {
                                                         <StatusBadge variant="filled" tone="success" label={`参考图 ${c.reference_images?.length}`} size="sm" />
                                                     )}
                                                 </div>
-                                                <span className="line-clamp-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                                <span className="line-clamp-2 text-xs text-[var(--muted-foreground)]">
                                                     {c.description || c.visual_prompt || "无描述"}
                                                 </span>
                                                 <ToolButton
@@ -803,9 +803,9 @@ export default function DramaWorkspacePage() {
                                         <ToolButton size="xs" variant="ghost" icon={<RefreshCw />} label="刷新" loading={sharedLoading} onClick={() => void loadShared()} />
                                     </div>
                                     {assetMsg && <p className="text-xs text-foreground">{assetMsg}</p>}
-                                    {assetError && <p className="text-xs text-[var(--danger,#e5484d)]">{assetError}</p>}
+                                    {assetError && <p className="text-xs text-[var(--danger)]">{assetError}</p>}
                                     {sharedAssets.length === 0 ? (
-                                        <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">暂无全局主体(在经典端「资源中心-主体库」创建后跨项目复用)</p>
+                                        <p className="text-xs text-[var(--muted-foreground)]">暂无全局主体(在经典端「资源中心-主体库」创建后跨项目复用)</p>
                                     ) : (
                                         <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
                                             {sharedAssets.map((a) => {
@@ -813,7 +813,7 @@ export default function DramaWorkspacePage() {
                                                 return (
                                                     <div key={a.id} className="flex flex-col gap-1 rounded-lg border border-[var(--border)] p-2.5">
                                                         <span className="truncate text-xs font-medium text-foreground">{a.name || "未命名"}</span>
-                                                        <span className="line-clamp-2 text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{a.description || a.visual_prompt || "无描述"}</span>
+                                                        <span className="line-clamp-2 text-[11px] text-[var(--muted-foreground)]">{a.description || a.visual_prompt || "无描述"}</span>
                                                         <ToolButton
                                                             size="xs"
                                                             variant={already ? "ghost" : "default"}
@@ -838,11 +838,11 @@ export default function DramaWorkspacePage() {
                                 ) : (
                                     <>
                                     {frameError && (
-                                        <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger,#e5484d)]">{frameError}</p>
+                                        <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger)]">{frameError}</p>
                                     )}
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left text-xs">
-                                            <thead className="text-[var(--muted-foreground,#a8a8a8)]">
+                                            <thead className="text-[var(--muted-foreground)]">
                                                 <tr>
                                                     <th className="px-2 py-1.5">#</th>
                                                     <th className="px-2 py-1.5">场景</th>
@@ -909,7 +909,7 @@ export default function DramaWorkspacePage() {
                                                 onClick={() => void startCChain()}
                                                 loading={chainBusy}
                                             />
-                                            <label className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                            <label className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
                                                 加速档
                                                 <Select
                                                     size="small"
@@ -924,17 +924,17 @@ export default function DramaWorkspacePage() {
                                                     }))}
                                                 />
                                             </label>
-                                            <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                            <span className="text-xs text-[var(--muted-foreground)]">
                                                 单镜/整批走 H3 ref2va(需角色定妆参考图);管线C 为 c_hybrid 连续生成,作业进任务中心
                                             </span>
                                         </div>
-                                        <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                        <p className="text-xs text-[var(--muted-foreground)]">
                                             {formatAccelTierNote(selectedAccelTier) || "满血档:原生采样,质量优先(产品默认)。"}
                                         </p>
                                         {gateOpen && (
-                                            <div className="rounded-lg border border-[var(--border)] bg-[var(--card,#121214)] p-3 text-xs">
+                                            <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-xs">
                                                 <p className="mb-2 font-medium text-foreground">生成前确认</p>
-                                                <ul className="mb-2 flex flex-col gap-0.5 text-[var(--muted-foreground,#a8a8a8)]">
+                                                <ul className="mb-2 flex flex-col gap-0.5 text-[var(--muted-foreground)]">
                                                     <li>· 待渲染：{shots.filter((x) => !RENDERED_STATES.has(x.status)).length} / {shots.length} 镜</li>
                                                     <li>· 引擎：H3 ref2va · 加速档：{formatAccelTierLabel(selectedAccelTier)}</li>
                                                     <li>· 说明：{formatAccelTierNote(selectedAccelTier) || "满血档:原生采样,质量优先。"}</li>
@@ -959,7 +959,7 @@ export default function DramaWorkspacePage() {
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{chainMsg}</p>
                                         )}
                                         {renderError && (
-                                            <p className="rounded-lg border border-[var(--border)] bg-[var(--muted,rgba(255,255,255,0.05))] p-2.5 text-xs text-[var(--danger,#e5484d)]">
+                                            <p className="rounded-lg border border-[var(--border)] bg-[var(--muted)] p-2.5 text-xs text-[var(--danger)]">
                                                 {renderError}
                                             </p>
                                         )}
@@ -979,7 +979,7 @@ export default function DramaWorkspacePage() {
                                                 const canVoice = s.status === "rendered" && !s.voice_url && !busy;
                                                 return (
                                                     <li key={s.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-xs">
-                                                        <span className="w-8 tabular-nums text-[var(--muted-foreground,#a8a8a8)]">#{s.idx}</span>
+                                                        <span className="w-8 tabular-nums text-[var(--muted-foreground)]">#{s.idx}</span>
                                                         <span className="min-w-0 flex-1 truncate">{s.scene || s.prompt || "—"}</span>
                                                         <StatusBadge variant="filled" tone={STATUS_TONE[s.status] ?? "neutral"} label={s.status} size="sm" />
                                                         {s.video_url && <StatusBadge variant="filled" tone="success" label="视频" size="sm" />}
@@ -1080,16 +1080,16 @@ export default function DramaWorkspacePage() {
                                                 onClick={() => void runSubtitles("burn")}
                                                 loading={subsBusy === "burn"}
                                             />
-                                            <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                            <span className="text-xs text-[var(--muted-foreground)]">
                                                 就绪 {shots.filter((x) => x.final_clip_url).length}/{shots.length} 镜;配音镜 {shots.filter((x) => x.voice_url).length} 个(字幕源)
                                             </span>
                                         </div>
                                         {subsMsg && <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{subsMsg}</p>}
-                                        {subsError && <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger,#e5484d)]">{subsError}</p>}
+                                        {subsError && <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger)]">{subsError}</p>}
                                         {tlMsg && <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{tlMsg}</p>}
-                                        {tlError && <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger,#e5484d)]">{tlError}</p>}
+                                        {tlError && <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger)]">{tlError}</p>}
                                         {assembleError && (
-                                            <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger,#e5484d)]">{assembleError}</p>
+                                            <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger)]">{assembleError}</p>
                                         )}
                                         {assembleMsg && (
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{assembleMsg}</p>
@@ -1099,12 +1099,12 @@ export default function DramaWorkspacePage() {
                                                 <Fragment key={x.id}>
                                                 <li className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-xs">
                                                     <span className="flex flex-col gap-0.5">
-                                                        <button type="button" aria-label={`上移 ${x.scene?.slice(0, 8) ?? x.id.slice(0, 6)}`} disabled={i === 0} onClick={() => tlMove(x.id, -1)} className="text-[var(--muted-foreground,#a8a8a8)] hover:text-foreground disabled:opacity-30"><ArrowUp className="size-3" /></button>
-                                                        <button type="button" aria-label={`下移 ${x.scene?.slice(0, 8) ?? x.id.slice(0, 6)}`} disabled={i === tlShots.length - 1} onClick={() => tlMove(x.id, 1)} className="text-[var(--muted-foreground,#a8a8a8)] hover:text-foreground disabled:opacity-30"><ArrowDown className="size-3" /></button>
+                                                        <button type="button" aria-label={`上移 ${x.scene?.slice(0, 8) ?? x.id.slice(0, 6)}`} disabled={i === 0} onClick={() => tlMove(x.id, -1)} className="text-[var(--muted-foreground)] hover:text-foreground disabled:opacity-30"><ArrowUp className="size-3" /></button>
+                                                        <button type="button" aria-label={`下移 ${x.scene?.slice(0, 8) ?? x.id.slice(0, 6)}`} disabled={i === tlShots.length - 1} onClick={() => tlMove(x.id, 1)} className="text-[var(--muted-foreground)] hover:text-foreground disabled:opacity-30"><ArrowDown className="size-3" /></button>
                                                     </span>
-                                                    <span className="w-8 tabular-nums text-[var(--muted-foreground,#a8a8a8)]">{String(i + 1).padStart(2, "0")}</span>
+                                                    <span className="w-8 tabular-nums text-[var(--muted-foreground)]">{String(i + 1).padStart(2, "0")}</span>
                                                     <span className="min-w-0 flex-1 truncate">{x.scene || x.prompt || "—"}</span>
-                                                    <label className="flex items-center gap-1 text-[var(--muted-foreground,#a8a8a8)]">
+                                                    <label className="flex items-center gap-1 text-[var(--muted-foreground)]">
                                                         时长
                                                         <input
                                                             type="number" min={3} max={60} value={tlDuration[x.id] ?? x.duration_sec ?? 6}
@@ -1177,12 +1177,12 @@ export default function DramaWorkspacePage() {
                     <div className="flex flex-col gap-3">
                         <p className="text-sm leading-relaxed text-foreground">{sheetChar.description || sheetChar.visual_prompt || "无描述"}</p>
                         {sheetChar.visual_prompt && (
-                            <p className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs leading-relaxed text-muted-foreground">{sheetChar.visual_prompt}</p>
+                            <p className="rounded-xl bg-[var(--muted)] p-3 text-xs leading-relaxed text-muted-foreground">{sheetChar.visual_prompt}</p>
                         )}
                         <div className="flex flex-col gap-2">
                             <span className="text-xs font-medium text-foreground">设定卡（{sheets.length}）</span>
                             {sheetError && (
-                                <p className="rounded-lg border border-[var(--border)] bg-[var(--muted,rgba(255,255,255,0.05))] p-2.5 text-xs text-[var(--danger,#e5484d)]">
+                                <p className="rounded-lg border border-[var(--border)] bg-[var(--muted)] p-2.5 text-xs text-[var(--danger)]">
                                     {sheetError}
                                 </p>
                             )}

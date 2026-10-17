@@ -57,7 +57,7 @@ export function SceneAnchorPanel({
         <div className="mt-2 flex flex-col gap-2 rounded-lg border border-[var(--border)] p-2.5 text-xs">
             <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-foreground">场景锚点</span>
-                <span className="text-[var(--muted-foreground,#a8a8a8)]">冻结快照跨镜共背景;重冻不改旧绑定</span>
+                <span className="text-[var(--muted-foreground)]">冻结快照跨镜共背景;重冻不改旧绑定</span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
                 <input
@@ -99,16 +99,16 @@ export function SceneAnchorPanel({
                     aria-label="锚点图 URL"
                 />
             </div>
-            {err && <p className="text-xs text-[var(--danger,#e5484d)]">{err}</p>}
-            {msg && <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">{msg}</p>}
+            {err && <p className="text-xs text-[var(--danger)]">{err}</p>}
+            {msg && <p className="text-xs text-[var(--muted-foreground)]">{msg}</p>}
             {scenes.length ? (
                 <ul className="flex flex-col gap-1.5">
                     {scenes.map((scene) => (
                         <li key={scene.id} className="flex flex-wrap items-center gap-2 rounded border border-[var(--border)] px-2 py-1.5">
                             <span className="font-medium text-foreground">{scene.name}</span>
                             {scene.frozen_anchor?.snapshot_url
-                                ? <span className="text-[var(--accent,#6e56cf)]">已冻结 · {scene.frozen_anchor.anchor_id ?? "锚点"}</span>
-                                : <span className="text-[var(--muted-foreground,#a8a8a8)]">未冻结</span>}
+                                ? <span className="text-[var(--accent)]">已冻结 · {scene.frozen_anchor.anchor_id ?? "锚点"}</span>
+                                : <span className="text-[var(--muted-foreground)]">未冻结</span>}
                             <ToolButton
                                 size="xs"
                                 variant="ghost"
@@ -152,7 +152,7 @@ export function SceneAnchorPanel({
                     ))}
                 </ul>
             ) : (
-                <p className="text-[var(--muted-foreground,#a8a8a8)]">还没有场景。先新建场景,冻结锚点后绑定分镜。</p>
+                <p className="text-[var(--muted-foreground)]">还没有场景。先新建场景,冻结锚点后绑定分镜。</p>
             )}
         </div>
     );

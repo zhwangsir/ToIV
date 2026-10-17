@@ -93,7 +93,7 @@ export default function LibraryTranscriptSearch() {
                         placeholder="搜索台词（媒体转录全文）"
                         aria-label="搜索台词"
                         data-testid="transcript-search-input"
-                        className="h-9 w-full rounded-md border border-[var(--border-semantic,var(--border,#333))] bg-transparent pl-8 pr-2 text-xs text-foreground outline-none focus:border-[var(--workspace-accent,#888)]"
+                        className="h-9 w-full rounded-md border border-[var(--border-semantic,var(--border))] bg-transparent pl-8 pr-2 text-xs text-foreground outline-none focus:border-[var(--workspace-accent)]"
                     />
                 </div>
                 {loading ? <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="检索中" /> : null}
@@ -114,7 +114,7 @@ export default function LibraryTranscriptSearch() {
                             onClick={() => setPreview(item)}
                             aria-label={`预览台词命中 ${mediaName(item.media_url)}`}
                             data-testid="transcript-result-item"
-                            className="group flex flex-col overflow-hidden rounded-[var(--card-radius,12px)] bg-[var(--card-surface,#f7f7f7)] text-left transition-colors hover:bg-[var(--card-surface-hover,#f0f0f0)]"
+                            className="group flex flex-col overflow-hidden rounded-[var(--card-radius,12px)] bg-[var(--card-surface)] text-left transition-colors hover:bg-[var(--card-surface-hover)]"
                         >
                             <span className="block aspect-video w-full overflow-hidden bg-black/20">
                                 {item.media_url ? (
@@ -133,7 +133,7 @@ export default function LibraryTranscriptSearch() {
                                 </span>
                                 <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
                                     {item.source_tag ? (
-                                        <span className="rounded-full border border-[var(--border-semantic,var(--border,#333))] px-2 py-0.5">{item.source_tag}</span>
+                                        <span className="rounded-full border border-[var(--border-semantic,var(--border))] px-2 py-0.5">{item.source_tag}</span>
                                     ) : null}
                                     <span>{item.hits.length} 处命中</span>
                                 </span>
@@ -155,7 +155,7 @@ export default function LibraryTranscriptSearch() {
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
                 >
                     <div
-                        className="flex max-h-full w-full max-w-3xl flex-col gap-3 overflow-auto rounded-[var(--card-radius,12px)] bg-[var(--popover,#1f1f1f)] p-4"
+                        className="flex max-h-full w-full max-w-3xl flex-col gap-3 overflow-auto rounded-[var(--card-radius,12px)] bg-[var(--popover)] p-4"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex items-center justify-between gap-3">

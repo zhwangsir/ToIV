@@ -284,7 +284,7 @@ export default function AgentPage() {
             return (
                 <div key={i} className="max-w-[min(100%,520px)]">
                     {card ?? (
-                        <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                        <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
                             画布提案
                             <button
                                 type="button"
@@ -306,7 +306,7 @@ export default function AgentPage() {
                 : null;
             if (card) return <div key={i} className="max-w-[min(100%,520px)]">{card}</div>;
             return (
-                <div key={i} className="max-w-[70%] rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                <div key={i} className="max-w-[70%] rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
                     🛠 {toolTitle(t.name)}
                     {t.status ? ` · ${t.status}` : ""}
                 </div>
@@ -316,7 +316,7 @@ export default function AgentPage() {
             <div key={i} className={`flex ${t.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
                     className={`max-w-[70%] whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                        t.role === "user" ? "bg-[var(--workspace-accent,#2a2a2a)]" : "border border-[var(--border)] bg-[var(--card,#181818)]"
+                        t.role === "user" ? "bg-[var(--workspace-accent)]" : "border border-[var(--border)] bg-[var(--card)]"
                     }`}
                 >
                     {t.content}
@@ -335,13 +335,13 @@ export default function AgentPage() {
                     </div>
                     <div className="flex-1 overflow-auto p-2">
                         {sessions.length === 0 ? (
-                            <p className="p-3 text-center text-xs text-[var(--muted-foreground,#a8a8a8)]">暂无会话</p>
+                            <p className="p-3 text-center text-xs text-[var(--muted-foreground)]">暂无会话</p>
                         ) : (
                             sessions.map((s) => (
                                 <div
                                     key={s.id}
                                     className={`group mb-1 flex items-center gap-1 rounded-lg ${
-                                        s.id === sessionId ? "bg-[var(--surface-active,rgba(255,255,255,0.1))]" : "hover:bg-[var(--surface-hover,rgba(255,255,255,0.06))]"
+                                        s.id === sessionId ? "bg-[var(--surface-active)]" : "hover:bg-[var(--surface-hover)]"
                                     }`}
                                 >
                                     <button
@@ -353,7 +353,7 @@ export default function AgentPage() {
                                     </button>
                                     <button
                                         type="button"
-                                        className="mr-1 hidden rounded p-1 text-[var(--muted-foreground,#a8a8a8)] hover:text-red-400 group-hover:inline-flex"
+                                        className="mr-1 hidden rounded p-1 text-[var(--muted-foreground)] hover:text-red-400 group-hover:inline-flex"
                                         aria-label="删除会话"
                                         onClick={() => void onDelete(s.id)}
                                     >
@@ -406,7 +406,7 @@ export default function AgentPage() {
                     )}
                     {turns.map(renderTurn)}
                     {busy && (
-                        <div className="flex items-center gap-2 px-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                        <div className="flex items-center gap-2 px-2 text-xs text-[var(--muted-foreground)]">
                             <Loader2 className="size-3.5 animate-spin" />
                             思考中…
                         </div>
@@ -425,7 +425,7 @@ export default function AgentPage() {
                         }}
                         placeholder="输入指令，Enter 发送 / Shift+Enter 换行"
                         rows={2}
-                        className="min-w-0 flex-1 resize-none rounded-xl border border-border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-[var(--workspace-accent,#3a3a3a)]"
+                        className="min-w-0 flex-1 resize-none rounded-xl border border-border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-[var(--workspace-accent)]"
                         disabled={busy}
                     />
                     <button

@@ -8,7 +8,8 @@ import {
 import { cn } from "@/lib/utils";
 
 type MediaLibrarySourceRailProps = {
-    active: MediaLibrarySource;
+    /** 当前来源页签；不传 = 当前视图不是三来源之一（如画板/台词检索子页），不高亮任何项。 */
+    active?: MediaLibrarySource;
     worksCount?: number;
     materialsCount?: number;
     historyCount?: number;

@@ -21740,3 +21740,8 @@ main[data-libtv-readonly-dense="true"] .canvas-floating-dock {
 .canvas-model-picker-description {
     display: none !important;
 }
+
+/* creation demo banner accent(2026-10-17 裸 hex 收口:token 单一源) */
+:root {
+    --creation-demo-accent: #35c8e8;
+}

@@ -100,10 +100,13 @@ describe("feat/studio-library-assets-unify — nav + entry points", () => {
         expect(rail).toContain('"素材"');
         expect(rail).toContain('"生成历史"');
         expect(rail).toContain("媒体库来源导航");
+        // Wave A(2026-10-16):active 改可选——画板/台词检索子页不高亮三来源项
+        expect(rail).toContain("active?: MediaLibrarySource");
 
         const library = read("src/pages/toiv/library-page.tsx");
         expect(library).toContain("MediaLibrarySourceRail");
-        expect(library).toContain('active="works"');
+        expect(library).toContain('active={activeTab === "works" ? "works" : undefined}');
+        expect(library).not.toContain('active="works"');
         expect(library).toContain("mediaLibraryWorksDetailPath");
 
         const assets = read("src/pages/assets/index.tsx");

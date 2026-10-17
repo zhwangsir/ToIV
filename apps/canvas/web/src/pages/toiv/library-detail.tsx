@@ -79,13 +79,13 @@ function mediaKindLabel(kind: LibraryMediaKind): string {
 }
 
 function MediaThumb({ media, className = "h-full w-full object-cover" }: { media: LibraryMedia | null; className?: string }) {
-    if (!media) return <Clapperboard className="h-7 w-7 text-[var(--muted-foreground,#a8a8a8)]" />;
+    if (!media) return <Clapperboard className="h-7 w-7 text-[var(--muted-foreground)]" />;
     if (media.kind === "video") {
         return <video src={media.url} className={className} muted preload="metadata" />;
     }
     if (media.kind === "audio") {
         return (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-[var(--muted,rgba(255,255,255,0.05))] text-[var(--muted-foreground,#a8a8a8)]">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-[var(--muted)] text-[var(--muted-foreground)]">
                 <Music className="h-7 w-7" aria-hidden />
                 <span className="text-[10px]">音频</span>
             </div>
@@ -94,7 +94,7 @@ function MediaThumb({ media, className = "h-full w-full object-cover" }: { media
     if (media.kind === "image") {
         return <img src={media.url} alt="" className={className} loading="lazy" />;
     }
-    return <ImageIcon className="h-7 w-7 text-[var(--muted-foreground,#a8a8a8)]" />;
+    return <ImageIcon className="h-7 w-7 text-[var(--muted-foreground)]" />;
 }
 
 function MediaPreview({ media }: { media: LibraryMedia }) {
@@ -103,7 +103,7 @@ function MediaPreview({ media }: { media: LibraryMedia }) {
     }
     if (media.kind === "audio") {
         return (
-            <div className="flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--muted,rgba(255,255,255,0.05))] p-4">
+            <div className="flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--muted)] p-4">
                 <div className="flex items-center gap-2 text-sm text-foreground">
                     <Music className="size-4" aria-hidden />
                     <span>音频预览</span>
@@ -380,11 +380,11 @@ export default function LibraryDetailPage() {
         return (
             <div
                 key={item.id}
-                className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)]"
+                className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]"
             >
                 <button
                     type="button"
-                    className="relative flex h-36 items-center justify-center bg-[var(--muted,rgba(255,255,255,0.05))]"
+                    className="relative flex h-36 items-center justify-center bg-[var(--muted)]"
                     onClick={() => openPreview(item)}
                     aria-label="预览"
                 >
@@ -402,13 +402,13 @@ export default function LibraryDetailPage() {
                 </button>
                 <div className="flex flex-1 flex-col gap-1.5 p-3">
                     <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">#{item.sort_order + 1}</span>
+                        <span className="text-[11px] text-[var(--muted-foreground)]">#{item.sort_order + 1}</span>
                         {job ? statusTag(job.status) : <StatusBadge variant="filled" tone="neutral" label="分镜占位" size="sm" />}
                         {job && (
                             <button
                                 type="button"
                                 onClick={() => setRecycleTarget([item])}
-                                className="text-[var(--muted-foreground,#a8a8a8)] opacity-0 transition-opacity group-hover:opacity-100"
+                                className="text-[var(--muted-foreground)] opacity-0 transition-opacity group-hover:opacity-100"
                                 aria-label="移入回收站"
                             >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -416,16 +416,16 @@ export default function LibraryDetailPage() {
                         )}
                     </div>
                     <p
-                        className="line-clamp-3 min-h-10 text-xs leading-relaxed text-[var(--muted-foreground,#a8a8a8)]"
+                        className="line-clamp-3 min-h-10 text-xs leading-relaxed text-[var(--muted-foreground)]"
                         title={item.shot_text}
                     >
                         {item.shot_text || (job?.prompt || "").slice(0, 90) || "—"}
                     </p>
                     {meta.camera && (
-                        <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">🎥 {meta.camera}</span>
+                        <span className="text-[11px] text-[var(--muted-foreground)]">🎥 {meta.camera}</span>
                     )}
                     {job?.kind ? (
-                        <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">{job.kind}</span>
+                        <span className="text-[11px] text-[var(--muted-foreground)]">{job.kind}</span>
                     ) : null}
                 </div>
             </div>
@@ -439,11 +439,11 @@ export default function LibraryDetailPage() {
         return (
             <div
                 key={folder.key}
-                className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card,#181818)]"
+                className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]"
             >
                 <button
                     type="button"
-                    className="relative flex h-36 items-center justify-center bg-[var(--muted,rgba(255,255,255,0.05))]"
+                    className="relative flex h-36 items-center justify-center bg-[var(--muted)]"
                     onClick={() => setFolderOpen(folder)}
                     aria-label={folder.variant ? "打开变体组" : "打开批次"}
                 >
@@ -460,13 +460,13 @@ export default function LibraryDetailPage() {
                         <button
                             type="button"
                             onClick={() => setRecycleTarget(folder.members.filter((m) => m.job))}
-                            className="text-[var(--muted-foreground,#a8a8a8)] opacity-0 transition-opacity group-hover:opacity-100"
+                            className="text-[var(--muted-foreground)] opacity-0 transition-opacity group-hover:opacity-100"
                             aria-label="整组移入回收站"
                         >
                             <Trash2 className="h-3.5 w-3.5" />
                         </button>
                     </div>
-                    <p className="line-clamp-2 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                    <p className="line-clamp-2 text-xs text-[var(--muted-foreground)]">
                         {(job?.prompt || cover.shot_text || "—").slice(0, 90)}
                     </p>
                 </div>
@@ -489,7 +489,7 @@ export default function LibraryDetailPage() {
                     <h1 className="text-xl font-semibold leading-7 text-foreground">
                         {board?.name || "作品集详情"}
                     </h1>
-                    <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">
+                    <p className="text-xs leading-5 text-[var(--muted-foreground)]">
                         {items.length} 个条目
                         {doneCount ? ` · ${doneCount} 已完成` : ""}
                         {board?.description ? ` · ${board.description}` : ""}
@@ -497,7 +497,7 @@ export default function LibraryDetailPage() {
                         预览 / 下载 / 画布 / 改名 / 导出 / 回收站
                     </p>
                     {board?.created_at ? (
-                        <p className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
+                        <p className="text-[11px] text-[var(--muted-foreground)]">
                             创建于 {new Date(board.created_at).toLocaleString("zh-CN")}
                             {board.id ? ` · id ${board.id.slice(0, 8)}…` : ""}
                         </p>
@@ -547,7 +547,7 @@ export default function LibraryDetailPage() {
             {notice ? (
                 <p
                     role="status"
-                    className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card,#181818)] px-3 py-2 text-xs text-foreground"
+                    className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-xs text-foreground"
                 >
                     <span>{notice}</span>
                     {undoToken ? (
@@ -557,7 +557,7 @@ export default function LibraryDetailPage() {
                     ) : null}
                     <button
                         type="button"
-                        className="ml-auto underline text-[var(--muted-foreground,#a8a8a8)]"
+                        className="ml-auto underline text-[var(--muted-foreground)]"
                         onClick={() => {
                             setNotice(null);
                             setUndoToken(null);
@@ -606,12 +606,12 @@ export default function LibraryDetailPage() {
                                                 onClick={() => setPreviewMediaIndex(idx)}
                                                 className={`overflow-hidden rounded-lg border ${
                                                     idx === previewMediaIndex
-                                                        ? "border-[var(--workspace-accent,#f5f5f5)]"
+                                                        ? "border-[var(--workspace-accent)]"
                                                         : "border-[var(--border)]"
                                                 }`}
                                                 aria-label={`结果 ${idx + 1}`}
                                             >
-                                                <div className="flex h-14 w-20 items-center justify-center bg-[var(--muted,rgba(255,255,255,0.05))]">
+                                                <div className="flex h-14 w-20 items-center justify-center bg-[var(--muted)]">
                                                     <MediaThumb media={m} />
                                                 </div>
                                             </button>
@@ -634,11 +634,11 @@ export default function LibraryDetailPage() {
                                             />
                                         ) : null}
                                         {job.seed != null && (
-                                            <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                            <span className="text-xs text-[var(--muted-foreground)]">
                                                 seed {job.seed}
                                             </span>
                                         )}
-                                        <span className="text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                        <span className="text-xs text-[var(--muted-foreground)]">
                                             {new Date(job.created_at).toLocaleString("zh-CN")}
                                         </span>
                                     </div>
@@ -646,46 +646,46 @@ export default function LibraryDetailPage() {
                                     <StatusBadge variant="filled" tone="neutral" label="分镜占位行(尚未挂作品)" size="sm" />
                                 )}
 
-                                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-xl border border-[var(--border)] bg-[var(--muted,rgba(255,255,255,0.03))] p-3 text-xs">
+                                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-xl border border-[var(--border)] bg-[var(--muted)] p-3 text-xs">
                                     {job?.id ? (
                                         <>
-                                            <dt className="text-[var(--muted-foreground,#a8a8a8)]">作业 id</dt>
+                                            <dt className="text-[var(--muted-foreground)]">作业 id</dt>
                                             <dd className="break-all font-mono text-foreground">{job.id}</dd>
                                         </>
                                     ) : null}
                                     {job?.batch_id ? (
                                         <>
-                                            <dt className="text-[var(--muted-foreground,#a8a8a8)]">批次</dt>
+                                            <dt className="text-[var(--muted-foreground)]">批次</dt>
                                             <dd className="break-all font-mono text-foreground">{job.batch_id}</dd>
                                         </>
                                     ) : null}
                                     {job?.parent_id ? (
                                         <>
-                                            <dt className="text-[var(--muted-foreground,#a8a8a8)]">父作业</dt>
+                                            <dt className="text-[var(--muted-foreground)]">父作业</dt>
                                             <dd className="break-all font-mono text-foreground">{job.parent_id}</dd>
                                         </>
                                     ) : null}
                                     {job?.root_id ? (
                                         <>
-                                            <dt className="text-[var(--muted-foreground,#a8a8a8)]">根作业</dt>
+                                            <dt className="text-[var(--muted-foreground)]">根作业</dt>
                                             <dd className="break-all font-mono text-foreground">{job.root_id}</dd>
                                         </>
                                     ) : null}
                                     {job?.post_status ? (
                                         <>
-                                            <dt className="text-[var(--muted-foreground,#a8a8a8)]">后处理</dt>
+                                            <dt className="text-[var(--muted-foreground)]">后处理</dt>
                                             <dd className="text-foreground">{job.post_status}</dd>
                                         </>
                                     ) : null}
                                     {preview.note ? (
                                         <>
-                                            <dt className="text-[var(--muted-foreground,#a8a8a8)]">备注</dt>
+                                            <dt className="text-[var(--muted-foreground)]">备注</dt>
                                             <dd className="text-foreground">{preview.note}</dd>
                                         </>
                                     ) : null}
                                     {medias.length ? (
                                         <>
-                                            <dt className="text-[var(--muted-foreground,#a8a8a8)]">结果数</dt>
+                                            <dt className="text-[var(--muted-foreground)]">结果数</dt>
                                             <dd className="text-foreground">{medias.length}</dd>
                                         </>
                                     ) : null}
@@ -701,13 +701,13 @@ export default function LibraryDetailPage() {
                                     {preview.shot_text || job?.prompt}
                                 </p>
                                 {meta.scene && (
-                                    <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">场景:{meta.scene}</p>
+                                    <p className="text-xs text-[var(--muted-foreground)]">场景:{meta.scene}</p>
                                 )}
                                 {meta.camera && (
-                                    <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]">运镜:{String(meta.camera)}</p>
+                                    <p className="text-xs text-[var(--muted-foreground)]">运镜:{String(meta.camera)}</p>
                                 )}
                                 {meta.prompt && (
-                                    <p className="rounded-xl bg-[var(--muted,rgba(255,255,255,0.05))] p-3 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                                    <p className="rounded-xl bg-[var(--muted)] p-3 text-xs text-[var(--muted-foreground)]">
                                         {String(meta.prompt)}
                                     </p>
                                 )}
@@ -756,7 +756,7 @@ export default function LibraryDetailPage() {
                                     </button>
                                 </div>
                                 {media ? (
-                                    <p className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
+                                    <p className="text-[11px] text-[var(--muted-foreground)]">
                                         画布深链会新建空白{mediaKindLabel(media.kind)}节点；请先下载媒体再拖入节点（不走自动接线，避免假手递）。
                                     </p>
                                 ) : null}
@@ -803,11 +803,11 @@ export default function LibraryDetailPage() {
                                             openPreview(m);
                                         }}
                                     >
-                                        <div className="flex h-28 items-center justify-center bg-[var(--muted,rgba(255,255,255,0.05))]">
+                                        <div className="flex h-28 items-center justify-center bg-[var(--muted)]">
                                             <MediaThumb media={media} />
                                         </div>
                                         <div className="flex items-center justify-between gap-2 p-2">
-                                            <span className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
+                                            <span className="text-[11px] text-[var(--muted-foreground)]">
                                                 #{m.sort_order + 1}
                                             </span>
                                             {m.job ? statusTag(m.job.status) : null}
@@ -843,16 +843,16 @@ export default function LibraryDetailPage() {
                             return (
                                 <div
                                     key={job.id}
-                                    className="flex gap-3 rounded-xl border border-[var(--border)] bg-[var(--card,#181818)] p-3"
+                                    className="flex gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3"
                                 >
-                                    <div className="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--muted,rgba(255,255,255,0.05))]">
+                                    <div className="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--muted)]">
                                         <MediaThumb media={media} />
                                     </div>
                                     <div className="flex min-w-0 flex-1 flex-col gap-1">
                                         <p className="line-clamp-2 text-xs text-foreground">
                                             {(job.prompt || job.kind || job.id).slice(0, 120)}
                                         </p>
-                                        <p className="text-[11px] text-[var(--muted-foreground,#a8a8a8)]">
+                                        <p className="text-[11px] text-[var(--muted-foreground)]">
                                             {formatRetention(job.restore_remaining_seconds)}
                                         </p>
                                         <div className="mt-1 flex flex-wrap gap-2">
@@ -893,23 +893,23 @@ export default function LibraryDetailPage() {
                 destroyOnHidden
             >
                 <div className="flex flex-col gap-3">
-                    <label className="flex flex-col gap-1 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                    <label className="flex flex-col gap-1 text-xs text-[var(--muted-foreground)]">
                         名称
                         <input
                             value={renameName}
                             onChange={(e) => setRenameName(e.target.value)}
                             maxLength={64}
-                            className="h-9 rounded-md border border-border bg-[var(--card,#181818)] px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="h-9 rounded-md border border-border bg-[var(--card)] px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         />
                     </label>
-                    <label className="flex flex-col gap-1 text-xs text-[var(--muted-foreground,#a8a8a8)]">
+                    <label className="flex flex-col gap-1 text-xs text-[var(--muted-foreground)]">
                         描述（可选）
                         <textarea
                             value={renameDesc}
                             onChange={(e) => setRenameDesc(e.target.value)}
                             maxLength={500}
                             rows={3}
-                            className="rounded-md border border-border bg-[var(--card,#181818)] px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="rounded-md border border-border bg-[var(--card)] px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         />
                     </label>
                     <div className="flex justify-end gap-2">

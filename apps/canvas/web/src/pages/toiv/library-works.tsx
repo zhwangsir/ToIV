@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { ToolButton } from "@/components/ui/base/buttons";
+import { formatDateTime } from "@/lib/time-format";
 import { toivCoverImageUrl, toivMediaUrl } from "@/services/toiv/cover-url";
 import {
     deleteToivWork,
@@ -31,12 +32,6 @@ const KIND_TABS = [
 ] as const;
 
 const PAGE_SIZE = 60;
-
-function formatTime(value: string): string {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "—";
-    return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(d);
-}
 
 type MediaKind = "video" | "audio" | "image" | "other";
 
@@ -139,8 +134,8 @@ export default function LibraryWorks() {
                             onClick={() => setKind(t.key)}
                             className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                                 kind === t.key
-                                    ? "border-transparent bg-[var(--workspace-accent,#f5f5f5)] text-[var(--workspace-accent-foreground,#111)]"
-                                    : "border-[var(--border-semantic,var(--border,#333))] text-muted-foreground hover:text-foreground"
+                                    ? "border-transparent bg-[var(--workspace-accent)] text-[var(--workspace-accent-foreground)]"
+                                    : "border-[var(--border-semantic,var(--border))] text-muted-foreground hover:text-foreground"
                             }`}
                         >
                             {t.label}
@@ -152,7 +147,7 @@ export default function LibraryWorks() {
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="搜索提示词 / 来源应用"
                         aria-label="搜索作品"
-                        className="h-8 w-52 rounded-md border border-[var(--border-semantic,var(--border,#333))] bg-transparent px-2 text-xs text-foreground outline-none focus:border-[var(--workspace-accent,#888)]"
+                        className="h-8 w-52 rounded-md border border-[var(--border-semantic,var(--border))] bg-transparent px-2 text-xs text-foreground outline-none focus:border-[var(--workspace-accent)]"
                     />
                     <ToolButton
                         variant="ghost"
@@ -187,7 +182,7 @@ export default function LibraryWorks() {
                         return (
                             <div
                                 key={job.id}
-                                className="group flex flex-col overflow-hidden rounded-[var(--card-radius,12px)] bg-[var(--card-surface,#f7f7f7)] transition-colors hover:bg-[var(--card-surface-hover,#f0f0f0)]"
+                                className="group flex flex-col overflow-hidden rounded-[var(--card-radius,12px)] bg-[var(--card-surface)] transition-colors hover:bg-[var(--card-surface-hover)]"
                             >
                                 <button
                                     type="button"
@@ -234,9 +229,9 @@ export default function LibraryWorks() {
                                         <span
                                             className={
                                                 st.tone === "ok"
-                                                    ? "text-[var(--success,#4ade80)]"
+                                                    ? "text-[var(--success)]"
                                                     : st.tone === "err"
-                                                      ? "text-[var(--destructive,#f87171)]"
+                                                      ? "text-[var(--destructive)]"
                                                       : "text-muted-foreground"
                                             }
                                         >
@@ -244,7 +239,7 @@ export default function LibraryWorks() {
                                         </span>
                                         <span className="text-muted-foreground">{job.kind || "—"}</span>
                                         {job.app_name ? <span className="truncate text-muted-foreground">· {job.app_name}</span> : null}
-                                        <span className="ml-auto shrink-0 text-muted-foreground">{formatTime(job.created_at)}</span>
+                                        <span className="ml-auto shrink-0 text-muted-foreground">{formatDateTime(job.created_at)}</span>
                                     </div>
                                     <p className="line-clamp-2 min-h-8 text-xs leading-4 text-foreground" title={job.prompt}>
                                         {job.prompt || job.error || "（无提示词）"}
@@ -313,12 +308,12 @@ export default function LibraryWorks() {
                         className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
                     >
                         <div
-                            className="flex max-h-full w-full max-w-3xl flex-col gap-3 overflow-auto rounded-[var(--card-radius,12px)] bg-[var(--popover,#1f1f1f)] p-4"
+                            className="flex max-h-full w-full max-w-3xl flex-col gap-3 overflow-auto rounded-[var(--card-radius,12px)] bg-[var(--popover)] p-4"
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div className="flex items-center justify-between gap-3">
                                 <span className="text-xs text-muted-foreground">
-                                    {preview.kind || "—"} · {statusLabel(preview).text} · {formatTime(preview.created_at)}
+                                    {preview.kind || "—"} · {statusLabel(preview).text} · {formatDateTime(preview.created_at)}
                                     {preview.app_name ? ` · ${preview.app_name}` : ""}
                                 </span>
                                 <button type="button" onClick={() => setPreview(null)} aria-label="关闭预览" className="text-xs text-muted-foreground hover:text-foreground">

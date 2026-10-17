@@ -178,7 +178,7 @@ export function FromImageDialog({
                 </div>
 
                 <label
-                    className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-6 text-sm text-muted-foreground transition-colors hover:border-[var(--workspace-accent,#666)]"
+                    className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-6 text-sm text-muted-foreground transition-colors hover:border-[var(--workspace-accent)]"
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
                 >
@@ -218,7 +218,7 @@ export function FromImageDialog({
                             <div className="flex flex-wrap gap-1">
                                 {NUM_SHOT_OPTIONS.map((n) => (
                                     <button key={n} type="button" disabled={busy}
-                                        className={`rounded-md px-2 py-1 text-xs transition-colors ${numShots === n ? "bg-[var(--surface-active,rgba(255,255,255,0.12))] text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                                        className={`rounded-md px-2 py-1 text-xs transition-colors ${numShots === n ? "bg-[var(--surface-active)] text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                                         onClick={() => setNumShots(n)}>
                                         {n}
                                     </button>
