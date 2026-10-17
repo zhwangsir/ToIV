@@ -7,6 +7,14 @@ The upstream MIT license and copyright lines stay as they are. Remotes: `upstrea
 
 ## Patches on top of upstream
 
+### Web (v1.7.8 收口批,2026-10-17)
+- **A 波 UI 收口**:toiv/create 面裸 hex 全量 token 化(防回归测试 `toiv-no-bare-hex`)、
+  四页时间显示收敛 `lib/time-format.ts`、⌘K 命令面板 Tab 焦点陷阱、
+  MediaLibrarySourceRail 高亮随页签(契约测试同步)、`pages/skills` 死代码与其钉测试删除。
+- **T-U 优化波 polish**:五流程 34 项审计,6 处交互死区补反馈,开发黑话/内部端点文案下架,
+  `/skills`//`tasks` 误导死链止血,⌘K dialog 语义,侧栏 ws 高亮归位。
+- **FU1 词锚定时间轴 UI**(`WordAnchorTimeline`+`SceneAnchorPanel`):消费服务端投影,改词锁定/重排,场景锚点绑定。
+
 ### Backend
 - **Declarative provider cancel** (`internal/app/provider_task_cancellation.go`): installed declarative plugins
   that declare a `cancel` operation get upstream cancel propagation (requested → confirmed / uncertain).
