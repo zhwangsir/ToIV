@@ -138,7 +138,7 @@ cd apps/canvas/web && bun run lint && bun run typecheck && bun run build
 - [ ] W0-2 门禁：pathname-key **已摘**（`w02-pathname-key.test.ts` 防回归），待部署后 drama↔library↔market↔tasks 往返×10 真机回归 PASS 才算闭账
 - [ ] Slice C 触发条件待重定义（须先与 W8 上架闸对齐避免两套上架口径）
 - [ ] SeC 387721：einops reshape 错=SecNodes×torch2.13/sm_120 上游边界（保留观察）
-- [x] FU1 词锚定时间轴+改词重排（2026-10-15）：`svml_timeline.py` + `reflow-beats` + canvas `WordAnchorTimeline`；**待生产部署与真机 e2e**
+- [x] FU1 词锚定时间轴+改词重排（2026-10-15 落码；**2026-10-17 已部署+真机 e2e 闭账**：SVML 导入→投影→改词重排→DB 重载全链实证，beats_json/scene_ref_json 迁移已落 PG；授权破窗部署，running=2 由启动期 reconcile 收口）
 - **T-U UI 优化波（2026-10-14 用户拍板，高优先）**：整体 UI 审计+体验修复；含数字人入口下架隐藏
 
 ### 设备/运维
