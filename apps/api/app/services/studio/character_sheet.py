@@ -3975,6 +3975,19 @@ def save_sheet_png(data: bytes, *, character_id: str, style: str) -> str:
     return f"/api/studio/files/{name}"
 
 
+#: 徽标去标 img2img denoise 升级序列(2026-10-17:0.28 单级 15 连败=清不掉,升三级;禁矩形铺色不变)
+_DELOGO_DENOISE_SCHEDULE = (0.28, 0.45, 0.6)
+
+
+async def _emblem_cleanup(*, make_plain, is_emblem):
+    """徽标去标:按 denoise 升级序列重绘,清掉即回;全败返回 None(绝不矩形铺色)。"""
+    for denoise in _DELOGO_DENOISE_SCHEDULE:
+        cleaned = await make_plain(denoise)
+        if not is_emblem(cleaned):
+            return cleaned
+    return None
+
+
 def save_panel_png(
     data: bytes, *, character_id: str, style: str, key: str
 ) -> str:
@@ -9801,31 +9814,38 @@ async def generate_character_sheet(
                 if meta.style in ("anime", "二次元") and portrait_has_chest_emblem(
                     panels["portrait"], ref=panels.get("front")
                 ):
-                    # 15:36：徽标残留 → 以当前立绘为参考低 denoise 重绘胸口素面
+                    # 15:36：徽标残留 → 以当前立绘为参考重绘胸口素面;2026-10-17 denoise 升三级
                     try:
                         ref_p = await client.upload_image(
                             panels["portrait"],
                             f"sheet_portrait_emblem_{attempt}.png",
                         )
-                        cleaned = await generate_panel_bytes(
-                            pool,
-                            prompts["portrait"]
-                            + ", plain flat chest only, remove chest badge emblem star logo patch, "
-                            + bust,
-                            ckpt_name=ckpt,
-                            width=w,
-                            height=h,
-                            seed=(s or 0) + 171,
-                            worker=worker,
-                            filename_prefix=f"ToIV_char_sheet_portrait_plain_a{attempt}",
-                            style=meta.style,
-                            client=client,
-                            ref_image=ref_p,
-                            ref_mode="img2img",
-                            denoise=0.28,
+
+                        async def _make_plain(denoise, _ref=ref_p):
+                            return await generate_panel_bytes(
+                                pool,
+                                prompts["portrait"]
+                                + ", plain flat chest only, remove chest badge emblem star logo patch, "
+                                + bust,
+                                ckpt_name=ckpt,
+                                width=w,
+                                height=h,
+                                seed=(s or 0) + 171,
+                                worker=worker,
+                                filename_prefix=f"ToIV_char_sheet_portrait_plain_a{attempt}",
+                                style=meta.style,
+                                client=client,
+                                ref_image=_ref,
+                                ref_mode="img2img",
+                                denoise=denoise,
+                            )
+
+                        cleaned = await _emblem_cleanup(
+                            make_plain=_make_plain,
+                            is_emblem=lambda img: portrait_has_chest_emblem(img, ref=panels.get("front")),
                         )
-                        if portrait_has_chest_emblem(cleaned, ref=panels.get("front")):
-                            # 16:18：禁用矩形铺色；img2img 去标失败则换 seed
+                        if cleaned is None:
+                            # 16:18：禁用矩形铺色;三级去标皆败则换 seed
                             raise CharacterSheetError(
                                 "主立绘胸口徽标，img2img 去标失败禁铺色",
                                 status_code=422,
@@ -10063,32 +10083,44 @@ async def generate_character_sheet(
                         )
                         raw = normalize_turnaround_figure(raw, out_w=w, out_h=h)
                         if key in ("front", "side") and portrait_has_chest_emblem(raw):
-                            # 胸口残留徽标：再 img2img 一次素面；仍失败则 422（16:18 禁铺色）
-                            raw = await generate_panel_bytes(
-                                pool,
-                                prompts[key]
-                                + ", plain flat chest no badge no emblem no star, "
-                                + bust,
-                                ckpt_name=ckpt,
-                                width=w,
-                                height=h,
-                                seed=(s or 0) + 333,
-                                worker=worker,
-                                filename_prefix=f"ToIV_char_sheet_{key}_plain_a{attempt}",
-                                style=meta.style,
-                                client=client,
-                                ref_image=await client.upload_image(
-                                    raw, f"sheet_{key}_emblem_{attempt}.png"
-                                ),
-                                ref_mode="img2img",
-                                denoise=0.35,
+                            # 胸口残留徽标:img2img 素面(2026-10-17 denoise 升三级);仍败则 422(禁铺色)
+                            ref_up = await client.upload_image(
+                                raw, f"sheet_{key}_emblem_{attempt}.png"
                             )
-                            raw = normalize_turnaround_figure(raw, out_w=w, out_h=h)
-                            if portrait_has_chest_emblem(raw):
+
+                            async def _make_plain(denoise, _ref=ref_up):
+                                return await generate_panel_bytes(
+                                    pool,
+                                    prompts[key]
+                                    + ", plain flat chest no badge no emblem no star, "
+                                    + bust,
+                                    ckpt_name=ckpt,
+                                    width=w,
+                                    height=h,
+                                    seed=(s or 0) + 333,
+                                    worker=worker,
+                                    filename_prefix=f"ToIV_char_sheet_{key}_plain_a{attempt}",
+                                    style=meta.style,
+                                    client=client,
+                                    ref_image=_ref,
+                                    ref_mode="img2img",
+                                    denoise=denoise,
+                                )
+
+                            def _still_emblem(img):
+                                return portrait_has_chest_emblem(
+                                    normalize_turnaround_figure(img, out_w=w, out_h=h)
+                                )
+
+                            cleaned = await _emblem_cleanup(
+                                make_plain=_make_plain, is_emblem=_still_emblem
+                            )
+                            if cleaned is None:
                                 raise CharacterSheetError(
                                     f"img2img {key}胸口徽标残留，禁铺色须重出",
                                     status_code=422,
                                 )
+                            raw = normalize_turnaround_figure(cleaned, out_w=w, out_h=h)
                         # 与主立绘服装色差；过大则强制着色对齐板岩灰后再比
                         p_hex = _panel_garment_dominant_hex(panels["portrait"])
                         t_hex = _panel_garment_dominant_hex(raw)
