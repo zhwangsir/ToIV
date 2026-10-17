@@ -150,3 +150,19 @@ def test_attach_foreign_user_denied(ctx, monkeypatch):
     assert r.status_code == 404
     r = client.post(f"/api/drama/scenes/{sid}/freeze-anchor", headers=ids["h2"], json={"anchor_id": "master"})
     assert r.status_code == 404
+
+
+def test_list_scenes_works_for_studio_project(ctx):
+    """UI 点击流抓的真 bug:list_scenes 曾单域校验,Studio 项目下 GET 404 而 POST 200。"""
+    client, ids = ctx
+    r = client.post(f"/api/drama/projects/{ids['sp']}/scenes", headers=ids["h"],
+                    json={"name": "天台", "environment_prompt": "rooftop"})
+    assert r.status_code == 200, r.text
+    scene_id = r.json()["scene"]["id"]
+    r = client.get(f"/api/drama/projects/{ids['sp']}/scenes", headers=ids["h"])
+    assert r.status_code == 200, r.text
+    scenes = r.json()["scenes"]
+    assert any(s["id"] == scene_id for s in scenes), scenes
+    # 异租户仍 404
+    r = client.get(f"/api/drama/projects/{ids['sp']}/scenes", headers=ids["h2"])
+    assert r.status_code == 404

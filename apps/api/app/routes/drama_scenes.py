@@ -190,7 +190,7 @@ def list_scenes(
     session: Session = Depends(get_session),
 ) -> dict:
     """场景清单:基础场景带 variants 数组,派生场景带 composed_prompt。"""
-    _owned_project(pid, user, session)
+    _owned_project_any(pid, user, session)
     rows = session.exec(
         select(DramaScene).where(DramaScene.project_id == pid).order_by(DramaScene.created_at)
     ).all()
