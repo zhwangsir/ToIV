@@ -18,11 +18,24 @@ router = APIRouter()
 
 
 def _safe_media_path(video_path: str) -> Path:
-    """仅允许 drama 输出根内的媒体文件(realpath 防穿越)。"""
+    """仅允许 drama 输出根内的媒体文件(realpath 防穿越)。
+
+    E-8 双形态:产品 URL(/api/studio/files/、/api/drama/output/)与本地路径等价映射
+    ——用户/AI 手里是 URL,拒绝形态本身会把正经调用打成 403。
+    """
+    from urllib.parse import urlsplit
+
     from app.storage import drama_output_root
 
     root = drama_output_root().resolve()
-    p = Path(video_path).expanduser().resolve()
+    raw = (video_path or "").strip()
+    if raw.startswith("/api/studio/files/"):
+        p = root / "studio" / Path(urlsplit(raw).path).name
+    elif raw.startswith("/api/drama/output/"):
+        p = root / "output" / Path(urlsplit(raw).path).name
+    else:
+        p = Path(raw).expanduser()
+    p = p.resolve()
     if not p.is_relative_to(root):
         raise HTTPException(status_code=403, detail="视频路径不在允许的媒体目录内")
     if not p.is_file():

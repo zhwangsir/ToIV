@@ -99,3 +99,23 @@ def test_fusion_endpoints_require_auth(ctx):
     client, _ = ctx
     r = client.post("/api/fusion/transcript/pack", json={"payload": []})
     assert r.status_code == 401
+
+
+def test_media_path_guard_accepts_url_forms(ctx, tmp_path, monkeypatch):
+    """E-8 双形态:产品 URL(/api/studio/files/、/api/drama/output/)与本地路径等价,防任意读仍拒。"""
+    from app.storage import drama_output_root
+    root = tmp_path / "drama"
+    (root / "studio").mkdir(parents=True)
+    (root / "output").mkdir(parents=True)
+    (root / "studio" / "clip.mp4").write_bytes(b"x")
+    (root / "output" / "out.mp4").write_bytes(b"y")
+    monkeypatch.setattr("app.storage.drama_output_root", lambda: root)
+    import app.routes.fusion_tools as ft
+    monkeypatch.setattr(ft, "__name__", ft.__name__)  # noop
+    p1 = ft._safe_media_path("/api/studio/files/clip.mp4")
+    p2 = ft._safe_media_path("/api/drama/output/out.mp4")
+    p3 = ft._safe_media_path(str(root / "studio" / "clip.mp4"))
+    assert p1 == p2.resolve() or p1.name == "clip.mp4"
+    assert p3.name == "clip.mp4"
+    with pytest.raises(Exception):
+        ft._safe_media_path("/api/studio/files/../../../etc/passwd")
