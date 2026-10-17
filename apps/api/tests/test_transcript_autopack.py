@@ -240,3 +240,25 @@ def test_transcript_of_video_missing_and_guard(ctx):
     assert r.status_code == 403           # 安全闸:限 drama 输出根内
     r = client.get("/api/fusion/transcript/of-video", params={"path": "../etc/hostname"})
     assert r.status_code == 401           # 鉴权
+
+
+def test_studio_writeback_fires_transcript_hook(tmp_path, monkeypatch):
+    """studio 管线回写(挑候选)必须触发转写钩子——tracker.mark_done 不是 studio 落库路径。"""
+    from app.services.studio import orchestrator as orch
+
+    fired = []
+    monkeypatch.setattr(orch, "_fire_video_transcript", lambda url: fired.append(url))
+    from app.models import StudioShot
+    import json as _json
+
+    shot = StudioShot(project_id="p", idx=0, render_mode="video", candidates_json=_json.dumps([
+        {"id": "c1", "status": "done", "url": "/api/studio/files/v.mp4"},
+    ]))
+    from sqlmodel import Session, SQLModel, create_engine
+    from sqlalchemy.pool import StaticPool
+    eng = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(eng)
+    with Session(eng) as s:
+        s.add(shot); s.commit(); s.refresh(shot)
+        orch.pick_candidate(s, shot, "c1")
+    assert fired == ["/api/studio/files/v.mp4"]

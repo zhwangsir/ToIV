@@ -989,7 +989,21 @@ async def render_shot(
     session.add(shot)
     session.commit()
     session.refresh(shot)
+    if shot.video_url:
+        _fire_video_transcript(shot.video_url)
     return shot
+
+
+def _fire_video_transcript(url: str) -> None:
+    """FU2:studio 回写落库处触发 Packed Transcript 钩子(tracker.mark_done 不覆盖此路径)。"""
+    if not (url or "").strip():
+        return
+    try:
+        from app.services.media.artifact_transcript import on_artifacts_done
+
+        on_artifacts_done([url])
+    except Exception:  # noqa: BLE001 — 转写失败绝不阻断回写
+        logger.warning("transcript 钩子触发失败 %s", url[:80], exc_info=True)
 
 
 def pick_candidate(session: Session, shot: StudioShot, candidate_id: str) -> StudioShot:
@@ -1018,5 +1032,6 @@ def pick_candidate(session: Session, shot: StudioShot, candidate_id: str) -> Stu
     session.add(shot)
     session.commit()
     session.refresh(shot)
+    _fire_video_transcript(shot.video_url or "")
     return shot
 
