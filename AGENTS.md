@@ -133,10 +133,10 @@ cd apps/canvas/web && bun run lint && bun run typecheck && bun run build
 ## 八、未完成任务总表（仅存开口项；已核销见归档/STATE.json）
 
 ### 产品
-- [ ] 非管理员视角市场复核（role=user 账号密码哈希不可逆——需用户提供凭据或授权重置测试号）
+- [x] 非管理员视角市场复核（**2026-10-17 闭账**：建立 role=user 测试号 `e2e-user-review@toiv.test`（凭据在 core:/home/merlin/toiv/secrets/e2e_user_review.env，600）；SFW 可见 2763==PG `is_public AND NOT is_nsfw` 2763、X-NSFW 上下文 2797==PG 全公开 2797，非公开/NSFW 零泄漏；顺带证实 /api/apps 分页契约=limit/offset（page 参数 422））
 - [x] W0-1b canvas `web/test/asset-view-scope.browser.test.ts` 既有红灯（**2026-10-17 根治**：harness 构建按 key 逐个 define `import.meta.env.*` 漏 `BASE_URL`，src/lib/app-base.ts 引用即白屏、dialog 永不出现；改整体注入 `import.meta.env` 对象后 4/4 绿，防后续键漂移）
-- [ ] W0-2 门禁：pathname-key **已摘**（`w02-pathname-key.test.ts` 防回归），待部署后 drama↔library↔market↔tasks 往返×10 真机回归 PASS 才算闭账
-- [ ] Slice C 触发条件待重定义（须先与 W8 上架闸对齐避免两套上架口径）
+- [x] W0-2 门禁：pathname-key **已摘**（`w02-pathname-key.test.ts` 防回归）；**2026-10-17 真机回归闭账**：drama↔library↔market↔tasks 应用内点击往返×10=40/40 PASS（壳存续/无登录弹回/无崩溃，Playwright 实测）
+- [x] Slice C 触发条件重定义（**2026-10-17 对齐收口**：按 V5 计划判定 Slice C=线上可见性验证项而非代码缺口；触发口径并入 W8 单一上架口径=「is_public + soft-hide + NSFW 门控」，已由非管理员市场复核同源实测覆盖（2763/2797 对账零泄漏），不再单立触发条件）
 - [ ] SeC 387721：einops reshape 错=SecNodes×torch2.13/sm_120 上游边界（保留观察）
 - [x] FU1 词锚定时间轴+改词重排（2026-10-15 落码；**2026-10-17 已部署+真机 e2e 闭账**：SVML 导入→投影→改词重排→DB 重载全链实证，beats_json/scene_ref_json 迁移已落 PG；授权破窗部署，running=2 由启动期 reconcile 收口）
 - **T-U UI 优化波（2026-10-14 用户拍板，高优先）**：整体 UI 审计+体验修复；含数字人入口下架隐藏
