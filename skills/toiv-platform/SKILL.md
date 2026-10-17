@@ -118,6 +118,8 @@ POST /api/studio/characters/$CID/character-sheet \
 
 ## 5. 媒体与文件
 
+- 视频作业完成后自动产 Packed Transcript（`<产物名>.transcript.md`，whisper 词级 verbatim→pack），可用 `/api/fusion/transcript/of-video` 读取。
+
 - 产物 URL 归属校验+签名，媒体走 `?token=`；不要把 URL 外传给无归属会话。
 - studio 文件面：`/api/studio/files/{name}`（设定卡格/场景锚点快照都在这）。
 - 作品库：`/api/jobs` 产物即作品；回收站/检索走 canvas `/studio/library`。
@@ -152,3 +154,13 @@ POST /api/studio/characters/$CID/character-sheet \
 | 作业 | `GET /api/jobs` / `POST /api/jobs/{id}/cancel` | — |
 | 加速档 | `GET /api/acceleration/tiers` | — |
 | LLM 代理 | `/api/llm/v1/*` | 需 JWT+白名单模型 |
+| 词转写打包 | `POST /api/fusion/transcript/pack` | 词级 JSON→短语级 `[start-end]` markdown |
+| 读产物转写 | `GET /api/fusion/transcript/of-video?path=` | 自动生成的 .transcript.md(路径限媒体目录) |
+| EDL 体检 | `POST /api/fusion/edl/validate` | 词内切/越界/非法时间拒绝 |
+| 剪点计划 | `POST /api/fusion/edl/cut-plan` | 安全切点窗+pad 30-200ms |
+| 成片自评 | `POST /api/fusion/qa/review` | 剪点±1.5s 跳帧/爆音/遮挡+响度 |
+| 视觉下钻 | `POST /api/fusion/qa/timeline-png` | 胶片条+波形+词标签复合 PNG |
+| manifest 校验 | `POST /api/fusion/manifest/validate` | FU5 管线声明 |
+
+**契约补充**：列表分页=`limit/offset`（`page` 参数 422）；limit>1000 422（P-11 fail-closed）。
+运维生产路径已更名 `/home/merlin/toiv-studio`（beeftv-prod 为过渡软链）；运维细节见 toiv-cluster。
