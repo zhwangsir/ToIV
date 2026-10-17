@@ -1199,9 +1199,14 @@ async def replace_character_sheet_panel(
         design_notes=str(body.get("design_notes") or ""),
         visual_prompt=(c.visual_prompt or "").strip(),
         description=(c.description or "").strip(),
+        template=str(body.get("template") or "").strip(),
     )
     try:
-        png = sheet_svc.compose_character_sheet(locked, meta)
+        png = (
+            sheet_svc.compose_reference_board(locked, meta)
+            if meta.template == "toonflow_board"
+            else sheet_svc.compose_character_sheet(locked, meta)
+        )
     except sheet_svc.CharacterSheetError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e)) from e
 
@@ -1286,9 +1291,14 @@ def recompose_character_sheet_meta(
         colors=list(body.colors or []),
         visual_prompt=(c.visual_prompt or "").strip(),
         description=(c.description or "").strip(),
+        template=(getattr(body, "template", "") or "").strip(),
     )
     try:
-        png = sheet_svc.compose_character_sheet(locked, meta)
+        png = (
+            sheet_svc.compose_reference_board(locked, meta)
+            if meta.template == "toonflow_board"
+            else sheet_svc.compose_character_sheet(locked, meta)
+        )
     except sheet_svc.CharacterSheetError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e)) from e
 
