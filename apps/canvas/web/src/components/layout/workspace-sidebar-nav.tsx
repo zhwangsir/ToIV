@@ -291,9 +291,11 @@ export function WorkspaceSidebarNav({ collapsed, onNavigate, onOpenSearch, onExp
     const slug = rawSlug === "project" ? "canvas" : rawSlug;
     const section = searchParams.get("section");
     // /toiv/agent|drama|market|library|tasks → toiv:agent 等，侧栏高亮对齐
+    // /toiv/ws/:id(六段工作区)归到「短剧工作台」高亮,否则工作区里侧栏无当前位置
+    const toivSection = pathParts[1] === "ws" ? "drama" : pathParts[1];
     const activeId =
-        rawSlug === "toiv" && pathParts[1]
-            ? `toiv:${pathParts[1]}`
+        rawSlug === "toiv" && toivSection
+            ? `toiv:${toivSection}`
             : slug === "settings" && section
               ? `settings:${section}`
               : slug;

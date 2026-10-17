@@ -1,4 +1,4 @@
-import { ArrowLeft, ListChecks, Loader2, RefreshCw, Send, X } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw, Send, X } from "lucide-react";
 import { Button } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -24,6 +24,18 @@ const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "e
 };
 
 const CANCELABLE = new Set(["queued", "held", "running"]);
+
+// 智能体任务状态原文(英文枚举)→与 STATUS_META 同口径中文,避免时间线上中英混排
+const AGENT_RUN_STATUS_TEXT: Record<string, string> = {
+    queued: "排队中",
+    running: "运行中",
+    done: "已完成",
+    succeeded: "已完成",
+    error: "失败",
+    failed: "失败",
+    canceled: "已取消",
+    cancelled: "已取消",
+};
 
 type TimelineItem = {
     id: string;
@@ -108,6 +120,7 @@ export default function TasksPage() {
     const [canvasError, setCanvasError] = useState(false);
     const [error, setError] = useState(false);
     const [cancelingId, setCancelingId] = useState<string | null>(null);
+    const [cancelError, setCancelError] = useState<string | null>(null);
     // W1.5(2026-10-11):三源筛选 + 活跃任务 30s 轮询
     const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -155,9 +168,13 @@ export default function TasksPage() {
 
     const onCancel = async (jobId: string) => {
         setCancelingId(jobId);
+        setCancelError(null);
         try {
             const ok = await cancelJob(jobId);
             if (ok) await loadJobs();
+        } catch (e) {
+            // 取消失败必须给反馈:此前异常被吞成 unhandled rejection,点了毫无动静
+            setCancelError(e instanceof Error ? e.message : "取消失败，请稍后重试");
         } finally {
             setCancelingId(null);
         }
@@ -203,7 +220,7 @@ export default function TasksPage() {
                 ]
                     .filter(Boolean)
                     .join(" · "),
-                statusLabel: run.status,
+                statusLabel: AGENT_RUN_STATUS_TEXT[run.status] ?? run.status,
                 statusTone:
                     run.status === "done" || run.status === "succeeded"
                         ? "success"
@@ -282,14 +299,11 @@ export default function TasksPage() {
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">任务中心</h1>
                     <p className="text-xs leading-5 text-muted-foreground">
-                        统一任务时间线：ToIV 作业（/api/jobs）+ 画布 GenerationTask + 智能体任务（/agent-runs）；
-                        活跃任务每 30s 自动刷新。
+                        统一任务时间线：ToIV 作业、画布生成任务与智能体任务；
+                        有进行中任务时每 30 秒自动刷新。
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Link to="/tasks">
-                        <ToolButton variant="default" icon={<ListChecks />} label="画布任务" />
-                    </Link>
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading || canvasLoading} />
                     <Link to="/">
                         <ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" />
@@ -374,6 +388,12 @@ export default function TasksPage() {
                     </span>
                 )}
             </div>
+
+            {cancelError && (
+                <Callout tone="warning" title="取消失败" onClose={() => setCancelError(null)}>
+                    {cancelError}
+                </Callout>
+            )}
 
             {showSkeleton ? (
                 <TaskTimelineSkeleton />

@@ -155,7 +155,7 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
     if (!open) return null;
 
     return (
-        <div className="absolute inset-0 z-50 flex items-start justify-center bg-background/40 px-4 pt-28 backdrop-blur-sm lg:pt-32">
+        <div className="absolute inset-0 z-50 flex items-start justify-center bg-background/40 px-4 pt-28 backdrop-blur-sm lg:pt-32" role="dialog" aria-modal="true" aria-label="命令面板">
             <div className="absolute inset-0" onClick={onClose} />
             <div className="relative w-full max-w-xl overflow-hidden rounded-xl border border-[var(--workspace-border)] bg-[var(--workspace-surface-strong)] shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                 <div className="p-3 pb-2">

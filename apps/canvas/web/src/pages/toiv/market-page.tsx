@@ -93,7 +93,7 @@ function CoverThumb({ coverUrl, category }: { coverUrl?: string; category?: stri
             ) : (
                 <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-[var(--muted-foreground,#a8a8a8)]">
                     <span className="text-2xl opacity-50" aria-hidden>
-                        {CATEGORY_META[category || "other"] ?? "应"}
+                        {CATEGORY_META[category || "other"] ?? "应用"}
                     </span>
                     <span className="text-[10px] opacity-60">暂无封面</span>
                 </div>
@@ -393,6 +393,7 @@ export default function MarketPage() {
     const [values, setValues] = useState<Record<string, unknown>>({});
     const [running, setRunning] = useState(false);
     const [runMsg, setRunMsg] = useState<string | null>(null);
+    const [runFailed, setRunFailed] = useState(false);
     const [providerTick, setProviderTick] = useState(0);
     const [modes, setModes] = useState<ToivAppModeItem[]>([]);
     const [modesLoading, setModesLoading] = useState(false);
@@ -544,6 +545,7 @@ export default function MarketPage() {
         if (!detail?.id || missing || audioBlocked) return;
         setRunning(true);
         setRunMsg(null);
+        setRunFailed(false);
         try {
             const receipt = await runToivApp(detail.id, buildToivRunValues(schema, values));
             if (!receipt.job_id) {
@@ -555,6 +557,8 @@ export default function MarketPage() {
         } catch (err) {
             const msg = err instanceof Error ? err.message : "运行失败";
             setRunMsg(msg);
+            // 失败提示与成功提示同灰字会误导,失败单独着色
+            setRunFailed(true);
         } finally {
             setRunning(false);
         }
@@ -583,7 +587,7 @@ export default function MarketPage() {
                     <h1 className="text-xl font-semibold leading-7 text-foreground">工具箱</h1>
                     <p className="text-sm text-muted-foreground">应用市场 · 生成能力即取即用</p>
                     <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">
-                        应用（列表 / 筛选 / 详情 / 运行 → 任务中心）
+                        浏览应用、配置参数后运行；作业自动进入任务中心
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -823,7 +827,7 @@ export default function MarketPage() {
                                 )}
 
                                 {runMsg && (
-                                    <p className="text-xs text-[var(--muted-foreground,#a8a8a8)]" role="status">
+                                    <p className={`text-xs ${runFailed ? "text-[var(--destructive,#f87171)]" : "text-[var(--muted-foreground,#a8a8a8)]"}`} role="status">
                                         {runMsg}
                                     </p>
                                 )}
@@ -855,7 +859,7 @@ export default function MarketPage() {
                                     </div>
                                 </div>
                                 <p className="text-[11px] leading-relaxed text-[var(--muted-foreground,#a8a8a8)]">
-                                    媒体参数经 /api/upload 上传后随运行提交；作业进任务中心。「注册到画布」写入本地 provider 清单（节点接线后续切片）。
+                                    上传的媒体素材随运行一起提交；作业进任务中心。「注册到画布」把应用加入画布的可用工具清单。
                                 </p>
                             </>
                         )}

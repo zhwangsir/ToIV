@@ -939,7 +939,6 @@ const creationSkillWorks = [
     { title: "真实感美妆UGC产品种草", description: "把美妆卖点变成可见证据与自然口播", image: publicAsset("/short-drama-styles/urban-live-action.jpg"), prompt: "@beauty-blogger-reviewer 设计一支美妆 UGC", author: "刘不住Wa...", uses: "2.1k" },
 ];
 export function CreationFeaturedWorks({ onStartPrompt }: { onStartPrompt: (mode: CreationMode, prompt: string) => void }) {
-    const navigate = useNavigate();
     const [filter, setFilter] = useState<"all" | CreationMode>("all");
     const [limit, setLimit] = useState(12);
     const [collection, setCollection] = useState<"inspiration" | "skill">("inspiration");
@@ -979,7 +978,6 @@ export function CreationFeaturedWorks({ onStartPrompt }: { onStartPrompt: (mode:
                 <button type="button" role="tab" aria-selected={skillSection === "canon"} onClick={() => setSkillSection("canon")}>正典</button>
                 <button type="button" role="tab" aria-selected={skillSection === "mine"} onClick={() => setSkillSection("mine")}>我的</button>
             </div>
-            {skillSection === "mine" ? <button type="button" className="creation-skill-create" onClick={() => navigate("/skills?create=1")}><Plus size={16} />创建 Skill</button> : null}
         </div> : <div className="creation-inspiration-filters" role="group" aria-label="灵感类型">
             {(["all", "video", "image", "text"] as const).map((value) => <button key={value} type="button" aria-pressed={filter === value} onClick={() => { setFilter(value); setLimit(12); }}>{value === "all" ? "全部灵感" : modeLabels[value]}<span>{creationFeaturedWorks.filter((item) => value === "all" || item.mode === value).length}</span></button>)}
         </div>}
@@ -1003,7 +1001,7 @@ export function CreationFeaturedWorks({ onStartPrompt }: { onStartPrompt: (mode:
                     <span className="creation-featured-copy"><strong>{item.title}</strong><span>{item.description}</span><em><Sparkles />{item.source ? "开源改编 · CC0" : "原创提示词"} · {modeLabels[item.mode]}</em></span>
                 </button>)}
         </div>
-        {isSkill && skillSection === "mine" && mySkillsLoaded && !visibleSkills.length ? <div className="creation-skill-empty"><Sparkles /><strong>还没有安装 Skill</strong><span>上传、安装或创建一个 Skill 后，它会显示在这里。</span></div> : null}
+        {isSkill && skillSection === "mine" && mySkillsLoaded && !visibleSkills.length ? <div className="creation-skill-empty"><Sparkles /><strong>还没有安装 Skill</strong><span>上传或安装一个 Skill 后，它会显示在这里。</span></div> : null}
         <footer className="creation-inspiration-footer">{isSkill ? <span>已展示 {visibleSkills.length} 个 Skill</span> : <>{limit < filtered.length ? <Button onClick={() => setLimit((count) => count + 12)}>展开更多灵感<ChevronDown /></Button> : <span>已展示全部 {filtered.length} 个创意</span>}<details><summary>模板与封面来源</summary><p>{inspirationSource.notice}</p><a href={inspirationSource.repository} target="_blank" rel="noreferrer">awesome-chatgpt-prompts · CC0</a></details></>}</footer>
         </>}
     </section>;

@@ -103,7 +103,7 @@ export default function DramaDetailPage() {
     );
     if (!detail) return (
         <WorkspacePage fluid className="toiv-drama-detail-page">
-            <div className="flex h-full items-center justify-center"><EmptyState description={loadFailed ? "项目不存在或读取失败" : "项目不存在或读取失败"} /></div>
+            <div className="flex h-full items-center justify-center"><EmptyState description={loadFailed ? "读取失败，请刷新重试" : "项目不存在或已被删除"} /></div>
         </WorkspacePage>
     );
 

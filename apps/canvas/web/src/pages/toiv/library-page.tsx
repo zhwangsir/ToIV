@@ -60,7 +60,7 @@ export default function LibraryPage() {
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">作品</h1>
-                    <p className="text-xs leading-5 text-muted-foreground">{activeTab === "works" ? "我的生成作品（/api/jobs · SFW；R18 作品仍在经典壳）" : activeTab === "transcript" ? "已转录媒体的台词全文检索（管理端点 · FU2 索引）" : "成片与分镜作品集（/api/boards）"}</p>
+                    <p className="text-xs leading-5 text-muted-foreground">{activeTab === "works" ? "我生成的作品（SFW；R18 作品请到经典端查看）" : activeTab === "transcript" ? "已转录媒体的台词全文检索（仅管理员）" : "成片与分镜作品集"}</p>
                 <div className="mt-2 flex items-center gap-1" role="tablist" aria-label="作品库来源">
                     {(transcriptVisible
                         ? ([["works", "作品"], ["boards", "画板"], ["transcript", "台词检索"]] as const)
@@ -76,7 +76,10 @@ export default function LibraryPage() {
                 </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
+                    {/* 刷新只重载画板列表;作品/台词检索面各自带刷新,这里再放一个会变成点了没反应 */}
+                    {activeTab === "boards" && (
+                        <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
+                    )}
                     <Link to="/"><ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" /></Link>
                 </div>
             </header>
@@ -90,7 +93,7 @@ export default function LibraryPage() {
             ) : error ? (
                 <EmptyState description="读取失败，请刷新重试" />
             ) : boards.length === 0 ? (
-                <EmptyState description="作品库还是空的；完成第一个短剧项目后会出现在这里" />
+                <EmptyState description="画板还是空的；完成第一个短剧项目后会出现在这里" />
             ) : (
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
                     {boards.map((board) => (

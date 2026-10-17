@@ -81,13 +81,10 @@ const STATUS_TONE: Record<string, "success" | "warning" | "error" | "neutral"> =
     pending: "neutral",
 };
 
-function SectionShell({ title, batch, children }: { title: string; batch: string; children: React.ReactNode }) {
+function SectionShell({ title, children }: { title: string; children: React.ReactNode }) {
     return (
         <section className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-                <h2 className="text-base font-semibold text-foreground">{title}</h2>
-                <StatusBadge variant="filled" tone="neutral" label={`${batch} 迁入`} size="sm" />
-            </div>
+            <h2 className="text-base font-semibold text-foreground">{title}</h2>
             {children}
         </section>
     );
@@ -491,9 +488,13 @@ export default function DramaWorkspacePage() {
     }, [load]);
     const runShotVoice = useCallback(async (sid: string) => {
         markBusy(sid, true);
+        setRenderError(null);
         try {
             await triggerShotVoice(sid);
             await load();
+        } catch (e) {
+            // 失败必须给反馈:此前异常直接吞成 unhandled rejection,点了配音毫无动静
+            setRenderError(e instanceof Error ? e.message : "配音失败");
         } finally {
             markBusy(sid, false);
         }
@@ -562,9 +563,13 @@ export default function DramaWorkspacePage() {
     const runBatchRender = useCallback(async () => {
         if (!id) return;
         setBatchRendering(true);
+        setRenderError(null);
         try {
             await triggerBatchRender(id, accelLevel);
             await load();
+        } catch (e) {
+            // 失败必须给反馈:此前 try/finally 无 catch,整批渲染失败无任何提示
+            setRenderError(e instanceof Error ? e.message : "整批渲染提交失败");
         } finally {
             setBatchRendering(false);
         }
@@ -634,7 +639,7 @@ export default function DramaWorkspacePage() {
                         </div>
                         {detail && <StatusLine project={detail} />}
                         <p className="text-xs leading-5 text-[var(--muted-foreground,#a8a8a8)]">
-                            v2 六段工作区（骨架）· 各段能力按批次迁入 · 数据与经典端同源只读
+                            剧本 → 资产 → 分镜 → 镜头 → 时间线 → 成片，六段数据与经典端同源
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -656,6 +661,7 @@ export default function DramaWorkspacePage() {
                             <button
                                 key={s.key}
                                 type="button"
+                                aria-current={active ? "page" : undefined}
                                 onClick={() => goSection(s.key)}
                                 className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors ${
                                     active
@@ -679,7 +685,7 @@ export default function DramaWorkspacePage() {
                 ) : (
                     <div className="flex flex-col gap-4 rounded-xl border border-[var(--border)] p-4">
                         {section === "script" && (
-                            <SectionShell title="剧本" batch="S5/W2.1">
+                            <SectionShell title="剧本">
                                 <textarea
                                     value={premiseText}
                                     onChange={(e) => setPremiseText(e.target.value)}
@@ -764,7 +770,7 @@ export default function DramaWorkspacePage() {
                             </SectionShell>
                         )}
                         {section === "assets" && (
-                            <SectionShell title="资产（角色/场景/道具）" batch="S3">
+                            <SectionShell title="资产（角色/场景/道具）">
                                 {characters.length === 0 ? (
                                     <EmptyState description="暂无角色资产(AI 拆镜会自动入库,或在经典详情添加)" />
                                 ) : (
@@ -826,9 +832,9 @@ export default function DramaWorkspacePage() {
                             </SectionShell>
                         )}
                         {section === "storyboard" && (
-                            <SectionShell title="分镜表" batch="S5">
+                            <SectionShell title="分镜表">
                                 {shots.length === 0 ? (
-                                    <EmptyState description="暂无分镜(剧本→自动分镜 S5 落地)" />
+                                    <EmptyState description="暂无分镜（在「剧本」段用 AI 拆解或导入词锚定脚本生成）" />
                                 ) : (
                                     <>
                                     {frameError && (
@@ -883,7 +889,7 @@ export default function DramaWorkspacePage() {
                             </SectionShell>
                         )}
                         {section === "shots" && (
-                            <SectionShell title="镜头（生成状态）" batch="S3/S4">
+                            <SectionShell title="镜头（生成状态）">
                                 {shots.length === 0 ? (
                                     <EmptyState description="暂无镜头(先在剧本段 AI 拆解)" />
                                 ) : (
@@ -959,7 +965,7 @@ export default function DramaWorkspacePage() {
                                         )}
                                         {renderMsg && (
                                             <p className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">
-                                                <Loader2 className="size-3 animate-spin" aria-hidden />
+                                                {(batchRendering || busyShots.size > 0) && <Loader2 className="size-3 animate-spin" aria-hidden />}
                                                 {renderMsg}
                                             </p>
                                         )}
@@ -1038,7 +1044,7 @@ export default function DramaWorkspacePage() {
                             </SectionShell>
                         )}
                         {section === "timeline" && (
-                            <SectionShell title="时间线（汇编）" batch="S9-lite">
+                            <SectionShell title="时间线（汇编）">
                                 {shots.length === 0 ? (
                                     <EmptyState description="暂无分镜" />
                                 ) : (
@@ -1155,11 +1161,11 @@ export default function DramaWorkspacePage() {
                             </SectionShell>
                         )}
                         {section === "final" && (
-                            <SectionShell title="成片" batch="S9">
+                            <SectionShell title="成片">
                                 {detail.final_url ? (
                                     <video src={detail.final_url} controls className="max-h-96 w-full rounded-lg border border-[var(--border)]" />
                                 ) : (
-                                    <EmptyState description="暂无成片;版本化交付(RenderVersion)S9 落地" />
+                                    <EmptyState description="暂无成片；在「时间线」段合成成片后在这里播放" />
                                 )}
                             </SectionShell>
                         )}
