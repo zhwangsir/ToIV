@@ -1541,6 +1541,25 @@ async def _wait_result_files(client, prompt_id: str, timeout: float = 180.0) -> 
     return []
 
 
+async def _resolve_anchor_keyframe(shot, pool, client) -> str | None:
+    """P4 图像级锚点注入(旧 LTX 链):无角色首帧时,冻结锚点快照作 i2v 首帧(跨镜共背景)。
+
+    角色身份键帧优先(见 _generate_keyframe_for_shot);本函数只兜底 t2v 路径。
+    注入失败回退 t2v,不阻断出片。
+    """
+    from app.services.studio.shot_refs import scene_ref_of
+
+    anchor = (scene_ref_of(shot).get("anchor_image") or "").strip()
+    if not anchor:
+        return None
+    try:
+        data = await _fetch_ref_image_bytes(pool, anchor)
+        return await client.upload_image(data, f"drama_anchor_{uuid.uuid4().hex}.png")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("分镜 #%s 锚点首帧注入失败,回退 t2v: %s", shot.idx, e)
+        return None
+
+
 async def _generate_keyframe_for_shot(
     client,
     shot: DramaShot,
@@ -1746,6 +1765,9 @@ async def _submit_shot_video(
         keyframe_fn = await _generate_keyframe_for_shot(
             client, shot, project, settings, session, pool
         )
+    if keyframe_fn is None:
+        # P4 图像级锚点:角色路径无果时用冻结锚点快照作 i2v 首帧(跨镜共背景),再退 t2v
+        keyframe_fn = await _resolve_anchor_keyframe(shot, pool, client)
 
     common_params = {
         "positive": prompt,
