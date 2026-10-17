@@ -149,5 +149,5 @@ cd apps/canvas/web && bun run lint && bun run typecheck && bun run build
 - [ ] H3 service-token exp 2026-10-17 06:20（自动刷新已 enable，届时留意一跳）
 - [ ] 旧 Admin JWT 吊销（HOLD，等设备侧执行）
 - [ ] MODEL_SOURCES 持续追加（当前 ok487/blocked337/total825）
-- [ ] **T1 吞吐解锁**：LongCat 迁卡已非杠杆（GPU2 整张空、GPU0 余 ~66G、LongCat 空闲仅 1.6G 显存）；真杠杆=392 条缺件（missing_model 219+missing_node 173）装包+逐实例核验（P-15）
+- [ ] **T1 吞吐解锁（2026-10-17 P-14 重枚举修正）**：旧「392 缺件装包」口径已过期——batch10 已查明 missing_node 大头=RH 云端节点(shim 范畴)+类键漂移+陈旧错误，真装包仅少量且已装（WanAnimatePlus/Qwen-Image_new/classkey aliases）；吞吐修复后实测 67/h（非 21/h）。现网残余（PG 重析）：FlashVSR streaming_dmd 模型缺件 **2026-10-17 已装**（5.24GiB→NAS 主库+/opt/ComfyUI/models/FlashVSR-v1.1，解锁 20 app）；missing_node_type 8 类 59 例（RH Captioner shim ~5、类键漂移 2、小节点包 4、inspyrenet 2 留档）C 波暂存中；timeout 424+1800s 27=900s 重估口径另账
 - [ ] W8 冒测战役：未测 10961（image 5812/video 5064/audio 89），~21/h；368 条 timeout 归因需按 SEEDVR2 长 CPU 阶段重估（900s 超时把真作业打成假 timeout）
