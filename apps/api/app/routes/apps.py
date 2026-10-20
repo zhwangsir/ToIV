@@ -4376,7 +4376,7 @@ async def run_app(
         raise HTTPException(status_code=404, detail="应用不存在")
     # is_nsfw 应用须 R18 上下文(与详情 404 不泄露不同:run 是动作,显式 403 引导去专页)
     if a.is_nsfw and not nsfw_allowed(user):
-        raise HTTPException(status_code=403, detail="该操作为 R18 内容,仅限 NSFW 专区使用")
+        raise HTTPException(status_code=403, detail="该操作为 R18 内容,须在 R18 上下文(X-NSFW)下使用")
     mode = (body.content_mode or ("nsfw" if a.is_nsfw else "sfw")).strip().lower()
     if mode not in ("sfw", "nsfw"):
         raise HTTPException(status_code=422, detail="content_mode 须为 sfw 或 nsfw")
@@ -4389,7 +4389,7 @@ async def run_app(
             if not twin:
                 raise HTTPException(status_code=422, detail=f"R18 变体不存在: {twin_id}")
             if not nsfw_allowed(user):
-                raise HTTPException(status_code=403, detail="该操作为 R18 内容,仅限 NSFW 专区使用")
+                raise HTTPException(status_code=403, detail="该操作为 R18 内容,须在 R18 上下文(X-NSFW)下使用")
             run_app = twin
             run_nsfw = True
         elif not a.is_nsfw:

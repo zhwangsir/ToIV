@@ -79,7 +79,7 @@ def _gate_h3_nsfw_loras(loras: list[H3LoraInput] | None, user: User) -> None:
     """NSFW LoRA 门槛:引用已知 H3 R18 LoRA(services/h3.H3_NSFW_LORAS)时仅
     /nsfw 专页(X-NSFW: 1 header)放行,主站调用一律 403(与 _gate_ltx_nsfw 同风格)。"""
     if loras and any(is_h3_nsfw_lora(lora.name) for lora in loras) and not nsfw_allowed(user):
-        raise HTTPException(status_code=403, detail="所选 LoRA 为 R18 内容,仅限 NSFW 专区使用")
+        raise HTTPException(status_code=403, detail="所选 LoRA 为 R18 内容,须在 R18 上下文(X-NSFW)下使用")
 
 
 def _h3_explicit_nsfw(req, user: User) -> bool:

@@ -1,9 +1,14 @@
-"""按请求的 R18 放行标记 —— **仅** /nsfw 专页通过 `X-NSFW: 1` header 放行成人内容。
+"""按请求的 R18 放行标记 —— `X-NSFW: 1` header → ContextVar。
 
-主站(toiv.dgmt.top)彻底零 R18:请求不带 /nsfw 标记则一律过滤成人内容,账户开关
-**不再**放行(防非内部人员在主站看到任何 R18)。R18 必须经 toiv.dgmt.top/nsfw 访问。
+D-U1=B(2026-10-15):canvas 内建 R18 门控模式,开启后客户端在**全部** ToIV API
+请求上附加本头;后端只认请求级意图,账户 `nsfw_enabled` **不再**放行。
+web 独立 /nsfw 专区面已退役(架构目标);遗留「经典壳暂留 NSFW 引擎台」是 F12
+执行债,不改变本模块语义。
+
+fail-closed:无头 → 成人内容不可见/不可操作。未成年硬阻断优先于任何头。
 
 ContextVar 每请求隔离(async 安全):中间件按 header 置位,gate/模型列表/作品库读取。
+策略常量见 `app.r18_policy`。
 """
 from __future__ import annotations
 
@@ -37,26 +42,29 @@ def is_underage(user: User | None) -> bool:
 
 
 def nsfw_allowed(user: User | None = None) -> bool:
-    """R18 放行:仅当本请求带 /nsfw 专页标记(X-NSFW header)。账户开关不再放行,
-    保证主站零 R18。
+    """R18 放行:仅当本请求带 `X-NSFW: 1`(canvas R18 模式或其它显式上下文)。
 
-    未成年硬阻断优先级最高:即便带 /nsfw 标记也一律拒绝,防未成年绕过专页
-    标记访问 R18 模型/内容。参数保留为兼容既有调用点。"""
-    # 未成年硬阻断:任何 NSFW 不可见,优先于请求级 X-NSFW 标记
+    账户开关不再放行(fail-closed)。未成年硬阻断优先级最高:即便带头也一律拒绝。
+    参数保留为兼容既有调用点。
+    """
     if is_underage(user):
         return False
     return nsfw_intent_var.get()
 
 
 def job_nsfw_from_intent(user: User | None, explicit: bool) -> bool:
-    """作品是否打 R18 标:只跟作品意图走,不跟「人在不在 /nsfw 专页」走。
+    """作品是否打 R18 标:只跟作品意图走,不跟「人是否开了 R18 模式」单独走。
 
-    专页 X-NSFW 头只做门控(explicit=True 时须放行,否则 403),不能单独把
+    X-NSFW 头只做门控(explicit=True 时须放行,否则 403),不能单独把
     试衣/超分/普通二次元打进成人库。
     """
     if not explicit:
         return False
     if not nsfw_allowed(user):
         from fastapi import HTTPException
-        raise HTTPException(status_code=403, detail="该操作为 R18 内容,仅限 NSFW 专区使用")
+
+        raise HTTPException(
+            status_code=403,
+            detail="该操作为 R18 内容,须在 R18 上下文(X-NSFW)下使用",
+        )
     return True

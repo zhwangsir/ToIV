@@ -622,6 +622,33 @@ _SQLITE_POST_MIGRATIONS: tuple[str, ...] = (
 )
 
 
+
+def is_benign_migration_error(exc: BaseException) -> bool:
+    """是否「幂等冲突」类失败(可 WARNING 跳过)。
+
+    真失败(语法/权限/未知)须 ERROR 留痕——studioproject 缺列事故教训:
+    静默/仅跳过会让缺列长期无人发现。切流 alembic 前双轨仍吞异常不阻断启动。
+    """
+    msg = " ".join(str(a) for a in getattr(exc, "args", ()) if a).lower()
+    msg = f"{msg} {exc}".lower()
+    needles = (
+        "duplicate column",
+        "already exists",
+        "already exist",  # PG: relation ... already exists
+        "duplicate key",  # 偶发索引名冲突
+        "no such constraint",
+        "cannot drop constraint",
+    )
+    # DROP CONSTRAINT 目标不存在:须带 constraint 字样(勿吞 no such table)
+    if "constraint" in msg and ("does not exist" in msg or "unknown" in msg):
+        return True
+    # SQLite 无 DROP CONSTRAINT → near "CONSTRAINT" 方言差,视良性
+    if "drop constraint" in msg or 'near "constraint"' in msg:
+        return True
+    return any(n in msg for n in needles)
+
+
+
 def _existing_columns(conn, table: str) -> set[str]:
     """读取某表已有列名(table 可带引号)。SQLite 用 PRAGMA,Postgres 等走 information_schema。"""
     bare = table.strip('"')
@@ -651,8 +678,12 @@ def _run_column_migrations() -> None:
             with engine.begin() as conn:
                 conn.execute(text(raw))
         except SQLAlchemyError as exc:
-            # 幂等吞掉(语义不变),但必须留痕:语句前 40 字符 + 异常,否则又是静默事故
-            logger.warning("迁移跳过(语句 %.40s): %s", " ".join(raw.split()), exc)
+            # 不阻断启动;良民幂等→WARNING,其余→ERROR(可观测升级,待办#5)
+            snippet = " ".join(raw.split())
+            if is_benign_migration_error(exc):
+                logger.warning("迁移跳过(语句 %.40s): %s", snippet, exc)
+            else:
+                logger.error("迁移失败(语句 %.40s): %s", snippet, exc)
     for table, column, ddl in _SQLITE_MIGRATIONS:
         try:
             with engine.begin() as conn:
@@ -660,16 +691,22 @@ def _run_column_migrations() -> None:
                     continue
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {ddl}"))
         except SQLAlchemyError as exc:
-            # duplicate column(并发/重复执行)或表不存在 → 幂等吞掉,但留 warning
-            # (studioproject 缺列 500 事故教训:静默吞异常让缺列长期无人发现)
-            logger.warning("迁移跳过(%s.%s): %s", table, column, exc)
+            # duplicate column → WARNING;表不存在/语法等 → ERROR
+            if is_benign_migration_error(exc):
+                logger.warning("迁移跳过(%s.%s): %s", table, column, exc)
+            else:
+                logger.error("迁移失败(%s.%s): %s", table, column, exc)
     # 依赖本次新补列的幂等语句(索引等),必须在列迁移之后执行
     for raw in _SQLITE_POST_MIGRATIONS:
         try:
             with engine.begin() as conn:
                 conn.execute(text(raw))
         except SQLAlchemyError as exc:
-            logger.warning("迁移跳过(语句 %.40s): %s", " ".join(raw.split()), exc)
+            snippet = " ".join(raw.split())
+            if is_benign_migration_error(exc):
+                logger.warning("迁移跳过(语句 %.40s): %s", snippet, exc)
+            else:
+                logger.error("迁移失败(语句 %.40s): %s", snippet, exc)
 
 
 def _clear_stale_post_status() -> None:

@@ -615,17 +615,31 @@ async def get_orch_file(
     name: str,
     request: Request,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    sig: str = "",
 ) -> Response:
-    """回读编排产物。NAS 根目录与本地回退目录依次找;手动 Range 支持(同 audio_tools)。"""
+    """回读编排产物。NAS 根目录与本地回退目录依次找;手动 Range 支持(同 audio_tools)。
+
+    P-1 归属:sig 即能力,或 Job(kind=audio_orchestrate).result 属主回退;他人统一 404。
+    """
     if not _OUT_NAME_RE.match(name):
         raise HTTPException(status_code=400, detail="非法文件名")
+    from app.services.studio_file_access import assert_job_backed_file_access
+
+    found: Path | None = None
     for root in (audio_output_root(), content_subdir("audio")):
         try:
             path = root / name
             if path.is_file():
-                return _ranged_response(
-                    path.read_bytes(), "audio/wav", request.headers.get("range")
-                )
+                found = path
+                break
         except OSError as e:
             logger.warning("音频产物目录不可达(%s):%s", root, e)
-    raise HTTPException(status_code=404, detail="音频产物不存在")
+    if found is None:
+        raise HTTPException(status_code=404, detail="音频产物不存在")
+    assert_job_backed_file_access(
+        session, user, name, url_prefix="/api/audio/orch/files", sig=sig
+    )
+    return _ranged_response(
+        found.read_bytes(), "audio/wav", request.headers.get("range")
+    )

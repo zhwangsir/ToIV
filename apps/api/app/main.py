@@ -414,7 +414,7 @@ def create_app() -> FastAPI:
         )
         return response
 
-    # 按请求 R18 放行标记(/nsfw 专页带 X-NSFW: 1)→ ContextVar;gate/模型列表据此放行,不动账户开关。
+    # D-U1=B:按请求 R18 放行标记(X-NSFW: 1,canvas R18 模式)→ ContextVar;gate/模型列表据此放行,账户开关不放行。
     @app.middleware("http")
     async def _nsfw_intent_mw(request, call_next):
         from app.nsfw_ctx import nsfw_intent_var

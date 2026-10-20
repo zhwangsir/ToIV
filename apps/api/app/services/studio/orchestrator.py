@@ -995,13 +995,13 @@ async def render_shot(
 
 
 def _fire_video_transcript(url: str) -> None:
-    """FU2:studio 回写落库处触发 Packed Transcript 钩子(tracker.mark_done 不覆盖此路径)。"""
+    """FU2/待办#4:studio 回写经 artifacts/video-done 总线(与 tracker.mark_done 同扇出)。"""
     if not (url or "").strip():
         return
     try:
-        from app.services.media.artifact_transcript import on_artifacts_done
+        from app.services.domain_events import emit_artifacts_video_done
 
-        on_artifacts_done([url])
+        emit_artifacts_video_done([url], source="studio.orchestrator")
     except Exception:  # noqa: BLE001 — 转写失败绝不阻断回写
         logger.warning("transcript 钩子触发失败 %s", url[:80], exc_info=True)
 

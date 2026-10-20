@@ -196,7 +196,14 @@ def mark_done(prompt_id: str, urls: list[str]) -> None:
                 increment_app_usage(session, app_id)
             session.commit()
             try:
-                video_transcript_hook(urls)
+                # 待办#4:经领域事件总线 fan-out(默认订阅=transcript);
+                # 测试若替换 video_transcript_hook 则走替换件(兼容既有注入)。
+                if video_transcript_hook is not artifact_transcript.on_artifacts_done:
+                    video_transcript_hook(urls)
+                else:
+                    from app.services.domain_events import emit_artifacts_video_done
+
+                    emit_artifacts_video_done(urls, source="tracker.mark_done")
             except Exception as e:  # noqa: BLE001 — 转写钩子失败只记日志,不阻断回写
                 logger.warning("transcript 钩子失败 %s: %s", prompt_id, e)
 

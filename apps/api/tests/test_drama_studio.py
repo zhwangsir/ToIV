@@ -2473,7 +2473,7 @@ def test_generate_video_nsfw_blocked_without_x_nsfw(ctx):
         json={"nsfw": True},
     )
     assert r.status_code == 403, r.text
-    assert "NSFW 专区" in r.json()["detail"]
+    assert "R18" in r.json()["detail"]
     with Session(engine) as s:
         assert s.exec(select(Job)).all() == []
 
@@ -2491,7 +2491,7 @@ def test_generate_video_v2_nsfw_blocked_without_x_nsfw(ctx):
             json=body,
         )
         assert r.status_code == 403, r.text
-        assert "NSFW 专区" in r.json()["detail"]
+        assert "R18" in r.json()["detail"]
     with Session(engine) as s:
         assert s.exec(select(Job)).all() == []
 

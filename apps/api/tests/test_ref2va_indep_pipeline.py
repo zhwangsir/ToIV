@@ -266,7 +266,7 @@ def test_render_c_still_continues(monkeypatch):
 
 
 @pytest.fixture()
-def ctx():
+def ctx(monkeypatch):
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
@@ -277,6 +277,8 @@ def ctx():
             yield session
 
     app.dependency_overrides[get_session] = override
+    import app.db as db_mod
+    monkeypatch.setattr(db_mod, "engine", engine)
     with Session(engine) as s:
         tenant = Tenant(name="studio-ref2va")
         s.add(tenant)
@@ -291,7 +293,8 @@ def ctx():
         s.commit()
         s.refresh(user)
         uid = user.id
-    yield TestClient(app), create_token(uid), engine
+    with TestClient(app) as client:
+        yield client, create_token(uid), engine
     app.dependency_overrides.clear()
 
 

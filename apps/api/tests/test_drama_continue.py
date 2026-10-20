@@ -521,7 +521,7 @@ def test_continue_nsfw_blocked_without_x_nsfw(ctx):
         json={"nsfw": True},
     )
     assert r.status_code == 403, r.text
-    assert "NSFW 专区" in r.json()["detail"]
+    assert "R18" in r.json()["detail"]
     with Session(engine) as s:
         shot = s.get(DramaShot, sid)
         assert shot.continue_status == ""  # 门控先于状态置位,无副作用

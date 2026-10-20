@@ -13,7 +13,7 @@ from app.security import create_token, hash_password
 
 
 @pytest.fixture()
-def ctx():
+def ctx(monkeypatch):
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
@@ -24,6 +24,8 @@ def ctx():
             yield session
 
     app.dependency_overrides[get_session] = override
+    import app.db as db_mod
+    monkeypatch.setattr(db_mod, "engine", engine)
     with Session(engine) as s:
         tenant = Tenant(name="studio")
         s.add(tenant)
@@ -436,6 +438,7 @@ def test_render_quality_gate_exception_does_not_break_render(ctx, monkeypatch):
 
 def test_studio_file_serving(ctx, monkeypatch, tmp_path):
     import app.storage as storage
+    from app.services.studio_file_access import studio_file_sig
 
     out = tmp_path / "studio"
     out.mkdir()
@@ -446,9 +449,12 @@ def test_studio_file_serving(ctx, monkeypatch, tmp_path):
     H = _h(token)
     # 未认证 → 401(T0 红线修复:此前是 13 个同类文件端点中唯一无鉴权的)
     assert client.get("/api/studio/files/x.mp4").status_code == 401
-    r = client.get("/api/studio/files/x.mp4", headers=H)
+    # P-1:无归属时普通用户 404;用 sig 能力 URL 或挂 final_url 后可读
+    assert client.get("/api/studio/files/x.mp4", headers=H).status_code == 404
+    sig = studio_file_sig("x.mp4")
+    r = client.get(f"/api/studio/files/x.mp4?sig={sig}", headers=H)
     assert r.status_code == 200 and r.content == b"fake-mp4"
-    assert r.headers["content-type"] == "video/mp4"
+    assert r.headers["content-type"].startswith("video/mp4")
     # 不存在 → 404;路径穿越 → 400(或路由不匹配 404/405,绝不放行)
     assert client.get("/api/studio/files/none.mp4", headers=H).status_code == 404
     assert client.get("/api/studio/files/..%2F..%2Fsecret", headers=H).status_code in (400, 404, 405)

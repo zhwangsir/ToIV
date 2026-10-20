@@ -37,8 +37,11 @@ def test_raw_migration_failure_logs_warning(_mem_engine, monkeypatch, caplog):
     with caplog.at_level(logging.WARNING, logger="app.db"):
         db._run_column_migrations()  # 不抛异常
 
-    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
-    assert any("迁移跳过" in m and "CREATE TABL bogus_syntax" in m for m in warnings), warnings
+    msgs = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+    # 待办#5:非良民(语法)抬到 ERROR「迁移失败」;仍须留痕且含语句片段
+    assert any(
+        ("迁移跳过" in m or "迁移失败" in m) and "CREATE TABL bogus_syntax" in m for m in msgs
+    ), msgs
 
 
 def test_column_migration_failure_logs_warning(_mem_engine, monkeypatch, caplog):
@@ -52,8 +55,8 @@ def test_column_migration_failure_logs_warning(_mem_engine, monkeypatch, caplog)
     with caplog.at_level(logging.WARNING, logger="app.db"):
         db._run_column_migrations()
 
-    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
-    assert any("no_such_table.ghost_col" in m for m in warnings), warnings
+    msgs = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+    assert any("no_such_table.ghost_col" in m for m in msgs), msgs
 
 
 def test_successful_migrations_no_warning(_mem_engine, monkeypatch, caplog):

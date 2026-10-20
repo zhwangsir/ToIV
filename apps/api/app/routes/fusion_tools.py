@@ -1,7 +1,8 @@
 """FU2/FU5 成片工具 API 面(video-use MIT 并码服务的对外契约;FU5 manifest 同面)。
 
 词级转写→Packed Transcript、EDL 校验/剪点计划、成片 QA 自检、视觉下钻 PNG、
-管线 manifest 校验。视频路径类操作限定 drama 输出根内(防任意文件读取)。
+管线 manifest 校验。视频路径类操作限定 drama 输出根内(防任意文件读取),
+并做 P-1 归属校验(鉴权≠授权)。
 """
 from __future__ import annotations
 
@@ -10,7 +11,9 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+from sqlmodel import Session
 
+from app.db import get_session
 from app.deps import get_current_user
 from app.models import User
 
@@ -40,6 +43,15 @@ def _safe_media_path(video_path: str) -> Path:
         raise HTTPException(status_code=403, detail="视频路径不在允许的媒体目录内")
     if not p.is_file():
         raise HTTPException(status_code=404, detail="视频文件不存在")
+    return p
+
+
+def _owned_media_path(video_path: str, user: User, session: Session) -> Path:
+    """路径闸 + P-1 归属校验(fusion 视频入参统一入口)。"""
+    from app.services.studio_file_access import assert_media_path_owned
+
+    p = _safe_media_path(video_path)
+    assert_media_path_owned(session, user, p)
     return p
 
 
@@ -144,11 +156,12 @@ def fusion_cut_plan(
 def fusion_qa_review(
     body: QaReviewRequest,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> dict:
     """渲染后自评:每个剪点 ±window 自检跳帧/爆音/字幕遮挡+响度。"""
     from app.services.qa.self_review import review_render, suggest_fixes
 
-    video = _safe_media_path(body.video_path)
+    video = _owned_media_path(body.video_path, user, session)
     try:
         review = review_render(video, body.cut_points, fps=body.fps, window=body.window)
     except ValueError as exc:
@@ -160,11 +173,12 @@ def fusion_qa_review(
 def fusion_timeline_png(
     body: TimelinePngRequest,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> Response:
     """按需视觉下钻:胶片条+波形+词标签复合 PNG(单张给 VLM)。"""
     from app.services.qa.timeline_view import timeline_png_bytes
 
-    video = _safe_media_path(body.video_path)
+    video = _owned_media_path(body.video_path, user, session)
     try:
         png = timeline_png_bytes(
             video,
@@ -182,25 +196,36 @@ def fusion_timeline_png(
 def fusion_transcript_of_video(
     path: str = Query(min_length=1, max_length=1000),
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> dict:
     """读取视频产物的 Packed Transcript(<产物名>.transcript.md)。
 
     path=视频路径(drama 输出根内,相对路径按根解析)或裸产物名(远程产物视频
-    不在盘时读 drama 根内的 sidecar);实际读取对象一律过 _safe_media_path 安全闸。
+    不在盘时读 drama 根内的 sidecar);读取前过路径闸+归属校验。
     """
     from app.services.media.artifact_transcript import sidecar_candidates
+    from app.services.studio_file_access import assert_media_path_owned
+    from app.storage import drama_output_root
 
-    video = Path(path).expanduser()
-    if not video.is_absolute():
-        from app.storage import drama_output_root
+    raw = (path or "").strip()
+    # URL / 绝对路径走 _owned_media_path;相对裸名先挂 drama 根
+    try:
+        if raw.startswith("/api/") or Path(raw).is_absolute():
+            video_owned = _owned_media_path(raw, user, session)
+        else:
+            video_owned = _owned_media_path(str(drama_output_root() / raw), user, session)
+    except HTTPException:
+        # URL 形态但文件在 studio/ 下: _safe_media_path 已覆盖;再试相对挂根
+        if raw.startswith("/api/"):
+            raise
+        video_owned = _owned_media_path(str(drama_output_root() / raw), user, session)
 
-        video = drama_output_root() / video
-    for cand in sidecar_candidates(video):
+    for cand in sidecar_candidates(video_owned):
         if cand.is_file():
             real = _safe_media_path(str(cand))
+            assert_media_path_owned(session, user, real)
             return {"video": path, "transcript": real.name,
                     "markdown": real.read_text(encoding="utf-8")}
-    _safe_media_path(str(video))  # 无 sidecar 仍过闸:越界报 403,缺失报 404
     raise HTTPException(status_code=404, detail="该视频尚无 transcript")
 
 

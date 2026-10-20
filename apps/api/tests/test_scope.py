@@ -151,7 +151,8 @@ async def test_generate_happy_path_job_done_and_file_served(monkeypatch, tmp_pat
     class _Req:
         headers = {}
 
-    resp = await get_scope_file(name, _Req(), _user())
+    with Session(engine) as session:
+        resp = await get_scope_file(name, _Req(), _user(), session)
     assert resp.status_code == 200 and resp.body == _MP4
 
 
@@ -259,9 +260,10 @@ async def test_files_rejects_bad_name_and_missing(monkeypatch, tmp_path):
     class _Req:
         headers = {}
 
-    with pytest.raises(HTTPException) as ei:
-        await get_scope_file("../../etc/passwd", _Req(), _user())
-    assert ei.value.status_code == 400
-    with pytest.raises(HTTPException) as ei:
-        await get_scope_file("scope-" + "0" * 32 + ".mp4", _Req(), _user())
-    assert ei.value.status_code == 404
+    with Session(engine) as session:
+        with pytest.raises(HTTPException) as ei:
+            await get_scope_file("../../etc/passwd", _Req(), _user(), session)
+        assert ei.value.status_code == 400
+        with pytest.raises(HTTPException) as ei:
+            await get_scope_file("scope-" + "0" * 32 + ".mp4", _Req(), _user(), session)
+        assert ei.value.status_code == 404

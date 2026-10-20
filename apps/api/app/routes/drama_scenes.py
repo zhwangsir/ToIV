@@ -80,28 +80,24 @@ def _owned_scene(sid: str, user: User, session: Session) -> DramaScene:
 
 
 def _owned_project_any(pid: str, user: User, session: Session):
-    """P4:场景注册表兼容 DramaProject(旧链)与 StudioProject(唯一宿主)。"""
-    p = session.get(DramaProject, pid)
-    if p:
-        if p.user_id != user.id:
-            raise HTTPException(status_code=404, detail="项目不存在")
-        return p
-    sp = session.get(StudioProject, pid)
-    if not sp or sp.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="项目不存在")
-    return sp
+    """P4/待办#4:Studio 唯一宿主优先,Drama 仅 legacy(见 project_host)。"""
+    from app.services.project_host import resolve_host_project
+
+    _kind, proj = resolve_host_project(session, pid, user)
+    return proj
 
 
 def _owned_shot_any(sid: str, user: User, session: Session):
+    """分镜双域:StudioShot 优先(宿主域),DramaShot 为 legacy。"""
+    sp = session.get(StudioShot, sid)
+    if sp:
+        _owned_project_any(sp.project_id, user, session)
+        return sp
     s = session.get(DramaShot, sid)
     if s:
         _owned_project_any(s.project_id, user, session)
         return s
-    sp = session.get(StudioShot, sid)
-    if not sp:
-        raise HTTPException(status_code=404, detail="分镜不存在")
-    _owned_project_any(sp.project_id, user, session)
-    return sp
+    raise HTTPException(status_code=404, detail="分镜不存在")
 
 
 def _read_image_bytes(image_url: str) -> bytes:

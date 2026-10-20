@@ -321,13 +321,23 @@ async def get_scope_file(
     name: str,
     request: Request,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    sig: str = "",
 ) -> Response:
-    """回读运镜产物(手动 Range,同 audio_orchestrate 文件服务)。"""
+    """回读运镜产物(手动 Range,同 audio_orchestrate 文件服务)。
+
+    P-1 归属:sig 即能力,或 Job(kind=scope_camera).result 属主回退;他人统一 404。
+    """
     if not _OUT_NAME_RE.match(name):
         raise HTTPException(status_code=400, detail="非法文件名")
     path = content_subdir("scope") / name
     try:
         if path.is_file():
+            from app.services.studio_file_access import assert_job_backed_file_access
+
+            assert_job_backed_file_access(
+                session, user, name, url_prefix="/api/scope/files", sig=sig
+            )
             return _ranged_response(
                 path.read_bytes(), "video/mp4", request.headers.get("range")
             )

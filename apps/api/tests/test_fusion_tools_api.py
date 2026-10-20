@@ -119,3 +119,108 @@ def test_media_path_guard_accepts_url_forms(ctx, tmp_path, monkeypatch):
     assert p3.name == "clip.mp4"
     with pytest.raises(Exception):
         ft._safe_media_path("/api/studio/files/../../../etc/passwd")
+
+
+# ── P-1 IDOR: fusion 视频路径类端点须归属校验 ───────────────────────────────
+
+
+@pytest.fixture
+def idor_fusion_ctx(tmp_path, monkeypatch):
+    """双用户 + 落盘 A 的视频(挂 StudioProject.final_url)。"""
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def override():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override
+    root = tmp_path / "drama"
+    (root / "studio").mkdir(parents=True)
+    (root / "output").mkdir(parents=True)
+    monkeypatch.setattr("app.storage.drama_output_root", lambda: root)
+
+    from app.models import StudioProject
+
+    with Session(engine) as s:
+        t = Tenant(name="fu-idor")
+        s.add(t)
+        s.commit()
+        s.refresh(t)
+        s.add(User(id="fu-a", email="fa@t.iv", hashed_password=hash_password("x"),
+                   tenant_id=t.id, role="user"))
+        s.add(User(id="fu-b", email="fb@t.iv", hashed_password=hash_password("x"),
+                   tenant_id=t.id, role="user"))
+        name = "owned-by-a.mp4"
+        (root / "studio" / name).write_bytes(b"\x00\x00\x00\x18ftypmp42")
+        p = StudioProject(
+            tenant_id=t.id, user_id="fu-a", title="fu",
+            final_url=f"/api/studio/files/{name}",
+        )
+        s.add(p)
+        s.commit()
+    yield {
+        "client": TestClient(app),
+        "root": root,
+        "name": "owned-by-a.mp4",
+        "ha": {"Authorization": "Bearer " + create_token("fu-a")},
+        "hb": {"Authorization": "Bearer " + create_token("fu-b")},
+        "url": "/api/studio/files/owned-by-a.mp4",
+    }
+    app.dependency_overrides.clear()
+
+
+def test_fusion_qa_review_other_user_404(idor_fusion_ctx):
+    """用户 B 不能对用户 A 的成片做 QA 自评(IDOR)。"""
+    c = idor_fusion_ctx
+    # B 越权 → 404
+    r = c["client"].post(
+        "/api/fusion/qa/review",
+        json={"video_path": c["url"], "cut_points": [0.5]},
+        headers=c["hb"],
+    )
+    assert r.status_code == 404, (r.status_code, r.text)
+    # 本地绝对路径形态同样拒
+    abs_path = str(c["root"] / "studio" / c["name"])
+    r2 = c["client"].post(
+        "/api/fusion/qa/review",
+        json={"video_path": abs_path, "cut_points": [0.5]},
+        headers=c["hb"],
+    )
+    assert r2.status_code == 404, (r2.status_code, r2.text)
+
+
+def test_fusion_timeline_png_other_user_404(idor_fusion_ctx):
+    c = idor_fusion_ctx
+    r = c["client"].post(
+        "/api/fusion/qa/timeline-png",
+        json={"video_path": c["url"], "words": [], "ambiguity_points": [0.5]},
+        headers=c["hb"],
+    )
+    assert r.status_code == 404, (r.status_code, r.text)
+
+
+def test_fusion_transcript_of_video_other_user_404(idor_fusion_ctx):
+    """of-video 读侧车同样须归属;无侧车时越权也不得靠 404「尚无 transcript」区分存在性之外的信息——
+    属主未挂侧车 → 404 尚无 transcript;越权用户 → 404 产物不存在(统一不存在口径优先)。"""
+    c = idor_fusion_ctx
+    # 先给属主挂侧车
+    side = c["root"] / "owned-by-a.transcript.md"  # sidecar_candidates: drama 根优先,stem+SIDE_SUFFIX
+    side.write_text("[000.00-001.00] hello\n", encoding="utf-8")
+    # 属主可读
+    r_ok = c["client"].get(
+        "/api/fusion/transcript/of-video",
+        params={"path": c["url"]},
+        headers=c["ha"],
+    )
+    assert r_ok.status_code == 200, r_ok.text
+    assert "hello" in r_ok.json().get("markdown", "")
+    # B 越权 → 404
+    r_deny = c["client"].get(
+        "/api/fusion/transcript/of-video",
+        params={"path": c["url"]},
+        headers=c["hb"],
+    )
+    assert r_deny.status_code == 404, (r_deny.status_code, r_deny.text)

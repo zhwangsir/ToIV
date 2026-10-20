@@ -1739,7 +1739,7 @@ def reconcile_parse_jobs() -> int:
     with Session(_engine) as s:
         rows = s.exec(
             select(Job).where(
-                Job.kind.in_((_PARSE_KIND, _SHEET_KIND, _FRAME_KIND, _IMAGE_PARSE_KIND)),  # type: ignore[attr-defined]
+                Job.kind.in_((_PARSE_KIND, _SHEET_KIND, _FRAME_KIND, _IMAGE_PARSE_KIND, "studio_batch_render")),  # type: ignore[attr-defined]
                 Job.status.in_(("queued", "running")),  # type: ignore[attr-defined]
             )
         ).all()
@@ -2256,6 +2256,12 @@ class RenderProjectBody(BaseModel):
 
     # 显式加速档:产品默认满血 off;非法值 → 422(h3_accel.validate_acceleration)。
     accel: str = Field(default="off", max_length=16)
+    # 待办 #2:默认 wait=true 兼容 canvas 长等({rendered,failed});
+    # wait=false → 202+job_id,回写挂 Job 生命周期(断连不杀)。
+    wait: bool = Field(
+        default=True,
+        description="True=HTTP 等整批结束(默认,兼容旧客户端);False=立即 202+job_id,后台继续",
+    )
 
     @field_validator("accel")
     @classmethod
@@ -2392,6 +2398,117 @@ def pick_shot_candidate(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+_BATCH_KIND = "studio_batch_render"
+
+
+async def _run_batch_render(job_id: str, pid: str, accel: str) -> None:
+    """整批渲染后台协程:自持 Session,与 HTTP 请求生命周期脱钩(待办 #2)。
+
+    客户端断连只取消等待方,不取消本任务;进度写入 Job.progress / 终态写 result。
+    """
+    from app.db import engine as _engine
+    from app.models import Job
+
+    done, failed = 0, 0
+    applied_any = False
+
+    def _patch(status: str | None = None, *, result: dict | None = None, progress: dict | None = None) -> bool:
+        """更新 Job;若已 canceled 返回 False 供上层停跑。"""
+        with Session(_engine) as s:
+            job = s.get(Job, job_id)
+            if not job:
+                return False
+            if job.status == "canceled":
+                return False
+            if status:
+                job.status = status
+            if result is not None:
+                job.result = json.dumps(result, ensure_ascii=False)
+            if progress is not None:
+                job.progress = json.dumps(progress, ensure_ascii=False)
+            s.add(job)
+            s.commit()
+            return True
+
+    try:
+        if not _patch("running", progress={"rendered": 0, "failed": 0, "total": 0}):
+            return
+        with Session(_engine) as s:
+            shots = s.exec(
+                select(StudioShot).where(StudioShot.project_id == pid).order_by(StudioShot.idx)
+            ).all()
+            pending = [
+                sh.id
+                for sh in shots
+                if (sh.status or "") not in orchestrator.terminal_states()
+            ]
+        total = len(pending)
+        _patch(progress={"rendered": 0, "failed": 0, "total": total})
+        for sid in pending:
+            with Session(_engine) as s:
+                job = s.get(Job, job_id)
+                if not job or job.status == "canceled":
+                    return
+                shot = s.get(StudioShot, sid)
+                if shot is None or (shot.status or "") in orchestrator.terminal_states():
+                    continue
+                accel_echo: dict = {}
+                try:
+                    # 不传 request:后台无客户端连接;断连无法取消单镜(由 Job.cancel 管)
+                    await orchestrator.render_shot(
+                        s,
+                        shot,
+                        request=None,
+                        video_model="h3",
+                        num_candidates=2,
+                        pipeline="ref2va",
+                        accel=accel,
+                        accel_echo=accel_echo,
+                        wait=True,
+                    )
+                    done += 1
+                    applied_any = applied_any or bool(accel_echo.get("applied"))
+                except RenderError:
+                    failed += 1
+            if not _patch(
+                progress={
+                    "rendered": done,
+                    "failed": failed,
+                    "total": total,
+                    "acceleration_applied": applied_any,
+                }
+            ):
+                return
+        _patch(
+            "done",
+            result={
+                "rendered": done,
+                "failed": failed,
+                "project_id": pid,
+                "acceleration": accel,
+                "acceleration_applied": applied_any,
+            },
+            progress={
+                "rendered": done,
+                "failed": failed,
+                "total": total,
+                "acceleration_applied": applied_any,
+            },
+        )
+    except Exception as e:  # noqa: BLE001 — 后台任务绝不静默死掉
+        logger.exception("batch render job %s 意外失败", job_id)
+        _patch(
+            "error",
+            result={
+                "error": f"整批渲染失败:{e}",
+                "rendered": done,
+                "failed": failed,
+                "project_id": pid,
+                "acceleration": accel,
+            },
+        )
+
+
 @router.post("/studio/projects/{pid}/render")
 async def render_batch(
     pid: str,
@@ -2400,41 +2517,129 @@ async def render_batch(
     session: Session = Depends(get_session),
     request: Request = None  # FastAPI 注入;勿标 Optional 否则当 Pydantic 字段,
 ):
-    """批量渲染:跳过已 rendered/voiced/lipsynced/done 的分镜;单镜失败不阻塞其余。"""
-    _get_project(session, pid, user)
+    """批量渲染:跳过已终态分镜;单镜失败不阻塞其余。
+
+    待办 #2:整批改挂 Job + 进程内后台协程——回写不绑 HTTP 请求。
+      · wait=false → 202 + job_id(立即返回;轮询 GET .../render/{job_id} 或 /api/jobs/lookup)
+      · wait=true(默认) → 后台跑 + HTTP 等到终态,仍回 {rendered,failed}(兼容 canvas);
+        客户端断连只取消等待,不杀后台回写。
+    """
+    import asyncio as _asyncio
+
+    from app.models import Job
+    from app.versioning import params_snapshot
+
+    project = _get_project(session, pid, user)
     accel = (body.accel if body is not None else "off") or "off"
-    shots = session.exec(
-        select(StudioShot).where(StudioShot.project_id == pid).order_by(StudioShot.idx)
-    ).all()
-    done, failed = 0, 0
-    applied_any = False
-    for shot in shots:
-        if request is not None and await request.is_disconnected():
-            break
-        if shot.status in orchestrator.terminal_states():
+    do_wait = True if body is None else bool(body.wait)
+
+    job = Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id="",
+        worker="",
+        kind=_BATCH_KIND,
+        status="queued",
+        prompt=f"整批渲染 {project.title or pid[:8]}".strip()[:200],
+        params=params_snapshot(
+            body or RenderProjectBody(),
+            project_id=pid,
+            accel=accel,
+        ),
+    )
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    job.prompt_id = f"batch-render-{job.id}"
+    session.add(job)
+    session.commit()
+
+    _asyncio.create_task(_run_batch_render(job.id, pid, accel))
+
+    if not do_wait:
+        return JSONResponse(
+            status_code=202,
+            content={
+                "job_id": job.id,
+                "status": "queued",
+                "project_id": pid,
+                "acceleration": accel,
+            },
+        )
+
+    # 兼容路径:轮询本 Job 终态(后台在跑;断连 CancelledError 不波及 create_task)
+    import asyncio as _aio
+
+    from app.db import engine as _engine
+
+    while True:
+        await _aio.sleep(0.05)
+        with Session(_engine) as s:
+            j = s.get(Job, job.id)
+            if j is None:
+                raise HTTPException(status_code=500, detail="整批作业丢失")
+            if j.status in ("done", "error", "canceled"):
+                result: dict = {}
+                if j.result:
+                    try:
+                        result = json.loads(j.result)
+                    except (ValueError, TypeError):
+                        result = {}
+                if j.status == "error" and not result.get("rendered") and result.get("error"):
+                    # 整批意外失败仍给计数口径,避免前端崩
+                    return {
+                        "job_id": job.id,
+                        "rendered": int(result.get("rendered") or 0),
+                        "failed": int(result.get("failed") or 0),
+                        "acceleration": accel,
+                        "acceleration_applied": bool(result.get("acceleration_applied")),
+                        "error": result.get("error"),
+                        "status": j.status,
+                    }
+                return {
+                    "job_id": job.id,
+                    "rendered": int(result.get("rendered") or 0),
+                    "failed": int(result.get("failed") or 0),
+                    "acceleration": result.get("acceleration") or accel,
+                    "acceleration_applied": bool(result.get("acceleration_applied")),
+                    "status": j.status,
+                }
+
+
+@router.get("/studio/projects/{pid}/render/{job_id}")
+def batch_render_status(
+    pid: str,
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """轮询整批渲染:queued/running/done/error + rendered/failed 计数。"""
+    from app.models import Job
+
+    _get_project(session, pid, user)
+    job = session.get(Job, job_id)
+    if not job or job.user_id != user.id or job.kind != _BATCH_KIND:
+        raise HTTPException(status_code=404, detail="作业不存在")
+    # 防串项目:params 快照含 project_id
+    try:
+        params = json.loads(job.params or "{}")
+    except (ValueError, TypeError):
+        params = {}
+    if params.get("project_id") and params.get("project_id") != pid:
+        raise HTTPException(status_code=404, detail="作业不存在")
+    out: dict = {"job_id": job.id, "status": job.status, "project_id": pid}
+    for blob in (job.progress, job.result):
+        if not blob:
             continue
-        accel_echo: dict = {}
         try:
-            await orchestrator.render_shot(
-                session,
-                shot,
-                request=request,
-                video_model="h3",
-                num_candidates=2,
-                pipeline="ref2va",
-                accel=accel,
-                accel_echo=accel_echo,
-            )
-            done += 1
-            applied_any = applied_any or bool(accel_echo.get("applied"))
-        except RenderError:
-            failed += 1
-    return {
-        "rendered": done,
-        "failed": failed,
-        "acceleration": accel,
-        "acceleration_applied": applied_any,
-    }
+            data = json.loads(blob)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(data, dict):
+            for k in ("rendered", "failed", "total", "acceleration", "acceleration_applied", "error"):
+                if k in data:
+                    out[k] = data[k]
+    return out
 
 
 
@@ -3086,13 +3291,17 @@ _MEDIA_TYPES = {
 @router.get("/studio/files/{name}", response_model=None)
 def studio_file(
     name: str,
+    sig: str = "",
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> FileResponse:
     """Studio 产出静图/片段/配音文件(渲染器落盘目录,NAS 优先降级本地)。
 
     路径穿越防护:仅允许纯文件名(拒绝任何含路径分隔的输入)。
+    P-1 归属:签名(sig)即能力,或 DB 归属回退;他人统一 404。
     """
     from app.storage import drama_output_root
+    from app.services.studio_file_access import assert_studio_file_access
 
     safe = Path(name).name
     if not safe or safe != name:
@@ -3100,6 +3309,7 @@ def studio_file(
     path = drama_output_root() / "studio" / safe
     if not path.is_file():
         raise HTTPException(status_code=404, detail="文件不存在")
+    assert_studio_file_access(session, user, safe, sig=sig)
     return FileResponse(
         path, media_type=_MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream")
     )
