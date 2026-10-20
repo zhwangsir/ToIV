@@ -65,6 +65,9 @@ jobs:
             pytest pytest-asyncio "numpy>=2.1" "opencv-python-headless>=4.8" "fakeredis[lua]"
       - name: Run API tests
         run: python -m pytest tests -q
+      # 真片 dogfood 全链 CI 切片显式闸(全 mock;与上一步全量重叠但日志可定位)
+      - name: Dogfood full-chain CI slice (mocked, zero GPU)
+        run: python -m pytest tests -m dogfood_ci -q --tb=short
 
   web-check:
     needs: changes
@@ -83,3 +86,27 @@ jobs:
       - run: npm ci
       # package.json 无 test 脚本;类型检查即门槛
       - run: npx tsc --noEmit
+
+  # P-2:BUILD_ID -dirty 不得发版 — 门禁单测常驻(与路径变更无关)
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: pip install pytest
+      - name: BUILD_ID dirty gate unit tests
+        run: python -m pytest scripts/release/test_build_id_gate.py -q --tb=short
+      - name: Deploy drain studio gen-window unit tests
+        run: python -m pytest scripts/release/test_deploy_drain.py -q --tb=short
+      - name: Credential hygiene (forbid weak admin literal in docs)
+        run: python -m pytest scripts/release/test_cred_hygiene.py -q --tb=short
+      - name: CLI rejects dirty BUILD_ID
+        run: |
+          if python3 scripts/release/build_id_gate.py --id '20261020-000000-deadbee-dirty'; then
+            echo "expected dirty BUILD_ID to fail" >&2
+            exit 1
+          fi
+          python3 scripts/release/build_id_gate.py --id '20261020-000000-deadbee'

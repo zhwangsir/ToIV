@@ -8,6 +8,9 @@
 #   deploy/deploy.sh workstation     # 部署到 workstation(默认 core)
 #   deploy/deploy.sh --skip-web      # 本地无 .next 构建产物时仍部署(前端保留远端旧构建)
 #   ALLOW_STALE_WEB=1 deploy/deploy.sh  # 显式允许推与当前 HEAD 短 sha 不一致的旧 .next(默认拒)
+#   无 ALLOW_DIRTY_WEB:BUILD_ID 含 -dirty 一律拒推(P-2;见 scripts/release/build_id_gate.py)
+#   FORCE_API_RESTART=1          # 跳过 deploy drain(批跑+studio 生成窗+烟测 campaign),危险
+#   DEPLOY_DRAIN_WAIT_SEC=120    # api 重启前若 busy 则最多等 N 秒排水(默认 0=立即拒绝)
 #   deploy/deploy.sh --web-only      # 仅前端:rsync web+.next,只重启 toiv-web(不碰 toiv-api,保护烟测)
 #   deploy/deploy.sh --rollback      # 回滚:恢复部署前快照(api/app + web/.next),重启并健康检查
 #   deploy/deploy.sh --with-canvas   # 追加画布件:rsync apps/canvas → core 构建(canvas-api-pg 二进制
@@ -70,17 +73,49 @@ exit 1
 REMOTE_EOF
 }
 
+# P-25 / AGENTS §〇:toiv-api 重启前排水。
+# 覆盖:批跑驱动 pgrep + PG Job(queued/running,含 studio_* / drama_* / board_film 等)
+# + App.smoke_status=running(campaign)。旧逻辑只 pgrep batch 脚本,两次误杀 studio 生成窗。
+assert_api_drain() {
+  if [[ "${FORCE_API_RESTART:-0}" == "1" ]]; then
+    echo "⚠ FORCE_API_RESTART=1:跳过 deploy drain(生成窗/战役守卫)" >&2
+    return 0
+  fi
+  local wait_sec="${DEPLOY_DRAIN_WAIT_SEC:-0}"
+  echo "▶ deploy drain:检查 studio 生成窗 / 烟测 campaign / 批跑驱动…"
+  # shellcheck disable=SC2029
+  ssh "${SSH_OPTS[@]}" "${REMOTE}" bash -s -- "${REMOTE_DIR}" "${wait_sec}" <<'REMOTE_DRAIN'
+set -euo pipefail
+TOIV="$1"
+WAIT="$2"
+DRAIN="$TOIV/deploy/deploy_drain.py"
+PY="$TOIV/api/.venv/bin/python"
+if [ ! -f "$DRAIN" ]; then
+  # 脚本尚未 rsync 到远端:回退旧 pgrep(并警告 studio 窗未覆盖)
+  busy=$(pgrep -af 'tmp/batch[0-9]+_[^ ]*\.py' | grep -v pgrep || true)
+  if [ -n "$busy" ]; then
+    echo "✖ 有渲染驱动在跑,拒绝重启 toiv-api:" >&2
+    echo "$busy" >&2
+    exit 3
+  fi
+  echo "⚠ 远端无 deploy/deploy_drain.py — 仅旧 pgrep 守卫;请先完整部署以启用 studio drain" >&2
+  exit 0
+fi
+if [ ! -x "$PY" ]; then
+  PY=python3
+fi
+extra=()
+if [ "${WAIT:-0}" -gt 0 ] 2>/dev/null; then
+  extra+=(--wait-sec "$WAIT" --poll-interval 5)
+fi
+exec "$PY" "$DRAIN" --probe-local "${extra[@]}"
+REMOTE_DRAIN
+}
+
 remote_restart() {
   local unit="$1"
-  if [[ "${unit}" == "toiv-api" && "${FORCE_API_RESTART:-0}" != "1" ]]; then
-    # 渲染驱动经 API 长连接收片,重启会打断真跑:有驱动在跑时拒绝重启
-    local busy
-    busy=$(ssh "${SSH_OPTS[@]}" "${REMOTE}" "pgrep -af 'tmp/batch[0-9]+_[^ ]*\.py' | grep -v pgrep || true")
-    if [[ -n "${busy}" ]]; then
-      echo "✖ 有渲染驱动在跑,拒绝重启 toiv-api(代码已同步,待驱动结束后再重启;确需强制设 FORCE_API_RESTART=1):" >&2
-      echo "${busy}" >&2
-      exit 3
-    fi
+  if [[ "${unit}" == "toiv-api" ]]; then
+    assert_api_drain || exit $?
   fi
   echo "▶ 远端重启 ${unit} …"
   ssh "${SSH_OPTS[@]}" "${REMOTE}" "sudo systemctl restart ${unit}"
@@ -259,22 +294,35 @@ if [ "$WEB_ONLY" = true ] && [ "$INSTALL" = true ]; then
 fi
 
 
-# 拒旧网页:本地 .next/BUILD_ID 内 git 短 sha 必须等于当前 HEAD。
+# 拒脏/旧网页:本地 .next/BUILD_ID 不得含 -dirty,且 git 短 sha 须等于当前 HEAD。
 # 格式见 apps/web/next.config.mjs:YYYYMMDD-HHmmss-<git短sha>[-dirty]
-# --skip-web 不走此检查(本来就不推 web)。ALLOW_STALE_WEB=1 可显式绕过(打警告)。
+# --skip-web 不走此检查(本来就不推 web)。
+# ALLOW_STALE_WEB=1 仅可绕过「sha≠HEAD」的旧构建警告;绝不绕过 -dirty(P-2,无 ALLOW_DIRTY_WEB)。
 assert_web_build_matches_head() {
-  local build_id expected_sha build_sha
+  local build_id expected_sha build_sha gate
   build_id="$(tr -d '\n\r' < apps/web/.next/BUILD_ID)"
   expected_sha="$(git rev-parse --short HEAD)"
+  gate=(python3 "$ROOT/scripts/release/build_id_gate.py")
+
+  # P-2 硬闸:含 -dirty 一律失败(先于 stale 旁路)
+  if ! "${gate[@]}" --id "$build_id"; then
+    echo "  (deploy 拒推:请干净工作区后重建 web,勿带 -dirty 上线)" >&2
+    return 1
+  fi
+
   build_sha=""
   if [[ "$build_id" =~ ^[0-9]{8}-[0-9]{6}-([0-9a-fA-F]+)(-dirty)?$ ]]; then
     build_sha="${BASH_REMATCH[1]}"
+  elif [[ "$build_id" =~ ^[0-9]{8}-[0-9]{6}-nogit$ ]]; then
+    echo "⚠ BUILD_ID 为 nogit(非 git 检出构建),跳过 sha==HEAD 校验" >&2
+    return 0
   fi
   if [ "$build_sha" = "$expected_sha" ]; then
     return 0
   fi
   if [ "${ALLOW_STALE_WEB:-}" = "1" ]; then
     echo "⚠ ALLOW_STALE_WEB=1:本地 .next 是旧构建(BUILD_ID=$build_id,期望 sha=$expected_sha),仍继续推前端" >&2
+    echo "  注意:ALLOW_STALE_WEB 不能放行 -dirty(本函数已先过 dirty 闸)" >&2
     return 0
   fi
   echo "✖ 本地 .next 是旧构建,请先 cd apps/web && npm run build" >&2
