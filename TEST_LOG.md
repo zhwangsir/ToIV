@@ -1,3 +1,9 @@
+- 2026-10-21 **四批本地 commit 收口（仍不 push）**（接棒；用户批准四批按序全部 commit）：批1 `9b186967` chore(release): dirty-build gate + deploy drain + credential hygiene docs（14 files）；批2 `e0ad0a7e` fix(api): P-1 IDOR for scope/orch files + audit #1–#12 api slice（49 files）；批3 `68662984` feat(canvas/web): R18 content-mode + market shell + mobile padding（31 files）；批4 本条目随 ops 文档批一并入库（SHA 见同批 tip / 或后续 TEST_LOG 补记）。真源 `docs/ops/COMMIT_BATCH_PLAN_20261021.md`。**未 push**、未部署、未重启 toiv-api、未碰生产 secrets。status=`wave_a_four_batches_committed_local_no_push`；updated_at 2026-10-21T00:42:00+08:00。
+- 2026-10-21 **弱项嗅探评估 + 波次 A**（接棒；用户拍板执行波次A）：P0 弱项 W1 未 commit 审计山 / W2 生产换密未做 / W3 scope+orch 文件 IDOR（仅登录无归属）。推荐下一刀=波次A：**已执行**起草分批 commit 方案 + 补 W3；仍不 push/不部署/不换密/#13 未动。方案：`docs/ops/COMMIT_BATCH_PLAN_20261021.md`（四批：release+安全 → api 域含 W3 → canvas/web → ops+TEST_LOG）。status=`wave_a_w3_local_green_commit_plan_drafted`；updated_at 2026-10-21T00:41:00+08:00。
+- 2026-10-21 **W3 文件 IDOR 落地**（接棒；TDD）：缺口实址 `apps/api/app/routes/scope.py` `get_scope_file`、`apps/api/app/routes/audio_orchestrate.py` `get_orch_file`。复用 `studio_file_access`：新增 `assert_job_backed_file_access` / `user_owns_job_backed_file`（HMAC `studio_file_sig` 即能力 + `Job.result` 属主回退 + admin 直通；跨用户统一 404「产物不存在」）。路由挂 `session`+可选 `sig`。新测 `tests/test_scope_orch_files_idor.py`；顺带改 `test_scope.py` 直调传 session。证据：`cd apps/api && uv run pytest -q tests/test_scope_orch_files_idor.py tests/test_studio_files_idor.py tests/test_scope.py::test_files_rejects_bad_name_and_missing tests/test_scope.py::test_generate_happy_path_job_done_and_file_served` → **13 passed**；`tests/test_audio_orchestrate.py` → **14 passed**。未 commit/push/部署/重启 toiv-api。status=`w3_scope_orch_idor_local_green`；updated_at 2026-10-21T00:41:00+08:00。
+- 2026-10-17 **待办#3 质量门离线标定（未交付）**（接棒；E-3）：钉死设定卡魔法数 `SLATE_GRAY_MAX_DIST=85`/`SLATE_GRAY_MAX_LUMA=175`/`FACE_HEIGHT_FRAC 0.55–0.65`+`sheet_gate_threshold_snapshot()`；离线边界夹具 `test_sheet_gate_calibration.py`；计划 `tmp/sheet_gate_calibration_plan_20261017.md`（失败族=板岩灰/徽标平色块/锁定格；有证据才调距或 luma，徽标门禁不放宽；真机最多 1–2 枪）。**未调宽阈值、未烧 GPU、未宣称四视图交付**。定向 15 passed。status=`p3_sheet_gate_calib_offline_undelivered`；updated_at 2026-10-18T00:05:00+08:00。
+- 2026-10-17 **待办#2 整批渲染断连不杀回写**（接棒；TDD）：`POST /studio/projects/{pid}/render` 改 Job(`studio_batch_render`)+`create_task` 后台自持 Session；去掉 `is_disconnected` break；`wait=false`→202+job_id，`wait=true`(默认) HTTP 等终态仍回 `{rendered,failed,job_id}` 兼容 canvas；轮询 `GET .../render/{job_id}` 与 `/api/jobs/lookup`；重启收口纳入 reconcile_parse_jobs。定向 **7 passed**（`test_studio_batch_render_async`×4 + batch 回归×3）。未部署/未重启 toiv-api。status=`p2_batch_render_async_local_green`；updated_at 2026-10-18T00:00:00+08:00。
+- 2026-10-17 **P-1 IDOR 收口#1**（接棒；TDD）：`/api/studio/files/{name}`+fusion 视频路径三端点（qa/review、qa/timeline-png、transcript/of-video）补归属校验——HMAC `sig` 签名即能力 + DB 回退（StudioProject/Shot/Character/DramaScene/Job）+ admin 直通；他人统一 404。新增 `app/services/studio_file_access.py`；定向 `test_studio_files_idor`+`test_fusion_tools_api` IDOR 例 **15 passed**。未部署生产、未重启 toiv-api。status=`p1_idor_studio_fusion_local_green`；updated_at 2026-10-17T23:55:00+08:00。
 - 2026-10-17 **A/B/C 三波收官+发版 v1.7.8**（ToIV开发；批准方案执行）：**A 收口批** `fe759909` 裸 hex 全量 token 化(防回归测试钉死)+time-format 单一源+⌘K 焦点陷阱+pages/skills 死代码出清(净删千行)；**B 真片 dogfood 全链实证**（波B-真片dogfood，pid 78e17c5b）：SVML 词锚导入(2 镜 9 拍投影)→改词重排→场景锚点冻结+双镜绑定→整批渲染(双镜 rendered+候选)→配音双 done→**成片 final-5a56466a.mp4**→Packed Transcript 钩子自动产出(侧车 [start-end] 时间戳落 NAS 根,of-video 读取 200)→EDL 体检/剪点计划 200→**QA 自评闭环**(-18.3 LUFS,1 检出+1 修复建议)+视觉下钻 PNG 200；**dogfood 抓漏 2 修**：`5edc8efc` fusion 路径闸 E-8 双形态(URL 被 403 误拒)、`3b410558` 转写钩子漏挂 studio 回写路径(tracker.mark_done 不覆盖)；**C 放量**：FlashVSR streaming_dmd 5.24GiB 装 NAS+/opt(解 20 app)+T1 口径 P-14 重枚举纠偏(`42c4f1b4`,392 装包前提过期)；缺件节点暂存纠偏(8 类多为历史显示名漂移,真缺仅无极清理器留人工)+`fleet_activate_missing_nodes.sh` 待命(未重启,B 渲染窗纪律)。发版 **v1.7.8** tag+CHANGELOG。门禁 api **4577/41/0**、canvas A 波 63 测绿。教训两则入册：同步渲染请求断连杀回写协程(作业 done 零回写,H-4 口径自愈后补)、API 部署重启误杀在飞生成(古风 job×2)。status=`abc_waves_done_v178_released`；updated_at 2026-10-17T21:40:00+08:00。
 - 2026-10-17 **T-U UI 波+FU2 深化+设定卡去标根修**（ToIV开发）：①`06f09f09` 徽标去标 denoise 升三级(0.28→0.45→0.6)——真机日志实证 15 连败根因=单级清不掉，修复后 live 出现「portrait emblem cleared via img2img attempt=3」，随后死在板岩灰服装色门（模型爱出浅色/深色，门禁相对色锁正确）②`0c22852c` FU2 深化：edit_edl/edit_pack 契约收编 media 单一源（30s 段长统一），tracker.mark_done 挂幂等自动转写钩子（whisper 词级→pack→.transcript.md）+`/api/fusion/transcript/of-video`，全量 **4574/41** ③`9c544557` T-U UI 波 polish 批：五流程 34 项审计（P0 交互死区 6 处补 catch/反馈、开发黑话与内部端点文案下架、/skills//tasks 误导死链止血、⌘K dialog 语义、侧栏高亮归位），typecheck/lint/build+62 测绿+双主题浏览器取证，canvas 已部署 ④`8277ba04` toiv-platform skill 补 fusion 端点/分页契约。四视图样本战役 19+ 次：古风(历史过门风格)双 job 一度 running 被**本批 api 部署重启误杀**（教训：生成窗内禁 api 重启，P-25 同类）；v6 长轮询补跑中。status=`tu_fu2deep_delogo_wave_done`；updated_at 2026-10-17T17:45:00+08:00。
 - 2026-10-17 **board 模板 expr 段裁剪+样本战役终局**（ToIV开发）：`9bac79a5` 真机 job 49382ecc 实证 board 走超集 prompts 时表情格 expr_2 卡死宽头肩编辑底尺寸门——模板裁剪至五格（portrait+四视图），经典模板表情格回归不变；复跑全量 **4575/41/0**（此前一次 1 fail=并行代理落码窗口瞬时扰动，单跑即绿）。去标升三级已 live 实证（attempt=3 cleared）；四视图样本 v7（古风五格管线）在飞，查询：GET /api/studio/characters/c7be72f4.../character-sheet/async/{job}。status=`board_expr_stage_fixed_v7_inflight`；updated_at 2026-10-17T18:10:00+08:00。
@@ -1936,3 +1942,109 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
   3. 补推 GitHub：`0ead346..010642e`（含 v3 预览开关与 TEST_LOG）。
 - **验证**: core `app_smoke_admin.py` 已含 `SmokeOneRequest` / `body.timeout_s`；`/api/health` ok；closeout-summary `public 184 / pass 184`；Comfy 三端口 200。
 - **优化线**: 路线图无未勾选项；本周期推进积压 API 修复上线，未开新 UI 项（v3 全量 redesign 仍待用户拍板）。
+
+## 2026-10-18 · 待办#4 双域收敛切片（Studio 唯一宿主 + artifacts/video-done 总线）
+- **策略**: StudioProject 查库优先；Drama 仅 legacy；不删表。同步 `domain_events.emit_artifacts_video_done`，tracker.mark_done / studio._fire_video_transcript 同扇出；transcript 默认订阅。
+- **文件**: `project_host.py` `domain_events.py`；接线 `drama_scenes` `_owned_project_any/_owned_shot_any`、`tracker.py`、`orchestrator.py`；设计注 `tmp/domain_convergence_slice_20261018.md`；测试 `tests/test_domain_convergence_slice.py`。
+- **验证**: `uv run --no-sync pytest tests/test_domain_convergence_slice.py` 5 passed；连带 `test_mark_done_*` / `test_studio_writeback_fires_transcript_hook` / `test_drama_scenes`+`test_p4_scene_anchor` 绿。`test_transcript_of_video_reads_sidecar` 仍 404（/private vs drama_root 路径，与本刀无关既有问题）。无 commit/push、无重启 toiv-api。
+
+## 2026-10-19 · 待办#5 迁移体系 consider alembic（脚手架+错误分级）
+- **方案 A**: 落地 alembic 脚手架（baseline noop + stamp 策略），双轨 init_db 仍主路径；未对任何库 upgrade。
+- **加固**: `is_benign_migration_error`；非良民 → ERROR「迁移失败」，良民仍 WARNING「迁移跳过」。
+- **文件**: `apps/api/alembic.ini` `alembic/env.py` `versions/20261018_0001_baseline.py`；`app/db.py`；`tests/test_alembic_scaffold.py`；`tmp/alembic_cutover_plan_20261018.md`；`pyproject` optional `migrate`/`dev`+alembic。
+- **验证**: `uv run --no-sync pytest tests/test_alembic_scaffold.py tests/test_db_migrations.py` 13 passed。无 commit/push、无 toiv-api 重启、无生产 migrate。
+
+## 2026-10-19 · 待办#6 character_sheet 拆包（gates/templates/layout/retry）
+- **动作**: `character_sheet.py`(~15k) → 包 `character_sheet/{constants,templates,gates,layout,retry,_impl,__init__}`；`__init__` globals 再导出，兼容既有 `from app.services.studio.character_sheet import X` / `sheet_svc` monkeypatch（字体候选读包属性）。
+- **阈值**: #3 `sheet_gate_threshold_snapshot` 常量未改宽。未宣称四视图交付。无 GPU。
+- **验证**: `pytest tests/test_character_sheet_package_split.py tests/test_sheet_gate_calibration.py tests/test_character_sheet_output_gates_1618.py tests/test_yaw_ok_anime_gate.py tests/test_character_sheet_emblem_2220.py tests/test_studio_batch7_character_sheet.py` → 40 passed。无 commit/push、无重启。
+
+## 2026-10-19 · 待办#7 canvas 门禁：Go ~90 / bun 崩尾 / browser 红 → 全绿证据
+
+- **基线（修前）**
+  - Go `go test ./...`（apps/canvas/backend）：**87 FAIL / 5 包红**（多数缺 `.beeftv-plugin`；另有 ffmpeg/libass、SQLite busy、runtime Close 期限）。
+  - bun `bun run test`（apps/canvas/web）：shared 段可过，isolated 在 `assistant-history-failure` **mock 缺 `withToivAuth` 直接 SyntaxError 崩尾**（exit 1）；未跑完后续 browser。
+  - browser 族：`assistant-model-picker` 4 红（本地模式 BeefAPI 在 Collapse + harness 无 Router；页残留 PUT 污染）；另有 per-key `import.meta.env.*` 漏 `BASE_URL` 白屏 → `canvas-id` 等 timeout（lifecycle/node-editor/upload/ingest/project-settings）。
+- **本刀**
+  1. `plugin-packages/build-packages.sh` 产出插件 → Go 87→5。
+  2. Go 测试环境：`native_ffmpeg_test` 无 libass 则 skip；`chapter_apply_test` busy_timeout 30s+PRAGMA；`runtime_test` Shutdown 前 `CloseIdleConnections` → **Go 0 FAIL / 56 ok**。
+  3. bun：`assistant-history-failure` mock 补 `withToivAuth`（止崩）。
+  4. browser harness：`assistant-model-picker-harness` 包 `MemoryRouter`（Collapse 内 `<Link>`）；picker beforeEach 关残留页+排空；W0-1b 整包注入 `import.meta.env`（picker/lifecycle/node-editor/upload/ingest/project-settings）。
+- **验证（Asia/Shanghai）**
+  - Go touched：`go test ./internal/editing/ ./internal/project/ ./internal/bootstrap/` → 3 ok；全树见 `/tmp/toiv-canvas-gates/go-test-final.log` 全 ok。
+  - bun：`bun run test` → **EXIT 0，(fail)=0，~3329 pass 行**（`/tmp/toiv-canvas-gates/bun-test-allgreen.log`）。
+  - picker 单测 4/4；node-editor 10/10；upload+ingest+project-settings 27/27。
+- **是否仍残缺门禁**：否——本机证据下 Go 全绿 + bun 全套 exit 0。未宣称 CI 远端；未 commit/push；未重启 toiv-api；未切分支。
+- **下一刀**：按用户下一项待办；若合并前需复跑 Go 全树，先确保 plugin-packages 已 build（产物常 gitignore）。
+
+## 2026-10-19 · 待办#8 dogfood 真片全链进 CI（mock 切片）
+
+- **资产地图**: 真机 dogfood 波B(TEST_LOG 2026-10-17)+P1 e2e(`tmp/p0-20261016/e2e_p1.py`)+抓漏 `5edc8efc`/`3b410558`;单点测已有 svml/reflow/scene_anchor/batch_render/voice/assemble/fusion/transcript/domain_events,缺「一条链」CI 闸。
+- **本刀**:
+  - `apps/api/tests/test_dogfood_full_chain_ci.py`(+`pytest.mark.dogfood_ci`):SVML→save→reflow dryrun/persist→场景冻结绑定→render/voice/assemble(全 mock)→E-8 URL 闸→EDL/剪点;源码契约钉 `_fire_video_transcript`→`emit_artifacts_video_done`。
+  - `apps/api/pyproject.toml` markers;` .github/workflows/ci.yml` api-tests 后显式 `pytest -m dogfood_ci`;`docs/ops/DOGFOOD_CI_SLICE_20261019.md`。
+- **验证**: `uv run --no-sync pytest tests/test_dogfood_full_chain_ci.py -m dogfood_ci -q` → **2 passed** (~1.3s)。零 GPU/零真机。
+- **未进 CI**: Comfy/H3/TTS/ffmpeg concat/Whisper/QA 帧采样 —— nightly/manual。
+- **约束**: 无 commit/push、无切分支、无重启 toiv-api。
+
+## 2026-10-20 · 待办#9 R18 三口径收口(D-U1=B 代码化)
+
+- **既有拍板**: `UI_UNIFY_FUSION_PLAN` §4 D-U1=B(2026-10-15):canvas 内建 R18 门控;web 不保留独立 R18 面;未成年=唯一法律禁区。
+- **三口径→一策**: canvas 开关+X-NSFW=主路径;web `/nsfw` 专区=架构退役;「R18→经典壳互斥」=F12 执行债(决策卡 A/B/C,默认暂 B);API 旧注释「仅 /nsfw 专页」改正文为请求级头。
+- **落地**: `app/r18_policy.py`;`nsfw_ctx.py`+`main` 中间件注释;`video/h3/apps` 403 文案统一「R18 上下文(X-NSFW)」;canvas 过时「纯 SFW」注释/文案;`docs/ops/R18_POLICY_D_U1B_20261020.md`;`tests/test_r18_policy_d_u1b.py`。
+- **验证**: policy+drama 门控 **12 passed**;test_r18 抽样 5 passed;canvas `r18-mode` 2 passed。无 commit/push、无切分支、无重启、无真 NSFW 生成。
+- **仍需拍板**: 经典壳 NSFW 引擎台立刻撤(A) vs 暂留到 canvas 补齐(B,现状) vs 永久双入口(C=推翻 D-U1,不推荐)。
+
+
+
+
+
+
+## 2026-10-20 · 移动端适配（壳层；非 #13）
+
+- **盘点**：canvas `/studio` 已有 viewport/PWA/侧栏浮层/M4-2；MiniProgram=唯一原生移动端(U10a/b)；web 薄壳+viewport。无限画布触控完整化未交付。
+- **本刀**：扩 `toiv-mobile.css`（市场/任务/工具壳、抽屉全宽、44px、safe-area）；market/tasks/工具页挂 class；`test/toiv-mobile-shell.test.ts`；缺口图 `docs/ops/MOBILE_ADAPTATION_GAP_20261020.md`。
+- **验证**：`bun test test/toiv-mobile-shell.test.ts`（+ market m2 回归）。无 commit/push、无切分支、无重启 toiv-api。
+
+## 2026-10-20 · 待办#12 凭据卫生（文档脱敏；生产换密未做）
+
+- **脱敏**:AGENTS §二改指针表；`skills/toiv-cluster/credentials.md` 废止明文入库；PROMPT/api/SKILL/平台 skill、handoff/报告、`.env.example`、STATE/DRAMA 中弱默认字面量已替换为占位/键名。
+- **生产换密**:未执行——须改 core `deploy/.env` 的 `TOIV_ADMIN_PASSWORD` 并重启 toiv-api；生成窗纪律下本刀不重启。Runbook:`docs/ops/CREDENTIAL_HYGIENE_ROTATE_20261020.md`。
+- **守卫**:`scripts/release/test_cred_hygiene.py` + CI release-gate。无 commit/push；公开 GitHub 历史仍可能含旧明文，待用户批准推送/历史治理。
+
+## 2026-10-20 · 待办#11 deploy drain 覆盖 studio 生成窗
+
+- **旧缺口**:`deploy.sh` 重启 toiv-api 前只 pgrep `tmp/batch*_*.py`,不覆盖 studio_batch_render/parse/Comfy Job/烟测 campaign → 两次误杀在飞作业。
+- **落地**:`deploy/deploy_drain.py`(快照纯函数 + `--probe-local` 读 api environ 的 PG);`assert_api_drain` 挂入 `remote_restart`;`FORCE_API_RESTART=1` 唯一强制旁路;`DEPLOY_DRAIN_WAIT_SEC` 可选等待。文档 `docs/ops/DEPLOY_DRAIN_STUDIO_20261020.md`。
+- **验证**:`python3 -m pytest scripts/release/test_deploy_drain.py -q` → **15 passed**;dry-run busy→3 / clear→0。无 commit/push、无切分支、无重启 toiv-api、无生产部署、未查生产库。
+- **运维**:部署前 drain 自动跑;忙则 exit 3。干跑用 `--snapshot-json`。
+
+## 2026-10-20 · 待办#10 发版自动化 · BUILD_ID -dirty 硬闸(P-2)
+
+- **现状**:`next.config.mjs` 生成 `YYYYMMDD-HHmmss-<sha>[-dirty]`;旧 `deploy.sh` 只校 sha==HEAD,**放行 dirty**。
+- **门禁**:
+  - `scripts/release/build_id_gate.py`(解析/拒 dirty/可选 require-head/洁净工作区)
+  - `deploy/deploy.sh` 推 web 前先跑 gate;**无 ALLOW_DIRTY_WEB**;`ALLOW_STALE_WEB` 不能绕过 dirty
+  - CI job `release-gate`(常驻单测+CLI)
+  - `scripts/release/preflight.sh` + `docs/ops/RELEASE_AUTOMATION_P2_20261020.md`
+- **验证**:`python3 -m pytest scripts/release/test_build_id_gate.py -q` 全绿;CLI dirty→1 / clean→0。无 commit/push、无切分支、无重启、无生产部署、未打 tag。
+- **发版路径**:洁净树 → `./scripts/release/preflight.sh` → `cd apps/web && rm -rf .next && npm run build` → 再预检 → `deploy/deploy.sh --web-only`(需另批授权)。
+
+## 2026-10-20 · 待办#9A 续·canvas NSFW 挂载与提交面
+
+- **拍板上下文**:选项 A 已撤经典壳;用户选补 canvas 对 NSFW 引擎挂载(非重写 EngineStudio)。
+- **挂上**:
+  - 孪生父卡 `txt2img-basic`/`img2img-basic`/`h3-{t2v,i2v,fl2v,r2v}` → 抽屉「内容模式」SFW|R18(仅 R18 开),`POST /apps/{id}/run` 带 `content_mode`。
+  - 纯 R18 市场卡 `ltx-txt2video`/`ltx-img2video`/`ltx-lipsync`/`wan-nsfw-i2v`(开 R18+X-NSFW 后列表可见)。
+  - 市场「R18」筛选 chip;设置页 R18 捷径;映射表 `CLASSIC_NSFW_TO_MARKET`。
+- **仍缺**:canvas 无经典引擎注册表直连(`/api/models/engines`+EngineStudio 参数面);`ltx-nsfw-*` 引擎 id ≠ 市场 app id(工作流路径等价、UX 不等价);扩展孪生(15s-fast/r2v-voice)无单独捷径。
+- **测试**:canvas `bun test test/content-mode.test.ts` **9 passed**;m2 回归 7 passed。`r18-mode` 2 fail 为既有 stub 污染(readonly window),非本刀引入。web e2e `r18-mode.spec` 廉价改 image/video → 期望 `/studio/create`。无 commit/push、无切分支、无重启、无真 NSFW 生成。
+- **操作**:设置 → 开 R18 → 应用市场 →「R18」筛选或打开 H3/文生图父卡切内容模式 R18 → 运行(进任务中心)。
+- **建议下一刀**:可选 canvas 轻量引擎台(`/toiv/engine-studio`)挂 engines catalog;或把 create 页意图条在 R18 下深链孪生+默认 content_mode=nsfw;修 stale e2e 设置页 R18 开关(web 已卸)。
+
+## 2026-10-20 · 待办#9 续·选项 A：撤经典壳 R18 引擎台
+
+- **拍板**:用户选 A——成人内容只走 canvas R18 门控;立刻撤 web 经典壳引擎台。
+- **落地**:`apps/web/app/page.tsx` 卸 `EngineStudioView`、R18 不再绕过 `/studio` handoff、`image|video|create|generate|ltxstudio` → `/studio/create`;回落面板改链 canvas;web 薄壳不再 `initR18Mode`。`EngineStudioView` 标 deprecated(单测保留)。`f9HomeHandoff.test.ts` 改契约;`docs/ops/R18_POLICY_D_U1B_20261020.md` 记 A 已落地。
+- **验证**:`npm test`(apps/web) **353 pass / 0 fail**。无 commit/push、无切分支、无重启、无真 NSFW 生成。
+- **暂不可达**:原经典 `EngineStudioView` 直连的 NSFW 引擎台 UX(nsfw-txt2img/img2img、h3-nsfw-*、ltx-nsfw-*、wan-nsfw-i2v)不再从 web 进入;canvas `/create` 现为应用市场面——开 R18 后门控+X-NSFW 可见市场 NSFW 孪生,但未必逐引擎等价桌面。下一刀建议补 canvas 引擎台挂载。

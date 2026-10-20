@@ -1,7 +1,7 @@
 ---
 name: toiv-cluster
 description: |
-  ToIV 集群远程连接与 API 速查手册：所有设备（workstation/core/spark/beijing/NAS/openclaw 等）的 SSH 连接方法（LAN + Tailscale）、凭据密钥（NAS SMB、Tailscale、PG、admin）、各服务 API 端点与鉴权口径（ToIV api、LLM/VLM/ASR、canvas /studio/api、ComfyUI）、以及部署与运维配方。当用户要连接/登录/排查集群任何设备、查询服务状态、调用平台 API、查密码密钥、部署发版或操作生产数据库时使用本 skill。引用文件按需读取：connections.md（设备与连接）、credentials.md（密钥）、api.md（API 与运维配方）。
+  ToIV 集群远程连接与 API 速查手册：所有设备（workstation/core/spark/beijing/NAS/openclaw 等）的 SSH 连接方法（LAN + Tailscale）、凭据落点指针（NAS/PG/admin → credentials.md）、各服务 API 端点与鉴权口径（ToIV api、LLM/VLM/ASR、canvas /studio/api、ComfyUI）、以及部署与运维配方。当用户要连接/登录/排查集群任何设备、查询服务状态、调用平台 API、查密码密钥、部署发版或操作生产数据库时使用本 skill。引用文件按需读取：connections.md（设备与连接）、credentials.md（密钥）、api.md（API 与运维配方）。
 ---
 
 # ToIV 集群访问手册
@@ -15,7 +15,7 @@ description: |
 3. **core 上的 `systemctl --user` 经 SSH 必须先 `export XDG_RUNTIME_DIR=/run/user/$(id -u)`**，否则报错连不上 bus。
 4. **Windows（pc01）长命令经 SSH 会被换行截断**：用 PowerShell `-EncodedCommand`；SSH 起的进程断连即死，长期服务走计划任务/NSSM。
 5. 生产 PG 直查与部署命令见 api.md §运维配方；**手跑 `app.*` Python 代码必须显式带 `TOIV_DATABASE_URL`**（否则静默回落废弃 SQLite）。
-6. 凭据全在 `credentials.md`（含敏感信息，只在本机/可信环境读取，不要外传到第三方服务）。
+6. 凭据**落点**在 `credentials.md`（无明文）；真值只在 core env/secrets，勿外传。
 
 ## 30 秒速查
 
@@ -25,7 +25,7 @@ description: |
 | SSH core（生产 web/api/PG） | `ssh merlin@192.168.71.47`（TS: `ssh merlin@100.77.80.100`） |
 | 打开 ToIV（局域网，10ms 级） | `http://192.168.71.47:3100`（web）/ `:8090`（api）/ `:3200`（admin） |
 | 打开 ToIV（外网） | `https://toiv.wineryz.top`（CN 入口）或 `https://toiv.dgmt.top`（香港 frp） |
-| ToIV 登录 | `admin / admin123`（登录字段名是 **`email`**；全量凭据见 [credentials.md](credentials.md)） |
+| ToIV 登录 | 用户 `admin`；口令键 `TOIV_ADMIN_PASSWORD`（见 credentials.md） |
 | LLM 直连 | `http://192.168.71.84:8000/v1`（spark02，served `deepseek-v4-flash-dspark`+3 别名；经 core 代理 `:8090/api/llm/v1` 需 ToIV JWT） |
 | 生产 PG 直查 | 见 api.md §运维配方（只能 SSH 到 core 本机执行） |
 | 查 GPU/服务 | `ssh merlin@192.168.71.127 'nvidia-smi; systemctl status comfyui-lb'` |
@@ -34,7 +34,7 @@ description: |
 
 - **[PROMPT.md](PROMPT.md)** — **自包含提示词版**：不想装 skill 时，直接把分隔线内全文粘贴给任意 AI 会话即可用。
 - **[connections.md](connections.md)** — 全部设备的角色/LAN IP/Tailscale IP/SSH 用户/当前状态，NAS 挂载，入口域名与端口全景。
-- **[credentials.md](credentials.md)** — NAS SMB、Tailscale Auth Key、ToIV admin、生产 PG、渠道凭据现状与轮换注意。
+- **[credentials.md](credentials.md)** — 各密钥落点、渠道键名与轮换注意（无明文）。
 - **[api.md](api.md)** — API 文档：鉴权口径与实测可用的 curl 例（登录/LLM/whisper/embedding/canvas 助手链/ComfyUI 探测坑），部署与运维配方。
 
 ## 在新设备上启用本 skill

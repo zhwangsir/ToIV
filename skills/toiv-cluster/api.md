@@ -1,7 +1,7 @@
 # API 文档与运维配方
 
 > 鉴权口径与 curl 例多为 2026-10-14 生产实测；服务表摘自 AGENTS.md §三/§五（10-13 核）。
-> 凭据明文入库（用户拍板 10-14，仅本地自用不涉生产）：完整表见 [credentials.md](credentials.md)。
+> 凭据**不**入仓（2026-10-20 #12）：落点见 [credentials.md](credentials.md)；口令从 core `deploy/.env` 读取。
 
 ## 一、服务端口全景
 
@@ -29,7 +29,7 @@
 |---|---|---|
 | toiv-web | :3100 | `/studio` 同源挂 canvas SPA；`/studio/api/*` 经 Next beforeFiles rewrite → `127.0.0.1:8290`（**Host 被改写为回环**，见 P-23） |
 | toiv-api | :8090 | FastAPI；health=`GET /api/health`；LLM 代理 `/api/llm/v1` |
-| toiv-admin | :3200 | 管理台（admin/admin123） |
+| toiv-admin | :3200 | 管理台（admin；口令见 env） |
 | canvas-api-pg | :8290（仅 127.0.0.1） | `systemctl --user`（SSH 需 XDG_RUNTIME_DIR）；二进制 `/home/merlin/beeftv-prod/canvas-api-pg` |
 | PG 18 / Redis | :5432 / :6379 | 仅 bind 127.0.0.1 |
 
@@ -42,7 +42,7 @@ curl -s http://192.168.71.47:8090/api/health
 # 登录（字段名是 email；响应扁平 {token,user}，token=7天 JWT）
 TOKEN=$(curl -s -X POST http://192.168.71.47:8090/api/auth/login \
   -H "Content-Type: application/json" \
-  -d "{\"email\":\"admin\",\"password\":\"admin123\"}" | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+  -d "{\"email\":\"admin\",\"password\":\"${TOIV_ADMIN_PASSWORD}\"}" | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
 
 # LLM 代理（白名单模型 + 需 JWT）
 curl -s -H "Authorization: Bearer $TOKEN" http://192.168.71.47:8090/api/llm/v1/models
@@ -96,7 +96,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$BASE/workspace/model-config"   # {da
 ```bash
 # ── 生产 PG 直查（只能 SSH core 后） ──
 ssh merlin@192.168.71.47
-export PGPASSWORD=68799b59242beeccfd54963902a35006
+export PGPASSWORD='<from deploy/.env TOIV_DATABASE_URL or core secrets>'
 psql -h 127.0.0.1 -U toiv -d toiv -c "select count(*) from apps where is_public;"
 # canvas 域加 search_path：... -c "set search_path=canvas; select ..."
 

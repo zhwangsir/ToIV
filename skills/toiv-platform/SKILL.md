@@ -21,7 +21,7 @@ description: |
 # 登录（字段名是 email！）
 curl -s -X POST http://192.168.71.47:8090/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"admin","password":"admin123"}'   # → {"token":"..."}
+  -d '{"email":"admin","password":"${TOIV_ADMIN_PASSWORD}"}'   # → {"token":"..."}
 # 之后所有请求带
 -H "Authorization: Bearer $TOKEN"
 ```

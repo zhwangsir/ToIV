@@ -15,7 +15,7 @@
 - 测试基线：api 3315 绿 / web 988 绿 / e2e 六 spec 11/11
 - 生产：core toiv-api :8090（whisper 四址集群+连接池修复已部署）；web BUILD_ID 20260921-052336-nogit；admin :3200；验证入口一律 CN 入口 https://toiv.wineryz.top（dgmt frp 抖动）
 - 目录规模：应用 6773 总/5061 公开/5558 rh-acc，use_case 打标全覆盖；说明卡 550/550
-- admin token：curl -X POST .../api/auth/login -d '{"email":"admin","password":"admin123"}'（字段是 email）
+- admin token：curl -X POST .../api/auth/login -d '{"email":"admin","password":"'"$TOIV_ADMIN_PASSWORD"'"}'（字段是 email）
 - 用户定位拍板：ToIV 仅本地自用/学习，不公开运营
 
 下一项工作（批 1，三件套，方案已备）：
@@ -26,7 +26,7 @@
 
 操作口径（坑已踩平，照用即可）：
 - 部署：web/admin 一律 core 本机构建（Mac 外地 TS 37KB/s，.next 不可传）——web=core 上 cd /home/merlin/toiv/web && rm -rf .next && pnpm build && sudo systemctl restart toiv-web；admin 构建前必须 core 上全量 npm install（生产装 --omit=dev 缺 typescript 会报假线索）；api=deploy/deploy.sh --skip-web core-jump（重试循环）
-- 生产 PG：core 上 export PGPASSWORD=68799b59242beeccfd54963902a35006; psql -h 127.0.0.1 -U toiv -d toiv（core 的 toiv/api/toiv.db 是废弃 SQLite 勿用）
+- 生产 PG：core 上 export PGPASSWORD  # 从 TOIV_DATABASE_URL 解析或 secrets，勿写入文档 psql -h 127.0.0.1 -U toiv -d toiv（core 的 toiv/api/toiv.db 是废弃 SQLite 勿用）
 - e2e：cd apps/web && TOIV_WEB_BASE=https://toiv.wineryz.top TOIV_API_BASE=https://toiv.wineryz.top npx playwright test <spec> --project=chromium-authed --workers=1（并发会饿死 frp）
 - web 测试 mock：新增 lib/api 导出必补 tests/mocks/studioApi.ts 替身；CSS 改 apps.css 注意 P-2b 三约束（懒惰正则位置/零 hex/token 必须已定义）
 - agent 工具开发守 P-9 纪律（四处断言同步+成功文案禁 hint 词）；DB 会话守 P-8 纪律（大响应先拼字节再显式 close）

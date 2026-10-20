@@ -54,16 +54,22 @@ cd apps/canvas/web && bun run lint && bun run typecheck && bun run build
 
 > 🔒 浏览器侧 TS 优先；core→workstation 走 LAN；「TS 离线」≠「服务掉线」（N-5）。~~studio01-04/pc02~~ 已退役下线。
 
-## 二、关键凭据（禁止再次询问）
+## 二、凭据与秘密（禁止写入仓库）
 
-| 服务 | 用户名 | 密码 | 备注 |
-|------|--------|------|------|
-| NAS SMB | dgmt-nas | Aki.19950108 | 192.168.71.7，共享名 NAS |
-| Tailscale Auth Key | — | tskey-auth-kPM5hHvNGY11CNTRL-UTn8rtRjK8Pfw3riNoGB8Pru71VhdRR9C | 已用于 core 授权 |
-| ToIV admin | admin | admin123 | 生产 core（登录字段是 `email`） |
-| core 生产 PG | toiv | 68799b59242beeccfd54963902a35006 | `export PGPASSWORD=…; psql -h 127.0.0.1 -U toiv -d toiv`（core 上跑） |
+**纪律（2026-10-20 #12）**：口令/Token/连接串**不得**出现在 AGENTS、skills、公开文档或 commit 信息。  
+需要时到 **core 机上的 env / secrets 文件**读取；缺省问「密钥在哪个文件」，不要让人把密码贴进聊天。
 
-**NAS 挂载**：WS=fstab `/home/merlin/nas_mount`（重启后必 `mountpoint` 核实，挂载后必须重启 ComfyUI 实例）；Windows=`cmdkey /add:192.168.71.7 /user:dgmt-nas /pass:Aki.19950108`+SYSTEM 自挂 Z:（W-2）。
+| 需要什么 | 落点（路径/键名，无值） |
+|----------|-------------------------|
+| ToIV admin 登录 | core `deploy/.env` → `TOIV_ADMIN_EMAIL` / `TOIV_ADMIN_PASSWORD`（登录 API 字段名是 `email`） |
+| 生产 PG | 同上 `TOIV_DATABASE_URL`；或 systemd `toiv-api` 进程 environ。手跑 `app.*` 必须显式带该变量（P-18） |
+| NAS SMB | 运维 secrets（见 `skills/toiv-cluster/credentials.md` 指针）；Windows `cmdkey` 用本机保管的口令，**勿回写文档** |
+| JWT / 渠道 | `TOIV_JWT_SECRET`、`TOIV_WECHAT_*` 等仅在 `deploy/.env`（已 gitignore） |
+| 测试号 | 例：core `secrets/e2e_user_review.env`（权限 600） |
+
+轮换 runbook：`docs/ops/CREDENTIAL_HYGIENE_ROTATE_20261020.md`。  
+公开 GitHub 历史可能仍含旧明文——需另批授权 push/历史治理，本刀只洗工作树文档。
+
 
 ## 三、Workstation 服务与 GPU（🔒 启动服务前必须核对；显存/RAM 动态值先 nvidia-smi/free -h）
 
