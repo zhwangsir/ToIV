@@ -13,6 +13,19 @@ import (
 	"time"
 )
 
+
+func requireFFmpegSubtitlesFilter(t *testing.T, ffmpeg string) {
+	t.Helper()
+	out, err := exec.Command(ffmpeg, "-hide_banner", "-filters").CombinedOutput()
+	if err != nil {
+		t.Skipf("cannot list ffmpeg filters: %v", err)
+	}
+	// Homebrew ffmpeg often omits libass → no subtitles filter; integration needs it.
+	if !strings.Contains(string(out), "subtitles") {
+		t.Skip("ffmpeg built without libass/subtitles filter (install ffmpeg with libass for this gate)")
+	}
+}
+
 func TestSubtitleFontFailureWithSuccessfulExit(t *testing.T) {
 	for _, message := range []string{
 		"can't find selected font provider", "fontselect: failed to find any fallback with glyph 0x4E2D",
@@ -39,6 +52,7 @@ func TestRenderFFmpegSixSecondAudioAndChineseSubtitles(t *testing.T) {
 	if _, err := exec.LookPath("ffprobe"); err != nil {
 		t.Skip("ffprobe is required")
 	}
+	requireFFmpegSubtitlesFilter(t, ffmpeg)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	dir := t.TempDir()
@@ -324,6 +338,7 @@ func TestRenderFFmpegImageGapSubtitleTerminates(t *testing.T) {
 	if err != nil {
 		t.Skip("ffmpeg required")
 	}
+	requireFFmpegSubtitlesFilter(t, ffmpeg)
 	if _, err := exec.LookPath("ffprobe"); err != nil {
 		t.Skip("ffprobe required")
 	}

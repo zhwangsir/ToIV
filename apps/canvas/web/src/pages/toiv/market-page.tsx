@@ -10,23 +10,28 @@ import { Callout } from "@/components/ui/product/callout";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { LOCAL_AUDIO_HAS_SENSEVOICE, LOCAL_AUDIO_UNAVAILABLE_LABEL } from "@/lib/local-model-defaults";
 import {
+    appShowsR18Badge,
     appUploadKind,
     asMarketMediaList,
     buildDefaultRunValues,
     buildToivRunValues,
+    canShowContentModeToggle,
     fetchToivApp,
     fetchToivAppVariants,
     fetchToivAppsPage,
     firstPinWorker,
     requiredToivParamLabel,
+    resolveSubmitContentMode,
     runToivApp,
     toivCoverImageUrl,
     uploadToivMedia,
+    type ContentMode,
     type MarketMediaHandle,
     type ToivApp,
     type ToivAppModeItem,
     type ToivAppParam,
 } from "@/services/toiv/client";
+import { isR18Mode } from "@/services/toiv/r18-mode";
 import {
     LOCAL_MARKET_FEATURED,
     isMarketAudioUnavailableApp,
@@ -397,6 +402,9 @@ export default function MarketPage() {
     const [providerTick, setProviderTick] = useState(0);
     const [modes, setModes] = useState<ToivAppModeItem[]>([]);
     const [modesLoading, setModesLoading] = useState(false);
+    /** 双模卡 SFW|R18；R18 关时 resolve 强制 sfw */
+    const [contentMode, setContentMode] = useState<ContentMode>("sfw");
+    const [r18On, setR18On] = useState(() => isR18Mode());
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -434,6 +442,21 @@ export default function MarketPage() {
         void load();
     }, [load]);
 
+    useEffect(() => {
+        const sync = () => setR18On(isR18Mode());
+        sync();
+        window.addEventListener("focus", sync);
+        window.addEventListener("storage", sync);
+        return () => {
+            window.removeEventListener("focus", sync);
+            window.removeEventListener("storage", sync);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!r18On && category === "r18") setCategory("all");
+    }, [r18On, category]);
+
     const openDetail = useCallback(
         async (appOrId: ToivApp | string) => {
             const id = typeof appOrId === "string" ? appOrId : appOrId.id;
@@ -444,10 +467,15 @@ export default function MarketPage() {
             setRunMsg(null);
             setValues({});
             setModes([]);
+            setContentMode("sfw");
             try {
                 const full = await fetchToivApp(id);
                 setDetail(full);
                 setValues(buildDefaultRunValues(full.params_schema ?? []));
+                // 纯 R18 卡默认 nsfw；双模默认 sfw(用户再切)
+                const modes = full.content_modes ?? [];
+                if (full.is_nsfw && !modes.includes("sfw")) setContentMode("nsfw");
+                else setContentMode("sfw");
                 setSearchParams(
                     (prev) => {
                         const next = new URLSearchParams(prev);
@@ -500,12 +528,21 @@ export default function MarketPage() {
     const categories = useMemo(() => {
         const set = new Map<string, number>();
         apps.forEach((a) => set.set(a.category || "other", (set.get(a.category || "other") ?? 0) + 1));
-        return [["all", apps.length], ...Array.from(set.entries())] as Array<[string, number]>;
-    }, [apps]);
+        const rows: Array<[string, number]> = [["all", apps.length], ...Array.from(set.entries())];
+        if (r18On) {
+            const n = apps.filter((a) => appShowsR18Badge(a)).length;
+            rows.splice(1, 0, ["r18", n]);
+        }
+        return rows;
+    }, [apps, r18On]);
 
     const filtered = useMemo(() => {
         const base = apps.filter((a) => {
-            if (category !== "all" && (a.category || "other") !== category) return false;
+            if (category === "r18") {
+                if (!r18On || !appShowsR18Badge(a)) return false;
+            } else if (category !== "all" && (a.category || "other") !== category) {
+                return false;
+            }
             if (!q.trim()) return true;
             const needle = q.trim().toLowerCase();
             return (
@@ -515,11 +552,11 @@ export default function MarketPage() {
                 a.id.toLowerCase().includes(needle)
             );
         });
-        if (category === "all" && !q.trim()) {
+        if ((category === "all" || category === "r18") && !q.trim()) {
             return sortMarketAppsDefault(base);
         }
         return base;
-    }, [apps, category, q]);
+    }, [apps, category, q, r18On]);
 
     const featuredLocal = useMemo(() => {
         const byId = new Map(apps.map((a) => [a.id, a]));
@@ -547,7 +584,14 @@ export default function MarketPage() {
         setRunMsg(null);
         setRunFailed(false);
         try {
-            const receipt = await runToivApp(detail.id, buildToivRunValues(schema, values));
+            const mode = resolveSubmitContentMode({
+                app: detail,
+                r18On: isR18Mode(),
+                selected: contentMode,
+            });
+            const receipt = await runToivApp(detail.id, buildToivRunValues(schema, values), {
+                content_mode: mode,
+            });
             if (!receipt.job_id) {
                 setRunMsg("运行已提交，但未返回作业号");
                 return;
@@ -582,7 +626,7 @@ export default function MarketPage() {
     return (
         <WorkspacePage fluid className="toiv-market-page">
             <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
-            <header className="flex items-center justify-between gap-4">
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">工具箱</h1>
                     <p className="text-sm text-muted-foreground">应用市场 · 生成能力即取即用</p>
@@ -602,7 +646,7 @@ export default function MarketPage() {
                 </div>
             </header>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="toiv-market-filters flex flex-wrap items-center gap-2">
                 {categories.map(([key, n]) => (
                     <button
                         key={key}
@@ -614,10 +658,14 @@ export default function MarketPage() {
                                 : "border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--workspace-accent)]"
                         }`}
                     >
-                        {key === "all" ? `全部 ${n}` : `${CATEGORY_META[key] ?? key} ${n}`}
+                        {key === "all"
+                            ? `全部 ${n}`
+                            : key === "r18"
+                              ? `R18 ${n}`
+                              : `${CATEGORY_META[key] ?? key} ${n}`}
                     </button>
                 ))}
-                <label className="ml-auto flex w-56 items-center gap-2 rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-xs">
+                <label className="toiv-market-search ml-auto flex w-full max-w-md items-center gap-2 rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-xs sm:w-56">
                     <Search className="h-3.5 w-3.5 shrink-0 text-[var(--muted-foreground)]" aria-hidden />
                     <input
                         type="search"
@@ -683,7 +731,7 @@ export default function MarketPage() {
                             </div>
                         </section>
                     )}
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+                    <div className="toiv-market-grid grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
                         {filtered.map((app) => {
                             const local = resolveLocalCapabilityBadge(app);
                             return (
@@ -700,6 +748,9 @@ export default function MarketPage() {
                                             {app.guide_purpose || app.description}
                                         </p>
                                         {local && <LocalBadges badge={local} />}
+                                        {r18On && appShowsR18Badge(app) && (
+                                            <StatusBadge variant="filled" tone="warning" label="R18" size="sm" />
+                                        )}
                                         {isMarketAudioUnavailableApp(app) && !LOCAL_AUDIO_HAS_SENSEVOICE && (
                                             <StatusBadge variant="filled" tone="warning" label="音频未接" size="sm" />
                                         )}
@@ -731,7 +782,7 @@ export default function MarketPage() {
                 </>
             )}
 
-            <AppDrawer open={!!detail} onClose={closeDetail} width={440} title={detail?.name}>
+            <AppDrawer open={!!detail} onClose={closeDetail} width={440} title={detail?.name} rootClassName="toiv-app-drawer">
                 {detail && (
                     <div className="flex flex-col gap-3">
                         {detailLoading ? (
@@ -765,7 +816,47 @@ export default function MarketPage() {
                                     {isMarketAudioUnavailableApp(detail) && !LOCAL_AUDIO_HAS_SENSEVOICE && (
                                         <StatusBadge variant="filled" tone="warning" label={LOCAL_AUDIO_UNAVAILABLE_LABEL} size="sm" />
                                     )}
+                                    {r18On && appShowsR18Badge(detail) && (
+                                        <StatusBadge variant="filled" tone="warning" label="R18" size="sm" />
+                                    )}
                                 </div>
+                                {canShowContentModeToggle(detail, r18On) && (
+                                    <div className="flex flex-col gap-2" role="group" aria-label="内容模式">
+                                        <p className="text-xs font-medium">内容模式</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {(
+                                                [
+                                                    { id: "sfw" as const, label: "SFW" },
+                                                    { id: "nsfw" as const, label: "R18" },
+                                                ] as const
+                                            ).map((m) => {
+                                                const active = contentMode === m.id;
+                                                return (
+                                                    <button
+                                                        key={m.id}
+                                                        type="button"
+                                                        onClick={() => setContentMode(m.id)}
+                                                        className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+                                                            active
+                                                                ? "border-[var(--workspace-accent)] bg-[var(--surface-active)]"
+                                                                : "border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--workspace-accent)]"
+                                                        }`}
+                                                    >
+                                                        {m.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="text-[11px] text-[var(--muted-foreground)]">
+                                            R18 使用软隐藏孪生工作流；关闭设置里的 R18 模式后不会提交成人向。
+                                        </p>
+                                    </div>
+                                )}
+                                {r18On && detail.is_nsfw && !canShowContentModeToggle(detail, r18On) && (
+                                    <Callout tone="warning" title="R18 专用应用">
+                                        本卡仅成人向工作流；须保持 R18 模式开启才能运行。
+                                    </Callout>
+                                )}
                                 {audioBlocked && (
                                     <Callout tone="warning" title="本地音频能力未接">
                                         SenseVoice 未接线，本应用不可在此页运行（勿当已配置）。音乐生成等非 SenseVoice 应用不受影响。

@@ -284,7 +284,7 @@ export default function TasksPage() {
     return (
         <WorkspacePage fluid className="toiv-tasks-page">
             <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
-            <header className="flex items-center justify-between">
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">任务中心</h1>
                     <p className="text-xs leading-5 text-muted-foreground">

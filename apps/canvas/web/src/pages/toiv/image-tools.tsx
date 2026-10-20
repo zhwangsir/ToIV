@@ -219,9 +219,9 @@ export default function ImageToolsPage() {
     const isGlb = resultUrl.endsWith(".glb");
 
     return (
-        <WorkspacePage fluid className="toiv-image-tools-page">
+        <WorkspacePage fluid className="toiv-tools-page toiv-image-tools-page">
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
-                <header className="flex items-center justify-between">
+                <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-col gap-1">
                         <h1 className="text-xl font-semibold leading-7 text-foreground">图片工具</h1>
                         <p className="text-xs leading-5 text-muted-foreground">去背景 / 高清 / 局部重绘 / 人脸修复 / 语义编辑 / 3D 相机 / 图生 3D</p>

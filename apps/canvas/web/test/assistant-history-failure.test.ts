@@ -5,6 +5,7 @@ let response: unknown;
 mock.module("@/services/api/request", () => ({
     ApiError: class extends Error {},
     apiBaseURL: "/api",
+    withToivAuth: (h?: Record<string, string>) => ({ ...(h || {}) }),
     http: {
         get: async () => { if (failure) throw new Error("offline"); return response; },
         post: async (path: string) => {

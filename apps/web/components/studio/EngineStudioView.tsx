@@ -1,5 +1,8 @@
 "use client";
 
+/** @deprecated 产品路由已撤(D-U1=B 选项 A,2026-10-20):page 不再挂载本组件;
+ *  ?view=image|video 整页跳 /studio/create。文件保留供 lib/engineStudio 单测与历史配方回归。 */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";

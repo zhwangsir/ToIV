@@ -55,7 +55,7 @@ export default function LibraryPage() {
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">作品</h1>
-                    <p className="text-xs leading-5 text-muted-foreground">{activeTab === "works" ? "我生成的作品（SFW；R18 作品请到经典端查看）" : activeTab === "transcript" ? "已转录媒体的台词全文检索（仅管理员）" : "成片与分镜作品集"}</p>
+                    <p className="text-xs leading-5 text-muted-foreground">{activeTab === "works" ? "我生成的作品（关 R18=仅 SFW；开 R18 门控后可见成人作品）" : activeTab === "transcript" ? "已转录媒体的台词全文检索（仅管理员）" : "成片与分镜作品集"}</p>
                 <div className="mt-2 flex items-center gap-1" role="tablist" aria-label="作品库来源">
                     {(transcriptVisible
                         ? ([["works", "作品"], ["boards", "画板"], ["transcript", "台词检索"]] as const)

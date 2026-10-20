@@ -6,7 +6,7 @@ import { test, expect, type Page } from "@playwright/test";
  * 覆盖:
  * - SFW 基线:引擎/导航/作品库筛选全无 R18 痕迹
  * - 设置页首开 R18:18+ 年龄确认门 → 确认后模式生效并持久化
- * - R18 模式:图像/视频工作台混入 R18 引擎(带徽标)、引擎出处外链、重新检测按钮
+ * - R18 模式:经典 image/video 引擎台已撤 → /studio/create;canvas 市场挂 content_mode
  * - 作品库内容分级筛选(全部/SFW/R18)+ R18 作品徽标
  * - 短剧导航项仅 R18 模式可见;SFW 直输 ?view=drama 弹回对话
  * - 模型页 R18 推荐 tab(仅 admin+R18);/nsfw 旧链接重定向不 404;关闭 R18 恢复 SFW
@@ -85,22 +85,9 @@ test.describe("R18 全局内容模式", () => {
     "authed-r18: SFW 基线主站无 R18 痕迹",
     { tag: "@authed" },
     async ({ page }) => {
+      // #9A:经典引擎台已撤,?view=image → /studio/create(canvas)
       await gotoSfw(page, "/?view=image");
-
-      // 图像工作台引擎下拉:无任何 R18 选项
-      const sel = await waitEngineSelect(page);
-      const texts = await sel.locator("option").allTextContents();
-      expect(texts.length).toBeGreaterThanOrEqual(1);
-      for (const t of texts) {
-        expect(t).not.toContain("R18");
-      }
-
-      // 主导航无「短剧」项
-      await page.locator(".cornernav-trigger").click();
-      await expect(
-        page.locator('.cornernav-items [role="tab"]', { hasText: "短剧" }),
-      ).toHaveCount(0);
-      await page.keyboard.press("Escape");
+      await expect(page).toHaveURL(/\/studio\/create/, { timeout: 15000 });
 
       // 作品库内容分级筛选:只有 全部/SFW,无 R18 chip
       // (LIB-RD 重设计后语义为 button + aria-pressed,不再是 tab/aria-selected)
@@ -178,74 +165,27 @@ test.describe("R18 全局内容模式", () => {
     },
   );
 
-  // ─── 用例 3:R18 图像工作台混入 R18 引擎 + 出处外链 + 重新检测 ───
+  // ─── 用例 3/4:#9A 经典 image/video 引擎台已撤 → canvas /studio/create ───
   test(
-    "authed-r18: 图像工作台 R18 引擎混入,出处与重新检测可用",
+    "authed-r18: 图像深链重定向 canvas 创作(引擎台退役)",
     { tag: "@authed" },
     async ({ page }) => {
       await gotoR18(page, "/?view=image");
-
-      const sel = await waitEngineSelect(page);
-      const texts = await sel.locator("option").allTextContents();
-      // R18 引擎混入(至少一个 R18 图像引擎),SFW 引擎仍在
-      const r18Options = texts.filter((t) => t.includes("R18"));
-      expect(r18Options.length).toBeGreaterThanOrEqual(1);
-      expect(texts.join()).toContain("文生图");
-
-      // 选中第一个可用 R18 引擎 → 引擎状态区出现 R18 徽标
-      const r18Value = await sel
-        .locator("option:not([disabled])", { hasText: "R18" })
-        .first()
-        .getAttribute("value");
-      expect(r18Value).toBeTruthy();
-      await sel.selectOption(r18Value!);
-      await expect(page.locator(".engine-status")).toContainText("R18");
-
-      // 引擎说明卡(2026-08-17 T2 重构:出处自面板首屏收进 ⓘ 说明卡):点 ⓘ 展开,链接 + 出品方
-      await page.locator(".engine-info-btn").click();
-      const source = page.locator(".engine-info-card");
-      await expect(source).toBeVisible();
-      const link = source.locator("a").first();
-      await expect(link).toBeVisible();
-      const href = await link.getAttribute("href");
-      expect(href).toMatch(/^https?:\/\//);
-
-      // 重新检测按钮可点(点击后出现检测中文案或保持可用)
-      const refreshBtn = page.locator(".engine-refresh");
-      await expect(refreshBtn).toBeVisible();
-      await refreshBtn.click();
-      // 检测完成后引擎下拉仍有选项(不崩溃即恢复)
-      await expect(sel.locator("option").first()).toBeAttached({
-        timeout: 15000,
-      });
-
-      await page.screenshot({
-        path: "test-results/r18-image-workbench.png",
-        fullPage: true,
-      });
+      await expect(page).toHaveURL(/\/studio\/create/, { timeout: 15000 });
+      const bodyText = await page.locator("body").innerText().catch(() => "");
+      const errorFound = ERROR_PATTERNS.some((p) =>
+        bodyText.toLowerCase().includes(p.toLowerCase()),
+      );
+      expect(errorFound, "页面不应包含错误文案").toBe(false);
     },
   );
 
-  // ─── 用例 4:R18 视频工作台混入 R18 视频引擎(LTX/H3 双路线)───
   test(
-    "authed-r18: 视频工作台 R18 引擎与 SFW 引擎并存",
+    "authed-r18: 视频深链重定向 canvas 创作(引擎台退役)",
     { tag: "@authed" },
     async ({ page }) => {
       await gotoR18(page, "/?view=video");
-
-      const sel = await waitEngineSelect(page);
-      const texts = await sel.locator("option").allTextContents();
-      const joined = texts.join();
-      // SFW 视频引擎仍在
-      expect(joined).toContain("文生视频");
-      // R18 视频引擎混入(LTX 2.3 R18 / MiniMax H3 R18 至少其一)
-      const r18Options = texts.filter((t) => t.includes("R18"));
-      expect(r18Options.length).toBeGreaterThanOrEqual(1);
-
-      await page.screenshot({
-        path: "test-results/r18-video-workbench.png",
-        fullPage: true,
-      });
+      await expect(page).toHaveURL(/\/studio\/create/, { timeout: 15000 });
     },
   );
 

@@ -1,11 +1,10 @@
 /**
- * F9(2026-10-15 UI 统一波):web 首页改跳转壳(源码断言)。
- * ①登录态 home 渲染跳转壳(splash-handoff),且闸门在 app-shell 之前——
- *   SideRail/⌘K/Shift+Enter 浮层/HomeView 第二套助手对话面全不挂载;
- * ②fail-safe:studio 关闭/无 token/非管理员 exchange 403/网络失败 → 回落经典 home(不锁死);
- * ③逃生口同在:?classic=1、R18 模式(canvas 纯 SFW)、EXTERNAL 深链(自带整页 replace);
- * ④未登录保持 LandingPage 登录/落地流程不变;
- * ⑤ F12 薄壳:第二套助手面/壳导航物理下线,经典回落=R18 引擎台 + 深链面板。
+ * F9(2026-10-15 UI 统一波)+ D-U1=B 选项 A(2026-10-20):web 首页跳转壳(源码断言)。
+ * ①登录态 home 渲染跳转壳(splash-handoff),且闸门在 app-shell 之前;
+ * ②fail-safe:studio 关闭/无 token/非管理员 exchange 403/网络失败 → 回落经典 home;
+ * ③逃生口:?classic=1、EXTERNAL 深链;R18 **不再**绕过 handoff(成人只走 canvas);
+ * ④未登录保持 LandingPage;
+ * ⑤ F12:经典壳无 R18/引擎台;image/video/create 深链 EXTERNAL → /studio/create。
  */
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
@@ -37,25 +36,23 @@ test("F9 跳转壳:登录态 home 的渲染闸门在 app-shell 之前", () => {
 test("F9 fail-safe:exchange 403/studio 关闭/无 token/网络失败都回落经典,不锁死", () => {
   const src = readSrc("apps/web/app/page.tsx");
   assert.match(src, /const \[studioHandoffFailed, setStudioHandoffFailed\] = useState\(false\)/);
-  // 四条失败出口:entry 关闭、无 token、exchange 非 ok、fetch 异常/超时
   const failures = src.split("setStudioHandoffFailed(true)").length - 1;
   assert.ok(failures >= 4, `失败出口应 ≥4 处(entry 关闭/无 token/exchange 403/catch),实际 ${failures}`);
   assert.match(src, /if \(r\.ok\) window\.location\.replace\("\/studio\/"\);\s*else setStudioHandoffFailed\(true\)/, "仅交换成功才跳;403 必须回落(零回退纪律)");
-  // 闸门必须消费失败标记(失败后渲染经典回落)
   const gate = src.slice(src.indexOf("const homeHandoffPending ="), src.indexOf("if (homeHandoffPending)"));
   assert.match(gate, /!studioHandoffFailed/, "闸门未消费失败标记(失败后会卡在跳转壳)");
 });
 
-test("F9 逃生口:?classic=1 与 R18 模式不接管,EXTERNAL 深链不被截胡", () => {
+test("D-U1=B 选项 A:R18 不再绕过 handoff;?classic=1 与 EXTERNAL 仍有效", () => {
   const src = readSrc("apps/web/app/page.tsx");
   const gate = src.slice(src.indexOf("const homeHandoffPending ="), src.indexOf("if (homeHandoffPending)"));
   assert.match(gate, /searchParams\.get\("classic"\) !== "1"/, "缺 ?classic=1 逃生口");
-  assert.match(gate, /!r18/, "缺 R18 逃生口(canvas 纯 SFW,R18 面唯一家在经典壳)");
+  assert.doesNotMatch(gate, /!r18/, "R18 不得再作为经典壳逃生条件");
   assert.match(gate, /EXTERNAL_VIEW_REDIRECTS\[rawViewParam\]/, "EXTERNAL 深链会被跳转壳截胡(竞态)");
-  // 探测 effect 与闸门同口径
   const effect = src.slice(src.indexOf("const studioProbeRef"), src.indexOf("useEffect(() => {\n    const raw = searchParams.get"));
   assert.match(effect, /includes\("classic=1"\)/);
-  assert.match(effect, /if \(r18\) return;/);
+  assert.doesNotMatch(effect, /if \(r18\) return;/);
+  assert.doesNotMatch(src, /useR18Mode/, "page 不应再订阅 R18 以留守经典壳");
 });
 
 test("F9 未登录流程不变:LandingPage 保持;登录探测/跨页同步不动", () => {
@@ -64,19 +61,31 @@ test("F9 未登录流程不变:LandingPage 保持;登录探测/跨页同步不�
   assert.match(src, /useCrossTabSync\(TOKEN_KEY/, "跨标签页登录态同步不得被动");
 });
 
-test("F12 薄壳:第二套助手面物理下线,经典回落=R18 薄壳面 + 深链面板", () => {
+test("F12+D-U1=B:经典壳无引擎台;image/video 深链进 canvas create", () => {
   const src = readSrc("apps/web/app/page.tsx");
-  // F12:HomeView/AssistantOverlay/SideRail/⌘K/TaskCenter 注册全部删除(收编进 canvas F9)
   assert.doesNotMatch(src, /@\/components\/assistant\//, "助手面 import 应已随 F12 物理下线");
   assert.doesNotMatch(src, /<AssistantOverlay|<HomeView/, "助手面 JSX 应已下线");
   assert.doesNotMatch(src, /@\/components\/nav\//, "第二套壳导航 import 应已下线");
   assert.doesNotMatch(src, /<SideRail|<BottomNav|<CommandPalette|<TaskCenter|<AccountButton/, "第二套壳导航 JSX 应已下线");
-  // 回落薄壳:R18/NSFW 引擎台(懒加载注册)+ 经典回落面板(decommission-note)
-  assert.match(src, /import\("@\/components\/studio\/EngineStudioView"\)/, "R18 引擎台懒加载注册缺失");
-  assert.match(src, /view === "image" && <EngineStudioView kind="image" \/>/);
-  assert.match(src, /view === "video" && <EngineStudioView kind="video" \/>/);
+  // 选项 A:EngineStudioView 不得再挂在 page
+  assert.doesNotMatch(src, /EngineStudioView/, "经典壳 R18/引擎台必须撤出 page");
+  assert.doesNotMatch(src, /view === "image"/);
+  assert.doesNotMatch(src, /view === "video"/);
+  assert.match(src, /image:\s*"\/studio\/create"/, "image 深链须进 canvas create");
+  assert.match(src, /video:\s*"\/studio\/create"/, "video 深链须进 canvas create");
+  assert.match(src, /create:\s*"\/studio\/create"/);
   assert.match(src, /经典模式\(薄壳\)/, "handoff 失败/?classic=1 应落经典回落面板");
-  // 文件系统级断言:被收编面源文件确已删除
+  assert.match(src, /R18\/成人内容请在工作室设置/, "回落面板须提示 R18 只在 canvas");
+  for (const gone of [
+    "apps/web/components/assistant/HomeView.tsx",
+    "apps/web/components/assistant/AssistantOverlay.tsx",
+    "apps/web/components/nav/SideRail.tsx",
+  ]) {
+    assert.equal(existsSync(join(repoRoot, gone)), false, `${gone} 应已删除`);
+  }
+});
+
+test("F12 收编面源文件确已删除", () => {
   for (const gone of [
     "apps/web/components/assistant/AssistantView.tsx",
     "apps/web/components/nav/SideRail.tsx",

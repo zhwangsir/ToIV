@@ -1,30 +1,25 @@
 "use client";
 
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { LandingPage } from "@/components/landing/LandingPage";
 import { NAV_LABELS } from "@/lib/navLabels";
 import { fetchMe, getToken, setToken, testLogin, TOKEN_KEY } from "@/lib/api";
 import { useCrossTabSync } from "@/lib/crossTab";
-import { initR18Mode, useR18Mode } from "@/lib/r18";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 
 type AuthState = "loading" | "in" | "out";
 
-/** F12 薄壳(2026-10-15,D-U1=A):web 只保留 ①未登录落地/登录 ②F9 首页跳转壳
- *  ③R18/NSFW 薄壳面(image/video 引擎台——NSFW 引擎无 canvas 对应)与三条逃生口
- *  (?classic=1 / R18 深链 / EXTERNAL 深链)④数字人下架说明。
- *  助手/命令面板/任务中心/侧栏底栏/作品库/市场/设置/工作室台等第二套壳已随
- *  F9-F11 收编进 canvas(/studio),对应组件与视图在本批物理删除。 */
-type View = "home" | "image" | "video" | "avatartalk";
+/** F12 薄壳 + D-U1=B 选项 A(2026-10-20):web 只保留 ①未登录落地/登录 ②F9 首页跳转壳
+ *  ③?classic=1 / handoff 失败回落面板 ④数字人下架说明。
+ *  R18/NSFW 引擎台已撤——成人内容只走 canvas(/studio) R18 门控 + X-NSFW;
+ *  ?view=image|video|create|… 整页跳 /studio/create。 */
+type View = "home" | "avatartalk";
 
 /** M1 三大板块拆分遗留:旧 key 按语义归位(不 404)。 */
 const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
-  create: "image",
-  generate: "image",
-  ltxstudio: "video",
   // S12 退役:fusion→home(经典回落面板);canvas→home(canvas 应用经 /studio)
   fusion: "home",
   canvas: "home",
@@ -65,6 +60,12 @@ const EXTERNAL_VIEW_REDIRECTS: Record<string, string> = {
   library: "/studio/toiv/library",
   // F2/F12:任务中心面已删(运行台=canvas /toiv/tasks)
   tasks: "/studio/toiv/tasks",
+  // D-U1=B 选项 A(2026-10-20):经典壳 R18/引擎台撤干净——图/视频引擎深链进 canvas
+  image: "/studio/create",
+  video: "/studio/create",
+  create: "/studio/create",
+  generate: "/studio/create",
+  ltxstudio: "/studio/create",
 };
 
 /** 解析 ?view= 参数:旧 key 走重定向,非法 key 返回 null(落默认视图)。 */
@@ -75,12 +76,6 @@ function resolveView(raw: string | null): View | null {
   return VALID_VIEWS.has(raw as View) ? (raw as View) : null;
 }
 
-// ── R18/NSFW 薄壳面:图片/视频引擎台(懒加载;NSFW 引擎由后端按 X-NSFW 上下文放行,
-//    canvas /create 无 ToIV 引擎注册表直连,NSFW 引擎生成的唯一入口保留在此) ──
-const EngineStudioView = lazy(() =>
-  import("@/components/studio/EngineStudioView").then((m) => ({ default: m.EngineStudioView })),
-);
-
 /** 视图切换加载占位:统一走共享 LoadingBlock(P1-2 收编),保留 role/aria 状态语义。 */
 function ViewFallback({ label }: { label: string }) {
   return (
@@ -90,12 +85,10 @@ function ViewFallback({ label }: { label: string }) {
   );
 }
 
-const VALID_VIEWS = new Set<View>(["home", "image", "video", "avatartalk"]);
+const VALID_VIEWS = new Set<View>(["home", "avatartalk"]);
 
 const VIEW_META: Record<View, { label: string }> = {
   home: { label: NAV_LABELS.home },
-  image: { label: NAV_LABELS.image },
-  video: { label: NAV_LABELS.video },
   avatartalk: { label: "数字人" },
 };
 
@@ -123,13 +116,10 @@ function HomeContent() {
     if (raw === "assistant") return "home"; // 旧助手链接落经典回落面板(助手面已迁 canvas /toiv/agent)
     return resolveView(raw) ?? "home";
   });
-  // M9:订阅全局 R18 内容模式(逃生口/深链按此 computed)
-  const [r18] = useR18Mode();
-
   // BeefTV studio 切换(2026-10-06 cutover C3 → 2026-10-15 F9 跳转壳):登录态落 home
   // 默认整页切到 /studio/(BeefTV UI),切换期间渲染跳转壳、不再渲染第二套助手对话面;
-  // 失败/超时/关闭/非管理员 exchange 403 → 回落经典薄壳(fail-safe,不锁死),
-  // ?classic=1 与 R18 模式显式绕过(R18 上下文的引擎台家在经典壳)
+  // 失败/超时/关闭/非管理员 exchange 403 → 回落经典薄壳(fail-safe,不锁死);
+  // D-U1=B 选项 A:R18 不再绕过 handoff——成人内容只在 canvas 门控下使用。
   const [studioHandoffFailed, setStudioHandoffFailed] = useState(false);
   const studioProbeRef = useRef(false);
   useEffect(() => {
@@ -137,7 +127,6 @@ function HomeContent() {
     if (studioProbeRef.current) return;
     if (typeof window === "undefined") return;
     if (window.location.search.includes("classic=1")) return;
-    if (r18) return;
     // F1:深链正被 EXTERNAL_VIEW_REDIRECTS 整页接走时不再探测——两个 location.replace
     // 会竞态(cutover 的异步 replace 可能盖掉深链目标,?view=studio 实测撞过)。
     const rawView = new URLSearchParams(window.location.search).get("view");
@@ -168,7 +157,7 @@ function HomeContent() {
       })
       .catch(() => setStudioHandoffFailed(true))
       .finally(() => clearTimeout(timer));
-  }, [auth, view, r18]);
+  }, [auth, view]);
 
   useEffect(() => {
     const raw = searchParams.get("view");
@@ -190,8 +179,7 @@ function HomeContent() {
   }, [searchParams, view, router]);
 
   useEffect(() => {
-    // M9:fetchMe 之前恢复 R18 模式(仅同步 X-NSFW 请求头标记,不清缓存不广播)
-    initR18Mode();
+    // D-U1=B 选项 A:web 薄壳不再恢复 R18 头——成人上下文只由 canvas r18-mode 附 X-NSFW
     (async () => {
       const params = new URLSearchParams(window.location.search);
       const t = params.get("t");
@@ -281,15 +269,15 @@ function HomeContent() {
   // F9 跳转壳(2026-10-15):登录态 home = 整页切 /studio,切换期间不渲染第二套助手
   // 对话面(F12 薄壳:SideRail/⌘K/浮层/HomeView 已物理下线)。回落经典薄壳的条件:
   // ①handoff 失败(studio 关闭/非管理员 exchange 403/网络故障,fail-safe 不锁死);
-  // ②?classic=1 显式逃生口;③R18 模式(R18 引擎台深链家在经典壳);
-  // ④正被 EXTERNAL_VIEW_REDIRECTS 整页接走的深链(那边自带 location.replace)。
+  // ②?classic=1 显式逃生口;
+  // ③正被 EXTERNAL_VIEW_REDIRECTS 整页接走的深链(那边自带 location.replace)。
+  // R18 不再作为回落条件(D-U1=B 选项 A:成人面只在 canvas)。
   const rawViewParam = searchParams.get("view");
   const homeHandoffPending =
     auth === "in" &&
     view === "home" &&
     !studioHandoffFailed &&
     searchParams.get("classic") !== "1" &&
-    !r18 &&
     !(rawViewParam !== null && Boolean(EXTERNAL_VIEW_REDIRECTS[rawViewParam]));
   if (homeHandoffPending) {
     return (
@@ -306,19 +294,19 @@ function HomeContent() {
         <div className="view-root view-stage">
           <ErrorBoundary key={view} viewName={meta.label}>
             <Suspense fallback={<ViewFallback label={meta.label} />}>
-              {/* F12 经典回落面板:仅在 handoff 失败/?classic=1/R18 模式到达;
-                  提供重试、退出与 R18/NSFW 薄壳面(引擎台)深链 */}
+              {/* F12 经典回落面板:仅在 handoff 失败/?classic=1 到达(D-U1=B:无 R18 引擎台) */}
               {view === "home" && (
                 <div className="decommission-note" role="status">
                   <h2>经典模式(薄壳)</h2>
                   <p>
                     主界面已迁入创作工作室(/studio)。当前处于经典回落
-                    {studioHandoffFailed ? "(工作室暂不可用或非管理员会话)" : "(?classic=1 或 R18 模式)"}
+                    {studioHandoffFailed ? "(工作室暂不可用或非管理员会话)" : "(?classic=1)"}
                     {account ? `,账户 ${account}` : ""}。
+                    R18/成人内容请在工作室设置开启门控后使用(不再提供经典壳引擎台)。
                   </p>
                   <p className="thin-shell-links">
-                    <a href="/?view=image">{NAV_LABELS.image}</a>
-                    <a href="/?view=video">{NAV_LABELS.video}</a>
+                    <a href="/studio/create">创作/引擎台(canvas)</a>
+                    <a href="/studio/settings">设置·R18 门控(canvas)</a>
                     <a href="/studio/toiv/library">作品库(canvas)</a>
                     <a href="/studio/toiv/market">工具箱(canvas)</a>
                     <a href="/studio/toiv/tasks">任务(canvas)</a>
@@ -346,9 +334,6 @@ function HomeContent() {
                   </p>
                 </div>
               )}
-              {/* R18/NSFW 薄壳面:图片/视频引擎台(NSFW 引擎经 X-NSFW 上下文由后端放行) */}
-              {view === "image" && <EngineStudioView kind="image" />}
-              {view === "video" && <EngineStudioView kind="video" />}
               {/* U1(2026-10-14):opentalking 数字人栈下架——深链落此说明页 */}
               {view === "avatartalk" && (
                 <div className="decommission-note" role="status">

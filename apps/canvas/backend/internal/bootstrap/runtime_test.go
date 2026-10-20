@@ -196,6 +196,7 @@ func TestRuntimeOpenStartClose(t *testing.T) {
 		t.Fatalf("desktop unknown proxy path status = %d, want %d", unknownProxyResponse.StatusCode, http.StatusNotFound)
 	}
 
+	http.DefaultClient.CloseIdleConnections()
 	if err := runtime.Close(context.Background()); err != nil {
 		t.Fatal(err)
 	}

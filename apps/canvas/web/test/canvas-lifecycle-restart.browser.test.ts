@@ -11,7 +11,21 @@ const remote = { id: "c1", revision: 111, title: "Restart", createdAt: "2026-10-
 let backend = structuredClone(remote);
 
 beforeAll(async () => {
-    const build = await Bun.build({ entrypoints: [import.meta.dir + "/fixtures/canvas-lifecycle-restart-harness.tsx"], target: "browser", define: { "import.meta.env.DEV": "false", "import.meta.env.PROD": "true", "import.meta.env.MODE": '"production"', "import.meta.env.VITE_CANVAS_LOCAL_MODE": '"true"', "import.meta.env.VITE_CANVAS_BACKEND_URL": '"/api"', "process.env.NODE_ENV": '"production"' }, plugins: [{ name: "source", setup(builder) {
+    const build = await Bun.build({ entrypoints: [import.meta.dir + "/fixtures/canvas-lifecycle-restart-harness.tsx"], target: "browser", define: {
+            // W0-1b:整体注入 import.meta.env,避免漏 BASE_URL 白屏
+            "import.meta.env": JSON.stringify({
+                DEV: false,
+                PROD: true,
+                MODE: "production",
+                BASE_URL: "/",
+                VITE_CANVAS_LOCAL_MODE: "true",
+                VITE_CANVAS_BACKEND_URL: "/api",
+                VITE_APP_VERSION: "test",
+                VITE_BUILD_COMMIT: "test",
+                VITE_FRAMEFIELD_LOCAL_RUNTIME_ENDPOINT: "",
+            }),
+            "process.env.NODE_ENV": '"production"',
+        }, plugins: [{ name: "source", setup(builder) {
         builder.onResolve({ filter: /^@\// }, args => ({ path: Bun.resolveSync("../src/" + args.path.slice(2), import.meta.dir) }));
         builder.onLoad({ filter: /\.(css|svg|png|jpe?g|gif|webp|woff2?)$/ }, () => ({ contents: "export default ''", loader: "js" }));
     } }] });

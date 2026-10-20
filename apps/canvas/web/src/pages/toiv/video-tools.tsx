@@ -105,9 +105,9 @@ export default function VideoToolsPage() {
     };
 
     return (
-        <WorkspacePage fluid className="toiv-video-tools-page">
+        <WorkspacePage fluid className="toiv-tools-page toiv-video-tools-page">
             <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
-                <header className="flex items-center justify-between">
+                <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-col gap-1">
                         <h1 className="text-xl font-semibold leading-7 text-foreground">视频剪辑</h1>
                         <p className="text-xs leading-5 text-muted-foreground">片段串接 / 音量 / 音频轨 / 文字叠加 → ffmpeg 成片;总时长上限 10 分钟</p>

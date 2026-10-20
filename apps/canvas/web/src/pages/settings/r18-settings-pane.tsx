@@ -8,7 +8,9 @@
 import { useState } from "react";
 import { ShieldAlert, ShieldCheck } from "lucide-react";
 
+import { Link } from "react-router";
 import { isR18Mode, setR18Mode } from "@/services/toiv/r18-mode";
+import { CLASSIC_NSFW_TO_MARKET } from "@/services/toiv/content-mode";
 
 export function R18SettingsPane() {
     const [enabled, setEnabled] = useState<boolean>(() => isR18Mode());
@@ -81,6 +83,34 @@ export function R18SettingsPane() {
                             取消
                         </button>
                     </div>
+                </div>
+            )}
+
+            {enabled && (
+                <div className="mt-3 rounded-lg border border-[var(--border)] p-3 text-xs leading-5 text-[var(--muted-foreground)]">
+                    <p className="font-medium text-foreground">R18 创作入口</p>
+                    <p className="mt-1">
+                        经典引擎台已退役。成人向请走应用市场：开本开关后打开市场，点「R18」筛选，或打开孪生父卡（文生图/H3 等）切「内容模式 → R18」。
+                    </p>
+                    <p className="mt-2 flex flex-wrap gap-2">
+                        <Link
+                            to="/toiv/market"
+                            className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-foreground hover:bg-muted/50"
+                        >
+                            打开应用市场
+                        </Link>
+                        {CLASSIC_NSFW_TO_MARKET.filter((x) => x.via === "is_nsfw_app")
+                            .slice(0, 4)
+                            .map((x) => (
+                                <Link
+                                    key={x.marketAppId}
+                                    to={`/toiv/market?app=${encodeURIComponent(x.marketAppId)}`}
+                                    className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-foreground hover:bg-muted/50"
+                                >
+                                    {x.marketAppId}
+                                </Link>
+                            ))}
+                    </p>
                 </div>
             )}
         </section>

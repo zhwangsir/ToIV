@@ -20,7 +20,8 @@ import {
  * 为什么是 v1 而不是整页搬:经典 LibraryView 有 4275 行(收藏/保存视图/密度/3D/超分/批量删除…),
  * 一次搬完不可验证也不可回滚。本面先覆盖高频主链路:浏览(分页/类型/搜索/排序)→ 打开详情 →
  * 重跑 → 删除(软删)→ 回收站恢复;其余能力仍在经典壳,经 ?classic=1 可达(见 apps/web page.tsx)。
- * R18 不进 canvas:/api/jobs 在无 R18 意图头时本就不返回 R18 作品,与「canvas 纯 SFW」拍板一致。
+ * D-U1=B:canvas 可开 R18 门控(X-NSFW);关态下 /api/jobs 不返回 R18 作品(fail-closed)。
+ * 开态由 services/toiv/r18-mode + client 拦截器附头,作品库随上下文可见成人条目。
  */
 
 const KIND_TABS = [

@@ -83,11 +83,18 @@ beforeAll(async () => {
         plugins,
         target: "browser",
         define: {
-            "import.meta.env.DEV": "true",
-            "import.meta.env.PROD": "false",
-            "import.meta.env.MODE": '"development"',
-            "import.meta.env.VITE_CANVAS_LOCAL_MODE": '"false"',
-            "import.meta.env.VITE_CANVAS_BACKEND_URL": '""',
+            // W0-1b:整体注入 import.meta.env,避免漏 BASE_URL 白屏
+            "import.meta.env": JSON.stringify({
+                DEV: true,
+                PROD: false,
+                MODE: "development",
+                BASE_URL: "/",
+                VITE_CANVAS_LOCAL_MODE: "false",
+                VITE_CANVAS_BACKEND_URL: "",
+                VITE_APP_VERSION: "test",
+                VITE_BUILD_COMMIT: "test",
+                VITE_FRAMEFIELD_LOCAL_RUNTIME_ENDPOINT: "",
+            }),
             "process.env.NODE_ENV": '"development"',
         },
     });

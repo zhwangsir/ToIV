@@ -667,8 +667,11 @@ func assertNoChapterApplyReceipt(t *testing.T, db *gorm.DB, userID, taskID strin
 
 func openFileProjectService(t *testing.T, path string) (*Service, *gorm.DB) {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open(path+"?_busy_timeout=5000&_journal_mode=WAL"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(path+"?_busy_timeout=30000&_journal_mode=WAL&_txlock=immediate"), &gorm.Config{})
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("PRAGMA busy_timeout = 30000").Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := db.AutoMigrate(

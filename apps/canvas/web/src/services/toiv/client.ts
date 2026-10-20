@@ -205,9 +205,21 @@ export {
     requiredToivParamLabel,
 } from "./market-run";
 import { normalizeToivAppParam, type ToivAppParam } from "./market-run";
+import {
+    normalizeContentModeFields,
+    type ContentMode,
+} from "./content-mode";
 
 
 export { toivCoverImageUrl } from "./cover-url";
+export type { ContentMode } from "./content-mode";
+export {
+    CLASSIC_NSFW_TO_MARKET,
+    appShowsR18Badge,
+    canShowContentModeToggle,
+    normalizeContentModes,
+    resolveSubmitContentMode,
+} from "./content-mode";
 
 
 export type ToivApp = {
@@ -229,6 +241,12 @@ export type ToivApp = {
     submit_kind?: string;
     /** 详情接口才完整；列表 slim 时常为空数组 */
     params_schema?: ToivAppParam[];
+    /** R18 目录应用(后端 is_nsfw);无 X-NSFW 时列表不可见 */
+    is_nsfw?: boolean;
+    /** ["sfw"] | ["nsfw"] | ["sfw","nsfw"] — 双模=孪生父卡 */
+    content_modes?: ContentMode[];
+    /** SFW 父卡指向软隐藏 R18 twin */
+    nsfw_variant_id?: string | null;
 };
 
 export type ToivAppModeItem = {
@@ -260,23 +278,22 @@ export async function fetchToivApps(
     if (filter.q?.trim()) params.q = filter.q.trim();
     const { data } = await toivHttp.get("/apps", { params });
     const list = Array.isArray(data) ? data : ((data as { items?: ToivApp[] })?.items ?? []);
-    return list.map((raw) => {
-        const a = raw as ToivApp;
-        return {
-            ...a,
-            params_schema: Array.isArray(a.params_schema) ? a.params_schema.map(normalizeToivAppParam) : [],
-        };
+    return list.map((raw) => normalizeToivApp(raw));
+}
+
+function normalizeToivApp(raw: unknown): ToivApp {
+    const a = (raw ?? {}) as ToivApp;
+    const base = normalizeContentModeFields({
+        ...a,
+        params_schema: Array.isArray(a.params_schema) ? a.params_schema.map(normalizeToivAppParam) : [],
     });
+    return base;
 }
 
 /** 应用详情（含完整 params_schema；运行前必须拉详情） */
 export async function fetchToivApp(id: string): Promise<ToivApp> {
     const { data } = await toivHttp.get(`/apps/${encodeURIComponent(id)}`);
-    const a = data as ToivApp;
-    return {
-        ...a,
-        params_schema: Array.isArray(a.params_schema) ? a.params_schema.map(normalizeToivAppParam) : [],
-    };
+    return normalizeToivApp(data);
 }
 
 /** GET /apps/{id}/variants → 模式切换（app_variants.json）；失败返回空 modes */
@@ -376,8 +393,16 @@ export function uploadToivMedia(
     });
 }
 
-export async function runToivApp(id: string, values: Record<string, unknown>): Promise<ToivAppRunReceipt> {
-    const { data } = await toivHttp.post(`/apps/${encodeURIComponent(id)}/run`, { values }, { timeout: 60_000 });
+export async function runToivApp(
+    id: string,
+    values: Record<string, unknown>,
+    opts?: { content_mode?: ContentMode },
+): Promise<ToivAppRunReceipt> {
+    const body: Record<string, unknown> = { values };
+    if (opts?.content_mode === "sfw" || opts?.content_mode === "nsfw") {
+        body.content_mode = opts.content_mode;
+    }
+    const { data } = await toivHttp.post(`/apps/${encodeURIComponent(id)}/run`, body, { timeout: 60_000 });
     const raw = (data ?? {}) as Record<string, unknown>;
     return {
         job_id: String(raw.job_id ?? ""),
@@ -774,15 +799,7 @@ export async function fetchToivAppsPage(
     const total = Number(resp.headers?.["x-total-count"] ?? list.length) || list.length;
     return {
         total,
-        items: list.map((raw) => {
-            const a = raw as ToivApp;
-            return {
-                ...a,
-                params_schema: Array.isArray(a.params_schema)
-                    ? a.params_schema.map(normalizeToivAppParam)
-                    : [],
-            };
-        }),
+        items: list.map((raw) => normalizeToivApp(raw)),
     };
 }
 

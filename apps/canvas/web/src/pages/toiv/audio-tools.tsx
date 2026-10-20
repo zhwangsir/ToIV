@@ -306,9 +306,9 @@ export default function AudioToolsPage() {
     const pick = useCallback((k: Tool) => setTool(k), []);
 
     return (
-        <WorkspacePage fluid className="toiv-audio-page">
+        <WorkspacePage fluid className="toiv-tools-page toiv-audio-page">
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
-                <header className="flex items-center justify-between">
+                <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-col gap-1">
                         <h1 className="text-xl font-semibold leading-7 text-foreground">音频工具</h1>
                         <p className="text-xs leading-5 text-muted-foreground">配音 / 听写 / 人声分离;文生音乐在工具箱应用市场</p>

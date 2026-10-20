@@ -320,9 +320,9 @@ export default function DubToolsPage() {
     };
 
     return (
-        <WorkspacePage fluid className="toiv-dub-page">
+        <WorkspacePage fluid className="toiv-tools-page toiv-dub-page">
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
-                <header className="flex items-center justify-between">
+                <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-col gap-1">
                         <h1 className="text-xl font-semibold leading-7 text-foreground">视频译制</h1>
                         <p className="text-xs leading-5 text-muted-foreground">上传 → 听写/导入字幕 → 翻译 → 克隆音色配音 → 对口型成片</p>

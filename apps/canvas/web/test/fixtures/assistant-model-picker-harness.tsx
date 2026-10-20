@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App, ConfigProvider, theme } from "antd";
+import { MemoryRouter } from "react-router";
 import { CanvasAssistantModelPicker } from "@/pages/canvas/canvas-assistant-model-picker";
 import { useCanvasAssistant } from "@/pages/canvas/use-canvas-assistant";
 import { commitModelConfig, hydrateModelConfig } from "@/services/model-config-repository";
@@ -24,4 +25,5 @@ function Harness() {
         </main>
     </App></ConfigProvider>;
 }
-createRoot(document.getElementById("root")!).render(<Harness />);
+// ChannelSettingsPane 折叠内有 <Link to="/agents">，无 Router 会在展开时炸掉整树
+createRoot(document.getElementById("root")!).render(<MemoryRouter><Harness /></MemoryRouter>);

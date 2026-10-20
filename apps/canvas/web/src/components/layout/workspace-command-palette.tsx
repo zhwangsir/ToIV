@@ -42,7 +42,7 @@ export type WorkspaceCommandEntry = {
  * F9(2026-10-15 UI 统一波):⌘K 命令面全量路由表。
  * 与 workspace-sidebar-nav 的导航树同源对齐(标题一致),并补齐侧栏未平铺的
  * 工具页(音频/图片/视频/译制)与设置段直达;经典 web CommandPalette 的
- * 「页面 + 动作 + 设置段」结构移植至此,R18 逻辑不迁(canvas 纯 SFW)。
+ * 「页面 + 动作 + 设置段」结构移植至此,R18 门控在 settings/r18-mode(D-U1=B),本面板不重复入口。
  */
 export const WORKSPACE_COMMAND_ROUTES: ReadonlyArray<Omit<WorkspaceCommandEntry, "run">> = [
     // 动作

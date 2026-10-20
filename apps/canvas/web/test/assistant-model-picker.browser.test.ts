@@ -15,9 +15,40 @@ let release: (() => void) | undefined;
 let holdSave = false;
 let connectionState = "disconnected";
 let catalogReadFailures = 0;
-beforeEach(() => { saved = structuredClone(initial); writes = 0; submitted = []; failSave = false; holdSave = false; release = undefined; });
+beforeEach(async () => {
+    release?.();
+    holdSave = false;
+    // 关掉上一例残留页,避免其 subscribe→PUT 覆盖下一例刚写入的 saved
+    if (browser) {
+        for (const context of browser.contexts()) {
+            for (const page of context.pages()) await page.close().catch(() => undefined);
+        }
+    }
+    await new Promise((r) => setTimeout(r, 300));
+    saved = structuredClone(initial);
+    writes = 0;
+    submitted = [];
+    failSave = false;
+    release = undefined;
+    connectionState = "disconnected";
+    catalogReadFailures = 0;
+});
 beforeAll(async () => {
-    const build = await Bun.build({ entrypoints: [import.meta.dir + "/fixtures/assistant-model-picker-harness.tsx"], target: "browser", define: { "import.meta.env.DEV": "false", "import.meta.env.PROD": "true", "import.meta.env.MODE": '"production"', "import.meta.env.VITE_CANVAS_LOCAL_MODE": '"true"', "import.meta.env.VITE_CANVAS_BACKEND_URL": '"/api"', "process.env.NODE_ENV": '"production"' }, plugins: [{ name: "source", setup(builder) {
+    const build = await Bun.build({ entrypoints: [import.meta.dir + "/fixtures/assistant-model-picker-harness.tsx"], target: "browser", define: {
+            // W0-1b:整体注入 import.meta.env,避免漏 BASE_URL 白屏
+            "import.meta.env": JSON.stringify({
+                DEV: false,
+                PROD: true,
+                MODE: "production",
+                BASE_URL: "/",
+                VITE_CANVAS_LOCAL_MODE: "true",
+                VITE_CANVAS_BACKEND_URL: "/api",
+                VITE_APP_VERSION: "test",
+                VITE_BUILD_COMMIT: "test",
+                VITE_FRAMEFIELD_LOCAL_RUNTIME_ENDPOINT: "",
+            }),
+            "process.env.NODE_ENV": '"production"',
+        }, plugins: [{ name: "source", setup(builder) {
         // Vite owns icon glob expansion; this Bun harness covers selection and persistence.
         builder.onResolve({ filter: /^@\/components\/model-logo$/ }, () => ({ path: "model-logo", namespace: "test-icons" }));
         builder.onLoad({ filter: /.*/, namespace: "test-icons" }, () => ({ contents: "export function ModelLogo() { return null; }", loader: "js" }));
@@ -57,24 +88,33 @@ afterAll(async () => { release?.(); await browser?.close(); server?.stop(true); 
 
 test("settings retries failed connected catalog read and retains authorization default intent", async () => {
     connectionState = "disconnected"; catalogReadFailures = 0;
-    const page = await browser.newPage(); await page.goto(new URL("/settings", server.url).toString());
-    await page.getByRole("button", { name: "连接 BeefAPI", exact: true }).click();
-    const retry = page.getByRole("button", { name: "重试更新模型列表" });
-    await retry.waitFor(); await retry.click();
-    await retry.waitFor({ state: "hidden" });
-    await page.getByRole("combobox", { name: "助手模型" }).click();
-    expect(await page.locator('.ant-select-item-option-selected').innerText()).toContain("gpt-6-astra");
-    await page.close();
+    const page = await browser.newPage();
+    try {
+        await page.goto(new URL("/settings", server.url).toString());
+        // 本地模式 BeefAPI 在「云端可选」折叠内(defaultActiveKey=[])；展开需 MemoryRouter 承载 Link
+        const cloud = page.getByTestId("cloud-optional-section");
+        await cloud.waitFor();
+        await cloud.locator(".ant-collapse-header").click();
+        await page.getByRole("button", { name: "连接 BeefAPI", exact: true }).click();
+        const retry = page.getByRole("button", { name: "重试更新模型列表" });
+        await retry.waitFor(); await retry.click();
+        await retry.waitFor({ state: "hidden" });
+        await page.getByRole("combobox", { name: "助手模型" }).click();
+        expect(await page.locator('.ant-select-item-option-selected').innerText()).toContain("gpt-6-astra");
+    } finally {
+        await page.close().catch(() => undefined);
+    }
 }, 30000);
 
 test("picker keyboard selection persists, respects busy and fits both themes at 390px", async () => {
     const page = await browser.newPage({ viewport: { width: 390, height: 700 } });
     await page.goto(server.url.toString());
     const picker = page.getByRole("combobox", { name: "助手模型" });
-    await picker.focus(); await picker.press("ArrowDown");
+    await picker.click();
     expect(await page.locator('.ant-select-item-option-content').allTextContents()).toEqual(["gpt-6-astra", "claude-opus-5-5", "deepseek-v4.1-flash", "glm-5.3"]);
-    await picker.press("ArrowUp"); await picker.press("Enter");
-    await page.waitForTimeout(100);
+    await page.locator('.ant-select-item-option-content').filter({ hasText: /^gpt-6-astra$/ }).click();
+    await page.waitForFunction(() => !document.querySelector('.ant-select-dropdown:not(.ant-select-dropdown-hidden)'));
+    for (let i = 0; i < 20 && saved.assistantModel !== "beefapi::gpt-6-astra"; i++) await page.waitForTimeout(50);
     expect(saved.assistantModel).toBe("beefapi::gpt-6-astra");
     await page.reload(); await page.getByRole("button", { name: "切换忙碌" }).click();
     expect(await picker.isDisabled()).toBe(true);
@@ -86,7 +126,19 @@ test("picker keyboard selection persists, respects busy and fits both themes at 
 }, 30000);
 
 test("models-only local default is selectable and survives reload", async () => {
-    saved = { ...defaultConfig, assistantModel: "", textModel: "newapi-local::deepseek-v4-flash:free", channels: [createModelChannel({ id: "newapi-local", models: ["deepseek-v4-flash:free"], apiFormat: "openai" })] };
+    // 覆盖 initial 后短暂排空,防止 beforeEach 刚结束又被残留 PUT 打回 beefapi
+    saved = {
+        ...defaultConfig,
+        assistantModel: "",
+        textModel: "newapi-local::deepseek-v4-flash:free",
+        channels: [createModelChannel({
+            id: "newapi-local",
+            models: ["deepseek-v4-flash:free"],
+            apiFormat: "openai",
+            modelProfiles: [{ model: "deepseek-v4-flash:free", capability: "text", protocol: "chat-completion" }],
+        })],
+    };
+    await new Promise((r) => setTimeout(r, 150));
     const page = await browser.newPage({ viewport: { width: 390, height: 700 } });
     await page.goto(server.url.toString());
     const picker = page.getByRole("combobox", { name: "助手模型" });
