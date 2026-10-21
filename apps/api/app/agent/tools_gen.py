@@ -991,7 +991,8 @@ def _smoke_label(item) -> str:
     if st == "pass":
         return "实测可用"
     if st == "timeout":
-        return "实测超时"
+        # 冒测等待超时 ≠ 不可用；与市场徽章「未验证（慢链）」对齐
+        return "未验证（慢链）"
     if st in ("fail", "error", "smoke_error"):
         return "实测失败"
     if st == "running":

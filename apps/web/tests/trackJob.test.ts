@@ -375,7 +375,7 @@ test("⑤ 轮询查不到作业 + 总超时 → reject 且 register(null)", asyn
     timeoutMs: 40,
     register: (es) => registered.push(es),
   });
-  const rejection = assert.rejects(p, /作业跟踪超时,请在作品库查看结果/);
+  const rejection = assert.rejects(p, /请求等待超时，作业仍在后台跑；可到任务中心查看进度/);
 
   FakeEventSource.instances[0].emit("error");
   await sleep(10);

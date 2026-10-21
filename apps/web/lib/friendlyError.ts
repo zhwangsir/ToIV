@@ -19,7 +19,7 @@ const PATTERNS: { re: RegExp; message: string }[] = [
     message: "无法连接生成服务,请检查服务状态后重试",
   },
   // 超时(前端 apiFetch 超时文案「请求超时 (Ns)」也落这里)
-  { re: /timed?\s*out|超时/i, message: "生成服务响应超时,请重试" },
+  { re: /timed?\s*out|超时/i, message: "请求等待超时，作业仍在后台跑；可到任务中心查看进度" },
   // 后端 5xx
   { re: /(?<!\d)5\d{2}(?!\d)|internal server error/i, message: "生成服务内部错误,请稍后重试" },
 ];
@@ -28,7 +28,10 @@ export function friendlyError(raw: string): FriendlyError {
   const text = raw.trim();
   // 已含明确后续指引的文案原样透传,不改写(2026-08-30 Wave-1:跟踪超时
   // 「请在作品库查看结果」若被超时模式改写为「请重试」,会误导用户重复提交)
-  if (text.includes("请在作品库查看")) return { message: text, detail: null };
+  // 2026-10-21 感知版 #13:「仍在后台跑 / 任务中心」同样透传
+  if (text.includes("请在作品库查看") || text.includes("仍在后台跑") || text.includes("任务中心查看")) {
+    return { message: text, detail: null };
+  }
   for (const { re, message } of PATTERNS) {
     if (re.test(text)) {
       return { message, detail: text || null };

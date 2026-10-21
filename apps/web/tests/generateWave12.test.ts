@@ -30,14 +30,14 @@ function readSrc(rel: string): string {
 /* ── ① friendlyError:超时透传「请在作品库查看」 ── */
 
 test("① friendlyError:跟踪超时文案原样透传(不改写为「请重试」)", () => {
-  const r = friendlyError("作业跟踪超时,请在作品库查看结果");
-  assert.equal(r.message, "作业跟踪超时,请在作品库查看结果");
+  const r = friendlyError("请求等待超时，作业仍在后台跑；可到任务中心查看进度");
+  assert.equal(r.message, "请求等待超时，作业仍在后台跑；可到任务中心查看进度");
   assert.equal(r.detail, null, "透传文案不再进 detail 重复");
 });
 
-test("① friendlyError:其他超时仍改写为「请重试」(回归)", () => {
+test("① friendlyError:客户端超时改写为仍在跑+任务中心(非请重试)", () => {
   const r = friendlyError("请求超时 (30s),请稍后重试");
-  assert.equal(r.message, "生成服务响应超时,请重试");
+  assert.equal(r.message, "请求等待超时，作业仍在后台跑；可到任务中心查看进度");
   assert.equal(r.detail, "请求超时 (30s),请稍后重试");
 });
 
@@ -47,7 +47,8 @@ test("② trackJob:降级轮询走 lookup 单查,不再全量扫描(源码断言
   const src = readSrc("lib/trackJob.ts");
   assert.ok(src.includes("lookupJob(res.prompt_id)"), "降级轮询未走 lookupJob 单查");
   assert.ok(!src.includes("/api/jobs?limit=200"), "全量 200 条扫描残留");
-  assert.ok(src.includes("作业跟踪超时,请在作品库查看结果"), "超时文案须保留「作品库」指引");
+  assert.ok(src.includes("仍在后台跑"), "超时文案须保留「仍在后台跑」");
+  assert.ok(src.includes("任务中心"), "超时文案须保留「任务中心」指引");
   assert.ok(src.includes("job.error"), "失败终态须透出 job.error");
   assert.ok(src.includes('job?.status === "canceled"'), "轮询缺 canceled 终态");
 });

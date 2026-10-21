@@ -2,6 +2,9 @@ import { ArrowLeft, Box, Camera, Eraser, ImagePlus, Loader2, ScanFace, Sparkles,
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
+import { TasksCenterLink } from "@/components/toiv/tasks-center-link";
+import { isStillRunningMessage, userFacingCaughtError } from "@/services/toiv/client-timeout";
+
 import { Button } from "antd";
 import { ToolButton } from "@/components/ui/base/buttons";
 import { Callout } from "@/components/ui/product/callout";
@@ -209,7 +212,7 @@ export default function ImageToolsPage() {
             const results = await track(ack);
             setResultUrl(results[0] ?? "");
         } catch (e) {
-            setError(e instanceof Error ? e.message : "生成失败");
+            setError(userFacingCaughtError(e, "生成失败"));
         } finally {
             setBusy(false);
             setPhase("");
@@ -335,7 +338,14 @@ export default function ImageToolsPage() {
                             </div>
                         )}
 
-                        {error && <Callout tone="error" title={error} onClose={() => setError(null)} />}
+                        {error && (
+                            <Callout
+                                tone={isStillRunningMessage(error) ? "info" : "error"}
+                                title={error}
+                                action={isStillRunningMessage(error) ? <TasksCenterLink /> : undefined}
+                                onClose={() => setError(null)}
+                            />
+                        )}
                         {phase && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />{phase}</p>}
 
                         {resultUrl && !isGlb && (

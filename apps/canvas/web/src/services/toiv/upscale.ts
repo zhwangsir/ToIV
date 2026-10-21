@@ -5,6 +5,7 @@ import {
     uploadToivImage,
     uploadToivMedia,
 } from "./client";
+import { formatClientTimeoutMessage } from "./client-timeout";
 
 /**
  * F10 超分入口:创作工作区选中媒体一键提交 ToIV 超分 fleet。
@@ -81,7 +82,7 @@ export async function pollToivJobUntilDone(
                 throw new Error(job.status === "canceled" ? "超分作业已取消" : job.hold_reason || "超分失败(可在任务中心查看详情)");
             }
         }
-        if (Date.now() >= deadline) throw new Error("超分超时:作业仍在进行,可稍后到 ToIV 任务中心查看结果");
+        if (Date.now() >= deadline) throw new Error(formatClientTimeoutMessage());
         await delay(intervalMs, opts?.signal);
     }
 }

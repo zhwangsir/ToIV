@@ -38,6 +38,7 @@ import { listAddedSkills, type Skill } from "@/services/api/skills";
 import { resolveResourceUrl } from "@/services/api/resources";
 import { resolveMediaUrl } from "@/services/file-storage";
 import { submitVideoUpscaleViaToiv, upscaleImageViaToiv } from "@/services/toiv/upscale";
+import { isClientTimeoutError, userFacingCaughtError } from "@/services/toiv/client-timeout";
 import { toivMediaUrl } from "@/services/toiv/agent-runs";
 import { useCreationViewPresetsStore, CREATION_VIEW_PRESET_NAME_LIMIT, type CreationViewPreset, type CreationViewPresetDraft } from "@/stores/use-creation-view-presets-store";
 import { creationCanonSkills } from "./creation-canon-skills";
@@ -302,7 +303,9 @@ function MediaResult({ item, onRetryFailure, onCreateVariant, onContinueCanvas, 
             if (first) { setPreviewType("image"); setPreviewUrl(first); }
             mediaToast.success(`超分完成(${scale}x),产物已自动收录 ToIV 作品库`);
         } catch (error) {
-            mediaToast.error(error instanceof Error ? error.message : "超分失败,请稍后重试");
+            const msg = userFacingCaughtError(error, "超分失败,请稍后重试");
+            if (isClientTimeoutError(error)) mediaToast.info(msg);
+            else mediaToast.error(msg);
         } finally {
             setUpscalingUrl("");
         }
@@ -315,7 +318,9 @@ function MediaResult({ item, onRetryFailure, onCreateVariant, onContinueCanvas, 
             await submitVideoUpscaleViaToiv(source);
             mediaToast.success("视频超分作业已提交(4K),完成后自动收录作品库,可在 ToIV 任务中心查看进度");
         } catch (error) {
-            mediaToast.error(error instanceof Error ? error.message : "视频超分提交失败,请稍后重试");
+            const msg = userFacingCaughtError(error, "视频超分提交失败,请稍后重试");
+            if (isClientTimeoutError(error)) mediaToast.info(msg);
+            else mediaToast.error(msg);
         } finally {
             setUpscalingUrl("");
         }

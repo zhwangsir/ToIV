@@ -285,7 +285,7 @@ export function trackJob(
 
     // 总超时兜底:SSE 长挂 / 轮询一直查不到作业时也必须 settle
     const totalTimer = setTimeout(() => {
-      finishErr(new Error("作业跟踪超时,请在作品库查看结果"));
+      finishErr(new Error("请求等待超时，作业仍在后台跑；可到任务中心查看进度"));
     }, timeoutMs);
 
     /** 会话失效(全局登出/401 广播):立即关流终止,不再重连/轮询。 */
