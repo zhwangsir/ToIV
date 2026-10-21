@@ -349,7 +349,11 @@ def crop_face_slot_from_master_with_meta(data: bytes, *, slot: str, size: int=76
             if vspan + 1e-12 < 0.35:
                 raise CharacterSheetError(f'faces {slot} hard-crop head/content frac {vspan:.3f} < 0.35', status_code=422)
         elif frac + 1e-12 < 0.35:
-            raise CharacterSheetError(f'faces {slot} hard-crop face height frac {frac:.3f} < 0.35', status_code=422)
+            # F5: face_front 近失(如 0.324)与 face_side soft-ok 对齐；<0.30 仍硬拒
+            if float(frac) + 1e-12 >= 0.30:
+                logger.warning('faces %s hard-crop frac=%.3f <0.35 — soft ok near-miss (>=0.30)', slot, frac)
+            else:
+                raise CharacterSheetError(f'faces {slot} hard-crop face height frac {frac:.3f} < 0.35', status_code=422)
         meta['readable'] = True
         return (out, meta)
     if slot == 'face_three_quarter':
@@ -2797,8 +2801,31 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
                             assert_garment_near_slate_gray(panels['portrait'], label='主立绘')
                         except CharacterSheetError as color_e:
                             last_err = color_e
-                            logger.warning('portrait slate gate fail attempt=%s: %s; retry seed (no tint)', attempt, color_e)
-                            continue
+                            logger.warning('portrait slate gate fail attempt=%s: %s; try img2img slate recolor then seed', attempt, color_e)
+                            # F5: 禁止整图着色；一次低 denoise img2img 把服装拉回 #5A6A7A 后再验
+                            try:
+                                ref_p = await client.upload_image(panels['portrait'], f'sheet_portrait_slate_{attempt}.png')
+                                recolored = await generate_panel_bytes(
+                                    pool,
+                                    prompts['portrait'] + ', keep same pose and face, ONLY recolor raincoat to mid-tone slate gray #5A6A7A, not jet black, not near-white, plain flat chest, ' + bust,
+                                    ckpt_name=ckpt,
+                                    width=w,
+                                    height=h,
+                                    seed=(s or 0) + 313,
+                                    worker=worker,
+                                    filename_prefix=f'ToIV_char_sheet_portrait_slate_a{attempt}',
+                                    style=meta.style,
+                                    client=client,
+                                    ref_image=ref_p,
+                                    ref_mode='img2img',
+                                    denoise=0.42,
+                                )
+                                assert_garment_near_slate_gray(recolored, label='主立绘')
+                                panels['portrait'] = recolored
+                                logger.info('portrait slate recovered via img2img attempt=%s', attempt)
+                            except Exception as slate_e:
+                                logger.warning('portrait slate img2img recover fail attempt=%s: %s; retry seed', attempt, slate_e)
+                                continue
                 elif meta.style == 'ancient_realistic' and ancient_spec_target_hex(meta):
                     try:
                         assert_garment_near_spec_color(panels['portrait'], ancient_spec_target_hex(meta), label='主立绘')

@@ -753,11 +753,24 @@ def _character_base(meta: SheetMeta) -> str:
         else:
             base = f'{base}, jet black hair, black hair, traditional Chinese clothing'
         return base
+    # F5: 角色 visual 常写 black windbreaker/黑色冲锋衣，会与板岩灰门禁打架；
+    # 现代雨夜路径统一中和为 slate gray raincoat，并始终追加板岩灰 extra（不再因 windbreaker 跳过）。
+    for bad, repl in (
+        ('black windbreaker', 'slate gray #5A6A7A hooded raincoat'),
+        ('black raincoat', 'slate gray #5A6A7A hooded raincoat'),
+        ('jet black raincoat', 'slate gray #5A6A7A hooded raincoat'),
+        ('黑色冲锋衣', '板岩灰(#5A6A7A)连帽雨衣'),
+        ('黑色雨衣', '板岩灰(#5A6A7A)连帽雨衣'),
+        ('纯黑雨衣', '板岩灰(#5A6A7A)连帽雨衣'),
+    ):
+        if bad.lower() in low or bad in base:
+            base = _re.sub(_re.escape(bad), repl, base, flags=_re.I)
+            low = base.lower()
     extra = 'jet black hair, black hair, slate gray #5A6A7A long knee-length hooded raincoat with long sleeves, black pantyhose, black ankle boots, plain unbranded no logo no chest emblem, mid-tone slate gray fabric not jet black not near-white, wet black hair on forehead, young East Asian woman, convenience store clerk vibe'
-    if 'raincoat' not in low and '雨衣' not in base and ('windbreaker' not in low):
+    if 'slate gray #5a6a7a' not in low and '#5a6a7a' not in low:
         base = f'{base}, {extra}'
     else:
-        base = f'{base}, jet black hair, black hair'
+        base = f'{base}, jet black hair, black hair, mid-tone slate gray fabric not jet black not near-white'
     return base
 
 def _side_view_prompt(meta: SheetMeta, *, solo: str, base: str, name: str, outfit: str, head_bit: str, solid: str, suf: str) -> str:
