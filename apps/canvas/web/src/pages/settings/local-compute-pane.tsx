@@ -43,6 +43,7 @@ import {
     type NasBindGroup,
     type NasModelEntry,
 } from "@/services/api/nas-models";
+import { ComputeStatusStrip } from "@/components/toiv/compute-status-strip";
 import { useConfigStore } from "@/stores/use-config-store";
 
 import "./local-compute-pane.css";
@@ -409,6 +410,7 @@ export function LocalComputePane() {
             <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                     <h2 className="text-base font-semibold">模型与算力（本地优先）</h2>
+                    <ComputeStatusStrip variant="full" className="mt-3 mb-4" />
                     <p className="mt-1 text-xs text-foreground/55">
                         生图走 Workstation Comfy {LOCAL_IMAGE_WORKER_LABEL}（LB {LOCAL_IMAGE_LB_LABEL}）；Wan/LongCat/Continue/Avatar/VACE 走 {LOCAL_VIDEO_WORKER_LABEL}；Wan Animate 走 {LOCAL_VIDEO_ANIMATE_WORKER_LABEL}；H3 走 {LOCAL_H3_WORKER_LABEL}；对话走 Spark。NAS 根默认 <code>{LOCAL_NAS_ROOT_DEFAULT}</code>。
                     </p>

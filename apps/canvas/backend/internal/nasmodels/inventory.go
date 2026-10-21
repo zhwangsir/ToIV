@@ -21,7 +21,7 @@ const (
 	DefaultChatAlias    = "deepseek-v4-flash-dspark"
 	DefaultH3Fl2vaBasename = "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
 	DefaultH3Ref2vaBasename = "minimax_h3_ref2va_pruned_int8_convrot.safetensors"
-	DefaultImageCheckpoint = "Qwen-Rapid-AIO-SFW-v11.safetensors"
+	DefaultImageCheckpoint = "Qwen-Rapid-AIO-SFW-v23.safetensors"
 	DefaultImageChannel = "本地·生图"
 	DefaultVideoChannel = "本地·视频(Wan/LongCat)"
 	SwapHint            = "落盘后 refresh 列表；仍不见再重启该 worker"

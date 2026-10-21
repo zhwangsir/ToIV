@@ -506,11 +506,11 @@
           },
           "model": "local-checkpoint",
           "protocol": "toiv-comfy-image",
-          "displayName": "Qwen-Rapid-AIO-SFW-v11.safetensors",
+          "displayName": "Qwen-Rapid-AIO-SFW-v23.safetensors",
           "defaultOptions": {
             "toivWorkerLabel": ":8196",
             "toivNasRoot": "toiv/comfyui-models",
-            "toivNasWeight": "checkpoints/Qwen-Rapid-AIO-SFW-v11.safetensors"
+            "toivNasWeight": "checkpoints/Qwen-Rapid-AIO-SFW-v23.safetensors"
           }
         }
       ],
@@ -521,7 +521,7 @@
       "pinned": false,
       "scope": "user",
       "sortOrder": 2,
-      "publicAlias": "本地·出图 Comfy · worker :8196（LB :8188）· Qwen-Rapid-AIO-SFW-v11.safetensors"
+      "publicAlias": "本地·出图 Comfy · worker :8196（LB :8188）· Qwen-Rapid-AIO-SFW-v23.safetensors"
     },
     {
       "apiFormat": "openai",

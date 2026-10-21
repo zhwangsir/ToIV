@@ -49,9 +49,9 @@ describe("model-config template local-first realign", () => {
 
         expect(image?.name).toBe("本地·出图 Comfy");
         expect(String(image?.publicAlias || "")).toContain(":8196");
-        expect(String(image?.publicAlias || "")).toContain("Qwen-Rapid-AIO-SFW-v11");
+        expect(String(image?.publicAlias || "")).toContain("Qwen-Rapid-AIO-SFW-v23");
         const imgProfile = (image?.modelProfiles || []).find((p: any) => p.model === "local-checkpoint");
-        expect(String(imgProfile?.displayName || "")).toBe("Qwen-Rapid-AIO-SFW-v11.safetensors");
+        expect(String(imgProfile?.displayName || "")).toBe("Qwen-Rapid-AIO-SFW-v23.safetensors");
         expect(imgProfile?.defaultOptions?.toivWorkerLabel).toBe(":8196");
         expect(cfg.imageModel).toBe("toiv-image::local-checkpoint");
         expect(cfg.imageModels || []).toContain("toiv-image::local-checkpoint");

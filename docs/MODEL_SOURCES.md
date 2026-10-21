@@ -1,9 +1,9 @@
 <!-- public_e2e_wave2 2026-09-11T05:28:02+08:00: newly_ok LTX23_audio=364855188 LTX23_video=1452258578 taeltx2_3=23531296; already_on_nas distilled fp8 + Qwen3-VL-4B-Instruct -->
 # MODEL_SOURCES
 
-Updated: 2026-10-13T06:05:00+08:00 (Asia/Shanghai)
+Updated: 2026-10-22T03:09:08+08:00 (Asia/Shanghai) — Wave M0: ledger backfill production H3 pruned_int8 (ref2va/fl2va); zero download
 
-Totals: ok=487 blocked=337 total=825 (2026-10-13 W9 P0-1 civitai by-hash 溯源:9 个 H3 R18 LoRA(`apps/api/app/services/h3.py` H3_NSFW_LORAS 名单)此前**完全不在账本**(旧账本按 HF 口径扫,civitai 来源整批漏);8 条经 `/api/v1/model-versions/by-hash/{sha256}` 当场重验(远端 sha256 逐条比对一致)后以 `source_kind=civitai` 入账 → ok 479→487;第 9 条 `h3_musubi_v4-000040.safetensors` 上游 civitai 2841940 已下架(实测 `{"error":"No model with id 2841940"}`)、by-hash 亦 MISS → 记 `status=blocked` + `provenance_lost`(本地文件仍在、可用但不可再溯源/不可补下)→ blocked 336→337。**civitai.red 经五条独立证据确认为 civitai 官方备用域名**(站点自报 serverDomains: green=civitai.com / blue=civitai.red+civitaired.com,同后端同库同 R2),官方 REST v1 全套透传、读元数据免 token;但 R18 版本 8/9 为 401 需登录 → 「找得到出处」≠「能补下载」。脚本 `scripts/ops/civitai_provenance_backfill.py`,core 快照 `apps/api/app/data/model_sources.json` 已同步且字节一致。)
+Totals: ok=493 blocked=337 total=831 (2026-10-13 W9 P0-1 civitai by-hash 溯源:9 个 H3 R18 LoRA(`apps/api/app/services/h3.py` H3_NSFW_LORAS 名单)此前**完全不在账本**(旧账本按 HF 口径扫,civitai 来源整批漏);8 条经 `/api/v1/model-versions/by-hash/{sha256}` 当场重验(远端 sha256 逐条比对一致)后以 `source_kind=civitai` 入账 → ok 479→487;第 9 条 `h3_musubi_v4-000040.safetensors` 上游 civitai 2841940 已下架(实测 `{"error":"No model with id 2841940"}`)、by-hash 亦 MISS → 记 `status=blocked` + `provenance_lost`(本地文件仍在、可用但不可再溯源/不可补下)→ blocked 336→337。**civitai.red 经五条独立证据确认为 civitai 官方备用域名**(站点自报 serverDomains: green=civitai.com / blue=civitai.red+civitaired.com,同后端同库同 R2),官方 REST v1 全套透传、读元数据免 token;但 R18 版本 8/9 为 401 需登录 → 「找得到出处」≠「能补下载」。脚本 `scripts/ops/civitai_provenance_backfill.py`,core 快照 `apps/api/app/data/model_sources.json` 已同步且字节一致。)
 
 Batch: capability_gap_v21_p0
 
@@ -225,12 +225,14 @@ Note: previous tip 467/343/810 → 464/335/799 after v21 P0 batch + dedup.
 | ok | minimax_h3_fl2v_turbo_8step_v1.0_10ErosMax_beta1_pruned_compat_v001_T8.safetensors | 1956194364 | h3/loras/minimax_h3_fl2v_turbo_8step_v1.0_10ErosMax_beta1_pruned_compat_v001_T8.safetensors | t8star/minimax_h3_turbo_4step_10ErosMax_test4_pruned_curveproj1025_T8 | h3_dedicated; path under h3/; not for 8196/8188/8193 general pool |
 | ok | minimax_h3_fl2va_fp8_e4m3fn.safetensors | 47012963608 | h3/diffusion_models/minimax_h3_fl2va_fp8_e4m3fn.safetensors | rzgar/minimax_h3_fl2va_fp8_e4m3fn | h3_dedicated; path under h3/; not for 8196/8188/8193 general pool |
 | ok | minimax_h3_fl2va_pruned_fp8_scaled.safetensors | 20958205608 | h3/diffusion_models/minimax_h3_fl2va_pruned_fp8_scaled.safetensors | Comfy-Org/MiniMax-H3 | h3_dedicated; path under h3/; not for 8196/8188/8193 general pool |
+| ok | minimax_h3_fl2va_pruned_int8_convrot.safetensors | 20970379616 | h3/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors | Comfy-Org/MiniMax-H3 | Wave M0 ledger backfill; production :8264; already on NAS; h3_dedicated |
 | ok | minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors | 20970379632 | diffusion_models/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors | smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models | app_refs=1 |
 | ok | minimax_h3_latent_upscaler_3d_bf16.safetensors | 690592992 | h3/latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors | LBH-123-AI/Minimax_h3_latent_Upscaler | h3_dedicated; hardlink/copy from general; skipped redownload 2026-09-10 |
 | ok | minimax_h3_latent_upscaler_3d_fp16.safetensors | 690592672 | h3/latent_upscale_models/minimax_h3_latent_upscaler_3d_fp16.safetensors | LBH-123-AI/Minimax_h3_latent_Upscaler | h3_dedicated; path under h3/; not for 8196/8188/8193 general pool |
 | ok | minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors | 1956193000 | h3/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors | Comfy-Org/MiniMax-H3 | h3_dedicated; path under h3/; not for 8196/8188/8193 general pool |
 | ok | minimax_h3_ref2va_bf16.safetensors | 66280487368 | h3/diffusion_models/minimax_h3_ref2va_bf16.safetensors | Comfy-Org/MiniMax-H3 | Still making progress (~4MiB/30s). Not stalled; did not restart. SMB st_size for multi-conn may lag slightly vs true downloaded. Companion pruned_bf16 still queued after full bf16. \| progress=94.42% running=True |
 | ok | minimax_h3_ref2va_pruned_fp8_scaled.safetensors | 20958205608 | h3/diffusion_models/minimax_h3_ref2va_pruned_fp8_scaled.safetensors | Comfy-Org/MiniMax-H3 | h3_dedicated; path under h3/; not for 8196/8188/8193 general pool |
+| ok | minimax_h3_ref2va_pruned_int8_convrot.safetensors | 20970379616 | h3/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors | Comfy-Org/MiniMax-H3 | Wave M0 ledger backfill; production :8264; already on NAS; h3_dedicated |
 | ok | minimax_h3_turbo_4step_10ErosMax_test4_pruned_curveproj1025_exp_v001-T8.safetensors | 794888696 | h3/loras/minimax_h3_turbo_4step_10ErosMax_test4_pruned_curveproj1025_exp_v001-T8.safetensors | t8star/minimax_h3_turbo_4step_10ErosMax_test4_pruned_curveproj1025_T8 | h3_dedicated; path under h3/; not for 8196/8188/8193 general pool |
 | ok | minimax_h3_turbo_4step_ckpt500.safetensors | 779849872 | h3/loras/minimax_h3_turbo_4step_ckpt500.safetensors | larryvrh/MiniMax-H3-Turbo-Lora | h3_dedicated; path under h3/; not for 8196/8188/8193 general pool |
 | ok | minimax_h3_video_vae_int8_convrot.safetensors | 3171670912 | h3/vae/minimax_h3_video_vae_int8_convrot.safetensors | Kijai/MiniMax-H3-experimental | h3_dedicated; path under h3/; not for 8196/8188/8193 general pool |
@@ -292,6 +294,10 @@ Note: previous tip 467/343/810 → 464/335/799 after v21 P0 batch + dedup.
 | ok | qwen-image-Q8_0.gguf | 21761817120 | unet/qwen-image-Q8_0.gguf | city96/Qwen-Image-gguf | app_refs=2 |
 | ok | Qwen-Image_2512.safetensors | 20430679144 | diffusion_models/Qwen-Image_2512.safetensors | Comfy-Org/Qwen-Image_ComfyUI | RH name; from Comfy-Org qwen_image_2512_fp8_e4m3fn \| app_refs=2 |
 | ok | Qwen-Rapid-AIO-NSFW-v7.safetensors | 28978666882 | checkpoints/Qwen-Rapid-AIO-NSFW-v7.safetensors | Phr00t/Qwen-Image-Edit-Rapid-AIO | app_refs=1 |
+| ok | wan2.2-rapid-mega-aio-v11.safetensors | 24334498767 | checkpoints/wan2.2-rapid-mega-aio-v11.safetensors | Phr00t/WAN2.2-14B-Rapid-AllInOne | Wave M2 dual-track :8197 eval |
+| ok | MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors | 1725921392 | loras/MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors | Kijai/MiniMax-H3-experimental | Wave M4 experimental; not :8264 default |
+| ok | MiniMax-H3-FL2VA-Acc-8Step_pruned_comfy.safetensors | 1725921392 | loras/MiniMax-H3-FL2VA-Acc-8Step_pruned_comfy.safetensors | Kijai/MiniMax-H3-experimental | Wave M4 experimental; not :8264 default |
+| ok | Qwen-Rapid-AIO-SFW-v23.safetensors | 28431840023 | checkpoints/Qwen-Rapid-AIO-SFW-v23.safetensors | Phr00t/Qwen-Image-Edit-Rapid-AIO | Wave M1② dual-track; gate still v11 |
 | ok | Qwen-Rapid-AIO-SFW-v11.safetensors | 28431829223 | checkpoints/Qwen-Rapid-AIO-SFW-v11.safetensors | Phr00t/Qwen-Image-Edit-Rapid-AIO | app_refs=1 |
 | ok | Qwen-Rapid-AIO-SFW-v5.safetensors | 28978619898 | checkpoints/Qwen-Rapid-AIO-SFW-v5.safetensors | Phr00t/Qwen-Image-Edit-Rapid-AIO | app_refs=1 |
 | ok | Qwen-Rapid-AIO-SFW-v7.safetensors | 28978666882 | checkpoints/Qwen-Rapid-AIO-SFW-v7.safetensors | Phr00t/Qwen-Image-Edit-Rapid-AIO | app_refs=1 |
