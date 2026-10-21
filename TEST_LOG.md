@@ -1,3 +1,5 @@
+- 2026-10-22 **F0_COMMIT_DONE 近窗固化（仍不 push）**（接棒；用户批准推荐包 F0→F1–F4→F0b→F5）：①`6c6798e6` feat(ux): Wave Doc→P3 壳层近窗——首页/侧栏/阶段轨/双视图 + Default H3:8264；②`f2d4a9a5` feat(wave-m): gate 默认 SFW-v23 + NAS inventory/模型源对齐；③`e4bcd639` feat(continue): D5-A 剧组协助 + 六画风变体 + N2 探针摘分母；④（本提交）docs: FINAL_FORM F0–F5 + WAVE_* 收口 + 本行。 tip=`e4bcd639`→docs tip 见本 commit；**未 push**、未部署、未重启。 test-results/ SFW-v23 png 仍 gitignore（&lt;1MB 本地留存）。 方案见 `docs/ux/research/FINAL_FORM_PLAN_20261022.md`。 status=`F0_COMMIT_DONE`；updated_at 2026-10-22T06:05:00+08:00。
+- 2026-10-21 **部署窗 tip→线上对齐（A+R1+REMOTE=core；未 push）**（接棒；用户「开始吧」+ 方案 GO）：本机 tip `e5307c63`；干净 web BUILD_ID=`20261021-153602-e5307c63`（无 `-dirty`）；`DEPLOY_DRAIN_WAIT_SEC=120 ./deploy/deploy.sh --all core` → 快照+rsync+drain clear+重启 api/web+canvas 换装，日志 `✅ 部署完成`；线上 BUILD `20261017-062022-44043682-dirty` → `20261021-153602-e5307c63`；health：api ok、web 200、canvas-api-pg live 200、公网 `/`+`/version.json`=`e5307c63`；drain（venv）clear；未 FORCE、未换密、未改 deploy/.env、未 deploy-admin、未 rollback。浏览器手点（超时文案/徽章/市场更深参数/设定卡失败抽屉）**需用户硬刷新后自测**。status=`deploy_window_align_tip_live_e5307c63`；updated_at 2026-10-21T23:37:00+08:00。
 - 2026-10-21 **感知波本地 commit 收口（仍不 push）**（接棒；用户批准超时UX+设定卡失败态+市场高级/更深参数+徽章一并 commit）：①`31110f0b` feat(ux): 客户端超时视为仍在跑 + 烟测徽章未验证/慢链（14 files）；②`df685f0b` feat(studio): 设定卡失败态——拒图可见、人话原因、警告仍留图（10 files）；③`cf9178d2` feat(market): 常用高级/更深参数（LoRA·超分）+ 抽屉超时与徽章接线（9 files，含 TEST_LOG 留痕）。工作区干净；**未 push**、未部署、未重启 toiv-api。status=`perception_wave_three_commits_local_no_push`；updated_at 2026-10-21T22:55:00+08:00。
 - 2026-10-21 **市场徽章：timeout → 未验证/慢链**（接棒；用户拍板改市场徽章，感知优先，安全/上线不做）：映射层 `apps/canvas/web/src/services/toiv/smoke-badge.ts`（`formatSmokeBadgeLabel` / `smokeBadgeTone` / `isLikelySlowChainApp`）；`market-page` 烟测徽章不再原样甩英文 `timeout`。对照：`timeout` 旧=英文 timeout（中性/易当失败）→ 新=已知慢引擎「慢链」(warning) / 否则「未验证（慢链）」(warning)；`fail`/`error` 仍「烟测失败」(error)；`pass` 仍「烟测通过」。助手侧 `_smoke_label`「实测超时」→「未验证（慢链）」对齐。**不改** worker 全局 timeout 秒数、不 commit/push/部署/重启 api。证据：`cd apps/canvas/web && bun test test/toiv-smoke-badge.test.ts` → **6 pass**；`cd apps/api && uv run pytest -q tests/test_smoke_badge_label.py` → **2 passed**。status=`market_smoke_badge_timeout_unverified_local_green`；updated_at 2026-10-21T20:45:00+08:00。
 - 2026-10-21 **R18 市场抽屉补更深参数（LoRA / 输出超分）**（接棒；用户拍板继续补 LoRA/分段等更深参数，只接真字段）：盘点结论——经典引擎台 `loras`/`resolution_target`/`segment_extend` 在 engine_registry；市场 `app_seed` 原无这些 knobs，`/api/apps/{id}/run` 原先也不注入。本刀**已接**：①`loras`（H3→`h3_video._inject_loras`；LTX→`lora_chain` 改接线；`null`=AI `resolve_submit_loras` / `[]`=关 / 钉选≤3）②`resolution_target`（run 后 `maybe_chain_upscale`，H3/LTX/longcat/wan 家族）。**明确未接**：`segment_extend`（依赖 h3_studio DurationPlan 末帧续段链，市场 run 未接，禁止假 UI）。实现：`app_deep_knobs.py` + `apps.run`/`get_app` enrich + seed H3/LTX schema；前端「更深参数」折叠 + `LorasField` + `enrichMarketSchemaWithDeepParams`。**不改**安全/换密；不 commit/push/部署/重启 api。证据：`cd apps/api && uv run pytest -q tests/test_app_deep_knobs.py` → **10 passed**；`cd apps/canvas/web && bun test test/toiv-market-advanced-params.test.ts test/toiv-market-m2.test.ts test/content-mode.test.ts` → **28 pass**。status=`market_deep_params_lora_upscale_local_green`；updated_at 2026-10-21T06:18:00+08:00。
@@ -2055,3 +2057,242 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 - **落地**:`apps/web/app/page.tsx` 卸 `EngineStudioView`、R18 不再绕过 `/studio` handoff、`image|video|create|generate|ltxstudio` → `/studio/create`;回落面板改链 canvas;web 薄壳不再 `initR18Mode`。`EngineStudioView` 标 deprecated(单测保留)。`f9HomeHandoff.test.ts` 改契约;`docs/ops/R18_POLICY_D_U1B_20261020.md` 记 A 已落地。
 - **验证**:`npm test`(apps/web) **353 pass / 0 fail**。无 commit/push、无切分支、无重启、无真 NSFW 生成。
 - **暂不可达**:原经典 `EngineStudioView` 直连的 NSFW 引擎台 UX(nsfw-txt2img/img2img、h3-nsfw-*、ltx-nsfw-*、wan-nsfw-i2v)不再从 web 进入;canvas `/create` 现为应用市场面——开 R18 后门控+X-NSFW 可见市场 NSFW 孪生,但未必逐引擎等价桌面。下一刀建议补 canvas 引擎台挂载。
+
+## 2026-10-22 · Wave Doc（N9∥N6∥N8）— 文档纠偏落地
+
+- **口令**：用户拍板【全部按推荐包】；本波纯文档，**无**业务运行时改码 / commit / push / 部署 / 下载模型。
+- **分支**：`work/p0-fusion-20261016`（tip 基准 `e5307c63` + 本地未提交文档）。
+- **N9** `docs/SERVICE_INVENTORY.md`：文首加 ⛔过期警告；勘误 H3 生产 **:8264**、IndexTTS **:9200**、VLM **:9311**；:8195 标 legacy；总表保留 09-13 考古，未伪全表重采。
+- **N6** `docs/AI短剧产品方案.md`：删除「默认仍是 c / 尚未做」现行断言；承认 tip 已默认 `ref2va`；§8 改为部署核对 + UI 管线选择 + 真机一镜；**禁止**再立项「切默认」。
+- **N8** 新建 `docs/ops/DRAMA_STUDIO_CONVERGENCE_GATE_20261022.md`；`AGENTS.md` §〇b 加一行指针。
+- **契约自检**：`rg` 产品方案不再主张「默认仍是 c」「尚未做」为现行；INVENTORY 文首含过期警告且 8264/9200/9311 可见；门禁卡可读。
+- **下一波**：Wave Default（N1→N2）— H3 默认基址 :8195→:8264；fleet_registry 对齐 AGENTS §三。标记 **READY_FOR_WAVE_DEFAULT**。
+
+## 2026-10-22 · Wave Default（N1→N2）— H3 默认 :8264 + fleet 对齐 AGENTS §三
+
+- **口令**：全自动流水线；Wave Doc 已完成；本波仅改默认/注册表/单测，**无** commit / push / 部署 / 下载 / 重启生产 / 改生产 `.env`。
+- **分支**：`work/p0-fusion-20261016`。
+- **N1** 无 env 默认生产口 `:8195` → **`:8264`**（LAN `192.168.71.127` 不变）
+  - `apps/api/app/config.py`：`h3_base_url` 默认与注释
+  - `apps/api/.env.example`、`deploy/.env.example`：`TOIV_H3_BASE_URL`→8264；注释标明 8195=legacy
+  - `apps/api/app/services/h3.py`：模块头注释；**白名单仍含** `:8195`+`:8264`
+  - `apps/api/app/services/worker_warmup.py`：注释同步；`_ALLOWED_WARMUP_PORTS` 仍含 8195
+  - 新增单测：`test_h3_default_base_is_8264`、`test_h3_worker_override_whitelist_keeps_legacy_8195`
+  - 契约：`rg 'TOIV_H3_BASE_URL=.*8195' apps/api/.env.example deploy/.env.example` → **0 命中**
+- **N2** `fleet_registry` workstation.services 对齐 AGENTS §三
+  - H3 口 **8264**；新增 **8265**、**9311**；摘 **8261**、**OpenTalking 4403**、注册表内 **8195**
+  - CosyVoice 9201–9203 / ASR 9210 / SenseVoice 9211：**保留**并 note「待运维确认」
+  - `tests/test_fleet.py` 断言同步（含负向：8195/8261/4403 not in ports）
+- **验证**：`apps/api/.venv/bin/pytest tests/test_fleet.py tests/test_h3_multi_instance.py -q` → **25 passed**（约 1.6s）。
+- **下一波**：Wave P1（N3∥N4∥N10 + IA P1）。标记 **READY_FOR_WAVE_P1**。
+
+## 2026-10-22 · Wave P1（N3∥N4∥N10 + IA P1 核心）— 进门语义收敛
+
+- **口令**：全自动流水线；Wave Doc+Default 已完成；本波改 canvas 壳 + web 深链中间件，**无** commit / push / 部署 / 下载 / 重启。
+- **分支**：`work/p0-fusion-20261016`。
+- **N3 首页**：主 CTA「新建短剧」→ `createStudioProject` → `/toiv/ws/:id?section=script`；最近短剧列表；能力瓷砖/意图条收入「更多能力」默认折叠；次 CTA「打开雨夜示例」接 `POST /studio/sample-projects/rain-night`；忙闲占位文案藏端口。
+- **N4 侧栏**：顶「新建短剧」→ `/toiv/drama?new=1`；稳态序 短剧项目 → 任务中心 → 工具台 → 设置；自由画布/智能体/媒体库进「高级 / 自由画布」可折；命令面板 + PWA shortcut 同步一词一义。
+- **N10**：任务中心迁出「新建智能体任务」Create，改引导链到 `/toiv/agent` 与短剧；`LocalBadges` 产品面仅「本地」+能力中文名，**不展示** `:8264` 等 worker。
+- **IA 附加**：drama-workspace `statusLabelZh` 镜头状态中文化；`middleware` 公网 `/toiv/*` 308→`/studio/toiv/*`（G4）；雨夜 CTA 已接线后端样片 API。
+- **验证**：`bun test` agent-product-entry / workspace-command-palette-f9 / local-capability-surface / studio-market-gap-p1 → **39 pass**；`node --test tests/f12RetiredRedirects.test.ts` → **pass**。
+- **P1_REMAINING**：L1 忙闲未接真实 fleet/hold API（仅占位文案）；L5 依赖三态完整设置页未做（标 P1.5）；登录回跳 `next=` 依赖既有 `app-base` 路径，未另开登录流改码。
+- **下一波**：Wave P2（N7 + 声画阶段轨）。标记 **READY_FOR_WAVE_P2**。
+
+## 2026-10-22 · Wave P2（N7 + IA P2 核心）— 无台词越过 + 阶段轨/定妆/管线
+
+- **口令**：全自动流水线；Doc/Default/P1 已完成；本波 **无** commit / push / 部署 / 下载 / 重启。
+- **分支**：`work/p0-fusion-20261016`。
+- **N7 后端** `compute_studio_next_step`：仅 `dialogue.strip()` 非空镜进 voice/lipsync 分母；无台词全 `rendered` → `assemble`（有成片/全 done 才 done）；混合项目只催有词镜。
+- **单测**：`test_drama_pipeline.py` 更新既有用例 + `test_studio_next_step_no_dialogue_skips_voice_lipsync`。
+- **批渲**：`RenderProjectBody.pipeline` 默认 `ref2va`，整批可传 c/c_hybrid；client `renderShotAsync`/`triggerBatchRender` 透传。
+- **IA P2 UI**（`drama-workspace.tsx`）：
+  1. 阶段轨 StageRail：剧本→定妆→分镜→生成→配音→口型→合成；next_step 高亮「当前」
+  2. 定妆门禁：无参考图禁用整批/单镜渲染 + 人话提示；角色卡「已定妆/待定妆」
+  3. 管线选择器：默认 ref2va；c / c_hybrid 标专家；continue 接缝旁注走管线 C
+  4. 合成段站内预览强化 + 时间线合成成功跳「合成」
+  5. 任务回跳：`?section=&shot=` 高亮滚动；tasks 画布任务有 project/shot 上下文可链回 ws
+  6. 失败文案复用 `userFacingCaughtError`（整批/合成）
+- **验证**：
+  - `apps/api/.venv/bin/pytest tests/test_drama_pipeline.py tests/test_studio_batch_render_async.py tests/test_drama_batch6_pipeline_c.py -q` → **50 passed, 3 skipped**
+  - `apps/api/.venv/bin/pytest tests/test_drama_pipeline.py tests/test_studio_voice.py -q` → **28 passed**
+  - `apps/canvas/web` `bun run typecheck` → **pass**
+- **P2_REMAINING**：
+  - ToIV Job 列表未透出 `project_id` → studio_batch_render 行尚无稳定回跳（画布任务已可）
+  - 「跳过口型并标注」二次确认流未做（仍可对口型按钮）
+  - 管线选择仅会话态，未持久化到项目字段
+  - 选优 QA 失败专属人话表未扩（仍走通用 caught error）
+- **下一波**：Wave P3（N5 + 双视图）。标记 **READY_FOR_WAVE_P3**。
+
+## 2026-10-22 · Wave P3（N5 + IA P3 核心）— 创作语义菜单 + 看板投影 + 检视器
+
+- **口令**：全自动流水线；Doc/Default/P1/P2 已完成；本波 **无** commit / push / 部署 / 下载 / 重启。
+- **分支**：`work/p0-fusion-20261016`。
+- **N5 添加菜单（D3-A）**
+  - `add-node-menu-tools.tsx`：一级=文本/图像/视频/音频/合成/分组；**不再** `LOCAL_CREATE_PRESETS.map` 挂引擎名
+  - 默认视频创建绑 **H3**（`defaultLocalVideoPreset`）；默认图像绑本地出图
+  - `LOCAL_CREATE_PRESETS` / `LOCAL_MARKET_FEATURED` 标签改为创作语义（图像/短剧视频/…），引擎仍保留 modelRef/protocol
+  - 市场精选副标题同步创作语义
+- **IA P3**
+  1. **列表 ↔ 看板投影**（`drama-shot-board.ts` + drama-workspace）：同源字段；切换保留 `selectedShotId`
+  2. **右侧检视器**：镜头提示语/管线/台词/声画/预览/动作；减少浮层挡操作
+  3. **叠盖治理**：image/video/audio settings popover 默认 `dock="end"` 右侧停靠（G5）
+- **验证**
+  - `bun test` local-capability-surface / add-node-menu-creative-semantics / drama-shot-board / canvas-create-menu-search → **24 pass**
+  - `bun run typecheck` → **pass**
+  - 静态：`add-node-menu-tools.tsx` 无 `本地·H3` / `:8264` / `LOCAL_CREATE_PRESETS.map`
+- **P3_REMAINING**
+  - 竖排流水线投影（LocalMiniDrama 文→帧→视频）未做（本波交付看板轻量档）
+  - 空画布 ≥3 模板 / 一键整理 / 端口业务名悬停（P3.5–P3.6）未做
+  - 自由画布「节点设置里换引擎」完整下拉 UX 仍靠既有 ModelPicker（预设列表未单独挂设置面板）
+- **累计残余（供收口）**
+  - **P1.5**：L1 忙闲真实 fleet/hold；L5 依赖三态设置页
+  - **P2_REMAINING**：Job 列表 project_id 回跳；跳过口型二次确认；管线选择持久化；选优 QA 人话表
+  - **P3_REMAINING**：见上
+- **标记**：`READY_FOR_WAVE_WRAP`（P1–P3 主闭环可收口；P4/Dly 不做）
+
+## 2026-10-22 · P3 残余清扫（执行器 B）— 竖排 / 空态模板 / 端口业务名 / 引擎预设
+
+- **范围**：P3_REMAINING；可与 A 并行；主要改 `apps/canvas/web`。
+- **分支**：`work/p0-fusion-20261016`；**无** commit / push / 部署。
+- **交付**
+  1. **竖排流水线投影**：`DramaShotViewMode` 增 `pipeline`；`DRAMA_PIPELINE_STAGES` 文→帧→视频→配音→口型；drama-workspace 三视图切换保留 `selectedShotId`；看板未破坏。
+  2. **空画布 ≥3 模板**：`CANVAS_EMPTY_TEMPLATES`（短剧分镜条 / 图生视频 / 空白）；guided+freeform 空态露出；`createImageToVideoTemplate` + hook；一键整理文案接 zoom dock。
+  3. **端口业务名悬停**：`canvasPortBusinessLabel` / `canvasPortHoverTitle`；ConnectionSideRail title/aria；市场 LocalBadges `localCapabilityHoverTitle`（产品面不露 :8264，admin 可选）。
+  4. **引擎预设设置面板**：`LocalEnginePresetPanel` 挂入 image/video settings popover；`localVideoEnginePresets` / `localImageEnginePresets`；一级菜单仍创作语义。
+- **验证**
+  - `bun test` drama-shot-board / canvas-empty-templates / add-node-menu / local-capability-surface → **28 pass**
+  - `bun run typecheck` → **pass**
+- **标记**：`P3_REMAINING_DONE`
+
+## 2026-10-22 · Wave P1.5 + P2 残余清扫 — L1/L5 / Job 回跳 / 跳过口型 / 管线落库 / QA 人话
+
+- **执行器**：残余清扫 A；口令「开始吧，做完所有的工作」子任务。
+- **分支**：`work/p0-fusion-20261016`；**无** commit / push / 部署 / 重启生产。
+- **P1.5 L1 忙闲**
+  - 新增 `GET /api/fleet/brief`（任意登录用户）：人话 summary + mine.held/active + 设备摘要；**不暴露端口**
+  - `ComputeStatusStrip` 挂首页（full）与短剧工作台（compact）；设置「模型与算力」同挂 full
+- **P1.5 L5 依赖三态**
+  - 新增 `GET /api/studio/deps-status`：api / tts / h3 → reachable|degraded|unreachable + 人话；不可达时禁用配音/生成 CTA
+- **P2 Job project_id 回跳**
+  - `_job_dict` 透出 `project_id`（params 优先，result 回落）
+  - 任务中心 ToIV 作业行 `jumpHref` → `/toiv/ws/:pid?section=shots`
+- **P2 跳过口型二次确认**
+  - `POST /studio/shots/{sid}/lipsync/skip` + `skip_lipsync_for_shot`（mux 配音、`lipsync_skipped=True`）
+  - UI：`window.confirm` → 调用；徽章「未对口型」
+- **P2 管线持久化**
+  - `StudioProject.preferred_pipeline`（db 补列）+ `ProjectPatch`；工作台选择器 hydrate + PATCH
+- **P2 选优/QA 人话**
+  - `studio-qa-failure.ts`；pick/render/voice/lipsync/batch/assemble catch 叠加专属文案
+- **验证**
+  - `pytest tests/test_jobs.py::test_job_dict_exposes_project_id tests/test_wave_p15_p2_remaining.py` → **5 passed**
+  - `pytest tests/test_fleet.py` → **10 passed**
+  - `bun test test/studio-qa-failure.test.ts` → **3 pass**
+  - `bun run typecheck` → **pass**（顺手修 market-page type import 混排 TS1003）
+- **标记**：`READY_FOR_P3_REMAINING`
+
+## 2026-10-22 · D5-A 剧组协助开关 + gate 文档对齐 / bak 清扫
+
+- **执行器**：接棒工程师；口令「继续完成没有完成的内容」→ D5-A 优先。
+- **分支**：`work/p0-fusion-20261016`；**无** commit / push / 部署 / 重启。
+- **D5-A**
+  - 新增 `apps/canvas/web/src/services/toiv/crew-assist-mode.ts`（按项目 `localStorage`，默认关）
+  - `drama-workspace` 顶栏「剧组协助」Switch；开时人闸旁轻提示（定妆 / 生成前确认 / 合成）；**不**建 Agent Team、不代发
+  - 测试：`bun test test/crew-assist-mode.test.ts`
+- **文档**
+  - `docs/ops/WAVE_M_PROGRESS_20261022.md`：总览/边界与「当前=SFW-v23」对齐；保留提案历史
+  - `docs/ops/DEVICE_MODELS_IN_USE_20261022.md`、`MODEL_FRESHNESS_BASELINE_20261022.md`：补记 gate 已切 v23
+- **bak**：10 个 `.bak_gate_v23_*` / `.bak_wave_m0_*` 移出仓库 → `/tmp/toiv-bak-20261022/`（扁平同名合并为 8；live 源仍为 v23）
+- **未做（冻结）**：P4 导出/Agent 一键；Dly；未启动 CosyVoice / 角色变体 UI
+- **标记**：`D5A_DONE`
+
+## 2026-10-22 · N2 CosyVoice/ASR 真机探针 + 角色资产变体下单 UI
+
+- **执行器**：接棒工程师；**无** commit / push / 部署 / 重启。
+- **分支**：`work/p0-fusion-20261016`
+
+### Task 1 — fleet 探针（附录 C #1）
+
+探针时刻：**2026-10-22 04:11 Asia/Shanghai** · host=`192.168.71.127`（fleet_registry `probe_host` / LAN）
+
+| host:port | TCP | HTTP | 处置 |
+|-----------|-----|------|------|
+| 192.168.71.127:9200 IndexTTS | ok | `/health` → **200** engine=indextts2 | 对照；仍 http 进分母 |
+| :9201 CosyVoice2 | **Connection refused** | — | `probe=none` 摘分母；note 记探针 |
+| :9202 CosyVoice3 | **Connection refused** | — | 同上 |
+| :9203 Qwen3-TTS | **Connection refused** | — | 同上 |
+| :9210 ASR | **Connection refused** | — | 同上 |
+| :9211 SenseVoice | **Connection refused** | — | 同上 |
+
+- 改：`apps/api/app/services/fleet_registry.py`（`_declared` + 五口 note）
+- 测：`tests/test_fleet.py` 断言 probe=none + note 含 Connection refused
+- 验证：`.venv/bin/pytest …test_registry_workstation…` + 直接 import 断言
+
+### Task 2 — 角色资产变体 UI 下单
+
+- 落点：短剧工作区设定卡抽屉（非新表面）
+- **可下单**：`ancient_realistic` / `anime` → 现有 `submitSheetAsync`（=regenSheet）
+- **缺口**：realistic/ink_wash/cyberpunk/three_d — 历史 img2img+PUT `style_variants`，**无产品化下单 API**；UI 徽标「待 API」+ 已登记则展示缩略图
+- 文件：`character-style-variants.ts`、`client.fetchCharacterAsset`、`drama-workspace` `data-testid=character-variant-order`
+- 测：`bun test test/character-style-variants.test.ts` → **5 pass**
+
+### 仍开（非本轮）
+
+- Mega-v11 / Acc-8Step smoke；dogfood 一镜；扩展画风产品化 API；P4/Dly 冻结
+
+- **标记**：`N2_PROBE_DONE` · `VARIANT_ORDER_UI_DONE`
+
+## 2026-10-22 · 可选 Mega/Acc 可见性探针 + 会话总收口
+
+- **执行器**：接棒；**无** commit / push / 部署 / 重启 / 出片作业。
+- **探针时刻**：约 2026-10-22 04:14 Asia/Shanghai · LAN `192.168.71.127`
+- **Mega-v11 :8197**：up；`wan2.2-rapid-mega-aio-v11.safetensors` 在 CheckpointLoader 列表；queue_running=1 → **跳过出片**
+- **Acc-8Step :8264**：up；Ref2VA+FL2VA Acc LoRA 在 LoraLoader；生产 int8 仍在 → **跳过长 GPU 旁路出片**
+- **收口文**：`docs/ux/research/WAVE_REMAINING_CLEARED_20261022.md`
+- **git tip**：`e5307c63` · 分支 `work/p0-fusion-20261016` · 工作区脏
+- **标记**：`OPTIONAL_SMOKE_VISIBILITY_DONE` · `SESSION_REMAINING_CLEARED`
+
+## 2026-10-22 · CONTINUE 产品壳 dogfood（D5-A + 变体下单）
+
+- **时间**：2026-10-22 05:05 Asia/Shanghai；**无** commit/push/deploy/restart/出片作业
+- **栈**：本地 Vite `:3010`（`vite.dogfood.config.ts` 双代理）+ core API `:8090` + studio bootstrap `:3100/studio`
+- **登录**：`email=admin` / `admin123`
+- **项目**：雨夜便利店·林夏 `16e33f8b93dd45d9abca779816ede9b5`（2 角色）
+- **D5-A**：Switch 剧组协助 off→on；`localStorage toiv_crew_assist:<pid>=1`；「人闸仍强制」文案 — PASS
+- **变体 UI**：`character-variant-order` 可见；下单变体：古风写实 ×1；扩展档「待 API」— PASS（未点生成）
+- **波B 项目** `78e17c5b…`：无角色 → 仅验证开关 PASS
+- **生产缺口**：`/api/fleet/brief`、`/api/studio/deps-status` 404（未部署）；Admin fleet 仍 8/25
+- **GPU**：Acc/Mega/雨夜一镜出片本窗跳过（无 &lt;10min 安全脚本）
+- **证据**：`/tmp/toiv_dogfood_rain2.{json,png}`
+- **标记**：`CONTINUE_SHELL_DOGFOOD_PASS`
+
+## 2026-10-22 · CONTINUE IMAGE_SMOKE gate SFW-v23 @ :8196
+
+- **时间**：2026-10-22 05:11 Asia/Shanghai；队列提交前 running=0/pending=0；**无** commit/push/deploy/restart
+- **路径**：复用 Wave M1② 成功 Comfy API 图（CheckpointLoaderSimple=`Qwen-Rapid-AIO-SFW-v23.safetensors`，8/768/euler）
+- **prompt_id**：`9c642d81-87e5-4188-a258-1a8001cb65fa`
+- **结果**：status=**success** · 轮询 **114.23s** · `Continue_IMAGE_SFWv23_00001_.png` **682209** bytes
+- **落盘**：`test-results/continue_sfw_v23_image_smoke.json` · `test-results/Continue_IMAGE_SFWv23_00001_.png`
+- **脚本**：`scripts/e2e/rapid_sfw_v23_image_smoke.py`（已加 history 长超时重试）
+- **标签**：`IMAGE_SMOKE`（非 FULL_VIDEO）
+- **未做**：Acc-8Step/Mega 视频；扩展画风 API（本窗优先 GPU）
+- **标记**：`CONTINUE_IMAGE_SMOKE_SFWV23_PASS`
+
+## 2026-10-22 · 扩展画风 API（STYLE_VARIANT_API_DONE）
+
+- **时间**：2026-10-22 Asia/Shanghai；**无** commit / push / deploy / restart；**无** Acc/Mega 视频 / 雨夜定妆×4
+- **策略**：扩展档作 **prompt-pack / style_key** 挂在现有 `POST .../character-sheet/async`（submitSheetAsync）；无新微服务
+- **后端**
+  - `SHEET_STYLES` → 六档；`SHEET_STYLE_PATTERN`；helpers：`sheet_is_hanfu` / `sheet_uses_anime_xl` / `sheet_is_photoreal` / `sheet_style_zh`
+  - `_STYLE_SUFFIX` / `_STYLE_NEGATIVE` / `_SHEET_CKPT` / `_THEME` / `_CARD_THEMES` 覆盖六档
+  - pydantic：`schemas.py`×7 + `studio.FrameVariantsRequest` allowlist 放宽
+  - 汉服门禁仍仅 `ancient_realistic`；写实→DreamShaper；水墨/赛博/3D→Animagine XL
+- **前端**：`character-style-variants.ts` 四档 `sheetOrderable: true`；「待 API」区随 `!sheetOrderable` 自然消失
+- **测试**
+  - `apps/api/tests/test_sheet_style_variants.py`（allowlist / mapping / CharacterSheetRequest）
+  - `bun test test/character-style-variants.test.ts`
+- **解锁**：`realistic` · `ink_wash` · `cyberpunk` · `three_d`（先前「待 API」四档）
+- **未做**：真机 sheet 出图冒烟；Acc/Mega 视频
+- **标记**：`STYLE_VARIANT_API_DONE`
+
+## 2026-10-22 · CONTINUE 收口 · Acc/Mega VIDEO 诚实停 + WRAP
+- LAN 192.168.71.127 :8264/:8197/:8196 system_stats 200 · queue 0/0；无 <15min Acc/Mega 旁路 → `scripts/e2e/acc_8step_min_frames_smoke.py` skeleton exit 2；WAVE_REMAINING「CONTINUE 收口」；标记 `CONTINUE_STREAK_WRAP` · tip `e5307c63` dirty

@@ -1,12 +1,35 @@
 # SERVICE_INVENTORY — ToIV 全服务清单（迁移资产清单）
 
+> ## ⛔ 过期警告（2026-10-22 Asia/Shanghai · Wave Doc N9）
+>
+> **本表采集于 2026-09-13，已滞后于 2026-10-15 后现网。禁止盲抄端口/unit 做生产配置。**
+>
+> - **现网真源**：`AGENTS.md` §三（Workstation 服务与 GPU）——以真机 `ss`/`systemctl` 复核为准。
+> - **关键勘误（相对本表 09-13 快照）**：
+>   - **H3 生产口 = `:8264`**（`toiv-comfyui-h3-gpu1`）；表内 `:8195` 为 legacy/评测口，**已 stop+disable**，勿当生产默认。
+>   - **IndexTTS 配音主路 = `:9200`**（`toiv-indextts`；勿再停）。
+>   - **VLM = `:9311`**（`toiv-vlm`，Qwen3-VL-8B）。
+>   - 另与 AGENTS 冲突项：`:8261` 已撤；`:8265` 已入 LB 池；LB 现网后端见 AGENTS（非本表 pc02 叙事）。
+> - 下方总表保留作 **迁移考古 / 09-13 快照**；本卡**未** SSH 重采全库存，故不伪称「已全表更新」。
+>
 > **用途**：`docs/MIGRATION_PLAYBOOK.md` 阶段 0 配套清单。每服务一行 = 名称/主机/托管方式/unit 位置/端口/配置位置/数据位置/依赖/启动顺序号（按手册③的 ①~⑦ 编排）/验收方法。
-> **采集时间**：2026-09-13（全量真机 SSH/HTTP 采集，非文档转抄）
+> **采集时间**：2026-09-13（全量真机 SSH/HTTP 采集，非文档转抄）；**现网口径以 AGENTS §三为准（见上文过期警告）**。
 > **维护规则**：服务增删/端口/路径变更后必须同步本表；裸 IP 渐进替换为主机名（手册原则 2）
 
 ---
 
 ## 一、总表
+
+### ⚠ 2026-10-22 勘误快照（非全表重采）
+
+| 能力 | 09-13 本表常见口径 | **现网（AGENTS §三）** |
+|---|---|---|
+| MiniMax H3 生产 | :8195 | **:8264**（:8195 disable；评测/legacy） |
+| IndexTTS 配音主路 | （表内 workstation 多 TTS 为 legacy/disable） | **:9200** |
+| VLM | （表内遗留 unit 列表） | **:9311** |
+| 超分 :8261 | 在表 | **已撤** |
+| 通用 worker :8265 | 未入表 | **已入 LB 池** |
+
 
 ### ① NAS / 网络底座（最先拉起）
 
@@ -23,7 +46,7 @@
 |---|---|---|---|---|---|---|---|---|---|
 | ComfyUI-LB 负载均衡 | workstation | systemd `comfyui-lb.service` | `/etc/systemd/system/` | **8188** | `/opt/comfyui-lb/backends.json`（5s mtime 热重载） | `/opt/ComfyUI`（工作目录） | gpu0-alt :8196、pc01 :8188 | ② | `GET :8188/admin/backends` 返回后端清单全 healthy |
 | ComfyUI gpu0-alt（池成员） | workstation | systemd `comfyui-gpu0-alt.service` | 同上 | **8196** | unit 内嵌参数；`/opt/ComfyUI/extra_model_paths.yaml` | `/opt/ComfyUI/instances/gpu0/{output,temp,input}`；模型库 = NAS symlink | NAS 挂载、GPU0 | ② | txt2img 冒烟真实出图 |
-| ComfyUI H3 worker（MiniMax） | workstation | systemd `toiv-comfyui-h3.service` + `.d/`（UUID 钉卡 + MemoryMax 160G） | 同上 | **8195** | `/home/merlin/ComfyUI-h3-eval/extra_model_paths.yaml` | 同安装目录；产物至 ToIV 数据目录 | NAS、GPU2（UUID `GPU-0e6e9149…`） | ② | `POST :8195/free` 200；H3 生成一发成功 |
+| ComfyUI H3 worker（MiniMax）~~:8195~~ | workstation | systemd `toiv-comfyui-h3.service`（**09-13 快照**；现网已 disable） | 同上 | **8195** ⛔legacy | `/home/merlin/ComfyUI-h3-eval/extra_model_paths.yaml` | 同安装目录 | NAS、GPU2 | ② | **现网生产改 `:8264`**（见文首勘误）；勿再验收 :8195 |
 | ComfyUI LongCat worker | workstation | systemd `comfyui-longcat.service` + `.d/gpu0.conf` | 同上 | **8197** | `/home/merlin/ComfyUI-longcat/extra_model_paths.yaml` | 同安装目录 | NAS、GPU0（⚠️ drop-in 实际钉 GPU0，主文件写 GPU2） | ② | object_info 200；LongCat 工作流一发 |
 | ComfyUI Wan-Animate-2 | workstation | systemd `comfyui-animate2.service` | 同上 | **8199** | `/home/merlin/ComfyUI-animate2/extra_model_paths.yaml`（独立 venv） | 同安装目录 | NAS、GPU3 | ② | object_info 200 |
 | ComfyUI 超分 gpu1 | workstation | systemd `comfyui-upscale-gpu1.service` | 同上 | **8261** | unit 内嵌（cache-lru 2、disable-smart-memory） | `/opt/ComfyUI/instances/gpu1/{output,temp,input}` | NAS、GPU1 | ② | 超分任务调用成功 |

@@ -15,7 +15,7 @@
 
 ## 〇b、本地开发与验证（代码会话；运维态仍以 §三–§六 为准）
 
-**架构入口**：`apps/` 下四应用——api（FastAPI :8090）· web（Next.js :3100 `/studio`）· admin（:3200）· canvas（Go+Vite，**必读 `apps/canvas/AGENTS.md`**）；移动端 `MiniProgram/`。长文在 `DEVELOPMENT.md`；下列是会猜错的口径。工作暂存写 `tmp/`（已 ignore）；`opentalking` 不 vendor。
+**架构入口**：`apps/` 下四应用——api（FastAPI :8090）· web（Next.js :3100 `/studio`）· admin（:3200）· canvas（Go+Vite，**必读 `apps/canvas/AGENTS.md`**）；移动端 `MiniProgram/`。 **Drama∥Studio 收敛**：新功能只加 Studio；Drama bugfix only——见 `docs/ops/DRAMA_STUDIO_CONVERGENCE_GATE_20261022.md`。长文在 `DEVELOPMENT.md`；下列是会猜错的口径。工作暂存写 `tmp/`（已 ignore）；`opentalking` 不 vendor。
 **六仓融合源**：`third_party/{dramaclaw,toonflow,hypit,video-use}`（工作树不入仓）+ `licenses/`；BeefTV 已并 `apps/canvas`。并码前读 `third_party/README.md` 许可表——video-use/Toonflow=MIT 可并码；hypit=修改 Apache **单租户**；dramaclaw=Elastic **留 NOTICE、禁对第三方托管**；ChatCut/OpenMontage 禁抄。
 
 **测试命令（易踩坑：web/admin 不是 vitest，是 `node:test`）**：
