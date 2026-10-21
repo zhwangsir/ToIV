@@ -2296,3 +2296,18 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 
 ## 2026-10-22 · CONTINUE 收口 · Acc/Mega VIDEO 诚实停 + WRAP
 - LAN 192.168.71.127 :8264/:8197/:8196 system_stats 200 · queue 0/0；无 <15min Acc/Mega 旁路 → `scripts/e2e/acc_8step_min_frames_smoke.py` skeleton exit 2；WAVE_REMAINING「CONTINUE 收口」；标记 `CONTINUE_STREAK_WRAP` · tip `e5307c63` dirty
+
+## 2026-10-22 · F1_KEYFRAME_QA_LAMPS_DONE
+
+- **时间**：Asia/Shanghai；起点 tip `f915b665`；**无** push / deploy / restart；F1 **可 commit**
+- **关键帧默认**
+  - FE `storyboard-drive.ts`：DEFAULT=keyframe；`videoRenderGate`；默认镜头视图=pipeline
+  - UI：分镜驱动选择器；配景采用关键帧；单镜/整批软闸
+  - BE：`preferred_drive_mode` + db 幂等列；`POST /studio/shots/{sid}/adopt-keyframe`；render 422 `{code:KEYFRAME_REQUIRED}`；`force_direct` 旁路
+- **失败码/质检**：`STUDIO_FAILURE_TABLE` + `resolveStudioFailure` + `studioQaMessageWithHint`（含 KEYFRAME_REQUIRED）
+- **控片就绪灯**：`control-readiness` + `ControlReadinessLamps`（六灯）挂工作区
+- **测试**：bun 13 pass（storyboard-drive / control-readiness / studio-qa-failure）；pytest `test_keyframe_drive.py` 6 pass
+- **进度**：`docs/ux/research/WAVE_F1_PROGRESS_20261022.md`
+- **未做**：F2–F5 / push / deploy
+- **标记**：`F1_KEYFRAME_QA_LAMPS_DONE`
+

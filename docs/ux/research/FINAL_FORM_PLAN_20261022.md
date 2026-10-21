@@ -44,5 +44,6 @@
 
 ## 状态
 
-- F0：进行中 / 完成后见 `TEST_LOG.md` 行 `F0_COMMIT_DONE`
-- F1–F5：待 F0 后由父代理分派
+- F0：✅ 见 `TEST_LOG.md` `F0_COMMIT_DONE`（tip 钉 `f915b665` 线）
+- F1：✅ 关键帧默认 · 失败码/质检 · 控片就绪灯 — 见 `WAVE_F1_PROGRESS_20261022.md` / `F1_KEYFRAME_QA_LAMPS_DONE`
+- F2–F5：待分派
