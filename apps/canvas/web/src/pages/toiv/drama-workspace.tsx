@@ -31,6 +31,7 @@ import {
 import { ComputeStatusStrip, depBlocksCta } from "@/components/toiv/compute-status-strip";
 import { ControlReadinessLamps } from "@/components/toiv/control-readiness-lamps";
 import { BgmBedPanel } from "@/components/toiv/bgm-bed-panel";
+import { JianyingExportButton } from "@/components/toiv/jianying-export-button";
 import { KpiNorthboundPanel } from "@/components/toiv/kpi-northbound-panel";
 import { projectControlReadinessLamps } from "@/services/toiv/control-readiness";
 import {
@@ -1942,7 +1943,15 @@ export default function DramaWorkspacePage() {
                                                 label="回时间线调序"
                                                 onClick={() => goSection("timeline")}
                                             />
-                                            <p className="w-full text-xs text-[var(--muted-foreground)]">站内预览即可验收；剪映/FCPXML 导出放后续波次。</p>
+                                            {id && (
+                                                <div className="w-full">
+                                                    <JianyingExportButton
+                                                        projectId={id}
+                                                        shots={detail.shots ?? tlShots}
+                                                        disabled={assembling}
+                                                    />
+                                                </div>
+                                            )}
                                             {crewAssist && (
                                                 <p className="w-full rounded-lg border border-dashed border-[var(--border)] p-2 text-[11px] text-[var(--muted-foreground)]">
                                                     人闸·合成：{CREW_ASSIST_GATE_HINT}
@@ -1968,6 +1977,13 @@ export default function DramaWorkspacePage() {
                                             />
                                             <ToolButton variant="ghost" icon={<Layers />} label="去时间线检查片段" onClick={() => goSection("timeline")} />
                                         </div>
+                                        {id && (
+                                            <JianyingExportButton
+                                                projectId={id}
+                                                shots={detail.shots ?? tlShots}
+                                                disabled={assembling}
+                                            />
+                                        )}
                                         {assembleError && (
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger)]">{assembleError}</p>
                                         )}

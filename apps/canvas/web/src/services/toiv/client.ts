@@ -1087,6 +1087,64 @@ export async function renderShotStrict(sid: string, opts: { num_candidates?: num
     }
 }
 
+/** F4:导出剪映草稿 ZIP（GET /studio/projects/{pid}/export/jianying）。 */
+export async function exportStudioJianyingDraft(
+    pid: string,
+    opts?: { include_media?: boolean },
+): Promise<{ blob: Blob; fileName: string; draftId: string; format: string }> {
+    try {
+        const { data, headers } = await toivHttp.get(
+            `/studio/projects/${encodeURIComponent(pid)}/export/jianying`,
+            {
+                params: { include_media: opts?.include_media ?? true },
+                responseType: "blob",
+                timeout: 600_000,
+            },
+        );
+        const blob = data as Blob;
+        const hdr = headers as Record<string, string>;
+        const cd = String(hdr?.["content-disposition"] ?? hdr?.["Content-Disposition"] ?? "");
+        const draftId = String(hdr?.["x-toiv-draft-id"] ?? hdr?.["X-Toiv-Draft-Id"] ?? "");
+        const format = String(hdr?.["x-toiv-draft-format"] ?? hdr?.["X-Toiv-Draft-Format"] ?? "toiv_jianying_draft_v1");
+        let fileName = `toiv-jianying_${draftId.slice(0, 8) || "draft"}.zip`;
+        const m = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(cd);
+        if (m) {
+            try {
+                fileName = decodeURIComponent((m[1] || m[2] || fileName).replace(/"/g, "").trim());
+            } catch {
+                fileName = (m[1] || m[2] || fileName).replace(/"/g, "").trim() || fileName;
+            }
+        }
+        // axios 在 4xx 时可能仍把 JSON 错误体当 blob
+        if (blob.type && blob.type.includes("application/json")) {
+            const text = await blob.text();
+            try {
+                const j = JSON.parse(text) as { detail?: string };
+                throw new Error(j.detail || "剪映草稿导出失败");
+            } catch (e) {
+                if (e instanceof Error && e.message !== "剪映草稿导出失败" && !text.startsWith("{")) throw e;
+                if (e instanceof Error && e.message) throw e;
+                throw new Error(text || "剪映草稿导出失败");
+            }
+        }
+        return { blob, fileName, draftId, format };
+    } catch (e) {
+        const detail = (e as { response?: { data?: unknown } })?.response?.data;
+        if (detail instanceof Blob) {
+            try {
+                const text = await detail.text();
+                const j = JSON.parse(text) as { detail?: string };
+                throw new Error(j.detail || "剪映草稿导出失败");
+            } catch (inner) {
+                if (inner instanceof Error && inner.message !== "剪映草稿导出失败") throw inner;
+            }
+        }
+        if (e instanceof Error) throw e;
+        const d = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        throw new Error(d || "剪映草稿导出失败");
+    }
+}
+
 /** S9-lite(2026-10-11):拼接全部就绪分镜 → 项目成片(POST /studio/projects/{pid}/assemble)。
  * 任一镜缺 final_clip_url → 422(错误透出)。 */
 export async function assembleStudioProject(

@@ -3196,6 +3196,120 @@ async def assemble_project_endpoint(
     return _project_detail(session, project)
 
 
+# ── F4:剪映草稿导出 ─────────────────────────────────────────────────────────
+
+
+@router.get("/studio/projects/{pid}/export/jianying")
+def export_jianying_draft(
+    pid: str,
+    include_media: bool = Query(default=True),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """导出项目时间线为剪映兼容草稿 ZIP（toiv_jianying_draft_v1）。
+
+    - 按分镜 idx 收集 final_clip_url（缺则跳过）；可附配音/声床。
+    - 原创拼装，不引入 AGPL/GPL 草稿库代码。
+    - include_media=false 时仅结构（测试/无盘素材）；true 时尽力复制可读文件。
+    """
+    import io
+    import tempfile
+
+    from fastapi.responses import StreamingResponse
+
+    from app.services.studio import jianying_draft as jy
+    from app.storage import drama_output_root
+
+    project = _get_project(session, pid, user)
+    shots = session.exec(
+        select(StudioShot).where(StudioShot.project_id == pid).order_by(StudioShot.idx)
+    ).all()
+    if not shots:
+        raise HTTPException(status_code=422, detail="项目无分镜")
+
+    files_prefix = "/api/studio/files/"
+    root = drama_output_root() / "studio"
+
+    def _resolve(url: str) -> Path | None:
+        u = (url or "").strip()
+        if not u:
+            return None
+        # 仅解析站内 studio files；其它前缀留给重链
+        path_part = u
+        if u.startswith("http://") or u.startswith("https://"):
+            try:
+                from urllib.parse import urlparse
+
+                path_part = urlparse(u).path or ""
+            except Exception:  # noqa: BLE001
+                return None
+        if not path_part.startswith(files_prefix):
+            return None
+        name = Path(path_part[len(files_prefix):]).name
+        if not name or name in {".", ".."}:
+            return None
+        cand = root / name
+        return cand if cand.is_file() else None
+
+    bgm_url = (getattr(project, "bgm_url", None) or "").strip()
+    bgm_path = _resolve(bgm_url) if bgm_url else None
+    # 声床也可能在 manju/audio；尽力再探
+    if bgm_url and bgm_path is None:
+        try:
+            from app.services.studio.assemble import resolve_bgm_path
+
+            bgm_path = resolve_bgm_path(bgm_url)
+        except Exception:  # noqa: BLE001
+            bgm_path = None
+
+    clips = jy.clips_from_studio_shots(
+        shots,
+        resolve_path=_resolve,
+        bgm_url=bgm_url,
+        bgm_path=bgm_path,
+    )
+    video_clips = [c for c in clips if c.kind == "video"]
+    if not video_clips:
+        raise HTTPException(status_code=422, detail="无可用成片片段（缺 final_clip_url）")
+
+    title = (project.title or "toiv-draft").strip() or "toiv-draft"
+    try:
+        with tempfile.TemporaryDirectory(prefix="toiv-jy-") as tmp:
+            result = jy.export_draft_zip(
+                Path(tmp),
+                name=title,
+                clips=clips,
+                include_media=include_media,
+            )
+            assert result.zip_path is not None and result.zip_path.is_file()
+            data = result.zip_path.read_bytes()
+            fname = jy.sanitize_draft_filename(title, draft_id=result.draft_id) + ".zip"
+            draft_id_hdr = result.draft_id
+            video_seg_hdr = result.video_segments
+            media_copied_hdr = result.media_copied
+    except jy.JianyingDraftError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except Exception as e:  # noqa: BLE001
+        logger.exception("jianying export failed pid=%s", pid[:12])
+        raise HTTPException(status_code=502, detail=f"剪映草稿导出失败:{e}") from e
+
+    from urllib.parse import quote
+
+    # latin-1 header safe: ASCII fallback + RFC5987 UTF-8 filename*
+    ascii_name = "".join(ch if ord(ch) < 128 else "_" for ch in fname) or "toiv-jianying.zip"
+    if not ascii_name.lower().endswith(".zip"):
+        ascii_name = ascii_name.rstrip("._") + ".zip"
+    headers = {
+        "Content-Disposition": (
+            f'attachment; filename="{ascii_name}"; filename*=UTF-8''{quote(fname)}'
+        ),
+        "X-Toiv-Draft-Format": jy.DRAFT_FORMAT_VERSION,
+        "X-Toiv-Draft-Id": draft_id_hdr,
+        "X-Toiv-Video-Segments": str(video_seg_hdr),
+        "X-Toiv-Media-Copied": str(media_copied_hdr),
+    }
+    return StreamingResponse(io.BytesIO(data), media_type="application/zip", headers=headers)
+
 
 # ── Batch5:样片种子 + 步骤整组重跑 ─────────────────────────────────────────
 
