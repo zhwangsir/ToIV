@@ -2352,3 +2352,25 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 - **进度**：`docs/ux/research/WAVE_F4_PROGRESS_20261022.md`
 - **未做**：FCPXML · F0b 部署 · Acc · 安全 Dly · 雨夜一镜
 - **标记**：`F4_JIANYING_DRAFT_DONE`
+
+## 2026-10-22 · F0B_DEPLOY_DONE
+
+- **时间**：2026-10-22 06:19–06:21 Asia/Shanghai（CST / UTC+8）
+- **决策**：A 本机 rsync + R1 `--all` + REMOTE=`core`；**不** push；**不**换密；**不** FORCE；**不** deploy-admin
+- **本机 tip**：`b94ae940`（完整 `b94ae94080b4cfb0f64eeb5b182e7e6e64a4f268`）· 分支 `work/p0-fusion-20261016` · 部署前工作区干净
+- **本地 BUILD**：`20261021-221837-b94ae940`（`apps/web` 干净重建；preflight OK）
+- **线上 BUILD**：`20261021-221837-b94ae940`（core `web/.next/BUILD_ID` 与公网 `/version.json` 一致；**无** `-dirty`）
+- **命令**：`DEPLOY_DRAIN_WAIT_SEC=120 deploy/deploy.sh --all core` → exit 0 · 「✅ 部署完成」
+- **顺序实证**：快照 `.rollback-previous` → rsync api/web/deploy → rsync `.next` → drain clear → restart toiv-api → toiv-web → canvas（88 插件 + gate template + Go/vite 换装）
+- **健康**
+  - core：`toiv-api` / `toiv-web` / `canvas-api-pg` **active**；`:8090/api/health` 200；`:3100` 200；`:8290/api/health/live` 200
+  - 公网：`https://toiv.wineryz.top/` 200；`/api/health` 200；`/version.json` → `{"buildId":"20261021-221837-b94ae940"}`
+- **路由对齐（先前本地 dogfood 生产 404）**
+  - `/api/fleet/brief` → **401**（未认证，路由在线）
+  - `/api/studio/deps-status` → **401**
+  - `/api/studio/kpi/summary` → **401**
+- **gate**：`/home/merlin/toiv-studio/gate/model-config.template.json` 含 `Qwen-Rapid-AIO-SFW-v23.safetensors` / `checkpoints/Qwen-Rapid-AIO-SFW-v23.safetensors`
+- **回滚**：`.rollback-previous/{api-app,web-next,canvas-bin,canvas-dist,canvas-plugins,canvas-api.env}` 在位；失败可用 `deploy/deploy.sh --rollback core`
+- **未做**：F5 雨夜一镜 · Acc/Mega · 安全 Dly · push · admin
+- **标记**：`F0B_DEPLOY_DONE`
+
