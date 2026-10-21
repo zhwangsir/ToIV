@@ -2374,3 +2374,16 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 - **未做**：F5 雨夜一镜 · Acc/Mega · 安全 Dly · push · admin
 - **标记**：`F0B_DEPLOY_DONE`
 
+
+## 2026-10-22 · F5_RAIN_ACCEPT_PARTIAL
+
+- **时间**：2026-10-22 06:21–06:30 Asia/Shanghai（CST / UTC+8）
+- **生产 BUILD**：`20261021-221837-b94ae940`（`/version.json`）
+- **项目**：雨夜便利店·林夏 `16e33f8b93dd45d9abca779816ede9b5` · `preferred_pipeline=ref2va` · `preferred_drive_mode=keyframe` · 四镜 `seam_to_next` 空（不续写）
+- **定妆×4**：林夏 anime/ancient 面板在档；本窗真提 realistic×2 + anime×1（均门禁）；anime **soft-keep** 警告卡；GPU 有真实重试（core 日志 slate/emblem）
+- **UI（prod）**：`/studio/toiv/ws/…` 剧组协助 · 就绪阶段链 · 剧组 ON→一键成片 · `/toiv/kpi`；截图在 `test-results/f5_rain_accept/`（gitignore）
+- **剪映**：`GET /api/studio/projects/{pid}/export/jianying` → ZIP 27 665 921 B · `toiv_jianying_draft_v1` · 4v+4a
+- **未做**：新 H3 一镜重渲 · Acc/Mega · 安全 Dly · **push**
+- **结论**：**PARTIAL（主闭环可见）**；满配 PASS 仍差「门禁全绿新定妆 + 可选新一镜」
+- **文档**：`docs/ux/research/WAVE_F5_RAIN_ACCEPT_20261022.md` · `WAVE_FINAL_FORM_WRAP_20261022.md`
+- **标记**：`F5_RAIN_ACCEPT_PARTIAL`

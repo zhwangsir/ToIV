@@ -182,3 +182,10 @@
 | 脚本 | `scripts/e2e/rapid_sfw_v23_image_smoke.py` |
 
 **未做**：Acc-8Step / Mega 视频出片（仍无短旁路）；雨夜定妆×4 一镜。
+
+
+## F5 雨夜验收（2026-10-22）
+
+- **PARTIAL（主闭环可见）**：生产 BUILD `20261021-221837-b94ae940`；项目 `16e33f8b…` tip=`ref2va`；定妆×4 在档；不续写；剧组协助/KPI/剪映 API 点验。
+- 真设定卡三次提交均触门禁（设计说明 / 人脸 / 服装色）；anime soft-keep 警告卡；未本窗新提 H3 一镜。
+- 详：`docs/ux/research/WAVE_F5_RAIN_ACCEPT_20261022.md`

@@ -49,4 +49,5 @@
 - F2：✅ 剧组一键成片（专家开关 → createAgentRun → agent_team_graph，人闸保留）— 见 `WAVE_F2_PROGRESS_20261022.md` / `F2_CREW_ONE_CLICK_DONE`
 - F3：✅ BGM 声床 + 北向 KPI — 见 `WAVE_F3_PROGRESS_20261022.md` / `F3_BGM_KPI_DONE`
 - F4：✅ 剪映草稿导出（toiv_jianying_draft_v1）— 见 `WAVE_F4_PROGRESS_20261022.md` / `F4_JIANYING_DRAFT_DONE`
-- F5：待分派（雨夜一镜）；F0b 部署仍须另窗明示
+- F0b：✅ 生产 BUILD `20261021-221837-b94ae940`（见 `F0B_DEPLOY_DONE`）
+- F5：✅ **PARTIAL（主闭环可见）** — `WAVE_F5_RAIN_ACCEPT_20261022.md` / `F5_RAIN_ACCEPT_PARTIAL`；收口 `WAVE_FINAL_FORM_WRAP_20261022.md`
