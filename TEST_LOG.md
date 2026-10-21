@@ -2338,3 +2338,17 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 - **未做**：F4 剪映 · F0b 部署 · Acc · 安全 Dly · 雨夜一镜
 - **标记**：`F3_BGM_KPI_DONE`
 
+
+
+## 2026-10-22 · F4_JIANYING_DRAFT_DONE
+
+- **时间**：Asia/Shanghai；起点 tip `180134ce`（docs）/ `9bbc8914`（feat）；**无** push / deploy / restart；F4 **可 commit**
+- **剪映草稿**
+  - BE：原创 `jianying_draft.py`（`toiv_jianying_draft_v1`）→ ZIP（content/info/meta + assets + IMPORT.md）
+  - API：`GET /api/studio/projects/{pid}/export/jianying`
+  - FE：`JianyingExportButton` 挂合成段；替换「即将推出」文案；`exportStudioJianyingDraft`
+  - 纪律：**只学协议，不拷 AGPL/GPL**
+- **测试**：bun 4 pass（jianying-draft）；pytest 7 pass（test_jianying_draft_f4）
+- **进度**：`docs/ux/research/WAVE_F4_PROGRESS_20261022.md`
+- **未做**：FCPXML · F0b 部署 · Acc · 安全 Dly · 雨夜一镜
+- **标记**：`F4_JIANYING_DRAFT_DONE`
