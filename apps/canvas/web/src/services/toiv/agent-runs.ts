@@ -106,7 +106,11 @@ export interface AgentRunResult {
 
 // ---- API ----
 
-export async function createAgentRun(body: { goal: string; level?: string }): Promise<AgentRunCreateResult> {
+export async function createAgentRun(body: {
+    goal: string;
+    level?: string;
+    opts?: Record<string, unknown>;
+}): Promise<AgentRunCreateResult> {
     const { data } = await toivHttp.post("/agent-runs", body, { timeout: 30_000 });
     return data;
 }

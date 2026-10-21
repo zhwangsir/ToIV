@@ -65,7 +65,7 @@ describe("D5-A crew-assist-mode（localStorage）", () => {
     test("人闸提示文案钉死三点", () => {
         expect(CREW_ASSIST_GATE_HINT).toContain("定妆选角");
         expect(CREW_ASSIST_GATE_HINT).toContain("合成");
-        expect(CREW_ASSIST_GATE_HINT).toContain("不会代发 Agent");
+        expect(CREW_ASSIST_GATE_HINT).toContain("不会自动越过");
     });
 });
 
@@ -80,12 +80,14 @@ describe("D5-A drama-workspace 剧组协助接线", () => {
         expect(page).toContain("const [crewAssist, setCrewAssist] = useState(false)");
     });
 
-    test("开启时人闸旁露出轻提示，不代发 Agent", () => {
+    test("开启时人闸旁露出轻提示；一键走 crew-one-click 且不写死 resume", () => {
         expect(page).toContain("CREW_ASSIST_GATE_HINT");
         expect(page).toContain('data-testid="crew-assist-gate-hint"');
         expect(page).toContain("人闸·定妆选角");
         expect(page).toContain("人闸·合成");
+        expect(page).toContain("startCrewOneClick");
         expect(page).not.toContain("createAgentTeam");
-        expect(page).not.toContain("agent_team");
+        expect(page).not.toContain("resumeAgentRun");
+        expect(page).not.toContain("agent_team_graph");
     });
 });

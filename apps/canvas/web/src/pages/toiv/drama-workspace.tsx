@@ -16,6 +16,14 @@ import { TasksCenterLink } from "@/components/toiv/tasks-center-link";
 import { Switch } from "@/components/ui/base/switch";
 import { CREW_ASSIST_GATE_HINT, isCrewAssistMode, setCrewAssistMode } from "@/services/toiv/crew-assist-mode";
 import {
+    CREW_ONE_CLICK_EXPERT_HINT,
+    CREW_ONE_CLICK_LABEL,
+    CREW_ONE_CLICK_TITLE,
+    CrewOneClickGateError,
+    crewOneClickRunPath,
+    startCrewOneClick,
+} from "@/services/toiv/crew-one-click";
+import {
     CHARACTER_STYLE_VARIANTS,
     EXTENDED_VARIANT_API_GAP,
     pendingSheetVariantOrders,
@@ -248,7 +256,7 @@ export default function DramaWorkspacePage() {
     const [driveMode, setDriveMode] = useState<StoryboardDriveMode>(DEFAULT_STORYBOARD_DRIVE_MODE);
     const [driveHydrated, setDriveHydrated] = useState(false);
 
-    /** D5-A 剧组协助：默认关；按项目 localStorage 持久化；仅轻入口，不代发 Agent */
+    /** D5-A 剧组协助：默认关；按项目 localStorage；开启后露 F2 专家一键（不 auto-approve） */
     const [crewAssist, setCrewAssist] = useState(false);
     useEffect(() => {
         setCrewAssist(isCrewAssistMode(id));
@@ -261,6 +269,34 @@ export default function DramaWorkspacePage() {
     const [detail, setDetail] = useState<ToivDramaDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
+
+    /** F2：专家一键成片（仅剧组协助 ON；建 run 不 auto-approve） */
+    const [oneClickBusy, setOneClickBusy] = useState(false);
+    const [oneClickMsg, setOneClickMsg] = useState<string | null>(null);
+    const startOneClick = useCallback(async () => {
+        if (!id || !detail) return;
+        setOneClickBusy(true);
+        setOneClickMsg(null);
+        try {
+            const r = await startCrewOneClick({
+                id,
+                title: detail.title,
+                premise: detail.premise,
+                style: detail.style,
+                preferred_pipeline: detail.preferred_pipeline,
+            });
+            setOneClickMsg(r.ack || "已建计划，请在详情页确认人闸");
+            navigate(crewOneClickRunPath(r.runId));
+        } catch (e) {
+            const msg =
+                e instanceof CrewOneClickGateError
+                    ? e.message
+                    : userFacingCaughtError(e) || "一键成片失败";
+            setOneClickMsg(msg);
+        } finally {
+            setOneClickBusy(false);
+        }
+    }, [id, detail, navigate]);
 
     const load = useCallback(async () => {
         if (!id) return;
@@ -988,7 +1024,7 @@ export default function DramaWorkspacePage() {
                         </p>
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
-                        <label className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]" title="开启后仅提供剧组协助提示；三点人闸仍强制，不会自动代发 Agent">
+                        <label className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]" title="开启后露出专家一键成片；三点人闸与计划/合成确认门仍强制">
                             <span className="whitespace-nowrap">剧组协助</span>
                             <Switch
                                 size="sm"
@@ -998,9 +1034,27 @@ export default function DramaWorkspacePage() {
                             />
                         </label>
                         {crewAssist && (
-                            <p className="max-w-xs text-right text-[11px] leading-4 text-[var(--muted-foreground)]">
-                                人闸仍强制；建议停在闸前（非整条 Agent 一键）
-                            </p>
+                            <div className="flex max-w-xs flex-col items-end gap-1.5" data-testid="crew-one-click-panel">
+                                <p className="text-right text-[11px] leading-4 text-[var(--muted-foreground)]">
+                                    {CREW_ONE_CLICK_EXPERT_HINT}
+                                </p>
+                                <ToolButton
+                                    variant="default"
+                                    icon={oneClickBusy ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                                    label={CREW_ONE_CLICK_LABEL}
+                                    title={CREW_ONE_CLICK_TITLE}
+                                    aria-label={CREW_ONE_CLICK_TITLE}
+                                    data-testid="crew-one-click-btn"
+                                    disabled={oneClickBusy || !detail}
+                                    loading={oneClickBusy}
+                                    onClick={() => void startOneClick()}
+                                />
+                                {oneClickMsg && (
+                                    <p className="text-right text-[11px] leading-4 text-foreground" data-testid="crew-one-click-msg">
+                                        {oneClickMsg}
+                                    </p>
+                                )}
+                            </div>
                         )}
                         <div className="flex items-center gap-2">
                         <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />

@@ -1,9 +1,10 @@
 /**
  * D5-A 剧组协助模式（IA_INTERACTION_SPEC §3.4 / COMPETITIVE D5-A）。
  *
- * 默认关：阶段轨人手推进。开启后仅轻入口文案/可逆提示，三点人闸
- * （定妆选角确认、镜过脸/VLM 门、合成 assembly_gate）仍强制；
- * **不**自动建 Agent Team run、不代发消息（P4「Agent 一键」另案）。
+ * 默认关：阶段轨人手推进。开启后露出轻提示 + F2 专家「一键成片」入口
+ * （见 crew-one-click.ts → createAgentRun → agent_team_graph）。
+ * 三点人闸（定妆选角、过脸/VLM、合成 assembly_gate / 计划确认门）仍强制；
+ * 开关本身**不**自动建 run；一键成片须用户再点，且不 auto-approve。
  * UI-only：localStorage，无后端表。
  */
 const GLOBAL_KEY = "toiv_crew_assist";
@@ -32,4 +33,4 @@ export function setCrewAssistMode(on: boolean, projectId?: string | null): void 
 
 /** 开启时挂在人闸旁的轻提示（不触发任何自动推进）。 */
 export const CREW_ASSIST_GATE_HINT =
-    "剧组协助已开：三点人闸（定妆选角 · 过脸/门禁 · 合成）仍须人手确认；自动建议会在闸前停下，不会代发 Agent。";
+    "剧组协助已开：三点人闸（定妆选角 · 过脸/门禁 · 合成）仍须人手确认；一键成片仅建计划，确认门仍在详情页，不会自动越过。";
