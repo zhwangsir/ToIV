@@ -445,7 +445,12 @@ async def _generate_sheet_core(
             allow_reuse_refs=False,
         )
     except sheet_svc.CharacterSheetError as e:
-        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+        from app.services.studio.character_sheet import ux as sheet_ux
+
+        payload = sheet_ux.build_sheet_gate_failure_payload(
+            e, character_id=c.id, style=body.style
+        )
+        raise HTTPException(status_code=e.status_code, detail=payload) from e
 
     # 12:01/22:31:默认不写视频参考;apply_to_video_refs 时按风格分桶写入,不互盖
     # 10/05:首次定妆(本风格分桶为空)自动写入视频参考,否则新角色进视频步 C/c_hybrid 无参考直接失败;
@@ -814,10 +819,34 @@ async def _run_sheet_job(job_id: str, cid: str, body: CharacterSheetRequest) -> 
             for k in ("sheet_url", "sheet_style", "panel_urls", "apply_to_video_refs")
         })
     except HTTPException as e:
-        _finish("error", {"error": str(e.detail)})
+        detail = e.detail
+        if isinstance(detail, dict):
+            _finish("error", detail)
+        else:
+            from app.services.studio.character_sheet import ux as sheet_ux
+
+            _finish(
+                "error",
+                sheet_ux.build_sheet_gate_failure_payload(
+                    str(detail),
+                    character_id=cid,
+                    style=getattr(body, "style", "") or "anime",
+                    status_code=e.status_code,
+                ),
+            )
     except Exception as e:  # noqa: BLE001 — 后台任务绝不静默死掉
         logger.exception("sheet job %s 意外失败", job_id)
-        _finish("error", {"error": f"设定卡生成失败:{e}"})
+        from app.services.studio.character_sheet import ux as sheet_ux
+
+        _finish(
+            "error",
+            sheet_ux.build_sheet_gate_failure_payload(
+                f"设定卡生成失败:{e}",
+                character_id=cid,
+                style=getattr(body, "style", "") or "anime",
+                status_code=500,
+            ),
+        )
 
 
 @router.post("/studio/characters/{cid}/character-sheet/async")
@@ -1070,15 +1099,59 @@ def list_character_sheets(
                 )
                 if hits:
                     panels[key] = f"/api/studio/files/{hits[-1].name}"
-            out.append(
-                {
-                    "style": style,
-                    "sheet_url": f"/api/studio/files/{latest.name}",
-                    "mtime": latest.stat().st_mtime,
-                    "panel_urls": panels,
-                }
-            )
+            item = {
+                "style": style,
+                "sheet_url": f"/api/studio/files/{latest.name}",
+                "mtime": latest.stat().st_mtime,
+                "panel_urls": panels,
+            }
+            warn = sheet_svc.load_gate_warn_meta(latest.name)
+            if warn and warn.get("warning"):
+                item["gate_warning"] = True
+                item["gate_warning_zh"] = warn.get("reason_zh") or "门禁未过（警告保留）"
+            out.append(item)
     return {"character_id": cid, "sheets": out}
+
+
+class KeepRejectedSheetBody(BaseModel):
+    """本地学习软模式：警告下保留拒图为设定卡。"""
+
+    style: str
+    preview_url: str
+    reason_zh: str = ""
+    technical_detail: str = ""
+
+
+@router.post("/studio/characters/{cid}/character-sheet/keep-rejected")
+def keep_rejected_character_sheet(
+    cid: str,
+    body: KeepRejectedSheetBody,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """把门禁拒图晋升为带警告标记的设定卡（不宣称质检已过；本地学习 UX）。"""
+    from app.services.studio.character_sheet import ux as sheet_ux
+
+    c = session.get(StudioCharacter, cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="角色不存在")
+    _get_project(session, c.project_id, user)
+    style = (body.style or "").strip()
+    if style not in ("ancient_realistic", "anime"):
+        raise HTTPException(status_code=422, detail="style 无效")
+    try:
+        out = sheet_ux.keep_rejected_as_warning_sheet(
+            character_id=c.id,
+            style=style,
+            preview_url=body.preview_url,
+            reason_zh=body.reason_zh,
+            technical_detail=body.technical_detail,
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    return out
 
 
 @router.post("/studio/characters/{cid}/character-sheet/panel-replace")

@@ -182,11 +182,16 @@ def _costume_item_penalty(data: bytes, item_key: str) -> float:
     return pen
 
 class CharacterSheetError(Exception):
-    """设定卡业务错误;route 层映射 HTTP status。"""
+    """设定卡业务错误;route 层映射 HTTP status。
+
+    失败时尽量挂上 rejected_bytes/rejected_panel，供 Job 结果回传拒图预览（用户感知）。
+    """
 
     def __init__(self, message: str, *, status_code: int=500):
         super().__init__(message)
         self.status_code = status_code
+        self.rejected_bytes: bytes | None = None
+        self.rejected_panel: str | None = None
         ctx = _SHEET_REJECT_CTX.get()
         if ctx and isinstance(ctx, dict):
             dump_dir = ctx.get('dir')
@@ -196,6 +201,9 @@ class CharacterSheetError(Exception):
             data = panels.get(panel) if isinstance(panels, dict) else None
             if data is None and isinstance(panels, dict) and panels:
                 panel, data = list(panels.items())[-1]
+            if isinstance(data, (bytes, bytearray)) and data:
+                self.rejected_bytes = bytes(data)
+                self.rejected_panel = str(panel)
             try:
                 dump_rejected_panel(data if isinstance(data, (bytes, bytearray)) else None, seed=seed if isinstance(seed, int) or seed is None else None, panel=str(panel), gate='CharacterSheetError', detail=str(message), dump_dir=dump_dir)
                 if isinstance(panels, dict):

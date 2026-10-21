@@ -12,6 +12,11 @@ import type { ToivFrameVariant, ToivSharedAsset } from "@/services/toiv/client";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
+import { TasksCenterLink } from "@/components/toiv/tasks-center-link";
+import { formatClientTimeoutMessage, isClientTimeoutError, isStillRunningMessage, userFacingCaughtError } from "@/services/toiv/client-timeout";
+import { SheetGateJobError, sheetFailureFromCaughtError, sheetFailureFromJobResult, type SheetFailureView } from "@/services/toiv/sheet-gate-failure";
+import { toivMediaUrl } from "@/services/toiv/cover-url";
+
 import { ToolButton } from "@/components/ui/base/buttons";
 import { WordAnchorTimeline } from "@/components/toiv/word-anchor-timeline";
 import { SceneAnchorPanel } from "@/components/toiv/scene-anchor-panel";
@@ -40,6 +45,7 @@ import {
     burnSubtitles,
     fetchSharedAssets,
     pollFrameVariants,
+    keepRejectedSheet,
     pollSheetJob,
     renderShotAsync,
     renderShotStrict,
@@ -152,12 +158,16 @@ export default function DramaWorkspacePage() {
     const [sheetsLoading, setSheetsLoading] = useState(false);
     const [regenStyle, setRegenStyle] = useState<string | null>(null);
     const [sheetError, setSheetError] = useState<string | null>(null);
+    const [sheetFailure, setSheetFailure] = useState<SheetFailureView | null>(null);
+    const [softKeepBusy, setSoftKeepBusy] = useState(false);
     const [sheetMsg, setSheetMsg] = useState<string | null>(null);
+    const [lastSheetStyle, setLastSheetStyle] = useState<string>("anime");
 
     const openSheets = useCallback(async (c: ToivDramaCharacter) => {
         setSheetChar(c);
         setSheets([]);
         setSheetError(null);
+        setSheetFailure(null);
         setSheetMsg(null);
         setSheetsLoading(true);
         try {
@@ -171,28 +181,72 @@ export default function DramaWorkspacePage() {
 
     const regenSheet = useCallback(async (cid: string, style: string) => {
         setRegenStyle(style);
+        setLastSheetStyle(style);
         setSheetError(null);
+        setSheetFailure(null);
         setSheetMsg(null);
         try {
             const { job_id } = await submitSheetAsync(cid, style);
             setSheetMsg(`后台生成中(作业 ${job_id.slice(0, 8)}…,全程 15-20 分钟;可关抽屉稍后再看,任务中心可见)`);
+            let sheetDone = false;
             for (let i = 0; i < 300 && !pollStop.current; i++) {
                 await new Promise((r) => setTimeout(r, 5000));
                 const r = await pollSheetJob(cid, job_id);
-                if (r.status === "error") throw new Error(r.error || "生成失败");
+                if (r.status === "error") {
+                    const view = sheetFailureFromJobResult({ ...r, status: "error", style: r.style || style }, style);
+                    throw new SheetGateJobError(view);
+                }
                 if (r.status === "done") {
                     setSheets(await fetchCharacterSheets(cid));
                     setSheetMsg("生成完成,可点「采用为参考图」");
                     await load();
+                    sheetDone = true;
                     break;
                 }
             }
+            // 前端轮询等到上限 ≠ Job 失败：作业可能仍在后台
+            if (!sheetDone && !pollStop.current) {
+                setSheetMsg(formatClientTimeoutMessage());
+                setSheetError(null);
+                setSheetFailure(null);
+            }
         } catch (e) {
-            setSheetError(e instanceof Error ? e.message : "设定卡生成失败");
+            if (isClientTimeoutError(e)) {
+                setSheetMsg(formatClientTimeoutMessage());
+                setSheetError(null);
+                setSheetFailure(null);
+            } else {
+                const view = sheetFailureFromCaughtError(e, style);
+                setSheetFailure(view);
+                setSheetError(view.reasonZh);
+                setSheetMsg(null);
+            }
         } finally {
             setRegenStyle(null);
         }
     }, [load]);
+
+    const softKeepRejected = useCallback(async () => {
+        if (!sheetChar || !sheetFailure?.previewUrl) return;
+        setSoftKeepBusy(true);
+        setSheetError(null);
+        try {
+            await keepRejectedSheet(sheetChar.id, {
+                style: sheetFailure.style || lastSheetStyle || "anime",
+                preview_url: sheetFailure.previewUrl,
+                reason_zh: sheetFailure.reasonZh,
+                technical_detail: sheetFailure.technicalDetail,
+            });
+            setSheets(await fetchCharacterSheets(sheetChar.id));
+            setSheetMsg("已警告保留到工作区（未宣称质检通过）；可再生成或采用为参考图");
+            setSheetFailure(null);
+            setSheetError(null);
+        } catch (e) {
+            setSheetError(userFacingCaughtError(e, "警告保留失败"));
+        } finally {
+            setSoftKeepBusy(false);
+        }
+    }, [sheetChar, sheetFailure, lastSheetStyle]);
 
     // ---- S3-a: 管线C(c_hybrid 妆容链)一键启动 ----
     const [chainBusy, setChainBusy] = useState(false);
@@ -206,7 +260,7 @@ export default function DramaWorkspacePage() {
             const ack = await createCChain(body);
             setChainMsg(`管线C 已提交(作业 ${String(ack.job_id).slice(0, 8)}…)→ 任务中心跟踪`);
         } catch (e) {
-            setChainMsg(e instanceof Error ? e.message : "管线C 提交失败");
+            setChainMsg(userFacingCaughtError(e, "管线C 提交失败"));
         } finally {
             setChainBusy(false);
         }
@@ -317,7 +371,12 @@ export default function DramaWorkspacePage() {
                 }
             }
         } catch (e) {
-            setRenderError(e instanceof Error ? e.message : "渲染失败");
+            if (isClientTimeoutError(e)) {
+                setRenderMsg(formatClientTimeoutMessage());
+                setRenderError(null);
+            } else {
+                setRenderError(userFacingCaughtError(e, "渲染失败"));
+            }
         } finally {
             markBusy(sid, false);
         }
@@ -422,7 +481,7 @@ export default function DramaWorkspacePage() {
                 }
             }
         } catch (e) {
-            setFrameError(e instanceof Error ? e.message : "配景生成失败");
+            setFrameError(userFacingCaughtError(e, "配景生成失败"));
         } finally {
             setFrameBusy((p) => { const n = new Set(p); n.delete(sid); return n; });
         }
@@ -442,7 +501,7 @@ export default function DramaWorkspacePage() {
             await load();
             setAssembleMsg("成片合成完成,见「成片」段");
         } catch (e) {
-            setAssembleError(e instanceof Error ? e.message : "成片合成失败");
+            setAssembleError(userFacingCaughtError(e, "成片合成失败"));
         } finally {
             setAssembling(false);
         }
@@ -466,7 +525,7 @@ export default function DramaWorkspacePage() {
                 setSubsMsg(`字幕已内嵌 → ${r.video_url.split("/").pop()}(覆盖 ${r.shots_covered} 镜)`);
             }
         } catch (e) {
-            setSubsError(e instanceof Error ? e.message : "字幕操作失败");
+            setSubsError(userFacingCaughtError(e, "字幕操作失败"));
         } finally {
             setSubsBusy(null);
         }
@@ -481,7 +540,7 @@ export default function DramaWorkspacePage() {
             await pickShotCandidate(sid, cid);
             await load();
         } catch (e) {
-            setRenderError(e instanceof Error ? e.message : "选用候选失败");
+            setRenderError(userFacingCaughtError(e, "选用候选失败"));
         } finally {
             setPickingCand(null);
         }
@@ -494,7 +553,7 @@ export default function DramaWorkspacePage() {
             await load();
         } catch (e) {
             // 失败必须给反馈:此前异常直接吞成 unhandled rejection,点了配音毫无动静
-            setRenderError(e instanceof Error ? e.message : "配音失败");
+            setRenderError(userFacingCaughtError(e, "配音失败"));
         } finally {
             markBusy(sid, false);
         }
@@ -510,7 +569,7 @@ export default function DramaWorkspacePage() {
             await load();
             setLipsyncMsg("对口型完成(final_clip 已更新)");
         } catch (e) {
-            setRenderError(e instanceof Error ? e.message : "对口型失败");
+            setRenderError(userFacingCaughtError(e, "对口型失败"));
         } finally {
             setLipsyncBusy((p) => { const n = new Set(p); n.delete(sid); return n; });
         }
@@ -569,7 +628,7 @@ export default function DramaWorkspacePage() {
             await load();
         } catch (e) {
             // 失败必须给反馈:此前 try/finally 无 catch,整批渲染失败无任何提示
-            setRenderError(e instanceof Error ? e.message : "整批渲染提交失败");
+            setRenderError(userFacingCaughtError(e, "整批渲染提交失败"));
         } finally {
             setBatchRendering(false);
         }
@@ -610,9 +669,9 @@ export default function DramaWorkspacePage() {
                     return;
                 }
             }
-            if (!pollStop.current) throw new Error("拆解超时,可在任务中心查看进度后重试");
+            if (!pollStop.current) throw new Error(formatClientTimeoutMessage());
         } catch (e) {
-            setParseError(e instanceof Error ? e.message : "拆解失败,请重试");
+            setParseError(userFacingCaughtError(e, "拆解失败,请重试"));
             setParseMsg(null);
         } finally {
             setParsing(false);
@@ -765,7 +824,10 @@ export default function DramaWorkspacePage() {
                                     </p>
                                 )}
                                 {parseError && (
-                                    <p className="text-xs text-[var(--danger)]">{parseError}</p>
+                                    <p className={`text-xs ${isStillRunningMessage(parseError) ? "text-muted-foreground" : "text-[var(--danger)]"}`}>
+                                        {parseError}
+                                        {isStillRunningMessage(parseError) && <>{" · "}<TasksCenterLink /></>}
+                                    </p>
                                 )}
                             </SectionShell>
                         )}
@@ -1181,15 +1243,56 @@ export default function DramaWorkspacePage() {
                         )}
                         <div className="flex flex-col gap-2">
                             <span className="text-xs font-medium text-foreground">设定卡（{sheets.length}）</span>
-                            {sheetError && (
-                                <p className="rounded-lg border border-[var(--border)] bg-[var(--muted)] p-2.5 text-xs text-[var(--danger)]">
-                                    {sheetError}
-                                </p>
+                            {(sheetFailure || sheetError) && (
+                                <div className="flex flex-col gap-2 rounded-lg border border-[var(--border)] bg-[var(--muted)] p-2.5">
+                                    <p className="text-xs font-medium text-[var(--danger)]">
+                                        {sheetFailure?.reasonZh || sheetError}
+                                    </p>
+                                    {sheetFailure?.previewUrl && (
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[11px] text-muted-foreground">被拒预览（门禁未过）</span>
+                                            <img
+                                                src={toivMediaUrl(sheetFailure.previewUrl)}
+                                                alt="被拒设定卡预览"
+                                                className="w-full rounded-lg border border-[var(--border)]"
+                                                loading="lazy"
+                                            />
+                                        </div>
+                                    )}
+                                    {sheetFailure?.technicalDetail && sheetFailure.technicalDetail !== sheetFailure.reasonZh && (
+                                        <details className="text-[11px] text-muted-foreground">
+                                            <summary className="cursor-pointer select-none">技术细节</summary>
+                                            <pre className="mt-1 whitespace-pre-wrap break-words rounded bg-black/20 p-2">{sheetFailure.technicalDetail}</pre>
+                                        </details>
+                                    )}
+                                    <div className="flex flex-wrap gap-2">
+                                        {sheetChar && (
+                                            <ToolButton
+                                                size="xs"
+                                                icon={<RefreshCw />}
+                                                label="再生成"
+                                                loading={!!regenStyle}
+                                                onClick={() => void regenSheet(sheetChar.id, sheetFailure?.style || lastSheetStyle || "anime")}
+                                            />
+                                        )}
+                                        {sheetFailure?.softKeepAvailable && sheetFailure.previewUrl && (
+                                            <ToolButton
+                                                size="xs"
+                                                variant="default"
+                                                icon={<Check />}
+                                                label={softKeepBusy ? "保留中…" : "仍保留此图（仅警告）"}
+                                                loading={softKeepBusy}
+                                                onClick={() => void softKeepRejected()}
+                                            />
+                                        )}
+                                    </div>
+                                </div>
                             )}
                             {sheetMsg && (
-                                <p className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">
+                                <p className="flex flex-wrap items-center gap-1.5 rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">
                                     {regenStyle && <Loader2 className="size-3 animate-spin" aria-hidden />}
-                                    {sheetMsg}
+                                    <span>{sheetMsg}</span>
+                                    {isStillRunningMessage(sheetMsg) && <TasksCenterLink />}
                                 </p>
                             )}
                             {sheetsLoading ? (
@@ -1239,7 +1342,12 @@ export default function DramaWorkspacePage() {
                                                 />
                                             </div>
                                         </div>
-                                        {sh.sheet_url && <img src={sh.sheet_url} alt="" className="w-full rounded-lg" loading="lazy" />}
+                                        {sh.gate_warning && (
+                                            <p className="rounded-md bg-amber-500/15 px-2 py-1 text-[11px] text-amber-200">
+                                                警告保留：{sh.gate_warning_zh || "门禁未过，仅供本地学习继续用"}
+                                            </p>
+                                        )}
+                                        {sh.sheet_url && <img src={toivMediaUrl(sh.sheet_url)} alt="" className="w-full rounded-lg" loading="lazy" />}
                                     </div>
                                 ))
                             )}

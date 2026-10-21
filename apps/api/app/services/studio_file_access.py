@@ -128,11 +128,13 @@ def user_owns_studio_file(session: Session, user: User, name: str) -> bool:
     ).first():
         return True
 
-    # char_panel_{cid8}_* 文件名启发:角色属主
-    if name.startswith("char_panel_"):
+    # char_panel_{cid8}_* / char_sheet_{cid8}_* 文件名启发:角色属主
+    # （设定卡列表与警告软保留落盘后，<img> 需能凭登录态取图）
+    if name.startswith("char_panel_") or name.startswith("char_sheet_"):
         parts = name.split("_")
-        if len(parts) >= 3 and len(parts[1]) >= 8:
-            cid8 = parts[1][:8]
+        # char_panel_{cid8}_... 或 char_sheet_{cid8}_...
+        if len(parts) >= 3 and len(parts[2]) >= 8:
+            cid8 = parts[2][:8]
             chars = session.exec(
                 select(StudioCharacter)
                 .join(StudioProject, StudioCharacter.project_id == StudioProject.id)

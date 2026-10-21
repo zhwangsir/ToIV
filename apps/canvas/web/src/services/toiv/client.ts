@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { assertAxiosOutboundAllowed } from "@/lib/outbound-host-allowlist";
+import { SheetGateJobError, sheetFailureFromJobResult } from "./sheet-gate-failure";
 
 import {
     assertCChainMakeupOnly,
@@ -195,15 +196,31 @@ export type {
 } from "./market-run";
 export {
     appUploadKind,
+    applyMarketConvenienceChange,
     asMarketMediaList,
     buildDefaultRunValues,
     buildToivRunValues,
     firstPinWorker,
+    h3LengthFromSeconds,
+    enrichMarketSchemaWithDeepParams,
+    isMarketConvenienceKey,
+    isMarketCoreParam,
+    isMarketDeepParam,
     isRemoteDemoMedia,
+    ltxFramesFromSeconds,
+    marketAppSupportsLoras,
+    marketAppSupportsResolutionTarget,
+    marketConvenienceParams,
     mediaFilenames,
+    mergeMarketModeChips,
     normalizeToivAppParam,
+    parseResolutionPreset,
     requiredToivParamLabel,
+    splitMarketRunParams,
+    splitMarketRunParamsWithConvenience,
+    MARKET_EXTENSION_SHORTCUTS,
 } from "./market-run";
+export type { MarketModeChip } from "./market-run";
 import { normalizeToivAppParam, type ToivAppParam } from "./market-run";
 import {
     normalizeContentModeFields,
@@ -706,6 +723,9 @@ export type ToivCharacterSheet = {
     /** 分格图:键为 portrait/front/side/back 等(后端键值对象,非数组) */
     panel_urls?: Record<string, string>;
     mtime?: string | number;
+    /** 本地学习软保留：门禁未过但仍留在工作区 */
+    gate_warning?: boolean;
+    gate_warning_zh?: string;
 };
 
 export async function fetchCharacterSheets(cid: string): Promise<ToivCharacterSheet[]> {
@@ -954,8 +974,13 @@ export async function generateCharacterSheetStrict(cid: string, style: string): 
     try {
         await toivHttp.post(`/studio/characters/${encodeURIComponent(cid)}/character-sheet`, { style }, { timeout: 3600_000 });
     } catch (e) {
-        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-        throw new Error(detail || "设定卡生成失败(可能未过内部质检门禁,可重试)");
+        const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+        if (detail && typeof detail === "object") {
+            throw new SheetGateJobError(
+                sheetFailureFromJobResult({ ...(detail as Record<string, unknown>), status: "error", style }, style),
+            );
+        }
+        throw new Error((typeof detail === "string" && detail) || "设定卡生成失败(可能未过内部质检门禁,可重试)");
     }
 }
 
@@ -1045,16 +1070,48 @@ export async function submitSheetAsync(cid: string, style: string): Promise<{ jo
     return data;
 }
 
-/** GET /studio/characters/{cid}/character-sheet/async/{job_id} → done 时带 sheet_url/panel_urls */
-export async function pollSheetJob(
-    cid: string,
-    jobId: string,
-): Promise<{ status: string; sheet_url?: string; panel_urls?: Record<string, string>; error?: string }> {
+/** GET /studio/characters/{cid}/character-sheet/async/{job_id} → done 时带 sheet_url/panel_urls；
+ * error 时可能带 rejected_preview_url / reason_zh / gate_failures（门禁失败 UX）。 */
+export type ToivSheetJobPoll = {
+    status: string;
+    sheet_url?: string;
+    panel_urls?: Record<string, string>;
+    error?: string;
+    reason_code?: string;
+    reason_zh?: string;
+    technical_detail?: string;
+    rejected_preview_url?: string | null;
+    rejected_panel?: string | null;
+    gate_failures?: Array<{
+        code: string;
+        title: string;
+        detail: string;
+        panel?: string | null;
+        preview_url?: string | null;
+    }>;
+    soft_keep_available?: boolean;
+    style?: string;
+};
+
+export async function pollSheetJob(cid: string, jobId: string): Promise<ToivSheetJobPoll> {
     const { data } = await toivHttp.get(
         `/studio/characters/${encodeURIComponent(cid)}/character-sheet/async/${encodeURIComponent(jobId)}`,
         { timeout: 15_000 },
     );
-    return data;
+    return data as ToivSheetJobPoll;
+}
+
+/** POST /studio/characters/{cid}/character-sheet/keep-rejected —— 警告下保留拒图为设定卡（本地学习软模式） */
+export async function keepRejectedSheet(
+    cid: string,
+    body: { style: string; preview_url: string; reason_zh?: string; technical_detail?: string },
+): Promise<{ sheet_url: string; warning: boolean; reason_zh?: string }> {
+    const { data } = await toivHttp.post(
+        `/studio/characters/${encodeURIComponent(cid)}/character-sheet/keep-rejected`,
+        body,
+        { timeout: 30_000 },
+    );
+    return data as { sheet_url: string; warning: boolean; reason_zh?: string };
 }
 
 // ---- W2.2(2026-10-11): 多视角分镜扩展(单角色参考图→远/中/近景别示意图,异步 Job) ----
