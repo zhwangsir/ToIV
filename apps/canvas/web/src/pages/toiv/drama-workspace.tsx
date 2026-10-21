@@ -21,7 +21,18 @@ import {
     pendingSheetVariantOrders,
 } from "@/services/toiv/character-style-variants";
 import { ComputeStatusStrip, depBlocksCta } from "@/components/toiv/compute-status-strip";
-import { studioQaHumanMessage } from "@/services/toiv/studio-qa-failure";
+import { ControlReadinessLamps } from "@/components/toiv/control-readiness-lamps";
+import { projectControlReadinessLamps } from "@/services/toiv/control-readiness";
+import {
+    DEFAULT_STORYBOARD_DRIVE_MODE,
+    KEYFRAME_DRIVE_BADGE,
+    STORYBOARD_DRIVE_OPTIONS,
+    defaultShotViewModeForDrive,
+    normalizeStoryboardDriveMode,
+    videoRenderGate,
+    type StoryboardDriveMode,
+} from "@/services/toiv/storyboard-drive";
+import { studioQaHumanMessage, studioQaMessageWithHint } from "@/services/toiv/studio-qa-failure";
 import { formatClientTimeoutMessage, isClientTimeoutError, isStillRunningMessage, userFacingCaughtError } from "@/services/toiv/client-timeout";
 import { SheetGateJobError, sheetFailureFromCaughtError, sheetFailureFromJobResult, type SheetFailureView } from "@/services/toiv/sheet-gate-failure";
 import { toivMediaUrl } from "@/services/toiv/cover-url";
@@ -57,6 +68,7 @@ import {
     burnSubtitles,
     fetchSharedAssets,
     pollFrameVariants,
+    adoptShotKeyframe,
     keepRejectedSheet,
     pollSheetJob,
     renderShotAsync,
@@ -230,8 +242,11 @@ export default function DramaWorkspacePage() {
     const focusShotId = (searchParams.get("shot") || "").trim();
 
     /** Wave P3 / D2-A：列表↔看板投影；选中态跨视图保持 */
-    const [shotViewMode, setShotViewMode] = useState<DramaShotViewMode>("list");
+    const [shotViewMode, setShotViewMode] = useState<DramaShotViewMode>("pipeline");
     const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
+    /** F1：关键帧驱动默认；与 preferred_drive_mode 同步 */
+    const [driveMode, setDriveMode] = useState<StoryboardDriveMode>(DEFAULT_STORYBOARD_DRIVE_MODE);
+    const [driveHydrated, setDriveHydrated] = useState(false);
 
     /** D5-A 剧组协助：默认关；按项目 localStorage 持久化；仅轻入口，不代发 Agent */
     const [crewAssist, setCrewAssist] = useState(false);
@@ -495,7 +510,7 @@ export default function DramaWorkspacePage() {
     // Wave P2 / D7-A:管线选择器默认 ref2va;c / c_hybrid 为专家档；持久化到项目 preferred_pipeline
     const [renderPipeline, setRenderPipeline] = useState<ToivRenderPipeline>("ref2va");
     const [pipelineHydrated, setPipelineHydrated] = useState(false);
-    useEffect(() => { setPipelineHydrated(false); }, [id]);
+    useEffect(() => { setPipelineHydrated(false); setDriveHydrated(false); }, [id]);
     useEffect(() => {
         const pref = detail?.preferred_pipeline;
         if (!pref || pipelineHydrated) return;
@@ -504,6 +519,13 @@ export default function DramaWorkspacePage() {
             setPipelineHydrated(true);
         }
     }, [detail?.preferred_pipeline, pipelineHydrated]);
+    useEffect(() => {
+        if (driveHydrated) return;
+        const mode = normalizeStoryboardDriveMode(detail?.preferred_drive_mode ?? DEFAULT_STORYBOARD_DRIVE_MODE);
+        setDriveMode(mode);
+        setShotViewMode(defaultShotViewModeForDrive(mode));
+        if (detail) setDriveHydrated(true);
+    }, [detail, detail?.preferred_drive_mode, driveHydrated]);
     const onPipelineChange = useCallback(async (v: ToivRenderPipeline) => {
         setRenderPipeline(v);
         if (!id) return;
@@ -511,6 +533,16 @@ export default function DramaWorkspacePage() {
             await patchStudioProject(id, { preferred_pipeline: v });
         } catch (e) {
             setRenderError(studioQaHumanMessage("generic", e, userFacingCaughtError(e, "管线偏好保存失败")));
+        }
+    }, [id]);
+    const onDriveModeChange = useCallback(async (v: StoryboardDriveMode) => {
+        setDriveMode(v);
+        setShotViewMode(defaultShotViewModeForDrive(v));
+        if (!id) return;
+        try {
+            await patchStudioProject(id, { preferred_drive_mode: v });
+        } catch (e) {
+            setRenderError(studioQaHumanMessage("generic", e, userFacingCaughtError(e, "分镜驱动偏好保存失败")));
         }
     }, [id]);
     const [deps, setDeps] = useState<ToivDepItem[]>([]);
@@ -531,11 +563,27 @@ export default function DramaWorkspacePage() {
     }, []);
     const selectedAccelTier = accelTiers.find((t) => t.level === accelLevel) ?? OFF_ACCEL_TIER;
     const runShotRender = useCallback(async (sid: string) => {
+        const target = shots.find((x) => x.id === sid);
+        const gate = videoRenderGate(target || {}, driveMode);
+        if (!gate.allowed) {
+            const msg = studioQaMessageWithHint(
+                "keyframe",
+                { code: gate.code, message: gate.hint },
+                gate.hint,
+            );
+            setRenderError(msg);
+            return;
+        }
         markBusy(sid, true);
         setRenderError(null);
         setRenderMsg(null);
         try {
-            const { job_id } = await renderShotAsync(sid, { num_candidates: 2, accel: accelLevel, pipeline: renderPipeline });
+            const { job_id } = await renderShotAsync(sid, {
+                num_candidates: 2,
+                accel: accelLevel,
+                pipeline: renderPipeline,
+                force_direct: driveMode === "direct",
+            });
             setRenderMsg(`渲染已入后台(作业 ${job_id.slice(0, 8)}…,双候选约 10-20 分钟;可离开本页,任务中心可见)`);
             for (let i = 0; i < 240 && !pollStop.current; i++) {
                 await new Promise((r) => setTimeout(r, 10000));
@@ -557,7 +605,7 @@ export default function DramaWorkspacePage() {
         } finally {
             markBusy(sid, false);
         }
-    }, [id, load, accelLevel, renderPipeline]);
+    }, [id, load, accelLevel, renderPipeline, driveMode, shots]);
 
     // ---- S9 正式: 时间线排序/时长编辑(PUT shots 全量保存契约) ----
     const [tlOrder, setTlOrder] = useState<string[]>([]);          // shot id 顺序
@@ -658,11 +706,21 @@ export default function DramaWorkspacePage() {
                 }
             }
         } catch (e) {
-            setFrameError(userFacingCaughtError(e, "配景生成失败"));
+            setFrameError(studioQaHumanMessage("keyframe", e, userFacingCaughtError(e, "配景生成失败")));
         } finally {
             setFrameBusy((p) => { const n = new Set(p); n.delete(sid); return n; });
         }
     }, []);
+    const adoptFrameAsKeyframe = useCallback(async (sid: string, url: string) => {
+        setFrameError(null);
+        try {
+            await adoptShotKeyframe(sid, url);
+            await load();
+            setRenderMsg("已采用关键帧；可在「生成」段开拍视频");
+        } catch (e) {
+            setFrameError(studioQaMessageWithHint("keyframe", e, userFacingCaughtError(e, "采用关键帧失败")));
+        }
+    }, [load]);
 
     // ---- S9-lite: 成片合成 ----
     const [assembling, setAssembling] = useState(false);
@@ -814,6 +872,17 @@ export default function DramaWorkspacePage() {
 
     const runBatchRender = useCallback(async () => {
         if (!id) return;
+        const blocked = shots.filter((s) => !videoRenderGate(s, driveMode).allowed);
+        if (blocked.length > 0) {
+            setRenderError(
+                studioQaMessageWithHint(
+                    "keyframe",
+                    { code: "KEYFRAME_REQUIRED", message: `${blocked.length} 镜缺关键帧` },
+                    `关键帧驱动：还有 ${blocked.length} 镜未采用关键帧，请先在分镜「AI 配景」采用，或改为「直接出视频（专家）」。`,
+                ),
+            );
+            return;
+        }
         setBatchRendering(true);
         setRenderError(null);
         try {
@@ -825,7 +894,7 @@ export default function DramaWorkspacePage() {
         } finally {
             setBatchRendering(false);
         }
-    }, [id, load, accelLevel, renderPipeline]);
+    }, [id, load, accelLevel, renderPipeline, driveMode, shots]);
 
     const runAutoStoryboard = useCallback(async () => {
         if (!id || parsing) return;
@@ -884,6 +953,16 @@ export default function DramaWorkspacePage() {
         [shots],
     );
     const pipelineNote = PIPELINE_OPTIONS.find((p) => p.value === renderPipeline)?.note ?? "";
+    const controlLamps = useMemo(
+        () =>
+            projectControlReadinessLamps({
+                shots,
+                charactersWithMakeup: charactersWithMakeup.length,
+                characterCount: characters.length,
+                videoBlocked: videoBlocked.blocked,
+            }),
+        [shots, charactersWithMakeup.length, characters.length, videoBlocked.blocked],
+    );
 
     return (
         <WorkspacePage fluid className="toiv-drama-workspace">
@@ -962,6 +1041,8 @@ export default function DramaWorkspacePage() {
                     <StageRail section={section} nextStep={detail.pipeline?.next_step?.step} />
                 )}
                 <ComputeStatusStrip variant="compact" onDeps={setDeps} />
+                <ControlReadinessLamps lamps={controlLamps} variant="full" />
+                <p className="text-[11px] text-[var(--muted-foreground)]" data-testid="keyframe-drive-badge">{KEYFRAME_DRIVE_BADGE} · 当前：{STORYBOARD_DRIVE_OPTIONS.find((o) => o.value === driveMode)?.label ?? driveMode}</p>
 
                 {loading ? (
                     <div className="flex min-h-64 items-center justify-center">
@@ -1179,8 +1260,20 @@ export default function DramaWorkspacePage() {
                                                                     onClick={() => void runFrameVariants(s.id)}
                                                                 />
                                                                 {(frameVariants[s.id] ?? []).map((v) => (
-                                                                    <img key={v.scale} src={v.url} alt={v.scale} title={v.scale} className="h-10 w-16 rounded border border-[var(--border)] object-cover" loading="lazy" />
+                                                                    <button
+                                                                        key={v.scale}
+                                                                        type="button"
+                                                                        className="rounded border border-[var(--border)] p-0"
+                                                                        title={`采用为关键帧（${v.scale}）`}
+                                                                        aria-label={`采用${v.scale}为关键帧`}
+                                                                        onClick={() => void adoptFrameAsKeyframe(s.id, v.url)}
+                                                                    >
+                                                                        <img src={v.url} alt={v.scale} className="h-10 w-16 rounded object-cover" loading="lazy" />
+                                                                    </button>
                                                                 ))}
+                                                                {s.image_url ? (
+                                                                    <StatusBadge variant="filled" tone="success" label="已有关键帧" size="sm" />
+                                                                ) : null}
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -1199,6 +1292,21 @@ export default function DramaWorkspacePage() {
                                 ) : (
                                     <>
                                         <div className="flex flex-wrap items-center gap-2">
+                                            <label className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
+                                                分镜驱动
+                                                <Select
+                                                    size="small"
+                                                    value={driveMode}
+                                                    onChange={(v) => void onDriveModeChange(v as StoryboardDriveMode)}
+                                                    style={{ minWidth: 200 }}
+                                                    popupMatchSelectWidth={false}
+                                                    aria-label="分镜驱动"
+                                                    options={STORYBOARD_DRIVE_OPTIONS.map((p) => ({
+                                                        value: p.value,
+                                                        label: p.expert ? `${p.label}（专家）` : p.label,
+                                                    }))}
+                                                />
+                                            </label>
                                             <label className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
                                                 视频管线
                                                 <Select

@@ -177,6 +177,10 @@ class ProjectPatch(BaseModel):
     preferred_pipeline: str | None = Field(
         default=None, pattern="^(ref2va|c|c_hybrid)$"
     )
+    # F1/P4:关键帧驱动默认；direct=专家旁路
+    preferred_drive_mode: str | None = Field(
+        default=None, pattern="^(keyframe|direct)$"
+    )
 
 
 class CharacterCreate(BaseModel):

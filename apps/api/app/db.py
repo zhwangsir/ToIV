@@ -141,6 +141,7 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("studioproject", "scene_images_json", "scene_images_json VARCHAR NOT NULL DEFAULT '[]'"),
     # Wave P2:项目默认视频管线持久化
     ("studioproject", "preferred_pipeline", "preferred_pipeline VARCHAR NOT NULL DEFAULT 'ref2va'"),
+    ("studioproject", "preferred_drive_mode", "preferred_drive_mode VARCHAR NOT NULL DEFAULT 'keyframe'"),
     # Wave P2:跳过口型标注(BOOLEAN 默认 FALSE, PG 不认 0)
     ("studioshot", "lipsync_skipped", "lipsync_skipped BOOLEAN NOT NULL DEFAULT FALSE"),
 )

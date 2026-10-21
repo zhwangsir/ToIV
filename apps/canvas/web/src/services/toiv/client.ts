@@ -552,6 +552,8 @@ export type ToivDramaProject = {
     render_mode_default?: string;
     /** Wave P2:项目默认视频管线(持久化) */
     preferred_pipeline?: "ref2va" | "c" | "c_hybrid";
+    /** F1：分镜驱动默认 keyframe；direct=专家旁路 */
+    preferred_drive_mode?: "keyframe" | "direct";
     final_url?: string;
     updated_at?: string;
     pipeline?: {
@@ -1020,7 +1022,7 @@ export async function createStudioCharacter(
 }
 
 /** PATCH /studio/projects/{pid}(剧本正文保存) */
-export async function patchStudioProject(pid: string, patch: { premise?: string; style?: string; preferred_pipeline?: "ref2va" | "c" | "c_hybrid"; title?: string }): Promise<void> {
+export async function patchStudioProject(pid: string, patch: { premise?: string; style?: string; preferred_pipeline?: "ref2va" | "c" | "c_hybrid"; preferred_drive_mode?: "keyframe" | "direct"; title?: string }): Promise<void> {
     await toivHttp.patch(`/studio/projects/${encodeURIComponent(pid)}`, patch, { timeout: 15_000 });
 }
 
@@ -1074,10 +1076,11 @@ export async function assembleStudioProject(pid: string): Promise<void> {
 
 /** S4-b(2026-10-11):异步单镜渲染——wait=false 登记 Job 即回(管线C阶段B机制);
  * 同步等待撞 reload/断连=状态僵死(实测),一律走此路。 */
-export async function renderShotAsync(sid: string, opts: { num_candidates?: number; accel?: string; pipeline?: ToivRenderPipeline } = {}): Promise<{ job_id: string }> {
+export async function renderShotAsync(sid: string, opts: { num_candidates?: number; accel?: string; pipeline?: ToivRenderPipeline; force_direct?: boolean } = {}): Promise<{ job_id: string }> {
     try {
         const payload: Record<string, unknown> = { num_candidates: opts.num_candidates ?? 2, wait: false, pipeline: opts.pipeline ?? "ref2va" };
         if (opts.accel && opts.accel !== "off") payload.accel = opts.accel;
+        if (opts.force_direct) payload.force_direct = true;
         const { data } = await toivHttp.post(
             `/studio/shots/${encodeURIComponent(sid)}/render`,
             payload,
@@ -1222,6 +1225,17 @@ export type ToivSharedAsset = {
     ref_image?: string;
     voice_name?: string;
 };
+
+
+/** F1：采用配景/站内图为本镜关键帧（写入 image_url） */
+export async function adoptShotKeyframe(sid: string, url: string): Promise<ToivDramaShot> {
+    const { data } = await toivHttp.post<ToivDramaShot>(
+        `/studio/shots/${encodeURIComponent(sid)}/adopt-keyframe`,
+        { url },
+        { timeout: 30_000 },
+    );
+    return data;
+}
 
 export async function fetchSharedAssets(kind?: string): Promise<ToivSharedAsset[]> {
     const { data } = await toivHttp.get("/studio/assets", { params: kind ? { kind } : {} });

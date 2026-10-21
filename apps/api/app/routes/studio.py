@@ -1654,6 +1654,41 @@ def character_asset_coverage_plan(
 
 
 
+
+
+class AdoptKeyframeRequest(BaseModel):
+    """F1：将配景/上传图采用为镜头关键帧（写入 image_url）。"""
+
+    url: str = Field(..., min_length=1, max_length=2000)
+
+
+@router.post("/studio/shots/{sid}/adopt-keyframe")
+def adopt_shot_keyframe(
+    sid: str,
+    body: AdoptKeyframeRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """采用关键帧：校验工作室文件域 URL → 写入 shot.image_url（不改视频/成片）。"""
+    from datetime import datetime
+
+    from app.services.studio.keyframe_drive import is_studio_file_url
+
+    shot = _get_shot(session, sid, user)
+    url = (body.url or "").strip()
+    if not is_studio_file_url(url):
+        raise HTTPException(status_code=422, detail="关键帧须为 /api/studio/files/ 下的站内文件")
+    # 仅保留 path 形态，避免跨 host 泄漏
+    if "/api/studio/files/" in url:
+        url = "/api/studio/files/" + url.rsplit("/api/studio/files/", 1)[-1]
+    shot.image_url = url
+    shot.updated_at = datetime.utcnow()
+    session.add(shot)
+    session.commit()
+    session.refresh(shot)
+    return _shot_out(shot)
+
+
 # ── 分镜批量保存 ───────────────────────────────────────────────────────────
 
 
@@ -2379,6 +2414,8 @@ class RenderShotBody(BaseModel):
     # 任务 #24：显式加速档（产品路径默认满血 off）；仅 H3 家族图生效，非 H3 原样提交。
     # 非法值 → 422（h3_accel.validate_acceleration）；wan/qwen 系不经此渲染路径。
     accel: str = Field(default="off", max_length=16)
+    # F1：专家旁路关键帧软闸（项目 preferred_drive_mode=keyframe 时仍可单次强制直出）
+    force_direct: bool = Field(default=False, description="True=跳过关键帧驱动软闸")
 
     @field_validator("accel")
     @classmethod
@@ -2441,6 +2478,15 @@ async def render_one(
     视频步 UI 显式传 num_candidates(默认 2)与 ref_images。
     """
     shot = _get_shot(session, sid, user)
+    # F1 关键帧驱动软闸：项目默认 keyframe 且本镜无 image_url → 422 + 失败码
+    from app.services.studio.keyframe_drive import keyframe_gate_blocks
+
+    _proj = session.get(StudioProject, shot.project_id)
+    _drive = getattr(_proj, "preferred_drive_mode", None) if _proj is not None else "keyframe"
+    _force = bool(body.force_direct) if body is not None else False
+    _blocked = keyframe_gate_blocks(drive_mode=_drive, shot=shot, force_direct=_force)
+    if _blocked is not None:
+        raise HTTPException(status_code=422, detail=_blocked)
     # 无 body → 单候选(兼容 renderStudioShot 旧调用与批量路径语义)
     vm = (body.video_model if body else None) or "h3"
     n = body.num_candidates if body is not None else 1

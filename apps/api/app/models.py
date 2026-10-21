@@ -702,6 +702,8 @@ class StudioProject(SQLModel, table=True):
     scene_images_json: str = "[]"
     # Wave P2:项目默认视频管线(ref2va|c|c_hybrid);UI 选择器持久化,渲染默认读此字段
     preferred_pipeline: str = "ref2va"
+    # F1/P4:分镜驱动默认 keyframe（先帧后视频）；direct=专家旁路
+    preferred_drive_mode: str = "keyframe"
     status: str = "draft"  # draft | storyboard | generating | ready | error
     final_url: str = ""  # 成片 URL
     error: str = ""

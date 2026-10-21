@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { studioQaHumanMessage } from "../src/services/toiv/studio-qa-failure";
+import {
+    resolveStudioFailure,
+    studioFailureQaHint,
+    studioQaHumanMessage,
+    studioQaMessageWithHint,
+} from "../src/services/toiv/studio-qa-failure";
 
 describe("studioQaHumanMessage", () => {
     test("pick candidate failure", () => {
@@ -18,5 +23,26 @@ describe("studioQaHumanMessage", () => {
 
     test("fallback when unmatched", () => {
         expect(studioQaHumanMessage("generic", new Error("xyz"), "通用失败")).toBe("通用失败");
+    });
+});
+
+describe("studio failure codes F1", () => {
+    test("resolves KEYFRAME_REQUIRED with qa hint", () => {
+        const r = resolveStudioFailure("keyframe", { code: "KEYFRAME_REQUIRED" }, "缺关键帧");
+        expect(r.code).toBe("KEYFRAME_REQUIRED");
+        expect(r.message).toContain("关键帧");
+        expect(r.qaHint).toContain("配景");
+        expect(studioFailureQaHint("KEYFRAME_REQUIRED")).toContain("配景");
+    });
+
+    test("message with hint concatenates next step", () => {
+        const msg = studioQaMessageWithHint("render", new Error("请先完成定妆参考图"), "渲染失败");
+        expect(msg).toContain("定妆");
+        expect(msg).toContain("下一步");
+    });
+
+    test("assemble not ready code", () => {
+        const r = resolveStudioFailure("assemble", new Error("还有镜头未就绪成片段"), "合成失败");
+        expect(r.code).toBe("ASSEMBLE_SHOT_NOT_READY");
     });
 });
