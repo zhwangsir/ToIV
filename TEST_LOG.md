@@ -2311,3 +2311,15 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 - **未做**：F2–F5 / push / deploy
 - **标记**：`F1_KEYFRAME_QA_LAMPS_DONE`
 
+
+## 2026-10-22 · F2_CREW_ONE_CLICK_DONE
+
+- **时间**：Asia/Shanghai；起点 tip `e76b8e18`；**无** push / deploy / restart；F2 **可 commit**
+- **一键成片（专家）**
+  - FE `crew-one-click.ts`：剧组协助闸 → `createAgentRun({level:L2, opts.auto_approve:false})` → `/toiv/runs/:id`
+  - UI：`drama-workspace` 仅 `crewAssist` ON 露「一键成片」；专家文案钉人闸
+  - 复用既有 `agent_team_graph`（计划确认门图外 + assembly_gate interrupt）；**不**自动放行
+- **测试**：bun 13 pass（crew-one-click / crew-assist-mode）
+- **进度**：`docs/ux/research/WAVE_F2_PROGRESS_20261022.md`
+- **未做**：F3–F5 / push / deploy / Acc / 安全 Dly
+- **标记**：`F2_CREW_ONE_CLICK_DONE`
