@@ -288,6 +288,60 @@ async def mux_audio_into_video(
     return out_path
 
 
+
+async def mix_bgm_under_video(
+    video_path: Path,
+    bgm_path: Path,
+    out_path: Path,
+    *,
+    volume: float = 0.35,
+    duck: bool = True,
+) -> Path:
+    """把 BGM 垫在成片音轨下（视频 copy；音频 aac）。
+
+    - 成片有音轨：对白轨 + BGM amix；duck=True 时 BGM 对对白 sidechain 闪避
+    - 成片无音轨：仅铺 BGM（-shortest 对齐画面）
+    - BGM 短于成片：-stream_loop -1 循环垫底
+    """
+    ensure_ffmpeg()
+    vol = max(0.0, min(1.0, float(volume)))
+    has_audio = await probe_has_audio(video_path)
+    if has_audio:
+        if duck:
+            fc = (
+                f"[0:a]aformat=channel_layouts=stereo[dia];"
+                f"[1:a]volume={vol:.2f},aformat=channel_layouts=stereo[bg];"
+                f"[dia]asplit=2[diam][sc];"
+                f"[bg][sc]sidechaincompress=threshold=0.02:ratio=6:attack=200:release=1000[bgd];"
+                f"[diam][bgd]amix=inputs=2:normalize=0:dropout_transition=0[aout]"
+            )
+        else:
+            fc = (
+                f"[0:a]aformat=channel_layouts=stereo[dia];"
+                f"[1:a]volume={vol:.2f},aformat=channel_layouts=stereo[bg];"
+                f"[dia][bg]amix=inputs=2:normalize=0:dropout_transition=0[aout]"
+            )
+    else:
+        fc = f"[1:a]volume={vol:.2f},aformat=channel_layouts=stereo[aout]"
+    await run_ffmpeg(
+        [
+            "ffmpeg", "-y",
+            "-i", video_path.as_posix(),
+            "-stream_loop", "-1", "-i", bgm_path.as_posix(),
+            "-filter_complex", fc,
+            "-map", "0:v:0", "-map", "[aout]",
+            "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+            "-ar", str(TARGET_AUDIO_SAMPLE_RATE), "-ac", str(TARGET_AUDIO_CHANNELS),
+            "-shortest", "-movflags", "+faststart",
+            out_path.as_posix(),
+        ],
+        timeout=600.0,
+    )
+    if not out_path.is_file() or out_path.stat().st_size < 32:
+        raise FFmpegError("BGM 混音产物无效")
+    return out_path
+
+
 def window_mean_volume_db(path: str | Path, starts: Iterable[float], win: float = 2.0) -> list[dict]:
     """Return mean_volume dB for each [start, start+win) window via ffmpeg volumedetect."""
     path = Path(path)

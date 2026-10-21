@@ -30,6 +30,8 @@ import {
 } from "@/services/toiv/character-style-variants";
 import { ComputeStatusStrip, depBlocksCta } from "@/components/toiv/compute-status-strip";
 import { ControlReadinessLamps } from "@/components/toiv/control-readiness-lamps";
+import { BgmBedPanel } from "@/components/toiv/bgm-bed-panel";
+import { KpiNorthboundPanel } from "@/components/toiv/kpi-northbound-panel";
 import { projectControlReadinessLamps } from "@/services/toiv/control-readiness";
 import {
     DEFAULT_STORYBOARD_DRIVE_MODE,
@@ -41,6 +43,8 @@ import {
     type StoryboardDriveMode,
 } from "@/services/toiv/storyboard-drive";
 import { studioQaHumanMessage, studioQaMessageWithHint } from "@/services/toiv/studio-qa-failure";
+import { parseBgmFromProject, type BgmBedConfig } from "@/services/toiv/bgm-bed";
+import { recordConsistencyRework, recordQueueWait, touchDramaWorkspace } from "@/services/toiv/product-kpi";
 import { formatClientTimeoutMessage, isClientTimeoutError, isStillRunningMessage, userFacingCaughtError } from "@/services/toiv/client-timeout";
 import { SheetGateJobError, sheetFailureFromCaughtError, sheetFailureFromJobResult, type SheetFailureView } from "@/services/toiv/sheet-gate-failure";
 import { toivMediaUrl } from "@/services/toiv/cover-url";
@@ -266,6 +270,9 @@ export default function DramaWorkspacePage() {
         setCrewAssistMode(on, id);
     };
 
+    /** F3：声床配置（与项目 bgm_* 同步） */
+    const [bgmBed, setBgmBed] = useState<BgmBedConfig>(() => parseBgmFromProject(null));
+
     const [detail, setDetail] = useState<ToivDramaDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -434,6 +441,7 @@ export default function DramaWorkspacePage() {
         setSoftKeepBusy(true);
         setSheetError(null);
         try {
+            void recordConsistencyRework(id, "keep_rejected_sheet");
             await keepRejectedSheet(sheetChar.id, {
                 style: sheetFailure.style || lastSheetStyle || "anime",
                 preview_url: sheetFailure.previewUrl,
@@ -449,7 +457,7 @@ export default function DramaWorkspacePage() {
         } finally {
             setSoftKeepBusy(false);
         }
-    }, [sheetChar, sheetFailure, lastSheetStyle]);
+    }, [sheetChar, sheetFailure, lastSheetStyle, id]);
 
     // ---- S3-a: 管线C(c_hybrid 妆容链)一键启动 ----
     const [chainBusy, setChainBusy] = useState(false);
@@ -562,6 +570,14 @@ export default function DramaWorkspacePage() {
         setShotViewMode(defaultShotViewModeForDrive(mode));
         if (detail) setDriveHydrated(true);
     }, [detail, detail?.preferred_drive_mode, driveHydrated]);
+    useEffect(() => {
+        if (!detail) return;
+        setBgmBed(parseBgmFromProject(detail));
+    }, [detail?.id, detail?.bgm_url, detail?.bgm_volume, detail?.bgm_duck]);
+    useEffect(() => {
+        if (!id) return;
+        void touchDramaWorkspace(id);
+    }, [id]);
     const onPipelineChange = useCallback(async (v: ToivRenderPipeline) => {
         setRenderPipeline(v);
         if (!id) return;
@@ -614,6 +630,7 @@ export default function DramaWorkspacePage() {
         setRenderError(null);
         setRenderMsg(null);
         try {
+            const queueStarted = Date.now();
             const { job_id } = await renderShotAsync(sid, {
                 num_candidates: 2,
                 accel: accelLevel,
@@ -628,6 +645,7 @@ export default function DramaWorkspacePage() {
                 if (st && !["queued", "rendering"].includes(st)) {
                     await load();
                     setRenderMsg("渲染完成");
+                    void recordQueueWait(Date.now() - queueStarted, id);
                     break;
                 }
             }
@@ -1096,6 +1114,9 @@ export default function DramaWorkspacePage() {
                 )}
                 <ComputeStatusStrip variant="compact" onDeps={setDeps} />
                 <ControlReadinessLamps lamps={controlLamps} variant="full" />
+                <div className="px-1 pb-2">
+                    <KpiNorthboundPanel days={30} compact />
+                </div>
                 <p className="text-[11px] text-[var(--muted-foreground)]" data-testid="keyframe-drive-badge">{KEYFRAME_DRIVE_BADGE} · 当前：{STORYBOARD_DRIVE_OPTIONS.find((o) => o.value === driveMode)?.label ?? driveMode}</p>
 
                 {loading ? (
@@ -1828,6 +1849,9 @@ export default function DramaWorkspacePage() {
                                         {assembleMsg && (
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{assembleMsg}</p>
                                         )}
+                                        {id && (
+                                            <BgmBedPanel projectId={id} value={bgmBed} onChange={setBgmBed} disabled={assembling} />
+                                        )}
                                         <ol className="flex flex-col gap-1.5">
                                             {tlShots.map((x, i) => (
                                                 <Fragment key={x.id}>
@@ -1896,6 +1920,9 @@ export default function DramaWorkspacePage() {
                         )}
                         {section === "final" && (
                             <SectionShell title="合成预览">
+                                {id && (
+                                    <BgmBedPanel projectId={id} value={bgmBed} onChange={setBgmBed} disabled={assembling} />
+                                )}
                                 {detail.final_url ? (
                                     <div className="flex flex-col gap-3">
                                         <video src={toivMediaUrl(detail.final_url) || detail.final_url} controls className="max-h-96 w-full rounded-lg border border-[var(--border)]" />

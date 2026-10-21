@@ -181,6 +181,10 @@ class ProjectPatch(BaseModel):
     preferred_drive_mode: str | None = Field(
         default=None, pattern="^(keyframe|direct)$"
     )
+    # F3/P4:合成声床
+    bgm_url: str | None = Field(default=None, max_length=2000)
+    bgm_volume: float | None = Field(default=None, ge=0.0, le=1.0)
+    bgm_duck: bool | None = Field(default=None)
 
 
 class CharacterCreate(BaseModel):
@@ -352,3 +356,11 @@ class CharacterAssetCoveragePlanRequest(BaseModel):
     framings: list[str] | None = Field(default=None, max_length=8)
     lightings: list[str] | None = Field(default=None, max_length=8)
 
+
+
+class AssembleOptions(BaseModel):
+    """F3:合成可选声床覆盖（缺省读项目字段）。"""
+
+    bgm_url: str | None = Field(default=None, max_length=2000)
+    bgm_volume: float | None = Field(default=None, ge=0.0, le=1.0)
+    bgm_duck: bool | None = Field(default=None)

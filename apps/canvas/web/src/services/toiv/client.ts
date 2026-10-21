@@ -554,6 +554,10 @@ export type ToivDramaProject = {
     preferred_pipeline?: "ref2va" | "c" | "c_hybrid";
     /** F1：分镜驱动默认 keyframe；direct=专家旁路 */
     preferred_drive_mode?: "keyframe" | "direct";
+    /** F3：合成声床 */
+    bgm_url?: string;
+    bgm_volume?: number;
+    bgm_duck?: boolean;
     final_url?: string;
     updated_at?: string;
     pipeline?: {
@@ -1022,8 +1026,28 @@ export async function createStudioCharacter(
 }
 
 /** PATCH /studio/projects/{pid}(剧本正文保存) */
-export async function patchStudioProject(pid: string, patch: { premise?: string; style?: string; preferred_pipeline?: "ref2va" | "c" | "c_hybrid"; preferred_drive_mode?: "keyframe" | "direct"; title?: string }): Promise<void> {
+export async function patchStudioProject(pid: string, patch: {
+    premise?: string;
+    style?: string;
+    preferred_pipeline?: "ref2va" | "c" | "c_hybrid";
+    preferred_drive_mode?: "keyframe" | "direct";
+    title?: string;
+    bgm_url?: string;
+    bgm_volume?: number;
+    bgm_duck?: boolean;
+}): Promise<void> {
     await toivHttp.patch(`/studio/projects/${encodeURIComponent(pid)}`, patch, { timeout: 15_000 });
+}
+
+/** F3：上传声床音频并写入项目 bgm_url */
+export async function uploadStudioProjectBgm(pid: string, file: File): Promise<{ bgm_url: string }> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const { data } = await toivHttp.post(`/studio/projects/${encodeURIComponent(pid)}/bgm`, fd, {
+        timeout: 120_000,
+        headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data as { bgm_url: string };
 }
 
 /** W1.3(2026-10-11):严格版设定卡生成——失败抛错(带后端 detail),供工作区透出;
@@ -1065,9 +1089,16 @@ export async function renderShotStrict(sid: string, opts: { num_candidates?: num
 
 /** S9-lite(2026-10-11):拼接全部就绪分镜 → 项目成片(POST /studio/projects/{pid}/assemble)。
  * 任一镜缺 final_clip_url → 422(错误透出)。 */
-export async function assembleStudioProject(pid: string): Promise<void> {
+export async function assembleStudioProject(
+    pid: string,
+    opts?: { bgm_url?: string | null; bgm_volume?: number; bgm_duck?: boolean },
+): Promise<void> {
     try {
-        await toivHttp.post(`/studio/projects/${encodeURIComponent(pid)}/assemble`, undefined, { timeout: 600_000 });
+        const body =
+            opts && (opts.bgm_url != null || opts.bgm_volume != null || opts.bgm_duck != null)
+                ? opts
+                : undefined;
+        await toivHttp.post(`/studio/projects/${encodeURIComponent(pid)}/assemble`, body, { timeout: 600_000 });
     } catch (e) {
         const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
         throw new Error(detail || "成片合成失败");

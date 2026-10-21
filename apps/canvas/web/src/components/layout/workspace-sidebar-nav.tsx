@@ -1,4 +1,5 @@
-import { Bot, ChevronRight, Clapperboard, Home, Library, ListChecks, PanelLeftClose, PanelLeftOpen, Plug, Plus, Settings2, Store, Sun, Moon } from "lucide-react";
+import { Bot, ChevronRight, BarChart3,
+    Clapperboard, Home, Library, ListChecks, PanelLeftClose, PanelLeftOpen, Plug, Plus, Settings2, Store, Sun, Moon } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
@@ -53,6 +54,7 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
                 { id: "home", title: "首页", icon: Home, to: "/" },
                 { id: "toiv:drama", title: "短剧项目", icon: Clapperboard, to: "/toiv/drama" },
                 { id: "toiv:tasks", title: "任务中心", icon: ListChecks, to: "/toiv/tasks" },
+                { id: "toiv:kpi", title: "学习看板", icon: BarChart3, to: "/toiv/kpi" },
                 { id: "toiv:market", title: "工具台", icon: Store, to: "/toiv/market" },
                 { id: "settings", title: "设置", icon: Settings2, to: "/settings" },
             ],

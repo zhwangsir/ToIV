@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/time-format";
 import { createStudioProject, fetchDramaProjects, seedRainNightSample, type ToivDramaProject } from "@/services/toiv/client";
 import { FromImageDialog } from "./from-image-dialog";
 import { WorkspacePage } from "@/components/layout/workspace-page";
+import { KpiNorthboundPanel } from "@/components/toiv/kpi-northbound-panel";
 
 const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
     draft: { tone: "neutral", text: "草稿" },
@@ -112,6 +113,8 @@ export default function DramaPage() {
                     <Link to="/"><ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" /></Link>
                 </div>
             </header>
+
+            <KpiNorthboundPanel days={30} compact />
 
             {actionNote && projects.length > 0 ? (
                 <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive" role="alert">{actionNote}</p>

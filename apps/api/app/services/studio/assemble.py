@@ -14,6 +14,8 @@ URL 经 /api/studio/files/{name} 访问;回写 project.final_url + status=ready�
 
 合成前断言:每镜成片时长 ≈ 该镜视频原长(误差 <0.5s),防止对口型短配音截断成片;
 以及每镜有音轨(对口型剥音未 mux 时拦截)。
+
+F3:项目挂了 bgm_url 时,拼接后再混入声床(音量/对白闪避)。
 """
 from __future__ import annotations
 
@@ -24,9 +26,18 @@ from pathlib import Path
 from sqlmodel import Session
 
 from app.models import StudioProject, StudioShot
+from app.services.studio.bgm_bed import (
+    bgm_active,
+    is_allowed_bgm_url,
+    normalize_bgm_duck,
+    normalize_bgm_url,
+    normalize_bgm_volume,
+    to_relative_bgm_url,
+)
 from app.services.studio.ffmpeg_ops import (
     FFmpegError,
     concat_parts_uniform,
+    mix_bgm_under_video,
     probe_duration,
     probe_has_audio,
 )
@@ -63,6 +74,36 @@ def _clip_path(url: str) -> Path:
     if not path.is_file():
         raise AssembleError(f"片段文件缺失:{name}")
     return path
+
+
+def resolve_bgm_path(url: str) -> Path:
+    """声床 URL → 本地文件。仅站内相对前缀;优先直接读盘避免自调鉴权。"""
+    rel = to_relative_bgm_url(normalize_bgm_url(url))
+    if not rel or not is_allowed_bgm_url(rel):
+        raise AssembleError("声床 URL 不在站内白名单")
+    name = Path(rel).name
+    if not name or name in {".", ".."} or "/" in name or "\\" in name:
+        # Path(rel).name 已去目录;再防空
+        raise AssembleError("声床文件名无效")
+    candidates: list[Path] = []
+    root = drama_output_root()
+    if rel.startswith(_FILES_PREFIX):
+        candidates.append(root / "studio" / name)
+    elif rel.startswith("/api/manju/output/") or rel.startswith("/api/manju/voice/"):
+        candidates.append(root / "manju" / name)
+        candidates.append(root / name)
+    elif rel.startswith("/api/audio/files/"):
+        candidates.append(root / "audio" / name)
+        candidates.append(root / "studio" / name)
+    elif rel.startswith("/api/images/"):
+        candidates.append(root / "images" / name)
+        candidates.append(root / "studio" / name)
+    else:
+        candidates.append(root / "studio" / name)
+    for p in candidates:
+        if p.is_file():
+            return p
+    raise AssembleError(f"声床文件缺失:{name}")
 
 
 async def assert_clip_durations_match_source(shots: list[StudioShot]) -> None:
@@ -111,7 +152,6 @@ async def assert_clip_durations_match_source(shots: list[StudioShot]) -> None:
             )
 
 
-
 async def assert_clips_have_audio(shots: list[StudioShot]) -> None:
     """断言每镜 final_clip 含音轨;对口型剥音未 mux 时在合成前拦截。"""
     ordered = sorted(shots, key=lambda s: s.idx)
@@ -133,9 +173,18 @@ async def assert_clips_have_audio(shots: list[StudioShot]) -> None:
 
 
 async def assemble_project(
-    session: Session, project: StudioProject, shots: list[StudioShot]
+    session: Session,
+    project: StudioProject,
+    shots: list[StudioShot],
+    *,
+    bgm_url: str | None = None,
+    bgm_volume: float | None = None,
+    bgm_duck: bool | None = None,
 ) -> str:
-    """拼接成片,回写 project.final_url/status,返回 URL。"""
+    """拼接成片,回写 project.final_url/status,返回 URL。
+
+    F3:可选覆盖声床参数;缺省读项目字段。
+    """
     urls = collect_clips(shots)
     parts = [_clip_path(u) for u in urls]
     try:
@@ -164,6 +213,42 @@ async def assemble_project(
             "assemble project=%s 片段规格不一致,已转码归一 %s/%s 片;差异字段=%s",
             project.id, report.get("normalized"), len(parts), report.get("diff"),
         )
+
+    # F3 声床：拼接后再混（不改各镜源片）
+    eff_url = normalize_bgm_url(
+        bgm_url if bgm_url is not None else getattr(project, "bgm_url", "") or ""
+    )
+    if bgm_active(eff_url):
+        if not is_allowed_bgm_url(eff_url):
+            project.status = "error"
+            project.error = "声床 URL 不在站内白名单"
+            session.add(project)
+            session.commit()
+            raise AssembleError(project.error)
+        vol = normalize_bgm_volume(
+            bgm_volume if bgm_volume is not None else getattr(project, "bgm_volume", None)
+        )
+        duck = normalize_bgm_duck(
+            bgm_duck if bgm_duck is not None else getattr(project, "bgm_duck", True)
+        )
+        try:
+            bgm_path = resolve_bgm_path(eff_url)
+            mixed = out_dir / f"final-bgm-{uuid.uuid4().hex}.mp4"
+            await mix_bgm_under_video(out, bgm_path, mixed, volume=vol, duck=duck)
+            try:
+                out.unlink(missing_ok=True)
+            except OSError:
+                pass
+            out = mixed
+        except AssembleError:
+            raise
+        except FFmpegError as e:
+            project.status = "error"
+            project.error = f"声床混音失败:{e}"
+            session.add(project)
+            session.commit()
+            raise AssembleError(project.error) from e
+
     project.final_url = f"{_FILES_PREFIX}{out.name}"
     project.status = "ready"
     project.error = ""

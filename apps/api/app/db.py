@@ -142,6 +142,9 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     # Wave P2:项目默认视频管线持久化
     ("studioproject", "preferred_pipeline", "preferred_pipeline VARCHAR NOT NULL DEFAULT 'ref2va'"),
     ("studioproject", "preferred_drive_mode", "preferred_drive_mode VARCHAR NOT NULL DEFAULT 'keyframe'"),
+    ("studioproject", "bgm_url", "bgm_url VARCHAR NOT NULL DEFAULT ''"),
+    ("studioproject", "bgm_volume", "bgm_volume FLOAT NOT NULL DEFAULT 0.35"),
+    ("studioproject", "bgm_duck", "bgm_duck BOOLEAN NOT NULL DEFAULT TRUE"),
     # Wave P2:跳过口型标注(BOOLEAN 默认 FALSE, PG 不认 0)
     ("studioshot", "lipsync_skipped", "lipsync_skipped BOOLEAN NOT NULL DEFAULT FALSE"),
 )

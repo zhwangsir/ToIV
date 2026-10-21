@@ -8,7 +8,7 @@ import json
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core import PydanticCustomError
@@ -39,6 +39,7 @@ from app.services.studio.schemas import (
     CharacterSheetRecomposeRequest,
     CharacterSheetRequest,
     ProjectCreate,
+    AssembleOptions,
     ProjectPatch,
     ScriptParseRequest,
     ShotsSaveRequest,
@@ -321,6 +322,22 @@ def patch_project(
             if not isinstance(u, str) or not u.strip():
                 raise HTTPException(status_code=400, detail="scene_images 项无效")
         data["scene_images_json"] = json.dumps(scenes, ensure_ascii=False)
+    if "bgm_url" in data:
+        from app.services.studio.bgm_bed import (
+            is_allowed_bgm_url,
+            normalize_bgm_url,
+            to_relative_bgm_url,
+        )
+        raw = normalize_bgm_url(data.get("bgm_url"))
+        if raw and not is_allowed_bgm_url(raw):
+            raise HTTPException(status_code=422, detail="声床 URL 须为站内路径（/api/studio/files/…）")
+        data["bgm_url"] = to_relative_bgm_url(raw) if raw else ""
+    if "bgm_volume" in data and data["bgm_volume"] is not None:
+        from app.services.studio.bgm_bed import normalize_bgm_volume
+        data["bgm_volume"] = normalize_bgm_volume(data["bgm_volume"])
+    if "bgm_duck" in data and data["bgm_duck"] is not None:
+        from app.services.studio.bgm_bed import normalize_bgm_duck
+        data["bgm_duck"] = normalize_bgm_duck(data["bgm_duck"])
     for k, v in data.items():
         setattr(p, k, v)
     session.add(p)
@@ -3083,26 +3100,99 @@ async def lipsync_one(
     return _shot_out(shot)
 
 
+
+
+@router.post("/studio/projects/{pid}/bgm")
+async def upload_project_bgm(
+    pid: str,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """F3:上传声床音频到 studio 产出目录，并写入项目 bgm_url。"""
+    from app.storage import drama_output_root
+
+    project = _get_project(session, pid, user)
+    raw_name = (file.filename or "bgm.mp3").strip()
+    ext = Path(raw_name).suffix.lower()
+    if ext not in {".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"}:
+        raise HTTPException(status_code=422, detail="声床仅支持 mp3/wav/m4a/aac/ogg/flac")
+    content = await file.read()
+    if not content or len(content) < 32:
+        raise HTTPException(status_code=422, detail="声床文件为空")
+    if len(content) > 40 * 1024 * 1024:
+        raise HTTPException(status_code=422, detail="声床文件过大（上限 40MB）")
+    out_dir = drama_output_root() / "studio"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dest = out_dir / f"bgm-{uuid.uuid4().hex}{ext}"
+    dest.write_bytes(content)
+    url = f"/api/studio/files/{dest.name}"
+    project.bgm_url = url
+    session.add(project)
+    session.commit()
+    session.refresh(project)
+    return {"bgm_url": url, "project": _project_out(project)}
+
+
 # ── 合成(M3)───────────────────────────────────────────────────────────────
 
 
 @router.post("/studio/projects/{pid}/assemble")
 async def assemble_project_endpoint(
     pid: str,
+    body: AssembleOptions | None = Body(default=None),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """拼接全部就绪分镜 → 项目成片;任一镜缺 final_clip_url → 422。"""
+    """拼接全部就绪分镜 → 项目成片;任一镜缺 final_clip_url → 422。
+
+    F3:可选 body 覆盖声床；成功/失败写北向 KPI episode_assembled。
+    """
     project = _get_project(session, pid, user)
     shots = session.exec(
         select(StudioShot).where(StudioShot.project_id == pid).order_by(StudioShot.idx)
     ).all()
+    opts = body or AssembleOptions()
+    ok = False
+    err_msg = ""
     try:
-        await assemble_svc.assemble_project(session, project, shots)
+        await assemble_svc.assemble_project(
+            session,
+            project,
+            shots,
+            bgm_url=opts.bgm_url,
+            bgm_volume=opts.bgm_volume,
+            bgm_duck=opts.bgm_duck,
+        )
+        ok = True
     except assemble_svc.AssembleError as e:
-        msg = str(e)
-        code = 422 if "未就绪" in msg or "无分镜" in msg else 502
-        raise HTTPException(status_code=code, detail=msg) from e
+        err_msg = str(e)
+        code = 422 if "未就绪" in err_msg or "无分镜" in err_msg or "白名单" in err_msg else 502
+        try:
+            from app.services import product_kpi as _kpi
+            _kpi.record_event(
+                session,
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+                project_id=pid,
+                event_type="episode_assembled",
+                payload={"success": False, "surface": "drama_workspace", "error": err_msg[:200]},
+            )
+        except Exception:  # noqa: BLE001 — KPI 失败不挡业务
+            logger.warning("kpi episode_assembled(fail) 记录失败 pid=%s", pid[:12])
+        raise HTTPException(status_code=code, detail=err_msg) from e
+    try:
+        from app.services import product_kpi as _kpi
+        _kpi.record_event(
+            session,
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            project_id=pid,
+            event_type="episode_assembled",
+            payload={"success": True, "surface": "drama_workspace"},
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("kpi episode_assembled(ok) 记录失败 pid=%s", pid[:12])
     return _project_detail(session, project)
 
 

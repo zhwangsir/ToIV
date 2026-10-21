@@ -29,6 +29,7 @@ const ToivLibraryDetailPage = lazy(() => import("@/pages/toiv/library-detail"));
 const ToivDramaPage = lazy(() => import("@/pages/toiv/drama-page"));
 const ToivDramaDetailPage = lazy(() => import("@/pages/toiv/drama-detail"));
 const ToivDramaWorkspacePage = lazy(() => import("@/pages/toiv/drama-workspace"));
+const ToivKpiPage = lazy(() => import("@/pages/toiv/kpi-page"));
 const ProjectDetailPage = lazy(loadProjectDetailPage);
 const SettingsPage = lazy(() => import("@/pages/settings"));
 const TestVoiceRecording = lazy(() => import("@/pages/test-voice-recording"));
@@ -140,6 +141,7 @@ export const router = createWorkspaceRouter([
             { path: "/toiv/video-tools", element: deferred(<ToivVideoToolsPage />) },
             { path: "/toiv/dub-tools", element: deferred(<ToivDubToolsPage />) },
             { path: "/toiv/drama", element: deferred(<ToivDramaPage />) },
+            { path: "/toiv/kpi", element: deferred(<ToivKpiPage />) },
             { path: "/toiv/drama/:id", element: deferred(<ToivDramaDetailPage />) },
             // v2 六段工作区骨架(S2/W1.1):独立路由并行于经典详情,迁移齐后对调
             { path: "/toiv/ws/:id", element: deferred(<ToivDramaWorkspacePage />) },

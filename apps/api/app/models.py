@@ -704,6 +704,10 @@ class StudioProject(SQLModel, table=True):
     preferred_pipeline: str = "ref2va"
     # F1/P4:分镜驱动默认 keyframe（先帧后视频）；direct=专家旁路
     preferred_drive_mode: str = "keyframe"
+    # F3/P4:合成声床（站内 URL）；空=无垫乐
+    bgm_url: str = ""
+    bgm_volume: float = 0.35
+    bgm_duck: bool = True
     status: str = "draft"  # draft | storyboard | generating | ready | error
     final_url: str = ""  # 成片 URL
     error: str = ""
@@ -1060,3 +1064,19 @@ class MediaTranscript(SQLModel, table=True):
     source_tag: str = ""  # external(集群 whisper)/builtin/even-split
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# F3 / P4：北向 KPI 事件（诚实空→有；禁止伪造数）
+# ---------------------------------------------------------------------------
+class ProductKpiEvent(SQLModel, table=True):
+    """产品北向指标事件。event_type 见 product_kpi.EVENT_TYPES。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    tenant_id: str = Field(index=True)
+    user_id: str = Field(default="", index=True)
+    project_id: str = Field(default="", index=True)
+    event_type: str = Field(index=True)  # episode_assembled / path_touch / consistency_rework / queue_wait
+    # JSON 载荷：success/surface/wait_ms/reason 等
+    payload_json: str = "{}"
+    created_at: datetime = Field(default_factory=_now, index=True)
