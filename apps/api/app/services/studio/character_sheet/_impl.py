@@ -2494,7 +2494,7 @@ def _build_sheet_graph(prompt: str, *, ckpt_name: str, width: int, height: int, 
                 if v:
                     required.add(v)
         return (graph, required)
-    params_kw: dict = dict(positive=prompt, negative=neg, ckpt_name=ckpt_name, width=width, height=height, filename_prefix=filename_prefix, steps=28 if style == 'anime' else 22, cfg=6.0 if style == 'anime' else 7.0)
+    params_kw: dict = dict(positive=prompt, negative=neg, ckpt_name=ckpt_name, width=width, height=height, filename_prefix=filename_prefix, steps=28 if sheet_uses_anime_xl(style) else 22, cfg=6.0 if sheet_uses_anime_xl(style) else 7.0)
     if seed is not None:
         params_kw['seed'] = seed
     return (build_txt2img_graph(Txt2ImgParams(**params_kw)), {ckpt_name})
@@ -2502,7 +2502,7 @@ def _build_sheet_graph(prompt: str, *, ckpt_name: str, width: int, height: int, 
 def _build_ipa_graph(prompt: str, *, ref_image: str, ckpt_name: str, width: int, height: int, seed: int | None, filename_prefix: str, style: str) -> dict:
     from app.workflows.ipadapter import IPAdapterTxt2ImgParams, build_ipadapter_txt2img_graph
     neg = _with_ancient_spec_negative(_STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE['anime']), style)
-    kw: dict[str, Any] = dict(positive=prompt, ref_image=ref_image, negative=neg, ckpt_name=ckpt_name, width=width, height=height, filename_prefix=filename_prefix, weight=0.85, steps=28 if style == 'anime' else 22, cfg=6.0 if style == 'anime' else 7.0, preset='PLUS FACE (portraits)')
+    kw: dict[str, Any] = dict(positive=prompt, ref_image=ref_image, negative=neg, ckpt_name=ckpt_name, width=width, height=height, filename_prefix=filename_prefix, weight=0.85, steps=28 if sheet_uses_anime_xl(style) else 22, cfg=6.0 if sheet_uses_anime_xl(style) else 7.0, preset='PLUS FACE (portraits)')
     if seed is not None:
         kw['seed'] = seed
     return build_ipadapter_txt2img_graph(IPAdapterTxt2ImgParams(**kw))
@@ -2524,8 +2524,8 @@ def _build_sheet_mask_inpaint_graph(prompt: str, *, image_name: str, mask_name: 
         neg = f'{neg}, {negative_extra}'
     neg = neg + ', gray smear, flat gray face, muddy skin, melted face, double face, ghosting, misaligned features, watermark, text, logo, emblem, badge, solid gray fill, 0.5 gray patch, featureless face'
     s = int(seed) if seed is not None else int(uuid.uuid4().int % (2 ** 31 - 1))
-    steps = 28 if style == 'anime' else 22
-    cfg = 6.5 if style == 'anime' else 7.0
+    steps = 28 if sheet_uses_anime_xl(style) else 22
+    cfg = 6.5 if sheet_uses_anime_xl(style) else 7.0
     return {'4': {'class_type': 'CheckpointLoaderSimple', 'inputs': {'ckpt_name': ckpt_name}}, '6': {'class_type': 'CLIPTextEncode', 'inputs': {'text': prompt, 'clip': ['4', 1]}}, '7': {'class_type': 'CLIPTextEncode', 'inputs': {'text': neg, 'clip': ['4', 1]}}, '11': {'class_type': 'LoadImage', 'inputs': {'image': image_name}}, '12': {'class_type': 'LoadImage', 'inputs': {'image': mask_name}}, '13': {'class_type': 'ImageToMask', 'inputs': {'image': ['12', 0], 'channel': 'red'}}, '32': {'class_type': 'VAEEncode', 'inputs': {'pixels': ['11', 0], 'vae': ['4', 2]}}, '33': {'class_type': 'SetLatentNoiseMask', 'inputs': {'samples': ['32', 0], 'mask': ['13', 0]}}, '3': {'class_type': 'KSampler', 'inputs': {'model': ['4', 0], 'seed': s, 'steps': steps, 'cfg': cfg, 'sampler_name': 'euler_ancestral', 'scheduler': 'normal', 'positive': ['6', 0], 'negative': ['7', 0], 'latent_image': ['33', 0], 'denoise': float(d)}}, '8': {'class_type': 'VAEDecode', 'inputs': {'samples': ['3', 0], 'vae': ['4', 2]}}, '9': {'class_type': 'SaveImage', 'inputs': {'images': ['8', 0], 'filename_prefix': filename_prefix}}}
 
 def _build_img2img_graph(prompt: str, *, image_name: str, ckpt_name: str, seed: int | None, filename_prefix: str, style: str, denoise: float=0.62, negative_extra: str='') -> dict:
@@ -2538,7 +2538,7 @@ def _build_img2img_graph(prompt: str, *, image_name: str, ckpt_name: str, seed: 
         neg = neg + ', person, face, body, human, wearing clothes, model, mannequin, full body portrait, legs, feet, silhouette, bodysuit, tight suit'
     if 'expr' in pl or 'closeup' in pl or 'head and shoulders' in pl:
         neg = neg + ', full body, half body, standing pose, waist up wide, legs, hands holding props, chinese text, caption, subtitle, label'
-    kw: dict[str, Any] = dict(positive=prompt, image=image_name, negative=neg, ckpt_name=ckpt_name, denoise=denoise, filename_prefix=filename_prefix, steps=28 if style == 'anime' else 22, cfg=6.5 if style == 'anime' else 7.0)
+    kw: dict[str, Any] = dict(positive=prompt, image=image_name, negative=neg, ckpt_name=ckpt_name, denoise=denoise, filename_prefix=filename_prefix, steps=28 if sheet_uses_anime_xl(style) else 22, cfg=6.5 if sheet_uses_anime_xl(style) else 7.0)
     if seed is not None:
         kw['seed'] = seed
     return build_img2img_graph(Img2ImgParams(**kw))
@@ -2628,7 +2628,7 @@ async def generate_panel_bytes(pool: 'WorkerPool', prompt: str, *, ckpt_name: st
     if mode == 'auto':
         if not ref_image:
             mode = 'none'
-        elif style == 'anime':
+        elif sheet_uses_anime_xl(style):
             mode = 'img2img'
         else:
             mode = 'ipa'
@@ -2757,7 +2757,7 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
                     panels['portrait'] = await generate_panel_bytes(pool, prompts['portrait'] + ', edit from reference front view into full-body main portrait, same character same outfit same colors, plain flat chest, ' + bust, ckpt_name=ckpt, width=w, height=h, seed=s, worker=worker, filename_prefix=f'ToIV_char_sheet_portrait_fromfront_a{attempt}', style=meta.style, client=client, ref_image=front_ref_name, ref_mode='img2img', denoise=0.48)
                 else:
                     panels['portrait'] = await generate_panel_bytes(pool, prompts['portrait'] + bust, ckpt_name=ckpt, width=w, height=h, seed=s, worker=worker, filename_prefix=f'ToIV_char_sheet_portrait_a{attempt}', style=meta.style, client=client)
-                if meta.style in ('anime', '二次元') and portrait_has_chest_emblem(panels['portrait'], ref=panels.get('front')):
+                if sheet_uses_anime_gates(meta.style) and portrait_has_chest_emblem(panels['portrait'], ref=panels.get('front')):
                     try:
                         ref_p = await client.upload_image(panels['portrait'], f'sheet_portrait_emblem_{attempt}.png')
 
@@ -2772,7 +2772,7 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
                         last_err = ce
                         logger.warning('portrait emblem inpaint fail attempt=%s: %s', attempt, ce)
                         continue
-                if meta.style in ('anime', '二次元'):
+                if sheet_uses_anime_gates(meta.style):
                     try:
                         assert_fullbody_portrait_face_ok(panels['portrait'])
                     except CharacterSheetError as gate_e:
@@ -2853,7 +2853,7 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
             continue
         if key == 'costume':
             try:
-                if meta.style in ('anime', '二次元') and panels.get('portrait'):
+                if sheet_uses_anime_gates(meta.style) and panels.get('portrait'):
                     panels['costume'] = build_costume_collage_from_portrait(panels['portrait'], style=meta.style)
                 else:
                     panels['costume'] = await _generate_costume_collage(pool, meta=meta, ckpt=ckpt, worker=worker, client=client, seed=seed)
@@ -2867,7 +2867,7 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
         ref_mode = 'none'
         denoise = 0.62
         if key in ('front', 'side', 'back'):
-            if meta.style in ('anime', '二次元'):
+            if sheet_uses_anime_gates(meta.style):
                 if not ref_name:
                     raise CharacterSheetError('三视图缺主立绘参考，无法 img2img', status_code=422)
                 last_err = None
@@ -3475,7 +3475,7 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
                         _neutral = None
                     _others = {ek: panels[ek] for ek in _EXPR_KEYS if ek in panels and ek != key and panels.get(ek)}
                     assert_expression_diversity(raw, expr_key=key, neutral_ref=_neutral, other_exprs=_others)
-                if key in ('front', 'side') and meta.style in ('anime', '二次元'):
+                if key in ('front', 'side') and sheet_uses_anime_gates(meta.style):
                     if portrait_has_chest_emblem(raw):
                         raise CharacterSheetError(f'{key}胸口徽标，重试', status_code=422)
                 if key in ('front', 'side', 'back') and meta.style == 'ancient_realistic' and ancient_spec_target_hex(meta):
@@ -3506,7 +3506,7 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
     except CharacterSheetError as _ce:
         dump_rejected_panel(panels.get('portrait') or _last_reject.get('data'), seed=seed, panel=str(_last_reject.get('key') or 'portrait'), gate='assert_sheet_garment_consistency', detail=str(_ce), dump_dir=reject_dir)
         raise
-    if meta.style in ('anime', '二次元') and (not meta.colors):
+    if sheet_uses_anime_gates(meta.style) and (not meta.colors):
         meta.colors = ['#E8C4A8', '#5A6A7A', '#D4D3D8', '#C98A7A', '#2C2C34', '#1A1A1E']
     # 四视图板只出五格(toonflow_board → compose_reference_board)
     png = compose_reference_board(panels, meta) if meta.template == 'toonflow_board' else compose_character_sheet(panels, meta)
@@ -4355,7 +4355,7 @@ async def _generate_costume_collage(pool: 'WorkerPool', *, meta: SheetMeta, ckpt
             prompt = 'flat lay complete slate-gray hooded raincoat #5A6A7A only, plain unbranded no logo, hood and sleeves visible, mid-tone gray not jet black, product shot, no person, no mannequin, garment fills frame, ' + prompt + ', clothing only, not empty white frame'
         n_try = 4 if meta.style == 'ancient_realistic' else 1
         use_ckpt, use_style = (ckpt, meta.style)
-        w, h = (768, 768) if meta.style == 'anime' else (512, 512)
+        w, h = (768, 768) if sheet_uses_anime_xl(meta.style) else (512, 512)
         if meta.style == 'ancient_realistic':
             use_ckpt = 'animagineXL40.safetensors'
             use_style = 'anime'
@@ -4582,7 +4582,7 @@ def compose_faces_triptych(faces: dict[str, bytes], *, style: str='anime', size:
     二次元浅底:已正方形铺满源谨慎 trim,避免 cel 线/浅底被当灰边。
     18:23 master_crop=True：母版裁切直接拼，近景门禁失败则原图 LANCZOS 铺满，不 422。
     """
-    bg = (248, 248, 252) if style == 'anime' else (20, 22, 28)
+    bg = (248, 248, 252) if sheet_uses_anime_xl(style) else (20, 22, 28)
     canvas = Image.new('RGB', size, bg)
     keys = ('face_front', 'face_three_quarter', 'face_side')
     cell_w = size[0] // 3
@@ -4640,7 +4640,7 @@ def compose_faces_triptych(faces: dict[str, bytes], *, style: str='anime', size:
                     side_n = max(img.width, img.height)
                     canvas_n = int(round(side_n * pad_scale))
                     canvas_n = max(canvas_n, side_n + 8)
-                    bg_rgb = (248, 248, 252) if style == 'anime' else (20, 22, 28)
+                    bg_rgb = (248, 248, 252) if sheet_uses_anime_xl(style) else (20, 22, 28)
                     pad = Image.new('RGBA', (canvas_n, canvas_n), bg_rgb + (255,))
                     pad.paste(img, ((canvas_n - img.width) // 2, (canvas_n - img.height) // 2))
                     img = pad
@@ -4745,7 +4745,7 @@ async def generate_panel_bytes_openpose(pool: 'WorkerPool', prompt: str, *, pose
     neg = _with_ancient_spec_negative(_STYLE_NEGATIVE.get(style, _STYLE_NEGATIVE['anime']), style)
     if negative_extra:
         neg = f'{neg}, {negative_extra}'
-    kw: dict[str, Any] = dict(positive=prompt, image=pose_image_name, control_type='openpose', negative=neg, ckpt_name=ckpt_name, strength=strength, steps=28 if style == 'anime' else 22, cfg=6.0 if style == 'anime' else 7.0, filename_prefix=filename_prefix)
+    kw: dict[str, Any] = dict(positive=prompt, image=pose_image_name, control_type='openpose', negative=neg, ckpt_name=ckpt_name, strength=strength, steps=28 if sheet_uses_anime_xl(style) else 22, cfg=6.0 if sheet_uses_anime_xl(style) else 7.0, filename_prefix=filename_prefix)
     if seed is not None:
         kw['seed'] = seed
     graph = build_controlnet_graph(ControlNetParams(**kw))
@@ -4848,7 +4848,7 @@ async def regenerate_sheet_panels(*, character_id: str, meta: SheetMeta, pool: '
                     for ci in range(max(1, n_candidates)):
                         use_ckpt = ckpt
                         use_style = meta.style
-                        wh = (768, 768) if meta.style == 'anime' else (512, 512)
+                        wh = (768, 768) if sheet_uses_anime_xl(meta.style) else (512, 512)
                         if meta.style == 'ancient_realistic' and item_key in ('beizi', 'jiaoling', 'sash', 'hairpin', 'fan', 'ruqun'):
                             use_ckpt = 'animagineXL40.safetensors'
                             use_style = 'anime'

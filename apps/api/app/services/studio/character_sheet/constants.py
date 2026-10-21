@@ -33,9 +33,23 @@ _YAW_FACE_APP = None
 
 _FACE_ANGLE_NEGATIVE: dict[str, str] = {'face_front': 'side profile, strict profile, 90 degree profile, three-quarter turn, head turned away, only one eye, silhouette nose, hood up, hood covering hair', 'face_three_quarter': 'front face looking at camera, symmetrical frontal face, both eyes equal, looking at viewer, facing camera, strict side profile, 90 degree profile, full profile silhouette, extreme dutch tilt, head flopped sideways, over-the-shoulder, looking back, hood up, hood covering hair, full body', 'face_side': 'front face, looking at camera, both eyes visible, symmetrical face, frontal view, three-quarter view, face toward camera, two eyes, over-the-shoulder, looking back over shoulder, turned toward viewer, hood up, logo on hood, emblem, badge, abstract circle face, stylized mark, symbol instead of face, blank hood, full body, waist up standing'}
 
-_SHEET_CKPT = {'ancient_realistic': 'DreamShaper_8_pruned.safetensors', 'anime': 'animagineXL40.safetensors'}
+_SHEET_CKPT = {
+    'ancient_realistic': 'DreamShaper_8_pruned.safetensors',
+    'realistic': 'DreamShaper_8_pruned.safetensors',
+    'anime': 'animagineXL40.safetensors',
+    'ink_wash': 'animagineXL40.safetensors',
+    'cyberpunk': 'animagineXL40.safetensors',
+    'three_d': 'animagineXL40.safetensors',
+}
 
-_THEME = {'ancient_realistic': {'bg': (11, 14, 20, 255), 'text': (212, 175, 55), 'text_muted': (168, 140, 70), 'text_dim': (120, 100, 55), 'outline': (90, 75, 40), 'name_bg': (20, 24, 32, 255), 'title_bar': (8, 10, 14, 255), 'title_text': (212, 175, 55), 'scale': (180, 150, 70)}, 'anime': {'bg': (248, 248, 252, 255), 'text': (30, 30, 36), 'text_muted': (90, 90, 100), 'text_dim': (120, 120, 130), 'outline': (200, 200, 210), 'name_bg': (40, 40, 48, 255), 'title_bar': (40, 40, 48, 255), 'title_text': (230, 230, 235), 'scale': (80, 80, 90)}}
+_THEME = {
+    'ancient_realistic': {'bg': (11, 14, 20, 255), 'text': (212, 175, 55), 'text_muted': (168, 140, 70), 'text_dim': (120, 100, 55), 'outline': (90, 75, 40), 'name_bg': (20, 24, 32, 255), 'title_bar': (8, 10, 14, 255), 'title_text': (212, 175, 55), 'scale': (180, 150, 70)},
+    'realistic': {'bg': (11, 14, 20, 255), 'text': (212, 175, 55), 'text_muted': (168, 140, 70), 'text_dim': (120, 100, 55), 'outline': (90, 75, 40), 'name_bg': (20, 24, 32, 255), 'title_bar': (8, 10, 14, 255), 'title_text': (212, 175, 55), 'scale': (180, 150, 70)},
+    'anime': {'bg': (248, 248, 252, 255), 'text': (30, 30, 36), 'text_muted': (90, 90, 100), 'text_dim': (120, 120, 130), 'outline': (200, 200, 210), 'name_bg': (40, 40, 48, 255), 'title_bar': (40, 40, 48, 255), 'title_text': (230, 230, 235), 'scale': (80, 80, 90)},
+    'ink_wash': {'bg': (248, 248, 252, 255), 'text': (40, 40, 48), 'text_muted': (90, 90, 100), 'text_dim': (120, 120, 130), 'outline': (200, 200, 210), 'name_bg': (40, 40, 48, 255), 'title_bar': (40, 40, 48, 255), 'title_text': (230, 230, 235), 'scale': (80, 80, 90)},
+    'cyberpunk': {'bg': (248, 248, 252, 255), 'text': (30, 40, 60), 'text_muted': (90, 90, 100), 'text_dim': (120, 120, 130), 'outline': (200, 200, 210), 'name_bg': (40, 40, 48, 255), 'title_bar': (20, 30, 60), 'title_text': (120, 220, 255), 'scale': (80, 80, 90)},
+    'three_d': {'bg': (248, 248, 252, 255), 'text': (40, 36, 56), 'text_muted': (90, 90, 100), 'text_dim': (120, 120, 130), 'outline': (200, 200, 210), 'name_bg': (40, 40, 48, 255), 'title_bar': (60, 50, 80), 'title_text': (230, 230, 235), 'scale': (80, 80, 90)},
+}
 
 _CJK_FONT_CANDIDATES = ('/System/Library/Fonts/STHeiti Light.ttc', '/System/Library/Fonts/STHeiti Medium.ttc', '/System/Library/Fonts/Hiragino Sans GB.ttc', '/Library/Fonts/Arial Unicode.ttf', str(Path.home() / 'Library/Fonts/SimSun-Regular.ttf'), str(Path.home() / 'Library/Fonts/SourceHanSansSC-Regular.otf'), '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', '/usr/share/fonts/opentype/noto/NotoSansCJK-Medium.ttc', '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc', '/usr/share/fonts/truetype/arphic/uming.ttc', '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc', '/usr/share/fonts/truetype/source-han-sans/SourceHanSansSC-Regular.otf')
 

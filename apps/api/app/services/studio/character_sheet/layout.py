@@ -1567,7 +1567,7 @@ def collage_costume_items(items: list[bytes], *, style: str) -> bytes:
     pad = 8
     w = n * cell + pad * 2
     h = cell + pad * 2
-    bg = (240, 240, 244) if style == 'anime' else (200, 200, 206)
+    bg = (240, 240, 244) if sheet_uses_anime_xl(style) else (200, 200, 206)
     canvas = Image.new('RGB', (w, h), bg)
     for i, raw in enumerate(items):
         try:
@@ -1588,7 +1588,7 @@ def compose_boot_pair(single_boot: bytes, *, style: str, size: int=768) -> bytes
     except Exception:
         boot = Image.new('RGB', (size, size), (255, 255, 255))
     boot = _trim_object_bbox(boot, style=style, pad=8)
-    bg = (255, 255, 255) if style == 'anime' else (200, 200, 206)
+    bg = (255, 255, 255) if sheet_uses_anime_xl(style) else (200, 200, 206)
     canvas = Image.new('RGB', (size, size), bg)
     target_h = int(size * 0.78)
     ratio = target_h / max(1, boot.height)
@@ -1610,7 +1610,7 @@ def _trim_object_bbox(img: Image.Image, *, style: str, pad: int=12) -> Image.Ima
     rgb = img.convert('RGB')
     w, h = rgb.size
     px = rgb.load()
-    if style == 'anime':
+    if sheet_uses_anime_xl(style):
 
         def _fg(r, g, b) -> bool:
             if r > 230 and g > 230 and (b > 230):

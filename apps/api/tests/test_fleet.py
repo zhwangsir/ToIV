@@ -56,14 +56,33 @@ def test_registry_service_specs_legal():
 
 
 def test_registry_workstation_services_match_fleet():
-    """workstation 关键服务端口齐全(AGENTS.md 第三节分配,OpenTalking 实测 :4403)。"""
+    """workstation 关键服务端口对齐 AGENTS §三(Wave Default N2)。
+
+    必含:H3 生产口 8264、通用 8265、VLM 9311、IndexTTS 9200 等常驻。
+    必不含:已撤超分 8261、已下架 OpenTalking 4403、停用 H3 :8195 作唯一口。
+    CosyVoice/ASR/SenseVoice 真机探针后仍保留端口声明,但 probe=none 不进分母。
+    """
     ports = {s["port"] for s in DEVICES_BY_ID["workstation"]["services"]}
-    assert {8196, 8195, 8197, 8199, 8261, 8262, 8263, 8300, 9004,
-            9200, 9201, 9202, 9203, 9210, 9211, 9220, 9302, 9304,
-            9400, 9401, 9402, 9403, 4403} <= ports
+    # AGENTS 常驻 + 仍列的辅助服务
+    assert {8196, 8264, 8197, 8199, 8262, 8263, 8265, 8300, 9004,
+            9200, 9220, 9302, 9304, 9311,
+            9400, 9401, 9402, 9403, 9404} <= ports
+    # 声明仍在(勿误删),但已摘出在线率分母
+    assert {9201, 9202, 9203, 9210, 9211} <= ports
+    for port in (9201, 9202, 9203, 9210, 9211):
+        svc = next(s for s in DEVICES_BY_ID["workstation"]["services"] if s["port"] == port)
+        assert svc["probe"] == "none", f":{port} 须 probe=none 以免假 down 污染分母"
+        assert "Connection refused" in (svc.get("note") or "")
+    # 退役不得再入分母
+    assert 8195 not in ports, "H3 :8195 已停,不得作注册表 H3 口"
+    assert 8261 not in ports, "超分 :8261 已撤"
+    assert 4403 not in ports, "OpenTalking :4403 已下架"
     assert DEVICES_BY_ID["workstation"]["sysmetrics"] is True
     # sysmetrics 全量只挂 workstation;NAS 经 sysmetrics nas 段取数
     assert [d["id"] for d in DEVICE_REGISTRY if d.get("sysmetrics")] == ["workstation"]
+    # H3 条目 note/端口核对
+    h3 = next(s for s in DEVICES_BY_ID["workstation"]["services"] if s["port"] == 8264)
+    assert "H3" in h3["name"]
 
 
 # ─────────────────────────── 端点(mock 探测) ───────────────────────────

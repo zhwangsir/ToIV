@@ -27,7 +27,52 @@ logger = logging.getLogger(__name__)
 import app.services.studio.character_sheet.constants as _constants
 globals().update({k: v for k, v in vars(_constants).items() if not k.startswith('__')})
 
-SHEET_STYLES = ('ancient_realistic', 'anime')
+SHEET_STYLES = (
+    "ancient_realistic",
+    "anime",
+    "realistic",
+    "ink_wash",
+    "cyberpunk",
+    "three_d",
+)
+# pydantic / OpenAPI shared pattern (keep in sync with schemas.py)
+SHEET_STYLE_PATTERN = "^(ancient_realistic|anime|realistic|ink_wash|cyberpunk|three_d)$"
+
+_ANIME_XL_STYLES = frozenset({"anime", "ink_wash", "cyberpunk", "three_d", "二次元"})
+_PHOTOREAL_STYLES = frozenset({"ancient_realistic", "realistic"})
+
+_STYLE_ZH = {
+    "ancient_realistic": "古风写实",
+    "anime": "二次元",
+    "realistic": "写实",
+    "ink_wash": "水墨",
+    "cyberpunk": "赛博朋克",
+    "three_d": "3D",
+}
+
+
+def sheet_is_hanfu(style: str) -> bool:
+    """Only ancient_realistic uses hanfu costume gates."""
+    return style == "ancient_realistic"
+
+
+def sheet_uses_anime_xl(style: str) -> bool:
+    """Animagine XL + higher res / steps."""
+    return style in _ANIME_XL_STYLES
+
+
+def sheet_uses_anime_gates(style: str) -> bool:
+    """Chest emblem / raincoat collage / i2i anime path gates."""
+    return sheet_uses_anime_xl(style)
+
+
+def sheet_is_photoreal(style: str) -> bool:
+    return style in _PHOTOREAL_STYLES
+
+
+def sheet_style_zh(style: str) -> str:
+    return _STYLE_ZH.get(style, style or "")
+
 SHEET_W, SHEET_H = (2400, 3200)
 
 _PANEL_KEYS = ('portrait', 'front', 'side', 'back', 'faces', 'costume')
@@ -40,9 +85,23 @@ _EXPR_PROMPTS = ('stern majestic expression, extreme face closeup head and shoul
 
 LAYOUT = {'canvas': (SHEET_W, SHEET_H), 'portrait': (48, 48, 720, 1180), 'name': (48, 1240, 720, 72), 'profile': (48, 1320, 720, 420), 'turnaround': (800, 48, 1552, 1692), 'faces': (48, 1780, 760, 520), 'expressions': (840, 1780, 980, 520), 'costume': (48, 2340, 1180, 520), 'palette': (1260, 2340, 520, 200), 'notes': (1260, 2560, 1092, 300), 'footer': (48, 3080, 2304, 80)}
 
-_STYLE_SUFFIX = {'ancient_realistic': 'cinematic photorealistic character design, detailed silk fabric texture, traditional Chinese hanfu, ink-wash soft lighting, solid seamless dark gray background, no scenery, no text, character sheet quality', 'anime': 'anime, 2D illustration, cel shading, clean lineart, official character art, NOT photorealistic, NOT real photo, NOT 3D render, solid seamless light gray background, no scenery, no text'}
+_STYLE_SUFFIX = {
+    'ancient_realistic': 'cinematic photorealistic character design, detailed silk fabric texture, traditional Chinese hanfu, ink-wash soft lighting, solid seamless dark gray background, no scenery, no text, character sheet quality',
+    'anime': 'anime, 2D illustration, cel shading, clean lineart, official character art, NOT photorealistic, NOT real photo, NOT 3D render, solid seamless light gray background, no scenery, no text',
+    'realistic': 'photorealistic, 85mm lens, natural skin texture, cinematic lighting, detailed fabric texture, solid seamless dark gray background, no scenery, no text, character sheet quality',
+    'ink_wash': 'chinese ink wash painting, shuimo, monochrome brushwork, elegant brush strokes, solid seamless light gray background, no scenery, no text, character sheet quality',
+    'cyberpunk': 'cyberpunk, neon rim light, futuristic city vibe, anime, cel shading, clean lineart, solid seamless light gray background, no scenery, no text, character sheet quality',
+    'three_d': '3d character render, pixar-like stylization, soft global illumination, subsurface scattering, solid seamless light gray background, no scenery, no text, character sheet quality',
+}
 
-_STYLE_NEGATIVE = {'ancient_realistic': 'blurry, low quality, text, watermark, deformed, extra limbs, raincoat, windbreaker, hoodie, modern jacket, plastic umbrella, convenience store, neon lights, rain boots, plastic shopping bag, contemporary clothing, streetwear, zippered coat, white hair, silver hair, grey hair, multiple people, collage, split screen, grid, two people in one frame, glitch, chromatic aberration', 'anime': 'photorealistic, real photo, photograph, realistic skin pores, 3d render, western cartoon, blurry, low quality, text, watermark, chinese text, chinese characters, letters, alphabet, caption, subtitle, title, deformed, extra limbs, hanfu, ancient chinese clothing, white robe, white dress, white hair, silver hair, grey hair, blue hair, blonde hair, multiple people, collage, split screen, grid, two people in one frame, 1boy, 2boys, male, man, couple, duo, two girls, twins, glitch, chromatic aberration, scan lines, multiple faces, face sheet, sketch dump, concept art board, white jacket, white coat, beige cloak, brown cloak, red cloak, tan cape, khaki poncho, mannequin, human body in product shot, person wearing boots, white hoodie, white t-shirt, color-block hoodie, navy sleeves on white shirt, baseball cap, hat on stand, ceiling lamp, dome light, opaque black dome, hard hat, helmet, bowl, chest badge, chest emblem, chest logo, circular chest pattern, spiral emblem, five point star, star patch, white star on chest, embroidered star, round emblem on chest, brand patch, red badge, graphic print on torso, cloak, cape, poncho, wide sleeves, kimono sleeves'}
+_STYLE_NEGATIVE = {
+    'ancient_realistic': 'blurry, low quality, text, watermark, deformed, extra limbs, raincoat, windbreaker, hoodie, modern jacket, plastic umbrella, convenience store, neon lights, rain boots, plastic shopping bag, contemporary clothing, streetwear, zippered coat, white hair, silver hair, grey hair, multiple people, collage, split screen, grid, two people in one frame, glitch, chromatic aberration',
+    'anime': 'photorealistic, real photo, photograph, realistic skin pores, 3d render, western cartoon, blurry, low quality, text, watermark, chinese text, chinese characters, letters, alphabet, caption, subtitle, title, deformed, extra limbs, hanfu, ancient chinese clothing, white robe, white dress, white hair, silver hair, grey hair, blue hair, blonde hair, multiple people, collage, split screen, grid, two people in one frame, 1boy, 2boys, male, man, couple, duo, two girls, twins, glitch, chromatic aberration, scan lines, multiple faces, face sheet, sketch dump, concept art board, white jacket, white coat, beige cloak, brown cloak, red cloak, tan cape, khaki poncho, mannequin, human body in product shot, person wearing boots, white hoodie, white t-shirt, color-block hoodie, navy sleeves on white shirt, baseball cap, hat on stand, ceiling lamp, dome light, opaque black dome, hard hat, helmet, bowl, chest badge, chest emblem, chest logo, circular chest pattern, spiral emblem, five point star, star patch, white star on chest, embroidered star, round emblem on chest, brand patch, red badge, graphic print on torso, cloak, cape, poncho, wide sleeves, kimono sleeves',
+    'realistic': 'anime, illustration, painting brush strokes, cel shading, cartoon lines, blurry, low quality, text, watermark, deformed, extra limbs, white hair, silver hair, grey hair, multiple people, collage, split screen, grid, two people in one frame, glitch, chromatic aberration',
+    'ink_wash': 'vivid saturated colors, 3d render, photorealistic skin pores, neon lights, blurry, low quality, text, watermark, deformed, extra limbs, white hair, silver hair, multiple people, collage, split screen, grid, two people in one frame',
+    'cyberpunk': 'ancient chinese architecture, traditional painting, hanfu, pastoral, blurry, low quality, text, watermark, deformed, extra limbs, white hair, silver hair, multiple people, collage, split screen, grid, two people in one frame',
+    'three_d': 'flat 2d lineart, paper texture, photorealistic skin pores, blurry, low quality, text, watermark, deformed, extra limbs, white hair, silver hair, multiple people, collage, split screen, grid, two people in one frame',
+}
 
 def _costume_template_bytes(item_key: str, size: int=768) -> bytes:
     """程序化单品轮廓底图,供服饰 img2img 锚定形状(防白卫衣/畸变伞)。"""
@@ -641,7 +700,7 @@ def build_design_notes(meta: SheetMeta) -> str:
     role = (meta.role or _guess_field(meta.description, '身份') or '便利店员').strip()
     personality = (meta.personality or _guess_field(meta.description, '性格') or '温柔果断').strip()
     desc = (meta.description or '').strip()
-    style_zh = '古风写实' if meta.style == 'ancient_realistic' else '二次元'
+    style_zh = sheet_style_zh(meta.style) or ('古风写实' if sheet_is_hanfu(meta.style) else '二次元')
     if meta.style == 'ancient_realistic':
         if not (meta.role or _guess_field(meta.description, '身份')):
             _txt = _ancient_spec_text(meta)
@@ -713,7 +772,7 @@ def build_panel_prompts(meta: SheetMeta) -> dict[str, str]:
     base = _character_base(meta)
     suf = _STYLE_SUFFIX[style]
     name = meta.name
-    solid = 'solid seamless dark gray background' if style == 'ancient_realistic' else 'solid seamless light gray background'
+    solid = 'solid seamless dark gray background' if sheet_is_photoreal(style) else 'solid seamless light gray background'
     solo = '1girl, solo, single female only, alone, no other people, no male'
     if style == 'ancient_realistic':
         _spec = extract_ancient_costume_spec(meta)
@@ -793,7 +852,7 @@ class HeadcropSourceShort(CharacterSheetError):
 
 def _panel_size(key: str, style: str) -> tuple[int, int]:
     """按风格与面板类型选分辨率(SDXL anime 用更高档)。"""
-    sdxl = style == 'anime'
+    sdxl = sheet_uses_anime_xl(style)
     if key.startswith('expr_'):
         return (768, 768) if sdxl else (512, 512)
     if key == 'costume':

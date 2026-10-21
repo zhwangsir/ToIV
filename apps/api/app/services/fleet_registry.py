@@ -1,7 +1,9 @@
 """集群设备静态注册表(纯数据,无 IO)。
 
-唯一事实源:AGENTS.md 第一节「集群设备清单」+ 第三节 GPU 分配(2026-08-24 真机
-ss -tln 核对:OpenTalking 实际在 :4403,Animate2 :8199 已上线)。
+唯一事实源:AGENTS.md 第一节「集群设备清单」+ 第三节 GPU 分配
+(Wave Default N2 / 2026-10-22:H3 生产口 :8264;补 :8265/:9311;
+摘 :8261 与 OpenTalking :4403;CosyVoice/ASR/SenseVoice 2026-10-22
+真机 LAN 探针全 Connection refused → probe=none 摘出在线率分母,note 留末次探针)。
 
 字段约定:
 - probe_host:core 侧主动探测用的地址(core→workstation/pc 服务间调用走 LAN,
@@ -29,6 +31,14 @@ def _http(name: str, port: int, *, path: str = "/", kind: str | None = None,
     return svc
 
 
+def _declared(name: str, port: int, *, note: str | None = None) -> dict:
+    """声明式占位:probe=none → status 恒 unknown,不计入 x/y 分母。"""
+    svc: dict = {"name": name, "port": port, "probe": "none"}
+    if note:
+        svc["note"] = note
+    return svc
+
+
 def _tcp(name: str, port: int, *, note: str | None = None) -> dict:
     svc: dict = {"name": name, "port": port, "probe": "tcp"}
     if note:
@@ -51,23 +61,21 @@ DEVICE_REGISTRY: list[dict] = [
         "probe_host": _WS,
         "sysmetrics": True,
         "services": [
+            # —— AGENTS §三 现网常驻(在线率分母核心) ——
             _comfy("ComfyUI 通用", 8196, note="GPU0 · gpu0-alt 顶班(原 :8189 被占卡死)"),
-            _comfy("H3 主力视频", 8195, note="GPU2 · MiniMax H3"),
+            _comfy("H3 主力视频", 8264, note="GPU1 · MiniMax H3 生产口(AGENTS;:8195 已停)"),
             _comfy("LongCat", 8197, note="GPU0 · cache-lru 3"),
             _comfy("Wan-Animate-2", 8199, note="GPU3"),
             _comfy("Hunyuan3D 纹理 worker", 8200, note="GPU1 · Kijai wrapper"),
-            _comfy("超分 #1", 8261, note="GPU1"),
+            # :8261 超分#1 已撤(AGENTS);不再入分母
             _comfy("超分 #2", 8262, note="GPU2"),
-            _comfy("超分 #3", 8263, note="GPU3"),
-            _http("IndexTTS", 9200, note="GPU0 · 2.5"),
-            _http("CosyVoice2", 9201, note="GPU0"),
-            _http("CosyVoice3", 9202, note="GPU2"),
-            _http("Qwen3-TTS", 9203, note="GPU2"),
-            _http("ASR", 9210, note="GPU2"),
-            _http("SenseVoice", 9211, note="GPU2"),
-            _http("demucs", 9220, note="GPU2"),
+            _comfy("超分 #3", 8263, note="GPU3 · 亦在 LB 池"),
+            _comfy("通用 worker#3", 8265, note="GPU2 · LB 池扩容+SEEDVR2"),
+            _http("IndexTTS", 9200, note="GPU0 · 2.5 配音主路"),
+            _http("demucs", 9220, note="音频分离"),
             _http("FireRedASR", 8300, note="GPU2"),
             _http("Embedding", 9302, note="GPU1 · Qwen3-Embedding-4B"),
+            _http("ToIV VLM", 9311, note="GPU3 · Qwen3-VL-8B"),
             _http("JoyCaption", 9304, note="GPU0 · transformers 直跑"),
             _http("LiveAct", 9400, note="GPU1"),
             _http("SCoPE", 9401, note="运镜 40 步约 18min"),
@@ -75,7 +83,13 @@ DEVICE_REGISTRY: list[dict] = [
             _http("sysmetrics", 9403, note="系统指标小服务"),
             _http("hy3dtex", 9404, note="GPU0 · Hunyuan3D 2.1 纹理管线"),
             _http("FlashTalk", 9004, note="GPU3"),
-            _http("OpenTalking", 4403, note="GPU3 · unified"),
+            # —— CosyVoice/ASR/SenseVoice：真机探针后摘出分母(保留声明,勿误删) ——
+            _declared("CosyVoice2", 9201, note="2026-10-22 04:11 Asia/Shanghai · LAN 192.168.71.127 TCP Connection refused · 摘出在线率分母(probe=none)；对照 IndexTTS:9200 /health=200"),
+            _declared("CosyVoice3", 9202, note="2026-10-22 04:11 Asia/Shanghai · LAN 192.168.71.127 TCP Connection refused · 摘出在线率分母(probe=none)；对照 IndexTTS:9200 /health=200"),
+            _declared("Qwen3-TTS", 9203, note="2026-10-22 04:11 Asia/Shanghai · LAN 192.168.71.127 TCP Connection refused · 摘出在线率分母(probe=none)；对照 IndexTTS:9200 /health=200"),
+            _declared("ASR", 9210, note="2026-10-22 04:11 Asia/Shanghai · LAN 192.168.71.127 TCP Connection refused · 摘出在线率分母(probe=none)；对照 IndexTTS:9200 /health=200"),
+            _declared("SenseVoice", 9211, note="2026-10-22 04:11 Asia/Shanghai · LAN 192.168.71.127 TCP Connection refused · 摘出在线率分母(probe=none)；对照 IndexTTS:9200 /health=200"),
+            # OpenTalking :4403 已下架(AGENTS+TOIV_OPENTALKING_ENABLED=false),已摘
         ],
     },
     {
