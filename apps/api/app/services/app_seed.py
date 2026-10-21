@@ -28,6 +28,7 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.models import App, _now
 from app.services.workflow_convert import ui_to_api
+from app.services import app_deep_knobs as app_deep_knobs_svc
 from app.services.app_content_modes import MERGE_HIDE_IDS, SIMILAR_MERGE_HIDE_IDS
 from app.services.rh_h3_preset_seed import expand_rh_h3_presets
 from app.services.rh_family_preset_seed import expand_rh_family_presets
@@ -242,6 +243,8 @@ def _h3_params(*, with_images: bool = False, with_last_frame: bool = False,
         _num("length", "帧数", length, min_=17, max_=362, hint=length_hint),
         _num("steps", "采样步数", steps, min_=1, max_=50),
         _seed(),
+        app_deep_knobs_svc.h3_loras_param(),
+        app_deep_knobs_svc.resolution_target_param(),
     ]
     return params
 
@@ -321,6 +324,8 @@ def _ltx_params(*, with_negative: bool = True, with_images: bool = False,
              hint="须为 8k+1;97 帧 ≈ 6s @16fps"),
         _num("steps", "采样步数", 20, min_=1, max_=50),
         _seed(),
+        app_deep_knobs_svc.ltx_loras_param(),
+        app_deep_knobs_svc.resolution_target_param(),
     ]
     return params
 

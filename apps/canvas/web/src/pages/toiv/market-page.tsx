@@ -2,6 +2,10 @@ import { ArrowLeft, Loader2, Play, Plus, RefreshCw, Search, Sparkles, Upload, X 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
+import { TasksCenterLink } from "@/components/toiv/tasks-center-link";
+import { formatClientTimeoutMessage, isClientTimeoutError, isStillRunningMessage } from "@/services/toiv/client-timeout";
+import { formatSmokeBadgeLabel, smokeBadgeTone } from "@/services/toiv/smoke-badge";
+
 import { ToolButton } from "@/components/ui/base/buttons";
 import { AudioLines, Clapperboard, ImagePlus, Languages } from "lucide-react";
 import { StatusBadge } from "@/components/ui/base/badges";
@@ -12,17 +16,22 @@ import { LOCAL_AUDIO_HAS_SENSEVOICE, LOCAL_AUDIO_UNAVAILABLE_LABEL } from "@/lib
 import {
     appShowsR18Badge,
     appUploadKind,
+    applyMarketConvenienceChange,
     asMarketMediaList,
     buildDefaultRunValues,
     buildToivRunValues,
     canShowContentModeToggle,
+    enrichMarketSchemaWithDeepParams,
     fetchToivApp,
     fetchToivAppVariants,
     fetchToivAppsPage,
     firstPinWorker,
+    isMarketConvenienceKey,
+    mergeMarketModeChips,
     requiredToivParamLabel,
     resolveSubmitContentMode,
     runToivApp,
+    splitMarketRunParamsWithConvenience,
     toivCoverImageUrl,
     uploadToivMedia,
     type ContentMode,
@@ -71,10 +80,14 @@ function LocalBadges({ badge }: { badge: LocalCapabilityBadge }) {
 }
 
 function smokeBadge(app: ToivApp) {
-    if (app.smoke_status === "pass") return <StatusBadge variant="filled" tone="success" label="烟测通过" size="sm" />;
-    if (app.smoke_status === "fail") return <StatusBadge variant="filled" tone="error" label="烟测失败" size="sm" />;
-    if (app.smoke_status) return <StatusBadge variant="filled" tone="neutral" label={app.smoke_status} size="sm" />;
-    return null;
+    const label = formatSmokeBadgeLabel(app.smoke_status, {
+        id: app.id,
+        name: app.name,
+        description: app.description,
+        category: app.category,
+    });
+    if (!label) return null;
+    return <StatusBadge variant="filled" tone={smokeBadgeTone(app.smoke_status)} label={label} size="sm" />;
 }
 
 /** 市场卡封面：走 toivCoverImageUrl(?token=)；失败 → BeefTV 空态（类别字），禁止 raw cover_url / 死灰大方块 */
@@ -271,6 +284,118 @@ function MarketMediaField({
     );
 }
 
+
+type LoraPick = { name: string; strength: number };
+
+function LorasField({
+    param,
+    value,
+    onChange,
+    disabled,
+}: {
+    param: ToivAppParam;
+    value: unknown;
+    onChange: (key: string, next: unknown) => void;
+    disabled?: boolean;
+}) {
+    const LORA_CAP = 3;
+    const modeAuto = value == null;
+    const modeOff = Array.isArray(value) && value.length === 0;
+    const selected: LoraPick[] =
+        Array.isArray(value) && !modeOff ? (value as LoraPick[]) : [];
+    const strengthOf = (name: string) => selected.find((l) => l.name === name)?.strength ?? 0.6;
+    const set = (next: unknown) => onChange(param.key, next);
+    const toggle = (name: string, on: boolean) => {
+        if (on) {
+            if (selected.length >= LORA_CAP) return;
+            set([...selected, { name, strength: 0.6 }]);
+        } else {
+            const next = selected.filter((l) => l.name !== name);
+            set(next.length > 0 ? next : null);
+        }
+    };
+    const setStrength = (name: string, strength: number) => {
+        set(selected.map((l) => (l.name === name ? { ...l, strength } : l)));
+    };
+    const min = param.min ?? 0.5;
+    const max = param.max ?? 1.0;
+    const step = param.step ?? 0.05;
+    const atCap = selected.length >= LORA_CAP;
+    const options = param.options ?? [];
+    return (
+        <div className="flex flex-col gap-1.5 text-xs" data-testid="market-loras-field">
+            <span className="text-[var(--muted-foreground)]">{param.label}</span>
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="LoRA 模式">
+                <button
+                    type="button"
+                    disabled={disabled}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] ${modeAuto ? "border-[var(--workspace-accent)] bg-[var(--surface-active)]" : "border-[var(--border)] text-[var(--muted-foreground)]"}`}
+                    onClick={() => set(null)}
+                >
+                    AI 选配
+                </button>
+                <button
+                    type="button"
+                    disabled={disabled}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] ${modeOff ? "border-[var(--workspace-accent)] bg-[var(--surface-active)]" : "border-[var(--border)] text-[var(--muted-foreground)]"}`}
+                    onClick={() => set([])}
+                >
+                    关闭
+                </button>
+            </div>
+            {options.length === 0 ? (
+                <p className="text-[11px] text-[var(--muted-foreground)]">
+                    {modeOff ? "不叠加 LoRA" : "当前无 LoRA 列表（仍可 AI 选配或关闭）"}
+                </p>
+            ) : (
+                <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto rounded-md border border-[var(--border)] p-2">
+                    {options.map((o) => {
+                        const on = selected.some((l) => l.name === o.value);
+                        return (
+                            <div key={o.value} className="flex flex-col gap-1">
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={on}
+                                        disabled={disabled || (!on && atCap)}
+                                        onChange={(e) => toggle(o.value, e.target.checked)}
+                                    />
+                                    <span className="truncate" title={o.value}>
+                                        {o.label || o.value}
+                                    </span>
+                                    {o.nsfw ? (
+                                        <span className="rounded bg-[var(--destructive)]/15 px-1 text-[10px] text-[var(--destructive)]">
+                                            R18
+                                        </span>
+                                    ) : null}
+                                </label>
+                                {on && (
+                                    <label className="flex items-center gap-2 pl-6 text-[11px] text-[var(--muted-foreground)]">
+                                        强度
+                                        <input
+                                            type="range"
+                                            min={min}
+                                            max={max}
+                                            step={step}
+                                            value={strengthOf(o.value)}
+                                            disabled={disabled}
+                                            onChange={(e) => setStrength(o.value, Number(e.target.value))}
+                                            className="flex-1"
+                                            aria-label={`${o.label} 强度`}
+                                        />
+                                        <span className="w-8 tabular-nums">{strengthOf(o.value).toFixed(2)}</span>
+                                    </label>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+            {param.hint ? <p className="text-[11px] text-[var(--muted-foreground)]">{param.hint}</p> : null}
+        </div>
+    );
+}
+
 function ParamField({
     param,
     value,
@@ -289,6 +414,12 @@ function ParamField({
     const id = `mkt-param-${param.key}`;
     const common =
         "w-full rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-xs outline-none focus:border-[var(--workspace-accent)]";
+
+    if (param.type === "loras") {
+        return (
+            <LorasField param={param} value={value} onChange={onChange} disabled={disabled} />
+        );
+    }
 
     if (param.type === "switch") {
         return (
@@ -402,6 +533,8 @@ export default function MarketPage() {
     const [providerTick, setProviderTick] = useState(0);
     const [modes, setModes] = useState<ToivAppModeItem[]>([]);
     const [modesLoading, setModesLoading] = useState(false);
+    const [advOpen, setAdvOpen] = useState(false);
+    const [deepOpen, setDeepOpen] = useState(false);
     /** 双模卡 SFW|R18；R18 关时 resolve 强制 sfw */
     const [contentMode, setContentMode] = useState<ContentMode>("sfw");
     const [r18On, setR18On] = useState(() => isR18Mode());
@@ -467,11 +600,31 @@ export default function MarketPage() {
             setRunMsg(null);
             setValues({});
             setModes([]);
+            setAdvOpen(false);
+            setDeepOpen(false);
             setContentMode("sfw");
             try {
                 const full = await fetchToivApp(id);
                 setDetail(full);
-                setValues(buildDefaultRunValues(full.params_schema ?? []));
+                const schema0 = enrichMarketSchemaWithDeepParams(full.id, full.params_schema ?? []);
+                const base = buildDefaultRunValues(schema0);
+                const { convenience } = splitMarketRunParamsWithConvenience(schema0);
+                // 只回填 UI 键显示值，不覆盖 schema 默认 width/height/length/frames
+                for (const c of convenience) {
+                    if (c.key === "_ui_resolution") {
+                        const w = base.width;
+                        const h = base.height;
+                        base[c.key] =
+                            w != null && h != null && String(w) !== "" && String(h) !== ""
+                                ? `${w}x${h}`
+                                : (c.default ?? "");
+                    } else if (c.key === "_ui_duration") {
+                        base[c.key] = c.default ?? "";
+                    } else if (base[c.key] === undefined || base[c.key] === "") {
+                        base[c.key] = c.default ?? "";
+                    }
+                }
+                setValues(base);
                 // 纯 R18 卡默认 nsfw；双模默认 sfw(用户再切)
                 const modes = full.content_modes ?? [];
                 if (full.is_nsfw && !modes.includes("sfw")) setContentMode("nsfw");
@@ -566,7 +719,15 @@ export default function MarketPage() {
         }));
     }, [apps]);
 
-    const schema = detail?.params_schema ?? [];
+    const schema = useMemo(
+        () => enrichMarketSchemaWithDeepParams(detail?.id, detail?.params_schema ?? []),
+        [detail?.id, detail?.params_schema],
+    );
+    const paramSplit = useMemo(() => splitMarketRunParamsWithConvenience(schema), [schema]);
+    const modeChips = useMemo(
+        () => mergeMarketModeChips(detail?.id, modes),
+        [detail?.id, modes],
+    );
     const missing = detail ? requiredToivParamLabel(schema, values) : null;
     const registered = useMemo(
         () => (detail ? isMarketCanvasProvider(detail.id) : false),
@@ -575,7 +736,12 @@ export default function MarketPage() {
     const audioBlocked = Boolean(detail && isMarketAudioUnavailableApp(detail) && !LOCAL_AUDIO_HAS_SENSEVOICE);
 
     const onParamChange = (key: string, next: unknown) => {
-        setValues((prev) => ({ ...prev, [key]: next }));
+        setValues((prev) => {
+            if (isMarketConvenienceKey(key)) {
+                return applyMarketConvenienceChange(schema, key, next, prev);
+            }
+            return { ...prev, [key]: next };
+        });
     };
 
     const onRun = async () => {
@@ -599,10 +765,16 @@ export default function MarketPage() {
             setRunMsg(`已创建作业 ${receipt.job_id.slice(0, 8)}…，正在前往任务中心`);
             navigate(`/toiv/tasks?from=market&job=${encodeURIComponent(receipt.job_id)}`);
         } catch (err) {
-            const msg = err instanceof Error ? err.message : "运行失败";
-            setRunMsg(msg);
-            // 失败提示与成功提示同灰字会误导,失败单独着色
-            setRunFailed(true);
+            if (isClientTimeoutError(err)) {
+                // 客户端等待超时 ≠ 作业失败：作业可能已入队，引导任务中心
+                setRunMsg(formatClientTimeoutMessage());
+                setRunFailed(false);
+            } else {
+                const msg = err instanceof Error ? err.message : "运行失败";
+                setRunMsg(msg);
+                // 失败提示与成功提示同灰字会误导,失败单独着色
+                setRunFailed(true);
+            }
         } finally {
             setRunning(false);
         }
@@ -862,14 +1034,14 @@ export default function MarketPage() {
                                         SenseVoice 未接线，本应用不可在此页运行（勿当已配置）。音乐生成等非 SenseVoice 应用不受影响。
                                     </Callout>
                                 )}
-                                {(modesLoading || modes.length > 0) && (
+                                {(modesLoading || modeChips.length > 0) && (
                                     <div className="flex flex-col gap-2">
-                                        <p className="text-xs font-medium">模式</p>
+                                        <p className="text-xs font-medium">模式 / 扩展</p>
                                         {modesLoading ? (
                                             <p className="text-[11px] text-[var(--muted-foreground)]">加载模式…</p>
                                         ) : (
                                             <div className="flex flex-wrap gap-1.5">
-                                                {modes.map((m) => {
+                                                {modeChips.map((m) => {
                                                     const active = m.app_id === detail.id;
                                                     return (
                                                         <button
@@ -900,10 +1072,13 @@ export default function MarketPage() {
                                     </div>
                                 )}
 
-                                {schema.length > 0 && (
+                                {(paramSplit.core.length > 0 ||
+                                    paramSplit.convenience.length > 0 ||
+                                    paramSplit.advanced.length > 0 ||
+                                    paramSplit.deep.length > 0) && (
                                     <div className="flex flex-col gap-2 border-t border-[var(--border)] pt-3">
                                         <p className="text-xs font-medium">运行参数</p>
-                                        {schema.map((p) => (
+                                        {[...paramSplit.core, ...paramSplit.convenience].map((p) => (
                                             <ParamField
                                                 key={p.key}
                                                 param={p}
@@ -914,12 +1089,93 @@ export default function MarketPage() {
                                                 disabled={audioBlocked || running}
                                             />
                                         ))}
+                                        {paramSplit.advanced.length > 0 && (
+                                            <div className="flex flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--muted)]/30 p-2.5">
+                                                <button
+                                                    type="button"
+                                                    className="flex w-full items-center justify-between gap-2 text-left text-xs font-medium text-foreground"
+                                                    onClick={() => setAdvOpen((v) => !v)}
+                                                    aria-expanded={advOpen}
+                                                    data-testid="market-advanced-toggle"
+                                                >
+                                                    <span>
+                                                        常用高级（{paramSplit.advanced.length}）
+                                                        {r18On && appShowsR18Badge(detail) ? " · R18 可调" : ""}
+                                                    </span>
+                                                    <span className="text-[11px] text-[var(--muted-foreground)]">
+                                                        {advOpen ? "收起 ▴" : "展开 ▾"}
+                                                    </span>
+                                                </button>
+                                                {!advOpen && (
+                                                    <p className="text-[11px] text-[var(--muted-foreground)]">
+                                                        步数 / CFG / 种子 / 负向 / 重绘幅度等；默认收起，不吓新手。
+                                                    </p>
+                                                )}
+                                                {advOpen && (
+                                                    <div className="flex flex-col gap-2" data-testid="market-advanced-body">
+                                                        {paramSplit.advanced.map((p) => (
+                                                            <ParamField
+                                                                key={p.key}
+                                                                param={p}
+                                                                value={values[p.key]}
+                                                                onChange={onParamChange}
+                                                                uploadKind={detail ? appUploadKind(detail.id) : "img2img"}
+                                                                pinWorker={firstPinWorker(values)}
+                                                                disabled={audioBlocked || running}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {paramSplit.deep.length > 0 && (
+                                            <div className="flex flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 p-2.5">
+                                                <button
+                                                    type="button"
+                                                    className="flex w-full items-center justify-between gap-2 text-left text-xs font-medium text-foreground"
+                                                    onClick={() => setDeepOpen((v) => !v)}
+                                                    aria-expanded={deepOpen}
+                                                    data-testid="market-deep-toggle"
+                                                >
+                                                    <span>更深参数（{paramSplit.deep.length}）</span>
+                                                    <span className="text-[11px] text-[var(--muted-foreground)]">
+                                                        {deepOpen ? "收起 ▴" : "展开 ▾"}
+                                                    </span>
+                                                </button>
+                                                {!deepOpen && (
+                                                    <p className="text-[11px] text-[var(--muted-foreground)]">
+                                                        LoRA 叠加 / 输出超分等；仅本卡后端可接时显示。
+                                                    </p>
+                                                )}
+                                                {deepOpen && (
+                                                    <div className="flex flex-col gap-2" data-testid="market-deep-body">
+                                                        {paramSplit.deep.map((p) => (
+                                                            <ParamField
+                                                                key={p.key}
+                                                                param={p}
+                                                                value={values[p.key]}
+                                                                onChange={onParamChange}
+                                                                uploadKind={detail ? appUploadKind(detail.id) : "img2img"}
+                                                                pinWorker={firstPinWorker(values)}
+                                                                disabled={audioBlocked || running}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
                                 {runMsg && (
                                     <p className={`text-xs ${runFailed ? "text-[var(--destructive)]" : "text-[var(--muted-foreground)]"}`} role="status">
                                         {runMsg}
+                                        {isStillRunningMessage(runMsg) && (
+                                            <>
+                                                {" · "}
+                                                <TasksCenterLink className="underline underline-offset-2" />
+                                            </>
+                                        )}
                                     </p>
                                 )}
                                 {missing && (

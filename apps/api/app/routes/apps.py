@@ -84,6 +84,8 @@ from app.routes.video import _raise_from_comfy_error
 from app.services import app_covers as covers_svc
 from app.services.app_fingerprint import fingerprint as graph_fingerprint
 from app.services import h3_accel
+from app.services import app_deep_knobs as app_deep_knobs_svc
+from app.services.video_upscale import maybe_chain_upscale
 from app.services import seed_policy as seed_policy_svc
 from app.services import speed_tier as speed_tier_svc
 from app.services.app_content_modes import (
@@ -466,7 +468,13 @@ def _to_out(a: App, viewer: User, *, with_workflow: bool = False, slim: bool = F
         cover_url=a.cover_url or "",
         author=a.author or "",
         category=a.category,
-        params_schema=[] if slim else (a.params_schema or []),
+        params_schema=(
+            []
+            if slim
+            else app_deep_knobs_svc.enrich_params_schema(
+                a.id, a.params_schema or [], output_kind=a.output_kind
+            )
+        ),
         bindings={} if slim else (a.bindings or {}),
         required_nodes=[] if slim else (a.required_nodes or []),
         output_kind=a.output_kind,
@@ -521,7 +529,7 @@ def _validate_params(schema: list[dict], values: dict) -> dict:
         raise HTTPException(status_code=422, detail="values 必须是对象")
     known = {p["key"] for p in schema}
     # seed 为保留可选参数:即使用户卡未声明也可传,未传则 seed_policy 随机
-    known |= {"seed"}
+    known |= {"seed"} | set(app_deep_knobs_svc.RESERVED_DEEP_KEYS)
     unknown = [k for k in values if k not in known]
     if unknown:
         raise HTTPException(status_code=422, detail=f"未知参数: {unknown[:5]}")
@@ -576,6 +584,27 @@ def _validate_params(schema: list[dict], values: dict) -> dict:
     # 保留可选 seed(可不在 schema 内);供 seed_policy / Job.seed 使用
     if "seed" in values and "seed" not in out:
         out["seed"] = values.get("seed")
+    # 更深参数保留键(可不在 DB schema):loras / resolution_target
+    if "loras" in values and "loras" not in out:
+        try:
+            app_deep_knobs_svc.parse_loras_value(values.get("loras"))
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+        out["loras"] = values.get("loras")
+    if "resolution_target" in values and "resolution_target" not in out:
+        try:
+            out["resolution_target"] = app_deep_knobs_svc.normalize_resolution_target_value(
+                values.get("resolution_target")
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+    elif "resolution_target" in out:
+        try:
+            out["resolution_target"] = app_deep_knobs_svc.normalize_resolution_target_value(
+                out.get("resolution_target")
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
     return out
 
 
@@ -4406,6 +4435,11 @@ async def run_app(
     graph = _build_graph(run_app.workflow_json or {}, run_app.bindings or {}, values)
     if not graph:
         raise HTTPException(status_code=422, detail="应用未配置工作流图")
+    # 更深参数:H3/LTX LoRA 真注入图(无 loras 键则 noop,保持历史行为)
+    try:
+        lora_meta = app_deep_knobs_svc.apply_app_loras(graph, run_app.id, values, nsfw_intent=run_nsfw)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     # 全卡种子策略:未指定则每次随机写满图内 seed/noise_seed(含未绑定的 TextEncodeAce 等)
     seed_used = seed_policy_svc.apply_seed_policy(graph, values)
     values = {**values, "seed": seed_used}
@@ -4480,6 +4514,8 @@ async def run_app(
                 "speed_tier": speed_tier,
                 "speed_tier_steps_applied": steps_applied,
                 "speed_tier_steps_meta": steps_meta,
+                "loras_meta": lora_meta,
+                "resolution_target": values.get("resolution_target") or None,
             },
             ensure_ascii=False,
         ),
@@ -4495,6 +4531,16 @@ async def run_app(
 
     # 服务端后台追踪结果落库,不依赖客户端 SSE(同 generate 系端点)
     spawn_tracker(client, prompt_id)
+
+    # 输出超分:与引擎台同源 maybe_chain_upscale(无 target 则 noop)
+    upscale_chained = False
+    target = values.get("resolution_target") or None
+    if target:
+        try:
+            upscale_chained = bool(maybe_chain_upscale(prompt_id, str(target)))
+        except Exception as exc:  # noqa: BLE001 — 超分挂链失败不挡主作业
+            logger.warning("市场 run resolution_target 挂链失败 prompt=%s: %s", prompt_id, exc)
+            upscale_chained = False
 
     queued_behind = 0
     try:
@@ -4515,6 +4561,9 @@ async def run_app(
         "speed_tier": speed_tier,
         "speed_tier_steps_applied": steps_applied,
         "queued_behind": queued_behind,
+        "loras_applied": bool(lora_meta.get("applied")),
+        "resolution_target": target if target else None,
+        "upscale_chained": upscale_chained,
     }
 
 
