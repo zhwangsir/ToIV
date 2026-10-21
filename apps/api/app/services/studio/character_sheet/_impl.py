@@ -2870,7 +2870,14 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
         else:
             raise last_err or CharacterSheetError('主立绘生成失败', status_code=422)
     if 'portrait' not in override_keys:
-        assert_no_large_uniform_rect(panels['portrait'], label='主立绘', ref=panels.get('front'))
+        # F5: 二次元板岩灰雨衣平涂易触发均匀矩形；无 front 母版时警告放行（有 front 仍走相对门）
+        try:
+            assert_no_large_uniform_rect(panels['portrait'], label='主立绘', ref=panels.get('front'))
+        except CharacterSheetError as ure:
+            if sheet_uses_anime_gates(meta.style) and not panels.get('front'):
+                logger.warning('portrait uniform-rect soft-accept (anime slate flat, no front ref): %s', ure)
+            else:
+                raise
         assert_skin_not_blue_gray(panels['portrait'], label='主立绘', ref=panels.get('front'))
     panel_urls['portrait'] = save_panel_png(panels['portrait'], character_id=character_id, style=meta.style, key='portrait')
     ref_name: str | None = None
