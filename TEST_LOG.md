@@ -2323,3 +2323,18 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 - **进度**：`docs/ux/research/WAVE_F2_PROGRESS_20261022.md`
 - **未做**：F3–F5 / push / deploy / Acc / 安全 Dly
 - **标记**：`F2_CREW_ONE_CLICK_DONE`
+
+## 2026-10-22 · F3_BGM_KPI_DONE
+
+- **时间**：Asia/Shanghai；起点 tip `12052c14`；**无** push / deploy / restart；F3 **可 commit**
+- **BGM 声床**
+  - BE：`bgm_bed` + `mix_bgm_under_video` + assemble 混音；项目 `bgm_*`；上传 `/studio/projects/{pid}/bgm`
+  - FE：`BgmBedPanel`（时间线/合成）；挂 URL·上传·音量·对白闪避
+- **KPI 北向**
+  - BE：`ProductKpiEvent` + `/studio/kpi/events|summary`；合成记 episode_assembled
+  - FE：四指标面板 + `/toiv/kpi`；path_touch / rework / queue_wait 埋点；**空=暂无数据**
+- **测试**：bun 4 pass（bgm-bed / product-kpi）；pytest 5 pass（test_bgm_bed_f3 / test_product_kpi_f3）
+- **进度**：`docs/ux/research/WAVE_F3_PROGRESS_20261022.md`
+- **未做**：F4 剪映 · F0b 部署 · Acc · 安全 Dly · 雨夜一镜
+- **标记**：`F3_BGM_KPI_DONE`
+

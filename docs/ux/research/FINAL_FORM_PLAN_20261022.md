@@ -47,4 +47,5 @@
 - F0：✅ 见 `TEST_LOG.md` `F0_COMMIT_DONE`（tip 钉 `f915b665` 线）
 - F1：✅ 关键帧默认 · 失败码/质检 · 控片就绪灯 — 见 `WAVE_F1_PROGRESS_20261022.md` / `F1_KEYFRAME_QA_LAMPS_DONE`
 - F2：✅ 剧组一键成片（专家开关 → createAgentRun → agent_team_graph，人闸保留）— 见 `WAVE_F2_PROGRESS_20261022.md` / `F2_CREW_ONE_CLICK_DONE`
-- F3–F5：待分派
+- F3：✅ BGM 声床 + 北向 KPI — 见 `WAVE_F3_PROGRESS_20261022.md` / `F3_BGM_KPI_DONE`
+- F4–F5：待分派
