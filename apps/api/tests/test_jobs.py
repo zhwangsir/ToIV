@@ -591,3 +591,27 @@ def test_jobs_cleanup_failed_bulk_soft_delete(ctx):
     r = c.post(f"/api/jobs/{err_ids[0]}/restore", headers=h)
     assert r.status_code == 200
     assert c.get("/api/jobs/counts", headers=h).json()["failed"] == 1
+
+
+def test_job_dict_exposes_project_id():
+    """Wave P2 残余:_job_dict 透出 params/result 内 project_id(整批渲染回跳)。"""
+    from app.routes.jobs import _job_dict
+    from app.models import Job
+
+    with_params = Job(
+        tenant_id="t", user_id="u", prompt_id="p", worker="",
+        kind="studio_batch_render",
+        params='{"project_id":"proj-abc","pipeline":"ref2va"}',
+    )
+    assert _job_dict(with_params)["project_id"] == "proj-abc"
+
+    with_result = Job(
+        tenant_id="t", user_id="u", prompt_id="p2", worker="",
+        kind="studio_batch_render",
+        params="{}",
+        result='{"rendered":1,"failed":0,"project_id":"proj-from-result"}',
+    )
+    assert _job_dict(with_result)["project_id"] == "proj-from-result"
+
+    plain = Job(tenant_id="t", user_id="u", prompt_id="p3", worker="", kind="txt2img")
+    assert _job_dict(plain)["project_id"] == ""

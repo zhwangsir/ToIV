@@ -109,7 +109,7 @@ describe("studio-market-gap-p1 page contracts (source)", () => {
     });
 
     test("tasks page exposes unified timeline + empty/skeleton", () => {
-        expect(tasks).toContain("统一任务时间线");
+        expect(tasks).toContain("追踪作业进度");
         expect(tasks).toContain("listGenerationTasks");
         expect(tasks).toContain("TaskTimelineSkeleton");
         expect(tasks).toContain("还没有生成作业");

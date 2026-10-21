@@ -7,9 +7,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import Session, select
 
-from app.deps import get_current_admin
-from app.models import User
+from app.db import get_session
+from app.deps import get_current_admin, get_current_user
+from app.models import Job, User
 from app.services import fleet
 
 router = APIRouter(tags=["fleet"])
@@ -34,6 +36,82 @@ async def fleet_summary(_: User = Depends(get_current_admin)) -> dict:
             }
             for d in snapshot["devices"]
         ],
+    }
+
+
+
+
+@router.get("/fleet/brief")
+async def fleet_brief(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """创作台忙闲只读摘要(任意登录用户):人话排队/hold,**不暴露端口/worker URL**。
+
+    Wave P1.5 / L1:首页与短剧工作台消费;Admin 深潜仍走 /api/fleet。
+    """
+    snapshot = await fleet.get_snapshot()
+    devices = []
+    up_sum = total_sum = 0
+    online_n = 0
+    for d in snapshot.get("devices") or []:
+        up = int(d.get("services_up") or 0)
+        total = int(d.get("services_total") or 0)
+        up_sum += up
+        total_sum += total
+        if d.get("online"):
+            online_n += 1
+        devices.append({
+            "id": d.get("id"),
+            "name": d.get("name"),
+            "role": d.get("role"),
+            "online": d.get("online"),
+            "services_up": up,
+            "services_total": total,
+            "headline": d.get("headline") or "",
+        })
+    held = session.exec(
+        select(Job).where(
+            Job.user_id == user.id,
+            Job.status == "held",
+            Job.deleted_at == None,  # noqa: E712
+        )
+    ).all()
+    queued = session.exec(
+        select(Job).where(
+            Job.user_id == user.id,
+            Job.status.in_(("queued", "running")),  # type: ignore[attr-defined]
+            Job.deleted_at == None,  # noqa: E712
+        )
+    ).all()
+    held_n = len(list(held))
+    active_n = len(list(queued))
+    if held_n > 0:
+        level = "held"
+        summary = f"有 {held_n} 个任务在等资源释放；本地算力稍后再自动放行。"
+    elif active_n > 0:
+        level = "busy"
+        summary = f"本地算力忙碌中：你有 {active_n} 个任务在排队或生成。"
+    elif total_sum > 0 and up_sum == 0:
+        level = "offline"
+        summary = "本地算力暂不可达；可先写剧本与定妆，稍后再开拍。"
+    elif total_sum > 0 and up_sum < total_sum:
+        level = "degraded"
+        summary = f"本地算力部分可用（{up_sum}/{total_sum}）；空闲时可直接开拍。"
+    else:
+        level = "idle"
+        summary = "本地算力空闲，可直接开拍；忙碌时任务会自动排队。"
+    return {
+        "generated_at": snapshot.get("generated_at"),
+        "level": level,
+        "summary": summary,
+        "mine": {"held": held_n, "active": active_n},
+        "fleet": {
+            "online_devices": online_n,
+            "services_up": up_sum,
+            "services_total": total_sum,
+        },
+        "devices": devices,
     }
 
 

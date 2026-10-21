@@ -5,11 +5,13 @@ import { readFileSync } from "node:fs";
 const mw = readFileSync(new URL("../middleware.ts", import.meta.url), "utf-8");
 
 describe("F12 retired-face deep-link redirects", () => {
-    test("三条旧路径进 matcher 且 308 到 canvas 面", () => {
+    test("退役面 + /toiv 深链进 matcher 且 308 到 canvas 面", () => {
         assert.ok(mw.includes('"/library", "/library/:path*", "/market", "/market/:path*", "/tasks", "/tasks/:path*"'));
+        assert.ok(mw.includes('"/toiv", "/toiv/:path*"'));
         assert.ok(mw.includes("NextResponse.redirect(url, 308)"));
         assert.ok(mw.includes('"/studio/library$1"'));
         assert.ok(mw.includes('"/studio/toiv/market$1"'));
         assert.ok(mw.includes('"/studio/toiv/tasks$1"'));
+        assert.ok(mw.includes('"/studio/toiv$1"'));
     });
 });

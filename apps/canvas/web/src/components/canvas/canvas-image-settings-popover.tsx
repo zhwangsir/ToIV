@@ -8,6 +8,7 @@ import { canvasThemes } from "@/lib/canvas-theme";
 import { modelCapabilityConfigFor, normalizeImageValue } from "@/lib/model-capabilities";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
 import type { AiConfig } from "@/stores/use-config-store";
+import { LocalEnginePresetPanel } from "@/components/canvas/local-engine-preset-panel";
 
 type CanvasImageSettingsPopoverProps = {
     config: AiConfig;
@@ -17,12 +18,14 @@ type CanvasImageSettingsPopoverProps = {
     buttonClassName?: string;
     getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement;
     placement?: "topLeft" | "top" | "topRight" | "bottomLeft" | "bottom" | "bottomRight";
+    /** Wave P3 / G5：end=右侧停靠，减少盖住节点端口 */
+    dock?: "anchor" | "end";
     autoAdjustOverflow?: boolean;
     showCount?: boolean;
     summaryOverride?: string;
 };
 
-export function CanvasImageSettingsPopover({ config, onConfigChange, onOpenChange, buttonClassName, placement = "topLeft", showCount = true, summaryOverride }: CanvasImageSettingsPopoverProps) {
+export function CanvasImageSettingsPopover({ config, onConfigChange, onOpenChange, buttonClassName, placement = "topLeft", dock = "end", showCount = true, summaryOverride }: CanvasImageSettingsPopoverProps) {
     const theme = canvasThemes[useActiveTheme()];
     const buttonRef = useRef<HTMLSpanElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
@@ -66,7 +69,7 @@ export function CanvasImageSettingsPopover({ config, onConfigChange, onOpenChang
         };
     }, [onOpenChange, open]);
 
-    const panel = open && buttonRect ? <ImageSettingsPortal buttonRect={buttonRect} panelRef={panelRef} placement={placement} theme={theme} config={config} showCount={showCount} onConfigChange={onConfigChange} /> : null;
+    const panel = open && buttonRect ? <ImageSettingsPortal buttonRect={buttonRect} panelRef={panelRef} placement={placement} dock={dock} theme={theme} config={config} showCount={showCount} onConfigChange={onConfigChange} /> : null;
 
     if (!hasSettings) return null;
 
@@ -86,6 +89,7 @@ function ImageSettingsPortal({
     buttonRect,
     panelRef,
     placement,
+    dock = "end",
     theme,
     config,
     showCount,
@@ -94,6 +98,7 @@ function ImageSettingsPortal({
     buttonRect: DOMRect;
     panelRef: RefObject<HTMLDivElement | null>;
     placement: CanvasImageSettingsPopoverProps["placement"];
+    dock?: "anchor" | "end";
     theme: (typeof canvasThemes)[keyof typeof canvasThemes];
     config: AiConfig;
     showCount: boolean;
@@ -106,12 +111,17 @@ function ImageSettingsPortal({
     const alignCenter = placement === "top" || placement === "bottom";
     const left = alignCenter ? buttonRect.left + buttonRect.width / 2 - width / 2 : alignRight ? buttonRect.right - width : buttonRect.left;
     const topPlacement = placement?.startsWith("top");
+    const docked = dock === "end";
     const style = {
         position: "fixed",
         zIndex: "var(--z-dialog-popover)",
-        width,
-        left: Math.max(margin, Math.min(window.innerWidth - width - margin, left)),
-        ...(topPlacement ? { bottom: window.innerHeight - buttonRect.top + gap, maxHeight: Math.max(260, buttonRect.top - margin * 2) } : { top: buttonRect.bottom + gap, maxHeight: Math.max(260, window.innerHeight - buttonRect.bottom - margin * 2) }),
+        width: docked ? Math.min(360, window.innerWidth - margin * 2) : width,
+        ...(docked
+            ? { right: margin, top: Math.max(margin, 72), bottom: margin, left: "auto" as const, maxHeight: "none" as const }
+            : {
+                left: Math.max(margin, Math.min(window.innerWidth - width - margin, left)),
+                ...(topPlacement ? { bottom: window.innerHeight - buttonRect.top + gap, maxHeight: Math.max(260, buttonRect.top - margin * 2) } : { top: buttonRect.bottom + gap, maxHeight: Math.max(260, window.innerHeight - buttonRect.bottom - margin * 2) }),
+            }),
         background: theme.canvas.background,
         border: `1px solid ${theme.toolbar.border}`,
         borderRadius: 10,
@@ -124,12 +134,20 @@ function ImageSettingsPortal({
     return createPortal(
         <div
             ref={panelRef}
-            className="canvas-image-settings-popover aceternity-floating-panel backdrop-blur-2xl"
+            className="canvas-image-settings-popover aceternity-floating-panel backdrop-blur-2xl" data-dock={dock}
             style={style}
             onPointerDown={(event) => event.stopPropagation()}
             onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
         >
+            <div className="mb-3 border-b pb-3" style={{ borderColor: theme.toolbar.border }}>
+                <LocalEnginePresetPanel
+                    kind="image"
+                    modelRef={config.model || config.imageModel}
+                    theme={theme}
+                    onSelect={(preset) => onConfigChange("model", preset.modelRef)}
+                />
+            </div>
             <ImageSettingsPanel config={config} onConfigChange={(key, value) => onConfigChange(key, value)} theme={theme} showCount={showCount} quickCount={3} className="space-y-3" />
         </div>,
         document.body,

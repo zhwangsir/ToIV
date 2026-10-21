@@ -383,6 +383,37 @@ async def lipsync_for_shot(
     url = await lipsync_video(shot, pool)
     shot.final_clip_url = url
     shot.status = "lipsynced"
+    shot.lipsync_skipped = False
+    shot.error = ""
+    session.add(shot)
+    session.commit()
+    session.refresh(shot)
+    return url
+
+
+async def skip_lipsync_for_shot(session: Session, shot: StudioShot) -> str:
+    """跳过对口型:仅 mux 配音进成片,状态 → lipsynced 并标注 lipsync_skipped。
+
+    Wave P2 IA:须前端二次确认;成片标「未对口型」,仍可进合成(有音轨)。
+    前置:已有 video_url + voice_url;image_motion 由路由层拦截。
+    """
+    if not (shot.video_url or "").strip():
+        raise LipsyncError("分镜尚无视频,无法跳过口型")
+    if not (shot.voice_url or "").strip():
+        raise LipsyncError("分镜尚无配音,无法跳过口型")
+
+    async with httpx.AsyncClient(
+        timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True, trust_env=False
+    ) as http:
+        video_bytes = await _download(http, shot.video_url)
+        voice_bytes = await _download(http, shot.voice_url)
+
+    voice_bytes = await pad_audio_to_video_length(video_bytes, voice_bytes)
+    muxed = await mux_voice_into_clip(video_bytes, voice_bytes)
+    url = _save_clip(muxed)
+    shot.final_clip_url = url
+    shot.status = "lipsynced"
+    shot.lipsync_skipped = True
     shot.error = ""
     session.add(shot)
     session.commit()

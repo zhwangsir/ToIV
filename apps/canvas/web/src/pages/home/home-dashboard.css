@@ -74,3 +74,26 @@ body .app-user-workspace .app-workspace-sidebar-nav { background: var(--user-pag
 @media (max-width: 1100px) { .toiv-recent-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
 @media (max-width: 900px) { .toiv-home{padding:20px}.toiv-home-hero{min-height:230px}.toiv-capabilities{grid-template-columns:repeat(3,minmax(0,1fr));margin-block:34px 44px}.toiv-home-create-icon{width:130px;height:78px}.toiv-home-create-title{font-size:22px}.toiv-recent-grid{grid-template-columns:1fr} }
 @media (prefers-reduced-motion:reduce){.toiv-home *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.toiv-home-dot-flow{opacity:.24;transform:none}.toiv-home :is(a,button):hover{transform:none!important}}
+
+.toiv-home-hero-actions { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.toiv-home-secondary { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; border: 1px solid var(--user-border-strong); border-radius: 999px; padding: 8px 16px; background: var(--user-surface); color: var(--user-ink); cursor: pointer; font-size: 13px; line-height: 20px; }
+.toiv-home-secondary small { color: var(--user-ink-muted); font-size: 11px; line-height: 16px; font-weight: 400; }
+.toiv-home-secondary:hover { background: var(--user-surface-hover); }
+.toiv-home-secondary:disabled { opacity: .55; cursor: wait; }
+.toiv-home-fleet-hint { margin: 16px 0 0; padding: 0 4px; color: var(--user-ink-muted); font-size: 12px; line-height: 18px; }
+.toiv-home-more { margin-top: 20px; border: 1px solid var(--home-border); border-radius: 12px; padding: 8px 12px 12px; background: var(--user-surface); }
+.toiv-home-more > summary { cursor: pointer; list-style: none; font-size: 13px; line-height: 20px; color: var(--user-ink-muted); user-select: none; }
+.toiv-home-more > summary::-webkit-details-marker { display: none; }
+.toiv-home-more[open] > summary { margin-bottom: 8px; color: var(--user-ink); }
+.toiv-home-create:disabled { opacity: .7; cursor: wait; }
+
+
+/* Wave P1.5 L1/L5 */
+.toiv-compute-strip { margin: 16px 0 0; padding: 10px 12px; border: 1px solid var(--border, rgba(0,0,0,.08)); border-radius: 12px; background: var(--card, transparent); display: grid; gap: 6px; }
+.toiv-compute-strip-summary { margin: 0; color: var(--user-ink-muted, var(--muted-foreground)); font-size: 12px; line-height: 18px; }
+.toiv-compute-strip-deps { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
+.toiv-compute-strip-deps li { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); }
+.toiv-compute-strip-deps li[data-state="reachable"] { color: var(--success, #16803b); }
+.toiv-compute-strip-deps li[data-state="degraded"] { color: var(--warning, #a16207); }
+.toiv-compute-strip-deps li[data-state="unreachable"] { color: var(--destructive, #b91c1c); }
+.toiv-compute-strip-link { font-size: 11px; color: var(--primary); width: fit-content; }

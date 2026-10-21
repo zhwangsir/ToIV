@@ -1894,6 +1894,7 @@ function InfiniteCanvasPage() {
     const {
         activateStep: activateShortDramaStep,
         createPipeline: createShortDramaPipeline,
+        createImageToVideo: createImageToVideoTemplateAction,
         guideCollapsed: shortDramaGuideCollapsed,
         openStoryInput,
         progress: shortDramaProgress,
@@ -2507,7 +2508,13 @@ function InfiniteCanvasPage() {
     });
     const emptyCanvasState =
         emptyStateKind === "freeform" ? (
-            <CanvasFreeformEmptyState commands={freeformCreateCommands} onOpenAssistant={openAssistant} />
+            <CanvasFreeformEmptyState
+                commands={freeformCreateCommands}
+                onOpenAssistant={openAssistant}
+                onCreateShortDrama={createShortDramaPipeline}
+                onCreateImageToVideo={createImageToVideoTemplateAction}
+                onTidyLayout={autoArrangeCanvasNodes}
+            />
         ) : emptyStateKind === "linked" ? (
             <CanvasLinkedProjectEmptyState
                 projectName={linkedProjectQuery.data?.project.name || workspaceProject?.title || "项目画布"}
@@ -2522,6 +2529,7 @@ function InfiniteCanvasPage() {
         ) : emptyStateKind === "guided" ? (
             <CanvasShortDramaEmptyState
                 onCreatePipeline={createShortDramaPipeline}
+                onCreateImageToVideo={createImageToVideoTemplateAction}
                 onStartFreeform={() => updateProject(projectId, { starterMode: "freeform" })}
                 onUpload={() => handleUploadRequest()}
                 onAddText={() => createNode(CanvasNodeType.Text)}

@@ -173,6 +173,10 @@ class ProjectPatch(BaseModel):
     fps: int | None = Field(default=None, ge=4, le=30)
     # Batch3:项目级场景图 URL 列表(路由层落库 scene_images_json)
     scene_images: list[str] | None = Field(default=None, max_length=4)
+    # Wave P2:项目默认视频管线(ref2va|c|c_hybrid)
+    preferred_pipeline: str | None = Field(
+        default=None, pattern="^(ref2va|c|c_hybrid)$"
+    )
 
 
 class CharacterCreate(BaseModel):
@@ -242,9 +246,9 @@ class ScriptParseRequest(BaseModel):
 
 
 class CharacterSheetRequest(BaseModel):
-    """Batch7:生成角色设定卡(古风写实 / 二次元)。"""
+    """Batch7:生成角色设定卡(古风写实/二次元/写实/水墨/赛博/3D)。"""
 
-    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    style: str = Field(..., pattern="^(ancient_realistic|anime|realistic|ink_wash|cyberpunk|three_d)$")
     apply_to_video_refs: bool = Field(
         default=False,
         description="True 时才把本风格立绘+三视图写入 reference_images_by_style 分桶(不改扁平 reference_images)",
@@ -266,7 +270,7 @@ class CharacterSheetRequest(BaseModel):
 class CharacterSheetPanelsRequest(BaseModel):
     """Batch7 21:30:分区锁定 + 单格/多格重生成。"""
 
-    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    style: str = Field(..., pattern="^(ancient_realistic|anime|realistic|ink_wash|cyberpunk|three_d)$")
     apply_to_video_refs: bool = Field(
         default=False,
         description="True 时才把本风格立绘+三视图写入 reference_images_by_style 分桶(不改扁平 reference_images)",
@@ -293,7 +297,7 @@ class CharacterSheetPanelsRequest(BaseModel):
 class CharacterSheetRecomposeRequest(BaseModel):
     """Batch7:只改资料文字重拼整卡(锁全部图像格,不跑 Comfy,不写 refs)。"""
 
-    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    style: str = Field(..., pattern="^(ancient_realistic|anime|realistic|ink_wash|cyberpunk|three_d)$")
     height_cm: int = Field(default=168, ge=120, le=220)
     role: str = Field(default="", max_length=100)
     personality: str = Field(default="", max_length=200)
@@ -308,7 +312,7 @@ class CharacterSheetRecomposeRequest(BaseModel):
 class CharacterAssetPutRequest(BaseModel):
     """角色资产协议 L2:白名单字段补丁(锚点/档案/锁定/负向约束/色板/覆盖)。"""
 
-    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    style: str = Field(..., pattern="^(ancient_realistic|anime|realistic|ink_wash|cyberpunk|three_d)$")
     identity_anchors: list[dict] | None = Field(default=None, max_length=10)
     profile: dict | None = None
     canonical_prompt: dict | None = None
@@ -326,20 +330,20 @@ class CharacterAssetPutRequest(BaseModel):
 class CharacterAssetRefreshRequest(BaseModel):
     """面板重生成后的版本级联:从最新面板文件刷新 coverage/panels 并 version+1。"""
 
-    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    style: str = Field(..., pattern="^(ancient_realistic|anime|realistic|ink_wash|cyberpunk|three_d)$")
     reason: str = Field(..., min_length=1, max_length=200)
 
 
 class CharacterAssetCardRequest(BaseModel):
     """D2:渲染对外展示卡(一张图全家桶)——资产集的视图,非一致性来源。"""
 
-    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    style: str = Field(..., pattern="^(ancient_realistic|anime|realistic|ink_wash|cyberpunk|three_d)$")
 
 
 class CharacterAssetCoveragePlanRequest(BaseModel):
     """M2:覆盖缺口登记 + 补拍计划(只出计划不执行)。"""
 
-    style: str = Field(..., pattern="^(ancient_realistic|anime)$")
+    style: str = Field(..., pattern="^(ancient_realistic|anime|realistic|ink_wash|cyberpunk|three_d)$")
     angles: list[str] | None = Field(default=None, max_length=8)
     framings: list[str] | None = Field(default=None, max_length=8)
     lightings: list[str] | None = Field(default=None, max_length=8)

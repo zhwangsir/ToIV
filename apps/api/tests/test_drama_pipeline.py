@@ -8,6 +8,7 @@
   ⑤ 分裂态 recoverable 检出(shot error 但匹配 Job done 且产物可取回)
   ⑥ 端点鉴权:401 未登录 / 404 不存在 / 404 他人项目(不泄露存在性)
   ⑦ studio next_step 纯函数:render/voice/lipsync/assemble/done/空项目/error 优先
+  ⑦b N7 无台词越过 voice/lipsync;有台词字段仍走 voice;混合项目分母正确
   ⑧ studio /status 端点契约:原字段不变,追加 next_step 且 {pid} 已填充
   ⑨ 重算性能:24 分镜项目全量重算 ms 级
 """
@@ -323,8 +324,8 @@ def test_endpoint_auth_and_ownership(ctx):
 # ── ⑦ studio next_step 纯函数 ──────────────────────────────────────────────
 
 
-def _studio_shot(idx: int, status: str) -> StudioShot:
-    return StudioShot(project_id="p1", idx=idx, status=status)
+def _studio_shot(idx: int, status: str, dialogue: str = "") -> StudioShot:
+    return StudioShot(project_id="p1", idx=idx, status=status, dialogue=dialogue)
 
 
 def test_studio_next_step_pure_function():
@@ -334,26 +335,61 @@ def test_studio_next_step_pure_function():
     # 全 draft → render
     ns = pipeline_svc.compute_studio_next_step([_studio_shot(0, "draft"), _studio_shot(1, "draft")])
     assert ns["step"] == "render" and ns["todo"] == 2
-    # 全 rendered → voice
+    # 全 rendered + 空台词 → assemble(N7:越过 voice/lipsync;有成片前不标 done)
     ns = pipeline_svc.compute_studio_next_step(
         [_studio_shot(0, "rendered"), _studio_shot(1, "rendered")]
     )
+    assert ns["step"] == "assemble" and ns["todo"] == 2
+    # 全 rendered + 有台词 → voice
+    ns = pipeline_svc.compute_studio_next_step(
+        [
+            _studio_shot(0, "rendered", "你好"),
+            _studio_shot(1, "rendered", "世界"),
+        ]
+    )
     assert ns["step"] == "voice" and ns["todo"] == 2
-    # 全 voiced → lipsync
-    ns = pipeline_svc.compute_studio_next_step([_studio_shot(0, "voiced")])
+    # 全 voiced(有台词) → lipsync
+    ns = pipeline_svc.compute_studio_next_step([_studio_shot(0, "voiced", "台词")])
     assert ns["step"] == "lipsync"
     # 全 lipsynced → assemble
-    ns = pipeline_svc.compute_studio_next_step([_studio_shot(0, "lipsynced")])
+    ns = pipeline_svc.compute_studio_next_step([_studio_shot(0, "lipsynced", "台词")])
     assert ns["step"] == "assemble"
     # 全 done → done
     ns = pipeline_svc.compute_studio_next_step([_studio_shot(0, "done")])
     assert ns["step"] == "done" and ns["action"] == ""
     # error 优先:只有渲染段会置 error(orchestrator),error 分镜排首位
     err_shot = _studio_shot(1, "error")
-    ns = pipeline_svc.compute_studio_next_step([_studio_shot(0, "voiced"), err_shot])
+    ns = pipeline_svc.compute_studio_next_step([_studio_shot(0, "voiced", "有词"), err_shot])
     assert ns["step"] == "render"
     assert ns["shot_ids"][0] == err_shot.id
     assert ns["action"] == "/studio/projects/{pid}/render"
+
+
+def test_studio_next_step_no_dialogue_skips_voice_lipsync():
+    """N7 / Wave P2:无台词不进 voice/lipsync 分母;混合项目只催有词镜。"""
+    # 空白台词等同无词
+    ns = pipeline_svc.compute_studio_next_step([_studio_shot(0, "rendered", "   ")])
+    assert ns["step"] == "assemble"
+    assert ns["todo"] == 1
+    # 字段存在即需配音(勿把有台词未写库误判——本测覆盖「写了就要 voice」)
+    spoken = _studio_shot(0, "rendered", "雨还在下")
+    silent = _studio_shot(1, "rendered", "")
+    ns = pipeline_svc.compute_studio_next_step([spoken, silent])
+    assert ns["step"] == "voice"
+    assert ns["todo"] == 1
+    assert ns["shot_ids"] == [spoken.id]
+    # 有词已 voiced、无词 rendered → 仍 lipsync(只催有词)
+    ns = pipeline_svc.compute_studio_next_step(
+        [_studio_shot(0, "voiced", "开口"), _studio_shot(1, "rendered", "")]
+    )
+    assert ns["step"] == "lipsync"
+    assert ns["todo"] == 1
+    # 有词 lipsynced + 无词 rendered → assemble(两边都未 done)
+    ns = pipeline_svc.compute_studio_next_step(
+        [_studio_shot(0, "lipsynced", "开口"), _studio_shot(1, "rendered", "")]
+    )
+    assert ns["step"] == "assemble"
+    assert ns["todo"] == 2
 
 
 # ── ⑧ studio /status 端点契约:原字段不变 + next_step 追加 ──────────────────

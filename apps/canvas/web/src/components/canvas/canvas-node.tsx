@@ -20,6 +20,7 @@ import { CanvasImageAnnotationEditor } from "./canvas-node-annotation-dialog";
 import { CanvasImageMaskEditor, type CanvasImageMaskEditPayload } from "./canvas-node-mask-edit-dialog";
 import type { AiConfig } from "@/stores/use-config-store";
 import { canvasMediaNodeOrigin, canvasMediaNodeRole } from "@/lib/canvas/canvas-node-semantics";
+import { canvasPortHoverTitle } from "@/lib/canvas/canvas-port-business-labels";
 
 type ResizeCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 type CanvasTheme = (typeof canvasThemes)[keyof typeof canvasThemes];
@@ -578,8 +579,8 @@ export const CanvasNode = React.memo(function CanvasNode({
                 </> : null}
             </div>
 
-            {!readOnly && data.type !== CanvasNodeType.Script && data.type !== CanvasNodeType.BatchTable ? <ConnectionSideRail side="left" scale={scale} theme={theme} visible={hovered || isSelected || forceInputVisible} onPointerDown={(event, anchorRatio) => onConnectStart(event, data.id, "target", undefined, anchorRatio)} /> : null}
-            {!readOnly && data.type !== CanvasNodeType.Script && data.type !== CanvasNodeType.Config && showOutputConnection ? <ConnectionSideRail side="right" scale={scale} theme={theme} visible={hovered || isSelected} onPointerDown={(event, anchorRatio) => onConnectStart(event, data.id, "source", undefined, anchorRatio)} /> : null}
+            {!readOnly && data.type !== CanvasNodeType.Script && data.type !== CanvasNodeType.BatchTable ? <ConnectionSideRail side="left" nodeType={data.type} scale={scale} theme={theme} visible={hovered || isSelected || forceInputVisible} onPointerDown={(event, anchorRatio) => onConnectStart(event, data.id, "target", undefined, anchorRatio)} /> : null}
+            {!readOnly && data.type !== CanvasNodeType.Script && data.type !== CanvasNodeType.Config && showOutputConnection ? <ConnectionSideRail side="right" nodeType={data.type} scale={scale} theme={theme} visible={hovered || isSelected} onPointerDown={(event, anchorRatio) => onConnectStart(event, data.id, "source", undefined, anchorRatio)} /> : null}
 
         </div>
     );
@@ -869,7 +870,7 @@ function NodeStatusBadge({ status, cancelled = false }: { status: "loading" | "s
     );
 }
 
-function ConnectionSideRail({ side, scale, theme, visible = false, onPointerDown }: { side: "left" | "right"; scale: number; theme: CanvasTheme; visible?: boolean; onPointerDown: (event: React.PointerEvent, anchorRatio: number) => void }) {
+function ConnectionSideRail({ side, scale, theme, visible = false, nodeType, handleId, onPointerDown }: { side: "left" | "right"; scale: number; theme: CanvasTheme; visible?: boolean; nodeType?: string | null; handleId?: string | null; onPointerDown: (event: React.PointerEvent, anchorRatio: number) => void }) {
     const handleRef = useRef<HTMLSpanElement>(null);
     const [railHovered, setRailHovered] = useState(false);
     const inverseScale = 1 / Math.max(scale, 0.05);
@@ -921,7 +922,8 @@ function ConnectionSideRail({ side, scale, theme, visible = false, onPointerDown
                 resetHandle();
             }}
             onPointerDown={(event) => onPointerDown(event, 0.5)}
-            aria-label={`${side === "left" ? "输入" : "输出"}连接点，单击创建节点或拖动连线`}
+            title={canvasPortHoverTitle(side === "left" ? "target" : "source", nodeType, handleId)}
+            aria-label={`${canvasPortHoverTitle(side === "left" ? "target" : "source", nodeType, handleId)}，单击创建节点或拖动连线`}
         >
             <span
                 ref={handleRef}

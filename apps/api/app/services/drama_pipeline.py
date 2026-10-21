@@ -439,12 +439,22 @@ _STUDIO_STEP_LABELS: dict[str, tuple[str, str]] = {
 }
 
 
+def _studio_needs_audio(shot: StudioShot) -> bool:
+    """有非空台词才走配音/口型(与 Drama voiceable=`dialogue.strip()` 一致)。
+
+    Wave P2 / N7:无台词镜在 render 已达后越过 voice/lipsync,避免 next_step 永久卡「分镜配音」。
+    字段存在且 strip 后非空 → 必须配音;空白串不算台词。
+    """
+    return bool((getattr(shot, "dialogue", None) or "").strip())
+
+
 def compute_studio_next_step(shots: list[StudioShot]) -> dict[str, Any]:
     """Studio 管线纯函数:首个未达阶段 = next_step(draft→render→voice→lipsync→assemble→done)。
 
     - 无分镜 → render(先拆/先渲)
-    - 全体越过某阶段才进入下一阶段;待办分镜 error 优先排序
-    - 全体 done → done
+    - voice/lipsync 仅统计有台词分镜(对齐 Drama);无台词且已 rendered+ 视为已越过
+    - 其余阶段对全体分镜;待办分镜 error 优先排序
+    - 无台词全 rendered → assemble(有成片/全 done 才 done);不在本函数写库改状态
     返回 action 中 {pid}/{sid} 为占位符,由路由层按项目填充。
     """
     if not shots:
@@ -454,7 +464,14 @@ def compute_studio_next_step(shots: list[StudioShot]) -> dict[str, Any]:
     first: str | None = None
     pending: list[StudioShot] = []
     for stage in ("render", "voice", "lipsync", "assemble"):
-        pending = [s for s in shots if s.status not in _STUDIO_REACH[stage]]
+        if stage in ("voice", "lipsync"):
+            pending = [
+                s
+                for s in shots
+                if _studio_needs_audio(s) and s.status not in _STUDIO_REACH[stage]
+            ]
+        else:
+            pending = [s for s in shots if s.status not in _STUDIO_REACH[stage]]
         if pending:
             first = stage
             break

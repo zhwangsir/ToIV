@@ -69,7 +69,7 @@ export const CANVAS_SHORTCUTS: CanvasShortcutItem[] = [
         id: "auto-arrange",
         category: "navigation",
         title: "整理画布",
-        description: "按节点类型和连接关系自动整理画布布局",
+        description: "一键整理：按节点类型和连接关系正交排布",
         keys: [["Option", "Shift", "F"]],
         keywords: ["排列", "整理", "自动布局", "arrange"],
     },

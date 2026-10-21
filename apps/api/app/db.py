@@ -139,7 +139,12 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("studiocharacter", "reference_images_by_style", "reference_images_by_style VARCHAR NOT NULL DEFAULT '{}'"),
     # Batch3:项目级场景图绑定
     ("studioproject", "scene_images_json", "scene_images_json VARCHAR NOT NULL DEFAULT '[]'"),
+    # Wave P2:项目默认视频管线持久化
+    ("studioproject", "preferred_pipeline", "preferred_pipeline VARCHAR NOT NULL DEFAULT 'ref2va'"),
+    # Wave P2:跳过口型标注(BOOLEAN 默认 FALSE, PG 不认 0)
+    ("studioshot", "lipsync_skipped", "lipsync_skipped BOOLEAN NOT NULL DEFAULT FALSE"),
 )
+
 
 # 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。
 # agents 表:create_all 已建新库;此处保 prod 既有库幂等补建。

@@ -74,6 +74,8 @@ const RETIRED_FACE_REDIRECTS: ReadonlyArray<[RegExp, string]> = [
   [/^\/library(\/.*)?$/, "/studio/library$1"],
   [/^\/market(\/.*)?$/, "/studio/toiv/market$1"],
   [/^\/tasks(\/.*)?$/, "/studio/toiv/tasks$1"],
+  // Wave P1 / G4: 公网裸 /toiv/* → /studio/toiv/*（含 /toiv/tasks 深链）
+  [/^\/toiv(\/.*)?$/, "/studio/toiv$1"],
 ];
 
 export async function middleware(req: NextRequest) {
@@ -98,4 +100,4 @@ export async function middleware(req: NextRequest) {
   return NextResponse.rewrite(url);
 }
 
-export const config = { matcher: ["/", "/studio", "/studio/:path*", "/library", "/library/:path*", "/market", "/market/:path*", "/tasks", "/tasks/:path*"] };
+export const config = { matcher: ["/", "/studio", "/studio/:path*", "/library", "/library/:path*", "/market", "/market/:path*", "/tasks", "/tasks/:path*", "/toiv", "/toiv/:path*"] };

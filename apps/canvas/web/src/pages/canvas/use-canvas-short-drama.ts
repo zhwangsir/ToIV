@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { App } from "antd";
 
 import { createShortDramaPipeline, deriveShortDramaProgress, persistShortDramaGuideDismissed, readShortDramaGuideDismissed, type CanvasShortDramaStepId } from "@/lib/canvas/canvas-short-drama";
+import { createImageToVideoTemplate } from "@/lib/canvas/canvas-image-to-video-template";
 import type { CanvasConnection, CanvasNodeData, Position } from "@/types/canvas";
 
 type UseCanvasShortDramaOptions = {
@@ -50,6 +51,18 @@ export function useCanvasShortDrama({ nodes, connections, nodesRef, connectionsR
         message.success("短剧流水线已创建");
     }, [connectionsRef, fitCanvasSelection, getCanvasCenter, message, nodesRef, selectNodes, setConnections, setNodes, setStylePickerOpen]);
 
+    const createImageToVideo = useCallback(() => {
+        if (nodesRef.current.length) return message.info("当前画布已有内容，请在新画布使用图生视频模板");
+        const tpl = createImageToVideoTemplate(getCanvasCenter());
+        nodesRef.current = tpl.nodes;
+        connectionsRef.current = tpl.connections;
+        setNodes(tpl.nodes);
+        setConnections(tpl.connections);
+        selectNodes(tpl.nodes.map((node) => node.id));
+        queueMicrotask(() => fitCanvasSelection());
+        message.success("图生视频模板已创建");
+    }, [connectionsRef, fitCanvasSelection, getCanvasCenter, message, nodesRef, selectNodes, setConnections, setNodes]);
+
     const openStoryInput = useCallback((nodeId?: string) => {
         const storyNode = (nodeId ? nodesRef.current.find((node) => node.id === nodeId) : undefined)
             || nodesRef.current.find((node) => node.metadata?.workflowKind === "story_input")
@@ -95,6 +108,7 @@ export function useCanvasShortDrama({ nodes, connections, nodesRef, connectionsR
     return {
         activateStep,
         createPipeline,
+        createImageToVideo,
         guideCollapsed,
         openStoryInput,
         progress,

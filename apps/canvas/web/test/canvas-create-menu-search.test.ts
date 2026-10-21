@@ -22,7 +22,7 @@ describe("LibTV add-node menu search", () => {
     test("uses the LibTV compact list and exposes the resource-history entry", () => {
         expect(toolbarSource).toContain('<CanvasCreateMenu commands={commands} layout="list" />');
         expect(toolbarSource).toContain("w-[232px]");
-        expect(definitions).toContain('label: "智能剪辑"');
+        expect(definitions).toContain('label: "合成"');
         expect(definitions).toContain('label: "从生成历史选择"');
         expect(definitions).toContain('label: "上传"');
     });

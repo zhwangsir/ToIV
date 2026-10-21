@@ -93,7 +93,7 @@ function collectSourceFiles(directory: string): string[] {
 }
 
 describe("旧内置 Agent 页面入口退场", () => {
-    test("首页不再提供 Agent 能力入口，手工创作入口仍然指向真实画布路径", () => {
+    test("首页主 CTA 为新建短剧，画布能力收入更多能力折叠，不再嵌 Agent 入口", () => {
         const markup = renderToStaticMarkup(
             <MemoryRouter>
                 <HomeDashboard projects={[]} loading={false} error={false} onRetry={() => {}} />
@@ -101,16 +101,14 @@ describe("旧内置 Agent 页面入口退场", () => {
         );
         expect(markup).not.toContain("BeefTV Agent");
         expect(markup).not.toContain('data-mode="agent"');
-        expect(markup).toContain("新建画布创作");
-        for (const [label, href] of [
-            ["自由画布", "/canvas?mode=new"],
-            ["视频生成", "/canvas?mode=new&amp;add=video"],
-            ["图片生成", "/canvas?mode=new&amp;add=image"],
-            ["音频生成", "/canvas?mode=new&amp;add=audio"],
-        ] as const) {
-            expect(markup).toContain(label);
-            expect(markup).toContain(href);
-        }
+        expect(markup).toContain("新建短剧");
+        expect(markup).not.toContain("新建画布创作");
+        expect(markup).toContain("打开雨夜示例");
+        expect(markup).toContain("最近短剧");
+        expect(markup).toContain("更多能力");
+        // 能力瓷砖仍存在于折叠区内（同源数据），但不作为主同权入口
+        expect(markup).toContain("自由画布");
+        expect(markup).toContain("/canvas?mode=new");
     });
 
     test("创作页模式切换只剩图片/视频/文本，不再渲染 Agent 模式", () => {

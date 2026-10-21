@@ -1,49 +1,70 @@
-import { Clock3, Folder, FolderOpen, Layers3, Palette, Sparkles, UploadCloud, UserRound, Workflow } from "lucide-react";
+import { Clock3, Folder, FolderOpen, Layers3, Palette, UploadCloud, UserRound, Workflow } from "lucide-react";
 
 import { getNodeIcon, getNodeLabel } from "@/lib/canvas/node-registry";
 import { CANVAS_DEVELOPING_LABEL, getCanvasNodeCreationDisabledReason } from "@/lib/canvas/canvas-feature-availability";
 import { registerAddNodeMenuCommands, type AddNodeMenuCommand } from "@/lib/canvas/tool-registry";
 import { CanvasNodeType } from "@/types/canvas";
-import { LOCAL_CREATE_PRESETS } from "@/services/toiv/local-capability-surface";
+import { defaultLocalImagePreset, defaultLocalVideoPreset } from "@/services/toiv/local-capability-surface";
 
 /** 真正创建节点的命令，文案与图标统一取自节点注册表。 */
 function nodeCommand(type: CanvasNodeType, rest: Omit<AddNodeMenuCommand, "id" | "label" | "icon" | "section">): AddNodeMenuCommand {
     return { id: type, label: getNodeLabel(type), icon: getNodeIcon(type), section: "node", ...rest };
 }
 
+/**
+ * Wave P3 / N5 / D3-A：
+ * 一级 = 创作语义（文本/图像/视频/音频/合成/分组）；
+ * 不再把引擎型号挂进一级；默认视频绑短剧主路（H3）。
+ */
 export const addNodeMenuCommands: AddNodeMenuCommand[] = [
     // 项目级动作不占用节点网格，创作节点保持统一排列。
     { id: "style", label: "项目画风", icon: <Palette />, section: "project", defaultOrder: 10, applicable: (ctx) => !ctx.isProjectLinked, run: (ctx) => ctx.handlers.onChooseStyle() },
-    // 创作节点
-    nodeCommand(CanvasNodeType.Text, { defaultOrder: 10, run: (ctx) => ctx.handlers.onAddText() }),
-    nodeCommand(CanvasNodeType.Image, { defaultOrder: 20, run: (ctx) => ctx.handlers.onAddImage() }),
-    nodeCommand(CanvasNodeType.Video, { defaultOrder: 30, run: (ctx) => ctx.handlers.onAddVideo() }),
-
-    // 本地预置引擎（toiv-comfy-image / toiv-h3 / toiv-comfy-video×6）——硬编码，不接线 RH 应用
-    ...LOCAL_CREATE_PRESETS.map((preset) => ({
-        id: preset.id,
-        label: preset.label,
-        icon: <Sparkles />,
-        badge: preset.badge,
-        section: "node" as const,
-        defaultOrder: preset.defaultOrder,
-        applicable: (ctx: Parameters<NonNullable<AddNodeMenuCommand["applicable"]>>[0]) => Boolean(ctx.handlers.onAddLocalGenerator),
-        run: (ctx: Parameters<AddNodeMenuCommand["run"]>[0]) => {
-            ctx.handlers.onAddLocalGenerator?.({
-                type: preset.nodeType,
-                model: preset.modelRef,
-                title: preset.label,
-            });
-        },
-    })),
-    nodeCommand(CanvasNodeType.Audio, { defaultOrder: 40, applicable: (ctx) => ctx.workspaceMode !== "simple", run: (ctx) => ctx.handlers.onAddAudio() }),
-    { ...nodeCommand(CanvasNodeType.MediaConversion, { defaultOrder: 50, run: (ctx) => ctx.handlers.onAddExtensionNode(CanvasNodeType.MediaConversion) }), label: "智能剪辑", badge: CANVAS_DEVELOPING_LABEL, disabledReason: getCanvasNodeCreationDisabledReason(CanvasNodeType.MediaConversion) },
+    // 创作节点（语义一级）
+    { ...nodeCommand(CanvasNodeType.Text, { defaultOrder: 10, run: (ctx) => ctx.handlers.onAddText() }), label: "文本" },
+    {
+        ...nodeCommand(CanvasNodeType.Image, {
+            defaultOrder: 20,
+            run: (ctx) => {
+                const preset = defaultLocalImagePreset();
+                if (ctx.handlers.onAddLocalGenerator) {
+                    ctx.handlers.onAddLocalGenerator({ type: "image", model: preset.modelRef, title: "图像" });
+                    return;
+                }
+                ctx.handlers.onAddImage();
+            },
+        }),
+        label: "图像",
+    },
+    {
+        ...nodeCommand(CanvasNodeType.Video, {
+            defaultOrder: 30,
+            run: (ctx) => {
+                const preset = defaultLocalVideoPreset();
+                if (ctx.handlers.onAddLocalGenerator) {
+                    ctx.handlers.onAddLocalGenerator({ type: "video", model: preset.modelRef, title: "视频" });
+                    return;
+                }
+                ctx.handlers.onAddVideo();
+            },
+        }),
+        label: "视频",
+    },
+    { ...nodeCommand(CanvasNodeType.Audio, { defaultOrder: 40, applicable: (ctx) => ctx.workspaceMode !== "simple", run: (ctx) => ctx.handlers.onAddAudio() }), label: "音频" },
+    {
+        ...nodeCommand(CanvasNodeType.MediaConversion, {
+            defaultOrder: 50,
+            run: (ctx) => ctx.handlers.onAddExtensionNode(CanvasNodeType.MediaConversion),
+        }),
+        label: "合成",
+        badge: CANVAS_DEVELOPING_LABEL,
+        disabledReason: getCanvasNodeCreationDisabledReason(CanvasNodeType.MediaConversion),
+    },
     // 导演台落在节点分区，但它开的是导演工作台、不是某种画布节点，故不走注册表。
     { id: "director", label: "导演台", icon: <Layers3 />, section: "node", defaultOrder: 60, applicable: (ctx) => ctx.workspaceMode !== "simple", run: (ctx) => ctx.handlers.onOpenDirector() },
     { ...nodeCommand(CanvasNodeType.Frame, { defaultOrder: 70, applicable: (ctx) => ctx.workspaceMode !== "simple", run: (ctx) => ctx.handlers.onAddFrame() }), label: "逐帧拉片", badge: CANVAS_DEVELOPING_LABEL, disabledReason: getCanvasNodeCreationDisabledReason(CanvasNodeType.Frame) },
     { ...nodeCommand(CanvasNodeType.Script, { defaultOrder: 80, run: (ctx) => ctx.handlers.onAddScript() }), label: "脚本", badge: CANVAS_DEVELOPING_LABEL, disabledReason: getCanvasNodeCreationDisabledReason(CanvasNodeType.Script) },
     nodeCommand(CanvasNodeType.Drawing, { defaultOrder: 90, run: (ctx) => ctx.handlers.onAddDrawing() }),
-    { id: "folder", label: "文件夹", icon: <Folder />, badge: "6 款", section: "node", defaultOrder: 95, run: (ctx) => ctx.handlers.onAddFolder() },
+    { id: "folder", label: "分组", icon: <Folder />, badge: "6 款", section: "node", defaultOrder: 95, run: (ctx) => ctx.handlers.onAddFolder() },
     nodeCommand(CanvasNodeType.BatchTable, { defaultOrder: 100, run: (ctx) => ctx.handlers.onAddExtensionNode(CanvasNodeType.BatchTable) }),
     // 云端和本地工作流共用独立配置节点，不进入基础模型节点的渠道选择。
     { id: "workflow", label: "工作流", icon: <Workflow />, section: "workflow", defaultOrder: 10, applicable: (ctx) => ctx.workspaceMode !== "simple", run: (ctx) => ctx.handlers.onAddWorkflow() },

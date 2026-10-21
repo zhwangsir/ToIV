@@ -1,22 +1,27 @@
-import { ArrowLeft, Clapperboard, Film, Images, Loader2, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { ArrowLeft, Clapperboard, Film, Images, Loader2, Plus, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { ToolButton } from "@/components/ui/base/buttons";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { formatDateTime } from "@/lib/time-format";
-import { fetchDramaProjects, type ToivDramaProject } from "@/services/toiv/client";
+import { createStudioProject, fetchDramaProjects, seedRainNightSample, type ToivDramaProject } from "@/services/toiv/client";
 import { FromImageDialog } from "./from-image-dialog";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 
 const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
     draft: { tone: "neutral", text: "草稿" },
-    rendering: { tone: "loading", text: "渲染中" },
-    voiced: { tone: "loading", text: "已配音" },
-    lipsynced: { tone: "loading", text: "已对口型" },
+    ready: { tone: "success", text: "已就绪" },
+    queued: { tone: "warning", text: "排队中" },
+    rendering: { tone: "loading", text: "生成中" },
+    rendered: { tone: "success", text: "已出视频" },
+    voiced: { tone: "success", text: "已配音" },
+    lipsynced: { tone: "success", text: "已对口型" },
     done: { tone: "success", text: "已完成" },
     error: { tone: "error", text: "失败" },
+    failed: { tone: "error", text: "失败" },
+    storyboard: { tone: "warning", text: "分镜中" },
 };
 
 function ShotProgress({ p }: { p: NonNullable<ToivDramaProject["pipeline"]> }) {
@@ -39,10 +44,14 @@ function ShotProgress({ p }: { p: NonNullable<ToivDramaProject["pipeline"]> }) {
 
 export default function DramaPage() {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [projects, setProjects] = useState<ToivDramaProject[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const [fromImageOpen, setFromImageOpen] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const [actionNote, setActionNote] = useState<string | null>(null);
+    const autoNewOnce = useRef(false);
 
     const load = useCallback(async () => {
         setLoading(true); setError(false);
@@ -51,22 +60,62 @@ export default function DramaPage() {
         finally { setLoading(false); }
     }, []);
 
+    const createBlank = useCallback(async () => {
+        if (creating) return;
+        setCreating(true);
+        setActionNote(null);
+        try {
+            const project = await createStudioProject({ title: "未命名短剧" });
+            navigate(`/toiv/ws/${encodeURIComponent(project.id)}?section=script`);
+        } catch (e) {
+            setActionNote(e instanceof Error ? e.message : "新建短剧失败");
+        } finally {
+            setCreating(false);
+        }
+    }, [creating, navigate]);
+
+    const openRainNight = useCallback(async () => {
+        setActionNote(null);
+        try {
+            const sample = await seedRainNightSample();
+            navigate(`/toiv/ws/${encodeURIComponent(sample.id)}?section=script`);
+        } catch (e) {
+            setActionNote(e instanceof Error ? e.message : "打开雨夜示例失败");
+        }
+    }, [navigate]);
+
     useEffect(() => { void load(); }, [load]);
+
+    // 侧栏/命令面板「新建短剧」→ /toiv/drama?new=1
+    useEffect(() => {
+        if (searchParams.get("new") !== "1" || autoNewOnce.current) return;
+        autoNewOnce.current = true;
+        const next = new URLSearchParams(searchParams);
+        next.delete("new");
+        setSearchParams(next, { replace: true });
+        void createBlank();
+    }, [searchParams, setSearchParams, createBlank]);
 
     return (
         <WorkspacePage fluid className="toiv-drama-page">
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
             <header className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
-                    <h1 className="text-xl font-semibold leading-7 text-foreground">短剧工作台</h1>
+                    <h1 className="text-xl font-semibold leading-7 text-foreground">短剧项目</h1>
                     <p className="text-xs leading-5 text-muted-foreground">剧本 → 资产 → 分镜 → 镜头 → 时间线 → 成片,打开项目进六段工作区</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                    <ToolButton variant="default" active icon={<Plus className="size-4" />} label="新建短剧" onClick={() => void createBlank()} loading={creating} />
+                    <ToolButton variant="default" icon={<Clapperboard className="size-4" />} label="雨夜示例" onClick={() => void openRainNight()} />
                     <ToolButton variant="default" icon={<Images className="size-4" />} label="从图片创建" onClick={() => setFromImageOpen(true)} />
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
                     <Link to="/"><ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" /></Link>
                 </div>
             </header>
+
+            {actionNote && projects.length > 0 ? (
+                <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive" role="alert">{actionNote}</p>
+            ) : null}
 
             {fromImageOpen && (
                 <FromImageDialog
@@ -78,7 +127,18 @@ export default function DramaPage() {
 
             {loading ? <div className="flex min-h-64 items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></div>
                 : error ? <EmptyState description="读取失败，请刷新重试" />
-                : projects.length === 0 ? <EmptyState description="还没有短剧项目；对智能体说「帮我把这个剧本做成短剧」即可开工" />
+                : projects.length === 0 ? (
+                    <EmptyState
+                        description={actionNote || "还没有短剧项目。可新建空白短剧，或打开雨夜示例对照学习；也可对智能体描述需求。"}
+                        action={
+                            <div className="flex flex-wrap items-center justify-center gap-2">
+                                <ToolButton variant="default" active icon={<Plus className="size-4" />} label="新建短剧" onClick={() => void createBlank()} loading={creating} />
+                                <ToolButton variant="default" icon={<Clapperboard className="size-4" />} label="打开雨夜示例" onClick={() => void openRainNight()} />
+                                <Link to="/toiv/agent"><ToolButton variant="default" label="去智能体对话" /></Link>
+                            </div>
+                        }
+                    />
+                )
                 : (
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
                         {projects.map((p) => {

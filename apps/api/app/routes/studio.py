@@ -48,6 +48,79 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+@router.get("/studio/deps-status")
+async def studio_deps_status(
+    user: User = Depends(get_current_user),
+) -> dict:
+    """短剧依赖三态(L5):工作站 API / 配音 / 视频引擎。可达|降级|不可达;**不暴露端口**。"""
+    import asyncio
+    import httpx
+    from app.config import get_settings
+
+    settings = get_settings()
+    user  # 鉴权占位:任意登录用户可读
+
+    async def _probe(url: str, path: str = "") -> str:
+        """返回 reachable | unreachable(本函数不做 degraded;上层拼)。"""
+        base = (url or "").strip().rstrip("/")
+        if not base:
+            return "unreachable"
+        target = f"{base}{path}" if path else base
+        try:
+            async with httpx.AsyncClient(timeout=3.0, trust_env=False) as client:
+                r = await client.get(target)
+            # 任何 HTTP 响应视为可达(与 fleet 口径一致)
+            _ = r.status_code
+            return "reachable"
+        except Exception:  # noqa: BLE001
+            return "unreachable"
+
+    # 工作站=本 API 能答即可达(本请求即证明);降级留给将来扩展
+    api_state = "reachable"
+    tts_url = getattr(settings, "tts_url", "") or ""
+    h3_url = getattr(settings, "h3_base_url", "") or ""
+    tts_state, h3_state = await asyncio.gather(
+        _probe(tts_url, "/health"),
+        _probe(h3_url, "/system_stats"),
+    )
+    # H3 偶发 /system_stats 404 仍算可达——再试根路径
+    if h3_state == "unreachable":
+        h3_state = await _probe(h3_url, "/")
+
+    def _pack(key: str, state: str, label: str, blocked_cta: str) -> dict:
+        human = {
+            "reachable": f"{label}可用",
+            "degraded": f"{label}降级可用，部分功能可能变慢",
+            "unreachable": {
+                "tts": "配音服务暂不可用，可先完成分镜与出视频，稍后再配音。",
+                "h3": "视频引擎暂不可用，可先写剧本与定妆，稍后再生成。",
+                "api": "工作站暂不可达，请稍后刷新。",
+            }.get(key, f"{label}暂不可用"),
+        }[state]
+        return {
+            "id": key,
+            "label": label,
+            "state": state,
+            "summary": human,
+            "block_cta": state == "unreachable",
+            "blocked_hint": blocked_cta if state == "unreachable" else "",
+        }
+
+    deps = [
+        _pack("api", api_state, "工作站算力", "请稍后刷新再试"),
+        _pack("tts", tts_state, "配音服务", "可先完成分镜与出视频，稍后再配音。"),
+        _pack("h3", h3_state, "视频引擎", "可先写剧本与定妆，稍后再生成。"),
+    ]
+    overall = "reachable"
+    if any(d["state"] == "unreachable" for d in deps):
+        overall = "unreachable" if all(d["state"] == "unreachable" for d in deps[1:]) else "degraded"
+    elif any(d["state"] == "degraded" for d in deps):
+        overall = "degraded"
+    return {"overall": overall, "deps": deps}
+
+
+
+
 # ── 工具 ──────────────────────────────────────────────────────────────────
 
 
@@ -499,7 +572,7 @@ async def _generate_sheet_core(
 
 
 class FrameVariantsRequest(BaseModel):
-    style: str = Field(default="anime", pattern="^(anime|ancient_realistic)$")
+    style: str = Field(default="anime", pattern="^(ancient_realistic|anime|realistic|ink_wash|cyberpunk|three_d)$")
 
 
 # ── S9(2026-10-11):字幕对齐——台词↔whisper 时间轴,SRT 内嵌/外挂双出 ──
@@ -2329,6 +2402,8 @@ class RenderProjectBody(BaseModel):
 
     # 显式加速档:产品默认满血 off;非法值 → 422(h3_accel.validate_acceleration)。
     accel: str = Field(default="off", max_length=16)
+    # Wave P2 / D7-A:整批也可选管线;默认 ref2va(与单镜一致);c/c_hybrid 为专家档。
+    pipeline: str = Field(default="ref2va", max_length=16)
     # 待办 #2:默认 wait=true 兼容 canvas 长等({rendered,failed});
     # wait=false → 202+job_id,回写挂 Job 生命周期(断连不杀)。
     wait: bool = Field(
@@ -2340,6 +2415,16 @@ class RenderProjectBody(BaseModel):
     @classmethod
     def _check_accel(cls, v: str) -> str:
         return h3_accel.validate_acceleration(v)
+
+    @field_validator("pipeline")
+    @classmethod
+    def _check_pipeline(cls, v: str) -> str:
+        p = (v or "ref2va").strip().lower() or "ref2va"
+        if p not in ("ref2va", "c", "c_hybrid", "legacy"):
+            raise PydanticCustomError(
+                "pipeline_invalid", "pipeline 仅支持 ref2va | c | c_hybrid | legacy"
+            )
+        return p
 
 
 @router.post("/studio/shots/{sid}/render")
@@ -2474,10 +2559,11 @@ def pick_shot_candidate(
 _BATCH_KIND = "studio_batch_render"
 
 
-async def _run_batch_render(job_id: str, pid: str, accel: str) -> None:
+async def _run_batch_render(job_id: str, pid: str, accel: str, pipeline: str = "ref2va") -> None:
     """整批渲染后台协程:自持 Session,与 HTTP 请求生命周期脱钩(待办 #2)。
 
     客户端断连只取消等待方,不取消本任务;进度写入 Job.progress / 终态写 result。
+    pipeline 默认 ref2va(Wave P2 管线选择器);seam=continue 单镜仍由 orchestrator 内部切 C。
     """
     from app.db import engine as _engine
     from app.models import Job
@@ -2534,7 +2620,7 @@ async def _run_batch_render(job_id: str, pid: str, accel: str) -> None:
                         request=None,
                         video_model="h3",
                         num_candidates=2,
-                        pipeline="ref2va",
+                        pipeline=pipeline or "ref2va",
                         accel=accel,
                         accel_echo=accel_echo,
                         wait=True,
@@ -2559,6 +2645,7 @@ async def _run_batch_render(job_id: str, pid: str, accel: str) -> None:
                 "failed": failed,
                 "project_id": pid,
                 "acceleration": accel,
+                "pipeline": pipeline or "ref2va",
                 "acceleration_applied": applied_any,
             },
             progress={
@@ -2604,6 +2691,7 @@ async def render_batch(
 
     project = _get_project(session, pid, user)
     accel = (body.accel if body is not None else "off") or "off"
+    pipe = (body.pipeline if body is not None else "ref2va") or "ref2va"
     do_wait = True if body is None else bool(body.wait)
 
     job = Job(
@@ -2618,6 +2706,7 @@ async def render_batch(
             body or RenderProjectBody(),
             project_id=pid,
             accel=accel,
+            pipeline=pipe,
         ),
     )
     session.add(job)
@@ -2627,7 +2716,7 @@ async def render_batch(
     session.add(job)
     session.commit()
 
-    _asyncio.create_task(_run_batch_render(job.id, pid, accel))
+    _asyncio.create_task(_run_batch_render(job.id, pid, accel, pipe))
 
     if not do_wait:
         return JSONResponse(
@@ -2637,6 +2726,7 @@ async def render_batch(
                 "status": "queued",
                 "project_id": pid,
                 "acceleration": accel,
+                "pipeline": pipe,
             },
         )
 
@@ -2905,6 +2995,26 @@ async def voice_one(
         await voice_svc.synth_for_shot(session, shot, character)
     except voice_svc.VoiceError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
+    return _shot_out(shot)
+
+
+@router.post("/studio/shots/{sid}/lipsync/skip")
+async def lipsync_skip(
+    sid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """跳过对口型(二次确认后调用):mux 配音→成片,标 lipsync_skipped=未对口型。"""
+    shot = session.get(StudioShot, sid)
+    if not shot:
+        raise HTTPException(status_code=404, detail="分镜不存在")
+    _get_project(session, shot.project_id, user)
+    if (shot.render_mode or "video") == "image_motion":
+        raise HTTPException(status_code=422, detail="图像运镜镜无需对口型")
+    try:
+        await lipsync_svc.skip_lipsync_for_shot(session, shot)
+    except lipsync_svc.LipsyncError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     return _shot_out(shot)
 
 

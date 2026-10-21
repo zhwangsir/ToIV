@@ -58,7 +58,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-image",
         kind: "image",
-        label: "本地·出图",
+        label: "图像",
         worker: LOCAL_IMAGE_WORKER_LABEL,
         engine: "Comfy",
         protocol: "toiv-comfy-image",
@@ -67,7 +67,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-h3",
         kind: "h3",
-        label: "本地·H3",
+        label: "短剧视频",
         worker: LOCAL_H3_WORKER_LABEL,
         engine: "H3",
         protocol: "toiv-h3",
@@ -76,7 +76,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-longcat",
         kind: "longcat",
-        label: "本地·LongCat",
+        label: "长视频",
         worker: LOCAL_VIDEO_WORKER_LABEL,
         engine: "LongCat",
         protocol: "toiv-comfy-video",
@@ -85,7 +85,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-vace",
         kind: "vace",
-        label: "本地·VACE",
+        label: "视频编辑",
         worker: LOCAL_VIDEO_WORKER_LABEL,
         engine: "VACE",
         protocol: "toiv-comfy-video",
@@ -94,7 +94,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-animate2",
         kind: "animate",
-        label: "本地·Animate2",
+        label: "动作视频",
         worker: LOCAL_VIDEO_ANIMATE_WORKER_LABEL,
         engine: "Animate2",
         protocol: "toiv-comfy-video",
@@ -103,7 +103,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-continue",
         kind: "continue",
-        label: "本地·Continue",
+        label: "视频续写",
         worker: LOCAL_VIDEO_WORKER_LABEL,
         engine: "Continue",
         protocol: "toiv-comfy-video",
@@ -112,7 +112,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-avatar",
         kind: "avatar",
-        label: "本地·Avatar",
+        label: "数字人",
         worker: LOCAL_VIDEO_WORKER_LABEL,
         engine: "Avatar",
         protocol: "toiv-comfy-video",
@@ -121,7 +121,7 @@ export const LOCAL_MARKET_FEATURED: readonly LocalMarketFeaturedEntry[] = [
     {
         id: "local-wan",
         kind: "wan",
-        label: "本地·Wan",
+        label: "视频生成",
         worker: LOCAL_VIDEO_WORKER_LABEL,
         engine: "Wan",
         protocol: "toiv-comfy-video",
@@ -289,11 +289,11 @@ export type LocalCreatePreset = {
     defaultOrder: number;
 };
 
-/** create-menu 预置：出图 + H3 + 出视频 6 引擎。 */
+/** 引擎/模型预置（节点设置用）。一级添加菜单不再直挂引擎名；默认视频=H3。 */
 export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     {
         id: "local-preset-comfy-image",
-        label: "本地·出图",
+        label: "图像",
         badge: "本地",
         nodeType: "image",
         modelRef: LOCAL_IMAGE_MODEL_REF,
@@ -302,7 +302,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-h3",
-        label: "本地·H3",
+        label: "短剧视频",
         badge: "本地",
         nodeType: "video",
         modelRef: LOCAL_H3_MODEL_REF,
@@ -312,7 +312,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-wan",
-        label: "本地·Wan",
+        label: "视频生成",
         badge: "本地",
         nodeType: "video",
         modelRef: `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL}`,
@@ -322,7 +322,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-longcat",
-        label: "本地·LongCat",
+        label: "长视频",
         badge: "本地",
         nodeType: "video",
         modelRef: `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL_LONGCAT}`,
@@ -332,7 +332,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-vace",
-        label: "本地·VACE",
+        label: "视频编辑",
         badge: "本地",
         nodeType: "video",
         modelRef: `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL_VACE}`,
@@ -342,7 +342,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-animate",
-        label: "本地·Animate2",
+        label: "动作视频",
         badge: "本地",
         nodeType: "video",
         modelRef: `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL_ANIMATE}`,
@@ -352,7 +352,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-continue",
-        label: "本地·Continue",
+        label: "视频续写",
         badge: "本地",
         nodeType: "video",
         modelRef: `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL_CONTINUE}`,
@@ -362,7 +362,7 @@ export const LOCAL_CREATE_PRESETS: readonly LocalCreatePreset[] = [
     },
     {
         id: "local-preset-avatar",
-        label: "本地·Avatar",
+        label: "数字人",
         badge: "本地",
         nodeType: "video",
         modelRef: `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL_AVATAR}`,
@@ -408,6 +408,56 @@ export function sortMarketAppsDefault<T extends { id: string }>(apps: T[]): T[] 
 export function localMarketFeaturedAppIds(): string[] {
     return LOCAL_MARKET_FEATURED.map((e) => e.appId).filter((id): id is string => Boolean(id));
 }
+
+
+/** Wave P3 / N5 / D3-A：一级添加菜单用创作语义；引擎进设置。 */
+export function defaultLocalImagePreset(): LocalCreatePreset {
+    const preset = LOCAL_CREATE_PRESETS.find((p) => p.protocol === "toiv-comfy-image");
+    if (!preset) throw new Error("missing local image create preset");
+    return preset;
+}
+
+/** 用户裁决：短剧主路默认视频引擎 = H3。 */
+export function defaultLocalVideoPreset(): LocalCreatePreset {
+    const preset = LOCAL_CREATE_PRESETS.find((p) => p.protocol === "toiv-h3");
+    if (!preset) throw new Error("missing local H3 create preset");
+    return preset;
+}
+
+export function localVideoEnginePresets(): readonly LocalCreatePreset[] {
+    return LOCAL_CREATE_PRESETS.filter((p) => p.nodeType === "video");
+}
+
+
+
+/** Wave P3.6：产品面业务名（不展示裸端口）。Admin/设置页可另附 worker。 */
+export function localCapabilityProductLabel(badge: Pick<LocalCapabilityBadge, "kind" | "protocol" | "label"> & Partial<Pick<LocalCapabilityBadge, "worker" | "engine">>): string {
+    if (badge.protocol === "toiv-h3" || badge.kind === "h3") return "短视频引擎";
+    if (badge.protocol === "toiv-comfy-image" || badge.kind === "image") return "出图";
+    if (badge.kind === "animate") return "动作视频";
+    if (badge.kind === "avatar") return "数字人";
+    if (badge.kind === "continue") return "视频续写";
+    if (badge.kind === "vace") return "视频编辑";
+    if (badge.kind === "longcat" || badge.kind === "wan") return "视频生成";
+    return badge.label || "本地能力";
+}
+
+/** 悬停文案：产品面仅业务名；admin 可带端口。 */
+export function localCapabilityHoverTitle(
+    badge: LocalCapabilityBadge,
+    opts?: { admin?: boolean },
+): string {
+    const name = localCapabilityProductLabel(badge);
+    if (opts?.admin && badge.worker) return `${name}（${badge.worker}）`;
+    return `本地 · ${name}`;
+}
+
+export function localImageEnginePresets(): readonly LocalCreatePreset[] {
+    return LOCAL_CREATE_PRESETS.filter((p) => p.nodeType === "image");
+}
+
+/** 添加菜单一级允许的创作语义标题（静态验收用）。 */
+export const ADD_NODE_MENU_CREATIVE_LABELS = ["文本", "图像", "视频", "音频", "合成", "分组"] as const;
 
 // re-export channel ids used by tests / UI
 export { LOCAL_IMAGE_CHANNEL_ID, LOCAL_IMAGE_MODEL, LOCAL_VIDEO_CHANNEL_ID };

@@ -3,12 +3,16 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+    ADD_NODE_MENU_CREATIVE_LABELS,
     HOME_INTENT_ENTRIES,
     HOME_INTENT_MARKET_LINKS,
     LOCAL_CREATE_PRESETS,
     LOCAL_H3_MODEL_REF,
     LOCAL_MARKET_FEATURED,
+    defaultLocalImagePreset,
+    defaultLocalVideoPreset,
     localMarketFeaturedAppIds,
+    localVideoEnginePresets,
     resolveLocalCapabilityBadge,
     sortAppsDemotingIds,
     sortAppsWithFeaturedIds,
@@ -21,11 +25,12 @@ import {
 } from "../src/services/toiv/intent-keepers";
 
 describe("local-capability-surface catalog", () => {
-    test("featured pack covers local 7 + Wan", () => {
+    test("featured pack covers local 7 + Wan with creative labels", () => {
         const labels = LOCAL_MARKET_FEATURED.map((e) => e.label);
-        for (const need of ["本地·出图", "本地·H3", "本地·LongCat", "本地·VACE", "本地·Animate2", "本地·Continue", "本地·Avatar", "本地·Wan"]) {
+        for (const need of ["图像", "短剧视频", "长视频", "视频编辑", "动作视频", "视频续写", "数字人", "视频生成"]) {
             expect(labels).toContain(need);
         }
+        expect(labels.some((l) => l.includes("本地·"))).toBe(false);
         expect(localMarketFeaturedAppIds()).toContain("h3-t2v");
         expect(localMarketFeaturedAppIds()).toContain("vace-edit");
         expect(localMarketFeaturedAppIds()).toContain("avatar-talk");
@@ -134,6 +139,9 @@ describe("local-capability-surface wiring (source)", () => {
         expect(market).toContain("fetchToivAppVariants");
         expect(market).toContain("本地精选");
         expect(market).toContain("resolveLocalCapabilityBadge");
+        // Wave P1 / G10: 产品面不渲染 worker 端口徽章
+        expect(market).not.toContain("label={badge.worker}");
+        expect(market).toContain("localCapabilityProductLabel");
     });
 
     test("home intent bar deep-links market keepers from intentKeepers (no empty-shell add=)", () => {
@@ -160,11 +168,18 @@ describe("local-capability-surface wiring (source)", () => {
         expect(surface).toContain('appId: "avatar-talk"');
     });
 
-    test("create-menu registers hardcoded local presets", () => {
-        expect(menu).toContain("LOCAL_CREATE_PRESETS");
+    test("create-menu uses creative primary labels and defaults to H3 video", () => {
+        expect(menu).toContain("defaultLocalImagePreset");
+        expect(menu).toContain("defaultLocalVideoPreset");
         expect(menu).toContain("onAddLocalGenerator");
-        expect(menu).toContain("preset.modelRef");
-        expect(menu).toContain("toiv-comfy-image / toiv-h3 / toiv-comfy-video");
+        expect(menu).toContain('label: "图像"');
+        expect(menu).toContain('label: "视频"');
+        expect(menu).toContain('label: "合成"');
+        expect(menu).toContain('label: "分组"');
+        expect(menu).not.toContain("LOCAL_CREATE_PRESETS.map");
+        expect(menu).not.toContain("本地·H3");
+        expect(menu).not.toContain("本地·Wan");
+        expect(menu).not.toContain(":8264");
     });
 
     test("client exposes variants fetch", () => {
@@ -173,12 +188,19 @@ describe("local-capability-surface wiring (source)", () => {
         expect(client).toContain("submit_kind?");
     });
 
-    test("similar-merge P1 Slice B: create/featured labels unify 本地·引擎名", () => {
+    test("Wave P3 / D3-A: create/featured labels are creative semantics (not 本地·引擎)", () => {
         for (const e of LOCAL_MARKET_FEATURED) {
-            expect(e.label.startsWith("本地·")).toBe(true);
+            expect(e.label.startsWith("本地·")).toBe(false);
+            expect(e.label).not.toMatch(/:\d{4}/);
         }
         for (const e of LOCAL_CREATE_PRESETS) {
-            expect(e.label.startsWith("本地·")).toBe(true);
+            expect(e.label.startsWith("本地·")).toBe(false);
+            expect(e.label).not.toMatch(/:\d{4}/);
         }
+        expect(defaultLocalVideoPreset().protocol).toBe("toiv-h3");
+        expect(defaultLocalVideoPreset().modelRef).toBe(LOCAL_H3_MODEL_REF);
+        expect(defaultLocalImagePreset().protocol).toBe("toiv-comfy-image");
+        expect(localVideoEnginePresets().length).toBe(7);
+        expect(ADD_NODE_MENU_CREATIVE_LABELS).toEqual(["文本", "图像", "视频", "音频", "合成", "分组"]);
     });
 });

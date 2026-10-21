@@ -3,7 +3,7 @@
 目标:文生图 / H3 / 音乐在空闲 worker 上常驻,避免用户首枪冷启动 ~110s。
 约束:
 - **禁止**向 :8196 生产口与 :8205 提交预热(03:20 硬性)
-- 预热只走 :8195 / :8262 / :8264 空闲口（禁 :8261 已停、:8263 cuda:3）
+- 预热只走 :8264 / :8262 / :8195(legacy) 空闲口（禁 :8261 已停、:8263 cuda:3）
 - 不清 :8196 缓存、不 interrupt 生产任务、不开 :8205、不用 cuda:3
 - 目标 worker 队列非空则跳过
 - 预热作业标记 filename_prefix=ToIV_warmup/*,产物可丢
@@ -26,7 +26,7 @@ log = logging.getLogger("toiv.worker_warmup")
 
 # 生产口 / 禁开端口:预热绝不提交
 _FORBIDDEN_WARMUP_PORTS = frozenset({8196, 8205, 8261, 8263})
-# 允许预热的端口(父代理 03:20)
+# 允许预热的端口(父代理 03:20);8264=H3 生产口,8195=legacy 仍允许 pin
 _ALLOWED_WARMUP_PORTS = frozenset({8195, 8262, 8264})
 
 
@@ -41,7 +41,7 @@ def _port_of(url: str) -> int | None:
 
 
 def is_warmup_allowed_url(url: str) -> bool:
-    """预热目标是否允许(禁 :8196/:8205/:8261/:8263;仅 :8195/:8262/:8264)。"""
+    """预热目标是否允许(禁 :8196/:8205/:8261/:8263;仅 :8264/:8262/:8195 legacy)。"""
     port = _port_of((url or "").strip())
     if port is None:
         return False

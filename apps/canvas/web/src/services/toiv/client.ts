@@ -83,6 +83,8 @@ export type ToivJob = {
     error?: string;
     hold_reason?: string;
     nsfw?: boolean;
+    /** Wave P2:Studio 作业回跳短剧工作区 */
+    project_id?: string;
 };
 
 export async function fetchJobs(limit = 100): Promise<ToivJob[]> {
@@ -548,6 +550,8 @@ export type ToivDramaProject = {
     height?: number;
     fps?: number;
     render_mode_default?: string;
+    /** Wave P2:项目默认视频管线(持久化) */
+    preferred_pipeline?: "ref2va" | "c" | "c_hybrid";
     final_url?: string;
     updated_at?: string;
     pipeline?: {
@@ -560,6 +564,41 @@ export type ToivDramaProject = {
 export async function fetchDramaProjects(): Promise<ToivDramaProject[]> {
     const { data } = await toivHttp.get("/studio/projects");
     return Array.isArray(data) ? data : ((data as { items?: ToivDramaProject[] })?.items ?? []);
+}
+
+/** Wave P1 / N3: 空白新建短剧 → POST /studio/projects，进 /toiv/ws/:id */
+export async function createStudioProject(input?: {
+    title?: string;
+    premise?: string;
+    style?: string;
+}): Promise<ToivDramaProject> {
+    const { data } = await toivHttp.post("/studio/projects", {
+        title: (input?.title ?? "").trim() || "未命名短剧",
+        premise: input?.premise ?? "",
+        style: input?.style ?? "",
+    });
+    return data as ToivDramaProject;
+}
+
+/** Wave P1 / D8: 幂等种子「雨夜」示例短剧 */
+export async function seedRainNightSample(): Promise<{
+    id: string;
+    title?: string;
+    created?: boolean;
+    assets_ready?: boolean;
+    asset_notes?: string[];
+}> {
+    const { data } = await toivHttp.post("/studio/sample-projects/rain-night");
+    const body = data as Record<string, unknown>;
+    const id = String(body.id ?? (body.project as { id?: string } | undefined)?.id ?? "");
+    if (!id) throw new Error("雨夜示例未返回项目 id");
+    return {
+        id,
+        title: typeof body.title === "string" ? body.title : undefined,
+        created: Boolean(body.created),
+        assets_ready: typeof body.assets_ready === "boolean" ? body.assets_ready : undefined,
+        asset_notes: Array.isArray(body.asset_notes) ? (body.asset_notes as string[]) : undefined,
+    };
 }
 
 export type ToivDramaCharacter = {
@@ -609,6 +648,8 @@ export type ToivDramaShot = {
     id: string;
     idx: string | number;
     status: string;
+    /** Wave P2:跳过口型标注 */
+    lipsync_skipped?: boolean;
     /** S9:PUT shots 全量保存回传所需(后端 ShotInput 契约字段) */
     negative?: string;
     characters?: string[];
@@ -647,11 +688,26 @@ export async function triggerShotRender(shotId: string): Promise<boolean> {
     catch { return false; }
 }
 
-export async function triggerBatchRender(pid: string, accel?: string): Promise<boolean> {
+export type ToivRenderPipeline = "ref2va" | "c" | "c_hybrid";
+
+export async function triggerBatchRender(
+    pid: string,
+    accel?: string,
+    pipeline: ToivRenderPipeline = "ref2va",
+): Promise<boolean> {
     try {
-        const body = accel && accel !== "off" ? { accel } : undefined;
-        await toivHttp.post(`/studio/projects/${pid}/render`, body, { timeout: 3600_000 }); return true; }
-    catch { return false; }
+        const body: Record<string, string> = {};
+        if (accel && accel !== "off") body.accel = accel;
+        if (pipeline && pipeline !== "ref2va") body.pipeline = pipeline;
+        await toivHttp.post(
+            `/studio/projects/${pid}/render`,
+            Object.keys(body).length ? body : undefined,
+            { timeout: 3600_000 },
+        );
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 export async function triggerShotVoice(shotId: string): Promise<boolean> {
@@ -964,7 +1020,7 @@ export async function createStudioCharacter(
 }
 
 /** PATCH /studio/projects/{pid}(剧本正文保存) */
-export async function patchStudioProject(pid: string, patch: { premise?: string; style?: string }): Promise<void> {
+export async function patchStudioProject(pid: string, patch: { premise?: string; style?: string; preferred_pipeline?: "ref2va" | "c" | "c_hybrid"; title?: string }): Promise<void> {
     await toivHttp.patch(`/studio/projects/${encodeURIComponent(pid)}`, patch, { timeout: 15_000 });
 }
 
@@ -987,14 +1043,16 @@ export async function generateCharacterSheetStrict(cid: string, style: string): 
 /** W1.4(2026-10-11):严格版单镜渲染——失败抛错带 detail(缺参考图等前置问题可见);
  * 旧 triggerShotRender 吞错 boolean 保留(drama-detail 契约)。
  * 任务 #24:opts.accel 传显式加速档(默认 off 满血);后端仅对 H3 家族图生效。 */
-export async function renderShotStrict(sid: string, opts: { num_candidates?: number; accel?: string } = {}): Promise<void> {
+export async function renderShotStrict(sid: string, opts: { num_candidates?: number; accel?: string; pipeline?: ToivRenderPipeline } = {}): Promise<void> {
     try {
         const payload: Record<string, unknown> = { wait: true };
         if (opts.num_candidates) payload.num_candidates = opts.num_candidates;
         if (opts.accel && opts.accel !== "off") payload.accel = opts.accel;
+        if (opts.pipeline) payload.pipeline = opts.pipeline;
+        const hasExtra = Boolean(opts.num_candidates || (opts.accel && opts.accel !== "off") || opts.pipeline);
         await toivHttp.post(
             `/studio/shots/${encodeURIComponent(sid)}/render`,
-            opts.num_candidates || (opts.accel && opts.accel !== "off") ? payload : undefined,
+            hasExtra ? payload : undefined,
             { timeout: 3600_000 },
         );
     } catch (e) {
@@ -1016,9 +1074,9 @@ export async function assembleStudioProject(pid: string): Promise<void> {
 
 /** S4-b(2026-10-11):异步单镜渲染——wait=false 登记 Job 即回(管线C阶段B机制);
  * 同步等待撞 reload/断连=状态僵死(实测),一律走此路。 */
-export async function renderShotAsync(sid: string, opts: { num_candidates?: number; accel?: string } = {}): Promise<{ job_id: string }> {
+export async function renderShotAsync(sid: string, opts: { num_candidates?: number; accel?: string; pipeline?: ToivRenderPipeline } = {}): Promise<{ job_id: string }> {
     try {
-        const payload: Record<string, unknown> = { num_candidates: opts.num_candidates ?? 2, wait: false };
+        const payload: Record<string, unknown> = { num_candidates: opts.num_candidates ?? 2, wait: false, pipeline: opts.pipeline ?? "ref2va" };
         if (opts.accel && opts.accel !== "off") payload.accel = opts.accel;
         const { data } = await toivHttp.post(
             `/studio/shots/${encodeURIComponent(sid)}/render`,
@@ -1056,6 +1114,24 @@ export async function adoptSheetAsReference(cid: string, style: string, urls: st
         const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
         throw new Error(detail || "参考图写入失败");
     }
+}
+
+
+/** L2 角色资产（含 style_variants 登记）。GET 不存在时后端会物化 v1。 */
+export type ToivCharacterAsset = {
+    style?: { current?: string; variants_allowed?: boolean } | string;
+    style_variants?: Record<string, { url?: string; [k: string]: unknown }>;
+    version?: number;
+    materialized_now?: boolean;
+    [k: string]: unknown;
+};
+
+export async function fetchCharacterAsset(cid: string, style = "anime"): Promise<ToivCharacterAsset> {
+    const { data } = await toivHttp.get(
+        `/studio/characters/${encodeURIComponent(cid)}/character-asset`,
+        { params: { style }, timeout: 30_000 },
+    );
+    return data as ToivCharacterAsset;
 }
 
 // ---- S3-b(2026-10-11): 设定卡生成异步化(15-20min 同步等待是 UX/可靠性雷) ----
@@ -1184,6 +1260,47 @@ export async function burnSubtitles(pid: string): Promise<{ video_url: string; s
 }
 
 /** S11(2026-10-11): 严格版对口型(LatentSync 产物覆盖 final_clip;错误透出,旧 trigger 吞错保留) */
+
+/** Wave P1.5 L1:创作台忙闲只读摘要(藏端口) */
+export type ToivFleetBrief = {
+    level: "idle" | "busy" | "held" | "degraded" | "offline" | string;
+    summary: string;
+    mine?: { held: number; active: number };
+    fleet?: { online_devices: number; services_up: number; services_total: number };
+};
+
+export async function fetchFleetBrief(): Promise<ToivFleetBrief> {
+    const { data } = await toivHttp.get("/fleet/brief", { timeout: 8_000 });
+    return data as ToivFleetBrief;
+}
+
+/** Wave P1.5 L5:依赖三态 */
+export type ToivDepState = "reachable" | "degraded" | "unreachable" | string;
+export type ToivDepItem = {
+    id: string;
+    label: string;
+    state: ToivDepState;
+    summary: string;
+    block_cta?: boolean;
+    blocked_hint?: string;
+};
+export type ToivDepsStatus = { overall: ToivDepState; deps: ToivDepItem[] };
+
+export async function fetchStudioDepsStatus(): Promise<ToivDepsStatus> {
+    const { data } = await toivHttp.get("/studio/deps-status", { timeout: 10_000 });
+    return data as ToivDepsStatus;
+}
+
+/** Wave P2:跳过口型(须二次确认后调用) */
+export async function skipLipsyncShot(sid: string): Promise<void> {
+    try {
+        await toivHttp.post(`/studio/shots/${encodeURIComponent(sid)}/lipsync/skip`, undefined, { timeout: 180_000 });
+    } catch (e) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        throw new Error(typeof detail === "string" ? detail : "跳过口型失败");
+    }
+}
+
 export async function lipsyncShotStrict(sid: string): Promise<void> {
     try {
         await toivHttp.post(`/studio/shots/${encodeURIComponent(sid)}/lipsync`, undefined, { timeout: 1800_000 });

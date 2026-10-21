@@ -1,7 +1,6 @@
-import { ArrowLeft, Loader2, RefreshCw, Send, X } from "lucide-react";
-import { Button } from "antd";
+import { ArrowLeft, Loader2, RefreshCw, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { ToolButton } from "@/components/ui/base/buttons";
 import { StatusBadge } from "@/components/ui/base/badges";
@@ -12,7 +11,6 @@ import { formatTaskKind, generationTaskStatusLabel } from "@/lib/generation-task
 import { formatDateTime } from "@/lib/time-format";
 import { listGenerationTasks, type GenerationTask } from "@/services/api/task-center";
 import { cancelJob, fetchAgentRuns, fetchJobs, type ToivAgentRun, type ToivJob } from "@/services/toiv/client";
-import { createAgentRun } from "@/services/toiv/agent-runs";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 
 const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
@@ -48,6 +46,8 @@ type TimelineItem = {
     statusTone: "neutral" | "loading" | "success" | "error" | "warning";
     canCancel?: boolean;
     highlight?: boolean;
+    /** Wave P2:回跳短剧工作区 section/shot */
+    jumpHref?: string;
 };
 
 type SourceFilter = "all" | "toiv-job" | "canvas-task" | "agent-run";
@@ -65,6 +65,28 @@ function promptSummary(prompt?: string): string {
     const text = (prompt || "").trim();
     if (!text) return "(无提示摘要)";
     return text.length > 80 ? `${text.slice(0, 80)}…` : text;
+}
+
+/** Wave P2:画布任务回跳短剧工作区（有 project / shot 上下文时） */
+function dramaJumpHref(task: GenerationTask): string | undefined {
+    const ctx = task.clientContext;
+    const pid = (ctx?.domainProjectId || task.projectId || "").trim();
+    if (!pid) return undefined;
+    const shot = (ctx?.shotId || "").trim();
+    const q = new URLSearchParams({ section: "shots" });
+    if (shot) q.set("shot", shot);
+    return `/toiv/ws/${encodeURIComponent(pid)}?${q.toString()}`;
+}
+
+/** Wave P2 残余:ToIV Job(含 studio_batch_render)透出 project_id → 回跳 ws */
+function toivJobJumpHref(job: ToivJob): string | undefined {
+    const pid = (job.project_id || "").trim();
+    if (!pid) return undefined;
+    const q = new URLSearchParams({ section: "shots" });
+    if ((job.kind || "").includes("batch") || job.kind === "studio_batch_render") {
+        q.set("from", "batch");
+    }
+    return `/toiv/ws/${encodeURIComponent(pid)}?${q.toString()}`;
 }
 
 function detailLine(job: ToivJob): string {
@@ -183,6 +205,7 @@ export default function TasksPage() {
                 statusTone: meta.tone,
                 canCancel: CANCELABLE.has(job.status),
                 highlight: Boolean(focusJob && job.id === focusJob),
+                jumpHref: toivJobJumpHref(job),
             });
         }
         for (const task of canvasTasks) {
@@ -194,6 +217,7 @@ export default function TasksPage() {
                 detail: [formatDateTime(task.createdAt || ""), formatTaskKind(task)].filter(Boolean).join(" · "),
                 statusLabel: generationTaskStatusLabel(task),
                 statusTone: canvasStatusTone(task),
+                jumpHref: dramaJumpHref(task),
             });
         }
         for (const run of agentRuns) {
@@ -253,31 +277,6 @@ export default function TasksPage() {
         return () => clearInterval(t);
     }, [hasActive]);
 
-    // F2:大目标直建智能体任务(L0 秒回转对话;L1/L2 进详情等计划)
-    const navigate = useNavigate();
-    const [goal, setGoal] = useState("");
-    const [creating, setCreating] = useState(false);
-    const [createNote, setCreateNote] = useState<string | null>(null);
-    const submitGoal = useCallback(async () => {
-        const trimmed = goal.trim();
-        if (!trimmed || creating) return;
-        setCreating(true);
-        setCreateNote(null);
-        try {
-            const res = await createAgentRun({ goal: trimmed });
-            setGoal("");
-            if (res.level === "L0" || !res.run_id) {
-                setCreateNote(res.ack || "已转交智能体对话,简单问题直接聊即可");
-            } else {
-                navigate(`/toiv/runs/${encodeURIComponent(res.run_id)}`);
-            }
-        } catch (e) {
-            setCreateNote(e instanceof Error ? e.message : "创建失败,请稍后重试");
-        } finally {
-            setCreating(false);
-        }
-    }, [goal, creating, navigate]);
-
     const showSkeleton = loading && canvasLoading;
     const empty = !loading && !error && timeline.length === 0 && !canvasLoading;
 
@@ -288,8 +287,7 @@ export default function TasksPage() {
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold leading-7 text-foreground">任务中心</h1>
                     <p className="text-xs leading-5 text-muted-foreground">
-                        统一任务时间线：ToIV 作业、画布生成任务与智能体任务；
-                        有进行中任务时每 30 秒自动刷新。
+                        追踪作业进度，并回到对应短剧镜头或智能体对话；有进行中任务时每 30 秒自动刷新。
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -306,25 +304,12 @@ export default function TasksPage() {
                 </Callout>
             )}
 
-            <section className="flex flex-col gap-2 rounded-xl border bg-card p-3" aria-label="新建智能体任务">
-                <textarea
-                    className="w-full resize-y rounded-md border bg-background px-3 py-2 text-sm"
-                    rows={2}
-                    value={goal}
-                    placeholder="一句话描述你的需求,例如:拍一支 30 秒的咖啡店开业宣传短片,温暖治愈风,配轻爵士背景乐(⌘/Ctrl+Enter 直接创建)"
-                    onChange={(e) => setGoal(e.target.value)}
-                    onKeyDown={(e) => {
-                        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") void submitGoal();
-                    }}
-                />
-                <div className="flex items-center gap-2">
-                    <span className="flex-1 text-xs text-muted-foreground">复杂目标会先出执行计划等你确认;简单问题直链智能体对话。</span>
-                    <Button type="primary" size="small" icon={<Send className="size-3.5" />} loading={creating} disabled={!goal.trim()} onClick={() => void submitGoal()}>
-                        创建并拆解
-                    </Button>
-                </div>
-                {createNote && <Callout tone="info" title={createNote} onClose={() => setCreateNote(null)} />}
-            </section>
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card px-3 py-2 text-xs text-muted-foreground" aria-label="创作入口引导">
+                <span>任务中心只读追踪进度。</span>
+                <Link to="/toiv/agent" className="text-[var(--workspace-accent)] underline-offset-2 hover:underline">需要新任务？去智能体对话</Link>
+                <span>·</span>
+                <Link to="/toiv/drama" className="text-[var(--workspace-accent)] underline-offset-2 hover:underline">或去短剧项目开始生成</Link>
+            </div>
 
             <div className="flex flex-wrap items-center gap-2" aria-label="任务筛选">
                 {(
@@ -434,6 +419,10 @@ export default function TasksPage() {
                                     <Tooltip title={item.title}>
                                         {item.source === "agent-run" ? (
                                             <Link to={`/toiv/runs/${encodeURIComponent(item.id)}`} className="truncate text-sm font-medium underline-offset-2 hover:underline">
+                                                {item.title}
+                                            </Link>
+                                        ) : item.jumpHref ? (
+                                            <Link to={item.jumpHref} className="truncate text-sm font-medium underline-offset-2 hover:underline" title="回跳短剧镜头">
                                                 {item.title}
                                             </Link>
                                         ) : (

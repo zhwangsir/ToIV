@@ -59,6 +59,31 @@ VIDEO_KINDS = frozenset(
 )
 
 
+def _project_id_of(j: Job) -> str:
+    """短剧/Studio 项目 id:从 params 快照解析(整批渲染等写入 project_id)。
+
+    纯增量键,旧前端忽略;无快照/非 Studio 作业回落空串。亦可回落 result JSON 内 project_id
+    (batch render 终态 result 含同字段)。
+    """
+    if j.params:
+        try:
+            v = json.loads(j.params).get("project_id")
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        except (ValueError, AttributeError, TypeError):
+            pass
+    if j.result:
+        try:
+            raw = json.loads(j.result)
+            if isinstance(raw, dict):
+                v = raw.get("project_id")
+                if isinstance(v, str) and v.strip():
+                    return v.strip()
+        except (ValueError, AttributeError, TypeError):
+            pass
+    return ""
+
+
 def _batch_id_of(j: Job) -> str:
     """内容分组 id(360° 环绕序列同批归组):从 params 快照解析,快照缺失/损坏回落空串。
 
@@ -178,6 +203,8 @@ def _job_dict(j: Job, app_name: str = "", user_email: str = "") -> dict:
         "error": j.error or "",
         # 内容分组 id(360° 环绕序列同批归组):无分组为空串;从 params 快照解析
         "batch_id": _batch_id_of(j),
+        # Wave P1.5/P2:Studio 作业回跳短剧工作区(整批渲染 params/result 含 project_id)
+        "project_id": _project_id_of(j),
         # 来源应用 id(2026-09-06 详情页「我的生成」过滤):非应用作业为空串
         "app_id": _app_id_of(j),
         # 来源应用名(2026-09-20 作品库来源筛选):调用方批量解析,空=非应用作业

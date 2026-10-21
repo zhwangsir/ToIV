@@ -1,7 +1,7 @@
 """MiniMax H3 视频生成服务 —— 专用 ComfyUI 实例(独立于 WorkerPool 集群)。
 
-H3 需要 ComfyUI ≥ 0.30 的独立实例(TOIV_H3_BASE_URL,默认 workstation :8195,
-systemd 托管),不走 ComfyUI-LB 集群/WorkerPool。本模块封装:
+H3 需要 ComfyUI ≥ 0.30 的独立实例(TOIV_H3_BASE_URL,默认 workstation :8264,
+systemd 托管;:8195 仅 legacy/评测白名单),不走 ComfyUI-LB 集群/WorkerPool。本模块封装:
   · get_h3_client:实例客户端(与 pool worker 同一 ComfyUIClient 协议)
   · ensure_h3_ready:提交前就绪检查(在线 + 装有 H3 节点),失败 503 + 原因,不吞异常
   · ensure_h3_vram:提交前显存预检(int8 档增量峰值 ~30-33GiB,见评测文档);

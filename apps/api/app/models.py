@@ -700,6 +700,8 @@ class StudioProject(SQLModel, table=True):
     fps: int = STUDIO_DEFAULT_FPS
     # Batch3:项目级场景图绑定(JSON URL 列表;视频多参考自动带入)
     scene_images_json: str = "[]"
+    # Wave P2:项目默认视频管线(ref2va|c|c_hybrid);UI 选择器持久化,渲染默认读此字段
+    preferred_pipeline: str = "ref2va"
     status: str = "draft"  # draft | storyboard | generating | ready | error
     final_url: str = ""  # 成片 URL
     error: str = ""
@@ -741,6 +743,8 @@ class StudioShot(SQLModel, table=True):
     video_url: str = ""
     voice_url: str = ""
     final_clip_url: str = ""  # 该镜最终片段(运镜/对口型后)
+    # Wave P2:用户确认「跳过口型」后置 True;成片标「未对口型」,仍可进合成
+    lipsync_skipped: bool = False
     error: str = ""
     # Batch2 视频步:引擎(默认 h3) + 多候选 + 本镜多参考图 URL
     video_model: str = "h3"  # h3 | ltx

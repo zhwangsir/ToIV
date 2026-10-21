@@ -6,13 +6,22 @@
  * S3/S4 逐段把经典端能力迁进来，迁移齐后 W1.2 末步做路由对调。
  * 现在各段为只读骨架：头部项目状态 + 各段已有数据的轻量呈现 + 落地批次的说明。
  */
-import { ArrowDown, ArrowUp, BookOpen, Camera, Captions, Check, Clapperboard, FileText, Film, IdCard, Layers, ListOrdered, Loader2, Mic, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2 } from "lucide-react";
+import { ArrowDown, ArrowUp, BookOpen, Camera, Captions, Check, Clapperboard, Columns3, FileText, GitBranch, Film, IdCard, Layers, List, ListOrdered, Loader2, Mic, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2, X } from "lucide-react";
 import { Select } from "antd";
 import type { ToivFrameVariant, ToivSharedAsset } from "@/services/toiv/client";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { TasksCenterLink } from "@/components/toiv/tasks-center-link";
+import { Switch } from "@/components/ui/base/switch";
+import { CREW_ASSIST_GATE_HINT, isCrewAssistMode, setCrewAssistMode } from "@/services/toiv/crew-assist-mode";
+import {
+    CHARACTER_STYLE_VARIANTS,
+    EXTENDED_VARIANT_API_GAP,
+    pendingSheetVariantOrders,
+} from "@/services/toiv/character-style-variants";
+import { ComputeStatusStrip, depBlocksCta } from "@/components/toiv/compute-status-strip";
+import { studioQaHumanMessage } from "@/services/toiv/studio-qa-failure";
 import { formatClientTimeoutMessage, isClientTimeoutError, isStillRunningMessage, userFacingCaughtError } from "@/services/toiv/client-timeout";
 import { SheetGateJobError, sheetFailureFromCaughtError, sheetFailureFromJobResult, type SheetFailureView } from "@/services/toiv/sheet-gate-failure";
 import { toivMediaUrl } from "@/services/toiv/cover-url";
@@ -30,6 +39,8 @@ import {
     createCChain,
     createStudioCharacter,
     fetchCharacterSheets,
+    fetchCharacterAsset,
+    type ToivCharacterAsset,
     fetchDramaProject,
     fetchAccelTiers,
     formatAccelTierLabel,
@@ -42,6 +53,7 @@ import {
     assembleStudioProject,
     buildSubtitles,
     lipsyncShotStrict,
+    skipLipsyncShot,
     burnSubtitles,
     fetchSharedAssets,
     pollFrameVariants,
@@ -60,15 +72,26 @@ import {
     type ToivDramaCharacter,
     type ToivDramaDetail,
     type ToivAccelTier,
+    type ToivRenderPipeline,
+    type ToivDepItem,
 } from "@/services/toiv/client";
+import {
+    DRAMA_BOARD_COLUMNS,
+    DRAMA_PIPELINE_STAGES,
+    dramaPipelineCellLabel,
+    groupShotsByBoardColumn,
+    toDramaPipelineRows,
+    toDramaShotProjection,
+    type DramaShotViewMode,
+} from "@/pages/toiv/drama-shot-board";
 
 const SECTIONS = [
     { key: "script", label: "剧本", icon: BookOpen, batch: "S3" },
-    { key: "assets", label: "资产", icon: Users, batch: "S3" },
-    { key: "storyboard", label: "分镜", icon: ListOrdered, batch: "S5" },
-    { key: "shots", label: "镜头", icon: Clapperboard, batch: "S3/S4" },
+    { key: "assets", label: "资产/定妆", icon: Users, batch: "S3" },
+    { key: "storyboard", label: "分镜准备", icon: ListOrdered, batch: "S5" },
+    { key: "shots", label: "生成·配音·口型", icon: Clapperboard, batch: "S3/S4" },
     { key: "timeline", label: "时间线", icon: Layers, batch: "S9" },
-    { key: "final", label: "成片", icon: Film, batch: "S9" },
+    { key: "final", label: "合成", icon: Film, batch: "S9" },
 ] as const;
 
 type SectionKey = (typeof SECTIONS)[number]["key"];
@@ -77,15 +100,77 @@ function normalizeSection(raw: string | undefined): SectionKey {
     return (SECTIONS.find((s) => s.key === raw)?.key ?? "script") as SectionKey;
 }
 
+/** Wave P2 阶段轨叙事(与 next_step / section 对齐;prepared≠generating) */
+const STAGE_RAIL: { key: string; label: string; sections: SectionKey[]; steps: string[] }[] = [
+    { key: "script", label: "剧本", sections: ["script"], steps: [] },
+    { key: "assets", label: "定妆", sections: ["assets"], steps: [] },
+    { key: "storyboard", label: "分镜", sections: ["storyboard"], steps: ["render"] },
+    { key: "generate", label: "生成", sections: ["shots"], steps: ["render"] },
+    { key: "voice", label: "配音", sections: ["shots"], steps: ["voice"] },
+    { key: "lipsync", label: "口型", sections: ["shots"], steps: ["lipsync"] },
+    { key: "assemble", label: "合成", sections: ["timeline", "final"], steps: ["assemble", "done"] },
+];
+
+const PIPELINE_OPTIONS: { value: ToivRenderPipeline; label: string; note: string; expert?: boolean }[] = [
+    { value: "ref2va", label: "参考生视频（推荐）", note: "H3 Ref2VA 默认主路" },
+    { value: "c", label: "续写管线 C", note: "专家：连续续写", expert: true },
+    { value: "c_hybrid", label: "混合 C", note: "专家：妆容链/混合", expert: true },
+];
+
+function shotHasDialogue(dialogue?: string | null): boolean {
+    return Boolean((dialogue ?? "").trim());
+}
+
+function characterHasMakeup(c: ToivDramaCharacter): boolean {
+    if ((c.reference_images?.length ?? 0) > 0) return true;
+    const byStyle = c.reference_images_by_style ?? {};
+    return Object.values(byStyle).some((urls) => (urls?.length ?? 0) > 0);
+}
+
 const STATUS_TONE: Record<string, "success" | "warning" | "error" | "neutral"> = {
     done: "success",
     ready: "success",
+    prepared: "success",
+    rendered: "success",
+    voiced: "success",
+    lipsynced: "success",
     generating: "warning",
+    rendering: "warning",
+    queued: "warning",
     storyboard: "warning",
     error: "error",
+    failed: "error",
     draft: "neutral",
     pending: "neutral",
+    canceled: "neutral",
+    cancelled: "neutral",
 };
+
+/** Wave P1: 镜头/项目状态展示层中文，禁止裸英文枚举 */
+const STATUS_LABEL: Record<string, string> = {
+    draft: "草稿",
+    ready: "已就绪",
+    prepared: "已就绪",
+    queued: "排队中",
+    rendering: "生成中",
+    generating: "生成中",
+    storyboard: "分镜中",
+    rendered: "已出视频",
+    voiced: "已配音",
+    lipsynced: "已对口型",
+    done: "已完成",
+    error: "失败",
+    failed: "失败",
+    canceled: "已取消",
+    cancelled: "已取消",
+    pending: "待处理",
+};
+
+function statusLabelZh(status?: string | null): string {
+    const key = String(status ?? "").trim();
+    if (!key) return "未知";
+    return STATUS_LABEL[key] ?? key;
+}
 
 function SectionShell({ title, children }: { title: string; children: React.ReactNode }) {
     return (
@@ -103,10 +188,38 @@ function StatusLine({ project }: { project: ToivDramaDetail }) {
         parts.push(`镜头 ${p.total_shots}`);
         const done = p.by_status?.done ?? 0;
         if (p.total_shots > 0) parts.push(`完成 ${done}/${p.total_shots}`);
-        if (p.next_step) parts.push(`下一步 ${p.next_step.label}×${p.next_step.todo}`);
+        if (p.next_step) {
+            parts.push(`下一步「${p.next_step.label}」×${p.next_step.todo}`);
+        }
     }
     if (project.width && project.height) parts.push(`${project.width}×${project.height}@${project.fps ?? "?"}fps`);
     return <p className="text-xs text-[var(--muted-foreground)]">{parts.join(" · ") || "暂无管线数据"}</p>;
+}
+
+function StageRail({ section, nextStep }: { section: SectionKey; nextStep?: string }) {
+    const step = nextStep || "";
+    return (
+        <ol className="flex flex-wrap items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5" aria-label="短剧阶段轨">
+            {STAGE_RAIL.map((st, i) => {
+                const onSection = st.sections.includes(section);
+                const isNext = st.steps.includes(step) || (step === "done" && st.key === "assemble");
+                const tone = isNext
+                    ? "bg-[var(--workspace-accent)]/15 text-foreground ring-1 ring-[var(--workspace-accent)]/40"
+                    : onSection
+                      ? "bg-[var(--surface-active)] text-foreground"
+                      : "text-[var(--muted-foreground)]";
+                return (
+                    <li key={st.key} className="flex items-center gap-1">
+                        {i > 0 ? <span className="text-[10px] text-[var(--muted-foreground)]" aria-hidden>→</span> : null}
+                        <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${tone}`}>
+                            {st.label}
+                            {isNext ? <span className="ml-1 font-normal opacity-80">当前</span> : null}
+                        </span>
+                    </li>
+                );
+            })}
+        </ol>
+    );
 }
 
 export default function DramaWorkspacePage() {
@@ -114,6 +227,21 @@ export default function DramaWorkspacePage() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const section = normalizeSection(searchParams.get("section") ?? undefined);
+    const focusShotId = (searchParams.get("shot") || "").trim();
+
+    /** Wave P3 / D2-A：列表↔看板投影；选中态跨视图保持 */
+    const [shotViewMode, setShotViewMode] = useState<DramaShotViewMode>("list");
+    const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
+
+    /** D5-A 剧组协助：默认关；按项目 localStorage 持久化；仅轻入口，不代发 Agent */
+    const [crewAssist, setCrewAssist] = useState(false);
+    useEffect(() => {
+        setCrewAssist(isCrewAssistMode(id));
+    }, [id]);
+    const toggleCrewAssist = (on: boolean) => {
+        setCrewAssist(on);
+        setCrewAssistMode(on, id);
+    };
 
     const [detail, setDetail] = useState<ToivDramaDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -142,6 +270,22 @@ export default function DramaWorkspacePage() {
     const shots = detail?.shots ?? [];
     const characters = detail?.characters ?? [];
 
+    useEffect(() => {
+        if (!focusShotId) return;
+        setSelectedShotId(focusShotId);
+        if (loading) return;
+        const t = window.setTimeout(() => {
+            document.getElementById(`shot-${focusShotId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 80);
+        return () => window.clearTimeout(t);
+    }, [focusShotId, loading, section, shots.length]);
+
+    const selectedShot = useMemo(
+        () => (selectedShotId ? shots.find((s) => s.id === selectedShotId) ?? null : null),
+        [selectedShotId, shots],
+    );
+    const boardGroups = useMemo(() => groupShotsByBoardColumn(shots), [shots]);
+
     // ---- W2.1: 剧本→分镜自动化(后端既有 studio/script/parse 异步链路) ----
     const [premiseText, setPremiseText] = useState("");
     const [numShots, setNumShots] = useState(8);
@@ -162,16 +306,24 @@ export default function DramaWorkspacePage() {
     const [softKeepBusy, setSoftKeepBusy] = useState(false);
     const [sheetMsg, setSheetMsg] = useState<string | null>(null);
     const [lastSheetStyle, setLastSheetStyle] = useState<string>("anime");
+    /** L2 style_variants 登记（只读展示）；下单走设定卡 async */
+    const [characterAsset, setCharacterAsset] = useState<ToivCharacterAsset | null>(null);
 
     const openSheets = useCallback(async (c: ToivDramaCharacter) => {
         setSheetChar(c);
         setSheets([]);
+        setCharacterAsset(null);
         setSheetError(null);
         setSheetFailure(null);
         setSheetMsg(null);
         setSheetsLoading(true);
         try {
-            setSheets(await fetchCharacterSheets(c.id));
+            const [listed, asset] = await Promise.all([
+                fetchCharacterSheets(c.id),
+                fetchCharacterAsset(c.id, "anime").catch(() => null),
+            ]);
+            setSheets(listed);
+            setCharacterAsset(asset);
         } catch {
             setSheets([]);
         } finally {
@@ -340,6 +492,31 @@ export default function DramaWorkspacePage() {
     // ---- 任务 #24:显式加速档(产品默认满血 off;选项来自 /api/acceleration/tiers h3 族) ----
     const [accelTiers, setAccelTiers] = useState<ToivAccelTier[]>([OFF_ACCEL_TIER]);
     const [accelLevel, setAccelLevel] = useState<string>("off");
+    // Wave P2 / D7-A:管线选择器默认 ref2va;c / c_hybrid 为专家档；持久化到项目 preferred_pipeline
+    const [renderPipeline, setRenderPipeline] = useState<ToivRenderPipeline>("ref2va");
+    const [pipelineHydrated, setPipelineHydrated] = useState(false);
+    useEffect(() => { setPipelineHydrated(false); }, [id]);
+    useEffect(() => {
+        const pref = detail?.preferred_pipeline;
+        if (!pref || pipelineHydrated) return;
+        if (pref === "ref2va" || pref === "c" || pref === "c_hybrid") {
+            setRenderPipeline(pref);
+            setPipelineHydrated(true);
+        }
+    }, [detail?.preferred_pipeline, pipelineHydrated]);
+    const onPipelineChange = useCallback(async (v: ToivRenderPipeline) => {
+        setRenderPipeline(v);
+        if (!id) return;
+        try {
+            await patchStudioProject(id, { preferred_pipeline: v });
+        } catch (e) {
+            setRenderError(studioQaHumanMessage("generic", e, userFacingCaughtError(e, "管线偏好保存失败")));
+        }
+    }, [id]);
+    const [deps, setDeps] = useState<ToivDepItem[]>([]);
+    const voiceBlocked = depBlocksCta(deps, "tts");
+    const videoBlocked = depBlocksCta(deps, "h3");
+    const pipelineRows = useMemo(() => toDramaPipelineRows(shots, renderPipeline), [shots, renderPipeline]);
     useEffect(() => {
         let alive = true;
         void (async () => {
@@ -358,7 +535,7 @@ export default function DramaWorkspacePage() {
         setRenderError(null);
         setRenderMsg(null);
         try {
-            const { job_id } = await renderShotAsync(sid, { num_candidates: 2, accel: accelLevel });
+            const { job_id } = await renderShotAsync(sid, { num_candidates: 2, accel: accelLevel, pipeline: renderPipeline });
             setRenderMsg(`渲染已入后台(作业 ${job_id.slice(0, 8)}…,双候选约 10-20 分钟;可离开本页,任务中心可见)`);
             for (let i = 0; i < 240 && !pollStop.current; i++) {
                 await new Promise((r) => setTimeout(r, 10000));
@@ -375,12 +552,12 @@ export default function DramaWorkspacePage() {
                 setRenderMsg(formatClientTimeoutMessage());
                 setRenderError(null);
             } else {
-                setRenderError(userFacingCaughtError(e, "渲染失败"));
+                setRenderError(studioQaHumanMessage("render", e, userFacingCaughtError(e, "渲染失败")));
             }
         } finally {
             markBusy(sid, false);
         }
-    }, [id, load, accelLevel]);
+    }, [id, load, accelLevel, renderPipeline]);
 
     // ---- S9 正式: 时间线排序/时长编辑(PUT shots 全量保存契约) ----
     const [tlOrder, setTlOrder] = useState<string[]>([]);          // shot id 顺序
@@ -499,13 +676,14 @@ export default function DramaWorkspacePage() {
         try {
             await assembleStudioProject(id);
             await load();
-            setAssembleMsg("成片合成完成,见「成片」段");
+            setAssembleMsg("合成预览已完成，可到「合成」段看片；也可留在时间线继续调序。");
+            goSection("final");
         } catch (e) {
-            setAssembleError(userFacingCaughtError(e, "成片合成失败"));
+            setAssembleError(studioQaHumanMessage("assemble", e, userFacingCaughtError(e, "成片合成失败")));
         } finally {
             setAssembling(false);
         }
-    }, [id, load]);
+    }, [id, load, goSection]);
 
     // ---- S9: 字幕对齐(台词↔whisper,SRT 双出) ----
     const [subsBusy, setSubsBusy] = useState<"build" | "burn" | null>(null);
@@ -540,7 +718,7 @@ export default function DramaWorkspacePage() {
             await pickShotCandidate(sid, cid);
             await load();
         } catch (e) {
-            setRenderError(userFacingCaughtError(e, "选用候选失败"));
+            setRenderError(studioQaHumanMessage("pick", e, userFacingCaughtError(e, "选用候选失败")));
         } finally {
             setPickingCand(null);
         }
@@ -553,7 +731,7 @@ export default function DramaWorkspacePage() {
             await load();
         } catch (e) {
             // 失败必须给反馈:此前异常直接吞成 unhandled rejection,点了配音毫无动静
-            setRenderError(userFacingCaughtError(e, "配音失败"));
+            setRenderError(studioQaHumanMessage("voice", e, userFacingCaughtError(e, "配音失败")));
         } finally {
             markBusy(sid, false);
         }
@@ -569,7 +747,22 @@ export default function DramaWorkspacePage() {
             await load();
             setLipsyncMsg("对口型完成(final_clip 已更新)");
         } catch (e) {
-            setRenderError(userFacingCaughtError(e, "对口型失败"));
+            setRenderError(studioQaHumanMessage("lipsync", e, userFacingCaughtError(e, "对口型失败")));
+        } finally {
+            setLipsyncBusy((p) => { const n = new Set(p); n.delete(sid); return n; });
+        }
+    }, [load]);
+    const runSkipLipsync = useCallback(async (sid: string) => {
+        const ok = window.confirm("跳过口型后，成片将标注「未对口型」，配音会直接叠到画面上。确定继续？");
+        if (!ok) return;
+        setLipsyncBusy((p) => new Set(p).add(sid));
+        setLipsyncMsg(null);
+        try {
+            await skipLipsyncShot(sid);
+            await load();
+            setLipsyncMsg("已跳过口型（成片标「未对口型」）");
+        } catch (e) {
+            setRenderError(studioQaHumanMessage("lipsync_skip", e, userFacingCaughtError(e, "跳过口型失败")));
         } finally {
             setLipsyncBusy((p) => { const n = new Set(p); n.delete(sid); return n; });
         }
@@ -624,15 +817,15 @@ export default function DramaWorkspacePage() {
         setBatchRendering(true);
         setRenderError(null);
         try {
-            await triggerBatchRender(id, accelLevel);
+            await triggerBatchRender(id, accelLevel, renderPipeline);
             await load();
         } catch (e) {
             // 失败必须给反馈:此前 try/finally 无 catch,整批渲染失败无任何提示
-            setRenderError(userFacingCaughtError(e, "整批渲染提交失败"));
+            setRenderError(studioQaHumanMessage("batch", e, userFacingCaughtError(e, "整批渲染提交失败，可在任务中心查看详情后重试")));
         } finally {
             setBatchRendering(false);
         }
-    }, [id, load, accelLevel]);
+    }, [id, load, accelLevel, renderPipeline]);
 
     const runAutoStoryboard = useCallback(async () => {
         if (!id || parsing) return;
@@ -678,6 +871,20 @@ export default function DramaWorkspacePage() {
         }
     }, [id, parsing, premiseText, numShots, detail, load, goSection]);
 
+    const charactersWithMakeup = useMemo(
+        () => characters.filter(characterHasMakeup),
+        [characters],
+    );
+    const makeupReady = characters.length === 0 || charactersWithMakeup.length > 0;
+    const makeupGateHint = makeupReady
+        ? null
+        : "请先完成定妆选角：至少为一名角色生成/锁定设定卡参考图后，才能批量生成视频。";
+    const continueSeamCount = useMemo(
+        () => shots.filter((s) => (s.seam_to_next || "") === "continue").length,
+        [shots],
+    );
+    const pipelineNote = PIPELINE_OPTIONS.find((p) => p.value === renderPipeline)?.note ?? "";
+
     return (
         <WorkspacePage fluid className="toiv-drama-workspace">
             <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
@@ -691,17 +898,32 @@ export default function DramaWorkspacePage() {
                                 <StatusBadge
                                     variant="filled"
                                     tone={STATUS_TONE[detail.status] ?? "neutral"}
-                                    label={detail.status}
+                                    label={statusLabelZh(detail.status)}
                                     size="sm"
                                 />
                             )}
                         </div>
                         {detail && <StatusLine project={detail} />}
                         <p className="text-xs leading-5 text-[var(--muted-foreground)]">
-                            剧本 → 资产 → 分镜 → 镜头 → 时间线 → 成片，六段数据与经典端同源
+                            剧本 → 定妆 → 分镜 → 生成 → 配音 → 口型 → 合成（就绪≠生成中；无对白镜自动越过配音/口型）
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-end gap-1.5">
+                        <label className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]" title="开启后仅提供剧组协助提示；三点人闸仍强制，不会自动代发 Agent">
+                            <span className="whitespace-nowrap">剧组协助</span>
+                            <Switch
+                                size="sm"
+                                checked={crewAssist}
+                                onChange={toggleCrewAssist}
+                                aria-label="剧组协助"
+                            />
+                        </label>
+                        {crewAssist && (
+                            <p className="max-w-xs text-right text-[11px] leading-4 text-[var(--muted-foreground)]">
+                                人闸仍强制；建议停在闸前（非整条 Agent 一键）
+                            </p>
+                        )}
+                        <div className="flex items-center gap-2">
                         <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
                         <Link to={`/toiv/drama/${id}`}>
                             <ToolButton variant="default" icon={<ScrollText />} label="经典详情" />
@@ -709,6 +931,7 @@ export default function DramaWorkspacePage() {
                         <Link to="/toiv/drama">
                             <ToolButton variant="default" icon={<Clapperboard />} label="项目列表" />
                         </Link>
+                        </div>
                     </div>
                 </header>
 
@@ -734,6 +957,11 @@ export default function DramaWorkspacePage() {
                         );
                     })}
                 </nav>
+
+                {detail && (
+                    <StageRail section={section} nextStep={detail.pipeline?.next_step?.step} />
+                )}
+                <ComputeStatusStrip variant="compact" onDeps={setDeps} />
 
                 {loading ? (
                     <div className="flex min-h-64 items-center justify-center">
@@ -832,17 +1060,30 @@ export default function DramaWorkspacePage() {
                             </SectionShell>
                         )}
                         {section === "assets" && (
-                            <SectionShell title="资产（角色/场景/道具）">
+                            <SectionShell title="资产 / 定妆（选角锁定参考）">
                                 {characters.length === 0 ? (
                                     <EmptyState description="暂无角色资产(AI 拆镜会自动入库,或在经典详情添加)" />
                                 ) : (
+                                    <>
+                                    {!makeupReady && (
+                                        <p className="rounded-lg border border-[var(--border)] bg-[var(--muted)] p-2.5 text-xs text-foreground">
+                                            尚未定妆：批量生成已禁用。请为角色打开「设定卡」生成并采用参考图。
+                                        </p>
+                                    )}
+                                    {crewAssist && (
+                                        <p className="rounded-lg border border-dashed border-[var(--border)] p-2.5 text-xs text-[var(--muted-foreground)]" data-testid="crew-assist-gate-hint">
+                                            人闸·定妆选角：{CREW_ASSIST_GATE_HINT}
+                                        </p>
+                                    )}
                                     <ul className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
                                         {characters.map((c) => (
                                             <li key={c.id} className="flex flex-col gap-1.5 rounded-lg border border-[var(--border)] p-3">
                                                 <div className="flex items-center justify-between gap-2">
                                                     <span className="text-sm font-medium text-foreground">{c.name || "未命名"}</span>
-                                                    {(c.reference_images?.length ?? 0) > 0 && (
-                                                        <StatusBadge variant="filled" tone="success" label={`参考图 ${c.reference_images?.length}`} size="sm" />
+                                                    {characterHasMakeup(c) ? (
+                                                        <StatusBadge variant="filled" tone="success" label="已定妆" size="sm" />
+                                                    ) : (
+                                                        <StatusBadge variant="filled" tone="warning" label="待定妆" size="sm" />
                                                     )}
                                                 </div>
                                                 <span className="line-clamp-2 text-xs text-[var(--muted-foreground)]">
@@ -858,6 +1099,7 @@ export default function DramaWorkspacePage() {
                                             </li>
                                         ))}
                                     </ul>
+                                    </>
                                 )}
                                 <div className="mt-3 flex flex-col gap-2 rounded-lg border border-dashed border-[var(--border)] p-3">
                                     <div className="flex items-center justify-between gap-2">
@@ -924,7 +1166,7 @@ export default function DramaWorkspacePage() {
                                                         <td className="px-2 py-1.5 tabular-nums">{s.duration_sec ?? "—"}s</td>
                                                         <td className="px-2 py-1.5">{s.seam_to_next || "hardcut"}{s.seam_anchor ? `·${s.seam_anchor}` : ""}</td>
                                                         <td className="px-2 py-1.5">
-                                                            <StatusBadge variant="filled" tone={STATUS_TONE[s.status] ?? "neutral"} label={s.status} size="sm" />
+                                                            <StatusBadge variant="filled" tone={STATUS_TONE[s.status] ?? "neutral"} label={statusLabelZh(s.status)} size="sm" />
                                                         </td>
                                                         <td className="px-2 py-1.5">
                                                             <div className="flex items-center gap-1">
@@ -951,18 +1193,41 @@ export default function DramaWorkspacePage() {
                             </SectionShell>
                         )}
                         {section === "shots" && (
-                            <SectionShell title="镜头（生成状态）">
+                            <SectionShell title="生成 · 配音 · 口型">
                                 {shots.length === 0 ? (
                                     <EmptyState description="暂无镜头(先在剧本段 AI 拆解)" />
                                 ) : (
                                     <>
                                         <div className="flex flex-wrap items-center gap-2">
+                                            <label className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
+                                                视频管线
+                                                <Select
+                                                    size="small"
+                                                    value={renderPipeline}
+                                                    onChange={(v) => void onPipelineChange(v as ToivRenderPipeline)}
+                                                    style={{ minWidth: 200 }}
+                                                    popupMatchSelectWidth={false}
+                                                    aria-label="视频管线"
+                                                    options={PIPELINE_OPTIONS.map((p) => ({
+                                                        value: p.value,
+                                                        label: p.expert ? `${p.label}（专家）` : p.label,
+                                                    }))}
+                                                />
+                                            </label>
                                             <ToolButton
                                                 variant="default"
                                                 icon={<PlayCircle />}
                                                 label={batchRendering ? "整批渲染中…" : "整批渲染(全部未完成镜)"}
-                                                onClick={() => setGateOpen(true)}
+                                                onClick={() => {
+                                                    if (!makeupReady) {
+                                                        setRenderError(makeupGateHint);
+                                                        return;
+                                                    }
+                                                    setGateOpen(true);
+                                                }}
                                                 loading={batchRendering}
+                                                disabled={!makeupReady || videoBlocked.blocked}
+                                                title={videoBlocked.blocked ? videoBlocked.hint : undefined}
                                             />
                                             <ToolButton
                                                 variant="default"
@@ -987,20 +1252,30 @@ export default function DramaWorkspacePage() {
                                                 />
                                             </label>
                                             <span className="text-xs text-[var(--muted-foreground)]">
-                                                单镜/整批走 H3 ref2va(需角色定妆参考图);管线C 为 c_hybrid 连续生成,作业进任务中心
+                                                {pipelineNote}；需角色定妆参考图；续写接缝(continue)将走管线 C；作业进任务中心
                                             </span>
                                         </div>
                                         <p className="text-xs text-[var(--muted-foreground)]">
                                             {formatAccelTierNote(selectedAccelTier) || "满血档:原生采样,质量优先(产品默认)。"}
+                                            {continueSeamCount > 0 ? ` · 当前有 ${continueSeamCount} 镜衔接=续写，渲染时自动走管线 C` : ""}
                                         </p>
+                                        {!makeupReady && (
+                                            <p className="rounded-lg border border-[var(--border)] bg-[var(--muted)] p-2.5 text-xs text-foreground">
+                                                {makeupGateHint}
+                                            </p>
+                                        )}
                                         {gateOpen && (
                                             <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-xs">
                                                 <p className="mb-2 font-medium text-foreground">生成前确认</p>
                                                 <ul className="mb-2 flex flex-col gap-0.5 text-[var(--muted-foreground)]">
                                                     <li>· 待渲染：{shots.filter((x) => !RENDERED_STATES.has(x.status)).length} / {shots.length} 镜</li>
-                                                    <li>· 引擎：H3 ref2va · 加速档：{formatAccelTierLabel(selectedAccelTier)}</li>
+                                                    <li>· 管线：{PIPELINE_OPTIONS.find((p) => p.value === renderPipeline)?.label ?? renderPipeline} · 加速档：{formatAccelTierLabel(selectedAccelTier)}</li>
+                                                    <li>· 定妆：已定妆 {charactersWithMakeup.length}/{characters.length || 0} 角色</li>
                                                     <li>· 说明：{formatAccelTierNote(selectedAccelTier) || "满血档:原生采样,质量优先。"}</li>
                                                     <li>· 算力消耗以舰队实跑为准；作业进任务中心可中止。</li>
+                                                    {crewAssist && (
+                                                        <li className="text-foreground">· 剧组协助：过脸/门禁与合成闸仍须确认，不会自动越过。</li>
+                                                    )}
                                                 </ul>
                                                 <div className="flex gap-2">
                                                     <ToolButton
@@ -1034,73 +1309,308 @@ export default function DramaWorkspacePage() {
                                         {lipsyncMsg && (
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{lipsyncMsg}</p>
                                         )}
-                                        <ul className="flex flex-col gap-2">
-                                            {shots.map((s) => {
-                                                const busy = busyShots.has(s.id);
-                                                const canRender = !RENDERED_STATES.has(s.status) && !busy;
-                                                const canVoice = s.status === "rendered" && !s.voice_url && !busy;
-                                                return (
-                                                    <li key={s.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-xs">
-                                                        <span className="w-8 tabular-nums text-[var(--muted-foreground)]">#{s.idx}</span>
-                                                        <span className="min-w-0 flex-1 truncate">{s.scene || s.prompt || "—"}</span>
-                                                        <StatusBadge variant="filled" tone={STATUS_TONE[s.status] ?? "neutral"} label={s.status} size="sm" />
-                                                        {s.video_url && <StatusBadge variant="filled" tone="success" label="视频" size="sm" />}
-                                                        {s.voice_url && <StatusBadge variant="filled" tone="success" label="配音" size="sm" />}
-                                                        {s.final_clip_url && <StatusBadge variant="filled" tone="success" label="成片段" size="sm" />}
-                                                        {(s.candidates ?? []).filter((c) => c.url).length > 1 && (
-                                                            <span className="flex items-center gap-1">
-                                                                {(s.candidates ?? []).filter((c) => c.url).map((c) => (
-                                                                    <span key={c.id} className="flex items-center gap-0.5">
-                                                                        <video src={c.url} className="h-10 w-auto rounded border border-[var(--border)]" preload="metadata" muted />
-                                                                        {c.is_picked ? (
-                                                                            <StatusBadge variant="filled" tone="success" label="已选" size="sm" />
-                                                                        ) : (
-                                                                            <ToolButton
-                                                                                size="xs"
-                                                                                variant="ghost"
-                                                                                icon={<Check />}
-                                                                                label={pickingCand === c.id ? "选…" : "选为成片"}
-                                                                                loading={pickingCand === c.id}
-                                                                                onClick={() => void runPick(s.id, c.id)}
-                                                                            />
-                                                                        )}
-                                                                    </span>
-                                                                ))}
-                                                            </span>
-                                                        )}
-                                                        {canVoice && (
-                                                            <ToolButton
-                                                                size="xs"
-                                                                variant="ghost"
-                                                                icon={<Volume2 />}
-                                                                label={busy ? "配音中…" : "配音"}
-                                                                onClick={() => void runShotVoice(s.id)}
-                                                            />
-                                                        )}
-                                                        {s.voice_url && !["lipsyncing", "lipsynced"].includes(s.status) && (
-                                                            <ToolButton
-                                                                size="xs"
-                                                                variant="ghost"
-                                                                icon={<Mic />}
-                                                                label={lipsyncBusy.has(s.id) ? "对口型中…" : "对口型"}
-                                                                loading={lipsyncBusy.has(s.id)}
-                                                                onClick={() => void runLipsync(s.id)}
-                                                            />
-                                                        )}
-                                                        {canRender && (
-                                                            <ToolButton
-                                                                size="xs"
-                                                                variant="ghost"
-                                                                icon={<PlayCircle />}
-                                                                label={busy ? "渲染中…" : "渲染"}
-                                                                onClick={() => void runShotRender(s.id)}
-                                                            />
-                                                        )}
-                                                        {busy && <Loader2 className="size-3 animate-spin text-muted-foreground" aria-hidden />}
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
+                                        <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="镜头视图">
+                                            <ToolButton
+                                                size="xs"
+                                                variant="ghost"
+                                                active={shotViewMode === "list"}
+                                                icon={<List />}
+                                                label="列表"
+                                                onClick={() => setShotViewMode("list")}
+                                            />
+                                            <ToolButton
+                                                size="xs"
+                                                variant="ghost"
+                                                active={shotViewMode === "board"}
+                                                icon={<Columns3 />}
+                                                label="看板"
+                                                onClick={() => setShotViewMode("board")}
+                                            />
+                                            <ToolButton
+                                                size="xs"
+                                                variant="ghost"
+                                                active={shotViewMode === "pipeline"}
+                                                icon={<GitBranch />}
+                                                label="流水线"
+                                                onClick={() => setShotViewMode("pipeline")}
+                                            />
+                                            <span className="text-[11px] text-[var(--muted-foreground)]">同源投影 · 切换不丢选中</span>
+                                        </div>
+                                        <div className="flex min-h-0 flex-col gap-3 lg:flex-row">
+                                            <div className="min-w-0 flex-1">
+                                                {shotViewMode === "list" ? (
+                                                    <ul className="flex flex-col gap-2">
+                                                        {shots.map((s) => {
+                                                            const busy = busyShots.has(s.id);
+                                                            const canRender = !RENDERED_STATES.has(s.status) && !busy && makeupReady;
+                                                            const hasDlg = shotHasDialogue(s.dialogue);
+                                                            const canVoice = hasDlg && s.status === "rendered" && !s.voice_url && !busy;
+                                                            const skippedAudio = !hasDlg && RENDERED_STATES.has(s.status) && s.status !== "rendering" && s.status !== "queued";
+                                                            const focused = (selectedShotId || focusShotId) === s.id;
+                                                            return (
+                                                                <li
+                                                                    key={s.id}
+                                                                    id={`shot-${s.id}`}
+                                                                    role="button"
+                                                                    tabIndex={0}
+                                                                    onClick={() => setSelectedShotId(s.id)}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === "Enter" || e.key === " ") {
+                                                                            e.preventDefault();
+                                                                            setSelectedShotId(s.id);
+                                                                        }
+                                                                    }}
+                                                                    className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs ${focused ? "border-[var(--workspace-accent)] ring-1 ring-[var(--workspace-accent)]/50" : "border-[var(--border)]"}`}
+                                                                >
+                                                                    <span className="w-8 tabular-nums text-[var(--muted-foreground)]">#{s.idx}</span>
+                                                                    <span className="min-w-0 flex-1 truncate">{s.scene || s.prompt || "—"}</span>
+                                                                    <StatusBadge variant="filled" tone={STATUS_TONE[s.status] ?? "neutral"} label={statusLabelZh(s.status)} size="sm" />
+                                                                    {skippedAudio && <StatusBadge variant="filled" tone="neutral" label="无对白·已跳过配音" size="sm" />}
+                                                                    {s.video_url && <StatusBadge variant="filled" tone="success" label="视频" size="sm" />}
+                                                                    {s.voice_url && <StatusBadge variant="filled" tone="success" label="配音" size="sm" />}
+                                                                    {s.final_clip_url && <StatusBadge variant="filled" tone="success" label="成片段" size="sm" />}
+                                                                    {(s.candidates ?? []).filter((c) => c.url).length > 1 && (
+                                                                        <span className="flex items-center gap-1">
+                                                                            {(s.candidates ?? []).filter((c) => c.url).map((c) => (
+                                                                                <span key={c.id} className="flex items-center gap-0.5">
+                                                                                    <video src={c.url} className="h-10 w-auto rounded border border-[var(--border)]" preload="metadata" muted />
+                                                                                    {c.is_picked ? (
+                                                                                        <StatusBadge variant="filled" tone="success" label="已选" size="sm" />
+                                                                                    ) : (
+                                                                                        <ToolButton
+                                                                                            size="xs"
+                                                                                            variant="ghost"
+                                                                                            icon={<Check />}
+                                                                                            label={pickingCand === c.id ? "选…" : "选为成片"}
+                                                                                            loading={pickingCand === c.id}
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                void runPick(s.id, c.id);
+                                                                                            }}
+                                                                                        />
+                                                                                    )}
+                                                                                </span>
+                                                                            ))}
+                                                                        </span>
+                                                                    )}
+                                                                    {canVoice && (
+                                                                        <ToolButton
+                                                                            size="xs"
+                                                                            variant="ghost"
+                                                                            icon={<Volume2 />}
+                                                                            label={busy ? "配音中…" : "配音"}
+                                                                            disabled={voiceBlocked.blocked}
+                                                                            title={voiceBlocked.blocked ? voiceBlocked.hint : undefined}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                void runShotVoice(s.id);
+                                                                            }}
+                                                                        />
+                                                                    )}
+                                                                    {s.voice_url && !["lipsyncing", "lipsynced"].includes(s.status) && (
+                                                                        <>
+                                                                        <ToolButton
+                                                                            size="xs"
+                                                                            variant="ghost"
+                                                                            icon={<Mic />}
+                                                                            label={lipsyncBusy.has(s.id) ? "对口型中…" : "对口型"}
+                                                                            loading={lipsyncBusy.has(s.id)}
+                                                                            disabled={voiceBlocked.blocked}
+                                                                            title={voiceBlocked.blocked ? voiceBlocked.hint : undefined}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                void runLipsync(s.id);
+                                                                            }}
+                                                                        />
+                                                                        <ToolButton
+                                                                            size="xs"
+                                                                            variant="ghost"
+                                                                            icon={<Check />}
+                                                                            label="跳过口型"
+                                                                            loading={lipsyncBusy.has(s.id)}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                void runSkipLipsync(s.id);
+                                                                            }}
+                                                                        />
+                                                                        </>
+                                                                    )}
+                                                                    {s.lipsync_skipped && <StatusBadge variant="filled" tone="warning" label="未对口型" size="sm" />}
+                                                                    {canRender && (
+                                                                        <ToolButton
+                                                                            size="xs"
+                                                                            variant="ghost"
+                                                                            icon={<PlayCircle />}
+                                                                            label={busy ? "渲染中…" : "渲染"}
+                                                                            disabled={videoBlocked.blocked}
+                                                                            title={videoBlocked.blocked ? videoBlocked.hint : undefined}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                void runShotRender(s.id);
+                                                                            }}
+                                                                        />
+                                                                    )}
+                                                                    {busy && <Loader2 className="size-3 animate-spin text-muted-foreground" aria-hidden />}
+                                                                </li>
+                                                            );
+                                                        })}
+                                                    </ul>
+                                                ) : shotViewMode === "board" ? (
+                                                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3" data-testid="drama-shot-board">
+                                                        {DRAMA_BOARD_COLUMNS.map((col) => (
+                                                            <div key={col.id} className="flex min-h-[140px] flex-col gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 p-2">
+                                                                <div className="flex items-center justify-between px-1">
+                                                                    <h3 className="text-xs font-semibold text-foreground">{col.label}</h3>
+                                                                    <span className="tabular-nums text-[10px] text-[var(--muted-foreground)]">{boardGroups[col.id].length}</span>
+                                                                </div>
+                                                                <ul className="flex flex-col gap-1.5">
+                                                                    {boardGroups[col.id].map((s) => {
+                                                                        const focused = selectedShotId === s.id;
+                                                                        return (
+                                                                            <li key={s.id} id={`shot-board-${s.id}`}>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setSelectedShotId(s.id)}
+                                                                                    className={`w-full rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors ${focused ? "border-[var(--workspace-accent)] bg-[var(--card)] ring-1 ring-[var(--workspace-accent)]/40" : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--workspace-accent)]/60"}`}
+                                                                                >
+                                                                                    <div className="flex items-center gap-1.5">
+                                                                                        <span className="tabular-nums text-[var(--muted-foreground)]">#{s.idx}</span>
+                                                                                        <StatusBadge variant="filled" tone={STATUS_TONE[s.status] ?? "neutral"} label={statusLabelZh(s.status)} size="sm" />
+                                                                                    </div>
+                                                                                    <p className="mt-1 line-clamp-2 text-foreground">{s.scene || s.prompt || "—"}</p>
+                                                                                    <div className="mt-1 flex flex-wrap gap-1">
+                                                                                        {s.video_url && <StatusBadge variant="filled" tone="success" label="视频" size="sm" />}
+                                                                                        {s.voice_url && <StatusBadge variant="filled" tone="success" label="配音" size="sm" />}
+                                                                                        {s.final_clip_url && <StatusBadge variant="filled" tone="success" label="成片" size="sm" />}
+                                                                                    </div>
+                                                                                </button>
+                                                                            </li>
+                                                                        );
+                                                                    })}
+                                                                    {boardGroups[col.id].length === 0 && (
+                                                                        <p className="px-1 py-3 text-[10px] text-[var(--muted-foreground)]">空列</p>
+                                                                    )}
+                                                                </ul>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col gap-2" data-testid="drama-shot-pipeline">
+                                                        <div className="grid grid-cols-[48px_repeat(5,minmax(0,1fr))] gap-1 px-1 text-[10px] font-medium text-[var(--muted-foreground)]">
+                                                            <span>#</span>
+                                                            {DRAMA_PIPELINE_STAGES.map((st) => (
+                                                                <span key={st.id} className="truncate text-center">{st.label}</span>
+                                                            ))}
+                                                        </div>
+                                                        <ul className="flex flex-col gap-1.5">
+                                                            {pipelineRows.map((row) => {
+                                                                const focused = selectedShotId === row.shotId;
+                                                                return (
+                                                                    <li key={row.shotId} id={`shot-pipeline-${row.shotId}`}>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setSelectedShotId(row.shotId)}
+                                                                            className={`grid w-full grid-cols-[48px_repeat(5,minmax(0,1fr))] items-center gap-1 rounded-md border px-1.5 py-1.5 text-left text-[11px] transition-colors ${focused ? "border-[var(--workspace-accent)] bg-[var(--card)] ring-1 ring-[var(--workspace-accent)]/40" : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--workspace-accent)]/60"}`}
+                                                                        >
+                                                                            <span className="tabular-nums text-[var(--muted-foreground)]">#{row.idx}</span>
+                                                                            {DRAMA_PIPELINE_STAGES.map((st) => {
+                                                                                const state = row.cells[st.id];
+                                                                                const tone =
+                                                                                    state === "ready"
+                                                                                        ? "success"
+                                                                                        : state === "busy"
+                                                                                          ? "warning"
+                                                                                          : state === "failed"
+                                                                                            ? "error"
+                                                                                            : "neutral";
+                                                                                return (
+                                                                                    <span key={st.id} className="flex justify-center">
+                                                                                        <StatusBadge variant="filled" tone={tone} label={dramaPipelineCellLabel(state)} size="sm" />
+                                                                                    </span>
+                                                                                );
+                                                                            })}
+                                                                        </button>
+                                                                        <p className="mt-0.5 truncate px-1 text-[10px] text-[var(--muted-foreground)]">{row.projection.scene || row.projection.prompt || "—"}</p>
+                                                                    </li>
+                                                                );
+                                                            })}
+                                                            {pipelineRows.length === 0 && (
+                                                                <p className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-xs text-[var(--muted-foreground)]">
+                                                                    暂无镜头 · 从分镜生成后可在此查看「文→帧→视频」投影
+                                                                </p>
+                                                            )}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <aside
+                                                className="w-full shrink-0 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 lg:w-72"
+                                                aria-label="镜头检视器"
+                                                data-testid="drama-shot-inspector"
+                                            >
+                                                {selectedShot ? (
+                                                    (() => {
+                                                        const proj = toDramaShotProjection(selectedShot, renderPipeline);
+                                                        const busy = busyShots.has(selectedShot.id);
+                                                        const canRender = !RENDERED_STATES.has(selectedShot.status) && !busy && makeupReady;
+                                                        const hasDlg = shotHasDialogue(selectedShot.dialogue);
+                                                        const canVoice = hasDlg && selectedShot.status === "rendered" && !selectedShot.voice_url && !busy;
+                                                        return (
+                                                            <div className="flex flex-col gap-2 text-xs">
+                                                                <div className="flex items-start justify-between gap-2">
+                                                                    <div>
+                                                                        <p className="text-sm font-semibold text-foreground">镜头 #{proj.idx}</p>
+                                                                        <p className="text-[10px] text-[var(--muted-foreground)]">id {proj.shotId.slice(0, 8)}…</p>
+                                                                    </div>
+                                                                    <ToolButton size="xs" variant="ghost" icon={<X />} label="关闭" onClick={() => setSelectedShotId(null)} />
+                                                                </div>
+                                                                <StatusBadge variant="filled" tone={STATUS_TONE[selectedShot.status] ?? "neutral"} label={statusLabelZh(selectedShot.status)} size="sm" />
+                                                                <p className="text-[var(--muted-foreground)]">管线 · {PIPELINE_OPTIONS.find((x) => x.value === renderPipeline)?.label ?? renderPipeline}</p>
+                                                                <div>
+                                                                    <p className="mb-0.5 font-medium text-foreground">提示语</p>
+                                                                    <p className="whitespace-pre-wrap break-words text-[var(--muted-foreground)]">{proj.prompt || proj.scene || "—"}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="mb-0.5 font-medium text-foreground">台词</p>
+                                                                    <p className="whitespace-pre-wrap break-words text-[var(--muted-foreground)]">{proj.dialogue?.trim() || "（无对白）"}</p>
+                                                                </div>
+                                                                {(proj.imageUrl || proj.videoUrl) && (
+                                                                    <div className="flex flex-col gap-1.5">
+                                                                        {proj.imageUrl && <img src={toivMediaUrl(proj.imageUrl) || proj.imageUrl} alt="" className="max-h-28 w-full rounded border border-[var(--border)] object-cover" />}
+                                                                        {proj.videoUrl && <video src={toivMediaUrl(proj.videoUrl) || proj.videoUrl} className="max-h-36 w-full rounded border border-[var(--border)]" controls preload="metadata" />}
+                                                                    </div>
+                                                                )}
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {proj.voiceUrl && <StatusBadge variant="filled" tone="success" label="已配音" size="sm" />}
+                                                                    {proj.finalClipUrl && <StatusBadge variant="filled" tone="success" label="成片段" size="sm" />}
+                                                                    {selectedShot.error && <StatusBadge variant="filled" tone="error" label="失败" size="sm" />}
+                                                                </div>
+                                                                {selectedShot.error && (
+                                                                    <p className="rounded border border-[var(--border)] bg-[var(--muted)] p-2 text-[var(--danger)]">{selectedShot.error}</p>
+                                                                )}
+                                                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                                                    {canRender && (
+                                                                        <ToolButton size="xs" variant="default" icon={<PlayCircle />} label={busy ? "渲染中…" : "渲染"} onClick={() => void runShotRender(selectedShot.id)} />
+                                                                    )}
+                                                                    {canVoice && (
+                                                                        <ToolButton size="xs" variant="ghost" icon={<Volume2 />} label="配音" onClick={() => void runShotVoice(selectedShot.id)} />
+                                                                    )}
+                                                                    {selectedShot.voice_url && !["lipsyncing", "lipsynced"].includes(selectedShot.status) && (
+                                                                        <>
+                                                                        <ToolButton size="xs" variant="ghost" icon={<Mic />} label="对口型" loading={lipsyncBusy.has(selectedShot.id)} disabled={voiceBlocked.blocked} title={voiceBlocked.blocked ? voiceBlocked.hint : undefined} onClick={() => void runLipsync(selectedShot.id)} />
+                                                                        <ToolButton size="xs" variant="ghost" icon={<Check />} label="跳过口型" loading={lipsyncBusy.has(selectedShot.id)} onClick={() => void runSkipLipsync(selectedShot.id)} />
+                                                                        </>
+                                                                    )}
+                                                                    {selectedShot.lipsync_skipped && <StatusBadge variant="filled" tone="warning" label="未对口型" size="sm" />}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()
+                                                ) : (
+                                                    <p className="text-xs text-[var(--muted-foreground)]">选中一镜后，在此查看提示语 / 管线 / 声画状态（参数进检视器，减少浮层挡操作）。</p>
+                                                )}
+                                            </aside>
+                                        </div>
                                     </>
                                 )}
                             </SectionShell>
@@ -1190,7 +1700,7 @@ export default function DramaWorkspacePage() {
                                                     </select>
                                                     {x.final_clip_url
                                                         ? <StatusBadge variant="filled" tone="success" label="就绪" size="sm" />
-                                                        : <StatusBadge variant="filled" tone={STATUS_TONE[x.status] ?? "neutral"} label={x.status} size="sm" />}
+                                                        : <StatusBadge variant="filled" tone={STATUS_TONE[x.status] ?? "neutral"} label={statusLabelZh(x.status)} size="sm" />}
                                                 </li>
                                                     {(x.beats?.length ?? 0) > 0 && (
                                                         <li key={`${x.id}-beats`} className="px-1">
@@ -1223,11 +1733,59 @@ export default function DramaWorkspacePage() {
                             </SectionShell>
                         )}
                         {section === "final" && (
-                            <SectionShell title="成片">
+                            <SectionShell title="合成预览">
                                 {detail.final_url ? (
-                                    <video src={detail.final_url} controls className="max-h-96 w-full rounded-lg border border-[var(--border)]" />
+                                    <div className="flex flex-col gap-3">
+                                        <video src={toivMediaUrl(detail.final_url) || detail.final_url} controls className="max-h-96 w-full rounded-lg border border-[var(--border)]" />
+                                        <div className="flex flex-wrap gap-2">
+                                            <ToolButton
+                                                variant="default"
+                                                icon={<Film />}
+                                                label="在本页重看成片"
+                                                onClick={() => {
+                                                    const el = document.querySelector<HTMLVideoElement>("section video, .toiv-drama-workspace video");
+                                                    el?.play?.();
+                                                }}
+                                            />
+                                            <ToolButton
+                                                variant="ghost"
+                                                icon={<Layers />}
+                                                label="回时间线调序"
+                                                onClick={() => goSection("timeline")}
+                                            />
+                                            <p className="w-full text-xs text-[var(--muted-foreground)]">站内预览即可验收；剪映/FCPXML 导出放后续波次。</p>
+                                            {crewAssist && (
+                                                <p className="w-full rounded-lg border border-dashed border-[var(--border)] p-2 text-[11px] text-[var(--muted-foreground)]">
+                                                    人闸·合成：{CREW_ASSIST_GATE_HINT}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
                                 ) : (
-                                    <EmptyState description="暂无成片；在「时间线」段合成成片后在这里播放" />
+                                    <div className="flex flex-col gap-3">
+                                        <EmptyState description="暂无成片。镜头就绪后可在时间线合成，或直接在此发起合成预览。" />
+                                        {crewAssist && (
+                                            <p className="rounded-lg border border-dashed border-[var(--border)] p-2.5 text-xs text-[var(--muted-foreground)]">
+                                                人闸·合成：{CREW_ASSIST_GATE_HINT}
+                                            </p>
+                                        )}
+                                        <div className="flex flex-wrap gap-2">
+                                            <ToolButton
+                                                variant="default"
+                                                icon={<Film />}
+                                                label={assembling ? "合成中…" : "合成预览"}
+                                                loading={assembling}
+                                                onClick={() => void runAssemble()}
+                                            />
+                                            <ToolButton variant="ghost" icon={<Layers />} label="去时间线检查片段" onClick={() => goSection("timeline")} />
+                                        </div>
+                                        {assembleError && (
+                                            <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger)]">{assembleError}</p>
+                                        )}
+                                        {assembleMsg && (
+                                            <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{assembleMsg}</p>
+                                        )}
+                                    </div>
                                 )}
                             </SectionShell>
                         )}
@@ -1351,6 +1909,66 @@ export default function DramaWorkspacePage() {
                                     </div>
                                 ))
                             )}
+                            {/* D5/AUDIT：角色资产变体下单（现有设定卡 async；扩展画风标明 API 缺口） */}
+                            <div className="mt-2 flex flex-col gap-2 rounded-lg border border-dashed border-[var(--border)] p-2.5" data-testid="character-variant-order">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-medium text-foreground">画风变体 · 下单</span>
+                                    <span className="text-[11px] text-[var(--muted-foreground)]">锚点优先于画风</span>
+                                </div>
+                                {pendingSheetVariantOrders(sheets.map((s) => s.style)).length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {pendingSheetVariantOrders(sheets.map((s) => s.style)).map((spec) => (
+                                            <ToolButton
+                                                key={spec.key}
+                                                size="xs"
+                                                variant="default"
+                                                icon={<Sparkles />}
+                                                label={`下单变体：${spec.zh}`}
+                                                loading={regenStyle === spec.key}
+                                                onClick={() => void regenSheet(sheetChar.id, spec.key)}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-[11px] text-[var(--muted-foreground)]">
+                                        可下单的设定卡画风（古风写实 / 二次元）已齐；可对上方卡片「重生成」。
+                                    </p>
+                                )}
+                                {CHARACTER_STYLE_VARIANTS.some((s) => !s.sheetOrderable) && (
+                                    <div className="flex flex-col gap-1">
+                                        <p className="text-[11px] text-[var(--muted-foreground)]">{EXTENDED_VARIANT_API_GAP}</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {CHARACTER_STYLE_VARIANTS.filter((s) => !s.sheetOrderable).map((spec) => {
+                                                const registered = Boolean(characterAsset?.style_variants?.[spec.key]?.url);
+                                                return (
+                                                    <StatusBadge
+                                                        key={spec.key}
+                                                        variant="filled"
+                                                        tone={registered ? "success" : "neutral"}
+                                                        label={registered ? `${spec.zh}·已登记` : `${spec.zh}·待 API`}
+                                                        size="sm"
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                                {characterAsset?.style_variants && Object.keys(characterAsset.style_variants).length > 0 && (
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {Object.entries(characterAsset.style_variants).map(([key, rec]) => {
+                                            const url = typeof rec?.url === "string" ? rec.url : "";
+                                            if (!url) return null;
+                                            const zh = CHARACTER_STYLE_VARIANTS.find((s) => s.key === key)?.zh || key;
+                                            return (
+                                                <div key={key} className="flex flex-col gap-1 rounded-md border border-[var(--border)] p-1.5">
+                                                    <span className="text-[11px] text-muted-foreground">{zh}</span>
+                                                    <img src={toivMediaUrl(url)} alt={`${zh} 变体`} className="w-full rounded" loading="lazy" />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}

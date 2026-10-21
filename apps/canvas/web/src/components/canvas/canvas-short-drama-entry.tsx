@@ -4,6 +4,7 @@ import { AlignLeft, ArrowRight, AudioLines, Check, ChevronDown, ChevronUp, Circl
 
 import { canvasThemes } from "@/lib/canvas-theme";
 import type { CanvasCreateCommand } from "@/components/canvas/canvas-create-menu";
+import { CANVAS_EMPTY_TEMPLATES, CANVAS_TIDY_LAYOUT_LABEL } from "@/lib/canvas/canvas-empty-templates";
 import type { CanvasShortDramaProgress, CanvasShortDramaStepId } from "@/lib/canvas/canvas-short-drama";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
 import type { CanvasNodeData } from "@/types/canvas";
@@ -24,8 +25,9 @@ export function CanvasLinkedProjectEmptyState({ projectName, hasChapter, onAddFi
     );
 }
 
-export function CanvasShortDramaEmptyState({ onCreatePipeline, onStartFreeform, onUpload, onAddText, onAddScript }: {
+export function CanvasShortDramaEmptyState({ onCreatePipeline, onCreateImageToVideo, onStartFreeform, onUpload, onAddText, onAddScript }: {
     onCreatePipeline: () => void;
+    onCreateImageToVideo?: () => void;
     onStartFreeform: () => void;
     onUpload: () => void;
     onAddText: () => void;
@@ -39,22 +41,32 @@ export function CanvasShortDramaEmptyState({ onCreatePipeline, onStartFreeform, 
                 <div className="mb-4 text-center">
                     <h2 className="text-lg font-semibold">从哪里开始？</h2>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-3" data-testid="canvas-empty-templates">
                     <PathCard
                         icon={<Clapperboard className="size-5" />}
-                        title="自己创作"
-                        description="搭好短剧骨架，再逐镜头编辑和生成。"
-                        action="创建短剧流水线"
+                        title={CANVAS_EMPTY_TEMPLATES[0].label}
+                        description={CANVAS_EMPTY_TEMPLATES[0].description}
+                        action={CANVAS_EMPTY_TEMPLATES[0].action}
                         accent={theme.accent.primary}
                         theme={theme}
                         focusStyle={focusStyle}
                         onClick={onCreatePipeline}
                     />
                     <PathCard
+                        icon={<ImagePlus className="size-5" />}
+                        title={CANVAS_EMPTY_TEMPLATES[1].label}
+                        description={CANVAS_EMPTY_TEMPLATES[1].description}
+                        action={CANVAS_EMPTY_TEMPLATES[1].action}
+                        accent="#8ec5ff"
+                        theme={theme}
+                        focusStyle={focusStyle}
+                        onClick={() => (onCreateImageToVideo || onCreatePipeline)()}
+                    />
+                    <PathCard
                         icon={<Plus className="size-5" />}
-                        title="自由空白画布"
-                        description="不预设流程，自由添加文本、图片、音频和视频。"
-                        action="从空白画布开始"
+                        title={CANVAS_EMPTY_TEMPLATES[2].label}
+                        description={CANVAS_EMPTY_TEMPLATES[2].description}
+                        action={CANVAS_EMPTY_TEMPLATES[2].action}
                         accent={theme.node.muted}
                         theme={theme}
                         focusStyle={focusStyle}
@@ -82,7 +94,13 @@ export function CanvasShortDramaEmptyState({ onCreatePipeline, onStartFreeform, 
     );
 }
 
-export function CanvasFreeformEmptyState({ commands, onOpenAssistant }: { commands: CanvasCreateCommand[]; onOpenAssistant?: () => void }) {
+export function CanvasFreeformEmptyState({ commands, onOpenAssistant, onCreateShortDrama, onCreateImageToVideo, onTidyLayout }: {
+    commands: CanvasCreateCommand[];
+    onOpenAssistant?: () => void;
+    onCreateShortDrama?: () => void;
+    onCreateImageToVideo?: () => void;
+    onTidyLayout?: () => void;
+}) {
     const theme = canvasThemes[useActiveTheme()];
     const [connectionsHintOpen, setConnectionsHintOpen] = useState(true);
     useEffect(() => {
@@ -97,15 +115,32 @@ export function CanvasFreeformEmptyState({ commands, onOpenAssistant }: { comman
         onClick: command.onClick,
     }));
     const commandById = new Map(createCommands.map((command) => [command.id, command]));
-    const quickStarts = [
-        { id: "script", label: "故事脚本生成", icon: <ScanLine className="size-4" />, commandId: "script", accent: "#9bcf6b" },
-        { id: "character", label: "角色三视图", icon: <CircleUserRound className="size-4" />, commandId: "image", accent: "#ff6266" },
-        { id: "reference-video", label: "全能参考生视频", icon: <ImagePlus className="size-4" />, commandId: "video", badge: "Lib SD 2.5", accent: "#8ec5ff" },
-        { id: "audio-video", label: "音频生视频", icon: <AudioLines className="size-4" />, commandId: "audio", badge: "Lib SD 2.5", accent: "#b58be8" },
+    const templateActions = [
+        {
+            id: CANVAS_EMPTY_TEMPLATES[0].id,
+            label: CANVAS_EMPTY_TEMPLATES[0].label,
+            description: CANVAS_EMPTY_TEMPLATES[0].description,
+            icon: <Clapperboard className="size-4" />,
+            accent: "#9bcf6b",
+            onClick: () => (onCreateShortDrama || commandById.get("script")?.onClick)?.(),
+        },
+        {
+            id: CANVAS_EMPTY_TEMPLATES[1].id,
+            label: CANVAS_EMPTY_TEMPLATES[1].label,
+            description: CANVAS_EMPTY_TEMPLATES[1].description,
+            icon: <ImagePlus className="size-4" />,
+            accent: "#8ec5ff",
+            onClick: () => (onCreateImageToVideo || commandById.get("video")?.onClick)?.(),
+        },
+        {
+            id: CANVAS_EMPTY_TEMPLATES[2].id,
+            label: CANVAS_EMPTY_TEMPLATES[2].label,
+            description: CANVAS_EMPTY_TEMPLATES[2].description,
+            icon: <Plus className="size-4" />,
+            accent: "#b58be8",
+            onClick: () => commandById.get("text")?.onClick(),
+        },
     ];
-    // These four shortcuts stay implemented, but remain hidden until their
-    // corresponding workflows are ready for release.
-    const showQuickStarts = false;
     return (
         <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center px-4 pb-20 pt-24">
             <div className="pointer-events-none select-none flex w-full max-w-[984px] flex-col items-center justify-center text-center" style={{ color: theme.node.text }}>
@@ -127,32 +162,35 @@ export function CanvasFreeformEmptyState({ commands, onOpenAssistant }: { comman
                         或让助手搭个草案 <span className="ml-1 opacity-70">⌘J</span>
                     </button>
                 ) : null}
-                {showQuickStarts ? <div className="mt-6 grid w-full max-w-[984px] grid-cols-2 gap-2 sm:grid-cols-4">
-                    {quickStarts.map((item) => {
-                        const command = commandById.get(item.commandId);
-                        if (!command) return null;
-                        return (
-                            <button
-                                key={item.id}
-                                type="button"
-                                disabled={Boolean(command.disabledReason)}
-                                aria-disabled={Boolean(command.disabledReason)}
-                                aria-description={command.disabledReason}
-                                aria-label={item.label}
-                                onDoubleClick={(event) => event.stopPropagation()}
-                                onClick={() => { if (!command.disabledReason) command.onClick(); }}
-                                className={`group flex min-h-[56px] min-w-0 flex-row items-center gap-3 rounded-lg border px-3 py-2 text-left shadow-sm outline-none transition focus-visible:ring-2 motion-reduce:transition-none ${command.disabledReason ? "cursor-not-allowed opacity-40 grayscale" : "hover:-translate-y-0.5 hover:brightness-105 motion-reduce:hover:translate-y-0"}`}
-                                style={{ background: theme.node.fill, borderColor: theme.node.stroke, boxShadow: theme.node.shadow, "--tw-ring-color": theme.accent.primary } as CSSProperties}
-                            >
-                                <span className="grid size-9 shrink-0 place-items-center rounded-md" style={{ color: "#fff", background: item.accent, boxShadow: `0 6px 16px ${item.accent}33` }}>{item.icon}</span>
-                                <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                                    <span className="min-w-0 text-xs font-medium leading-4 sm:truncate">{item.label}</span>
-                                    {(command.disabledReason ? "正在开发" : item.badge) ? <span className="shrink-0 rounded bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium max-[480px]:hidden" style={{ color: theme.node.muted }}>{command.disabledReason ? "正在开发" : item.badge}</span> : null}
-                                </span>
-                            </button>
-                        );
-                    })}
-                </div> : null}
+                <div className="pointer-events-auto mt-6 grid w-full max-w-[720px] grid-cols-1 gap-2 sm:grid-cols-3" data-testid="canvas-empty-templates">
+                    {templateActions.map((item) => (
+                        <button
+                            key={item.id}
+                            type="button"
+                            aria-label={item.label}
+                            title={item.description}
+                            onDoubleClick={(event) => event.stopPropagation()}
+                            onClick={() => item.onClick?.()}
+                            className="group flex min-h-[72px] min-w-0 flex-col items-start gap-2 rounded-lg border px-3 py-3 text-left shadow-sm outline-none transition hover:-translate-y-0.5 hover:brightness-105 focus-visible:ring-2 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                            style={{ background: theme.node.fill, borderColor: theme.node.stroke, boxShadow: theme.node.shadow, "--tw-ring-color": theme.accent.primary } as CSSProperties}
+                        >
+                            <span className="grid size-8 place-items-center rounded-md" style={{ color: "#fff", background: item.accent }}>{item.icon}</span>
+                            <span className="text-xs font-semibold leading-4">{item.label}</span>
+                            <span className="line-clamp-2 text-[10px] leading-4" style={{ color: theme.node.muted }}>{item.description}</span>
+                        </button>
+                    ))}
+                </div>
+                {onTidyLayout ? (
+                    <button
+                        type="button"
+                        className="pointer-events-auto mt-3 rounded-md px-2.5 py-1 text-xs opacity-70 transition-opacity hover:opacity-100"
+                        style={{ color: theme.node.muted }}
+                        onDoubleClick={(event) => event.stopPropagation()}
+                        onClick={onTidyLayout}
+                    >
+                        {CANVAS_TIDY_LAYOUT_LABEL}（有节点后可用）
+                    </button>
+                ) : null}
                 <button type="button" aria-label="添加第一项" className="sr-only" tabIndex={-1} onClick={() => commandById.get("text")?.onClick()} />
             </div>
             {connectionsHintOpen ? (

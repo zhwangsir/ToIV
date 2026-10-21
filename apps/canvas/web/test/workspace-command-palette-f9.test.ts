@@ -39,6 +39,7 @@ const REQUIRED_TARGETS = [
     "/agents",
     "/settings",
     "/settings?section=channels",
+    "/toiv/drama?new=1",
     "/canvas?mode=new",
 ];
 
@@ -74,7 +75,7 @@ describe("F9 workspace command palette", () => {
     test("过滤:空查询全量、大小写不敏感、子串匹配", () => {
         expect(filterCommandEntries(WORKSPACE_COMMAND_ROUTES, "  ").length).toBe(WORKSPACE_COMMAND_ROUTES.length);
         const tools = filterCommandEntries(WORKSPACE_COMMAND_ROUTES, "工具");
-        // 工具箱/音频工具/图片工具/视频工具/译制工具
+        // 工具台/音频工具/图片工具/视频工具/译制工具
         expect(tools.length).toBeGreaterThanOrEqual(5);
         for (const entry of tools) expect(entry.title).toContain("工具");
         expect(filterCommandEntries(WORKSPACE_COMMAND_ROUTES, "AGENT").some((e) => e.id === "agents")).toBe(true);
@@ -104,10 +105,10 @@ describe("F9 workspace command palette", () => {
             createElement(MemoryRouter, null, createElement(WorkspaceCommandPalette, { open: true, onClose: () => {} })),
         );
         expect(html).toContain('aria-label="命令面板搜索"');
-        expect(html).toContain("短剧工作台");
+        expect(html).toContain("短剧项目");
         expect(html).toContain("任务中心");
         expect(html).toContain("模型配置");
-        expect(html).toContain("新建项目");
+        expect(html).toContain("新建短剧");
         expect(html).toContain("设置");
     });
 });

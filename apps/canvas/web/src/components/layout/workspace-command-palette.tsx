@@ -45,18 +45,19 @@ export type WorkspaceCommandEntry = {
  * 「页面 + 动作 + 设置段」结构移植至此,R18 门控在 settings/r18-mode(D-U1=B),本面板不重复入口。
  */
 export const WORKSPACE_COMMAND_ROUTES: ReadonlyArray<Omit<WorkspaceCommandEntry, "run">> = [
-    // 动作
-    { id: "act:new-project", title: "新建项目", icon: Plus, hint: "动作", to: "/canvas?mode=new" },
+    // 动作 — Wave P1：主新建=短剧；画布新建降为专家动作
+    { id: "act:new-project", title: "新建短剧", icon: Plus, hint: "动作", to: "/toiv/drama?new=1" },
+    { id: "act:new-canvas", title: "新建画布（专家）", icon: Plus, hint: "动作", to: "/canvas?mode=new" },
     { id: "act:new-chat", title: "新对话", icon: MessageSquarePlus, hint: "动作", to: "/toiv/agent" },
     // 页面(与侧栏导航树同序)
     { id: "home", title: "首页", icon: Home, hint: "页面", to: "/" },
     { id: "create", title: "创作", icon: WandSparkles, hint: "页面", to: "/create" },
-    { id: "toiv:drama", title: "短剧工作台", icon: Clapperboard, hint: "页面", to: "/toiv/drama" },
+    { id: "toiv:drama", title: "短剧项目", icon: Clapperboard, hint: "页面", to: "/toiv/drama" },
     { id: "toiv:agent", title: "智能体对话", icon: Bot, hint: "页面", to: "/toiv/agent" },
-    { id: "projects", title: "项目", icon: PanelsTopLeft, hint: "页面", to: "/project" },
+    { id: "projects", title: "自由画布", icon: PanelsTopLeft, hint: "页面", to: "/project" },
     { id: "canvas", title: "画布", icon: PanelsTopLeft, hint: "页面", to: "/canvas" },
     { id: "library", title: "媒体库", icon: Library, hint: "页面", to: "/library?source=materials" },
-    { id: "toiv:market", title: "工具箱", icon: Store, hint: "页面", to: "/toiv/market" },
+    { id: "toiv:market", title: "工具台", icon: Store, hint: "页面", to: "/toiv/market" },
     { id: "toiv:tasks", title: "任务中心", icon: ListChecks, hint: "页面", to: "/toiv/tasks" },
     // 工具页(F3–F7 自经典 web 收编,侧栏未平铺)
     { id: "toiv:audio", title: "音频工具", icon: Music, hint: "工具", to: "/toiv/audio" },

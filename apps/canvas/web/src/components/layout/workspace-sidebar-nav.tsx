@@ -40,30 +40,31 @@ function toolItem(slug: NavigationToolSlug, to: string): WorkspaceNavItem {
 }
 
 function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[]; footer: WorkspaceNavItem[] } {
+    // Wave P1 / N4: 进门语义=短剧；稳态序 短剧 → 任务只读 → 工具台 → 自由画布(可折) → 设置
+    void features;
     const groups: WorkspaceNavGroup[] = [
         {
             items: [
-                { id: "new", title: "新建项目", icon: Plus, to: "/canvas?mode=new" },
+                { id: "new", title: "新建短剧", icon: Plus, to: "/toiv/drama?new=1" },
             ],
         },
         {
-            // F1(2026-10-11)融合:原「ToIV 创作」分组拆散——v2 后短剧工作台即主创作流,
-            // 与智能体对话(人和 Agent 双入口等价)升一级;其余按平台功能平铺,零子品牌分组。
             items: [
                 { id: "home", title: "首页", icon: Home, to: "/" },
-                { id: "toiv:drama", title: "短剧工作台", icon: Clapperboard, to: "/toiv/drama" },
-                { id: "toiv:agent", title: "智能体对话", icon: Bot, to: "/toiv/agent" },
-                { ...toolItem("canvas", "/project"), title: "项目" },
-                { id: "library", title: "媒体库", icon: Library, to: "/library" },
-                { id: "toiv:market", title: "工具箱", icon: Store, to: "/toiv/market" },
+                { id: "toiv:drama", title: "短剧项目", icon: Clapperboard, to: "/toiv/drama" },
                 { id: "toiv:tasks", title: "任务中心", icon: ListChecks, to: "/toiv/tasks" },
-                { id: "settings:channels", title: "模型配置", icon: Settings2, to: "/settings?section=channels" },
+                { id: "toiv:market", title: "工具台", icon: Store, to: "/toiv/market" },
+                { id: "settings", title: "设置", icon: Settings2, to: "/settings" },
             ],
         },
         {
-            // BeefAPI / 外部 Agent 等不挡本地主路径；默认收起
-            heading: "高级 / 云端可选",
+            // 专家画布 / 智能体 / 媒体库 / 外部 Agent —— 默认收起，不挡短剧主路径
+            heading: "高级 / 自由画布",
             items: [
+                { ...toolItem("canvas", "/project"), title: "自由画布" },
+                { id: "canvas:new", title: "新建画布（专家）", icon: Plus, to: "/canvas?mode=new" },
+                { id: "toiv:agent", title: "智能体对话", icon: Bot, to: "/toiv/agent" },
+                { id: "library", title: "媒体库", icon: Library, to: "/library" },
                 { id: "agents", title: "外部 Agent", icon: Plug, to: "/agents" },
             ],
         },
@@ -242,7 +243,7 @@ function NavItem({
 }
 
 function NavGroup({ group, activeId, onNavigate, onOpenSearch, collapsed }: { group: WorkspaceNavGroup; activeId: string; onNavigate: () => void; onOpenSearch: () => void; collapsed: boolean }) {
-    const defaultOpen = group.heading !== "高级 / 云端可选";
+    const defaultOpen = group.heading !== "高级 / 自由画布" && group.heading !== "高级 / 云端可选";
     const [isOpen, setIsOpen] = useState(defaultOpen);
     const hasActive = group.items.some((item) => item.id === activeId || (item.id === "settings" && activeId.startsWith("settings:")) || (item.id === "agents" && activeId === "agents"));
 

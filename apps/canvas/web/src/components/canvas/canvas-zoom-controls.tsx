@@ -130,7 +130,7 @@ export function CanvasZoomControls({ scale, onScaleChange, onFitContent, onAutoA
         { id: "zoom-minimap", label: "切换小地图", icon: <Map />, active: isMiniMapOpen, onClick: onToggleMiniMap },
         { id: "zoom-snap-grid", label: "网格吸附", icon: <Grid3X3 />, active: snapToGrid, onClick: () => onSnapToGridChange(!snapToGrid) },
         { id: "zoom-fit", label: "适合屏幕", icon: <Focus />, onClick: onFitContent },
-        ...(onAutoArrange ? [{ id: "zoom-auto-arrange", label: "自动整理节点", icon: <LayoutTemplate />, onClick: onAutoArrange }] : []),
+        ...(onAutoArrange ? [{ id: "zoom-auto-arrange", label: "一键整理", icon: <LayoutTemplate />, onClick: onAutoArrange }] : []),
         {
             id: "zoom-precision",
             label: "缩放画布",

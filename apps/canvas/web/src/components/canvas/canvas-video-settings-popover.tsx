@@ -9,6 +9,7 @@ import { modelCapabilityConfigFor, resolveVideoRatioValue, resolveVideoResolutio
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
 import type { AiConfig } from "@/stores/use-config-store";
 import type { SeedanceSettingsConstraints } from "@/lib/seedance-task-constraints";
+import { LocalEnginePresetPanel } from "@/components/canvas/local-engine-preset-panel";
 
 type CanvasVideoSettingsPopoverProps = {
     taskConstraints?: SeedanceSettingsConstraints;
@@ -16,10 +17,12 @@ type CanvasVideoSettingsPopoverProps = {
     onConfigChange: (key: keyof AiConfig, value: string) => void;
     buttonClassName?: string;
     placement?: "topLeft" | "top" | "topRight" | "bottomLeft" | "bottom" | "bottomRight";
+    /** Wave P3 / G5：end=右侧停靠检视，减少盖住节点端口 */
+    dock?: "anchor" | "end";
     summaryOverride?: string;
 };
 
-export function CanvasVideoSettingsPopover({ config, onConfigChange, buttonClassName, placement = "topLeft", summaryOverride, taskConstraints }: CanvasVideoSettingsPopoverProps) {
+export function CanvasVideoSettingsPopover({ config, onConfigChange, buttonClassName, placement = "topLeft", dock = "end", summaryOverride, taskConstraints }: CanvasVideoSettingsPopoverProps) {
     const theme = canvasThemes[useActiveTheme()];
     const buttonRef = useRef<HTMLSpanElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
@@ -58,7 +61,7 @@ export function CanvasVideoSettingsPopover({ config, onConfigChange, buttonClass
         };
     }, [open]);
 
-    const panel = open && buttonRect ? <VideoSettingsPortal buttonRect={buttonRect} panelRef={panelRef} placement={placement} theme={theme} config={config} onConfigChange={onConfigChange} taskConstraints={taskConstraints} /> : null;
+    const panel = open && buttonRect ? <VideoSettingsPortal buttonRect={buttonRect} panelRef={panelRef} placement={placement} dock={dock} theme={theme} config={config} onConfigChange={onConfigChange} taskConstraints={taskConstraints} /> : null;
 
     return (
         <>
@@ -76,6 +79,7 @@ function VideoSettingsPortal({
     buttonRect,
     panelRef,
     placement,
+    dock = "end",
     theme,
     config,
     onConfigChange,
@@ -85,6 +89,7 @@ function VideoSettingsPortal({
     buttonRect: DOMRect;
     panelRef: RefObject<HTMLDivElement | null>;
     placement: CanvasVideoSettingsPopoverProps["placement"];
+    dock?: "anchor" | "end";
     theme: (typeof canvasThemes)[keyof typeof canvasThemes];
     config: AiConfig;
     onConfigChange: (key: keyof AiConfig, value: string) => void;
@@ -100,12 +105,17 @@ function VideoSettingsPortal({
     const topSpace = buttonRect.top - gap - margin;
     const bottomSpace = window.innerHeight - buttonRect.bottom - gap - margin;
     const placeAbove = topPlacement ? topSpace >= estimatedHeight || topSpace >= bottomSpace : bottomSpace < estimatedHeight && topSpace > bottomSpace;
+    const docked = dock === "end";
     const style = {
         position: "fixed",
         zIndex: "var(--z-dialog-popover)",
-        width,
-        left: Math.max(margin, Math.min(window.innerWidth - width - margin, left)),
-        ...(placeAbove ? { bottom: window.innerHeight - buttonRect.top + gap, maxHeight: Math.max(260, topSpace) } : { top: buttonRect.bottom + gap, maxHeight: Math.max(260, bottomSpace) }),
+        width: docked ? Math.min(360, window.innerWidth - margin * 2) : width,
+        ...(docked
+            ? { right: margin, top: Math.max(margin, 72), bottom: margin, left: "auto" as const, maxHeight: "none" as const }
+            : {
+                left: Math.max(margin, Math.min(window.innerWidth - width - margin, left)),
+                ...(placeAbove ? { bottom: window.innerHeight - buttonRect.top + gap, maxHeight: Math.max(260, topSpace) } : { top: buttonRect.bottom + gap, maxHeight: Math.max(260, bottomSpace) }),
+            }),
         background: theme.canvas.background,
         border: `1px solid ${theme.toolbar.border}`,
         borderRadius: 10,
@@ -119,11 +129,20 @@ function VideoSettingsPortal({
         <div
             ref={panelRef}
             className="canvas-image-settings-popover aceternity-floating-panel backdrop-blur-2xl"
+            data-dock={dock}
             style={style}
             onPointerDown={(event) => event.stopPropagation()}
             onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
         >
+            <div className="mb-3 border-b pb-3" style={{ borderColor: theme.toolbar.border }}>
+                <LocalEnginePresetPanel
+                    kind="video"
+                    modelRef={config.model || config.videoModel}
+                    theme={theme}
+                    onSelect={(preset) => onConfigChange("model", preset.modelRef)}
+                />
+            </div>
             <VideoSettingsPanel config={config} onConfigChange={(key, value) => onConfigChange(key, value)} theme={theme} className="space-y-3" taskConstraints={taskConstraints} />
         </div>,
         document.body,

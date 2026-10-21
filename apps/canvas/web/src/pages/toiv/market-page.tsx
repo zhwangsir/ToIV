@@ -44,12 +44,14 @@ import { isR18Mode } from "@/services/toiv/r18-mode";
 import {
     LOCAL_MARKET_FEATURED,
     isMarketAudioUnavailableApp,
+    localCapabilityHoverTitle,
+    localCapabilityProductLabel,
     localMarketFeaturedAppIds,
     resolveLocalCapabilityBadge,
     sortAppsWithFeaturedIds,
     sortMarketAppsDefault,
-    type LocalCapabilityBadge,
 } from "@/services/toiv/local-capability-surface";
+import type { LocalCapabilityBadge } from "@/services/toiv/local-capability-surface";
 import {
     isMarketCanvasProvider,
     registerMarketCanvasProvider,
@@ -69,12 +71,12 @@ const CATEGORY_META: Record<string, string> = {
 };
 
 
+/** Wave P1/N10 + P3.6：产品面业务名；悬停不露裸端口。 */
 function LocalBadges({ badge }: { badge: LocalCapabilityBadge }) {
     return (
-        <span className="flex flex-wrap items-center gap-1">
-            <StatusBadge variant="filled" tone="success" label={badge.label} size="sm" />
-            <StatusBadge variant="filled" tone="neutral" label={badge.worker} size="sm" />
-            <StatusBadge variant="filled" tone="neutral" label={badge.engine} size="sm" />
+        <span className="flex flex-wrap items-center gap-1" title={localCapabilityHoverTitle(badge)}>
+            <StatusBadge variant="filled" tone="success" label="本地" size="sm" />
+            <StatusBadge variant="filled" tone="neutral" label={localCapabilityProductLabel(badge)} size="sm" />
         </span>
     );
 }
@@ -869,7 +871,7 @@ export default function MarketPage() {
                             <div className="flex items-baseline justify-between">
                                 <h2 className="text-sm font-medium text-foreground">本地精选</h2>
                                 <span className="text-[11px] text-[var(--muted-foreground)]">
-                                    生图 · H3 · LongCat · VACE · Animate2 · Continue · Avatar · Wan
+                                    图像 · 短剧视频 · 长视频 · 视频编辑 · 动作 · 续写 · 数字人 · 视频生成
                                 </span>
                             </div>
                             <div className="flex gap-3 overflow-x-auto pb-1">
@@ -895,7 +897,7 @@ export default function MarketPage() {
                                             <p className="truncate text-sm font-medium">{app?.name || entry.label}</p>
                                             <LocalBadges badge={badge} />
                                             <p className="line-clamp-2 text-[11px] text-[var(--muted-foreground)]">
-                                                {app?.guide_purpose || app?.description || `本地 worker ${entry.worker}`}
+                                                {app?.guide_purpose || app?.description || `本地 · ${localCapabilityProductLabel({ kind: entry.kind, label: entry.label, worker: entry.worker, engine: entry.engine, protocol: entry.protocol })}`}
                                             </p>
                                         </button>
                                     );

@@ -325,3 +325,24 @@ def test_upload_h3_i2v_follows_picked_worker(monkeypatch):
     monkeypatch.setattr(h3_service, "pick_h3_client", _fake_pick)
     got = asyncio.run(upload_mod._pick_dedicated_upload_client("h3_i2v"))
     assert got is picked
+
+
+def test_h3_default_base_is_8264(monkeypatch):
+    """无 env 时 Settings.h3_base_url 默认生产口 :8264(Wave Default N1)。"""
+    monkeypatch.delenv("TOIV_H3_BASE_URL", raising=False)
+    monkeypatch.delenv("TOIV_H3_BASE_URLS", raising=False)
+    from app.config import get_settings
+    get_settings.cache_clear()
+    try:
+        s = get_settings()
+        assert s.h3_base_url.rstrip("/").endswith(":8264")
+        assert ":8195" not in s.h3_base_url
+    finally:
+        get_settings.cache_clear()
+
+
+def test_h3_worker_override_whitelist_keeps_legacy_8195():
+    """白名单仍允 :8195 legacy pin;生产默认改口不删评测能力。"""
+    from app.services.h3 import validate_worker_override
+    assert validate_worker_override("http://100.68.100.90:8195") == "http://100.68.100.90:8195"
+    assert validate_worker_override("http://100.68.100.90:8264") == "http://100.68.100.90:8264"

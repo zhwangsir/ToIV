@@ -361,15 +361,16 @@ class Settings(BaseSettings):
     # 单请求超时(秒):纹理生成是分钟级(多视图扩散 + 4K 烘焙),默认 900。
     hy3d_tex_timeout_sec: float = 900.0
 
-    # —— MiniMax H3 视频生成引擎(专用 ComfyUI ≥ 0.30 实例,workstation :8195) ——
+    # —— MiniMax H3 视频生成引擎(专用 ComfyUI ≥ 0.30 实例,workstation :8264 生产口) ——
     # 独立于 ComfyUI-LB 集群/WorkerPool(生产 ComfyUI 0.27/0.28 无 H3 节点);
     # 实例由 systemd 托管,权重经 extra_model_paths 挂 NAS h3/。
+    # :8195 已 stop+disable(AGENTS §三),仅评测/溢出白名单用,不得作无 env 默认。
     h3_enabled: bool = True
-    h3_base_url: str = "http://192.168.71.127:8195"
+    h3_base_url: str = "http://192.168.71.127:8264"
     # H3 双 worker 池(2026-09-13):逗号分隔的实例基址,提交时 least-loaded 调度
     # (queue 最短者优先;探测失败视为 ∞ 自动跳过,全不可达回退首实例由 ensure_h3_ready
-    # 报 503)。生产 = WS :8195 + PC01 :8198(设备侧就绪前 healthy=false 自然降级单实例,
-    # 零报错)。空 = 单实例回落 h3_base_url,core .env 零改动也能跑。
+    # 报 503)。生产默认单口 = WS :8264;可选再拼 PC01 :8198(设备侧就绪前 healthy=false
+    # 自然降级,零报错)。空 = 单实例回落 h3_base_url,core .env 零改动也能跑。
     # 注意:每实例常驻 RAM ~30G(匿名内存,不可回收)+ 显存 30-33G,扩实例前先核
     # workstation free -h 与 nvidia-smi(H-3/H-2 纪律)。
     h3_base_urls: str = ""
