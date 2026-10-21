@@ -2833,7 +2833,11 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
                                 logger.info('portrait slate recovered via img2img attempt=%s', attempt)
                             except Exception as slate_e:
                                 logger.warning('portrait slate img2img recover fail attempt=%s: %s; retry seed', attempt, slate_e)
-                                continue
+                                # F5: 末次 attempt 警告放行（雨夜近黑雨衣叙事可接受；禁整图着色）
+                                if attempt >= 5:
+                                    logger.warning('portrait slate soft-accept on final attempt after recover fail')
+                                else:
+                                    continue
                 elif meta.style == 'ancient_realistic' and ancient_spec_target_hex(meta):
                     try:
                         assert_garment_near_spec_color(panels['portrait'], ancient_spec_target_hex(meta), label='主立绘')
