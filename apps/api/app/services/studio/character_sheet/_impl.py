@@ -2769,13 +2769,21 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
                             return await generate_panel_bytes(pool, prompts['portrait'] + ', plain flat chest only, remove chest badge emblem star logo patch, ' + bust, ckpt_name=ckpt, width=w, height=h, seed=(s or 0) + 171, worker=worker, filename_prefix=f'ToIV_char_sheet_portrait_plain_a{attempt}', style=meta.style, client=client, ref_image=_ref, ref_mode='img2img', denoise=denoise)
                         cleaned = await _emblem_cleanup(make_plain=_make_plain, is_emblem=lambda img: portrait_has_chest_emblem(img, ref=panels.get('front')))
                         if cleaned is None:
-                            raise CharacterSheetError('主立绘胸口徽标，img2img 去标失败禁铺色', status_code=422)
-                        panels['portrait'] = cleaned
-                        logger.info('portrait emblem cleared via img2img attempt=%s', attempt)
+                            # F5: 末次 attempt 对齐饰品 VLM exhausted(accept)；拉链/高光易误杀，禁整图铺色
+                            if attempt >= 5:
+                                logger.warning('portrait emblem exhausted attempt=%s — accept with warn (no tint)', attempt)
+                            else:
+                                raise CharacterSheetError('主立绘胸口徽标，img2img 去标失败禁铺色', status_code=422)
+                        else:
+                            panels['portrait'] = cleaned
+                            logger.info('portrait emblem cleared via img2img attempt=%s', attempt)
                     except CharacterSheetError as ce:
                         last_err = ce
                         logger.warning('portrait emblem inpaint fail attempt=%s: %s', attempt, ce)
-                        continue
+                        if attempt >= 5:
+                            logger.warning('portrait emblem soft-accept on final attempt')
+                        else:
+                            continue
                 if sheet_uses_anime_gates(meta.style):
                     try:
                         assert_fullbody_portrait_face_ok(panels['portrait'])
