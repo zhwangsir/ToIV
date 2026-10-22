@@ -13,3 +13,13 @@ for _mod in (constants, templates, gates, layout, retry, _impl, ux):
     globals().update({k: v for k, v in vars(_mod).items() if not k.startswith("__")})
 
 del _mod
+
+# F5: gates 内函数 __globals__ 绑在 gates 模块；layout/_impl 符号需运行时注入，
+# 否则 assert_expr_base_face_area / assert_costume_cells_nonempty 等会 NameError。
+for _donor in (layout, _impl):
+    for _k, _v in vars(_donor).items():
+        if _k.startswith("__"):
+            continue
+        if _k not in gates.__dict__:
+            setattr(gates, _k, _v)
+del _donor, _k, _v
