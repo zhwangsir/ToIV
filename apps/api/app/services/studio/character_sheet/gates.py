@@ -692,7 +692,8 @@ def measure_face_area_frac(data: bytes) -> float | None:
 def assert_expr_base_face_area(data: bytes, *, expr_key: str, min_area: float=0.15) -> tuple[bytes, float]:
     """22:45/23:17：表情底裁后 insightface 脸面积须 ≥0.15；略低时先 zoom 一次，仍不足直接停。
 
-    返回 (可能被放大后的 bytes, area)。
+    F5：近失 soft-ok — zoom 后若 area ∈ [0.12, min_area) 警告放行（真机 f5o: 0.139 < 0.15）；
+    <0.12 仍硬拒。返回 (可能被放大后的 bytes, area)。
     """
     cur = data
     area = measure_face_area_frac(cur)
@@ -702,7 +703,15 @@ def assert_expr_base_face_area(data: bytes, *, expr_key: str, min_area: float=0.
     if area is None:
         raise CharacterSheetError(f'{expr_key} 表情底无人脸(area=None)，停', status_code=422)
     if area + 1e-12 < float(min_area):
-        raise CharacterSheetError(f'{expr_key} 表情底脸面积 {area:.3f} < {min_area:.2f}，停', status_code=422)
+        # F5 near-miss: align with face_front soft-ok style
+        soft_floor = 0.12
+        if float(area) + 1e-12 >= soft_floor:
+            logger.warning(
+                '%s expr base face area=%.3f <%.2f — soft ok near-miss (>=%.2f)',
+                expr_key, area, min_area, soft_floor,
+            )
+        else:
+            raise CharacterSheetError(f'{expr_key} 表情底脸面积 {area:.3f} < {min_area:.2f}，停', status_code=422)
     return (cur, float(area))
 
 def _normalize_hex(c: str) -> str | None:

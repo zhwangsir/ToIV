@@ -77,3 +77,24 @@ def test_face_front_too_small_still_hard_fail(monkeypatch):
     with pytest.raises(CharacterSheetError) as ei:
         impl.crop_face_slot_from_master_with_meta(raw, slot="face_front", size=512)
     assert "face height frac" in str(ei.value).lower()
+
+
+def test_expr_base_face_area_near_miss_soft_ok(monkeypatch):
+    """F5o: 0.139 < 0.15 近失警告放行（≥0.12）。"""
+    from app.services.studio.character_sheet import gates as g
+
+    monkeypatch.setattr(g, "measure_face_area_frac", lambda _d: 0.139)
+    monkeypatch.setattr(g, "_zoom_face_for_area", lambda data, **k: data)
+    out, area = g.assert_expr_base_face_area(b"fake-png", expr_key="expr_0", min_area=0.15)
+    assert out == b"fake-png"
+    assert area == pytest.approx(0.139)
+
+
+def test_expr_base_face_area_too_small_still_hard_fail(monkeypatch):
+    from app.services.studio.character_sheet import gates as g
+
+    monkeypatch.setattr(g, "measure_face_area_frac", lambda _d: 0.10)
+    monkeypatch.setattr(g, "_zoom_face_for_area", lambda data, **k: data)
+    with pytest.raises(CharacterSheetError) as ei:
+        g.assert_expr_base_face_area(b"fake-png", expr_key="expr_0", min_area=0.15)
+    assert "表情底脸面积" in str(ei.value)
