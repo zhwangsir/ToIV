@@ -4303,7 +4303,11 @@ def _crop_costume_band_filled(img: Image.Image, box: tuple[float, float, float, 
                 best, best_r = (dense, dr)
                 logger.info('costume band densest fg→%.3f', best_r)
     if best_r + 1e-12 < float(min_fg) - 0.02:
-        raise CharacterSheetError(f'costume band fg {best_r:.3f} < {min_fg:.2f} after auto-adjust', status_code=422)
+        # F5: 近失 soft-ok（如 0.503 vs 0.55）；过低仍硬拒
+        if float(best_r) + 1e-12 >= max(0.48, float(min_fg) - 0.08):
+            logger.warning('costume band fg %.3f < %.2f — soft ok near-miss', best_r, min_fg)
+        else:
+            raise CharacterSheetError(f'costume band fg {best_r:.3f} < {min_fg:.2f} after auto-adjust', status_code=422)
     crop = best
     covered = _cover_square_no_light_edge(crop, size=size)
     post = _costume_cell_fg_ratio(covered, treat_mid_gray_bg=treat_mid_gray_bg)
