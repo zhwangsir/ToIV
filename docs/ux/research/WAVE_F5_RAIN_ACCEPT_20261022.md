@@ -5,7 +5,11 @@
 
 ## 结论
 
-**PARTIAL（主闭环可见 = 是；本短程更近 PASS）**
+> 2026-10-22 ~09:15 CST：**f5p PARTIAL** — 生产 soft-ok 已确认；一单 anime 硬拒 expr 脸面积 0.081（低于 0.12 floor，不松阈）；未 Ref2VA。
+
+## 结论
+
+**PARTIAL（主闭环可见 = 是；f5p 未满配 PASS）**
 
 抗中断短程（f5o）：生产 API 已吃到 face_front soft-ok；真机一单 anime `97c5a6ef…` **越过先前人脸硬裁**，卡在 `expr_0 表情底脸面积 0.139 < 0.15`（近失）。已 soft-keep 警告卡；并落地 `assert_expr_base_face_area` soft-floor **0.12**（单测绿）+ `deploy --skip-web core` 上线。**未**开第二枪 GPU / **未**新提 H3 一镜 / **未** push。
 
@@ -51,12 +55,14 @@ Acc/Mega 全视频 · 安全 Dly · push · 换密
 
 ## CHECKPOINT (resilient short pass)
 
-- **ts**: 2026-10-22 09:05:49 CST (Asia/Shanghai)
-- **tip**: local `e8c3b8d4` + uncommitted expr soft-ok → will commit this pass
-- **H3 :8264 / :8196**: empty at submit
-- **Phase A**: login=`email`；雨夜 `16e33f8b…`；f5n fail=`face_front 0.261<0.35` raced **pre** soft-ok restart
-- **Phase B**: ONE anime job `97c5a6efc4bf49fc8ac11fc81f733856` → error expr_0 area 0.139<0.15；soft_keep → `char_sheet_803fb69b_anime_c7293ea49066.png`（warning）
-- **Fix**: `gates.assert_expr_base_face_area` soft_floor=0.12；tests 4 passed；deployed core `--skip-web`
-- **No**: second GPU job · Acc · push · security Dly
+- **ts**: 2026-10-22 09:15:08 CST (Asia/Shanghai)
+- **tip**: `6ba76f27` (pre-docs commit)
+- **prod**: expr soft_floor=0.12 **confirmed** on core `gates.py` (mtime Oct 22 09:05); health ok
+- **queues**: `:8196`/`:8264` empty at submit
+- **f5p**: job `88a7e5bc38f446ebbf6361b03dfe4286` → **HARD FAIL** `expr_0 表情底脸面积 0.081 < 0.15`（实测 < soft_floor 0.12）
+- **floor tweak**: **否** — 0.081 非近失同类（f5o 为 0.139≥0.12）；停止继续松阈
+- **soft-keep**: `char_sheet_803fb69b_anime_…` warning（证据保留，非绿卡）
+- **Ref2VA**: 跳过（sheet 未 PASS）
+- **verdict**: **PARTIAL**
 - **machine-readable**: `/tmp/f5_checkpoint.json` · `test-results/f5_rain_accept/F5_ACCEPT_REPORT.json`
 
