@@ -1391,6 +1391,8 @@ def _panel_is_blank_or_glitch(data: bytes) -> bool:
 
 def assert_costume_cells_nonempty(costume_png: bytes, *, min_ratio: float=0.12, n: int=4) -> list[float]:
     """服饰栏每格须非空且内容像素占比 > 阈值；否则 CharacterSheetError。"""
+    # F5: layout 定义 ratios；gates←layout 单向 merge，此处惰性导入避免环依赖 NameError
+    from app.services.studio.character_sheet.layout import costume_cell_content_ratios
     ratios = costume_cell_content_ratios(costume_png, n=n)
     bad = [i for i, r in enumerate(ratios) if r < min_ratio]
     if bad:
