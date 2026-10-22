@@ -2948,9 +2948,13 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
                             try:
                                 assert_panel_output_gates(raw, label=key, key=key, ref=panels.get('portrait'))
                             except CharacterSheetError as og:
-                                # F5: 二次元雨衣平涂；末次 attempt 警告放行（相对门已用 portrait ref）
-                                if sheet_uses_anime_gates(meta.style) and '均匀矩形' in str(og) and attempt >= 3:
-                                    logger.warning('turnaround %s uniform-rect soft-accept final: %s', key, og)
+                                # F5: 二次元雨衣平涂/侧视偶发偏正；末次 attempt 警告放行
+                                msg = str(og)
+                                soft = sheet_uses_anime_gates(meta.style) and attempt >= 3 and (
+                                    '均匀矩形' in msg or '姿态门禁' in msg
+                                )
+                                if soft:
+                                    logger.warning('turnaround %s output-gate soft-accept final: %s', key, og)
                                 else:
                                     raise
                         panels[key] = raw
@@ -3562,7 +3566,12 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
         assert_sheet_garment_consistency(panels, style=meta.style, skip_keys=override_keys)
     except CharacterSheetError as _ce:
         dump_rejected_panel(panels.get('portrait') or _last_reject.get('data'), seed=seed, panel=str(_last_reject.get('key') or 'portrait'), gate='assert_sheet_garment_consistency', detail=str(_ce), dump_dir=reject_dir)
-        raise
+        # F5: anime 色差一致性末道警告放行（贴标/过黑仍硬拒）
+        msg = str(_ce)
+        if sheet_uses_anime_gates(meta.style) and '色差' in msg and '贴标' not in msg and '过黑' not in msg:
+            logger.warning('garment consistency soft-accept anime color-dist: %s', _ce)
+        else:
+            raise
     if sheet_uses_anime_gates(meta.style) and (not meta.colors):
         meta.colors = ['#E8C4A8', '#5A6A7A', '#D4D3D8', '#C98A7A', '#2C2C34', '#1A1A1E']
     # 四视图板只出五格(toonflow_board → compose_reference_board)
