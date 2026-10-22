@@ -2939,7 +2939,11 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
                         p_hex = _panel_garment_dominant_hex(panels['portrait'])
                         t_hex = _panel_garment_dominant_hex(raw)
                         if p_hex and t_hex and (_hex_dist(p_hex, t_hex) > 110):
-                            raise CharacterSheetError(f'img2img {key}服装色差过大({t_hex} vs {p_hex})，禁强制着色须重出', status_code=422)
+                            # F5: 末次 attempt 警告放行（主立绘已近板岩灰时 side/front 偶发过浅）
+                            if sheet_uses_anime_gates(meta.style) and attempt >= 3:
+                                logger.warning('img2img %s color-dist soft-accept final: %s vs %s dist=%s', key, t_hex, p_hex, _hex_dist(p_hex, t_hex))
+                            else:
+                                raise CharacterSheetError(f'img2img {key}服装色差过大({t_hex} vs {p_hex})，禁强制着色须重出', status_code=422)
                         if key not in override_keys:
                             try:
                                 assert_panel_output_gates(raw, label=key, key=key, ref=panels.get('portrait'))
