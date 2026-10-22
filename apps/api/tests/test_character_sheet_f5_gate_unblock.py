@@ -98,3 +98,75 @@ def test_expr_base_face_area_too_small_still_hard_fail(monkeypatch):
     with pytest.raises(CharacterSheetError) as ei:
         g.assert_expr_base_face_area(b"fake-png", expr_key="expr_0", min_area=0.15)
     assert "表情底脸面积" in str(ei.value)
+
+
+def _skin_face_png(*, canvas: int = 512, face_frac: float = 0.16) -> bytes:
+    """Synthetic skin-tone square face centered; area ≈ face_frac² for heuristic bbox."""
+    import numpy as np
+    from PIL import Image
+
+    arr = np.zeros((canvas, canvas, 3), dtype=np.uint8)
+    arr[:] = (245, 245, 248)
+    side = max(8, int(canvas * face_frac))
+    x0 = (canvas - side) // 2
+    y0 = int(canvas * 0.22)
+    arr[y0 : y0 + side, x0 : x0 + side] = (220, 180, 150)
+    # crude eyes so detectors prefer face region
+    ey = y0 + side // 3
+    arr[ey : ey + 6, x0 + side // 4 : x0 + side // 4 + 12] = (30, 30, 40)
+    arr[ey : ey + 6, x0 + 3 * side // 5 : x0 + 3 * side // 5 + 12] = (30, 30, 40)
+    buf = BytesIO()
+    Image.fromarray(arr, mode="RGB").save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def test_expr_base_face_area_f5p_small_face_zooms_up():
+    """F5p: ~0.025 area (old zoom → ~0.081 hard-reject) must lift ≥0.12 without lowering soft_floor."""
+    from app.services.studio.character_sheet import gates as g
+    from app.services.studio.character_sheet import layout as lay
+
+    # face_frac=0.16 → area≈0.0256; with min_scale=0.55 would land ~0.084
+    raw = _skin_face_png(face_frac=0.16)
+    before = g.measure_face_area_frac(raw)
+    assert before is not None and before < 0.10, before
+    # aggressive zoom alone should clear soft floor
+    zoomed = lay._zoom_face_for_area(raw, target_area=0.18, min_scale=0.35)
+    after_zoom = g.measure_face_area_frac(zoomed)
+    assert after_zoom is not None and after_zoom + 1e-12 >= 0.12, after_zoom
+    # full assert path (may soft-ok in [0.12, 0.15) or hard pass ≥0.15)
+    fixed, area = g.assert_expr_base_face_area(raw, expr_key="expr_0", min_area=0.15)
+    assert fixed and area + 1e-12 >= 0.12, area
+
+
+def test_crop_face_ref_face_bbox_targets_larger_area():
+    """Portrait with small head → crop_face_ref should yield face area ≫ geometric-only ~0.025."""
+    from app.services.studio.character_sheet import gates as g
+    from app.services.studio.character_sheet import layout as lay
+    import numpy as np
+    from PIL import Image
+
+    # full-body-ish canvas: tiny face near top
+    H, W = 1024, 576
+    arr = np.zeros((H, W, 3), dtype=np.uint8)
+    arr[:] = (230, 230, 235)
+    fw = fh = 70
+    x0, y0 = (W - fw) // 2, 40
+    arr[y0 : y0 + fh, x0 : x0 + fw] = (220, 180, 150)
+    arr[y0 + 20 : y0 + 26, x0 + 15 : x0 + 28] = (30, 30, 40)
+    arr[y0 + 20 : y0 + 26, x0 + 42 : x0 + 55] = (30, 30, 40)
+    buf = BytesIO()
+    Image.fromarray(arr, mode="RGB").save(buf, format="PNG")
+    portrait = buf.getvalue()
+    cropped = lay.crop_face_ref(portrait, size=768)
+    area = g.measure_face_area_frac(cropped)
+    assert area is not None and area + 1e-12 >= 0.15, area  # post F5p tight crop
+
+
+def test_zoom_min_scale_floor_documented():
+    """Guard: default min_scale must stay ≤0.40 so F5p ~0.025 can clear 0.15."""
+    import inspect
+    from app.services.studio.character_sheet import layout as lay
+
+    src = inspect.getsource(lay._zoom_face_for_area)
+    assert "min_scale: float=0.35" in src or "min_scale=0.35" in src
+    assert "0.55" not in src.split("scale = max")[1][:80]

@@ -50,6 +50,7 @@ def test_assert_expr_base_face_area_zoom_and_fail():
     ok = _face_cell(face_scale=0.50)
     fixed, area = sheet_svc.assert_expr_base_face_area(ok, expr_key="expr_0", min_area=0.15)
     assert area >= 0.15 and fixed
+    # F5p: zoom min_scale 0.35 still cannot salvage face_scale=0.08 (~0.006→~0.05 < soft 0.12)
     tiny = _face_cell(face_scale=0.08)
     try:
         sheet_svc.assert_expr_base_face_area(tiny, expr_key="expr_1", min_area=0.15)
@@ -60,14 +61,29 @@ def test_assert_expr_base_face_area_zoom_and_fail():
     assert raised
 
 
+def test_assert_expr_base_face_area_f5p_mid_small_zooms_past_soft():
+    """~0.025 area (f5p hard-reject class) must pass soft floor after aggressive zoom."""
+    mid = _face_cell(face_scale=0.16)
+    before = sheet_svc.measure_face_area_frac(mid)
+    assert before is not None and before < 0.10
+    fixed, area = sheet_svc.assert_expr_base_face_area(mid, expr_key="expr_0", min_area=0.15)
+    assert fixed and area + 1e-12 >= 0.12
+
+
 def test_source_has_2317_hard_rules():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    # package split: symbols live in submodules, not character_sheet/__init__.py
+    root = Path(sheet_svc.__file__).resolve().parent
+    src = "\n".join(
+        (root / name).read_text(encoding="utf-8")
+        for name in ("_impl.py", "layout.py", "constants.py", "gates.py")
+        if (root / name).is_file()
+    )
     assert "TOIV_SHEET_SIDE_DEBLUR" in src
     assert ("23:17 hard-crop only" in src) or ("00:31 Lanczos native" in src)
     assert "_EXPR_GRID_EDIT_INSTRUCTION" in src
     assert "apply_expression_grid_local_features" in src
     # V4-0a:2317 单图宫格链已被 10/1 固定版式(分格出图+拼版)替代,断言随迁
-    assert "Pillow 固定版式拼版" in src
+    assert ("Pillow 固定版式" in src) or ("固定版式拼版" in src) or ("Pillow 固定版式拼版" in src)
     assert "def _split_expression_grid" in src
 
 

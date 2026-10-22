@@ -479,8 +479,12 @@ def _compose_expression_grid(panels: dict[str, Image.Image], *, label_fill: tupl
             draw.text((lx, ly), lab, font=font, fill=label_fill)
     return grid
 
-def _zoom_face_for_area(data: bytes, *, size: int=768, target_area: float=0.18) -> bytes:
-    """轻微围绕脸框放大，尽量把脸面积抬到 target_area（供表情底送模前）。"""
+def _zoom_face_for_area(data: bytes, *, size: int=768, target_area: float=0.18, min_scale: float=0.35) -> bytes:
+    """围绕脸框放大，尽量把脸面积抬到 target_area（供表情底送模前）。
+
+    F5p：旧 min_scale=0.55 最多 ~3.3× 面积；真机 ~0.025 脸只能抬到 ~0.081（< soft 0.12）。
+    默认 min_scale=0.35（~8.2×）可把同档抬过 0.15，仍保留极小脸硬拒（face_scale≈0.08 → ~0.05）。
+    """
     img = Image.open(BytesIO(data)).convert('RGB')
     w, h = img.size
     bb = _detect_face_bbox_xyxy(data)
@@ -495,7 +499,8 @@ def _zoom_face_for_area(data: bytes, *, size: int=768, target_area: float=0.18) 
     if area + 1e-12 >= float(target_area):
         return data
     scale = (area / max(1e-06, float(target_area))) ** 0.5
-    scale = max(0.55, min(0.92, scale))
+    # floor was 0.55 (too conservative for anime expr bases from full-body crop_face_ref)
+    scale = max(float(min_scale), min(0.92, scale))
     side = max(64, int(min(w, h) * scale))
     fcx = (x1 + x2) / 2.0
     fcy = (y1 + y2) / 2.0
@@ -942,16 +947,44 @@ def squareize_face_center_crop(data: bytes, size: int=768, *, min_face_height_fr
     raise CharacterSheetError('expr same-scale crop failed', status_code=422)
 
 def crop_face_ref(portrait_bytes: bytes, size: int=768) -> bytes:
-    """从立绘取头肩特写正方形参考,供表情 img2img(紧裁,避免半身站姿)。"""
+    """从立绘取头肩特写正方形参考,供表情 img2img(紧裁,避免半身站姿)。
+
+    F5p：有脸框时按目标脸面积 ≈0.22 居中紧裁（旧几何 top 0.38h 常把脸压到 ~0.025）；
+    无脸框时回落原几何裁。
+    """
     img = Image.open(BytesIO(portrait_bytes)).convert('RGB')
     w, h = img.size
-    side = min(int(w * 0.72), int(h * 0.38), w, h)
-    side = max(64, side)
-    left = max(0, (w - side) // 2)
-    top = max(0, int(h * 0.01))
-    if top + side > h:
-        top = max(0, h - side)
-    crop = img.crop((left, top, left + side, top + side))
+    bb = None
+    try:
+        bb = _detect_face_bbox_xyxy(portrait_bytes)
+    except Exception:
+        bb = None
+    if bb is None:
+        try:
+            bb = _heuristic_skin_face_bbox(img)
+        except Exception:
+            bb = None
+    if bb is not None:
+        x1, y1, x2, y2 = [float(v) for v in bb]
+        fw = max(8.0, x2 - x1)
+        fh = max(8.0, y2 - y1)
+        fcx = (x1 + x2) / 2.0
+        fcy = (y1 + y2) / 2.0
+        target_area = 0.28
+        side = int(math.ceil(math.sqrt((fw * fh) / max(1e-06, target_area))))
+        side = max(side, int(max(fw, fh) * 1.65))
+        side = max(64, min(side, w, h))
+        left = max(0, min(w - side, int(round(fcx - side / 2.0))))
+        top = max(0, min(h - side, int(round(fcy - side / 2.0 - 0.06 * side))))
+        crop = img.crop((left, top, left + side, top + side))
+    else:
+        side = min(int(w * 0.72), int(h * 0.38), w, h)
+        side = max(64, side)
+        left = max(0, (w - side) // 2)
+        top = max(0, int(h * 0.01))
+        if top + side > h:
+            top = max(0, h - side)
+        crop = img.crop((left, top, left + side, top + side))
     crop = crop.resize((size, size), Image.Resampling.LANCZOS)
     buf = BytesIO()
     crop.save(buf, format='PNG')

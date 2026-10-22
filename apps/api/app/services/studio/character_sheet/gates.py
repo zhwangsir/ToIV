@@ -694,6 +694,9 @@ def assert_expr_base_face_area(data: bytes, *, expr_key: str, min_area: float=0.
 
     F5：近失 soft-ok — zoom 后若 area ∈ [0.12, min_area) 警告放行（真机 f5o: 0.139 < 0.15）；
     <0.12 仍硬拒。返回 (可能被放大后的 bytes, area)。
+
+    F5p：不降 soft_floor；靠 layout._zoom_face_for_area(min_scale=0.35) + crop_face_ref 紧裁
+    把真机 0.081 档抬过门槛（见 test_expr_base_face_area_f5p_small_face_zooms_up）。
     """
     cur = data
     area = measure_face_area_frac(cur)

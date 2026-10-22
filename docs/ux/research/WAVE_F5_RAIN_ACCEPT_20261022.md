@@ -66,3 +66,14 @@ Acc/Mega 全视频 · 安全 Dly · push · 换密
 - **verdict**: **PARTIAL**
 - **machine-readable**: `/tmp/f5_checkpoint.json` · `test-results/f5_rain_accept/F5_ACCEPT_REPORT.json`
 
+
+## F5q — expr 底脸面积根因修（2026-10-22 09:18 CST，Asia/Shanghai）
+
+**根因**：`_zoom_face_for_area` 旧 `min_scale=0.55` 最多 ~3.3× 面积；`crop_face_ref` 几何 top 裁常把脸压到 ~0.025 → 一 zoom 后 ~0.081（< soft 0.12）。**未**再降 soft_floor（仍 0.12）。
+
+**修复**：
+- `layout._zoom_face_for_area`：`min_scale` 默认 **0.35**（~8.2×）
+- `layout.crop_face_ref`：有脸框时按目标面积 **0.28** 紧裁；无脸回落几何
+- 单测：`test_expr_base_face_area_f5p_small_face_zooms_up` 等（f5_gate_unblock + expr_grid）
+
+**下一步**：`deploy --skip-web core` → **一枪** anime 定妆（seed 新）→ 若无 expr face-area 硬拒则向 PASS 推进；Ref2VA 仅在定妆绿/soft-keep 无硬拒时可选。
