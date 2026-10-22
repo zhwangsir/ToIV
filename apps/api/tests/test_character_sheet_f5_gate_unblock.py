@@ -60,13 +60,13 @@ def test_face_front_too_small_still_hard_fail(monkeypatch):
     buf = BytesIO()
     img.save(buf, format="PNG")
     raw = buf.getvalue()
-    seq = iter([0.20, 0.22])
+    seq = iter([0.18, 0.20])
 
     def fake_measure(_data):
         try:
             return next(seq)
         except StopIteration:
-            return 0.22
+            return 0.20
 
     monkeypatch.setattr(impl, "measure_face_height_frac", fake_measure)
     monkeypatch.setattr(impl, "panel_vertical_span", lambda _d: 0.5)

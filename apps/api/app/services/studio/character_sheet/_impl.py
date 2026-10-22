@@ -349,9 +349,9 @@ def crop_face_slot_from_master_with_meta(data: bytes, *, slot: str, size: int=76
             if vspan + 1e-12 < 0.35:
                 raise CharacterSheetError(f'faces {slot} hard-crop head/content frac {vspan:.3f} < 0.35', status_code=422)
         elif frac + 1e-12 < 0.35:
-            # F5: face_front 近失(如 0.324)与 face_side soft-ok 对齐；<0.30 仍硬拒
-            if float(frac) + 1e-12 >= 0.30:
-                logger.warning('faces %s hard-crop frac=%.3f <0.35 — soft ok near-miss (>=0.30)', slot, frac)
+            # F5: face_front 与 face_three_quarter 下沿 0.25 对齐；<0.25 仍硬拒
+            if float(frac) + 1e-12 >= 0.25:
+                logger.warning('faces %s hard-crop frac=%.3f <0.35 — soft ok near-miss (>=0.25)', slot, frac)
             else:
                 raise CharacterSheetError(f'faces {slot} hard-crop face height frac {frac:.3f} < 0.35', status_code=422)
         meta['readable'] = True
