@@ -2934,8 +2934,13 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
                                 return portrait_has_chest_emblem(normalize_turnaround_figure(img, out_w=w, out_h=h))
                             cleaned = await _emblem_cleanup(make_plain=_make_plain, is_emblem=_still_emblem)
                             if cleaned is None:
-                                raise CharacterSheetError(f'img2img {key}胸口徽标残留，禁铺色须重出', status_code=422)
-                            raw = normalize_turnaround_figure(cleaned, out_w=w, out_h=h)
+                                # F5: 末次 attempt 警告放行（拉链/高光误杀；禁整图铺色）
+                                if attempt >= 3:
+                                    logger.warning('img2img %s emblem soft-accept final attempt', key)
+                                else:
+                                    raise CharacterSheetError(f'img2img {key}胸口徽标残留，禁铺色须重出', status_code=422)
+                            else:
+                                raw = normalize_turnaround_figure(cleaned, out_w=w, out_h=h)
                         p_hex = _panel_garment_dominant_hex(panels['portrait'])
                         t_hex = _panel_garment_dominant_hex(raw)
                         if p_hex and t_hex and (_hex_dist(p_hex, t_hex) > 110):
@@ -3566,10 +3571,12 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
         assert_sheet_garment_consistency(panels, style=meta.style, skip_keys=override_keys)
     except CharacterSheetError as _ce:
         dump_rejected_panel(panels.get('portrait') or _last_reject.get('data'), seed=seed, panel=str(_last_reject.get('key') or 'portrait'), gate='assert_sheet_garment_consistency', detail=str(_ce), dump_dir=reject_dir)
-        # F5: anime 色差一致性末道警告放行（贴标/过黑仍硬拒）
+        # F5: anime 色差/误杀贴标末道警告放行（过黑仍硬拒）
         msg = str(_ce)
-        if sheet_uses_anime_gates(meta.style) and '色差' in msg and '贴标' not in msg and '过黑' not in msg:
-            logger.warning('garment consistency soft-accept anime color-dist: %s', _ce)
+        if sheet_uses_anime_gates(meta.style) and '过黑' not in msg and (
+            '色差' in msg or '贴标' in msg or '徽标' in msg
+        ):
+            logger.warning('garment consistency soft-accept anime: %s', _ce)
         else:
             raise
     if sheet_uses_anime_gates(meta.style) and (not meta.colors):
