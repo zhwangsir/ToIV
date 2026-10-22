@@ -14,12 +14,17 @@ for _mod in (constants, templates, gates, layout, retry, _impl, ux):
 
 del _mod
 
-# F5: gates 内函数 __globals__ 绑在 gates 模块；layout/_impl 符号需运行时注入，
-# 否则 assert_expr_base_face_area / assert_costume_cells_nonempty 等会 NameError。
-for _donor in (layout, _impl):
-    for _k, _v in vars(_donor).items():
-        if _k.startswith("__"):
-            continue
-        if _k not in gates.__dict__:
-            setattr(gates, _k, _v)
-del _donor, _k, _v
+# F5: 各子模块函数的 __globals__ 绑在定义模块；拆分后交叉调用会 NameError。
+# 包 init 后互相补齐缺失符号（不覆盖已有定义）。
+def _bridge_missing(dst, *donors):
+    for donor in donors:
+        for k, v in vars(donor).items():
+            if k.startswith("__"):
+                continue
+            if k not in dst.__dict__:
+                setattr(dst, k, v)
+
+_bridge_missing(gates, layout, _impl, retry, ux)
+_bridge_missing(layout, gates, _impl, retry, ux)
+_bridge_missing(_impl, gates, layout, retry, ux)
+del _bridge_missing
