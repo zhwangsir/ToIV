@@ -24,3 +24,7 @@
 ## 纪律
 
 分支 `work/p0-fusion-20261016` · **仍未 push**（除非用户再明示）
+
+## F5 满配收口（2026-10-22 10:32 CST）
+
+**PASS_WITH_SOFT_SHEET**：定妆 anime done（expr 面积 0.146 soft-ok）+ 雨夜 shot0 Ref2VA done（`62d66b39_1_2204_00001_.mp4`，~1474s，:8264）。详见 `WAVE_F5_RAIN_ACCEPT_20261022.md`。未 push。

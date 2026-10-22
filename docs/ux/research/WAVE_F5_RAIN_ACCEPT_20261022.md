@@ -97,3 +97,22 @@ Acc/Mega 全视频 · 安全 Dly · push · 换密
 **结论**：生成/裁剪根因修生效；WAVE_F5 定妆脸面积门从 BLOCKED → **解阻**。满配产品 PASS 仍可补一镜 Ref2VA（非本 blocker）。
 
 机器可读：`/tmp/f5_checkpoint.json` · `test-results/f5_rain_accept/F5_ACCEPT_REPORT.json` · `sheet_poll_f5q_anime.json`
+
+
+## F5r — Ref2VA 一镜 → **PASS_WITH_SOFT_SHEET**（2026-10-22 10:32 CST，Asia/Shanghai）
+
+| 项 | 值 |
+|----|----|
+| 定妆 | done · expr 底脸 **0.146** soft-ok（soft_floor **0.12** 未松） |
+| 关键帧 | 采用既有 `scene_shot0_door.png`（不续写） |
+| pipeline | **ref2va** · H3 · seed 2026102204 · accel off |
+| job | `24f0f3f5830843d794b67cd7c10ec167` → **done** |
+| worker | `:8264` |
+| 耗时 | **~1474 s**（≈24.6 min） |
+| 成片 | `62d66b39_1_2204_00001_.mp4`（ToIV_drama_c） |
+| 本地证据 | `test-results/f5_rain_accept/ref2va_shot0_f5r.mp4`（~5.7 MB） |
+| seam | `""`（不续写） |
+
+**Verdict**: **PASS_WITH_SOFT_SHEET** — 定妆脸面积解阻 + 雨夜 shot0 Ref2VA 真出片。
+
+机器可读：`/tmp/f5_checkpoint.json` · `F5_ACCEPT_REPORT.json` · `ref2va_timing_f5r.txt`

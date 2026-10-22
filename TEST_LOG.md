@@ -2389,3 +2389,6 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 - **结论**：**PARTIAL（主闭环可见）**；满配 PASS 仍差「门禁全绿新定妆 + 可选新一镜」
 - **文档**：`docs/ux/research/WAVE_F5_RAIN_ACCEPT_20261022.md` · `WAVE_FINAL_FORM_WRAP_20261022.md`
 - **标记**：`F5_RAIN_ACCEPT_PARTIAL`
+
+## 2026-10-22 F5r Ref2VA PASS_WITH_SOFT_SHEET
+- sheet area 0.146 soft-ok; Ref2VA shot0 done ~1474s; video `62d66b39_1_2204_00001_.mp4`; tip 1e97302c; no push
