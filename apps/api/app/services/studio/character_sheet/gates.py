@@ -589,11 +589,14 @@ def assert_turnaround_pose(data: bytes, key: str) -> None:
         if yaw is None or abs(yaw) < 55:
             raise CharacterSheetError(f'姿态门禁失败:back 仍可见正脸(yaw={yaw})', status_code=422)
 
-def assert_panel_output_gates(data: bytes, *, label: str, key: str | None=None) -> None:
-    """16:18 组合出图门禁：矩形色块 + 肤色 + 侧背姿态。"""
-    assert_no_large_uniform_rect(data, label=label)
+def assert_panel_output_gates(data: bytes, *, label: str, key: str | None=None, ref: bytes | None=None) -> None:
+    """16:18 组合出图门禁：矩形色块 + 肤色 + 侧背姿态。
+
+    F5: 三视图传入主立绘 ref 时，雨衣平涂相对母版放行（与 assert_no_large_uniform_rect 17:14 一致）。
+    """
+    assert_no_large_uniform_rect(data, label=label, ref=ref)
     if key in (None, 'portrait', 'front', 'side') or (key and key.startswith('expr_')):
-        assert_skin_not_blue_gray(data, label=label)
+        assert_skin_not_blue_gray(data, label=label, ref=ref)
     if key in ('side', 'back'):
         assert_turnaround_pose(data, key)
 

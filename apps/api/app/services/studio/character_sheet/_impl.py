@@ -2941,7 +2941,14 @@ async def generate_character_sheet(*, character_id: str, meta: SheetMeta, pool: 
                         if p_hex and t_hex and (_hex_dist(p_hex, t_hex) > 110):
                             raise CharacterSheetError(f'img2img {key}服装色差过大({t_hex} vs {p_hex})，禁强制着色须重出', status_code=422)
                         if key not in override_keys:
-                            assert_panel_output_gates(raw, label=key, key=key)
+                            try:
+                                assert_panel_output_gates(raw, label=key, key=key, ref=panels.get('portrait'))
+                            except CharacterSheetError as og:
+                                # F5: 二次元雨衣平涂；末次 attempt 警告放行（相对门已用 portrait ref）
+                                if sheet_uses_anime_gates(meta.style) and '均匀矩形' in str(og) and attempt >= 3:
+                                    logger.warning('turnaround %s uniform-rect soft-accept final: %s', key, og)
+                                else:
+                                    raise
                         panels[key] = raw
                         last_err = None
                         break
