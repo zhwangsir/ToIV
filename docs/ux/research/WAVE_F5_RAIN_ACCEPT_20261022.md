@@ -77,3 +77,23 @@ Acc/Mega 全视频 · 安全 Dly · push · 换密
 - 单测：`test_expr_base_face_area_f5p_small_face_zooms_up` 等（f5_gate_unblock + expr_grid）
 
 **下一步**：`deploy --skip-web core` → **一枪** anime 定妆（seed 新）→ 若无 expr face-area 硬拒则向 PASS 推进；Ref2VA 仅在定妆绿/soft-keep 无硬拒时可选。
+
+
+## F5q 结果 — 定妆 DONE，脸面积解阻（2026-10-22 10:06 CST，Asia/Shanghai）
+
+| 项 | 值 |
+|----|----|
+| tip | `27a60f19`（已 deploy `--skip-web core`） |
+| job | `0389f481576147f19c46493b40f5ddda` |
+| status | **done** |
+| sheet | `char_sheet_803fb69b_anime_ba6acbcd0a82.png` |
+| **实测 expr 底脸面积** | **0.146**（expr_0..5 全同） |
+| soft_floor | **0.12 未再降** |
+| 路径 | soft-ok near-miss（0.146 ∈ [0.12, 0.15)）→ **无 face-area 硬拒** |
+| 对比 f5p | 0.081 硬拒 → 本枪 0.146 soft-ok |
+| soft_floor 改动 | **否** |
+| Ref2VA | 可选跳过（本窗目标=解 face-area 硬拒） |
+
+**结论**：生成/裁剪根因修生效；WAVE_F5 定妆脸面积门从 BLOCKED → **解阻**。满配产品 PASS 仍可补一镜 Ref2VA（非本 blocker）。
+
+机器可读：`/tmp/f5_checkpoint.json` · `test-results/f5_rain_accept/F5_ACCEPT_REPORT.json` · `sheet_poll_f5q_anime.json`
