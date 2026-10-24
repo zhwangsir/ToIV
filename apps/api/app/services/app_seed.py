@@ -633,7 +633,7 @@ def _build_specs() -> list[dict]:
         ),
         _spec(
             "qwen-image-edit", "智能编辑(Qwen)",
-            "Qwen-Image-Edit-2509:自然语言语义编辑,专用实例 :8194",
+            "DOWN(:8194) Qwen-Image-Edit；勿当热路径",
             icon="sparkles", category="edit", output_kind="image",
             workflow_json=build_qwen_edit_graph(QwenEditParams(image="", positive="")),
             params_schema=[

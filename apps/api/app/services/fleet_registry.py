@@ -1,9 +1,10 @@
 """集群设备静态注册表(纯数据,无 IO)。
 
-唯一事实源:AGENTS.md 第一节「集群设备清单」+ 第三节 GPU 分配
-(Wave Default N2 / 2026-10-22:H3 生产口 :8264;补 :8265/:9311;
-摘 :8261 与 OpenTalking :4403;CosyVoice/ASR/SenseVoice 2026-10-22
-真机 LAN 探针全 Connection refused → probe=none 摘出在线率分母,note 留末次探针)。
+事实优先级:现场探针 > 本注册表 > config 默认 > AGENTS/文档注释。
+(Wave Naming N1 / 2026-10-23:对齐「一个磁盘权重一个 weight id」;
+spark01=DSv4 TP rank1 headless;spark02=ep.llm.primary DSv4;
+VLM=ws:9311 toiv-vlm;whisper 探针 /health;离线口 probe=none 不进分母。
+既有:H3 :8264;:8265/:9311;摘 :8261/OpenTalking :4403。)
 
 字段约定:
 - probe_host:core 侧主动探测用的地址(core→workstation/pc 服务间调用走 LAN,
@@ -61,34 +62,34 @@ DEVICE_REGISTRY: list[dict] = [
         "probe_host": _WS,
         "sysmetrics": True,
         "services": [
-            # —— AGENTS §三 现网常驻(在线率分母核心) ——
-            _comfy("ComfyUI 通用", 8196, note="GPU0 · gpu0-alt 顶班(原 :8189 被占卡死)"),
-            _comfy("H3 主力视频", 8264, note="GPU1 · MiniMax H3 生产口(AGENTS;:8195 已停)"),
-            _comfy("LongCat", 8197, note="GPU0 · cache-lru 3"),
-            _comfy("Wan-Animate-2", 8199, note="GPU3"),
-            _comfy("Hunyuan3D 纹理 worker", 8200, note="GPU1 · Kijai wrapper"),
+            # —— 现网热路径(在线率分母核心；2026-10-23 LAN 普查存活) ——
+            _comfy("ComfyUI 通用", 8196, note="ep.comfy.image-gate · GPU0 · LB 后端"),
+            _comfy("H3 主力视频", 8264, note="ep.h3.prod · GPU1 · MiniMax H3(:8195 已停)"),
+            _comfy("LongCat", 8197, note="ep.comfy.video-longcat · GPU0"),
+            _comfy("Wan-Animate-2", 8199, note="ep.comfy.video-animate2 · GPU3"),
             # :8261 超分#1 已撤(AGENTS);不再入分母
-            _comfy("超分 #2", 8262, note="GPU2"),
-            _comfy("超分 #3", 8263, note="GPU3 · 亦在 LB 池"),
-            _comfy("通用 worker#3", 8265, note="GPU2 · LB 池扩容+SEEDVR2"),
-            _http("IndexTTS", 9200, note="GPU0 · 2.5 配音主路"),
-            _http("demucs", 9220, note="音频分离"),
-            _http("FireRedASR", 8300, note="GPU2"),
-            _http("Embedding", 9302, note="GPU1 · Qwen3-Embedding-4B"),
-            _http("ToIV VLM", 9311, note="GPU3 · Qwen3-VL-8B"),
-            _http("JoyCaption", 9304, note="GPU0 · transformers 直跑"),
-            _http("LiveAct", 9400, note="GPU1"),
-            _http("SCoPE", 9401, note="运镜 40 步约 18min"),
-            _http("3dops", 9402, note="GLB 材质/渲染"),
-            _http("sysmetrics", 9403, note="系统指标小服务"),
-            _http("hy3dtex", 9404, note="GPU0 · Hunyuan3D 2.1 纹理管线"),
-            _http("FlashTalk", 9004, note="GPU3"),
-            # —— CosyVoice/ASR/SenseVoice：真机探针后摘出分母(保留声明,勿误删) ——
-            _declared("CosyVoice2", 9201, note="2026-10-22 04:11 Asia/Shanghai · LAN 192.168.71.127 TCP Connection refused · 摘出在线率分母(probe=none)；对照 IndexTTS:9200 /health=200"),
-            _declared("CosyVoice3", 9202, note="2026-10-22 04:11 Asia/Shanghai · LAN 192.168.71.127 TCP Connection refused · 摘出在线率分母(probe=none)；对照 IndexTTS:9200 /health=200"),
-            _declared("Qwen3-TTS", 9203, note="2026-10-22 04:11 Asia/Shanghai · LAN 192.168.71.127 TCP Connection refused · 摘出在线率分母(probe=none)；对照 IndexTTS:9200 /health=200"),
-            _declared("ASR", 9210, note="2026-10-22 04:11 Asia/Shanghai · LAN 192.168.71.127 TCP Connection refused · 摘出在线率分母(probe=none)；对照 IndexTTS:9200 /health=200"),
-            _declared("SenseVoice", 9211, note="2026-10-22 04:11 Asia/Shanghai · LAN 192.168.71.127 TCP Connection refused · 摘出在线率分母(probe=none)；对照 IndexTTS:9200 /health=200"),
+            _comfy("超分 #2", 8262, note="ep.comfy.upscale-a · GPU2"),
+            _comfy("超分 #3", 8263, note="ep.comfy.upscale-b · GPU3 · 亦在 LB 池"),
+            _comfy("通用 worker#3", 8265, note="ep.comfy.image-worker-c · GPU2 · LB 池"),
+            _http("IndexTTS", 9200, note="ep.tts.primary · GPU0 · IndexTTS2"),
+            _http("demucs", 9220, note="ep.demucs.primary · 音频分离"),
+            _http("Embedding", 9302, note="ep.embed.primary · GPU1 · Qwen3-Embedding-4B"),
+            _http("ToIV VLM", 9311, note="ep.vlm.primary · GPU3 · served=toiv-vlm ← Qwen3-VL-8B"),
+            # —— archive/offline(2026-10-23 普查 Connection refused；probe=none 不进分母；勿当热路径) ——
+            _declared("offline Hunyuan3D :8200", 8200, note="2026-10-23 Asia/Shanghai · LAN Connection refused · 曾 GPU1 Kijai wrapper"),
+            _declared("offline FireRedASR :8300", 8300, note="2026-10-23 Asia/Shanghai · LAN Connection refused"),
+            _declared("offline JoyCaption-WS :9304", 9304, note="2026-10-23 Asia/Shanghai · LAN Connection refused · 勿与 oc:9305 混淆"),
+            _declared("offline LiveAct :9400", 9400, note="2026-10-23 Asia/Shanghai · LAN Connection refused"),
+            _declared("offline SCoPE :9401", 9401, note="2026-10-23 Asia/Shanghai · LAN Connection refused"),
+            _declared("offline 3dops :9402", 9402, note="2026-10-23 Asia/Shanghai · LAN Connection refused"),
+            _declared("offline sysmetrics :9403", 9403, note="2026-10-23 Asia/Shanghai · LAN Connection refused · SYSMETRICS_URL 仍指向此口但探测失败时降级"),
+            _declared("offline hy3dtex :9404", 9404, note="2026-10-23 Asia/Shanghai · LAN Connection refused"),
+            _declared("offline FlashTalk :9004", 9004, note="2026-10-23 Asia/Shanghai · LAN Connection refused"),
+            _declared("offline CosyVoice2 :9201", 9201, note="2026-10-22/23 Asia/Shanghai · LAN Connection refused · 对照 IndexTTS:9200"),
+            _declared("offline CosyVoice3 :9202", 9202, note="2026-10-22/23 Asia/Shanghai · LAN Connection refused · 对照 IndexTTS:9200"),
+            _declared("offline Qwen3-TTS :9203", 9203, note="2026-10-22/23 Asia/Shanghai · LAN Connection refused · 对照 IndexTTS:9200"),
+            _declared("offline ASR :9210", 9210, note="2026-10-22/23 Asia/Shanghai · LAN Connection refused"),
+            _declared("offline SenseVoice :9211", 9211, note="2026-10-22/23 Asia/Shanghai · LAN Connection refused"),
             # OpenTalking :4403 已下架(AGENTS+TOIV_OPENTALKING_ENABLED=false),已摘
         ],
     },
@@ -137,24 +138,39 @@ DEVICE_REGISTRY: list[dict] = [
     {
         "id": "spark01",
         "name": "Spark01",
-        "role": "Qwen3-VL-32B-Instruct-FP8 评分/反推 VLM(2026-08-25 起替换 molmo2-8B,幻觉实测根治)",
+        # 命名规范 N1:不得登记为独立 VLM/LLM；隶属 ep.llm.primary 的 TP2 rank1。
+        "role": "DSv4 TP2 rank1 headless worker（dsv4_60；无独立 :8000 服务）",
         "lan_ip": "192.168.71.82",
         "ts_ip": "100.81.235.124",
         "hardware": "Linux GB10",
         "probe_host": "192.168.71.82",
-        "services": [_http("qwen3vl32b", 8000, path="/v1/models", kind="vllm", note="别名 molmo2-8b/omni-captioner 保留")],
+        "services": [
+            _declared(
+                "dsv4-tp-rank1 (no listen)",
+                8000,
+                note="2026-10-23 · dsv4_60 --headless --node-rank 1 · 本机 :8000 无监听 · 勿当 VLM/LLM 入口；VLM=ws:9311 toiv-vlm",
+            ),
+        ],
     },
     {
         "id": "spark02",
         "name": "Spark02",
-        # 2026-08-29 Studio01-04 全线下线:L2/L3 层(Kimi-K3/GLM-5.2 @ EXO :52415)
-        # 一并退役,全部 LLM 层收拢到本机(见 config.llm_l2/l3_base_url 默认值)。
-        "role": "LLM L1-L4 全部层(Qwen3.8-27B-Uncensored-FP8)",
+        # ep.llm.primary · weight.dsv4.flash-dspark-ablit；TP2 head rank0。
+        # Studio01-04/EXO 已退役,L1-L4 收拢本机(config.llm_* 默认 deepseek-v4-flash-dspark)。
+        "role": "ep.llm.primary · DeepSeek-V4-Flash-DSpark abliterated (TP2 head :8000)",
         "lan_ip": "192.168.71.84",
         "ts_ip": "100.86.42.89",
         "hardware": "Linux GB10",
         "probe_host": "192.168.71.84",
-        "services": [_http("vLLM", 8000, path="/v1/models", kind="vllm")],
+        "services": [
+            _http(
+                "vLLM DSv4",
+                8000,
+                path="/v1/models",
+                kind="vllm",
+                note="served ONLY=deepseek-v4-flash-dspark（N2 已清 qwen*/glm* 伪装别名）",
+            ),
+        ],
     },
     # Studio01-04 已于 2026-08-29 全线下线(四台 EXO :52415 真机 curl 全超时),
     # 从舰队注册表移除;历史规格见 git 历史。
@@ -171,7 +187,7 @@ DEVICE_REGISTRY: list[dict] = [
             "hardware": "Mac mini M4 16GB",
             "probe_host": lan,
             "services": [
-                _http("whisper ASR", 9310, path="/v1/models", note="四址故障转移集群"),
+                _http("whisper ASR", 9310, path="/health", note="ep.asr.whisper-cluster · 四址故障转移；契约 /health=whisper-mlx"),
                 _tcp("JoyCaption", 9305),
             ],
         }

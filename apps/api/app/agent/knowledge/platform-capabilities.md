@@ -1,3 +1,6 @@
+> ⚠️ **DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai**
+> **在线推理端点**以 `docs/ops/CLUSTER_TRUTH.md` 为准：LLM=`deepseek-v4-flash-dspark`@spark02:8000；VLM=`toiv-vlm`@ws:9311；H3=:8264；TTS=:9200。下文若列 NAS 盘上 checkpoint，**盘上有 ≠ 服务在跑 / ≠ 产品默认**。禁止把 qwen*/glm* 当作与 DSv4 不同的已加载 LLM。
+
 # ToIV 平台能力全景
 
 本文件是平台功能/页面/调用方式的完整地图。用户用自然语言描述需求时,据此定位功能并行动。

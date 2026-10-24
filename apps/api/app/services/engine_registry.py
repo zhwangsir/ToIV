@@ -1414,7 +1414,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "kind": "image",
         "nsfw": False,
         "submit": {"route": "/api/generate/qwen-edit", "kind": "qwen_edit"},
-        "description": "Qwen-Image-Edit-2509:自然语言语义编辑 + 多角度相机控制,专用实例 :8194",
+        "description": "DOWN(:8194 refused 2026-10-23) Qwen-Image-Edit-2509 语义编辑；勿当热路径",
         "source": {
             "name": "Qwen-Image-Edit-2509",
             "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2509",
@@ -1472,7 +1472,7 @@ def _default_registry() -> list[dict[str, Any]]:
         ],
         "probe": _probe_image,
     },
-    # MiniMax H3:专用 ComfyUI ≥ 0.30 实例(TOIV_H3_BASE_URL,默认 workstation :8195),
+    # MiniMax H3:专用 ComfyUI ≥ 0.30 实例(TOIV_H3_BASE_URL,默认 workstation :8264),
     # 原生 32kHz 音画同发;probe 探测实例 /object_info 是否含 MiniMaxH3 节点
     {
         "id": "h3-t2v",
@@ -1481,7 +1481,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "nsfw": False,
         "ordinary_default": True,
         "submit": {"route": "/api/h3/t2v", "kind": "h3-t2v"},
-        "description": "【默认视频引擎】MiniMax H3（海螺 3.0）:原生 32kHz 音画同发,专用实例 :8195",
+        "description": "【默认视频引擎】MiniMax H3（海螺 3.0）:原生 32kHz 音画同发,专用实例 :8264",
         "source": {
             "name": "MiniMax H3(海螺 3.0 开源权重)",
             "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
@@ -1541,7 +1541,7 @@ def _default_registry() -> list[dict[str, Any]]:
     },
     # H3 多镜头单次生成(对标 Vidu Q3 单 prompt 多镜头 / PixVerse MultiShot):
     # 2-4 个镜头按「镜头一…镜头二…」协议组装单 prompt,单段视频内按序自动切镜
-    # (总长 ≤15s H3 单段上限,复用 t2v 提交链路,同实例 :8195);
+    # (总长 ≤15s H3 单段上限,复用 t2v 提交链路,同实例 :8264);
     # 前端选中渲染 MultiShotEditor 专用编辑器(镜头卡/时长滑块/运镜与转场提示/总时长预览)
     {
         "id": "h3-multishot",
@@ -1549,7 +1549,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "kind": "video",
         "nsfw": False,
         "submit": {"route": "/api/h3/multishot", "kind": "h3-multishot"},
-        "description": "MiniMax H3 多镜头单次生成:2-4 个镜头单 prompt 一次成片,单段内按序自动切镜(总长 ≤15s),音画同发,专用实例 :8195",
+        "description": "MiniMax H3 多镜头单次生成:2-4 个镜头单 prompt 一次成片,单段内按序自动切镜(总长 ≤15s),音画同发,专用实例 :8264",
         "source": {
             "name": "MiniMax H3(海螺 3.0 开源权重)",
             "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
@@ -1569,7 +1569,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "nsfw": True,
         "ordinary_default": True,
         "submit": {"route": "/api/h3/t2v", "kind": "h3-t2v"},
-        "description": "【R18 默认视频引擎】MiniMax H3 成人向文生视频:原生 32kHz 音画同发,可叠 R18 LoRA,专用实例 :8195",
+        "description": "【R18 默认视频引擎】MiniMax H3 成人向文生视频:原生 32kHz 音画同发,可叠 R18 LoRA,专用实例 :8264",
         "source": {
             "name": "10Eros-Max H3 TURBO Ref2VA (int8)",
             "url": "https://huggingface.co/cicalooo/10Eros-Max-h3-int8-convrot",

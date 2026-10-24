@@ -240,7 +240,7 @@ class VideoScorer:
     def __init__(
         self,
         vlm_url: str | None = None,
-        model_id: str = "qwen3.6-uncensored",
+        model_id: str = "toiv-vlm",
         timeout: float = 30.0,
     ) -> None:
         # vlm_url 缺省读 settings.vlm_server_url(不再写死已停用的 Nemotron :8000);

@@ -699,7 +699,7 @@ _UTIL_CARDS: list[CardSpec] = [
         label="4x-UltraSharp(帧超分主力)",
         model_type="upscale",
         description="通用 4 倍锐化超分:细节重建稳、不抹纹理,视频 4K 化 fleet 默认模型。",
-        usage="平台 M6 超分 fleet(:8261-8263)自动调用;图像走 use_upscale 参数。",
+        usage="平台 M6 超分 fleet(:8262/:8263)自动调用;图像走 use_upscale 参数。",
         tags=("放大", "超分", "4K"),
     ),
 ]

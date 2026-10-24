@@ -1,3 +1,6 @@
+> ⚠️ **DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai**
+> **在线推理端点**以 `docs/ops/CLUSTER_TRUTH.md` 为准：LLM=`deepseek-v4-flash-dspark`@spark02:8000；VLM=`toiv-vlm`@ws:9311；H3=:8264；TTS=:9200。下文若列 NAS 盘上 checkpoint，**盘上有 ≠ 服务在跑 / ≠ 产品默认**。禁止把 qwen*/glm* 当作与 DSv4 不同的已加载 LLM。
+
 # ToIV 平台已装模型
 
 > 与 AICG 项目共用同一 NAS 模型库（`~/NAS/Windows/ComfyUI/ComfyUIModel/models`），物理层面自动同步。本文档按当前 NAS 实际清单整理，供 ToIV Agent 选择模型时参考。
@@ -198,7 +201,7 @@ ToIV 的“文生视频”一般先文生底图，再用 Wan 驱动其运动；W
 | Wan2.1-VACE 多参考视频 | `wan-vace` | 1-4 张参考图(+可选首尾帧)→ 一致性视频(:8197)。 |
 | Wan2.2 I2V(R18 兜底) | `wan-nsfw-i2v` | 双专家 14B + Civitai NSFW LoRA 配方;触发词必须原样置句首;单段上限 121 帧(7.5s@16fps)。 |
 | LTX 2.3(R18) | `ltx-nsfw-t2v` / `ltx-nsfw-i2v` / `ltx-nsfw-lipsync` | 10Eros 底模成人向视频,仅 R18 上下文。 |
-| 智能编辑(Qwen) | `qwen-image-edit` | Qwen-Image-Edit-2509/2511(:8194):自然语言语义编辑 + 相机角度预设 + 3D 相机 360°(azimuth/elevation/distance);吃编辑指令不吃画面描述。 |
+| 智能编辑(Qwen) | `qwen-image-edit` | **DOWN(2026-10-23)** 专用实例 :8194 Connection refused；勿当热路径。历史能力：Qwen-Image-Edit-2509/2511 语义编辑 + 相机角度。 |
 | SCoPE 运镜 | (路由 `/api/scope/generate`,未入引擎注册表) | 首帧图 + 文本 + 相机轨迹预设 → 81 帧视频;提示词严禁运镜词(轨迹负责运镜);40 步约 19 分钟,很慢,要先告知用户。 |
 | ACE 文生音乐 | `ace-music` | 风格标签 + 可选歌词 → MP3(≤240s)。 |
 

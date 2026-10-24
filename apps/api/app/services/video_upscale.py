@@ -4,7 +4,7 @@
 - 纯后台管线(端点建档秒回,spawn 协程执行);产物落 core 本地
   (content_subdir("video-upscale")),由 routes/video_upscale.py 直接服务,
   不经 /api/images worker 代理 → deps.resolve_worker 无需改动。
-- fleet = 超分专用 ComfyUI 实例(生产 :8261/:8262/:8263,GPU1/2/3,仅 4x-UltraSharp,
+- fleet = 超分专用 ComfyUI 实例(生产 :8262/:8263;:8261 已撤,仅 4x-UltraSharp,
   不入 WorkerPool);经标准 HTTP API(upload/prompt/history/view)访问,无共享文件系统依赖。
   round-robin 分片 + 每实例 ≤2 并发(真实吞吐 ~75-148 帧/min/3 卡,AGENTS.md 易错点 28)。
 - 断点续跑:帧目录(产物盘 frames/<job_id>/)保留到成功;失败/重启后已超分帧跳过。

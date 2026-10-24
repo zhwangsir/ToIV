@@ -56,33 +56,50 @@ def test_registry_service_specs_legal():
 
 
 def test_registry_workstation_services_match_fleet():
-    """workstation 关键服务端口对齐 AGENTS §三(Wave Default N2)。
+    """workstation 关键服务端口对齐命名规范 N1 / 真机普查。
 
-    必含:H3 生产口 8264、通用 8265、VLM 9311、IndexTTS 9200 等常驻。
+    热路径(probe=http):H3 :8264、通用 :8196/:8265、VLM :9311、IndexTTS :9200 等。
+    archive/offline(probe=none)::8200/:8300/:9004/:9304/:9400-9404 与 CosyVoice/ASR。
     必不含:已撤超分 8261、已下架 OpenTalking 4403、停用 H3 :8195 作唯一口。
-    CosyVoice/ASR/SenseVoice 真机探针后仍保留端口声明,但 probe=none 不进分母。
     """
     ports = {s["port"] for s in DEVICES_BY_ID["workstation"]["services"]}
-    # AGENTS 常驻 + 仍列的辅助服务
-    assert {8196, 8264, 8197, 8199, 8262, 8263, 8265, 8300, 9004,
-            9200, 9220, 9302, 9304, 9311,
-            9400, 9401, 9402, 9403, 9404} <= ports
-    # 声明仍在(勿误删),但已摘出在线率分母
-    assert {9201, 9202, 9203, 9210, 9211} <= ports
-    for port in (9201, 9202, 9203, 9210, 9211):
+    hot = {8196, 8264, 8197, 8199, 8262, 8263, 8265, 9200, 9220, 9302, 9311}
+    offline = {8200, 8300, 9004, 9304, 9400, 9401, 9402, 9403, 9404,
+               9201, 9202, 9203, 9210, 9211}
+    assert hot <= ports
+    assert offline <= ports
+    for port in hot:
         svc = next(s for s in DEVICES_BY_ID["workstation"]["services"] if s["port"] == port)
-        assert svc["probe"] == "none", f":{port} 须 probe=none 以免假 down 污染分母"
-        assert "Connection refused" in (svc.get("note") or "")
+        assert svc["probe"] == "http", f"热路径 :{port} 须 probe=http"
+    for port in offline:
+        svc = next(s for s in DEVICES_BY_ID["workstation"]["services"] if s["port"] == port)
+        assert svc["probe"] == "none", f"offline :{port} 须 probe=none 以免假 down 污染分母"
+        assert "Connection refused" in (svc.get("note") or "") or svc["name"].startswith("offline")
     # 退役不得再入分母
     assert 8195 not in ports, "H3 :8195 已停,不得作注册表 H3 口"
     assert 8261 not in ports, "超分 :8261 已撤"
     assert 4403 not in ports, "OpenTalking :4403 已下架"
     assert DEVICES_BY_ID["workstation"]["sysmetrics"] is True
-    # sysmetrics 全量只挂 workstation;NAS 经 sysmetrics nas 段取数
     assert [d["id"] for d in DEVICE_REGISTRY if d.get("sysmetrics")] == ["workstation"]
-    # H3 条目 note/端口核对
     h3 = next(s for s in DEVICES_BY_ID["workstation"]["services"] if s["port"] == 8264)
     assert "H3" in h3["name"]
+    vlm = next(s for s in DEVICES_BY_ID["workstation"]["services"] if s["port"] == 9311)
+    assert vlm["probe"] == "http" and "toiv-vlm" in (vlm.get("note") or "")
+
+
+def test_registry_spark_and_whisper_naming_n1():
+    """spark 角色与 whisper 探针路径对齐命名规范 N1(2026-10-23)。"""
+    s1 = DEVICES_BY_ID["spark01"]
+    assert "TP2" in s1["role"] or "TP" in s1["role"]
+    assert "Qwen3-VL-32B" not in s1["role"]
+    assert all(svc["probe"] == "none" for svc in s1["services"]),         "spark01 无独立 :8000，须 probe=none 声明式占位"
+    s2 = DEVICES_BY_ID["spark02"]
+    assert "DSv4" in s2["role"] or "DeepSeek" in s2["role"]
+    assert "Qwen3.8" not in s2["role"]
+    assert s2["services"][0]["probe"] == "http" and s2["services"][0]["port"] == 8000
+    for oc in ("openclaw01", "openclaw02", "openclaw03", "openclaw04"):
+        wh = next(s for s in DEVICES_BY_ID[oc]["services"] if s["port"] == 9310)
+        assert wh.get("path") == "/health", f"{oc} whisper 探针须 /health 非 /v1/models"
 
 
 # ─────────────────────────── 端点(mock 探测) ───────────────────────────

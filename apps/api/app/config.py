@@ -11,8 +11,9 @@ class Settings(BaseSettings):
         env_file=".env", env_prefix="TOIV_", extra="ignore"
     )
 
-    # 逗号分隔的 ComfyUI worker 列表（P0 单实例，P2 起对应多 GPU 多进程）
-    comfy_workers: str = "http://192.168.71.127:8189"
+    # 逗号分隔的 ComfyUI worker 列表（生产入口 = ComfyUI-LB :8188；亦可直连 image-gate :8196）
+    # :8189 已退役(AGENTS H-7)，不得再作默认。
+    comfy_workers: str = "http://192.168.71.127:8188"
     # 同一台算力机的内网/Tailscale 双地址(逗号分隔 lan=ts):旧产物 URL 里记的是内网地址,
     # 集群切 Tailscale 后白名单只剩 TS 地址,不认这张表会把整库老作品判「未知的 worker」(400)。
     # 表里的机器视为受信算力机:池里有同机 worker 就用池 worker,没有就直连原地址(仅 ComfyUI 端口段)。
@@ -28,7 +29,7 @@ class Settings(BaseSettings):
     default_ckpt: str = "flux2_dev_fp8mixed.safetensors"
     # PuLID-Flux 角色一致性首帧底模(次世代底模场景下短剧分镜角色首帧用)。
     # PuLID-Flux v0.9.1 仅适配 FLUX.1 dev/schnell,不适用 FLUX.2;故用 FLUX.1 fp8
-    # 全量包(CheckpointLoaderSimple 单节点全量加载,worker :8189-8191 实测可见)。
+    # 全量包(CheckpointLoaderSimple 单节点全量加载;经 LB :8188 / image-gate :8196 可见)。
     pulid_flux_ckpt: str = "flux1-dev-fp8.safetensors"
     # SFW 视频默认底模:LTX-2.3 22B distilled 1.1(短剧/通用视频生成默认;仅 nsfw=True 才切 10Eros)。
     # 注:旧默认 ltx-2.3-distilled.safetensors 是 fp8 版符号链接,2026-08-09 模型清理后失效,
@@ -155,21 +156,22 @@ class Settings(BaseSettings):
     test_key: str = ""
 
     # AI 智能体的 LLM 大脑(OpenAI 兼容端点)
-    # 默认:spark02 vLLM qwen3.6-uncensored(Qwen3.8-27B-Uncensored FP8,:8000;原 workstation sglang 已停用)
-    llm_base_url: str = "http://192.168.71.84:8000/v1"  # spark02 vLLM(2026-08-07 修正:原 workstation Nemotron 已停用)
+    # 命名规范(2026-10-23):一个磁盘权重一个 weight id；served 名不得伪装成另一家模型家族。
+    # 真机权重 weight.dsv4.flash-dspark-ablit @ spark02:8000(TP2；spark01=headless rank1)。
+    # 规范 model id = deepseek-v4-flash-dspark；禁止默认声称 Qwen/GLM。
+    llm_base_url: str = "http://192.168.71.84:8000/v1"  # ep.llm.primary spark-b
     llm_api_key: str = "lm-studio"
-    llm_model: str = "qwen3.6-uncensored"
-    # 顶栏展示用真实模型名（llm_model 为 served-model-name 别名，展示不够直观）
-    # 2026-08-23 spark02 已换 Qwen3.8-27B-Uncensored-FP8(别名 qwen3.6-uncensored 未变)
-    llm_display_name: str = "Qwen3.8-27B-Uncensored (spark02 FP8)"
+    llm_model: str = "deepseek-v4-flash-dspark"
+    # 顶栏展示须与真实 weight 家族一致(不得谎称 Qwen/GLM 参数量)。
+    llm_display_name: str = "DeepSeek-V4-Flash-DSpark (abliterated, spark TP2)"
     # OpenAI 兼容 LLM 代理 /api/llm/v1（routes/llm_proxy.py）：BeefTV 助手等客户端用 ToIV JWT 调用，
     # 不暴露内网 LLM 地址。base_url/api_key 留空 = 复用 llm_base_url/llm_api_key。
     llm_proxy_base_url: str = ""
     llm_proxy_api_key: str = ""
-    # 对外可用的模型 ID（逗号分隔，第一个为默认）；须是上游 vLLM 的 served-model-name。
-    # 对齐 Spark TP2 :8000 四名（primary deepseek + 三别名）；缺一则走 /api/llm/v1 的客户端会 400。
-    # 环境变量：TOIV_LLM_PROXY_MODELS
-    llm_proxy_models: str = "deepseek-v4-flash-dspark,qwen3.8-27b,qwen3.6-uncensored,glm-5.3-flash"
+    # 对外可用的模型 ID（逗号分隔，第一个为默认=canonical）。
+    # N2(2026-10-23)后仅 deepseek-v4-flash-dspark；qwen*/glm* 伪装别名已从
+    # spark --served-model-name 清除，禁止再写回。环境变量：TOIV_LLM_PROXY_MODELS
+    llm_proxy_models: str = "deepseek-v4-flash-dspark"
     llm_proxy_connect_timeout: float = 10.0
     llm_proxy_read_timeout: float = 180.0
     llm_proxy_max_body_bytes: int = 2_000_000
@@ -181,22 +183,22 @@ class Settings(BaseSettings):
     llm_fallback_api_key: str = ""
     llm_fallback_model: str = ""
     # NSFW 模式专用 LLM(X-NSFW: 1 时启用);空 model = NSFW 模式复用主 LLM。
-    # 生产:L4 与 L1 同模型(spark02 qwen3.6-uncensored;2026-08-08 llama-70b 退役后统一切换)。
+    # 生产:L4 与 L1 同模型(spark02 deepseek-v4-flash-dspark;2026-08-08 llama-70b 退役后统一)。
     llm_nsfw_base_url: str = ""
     llm_nsfw_api_key: str = ""
     llm_nsfw_model: str = ""
 
     # —— AICG 四层模型流水线（2026-07-24 项目管家确认）——
-    # L1 初稿 = llm_base_url/llm_model（上面已配，qwen3.6-uncensored @ spark02:8000）
+    # L1 初稿 = llm_base_url/llm_model（deepseek-v4-flash-dspark @ spark02:8000）
     # L4 NSFW = llm_nsfw_base_url/llm_nsfw_model（生产同上 spark02,.env 覆盖）
     # L2 主力润色 / L3 终稿精修:2026-08-29 Studio01-04(EXO RDMA :52415)全线下线,
-    # 两层收拢到 spark02 主模型(同 L1;qwen3.6-uncensored = Qwen3.8-27B-Uncensored FP8)。
-    # 层间差异只剩超时/预算语义,模型同一——Studio 恢复上架后再分开指。
+    # 两层收拢到 spark02 同一 DSv4 权重(canonical id=deepseek-v4-flash-dspark)。
+    # 层间差异只剩超时/预算语义——Studio 恢复上架后再分开指。
     llm_l2_base_url: str = "http://192.168.71.84:8000/v1"
-    llm_l2_model: str = "qwen3.6-uncensored"
+    llm_l2_model: str = "deepseek-v4-flash-dspark"
     llm_l2_timeout: float = 120.0
     llm_l3_base_url: str = "http://192.168.71.84:8000/v1"
-    llm_l3_model: str = "qwen3.6-uncensored"
+    llm_l3_model: str = "deepseek-v4-flash-dspark"
     llm_l3_timeout: float = 300.0
 
     # 向量 RAG 的 embedding 模型(同一 OpenAI 兼容端点;留空则复用 llm_base_url)
@@ -239,13 +241,12 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # —— 视频质量评估 VLM(video scorer)——
-    # ⚠️ 默认值是历史遗留:workstation Nemotron-3-Nano-Omni-30B-A3R vLLM(:8000, GPU3)
-    # 已于 2026-08-05 停用;生产必须由 .env 的 TOIV_VLM_SERVER_URL 指向当前可用 VLM
-    # (OpenAI 兼容端点,支持视频/图像/音频输入)。
+    # ep.vlm.primary = workstation :9311 served=toiv-vlm ← weight.qwen3vl.8b-instruct。
+    # 禁止默认指向 spark01:8000(现为 DSv4 TP headless,无独立 VLM)或 WS:8000(无监听)。
     # 启用后:视频作业完成时(done 之前)异步评估,低分则推 SSE quality_warning 事件。
     # 评估失败/超时/全 0 一律降级(degraded=True),不阻塞主流程、不推 warning。
-    vlm_server_url: str = "http://192.168.71.127:8000"
-    vlm_model_id: str = "qwen3.6-uncensored"
+    vlm_server_url: str = "http://192.168.71.127:9311"
+    vlm_model_id: str = "toiv-vlm"
     # 默认关:灰度上线开关,VLM Server 不可达时立即关回退,零影响主流程。
     # .env.example / 部署 .env 显式置 true 启用(VLM 已就位并验证)。
     video_scorer_enabled: bool = False
@@ -431,10 +432,10 @@ class Settings(BaseSettings):
     # headless=llm+引擎,无质量门无人格。见 harness/profile.py PROFILES。
     harness_profile: str = "full"
 
-    # —— 视频超分 fleet(M6,workstation GPU1/2/3 超分专用 ComfyUI 实例) ——
+    # —— 视频超分 fleet(M6,workstation GPU2/3 超分专用 ComfyUI 实例) ——
     # 仅跑 4x-UltraSharp 帧超分(--cache-lru 2),不入 ComfyUI-LB/WorkerPool;
-    # 经标准 HTTP API 访问,产物由 api 取回字节落 core 本地(不经 worker 输出目录)。
-    upscale_workers: str = "http://192.168.71.127:8261,http://192.168.71.127:8262,http://192.168.71.127:8263"
+    # :8261 已撤;live=:8262/:8263(:8265 为 LB 通用 worker,不入本池默认)。
+    upscale_workers: str = "http://192.168.71.127:8262,http://192.168.71.127:8263"
 
     # —— Wan2.2-Animate / Wan2.1-VACE(GPU0 :8197,与 LongCat 同实例) ——
     # Animate fp8 运行时量化峰值 ~20-24GiB;提交前要求实例卡(GPU0)空闲显存 ≥ 此阈值(GiB)。
@@ -509,10 +510,10 @@ class Settings(BaseSettings):
     # heuristic=零外部依赖基线(分辨率/时长/完整性/音轨,经 ffprobe 探测,探测不到
     # 自动跳过对应维度);vlm=强制 VLM(不可达时逐变体降级启发式,不炸链路)。
     eval_scorer: str = "auto"
-    # VLM/LLM 评分端点(OpenAI 兼容;生产可指 studio04 mlx-vlm :9303 或 spark02 :8000)。
-    # 空 = 未配置,auto 档直接用启发式。
+    # VLM 评分端点(OpenAI 兼容)= ep.vlm.primary workstation :9311 toiv-vlm。
+    # 禁止指 spark01:8000。空 base = 未配置,auto 档直接用启发式。
     eval_vlm_base_url: str = ""
-    eval_vlm_model: str = "qwen3.6-uncensored"
+    eval_vlm_model: str = "toiv-vlm"
     eval_vlm_timeout: float = 60.0
     # 批次 watcher 轮询 Job 终态间隔(秒)。
     eval_watch_poll_sec: float = 5.0

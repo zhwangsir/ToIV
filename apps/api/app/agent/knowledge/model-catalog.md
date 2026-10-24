@@ -1,3 +1,6 @@
+> ⚠️ **DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai**
+> **在线推理端点**以 `docs/ops/CLUSTER_TRUTH.md` 为准：LLM=`deepseek-v4-flash-dspark`@spark02:8000；VLM=`toiv-vlm`@ws:9311；H3=:8264；TTS=:9200。下文若列 NAS 盘上 checkpoint，**盘上有 ≠ 服务在跑 / ≠ 产品默认**。禁止把 qwen*/glm* 当作与 DSv4 不同的已加载 LLM。
+
 # 模型详情目录（懂行版）
 
 > 本文件在 platform-models.md 之上逐个展开,讲清每个模型「是什么 / 擅长什么 / 适合什么场景 / 怎么选」。
@@ -51,7 +54,7 @@
 - 怎么选:定稿质量图选 Base,极速草稿选 Turbo;两者采样参数互不通用,别拿 Turbo 的参数套 Base。
 
 ## Qwen-Image-Edit 2509/2511(智能编辑/3D 相机)
-- 是什么:Qwen-Image 的编辑专用模型(纯编辑,不能文生图),专用实例 :8194,引擎 id `qwen-image-edit`。
+- 是什么:Qwen-Image 的编辑专用模型(纯编辑,不能文生图),专用实例 :8194,引擎 id `qwen-image-edit`。**状态 DOWN(2026-10-23)：:8194 Connection refused，勿调度。**
 - 擅长:自然语言语义编辑(改颜色/加物件/换风格,保留其余部分);多角度相机预设(旋转/俯视/特写);2511 + Multiple-Angles LoRA 做真 360° 机位(azimuth 8 方位 × elevation 4 俯仰 × distance 3 距离)。
 - 怎么选:「把这张图改成…」「换个角度拍这张」选它;它吃的是**编辑指令**(改什么、改成什么、保留什么),不是画面描述,不要堆画质词;风景类主体的相机旋转效果差(LoRA 数据分布限制),人物/物品主体优秀。
 
