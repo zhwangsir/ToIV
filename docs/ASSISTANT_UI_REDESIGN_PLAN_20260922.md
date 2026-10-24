@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # AI 对话（助手）UI 重设计：深度调研与完整方案（2026-09-22）
 
 > 问题：用户报「AI 助手的 UI 需要重新进行设计」，四域方案 C 项深化专篇。

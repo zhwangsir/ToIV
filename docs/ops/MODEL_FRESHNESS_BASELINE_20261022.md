@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # ToIV 模型保鲜扫描基线报告
 
 > **现状补记（2026-10-22 接棒）**：本基线扫描时 gate 仍钉 **SFW-v11**。同日 Wave M1② 已拉 **SFW-v23** 并完成 smoke；**03:50 起 live gate / 仓库模板已切 `Qwen-Rapid-AIO-SFW-v23.safetensors`**（见 `docs/ops/WAVE_M_PROGRESS_20261022.md` Gate 切换验收）。下文保留扫描当时结论作历史；「可升级 / 钉死 v11」条目对 **gate 指针** 已过时，对盘面双轨叙事仍有效。

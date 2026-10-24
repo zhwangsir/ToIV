@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # 产品树 Commit 批次方案（2026-09-13）
 
 > **状态：待用户批准后执行**。当前 84 修改 + 42 未跟踪（含大量 `.regen_tmp/` 与 `.bak`，**永不入库**）。

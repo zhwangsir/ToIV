@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](../../ops/CLUSTER_TRUTH.md)。命名铁律：一个权重一个 id；served 不得伪装异家族。
+
 # Wave 全量收口 · 2026-10-22（Asia/Shanghai）
 
 > 口令：【全部按推荐包】+「开始吧，做完所有的工作」  

@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # ToIV 进化计划（2026-09-14 用户批准自主执行）
 
 > **总目标（90 天）**：把 ToIV 从「可用率 ~90% 的 550 应用市场」进化成「对话即可制片」的漫剧生产系统。

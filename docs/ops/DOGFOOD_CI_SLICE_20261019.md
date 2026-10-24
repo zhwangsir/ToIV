@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # 真片 dogfood 全链 · CI 切片
 
 - **对照**: 2026-10-17 波 B 真机 dogfood + P1 e2e(`tmp/p0-20261016/e2e_p1.py`)

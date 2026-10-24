@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # ToIV 体验优化并行计划（2026-09-25 起，与公开卡收尾同步推进）
 
 > 用户口径（2026-09-25）：测试与修复的同时持续推进项目优化与便利，UI/UX 是常驻工作线，不等收尾结束。

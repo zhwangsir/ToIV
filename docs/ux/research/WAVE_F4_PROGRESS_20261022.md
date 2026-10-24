@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](../../ops/CLUSTER_TRUTH.md)。命名铁律：一个权重一个 id；served 不得伪装异家族。
+
 # Wave F4 进度（剪映草稿导出）
 
 > 时间：2026-10-22 Asia/Shanghai · tip 起点 `180134ce` / feat `9bbc8914` · **无 push / 无 deploy / 无 restart**

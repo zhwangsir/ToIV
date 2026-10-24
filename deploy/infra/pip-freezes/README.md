@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行真源 → `docs/ops/CLUSTER_TRUTH.md`。
+
 # pip-freezes
 
 > **采集时间**：2026-09-13（各主机真实 venv 上 `pip freeze --all`）

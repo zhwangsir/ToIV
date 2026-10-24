@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # NAS 模型选模清单（配置页）
 
 来源：`docs/MODEL_SOURCES.json`（status=ok）派生，勿另造平行清单。

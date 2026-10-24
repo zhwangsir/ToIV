@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # ToIV v4 方案计划 · 融合完成后(2026-10-12)
 
 > 前提:F1–F7 融合七批已全部交付(见 STATE `fusion_f1..f7` 条目)。本计划是融合完成、

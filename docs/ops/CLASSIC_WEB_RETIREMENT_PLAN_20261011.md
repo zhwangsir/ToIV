@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # 经典 web 视图处置清单（S12-a · 2026-10-11）
 
 > 盘点依据：apps/web 全视图只读扫描（Explore 代理 38 次工具核实）。R18 关键事实：经典 web 的 X-NSFW 机制（`lib/r18.ts` + AgeGate）渗透 7 处视图；**canvas 全程无 R18 代码，纯 SFW**——R18 经典流是唯一需用户拍板项。

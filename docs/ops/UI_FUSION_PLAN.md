@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # 两项目完全融合方案（ToIV × BeefTV，2026-10-06 立版）
 
 > 用户裁决：当前 /studio + 跳转不是融合，要求完全融合为一个项目。

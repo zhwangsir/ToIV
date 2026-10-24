@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 ---
 name: ToIV Web
 # 由 scripts/gen_design_md.py 从 apps/web/app/globals.css :root 生成;勿手改 token 值

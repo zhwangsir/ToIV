@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # ToIV UI 规范标准 v2.0（2026-09-04 美化第 0 波重写）
 
 > 本文件是全站 UI 的唯一权威规范。所有页面优化与新页面开发必须遵守。

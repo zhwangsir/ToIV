@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](../../ops/CLUSTER_TRUTH.md)。命名铁律：一个权重一个 id；served 不得伪装异家族。
+
 # Wave F0b · 部署窗（2026-10-22）
 
 > 最终形态推荐包：F0→F1–F4→**F0b**→F5。本窗只部署，不 push。

@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # ToIV 意图优先推进计划（INTENT_PLAN）
 
 用户锁定（2026-09-30）：24h 持续实质推进 + 监督；每次运行必须交付至少一项真实改进。

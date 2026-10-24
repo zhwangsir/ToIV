@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # ToIV AI 短剧产品方案（正式）
 
 > 锁定日期：2026-10-01；修订：2026-10-03 04:50（视频步按风格取分桶 refs；雨夜 splice2 结项）；**2026-10-08 02:10（按用户 10-07 拍板改默认路线：逐镜独立 Ref2VA + 首尾帧拼接；Motion Context 长视频续写降为可选）**；**2026-10-22（Wave Doc N6：承认 tip 已默认 `ref2va`，禁止再立项「切默认」）**。

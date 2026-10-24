@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # ToIV 技术栈方案 · AI 执行提示词（自包含版）
 
 > **用途**：把本文件全文粘贴进任意 AI 编码会话（ZCode/Claude Code/Codex 等，宿主机需能 SSH 到集群），该 AI 即成为「ToIV 开发」执行者，按既定方案自主推进 T0–T10 + T-W 各波次。

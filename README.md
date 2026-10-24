@@ -1,3 +1,5 @@
+> ⚠️ **DOC_TRUTH_SWEEP 2026-10-23**：集群端口/模型以 `docs/ops/CLUSTER_TRUTH.md` 为准；下文「这次合进来的」等为历史合入说明。
+
 # ToIV
 
 AI 短剧和画布。公网入口是 [toiv.wineryz.top](https://toiv.wineryz.top)。未登录看到的是官网静态页，登录后进 `/studio` 画布。品牌名只用 ToIV。
@@ -33,13 +35,16 @@ AI 短剧和画布。公网入口是 [toiv.wineryz.top](https://toiv.wineryz.top
 - `claude/jovial-fermi-d7708a`（`44561d09`，2026-06-29）。上面还有 7 个不在 main 里的旧提交（PuLID、超分、批量转视频）。和现在的 main 差了一千五百多个提交，不直接合。
 - 其余远程分支相对 `398bd88a` 没有独有提交，已经在 main 里。`feat/h3-token-refresh-r4` 的指针就等于 `398bd88a`。官网在 `a105720b` 时已经进 main，这次没有新的官网提交。
 
-## 运行口径
+## 运行口径（现行 · 2026-10-23）
 
-core 是 `merlin@100.77.80.100`，ToIV 在 `/home/merlin/toiv`，API `:8090`。重启前先 `compileall`，再 `sudo -n systemctl restart toiv-api`。
+完整主机/端口/权重 → [`docs/ops/CLUSTER_TRUTH.md`](docs/ops/CLUSTER_TRUTH.md)。会话短规则 → [`AGENTS.md`](AGENTS.md)。
 
-H3 生产是 `:8264`。`:8195` 只做试验。生图 `:8196`，LongCat / Wan / VACE `:8197`。不要碰 `:8205`、`:8261` 和 `cuda:3`。不要拿 `toiv.wineryz.top` 做测试。
-
-权重在 NAS 的 `toiv/comfyui-models`，不进 git。另一棵 `Windows/ComfyUI/ComfyUIModel/models` 是旧库，文件还在，不要把它的大小加进主库。2026-09-28 的来源清单是 ok 575 / blocked 336 / total 912，那不是盘上的文件数。
+- **core**：`merlin@192.168.71.47`（TS `100.77.80.100`），仓库 `/home/merlin/toiv`，web `:3100` · api `:8090` · admin `:3200`。
+- **LLM**：spark02 `:8000`，weight `dsv4-flash-dspark-abliterated`，canonical served `deepseek-v4-flash-dspark`（live 仍可能挂废弃别名 qwen*/glm*）。spark01 仅 TP worker。
+- **VLM**：workstation `:9311` `toiv-vlm`（Qwen3-VL-8B-Instruct）。
+- **H3 生产**：workstation `:8264`。出图 LB `:8188`→8196/8263/8265；LongCat `:8197`；Animate2 `:8199`。
+- **勿用死口**：`:8189` `:8195` `:8261` 等（见 CLUSTER_TRUTH）。
+- 权重在 NAS `toiv/comfyui-models`，不进 git。
 
 ## 工程结构（2026-10-15 清理定版）
 
@@ -58,10 +63,10 @@ drama/         运行时挂载（output/ 不入仓）
 
 ## 文档
 
-- README.md：本文件
-- AGENTS.md：会话必读（集群操作 + 开发/测试/部署命令）
-- DEVELOPMENT.md：正式开发指南（会话日志已迁 `.archive/DEVELOPMENT-session-logs.md`）
-- STATE.json / TEST_LOG.md：状态快照与测试日志
-- `apps/canvas/AGENTS.md`：画布子系统约定（改 canvas 必读）
+- [`docs/ops/CLUSTER_TRUTH.md`](docs/ops/CLUSTER_TRUTH.md)：**现行集群真源**（主机/端口/权重）
+- [`AGENTS.md`](AGENTS.md)：会话短规则 + 开发命令
+- `DEVELOPMENT.md`：开发长文（文首有 DOC_TRUTH 横幅）
+- `TEST_LOG.md` / `STATE.json`：测试与状态
+- `apps/canvas/AGENTS.md`：画布约定
 
-本地开发命令以 DEVELOPMENT.md / AGENTS.md §〇b 为准。模型、成片和 `tmp/` 试片不要提交。
+本地开发命令以 AGENTS.md §〇b / DEVELOPMENT.md 为准。模型与 `tmp/` 试片不要提交。

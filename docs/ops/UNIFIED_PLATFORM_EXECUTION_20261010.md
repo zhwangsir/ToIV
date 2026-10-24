@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # ToIV v2 统一平台 · 执行方案与计划（2026-10-10）
 
 > **定位**：本文件是 [UNIFIED_PLATFORM_PLAN_20261010.md](UNIFIED_PLATFORM_PLAN_20261010.md)（战略与调研依据）的**执行排期**，是融合线唯一工作真源；`UI_FUSION_OPT_BACKLOG.md` 未做项已吸收，旧挂账已归位（§7）。

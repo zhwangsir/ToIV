@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行真源 → `docs/ops/CLUSTER_TRUTH.md`。
+
 # ToIV 开发指南
 
 > **版本**: 2026-10-15（结构清理后；会话日志已迁出）

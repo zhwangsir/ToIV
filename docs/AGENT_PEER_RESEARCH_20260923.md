@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # ToIV 智能体对标调研（2026-09-23）
 
 目标：对照同类产品，定位 ToIV「AI 助手仍有问题」的产品根因，给出可落地改法。

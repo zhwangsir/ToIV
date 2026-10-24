@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # 会话移交提示词套件（2026-09-22）
 
 > 用法：新会话直接粘贴。主提示词=完整移交（推荐）；专项变体=只做某一域。配套阅读：压缩后的 `AGENTS.md`（40KB）+ 四份方案文档。

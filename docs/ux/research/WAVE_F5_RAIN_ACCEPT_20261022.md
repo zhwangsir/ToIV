@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](../../ops/CLUSTER_TRUTH.md)。命名铁律：一个权重一个 id；served 不得伪装异家族。
+
 # WAVE F5 · 雨夜真机一镜验收（2026-10-22）
 
 > 生产 BUILD `20261021-221837-b94ae940` · tip 文档线 `59ad150f`+ · 分支 `work/p0-fusion-20261016`  

@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # ToIV v5 方案计划 · 从「能力齐了」到「真能出片、真能看见」（2026-10-13）
 
 > **依据**：本轮三路调研（真源见 §1）+ `main @ f8633401` 代码级盘点 + `docs/ops/DRAMA_UI_PLAN.md` 2026-10-08 实弹日志。

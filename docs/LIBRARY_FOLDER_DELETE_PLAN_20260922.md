@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # 作品库文件夹删除：深度调研与完整方案（2026-09-22）
 
 > 问题：用户报「作品库的文件夹无法直接删除」，四域方案 A 项的深化专篇。

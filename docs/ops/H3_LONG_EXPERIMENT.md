@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # H3 长视频 A/B/C/D 对比实验
 
 方向：用 MiniMax H3 做连续长视频（AI 短剧核心能力）。用户 2026-09-30 23:53 批准。

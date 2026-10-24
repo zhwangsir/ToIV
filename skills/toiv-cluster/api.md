@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行真源 → [CLUSTER_TRUTH](../../docs/ops/CLUSTER_TRUTH.md)。
+
 # API 文档与运维配方
 
 > 鉴权口径与 curl 例多为 2026-10-14 生产实测；服务表摘自 AGENTS.md §三/§五（10-13 核）。

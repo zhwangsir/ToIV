@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # Wave M 进度 — 2026-10-22
 
 时区：Asia/Shanghai（UTC+8）。执行器：模型保鲜 → 接棒工程师 Gate 验收。**未** commit/push；**未**擅自重启生产。

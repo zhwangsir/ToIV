@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # ToIV 服务迁移手册（MIGRATION PLAYBOOK）
 
 > **用途**：集群整体搬迁 / 换机房 / 云化时的执行手册与日常「可移植性」维护规范

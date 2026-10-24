@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # SERVICE_INVENTORY — ToIV 全服务清单（迁移资产清单）
 
 > ## ⛔ 过期警告（2026-10-22 Asia/Shanghai · Wave Doc N9）

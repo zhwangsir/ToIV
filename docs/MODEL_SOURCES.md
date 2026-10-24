@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 <!-- public_e2e_wave2 2026-09-11T05:28:02+08:00: newly_ok LTX23_audio=364855188 LTX23_video=1452258578 taeltx2_3=23531296; already_on_nas distilled fp8 + Qwen3-VL-4B-Instruct -->
 # MODEL_SOURCES
 

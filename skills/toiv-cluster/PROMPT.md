@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行真源 → [CLUSTER_TRUTH](../../docs/ops/CLUSTER_TRUTH.md)。
+
 # ToIV 集群远程操作 · AI 会话提示词
 
 > 用法：把下面分隔线以内的全部内容粘贴给任意 AI 会话（系统提示词或首条消息均可）。

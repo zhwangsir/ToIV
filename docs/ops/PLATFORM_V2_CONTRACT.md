@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # ToIV v2 平台契约（S1/W0.3 冻结稿 · 2026-10-11）
 
 > **定位**：`UNIFIED_PLATFORM_PLAN_20261010.md` §3/§4.1 的落地契约。S2 起各批次只准**加字段不准改语义**；改语义须回本文件升版并记变更。

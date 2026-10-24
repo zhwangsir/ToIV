@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # 四域整改方案（2026-09-22）
 
 > 来源：2026-09-21 用户四点反馈——①作品库文件夹无法直接删除；②部分服务仍掉线；③AI 助手 UI 需重设计；④Admin 体量太小功能太少需重规划。

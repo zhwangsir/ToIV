@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # 公开应用 100% 可用 — Hard-blocked Whitepaper（终版 2026-09-14）
 
 > 口径：550 公开应用真实提交→产物 PASS 计数；本册登记「100% 的诚实例外」——逐项附根因与证据。

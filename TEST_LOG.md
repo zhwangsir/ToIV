@@ -1,3 +1,24 @@
+## DOC_TRUTH_SWEEP · 2026-10-23 19:30 Asia/Shanghai
+
+## WAVE_CLOSE / NAMING_N3 — 2026-10-24 Asia/Shanghai
+
+- **PLAN**: `docs/ops/WAVE_CLOSE_PLAN_20261024.md`
+- **NAMING_N1 (repo)**: LLM canonical=`deepseek-v4-flash-dspark`; VLM=`toiv-vlm` @ ws:9311; Comfy default :8188; fleet spark roles; offline ports `probe=none`; pytest naming/fleet/llm_proxy green
+- **NAMING_N2 (prod)**: core `deploy/.env` aligned; spark served-model-name canonical only; old qwen*/glm* → 404
+- **DOC_SWEEP**: sole truth `docs/ops/CLUSTER_TRUTH.md`; historical banners; DEVICE_MODELS archived
+- **N3 (this wave)**: canvas gate template aliases removed; `test_llm_proxy` single-model; :8194 marked DOWN in knowledge; batched commits → deploy API/web → final probe
+
+- **范围**：仓库文档真相清扫（branch `work/p0-fusion-20261016`）；**未** commit / push / deploy；**未**改生产 `.env` / 重启 spark。
+- **探针**：MateBook en0=`192.168.71.118` → core health ok；spark02 `/v1/models`=DSv4+废弃别名；spark01:8000 refused；VLM `:9311`=`toiv-vlm`；H3/Comfy 8188/8196/8197/8199/8262-8265=200；TTS/embed/demucs OK；whisper×4=200；DOWN 口 spot-check refused。
+- **新建现行真源**：`docs/ops/CLUSTER_TRUTH.md`
+- **重写**：`AGENTS.md`（~5.6KB 短规则）；`skills/toiv-cluster/connections.md`；`README.md` 运行口径/文档地图
+- **DEVICE_MODELS**：正文迁 `docs/_archive/20261023/`；原路径改 stub 指向 CLUSTER_TRUTH
+- **横幅**：约 88 份历史 md（docs/ops 波次、docs/ux/research、docs 根、DEVELOPMENT、deploy README、agent knowledge 等）加 `DOC_TRUTH_SWEEP`「非现行」条
+- **知识页**：canvas `b21e123b-…` 待注 docs sweep 状态
+- **残留风险**：spark live 仍 serve qwen*/glm* 伪装别名；生产 core `.env` LLM 键可能仍旧（仓库 N1 已改默认）
+
+---
+
 - 2026-10-22 **F5 f5p PARTIAL（满配未过）**（执行器）：核生产 expr soft_floor=0.12 已 live；队列空；ONE anime async `88a7e5bc…` → hard-fail `expr_0 脸面积 0.081 < 0.15`（低于 soft_floor，非近失竞态，**不**再松阈）；soft-keep 警告卡取证；Ref2VA 跳过。证据：`sheet_poll_f5p_anime.json` + WAVE_F5 CHECKPOINT。status=`f5p_partial_hard_expr_area`；updated_at 2026-10-22T09:15:00+08:00。
 - 2026-10-22 **F5 抗中断短程 f5o PARTIAL→更近 PASS**（执行器）：诊断 f5n=`face_front 0.261<0.35` 为 soft-ok 部署竞态；生产 API 已有 soft-ok。提交 ONE anime async `97c5a6ef…` → 越过人脸硬裁，卡 `expr_0 脸面积 0.139<0.15`；soft-keep 警告卡；fix `assert_expr_base_face_area` soft_floor=0.12 + 单测；`deploy/deploy.sh --skip-web core` 完成。未第二枪 GPU / 未 H3 新一镜 / 未 push。证据：`test-results/f5_rain_accept/sheet_poll_f5o_anime.json` + WAVE_F5 CHECKPOINT。status=`f5_resilient_partial_closer`；updated_at 2026-10-22T09:10:00+08:00。
 - 2026-10-22 **F0_COMMIT_DONE 近窗固化（仍不 push）**（接棒；用户批准推荐包 F0→F1–F4→F0b→F5）：①`6c6798e6` feat(ux): Wave Doc→P3 壳层近窗——首页/侧栏/阶段轨/双视图 + Default H3:8264；②`f2d4a9a5` feat(wave-m): gate 默认 SFW-v23 + NAS inventory/模型源对齐；③`e4bcd639` feat(continue): D5-A 剧组协助 + 六画风变体 + N2 探针摘分母；④（本提交）docs: FINAL_FORM F0–F5 + WAVE_* 收口 + 本行。 tip=`1f264efe`（④docs；③`e4bcd639` continue）；**未 push**、未部署、未重启。 test-results/ SFW-v23 png 仍 gitignore（<1MB 本地留存）。 方案见 `docs/ux/research/FINAL_FORM_PLAN_20261022.md`。 status=`F0_COMMIT_DONE`；updated_at 2026-10-22T06:05:00+08:00。
@@ -2392,3 +2413,55 @@ joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92
 
 ## 2026-10-22 F5r Ref2VA PASS_WITH_SOFT_SHEET
 - sheet area 0.146 soft-ok; Ref2VA shot0 done ~1474s; video `62d66b39_1_2204_00001_.mp4`; tip 1e97302c; no push
+
+## 2026-10-23 · Naming-spec landing Wave N1
+
+- **时间**：2026-10-23 18:54 Asia/Shanghai（CST / UTC+8）
+- **tip**：`53803db2`（改后未 commit；工作树脏）
+- **范围**：仓库默认值 + `fleet_registry` + `.env.example` + 本地 `.env` LLM 字段 + 最小 AGENTS 漂移；**未**改生产 core `.env`、**未**重启 `dsv4_60`、**未** deploy/commit/push
+- **铁律**：一个磁盘权重一个 weight id；served 名不得伪装成另一家模型家族
+- **Canvas**：https://cursor.com/canvas/store-2a7cb835-7fcb-4cd4-b2c8-cb0ee07b899c/b21e123b-da5f-43d9-90af-a3842894cfcc
+- **关键默认 before→after**
+  - `llm_model`：`qwen3.6-uncensored` → `deepseek-v4-flash-dspark`
+  - `llm_display_name`：谎称 Qwen3.8 → `DeepSeek-V4-Flash-DSpark (abliterated, spark TP2)`
+  - `vlm_server_url` / `vlm_model_id`：`WS:8000` / `qwen3.6-uncensored` → `:9311` / `toiv-vlm`
+  - `comfy_workers`：`:8189` → `:8188`；`upscale_workers` 摘 `:8261`
+  - spark01 registry：Qwen3-VL-32B → DSv4 TP2 rank1 headless（probe=none）
+  - spark02 registry：Qwen3.8 → ep.llm.primary DSv4；whisper 探针 `/v1/models` → `/health`
+  - WS 离线口（:8200/:8300/:9004/:9304/:9400–9404 等）→ `probe=none` archive
+- **测试**：`pytest tests/test_fleet.py tests/test_naming_defaults_n1.py tests/test_llm_proxy.py` → **24 passed**
+- **Deferred**：spark `--served-model-name` 清 qwen*/glm* 别名；生产 core `.env` 对齐；deploy
+- **标记**：`NAMING_SPEC_N1_REPO_LANDING`
+
+## NAMING_N2_CORE_SPARK — 2026-10-23 19:58 Asia/Shanghai
+
+Goal: production core `.env` hot-align + spark served-alias purge (canonical only).
+
+### core `/home/merlin/toiv/deploy/.env`
+- Backup: `.env.bak.naming-n2-20261023195818`
+- Keys changed (no secrets printed):
+  - `TOIV_LLM_MODEL` / `DISPLAY_NAME` / `NSFW_MODEL` / `L2_MODEL` / `L3_MODEL` → `deepseek-v4-flash-dspark` (+ honest display)
+  - `TOIV_EVAL_VLM_BASE_URL` → `http://192.168.71.127:9311`；`TOIV_EVAL_VLM_MODEL` → `toiv-vlm`（原误指 spark02 LLM）
+  - `TOIV_COMFY_WORKERS` → `http://192.168.71.127:8188`（原 TS `:8196`）
+  - `TOIV_COMFY_WORKERS_REGISTRY_URL` → LAN `:8188/admin/backends`
+  - `TOIV_H3_BASE_URL(S)` / `TOIV_LONGCAT_BASE_URL` → LAN `:8264` / `:8197`
+  - `TOIV_UPSCALE_WORKERS` → LAN `:8262,:8263`
+  - `TOIV_LLM_PROXY_MODELS` kept multi during cold-start; shrink after `/v1/models` canonical-only
+- `sudo systemctl restart toiv-api` → active；`GET /api/health` → ok workers=`http://192.168.71.127:8188`
+
+### spark
+- Script both hosts: `~/dsv4-serve.sh` → only `--served-model-name deepseek-v4-flash-dspark`；bak `.bak.naming-n2-*`
+- Restart order: stop both → rank1 sk01 @19:58:49 → rank0 sk02 @19:59:03
+- Cold load in progress at log time；final `/v1/models` + chat smoke appended below when ready.
+
+
+#### Final (20:04 Asia/Shanghai)
+- `/v1/models` ids = `["deepseek-v4-flash-dspark"]` only
+- chat smoke: model=deepseek-v4-flash-dspark → content `N2_OK`
+- alias purge verified: qwen3.8-27b / qwen3.6-uncensored / glm-5.3-flash → HTTP 404 NotFoundError
+- `TOIV_LLM_PROXY_MODELS` shrunk to single name; `toiv-api` restarted again; `/api/health` ok
+- Cold start wall: ~5–6 min (faster than historic 20–45min estimate; AOT cache hit)
+
+### Not done
+- git commit / push / full deploy
+

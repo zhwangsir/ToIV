@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](../../ops/CLUSTER_TRUTH.md)。命名铁律：一个权重一个 id；served 不得伪装异家族。
+
 # Wave F3 进度（BGM 声床 + 北向 KPI 看板）
 
 > 时间：2026-10-22 Asia/Shanghai · tip 起点 `12052c14` · **无 push / 无 deploy / 无 restart**

@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # ToIV Bug 总登记册（BUG REGISTRY）
 
 > **维护规则**：所有渠道发现的问题统一登记于此，按 P0/P1/P2 分级；修复后状态改 FIXED 并注明验证方式；每周检视。

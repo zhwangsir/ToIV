@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # 角色资产协议（Character Asset Protocol）— 外部规范稿评估与 ToIV 落地版 v1
 
 > 日期：2026-10-06 · 状态：**已拍板，M1 已实现**（同日用户拍板「按方案执行」；D1–D3 落地，D4 分开执行）

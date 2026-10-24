@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](../../ops/CLUSTER_TRUTH.md)。命名铁律：一个权重一个 id；served 不得伪装异家族。
+
 # ToIV 当前产品最终形态 — 批准方案与执行计划（2026-10-22）
 
 > 用户拍板：「按推荐包开干：F0 commit → F1–F4 → F0b 部署 → F5 雨夜；导出剪映；Acc/安全 Dly 不进」

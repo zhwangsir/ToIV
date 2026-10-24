@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行真源 → `docs/ops/CLUSTER_TRUTH.md`。
+
 # workstation-units
 
 > **来源主机**：workstation（192.168.71.127，merlin，4×RTX PRO 6000）

@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # V4-4 真时间线决策记录（2026-10-13）
 
 > v4 计划 V4-4 决策点（源自 v3 C4/ShortGPT EML 评估）。按 PLAN §5 默认规则：

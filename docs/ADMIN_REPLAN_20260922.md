@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # Admin 后端管理系统重规划：深度调研与完整方案（2026-09-22）
 
 > 问题：用户报「后端管理系统的体量太小、功能太少，需要重新规划」，四域方案 D 项深化专篇。

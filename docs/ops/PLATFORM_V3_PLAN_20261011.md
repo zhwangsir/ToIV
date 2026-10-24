@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # ToIV Studio v3 方案计划 · 从「平台统一」到「制片能力」（2026-10-11）
 
 > 依据：2026-10-10 深度调研（13 商业产品 + 12 开源，真源 `UNIFIED_PLATFORM_PLAN_20261010.md` §2）+ S1–S14 交付盘点。

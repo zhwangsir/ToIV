@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # 双项目域合并评估（S3-c · 2026-10-11）
 
 > 背景：v2 重构实测中确认 canvas 工作台（`StudioProject` 域，`/studio/projects`）与经典短剧线（`DramaProject` 域，`/drama/projects`）两套 Project/Character/Shot 平行存在——「两个项目」体感的深层来源。本文件给出合并方向与分期，供拍板。

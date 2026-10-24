@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行真源 → `docs/ops/CLUSTER_TRUTH.md`。
+
 # spark-llm: 双 Spark TP=2 主脑(Qwen3.8-Flash-Next-Uncensored NVFP4)
 
 > 2026-08-31 上线。模型:dealignai/Qwen3.8-Flash-Next-UNCENSORED-NVFP4(125B+51B N-gram,MoE 6B 激活,无审查 abliterated,Apache/Qwen Community License 自用)

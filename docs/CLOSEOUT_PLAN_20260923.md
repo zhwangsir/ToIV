@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # ToIV 完整优化与收口计划（2026-09-23）
 
 > **状态**：计划稿（`plan_only`）——**未经用户确认前不改生产、不停封面闸、不跑全量真跑、不双推产品。**  

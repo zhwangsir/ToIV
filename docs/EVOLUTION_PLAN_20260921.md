@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # ToIV 进化计划 v2（2026-09-21 用户拍板「M1 开工候选」）
 
 > 承接 docs/EVOLUTION_PLAN.md（2026-09-14，90 天计划）。Phase 0 上线收口已完结（497/550=90.4%），

@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行集群真源 → [`docs/ops/CLUSTER_TRUTH.md`](ops/CLUSTER_TRUTH.md)。
+
 # ToIV 全站实用性调研报告（2026-08-30）
 
 > 四路并行调研汇总：视频生成链路代码审计 / 23 视图逐一 UX 审计 / 生产环境浏览器走查 / 历史遗留盘点。

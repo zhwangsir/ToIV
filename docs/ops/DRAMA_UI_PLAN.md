@@ -1,3 +1,6 @@
+> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
+> 现行主机 / 端口 / 权重 / DOWN 口 → [`docs/ops/CLUSTER_TRUTH.md`](CLUSTER_TRUTH.md)。正文仅作考古，禁止盲抄配置。
+
 # ToIV 短剧 UI 方案（DRAMA_UI_PLAN）
 
 方向锁定（用户 2026-09-30 / 10-01）：**AI 短剧是唯一主体**；UI 极简少字；功能重量级（真跑通+失败/边界）。本文件在 core 与仓库 `docs/ops/` 均保留（**不提交 git**）。
