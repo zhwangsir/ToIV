@@ -1,12 +1,15 @@
 ## DOC_TRUTH_SWEEP · 2026-10-23 19:30 Asia/Shanghai
 
-## WAVE_CLOSE / NAMING_N3 — 2026-10-24 Asia/Shanghai
+## WAVE_CLOSE / NAMING_N3 — 2026-10-24 09:50 Asia/Shanghai
 
 - **PLAN**: `docs/ops/WAVE_CLOSE_PLAN_20261024.md`
-- **NAMING_N1 (repo)**: LLM canonical=`deepseek-v4-flash-dspark`; VLM=`toiv-vlm` @ ws:9311; Comfy default :8188; fleet spark roles; offline ports `probe=none`; pytest naming/fleet/llm_proxy green
-- **NAMING_N2 (prod)**: core `deploy/.env` aligned; spark served-model-name canonical only; old qwen*/glm* → 404
-- **DOC_SWEEP**: sole truth `docs/ops/CLUSTER_TRUTH.md`; historical banners; DEVICE_MODELS archived
-- **N3 (this wave)**: canvas gate template aliases removed; `test_llm_proxy` single-model; :8194 marked DOWN in knowledge; batched commits → deploy API/web → final probe
+- **Commits (no push)**: `af00a40a` fix(api) N1 · `d5991b37` docs CLUSTER_TRUTH/DOC_SWEEP · `52e7db23` fix(canvas) gate aliases
+- **Deploy**: `--skip-web core` ✅ api health ok；`--web-only core` ✅ BUILD=`20261024-014946-52e7db23`
+- **Disk**: core `api/app/config.py` defaults = deepseek-v4-flash-dspark / :8188 / :9311 toiv-vlm（无 qwen3.6 / :8189）
+- **Gate live**: beeftv-prod + staging toiv-llm 仅 deepseek-v4-flash-dspark（bak.naming-n3-*）
+- **Probe**: spark models=[deepseek-v4-flash-dspark]；H3:8264=200；VLM=[toiv-vlm]；web version.json 对齐 tip
+- **Frozen skipped**: Acc-8Step · Security Dly · push · DOWN ports online
+- status=`wave_close_naming_n3_deployed_no_push`
 
 - **范围**：仓库文档真相清扫（branch `work/p0-fusion-20261016`）；**未** commit / push / deploy；**未**改生产 `.env` / 重启 spark。
 - **探针**：MateBook en0=`192.168.71.118` → core health ok；spark02 `/v1/models`=DSv4+废弃别名；spark01:8000 refused；VLM `:9311`=`toiv-vlm`；H3/Comfy 8188/8196/8197/8199/8262-8265=200；TTS/embed/demucs OK；whisper×4=200；DOWN 口 spot-check refused。

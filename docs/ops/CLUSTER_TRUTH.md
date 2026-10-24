@@ -2,9 +2,9 @@
 
 > **权威顺序**：① 真机探针（LAN curl / docker inspect）→ ② 仓库代码默认（Wave N1：`config.py` / `fleet_registry.py` / `.env.example`）→ ③ 本文件 → ④ 其它文档。  
 > **命名铁律**：一个磁盘权重只对应一个 weight id；对外 served 名不得伪装成另一家模型家族。  
-> **探针 as-of**：**2026-10-23 20:04 Asia/Shanghai**（NAMING_N2 完成：core `.env` 已对齐；spark `/v1/models` **仅** `deepseek-v4-flash-dspark`）。
-> **NAMING_N2（本轮已做）**：生产 `core:/home/merlin/toiv/deploy/.env` 热对齐 + `toiv-api` restart；双机 `~/dsv4-serve.sh` 仅 `--served-model-name deepseek-v4-flash-dspark` 并冷启。**未做**：git commit/push、全量 deploy。  
-> **知识图谱页**：[ToIV 能力知识图谱与命名规范](https://cursor.com/canvas/store-2a7cb835-7fcb-4cd4-b2c8-cb0ee07b899c/b21e123b-da5f-43d9-90af-a3842894cfcc)
+> **探针 as-of**：**2026-10-24 09:50 Asia/Shanghai**（NAMING_N3 WAVE_CLOSE：API+web 已部署；gate 模板已清伪装别名）。
+> **NAMING_N3（本轮已做）**：三批 commit `af00a40a`/`d5991b37`/`52e7db23`（未 push）；`deploy --skip-web` + `--web-only` → BUILD `20261024-014946-52e7db23`；生产 `api/app/config.py` 磁盘默认已无 qwen3.6/:8189；prod/staging gate toiv-llm 仅 deepseek-v4-flash-dspark。
+> **冻结未做**：Acc-8Step / Security Dly / git push / DOWN 口上线。
 
 任何 AGENTS / DEVICE_MODELS / SERVICE_INVENTORY / skills 与本表冲突时，**以本表 + 当场再探针为准**。
 
@@ -135,3 +135,12 @@ curl -sS -m 2 http://192.168.71.82:8000/v1/models || true
 | spark script | 双机 `~/dsv4-serve.sh` 备份 `.bak.naming-n2-*`；served 仅 canonical |
 | spark restart | rank1@19:58:49 → rank0@19:59:03 → `/v1/models` 20:04 仅 canonical；chat smoke `N2_OK`；别名 404；`PROXY_MODELS` 已缩为单名并 restart api |
 | 未做 | commit / push / 全量 deploy |
+
+
+## NAMING_N3 / WAVE_CLOSE（2026-10-24 09:50 Asia/Shanghai）
+
+- Commits（未 push）: `af00a40a` fix(api) N1 · `d5991b37` docs CLUSTER_TRUTH/DOC_SWEEP · `52e7db23` fix(canvas) gate aliases
+- Deploy: `DEPLOY_DRAIN_WAIT_SEC=120 ./deploy/deploy.sh --skip-web core` ✅；`--web-only core` ✅ BUILD=`20261024-014946-52e7db23`
+- Disk defaults on core `/home/merlin/toiv/api/app/config.py`: `llm_model=deepseek-v4-flash-dspark`, `comfy_workers=:8188`, `vlm=:9311/toiv-vlm`, `llm_proxy_models` single
+- Live gate: beeftv-prod + beeftv-staging model-config 清掉 qwen*/glm*；bak.naming-n3-*
+- Probe: spark `/v1/models`=[deepseek-v4-flash-dspark]；api health ok；H3:8264=200；VLM=[toiv-vlm]

@@ -21,3 +21,13 @@
 - core 磁盘 `config.py` 默认不再含 `qwen3.6-uncensored` / `:8189`
 - fleet roles 真名；health 绿
 - 三批 commit 落库、无 secrets、无 push
+
+
+## 执行结果（2026-10-24 09:50 Asia/Shanghai）
+
+- ✅ P1 代码收尾 + 三批 commit（未 push）
+- ✅ API deploy `--skip-web core`
+- ✅ Web deploy `--web-only core` BUILD `20261024-014946-52e7db23`
+- ✅ 生产 gate 清伪装别名
+- ✅ 终检探针绿
+- ⏭ 冻结项未做（Acc / Security Dly / push / DOWN）
