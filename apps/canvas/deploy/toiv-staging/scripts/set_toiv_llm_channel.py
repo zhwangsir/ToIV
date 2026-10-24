@@ -8,7 +8,7 @@ for line in open("/home/merlin/toiv/deploy/.env"):
     if "=" in line and not line.startswith("#"):
         k,v=line.rstrip("\n").split("=",1); env[k]=v.strip().strip("\"")
 BASE=env.get("TOIV_LLM_BASE_URL") or "http://192.168.71.84:8000/v1"
-MODEL=env.get("TOIV_LLM_MODEL") or "qwen3.8-27b"
+MODEL=env.get("TOIV_LLM_MODEL") or "deepseek-v4-flash-dspark"
 B="http://127.0.0.1:8272/api/workspace/model-config"
 d=json.load(urllib.request.urlopen(B))["data"]; cfg,rev=d["config"],d.get("revision")
 cid="toiv-llm"

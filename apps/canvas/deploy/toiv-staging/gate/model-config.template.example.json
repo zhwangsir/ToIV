@@ -373,70 +373,10 @@
           "model": "deepseek-v4-flash-dspark",
           "protocol": "chat-completion",
           "displayName": "deepseek-v4-flash-dspark"
-        },
-        {
-          "capability": "text",
-          "model": "qwen3.8-27b",
-          "protocol": "chat-completion",
-          "displayName": "Spark别名·qwen3.8-27b",
-          "capabilityConfig": {
-            "text": {
-              "references": {
-                "maxImageBytes": 0,
-                "maxImages": 0,
-                "maxVideoBytes": 0,
-                "maxVideos": 0,
-                "promptMaxChars": 32000
-              },
-              "streaming": true
-            },
-            "version": 1
-          }
-        },
-        {
-          "capability": "text",
-          "model": "qwen3.6-uncensored",
-          "protocol": "chat-completion",
-          "displayName": "Spark别名·qwen3.6-uncensored",
-          "capabilityConfig": {
-            "text": {
-              "references": {
-                "maxImageBytes": 0,
-                "maxImages": 0,
-                "maxVideoBytes": 0,
-                "maxVideos": 0,
-                "promptMaxChars": 32000
-              },
-              "streaming": true
-            },
-            "version": 1
-          }
-        },
-        {
-          "capability": "text",
-          "model": "glm-5.3-flash",
-          "protocol": "chat-completion",
-          "displayName": "Spark别名·glm-5.3-flash",
-          "capabilityConfig": {
-            "text": {
-              "references": {
-                "maxImageBytes": 0,
-                "maxImages": 0,
-                "maxVideoBytes": 0,
-                "maxVideos": 0,
-                "promptMaxChars": 32000
-              },
-              "streaming": true
-            },
-            "version": 1
-          }
         }
       ],
       "models": [
-        "deepseek-v4-flash-dspark",
-        "qwen3.8-27b",
-        "qwen3.6-uncensored",
-        "glm-5.3-flash"
+        "deepseek-v4-flash-dspark"
       ],
       "name": "本地·Spark对话",
       "pinned": false,
