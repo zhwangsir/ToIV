@@ -6,8 +6,8 @@
 > 用途：复制下方「提示词正文」到另一台设备上的 Agent / Cursor，继续未完成工作。  
 > **重要**：下列改动绝大部分仍在 MateBook 工作区、**未 commit / 未 push**。换机前必须先把工作区带走（commit、bundle、rsync 或 U 盘同步整个 ToIV 目录），否则新设备只有旧 tip `e641dda4`，看不到设置/图谱代码。
 
-> **P1 已落地（2026-10-25 23:45 Asia/Shanghai，未 commit）**：trigger/强度进卡 · 钉选生成校验 · 配方图谱边 · Qwen A/B 54；下一优先 **P1b**（NAS 基座全量）或用户口令 commit。
-> **未做**：P1b · P2 · civ 深爬 trainedWords（API 403）· 永久删隔离
+> **P1b+Forge+edit 已落地（2026-10-26 04:44 Asia/Shanghai）**：基座库存 `base-inventory.json`（非实时 NAS 种子）接入设置槽下拉；Forge `<lora:>`；`qwen-image-edit` 市场 loras；图谱 P2 仍有效。
+> **未做**：Remix/Mega（保鲜员）· 永久删隔离 · push/部署 · Acc/安全 · 雨夜实测升 A
 
 ---
 
@@ -83,9 +83,9 @@
 4. 配方快捷改为引用图谱边（带 strength/triggers），非裸文件名
 5. 尽量补强 Qwen-image 族 A/B 边（卡页声明或人工钉选），减少「几乎全灰显」
 
-**P1b — 基座可控**
-6. 基座下拉接 **NAS 全量枚举**（ckpt/diffusion），每项带 `BaseFamily`，供过滤与 Agent 查询
-7. 解析不到族时的降级文案保持诚实
+**P1b — 基座可控（已落地）**
+6. ~~基座下拉接 NAS 全量枚举~~ → `generated/base-inventory.json` + 设置槽合并；MateBook 无挂载 = 非实时种子
+7. 解析不到族 →「族未解析」
 
 **P2 — 图谱深化（可后）**
 8. 实测 / 雨夜回写 confidence A；文件级 `conflicts_with` / `substitutes`

@@ -1,3 +1,20 @@
+## 2026-10-26 04:44 Asia/Shanghai · t82u P1b 基座 + Forge loras + edit + 图谱轻尾巴
+
+- **P1b 基座**：`scripts/ops/gen-base-inventory-json.py` → `apps/canvas/web/src/generated/base-inventory.json`
+  - MateBook **无 NAS 挂载** → 种子 `docs/NAS_MODEL_PICKER.json`（`live=false`，UI 标明非实时）
+  - **count=221** · familyResolved=**113** · unknown=**108**（族未解析，不瞎标）
+  - 设置槽 `model-slot-table` 合并库存选项；`lib/base-inventory.ts`
+- **Forge**：`txt2img_payload(..., loras=)` → prompt `<lora:NAME:W>`；`_submit_forge_txt2img` 传入 `req.loras`
+- **qwen-image-edit**：证伪有 `LoraLoader`（`workflows/qwen_edit.py`/`lora_chain`）→ 已接
+  - `supports_market_loras` / 前端 `marketAppSupportsLoras` / `enrich` / 引擎 `_qwen_edit_params`
+  - `apply_image_loras` 跟随已有 LoraLoader 末端 + 改写 `TextEncodeQwenImageEdit`
+  - 经典 `/generate/qwen-edit` 仍无独立 loras 字段（市场 apps.run 已接）
+- **图谱轻尾巴**：`MODEL_COMPAT_GRAPH` 摘要+Mermaid；trigger 深爬：缓存卡多数 **trainedWords=0**，边数未增（`CIVITAI_TRIGGER_DEEPEN_20261026.md`）
+- **验证**
+  - API：`pytest test_forge_loras_payload + test_app_deep_knobs + test_image_loras_param_schema` → **19 pass**
+  - Web：`bun test base-inventory + model-compat + slot-lora + market-advanced` → **39 pass**
+- **commit**：本地 1–3 个；**未 push / 未部署**；未动 Remix/Mega/隔离永久删/Acc
+
 ## 2026-10-26 Asia/Shanghai · 出图 loras 真接线 + 图谱 P2
 
 - **出图接线**

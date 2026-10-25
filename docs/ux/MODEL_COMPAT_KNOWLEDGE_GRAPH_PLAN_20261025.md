@@ -4,7 +4,7 @@
 
 > **日期**：2026-10-25（Asia/Shanghai）  
 > **状态**：**P0+P1 已落地（本机）** · 未 commit  
-> **P1（2026-10-25）**：trigger/强度 · 钉选生成校验 · 配方图谱边 · Qwen-image A/B≈54；P1b/P2 仍待  
+> **P1b+P2（2026-10-26 04:44 Asia/Shanghai）**：P1b 基座库存已接设置槽；P2 文件冲突/substitutes 已有；Forge/edit loras 已接；勿写「P2 待做」  
 > **已拍板 2026-10-25（全部按推荐 D1–D4）**：D1 灰显可强制 · D2 H3/出图严格分族 · D3 JSON 账本 · D4 与 inventory 并列 basename join  
 > **触发**：设置库存（351 条 A+B×P-A/P-B）已接上后，用户要求继续前必须把「哪些 LoRA 可用在哪个底模、怎么用」做成完整、可识别内容，并最好用知识图谱串联（人与 AI 都能用）。  
 > **关联**：[`MODEL_MIX_CONTROL_PLAN_20261025.md`](./MODEL_MIX_CONTROL_PLAN_20261025.md) · [`SETTINGS_REDESIGN_PLAN_20261025.md`](./SETTINGS_REDESIGN_PLAN_20261025.md) · [`../ops/MODEL_SOURCE_PURPOSE_RESEARCH_20261025.md`](../ops/MODEL_SOURCE_PURPOSE_RESEARCH_20261025.md) · [`../ops/PURPOSE_UNKNOWN_QUARANTINE_20261025.md`](../ops/PURPOSE_UNKNOWN_QUARANTINE_20261025.md) · `lora_catalog.py` · `generated/lora-inventory.json`

@@ -1,5 +1,31 @@
 # 模型兼容图谱摘要（P2）
 
+## 图谱摘要（自动 · 2026-10-26 04:43 Asia/Shanghai）
+
+| 项 | 值 |
+|----|----|
+| phase | `P2` |
+| 节点 | 679 |
+| 边 | 2142 |
+| compatible A/B/C | 21 / 159 / 153 |
+| requires_trigger | 153 |
+| conflicts_with | 36 |
+| substitutes | 22 |
+
+```mermaid
+flowchart LR
+  BF[BaseFamily] -->|compatible_with| L[LoRA]
+  BM[BaseModel] --> BF
+  L -->|requires_trigger| T[TriggerPhrase]
+  L -->|conflicts_with| L
+  L -->|substitutes| L
+  L -->|used_in_slot| S[Slot]
+```
+
+节点类型：{'BaseFamily': 17, 'EngineSlot': 3, 'BaseModel': 40, 'LoRA': 351, 'PurposeTag': 33, 'SourceCard': 124, 'TriggerPhrase': 111}  
+边类型：{'instance_of': 40, 'purpose': 351, 'recommended_strength': 351, 'compatible_with': 333, 'used_in_slot': 672, 'sourced_from': 184, 'conflicts_with': 36, 'requires_trigger': 153, 'substitutes': 22}
+
+
 > 日期：2026-10-26（Asia/Shanghai）  
 > 生成：`scripts/ops/build-model-compat-graph.py` → `generated/model-compat-graph.json`  
 > 拍板：D1 灰显可强制 · D2 H3 严格分族 · D3 JSON · D4 并列 join
