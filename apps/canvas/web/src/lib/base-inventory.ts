@@ -1,0 +1,148 @@
+/**
+ * NAS 基座库存（checkpoints / diffusion_models / H3 非 LoRA 权重）。
+ * 与 lora-inventory / model-compat-graph 并列；join key = basename。
+ * 由 scripts/ops/gen-base-inventory-json.py 生成。
+ */
+import inventory from "@/generated/base-inventory.json";
+import { familyLabel, familyOfBase } from "@/lib/model-compat";
+import {
+    LOCAL_H3_CHANNEL_NAME,
+    LOCAL_IMAGE_CHANNEL_ID,
+    LOCAL_IMAGE_CHANNEL_NAME,
+    LOCAL_VIDEO_CHANNEL_ID,
+    LOCAL_VIDEO_CHANNEL_NAME,
+} from "@/lib/local-model-defaults";
+import { LOCAL_H3_CHANNEL_ID } from "@/services/toiv/local-capability-surface";
+
+export type BaseInventorySlot = "image" | "video-primary" | "video-motion";
+
+export type BaseInventoryItem = {
+    id: string;
+    basename: string;
+    label: string;
+    relPath: string;
+    pathRoot: string;
+    family: string | null;
+    familyLabel: string | null;
+    familyResolved: boolean;
+    slots: BaseInventorySlot[];
+    bytes?: number | null;
+    purposeZh?: string | null;
+};
+
+type InventoryFile = {
+    generatedAt: string;
+    source: { kind: string; live?: boolean; [k: string]: unknown };
+    note?: string;
+    count: number;
+    familyResolved: number;
+    familyUnknown: number;
+    items: BaseInventoryItem[];
+};
+
+const FILE = inventory as InventoryFile;
+
+export function baseInventoryMeta() {
+    return {
+        generatedAt: FILE.generatedAt,
+        source: FILE.source,
+        note: FILE.note || "",
+        count: FILE.count,
+        familyResolved: FILE.familyResolved,
+        familyUnknown: FILE.familyUnknown,
+        live: Boolean(FILE.source?.live),
+    };
+}
+
+export function listBaseInventory(opts?: { slot?: BaseInventorySlot; family?: string | null }): BaseInventoryItem[] {
+    let items = FILE.items || [];
+    if (opts?.slot) {
+        items = items.filter((i) => (i.slots || []).includes(opts.slot!));
+    }
+    if (opts?.family) {
+        const fam = opts.family;
+        items = items.filter((i) => i.family === fam);
+    }
+    return items;
+}
+
+/** Channel::basename ref for settings slot dropdown. */
+export function baseInventoryModelRef(item: BaseInventoryItem): string {
+    if ((item.slots || []).includes("video-primary") || item.family === "minimax-h3") {
+        return `${LOCAL_H3_CHANNEL_ID}::${item.basename}`;
+    }
+    if ((item.slots || []).includes("video-motion") && !(item.slots || []).includes("image")) {
+        return `${LOCAL_VIDEO_CHANNEL_ID}::${item.basename}`;
+    }
+    return `${LOCAL_IMAGE_CHANNEL_ID}::${item.basename}`;
+}
+
+export function baseInventoryOptionLabel(item: BaseInventoryItem): string {
+    const fam =
+        item.familyResolved && item.family
+            ? item.familyLabel || familyLabel(item.family)
+            : "族未解析";
+    const liveTag = "";
+    return `${item.label} · ${fam}${liveTag}`;
+}
+
+export function baseInventoryChannelName(item: BaseInventoryItem): string {
+    if ((item.slots || []).includes("video-primary") || item.family === "minimax-h3") {
+        return LOCAL_H3_CHANNEL_NAME;
+    }
+    if ((item.slots || []).includes("video-motion") && !(item.slots || []).includes("image")) {
+        return LOCAL_VIDEO_CHANNEL_NAME;
+    }
+    return LOCAL_IMAGE_CHANNEL_NAME;
+}
+
+/**
+ * Merge channel models with NAS base inventory for a slot.
+ * Existing channel options win on value collision; inventory fills the rest.
+ */
+export function mergeSlotOptionsWithBaseInventory(
+    existing: Array<{ value: string; label: string; title?: string }>,
+    slot: BaseInventorySlot,
+): Array<{ value: string; label: string; title?: string }> {
+    const seen = new Set(existing.map((o) => o.value.toLowerCase()));
+    const basenameSeen = new Set(
+        existing.map((o) => {
+            const v = o.value.includes("::") ? o.value.split("::").pop() || o.value : o.value;
+            return v.toLowerCase();
+        }),
+    );
+    const extras = listBaseInventory({ slot })
+        .filter((item) => {
+            const ref = baseInventoryModelRef(item);
+            if (seen.has(ref.toLowerCase())) return false;
+            if (basenameSeen.has(item.basename.toLowerCase())) return false;
+            return true;
+        })
+        .map((item) => {
+            const ref = baseInventoryModelRef(item);
+            const ch = baseInventoryChannelName(item);
+            return {
+                value: ref,
+                label: `${baseInventoryOptionLabel(item)} · ${ch}`,
+                title: item.relPath || item.basename,
+            };
+        });
+    return [...existing, ...extras];
+}
+
+/** Resolve family for a model ref / basename via inventory then graph heuristics. */
+export function familyOfBaseInventory(hint: string | null | undefined): string | null {
+    const raw = String(hint || "").trim();
+    if (!raw) return null;
+    const bn = (raw.includes("::") ? raw.split("::").pop() : raw) || raw;
+    const hit = FILE.items.find((i) => i.basename.toLowerCase() === bn.toLowerCase());
+    if (hit?.family) return hit.family;
+    return familyOfBase(bn);
+}
+
+export function baseInventoryFooter(slot?: BaseInventorySlot): string {
+    const meta = baseInventoryMeta();
+    const n = slot ? listBaseInventory({ slot }).length : meta.count;
+    const src = meta.live ? "实时 NAS" : "非实时 NAS 种子";
+    return `基座库存 ${n} · 族可解析 ${meta.familyResolved}/${meta.count} · ${src}`;
+}

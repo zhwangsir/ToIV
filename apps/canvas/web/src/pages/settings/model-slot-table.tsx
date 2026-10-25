@@ -24,6 +24,11 @@ import {
 } from "@/stores/use-config-store";
 import { workspaceCapabilities } from "@/services/workspace-mode";
 import { SlotLoraRow } from "./slot-lora-row";
+import {
+    baseInventoryFooter,
+    baseInventoryMeta,
+    mergeSlotOptionsWithBaseInventory,
+} from "@/lib/base-inventory";
 
 export type SlotModelKey = "imageModel" | "videoModel" | "textModel" | "assistantModel";
 
@@ -66,9 +71,20 @@ export function ModelSlotTable({ config, onChange, onMotionChange, onOpenChannel
     }, [config, videoModels, motionSelected]);
 
     const textOptions = toSelectOptions(config, textModels);
-    const imageOptions = toSelectOptions(config, imageModels);
-    const primaryVideoOptions = toSelectOptions(config, primaryVideoModels);
-    const motionOptions = toSelectOptions(config, motionVideoModels);
+    const imageOptions = useMemo(
+        () => (localMode ? mergeSlotOptionsWithBaseInventory(toSelectOptions(config, imageModels), "image") : toSelectOptions(config, imageModels)),
+        [config, imageModels, localMode],
+    );
+    const primaryVideoOptions = useMemo(
+        () => (localMode ? mergeSlotOptionsWithBaseInventory(toSelectOptions(config, primaryVideoModels), "video-primary") : toSelectOptions(config, primaryVideoModels)),
+        [config, primaryVideoModels, localMode],
+    );
+    const motionOptions = useMemo(
+        () => (localMode ? mergeSlotOptionsWithBaseInventory(toSelectOptions(config, motionVideoModels), "video-motion") : toSelectOptions(config, motionVideoModels)),
+        [config, motionVideoModels, localMode],
+    );
+    const baseInvNote = localMode ? baseInventoryFooter() : "";
+    const baseInvLive = localMode ? baseInventoryMeta().live : true;
     const assistantSelectOptions = [
         { value: "__follow__", label: `跟随对话 / 剧本（${followsDefaultText}）` },
         ...assistantOptions.map((model) => ({
@@ -79,6 +95,12 @@ export function ModelSlotTable({ config, onChange, onMotionChange, onOpenChannel
 
     return (
         <div className="settings-slot-table" data-testid="model-slot-table">
+            {localMode ? (
+                <p className="mb-2 text-[11px] leading-relaxed text-foreground/45" data-testid="base-inventory-footer" title={baseInvLive ? "实时 NAS" : "非实时 NAS 种子"}>
+                    {baseInvNote}
+                    {baseInvLive ? "" : " · 选中后 LoRA 按族过滤；换权重仍建议在「模型与算力」绑定"}
+                </p>
+            ) : null}
 
             <SlotRow
                 id="llm"
