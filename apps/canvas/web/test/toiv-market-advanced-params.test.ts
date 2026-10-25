@@ -8,6 +8,7 @@ import {
     buildDefaultRunValues,
     buildToivRunValues,
     enrichMarketSchemaWithDeepParams,
+    marketAppSupportsLoras,
     h3LengthFromSeconds,
     isMarketCoreParam,
     ltxFramesFromSeconds,
@@ -153,7 +154,11 @@ describe("market deep params (LoRA / resolution_target)", () => {
         expect(longcat.some((p) => p.key === "resolution_target")).toBe(true);
 
         const t2i = enrichMarketSchemaWithDeepParams("txt2img-basic", T2I_SCHEMA);
-        expect(t2i.some((p) => p.key === "loras" || p.key === "resolution_target")).toBe(false);
+        expect(t2i.some((p) => p.key === "loras")).toBe(true);
+        expect(t2i.some((p) => p.key === "resolution_target")).toBe(false);
+        expect(enrichMarketSchemaWithDeepParams("qwen-image-edit", T2I_SCHEMA).some((p) => p.key === "loras")).toBe(
+            false,
+        );
     });
 
     test("split puts loras/resolution_target into deep, not advanced", () => {
@@ -204,5 +209,17 @@ describe("market-page mounts 更深参数", () => {
         expect(src).toContain("enrichMarketSchemaWithDeepParams");
         expect(src).toContain("data-testid=\"market-loras-field\"");
         expect(src).not.toContain("segment_extend");
+    });
+});
+
+describe("marketAppSupportsLoras image wiring 2026-10-26", () => {
+    test("covers local image apps; edit still false", () => {
+        for (const id of ["txt2img", "img2img", "nsfw-txt2img", "nsfw-img2img", "txt2img-basic", "img2img-basic"]) {
+            expect(marketAppSupportsLoras(id)).toBe(true);
+        }
+        expect(marketAppSupportsLoras("h3-t2v")).toBe(true);
+        expect(marketAppSupportsLoras("ltx-txt2video")).toBe(true);
+        expect(marketAppSupportsLoras("qwen-image-edit")).toBe(false);
+        expect(marketAppSupportsLoras("longcat-t2v")).toBe(false);
     });
 });

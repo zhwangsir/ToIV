@@ -69,9 +69,39 @@ def ltx_loras_param() -> dict:
     }
 
 
+
+_IMAGE_LORA_APP_IDS = frozenset({
+    "txt2img",
+    "img2img",
+    "nsfw-txt2img",
+    "nsfw-img2img",
+    "txt2img-basic",
+    "img2img-basic",
+})
+
+
+def image_loras_param() -> dict:
+    """出图市场 LoRA:options 空(不发明文件名);默认关闭。不含 qwen-image-edit。"""
+    return {
+        "key": "loras",
+        "label": "LoRA 叠加",
+        "type": "loras",
+        "default": [],
+        "options": [],
+        "min": 0.0,
+        "max": 2.0,
+        "step": 0.05,
+        "hint": "默认关闭;可钉选最多 3 个。设置页出图槽钉选可流入市场出图 run",
+        "required": False,
+    }
+
+
 def supports_market_loras(app_id: str) -> bool:
     aid = (app_id or "").strip().lower()
-    return aid.startswith("h3-") or aid.startswith("ltx")
+    if aid.startswith("h3-") or aid.startswith("ltx"):
+        return True
+    # 本地出图(引擎 id + 市场 basic);明确不含 qwen-image-edit
+    return aid in _IMAGE_LORA_APP_IDS
 
 
 def supports_market_resolution_target(app_id: str, *, output_kind: str | None = None) -> bool:
@@ -137,6 +167,72 @@ def apply_ltx_loras(graph: dict, loras: tuple[LoraSpec, ...]) -> None:
             inputs["model"] = model_ref
 
 
+def apply_image_loras(graph: dict, loras: tuple[LoraSpec, ...]) -> bool:
+    """出图图注入 LoraLoader 链:支持 CheckpointLoaderSimple 与 nextgen(UNET+CLIP)。
+
+    Checkpoint 路径:链式改写 CLIPTextEncode.clip / KSampler.model。
+    Nextgen 路径:插在 UNET(/加速 LoRA)与 ModelSampling* 之间,并改 CLIP 编码。
+    """
+    if not loras:
+        return False
+
+    # ── classic SD / URPM ──
+    ckpt_id = None
+    for nid, node in graph.items():
+        if isinstance(node, dict) and node.get("class_type") == "CheckpointLoaderSimple":
+            ckpt_id = str(nid)
+            break
+    if ckpt_id is not None:
+        lora_nodes, model_ref, clip_ref = lora_chain(
+            loras, src_model=[ckpt_id, 0], src_clip=[ckpt_id, 1]
+        )
+        graph.update(lora_nodes)
+        for node in graph.values():
+            if not isinstance(node, dict):
+                continue
+            ct = node.get("class_type")
+            inputs = node.get("inputs") or {}
+            clip = inputs.get("clip")
+            model = inputs.get("model")
+            if ct == "CLIPTextEncode" and isinstance(clip, list) and str(clip[0]) == ckpt_id:
+                inputs["clip"] = clip_ref
+            if ct == "KSampler" and isinstance(model, list) and str(model[0]) == ckpt_id:
+                inputs["model"] = model_ref
+        return True
+
+    # ── nextgen Flux2 / Qwen-Image UNET ──
+    if "1" not in graph or graph["1"].get("class_type") != "UNETLoader":
+        return False
+    if "3" not in graph or graph["3"].get("class_type") != "CLIPLoader":
+        return False
+    model_src: list = ["1", 0]
+    for nid, node in graph.items():
+        if not isinstance(node, dict):
+            continue
+        if node.get("class_type") != "LoraLoaderModelOnly":
+            continue
+        inputs = node.get("inputs") or {}
+        m = inputs.get("model")
+        if isinstance(m, list) and str(m[0]) == "1":
+            model_src = [str(nid), 0]
+    lora_nodes, model_ref, clip_ref = lora_chain(loras, model_src, ["3", 0])
+    graph.update(lora_nodes)
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        ct = str(node.get("class_type") or "")
+        inputs = node.get("inputs") or {}
+        model = inputs.get("model")
+        clip = inputs.get("clip")
+        if ct.startswith("ModelSampling") and isinstance(model, list) and str(model[0]) == str(model_src[0]):
+            inputs["model"] = model_ref
+        elif ct == "KSampler" and isinstance(model, list) and str(model[0]) == str(model_src[0]):
+            inputs["model"] = model_ref
+        if ct == "CLIPTextEncode" and isinstance(clip, list) and str(clip[0]) == "3":
+            inputs["clip"] = clip_ref
+    return True
+
+
 def apply_app_loras(
     graph: dict,
     app_id: str,
@@ -156,9 +252,17 @@ def apply_app_loras(
         return meta
     raw = values.get("loras")
     aid = (app_id or "").strip().lower()
-    family = "h3" if aid.startswith("h3-") else ("ltx" if aid.startswith("ltx") else None)
+    if aid.startswith("h3-"):
+        family = "h3"
+    elif aid.startswith("ltx"):
+        family = "ltx"
+    elif aid in _IMAGE_LORA_APP_IDS:
+        family = "image"
+    else:
+        family = None
     if raw is None:
-        if not family:
+        # 出图无策划 AI 选配目录;null = 不改图(历史行为)
+        if family not in ("h3", "ltx", "wan"):
             return meta
         from app.services.lora_picker import resolve_submit_loras, to_specs
 
@@ -187,6 +291,11 @@ def apply_app_loras(
         # 粗判:链节点 id 从 100 起
         if any(str(k).isdigit() and int(k) >= 100 for k in graph):
             meta.update({"applied": True, "count": len(specs), "family": "ltx"})
+    elif family == "image":
+        if apply_image_loras(graph, specs):
+            meta.update({"applied": True, "count": len(specs), "family": "image"})
+        else:
+            logger.warning("出图 LoRA 注入跳过:图无 Checkpoint/UNET+CLIP 钩子 app=%s", app_id)
     else:
         logger.info("应用 %s 不支持市场 LoRA 注入,已忽略", app_id)
     return meta
@@ -204,14 +313,23 @@ def enrich_params_schema(
     aid = (app_id or "").strip()
 
     if supports_market_loras(aid) and "loras" not in keys:
-        out.append(h3_loras_param() if aid.lower().startswith("h3-") else ltx_loras_param())
+        low = aid.lower()
+        if low.startswith("h3-"):
+            out.append(h3_loras_param())
+        elif low.startswith("ltx"):
+            out.append(ltx_loras_param())
+        else:
+            out.append(image_loras_param())
         keys.add("loras")
     elif "loras" in keys:
         for p in out:
             if p.get("key") == "loras" and p.get("type") == "loras" and not p.get("options"):
-                eng = "h3" if aid.lower().startswith("h3-") else "ltx"
-                if supports_market_loras(aid):
-                    p["options"] = catalog_options(eng)
+                low = aid.lower()
+                if low.startswith("h3-"):
+                    p["options"] = catalog_options("h3")
+                elif low.startswith("ltx"):
+                    p["options"] = catalog_options("ltx")
+                # 出图:options 保持空,不发明文件名
 
     if supports_market_resolution_target(aid, output_kind=output_kind) and "resolution_target" not in keys:
         out.append(resolution_target_param())

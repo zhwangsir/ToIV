@@ -1210,3 +1210,23 @@ async def test_h3_nsfw_fl2v_r2v_exposed_in_r18(live_pool, user):
         assert eid in ids
         assert ids[eid]["nsfw"] is True
         assert ids[eid]["available"] is True
+
+
+async def test_image_loras_param_schema(live_pool, user, h3_lora_stub):
+    """本地出图引擎声明 type=loras；qwen-image-edit 不声明。"""
+    ids = _by_id(await list_engines(live_pool, user))
+    for eid in ("txt2img", "img2img"):
+        p = _param(ids[eid], "loras")
+        assert p["type"] == "loras"
+        assert isinstance(p.get("options"), list)
+    if "qwen-image-edit" in ids:
+        keys = [x["key"] for x in ids["qwen-image-edit"]["params"]]
+        assert "loras" not in keys
+    token = nsfw_intent_var.set(True)
+    try:
+        ids_r = _by_id(await list_engines(live_pool, user))
+        for eid in ("nsfw-txt2img", "nsfw-img2img"):
+            p = _param(ids_r[eid], "loras")
+            assert p["type"] == "loras"
+    finally:
+        nsfw_intent_var.reset(token)

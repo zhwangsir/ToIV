@@ -34,7 +34,10 @@ def test_supports_families():
     assert supports_market_loras("h3-nsfw-i2v")
     assert supports_market_loras("ltx-txt2video")
     assert not supports_market_loras("longcat-t2v")
-    assert not supports_market_loras("txt2img-basic")
+    assert supports_market_loras("txt2img-basic")
+    assert supports_market_loras("nsfw-txt2img")
+    assert supports_market_loras("img2img-basic")
+    assert not supports_market_loras("qwen-image-edit")
     assert supports_market_resolution_target("h3-t2v")
     assert supports_market_resolution_target("longcat-t2v")
     assert supports_market_resolution_target("wan-nsfw-i2v")
@@ -156,3 +159,50 @@ def test_validate_params_accepts_reserved_deep_keys():
         raise AssertionError("expected 422")
     except HTTPException as e:
         assert e.status_code == 422
+
+
+def test_apply_image_loras_checkpoint_graph():
+    from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
+
+    graph = build_txt2img_graph(
+        Txt2ImgParams(positive="x", ckpt_name="uberRealisticPornMerge_urpmv13.safetensors", width=512, height=512)
+    )
+    before = set(graph.keys())
+    meta = apply_app_loras(
+        graph,
+        "nsfw-txt2img",
+        {"loras": [{"name": "demo.safetensors", "strength": 0.7}]},
+    )
+    assert meta["applied"] is True and meta["family"] == "image" and meta["count"] == 1
+    added = set(graph.keys()) - before
+    assert any(graph[k].get("class_type") == "LoraLoader" for k in added)
+    assert graph["3"]["inputs"]["model"][0] in added  # KSampler
+    assert graph["6"]["inputs"]["clip"][0] in added
+
+
+def test_apply_image_loras_nextgen_graph():
+    from app.workflows.nextgen import NextgenParams, build_nextgen_graph
+
+    graph = build_nextgen_graph(
+        NextgenParams(model_name="flux2_dev_fp8mixed.safetensors", positive="", width=1024, height=1024)
+    )
+    before = set(graph.keys())
+    meta = apply_app_loras(
+        graph,
+        "txt2img-basic",
+        {"loras": [{"name": "style.safetensors", "strength": 0.8}]},
+    )
+    assert meta["applied"] is True and meta["family"] == "image"
+    added = set(graph.keys()) - before
+    assert any(graph[k].get("class_type") == "LoraLoader" for k in added)
+    assert graph["2"]["inputs"]["model"][0] in added  # ModelSamplingFlux
+    assert graph["4"]["inputs"]["clip"][0] in added
+
+
+def test_enrich_image_apps_get_loras_not_edit():
+    schema = [{"key": "positive", "label": "提示词", "type": "textarea", "default": ""}]
+    for aid in ("txt2img-basic", "img2img-basic", "nsfw-txt2img", "txt2img"):
+        keys = [p["key"] for p in enrich_params_schema(aid, schema)]
+        assert "loras" in keys
+    edit = enrich_params_schema("qwen-image-edit", schema)
+    assert "loras" not in [p["key"] for p in edit]

@@ -484,10 +484,21 @@ export function splitMarketRunParamsWithConvenience(schema: ToivAppParam[]): {
     return { core, advanced, deep, convenience };
 }
 
-/** 家族是否可接市场更深参数（与后端 app_deep_knobs 对齐）。 */
+/** 家族是否可接市场更深参数（与后端 app_deep_knobs 对齐）。出图已接线；edit 仍 false。 */
+const MARKET_IMAGE_LORA_APP_IDS = new Set([
+    "txt2img",
+    "img2img",
+    "nsfw-txt2img",
+    "nsfw-img2img",
+    "txt2img-basic",
+    "img2img-basic",
+]);
+
 export function marketAppSupportsLoras(appId: string | null | undefined): boolean {
     const id = String(appId || "").trim().toLowerCase();
-    return id.startsWith("h3-") || id.startsWith("ltx");
+    if (id.startsWith("h3-") || id.startsWith("ltx")) return true;
+    // 明确不含 qwen-image-edit（编辑链路未接 LoraLoader）
+    return MARKET_IMAGE_LORA_APP_IDS.has(id);
 }
 
 export function marketAppSupportsResolutionTarget(appId: string | null | undefined): boolean {

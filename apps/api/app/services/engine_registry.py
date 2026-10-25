@@ -762,6 +762,23 @@ def _h3_r2v_media_params() -> list[dict]:
     ]
 
 
+
+def _image_loras_select() -> dict:
+    """本地出图 LoRA 叠加(多选 + 强度):schema 声明 type=loras。
+
+    options 故意留空——不发明文件名;前端/设置页钉选与 inventory 合流。
+    提交链路 generate/txt2img|img2img 与 apps.run 已吃 loras→LoraLoader。
+    不含 qwen-image-edit(编辑图未接 LoraLoader)。
+    """
+    return {
+        "key": "loras", "label": "LoRA 叠加", "type": "loras",
+        "default": [],  # 市场/出图默认关闭;钉选 [{name,strength}]
+        "options": [],
+        "min": 0.0, "max": 2.0, "step": 0.05,
+        "hint": "默认关闭;可钉选最多 3 个(强度自定)。不枚举整盘 NAS,避免发明文件名",
+    }
+
+
 def _ltx_nsfw_loras_select() -> dict:
     """LTX 2.3 R18 LoRA 叠加:选项来自策划目录(ltx 引擎卡),不枚举 NAS。"""
     return {
@@ -1379,6 +1396,7 @@ def _default_registry() -> list[dict[str, Any]]:
             *_image_model_params(nsfw_only=False),
             *_image_size_params(),
             *_image_sampling_params(),
+            _image_loras_select(),
             _num("batch_size", "批量张数", 1, min_=1, max_=8),
         ],
         "probe": _probe_image,
@@ -1403,6 +1421,7 @@ def _default_registry() -> list[dict[str, Any]]:
             _num("denoise", "重绘幅度", 0.6, min_=0.1, max_=1.0, step=0.05,
                  hint="越小越贴近原图"),
             *_image_sampling_params(),
+            _image_loras_select(),
         ],
         "probe": _probe_image,
     },
@@ -1445,6 +1464,7 @@ def _default_registry() -> list[dict[str, Any]]:
             *_image_model_params(nsfw_only=True),
             *_image_size_params(),
             *_image_sampling_params(),
+            _image_loras_select(),
             _num("batch_size", "批量张数", 1, min_=1, max_=8),
         ],
         "probe": _probe_image,
@@ -1469,6 +1489,7 @@ def _default_registry() -> list[dict[str, Any]]:
             _num("denoise", "重绘幅度", 0.6, min_=0.1, max_=1.0, step=0.05,
                  hint="越小越贴近原图"),
             *_image_sampling_params(),
+            _image_loras_select(),
         ],
         "probe": _probe_image,
     },
