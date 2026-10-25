@@ -1,15 +1,13 @@
 {
-  "generatedAt": "2026-10-26 04:41 Asia/Shanghai",
+  "generatedAt": "2026-10-26 07:05 Asia/Shanghai",
   "timezone": "Asia/Shanghai",
   "schemaVersion": 1,
   "source": {
-    "kind": "nas-picker-seed",
-    "live": false,
-    "picker": "docs/NAS_MODEL_PICKER.json",
-    "pickerUpdatedAt": "2026-10-09 22:22 Asia/Shanghai",
-    "pickerFrom": "NAS disk scan /mnt/toiv-nas/toiv/comfyui-models"
+    "kind": "nas-live",
+    "root": "/home/merlin/nas_mount/toiv/comfyui-models",
+    "live": true
   },
-  "note": "非实时 NAS（MateBook 无挂载；种子 docs/NAS_MODEL_PICKER.json）",
+  "note": "实时 NAS 扫描",
   "rules": {
     "dirs": [
       "checkpoints",
@@ -19,14 +17,14 @@
     "family": "basename aliases aligned to build-model-compat-graph; unresolved → family=null",
     "honesty": "UI must label unresolved as 族未解析; never invent family"
   },
-  "count": 221,
-  "familyResolved": 113,
-  "familyUnknown": 108,
+  "count": 226,
+  "familyResolved": 115,
+  "familyUnknown": 111,
   "byFamily": {
-    "unknown": 108,
-    "qwen-image": 37,
+    "unknown": 111,
+    "qwen-image": 38,
     "minimax-h3": 19,
-    "z-image-turbo": 15,
+    "z-image-turbo": 16,
     "wan2.2-i2v-a14b": 15,
     "ltx-legacy": 13,
     "wan2.2-t2v-a14b": 6,
@@ -38,8 +36,8 @@
   },
   "bySlot": {
     "video-primary": 24,
-    "image": 197,
-    "video-motion": 165
+    "image": 176,
+    "video-motion": 164
   },
   "items": [
     {
@@ -54,8 +52,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 20197375168,
-      "purposeZh": "H3主模型"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "10Eros_Max_h3_ref2va_beta2_pruned_int8_convrot.safetensors",
@@ -69,8 +67,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 20967588712,
-      "purposeZh": "H3主模型"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "10Eros_Max_h3_TURBO-hybrid_beta3_int8_convrot.safetensors",
@@ -84,8 +82,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 20973147816,
-      "purposeZh": "H3加速/LoRA"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors",
@@ -99,8 +97,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 20973099200,
-      "purposeZh": "H3加速/LoRA"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "BEYOND REALITY SUPER Z IMAGE 3.0 淡妆浓抹 BF16.safetensors",
@@ -115,8 +113,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12309881296,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "DreamShaper_8_pruned.safetensors",
@@ -130,8 +128,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 2132625894,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "flux-2-klein-9b-fp8.safetensors",
@@ -146,8 +144,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 9433061528,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "flux-2-klein-9b.safetensors",
@@ -162,8 +160,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 18157185168,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "flux-2-klein-base-4b.safetensors",
@@ -178,8 +176,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 7751105712,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "hunyuan_video_I2V_720_fixed_fp8_e4m3fn.safetensors",
@@ -191,11 +189,10 @@
       "familyLabel": "Hunyuan Video",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 13185035336,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "krea2_turbo_fp8.safetensors",
@@ -210,8 +207,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 13141730842,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "krea2_turbo_fp8_scaled.safetensors",
@@ -226,8 +223,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 13141730842,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "LongCat_TI2V_comfy_fp8_e4m3fn_scaled_KJ.safetensors",
@@ -239,27 +236,25 @@
       "familyLabel": "Wan 2.2 TI2V",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 15515107698,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ltx-2.3-22b-dev-fp8.safetensors",
       "basename": "ltx-2.3-22b-dev-fp8.safetensors",
       "label": "ltx-2.3-22b-dev-fp8",
-      "relPath": "diffusion_models/ltx-2.3-22b-dev-fp8.safetensors",
-      "pathRoot": "toiv/diffusion_models",
+      "relPath": "checkpoints/ltx-2.3-22b-dev-fp8.safetensors",
+      "pathRoot": "toiv/checkpoints",
       "family": "ltx-legacy",
       "familyLabel": "LTX legacy",
       "familyResolved": true,
       "slots": [
-        "image",
-        "video-motion"
+        "image"
       ],
-      "bytes": 10565451776,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ltx-2.3-22b-dev-fp8mixed.safetensors",
@@ -273,24 +268,23 @@
       "slots": [
         "image"
       ],
-      "bytes": 29145431166,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ltx-2.3-22b-dev.safetensors",
       "basename": "ltx-2.3-22b-dev.safetensors",
       "label": "ltx-2.3-22b-dev",
-      "relPath": "diffusion_models/ltx-2.3-22b-dev.safetensors",
-      "pathRoot": "toiv/diffusion_models",
+      "relPath": "checkpoints/ltx-2.3-22b-dev.safetensors",
+      "pathRoot": "toiv/checkpoints",
       "family": "ltx-legacy",
       "familyLabel": "LTX legacy",
       "familyResolved": true,
       "slots": [
-        "image",
-        "video-motion"
+        "image"
       ],
-      "bytes": 46149344974,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ltx-2.3-22b-dev_transformer_only_bf16.safetensors",
@@ -302,27 +296,25 @@
       "familyLabel": "LTX legacy",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 42020149760,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ltx-2.3-22b-distilled-1.1.safetensors",
       "basename": "ltx-2.3-22b-distilled-1.1.safetensors",
       "label": "ltx-2.3-22b-distilled-1.1",
-      "relPath": "diffusion_models/ltx-2.3-22b-distilled-1.1.safetensors",
-      "pathRoot": "toiv/diffusion_models",
+      "relPath": "checkpoints/ltx-2.3-22b-distilled-1.1.safetensors",
+      "pathRoot": "toiv/checkpoints",
       "family": "ltx-legacy",
       "familyLabel": "LTX legacy",
       "familyResolved": true,
       "slots": [
-        "image",
-        "video-motion"
+        "image"
       ],
-      "bytes": 46149345334,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ltx-2.3-22b-distilled-1.1_transformer_only_fp8_scaled.safetensors",
@@ -334,11 +326,10 @@
       "familyLabel": "LTX legacy",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 25226571988,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ltx-2.3-22b-distilled-1.1_transformer_only_mxfp8_block32.safetensors",
@@ -350,11 +341,10 @@
       "familyLabel": "LTX legacy",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 24052755552,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ltx-2.3-22b-distilled-fp8.safetensors",
@@ -368,8 +358,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 29531884062,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ltx-2.3-22b-distilled_transformer_only_fp8_input_scaled.safetensors",
@@ -381,11 +371,10 @@
       "familyLabel": "LTX legacy",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 23470602704,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ltx-2.3-22b-distilled_transformer_only_fp8_input_scaled_v3.safetensors",
@@ -397,11 +386,10 @@
       "familyLabel": "LTX legacy",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 25016398672,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ltx-2.5-22b-distilled-transformer-nvfp4.safetensors",
@@ -413,11 +401,10 @@
       "familyLabel": "LTX legacy",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 18721732720,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ltxv-2b-0.9.6-dev-04-25-v1.safetensors",
@@ -431,8 +418,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 6340743924,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ltxv-2b-0.9.6-dev-04-25.safetensors",
@@ -446,8 +433,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 6340743924,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "minimax_h3_audio_vae_fp32.safetensors",
@@ -461,8 +448,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 605254808,
-      "purposeZh": "H3-VAE"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "minimax_h3_fl2va_bf16.safetensors",
@@ -476,8 +463,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 66280487368,
-      "purposeZh": "H3主模型"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "minimax_h3_fl2va_fp8_e4m3fn.safetensors",
@@ -491,8 +478,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 47012963608,
-      "purposeZh": "H3主模型"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "minimax_h3_fl2va_pruned_fp8_scaled.safetensors",
@@ -506,8 +493,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 20958205608,
-      "purposeZh": "H3主模型"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
@@ -521,8 +508,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 20970379616,
-      "purposeZh": "H3主模型"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors",
@@ -536,8 +523,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 20970379632,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "minimax_h3_latent_upscaler_3d_bf16.safetensors",
@@ -551,8 +538,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 690592992,
-      "purposeZh": "H3潜空间放大"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "minimax_h3_latent_upscaler_3d_fp16.safetensors",
@@ -566,8 +553,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 690592672,
-      "purposeZh": "H3潜空间放大"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "minimax_h3_ref2va_bf16.safetensors",
@@ -581,8 +568,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 66280487368,
-      "purposeZh": "H3主模型"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "minimax_h3_ref2va_int8_convrot.safetensors",
@@ -596,8 +583,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 34038894550,
-      "purposeZh": "H3主模型"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "minimax_h3_ref2va_pruned_bf16.safetensors",
@@ -611,8 +598,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 40225724176,
-      "purposeZh": "H3主模型"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "minimax_h3_ref2va_pruned_fp8_scaled.safetensors",
@@ -626,8 +613,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 20958205608,
-      "purposeZh": "H3主模型"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
@@ -641,8 +628,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 20970379616,
-      "purposeZh": "H3主模型"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "minimax_h3_video_vae_fp16.safetensors",
@@ -656,8 +643,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 5207808496,
-      "purposeZh": "H3-VAE"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "minimax_h3_video_vae_int8_convrot.safetensors",
@@ -671,8 +658,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 3171670912,
-      "purposeZh": "H3-VAE"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "new_Qwen-Rapid-AIO-NSFW-v19.safetensors",
@@ -686,8 +673,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 28431843583,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "new_Qwen-Rapid-AIO-NSFW-v23.safetensors",
@@ -701,8 +688,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 28431840023,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Phantom-Wan-14B_fp8_e4m3fn.safetensors",
@@ -714,11 +701,10 @@
       "familyLabel": "Wan 2.2 I2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 15001320640,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Phantom-Wan-1_3B_fp32.safetensors",
@@ -730,11 +716,10 @@
       "familyLabel": "Wan 2.2 I2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 5676070424,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Qwen-AIO-SFW-v18.safetensors",
@@ -748,8 +733,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 28431844111,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Qwen-Image-Edit-2509_fp8_e4m3fn.safetensors",
@@ -764,8 +749,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 20430698424,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Qwen-Image_2512.safetensors",
@@ -780,8 +765,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 20430679144,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Qwen-Rapid-AIO-NSFW-v20.safetensors",
@@ -795,8 +780,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 28431840903,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Qwen-Rapid-AIO-NSFW-v7.safetensors",
@@ -810,8 +795,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 28978666882,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Qwen-Rapid-AIO-SFW-v11.safetensors",
@@ -825,8 +810,23 @@
       "slots": [
         "image"
       ],
-      "bytes": 28431829223,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
+    },
+    {
+      "id": "Qwen-Rapid-AIO-SFW-v23.safetensors",
+      "basename": "Qwen-Rapid-AIO-SFW-v23.safetensors",
+      "label": "Qwen-Rapid-AIO-SFW-v23",
+      "relPath": "checkpoints/Qwen-Rapid-AIO-SFW-v23.safetensors",
+      "pathRoot": "toiv/checkpoints",
+      "family": "qwen-image",
+      "familyLabel": "Qwen-Image",
+      "familyResolved": true,
+      "slots": [
+        "image"
+      ],
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Qwen-Rapid-AIO-SFW-v5.safetensors",
@@ -840,8 +840,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 28978619898,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Qwen-Rapid-AIO-SFW-v7.safetensors",
@@ -855,8 +855,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 28978666882,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Qwen-Rapid-AIO-v4.safetensors",
@@ -870,8 +870,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 28978619370,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "qwen3vl_32b_minimax_h3_bf16.safetensors",
@@ -885,8 +885,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 51506295256,
-      "purposeZh": "H3其它"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
@@ -900,8 +900,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 27141342152,
-      "purposeZh": "H3其它"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
@@ -915,8 +915,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 15687142551,
-      "purposeZh": "H3其它"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "qwen_image_2512_bf16.safetensors",
@@ -931,8 +931,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 40861031488,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "qwen_image_2512_fp8_e4m3fn.safetensors",
@@ -947,8 +947,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 20430679144,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "qwen_image_bf16.safetensors",
@@ -963,8 +963,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 40861031488,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "qwen_image_distill_full_fp8_e4m3fn.safetensors",
@@ -979,8 +979,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 20430635136,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "qwen_image_edit_2509_bf16.safetensors",
@@ -995,8 +995,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 40861031488,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
@@ -1011,8 +1011,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 20430698424,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "qwen_image_edit_2511_bf16.safetensors",
@@ -1027,8 +1027,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 40861031560,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "qwen_image_edit_2511_fp8mixed.safetensors",
@@ -1043,8 +1043,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 20533762817,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "qwen_image_edit_bf16.safetensors",
@@ -1059,8 +1059,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 40861031488,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "qwen_image_edit_fp8_e4m3fn.safetensors",
@@ -1075,8 +1075,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 20430635136,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "qwen_image_fp8_e4m3fn.safetensors",
@@ -1091,8 +1091,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 20430635136,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "qwen_image_layered_bf16.safetensors",
@@ -1107,8 +1107,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 40861043888,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "qwen_image_layered_fp8mixed.safetensors",
@@ -1123,8 +1123,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 20533591821,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "svdq-fp4_r128-qwen-image-edit-2509-lightningv2.0-8steps.safetensors",
@@ -1139,8 +1139,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 13081386856,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "svdq-fp4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
@@ -1155,8 +1155,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 13081386856,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "svdq-fp4_r128-qwen-image-lightningv1.1-8steps.safetensors",
@@ -1171,8 +1171,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 13081386856,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "svdq-fp4_r32-qwen-image-edit-lightningv1.0-4steps.safetensors",
@@ -1187,8 +1187,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 11948923656,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "svdq-fp4_r32-qwen-image-lightningv1.1-8steps.safetensors",
@@ -1203,8 +1203,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 11948923656,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "svdq-int4_r128-qwen-image-edit-2509-lightning-4steps-251115.safetensors",
@@ -1219,8 +1219,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12654443144,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "svdq-int4_r128-qwen-image-edit-2509-lightningv2.0-8steps.safetensors",
@@ -1235,8 +1235,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12654443144,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "svdq-int4_r128-qwen-image-edit-lightningv1.0-4steps.safetensors",
@@ -1251,8 +1251,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12654443144,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "svdq-int4_r128-qwen-image-lightningv1.1-8steps.safetensors",
@@ -1267,8 +1267,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12654443144,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "svdq-int4_r32-qwen-image-lightningv1.1-8steps.safetensors",
@@ -1283,8 +1283,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 11521979944,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan-AI_Wan2.1-VACE-1.3B.safetensors",
@@ -1296,11 +1296,10 @@
       "familyLabel": "Wan 2.2 I2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 4309519800,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2-i2v-rapid-aio-nsfw-v7.safetensors",
@@ -1314,8 +1313,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 23387004939,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
@@ -1329,8 +1328,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 23387046339,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2-i2v-rapid-aio-v10.safetensors",
@@ -1344,8 +1343,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 23387046451,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2_i2v_A14b_high_noise_scaled_fp8_e4m3_lightx2v_4step_comfyui.safetensors",
@@ -1357,11 +1356,10 @@
       "familyLabel": "Wan 2.2 I2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 15003000250,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2_i2v_A14b_low_noise_scaled_fp8_e4m3_lightx2v_4step_comfyui.safetensors",
@@ -1373,11 +1371,10 @@
       "familyLabel": "Wan 2.2 I2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 15003000250,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2_i2v_high_noise_14B_fp16.safetensors",
@@ -1389,11 +1386,10 @@
       "familyLabel": "Wan 2.2 I2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 28577914792,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2_i2v_low_noise_14B_fp16.safetensors",
@@ -1405,11 +1401,10 @@
       "familyLabel": "Wan 2.2 I2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 28577914792,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_fp8_e4m3fn_v2.1.safetensors",
@@ -1421,11 +1416,10 @@
       "familyLabel": "Wan 2.2 I2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 14291297968,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_v2.0.safetensors",
@@ -1437,11 +1431,10 @@
       "familyLabel": "Wan 2.2 I2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 14291272136,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_fp8_e4m3fn_v2.1.safetensors",
@@ -1453,11 +1446,10 @@
       "familyLabel": "Wan 2.2 I2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 14291297968,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_v2.0.safetensors",
@@ -1469,11 +1461,10 @@
       "familyLabel": "Wan 2.2 I2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 14291272136,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2.2_Remix_t2v_14b_high_lighting_v0.9_dyno.safetensors",
@@ -1485,11 +1476,10 @@
       "familyLabel": "Wan 2.2 T2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 14289668664,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2.2_Remix_t2v_14b_low_lighting_v0.9.safetensors",
@@ -1501,11 +1491,10 @@
       "familyLabel": "Wan 2.2 T2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 14289668960,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2_t2v_high_noise_14B_fp16.safetensors",
@@ -1517,11 +1506,10 @@
       "familyLabel": "Wan 2.2 T2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 28577095592,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
@@ -1533,11 +1521,10 @@
       "familyLabel": "Wan 2.2 T2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 14293923632,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2_t2v_low_noise_14B_fp16.safetensors",
@@ -1549,11 +1536,10 @@
       "familyLabel": "Wan 2.2 T2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 28577095592,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
@@ -1565,11 +1551,10 @@
       "familyLabel": "Wan 2.2 T2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 14293923632,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-Wan-I2V-MAGREF-14B_fp8_e4m3fn.safetensors",
@@ -1581,11 +1566,10 @@
       "familyLabel": "Wan 2.2 I2V-A14B",
       "familyResolved": true,
       "slots": [
-        "image",
         "video-motion"
       ],
-      "bytes": 17135435696,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Z-Image-base.safetensors",
@@ -1600,8 +1584,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12309866400,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Z-Image-Turbo fp16.safetensors",
@@ -1616,8 +1600,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12309865944,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "z-image-turbo-bf16-aio.safetensors",
@@ -1631,8 +1615,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 20522566986,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "z-image-turbo-fp8-e4m3fn.safetensors",
@@ -1647,8 +1631,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 6154958752,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Z-Image-Turbo_fp16.safetensors",
@@ -1663,8 +1647,24 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12309865944,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
+    },
+    {
+      "id": "z-image-turbo_fp8_scaled_e4m3fn_KJ.safetensors",
+      "basename": "z-image-turbo_fp8_scaled_e4m3fn_KJ.safetensors",
+      "label": "z-image-turbo_fp8_scaled_e4m3fn_KJ",
+      "relPath": "diffusion_models/z-image-turbo_fp8_scaled_e4m3fn_KJ.safetensors",
+      "pathRoot": "toiv/diffusion_models",
+      "family": "z-image-turbo",
+      "familyLabel": "ZImageTurbo",
+      "familyResolved": true,
+      "slots": [
+        "image",
+        "video-motion"
+      ],
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "z-image-turbo_fp8_scaled_KJ.safetensors",
@@ -1679,8 +1679,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 6158115074,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "z_image_base-bf16.safetensors",
@@ -1695,8 +1695,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12309866400,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "z_image_base_bf16_official.safetensors",
@@ -1711,8 +1711,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12309866400,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "z_image_bf16.safetensors",
@@ -1727,8 +1727,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12309866400,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "z_image_bf16_ttcosta.safetensors",
@@ -1743,8 +1743,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12309866400,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "z_image_turbo_bf16.safetensors",
@@ -1759,8 +1759,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12309866400,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "z_image_turbo_bf16_20260513.safetensors",
@@ -1775,8 +1775,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12309866400,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "z_image_turbo_fp8_e4m3fn_unscaled.safetensors",
@@ -1791,8 +1791,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 6154958752,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "z_image_turbo_nvfp4.safetensors",
@@ -1807,8 +1807,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4509509600,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "adapter_model.safetensors",
@@ -1823,8 +1823,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 2873221376,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Bernini_HIGH_fp8_e4m3fn_scaled.safetensors",
@@ -1839,8 +1839,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 15574833216,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Bernini_LOW_fp8_e4m3fn_scaled.safetensors",
@@ -1855,8 +1855,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 15574833216,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "DarkBeast-Klein9b-V2-BFS-BF16-ComfyUI.safetensors",
@@ -1871,8 +1871,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 18157191688,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "darkBeastMar0326Latest_dbkleinv2BFS.safetensors",
@@ -1887,8 +1887,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 9078610848,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "depth_anything_v2_vitl.pth",
@@ -1902,8 +1902,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 1341395338,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model-00001-of-00004.safetensors",
@@ -1918,8 +1918,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 9875257880,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model-00001-of-00009.safetensors",
@@ -1934,8 +1934,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4989364312,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model-00002-of-00004.safetensors",
@@ -1950,8 +1950,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 9975378288,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model-00002-of-00009.safetensors",
@@ -1966,8 +1966,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4984214160,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model-00003-of-00004.safetensors",
@@ -1982,8 +1982,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 9954400528,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model-00003-of-00009.safetensors",
@@ -1998,8 +1998,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4946470000,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model-00004-of-00004.safetensors",
@@ -2014,8 +2014,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4744748472,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model-00004-of-00009.safetensors",
@@ -2030,8 +2030,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4984213736,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model-00005-of-00009.safetensors",
@@ -2046,8 +2046,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4946471896,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model-00006-of-00009.safetensors",
@@ -2062,8 +2062,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4946451560,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model-00007-of-00009.safetensors",
@@ -2078,8 +2078,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4908690520,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model-00008-of-00009.safetensors",
@@ -2094,8 +2094,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4984232856,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model-00009-of-00009.safetensors",
@@ -2110,8 +2110,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 1170918840,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model.safetensors",
@@ -2126,8 +2126,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 253806966,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "diffusion_pytorch_model_streaming_dmd.safetensors",
@@ -2141,14 +2141,14 @@
       "slots": [
         "image"
       ],
-      "bytes": 5676070392,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "ema_vae_fp16.safetensors",
       "basename": "ema_vae_fp16.safetensors",
       "label": "ema_vae_fp16",
-      "relPath": "h3/vae/ema_vae_fp16.safetensors",
+      "relPath": "h3/SEEDVR2/ema_vae_fp16.safetensors",
       "pathRoot": "toiv/h3",
       "family": null,
       "familyLabel": null,
@@ -2156,8 +2156,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 501324814,
-      "purposeZh": "H3-VAE"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "ernie-image-turbo.safetensors",
@@ -2172,8 +2172,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 16067025480,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "F.1-Fill-fp16_Inpaint_Outpaint_1.0.safetensors",
@@ -2188,8 +2188,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 23804922408,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "FireRed-Image-Edit-1.0_bf16.safetensors",
@@ -2204,8 +2204,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 40861031488,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "FireRed-Image-Edit-1.0_fp8mixed_comfy.safetensors",
@@ -2220,8 +2220,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 21401015999,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "FireRed-Image-Edit-1.1_bf16.safetensors",
@@ -2236,8 +2236,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 40861031624,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "FireRed-Image-Edit-1.1_fp8mixed_comfy.safetensors",
@@ -2252,8 +2252,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 21439550735,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "flux1-dev-fp8-Kijai.safetensors",
@@ -2268,8 +2268,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 11901525888,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "flux1-dev-fp8.safetensors",
@@ -2283,8 +2283,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 17246524772,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "flux1-dev-kontext_fp8_scaled.safetensors",
@@ -2299,8 +2299,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 11904640136,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "flux1-fill-dev.safetensors",
@@ -2315,8 +2315,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 23804922408,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "flux1-kontext-dev_fp8_scaled.safetensors",
@@ -2331,8 +2331,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 11904640136,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Flux2-Klein-9B-True-bf16.safetensors",
@@ -2347,8 +2347,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 18157185168,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Flux2-Klein-9B-True-v2-bf16.safetensors",
@@ -2363,8 +2363,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 18157185248,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Flux2-Klein-9B-True-v2-mxfp8mixed.safetensors",
@@ -2379,8 +2379,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 9705714392,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "flux2_dev_fp8mixed.safetensors",
@@ -2395,8 +2395,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 35455599592,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "fluxFillFP8_v10.safetensors",
@@ -2411,8 +2411,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 11902532704,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "LongCat-Avatar-15_comfy-Q8_0.gguf",
@@ -2427,8 +2427,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 19081405440,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "LQ_proj_in.ckpt",
@@ -2442,8 +2442,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 575694948,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "lynx_lite_resampler_fp32.safetensors",
@@ -2458,8 +2458,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 327919184,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "majicmixRealistic_v7.safetensors",
@@ -2473,8 +2473,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 2132625894,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "model-00001-of-00004.safetensors",
@@ -2489,8 +2489,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4968243304,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "model-00002-of-00004.safetensors",
@@ -2505,8 +2505,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4991495816,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "model-00003-of-00004.safetensors",
@@ -2521,8 +2521,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4932751040,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "model-00004-of-00004.safetensors",
@@ -2537,8 +2537,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 1691924384,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth",
@@ -2553,8 +2553,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4772359047,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "models_t5_umt5-xxl-enc-bf16.pth",
@@ -2569,8 +2569,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 11361920418,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "moodyRealMix_zitV5DPO.safetensors",
@@ -2584,8 +2584,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 12309879656,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "realvisxlV50_v50Bakedvae.safetensors",
@@ -2599,8 +2599,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 6938065488,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "realvisxlV50_v50LightningBakedvae   .safetensors",
@@ -2614,8 +2614,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 6938065512,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "relighting_lora.ckpt",
@@ -2630,8 +2630,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 2873429974,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "seedvr2_ema_3b-Q8_0.gguf",
@@ -2645,8 +2645,8 @@
       "slots": [
         "video-primary"
       ],
-      "bytes": 3660613984,
-      "purposeZh": "H3其它"
+      "bytes": null,
+      "purposeZh": "H3"
     },
     {
       "id": "smoothMixWan22I2V14B_i2vHigh.safetensors",
@@ -2661,8 +2661,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 21283564107,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "smoothMixWan22I2V14B_i2vLow.safetensors",
@@ -2677,8 +2677,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 21283564099,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "sulphur_dev_fp8mixed.safetensors",
@@ -2692,8 +2692,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 29161842846,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "SUPIR-v0F_fp16.safetensors",
@@ -2707,8 +2707,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 2664825592,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "SUPIR-v0Q_fp16.safetensors",
@@ -2722,8 +2722,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 2664858464,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "TCDecoder.ckpt",
@@ -2737,8 +2737,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 189018333,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "transformer_blocks.safetensors",
@@ -2753,8 +2753,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 6640056352,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "turbo.safetensors",
@@ -2769,8 +2769,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 26283332608,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "unquantized_layers.safetensors",
@@ -2785,8 +2785,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 128252144,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "VACE-Wan2.1-1.3B-Preview.safetensors",
@@ -2801,8 +2801,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 7146067816,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan14BT2VFusioniX_fp16_.safetensors",
@@ -2817,8 +2817,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 28577792224,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.1_t2v_14B_bf16.safetensors",
@@ -2833,8 +2833,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 28577096680,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2.1_T2V_14B_FusionX_VACE-FP8.safetensors",
@@ -2849,8 +2849,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 20387834744,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2.1_T2V_14B_FusionX_VACE-FP8_e4m3fn.safetensors",
@@ -2865,8 +2865,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 17344651256,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.1_vace_1.3B_fp16.safetensors",
@@ -2881,8 +2881,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4309519800,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.1_vace_14B_fp16.safetensors",
@@ -2897,24 +2897,23 @@
         "image",
         "video-motion"
       ],
-      "bytes": 34675323640,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2.1_VAE.pth",
       "basename": "Wan2.1_VAE.pth",
       "label": "Wan2.1_VAE",
-      "relPath": "diffusion_models/wan2.2-animate-14b/Wan2.1_VAE.pth",
-      "pathRoot": "toiv/diffusion_models",
+      "relPath": "checkpoints/FlashVSR-v1.1/Wan2.1_VAE.pth",
+      "pathRoot": "toiv/checkpoints",
       "family": null,
       "familyLabel": null,
       "familyResolved": false,
       "slots": [
-        "image",
-        "video-motion"
+        "image"
       ],
-      "bytes": 507609928,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2.2-Animate-14B-Q4_K_S.gguf",
@@ -2929,8 +2928,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 10592753472,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2-rapid-mega-aio-v1.safetensors",
@@ -2944,14 +2943,29 @@
       "slots": [
         "image"
       ],
-      "bytes": 24334481079,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
+    },
+    {
+      "id": "wan2.2-rapid-mega-aio-v11.safetensors",
+      "basename": "wan2.2-rapid-mega-aio-v11.safetensors",
+      "label": "wan2.2-rapid-mega-aio-v11",
+      "relPath": "checkpoints/wan2.2-rapid-mega-aio-v11.safetensors",
+      "pathRoot": "toiv/checkpoints",
+      "family": null,
+      "familyLabel": null,
+      "familyResolved": false,
+      "slots": [
+        "image"
+      ],
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2.2-VACE-Fun-A14B-high-alibaba-pai.safetensors",
       "basename": "Wan2.2-VACE-Fun-A14B-high-alibaba-pai.safetensors",
       "label": "Wan2.2-VACE-Fun-A14B-high-alibaba-pai",
-      "relPath": "diffusion_models/Wan2.2-VACE-Fun-A14B-high-alibaba-pai.safetensors",
+      "relPath": "diffusion_models/VACE/Wan2.2-VACE-Fun-A14B-high-alibaba-pai.safetensors",
       "pathRoot": "toiv/diffusion_models",
       "family": null,
       "familyLabel": null,
@@ -2960,14 +2974,14 @@
         "image",
         "video-motion"
       ],
-      "bytes": 34675325000,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2.2-VACE-Fun-A14B-low-alibaba-pai.safetensors",
       "basename": "Wan2.2-VACE-Fun-A14B-low-alibaba-pai.safetensors",
       "label": "Wan2.2-VACE-Fun-A14B-low-alibaba-pai",
-      "relPath": "diffusion_models/Wan2.2-VACE-Fun-A14B-low-alibaba-pai.safetensors",
+      "relPath": "diffusion_models/VACE/Wan2.2-VACE-Fun-A14B-low-alibaba-pai.safetensors",
       "pathRoot": "toiv/diffusion_models",
       "family": null,
       "familyLabel": null,
@@ -2976,8 +2990,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 34675325000,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2_animate_14B_bf16.safetensors",
@@ -2992,8 +3006,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 34549799680,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2.2_fun_vace_low_noise_14B_fp8_scaled.safetensors",
@@ -3008,8 +3022,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 17346056104,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan21-14B-SCAIL-preview_fp8_e4m3fn_scaled_KJ.safetensors",
@@ -3024,8 +3038,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 16401525232,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "wan2114BFusionx_fusionxImage2video.safetensors",
@@ -3039,8 +3053,8 @@
       "slots": [
         "image"
       ],
-      "bytes": 16397285160,
-      "purposeZh": "出图主线·checkpoint"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan21_SteadyDancer_fp8_e4m3fn_scaled_KJ.safetensors",
@@ -3055,8 +3069,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 16410198058,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "WAN22.XX_Palingenesis_low_t2v.safetensors",
@@ -3071,8 +3085,40 @@
         "image",
         "video-motion"
       ],
-      "bytes": 15001361394,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
+    },
+    {
+      "id": "wan22RemixT2VI2V_i2vHighV30.safetensors",
+      "basename": "wan22RemixT2VI2V_i2vHighV30.safetensors",
+      "label": "wan22RemixT2VI2V_i2vHighV30",
+      "relPath": "diffusion_models/wan22RemixT2VI2V_i2vHighV30.safetensors",
+      "pathRoot": "toiv/diffusion_models",
+      "family": null,
+      "familyLabel": null,
+      "familyResolved": false,
+      "slots": [
+        "image",
+        "video-motion"
+      ],
+      "bytes": null,
+      "purposeZh": null
+    },
+    {
+      "id": "wan22RemixT2VI2V_i2vLowV30.safetensors",
+      "basename": "wan22RemixT2VI2V_i2vLowV30.safetensors",
+      "label": "wan22RemixT2VI2V_i2vLowV30",
+      "relPath": "diffusion_models/wan22RemixT2VI2V_i2vLowV30.safetensors",
+      "pathRoot": "toiv/diffusion_models",
+      "family": null,
+      "familyLabel": null,
+      "familyResolved": false,
+      "slots": [
+        "image",
+        "video-motion"
+      ],
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-14B-I2V_ChronoEdit_fp8_scaled_KJ.safetensors",
@@ -3087,8 +3133,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 17135485178,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-AccVideo-T2V-14B_fp8_e4m3fn.safetensors",
@@ -3103,8 +3149,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 15001320648,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors",
@@ -3119,8 +3165,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 16993877896,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-I2V-14B-720p_fp8_e4m3fn_scaled_KJ.safetensors",
@@ -3135,8 +3181,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 16643349018,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors",
@@ -3151,8 +3197,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 2713548210,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-MoviiGen1_1_fp8_e4m3fn.safetensors",
@@ -3167,8 +3213,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 15001320737,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-T2V-1-3B-EchoShot_fp16.safetensors",
@@ -3183,8 +3229,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 2838276200,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-T2V-14B-Lynx_full_ip_layers_fp16.safetensors",
@@ -3199,8 +3245,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4201700712,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-T2V-14B-Lynx_full_ref_layers_fp16.safetensors",
@@ -3215,8 +3261,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4195142544,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-T2V-14B-Lynx_lite_ip_layers_fp16.safetensors",
@@ -3231,8 +3277,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 838865696,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-T2V-14B_fp8_e4m3fn.safetensors",
@@ -3247,8 +3293,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 14859762840,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-T2V-14B_fp8_e4m3fn_scaled_KJ.safetensors",
@@ -3263,8 +3309,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 14526876890,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-VACE_1_3B_bf16.safetensors",
@@ -3279,8 +3325,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 4309519800,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-VACE_module_14B_bf16.safetensors",
@@ -3295,8 +3341,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 6098227873,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-VACE_module_14B_fp8_e4m3fn.safetensors",
@@ -3311,8 +3357,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 3052113849,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_1-VACE_module_1_3B_bf16.safetensors",
@@ -3327,8 +3373,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 1469996897,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_2-5B-Ovi_960x960_10s_fp8_e4m3fn_scaled_KJ.safetensors",
@@ -3343,14 +3389,14 @@
         "image",
         "video-motion"
       ],
-      "bytes": 12374673976,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
       "basename": "Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
       "label": "Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ",
-      "relPath": "diffusion_models/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
+      "relPath": "diffusion_models/Wan22Animate/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors",
       "pathRoot": "toiv/diffusion_models",
       "family": null,
       "familyLabel": null,
@@ -3359,8 +3405,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 18401760586,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_2-Animate-14B_fp8_scaled_e5m2_KJ_v2.safetensors",
@@ -3375,8 +3421,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 17317143060,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
@@ -3391,8 +3437,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 15002999858,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
@@ -3407,8 +3453,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 15002999858,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_2-T2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
@@ -3423,8 +3469,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 15001361458,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_2-T2V-A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
@@ -3439,14 +3485,14 @@
         "image",
         "video-motion"
       ],
-      "bytes": 15001361458,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_2_Fun_VACE_module_A14B_HIGH_bf16.safetensors",
       "basename": "Wan2_2_Fun_VACE_module_A14B_HIGH_bf16.safetensors",
       "label": "Wan2_2_Fun_VACE_module_A14B_HIGH_bf16",
-      "relPath": "diffusion_models/Wan2_2_Fun_VACE_module_A14B_HIGH_bf16.safetensors",
+      "relPath": "diffusion_models/VACE/Wan2_2_Fun_VACE_module_A14B_HIGH_bf16.safetensors",
       "pathRoot": "toiv/diffusion_models",
       "family": null,
       "familyLabel": null,
@@ -3455,14 +3501,14 @@
         "image",
         "video-motion"
       ],
-      "bytes": 6098227800,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
       "basename": "Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
       "label": "Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ",
-      "relPath": "diffusion_models/Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+      "relPath": "diffusion_models/VACE/Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
       "pathRoot": "toiv/diffusion_models",
       "family": null,
       "familyLabel": null,
@@ -3471,14 +3517,14 @@
         "image",
         "video-motion"
       ],
-      "bytes": 3052123036,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_2_Fun_VACE_module_A14B_LOW_bf16.safetensors",
       "basename": "Wan2_2_Fun_VACE_module_A14B_LOW_bf16.safetensors",
       "label": "Wan2_2_Fun_VACE_module_A14B_LOW_bf16",
-      "relPath": "diffusion_models/Wan2_2_Fun_VACE_module_A14B_LOW_bf16.safetensors",
+      "relPath": "diffusion_models/VACE/Wan2_2_Fun_VACE_module_A14B_LOW_bf16.safetensors",
       "pathRoot": "toiv/diffusion_models",
       "family": null,
       "familyLabel": null,
@@ -3487,14 +3533,14 @@
         "image",
         "video-motion"
       ],
-      "bytes": 6098227800,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors",
       "basename": "Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors",
       "label": "Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ",
-      "relPath": "diffusion_models/Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors",
+      "relPath": "diffusion_models/VACE/Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors",
       "pathRoot": "toiv/diffusion_models",
       "family": null,
       "familyLabel": null,
@@ -3503,8 +3549,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 3052123036,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     },
     {
       "id": "WanVideo_2_1_Multitalk_14B_fp8_e4m3fn.safetensors",
@@ -3519,8 +3565,8 @@
         "image",
         "video-motion"
       ],
-      "bytes": 2712714720,
-      "purposeZh": "出图/出视频·diffusion"
+      "bytes": null,
+      "purposeZh": null
     }
   ]
 }
