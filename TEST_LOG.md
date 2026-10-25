@@ -5,6 +5,8 @@
 - **P1b**：workstation NAS 实扫 `base-inventory.json` **live=true count=226**（resolved 115 / unknown 111）。
 - **残留**：删除 `.bak*` / APPEND_DRAFT / `_civhf_*` / `_deepen_*` / `_purpose_*` 调研草稿（未入库存）。
 - **单测**：`test_wan_i2v_builder` + `test_style_presets` + `test_qwen_edit` + `test_wan_accel` + `test_app_deep_knobs` → **116 passed**。
+- **push**：origin(Gitee)+github 均 `work/p0-fusion-20261016` @ `adb69062`（新分支）。
+- **部署**：`deploy/deploy.sh --all core` ✅；BUILD_ID=`20261025-230604-adb69062`；api `:8090/api/health` / web `:3100` / canvas-api-pg `:8290` 就绪；未用 FORCE_API_RESTART。
 - **Mega-v12**：由保鲜员走 HF（本执行器未下大文件）。
 - **未动**：Acc / 换密 / 隔离永久删。
 
