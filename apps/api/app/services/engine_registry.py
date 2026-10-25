@@ -769,7 +769,7 @@ def _image_loras_select() -> dict:
 
     options 故意留空——不发明文件名;前端/设置页钉选与 inventory 合流。
     提交链路 generate/txt2img|img2img 与 apps.run 已吃 loras→LoraLoader。
-    qwen-image-edit 另见市场 schema(工作流已有 LoraLoader;本引擎表单仍走相机/Lightning 内置链)。
+    qwen-image-edit 引擎表单与市场 schema 均声明 loras;经典 /generate/qwen-edit 与 apps.run 均 apply_image_loras。
     """
     return {
         "key": "loras", "label": "LoRA 叠加", "type": "loras",

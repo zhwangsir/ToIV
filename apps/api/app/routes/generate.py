@@ -60,6 +60,7 @@ from app.workflows.qwen_edit import (
     build_qwen_edit_graph,
 )
 from app.services.qwen_edit import get_qwen_edit_client
+from app.services import app_deep_knobs as app_deep_knobs_svc
 from app.workflows.style_presets import MediaType, resolve_style_preset
 from app.workflows.upscale import UPSCALE_MODELS, UpscaleParams, build_upscale_graph
 from app.workflows.frame_interpolate import RIFE_MODELS, FrameInterpolateParams, build_frame_interpolate_graph
@@ -1235,6 +1236,8 @@ class QwenEditRequest(BaseModel):
     batch_id: str | None = Field(default=None, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
     # 主体库引用(1-4 个 Entity id):prompt_hint 注入编辑指令,首个有图主体补参考图
     entity_ids: list[str] | None = Field(default=None, max_length=4)
+    # 用户钉选 LoRA(与市场 apply_image_loras 同形):[{name,strength}];None/缺省/[]=不额外挂
+    loras: list[dict] | None = None
 
 
 @router.post("/generate/qwen-edit")
@@ -1302,9 +1305,15 @@ async def generate_qwen_edit(
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     try:
+        extra_loras = app_deep_knobs_svc.parse_loras_value(req.loras)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    try:
         graph = build_qwen_edit_graph(params)
     except QwenEditError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+    if extra_loras:
+        app_deep_knobs_svc.apply_image_loras(graph, extra_loras)
     client_id = uuid.uuid4().hex
     try:
         prompt_id = await client.queue_prompt(graph, client_id)

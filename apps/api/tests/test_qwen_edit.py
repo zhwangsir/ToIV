@@ -388,3 +388,40 @@ def test_batch_id_listed_in_jobs(client, monkeypatch):
     by_batch = {i["batch_id"] for i in items}
     assert "orbit-list-1" in by_batch
     assert "" in by_batch  # 无分组作业为空串而非缺键
+
+
+def test_success_applies_user_loras_after_builtin(client, monkeypatch):
+    """经典 /generate/qwen-edit 的 loras 须叠在相机/Lightning 链之后(与市场 apply_image_loras 对齐)。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "qe-loras")
+    edit = _FakeEditClient()
+    _install_fakes(monkeypatch, edit)
+    r = _post(
+        c,
+        uid,
+        camera="rotate_left",
+        fast=True,
+        loras=[{"name": "user-style.safetensors", "strength": 0.7}],
+    )
+    assert r.status_code == 200, r.text
+    assert len(edit.graphs) == 1
+    g = edit.graphs[0]
+    names = [n["inputs"]["lora_name"] for n in g.values() if n.get("class_type") == "LoraLoader"]
+    assert CAMERA_LORA in names
+    assert LIGHTNING_LORA in names
+    assert "user-style.safetensors" in names
+    user = next(
+        n for n in g.values()
+        if n.get("class_type") == "LoraLoader" and n["inputs"].get("lora_name") == "user-style.safetensors"
+    )
+    assert user["inputs"]["strength_model"] == 0.7
+
+
+def test_rejects_invalid_loras_422(client, monkeypatch):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "qe-loras-bad")
+    _install_fakes(monkeypatch, _FakeEditClient())
+    r = _post(c, uid, loras="not-a-list")
+    assert r.status_code == 422
