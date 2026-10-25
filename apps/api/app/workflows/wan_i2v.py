@@ -30,6 +30,11 @@ from dataclasses import dataclass, field
 MAX_SEED = 2**63 - 1
 
 # Wan 官方推荐负面提示词(动漫向另在调用方追加 (realistic) 压写实偏置)
+# 现网 I2V 默认底模(2026-10-26):Civitai Wan2.2-Remix T2V&I2V v3.0 High/Low
+# 仅切 I2V；T2V 仍走 wan_t2v.py 的 fp16/fp8 官方对，不复用本对文件名。
+REMIX_I2V_HIGH_UNET = "wan22RemixT2VI2V_i2vHighV30.safetensors"
+REMIX_I2V_LOW_UNET = "wan22RemixT2VI2V_i2vLowV30.safetensors"
+
 DEFAULT_NEGATIVE = (
     "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，"
     "整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，"
@@ -127,8 +132,8 @@ class WanI2VParams:
     positive: str
     image: str
     negative: str = DEFAULT_NEGATIVE
-    high_unet: str = "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"
-    low_unet: str = "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors"
+    high_unet: str = REMIX_I2V_HIGH_UNET
+    low_unet: str = REMIX_I2V_LOW_UNET
     high_lora: str = SEKO_I2V_HIGH_LORA  # 高噪模型挂 high_noise LoRA(成对,挂错侧=无效)
     low_lora: str = SEKO_I2V_LOW_LORA
     # NSFW LoRA 叠加链(2026-08-16):[(文件名, 强度)],由路由层按 WAN_I2V_NSFW_LORAS 分侧;

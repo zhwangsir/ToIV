@@ -117,7 +117,7 @@ class TestStylePresets:
         deployed_video_unets = {
             "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
             "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
-            "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+            "wan22RemixT2VI2V_i2vHighV30.safetensors",
             "ltx-2.3-22b-distilled-1.1.safetensors",
             "ltx-video-2b-v0.9.5.safetensors",
         }
