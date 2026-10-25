@@ -1,3 +1,11 @@
+## 2026-10-26 Asia/Shanghai · Mega-v12 HF 落盘（保鲜员；接棒留痕）
+
+- HF：`Phr00t/WAN2.2-14B-Rapid-AllInOne` → `Mega-v12/wan2.2-rapid-mega-aio-v12.safetensors`（SFW；rev `30e803b`；sha256 `f7a5ac03…39a5b8`）
+- NAS：`comfyui-models/checkpoints/wan2.2-rapid-mega-aio-v12.safetensors`（**23284017800** B）
+- v11 仍在（约 24.3GB），**未覆盖**；现网默认 / Comfy / 重启均未动
+- 账本 `MODEL_SOURCES` → ok **671** / blocked **384** / total **1056**
+- 保鲜员另写的 ops md 已迁归档（保持 docs 仅 `README.md`）
+
 ## 2026-10-26 Asia/Shanghai · t87u 全开包（Remix 默认 / qwen-edit loras / P1b live / 清残留 / push+部署）
 
 - **Remix v3 → I2V 现网默认**：`WanI2VParams.high_unet/low_unet` + `style_presets.video_i2v` → `wan22RemixT2VI2V_i2v{High,Low}V30.safetensors`；**未改 T2V**。

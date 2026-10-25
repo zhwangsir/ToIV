@@ -1,14 +1,14 @@
 {
-  "updated_at": "2026-10-26T06:01:20+08:00",
+  "updated_at": "2026-10-26T07:15:36+08:00",
   "updated_at_timezone": "Asia/Shanghai",
   "totals": {
-    "ok": 670,
+    "ok": 671,
     "blocked": 384,
-    "total": 1055,
+    "total": 1056,
     "ok_missing_source_url": 9,
     "ok_true_gaps_no_url_no_repo_not_alias": 0,
     "ok_local_alias_without_http_url": 5,
-    "items": 1055
+    "items": 1056
   },
   "sources_scanned": [
     "_batch*_plan.json",
@@ -16389,6 +16389,22 @@
       "notes": "civitai_20261026 Remix I2V Low v3.0 dual-track | MateBook proxy CDN→rsync workstation-lan NAS | bytes verified 14291272136 | NOT default | app_refs=0",
       "batch": "civitai_20261026",
       "resolution_state": "resolved"
+    },
+    {
+      "basename": "wan2.2-rapid-mega-aio-v12.safetensors",
+      "rel_path": "checkpoints/wan2.2-rapid-mega-aio-v12.safetensors",
+      "source_kind": "mirror",
+      "source_url": "https://hf-mirror.com/Phr00t/WAN2.2-14B-Rapid-AllInOne/resolve/main/Mega-v12/wan2.2-rapid-mega-aio-v12.safetensors",
+      "repo": "Phr00t/WAN2.2-14B-Rapid-AllInOne",
+      "revision": "30e803babc766d791f140b197aa7bf7f18f6e36d",
+      "filename": "Mega-v12/wan2.2-rapid-mega-aio-v12.safetensors",
+      "license_or_gated": "apache-2.0",
+      "downloaded_at": "2026-10-26T07:15:36+08:00",
+      "status": "ok",
+      "bytes": 23284017800,
+      "notes": "HF Mega-v12 SFW via MateBook+aria2c+hf-mirror; sha256=f7a5ac03b86bd8fc935fd7fa74b778b2842a80ab3228e5993fbeeab64239a5b8; dual-track beside v11; NOT written as default | app_refs=0",
+      "batch": "wave_mega_v12_20261026",
+      "resolution_state": null
     }
   ]
 }
