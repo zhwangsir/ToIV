@@ -37,7 +37,7 @@ def test_supports_families():
     assert supports_market_loras("txt2img-basic")
     assert supports_market_loras("nsfw-txt2img")
     assert supports_market_loras("img2img-basic")
-    assert not supports_market_loras("qwen-image-edit")
+    assert supports_market_loras("qwen-image-edit")
     assert supports_market_resolution_target("h3-t2v")
     assert supports_market_resolution_target("longcat-t2v")
     assert supports_market_resolution_target("wan-nsfw-i2v")
@@ -199,10 +199,32 @@ def test_apply_image_loras_nextgen_graph():
     assert graph["4"]["inputs"]["clip"][0] in added
 
 
-def test_enrich_image_apps_get_loras_not_edit():
+def test_enrich_image_apps_get_loras_including_edit():
     schema = [{"key": "positive", "label": "提示词", "type": "textarea", "default": ""}]
-    for aid in ("txt2img-basic", "img2img-basic", "nsfw-txt2img", "txt2img"):
+    for aid in ("txt2img-basic", "img2img-basic", "nsfw-txt2img", "txt2img", "qwen-image-edit"):
         keys = [p["key"] for p in enrich_params_schema(aid, schema)]
         assert "loras" in keys
-    edit = enrich_params_schema("qwen-image-edit", schema)
-    assert "loras" not in [p["key"] for p in edit]
+
+
+def test_apply_image_loras_qwen_edit_stacks_after_camera():
+    from app.workflows.qwen_edit import QwenEditParams, build_qwen_edit_graph
+
+    graph = build_qwen_edit_graph(
+        QwenEditParams(image="src.png", positive="edit me", camera="left", fast=True)
+    )
+    # camera + lightning already present
+    before_loaders = [k for k, n in graph.items() if n.get("class_type") == "LoraLoader"]
+    assert before_loaders
+    tip_before = graph["8"]["inputs"]["model"][0]
+    meta = apply_app_loras(
+        graph,
+        "qwen-image-edit",
+        {"loras": [{"name": "user-style.safetensors", "strength": 0.65}]},
+    )
+    assert meta["applied"] is True and meta["family"] == "image"
+    after_loaders = [k for k, n in graph.items() if n.get("class_type") == "LoraLoader"]
+    assert len(after_loaders) == len(before_loaders) + 1
+    assert graph["8"]["inputs"]["model"][0] != tip_before
+    assert graph["4"]["inputs"]["clip"][0] == graph["8"]["inputs"]["model"][0]
+    user = next(n for n in graph.values() if n.get("class_type") == "LoraLoader" and n["inputs"].get("lora_name") == "user-style.safetensors")
+    assert user["inputs"]["strength_model"] == 0.65

@@ -61,6 +61,23 @@ def map_sampler(name: str) -> str:
     return _SAMPLER_MAP.get((name or "").lower(), "Euler a")
 
 
+def format_lora_prompt_tags(loras: list[tuple[str, float]] | tuple[tuple[str, float], ...] | None) -> str:
+    """A1111/Forge 风格 `<lora:NAME:WEIGHT>` 片段(空格拼接);无 alwayson_scripts 依赖。"""
+    if not loras:
+        return ""
+    parts: list[str] = []
+    for name, weight in loras:
+        n = (name or "").strip()
+        if not n:
+            continue
+        try:
+            w = float(weight)
+        except (TypeError, ValueError):
+            w = 1.0
+        parts.append(f"<lora:{n}:{w:g}>")
+    return " ".join(parts)
+
+
 def txt2img_payload(
     *,
     positive: str,
@@ -74,14 +91,20 @@ def txt2img_payload(
     seed: int | None = None,
     batch_size: int = 1,
     ckpt: str | None = None,
+    loras: list[tuple[str, float]] | tuple[tuple[str, float], ...] | None = None,
 ) -> dict:
     """ToIV txt2img 参数 → sdapi /txt2img 载荷。
 
     用 override_settings 按请求临时切底模(免全局 set_options 抢占),
     override_settings_restore_afterwards=False 避免每次还原触发额外模型加载。
+    结构化 loras → 注入 prompt 的 `<lora:NAME:W>`(Forge/A1111 原生解析;不改 alwayson_scripts)。
     """
+    tag = format_lora_prompt_tags(loras)
+    prompt = positive or ""
+    if tag:
+        prompt = f"{prompt} {tag}".strip() if prompt.strip() else tag
     payload: dict = {
-        "prompt": positive,
+        "prompt": prompt,
         "negative_prompt": negative,
         "steps": steps,
         "cfg_scale": cfg,

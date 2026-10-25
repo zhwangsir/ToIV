@@ -492,12 +492,13 @@ const MARKET_IMAGE_LORA_APP_IDS = new Set([
     "nsfw-img2img",
     "txt2img-basic",
     "img2img-basic",
+    "qwen-image-edit",
 ]);
 
 export function marketAppSupportsLoras(appId: string | null | undefined): boolean {
     const id = String(appId || "").trim().toLowerCase();
     if (id.startsWith("h3-") || id.startsWith("ltx")) return true;
-    // 明确不含 qwen-image-edit（编辑链路未接 LoraLoader）
+    // 含 qwen-image-edit（workflows/qwen_edit.py 已有 LoraLoader 链；市场 run 叠用户 LoRA）
     return MARKET_IMAGE_LORA_APP_IDS.has(id);
 }
 

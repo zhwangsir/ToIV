@@ -171,6 +171,7 @@ async def _submit_forge_txt2img(
          positive=req.positive, negative=req.negative, steps=req.steps, cfg=req.cfg,
          width=_snap8(req.width), height=_snap8(req.height), sampler=req.sampler,
          scheduler=req.scheduler, seed=seed_used, batch_size=req.batch_size, ckpt=ckpt_name,
+         loras=[(l.name, float(l.weight)) for l in (req.loras or [])],
     )
     session.add(Job(
          tenant_id=user.tenant_id, user_id=user.id, prompt_id=prompt_id,

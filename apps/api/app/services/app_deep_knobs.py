@@ -77,11 +77,12 @@ _IMAGE_LORA_APP_IDS = frozenset({
     "nsfw-img2img",
     "txt2img-basic",
     "img2img-basic",
+    "qwen-image-edit",
 })
 
 
 def image_loras_param() -> dict:
-    """出图市场 LoRA:options 空(不发明文件名);默认关闭。不含 qwen-image-edit。"""
+    """出图/编辑市场 LoRA:options 空(不发明文件名);默认关闭。含 qwen-image-edit(图内已有 LoraLoader)。"""
     return {
         "key": "loras",
         "label": "LoRA 叠加",
@@ -100,7 +101,7 @@ def supports_market_loras(app_id: str) -> bool:
     aid = (app_id or "").strip().lower()
     if aid.startswith("h3-") or aid.startswith("ltx"):
         return True
-    # 本地出图(引擎 id + 市场 basic);明确不含 qwen-image-edit
+    # 本地出图(引擎 id + 市场 basic) + qwen-image-edit(工作流已有 LoraLoader 链)
     return aid in _IMAGE_LORA_APP_IDS
 
 
@@ -167,11 +168,68 @@ def apply_ltx_loras(graph: dict, loras: tuple[LoraSpec, ...]) -> None:
             inputs["model"] = model_ref
 
 
+def _next_lora_id_base(graph: dict) -> int:
+    """Avoid colliding with existing LoraLoader ids (default chain starts at 100)."""
+    hi = 99
+    for nid, node in graph.items():
+        if not isinstance(node, dict):
+            continue
+        if node.get("class_type") not in ("LoraLoader", "LoraLoaderModelOnly"):
+            continue
+        try:
+            hi = max(hi, int(str(nid)))
+        except ValueError:
+            continue
+    return hi + 1
+
+
+def _terminal_unet_clip_refs(graph: dict) -> tuple[list, list] | None:
+    """Find tip of existing MODEL/CLIP chain for nextgen UNET@1 + CLIP@3 graphs."""
+    if "1" not in graph or graph["1"].get("class_type") != "UNETLoader":
+        return None
+    if "3" not in graph or graph["3"].get("class_type") != "CLIPLoader":
+        return None
+    model_src: list = ["1", 0]
+    clip_src: list = ["3", 0]
+    # Walk LoraLoaderModelOnly hanging off UNET
+    for nid, node in graph.items():
+        if not isinstance(node, dict):
+            continue
+        if node.get("class_type") != "LoraLoaderModelOnly":
+            continue
+        inputs = node.get("inputs") or {}
+        m = inputs.get("model")
+        if isinstance(m, list) and str(m[0]) == str(model_src[0]):
+            model_src = [str(nid), 0]
+    # Walk LoraLoader chain (model+clip); tip = node whose model/clip not consumed as input by another LoraLoader
+    loaders = {
+        str(nid): node
+        for nid, node in graph.items()
+        if isinstance(node, dict) and node.get("class_type") == "LoraLoader"
+    }
+    if loaders:
+        consumed: set[str] = set()
+        for node in loaders.values():
+            inputs = node.get("inputs") or {}
+            for key in ("model", "clip"):
+                ref = inputs.get(key)
+                if isinstance(ref, list) and str(ref[0]) in loaders:
+                    consumed.add(str(ref[0]))
+        tips = [nid for nid in loaders if nid not in consumed]
+        if tips:
+            # Prefer tip that ultimately traces to UNET/CLIP
+            tip = tips[-1]
+            model_src = [tip, 0]
+            clip_src = [tip, 1]
+    return model_src, clip_src
+
+
 def apply_image_loras(graph: dict, loras: tuple[LoraSpec, ...]) -> bool:
-    """出图图注入 LoraLoader 链:支持 CheckpointLoaderSimple 与 nextgen(UNET+CLIP)。
+    """出图/编辑图注入 LoraLoader 链:Checkpoint / nextgen UNET+CLIP / Qwen-Edit。
 
     Checkpoint 路径:链式改写 CLIPTextEncode.clip / KSampler.model。
-    Nextgen 路径:插在 UNET(/加速 LoRA)与 ModelSampling* 之间,并改 CLIP 编码。
+    Nextgen/Edit 路径:接在已有 UNET(/加速 LoRA / 相机 LoraLoader)末端之后,
+    并改写 CLIPTextEncode / TextEncodeQwenImageEdit / ModelSampling* / KSampler。
     """
     if not loras:
         return False
@@ -184,7 +242,8 @@ def apply_image_loras(graph: dict, loras: tuple[LoraSpec, ...]) -> bool:
             break
     if ckpt_id is not None:
         lora_nodes, model_ref, clip_ref = lora_chain(
-            loras, src_model=[ckpt_id, 0], src_clip=[ckpt_id, 1]
+            loras, src_model=[ckpt_id, 0], src_clip=[ckpt_id, 1],
+            id_base=_next_lora_id_base(graph),
         )
         graph.update(lora_nodes)
         for node in graph.values():
@@ -200,22 +259,13 @@ def apply_image_loras(graph: dict, loras: tuple[LoraSpec, ...]) -> bool:
                 inputs["model"] = model_ref
         return True
 
-    # ── nextgen Flux2 / Qwen-Image UNET ──
-    if "1" not in graph or graph["1"].get("class_type") != "UNETLoader":
+    tip = _terminal_unet_clip_refs(graph)
+    if tip is None:
         return False
-    if "3" not in graph or graph["3"].get("class_type") != "CLIPLoader":
-        return False
-    model_src: list = ["1", 0]
-    for nid, node in graph.items():
-        if not isinstance(node, dict):
-            continue
-        if node.get("class_type") != "LoraLoaderModelOnly":
-            continue
-        inputs = node.get("inputs") or {}
-        m = inputs.get("model")
-        if isinstance(m, list) and str(m[0]) == "1":
-            model_src = [str(nid), 0]
-    lora_nodes, model_ref, clip_ref = lora_chain(loras, model_src, ["3", 0])
+    model_src, clip_src = tip
+    lora_nodes, model_ref, clip_ref = lora_chain(
+        loras, model_src, clip_src, id_base=_next_lora_id_base(graph),
+    )
     graph.update(lora_nodes)
     for node in graph.values():
         if not isinstance(node, dict):
@@ -228,7 +278,7 @@ def apply_image_loras(graph: dict, loras: tuple[LoraSpec, ...]) -> bool:
             inputs["model"] = model_ref
         elif ct == "KSampler" and isinstance(model, list) and str(model[0]) == str(model_src[0]):
             inputs["model"] = model_ref
-        if ct == "CLIPTextEncode" and isinstance(clip, list) and str(clip[0]) == "3":
+        if ct in ("CLIPTextEncode", "TextEncodeQwenImageEdit") and isinstance(clip, list) and str(clip[0]) == str(clip_src[0]):
             inputs["clip"] = clip_ref
     return True
 

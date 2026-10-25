@@ -511,6 +511,7 @@ def _qwen_edit_params() -> list[dict]:
         },
         {"key": "fast", "label": "快速档(Lightning 8 步)", "type": "switch", "default": True,
          "hint": "关闭走 20 步标准档,质量更高但慢约 2.5 倍"},
+        _image_loras_select(),
         _seed(),
     ]
 
@@ -768,7 +769,7 @@ def _image_loras_select() -> dict:
 
     options 故意留空——不发明文件名;前端/设置页钉选与 inventory 合流。
     提交链路 generate/txt2img|img2img 与 apps.run 已吃 loras→LoraLoader。
-    不含 qwen-image-edit(编辑图未接 LoraLoader)。
+    qwen-image-edit 另见市场 schema(工作流已有 LoraLoader;本引擎表单仍走相机/Lightning 内置链)。
     """
     return {
         "key": "loras", "label": "LoRA 叠加", "type": "loras",

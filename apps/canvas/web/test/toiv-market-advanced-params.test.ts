@@ -157,7 +157,7 @@ describe("market deep params (LoRA / resolution_target)", () => {
         expect(t2i.some((p) => p.key === "loras")).toBe(true);
         expect(t2i.some((p) => p.key === "resolution_target")).toBe(false);
         expect(enrichMarketSchemaWithDeepParams("qwen-image-edit", T2I_SCHEMA).some((p) => p.key === "loras")).toBe(
-            false,
+            true,
         );
     });
 
@@ -213,13 +213,12 @@ describe("market-page mounts 更深参数", () => {
 });
 
 describe("marketAppSupportsLoras image wiring 2026-10-26", () => {
-    test("covers local image apps; edit still false", () => {
-        for (const id of ["txt2img", "img2img", "nsfw-txt2img", "nsfw-img2img", "txt2img-basic", "img2img-basic"]) {
+    test("covers local image apps including qwen-image-edit", () => {
+        for (const id of ["txt2img", "img2img", "nsfw-txt2img", "nsfw-img2img", "txt2img-basic", "img2img-basic", "qwen-image-edit"]) {
             expect(marketAppSupportsLoras(id)).toBe(true);
         }
         expect(marketAppSupportsLoras("h3-t2v")).toBe(true);
         expect(marketAppSupportsLoras("ltx-txt2video")).toBe(true);
-        expect(marketAppSupportsLoras("qwen-image-edit")).toBe(false);
         expect(marketAppSupportsLoras("longcat-t2v")).toBe(false);
     });
 });
