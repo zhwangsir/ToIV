@@ -12,7 +12,13 @@ import { StatusBadge } from "@/components/ui/base/badges";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { Callout } from "@/components/ui/product/callout";
 import { EmptyState } from "@/components/ui/product/empty-state";
-import { LOCAL_AUDIO_HAS_SENSEVOICE, LOCAL_AUDIO_UNAVAILABLE_LABEL } from "@/lib/local-model-defaults";
+import {
+    LOCAL_AUDIO_HAS_SENSEVOICE,
+    LOCAL_AUDIO_UNAVAILABLE_LABEL,
+    LOCAL_H3_FL2VA_BASENAME,
+    LOCAL_IMAGE_CHECKPOINT_BASENAME,
+} from "@/lib/local-model-defaults";
+import { marketAppToLoraSlot, resolvePinnedLorasForGenerate } from "@/lib/slot-lora";
 import {
     appShowsR18Badge,
     appUploadKind,
@@ -757,7 +763,50 @@ export default function MarketPage() {
                 r18On: isR18Mode(),
                 selected: contentMode,
             });
-            const receipt = await runToivApp(detail.id, buildToivRunValues(schema, values), {
+            // P1：设置钉选 → 兼容校验 → 合并进 loras（无参数则只校验不假装注入）
+            const hasLorasParam = schema.some((p) => p.type === "loras" || p.key === "loras");
+            const slot = marketAppToLoraSlot(detail.id);
+            const baseHint =
+                slot === "video-primary"
+                    ? LOCAL_H3_FL2VA_BASENAME
+                    : slot === "image"
+                      ? LOCAL_IMAGE_CHECKPOINT_BASENAME
+                      : detail.id;
+            const pinned = resolvePinnedLorasForGenerate({
+                appId: detail.id,
+                slot,
+                baseHint,
+                formLoras: values.loras,
+                hasLorasParam,
+            });
+            if (!pinned.ok) {
+                setRunMsg(pinned.errors[0] || "LoRA 与当前底模不兼容，已阻断提交");
+                setRunFailed(true);
+                return;
+            }
+            const runValues = { ...values };
+            if (hasLorasParam && pinned.loras.length && pinned.source === "settings") {
+                runValues.loras = pinned.loras.map((l) => ({
+                    name: l.name,
+                    strength: l.strength,
+                }));
+            } else if (hasLorasParam && pinned.source === "form" && pinned.loras.length) {
+                // 表单钉选也走校验后的 strength
+                runValues.loras = pinned.loras.map((l) => ({
+                    name: l.name,
+                    strength: l.strength,
+                }));
+            }
+            if (pinned.warnings.length) {
+                console.warn("[slot-lora] heuristic pins:", pinned.warnings);
+            }
+            if (pinned.loras.length && pinned.schemaMissingLoras) {
+                console.info(
+                    "[slot-lora] settings pins validated but app schema has no loras param; not injected:",
+                    pinned.loras.map((l) => l.name),
+                );
+            }
+            const receipt = await runToivApp(detail.id, buildToivRunValues(schema, runValues), {
                 content_mode: mode,
             });
             if (!receipt.job_id) {

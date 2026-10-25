@@ -1,0 +1,22 @@
+{
+  "id": "thedeoxen/refcontrol-flux-kontext-reference-pose-lora",
+  "pipeline_tag": "image-to-image",
+  "tags": [
+    "flux",
+    "kontext",
+    "img2img",
+    "controlnet",
+    "flux-kontext",
+    "image",
+    "editing",
+    "lora",
+    "image-to-image",
+    "base_model:black-forest-labs/FLUX.1-Kontext-dev",
+    "base_model:adapter:black-forest-labs/FLUX.1-Kontext-dev",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 0,
+  "likes": 64
+}

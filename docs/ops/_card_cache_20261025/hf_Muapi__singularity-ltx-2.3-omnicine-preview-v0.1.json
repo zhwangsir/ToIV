@@ -1,0 +1,19 @@
+{
+  "id": "Muapi/singularity-ltx-2.3-omnicine-preview-v0.1",
+  "pipeline_tag": "text-to-video",
+  "tags": [
+    "diffusers",
+    "lora",
+    "text-to-video",
+    "ltx",
+    "ltx-video",
+    "ltxv-2.3",
+    "base_model:Lightricks/LTX-Video",
+    "base_model:adapter:Lightricks/LTX-Video",
+    "license:openrail++",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 48,
+  "likes": 0
+}

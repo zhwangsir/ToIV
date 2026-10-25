@@ -1,0 +1,47 @@
+{
+  "id": 1428098,
+  "name": "WAN COWGIRL + REVERSE COWGIRL -- T2V & I2V LoRa",
+  "type": "LORA",
+  "tags": [
+    "concept",
+    "cowgirl",
+    "reverse cowgirl",
+    "wan"
+  ],
+  "description": "Welcome to D R 3 4 M S C 4 P E' s latest WAN LoRA: C0WG1RL + REV3RSE C0WG1RL 9/6/2025: It's finally ready to share - Our WAN 2.2 Reverse Cowgirl Text-to-Video LoRa. This thing is actually pretty crazy. The usual prompts/triggers still apply: Use r3v3rs3_c0wg1rl for when she's in the reverse cowgirl position . Use c0wg1rl when she's in the c0wg1rl position . You can also use different camera angles, such as: Close-up detailed view, wide angle view, side angle view from the left/right, low/high angle view looking up/down, etc. Try adding camera movements as well - \"The camera slides slowly to the left, creating a parallax effect\", etc. This lora also works GREAT with a Text-to-Image workflow. Create reverse cowgirl images and add motion with our I2V Lora. Have fun! It should work with other 2.1/2.2 LoRas. Please share workflows that work great for you! Please generate responsibly! 8/27/2025: At long last, v1 of our Cowgirl/Reverse Cowgirl Wan2.2 14b lora is LIVE! Be sure to use some variation of 'she's positioned in the reverse cowgirl position'. Sample prompts: r3v3rs3_c0wg1rl, a nude woman with light brown hair small breasts and a navel piercing straddling a nude man with a visible",
+  "baseModels": [
+    "Wan Video 14B i2v 480p",
+    "Wan Video 14B i2v 720p",
+    "Wan Video 14B t2v",
+    "Wan Video 2.2 I2V-A14B",
+    "Wan Video 2.2 T2V-A14B",
+    "Wan Video 2.2 TI2V-5B"
+  ],
+  "nVersions": 9,
+  "trainedWords": [
+    "r3v3rs3_c0wg1rl",
+    "c0wg1rl",
+    "straddling  him in the reverse cowgirl position",
+    "she's straddling him in the reverse cowgirl position",
+    "penis is penetrating her vagina",
+    "penis is thrusting into her vagina",
+    "she's riding him in the reverse cowgirl position",
+    "reverse cowgirl position",
+    "c0wgirl",
+    "penis thrusting in and out of her vagina"
+  ],
+  "fileNames": [
+    "WAN 2.2 14B I2V Workflow.zip",
+    "c0wg1rl Sample Captions.zip",
+    "c0wg1rl Workflows & Sample Captions.zip",
+    "c0wg1rl.2_wan22-5b-ti2v - e280.safetensors",
+    "c0wg1rl.3_wan22-5b-ti2v - e380.safetensors",
+    "c0wg1rl_WAN-i2v-480p-80.safetensors",
+    "c0wg1rl_WAN-i2v-720p-50.safetensors",
+    "wan-180.c0wg1rl-1.safetensors",
+    "wan22.r3v3rs3_c0wg1rl-14b-High-i2v_e70.safetensors",
+    "wan22.r3v3rs3_c0wg1rl-14b-High-t2v_e120.safetensors",
+    "wan22.r3v3rs3_c0wg1rl-14b-Low-i2v_e70.safetensors",
+    "wan22.r3v3rs3_c0wg1rl-14b-Low-t2v_e120.safetensors"
+  ]
+}

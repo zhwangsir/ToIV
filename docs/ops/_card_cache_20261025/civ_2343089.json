@@ -1,0 +1,27 @@
+{
+  "id": 2343089,
+  "name": "Vast post-apocalyptic wasteland",
+  "type": "LORA",
+  "tags": [
+    "background",
+    "decayed",
+    "post-apocalyptic",
+    "wasteland",
+    "debris"
+  ],
+  "description": "This LORA is a style for background. ___________________________________SCENE description__________________________________________________ a vast post-apocalyptic wasteland stretches to the horizon, littered with rusted industrial debris and the remains of colossal machinery, In the center stands a monolithic, decayed mechanical structure, half-buried in ash and sand, like a forgotten relic of a fallen civilization, Towering plumes of dark smoke and dust rise into a stormy, overcast sky, their shapes distorted by violent winds, The atmosphere is heavy, desolate, and silent, a world long after industry, humanity, and purpose have vanished, leaving only corrosion, ruins, and the echo of catastrophic collapse I created the 17 datasets images with AI (DAL-E) based on my own prompt. LORA was created with fluxgym (RTX-4090).",
+  "baseModels": [
+    "Flux.1 D"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "VPAW",
+    "a vast post-apocalyptic wasteland",
+    "path",
+    "path close-up",
+    "mechanical structure"
+  ],
+  "fileNames": [
+    "Vast_Post-apocalyptic_Wasteland.safetensors"
+  ]
+}

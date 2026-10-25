@@ -1,0 +1,17 @@
+{
+  "id": "Danrisi/nicegirls_zimage_base",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "lora",
+    "text-to-image",
+    "en",
+    "base_model:Tongyi-MAI/Z-Image",
+    "base_model:adapter:Tongyi-MAI/Z-Image",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 71,
+  "likes": 0
+}

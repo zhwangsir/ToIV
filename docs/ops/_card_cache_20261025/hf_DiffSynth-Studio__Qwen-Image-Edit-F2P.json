@@ -1,0 +1,14 @@
+{
+  "id": "DiffSynth-Studio/Qwen-Image-Edit-F2P",
+  "pipeline_tag": "image-to-image",
+  "tags": [
+    "diffusers",
+    "lora",
+    "image-to-image",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 11853,
+  "likes": 117
+}

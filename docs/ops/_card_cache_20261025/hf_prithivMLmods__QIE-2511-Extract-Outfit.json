@@ -1,0 +1,20 @@
+{
+  "id": "prithivMLmods/QIE-2511-Extract-Outfit",
+  "pipeline_tag": "image-to-image",
+  "tags": [
+    "diffusers",
+    "lora",
+    "art",
+    "extract-outfit",
+    "image-to-image",
+    "en",
+    "base_model:Qwen/Qwen-Image-Edit-2511",
+    "base_model:adapter:Qwen/Qwen-Image-Edit-2511",
+    "doi:10.57967/hf/7646",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 5199,
+  "likes": 37
+}

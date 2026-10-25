@@ -1,0 +1,24 @@
+{
+  "id": 2634377,
+  "name": "Cyberpunk Edgerunners Style Lora - H3 / LTX 2.3",
+  "type": "LORA",
+  "tags": [
+    "style"
+  ],
+  "description": "Summary V2 Converted the clips from my LTX dataset to images and captions to h3 syntax. Changed the trigger word for style to : \"2d anime style, Edgerunners style.\" So don't use same trigger as LTX. Character descriptions and character tags are the same as with LTX version though. 1950 steps checkpoint is good for overall style, use the 2250 steps checkpoint in the optional downloads area for better characters from the show though it may have more character bleeding. You can compare with the grid samples uploaded. Let me know your thoughts what's better. 1500 steps may also be good, I'll test that more later if I have time. This version is image only dataset, so no animation style or voices are included, maybe in next version. I don't see any degredation in the motion and this was trained using Ostris Adapter v3 on Musubi Fork. All samples most likely from 1950 steps; check the grid samples for character likeness in later steps version. Also I think its just better to use a ref image if you want character details 100% correct. It's just an H3 thing at this point. V1 Trained from 354 clips total from the first 7 episodes of the anime Cyberpunk Edgerunners. The trigger words are: ANI",
+  "baseModels": [
+    "LTXV 2.3",
+    "MiniMax H3"
+  ],
+  "nVersions": 2,
+  "trainedWords": [
+    "2d anime style, Edgerunners style.",
+    "ANIMSTY, SHW_CYB."
+  ],
+  "fileNames": [
+    "EDGERUNNERS_H3_V1-step00001500.safetensors",
+    "EDGERUNNERS_H3_V1-step00001950.safetensors",
+    "EDGERUNNERS_H3_V1-step00002250.safetensors",
+    "edgerunners_ltx23-step00072500.comfy.safetensors"
+  ]
+}

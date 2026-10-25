@@ -1,0 +1,19 @@
+{
+  "id": 955690,
+  "name": "Sci-Fi Interior Space",
+  "type": "LORA",
+  "tags": [
+    "concept"
+  ],
+  "description": "Trigger Word：Scifi_Interior_Space",
+  "baseModels": [
+    "Flux.1 D"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "Scifi_Interior_Space"
+  ],
+  "fileNames": [
+    "Scifi_Interior_Space_flux_lora.safetensors"
+  ]
+}

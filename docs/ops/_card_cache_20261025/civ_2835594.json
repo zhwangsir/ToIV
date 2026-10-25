@@ -1,0 +1,18 @@
+{
+  "id": 2835594,
+  "name": "H3 Vagina",
+  "type": "LORA",
+  "tags": [
+    "concept"
+  ],
+  "description": "WIP pretty bad but better than nothing. The example is text to video. Maybe it helps with image to video but I have not tested. v0.2: starting to look better but I did not test it much, maybe it is pretty overfit update: with more steps of training it broke down. Looks like we need the undistilled base model or a training adapter first. update 2: Don't use, was an early experiment, there are much better lora now",
+  "baseModels": [
+    "MiniMax H3"
+  ],
+  "nVersions": 2,
+  "trainedWords": [],
+  "fileNames": [
+    "minimax_vag_000001000.safetensors",
+    "minimax_vag_000002500.safetensors"
+  ]
+}

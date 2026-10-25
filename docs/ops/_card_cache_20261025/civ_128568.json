@@ -1,0 +1,32 @@
+{
+  "id": 128568,
+  "name": "Cyberpunk Anime Style",
+  "type": "LORA",
+  "tags": [
+    "anime",
+    "cyberpunk",
+    "style"
+  ],
+  "description": "PRO Version (SDXL) PRO Version (Flux) PRO Version (Ernie) PRO Version (Z-image)",
+  "baseModels": [
+    "Ernie",
+    "Flux.1 D",
+    "SD 1.5",
+    "SDXL 1.0",
+    "ZImageTurbo"
+  ],
+  "nVersions": 6,
+  "trainedWords": [
+    "anime",
+    "cyberpunk",
+    "Cyberpunk_Anime"
+  ],
+  "fileNames": [
+    "CPA.safetensors",
+    "Cyberpunk _Anime_V2_light_version-SDXL.safetensors",
+    "Cyberpunk _Anime_sdxl.safetensors",
+    "Cyberpunk_Anime-10.safetensors",
+    "Ernie_CPA_FREE.safetensors",
+    "ZIT_CPA_FREE.safetensors"
+  ]
+}

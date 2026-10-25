@@ -1,0 +1,30 @@
+{
+  "id": 2931190,
+  "name": "Krea 2 Glowing Neon Bokeh LoRA (by ilkerzgi)",
+  "type": "LORA",
+  "tags": [
+    "neon",
+    "style",
+    "night",
+    "illustration",
+    "glow",
+    "bokeh",
+    "krea-2"
+  ],
+  "description": "This is not my LoRA . I am republishing Glowing Neon Bokeh , a Krea 2 style LoRA by ilkerzgi , so it is easier to find and use on CivitAI. All credit for training, design and the original release belongs to him. Original repository: https://huggingface.co/ilkerzgi/krea-2-glowing-neon-bokeh-lora Creator profiles: - Hugging Face - X: @ailier License on the original card: krea-2-community-license Trigger Word: glowing neon bokeh style Put the trigger at the very end of the prompt. Always. Not in the middle, not in a tag list at the front. Recommended Weight: 1.0 (works well from 1.0 to 1.25) The LoRA pushes Krea 2 Turbo into a glowing neon bokeh look: circular out-of-focus light orbs, creamy defocus, neon spill, and night-atmosphere glow even on subjects that are not “cyberpunk” by default. Short, simple prompts work better than complex instructions. This adapter was shown on the original card with one-line subjects a portrait of a woman. , a lighthouse on a rocky cliff. ). Long camera essays, lighting lectures and stacked style tags usually weaken the bokeh instead of helping it. About this version This is a community rehost of the original Hugging Face release by ilkerzgi. It is one",
+  "baseModels": [
+    "Krea 2"
+  ],
+  "nVersions": 1,
+  "trainedWords": [],
+  "fileNames": [
+    "glowing-neon-bokeh-comfy.safetensors",
+    "glowing-neon-bokeh-comfy_fp8.safetensors"
+  ],
+  "recommendedStrength": {
+    "default": 1.0,
+    "min": 0.6,
+    "max": 1.0,
+    "source": "card"
+  }
+}

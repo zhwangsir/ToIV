@@ -1,0 +1,31 @@
+{
+  "id": 2836176,
+  "name": "SexGod's  NaughtyTimes MM H3 Lora",
+  "type": "LORA",
+  "tags": [
+    "action"
+  ],
+  "description": "NaughtyTimes MM H3 Lora v3.0 Join our discord : https://discord.gg/QQhQs9Cju NaughtyTimes v3.0 (fp32) is the same trained model as PinkCherry H3 v1 final. One is a lora, one is a full checkpoint (fp16/bf16), you decide. There will be no PinkCherry v1 int8 because the lora has higher precision and 98% weight retention. ComfyUI/Lora Loading: Use the standard lora loader in comfyUI and latest comfyUI that has the updates to apply the adaln unpruned keys. otherwise youll need the pruned version with the adaln modules/keys removed. I dont think the power lora loader node has adaln h3 modules implemented yet? There are unpruned and pruned versions of this lora, see below for reasoning and which one you should use. If you can run unpruned, you should. There are 13 billion params in the unpruned model that I removed in the pruned lora so they would load in ComfyUI on the pruned base. Scheduler/Sampler: Euler/simple (not beta, not res_multistep etc) Workflow: Standard comfyUI i2v or t2v workflow is fine, with euler/simple (not beta, res_multistep etc as it was trained with simple sigma schedule) Steps: I normally run 30-40 steps Strength: 1.0 Resolution: I use 0.7MP or higher, as this was t",
+  "baseModels": [
+    "MiniMax H3"
+  ],
+  "nVersions": 5,
+  "trainedWords": [],
+  "fileNames": [
+    "NaughtTimes_pruned_r512_v2.safetensors",
+    "NaughtyTimes_pruned_r128_v2.safetensors",
+    "NaughtyTimes_pruned_r256_v2.safetensors",
+    "PinkCherry_NaughtyTimes-v2-rank128.safetensors",
+    "SexGod-NaughtyTimes-lora-MINIMAXH3.safetensors",
+    "SexGod-NaughtyTimes-v2-rank256.safetensors",
+    "SexGod_NaughtyTimes_v3_rank64_pruned_NOADALN.safetensors",
+    "SexGod_NaughtyTimes_v3_rank64_unpruned.safetensors",
+    "SexyGod-NaughtyTimes-v2-rank512.safetensors"
+  ],
+  "recommendedStrength": {
+    "default": 1.0,
+    "min": 0.6,
+    "max": 1.0,
+    "source": "card"
+  }
+}

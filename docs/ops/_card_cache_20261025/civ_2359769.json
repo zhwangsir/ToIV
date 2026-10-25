@@ -1,0 +1,24 @@
+{
+  "id": 2359769,
+  "name": "Zimage Turbo LORA Strappy Mule-style Shoes",
+  "type": "LORA",
+  "tags": [
+    "clothing",
+    "high heels",
+    "shoes",
+    "strappy heels",
+    "mules",
+    "zit",
+    "zit lora",
+    "women's shoes"
+  ],
+  "description": "Lora trained on a style of strappy high-heel mules, using Ai Tool Kit. Steps: 3000 Can create different colors with prompting. Example: A women wearing a pair of red strappymules.",
+  "baseModels": [
+    "ZImageTurbo"
+  ],
+  "nVersions": 1,
+  "trainedWords": [],
+  "fileNames": [
+    "strappymules_v1_3000.safetensors"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "id": 2093287,
+  "name": "[LuisaP❤️] WAN 2.2 I2V ORBIT AROUND SUBJECT V2",
+  "type": "LORA",
+  "tags": [
+    "concept",
+    "orbit"
+  ],
+  "description": "Some complex subject will fail, don't try hard. prompt: ORBITCAM, the viewer orbit around the subject BUT! works better if you describe! ex: ORBITCAM, the viewer orbit around the subject, a shark and a woman swiming in a sea",
+  "baseModels": [
+    "Wan Video 2.2 I2V-A14B"
+  ],
+  "nVersions": 4,
+  "trainedWords": [
+    "ORBITCAM, the viewer orbit around the subject"
+  ],
+  "fileNames": [
+    "wan2.2orbitcam_high_noise.safetensors",
+    "wan2.2orbitcam_low_noise.safetensors",
+    "wan2.2orbitcamv2_high_noise.safetensors",
+    "wan2.2orbitcamv2_low_noise.safetensors"
+  ]
+}

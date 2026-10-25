@@ -69,6 +69,7 @@ export const WORKSPACE_COMMAND_ROUTES: ReadonlyArray<Omit<WorkspaceCommandEntry,
     // 设置段
     { id: "settings", title: "设置", icon: Settings, hint: "设置", to: "/settings" },
     { id: "settings:channels", title: "模型配置", icon: Settings2, hint: "设置", to: "/settings?section=channels" },
+    { id: "settings:common", title: "常用设置", icon: Settings2, hint: "设置", to: "/settings?section=common" },
 ];
 
 /** 纯过滤(可单测):大小写不敏感子串匹配标题,空查询返回全量。 */

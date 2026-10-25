@@ -10,7 +10,9 @@ test("settings page focuses on channel and model configuration", () => {
     expect(source).not.toContain("音频指令");
     expect(source).not.toContain("默认音频指令");
     expect(source).toContain("ChannelSettingsPane");
-    expect(source).toContain("ModelDefaultGrid");
+    expect(source).toContain("ModelSlotTable");
+    expect(source).toContain("ModelMixPresetsBar");
+    expect(source).toContain("LlmMutexBanner");
 });
 
 test("wallet tabs and preference blocks keep a visible gap from neighboring surfaces", () => {

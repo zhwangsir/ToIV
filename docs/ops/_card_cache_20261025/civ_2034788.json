@@ -1,0 +1,29 @@
+{
+  "id": 2034788,
+  "name": "Wan2.2 T2V A14B VHS television style LoRA (80s) (90s) (phonk style) (2000s)",
+  "type": "LORA",
+  "tags": [
+    "retro",
+    "vhs",
+    "80s",
+    "2000s",
+    "style",
+    "television",
+    "90s",
+    "tv",
+    "phonk"
+  ],
+  "description": "🕹️ Wan2.2 T2V A14B — VHS Television Style LoRA (80s / 90s / Phonk / 2000s) Version: 2.2 Type: T2V (Text-to-Video) Style: Vintage VHS • Retro TV • Phonk • Analog 80s–2000s 🧠 Description This LoRA brings your generations into the nostalgic world of retro VHS television aesthetics — complete with analog distortion, warm noise textures, scanlines, and a soft color fade reminiscent of home-recorded tapes from the 80s, 90s, and early 2000s. It’s designed to emulate the imperfect beauty of old broadcast footage and phonk-inspired visuals — think worn-out camcorders, CRT flicker, and analog warmth. Perfect for creating music videos, aesthetic edits, retro animations, or nostalgic storytelling . ⚙️ How It Works The VHS Television Style LoRA modifies texture, lighting, and grain behavior within your T2V (Text-to-Video) pipeline. It enhances: Color grading: adds retro hues and faded saturation Noise texture: emulates real VHS static and analog bleed Temporal flicker: produces an authentic frame-to-frame VHS jitter Edge blending: mimics analog blur and ghosting effects It blends best when used with realistic or cinematic base models and can be combined with Phonk or Synthwave music visuals for",
+  "baseModels": [
+    "Wan Video 2.2 T2V-A14B"
+  ],
+  "nVersions": 2,
+  "trainedWords": [
+    "VHSSCR33N",
+    "vhs"
+  ],
+  "fileNames": [
+    "Wan22_T2V_A14B_VHS-Video_lora_v1_high_noise.safetensors",
+    "Wan22_T2V_A14B_VHS-Video_lora_v1_low_noise.safetensors"
+  ]
+}

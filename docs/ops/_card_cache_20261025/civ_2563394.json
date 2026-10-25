@@ -1,0 +1,19 @@
+{
+  "id": 2563394,
+  "name": "LTX 2.3 - Cinematic Post-Apocalyptic",
+  "type": "LORA",
+  "tags": [
+    "style",
+    "post-apocalyptic",
+    "ltx"
+  ],
+  "description": "This LoRA creates a cinematic post-apocalyptic photorealistic video look (THE DATASET THAT CREATED THIS LORA DID NOT USE ANY IP) its a grounded post-apocalyptic survival style for text-to-video generation, NOT actual frames or footage from any movies, TV shows, games, or existing franchises. (Workflow used to create sample videos can be found HERE . Just swap out the lora and prompt. All sample video's are text to video. NOT image to video.) where characters, environments, and motion read as grounded post-apocalyptic survival footage. Scenes feature weathered survivors, layered utilitarian clothing, scavenged gear, ash-filled air, ruined interiors and exteriors, bleak atmospheric depth, gritty realistic textures, and cinematic composition. The result feels like a scene from a modern high-end post-apocalyptic survival film with immersive environmental storytelling and grounded human tension. Subjects, objects, and environments maintain a believable post-collapse identity across movement, camera motion, and scene progression. Lighting emphasizes cinematic mood, bleak atmosphere, environmental depth, and dramatic storytelling while maintaining a grounded photorealistic survival look. ",
+  "baseModels": [
+    "LTXV 2.3"
+  ],
+  "nVersions": 1,
+  "trainedWords": [],
+  "fileNames": [
+    "Post_Apocalyptic.safetensors"
+  ]
+}

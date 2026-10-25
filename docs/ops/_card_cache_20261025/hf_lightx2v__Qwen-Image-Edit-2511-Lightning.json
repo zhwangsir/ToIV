@@ -1,0 +1,23 @@
+{
+  "id": "lightx2v/Qwen-Image-Edit-2511-Lightning",
+  "pipeline_tag": "image-to-image",
+  "tags": [
+    "diffusers",
+    "safetensors",
+    "diffusion-single-file",
+    "comfyui",
+    "distillation",
+    "LoRA",
+    "lora",
+    "Qwen-Image",
+    "Qwen-Image-Edit",
+    "image-to-image",
+    "base_model:Qwen/Qwen-Image-Edit-2511",
+    "base_model:adapter:Qwen/Qwen-Image-Edit-2511",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 376247,
+  "likes": 541
+}

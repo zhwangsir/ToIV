@@ -1,0 +1,15 @@
+{
+  "id": "Comfy-Org/Z-Image-Turbo",
+  "pipeline_tag": null,
+  "tags": [
+    "diffusion-single-file",
+    "comfyui",
+    "base_model:Tongyi-MAI/Z-Image-Turbo",
+    "base_model:finetune:Tongyi-MAI/Z-Image-Turbo",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 8902957,
+  "likes": 994
+}

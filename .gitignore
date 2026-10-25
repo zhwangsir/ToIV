@@ -98,3 +98,7 @@ third_party/dramaclaw/
 third_party/toonflow/
 third_party/hypit/
 third_party/video-use/
+
+# local API tokens
+.secrets/
+

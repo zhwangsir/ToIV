@@ -1,0 +1,19 @@
+{
+  "id": 631986,
+  "name": "XLabs Flux Realism LoRA",
+  "type": "LORA",
+  "tags": [
+    "realism",
+    "style"
+  ],
+  "description": "Created by Xlabs AI originally posted to Hugging face lora.safetensors falls under the FLUX.1 [dev] Non-Commercial License",
+  "baseModels": [
+    "Flux.1 D"
+  ],
+  "nVersions": 2,
+  "trainedWords": [],
+  "fileNames": [
+    "flux_realism_lora.safetensors",
+    "lora.safetensors"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": 2853473,
+  "name": "AI Girl: Fictional Women Series31 / 架空の女性シリーズ31 MiniMax H3",
+  "type": "LORA",
+  "tags": [
+    "character",
+    "woman",
+    "realistic",
+    "lora",
+    "video",
+    "h3",
+    "minimax h3"
+  ],
+  "description": "好みによります。 It depends on your preference. Model Used : minimax_h3_fl2va_pruned_int8_convrot.safetensors Text encoder : qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors vae : minimax_h3_audio_vae_fp32.safetensors minimax_h3_video_vae_fp16.safetensors Minimax H3 Turbo Loras : minimax_h3_turbo_v4_step600.safetensors Here is the workflow. https://civitai.red/models/2838258/minimax-h3-4-steps-turbo-video-aio-workflow",
+  "baseModels": [
+    "MiniMax H3"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "ai31"
+  ],
+  "fileNames": [
+    "MiniMax H3  AI Girl Fictional Women Series31.safetensors"
+  ]
+}

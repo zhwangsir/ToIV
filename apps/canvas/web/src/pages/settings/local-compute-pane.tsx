@@ -11,7 +11,6 @@ import {
     LOCAL_H3_WORKER_LABEL,
     LOCAL_IMAGE_CHANNEL_ID,
     LOCAL_IMAGE_CHANNEL_NAME,
-    LOCAL_IMAGE_LB_LABEL,
     LOCAL_IMAGE_MODEL,
     LOCAL_IMAGE_MODEL_REF,
     LOCAL_IMAGE_WORKER_LABEL,
@@ -112,7 +111,7 @@ function NasBindProgressBlock(props: {
     );
 }
 
-export function LocalComputePane() {
+export function LocalComputePane({ onBackToCommon }: { onBackToCommon?: () => void } = {}) {
     const { message } = App.useApp();
     const config = useConfigStore((s) => s.config);
     const replaceConfig = useConfigStore((s) => s.replaceConfig);
@@ -194,7 +193,7 @@ export function LocalComputePane() {
                 return {
                     ...channel,
                     name: LOCAL_H3_CHANNEL_NAME,
-                    publicAlias: `${LOCAL_H3_CHANNEL_NAME} · worker ${LOCAL_H3_WORKER_LABEL}`,
+                    publicAlias: `${LOCAL_H3_CHANNEL_NAME}`,
                 };
             }
             if (channel.id === LOCAL_IMAGE_CHANNEL_ID || channel.name === LOCAL_IMAGE_CHANNEL_NAME) {
@@ -202,7 +201,7 @@ export function LocalComputePane() {
                     ...channel,
                     id: LOCAL_IMAGE_CHANNEL_ID,
                     name: LOCAL_IMAGE_CHANNEL_NAME,
-                    publicAlias: `${LOCAL_IMAGE_CHANNEL_NAME} · worker ${LOCAL_IMAGE_WORKER_LABEL}（LB ${LOCAL_IMAGE_LB_LABEL}）`,
+                    publicAlias: `${LOCAL_IMAGE_CHANNEL_NAME}`,
                     modelProfiles: (channel.modelProfiles || []).map((p) =>
                         p.capability === "image" || p.model === LOCAL_IMAGE_MODEL || p.protocol === "openai-images"
                             ? { ...p, protocol: "toiv-comfy-image", displayName: LOCAL_IMAGE_CHANNEL_NAME }
@@ -216,7 +215,7 @@ export function LocalComputePane() {
                     ...channel,
                     id: LOCAL_VIDEO_CHANNEL_ID,
                     name: LOCAL_VIDEO_CHANNEL_NAME,
-                    publicAlias: `${LOCAL_VIDEO_CHANNEL_NAME} · worker ${LOCAL_VIDEO_WORKER_LABEL}`,
+                    publicAlias: `${LOCAL_VIDEO_CHANNEL_NAME}`,
                     modelProfiles: (channel.modelProfiles || []).map((p) =>
                         p.capability === "video" || p.model === LOCAL_VIDEO_MODEL
                             ? { ...p, protocol: "toiv-comfy-video", displayName: LOCAL_VIDEO_CHANNEL_NAME }
@@ -230,7 +229,7 @@ export function LocalComputePane() {
                 return {
                     ...channel,
                     name: LOCAL_CHAT_CHANNEL_NAME,
-                    publicAlias: `Spark · ${LOCAL_CHAT_ALIAS}`,
+                    publicAlias: `${LOCAL_CHAT_CHANNEL_NAME}`,
                     models,
                 };
             }
@@ -243,7 +242,7 @@ export function LocalComputePane() {
                 {
                     id: LOCAL_IMAGE_CHANNEL_ID,
                     name: LOCAL_IMAGE_CHANNEL_NAME,
-                    publicAlias: `${LOCAL_IMAGE_CHANNEL_NAME} · worker ${LOCAL_IMAGE_WORKER_LABEL}（LB ${LOCAL_IMAGE_LB_LABEL}）`,
+                    publicAlias: `${LOCAL_IMAGE_CHANNEL_NAME}`,
                     enabled: true,
                     apiFormat: "openai",
                     apiKey: "",
@@ -275,7 +274,7 @@ export function LocalComputePane() {
                 {
                     id: LOCAL_VIDEO_CHANNEL_ID,
                     name: LOCAL_VIDEO_CHANNEL_NAME,
-                    publicAlias: `${LOCAL_VIDEO_CHANNEL_NAME} · worker ${LOCAL_VIDEO_WORKER_LABEL}`,
+                    publicAlias: `${LOCAL_VIDEO_CHANNEL_NAME}`,
                     enabled: true,
                     apiFormat: "openai",
                     apiKey: "",
@@ -406,30 +405,43 @@ export function LocalComputePane() {
     );
 
     return (
-        <section className="settings-section mb-4" data-testid="local-compute-pane">
-            <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                    <h2 className="text-base font-semibold">模型与算力（本地优先）</h2>
-                    <ComputeStatusStrip variant="full" className="mt-3 mb-4" />
-                    <p className="mt-1 text-xs text-foreground/55">
-                        生图走 Workstation Comfy {LOCAL_IMAGE_WORKER_LABEL}（LB {LOCAL_IMAGE_LB_LABEL}）；Wan/LongCat/Continue/Avatar/VACE 走 {LOCAL_VIDEO_WORKER_LABEL}；Wan Animate 走 {LOCAL_VIDEO_ANIMATE_WORKER_LABEL}；H3 走 {LOCAL_H3_WORKER_LABEL}；对话走 Spark。NAS 根默认 <code>{LOCAL_NAS_ROOT_DEFAULT}</code>。
-                    </p>
+        <section className="settings-section settings-compute-stack" data-testid="local-compute-pane">
+            <div className="settings-pane-header">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                        <h2>模型与算力</h2>
+                        <p data-testid="compute-back-to-common-hint">
+                            库存与换权重；日常搭配回「常用」。
+                            {onBackToCommon ? (
+                                <Button type="link" size="small" className="h-auto px-1 text-xs" onClick={onBackToCommon}>
+                                    返回常用
+                                </Button>
+                            ) : null}
+                        </p>
+                    </div>
+                    <Button size="small" icon={<RefreshCw className="size-3.5" />} loading={loading} onClick={() => void load()}>
+                        刷新清单
+                    </Button>
                 </div>
-                <Button size="small" icon={<RefreshCw className="size-3.5" />} loading={loading} onClick={() => void load()}>
-                    刷新清单
-                </Button>
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-2">
-                <div className="rounded-lg border border-border/60 bg-background/40 p-3" data-testid="local-image-bind">
-                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+            <section className="settings-section">
+                <p className="settings-block-label">算力状态</p>
+                <div className="settings-compute-strip-wrap">
+                    <ComputeStatusStrip variant="full" hideLink />
+                </div>
+            </section>
+
+            <section className="settings-section">
+                <p className="settings-block-label">通道绑定 · NAS {LOCAL_NAS_ROOT_DEFAULT}</p>
+                <div className="settings-compute-grid">
+                <div className="settings-bind-card" data-testid="local-image-bind">
+                    <div className="settings-bind-card__title">
                         <Server className="size-4" />
                         {LOCAL_IMAGE_CHANNEL_NAME}
-                        <Tag color="purple">worker {LOCAL_IMAGE_WORKER_LABEL}</Tag>
+                        <Tag color="purple">出图</Tag>
                     </div>
-                    <p className="mb-2 text-xs text-foreground/55">
-                        列出 NAS main 中用途含「出图」的权重；绑定到生产生图口 {LOCAL_IMAGE_WORKER_LABEL}（非试验床，禁 :8205/:8261）。落盘后 refresh object_info，仍不见再重启该 worker。
-                    </p>
+                    <p className="settings-bind-card__hint">NAS main · 用途含「出图」</p>
                     <Select
                         className="w-full"
                         showSearch
@@ -452,7 +464,7 @@ export function LocalComputePane() {
                                 setProgress: setImageProgress,
                                 setBound: setImageBound,
                                 emptyMsg: "请先选择出图权重",
-                                okMsg: "已绑定本地生图权重 → :8196",
+                                okMsg: "已绑定本地生图权重",
                             })}
                         >
                             替换并绑定
@@ -469,15 +481,13 @@ export function LocalComputePane() {
                     />
                 </div>
 
-                <div className="rounded-lg border border-border/60 bg-background/40 p-3" data-testid="local-video-bind">
-                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                <div className="settings-bind-card" data-testid="local-video-bind">
+                    <div className="settings-bind-card__title">
                         <Server className="size-4" />
                         {LOCAL_VIDEO_CHANNEL_NAME}
-                        <Tag color="orange">worker {LOCAL_VIDEO_WORKER_LABEL}</Tag>
+                        <Tag color="orange">出视频</Tag>
                     </div>
-                    <p className="mb-2 text-xs text-foreground/55">
-                        列出 NAS main 中用途含「出视频」且非 <code>h3/</code> 的权重（含 出图/出视频·diffusion、出视频·Wan Animate、LongCat Avatar 等）；Wan/LongCat/Continue/Avatar/VACE 绑 {LOCAL_VIDEO_WORKER_LABEL}，名含 animate 自动绑 {LOCAL_VIDEO_ANIMATE_WORKER_LABEL}。H3 仍走 {LOCAL_H3_WORKER_LABEL}。落盘后 refresh object_info，仍不见再重启该 worker。
-                    </p>
+                    <p className="settings-bind-card__hint">NAS main · 出视频（非 h3/；animate 自动分流）</p>
                     <Select
                         className="w-full"
                         showSearch
@@ -500,7 +510,7 @@ export function LocalComputePane() {
                                 setProgress: setVideoProgress,
                                 setBound: setVideoBound,
                                 emptyMsg: "请先选择出视频权重",
-                                okMsg: "已绑定本地 Wan/LongCat 权重 → :8197",
+                                okMsg: "已绑定本地出视频权重",
                             })}
                         >
                             替换并绑定
@@ -517,13 +527,13 @@ export function LocalComputePane() {
                     />
                 </div>
 
-                <div className="rounded-lg border border-border/60 bg-background/40 p-3" data-testid="local-h3-bind">
-                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                <div className="settings-bind-card" data-testid="local-h3-bind">
+                    <div className="settings-bind-card__title">
                         <Server className="size-4" />
                         {LOCAL_H3_CHANNEL_NAME}
-                        <Tag color="blue">worker {LOCAL_H3_WORKER_LABEL}</Tag>
+                        <Tag color="blue">H3</Tag>
                     </div>
-                    <p className="mb-2 text-xs text-foreground/55">仅列出 NAS <code>h3/</code> 权重；换模后 refresh object_info，仍不见再重启该 worker。</p>
+                    <p className="settings-bind-card__hint">仅 NAS <code>h3/</code></p>
                     <Select
                         className="w-full"
                         showSearch
@@ -563,20 +573,20 @@ export function LocalComputePane() {
                     />
                 </div>
 
-                <div className="rounded-lg border border-border/60 bg-background/40 p-3">
-                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                <div className="settings-bind-card">
+                    <div className="settings-bind-card__title">
                         <Server className="size-4" />
                         {LOCAL_CHAT_CHANNEL_NAME}
-                        <Tag color="green">Spark</Tag>
+                        <Tag color="green">LLM</Tag>
                     </div>
-                    <p className="mb-2 text-xs text-foreground/55">对话别名固定走现有 <code>/api/llm/v1</code>，不浏览 NAS <code>LLM/</code>，不调度到 Workstation 显卡。</p>
-                    <div className="text-sm">主别名：<code>{LOCAL_CHAT_ALIAS}</code></div>
-                    <div className="mt-2 text-xs text-foreground/55">同进程别名：qwen3.8-27b / qwen3.6-uncensored / glm-5.3-flash · 默认：{defaults.chatModelRef}</div>
+                    <p className="settings-bind-card__hint">网关 <code>/api/llm/v1</code> → Mia V4.1（不浏览 NAS LLM/）</p>
+                    <div className="text-sm">显示名：<code>{LOCAL_CHAT_ALIAS}</code></div>
+                    <div className="mt-2 text-xs text-foreground/55">默认：{defaults.chatModelRef}</div>
                     {source ? <div className="mt-2 truncate text-[11px] text-foreground/40">清单源：{source}</div> : null}
                 </div>
 
-                <div className="rounded-lg border border-dashed border-border/70 bg-background/30 p-3" data-testid="local-audio-unavailable">
-                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                <div className="settings-bind-card is-muted" data-testid="local-audio-unavailable">
+                    <div className="settings-bind-card__title">
                         <Server className="size-4" />
                         本地音频
                         <Tag color="default">未接</Tag>
@@ -584,15 +594,14 @@ export function LocalComputePane() {
                     {!LOCAL_AUDIO_HAS_SENSEVOICE ? (
                         <>
                             <p className="text-xs text-foreground/70 font-medium">{LOCAL_AUDIO_UNAVAILABLE_LABEL}</p>
-                            <p className="mt-1 text-xs text-foreground/55 leading-relaxed">
-                                SenseVoice 未接入 NAS 选模与运行路径；配置页与市场均标明不可用，不提供假入口。
-                            </p>
+                            <p className="settings-bind-card__hint">未接入选模路径；无假入口。</p>
                         </>
                     ) : (
                         <p className="text-xs text-foreground/55">SenseVoice 已接，可在默认音频模型中选择。</p>
                     )}
                 </div>
-            </div>
+                </div>
+            </section>
         </section>
     );
 }

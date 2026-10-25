@@ -1,0 +1,29 @@
+{
+  "id": 2413353,
+  "name": "Fantasy Medieval Street",
+  "type": "LORA",
+  "tags": [
+    "medieval",
+    "fantasy",
+    "background",
+    "street"
+  ],
+  "description": "This LORA is a style for background. ___________________________________SCENE description__________________________________________________ fantastical medieval street with painterly realism, magical dreamlike tone, warm sunset and cool starlit night glow, winding damp cobblestone street with rough cobblestones and large stone slabs reflecting lantern light, towering pointed turrets and sturdy stone houses with ancient weathered character, shadowy wizard dwelling with dark ivy, squat stone houses with wooden balconies, pots of hydrangeas and geraniums, heavy wooden doors with forged elements, arched windows brightly lit, wrought iron lanterns creating corridor of amber light, descending stone steps toward market square embankment, wide terraces overlooking valley, silvery blue cobblestones under deep violet blue star studded sky, distant river or sea reflecting multi tiered city and occasional I created the 31 datasets images with AI (DAL-E) based on my own prompt. LORA was created with fluxgym (RTX-4090).",
+  "baseModels": [
+    "Flux.1 D"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "FMS",
+    "Fantasy Medieval Street",
+    "fms_door",
+    "fms_opdoor",
+    "FMS, fms_floor",
+    "FMS, fms_balcony",
+    "FMS, fms_canopy",
+    "FMS, fms_window"
+  ],
+  "fileNames": [
+    "Fantasy_Medieval_Street.safetensors"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "bdsqlsz/qinglong_DetailedEyes_Z-Image",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "lora",
+    "text-to-image",
+    "base_model:Tongyi-MAI/Z-Image-Turbo",
+    "base_model:adapter:Tongyi-MAI/Z-Image-Turbo",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 1407,
+  "likes": 38
+}

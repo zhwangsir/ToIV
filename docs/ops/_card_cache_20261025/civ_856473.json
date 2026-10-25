@@ -1,0 +1,20 @@
+{
+  "id": 856473,
+  "name": "Single poster suspense_flux",
+  "type": "LORA",
+  "tags": [
+    "style",
+    "film and television"
+  ],
+  "description": "A single-person suspense poster for a film or TV show. The effect will be better if the background description is more detailed. The following is a comparison of the same parameters.",
+  "baseModels": [
+    "Flux.1 D"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "drhb"
+  ],
+  "fileNames": [
+    "单人海报_flux.safetensors"
+  ]
+}

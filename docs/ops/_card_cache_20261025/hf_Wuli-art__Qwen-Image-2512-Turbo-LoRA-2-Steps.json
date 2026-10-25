@@ -1,0 +1,20 @@
+{
+  "id": "Wuli-art/Qwen-Image-2512-Turbo-LoRA-2-Steps",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "Qwen",
+    "distillation",
+    "lora",
+    "text-to-image",
+    "en",
+    "zh",
+    "base_model:Qwen/Qwen-Image-2512",
+    "base_model:adapter:Qwen/Qwen-Image-2512",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 17606,
+  "likes": 129
+}

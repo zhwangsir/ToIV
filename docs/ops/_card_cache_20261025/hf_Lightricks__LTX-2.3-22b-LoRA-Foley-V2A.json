@@ -1,0 +1,22 @@
+{
+  "id": "Lightricks/LTX-2.3-22b-LoRA-Foley-V2A",
+  "pipeline_tag": "text-to-audio",
+  "tags": [
+    "diffusion-single-file",
+    "lora",
+    "ltx-2.3",
+    "foley",
+    "video-to-audio",
+    "text-to-audio",
+    "audio",
+    "ltx",
+    "en",
+    "base_model:Lightricks/LTX-2.3",
+    "base_model:adapter:Lightricks/LTX-2.3",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 569,
+  "likes": 38
+}

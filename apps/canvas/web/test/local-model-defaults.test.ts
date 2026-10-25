@@ -31,7 +31,7 @@ import {
 } from "@/lib/local-model-defaults";
 
 describe("local model defaults (realign)", () => {
-    test("local defaults: H3 :8264 + Spark :8000 + image/video workers; never :8195", () => {
+    test("local defaults: H3 :8264 + Mia :8888 + image/video workers; never :8195", () => {
         const d = localComputeDefaults();
         expect(d.videoChannelName).toBe(LOCAL_H3_CHANNEL_NAME);
         expect(d.videoChannelName).toBe("本地·H3");
@@ -58,10 +58,11 @@ describe("local model defaults (realign)", () => {
         expect(d.imageCheckpointBasename).toContain("Qwen");
         expect(d.imageModelRef).toBe(LOCAL_IMAGE_MODEL_REF);
         expect(d.chatAlias).toBe(LOCAL_CHAT_ALIAS);
-        expect(d.chatAlias).toBe("deepseek-v4-flash-dspark");
+        expect(d.chatAlias).toBe("DeepSeek-V4.1-Flash-1017");
         expect(d.chatBaseUrl).toBe(LOCAL_CHAT_BASE_URL);
-        expect(d.chatBaseUrl).toBe("http://192.168.71.84:8000/v1");
+        expect(d.chatBaseUrl).toBe("http://192.168.71.84:8888/v1");
         expect(d.chatWorker).toBe(LOCAL_CHAT_WORKER_LABEL);
+        expect(d.chatWorker).toBe(":8888");
         expect(d.cloudPresetsDefaultOpen).toBe(false);
         expect(d.cloudOptionalLabel).toBe(CLOUD_OPTIONAL_CHANNEL_LABEL);
         expect(d.audioHasSenseVoice).toBe(LOCAL_AUDIO_HAS_SENSEVOICE);
@@ -71,16 +72,20 @@ describe("local model defaults (realign)", () => {
         expect(d.nasRootDefault).toBe("toiv/comfyui-models");
     });
 
-    test("localChannelProtocolLabel prefers worker ports over OpenAI-compat", () => {
+    test("localChannelProtocolLabel is product-facing without bare ports", () => {
         expect(localChannelProtocolLabel({
             id: "toiv-image",
             modelProfiles: [{ protocol: "toiv-comfy-image", defaultOptions: { toivWorkerLabel: ":8196" } }],
-        })).toContain(":8196");
+        })).toBe("本地出图");
         expect(localChannelProtocolLabel({
             id: "MZt9ON1JvbabJ2GS-PvXR",
             modelProfiles: [{ protocol: "toiv-h3", defaultOptions: { toivWorkerLabel: ":8264" } }],
-        })).toContain(":8264");
-        expect(localChannelProtocolLabel({ id: "toiv-llm", name: "本地·Spark对话" })).toContain(":8000");
+        })).toBe("本地 H3");
+        expect(localChannelProtocolLabel({ id: "toiv-llm", name: "本地·Spark对话" })).toBe("本机 LLM · Mia V4.1");
+        expect(localChannelProtocolLabel({
+            id: "toiv-image",
+            modelProfiles: [{ protocol: "toiv-comfy-image", defaultOptions: { toivWorkerLabel: ":8196" } }],
+        })).not.toMatch(/:\d+/);
     });
 
     test("h3/ filter keeps only h3 prefix", () => {

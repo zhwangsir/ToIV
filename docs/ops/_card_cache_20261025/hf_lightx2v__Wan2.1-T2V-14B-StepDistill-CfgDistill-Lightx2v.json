@@ -1,0 +1,20 @@
+{
+  "id": "lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill-Lightx2v",
+  "pipeline_tag": "text-to-video",
+  "tags": [
+    "diffusers",
+    "safetensors",
+    "t2v",
+    "video generation",
+    "text-to-video",
+    "en",
+    "zh",
+    "base_model:Wan-AI/Wan2.1-T2V-14B",
+    "base_model:finetune:Wan-AI/Wan2.1-T2V-14B",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 0,
+  "likes": 49
+}

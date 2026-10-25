@@ -1,0 +1,14 @@
+{
+  "id": "alibaba-pai/Z-Image-Fun-Lora-Distill",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "videox_fun",
+    "lora",
+    "text-to-image",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 6394,
+  "likes": 179
+}

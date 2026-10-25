@@ -1,0 +1,15 @@
+{
+  "id": "Comfy-Org/MiniMax-H3",
+  "pipeline_tag": null,
+  "tags": [
+    "diffusion-single-file",
+    "comfyui",
+    "base_model:MiniMaxAI/MiniMax-H3",
+    "base_model:finetune:MiniMaxAI/MiniMax-H3",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 26010202,
+  "likes": 2405
+}

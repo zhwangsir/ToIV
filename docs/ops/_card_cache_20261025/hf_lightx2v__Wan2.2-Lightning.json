@@ -1,0 +1,22 @@
+{
+  "id": "lightx2v/Wan2.2-Lightning",
+  "pipeline_tag": "text-to-video",
+  "tags": [
+    "diffusers",
+    "safetensors",
+    "text-to-video;",
+    "image-to-video;",
+    "comfyUI;",
+    "video-generation;",
+    "text-to-video",
+    "en",
+    "arxiv:2309.14509",
+    "base_model:Wan-AI/Wan2.2-I2V-A14B",
+    "base_model:finetune:Wan-AI/Wan2.2-I2V-A14B",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 90,
+  "likes": 637
+}

@@ -1,0 +1,26 @@
+{
+  "id": 2508281,
+  "name": "LTX-2.3_ cinematic hardcut",
+  "type": "LORA",
+  "tags": [
+    "concept",
+    "ltx",
+    "scene change",
+    "hardcut"
+  ],
+  "description": "LTX-2.3 Cinematic Hard Cut LoRA This LoRA is designed to help LTX-2.3 generate more convincing and consistent cinematic hard cut transitions within a single video generation. strength 0.2-1.0 LTX-2.3 is already capable of doing hard cuts on its own, much like Wan , but this LoRA is meant to give it that extra push and improve consistency when you want those shot changes to land more reliably. In some cases, a strength of around 0.2 should be enough but feel free to experiement. This makes it useful for scenes that shift abruptly from one shot to another in a deliberate, film-like way, such as cutting from a wide character action shot to a close-up detail shot, an object of focus, or a dramatic reaction shot. Examples of this style include moments like a character walking toward a tree, followed by a cinematic hard cut to a close-up of an apple hanging from a branch, or a knight crossing a battlefield before the shot suddenly cuts to his hand tightening around a sword hilt. The goal of this LoRA is to reinforce that kind of visual language so your prompts can produce sequences that feel more intentionally edited and cinematic. This LoRA was inspired by the Cinematic Hard Cut LoRA ma",
+  "baseModels": [
+    "LTXV 2.3"
+  ],
+  "nVersions": 1,
+  "trainedWords": [],
+  "fileNames": [
+    "LTX-2.3_Cinematic hardcut.safetensors"
+  ],
+  "recommendedStrength": {
+    "default": 0.52,
+    "min": 0.2,
+    "max": 1.0,
+    "source": "card"
+  }
+}

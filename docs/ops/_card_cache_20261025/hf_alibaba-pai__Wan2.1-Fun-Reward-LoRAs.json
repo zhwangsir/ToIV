@@ -1,0 +1,18 @@
+{
+  "id": "alibaba-pai/Wan2.1-Fun-Reward-LoRAs",
+  "pipeline_tag": "text-to-video",
+  "tags": [
+    "videox_fun",
+    "video",
+    "video-generation",
+    "text-to-video",
+    "en",
+    "zh",
+    "arxiv:2310.03739",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 4674,
+  "likes": 60
+}

@@ -1,9 +1,36 @@
 import { appHref } from "@/lib/app-routing";
 
-export type SettingsSection = "channels" | "models" | "preferences" | "prompts" | "storage";
+/** Canonical product sections + legacy aliases kept for old deep links. */
+export type SettingsSection =
+    | "common"
+    | "compute"
+    | "advanced"
+    | "channels"
+    | "models"
+    | "preferences"
+    | "prompts"
+    | "storage"
+    | "runninghub"
+    | "diagnostics";
 
-export function settingsPath(section: SettingsSection = "channels", continueCreation = false) {
-    const params = new URLSearchParams({ section });
+const LEGACY_TO_CANONICAL: Record<string, "common" | "compute" | "advanced"> = {
+    channels: "compute",
+    models: "common",
+    preferences: "advanced",
+    prompts: "advanced",
+    storage: "advanced",
+    runninghub: "advanced",
+    diagnostics: "advanced",
+};
+
+/** Prefer canonical IA keys in new links; legacy values still accepted by SettingsPage. */
+export function settingsPath(section: SettingsSection = "common", continueCreation = false) {
+    const canonical = (LEGACY_TO_CANONICAL[section] || section) as string;
+    const params = new URLSearchParams({ section: canonical });
+    // Preserve expert deep-links that need a specific advanced panel open.
+    if (section === "runninghub" || section === "diagnostics" || section === "prompts" || section === "preferences") {
+        params.set("section", section);
+    }
     if (continueCreation) params.set("continue", "1");
     return `/settings?${params.toString()}`;
 }

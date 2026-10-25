@@ -1,0 +1,15 @@
+{
+  "id": "Kijai/LTX2.3_comfy",
+  "pipeline_tag": null,
+  "tags": [
+    "diffusion-single-file",
+    "comfyui",
+    "base_model:Lightricks/LTX-2.3",
+    "base_model:finetune:Lightricks/LTX-2.3",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 531398,
+  "likes": 632
+}

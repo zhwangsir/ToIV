@@ -1,0 +1,23 @@
+{
+  "id": 1890900,
+  "name": "wan2.2-i2v-high-Anguish Wail",
+  "type": "LORA",
+  "tags": [
+    "tool"
+  ],
+  "description": "Get the latest global workflows on my RunningHub homepage and run them free on RTX4090. Sign Up with my invite link for 1000 bonus points + 100 daily: https://www.runninghub.ai/?inviteCode=rh-v1221 Run Directly: https://www.runninghub.ai/post/1956586031082602497/?inviteCode=rh-v1221 Please credit and link to my homepage if reprinting.国内合作加Q：549791525 Here's the explanation: Most special effects loras do not require low noise. If you understand the principle, you should know I trained this LoRA because I found it difficult to generate expressions of convulsive crying (crying to the point of trembling) with the wan2.2 model. Recommended weight: 1.0 Example prompt(s)： kuqi567, a static shot of a young woman in a black hoodie wailing uncontrollably with her eyes shut while standing in a doorway. kuqi567, a static shot of a young woman in a red headscarf wailing uncontrollably in front of a vibrant red wall under a blue sky.",
+  "baseModels": [
+    "Wan Video 2.2 I2V-A14B"
+  ],
+  "nVersions": 1,
+  "trainedWords": [],
+  "fileNames": [
+    "哭泣-high.safetensors"
+  ],
+  "recommendedStrength": {
+    "default": 1.0,
+    "min": 0.6,
+    "max": 1.0,
+    "source": "card"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "unholydesiresstudio/AddMicroDetails_Illustrious_v6",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "lora",
+    "template:diffusion-lora",
+    "base_model:calcuis/illustrious",
+    "base_model:adapter:calcuis/illustrious",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 159,
+  "likes": 0
+}

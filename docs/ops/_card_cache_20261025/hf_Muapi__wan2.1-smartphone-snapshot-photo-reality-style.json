@@ -1,0 +1,17 @@
+{
+  "id": "Muapi/wan2.1-smartphone-snapshot-photo-reality-style",
+  "pipeline_tag": "text-to-video",
+  "tags": [
+    "diffusers",
+    "lora",
+    "text-to-video",
+    "wan",
+    "wan2.1",
+    "wan-video-14b-t2v",
+    "license:openrail++",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 24,
+  "likes": 0
+}

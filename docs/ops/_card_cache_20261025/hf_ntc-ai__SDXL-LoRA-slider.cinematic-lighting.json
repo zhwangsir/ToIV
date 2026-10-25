@@ -1,0 +1,23 @@
+{
+  "id": "ntc-ai/SDXL-LoRA-slider.cinematic-lighting",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "stable-diffusion-xl",
+    "lora",
+    "template:sd-lora",
+    "template:sdxl-lora",
+    "sdxl-sliders",
+    "ntcai.xyz-sliders",
+    "concept",
+    "en",
+    "base_model:stabilityai/stable-diffusion-xl-base-1.0",
+    "base_model:adapter:stabilityai/stable-diffusion-xl-base-1.0",
+    "license:mit",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 783,
+  "likes": 15
+}

@@ -1,0 +1,18 @@
+{
+  "id": 2226769,
+  "name": "Wan2.2-I2V-A14B-4steps-lora-rank64-Seko-V1",
+  "type": "LORA",
+  "tags": [
+    "style"
+  ],
+  "description": "Wan2.2-Lightning by lightx2v Just uploading this here because I didn't see it on civitai. It's NOT made by me it's made by the amazing lightx2v team. I just downloaded from huggingface and uploaded it for use here. We are excited to release the distilled version of Wan2.2 video generation model family, which offers the following advantages: Fast : Video generation now requires only 4 steps without the need of CFG trick, leading to x20 speed-up High-quality : The distilled model delivers visuals on par with the base model in most scenarios, sometimes even better. Complex Motion Generation : Despite the reduction to just 4 steps, the model retains excellent motion dynamics in the generated scenes.",
+  "baseModels": [
+    "Wan Video 2.2 I2V-A14B"
+  ],
+  "nVersions": 2,
+  "trainedWords": [],
+  "fileNames": [
+    "high_noise_model.safetensors",
+    "low_noise_model.safetensors"
+  ]
+}

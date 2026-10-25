@@ -1,0 +1,37 @@
+{
+  "id": 1592586,
+  "name": "1980s Horror movies lora",
+  "type": "LORA",
+  "tags": [
+    "horror",
+    "zombies",
+    "retro",
+    "80s",
+    "style",
+    "cinematic"
+  ],
+  "description": "Bring out your werewolf costumes and put on the zombie makeup. Set \"Thriller\" on repeat. If you thought body horror was bad with video models before, it'll be much worse with this lora! Minimax H3: Recaptioned dataset with Qwen3-VL in the style minimax favors. Krea 2: I might have over-cooked this one. Beware small faces might become a bit mangled. Lowering the strength in that case might help. All samples done with Turbo model. The dataset has an bias towards zombies and body horror, but seems to convey the general style and quality of 80s movies, too. Captioning this was tricky, as the automatic captioning had troubles with the 'variety' of the images here. So, a lot of hands-on required to clean it up. All images/videos in showcase contain ComfyUI workflows. For Wan: The Low noise lora has absolutely most effect for style. High noise still affects the outcome, but to a much less degree. Example captions from the dataset: \"A man with a gaunt, pale face, sunken eyes, and thin lips. He has short, disheveled hair and is wearing a dark, stained jacket over a red shirt. He is pointing at the viewer with his right hand, which is also stained. The background is a concrete wall with visi",
+  "baseModels": [
+    "Flux.2 Klein 9B-base",
+    "Hunyuan Video",
+    "Krea 2",
+    "MiniMax H3",
+    "Wan Video 2.2 T2V-A14B",
+    "ZImageTurbo"
+  ],
+  "nVersions": 9,
+  "trainedWords": [
+    "80s_horror"
+  ],
+  "fileNames": [
+    "1980s_horror_2_h3_185.safetensors",
+    "1980s_horror_flux2_klein_r128_100.safetensors",
+    "1980s_horror_h3_175.safetensors",
+    "1980s_horror_krea2-r64_140.safetensors",
+    "80s_horror_wan_high_21.safetensors",
+    "80s_horror_wan_low_30.safetensors",
+    "80s_horror_z_80.safetensors",
+    "hunyuan_80s_horror_1000.safetensors",
+    "hunyuan_80s_horror_1000_converted.safetensors"
+  ]
+}

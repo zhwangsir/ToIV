@@ -1,0 +1,27 @@
+{
+  "id": 1934515,
+  "name": "Ghost Glitter (World Morph/Style) [Qwen/Flux/Illu]",
+  "type": "LORA",
+  "tags": [
+    "style",
+    "ghost",
+    "glitter",
+    "world morph",
+    "ectoplasm"
+  ],
+  "description": "Find this model on: 🌐 Homepage | 🧠 Civitai | 🌊 SeaArt | ⚡ TensorArt Mid-Week Morph #6 Ghost Glitter is a surreal, CGI-style LoRA that wraps spectral horror in iridescent slime and dreamlike sparkle. Designed as a world morph , it reimagines everyday objects, animals, and characters as if they were carved from haunted gel—ghosts suspended in thick translucent ooze, lit by glittering particles and cinematic bokeh. This model blends visual paradox: highly polished CGI-style lighting with soft-focus decay, making scenes feel like hyperreal dioramas melting under supernatural pressure. Use it for haunted toys, cursed cities, drippy royalty, or creatures glowing in the liminal dark. Note: when remixing Flux images, make sure you select a reasonable CFG value. Something around 3.0 - 4.0 should work. 🔮 Highlights Core aesthetic : semi-translucent slime, glitter particles, dramatic lighting, soft bokeh backgrounds Color palettes : cool ethereal hues (blue, purple, white), molten tones (orange, pink), or sickly greens and reds Shaping : excellent at melting architecture, vehicles, animals, furniture, and humanoid forms into semi-solid ghost goo CGI tone : feels like toy photography crossed w",
+  "baseModels": [
+    "Flux.1 D",
+    "Illustrious",
+    "Qwen"
+  ],
+  "nVersions": 3,
+  "trainedWords": [
+    "Gh0stGl1tt3r"
+  ],
+  "fileNames": [
+    "ghost_glitter_illu_v1.safetensors",
+    "ghost_glitter_qwen_v3_000002000.safetensors",
+    "morph-ghost-glitter-v01-flux-step00003200.safetensors"
+  ]
+}

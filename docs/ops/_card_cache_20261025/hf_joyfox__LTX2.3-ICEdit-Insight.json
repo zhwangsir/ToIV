@@ -1,0 +1,27 @@
+{
+  "id": "joyfox/LTX2.3-ICEdit-Insight",
+  "pipeline_tag": "video-to-video",
+  "tags": [
+    "diffusers",
+    "video-editing",
+    "video-restoration",
+    "ltx-video",
+    "ltx-2-3",
+    "dit",
+    "ic-lora",
+    "watermark-removal",
+    "subtitle-removal",
+    "super-resolution",
+    "hd-enhancement",
+    "joyfox",
+    "video-to-video",
+    "en",
+    "base_model:Lightricks/LTX-2.3",
+    "base_model:finetune:Lightricks/LTX-2.3",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 17649,
+  "likes": 181
+}

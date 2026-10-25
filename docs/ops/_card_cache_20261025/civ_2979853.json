@@ -1,0 +1,30 @@
+{
+  "id": 2979853,
+  "name": "Chinese Fantasy Xianxia Style LoRA | 仙侠古风",
+  "type": "LORA",
+  "tags": [
+    "style",
+    "hanfu",
+    "gufeng",
+    "chinese style",
+    "xianxia",
+    "chinese fantasy",
+    "qwen-image-2.1"
+  ],
+  "description": "## V2.0 · Strong Style Edition A Gufeng / Xianxia style LoRA that enhances figure quality, posing, garment material and fabric detail, and lighting depth. Strong style transfer intensity. If you encounter broken hands, fused fingers amplified after loading the LoRA, or overly dark output, raise CFG to 2.0–4.0. No trigger word required. Control intensity via weight: 0.2–0.3 subtle texture ｜ 0.5–0.6 standard ｜ 0.7–0.8 strong style ｜ above 0.8 enters \"mystery lottery\" mode. Sample images are shown in order from 1.0 down to 0.3. Style characteristics - Reinforces Gufeng / Xianxia themes: costumes, poses, texture and overall stylistic consistency are noticeably improved - Enhanced lighting contrast, stronger depth of field, more solid and dimensional rendering - Heavier texture and spatial depth compared to the base model's native output Known trade-offs - To gain stronger style and tonal depth, part of Qwen-Image 2.1's native overall brightness is sacrificed - If you want to preserve the base model's clarity and prefer balanced output, use the V3.0 version instead Base model : Qwen-Image 2.1 ｜ Recommended weight : 0.3–1.0 ## V2.0 · 强风格版（Strong） 古风 / 仙侠风格 LoRA，主要融入强化了人物质感、姿态，服饰材质款式质感，光影",
+  "baseModels": [
+    "Qwen 2.1"
+  ],
+  "nVersions": 2,
+  "trainedWords": [],
+  "fileNames": [
+    "xianxia_gufeng_Strong.safetensors",
+    "xianxia_gufeng_meixue.safetensors"
+  ],
+  "recommendedStrength": {
+    "default": 0.25,
+    "min": 0.2,
+    "max": 0.3,
+    "source": "card"
+  }
+}

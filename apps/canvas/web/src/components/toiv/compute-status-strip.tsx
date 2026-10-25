@@ -13,12 +13,14 @@ export type ComputeStatusStripProps = {
     variant?: "compact" | "full";
     className?: string;
     onDeps?: (deps: ToivDepItem[]) => void;
+    /** 已在设置页内时隐藏「模型与算力」跳转 */
+    hideLink?: boolean;
 };
 
 /**
  * Wave P1.5：L1 忙闲 + L5 依赖三态只读条。不展示端口。
  */
-export function ComputeStatusStrip({ variant = "compact", className = "", onDeps }: ComputeStatusStripProps) {
+export function ComputeStatusStrip({ variant = "compact", className = "", onDeps, hideLink = false }: ComputeStatusStripProps) {
     const [brief, setBrief] = useState<ToivFleetBrief | null>(null);
     const [deps, setDeps] = useState<ToivDepItem[]>([]);
     const [error, setError] = useState(false);
@@ -64,7 +66,7 @@ export function ComputeStatusStrip({ variant = "compact", className = "", onDeps
                     ))}
                 </ul>
             ) : null}
-            <Link to="/settings?section=channels" className="toiv-compute-strip-link">模型与算力</Link>
+            {hideLink ? null : <Link to="/settings?section=compute" className="toiv-compute-strip-link">模型与算力</Link>}
         </div>
     );
 }

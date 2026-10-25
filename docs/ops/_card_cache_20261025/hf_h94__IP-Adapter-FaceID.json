@@ -1,0 +1,15 @@
+{
+  "id": "h94/IP-Adapter-FaceID",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "stable-diffusion",
+    "en",
+    "arxiv:2308.06721",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 231339,
+  "likes": 1908
+}

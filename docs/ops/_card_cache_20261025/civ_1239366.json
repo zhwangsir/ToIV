@@ -1,0 +1,24 @@
+{
+  "id": 1239366,
+  "name": "Black and White Documentary Photograph",
+  "type": "LORA",
+  "tags": [
+    "style",
+    "photorealism",
+    "documentary",
+    "black&white"
+  ],
+  "description": "Super excited to share my B&amp;W Documentary Photograph Style LoRa. It gives your images a very raw and authentic style. Very flexible with Prompting. Trained on three layers therfore its pretty small. E&lt;njoy =))",
+  "baseModels": [
+    "Flux.1 D"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "in the style of bwdoc",
+    "black and white photography",
+    "documentary"
+  ],
+  "fileNames": [
+    "bwdoc_v2_32alpha_rank16_bf16-step01800.safetensors"
+  ]
+}

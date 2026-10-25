@@ -1,0 +1,32 @@
+{
+  "id": 795313,
+  "name": "Eternal Oath Wedding Photography Flux1.d Lora",
+  "type": "LORA",
+  "tags": [
+    "character",
+    "characters",
+    "wedding",
+    "lora",
+    "photograph",
+    "flux1.d"
+  ],
+  "description": "Eternal Oath Wedding Photography Flux1.d Lora Base model: flux.1d Recommended steps: 20-30 Recommended sampling: Euler Weight: 0.8-1 cfg scale 3.5 When using our models, please share your creations and results with us. Join in AIGC WX group, please contact WX: xingjihuashi",
+  "baseModels": [
+    "Flux.1 D"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "wedding photo",
+    "groom",
+    "bride"
+  ],
+  "fileNames": [
+    "wedding_photography_flux_lora.safetensors"
+  ],
+  "recommendedStrength": {
+    "default": 0.9,
+    "min": 0.8,
+    "max": 1.0,
+    "source": "card"
+  }
+}

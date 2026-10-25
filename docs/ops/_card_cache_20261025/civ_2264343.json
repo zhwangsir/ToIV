@@ -1,0 +1,24 @@
+{
+  "id": 2264343,
+  "name": "Wan 2.2 I2V 14B walking with pegleg",
+  "type": "LORA",
+  "tags": [
+    "action",
+    "amputee",
+    "prosthesis",
+    "prosthetic leg",
+    "amputation"
+  ],
+  "description": "woman walking with a pegleg for above knee amputation",
+  "baseModels": [
+    "Wan Video 2.2 I2V-A14B"
+  ],
+  "nVersions": 2,
+  "trainedWords": [
+    "p1glegging"
+  ],
+  "fileNames": [
+    "pegleg walk_high_noise.safetensors",
+    "pegleg walk_low_noise.safetensors"
+  ]
+}

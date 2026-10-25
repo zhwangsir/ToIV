@@ -1,0 +1,17 @@
+{
+  "id": "vrgamedevgirl84/LTX_2.3_Crisp_Enhance_Style_LoRa",
+  "pipeline_tag": "text-to-video",
+  "tags": [
+    "diffusers",
+    "lora",
+    "ltx-video",
+    "text-to-video",
+    "safetensors",
+    "base_model:Lightricks/LTX-Video",
+    "base_model:adapter:Lightricks/LTX-Video",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 3057,
+  "likes": 49
+}

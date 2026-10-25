@@ -1,0 +1,22 @@
+{
+  "id": "ostris/face-helper-sdxl-lora",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "stable-diffusion",
+    "lora",
+    "photorealism",
+    "realistic",
+    "face",
+    "closeup",
+    "tool",
+    "base_model:stabilityai/stable-diffusion-xl-base-1.0",
+    "base_model:adapter:stabilityai/stable-diffusion-xl-base-1.0",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 558,
+  "likes": 5
+}

@@ -1,0 +1,22 @@
+{
+  "id": 969406,
+  "name": "Anime Style - Flux1.D",
+  "type": "LORA",
+  "tags": [
+    "anime",
+    "midjourney",
+    "style",
+    "anime style"
+  ],
+  "description": "You can support me here : https://ko-fi.com/photobait if you enjoy my 550+ free Loras (including the update) of fictional characters, if you want to encourage me and help me create more Loras. Or just reward me with Buzz. To request a specific/custom Flux1.D Lora using buzz: - 2500 Buzz if the Lora can be shared publicly (SFW), - 5000 Buzz if the Lora have to remain private. For SDXL Lora, please contact me directly.",
+  "baseModels": [
+    "Flux.1 D"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "anime style"
+  ],
+  "fileNames": [
+    "Anime_style.safetensors"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "Lightricks/LTX-2-19b-IC-LoRA-Detailer",
+  "pipeline_tag": "video-to-video",
+  "tags": [
+    "ltx-video",
+    "video-to-video",
+    "en",
+    "arxiv:2603.24793",
+    "base_model:Lightricks/LTX-2",
+    "base_model:finetune:Lightricks/LTX-2",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 0,
+  "likes": 88
+}

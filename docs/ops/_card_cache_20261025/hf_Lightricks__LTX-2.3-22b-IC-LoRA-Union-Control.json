@@ -1,0 +1,21 @@
+{
+  "id": "Lightricks/LTX-2.3-22b-IC-LoRA-Union-Control",
+  "pipeline_tag": "any-to-any",
+  "tags": [
+    "ltx-video",
+    "image-to-video",
+    "text-to-video",
+    "any-to-any",
+    "en",
+    "dataset:Lightricks/Canny-Control-Dataset",
+    "arxiv:2601.03233",
+    "arxiv:2603.24793",
+    "base_model:Lightricks/LTX-2.3",
+    "base_model:finetune:Lightricks/LTX-2.3",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 0,
+  "likes": 113
+}

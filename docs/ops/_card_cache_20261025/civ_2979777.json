@@ -1,0 +1,21 @@
+{
+  "id": 2979777,
+  "name": "Minimax H3 Motion Combat Reasoning | REF2VA | FL2VA | Hybrid",
+  "type": "LORA",
+  "tags": [
+    "concept",
+    "motion",
+    "minimax",
+    "booster",
+    "reasoning"
+  ],
+  "description": "Purpose Convenient VRAM efficient lora for enhancing combat, actions and motion of highly dynamic scenes combined with reasoning. Works with FL2VA, REF2VA and Hybrid Models. Credits An experimental consensus crafted lora of multiple aligned concepts of Combat Action Motion Reasoning 💫 All credits for the original loras go to FourBunny and MisticRain69 If you want to support this, support these two for their awesome work!",
+  "baseModels": [
+    "MiniMax H3"
+  ],
+  "nVersions": 1,
+  "trainedWords": [],
+  "fileNames": [
+    "DaSiWa-MMH3-Motion-Combat-Reasoning_r128.safetensors"
+  ]
+}

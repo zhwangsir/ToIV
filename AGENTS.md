@@ -2,7 +2,7 @@
 
 > **现行集群真源**：[`docs/ops/CLUSTER_TRUTH.md`](docs/ops/CLUSTER_TRUTH.md)（探针 as-of 见该文件；冲突以真机为准）。  
 > **命名铁律**：一个磁盘权重一个 weight id；served 不得伪装异家族。知识图谱页 canvas `b21e123b-da5f-43d9-90af-a3842894cfcc`。  
-> **最后更新**：2026-10-23 Asia/Shanghai · DOC_TRUTH_SWEEP（设备表迁 CLUSTER_TRUTH；删错误 spark/VLM/死端口叙述）。  
+> **最后更新**：2026-10-25 Asia/Shanghai · 设置+库存+图谱P0 工作区已落地未入库（`STATE.settings_kg_p0_workspace_2026_10_25`；换机 `docs/ops/HANDOFF_PROMPT_SETTINGS_KG_20261025.md`）；集群真源仍见 CLUSTER_TRUTH。  
 > **历史长文**：`.archive/AGENTS-full-20261014.md` 等；机读 `STATE.json`（只读）。
 
 ---
@@ -40,7 +40,7 @@ cd apps/canvas/web && bun run lint && bun run typecheck && bun run build
 | 运维本机 | MateBook | LAN **`.118`**（勿写 `.9`）；TS `100.74.15.34` |
 | 网关 | core `.47` | web:3100 · api:8090 · admin:3200 |
 | GPU | workstation `.127` | Comfy LB `:8188`→8196/8263/8265；H3 `:8264`；VLM `:9311`；TTS `:9200`；embed `:9302` |
-| LLM | spark02 `.84:8000` | weight `dsv4-flash-dspark-abliterated`；canonical `deepseek-v4-flash-dspark`；**仍挂废弃别名** qwen*/glm*（待清） |
+| LLM | spark02 `.84:8888` | Mia TensorFold TP2；served `DeepSeek-V4.1-Flash-1017`；客户端兼容别名 `deepseek-v4-flash-dspark`（proxy 改写）；旧 `:8000`/dsv4_60 已停（同卡互斥） |
 | LLM worker | spark01 `.82` | TP2 rank1；**:8000 无监听** |
 | ASR | openclaw×4 `:9310` | whisper-mlx；JoyCaption `:9305` |
 | 存储 | NAS `.7` | `toiv/comfyui-models` |

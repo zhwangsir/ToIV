@@ -1,0 +1,20 @@
+{
+  "id": "Lightricks/LTX-2-19b-LoRA-Camera-Control-Static",
+  "pipeline_tag": "text-to-video",
+  "tags": [
+    "ltx",
+    "lora",
+    "ltx-2",
+    "video-generation",
+    "text-to-video",
+    "camera-control",
+    "static-camera",
+    "base_model:Lightricks/LTX-2",
+    "base_model:adapter:Lightricks/LTX-2",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 5182,
+  "likes": 34
+}

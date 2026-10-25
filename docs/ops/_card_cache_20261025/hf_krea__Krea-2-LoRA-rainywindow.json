@@ -1,0 +1,17 @@
+{
+  "id": "krea/Krea-2-LoRA-rainywindow",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "lora",
+    "text-to-image",
+    "en",
+    "base_model:krea/Krea-2-Turbo",
+    "base_model:adapter:krea/Krea-2-Turbo",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 965,
+  "likes": 10
+}

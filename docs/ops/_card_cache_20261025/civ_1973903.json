@@ -1,0 +1,20 @@
+{
+  "id": 1973903,
+  "name": "wan2.2_T2v特效颜料变身,Paint Transformation-high and  low noise model",
+  "type": "LORA",
+  "tags": [
+    "animal",
+    "special effects",
+    "wan2.2"
+  ],
+  "description": "wan2.2的高低噪模型，生成挤出颜料的特效 注意高低噪一起下载使用。 声明： ===========提供下载是你们自己本地用，不要kuku往其它平台上传，欢迎大家监督，不然没意思了，其它平台我自己不会传么?==================== Wan2.2高低噪lora，颜料挤出变手办特效_哔哩哔哩_bilibili 国内注册送点可白嫖在线运行工作流及下载工作流地址： https://www.runninghub.cn/post/1969368974502862849/?inviteCode=rh-v1284 Workflow download and usage for google user login: https://www.runninghub.ai/post/1969368974502862849/?inviteCode=rh-v1284 提示词案例（prompt sample）： yanliaobianhua,一个特写镜头，一张干净的木头桌面上，一只手用颜料管挤出了彩色颜料落到桌面后，彩色颜料马上变成了一只彩色的孔雀，对着镜头开屏， yanliaobianhua,一个特写镜头，一张干净的木头桌面上，一只手用颜料管挤出了黄色颜料落到桌面后，黄色颜料马上变成了一只黄色的猫，对着镜头喵喵叫， yanliaobianhua,一个特写镜头，一张干净的木头桌面上，一只手用颜料管挤出了银色颜料落到桌面后，银色颜料马上变成了一只银色的海豹，对着爬， yanliaobianhua, A close-up shot, on a clean wooden tabletop, one hand squeezes out green paint with a paint tube and it falls onto the tabletop. Immediately, the green paint turns into a green frog and jumps towards the camera, yanliaobianhua, a close-up shot of a clean wooden table, where a hand squeezes blue paint from a tube onto the surface. The paint then gradually transforms into a ‌three-dimensional, standing‌ anime character—Doraemon.",
+  "baseModels": [
+    "Wan Video 2.2 T2V-A14B"
+  ],
+  "nVersions": 2,
+  "trainedWords": [],
+  "fileNames": [
+    "Wan22yanliaoguan_high_noise.safetensors",
+    "Wan22yanliaoguan_low_noise.safetensors"
+  ]
+}

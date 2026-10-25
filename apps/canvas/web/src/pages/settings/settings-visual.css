@@ -1,0 +1,389 @@
+/* Settings visual pass 2026-10-26 — LingGuo-style restraint: slot table first, less chrome */
+
+.settings-page .settings-pane-root {
+  width: min(920px, 100%);
+  margin-inline: auto;
+  padding: 8px 28px 40px;
+}
+
+.settings-page .settings-pane-header {
+  margin-bottom: 16px;
+}
+
+.settings-page .settings-pane-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.settings-page .settings-pane-header p {
+  margin-top: 6px;
+  max-width: 52ch;
+  font-size: 13px;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--foreground) 48%, transparent);
+}
+
+/* Common zone rhythm */
+.settings-common-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-common-stack > .settings-section,
+.settings-common-stack > [data-testid="model-mix-presets-bar"],
+.settings-common-stack > [data-testid="llm-mutex-banner"],
+.settings-common-stack > [data-testid="r18-settings-pane"] {
+  margin-bottom: 0 !important;
+}
+
+.settings-block-label {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--foreground) 42%, transparent);
+}
+
+/* Slot table as primary surface */
+.settings-slot-surface {
+  border: 1px solid color-mix(in srgb, var(--foreground) 9%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--foreground) 1.8%, transparent);
+  padding: 4px 16px;
+}
+
+.settings-slot-row {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 12px 18px;
+  align-items: start;
+  padding: 16px 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--foreground) 7%, transparent);
+}
+
+.settings-slot-row:last-child {
+  border-bottom: 0;
+}
+
+.settings-slot-row__meta {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.settings-slot-row__icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  color: color-mix(in srgb, var(--foreground) 58%, transparent);
+}
+
+.settings-slot-row__title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.settings-slot-row__hint {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--foreground) 42%, transparent);
+}
+
+.settings-slot-row__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-slot-row__body .max-w-xl {
+  max-width: none !important;
+}
+
+/* LoRA attachment: quieter */
+.settings-lora-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
+  background: color-mix(in srgb, var(--foreground) 2.2%, transparent);
+}
+
+.settings-lora-chip__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--foreground) 45%, transparent);
+}
+
+.settings-lora-chip__summary {
+  margin-top: 2px;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--foreground) 78%, transparent);
+}
+
+.settings-lora-chip__base {
+  margin-top: 2px;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--foreground) 40%, transparent);
+}
+
+/* Secondary collapses */
+.settings-secondary-card {
+  border: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
+  border-radius: 12px;
+  background: transparent;
+  padding: 0 12px;
+}
+
+.settings-secondary-card .ant-collapse-ghost > .ant-collapse-item > .ant-collapse-header {
+  padding: 10px 0 !important;
+  align-items: center;
+}
+
+.settings-secondary-card .ant-collapse-content-box {
+  padding: 0 0 12px !important;
+}
+
+.settings-mutex-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
+  background: color-mix(in srgb, var(--foreground) 2%, transparent);
+  font-size: 12px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--foreground) 62%, transparent);
+}
+
+.settings-mutex-note[data-tone="warn-dsv4"] {
+  border-color: color-mix(in srgb, #d97706 28%, transparent);
+  background: color-mix(in srgb, #d97706 8%, transparent);
+}
+
+.settings-r18-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.settings-r18-row h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-r18-row p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--foreground) 48%, transparent);
+}
+
+/* LoRA manage modal cards */
+.settings-lora-modal-intro {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--foreground) 50%, transparent);
+}
+
+.settings-lora-modal-footer {
+  margin: 0 0 12px;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--foreground) 40%, transparent);
+}
+
+.settings-lora-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  background: color-mix(in srgb, var(--foreground) 1.5%, transparent);
+}
+
+.settings-lora-card[data-heuristic="1"] {
+  border-style: dashed;
+  opacity: 0.78;
+}
+
+.settings-lora-card__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.settings-lora-card__purpose {
+  margin-top: 4px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--foreground) 52%, transparent);
+}
+
+.settings-lora-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.settings-lora-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 10px;
+  line-height: 1.6;
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+  color: color-mix(in srgb, var(--foreground) 62%, transparent);
+}
+
+.settings-lora-pill.is-ok {
+  background: color-mix(in srgb, #7c3aed 14%, transparent);
+  color: #6d28d9;
+}
+
+.settings-lora-pill.is-warn {
+  background: color-mix(in srgb, #d97706 14%, transparent);
+  color: #b45309;
+}
+
+.settings-lora-pill.is-purpose {
+  background: color-mix(in srgb, #0284c7 12%, transparent);
+  color: #0369a1;
+}
+
+.settings-lora-pill.is-trigger {
+  background: color-mix(in srgb, #d97706 10%, transparent);
+  color: #92400e;
+}
+
+.settings-lora-pill.is-nsfw {
+  background: color-mix(in srgb, #e11d48 12%, transparent);
+  color: #be123c;
+}
+
+.settings-compute-strip-wrap {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
+  background: color-mix(in srgb, var(--foreground) 1.5%, transparent);
+}
+
+@media (max-width: 720px) {
+  .settings-page .settings-pane-root {
+    padding: 4px 16px 28px;
+  }
+  .settings-slot-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+
+/* ── Visual pass 2 · 模型与算力 / 高级 ── */
+.settings-compute-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-compute-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-bind-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 14px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 9%, transparent);
+  background: color-mix(in srgb, var(--foreground) 1.6%, transparent);
+}
+
+.settings-bind-card.is-muted {
+  border-style: dashed;
+  opacity: 0.88;
+}
+
+.settings-bind-card__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-bind-card__hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--foreground) 45%, transparent);
+}
+
+.settings-advanced-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-page .settings-advanced-collapse.ant-collapse {
+  background: transparent;
+  border: 0;
+}
+
+.settings-page .settings-advanced-collapse > .ant-collapse-item {
+  margin-bottom: 10px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 9%, transparent) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--foreground) 1.4%, transparent);
+}
+
+.settings-page .settings-advanced-collapse > .ant-collapse-item > .ant-collapse-header {
+  padding: 12px 14px !important;
+  align-items: center;
+  font-size: 13px;
+}
+
+.settings-page .settings-advanced-collapse > .ant-collapse-item > .ant-collapse-content > .ant-collapse-content-box {
+  padding: 4px 14px 14px !important;
+}
+
+@media (max-width: 860px) {
+  .settings-compute-grid {
+    grid-template-columns: 1fr;
+  }
+}

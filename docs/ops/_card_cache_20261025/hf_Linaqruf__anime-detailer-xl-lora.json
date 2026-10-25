@@ -1,0 +1,20 @@
+{
+  "id": "Linaqruf/anime-detailer-xl-lora",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "stable-diffusion",
+    "lora",
+    "safetensors",
+    "stable-diffusion-xl",
+    "en",
+    "base_model:Linaqruf/animagine-xl-2.0",
+    "base_model:adapter:Linaqruf/animagine-xl-2.0",
+    "license:openrail++",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 4667,
+  "likes": 64
+}

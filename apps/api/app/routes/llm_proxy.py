@@ -101,7 +101,9 @@ def sanitize_body(body: Any) -> dict[str, Any]:
     if model not in models:
         raise HTTPException(status_code=400, detail=f"不支持的模型：{model}（可用：{', '.join(models)}）")
     out = {k: v for k, v in body.items() if k in _ALLOWED_FIELDS}
-    out["model"] = model
+    # 客户端可用白名单别名（如 deepseek-v4-flash-dspark）；上游 served 名以 settings.llm_model 为准。
+    upstream_model = (get_settings().llm_model or "").strip() or model
+    out["model"] = upstream_model
     cap = get_settings().llm_proxy_max_tokens
     for key in ("max_tokens", "max_completion_tokens"):
         if isinstance(out.get(key), int) and out[key] > cap:

@@ -1,0 +1,20 @@
+{
+  "id": "vrgamedevgirl84/Wan14BT2VFusioniX",
+  "pipeline_tag": "text-to-video",
+  "tags": [
+    "diffusers",
+    "text-to-video",
+    "diffusion",
+    "merged-model",
+    "video-generation",
+    "wan2.1",
+    "safetensors",
+    "base_model:Wan-AI/Wan2.1-T2V-14B",
+    "base_model:finetune:Wan-AI/Wan2.1-T2V-14B",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 8196,
+  "likes": 621
+}

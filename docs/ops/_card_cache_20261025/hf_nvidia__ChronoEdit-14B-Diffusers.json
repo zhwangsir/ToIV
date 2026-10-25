@@ -1,0 +1,20 @@
+{
+  "id": "nvidia/ChronoEdit-14B-Diffusers",
+  "pipeline_tag": "other",
+  "tags": [
+    "diffusers",
+    "safetensors",
+    "image editing",
+    "video generation",
+    "other",
+    "en",
+    "zh",
+    "arxiv:2510.04290",
+    "license:apache-2.0",
+    "diffusers:WanImageToVideoPipeline",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 134,
+  "likes": 173
+}

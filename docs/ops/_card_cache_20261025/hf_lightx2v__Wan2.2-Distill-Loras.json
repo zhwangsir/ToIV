@@ -1,0 +1,22 @@
+{
+  "id": "lightx2v/Wan2.2-Distill-Loras",
+  "pipeline_tag": "image-to-video",
+  "tags": [
+    "diffusers",
+    "diffusion-single-file",
+    "comfyui",
+    "distillation",
+    "LoRA",
+    "video",
+    "video genration",
+    "lora",
+    "image-to-video",
+    "base_model:Wan-AI/Wan2.2-I2V-A14B",
+    "base_model:adapter:Wan-AI/Wan2.2-I2V-A14B",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 96629,
+  "likes": 290
+}

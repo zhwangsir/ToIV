@@ -1,0 +1,17 @@
+{
+  "id": "LiconStudio/LTX-2.3-Multiple-Subject-Reference",
+  "pipeline_tag": null,
+  "tags": [
+    "diffusers",
+    "video-generation",
+    "multi-reference",
+    "LTX-2.3",
+    "base_model:Lightricks/LTX-2.3",
+    "base_model:finetune:Lightricks/LTX-2.3",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 9619,
+  "likes": 263
+}

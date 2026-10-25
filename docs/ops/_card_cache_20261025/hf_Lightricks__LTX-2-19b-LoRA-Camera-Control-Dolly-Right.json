@@ -1,0 +1,19 @@
+{
+  "id": "Lightricks/LTX-2-19b-LoRA-Camera-Control-Dolly-Right",
+  "pipeline_tag": "text-to-video",
+  "tags": [
+    "ltx",
+    "lora",
+    "video",
+    "text-to-video",
+    "camera-motion",
+    "dolly-right",
+    "base_model:Lightricks/LTX-2",
+    "base_model:adapter:Lightricks/LTX-2",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 2017,
+  "likes": 14
+}

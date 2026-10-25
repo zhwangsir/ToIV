@@ -1,0 +1,15 @@
+{
+  "id": "Comfy-Org/Qwen-Image-Edit",
+  "pipeline_tag": null,
+  "tags": [
+    "diffusion-single-file",
+    "comfyui",
+    "base_model:FireRedTeam/FireRed-Image-Edit-1.0",
+    "base_model:finetune:FireRedTeam/FireRed-Image-Edit-1.0",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 1681813,
+  "likes": 511
+}

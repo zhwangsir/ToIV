@@ -1,0 +1,20 @@
+{
+  "id": "joyfox/LTX-2.3-Transition-LORA",
+  "pipeline_tag": "image-to-video",
+  "tags": [
+    "diffusers",
+    "lora",
+    "ValiantCat",
+    "Lightricks",
+    "LTX-2.3",
+    "image-to-video",
+    "en",
+    "base_model:Lightricks/LTX-2.3",
+    "base_model:adapter:Lightricks/LTX-2.3",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 15683,
+  "likes": 166
+}

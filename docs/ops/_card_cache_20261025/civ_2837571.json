@@ -1,0 +1,48 @@
+{
+  "id": 2837571,
+  "name": "Minimax H3 Turbo LoRas",
+  "type": "LORA",
+  "tags": [
+    "base model",
+    "turbo",
+    "h3",
+    "minimax h3"
+  ],
+  "description": "minimax_h3_dmad_full_dareties_v4_step600_comfy experimental merged myself, of the current best loras uploaded. Current best settings: 6-8 steps, er_sde/lcm, simple, Strength 1.0 Video/Audio Shift 12/3 dmad_minimax_h3_4step_full_critic_comfyui uploaded (On par with larryvrhv4 video but better audio quality imo) Current best settings: 6-8 steps, er_sde/euler, simple, Strength 1.0 Video/Audio Shift 12/2 taomate_fl2va_3step_ema uploaded Current best settings: 4-6 steps, er_sde/euler, simple, Strength 0.75 minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16: Current best settings: 8-12 steps, er_sde/res_multistep, simple, Strength 1.0 lightx2v_4step_768p_v1.1+ v1.2: Current best settings: 5-8 steps, er_sde/res_multistep, simple. Strength 1.0 larryvrh_v4_600_ema: Current best settings: 6-8 steps, er_sde/res_multistep, simple. Strength 1.0 All examples are generated with 1.0 strength I did not train, distill, or create the original Turbo LoRA weights. This model page provides only modified compatibility versions intended to let the remaining compatible LoRA adapters load with ComfyUI's built-in LoRA loader when using the pruned/curve-form model. Full credit for the original h3_turbo_4step",
+  "baseModels": [
+    "MiniMax H3"
+  ],
+  "nVersions": 10,
+  "trainedWords": [],
+  "fileNames": [
+    "MiniMax_H3.json",
+    "MiniMax_H3_Lightx2v.json",
+    "dmad_minimax_h3_4step_full_critic_comfyui.safetensors",
+    "minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors",
+    "minimax_h3_dmad_full_dareties_v4_step600_comfy.safetensors",
+    "minimax_h3_dmad_full_dareties_v4_step600_comfy_fro.safetensors",
+    "minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors",
+    "minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy_resized_avg_rank_21_bf16.safetensors",
+    "minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors",
+    "minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16.safetensors",
+    "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+    "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+    "minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
+    "minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors",
+    "minimax_h3_taomate_3step_rank128_comfyui_bf16.safetensors",
+    "minimax_h3_taomate_fl2va_3step_ema_comfyui.safetensors",
+    "minimax_h3_turbo_4step_ckpt500_pruned_comfyui.safetensors",
+    "minimax_h3_turbo_4step_ckpt850_pruned_comfyui.safetensors",
+    "minimax_h3_turbo_4step_comfy_pruned.safetensors",
+    "minimax_h3_turbo_4step_ema_ckpt500_pruned_comfyui.safetensors",
+    "minimax_h3_turbo_4step_ema_ckpt850_pruned_comfyui.safetensors",
+    "minimax_h3_turbo_v4_step600_ema_pruned_comfyui.safetensors",
+    "minimax_h3_turbo_v4_step600_pruned_comfyui.safetensors"
+  ],
+  "recommendedStrength": {
+    "default": 1.0,
+    "min": 0.6,
+    "max": 1.0,
+    "source": "card"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": 2834417,
+  "name": "HMNSFW - AIO Sex LoRA",
+  "type": "LORA",
+  "tags": [
+    "concept",
+    "sex",
+    "penetration",
+    "minimax"
+  ],
+  "description": "Free ComfyUI workflows, Runpod templates, and guides: 👉 hearmemanai.com For more LoRAs and updates, Join my Discord: https://discord.gg/ZVWVhT43GW You can deploy MiniMax on Runpod with my template: 👉 https://get.runpod.io/minimax-template 👉 Deployment tutorial UPDATED RECOMMENDED SETTINGS Sampler - Euler Scheduler - Simple Steps - 12 Shift - 6 Turbo LoRA - Strength 0.5 What this LoRA tries to achieve is realism and flexibility. V2.5 is not perfect, but it's a major step in the right direction. This LoRA was trained on close to 1000 videos with all kinds of acts ranging from penetration, handjobs, blowjobs, fingering, dildo riding, cumshots and it's pretty versatile. I deliberately added some examples that are not perfect to show that this LoRA is not a plug and play solution that always works and I encourage you to experiment with different prompting techniques and LoRA mixing. I am already working on V3 and happy to hear any feedback you might have!",
+  "baseModels": [
+    "MiniMax H3"
+  ],
+  "nVersions": 3,
+  "trainedWords": [
+    "hmmotion"
+  ],
+  "fileNames": [
+    "HMNSFW-AIO-V2.5.safetensors",
+    "HMNSFW_AIO_V2.safetensors",
+    "hmmotion_minimax-h3_epoch12.safetensors"
+  ],
+  "recommendedStrength": {
+    "default": 0.5,
+    "min": 0.3,
+    "max": 1.0,
+    "source": "card"
+  }
+}

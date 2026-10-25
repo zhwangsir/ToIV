@@ -1,0 +1,15 @@
+{
+  "id": "ByteDance/SDXL-Lightning",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "stable-diffusion",
+    "arxiv:2402.13929",
+    "license:openrail++",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 151618,
+  "likes": 2215
+}

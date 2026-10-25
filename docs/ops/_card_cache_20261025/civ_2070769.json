@@ -1,0 +1,22 @@
+{
+  "id": 2070769,
+  "name": "Wan22.I2V.HighNoise.舞动的音符背景",
+  "type": "LORA",
+  "tags": [
+    "style",
+    "wan22musicalnotes"
+  ],
+  "description": "触发词：Wan22musicalnotes ========================================== Model features: Centered around \"sound-light interaction\", it uses visual symbols such as dynamic notes and particle flow to transform abstract music into perceptible rhythm and melody. The color scheme mostly employs high-saturation contrasting colors (such as blue-violet gradient, fluorescent orange), combined with transparent particles or neon light effects to enhance the futuristic technological feel. Commercial applications: Digital media: music apps, short video sound effects stickers, live streaming background; acoustic walls in music halls, KTV booth projections, instrument store theme walls; note stickers, PPT dynamic templates, children's music education animations. Core elements: ① Dynamic symbols: parabolic trajectory of notes, breathing animation of the five-line staff, height mapping of spectral columns to audio amplitude; ② Color system: warm colors (red/yellow) correspond to high notes, cold colors (blue/violet) correspond to low notes, in line with color psychology for pitch mapping; Triger words：Wan22musicalnotes ------------------------------------------ Wan22musicalnotes, Colorful musical notes in ",
+  "baseModels": [
+    "Wan Video 14B i2v 720p",
+    "Wan Video 2.2 I2V-A14B"
+  ],
+  "nVersions": 2,
+  "trainedWords": [
+    "Wan22musicalnotes"
+  ],
+  "fileNames": [
+    "Wan22.I2V.HighNoise.舞动的音符背景musicalnotes.safetensors",
+    "Wan22.I2V.LowNoise.舞动的音符背景musicalnotes.safetensors"
+  ]
+}

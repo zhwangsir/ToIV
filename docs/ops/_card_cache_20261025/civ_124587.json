@@ -1,0 +1,31 @@
+{
+  "id": 124587,
+  "name": "Vaporwave Graphic",
+  "type": "LORA",
+  "tags": [
+    "retro",
+    "computer",
+    "graphic",
+    "style",
+    "90s style",
+    "vaporvawe",
+    "cd"
+  ],
+  "description": "",
+  "baseModels": [
+    "Flux.1 D",
+    "SD 1.5",
+    "SDXL 1.0"
+  ],
+  "nVersions": 4,
+  "trainedWords": [
+    "vaporwave",
+    "vapor_graphic"
+  ],
+  "fileNames": [
+    "Vaporwave_Graphic-e5.safetensors",
+    "vapor_graphic-10.safetensors",
+    "vapor_graphic-V2.safetensors",
+    "vapor_graphic_sdxl.safetensors"
+  ]
+}

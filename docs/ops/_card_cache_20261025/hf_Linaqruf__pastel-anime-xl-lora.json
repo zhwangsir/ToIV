@@ -1,0 +1,21 @@
+{
+  "id": "Linaqruf/pastel-anime-xl-lora",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "stable-diffusion",
+    "lora",
+    "safetensors",
+    "stable-diffusion-xl",
+    "en",
+    "dataset:Linaqruf/sdxl-dataset",
+    "base_model:Linaqruf/animagine-xl",
+    "base_model:adapter:Linaqruf/animagine-xl",
+    "license:openrail++",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 800,
+  "likes": 27
+}

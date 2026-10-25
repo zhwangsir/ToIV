@@ -1,0 +1,38 @@
+{
+  "id": 1486921,
+  "name": "Real Skin Slider",
+  "type": "LORA",
+  "tags": [
+    "photorealistic",
+    "photo",
+    "style",
+    "woman",
+    "detailed",
+    "girls",
+    "photorealism",
+    "realistic",
+    "skin",
+    "enhancer",
+    "real",
+    "real skin",
+    "slider",
+    "add detail",
+    "skin detail",
+    "detail enhancing"
+  ],
+  "description": "Come hang out, test LoRAs 🧪, give feedback 🗣️, see WIPs 🎨, and more. 👉 Join here: https://discord.gg/WeqYRZudhW Real Skin Slider is designed to bring your generations to life with photorealistic skin texture, subtle imperfections, fine details, and soft lighting refinement. It doesn’t change the subject’s structure, just enhances realism — pores, tones, light bounce, and overall visual finish. Perfect for realism models, portraits, and professional photo styles. Whether you’re working with SDXL, Illustrious, or Pony models, this slider is a finishing touch — adding that final polish without altering pose or concept. Try at weights 2–3 for balanced results, or push higher for dramatic skin refinement.",
+  "baseModels": [
+    "Pony"
+  ],
+  "nVersions": 1,
+  "trainedWords": [],
+  "fileNames": [
+    "RealSkin_xxXL_v1.safetensors"
+  ],
+  "recommendedStrength": {
+    "default": 2.4,
+    "min": 2.0,
+    "max": 3.0,
+    "source": "card"
+  }
+}

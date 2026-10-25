@@ -1,0 +1,23 @@
+{
+  "id": "lovis93/next-scene-qwen-image-lora-2509",
+  "pipeline_tag": "image-to-image",
+  "tags": [
+    "diffusers",
+    "lora",
+    "cinematic",
+    "comfyui",
+    "qwen",
+    "image-editing",
+    "next-scene",
+    "ai-video",
+    "image-to-image",
+    "en",
+    "base_model:Qwen/Qwen-Image-Edit-2509",
+    "base_model:adapter:Qwen/Qwen-Image-Edit-2509",
+    "license:mit",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 12719,
+  "likes": 665
+}

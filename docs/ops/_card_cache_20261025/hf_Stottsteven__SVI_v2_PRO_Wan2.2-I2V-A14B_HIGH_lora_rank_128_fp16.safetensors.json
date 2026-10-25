@@ -1,0 +1,17 @@
+{
+  "id": "Stottsteven/SVI_v2_PRO_Wan2.2-I2V-A14B_HIGH_lora_rank_128_fp16.safetensors",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "lora",
+    "template:diffusion-lora",
+    "base_model:wikeeyang/Magic-Wan-T2IV-V3",
+    "base_model:adapter:wikeeyang/Magic-Wan-T2IV-V3",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 570,
+  "likes": 1
+}

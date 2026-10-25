@@ -1,0 +1,18 @@
+{
+  "id": "LyliaEngine/DetailedEyes_V3",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "stable-diffusion",
+    "lora",
+    "template:sd-lora",
+    "base_model:LyliaEngine/Pony_Diffusion_V6_XL",
+    "base_model:adapter:LyliaEngine/Pony_Diffusion_V6_XL",
+    "license:cdla-permissive-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 213,
+  "likes": 4
+}

@@ -1,0 +1,21 @@
+{
+  "id": 1917932,
+  "name": "DL_3D Cartoon Style_Game Icon Design",
+  "type": "LORA",
+  "tags": [
+    "style",
+    "3d cartoon style",
+    "game icon design"
+  ],
+  "description": "3D Cartoon Style LIKE THIS MODEL? GIVE A ❤️ Model Introduction game icon design Base Prompt: 3D cartoon - style game icons The red keywords serve as the base prompt​​, followed by character or scene descriptions, which can be expressed in either tag-based language or natural language. Example prompts used: 3D cartoon - style game icons , featuring magic potion bottles with glowing liquids, vibrant colors, and cute, rounded shapes, for a fantasy mobile game. 3D cartoon - style game icons , design food - themed ones like colorful cupcakes, donuts, and juice boxes, with soft shadows and bright hues. 3D cartoon - style game icons , create tool - like ones, such as hammer, axe, and shovel, in a playful, exaggerated 3D cartoon form. 3D cartoon - style game icons , make treasure - related ones, like chests with sparkles, golden coins, and gem - filled sacks, full of charm. 3D cartoon - style game icons , focus on nature elements—stone piles, tree stumps, crystal rocks, with a whimsical, cartoonish 3D look. 3D cartoon - style game icons , design character - related props, like hats, belts, and badges, in a fun, rounded 3D cartoon style. 3D cartoon - style game icons , craft building - bloc",
+  "baseModels": [
+    "Flux.1 D"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "DL_style"
+  ],
+  "fileNames": [
+    "1751879044.safetensors"
+  ]
+}

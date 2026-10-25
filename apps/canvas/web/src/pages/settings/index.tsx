@@ -1,23 +1,58 @@
-import { App, Button } from "antd";
-import { ArrowLeft, RadioTower } from "lucide-react";
+import { App, Button, Collapse } from "antd";
+import { ArrowLeft, RadioTower, Settings2, Sparkles } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
+import { SegmentedControl } from "@/components/ui/base/segmented-control";
+import { ComputeStatusStrip } from "@/components/toiv/compute-status-strip";
 import { useConfigStore, useEffectiveConfig } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
 import { ChannelSettingsPane, channelValidationError, focusInvalidChannelField, isChannelReady } from "./channel-settings-pane";
-import { ModelDefaultGrid } from "./model-default-grid";
+import DiagnosticsPanel from "./diagnostics-panel";
+import { LlmMutexBanner } from "./llm-mutex-banner";
 import { LocalComputePane } from "./local-compute-pane";
+import { ModelMixPresetsBar } from "./model-mix-presets-bar";
+import { ModelSlotTable } from "./model-slot-table";
+import { PromptPreferencesPane } from "./prompt-preferences-pane";
 import { R18SettingsPane } from "./r18-settings-pane";
+import { RunningHubSettingsPane } from "./runninghub-settings-pane";
+import "./settings-visual.css";
 
-type ConfigSectionKey = "channels" | "models";
+/** Product IA: 常用 / 模型与算力 / 高级. Legacy URL aliases map in resolveSettingsSection. */
+export type ConfigSectionKey = "common" | "compute" | "advanced";
 
 const configSections: Array<{ key: ConfigSectionKey; label: string; description: string; icon: ReactNode }> = [
-    { key: "channels", label: "模型与算力", description: "本地算力、NAS 选模与渠道", icon: <RadioTower className="size-4" /> },
+    { key: "common", label: "常用", description: "自选角色槽、算力与 R18", icon: <Sparkles className="size-4" /> },
+    { key: "compute", label: "模型与算力", description: "库存与 NAS 换权重", icon: <RadioTower className="size-4" /> },
+    { key: "advanced", label: "高级", description: "自定义渠道、云端与诊断", icon: <Settings2 className="size-4" /> },
 ];
 
+const LEGACY_SECTION_MAP: Record<string, ConfigSectionKey> = {
+    channels: "compute",
+    models: "common",
+    runninghub: "advanced",
+    diagnostics: "advanced",
+    prompts: "advanced",
+    preferences: "advanced",
+    storage: "advanced",
+};
+
+export function resolveSettingsSection(value: string | null): ConfigSectionKey {
+    if (!value) return "common";
+    if (value === "common" || value === "compute" || value === "advanced") return value;
+    return LEGACY_SECTION_MAP[value] || "common";
+}
+
 export function isConfigSection(value: string | null): value is ConfigSectionKey {
-    return configSections.some((section) => section.key === value);
+    return value === "common" || value === "compute" || value === "advanced";
+}
+
+function advancedCollapseKeys(requested: string | null): string[] {
+    if (requested === "runninghub") return ["runninghub"];
+    if (requested === "diagnostics") return ["diagnostics"];
+    if (requested === "prompts" || requested === "preferences") return ["prompts"];
+    if (requested === "channels") return ["channels"];
+    return [];
 }
 
 export default function SettingsPage() {
@@ -26,16 +61,16 @@ export default function SettingsPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const requestedSection = searchParams.get("section");
     const customChannelsEnabled = useUserStore((state) => state.features.customChannelsEnabled);
-    const initialSection = isConfigSection(requestedSection) ? requestedSection : "channels";
-    const [activeTab, setActiveTab] = useState<ConfigSectionKey>(initialSection === "models" ? "channels" : initialSection);
-    const config = useConfigStore((state) => state.config);
+    const [activeTab, setActiveTab] = useState<ConfigSectionKey>(() => resolveSettingsSection(requestedSection));
+    const [slotEpoch, setSlotEpoch] = useState(0);
     const effectiveConfig = useEffectiveConfig();
     const updateConfig = useConfigStore((state) => state.updateConfig);
     const shouldPromptContinue = searchParams.get("continue") === "1";
-    const userChannels = config.channels.filter((channel) => channel.scope !== "system");
-    const visibleConfigSections = useMemo(() => customChannelsEnabled ? configSections : configSections.filter((section) => section.key !== "channels"), [customChannelsEnabled]);
+    const userChannels = useConfigStore((state) => state.config.channels).filter((channel) => channel.scope !== "system");
+    const diagnosticTaskId = searchParams.get("taskId") || undefined;
+    const diagnosticProjectId = searchParams.get("projectId") || undefined;
 
-    const isVisibleConfigSection = (value: string | null): value is ConfigSectionKey => isConfigSection(value) && visibleConfigSections.some((section) => section.key === value);
+    const advancedDefaultOpen = useMemo(() => advancedCollapseKeys(requestedSection), [requestedSection]);
 
     useLayoutEffect(() => {
         document.body.classList.add("app-user-overlays");
@@ -43,12 +78,8 @@ export default function SettingsPage() {
     }, []);
 
     useEffect(() => {
-        if (isVisibleConfigSection(requestedSection)) {
-            setActiveTab(requestedSection);
-            return;
-        }
-        setActiveTab((current) => visibleConfigSections.some((section) => section.key === current) ? current : "channels");
-    }, [customChannelsEnabled, requestedSection, visibleConfigSections]);
+        setActiveTab(resolveSettingsSection(requestedSection));
+    }, [requestedSection]);
 
     const selectSection = (section: ConfigSectionKey) => {
         setActiveTab(section);
@@ -60,13 +91,13 @@ export default function SettingsPage() {
     const finishConfig = () => {
         const invalidChannel = customChannelsEnabled ? userChannels.find((channel) => channelValidationError(channel)) : undefined;
         if (invalidChannel) {
-            selectSection("channels");
+            selectSection("advanced");
             message.warning(`${invalidChannel.name || "未命名渠道"}：${channelValidationError(invalidChannel)}`);
             focusInvalidChannelField(invalidChannel);
             return;
         }
         if (!effectiveConfig.channels.some(isChannelReady)) {
-            selectSection("channels");
+            selectSection("compute");
             message.error(customChannelsEnabled ? (shouldPromptContinue ? "请先完成至少一个渠道的 Base URL、API Key 和模型配置" : "当前没有可用渠道，请先完成连接信息和模型配置") : "当前没有可用的系统模型，请联系管理员配置系统渠道");
             return;
         }
@@ -75,31 +106,90 @@ export default function SettingsPage() {
     };
 
     const panes: Record<ConfigSectionKey, ReactNode> = {
-        channels: (
-            <SettingsPane>
-                <LocalComputePane />
-                <ChannelSettingsPane />
-                <R18SettingsPane />
-                <div className="settings-section mt-4">
-                    <div className="settings-pane-header">
-                        <div className="min-w-0">
-                            <h2>模型选择</h2>
-                        </div>
-                    </div>
-                    <ModelDefaultGrid config={effectiveConfig} onChange={(key, model) => updateConfig(key, model)} />
-                </div>
-            </SettingsPane>
-        ),
-        models: (
+        common: (
             <SettingsPane>
                 <div className="settings-pane-header">
                     <div className="min-w-0">
-                        <h2>模型选择</h2>
-                        <p>按领域选择默认模型；模型能力与请求协议在渠道“模型与能力”中配置。</p>
+                        <h2>常用</h2>
+                        <p>逐槽自选底模；出图 / 视频可挂 LoRA。快捷示例可折叠预填，不保证最优。</p>
                     </div>
                 </div>
-                <div className="settings-section">
-                            <ModelDefaultGrid config={effectiveConfig} onChange={(key, model) => updateConfig(key, model)} onOpenChannels={customChannelsEnabled ? () => selectSection("channels") : undefined} />
+                <div className="settings-common-stack">
+                    <section className="settings-section" data-testid="settings-common-compute">
+                        <p className="settings-block-label">算力</p>
+                        <div className="settings-compute-strip-wrap">
+                            <ComputeStatusStrip variant="compact" hideLink />
+                        </div>
+                    </section>
+                    <section className="settings-section">
+                        <p className="settings-block-label">角色槽</p>
+                        <div className="settings-slot-surface">
+                            <ModelSlotTable
+                                key={`slots-${slotEpoch}`}
+                                config={effectiveConfig}
+                                onChange={(key, model) => updateConfig(key, model)}
+                                onOpenChannels={customChannelsEnabled ? () => selectSection("advanced") : () => selectSection("compute")}
+                                onOpenCompute={() => selectSection("compute")}
+                            />
+                        </div>
+                    </section>
+                    <ModelMixPresetsBar onApplied={() => setSlotEpoch((n) => n + 1)} />
+                    <LlmMutexBanner config={effectiveConfig} />
+                    <R18SettingsPane />
+                </div>
+            </SettingsPane>
+        ),
+        compute: (
+            <SettingsPane>
+                <LocalComputePane onBackToCommon={() => selectSection("common")} />
+            </SettingsPane>
+        ),
+        advanced: (
+            <SettingsPane>
+                <div className="settings-pane-header">
+                    <div className="min-w-0">
+                        <h2>高级</h2>
+                        <p>渠道 / 云端 / Prompt / 诊断 — 默认收起。</p>
+                    </div>
+                </div>
+                <div className="settings-advanced-stack">
+                <Collapse
+                    key={`advanced:${advancedDefaultOpen.join(",") || "none"}`}
+                    className="settings-advanced-collapse"
+                    bordered={false}
+                    defaultActiveKey={advancedDefaultOpen}
+                    items={[
+                        {
+                            key: "channels",
+                            label: <span className="text-sm font-semibold">自定义渠道</span>,
+                            children: (
+                                <ChannelSettingsPane
+                                    onOpenModels={() => selectSection("common")}
+                                    onOpenRunningHub={() => {
+                                        const next = new URLSearchParams(searchParams);
+                                        next.set("section", "runninghub");
+                                        setSearchParams(next, { replace: true });
+                                    }}
+                                />
+                            ),
+                        },
+                        {
+                            key: "runninghub",
+                            label: <span className="text-sm font-semibold">云端可选 / RunningHub</span>,
+                            children: <RunningHubSettingsPane />,
+                        },
+                        {
+                            key: "prompts",
+                            label: <span className="text-sm font-semibold">Prompt 偏好</span>,
+                            children: <PromptPreferencesPane />,
+                        },
+                        {
+                            key: "diagnostics",
+                            label: <span className="text-sm font-semibold">诊断</span>,
+                            children: <DiagnosticsPanel taskId={diagnosticTaskId} projectId={diagnosticProjectId} />,
+                        },
+                    ]}
+                />
                 </div>
             </SettingsPane>
         ),
@@ -119,6 +209,20 @@ export default function SettingsPage() {
                 <section className="settings-content flex min-h-0 min-w-0 flex-1 flex-col">
                     <div className="app-workspace-scroll app-section-page-content min-h-0 flex-1 overflow-y-auto overscroll-contain">
                         <div className="settings-pane-root mx-auto w-full max-w-none">
+                            <div className="mb-4 flex flex-wrap items-center justify-between gap-3" data-testid="settings-section-nav">
+                                <SegmentedControl
+                                    ariaLabel="设置分区"
+                                    block
+                                    value={activeTab}
+                                    onChange={(value) => selectSection(value)}
+                                    options={configSections.map((section) => ({
+                                        value: section.key,
+                                        label: section.label,
+                                        title: section.description,
+                                        icon: section.icon,
+                                    }))}
+                                />
+                            </div>
                             {panes[activeTab]}
                         </div>
                     </div>

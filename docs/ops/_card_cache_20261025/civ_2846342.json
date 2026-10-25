@@ -1,0 +1,33 @@
+{
+  "id": 2846342,
+  "name": "HMPussy - Pussy/Anus LoRA for MiniMax H3",
+  "type": "LORA",
+  "tags": [
+    "concept",
+    "vagina",
+    "anus",
+    "minimax"
+  ],
+  "description": "Free ComfyUI workflows, Runpod templates, and guides: 👉 hearmemanai.com For more LoRAs and updates, Join my Discord: https://discord.gg/ZVWVhT43GW You can deploy MiniMax on Runpod with my template: 👉 https://get.runpod.io/minimax-template 👉 Deployment tutorial For Innies version: https://civitai.red/models/2853405/hminnie-innie-pussy-lora-for-minimax-h3?modelVersionId=3222484 V1 : 4x dataset size, contains most pussy and anus types with support for shaved/hairy pussies, smaller file size. V0.5 : Much better anuses, still not 100% there. You don't have to stack the video LoRA with this one if you don't care about motion. V0.1 : Initial version, mostly legible pussies, anuses are very hit or miss. This LoRA is trained on fingering, spreading and just plain pussy/anus show off. Two files, and both are needed. Load them together. Vagina is stills-trained, run at strength 1.0. It restores legible structure in female genital anatomy, which the base model renders soft and vague. hmpussy is video-trained, run at strength 0.35. It holds that structure together through motion. It is meant to sit under the stills file rather than carry a generation alone. Trained on MiniMax H3 fl2va , bf16 ba",
+  "baseModels": [
+    "MiniMax H3"
+  ],
+  "nVersions": 3,
+  "trainedWords": [
+    "pussy",
+    "Vagina",
+    "hmpussy"
+  ],
+  "fileNames": [
+    "Vagina_minimax-h3_epoch20.safetensors",
+    "hmpussy_v6_epoch30.safetensors",
+    "vagassist_e40.safetensors",
+    "vaglokr_e25.safetensors"
+  ],
+  "recommendedStrength": {
+    "default": 1.0,
+    "min": 0.6,
+    "max": 1.0,
+    "source": "card"
+  }
+}

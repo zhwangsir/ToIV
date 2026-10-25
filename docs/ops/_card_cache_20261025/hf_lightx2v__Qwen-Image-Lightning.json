@@ -1,0 +1,21 @@
+{
+  "id": "lightx2v/Qwen-Image-Lightning",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "Qwen-Image",
+    "distillation",
+    "LoRA",
+    "lora",
+    "text-to-image",
+    "en",
+    "zh",
+    "base_model:Qwen/Qwen-Image",
+    "base_model:adapter:Qwen/Qwen-Image",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 210949,
+  "likes": 845
+}

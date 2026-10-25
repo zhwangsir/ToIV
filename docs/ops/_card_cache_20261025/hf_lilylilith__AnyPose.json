@@ -1,0 +1,19 @@
+{
+  "id": "lilylilith/AnyPose",
+  "pipeline_tag": "image-to-image",
+  "tags": [
+    "diffusers",
+    "LoRA",
+    "lora",
+    "Qwen-Image-Edit",
+    "Qwen-Image",
+    "image-to-image",
+    "base_model:Qwen/Qwen-Image-Edit-2511",
+    "base_model:adapter:Qwen/Qwen-Image-Edit-2511",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 75867,
+  "likes": 516
+}

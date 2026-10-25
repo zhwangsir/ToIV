@@ -1,0 +1,19 @@
+basename,evidence_old,evidence_new,upgraded,match,repo,source_url,purpose,notes
+glm53-exl3,C,B,True,huggingface:verified,turboderp/GLM-5.3-Flash-exl3,https://huggingface.co/turboderp/GLM-5.3-Flash-exl3,GLM-5.3-Flash EXL3 社区量化族（基座 zai-org/GLM-5.3）；本地目录名 glm53-exl3 对齐 Flash-exl3 可能性更高,civ+hf verified/fixed URL
+glm53-dflash2-mxfp8,C,C,False,none,,,,civ+hf:no-hit
+qwen3.6-35b-a3b-awq,C,B,True,huggingface:curated,Qwen/Qwen3.6-35B-A3B,https://huggingface.co/Qwen/Qwen3.6-35B-A3B,Qwen3.6-35B-A3B MoE 对话候选（AWQ 本地变体）,civ+hf curated official/family page
+qwen3-vl-8b,C,B,True,huggingface:curated,Qwen/Qwen3-VL-8B-Instruct,https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct,Qwen3-VL-8B VLM 库存（同生产族）,civ+hf curated official/family page
+euryale-70b,D,B,True,huggingface:curated,Sao10K/L3-70B-Euryale-v2.1,https://huggingface.co/Sao10K/L3-70B-Euryale-v2.1,Euryale 70B 角色对话（本地 symlink 断链，上游卡仍在）,civ+hf curated official/family page
+rocinante-12b,D,B,True,huggingface:curated,TheDrummer/Rocinante-12B-v1.1,https://huggingface.co/TheDrummer/Rocinante-12B-v1.1,Rocinante 12B 角色对话（本地断链）,civ+hf curated official/family page
+skyfall-31b,D,B,True,huggingface:verified,TheDrummer/Skyfall-36B-v2,https://huggingface.co/TheDrummer/Skyfall-36B-v2,Skyfall 36B 族（本地标注 31b/断链；上游常见 36B 命名）,civ+hf verified/fixed URL
+qwen38-flash-next-nvfp4,C,B,True,hf:hit,kstoyanov99/qwen38-flash-next-nvfp4,https://huggingface.co/kstoyanov99/qwen38-flash-next-nvfp4,kstoyanov99/qwen38-flash-next-nvfp4,civ+hf nonlora search score=80
+LongCat-Video-ms,C,B,True,huggingface:curated,meituan-longcat/LongCat-Video,https://huggingface.co/meituan-longcat/LongCat-Video,LongCat-Video 视频生成（ModelScope/HF）,civ+hf curated official/family page
+liveact,D,B,True,hf:hit,Soul-AILab/LiveAct,https://huggingface.co/Soul-AILab/LiveAct,Soul-AILab/LiveAct,civ+hf nonlora search score=80
+SoulX-FlashTalk-14B,C,B,True,huggingface:verified,Soul-AILab/SoulX-FlashTalk-14B,https://huggingface.co/Soul-AILab/SoulX-FlashTalk-14B,SoulX-FlashTalk-14B 口型说话视频,civ+hf verified/fixed URL
+ltx25,C,B,True,huggingface:verified,Lightricks/LTX-Video,https://huggingface.co/Lightricks/LTX-Video,LTX Video 族本地树 ltx25（官方 Lightricks；精确 2.5 包名随版本）,civ+hf verified/fixed URL
+Qwen3-TTS-1.7B-Base,C,B,True,huggingface:verified,Qwen/Qwen3-TTS-12Hz-1.7B-Base,https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base,Qwen3-TTS 1.7B Base 候选,civ+hf verified/fixed URL
+musetalk,C,B,True,huggingface:curated,TMElyralab/MuseTalk,https://huggingface.co/TMElyralab/MuseTalk,MuseTalk 口型同步,civ+hf curated official/family page
+FireRedASR,C,B,True,huggingface:curated,FireRedTeam/FireRedASR-AED-L,https://huggingface.co/FireRedTeam/FireRedASR-AED-L,FireRedASR 语音识别,civ+hf curated official/family page
+SenseVoice,C,B,True,huggingface:curated,FunAudioLLM/SenseVoiceSmall,https://huggingface.co/FunAudioLLM/SenseVoiceSmall,SenseVoice 语音理解/ASR,civ+hf curated official/family page
+IndexTTS-2.5,C,B,True,huggingface:curated,IndexTeam/IndexTTS-2,https://huggingface.co/IndexTeam/IndexTTS-2,IndexTTS 配音（生产在跑；HF 卡）,civ+hf curated; present in research as C/D
+demucs-htdemucs,C,B,True,huggingface:verified,facebookresearch/demucs,https://github.com/facebookresearch/demucs,Demucs htdemucs（原 Facebook Research；HF 镜像不稳定时以 GitHub 为准）,civ+hf verified/fixed URL

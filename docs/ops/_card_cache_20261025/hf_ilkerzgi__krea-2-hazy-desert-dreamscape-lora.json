@@ -1,0 +1,22 @@
+{
+  "id": "ilkerzgi/krea-2-hazy-desert-dreamscape-lora",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "lora",
+    "text-to-image",
+    "krea",
+    "krea-2",
+    "fal-ai",
+    "template:diffusion-lora",
+    "illustration",
+    "en",
+    "base_model:krea/Krea-2-Turbo",
+    "base_model:adapter:krea/Krea-2-Turbo",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 17,
+  "likes": 0
+}

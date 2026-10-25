@@ -1,0 +1,24 @@
+{
+  "id": "lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v",
+  "pipeline_tag": "image-to-video",
+  "tags": [
+    "diffusers",
+    "safetensors",
+    "i2v",
+    "video generation",
+    "diffusion-single-file",
+    "comfyui",
+    "distillation",
+    "LoRA",
+    "image-to-video",
+    "en",
+    "zh",
+    "base_model:Wan-AI/Wan2.1-I2V-14B-480P",
+    "base_model:finetune:Wan-AI/Wan2.1-I2V-14B-480P",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 0,
+  "likes": 136
+}

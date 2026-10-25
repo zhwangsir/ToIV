@@ -1,0 +1,26 @@
+{
+  "id": "Alissonerdx/BFS-Best-Face-Swap",
+  "pipeline_tag": "image-to-image",
+  "tags": [
+    "diffusers",
+    "lora",
+    "qwen-image",
+    "qwen-image-2.1",
+    "qwen-image-edit",
+    "face-swap",
+    "head-swap",
+    "body-swap",
+    "image-editing",
+    "comfyui",
+    "bfs",
+    "image-to-image",
+    "en",
+    "base_model:Qwen/Qwen-Image-2.1",
+    "base_model:adapter:Qwen/Qwen-Image-2.1",
+    "license:mit",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 289772,
+  "likes": 1456
+}

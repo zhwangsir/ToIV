@@ -1,0 +1,19 @@
+{
+  "id": "Muapi/ltx2.3-ic-lora-dual-character",
+  "pipeline_tag": "text-to-video",
+  "tags": [
+    "diffusers",
+    "lora",
+    "text-to-video",
+    "ltx",
+    "ltx-video",
+    "ltxv-2.3",
+    "base_model:Lightricks/LTX-Video",
+    "base_model:adapter:Lightricks/LTX-Video",
+    "license:openrail++",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 319,
+  "likes": 0
+}

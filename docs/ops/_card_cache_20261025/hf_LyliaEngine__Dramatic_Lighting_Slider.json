@@ -1,0 +1,17 @@
+{
+  "id": "LyliaEngine/Dramatic_Lighting_Slider",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "lora",
+    "template:diffusion-lora",
+    "base_model:OnomaAIResearch/Illustrious-xl-early-release-v0",
+    "base_model:adapter:OnomaAIResearch/Illustrious-xl-early-release-v0",
+    "license:cdla-permissive-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 1467,
+  "likes": 0
+}

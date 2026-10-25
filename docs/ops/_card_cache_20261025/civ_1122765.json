@@ -1,0 +1,25 @@
+{
+  "id": 1122765,
+  "name": "Hallett | Flux LoRA - City Streets At Night FP16",
+  "type": "LORA",
+  "tags": [
+    "city",
+    "concept",
+    "rain",
+    "photo",
+    "night",
+    "wet",
+    "street",
+    "raining",
+    "toronto"
+  ],
+  "description": "Hallett Night Streets is a highly realistic LoRA designed for creating nighttime cityscapes. It captures glowing café signs, neon reflections on rain-slick streets, and the vibrant energy of urban life. This model excels at producing atmospheric scenes with warm lighting, wet pavements, and diverse modern architecture. Training Details: Trained on 1,327 high-resolution images (1024 pixels and above). Completed 15,000 steps for precise, detailed results at FP16 Focused on nighttime street scenes with reflections, glowing lights, and dynamic textures. Perfect for artists and designers who want to bring modern city streets at night to life with exceptional realism.",
+  "baseModels": [
+    "Flux.1 D"
+  ],
+  "nVersions": 1,
+  "trainedWords": [],
+  "fileNames": [
+    "Hallett_Flux_StreetNight_v1.safetensors"
+  ]
+}

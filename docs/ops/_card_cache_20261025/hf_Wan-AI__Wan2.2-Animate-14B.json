@@ -1,0 +1,18 @@
+{
+  "id": "Wan-AI/Wan2.2-Animate-14B",
+  "pipeline_tag": "video-to-video",
+  "tags": [
+    "diffusers",
+    "onnx",
+    "safetensors",
+    "video-to-video",
+    "arxiv:2503.20314",
+    "base_model:Wan-AI/Wan2.2-I2V-A14B",
+    "base_model:quantized:Wan-AI/Wan2.2-I2V-A14B",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 204390,
+  "likes": 1301
+}

@@ -1,0 +1,21 @@
+{
+  "id": 1882342,
+  "name": "DK_Youthful Campus Style_Campus Portrait Generation",
+  "type": "LORA",
+  "tags": [
+    "style",
+    "youthful campus style",
+    "campus portrait generation"
+  ],
+  "description": "Youthful Campus Style LIKE THIS MODEL? GIVE A ❤️ Model Introduction This LoRA model focuses on youthful campus themes, capable of generating characters in school uniforms, presenting diverse poses and atmospheres in campus scenes with vivid details and a strong youthful vibe. The model has good generalization and can be applied to various creative needs such as campus portraits and youth story scenes. Base Prompt: Same person in school uniform The red keywords serve as the base prompt​​, followed by character or scene descriptions, which can be expressed in either tag-based language or natural language. Example prompts used: Same person in school uniform , capturing playful poses under warm sunlight, with a retro film filter, showing youthful vitality in a campus setting. Same person in school uniform , sitting by the fence, gentle breeze tousling hair, soft natural light creating a serene and nostalgic atmosphere. Same person in school uniform , holding small items, dynamic postures, bright outdoor background, highlighting lively campus daily life. Same person in school uniform , different expressions—from pensive to cheerful, in a sunny outdoor scene, telling a story of emotions.",
+  "baseModels": [
+    "Flux.1 D"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "DK_style"
+  ],
+  "fileNames": [
+    "1751183619.safetensors"
+  ]
+}

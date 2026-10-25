@@ -1,0 +1,17 @@
+{
+  "id": "xalexmoon/hmpussy_v6_epoch30.safetensors",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "lora",
+    "template:diffusion-lora",
+    "base_model:MiniMaxAI/MiniMax-H3",
+    "base_model:adapter:MiniMaxAI/MiniMax-H3",
+    "license:unknown",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 658,
+  "likes": 0
+}

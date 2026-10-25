@@ -82,12 +82,14 @@ export const LOCAL_IMAGE_MODEL = "local-checkpoint";
 export const LOCAL_IMAGE_MODEL_REF = `${LOCAL_IMAGE_CHANNEL_ID}::${LOCAL_IMAGE_MODEL}`;
 
 export const LOCAL_CHAT_CHANNEL_ID = "toiv-llm";
-export const LOCAL_CHAT_CHANNEL_NAME = "本地·Spark对话";
-export const LOCAL_CHAT_ALIAS = "deepseek-v4-flash-dspark";
+export const LOCAL_CHAT_CHANNEL_NAME = "本机 LLM · Mia V4.1";
+/** Friendly product label (no bare port). */
+export const LOCAL_CHAT_PRODUCT_LABEL = "本机 LLM · Mia V4.1";
+export const LOCAL_CHAT_ALIAS = "DeepSeek-V4.1-Flash-1017";
 export const LOCAL_CHAT_MODEL_REF = `${LOCAL_CHAT_CHANNEL_ID}::${LOCAL_CHAT_ALIAS}`;
 /** Direct Spark OpenAI-compat base (LAN). Gate may still rewrite via TOIV_LLM_BASE. */
-export const LOCAL_CHAT_BASE_URL = "http://192.168.71.84:8000/v1";
-export const LOCAL_CHAT_WORKER_LABEL = ":8000";
+export const LOCAL_CHAT_BASE_URL = "http://192.168.71.84:8888/v1";
+export const LOCAL_CHAT_WORKER_LABEL = ":8888";
 
 export const LOCAL_NAS_ROOT_DEFAULT = "toiv/comfyui-models";
 /** @deprecated use LOCAL_IMAGE_WORKER_LABEL */
@@ -112,21 +114,23 @@ export function isLocalToivChannelId(id: string): boolean {
         || id.startsWith("toiv-");
 }
 
+/** Product-facing channel label — no bare ports (ports stay in compute helpers / Admin). */
 export function localChannelProtocolLabel(channel: { id?: string; name?: string; publicAlias?: string; modelProfiles?: Array<{ protocol?: string; defaultOptions?: Record<string, unknown> }> }): string {
     const profiles = channel.modelProfiles || [];
-    const worker = profiles.map((p) => p?.defaultOptions?.toivWorkerLabel).find((v) => typeof v === "string" && v.startsWith(":"));
-    if (profiles.some((p) => p.protocol === "toiv-h3")) return `本地 H3 · ${LOCAL_H3_WORKER_LABEL}`;
-    if (profiles.some((p) => p.protocol === "toiv-comfy-image")) return `本地出图 · ${LOCAL_IMAGE_WORKER_LABEL}`;
+    if (profiles.some((p) => p.protocol === "toiv-h3")) return "本地 H3";
+    if (profiles.some((p) => p.protocol === "toiv-comfy-image")) return "本地出图";
     if (profiles.some((p) => p.protocol === "toiv-comfy-video")) {
         const animate = profiles.some((p) => p?.defaultOptions?.toivWorkerLabel === LOCAL_VIDEO_ANIMATE_WORKER_LABEL);
-        return animate
-            ? `本地出视频 · ${LOCAL_VIDEO_WORKER_LABEL}/${LOCAL_VIDEO_ANIMATE_WORKER_LABEL}`
-            : `本地出视频 · ${LOCAL_VIDEO_WORKER_LABEL}`;
+        return animate ? "本地出视频 · Animate" : "本地出视频";
     }
-    if (channel.id === LOCAL_CHAT_CHANNEL_ID || String(channel.name || "").includes("Spark")) {
-        return `本地 Spark · ${LOCAL_CHAT_WORKER_LABEL}`;
+    if (
+        channel.id === LOCAL_CHAT_CHANNEL_ID
+        || String(channel.name || "").includes("Spark")
+        || String(channel.name || "").includes("Mia")
+        || String(channel.name || "").includes("本机 LLM")
+    ) {
+        return LOCAL_CHAT_PRODUCT_LABEL;
     }
-    if (typeof worker === "string") return `本地 · ${worker}`;
     return "本地渠道";
 }
 

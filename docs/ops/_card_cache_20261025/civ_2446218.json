@@ -1,0 +1,39 @@
+{
+  "id": 2446218,
+  "name": "H3/LTX2 Riding pov (I2V)",
+  "type": "LORA",
+  "tags": [
+    "action",
+    "riding"
+  ],
+  "description": "H3 1.0 - i2v without audio , Front/back view , female/futa etc Trained with H3 prompt template, check the example video Use h3_ride_template.txt with ref image and nsfw LLM to format prompt to match the training text Set to 0.5-1.0 , feels less jittery at 0.6 and has more motion if prompted for it eros 1.0 - i2v without audio. It already works fine this just makes it compatible and fluid with 10eros 1.0 - i2v with audio. Attempt to add audio , might be over trained set to 0.8 0.9 - i2v no audio. i2v trained on mix of ai mostly for bouncy look , ty to Allardice Set 0.5-0.8 strength with keywords or with descriptive prompt for smoother results. 1.0 will also work but has repetitive AI look to it , could be better with other loras. Start with Riding backshot animation. / Riding frontshot animation. + text.",
+  "baseModels": [
+    "LTXV 2.3",
+    "MiniMax H3"
+  ],
+  "nVersions": 4,
+  "trainedWords": [
+    "Riding backshot animation",
+    "Riding frontshot animation",
+    "moaning and wet slapping sounds",
+    "heavy breathing",
+    "relief",
+    "clapping sounds",
+    "Riding backshot animation.",
+    "Riding frontshot animation."
+  ],
+  "fileNames": [
+    "h3_ride_template.txt",
+    "nsfw_riding_backshot_frontshot_ltx23_v0.9.safetensors",
+    "nsfw_riding_backshot_frontshot_ltx23_v1.0.safetensors",
+    "riding_fbs_animation_10Eros_i2v_v1.0.safetensors",
+    "riding_pose_H3_i2v_v1.0.safetensors",
+    "wf.zip"
+  ],
+  "recommendedStrength": {
+    "default": 0.7,
+    "min": 0.5,
+    "max": 1.0,
+    "source": "card"
+  }
+}

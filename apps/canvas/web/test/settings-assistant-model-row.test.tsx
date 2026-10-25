@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { ModelDefaultGrid } from "@/pages/settings/model-default-grid";
+import { ModelSlotTable } from "@/pages/settings/model-slot-table";
 import { createModelChannel, defaultConfig, normalizeConfigSnapshot, type AiConfig } from "@/stores/use-config-store";
 
 function configWithTextChannel(overrides: Partial<AiConfig> = {}): AiConfig {
@@ -19,40 +19,44 @@ function configWithTextChannel(overrides: Partial<AiConfig> = {}): AiConfig {
     return normalizeConfigSnapshot({ config: { ...defaultConfig, channels, textModel: "a::chat-1", ...overrides } }).config;
 }
 
-/** 取出助手一行内各个选项的选中态，顺序即渲染顺序。 */
-function assistantChecked(config: AiConfig) {
-    const markup = renderToStaticMarkup(<ModelDefaultGrid config={config} onChange={() => {}} />);
-    const start = markup.indexOf('id="default-assistant-title"');
-    const end = markup.indexOf('id="default-audio-title"');
+/** 助手 Select 区块（到 VLM 标题前）里的选中 option value。 */
+function assistantSelectedValue(config: AiConfig): string | null {
+    const markup = renderToStaticMarkup(<ModelSlotTable config={config} onChange={() => {}} />);
+    const start = markup.indexOf('id="slot-assistant-title"');
+    const end = markup.indexOf('id="slot-vlm-title"');
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
-    return [...markup.slice(start, end).matchAll(/aria-checked="(true|false)"/g)].map((match) => match[1] === "true");
+    const slice = markup.slice(start, end);
+    const hit = slice.match(/<option value="([^"]*)" selected=""/);
+    return hit?.[1] ?? null;
 }
 
-describe("模型配置页的助手模型一行", () => {
-    test("排在默认文本模型之后、默认音频模型之前", () => {
-        const markup = renderToStaticMarkup(<ModelDefaultGrid config={configWithTextChannel()} onChange={() => {}} />);
-        const textIndex = markup.indexOf("默认文本模型");
-        const assistantIndex = markup.indexOf("助手模型");
-        const audioIndex = markup.indexOf("默认音频模型");
+describe("设置页角色槽 · 助手一行", () => {
+    test("排在对话/剧本之后、识图 VLM 之前", () => {
+        const markup = renderToStaticMarkup(<ModelSlotTable config={configWithTextChannel()} onChange={() => {}} />);
+        const textIndex = markup.indexOf("对话 / 剧本");
+        const assistantIndex = markup.indexOf(">助手<");
+        const vlmIndex = markup.indexOf("识图 VLM");
         expect(textIndex).toBeGreaterThan(-1);
         expect(assistantIndex).toBeGreaterThan(textIndex);
-        expect(audioIndex).toBeGreaterThan(assistantIndex);
+        expect(vlmIndex).toBeGreaterThan(assistantIndex);
     });
 
-    test("默认选中跟随默认文本模型，并说明助手会做什么", () => {
-        const markup = renderToStaticMarkup(<ModelDefaultGrid config={configWithTextChannel()} onChange={() => {}} />);
-        expect(markup).toContain("跟随默认文本模型");
-        expect(markup).toContain("画布助手用这个模型理解你的要求并修改画布。");
+    test("默认选中跟随对话，并说明助手会做什么", () => {
+        const markup = renderToStaticMarkup(<ModelSlotTable config={configWithTextChannel()} onChange={() => {}} />);
+        expect(markup).toContain("跟随对话 / 剧本");
+        expect(markup).toContain("画布助手；可跟随对话槽或单独指定。");
         expect(markup).toContain("chat-1");
         expect(markup).toContain("chat-2");
     });
 
     test("选中态跟着 assistantModel 走：为空选中跟随项，有值选中对应模型", () => {
-        // 助手一行的三个选项顺序固定为：跟随默认文本模型、chat-1、chat-2。
-        expect(assistantChecked(configWithTextChannel())).toEqual([true, false, false]);
-        expect(assistantChecked(configWithTextChannel({ assistantModel: "a::chat-2" }))).toEqual([false, false, true]);
-        // 失效的显式选择不能悄悄改用默认模型。
-        expect(assistantChecked(configWithTextChannel({ assistantModel: "gone::chat-1" }))).toEqual([false, false, false]);
+        expect(assistantSelectedValue(configWithTextChannel())).toBe("__follow__");
+        expect(assistantSelectedValue(configWithTextChannel({ assistantModel: "a::chat-2" }))).toBe("a::chat-2");
+        // 已选不可用时仍显示原值（Select value），并有提示文案
+        const gone = renderToStaticMarkup(
+            <ModelSlotTable config={configWithTextChannel({ assistantModel: "gone::chat-1" })} onChange={() => {}} />,
+        );
+        expect(gone).toContain("已选模型不可用");
     });
 });

@@ -1,0 +1,20 @@
+{
+  "id": 1288970,
+  "name": "Pixel art style LoRa | Illustrious",
+  "type": "LORA",
+  "tags": [
+    "pixel art",
+    "style"
+  ],
+  "description": "🎨 LoRa | Pixel art style 🎨 Support the artist if you enjoy the results. You can easily compare all my styles LoRa here : Oktaze's styles models This LoRa was trained on a large dataset to ensure the artist’s style remains consistent and true to its essence.",
+  "baseModels": [
+    "Illustrious"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "pixel art"
+  ],
+  "fileNames": [
+    "pixelart.safetensors"
+  ]
+}

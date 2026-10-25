@@ -1,0 +1,32 @@
+{
+  "id": 2344781,
+  "name": "H3 - LTX 2.3 - LTX2 better NSFW motion",
+  "type": "LORA",
+  "tags": [
+    "concept",
+    "breasts",
+    "nsfw",
+    "lora",
+    "h3",
+    "minimax",
+    "ltx2",
+    "ltx 2.3",
+    "ref2va"
+  ],
+  "description": "You can make money with my models. Sell what you generate, use it in paid work, run it on paid services, merge it, sell the merge all of it, no permission needed. Credit is appreciated but never required. New releases might have a short early access window behind Buzz, then go free and free is permanent. Once a model is free, I will never re-paywall it or pull it for a paid platform, and you're welcome to mirror, archive, and rehost it so it stays free no matter what happens to any one site. Feel free to mirror any of my loras to HuggingFace H3 version: trained for Ref2Va I can highly recommend this lora https://huggingface.co/MATLOWAI/MiniMax-H3-Motion-Adapter/tree/main It makes minimax gens much smoother. I use the ref2va basic workflow from this node pack https://github.com/ethanfel/ComfyUI-MiniMaxH3-Contex-Loop and it works fantastically. Video generated using the [MMH3] Mystic XXX lora with a strength of 0.8, the Better NSFW motion lora at a strength of 0.9, turbo lora at a strength of 1 and motion adapter lora at a strength of 1. This was trained on 3D animation so careful if your using this on ref2va for 2d animations it might turn the character to 3D. It was trained for 3D ",
+  "baseModels": [
+    "LTXV",
+    "LTXV 2.3",
+    "MiniMax H3"
+  ],
+  "nVersions": 4,
+  "trainedWords": [
+    "g@n"
+  ],
+  "fileNames": [
+    "LTX-2 better NSFW motion g@n.safetensors",
+    "LTX2.3-NSFWMOTION_00750.safetensors",
+    "Sulphur_LTX 2.3_better _NSFW_motion.safetensors",
+    "h3_Better_NSFW_Motion_V1.safetensors"
+  ]
+}

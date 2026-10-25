@@ -1,0 +1,19 @@
+{
+  "id": "Lightricks/LTX-2.3-22b-IC-LoRA-Motion-Track-Control",
+  "pipeline_tag": "any-to-any",
+  "tags": [
+    "ltx-video",
+    "image-to-video",
+    "any-to-any",
+    "en",
+    "arxiv:2603.24793",
+    "arxiv:2601.03233",
+    "base_model:Lightricks/LTX-2.3",
+    "base_model:finetune:Lightricks/LTX-2.3",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 0,
+  "likes": 73
+}

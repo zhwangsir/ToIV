@@ -86,7 +86,7 @@ describe("studio-market-gap-p1 audio unavailable", () => {
 describe("studio-market-gap-p1 page contracts (source)", () => {
     const market = readFileSync(join(import.meta.dir, "../src/pages/toiv/market-page.tsx"), "utf8");
     const tasks = readFileSync(join(import.meta.dir, "../src/pages/toiv/tasks-page.tsx"), "utf8");
-    const grid = readFileSync(join(import.meta.dir, "../src/pages/settings/model-default-grid.tsx"), "utf8");
+    const grid = readFileSync(join(import.meta.dir, "../src/pages/settings/model-slot-table.tsx"), "utf8");
     const compute = readFileSync(join(import.meta.dir, "../src/pages/settings/local-compute-pane.tsx"), "utf8");
     const client = readFileSync(join(import.meta.dir, "../src/services/toiv/client.ts"), "utf8");
 

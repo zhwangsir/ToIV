@@ -1,0 +1,19 @@
+{
+  "id": "Muapi/bright-colorful-photos-flux-dev",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "lora",
+    "text-to-image",
+    "stable-diffusion",
+    "flux",
+    "flux.1-d",
+    "base_model:black-forest-labs/FLUX.1-dev",
+    "base_model:adapter:black-forest-labs/FLUX.1-dev",
+    "license:openrail++",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 4,
+  "likes": 0
+}

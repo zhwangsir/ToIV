@@ -1,0 +1,22 @@
+{
+  "id": 1932878,
+  "name": "Samurai Jack - The Guardian",
+  "type": "LORA",
+  "tags": [
+    "character",
+    "samurai jack",
+    "genndy tartakovsky",
+    "the guardian"
+  ],
+  "description": "The Guardian from the Samurai Jack series episode The traveling creatures",
+  "baseModels": [
+    "Illustrious"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "gu6rd16n,"
+  ],
+  "fileNames": [
+    "Samurai_Jack_-_The_Guardian.safetensors"
+  ]
+}

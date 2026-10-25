@@ -1,0 +1,20 @@
+{
+  "id": "Lightricks/LTX-2-19b-LoRA-Camera-Control-Jib-Up",
+  "pipeline_tag": "text-to-video",
+  "tags": [
+    "ltx",
+    "lora",
+    "video",
+    "text-to-video",
+    "image-to-video",
+    "camera-motion",
+    "jib-down",
+    "base_model:Lightricks/LTX-2",
+    "base_model:adapter:Lightricks/LTX-2",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 4459,
+  "likes": 15
+}

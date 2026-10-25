@@ -1,0 +1,17 @@
+{
+  "id": 2313311,
+  "name": "Wan2.2-14B-I2V-GoldenRain_low noise_v1.0",
+  "type": "LORA",
+  "tags": [
+    "style"
+  ],
+  "description": "The effect will be better when the high and low models are used together.This model will produce a rain of gold and piles of gold mountains. You can click on the link below and try it out directly. If the effect is good, you can deploy it locally https://www.runninghub.ai/post/2003814653497122818/?inviteCode=rh-v1401 Youtube Introduction： https://youtu.be/2EZHUDmew0I Runninghub Fan Benefit: Click on the avatar in the upper right corner - invitation code - Enter the invitation code to get 1000RH coins. Log in every day and get 100 coins Invitation Code: rh-v1401",
+  "baseModels": [
+    "Wan Video 14B i2v 720p"
+  ],
+  "nVersions": 1,
+  "trainedWords": [],
+  "fileNames": [
+    "GoldenRain--low noise.safetensors"
+  ]
+}

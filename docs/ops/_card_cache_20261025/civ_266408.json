@@ -1,0 +1,32 @@
+{
+  "id": 266408,
+  "name": "Elie MacDowell/エリィ・マクダエル (Ao no Kiseki/Trails to Azure) SDXL LoRA [Animagine XL]",
+  "type": "LORA",
+  "tags": [
+    "anime",
+    "character",
+    "female",
+    "falcom",
+    "woman",
+    "game character",
+    "video game",
+    "ao no kiseki"
+  ],
+  "description": "I have a form for requests; check it out if you want to request a character. Elie MacDowell from the Kiseki/Trails series. Trained on Animagine XL V3.0 . Tested at 0.8-1.0 strength. Trigger word is \" elie macdowell \". Add \" black hairband, hair ribbon, long hair, ascot, uniform, long red sleeves, white dress, pencil skirt, belt, pantyhose, white boots \" for her typical look. \" Green eyes \" aids with consistency. Another Animagine XL training, so it'll work better on models containing Animagine XL. Check out my Discord if you want to chat about video games (or yell at me about requests.)",
+  "baseModels": [
+    "SDXL 1.0"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "elie macdowell, green eyes"
+  ],
+  "fileNames": [
+    "elie-xl-nvwls-v1.safetensors"
+  ],
+  "recommendedStrength": {
+    "default": 0.9,
+    "min": 0.8,
+    "max": 1.0,
+    "source": "card"
+  }
+}

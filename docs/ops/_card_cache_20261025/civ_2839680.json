@@ -1,0 +1,27 @@
+{
+  "id": 2839680,
+  "name": "H3 Footjobs",
+  "type": "LORA",
+  "tags": [
+    "concept"
+  ],
+  "description": "Works with FL2VA, REF2VA, or hybrids. (Trained on FL2VA) 👆 Multiple Footjob Varieties Available! 👣 ┌─────────┬────────────┬────────────────────────────────────────────────────────────────────────┐ │ Version │ Strength │ Description │ ├─────────┼────────────┼────────────────────────────────────────────────────────────────────────┤ │ Type A │ 1.0 │ Simple footjob, toes gripping shaft on both sides │ │ Type B │ 0.4~0.7 │ Toes grip on both sides, more 'head' action │ │ Type C │ 0.6~0.8 │ One foot stationary, one foot moving │ │ Type D │ 0.8~1.0 │ Cock between toes on both feet, both feet moving │ │ Type E │ 0.6~0.8 │ \"Regular\"/\"Beginner\" footjob. Feet flat, rubbing cock with the arches │ │ Type F │ 0.6~1.0 │ Simple solejob. │ │ Type G │ 0.6~0.8 │ Solejob with intertwined toes │ └─────────┴────────────┴────────────────────────────────────────────────────────────────────────┘ Technobullshit: Type C notes... Learning more and more about H3 training but still not totally nailed down. I am still struggling with the tendency for it to zoom in on the feet or make the penis extra huge. I assume this is because the training data contains a lot of close-ups which it is trying to reproduce. In an",
+  "baseModels": [
+    "MiniMax H3"
+  ],
+  "nVersions": 7,
+  "trainedWords": [
+    "fj.",
+    "The woman points her feet downward.",
+    "h3fj."
+  ],
+  "fileNames": [
+    "H3_Footjob_TypeB_v1.safetensors",
+    "H3_Footjob_TypeC_v1.safetensors",
+    "H3_Footjob_TypeD_v1.safetensors",
+    "H3_Footjob_TypeE_v1.safetensors",
+    "H3_Footjob_TypeF_v1.safetensors",
+    "H3_Footjob_TypeG_v1.safetensors",
+    "H3_footjob_v0_step1000_fixed.safetensors"
+  ]
+}

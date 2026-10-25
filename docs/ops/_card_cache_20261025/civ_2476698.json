@@ -1,0 +1,24 @@
+{
+  "id": 2476698,
+  "name": "Daring's Deepthroat H3/LTX2.3",
+  "type": "LORA",
+  "tags": [
+    "oral",
+    "action"
+  ],
+  "description": "LTX2.3/MiniMax Free Generation! I turned off generation charging. I didn't know it was on must have been a autojoin thing. I may start doing early release just to help cover some small costs but not per generation. Deepthroat What's new Rank 16.... 1/4 the size of the original Dataset prompt rewrite, a full rewrite of prompts for Visual and Audio Audio. Its still fucking AI audio its hit and miss is vastly better now. Images. Better quality dataset. Eye contact. maintain eye contact now works as a prompt phrase and holds through the shot mostly depends on the angle. Better side profile. More training data around it. Length. Drives a full 15 seconds , where earlier versions lost the action around 8. Multiple people. MMF and FFM interactions are supported, you will need to figure out the prompting. Entering the Frame. Better supported. More thrusting , with more variation in pace and some actual in and out with needing extra loras. Better prompt adherence overall — and it's the reason the usable strength window is as wide as it is. Sample generations Everything shown in gallery was generated at 0.4 MP with no post-processing — no upscaling, no interpolation, no audio cleanup. Workflo",
+  "baseModels": [
+    "LTXV 2.3",
+    "MiniMax H3"
+  ],
+  "nVersions": 3,
+  "trainedWords": [
+    "LTXdeepthroat"
+  ],
+  "fileNames": [
+    "deepthroat_v02.safetensors",
+    "deepthroat_v1.safetensors",
+    "deepthroat_video_ltx2_3_t2v.zip",
+    "ltxdeepthroat_v01.safetensors"
+  ]
+}

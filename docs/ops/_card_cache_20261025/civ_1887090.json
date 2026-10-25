@@ -1,0 +1,21 @@
+{
+  "id": 1887090,
+  "name": "A_Integration Of Chinese Cultural Styles_Animation Character Creation",
+  "type": "LORA",
+  "tags": [
+    "style",
+    "integration of chinese cultural styles",
+    "animation character creation"
+  ],
+  "description": "Integration Of Chinese Cultural Styles LIKE THIS MODEL? GIVE A ❤️ Model Introduction This LoRA model incorporates Chinese traditional cultural elements, excels at creating animated characters with Chinese style charm, and presents classical visuals such as fantasy cloud patterns. It can assist in animation character design and traditional culture-themed creation, infusing Chinese aesthetics into related artistic creations. Base Prompt: Chinese traditional cultural elements The red keywords serve as the base prompt​​, followed by character or scene descriptions, which can be expressed in either tag-based language or natural language. Example prompts used: Chinese traditional cultural elements Chinese traditional cultural elements, such as bronze patterns and classical hairstyles, blend into animated character designs with cloud - like decorations. Chinese traditional cultural elements Chinese traditional cultural elements, including ancient hairstyles and totem - like tattoos, shape figures in a fantasy - cloud background. Chinese traditional cultural elements Chinese traditional cultural elements, like bronze inscriptions and classical headwear, adorn figures with flowing cloud pat",
+  "baseModels": [
+    "Flux.1 D"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "A_style"
+  ],
+  "fileNames": [
+    "1748159064.safetensors"
+  ]
+}

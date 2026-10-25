@@ -1,0 +1,16 @@
+{
+  "id": "KZZrin/kook_zturbo",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "lora",
+    "template:diffusion-lora",
+    "base_model:Tongyi-MAI/Z-Image-Turbo",
+    "base_model:adapter:Tongyi-MAI/Z-Image-Turbo",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 307,
+  "likes": 4
+}

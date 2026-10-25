@@ -1,0 +1,20 @@
+{
+  "id": "WarmBloodAban/Anything_to_Real_Characters_2511",
+  "pipeline_tag": "image-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "lora",
+    "template:diffusion-lora",
+    "toReal",
+    "Qwen-image-Edit-2511",
+    "image-to-image",
+    "base_model:Qwen/Qwen-Image-Edit-2511",
+    "base_model:adapter:Qwen/Qwen-Image-Edit-2511",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 868,
+  "likes": 44
+}

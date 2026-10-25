@@ -1,0 +1,20 @@
+{
+  "id": "RiverZ/normal-lora",
+  "pipeline_tag": "image-to-image",
+  "tags": [
+    "diffusers",
+    "art",
+    "image-to-image",
+    "en",
+    "dataset:osunlp/MagicBrush",
+    "dataset:TIGER-Lab/OmniEdit-Filtered-1.2M",
+    "arxiv:2504.20690",
+    "base_model:black-forest-labs/FLUX.1-Fill-dev",
+    "base_model:finetune:black-forest-labs/FLUX.1-Fill-dev",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 316,
+  "likes": 57
+}

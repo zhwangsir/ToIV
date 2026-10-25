@@ -1,0 +1,17 @@
+{
+  "id": "WarmBloodAban/Flux2_Klein_Anything_to_Real_Characters",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "text-to-image",
+    "lora",
+    "template:diffusion-lora",
+    "base_model:black-forest-labs/FLUX.2-klein-9B",
+    "base_model:adapter:black-forest-labs/FLUX.2-klein-9B",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 1959,
+  "likes": 45
+}

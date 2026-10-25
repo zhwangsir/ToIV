@@ -1,0 +1,19 @@
+{
+  "id": "larryvrh/MiniMax-H3-Turbo-Lora",
+  "pipeline_tag": "text-to-video",
+  "tags": [
+    "minimax-h3",
+    "text-to-video",
+    "text-to-audio",
+    "audio-video",
+    "lora",
+    "comfyui",
+    "base_model:Comfy-Org/MiniMax-H3",
+    "base_model:adapter:Comfy-Org/MiniMax-H3",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 194391,
+  "likes": 1166
+}

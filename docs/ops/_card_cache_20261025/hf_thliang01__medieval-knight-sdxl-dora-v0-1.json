@@ -1,0 +1,20 @@
+{
+  "id": "thliang01/medieval-knight-sdxl-dora-v0-1",
+  "pipeline_tag": "text-to-image",
+  "tags": [
+    "diffusers",
+    "stable-diffusion-xl",
+    "stable-diffusion-xl-diffusers",
+    "diffusers-training",
+    "text-to-image",
+    "dora",
+    "template:sd-lora",
+    "base_model:stabilityai/stable-diffusion-xl-base-1.0",
+    "base_model:finetune:stabilityai/stable-diffusion-xl-base-1.0",
+    "license:openrail++",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 36,
+  "likes": 0
+}

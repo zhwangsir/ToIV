@@ -1,6 +1,97 @@
+## 2026-10-26 Asia/Shanghai · 出图 loras 真接线 + 图谱 P2
+
+- **出图接线**
+  - `engine_registry`：`txt2img` / `img2img` / `nsfw-txt2img` / `nsfw-img2img` 增加 `type=loras`（options 空）
+  - `app_deep_knobs`：`supports_market_loras` 覆盖 `txt2img-basic` / `img2img-basic` / 上列引擎 id；`apply_image_loras`（Checkpoint + nextgen）
+  - 前端 `marketAppSupportsLoras` 同上；**`qwen-image-edit` 仍 false**
+  - 缺口文档改为「已接线出图；edit 未接」
+- **图谱 P2**
+  - phase=`P2`；节点 679 / 边 **2098 → 2142**
+  - `conflicts_with` scope=file **22**（保留 role **14**）；`substitutes` **22**
+  - compatible_with A=21（catalog；无伪造实测）；phaseNotes 写明无 LoRA 雨夜实测回写
+  - UI：LoRA 卡短互斥提示；`queryCompat` 暴露 conflicts/substitutes
+- **验证**
+  - `cd apps/canvas/web && bun test test/model-compat.test.ts test/slot-lora.test.ts test/toiv-market-advanced-params.test.ts` → **35 pass**
+  - `cd apps/api && uv run pytest tests/test_app_deep_knobs.py tests/test_engine_registry.py::test_image_loras_param_schema -q` → **14 pass**
+- **commit**：本地 1–2 个 feat commit；**未 push / 未部署**；未动 Acc/安全/Remix/隔离目录
+
+## 2026-10-26 Asia/Shanghai · 接棒 P1.5b 推荐强度 + 设置视觉二轮
+
+- **图谱**：`recommended_strength` **22 → 351**（全量 LoRA）
+  - 来源：catalog=21 · card(卡页描述)=17 · model_sources=1 · heuristic=312
+  - `strength_range.source` 区分；phase=`P1.5b`
+  - 节点 679 / 边 **1769 → 2098**；trigger 边仍 153
+  - 卡页缓存写入 `recommendedStrength` 15 张（解析自 description；**无 token 入库**）
+- **UI**：LoRA 弹层强度 pill 接图谱默认；heuristic 标「·推断」
+- **设置视觉二轮**：模型与算力短文案 + 绑定卡片网格；高级 Collapse 卡片化（`SETTINGS_VISUAL_PASS2_20261026.md`）
+- **出图 loras 缺口**：出图/Qwen schema 仍无 `loras`；有字段的是 h3/ltx/wan-nsfw；不硬注入（`MARKET_LORAS_SCHEMA_GAP_20261026.md`）
+- **验证**：`bun test test/model-compat.test.ts test/slot-lora.test.ts` → **18 pass**
+- **预览**：http://127.0.0.1:3001/settings?section=common|compute|advanced
+- **未 commit / 未 push / 未部署**
+
+## 设置视觉 + 图谱 P1.5 · 2026-10-26 00:45 Asia/Shanghai
+
+- **A 视觉**：`docs/ux/SETTINGS_VISUAL_PASS_20261026.md`；常用区槽位主表面、去长文案、LoRA 弹层分层、快捷/R18/互斥降噪
+- **B 图谱**：Civitai API（Bearer，仅本机 token 文件；**未**写入任何 json/md）补 57 卡页 → `docs/ops/_card_cache_20261025/civ_*.json` + `civ_full_cache/`
+  - `requires_trigger`：**17 → 153**（有 trigger 的 LoRA **8 → 52**/351）
+  - `recommended_strength`：仍 **22**（卡页少 weight；catalog 为主）
+  - Qwen-image A/B：仍 **54**；节点 **679** / 边 **1769**；phase=`P1.5`
+  - P1b 轻量：BaseModel **3 → 40**（MODEL_SOURCES 族可解析 checkpoint；**未**做完整 NAS 扫描）
+- **出图 loras 注入**：市场 schema 仍仅 h3-/ltx* 带 `loras`；出图/Qwen **缺口未硬撑**（校验可跑、不假装注入）
+- **测试**：`bun test test/model-compat.test.ts test/slot-lora.test.ts` → **18 pass**
+- **预览**：http://127.0.0.1:3001/settings
+- **未做**：永久删隔离、commit/push、排行榜大下载（保鲜员并行）、P2 可视化
+- **未 commit / 未 push / 未部署**
+
+## 知识图谱 P1 · 2026-10-25 23:45 Asia/Shanghai
+
+- **范围**：trigger+推荐强度进图谱/卡片；钉选生成前兼容校验；配方引用图谱边；Qwen-image A/B 补强
+- **图谱**：`build-model-compat-graph.py` 再生 → `model-compat-graph.json`（phase=P1）
+  - Qwen-image **A/B：3 → 54**（HF/包名/cluster=`qwen_img` 升 B；未伪造 A；无证据仍 C）
+  - `requires_trigger`：**12 → 17**（catalog + MODEL_SOURCES 可解析 trainedWords；civ API 403 未深爬）
+  - `recommended_strength`：**21 → 22**（catalog 为主 + 1 条 strength tip）
+- **前端**：`model-compat.assertLoraCompatible`；`slot-lora.resolvePinnedLorasForGenerate`；设置卡展示 trigger/推荐强度；市场 `onRun` 注入前校验（不兼容阻断；schema 无 loras 不假装注入）；配方 `applyPresetLoraPins` 写图谱边
+- **测试**：`bun test test/model-compat.test.ts test/slot-lora.test.ts` → **18 pass**
+- **预览**：http://127.0.0.1:3001/settings → 常用 → 管理 LoRA（MateBook）
+- **未做**：P1b NAS 基座全量；P2 可视化；civ 全量 trainedWords（403）；永久删隔离
+- **未 commit / 未 push / 未部署**
+
+## 项目管家入账 · 2026-10-25 23:35 Asia/Shanghai
+
+- **口径**：设置+库存+图谱 P0 **工作区已落地、未入库**；下一优先 **P1**（见 `STATE.json` → `settings_kg_p0_workspace_2026_10_25`）
+- **分支**：`work/p0-fusion-20261016` tip 已 commit 仍为 `e641dda4`；大量未 commit/未 push（勿擅自 commit/push/部署生产；Acc/安全 Dly 仍冻结）
+- **指针**：换机续作 `docs/ops/HANDOFF_PROMPT_SETTINGS_KG_20261025.md`；方案/账本 `docs/ux/MODEL_COMPAT_KNOWLEDGE_GRAPH_PLAN_20261025.md` · `docs/ux/SETTINGS_REDESIGN_PLAN_20261025.md` · `docs/ops/PURPOSE_UNKNOWN_QUARANTINE_20261025.md` · `docs/ops/MODEL_SOURCE_PURPOSE_RESEARCH_20261025.md` · `docs/ops/MODEL_COMPAT_GRAPH_20261025.md`
+- **现网 LLM**：生产 Mia `:8888`（`DeepSeek-V4.1-Flash-1017`）；回滚 bak `.bak.mia-8888-20261025`
+- **待用户口令**：隔离是否永久删；本批是否 commit
+- **管家动作**：仅五件套入账；**未**写业务代码；**未** commit/push
+
 ## DOC_TRUTH_SWEEP · 2026-10-23 19:30 Asia/Shanghai
 
+- 2026-10-25 09:16 Asia/Shanghai — MODEL+LoRA 真机库存清单：`docs/ops/MODEL_AND_LORA_INVENTORY_20261025.md`（NAS toiv loras=264；H3 loras=38；Windows loras=129；并集 basename 见文档；LLM 在跑 Mia:8888；只读未 commit）
+
+
+## 2026-10-25 · 底模↔LoRA 知识图谱 P0（拍板 D1–D4 全推荐）
+
+- **拍板**：D1 灰显可强制 · D2 H3/出图严格分族 · D3 JSON 账本 · D4 与 inventory 并列 basename join
+- **产物**：`scripts/ops/build-model-compat-graph.py` → `apps/canvas/web/src/generated/model-compat-graph.json`（schemaVersion=1）；人读 `docs/ops/MODEL_COMPAT_GRAPH_20261025.md`；方案文首/§H 已标已拍板
+- **规模**：节点 ~543 · 边 ~1580 · LoRA 白名单 351；compatible_with A≈21 / B≈108 / C≈194
+- **前端**：`src/lib/model-compat.ts`（familyOfBase / queryCompat / compatStatus）；设置页 LoRA 管理按当前底模族过滤；仅 C 灰显+「命名推断，未确认」；H3 专属不出图/运动槽
+- **测试**：`bun test test/model-compat.test.ts test/slot-lora.test.ts` → 12 pass
+- **预览**：http://127.0.0.1:3001/settings → 常用 → 管理 LoRA
+- **未做（P1）**：trainedWords 全量、钉选注入生成、NAS 基座全量枚举
+- **未 commit / 未 push / 未部署**
+
 ## WAVE_CLOSE / NAMING_N3 — 2026-10-24 09:50 Asia/Shanghai
+
+
+## 2026-10-25 08:45 CST — LLM 切 Mia :8888 + 设置页改版方案
+
+- **动作**：生产 core `deploy/.env` 切 LLM → `http://192.168.71.84:8888/v1` / model `DeepSeek-V4.1-Flash-1017`（L1/L2/L3/NSFW/DISPLAY/PROXY 同步）；`toiv-api` 已 restart。
+- **兼容**：`TOIV_LLM_PROXY_MODELS=DeepSeek-V4.1-Flash-1017,deepseek-v4-flash-dspark`；core + 本机 `llm_proxy.py` sanitize 后把白名单别名改写为 `settings.llm_model` 再打上游（旧 canvas 仍发 `deepseek-v4-flash-dspark` 可用）。
+- **本机未 commit**：`apps/api/app/routes/llm_proxy.py`、`apps/canvas/web/src/lib/local-model-defaults.ts`（ALIAS/BASE `:8888`）、`.env.example`、`local-compute-pane` 文案、`docs/ux/SETTINGS_REDESIGN_PLAN_20261025.md`。
+- **冒烟**：admin JWT → `/api/system/llm` 显示新 model；`/api/llm/v1/chat/completions` 用旧别名返回 `model=DeepSeek-V4.1-Flash-1017` content=`OK`（PASS）；直连 `:8888` 亦 OK。
+- **回滚**：`ssh core-lan 'cp -a /home/merlin/toiv/deploy/.env.bak.mia-8888-20261025 /home/merlin/toiv/deploy/.env && cp -a /home/merlin/toiv/api/app/routes/llm_proxy.py.bak.mia-8888-20261025 /home/merlin/toiv/api/app/routes/llm_proxy.py && sudo systemctl restart toiv-api'`
+- **未做**：未 deploy canvas/web（线上设置页文案仍可能显示旧别名，但代理已改写）；未改 fleet_registry/AGENTS 文档行；未 commit/push；设置大 UI 未动（仅方案）。
 
 - **PLAN**: `docs/ops/WAVE_CLOSE_PLAN_20261024.md`
 - **Commits (no push)**: `af00a40a` fix(api) N1 · `d5991b37` docs CLUSTER_TRUTH/DOC_SWEEP · `52e7db23` fix(canvas) gate aliases
@@ -2468,3 +2559,101 @@ Goal: production core `.env` hot-align + spark served-alias purge (canonical onl
 ### Not done
 - git commit / push / full deploy
 
+## 2026-10-25 08:36 Asia/Shanghai — V4.1 Mia EAQ2.9 ABLIT 双轨 :8888 起服 + R18 探针 PASS
+
+- 目标：#1 Mia-AiLab DeepSeek-V4.1-Flash-1017 EXL3 EAQ 2.9bpw + Keys ablit，TensorFold TP2，端口 8888（不顶替现网默认）
+- 权重：Mia/Engram/Keys 双机齐；嫁接 n_edited=104；rank0/rank1 cache 已建
+- 镜像：`tensorfold-dsv41:exl3-tp2-928adbd0e57d` 双机一致（本机灌入 pytorch 基座后本地编译）
+- 模式：免 NFS sudo，host-path `NFS_VOLUME=$HOME/.cache/huggingface`，`PREPARE=0`
+- 起服：临时停 `dsv4_60`（同 GPU 互斥）；`./start.sh` 冒烟 OK；API `http://192.168.71.84:8888/v1` model=`DeepSeek-V4.1-Flash-1017`
+- R18 探针：R18_CN / R18_EN / EDGE_CN 均 PASS（无拒答启发式命中，有正文）
+- 冻结：未 commit / 未 push；未改 ToIV 默认入口；现网 `:8000` 当前停（dsv4 已 stop）
+- 待定：是否长期切默认到 Mia，或恢复 dsv4_60 与 :8888 二选一占卡
+
+## 2026-10-25 09:00 Asia/Shanghai — Settings P0 IA（常用 / 模型与算力 / 高级）前端落地
+
+- 范围：`apps/canvas/web` 设置页信息架构减负；不 commit / 不 push / 不部署生产；未碰 Acc/安全；未改 core
+- 改动：`pages/settings/index.tsx` 三区 Segmented（默认常用）；LocalCompute 下沉「模型与算力」；渠道/RunningHub/Prompt/诊断进「高级」Collapse
+- 产品面去端口：`local-compute-pane` Tags/文案、`localChannelProtocolLabel` 改友好标签（本机 LLM · Mia V4.1 / 本地出图等）；算力条 compact 无端口
+- 兼容：旧 `?section=channels|models|runninghub|diagnostics` 映射到新 IA
+- 核验：`bun test` local-model-defaults / nas-bind-ux / studio-market-gap-p1 / workspace-command-palette → 29 pass；touched files 无 tsc 报错（仓库另有 drama-workspace / control-readiness 既有错误）
+- 本地看：`cd apps/canvas/web && bun run dev` → http://127.0.0.1:3000/settings（或 /studio/settings 视壳路由）
+
+## 2026-10-25 09:05 Asia/Shanghai — 多模型搭配可控方案（文档）
+
+- 触发：用户反馈设置 P0 后「可控性太差」——多模型不同搭配不知怎么控
+- 交付：`docs/ux/MODEL_MIX_CONTROL_PLAN_20261025.md`（角色槽/配方/库存；设置 vs 短剧台；P0.5；拍板 M1–M3）
+- 回写：`docs/ux/SETTINGS_REDESIGN_PLAN_20261025.md` §8 指针
+- 范围：方案 + 文档；**未**大改前端 / 未 commit / 未 push / 未部署 / 未停起 LLM
+
+## 2026-10-25 09:20 Asia/Shanghai — 设置页多模型搭配 P0.5（槽位/配方/互斥）
+
+- 拍板：M1/M2/M3 均按方案建议
+- 交付：常用区角色槽表（对话/助手/VLM只读/出图/出视频·主H3/出视频·运动/TTS只读）+ 配方芯片（短剧默认/高质量慢/省显存，localStorage）+ Mia↔dsv4 互斥提示（不自动起停）+ 模型与算力页头引导回「常用」
+- 代码：`apps/canvas/web/src/lib/model-mix-presets.ts`；`pages/settings/{model-slot-table,model-mix-presets-bar,llm-mutex-banner,index,local-compute-pane}.tsx`
+- 测试：`bun test` model-mix-presets / model-slot-table / settings-assistant-model-row / settings-preference-spacing / studio-market-gap-p1 / local-model-defaults → **30 pass**
+- 预览：vite 在 **:3001**（`--port 3000` 被占回落）→ http://127.0.0.1:3001/settings
+- 冻结：未 commit / 未 push / 未部署 / 未停起 LLM
+
+## 2026-10-25 09:45 Asia/Shanghai — 设置搭配纠正：用户自选主控 + LoRA 挂件
+
+- 触发：用户纠正「搭配不能固定死」「很多 LoRA 怎么办」
+- 心智：角色槽每行下拉自选 = 主控；快捷示例折叠次要（非最优）；LoRA = 挂在出图/视频槽下的挂件
+- 代码：`model-slot-table` Select 行；`model-mix-presets*` 降级文案；`slot-lora.ts` + `slot-lora-row.tsx`（候选走 `/api/models/engines`，空态指 NAS/市场，不造假库存）
+- 文档：`docs/ux/MODEL_MIX_CONTROL_PLAN_20261025.md` §3.2/§3.4/§9
+- 测试：`bun test` model-mix-presets / model-slot-table / slot-lora / settings-assistant-model-row → **11 pass**
+- 预览：http://127.0.0.1:3001/settings（常用区先槽位自选，快捷示例折叠在下）
+- 冻结：未 commit / 未 push / 未部署 / 未自动起停容器
+
+## 2026-10-25 · 模型来源/用途全量调研（只读）
+
+- 产出：`docs/ops/MODEL_SOURCE_PURPOSE_RESEARCH_20261025.md` + `docs/ops/MODEL_SOURCE_PURPOSE_LORA_20261025.csv`
+- 覆盖：非 LoRA 280 行 + LoRA 去重 404；合计 684；证据 A33 / B322 / C271 / D58
+- 方法：库存真机表 × MODEL_SOURCES × lora_catalog(21) × 命名簇；H3/Qwen-Rapid 抽查官方卡页
+- 冻结：未改服务 / 未 commit / 未 push / 未部署
+
+## 2026-10-25 Asia/Shanghai — 模型来源用途加深核实轮
+
+- 范围：主库 LoRA 账本缺口 88 + 原 D 级再攻 + C 簇代表款上网核实；只读磁盘/HF/Civitai；**未** commit/push/部署/改运行模型。
+- 主库 88：升 B **64** / 仍 C **22** / 仍 D **2**；`MODEL_SOURCES` 追加 64（ok 493→557）。
+- LoRA 证据：A21 / B177→**245** / C178→**115** / D28→**23**；合计 D 58→**53**。
+- 结论：产品相关（加速蒸馏、官方 IC、在跑默认、可对卡画风）**能查清**；私训/哈希-only/leetspeak/断链 **不能装 100%**。
+- 文档：`docs/ops/MODEL_SOURCE_PURPOSE_RESEARCH_20261025.md` §7；`MODEL_SOURCE_PURPOSE_DEEPEN_88_20261025.csv`；CSV/账本已更新。
+
+## 2026-10-25 Asia/Shanghai — Civitai+HF 定点检索轮（C/D→B）
+
+- 范围：LoRA evidence C/D（约 138）+ 主库加深残留 22C+2D + 研究表非 LoRA C/D；公开 HF/Civitai API + 少量 WebSearch；**未** commit/push/部署/改服务。
+- LoRA：B 245→**355** / C 115→**19** / D 23→**9**（升 B **+110**；两站无命中 **28**）。
+- 主库 88：原残留 C22 本轮升 B → **B86 / D2**（仍 D：`30-360-high`、`i2l_smoke_20260827`）。
+- 非 LoRA 表：17 升 B / 1 无命中（`glm53-dflash2-mxfp8`）；断链大模型找到上游卡但本地 symlink 仍废。
+- 用户判断「主源= Civitai+HF」：**基本成立**；公开款大多能查到 B；两站无命中=私训/改名/删卡/哈希，不是第三大源。
+- 文档：`docs/ops/MODEL_SOURCE_PURPOSE_RESEARCH_20261025.md` §8；`MODEL_SOURCE_PURPOSE_CIVHF_20261025.csv`；`MODEL_SOURCES.json`（bak `.bak.civhf-20261025`）。
+
+### 2026-10-25 Asia/Shanghai — 模型用途确定度（卡页 P-A/B/C/D）
+- 范围：LoRA 404 + 在跑/默认 10；抓 Civitai 57 + HF 141 卡页缓存；只读服务。
+- LoRA 用途：P-A 94 / P-B 257 / P-C 53 / P-D 0。
+- 结论：作用大多可归类（P-A+P-B≈87%）；产品级确定仅 P-A≈23%；来源 B≠用途 P-A。
+- 产物：`docs/ops/MODEL_PURPOSE_FROM_CARDS_20261025.csv`；调研 §9；`MODEL_SOURCES.notes` 回写 P-A/P-B（bak `.bak.purpose-20261025`）。未 commit/push。
+
+## 2026-10-25 — purpose P-C LoRA quarantine (Asia/Shanghai)
+- 依据 `docs/ops/MODEL_PURPOSE_FROM_CARDS_20261025.csv`：用途 **P-C** 53 basename；磁盘实例 **58** 经 workstation CIFS **同卷 mv** 隔离（未 rm）。
+- 根：`toiv/comfyui-models/_quarantine_purpose_unknown_20261025/`（loras+h3）与 `Windows/.../models/_quarantine_purpose_unknown_20261025/`。
+- 跳过 0 / 失败 0；`lora_catalog`∩P-C=∅；无产品默认硬引用。
+- 账本 `docs/MODEL_SOURCES.json`（及 app data 镜像）对应行 `status=blocked`；文档 `docs/ops/PURPOSE_UNKNOWN_QUARANTINE_20261025.md`。未 commit/push/deploy。
+
+## 2026-10-25 Asia/Shanghai — 设置页接入调研库存（LoRA A+B × P-A/P-B）
+
+- 范围：前端可读库存 JSON + LoRA 管理弹层；**未** commit / push / 部署生产。
+- 生成：`scripts/ops/gen-lora-inventory-json.py` → `apps/canvas/web/src/generated/lora-inventory.json`（可用 **351**；跳过隔离 53 + non_lora 10）。
+- 规则：available + 来源 A/B + 用途 P-A/P-B；P-C/quarantine/blocked/来源 C|D 默认隐藏。
+- UI：`slot-lora-row` 展示用途文案、类型标签、来源链接；引擎候选与库存 merge，引擎空时库存兜底。
+- 基座下拉：仍用渠道/算力已配置列表（完整 NAS 基座枚举未接，UI 已注明）。
+- 单测：`apps/canvas/web/test/slot-lora.test.ts`（inventory + merge + localStorage）。
+- 文档：`docs/ux/MODEL_MIX_CONTROL_PLAN_20261025.md` / `SETTINGS_REDESIGN_PLAN_20261025.md` 各补「库存接入」一句。
+
+## 2026-10-25 22:58 Asia/Shanghai — 模型搭配知识图谱方案（仅文档）
+
+- 范围：只写方案；**未**实现代码、未 commit/push/部署。
+- 产物：`docs/ux/MODEL_COMPAT_KNOWLEDGE_GRAPH_PLAN_20261025.md`（本体/边/流水线/JSON 并列存储/设置过滤/Agent query_compat/P0–P2/决策点）。
+- 审计缺口：inventory 无 baseFamily·trigger·强度；slots_for 启发式交叉污染；compat 真源待图谱。
+- 推荐：`model-compat-graph.json` 与 inventory 并列 + basename join；P0 抽 civ baseModels+catalog 边并按族过滤。

@@ -1,0 +1,20 @@
+{
+  "id": 1481904,
+  "name": "扶摇汉服 hanfu Flux_Lora_v2",
+  "type": "LORA",
+  "tags": [
+    "hanfu",
+    "clothing"
+  ],
+  "description": "没有Buzz啦，设置了一个100Buzz下载（3天时限），这个Lora是专门寻求大家帮助的，诸位仁兄贤姊如果有多余的buzz，还望慷慨解囊救济一下则个，弟感激不尽~~ 创建汉服效果",
+  "baseModels": [
+    "Flux.1 D"
+  ],
+  "nVersions": 1,
+  "trainedWords": [
+    "hanfu"
+  ],
+  "fileNames": [
+    "扶摇汉服_Flux_Lora_v2.safetensors"
+  ]
+}

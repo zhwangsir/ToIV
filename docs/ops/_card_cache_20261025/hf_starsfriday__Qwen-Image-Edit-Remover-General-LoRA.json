@@ -1,0 +1,19 @@
+{
+  "id": "starsfriday/Qwen-Image-Edit-Remover-General-LoRA",
+  "pipeline_tag": "image-to-image",
+  "tags": [
+    "diffusers",
+    "image-generation",
+    "lora",
+    "Qwen-Image",
+    "image-to-image",
+    "en",
+    "base_model:Qwen/Qwen-Image-Edit",
+    "base_model:adapter:Qwen/Qwen-Image-Edit",
+    "license:apache-2.0",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 227,
+  "likes": 18
+}

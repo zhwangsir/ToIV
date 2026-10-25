@@ -29,7 +29,7 @@ export function WorkspaceTopBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen:
             </nav> : <span className="app-workspace-topbar-spacer" />}
             <WorkspaceTopBarExtensionSlot />
             <div className="app-workspace-topbar-actions">
-                <Link to="/settings?section=channels" className="app-workspace-topbar-utility"><Settings2 /><span>模型配置</span></Link>
+                <Link to="/settings?section=common" className="app-workspace-topbar-utility"><Settings2 /><span>模型配置</span></Link>
             </div>
         </header>
     );

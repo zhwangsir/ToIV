@@ -1,0 +1,47 @@
+{
+  "id": 895914,
+  "name": "Tangfeng Netidol Face",
+  "type": "LORA",
+  "tags": [
+    "hanfu",
+    "clothing",
+    "realistic",
+    "chinese clothes",
+    "asian woman",
+    "forehead mark",
+    "asian female",
+    "huadian",
+    "netidol face",
+    "tang dynasty"
+  ],
+  "description": "Try size: 512x768 or above (flux; If steps is too low, sometimes it's bad hands) / 768 x 1024 or above (z-image turbo or ILXL or pony: If 2girls need a larger size) Weights: 1.0 Pictures from cheerfulHafuMix_v10 and Z-Image Turbo and Flux 1.dev and BD _ pony_Real_V03g Note: It is recommended to use gemini, chatgpt, or grok to generate or modify the prompt and to describe as much of the necessary characteristics of Tang Dynasty Hanfu as possible. / 建議讓gemini、chatgpt或grok生成提詞或修改提詞，並且盡量描述必要的唐朝漢服特徵。(ZIDT) Note: Please use natural language for complex elements, and it's okay to use short tags for simple elements. You can change the color of clothes, \"rainbow gradient dress\" be replaced with other colors. If your description is not very effective, and it can also be done through Chatgpt or image analysis (FLUX): https://huggingface.co/spaces/fancyfeast/joy-caption-pre-alpha",
+  "baseModels": [
+    "Flux.1 D",
+    "Illustrious",
+    "Pony",
+    "ZImageTurbo"
+  ],
+  "nVersions": 4,
+  "trainedWords": [
+    "forehead mark, forehead tattoo, dunhuang style, tang dynasty,",
+    "sheer shawl, hagoromo,",
+    "willow, bridge, chinese building, upper body,",
+    "She remained gracefully in a tranquil outdoor setting.",
+    "She remained gracefully in a tranquil indoor setting.",
+    "She was holding a round fan embroidered with flower.",
+    "She was also a plump, chubby woman with pouty lips.",
+    "onsen, hot spring,"
+  ],
+  "fileNames": [
+    "TangfengNetidolFace_flux.safetensors",
+    "TangfengNetidolFace_ilxl.safetensors",
+    "TangfengNetidolFace_pony.safetensors",
+    "TangfengNetidolFace_zimagedeturbo.safetensors"
+  ],
+  "recommendedStrength": {
+    "default": 1.0,
+    "min": 0.6,
+    "max": 1.0,
+    "source": "card"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "id": 2662504,
+  "name": "1940s Film Noir SDXL LoRA: Classic Black & White Style",
+  "type": "LORA",
+  "tags": [
+    "vintage",
+    "neon",
+    "1940s",
+    "noir",
+    "monochrome",
+    "style",
+    "cinematic",
+    "grain",
+    "black-and-white",
+    "film-noir"
+  ],
+  "description": "What it does Capture the essence of classic 1940s film noir with this LoRA, featuring high-contrast black-and-white imagery, deep shadows, and a moody atmosphere reminiscent of rain-slicked streets and foggy alleys. How to use Apply the trigger word 'n01rbw' in your prompts for best results. Suggested strength: 0.85, with a recommended sampler setting of DPM++ 2M and around 30-40 steps. Best for Depicting private detectives or femme fatales - Scenes set in shadowy bars or dimly lit rooms - Chases through dark alleys under the cover of rain - Mysterious phone calls and tense confrontations on an empty desk - Showcasing characters in iconic film noir attire like fedoras and trench coats Tips - Use 'n01rbw' with other style LoRAs for unique hybrid looks. - Adjust strength to fine-tune the level of film noir influence. Example Prompts n01rbw a rainy city street at night with flickering neon signs and dark alleys n01rbw close-up of a detective in trench coat under dimly lit streetlamp, fedora tilted n01rbw old cinema marquee with film title 'The Last Detective' in bold letters n01rbw blurred motion shot of raindrops hitting pavement and reflections on wet road n01rbw soft focus portrait",
+  "baseModels": [
+    "SDXL 1.0"
+  ],
+  "nVersions": 1,
+  "trainedWords": [],
+  "fileNames": [
+    "lora.safetensors"
+  ],
+  "recommendedStrength": {
+    "default": 0.85,
+    "min": 0.51,
+    "max": 1.0,
+    "source": "card"
+  }
+}

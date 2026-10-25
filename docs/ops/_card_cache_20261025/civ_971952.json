@@ -1,0 +1,50 @@
+{
+  "id": 971952,
+  "name": "Stabilizer IL/NAI/CK",
+  "type": "LORA",
+  "tags": [
+    "style"
+  ],
+  "description": "Stabilizer Name is misleading. This is NOT a LoRA that can magically fix your overfitted merged base model. This is a finetuned model from pretrained model. But trained as a LoRA. 11k images. No bias, no default style. Zero smooth plastic glossy AI image in dataset. Glossy Al images are polluting the world, but not on my watch, I handpicked every single image. Natural language captions from Gemini, rather than tags in random order with high FPR. Standard noise scheduler. Inpainting/img2img friendly. Improvements: You can get the style exactly as it should be (as long as the model knows). Comparisons with pretrained base model: https://civitai.com/images/84145167 (general styles, you get the style exactly as it should be) https://civitai.com/images/84256995 (artist styles, no style shifting because this model does not have bias) See more xy plots in cover images. Why LoRA? This LoRA is a DoRA (from Nvidia), which is more efficient than traditional LoRA. Enough for thousands of training images. What? You prefer to download and store a 7GiB checkpoint than a 80Mib LoRA? Share merges using this model is prohibited . FYI, there are hidden trigger words to print invisible watermark. I co",
+  "baseModels": [
+    "Illustrious",
+    "NoobAI",
+    "SDXL 1.0"
+  ],
+  "nVersions": 32,
+  "trainedWords": [],
+  "fileNames": [
+    "ani40_stabilizer_v0.1.safetensors",
+    "cknb02_stabilizer_v0.299a_fp16.safetensors",
+    "cknb02_stabilizer_v0.304a_fp16.safetensors",
+    "illustriousXL_stabilizer.safetensors",
+    "illustriousXL_stabilizer_v1.23.safetensors",
+    "illustriousXL_stabilizer_v1.3.safetensors",
+    "illustriousXL_stabilizer_v1.7.safetensors",
+    "illustriousXL_stabilizer_v1.72.safetensors",
+    "illustriousXL_stabilizer_v1.93.safetensors",
+    "illustriousXLv01_stabilizer_v1.121.safetensors",
+    "illustriousXLv01_stabilizer_v1.152.safetensors",
+    "illustriousXLv01_stabilizer_v1.164.safetensors",
+    "illustriousXLv01_stabilizer_v1.165c.safetensors",
+    "illustriousXLv01_stabilizer_v1.185c.safetensors",
+    "illustriousXLv01_stabilizer_v1.198.safetensors",
+    "illustriousXLv11_stabilizer_v1.113.safetensors",
+    "noobai_ep10_stabilizer_v0.10_fp16.safetensors",
+    "noobai_ep10_stabilizer_v0.273_fp16.safetensors",
+    "noobai_ep11_stabilizer_v0.114_fp16.safetensors",
+    "noobai_ep11_stabilizer_v0.11_fp16.safetensors",
+    "noobai_ep11_stabilizer_v0.129_fp16.safetensors",
+    "noobai_ep11_stabilizer_v0.138_fp16.safetensors",
+    "noobai_ep11_stabilizer_v0.160_fp16.safetensors",
+    "noobai_ep11_stabilizer_v0.178_fp16.safetensors",
+    "noobai_ep11_stabilizer_v0.198_fp16.safetensors",
+    "noobai_ep11_stabilizer_v0.205_fp16.safetensors",
+    "noobai_ep11_stabilizer_v0.30_fp16.safetensors",
+    "noobai_ep11_stabilizer_v0.58_fp16.safetensors",
+    "noobai_ep11_stabilizer_v0.96_fp16.safetensors",
+    "noobai_vp10_stabilizer_v0.264_fp16.safetensors",
+    "noobai_vp10_stabilizer_v0.271_fp16.safetensors",
+    "noobai_vp10_stabilizer_v0.280a_fp16.safetensors"
+  ]
+}

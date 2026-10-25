@@ -1,0 +1,23 @@
+{
+  "id": "Lightricks/LTX-2.3-22b-IC-LoRA-DubIt",
+  "pipeline_tag": "any-to-any",
+  "tags": [
+    "diffusers",
+    "ltx-video",
+    "video-to-video",
+    "dubbing",
+    "ic-lora",
+    "dub-it",
+    "any-to-any",
+    "en",
+    "arxiv:2601.03233",
+    "arxiv:2601.22143",
+    "base_model:Lightricks/LTX-2.3",
+    "base_model:finetune:Lightricks/LTX-2.3",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 2591,
+  "likes": 156
+}

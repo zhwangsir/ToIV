@@ -1,0 +1,21 @@
+{
+  "id": 131864,
+  "name": "breast size slider",
+  "type": "LORA",
+  "tags": [
+    "breasts",
+    "tool",
+    "nsfw",
+    "slider"
+  ],
+  "description": "breast size slider trained on no data using https://github.com/ostris/ai-toolkit",
+  "baseModels": [
+    "SD 1.5"
+  ],
+  "nVersions": 2,
+  "trainedWords": [],
+  "fileNames": [
+    "breastsizeslider.safetensors",
+    "breastsizeslideroffset.safetensors"
+  ]
+}

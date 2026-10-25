@@ -1,0 +1,14 @@
+{
+  "id": "Kijai/WanVideo_comfy",
+  "pipeline_tag": null,
+  "tags": [
+    "diffusion-single-file",
+    "comfyui",
+    "base_model:Wan-AI/Wan2.1-VACE-1.3B",
+    "base_model:finetune:Wan-AI/Wan2.1-VACE-1.3B",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 3451620,
+  "likes": 2562
+}

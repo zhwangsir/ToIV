@@ -1,0 +1,41 @@
+{
+  "id": 1445226,
+  "name": "Stomach bulge",
+  "type": "LORA",
+  "tags": [
+    "concept"
+  ],
+  "description": "H3 2.0 Different version Retrained then merged with multiple extracted and pruned loras for better movement in most poses Use at 0.8-0.9 or more , depending or reference H3 1.1 Less lag , follows movement better H3 1.0 Same as the rest , use h3 prompting template Use at 0.85-1.00 10eros_sulphur_1.1 Filtered dataset , should work in most poses without initial bulge Doesn't work as much with clothes Use stomach bulge trigger with description Example made with lcm sampler and 6 steps for 1st stage ltx23 - i2v 1.1 Slower but better audio and hip movement , use at 0.8-1.0 ltx23 - i2v 1.0 Same as previous ones , use at 0.9 or less to have speech Audio doesn't always sync up ltx2 - i2v 1.1 Higher rank and resolution , less jittering , with audio. Use : fast slow from below from behind held in arms missionary pov riding on top lying down side view ltx2 - i2v Use at 1.0 str , or 0.8-0.9 if you want video to follow the text prompt better Add scene description and script \"like this\" Wan2.2 - I2V bulge HIGH Use at 1.0 str , or 0.6-0.8 if you want video to follow the text prompt better If it's too slow sample more frames in High , speed up to lower count , sample Low. Example 81 high &gt; 65 lo",
+  "baseModels": [
+    "LTXV 2.3",
+    "LTXV2",
+    "MiniMax H3",
+    "Wan Video 14B i2v 480p",
+    "Wan Video 14B i2v 720p",
+    "Wan Video 2.2 I2V-A14B"
+  ],
+  "nVersions": 11,
+  "trainedWords": [
+    "stomach bulge",
+    "st0mach bulge",
+    "st0mach bulge.",
+    "The video depicts",
+    "Her stomach bulges as dick goes in.",
+    "The video depicts an animated scene in",
+    "st0mach"
+  ],
+  "fileNames": [
+    "WAN-2.2-I2V_st0mach_bulge_HIGH.safetensors",
+    "WAN-2.2-I2V_st0mach_bulge_LOW.safetensors",
+    "h3_bulge_template.txt",
+    "st0mach_bulge_ltx23_v1.1.safetensors",
+    "st0mach_bulge_ltx23_v1.safetensors",
+    "st0mach_bulge_ltx2_v1.safetensors",
+    "st0mach_missionary_pov.safetensors",
+    "st0mach_v11.safetensors",
+    "stomach_bulge_10eros_sulphur_v1.safetensors",
+    "stomach_bulge_H3_i2v_v1.0.safetensors",
+    "stomach_bulge_H3_i2v_v1.1.safetensors",
+    "stomach_bulge_H3_i2v_v2.0.safetensors"
+  ]
+}

@@ -275,7 +275,7 @@ export function ChannelSettingsPane({ onOpenModels, onOpenRunningHub }: ChannelS
     return (
         <Form layout="vertical" requiredMark={false}>
             <PageHeader
-                title={localMode ? "模型与算力 · 渠道" : "模型与算力 · 渠道"}
+                title={localMode ? "自定义渠道" : "自定义渠道"}
                 actions={(
                     <div className="settings-pane-header-actions flex w-full gap-2 sm:w-auto sm:shrink-0">
                     <Button className="h-10 flex-1 sm:h-8 sm:flex-none" icon={<RefreshCw className="size-4" />} loading={loadingChannelIds.includes("all")} disabled={loadingChannelIds.some((id) => id !== "all")} onClick={() => void refreshAllModels()}>

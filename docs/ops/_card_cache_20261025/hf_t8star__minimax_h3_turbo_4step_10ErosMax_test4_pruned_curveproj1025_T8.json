@@ -1,0 +1,24 @@
+{
+  "id": "t8star/minimax_h3_turbo_4step_10ErosMax_test4_pruned_curveproj1025_T8",
+  "pipeline_tag": "text-to-video",
+  "tags": [
+    "minimax-h3",
+    "text-to-video",
+    "text-to-audio",
+    "audio-video",
+    "synchronized-audio-video",
+    "lora",
+    "comfyui",
+    "four-step",
+    "experimental",
+    "zh",
+    "en",
+    "base_model:Comfy-Org/MiniMax-H3",
+    "base_model:adapter:Comfy-Org/MiniMax-H3",
+    "license:other",
+    "region:us"
+  ],
+  "cardSummary": "",
+  "downloads": 0,
+  "likes": 18
+}
