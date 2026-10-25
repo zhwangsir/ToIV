@@ -1,3 +1,15 @@
+## 2026-10-26 Asia/Shanghai · t87u 全开包（Remix 默认 / qwen-edit loras / P1b live / 清残留 / push+部署）
+
+- **Remix v3 → I2V 现网默认**：`WanI2VParams.high_unet/low_unet` + `style_presets.video_i2v` → `wan22RemixT2VI2V_i2v{High,Low}V30.safetensors`；**未改 T2V**。
+- **经典 `/generate/qwen-edit`**：请求体 `loras` → `parse_loras_value` + `apply_image_loras`（与市场对齐）。
+- **P1b**：workstation NAS 实扫 `base-inventory.json` **live=true count=226**（resolved 115 / unknown 111）。
+- **残留**：删除 `.bak*` / APPEND_DRAFT / `_civhf_*` / `_deepen_*` / `_purpose_*` 调研草稿（未入库存）。
+- **单测**：`test_wan_i2v_builder` + `test_style_presets` + `test_qwen_edit` + `test_wan_accel` + `test_app_deep_knobs` → **116 passed**。
+- **Mega-v12**：由保鲜员走 HF（本执行器未下大文件）。
+- **未动**：Acc / 换密 / 隔离永久删。
+
+---
+
 ## 2026-10-26 Asia/Shanghai · 文档瘦身（五件套 + docs 唯一 md）
 
 - **动作**：`docs/**/*.md` 共 102 份归档至 `ALLProject/.archive/toiv-docs-20261026/`（按原相对路径）；新建 `docs/README.md`（唯一 docs md）。

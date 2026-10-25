@@ -30,16 +30,16 @@
 |---|---|
 | LLM | Mia spark02 `:8888`，`DeepSeek-V4.1-Flash-1017`（proxy 兼容旧别名） |
 | 出图默认 | SFW-v23 @ Comfy `:8196` / LB `:8188`；H3 生产 `:8264` int8；Acc-8Step **冻结不动** |
-| Remix v3 | NAS `diffusion_models/wan22RemixT2VI2V_i2v{High,Low}V30.safetensors` 已就位；**现网默认未切** |
+| Remix v3 | **已切 I2V 现网默认** `wan22RemixT2VI2V_i2v{High,Low}V30.safetensors`（仅 I2V；T2V 仍官方 fp16/fp8） |
 | Mega-v12 | Civitai 无正式卡 → 结案；盘上仍 Mega-v11 |
 | 设置页 | 三区（常用 / 模型与算力 / 高级）；槽位自选；配方=快捷；LoRA 挂件（库存 351） |
-| 基座 P1b | 下拉库存约 221（MateBook 无 NAS 时 `live=false` 种子；workstation 挂载后可重扫） |
+| 基座 P1b | 下拉库存 **226**（workstation NAS 实扫 `live=true`；族可解析 115 / 未知 111） |
 | 图谱 | P0→P2：兼容边 + 推荐强度 + 文件级冲突/substitutes；A 级来自 catalog/钉选 |
-| 出图 LoRA | 市场 `txt2img`/`img2img`/`nsfw-*`/`*-basic` + `qwen-image-edit` schema 已接；Forge 走 `<lora:NAME:W>`；经典 `/generate/qwen-edit` 仍无独立字段 |
+| 出图 LoRA | 市场 + Forge + **经典 `/generate/qwen-edit` loras** 均已接（叠在相机/Lightning 链后） |
 | 模型账本 | `docs/MODEL_SOURCES.json`（非 md）；ok≈670 / total≈1055（以 JSON totals 为准） |
 | 预览 | 本地设置预览曾用 `:3001/settings`（未部署生产） |
 
-**冻结**：Acc / 安全·换密 Dly / 隔离永久删 / push·部署（需用户明示）。
+**冻结**：Acc / 安全·换密 Dly / 隔离永久删。本波已授权 push + 生产部署。
 
 ## 1. 快速开始
 
