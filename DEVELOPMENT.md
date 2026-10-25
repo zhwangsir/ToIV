@@ -1,15 +1,14 @@
-> ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
-> 现行真源 → `docs/ops/CLUSTER_TRUTH.md`。
-
 # ToIV 开发指南
 
-> **版本**: 2026-10-15（结构清理后；会话日志已迁出）
+> **版本**: 2026-10-26（文档瘦身后；会话日志已迁出）
 > **适用读者**: 开发人员 / 运维人员
-> **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
-> **历史会话日志**: `.archive/DEVELOPMENT-session-logs.md`（2026-06~10 随手 tip，正文不重复）
+> **核心文档**: [AGENTS.md](AGENTS.md)（含集群真源） / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md) / [docs/README.md](docs/README.md)
+> **历史方案文**: `/Users/wangzhenyu/Desktop/ALLProject/.archive/toiv-docs-20261026/`（原 `docs/**/*.md`）
+> **历史会话日志**: `.archive/DEVELOPMENT-session-logs.md`（若仍存在；正文不重复）
 
 ## 目录
 
+0. [现行设置 / 模型 / 图谱](#0-现行设置--模型--图谱2026-10-26-摘要)
 1. [快速开始](#1-快速开始)
 2. [架构设计](#2-架构设计)
 3. [核心功能模块](#3-核心功能模块)
@@ -21,6 +20,26 @@
 9. [仓库结构与命名规范](#9-仓库结构与命名规范)
 
 ---
+---
+
+## 0. 现行设置 / 模型 / 图谱（2026-10-26 摘要）
+
+短摘要；细节与证据见 `TEST_LOG.md` 近窗。旧长文方案已归档 → `ALLProject/.archive/toiv-docs-20261026/`。
+
+| 项 | 现行 |
+|---|---|
+| LLM | Mia spark02 `:8888`，`DeepSeek-V4.1-Flash-1017`（proxy 兼容旧别名） |
+| 出图默认 | SFW-v23 @ Comfy `:8196` / LB `:8188`；H3 生产 `:8264` int8；Acc-8Step **冻结不动** |
+| Remix v3 | NAS `diffusion_models/wan22RemixT2VI2V_i2v{High,Low}V30.safetensors` 已就位；**现网默认未切** |
+| Mega-v12 | Civitai 无正式卡 → 结案；盘上仍 Mega-v11 |
+| 设置页 | 三区（常用 / 模型与算力 / 高级）；槽位自选；配方=快捷；LoRA 挂件（库存 351） |
+| 基座 P1b | 下拉库存约 221（MateBook 无 NAS 时 `live=false` 种子；workstation 挂载后可重扫） |
+| 图谱 | P0→P2：兼容边 + 推荐强度 + 文件级冲突/substitutes；A 级来自 catalog/钉选 |
+| 出图 LoRA | 市场 `txt2img`/`img2img`/`nsfw-*`/`*-basic` + `qwen-image-edit` schema 已接；Forge 走 `<lora:NAME:W>`；经典 `/generate/qwen-edit` 仍无独立字段 |
+| 模型账本 | `docs/MODEL_SOURCES.json`（非 md）；ok≈670 / total≈1055（以 JSON totals 为准） |
+| 预览 | 本地设置预览曾用 `:3001/settings`（未部署生产） |
+
+**冻结**：Acc / 安全·换密 Dly / 隔离永久删 / push·部署（需用户明示）。
 
 ## 1. 快速开始
 
@@ -72,11 +91,13 @@ npm run dev                   # http://localhost:3100
         ┌───────────────────┼───────────────────┐
         │                   │                   │
 ┌───────▼───────┐   ┌───────▼───────┐   ┌───────▼───────┐
-│  H3 引擎      │   │  Wan VACE     │   │  Worker Pool  │
+│  H3 引擎*     │   │  Wan VACE     │   │  Worker Pool  │
 │  :8195        │   │  :8197        │   │  (ComfyUI)    │
 │  (GPU2)       │   │  (GPU0)       │   │               │
 └───────────────┘   └───────────────┘   └───────────────┘
 ```
+
+> \*下图与表中 `:8195` 为历史示意；**现行 H3 生产口为 `:8264`**（见 AGENTS）。
 
 ### 2.2 核心技术栈
 

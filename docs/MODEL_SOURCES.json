@@ -1,14 +1,14 @@
 {
-  "updated_at": "2026-10-26T01:05:46+08:00",
+  "updated_at": "2026-10-26T06:01:20+08:00",
   "updated_at_timezone": "Asia/Shanghai",
   "totals": {
-    "ok": 668,
+    "ok": 670,
     "blocked": 384,
-    "total": 1053,
+    "total": 1055,
     "ok_missing_source_url": 9,
     "ok_true_gaps_no_url_no_repo_not_alias": 0,
     "ok_local_alias_without_http_url": 5,
-    "items": 1053
+    "items": 1055
   },
   "sources_scanned": [
     "_batch*_plan.json",
@@ -16355,6 +16355,38 @@
       "status": "ok",
       "bytes": 613516752,
       "notes": "civitai_20261026_wave | nas_synced=workstation-lan:/home/merlin/nas_mount/toiv/comfyui-models | new_entry_from_civitai_wave",
+      "batch": "civitai_20261026",
+      "resolution_state": "resolved"
+    },
+    {
+      "basename": "wan22RemixT2VI2V_i2vHighV30.safetensors",
+      "rel_path": "diffusion_models/wan22RemixT2VI2V_i2vHighV30.safetensors",
+      "source_kind": "civitai",
+      "source_url": "https://civitai.com/models/2003153?modelVersionId=2770795",
+      "repo": "civitai:2003153@2770795",
+      "revision": null,
+      "filename": "wan22RemixT2VI2V_i2vHighV30.safetensors",
+      "license_or_gated": null,
+      "downloaded_at": "2026-10-26T06:01:20+08:00",
+      "status": "ok",
+      "bytes": 14291272136,
+      "notes": "civitai_20261026 Remix I2V High v3.0 dual-track | MateBook proxy CDN→rsync workstation-lan NAS | bytes verified 14291272136 | NOT default | app_refs=0",
+      "batch": "civitai_20261026",
+      "resolution_state": "resolved"
+    },
+    {
+      "basename": "wan22RemixT2VI2V_i2vLowV30.safetensors",
+      "rel_path": "diffusion_models/wan22RemixT2VI2V_i2vLowV30.safetensors",
+      "source_kind": "civitai",
+      "source_url": "https://civitai.com/models/2003153?modelVersionId=2771407",
+      "repo": "civitai:2003153@2771407",
+      "revision": null,
+      "filename": "wan22RemixT2VI2V_i2vLowV30.safetensors",
+      "license_or_gated": null,
+      "downloaded_at": "2026-10-26T06:01:20+08:00",
+      "status": "ok",
+      "bytes": 14291272136,
+      "notes": "civitai_20261026 Remix I2V Low v3.0 dual-track | MateBook proxy CDN→rsync workstation-lan NAS | bytes verified 14291272136 | NOT default | app_refs=0",
       "batch": "civitai_20261026",
       "resolution_state": "resolved"
     }

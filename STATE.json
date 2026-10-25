@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-15T02:40:00+08:00",
+  "updated_at": "2026-10-26T07:00:00+08:00",
   "session_checkpoint_2026_10_15": {
     "status": "active_fu2_done_2026_10_15",
     "commits": [
@@ -16279,5 +16279,26 @@
     ],
     "note": "大量本地未 commit/未 push；换机续作须先同步未提交工作区。管家仅入账五件套，未写业务代码、未 commit/push。",
     "updated_at": "2026-10-25T23:35:00+08:00"
+  },
+  "docs_slim_five_piece_2026_10_26": {
+    "status": "done_local_commit_pending",
+    "date": "2026-10-26",
+    "summary": "docs 可读 md 收敛为五件套+docs/README；102 份方案文归档 toiv-docs-20261026；CLUSTER_TRUTH 并入 AGENTS；TEST_LOG 近窗瘦身",
+    "archive": "/Users/wangzhenyu/Desktop/ALLProject/.archive/toiv-docs-20261026/",
+    "docs_md_count": 1,
+    "root_md": [
+      "README.md",
+      "AGENTS.md",
+      "DEVELOPMENT.md",
+      "TEST_LOG.md"
+    ],
+    "kept_non_md": [
+      "docs/MODEL_SOURCES.json",
+      "docs/NAS_MODEL_PICKER.json",
+      "docs/ops/* data caches"
+    ],
+    "cluster_truth": "AGENTS.md",
+    "pushed": false,
+    "deployed": false
   }
 }

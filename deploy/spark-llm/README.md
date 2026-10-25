@@ -1,5 +1,5 @@
 > ⚠️ **历史快照 · 非现行事实**（DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai）。
-> 现行真源 → `docs/ops/CLUSTER_TRUTH.md`。
+> 现行真源 → 仓库根 `AGENTS.md`。
 
 # spark-llm: 双 Spark TP=2 主脑(Qwen3.8-Flash-Next-Uncensored NVFP4)
 

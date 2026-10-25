@@ -28,7 +28,7 @@
 
 ## 轮换
 
-见仓库根相对路径：`docs/ops/CREDENTIAL_HYGIENE_ROTATE_20261020.md`。
+见仓库根相对路径：`ALLProject/.archive/toiv-docs-20261026/docs/ops/CREDENTIAL_HYGIENE_ROTATE_20261020.md`。
 
 ## 渠道凭据
 

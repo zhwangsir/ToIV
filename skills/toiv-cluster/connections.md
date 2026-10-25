@@ -1,6 +1,6 @@
 # 设备清单与连接方法
 
-> **DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai** · 与 [`docs/ops/CLUSTER_TRUTH.md`](../../docs/ops/CLUSTER_TRUTH.md) 对齐。冲突以 CLUSTER_TRUTH + 真机为准。
+> **DOC_TRUTH_SWEEP 2026-10-23 Asia/Shanghai** · 与 [`AGENTS.md`](../../AGENTS.md) 对齐。冲突以 AGENTS.md + 真机为准。
 
 ## 设备总表
 
