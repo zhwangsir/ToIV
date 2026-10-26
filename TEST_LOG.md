@@ -1,3 +1,318 @@
+## 2026-10-26 14:45 Asia/Shanghai · 后端 · Wave8 P0 timeline-preview + 双闸补洞
+
+- **tip**: 本地即将 tip（本条 commit）；**push_authorized**: false；未 push / 未部署
+- **P0**:
+  1. `GET /api/studio/projects/{pid}/timeline-preview`（fps/content_mode/items；ordinary 不返回 NSFW 条）
+  2. `GET /api/jobs/active` 与 jobs 列表同口径过滤 `Job.nsfw`
+  3. boards items 普通态跳过 NSFW job（不裸 results URL）
+  4. `/api/images`(+thumb)、`/api/studio/files`：命中 NSFW Job.result 时普通态 404
+- **helper**: `apps/api/app/services/media_nsfw_gate.py`
+- **tests**: `pytest tests/test_wave8_timeline_preview.py` + jobs_active/boards/studio_files_idor/images_range/r18 → **74 passed**
+- **handback**: 无 Job.nsfw 关联的纯 StudioShot/仅签名 URL 媒体无法按 content_mode 闸（无标可判）
+- **P1**: artifacts 派生口 / duration·fps 列表增量 **未做**
+- **git**: 不含 STATE.json；禁 push
+
+## 2026-10-26 14:42 Asia/Shanghai · 项目管家 · round8 调研入账（PREVIEW_TIMELINE）
+
+- **evidence**：技术负责人 round8 调研入账原文
+- **current_round**：8；**license_gate / backend_gap**：保留
+- **round8_research**：`done`；evidence=`docs/ops/VISUAL_PREVIEW_TIMELINE_R8_20261026.md`（在盘）
+- **timeline_zoom_pin**：`0.25–4×`
+- **await_user**：`cross_end_tip+backend_p0`（调研硬表已到；仍等跨端 tip + backend_p0）
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:41 Asia/Shanghai · 项目管家 · round8 入账（backend_gap P0）
+
+- **evidence**：技术负责人 round8 入账原文
+- **current_round**：8；**round8_license_gate**：done（保留）
+- **round8_backend_gap.P0**：timeline-preview 聚合口 + `/jobs/active`·boards 双闸漏滤
+- **notes**：TL 已派后端本轮落地本地 tip（管家不重派）
+- **await_user**：`round8_outputs+backend_p0_tip`（原调研硬表+跨端 tip += backend_p0_tip）
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:39 Asia/Shanghai · 项目管家 · round8 部分入账（LICENSE_GATE_R8_TIMELINE）
+
+- **evidence**：技术负责人 round8 部分入账原文
+- **current_round / round_theme / status**：8 / 视频预览与时间线播放器 / in_progress（保留）
+- **round8_license_gate**：`done`
+- **round8_license_gate_evidence**：`docs/ops/WAVE2_LICENSE_GATE_R8_TIMELINE_20261026.md`（在盘）
+- **license_policy**：可抄 Toonflow-app/LumenX；BeefTV/dramaclaw/CineGen 重写；AGPL/NC 禁并
+- **await_user**：仍 `round8_outputs`（等调研硬表 + 跨端 tip）
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:38 Asia/Shanghai · 项目管家 · 第7轮关账 → 第8轮开（TL 精确字段）
+
+- **evidence**：技术负责人「第7轮关账→第8轮开」；TL 精确字段覆盖
+- **round7_status**：done / closed（`round7_closed_at`=2026-10-26T14:38:55+08:00）
+- **round7_tip**：`1b132535`（功能 tip；**非** e8391a95）；**round7_tip_pushed**：false
+- **round7_calibration_tip**：`e8391a95`（full `e8391a957ec39fd7427277a03650162d0453d79e`）
+- **round7_hard_table_calibration_pending**：false
+- **round7_handback**：`apps/canvas/docs/GENERATION_QUEUE_R7_HANDBACK.md`（在盘）
+- **notes**：生成队列坞顶栏（光幕左）+/create 底栏；--toiv-job-* 硬表（行92/缩略84×60/进度3px #5ba0ff 420ms/重试32/抽屉736/侧320）；禁假满条；普通 NSFW 灰锁；未 push
+- **current_round**：8；**round_theme**：视频预览与时间线播放器；**round8_opened_at**：2026-10-26T14:38:55+08:00
+- **await_user**：`round8_outputs`；**push_authorized**：false
+- **prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:36 Asia/Shanghai · 项目管家 · round7 中间态（R6校准 tip + R7 tip）
+
+- **evidence**：技术负责人/TL 中间态补挂
+- **round6_calibration_tip**：`4669bf52`（full `4669bf52752af06c81c1c659a93b719c3ebd83a8`；`--toiv-media-*`）
+- **round6_calibration_pending**：false；**status**：`tip_landed`
+- **round7_tip**：`1b132535`（full `1b132535c10629b0ecb988e548a8c4ea9bdade83`；本地未 push）
+- **round7_hard_table_calibration_pending**：true（跨端正补硬表校准 tip）
+- **round7_research / job_queue_***：保留（drawer=736；真progress优先）
+- **await_user**：仍 `round7_outputs`（等硬表校准 tip）
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:35 Asia/Shanghai · 项目管家 · round7 部分入账（JOB_QUEUE 调研 + R6校准 pending）
+
+- **evidence**：技术负责人 round7 部分入账 / FYI 原文
+- **current_round / round_theme**：7 / 生成队列与任务状态（保留）
+- **round6_tip**：仍 `c02226b4`；**round6_calibration_pending**：true（`--toiv-media-*` 尺寸校准 tip 待交）
+- **round7_research**：`done`；evidence=`docs/ops/VISUAL_JOB_QUEUE_R7_20261026.md`（在盘）
+- **job_queue_drawer_width**：736
+- **job_queue_progress_policy**：真progress优先，否则估计并标注
+- **await_user**：仍 `round7_outputs`（等跨端 R6校准 tip + R7 tip）
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:32 Asia/Shanghai · 项目管家 · 第6轮关账 → 第7轮开（含 R6 调研保留）
+
+- **evidence**：技术负责人「第6轮关账→第7轮开」+ R6 调研入账
+- **round6_research**：`done`；evidence=`docs/ops/VISUAL_MEDIA_LIBRARY_R6_20261026.md`（在盘）
+- **round6_status**：`done` / closed
+- **round6_tip**：`c02226b4`（full `c02226b454e27dc8cd25b8e34ba8c0a61304c6a1`）
+- **round6_handback**：`apps/canvas/docs/ASSET_MEDIA_POOL_R6_HANDBACK.md`（在盘）
+- **round6_note**：R5 node token 已同 tip 校准
+- **round6_risk**：左栏未接远端分页
+- **current_round**：7；**round_theme**：生成队列与任务状态
+- **await_user**：`round7_outputs`
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:29 Asia/Shanghai · 项目管家 · 补挂 round5_research
+
+- **evidence**：技术负责人补挂（tip `a140e360` 关账后到）
+- **current_round**：6（保留）；**await_user**：仍 `round6_outputs`
+- **round5_research**：`done`
+- **round5_research_evidence**：`docs/ops/VISUAL_NODE_GRAPH_R5_20261026.md`（在盘）
+- **node_spec_note**：节点规格表以该调研文档 / TL 厅表为准
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:28 Asia/Shanghai · 项目管家 · 第5轮关账 → 第6轮开
+
+- **evidence**：技术负责人「第5轮关账→第6轮开」原文
+- **round5_status**：`done` / closed
+- **round5_tip**：`a140e360`（full `a140e3606b94104e7cdb710f258484262b6bcdcc`）
+- **round5_handback**：`apps/canvas/docs/NODE_GRAPH_VISUAL_R5_HANDBACK.md`（在盘）
+- **保留**：既有 rounds tips / layout / accents；push_authorized=false
+- **current_round**：6；**round_theme**：资产库与媒体池
+- **await_user**：`round6_outputs`
+- **prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:25 Asia/Shanghai · 项目管家 · 第4轮关账 → 第5轮开
+
+- **evidence**：技术负责人「第4轮关账→第5轮开」原文
+- **round4_status**：`done` / closed
+- **round4_tip**：`8cfbcab7`（full `8cfbcab7ac05d763b5fd658e203900f16c32ca19`）
+- **round4_handback**：`apps/canvas/docs/SCRIPT_STORYBOARD_R4_HANDBACK.md`（在盘）
+- **layout_note**：R3 handback 240/280 以 R4 tip 为准（supersede）；`create_shell_layout.layout_authority=round4_tip`
+- **保留**：既有 tips / 调研 / mode·accent 规格
+- **current_round**：5；**round_theme**：节点编排引擎外观与交互
+- **await_user**：`round5_outputs`
+- **push_authorized**：false；**未 push**
+- **prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:22 Asia/Shanghai · 项目管家 · 补挂 round3/round4 调研 + create_shell_layout
+
+- **evidence**：技术负责人补挂原文
+- **current_round / round_theme**：4 / 剧本与分镜管理UI（保留）
+- **round3_research**：`done`；evidence=`docs/ops/VISUAL_CREATE_SHELL_R3_20261026.md`（在盘）
+- **round4_research**：`done`；evidence=`docs/ops/VISUAL_STORYBOARD_CARDS_R4_20261026.md`（在盘）
+- **create_shell_layout**：left=280；right=320；selected_detail_expand=420；dual_track_pip=true
+- **round3_research_note**：已补挂（清「若后到补挂」）
+- **round3_***：保留 tip/handback/risk 等
+- **await_user**：仍 `round4_outputs`（等跨端 R4 tip）
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:18 Asia/Shanghai · 项目管家 · 第3轮关账 → 第4轮开
+
+- **evidence**：技术负责人「第3轮关账→第4轮开」原文
+- **round3_status**：`done` / closed
+- **round3_tip**：`73358b6c`（full `73358b6c78323d67e6b42c01d1b8fa1d88822749`）
+- **round3_handback**：`apps/canvas/docs/CREATE_STUDIO_THREE_PANE_R3_HANDBACK.md`（在盘）
+- **round3_risk**：中栏短剧表单未迁 Inspector
+- **round3_research_note**：调研 R3 简报若后到补挂
+- **保留**：round1_tip=`c87a6a02`；round2_tip=`eac519c9`；既有 mode/accent 规格
+- **current_round**：4；**round_theme**：剧本与分镜管理UI
+- **await_user**：`round4_outputs`
+- **push_authorized**：false；**未 push**
+- **prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:16 Asia/Shanghai · 项目管家 · 第2轮关账 → 第3轮开
+
+- **evidence**：技术负责人「第2轮关账→第3轮开」原文
+- **round2_status**：`done` / closed
+- **round2_tip**：`eac519c9`（full `eac519c92f4eaeb4dc0769d7f4bbbc4ba1b5652a`）
+- **round2_handback**：`apps/canvas/docs/LIGHT_CURTAIN_TOPBAR_R2_HANDBACK.md`（在盘）
+- **round2_note**：光幕顶栏右已落地
+- **保留**：round1_tip=`c87a6a02`；mode 规格；accent `#5ba0ff`+`#00bdcf`
+- **current_round**：3；**round_theme**：`/create`单一创作台三栏布局
+- **await_user**：`round3_outputs`
+- **push_authorized**：false；**未 push**
+- **prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **refactor_rounds / mode / deadline / cadence**：12 / `local_tips_no_push_default` / `2026-10-26T22:05:00+08:00` / `every_30min`（保留）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:14 Asia/Shanghai · 项目管家 · round2 部分入账（VISUAL_MODE_SWITCH 调研）
+
+- **evidence**：技术负责人「调研 VISUAL_MODE_SWITCH_R2 已交」原文
+- **current_round / round_theme**：2 / 顶栏与光幕拨片重构（保留）
+- **round2_visual_mode_research**：`done`
+- **visual_mode_switch_evidence**：`docs/ops/VISUAL_MODE_SWITCH_R2_20261026.md`（在盘）
+- **mode_labels**：普通 | 成人
+- **adult_accent_glow**：`#4f8cff`
+- **mode_switch_size**：28×≥108（高×宽下限）
+- **accent_arbitrated / accent_cyan**：`#5ba0ff` / `#00bdcf`（保留）
+- **await_user**：仍 `round2_outputs`（等跨端 tip）
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:12 Asia/Shanghai · 项目管家 · 第1轮关账 → 第2轮开
+
+- **evidence**：技术负责人「第1轮关账→第2轮开」原文
+- **round1_status**：`done` / closed
+- **round1_tip**：`c87a6a02`（full `c87a6a022544bbb6b8d61f44dda9d7e10194b2be`）
+- **round1_token**：`toiv-freezone-tokens.css`（双端）
+- **round1_handback**：`apps/canvas/docs/VISUAL_SYSTEM_RESET_R1_HANDBACK.md`（在盘）
+- **accent_arbitrated / accent_cyan**：`#5ba0ff` / `#00bdcf`（保留）
+- **current_round**：2；**round_theme**：顶栏与光幕拨片重构
+- **await_user**：`round2_outputs`
+- **push_authorized**：false；**未 push**
+- **prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **refactor_rounds / mode / deadline / cadence**：12 / `local_tips_no_push_default` / `2026-10-26T22:05:00+08:00` / `every_30min`（保留）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:10 Asia/Shanghai · 项目管家 · round1 续入账（VISUAL_DNA + 合规闸核盘）
+
+- **evidence**：技术负责人 round1 续入账 + TL 覆盖补
+- **round1_visual_dna**：`done`
+- **visual_dna_evidence**：`docs/ops/VISUAL_DNA_RESET_R1_20261026.md`（在盘；abs=`/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/VISUAL_DNA_RESET_R1_20261026.md`）
+- **accent_arbitrated**：`#5ba0ff`（TL 仲裁；非 `#4f8cff`）
+- **accent_secondary / accent_cyan**：`#00bdcf`（TL 确认 `#5ba0ff`+`#00bdcf`）
+- **round1_license_gate**：仍 `done`
+- **license_gate_evidence**：`docs/ops/WAVE2_LICENSE_GATE_R1_20261026.md`（在盘（?? 未 commit））
+- **license_gate_evidence_on_disk**：true
+- **license_gate_evidence_authority**：`file+chat`
+- **await_user**：仍 `round1_outputs`（等跨端 tip；+token 若仍缺）
+- **push_authorized**：false；**current_round**：1；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:09 Asia/Shanghai · 项目管家 · round1 部分入账（license_gate）
+
+- **evidence**：技术负责人 round1 部分入账原文
+- **refactor_rounds / current_round / round_theme**：12 / 1 / 全局视觉系统重置（保留）
+- **refactor_mode / deadline / cadence**：`local_tips_no_push_default` / `2026-10-26T22:05:00+08:00` / `every_30min`（保留）
+- **round1_license_gate**：`done`（逆向合规闸已交）
+- **license_gate_A**：Toonflow-app, LumenX, PrintFilm, AID
+- **license_gate_B**：BeefTV, ArcReel, dramaclaw, BigBanana, AIMovieStudio, ai_story, CineGen
+- **license_gate_exclude**：koma（不吸收）
+- **license_gate_risk**：redline.ts/.py 当前硬 import；『缺失不影响主功能』不成立；另轮 soft-optional
+- **license_gate_evidence**：`apps/canvas/docs/WAVE2_LICENSE_GATE_R1.md`（盘上未找到（已记约定路径，待落盘））
+- **await_user**：仍 `round1_outputs`（等跨端 tip + 调研 VISUAL_DNA 简报）
+- **push_authorized**：false；**ui_remediation**：done；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:06 Asia/Shanghai · 项目管家 · 重构 12 轮开账 · round=1/12
+
+- **evidence**：技术负责人「启动 ToIV 重构 12 轮自主迭代 round=1/12 theme=全局视觉系统重置」
+- **refactor_rounds**：12；**current_round**：1；**round_theme**：全局视觉系统重置
+- **refactor_mode**：`local_tips_no_push_default`
+- **refactor_deadline**：`2026-10-26T22:05:00+08:00`（约 8h）；**refactor_cadence**：`every_30min`
+- **await_user**：`round1_outputs`
+- **push_authorized**：false（默认不 push）
+- **ui_remediation**：仍 `done`
+- **prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（**未改**；deploy 仍 closed_done）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 13:43 Asia/Shanghai · 项目管家 · ui_remediation=done · deploy closed_done（关账）
+
+- **evidence**：网络运维 prod_tip/BUILD/health200/smoke0；技术负责人关账
+- **ui_remediation**：`done`（覆盖 shipping）
+- **deploy_status / deploy_result**：`closed_done`
+- **prod_tip**：`c452d28402b0a783f30c076cc84aeb63dd4fc69e`
+- **prev_prod_tip**：`1854b578d5734b9091a20a4a1656d8b64a8d51a6`
+- **BUILD_ID / web_build_id**：`20261026-054140-c452d284`
+- **remote_tip_gitee / remote_tip_github**：`c452d28402b0a783f30c076cc84aeb63dd4fc69e`（一致；ahead 0/0）
+- **health**：主路径全200；**smoke**：0
+- **mode**：`--all core`；**rollback**：`deploy.sh --rollback core`；**backup**：`pre-c452d284-20261026-134138`
+- **ui_quality_replan**：仍 `locked`（随 remediation done 收束）
+- **tip_curtain（基线）**：`2f6ad65b`；**local_chain**：`2f6ad65b → 090e2176 → 79bfbf88 → c452d284`
+- **await_user**：null；**push_authorized**：false（已清）
+- **pending_dispatch**：null
+- **source**：网络运维 + 技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未再部署 / 未改生产
+
+## 2026-10-26 13:42 Asia/Shanghai · 项目管家 · 跨端 push 完成 · await=deploying
+
+
+## 2026-10-26 13:42 Asia/Shanghai · 网络运维 · Freezone settings/sidebar 发版（--all → c452d284）
+
+- **口令**：用户授权 push 含 `c452d284` 并 deploy；跨端双远程齐
+- **deploy 前**：`1854b578` / BUILD `20261026-052220-1854b578`
+- **deploy 后 tip**：`c452d28402b0a783f30c076cc84aeb63dd4fc69e`（origin == github）
+- **模式**：`DEPLOY_DRAIN_WAIT_SEC=120 ./deploy/deploy.sh --all core` → ✅；未 rollback
+- **web BUILD_ID**：`20261026-054140-c452d284`
+- **smoke**：前后 running=0；drain clear
+- **抽样 MATCH**：`redline.py` / `account.py` / `models.py`
+- **回滚**：本窗 `.rollback-previous`；预备份 `/home/merlin/toiv-ops-backups/rollback-previous-pre-c452d284-20261026-134138`；`./deploy/deploy.sh --rollback core`
+- **健康**：api/web/version + 引擎口 200；canvas-api-pg 本机 200
+- **未做**：未 push；stash `ops-predeploy-stash-20261026-134138`
+- **异常**：无
+
+
+- **evidence**：跨端 push 完成确认：remote tip=`c452d28402b0a783f30c076cc84aeb63dd4fc69e`；Gitee+GitHub 一致；ahead 0/0；push 已落地；等运维 `deploy_result`（via TL）
+- **ui_remediation**：仍 `shipping`
+- **ui_quality_replan**：仍 `locked`
+- **tip_remediation / target_tip / local_head / remote_tip**：`c452d284`（全长 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`）
+- **tip_curtain_shrink / tip_curtain（基线）**：仍 `2f6ad65b`
+- **local_chain**：`2f6ad65b → 090e2176 → 79bfbf88 → c452d284`
+- **prod_tip**：仍 `1854b578d5734b9091a20a4a1656d8b64a8d51a6`（deploy 前不变）
+- **push_authorized**：true；**push_landed**：true；**tip_remediation_pushed**：true
+- **remote_ahead**：origin 0 / github 0
+- **await_user**：`deploying`（等运维 deploy_result）
+- **pending_dispatch**：`ops_await_deploy_result`（管家不派、不自部署、不改生产）
+- **source**：技术负责人（与跨端/TL FYI 对齐）
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
 ## 2026-10-26 11:25 CST · ui_refresh 跨端一次回传入账
 
 ## 2026-10-26 Asia/Shanghai · Wave1 账号全局 content_mode（后端 tip）

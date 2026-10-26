@@ -330,6 +330,9 @@ def list_active_jobs(
     )
     if not (all_users and user.role == "admin"):
         stmt = stmt.where(Job.user_id == user.id)
+    # R18 门槛:与 GET /api/jobs 同口径(账号 content_mode;头不算)
+    if not nsfw_allowed(user):
+        stmt = stmt.where(Job.nsfw == False)  # noqa: E712
     rows = session.exec(stmt.order_by(Job.created_at)).all()  # type: ignore[arg-type]
     # admin all=1 时透出属主 email(Admin P1 作业队列域);本人口径恒空串
     emails = _user_emails_map(session, list(rows)) if (all_users and user.role == "admin") else {}

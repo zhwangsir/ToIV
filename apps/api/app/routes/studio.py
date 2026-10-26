@@ -18,6 +18,11 @@ from app.db import get_session
 from app.deps import get_current_admin, get_current_user, get_pool
 from app.ratelimit import enforce_generation_rate_limit
 from app.models import StudioCharacter, StudioProject, StudioShot, User
+from app.redline import account_content_mode, nsfw_allowed
+from app.services.media_nsfw_gate import (
+    assert_studio_file_content_mode_allows,
+    shot_urls_nsfw,
+)
 from app.services.drama_pipeline import compute_studio_next_step
 from app.services import h3_accel
 from app.services.svml_lite import drafts_to_coerced, parse_svml_script as svml_parse_script
@@ -300,6 +305,80 @@ def get_project(
     session: Session = Depends(get_session),
 ):
     return _project_detail(session, _get_project(session, pid, user))
+
+
+
+
+@router.get("/studio/projects/{pid}/timeline-preview")
+def timeline_preview(
+    pid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """预览时间线只读聚合(Wave8 P0):按 shot.idx 输出可播条目。
+
+    ordinary 响应中不出现 NSFW 条(服务端过滤,勿依赖前端藏)。
+    nsfw 判定:分镜媒体 URL 命中任一 ``Job.nsfw=True`` 的 result。
+    """
+    p = _get_project(session, pid, user)
+    shots = session.exec(
+        select(StudioShot).where(StudioShot.project_id == pid).order_by(StudioShot.idx)
+    ).all()
+    allow = nsfw_allowed(user)
+    items: list[dict] = []
+    for s in shots:
+        urls: list[str] = []
+        for u in (s.image_url, s.video_url, s.final_clip_url, s.voice_url):
+            if isinstance(u, str) and u.strip():
+                urls.append(u.strip())
+        try:
+            cands = json.loads(s.candidates_json or "[]")
+        except (ValueError, TypeError):
+            cands = []
+        if isinstance(cands, list):
+            for c in cands:
+                if isinstance(c, dict):
+                    cu = c.get("url")
+                    if isinstance(cu, str) and cu.strip():
+                        urls.append(cu.strip())
+        is_nsfw = shot_urls_nsfw(session, urls)
+        if is_nsfw and not allow:
+            continue
+        media = (s.final_clip_url or s.video_url or "").strip()
+        keyframe = (s.image_url or "").strip()
+        voice = (s.voice_url or "").strip()
+        if media:
+            kind: str | None = "video"
+            preview = keyframe or media
+            media_url = media
+        elif keyframe:
+            kind = "image"
+            preview = keyframe
+            media_url = keyframe
+        elif voice:
+            kind = "audio"
+            preview = voice
+            media_url = voice
+        else:
+            kind = None
+            preview = ""
+            media_url = ""
+        item = {
+            "shot_id": s.id,
+            "idx": int(s.idx),
+            "kind": kind,
+            "preview_url": preview,
+            "duration_sec": int(s.duration_sec or 0),
+            "nsfw": bool(is_nsfw),
+        }
+        if media_url:
+            item["media_url"] = media_url
+        items.append(item)
+    return {
+        "fps": int(getattr(p, "fps", 24) or 24),
+        "content_mode": account_content_mode(user),
+        "items": items,
+    }
 
 
 @router.patch("/studio/projects/{pid}")
@@ -3743,6 +3822,7 @@ def studio_file(
     if not path.is_file():
         raise HTTPException(status_code=404, detail="文件不存在")
     assert_studio_file_access(session, user, safe, sig=sig)
+    assert_studio_file_content_mode_allows(session, user, safe)
     return FileResponse(
         path, media_type=_MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream")
     )

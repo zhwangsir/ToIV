@@ -21,6 +21,7 @@ from app.db import get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
 from app.pathsafe import PathTraversalError, validate_path_component
+from app.services.media_nsfw_gate import assert_image_content_mode_allows
 
 router = APIRouter()
 
@@ -106,6 +107,9 @@ async def get_image(
         ).first()
         if not owns:
             raise HTTPException(status_code=404, detail="产物不存在")
+
+    # 双闸:NSFW Job 产物仅成人态可取(账号 content_mode;失败 404)
+    assert_image_content_mode_allows(db, user, filename)
 
     primary = resolve_worker(worker)  # SSRF 白名单校验
     host = _host(primary.base_url)
@@ -219,6 +223,8 @@ async def get_image_thumb(
         ).first()
         if not owns:
             raise HTTPException(status_code=404, detail="产物不存在")
+
+    assert_image_content_mode_allows(db, user, filename)
 
     def _cache_path(content: bytes) -> Path:
         h = hashlib.sha256(f"{safe_filename}|{len(content)}".encode()).hexdigest()[:32]
