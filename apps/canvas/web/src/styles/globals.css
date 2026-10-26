@@ -461,6 +461,26 @@
 }
 
 @theme inline {
+    /* Freezone Visual System R1 — map to --toiv-* (no parallel hex palette) */
+    --color-toiv-bg: var(--toiv-bg);
+    --color-toiv-surface: var(--toiv-surface);
+    --color-toiv-border: var(--toiv-border);
+    --color-toiv-text: var(--toiv-text);
+    --color-toiv-accent: var(--toiv-accent);
+    --color-toiv-accent-cyan: var(--toiv-accent-cyan);
+    --color-toiv-danger: var(--toiv-danger);
+    --color-toiv-nsfw-lock: var(--toiv-nsfw-lock);
+    --color-toiv-director: var(--toiv-director);
+    --radius-toiv-badge: var(--toiv-radius-badge);
+    --radius-toiv-card: var(--toiv-radius-card);
+    --radius-toiv-panel: var(--toiv-radius-panel);
+    --shadow-toiv-inner-glow: var(--toiv-shadow-inner-glow);
+    --spacing-toiv-1: var(--toiv-space-1);
+    --spacing-toiv-2: var(--toiv-space-2);
+    --spacing-toiv-3: var(--toiv-space-3);
+    --spacing-toiv-4: var(--toiv-space-4);
+    --spacing-toiv-6: var(--toiv-space-6);
+
     /* 响应式断点（对应 #99 四断点体系：mobile/tablet/desktop/wide）*/
     --breakpoint-tablet: 768px;
     --breakpoint-desktop: 1024px;

@@ -5,26 +5,26 @@
    ════════════════════════════════════════════════════════════════════ */
 
 .landing {
-  /* Freezone / DramaClaw dark-first */
-  --bg-canvas: #0a0c12;
-  --bg-surface-1: #15161d;
-  --bg-surface-2: #1b1c23;
-  --bg-surface-3: #13141b;
-  --border-subtle: #22232c;
-  --border-strong: #2f3036;
-  --text-primary: #e8eaf0;
-  --text-secondary: #b4b8c4;
-  --text-muted: #6f7079;
-  --accent: #00bdcf;
-  --accent-hover: #1ad0e0;
-  --accent-soft: rgba(0, 189, 207, 0.14);
+  /* Freezone dark-first — bridged to toiv-freezone-tokens.css (B aesthetic rewrite) */
+  --bg-canvas: var(--toiv-bg);
+  --bg-surface-1: var(--toiv-surface);
+  --bg-surface-2: var(--toiv-surface-raised);
+  --bg-surface-3: var(--toiv-surface-panel);
+  --border-subtle: var(--toiv-border);
+  --border-strong: var(--toiv-border-strong);
+  --text-primary: var(--toiv-text);
+  --text-secondary: var(--toiv-text-secondary);
+  --text-muted: var(--toiv-text-muted);
+  --accent: var(--toiv-accent-cyan);
+  --accent-hover: var(--toiv-accent-cyan-hover);
+  --accent-soft: var(--toiv-accent-cyan-soft);
   --accent-halo: rgba(91, 160, 255, 0.28);
-  --text-on-accent: #111b21;
-  --accent-glow: #5ba0ff;
-  --accent-glow-soft: rgba(91, 160, 255, 0.16);
-  --accent-glow-shadow: 0 0 24px rgba(0, 189, 207, 0.35);
-  --err: #f58484;
-  --err-soft: rgba(245, 132, 132, 0.14);
+  --text-on-accent: var(--toiv-text-on-accent);
+  --accent-glow: var(--toiv-accent);
+  --accent-glow-soft: var(--toiv-accent-soft);
+  --accent-glow-shadow: var(--toiv-glow-accent);
+  --err: var(--toiv-danger);
+  --err-soft: var(--toiv-danger-soft);
   --glass-bg: rgba(21, 22, 29, 0.86);
   --glass-border: rgba(91, 160, 255, 0.16);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);

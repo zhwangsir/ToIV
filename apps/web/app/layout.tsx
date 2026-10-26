@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Geist, Geist_Mono, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
+import "./styles/toiv-freezone-tokens.css";
 import "./styles/glass.css";
 /* F12 薄壳(2026-10-15):nav-account.css(侧栏账户钮)/canvas-flow.css(React Flow 画布)
    随第二套壳组件下线删除。

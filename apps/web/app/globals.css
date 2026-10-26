@@ -7,6 +7,10 @@
    token 驱动 · 4px 间距基数 · 动效 ease-out + spring
    ────────────────────────────────────────────────────────── */
 
+/* Freezone Visual System R1: post-login / landing dark spine lives in
+   ./styles/toiv-freezone-tokens.css (imported from layout.tsx). Do not fork a
+   second Freezone hex table here; bridge via --toiv-* / .landing overrides. */
+
 /* ========== Design Tokens(canonical 层) ========== */
 
 :root {

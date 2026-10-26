@@ -8,10 +8,10 @@
 .toiv-home-fleet-hint {
     margin: 0 0 12px;
     padding: 8px 10px;
-    border: 1px solid var(--fz-border, #22232c);
+    border: 1px solid var(--fz-border);
     border-radius: 10px;
-    background: var(--fz-surface, #15161d);
-    color: var(--fz-muted, #6f7079);
+    background: var(--fz-surface);
+    color: var(--fz-muted);
     font-size: 12px;
     line-height: 18px;
 }
@@ -23,10 +23,10 @@
     justify-content: center;
     gap: 8px;
     margin: 8px 0;
-    border: 1px solid var(--fz-border, #22232c);
+    border: 1px solid var(--fz-border);
     border-radius: 10px;
-    background: var(--fz-surface, #15161d);
-    color: var(--fz-muted, #6f7079);
+    background: var(--fz-surface);
+    color: var(--fz-muted);
     cursor: pointer;
     font-size: 12px;
 }

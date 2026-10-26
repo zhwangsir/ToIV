@@ -1,15 +1,6 @@
 /* Content-mode prototypes A/B/C — Freezone/DC stage props (token/rhythm only) */
+/* Colors: toiv-freezone-tokens.css (--cm-* aliases). Keep ordinary-matte local. */
 :root {
-  --cm-canvas: #0a0c12;
-  --cm-surface: #15161d;
-  --cm-raised: #1b1c23;
-  --cm-border: #22232c;
-  --cm-ink: #e8eaf0;
-  --cm-muted: #6f7079;
-  --cm-primary: #00bdcf;
-  --cm-accent: #5ba0ff;
-  --cm-adult: #8b7cff;
-  --cm-adult-deep: #3a2f6b;
   --cm-ordinary-matte: #2a3540;
 }
 
@@ -143,10 +134,10 @@
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  width: 108px;
-  min-width: 88px;
-  max-width: 120px;
-  height: 30px;
+  width: var(--toiv-light-curtain-w, 108px);
+  min-width: var(--toiv-light-curtain-w-min, 88px);
+  max-width: var(--toiv-light-curtain-w-max, 120px);
+  height: var(--toiv-light-curtain-h, 30px);
   padding: 2px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--border, var(--cm-border)) 70%, transparent);
@@ -156,10 +147,10 @@
   backdrop-filter: none;
 }
 .cm-light-curtain.is-compact .cm-light-curtain-rail {
-  width: 56px;
-  min-width: 56px;
-  max-width: 56px;
-  height: 28px;
+  width: var(--toiv-light-curtain-w-compact, 56px);
+  min-width: var(--toiv-light-curtain-w-compact, 56px);
+  max-width: var(--toiv-light-curtain-w-compact, 56px);
+  height: var(--toiv-light-curtain-h-compact, 28px);
 }
 .cm-light-curtain-veil {
   position: absolute;
@@ -197,11 +188,11 @@
   border: 0;
   background: transparent;
   color: var(--muted-foreground, var(--cm-muted));
-  font-size: 12px;
+  font-size: var(--toiv-light-curtain-fs, 12px);
   font-weight: 600;
   letter-spacing: 0;
   cursor: pointer;
-  border-radius: 999px;
+  border-radius: var(--toiv-radius-full, 9999px);
   line-height: 1;
 }
 .cm-light-curtain-opt.is-active {

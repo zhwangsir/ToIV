@@ -1,0 +1,155 @@
+/* =============================================================================
+   ToIV Freezone Visual System — Design Tokens R1 (2026-10-26)
+   ---------------------------------------------------------------------------
+   TL nail (final):
+     · main accent     #5ba0ff
+     · aux (shadcn/青) #00bdcf
+     · Beef #4f8cff    ONLY --toiv-glow-director (光幕/glow 辅通道); never floor/CTA
+   Self-authored CSS. B-class = aesthetic values only (no source CSS copy).
+   DNA: docs/ops/VISUAL_DNA_RESET_R1_20261026.md
+   Sync twin: apps/web/app/styles/toiv-freezone-tokens.css (keep identical).
+   ============================================================================= */
+
+:root {
+  /* ── Color: Freezone dark-first (DNA dramaclaw 1:1 · B aesthetic rewrite) ── */
+  --toiv-bg: #0a0c12;
+  --toiv-bg-rgb: 10 12 18;
+  --toiv-surface: #15161d;
+  --toiv-surface-rgb: 21 22 29;
+  --toiv-surface-raised: #1b1c23;
+  --toiv-surface-panel: #13141b;
+  --toiv-surface-field: #0d0e14;
+
+  --toiv-border: #22232c;
+  --toiv-border-strong: #2f3036;
+  --toiv-border-soft: #1f2026;
+  --toiv-border-soft-alpha: rgba(255, 255, 255, 0.05);
+
+  --toiv-text: #e8eaf0;
+  --toiv-text-secondary: #b4b8c4;
+  --toiv-text-muted: #6f7079;
+
+  /* TL nail: main accent = canvas blue; cyan = form/shadcn aux */
+  --toiv-accent: #5ba0ff;
+  --toiv-accent-rgb: 91 160 255;
+  --toiv-accent-hover: #7ab4ff;
+  --toiv-accent-soft: rgba(91, 160, 255, 0.16);
+  --toiv-accent-cyan: #00bdcf;
+  --toiv-accent-cyan-hover: #1ad0e0;
+  --toiv-accent-cyan-soft: rgba(0, 189, 207, 0.14);
+  --toiv-primary: var(--toiv-accent-cyan); /* shadcn/form CTA surface */
+  --toiv-text-on-accent: #111b21;
+  /* legacy alias used by landing bridge before rename */
+  --toiv-accent-secondary: var(--toiv-accent);
+  --toiv-accent-secondary-rgb: var(--toiv-accent-rgb);
+  --toiv-accent-secondary-soft: var(--toiv-accent-soft);
+
+  --toiv-danger: #ea4335;
+  --toiv-danger-soft: rgba(234, 67, 53, 0.14);
+  --toiv-ok: #51bf6f;
+  --toiv-warn: #efa831;
+
+  /* NSFW lock — distinct purple (色+锁标); dual-channel; not main-path CTA */
+  --toiv-nsfw-lock: #8b7cff;
+  --toiv-nsfw-lock-deep: #3a2f6b;
+  --toiv-nsfw-lock-soft: rgba(139, 124, 255, 0.12);
+
+  /* ── Type scale (DNA + Freezone dense body fusion) ── */
+  --toiv-fs-nano: 10px;
+  --toiv-fs-aux: 11px;
+  --toiv-fs-caption: 12px;
+  --toiv-fs-body: 13px;
+  --toiv-fs-body-md: 14px;
+  --toiv-fs-section: 15px;
+  --toiv-fs-body-lg: 16px;
+  --toiv-fs-title: 18px;
+  --toiv-fs-headline: 20px;
+  --toiv-fs-display: 24px;
+  --toiv-fs-display-lg: 30px;
+
+  /* ── Radius (DNA + A Toonflow badge 8) ── */
+  --toiv-radius-badge: 8px;
+  --toiv-radius-control: 10px;
+  --toiv-radius-card: 12px;
+  --toiv-radius-field: 12px;
+  --toiv-radius-node: 14px;
+  --toiv-radius-panel: 16px;
+  --toiv-radius-xl: 20px;
+  --toiv-radius-full: 9999px;
+
+  /* ── Shadows / glow ── */
+  --toiv-shadow-inner-glow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --toiv-shadow-panel: 0 14px 34px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --toiv-glow-accent: 0 0 24px rgb(var(--toiv-accent-rgb) / 0.25);
+  --toiv-glow-primary: 0 0 24px rgba(0, 189, 207, 0.28);
+  /* BeefTV director blue — ONLY light-curtain / glow aux channel (TL nail) */
+  --toiv-director: #4f8cff;
+  --toiv-director-rgb: 79 140 255;
+  --toiv-glow-director: 0 0 24px rgb(var(--toiv-director-rgb) / 0.28);
+  --toiv-focus-ring: 0 0 0 3px rgb(var(--toiv-accent-rgb) / 0.12);
+  --toiv-blur-panel: saturate(180%) blur(18px);
+
+  /* ── Spacing (4/8/12/16/24 + 32) ── */
+  --toiv-space-1: 4px;
+  --toiv-space-2: 8px;
+  --toiv-space-3: 12px;
+  --toiv-space-4: 16px;
+  --toiv-space-5: 20px;
+  --toiv-space-6: 24px;
+  --toiv-space-8: 32px;
+
+  /* ── Motion (DNA) ── */
+  --toiv-duration-fast: 150ms;
+  --toiv-duration-base: 220ms;
+  --toiv-duration-slow: 320ms;
+  --toiv-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ── Light curtain (TL · 28–32px; top-right / sidebar utility) ── */
+  --toiv-light-curtain-h: 30px;
+  --toiv-light-curtain-h-compact: 28px;
+  --toiv-light-curtain-w: 108px;
+  --toiv-light-curtain-w-min: 88px;
+  --toiv-light-curtain-w-max: 120px;
+  --toiv-light-curtain-w-compact: 56px;
+  --toiv-light-curtain-fs: var(--toiv-fs-caption);
+
+  /* Desk aliases: primary=cyan CTA aux; accent=main blue */
+  --fz-canvas: var(--toiv-bg);
+  --fz-surface: var(--toiv-surface);
+  --fz-raised: var(--toiv-surface-raised);
+  --fz-border: var(--toiv-border);
+  --fz-border-strong: var(--toiv-border-strong);
+  --fz-ink: var(--toiv-text);
+  --fz-muted: var(--toiv-text-muted);
+  --fz-primary: var(--toiv-accent-cyan);
+  --fz-accent: var(--toiv-accent);
+
+  /* Content-mode aliases */
+  --cm-canvas: var(--toiv-bg);
+  --cm-surface: var(--toiv-surface);
+  --cm-raised: var(--toiv-surface-raised);
+  --cm-border: var(--toiv-border);
+  --cm-ink: var(--toiv-text);
+  --cm-muted: var(--toiv-text-muted);
+  --cm-primary: var(--toiv-accent-cyan);
+  --cm-accent: var(--toiv-accent);
+  --cm-adult: var(--toiv-nsfw-lock);
+  --cm-adult-deep: var(--toiv-nsfw-lock-deep);
+}
+
+.app-user-workspace.app-product-workspace,
+.fz-desk {
+  --user-page-bg: var(--toiv-bg);
+  --user-surface: var(--toiv-surface);
+  --user-surface-muted: var(--toiv-bg);
+  --user-surface-raised: var(--toiv-surface-raised);
+  --user-border: var(--toiv-border);
+  --user-ink: var(--toiv-text);
+  --user-ink-muted: var(--toiv-text-muted);
+  --workspace-page: var(--toiv-bg);
+  --workspace-canvas: var(--toiv-bg);
+  --workspace-surface: var(--toiv-surface);
+  --workspace-sidebar: var(--toiv-bg);
+  --workspace-content: var(--toiv-bg);
+  --workspace-border: var(--toiv-border);
+}

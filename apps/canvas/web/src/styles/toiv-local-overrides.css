@@ -300,10 +300,10 @@ html.dark,
 
 /* Overlay / panel rhythm (Toonflow: less page jump) */
 .toiv-freezone-panel {
-    border: 1px solid var(--workspace-border, var(--border));
-    border-radius: var(--r-lg, 14px);
-    background: color-mix(in srgb, var(--workspace-surface, var(--card)) 94%, transparent);
-    box-shadow: 0 1px 0 color-mix(in srgb, #fff 4%, transparent) inset;
+    border: 1px solid var(--workspace-border, var(--toiv-border, var(--border)));
+    border-radius: var(--toiv-radius-panel, var(--r-lg, 16px));
+    background: color-mix(in srgb, var(--workspace-surface, var(--toiv-surface, var(--card))) 94%, transparent);
+    box-shadow: var(--toiv-shadow-inner-glow, 0 1px 0 color-mix(in srgb, #fff 4%, transparent) inset);
 }
 
 .toiv-ws-creation-dock {
