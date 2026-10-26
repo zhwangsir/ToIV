@@ -45,8 +45,9 @@ def set_nsfw(
 
     全站 R18 语义统一为 X-NSFW 请求头(redline.nsfw_allowed);本端点只为
     兼容旧客户端保留。未成年硬阻断仍保留,防止遗留开关被未成年账户置位。"""
-    # 2026-10-26:未成年硬阻断改前端守卫；本遗留开关端点不再 403
-    _ = is_underage(user)
+    # 未成年硬阻断:即便绕过前端也无法开启 R18,服务端兜底拒绝
+    if body.enabled and is_underage(user):
+        raise HTTPException(status_code=403, detail="未成年用户不可开启 R18 模式")
     user.nsfw_enabled = body.enabled
     session.add(user)
     session.commit()

@@ -105,12 +105,14 @@ def _apply_lora_tags(req: Txt2ImgRequest | Img2ImgRequest) -> None:
 
 
 def _gate_nsfw_ckpt(ckpt_name: str, user: User) -> bool:
-    """返回作品是否成人向(Job.nsfw 打标)。
+    """R18 硬门槛:成人底模须用户已开 R18 才放行,否则 403(防绕过 UI 直调 API)。
 
-    2026-10-26:不再因无 X-NSFW 403；拦截改 canvas 前端路由守卫。
+    返回该作品是否成人向(供建档打标 Job.nsfw)。
     """
-    _ = user  # 签名兼容
-    return is_nsfw(ckpt_name)
+    nsfw = is_nsfw(ckpt_name)
+    if nsfw and not nsfw_allowed(user):
+         raise HTTPException(status_code=403, detail="该底模属 R18 分区,须在 R18 上下文(X-NSFW)下使用")
+    return nsfw
 
 
 class Txt2ImgRequest(BaseModel):
@@ -1025,8 +1027,11 @@ def _gate_raw_graph_nsfw(graph: dict, user: User) -> bool:
               for s in _iter_input_strings(value):
                    if s.lower().endswith(_MODEL_REF_EXTS) and _is_nsfw_model_ref(s):
                         any_nsfw = True
-    # 2026-10-26:不再因无头 403；仅返回是否含成人模型供打标
-    _ = user
+    # header-only R18 语义:与 _gate_nsfw_ckpt 同一信号(X-NSFW 头),账户开关不再放行
+    if any_nsfw and not nsfw_allowed(user):
+         raise HTTPException(
+              status_code=403, detail="工作流含 R18 底模,请在 R18 专区(/nsfw)使用"
+         )
     return any_nsfw
 
 

@@ -1,9 +1,6 @@
 """薄 re-export —— 策略常量真源已迁至 `app.redline`。
 
 新代码请 `from app.redline import POLICY_ID, REQUEST_HEADER, ...`。
-
-
-2026-10-26:运行时拦截改 canvas `@/redline` 路由守卫；本模块为 thin re-export。
 """
 from __future__ import annotations
 

@@ -128,8 +128,8 @@ class ToolRegistry:
 async def _nsfw_guard(payload: dict, nxt: ev.WaterfallNext) -> tuple[str, list[dict]]:
     """R18 门:nsfw=True 工具且请求上下文不放行 → 403 语义文本回给 LLM(不抛异常)。"""
     spec: ToolSpec = payload["spec"]
-    # 2026-10-26: NSFW 工具不再后端拦；前端守卫负责。保留 nsfw_allowed 读取以免死导入。
-    _ = (spec.nsfw, nsfw_allowed(payload["ctx"].get("user")))
+    if spec.nsfw and not nsfw_allowed(payload["ctx"].get("user")):
+        return "该工具仅 R18 模式可用(403),本轮请改用常规工具或提示用户切换模式。", []
     return await nxt(payload)
 
 

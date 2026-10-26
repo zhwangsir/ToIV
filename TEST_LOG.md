@@ -1,3 +1,17 @@
+## 2026-10-26 Asia/Shanghai — Wave1 双闸：恢复 API NSFW 硬闸 403（本地 commit）
+
+- 分支：`work/p0-fusion-20261016`（未切支 / **本地 commit** / **未 push** / 未部署）
+- 口径：用户/TL 解禁后端再绑 403；**成人态（X-NSFW:1）完整放行 NSFW，不软化**；前端 `redline.ts` UX 保留
+- 改动（后端 SSOT + 旁路回滚至 `2d1500b3` 硬闸，再标 dual-gate）:
+  - `apps/api/app/redline.py`：`require_nsfw_context` 再 403；`nsfw_allowed` 未成年硬阻断；`FAIL_CLOSED_WITHOUT_HEADER=True`；`POLICY_ENFORCEMENT=dual-gate` / `BACKEND_RUNTIME_GATE=True`
+  - 恢复门控：`generate._gate_nsfw_ckpt/_gate_raw_graph_nsfw`、`video._gate_ltx_nsfw`、`h3_studio._gate_h3_nsfw_loras`、`models` nsfw-recommendations、`apps.run` is_nsfw、`agents` 导入、`optimize`/`studio` 技能、`account` 未成年开关、`tools_gen`/`tool_seam`、`video_upscale`
+  - 底模 403 文案对齐 X-NSFW（账户开关已废弃）
+  - 测回硬断言：`test_r18.py` / `test_r18_policy_d_u1b.py` / `test_raw_workflow.py`
+- 测：`apps/api/.venv/bin/pytest tests/test_r18.py tests/test_r18_policy_d_u1b.py tests/test_raw_workflow.py -q` → **49 passed**；`test_h3_studio.py -k 'nsfw or R18 or lora or gate'` → **20 passed**
+- 互补：后端 API 直调硬拦；前端路由守卫仍出卡（双闸）
+- 未覆盖：任务中心/创作页 retry 指纹等前端缺口仍属跨端；列表软过滤（marketplace/jobs）仍靠 `nsfw_allowed` 隐藏而非一律 403
+- **未 push / 未部署**
+
 ## 2026-10-26 Asia/Shanghai — Wire 对齐：普通/成人文案 + route_guard_adult（本地 commit）
 
 - 分支：`work/p0-fusion-20261016`（未切支 / **本地 commit** / **未 push** / 未部署）

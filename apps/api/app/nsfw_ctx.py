@@ -3,9 +3,6 @@
 按请求的 R18 放行标记:`X-NSFW: 1` header → ContextVar(见 redline.nsfw_intent_var)。
 canvas 内建 R18 门控模式;后端只认请求级意图,账户开关不放行;fail-closed;
 未成年硬阻断优先。新代码请 `from app.redline import ...`;本模块仅防炸既有 import。
-
-
-2026-10-26:运行时拦截改 canvas `@/redline` 路由守卫；本模块为 thin re-export。
 """
 from __future__ import annotations
 

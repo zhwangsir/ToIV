@@ -847,8 +847,10 @@ async def exec_submit_generation(args: dict, ctx: dict) -> tuple[str, list[dict]
     label = spec["label"]
 
     # R18 逐引擎门控(403 语义同 tool_seam._nsfw_guard;理由见模块头注释)
-    # 2026-10-26: 助手 NSFW 引擎不再后端 403 文本拦
-    _ = (spec["nsfw"], nsfw_allowed(user), _R18_BLOCK_TEXT, label, engine_id)
+    if spec["nsfw"] and not nsfw_allowed(user):
+        return _R18_BLOCK_TEXT.format(label=label, engine_id=engine_id), [
+            _err_event(f"{label} 仅 R18 可用(403)")
+        ]
 
     entry = _DISPATCH.get(engine_id)
     if entry is None:

@@ -470,8 +470,8 @@ def _resolve_agent_prefix(
     agent = session.get(Agent, aid)
     if not agent:
         raise HTTPException(status_code=404, detail="智能体不存在")
-    # 2026-10-26:智能体 R18 鉴权改前端
-    _ = (agent.is_nsfw, nsfw_allowed(user))
+    if agent.is_nsfw and not nsfw_allowed(user):
+        raise HTTPException(status_code=403, detail="该智能体需要 R18 鉴权")
     applies = [s.strip() for s in (agent.applies_to or "").split(",") if s.strip()]
     if body.kind not in applies and "all" not in applies:
         raise HTTPException(status_code=400, detail="该智能体不适用于此 kind")

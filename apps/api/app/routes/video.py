@@ -240,9 +240,10 @@ async def generate_video(
 # ──────────────────────────────────────────────────────────────────
 
 def _gate_ltx_nsfw(user: User) -> None:
-    """2026-10-26:no-op。LTX R18 拦截改 canvas 前端路由守卫；保留调用点以免炸测。"""
-    _ = user
-    return None
+    """LTX 视频端点 R18 门槛:须请求级 X-NSFW(D-U1=B canvas R18 模式)。
+    10Eros 默认底模属 R18,无头一律 403(fail-closed)。"""
+    if not nsfw_allowed(user):
+        raise HTTPException(status_code=403, detail="LTX 视频生成为 R18 内容,须在 R18 上下文(X-NSFW)下使用")
 
 
 def reject_nsfw_ltx_t2v() -> None:
