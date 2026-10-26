@@ -16,6 +16,7 @@ import {
     type CompatStatus,
 } from "@/lib/model-compat";
 import { toivHttp } from "@/services/toiv/client";
+import { filterNsfwVisibleAssets } from "@/redline";
 
 export const SLOT_LORA_STORAGE_KEY = "toiv.model-mix.slotLoras";
 export const SLOT_LORA_CAP = 3;
@@ -290,7 +291,7 @@ export async function fetchSlotLoraCandidates(
     const merged = mergeLoraCandidates(filteredEngines, inventoryList);
     // re-attach compat fields after merge (inventory side already has them; engine-only shouldn't remain)
     const byBase = new Map(inventoryList.map((c) => [basenameOf(c.value).toLowerCase(), c]));
-    return merged.map((m) => {
+    const attached = merged.map((m) => {
         const inv = byBase.get(basenameOf(m.value).toLowerCase());
         if (!inv) return m;
         return {
@@ -302,8 +303,11 @@ export async function fetchSlotLoraCandidates(
             recommendedStrength: inv.recommendedStrength ?? m.recommendedStrength,
             strengthSource: inv.strengthSource ?? m.strengthSource,
             triggers: inv.triggers ?? m.triggers,
+            nsfw: Boolean(m.nsfw || inv.nsfw),
         };
     });
+    // 普通模式隐藏 NSFW LoRA（与 checkpoint 同一红线）
+    return filterNsfwVisibleAssets(attached, (c) => ({ nsfw: c.nsfw, value: c.value, label: c.label }));
 }
 
 export function slotLoraInventoryFooter(slot: SlotLoraKey, opts?: { baseHint?: string | null; shown?: number }): string {

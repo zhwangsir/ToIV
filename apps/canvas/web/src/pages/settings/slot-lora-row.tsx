@@ -1,6 +1,6 @@
 import { App, Button, InputNumber, Modal, Spin, Tag } from "antd";
 import { ExternalLink, Layers3 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import {
     SLOT_LORA_CAP,
@@ -15,7 +15,13 @@ import {
     type SlotLoraKey,
     type SlotLoraPick,
 } from "@/lib/slot-lora";
-import { COPY_MODE_ADULT } from "@/redline";
+import {
+    COPY_MODE_ADULT,
+    getR18ModeSnapshot,
+    getServerR18ModeSnapshot,
+    isNsfwAssetVisible,
+    subscribeR18Mode,
+} from "@/redline";
 
 type Props = {
     slot: SlotLoraKey;
@@ -27,6 +33,7 @@ type Props = {
 
 export function SlotLoraRow({ slot, baseLabel, baseHint }: Props) {
     const { message } = App.useApp();
+    const adultOn = useSyncExternalStore(subscribeR18Mode, getR18ModeSnapshot, getServerR18ModeSnapshot);
     const [picks, setPicks] = useState<SlotLoraPick[]>(() => readSlotLoras(slot));
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -37,6 +44,21 @@ export function SlotLoraRow({ slot, baseLabel, baseHint }: Props) {
     useEffect(() => {
         setPicks(readSlotLoras(slot));
     }, [slot]);
+
+    // 切回普通：钉选里的 NSFW LoRA 清掉，避免普通模式仍带着成人挂件
+    useEffect(() => {
+        if (adultOn) return;
+        const current = readSlotLoras(slot);
+        const cleaned = current.filter((p) => isNsfwAssetVisible(p.name));
+        if (cleaned.length !== current.length) {
+            writeSlotLoras(slot, cleaned);
+            setPicks(cleaned);
+        }
+        setDraft((d) => d.filter((p) => isNsfwAssetVisible(p.name)));
+        setCandidates((list) =>
+            list.filter((c) => isNsfwAssetVisible({ nsfw: c.nsfw, value: c.value, label: c.label })),
+        );
+    }, [adultOn, slot]);
 
     const resolvedHint = baseHint || baseLabel || "";
     const summary = useMemo(() => formatSlotLoraSummary(picks), [picks]);
@@ -54,9 +76,10 @@ export function SlotLoraRow({ slot, baseLabel, baseHint }: Props) {
     }, [candidates]);
 
     const visible = useMemo(() => {
-        if (filterTag === "all") return candidates;
-        return candidates.filter((c) => c.typeTag === filterTag);
-    }, [candidates, filterTag]);
+        const gated = candidates.filter((c) => isNsfwAssetVisible({ nsfw: c.nsfw, value: c.value, label: c.label }));
+        if (filterTag === "all") return gated;
+        return gated.filter((c) => c.typeTag === filterTag);
+    }, [candidates, filterTag, adultOn]);
 
     const openManage = async () => {
         setOpen(true);

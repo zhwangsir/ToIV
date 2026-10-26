@@ -1,6 +1,6 @@
 import { AudioLines, Bot, Eye, Film, Image, MessageSquareText, Mic2 } from "lucide-react";
 import { Button } from "antd";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { Select } from "@/components/ui/base/select";
 import { assistantModelOptions, normalizeAssistantModel } from "@/lib/assistant-model";
@@ -15,7 +15,14 @@ import {
     writeActivePresetId,
     writeMotionModel,
 } from "@/lib/model-mix-presets";
-import { LOCAL_AUDIO_HAS_SENSEVOICE, LOCAL_AUDIO_UNAVAILABLE_LABEL } from "@/lib/local-model-defaults";
+import {
+    LOCAL_AUDIO_HAS_SENSEVOICE,
+    LOCAL_AUDIO_UNAVAILABLE_LABEL,
+    LOCAL_IMAGE_CHANNEL_ID,
+    LOCAL_IMAGE_CHECKPOINT_BASENAME,
+    LOCAL_VIDEO_CHANNEL_ID,
+    LOCAL_VIDEO_MODEL,
+} from "@/lib/local-model-defaults";
 import {
     filterModelsByCapability,
     modelDisplayName,
@@ -29,6 +36,13 @@ import {
     baseInventoryMeta,
     mergeSlotOptionsWithBaseInventory,
 } from "@/lib/base-inventory";
+import {
+    getR18ModeSnapshot,
+    getServerR18ModeSnapshot,
+    isNsfwAssetVisible,
+    subscribeR18Mode,
+    visibleSelectionOrFallback,
+} from "@/redline";
 
 export type SlotModelKey = "imageModel" | "videoModel" | "textModel" | "assistantModel";
 
@@ -47,6 +61,7 @@ function markManualMix() {
 
 export function ModelSlotTable({ config, onChange, onMotionChange, onOpenChannels, onOpenCompute }: Props) {
     const localMode = workspaceCapabilities().local;
+    const adultOn = useSyncExternalStore(subscribeR18Mode, getR18ModeSnapshot, getServerR18ModeSnapshot);
     const assistantModel = normalizeAssistantModel(config, config.assistantModel);
     const assistantOptions = assistantModelOptions(config);
     const followsDefaultText = config.textModel ? modelDisplayName(config, config.textModel) : "尚未选择对话模型";
@@ -72,17 +87,52 @@ export function ModelSlotTable({ config, onChange, onMotionChange, onOpenChannel
 
     const textOptions = toSelectOptions(config, textModels);
     const imageOptions = useMemo(
-        () => (localMode ? mergeSlotOptionsWithBaseInventory(toSelectOptions(config, imageModels), "image") : toSelectOptions(config, imageModels)),
-        [config, imageModels, localMode],
+        () => {
+            const base = localMode
+                ? mergeSlotOptionsWithBaseInventory(toSelectOptions(config, imageModels), "image")
+                : toSelectOptions(config, imageModels);
+            return base.filter((o) => isNsfwAssetVisible(o.value));
+        },
+        [config, imageModels, localMode, adultOn],
     );
     const primaryVideoOptions = useMemo(
-        () => (localMode ? mergeSlotOptionsWithBaseInventory(toSelectOptions(config, primaryVideoModels), "video-primary") : toSelectOptions(config, primaryVideoModels)),
-        [config, primaryVideoModels, localMode],
+        () => {
+            const base = localMode
+                ? mergeSlotOptionsWithBaseInventory(toSelectOptions(config, primaryVideoModels), "video-primary")
+                : toSelectOptions(config, primaryVideoModels);
+            return base.filter((o) => isNsfwAssetVisible(o.value));
+        },
+        [config, primaryVideoModels, localMode, adultOn],
     );
     const motionOptions = useMemo(
-        () => (localMode ? mergeSlotOptionsWithBaseInventory(toSelectOptions(config, motionVideoModels), "video-motion") : toSelectOptions(config, motionVideoModels)),
-        [config, motionVideoModels, localMode],
+        () => {
+            const base = localMode
+                ? mergeSlotOptionsWithBaseInventory(toSelectOptions(config, motionVideoModels), "video-motion")
+                : toSelectOptions(config, motionVideoModels);
+            return base.filter((o) => isNsfwAssetVisible(o.value));
+        },
+        [config, motionVideoModels, localMode, adultOn],
     );
+
+    // 切回普通模式时，若当前槽位钉着 NSFW 权重则回落 SFW 默认，避免空选崩溃
+    useEffect(() => {
+        if (adultOn) return;
+        const imageFallback = `${LOCAL_IMAGE_CHANNEL_ID}::${LOCAL_IMAGE_CHECKPOINT_BASENAME}`;
+        const nextImage = visibleSelectionOrFallback(config.imageModel, imageFallback);
+        if (config.imageModel && nextImage !== config.imageModel) {
+            onChange("imageModel", nextImage);
+        }
+        const videoFallback = `${LOCAL_VIDEO_CHANNEL_ID}::${LOCAL_VIDEO_MODEL}`;
+        const nextVideo = visibleSelectionOrFallback(config.videoModel, videoFallback);
+        if (config.videoModel && nextVideo !== config.videoModel) {
+            onChange("videoModel", nextVideo);
+        }
+        if (motionSelected && !isNsfwAssetVisible(motionSelected)) {
+            setMotionSelected("");
+            onMotionChange?.("");
+            writeMotionModel("");
+        }
+    }, [adultOn, config.imageModel, config.videoModel, motionSelected, onChange, onMotionChange]);
     const baseInvNote = localMode ? baseInventoryFooter() : "";
     const baseInvLive = localMode ? baseInventoryMeta().live : true;
     const assistantSelectOptions = [

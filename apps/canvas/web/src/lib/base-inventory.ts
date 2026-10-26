@@ -13,6 +13,7 @@ import {
     LOCAL_VIDEO_CHANNEL_NAME,
 } from "@/lib/local-model-defaults";
 import { LOCAL_H3_CHANNEL_ID } from "@/services/toiv/local-capability-surface";
+import { filterNsfwVisibleAssets, isNsfwAssetVisible } from "@/redline";
 
 export type BaseInventorySlot = "image" | "video-primary" | "video-motion";
 
@@ -54,7 +55,12 @@ export function baseInventoryMeta() {
     };
 }
 
-export function listBaseInventory(opts?: { slot?: BaseInventorySlot; family?: string | null }): BaseInventoryItem[] {
+export function listBaseInventory(opts?: {
+    slot?: BaseInventorySlot;
+    family?: string | null;
+    /** true=含 NSFW；false=强制普通；默认跟随成人模式 */
+    includeNsfw?: boolean;
+}): BaseInventoryItem[] {
     let items = FILE.items || [];
     if (opts?.slot) {
         items = items.filter((i) => (i.slots || []).includes(opts.slot!));
@@ -63,7 +69,12 @@ export function listBaseInventory(opts?: { slot?: BaseInventorySlot; family?: st
         const fam = opts.family;
         items = items.filter((i) => i.family === fam);
     }
-    return items;
+    if (opts?.includeNsfw === true) return items;
+    if (opts?.includeNsfw === false) {
+        return filterNsfwVisibleAssets(items, (i) => i.basename || i.label || i.relPath);
+    }
+    // 默认跟随红线：普通模式隐藏 NSFW checkpoint
+    return filterNsfwVisibleAssets(items, (i) => i.basename || i.label || i.relPath);
 }
 
 /** Channel::basename ref for settings slot dropdown. */
@@ -104,9 +115,10 @@ export function mergeSlotOptionsWithBaseInventory(
     existing: Array<{ value: string; label: string; title?: string }>,
     slot: BaseInventorySlot,
 ): Array<{ value: string; label: string; title?: string }> {
-    const seen = new Set(existing.map((o) => o.value.toLowerCase()));
+    const visibleExisting = existing.filter((o) => isNsfwAssetVisible(o.value) || isNsfwAssetVisible(o.label) || isNsfwAssetVisible(o.title));
+    const seen = new Set(visibleExisting.map((o) => o.value.toLowerCase()));
     const basenameSeen = new Set(
-        existing.map((o) => {
+        visibleExisting.map((o) => {
             const v = o.value.includes("::") ? o.value.split("::").pop() || o.value : o.value;
             return v.toLowerCase();
         }),
@@ -127,7 +139,7 @@ export function mergeSlotOptionsWithBaseInventory(
                 title: item.relPath || item.basename,
             };
         });
-    return [...existing, ...extras];
+    return [...visibleExisting, ...extras];
 }
 
 /** Resolve family for a model ref / basename via inventory then graph heuristics. */

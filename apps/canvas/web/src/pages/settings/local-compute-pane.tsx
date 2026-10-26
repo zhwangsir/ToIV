@@ -1,6 +1,6 @@
 import { App, Button, Progress, Select, Tag } from "antd";
 import { ArrowRight, RefreshCw, Server } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import {
     LOCAL_AUDIO_HAS_SENSEVOICE,
@@ -44,6 +44,12 @@ import {
 } from "@/services/api/nas-models";
 import { ComputeStatusStrip } from "@/components/toiv/compute-status-strip";
 import { useConfigStore } from "@/stores/use-config-store";
+import {
+    getR18ModeSnapshot,
+    getServerR18ModeSnapshot,
+    isNsfwAssetVisible,
+    subscribeR18Mode,
+} from "@/redline";
 
 import "./local-compute-pane.css";
 
@@ -116,9 +122,9 @@ export function LocalComputePane({ onBackToCommon }: { onBackToCommon?: () => vo
     const config = useConfigStore((s) => s.config);
     const replaceConfig = useConfigStore((s) => s.replaceConfig);
     const defaults = localComputeDefaults();
+    const adultOn = useSyncExternalStore(subscribeR18Mode, getR18ModeSnapshot, getServerR18ModeSnapshot);
     const [h3Entries, setH3Entries] = useState<NasModelEntry[]>([]);
-    const [imageEntries, setImageEntries] = useState<NasModelEntry[]>([]);
-    const [videoEntries, setVideoEntries] = useState<NasModelEntry[]>([]);
+    const [rawMainEntries, setRawMainEntries] = useState<NasModelEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [h3Selected, setH3Selected] = useState<string>();
     const [imageSelected, setImageSelected] = useState<string>();
@@ -136,11 +142,8 @@ export function LocalComputePane({ onBackToCommon }: { onBackToCommon?: () => vo
         try {
             const data = await getNasModels("all");
             const h3 = filterH3PickerEntries(data.inventory?.h3 || []);
-            const images = filterImagePickerEntries(data.inventory?.main || []);
-            const videos = filterVideoPickerEntries(data.inventory?.main || []);
             setH3Entries(h3);
-            setImageEntries(images);
-            setVideoEntries(videos);
+            setRawMainEntries(data.inventory?.main || []);
             setSource(data.inventory?.source);
             if (data.bindings?.h3?.rel_path) {
                 setH3Bound(data.bindings.h3.rel_path);
@@ -157,14 +160,29 @@ export function LocalComputePane({ onBackToCommon }: { onBackToCommon?: () => vo
         } catch (error) {
             message.warning(error instanceof Error ? error.message : "无法加载 NAS 选模清单（可稍后重试）");
             setH3Entries([]);
-            setImageEntries([]);
-            setVideoEntries([]);
+            setRawMainEntries([]);
         } finally {
             setLoading(false);
         }
     }, [message]);
 
     useEffect(() => { void load(); }, [load]);
+
+    const imageEntries = useMemo(
+        () => filterImagePickerEntries(rawMainEntries),
+        [rawMainEntries, adultOn],
+    );
+    const videoEntries = useMemo(
+        () => filterVideoPickerEntries(rawMainEntries),
+        [rawMainEntries, adultOn],
+    );
+
+    // 普通模式下若选中/已绑 NSFW 权重，清空选中（不自动改 NAS 绑定，避免误写）
+    useEffect(() => {
+        if (adultOn) return;
+        if (imageSelected && !isNsfwAssetVisible(imageSelected)) setImageSelected(undefined);
+        if (videoSelected && !isNsfwAssetVisible(videoSelected)) setVideoSelected(undefined);
+    }, [adultOn, imageSelected, videoSelected]);
 
     const h3Options = useMemo(
         () => h3Entries.map((e) => ({

@@ -1,3 +1,4 @@
+import { filterNsfwVisibleAssets } from "@/redline";
 /** Local-first model/compute defaults for Studio「模型与算力」— aligned to真机. */
 
 /** Product defaults (Pipeline C seven-piece int8). Protocol ids stay h3/h3-t2v; UI shows these basenames. */
@@ -181,21 +182,31 @@ export function filterH3PickerEntries<T extends { rel_path: string }>(entries: T
 }
 
 /** NAS main[] 出图权重：用途含「出图」（含 出图主线·checkpoint / 出图/出视频·diffusion 等）. */
-export function filterImagePickerEntries<T extends { rel_path?: string; 用途?: string }>(entries: T[]): T[] {
-    return entries.filter((e) => {
+export function filterImagePickerEntries<T extends { rel_path?: string; basename?: string; 用途?: string }>(entries: T[]): T[] {
+    const scoped = entries.filter((e) => {
         const purpose = String(e.用途 || "");
         const rel = String(e.rel_path || "");
         if (rel.startsWith("h3/")) return false;
         return purpose.includes("出图");
     });
+    return filterNsfwVisibleAssets(scoped, (e) => ({
+        basename: e.basename,
+        rel_path: e.rel_path,
+        用途: e.用途,
+    }));
 }
 
 /** NAS main[] 出视频权重（非 H3）：用途含「出视频」且 rel_path 不在 h3/ 下 → worker :8197. */
-export function filterVideoPickerEntries<T extends { rel_path?: string; 用途?: string }>(entries: T[]): T[] {
-    return entries.filter((e) => {
+export function filterVideoPickerEntries<T extends { rel_path?: string; basename?: string; 用途?: string }>(entries: T[]): T[] {
+    const scoped = entries.filter((e) => {
         const purpose = String(e.用途 || "");
         const rel = String(e.rel_path || "");
         if (rel.startsWith("h3/")) return false;
         return purpose.includes("出视频");
     });
+    return filterNsfwVisibleAssets(scoped, (e) => ({
+        basename: e.basename,
+        rel_path: e.rel_path,
+        用途: e.用途,
+    }));
 }

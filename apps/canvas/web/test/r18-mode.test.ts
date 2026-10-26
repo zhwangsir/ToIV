@@ -10,6 +10,9 @@ function installBrowserStub(r18: string | null) {
             removeItem: (k: string) => void store.delete(k),
         },
         location: { href: "http://localhost/", pathname: "/", search: "", assign() {}, replace() {} },
+        dispatchEvent: () => true,
+        addEventListener() {},
+        removeEventListener() {},
     };
     const dataset: Record<string, string> = {};
     (globalThis as Record<string, unknown>).document = { documentElement: { dataset } };

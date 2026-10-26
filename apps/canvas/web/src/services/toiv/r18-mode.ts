@@ -13,4 +13,13 @@ export {
     R18_SETTINGS_GATE_PATH,
     REQUEST_HEADER,
     REQUEST_HEADER_VALUE,
+    assetLooksNsfw,
+    isNsfwAssetMarker,
+    isNsfwAssetVisible,
+    filterNsfwVisibleAssets,
+    visibleSelectionOrFallback,
+    subscribeR18Mode,
+    getR18ModeSnapshot,
+    getServerR18ModeSnapshot,
+    R18_MODE_EVENT,
 } from "@/redline";

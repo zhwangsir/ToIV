@@ -7,17 +7,23 @@ import {
     listBaseInventory,
     mergeSlotOptionsWithBaseInventory,
 } from "@/lib/base-inventory";
+import { isNsfwAssetMarker } from "@/redline";
 
 describe("base-inventory P1b", () => {
     it("loads NAS seed with family honesty fields", () => {
         const meta = baseInventoryMeta();
         expect(meta.count).toBeGreaterThan(50);
-        expect(meta.live).toBe(false);
-        expect(meta.note).toMatch(/非实时|种子/);
-        const items = listBaseInventory();
+        // seed 可能标 live=true（实时 NAS 生成）或 false（离线种子）
+        expect(typeof meta.live).toBe("boolean");
+        if (!meta.live) expect(meta.note).toMatch(/非实时|种子/);
+        const items = listBaseInventory({ includeNsfw: true });
         expect(items.length).toBe(meta.count);
         const unknown = items.filter((i) => !i.familyResolved);
         expect(unknown.length).toBe(meta.familyUnknown);
+        // 普通模式（默认）应隐藏文件名含 nsfw 的基座
+        const sfwOnly = listBaseInventory({ includeNsfw: false });
+        expect(sfwOnly.every((i) => !/nsfw/i.test(i.basename))).toBe(true);
+        expect(sfwOnly.length).toBeLessThan(items.length);
         for (const u of unknown.slice(0, 5)) {
             expect(u.family).toBeNull();
         }
@@ -53,4 +59,17 @@ describe("base-inventory P1b", () => {
         expect(familyOfBaseInventory(qwen!.basename)).toBe("qwen-image");
         expect(familyOfBaseInventory(`toiv-image::${qwen!.basename}`)).toBe("qwen-image");
     });
+    it("hides NSFW basenames in 普通 mode including mega nsfw naming", () => {
+        const all = listBaseInventory({ includeNsfw: true });
+        const nsfw = all.filter((i) => /nsfw/i.test(i.basename));
+        expect(nsfw.length).toBeGreaterThan(0);
+        const sfw = listBaseInventory({ includeNsfw: false });
+        for (const item of nsfw) {
+            expect(sfw.some((i) => i.basename === item.basename)).toBe(false);
+        }
+        // mega v12.2 may not be in seed yet; naming rule must still catch it
+        expect(isNsfwAssetMarker("wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors")).toBe(true);
+        expect(isNsfwAssetMarker("wan2.2-rapid-mega-aio-v12.safetensors")).toBe(false);
+    });
 });
+

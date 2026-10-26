@@ -13,6 +13,9 @@ function installBrowserStub(r18: string | null, birthdate: string | null = null)
             removeItem: (k: string) => void store.delete(k),
         },
         location: { href: "http://localhost/", pathname: "/", search: "", assign() {}, replace() {} },
+        dispatchEvent: () => true,
+        addEventListener() {},
+        removeEventListener() {},
     };
     const dataset: Record<string, string> = {};
     (globalThis as Record<string, unknown>).document = { documentElement: { dataset } };
@@ -89,3 +92,32 @@ describe("redline guard", () => {
         expect(mod.COPY_CONFIRM_SWITCH).toContain("确认切换");
         expect(mod.R18_SETTINGS_GATE_PATH).toContain("focus=r18");
     });
+
+
+describe("redline NSFW asset visibility", () => {
+    test("filename nsfw marker + adult gate", () => {
+        installBrowserStub(null);
+        const id = require.resolve("../src/redline");
+        delete require.cache[id];
+        const mod = require("../src/redline");
+        expect(mod.isNsfwAssetMarker("wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors")).toBe(true);
+        expect(mod.isNsfwAssetMarker("wan2.2-rapid-mega-aio-v12.safetensors")).toBe(false);
+        expect(mod.isNsfwAssetMarker("Qwen-Rapid-AIO-SFW-v23.safetensors")).toBe(false);
+        expect(mod.assetLooksNsfw({ nsfw: true, basename: "foo.safetensors" })).toBe(true);
+        expect(mod.isNsfwAssetVisible("wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors")).toBe(false);
+        const list = mod.filterNsfwVisibleAssets([
+            "wan2.2-rapid-mega-aio-v12.safetensors",
+            "wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors",
+        ]);
+        expect(list).toEqual(["wan2.2-rapid-mega-aio-v12.safetensors"]);
+        expect(
+            mod.visibleSelectionOrFallback(
+                "wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors",
+                "Qwen-Rapid-AIO-SFW-v23.safetensors",
+            ),
+        ).toBe("Qwen-Rapid-AIO-SFW-v23.safetensors");
+        mod.setR18Mode(true);
+        expect(mod.isNsfwAssetVisible("wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors")).toBe(true);
+        expect(mod.filterNsfwVisibleAssets(["a-nsfw-b.safetensors", "ok.safetensors"]).length).toBe(2);
+    });
+});
