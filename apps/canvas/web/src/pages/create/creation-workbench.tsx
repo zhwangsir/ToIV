@@ -2,6 +2,7 @@
  * 单一创作工作台：合并 /create 与 /toiv/ws。
  * R3：三栏；R4：剧本解析 + 分镜卡片流；顶栏光幕不挪回侧栏脚。
  * TL R3补+R4：右栏选中扩 420；无挡中栏浮层。
+ * R8：预览时间线全宽贴底（--toiv-timeline-*）；320/420 只挤中列。
  */
 import { lazy, Suspense } from "react";
 import { useSearchParams } from "react-router";
@@ -9,6 +10,7 @@ import { useSearchParams } from "react-router";
 import { CreationStudioAssetRail } from "@/components/create/creation-studio-asset-rail";
 import { CreationStudioInspector } from "@/components/create/creation-studio-inspector";
 import { CreationStudioSlotsProvider, useCreationStudioSlots } from "@/components/create/creation-studio-slots";
+import { CreationStudioPreviewTimeline } from "@/components/create/creation-studio-preview-timeline";
 import { CreationStudioThreePane } from "@/components/create/creation-studio-three-pane";
 import { WorkspaceRouteLoader } from "@/components/ui/aceternity/full-screen-loader";
 
@@ -33,6 +35,8 @@ function CreationWorkbenchShell() {
                     </Suspense>
                 }
             />
+            {/* R8: full-width bottom dock — Inspector 320/420 only squeezes center column */}
+            <CreationStudioPreviewTimeline projectId={projectId} />
         </div>
     );
 }

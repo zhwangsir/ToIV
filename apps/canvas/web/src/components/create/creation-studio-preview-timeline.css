@@ -1,0 +1,334 @@
+/* R8 Preview timeline — hard table from VISUAL_PREVIEW_TIMELINE_R8_20261026.md
+   A: Toonflow-app / LumenX (sizes cited; Freezone rewrite). B: BeefTV mode only. No AGPL paste.
+   Playhead #5ba0ff — never danger red. Adult geometry unchanged. */
+
+.toiv-creation-workbench {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.toiv-creation-workbench > .toiv-create-studio {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.toiv-timeline-dock {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: var(--toiv-timeline-dock-h, 260px);
+  min-height: var(--toiv-timeline-dock-h-min, 180px);
+  max-height: var(--toiv-timeline-dock-h-max, min(45vh, 360px));
+  border-top: 1px solid var(--toiv-timeline-border, var(--toiv-border, #22232c));
+  background: var(--toiv-timeline-surface, var(--toiv-surface, #15161d));
+  color: var(--toiv-text, #e8eaf0);
+  z-index: 2;
+  animation: toiv-timeline-enter var(--toiv-timeline-enter-ms, 220ms) var(--toiv-timeline-ease) both;
+}
+
+@keyframes toiv-timeline-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.toiv-timeline-dock.is-collapsed {
+  height: var(--toiv-timeline-dock-h-collapsed, 40px);
+  min-height: var(--toiv-timeline-dock-h-collapsed, 40px);
+  max-height: var(--toiv-timeline-dock-h-collapsed, 40px);
+}
+
+.toiv-timeline-dock.is-collapsed .toiv-timeline-body,
+.toiv-timeline-dock.is-collapsed .toiv-timeline-progress {
+  display: none;
+}
+
+.toiv-timeline-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--toiv-player-control-gap, 6px);
+  height: var(--toiv-timeline-toolbar-h, 40px);
+  padding: 0 12px;
+  border-bottom: 1px solid var(--toiv-timeline-border, var(--toiv-border, #22232c));
+}
+
+.toiv-timeline-transport {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toiv-timeline-btn {
+  display: inline-grid;
+  place-items: center;
+  width: var(--toiv-timeline-tool-hit, 28px);
+  height: var(--toiv-timeline-tool-hit, 28px);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--toiv-text) 6%, transparent);
+  color: var(--toiv-text, #e8eaf0);
+  cursor: pointer;
+}
+
+.toiv-timeline-btn.is-primary {
+  width: var(--toiv-player-control-size, 36px);
+  height: var(--toiv-player-control-size, 36px);
+  background: var(--toiv-accent, #5ba0ff);
+  color: #0a0c12;
+}
+
+.toiv-timeline-btn.is-frame {
+  width: var(--toiv-timeline-frame-step-hit, 24px);
+  height: var(--toiv-timeline-frame-step-hit, 24px);
+}
+
+.toiv-timeline-btn:hover {
+  background: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 18%, transparent);
+}
+
+.toiv-timeline-btn.is-primary:hover {
+  filter: brightness(1.06);
+}
+
+.toiv-timeline-btn:focus-visible {
+  outline: 2px solid var(--toiv-accent, #5ba0ff);
+  outline-offset: 2px;
+}
+
+.toiv-timeline-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toiv-timeline-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.toiv-timeline-timecode {
+  min-width: var(--toiv-timeline-timecode-min-w, 92px);
+  font-size: var(--toiv-timeline-timecode-fs, 12px);
+  font-weight: var(--toiv-timeline-timecode-fw, 600);
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--toiv-accent, #5ba0ff);
+}
+
+.toiv-timeline-timecode-sep {
+  color: var(--toiv-text-muted, #6f7079);
+  margin: 0 4px;
+}
+
+.toiv-timeline-meta {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--toiv-timeline-timecode-fs-sm, 11px);
+  color: var(--toiv-text-muted, #6f7079);
+}
+
+.toiv-timeline-zoom {
+  width: 96px;
+  accent-color: var(--toiv-accent, #5ba0ff);
+}
+
+/* Seek / progress — 3px R7 nail; fill #5ba0ff — never danger red */
+.toiv-timeline-progress {
+  height: var(--toiv-player-seek-h, 3px);
+  background: color-mix(in srgb, var(--toiv-text) 9%, transparent);
+  flex: 0 0 auto;
+}
+
+.toiv-timeline-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--toiv-player-seek-fill, #5ba0ff);
+  transition: width 420ms var(--toiv-timeline-ease);
+}
+
+.toiv-timeline-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: var(--toiv-timeline-track-label-w, 160px) minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.toiv-timeline-labels {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--toiv-timeline-border, var(--toiv-border, #22232c));
+  background: color-mix(in srgb, var(--toiv-bg, #0a0c12) 55%, transparent);
+}
+
+.toiv-timeline-label-ruler {
+  height: var(--toiv-timeline-ruler-h, 32px);
+  border-bottom: 1px solid var(--toiv-timeline-border, var(--toiv-border, #22232c));
+}
+
+.toiv-timeline-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: var(--toiv-timeline-track-h, 56px);
+  margin-top: var(--toiv-timeline-track-gap, 4px);
+  font-size: 11px;
+  color: var(--toiv-text-muted, #6f7079);
+}
+
+.toiv-timeline-label-row[data-kind="audio"] {
+  height: var(--toiv-timeline-track-h-audio, 40px);
+}
+
+.toiv-timeline-label-row[data-kind="sub"] {
+  height: var(--toiv-timeline-track-h-sub, 32px);
+}
+
+.toiv-timeline-scroll {
+  position: relative;
+  min-width: 0;
+  overflow: auto;
+}
+
+.toiv-timeline-canvas {
+  position: relative;
+  min-height: 100%;
+  min-width: var(--toiv-timeline-zoom-fit-min-vw, 320px);
+}
+
+.toiv-timeline-ruler {
+  position: relative;
+  height: var(--toiv-timeline-ruler-h, 32px);
+  border-bottom: 1px solid var(--toiv-timeline-border, var(--toiv-border, #22232c));
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.toiv-timeline-tick {
+  position: absolute;
+  top: 2px;
+  transform: translateX(-50%);
+  font-size: var(--toiv-timeline-ruler-label-fs, 10px);
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+  color: var(--toiv-text-muted, #6f7079);
+  pointer-events: none;
+}
+
+.toiv-timeline-tick::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  height: var(--toiv-timeline-ruler-tick-major, 10px);
+  border-left: 1px solid color-mix(in srgb, var(--toiv-text) 22%, transparent);
+}
+
+.toiv-timeline-track {
+  position: relative;
+  height: var(--toiv-timeline-track-h, 56px);
+  margin-top: var(--toiv-timeline-track-gap, 4px);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--toiv-text) 4%, transparent);
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.toiv-timeline-track.is-film {
+  height: var(--toiv-timeline-track-h-film, 64px);
+}
+
+.toiv-timeline-track[data-kind="audio"] {
+  height: var(--toiv-timeline-track-h-audio, 40px);
+}
+
+.toiv-timeline-track[data-kind="sub"] {
+  height: var(--toiv-timeline-track-h-sub, 32px);
+}
+
+.toiv-timeline-clip {
+  position: absolute;
+  top: var(--toiv-timeline-clip-inset-y, 6px);
+  bottom: var(--toiv-timeline-clip-inset-y, 6px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  padding: 0 var(--toiv-timeline-clip-pad-x, 8px);
+  border: 1px solid var(--toiv-timeline-clip-border);
+  border-radius: var(--toiv-timeline-clip-radius, 6px);
+  background: var(--toiv-timeline-clip-bg);
+  font-size: var(--toiv-timeline-clip-fs, 12px);
+  color: color-mix(in srgb, var(--toiv-text) 92%, transparent);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.toiv-timeline-clip[data-kind="audio"] {
+  border-color: var(--toiv-timeline-clip-audio-border);
+  background: var(--toiv-timeline-clip-audio-bg);
+}
+
+.toiv-timeline-clip.is-selected {
+  box-shadow: 0 0 0 1px var(--toiv-accent, #5ba0ff);
+}
+
+.toiv-timeline-clip.is-nsfw-locked {
+  opacity: 0.55;
+  filter: grayscale(0.35);
+}
+
+.toiv-timeline-clip-thumb {
+  width: var(--toiv-timeline-filmstrip-thumb-w, 72px);
+  height: 100%;
+  object-fit: cover;
+  border-radius: 3px;
+  background: #050505;
+  flex: 0 0 auto;
+}
+
+.toiv-timeline-clip-meta {
+  font-size: var(--toiv-timeline-clip-fs-meta, 10px);
+  color: var(--toiv-text-muted, #6f7079);
+}
+
+/* Playhead: 2px + 10px cap, accent only — never danger red */
+.toiv-timeline-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--toiv-timeline-playhead-w, 2px);
+  background: var(--toiv-timeline-playhead-color, #5ba0ff);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.toiv-timeline-playhead::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: var(--toiv-timeline-playhead-cap, 10px);
+  height: var(--toiv-timeline-playhead-cap, 10px);
+  transform: translateX(-50%);
+  background: var(--toiv-timeline-playhead-color, #5ba0ff);
+  clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
+}
+
+.toiv-timeline-empty {
+  padding: 16px;
+  font-size: 12px;
+  color: var(--toiv-text-muted, #6f7079);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toiv-timeline-dock { animation: none; }
+  .toiv-timeline-progress > span { transition: none; }
+}

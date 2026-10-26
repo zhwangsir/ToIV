@@ -473,6 +473,70 @@
   --toiv-queue-poll-ms: var(--toiv-job-poll-ms);
   --toiv-queue-adult-geometry: var(--toiv-job-adult-geometry);
 
+
+  /* ── Preview timeline R8 (`--toiv-timeline-*` + `--toiv-player-*`) ──
+     硬表：docs/ops/VISUAL_PREVIEW_TIMELINE_R8_20261026.md · TL 钉死 2026-10-26
+     A：Toonflow-app（优先）· LumenX — 标源+NOTICE；B：BeefTV/dramaclaw/CineGen 只重写；禁 AGPL 并码。
+     播放头 #5ba0ff 禁 danger 红；zoom 96px/s · 0.25–4× · step 1.25；成人 geometry unchanged。 */
+  --toiv-timeline-dock-h: 260px;
+  --toiv-timeline-dock-h-collapsed: 40px;
+  --toiv-timeline-dock-h-min: 180px;
+  --toiv-timeline-dock-h-max: min(45vh, 360px);
+  --toiv-timeline-toolbar-h: 40px;
+  --toiv-timeline-ruler-h: 32px;
+  --toiv-timeline-ruler-tick-major: 10px;
+  --toiv-timeline-ruler-tick-minor: 5px;
+  --toiv-timeline-ruler-label-fs: 10px;
+  --toiv-timeline-ruler-min-tick-px: 64px;
+  --toiv-timeline-track-h: 56px;
+  --toiv-timeline-track-h-film: 64px;
+  --toiv-timeline-track-h-audio: 40px;
+  --toiv-timeline-track-h-sub: 32px;
+  --toiv-timeline-track-label-w: 160px;
+  --toiv-timeline-track-gap: 4px;
+  --toiv-timeline-playhead-w: 2px;
+  --toiv-timeline-playhead-cap: 10px;
+  --toiv-timeline-playhead-color: #5ba0ff;
+  --toiv-timeline-clip-radius: 6px;
+  --toiv-timeline-clip-inset-y: 6px;
+  --toiv-timeline-clip-pad-x: 8px;
+  --toiv-timeline-clip-trim-w: 8px;
+  --toiv-timeline-clip-fs: 12px;
+  --toiv-timeline-clip-fs-meta: 10px;
+  --toiv-timeline-clip-border: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 45%, transparent);
+  --toiv-timeline-clip-bg: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 18%, transparent);
+  --toiv-timeline-clip-audio-border: color-mix(in srgb, var(--toiv-accent-cyan, #00bdcf) 40%, transparent);
+  --toiv-timeline-clip-audio-bg: color-mix(in srgb, var(--toiv-accent-cyan, #00bdcf) 14%, transparent);
+  --toiv-timeline-zoom-base-pps: 96;
+  --toiv-timeline-zoom-min: 0.25;
+  --toiv-timeline-zoom-max: 4;
+  --toiv-timeline-zoom-step: 1.25;
+  --toiv-timeline-zoom-fit-min-vw: 320px;
+  --toiv-timeline-filmstrip-thumb-w: 72px;
+  --toiv-timeline-snap-px: 8px;
+  --toiv-timeline-min-clip-ms: 100;
+  --toiv-timeline-tool-hit: 28px;
+  --toiv-timeline-frame-step-hit: 24px;
+  --toiv-timeline-timecode-fs: 12px;
+  --toiv-timeline-timecode-fw: 600;
+  --toiv-timeline-timecode-fs-sm: 11px;
+  --toiv-timeline-timecode-min-w: 92px;
+  --toiv-timeline-enter-ms: 220ms;
+  --toiv-timeline-exit-ms: 220ms;
+  --toiv-timeline-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --toiv-timeline-surface: var(--toiv-surface, #15161d);
+  --toiv-timeline-border: var(--toiv-border, #22232c);
+  --toiv-timeline-adult-geometry: unchanged;
+  /* Player chrome (preview monitor) */
+  --toiv-player-control-size: 36px;
+  --toiv-player-control-size-sm: 32px;
+  --toiv-player-control-gap: 6px;
+  --toiv-player-seek-h: 3px;
+  --toiv-player-seek-thumb: 12px;
+  --toiv-player-seek-fill: var(--toiv-accent, #5ba0ff);
+  --toiv-player-volume-rail-h: 60px;
+  --toiv-player-volume-panel-w: 40px;
+
   /* Desk aliases: primary=cyan CTA aux; accent=main blue */
   --fz-canvas: var(--toiv-bg);
   --fz-surface: var(--toiv-surface);
