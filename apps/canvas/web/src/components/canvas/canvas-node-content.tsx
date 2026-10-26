@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { AlertCircle, BookOpenCheck, Clock3, Download, FileText, Image as ImageIcon, LoaderCircle, Music2, Pencil, Play, RefreshCw, Square, Video } from "lucide-react";
 
 import { VideoPlayer } from "@/components/video-player";
 import { CachedResourceImage } from "@/components/cached-resource-image";
 import { GenerationFailureNotice } from "@/components/generation/generation-failure-notice";
 import { explainGenerationError } from "@/lib/generation-error";
+import { canvasFailureRetryBlockedByFingerprint } from "@/pages/canvas/canvas-generation-failure";
+import { CanvasNodeGraphContext } from "./canvas-node-graph-context";
 import { generationTaskShowsProgress, generationTaskStageLabel, generationTaskStatusLabel, isGenerationTaskSubmissionUncertain } from "@/lib/generation-task-display";
 import { canvasRichTextHTML } from "@/lib/canvas/canvas-rich-text";
 import { fitNodeSize } from "@/lib/canvas/canvas-node-size";
@@ -255,7 +257,10 @@ function shortTaskId(id: string) {
 }
 
 function ErrorContent({ node, theme, onRetry, onReloadResource, onOpenTaskDetails }: Pick<CanvasNodeContentProps, "node" | "theme" | "onRetry" | "onReloadResource" | "onOpenTaskDetails">) {
+    const { resolveLiveFailureInput } = useContext(CanvasNodeGraphContext);
     const explanation = explainGenerationError({ code: node.metadata?.generationErrorCode || node.metadata?.taskErrorCode, message: node.metadata?.errorDetails }, { taskId: node.metadata?.taskId, model: node.metadata?.model, createdAt: node.metadata?.taskCreatedAt, stage: node.metadata?.taskStage });
+    const liveInput = resolveLiveFailureInput?.(node);
+    const retryBlockedByFingerprint = canvasFailureRetryBlockedByFingerprint(node.metadata, liveInput);
     const errorDisplayTask = {
         provider: node.metadata?.taskProvider,
         status: (node.metadata?.taskStatus || "failed") as GenerationTask["status"],
@@ -285,7 +290,8 @@ function ErrorContent({ node, theme, onRetry, onReloadResource, onOpenTaskDetail
                     context={{ taskId: node.metadata?.taskId, model: node.metadata?.model, createdAt: node.metadata?.taskCreatedAt, stage: node.metadata?.taskStage, providerRequestId: node.metadata?.taskProviderRequestId, failureDiagnostics: node.metadata?.taskFailureDiagnostics, errorSummary: node.metadata?.generationErrorSummary, completedAt: node.metadata?.taskCompletedAt, updatedAt: node.metadata?.taskUpdatedAt }}
                     onOpenDetails={node.metadata?.taskId && onOpenTaskDetails ? () => onOpenTaskDetails(node) : undefined}
                     onRetry={submissionUncertain || explanation.uncertain || explanation.category === "download_failed" ? undefined : onRetry ? () => onRetry(node) : undefined}
-                    retryLabel={node.metadata?.isBatchRoot ? "重新生成失败项" : "重新生成"}
+                    retryBlockedByFingerprint={retryBlockedByFingerprint}
+                    retryLabel={node.metadata?.isBatchRoot ? "重新生成失败项" : explanation.moderation || explanation.category === "r18_context_required" ? "新建尝试" : "重新生成"}
                 />
             </div>
             {node.metadata?.resourceReloadAvailable ? (

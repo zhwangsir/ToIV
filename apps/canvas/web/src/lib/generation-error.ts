@@ -14,6 +14,7 @@ export const GENERATION_ERROR_CATEGORIES = [
     "moderation_input",
     "moderation_reference",
     "moderation_output",
+    "r18_context_required",
     "invalid_params",
     "local_storage",
     "canvas_conflict",
@@ -53,7 +54,24 @@ export type GenerationFailureExplanation = {
     uncertain: boolean;
     blockAutomaticRetry: boolean;
     moderation: boolean;
+    /** Wire 分槽标签（输入/参考/输出/需 R18/额度…） */
+    slot: GenerationFailureSlot;
+    slotLabel: string;
+    /** SFW 壳下是否应引导开启 R18（额度/限流/参数永不） */
+    guideEnableR18: boolean;
 };
+
+export type GenerationFailureSlot =
+    | "moderation_input"
+    | "moderation_reference"
+    | "moderation_output"
+    | "r18_context_required"
+    | "quota"
+    | "rate"
+    | "param"
+    | "network"
+    | "download"
+    | "other";
 
 export type GenerationFailureMetadata = {
     generationErrorSummary?: string;
@@ -110,6 +128,10 @@ const CATEGORY_COPY: Record<GenerationErrorCategory, CategoryCopy> = {
     moderation_input: { reason: "提示词或参考素材未通过内容安全审核", action: "请调整提示词或参考素材后重新生成" },
     moderation_reference: { reason: "参考素材未通过内容安全审核", action: "请检查并更换参考素材后重新生成" },
     moderation_output: { reason: "生成结果未通过内容安全审核", action: "请调整提示词或参考素材后重新生成" },
+    r18_context_required: {
+        reason: "当前上下文为 SFW；该模型/应用需要 R18 上下文才可见或可生成",
+        action: "请先开启 R18 模式；开启后本机请求进入 R18 上下文，未成年硬阻断不受影响",
+    },
     invalid_params: { reason: "模型不接受当前参数", action: "请检查模型、尺寸、时长、格式或数量后重试" },
     local_storage: { reason: "本地数据库无法读写", action: "请重启应用；若仍失败，请保留排查信息并联系支持，不要重复生成" },
     canvas_conflict: { reason: "生成结果已保留，画布尚未更新", action: "请先使用画布最新版本，再重新加载资源，不要重新生成" },
@@ -197,6 +219,8 @@ const PROVIDER_CODE_CATEGORIES: Record<string, GenerationErrorCategory> = {
     arrearage: "quota_upstream",
     allocationquota: "quota_unknown",
     quota_exceeded: "quota_unknown",
+    r18_context_required: "r18_context_required",
+    nsfw_context_required: "r18_context_required",
     sensitive_words_detected: "moderation_input",
     content_filter: "moderation_input",
     content_policy_violation: "moderation_input",
@@ -274,7 +298,9 @@ export function explainGenerationError(error: unknown, context: GenerationFailur
     const copy = explanationCopy(classified);
     const message = joinSentences(copy.reason, copy.action, debugIdLine(classified.taskId || context.taskId, classified.requestId || context.providerRequestId));
     const moderation = isModerationCategory(classified.category);
+    const r18Required = classified.category === "r18_context_required";
     const uncertain = classified.uncertain || classified.category === "submission_uncertain" || classified.category === "download_failed" || (classified.category === "timeout" && classified.status === 524);
+    const slot = generationFailureSlot(classified.category);
     return {
         category: classified.category,
         summary: classified.category === "local_storage" ? copy.reason : sanitizeProviderText(error instanceof Error ? error.message : typeof error === "string" ? error : providerPayloadMessage(error)),
@@ -285,10 +311,13 @@ export function explainGenerationError(error: unknown, context: GenerationFailur
         providerCode: classified.providerCode || undefined,
         requestId: sanitizeDebugId(classified.requestId || context.providerRequestId) || undefined,
         taskId: sanitizeDebugId(classified.taskId || context.taskId) || undefined,
-        retryable: Boolean(classified.retryable) && !uncertain && !moderation,
+        retryable: Boolean(classified.retryable) && !uncertain && !moderation && !r18Required,
         uncertain,
-        blockAutomaticRetry: uncertain || moderation || !["throttled", "concurrency", "provider_unavailable", "cancelled"].includes(classified.category),
+        blockAutomaticRetry: uncertain || moderation || r18Required || !["throttled", "concurrency", "provider_unavailable", "cancelled"].includes(classified.category),
         moderation,
+        slot,
+        slotLabel: generationFailureSlotLabel(slot),
+        guideEnableR18: shouldGuideEnableR18(classified.category),
     };
 }
 
@@ -308,7 +337,8 @@ export function generationErrorCode(error: unknown) {
 export function generationFailureMetadata(error: unknown, prompt: string, references: Array<string | { id?: string; storageKey?: string; url?: string }> = []): GenerationFailureMetadata {
     const explained = explainGenerationError(error);
     const inputFingerprint = generationInputFingerprint(prompt, references);
-    if (!explained.moderation) return { errorDetails: explained.message, generationErrorSummary: explained.summary, generationErrorCode: explained.category === "unknown" ? undefined : explained.errorCode };
+    const needsFingerprint = explained.moderation || explained.category === "r18_context_required";
+    if (!needsFingerprint) return { errorDetails: explained.message, generationErrorSummary: explained.summary, generationErrorCode: explained.category === "unknown" ? undefined : explained.errorCode };
     return {
         errorDetails: explained.message,
         generationErrorCode: explained.errorCode,
@@ -336,7 +366,11 @@ export function unchangedModeratedPrompt(
     prompt: string,
     references: Array<string | { id?: string; storageKey?: string; url?: string }> = [],
 ) {
-    const moderationFailure = isModerationCategory(metadata?.generationErrorCode || "") || isContentModerationError(metadata?.errorDetails);
+    const moderationFailure =
+        isModerationCategory(metadata?.generationErrorCode || "") ||
+        metadata?.generationErrorCode === "r18_context_required" ||
+        isContentModerationError(metadata?.errorDetails) ||
+        explainGenerationError(metadata?.errorDetails || "").category === "r18_context_required";
     if (!moderationFailure) return false;
     if (metadata?.failedInputFingerprint) return metadata.failedInputFingerprint === generationInputFingerprint(prompt, references);
     if (references.length) return false;
@@ -420,6 +454,67 @@ function diagnosticToken(value?: string): string {
     return value && /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,119}$/.test(value) && !value.includes("://") && !/(?:bearer|api[_-]?key|secret|token|sk-|^[a-z]:[\\/]|\/(?:Users|home|private|tmp|var|Volumes|mnt|media|run|root|opt|srv|etc)\/)/i.test(value) ? value : "未记录";
 }
 
+
+export function generationFailureSlot(category: GenerationErrorCategory): GenerationFailureSlot {
+    if (category === "moderation_input" || category === "moderation_reference" || category === "moderation_output" || category === "r18_context_required") return category;
+    if (category === "quota_user" || category === "quota_upstream" || category === "quota_unknown" || category === "quota_limit") return "quota";
+    if (category === "throttled" || category === "concurrency") return "rate";
+    if (category === "invalid_params" || category === "context_too_long" || category === "input_too_large" || category === "input_inaccessible" || category === "model_missing") return "param";
+    if (category === "network") return "network";
+    if (category === "download_failed" || category === "delivery_failed") return "download";
+    return "other";
+}
+
+export function generationFailureSlotLabel(slot: GenerationFailureSlot): string {
+    switch (slot) {
+        case "moderation_input":
+            return "输入";
+        case "moderation_reference":
+            return "参考";
+        case "moderation_output":
+            return "输出";
+        case "r18_context_required":
+            return "需 R18";
+        case "quota":
+            return "额度";
+        case "rate":
+            return "限流";
+        case "param":
+            return "参数";
+        case "network":
+            return "网络";
+        case "download":
+            return "下载";
+        default:
+            return "其他";
+    }
+}
+
+/** 非内容类失败不得出现 R18 引导；仅 r18_context_required 在 SFW 壳下引导。 */
+export function shouldGuideEnableR18(category: GenerationErrorCategory, r18On = false): boolean {
+    if (r18On) return false;
+    return category === "r18_context_required";
+}
+
+export function isR18ContextRequiredText(value: string): boolean {
+    const text = value.trim();
+    if (!text) return false;
+    if (/r18_context_required|nsfw_context_required/i.test(text)) return true;
+    return (
+        /须在\s*R18\s*上下文/.test(text) ||
+        /R18\s*产物需在专区内/.test(text) ||
+        /R18\s*推荐仅限\s*NSFW\s*上下文/.test(text) ||
+        /该底模属\s*R18\s*分区/.test(text) ||
+        /工作流含\s*R18\s*底模/.test(text) ||
+        /该技能需要\s*R18\s*鉴权/.test(text) ||
+        /该智能体需要\s*R18\s*鉴权/.test(text) ||
+        /R18\s*技能需在\s*R18\s*模式下/.test(text) ||
+        /所选\s*LoRA\s*为\s*R18\s*内容/.test(text) ||
+        /当前上下文为\s*SFW[；;].*需要\s*R18\s*上下文/.test(text) ||
+        /需要开启\s*R18\s*模式/.test(text)
+    );
+}
+
 export function isGenerationErrorCode(code: string) {
     return (GENERATION_ERROR_CATEGORIES as readonly string[]).includes(code) || /^(?:model|provider|origin)_[a-z0-9_]{2,80}$/.test(code) || code === CONTENT_MODERATION_ERROR_CODE;
 }
@@ -487,6 +582,21 @@ function classifyHttp(status: number | undefined, body: unknown): Classified {
     if (status === 402 && fields.code === "video_reservation_failed" && fields.message.startsWith("insufficient balance for this video request")) {
         classified = { ...classified, category: "quota_user", fromCode: true, reason: undefined, action: undefined };
     }
+    // 403 + R18 门槛文案：保留为 r18_context_required，勿被 permission 兜底吃掉
+    if (status === 403 && (classified.category === "r18_context_required" || isR18ContextRequiredText(fields.message || text))) {
+        classified = {
+            category: "r18_context_required",
+            fromCode: true,
+            reason: CATEGORY_COPY.r18_context_required.reason,
+            action: CATEGORY_COPY.r18_context_required.action,
+            providerCode: classified.providerCode || sanitizeProviderCode(fields.code),
+            requestId: classified.requestId || sanitizeDebugId(fields.requestId),
+            taskId: classified.taskId || sanitizeDebugId(fields.taskId),
+            retryable: false,
+            status: 403,
+        };
+        return classified;
+    }
     if (classified.category !== "unknown" && !classified.fromCode && !trustProviderMessageStatus(status)) {
         classified = { category: "unknown", retryable: false };
     }
@@ -522,6 +632,17 @@ function classifyText(raw: string): Classified {
     }
     if (isCanvasSaveConflictText(text)) {
         return { category: "canvas_conflict", fromCode: true, retryable: false };
+    }
+    if (isR18ContextRequiredText(text) || text.startsWith(CATEGORY_COPY.r18_context_required.reason)) {
+        return {
+            category: "r18_context_required",
+            fromCode: true,
+            reason: CATEGORY_COPY.r18_context_required.reason,
+            action: CATEGORY_COPY.r18_context_required.action,
+            requestId: sanitizeDebugId(text.match(/请求 ([A-Za-z0-9._:-]{6,127})/)?.[1]),
+            taskId: sanitizeDebugId(text.match(/任务 ([A-Za-z0-9._:-]{6,127})/)?.[1]),
+            retryable: false,
+        };
     }
     const taskCopy = persistedTaskConstraintCopy(text);
     if (taskCopy) return { category: "invalid_params", ...taskCopy, requestId: sanitizeDebugId(text.match(/请求 ([A-Za-z0-9._:-]{6,127})/)?.[1]), taskId: sanitizeDebugId(text.match(/任务 ([A-Za-z0-9._:-]{6,127})/)?.[1]), retryable: false };
@@ -855,6 +976,7 @@ function referenceMediaConstraintCopy(text: string): CategoryCopy | undefined {
 function categoryFromProviderMessage(raw: string): GenerationErrorCategory | "" {
     const normalized = sanitizeProviderText(raw).toLowerCase();
     if (!normalized.trim()) return "";
+    if (isR18ContextRequiredText(raw) || isR18ContextRequiredText(normalized)) return "r18_context_required";
     if (/duration\s+(?:must|should)\s+be\s+between\s+\d/.test(normalized)) return "invalid_params";
     if (
         /(?:width|height)\s+(?:must|should)\s+be\s+between\s+\d/.test(normalized) ||

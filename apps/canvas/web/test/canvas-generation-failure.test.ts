@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { buildNodeGenerationContext } from "../src/components/canvas/canvas-node-generation";
-import { canvasGenerationFailureMetadata, canvasGenerationRetryBlocked, canvasTaskFailureMetadata } from "../src/pages/canvas/canvas-generation-failure";
+import { canvasFailureRetryBlockedByFingerprint, canvasGenerationFailureMetadata, canvasGenerationRetryBlocked, canvasTaskFailureMetadata, resolveCanvasLiveFailureInput } from "../src/pages/canvas/canvas-generation-failure";
 import { taskAttentionReason, taskRetryBlocked } from "../src/pages/tasks/task-shared";
 import { resolveMetadataReferences, generationTaskMetadata, resetGenerationTaskMetadata } from "../src/lib/canvas/canvas-project-generation";
 import { ApiError } from "../src/services/api/request";
@@ -154,4 +154,60 @@ describe("canvas generation failure consumers", () => {
         expect(taskRetryBlocked({ ...task, errorCode: "throttled" })).toBe(false);
         expect(taskRetryBlocked({ ...task, errorCode: "throttled", stage: "submission_unknown" })).toBe(true);
     });
+});
+
+test("r18_context_required blocks identical input retry and unlocks after edit", () => {
+    const input = { prompt: "nsfw scene", mode: "image" as const };
+    const failure = canvasGenerationFailureMetadata({ code: "r18_context_required", message: "须在 R18 上下文(X-NSFW)下使用" }, input);
+    expect(failure.generationErrorCode).toBe("r18_context_required");
+    expect(failure.failedInputFingerprint).toBeTruthy();
+    expect(canvasGenerationRetryBlocked(failure, input)).toBe(true);
+    expect(canvasGenerationRetryBlocked(failure, { ...input, prompt: "nsfw scene v2" })).toBe(false);
+});
+
+
+test("fingerprint Notice prop: unchanged blocked, prompt or reference edit unblocks (r18 + moderation)", () => {
+    const input = { prompt: "nsfw scene", mode: "image" as const, referenceImages: [{ id: "ref", storageKey: "resource:old" }] };
+    const r18 = canvasGenerationFailureMetadata({ code: "r18_context_required", message: "须在 R18 上下文" }, input);
+    const moderation = canvasGenerationFailureMetadata({ code: "content_policy_violation", message: "opaque" }, input);
+
+    expect(canvasFailureRetryBlockedByFingerprint(r18)).toBe(true);
+    expect(canvasFailureRetryBlockedByFingerprint(r18, input)).toBe(true);
+    expect(canvasFailureRetryBlockedByFingerprint(r18, { ...input, prompt: "nsfw scene v2" })).toBe(false);
+    expect(canvasFailureRetryBlockedByFingerprint(r18, { ...input, referenceImages: [{ id: "ref", storageKey: "resource:new" }] })).toBe(false);
+
+    expect(canvasFailureRetryBlockedByFingerprint(moderation)).toBe(true);
+    expect(canvasFailureRetryBlockedByFingerprint(moderation, input)).toBe(true);
+    expect(canvasFailureRetryBlockedByFingerprint(moderation, { ...input, prompt: "safe rewrite" })).toBe(false);
+});
+
+test("resolveCanvasLiveFailureInput follows composerContent and unlocks fingerprint after edit", () => {
+    const failed: CanvasNodeData = {
+        id: "img-1",
+        type: CanvasNodeType.Image,
+        title: "failed",
+        position: { x: 0, y: 0 },
+        width: 100,
+        height: 100,
+        metadata: {
+            status: "error",
+            prompt: "nsfw scene",
+            composerContent: "nsfw scene",
+            generationErrorCode: "r18_context_required",
+            errorDetails: "须在 R18 上下文",
+        },
+    };
+    const failure = canvasGenerationFailureMetadata(
+        { code: "r18_context_required", message: "须在 R18 上下文" },
+        { prompt: "nsfw scene", mode: "image" },
+    );
+    failed.metadata = { ...failed.metadata, ...failure };
+
+    const liveSame = resolveCanvasLiveFailureInput(failed, [failed], []);
+    expect(canvasFailureRetryBlockedByFingerprint(failed.metadata, liveSame)).toBe(true);
+
+    const edited = { ...failed, metadata: { ...failed.metadata, composerContent: "nsfw scene v2", prompt: "nsfw scene" } };
+    const liveEdited = resolveCanvasLiveFailureInput(edited, [edited], []);
+    expect(liveEdited.prompt).toBe("nsfw scene v2");
+    expect(canvasFailureRetryBlockedByFingerprint(failed.metadata, liveEdited)).toBe(false);
 });

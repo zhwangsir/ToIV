@@ -1,3 +1,46 @@
+## 2026-10-26 Asia/Shanghai — P0 R18 闸 UX 本地 commit（不 push）
+
+- 分支：`work/p0-fusion-20261016`；**已本地 commit、未 push、未部署**
+- 范围：失败分槽（含 `r18_context_required`）· Settings `focus=r18` 两步闸 · 画布 ErrorContent 实时指纹禁/放「新建尝试」
+- 明确未覆盖：任务中心详情 / 创作页 / 节点 inspector 的 retry 面
+- 测：generation-failure-actions + moderation-error + r18-mode **27 pass**；canvas-generation-failure 相关子集 **6 pass**；`go test ./internal/generation` ok
+
+## 项目管家入账 · 2026-10-26 09:08 Asia/Shanghai
+
+- **用户拍板**（经技术负责人）
+  1. **Mega NSFW v12.2 开拉** → `STATE.mega_nsfw_v12_2_2026_10_26` = `pending_download`（模型调研执行，钉 sha 双轨）
+  2. **P0 R18 闸本地 commit** → `STATE.p0_r18_gate_commit_2026_10_26` = `await_commit`（全栈执行，**不 push**；等 tip 后改 `committed`）
+- **设计对齐**（`STATE.design_ui_ref_2026_10_26`）：P0=R18 明示闸 UX；Wire Page [a8ab1df5](https://cursor.com/canvas/store-2a7cb835-7fcb-4cd4-b2c8-cb0ee07b899c/a8ab1df5-66c4-45ee-ab93-8388c0825521)；全栈工作区据报已改、主路径 pass；部署窗仍挂
+- **管家动作**：仅五件套；**未**自行 commit/push；**未**开部署
+
+## 项目管家入账 · 2026-10-26 08:50 Asia/Shanghai
+
+- **本地学习吸收表**（`STATE.local_learn_absorb_2026_10_26`）
+  - 证据：逆向深挖 Page [9a6e4b46](https://cursor.com/canvas/store-2a7cb835-7fcb-4cd4-b2c8-cb0ee07b899c/9a6e4b46-d3de-4981-bebf-88a9bdd8c5f6)；`docs/ops/NSFW_MODEL_SOURCES_SURVEY_20261026.md`
+  - **P0 学**：BeefTV Agent/节点 · LumenX R2V→scene_asset · CineGen Keyframe→SVML
+  - **P1 学**：Toonflow 画布+MCP · BigBanana 结构 · AIMovieStudio Comfy 拓扑（**AGPL 不并码**）
+  - **P2 学**：PrintFilm/AID MIT UI · 审核失败提示→R18 闸反构
+  - **不碰并码**：AGPL ArcReel/AIMovieStudioV2；ELv2 DramaClaw SaaS；SAL 跟 BeefTV 上游；NC BigBanana/ai_story；错仓 koma；成人闸自建
+  - **排期**：部署窗仍挂 / `pending_api_bundle` 不动；现推本地 p0-fusion + 设计参考；Mega NSFW ~23GB **待用户拍板**
+  - 模型 suggested（**未改 JSON**）：Mega NSFW v12.2 / WAI v17 / Qwen NSFW INT8 / H3_DR34ML4Y
+- **管家动作**：仅五件套；**未** commit/push；**未**开部署
+
+## 项目管家入账 · 2026-10-26 08:45 Asia/Shanghai
+
+- **吸收闸门**（`STATE.absorb_gate_2026_10_26`）：用户口径据技术负责人——**只本地学习、不商用**；NSFW 重要；部署窗**未开**；`pending_api_bundle_at_running0` 仍挂起
+- **不碰并码**：AGPL/GPL（ArcReel、AIMovieStudioV2、Koma）禁整仓并入；NC（ai_story）可学不可并码；DramaClaw ELv2 仅一致性参考勿当 SaaS
+- **可抽模式（待深挖确认）**：LumenX 角色锁定 · Toonflow 画布/Agent 边界 · BeefTV 本仓壳对齐 · DramaClaw 一致性参考
+- **13 仓深挖进行中**（逆向）；NSFW 模型源 Civitai.red / HF / RunningHub → **模型调研**
+- **下一拍**：逆向深挖 Page + 模型调研账本 → 技术负责人「本地学习吸收表」→ 管家再入账
+- **管家动作**：仅五件套；**未** commit/push；**未**开部署/吸收并码任务
+
+## 项目管家入账 · 2026-10-26 08:30 Asia/Shanghai
+
+- **技术负责人进度对齐**（`STATE.tl_progress_align_2026_10_26`）：GitHub main 本机核为 `5f86e1dd`；`session_checkpoint_2026_10_15` 据报 PAUSED_BY_USER_archive_point；已交付口径据报 canvas 主 UI + FU1 + 数字人入口下架；api 捆绑与 T1 仍挂 running=0 窗；开发主线本地 `work/p0-fusion-20261016`（观察 tip `bd437818`）≠ main 已更新
+- **竞品调研**（`STATE.competitor_research_20_2026_10_26`）：逆向安全 20 竞品 Page 已齐 → [AI短剧/漫剧开源竞品调研](https://cursor.com/canvas/store-2a7cb835-7fcb-4cd4-b2c8-cb0ee07b899c/7f62671e-dc90-427b-926e-d5500fe25e10)；Top 可借鉴 Jellyfish / ai-video-studio / Toonflow / LumenX / LocalMiniDrama+Kineo；红线 NC/AGPL/GPL/ELv2/无 LICENSE
+- **闸门**：等技术负责人「吸收/不碰/排期」方案；**暂勿**自行开吸收任务或部署窗
+- **管家动作**：仅五件套入账；未 commit/push；未开部署
+
 ## 2026-10-26 Asia/Shanghai · Mega-v12 HF 落盘（保鲜员；接棒留痕）
 
 - HF：`Phr00t/WAN2.2-14B-Rapid-AllInOne` → `Mega-v12/wan2.2-rapid-mega-aio-v12.safetensors`（SFW；rev `30e803b`；sha256 `f7a5ac03…39a5b8`）
@@ -734,3 +777,41 @@ Goal: production core `.env` hot-align + spark served-alias purge (canonical onl
 - 产物：`docs/ux/MODEL_COMPAT_KNOWLEDGE_GRAPH_PLAN_20261025.md`（本体/边/流水线/JSON 并列存储/设置过滤/Agent query_compat/P0–P2/决策点）。
 - 审计缺口：inventory 无 baseFamily·trigger·强度；slots_for 启发式交叉污染；compat 真源待图谱。
 - 推荐：`model-compat-graph.json` 与 inventory 并列 + basename join；P0 抽 civ baseModels+catalog 边并按族过滤。
+
+## 2026-10-26 08:17 Asia/Shanghai — 运维只读健康矩阵（MateBook LAN）
+
+- **探针主机**：HUAWEI-MateBook-Pro-2.local · LAN `192.168.71.118` · as-of `2026-10-26 08:17:26 CST`
+- **依据**：`AGENTS.md` 存活端点 / 复核口令；H3 用现行 `:8264`
+- **范围**：只读 curl / SSH `hostname`；**无**重启、**无**改配置、**无**改 AGENTS/DEVELOPMENT、**无** commit/push
+
+| 目标 | 方法 | 结果 | 备注 |
+|---|---|---|---|
+| core `/api/health` :8090 | curl LAN `.47` | 通 HTTP 200 | status=ok；workers→ws:8188 |
+| core web :3100 | curl LAN `.47` | 通 HTTP 200 | 返回 HTML |
+| core admin :3200 | curl LAN `.47` | 通 HTTP 200 | 返回 HTML |
+| spark02 LLM `:8888/v1/models` | curl LAN `.84` | 通 HTTP 200 | served `DeepSeek-V4.1-Flash-1017` |
+| workstation VLM `:9311/v1/models` | curl LAN `.127` | 通 HTTP 200 | served `toiv-vlm` |
+| H3 `:8264/system_stats` | curl LAN `.127` | 通 HTTP 200 | ComfyUI system_stats（现行口，非旧 8195） |
+| TTS `:9200/health` | curl LAN `.127` | 通 HTTP 200 | indextts2 / model_loaded |
+| demucs `:9220/health` | curl LAN `.127` | 通 HTTP 200 | demucs-htdemucs |
+| embed `:9302/health` | curl LAN `.127` | 通 HTTP 200 | qwen3-embedding-4b |
+| Comfy LB `:8188/system_stats` | curl LAN `.127` | 通 HTTP 200 | backends 有响应 |
+| Comfy LB `:8188/queue` | curl LAN `.127` | 通 HTTP 200 | running=[] pending=[] |
+| spark01 SSH hostname | ssh BatchMode `sk01-l` | 通 | hostname=spark-f5a6 |
+
+- **汇总**：12/12 通；本轮无缺口（清单项均完成）。
+- 只读；未改生产；未 push。
+
+## 2026-10-26 08:57 Asia/Shanghai — P0 R18 闸交互 UX（本地未 commit）
+
+- 分支：`work/p0-fusion-20261016` @ `bd437818`（未切支 / 未 commit / 未 push / 未部署）
+- 范围：失败分槽 + `r18_context_required` + 失败卡主 CTA→`R18SettingsPane` 两步闸（`?focus=r18`）；指纹禁原样重试；额度/限流不引导 R18；无 prompt 软化
+- 测：`bun test` generation-failure-actions / moderation-error / r18-mode（26 pass）；canvas-generation-failure 相关 3 pass；`go test ./internal/generation` ok
+- 未覆盖：全量 canvas-generation-failure 套件未整跑（导入重）；端到端浏览器点选设置闸未做；未成年硬阻断仅依既有后端，本波未加前端绕过入口
+
+## 2026-10-26 Asia/Shanghai — P0 R18 闸：指纹 prop 接线补缺口（未 commit）
+
+- 分支：`work/p0-fusion-20261016`（未切支 / 未 commit / 未 push / 未部署）
+- 补：`resolveCanvasLiveFailureInput` + `canvasFailureRetryBlockedByFingerprint`；`CanvasNodeGraphContext.resolveLiveFailureInput`；`ErrorContent` → Notice `retryBlockedByFingerprint`
+- 测：generation-failure-actions / moderation-error / r18-mode **27 pass**；canvas-generation-failure pattern（fingerprint/r18/retry/…）**6 pass**
+- 未接线：任务中心详情 Notice 无 onRetry/无实时编辑；创作页 moderation 仍直接去掉 onRetry

@@ -1,5 +1,8 @@
+import { buildNodeGenerationContext } from "@/components/canvas/canvas-node-generation";
 import { explainGenerationError, generationFailureMetadata, generationPromptFingerprint, shouldBlockAutomaticRetry, unchangedModeratedPrompt } from "@/lib/generation-error";
-import type { CanvasNodeMetadata } from "@/types/canvas";
+import { findRetrySourceNode } from "@/lib/canvas/canvas-project-generation";
+import type { Asset } from "@/stores/use-asset-store";
+import { CanvasNodeType, type CanvasConnection, type CanvasNodeData, type CanvasNodeMetadata } from "@/types/canvas";
 import type { GenerationTask } from "@/services/api/task-center";
 
 type GenerationReference = { id?: string; storageKey?: string; url?: string; dataUrl?: string };
@@ -48,13 +51,68 @@ export function canvasTaskFailureMetadata(task: GenerationTask, metadata?: Canva
     return { ...failure, taskFailureDiagnostics: diagnostics, taskProviderRequestId: task.providerRequestId };
 }
 
+
+function liveFailureModeForNode(node: CanvasNodeData): CanvasGenerationFailureInput["mode"] {
+    if (node.type === CanvasNodeType.Text) return "text";
+    if (node.type === CanvasNodeType.Image) return "image";
+    if (node.type === CanvasNodeType.Video) return "video";
+    if (node.type === CanvasNodeType.Audio) return "audio";
+    return node.metadata?.generationMode;
+}
+
+/** Resolve the prompt+references the next retry would submit, for fingerprint UI. */
+export function resolveCanvasLiveFailureInput(
+    node: CanvasNodeData,
+    nodes: CanvasNodeData[],
+    connections: CanvasConnection[],
+    assets: Asset[] = [],
+): CanvasGenerationFailureInput {
+    const batchRoot = node.metadata?.batchRootId ? nodes.find((item) => item.id === node.metadata?.batchRootId) : null;
+    const originalSourceId = node.metadata?.generatedFromNodeId || batchRoot?.metadata?.generatedFromNodeId;
+    const originalSource = originalSourceId ? nodes.find((item) => item.id === originalSourceId) : undefined;
+    const sourceNode = originalSource || findRetrySourceNode(node.id, nodes, connections) || batchRoot || node;
+    const mode = liveFailureModeForNode(node);
+    const promptSource = sourceNode.metadata?.composerContent || sourceNode.metadata?.prompt || node.metadata?.prompt || "";
+    try {
+        const context = buildNodeGenerationContext(sourceNode.id, nodes, connections, promptSource, assets, mode === "video");
+        return {
+            mode,
+            prompt: context.prompt,
+            referenceImages: context.referenceImages,
+            referenceVideos: context.referenceVideos,
+            referenceAudios: context.referenceAudios,
+        };
+    } catch {
+        const references = Array.isArray(node.metadata?.references)
+            ? node.metadata.references.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+            : [];
+        return {
+            mode,
+            prompt: promptSource,
+            referenceImages: references.map((url, index) => ({ id: `ref-${index}`, url })),
+        };
+    }
+}
+
+/** Notice prop: no live input → blocked; otherwise same gate as retry submission. */
+export function canvasFailureRetryBlockedByFingerprint(metadata: CanvasNodeMetadata | undefined, liveInput?: CanvasGenerationFailureInput) {
+    const error = { code: metadata?.generationErrorCode || metadata?.taskErrorCode, message: metadata?.errorDetails };
+    const explained = explainGenerationError(error);
+    if (!(explained.moderation || explained.category === "r18_context_required")) return false;
+    if (!liveInput) return true;
+    return canvasGenerationRetryBlocked(metadata, liveInput);
+}
+
 export function canvasGenerationRetryBlocked(metadata: CanvasNodeMetadata | undefined, input?: CanvasGenerationFailureInput) {
     const error = { code: metadata?.generationErrorCode || metadata?.taskErrorCode, message: metadata?.errorDetails };
     if (!shouldBlockAutomaticRetry(error, metadata?.taskStage)) return false;
     // Only a resolved submission can prove that moderated input was changed.
-    if (input && explainGenerationError(error).moderation) {
-        if (!metadata?.failedInputFingerprint) return !metadata?.failedPromptFingerprint || metadata.failedPromptFingerprint === generationPromptFingerprint(input.prompt);
-        return unchangedModeratedPrompt(metadata, input.prompt, submittedReferences(input));
+    if (input) {
+        const explained = explainGenerationError(error);
+        if (explained.moderation || explained.category === "r18_context_required") {
+            if (!metadata?.failedInputFingerprint) return !metadata?.failedPromptFingerprint || metadata.failedPromptFingerprint === generationPromptFingerprint(input.prompt);
+            return unchangedModeratedPrompt(metadata, input.prompt, submittedReferences(input));
+        }
     }
     if (input) return metadata?.taskStage === "submission_unknown" || ["submission_uncertain", "timeout", "download_failed", "results_missing", "partial_success", "canvas_conflict"].includes(explainGenerationError(error).category);
     return true;

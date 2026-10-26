@@ -95,6 +95,7 @@ import { CanvasProjectWorldLayers } from "./canvas-project-world-layers";
 import { CanvasNodeActionContext, type CanvasNodeActionContextValue } from "@/components/canvas/canvas-node-action-context";
 import { bringCanvasNodeToFront, type CanvasNodeStackOrder } from "@/lib/canvas/canvas-node-stack-order";
 import { CanvasNodeGraphContext, type CanvasNodeGraphContextValue } from "@/components/canvas/canvas-node-graph-context";
+import { resolveCanvasLiveFailureInput } from "@/pages/canvas/canvas-generation-failure";
 import { CanvasRefreshShell } from "./canvas-refresh-shell";
 import type { CanvasImageEmotionPayload } from "@/components/canvas/canvas-node-emotion-panel";
 import { CanvasEmotionWorkspace } from "@/components/canvas/canvas-emotion-workspace";
@@ -810,7 +811,10 @@ function InfiniteCanvasPage() {
     // 扩展节点（对比/图表/调色）要读自己的上游才能渲染，经 Context 下发；
     // 取上游复用 canvas-resource-references 的实现，别在这里另写一份。必须 memo——
     // 每帧新对象会让所有节点跟着重渲染，错题本里多条崩溃都出在画布高频更新。
-    const nodeGraphContext = useMemo<CanvasNodeGraphContextValue>(() => ({ getUpstreamNodes: (nodeId: string) => getContextResourceNodes(nodeId, nodes, connections) }), [connections, nodes]);
+    const nodeGraphContext = useMemo<CanvasNodeGraphContextValue>(() => ({
+        getUpstreamNodes: (nodeId: string) => getContextResourceNodes(nodeId, nodes, connections),
+        resolveLiveFailureInput: (node) => resolveCanvasLiveFailureInput(node, nodes, connections, assets),
+    }), [assets, connections, nodes]);
 
     // 旧内置 Agent 的深链参数（?agent=1 / ?conversation=）仍然存在于历史书签里。
     // 画布不再有 Agent 停靠面板，这里只把参数剥离，让旧链接落到正常可用的画布，

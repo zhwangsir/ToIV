@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 
+import type { CanvasGenerationFailureInput } from "@/pages/canvas/canvas-generation-failure";
 import type { CanvasNodeData } from "@/types/canvas";
 
 // 扩展节点（对比/图表/调色等）要读自己的上游才能工作，但节点经 CanvasProjectWorldLayers
@@ -8,6 +9,8 @@ import type { CanvasNodeData } from "@/types/canvas";
 // 无 Provider 时静默降级为「没有上游」，节点自行显示空状态而不是崩。
 export type CanvasNodeGraphContextValue = {
     getUpstreamNodes?: (nodeId: string) => CanvasNodeData[];
+    /** Live prompt+references for generation-failure fingerprint gate; omit → Notice treats as unchanged. */
+    resolveLiveFailureInput?: (node: CanvasNodeData) => CanvasGenerationFailureInput | undefined;
 };
 
 export const CanvasNodeGraphContext = createContext<CanvasNodeGraphContextValue>({});

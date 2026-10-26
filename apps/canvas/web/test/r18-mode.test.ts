@@ -39,3 +39,30 @@ describe("r18-mode", () => {
         expect(mod.nsfwHeaderEnabled()).toBe(true);
     });
 });
+
+describe("r18 failure classification surface", () => {
+    test("403 R18 detail classifies as r18_context_required not permission", () => {
+        const { explainGenerationError } = require("../src/lib/generation-error");
+        const f = explainGenerationError({
+            status: 403,
+            data: { detail: "该操作为 R18 内容,须在 R18 上下文(X-NSFW)下使用" },
+        });
+        expect(f.category).toBe("r18_context_required");
+        expect(f.guideEnableR18).toBe(true);
+        expect(f.slotLabel).toBe("需 R18");
+        expect(f.blockAutomaticRetry).toBe(true);
+    });
+
+    test("persisted r18 reason round-trips without generic 失败", () => {
+        const { explainGenerationError, generationFailureMetadata } = require("../src/lib/generation-error");
+        const first = explainGenerationError({ code: "r18_context_required" });
+        const meta = generationFailureMetadata({ code: "r18_context_required" }, "adult prompt");
+        expect(meta.generationErrorCode).toBe("r18_context_required");
+        expect(meta.failedInputFingerprint).toBeTruthy();
+        expect(meta.errorDetails).toContain("R18");
+        expect(meta.errorDetails).not.toBe("生成失败");
+        const again = explainGenerationError(meta.errorDetails);
+        expect(again.category).toBe("r18_context_required");
+        expect(again.reason).toBe(first.reason);
+    });
+});

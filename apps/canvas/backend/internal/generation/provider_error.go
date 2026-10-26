@@ -27,6 +27,7 @@ const (
 	CategoryModerationInput     FailureCategory = "moderation_input"
 	CategoryModerationReference FailureCategory = "moderation_reference"
 	CategoryModerationOutput    FailureCategory = "moderation_output"
+	CategoryR18ContextRequired FailureCategory = "r18_context_required"
 	CategoryInvalidParams       FailureCategory = "invalid_params"
 	CategoryLocalStorage        FailureCategory = "local_storage"
 	CategoryContextTooLong      FailureCategory = "context_too_long"
@@ -89,6 +90,7 @@ var categoryCopies = map[FailureCategory]categoryCopy{
 	CategoryModerationInput:     {Reason: "提示词或参考素材未通过内容安全审核", Action: "请调整提示词或参考素材后重新生成"},
 	CategoryModerationReference: {Reason: "参考素材未通过内容安全审核", Action: "请检查并更换参考素材后重新生成"},
 	CategoryModerationOutput:    {Reason: "生成结果未通过内容安全审核", Action: "请调整提示词或参考素材后重新生成"},
+	CategoryR18ContextRequired: {Reason: "当前上下文为 SFW；该模型/应用需要 R18 上下文才可见或可生成", Action: "请先开启 R18 模式；开启后本机请求进入 R18 上下文，未成年硬阻断不受影响"},
 	CategoryInvalidParams:       {Reason: "模型不接受当前参数", Action: "请检查模型、尺寸、时长、格式或数量后重试"},
 	CategoryLocalStorage:        {Reason: "本地数据库无法读写", Action: "请重启应用；若仍失败，请保留排查信息并联系支持，不要重复生成"},
 	CategoryContextTooLong:      {Reason: "输入内容超出模型长度限制", Action: "请缩短提示词或减少参考内容后重试"},
@@ -160,6 +162,8 @@ var providerCodeCategories = map[string]FailureCategory{
 	"allocationquota":                  CategoryQuotaUnknown,
 	"quota_exceeded":                   CategoryQuotaUnknown,
 	"account_deactivated":              CategoryQuotaUpstream,
+	"r18_context_required":              CategoryR18ContextRequired,
+	"nsfw_context_required":            CategoryR18ContextRequired,
 	"sensitive_words_detected":         CategoryModerationInput,
 	"content_filter":                   CategoryModerationInput,
 	"content_filter_error":             CategoryModerationInput,
@@ -477,6 +481,41 @@ func ClassifyError(err error) Failure {
 	return ClassifyText(err.Error())
 }
 
+
+func isR18ContextRequiredText(text string) bool {
+	if text == "" {
+		return false
+	}
+	lower := strings.ToLower(text)
+	if strings.Contains(lower, "r18_context_required") || strings.Contains(lower, "nsfw_context_required") {
+		return true
+	}
+	patterns := []string{
+		"须在 R18 上下文",
+		"R18 产物需在专区内",
+		"R18 推荐仅限 NSFW 上下文",
+		"该底模属 R18 分区",
+		"工作流含 R18 底模",
+		"该技能需要 R18 鉴权",
+		"该智能体需要 R18 鉴权",
+		"R18 技能需在 R18 模式下",
+		"所选 LoRA 为 R18 内容",
+		"需要开启 R18 模式",
+		"当前上下文为 SFW",
+	}
+	for _, p := range patterns {
+		if strings.Contains(text, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func r18ContextRequiredFailure() Failure {
+	copy := categoryCopies[CategoryR18ContextRequired]
+	return Failure{Category: CategoryR18ContextRequired, Reason: copy.Reason, Action: copy.Action, FromCode: true, Retryable: false}
+}
+
 func ClassifyText(raw string) Failure {
 	if copy, ok := persistedTaskConstraintCopy(raw); ok {
 		requestID, taskID := persistedReferenceIDs(raw)
@@ -486,6 +525,11 @@ func ClassifyText(raw string) Failure {
 	text := strings.TrimSpace(raw)
 	if text == "" {
 		return normalizeFailure(failure)
+	}
+	if isR18ContextRequiredText(text) || strings.HasPrefix(text, categoryCopies[CategoryR18ContextRequired].Reason) {
+		f := r18ContextRequiredFailure()
+		f.RequestID, f.TaskID = persistedReferenceIDs(text)
+		return normalizeFailure(f)
 	}
 	if f, ok := persistedInvalidParamsDetail(text); ok {
 		return normalizeFailure(f)

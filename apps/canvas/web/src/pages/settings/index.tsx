@@ -78,8 +78,13 @@ export default function SettingsPage() {
     }, []);
 
     useEffect(() => {
+        // focus=r18 必须落在「常用」段（R18SettingsPane 挂载处）
+        if (searchParams.get("focus") === "r18") {
+            setActiveTab("common");
+            return;
+        }
         setActiveTab(resolveSettingsSection(requestedSection));
-    }, [requestedSection]);
+    }, [requestedSection, searchParams]);
 
     const selectSection = (section: ConfigSectionKey) => {
         setActiveTab(section);
