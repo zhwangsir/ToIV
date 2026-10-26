@@ -1,11 +1,12 @@
 /**
- * R18/未成年红线 —— canvas 前端唯一控制文件（2026-10-26 口径）。
+ * 普通/成人红线 —— canvas 前端唯一控制文件（2026-10-26 Wire 修订）。
  *
  * 产品：
- * - 默认 SFW；本机开启 R18 后请求附 X-NSFW、dataset.r18、可进 NSFW 路由/面板
- * - 拦截在**路由守卫**（本文件 + RequireR18），不靠后端 403
- * - 未成年硬阻断在此判定（birthdate 空=成年兼容）；后端可被 API 直调绕过（本地自用接受）
+ * - 默认「普通」；本机切「成人」后请求附 X-NSFW、dataset.r18、可进成人路由/面板
+ * - 拦截在**路由守卫**（本文件 + RequireR18 出卡），不靠后端 403
+ * - 未成年硬阻断在此判定（birthdate 空=成年兼容）；API 直调可绕过（本地自用接受）
  * - Settings 两步闸仍用 R18SettingsPane；开关真源为本文件
+ * - 用户可见文案用「普通/成人」；技术键可保留 r18 / X-NSFW
  */
 import { CLASSIC_NSFW_TO_MARKET } from "@/services/toiv/content-mode";
 
@@ -15,6 +16,16 @@ export const BIRTHDATE_STORAGE_KEY = "toiv_birthdate";
 export const REQUEST_HEADER = "X-NSFW";
 export const REQUEST_HEADER_VALUE = "1";
 export const R18_SETTINGS_GATE_PATH = "/settings?section=common&focus=r18";
+
+/** 用户可见文案（Wire 契约）；技术键仍用 r18 / X-NSFW。 */
+export const COPY_MODE_NORMAL = "普通";
+export const COPY_MODE_ADULT = "成人";
+export const COPY_GUARD_REASON = "当前为普通模式，此页需切换到成人模式";
+export const COPY_SWITCH_TO_ADULT = "切换到成人模式";
+export const COPY_STAY_NORMAL = "留在普通内容";
+export const COPY_CONFIRM_SWITCH = "确认切换？本机将进入成人内容上下文。";
+export const COPY_SLOT_ADULT = "需成人";
+export const SAFE_HOME_PATH = "/";
 
 /** 纯路径前缀（命中即视为 NSFW 专属面）。 */
 export const NSFW_GATED_PATH_PREFIXES: readonly string[] = ["/nsfw"];
@@ -157,8 +168,8 @@ export function isNsfwGatedLocation(loc: LocationLike): boolean {
 }
 
 /**
- * 守卫判定：未开 R18 且目标为 NSFW 专属 → 应重定向到设置闸。
- * 返回 null 表示放行。
+ * 守卫判定：未开成人且目标为成人专属 → 拦截（CTA 指向设置两步闸）。
+ * 返回 null 表示放行；非 null 为设置闸路径（组件出卡，勿静默当后端 403）。
  */
 export function r18GuardRedirect(loc: LocationLike): string | null {
     if (!isNsfwGatedLocation(loc)) return null;
@@ -177,6 +188,6 @@ export const REDLINE_GUARD_COVERAGE = [
     "query category=r18|nsfw（市场 R18 分类）",
     "query content_mode=nsfw|mode=nsfw|nsfw=1|filter=r18",
     "query app= 纯 R18 市场应用（CLASSIC via=is_nsfw_app）",
-    "未开 R18 → /settings?section=common&focus=r18（两步闸）",
+    "普通模式拦成人资源 → 出卡「切换到成人模式」→ /settings?section=common&focus=r18（两步闸）",
     "/settings 含 focus=r18 永不拦截（开启入口）",
 ] as const;

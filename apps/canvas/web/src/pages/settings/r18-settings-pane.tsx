@@ -1,11 +1,12 @@
 /**
- * R18 门控模式设置(D-U1 拍板 2026-10-15)。
+ * 普通/成人内容模式设置（Wire 2026-10-26）。
  * focus=r18 深链：滚动到本 pane 并打开既有 confirming 两步闸（失败卡不另起对话框）。
+ * 技术键仍用 r18；用户可见文案用「普通 / 成人」。
  */
 import { useEffect, useRef, useState } from "react";
 import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
-import { isR18Mode, isUnderage, setR18Mode } from "@/redline";
+import { COPY_CONFIRM_SWITCH, COPY_MODE_ADULT, COPY_MODE_NORMAL, isR18Mode, isUnderage, setR18Mode } from "@/redline";
 import { CLASSIC_NSFW_TO_MARKET } from "@/services/toiv/content-mode";
 
 export function R18SettingsPane() {
@@ -52,8 +53,8 @@ export function R18SettingsPane() {
                         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
                     )}
                     <div className="min-w-0">
-                        <h3>R18 模式</h3>
-                        <p>{enabled ? "已开启 · 成人内容可见" : "关闭 · 仅 SFW（默认）"}</p>
+                        <h3>内容模式</h3>
+                        <p>{enabled ? `${COPY_MODE_ADULT} · 成人内容可见` : `${COPY_MODE_NORMAL} · 默认`}</p>
                     </div>
                 </div>
                 {enabled ? (
@@ -62,7 +63,7 @@ export function R18SettingsPane() {
                         onClick={disable}
                         className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/50"
                     >
-                        关闭
+                        切回{COPY_MODE_NORMAL}
                     </button>
                 ) : (
                     <button
@@ -71,19 +72,19 @@ export function R18SettingsPane() {
                         className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/50"
                         data-testid="r18-settings-open"
                     >
-                        开启
+                        切换到{COPY_MODE_ADULT}
                     </button>
                 )}
             </div>
 
             {confirming && (
-                <div className="mt-2 rounded-lg border border-[var(--border)] p-3" role="alertdialog" aria-label="确认开启 R18 模式" data-testid="r18-settings-confirm">
+                <div className="mt-2 rounded-lg border border-[var(--border)] p-3" role="alertdialog" aria-label="确认切换到成人模式" data-testid="r18-settings-confirm">
                     <p className="text-xs leading-5 text-foreground">
-                        确认开启？本机请求将进入 R18 上下文。未成年硬阻断不受影响。
+                        {COPY_CONFIRM_SWITCH}
                     </p>
                     <div className="mt-2 flex gap-2">
                         <button type="button" onClick={enable} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground" data-testid="r18-settings-confirm-enable">
-                            确认开启
+                            确认切换
                         </button>
                         <button type="button" onClick={() => setConfirming(false)} className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-foreground">
                             取消
@@ -95,7 +96,7 @@ export function R18SettingsPane() {
             {enabled && (
                 <div className="mt-2 rounded-lg border border-[var(--border)] px-3 py-2.5 text-xs leading-5 text-[var(--muted-foreground)]">
                     <p className="font-medium text-foreground">入口</p>
-                    <p className="mt-1">应用市场 →「R18」筛选，或孪生父卡切内容模式。</p>
+                    <p className="mt-1">应用市场 →「成人」筛选，或孪生父卡切内容模式。</p>
                     <p className="mt-2 flex flex-wrap gap-2">
                         <Link to="/toiv/market" className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-foreground hover:bg-muted/50">
                             应用市场

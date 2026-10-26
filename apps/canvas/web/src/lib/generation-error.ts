@@ -15,6 +15,7 @@ export const GENERATION_ERROR_CATEGORIES = [
     "moderation_reference",
     "moderation_output",
     "r18_context_required",
+    "route_guard_adult",
     "invalid_params",
     "local_storage",
     "canvas_conflict",
@@ -54,10 +55,10 @@ export type GenerationFailureExplanation = {
     uncertain: boolean;
     blockAutomaticRetry: boolean;
     moderation: boolean;
-    /** Wire 分槽标签（输入/参考/输出/需 R18/额度…） */
+    /** Wire 分槽标签（输入/参考/输出/需成人/额度…） */
     slot: GenerationFailureSlot;
     slotLabel: string;
-    /** SFW 壳下是否应引导开启 R18（额度/限流/参数永不） */
+    /** 普通模式下是否引导切成人（额度/限流/参数永不） */
     guideEnableR18: boolean;
 };
 
@@ -66,6 +67,7 @@ export type GenerationFailureSlot =
     | "moderation_reference"
     | "moderation_output"
     | "r18_context_required"
+    | "route_guard_adult"
     | "quota"
     | "rate"
     | "param"
@@ -129,8 +131,12 @@ const CATEGORY_COPY: Record<GenerationErrorCategory, CategoryCopy> = {
     moderation_reference: { reason: "参考素材未通过内容安全审核", action: "请检查并更换参考素材后重新生成" },
     moderation_output: { reason: "生成结果未通过内容安全审核", action: "请调整提示词或参考素材后重新生成" },
     r18_context_required: {
-        reason: "当前上下文为 SFW；该模型/应用需要 R18 上下文才可见或可生成",
-        action: "请先开启 R18 模式；开启后本机请求进入 R18 上下文，未成年硬阻断不受影响",
+        reason: "当前为普通模式；该内容需切换到成人模式后可见或可生成",
+        action: "请切换到成人模式；确认后本机进入成人内容上下文",
+    },
+    route_guard_adult: {
+        reason: "当前为普通模式，此页需切换到成人模式",
+        action: "请切换到成人模式；确认后由守卫放行",
     },
     invalid_params: { reason: "模型不接受当前参数", action: "请检查模型、尺寸、时长、格式或数量后重试" },
     local_storage: { reason: "本地数据库无法读写", action: "请重启应用；若仍失败，请保留排查信息并联系支持，不要重复生成" },
@@ -221,6 +227,7 @@ const PROVIDER_CODE_CATEGORIES: Record<string, GenerationErrorCategory> = {
     quota_exceeded: "quota_unknown",
     r18_context_required: "r18_context_required",
     nsfw_context_required: "r18_context_required",
+    route_guard_adult: "route_guard_adult",
     sensitive_words_detected: "moderation_input",
     content_filter: "moderation_input",
     content_policy_violation: "moderation_input",
@@ -298,7 +305,7 @@ export function explainGenerationError(error: unknown, context: GenerationFailur
     const copy = explanationCopy(classified);
     const message = joinSentences(copy.reason, copy.action, debugIdLine(classified.taskId || context.taskId, classified.requestId || context.providerRequestId));
     const moderation = isModerationCategory(classified.category);
-    const r18Required = classified.category === "r18_context_required";
+    const r18Required = classified.category === "r18_context_required" || classified.category === "route_guard_adult";
     const uncertain = classified.uncertain || classified.category === "submission_uncertain" || classified.category === "download_failed" || (classified.category === "timeout" && classified.status === 524);
     const slot = generationFailureSlot(classified.category);
     return {
@@ -337,7 +344,7 @@ export function generationErrorCode(error: unknown) {
 export function generationFailureMetadata(error: unknown, prompt: string, references: Array<string | { id?: string; storageKey?: string; url?: string }> = []): GenerationFailureMetadata {
     const explained = explainGenerationError(error);
     const inputFingerprint = generationInputFingerprint(prompt, references);
-    const needsFingerprint = explained.moderation || explained.category === "r18_context_required";
+    const needsFingerprint = explained.moderation || explained.category === "r18_context_required" || explained.category === "route_guard_adult";
     if (!needsFingerprint) return { errorDetails: explained.message, generationErrorSummary: explained.summary, generationErrorCode: explained.category === "unknown" ? undefined : explained.errorCode };
     return {
         errorDetails: explained.message,
@@ -369,8 +376,9 @@ export function unchangedModeratedPrompt(
     const moderationFailure =
         isModerationCategory(metadata?.generationErrorCode || "") ||
         metadata?.generationErrorCode === "r18_context_required" ||
+        metadata?.generationErrorCode === "route_guard_adult" ||
         isContentModerationError(metadata?.errorDetails) ||
-        explainGenerationError(metadata?.errorDetails || "").category === "r18_context_required";
+        ["r18_context_required", "route_guard_adult"].includes(explainGenerationError(metadata?.errorDetails || "").category);
     if (!moderationFailure) return false;
     if (metadata?.failedInputFingerprint) return metadata.failedInputFingerprint === generationInputFingerprint(prompt, references);
     if (references.length) return false;
@@ -456,7 +464,9 @@ function diagnosticToken(value?: string): string {
 
 
 export function generationFailureSlot(category: GenerationErrorCategory): GenerationFailureSlot {
-    if (category === "moderation_input" || category === "moderation_reference" || category === "moderation_output" || category === "r18_context_required") return category;
+    // 技术码 r18_context_required 仍兼容；用户可见槽统一 route_guard_adult（Wire）
+    if (category === "r18_context_required" || category === "route_guard_adult") return "route_guard_adult";
+    if (category === "moderation_input" || category === "moderation_reference" || category === "moderation_output") return category;
     if (category === "quota_user" || category === "quota_upstream" || category === "quota_unknown" || category === "quota_limit") return "quota";
     if (category === "throttled" || category === "concurrency") return "rate";
     if (category === "invalid_params" || category === "context_too_long" || category === "input_too_large" || category === "input_inaccessible" || category === "model_missing") return "param";
@@ -474,7 +484,8 @@ export function generationFailureSlotLabel(slot: GenerationFailureSlot): string 
         case "moderation_output":
             return "输出";
         case "r18_context_required":
-            return "需 R18";
+        case "route_guard_adult":
+            return "需成人";
         case "quota":
             return "额度";
         case "rate":
@@ -490,16 +501,18 @@ export function generationFailureSlotLabel(slot: GenerationFailureSlot): string 
     }
 }
 
-/** 非内容类失败不得出现 R18 引导；仅 r18_context_required 在 SFW 壳下引导。 */
+/** 非内容类失败不得出现成人模式引导；仅需成人槽在普通模式下引导。 */
 export function shouldGuideEnableR18(category: GenerationErrorCategory, r18On = false): boolean {
     if (r18On) return false;
-    return category === "r18_context_required";
+    return category === "r18_context_required" || category === "route_guard_adult";
 }
 
 export function isR18ContextRequiredText(value: string): boolean {
     const text = value.trim();
     if (!text) return false;
     if (/r18_context_required|nsfw_context_required/i.test(text)) return true;
+    if (text.startsWith("当前为普通模式，此页需切换到成人模式")) return true;
+    if (text.startsWith("当前为普通模式；该内容需切换到成人模式")) return true;
     return (
         /须在\s*R18\s*上下文/.test(text) ||
         /R18\s*产物需在专区内/.test(text) ||
@@ -511,7 +524,9 @@ export function isR18ContextRequiredText(value: string): boolean {
         /R18\s*技能需在\s*R18\s*模式下/.test(text) ||
         /所选\s*LoRA\s*为\s*R18\s*内容/.test(text) ||
         /当前上下文为\s*SFW[；;].*需要\s*R18\s*上下文/.test(text) ||
-        /需要开启\s*R18\s*模式/.test(text)
+        /需要开启\s*R18\s*模式/.test(text) ||
+        /需切换到成人模式/.test(text) ||
+        (/切换到成人模式/.test(text) && /普通模式/.test(text))
     );
 }
 
@@ -632,6 +647,17 @@ function classifyText(raw: string): Classified {
     }
     if (isCanvasSaveConflictText(text)) {
         return { category: "canvas_conflict", fromCode: true, retryable: false };
+    }
+    if (text.startsWith(CATEGORY_COPY.route_guard_adult.reason)) {
+        return {
+            category: "route_guard_adult",
+            fromCode: true,
+            reason: CATEGORY_COPY.route_guard_adult.reason,
+            action: CATEGORY_COPY.route_guard_adult.action,
+            requestId: sanitizeDebugId(text.match(/请求 ([A-Za-z0-9._:-]{6,127})/)?.[1]),
+            taskId: sanitizeDebugId(text.match(/任务 ([A-Za-z0-9._:-]{6,127})/)?.[1]),
+            retryable: false,
+        };
     }
     if (isR18ContextRequiredText(text) || text.startsWith(CATEGORY_COPY.r18_context_required.reason)) {
         return {

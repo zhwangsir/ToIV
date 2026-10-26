@@ -16,16 +16,16 @@ test("invalid reference explains limits without repeating unchanged input", () =
     expect(html).not.toContain("重新生成");
 });
 
-test("r18_context_required shows slot and enable-R18 CTA when SFW", () => {
+test("r18_context_required maps to route_guard_adult slot and adult CTA when normal mode", () => {
     const explanation = explainGenerationError({ code: "r18_context_required", message: "该操作为 R18 内容,须在 R18 上下文(X-NSFW)下使用" });
     expect(explanation.category).toBe("r18_context_required");
-    expect(explanation.slot).toBe("r18_context_required");
-    expect(explanation.slotLabel).toBe("需 R18");
+    expect(explanation.slot).toBe("route_guard_adult");
+    expect(explanation.slotLabel).toBe("需成人");
     expect(explanation.guideEnableR18).toBe(true);
     expect(explanation.blockAutomaticRetry).toBe(true);
     const html = renderToStaticMarkup(<GenerationFailureNotice explanation={explanation} onRetry={() => {}} />);
-    expect(html).toContain("需 R18");
-    expect(html).toContain("开启 R18 模式");
+    expect(html).toContain("需成人");
+    expect(html).toContain("切换到成人模式");
     expect(html).toContain("请先修改提示词或参考");
     expect(html).toContain('data-testid="generation-failure-retry-blocked"');
 });
@@ -35,7 +35,7 @@ test("quota failure never guides R18", () => {
     expect(explanation.slot).toBe("quota");
     expect(explanation.guideEnableR18).toBe(false);
     const html = renderToStaticMarkup(<GenerationFailureNotice explanation={explanation} onRetry={() => {}} />);
-    expect(html).not.toContain("开启 R18 模式");
+    expect(html).not.toContain("切换到成人模式");
     expect(html).toContain("额度");
 });
 
@@ -44,7 +44,7 @@ test("throttled failure never guides R18", () => {
     expect(explanation.slot).toBe("rate");
     expect(explanation.guideEnableR18).toBe(false);
     const html = renderToStaticMarkup(<GenerationFailureNotice explanation={explanation} />);
-    expect(html).not.toContain("开启 R18 模式");
+    expect(html).not.toContain("切换到成人模式");
 });
 
 test("fingerprint changed enables 新建尝试 for moderation", () => {
@@ -73,4 +73,16 @@ test("r18 fingerprint prop enables 新建尝试 after unblock", () => {
     expect(open).toContain('data-testid="generation-failure-new-attempt"');
     expect(open).toContain("新建尝试");
     expect(open).not.toContain("请先修改提示词或参考");
+});
+
+test("route_guard_adult explicit category guides switch CTA", () => {
+    const explanation = explainGenerationError({ code: "route_guard_adult" });
+    expect(explanation.category).toBe("route_guard_adult");
+    expect(explanation.slot).toBe("route_guard_adult");
+    expect(explanation.slotLabel).toBe("需成人");
+    expect(explanation.reason).toContain("普通模式");
+    expect(explanation.guideEnableR18).toBe(true);
+    const html = renderToStaticMarkup(<GenerationFailureNotice explanation={explanation} />);
+    expect(html).toContain("切换到成人模式");
+    expect(html).toContain('data-failure-slot="route_guard_adult"');
 });

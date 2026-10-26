@@ -291,7 +291,7 @@ function ErrorContent({ node, theme, onRetry, onReloadResource, onOpenTaskDetail
                     onOpenDetails={node.metadata?.taskId && onOpenTaskDetails ? () => onOpenTaskDetails(node) : undefined}
                     onRetry={submissionUncertain || explanation.uncertain || explanation.category === "download_failed" ? undefined : onRetry ? () => onRetry(node) : undefined}
                     retryBlockedByFingerprint={retryBlockedByFingerprint}
-                    retryLabel={node.metadata?.isBatchRoot ? "重新生成失败项" : explanation.moderation || explanation.category === "r18_context_required" ? "新建尝试" : "重新生成"}
+                    retryLabel={node.metadata?.isBatchRoot ? "重新生成失败项" : explanation.moderation || explanation.category === "r18_context_required" || explanation.category === "route_guard_adult" || explanation.slot === "route_guard_adult" ? "新建尝试" : "重新生成"}
                 />
             </div>
             {node.metadata?.resourceReloadAvailable ? (

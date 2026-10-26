@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 
 import { formatGenerationDiagnostics, type GenerationFailureContext, type GenerationFailureExplanation } from "@/lib/generation-error";
 import { navigateToR18SettingsGate } from "@/lib/settings-navigation";
+import { COPY_SWITCH_TO_ADULT } from "@/redline";
 import { isR18Mode } from "@/services/toiv/r18-mode";
 
 type GenerationFailureNoticeProps = {
@@ -37,8 +38,12 @@ export function GenerationFailureNotice({
     const diagnostics = formatGenerationDiagnostics(explanation, context);
     const r18On = typeof window !== "undefined" ? isR18Mode() : false;
     const guideR18 = explanation.guideEnableR18 && !r18On;
-    const contextUpdated = explanation.category === "r18_context_required" && r18On;
-    const policyRetry = Boolean(onRetry) && (explanation.moderation || explanation.category === "r18_context_required") && !retryDisabled;
+    const adultGate =
+        explanation.category === "r18_context_required" ||
+        explanation.category === "route_guard_adult" ||
+        explanation.slot === "route_guard_adult";
+    const contextUpdated = adultGate && r18On;
+    const policyRetry = Boolean(onRetry) && (explanation.moderation || adultGate) && !retryDisabled;
     const fingerprintBlocked = retryBlockedByFingerprint !== false;
     const showNewAttempt = policyRetry && !fingerprintBlocked;
     const showBlockedRetry = policyRetry && fingerprintBlocked;
@@ -138,7 +143,7 @@ export function GenerationFailureNotice({
             ) : null}
             <p className="generation-failure-reason">{explanation.reason}</p>
             {contextUpdated ? (
-                <p className="generation-failure-action">上下文已更新 · 改输入后新建尝试</p>
+                <p className="generation-failure-action">模式已更新 · 改输入后新建尝试</p>
             ) : explanation.action ? (
                 <p className="generation-failure-action">{explanation.action}</p>
             ) : null}
@@ -156,7 +161,7 @@ export function GenerationFailureNotice({
                         onMouseDown={(event) => event.stopPropagation()}
                     >
                         <ShieldAlert className="size-3.5" />
-                        开启 R18 模式
+                        {COPY_SWITCH_TO_ADULT}
                     </button>
                 ) : null}
                 {showNewAttempt ? (

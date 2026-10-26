@@ -74,3 +74,18 @@ describe("redline guard", () => {
         expect(b.nsfwHeaderEnabled).toBe(a.nsfwHeaderEnabled);
     });
 });
+
+    test("Wire copy uses 普通/成人; CTA points at settings gate", () => {
+        installBrowserStub(null);
+        const id = require.resolve("../src/redline");
+        delete require.cache[id];
+        const mod = require("../src/redline");
+        expect(mod.COPY_MODE_NORMAL).toBe("普通");
+        expect(mod.COPY_MODE_ADULT).toBe("成人");
+        expect(mod.COPY_GUARD_REASON).toContain("普通模式");
+        expect(mod.COPY_GUARD_REASON).toContain("成人模式");
+        expect(mod.COPY_SWITCH_TO_ADULT).toBe("切换到成人模式");
+        expect(mod.COPY_STAY_NORMAL).toBe("留在普通内容");
+        expect(mod.COPY_CONFIRM_SWITCH).toContain("确认切换");
+        expect(mod.R18_SETTINGS_GATE_PATH).toContain("focus=r18");
+    });

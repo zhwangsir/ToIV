@@ -50,7 +50,8 @@ describe("r18 failure classification surface", () => {
         });
         expect(f.category).toBe("r18_context_required");
         expect(f.guideEnableR18).toBe(true);
-        expect(f.slotLabel).toBe("需 R18");
+        expect(f.slotLabel).toBe("需成人");
+        expect(f.slot).toBe("route_guard_adult");
         expect(f.blockAutomaticRetry).toBe(true);
     });
 
@@ -60,7 +61,7 @@ describe("r18 failure classification surface", () => {
         const meta = generationFailureMetadata({ code: "r18_context_required" }, "adult prompt");
         expect(meta.generationErrorCode).toBe("r18_context_required");
         expect(meta.failedInputFingerprint).toBeTruthy();
-        expect(meta.errorDetails).toContain("R18");
+        expect(meta.errorDetails).toMatch(/成人|普通/);
         expect(meta.errorDetails).not.toBe("生成失败");
         const again = explainGenerationError(meta.errorDetails);
         expect(again.category).toBe("r18_context_required");

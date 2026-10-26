@@ -98,7 +98,7 @@ export function resolveCanvasLiveFailureInput(
 export function canvasFailureRetryBlockedByFingerprint(metadata: CanvasNodeMetadata | undefined, liveInput?: CanvasGenerationFailureInput) {
     const error = { code: metadata?.generationErrorCode || metadata?.taskErrorCode, message: metadata?.errorDetails };
     const explained = explainGenerationError(error);
-    if (!(explained.moderation || explained.category === "r18_context_required")) return false;
+    if (!(explained.moderation || explained.category === "r18_context_required" || explained.category === "route_guard_adult")) return false;
     if (!liveInput) return true;
     return canvasGenerationRetryBlocked(metadata, liveInput);
 }
@@ -109,7 +109,7 @@ export function canvasGenerationRetryBlocked(metadata: CanvasNodeMetadata | unde
     // Only a resolved submission can prove that moderated input was changed.
     if (input) {
         const explained = explainGenerationError(error);
-        if (explained.moderation || explained.category === "r18_context_required") {
+        if (explained.moderation || explained.category === "r18_context_required" || explained.category === "route_guard_adult") {
             if (!metadata?.failedInputFingerprint) return !metadata?.failedPromptFingerprint || metadata.failedPromptFingerprint === generationPromptFingerprint(input.prompt);
             return unchangedModeratedPrompt(metadata, input.prompt, submittedReferences(input));
         }

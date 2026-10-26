@@ -1,3 +1,28 @@
+## 2026-10-26 Asia/Shanghai — Wire 对齐：普通/成人文案 + route_guard_adult（本地 commit）
+
+- 分支：`work/p0-fusion-20261016`（未切支 / **本地 commit** / **未 push** / 未部署）
+- Wire：P0 普通/成人闸交互；主闸=前端单文件守卫出卡；后端 403 非主路径
+- 新/改：
+  - `apps/canvas/web/src/redline.ts`：COPY_* 用户文案常量（普通/成人/切换到成人模式/留在普通内容/确认切换句）
+  - `apps/canvas/web/src/components/workspace/require-r18.tsx`：拦截出 `AdultRouteGuardCard`（slot=`route_guard_adult`），主 CTA→设置两步闸，次→留在普通内容；不再静默 Navigate
+  - `apps/canvas/web/src/lib/generation-error.ts`：槽/类 `route_guard_adult`；`r18_context_required` 用户槽映射到 `route_guard_adult`；文案改普通/成人
+  - `r18-settings-pane.tsx` / `generation-failure-notice.tsx`：可见文案对齐 Wire
+- 测：`bun test` redline-guard / generation-failure-actions / r18-mode / moderation-error → **33 pass**；canvas-generation-failure `-t r18|fingerprint|retry` → **5 pass / 12 skip**
+- 验收：成人路由守卫拦截 ✓；主 CTA 两步闸 ✓；普通/成人文案 ✓；分槽含 route_guard_adult ✓；指纹禁重试 ✓；额度/限流无成人引导 ✓；无静默 prompt 软化 ✓
+- 未覆盖：市场页/库页遗留「R18/SFW」文案未本波改；任务中心/创作页 retry 仍未接
+
+## 项目管家入账 · 2026-10-26 09:27 Asia/Shanghai
+
+- **部署窗已开** `STATE.deploy_window_2026_10_26` = **`open`**（用户拍板 running=0 开 P0）
+- **pending_api_bundle** → **`in_progress`**（api 捆绑 + T1）；**网络运维**执行中
+- 管家**不改生产**、**未** commit/push；等运维回报 tip/健康后再改完成口径
+
+## 项目管家入账 · 2026-10-26 09:25 Asia/Shanghai
+
+- **前端红线守卫** `STATE.redline_frontend_guard_2026_10_26` → **`committed`** tip=`b0bf9f4a`（`refactor(r18): move runtime gate to canvas redline route guard`）；ahead 3 **未 push**
+- `STATE.redline_ssot_2026_10_26`（`2d1500b3`）→ **`superseded`**
+- 本机 HEAD 核见 STATE；管家**未** commit/push；部署窗仍挂；Mega 仍 `pending_download`
+
 ## 项目管家入账 · 2026-10-26 09:24 Asia/Shanghai
 
 - **红线口径变更**（`STATE.redline_frontend_guard_2026_10_26`）：限制/拦截 → canvas **前端单文件路由守卫**；默认 SFW↔NSFW；**后端不拦截**（本地自用、省资源）
