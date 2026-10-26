@@ -88,7 +88,7 @@
 .toiv-skeleton {
   position: relative;
   overflow: hidden;
-  border-radius: var(--toiv-skeleton-radius, 10px);
+  border-radius: var(--toiv-skeleton-radius, 8px);
   background: var(--toiv-skeleton-base);
 }
 
@@ -103,7 +103,7 @@
     transparent 65%
   );
   transform: translateX(-120%);
-  animation: toiv-skeleton-shine var(--toiv-skeleton-dur, 1.4s) ease-in-out infinite;
+  animation: toiv-skeleton-shine var(--toiv-skeleton-dur, var(--toiv-skeleton-shimmer-dur, 1.6s)) ease-in-out infinite;
 }
 
 .toiv-skeleton-line {
@@ -200,15 +200,22 @@
 
 @media (prefers-reduced-motion: reduce) {
   .toiv-empty,
-  .toiv-skeleton-pane {
-    animation: none;
+  .toiv-skeleton-pane,
+  .toiv-empty-cta {
+    animation: none !important;
+    transition: none !important;
   }
   .toiv-skeleton::after {
-    animation: none;
-    opacity: 0.35;
+    animation: none !important;
+    opacity: 0;
     transform: none;
+    background: transparent;
   }
   .toiv-soft-glow::before {
     display: none;
+  }
+  .toiv-spinner,
+  .toiv-spinner-md {
+    animation: none !important;
   }
 }

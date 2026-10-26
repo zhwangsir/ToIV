@@ -1,5 +1,4 @@
-/* R10: --toiv-settings-* / --toiv-model-*; list+drawer inventory; no settings content_mode master switch */
-/* Settings Freezone desk — wave ⑤ (三层 IA 已有；成人仅说明+光幕) */
+/* R10补: --toiv-settings-* / --toiv-model-mgr-*; Dialog 1120×min(82vh,760); IA 模型|引擎|存储|通用|关于; no settings content_mode master switch */
 .settings-page.fz-desk,
 .settings-page {
   --fz-canvas: #0a0c12;
@@ -64,9 +63,10 @@ html.dark .settings-page.fz-desk,
 /* Settings visual pass 2026-10-26 — LingGuo-style restraint: slot table first, less chrome */
 
 .settings-page .settings-pane-root {
-  width: min(var(--toiv-settings-page-max, 920px), 100%);
+  width: min(var(--toiv-settings-dialog-w, var(--toiv-settings-page-max, 1120px)), calc(100vw - 32px));
+  max-height: var(--toiv-settings-dialog-h, min(82vh, 760px));
   margin-inline: auto;
-  padding: 8px var(--toiv-settings-pad-x, 28px) 40px;
+  padding: 8px var(--toiv-settings-pad-x, 20px) 40px;
 }
 
 .settings-page .settings-pane-header {
@@ -120,7 +120,7 @@ html.dark .settings-page.fz-desk,
 
 .settings-slot-row {
   display: grid;
-  grid-template-columns: 148px minmax(0, 1fr);
+  grid-template-columns: var(--toiv-settings-form-label-w, 140px) minmax(0, 1fr);
   gap: 12px 18px;
   align-items: start;
   padding: 16px 4px;
@@ -463,4 +463,22 @@ html.dark .settings-page.fz-desk,
   margin-top: 4px;
   font-size: 12px;
   line-height: 18px;
+}
+
+
+/* R10补 · dialog/nav shell tokens */
+.settings-page .settings-library-frame {
+  max-width: var(--toiv-settings-dialog-w, 1120px);
+  max-height: var(--toiv-settings-dialog-h, min(82vh, 760px));
+  margin-inline: auto;
+  width: 100%;
+}
+.settings-page [data-testid="settings-section-nav"] .ui-segmented,
+.settings-page [data-testid="settings-section-nav"] [role="tablist"] {
+  min-height: var(--toiv-settings-nav-item-h, 40px);
+}
+.settings-page .ant-input,
+.settings-page .ant-select-selector,
+.settings-page .ant-btn:not(.ant-btn-sm):not(.ant-btn-lg) {
+  min-height: var(--toiv-settings-control-h, 36px);
 }

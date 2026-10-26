@@ -1,5 +1,5 @@
 import { filterNsfwListableAssets } from "@/redline";
-/** Local-first model/compute defaults for Studio「模型与算力」— aligned to真机. */
+/** Local-first model/compute defaults for Studio「引擎」— aligned to真机. */
 
 /** Product defaults (Pipeline C seven-piece int8). Protocol ids stay h3/h3-t2v; UI shows these basenames. */
 export const LOCAL_H3_FL2VA_BASENAME = "minimax_h3_fl2va_pruned_int8_convrot.safetensors";
@@ -175,7 +175,7 @@ export function localComputeDefaults() {
 }
 
 /** Empty ModelPicker CTA — never "联系管理员/API Key". */
-export const MODEL_PICKER_EMPTY_CTA = "去模型与算力配置";
+export const MODEL_PICKER_EMPTY_CTA = "去引擎配置";
 
 export function filterH3PickerEntries<T extends { rel_path: string }>(entries: T[]): T[] {
     return entries.filter((e) => String(e.rel_path || "").startsWith("h3/"));

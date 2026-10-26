@@ -140,7 +140,7 @@ describe("local model defaults (realign)", () => {
     });
 
     test("ModelPicker empty CTA points to 模型与算力", () => {
-        expect(MODEL_PICKER_EMPTY_CTA).toContain("模型与算力");
+        expect(MODEL_PICKER_EMPTY_CTA).toContain("引擎");
         expect(MODEL_PICKER_EMPTY_CTA).not.toContain("管理员");
         expect(MODEL_PICKER_EMPTY_CTA).not.toMatch(/API Key/i);
     });

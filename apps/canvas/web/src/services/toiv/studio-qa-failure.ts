@@ -135,7 +135,7 @@ export const STUDIO_FAILURE_TABLE: readonly StudioFailureEntry[] = [
         kind: "voice",
         re: /503|TTS|配音服务|不可达|timeout/i,
         message: "配音服务暂不可用，可先完成分镜与出视频，稍后再配音。",
-        qaHint: "检查「模型与算力」里配音依赖；恢复后再批量配音。",
+        qaHint: "检查「引擎」里配音依赖；恢复后再批量配音。",
     },
     {
         code: "LIPSYNC_NO_VOICE",

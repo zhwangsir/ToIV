@@ -1,7 +1,7 @@
 import { App, Button, Collapse } from "antd";
-import { ArrowLeft, RadioTower, Settings2, Sparkles } from "lucide-react";
+import { ArrowLeft, Boxes, Cpu, HardDrive, Info, Settings2 } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { SegmentedControl } from "@/components/ui/base/segmented-control";
 import { ComputeStatusStrip } from "@/components/toiv/compute-status-strip";
@@ -20,40 +20,47 @@ import { RunningHubSettingsPane } from "./runninghub-settings-pane";
 import "./settings-visual.css";
 import "@/styles/toiv-freezone-desk.css";
 
-/** Product IA: 常用 / 模型与算力 / 高级. Legacy URL aliases map in resolveSettingsSection. */
-export type ConfigSectionKey = "common" | "compute" | "advanced";
+/** Product IA (R10补 TL): 模型｜引擎｜存储｜通用｜关于. Legacy aliases in resolveSettingsSection. */
+export type ConfigSectionKey = "models" | "engines" | "storage" | "general" | "about";
 
 const configSections: Array<{ key: ConfigSectionKey; label: string; description: string; icon: ReactNode }> = [
-    { key: "common", label: "常用", description: "自选角色槽、算力与内容模式", icon: <Sparkles className="size-4" /> },
-    { key: "compute", label: "模型与算力", description: "库存与 NAS 换权重", icon: <RadioTower className="size-4" /> },
-    { key: "advanced", label: "高级", description: "自定义渠道、云端与诊断", icon: <Settings2 className="size-4" /> },
+    { key: "models", label: "模型", description: "清单、默认基座与角色槽", icon: <Boxes className="size-4" /> },
+    { key: "engines", label: "引擎", description: "库存与 NAS 换权重", icon: <Cpu className="size-4" /> },
+    { key: "storage", label: "存储", description: "素材库与占用", icon: <HardDrive className="size-4" /> },
+    { key: "general", label: "通用", description: "渠道、云端、Prompt 与内容模式说明", icon: <Settings2 className="size-4" /> },
+    { key: "about", label: "关于", description: "诊断与运行信息", icon: <Info className="size-4" /> },
 ];
 
 const LEGACY_SECTION_MAP: Record<string, ConfigSectionKey> = {
-    channels: "compute",
-    models: "common",
-    runninghub: "advanced",
-    diagnostics: "advanced",
-    prompts: "advanced",
-    preferences: "advanced",
-    storage: "advanced",
+    common: "models",
+    compute: "engines",
+    advanced: "general",
+    channels: "general",
+    models: "models",
+    runninghub: "general",
+    diagnostics: "about",
+    prompts: "general",
+    preferences: "general",
+    storage: "storage",
+    engines: "engines",
+    general: "general",
+    about: "about",
 };
 
 export function resolveSettingsSection(value: string | null): ConfigSectionKey {
-    if (!value) return "common";
-    if (value === "common" || value === "compute" || value === "advanced") return value;
-    return LEGACY_SECTION_MAP[value] || "common";
+    if (!value) return "models";
+    if (value === "models" || value === "engines" || value === "storage" || value === "general" || value === "about") return value;
+    return LEGACY_SECTION_MAP[value] || "models";
 }
 
 export function isConfigSection(value: string | null): value is ConfigSectionKey {
-    return value === "common" || value === "compute" || value === "advanced";
+    return value === "models" || value === "engines" || value === "storage" || value === "general" || value === "about";
 }
 
-function advancedCollapseKeys(requested: string | null): string[] {
+function generalCollapseKeys(requested: string | null): string[] {
     if (requested === "runninghub") return ["runninghub"];
-    if (requested === "diagnostics") return ["diagnostics"];
     if (requested === "prompts" || requested === "preferences") return ["prompts"];
-    if (requested === "channels") return ["channels"];
+    if (requested === "channels" || requested === "advanced") return ["channels"];
     return [];
 }
 
@@ -72,7 +79,7 @@ export default function SettingsPage() {
     const diagnosticTaskId = searchParams.get("taskId") || undefined;
     const diagnosticProjectId = searchParams.get("projectId") || undefined;
 
-    const advancedDefaultOpen = useMemo(() => advancedCollapseKeys(requestedSection), [requestedSection]);
+    const generalDefaultOpen = useMemo(() => generalCollapseKeys(requestedSection), [requestedSection]);
 
     useLayoutEffect(() => {
         document.body.classList.add("app-user-overlays");
@@ -80,9 +87,9 @@ export default function SettingsPage() {
     }, []);
 
     useEffect(() => {
-        // focus=r18 必须落在「常用」段（R18SettingsPane 挂载处）
+        // focus=r18 落在「通用」（R18SettingsPane 挂载处；无主开关）
         if (searchParams.get("focus") === "r18") {
-            setActiveTab("common");
+            setActiveTab("general");
             return;
         }
         setActiveTab(resolveSettingsSection(requestedSection));
@@ -98,13 +105,13 @@ export default function SettingsPage() {
     const finishConfig = () => {
         const invalidChannel = customChannelsEnabled ? userChannels.find((channel) => channelValidationError(channel)) : undefined;
         if (invalidChannel) {
-            selectSection("advanced");
+            selectSection("general");
             message.warning(`${invalidChannel.name || "未命名渠道"}：${channelValidationError(invalidChannel)}`);
             focusInvalidChannelField(invalidChannel);
             return;
         }
         if (!effectiveConfig.channels.some(isChannelReady)) {
-            selectSection("compute");
+            selectSection("engines");
             message.error(customChannelsEnabled ? (shouldPromptContinue ? "请先完成至少一个渠道的 Base URL、API Key 和模型配置" : "当前没有可用渠道，请先完成连接信息和模型配置") : "当前没有可用的系统模型，请联系管理员配置系统渠道");
             return;
         }
@@ -113,21 +120,15 @@ export default function SettingsPage() {
     };
 
     const panes: Record<ConfigSectionKey, ReactNode> = {
-        common: (
+        models: (
             <SettingsPane>
                 <div className="settings-pane-header">
                     <div className="min-w-0">
-                        <h2>常用</h2>
-                        <p>逐槽自选底模；出图 / 视频可挂 LoRA。快捷示例可折叠预填，不保证最优。</p>
+                        <h2>模型</h2>
+                        <p>清单 + 抽屉设默认基座；角色槽精细选择。内容模式主开关只在顶栏光幕。</p>
                     </div>
                 </div>
                 <div className="settings-common-stack">
-                    <section className="settings-section" data-testid="settings-common-compute">
-                        <p className="settings-block-label">算力</p>
-                        <div className="settings-compute-strip-wrap">
-                            <ComputeStatusStrip variant="compact" hideLink />
-                        </div>
-                    </section>
                     <section className="settings-section">
                         <p className="settings-block-label">角色槽</p>
                         <div className="settings-slot-surface">
@@ -135,8 +136,8 @@ export default function SettingsPage() {
                                 key={`slots-${slotEpoch}`}
                                 config={effectiveConfig}
                                 onChange={(key, model) => updateConfig(key, model)}
-                                onOpenChannels={customChannelsEnabled ? () => selectSection("advanced") : () => selectSection("compute")}
-                                onOpenCompute={() => selectSection("compute")}
+                                onOpenChannels={customChannelsEnabled ? () => selectSection("general") : () => selectSection("engines")}
+                                onOpenCompute={() => selectSection("engines")}
                             />
                         </div>
                     </section>
@@ -145,67 +146,104 @@ export default function SettingsPage() {
                     <SettingsModelInventory
                         config={effectiveConfig}
                         onChange={(key, model) => updateConfig(key, model)}
-                        onOpenCompute={() => selectSection("compute")}
+                        onOpenCompute={() => selectSection("engines")}
                     />
-                    <section className="settings-section" data-testid="settings-content-mode-note">
-                        <p className="settings-block-label">内容模式说明</p>
-                        <R18SettingsPane />
+                </div>
+            </SettingsPane>
+        ),
+        engines: (
+            <SettingsPane>
+                <LocalComputePane onBackToCommon={() => selectSection("models")} />
+            </SettingsPane>
+        ),
+        storage: (
+            <SettingsPane>
+                <div className="settings-pane-header">
+                    <div className="min-w-0">
+                        <h2>存储</h2>
+                        <p>素材与占用概览；媒体库仍是正式素材入口（非第二创作壳）。</p>
+                    </div>
+                </div>
+                <div className="settings-common-stack">
+                    <section className="settings-section" data-testid="settings-storage-compute">
+                        <p className="settings-block-label">算力与占用</p>
+                        <div className="settings-compute-strip-wrap">
+                            <ComputeStatusStrip variant="compact" hideLink />
+                        </div>
+                    </section>
+                    <section className="settings-section" data-testid="settings-storage-library">
+                        <p className="settings-block-label">媒体库</p>
+                        <p className="settings-pane-header" style={{ marginBottom: 0 }}>
+                            <span style={{ fontSize: 12, color: "color-mix(in srgb, var(--foreground) 55%, transparent)" }}>
+                                管理本机素材、作品与回收站。不嵌旧页，不使用 iframe 第二壳。
+                            </span>
+                        </p>
+                        <div style={{ marginTop: 12 }}>
+                            <Link to="/library?source=materials" className="text-sm text-primary underline-offset-2 hover:underline">
+                                打开媒体库
+                            </Link>
+                        </div>
                     </section>
                 </div>
             </SettingsPane>
         ),
-        compute: (
-            <SettingsPane>
-                <LocalComputePane onBackToCommon={() => selectSection("common")} />
-            </SettingsPane>
-        ),
-        advanced: (
+        general: (
             <SettingsPane>
                 <div className="settings-pane-header">
                     <div className="min-w-0">
-                        <h2>高级</h2>
-                        <p>渠道 / 云端 / Prompt / 诊断 — 默认收起。</p>
+                        <h2>通用</h2>
+                        <p>渠道 / 云端 / Prompt / 内容模式说明 — 主开关仍只在顶栏光幕。</p>
                     </div>
                 </div>
                 <div className="settings-advanced-stack">
-                <Collapse
-                    key={`advanced:${advancedDefaultOpen.join(",") || "none"}`}
-                    className="settings-advanced-collapse"
-                    bordered={false}
-                    defaultActiveKey={advancedDefaultOpen}
-                    items={[
-                        {
-                            key: "channels",
-                            label: <span className="text-sm font-semibold">自定义渠道</span>,
-                            children: (
-                                <ChannelSettingsPane
-                                    onOpenModels={() => selectSection("common")}
-                                    onOpenRunningHub={() => {
-                                        const next = new URLSearchParams(searchParams);
-                                        next.set("section", "runninghub");
-                                        setSearchParams(next, { replace: true });
-                                    }}
-                                />
-                            ),
-                        },
-                        {
-                            key: "runninghub",
-                            label: <span className="text-sm font-semibold">云端可选 / RunningHub</span>,
-                            children: <RunningHubSettingsPane />,
-                        },
-                        {
-                            key: "prompts",
-                            label: <span className="text-sm font-semibold">Prompt 偏好</span>,
-                            children: <PromptPreferencesPane />,
-                        },
-                        {
-                            key: "diagnostics",
-                            label: <span className="text-sm font-semibold">诊断</span>,
-                            children: <DiagnosticsPanel taskId={diagnosticTaskId} projectId={diagnosticProjectId} />,
-                        },
-                    ]}
-                />
+                    <section className="settings-section" data-testid="settings-content-mode-note">
+                        <p className="settings-block-label">内容模式说明</p>
+                        <R18SettingsPane />
+                    </section>
+                    <Collapse
+                        key={`general:${generalDefaultOpen.join(",") || "none"}`}
+                        className="settings-advanced-collapse"
+                        bordered={false}
+                        defaultActiveKey={generalDefaultOpen}
+                        items={[
+                            {
+                                key: "channels",
+                                label: <span className="text-sm font-semibold">自定义渠道</span>,
+                                children: (
+                                    <ChannelSettingsPane
+                                        onOpenModels={() => selectSection("models")}
+                                        onOpenRunningHub={() => {
+                                            const next = new URLSearchParams(searchParams);
+                                            next.set("section", "runninghub");
+                                            setSearchParams(next, { replace: true });
+                                        }}
+                                    />
+                                ),
+                            },
+                            {
+                                key: "runninghub",
+                                label: <span className="text-sm font-semibold">云端可选 / RunningHub</span>,
+                                children: <RunningHubSettingsPane />,
+                            },
+                            {
+                                key: "prompts",
+                                label: <span className="text-sm font-semibold">Prompt 偏好</span>,
+                                children: <PromptPreferencesPane />,
+                            },
+                        ]}
+                    />
                 </div>
+            </SettingsPane>
+        ),
+        about: (
+            <SettingsPane>
+                <div className="settings-pane-header">
+                    <div className="min-w-0">
+                        <h2>关于</h2>
+                        <p>诊断与运行信息。</p>
+                    </div>
+                </div>
+                <DiagnosticsPanel taskId={diagnosticTaskId} projectId={diagnosticProjectId} />
             </SettingsPane>
         ),
     };

@@ -427,12 +427,12 @@ export function LocalComputePane({ onBackToCommon }: { onBackToCommon?: () => vo
             <div className="settings-pane-header">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
-                        <h2>模型与算力</h2>
+                        <h2>引擎</h2>
                         <p data-testid="compute-back-to-common-hint">
-                            库存与换权重；日常搭配回「常用」。
+                            库存与换权重；日常搭配回「模型」。
                             {onBackToCommon ? (
                                 <Button type="link" size="small" className="h-auto px-1 text-xs" onClick={onBackToCommon}>
-                                    返回常用
+                                    返回模型
                                 </Button>
                             ) : null}
                         </p>

@@ -18,7 +18,7 @@ export const R18_STORAGE_KEY = "toiv_r18_mode";
 export const BIRTHDATE_STORAGE_KEY = "toiv_birthdate";
 export const REQUEST_HEADER = "X-NSFW";
 export const REQUEST_HEADER_VALUE = "1";
-export const R18_SETTINGS_GATE_PATH = "/settings?section=common&focus=r18";
+export const R18_SETTINGS_GATE_PATH = "/settings?section=general&focus=r18";
 
 /** 账号模式轮询间隔（他端生效 ≤30s）。 */
 export const ACCOUNT_MODE_POLL_MS = 30_000;
@@ -621,7 +621,7 @@ export const REDLINE_GUARD_COVERAGE = [
     "query category=r18|nsfw（市场 R18 分类）",
     "query content_mode=nsfw|mode=nsfw|nsfw=1|filter=r18",
     "query app= 纯 R18 市场应用（CLASSIC via=is_nsfw_app）",
-    "普通模式拦成人资源 → 出卡「切换到成人模式」→ /settings?section=common&focus=r18（两步闸）",
+    "普通模式拦成人资源 → 出卡「切换到成人模式」→ /settings?section=general&focus=r18（两步闸）",
     "/settings 含 focus=r18 永不拦截（开启入口）",
     "选型列表：已知 NSFW 普通态灰化+锁+NSFW 标签（可见不可点）；未知元数据普通藏/成人显",
     "显式 is_nsfw/nsfw/content_rating 优先；文件名仅兜底",

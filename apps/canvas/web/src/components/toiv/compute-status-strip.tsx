@@ -13,7 +13,7 @@ export type ComputeStatusStripProps = {
     variant?: "compact" | "full";
     className?: string;
     onDeps?: (deps: ToivDepItem[]) => void;
-    /** 已在设置页内时隐藏「模型与算力」跳转 */
+    /** 已在设置页内时隐藏「引擎」跳转 */
     hideLink?: boolean;
 };
 
@@ -66,7 +66,7 @@ export function ComputeStatusStrip({ variant = "compact", className = "", onDeps
                     ))}
                 </ul>
             ) : null}
-            {hideLink ? null : <Link to="/settings?section=compute" className="toiv-compute-strip-link">模型与算力</Link>}
+            {hideLink ? null : <Link to="/settings?section=engines" className="toiv-compute-strip-link">引擎</Link>}
         </div>
     );
 }

@@ -34,7 +34,7 @@ export function WorkspaceTopBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen:
             <div className="app-workspace-topbar-actions" data-testid="workspace-topbar-actions">
                 <CreationStudioQueueDock />
                 <LightCurtainPaddle />
-                <Link to="/settings?section=common" className="app-workspace-topbar-utility"><Settings2 /><span>模型配置</span></Link>
+                <Link to="/settings?section=models" className="app-workspace-topbar-utility"><Settings2 /><span>模型配置</span></Link>
             </div>
         </header>
     );

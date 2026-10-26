@@ -168,7 +168,7 @@ export function ModelSlotTable({ config, onChange, onMotionChange, onOpenChannel
             {localMode ? (
                 <p className="mb-2 text-[11px] leading-relaxed text-foreground/45" data-testid="base-inventory-footer" title={baseInvLive ? "实时 NAS" : "非实时 NAS 种子"}>
                     {baseInvNote}
-                    {baseInvLive ? "" : " · 选中后 LoRA 按族过滤；换权重仍建议在「模型与算力」绑定"}
+                    {baseInvLive ? "" : " · 选中后 LoRA 按族过滤；换权重仍建议在「引擎」绑定"}
                 </p>
             ) : null}
 
@@ -182,7 +182,7 @@ export function ModelSlotTable({ config, onChange, onMotionChange, onOpenChannel
                     ariaLabel="对话 / 剧本"
                     value={config.textModel || undefined}
                     options={textOptions}
-                    empty={localMode ? "暂无候选 — 去「模型与算力」或渠道配置对话模型" : "暂无对话候选"}
+                    empty={localMode ? "暂无候选 — 去「引擎」或渠道配置对话模型" : "暂无对话候选"}
                     onOpenEmpty={onOpenChannels}
                     onChange={(m) => {
                         markManualMix();
@@ -224,7 +224,7 @@ export function ModelSlotTable({ config, onChange, onMotionChange, onOpenChannel
                     ariaLabel="出图"
                     value={config.imageModel || undefined}
                     options={imageOptions}
-                    empty={localMode ? "暂无候选 — 去「模型与算力」绑定出图" : "暂无出图候选"}
+                    empty={localMode ? "暂无候选 — 去「引擎」绑定出图" : "暂无出图候选"}
                     onOpenEmpty={onOpenCompute || onOpenChannels}
                     onChange={(m) => {
                         markManualMix();
@@ -248,7 +248,7 @@ export function ModelSlotTable({ config, onChange, onMotionChange, onOpenChannel
                     ariaLabel="出视频 · 主（H3）"
                     value={config.videoModel && isPrimaryVideoModelRef(config, config.videoModel) ? config.videoModel : undefined}
                     options={primaryVideoOptions}
-                    empty={localMode ? "暂无候选 — 去「模型与算力」绑定 H3" : "暂无 H3 视频候选"}
+                    empty={localMode ? "暂无候选 — 去「引擎」绑定 H3" : "暂无 H3 视频候选"}
                     onOpenEmpty={onOpenCompute || onOpenChannels}
                     onChange={(m) => {
                         markManualMix();
@@ -280,7 +280,7 @@ export function ModelSlotTable({ config, onChange, onMotionChange, onOpenChannel
                     ariaLabel="出视频 · 运动"
                     value={motionSelected || undefined}
                     options={motionOptions}
-                    empty={localMode ? "暂无候选 — 去「模型与算力」或渠道配置运动引擎" : "暂无运动视频候选"}
+                    empty={localMode ? "暂无候选 — 去「引擎」或渠道配置运动引擎" : "暂无运动视频候选"}
                     onOpenEmpty={onOpenCompute || onOpenChannels}
                     allowClear
                     onChange={(m) => {
@@ -361,7 +361,7 @@ function SlotSelect({
                 <p>{empty}</p>
                 {onOpenEmpty ? (
                     <Button type="link" size="small" className="mt-1 h-auto p-0 text-xs" onClick={onOpenEmpty}>
-                        前往模型与算力 / 渠道
+                        前往引擎 / 渠道
                     </Button>
                 ) : null}
             </div>

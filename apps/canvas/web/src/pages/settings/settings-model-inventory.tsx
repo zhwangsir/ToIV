@@ -125,11 +125,11 @@ export function SettingsModelInventory({
                 <ToivEmptyState
                     compact
                     title="还没有可列出的模型"
-                    description="先在「模型与算力」绑定权重，或到高级渠道添加模型。"
+                    description="先在「引擎」绑定权重，或到「通用」渠道添加模型。"
                     action={
                         onOpenCompute ? (
                             <button type="button" className="toiv-empty-cta" onClick={onOpenCompute}>
-                                打开模型与算力
+                                打开引擎
                             </button>
                         ) : null
                     }
@@ -173,7 +173,7 @@ export function SettingsModelInventory({
                 open={Boolean(active)}
                 onClose={() => setActiveId(null)}
                 title={active?.label || "模型"}
-                width="var(--toiv-settings-drawer-w, 420px)"
+                width="var(--toiv-model-mgr-edit-drawer-w, var(--toiv-settings-drawer-w, 420px))"
                 rootClassName="toiv-model-drawer"
                 destroyOnHidden
             >

@@ -41,7 +41,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
     return (
         <ConfigProvider locale={zhCN} theme={getAntThemeConfig(dark, appearance.activeSkin)}>
-            <App message={{ duration: 3, maxCount: 3 }} notification={{ duration: 4.5, maxCount: 3, placement: "topRight" }}>
+            <App message={{ duration: 2.2, maxCount: 1 }} notification={{ duration: 2.2, maxCount: 1, placement: "topRight" }}>
                 <QueryClientProvider client={appQueryClient}>
                     {isolateDevRepro ? (
                         children
