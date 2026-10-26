@@ -863,7 +863,7 @@ function RowHandle({
     title?: string;
     onPointerDown: (event: ReactPointerEvent) => void;
 }) {
-    const color = tone === "loading" ? theme.accent.primary : tone === "error" ? theme.accent.danger : tone === "success" ? theme.node.activeStroke : theme.node.muted;
+    const color = tone === "loading" ? theme.accent.primary : tone === "error" ? theme.accent.danger : tone === "success" ? theme.node.activeStroke : theme.node.edge;
     const inverseHitScale = 1 / Math.max(scale, 0.05);
     return (
         <button

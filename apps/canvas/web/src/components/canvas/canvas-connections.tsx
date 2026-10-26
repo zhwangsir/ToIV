@@ -94,9 +94,9 @@ export const ConnectionPath = React.memo(function ConnectionPath({
             {showVisual ? <path
                 d={pathD}
                 stroke={theme.node.muted}
-                strokeWidth={denseReadonlyWire ? 0.75 : emphasized ? 5 : 2.5}
+                strokeWidth={denseReadonlyWire ? 0.75 : emphasized ? 6 : 3}
                 vectorEffect="non-scaling-stroke"
-                strokeOpacity={denseReadonlyWire ? 0.12 : emphasized ? 0.18 : 0.1}
+                strokeOpacity={denseReadonlyWire ? 0.12 : emphasized ? 0.22 : 0.14}
                 fill="none"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -105,10 +105,10 @@ export const ConnectionPath = React.memo(function ConnectionPath({
             /> : null}
             {showVisual ? <path
                 d={pathD}
-                stroke={emphasized ? theme.accent.primary : theme.node.muted}
-                strokeWidth={denseReadonlyWire ? 0.75 : emphasized ? 2.8 : 1.5}
+                stroke={emphasized ? theme.accent.primary : theme.node.edge}
+                strokeWidth={denseReadonlyWire ? 0.75 : emphasized ? 2.8 : 1.75}
                 vectorEffect="non-scaling-stroke"
-                strokeOpacity={denseReadonlyWire ? 0.16 : emphasized ? 0.95 : 0.62}
+                strokeOpacity={denseReadonlyWire ? 0.16 : emphasized ? 0.98 : 0.78}
                 fill="none"
                 strokeLinecap="round"
                 strokeLinejoin="round"

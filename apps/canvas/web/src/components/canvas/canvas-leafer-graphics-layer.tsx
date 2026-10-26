@@ -177,7 +177,7 @@ function syncOverlayContent(scene: OverlayScene, props: CanvasLeaferGraphicsLaye
     scene.selectionBounds.visible = Boolean(bounds && !selection);
     if (bounds && !selection) {
         syncSelectionBounds(scene.selectionBounds, liveSelectedNodeBounds(bounds, scene.dragPreview), viewportScale);
-        scene.selectionBounds.stroke = props.theme.node.label;
+        scene.selectionBounds.stroke = props.theme.accent.primary;
     }
 
     const connecting = props.connectingParams;
@@ -301,7 +301,7 @@ function syncLiveSelectionBounds(scene: OverlayScene, props: CanvasLeaferGraphic
     scene.selectionBounds.visible = Boolean(bounds && !selection);
     if (!bounds || selection) return;
     syncSelectionBounds(scene.selectionBounds, liveSelectedNodeBounds(bounds, scene.dragPreview), viewportScale);
-    scene.selectionBounds.stroke = props.theme.node.label;
+    scene.selectionBounds.stroke = props.theme.accent.primary;
 }
 
 function syncSelectionBounds(rect: Rect, bounds: NonNullable<NodeBounds>, viewportScale: number) {

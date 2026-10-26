@@ -206,8 +206,10 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
 
     return (
         <div className="canvas-config-node-panel thin-scrollbar flex h-full w-full cursor-move flex-col gap-3.5 overflow-y-auto px-4 pb-4 pt-8 text-sm" style={{ color: theme.node.text }} onWheel={(event) => event.stopPropagation()}>
+            <section className="toiv-node-param-section" aria-label="生成模式">
+            <h3 className="toiv-node-param-section-title">{simpleMode ? "快速生成" : workflowProvider === "model" ? "生成配置" : "工作流生成"}</h3>
             <div className="flex min-h-9 items-center justify-between gap-3">
-                <div className="shrink-0 text-sm font-semibold">{simpleMode ? "快速生成" : workflowProvider === "model" ? "生成配置" : "工作流生成"}</div>
+                <div className="sr-only">{simpleMode ? "快速生成" : workflowProvider === "model" ? "生成配置" : "工作流生成"}</div>
                 {simpleMode ? (
                     <span className="rounded-md px-2 py-1 text-[var(--fs-tiny)]" style={{ background: theme.node.fill, color: theme.node.muted }}>
                         自动配置
@@ -260,7 +262,10 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
                 <InputChip label="参考音频" value={`${inputSummary.audioCount} 个`} style={chipStyle} />
                 {inputSummary.characterCount ? <InputChip label="角色卡" value={`${inputSummary.characterCount} 个`} style={chipStyle} /> : null}
             </div>
+            </section>
 
+            <section className="toiv-node-param-section" aria-label="提示词">
+            <h3 className="toiv-node-param-section-title">提示词</h3>
             <button
                 type="button"
                 className="canvas-config-prompt-button group flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 text-left"
@@ -279,6 +284,7 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
                 </span>
                 <ChevronDown className="size-3.5 -rotate-90 opacity-45 transition-transform group-hover:translate-x-0.5" />
             </button>
+            </section>
 
             {mode === "video" && !simpleMode ? (
                 <div className="cursor-default" data-canvas-no-zoom onMouseDown={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
@@ -323,10 +329,15 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
             ) : null}
 
             {simpleMode ? (
+                <section className="toiv-node-param-section" aria-label="参数">
+                <h3 className="toiv-node-param-section-title">参数</h3>
                 <div className="rounded-lg px-3 py-2.5 text-[var(--fs-label)]" style={{ background: theme.node.fill, color: theme.node.muted }}>
                     将使用当前默认模型与生成参数
                 </div>
+                </section>
             ) : (
+                <section className="toiv-node-param-section" aria-label="生成来源与参数">
+                <h3 className="toiv-node-param-section-title">生成来源与参数</h3>
                 <div className="flex min-w-0 flex-col gap-3">
                     <div className="flex items-center gap-3" data-canvas-no-zoom onMouseDown={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
                         <span className="shrink-0 text-[var(--fs-tiny)] font-medium" style={{ color: theme.node.muted }}>
@@ -382,6 +393,7 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
                         ) : null}
                     </div>
                 </div>
+                </section>
             )}
 
             {dynamicWorkflowFields.length ? <WorkflowParameterControls fields={dynamicWorkflowFields} node={node} theme={theme} onConfigChange={onConfigChange} /> : null}

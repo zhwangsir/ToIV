@@ -955,8 +955,9 @@ function ConnectionSideRail({ side, scale, theme, visible = false, nodeType, han
                     }}
                 >
                     <circle cx="10" cy="10" r="9.35" fill={theme.spatial.elevated} />
-                    <circle cx="10" cy="10" r="9.35" stroke={theme.node.activeStroke} strokeWidth="1.2" />
-                    <path d="M10 6.5v7M6.5 10h7" stroke={theme.node.activeStroke} strokeWidth="1.5" strokeLinecap="round" />
+                    <circle cx="10" cy="10" r="9.35" stroke={theme.accent.primary} strokeWidth="1.35" />
+                    <circle cx="10" cy="10" r="3.1" fill={theme.accent.primary} fillOpacity={0.92} />
+                    <path d="M10 6.5v7M6.5 10h7" stroke={theme.accent.onPrimary} strokeWidth="1.35" strokeLinecap="round" />
                 </svg>
             </span>
         </button>

@@ -229,6 +229,54 @@
   --toiv-shot-pip-w: 32%;
   --toiv-shot-adult-geometry: unchanged;
 
+
+  /* ── Node graph visual (R5 · NODE_GRAPH_VISUAL) ──
+     Freezone glass / edge-light / type dots; select = accent #5ba0ff
+     (never adult #4f8cff — that stays light-curtain / director only).
+     Adult geometry: unchanged. */
+  --toiv-node-fill: color-mix(in srgb, var(--toiv-surface) 88%, transparent);
+  --toiv-node-fill-solid: var(--toiv-surface);
+  --toiv-node-panel: var(--toiv-surface-raised, #1b1c23);
+  --toiv-node-stroke: var(--toiv-border);
+  --toiv-node-stroke-hover: var(--toiv-border-strong, #2f3036);
+  --toiv-node-stroke-active: var(--toiv-accent);
+  --toiv-node-edge-light: rgb(255 255 255 / 0.07);
+  --toiv-node-glass-blur: 14px;
+  --toiv-node-radius: 12px;
+  --toiv-node-shadow: 0 10px 28px rgb(0 0 0 / 0.42), inset 0 1px 0 var(--toiv-node-edge-light);
+  --toiv-node-shadow-hover: 0 14px 36px rgb(0 0 0 / 0.52), inset 0 1px 0 rgb(255 255 255 / 0.09);
+  --toiv-node-shadow-selected:
+    0 0 0 1px rgb(91 160 255 / 0.45),
+    0 0 24px rgb(91 160 255 / 0.18),
+    0 14px 36px rgb(0 0 0 / 0.55),
+    inset 0 1px 0 var(--toiv-node-edge-light);
+  --toiv-node-port-size: 10px;
+  --toiv-node-port-ring: var(--toiv-accent);
+  --toiv-node-port-fill: var(--toiv-bg);
+  --toiv-node-port-glow: 0 0 0 3px rgb(91 160 255 / 0.22);
+  --toiv-node-type-dot: 8px;
+  --toiv-node-type-bar-w: 3px;
+  --toiv-node-edge-idle: color-mix(in srgb, var(--toiv-accent) 38%, var(--toiv-border));
+  --toiv-node-edge-idle-w: 1.75px;
+  --toiv-node-edge-active-w: 2.8px;
+  --toiv-node-edge-glow-w: 8px;
+  --toiv-node-edge-glow: rgb(91 160 255 / 0.2);
+  --toiv-node-param-section-gap: 12px;
+  --toiv-node-param-section-pad: 10px;
+  --toiv-node-param-radius: var(--toiv-radius-card, 12px);
+  --toiv-node-adult-geometry: unchanged;
+  /* type colors — alias existing cn palette when present */
+  --toiv-node-type-image: var(--cn-type-image, #e8a54b);
+  --toiv-node-type-video: var(--cn-type-video, #e879a9);
+  --toiv-node-type-text: var(--cn-type-text, #8bb4ff);
+  --toiv-node-type-audio: var(--cn-type-audio, #5ecf9a);
+  --toiv-node-type-config: var(--cn-type-config, #a78bfa);
+  --toiv-node-type-script: var(--cn-type-script, #00bdcf);
+  --toiv-node-type-drawing: var(--cn-type-drawing, #f0b429);
+  --toiv-node-type-frame: var(--cn-type-frame, #6f7079);
+  --toiv-node-type-skill: var(--cn-type-skill, #5ba0ff);
+  --toiv-node-type-default: var(--toiv-accent-cyan, #00bdcf);
+
   /* Desk aliases: primary=cyan CTA aux; accent=main blue */
   --fz-canvas: var(--toiv-bg);
   --fz-surface: var(--toiv-surface);
