@@ -2,6 +2,7 @@ import { Clapperboard, FolderKanban, History, ImageIcon, Library, Sparkles } fro
 import { Link } from "react-router";
 import { useSyncExternalStore } from "react";
 
+import { CreationStudioMediaPool } from "@/components/create/creation-studio-media-pool";
 import { CreationProjectSwitcher } from "@/components/toiv/creation-project-switcher";
 import { NsfwLockBadge } from "@/components/toiv/nsfw-lock-badge";
 import { COPY_MODE_ADULT, COPY_MODE_NORMAL, getR18ModeSnapshot, getServerR18ModeSnapshot, subscribeR18Mode } from "@/redline";
@@ -92,6 +93,8 @@ export function CreationStudioAssetRail({
                     );
                 })}
             </nav>
+
+            <CreationStudioMediaPool projectId={projectId} />
 
             <p className="toiv-create-rail-footnote">
                 主舞台留给剧本解析 / 分镜卡片 / 预览；表单进右侧 Inspector。普通/成人切换在<strong>顶栏光幕</strong>。

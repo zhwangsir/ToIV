@@ -33,7 +33,7 @@
 
 /* Glass shell + type bar — reject flat gray slabs */
 .canvas-node-shell {
-  border-radius: var(--toiv-node-radius, 12px) !important;
+  border-radius: var(--toiv-node-radius-preferred, var(--toiv-node-radius, 12px)) !important;
   backdrop-filter: blur(var(--toiv-node-glass-blur, 14px));
   -webkit-backdrop-filter: blur(var(--toiv-node-glass-blur, 14px));
 }
@@ -66,7 +66,7 @@
 .canvas-node-shell[data-node-state="target"] {
   /* accent ring — JS theme already sets border/shadow; reinforce glow */
   outline: none;
-  filter: drop-shadow(0 0 10px rgb(91 160 255 / 0.22));
+  filter: drop-shadow(0 0 24px rgb(91 160 255 / 0.25));
 }
 
 /* Ports (side rail + row handles) */

@@ -1,5 +1,5 @@
 import { ArrowDownUp, AudioLines, Box, Check, CheckCheck, Clapperboard, Copy, Download, FileText, FileUp, FileX2, FolderOpen, FolderPlus, Image as ImageIcon, Images, LayoutGrid, List, Maximize2, MoreHorizontal, Pause, PencilLine, Play, Plus, RotateCcw, Search, SlidersHorizontal, Star, Trash2, Upload, Volume2, VolumeX, X, ZoomIn, ZoomOut, type LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Drawer, Dropdown, Form, Input, Modal, Progress, Select, Space, Tag, Typography } from "antd";
 import type { MenuProps } from "antd";
@@ -27,6 +27,8 @@ import { getResourcePlaybackBlob, ownedResourceIdFromMediaRef } from "@/services
 import { downloadOwnedOrBrowserMedia, reportOwnedMediaSave } from "@/services/desktop-media-save";
 import { mediaFileExtension, sanitizeDownloadFileName } from "@/lib/canvas/canvas-media-download";
 import { cn } from "@/lib/utils";
+import { assetLooksNsfw, filterNsfwListableAssets, getR18ModeSnapshot, getServerR18ModeSnapshot, isNsfwAssetSelectable, subscribeR18Mode, type NsfwAssetLike } from "@/redline";
+import { NsfwLockBadge } from "@/components/toiv/nsfw-lock-badge";
 
 import { useCopyText } from "@/hooks/use-copy-text";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -103,6 +105,23 @@ const assetKindIcons: Record<LibraryAsset["kind"], LucideIcon> = {
     model: Box,
 };
 
+
+function libraryAssetAsNsfwLike(asset: { title?: string; note?: string; source?: string; tags?: string[]; metadata?: Record<string, unknown>; id?: string }): NsfwAssetLike {
+    const meta = asset.metadata || {};
+    return {
+        id: asset.id,
+        label: asset.title,
+        basename: asset.title,
+        nsfw: typeof meta.nsfw === "boolean" ? meta.nsfw : undefined,
+        is_nsfw: typeof meta.is_nsfw === "boolean" ? meta.is_nsfw : undefined,
+        content_rating: typeof meta.content_rating === "string" ? meta.content_rating : undefined,
+        content_mode: typeof meta.content_mode === "string" ? meta.content_mode : undefined,
+        rating: typeof meta.rating === "string" ? meta.rating : undefined,
+        purposeZh: asset.note,
+        value: [...(asset.tags || []), asset.source || ""].join(" "),
+    };
+}
+
 export default function AssetsPage() {
     const queryClient = useQueryClient();
     const generation = useAssetViewGeneration(queryClient);
@@ -120,6 +139,7 @@ function AssetsPageSession() {
     const queryClient = useQueryClient();
     const [entryScope] = useState(() => captureUserScope());
     const copyText = useCopyText();
+    const adultOn = useSyncExternalStore(subscribeR18Mode, getR18ModeSnapshot, getServerR18ModeSnapshot);
     const [form] = Form.useForm<AssetFormValues>();
     const coverInputRef = useRef<HTMLInputElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
@@ -233,7 +253,7 @@ function AssetsPageSession() {
     const filteredAssets = useMemo(() => {
         const query = keyword.trim().toLowerCase();
         const recentCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-        return validAssets.filter((asset) => {
+        const scoped = validAssets.filter((asset) => {
             if (favoriteOnly && asset.metadata?.favorite !== true) return false;
             if (recentOnly && new Date(asset.updatedAt).getTime() < recentCutoff) return false;
             if (projectFilter !== "all" && workspaceAssetProjectLabel(asset) !== projectFilter) return false;
@@ -244,7 +264,9 @@ function AssetsPageSession() {
             if (!query) return true;
             return assetSearchText(asset).includes(query);
         });
-    }, [validAssets, keyword, kindFilter, categoryFilter, folderFilter, favoriteOnly, recentOnly, projectFilter]);
+        // R6: 普通态保留已知 NSFW（灰化锁由卡片处理）；unknown 普通藏/成人显
+        return filterNsfwListableAssets(scoped, (asset) => libraryAssetAsNsfwLike(asset));
+    }, [validAssets, keyword, kindFilter, categoryFilter, folderFilter, favoriteOnly, recentOnly, projectFilter, adultOn]);
 
     const assetPageQuery = useQuery({
         queryKey: assetLibraryQueryKey(entryScope, page, pageSize, "library", kindFilter, categoryFilter, folderFilter, favoriteOnly, recentOnly, projectFilter, debouncedKeyword),
@@ -1391,9 +1413,16 @@ function AssetCover({ asset, selected, onSelect, onOpen, onToggleFavorite, menuI
     const clock = asset.kind === "video" || asset.kind === "audio" ? formatAssetClock(asset.data.durationMs) : null;
     const showPlay = asset.kind === "video";
     const isLight = asset.kind === "audio" || asset.kind === "text" || asset.kind === "model";
+    const nsfwLike = libraryAssetAsNsfwLike(asset);
+    const nsfwLocked = assetLooksNsfw(nsfwLike) && !isNsfwAssetSelectable(nsfwLike);
     return (
-        <AssetLibraryCardMedia className={isLight ? "assets-cover is-light" : "assets-cover"}>
-            <button type="button" className="assets-cover-link" onClick={onOpen} aria-label={`查看素材：${asset.title}`}>
+        <AssetLibraryCardMedia className={cn(isLight ? "assets-cover is-light" : "assets-cover", nsfwLocked && "is-nsfw-locked")}>
+            {nsfwLocked ? (
+                <span className="absolute right-2 top-2 z-[3]" data-testid="asset-nsfw-lock">
+                    <NsfwLockBadge compact />
+                </span>
+            ) : null}
+            <button type="button" className="assets-cover-link" onClick={onOpen} aria-label={nsfwLocked ? `已锁定 NSFW：${asset.title}` : `查看素材：${asset.title}`} disabled={nsfwLocked || undefined}>
                 {asset.kind === "audio" ? (
                     <AudioWaveCover asset={asset} />
                 ) : asset.kind === "text" ? (

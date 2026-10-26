@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "antd/dist/reset.css";
 import "./styles/toiv-freezone-tokens.css";
 import "@/components/canvas/canvas-node-graph-visual.css";
+import "@/components/create/creation-studio-media-pool.css";
 import "./styles/globals.css";
 import "./styles/toiv-local-overrides.css";
 import "./styles/toiv-mobile.css";
