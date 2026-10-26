@@ -84,3 +84,25 @@
 - 媒体库专用像素调研未到；`--toiv-asset-*` 为可用默认，后续可再灌。
 - 卡片点击跳转 `/assets?focus=`（focus 深链若页面未消费，仅落库页）。
 - **未 push**。
+
+---
+
+## G. R6 补钉 · `--toiv-media-*` 硬尺寸校准（同分支后续 tip）
+
+调研：`docs/ops/VISUAL_MEDIA_LIBRARY_R6_20261026.md`
+
+| Token | 值 |
+|-------|-----|
+| `--toiv-media-grid-min` / `-wide` | **220** / **240** |
+| `--toiv-media-grid-gap` / `-dense` | **16** / **10** |
+| `--toiv-media-card-radius-rec` / `-gallery` | **12** / **14**（max 16） |
+| `--toiv-media-chip-h` / `-fs` / `-radius` | **28** / **12** / **999** |
+| `--toiv-media-batch` / `-prefetch-margin` | **60** / **480px** |
+| `--toiv-media-hover-border-dur` / `-lift` | **150ms** / **-4px @220ms**（可选） |
+| thumb | 图 **4:3** · 视频 **16:9** · 道具 **1:1** |
+| `--toiv-asset-*` | **别名**映射到 `--toiv-media-*`（左栏紧凑用 dense gap） |
+| 成人几何 | `unchanged` |
+
+消费：`creation-studio-media-pool.css` · pool PAGE=60 + rootMargin 480 · `/assets` 网格 auto-fill。  
+R5 `--toiv-node-*`：本补钉**只核对**，未重写。
+

@@ -20,7 +20,8 @@ import { useAssetStore, type Asset, type AssetKind } from "@/stores/use-asset-st
 
 import "@/components/create/creation-studio-media-pool.css";
 
-const PAGE = 24;
+/** ArcReel nail: batch 60; CSS var --toiv-media-batch documents it. */
+const PAGE = 60;
 const KIND_CHIPS: Array<{ value: AssetKind | "all"; label: string }> = [
     { value: "all", label: "全部" },
     { value: "image", label: "图片" },
@@ -122,7 +123,7 @@ export function CreationStudioMediaPool({ projectId }: { projectId: string | nul
                     setVisibleCount((n) => Math.min(filtered.length, n + PAGE));
                 }
             },
-            { root: el.parentElement, rootMargin: "80px" },
+            { root: el.parentElement, rootMargin: "0px 0px 480px 0px" },
         );
         io.observe(el);
         return () => io.disconnect();
@@ -216,6 +217,8 @@ export function CreationStudioMediaPool({ projectId }: { projectId: string | nul
                                     key={asset.id}
                                     role="listitem"
                                     className={cn("toiv-asset-card", locked && "is-locked is-nsfw-locked")}
+                                    data-kind={asset.kind}
+                                    data-category={asset.category || undefined}
                                     data-asset-id={asset.id}
                                     data-nsfw={nsfw ? "1" : "0"}
                                     data-locked={locked ? "1" : "0"}

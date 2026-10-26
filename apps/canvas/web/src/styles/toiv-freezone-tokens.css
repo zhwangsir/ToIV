@@ -314,30 +314,89 @@
   --toiv-node-type-default: var(--toiv-node-port-color);
 
 
-  /* ── Asset / media pool (R6 · ASSET_MEDIA_POOL) ──
-     左栏媒体池：无限滚动网格、筛选条、智能标签、空态；
-     普通态 NSFW 灰化+锁标；成人可见；成人几何 unchanged。 */
-  --toiv-asset-grid-gap: 10px;
-  --toiv-asset-grid-cols: 2;
-  --toiv-asset-card-radius: 12px;
-  --toiv-asset-card-bg: var(--toiv-surface);
-  --toiv-asset-card-border: 1px solid var(--toiv-border);
-  --toiv-asset-card-border-hover: 1px solid var(--toiv-border-strong, #2f3036);
-  --toiv-asset-thumb-ratio: 4 / 3;
-  --toiv-asset-thumb-bg: var(--toiv-bg);
-  --toiv-asset-title-fs: 11px;
+
+  /* ── Media library (R6 补钉 · VISUAL_MEDIA_LIBRARY_R6) ──
+     网格 auto-fill minmax(220–240) · gap 16 · 卡圆角 12（画廊 14–16）；
+     滤签 inset pill h~28；batch 60 + prefetch 480；
+     hover border 150ms（可选 lift 4px @220ms）；
+     thumb 图4:3 / 视频16:9 / 道具1:1；成人几何 unchanged。
+     --toiv-asset-* 为左栏紧凑别名，映射到本块，避免两套打架。 */
+  --toiv-media-grid-min: 220px;
+  --toiv-media-grid-min-wide: 240px;
+  --toiv-media-grid-gap: 16px;
+  --toiv-media-grid-gap-dense: 10px;
+  --toiv-media-grid-cols-sm: 2;
+  --toiv-media-grid-cols-md: 3;
+  --toiv-media-grid-cols-lg: 4;
+  --toiv-media-grid-cols-xl: 5;
+  --toiv-media-pad-x: 24px;
+  --toiv-media-pad-y: 16px;
+  --toiv-media-card-radius: 12px;
+  --toiv-media-card-radius-rec: 12px;
+  --toiv-media-card-radius-gallery: 14px;
+  --toiv-media-card-radius-gallery-max: 16px;
+  --toiv-media-card-border: 1px solid var(--toiv-border);
+  --toiv-media-card-border-hover: 1px solid var(--toiv-border-strong, #2f3036);
+  --toiv-media-card-border-selected: 1px solid var(--toiv-accent);
+  --toiv-media-card-selected-ring: 0 0 0 1px rgb(91 160 255 / 0.45);
+  --toiv-media-card-bg: var(--toiv-surface);
+  --toiv-media-thumb-aspect: 4 / 3;
+  --toiv-media-thumb-aspect-video: 16 / 9;
+  --toiv-media-thumb-aspect-prop: 1 / 1;
+  --toiv-media-thumb-list: 80px;
+  --toiv-media-thumb-bg: var(--toiv-bg);
+  --toiv-media-footer-pad: 12px;
+  --toiv-media-title-fs: 14px;
+  --toiv-media-meta-fs: 12px;
+  --toiv-media-chip-h: 28px;
+  --toiv-media-chip-pad-x: 12px;
+  --toiv-media-chip-fs: 12px;
+  --toiv-media-chip-radius: 999px;
+  --toiv-media-chip-gap: 6px;
+  --toiv-media-chip-track-pad: 3px;
+  --toiv-media-chip-count-fs: 10px;
+  --toiv-media-batch: 60;
+  --toiv-media-prefetch-margin: 480px;
+  --toiv-media-page-size-table: 10;
+  --toiv-media-hover-lift: -4px;
+  --toiv-media-hover-scale: 1.05;
+  --toiv-media-hover-border-dur: 150ms;
+  --toiv-media-hover-lift-dur: 220ms;
+  --toiv-media-hover-delay: 0ms;
+  --toiv-media-dur-fast: 150ms;
+  --toiv-media-dur-lift: 220ms;
+  --toiv-media-ease-lift: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --toiv-media-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --toiv-media-play-d: 43px;
+  --toiv-media-star-hit: 28px;
+  --toiv-media-more-hit: 28px;
+  --toiv-media-toolbar-h: 48px;
+  --toiv-media-search-max-w: 340px;
+  --toiv-media-nsfw-veil: rgb(10 12 18 / 0.62);
+  --toiv-media-adult-geometry: unchanged;
+
+  /* Left-rail compact aliases → media nail (dense gap / smaller type) */
+  --toiv-asset-grid-gap: var(--toiv-media-grid-gap-dense);
+  --toiv-asset-grid-cols: var(--toiv-media-grid-cols-sm);
+  --toiv-asset-card-radius: var(--toiv-media-card-radius-rec);
+  --toiv-asset-card-bg: var(--toiv-media-card-bg);
+  --toiv-asset-card-border: var(--toiv-media-card-border);
+  --toiv-asset-card-border-hover: var(--toiv-media-card-border-hover);
+  --toiv-asset-thumb-ratio: var(--toiv-media-thumb-aspect);
+  --toiv-asset-thumb-bg: var(--toiv-media-thumb-bg);
+  --toiv-asset-title-fs: 11px; /* rail denser than gallery 14 */
   --toiv-asset-meta-fs: 10px;
-  --toiv-asset-chip-fs: 10px;
-  --toiv-asset-chip-h: 20px;
-  --toiv-asset-chip-radius: 9999px;
-  --toiv-asset-chip-gap: 4px;
-  --toiv-asset-filter-gap: 6px;
-  --toiv-asset-filter-h: 28px;
+  --toiv-asset-chip-fs: var(--toiv-media-chip-fs);
+  --toiv-asset-chip-h: var(--toiv-media-chip-h);
+  --toiv-asset-chip-radius: var(--toiv-media-chip-radius);
+  --toiv-asset-chip-gap: var(--toiv-media-chip-gap);
+  --toiv-asset-filter-gap: var(--toiv-media-chip-gap);
+  --toiv-asset-filter-h: var(--toiv-media-chip-h);
   --toiv-asset-pool-pad: 0;
   --toiv-asset-pool-max-h: min(42vh, 360px);
   --toiv-asset-empty-pad: 16px;
-  --toiv-asset-nsfw-veil: rgb(10 12 18 / 0.62);
-  --toiv-asset-adult-geometry: unchanged;
+  --toiv-asset-nsfw-veil: var(--toiv-media-nsfw-veil);
+  --toiv-asset-adult-geometry: var(--toiv-media-adult-geometry);
 
   /* Desk aliases: primary=cyan CTA aux; accent=main blue */
   --fz-canvas: var(--toiv-bg);

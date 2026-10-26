@@ -1,4 +1,4 @@
-/* R6 Asset / media pool — Freezone cards in /create left rail */
+/* R6 media pool + library cards — consume --toiv-media-* (asset aliases for rail) */
 
 .toiv-asset-pool {
   display: flex;
@@ -23,47 +23,53 @@
 }
 
 .toiv-asset-pool-meta {
-  font-size: 10px;
+  font-size: var(--toiv-media-chip-count-fs, 10px);
   color: var(--toiv-text-muted, #6f7079);
   font-variant-numeric: tabular-nums;
 }
 
 .toiv-asset-pool-search {
   width: 100%;
-  height: var(--toiv-asset-filter-h, 28px);
+  height: var(--toiv-media-chip-h, var(--toiv-asset-filter-h, 28px));
   border-radius: 8px;
-  border: 1px solid var(--toiv-border, #22232c);
+  border: var(--toiv-media-card-border, 1px solid var(--toiv-border));
   background: color-mix(in srgb, var(--toiv-bg, #0a0c12) 70%, transparent);
   color: var(--toiv-text, #e8eaf0);
   padding: 0 8px;
-  font-size: 11px;
+  font-size: var(--toiv-media-chip-fs, 12px);
 }
 .toiv-asset-pool-search::placeholder { color: var(--toiv-text-muted, #6f7079); }
 .toiv-asset-pool-search:focus {
   outline: none;
   border-color: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 55%, var(--toiv-border));
-  box-shadow: 0 0 0 1px rgb(91 160 255 / 0.25);
+  box-shadow: var(--toiv-media-card-selected-ring, 0 0 0 1px rgb(91 160 255 / 0.45));
 }
 
 .toiv-asset-pool-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--toiv-asset-filter-gap, 6px);
+  gap: var(--toiv-media-chip-gap, 6px);
+  padding: var(--toiv-media-chip-track-pad, 3px);
+  border-radius: var(--toiv-media-chip-radius, 999px);
+  background: color-mix(in srgb, var(--toiv-bg) 55%, transparent);
 }
 
 .toiv-asset-pool-chip {
   display: inline-flex;
   align-items: center;
-  height: var(--toiv-asset-chip-h, 20px);
-  padding: 0 8px;
-  border-radius: var(--toiv-asset-chip-radius, 9999px);
-  border: 1px solid var(--toiv-border, #22232c);
+  height: var(--toiv-media-chip-h, 28px);
+  padding: 0 var(--toiv-media-chip-pad-x, 12px);
+  border-radius: var(--toiv-media-chip-radius, 999px);
+  border: 1px solid transparent;
   background: transparent;
   color: var(--toiv-text-muted, #6f7079);
-  font-size: var(--toiv-asset-chip-fs, 10px);
+  font-size: var(--toiv-media-chip-fs, 12px);
   font-weight: 600;
   cursor: pointer;
-  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+  transition:
+    border-color var(--toiv-media-hover-border-dur, 150ms) var(--toiv-media-ease-out, ease),
+    color var(--toiv-media-hover-border-dur, 150ms) ease,
+    background var(--toiv-media-hover-border-dur, 150ms) ease;
 }
 .toiv-asset-pool-chip:hover {
   border-color: var(--toiv-border-strong, #2f3036);
@@ -74,9 +80,7 @@
   background: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 14%, transparent);
   color: var(--toiv-text, #e8eaf0);
 }
-.toiv-asset-pool-chip.is-tag {
-  font-weight: 500;
-}
+.toiv-asset-pool-chip.is-tag { font-weight: 500; }
 
 .toiv-asset-pool-scroll {
   max-height: var(--toiv-asset-pool-max-h, min(42vh, 360px));
@@ -85,10 +89,26 @@
   padding-right: 2px;
 }
 
+/* Rail: 2-col dense. Full library pages can override to auto-fill. */
 .toiv-asset-pool-grid {
   display: grid;
   grid-template-columns: repeat(var(--toiv-asset-grid-cols, 2), minmax(0, 1fr));
-  gap: var(--toiv-asset-grid-gap, 10px);
+  gap: var(--toiv-media-grid-gap-dense, 10px);
+}
+
+.toiv-media-library-grid,
+.assets-library-page .assets-library-grid,
+.assets-library-page .toiv-media-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--toiv-media-grid-min, 220px), 1fr));
+  gap: var(--toiv-media-grid-gap, 16px);
+}
+
+@media (min-width: 1280px) {
+  .toiv-media-library-grid,
+  .assets-library-page .assets-library-grid {
+    grid-template-columns: repeat(auto-fill, minmax(var(--toiv-media-grid-min-wide, 240px), 1fr));
+  }
 }
 
 .toiv-asset-card {
@@ -96,34 +116,47 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border-radius: var(--toiv-asset-card-radius, 12px);
-  border: var(--toiv-asset-card-border, 1px solid var(--toiv-border));
-  background: var(--toiv-asset-card-bg, var(--toiv-surface));
+  border-radius: var(--toiv-media-card-radius-rec, 12px);
+  border: var(--toiv-media-card-border, 1px solid var(--toiv-border));
+  background: var(--toiv-media-card-bg, var(--toiv-surface));
   overflow: hidden;
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition:
+    border-color var(--toiv-media-hover-border-dur, 150ms) var(--toiv-media-ease-out, ease),
+    box-shadow var(--toiv-media-hover-border-dur, 150ms) ease,
+    transform var(--toiv-media-hover-lift-dur, 220ms) var(--toiv-media-ease-out, ease);
 }
 .toiv-asset-card:hover,
 .toiv-asset-card:focus-visible {
-  border: var(--toiv-asset-card-border-hover, 1px solid var(--toiv-border-strong));
-  box-shadow: 0 0 0 1px rgb(91 160 255 / 0.2);
+  border: var(--toiv-media-card-border-hover, 1px solid var(--toiv-border-strong));
+  box-shadow: var(--toiv-media-card-selected-ring);
   outline: none;
+  /* quiet default: border only; optional lift via data attr */
 }
-.toiv-asset-card.is-locked {
-  cursor: not-allowed;
+.toiv-asset-card[data-hover-lift="1"]:hover {
+  transform: translateY(var(--toiv-media-hover-lift, -4px));
 }
+.toiv-asset-card.is-locked { cursor: not-allowed; }
 .toiv-asset-card.is-locked:hover {
   box-shadow: none;
-  border: var(--toiv-asset-card-border);
+  border: var(--toiv-media-card-border);
+  transform: none;
 }
 
 .toiv-asset-card-thumb {
   position: relative;
-  aspect-ratio: var(--toiv-asset-thumb-ratio, 4 / 3);
-  background: var(--toiv-asset-thumb-bg, var(--toiv-bg));
+  aspect-ratio: var(--toiv-media-thumb-aspect, 4 / 3);
+  background: var(--toiv-media-thumb-bg, var(--toiv-bg));
   overflow: hidden;
+}
+.toiv-asset-card[data-kind="video"] .toiv-asset-card-thumb {
+  aspect-ratio: var(--toiv-media-thumb-aspect-video, 16 / 9);
+}
+.toiv-asset-card[data-kind="model"] .toiv-asset-card-thumb,
+.toiv-asset-card[data-category="prop"] .toiv-asset-card-thumb {
+  aspect-ratio: var(--toiv-media-thumb-aspect-prop, 1 / 1);
 }
 .toiv-asset-card-thumb img,
 .toiv-asset-card-thumb video {
@@ -131,6 +164,15 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform var(--toiv-media-hover-lift-dur, 220ms) var(--toiv-media-ease-out, ease);
+}
+.toiv-asset-card:hover .toiv-asset-card-thumb img,
+.toiv-asset-card:hover .toiv-asset-card-thumb video {
+  /* quiet: no scale by default; gallery can opt-in */
+}
+.toiv-asset-card[data-hover-scale="1"]:hover .toiv-asset-card-thumb img,
+.toiv-asset-card[data-hover-scale="1"]:hover .toiv-asset-card-thumb video {
+  transform: scale(var(--toiv-media-hover-scale, 1.05));
 }
 .toiv-asset-card-thumb.is-empty {
   display: grid;
@@ -139,12 +181,11 @@
   font-size: 10px;
 }
 
-/* Dual-channel NSFW lock: veil + badge (not color alone) */
 .toiv-asset-card.is-nsfw-locked .toiv-asset-card-thumb::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: var(--toiv-asset-nsfw-veil, rgb(10 12 18 / 0.62));
+  background: var(--toiv-media-nsfw-veil, rgb(10 12 18 / 0.62));
   pointer-events: none;
 }
 .toiv-asset-card.is-nsfw-locked .toiv-asset-card-thumb img,
@@ -162,7 +203,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 8px;
+  padding: var(--toiv-media-footer-pad, 12px);
   min-width: 0;
 }
 .toiv-asset-card-title {
@@ -176,23 +217,27 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.toiv-media-library-grid .toiv-asset-card-title,
+.assets-library-page .toiv-asset-card-title {
+  font-size: var(--toiv-media-title-fs, 14px);
+}
 .toiv-asset-card.is-nsfw-locked .toiv-asset-card-title {
   color: var(--toiv-text-muted, #6f7079);
 }
 .toiv-asset-card-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--toiv-asset-chip-gap, 4px);
+  gap: var(--toiv-media-chip-gap, 6px);
 }
 .toiv-asset-card-tag {
   display: inline-flex;
   align-items: center;
-  height: 16px;
-  padding: 0 6px;
-  border-radius: 9999px;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: var(--toiv-media-chip-radius, 999px);
   background: color-mix(in srgb, var(--toiv-accent-cyan, #00bdcf) 14%, transparent);
   color: var(--toiv-accent-cyan, #00bdcf);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   max-width: 100%;
   overflow: hidden;
@@ -202,7 +247,7 @@
 
 .toiv-asset-pool-empty {
   padding: var(--toiv-asset-empty-pad, 16px);
-  border-radius: var(--toiv-asset-card-radius, 12px);
+  border-radius: var(--toiv-media-card-radius-rec, 12px);
   border: 1px dashed var(--toiv-border, #22232c);
   background: color-mix(in srgb, var(--toiv-bg) 55%, transparent);
   color: var(--toiv-text-muted, #6f7079);
@@ -216,17 +261,13 @@
   text-underline-offset: 2px;
 }
 
-.toiv-asset-pool-sentinel {
-  height: 1px;
-  width: 100%;
-}
+.toiv-asset-pool-sentinel { height: 1px; width: 100%; }
 .toiv-asset-pool-more {
   margin: 4px 0 0;
   font-size: 10px;
   color: var(--toiv-text-muted, #6f7079);
   text-align: center;
 }
-
 .toiv-asset-pool-foot {
   margin: 0;
   font-size: 10px;
@@ -234,12 +275,13 @@
   line-height: 1.4;
 }
 
-/* Full /assets page cards — Freezone surface nail (shared token) */
+/* Full /assets Freezone cards */
 .toiv-asset-library-card.library-card-surface {
-  border-radius: var(--toiv-asset-card-radius, 12px);
-  background: var(--toiv-asset-card-bg, var(--toiv-surface)) !important;
+  border-radius: var(--toiv-media-card-radius-gallery, 14px);
+  background: var(--toiv-media-card-bg, var(--toiv-surface)) !important;
   box-shadow: none;
-  border: var(--toiv-asset-card-border, 1px solid var(--toiv-border));
+  border: var(--toiv-media-card-border, 1px solid var(--toiv-border));
+  transition: border-color var(--toiv-media-hover-border-dur, 150ms) ease, transform var(--toiv-media-hover-lift-dur, 220ms) var(--toiv-media-ease-out, ease);
 }
 .toiv-asset-library-card.library-card-surface:hover,
 .toiv-asset-library-card.library-card-surface:focus-within {
@@ -247,8 +289,8 @@
   border-color: var(--toiv-border-strong, #2f3036);
 }
 .toiv-asset-library-card.is-selected {
-  box-shadow: 0 0 0 1px rgb(91 160 255 / 0.45);
-  border-color: var(--toiv-accent, #5ba0ff);
+  box-shadow: var(--toiv-media-card-selected-ring);
+  border: var(--toiv-media-card-border-selected);
 }
 
 .assets-cover.is-nsfw-locked .assets-cover-media,
@@ -260,7 +302,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: var(--toiv-asset-nsfw-veil, rgb(10 12 18 / 0.55));
+  background: var(--toiv-media-nsfw-veil, rgb(10 12 18 / 0.55));
   pointer-events: none;
   z-index: 2;
 }
