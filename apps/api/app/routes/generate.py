@@ -19,7 +19,7 @@ from app.config import get_settings
 from app.db import engine, get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 # ComfyUI 错误码统一语义(2026-08-30 P2-7):worker 4xx 透传、5xx/无状态 → 502,
 # 消除与 routes/video.py 同场景 4xx/502 不一致;pool.pick 无可用 worker 仍 503。

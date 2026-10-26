@@ -2,7 +2,7 @@
 
 M1 CRUD(可见性三区同 routes/agents 范式):
 - GET /api/apps?category=&q=&use_case=&featured=:列表,公共(user_id 空)+ 本人 + 属主上架(is_public)的
-  个人应用;NSFW 应用仅 R18 上下文可见(nsfw_ctx.nsfw_allowed 门控);按 sort/name 排序。
+  个人应用;NSFW 应用仅 R18 上下文可见(redline.nsfw_allowed 门控);按 sort/name 排序。
   use_case/featured 为市场策展层过滤(2026-09-12,见 routes/app_curation)。
   列表 slim:params_schema=[] / bindings={} / required_nodes=[] / workflow_json=None
   (1166 张 rh-* H3 社区卡的图 schema 否则会撑成数 MB)。运行页走详情拿完整 schema。
@@ -75,7 +75,7 @@ from app.services.provenance import (
     public_app_description,
     rh_webapp_url,
 )
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.agents import _slugify
 from app.routes.images import _ranged_response

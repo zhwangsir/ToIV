@@ -125,3 +125,48 @@ def test_ltx_gate_detail_mentions_r18_context_not_legacy_zone_only():
         assert "X-NSFW" in ei.value.detail
     finally:
         nsfw_intent_var.reset(token)
+
+
+def test_redline_is_decision_ssot():
+    """app.redline 为唯一决策真源;旧模块为同一对象的薄 re-export。"""
+    from app import redline
+
+    assert redline.POLICY_ID == "D-U1=B"
+    assert redline.REQUEST_HEADER == "X-NSFW"
+    assert redline.REQUEST_HEADER_VALUE == "1"
+    assert redline.FAIL_CLOSED is True
+    assert redline.FAIL_CLOSED_WITHOUT_HEADER is True
+    assert redline.UNDERAGE_HARD_BLOCK is True
+    assert r18_policy.POLICY_ID is redline.POLICY_ID or r18_policy.POLICY_ID == redline.POLICY_ID
+    assert nsfw_ctx.nsfw_allowed is redline.nsfw_allowed
+    assert nsfw_ctx.nsfw_intent_var is redline.nsfw_intent_var
+    assert nsfw_ctx.is_underage is redline.is_underage
+    assert nsfw_ctx.job_nsfw_from_intent is redline.job_nsfw_from_intent
+
+
+def test_sfw_main_path_usable_without_x_nsfw_header():
+    """无 X-NSFW 时 fail-closed 且主站 health/models 仍可用(SFW 不依赖红线开关)。"""
+    from app.redline import nsfw_allowed as redline_nsfw_allowed
+
+    @app.get("/__toiv_r18_sfw_probe")
+    def probe():
+        return {"allowed": redline_nsfw_allowed(None)}
+
+    try:
+        with TestClient(app) as c:
+            # 无头:不得放行 R18
+            r0 = c.get("/__toiv_r18_sfw_probe")
+            assert r0.status_code == 200 and r0.json()["allowed"] is False
+            # 主站健康与模型列表在无头时仍 200(SFW 路径完整)
+            h = c.get("/api/health")
+            assert h.status_code == 200
+            m = c.get("/api/models")
+            # models 可能要鉴权;至少不得因缺 X-NSFW 而 403/5xx
+            assert m.status_code != 403, m.text
+            assert m.status_code < 500
+    finally:
+        app.router.routes = [
+            r
+            for r in app.router.routes
+            if getattr(r, "path", None) != "/__toiv_r18_sfw_probe"
+        ]

@@ -50,7 +50,7 @@ from app.models import (
     AgentTask,
     User,
 )
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.ratelimit import enforce_rate_limit
 from app.routes import reverse as reverse_svc
 from app.routes.upload import _validate_upload

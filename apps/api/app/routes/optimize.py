@@ -25,7 +25,7 @@ from app.db import get_session
 from app.deps import get_current_user
 from app.jsonutil import parse_json_obj
 from app.models import Agent, User
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import detect_model_family
 from app.workflows.style_presets import ALL_PRESETS

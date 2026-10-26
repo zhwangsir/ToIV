@@ -28,7 +28,7 @@ from fastapi import HTTPException
 
 from app.harness import events as ev
 from app.harness.context import HarnessContext
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.ratelimit import enforce_rate_limit
 
 logger = logging.getLogger(__name__)

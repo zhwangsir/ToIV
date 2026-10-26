@@ -34,7 +34,7 @@ class User(SQLModel, table=True):
     tenant_id: str = Field(foreign_key="tenant.id", index=True)
     role: str = "user"  # "user" | "admin"
     # [DEPRECATED] R18 分区账户软开关:自 2026-08-08 起不再作为任何判定来源
-    # (全站统一读 X-NSFW 请求头,见 nsfw_ctx.nsfw_allowed)。字段与历史数据保留
+    # (全站统一读 X-NSFW 请求头,见 redline.nsfw_allowed)。字段与历史数据保留
     # (不删列、不做迁移),仅作「曾经开启过」的记录;marketplace 已切换到请求上下文。
     nsfw_enabled: bool = False
     # 出生日期(可选,空=未填写)。用于未成年防护硬阻断:nsfw_allowed 与
@@ -872,7 +872,7 @@ class AgentApproval(SQLModel, table=True):
 
 class AgentSession(SQLModel, table=True):
     """一次对话会话(AssistantView 对话流)。nsfw=True 的会话仅 R18 上下文可见
-    (对齐 Job 过滤语义,见 routes/agent.py 与 nsfw_ctx.nsfw_allowed)。"""
+    (对齐 Job 过滤语义,见 routes/agent.py 与 redline.nsfw_allowed)。"""
 
     id: str = Field(default_factory=_uid, primary_key=True)
     user_id: str = Field(index=True)

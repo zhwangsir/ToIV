@@ -22,7 +22,7 @@ from sqlmodel import Session
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import User
-from app.nsfw_ctx import job_nsfw_from_intent
+from app.redline import job_nsfw_from_intent
 from app.ratelimit import enforce_generation_rate_limit
 from app.services import longcat as longcat_service
 from app.workflows.ovi import (

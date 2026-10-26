@@ -273,7 +273,7 @@ async def exec_model_qa(args: dict, pool: WorkerPool, user: User, session, attac
     与直接调 /api/models/ask 的差异:助手场景已有外层 LLM,这里只做检索返回卡片文本,
     避免嵌套 LLM 调用(延迟/费用双省);embedding 失败自动降级关键词命中。
     """
-    from app.nsfw_ctx import nsfw_allowed
+    from app.redline import nsfw_allowed
     from app.services import model_wiki as wiki
 
     question = str(args.get("question") or "").strip()[:300]

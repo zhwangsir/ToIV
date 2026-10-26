@@ -19,7 +19,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import Job, User
-from app.nsfw_ctx import job_nsfw_from_intent, nsfw_allowed
+from app.redline import job_nsfw_from_intent, nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import video_generators as vgen

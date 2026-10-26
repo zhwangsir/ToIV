@@ -32,7 +32,7 @@ from app.comfy.pool import WorkerPool
 from app.config import get_settings
 from app.harness.ctx import get_ctx
 from app.models import Agent, AgentMessage, Document, User
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.services import docs as docsvc
 
 logger = logging.getLogger(__name__)

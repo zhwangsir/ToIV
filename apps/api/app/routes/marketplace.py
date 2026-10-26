@@ -18,7 +18,7 @@ from sqlmodel import Session
 from app.db import get_session
 from app.deps import get_current_user
 from app.models import User
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.routes.nas_models import (
     NasDownloadRequest,
     require_admin,

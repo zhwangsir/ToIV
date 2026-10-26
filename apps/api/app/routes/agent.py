@@ -36,7 +36,7 @@ from app.comfy.pool import WorkerPool
 from app.db import get_session
 from app.deps import get_current_user, get_pool
 from app.models import AgentMessage, AgentSession, Job, User, _now
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 
 router = APIRouter()

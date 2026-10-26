@@ -22,7 +22,7 @@ from app.services.provenance import (
     redact_nsfw_recommendation,
     redact_wiki_card,
 )
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.services.engine_registry import list_engines, reset_avail_cache
 from app.workflows.ace_step import AceStep15Params

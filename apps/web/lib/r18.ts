@@ -3,6 +3,9 @@
 /**
  * R18 全局内容模式(M9:NSFW 整合主站)。
  *
+ * DEBT(D-U1=B):web 经典壳遗留开关;成人上下文真源在 canvas r18-mode +
+ * 后端 app.redline。本文件若无引用可删;勿在此复制未成年判定。
+ *
  * 把「/nsfw 独立专区」改为全局内容模式开关:
  * - 状态持久化在 localStorage(toiv_r18_mode),刷新后由 page.tsx 初始化恢复;
  * - 开启即 setNsfwIntent(true) → 全站请求带 X-NSFW 头,后端 ContextVar 统一判定

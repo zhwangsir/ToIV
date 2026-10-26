@@ -28,7 +28,7 @@ from sqlmodel import Session, select
 
 from app.db import engine
 from app.models import EvalBatch, EvalScore, Job, User
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.services import h3 as h3_service
 from app.services.eval_scorers import (
     ArtifactScorer,

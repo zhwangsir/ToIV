@@ -32,7 +32,7 @@ from app.config import get_settings
 from app.deps import get_current_user
 from app.jsonutil import parse_json_obj
 from app.models import User
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.ratelimit import enforce_rate_limit
 from app.services.audio_sep import separate_accompaniment
 

@@ -242,7 +242,7 @@ async def chat(
     primary_model = settings.llm_model
 
     # NSFW 模式:优先用 NSFW 专用 LLM;未配则复用主 LLM
-    from app.nsfw_ctx import nsfw_allowed
+    from app.redline import nsfw_allowed
     if nsfw_allowed() and settings.llm_nsfw_model.strip():
         nsfw_url = (settings.llm_nsfw_base_url or settings.llm_base_url).rstrip("/")
         nsfw_key = settings.llm_nsfw_api_key or settings.llm_api_key

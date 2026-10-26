@@ -338,7 +338,7 @@ def _verify_images_ownership(session, user: User, qs: dict[str, list[str]]) -> b
     """
     from fastapi import HTTPException
 
-    from app.nsfw_ctx import nsfw_allowed
+    from app.redline import nsfw_allowed
 
     filename = (qs.get("filename") or [""])[0]
     subfolder = (qs.get("subfolder") or [""])[0]

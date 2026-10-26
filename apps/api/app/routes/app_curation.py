@@ -21,7 +21,7 @@ from app.db import get_session
 from app.deps import get_current_admin, get_current_user
 from app.services import apps_list_cache
 from app.models import App, User
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.routes.apps import _visible
 from app.services.app_use_case_gen import classify_use_case, save_use_case
 from app.services.use_cases import USE_CASE_IDS, USE_CASES

@@ -1,7 +1,7 @@
 """账号设置路由 —— 默认智能体偏好的读写。
 
 [DEPRECATED] `POST /account/nsfw` 是遗留的 R18 账户软开关端点:`nsfw_enabled`
-字段自 2026-08-08 起不再作为任何判定来源(全站统一 X-NSFW 请求头,见 nsfw_ctx),
+字段自 2026-08-08 起不再作为任何判定来源(全站统一 X-NSFW 请求头,见 app.redline),
 端点仅为兼容旧客户端保留,仍落库但无实际过滤效果(未成年硬阻断保留)。
 前端已无任何调用处;年龄确认改为 /nsfw 专页前端弹窗(localStorage 记录)。
 
@@ -17,7 +17,7 @@ from sqlmodel import Session
 from app.db import get_session
 from app.deps import get_current_user
 from app.models import User
-from app.nsfw_ctx import is_underage
+from app.redline import is_underage
 
 router = APIRouter()
 
@@ -43,7 +43,7 @@ def set_nsfw(
 ) -> dict:
     """[DEPRECATED] 遗留 R18 账户软开关:仅落库记录,不再影响任何 NSFW 判定。
 
-    全站 R18 语义统一为 X-NSFW 请求头(nsfw_ctx.nsfw_allowed);本端点只为
+    全站 R18 语义统一为 X-NSFW 请求头(redline.nsfw_allowed);本端点只为
     兼容旧客户端保留。未成年硬阻断仍保留,防止遗留开关被未成年账户置位。"""
     # 未成年硬阻断:即便绕过前端也无法开启 R18,服务端兜底拒绝
     if body.enabled and is_underage(user):

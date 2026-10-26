@@ -24,7 +24,7 @@ from app.agent.llm import LLMError
 from app.db import engine, get_session
 from app.deps import get_current_admin, get_current_user
 from app.models import App, AppGuide, User
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.services.app_guide_gen import generate_guide_draft, save_guide
 from app import audit
 

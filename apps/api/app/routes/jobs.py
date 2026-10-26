@@ -30,7 +30,7 @@ from app.config import get_settings
 from app.db import engine, get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import App, Job, User
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.scoring import VideoScorer, VideoScoreResult
 
 router = APIRouter()

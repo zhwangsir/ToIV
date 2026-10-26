@@ -11,7 +11,7 @@
 
 images 只持久化 /api/upload 返回的 {filename, worker} 句柄,文件本体不重复存储;
 1-4 张硬上限:业界共识参考元素 ≤4 是质量拐点。
-NSFW 可见性复用 nsfw_ctx.nsfw_allowed()(按请求级 X-NSFW header)。
+NSFW 可见性复用 redline.nsfw_allowed()(按请求级 X-NSFW header)。
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from app.comfy.pool import WorkerPool
 from app.db import get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import ReferenceAsset, User, _now
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.pathsafe import PathTraversalError, validate_path_component
 from app.routes.images import _host, _ranged_response
 

@@ -10,7 +10,7 @@
 - PUT /api/agents/{id}:改;内置/公共需 admin,个人技能属主可改;is_builtin 不变。
 - DELETE /api/agents/{id}:删;内置返 403;个人技能属主可删;公共自定义需 admin。
 
-NSFW 可见性复用 nsfw_ctx.nsfw_allowed()(按请求级 X-NSFW header,非账户开关)。
+NSFW 可见性复用 redline.nsfw_allowed()(按请求级 X-NSFW header,非账户开关)。
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.deps import get_current_admin, get_current_user
 from app.models import Agent, User, _now
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 
 router = APIRouter()
 

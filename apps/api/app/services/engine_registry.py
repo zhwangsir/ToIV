@@ -24,7 +24,7 @@ from app.comfy.pool import WorkerPool
 from app.config import get_settings
 from app.workflows.model_profiles import AR_IMAGE, AR_VIDEO
 from app.models import User
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 from app.services.provenance import is_admin_user, redact_engine_source
 from app.services.effect_presets import list_effect_presets
 from app.services.h3 import H3_NODE, get_h3_client, h3_instances, is_h3_nsfw_lora

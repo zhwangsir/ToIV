@@ -2315,7 +2315,7 @@ async def optimize_shot_endpoint(
     system_prompt = _SHOT_OPTIMIZE_SYSTEM
     if body.skill_id:
         from app.models import Agent
-        from app.nsfw_ctx import nsfw_allowed
+        from app.redline import nsfw_allowed
 
         skill = session.get(Agent, body.skill_id)
         if not skill or (skill.user_id and skill.user_id != user.id):

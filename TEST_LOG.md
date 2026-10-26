@@ -1,3 +1,10 @@
+## 项目管家入账 · 2026-10-26 09:09 Asia/Shanghai
+
+- **P0 R18 闸** `STATE.p0_r18_gate_commit_2026_10_26` → **`committed`** tip=`5929efdb`（`work/p0-fusion-20261016`，据报 ahead 1，**未 push**）
+- 本机 HEAD 观察：见上条核验字段 `local_tip_observed`
+- Mega NSFW v12.2 仍 `pending_download`
+- 管家**未** commit/push；部署窗仍挂
+
 ## 2026-10-26 Asia/Shanghai — P0 R18 闸 UX 本地 commit（不 push）
 
 - 分支：`work/p0-fusion-20261016`；**已本地 commit、未 push、未部署**
@@ -815,3 +822,14 @@ Goal: production core `.env` hot-align + spark served-alias purge (canonical onl
 - 补：`resolveCanvasLiveFailureInput` + `canvasFailureRetryBlockedByFingerprint`；`CanvasNodeGraphContext.resolveLiveFailureInput`；`ErrorContent` → Notice `retryBlockedByFingerprint`
 - 测：generation-failure-actions / moderation-error / r18-mode **27 pass**；canvas-generation-failure pattern（fingerprint/r18/retry/…）**6 pass**
 - 未接线：任务中心详情 Notice 无 onRetry/无实时编辑；创作页 moderation 仍直接去掉 onRetry
+
+## 2026-10-26 Asia/Shanghai — 后端红线单文件 SSOT（app.redline）
+
+- 分支：`work/p0-fusion-20261016`（未切支 / **本地 commit** / **未 push** / 未部署）
+- 新：`apps/api/app/redline.py` = 唯一决策真源（`is_underage` / `nsfw_allowed` / `require_nsfw_context` / `job_nsfw_from_intent` / `nsfw_intent_var` / header 常量 / 403 文案）
+- 旧：`nsfw_ctx.py`、`r18_policy.py` → 薄 re-export（同一对象，防炸测）
+- 改：`main.py` 中间件从 redline 取 ContextVar + `header_means_nsfw_intent`；全部 `apps/api/app/**` 生产 import 收口到 `app.redline`
+- 前端：canvas `r18-mode.ts` 注释指向后端 redline（不复制未成年判定）；`web/lib/r18.ts` 标 DEBT（经典壳遗留，不阻塞）
+- 语义：无 `X-NSFW` = 纯 SFW fail-closed；保留 tip `5929efdb` R18 闸 UX
+- 测：`cd apps/api && .venv/bin/python -m pytest tests/test_r18_policy_d_u1b.py tests/test_r18.py -q --tb=line` → **36 passed**
+- SFW 证明：无头 probe `allowed=False`；`GET /api/health` 200；`GET /api/models` 非 403（SFW 不依赖红线开关）

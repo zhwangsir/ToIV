@@ -1,9 +1,10 @@
 /**
  * R18 上下文开关(D-U1 拍板 2026-10-15:纯本地自用,canvas 内建 R18 门控模式)。
  *
- * 语义:开启后 toivHttp 全部请求附加 `X-NSFW: 1`,后端 nsfw_ctx 中间件置位
- * nsfw_intent → R18 模型/应用/作品在该上下文可见(未成年硬阻断仍在后端,
- * 与前端开关无关)。状态持久化 localStorage;dataset.r18 供全局样式钩子。
+ * 语义:开启后 toivHttp 全部请求附加 `X-NSFW: 1`,后端中间件置位
+ * nsfw_intent → R18 模型/应用/作品在该上下文可见。
+ * **未成年硬阻断见后端 `app.redline`(本文件不复制年龄判定,只做本地开关+header+UI)。**
+ * 状态持久化 localStorage;dataset.r18 供全局样式钩子。
  * 开关本身不做内容判断——门控是「确认动作」而非「内容审查」。
  */
 const R18_KEY = "toiv_r18_mode";

@@ -32,7 +32,7 @@ from sqlmodel import select
 from app.comfy.pool import WorkerPool
 from app.harness.tool_seam import ok_tool_event
 from app.models import AgentSession, App, Entity, Job, User
-from app.nsfw_ctx import nsfw_allowed
+from app.redline import nsfw_allowed
 
 logger = logging.getLogger(__name__)
 
