@@ -1,16 +1,33 @@
 import { Link } from "react-router";
 import { useSyncExternalStore } from "react";
 
-import { CreationPhaseStrip } from "@/components/toiv/creation-phase-strip";
+import { useCreationStudioSlots } from "@/components/create/creation-studio-slots";
+import { CreationPhaseStrip, type CreationPhaseId } from "@/components/toiv/creation-phase-strip";
 import { ContentModeFallbackTip } from "@/components/toiv/content-mode-fallback-tip";
 import { COPY_MODE_ADULT, COPY_MODE_NORMAL, R18_SETTINGS_GATE_PATH, getR18ModeSnapshot, getServerR18ModeSnapshot, subscribeR18Mode } from "@/redline";
 
+function phaseFromSection(section: string | null, projectId: string | null): CreationPhaseId {
+    if (!projectId) return "generate";
+    if (section === "script") return "script";
+    if (section === "assets") return "asset";
+    if (section === "storyboard") return "keyframe";
+    return "generate";
+}
+
 /**
  * Right Inspector: partitioned attributes — not a settings dump, not R18 master switch.
- * Content mode is status-only; switch lives on topbar LightCurtainPaddle.
+ * Drama workspace may inject section forms via CreationStudioSlots (R4 migration).
  */
-export function CreationStudioInspector({ projectId }: { projectId: string | null }) {
+export function CreationStudioInspector({
+    projectId,
+    section = null,
+}: {
+    projectId: string | null;
+    section?: string | null;
+}) {
     const adultOn = useSyncExternalStore(subscribeR18Mode, getR18ModeSnapshot, getServerR18ModeSnapshot);
+    const slots = useCreationStudioSlots();
+    const activePhase = phaseFromSection(section, projectId);
 
     return (
         <div className="toiv-create-inspector-inner">
@@ -21,8 +38,32 @@ export function CreationStudioInspector({ projectId }: { projectId: string | nul
 
             <section className="toiv-create-inspector-section" aria-labelledby="create-insp-phase">
                 <h3 id="create-insp-phase" className="toiv-create-inspector-section-title">阶段</h3>
-                <CreationPhaseStrip active={projectId ? "asset" : "generate"} />
+                <CreationPhaseStrip active={activePhase} />
             </section>
+
+            {slots?.inspector ? (
+                <section className="toiv-create-inspector-section" aria-label="区段表单" data-testid="creation-studio-inspector-slot">
+                    {slots.inspector}
+                </section>
+            ) : (
+                <section className="toiv-create-inspector-section" aria-labelledby="create-insp-params">
+                    <h3 id="create-insp-params" className="toiv-create-inspector-section-title">参数分区</h3>
+                    <ul className="toiv-create-inspector-list">
+                        <li>
+                            <span>剧本 / 拆解</span>
+                            <em>目标镜数 · SVML 进本栏</em>
+                        </li>
+                        <li>
+                            <span>分镜 / 配景</span>
+                            <em>卡片流在中舞台</em>
+                        </li>
+                        <li>
+                            <span>参考 / 定妆</span>
+                            <em>左侧资产栏</em>
+                        </li>
+                    </ul>
+                </section>
+            )}
 
             <section className="toiv-create-inspector-section" aria-labelledby="create-insp-mode">
                 <h3 id="create-insp-mode" className="toiv-create-inspector-section-title">内容模式</h3>
@@ -37,28 +78,6 @@ export function CreationStudioInspector({ projectId }: { projectId: string | nul
                     </Link>
                     ，无主开关。
                 </p>
-            </section>
-
-            <section className="toiv-create-inspector-section" aria-labelledby="create-insp-params">
-                <h3 id="create-insp-params" className="toiv-create-inspector-section-title">参数分区</h3>
-                <ul className="toiv-create-inspector-list">
-                    <li>
-                        <span>模型 / 管线</span>
-                        <em>舞台内选模 · 勿堆表单墙</em>
-                    </li>
-                    <li>
-                        <span>画幅 / 时长</span>
-                        <em>随创作模式（文图视频）</em>
-                    </li>
-                    <li>
-                        <span>参考 / 定妆</span>
-                        <em>左侧资产栏进入</em>
-                    </li>
-                    <li>
-                        <span>输出 / 导出</span>
-                        <em>成片段与任务中心</em>
-                    </li>
-                </ul>
             </section>
 
             <section className="toiv-create-inspector-section" aria-labelledby="create-insp-gate">

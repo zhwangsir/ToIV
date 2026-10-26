@@ -1,10 +1,10 @@
 import { Clapperboard, FolderKanban, History, ImageIcon, Library, Sparkles } from "lucide-react";
 import { Link } from "react-router";
+import { useSyncExternalStore } from "react";
 
 import { CreationProjectSwitcher } from "@/components/toiv/creation-project-switcher";
 import { NsfwLockBadge } from "@/components/toiv/nsfw-lock-badge";
 import { COPY_MODE_ADULT, COPY_MODE_NORMAL, getR18ModeSnapshot, getServerR18ModeSnapshot, subscribeR18Mode } from "@/redline";
-import { useSyncExternalStore } from "react";
 
 const LINKS = [
     { to: "/assets", label: "资产库", icon: Library, hint: "角色 / 场景 / 道具" },
@@ -13,11 +13,16 @@ const LINKS = [
     { to: "/create", label: "自由创作", icon: Sparkles, hint: "无项目线程" },
 ] as const;
 
-export function CreationStudioAssetRail({ projectId }: { projectId: string | null }) {
+export function CreationStudioAssetRail({
+    projectId,
+    section = null,
+}: {
+    projectId: string | null;
+    section?: string | null;
+}) {
     const adultOn = useSyncExternalStore(subscribeR18Mode, getR18ModeSnapshot, getServerR18ModeSnapshot);
-    const assetsHref = projectId
-        ? `/create?project=${encodeURIComponent(projectId)}&section=assets`
-        : "/assets";
+    const q = (sec: string) =>
+        projectId ? `/create?project=${encodeURIComponent(projectId)}&section=${encodeURIComponent(sec)}` : "/create";
 
     return (
         <div className="toiv-create-rail-inner">
@@ -34,25 +39,46 @@ export function CreationStudioAssetRail({ projectId }: { projectId: string | nul
             </div>
 
             <nav className="toiv-create-rail-nav" aria-label="资产入口">
-                <Link to={assetsHref} className="toiv-create-rail-link is-primary">
-                    <ImageIcon aria-hidden />
-                    <span>
-                        <strong>项目资产</strong>
-                        <em>定妆 / 三视图 / 引用</em>
-                    </span>
-                </Link>
                 {projectId ? (
-                    <Link
-                        to={`/create?project=${encodeURIComponent(projectId)}&section=shots`}
-                        className="toiv-create-rail-link"
-                    >
-                        <Clapperboard aria-hidden />
+                    <>
+                        <Link to={q("script")} className={"toiv-create-rail-link" + (section === "script" || !section ? " is-primary" : "")}>
+                            <Clapperboard aria-hidden />
+                            <span>
+                                <strong>剧本解析</strong>
+                                <em>中舞台正文 · 参数在右栏</em>
+                            </span>
+                        </Link>
+                        <Link to={q("storyboard")} className={"toiv-create-rail-link" + (section === "storyboard" ? " is-primary" : "")}>
+                            <ImageIcon aria-hidden />
+                            <span>
+                                <strong>分镜卡片</strong>
+                                <em>阶段流 · 配景</em>
+                            </span>
+                        </Link>
+                        <Link to={q("assets")} className={"toiv-create-rail-link" + (section === "assets" ? " is-primary" : "")}>
+                            <Library aria-hidden />
+                            <span>
+                                <strong>项目资产</strong>
+                                <em>定妆 / 三视图 / 引用</em>
+                            </span>
+                        </Link>
+                        <Link to={q("shots")} className={"toiv-create-rail-link" + (section === "shots" ? " is-primary" : "")}>
+                            <Clapperboard aria-hidden />
+                            <span>
+                                <strong>生成镜头</strong>
+                                <em>主舞台渲染区</em>
+                            </span>
+                        </Link>
+                    </>
+                ) : (
+                    <Link to="/assets" className="toiv-create-rail-link is-primary">
+                        <ImageIcon aria-hidden />
                         <span>
-                            <strong>分镜 / 镜头</strong>
-                            <em>主舞台生成区</em>
+                            <strong>项目资产</strong>
+                            <em>定妆 / 三视图 / 引用</em>
                         </span>
                     </Link>
-                ) : null}
+                )}
                 {LINKS.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -68,7 +94,7 @@ export function CreationStudioAssetRail({ projectId }: { projectId: string | nul
             </nav>
 
             <p className="toiv-create-rail-footnote">
-                主舞台留给预览 / 时间线 / 对话；字段进右侧 Inspector。普通/成人切换在<strong>顶栏光幕</strong>。
+                主舞台留给剧本解析 / 分镜卡片 / 预览；表单进右侧 Inspector。普通/成人切换在<strong>顶栏光幕</strong>。
             </p>
         </div>
     );

@@ -143,22 +143,48 @@
   --toiv-light-curtain-fs: var(--toiv-switch-fs);
 
 
-  /* ── Create studio three-pane (R3) · isolated from --toiv-switch-* NSFW glow ── */
-  --toiv-create-rail-w: 240px;
-  --toiv-create-rail-w-collapsed: 56px;
-  --toiv-create-inspector-w: 280px;
-  --toiv-create-inspector-w-min: 240px;
+  /* ── Create studio three-pane (R3 TL nail · VISUAL_CREATE_SHELL_R3) ──
+     左默认 280 / 右常驻 320；分隔可视 1 / 命中 8；成人不改几何。
+     分镜选中：右栏扩到 420（上限 480），取消回 320；不另开浮层。 */
+  --toiv-create-left-default: 280px;
+  --toiv-create-left-min: 200px;
+  --toiv-create-left-max: 360px;
+  --toiv-create-left-collapsed: 56px;
+  --toiv-create-right-default: 320px;
+  --toiv-create-right-min: 280px;
+  --toiv-create-right-max: 420px;
+  --toiv-create-right-expanded: 420px; /* shot detail selected */
+  --toiv-create-right-expanded-max: 480px;
+  --toiv-create-right-collapsed: 56px;
+  --toiv-create-canvas-gutter: 0px;
+  --toiv-create-canvas-inset: 12px;
+  --toiv-create-splitter-visual: 1px;
+  --toiv-create-splitter-hit: 8px;
+  --toiv-create-splitter-bg: transparent;
+  --toiv-create-splitter-hover: rgba(255, 255, 255, 0.06);
+  --toiv-create-splitter-active: rgb(91 160 255 / 0.45);
+  --toiv-create-shell-min-w: 1050px;
+  --toiv-create-break-stack: 900px;
+  --toiv-create-dur-collapse: 200ms;
+  --toiv-create-ease: var(--toiv-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+  --toiv-create-adult-geometry: unchanged;
+
+  /* legacy aliases used by three-pane CSS */
+  --toiv-create-rail-w: var(--toiv-create-left-default);
+  --toiv-create-rail-w-collapsed: var(--toiv-create-left-collapsed);
+  --toiv-create-inspector-w: var(--toiv-create-right-default);
+  --toiv-create-inspector-w-min: var(--toiv-create-right-min);
   --toiv-create-gap: var(--toiv-space-2, 8px);
-  --toiv-create-pad: var(--toiv-space-3, 12px);
+  --toiv-create-pad: var(--toiv-create-canvas-inset);
   --toiv-create-panel-bg: var(--toiv-surface);
   --toiv-create-panel-border: var(--toiv-border);
-  --toiv-create-panel-radius: var(--toiv-radius-panel, 16px);
+  --toiv-create-panel-radius: 0; /* shell flush; floating panels still use radius-panel */
   --toiv-create-divider: var(--toiv-border);
   --toiv-create-stage-bg: var(--toiv-bg);
   --toiv-create-section-gap: var(--toiv-space-3, 12px);
   --toiv-create-section-title-fs: var(--toiv-fs-caption, 12px);
 
-  /* create-mode segmented (文/图/视频) — NO NSFW glow */
+  /* create-mode segmented — NO NSFW glow */
   --toiv-create-mode-h: 36px;
   --toiv-create-mode-pad: 4px;
   --toiv-create-mode-radius: 14px;
@@ -170,8 +196,38 @@
   --toiv-create-mode-fg: var(--toiv-text-muted);
   --toiv-create-mode-fg-active: var(--toiv-text);
   --toiv-create-mode-dur: 200ms;
-  --toiv-create-mode-ease: var(--toiv-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+  --toiv-create-mode-ease: var(--toiv-create-ease);
   /* intentionally no --toiv-create-mode-glow; never alias --toiv-switch-glow-nsfw */
+
+  /* ── Storyboard cards (R4 TL nail · VISUAL_STORYBOARD_CARDS_R4) ──
+     主卡 16:9 + shot# + 2行摘要；gap 16 / radius 12；默认 4 列；
+     双轨默认 PiP（草图 2:3 叠成片 16:9），不用 tab；成人不改几何。 */
+  --toiv-shot-media-aspect: 16 / 9;
+  --toiv-shot-media-aspect-sketch: 2 / 3;
+  --toiv-shot-card-radius: 12px;
+  --toiv-shot-card-border: 1px solid var(--toiv-border);
+  --toiv-shot-card-border-active: 1px solid var(--toiv-accent);
+  --toiv-shot-card-bg: var(--toiv-surface);
+  --toiv-shot-card-header-h: 36px;
+  --toiv-shot-card-header-pad-x: 12px;
+  --toiv-shot-card-footer-pad: 12px;
+  --toiv-shot-card-footer-lines: 2;
+  --toiv-shot-card-footer-fs: 12px;
+  --toiv-shot-meta-fs: 10px;
+  --toiv-shot-grid-gap: 16px;
+  --toiv-shot-grid-pad: 24px;
+  --toiv-shot-grid-cols-default: 4;
+  --toiv-shot-grid-cols-compact: 2;
+  --toiv-shot-grid-cols-max: 5;
+  --toiv-shot-detail-w: 420px;
+  --toiv-shot-detail-w-max: 480px;
+  --toiv-shot-kf-gap: 16px;
+  --toiv-shot-nine-gap: 8px;
+  --toiv-shot-nine-cols: 3;
+  --toiv-shot-beat-gap: 14px;
+  --toiv-shot-canvas-node-w: 440px;
+  --toiv-shot-pip-w: 32%;
+  --toiv-shot-adult-geometry: unchanged;
 
   /* Desk aliases: primary=cyan CTA aux; accent=main blue */
   --fz-canvas: var(--toiv-bg);

@@ -8,7 +8,7 @@
  */
 import { ArrowDown, ArrowUp, BookOpen, Camera, Captions, Check, Clapperboard, Columns3, FileText, GitBranch, Film, IdCard, Layers, List, ListOrdered, Loader2, Mic, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2, X } from "lucide-react";
 import { Select } from "antd";
-import type { ToivFrameVariant, ToivSharedAsset } from "@/services/toiv/client";
+import type { ToivDramaShot, ToivFrameVariant, ToivSharedAsset } from "@/services/toiv/client";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
@@ -54,6 +54,9 @@ import { ToolButton } from "@/components/ui/base/buttons";
 import { WordAnchorTimeline } from "@/components/toiv/word-anchor-timeline";
 import { SceneAnchorPanel } from "@/components/toiv/scene-anchor-panel";
 import { WsCreationDock } from "@/components/toiv/ws-creation-dock";
+import { CreationStudioScriptStage } from "@/components/create/creation-studio-script-stage";
+import { CreationStudioStoryboardFlow } from "@/components/create/creation-studio-storyboard-flow";
+import { useCreationStudioSlots } from "@/components/create/creation-studio-slots";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { EmptyState } from "@/components/ui/product/empty-state";
@@ -198,6 +201,183 @@ function statusLabelZh(status?: string | null): string {
     return STATUS_LABEL[key] ?? key;
 }
 
+
+/** R4: script parse center + inspector form migration (no second shell). */
+function ScriptSectionR4(props: {
+    premiseText: string;
+    setPremiseText: (v: string) => void;
+    numShots: number;
+    setNumShots: (n: number) => void;
+    parsing: boolean;
+    parseMsg: string | null;
+    parseError: string | null;
+    shotsCount: number;
+    svmlOpen: boolean;
+    setSvmlOpen: (updater: boolean | ((v: boolean) => boolean)) => void;
+    svmlText: string;
+    setSvmlText: (v: string) => void;
+    svmlBusy: boolean;
+    svmlMsg: string | null;
+    svmlErr: string | null;
+    onAutoStoryboard: () => void;
+    onSvmlImport: () => void;
+    studioSlots: ReturnType<typeof useCreationStudioSlots>;
+}) {
+    const {
+        premiseText, setPremiseText, numShots, setNumShots, parsing, parseMsg, parseError, shotsCount,
+        svmlOpen, setSvmlOpen, svmlText, setSvmlText, svmlBusy, svmlMsg, svmlErr,
+        onAutoStoryboard, onSvmlImport, studioSlots,
+    } = props;
+
+    useEffect(() => {
+        const form = (
+            <div className="toiv-create-inspector-form" data-testid="script-inspector-form">
+                <h3 className="toiv-create-inspector-section-title">剧本参数</h3>
+                <label>
+                    目标镜数
+                    <select value={numShots} onChange={(e) => setNumShots(Number(e.target.value))} aria-label="目标镜数">
+                        {[4, 6, 8, 12, 16].map((n) => (
+                            <option key={n} value={n}>{n}</option>
+                        ))}
+                    </select>
+                </label>
+                <div className="toiv-create-inspector-actions">
+                    <ToolButton variant="default" icon={<Sparkles />} label={parsing ? "拆解中…" : "AI 拆解为分镜"} onClick={onAutoStoryboard} loading={parsing} />
+                    <ToolButton variant="default" icon={<FileText />} label={svmlOpen ? "收起词锚定" : "导入词锚定脚本"} onClick={() => setSvmlOpen((v) => !v)} />
+                </div>
+                <p className="toiv-create-inspector-hint">已有 {shotsCount} 镜 · 拆解/导入均为全量替换</p>
+                {svmlOpen ? (
+                    <>
+                        <label>
+                            词锚定 SVML
+                            <textarea
+                                value={svmlText}
+                                onChange={(e) => setSvmlText(e.target.value)}
+                                aria-label="词锚定脚本文本"
+                                placeholder="词锚定脚本(hypit SVML)…"
+                            />
+                        </label>
+                        <ToolButton variant="default" icon={<Sparkles />} label={svmlBusy ? "解析导入中…" : "解析并导入分镜"} onClick={onSvmlImport} loading={svmlBusy} />
+                        <p className="toiv-create-inspector-hint">确定性解析不经 LLM · 台词字数自动估时(2–15s)</p>
+                        {svmlMsg ? <p className="text-xs text-foreground">{svmlBusy ? "…" : ""}{svmlMsg}</p> : null}
+                        {svmlErr ? <p className="text-xs text-[var(--danger)]">{svmlErr}</p> : null}
+                    </>
+                ) : null}
+            </div>
+        );
+        studioSlots?.setInspector(form);
+        return () => studioSlots?.clearInspector();
+    }, [
+        studioSlots, numShots, setNumShots, parsing, shotsCount, svmlOpen, setSvmlOpen, svmlText, setSvmlText,
+        svmlBusy, svmlMsg, svmlErr, onAutoStoryboard, onSvmlImport,
+    ]);
+
+    return (
+        <CreationStudioScriptStage
+            editor={
+                <textarea
+                    className="toiv-script-editor"
+                    value={premiseText}
+                    onChange={(e) => setPremiseText(e.target.value)}
+                    placeholder="写下或粘贴剧情概要/剧本，然后在右侧 Inspector 交给 AI 拆解为分镜…"
+                    aria-label="剧本正文"
+                />
+            }
+            status={
+                <>
+                    {parseMsg ? (
+                        <p className="flex items-center gap-1.5 text-xs text-foreground">
+                            {parsing ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
+                            {parseMsg}
+                        </p>
+                    ) : null}
+                    {parseError ? (
+                        <p className={`text-xs ${isStillRunningMessage(parseError) ? "text-muted-foreground" : "text-[var(--danger)]"}`}>
+                            {parseError}
+                            {isStillRunningMessage(parseError) ? <>{" · "}<TasksCenterLink /></> : null}
+                        </p>
+                    ) : null}
+                </>
+            }
+            result={
+                shotsCount > 0 ? (
+                    <p>已解析 / 现存 <strong>{shotsCount}</strong> 镜 · 打开左侧「分镜卡片」查看卡片流</p>
+                ) : (
+                    <p>尚无分镜结果。在右侧选择目标镜数并「AI 拆解为分镜」。</p>
+                )
+            }
+        />
+    );
+}
+
+function StoryboardSectionR4(props: {
+    shots: ToivDramaShot[];
+    selectedShotId: string | null;
+    onSelectShot: (id: string | null) => void;
+    frameBusy: Set<string>;
+    frameVariants: Record<string, ToivFrameVariant[]>;
+    frameError: string | null;
+    onFrameVariants: (id: string) => void;
+    onAdoptFrame: (id: string, url: string) => void;
+    studioSlots: ReturnType<typeof useCreationStudioSlots>;
+}) {
+    const {
+        shots, selectedShotId, onSelectShot, frameBusy, frameVariants, frameError,
+        onFrameVariants, onAdoptFrame, studioSlots,
+    } = props;
+    const selected = selectedShotId ? shots.find((s) => s.id === selectedShotId) ?? null : null;
+
+    useEffect(() => {
+        studioSlots?.setShotSelected(Boolean(selected));
+        return () => studioSlots?.setShotSelected(false);
+    }, [studioSlots, selected]);
+
+    useEffect(() => {
+        studioSlots?.setInspector(
+            <div className="toiv-create-inspector-form" data-testid="storyboard-inspector-form">
+                <h3 className="toiv-create-inspector-section-title">{selected ? `分镜 #${selected.idx}` : "分镜属性"}</h3>
+                {selected ? (
+                    <>
+                        <p className="toiv-create-inspector-status">
+                            场景 · {selected.scene || "未命名"} · {selected.status}
+                        </p>
+                        <label>
+                            摘要
+                            <textarea readOnly value={String(selected.dialogue || selected.prompt || "").trim() || "—"} aria-label="分镜摘要" />
+                        </label>
+                        <p className="toiv-create-inspector-hint">
+                            右栏已扩至 420（上限 480）；取消选中回 320。不另开挡中栏浮层。
+                        </p>
+                        <p className="toiv-create-inspector-hint">
+                            双轨默认 PiP：草图 2:3 叠成片 16:9。配景仍在卡片上操作。
+                        </p>
+                    </>
+                ) : (
+                    <>
+                        <p className="toiv-create-inspector-hint">点选中栏卡片展开详情（右栏扩宽，无浮层）。</p>
+                        <p className="toiv-create-inspector-status">当前 <strong>{shots.length}</strong> 镜</p>
+                        <p className="toiv-create-inspector-hint">表单墙已迁出：驱动/管线仍在「生成镜头」区按需出现。</p>
+                    </>
+                )}
+            </div>,
+        );
+        return () => studioSlots?.clearInspector();
+    }, [studioSlots, shots.length, selected]);
+
+    return (
+        <CreationStudioStoryboardFlow
+            shots={shots}
+            selectedShotId={selectedShotId}
+            onSelectShot={onSelectShot}
+            frameBusy={frameBusy}
+            frameVariants={frameVariants}
+            frameError={frameError}
+            onFrameVariants={onFrameVariants}
+            onAdoptFrame={onAdoptFrame}
+        />
+    );
+}
+
 function SectionShell({ title, children }: { title: string; children: React.ReactNode }) {
     return (
         <section className="flex flex-col gap-3">
@@ -254,6 +434,14 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const section = normalizeSection(searchParams.get("section") ?? undefined);
+    const studioSlots = useCreationStudioSlots();
+    useEffect(() => {
+        return () => {
+            studioSlots?.clearInspector();
+            studioSlots?.setShotSelected(false);
+        };
+    }, [studioSlots, section]);
+
     const focusShotId = (searchParams.get("shot") || "").trim();
 
     /** Wave P3 / D2-A：列表↔看板投影；选中态跨视图保持 */
@@ -1144,92 +1332,26 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                 ) : (
                     <div className="flex flex-col gap-4 rounded-xl border border-[var(--border)] p-4">
                         {section === "script" && (
-                            <SectionShell title="剧本">
-                                <textarea
-                                    value={premiseText}
-                                    onChange={(e) => setPremiseText(e.target.value)}
-                                    rows={8}
-                                    placeholder="写下或粘贴剧情概要/剧本,然后交给 AI 拆解为分镜…"
-                                    className="w-full resize-y rounded-lg border border-[var(--border)] bg-transparent p-3 text-sm leading-6 text-foreground outline-none focus:border-[var(--workspace-accent)]"
-                                    aria-label="剧本正文"
-                                />
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <label className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
-                                        目标镜数
-                                        <select
-                                            value={numShots}
-                                            onChange={(e) => setNumShots(Number(e.target.value))}
-                                            className="rounded-md border border-[var(--border)] bg-transparent px-2 py-1 text-xs text-foreground"
-                                            aria-label="目标镜数"
-                                        >
-                                            {[4, 6, 8, 12, 16].map((n) => (
-                                                <option key={n} value={n}>
-                                                    {n}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </label>
-                                    <ToolButton
-                                        variant="default"
-                                        icon={<Sparkles />}
-                                        label={parsing ? "拆解中…" : "AI 拆解为分镜"}
-                                        onClick={() => void runAutoStoryboard()}
-                                        loading={parsing}
-                                    />
-                                    <ToolButton
-                                        variant="default"
-                                        icon={<FileText />}
-                                        label="导入词锚定脚本"
-                                        onClick={() => setSvmlOpen((v) => !v)}
-                                    />
-                                    <span className="text-xs text-[var(--muted-foreground)]">
-                                        已有 {shots.length} 镜 · 拆解/导入均为全量替换(旧分镜会被覆盖)
-                                    </span>
-                                </div>
-                                {svmlOpen && (
-                                    <div className="flex flex-col gap-2 rounded-lg border border-[var(--border)] p-3">
-                                        <textarea
-                                            value={svmlText}
-                                            onChange={(e) => setSvmlText(e.target.value)}
-                                            rows={8}
-                                            placeholder={"词锚定脚本(hypit SVML 语法):\n[scene:雨夜巷口][mood:紧张]\n<林夏> 别跟着我。||我说了,@{回头}猛地回头@{/回头}别跟着我。\n镜头缓推 || 霓虹闪烁\n---\n(空行或 --- 分镜;|| 分拍;@{锚}词@{/锚} 词级锚点;时长按字数自动估算)"}
-                                            className="w-full resize-y rounded-lg border border-[var(--border)] bg-transparent p-3 font-mono text-xs leading-5 text-foreground outline-none focus:border-[var(--workspace-accent)]"
-                                            aria-label="词锚定脚本文本"
-                                        />
-                                        <div className="flex items-center gap-2">
-                                            <ToolButton
-                                                variant="default"
-                                                icon={<Sparkles />}
-                                                label={svmlBusy ? "解析导入中…" : "解析并导入分镜"}
-                                                onClick={() => void runSvmlImport()}
-                                                loading={svmlBusy}
-                                            />
-                                            <span className="text-xs text-[var(--muted-foreground)]">
-                                                确定性解析不经 LLM · 台词字数自动估时(2–15s)
-                                            </span>
-                                        </div>
-                                        {svmlMsg && (
-                                            <p className="flex items-center gap-1.5 text-xs text-foreground">
-                                                {svmlBusy && <Loader2 className="size-3 animate-spin" aria-hidden />}
-                                                {svmlMsg}
-                                            </p>
-                                        )}
-                                        {svmlErr && <p className="text-xs text-[var(--danger)]">{svmlErr}</p>}
-                                    </div>
-                                )}
-                                {parseMsg && (
-                                    <p className="flex items-center gap-1.5 text-xs text-foreground">
-                                        {parsing && <Loader2 className="size-3 animate-spin" aria-hidden />}
-                                        {parseMsg}
-                                    </p>
-                                )}
-                                {parseError && (
-                                    <p className={`text-xs ${isStillRunningMessage(parseError) ? "text-muted-foreground" : "text-[var(--danger)]"}`}>
-                                        {parseError}
-                                        {isStillRunningMessage(parseError) && <>{" · "}<TasksCenterLink /></>}
-                                    </p>
-                                )}
-                            </SectionShell>
+                            <ScriptSectionR4
+                                premiseText={premiseText}
+                                setPremiseText={setPremiseText}
+                                numShots={numShots}
+                                setNumShots={setNumShots}
+                                parsing={parsing}
+                                parseMsg={parseMsg}
+                                parseError={parseError}
+                                shotsCount={shots.length}
+                                svmlOpen={svmlOpen}
+                                setSvmlOpen={setSvmlOpen}
+                                svmlText={svmlText}
+                                setSvmlText={setSvmlText}
+                                svmlBusy={svmlBusy}
+                                svmlMsg={svmlMsg}
+                                svmlErr={svmlErr}
+                                onAutoStoryboard={() => void runAutoStoryboard()}
+                                onSvmlImport={() => void runSvmlImport()}
+                                studioSlots={studioSlots}
+                            />
                         )}
                         {section === "assets" && (
                             <SectionShell title="资产 / 定妆（选角锁定参考）">
@@ -1308,73 +1430,17 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                             </SectionShell>
                         )}
                         {section === "storyboard" && (
-                            <SectionShell title="分镜表">
-                                {shots.length === 0 ? (
-                                    <EmptyState description="暂无分镜（在「剧本」段用 AI 拆解或导入词锚定脚本生成）" />
-                                ) : (
-                                    <>
-                                    {frameError && (
-                                        <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger)]">{frameError}</p>
-                                    )}
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left text-xs">
-                                            <thead className="text-[var(--muted-foreground)]">
-                                                <tr>
-                                                    <th className="px-2 py-1.5">#</th>
-                                                    <th className="px-2 py-1.5">场景</th>
-                                                    <th className="px-2 py-1.5">台词</th>
-                                                    <th className="px-2 py-1.5">时长</th>
-                                                    <th className="px-2 py-1.5">衔接</th>
-                                                    <th className="px-2 py-1.5">状态</th>
-                                                    <th className="px-2 py-1.5">配景</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {shots.map((s) => (
-                                                    <tr key={s.id} className="border-t border-[var(--border)]">
-                                                        <td className="px-2 py-1.5 tabular-nums">{s.idx}</td>
-                                                        <td className="max-w-72 truncate px-2 py-1.5">{s.scene || "—"}</td>
-                                                        <td className="max-w-72 truncate px-2 py-1.5">{s.dialogue || "—"}</td>
-                                                        <td className="px-2 py-1.5 tabular-nums">{s.duration_sec ?? "—"}s</td>
-                                                        <td className="px-2 py-1.5">{s.seam_to_next || "hardcut"}{s.seam_anchor ? `·${s.seam_anchor}` : ""}</td>
-                                                        <td className="px-2 py-1.5">
-                                                            <StatusBadge variant="filled" tone={STATUS_TONE[s.status] ?? "neutral"} label={statusLabelZh(s.status)} size="sm" />
-                                                        </td>
-                                                        <td className="px-2 py-1.5">
-                                                            <div className="flex items-center gap-1">
-                                                                <ToolButton
-                                                                    size="xs"
-                                                                    variant="ghost"
-                                                                    icon={<Camera />}
-                                                                    label={frameBusy.has(s.id) ? "配景中…" : "AI 配景"}
-                                                                    loading={frameBusy.has(s.id)}
-                                                                    onClick={() => void runFrameVariants(s.id)}
-                                                                />
-                                                                {(frameVariants[s.id] ?? []).map((v) => (
-                                                                    <button
-                                                                        key={v.scale}
-                                                                        type="button"
-                                                                        className="rounded border border-[var(--border)] p-0"
-                                                                        title={`采用为关键帧（${v.scale}）`}
-                                                                        aria-label={`采用${v.scale}为关键帧`}
-                                                                        onClick={() => void adoptFrameAsKeyframe(s.id, v.url)}
-                                                                    >
-                                                                        <img src={v.url} alt={v.scale} className="h-10 w-16 rounded object-cover" loading="lazy" />
-                                                                    </button>
-                                                                ))}
-                                                                {s.image_url ? (
-                                                                    <StatusBadge variant="filled" tone="success" label="已有关键帧" size="sm" />
-                                                                ) : null}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    </>
-                                )}
-                            </SectionShell>
+                            <StoryboardSectionR4
+                                shots={shots}
+                                selectedShotId={selectedShotId}
+                                onSelectShot={setSelectedShotId}
+                                frameBusy={frameBusy}
+                                frameVariants={frameVariants}
+                                frameError={frameError}
+                                onFrameVariants={(id) => void runFrameVariants(id)}
+                                onAdoptFrame={(id, url) => void adoptFrameAsKeyframe(id, url)}
+                                studioSlots={studioSlots}
+                            />
                         )}
                         {section === "shots" && (
                             <SectionShell title="生成 · 配音 · 口型">

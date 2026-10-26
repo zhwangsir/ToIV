@@ -1,17 +1,27 @@
-/* Creation studio three-pane — R3; consumes --toiv-create-*; no second shell */
+/* Creation studio three-pane — R3/R4 TL nail; --toiv-create-* / --toiv-shot-* */
 
 .toiv-create-studio {
+  --toiv-create-inspector-w-current: var(--toiv-create-right-default, 320px);
   display: grid;
   grid-template-columns:
-    var(--toiv-create-rail-w, 240px)
+    var(--toiv-create-left-default, 280px)
+    var(--toiv-create-splitter-hit, 8px)
     minmax(0, 1fr)
-    minmax(var(--toiv-create-inspector-w-min, 240px), var(--toiv-create-inspector-w, 280px));
-  gap: 0;
+    var(--toiv-create-splitter-hit, 8px)
+    var(--toiv-create-inspector-w-current);
+  gap: var(--toiv-create-canvas-gutter, 0px);
   min-height: 0;
   flex: 1 1 auto;
   height: 100%;
+  min-width: 0;
   background: var(--toiv-create-stage-bg, var(--toiv-bg, #0a0c12));
   border-top: 1px solid var(--toiv-create-divider, var(--toiv-border, #22232c));
+  transition: grid-template-columns var(--toiv-create-dur-collapse, 200ms) var(--toiv-create-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+/* TL: 选中分镜 → 右栏扩到 420（上限 480），不另开浮层 */
+.toiv-create-studio.is-shot-selected {
+  --toiv-create-inspector-w-current: min(var(--toiv-shot-detail-w, 420px), var(--toiv-shot-detail-w-max, 480px));
 }
 
 .toiv-create-rail,
@@ -22,12 +32,30 @@
   color: var(--toiv-text, #e8eaf0);
 }
 
-.toiv-create-rail {
-  border-right: 1px solid var(--toiv-create-divider, var(--toiv-border, #22232c));
+.toiv-create-splitter {
+  position: relative;
+  width: var(--toiv-create-splitter-hit, 8px);
+  margin: 0;
+  cursor: col-resize;
+  background: var(--toiv-create-splitter-bg, transparent);
 }
-
-.toiv-create-inspector {
-  border-left: 1px solid var(--toiv-create-divider, var(--toiv-border, #22232c));
+.toiv-create-splitter::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: var(--toiv-create-splitter-visual, 1px);
+  transform: translateX(-50%);
+  background: var(--toiv-create-divider, var(--toiv-border, #22232c));
+  pointer-events: none;
+}
+.toiv-create-splitter:hover {
+  background: var(--toiv-create-splitter-hover, rgba(255, 255, 255, 0.06));
+}
+.toiv-create-splitter:hover::before,
+.toiv-create-splitter:active::before {
+  background: var(--toiv-create-splitter-active, rgb(91 160 255 / 0.45));
 }
 
 .toiv-create-stage {
@@ -36,6 +64,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  padding: 0; /* canvas gutter 0 — inset lives inside stage children */
   background: var(--toiv-create-stage-bg, var(--toiv-bg, #0a0c12));
 }
 
@@ -47,7 +76,7 @@
 /* Tighten drama form wall when hosted in center stage */
 .toiv-create-stage .toiv-drama-workspace .mx-auto.max-w-7xl {
   max-width: none;
-  padding: var(--toiv-create-pad, 12px);
+  padding: var(--toiv-create-canvas-inset, 12px);
 }
 .toiv-create-stage .toiv-drama-workspace .toiv-ws-creation-dock {
   margin-bottom: var(--toiv-create-section-gap, 12px);
@@ -58,7 +87,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--toiv-create-section-gap, 12px);
-  padding: var(--toiv-create-pad, 12px);
+  padding: var(--toiv-create-canvas-inset, 12px);
 }
 
 .toiv-create-rail-head,
@@ -148,7 +177,7 @@
   flex-direction: column;
   gap: 8px;
   padding: 10px;
-  border-radius: var(--toiv-create-panel-radius, 16px);
+  border-radius: var(--toiv-radius-card, 12px);
   border: 1px solid var(--toiv-create-panel-border, var(--toiv-border));
   background: color-mix(in srgb, var(--toiv-bg, #0a0c12) 55%, transparent);
   box-shadow: var(--toiv-shadow-inner-glow, none);
@@ -183,13 +212,13 @@
   color: var(--toiv-text-muted, #6f7079);
 }
 
-/* create-mode tabs: map product CSS to --toiv-create-mode-* (no NSFW glow) */
+/* create-mode tabs: no NSFW glow */
 .toiv-create-studio .creation-mode-tabs,
 [data-testid="creation-workbench"] .creation-mode-tabs {
   padding: var(--toiv-create-mode-pad, 4px);
   border-radius: calc(var(--toiv-create-mode-radius, 14px) + 4px);
   background: var(--toiv-create-mode-bg);
-  box-shadow: none; /* isolate from switch glow */
+  box-shadow: none;
 }
 .toiv-create-studio .creation-mode-button,
 [data-testid="creation-workbench"] .creation-mode-button {
@@ -215,9 +244,11 @@
 @media (max-width: 1100px) {
   .toiv-create-studio {
     grid-template-columns:
-      var(--toiv-create-rail-w-collapsed, 56px)
+      var(--toiv-create-left-collapsed, 56px)
+      var(--toiv-create-splitter-hit, 8px)
       minmax(0, 1fr)
-      minmax(200px, 240px);
+      var(--toiv-create-splitter-hit, 8px)
+      minmax(var(--toiv-create-right-min, 280px), var(--toiv-create-right-default, 320px));
   }
   .toiv-create-rail-link span em,
   .toiv-create-rail-footnote,
@@ -226,11 +257,12 @@
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .toiv-create-studio {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr) auto;
   }
+  .toiv-create-splitter { display: none; }
   .toiv-create-rail,
   .toiv-create-inspector {
     border: 0;
@@ -240,6 +272,286 @@
   .toiv-create-inspector {
     border-bottom: 0;
     border-top: 1px solid var(--toiv-create-divider, var(--toiv-border));
-    max-height: 32vh;
+    max-height: 36vh;
   }
+  .toiv-create-studio.is-shot-selected .toiv-create-inspector {
+    max-height: 42vh;
+  }
+}
+
+
+/* ── R4 Script parse stage (center) ── */
+.toiv-script-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--toiv-create-section-gap, 12px);
+  min-height: 0;
+  height: 100%;
+  padding: var(--toiv-create-pad, 12px);
+}
+.toiv-script-stage-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
+.toiv-script-stage-title { margin: 0; font-size: 15px; font-weight: 600; }
+.toiv-script-stage-meta { margin: 0; font-size: 11px; color: var(--toiv-text-muted, #6f7079); }
+.toiv-script-stage-editor {
+  flex: 1 1 auto;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+}
+.toiv-script-stage-editor textarea,
+.toiv-script-stage .toiv-script-editor {
+  flex: 1 1 auto;
+  min-height: 200px;
+  width: 100%;
+  resize: vertical;
+  border-radius: var(--toiv-radius-card, 12px);
+  border: 1px solid var(--toiv-border, #22232c);
+  background: color-mix(in srgb, var(--toiv-surface, #15161d) 92%, transparent);
+  color: var(--toiv-text, #e8eaf0);
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  outline: none;
+}
+.toiv-script-stage-editor textarea:focus,
+.toiv-script-stage .toiv-script-editor:focus {
+  border-color: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 55%, var(--toiv-border));
+  box-shadow: var(--toiv-focus-ring, 0 0 0 3px rgb(91 160 255 / 0.12));
+}
+.toiv-script-stage-status,
+.toiv-script-stage-result {
+  font-size: 12px;
+  color: var(--toiv-text-muted, #6f7079);
+}
+.toiv-script-stage-result {
+  padding: 10px 12px;
+  border-radius: var(--toiv-radius-card, 12px);
+  border: 1px solid var(--toiv-border, #22232c);
+  background: var(--toiv-surface, #15161d);
+  box-shadow: var(--toiv-shadow-inner-glow, none);
+  color: var(--toiv-text, #e8eaf0);
+}
+
+
+/* ── R4 Storyboard card flow (TL nail) ── */
+.toiv-storyboard-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--toiv-create-section-gap, 12px);
+  min-height: 0;
+  padding: var(--toiv-shot-grid-pad, 24px) var(--toiv-create-canvas-inset, 12px);
+}
+.toiv-storyboard-flow-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
+.toiv-storyboard-flow-title { margin: 0; font-size: 15px; font-weight: 600; }
+.toiv-storyboard-flow-meta { margin: 0; font-size: 11px; color: var(--toiv-text-muted, #6f7079); }
+.toiv-storyboard-flow-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--toiv-border);
+  color: var(--toiv-danger, #ea4335);
+  font-size: 12px;
+}
+.toiv-storyboard-flow-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--toiv-shot-grid-cols-default, 4), minmax(0, 1fr));
+  gap: var(--toiv-shot-grid-gap, 16px);
+}
+.toiv-create-studio.is-shot-selected .toiv-storyboard-flow-grid {
+  grid-template-columns: repeat(var(--toiv-shot-grid-cols-compact, 2), minmax(0, 1fr));
+}
+@media (min-width: 1440px) {
+  .toiv-create-studio:not(.is-shot-selected) .toiv-storyboard-flow-grid {
+    grid-template-columns: repeat(var(--toiv-shot-grid-cols-max, 5), minmax(0, 1fr));
+  }
+}
+@media (max-width: 1100px) {
+  .toiv-storyboard-flow-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.toiv-storyboard-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--toiv-shot-card-radius, 12px);
+  border: var(--toiv-shot-card-border, 1px solid var(--toiv-border));
+  background: var(--toiv-shot-card-bg, var(--toiv-surface));
+  overflow: hidden;
+  box-shadow: var(--toiv-shadow-inner-glow, none);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  transition:
+    border-color var(--toiv-shot-dur, 150ms) var(--toiv-shot-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--toiv-shot-dur, 150ms) var(--toiv-shot-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+.toiv-storyboard-card.is-selected {
+  border: var(--toiv-shot-card-border-active, 1px solid var(--toiv-accent));
+  box-shadow: var(--toiv-switch-ring-nsfw, 0 0 0 1px rgb(91 160 255 / 0.45));
+  /* use accent ring — not NSFW glow color; adult geometry unchanged */
+  box-shadow: 0 0 0 1px rgb(91 160 255 / 0.45);
+}
+.toiv-storyboard-card-phase {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: var(--toiv-shot-meta-fs, 10px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--toiv-text-muted, #6f7079);
+  background: color-mix(in srgb, var(--toiv-bg, #0a0c12) 70%, transparent);
+  border-bottom: 1px solid var(--toiv-border, #22232c);
+}
+.toiv-storyboard-card-phase.is-done,
+.toiv-storyboard-card-phase.is-rendered { color: var(--toiv-ok, #51bf6f); }
+.toiv-storyboard-card-phase.is-generating,
+.toiv-storyboard-card-phase.is-audio { color: var(--toiv-warn, #efa831); }
+.toiv-storyboard-card-phase.is-failed { color: var(--toiv-danger, #ea4335); }
+.toiv-storyboard-card-phase.is-pending { color: var(--toiv-accent-cyan, #00bdcf); }
+.toiv-storyboard-card-body { display: flex; flex-direction: column; gap: 0; }
+.toiv-storyboard-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  height: var(--toiv-shot-card-header-h, 36px);
+  padding: 0 var(--toiv-shot-card-header-pad-x, 12px);
+}
+.toiv-storyboard-card-idx {
+  font-size: var(--toiv-shot-meta-fs, 10px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.toiv-storyboard-card-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--toiv-shot-media-aspect, 16 / 9);
+  background: var(--toiv-surface-field, #0d0e14);
+  border-block: 1px solid var(--toiv-border, #22232c);
+  overflow: hidden;
+}
+.toiv-storyboard-card-media > img.toiv-storyboard-card-main,
+.toiv-storyboard-card-media > video.toiv-storyboard-card-main {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.toiv-storyboard-card-media.is-empty {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--toiv-accent, #5ba0ff) 12%, transparent), transparent 55%),
+    var(--toiv-surface-field, #0d0e14);
+}
+/* Dual-track default PiP: sketch 2:3 over finished 16:9 — not tabs */
+.toiv-storyboard-card-pip {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: var(--toiv-shot-pip-w, 32%);
+  aspect-ratio: var(--toiv-shot-media-aspect-sketch, 2 / 3);
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--toiv-border) 80%, #fff 20%);
+  overflow: hidden;
+  background: var(--toiv-bg, #0a0c12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+.toiv-storyboard-card-pip img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.toiv-storyboard-card-footer {
+  padding: var(--toiv-shot-card-footer-pad, 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.toiv-storyboard-card-scene {
+  margin: 0;
+  font-size: var(--toiv-shot-card-footer-fs, 12px);
+  font-weight: 600;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.toiv-storyboard-card-dialogue {
+  margin: 0;
+  font-size: var(--toiv-shot-card-footer-fs, 12px);
+  line-height: 1.45;
+  color: var(--toiv-text-muted, #6f7079);
+  display: -webkit-box;
+  -webkit-line-clamp: var(--toiv-shot-card-footer-lines, 2);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.toiv-storyboard-card-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--toiv-shot-meta-fs, 10px);
+  color: var(--toiv-text-muted, #6f7079);
+  font-variant-numeric: tabular-nums;
+}
+.toiv-storyboard-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--toiv-shot-nine-gap, 8px);
+  margin-top: 2px;
+}
+.toiv-storyboard-card-variant {
+  padding: 0;
+  border: 1px solid var(--toiv-border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+}
+.toiv-storyboard-card-variant img { display: block; width: 48px; height: 32px; object-fit: cover; }
+
+/* nine-grid candidate strip */
+.toiv-storyboard-nine {
+  display: grid;
+  grid-template-columns: repeat(var(--toiv-shot-nine-cols, 3), minmax(0, 1fr));
+  gap: var(--toiv-shot-nine-gap, 8px);
+}
+
+/* Inspector form partitions (migrated script controls) */
+.toiv-create-inspector-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toiv-create-inspector-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--toiv-text-muted, #6f7079);
+}
+.toiv-create-inspector-form select,
+.toiv-create-inspector-form textarea {
+  border-radius: 8px;
+  border: 1px solid var(--toiv-border);
+  background: transparent;
+  color: var(--toiv-text);
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.toiv-create-inspector-form textarea {
+  min-height: 120px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.45;
+}
+.toiv-create-inspector-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
