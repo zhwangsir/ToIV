@@ -35,6 +35,7 @@ const SettingsPage = lazy(() => import("@/pages/settings"));
 const TestVoiceRecording = lazy(() => import("@/pages/test-voice-recording"));
 const UserLayout = lazy(() => import("@/layouts/user-layout"));
 const RequireFeature = lazy(() => import("@/components/workspace/require-feature").then((module) => ({ default: module.RequireFeature })));
+const RedlineRouteGuard = lazy(() => import("@/components/workspace/require-r18").then((module) => ({ default: module.RedlineRouteGuard })));
 
 function deferred(element: ReactNode) {
     return <Suspense fallback={<WorkspaceRouteLoader />}>{element}</Suspense>;
@@ -54,7 +55,7 @@ function WorkspaceLayout() {
     //(与旧多页行为一致,可接受)。注:当时环境是 React 19.2 + react-router 8.2,已证与 router
     // 版本无关;当前实装为钉版 react-router 7.9.5。摘除本 key 前须补往返回归——已于 2026-10-15 摘除,W0-2 门禁=部署后
     // drama↔library↔market↔tasks 往返×10 真机回归(见 test/w02-pathname-key.test.ts)。
-    return <Suspense fallback={fallback}><UserLayout><Outlet /></UserLayout></Suspense>;
+    return <Suspense fallback={fallback}><UserLayout><Suspense fallback={fallback}><RedlineRouteGuard><Outlet /></RedlineRouteGuard></Suspense></UserLayout></Suspense>;
 }
 
 function LocalAwareProjectRoute() {

@@ -583,8 +583,9 @@ async def nsfw_recommendations(
     (nsfw_allowed)才返回清单,主站无头请求 403(与 jobs/recipes 同门控)。
     前端仅 admin + R18 模式挂载 NsfwRecsPanel。
     """
+    # 2026-10-26:无头不再 403；无意图时返回空清单（前端不展示/不请求）
     if not nsfw_allowed(user):
-        raise HTTPException(status_code=403, detail="R18 推荐仅限 NSFW 上下文")
+        return {"items": [], "count": 0}
     admin = is_admin_user(user)
     items = [redact_nsfw_recommendation(it, is_admin=admin) for it in NSFW_RECOMMENDATIONS]
     return {"items": items, "count": len(items)}

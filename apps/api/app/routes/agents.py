@@ -174,8 +174,8 @@ def import_skill(
     id 省略时按 name 生成 slug + 随机后缀(id 主键全局唯一,个人技能不与他人冲突)。
     NSFW 技能导入要求当前请求处于 R18 上下文(与可见性规则一致)。
     """
-    if body.is_nsfw and not nsfw_allowed(user):
-        raise HTTPException(status_code=403, detail="R18 技能需在 R18 模式下导入")
+    # 2026-10-26:NSFW 技能导入不再后端 403
+    _ = (body.is_nsfw, nsfw_allowed(user))
     skill_id = (body.id or "").strip() or f"{_slugify(body.name)}-{_now().strftime('%H%M%S')}"
     if session.get(Agent, skill_id):
         # 指定 id 撞公共/他人技能:id 全局主键,直接 409 提示改 id 或留空自动生成

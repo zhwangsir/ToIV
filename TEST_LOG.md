@@ -1,3 +1,25 @@
+## 项目管家入账 · 2026-10-26 09:24 Asia/Shanghai
+
+- **红线口径变更**（`STATE.redline_frontend_guard_2026_10_26`）：限制/拦截 → canvas **前端单文件路由守卫**；默认 SFW↔NSFW；**后端不拦截**（本地自用、省资源）
+- 此前 `redline_ssot` tip=`2d1500b3` → status `committed_superseded_pending_frontend`（将被前端方案覆盖/旁路）；**等全栈新 tip** 再改最终状态
+- 部署窗仍挂；管家**未** commit/push；Mega 仍 `pending_download`
+
+## 2026-10-26 Asia/Shanghai — 红线改前端路由守卫（后端不 403）
+
+- 分支：`work/p0-fusion-20261016`（未切支 / **本地 commit** / **未 push** / 未部署）
+- **产品口径变更**：R18/未成年运行时拦截改 **canvas 前端** `apps/canvas/web/src/redline.ts` + `RedlineRouteGuard`；后端 `app.redline` 变为打标/兼容桩，**生成/列表不再因无 X-NSFW 403**（本地自用可接受 API 直调绕过）
+- 前端：`redline.ts` SSOT（开关/dataset/X-NSFW/未成年/守卫）；`r18-mode.ts` thin re-export；保留失败卡分槽/指纹 UX 与 Settings `focus=r18` 两步闸
+- 守卫覆盖：`/nsfw*`；query `category=r18|nsfw`、`content_mode=nsfw`、`nsfw=1`、`mode=nsfw|r18`、`filter=r18|nsfw`；纯 R18 `?app=`；未开 → `/settings?section=common&focus=r18`；settings 闸本身不拦
+- 后端旁路：`require_nsfw_context` no-op；`_gate_nsfw_ckpt`/`_gate_raw_graph_nsfw`/`_gate_ltx_nsfw`/`_gate_h3_nsfw_loras` 不 403；apps run / recommendations / account 未成年开关 / agents·studio·optimize·harness 等去 403
+- 测：见本 commit 回报（pytest test_r18* + raw_workflow；bun redline-guard / r18-mode）
+
+## 项目管家入账 · 2026-10-26 09:14 Asia/Shanghai
+
+- **红线 SSOT** `STATE.redline_ssot_2026_10_26` → **`committed`** tip=`2d1500b3`（父 `5929efdb`）；`apps/api/app/redline.py` = R18+未成年唯一真源；SFW 不依赖红线
+- 分支 `work/p0-fusion-20261016` 据报 ahead 2，**未 push**；本机 HEAD 核见 STATE 字段
+- Mega NSFW v12.2 仍 `pending_download`
+- 管家**未** commit/push
+
 ## 项目管家入账 · 2026-10-26 09:09 Asia/Shanghai
 
 - **P0 R18 闸** `STATE.p0_r18_gate_commit_2026_10_26` → **`committed`** tip=`5929efdb`（`work/p0-fusion-20261016`，据报 ahead 1，**未 push**）

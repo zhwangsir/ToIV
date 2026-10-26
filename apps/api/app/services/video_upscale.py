@@ -365,8 +365,8 @@ def _verify_images_ownership(session, user: User, qs: dict[str, list[str]]) -> b
         raise HTTPException(status_code=404, detail="产物不存在")
 
     src_nsfw = bool(src_job.nsfw) if src_job else False
-    if src_nsfw and not nsfw_allowed(user):
-        raise HTTPException(status_code=403, detail="R18 产物需在专区内操作")
+    # 2026-10-26: R18 产物不再因无头 403（前端守卫）
+    _ = (src_nsfw, user)
     return src_nsfw
 
 

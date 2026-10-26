@@ -23,7 +23,7 @@ def test_policy_constants_encode_d_u1b():
     assert r18_policy.CANVAS_IS_SOLE_MAIN_UI is True
     assert r18_policy.WEB_INDEPENDENT_NSFW_ZONE_RETIRED is True
     assert r18_policy.ACCOUNT_FLAG_NO_LONGER_ALLOWS is True
-    assert r18_policy.FAIL_CLOSED_WITHOUT_HEADER is True
+    assert r18_policy.FAIL_CLOSED_WITHOUT_HEADER is False  # 2026-10-26:拦截改前端
     assert r18_policy.UNDERAGE_HARD_BLOCK is True
     assert r18_policy.REQUEST_HEADER == "X-NSFW"
     assert r18_policy.REQUEST_HEADER_VALUE == "1"
@@ -55,25 +55,23 @@ def test_allowed_with_request_intent():
         nsfw_intent_var.reset(token)
 
 
-def test_underage_hard_block_beats_header():
+def test_underage_readable_but_nsfw_allowed_is_header_only():
+    """未成年判定仍可读；nsfw_allowed 仅看头（后端不拦，前端守卫执行硬阻断）。"""
     minor = SimpleNamespace(birthdate=date.today() - timedelta(days=365 * 12))
     assert is_underage(minor) is True
     token = nsfw_intent_var.set(True)
     try:
-        assert nsfw_allowed(minor) is False
+        assert nsfw_allowed(minor) is True  # 有头即 True；不在后端因未成年否决
     finally:
         nsfw_intent_var.reset(token)
 
 
-def test_job_nsfw_from_intent_fail_closed_and_explicit_only():
+def test_job_nsfw_from_intent_tags_without_403():
+    """显式意图打标；无头不再 403（API 直调可绕过，本地自用接受）。"""
     token = nsfw_intent_var.set(False)
     try:
         assert job_nsfw_from_intent(None, explicit=False) is False
-        with pytest.raises(HTTPException) as ei:
-            job_nsfw_from_intent(None, explicit=True)
-        assert ei.value.status_code == 403
-        assert "R18" in ei.value.detail
-        assert "X-NSFW" in ei.value.detail
+        assert job_nsfw_from_intent(None, explicit=True) is True  # 不 raise
     finally:
         nsfw_intent_var.reset(token)
 
@@ -113,16 +111,12 @@ def test_http_roundtrip_header_sets_intent():
         ]
 
 
-def test_ltx_gate_detail_mentions_r18_context_not_legacy_zone_only():
+def test_ltx_gate_is_noop_without_header():
     from app.routes.video import _gate_ltx_nsfw
 
     token = nsfw_intent_var.set(False)
     try:
-        with pytest.raises(HTTPException) as ei:
-            _gate_ltx_nsfw(SimpleNamespace(birthdate=None))
-        assert ei.value.status_code == 403
-        assert "R18" in ei.value.detail
-        assert "X-NSFW" in ei.value.detail
+        assert _gate_ltx_nsfw(SimpleNamespace(birthdate=None)) is None
     finally:
         nsfw_intent_var.reset(token)
 
@@ -134,8 +128,8 @@ def test_redline_is_decision_ssot():
     assert redline.POLICY_ID == "D-U1=B"
     assert redline.REQUEST_HEADER == "X-NSFW"
     assert redline.REQUEST_HEADER_VALUE == "1"
-    assert redline.FAIL_CLOSED is True
-    assert redline.FAIL_CLOSED_WITHOUT_HEADER is True
+    assert redline.FAIL_CLOSED is False  # 2026-10-26 frontend guard
+    assert redline.FAIL_CLOSED_WITHOUT_HEADER is False
     assert redline.UNDERAGE_HARD_BLOCK is True
     assert r18_policy.POLICY_ID is redline.POLICY_ID or r18_policy.POLICY_ID == redline.POLICY_ID
     assert nsfw_ctx.nsfw_allowed is redline.nsfw_allowed
@@ -170,3 +164,19 @@ def test_sfw_main_path_usable_without_x_nsfw_header():
             for r in app.router.routes
             if getattr(r, "path", None) != "/__toiv_r18_sfw_probe"
         ]
+
+
+def test_require_nsfw_context_is_noop():
+    from app.redline import require_nsfw_context
+
+    token = nsfw_intent_var.set(False)
+    try:
+        assert require_nsfw_context(None) is None
+    finally:
+        nsfw_intent_var.reset(token)
+
+
+def test_backend_runtime_gate_flag_off():
+    from app import redline
+    assert redline.BACKEND_RUNTIME_GATE is False
+    assert redline.POLICY_ENFORCEMENT == "frontend-route-guard"

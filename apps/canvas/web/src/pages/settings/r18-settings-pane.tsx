@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
-import { isR18Mode, setR18Mode } from "@/services/toiv/r18-mode";
+import { isR18Mode, isUnderage, setR18Mode } from "@/redline";
 import { CLASSIC_NSFW_TO_MARKET } from "@/services/toiv/content-mode";
 
 export function R18SettingsPane() {
@@ -27,8 +27,13 @@ export function R18SettingsPane() {
     }, [focusParam]);
 
     const enable = () => {
-        setR18Mode(true);
-        setEnabled(true);
+        if (isUnderage()) {
+            setConfirming(false);
+            setEnabled(false);
+            return;
+        }
+        const ok = setR18Mode(true);
+        setEnabled(ok);
         setConfirming(false);
     };
     const disable = () => {

@@ -2320,8 +2320,8 @@ async def optimize_shot_endpoint(
         skill = session.get(Agent, body.skill_id)
         if not skill or (skill.user_id and skill.user_id != user.id):
             raise HTTPException(status_code=404, detail="技能不存在")
-        if skill.is_nsfw and not nsfw_allowed(user):
-            raise HTTPException(status_code=403, detail="该技能需要 R18 鉴权")
+        # 2026-10-26:技能 R18 鉴权改前端
+        _ = (skill.is_nsfw, nsfw_allowed(user))
         system_prompt = f"{skill.system_prompt}\n\n{_SHOT_OPTIMIZE_SYSTEM}"
 
     try:
