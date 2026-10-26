@@ -74,6 +74,8 @@ test("F12+D-U1=B:经典壳无引擎台;image/video 深链进 canvas create", () 
   assert.match(src, /image:\s*"\/studio\/create"/, "image 深链须进 canvas create");
   assert.match(src, /video:\s*"\/studio\/create"/, "video 深链须进 canvas create");
   assert.match(src, /create:\s*"\/studio\/create"/);
+  assert.match(src, /\/studio\/auth\/exchange/, "EXTERNAL 深链须先 exchange 再进 /studio");
+  assert.match(src, /auth === \"loading\"/, "EXTERNAL 须等 auth 定论再跳");
   assert.match(src, /经典模式\(薄壳\)/, "handoff 失败/?classic=1 应落经典回落面板");
   assert.match(src, /R18\/成人内容请在工作室设置/, "回落面板须提示 R18 只在 canvas");
   for (const gone of [

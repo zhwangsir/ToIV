@@ -160,10 +160,31 @@ function HomeContent() {
   useEffect(() => {
     const raw = searchParams.get("view");
     // F1/F12:退役视图与市场/库/任务深链整体跳 canvas(整页替换,不留在薄壳里打转)
+    // P0 热修:必须等 auth 定论 + 先 exchange 再进 /studio/*——否则无 toiv_session
+    // 时中间件曾 302→/?view=home,EXTERNAL 深链与创作台对打成经典壳。
     const ext = EXTERNAL_VIEW_REDIRECTS[raw ?? ""];
     if (ext) {
-      window.location.replace(ext);
-      return;
+      if (auth === "loading") return;
+      if (auth === "out") return; // 未登录停落地/登录,勿先撞 /studio
+      let cancelled = false;
+      const token = getToken();
+      const go = () => {
+        if (!cancelled) window.location.replace(ext);
+      };
+      if (!token) {
+        go();
+        return () => {
+          cancelled = true;
+        };
+      }
+      fetch("/studio/auth/exchange", { method: "POST", headers: { authorization: `Bearer ${token}` } })
+        .catch(() => {
+          /* cookie 失败仍进 SPA:Bearer 在 localStorage,闸已放行壳 */
+        })
+        .finally(go);
+      return () => {
+        cancelled = true;
+      };
     }
     const resolved = resolveView(raw);
     if (resolved && resolved !== view) {
@@ -174,7 +195,7 @@ function HomeContent() {
     if (raw && LEGACY_VIEW_REDIRECTS[raw]) {
       router.replace(`/?view=${resolved ?? "home"}`);
     }
-  }, [searchParams, view, router]);
+  }, [searchParams, view, router, auth]);
 
   useEffect(() => {
     // D-U1=B 选项 A:web 薄壳不再恢复 R18 头——成人上下文只由 canvas r18-mode 附 X-NSFW

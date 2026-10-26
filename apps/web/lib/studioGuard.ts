@@ -137,6 +137,11 @@ export function decideStudioAccess(
     }
     return { action: "json", status: 403, reason: "studio_admin_only", msg: "画布暂只对管理员开放" };
   }
-  if (v.kind === "ok") return { action: "redirect", location: CLASSIC_HOME };
-  return { action: "redirect", location: LOGIN_HOME };
+  // SPA 壳(非 API):登录凭证在 localStorage.toiv_token,中间件常看不到 cookie。
+  // 旧逻辑无/无效会话 → LOGIN_HOME,会把 /create→308→/studio/create 与 EXTERNAL
+  // location.replace 打回经典壳(公网 302 /?view=home)——用户「区别不大」主因。
+  // 数据面仍由上面 API 闸 + canvas Bearer 守护;无 cookie 时放行壳,由客户端挂创作台。
+  if (v.kind !== "ok") return { action: "pass" };
+  // 已识别会话但非 admin 且未开多租户:维持止血,回经典(避免未隔离工作区)。
+  return { action: "redirect", location: CLASSIC_HOME };
 }

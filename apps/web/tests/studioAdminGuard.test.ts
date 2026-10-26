@@ -3,7 +3,7 @@
  * 覆盖:token 提取(Bearer 优先、cookie 兜底)/ 内省结论(admin、普通用户、401 伪造过期、
  * 5xx 与网络错误 → error)/ 正向缓存 60s、负向不缓存 / 路径分类(豁免、静态文件、API、SPA)/
  * 中间件真实入口(next/server NextRequest)对 /studio/api/* 返回 401/403/503 与放行、
- * SPA 页面跳经典界面或首页 / 交换路由对非管理员 403 且不发 cookie。
+ * SPA 无会话放行壳、已识别非管理员跳经典 / 交换路由对非管理员 403 且不发 cookie。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -15,7 +15,6 @@ import {
   extractStudioToken,
   introspectStudioUser,
   isStudioStaticFile,
-  LOGIN_HOME,
   STUDIO_CACHE_TTL_MS,
 } from "../lib/studioGuard";
 
@@ -96,7 +95,10 @@ test("decideStudioAccess:API 401/403/503 与放行;SPA 跳转;豁免路径放行
   assert.equal((decideStudioAccess("/studio/api/canvases", { kind: "error" }) as { status: number }).status, 503);
   assert.deepEqual(decideStudioAccess("/studio", admin), { action: "pass" });
   assert.deepEqual(decideStudioAccess("/studio/", user), { action: "redirect", location: CLASSIC_HOME });
-  assert.deepEqual(decideStudioAccess("/studio/canvas/1", null), { action: "redirect", location: LOGIN_HOME });
+  // P0:无会话放行 SPA 壳(不再 302 LOGIN_HOME,避免 /studio/create 踢回经典)
+  assert.deepEqual(decideStudioAccess("/studio/canvas/1", null), { action: "pass" });
+  assert.deepEqual(decideStudioAccess("/studio/create", { kind: "invalid" }), { action: "pass" });
+  assert.deepEqual(decideStudioAccess("/studio/create", user, { multiTenant: true }), { action: "pass" });
   for (const p of ["/studio/entry.json", "/studio/auth/exchange", "/studio/auth/logout", "/studio/api/health/live", "/studio/assets/a.js"]) {
     assert.deepEqual(decideStudioAccess(p, null), { action: "pass" }, p);
   }
@@ -151,9 +153,11 @@ test("中间件真实入口:/studio/api/* 与 /studio 页面按 admin 拦截", a
   assert.equal(r.status, 302);
   assert.equal(loc(r), CLASSIC_HOME);
 
+  // P0:无 cookie 的 SPA(含 /studio/create)放行壳,禁止再 302→/?view=home
   r = await middleware(req("/studio/canvas/abc"));
-  assert.equal(r.status, 302);
-  assert.equal(loc(r), LOGIN_HOME);
+  assert.equal(r.headers.get("x-middleware-next"), "1");
+  r = await middleware(req("/studio/create"));
+  assert.equal(r.headers.get("x-middleware-next"), "1");
 
   const before = calls.length;
   r = await middleware(req("/studio/assets/index.js"));

@@ -18,7 +18,7 @@ import { buildCanvasRequestHeaders, STUDIO_INTERNAL_HEADERS, studioMultiTenantEn
  * /studio 管理员闸(2026-10-08):用户隔离落地前只放行 role=admin(详见 lib/studioGuard.ts)。
  * 中间件先于 next.config beforeFiles rewrite 执行,因此 /studio/api/* 在转发 canvas-api(:8290)
  * 之前就被拦下:无/伪造/过期 token → 401,非管理员 → 403,toiv-api 不可达 → 503(失败即关闭)。
- * SPA 页面:非管理员 → 经典界面(?classic=1),未登录 → ToIV 首页。
+ * SPA 页面:无会话放行壳(localStorage 登录);已识别非管理员且未开多租户 → 经典(?classic=1)。
  */
 /** 豁免路径也不允许浏览器把内部身份头带进 canvas-api。 */
 function passStripped(req: NextRequest): NextResponse {
