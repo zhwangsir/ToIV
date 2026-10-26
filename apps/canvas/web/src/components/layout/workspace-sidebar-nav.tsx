@@ -1,19 +1,10 @@
 import { Bot, ChevronRight, BarChart3,
     Clapperboard, Home, Library, ListChecks, PanelLeftClose, PanelLeftOpen, Plug, Plus, Settings2, Store, Sun, Moon, WandSparkles } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 
 import { BrandLogoFrame } from "@/components/brand/brand-logo";
-import { ContentModePrototypeSwitcher } from "@/components/content-mode/prototype-switcher";
-import { FilmModeRail } from "@/components/content-mode/film-mode-rail";
-import "@/components/content-mode/content-mode-prototypes.css";
-import {
-    getContentModePrototypeSnapshot,
-    getServerContentModePrototypeSnapshot,
-    subscribeContentModePrototype,
-} from "@/lib/content-mode-prototype";
-
 import { WorkspaceSidebarAccount } from "@/components/layout/workspace-sidebar-account";
 import { WorkspaceSidebarUpdate } from "@/components/layout/workspace-sidebar-update";
 import { Kbd } from "@/components/ui/base/kbd";
@@ -292,7 +283,6 @@ export function WorkspaceSidebarNav({ collapsed, onNavigate, onOpenSearch, onExp
     const [searchParams] = useSearchParams();
     const features = useUserStore((state) => state.features);
     const { groups, footer } = useMemo(() => buildNav(features), [features]);
-    const proto = useSyncExternalStore(subscribeContentModePrototype, getContentModePrototypeSnapshot, getServerContentModePrototypeSnapshot);
 
     const pathParts = pathname.split("/").filter(Boolean);
     const rawSlug = pathParts[0] || "home";
@@ -350,10 +340,6 @@ export function WorkspaceSidebarNav({ collapsed, onNavigate, onOpenSearch, onExp
                         ))}
                     </div>
                 ) : null}
-                <div className={cn("app-workspace-sidebar-content-mode", collapsed && "is-collapsed")}>
-                    <ContentModePrototypeSwitcher collapsed={collapsed} />
-                    {proto === "b" ? <FilmModeRail collapsed={collapsed} /> : null}
-                </div>
                 <div className={cn("app-workspace-sidebar-utility-row", collapsed && "is-collapsed")}>
                     <WorkspaceSidebarAccount collapsed={collapsed} />
                     <WorkspaceSidebarUpdate collapsed={collapsed} />

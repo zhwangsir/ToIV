@@ -19,15 +19,19 @@ export const PROTOTYPE_META: Record<
 function normalize(raw: unknown): ContentModePrototypeId {
     const v = String(raw ?? "").trim().toLowerCase();
     if (v === "a" || v === "b" || v === "c") return v;
-    return "b";
+    return "a";
 }
 
+/** 生产默认：仅 A。B/C 源码保留但不由 StageHost 读取此开关。 */
+export const PRODUCTION_CONTENT_MODE_CONTROL: ContentModePrototypeId = "a";
+
+
 export function getContentModePrototype(): ContentModePrototypeId {
-    if (typeof window === "undefined") return "b";
+    if (typeof window === "undefined") return "a";
     try {
         return normalize(window.localStorage.getItem(CONTENT_MODE_PROTOTYPE_KEY));
     } catch {
-        return "b";
+        return "a";
     }
 }
 
@@ -58,5 +62,5 @@ export function getContentModePrototypeSnapshot(): ContentModePrototypeId {
 }
 
 export function getServerContentModePrototypeSnapshot(): ContentModePrototypeId {
-    return "b";
+    return "a";
 }

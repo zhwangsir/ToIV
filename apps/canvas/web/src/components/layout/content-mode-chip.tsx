@@ -1,5 +1,5 @@
 /**
- * @deprecated 主切换已迁至 content-mode 原型 A/B/C。
- * 保留此文件以免旧 import 断裂；默认渲染 B 胶片轨。
+ * @deprecated 生产控件为舞台顶栏 LightCurtainPaddle。
+ * 保留文件以免旧 import 断裂；勿再挂侧栏。
  */
-export { FilmModeRail as ContentModeChip } from "@/components/content-mode/film-mode-rail";
+export { LightCurtainPaddle as ContentModeChip } from "@/components/content-mode/light-curtain-paddle";
