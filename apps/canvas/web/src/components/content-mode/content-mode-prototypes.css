@@ -113,8 +113,8 @@
   font-size: 9px;
 }
 
-/* ── A: Light curtain paddle (R2 · topbar right first-class) ── */
-/* Never stage-center island; never sidebar-footer primary mount */
+/* ── A: Light curtain paddle (R2 TL · quiet segmented pill 普通|成人) ── */
+/* Token spine: --toiv-switch-*; SFW 无 glow；成人 soft fill + #4f8cff glow；禁 iOS 大开关 */
 .cm-light-curtain {
   position: relative;
   top: auto;
@@ -130,69 +130,63 @@
   max-width: none;
   flex: none;
 }
+.cm-light-curtain.is-disabled {
+  opacity: var(--toiv-switch-disabled-opacity, 0.4);
+  pointer-events: none;
+}
 .cm-light-curtain-rail {
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  width: var(--toiv-light-curtain-w, 108px);
-  min-width: var(--toiv-light-curtain-w-min, 88px);
-  max-width: var(--toiv-light-curtain-w-max, 120px);
-  height: var(--toiv-light-curtain-h, 30px);
-  padding: 2px;
-  border-radius: var(--toiv-radius-full, 9999px);
-  border: 1px solid color-mix(in srgb, var(--border, var(--cm-border)) 70%, transparent);
-  background: color-mix(in srgb, var(--background, transparent) 40%, transparent);
-  box-shadow: none;
+  width: auto;
+  min-width: var(--toiv-switch-min-w, 108px);
+  height: var(--toiv-switch-h, 28px);
+  padding: var(--toiv-switch-pad, 2px);
+  gap: var(--toiv-switch-gap, 0);
+  border-radius: var(--toiv-switch-radius, 9999px);
+  border: 1px solid var(--toiv-switch-border, rgba(255, 255, 255, 0.08));
+  background: var(--toiv-switch-bg, #101118);
+  box-shadow: none; /* SFW default: 无 glow */
   overflow: hidden;
   backdrop-filter: none;
   transition:
-    border-color var(--toiv-duration-base, 200ms) var(--toiv-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
-    box-shadow var(--toiv-duration-base, 200ms) var(--toiv-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+    border-color var(--toiv-switch-dur-color, 150ms) var(--toiv-switch-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--toiv-switch-dur-thumb, 200ms) var(--toiv-switch-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    background var(--toiv-switch-dur-color, 150ms) var(--toiv-switch-ease, cubic-bezier(0.22, 1, 0.36, 1));
 }
 .cm-light-curtain.is-compact .cm-light-curtain-rail {
-  width: var(--toiv-light-curtain-w-compact, 56px);
   min-width: var(--toiv-light-curtain-w-compact, 56px);
-  max-width: var(--toiv-light-curtain-w-compact, 56px);
-  height: var(--toiv-light-curtain-h-compact, 28px);
+  width: var(--toiv-light-curtain-w-compact, 56px);
 }
+/* sliding thumb */
 .cm-light-curtain-veil {
   position: absolute;
-  inset: 2px;
-  width: calc(50% - 2px);
-  border-radius: var(--toiv-radius-full, 9999px);
-  background: transparent;
+  inset: var(--toiv-switch-pad, 2px);
+  width: calc(50% - var(--toiv-switch-pad, 2px));
+  border-radius: var(--toiv-switch-radius, 9999px);
+  background: var(--toiv-switch-thumb-sfw, rgba(255, 255, 255, 0.08));
   box-shadow: none;
   transition:
-    transform var(--toiv-duration-base, 200ms) var(--toiv-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
-    background var(--toiv-duration-base, 200ms) ease,
-    box-shadow var(--toiv-duration-base, 200ms) ease;
+    transform var(--toiv-switch-dur-thumb, 200ms) var(--toiv-switch-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    background var(--toiv-switch-dur-color, 150ms) var(--toiv-switch-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--toiv-switch-dur-thumb, 200ms) var(--toiv-switch-ease, cubic-bezier(0.22, 1, 0.36, 1));
   pointer-events: none;
 }
 .cm-light-curtain-rail:not(.is-adult) .cm-light-curtain-veil {
-  /* ordinary: cyan aux weak fill */
-  background: color-mix(in srgb, var(--toiv-accent-cyan, var(--cm-primary, #00bdcf)) 14%, transparent);
+  transform: translateX(0);
+  background: var(--toiv-switch-thumb-sfw, rgba(255, 255, 255, 0.08));
+  box-shadow: none;
 }
 .cm-light-curtain-rail.is-adult {
-  border-color: color-mix(in srgb, var(--toiv-nsfw-lock, var(--cm-adult, #8b7cff)) 40%, var(--cm-border));
-  /* director glow aux only — weak, not floor/CTA */
-  box-shadow: 0 0 14px rgb(var(--toiv-director-rgb, 79 140 255) / 0.22);
+  /* 成人态：ring + glow（blur 24 / #4f8cff α0.28）；底色板不变 */
+  box-shadow:
+    var(--toiv-switch-ring-nsfw, 0 0 0 1px rgb(79 140 255 / 0.45)),
+    var(--toiv-switch-glow-nsfw, 0 0 24px rgb(79 140 255 / 0.28));
 }
 .cm-light-curtain-rail.is-adult .cm-light-curtain-veil {
   transform: translateX(100%);
-  background:
-    color-mix(in srgb, var(--toiv-nsfw-lock, var(--cm-adult, #8b7cff)) 14%, transparent),
-    repeating-linear-gradient(-35deg, transparent 0 3px, rgba(255, 255, 255, 0.04) 3px 4px);
-  box-shadow: inset 0 0 10px rgb(var(--toiv-director-rgb, 79 140 255) / 0.12);
-}
-.app-workspace-topbar-actions .cm-light-curtain,
-.canvas-topbar .cm-light-curtain {
-  align-self: center;
-}
-.app-workspace-topbar-actions .cm-light-curtain .cm-confirm,
-.canvas-topbar .cm-light-curtain .cm-confirm {
-  top: calc(100% + 8px);
-  bottom: auto;
-  right: 0;
+  background: var(--toiv-switch-thumb-nsfw, rgb(79 140 255 / 0.22));
+  box-shadow: none;
 }
 .cm-light-curtain-opt {
   position: relative;
@@ -202,22 +196,33 @@
   justify-content: center;
   gap: 3px;
   min-width: 0;
-  padding: 0 4px;
+  padding: 0 var(--toiv-switch-item-px, 10px);
   border: 0;
   background: transparent;
-  color: var(--muted-foreground, var(--cm-muted));
-  font-size: var(--toiv-light-curtain-fs, 12px);
-  font-weight: 600;
+  color: var(--toiv-switch-fg, #6f7079);
+  font-size: var(--toiv-switch-fs, 12px);
+  font-weight: var(--toiv-switch-fw, 500);
   letter-spacing: 0;
   cursor: pointer;
-  border-radius: var(--toiv-radius-full, 9999px);
+  border-radius: var(--toiv-switch-radius, 9999px);
   line-height: 1;
+  transition: color var(--toiv-switch-dur-color, 150ms) var(--toiv-switch-ease, cubic-bezier(0.22, 1, 0.36, 1));
 }
-.cm-light-curtain-opt.is-active {
-  color: var(--foreground, var(--cm-ink));
+.cm-light-curtain-opt:hover {
+  color: var(--toiv-switch-fg-hover, #e8eaf0);
+}
+.cm-light-curtain-rail:not(.is-adult) .cm-light-curtain-opt.is-active {
+  color: var(--toiv-switch-fg-active-sfw, #e8eaf0);
   text-shadow: none;
 }
-.cm-light-curtain-opt:focus-visible { outline: 2px solid var(--cm-accent, #5ba0ff); outline-offset: 1px; }
+.cm-light-curtain-rail.is-adult .cm-light-curtain-opt.is-active {
+  color: var(--toiv-switch-fg-active-nsfw, #4f8cff);
+  text-shadow: none;
+}
+.cm-light-curtain-opt:focus-visible {
+  outline: none;
+  box-shadow: var(--toiv-switch-focus, 0 0 0 3px rgb(91 160 255 / 0.12));
+}
 .cm-light-curtain-opt svg { width: 12px; height: 12px; flex: none; }
 .cm-light-curtain-hint { display: none; }
 .cm-light-curtain .cm-confirm {
@@ -229,7 +234,23 @@
   min-width: 220px;
   z-index: 80;
 }
-
+.app-workspace-topbar-actions .cm-light-curtain,
+.canvas-topbar .cm-light-curtain {
+  align-self: center;
+}
+.app-workspace-topbar-actions .cm-light-curtain .cm-confirm,
+.canvas-topbar .cm-light-curtain .cm-confirm {
+  top: calc(100% + 8px);
+  bottom: auto;
+  right: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-light-curtain-veil,
+  .cm-light-curtain-rail,
+  .cm-light-curtain-opt {
+    transition: none !important;
+  }
+}
 
 /* ── B: Film dual rail (sidebar) ── */
 .cm-film-rail {

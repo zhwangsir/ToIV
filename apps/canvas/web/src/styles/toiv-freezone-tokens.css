@@ -85,7 +85,7 @@
   /* BeefTV director blue — ONLY light-curtain / glow aux channel (TL nail) */
   --toiv-director: #4f8cff;
   --toiv-director-rgb: 79 140 255;
-  --toiv-glow-director: 0 0 24px rgb(var(--toiv-director-rgb) / 0.28);
+  --toiv-glow-director: var(--toiv-switch-glow-nsfw);
   --toiv-focus-ring: 0 0 0 3px rgb(var(--toiv-accent-rgb) / 0.12);
   --toiv-blur-panel: saturate(180%) blur(18px);
 
@@ -104,14 +104,43 @@
   --toiv-duration-slow: 320ms;
   --toiv-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* ── Light curtain (TL · 28–32px; top-right / sidebar utility) ── */
-  --toiv-light-curtain-h: 30px;
-  --toiv-light-curtain-h-compact: 28px;
-  --toiv-light-curtain-w: 108px;
-  --toiv-light-curtain-w-min: 88px;
+
+  /* ── Mode switch (R2 TL nail · topbar quiet segmented pill) ──
+     普通|成人；普通无 glow；成人 soft fill + #4f8cff glow。禁 iOS 大开关 / View Transition。
+     创作台分段用 --toiv-create-mode-*，勿共用 NSFW glow。 */
+  --toiv-switch-h: 28px;
+  --toiv-switch-min-w: 108px;
+  --toiv-switch-pad: 2px;
+  --toiv-switch-gap: 0;
+  --toiv-switch-item-px: 10px;
+  --toiv-switch-radius: 9999px;
+  --toiv-switch-fs: 12px;
+  --toiv-switch-fw: 500;
+  --toiv-switch-bg: #101118;
+  --toiv-switch-border: rgba(255, 255, 255, 0.08);
+  --toiv-switch-fg: #6f7079;
+  --toiv-switch-fg-hover: #e8eaf0;
+  --toiv-switch-fg-active-sfw: #e8eaf0;
+  --toiv-switch-fg-active-nsfw: #4f8cff; /* TL: 字色跟光幕，不跟创作蓝 #5ba0ff */
+  --toiv-switch-thumb-sfw: rgba(255, 255, 255, 0.08);
+  --toiv-switch-thumb-nsfw: rgb(79 140 255 / 0.22);
+  --toiv-switch-ring-nsfw: 0 0 0 1px rgb(79 140 255 / 0.45);
+  --toiv-switch-glow-nsfw: 0 0 24px rgb(79 140 255 / 0.28);
+  --toiv-switch-glow-hover: 0 0 16px rgb(79 140 255 / 0.18);
+  --toiv-switch-focus: 0 0 0 3px rgb(91 160 255 / 0.12);
+  --toiv-switch-dur-color: 150ms;
+  --toiv-switch-dur-thumb: 200ms;
+  --toiv-switch-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --toiv-switch-disabled-opacity: 0.4;
+
+  /* Legacy light-curtain aliases → switch spine (single source) */
+  --toiv-light-curtain-h: var(--toiv-switch-h);
+  --toiv-light-curtain-h-compact: var(--toiv-switch-h);
+  --toiv-light-curtain-w: var(--toiv-switch-min-w);
+  --toiv-light-curtain-w-min: var(--toiv-switch-min-w);
   --toiv-light-curtain-w-max: 120px;
   --toiv-light-curtain-w-compact: 56px;
-  --toiv-light-curtain-fs: var(--toiv-fs-caption);
+  --toiv-light-curtain-fs: var(--toiv-switch-fs);
 
   /* Desk aliases: primary=cyan CTA aux; accent=main blue */
   --fz-canvas: var(--toiv-bg);

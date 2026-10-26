@@ -6,10 +6,9 @@ import { COPY_MODE_ADULT, COPY_MODE_NORMAL } from "@/redline";
 import { cn } from "@/lib/utils";
 
 /**
- * A 生产光幕拨片（R2 · 顶栏右一等公民）：
- * 挂载：产品顶栏右侧工具带 / 画布顶栏右簇；侧栏脚不再挂主切换。
- * 尺：高 28–32px（token 30 / compact 28）、宽 ≈88–120、字 12；
- * 动效：~200ms 弹性微光；成人态 nsfw-lock + 可选 glow-director 弱提示；禁正中浮岛。
+ * R2 TL · 顶栏右 quiet segmented pill「普通｜成人」+ 滑动 thumb。
+ * Token: --toiv-switch-*；轨高 28 / minW 108；普通无 glow；成人 #4f8cff glow。
+ * 禁 iOS 大开关 / 整页 View Transition / 设置页主入口。
  */
 export function LightCurtainPaddle({ compact }: { compact?: boolean }) {
     const { adultOn, confirming, select, confirmAdult, cancelConfirm } = useContentModeControl();
